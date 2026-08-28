@@ -29,21 +29,39 @@ lifts them back up.
 **The redraw.** The original does not hold below ~96px, so small sizes are a vector
 redraw. It is *traced*, not invented: body, hem and eyes are cubic Béziers read off
 the artwork against a coordinate grid, then checked by overlaying the path back onto
-the source (middle panel above) and adjusted until it sat right.
+the source (second panel above) and adjusted until it sat right.
 
-What that buys, versus drawing a ghost from memory:
+Two earlier attempts were rejected. The first was a generic Pac-Man ghost — vertical
+sides, arc dome, straight-line sawtooth hem, circular eyes. The second traced the
+body correctly but its wisps hung almost straight down like icicles instead of
+trailing, and the filled shape had an angular flat spot on the lower-left flank.
 
-- **The hem is wispy, not ridged.** Four tapering wisps, all sweeping down-left like
-  the artwork. Each tip is a needle — both edges run nearly parallel into the point —
-  and the notches between them are G1-continuous, so they read as curled cloth rather
-  than sawtooth. No straight edges anywhere in the silhouette.
-- **The body is asymmetric.** A pear-shaped egg that swells to the right and flares
-  low on the left, matching the source, rather than a symmetric capsule with vertical
-  sides.
-- **The eyes are teardrops, and they are pale.** Measured, they run L≈120 against a
-  body of L≈70 — light shapes, not dark holes. At 16/32px they are scaled 1.3× so
-  they survive the downsample; in the monochrome Safari icon they necessarily invert
-  to knockouts, since that format allows one colour.
+What the current one gets right:
+
+- **The wisps trail left.** The painted cloth streams sideways — the ghost reads as
+  drifting right with its hem following behind. Tail directions were measured off
+  the source (undersides sweeping at 125–170°, leading edges leaning left at
+  dx/dy ≈ −0.5) rather than eyeballed. Four strands, and the notches between them cut
+  up to y≈470–505 so the filled lower third breaks into distinct streams instead of
+  reading as nicks in a blob.
+- **No rough spots.** The silhouette is 32 cubic segments with exactly 7 sharp
+  corners — the 4 wisp tips and 3 notch roots, all deliberate. Every other joint is
+  G1-continuous to within 0.6°, and there is nothing in the 3–12° band that produces
+  visible kinks. Verified by sampling the first derivative either side of all 32
+  joints, not by eye.
+- **The eyes are teardrops, and they splay.** Bulb at top, tangent-line taper to a
+  sharp point at the bottom. They are *pale* — measured at L≈120 against a body of
+  L≈70, so light shapes rather than dark holes — and they lean outward, not in
+  parallel: PCA on the source pixels puts the left eye's long axis at 115° and the
+  right at 76°. At 16/32px they get a 1.3× optical bump to survive the downsample;
+  in the monochrome Safari icon they necessarily invert to knockouts, since that
+  format allows one colour.
+
+Two honest limits. At 16px the individual strands and the eyes merge — the contour
+still reads as a ghost, but the wisp detail effectively lives at 32px and up. And the
+artwork's hem is partly hidden behind the lower-right speech bubble, so the rightmost
+strand is an invention styled to match the three that are visible.
+
 
 Palette sampled from the artwork: cyan `#35E1FF`, violet `#7E4FFF`, tile `#0D0E14`.
 
@@ -70,7 +88,7 @@ gradients match Inkscape.
 | `apple-touch-icon-{120,152,167,180}.png` | iOS home screen, opaque |
 | `tile-*.svg` | Vector sources for the raster tiles |
 
-Regenerable via `tmp/logo/trace.py` (silhouette + overlay check) and
+Regenerable via `tmp/logo/ghost-path.txt` (the traced silhouette) and
 `tmp/logo/build-final.py` (icon set). Those live in the gitignored `tmp/`.
 
 ## Adopting it
