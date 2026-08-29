@@ -2,18 +2,7 @@
 	<aside id="sidebar" ref="sidebar">
 		<div class="scrollable-area">
 			<div class="logo-container">
-				<img
-					:src="`img/logo-${isPublic() ? 'horizontal-' : ''}transparent-bg.svg`"
-					class="logo"
-					:alt="appName"
-					role="presentation"
-				/>
-				<img
-					:src="`img/logo-${isPublic() ? 'horizontal-' : ''}transparent-bg-inverted.svg`"
-					class="logo-inverted"
-					:alt="appName"
-					role="presentation"
-				/>
+				<img src="img/logo-tile.png" class="logo" :alt="appName" role="presentation" />
 				<span
 					v-if="isDevelopment"
 					:title="`${appName} has been built in development mode`"
@@ -253,7 +242,6 @@ export default defineComponent({
 			document.body.removeEventListener("touchstart", onTouchStart);
 		});
 
-		const isPublic = () => document.body.classList.contains("public");
 		const appName = computed(() => store.state.branding.appName);
 		// With `features.multiNetwork: false` the connect button disappears once
 		// the (single) network exists.
@@ -274,7 +262,6 @@ export default defineComponent({
 			onTouchStart,
 			onTouchMove,
 			onTouchEnd,
-			isPublic,
 		};
 	},
 });

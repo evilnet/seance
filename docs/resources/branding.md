@@ -98,13 +98,18 @@ A minimal uploader is a few dozen lines (an nginx `client_body` handler script, 
 `config.json` covers the app itself. Icons and the manifest are static files; replace them with your own after building (or before, in `client/`, so the build copies them):
 
 - `manifest.webmanifest` — the build already fills `name`, `short_name`, `description`, `theme_color`, `background_color` from `client/config.json`. Overwrite it to change the icon list; keep `start_url`/`scope` (`./`), `launch_handler`, `protocol_handlers` and the separate `any`/`maskable` icon entries, which the installed-app behaviour depends on (see `pwa.md`). Keep the filename: `client/service-worker.js` precaches it by name and `index.html` links it.
-- `favicon.ico` and `img/favicon-alerted.ico` (the red "unread" variant).
-- `img/logo-grey-bg-120x120px.png`, `-152x152px.png`, `-167x167px.png`, `-180x180px.png`, `-192x192px.png`, `-512x512px.png`, `img/logo-grey-bg.svg` — manifest and Apple touch icons. The 192 and 512 files are also declared `maskable`: keep the artwork inside the central 80% and the background full-bleed so Android/ChromeOS can round or circle-crop them.
-- `img/logo-transparent-bg.svg`, `img/logo-transparent-bg-inverted.svg`, `img/logo-horizontal-transparent-bg.svg`, `img/logo-horizontal-transparent-bg-inverted.svg` — the sidebar logo.
-- `img/logo-vertical-transparent-bg.svg`, `img/logo-vertical-transparent-bg-inverted.svg` — the loading splash.
-- `img/icon-black-transparent-bg.svg` — Safari pinned-tab icon.
+- `favicon.ico` and `img/favicon-alerted.ico` — browser tab, normal and the "unread highlight" variant (`client/js/vue.ts` swaps between them).
+- `img/icon-192.png`, `img/icon-512.png` — manifest `purpose: any`, and the notification icon.
+- `img/icon-maskable-192.png`, `img/icon-maskable-512.png` — manifest `purpose: maskable`. Keep the artwork inside the central 80% and the background full-bleed, so Android/ChromeOS can round or circle-crop them.
+- `img/apple-touch-icon-120.png`, `-152.png`, `-167.png`, `-180.png` — iOS home screen, and the two Windows `msapplication-square*logo` tiles. These must be opaque; iOS ignores transparency and composites on black.
+- `img/logo-tile.png` — the sidebar logo (45px tall) and the loading splash. One image serves both light and dark themes, so it needs its own background rather than relying on the page behind it.
+- `img/logo-art.png`, `img/logo-art-wide.png` — the bare artwork, transparent. Not referenced by the shipped markup; available for docs, README headers and native-shell assets.
 
-`index.html` also hard-codes `msapplication-TileColor` and the `mask-icon` colour (`#415364`); edit `client/index.html` if those matter to you.
+There is no Safari pinned-tab icon. `mask-icon` needs a single-colour SVG silhouette, which the raster artwork cannot supply, so the `<link>` was removed and Safari falls back to the favicon. Add one if your mark is vector.
+
+Notifications set `icon` but no `badge`. A badge must be a monochrome silhouette; supply one and add `badge:` in `client/service-worker.js` and `client/js/socket-events/msg.ts` if you have artwork that suits it.
+
+`index.html` hard-codes `msapplication-TileColor` (`#0D0E14`, matching the icon tiles); `theme-color` and the manifest's `theme_color`/`background_color` come from `themeColor` in `config.json`, defaulting to `#415364`.
 
 ## Subpath deploys
 

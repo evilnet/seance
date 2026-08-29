@@ -131,5 +131,6 @@ Cross-cutting types and helpers. `shared/types/socket-events.ts` (`ServerToClien
 - `docs/resources/nefarious2-dev.md` — running the dev ircd (Docker and native), test identities, TLS notes.
 - `docs/resources/browser-irc-parser.md` — why the parser is hand-rolled.
 - `docs/resources/branding.md` — `config.json` schema, runtime vs build-time branding, uploader contract.
+- `docs/resources/logo.md` — how the ghost artwork was prepared, what each icon file is for, and where it falls short (16px, Safari pinned tab, notification badge).
 - `docs/resources/pwa.md` — what makes the deploy installable in Chrome, launch/update/offline behaviour, how to verify.
 - There are no public end-user docs yet; `branding.links` defaults point at this repository and its `docs/`.

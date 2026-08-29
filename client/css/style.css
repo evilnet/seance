@@ -699,13 +699,8 @@ p {
 	text-align: center;
 }
 
-#sidebar .logo,
-#sidebar .logo-inverted {
-	height: 45px;
-}
-
 #sidebar .logo {
-	display: none;
+	height: 45px;
 }
 
 .channel-list-item,
@@ -1931,11 +1926,6 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 
 #loading-reload-container {
 	flex-grow: 0;
-}
-
-#loading .logo-inverted,
-.window .logo-inverted {
-	display: none; /* In dark themes, inverted logo must be used instead */
 }
 
 #sign-in label {

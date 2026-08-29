@@ -20,16 +20,6 @@ body {
 	color: white;
 }
 
-#loading .logo,
-.window .logo {
-	display: none;
-}
-
-#loading .logo-inverted,
-.window .logo-inverted {
-	display: inline-block;
-}
-
 #chat .userlist .count {
 	background-color: #28333d;
 }

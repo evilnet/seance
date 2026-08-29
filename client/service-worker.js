@@ -42,8 +42,7 @@ const shellPaths = [
 	`css/style.css?v=${cacheName}`,
 	"themes/default.css",
 	"fonts/fa-solid-900.woff2",
-	"img/logo-vertical-transparent-bg.svg",
-	"img/logo-vertical-transparent-bg-inverted.svg",
+	"img/logo-tile.png",
 ];
 
 // Paths that must never be served from cache (Cloudflare challenge endpoints).
@@ -227,8 +226,7 @@ function showNotification(event, payload) {
 
 				return self.registration.showNotification(payload.title, {
 					tag: `chan-${payload.chanId}`,
-					badge: "img/icon-alerted-black-transparent-bg-72x72px.png",
-					icon: "img/icon-alerted-grey-bg-192x192px.png",
+					icon: "img/icon-192.png",
 					body: payload.body,
 					timestamp: payload.timestamp,
 				});
