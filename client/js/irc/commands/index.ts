@@ -2,9 +2,10 @@
  * Outbound command registry and the `input` dispatcher.
  *
  * Mirrors attic/server/client.ts `inputLine` + attic/server/plugins/inputs/index.ts:
- * every line of input is one message; text not starting with `/` (or
- * starting with `//`) is said to the current channel; `/cmd args` runs the
- * registered {@link Command}; unknown commands go to the server raw.
+ * text not starting with `/` (or starting with `//`) is said to the current
+ * channel; `/cmd args` runs the registered {@link Command}; unknown commands
+ * go to the server raw. Commands are one per line, but consecutive text
+ * lines make one message (see {@link dispatchInput}).
  *
  * To add a command, create a file exporting a {@link Command} and list it in
  * `modules`. UI-only commands (`/collapse`, `/expand`, `/search`, and `/join`
@@ -17,6 +18,7 @@ import {MessageType} from "../../../../shared/types/msg";
 import type {Channel} from "../channel";
 import type {IrcClient} from "../client";
 import type {Command, InputOptions} from "../types";
+import {REPLY_TAG} from "../wire";
 import away from "./away";
 import ban from "./ban";
 import connect from "./connect";
@@ -101,6 +103,12 @@ export const NOT_CONNECTED =
 /**
  * Handle everything the user typed into `chan` (may span several lines).
  *
+ * Commands are still one per line, but a run of consecutive plain-text lines
+ * is one message: with `draft/multiline` it goes out as a single batch
+ * (multiline.ts), and otherwise as one line each, exactly as before. So
+ * pasting a paragraph says a paragraph, while pasting a list of `/`-commands
+ * still runs them in order.
+ *
  * `opts.reply` applies to every line. `opts.edit` replaces one message, so
  * the whole text is one logical message: it is always said (never parsed
  * as a command — it is the replacement body of a message, and the message
@@ -119,9 +127,73 @@ export function dispatchInput(
 		return;
 	}
 
-	for (const line of text.split("\n")) {
-		inputLine(client, chan, line.replace(/\r$/, ""), opts);
+	let run: string[] = [];
+
+	const flush = () => {
+		// Blank lines only count inside a message, never around one.
+		while (run.length > 0 && run[run.length - 1].length === 0) {
+			run.pop();
+		}
+
+		if (run.length > 1 && sayMultiline(client, chan, run, opts)) {
+			run = [];
+			return;
+		}
+
+		for (const line of run) {
+			inputLine(client, chan, line, opts);
+		}
+
+		run = [];
+	};
+
+	for (const typed of text.split("\n")) {
+		const line = typed.replace(/\r$/, "");
+
+		if (isText(line)) {
+			if (run.length > 0 || line.length > 0) {
+				run.push(line);
+			}
+
+			continue;
+		}
+
+		flush();
+		inputLine(client, chan, line, opts);
 	}
+
+	flush();
+}
+
+/** Whether `line` is said rather than run (`//` escapes a leading slash). */
+function isText(line: string): boolean {
+	return line.charAt(0) !== "/" || line.charAt(1) === "/";
+}
+
+/**
+ * Say `lines` as one `draft/multiline` message. False when the server cannot
+ * take it (no cap, over its limits) or the window is not one you can talk in,
+ * leaving the caller to send a message per line.
+ */
+function sayMultiline(
+	client: IrcClient,
+	chan: Channel,
+	lines: string[],
+	opts: InputOptions
+): boolean {
+	if (chan.type !== ChanType.CHANNEL && chan.type !== ChanType.QUERY) {
+		return false;
+	}
+
+	if (!client.isConnected) {
+		return false;
+	}
+
+	return client.sendMultiline(
+		chan.name,
+		lines.map((line) => line.replace(/^\//, "")),
+		opts.reply ? {tags: {[REPLY_TAG]: opts.reply}} : {}
+	);
 }
 
 function inputLine(

@@ -702,7 +702,7 @@ describe("Chat history (history.ts)", function () {
 			expect(msgs(h.client.lobby.id)).to.have.length(0);
 		});
 
-		it("includes lines of a nested batch inside the chathistory batch", function () {
+		it("joins a nested multiline batch into one message of the chathistory batch", function () {
 			const h = setup();
 			const id = joined(h);
 
@@ -722,8 +722,7 @@ describe("Chat history (history.ts)", function () {
 			const [more] = mores(id);
 			expect(more.messages.map((m) => m.text)).to.deep.equal([
 				"message 1",
-				"first line",
-				"second line",
+				"first line\nsecond line",
 				"message 3",
 			]);
 		});

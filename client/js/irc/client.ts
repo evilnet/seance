@@ -51,6 +51,13 @@ import {
 	splitMessage,
 	utf8ByteLength,
 } from "./message";
+import {
+	buildMultiline,
+	canMultiline,
+	multilineLimits,
+	noteMultilineSent,
+	resetMultiline,
+} from "./multiline";
 import {mechanismOffered, SASL_TIMEOUT_MS, SaslAuth, SaslMechanism, SaslResult} from "./sasl";
 import {
 	applyDuration,
@@ -219,6 +226,8 @@ export class IrcClient {
 	/** The server took that cursor: it replays the gap, so catchup.ts stands down. */
 	serverReplay = false;
 
+	/** Batch references we hand out (`draft/multiline`); unique per connection. */
+	private batchSeq = 0;
 	private saslTimer: ReturnType<typeof setTimeout> | null = null;
 	private readonly bus: Pick<EventBus, "dispatch">;
 	private readonly ids: IdAllocator;
@@ -790,6 +799,7 @@ export class IrcClient {
 		}
 
 		resetBatches(this);
+		resetMultiline(this);
 		abortHistory(this);
 		cancelCatchup(this);
 		cancelRestoration(this);
@@ -992,6 +1002,62 @@ export class IrcClient {
 				);
 			}
 		}
+	}
+
+	/**
+	 * Say `lines` as one message in a `draft/multiline` batch (multiline.ts).
+	 * Returns false when the server cannot take it — no cap, or more lines /
+	 * bytes than it advertised — and the caller falls back to one message per
+	 * line, which is what a server without the cap gets anyway.
+	 */
+	sendMultiline(target: string, lines: string[], opts: SendMessageOptions = {}): boolean {
+		if (!canMultiline(this) || this.transport.state !== "open") {
+			return false;
+		}
+
+		const tags: ClientTags | undefined =
+			opts.tags || opts.firstTags ? {...opts.firstTags, ...opts.tags} : undefined;
+		// The server prepends our full source to the echo; budget for it even
+		// when the host is still unknown (63 is the usual hostname limit).
+		const hostLen = this.host.length || 63;
+		const wire = buildMultiline({
+			ref: `ml${++this.batchSeq}`,
+			target,
+			lines,
+			command: opts.notice ? "NOTICE" : "PRIVMSG",
+			sourceBytes: utf8ByteLength(`:${this.nick}!${this.ident}@`) + hostLen + 1,
+			tags,
+			limits: multilineLimits(this),
+		});
+
+		if (!wire) {
+			return false;
+		}
+
+		// The message itself ends the typing session on the receiver's side.
+		this.resetTyping(target);
+
+		for (const line of wire.lines) {
+			if (!this.send(line)) {
+				return true; // the transport is gone; `send` reported it
+			}
+		}
+
+		// A FAIL drops the whole batch server-side: keep the text so it can
+		// go out as separate lines instead (multiline.ts).
+		noteMultilineSent(this, target, lines, opts);
+
+		if (!this.caps.hasCapability("echo-message")) {
+			this.handleMessage({
+				tags: new Map(Object.entries(tags ?? {})),
+				source: {name: this.nick, user: this.ident, host: this.host || "localhost"},
+				command: opts.notice ? "NOTICE" : "PRIVMSG",
+				params: [target, wire.text],
+				raw: wire.lines[0],
+			});
+		}
+
+		return true;
 	}
 
 	/**

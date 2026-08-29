@@ -62,7 +62,7 @@ describe("irc/caps", function () {
 			const requested = reqCaps(second.send[0]);
 			expect(requested).to.deep.equal(SEANCE_CAPS.wanted);
 			expect(requested).to.not.include("tls");
-			expect(requested).to.not.include("draft/multiline");
+			expect(requested).to.include("draft/multiline");
 			expect(requested).to.not.include("draft/bouncer");
 			expect(requested).to.not.include("draft/metadata-2");
 			expect(requested).to.include("draft/persistence");
@@ -79,7 +79,7 @@ describe("irc/caps", function () {
 				expect(neg.hasCapability(cap)).to.equal(true, cap);
 			}
 
-			expect(neg.hasCapability("draft/multiline")).to.equal(false);
+			expect(neg.hasCapability("draft/bouncer")).to.equal(false);
 		});
 
 		it("exposes 302 values", function () {
@@ -383,9 +383,9 @@ describe("irc/caps", function () {
 				"labeled-response",
 				"draft/chathistory",
 				"draft/event-playback",
+				"draft/multiline",
 			]);
 			expect(SEANCE_CAPS.wanted).to.not.include.members([
-				"draft/multiline",
 				"draft/bouncer",
 				"draft/persistence",
 				"draft/metadata-2",

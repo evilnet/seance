@@ -10,6 +10,7 @@
 
 import {MessageType} from "../../../../shared/types/msg";
 import {chatHistoryFailed} from "../history";
+import {multilineFailed} from "../multiline";
 import {inRestorationWindow, noteRestorationActivity, persistenceFailed} from "../persistence";
 import type {Handler} from "../types";
 import type {IrcClient} from "../client";
@@ -50,6 +51,15 @@ function reply(kind: "FAIL" | "WARN" | "NOTE"): Handler {
 
 		if (kind === "FAIL" && command.toUpperCase() === "CHATHISTORY") {
 			chatHistoryFailed(client, msg); // answers the pending `more`; still shown below
+		}
+
+		if (kind === "FAIL" && command.toUpperCase() === "BATCH" && multilineFailed(client)) {
+			// The batch was dropped whole: its text went back out as one
+			// message per line. A cooldown is the server pacing us, not
+			// something the user has to read about (multiline.ts).
+			if (code.toUpperCase() === "MULTILINE_COOLDOWN") {
+				return;
+			}
 		}
 
 		if (kind === "FAIL" && command.toUpperCase() === "REDACT") {

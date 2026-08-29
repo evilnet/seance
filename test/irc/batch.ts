@@ -201,7 +201,7 @@ describe("BATCH handling (handlers/batch.ts)", function () {
 		transport.lines(
 			":irc.test BATCH +outer some-type",
 			"@batch=outer :bob!b@h PRIVMSG #seance :first",
-			"@batch=outer :irc.test BATCH +inner draft/multiline #seance",
+			"@batch=outer :irc.test BATCH +inner some-nested-type #seance",
 			"@batch=inner :carol!c@h PRIVMSG #seance :second",
 			"@batch=inner :carol!c@h PRIVMSG #seance :third",
 			"@batch=outer :irc.test BATCH -inner",

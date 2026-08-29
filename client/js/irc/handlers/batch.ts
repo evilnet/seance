@@ -96,6 +96,25 @@ export function resetBatches(client: IrcClient): void {
 	openBatches.get(client)?.clear();
 }
 
+/**
+ * Deliver `messages` where `batch` stood: into the enclosing batch when one
+ * is still open (it is unwrapped as a unit when the parent closes), else
+ * through the normal handlers. A batch handler that rewrites its lines
+ * (`draft/multiline` folds them into one message) emits through this so it
+ * keeps its place inside a `chathistory` replay.
+ */
+export function emitBatched(client: IrcClient, batch: OpenBatch, messages: IrcMessage[]): void {
+	if (batch.parent && batchesOf(client).get(batch.parent.ref) === batch.parent) {
+		batch.parent.messages.push(...messages);
+		return;
+	}
+
+	for (const msg of messages) {
+		// The batch is closed, so the line is not intercepted again.
+		client.handleMessage(msg);
+	}
+}
+
 function deliver(client: IrcClient, batch: OpenBatch): void {
 	const handler = batchHandlers.get(batch.type.toLowerCase());
 
@@ -104,17 +123,7 @@ function deliver(client: IrcClient, batch: OpenBatch): void {
 		return;
 	}
 
-	if (batch.parent && batchesOf(client).get(batch.parent.ref) === batch.parent) {
-		// Fold into the (still open) parent as a unit; it is unwrapped when
-		// the parent closes.
-		batch.parent.messages.push(...batch.messages);
-		return;
-	}
-
-	for (const msg of batch.messages) {
-		// The batch is closed, so the line is not intercepted again.
-		client.handleMessage(msg);
-	}
+	emitBatched(client, batch, batch.messages);
 }
 
 const batch: Handler = (client, msg) => {

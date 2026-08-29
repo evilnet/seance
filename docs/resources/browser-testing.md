@@ -92,6 +92,15 @@ export default async function run(page) {
 }
 ```
 
+What is in `tools/scenarios/` today:
+
+| Scenario                   | Claim it checks                                                                          |
+| -------------------------- | ---------------------------------------------------------------------------------------- |
+| `activity-pulse.mjs`       | the sidebar icon pulses for a message and nothing else                                   |
+| `media-preview-reveal.mjs` | a media link stays veiled until it is clicked, and nothing is fetched before that        |
+| `multiline.mjs`            | a three-line message is one bubble over three lines, sent as one `draft/multiline` batch |
+| `seed-media.mjs`           | not a scenario — posts a media link for the one above (see Seeding)                      |
+
 ### The `page` API
 
 | Call                                       | Notes                                                                    |
