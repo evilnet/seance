@@ -97,7 +97,7 @@ export async function boot(): Promise<void> {
 	}
 
 	// Installed app (manifest `launch_handler: focus-existing`): later
-	// launches — irc:// links, ?uri= URLs — land here instead of reloading
+	// launches — web+irc:// links, ?uri= URLs — land here instead of reloading
 	// the window, which would drop the IRC connection.
 	onLaunch((url) => {
 		if (url.href !== initialHref) {
@@ -106,7 +106,7 @@ export async function boot(): Promise<void> {
 	});
 
 	if (await handleQueryParams()) {
-		// irc:// links or connect parameters in the URL already put us on
+		// web+irc:// links or connect parameters in the URL already put us on
 		// the connect form with those values pre-filled.
 		return;
 	}
@@ -123,7 +123,7 @@ export async function boot(): Promise<void> {
 }
 
 /**
- * Open the connect form pre-filled from `?uri=irc://...` or plain `?host=...`
+ * Open the connect form pre-filled from `?uri=web+irc://...` or plain `?host=...`
  * style parameters. Returns true when there was something to apply.
  *
  * @param search   the query string to read (defaults to the page URL's)

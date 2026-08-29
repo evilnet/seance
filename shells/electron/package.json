@@ -37,10 +37,9 @@
     "icon": "../../public/img/logo-grey-bg-512x512px.png",
     "protocols": [
       {
-        "name": "IRC",
+        "name": "IRC over WebSocket",
         "schemes": [
-          "irc",
-          "ircs"
+          "web+irc"
         ]
       }
     ],

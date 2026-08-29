@@ -32,15 +32,18 @@ Ship `NODE_ENV=production corepack yarn build`.
 
 - **One window.** The manifest's `launch_handler: {client_mode: "focus-existing"}`
   makes Chrome focus the running window for any later launch (taskbar/app
-  icon, `irc://` link, `?uri=` URL) and hand the URL to
+  icon, `web+irc://` link, `?uri=` URL) and hand the URL to
   `window.launchQueue`. `pwa.ts` feeds that into the same `handleQueryParams`
-  path `boot.ts` uses for a fresh open, so an `irc://host/#chan` link opens the
-  connect form pre-filled **without reloading** and dropping live IRC
+  path `boot.ts` uses for a fresh open, so a `web+irc://host/#chan` link opens
+  the connect form pre-filled **without reloading** and dropping live IRC
   connections. Without this, every launch was a reload.
-- **`irc:` / `ircs:` links.** `protocol_handlers` in the manifest register the
-  app for both schemes at install time (Chrome asks once, on first use). The
-  Settings → General "Open irc:// URLs with …" button is the pre-install
+- **`web+irc:` links.** `protocol_handlers` in the manifest registers the app
+  for the scheme at install time (Chrome asks once, on first use). The
+  Settings → General "Open web+irc:// links with …" button is the pre-install
   equivalent (`navigator.registerProtocolHandler`) and still works in a tab.
+  We deliberately do not claim `irc:`/`ircs:` — those name a TCP port we
+  cannot dial, and a web app may only register `web+…` schemes of its own; see
+  `irc-links.md`.
 - **Install entry point.** Chrome shows its own install icon in the address
   bar; in addition, when `beforeinstallprompt` fires, `pwa.ts` sets
   `store.state.installPromptAvailable` and Settings → General shows

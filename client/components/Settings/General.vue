@@ -16,7 +16,7 @@
 				class="btn"
 				@click.prevent="registerProtocol"
 			>
-				Open irc:// URLs with {{ appName }}
+				Open web+irc:// links with {{ appName }}
 			</button>
 		</div>
 		<div v-if="store.state.serverConfiguration?.fileUpload">
@@ -104,13 +104,14 @@ export default defineComponent({
 			void promptInstall();
 		};
 
+		// `web+irc:`, not `irc:`/`ircs:`: those promise a TCP connection we
+		// cannot make, and a web app may only claim `web+…` schemes anyway
+		// (docs/resources/irc-links.md).
 		const registerProtocol = () => {
 			const uri = document.location.origin + document.location.pathname + "?uri=%s";
 			// @ts-expect-error
 			// the third argument is deprecated but recommended for compatibility: https://developer.mozilla.org/en-US/docs/Web/API/Navigator/registerProtocolHandler
-			window.navigator.registerProtocolHandler("irc", uri, appName.value);
-			// @ts-expect-error
-			window.navigator.registerProtocolHandler("ircs", uri, appName.value);
+			window.navigator.registerProtocolHandler("web+irc", uri, appName.value);
 		};
 
 		return {

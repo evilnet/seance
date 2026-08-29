@@ -13,11 +13,7 @@
 	},
 	"protocol_handlers": [
 		{
-			"protocol": "irc",
-			"url": "./?uri=%s"
-		},
-		{
-			"protocol": "ircs",
+			"protocol": "web+irc",
 			"url": "./?uri=%s"
 		}
 	],

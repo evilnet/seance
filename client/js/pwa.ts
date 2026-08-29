@@ -10,7 +10,7 @@
 //  - the deferred `beforeinstallprompt` event, surfaced in the store so that
 //    Settings can offer an "Install" button (and hide it once installed);
 //  - the Launch Handler API: the manifest asks Chrome to `focus-existing`, so
-//    a second launch — an `irc://` link, an `?uri=` URL, a shortcut — is
+//    a second launch — a `web+irc://` link, an `?uri=` URL, a shortcut — is
 //    delivered to the running window via `window.launchQueue` instead of
 //    reloading it and dropping the IRC connection;
 //  - service-worker update detection: an installed app has no reload button,

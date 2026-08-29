@@ -110,8 +110,9 @@ describe("public folder", function () {
 		expect(manifest.display).to.equal("standalone");
 		// Launches while a window is open reuse it instead of reloading it
 		expect(manifest.launch_handler).to.deep.equal({client_mode: "focus-existing"});
-		// irc:// and ircs:// links open in the installed app via ?uri=
-		expect(manifest.protocol_handlers.map((p) => p.protocol)).to.have.members(["irc", "ircs"]);
+		// web+irc:// links open in the installed app via ?uri= (a web app can
+		// only claim web+… schemes; irc:/ircs: would promise TCP we cannot do)
+		expect(manifest.protocol_handlers.map((p) => p.protocol)).to.have.members(["web+irc"]);
 
 		for (const handler of manifest.protocol_handlers) {
 			expect(handler.url).to.equal("./?uri=%s");

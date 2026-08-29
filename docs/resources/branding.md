@@ -79,7 +79,7 @@ Every field is optional; `{"appName": "Seance"}` (the shipped default) is a comp
 | `uploads.withCredentials`              | boolean                 | `false`                            | Send cookies with the request (`credentials: "include"`).                                                                                                           |
 | `uploads.headers`                      | object of strings       | none                               | Extra request headers, e.g. `{"X-Api-Key": "…"}`. `Content-Type` is ignored: the browser sets the multipart boundary.                                               |
 
-URL parameters (`?host=…&port=…&nick=…&join=…&autoconnect=1`, `?uri=irc://…`) still pre-fill the form and beat `defaultNetwork`, except for host/port/TLS when the host is locked.
+URL parameters (`?host=…&port=…&nick=…&join=…&autoconnect=1`, `?uri=web+irc://…`) still pre-fill the form and beat `defaultNetwork`, except for host/port/TLS when the host is locked.
 
 ## Uploads
 

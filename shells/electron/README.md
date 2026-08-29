@@ -3,7 +3,7 @@
 A thin desktop wrapper around the built Seance SPA. It contains no application
 logic: the window loads the same `public/` directory a web deploy serves, the
 SPA connects to IRC over WebSocket itself, and the shell only adds a window,
-a menu, `irc://` link handling and packaging.
+a menu, `web+irc://` link handling and packaging.
 
 This package is self-contained (`seance-electron`, private) with its own
 `node_modules`; nothing is added to the repository root `package.json`.
@@ -82,12 +82,14 @@ Window bounds (and maximized state) are remembered in
 connected display. A single-instance lock keeps one window per user; a second
 launch focuses it.
 
-## `irc://` and `ircs://` links
+## `web+irc://` links
 
-The shell registers itself as the handler for `irc:` and `ircs:` with
+The shell registers itself as the handler for `web+irc:` with
 `app.setAsDefaultProtocolClient` (from source it registers
 `electron <this dir>`; the packaged app relies on the `protocols` entry in the
-build config so installers/`Info.plist` declare the schemes). Links arrive via
+build config so installers/`Info.plist` declare the scheme). `irc:`/`ircs:`
+are deliberately not claimed — they name a TCP port the SPA cannot dial; see
+`docs/resources/irc-links.md`. Links arrive via
 `open-url` on macOS or on the command line of the second instance on
 Windows/Linux, and are forwarded to the SPA as
 `app://seance/index.html?uri=<encoded link>`. `client/js/boot.ts` parses
@@ -125,6 +127,6 @@ first (`config.json`, icons in `public/img/`). Then, in this directory:
   `client/js/webpush.ts` only registers on `https:`/localhost; the scheme
   itself supports workers (the smoke probe registers one). Relaxing that check
   to `window.isSecureContext` is a client change.
-- Warm `irc://` hand-off without reloading (see above), native notifications
+- Warm `web+irc://` hand-off without reloading (see above), native notifications
   badge/dock counts, tray icon, and a "start minimized" option.
 - CI packaging for macOS/Windows (only Linux has been exercised here).

@@ -90,8 +90,11 @@ function readBranding() {
 	return {appName: "Seance"};
 }
 
+// `web+irc://host[:port][/#chan]` — the WebSocket-endpoint scheme the SPA
+// understands. `irc:`/`ircs:` are deliberately not claimed: they name a TCP
+// port we cannot dial (see docs/resources/irc-links.md).
 function isIrcUrl(value) {
-	return typeof value === "string" && /^ircs?:\/\//i.test(value);
+	return typeof value === "string" && /^web\+irc:\/\//i.test(value);
 }
 
 function ircUrlFromArgv(argv) {
@@ -340,7 +343,7 @@ function focusWindow(win) {
 	win.focus();
 }
 
-// Hands an irc:// or ircs:// URL to the SPA. boot.ts reads ?uri= on startup
+// Hands a web+irc:// URL to the SPA. boot.ts reads ?uri= on startup
 // and pushes the parsed values onto the Connect route, so this reloads the
 // document; a warm hand-off over IPC is a follow-up.
 function openIrcUrl(ircUrl) {
@@ -512,13 +515,11 @@ if (!app.requestSingleInstanceLock()) {
 
 	if (!SMOKE) {
 		if (app.isPackaged || process.platform === "darwin") {
-			app.setAsDefaultProtocolClient("irc");
-			app.setAsDefaultProtocolClient("ircs");
+			app.setAsDefaultProtocolClient("web+irc");
 		} else if (process.argv.length >= 2) {
 			// Running from source: register "electron <this dir>" as the handler.
 			const args = [path.resolve(process.argv[1])];
-			app.setAsDefaultProtocolClient("irc", process.execPath, args);
-			app.setAsDefaultProtocolClient("ircs", process.execPath, args);
+			app.setAsDefaultProtocolClient("web+irc", process.execPath, args);
 		}
 	}
 

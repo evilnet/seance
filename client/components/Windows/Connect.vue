@@ -525,7 +525,7 @@ function isTruthyParam(value: unknown): boolean {
 
 /**
  * Pre-fill the form from `?host=...&nick=...` style URL parameters or the
- * output of `parseIrcUri` for `irc://` links. `channels` is accepted as an
+ * output of `parseIrcUri` for `web+irc://` links. `channels` is accepted as an
  * alias for `join` for compatibility with other clients.
  */
 function applyQueryParams(form: ConnectOptions, params?: Record<string, any>) {

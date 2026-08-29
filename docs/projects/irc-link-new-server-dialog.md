@@ -1,16 +1,17 @@
-# `irc://` links to an unknown server should open an "add server" dialog
+# `web+irc://` links to an unknown server should open an "add server" dialog
 
 _Noted 2026-08-27. Status: idea, not started. Related: `docs/resources/pwa.md`
-(installed app receives `irc:`/`ircs:` links via `protocol_handlers` →
-`?uri=`)._
+and `docs/resources/irc-links.md` (installed app receives `web+irc:` links via
+`protocol_handlers` → `?uri=`; since 2026-08-28 the scheme is `web+irc:`, not
+`irc:`/`ircs:`, and a link's port is a WebSocket port)._
 
 ## Idea
 
 When the user opens a link that hard-codes a server and port
-(`irc://irc.example.org:6697/#chan`, or a `?host=…&port=…` URL) and we do
+(`web+irc://irc.example.org/#chan`, or a `?host=…&port=…` URL) and we do
 **not** already have that host + port combination saved, do not just drop
 them on the generic connect form. Bring up the "add new server" dialog with
-enough context — "This link suggests connecting to irc.example.org:6697 and
+enough context — "This link suggests connecting to irc.example.org:443 and
 joining #chan" — and the fields pre-filled from the link. Nothing is saved
 until the user chooses to connect/save. If the combination **is** already
 saved, connect to (or focus) that network and join the channel.
@@ -32,7 +33,7 @@ saved, connect to (or focus) that network and join the channel.
 ## Design notes
 
 - Match on casefolded host + port (+ TLS?) against `saved-networks`; a link
-  without a port implies 6667/6697 by scheme (`parseIrcUri` already does this).
+  without a port implies 443 (`parseIrcUri` already does this).
 - "Already saved" → if that network is connected, `/join` the channel(s) and
   route to it; if not, connect it, queueing the join (the `join` field of the
   saved entry or a one-off).
@@ -50,5 +51,5 @@ saved, connect to (or focus) that network and join the channel.
 
 - Saved match → connect/focus + join; no match → pre-filled dialog, nothing
   persisted until confirmed; locked deploy → ignored with a message; tests for
-  the matcher and for `parseIrcUri` edge cases (no port, `ircs`, channel with
-  key, multiple channels).
+  the matcher and for `parseIrcUri` edge cases (no port, legacy `irc:`/`ircs:`,
+  channel with key, multiple channels).
