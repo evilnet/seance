@@ -333,6 +333,7 @@ p {
 #chat button.close::before,
 #chat button.menu::before,
 #chat button.search::before,
+#chat .connecting-indicator::before,
 .channel-list-item::before,
 #footer .icon,
 #chat .count::before,
@@ -403,6 +404,7 @@ p {
 #chat button.mentions::before { content: "\f1fa"; /* https://fontawesome.com/icons/at?style=solid */ }
 #chat button.search::before { content: "\f002"; /* https://fontawesome.com/icons/search?style=solid */ }
 #chat button.close::before { content: "\f00d"; /* https://fontawesome.com/icons/times?style=solid */ }
+#chat .connecting-indicator::before { content: "\f021"; /* https://fontawesome.com/icons/sync?style=solid */ }
 
 .context-menu-join::before { content: "\f067"; /* http://fontawesome.io/icon/plus/ */ }
 .context-menu-user::before { content: "\f007"; /* http://fontawesome.io/icon/user/ */ }
@@ -1263,6 +1265,32 @@ textarea.input {
 
 #chat .header {
 	border-bottom: 1px solid #e7e7e7;
+}
+
+/* A dial or a reconnect is a spinner in the header, not a banner */
+#chat .connecting-tooltip {
+	display: flex;
+	flex-shrink: 0;
+}
+
+#chat .connecting-indicator {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	flex-shrink: 0;
+	font-size: 13px;
+	color: var(--body-color-muted);
+	opacity: 0.65;
+	animation: connection-status-spin 1.5s linear infinite;
+}
+
+/* Keep the cue, drop the motion */
+@media (prefers-reduced-motion: reduce) {
+	#chat .connecting-indicator {
+		animation: none;
+	}
 }
 
 .header .title {

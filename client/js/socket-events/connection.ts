@@ -6,8 +6,10 @@ import socket from "../socket";
 // Real connection state will arrive with the IRC transport in a later phase.
 
 socket.on("connecting", function () {
-	store.commit("currentUserVisibleError", "Connecting…");
-	updateLoadingMessage();
+	// Dialling is not an error: the chat header spins a small icon off
+	// `network.status.connecting`, and the sidebar shows it per network.
+	// Only the splash screen, which has no header yet, says it in words.
+	updateLoadingMessage("Connecting…");
 });
 
 socket.on("error", function (data) {
@@ -15,13 +17,13 @@ socket.on("error", function (data) {
 
 	store.commit("isConnected", false);
 	store.commit("currentUserVisibleError", `Connection error: ${message}`);
-	updateLoadingMessage();
+	updateLoadingMessage(store.state.currentUserVisibleError);
 });
 
-function updateLoadingMessage() {
+function updateLoadingMessage(text: string | null) {
 	const loading = document.getElementById("loading-page-message");
 
 	if (loading) {
-		loading.textContent = store.state.currentUserVisibleError;
+		loading.textContent = text;
 	}
 }

@@ -50,6 +50,17 @@
 						:network="network"
 						:channel="channel"
 					/>
+					<span
+						v-if="network.status.connecting"
+						class="connecting-tooltip tooltipped tooltipped-w tooltipped-no-touch"
+						:data-tooltip="connectingLabel"
+					>
+						<span
+							class="connecting-indicator"
+							role="status"
+							:aria-label="connectingLabel"
+						/>
+					</span>
 					<button
 						class="mentions"
 						aria-label="Open your mentions"
@@ -169,6 +180,10 @@ export default defineComponent({
 			return toPlainText(layout(topic, {markdown: store.state.settings.markdown}));
 		});
 
+		const connectingLabel = computed(() =>
+			props.network.name ? `Connecting to ${props.network.name}…` : "Connecting…"
+		);
+
 		const specialComponent = computed(() => {
 			switch (props.channel.special) {
 				case SpecialChanType.BANLIST:
@@ -274,6 +289,7 @@ export default defineComponent({
 			messageList,
 			topicInput,
 			plainTopic,
+			connectingLabel,
 			specialComponent,
 			hideUserVisibleError,
 			editTopic,
