@@ -18,9 +18,12 @@
 
 import {update as updateCursor} from "undate";
 
+import {ChanType} from "../../shared/types/chan";
 import {BrandingUploads, DEFAULT_UPLOAD_MAX_BYTES} from "./branding";
 import eventbus from "./eventbus";
 import {isAnimatedImage} from "./helpers/animatedImage";
+import {FILEHOST_SERVICE} from "./irc/authtoken";
+import type {IrcClient} from "./irc/client";
 import type {TypedStore} from "./store";
 
 export const UPLOADS_NOT_CONFIGURED = "File uploads are not configured in this client.";
@@ -41,10 +44,29 @@ export interface UploadProgress {
 	total: number;
 }
 
+/**
+ * The network's own upload host (IRCv3 `draft/FILEHOST` + `draft/authtoken`,
+ * `irc/authtoken.ts`): where to POST, and how to get the one-shot token
+ * the request must carry. Chosen over the deploy's `uploads` config when
+ * the connected network advertises one — it is the network's service and
+ * the upload is attributed to the user's account, with no credentials
+ * involved.
+ */
+export interface FilehostSource {
+	/** Absolute URL the file is POSTed to (`draft/FILEHOST` ISUPPORT). */
+	endpoint: string;
+	/** The channel (or nick) the upload is for; the token is scoped to it. */
+	scope?: string;
+	/** `TOKEN GENERATE FILEHOST [scope]` on the network; rejects with the FAIL's text. */
+	generate(scope?: string): Promise<string>;
+}
+
 /** Everything the uploader needs from the app, so it can run without the store. */
 export interface UploadHost {
 	/** Uploader config from branding; `undefined` when uploads are off. */
 	uploads(): BrandingUploads | undefined;
+	/** The current network's upload host, when it advertises one (takes precedence). */
+	filehost?(): FilehostSource | undefined;
 	isConnected(): boolean;
 	/** Re-encode images through a canvas before upload (strips EXIF). */
 	renderCanvas(): boolean;
@@ -489,6 +511,116 @@ async function uploadAttempt(
 }
 
 /**
+ * Upload `file` to the network's own host (`draft/FILEHOST`): a
+ * `TOKEN GENERATE` on the IRC connection for a one-shot bearer token, then
+ * the raw file as the POST body with `Content-Type`,
+ * `Content-Disposition` and `Authorization: Bearer`, answered by
+ * `201 Created` + `Location` (the draft) or a JSON `url` (paste hosts).
+ * Resolves with the public URL; rejects with `UploadError`.
+ *
+ * The `Authorization` header makes every such request a preflighted one,
+ * so the host must answer `OPTIONS` (the draft requires it) — there is no
+ * plain-POST fallback here, unlike the multipart uploaders.
+ */
+export async function uploadFilehost(
+	file: File,
+	source: FilehostSource,
+	options: UploadFileOptions = {}
+): Promise<string> {
+	let token: string;
+
+	try {
+		token = await source.generate(source.scope);
+	} catch (e: unknown) {
+		const reason = e instanceof Error ? e.message : String(e);
+		throw new UploadError(`Upload refused by the network: ${reason}`);
+	}
+
+	const XHR = options.xhr ?? (typeof XMLHttpRequest === "function" ? XMLHttpRequest : undefined);
+	let doFetch: typeof fetch | undefined = options.fetch;
+
+	if (doFetch === undefined && XHR !== undefined) {
+		doFetch = (url, init) =>
+			xhrFetch(String(url), init ?? {}, {XHR, onProgress: options.onProgress});
+	}
+
+	if (doFetch === undefined && typeof fetch === "function") {
+		doFetch = fetch;
+	}
+
+	if (doFetch === undefined) {
+		throw new UploadError("Upload failed: fetch is not available");
+	}
+
+	const headers: Record<string, string> = {
+		Authorization: `Bearer ${token}`,
+		"Content-Type": file.type || "application/octet-stream",
+	};
+
+	if (file.name) {
+		// RFC 6266: a quoted ASCII name plus the UTF-8 form for the rest.
+		const ascii = file.name.replace(/[^\x20-\x7e]/g, "_").replace(/["\\]/g, "_");
+		headers[
+			"Content-Disposition"
+		] = `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(file.name)}`;
+	}
+
+	let response: Response;
+
+	try {
+		response = await doFetch(source.endpoint, {
+			method: "POST",
+			headers,
+			body: file,
+			signal: options.signal,
+		});
+	} catch (e: unknown) {
+		if (e instanceof Error && e.name === "AbortError") {
+			throw new UploadError("Upload cancelled");
+		}
+
+		const reason = e instanceof Error ? e.message : String(e);
+		throw new UploadError(`Upload failed: ${reason}`);
+	}
+
+	let body = "";
+
+	try {
+		body = await response.text();
+	} catch (e) {
+		body = "";
+	}
+
+	if (!response.ok) {
+		let message = `Upload failed: HTTP ${response.status}`;
+
+		try {
+			const parsed: unknown = JSON.parse(body);
+			const text = isRecord(parsed) ? parsed.message ?? parsed.error : undefined;
+
+			if (typeof text === "string" && text.length > 0) {
+				message = `Upload failed: ${text}`;
+			}
+		} catch (e) {
+			// Not JSON; keep the status line.
+		}
+
+		throw new UploadError(message);
+	}
+
+	const location = response.headers.get("Location");
+	const fromHeader = location ? absoluteUrl(location, source.endpoint) : undefined;
+
+	if (fromHeader !== undefined) {
+		return fromHeader;
+	}
+
+	// No Location we can read (an opaque CORS response, or a host that only
+	// answers with JSON): the body's `url`, as the multipart path reads it.
+	return parseUploadResponse(body, {endpoint: source.endpoint});
+}
+
+/**
  * What the "remove metadata" setting will do to `file`: `strip` (redrawn
  * through a canvas), `off` (setting off), `animated` (an animated WebP, APNG
  * or AVIF: the canvas would keep one frame, so it goes up whole),
@@ -581,9 +713,30 @@ export function insertUploadUrl(url: string): void {
  * `UploadPreview.vue` answers, and progress into `store.state.uploadProgress`
  * for the strip in `ChatInput.vue`.
  */
-export function storeUploadHost(store: TypedStore): UploadHost {
+export function storeUploadHost(
+	store: TypedStore,
+	clientForNetwork: (uuid: string) => IrcClient | undefined = () => undefined
+): UploadHost {
 	return {
 		uploads: () => store.state.branding.uploads,
+		filehost() {
+			const active = store.state.activeChannel;
+			const client = active ? clientForNetwork(active.network.uuid) : undefined;
+			const endpoint = client?.filehostUrl();
+
+			if (!client || !endpoint) {
+				return undefined;
+			}
+
+			const scope =
+				active?.channel.type === ChanType.CHANNEL ? active.channel.name : undefined;
+
+			return {
+				endpoint,
+				scope,
+				generate: (s) => client.generateToken(FILEHOST_SERVICE, s),
+			};
+		},
 		isConnected: () => store.state.isConnected,
 		renderCanvas: () => store.state.settings.uploadCanvas,
 		showError: (message) => store.commit("currentUserVisibleError", message),
@@ -680,7 +833,7 @@ export class Uploader {
 		if (!event.relatedTarget && event.dataTransfer?.types.includes("Files")) {
 			event.preventDefault();
 
-			if (this.host?.uploads()) {
+			if (this.host?.uploads() || this.host?.filehost?.()) {
 				this.overlay?.classList.add("is-dragover");
 			}
 		}
@@ -751,9 +904,11 @@ export class Uploader {
 		}
 
 		const host = this.host;
-		const config = host.uploads();
+		// The network's own host wins; the deploy's uploader is the fallback.
+		const filehost = host.filehost?.();
+		const config = filehost ? undefined : host.uploads();
 
-		if (!config) {
+		if (!config && !filehost) {
 			if (!this.warnedUnconfigured) {
 				this.warnedUnconfigured = true;
 				host.showError(UPLOADS_NOT_CONFIGURED);
@@ -768,7 +923,9 @@ export class Uploader {
 			return;
 		}
 
-		const maxFileSize = uploadMaxSize(config);
+		// A FILEHOST says what it takes only in its OPTIONS reply; the host
+		// answers 413/415 itself, so only the deploy's limits apply here.
+		const maxFileSize = config ? uploadMaxSize(config) : DEFAULT_UPLOAD_MAX_BYTES;
 		const accepted: File[] = [];
 
 		for (const file of files) {
@@ -784,7 +941,7 @@ export class Uploader {
 			// Refuse here rather than letting the endpoint answer: the boxlabs
 			// preset points at an image staging service, so a dropped video
 			// should say so plainly.
-			if (!acceptsType(config, file.type)) {
+			if (config && !acceptsType(config, file.type)) {
 				const acceptedTypes = (config.accept ?? []).join(", ");
 				host.showError(
 					`File ${file.name} is not a type this uploader accepts (${acceptedTypes})`
@@ -839,9 +996,10 @@ export class Uploader {
 
 	private async uploadOne(file: File, index: number): Promise<void> {
 		const host = this.host;
-		const config = host?.uploads();
+		const filehost = host?.filehost?.();
+		const config = filehost ? undefined : host?.uploads();
 
-		if (!host || !config) {
+		if (!host || (!config && !filehost)) {
 			return;
 		}
 
@@ -858,26 +1016,43 @@ export class Uploader {
 				file = await this.renderImage(file);
 			}
 
-			// No progress for an endpoint that cannot answer the preflight it
-			// needs, whether the config said so or this page found out.
-			const wantsProgress =
-				config.progress !== false && !this.progressBlocked.has(config.endpoint);
-			// Total 0 keeps the strip indeterminate when no byte counts will come.
-			report("sending", 0, wantsProgress ? file.size : 0);
+			let url: string;
 
-			const url = await uploadFile(file, config, {
-				fetch: this.fetchImpl,
-				xhr: this.xhrImpl,
-				signal: controller.signal,
-				onProgress: wantsProgress
-					? (loaded, total) =>
-							report(loaded >= total ? "waiting" : "sending", loaded, total)
-					: undefined,
-				onProgressUnavailable: () => {
-					this.progressBlocked.add(config.endpoint);
-					report("sending", 0, 0);
-				},
-			});
+			if (filehost) {
+				// The draft makes OPTIONS mandatory, so the preflight that
+				// progress events (and the Authorization header) need is fine.
+				report("sending", 0, file.size);
+				url = await uploadFilehost(file, filehost, {
+					fetch: this.fetchImpl,
+					xhr: this.xhrImpl,
+					signal: controller.signal,
+					onProgress: (loaded, total) =>
+						report(loaded >= total ? "waiting" : "sending", loaded, total),
+				});
+			} else if (config) {
+				// No progress for an endpoint that cannot answer the preflight it
+				// needs, whether the config said so or this page found out.
+				const wantsProgress =
+					config.progress !== false && !this.progressBlocked.has(config.endpoint);
+				// Total 0 keeps the strip indeterminate when no byte counts will come.
+				report("sending", 0, wantsProgress ? file.size : 0);
+
+				url = await uploadFile(file, config, {
+					fetch: this.fetchImpl,
+					xhr: this.xhrImpl,
+					signal: controller.signal,
+					onProgress: wantsProgress
+						? (loaded, total) =>
+								report(loaded >= total ? "waiting" : "sending", loaded, total)
+						: undefined,
+					onProgressUnavailable: () => {
+						this.progressBlocked.add(config.endpoint);
+						report("sending", 0, 0);
+					},
+				});
+			} else {
+				return;
+			}
 
 			host.insertUrl(url);
 		} catch (e: unknown) {
@@ -956,8 +1131,13 @@ const instance = new Uploader();
 export default {
 	abort: () => instance.abort(),
 	initialize: () => instance.init(),
-	/** Attach the drag/drop/paste listeners, reading config and state from `store`. */
-	mounted: (store: TypedStore) => instance.mounted(storeUploadHost(store)),
+	/**
+	 * Attach the drag/drop/paste listeners, reading config and state from
+	 * `store`; `clientForNetwork` (irc/manager.ts, which this Vue-free file
+	 * must not import) finds the connection a FILEHOST token comes from.
+	 */
+	mounted: (store: TypedStore, clientForNetwork?: (uuid: string) => IrcClient | undefined) =>
+		instance.mounted(storeUploadHost(store, clientForNetwork)),
 	unmounted: () => instance.unmounted(),
 	triggerUpload: (files: (File | null)[]) => void instance.triggerUpload(files),
 };

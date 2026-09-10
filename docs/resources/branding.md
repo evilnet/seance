@@ -159,6 +159,10 @@ The client checks `uploads.maxSizeBytes` before sending and refuses types outsid
 
 A minimal uploader is a few dozen lines (an nginx `client_body` handler script, or a small web function that writes to object storage and returns its URL); those recipes are out of scope here.
 
+### The network's own upload host (`draft/FILEHOST`)
+
+A network can skip all of the above by advertising an upload host itself. When the server's ISUPPORT carries `draft/FILEHOST=<url>` (or soju's `soju.im/FILEHOST`), Seance uses it **instead of** `uploads` for that network, no `config.json` entry needed — it is the network's service and the upload is attributed to the user's IRC account, with no credentials involved. The exchange is IRCv3 `draft/authtoken` ([PR #602](https://github.com/ircv3/ircv3-specifications/pull/602)) plus `draft/FILEHOST` ([PR #562](https://github.com/ircv3/ircv3-specifications/pull/562)): the client asks the ircd for a one-shot token (`TOKEN GENERATE FILEHOST #channel`, answered with `TOKEN GENERATE FILEHOST :<token>` or a `draft/authtoken` batch of chunks), POSTs the raw file to the URL with `Authorization: Bearer <token>`, `Content-Type` and `Content-Disposition`, and expects `201 Created` with a `Location` header (a JSON `url` is accepted too). The `Authorization` header makes the request preflighted, so the host must answer `OPTIONS` with CORS headers (the draft requires `OPTIONS`; `Access-Control-Allow-Headers` must list `Authorization`, and `Access-Control-Expose-Headers: Location` lets the client read the URL). A plain `http:` upload URL is refused over an encrypted IRC connection, as the draft says. `FAIL TOKEN …` from the server (no account, a channel the user is not in) is shown as the upload's error. nefarious2's `ircv3.2-upgrade` implements the server side (`Authtoken "FILEHOST" { … }`); the reference host is [PASTE](https://github.com/boxlabss/PASTE)'s `filehost.php`.
+
 ### Presets
 
 `uploads.preset` fills in the wire details of a known service; anything given alongside it wins, so a deploy can point the same format at its own instance.

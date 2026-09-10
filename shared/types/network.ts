@@ -19,6 +19,8 @@ export type SharedServerOptions = {
 	CHANTYPES: string[];
 	PREFIX: SharedPrefix;
 	NETWORK: string;
+	/** The network's upload host (`draft/FILEHOST` ISUPPORT), when usable. */
+	FILEHOST?: string;
 };
 
 export type SharedNetworkStatus = {

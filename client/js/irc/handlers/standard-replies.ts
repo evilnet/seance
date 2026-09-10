@@ -158,6 +158,17 @@ function reply(kind: "FAIL" | "WARN" | "NOTE"): Handler {
 			return;
 		}
 
+		if (kind === "FAIL" && command.toUpperCase() === "TOKEN") {
+			// draft/authtoken: an upload waiting on `TOKEN GENERATE` reports
+			// the failure itself (the uploader's error line); a FAIL nobody
+			// asked for is shown like any other.
+			const description = rest.length > 0 ? rest[rest.length - 1] : "";
+
+			if (client.authtoken.fail(code.toUpperCase(), description)) {
+				return;
+			}
+		}
+
 		if (
 			kind === "FAIL" &&
 			command.toUpperCase() === "BATCH" &&

@@ -81,6 +81,7 @@ export const SEANCE_CAPS: CapNegotiatorOptions = {
 		"draft/read-marker",
 		"draft/message-redaction",
 		"draft/webpush",
+		"draft/authtoken",
 		"draft/metadata-2",
 		"draft/persistence",
 	],

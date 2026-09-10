@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 <!-- New entries go after this line -->
 
+## Unreleased
+
+- File uploads go to the network's own upload host when the server advertises one (IRCv3 `draft/FILEHOST` ISUPPORT + `draft/authtoken`): a one-shot token from `TOKEN GENERATE FILEHOST`, the file as a bearer-authenticated `POST`, `Location` inserted into the input. Takes precedence over the deploy's `uploads` config for that network; the paperclip appears without any `config.json` entry. See `docs/resources/branding.md` § Uploads.
+
 ## v4.5.0-rc.3 - 2026-05-12 [Pre-release]
 
 [See the full changelog](https://github.com/thelounge/thelounge/compare/v4.5.0-rc.2...v4.5.0-rc.3)
