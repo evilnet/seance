@@ -43,6 +43,27 @@ command autocompletion (`getCommands()` in `client/js/autocompletion.ts`).
 Limits: 200 aliases, names ≤ 32 chars (`[a-z0-9][a-z0-9_-]*`, no leading
 slash), bodies ≤ 2000 chars.
 
+## The `/alias` command
+
+`client/js/irc/commands/alias.ts` (tested in `test/irc/commands.ts`) edits the
+same stored list from the input line, feedback via `pushMessage` — nothing is
+sent to the server, and it works disconnected:
+
+- `/alias` — every alias, verbatim in a monospace block (bodies are full of
+  `/`, `$` and `#` that Markdown would mangle).
+- `/alias <name>` — that one alias (the name may be typed with its slash).
+- `/alias <name> <commands>` — create it, or overwrite the body in place;
+  the same name/body limits as the editor. Deleting stays in Settings.
+
+`$…` tokens survive as typed: expansion in `ChatInput` only replaces names
+that _are_ aliases, so a `/alias` line passes through untouched — and a user
+who defines an alias literally named `alias` shadows the command, like any
+other shadow. `alias` is in `multilineCommands` (`irc/commands/index.ts`), so
+a body typed with Shift+Enter stays one definition where `draft/multiline` is
+negotiated; without the capability each line is its own input, as everywhere
+else, and only the first reaches `/alias`. A Settings pane already open does
+not live-reload the list; reopen it to see a command-line change.
+
 ## The editor
 
 `client/components/Settings/Aliases.vue`: one grid row per alias (name input

@@ -5,6 +5,7 @@ import storage from "../../client/js/localStorage";
 import {IrcClient, IrcClientOptions} from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";
 import {commandNames} from "../../client/js/irc/commands";
+import {loadAliases} from "../../client/js/helpers/aliases";
 import {ignoreListFor} from "../../client/js/ignore";
 import type {Transport} from "../../client/js/irc/types";
 import type {TransportEvent, TransportState} from "../../client/js/irc/transport";
@@ -140,11 +141,18 @@ function lastMessage(chanId?: number): SharedMsg {
 }
 
 /** Register (with echo-message) and join #seance with a small NAMES burst. */
-function joined(h: Harness, isupportExtra = ""): number {
+function joined(h: Harness, isupportExtra = "", capsExtra = ""): number {
+	const ls = `echo-message multi-prefix ${capsExtra}`.trim();
+	// ACK names the caps without their LS values.
+	const ack = ls
+		.split(" ")
+		.map((cap) => cap.split("=")[0])
+		.join(" ");
+
 	h.client.connect();
 	h.transport.open();
-	h.transport.line(":irc.test CAP * LS :echo-message multi-prefix");
-	h.transport.line(":irc.test CAP alice ACK :echo-message multi-prefix");
+	h.transport.line(`:irc.test CAP * LS :${ls}`);
+	h.transport.line(`:irc.test CAP alice ACK :${ack}`);
 	h.transport.lines(
 		":irc.test 001 alice :Welcome",
 		`:irc.test 005 alice CHANTYPES=#& PREFIX=(ov)@+ CASEMAPPING=rfc1459 ${isupportExtra} :are supported`,
@@ -177,6 +185,7 @@ describe("irc commands", function () {
 		const names = commandNames();
 
 		for (const name of [
+			"/alias",
 			"/ban",
 			"/unban",
 			"/banlist",
@@ -852,6 +861,90 @@ describe("irc commands", function () {
 				},
 			]);
 			expect(h.sentAfter()).to.deep.equal([]);
+		});
+	});
+
+	describe("/alias", function () {
+		it("says so when there are no aliases", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.input(id, "/alias");
+			expect(lastMessage(id).type).to.equal(MessageType.ERROR);
+			expect(lastMessage(id).text).to.contain("No aliases defined");
+			expect(h.sentAfter()).to.deep.equal([]);
+		});
+
+		it("adds an alias, and nothing reaches the server", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.input(id, "/alias greet /say Hello, $1!");
+			expect(lastMessage(id).text).to.equal("Alias /greet added.");
+			expect(loadAliases()).to.deep.equal([{name: "greet", body: "/say Hello, $1!"}]);
+			expect(h.sentAfter()).to.deep.equal([]);
+		});
+
+		it("overwrites in place, matching the name case-insensitively", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.input(id, "/alias greet /say hi");
+			h.client.input(id, "/alias wave /me waves");
+			h.client.input(id, "/alias GREET /say hello");
+			expect(lastMessage(id).text).to.equal("Alias /GREET updated.");
+			expect(loadAliases()).to.deep.equal([
+				{name: "GREET", body: "/say hello"},
+				{name: "wave", body: "/me waves"},
+			]);
+		});
+
+		it("lists every alias verbatim in a monospace block", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.input(id, "/alias greet /say Hello, $1!");
+			h.client.input(id, "/alias wave /me waves");
+			h.client.input(id, "/alias");
+			expect(lastMessage(id).type).to.equal(MessageType.MONOSPACE_BLOCK);
+			expect(lastMessage(id).text).to.equal("/greet /say Hello, $1!\n/wave /me waves");
+		});
+
+		it("shows one alias, continuation lines of a multi-line body indented", function () {
+			const h = setup();
+			// The whole multi-line input is one /alias only under draft/multiline.
+			const id = joined(
+				h,
+				"",
+				"batch message-tags draft/multiline=max-bytes=4096,max-lines=24"
+			);
+			h.client.input(id, "/alias hi /say hello\n/me waves");
+			h.client.input(id, "/alias hi");
+			expect(lastMessage(id).type).to.equal(MessageType.MONOSPACE_BLOCK);
+			expect(lastMessage(id).text).to.equal("/hi /say hello\n    /me waves");
+		});
+
+		it("accepts the name typed with its slash", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.input(id, "/alias /greet /say hi");
+			expect(loadAliases()).to.deep.equal([{name: "greet", body: "/say hi"}]);
+		});
+
+		it("rejects an invalid name and an unknown lookup", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.input(id, "/alias bad!name /say hi");
+			expect(lastMessage(id).type).to.equal(MessageType.ERROR);
+			expect(loadAliases()).to.deep.equal([]);
+
+			h.client.input(id, "/alias nosuch");
+			expect(lastMessage(id).type).to.equal(MessageType.ERROR);
+			expect(lastMessage(id).text).to.contain("No alias /nosuch");
+		});
+
+		it("works disconnected, from the lobby", function () {
+			const h = setup();
+			const lobby = h.client.lobby.id;
+			h.client.input(lobby, "/alias greet /say hi");
+			expect(lastMessage(lobby).text).to.equal("Alias /greet added.");
+			expect(loadAliases()).to.deep.equal([{name: "greet", body: "/say hi"}]);
 		});
 	});
 });

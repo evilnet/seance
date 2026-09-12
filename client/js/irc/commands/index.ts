@@ -17,6 +17,7 @@ import {MessageType} from "../../../../shared/types/msg";
 import type {Channel} from "../channel";
 import type {IrcClient} from "../client";
 import type {Command, InputOptions} from "../types";
+import alias from "./alias";
 import away from "./away";
 import ban from "./ban";
 import connect from "./connect";
@@ -45,6 +46,7 @@ import topic from "./topic";
 import whois from "./whois";
 
 const modules: Command[] = [
+	alias,
 	away,
 	ban,
 	connect,
@@ -101,8 +103,11 @@ export const NOT_CONNECTED =
 /**
  * Commands whose argument *is* the message, so multi-line input stays one
  * message instead of one command per line (see {@link dispatchInput}).
+ * `alias` is here for the same reason with a different noun: its argument is
+ * the alias body, and a body typed with Shift+Enter is one definition, not a
+ * definition followed by stray input.
  */
-const multilineCommands = new Set(["me", "notice", "msg", "query", "say"]);
+const multilineCommands = new Set(["alias", "me", "notice", "msg", "query", "say"]);
 
 /**
  * Handle everything the user typed into `chan` (may span several lines).
