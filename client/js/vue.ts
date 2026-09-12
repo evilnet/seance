@@ -1,4 +1,4 @@
-import constants from "./constants";
+import {isPhoneLayout} from "./helpers/device";
 
 import "../css/style.css";
 import {createApp} from "vue";
@@ -31,7 +31,7 @@ void boot();
 store.watch(
 	(state) => state.sidebarOpen,
 	(sidebarOpen) => {
-		if (window.innerWidth > constants.mobileViewportPixels) {
+		if (!isPhoneLayout()) {
 			storage.set("thelounge.state.sidebar", sidebarOpen.toString());
 			eventbus.emit("resize");
 		}

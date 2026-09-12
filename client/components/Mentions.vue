@@ -129,7 +129,7 @@
 	}
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse) {
 	.mentions-popup {
 		border-radius: 0;
 		border: 0;

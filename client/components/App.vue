@@ -19,7 +19,7 @@
 </template>
 
 <script lang="ts">
-import constants from "../js/constants";
+import {isPhoneLayout} from "../js/helpers/device";
 import eventbus from "../js/eventbus";
 import Mousetrap, {ExtendedKeyboardEvent} from "mousetrap";
 import throttle from "lodash/throttle";
@@ -140,16 +140,19 @@ export default defineComponent({
 		};
 
 		const prepareOpenStates = () => {
-			const viewportWidth = window.innerWidth;
 			let isUserlistOpen = storage.get("thelounge.state.userlist");
 
-			if (viewportWidth > constants.mobileViewportPixels) {
+			if (!isPhoneLayout()) {
 				store.commit("sidebarOpen", storage.get("thelounge.state.sidebar") !== "false");
 			}
 
 			// If The Lounge is opened on a small screen (less than 1024px), and we don't have stored
 			// user list state, close it by default
-			if (viewportWidth >= 1024 && isUserlistOpen !== "true" && isUserlistOpen !== "false") {
+			if (
+				window.innerWidth >= 1024 &&
+				isUserlistOpen !== "true" &&
+				isUserlistOpen !== "false"
+			) {
 				isUserlistOpen = "true";
 			}
 

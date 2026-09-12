@@ -28,6 +28,4 @@ export default {
 	colorCodeMap,
 	commands: [] as string[],
 	timeFormats,
-	// Same value as media query in CSS that forces sidebars to become overlays
-	mobileViewportPixels: 768,
 };

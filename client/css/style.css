@@ -3927,7 +3927,8 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	font-size: 0.8125rem;
 }
 
-@media (max-width: 768px) {
+/* The phone layout; the same list as PHONE_LAYOUT_QUERY in helpers/device.ts. */
+@media (max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse) {
 	/**
 	  * TODO Replace this with `@media (hover: hover)` when Firefox supports it
 	  * See:
