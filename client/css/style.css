@@ -1524,6 +1524,23 @@ textarea.input {
 	body:has(#form #input:focus) #chat .header {
 		display: none;
 	}
+
+	/* The "alice is typing…" strip shares the composer's row instead of
+	 * taking one of its own: between the text and the buttons, a third of
+	 * the row at most, ellipsised. Its reserved (empty) form has no width,
+	 * so nothing bounces either way. */
+	body:has(#form #input:focus) #form .typing-indicator {
+		flex: 0 1 auto;
+		order: 1;
+		max-width: 33%;
+		min-width: 0;
+		margin: 0 0.25rem;
+		align-self: center;
+	}
+
+	body:has(#form #input:focus) #form > .tooltipped {
+		order: 2;
+	}
 }
 
 /* A dial or a reconnect is a spinner in the header, not a banner */

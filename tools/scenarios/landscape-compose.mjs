@@ -11,13 +11,19 @@
 // Chromium cannot raise a keyboard, so the scenario does what iOS does: it
 // shrinks the viewport to what the keyboard leaves (926x180) with the caret
 // in the composer, and grows it back. `--mobile` is required — the app only
-// sizes itself from the visual viewport on a touch device.
+// sizes itself from the visual viewport on a touch device. A second user on
+// the same WebSocket starts typing, so the strip has something to show.
 const IRCD = process.env.SEANCE_IRC_URL ?? "wss://localhost:8443/";
+const ircdUrl = new URL(IRCD);
+if (ircdUrl.hostname === "localhost" || ircdUrl.hostname === "127.0.0.1") {
+	process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"; // dev ircd's self-signed cert
+}
 const CHANNEL = process.env.SEANCE_IRC_CHANNEL ?? "#seance";
 const PORT = process.env.SEANCE_PORT ?? "8000";
 const ircd = new URL(IRCD);
 const stamp = Math.random().toString(36).slice(2, 6);
 const NICK = `land${stamp}`;
+const TYPIST = `landty${stamp}`;
 const HOST = ircd.hostname + ircd.pathname.replace(/\/$/, "");
 const IRC_PORT = ircd.port || (ircd.protocol === "wss:" ? "443" : "80");
 
@@ -27,6 +33,50 @@ export const url =
 
 const HEADER_SHOWN = `getComputedStyle(document.querySelector("#chat .header")).display !== "none"`;
 const FOCUSED = `document.activeElement === document.querySelector("#input")`;
+
+/** A second user on the network who can start and stop typing. */
+function typist(nick) {
+	const ws = new WebSocket(IRCD, ["text.ircv3.net"]);
+	let onJoin = () => {};
+
+	ws.onopen = () => {
+		ws.send("CAP REQ :message-tags");
+		ws.send("CAP END");
+		ws.send(`NICK ${nick}`);
+		ws.send(`USER ${nick} 0 * :seance landscape typist`);
+	};
+
+	ws.onmessage = (ev) => {
+		const line = String(ev.data);
+
+		if (line.startsWith("PING")) {
+			ws.send(`PONG${line.slice(4)}`);
+			return;
+		}
+
+		const params = (line.startsWith("@") ? line.slice(line.indexOf(" ") + 1) : line).split(" ");
+
+		if (params[1] === "001") {
+			ws.send(`JOIN ${CHANNEL}`);
+		} else if (params[1] === "JOIN" && params[0].includes(nick)) {
+			onJoin();
+		} else if (params[1] === "433") {
+			ws.send(`NICK ${nick}${Math.floor(Math.random() * 1000)}`);
+		}
+	};
+
+	return {
+		joined: new Promise((resolve, reject) => {
+			onJoin = resolve;
+			ws.onerror = (e) => reject(new Error(String(e.message ?? e)));
+			setTimeout(() => reject(new Error(`${nick} never joined ${CHANNEL}`)), 20000);
+		}),
+		typing: (state) => ws.send(`@+typing=${state} TAGMSG ${CHANNEL}`),
+		quit: () => ws.send("QUIT :done"),
+	};
+}
+
+const TYPING_STRIP = `document.querySelector("#form .typing-indicator")`;
 
 /** A phone in landscape: 926x428, and 926x180 once the keyboard and Safari's form bar are up. */
 const LANDSCAPE = {width: 926, height: 428};
@@ -87,6 +137,38 @@ export default async function run(page) {
 		form.y + form.height <= 180
 	);
 	await page.screenshot("landscape-compose-keyboard");
+
+	// Someone starts typing: the strip joins the composer's row instead of
+	// taking one, so the scrollback keeps its height.
+	const before = await page.rect("#chat .chat");
+	const other = typist(TYPIST);
+	await other.joined;
+	other.typing("active");
+	await page.waitFor(`${TYPING_STRIP}?.textContent.includes("is typing")`, {
+		label: "the typing strip shows the typist",
+	});
+	await page.sleep(300);
+	const strip = await page.rect("#form .typing-indicator");
+	const input = await page.rect("#form #input");
+	const upload = await page.rect("#form #upload");
+	const after = await page.rect("#chat .chat");
+	page.check(
+		`the typing strip sits on the composer's row (strip y=${strip.y}, input y=${input.y})`,
+		Math.abs(strip.y + strip.height / 2 - (input.y + input.height / 2)) < input.height
+	);
+	page.check(
+		`between the text and the paperclip (input right=${input.x + input.width}, strip x=${
+			strip.x
+		}, paperclip x=${upload.x})`,
+		strip.x >= input.x + input.width - 1 && strip.x + strip.width <= upload.x + 1
+	);
+	page.check(
+		`the scrollback keeps its height (${before.height} → ${after.height})`,
+		after.height === before.height
+	);
+	await page.screenshot("landscape-compose-typing");
+	other.typing("done");
+	other.quit();
 
 	// Done on the keyboard: the caret leaves, the header returns at once.
 	await page.evaluate(`document.querySelector("#input").blur()`);
