@@ -763,6 +763,14 @@ p {
 	 * viewport, which iOS never shrinks for the keyboard, they would outgrow
 	 * the app and the sidebar's footer would sit below the screen. */
 	position: relative;
+
+	/* Its height is the visible band (--viewport-height on touch devices),
+	 * which no media query can see: iOS keeps the layout viewport at the
+	 * screen's size while the keyboard is up. A container query can. */
+	/* stylelint-disable-next-line property-no-unknown */
+	container-type: size;
+	/* stylelint-disable-next-line property-no-unknown */
+	container-name: viewport;
 }
 
 #form button,
@@ -1500,6 +1508,22 @@ textarea.input {
 
 #chat .header {
 	border-bottom: 1px solid #e7e7e7;
+}
+
+/* Compose mode. A phone in landscape has ~430px; the keyboard and Safari's
+ * form bar take ~250 of them, so the header and the composer leave a single
+ * line of scrollback. While the composer has the caret in a band that short
+ * the header goes: the placeholder names the channel, and the keyboard's Done
+ * brings the header (and its buttons) back. Gated on the caret, not on the
+ * height alone, or a landscape phone at a large font step would lose the
+ * header — and the way to the sidebar and the menu — for good. 18rem is
+ * above what any keyboard leaves and below any phone's screen in portrait
+ * with the keyboard up (iPhone SE: ~400px). */
+/* stylelint-disable-next-line at-rule-no-unknown */
+@container viewport (max-height: 18rem) {
+	body:has(#form #input:focus) #chat .header {
+		display: none;
+	}
 }
 
 /* A dial or a reconnect is a spinner in the header, not a banner */
