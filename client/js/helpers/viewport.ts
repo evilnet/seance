@@ -16,6 +16,13 @@
  * own focus as it goes hidden, and while no text field has focus — the only
  * time the keyboard is down for certain — the larger of the two wins.
  *
+ * The same measurement says whether the keyboard is up at all, and that is
+ * published as `html[data-keyboard="up"]` for the rules that make room for it
+ * (style.css). The caret is not that signal: iOS's shake-to-undo alert takes
+ * the keyboard down and, dismissed, hands the field its focus back with the
+ * keyboard still down (phone-measured 2026-09-12), so a rule on `:focus`
+ * would keep the composer in the home indicator.
+ *
  * Vue-free; boot.ts installs it.
  */
 
@@ -23,6 +30,14 @@ import {hasVirtualKeyboard} from "./device";
 
 /** When a measurement is re-read after its event, in ms. The keyboard animates for ~250 ms. */
 export const SETTLE_DELAYS_MS = [50, 150, 300, 600];
+
+/** A visual viewport at least this much shorter than the window is the keyboard (or Safari's form bar) over the page; anything less is rounding. */
+export const KEYBOARD_MIN_PX = 8;
+
+/** Whether the keyboard (or Safari's form bar) is up: the window is taller than what it shows, and a text field is why. */
+export function keyboardUp(visual: number, inner: number, textFieldFocused: boolean): boolean {
+	return textFieldFocused && inner - visual >= KEYBOARD_MIN_PX;
+}
 
 /** The height to size the app to. */
 export function effectiveHeight(visual: number, inner: number, textFieldFocused: boolean): number {
@@ -52,13 +67,17 @@ export function installViewportHooks(): void {
 	const ios = CSS.supports("-webkit-touch-callout", "none");
 
 	const apply = () => {
-		const height = effectiveHeight(
-			viewport.height,
-			window.innerHeight,
-			isTextField(document.activeElement)
-		);
+		const focused = isTextField(document.activeElement);
+		const height = effectiveHeight(viewport.height, window.innerHeight, focused);
+		const root = document.documentElement;
 
-		document.documentElement.style.setProperty("--viewport-height", `${Math.round(height)}px`);
+		root.style.setProperty("--viewport-height", `${Math.round(height)}px`);
+
+		if (keyboardUp(viewport.height, window.innerHeight, focused)) {
+			root.dataset.keyboard = "up";
+		} else {
+			delete root.dataset.keyboard;
+		}
 
 		// The app fills the visible band, so anything iOS scrolled away is the
 		// header. scrollTo(0, 0) at 0 fires no scroll event, so this cannot loop.

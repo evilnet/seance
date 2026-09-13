@@ -3202,8 +3202,11 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 			padding-bottom: 34px;
 		}
 
-		/* The keyboard covers the indicator while a field is focused. */
-		body:has(#form #input:focus) #form {
+		/* The keyboard covers the indicator while it is up. That is the
+		 * viewport measurement in helpers/viewport.ts, not the caret: iOS's
+		 * shake-to-undo alert gives the composer its focus back with the
+		 * keyboard down, and a rule on :focus left it in the indicator. */
+		html[data-keyboard="up"] #form {
 			padding-bottom: 0.375rem;
 		}
 	}
