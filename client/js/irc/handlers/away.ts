@@ -11,8 +11,10 @@ import type {Handler} from "../types";
 
 const away: Handler = (client, msg) => {
 	const nick = msg.source?.name ?? "";
-	const text = msg.params[0] ?? "";
-	const type = text ? MessageType.AWAY : MessageType.BACK;
+	const raw = msg.params[0] ?? "";
+	// `draft/pre-away`: `*` is away for an unspecified reason — away, no text.
+	const text = raw === "*" ? "" : raw;
+	const type = raw ? MessageType.AWAY : MessageType.BACK;
 	const time = client.timeOf(msg);
 
 	if (!nick) {

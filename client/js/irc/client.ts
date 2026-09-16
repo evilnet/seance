@@ -43,6 +43,7 @@ import {
 	sendMultiline,
 } from "./multiline";
 import {cancelMarkRead, markReadAt, scheduleMarkRead} from "./handlers/markread";
+import {PresenceState, initialPresence, presenceRegistered, setAttended} from "./presence";
 import {abortHistory} from "./history";
 import {
 	cancelCatchup,
@@ -222,6 +223,8 @@ export class IrcClient {
 	/** Swapped for a new one on an STS upgrade; always subscribed via {@link reconfigure}. */
 	transport: Transport;
 	readonly isupport = new ISupport();
+	/** Attention and away bookkeeping (presence.ts). */
+	readonly presence: PresenceState = initialPresence();
 	readonly channels: Channel[] = [];
 	readonly lobby: Channel;
 	caps = new CapNegotiator(SEANCE_CAPS);
@@ -1068,6 +1071,7 @@ export class IrcClient {
 			secure: this.options.tls,
 		});
 		this.bus.dispatch("commands", commandNames());
+		presenceRegistered(this);
 
 		if (this.caps.enabled.size > 0) {
 			this.pushMessage(
@@ -1762,6 +1766,16 @@ export class IrcClient {
 	 * a pending catch-up is served now, and the channel modes are asked for
 	 * the first time round.
 	 */
+	/** The channel the UI shows for this network, if any. */
+	activeChannel(): Channel | undefined {
+		return this.activeChanId ? this.channelById(this.activeChanId) : undefined;
+	}
+
+	/** Attention changed (foreground.ts); see presence.ts. */
+	setAttended(attended: boolean): void {
+		setAttended(this, attended);
+	}
+
 	open(chanId: number): void {
 		this.activeChanId = chanId;
 		const chan = this.channelById(chanId);
@@ -2091,7 +2105,9 @@ export class IrcClient {
 			if (SELF_READ_TYPES.has(msg.type ?? MessageType.MESSAGE)) {
 				scheduleMarkRead(this, chan);
 			}
-		} else if (chan.id === this.activeChanId) {
+		} else if (chan.id === this.activeChanId && this.presence.attended) {
+			// Only a person looking reads it; a hidden page marks nothing
+			// (presence.ts marks the open channel when attention returns).
 			scheduleMarkRead(this, chan);
 		} else if (!read) {
 			if (!shared.firstUnread) {

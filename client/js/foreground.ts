@@ -12,7 +12,8 @@
 // The same moments are when a window that stayed open should look for a
 // newer build (pwa.ts checkForUpdate, throttled there).
 
-import {reconnectAll} from "./irc/manager";
+import {reconnectAll, setAttendedAll} from "./irc/manager";
+import {UNFOCUSED_AWAY_MS} from "./irc/presence";
 import {checkForUpdate} from "./pwa";
 
 function wake(): void {
@@ -25,9 +26,42 @@ export function installForegroundHooks(): void {
 		return;
 	}
 
+	// Attention (presence.ts): a hidden page is unattended at once — that
+	// is a phone switching apps; a visible page that lost focus waits
+	// UNFOCUSED_AWAY_MS so an alt-tab does not flap `AWAY *`.
+	let unfocusedTimer: ReturnType<typeof setTimeout> | null = null;
+
+	const attend = () => {
+		if (unfocusedTimer !== null) {
+			clearTimeout(unfocusedTimer);
+			unfocusedTimer = null;
+		}
+
+		setAttendedAll(true);
+	};
+
 	document.addEventListener("visibilitychange", () => {
 		if (document.visibilityState === "visible") {
 			wake();
+
+			if (document.hasFocus()) {
+				attend();
+			}
+		} else {
+			if (unfocusedTimer !== null) {
+				clearTimeout(unfocusedTimer);
+				unfocusedTimer = null;
+			}
+
+			setAttendedAll(false);
+		}
+	});
+	window.addEventListener("blur", () => {
+		if (unfocusedTimer === null) {
+			unfocusedTimer = setTimeout(() => {
+				unfocusedTimer = null;
+				setAttendedAll(false);
+			}, UNFOCUSED_AWAY_MS);
 		}
 	});
 
@@ -36,7 +70,10 @@ export function installForegroundHooks(): void {
 	document.addEventListener("resume", () => wake());
 
 	window.addEventListener("online", () => wake());
-	window.addEventListener("focus", () => wake());
+	window.addEventListener("focus", () => {
+		wake();
+		attend();
+	});
 
 	window.addEventListener("pageshow", (ev: PageTransitionEvent) => {
 		if (ev.persisted) {

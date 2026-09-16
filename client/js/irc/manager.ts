@@ -229,6 +229,13 @@ let lastPokeAt = 0;
  * to the foreground — browsers from foreground.ts, native shells from
  * native.ts; deliberately disconnected networks are left alone.
  */
+/** The page's attention changed: every connection tells its server (presence.ts). */
+export function setAttendedAll(attended: boolean): void {
+	for (const client of clients.values()) {
+		client.setAttended(attended);
+	}
+}
+
 export function reconnectAll(): void {
 	const now = Date.now();
 
