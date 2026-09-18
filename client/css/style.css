@@ -472,7 +472,6 @@ p {
 #chat .msg[data-type="whois"] .from::before,
 #chat .msg[data-type="nick"] .from::before,
 #chat .msg[data-type="chghost"] .from::before,
-#chat .msg[data-type="action"] .from::before,
 #chat .msg[data-type="plugin"] .from::before,
 #chat .msg[data-type="raw"] .from::before,
 #chat .msg-statusmsg span::before,
@@ -676,8 +675,12 @@ p {
 	color: #2ecc40;
 }
 
+/* An action (/me) is the speaker playing a part: the masks, not the
+ * FontAwesome star the rest of the gutter glyphs come from, so this rule is
+ * not in the icon-font list above and the emoji renders in the system's
+ * colour emoji face. */
 #chat .msg[data-type="action"] .from::before {
-	content: "\f005"; /* http://fontawesome.io/icon/star/ */
+	content: "\1F3AD"; /* 🎭 performing arts */
 }
 
 #chat .msg[data-type="plugin"] .from::before {

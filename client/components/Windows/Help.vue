@@ -524,6 +524,19 @@
 
 			<div class="help-item">
 				<div class="subject">
+					<code>/ver nick</code>
+				</div>
+				<div class="description">
+					<p>
+						Ask a user which client they run: a
+						<abbr title="Client-to-client protocol">CTCP</abbr> VERSION request, the
+						same as <code>/ctcp nick version</code>. The answer shows where you asked.
+					</p>
+				</div>
+			</div>
+
+			<div class="help-item">
+				<div class="subject">
 					<code>/deop nick [...nick]</code>
 				</div>
 				<div class="description">

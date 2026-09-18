@@ -204,6 +204,7 @@ describe("irc commands", function () {
 			"/devoice",
 			"/notice",
 			"/ctcp",
+			"/ver",
 			"/away",
 			"/back",
 			"/invite",
@@ -605,6 +606,21 @@ describe("irc commands", function () {
 
 			h.client.input(id, "/ctcp bob");
 			expect(lastMessage(id).text).to.equal("Usage: /ctcp <nick> <ctcp_type>");
+		});
+
+		it("/ver is a CTCP VERSION request", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.input(id, "/ver bob");
+			expect(h.sentAfter()).to.deep.equal(["PRIVMSG bob :\x01VERSION\x01"]);
+			const note = messages(id).find((m) => m.type === MessageType.CTCP_REQUEST);
+			expect(note?.ctcpMessage).to.equal('"VERSION" to bob');
+
+			h.client.input(id, "/ver");
+			expect(lastMessage(id).text).to.equal("Usage: /ver <nick>");
+			h.client.input(id, "/ver bob carol");
+			expect(lastMessage(id).text).to.equal("Usage: /ver <nick>");
+			expect(h.sentAfter()).to.deep.equal([]);
 		});
 	});
 
