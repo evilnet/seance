@@ -38,6 +38,7 @@ const configuration: SharedConfiguration = {
 		{name: "molokai", displayName: "Molokai", themeColor: "#1b1d1e"},
 		{name: "princess", displayName: "Princess", themeColor: "#f2f7fc"},
 		{name: "princess_", displayName: "Princess_", themeColor: "#000000"},
+		{name: "keeki", displayName: "Keeki", themeColor: "#22143a"},
 		{name: "sandrof", displayName: "Sandrof", themeColor: "#020402"},
 		{name: "oikarinen", displayName: "Oikarinen", themeColor: "#040301"},
 		{name: "bourbaki", displayName: "Bourbaki", themeColor: "#000000"},

@@ -32,6 +32,7 @@ const THEMES = [
 	"molokai",
 	"princess",
 	"princess_",
+	"keeki",
 	"day",
 	"morning",
 	"coffee",
@@ -44,6 +45,7 @@ const OWN_COLOR = {
 	molokai: "#1b1d1e",
 	princess: "#f2f7fc",
 	princess_: "#000000",
+	keeki: "#22143a",
 };
 
 export const url =
@@ -197,6 +199,13 @@ function speaker(nick) {
 	};
 }
 
+/** A real Enter keystroke in the focused input (keydown with text → keypress). */
+async function pressEnter(page) {
+	const key = {key: "Enter", code: "Enter", windowsVirtualKeyCode: 13};
+	await page.send("Input.dispatchKeyEvent", {type: "keyDown", text: "\r", ...key});
+	await page.send("Input.dispatchKeyEvent", {type: "keyUp", ...key});
+}
+
 export default async function run(page) {
 	// A ?host link only pre-fills the connect form (a link is a suggestion,
 	// boot.ts handleQueryParams); connect for real.
@@ -224,6 +233,17 @@ export default async function run(page) {
 	await page.waitFor(`!!document.querySelector("#chat .msg.highlight .user")`, {
 		label: "the mention is highlighted",
 	});
+	// One message of our own, so every screenshot shows an own row and a theme
+	// that bands them (keeki) is seen doing it.
+	await page.click("#input");
+	await page.fill("#input", "on it, give me five");
+	await pressEnter(page);
+	await page.waitFor(
+		`!!document.querySelector('#chat .msg.self[data-type="message"]:not(.pending) .content')`,
+		{
+			label: "our own message is echoed",
+		}
+	);
 	await page.evaluate(INSTALL_CONTRAST);
 
 	const setTheme = async (name) => {

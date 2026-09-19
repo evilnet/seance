@@ -1,0 +1,293 @@
+/* Keeki — for Keeki: pink, purple, rose gold and lavender on a deep
+ * purple-black, and no restraint whatsoever. The colours are the static
+ * mockup's (client/keeki-demo.html on the preview branch, 2026-09-19) moved
+ * onto coffee's tokens; the flourishes are this file's own: a rail of purple
+ * with four layers of 1–2px glitter in rose gold, pink, lavender and white
+ * (drifting where a pointer hovers and motion is allowed), the active row filled rose
+ * gold, own messages on a lighter band, a hot-pink mention badge, a ♡ before
+ * the open conversation and a 🐾 after every network's name — and, for
+ * Keeki, sunflowers and red roses drawn among the glitter and opening the
+ * day and new-message dividers.
+ *
+ * Every text colour clears 4.5:1 on the surface it sits on — lavender-dim
+ * #9f90bf, the faintest, is 6.3:1 on --chat-bg and 4.8:1 on the rail's top —
+ * and the nick palette is oklch(0.80 0.13 h) over a warm-weighted sweep (20
+ * slots pink → rose → peach → gold, 12 through the rest), ≥ 9:1 on --chat-bg,
+ * as the mockup's eight were. */
+@import "coffee.css";
+
+:root {
+	color-scheme: dark;
+
+	/* Chat surface: purple-black, cream text, lavender for what is quieter. */
+	--chat-bg: #1a1022;
+	--chat-fg: #f6ecf4;
+	--chat-fg-muted: #9f90bf;
+	--chat-fg-faint: #8677a8;
+	--chat-heading: #b9a8d6;
+	--chat-rule: #2c1d3a;
+	--chat-accent: #e9b6a6;
+	--chat-accent-fg: #2a1030;
+	--chat-accent-rule: rgb(233 182 166 / 50%);
+	--chat-highlight-bg: #33193d;
+	--chat-selection: #4d2a4d;
+	--composer-bg: #22143a;
+	--composer-border: #2c1d3a;
+	--window-border: #2c1d3a;
+	--window-shadow: 0 0 25px rgb(0 0 0 / 60%);
+	--menu-bg: #241530;
+	--own-bg: #241530;
+
+	/* Sidebar rail: the purple gradient under the glitter; the active row is
+	 * solid rose gold with dark text (the overrides below carry that through
+	 * the row's badge and icons), the mention badge hot pink. */
+	--rail-bg-top: #34205a;
+	--rail-bg-bottom: #22143a;
+	--rail-fg: #e6dcf7;
+	--rail-fg-strong: #f6ecf4;
+	--rail-fg-active: #fbf4ff;
+	--rail-fg-muted: #9f90bf;
+	--rail-item-active-bg: #e9b6a6;
+	--rail-item-hover-bg: rgb(233 182 166 / 10%);
+	--rail-accent: #ff7bc8;
+	--rail-accent-fg: #2a1030;
+	--rail-badge-bg: #e9b6a6;
+	--rail-badge-fg: #2a1030;
+	--rail-input-bg: #17102a;
+	--rail-input-border: #3d2a5e;
+
+	/* Message semantics: joins blush pink, quits pale lavender, notices
+	 * peach, /me lines the hot pink. */
+	--event-join: #f2a7b8;
+	--event-quit: #d3c2ff;
+	--nick-default: #e9b6a6;
+	--notice-color: #f0c98a;
+	--action-color: #ff7bc8;
+
+	/* Notice boxes */
+	--note-bg: #241530;
+	--note-fg: #b9a8d6;
+	--warn-bg: #3a2a1e;
+	--warn-fg: #f0c98a;
+	--error-bg: #3d1a2e;
+	--error-fg: #ff9bc0;
+	--ok-bg: #2a1d3a;
+	--ok-fg: #f2a7b8;
+
+	/* Tints in rose gold, the focus ring and the low-alpha accent in pink. */
+	--tint-soft: rgb(233 182 166 / 6%);
+	--tint-strong: rgb(233 182 166 / 12%);
+	--accent-tint-20: rgb(255 123 200 / 20%);
+	--accent-tint-30: rgb(255 123 200 / 30%);
+	--focus-ring: rgb(255 123 200 / 45%);
+	--scrollbar-track: rgb(246 236 244 / 6%);
+	--scrollbar-thumb: rgb(246 236 244 / 25%);
+	--scrollbar-thumb-active: rgb(246 236 244 / 40%);
+
+	/* Code blocks */
+	--tok-comment: #9f90bf;
+	--tok-keyword: #ff7bc8;
+	--tok-string: #f0c98a;
+	--tok-number: #e9b6a6;
+	--tok-function: #f2a7b8;
+	--tok-operator: #e9b6a6;
+	--tok-punctuation: #b9a8d6;
+	--tok-tag: #d3c2ff;
+	--tok-attr: #f0c98a;
+
+	/* The glitter, as custom properties so the sizes and the drift agree. */
+	--glitter-rose: rgb(233 182 166 / 95%);
+	--glitter-pink: rgb(255 123 200 / 85%);
+	--glitter-lavender: rgb(201 184 255 / 90%);
+	--glitter-white: rgb(255 255 255 / 90%);
+
+	/* The flowers, drawn: a sunflower (two rings of pointed petals in two
+	 * yellows over a seeded head) and a rose bud on its stem with one leaf,
+	 * each an inline SVG at 60% so they sit in the fabric; a second, smaller
+	 * sunflower gives the scatter depth. Each drawing sits in a viewBox the
+	 * shape of its tile, since background-size is the period as well as the
+	 * size. Still one file, no fetch. The reds and yellows on the page are for
+	 * the dividers' text. */
+	--sunflower: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 468 521'%3E%3Cg opacity='0.6' transform='translate(30 90)'%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23d99a10' transform='rotate(0.0 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23c98a08' transform='rotate(25.7 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23d99a10' transform='rotate(51.4 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23c98a08' transform='rotate(77.1 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23d99a10' transform='rotate(102.9 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23c98a08' transform='rotate(128.6 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23d99a10' transform='rotate(154.3 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23c98a08' transform='rotate(180.0 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23d99a10' transform='rotate(205.7 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23c98a08' transform='rotate(231.4 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23d99a10' transform='rotate(257.1 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23c98a08' transform='rotate(282.9 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23d99a10' transform='rotate(308.6 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23c98a08' transform='rotate(334.3 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23f4c430' transform='rotate(12.9 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23e8b21c' transform='rotate(38.6 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23f4c430' transform='rotate(64.3 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23e8b21c' transform='rotate(90.0 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23f4c430' transform='rotate(115.7 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23e8b21c' transform='rotate(141.4 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23f4c430' transform='rotate(167.1 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23e8b21c' transform='rotate(192.9 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23f4c430' transform='rotate(218.6 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23e8b21c' transform='rotate(244.3 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23f4c430' transform='rotate(270.0 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23e8b21c' transform='rotate(295.7 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23f4c430' transform='rotate(321.4 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23e8b21c' transform='rotate(347.1 32 32)'/%3E%3Ccircle cx='32' cy='32' r='11.5' fill='%235a3416'/%3E%3Ccircle cx='32' cy='32' r='9.5' fill='%233d2210'/%3E%3Ccircle cx='34.9' cy='32.6' r='1' fill='%232a1608'/%3E%3Ccircle cx='33.4' cy='34.7' r='1' fill='%232a1608'/%3E%3Ccircle cx='30.8' cy='34.7' r='1' fill='%232a1608'/%3E%3Ccircle cx='29.1' cy='32.8' r='1' fill='%232a1608'/%3E%3Ccircle cx='29.6' cy='30.2' r='1' fill='%232a1608'/%3E%3Ccircle cx='31.9' cy='29.0' r='1' fill='%232a1608'/%3E%3Ccircle cx='34.3' cy='30.1' r='1' fill='%232a1608'/%3E%3Ccircle cx='37.6' cy='34.2' r='1' fill='%232a1608'/%3E%3Ccircle cx='36.0' cy='36.4' r='1' fill='%232a1608'/%3E%3Ccircle cx='33.7' cy='37.8' r='1' fill='%232a1608'/%3E%3Ccircle cx='31.0' cy='37.9' r='1' fill='%232a1608'/%3E%3Ccircle cx='28.6' cy='36.9' r='1' fill='%232a1608'/%3E%3Ccircle cx='26.8' cy='34.9' r='1' fill='%232a1608'/%3E%3Ccircle cx='26.0' cy='32.4' r='1' fill='%232a1608'/%3E%3Ccircle cx='26.4' cy='29.8' r='1' fill='%232a1608'/%3E%3Ccircle cx='28.0' cy='27.6' r='1' fill='%232a1608'/%3E%3Ccircle cx='30.3' cy='26.2' r='1' fill='%232a1608'/%3E%3Ccircle cx='33.0' cy='26.1' r='1' fill='%232a1608'/%3E%3Ccircle cx='35.4' cy='27.1' r='1' fill='%232a1608'/%3E%3Ccircle cx='37.2' cy='29.1' r='1' fill='%232a1608'/%3E%3Ccircle cx='38.0' cy='31.6' r='1' fill='%232a1608'/%3E%3C/g%3E%3C/svg%3E");
+	--rose: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 277 555'%3E%3Cg opacity='0.6' transform='translate(170 300) rotate(-12 32 32)'%3E%3Cpath d='M33 62 C33 52 32 44 32 40' stroke='%233f7a3a' stroke-width='2.4' fill='none' stroke-linecap='round'/%3E%3Cpath d='M33 52 C40 52 46 46 47 40 C40 40 34 44 33 52 Z' fill='%234f8f3a'/%3E%3Cpath d='M34 51 C38 47 42 43 46 41' stroke='%232f6b2a' stroke-width='0.8' fill='none'/%3E%3Cpath d='M20 34 C22 40 27 43 32 44 C37 43 42 40 44 34 Z' fill='%233f7a3a'/%3E%3Cpath d='M32 8 C41 9 47 18 45 28 C44 36 38 42 32 42 C26 42 20 36 19 28 C17 18 23 9 32 8 Z' fill='%23c8102e'/%3E%3Cpath d='M32 42 C31 34 31 26 36 17 C39 22 41 30 38 40' fill='%23a80c24'/%3E%3Cpath d='M32 42 C33 34 30 24 25 17 C22 24 22 32 27 40' fill='%238b0a1e'/%3E%3Cpath d='M24 20 C27 14 30 11 34 10' stroke='%23f05a70' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3Cpath d='M29 12 C33 14 36 18 37 24' stroke='%23e63950' stroke-width='1' fill='none' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E");
+	--sunflower-small: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 485 618'%3E%3Cg opacity='0.6' transform='translate(380 60) rotate(20 32 32)'%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23d99a10' transform='rotate(0.0 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23c98a08' transform='rotate(25.7 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23d99a10' transform='rotate(51.4 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23c98a08' transform='rotate(77.1 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23d99a10' transform='rotate(102.9 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23c98a08' transform='rotate(128.6 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23d99a10' transform='rotate(154.3 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23c98a08' transform='rotate(180.0 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23d99a10' transform='rotate(205.7 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23c98a08' transform='rotate(231.4 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23d99a10' transform='rotate(257.1 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23c98a08' transform='rotate(282.9 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23d99a10' transform='rotate(308.6 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.2' ry='15' fill='%23c98a08' transform='rotate(334.3 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23f4c430' transform='rotate(12.9 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23e8b21c' transform='rotate(38.6 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23f4c430' transform='rotate(64.3 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23e8b21c' transform='rotate(90.0 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23f4c430' transform='rotate(115.7 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23e8b21c' transform='rotate(141.4 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23f4c430' transform='rotate(167.1 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23e8b21c' transform='rotate(192.9 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23f4c430' transform='rotate(218.6 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23e8b21c' transform='rotate(244.3 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23f4c430' transform='rotate(270.0 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23e8b21c' transform='rotate(295.7 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23f4c430' transform='rotate(321.4 32 32)'/%3E%3Cellipse cx='32' cy='15' rx='4.6' ry='17' fill='%23e8b21c' transform='rotate(347.1 32 32)'/%3E%3Ccircle cx='32' cy='32' r='11.5' fill='%235a3416'/%3E%3Ccircle cx='32' cy='32' r='9.5' fill='%233d2210'/%3E%3Ccircle cx='34.9' cy='32.6' r='1' fill='%232a1608'/%3E%3Ccircle cx='33.4' cy='34.7' r='1' fill='%232a1608'/%3E%3Ccircle cx='30.8' cy='34.7' r='1' fill='%232a1608'/%3E%3Ccircle cx='29.1' cy='32.8' r='1' fill='%232a1608'/%3E%3Ccircle cx='29.6' cy='30.2' r='1' fill='%232a1608'/%3E%3Ccircle cx='31.9' cy='29.0' r='1' fill='%232a1608'/%3E%3Ccircle cx='34.3' cy='30.1' r='1' fill='%232a1608'/%3E%3Ccircle cx='37.6' cy='34.2' r='1' fill='%232a1608'/%3E%3Ccircle cx='36.0' cy='36.4' r='1' fill='%232a1608'/%3E%3Ccircle cx='33.7' cy='37.8' r='1' fill='%232a1608'/%3E%3Ccircle cx='31.0' cy='37.9' r='1' fill='%232a1608'/%3E%3Ccircle cx='28.6' cy='36.9' r='1' fill='%232a1608'/%3E%3Ccircle cx='26.8' cy='34.9' r='1' fill='%232a1608'/%3E%3Ccircle cx='26.0' cy='32.4' r='1' fill='%232a1608'/%3E%3Ccircle cx='26.4' cy='29.8' r='1' fill='%232a1608'/%3E%3Ccircle cx='28.0' cy='27.6' r='1' fill='%232a1608'/%3E%3Ccircle cx='30.3' cy='26.2' r='1' fill='%232a1608'/%3E%3Ccircle cx='33.0' cy='26.1' r='1' fill='%232a1608'/%3E%3Ccircle cx='35.4' cy='27.1' r='1' fill='%232a1608'/%3E%3Ccircle cx='37.2' cy='29.1' r='1' fill='%232a1608'/%3E%3Ccircle cx='38.0' cy='31.6' r='1' fill='%232a1608'/%3E%3C/g%3E%3C/svg%3E");
+	--sunflower-on-page: #f2c94c;
+	--rose-on-page: #ff5c74;
+	--date-marker-color: var(--rose-on-page);
+	--unread-marker-color: var(--sunflower-on-page);
+}
+
+/* The rail: coffee's gradient, a diagonal rose-gold sheen over it, four
+ * layers of glitter, and on top of those the flowers — each a tiled radial
+ * gradient at its own period and offset, so nothing lines up into a grid.
+ * A sunflower is a brown heart over eight round petals (nine layers, one
+ * tile; the heart is listed first so it paints on top), a rose is a dark disc under a red ring, a brighter ring
+ * and a red dot each set a little off centre so it turns like a bloom seen
+ * from above (four layers). Their periods are three rows tall, so the rail
+ * carries a scattering of about nine flowers, not a grid of them.
+ * Both drawn, no image, so they take the palette's colours. */
+#sidebar {
+	background-color: var(--rail-bg-bottom);
+	background-image:
+		var(--sunflower),
+		var(--rose),
+		var(--sunflower-small),
+		radial-gradient(circle, var(--glitter-rose) 0 1px, transparent 1.6px),
+		radial-gradient(circle, var(--glitter-pink) 0 1px, transparent 1.6px),
+		radial-gradient(circle, var(--glitter-lavender) 0 0.8px, transparent 1.4px),
+		radial-gradient(circle, var(--glitter-white) 0 0.7px, transparent 1.3px),
+		linear-gradient(
+			135deg,
+			rgb(233 182 166 / 14%) 0%,
+			transparent 35%,
+			transparent 65%,
+			rgb(255 123 200 / 10%) 100%
+		),
+		linear-gradient(180deg, var(--rail-bg-top) 0%, var(--rail-bg-bottom) 100%);
+	background-size:
+		263px 293px,
+		173px 347px,
+		197px 251px,
+		97px 113px,
+		131px 79px,
+		173px 151px,
+		61px 89px,
+		100% 100%,
+		100% 100%;
+	background-position:
+		31px 89px,
+		167px 211px,
+		191px 23px,
+		13px 7px,
+		41px 53px,
+		5px 91px,
+		29px 17px,
+		0 0,
+		0 0;
+}
+
+/* The drift repaints the rail every frame for as long as the tab is open —
+ * fine for a desktop's 250×900px, battery on a phone whose rail is off-screen
+ * most of the time — so it needs a pointer that hovers as well as no
+ * reduced-motion preference. */
+@media (prefers-reduced-motion: no-preference) and (hover: hover) {
+	#sidebar {
+		animation: keeki-twinkle 40s linear infinite;
+	}
+
+	@keyframes keeki-twinkle {
+		to {
+			background-position:
+				101px 179px,
+				247px 291px,
+				281px 103px,
+				110px 120px,
+				172px 132px,
+				178px 242px,
+				90px 106px,
+				0 0,
+				0 0;
+		}
+	}
+}
+
+/* The open conversation: a rose-gold row, so everything on it goes dark —
+ * the name, the badge (which flips to dark on rose gold), the lobby's tool
+ * glyphs and the chevron — and the hot-pink marker stays at its left edge. */
+.channel-list-item.active,
+.channel-list-item.active:hover,
+.channel-list-item[data-type="lobby"].active,
+.channel-list-item[data-type="lobby"].active:hover,
+.channel-list-item.active.has-highlight:not(.is-muted) .name,
+.channel-list-item.active .close::before,
+.channel-list-item[data-type="lobby"].active .add-channel::before,
+.channel-list-item[data-type="lobby"].active .edit-network::before,
+.channel-list-item.active .notify-status-icon.enabled::before,
+.channel-list-item.active .notify-status-icon.off::before,
+#sidebar .network .channel-list-item.active .collapse-network-icon::before {
+	color: var(--rail-accent-fg);
+}
+
+.channel-list-item.active .badge,
+.channel-list-item.active .badge.highlight {
+	background: var(--rail-accent-fg);
+	color: var(--rail-item-active-bg);
+}
+
+#footer button.active {
+	color: var(--rail-accent-fg);
+}
+
+/* The dividers bloom: the day in roses, new messages in sunflowers. */
+#chat .date-marker-text::before {
+	content: "✿ " attr(aria-label) " ✿";
+}
+
+#chat .unread-marker-text::before {
+	content: "❀ New messages ❀";
+}
+
+/* ♡ before the open conversation, 🐾 after every network. */
+.channel-list-item.active .name::before {
+	content: "♡ ";
+}
+
+.channel-list-item[data-type="lobby"] .name::after {
+	content: " 🐾";
+}
+
+/* Own messages on a shade lighter than the chat, as in the mockup, so the
+ * scrollback bands — what we said, not our own join or mode lines, which
+ * carry .self as well. A highlighted row's tint still wins (higher
+ * specificity in style.css). */
+#chat .msg.self[data-type="message"],
+#chat .msg.self[data-type="action"] {
+	background-color: var(--own-bg);
+}
+
+/* style.css greys own text to the muted tone, which here is lavender and
+ * reads as disabled; the band is what marks the row, the text stays cream. */
+#chat .msg.self .content {
+	color: var(--chat-fg);
+}
+
+/* The composer's caret and the focus edge: rose gold with a pink glow. */
+#form:focus-within {
+	border-top-color: var(--chat-accent);
+	box-shadow: inset 0 2px 0 var(--focus-ring);
+}
+
+/* Nick colours: oklch(0.80 0.13 h), 20 slots over the warm arc 320°→80° and
+ * 12 over the rest. */
+.user.color-1 { color: #e3a2f2; }
+.user.color-2 { color: #e9a0eb; }
+.user.color-3 { color: #ef9ee3; }
+.user.color-4 { color: #f49cdb; }
+.user.color-5 { color: #f89bd2; }
+.user.color-6 { color: #fc9ac9; }
+.user.color-7 { color: #fd9bc0; }
+.user.color-8 { color: #fe9cb8; }
+.user.color-9 { color: #fd9eb0; }
+.user.color-10 { color: #ff9ea7; }
+.user.color-11 { color: #fda1a0; }
+.user.color-12 { color: #fda299; }
+.user.color-13 { color: #ffa28f; }
+.user.color-14 { color: #fea387; }
+.user.color-15 { color: #fea47d; }
+.user.color-16 { color: #fea572; }
+.user.color-17 { color: #fda767; }
+.user.color-18 { color: #f9aa60; }
+.user.color-19 { color: #f5ad5a; }
+.user.color-20 { color: #efb055; }
+.user.color-21 { color: #e9b452; }
+.user.color-22 { color: #d1bf53; }
+.user.color-23 { color: #b3ca65; }
+.user.color-24 { color: #90d281; }
+.user.color-25 { color: #68d7a1; }
+.user.color-26 { color: #40d9c1; }
+.user.color-27 { color: #28d6df; }
+.user.color-28 { color: #40d1f7; }
+.user.color-29 { color: #78c7fd; }
+.user.color-30 { color: #98bffe; }
+.user.color-31 { color: #b1b7fd; }
+.user.color-32 { color: #c9adfd; }
