@@ -33,6 +33,14 @@
 			@click.stop="copyText"
 		/>
 		<button
+			v-if="canSelectText"
+			type="button"
+			class="msg-action msg-action-select"
+			aria-label="Select text"
+			title="Select text"
+			@click="selectText"
+		/>
+		<button
 			v-if="codeBlocks.length > 0"
 			type="button"
 			class="msg-action msg-action-copy"
@@ -80,6 +88,7 @@ import {startEdit, startReply} from "../js/helpers/compose";
 import {myReactions} from "../js/helpers/messageUpdates";
 import {loadEmojiCatalog} from "../js/helpers/emoji";
 import {hasVirtualKeyboard} from "../js/helpers/device";
+import {enterTextSelect} from "../js/helpers/textSelect";
 import {ChanType} from "../../shared/types/chan";
 import {MessageType} from "../../shared/types/msg";
 import type {ClientChan, ClientMessage, ClientNetwork} from "../js/types";
@@ -160,6 +169,14 @@ export default defineComponent({
 		const canCopyText = hasVirtualKeyboard() && !!props.message.text;
 		const copyText = () => copy("text", props.message.text ?? "");
 
+		// "Select text" lifts that `user-select: none` for the whole
+		// scrollback (helpers/textSelect.ts), so a long press selects with
+		// the platform's own handles — the way several messages are copied
+		// at once. Pointer devices select as they always have and do not
+		// get the button either.
+		const canSelectText = hasVirtualKeyboard();
+		const selectText = () => enterTextSelect();
+
 		// Only plain text can be edited (the IRC layer resends it tagged).
 		const canEdit = computed(
 			() => !!props.message.self && props.message.type === MessageType.MESSAGE
@@ -235,6 +252,8 @@ export default defineComponent({
 			codeBlocks,
 			copied,
 			canCopyText,
+			canSelectText,
+			selectText,
 			reply,
 			edit,
 			react,

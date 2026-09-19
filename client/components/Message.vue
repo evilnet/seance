@@ -201,6 +201,7 @@ import {MessageType} from "../../shared/types/msg";
 import type {ClientChan, ClientMessage, ClientNetwork} from "../js/types";
 import {useStore} from "../js/store";
 import {hasVirtualKeyboard} from "../js/helpers/device";
+import {textSelectMode} from "../js/helpers/textSelect";
 
 MessageTypes.ParsedMessage = ParsedMessage;
 MessageTypes.LinkPreview = LinkPreview;
@@ -219,6 +220,15 @@ const LONG_PRESS_MS = 500;
 
 /** A finger that travels further than this is scrolling, not pressing. */
 const LONG_PRESS_SLOP_PX = 10;
+
+// Entering text-selection mode puts the open toolbar away; the long press
+// and the contextmenu block below stand down while it is on, so the
+// platform's own long press is the one that runs.
+watch(textSelectMode, (on) => {
+	if (on) {
+		openActions.value = null;
+	}
+});
 
 export default defineComponent({
 	name: "Message",
@@ -263,7 +273,7 @@ export default defineComponent({
 		};
 
 		const onTouchStart = (e: TouchEvent) => {
-			if (!hasVirtualKeyboard() || e.touches.length !== 1) {
+			if (!hasVirtualKeyboard() || e.touches.length !== 1 || textSelectMode.value) {
 				return;
 			}
 
@@ -311,7 +321,7 @@ export default defineComponent({
 
 		// The browser's own long-press menu (Android) would open over ours.
 		const onContextMenu = (e: MouseEvent) => {
-			if (hasVirtualKeyboard()) {
+			if (hasVirtualKeyboard() && !textSelectMode.value) {
 				e.preventDefault();
 			}
 		};

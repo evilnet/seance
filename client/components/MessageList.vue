@@ -1,5 +1,5 @@
 <template>
-	<div ref="chat" class="chat" :class="{selecting}" tabindex="-1">
+	<div ref="chat" class="chat" :class="{selecting, 'select-text': textSelectMode}" tabindex="-1">
 		<div v-show="channel.moreHistoryAvailable" class="show-more">
 			<button
 				ref="loadMoreButton"
@@ -64,6 +64,7 @@ import {ChanState, ChanType} from "../../shared/types/chan";
 import {MessageType, SharedMsg} from "../../shared/types/msg";
 import clipboard from "../js/clipboard";
 import {noteScroll, noteTouch} from "../js/helpers/scrollSettle";
+import {leaveTextSelect, textSelectMode} from "../js/helpers/textSelect";
 import socket from "../js/socket";
 import Message from "./Message.vue";
 import MessageCondensed from "./MessageCondensed.vue";
@@ -671,6 +672,13 @@ export default defineComponent({
 			}
 		);
 
+		// Text-selection mode belongs to the scrollback it was entered in:
+		// opening another conversation leaves it, as does leaving chat.
+		watch(
+			() => props.channel.id,
+			() => leaveTextSelect()
+		);
+
 		onBeforeUpdate(() => {
 			unreadMarkerShown = false;
 		});
@@ -682,6 +690,8 @@ export default defineComponent({
 		});
 
 		onUnmounted(() => {
+			leaveTextSelect();
+
 			if (verifyTimer !== null) {
 				clearTimeout(verifyTimer);
 			}
@@ -711,6 +721,7 @@ export default defineComponent({
 			jumpToBottom,
 			onLinkPreviewToggle,
 			selecting,
+			textSelectMode,
 			onPointerDown,
 		};
 	},

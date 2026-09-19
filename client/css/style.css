@@ -1832,6 +1832,26 @@ textarea.input {
 	right: calc(var(--userlist-width) + 1rem);
 }
 
+/* The pill that puts "Select text" (touch text-selection mode) away. It
+ * floats over the top edge of the scrollback the way the jump-to-recent
+ * arrow floats over the bottom, and wears the same chrome. Chat.vue renders
+ * it only while the mode is on. */
+.select-text-done {
+	position: absolute;
+	top: 0.5rem;
+	left: 50%;
+	transform: translateX(-50%);
+	z-index: 3; /* over the toolbars, like the arrow */
+	padding: 0.375rem 1rem;
+	border-radius: 1rem;
+	background: var(--window-bg-color);
+	color: var(--button-color);
+	border: 2px solid var(--button-color);
+	font-weight: bold;
+	box-shadow: 0 6px 10px 0 rgb(0 0 0 / 15%);
+	user-select: none;
+}
+
 #chat .messages {
 	padding: 10px 0;
 	touch-action: pan-y;
@@ -4591,6 +4611,13 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	display: none;
 }
 
+/* Text-selection mode (helpers/textSelect.ts): every toolbar stands down —
+ * without this the :focus-within left on the button that entered the mode
+ * keeps its toolbar floating over the text being selected. */
+#chat .chat.select-text .msg-actions {
+	display: none;
+}
+
 /* While the jump-to-recent arrow is up (the view is scrolled back) it owns
  * the bottom-right corner: the toolbar moves left of its column so the two
  * never overlap, whichever row is hovered. */
@@ -4622,6 +4649,16 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	}
 
 	#chat .messages .msg a {
+		-webkit-touch-callout: default;
+	}
+
+	/* The toolbar's "Select text" lifts that (helpers/textSelect.ts): the
+	 * platform's own long press selects with its native handles, across
+	 * messages too, until the Done pill (Chat.vue) puts the mode away. The
+	 * long press that opens the toolbar stands down meanwhile
+	 * (Message.vue). */
+	#chat .chat.select-text .messages .msg {
+		user-select: text;
 		-webkit-touch-callout: default;
 	}
 }
@@ -4661,6 +4698,7 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 #chat .msg-action-copy.copied::before,
 #chat .msg-action-copy-text.copied::before { content: "\f00c"; /* https://fontawesome.com/icons/check?style=solid */ }
 
+#chat .msg-action-select::before { content: "\f246"; /* https://fontawesome.com/icons/i-cursor?style=solid */ }
 #chat .msg-action-edit::before { content: "\f304"; /* https://fontawesome.com/icons/pen?style=solid */ }
 #chat .msg-action-delete::before { content: "\f2ed"; /* https://fontawesome.com/icons/trash-alt?style=solid */ }
 

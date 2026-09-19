@@ -99,6 +99,14 @@
 				</div>
 				<div v-else class="chat-content">
 					<button
+						v-if="textSelectMode"
+						type="button"
+						class="select-text-done"
+						@click="leaveTextSelect"
+					>
+						Done selecting
+					</button>
+					<button
 						:class="[
 							'scroll-down tooltipped tooltipped-w tooltipped-no-touch',
 							{'scroll-down-shown': !channel.scrolledToBottom},
@@ -145,6 +153,7 @@ import ListChannels from "./Special/ListChannels.vue";
 import ListIgnored from "./Special/ListIgnored.vue";
 import {defineComponent, PropType, ref, computed, watch, nextTick, onMounted, Component} from "vue";
 import {channelOpened} from "../js/helpers/lastChannel";
+import {leaveTextSelect, textSelectMode} from "../js/helpers/textSelect";
 import type {ClientNetwork, ClientChan} from "../js/types";
 import {useStore} from "../js/store";
 import {SpecialChanType, ChanType} from "../../shared/types/chan";
@@ -313,6 +322,8 @@ export default defineComponent({
 			saveTopic,
 			openContextMenu,
 			openMentions,
+			textSelectMode,
+			leaveTextSelect,
 		};
 	},
 });
