@@ -8,6 +8,7 @@
 				highlight: (message.highlight && store.state.settings.highlightMessages) || focused,
 				pending: message.pending,
 				'previous-source': isPreviousSource,
+				'has-actions': canAct,
 				'actions-open': actionsOpen,
 				'select-armed': actionsOpen && selectArmed,
 			},
@@ -269,12 +270,26 @@ export default defineComponent({
 		// On a touch device the toolbar opens on a long press, as it does in
 		// every native chat client, and a tap anywhere puts it away. The
 		// message text is not selectable there (style.css, the coarse-pointer
-		// rule on `.msg`), so the platform's own long press — a text selection
-		// — does not race this one; the toolbar's Copy text stands in for it.
+		// rule on `.msg.has-actions`), so the platform's own long press — a
+		// text selection — does not race this one; the toolbar's Copy text
+		// stands in for it.
 		// Pointer devices keep hovering. Presses that start on a link, a
 		// button or a nick are theirs: a link long press is its preview, a
 		// nick tap is a whois.
 		const actionsOpen = computed(() => openActions.value === props.message.id);
+
+		// Hover action bar: only for real chat lines we can address by msgid,
+		// and only while the network is connected. A row without one (the
+		// topic, a mode change, a notice) gets no long press of ours and stays
+		// selectable on touch: its first long press is the platform's.
+		const canAct = computed(
+			() =>
+				(props.message.type === MessageType.MESSAGE ||
+					props.message.type === MessageType.ACTION) &&
+				!!props.message.msgid &&
+				!props.message.redacted &&
+				props.network.status.connected
+		);
 
 		let pressTimer: ReturnType<typeof setTimeout> | undefined;
 		let pressStart: {x: number; y: number} | null = null;
@@ -290,7 +305,7 @@ export default defineComponent({
 		};
 
 		const onTouchStart = (e: TouchEvent) => {
-			if (!hasVirtualKeyboard() || e.touches.length !== 1) {
+			if (!hasVirtualKeyboard() || e.touches.length !== 1 || !canAct.value) {
 				return;
 			}
 
@@ -360,7 +375,7 @@ export default defineComponent({
 		// open. `swallowClick` still set means this very press is the one
 		// that opened the toolbar, and that race stays prevented.
 		const onContextMenu = (e: MouseEvent) => {
-			if (!hasVirtualKeyboard()) {
+			if (!hasVirtualKeyboard() || !canAct.value) {
 				return;
 			}
 
@@ -523,17 +538,6 @@ export default defineComponent({
 
 			revealed.value = false;
 		};
-
-		// Hover action bar: only for real chat lines we can address by msgid,
-		// and only while the network is connected.
-		const canAct = computed(
-			() =>
-				(props.message.type === MessageType.MESSAGE ||
-					props.message.type === MessageType.ACTION) &&
-				!!props.message.msgid &&
-				!props.message.redacted &&
-				props.network.status.connected
-		);
 
 		return {
 			store,

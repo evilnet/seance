@@ -83,6 +83,7 @@ function speaker(nick) {
 			setTimeout(() => reject(new Error(`${nick} never joined ${CHANNEL}`)), 20000);
 		}),
 		say: (text) => ws.send(`PRIVMSG ${CHANNEL} :${text}`),
+		notice: (text) => ws.send(`NOTICE ${CHANNEL} :${text}`),
 		quit: () => ws.send("QUIT :done"),
 	};
 }
@@ -274,6 +275,45 @@ export default async function run(page) {
 	await tap(page, `${second} .content`);
 	await page.check("a tap still closes it", (await openIds()).length === 0);
 	await page.screenshot("3-toolbar-still-normal");
+
+	// 5. A line with no toolbar — a notice, the topic, a mode change, a
+	//    condensed join — has nothing for a long press to open, so it is the
+	//    platform's from the first press: selectable at rest, and a long
+	//    press on it opens no toolbar and arms nothing. (Before the fix it
+	//    "opened" the toolbar it has not got: a silent first press that
+	//    armed `select-armed`, and only the second one selected.)
+	talker.notice(`a notice in ${token}`);
+	await page.waitFor(
+		`Array.from(document.querySelectorAll('#chat .msg[data-type="notice"] .content')).some((c) => c.textContent.includes(${JSON.stringify(
+			token
+		)}))`,
+		{timeout: 15000, label: "a notice to press"}
+	);
+	await page.sleep(400);
+
+	const notice = `#${await page.evaluate(
+		`Array.from(document.querySelectorAll('#chat .msg[data-type="notice"]')).find((m) => m.textContent.includes(${JSON.stringify(
+			token
+		)})).id`
+	)}`;
+	await page.check("a notice is selectable at rest", (await userSelectOf(notice)) === "text");
+	await longPress(page, `${notice} .content`);
+	await page.check(
+		`a long press on it opens no toolbar (${JSON.stringify(await openIds())})`,
+		(await openIds()).length === 0
+	);
+	await page.check("and arms nothing on it", (await page.count(`${notice}.select-armed`)) === 0);
+	await page.check("it is still selectable", (await userSelectOf(notice)) === "text");
+	await page.check("a real message still is not", (await userSelectOf(first)) === "none");
+
+	if ((await page.count('#chat .msg[data-type="condensed"]')) > 0) {
+		await page.check(
+			"a condensed join/part row is selectable too",
+			(await userSelectOf('#chat .msg[data-type="condensed"]')) === "text"
+		);
+	}
+
+	await page.screenshot("4-notice-selectable");
 
 	await page.check("no console errors", page.consoleErrors.length === 0);
 

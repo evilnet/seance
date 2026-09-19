@@ -4607,11 +4607,14 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 
 /* A touch device fakes hover on a long press; here the long press is what
  * opens the toolbar (Message.vue sets `actions-open`, one message at a
- * time), and hover is never trusted. The message text is not selectable
- * there, so the platform's own long press — a text selection — cannot race
- * ours; the toolbar's Copy text is how the text is copied on a phone. Links
- * keep their own long press (the preview), and are excluded from it in
- * Message.vue. */
+ * time), and hover is never trusted. The text of a message that has a
+ * toolbar (`has-actions`, Message.vue's `canAct`) is not selectable there,
+ * so the platform's own long press — a text selection — cannot race ours;
+ * the toolbar's Copy text is how the text is copied on a phone. A row
+ * without one — the topic, a mode change, a notice, a condensed join — has
+ * nothing to open, so it stays selectable and its first long press is the
+ * platform's. Links keep their own long press (the preview), and are
+ * excluded from it in Message.vue. */
 @media (hover: none) {
 	#chat .msg:hover .msg-actions {
 		display: none;
@@ -4623,7 +4626,7 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 }
 
 @media (hover: none) and (pointer: coarse) {
-	#chat .messages .msg {
+	#chat .messages .msg.has-actions {
 		user-select: none;
 		-webkit-touch-callout: none;
 	}
