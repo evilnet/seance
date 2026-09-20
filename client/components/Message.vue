@@ -233,6 +233,12 @@ watch(openActions, () => {
 	selectArmed.value = false;
 });
 
+/** Put the open toolbar away, from outside a Message (MessageList's tap
+ * handling while the keyboard is up, where no click event ever comes). */
+export function closeActions(): void {
+	openActions.value = null;
+}
+
 /** How long a finger has to stay down before the toolbar opens. Android's own
  * long press is 500 ms too, so the gesture feels like the platform's. */
 const LONG_PRESS_MS = 500;

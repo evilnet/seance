@@ -71,7 +71,7 @@ import clipboard from "../js/clipboard";
 import {noteScroll, noteTouch} from "../js/helpers/scrollSettle";
 import {selectionActive, unwatchSelection, watchSelection} from "../js/helpers/touchSelection";
 import socket from "../js/socket";
-import Message from "./Message.vue";
+import Message, {closeActions} from "./Message.vue";
 import MessageCondensed from "./MessageCondensed.vue";
 import DateMarker from "./DateMarker.vue";
 import {
@@ -546,8 +546,53 @@ export default defineComponent({
 		// must not decide whether the list is still pinned.
 		let seenHeight = 0;
 
-		const touchDown = () => noteTouch(true);
+		/** Whether a toolbar was open when the current touch began: a tap
+		 * closes that one, never the toolbar this very press just opened. */
+		let toolbarOpenAtTouch = false;
+
+		const touchDown = () => {
+			toolbarOpenAtTouch = chat.value?.querySelector(".msg.actions-open") !== null;
+			noteTouch(true);
+		};
+
 		const touchUp = () => noteTouch(false);
+
+		// A tap on the scrollback while the keyboard is up keeps it up. iOS
+		// blurs the composer from the mouse events it synthesises after the
+		// tap, and cancelling touchend is what stops those (touchstart stays
+		// untouched, so scrolling, the long press and the platform's text
+		// selection are still its own). A scroll has already dropped the
+		// keyboard on touchmove, so by its touchend nothing is focused and
+		// the tap runs as before; a live selection is left to the platform.
+		// Controls keep their click. Without a click, the tap that closes an
+		// open toolbar (Message.vue onClick) has to be done here.
+		const keepKeyboard = (e: TouchEvent) => {
+			const active = document.activeElement as HTMLElement | null;
+
+			if (!active || (active.tagName !== "TEXTAREA" && active.tagName !== "INPUT")) {
+				return;
+			}
+
+			if (hasSelection()) {
+				return;
+			}
+
+			const target = e.target as HTMLElement | null;
+
+			if (
+				target?.closest(
+					"a, button, [role='button'], input, textarea, .msg-actions, .reaction-picker"
+				)
+			) {
+				return;
+			}
+
+			e.preventDefault();
+
+			if (toolbarOpenAtTouch) {
+				closeActions();
+			}
+		};
 
 		const handleScroll = () => {
 			// The list is moving: a page arriving now is held (scrollSettle.ts).
@@ -603,6 +648,7 @@ export default defineComponent({
 			chat.value?.addEventListener("touchmove", dismissKeyboard, {passive: true});
 			chat.value?.addEventListener("touchstart", touchDown, {passive: true});
 			chat.value?.addEventListener("touchend", touchUp, {passive: true});
+			chat.value?.addEventListener("touchend", keepKeyboard);
 			chat.value?.addEventListener("touchcancel", touchUp, {passive: true});
 
 			if (chat.value) {
@@ -698,6 +744,7 @@ export default defineComponent({
 			chat.value?.removeEventListener("touchmove", dismissKeyboard);
 			chat.value?.removeEventListener("touchstart", touchDown);
 			chat.value?.removeEventListener("touchend", touchUp);
+			chat.value?.removeEventListener("touchend", keepKeyboard);
 			chat.value?.removeEventListener("touchcancel", touchUp);
 			noteTouch(false);
 
