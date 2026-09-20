@@ -589,9 +589,22 @@ export default defineComponent({
 
 			e.preventDefault();
 
-			if (toolbarOpenAtTouch) {
-				closeActions();
+			if (!toolbarOpenAtTouch) {
+				return;
 			}
+
+			// A press on the row whose toolbar is open is the way to the
+			// platform's text selection, and iOS starts none in the scrollback
+			// while the composer holds the keyboard (measured 2026-09-20: the
+			// toolbar stays, no selection, whatever the event handling). So
+			// this press gives the keyboard up, the toolbar stays, and the
+			// next long press is the platform's.
+			if (target?.closest(".msg.actions-open")) {
+				active.blur();
+				return;
+			}
+
+			closeActions();
 		};
 
 		const handleScroll = () => {
