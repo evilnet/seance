@@ -21,6 +21,7 @@
 
 	/* Chat surface: purple-black, cream text, lavender for what is quieter. */
 	--chat-bg: #1a1022;
+	--canvas-bg-color: var(--chat-bg); /* the status-bar strip, style.css */
 	--chat-fg: #f6ecf4;
 	--chat-fg-muted: #9f90bf;
 	--chat-fg-faint: #8677a8;
