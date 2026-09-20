@@ -75,6 +75,11 @@ export function installNativeHooks(): void {
 	// says when it goes — the two things iOS never tells a page straight
 	// (helpers/viewport.ts). Demo, 2026-09-20: logged so the phone can be
 	// compared with the visual-viewport figures.
+	// iOS's form accessory bar (˄ ˅ Done) above the keyboard: nothing in the
+	// app for it to step between, and it is the floating pill that covered
+	// the composer in the PWA. The keyboard's own Done key does the job.
+	void cap.nativePromise!("Keyboard", "setAccessoryBarVisible", {isVisible: false});
+
 	cap.addListener(
 		"Keyboard",
 		"keyboardWillShow",
