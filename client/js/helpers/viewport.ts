@@ -76,6 +76,21 @@ export function visibleHeight(): number {
 	);
 }
 
+/**
+ * The keyboard's height as the native shell reports it (native.ts, from
+ * Capacitor's keyboardWillShow/WillHide), or null where no shell says. When
+ * set it outranks the visual-viewport guess: the number is the keyboard's
+ * frame, form bar included, announced before the animation, so no settle
+ * re-reads and no mid-animation height.
+ */
+let nativeKeyboard: number | null = null;
+let reapply: (() => void) | null = null;
+
+export function setNativeKeyboard(height: number | null): void {
+	nativeKeyboard = height;
+	reapply?.();
+}
+
 export function installViewportHooks(): void {
 	const viewport = window.visualViewport;
 
@@ -88,12 +103,24 @@ export function installViewportHooks(): void {
 
 	const apply = () => {
 		const focused = isTextField(document.activeElement);
-		const height = effectiveHeight(viewport.height, window.innerHeight, focused);
 		const root = document.documentElement;
+		let height: number;
+		let up: boolean;
+
+		if (nativeKeyboard !== null) {
+			// The window keeps its size in the shell (Keyboard resize: none),
+			// so the band is what the keyboard leaves of it.
+			const full = Math.max(viewport.height, window.innerHeight);
+			height = nativeKeyboard > 0 ? full - nativeKeyboard : full;
+			up = nativeKeyboard > 0;
+		} else {
+			height = effectiveHeight(viewport.height, window.innerHeight, focused);
+			up = keyboardUp(viewport.height, window.innerHeight, focused);
+		}
 
 		root.style.setProperty("--viewport-height", `${Math.round(height)}px`);
 
-		if (keyboardUp(viewport.height, window.innerHeight, focused)) {
+		if (up) {
 			root.dataset.keyboard = "up";
 		} else {
 			delete root.dataset.keyboard;
@@ -112,6 +139,8 @@ export function installViewportHooks(): void {
 		cancel();
 		cancel = settle(apply);
 	};
+
+	reapply = apply;
 
 	viewport.addEventListener("resize", applySettled);
 	viewport.addEventListener("scroll", apply);

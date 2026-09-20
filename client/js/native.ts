@@ -8,6 +8,7 @@ import {leavePage, onStandalonePage} from "./router";
 import {closeOpenImage} from "./helpers/imageViewer";
 import {reconnectAll} from "./irc/manager";
 import {checkForUpdate} from "./pwa";
+import {setNativeKeyboard} from "./helpers/viewport";
 
 interface CapacitorBridge {
 	isNativePlatform?: () => boolean;
@@ -68,6 +69,30 @@ export function installNativeHooks(): void {
 
 	styleStatusBar();
 	document.getElementById("theme")?.addEventListener("load", styleStatusBar);
+
+	// The keyboard, from the shell rather than from the visual viewport: the
+	// plugin says its height before the animation, form bar included, and
+	// says when it goes — the two things iOS never tells a page straight
+	// (helpers/viewport.ts). Demo, 2026-09-20: logged so the phone can be
+	// compared with the visual-viewport figures.
+	cap.addListener(
+		"Keyboard",
+		"keyboardWillShow",
+		({keyboardHeight}: {keyboardHeight: number}) => {
+			// eslint-disable-next-line no-console
+			console.info(
+				`[shell] keyboard will show ${keyboardHeight}px; vv ${window.visualViewport?.height} inner ${window.innerHeight}`
+			);
+			setNativeKeyboard(keyboardHeight);
+		}
+	);
+	cap.addListener("Keyboard", "keyboardWillHide", () => {
+		// eslint-disable-next-line no-console
+		console.info(
+			`[shell] keyboard will hide; vv ${window.visualViewport?.height} inner ${window.innerHeight}`
+		);
+		setNativeKeyboard(0);
+	});
 
 	// Android back button: close an open image, else leave a standalone page
 	// for the conversation it came from, else minimize (overrides the
