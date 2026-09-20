@@ -34,11 +34,6 @@ function readBranding(): Branding {
 const branding = readBranding();
 const appName =
 	typeof branding.appName === "string" && branding.appName.trim() ? branding.appName : "Seance";
-const themeColor =
-	typeof branding.themeColor === "string" && /^#[0-9a-f]{6}$/i.test(branding.themeColor)
-		? branding.themeColor
-		: "#1a1816";
-
 const config: CapacitorConfig = {
 	// REBRAND: reverse-DNS bundle id. Placeholder until a network ships this;
 	// changing it after `cap add` also means editing the generated
@@ -60,18 +55,20 @@ const config: CapacitorConfig = {
 		allowMixedContent: false,
 	},
 	ios: {
-		// The status bar does not overlay the WebView (StatusBar below), so the
-		// view already starts under it; an inset on top of that is a blank band.
+		// The WebView fills the screen, status bar included, and the page
+		// pads its own top from env(safe-area-inset-top) (native.ts sets
+		// html[data-shell="native"] and viewport-fit=cover). Any native inset
+		// would show as a band of the wrong colour above the header.
 		contentInset: "never",
 		preferredContentMode: "mobile",
 	},
 	plugins: {
-		// The colour and style are only the first paint: native.ts re-tints the
-		// bar to the page's own background at boot and on every theme change.
+		// Translucent over the page, which paints under it in the theme's
+		// canvas colour; native.ts picks the text style from that colour at
+		// boot and on every theme change. `style` is only the first paint.
 		StatusBar: {
-			overlaysWebView: false,
+			overlaysWebView: true,
 			style: "DARK",
-			backgroundColor: themeColor,
 		},
 	},
 };

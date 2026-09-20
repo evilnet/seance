@@ -194,6 +194,14 @@ html {
 	}
 }
 
+/* The native shell (shells/capacitor, native.ts): its WebView runs under the
+ * status bar, so the app pads its top by the safe area in the same canvas
+ * colour the strip above shows, and the header starts below the clock. */
+html[data-shell="native"] #viewport {
+	padding-top: env(safe-area-inset-top);
+	background: var(--canvas-bg-color, var(--body-bg-color));
+}
+
 *,
 *::before,
 *::after {
