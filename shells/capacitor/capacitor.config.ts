@@ -60,11 +60,14 @@ const config: CapacitorConfig = {
 		allowMixedContent: false,
 	},
 	ios: {
-		// Keep the WebView below the status bar / notch instead of under it.
-		contentInset: "always",
+		// The status bar does not overlay the WebView (StatusBar below), so the
+		// view already starts under it; an inset on top of that is a blank band.
+		contentInset: "never",
 		preferredContentMode: "mobile",
 	},
 	plugins: {
+		// The colour and style are only the first paint: native.ts re-tints the
+		// bar to the page's own background at boot and on every theme change.
 		StatusBar: {
 			overlaysWebView: false,
 			style: "DARK",
