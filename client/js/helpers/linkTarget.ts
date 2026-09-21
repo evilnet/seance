@@ -8,7 +8,9 @@
  * decision is
  *
  *  - the host + port (casefolded, TLS included) match a saved network →
- *    that server was approved before; connect to / focus it;
+ *    that server was approved before; connect to / focus it. A link that
+ *    names no port means the host: a saved network there matches whatever
+ *    port it uses (a network's direct servers rarely sit on 443);
  *  - a locked deploy (`lockHost` / `allowCustomServer: false`) and the link
  *    names some other host → refuse it, with a message;
  *  - anything else → the connect form, pre-filled, for the user to approve.
@@ -24,13 +26,15 @@
 import {hostnameOf, type SavedNetwork} from "../irc/saved-networks";
 import {parseJoinList} from "../irc/client";
 
-/** A link names a wss:// endpoint; no port means 443 (parseIrcUri agrees). */
+/** A link names a wss:// endpoint; no port and no saved network means 443. */
 const DEFAULT_LINK_PORT = 443;
 
 /** The connection details a URL may suggest. No password field, on purpose. */
 export interface LinkSuggestion {
 	host: string;
 	port: number;
+	/** The link spelled the port out (false: `port` is the 443 default). */
+	portGiven: boolean;
 	tls: boolean;
 	/** Comma-separated channels, possibly with keys; may be empty. */
 	join: string;
@@ -72,10 +76,12 @@ export function linkSuggestion(params: Record<string, unknown>): LinkSuggestion 
 	}
 
 	const port = Number(firstString(params.port));
+	const portGiven = Number.isInteger(port) && port > 0 && port <= 65535;
 	const tls = firstString(params.tls);
 	const suggestion: LinkSuggestion = {
 		host,
-		port: Number.isInteger(port) && port > 0 && port <= 65535 ? port : DEFAULT_LINK_PORT,
+		port: portGiven ? port : DEFAULT_LINK_PORT,
+		portGiven,
 		tls: !(tls === "0" || tls === "false"),
 		join: firstString(params.join ?? params.channels),
 	};
@@ -104,8 +110,7 @@ export function decideLinkTarget(suggestion: LinkSuggestion, policy: LinkPolicy)
 	const network = policy.saved.find(
 		(net) =>
 			hostnameOf(net.host).toLowerCase() === host &&
-			net.port === suggestion.port &&
-			net.tls === suggestion.tls
+			(!suggestion.portGiven || (net.port === suggestion.port && net.tls === suggestion.tls))
 	);
 
 	return network ? {kind: "saved", network, suggestion} : {kind: "new", suggestion};
