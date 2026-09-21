@@ -147,6 +147,7 @@ export function installNativeHooks(): void {
 	// The bar's text follows that colour's luminance, at boot and again
 	// whenever a theme stylesheet finishes loading.
 	document.documentElement.dataset.shell = "native";
+	document.documentElement.dataset.platform = nativePlatform();
 
 	const viewport = document.querySelector('meta[name="viewport"]');
 	const content = viewport?.getAttribute("content") ?? "";
@@ -178,7 +179,14 @@ export function installNativeHooks(): void {
 		// Style names the bar's text: DARK is light text for a dark page.
 		const style = (r * 299 + g * 587 + b * 114) / 1000 < 128 ? "DARK" : "LIGHT";
 
-		void cap.nativePromise("StatusBar", "setStyle", {style});
+		cap.nativePromise("StatusBar", "setStyle", {style}).catch(() => {});
+
+		// Android's navigation bar draws its buttons over the page too, and
+		// only the core SystemBars plugin styles that one (both bars, no
+		// `bar` given).
+		if (nativePlatform() === "android") {
+			cap.nativePromise("SystemBars", "setStyle", {style}).catch(() => {});
+		}
 	};
 
 	styleStatusBar();
