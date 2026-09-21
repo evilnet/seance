@@ -178,31 +178,16 @@ export function installNativeHooks(): void {
 	// The keyboard, from the shell rather than from the visual viewport: the
 	// plugin says its height before the animation, form bar included, and
 	// says when it goes — the two things iOS never tells a page straight
-	// (helpers/viewport.ts). Demo, 2026-09-20: logged so the phone can be
-	// compared with the visual-viewport figures.
+	// (helpers/viewport.ts).
 	// iOS's form accessory bar (˄ ˅ Done) above the keyboard: nothing in the
 	// app for it to step between, and it is the floating pill that covered
 	// the composer in the PWA. The keyboard's own Done key does the job.
 	void cap.nativePromise("Keyboard", "setAccessoryBarVisible", {isVisible: false});
 
-	cap.addListener(
-		"Keyboard",
-		"keyboardWillShow",
-		({keyboardHeight}: {keyboardHeight: number}) => {
-			// eslint-disable-next-line no-console
-			console.info(
-				`[shell] keyboard will show ${keyboardHeight}px; vv ${window.visualViewport?.height} inner ${window.innerHeight}`
-			);
-			setNativeKeyboard(keyboardHeight);
-		}
+	cap.addListener("Keyboard", "keyboardWillShow", ({keyboardHeight}: {keyboardHeight: number}) =>
+		setNativeKeyboard(keyboardHeight)
 	);
-	cap.addListener("Keyboard", "keyboardWillHide", () => {
-		// eslint-disable-next-line no-console
-		console.info(
-			`[shell] keyboard will hide; vv ${window.visualViewport?.height} inner ${window.innerHeight}`
-		);
-		setNativeKeyboard(0);
-	});
+	cap.addListener("Keyboard", "keyboardWillHide", () => setNativeKeyboard(0));
 
 	// Android back button: close an open image, else leave a standalone page
 	// for the conversation it came from, else minimize (overrides the
