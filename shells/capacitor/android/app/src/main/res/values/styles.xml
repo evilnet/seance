@@ -18,5 +18,10 @@
 
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
+        <!-- Android 12+ draws its own launch screen first: the launcher icon
+             on this colour. The icon's tile (assets/, capacitor.config.ts
+             SplashScreen.backgroundColor), so it and the splash drawable that
+             follows are one image. -->
+        <item name="windowSplashScreenBackground">#0D0E14</item>
     </style>
 </resources>

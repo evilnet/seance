@@ -11,6 +11,7 @@ import {setNativeKeyboard} from "./helpers/viewport";
 
 interface CapacitorBridge {
 	isNativePlatform?: () => boolean;
+	getPlatform?: () => string;
 	addListener?: (plugin: string, event: string, cb: (data: any) => void) => unknown;
 	nativePromise?: (plugin: string, method: string, options?: unknown) => Promise<unknown>;
 }
@@ -18,7 +19,14 @@ interface CapacitorBridge {
 declare global {
 	interface Window {
 		Capacitor?: CapacitorBridge;
+		/** Capacitor Android's SystemBars plugin, a JavascriptInterface. */
+		CapacitorSystemBarsAndroidInterface?: {onDOMReady: () => void};
 	}
+}
+
+/** Which shell: `"ios"`, `"android"`, or `"web"` in a browser. */
+export function nativePlatform(): string {
+	return window.Capacitor?.getPlatform?.() ?? "web";
 }
 
 /** The bridge, when this page runs inside the native shell. */
@@ -147,6 +155,17 @@ export function installNativeHooks(): void {
 		viewport.setAttribute("content", `${content}, viewport-fit=cover`);
 	}
 
+	// Android: Capacitor's SystemBars reads that meta once, at DOMContentLoaded
+	// — before this runs — and without `viewport-fit=cover` it insets the
+	// WebView natively (a band in the window's colour above the header, and
+	// the env() values 0) instead of handing the page the insets. Asking it
+	// to look again is the same call its own DOM-ready hook makes; it
+	// re-applies the window insets, and from there the page pads itself, in
+	// the theme's colour, as it does on iOS. A WebView older than Chromium
+	// 140 takes the native inset whatever the meta says (MainActivity paints
+	// the band in the deploy's colour for those).
+	window.CapacitorSystemBarsAndroidInterface?.onDOMReady();
+
 	const styleStatusBar = () => {
 		const rgb = getComputedStyle(document.documentElement).backgroundColor;
 		const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(rgb);
@@ -182,12 +201,21 @@ export function installNativeHooks(): void {
 	// iOS's form accessory bar (˄ ˅ Done) above the keyboard: nothing in the
 	// app for it to step between, and it is the floating pill that covered
 	// the composer in the PWA. The keyboard's own Done key does the job.
-	void cap.nativePromise("Keyboard", "setAccessoryBarVisible", {isVisible: false});
+	// iOS only, both: Android's WebView shrinks for the keyboard like a
+	// browser's (Capacitor pads its parent by the IME inset), so the visual
+	// viewport already says everything and the plugin's height on top of it
+	// took the keyboard off twice; and the accessory-bar call is not
+	// implemented there — it rejects, an unhandled rejection at every boot.
+	if (nativePlatform() === "ios") {
+		cap.nativePromise("Keyboard", "setAccessoryBarVisible", {isVisible: false}).catch(() => {});
 
-	cap.addListener("Keyboard", "keyboardWillShow", ({keyboardHeight}: {keyboardHeight: number}) =>
-		setNativeKeyboard(keyboardHeight)
-	);
-	cap.addListener("Keyboard", "keyboardWillHide", () => setNativeKeyboard(0));
+		cap.addListener(
+			"Keyboard",
+			"keyboardWillShow",
+			({keyboardHeight}: {keyboardHeight: number}) => setNativeKeyboard(keyboardHeight)
+		);
+		cap.addListener("Keyboard", "keyboardWillHide", () => setNativeKeyboard(0));
+	}
 
 	// Android back button: close an open image, else leave a standalone page
 	// for the conversation it came from, else minimize (overrides the

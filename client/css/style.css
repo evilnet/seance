@@ -196,10 +196,13 @@ html {
 
 /* The native shell (shells/capacitor, native.ts): its WebView runs under the
  * status bar, so the app pads its top by the safe area in the same canvas
- * colour the strip above shows, and the header starts below the clock. */
+ * colour the strip above shows, and the header starts below the clock. The
+ * inset is env() on iOS; Capacitor's Android SystemBars publishes the same
+ * numbers as --safe-area-inset-* on the root (env() is 0 in a WebView older
+ * than Chromium 140), so those win where they exist. */
 html[data-shell="native"] #viewport {
 	/* In landscape the top inset is 0 and the island is a side inset. */
-	padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+	padding: var(--safe-area-inset-top, env(safe-area-inset-top)) var(--safe-area-inset-right, env(safe-area-inset-right)) 0 var(--safe-area-inset-left, env(safe-area-inset-left));
 	background: var(--canvas-bg-color, var(--body-bg-color));
 }
 
@@ -3270,7 +3273,7 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 }
 
 /* Room for iOS's home indicator, which swallows taps aimed at a composer
- * sitting in it. `viewport-fit=cover` would let `env(safe-area-inset-bottom)`
+ * sitting in it. `viewport-fit=cover` would let `var(--safe-area-inset-bottom, env(safe-area-inset-bottom))`
  * measure it but costs 62px of unreachable screen, so the inset is reserved by
  * hand — in px, since it mirrors the device, not the UI scale.
  *
@@ -3298,12 +3301,12 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 }
 
 /* The native shell runs edge to edge (`viewport-fit=cover`, native.ts), so
- * `env(safe-area-inset-bottom)` is real there and replaces the hand-reserved
+ * `var(--safe-area-inset-bottom, env(safe-area-inset-bottom))` is real there and replaces the hand-reserved
  * strip: the composer and the sidebar's footer each keep their own colour
  * under the home indicator, in every orientation (the inset is 0 where there
  * is none). After the block above on purpose: same specificity, later wins. */
 html[data-shell="native"] #form {
-	padding-bottom: max(0.375rem, env(safe-area-inset-bottom));
+	padding-bottom: max(0.375rem, var(--safe-area-inset-bottom, env(safe-area-inset-bottom)));
 }
 
 html[data-shell="native"][data-keyboard="up"] #form {
@@ -3314,7 +3317,7 @@ html[data-shell="native"][data-keyboard="up"] #form {
  * `height: auto`, mardam its own padding) and the sidebar's background shows
  * through the strip either way. */
 html[data-shell="native"] #footer {
-	margin-bottom: env(safe-area-inset-bottom);
+	margin-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom));
 }
 
 #user-visible-error {
@@ -4074,7 +4077,7 @@ html[data-shell="native"] #footer {
 		top: 0;
 		bottom: 0;
 		height: auto;
-		padding-top: env(safe-area-inset-top);
+		padding-top: var(--safe-area-inset-top, env(safe-area-inset-top));
 		transform: translateZ(0);
 	}
 

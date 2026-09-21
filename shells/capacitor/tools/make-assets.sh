@@ -9,6 +9,14 @@
 #                          shows the logo on its own colour rather than a
 #                          guess at the chat's (capacitor.config.ts agrees)
 #   assets/splash-dark.png the same
+#   assets/icon-foreground.png / icon-background.png  Android's adaptive icon:
+#                          the art alone on transparency, and the tile as a
+#                          plain colour. The generator insets both by 16.7%
+#                          and the launcher masks the middle 2/3, so the art
+#                          is drawn at 80% here to keep clear of the mask.
+#                          Without these the Android icon stays Capacitor's
+#                          own (the adaptive icon outranks ic_launcher.png),
+#                          and so does the Android 12+ launch screen.
 #
 # Then `corepack yarn assets` (= npx capacitor-assets generate) writes every
 # iOS / Android size into the native projects. A rebrand replaces the three
@@ -28,4 +36,8 @@ magick -size 1024x1024 "xc:$TILE" \( "$ART" -resize 944x944 \) -gravity center -
 magick -size 2732x2732 "xc:$SPLASH" \( "$ART" -resize 640x640 \) -gravity center -composite \
 	-depth 8 -strip assets/splash.png
 cp assets/splash.png assets/splash-dark.png
-magick identify assets/icon-only.png assets/splash.png assets/splash-dark.png
+magick -size 1024x1024 xc:none \( "$ART" -resize 820x820 \) -gravity center -composite \
+	-depth 8 -strip assets/icon-foreground.png
+magick -size 1024x1024 "xc:$TILE" -depth 8 -strip assets/icon-background.png
+magick identify assets/icon-only.png assets/splash.png assets/splash-dark.png \
+	assets/icon-foreground.png assets/icon-background.png

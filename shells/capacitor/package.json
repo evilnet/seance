@@ -7,7 +7,7 @@
   "scripts": {
     "presync": "node tools/stamp-version.mjs",
     "sync": "cap sync",
-    "assets": "capacitor-assets generate --ios --android --iconBackgroundColor '#0D0E14' --iconBackgroundColorDark '#0D0E14' --splashBackgroundColor '#0D0E14' --splashBackgroundColorDark '#0D0E14'",
+    "assets": "capacitor-assets generate --ios --android --iconBackgroundColor '#0D0E14' --iconBackgroundColorDark '#0D0E14' --splashBackgroundColor '#0D0E14' --splashBackgroundColorDark '#0D0E14' && node tools/adaptive-icon-background.mjs '#0D0E14'",
     "assets:sources": "tools/make-assets.sh",
     "add:android": "cap add android",
     "add:ios": "cap add ios",
