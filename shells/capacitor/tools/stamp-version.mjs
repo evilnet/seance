@@ -1,5 +1,5 @@
 // Stamps the native projects with the version the web build reports
-// (webpack.config.ts `resolveBuild`): the nearest tag, `v` stripped, is the
+// (webpack.config.ts `resolveBuild`): the nearest `v*` tag, `v` stripped, is the
 // marketing version, and the commit count is the build number — monotonic,
 // which is all App Store Connect and Play ask of it. Runs before every
 // `cap sync` (`presync` in package.json); a checkout without tags keeps what
@@ -25,7 +25,7 @@ function git(...args) {
 	}
 }
 
-const version = git("describe", "--tags", "--abbrev=0")?.replace(/^v/, "");
+const version = git("describe", "--tags", "--match", "v*", "--abbrev=0")?.replace(/^v/, "");
 const build = git("rev-list", "--count", "HEAD");
 
 if (!version || !build) {
