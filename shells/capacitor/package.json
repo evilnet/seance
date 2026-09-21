@@ -5,7 +5,10 @@
   "description": "Capacitor shell that wraps the Seance web build (../../public) as an iOS / Android app",
   "license": "MIT",
   "scripts": {
+    "presync": "node tools/stamp-version.mjs",
     "sync": "cap sync",
+    "assets": "capacitor-assets generate --ios --android --iconBackgroundColor '#0D0E14' --iconBackgroundColorDark '#0D0E14' --splashBackgroundColor '#0D0E14' --splashBackgroundColorDark '#0D0E14'",
+    "assets:sources": "tools/make-assets.sh",
     "add:android": "cap add android",
     "add:ios": "cap add ios",
     "open:android": "cap open android",
@@ -22,9 +25,12 @@
     "@capacitor/haptics": "^8.0.2",
     "@capacitor/ios": "^8.5.0",
     "@capacitor/keyboard": "^8.0.5",
-    "@capacitor/status-bar": "^8.0.3"
+    "@capacitor/splash-screen": "8.0.2",
+    "@capacitor/status-bar": "^8.0.3",
+    "@capawesome/capacitor-badge": "8.0.3"
   },
   "devDependencies": {
+    "@capacitor/assets": "3.0.5",
     "@capacitor/cli": "^8.5.0",
     "@types/node": "^22.0.0",
     "typescript": "^5.4.0"

@@ -1,10 +1,13 @@
 // Capacitor configuration for the Seance native shell.
 //
 // The web app is the root build (`NODE_ENV=production yarn build` -> `public/`);
-// this file only wraps it. `appName` and the status bar colour are read from
+// this file only wraps it. `appName` and `themeColor` are read from
 // `public/config.json` (the same branding file the SPA fetches at boot, see
 // docs/resources/branding.md) when the Capacitor CLI evaluates this config,
 // so a rebranded deploy only has to change that file and `appId` below.
+
+/// <reference types="@capacitor/splash-screen" />
+/// <reference types="@capawesome/capacitor-badge" />
 
 import {readFileSync} from "node:fs";
 import {resolve} from "node:path";
@@ -34,6 +37,12 @@ function readBranding(): Branding {
 const branding = readBranding();
 const appName =
 	typeof branding.appName === "string" && branding.appName.trim() ? branding.appName : "Seance";
+// The deploy's theme colour (same default as webpack.config.ts): what the
+// WebView shows before the page paints and under over-scroll.
+const themeColor =
+	typeof branding.themeColor === "string" && /^#[0-9a-f]{6}$/i.test(branding.themeColor)
+		? branding.themeColor
+		: "#1a1816";
 const config: CapacitorConfig = {
 	// REBRAND: reverse-DNS bundle id. Placeholder until a network ships this;
 	// changing it after `cap add` also means editing the generated
@@ -43,6 +52,7 @@ const config: CapacitorConfig = {
 	appId: "chat.seance.app",
 	appName,
 	webDir,
+	backgroundColor: themeColor,
 	server: {
 		// Serve the bundle from https://localhost so the page is a secure
 		// context: service worker, Notification / Push, crypto.subtle and
@@ -75,6 +85,22 @@ const config: CapacitorConfig = {
 		// it does from the visual viewport in a browser.
 		Keyboard: {
 			resize: "none",
+		},
+		// The launch image stays up until the page can paint in the user's
+		// theme (native.ts `hideSplash`), so no white frame shows between it
+		// and the app. Its colour is the logo's tile (tools/make-assets.sh
+		// bakes the same into the image), not the theme colour: iOS draws it
+		// before any code runs and cannot know which theme the user picked.
+		SplashScreen: {
+			launchAutoHide: false,
+			backgroundColor: "#0D0E14",
+		},
+		// The icon badge is the store's highlight count (helpers/appBadge.ts);
+		// the app clears it itself when the highlights are read, and it must
+		// survive a restart with the unread state that produced it.
+		Badge: {
+			persist: true,
+			autoClear: false,
 		},
 	},
 };
