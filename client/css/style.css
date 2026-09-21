@@ -3297,6 +3297,26 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	}
 }
 
+/* The native shell runs edge to edge (`viewport-fit=cover`, native.ts), so
+ * `env(safe-area-inset-bottom)` is real there and replaces the hand-reserved
+ * strip: the composer and the sidebar's footer each keep their own colour
+ * under the home indicator, in every orientation (the inset is 0 where there
+ * is none). After the block above on purpose: same specificity, later wins. */
+html[data-shell="native"] #form {
+	padding-bottom: max(0.375rem, env(safe-area-inset-bottom));
+}
+
+html[data-shell="native"][data-keyboard="up"] #form {
+	padding-bottom: 0.375rem;
+}
+
+/* A margin, not padding: the themes size the footer their own way (bourbaki
+ * `height: auto`, mardam its own padding) and the sidebar's background shows
+ * through the strip either way. */
+html[data-shell="native"] #footer {
+	margin-bottom: env(safe-area-inset-bottom);
+}
+
 #user-visible-error {
 	font-size: 0.9375rem;
 	line-height: 1.5;
@@ -4043,6 +4063,18 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 		right: 100%; /* its own width off screen, whatever that width is */
 		z-index: 10;
 		transition: transform 160ms;
+	}
+
+	/* In the native shell #viewport pads its top by the safe area, and an
+	 * absolute child's `height: 100%` is the padding box while its static
+	 * position starts below the padding: the sidebar ran off the bottom by
+	 * the status bar's height and its footer with it. Pin both edges and pad
+	 * the sidebar itself instead, so its logo sits below the clock. */
+	html[data-shell="native"] #sidebar {
+		top: 0;
+		bottom: 0;
+		height: auto;
+		padding-top: env(safe-area-inset-top);
 		transform: translateZ(0);
 	}
 

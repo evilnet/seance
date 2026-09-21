@@ -7,7 +7,6 @@
 import {leavePage, onStandalonePage} from "./router";
 import {closeOpenImage} from "./helpers/imageViewer";
 import {reconnectAll} from "./irc/manager";
-import {checkForUpdate} from "./pwa";
 import {setNativeKeyboard} from "./helpers/viewport";
 
 interface CapacitorBridge {
@@ -22,19 +21,115 @@ declare global {
 	}
 }
 
-export function installNativeHooks(): void {
+/** The bridge, when this page runs inside the native shell. */
+export function nativeBridge(): Required<CapacitorBridge> | null {
 	const cap = window.Capacitor;
 
 	if (!cap?.isNativePlatform?.() || !cap.addListener || !cap.nativePromise) {
+		return null;
+	}
+
+	return cap as Required<CapacitorBridge>;
+}
+
+/** True inside the Capacitor shell (iOS / Android). */
+export function isNativeShell(): boolean {
+	return nativeBridge() !== null;
+}
+
+// A link the OS handed the app — `irc:`, `ircs:` or `web+irc:`, the schemes
+// Info.plist claims. Cold, it is the launch URL (`getLaunchUrl`), which
+// boot.ts awaits before it routes, the way a browser page reads `?uri=`.
+// While running it comes through `appUrlOpen`; iOS can report the launch
+// URL that way too, so that one is delivered once.
+let launchUrl: Promise<string | null> = Promise.resolve(null);
+let launchHref: string | null = null;
+let urlHandler: ((href: string) => void) | null = null;
+let pendingHref: string | null = null;
+
+/** The link the app was opened with, or null (at once, in a browser). */
+export function nativeLaunchUrl(): Promise<string | null> {
+	return launchUrl;
+}
+
+/** Links handed to the running app. One that arrives first waits here. */
+export function onNativeUrl(handler: (href: string) => void): void {
+	urlHandler = handler;
+
+	if (pendingHref !== null) {
+		const href = pendingHref;
+		pendingHref = null;
+		handler(href);
+	}
+}
+
+// The native launch image (capacitor.config.ts keeps it up until told) comes
+// down as soon as the page can paint in the user's theme — the theme
+// stylesheet's load — so the page's own loading screen, the logo tile on
+// that theme, takes over from the launch image (the logo on its own tile;
+// iOS draws it before any code runs and cannot know the theme). Two frames
+// first, so the hide reveals a painted page, never a blank one.
+let splashHidden = false;
+
+function hideSplash(): void {
+	if (splashHidden) {
 		return;
 	}
 
-	// iOS/Android drop the WebSocket while backgrounded: retry on foreground,
-	// and look for a newer build while at it.
+	splashHidden = true;
+	requestAnimationFrame(() => {
+		requestAnimationFrame(() => {
+			void nativeBridge()?.nativePromise("SplashScreen", "hide", {});
+		});
+	});
+}
+
+/**
+ * The page has booted and dropped its own loading screen: the launch image
+ * goes now if the theme's load did not take it down already.
+ */
+export function nativeAppReady(): void {
+	hideSplash();
+}
+
+export function installNativeHooks(): void {
+	const cap = nativeBridge();
+
+	if (!cap) {
+		return;
+	}
+
+	// iOS/Android drop the WebSocket while backgrounded: retry on foreground.
+	// (No build check: a new build of the shell is a new app from the store.)
 	cap.addListener("App", "appStateChange", ({isActive}: {isActive?: boolean}) => {
 		if (isActive) {
 			reconnectAll();
-			checkForUpdate();
+		}
+	});
+
+	launchUrl = cap
+		.nativePromise("App", "getLaunchUrl", {})
+		.then((result) => {
+			const url = (result as {url?: string} | null | undefined)?.url;
+			launchHref = url || null;
+			return launchHref;
+		})
+		.catch(() => null);
+
+	cap.addListener("App", "appUrlOpen", ({url}: {url?: string}) => {
+		if (!url) {
+			return;
+		}
+
+		if (url === launchHref) {
+			launchHref = null;
+			return;
+		}
+
+		if (urlHandler) {
+			urlHandler(url);
+		} else {
+			pendingHref = url;
 		}
 	});
 
@@ -64,11 +159,21 @@ export function installNativeHooks(): void {
 		// Style names the bar's text: DARK is light text for a dark page.
 		const style = (r * 299 + g * 587 + b * 114) / 1000 < 128 ? "DARK" : "LIGHT";
 
-		void cap.nativePromise!("StatusBar", "setStyle", {style});
+		void cap.nativePromise("StatusBar", "setStyle", {style});
 	};
 
 	styleStatusBar();
-	document.getElementById("theme")?.addEventListener("load", styleStatusBar);
+
+	const theme = document.getElementById("theme") as HTMLLinkElement | null;
+	theme?.addEventListener("load", styleStatusBar);
+
+	// The stylesheet the settings chose (boot.ts, before this runs) may be in
+	// already — `sheet` is null while a swapped href is still loading.
+	if (theme?.sheet) {
+		hideSplash();
+	} else {
+		theme?.addEventListener("load", hideSplash, {once: true});
+	}
 
 	// The keyboard, from the shell rather than from the visual viewport: the
 	// plugin says its height before the animation, form bar included, and
@@ -78,7 +183,7 @@ export function installNativeHooks(): void {
 	// iOS's form accessory bar (˄ ˅ Done) above the keyboard: nothing in the
 	// app for it to step between, and it is the floating pill that covered
 	// the composer in the PWA. The keyboard's own Done key does the job.
-	void cap.nativePromise!("Keyboard", "setAccessoryBarVisible", {isVisible: false});
+	void cap.nativePromise("Keyboard", "setAccessoryBarVisible", {isVisible: false});
 
 	cap.addListener(
 		"Keyboard",
@@ -111,6 +216,6 @@ export function installNativeHooks(): void {
 			return;
 		}
 
-		void cap.nativePromise!("App", "minimizeApp", {});
+		void cap.nativePromise("App", "minimizeApp", {});
 	});
 }
