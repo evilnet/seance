@@ -8,6 +8,9 @@ import {leavePage, onStandalonePage} from "./router";
 import {closeOpenImage} from "./helpers/imageViewer";
 import {reconnectAll} from "./irc/manager";
 import {setNativeKeyboard} from "./helpers/viewport";
+import {isPhoneLayout} from "./helpers/device";
+import eventbus from "./eventbus";
+import {store} from "./store";
 
 interface CapacitorBridge {
 	isNativePlatform?: () => boolean;
@@ -225,12 +228,44 @@ export function installNativeHooks(): void {
 		cap.addListener("Keyboard", "keyboardWillHide", () => setNativeKeyboard(0));
 	}
 
-	// Android back button: close an open image, else leave a standalone page
-	// for the conversation it came from, else minimize (overrides the
-	// default). Not `router.back()`: the history is kept one deep (router.ts).
+	// Android back button: whatever is open on top goes first — an image,
+	// then anything that answers Escape (a context menu, the mentions popup,
+	// a confirm dialog, the reaction picker, the push prompt, the upload
+	// preview), then the phone's sidebar or user-list overlay — then a
+	// standalone page gives way to the conversation it came from, and with
+	// nothing left to close the app minimizes (overrides the default). Not
+	// `router.back()`: the history is kept one deep (router.ts). Without
+	// the middle steps a back press meant to close a menu backgrounded the
+	// app, menu and all.
 	cap.addListener("App", "backButton", () => {
 		if (closeOpenImage()) {
 			return;
+		}
+
+		if (
+			document.querySelector(
+				"#context-menu-container, #mentions-popup-container, .reaction-picker, " +
+					"#confirm-dialog-overlay.opened, #push-prompt-overlay.opened, " +
+					"#upload-preview-overlay.opened"
+			)
+		) {
+			eventbus.emit("escapekey");
+			return;
+		}
+
+		if (isPhoneLayout()) {
+			if (store.state.sidebarOpen) {
+				store.commit("sidebarOpen", false);
+				return;
+			}
+
+			if (
+				store.state.userlistOpen &&
+				document.querySelector("#viewport.userlist-open #chat .userlist")
+			) {
+				store.commit("toggleUserlist");
+				return;
+			}
 		}
 
 		if (onStandalonePage() && leavePage()) {
