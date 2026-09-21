@@ -4104,6 +4104,25 @@ html[data-shell="native"][data-platform="android"] #footer {
 		padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom));
 	}
 
+	/* The settings modal and the sidebar's dimmer pin all four edges to
+	 * #viewport the same way, so they too span the padding box: the pane's
+	 * title sat under the clock and its Done button under Android's buttons.
+	 * Both start at the insets instead (the dimmer would only dim the bars'
+	 * bands, which are not the page's to dim). */
+	html[data-shell="native"] #settings.window,
+	html[data-shell="native"] #sidebar-overlay {
+		top: var(--safe-area-inset-top, env(safe-area-inset-top));
+
+		/* `.window` is `height: 100%`, which with a moved top runs past the
+		 * bottom edge by the same amount; the two pinned edges size it. */
+		height: auto;
+	}
+
+	html[data-shell="native"][data-platform="android"] #settings.window,
+	html[data-shell="native"][data-platform="android"] #sidebar-overlay {
+		bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom));
+	}
+
 	#sidebar-overlay {
 		/* Absolute, not fixed: fixed measures against the layout viewport,
 		 * which iOS does not shrink for the keyboard (see #viewport). */
@@ -4850,6 +4869,13 @@ html[data-shell="native"][data-platform="android"] #footer {
 	border-width: 1px 0 0;
 	border-radius: 12px 12px 0 0;
 	transform-origin: bottom center;
+}
+
+/* Teleported to body, so #viewport's padding is not its: on Android the
+ * sheet sits on the navigation bar, not under it (the inset is 0 while the
+ * keyboard is up, when the sheet sits on the keyboard). */
+html[data-shell="native"][data-platform="android"] .reaction-picker.sheet {
+	bottom: calc(100% - var(--viewport-height, 100%) + var(--safe-area-inset-bottom, env(safe-area-inset-bottom)));
 }
 
 /* A phone on its side with the keyboard up keeps ~190px (helpers/viewport.ts
