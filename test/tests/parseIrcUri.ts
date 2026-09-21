@@ -2,12 +2,11 @@ import {expect} from "chai";
 import parseIrcUri from "../../client/js/helpers/parseIrcUri";
 
 describe("parseIrcUri helper", function () {
-	it("should parse web+irc:// without port", function () {
+	it("should parse web+irc:// without port, reporting none", function () {
 		expect(parseIrcUri("web+irc://example.com")).to.deep.equal({
 			tls: true,
 			name: "example.com",
 			host: "example.com",
-			port: "443",
 			join: "",
 		});
 	});
@@ -27,7 +26,6 @@ describe("parseIrcUri helper", function () {
 			tls: true,
 			name: "example.com",
 			host: "example.com",
-			port: "443",
 			join: "#chan",
 		};
 
@@ -53,7 +51,6 @@ describe("parseIrcUri helper", function () {
 			tls: true,
 			name: "example.com",
 			host: "example.com",
-			port: "443",
 			join: "",
 		};
 
@@ -93,7 +90,6 @@ describe("parseIrcUri helper", function () {
 			tls: true,
 			name: "example.com",
 			host: "example.com",
-			port: "443",
 			join: "#chan key",
 		});
 
@@ -101,7 +97,6 @@ describe("parseIrcUri helper", function () {
 			tls: true,
 			name: "example.com",
 			host: "example.com",
-			port: "443",
 			join: "#chan key,#other",
 		});
 	});
@@ -111,7 +106,6 @@ describe("parseIrcUri helper", function () {
 			tls: true,
 			name: "example.com",
 			host: "example.com",
-			port: "443",
 			join: "#50%off",
 		});
 	});

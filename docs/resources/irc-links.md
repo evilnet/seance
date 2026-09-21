@@ -11,7 +11,9 @@ define our own scheme instead.
 - Always `wss://`. A page served over https cannot open a plain `ws://` socket
   anyway, so a link never means cleartext; plain `ws://` stays a dev case you
   type into the connect form.
-- No port means **443** — `wss://host/`, what a public deploy should serve.
+- No port means the **saved network on that host**, whatever port it uses (a
+  network's direct servers rarely sit on 443); with none saved, **443** —
+  `wss://host/`, what a public deploy should serve.
 - Channels may sit in the path or the fragment, comma-separated, with or
   without a leading `#` (`client/components/Windows/Connect.vue` normalises).
 - A link is a **suggestion**. If its host + port match a saved network, that

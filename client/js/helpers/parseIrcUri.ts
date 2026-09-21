@@ -6,7 +6,8 @@
  *
  * - `web+irc://host[:port][/#chan]` is our own scheme (a web app may only
  *   register handlers for `web+…` schemes, and `irc:`/`ircs:` would promise a
- *   TCP connection we cannot make). Always `wss://`; no port means 443.
+ *   TCP connection we cannot make). Always `wss://`; no port means the saved
+ *   network's, else 443 (`linkTarget.ts`).
  * - `irc:` / `ircs:` links are still read for their host and channels, but
  *   their port is a TCP port we cannot connect to, so it is ignored.
  *
@@ -14,10 +15,16 @@
  * empty object, which leaves the connect form on its own defaults.
  */
 
-/** `wss://` on the standard HTTPS port, what a public deploy should serve. */
-const DEFAULT_PORT = "443";
+/** Connect-form fields a link supplies; `port` only when it spelled one out. */
+export interface ParsedIrcUri {
+	name: string;
+	host: string;
+	port?: string;
+	tls: boolean;
+	join: string;
+}
 
-export default (stringUri: string) => {
+export default (stringUri: string): ParsedIrcUri | Record<string, never> => {
 	let uri: URL;
 
 	try {
@@ -57,14 +64,22 @@ export default (stringUri: string) => {
 		// a stray % is not worth refusing the whole link for
 	}
 
-	return {
+	const parsed: ParsedIrcUri = {
 		name: uri.hostname,
 		host: uri.hostname,
-		port: !legacy && uri.port ? uri.port : DEFAULT_PORT,
 		// Links are always TLS: a page served over https cannot open a plain
 		// ws:// socket anyway. Plain ws:// stays a dev case for the form.
 		tls: true,
 		// We don't split channels or append # here because the connect window takes care of that
 		join: channel,
 	};
+
+	// Only a port the link spells out. Without one the link means "this
+	// host": a saved network there matches whatever port it uses, and the
+	// connect form falls back to 443 (linkTarget.ts `DEFAULT_LINK_PORT`).
+	if (!legacy && uri.port) {
+		parsed.port = uri.port;
+	}
+
+	return parsed;
 };
