@@ -150,11 +150,12 @@
 </style>
 
 <script lang="ts">
-import {computed, defineComponent, onMounted, onUnmounted, ref, watch} from "vue";
+import {computed, defineComponent, onMounted, onUnmounted, ref} from "vue";
 import {useStore} from "../../js/store";
 import {
 	keepAliveAvailable as isKeepAliveAvailable,
 	keepAliveStatus as fetchKeepAliveStatus,
+	onKeepAliveStatus,
 	type KeepAliveStatus,
 } from "../../js/helpers/keepAlive";
 import {promptInstall} from "../../js/pwa";
@@ -181,24 +182,17 @@ export default defineComponent({
 		const keepAliveAvailable = isKeepAliveAvailable();
 		const keepAliveStatus = ref<KeepAliveStatus | null>(null);
 
-		const refreshKeepAlive = () => {
-			void fetchKeepAliveStatus().then((status) => {
-				keepAliveStatus.value = status;
-			});
-		};
-
-		// The toggle's enable may be waiting on Android's permission prompt,
-		// which takes the focus: ask again when it comes back.
-		watch(
-			() => store.state.settings.keepConnected,
-			() => refreshKeepAlive()
-		);
+		// The status follows every call the shell answers — the toggle's
+		// enable resolves only once Android's permission prompt is answered,
+		// so the hint below keeps up without polling.
+		let stopKeepAlive: (() => void) | null = null;
 
 		onMounted(() => {
-			refreshKeepAlive();
-
 			if (keepAliveAvailable) {
-				window.addEventListener("focus", refreshKeepAlive);
+				stopKeepAlive = onKeepAliveStatus((status) => {
+					keepAliveStatus.value = status;
+				});
+				void fetchKeepAliveStatus();
 			}
 
 			// Enable protocol handler registration if supported,
@@ -209,7 +203,7 @@ export default defineComponent({
 		});
 
 		onUnmounted(() => {
-			window.removeEventListener("focus", refreshKeepAlive);
+			stopKeepAlive?.();
 		});
 
 		const nativeInstallPrompt = () => {

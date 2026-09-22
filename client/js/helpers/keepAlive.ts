@@ -11,6 +11,27 @@ export interface KeepAliveStatus {
 	notifications: boolean;
 }
 
+type StatusListener = (status: KeepAliveStatus) => void;
+const listeners = new Set<StatusListener>();
+
+/**
+ * Hear every status the shell reports — after an enable/disable (which,
+ * for the first enable, resolves only once Android's permission prompt is
+ * answered) and after a status query. Returns the unsubscribe.
+ */
+export function onKeepAliveStatus(listener: StatusListener): () => void {
+	listeners.add(listener);
+	return () => listeners.delete(listener);
+}
+
+function publish(status: KeepAliveStatus): KeepAliveStatus {
+	for (const listener of listeners) {
+		listener(status);
+	}
+
+	return status;
+}
+
 function bridge() {
 	const cap = window.Capacitor;
 
@@ -40,7 +61,7 @@ export async function setKeepAlive(on: boolean, quiet = false): Promise<KeepAliv
 
 	try {
 		const result = await cap.nativePromise!("KeepAlive", on ? "enable" : "disable", {quiet});
-		return result as KeepAliveStatus;
+		return publish(result as KeepAliveStatus);
 	} catch (e) {
 		// An old shell without the plugin: the setting has no effect there.
 		return null;
@@ -55,7 +76,7 @@ export async function keepAliveStatus(): Promise<KeepAliveStatus | null> {
 	}
 
 	try {
-		return (await cap.nativePromise!("KeepAlive", "status", {})) as KeepAliveStatus;
+		return publish((await cap.nativePromise!("KeepAlive", "status", {})) as KeepAliveStatus);
 	} catch (e) {
 		return null;
 	}
