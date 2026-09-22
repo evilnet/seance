@@ -6,6 +6,7 @@
 import {leavePage, onStandalonePage} from "./router";
 import {closeOpenImage} from "./helpers/imageViewer";
 import {reconnectAll} from "./irc/manager";
+import {isPhoneLayout} from "./helpers/device";
 import {
 	nativeBridge,
 	nativeCall,
@@ -13,6 +14,8 @@ import {
 	nativePlatform,
 	isAndroidShell,
 } from "./helpers/capacitor";
+import eventbus from "./eventbus";
+import {store} from "./store";
 
 // A link the OS handed the app — `irc:`, `ircs:` or `web+irc:`, the schemes
 // Info.plist claims. Cold, it is the launch URL (`getLaunchUrl`), which
@@ -170,12 +173,37 @@ export function installNativeHooks(): void {
 		theme?.addEventListener("load", hideSplash, {once: true});
 	}
 
-	// Android back button: close an open image, else leave a standalone page
-	// for the conversation it came from, else minimize (overrides the
-	// default). Not `router.back()`: the history is kept one deep (router.ts).
+	// Android back button: whatever is open on top goes first — an image,
+	// then anything that closes on Escape (every such overlay marks itself
+	// `data-escape-close` while it is up), then the phone's sidebar or
+	// user-list overlay — then a standalone page gives way to the
+	// conversation it came from, and with nothing left to close the app
+	// minimizes (overrides the default). Not `router.back()`: the history is
+	// kept one deep (router.ts). Without the middle steps a back press meant
+	// to close a menu backgrounded the app, menu and all.
 	nativeListen("App", "backButton", () => {
 		if (closeOpenImage()) {
 			return;
+		}
+
+		if (document.querySelector("[data-escape-close]")) {
+			eventbus.emit("escapekey");
+			return;
+		}
+
+		if (isPhoneLayout()) {
+			if (store.state.sidebarOpen) {
+				store.commit("sidebarOpen", false);
+				return;
+			}
+
+			if (
+				store.state.userlistOpen &&
+				document.querySelector("#viewport.userlist-open #chat .userlist")
+			) {
+				store.commit("toggleUserlist");
+				return;
+			}
 		}
 
 		if (onStandalonePage() && leavePage()) {

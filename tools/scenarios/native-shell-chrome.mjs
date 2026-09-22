@@ -1,5 +1,6 @@
 // What the native shell (shells/capacitor) changes about the page, checked in
-// a browser that is not one: the safe-area tokens on html[data-shell="native"].
+// a browser that is not one: the safe-area tokens on html[data-shell="native"]
+// and the `data-escape-close` marker the Android back button looks for.
 //
 //   corepack yarn build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d
@@ -35,6 +36,8 @@ export const url =
 /** The insets a phone hands the page, in px, so the numbers are checkable. */
 const TOP = 47;
 const BOTTOM = 34;
+
+const OPEN_OVERLAYS = `document.querySelectorAll("[data-escape-close]").length`;
 
 /** Shell on, with the platform given; `null` turns it back off. */
 function setShell(platform) {
@@ -74,6 +77,19 @@ const SHEET_BOTTOM = `(() => {
 	return bottom;
 })()`;
 
+/** Escape, the key the same overlays answer on a desktop. */
+async function pressEscape(page) {
+	const key = {
+		key: "Escape",
+		code: "Escape",
+		windowsVirtualKeyCode: 27,
+		nativeVirtualKeyCode: 27,
+	};
+	await page.send("Input.dispatchKeyEvent", {type: "keyDown", ...key});
+	await page.send("Input.dispatchKeyEvent", {type: "keyUp", ...key});
+	await page.sleep(100);
+}
+
 export default async function run(page) {
 	await page.goto(page.url, {waitForSelector: "#connect form"});
 
@@ -87,7 +103,64 @@ export default async function run(page) {
 		timeout: 30000,
 		label: "the channel to open",
 	});
-	// The insets, in the shell, on each platform. What the same page is
+	await page.waitFor(`document.querySelectorAll(".userlist .user").length > 0`, {
+		label: "the user list",
+	});
+
+	// 1. The marker the back button reads is absent until something is open.
+	page.check(
+		"nothing marked data-escape-close at rest",
+		(await page.evaluate(OPEN_OVERLAYS)) === 0
+	);
+
+	// A click on a nick in the user list opens the context menu.
+	await page.click(".userlist .user");
+	await page.waitFor(`document.querySelector("#context-menu-container")`, {
+		label: "the user's context menu",
+	});
+	page.check(
+		"an open context menu is marked",
+		(await page.evaluate(
+			`document.querySelectorAll("#context-menu-container[data-escape-close]").length`
+		)) === 1
+	);
+	await page.screenshot("context-menu-open");
+
+	await page.evaluate(`document.querySelector("#context-menu-container").click()`);
+	await page.waitFor(`document.querySelectorAll("[data-escape-close]").length === 0`, {
+		label: "the menu to close",
+	});
+	page.check("the marker goes with the menu", (await page.evaluate(OPEN_OVERLAYS)) === 0);
+
+	// The reaction picker is teleported to <body> and rendered only while open.
+	await page.fill("#input", "inset check");
+	await page.evaluate(
+		`document.querySelector("#form").dispatchEvent(new Event("submit", {cancelable: true}))`
+	);
+	await page.waitFor(
+		`document.querySelectorAll('#chat .msg.self[data-type="message"]').length > 0`,
+		{
+			label: "the message to land",
+		}
+	);
+	await page.hover('#chat .msg.self[data-type="message"]');
+	await page.click('#chat .msg.self[data-type="message"] .msg-action-react');
+	await page.waitFor(`document.querySelector(".reaction-picker")`, {label: "the picker"});
+	page.check(
+		"an open reaction picker is marked",
+		(await page.evaluate(
+			`document.querySelectorAll(".reaction-picker[data-escape-close]").length`
+		)) === 1
+	);
+	await page.screenshot("reaction-picker-open");
+
+	await pressEscape(page);
+	await page.waitFor(`document.querySelectorAll("[data-escape-close]").length === 0`, {
+		label: "the picker to close",
+	});
+	page.check("the marker goes with the picker", (await page.evaluate(OPEN_OVERLAYS)) === 0);
+
+	// 2. The insets, in the shell, on each platform. What the same page is
 	// without one is the baseline every check below is read against.
 	const webForm = await page.evaluate(px("#form", "paddingBottom"));
 	const webViewportTop = await page.evaluate(px("#viewport", "paddingTop"));
