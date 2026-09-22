@@ -20,6 +20,9 @@ export default defineConfig({
 	retries: 0,
 	use: {
 		baseURL: "http://127.0.0.1:8000",
+		// The install guide (InstallGuide.vue) opens over a fresh profile in
+		// Chromium; the specs start with it dismissed.
+		storageState: "test/e2e/storage-state.json",
 		// No sandbox because CI images run as root in a container; certificate
 		// errors are ignored so the suite can also be pointed at the
 		// self-signed dev ircd (`tools/nefarious-dev`).

@@ -93,6 +93,55 @@ Ship `NODE_ENV=production corepack yarn build`.
   push-only registration per network; see `docs/projects/push-subscription.md`
   and `push-per-network.md`.
 
+## The install guide
+
+A browser tab is the worst way to run a chat client — it gets closed, it has
+no icon, it cannot be woken by a push — so the first thing a new visitor sees
+in a browser that can install the app is a short guide to doing that
+(`client/components/InstallGuide.vue`, opened by `pwa.ts`
+`openInstallGuideAtStart()` from `boot.ts` once the page has its route). It
+is a modal over the connect form: an introduction, then the platform's own
+route as two or three illustrated steps, and a "Don't show this again"
+checkbox that is honoured on every way out (Done, ✕, Escape, the backdrop).
+Without the box ticked it opens again on the next start; Settings → General
+→ "How to install …" brings it back after a dismissal.
+
+What it shows is decided in `client/js/helpers/installGuide.ts` (Vue-free,
+`test/helpers/installGuide.ts`) from the user agent, the client-hints brands
+and `maxTouchPoints` (an iPad asking for the desktop site says it is a Mac):
+
+| Platform                           | Route shown                                                       |
+| ---------------------------------- | ----------------------------------------------------------------- |
+| iOS — Safari and every WebKit view | Share (bottom toolbar; top right on an iPad) → Add to Home Screen |
+| iOS — Chrome, Edge                 | Share at the right of the address bar → Add to Home Screen        |
+| iOS — Firefox                      | Menu → Share → Add to Home Screen                                 |
+| Android — Chrome                   | ⋮ → Install app (older: Add to Home screen)                       |
+| Android — Samsung Internet         | Menu → Add page to → Home screen                                  |
+| Android — Edge, Firefox            | Menu → Add to phone / Install                                     |
+| Desktop — Chrome, Edge             | The install icon at the end of the address bar, or the menu route |
+| macOS — Safari 17+                 | File → Add to Dock                                                |
+| Firefox desktop, anything else     | Nothing: the guide never opens                                    |
+
+When Chrome or Edge has already fired `beforeinstallprompt`, the introduction
+carries the real Install button (`promptInstall`) and the manual steps stay
+as the fallback; `appinstalled` closes the guide and dismisses it for good.
+The guide never opens in an installed window, in a Capacitor/Electron shell,
+or on a page that arrived with `?uri=`/connect parameters (that path has its
+own approval flow to show).
+
+The illustrations are inline SVG schematics (`InstallGuideArt.vue`), not
+screenshots: they take the theme's colours, the accent marks the one control
+the step is about, and the app's own icon stands in where the OS would show
+it. Real screenshots would date with every OS release and never match the
+theme.
+
+Automation: the guide would open over every fresh headless profile, so
+`tools/browser-drive.mjs` starts with it dismissed unless the scenario
+exports `installGuide = true`, and the Playwright suite loads
+`test/e2e/storage-state.json` for the same reason. Browser check:
+`tools/scenarios/install-guide.mjs` (desktop; `--mobile --platform=android`
+and `--platform=ios` override the user agent to walk the phone routes).
+
 ## Verifying a deploy
 
 ```sh

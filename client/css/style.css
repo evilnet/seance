@@ -4247,6 +4247,7 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 
 #confirm-dialog-overlay,
 #push-prompt-overlay,
+#install-guide-overlay,
 #upload-preview-overlay,
 #upload-overlay,
 #image-viewer,
@@ -4261,6 +4262,7 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 
 #confirm-dialog-overlay,
 #push-prompt-overlay,
+#install-guide-overlay,
 #upload-preview-overlay,
 #upload-overlay,
 #image-viewer {
@@ -4279,6 +4281,7 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 
 #confirm-dialog-overlay.opened,
 #push-prompt-overlay.opened,
+#install-guide-overlay.opened,
 #upload-preview-overlay.opened,
 #upload-overlay.is-dragover,
 #image-viewer.opened {

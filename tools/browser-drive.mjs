@@ -467,6 +467,10 @@ async function addInitScript(source) {
 	await send("Page.addScriptToEvaluateOnNewDocument", {source});
 }
 
+/** Pre-answers the install guide's "don't show this again" (helpers/installGuide.ts). */
+const DISMISS_INSTALL_GUIDE =
+	'try { localStorage.setItem("thelounge.state.installGuide", "dismissed"); } catch (e) {}';
+
 /** Browser.grantPermissions, for testing notification-driven flows. */
 async function grantPermissions(permissions, origin) {
 	await send("Browser.grantPermissions", {
@@ -583,6 +587,13 @@ try {
 			allowWsFrameErrors = scenario.allowWsFrameErrors;
 		}
 
+		// The install guide opens over every fresh profile in a Chromium; a
+		// scenario that is not about it exports `installGuide = true` to
+		// keep it — everyone else starts with it dismissed.
+		if (scenario.installGuide !== true) {
+			await addInitScript(DISMISS_INSTALL_GUIDE);
+		}
+
 		note(`scenario ${scenarioPath}${page.url ? ` on ${page.url}` : ""}`);
 		await run(page);
 	} else {
@@ -590,6 +601,7 @@ try {
 			throw new Error("nothing to do: pass a scenario file or --url=…");
 		}
 
+		await addInitScript(DISMISS_INSTALL_GUIDE);
 		await goto(page.url);
 		note(`watching ${page.url} for ${stayMs}ms (Ctrl-C to stop)`);
 		await sleep(stayMs);
