@@ -26,7 +26,7 @@ import {ChanState} from "../../shared/types/chan";
 import socket from "./socket";
 import {loadMentions} from "./mentions";
 import storage from "./localStorage";
-import {installNativeHooks, nativeAppReady} from "./native";
+import {installNativeHooks, nativeAppReady, nativeLaunchUrl, onNativeUrl} from "./native";
 import {installForegroundHooks} from "./foreground";
 import {installViewportHooks} from "./helpers/viewport";
 import {onLaunch} from "./pwa";
@@ -125,7 +125,19 @@ export async function boot(): Promise<void> {
 		}
 	});
 
-	if (await handleQueryParams()) {
+	// The native shell: a link handed to the running app (irc:, ircs:,
+	// web+irc:) is the same suggestion as a `?uri=` launch, and the link the
+	// app was opened with stands in for the page URL below, so it is decided
+	// before the route and the autoconnect, like a page URL is.
+	onNativeUrl((href) => {
+		void handleQueryParams(linkQuery(href), false);
+	});
+	const launchHref = await nativeLaunchUrl();
+	const handled = launchHref
+		? await handleQueryParams(linkQuery(launchHref), false)
+		: await handleQueryParams();
+
+	if (handled) {
 		// The URL's web+irc:// link or connect parameters have been acted on:
 		// a saved network is connecting, or the connect form is pre-filled
 		// waiting for the user's approval.
@@ -235,6 +247,11 @@ async function handleQueryParams(
 	// user chooses to connect.
 	await router.push({name: "Connect", query: suggestionQuery(decision.suggestion)});
 	return true;
+}
+
+/** A link as the `?uri=` query `handleQueryParams` reads. */
+function linkQuery(href: string): string {
+	return `?uri=${encodeURIComponent(href)}`;
 }
 
 /** The Connect-route query for a link the user still has to approve. */

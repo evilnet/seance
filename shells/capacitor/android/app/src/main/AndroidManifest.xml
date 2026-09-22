@@ -21,6 +21,18 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- The link schemes the app opens (docs/resources/irc-links.md):
+                 the App plugin hands them to the page as appUrlOpen, or as
+                 the launch URL when the link starts the app. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="web+irc" />
+                <data android:scheme="irc" />
+                <data android:scheme="ircs" />
+            </intent-filter>
         </activity>
 
         <provider

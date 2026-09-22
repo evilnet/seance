@@ -14,6 +14,32 @@ import {
 	isAndroidShell,
 } from "./helpers/capacitor";
 
+// A link the OS handed the app — `irc:`, `ircs:` or `web+irc:`, the schemes
+// Info.plist claims. Cold, it is the launch URL (`getLaunchUrl`), which
+// boot.ts awaits before it routes, the way a browser page reads `?uri=`.
+// While running it comes through `appUrlOpen`; iOS can report the launch
+// URL that way too, so that one is delivered once.
+let launchUrl: Promise<string | null> = Promise.resolve(null);
+let launchHref: string | null = null;
+let urlHandler: ((href: string) => void) | null = null;
+let pendingHref: string | null = null;
+
+/** The link the app was opened with, or null (at once, in a browser). */
+export function nativeLaunchUrl(): Promise<string | null> {
+	return launchUrl;
+}
+
+/** Links handed to the running app. One that arrives first waits here. */
+export function onNativeUrl(handler: (href: string) => void): void {
+	urlHandler = handler;
+
+	if (pendingHref !== null) {
+		const href = pendingHref;
+		pendingHref = null;
+		handler(href);
+	}
+}
+
 // The native launch image (capacitor.config.ts keeps it up until told) comes
 // down as soon as the page can paint in the user's theme — the theme
 // stylesheet's load — so the page's own loading screen, the logo tile on
@@ -54,6 +80,33 @@ export function installNativeHooks(): void {
 		if (isActive) {
 			reconnectAll();
 		}
+	});
+
+	launchUrl = nativeCall<{url?: string}>("App", "getLaunchUrl").then((result) => {
+		launchHref = result?.url || null;
+		return launchHref;
+	});
+
+	nativeListen("App", "appUrlOpen", ({url}: {url?: string}) => {
+		if (!url) {
+			return;
+		}
+
+		// After the launch URL is known, never before: the two bridge calls
+		// are in flight together, and a link compared against a launch URL
+		// that has not come back yet is acted on twice.
+		void launchUrl.then(() => {
+			if (url === launchHref) {
+				launchHref = null;
+				return;
+			}
+
+			if (urlHandler) {
+				urlHandler(url);
+			} else {
+				pendingHref = url;
+			}
+		});
 	});
 
 	// The WebView fills the screen (capacitor.config.ts), so the page draws
