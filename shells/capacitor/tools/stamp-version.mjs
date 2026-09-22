@@ -30,38 +30,62 @@ function git(...args) {
 		return execFileSync("git", args, {cwd: root, stdio: ["ignore", "pipe", "ignore"]})
 			.toString()
 			.trim();
-	} catch (e) {
+	} catch {
 		return null;
 	}
 }
 
 const MATCH = "v[0-9]*.[0-9]*.[0-9]*";
-const tag = git("describe", "--tags", "--match", MATCH, "--abbrev=0");
-const parts = /^v(\d+)\.(\d+)\.(\d+)$/.exec(tag ?? "");
+// One call answers both questions: `v5.1.6-29-g96bc3e42` away from the tag,
+// a bare `v5.1.6` on it. `--abbrev=0` would throw the count away.
+const described = git("describe", "--tags", "--match", MATCH);
+const parts = /^v(\d+)\.(\d+)\.(\d+)(?:-(\d+)-g[0-9a-f]+)?$/.exec(described ?? "");
 
 if (!parts) {
 	console.log(`stamp-version: no ${MATCH} tag in reach, native versions left as they are`);
 	process.exit(0);
 }
 
-const [, major, minor, patch] = parts.map(Number);
+const [, major, minor, patch, ahead] = parts.map(Number);
 const version = `${major}.${minor}.${patch}`;
-// `describe` counts what is between the tag and HEAD; `--abbrev=0` dropped it.
-const since = Number(git("rev-list", "--count", `${tag}..HEAD`) ?? "0");
+const tag = `v${version}`;
+const since = ahead || 0;
 
-if (minor > 99 || patch > 99 || since > 999) {
+// One row per field: its value, what it is worth, and the largest it may be
+// before it would carry into the field above. PLAY_MAX is Play's ceiling on a
+// versionCode; App Store Connect sets none.
+const FIELDS = [
+	{name: "major", value: major, worth: 10_000_000, max: 209},
+	{name: "minor", value: minor, worth: 100_000, max: 99},
+	{name: "patch", value: patch, worth: 1_000, max: 99},
+	{name: "commits since the tag", value: since, worth: 1, max: 999},
+];
+const PLAY_MAX = 2_100_000_000;
+
+for (const field of FIELDS) {
+	if (field.value > field.max) {
+		throw new Error(
+			`stamp-version: ${tag} +${since} does not fit the build number (${field.name} must be <= ${field.max})`
+		);
+	}
+}
+
+const build = FIELDS.reduce((total, field) => total + field.value * field.worth, 0);
+
+if (build > PLAY_MAX) {
 	throw new Error(
-		`stamp-version: ${tag} +${since} does not fit the build number (minor/patch < 100, commits since the tag < 1000)`
+		`stamp-version: ${tag} +${since} is ${build}, over Play's ${PLAY_MAX} versionCode ceiling`
 	);
 }
 
-const build = major * 10_000_000 + minor * 100_000 + patch * 1_000 + since;
-
 function stamp(file, replacements) {
 	const path = resolve(root, file);
-	let text = readFileSync(path, "utf8");
+	const original = readFileSync(path, "utf8");
+	let text = original;
 
 	for (const [pattern, replacement] of replacements) {
+		// The stamp target vanishing means the generator changed shape, which
+		// is worth stopping for rather than silently shipping a stale version.
 		if (!pattern.test(text)) {
 			throw new Error(`${file}: ${pattern} not found`);
 		}
@@ -69,7 +93,11 @@ function stamp(file, replacements) {
 		text = text.replace(pattern, replacement);
 	}
 
-	writeFileSync(path, text);
+	// Only when it actually moved: an identical rewrite still bumps the mtime,
+	// and Xcode regenerates its build description off the project file's stat.
+	if (text !== original) {
+		writeFileSync(path, text);
+	}
 }
 
 stamp("ios/App/App.xcodeproj/project.pbxproj", [
