@@ -3,11 +3,11 @@
 // tap UIKit gives a context menu; in a browser it is `navigator.vibrate`,
 // which Android has and iOS does not — so on an iOS web page there is none.
 
-export function nudge(): void {
-	const cap = window.Capacitor;
+import {isNativeShell, nativeCall} from "./capacitor";
 
-	if (cap?.isNativePlatform?.() && cap.nativePromise) {
-		void cap.nativePromise("Haptics", "impact", {style: "MEDIUM"});
+export function nudge(): void {
+	if (isNativeShell()) {
+		void nativeCall("Haptics", "impact", {style: "MEDIUM"});
 		return;
 	}
 

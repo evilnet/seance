@@ -1,8 +1,10 @@
 // The Android shell's "stay connected" foreground service, from the page
-// (shells/capacitor: KeepAlivePlugin.java / ConnectionService.java). Nothing
-// but the injected bridge is touched, so settings.ts can import this without
-// pulling the store or the router into a cycle; a browser, and the iOS
-// shell, have no such service and every call is a no-op.
+// (shells/capacitor: KeepAlivePlugin.java / ConnectionService.java). Only the
+// bridge is touched (helpers/capacitor.ts imports nothing), so settings.ts can
+// import this without pulling the store or the router into a cycle; a browser,
+// and the iOS shell, have no such service and every call is a no-op.
+
+import {isAndroidShell, nativeCall} from "./capacitor";
 
 export interface KeepAliveStatus {
 	/** The foreground service is up. */
@@ -24,60 +26,42 @@ export function onKeepAliveStatus(listener: StatusListener): () => void {
 	return () => listeners.delete(listener);
 }
 
-function publish(status: KeepAliveStatus): KeepAliveStatus {
-	for (const listener of listeners) {
-		listener(status);
+/** Pass a status on to the listeners; null (no shell, no plugin) is nothing. */
+function publish(status: KeepAliveStatus | null): KeepAliveStatus | null {
+	if (status) {
+		for (const listener of listeners) {
+			listener(status);
+		}
 	}
 
 	return status;
 }
 
-function bridge() {
-	const cap = window.Capacitor;
-
-	if (!cap?.isNativePlatform?.() || cap.getPlatform?.() !== "android" || !cap.nativePromise) {
-		return null;
-	}
-
-	return cap;
-}
-
 /** True inside the Android shell, the one platform with the service. */
 export function keepAliveAvailable(): boolean {
-	return bridge() !== null;
+	return isAndroidShell();
 }
 
 /**
  * Start or stop the service. `quiet` is the boot-time re-apply of a stored
  * setting: it never asks for the notification permission, the toggle does.
- * Resolves to the service's status, or null where there is none.
+ * Resolves to the service's status, or null where there is none — a browser,
+ * the iOS shell, or an Android shell built before the plugin existed.
  */
 export async function setKeepAlive(on: boolean, quiet = false): Promise<KeepAliveStatus | null> {
-	const cap = bridge();
-
-	if (!cap) {
+	if (!keepAliveAvailable()) {
 		return null;
 	}
 
-	try {
-		const result = await cap.nativePromise!("KeepAlive", on ? "enable" : "disable", {quiet});
-		return publish(result as KeepAliveStatus);
-	} catch (e) {
-		// An old shell without the plugin: the setting has no effect there.
-		return null;
-	}
+	return publish(
+		await nativeCall<KeepAliveStatus>("KeepAlive", on ? "enable" : "disable", {quiet})
+	);
 }
 
 export async function keepAliveStatus(): Promise<KeepAliveStatus | null> {
-	const cap = bridge();
-
-	if (!cap) {
+	if (!keepAliveAvailable()) {
 		return null;
 	}
 
-	try {
-		return publish((await cap.nativePromise!("KeepAlive", "status", {})) as KeepAliveStatus);
-	} catch (e) {
-		return null;
-	}
+	return publish(await nativeCall<KeepAliveStatus>("KeepAlive", "status"));
 }

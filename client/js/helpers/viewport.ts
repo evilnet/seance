@@ -27,6 +27,7 @@
  */
 
 import {hasVirtualKeyboard} from "./device";
+import {isIOSShell, nativeCall, nativeListen} from "./capacitor";
 
 /** When a measurement is re-read after its event, in ms. The keyboard animates for ~250 ms. */
 export const SETTLE_DELAYS_MS = [50, 150, 300, 600];
@@ -77,19 +78,13 @@ export function visibleHeight(): number {
 }
 
 /**
- * The keyboard's height as the native shell reports it (native.ts, from
- * Capacitor's keyboardWillShow/WillHide), or null where no shell says. When
- * set it outranks the visual-viewport guess: the number is the keyboard's
- * frame, form bar included, announced before the animation, so no settle
- * re-reads and no mid-animation height.
+ * The keyboard's height as the native shell reports it (Capacitor's
+ * keyboardWillShow/WillHide, subscribed below), or null where no shell says.
+ * When set it outranks the visual-viewport guess: the number is the
+ * keyboard's frame, form bar included, announced before the animation, so no
+ * settle re-reads and no mid-animation height.
  */
 let nativeKeyboard: number | null = null;
-let reapply: (() => void) | null = null;
-
-export function setNativeKeyboard(height: number | null): void {
-	nativeKeyboard = height;
-	reapply?.();
-}
 
 export function installViewportHooks(): void {
 	const viewport = window.visualViewport;
@@ -140,7 +135,34 @@ export function installViewportHooks(): void {
 		cancel = settle(apply);
 	};
 
-	reapply = apply;
+	// The shell's keyboard, rather than the visual viewport's: the plugin says
+	// its height before the animation, form bar included, and says when it
+	// goes — the two things iOS never tells a page straight.
+	// iOS's form accessory bar (˄ ˅ Done) above the keyboard goes with it:
+	// nothing in the app for it to step between, and it is the floating pill
+	// that covered the composer in the PWA. The keyboard's own Done key does
+	// the job.
+	// iOS only, both: Android's WebView shrinks for the keyboard like a
+	// browser's (Capacitor pads its parent by the IME inset), so the visual
+	// viewport already says everything and the plugin's height on top of it
+	// took the keyboard off twice; and the accessory-bar call is not
+	// implemented there.
+	if (isIOSShell()) {
+		void nativeCall("Keyboard", "setAccessoryBarVisible", {isVisible: false});
+
+		nativeListen(
+			"Keyboard",
+			"keyboardWillShow",
+			({keyboardHeight}: {keyboardHeight: number}) => {
+				nativeKeyboard = keyboardHeight;
+				apply();
+			}
+		);
+		nativeListen("Keyboard", "keyboardWillHide", () => {
+			nativeKeyboard = 0;
+			apply();
+		});
+	}
 
 	viewport.addEventListener("resize", applySettled);
 	viewport.addEventListener("scroll", apply);

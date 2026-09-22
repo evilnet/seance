@@ -25,7 +25,7 @@
 import {store} from "./store";
 import {BeforeInstallPromptEvent} from "./types";
 import {isOtherBuild} from "./build";
-import {isNativeShell} from "./native";
+import {isNativeShell} from "./helpers/capacitor";
 
 /** A window that stays open re-checks the worker script this often. */
 const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;

@@ -133,10 +133,11 @@ export async function boot(): Promise<void> {
 		void handleQueryParams(linkQuery(href), false);
 	});
 	const launchHref = await nativeLaunchUrl();
+	const handled = launchHref
+		? await handleQueryParams(linkQuery(launchHref), false)
+		: await handleQueryParams();
 
-	if (
-		await (launchHref ? handleQueryParams(linkQuery(launchHref), false) : handleQueryParams())
-	) {
+	if (handled) {
 		// The URL's web+irc:// link or connect parameters have been acted on:
 		// a saved network is connecting, or the connect form is pre-filled
 		// waiting for the user's approval.

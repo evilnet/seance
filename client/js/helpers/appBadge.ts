@@ -9,7 +9,7 @@
 // sheet dismissed without an answer (the app backgrounded under it) leaves
 // the permission undecided, and the next highlight asks again.
 
-import {nativeBridge} from "../native";
+import {isNativeShell, nativeCall} from "./capacitor";
 
 interface BadgePermission {
 	display?: "granted" | "denied" | "prompt" | "prompt-with-rationale";
@@ -18,47 +18,36 @@ interface BadgePermission {
 let nativeGranted: boolean | null = null;
 
 async function setNativeBadge(count: number): Promise<void> {
-	const cap = nativeBridge();
-
-	if (!cap) {
-		return;
-	}
-
 	if (count <= 0) {
 		// Harmless without the permission: there is no badge to clear.
-		await cap.nativePromise("Badge", "clear", {});
+		await nativeCall("Badge", "clear");
 		return;
 	}
 
 	if (nativeGranted === null) {
-		nativeGranted = await askBadgePermission(cap);
+		nativeGranted = await askBadgePermission();
 	}
 
 	if (nativeGranted) {
-		await cap.nativePromise("Badge", "set", {count});
+		await nativeCall("Badge", "set", {count});
 	}
 }
 
 /** Granted or denied, remembered; still undecided (sheet dismissed), null. */
-async function askBadgePermission(cap: NonNullable<ReturnType<typeof nativeBridge>>) {
-	const check = (await cap.nativePromise("Badge", "checkPermissions", {})) as BadgePermission;
-	let status = check.display;
+async function askBadgePermission(): Promise<boolean | null> {
+	const check = await nativeCall<BadgePermission>("Badge", "checkPermissions");
+	let status = check?.display;
 
 	if (status === "prompt" || status === "prompt-with-rationale") {
-		const asked = (await cap.nativePromise(
-			"Badge",
-			"requestPermissions",
-			{}
-		)) as BadgePermission;
-		status = asked.display;
+		status = (await nativeCall<BadgePermission>("Badge", "requestPermissions"))?.display;
 	}
 
 	return status === "granted" ? true : status === "denied" ? false : null;
 }
 
 export function setAppBadge(count: number): void {
-	if (nativeBridge()) {
-		setNativeBadge(count).catch(() => {});
+	if (isNativeShell()) {
+		void setNativeBadge(count);
 		return;
 	}
 

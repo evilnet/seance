@@ -1,52 +1,22 @@
-// Native-shell glue (shells/capacitor). The web build never bundles Capacitor:
-// the shell's WebView injects `window.Capacitor` (its "native bridge") before
-// our scripts run, so everything here is feature-detected and a no-op in a
-// browser. Only the bridge's own `addListener` / `nativePromise` are used;
-// `Capacitor.Plugins` stays empty unless `@capacitor/core` is bundled.
+// Native-shell glue (shells/capacitor): everything the page does *because* it
+// is running inside the shell — the launch link, the status bar, the splash,
+// Android's back button. The bridge itself is `helpers/capacitor.ts`, which
+// imports nothing and is what the leaf helpers (haptics, keepAlive, appBadge,
+// viewport) talk to; this file is free to pull in the store and the router.
 
 import {leavePage, onStandalonePage} from "./router";
 import {closeOpenImage} from "./helpers/imageViewer";
 import {reconnectAll} from "./irc/manager";
-import {setNativeKeyboard} from "./helpers/viewport";
 import {isPhoneLayout} from "./helpers/device";
+import {
+	nativeBridge,
+	nativeCall,
+	nativeListen,
+	nativePlatform,
+	isAndroidShell,
+} from "./helpers/capacitor";
 import eventbus from "./eventbus";
 import {store} from "./store";
-
-interface CapacitorBridge {
-	isNativePlatform?: () => boolean;
-	getPlatform?: () => string;
-	addListener?: (plugin: string, event: string, cb: (data: any) => void) => unknown;
-	nativePromise?: (plugin: string, method: string, options?: unknown) => Promise<unknown>;
-}
-
-declare global {
-	interface Window {
-		Capacitor?: CapacitorBridge;
-		/** Capacitor Android's SystemBars plugin, a JavascriptInterface. */
-		CapacitorSystemBarsAndroidInterface?: {onDOMReady: () => void};
-	}
-}
-
-/** Which shell: `"ios"`, `"android"`, or `"web"` in a browser. */
-export function nativePlatform(): string {
-	return window.Capacitor?.getPlatform?.() ?? "web";
-}
-
-/** The bridge, when this page runs inside the native shell. */
-export function nativeBridge(): Required<CapacitorBridge> | null {
-	const cap = window.Capacitor;
-
-	if (!cap?.isNativePlatform?.() || !cap.addListener || !cap.nativePromise) {
-		return null;
-	}
-
-	return cap as Required<CapacitorBridge>;
-}
-
-/** True inside the Capacitor shell (iOS / Android). */
-export function isNativeShell(): boolean {
-	return nativeBridge() !== null;
-}
 
 // A link the OS handed the app — `irc:`, `ircs:` or `web+irc:`, the schemes
 // Info.plist claims. Cold, it is the launch URL (`getLaunchUrl`), which
@@ -90,7 +60,7 @@ function hideSplash(): void {
 	splashHidden = true;
 	requestAnimationFrame(() => {
 		requestAnimationFrame(() => {
-			void nativeBridge()?.nativePromise("SplashScreen", "hide", {});
+			void nativeCall("SplashScreen", "hide");
 		});
 	});
 }
@@ -104,15 +74,13 @@ export function nativeAppReady(): void {
 }
 
 export function installNativeHooks(): void {
-	const cap = nativeBridge();
-
-	if (!cap) {
+	if (!nativeBridge()) {
 		return;
 	}
 
 	// iOS/Android drop the WebSocket while backgrounded: retry on foreground.
 	// (No build check: a new build of the shell is a new app from the store.)
-	cap.addListener("App", "appStateChange", ({isActive}: {isActive?: boolean}) => {
+	nativeListen("App", "appStateChange", ({isActive}: {isActive?: boolean}) => {
 		if (isActive) {
 			reconnectAll();
 		}
@@ -121,36 +89,37 @@ export function installNativeHooks(): void {
 	// Android: the "stay connected" notification's Turn off button stops the
 	// service; the setting follows so Settings shows the truth and the next
 	// launch does not start it again (helpers/keepAlive.ts).
-	if (nativePlatform() === "android") {
-		cap.addListener("KeepAlive", "stopped", () => {
+	if (isAndroidShell()) {
+		nativeListen("KeepAlive", "stopped", () => {
 			void store.dispatch("settings/update", {name: "keepConnected", value: false});
 		});
 	}
 
-	launchUrl = cap
-		.nativePromise("App", "getLaunchUrl", {})
-		.then((result) => {
-			const url = (result as {url?: string} | null | undefined)?.url;
-			launchHref = url || null;
-			return launchHref;
-		})
-		.catch(() => null);
+	launchUrl = nativeCall<{url?: string}>("App", "getLaunchUrl").then((result) => {
+		launchHref = result?.url || null;
+		return launchHref;
+	});
 
-	cap.addListener("App", "appUrlOpen", ({url}: {url?: string}) => {
+	nativeListen("App", "appUrlOpen", ({url}: {url?: string}) => {
 		if (!url) {
 			return;
 		}
 
-		if (url === launchHref) {
-			launchHref = null;
-			return;
-		}
+		// After the launch URL is known, never before: the two bridge calls
+		// are in flight together, and a link compared against a launch URL
+		// that has not come back yet is acted on twice.
+		void launchUrl.then(() => {
+			if (url === launchHref) {
+				launchHref = null;
+				return;
+			}
 
-		if (urlHandler) {
-			urlHandler(url);
-		} else {
-			pendingHref = url;
-		}
+			if (urlHandler) {
+				urlHandler(url);
+			} else {
+				pendingHref = url;
+			}
+		});
 	});
 
 	// The WebView fills the screen (capacitor.config.ts), so the page draws
@@ -191,13 +160,13 @@ export function installNativeHooks(): void {
 		// Style names the bar's text: DARK is light text for a dark page.
 		const style = (r * 299 + g * 587 + b * 114) / 1000 < 128 ? "DARK" : "LIGHT";
 
-		cap.nativePromise("StatusBar", "setStyle", {style}).catch(() => {});
+		void nativeCall("StatusBar", "setStyle", {style});
 
 		// Android's navigation bar draws its buttons over the page too, and
 		// only the core SystemBars plugin styles that one (both bars, no
 		// `bar` given).
-		if (nativePlatform() === "android") {
-			cap.nativePromise("SystemBars", "setStyle", {style}).catch(() => {});
+		if (isAndroidShell()) {
+			void nativeCall("SystemBars", "setStyle", {style});
 		}
 	};
 
@@ -214,50 +183,20 @@ export function installNativeHooks(): void {
 		theme?.addEventListener("load", hideSplash, {once: true});
 	}
 
-	// The keyboard, from the shell rather than from the visual viewport: the
-	// plugin says its height before the animation, form bar included, and
-	// says when it goes — the two things iOS never tells a page straight
-	// (helpers/viewport.ts).
-	// iOS's form accessory bar (˄ ˅ Done) above the keyboard: nothing in the
-	// app for it to step between, and it is the floating pill that covered
-	// the composer in the PWA. The keyboard's own Done key does the job.
-	// iOS only, both: Android's WebView shrinks for the keyboard like a
-	// browser's (Capacitor pads its parent by the IME inset), so the visual
-	// viewport already says everything and the plugin's height on top of it
-	// took the keyboard off twice; and the accessory-bar call is not
-	// implemented there — it rejects, an unhandled rejection at every boot.
-	if (nativePlatform() === "ios") {
-		cap.nativePromise("Keyboard", "setAccessoryBarVisible", {isVisible: false}).catch(() => {});
-
-		cap.addListener(
-			"Keyboard",
-			"keyboardWillShow",
-			({keyboardHeight}: {keyboardHeight: number}) => setNativeKeyboard(keyboardHeight)
-		);
-		cap.addListener("Keyboard", "keyboardWillHide", () => setNativeKeyboard(0));
-	}
-
 	// Android back button: whatever is open on top goes first — an image,
-	// then anything that answers Escape (a context menu, the mentions popup,
-	// a confirm dialog, the reaction picker, the push prompt, the upload
-	// preview), then the phone's sidebar or user-list overlay — then a
-	// standalone page gives way to the conversation it came from, and with
-	// nothing left to close the app minimizes (overrides the default). Not
-	// `router.back()`: the history is kept one deep (router.ts). Without
-	// the middle steps a back press meant to close a menu backgrounded the
-	// app, menu and all.
-	cap.addListener("App", "backButton", () => {
+	// then anything that closes on Escape (every such overlay marks itself
+	// `data-escape-close` while it is up), then the phone's sidebar or
+	// user-list overlay — then a standalone page gives way to the
+	// conversation it came from, and with nothing left to close the app
+	// minimizes (overrides the default). Not `router.back()`: the history is
+	// kept one deep (router.ts). Without the middle steps a back press meant
+	// to close a menu backgrounded the app, menu and all.
+	nativeListen("App", "backButton", () => {
 		if (closeOpenImage()) {
 			return;
 		}
 
-		if (
-			document.querySelector(
-				"#context-menu-container, #mentions-popup-container, .reaction-picker, " +
-					"#confirm-dialog-overlay.opened, #push-prompt-overlay.opened, " +
-					"#upload-preview-overlay.opened"
-			)
-		) {
+		if (document.querySelector("[data-escape-close]")) {
 			eventbus.emit("escapekey");
 			return;
 		}
@@ -281,6 +220,6 @@ export function installNativeHooks(): void {
 			return;
 		}
 
-		void cap.nativePromise("App", "minimizeApp", {});
+		void nativeCall("App", "minimizeApp");
 	});
 }
