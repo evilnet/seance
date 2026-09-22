@@ -7,7 +7,7 @@ android {
         applicationId "chat.seance.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 8476
+        versionCode 50106027
         versionName "5.1.6"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
