@@ -76,15 +76,19 @@ public class KeepAlivePlugin extends Plugin {
      */
     @Override
     protected void handleOnDestroy() {
+        // Dropped first either way: the static outlives this instance and
+        // would hold the bridge, the activity and the WebView behind it.
+        // A recreate's `load()` puts the new instance's callback in its place.
+        ConnectionService.onStoppedByUser = null;
+
         Activity activity = getActivity();
 
         if (activity != null && activity.isChangingConfigurations()) {
             // Recreated, not finished: the WebView comes back and so do the
-            // sockets. `load()` on the new instance replaces the callback.
+            // sockets, so the service stays up.
             return;
         }
 
-        ConnectionService.onStoppedByUser = null;
         ConnectionService.stop(getContext());
     }
 

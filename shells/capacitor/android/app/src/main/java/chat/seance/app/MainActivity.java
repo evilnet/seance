@@ -2,6 +2,7 @@ package chat.seance.app;
 
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
+import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.util.WebColor;
 
@@ -14,8 +15,10 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(KeepAlivePlugin.class);
         super.onCreate(savedInstanceState);
 
+        Bridge bridge = getBridge();
+
         // The paperclip's picker offers the camera too, as iOS's does.
-        getBridge().getWebView().setWebChromeClient(new UploadChooserClient(getBridge()));
+        bridge.getWebView().setWebChromeClient(new UploadChooserClient(bridge));
 
         // The window behind the WebView, in the deploy's colour
         // (capacitor.config.ts `backgroundColor`, from config.json's
@@ -25,7 +28,7 @@ public class MainActivity extends BridgeActivity {
         // WebView older than Chromium 140, which Capacitor insets natively
         // instead of handing the page the safe areas, and any frame before
         // the page paints.
-        String color = getBridge().getConfig().getBackgroundColor();
+        String color = bridge.getConfig().getBackgroundColor();
 
         if (color != null) {
             try {
