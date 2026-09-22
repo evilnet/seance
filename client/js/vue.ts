@@ -13,7 +13,7 @@ import {boot} from "./boot";
 import "./webpush";
 import "./pwa";
 import "./keybinds";
-import {LoungeWindow} from "./types";
+import {setAppBadge} from "./helpers/appBadge";
 
 const favicon = document.getElementById("favicon");
 const faviconNormal = favicon?.getAttribute("href") || "";
@@ -58,18 +58,7 @@ store.watch(
 	(_, getters: CallableGetters) => getters.highlightCount,
 	(highlightCount) => {
 		favicon?.setAttribute("href", highlightCount > 0 ? faviconAlerted : faviconNormal);
-
-		const nav: LoungeWindow["navigator"] = window.navigator;
-
-		if (nav.setAppBadge) {
-			if (highlightCount > 0) {
-				nav.setAppBadge(highlightCount).catch(() => {});
-			} else {
-				if (nav.clearAppBadge) {
-					nav.clearAppBadge().catch(() => {});
-				}
-			}
-		}
+		setAppBadge(highlightCount);
 	}
 );
 

@@ -7,6 +7,7 @@
 // so a rebranded deploy only has to change that file and `appId` below.
 
 /// <reference types="@capacitor/splash-screen" />
+/// <reference types="@capawesome/capacitor-badge" />
 
 import {readFileSync} from "node:fs";
 import {resolve} from "node:path";
@@ -93,6 +94,13 @@ const config: CapacitorConfig = {
 		SplashScreen: {
 			launchAutoHide: false,
 			backgroundColor: "#0D0E14",
+		},
+		// The icon badge is the store's highlight count (helpers/appBadge.ts);
+		// the app clears it itself when the highlights are read, and it must
+		// survive a restart with the unread state that produced it.
+		Badge: {
+			persist: true,
+			autoClear: false,
 		},
 	},
 };
