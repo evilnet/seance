@@ -5,6 +5,7 @@
   "description": "Capacitor shell that wraps the Seance web build (../../public) as an iOS / Android app",
   "license": "MIT",
   "scripts": {
+    "presync": "node tools/stamp-version.mjs",
     "sync": "cap sync",
     "add:android": "cap add android",
     "add:ios": "cap add ios",

@@ -4,12 +4,13 @@ A [Capacitor](https://capacitorjs.com/) project that wraps the Seance web build 
 
 ## Layout
 
-| Path                  | What                                                                                                        |
-| --------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `capacitor.config.ts` | Capacitor config: `appId`, `appName` (from `public/config.json`), `webDir: ../../public`, scheme, StatusBar |
-| `android/`            | Generated Android Studio project (`cap add android`). Committed; `app/src/main/assets/public/` is not.      |
-| `ios/`                | Generated Xcode project (`cap add ios`, Swift Package Manager based). Committed; `App/App/public/` is not.  |
-| `package.json`        | `seance-capacitor`: Capacitor 8 (`core`, `cli`, `android`, `ios`) plus the `app` and `status-bar` plugins   |
+| Path                      | What                                                                                                                                                                                       |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `capacitor.config.ts`     | Capacitor config: `appId`, `appName` (from `public/config.json`), `webDir: ../../public`, scheme, StatusBar                                                                                |
+| `android/`                | Generated Android Studio project (`cap add android`). Committed; `app/src/main/assets/public/` is not.                                                                                     |
+| `ios/`                    | Generated Xcode project (`cap add ios`, Swift Package Manager based). Committed; `App/App/public/` and SPM's `xcshareddata/swiftpm/` are not.                                              |
+| `tools/stamp-version.mjs` | Runs before every `cap sync` (`presync`): nearest `vX.Y.Z` tag → `MARKETING_VERSION` / `versionName`, and a build number derived from that tag → `CURRENT_PROJECT_VERSION` / `versionCode` |
+| `package.json`            | `seance-capacitor`: Capacitor 8 (`core`, `cli`, `android`, `ios`) plus the `app` and `status-bar` plugins                                                                                  |
 
 The web-side glue lives in the root app, not here. `client/js/helpers/capacitor.ts` is the bridge and nothing else — it feature-detects `window.Capacitor`, which the native WebView injects, and is a no-op in a browser; `nativeCall(plugin, method, options)` resolves to null instead of rejecting where there is nothing to call (a browser, an older shell, a method a platform does not implement), and `isIOSShell()` / `isAndroidShell()` are the platform questions. It imports nothing, so a leaf helper can use it without pulling in the store or the router; `client/js/native.ts` (called from `client/js/boot.ts`) is everything the page does _because_ it is in the shell. Talking to the bridge directly means `@capacitor/core` is never bundled by the root webpack; a plugin is reachable by its registered name (`"App"`, `"Keyboard"`, `"Badge"`, …) as long as it is installed here, which is what `cap sync` registers natively. What the page does with the bridge:
 
@@ -20,7 +21,7 @@ The web-side glue lives in the root app, not here. `client/js/helpers/capacitor.
 ## Prerequisites
 
 - Node.js >= 22 and Yarn (the root uses `corepack yarn`).
-- A root build: `NODE_ENV=production corepack yarn build` from the repository root produces `public/`. `cap sync` copies that directory; there is no dev-server / live-reload wiring here.
+- A root build: `NODE_ENV=production corepack yarn build` from the repository root produces `public/`. `cap sync` copies that directory; there is no dev-server / live-reload wiring here. **Rebuild before every sync** or the app ships whatever `public/` last held.
 - Android: Android Studio (or the command-line SDK) with an SDK matching `android/variables.gradle` (`compileSdk 36`, `minSdk 24`), JDK 21. Export `ANDROID_HOME` or let Studio manage it.
 - iOS: macOS with Xcode 15+ (Capacitor 8 targets iOS 15+). The generated project uses Swift Package Manager, so CocoaPods is not required.
 
@@ -29,14 +30,31 @@ The web-side glue lives in the root app, not here. `client/js/helpers/capacitor.
 ```sh
 cd shells/capacitor
 corepack yarn install
-corepack yarn sync            # cap sync: copies ../../public into both platforms and updates native plugin lists
+corepack yarn sync            # stamp-version, then cap sync: copies ../../public into both platforms and updates native plugin lists
 corepack yarn open:android    # opens android/ in Android Studio -> Run
 corepack yarn open:ios        # opens ios/App/App.xcodeproj in Xcode -> Run
 ```
 
 Re-run `corepack yarn sync` after every root `yarn build` (web assets) and after adding or removing a Capacitor plugin (native plugin registration). `corepack yarn run:android` / `run:ios` build and deploy to a connected device or emulator from the command line once the SDK / Xcode are installed. `corepack yarn doctor` reports what is missing on the machine.
 
-Both `android/` and `ios/` are committed (as Capacitor recommends) so native customisations survive; the synced web assets, Gradle caches and build outputs are ignored via the root `.gitignore`. The root ESLint ignores `shells/capacitor/` (it has its own `tsconfig.json`; run `corepack yarn typecheck` here); Prettier formats this directory except the generated `android/` and `ios/` trees.
+Both `android/` and `ios/` are committed (as Capacitor recommends) so native customisations survive; the synced web assets, Gradle caches, SPM resolution state and build outputs are ignored via the root `.gitignore`. The root ESLint ignores `shells/capacitor/` (it has its own `tsconfig.json`; run `corepack yarn typecheck` here); Prettier formats this directory except the generated `android/` and `ios/` trees.
+
+A simulator build from the command line, without signing:
+
+```sh
+xcodebuild -project ios/App/App.xcodeproj -scheme App -sdk iphonesimulator \
+  -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+```
+
+The Android debug build and an emulator run, from the command line (Gradle fetches the missing platform and build-tools itself once the SDK licences are accepted; `adb` is `$ANDROID_HOME/platform-tools/adb` — the Homebrew `adb` wrapper hangs):
+
+```sh
+export ANDROID_HOME=$HOME/Library/Android/sdk JAVA_HOME=/opt/homebrew/opt/openjdk@21
+(cd android && ./gradlew assembleDebug)
+$ANDROID_HOME/emulator/emulator -avd seance-android -gpu auto &   # `-gpu swiftshader_indirect` hangs the guest
+$ANDROID_HOME/platform-tools/adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+$ANDROID_HOME/platform-tools/adb shell am start -n chat.seance.app/.MainActivity
+```
 
 ### Verified on a machine without the Android SDK or Xcode
 
@@ -50,7 +68,8 @@ Everything an IRC network needs to change:
 2. **`appName`** comes from `public/config.json` `appName` when the CLI evaluates `capacitor.config.ts` (fallback `Seance`), so the same file that brands the web app (`docs/resources/branding.md`) names the native app. `cap sync` does not rewrite the display name in the already-generated projects, though: after changing it, update `android/app/src/main/res/values/strings.xml` (`app_name`, `title_activity_main`) and `CFBundleDisplayName` in `ios/App/App/Info.plist`, or re-add the platforms. The StatusBar background colour is taken from `themeColor` the same way.
 3. **Icons and splash screens**: use [`@capacitor/assets`](https://github.com/ionic-team/capacitor-assets). Put `icon.png` (1024x1024), `splash.png` and `splash-dark.png` (2732x2732) in `shells/capacitor/assets/` and run `npx @capacitor/assets generate --android --ios` from this directory; it writes every density into `android/app/src/main/res/` and `ios/App/App/Assets.xcassets/`. Not run in this checkout; the projects still carry Capacitor's default icon.
 4. **Web branding** (`public/config.json`, logos in `public/img/`) is picked up by `cap sync` like any other web asset. Native shells could also call `setBranding()` (`client/js/branding.ts`) instead of fetching `config.json`, if a network prefers to bake it in.
-5. Signing: Android keystore / Play App Signing and the iOS team + provisioning profile are configured in Android Studio / Xcode as usual and are out of scope here.
+5. **Versions** come from git (`tools/stamp-version.mjs`): tag a release (`vX.Y.Z`) and sync. The tag is the marketing version; the build number is `major * 10_000_000 + minor * 100_000 + patch * 1_000 + commits since the tag`. Both stores only insist a build number never goes down, and a bare commit count cannot promise that — it belongs to the branch, so a release cut from a shorter branch than the last upload is rejected. A tag reads the same on every branch that can see it, which is why it carries the number; the commits-since term only separates the builds between two tags (TestFlight wants a fresh one per upload) and is capped so it can never reach the next patch. Note the checkout still carries TheLounge's upstream tags, so today that is `5.1.6`; the first Seance tag replaces it.
+6. Signing: Android keystore / Play App Signing and the iOS provisioning profile are configured in Android Studio / Xcode as usual and are out of scope here. Two things are not: `android/.gitignore` refuses `*.jks` and `*.keystore`, and the iOS **team ID lives in `ios/signing.xcconfig`**, which is untracked — copy `ios/signing.xcconfig.example` to it and put yours in. `debug.xcconfig` and `release.xcconfig` both `#include?` it, so Xcode resolves `DEVELOPMENT_TEAM` for either configuration without the project carrying anyone's identifier; `stamp-version.mjs` rewrites `project.pbxproj` on every sync and would otherwise walk one into a commit. `ITSAppUsesNonExemptEncryption` is `false` in `Info.plist` (TLS only), so App Store Connect does not ask on every upload.
 
 ## Platform caveats (WebSocket, background, TLS)
 

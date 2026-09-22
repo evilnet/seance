@@ -32,6 +32,10 @@ shells/capacitor/android/build/
 shells/capacitor/android/app/build/
 shells/capacitor/ios/App/App/public/
 shells/capacitor/ios/App/Pods/
+shells/capacitor/ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+shells/capacitor/ios/App/App.xcodeproj/xcuserdata/
+shells/capacitor/ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
+.DS_Store
 shells/electron/node_modules/
 shells/electron/dist/
 
