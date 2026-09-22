@@ -1,0 +1,8 @@
+// Copy to signing.xcconfig (untracked) and put your Apple Developer Team
+// ID in it. Xcode picks it up for both Debug and Release, so no personal
+// identifier ever lands in project.pbxproj -- which tools/stamp-version.mjs
+// rewrites on every `cap sync` and would happily carry one into a commit.
+//
+// The ID is in Xcode's Signing & Capabilities tab, or at
+// https://developer.apple.com/account -> Membership details.
+DEVELOPMENT_TEAM = ABCDE12345

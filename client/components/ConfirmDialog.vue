@@ -1,5 +1,9 @@
 <template>
-	<div id="confirm-dialog-overlay" :class="{opened: !!data}">
+	<div
+		id="confirm-dialog-overlay"
+		:class="{opened: !!data}"
+		:data-escape-close="data ? '' : null"
+	>
 		<div v-if="data !== null" id="confirm-dialog">
 			<div class="confirm-text">
 				<div class="confirm-text-title">{{ data?.title }}</div>
