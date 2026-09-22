@@ -45,6 +45,7 @@ import standardReplies from "./standard-replies";
 import tagmsg from "./tagmsg";
 import token, {authtokenBatch} from "./token";
 import topic from "./topic";
+import who from "./who";
 import whois from "./whois";
 
 const modules: Record<string, Handler>[] = [
@@ -77,6 +78,7 @@ const modules: Record<string, Handler>[] = [
 	token,
 	topic,
 	webpush,
+	who,
 	whois,
 ];
 

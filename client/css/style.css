@@ -470,6 +470,7 @@ p {
 #chat .msg[data-type="ctcp"] .from::before,
 #chat .msg[data-type="ctcp_request"] .from::before,
 #chat .msg[data-type="whois"] .from::before,
+#chat .msg[data-type="who"] .from::before,
 #chat .msg[data-type="nick"] .from::before,
 #chat .msg[data-type="chghost"] .from::before,
 #chat .msg[data-type="plugin"] .from::before,
@@ -647,6 +648,11 @@ p {
 
 #chat .msg[data-type="whois"] .from::before {
 	content: "\f007"; /* http://fontawesome.io/icon/user/ */
+	color: #2ecc40;
+}
+
+#chat .msg[data-type="who"] .from::before {
+	content: "\f0c0"; /* https://fontawesome.com/icons/users?style=solid */
 	color: #2ecc40;
 }
 
@@ -3158,6 +3164,109 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	overflow: visible;
 }
 
+/* A WHO reply (MessageTypes/who.vue): one table per query. Everything reads
+ * the base tokens so every theme colours it: headings in the window heading
+ * colour, rules from the muted text at low alpha, the flags as small pills
+ * — channel status and oper in the link colour, away muted — and the parts
+ * that are only structure (the @, a missing account) muted too. The server
+ * is a tooltip on the host: HIS-masked on most networks, and the column
+ * would push the real name off a narrow pane. */
+.who .who-title {
+	margin: 0 0 0.25em;
+}
+
+.who .who-count {
+	color: var(--body-color-muted);
+	margin-left: 0.5em;
+}
+
+.who .who-count::before {
+	content: "· ";
+}
+
+.who .who-scroll {
+	max-width: 100%;
+	overflow-x: auto;
+}
+
+#chat table.who-list {
+	border-collapse: collapse;
+	font-size: 0.9375em;
+	line-height: 1.4;
+	margin: 0 0 0.25em;
+}
+
+#chat table.who-list th,
+#chat table.who-list td {
+	padding: 0.15em 0.75em 0.15em 0;
+	text-align: left;
+	vertical-align: baseline;
+	white-space: nowrap;
+
+	/* .content breaks long words anywhere (Zalgo, URLs); a table column
+	 * sized from that is one character wide. Words break between words. */
+	overflow-wrap: normal;
+	word-break: normal;
+	border-bottom: 1px solid color-mix(in srgb, var(--body-color-muted) 30%, transparent);
+}
+
+#chat table.who-list th {
+	color: var(--window-heading-color);
+	font-size: 0.8125em;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+	border-bottom-color: color-mix(in srgb, var(--body-color-muted) 55%, transparent);
+}
+
+#chat table.who-list tbody tr:last-child td {
+	border-bottom: 0;
+}
+
+/* What gives when the pane is narrow: the pills wrap, the host breaks
+ * after its @ (the <wbr> in who.vue) and the real name wraps between words. */
+#chat table.who-list td.who-status,
+#chat table.who-list td.who-host,
+#chat table.who-list .who-realname {
+	white-space: normal;
+}
+
+#chat table.who-list .who-realname {
+	min-width: 12ch;
+}
+
+#chat table.who-list .who-at,
+#chat table.who-list .who-none {
+	color: var(--body-color-muted);
+}
+
+#chat table.who-list .who-flag {
+	display: inline-block;
+	border: 1px solid currentcolor;
+	border-radius: 0.6em;
+	font-size: 0.75em;
+	line-height: 1.3;
+	padding: 0 0.45em;
+	margin-right: 0.3em;
+	color: var(--body-color-muted);
+	vertical-align: 0.1em;
+}
+
+#chat table.who-list .who-prefix {
+	font-weight: 700;
+	font-family: monospace;
+	padding: 0 0.4em;
+}
+
+#chat table.who-list .who-prefix,
+#chat table.who-list .who-oper {
+	color: var(--link-color);
+}
+
+#chat table.who-list .who-away {
+	font-style: italic;
+}
+
 .changelog-text {
 	line-height: 1.5;
 }
@@ -4160,6 +4269,14 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 		/* A space, since inline flow has no padding between the columns. */
 		content: " ";
 		white-space: pre;
+	}
+
+	/* A WHO table on a phone: the host may break at any point rather than
+	 * push the real name off the screen; what still does not fit scrolls
+	 * inside .who-scroll. */
+	#chat table.who-list td.who-host {
+		white-space: normal;
+		overflow-wrap: anywhere;
 	}
 
 	#chat .chat-view[data-type="channel"] .msg.highlight {

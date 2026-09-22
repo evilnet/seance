@@ -873,6 +873,19 @@
 
 			<div class="help-item">
 				<div class="subject">
+					<code>/who [mask] [flags]</code>
+				</div>
+				<div class="description">
+					<p>
+						List who matches the mask (a channel, a nick or a wildcard
+						<code>nick!user@host</code>), as a table. Without a mask, the users of the
+						current channel.
+					</p>
+				</div>
+			</div>
+
+			<div class="help-item">
+				<div class="subject">
 					<code>/whois nick</code>
 				</div>
 				<div class="description">

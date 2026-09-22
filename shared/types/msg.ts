@@ -24,6 +24,7 @@ export enum MessageType {
 	TOPIC = "topic",
 	TOPIC_SET_BY = "topic_set_by",
 	WHOIS = "whois",
+	WHO = "who",
 	RAW = "raw",
 	PLUGIN = "plugin",
 	WALLOPS = "wallops",
@@ -57,6 +58,35 @@ export type LinkPreview = {
 	mediaType?: string;
 	maxSize?: number;
 	thumbActualUrl?: string;
+};
+
+/** One row of a WHO reply (352 / WHOX 354), as `MessageTypes/who.vue` renders it. */
+export type WhoEntry = {
+	nick: string;
+	ident: string;
+	hostname: string;
+	server: string;
+	/** A channel the user shares with the asker, or undefined (`*` on the wire). */
+	channel?: string;
+	/** The flags column as sent (`H@*x`, …), for a tooltip. */
+	flags: string;
+	away: boolean;
+	oper: boolean;
+	/** Channel status symbols in the flags (`@`, `%`, `+`; also `!` zombie, `<` delayed). */
+	prefixes: string;
+	/** `z` (TLS) and `B` (bot) in nefarious2's flags. */
+	secure: boolean;
+	bot: boolean;
+	/** Services account (WHOX `a` field), undefined when logged out or unknown. */
+	account?: string;
+	hops?: number;
+	realname: string;
+};
+
+/** A finished WHO query: what was asked and every row that came back. */
+export type WhoList = {
+	target: string;
+	entries: WhoEntry[];
 };
 
 /** `+typing` client tag states (https://ircv3.net/specs/client-tags/typing). */
@@ -136,6 +166,7 @@ export type SharedMsg = {
 	raw_modes?: any;
 	when?: Date;
 	whois?: any;
+	who?: WhoList;
 
 	users: string[];
 
