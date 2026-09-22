@@ -6,7 +6,6 @@
 import {leavePage, onStandalonePage} from "./router";
 import {closeOpenImage} from "./helpers/imageViewer";
 import {reconnectAll} from "./irc/manager";
-import {checkForUpdate} from "./pwa";
 import {nativeBridge, nativeCall, nativeListen} from "./helpers/capacitor";
 
 export function installNativeHooks(): void {
@@ -14,12 +13,11 @@ export function installNativeHooks(): void {
 		return;
 	}
 
-	// iOS/Android drop the WebSocket while backgrounded: retry on foreground,
-	// and look for a newer build while at it.
+	// iOS/Android drop the WebSocket while backgrounded: retry on foreground.
+	// (No build check: a new build of the shell is a new app from the store.)
 	nativeListen("App", "appStateChange", ({isActive}: {isActive?: boolean}) => {
 		if (isActive) {
 			reconnectAll();
-			checkForUpdate();
 		}
 	});
 

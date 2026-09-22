@@ -50,7 +50,7 @@ const config: CapacitorConfig = {
 	webDir,
 	server: {
 		// Serve the bundle from https://localhost so the page is a secure
-		// context: service worker, Notification / Push, crypto.subtle and
+		// context: crypto.subtle, the other secure-context-only APIs and the
 		// mixed-content rules behave exactly as on the web. Plain ws:// to an
 		// IRC server is then blocked as mixed content -- use wss://.
 		androidScheme: "https",
