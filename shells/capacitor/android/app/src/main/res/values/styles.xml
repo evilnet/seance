@@ -19,9 +19,10 @@
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
         <!-- Android 12+ draws its own launch screen first: the launcher icon
-             on this colour. The icon's tile (assets/, capacitor.config.ts
-             SplashScreen.backgroundColor), so it and the splash drawable that
-             follows are one image. -->
-        <item name="windowSplashScreenBackground">#0D0E14</item>
+             on this colour. It is the icon's own tile: the colour that
+             tools/adaptive-icon-background.mjs writes for the adaptive icon's
+             background layer, so a rebrand's `yarn assets` moves the launch
+             screen with the icon instead of leaving a literal behind here. -->
+        <item name="windowSplashScreenBackground">@color/ic_launcher_background</item>
     </style>
 </resources>

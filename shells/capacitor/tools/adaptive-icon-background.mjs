@@ -29,8 +29,15 @@ writeFileSync(
 
 for (const name of ["ic_launcher.xml", "ic_launcher_round.xml"]) {
 	const path = resolve(res, "mipmap-anydpi-v26", name);
-	let xml = readFileSync(path, "utf8").replace(
-		/<background>[\s\S]*?<\/background>/,
+	const generated = readFileSync(path, "utf8");
+	const background = /<background>[\s\S]*?<\/background>|<background [^>]*\/>/;
+
+	if (!background.test(generated)) {
+		throw new Error(`${name}: no <background> to replace`);
+	}
+
+	let xml = generated.replace(
+		background,
 		'<background android:drawable="@color/ic_launcher_background"/>'
 	);
 

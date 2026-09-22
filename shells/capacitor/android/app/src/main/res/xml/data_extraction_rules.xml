@@ -9,6 +9,8 @@
   own file and it leaves passwords out unless they tick the box.
 -->
 <data-extraction-rules>
+    <!-- cloud-backup restates allowBackup="false" on purpose: flipping that one
+         attribute back should not be enough to put the passwords in a backup. -->
     <cloud-backup>
         <exclude domain="root" />
         <exclude domain="file" />
