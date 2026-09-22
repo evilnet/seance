@@ -118,6 +118,15 @@ export function installNativeHooks(): void {
 		}
 	});
 
+	// Android: the "stay connected" notification's Turn off button stops the
+	// service; the setting follows so Settings shows the truth and the next
+	// launch does not start it again (helpers/keepAlive.ts).
+	if (nativePlatform() === "android") {
+		cap.addListener("KeepAlive", "stopped", () => {
+			void store.dispatch("settings/update", {name: "keepConnected", value: false});
+		});
+	}
+
 	launchUrl = cap
 		.nativePromise("App", "getLaunchUrl", {})
 		.then((result) => {

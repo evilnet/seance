@@ -9,6 +9,9 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // The "stay connected" service's handle for the page (before the
+        // bridge builds its plugin list).
+        registerPlugin(KeepAlivePlugin.class);
         super.onCreate(savedInstanceState);
 
         // The window behind the WebView, in the deploy's colour
