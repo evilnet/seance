@@ -1,16 +1,17 @@
 package chat.seance.app;
 
+import android.annotation.SuppressLint;
 import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
-import android.os.Build;
 import android.os.IBinder;
+import androidx.core.app.NotificationChannelCompat;
 import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
+import androidx.core.app.ServiceCompat;
 import androidx.core.content.ContextCompat;
 
 /**
@@ -81,6 +82,9 @@ public class ConnectionService extends Service {
         createChannel();
     }
 
+    // FOREGROUND_SERVICE_TYPE_SPECIAL_USE is an API 34 constant, inlined at
+    // compile time; masking it away below 34 is what ServiceCompat is for.
+    @SuppressLint("InlinedApi")
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && ACTION_STOP.equals(intent.getAction())) {
@@ -93,13 +97,13 @@ public class ConnectionService extends Service {
             return START_NOT_STICKY;
         }
 
-        Notification notification = buildNotification();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
-        } else {
-            startForeground(NOTIFICATION_ID, notification);
-        }
-        running = true;
+        // ServiceCompat knows which SDK levels take a type and how to mask it.
+        ServiceCompat.startForeground(
+            this,
+            NOTIFICATION_ID,
+            buildNotification(),
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+        );
 
         // Not sticky: if the OS ever kills the process anyway the WebView is
         // gone with it, and a service restarted alone would keep nothing.
@@ -126,23 +130,17 @@ public class ConnectionService extends Service {
     }
 
     private void createChannel() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            // No channels before Oreo; the notification's own priority ranks it.
-            return;
-        }
-
-        NotificationManager manager = getSystemService(NotificationManager.class);
-        if (manager == null) {
-            return;
-        }
-        NotificationChannel channel = new NotificationChannel(
-            CHANNEL_ID,
-            getString(R.string.keepalive_channel_name),
-            NotificationManager.IMPORTANCE_LOW
-        );
-        channel.setDescription(getString(R.string.keepalive_channel_description));
-        channel.setShowBadge(false);
-        manager.createNotificationChannel(channel);
+        // Channels are Oreo's; the compat call is a no-op below it, where the
+        // notification's own PRIORITY_LOW is what ranks it.
+        NotificationManagerCompat
+            .from(this)
+            .createNotificationChannel(
+                new NotificationChannelCompat.Builder(CHANNEL_ID, NotificationManagerCompat.IMPORTANCE_LOW)
+                    .setName(getString(R.string.keepalive_channel_name))
+                    .setDescription(getString(R.string.keepalive_channel_description))
+                    .setShowBadge(false)
+                    .build()
+            );
     }
 
     private Notification buildNotification() {
