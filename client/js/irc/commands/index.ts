@@ -43,6 +43,7 @@ import react from "./react";
 import redact from "./redact";
 import rejoin from "./rejoin";
 import topic from "./topic";
+import who from "./who";
 import whois from "./whois";
 
 const modules: Command[] = [
@@ -72,6 +73,7 @@ const modules: Command[] = [
 	redact,
 	rejoin,
 	topic,
+	who,
 	whois,
 ];
 
