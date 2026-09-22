@@ -77,6 +77,12 @@ const config: CapacitorConfig = {
 			overlaysWebView: true,
 			style: "DARK",
 		},
+		// The WebView keeps its frame; the page sizes itself from the
+		// keyboardWillShow height (native.ts → helpers/viewport.ts), the way
+		// it does from the visual viewport in a browser.
+		Keyboard: {
+			resize: "none",
+		},
 	},
 };
 
