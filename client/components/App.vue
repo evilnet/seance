@@ -14,6 +14,7 @@
 		<ConfirmDialog ref="confirmDialog" />
 		<UploadPreview />
 		<PushPrompt />
+		<InstallGuide />
 		<div id="upload-overlay"></div>
 	</div>
 </template>
@@ -33,6 +34,7 @@ import ConfirmDialog from "./ConfirmDialog.vue";
 import UploadPreview from "./UploadPreview.vue";
 import Mentions from "./Mentions.vue";
 import PushPrompt from "./PushPrompt.vue";
+import InstallGuide from "./InstallGuide.vue";
 import {
 	computed,
 	provide,
@@ -60,6 +62,7 @@ export default defineComponent({
 		UploadPreview,
 		Mentions,
 		PushPrompt,
+		InstallGuide,
 	},
 	setup() {
 		const store = useStore();
