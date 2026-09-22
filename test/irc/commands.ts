@@ -210,6 +210,8 @@ describe("irc commands", function () {
 			"/invite",
 			"/invitelist",
 			"/kill",
+			"/join",
+			"/j",
 			"/rejoin",
 			"/cycle",
 			"/ignore",
@@ -670,6 +672,21 @@ describe("irc commands", function () {
 			const id = joined(h, "INVEX=X");
 			h.client.input(id, "/invitelist");
 			expect(h.sentAfter()).to.deep.equal(["MODE #seance X"]);
+		});
+	});
+
+	describe("/join", function () {
+		it("takes /j as the same command", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.input(id, "/j #other secret");
+			expect(h.sentAfter()).to.deep.equal(["JOIN #other secret"]);
+
+			h.client.input(id, "/j other");
+			expect(h.sentAfter()).to.deep.equal(["JOIN #other"]);
+
+			h.client.input(id, "/j");
+			expect(h.sentAfter()).to.deep.equal(["JOIN #seance key"]);
 		});
 	});
 

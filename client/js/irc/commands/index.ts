@@ -8,8 +8,8 @@
  *
  * To add a command, create a file exporting a {@link Command} and list it in
  * `modules`. UI-only commands (`/collapse`, `/expand`, `/search`, and `/join`
- * for channels already in the list) are intercepted in `client/js/commands/`
- * before the bus ever sees them.
+ * or `/j` for channels already in the list) are intercepted in
+ * `client/js/commands/` before the bus ever sees them.
  */
 
 import {ChanType} from "../../../../shared/types/chan";
