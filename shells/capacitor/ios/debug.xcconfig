@@ -1,1 +1,5 @@
 CAPACITOR_DEBUG = true
+
+// The signing team, when the machine building has one on disk. It is
+// deliberately not in the project: see signing.xcconfig.example.
+#include? "signing.xcconfig"
