@@ -106,6 +106,11 @@ public class ConnectionService extends Service {
     }
 
     private void createChannel() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            // No channels before Oreo; the notification's own priority ranks it.
+            return;
+        }
+
         NotificationManager manager = getSystemService(NotificationManager.class);
         if (manager == null) {
             return;
@@ -121,15 +126,13 @@ public class ConnectionService extends Service {
     }
 
     private Notification buildNotification() {
-        int immutable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? PendingIntent.FLAG_IMMUTABLE : 0;
-
         // Tap: bring the app forward (singleTask, so the running one).
         Intent open = new Intent(this, MainActivity.class).setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent openIntent = PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_UPDATE_CURRENT | immutable);
+        PendingIntent openIntent = PendingIntent.getActivity(this, 0, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         // "Turn off": back into this service with ACTION_STOP.
         Intent stop = new Intent(this, ConnectionService.class).setAction(ACTION_STOP);
-        PendingIntent stopIntent = PendingIntent.getService(this, 1, stop, PendingIntent.FLAG_UPDATE_CURRENT | immutable);
+        PendingIntent stopIntent = PendingIntent.getService(this, 1, stop, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         return new NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_connection)
