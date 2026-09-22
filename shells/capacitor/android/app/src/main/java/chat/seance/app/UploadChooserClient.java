@@ -7,7 +7,6 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.net.Uri;
 import android.provider.MediaStore;
-import android.util.Log;
 import android.webkit.ValueCallback;
 import android.webkit.WebView;
 import androidx.activity.result.ActivityResult;
@@ -21,6 +20,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * The composer's paperclip (`<input type="file">`) offers the camera as well
@@ -87,7 +87,6 @@ public class UploadChooserClient extends BridgeWebChromeClient {
             }
         }
 
-        Log.i("UploadChooser", "accept=" + accept + " capture intents=" + extras.size() + " photo=" + pendingPhoto + " video=" + pendingVideo);
         Intent chooser = extras.isEmpty() ? pick : Intent.createChooser(pick, null);
         if (!extras.isEmpty()) {
             chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, extras.toArray(new Intent[0]));
@@ -159,7 +158,7 @@ public class UploadChooserClient extends BridgeWebChromeClient {
 
     private static boolean accepts(List<String> accept, String prefix) {
         for (String type : accept) {
-            if (type.trim().toLowerCase().startsWith(prefix)) {
+            if (type.trim().toLowerCase(Locale.ROOT).startsWith(prefix)) {
                 return true;
             }
         }
