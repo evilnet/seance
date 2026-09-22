@@ -1,5 +1,6 @@
 package chat.seance.app;
 
+import android.content.res.Configuration;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import com.getcapacitor.Bridge;
@@ -37,5 +38,19 @@ public class MainActivity extends BridgeActivity {
                 // Not a colour: keep the theme's.
             }
         }
+    }
+
+    /**
+     * The activity declares fontScale (AndroidManifest.xml), so a change to
+     * Android's font-size setting no longer relaunches it. That is the point:
+     * a relaunch rebuilds the WebView, and every IRC connection dies with it.
+     * The WebView only reads the system font scale when it is created,
+     * though, so it has to be handed the new one, or the page would stop
+     * following that setting until the next launch.
+     */
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        getBridge().getWebView().getSettings().setTextZoom(Math.round(newConfig.fontScale * 100));
     }
 }
