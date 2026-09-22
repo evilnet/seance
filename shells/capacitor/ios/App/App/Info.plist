@@ -41,6 +41,12 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Take a photo or video to upload to the chat.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Record sound with a video you upload to the chat.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Pick a photo or video to upload to the chat.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -14,6 +14,9 @@ public class MainActivity extends BridgeActivity {
 
         Bridge bridge = getBridge();
 
+        // The paperclip's picker offers the camera too, as iOS's does.
+        bridge.getWebView().setWebChromeClient(new UploadChooserClient(bridge));
+
         // The window behind the WebView, in the deploy's colour
         // (capacitor.config.ts `backgroundColor`, from config.json's
         // themeColor). Capacitor paints the WebView itself in it; the window
