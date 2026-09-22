@@ -25,6 +25,8 @@ export type NativeBridge = CapacitorBridge & {
 declare global {
 	interface Window {
 		Capacitor?: CapacitorBridge;
+		/** Capacitor Android's SystemBars plugin, a JavascriptInterface. */
+		CapacitorSystemBarsAndroidInterface?: {onDOMReady: () => void};
 	}
 }
 

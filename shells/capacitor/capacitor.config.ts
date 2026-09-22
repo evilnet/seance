@@ -1,7 +1,7 @@
 // Capacitor configuration for the Seance native shell.
 //
 // The web app is the root build (`NODE_ENV=production yarn build` -> `public/`);
-// this file only wraps it. `appName` and the status bar colour are read from
+// this file only wraps it. `appName` and `themeColor` are read from
 // `public/config.json` (the same branding file the SPA fetches at boot, see
 // docs/resources/branding.md) when the Capacitor CLI evaluates this config,
 // so a rebranded deploy only has to change that file and `appId` below.
@@ -34,11 +34,12 @@ function readBranding(): Branding {
 const branding = readBranding();
 const appName =
 	typeof branding.appName === "string" && branding.appName.trim() ? branding.appName : "Seance";
+// The deploy's theme colour (same default as webpack.config.ts): what the
+// WebView shows before the page paints and under over-scroll.
 const themeColor =
 	typeof branding.themeColor === "string" && /^#[0-9a-f]{6}$/i.test(branding.themeColor)
 		? branding.themeColor
 		: "#1a1816";
-
 const config: CapacitorConfig = {
 	// REBRAND: reverse-DNS bundle id. Placeholder until a network ships this;
 	// changing it after `cap add` also means editing the generated
@@ -48,6 +49,7 @@ const config: CapacitorConfig = {
 	appId: "chat.seance.app",
 	appName,
 	webDir,
+	backgroundColor: themeColor,
 	server: {
 		// Serve the bundle from https://localhost so the page is a secure
 		// context: crypto.subtle, the other secure-context-only APIs and the
@@ -60,15 +62,20 @@ const config: CapacitorConfig = {
 		allowMixedContent: false,
 	},
 	ios: {
-		// Keep the WebView below the status bar / notch instead of under it.
-		contentInset: "always",
+		// The WebView fills the screen, status bar included, and the page
+		// pads its own top from env(safe-area-inset-top) (native.ts sets
+		// html[data-shell="native"] and viewport-fit=cover). Any native inset
+		// would show as a band of the wrong colour above the header.
+		contentInset: "never",
 		preferredContentMode: "mobile",
 	},
 	plugins: {
+		// Translucent over the page, which paints under it in the theme's
+		// canvas colour; native.ts picks the text style from that colour at
+		// boot and on every theme change. `style` is only the first paint.
 		StatusBar: {
-			overlaysWebView: false,
+			overlaysWebView: true,
 			style: "DARK",
-			backgroundColor: themeColor,
 		},
 	},
 };

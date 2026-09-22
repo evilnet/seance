@@ -194,6 +194,50 @@ html {
 	}
 }
 
+/* The native shell (shells/capacitor, native.ts): its WebView runs under the
+ * system bars, so the page keeps clear of them itself. The insets are named
+ * once here and every rule below spends them — the inset is env() on iOS,
+ * while Capacitor's Android SystemBars publishes the same numbers as
+ * --safe-area-inset-* on the root (env() is 0 in a WebView older than
+ * Chromium 140), so those win where they exist.
+ *
+ * Where the *bottom* inset goes is the one place the two platforms differ,
+ * and it is a token rather than a fork: Android's navigation bar is a bar —
+ * three buttons, opaque, 48px — so the whole app stops above it
+ * (--inset-outer-bottom, the padding on #viewport) and the composer and the
+ * sidebar's footer keep only their own spacing. iOS's home indicator is
+ * drawn over the content on purpose, so the app runs to the bottom edge and
+ * only what the indicator would swallow taps for reserves the strip
+ * (--inset-inner-bottom). Exactly one of the two is ever non-zero. */
+html[data-shell="native"] {
+	--inset-top: var(--safe-area-inset-top, env(safe-area-inset-top));
+	--inset-right: var(--safe-area-inset-right, env(safe-area-inset-right));
+	--inset-left: var(--safe-area-inset-left, env(safe-area-inset-left));
+	--inset-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom));
+
+	/* `0px`, not `0`: the sheet below spends this one inside a calc(), where a
+	   unitless zero cannot be added to a length. */
+	/* stylelint-disable length-zero-no-unit */
+	--inset-outer-bottom: 0px;
+	--inset-inner-bottom: var(--inset-bottom);
+}
+
+html[data-shell="native"][data-platform="android"] {
+	--inset-outer-bottom: var(--inset-bottom);
+	--inset-inner-bottom: 0px;
+	/* stylelint-enable length-zero-no-unit */
+}
+
+/* The app starts below the status bar, in the same canvas colour the strip
+ * above shows, so the header sits under the clock rather than in it. On
+ * Android it stops above the navigation bar too; that inset goes to 0 while
+ * the keyboard is up (Capacitor reports it so) and this padding with it. */
+html[data-shell="native"] #viewport {
+	/* In landscape the top inset is 0 and the island is a side inset. */
+	padding: var(--inset-top) var(--inset-right) var(--inset-outer-bottom) var(--inset-left);
+	background: var(--canvas-bg-color, var(--body-bg-color));
+}
+
 *,
 *::before,
 *::after {
@@ -3288,6 +3332,27 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	}
 }
 
+/* The native shell runs edge to edge (`viewport-fit=cover`, native.ts), so
+ * the real inset replaces the hand-reserved strip: the composer and the
+ * sidebar's footer each keep their own colour under the home indicator, in
+ * every orientation. --inset-inner-bottom is 0 on Android, where #viewport
+ * already stops above the navigation bar. After the block above on purpose:
+ * same specificity, later wins. */
+html[data-shell="native"] #form {
+	padding-bottom: max(0.375rem, var(--inset-inner-bottom));
+}
+
+html[data-shell="native"][data-keyboard="up"] #form {
+	padding-bottom: 0.375rem;
+}
+
+/* A margin, not padding: the themes size the footer their own way (bourbaki
+ * `height: auto`, mardam its own padding) and the sidebar's background shows
+ * through the strip either way. */
+html[data-shell="native"] #footer {
+	margin-bottom: var(--inset-inner-bottom);
+}
+
 #user-visible-error {
 	font-size: 0.9375rem;
 	line-height: 1.5;
@@ -4034,7 +4099,35 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 		right: 100%; /* its own width off screen, whatever that width is */
 		z-index: 10;
 		transition: transform 160ms;
+	}
+
+	/* In the native shell #viewport pads its top by the safe area, and an
+	 * absolute child's `height: 100%` is the padding box while its static
+	 * position starts below the padding: the sidebar ran off the bottom by
+	 * the status bar's height and its footer with it. Pin both edges and pad
+	 * the sidebar itself instead, so its logo sits below the clock. */
+	html[data-shell="native"] #sidebar {
+		top: 0;
+		bottom: 0;
+		height: auto;
+		padding-top: var(--inset-top);
+		padding-bottom: var(--inset-outer-bottom);
 		transform: translateZ(0);
+	}
+
+	/* The settings modal and the sidebar's dimmer pin all four edges to
+	 * #viewport the same way, so they too span the padding box: the pane's
+	 * title sat under the clock and its Done button under Android's buttons.
+	 * Both start at the insets instead (the dimmer would only dim the bars'
+	 * bands, which are not the page's to dim). */
+	html[data-shell="native"] #settings.window,
+	html[data-shell="native"] #sidebar-overlay {
+		top: var(--inset-top);
+		bottom: var(--inset-outer-bottom);
+
+		/* `.window` is `height: 100%`, which with a moved top runs past the
+		 * bottom edge by the same amount; the two pinned edges size it. */
+		height: auto;
 	}
 
 	#sidebar-overlay {
@@ -4783,6 +4876,14 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	border-width: 1px 0 0;
 	border-radius: 12px 12px 0 0;
 	transform-origin: bottom center;
+}
+
+/* Teleported to body, so #viewport's padding is not its: on Android the
+ * sheet sits on the navigation bar, not under it (the inset is 0 while the
+ * keyboard is up, when the sheet sits on the keyboard). Nothing to add on
+ * iOS, where the sheet runs under the home indicator like the page does. */
+html[data-shell="native"] .reaction-picker.sheet {
+	bottom: calc(100% - var(--viewport-height, 100%) + var(--inset-outer-bottom));
 }
 
 /* A phone on its side with the keyboard up keeps ~190px (helpers/viewport.ts
