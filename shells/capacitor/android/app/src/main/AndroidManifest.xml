@@ -54,6 +54,17 @@
         </provider>
     </application>
 
+    <!-- The composer's file picker offers the camera (UploadChooserClient.java);
+         from Android 11 the capture actions have to be declared to be seen. -->
+    <queries>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+        <intent>
+            <action android:name="android.media.action.VIDEO_CAPTURE" />
+        </intent>
+    </queries>
+
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
