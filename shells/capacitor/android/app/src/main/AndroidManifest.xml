@@ -9,8 +9,17 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- The app's whole state is the WebView's localStorage, saved networks
+         with their passwords included, so none of it goes to Google's backup
+         or to a device-to-device transfer: allowBackup covers the first (and
+         everything below Android 12), data_extraction_rules the second.
+         Across devices the user exports their own file instead (Settings ->
+         General -> Backup and restore). fullBackupContent says the same
+         thing again for Android 11 and below, which is where lint looks. -->
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
