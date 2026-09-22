@@ -6,6 +6,8 @@
 // docs/resources/branding.md) when the Capacitor CLI evaluates this config,
 // so a rebranded deploy only has to change that file and `appId` below.
 
+/// <reference types="@capacitor/splash-screen" />
+
 import {readFileSync} from "node:fs";
 import {resolve} from "node:path";
 import type {CapacitorConfig} from "@capacitor/cli";
@@ -82,6 +84,15 @@ const config: CapacitorConfig = {
 		// it does from the visual viewport in a browser.
 		Keyboard: {
 			resize: "none",
+		},
+		// The launch image stays up until the page can paint in the user's
+		// theme (native.ts `hideSplash`), so no white frame shows between it
+		// and the app. Its colour is the logo's tile (tools/make-assets.sh
+		// bakes the same into the image), not the theme colour: iOS draws it
+		// before any code runs and cannot know which theme the user picked.
+		SplashScreen: {
+			launchAutoHide: false,
+			backgroundColor: "#0D0E14",
 		},
 	},
 };

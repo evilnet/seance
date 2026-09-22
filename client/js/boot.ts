@@ -26,7 +26,7 @@ import {ChanState} from "../../shared/types/chan";
 import socket from "./socket";
 import {loadMentions} from "./mentions";
 import storage from "./localStorage";
-import {installNativeHooks} from "./native";
+import {installNativeHooks, nativeAppReady} from "./native";
 import {installForegroundHooks} from "./foreground";
 import {installViewportHooks} from "./helpers/viewport";
 import {onLaunch} from "./pwa";
@@ -113,6 +113,8 @@ export async function boot(): Promise<void> {
 	if (window.g_TheLoungeRemoveLoading) {
 		window.g_TheLoungeRemoveLoading();
 	}
+
+	nativeAppReady();
 
 	// Installed app (manifest `launch_handler: focus-existing`): later
 	// launches — web+irc:// links, ?uri= URLs — land here instead of reloading

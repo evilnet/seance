@@ -14,6 +14,35 @@ import {
 	isAndroidShell,
 } from "./helpers/capacitor";
 
+// The native launch image (capacitor.config.ts keeps it up until told) comes
+// down as soon as the page can paint in the user's theme — the theme
+// stylesheet's load — so the page's own loading screen, the logo tile on
+// that theme, takes over from the launch image (the logo on its own tile;
+// iOS draws it before any code runs and cannot know the theme). Two frames
+// first, so the hide reveals a painted page, never a blank one.
+let splashHidden = false;
+
+function hideSplash(): void {
+	if (splashHidden) {
+		return;
+	}
+
+	splashHidden = true;
+	requestAnimationFrame(() => {
+		requestAnimationFrame(() => {
+			void nativeCall("SplashScreen", "hide");
+		});
+	});
+}
+
+/**
+ * The page has booted and dropped its own loading screen: the launch image
+ * goes now if the theme's load did not take it down already.
+ */
+export function nativeAppReady(): void {
+	hideSplash();
+}
+
 export function installNativeHooks(): void {
 	if (!nativeBridge()) {
 		return;
@@ -79,6 +108,14 @@ export function installNativeHooks(): void {
 
 	const theme = document.getElementById("theme") as HTMLLinkElement | null;
 	theme?.addEventListener("load", styleStatusBar);
+
+	// The stylesheet the settings chose (boot.ts, before this runs) may be in
+	// already — `sheet` is null while a swapped href is still loading.
+	if (theme?.sheet) {
+		hideSplash();
+	} else {
+		theme?.addEventListener("load", hideSplash, {once: true});
+	}
 
 	// Android back button: close an open image, else leave a standalone page
 	// for the conversation it came from, else minimize (overrides the
