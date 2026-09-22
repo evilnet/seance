@@ -206,6 +206,7 @@ import type {ClientChan, ClientMessage, ClientNetwork} from "../js/types";
 import {useStore} from "../js/store";
 import {hasVirtualKeyboard} from "../js/helpers/device";
 import {selectionActive} from "../js/helpers/touchSelection";
+import {nudge} from "../js/helpers/haptics";
 
 MessageTypes.ParsedMessage = ParsedMessage;
 MessageTypes.LinkPreview = LinkPreview;
@@ -340,10 +341,8 @@ export default defineComponent({
 				swallowClick = true;
 				openActions.value = props.message.id;
 
-				// A nudge says the press was taken; nothing where the API is missing (iOS).
-				if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
-					navigator.vibrate(15);
-				}
+				// A nudge says the press was taken (helpers/haptics.ts).
+				nudge();
 			}, LONG_PRESS_MS);
 		};
 
