@@ -5,6 +5,10 @@
 // in its own accent colour. A colour layer fills the whole canvas, every
 // mask shape, and is what the Android 12+ launch screen samples too.
 //
+// It also adds the <monochrome> layer the generator does not write, which is
+// what a themed launcher (Android 13+) draws: the art's alpha, tinted by the
+// wallpaper, so the same inset foreground stands in for it.
+//
 //   node tools/adaptive-icon-background.mjs [#colour]   (default: the tile)
 
 import {readFileSync, writeFileSync} from "node:fs";
@@ -25,10 +29,23 @@ writeFileSync(
 
 for (const name of ["ic_launcher.xml", "ic_launcher_round.xml"]) {
 	const path = resolve(res, "mipmap-anydpi-v26", name);
-	const xml = readFileSync(path, "utf8").replace(
+	let xml = readFileSync(path, "utf8").replace(
 		/<background>[\s\S]*?<\/background>/,
 		'<background android:drawable="@color/ic_launcher_background"/>'
 	);
+
+	if (!xml.includes("<monochrome")) {
+		const foreground = /<foreground>([\s\S]*?)<\/foreground>/.exec(xml);
+
+		if (!foreground) {
+			throw new Error(`${name}: no <foreground> to mirror as <monochrome>`);
+		}
+
+		xml = xml.replace(
+			"</adaptive-icon>",
+			`    <monochrome>${foreground[1]}</monochrome>\n</adaptive-icon>`
+		);
+	}
 
 	writeFileSync(path, xml);
 }
