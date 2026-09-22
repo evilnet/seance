@@ -10,6 +10,9 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // The "stay connected" service's handle for the page (before the
+        // bridge builds its plugin list).
+        registerPlugin(KeepAlivePlugin.class);
         super.onCreate(savedInstanceState);
 
         Bridge bridge = getBridge();

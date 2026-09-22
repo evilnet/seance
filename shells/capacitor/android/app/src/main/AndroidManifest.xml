@@ -3,6 +3,12 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- ConnectionService: a foreground service, its type, and (Android 13+)
+         the permission its notification needs. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -34,6 +40,19 @@
                 <data android:scheme="ircs" />
             </intent-filter>
         </activity>
+
+        <!-- The opt-in "stay connected" foreground service (ConnectionService.java).
+             specialUse: the only type without a run-time cap that fits a chat
+             connection the user asked to keep (dataSync is limited to 6 h a day
+             from Android 15); a Play listing has to declare it (README). -->
+        <service
+            android:name=".ConnectionService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the user's IRC chat connections open in the background, when the user turns that on in Settings." />
+        </service>
 
         <provider
             android:name="androidx.core.content.FileProvider"

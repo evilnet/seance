@@ -1,7 +1,8 @@
 // Native-shell glue (shells/capacitor): everything the page does *because* it
-// is running inside the shell. The bridge itself is `helpers/capacitor.ts`,
-// which imports nothing; this file is free to pull in the store and the
-// router.
+// is running inside the shell — the launch link, the status bar, the splash,
+// Android's back button. The bridge itself is `helpers/capacitor.ts`, which
+// imports nothing and is what the leaf helpers (haptics, keepAlive, appBadge,
+// viewport) talk to; this file is free to pull in the store and the router.
 
 import {leavePage, onStandalonePage} from "./router";
 import {closeOpenImage} from "./helpers/imageViewer";
@@ -84,6 +85,15 @@ export function installNativeHooks(): void {
 			reconnectAll();
 		}
 	});
+
+	// Android: the "stay connected" notification's Turn off button stops the
+	// service; the setting follows so Settings shows the truth and the next
+	// launch does not start it again (helpers/keepAlive.ts).
+	if (isAndroidShell()) {
+		nativeListen("KeepAlive", "stopped", () => {
+			void store.dispatch("settings/update", {name: "keepConnected", value: false});
+		});
+	}
 
 	launchUrl = nativeCall<{url?: string}>("App", "getLaunchUrl").then((result) => {
 		launchHref = result?.url || null;

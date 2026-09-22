@@ -5500,7 +5500,8 @@ html[data-shell="native"] .reaction-picker.sheet {
 	color: #9e6a03;
 }
 
-.push-networks-hint {
+.push-networks-hint,
+.keepalive-hint {
 	margin-top: 8px;
 	font-size: 0.8125rem;
 	color: var(--body-color-muted);
