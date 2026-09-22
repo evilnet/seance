@@ -11,12 +11,10 @@ A [Capacitor](https://capacitorjs.com/) project that wraps the Seance web build 
 | `ios/`                | Generated Xcode project (`cap add ios`, Swift Package Manager based). Committed; `App/App/public/` is not.  |
 | `package.json`        | `seance-capacitor`: Capacitor 8 (`core`, `cli`, `android`, `ios`) plus the `app` and `status-bar` plugins   |
 
-The web-side glue lives in the root app, not here: `client/js/native.ts` (called from `client/js/boot.ts`) feature-detects `window.Capacitor`, which the native WebView injects, and is a no-op in a browser. It registers two listeners on the `App` plugin:
+The web-side glue lives in the root app, not here. `client/js/helpers/capacitor.ts` is the bridge and nothing else — it feature-detects `window.Capacitor`, which the native WebView injects, and is a no-op in a browser; `nativeCall(plugin, method, options)` resolves to null instead of rejecting where there is nothing to call (a browser, an older shell, a method a platform does not implement), and `isIOSShell()` / `isAndroidShell()` are the platform questions. It imports nothing, so a leaf helper can use it without pulling in the store or the router; `client/js/native.ts` (called from `client/js/boot.ts`) is everything the page does _because_ it is in the shell. Talking to the bridge directly means `@capacitor/core` is never bundled by the root webpack; a plugin is reachable by its registered name (`"App"`, `"Keyboard"`, `"Badge"`, …) as long as it is installed here, which is what `cap sync` registers natively. What the page does with the bridge:
 
-- `appStateChange` -> when the app becomes active, `reconnectAll()` from `client/js/irc/manager.ts` retries every network sitting in reconnect backoff and PINGs the open ones so a socket the OS killed surfaces its close and reconnects.
-- `backButton` (Android) -> `router.back()` while the WebView has history, otherwise `App.minimizeApp()`.
-
-It talks to the bridge directly (`Capacitor.addListener` / `Capacitor.nativePromise`) so `@capacitor/core` does not need to be bundled by the root webpack. If the shell ever needs more than that (push registration, haptics, keyboard plugin, ...), bundle `@capacitor/core` and the plugin packages in the web build and use their typed APIs instead.
+- **`App.appStateChange`** → when the app becomes active, `reconnectAll()` (`client/js/irc/manager.ts`) retries every network sitting in reconnect backoff and PINGs the open ones so a socket the OS killed surfaces its close and reconnects.
+- **`App.backButton`** (Android) → an open image closes first; then a standalone page gives way to the conversation it came from, and with nothing left, `App.minimizeApp()`. Never `router.back()`: the history is kept one deep (`router.ts`).
 
 ## Prerequisites
 

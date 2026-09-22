@@ -1,36 +1,22 @@
-// Native-shell glue (shells/capacitor). The web build never bundles Capacitor:
-// the shell's WebView injects `window.Capacitor` (its "native bridge") before
-// our scripts run, so everything here is feature-detected and a no-op in a
-// browser. Only the bridge's own `addListener` / `nativePromise` are used;
-// `Capacitor.Plugins` stays empty unless `@capacitor/core` is bundled.
+// Native-shell glue (shells/capacitor): everything the page does *because* it
+// is running inside the shell. The bridge itself is `helpers/capacitor.ts`,
+// which imports nothing; this file is free to pull in the store and the
+// router.
 
 import {leavePage, onStandalonePage} from "./router";
 import {closeOpenImage} from "./helpers/imageViewer";
 import {reconnectAll} from "./irc/manager";
 import {checkForUpdate} from "./pwa";
-
-interface CapacitorBridge {
-	isNativePlatform?: () => boolean;
-	addListener?: (plugin: string, event: string, cb: (data: any) => void) => unknown;
-	nativePromise?: (plugin: string, method: string, options?: unknown) => Promise<unknown>;
-}
-
-declare global {
-	interface Window {
-		Capacitor?: CapacitorBridge;
-	}
-}
+import {nativeBridge, nativeCall, nativeListen} from "./helpers/capacitor";
 
 export function installNativeHooks(): void {
-	const cap = window.Capacitor;
-
-	if (!cap?.isNativePlatform?.() || !cap.addListener || !cap.nativePromise) {
+	if (!nativeBridge()) {
 		return;
 	}
 
 	// iOS/Android drop the WebSocket while backgrounded: retry on foreground,
 	// and look for a newer build while at it.
-	cap.addListener("App", "appStateChange", ({isActive}: {isActive?: boolean}) => {
+	nativeListen("App", "appStateChange", ({isActive}: {isActive?: boolean}) => {
 		if (isActive) {
 			reconnectAll();
 			checkForUpdate();
@@ -40,7 +26,7 @@ export function installNativeHooks(): void {
 	// Android back button: close an open image, else leave a standalone page
 	// for the conversation it came from, else minimize (overrides the
 	// default). Not `router.back()`: the history is kept one deep (router.ts).
-	cap.addListener("App", "backButton", () => {
+	nativeListen("App", "backButton", () => {
 		if (closeOpenImage()) {
 			return;
 		}
@@ -49,6 +35,6 @@ export function installNativeHooks(): void {
 			return;
 		}
 
-		void cap.nativePromise!("App", "minimizeApp", {});
+		void nativeCall("App", "minimizeApp");
 	});
 }
