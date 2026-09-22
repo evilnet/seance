@@ -30,8 +30,8 @@ import androidx.core.content.ContextCompat;
  *
  * The service is only ever useful while the WebView is alive, so it stops
  * itself when the task is swiped away ({@link #onTaskRemoved}) and when the
- * activity is destroyed (the plugin's handleOnDestroy) — never left running
- * with nothing to keep.
+ * activity is destroyed for good (the plugin's handleOnDestroy, which sits
+ * out a configuration change) — never left running with nothing to keep.
  */
 public class ConnectionService extends Service {
     static final String CHANNEL_ID = "connection";
@@ -47,12 +47,31 @@ public class ConnectionService extends Service {
     /** Set by the plugin: tells the page the user turned it off from the notification. */
     static Runnable onStoppedByUser = null;
 
+    /**
+     * Ask for the service. `running` is set here rather than in
+     * {@link #onStartCommand}, which the framework delivers on a later
+     * main-thread message: the plugin resolves the page's `enable()` before
+     * that, and would otherwise always answer `running: false`.
+     */
     static void start(Context context) {
         Intent intent = new Intent(context, ConnectionService.class).setAction(ACTION_START);
-        ContextCompat.startForegroundService(context, intent);
+
+        try {
+            ContextCompat.startForegroundService(context, intent);
+        } catch (RuntimeException e) {
+            // Android 12+ refuses a foreground service started from the
+            // background (ForegroundServiceStartNotAllowedException). Nothing
+            // is running and the page should hear exactly that.
+            running = false;
+            return;
+        }
+
+        running = true;
     }
 
     static void stop(Context context) {
+        // Same reason as start(): onDestroy runs later.
+        running = false;
         context.stopService(new Intent(context, ConnectionService.class));
     }
 
@@ -65,6 +84,7 @@ public class ConnectionService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && ACTION_STOP.equals(intent.getAction())) {
+            running = false;
             stopSelf();
             Runnable cb = onStoppedByUser;
             if (cb != null) {
