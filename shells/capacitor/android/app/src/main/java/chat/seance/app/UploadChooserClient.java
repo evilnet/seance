@@ -45,8 +45,18 @@ public class UploadChooserClient extends BridgeWebChromeClient {
     private final ActivityResultLauncher<Intent> launcher;
 
     private ValueCallback<Uri[]> pending;
-    private Uri pendingPhoto;
-    private Uri pendingVideo;
+    private final List<Capture> pendingCaptures = new ArrayList<>();
+
+    /** A capture the chooser offered: the intent, and the cache file it writes into. */
+    private static final class Capture {
+        final Intent intent;
+        final File file;
+
+        Capture(Intent intent, File file) {
+            this.intent = intent;
+            this.file = file;
+        }
+    }
 
     public UploadChooserClient(Bridge bridge) {
         super(bridge);
@@ -66,30 +76,21 @@ public class UploadChooserClient extends BridgeWebChromeClient {
         }
 
         List<String> accept = Arrays.asList(params.getAcceptTypes());
-        boolean anything = accept.isEmpty() || accept.contains("*/*") || (accept.size() == 1 && accept.get(0).isEmpty());
-        List<Intent> extras = new ArrayList<>();
-        pendingPhoto = null;
-        pendingVideo = null;
+        pendingCaptures.clear();
+        sweepStaleCaptures();
+        offer(accept, "image/", MediaStore.ACTION_IMAGE_CAPTURE, "jpg");
+        offer(accept, "video/", MediaStore.ACTION_VIDEO_CAPTURE, "mp4");
 
-        if (anything || accepts(accept, "image/")) {
-            Intent photo = captureIntent(MediaStore.ACTION_IMAGE_CAPTURE, "jpg");
-            if (photo != null) {
-                pendingPhoto = photo.getParcelableExtra(MediaStore.EXTRA_OUTPUT);
-                extras.add(photo);
+        Intent chooser = pick;
+
+        if (!pendingCaptures.isEmpty()) {
+            List<Intent> extras = new ArrayList<>();
+
+            for (Capture capture : pendingCaptures) {
+                extras.add(capture.intent);
             }
-        }
 
-        if (anything || accepts(accept, "video/")) {
-            Intent video = captureIntent(MediaStore.ACTION_VIDEO_CAPTURE, "mp4");
-            if (video != null) {
-                pendingVideo = video.getParcelableExtra(MediaStore.EXTRA_OUTPUT);
-                extras.add(video);
-            }
-        }
-
-        Intent chooser = extras.isEmpty() ? pick : Intent.createChooser(pick, null);
-        if (!extras.isEmpty()) {
-            chooser.putExtra(Intent.EXTRA_INITIAL_INTENTS, extras.toArray(new Intent[0]));
+            chooser = Intent.createChooser(pick, null).putExtra(Intent.EXTRA_INITIAL_INTENTS, extras.toArray(new Intent[0]));
         }
 
         if (pending != null) {
@@ -109,64 +110,125 @@ public class UploadChooserClient extends BridgeWebChromeClient {
 
     private void onChosen(ActivityResult result) {
         ValueCallback<Uri[]> callback = pending;
-        Uri photo = pendingPhoto;
-        Uri video = pendingVideo;
+        List<Capture> captures = new ArrayList<>(pendingCaptures);
         pending = null;
-        pendingPhoto = null;
-        pendingVideo = null;
+        pendingCaptures.clear();
 
         if (callback == null) {
             return;
         }
 
-        if (result.getResultCode() != Activity.RESULT_OK) {
-            // Backed out: both placeholders are empty and go.
-            firstWithContent(photo, video);
-            callback.onReceiveValue(null);
-            return;
+        Intent data = result.getResultCode() == Activity.RESULT_OK ? result.getData() : null;
+        List<Uri> uris = picked(data);
+
+        if (uris.isEmpty() && data != null) {
+            // A capture app answers OK with no data: the shot is in the file it
+            // was handed. Whichever placeholder has content is the one that ran.
+            Uri taken = takeCapture(captures);
+            if (taken != null) {
+                uris.add(taken);
+            }
+        } else {
+            // Backed out, or a file was picked: every placeholder is spare.
+            dropCaptures(captures);
         }
 
-        Intent data = result.getData();
+        callback.onReceiveValue(uris.isEmpty() ? null : uris.toArray(new Uri[0]));
+    }
+
+    /** The files a picker result names: a multi-select clip, a single item, or none. */
+    private static List<Uri> picked(Intent data) {
         List<Uri> uris = new ArrayList<>();
 
-        if (data != null && (data.getClipData() != null || data.getData() != null)) {
-            // A file was picked: the capture placeholders stay empty.
-            firstWithContent(photo, video);
+        if (data == null) {
+            return uris;
         }
 
-        if (data != null && data.getClipData() != null) {
-            ClipData clip = data.getClipData();
+        ClipData clip = data.getClipData();
+
+        if (clip != null) {
             for (int i = 0; i < clip.getItemCount(); i++) {
                 Uri uri = clip.getItemAt(i).getUri();
                 if (uri != null) {
                     uris.add(uri);
                 }
             }
-        } else if (data != null && data.getData() != null) {
+        } else if (data.getData() != null) {
             uris.add(data.getData());
-        } else {
-            // A capture app returns no data: the shot is in the file it was
-            // handed. Whichever of the two has content is the one that ran.
-            Uri taken = firstWithContent(photo, video);
-            if (taken != null) {
-                uris.add(taken);
+        }
+
+        return uris;
+    }
+
+    /** The capture that ran -- the one placeholder with bytes in it. The spares go. */
+    private Uri takeCapture(List<Capture> captures) {
+        Uri taken = null;
+
+        for (Capture capture : captures) {
+            if (taken == null && capture.file.length() > 0) {
+                taken = uriFor(capture.file);
+            } else {
+                capture.file.delete();
             }
         }
 
-        callback.onReceiveValue(uris.isEmpty() ? null : uris.toArray(new Uri[0]));
+        return taken;
     }
 
+    private static void dropCaptures(List<Capture> captures) {
+        for (Capture capture : captures) {
+            capture.file.delete();
+        }
+    }
+
+    /** Does this accept list admit `prefix` -- or anything at all? */
     private static boolean accepts(List<String> accept, String prefix) {
         for (String type : accept) {
-            if (type.trim().toLowerCase(Locale.ROOT).startsWith(prefix)) {
+            String wanted = type.trim().toLowerCase(Locale.ROOT);
+
+            if (wanted.isEmpty() || wanted.equals("*/*") || wanted.startsWith(prefix)) {
                 return true;
             }
         }
-        return false;
+        return accept.isEmpty();
     }
 
-    /** A capture intent writing into a fresh cache file, or null where no app answers it. */
-    private Intent captureIntent(String action, String extension) {
+    /** Add a capture placeholder to the chooser where the accept list admits it. */
+    private void offer(List<String> accept, String prefix, String action, String extension) {
+        if (!accepts(accept, prefix)) {
+            return;
+        }
+
+        Capture capture = captureIntent(action, extension);
+
+        if (capture != null) {
+            pendingCaptures.add(capture);
+        }
+    }
+
+    private Uri uriFor(File file) {
+        Activity activity = bridge.getActivity();
+        return FileProvider.getUriForFile(activity, activity.getPackageName() + ".fileprovider", file);
+    }
+
+    /** Yesterday's shots: the page has long read what it wanted. */
+    private void sweepStaleCaptures() {
+        File[] old = new File(bridge.getActivity().getCacheDir(), "capture").listFiles();
+        long cutoff = System.currentTimeMillis() - 24L * 60 * 60 * 1000;
+
+        if (old == null) {
+            return;
+        }
+
+        for (File stale : old) {
+            if (stale.lastModified() < cutoff) {
+                stale.delete();
+            }
+        }
+    }
+
+    /** A capture writing into a fresh cache file, or null where no app answers it. */
+    private Capture captureIntent(String action, String extension) {
         Activity activity = bridge.getActivity();
         PackageManager pm = activity.getPackageManager();
         Intent intent = new Intent(action);
@@ -176,24 +238,15 @@ public class UploadChooserClient extends BridgeWebChromeClient {
             return null;
         }
 
+        File file;
         Uri output;
         try {
             File dir = new File(activity.getCacheDir(), "capture");
             if (!dir.isDirectory() && !dir.mkdirs()) {
                 return null;
             }
-            // Yesterday's shots: the page has long read what it wanted.
-            File[] old = dir.listFiles();
-            long cutoff = System.currentTimeMillis() - 24L * 60 * 60 * 1000;
-            if (old != null) {
-                for (File stale : old) {
-                    if (stale.lastModified() < cutoff) {
-                        stale.delete();
-                    }
-                }
-            }
-            File file = File.createTempFile("seance_", "." + extension, dir);
-            output = FileProvider.getUriForFile(activity, activity.getPackageName() + ".fileprovider", file);
+            file = File.createTempFile("seance_", "." + extension, dir);
+            output = uriFor(file);
         } catch (IOException | IllegalArgumentException e) {
             return null;
         }
@@ -210,36 +263,6 @@ public class UploadChooserClient extends BridgeWebChromeClient {
             );
         }
 
-        return intent;
-    }
-
-    private File fileOf(Uri uri) {
-        // content://<authority>/my_cache_images/capture/<name> → the cache file.
-        List<String> segments = uri.getPathSegments();
-        if (segments.size() < 2) {
-            return null;
-        }
-        File file = bridge.getActivity().getCacheDir();
-        for (int i = 1; i < segments.size(); i++) {
-            file = new File(file, segments.get(i));
-        }
-        return file;
-    }
-
-    private Uri firstWithContent(Uri... candidates) {
-        Uri found = null;
-        for (Uri uri : candidates) {
-            if (uri == null) {
-                continue;
-            }
-            File file = fileOf(uri);
-            if (found == null && file != null && file.length() > 0) {
-                found = uri;
-            } else if (file != null) {
-                // The other capture's empty placeholder.
-                file.delete();
-            }
-        }
-        return found;
+        return new Capture(intent, file);
     }
 }
