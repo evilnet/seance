@@ -3,6 +3,8 @@ import {store} from "../store";
 import {switchToChannel} from "../router";
 import {ChanType} from "../../../shared/types/chan";
 
+/** `/join` (and its `/j` alias, registered under both names in `index.ts`). */
+
 export function input(args: string[]): boolean {
 	if (args.length > 0) {
 		let channels = args[0];
