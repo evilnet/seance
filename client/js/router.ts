@@ -20,6 +20,9 @@ import {ClientChan} from "./types";
 import {shouldShowGeneralSettings} from "./helpers/settingsTabs";
 import * as saved from "./irc/saved-networks";
 import {clearPendingTarget, setPendingTarget} from "./helpers/pendingTarget";
+// Before createWebHashHistory(): the image viewer's popstate listener has to
+// be registered ahead of the router's (helpers/imageViewer.ts).
+import "./helpers/imageViewer";
 
 const router = createRouter({
 	history: createWebHashHistory(),

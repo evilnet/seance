@@ -448,7 +448,6 @@ export default defineComponent({
 		};
 
 		watch(link, (newLink, oldLink) => {
-			// TODO: history.pushState
 			if (newLink === null) {
 				setImageViewerClose(null);
 				eventbus.off("escapekey", closeViewer);
