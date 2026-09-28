@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ counterpart of android:allowBackup="false" (AndroidManifest.xml):
+  nothing of this app's data leaves the device, by cloud backup or by a
+  device-to-device transfer. The app's whole state is the WebView's
+  localStorage under app_webview/, saved networks with their server and SASL
+  passwords included, and neither channel is a place to put those. Settings ->
+  General -> Backup and restore is the way across devices: it is the user's
+  own file and it leaves passwords out unless they tick the box.
+-->
+<data-extraction-rules>
+    <!-- cloud-backup restates allowBackup="false" on purpose: flipping that one
+         attribute back should not be enough to put the passwords in a backup. -->
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+        <exclude domain="file" />
+        <exclude domain="database" />
+        <exclude domain="sharedpref" />
+        <exclude domain="external" />
+    </device-transfer>
+</data-extraction-rules>

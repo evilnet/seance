@@ -2,6 +2,7 @@
 	<div
 		id="upload-preview-overlay"
 		:class="{opened: request !== null}"
+		:data-escape-close="request !== null ? '' : null"
 		@transitionend.self="onOverlayShown"
 	>
 		<div

@@ -1,54 +1,225 @@
-// Native-shell glue (shells/capacitor). The web build never bundles Capacitor:
-// the shell's WebView injects `window.Capacitor` (its "native bridge") before
-// our scripts run, so everything here is feature-detected and a no-op in a
-// browser. Only the bridge's own `addListener` / `nativePromise` are used;
-// `Capacitor.Plugins` stays empty unless `@capacitor/core` is bundled.
+// Native-shell glue (shells/capacitor): everything the page does *because* it
+// is running inside the shell — the launch link, the status bar, the splash,
+// Android's back button. The bridge itself is `helpers/capacitor.ts`, which
+// imports nothing and is what the leaf helpers (haptics, keepAlive, appBadge,
+// viewport) talk to; this file is free to pull in the store and the router.
 
 import {leavePage, onStandalonePage} from "./router";
 import {closeOpenImage} from "./helpers/imageViewer";
 import {reconnectAll} from "./irc/manager";
-import {checkForUpdate} from "./pwa";
+import {isPhoneLayout} from "./helpers/device";
+import {
+	nativeBridge,
+	nativeCall,
+	nativeListen,
+	nativePlatform,
+	isAndroidShell,
+} from "./helpers/capacitor";
+import eventbus from "./eventbus";
+import {store} from "./store";
 
-interface CapacitorBridge {
-	isNativePlatform?: () => boolean;
-	addListener?: (plugin: string, event: string, cb: (data: any) => void) => unknown;
-	nativePromise?: (plugin: string, method: string, options?: unknown) => Promise<unknown>;
+// A link the OS handed the app — `irc:`, `ircs:` or `web+irc:`, the schemes
+// Info.plist claims. Cold, it is the launch URL (`getLaunchUrl`), which
+// boot.ts awaits before it routes, the way a browser page reads `?uri=`.
+// While running it comes through `appUrlOpen`; iOS can report the launch
+// URL that way too, so that one is delivered once.
+let launchUrl: Promise<string | null> = Promise.resolve(null);
+let launchHref: string | null = null;
+let urlHandler: ((href: string) => void) | null = null;
+let pendingHref: string | null = null;
+
+/** The link the app was opened with, or null (at once, in a browser). */
+export function nativeLaunchUrl(): Promise<string | null> {
+	return launchUrl;
 }
 
-declare global {
-	interface Window {
-		Capacitor?: CapacitorBridge;
+/** Links handed to the running app. One that arrives first waits here. */
+export function onNativeUrl(handler: (href: string) => void): void {
+	urlHandler = handler;
+
+	if (pendingHref !== null) {
+		const href = pendingHref;
+		pendingHref = null;
+		handler(href);
 	}
 }
 
-export function installNativeHooks(): void {
-	const cap = window.Capacitor;
+// The native launch image (capacitor.config.ts keeps it up until told) comes
+// down as soon as the page can paint in the user's theme — the theme
+// stylesheet's load — so the page's own loading screen, the logo tile on
+// that theme, takes over from the launch image (the logo on its own tile;
+// iOS draws it before any code runs and cannot know the theme). Two frames
+// first, so the hide reveals a painted page, never a blank one.
+let splashHidden = false;
 
-	if (!cap?.isNativePlatform?.() || !cap.addListener || !cap.nativePromise) {
+function hideSplash(): void {
+	if (splashHidden) {
 		return;
 	}
 
-	// iOS/Android drop the WebSocket while backgrounded: retry on foreground,
-	// and look for a newer build while at it.
-	cap.addListener("App", "appStateChange", ({isActive}: {isActive?: boolean}) => {
+	splashHidden = true;
+	requestAnimationFrame(() => {
+		requestAnimationFrame(() => {
+			void nativeCall("SplashScreen", "hide");
+		});
+	});
+}
+
+/**
+ * The page has booted and dropped its own loading screen: the launch image
+ * goes now if the theme's load did not take it down already.
+ */
+export function nativeAppReady(): void {
+	hideSplash();
+}
+
+export function installNativeHooks(): void {
+	if (!nativeBridge()) {
+		return;
+	}
+
+	// iOS/Android drop the WebSocket while backgrounded: retry on foreground.
+	// (No build check: a new build of the shell is a new app from the store.)
+	nativeListen("App", "appStateChange", ({isActive}: {isActive?: boolean}) => {
 		if (isActive) {
 			reconnectAll();
-			checkForUpdate();
 		}
 	});
 
-	// Android back button: close an open image, else leave a standalone page
-	// for the conversation it came from, else minimize (overrides the
-	// default). Not `router.back()`: the history is kept one deep (router.ts).
-	cap.addListener("App", "backButton", () => {
+	// Android: the "stay connected" notification's Turn off button stops the
+	// service; the setting follows so Settings shows the truth and the next
+	// launch does not start it again (helpers/keepAlive.ts).
+	if (isAndroidShell()) {
+		nativeListen("KeepAlive", "stopped", () => {
+			void store.dispatch("settings/update", {name: "keepConnected", value: false});
+		});
+	}
+
+	launchUrl = nativeCall<{url?: string}>("App", "getLaunchUrl").then((result) => {
+		launchHref = result?.url || null;
+		return launchHref;
+	});
+
+	nativeListen("App", "appUrlOpen", ({url}: {url?: string}) => {
+		if (!url) {
+			return;
+		}
+
+		// After the launch URL is known, never before: the two bridge calls
+		// are in flight together, and a link compared against a launch URL
+		// that has not come back yet is acted on twice.
+		void launchUrl.then(() => {
+			if (url === launchHref) {
+				launchHref = null;
+				return;
+			}
+
+			if (urlHandler) {
+				urlHandler(url);
+			} else {
+				pendingHref = url;
+			}
+		});
+	});
+
+	// The WebView fills the screen (capacitor.config.ts), so the page draws
+	// under the status bar: `viewport-fit=cover` makes env(safe-area-inset-top)
+	// real and style.css pads #viewport by it in the theme's canvas colour.
+	// The bar's text follows that colour's luminance, at boot and again
+	// whenever a theme stylesheet finishes loading.
+	document.documentElement.dataset.shell = "native";
+	document.documentElement.dataset.platform = nativePlatform();
+
+	const viewport = document.querySelector('meta[name="viewport"]');
+	const content = viewport?.getAttribute("content") ?? "";
+
+	if (viewport && !content.includes("viewport-fit")) {
+		viewport.setAttribute("content", `${content}, viewport-fit=cover`);
+	}
+
+	// Android: Capacitor's SystemBars reads that meta once, at DOMContentLoaded
+	// — before this runs — and without `viewport-fit=cover` it insets the
+	// WebView natively (a band in the window's colour above the header, and
+	// the env() values 0) instead of handing the page the insets. Asking it
+	// to look again is the same call its own DOM-ready hook makes; it
+	// re-applies the window insets, and from there the page pads itself, in
+	// the theme's colour, as it does on iOS. A WebView older than Chromium
+	// 140 takes the native inset whatever the meta says (MainActivity paints
+	// the band in the deploy's colour for those).
+	window.CapacitorSystemBarsAndroidInterface?.onDOMReady();
+
+	const styleStatusBar = () => {
+		const rgb = getComputedStyle(document.documentElement).backgroundColor;
+		const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(rgb);
+
+		if (!m) {
+			return;
+		}
+
+		const [r, g, b] = [m[1], m[2], m[3]].map(Number);
+		// Style names the bar's text: DARK is light text for a dark page.
+		const style = (r * 299 + g * 587 + b * 114) / 1000 < 128 ? "DARK" : "LIGHT";
+
+		void nativeCall("StatusBar", "setStyle", {style});
+
+		// Android's navigation bar draws its buttons over the page too, and
+		// only the core SystemBars plugin styles that one (both bars, no
+		// `bar` given).
+		if (isAndroidShell()) {
+			void nativeCall("SystemBars", "setStyle", {style});
+		}
+	};
+
+	styleStatusBar();
+
+	const theme = document.getElementById("theme") as HTMLLinkElement | null;
+	theme?.addEventListener("load", styleStatusBar);
+
+	// The stylesheet the settings chose (boot.ts, before this runs) may be in
+	// already — `sheet` is null while a swapped href is still loading.
+	if (theme?.sheet) {
+		hideSplash();
+	} else {
+		theme?.addEventListener("load", hideSplash, {once: true});
+	}
+
+	// Android back button: whatever is open on top goes first — an image,
+	// then anything that closes on Escape (every such overlay marks itself
+	// `data-escape-close` while it is up), then the phone's sidebar or
+	// user-list overlay — then a standalone page gives way to the
+	// conversation it came from, and with nothing left to close the app
+	// minimizes (overrides the default). Not `router.back()`: the history is
+	// kept one deep (router.ts). Without the middle steps a back press meant
+	// to close a menu backgrounded the app, menu and all.
+	nativeListen("App", "backButton", () => {
 		if (closeOpenImage()) {
 			return;
+		}
+
+		if (document.querySelector("[data-escape-close]")) {
+			eventbus.emit("escapekey");
+			return;
+		}
+
+		if (isPhoneLayout()) {
+			if (store.state.sidebarOpen) {
+				store.commit("sidebarOpen", false);
+				return;
+			}
+
+			if (
+				store.state.userlistOpen &&
+				document.querySelector("#viewport.userlist-open #chat .userlist")
+			) {
+				store.commit("toggleUserlist");
+				return;
+			}
 		}
 
 		if (onStandalonePage() && leavePage()) {
 			return;
 		}
 
-		void cap.nativePromise!("App", "minimizeApp", {});
+		void nativeCall("App", "minimizeApp");
 	});
 }

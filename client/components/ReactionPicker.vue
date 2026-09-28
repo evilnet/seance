@@ -4,6 +4,7 @@
 			:id="uid"
 			ref="root"
 			class="reaction-picker"
+			data-escape-close
 			:class="{sheet, flipped}"
 			:style="style"
 			role="dialog"

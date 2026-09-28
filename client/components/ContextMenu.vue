@@ -2,6 +2,7 @@
 	<div
 		v-if="isOpen"
 		id="context-menu-container"
+		data-escape-close
 		:class="{passthrough}"
 		@click="containerClick"
 		@contextmenu.prevent="containerClick"

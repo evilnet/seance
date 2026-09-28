@@ -1,0 +1,3 @@
+// Release counterpart of debug.xcconfig. Both exist so the signing identity
+// can come from an untracked file: see signing.xcconfig below.
+#include? "signing.xcconfig"

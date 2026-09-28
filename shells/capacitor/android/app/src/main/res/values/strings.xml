@@ -4,4 +4,9 @@
     <string name="title_activity_main">Seance</string>
     <string name="package_name">chat.seance.app</string>
     <string name="custom_url_scheme">chat.seance.app</string>
+    <string name="keepalive_channel_name">Background connection</string>
+    <string name="keepalive_channel_description">Shown while the app keeps its chat connections open in the background.</string>
+    <string name="keepalive_notification_title">%1$s is connected</string>
+    <string name="keepalive_notification_text">Staying connected in the background.</string>
+    <string name="keepalive_notification_stop">Turn off</string>
 </resources>

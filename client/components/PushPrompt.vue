@@ -1,5 +1,9 @@
 <template>
-	<div id="push-prompt-overlay" :class="{opened: webpush.pushPrompt.visible}">
+	<div
+		id="push-prompt-overlay"
+		:class="{opened: webpush.pushPrompt.visible}"
+		:data-escape-close="webpush.pushPrompt.visible ? '' : null"
+	>
 		<div
 			v-if="webpush.pushPrompt.visible"
 			id="push-prompt"

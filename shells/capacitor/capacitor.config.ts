@@ -1,10 +1,13 @@
 // Capacitor configuration for the Seance native shell.
 //
 // The web app is the root build (`NODE_ENV=production yarn build` -> `public/`);
-// this file only wraps it. `appName` and the status bar colour are read from
+// this file only wraps it. `appName` and `themeColor` are read from
 // `public/config.json` (the same branding file the SPA fetches at boot, see
 // docs/resources/branding.md) when the Capacitor CLI evaluates this config,
 // so a rebranded deploy only has to change that file and `appId` below.
+
+/// <reference types="@capacitor/splash-screen" />
+/// <reference types="@capawesome/capacitor-badge" />
 
 import {readFileSync} from "node:fs";
 import {resolve} from "node:path";
@@ -34,11 +37,12 @@ function readBranding(): Branding {
 const branding = readBranding();
 const appName =
 	typeof branding.appName === "string" && branding.appName.trim() ? branding.appName : "Seance";
+// The deploy's theme colour (same default as webpack.config.ts): what the
+// WebView shows before the page paints and under over-scroll.
 const themeColor =
 	typeof branding.themeColor === "string" && /^#[0-9a-f]{6}$/i.test(branding.themeColor)
 		? branding.themeColor
 		: "#1a1816";
-
 const config: CapacitorConfig = {
 	// REBRAND: reverse-DNS bundle id. Placeholder until a network ships this;
 	// changing it after `cap add` also means editing the generated
@@ -48,9 +52,10 @@ const config: CapacitorConfig = {
 	appId: "chat.seance.app",
 	appName,
 	webDir,
+	backgroundColor: themeColor,
 	server: {
 		// Serve the bundle from https://localhost so the page is a secure
-		// context: service worker, Notification / Push, crypto.subtle and
+		// context: crypto.subtle, the other secure-context-only APIs and the
 		// mixed-content rules behave exactly as on the web. Plain ws:// to an
 		// IRC server is then blocked as mixed content -- use wss://.
 		androidScheme: "https",
@@ -60,15 +65,42 @@ const config: CapacitorConfig = {
 		allowMixedContent: false,
 	},
 	ios: {
-		// Keep the WebView below the status bar / notch instead of under it.
-		contentInset: "always",
+		// The WebView fills the screen, status bar included, and the page
+		// pads its own top from env(safe-area-inset-top) (native.ts sets
+		// html[data-shell="native"] and viewport-fit=cover). Any native inset
+		// would show as a band of the wrong colour above the header.
+		contentInset: "never",
 		preferredContentMode: "mobile",
 	},
 	plugins: {
+		// Translucent over the page, which paints under it in the theme's
+		// canvas colour; native.ts picks the text style from that colour at
+		// boot and on every theme change. `style` is only the first paint.
 		StatusBar: {
-			overlaysWebView: false,
+			overlaysWebView: true,
 			style: "DARK",
-			backgroundColor: themeColor,
+		},
+		// The WebView keeps its frame; the page sizes itself from the
+		// keyboardWillShow height (native.ts → helpers/viewport.ts), the way
+		// it does from the visual viewport in a browser.
+		Keyboard: {
+			resize: "none",
+		},
+		// The launch image stays up until the page can paint in the user's
+		// theme (native.ts `hideSplash`), so no white frame shows between it
+		// and the app. Its colour is the logo's tile (tools/make-assets.sh
+		// bakes the same into the image), not the theme colour: iOS draws it
+		// before any code runs and cannot know which theme the user picked.
+		SplashScreen: {
+			launchAutoHide: false,
+			backgroundColor: "#0D0E14",
+		},
+		// The icon badge is the store's highlight count (helpers/appBadge.ts);
+		// the app clears it itself when the highlights are read, and it must
+		// survive a restart with the unread state that produced it.
+		Badge: {
+			persist: true,
+			autoClear: false,
 		},
 	},
 };

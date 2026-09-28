@@ -33,6 +33,7 @@ import {
 	detectInstallTarget,
 	shouldShowInstallGuide,
 } from "./helpers/installGuide";
+import {isNativeShell as isCapacitorShell} from "./helpers/capacitor";
 
 /** A window that stays open re-checks the worker script this often. */
 const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
@@ -84,7 +85,11 @@ function isSecureContext(): boolean {
 }
 
 function registerServiceWorker(): void {
-	if (!("serviceWorker" in navigator) || !isSecureContext()) {
+	// The native shell (shells/capacitor) loads the bundle from the app
+	// itself: nothing to cache for offline, and a new build is a new app from
+	// the store, not a worker update. WKWebView would refuse the worker on
+	// the app's custom scheme anyway.
+	if (!("serviceWorker" in navigator) || !isSecureContext() || isCapacitorShell()) {
 		return;
 	}
 
