@@ -29,6 +29,7 @@ import storage from "./localStorage";
 import {installNativeHooks} from "./native";
 import {installForegroundHooks} from "./foreground";
 import {installViewportHooks} from "./helpers/viewport";
+import {installThemeSceneHooks} from "./themeScene";
 import {onLaunch, openInstallGuideAtStart} from "./pwa";
 // Also registers the IRC layer's bus handlers (input, names, more, network:*).
 import {autoconnectSavedNetworks, clientForNetwork, createNetwork} from "./irc/manager";
@@ -99,6 +100,7 @@ export async function boot(): Promise<void> {
 	loadMentions();
 	installNativeHooks();
 	installForegroundHooks();
+	installThemeSceneHooks();
 	installViewportHooks();
 
 	store.commit("appLoaded");

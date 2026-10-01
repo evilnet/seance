@@ -42,10 +42,13 @@ import {
 	onBeforeUnmount,
 	onMounted,
 	ref,
+	watch,
 	Ref,
 	InjectionKey,
 } from "vue";
 import {useStore} from "../js/store";
+import {themeScene} from "../js/themeScene";
+import {ChanType} from "../../shared/types/chan";
 import type {DebouncedFunc} from "lodash";
 
 export const imageViewerKey = Symbol() as InjectionKey<Ref<typeof ImageViewer | null>>;
@@ -163,6 +166,14 @@ export default defineComponent({
 		};
 
 		prepareOpenStates();
+
+		// What kind of conversation a theme's scene sits behind (client/js/themeScene.ts).
+		watch(
+			() => store.state.activeChannel?.channel.type,
+			(type) =>
+				themeScene.setView(type === ChanType.QUERY ? "query" : type ? "channel" : "other"),
+			{immediate: true}
+		);
 
 		onMounted(() => {
 			Mousetrap.bind("esc", escapeKey);

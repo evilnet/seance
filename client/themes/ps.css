@@ -1,0 +1,2907 @@
+/* ps — peace on the plains. Forked from the `<3` theme (heart.css; its design
+ * record is docs/projects/heart-theme.md, this fork's is
+ * docs/projects/ps-theme.md). coffee.css's rules (the token-driven set every
+ * handoff theme shares) with this theme's tokens, plus what no other theme
+ * has: bundled fonts, gentle motion, and the plains behind the whole app —
+ * a scene that keeps the viewer's clock and calendar, built by
+ * client/js/scenes/ps/ and styled here — with the chrome floating over it as
+ * tinted glass, and the panels that hold dense text as the glass's colour
+ * made solid: pale paper by day, deep blue at night (§6). Without the scene
+ * this file alone paints a daylight sky under the day glass. The animals are
+ * switched off, not removed (the block after the animal layer), and the `<3`
+ * theme's glitter bursts on send and on reactions are embers now (the
+ * motion section).
+ *
+ * Sections, in order: fonts · tokens (the day palette, then the night one) ·
+ * type · motion · scene (ending in the two generated blocks, the message
+ * palette and the glass palette, which carries the glass's opacity, soft
+ * ink, badge fill and nick colours) · the words over the plains · the chrome
+ * (glass and solid) · animals · phones · reduced motion · reduced
+ * transparency. */
+@import "coffee.css";
+
+/* ---- fonts ---- */
+
+/* ps:fonts:start — Source Sans 3 and Newsreader, fetched by
+ * `node tools/ps/fetch-fonts.mjs`: Google Fonts' woff2 files (Source Sans 3
+ * variable, 200 to 900, upright and italic; Newsreader's static 700), Latin,
+ * Latin Extended and Vietnamese as separate files (a face needs all of
+ * them, or plain, accented or Vietnamese text draws partly in the
+ * fallback font — the latin-ext trap, docs/projects/ps-theme.md §8).
+ * Vietnamese is written first, so where the ranges overlap the Latin files
+ * still draw what they drew before it came. Cyrillic, Greek and every other
+ * script this theme does not bundle fall back to the system stack mid-line. */
+
+@font-face {
+	font-family: "Source Sans 3";
+	font-style: normal;
+	font-weight: 200 900;
+	font-display: swap;
+	src: url("ps/source-sans-3-vietnamese.woff2") format("woff2");
+	/* stylelint-disable-next-line max-line-length -- Google's unicode-range list, unbroken as served */
+	unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+
+@font-face {
+	font-family: "Source Sans 3";
+	font-style: normal;
+	font-weight: 200 900;
+	font-display: swap;
+	src: url("ps/source-sans-3-latin.woff2") format("woff2");
+	/* stylelint-disable-next-line max-line-length -- Google's unicode-range list, unbroken as served */
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+	font-family: "Source Sans 3";
+	font-style: normal;
+	font-weight: 200 900;
+	font-display: swap;
+	src: url("ps/source-sans-3-latin-ext.woff2") format("woff2");
+	/* stylelint-disable-next-line max-line-length -- Google's unicode-range list, unbroken as served */
+	unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+	font-family: "Source Sans 3";
+	font-style: italic;
+	font-weight: 200 900;
+	font-display: swap;
+	src: url("ps/source-sans-3-italic-vietnamese.woff2") format("woff2");
+	/* stylelint-disable-next-line max-line-length -- Google's unicode-range list, unbroken as served */
+	unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+
+@font-face {
+	font-family: "Source Sans 3";
+	font-style: italic;
+	font-weight: 200 900;
+	font-display: swap;
+	src: url("ps/source-sans-3-italic-latin.woff2") format("woff2");
+	/* stylelint-disable-next-line max-line-length -- Google's unicode-range list, unbroken as served */
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+	font-family: "Source Sans 3";
+	font-style: italic;
+	font-weight: 200 900;
+	font-display: swap;
+	src: url("ps/source-sans-3-italic-latin-ext.woff2") format("woff2");
+	/* stylelint-disable-next-line max-line-length -- Google's unicode-range list, unbroken as served */
+	unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+	font-family: Newsreader;
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url("ps/newsreader-vietnamese.woff2") format("woff2");
+	/* stylelint-disable-next-line max-line-length -- Google's unicode-range list, unbroken as served */
+	unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+
+@font-face {
+	font-family: Newsreader;
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url("ps/newsreader-latin.woff2") format("woff2");
+	/* stylelint-disable-next-line max-line-length -- Google's unicode-range list, unbroken as served */
+	unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+	font-family: Newsreader;
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url("ps/newsreader-latin-ext.woff2") format("woff2");
+	/* stylelint-disable-next-line max-line-length -- Google's unicode-range list, unbroken as served */
+	unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* ps:fonts:end */
+
+/* ---- tokens ---- */
+
+/* The day palette: the day glass (docs/projects/ps-theme.md §6) under
+ * coffee.css's token names, which every rule of coffee.css reads. The scene
+ * sets data-ps-light="night" on <html> once darkness passes 0.5, and the night
+ * palette after this one takes over; with no scene this one stays, under the
+ * daylight fallback. Inside the message column the generated
+ * ps:message-palette block overrides the text colours: what is left here
+ * colours the chrome. */
+:root {
+	color-scheme: light;
+
+	/* Daylight until the scene says otherwise (docs/projects/ps-theme.md §3):
+	 * the midday stop's sky-top, and its horizon lifted 55 % toward white. The
+	 * scene overwrites both on <html> once a minute. */
+	--canvas-bg-color: #3f8fe6;
+	--ps-halo: #ebf5fd;
+	--strip: 8.75rem;
+
+	/* How long the flip between the day and the night palette takes on the
+	 * glass and the solid panels (§9); 0s under reduced motion. */
+	--ps-flip: 0.8s;
+
+	/* The glass, spec §6's day column. The tint's opacity (--ps-g-tint-a), the
+	 * soft ink (--ps-g-soft), the badge's fill (--ps-g-badge) and the text
+	 * accent (--ps-g-accent-text: the accent where the chrome writes or marks
+	 * with it, links, button labels, the send and connecting icons, a chip's
+	 * focus ring; the user's decision, 2026-09-25) are generated (the
+	 * ps:glass-palette block); the tint's colour is written in the glass rules
+	 * (the chrome section). The spec's accent stays for the open row's marker,
+	 * the caret, the focus glow and the tints. */
+	--ps-g-solid: #fbf8f2;
+	--ps-g-ink: #1f2a3d;
+	--ps-g-edge: rgb(255 255 255 / 55%);
+	--ps-g-field: rgb(255 255 255 / 72%);
+	--ps-g-selected: rgb(255 255 255 / 60%);
+	--ps-g-accent: #c2562b;
+
+	/* The washes on the glass (the composer's bars, a hovered user in the
+	 * list; the chrome section scopes them): every wash on the glass moves
+	 * its ground away from the text on it, so by day it lightens, as the
+	 * spec's selected row does. The strong one is the selected row's white,
+	 * the soft one its hover's half. */
+	--ps-g-wash-soft: rgb(255 255 255 / 30%);
+	--ps-g-wash-strong: rgb(255 255 255 / 60%);
+
+	/* Chat surface, from the glass: text in the ink and the soft ink (faint
+	 * text too: the glass has no fainter ink, and the soft one holds 4.5:1
+	 * where faint needs 3), hairlines and field edges in the edge, fields in
+	 * the field, links and buttons in the text accent, text on it in white.
+	 * The mention wash (the Mentions popover) and the selection are
+	 * creama.css's. */
+	--chat-bg: var(--ps-g-solid);
+	--chat-fg: var(--ps-g-ink);
+	--chat-fg-muted: var(--ps-g-soft);
+	--chat-fg-faint: var(--ps-g-soft);
+	--chat-heading: var(--ps-g-soft);
+	--chat-rule: var(--ps-g-edge);
+	--chat-accent: var(--ps-g-accent-text);
+	--chat-accent-fg: #fff;
+
+	/* Every placeholder (the chrome section's placeholder rule): by day the
+	 * soft ink, which holds on every ground an input stands on. */
+	--ps-g-placeholder: var(--ps-g-soft);
+	--chat-accent-rule: rgb(194 86 43 / 50%);
+	--chat-highlight-bg: #f8f0e6;
+	--chat-selection: #eeddca;
+	--composer-bg: var(--ps-g-field);
+	--composer-border: var(--ps-g-edge);
+	--window-border: var(--ps-g-edge);
+	--window-shadow: 0 0 1.5625rem rgb(0 0 0 / 40%);
+	--menu-bg: var(--ps-g-solid);
+
+	/* TheLounge's page colour, which coffee.css takes from the rail: the
+	 * dialogs, the drag placeholder and the phone's sidebar read it. The rail
+	 * is glass now, so it is the solid. */
+	--body-bg-color: var(--ps-g-solid);
+
+	/* Sidebar rail: clear, since the glass paints it (the chrome section).
+	 * Rows in the soft ink; the lobby, the open and hovered rows in the ink;
+	 * the open row on the spec's selected wash, a hovered one on half of it. */
+	--rail-bg-top: transparent;
+	--rail-bg-bottom: transparent;
+	--rail-fg: var(--ps-g-soft);
+	--rail-fg-strong: var(--ps-g-ink);
+	--rail-fg-active: var(--ps-g-ink);
+	--rail-fg-muted: var(--ps-g-soft);
+	--rail-item-active-bg: var(--ps-g-selected);
+	--rail-item-hover-bg: rgb(255 255 255 / 30%);
+	--rail-accent: var(--ps-g-accent);
+	--rail-accent-fg: #fff;
+	--rail-badge-bg: var(--ps-g-badge);
+	--rail-badge-fg: #fff;
+	--rail-input-bg: var(--ps-g-field);
+	--rail-input-border: var(--ps-g-edge);
+
+	/* Message semantics as the chrome draws them (the column has its own):
+	 * creama.css's, those that fall short on the glass or the solid moved
+	 * under rule 2 (OKLCH L, hue and chroma kept): join #5f8033 → #5a7b2d
+	 * (L −0.017, the success note on the solid), quit #a4472e → #963c23
+	 * (−0.040, a disconnected row on the glass), a nick without a colour
+	 * #9c5f13 → #824b00 (−0.074, on the glass). Plan 3's plains behind the
+	 * glass moved the last two a little further: over the darkest day glass
+	 * (an autumn evening's blades behind 78 % tint) #973c23 read 4.48 and
+	 * #834c01 4.46. */
+	--event-join: #5a7b2d;
+	--event-quit: #963c23;
+	--nick-default: #824b00;
+	--notice-color: #707102;
+	--action-color: #a25b25;
+
+	/* Notice boxes: creama.css's. */
+	--note-bg: #f1ece2;
+	--note-fg: #5c5247;
+	--warn-bg: #fbf1d9;
+	--warn-fg: #7a5a14;
+	--error-bg: #f8e4df;
+	--error-fg: #8f3a24;
+	--ok-bg: #e9efdc;
+	--ok-fg: #4c6a25;
+
+	/* Tints and scrollbars: creama.css's. The accent's tints and the focus
+	 * ring are the spec's accent at creama's strengths. */
+	--tint-soft: rgb(0 0 0 / 4%);
+	--tint-strong: rgb(0 0 0 / 8%);
+	--accent-tint-20: rgb(194 86 43 / 18%);
+	--accent-tint-30: rgb(194 86 43 / 28%);
+	--focus-ring: rgb(194 86 43 / 45%);
+	--scrollbar-track: rgb(42 37 33 / 9%);
+	--scrollbar-thumb: rgb(42 37 33 / 45%);
+	--scrollbar-thumb-active: rgb(42 37 33 / 60%);
+
+	/* Code outside the message column (the Mentions popover): creama.css's
+	 * tokens, the comment moved under rule 2 to hold 4.5:1 on the field,
+	 * #8a8075 → #7c7268 (L −0.047). */
+	--tok-comment: #7c7268;
+	--tok-keyword: #a4472e;
+	--tok-string: #707102;
+	--tok-number: #9c5f13;
+	--tok-function: #7c5fa8;
+	--tok-operator: #a4472e;
+	--tok-punctuation: #6c6258;
+	--tok-tag: #50782b;
+	--tok-attr: #a25b25;
+}
+
+/* The night palette: the night glass (§6), a second full palette rather than a
+ * tint pass. The glass from the spec's night column; the secondary colours
+ * coffee.css's (near-black), moved under rule 2 where they fall short. No
+ * canvas colour here: the scene writes that, and the daylight fallback must
+ * not depend on this attribute. */
+:root[data-ps-light="night"] {
+	color-scheme: dark;
+
+	--ps-g-solid: #121827;
+	--ps-g-ink: #e9eef7;
+	--ps-g-edge: rgb(255 255 255 / 9%);
+	--ps-g-field: rgb(255 255 255 / 7%);
+	--ps-g-accent: #d9784a;
+
+	/* The washes on the glass deepen toward black instead of adding white,
+	 * which lifted the ground toward the light text on it: the spec's selected
+	 * row (white 11 %) left the lobby's nick at 3.35:1 and a parted row at
+	 * 3.43 over the moonlit glass. Toward black, not the night solid: the
+	 * glass's own navy does not show over a dark sky (the user's pick,
+	 * 2026-09-25). Each is the weakest black as visible as the white it
+	 * replaces, over the sparse sweep's glass grounds (the median contrast
+	 * between the washed and the bare ground): the selected row 60 % (1.41),
+	 * the hover 29 % (1.21), the soft wash 19 % (1.14), the strong 40 % (1.28).
+	 * Over plan 3's grounds (the plains' night land, the veil, the sun hidden
+	 * under the horizon) the same washes measure 1.30 / 1.15 / 1.10 / 1.21;
+	 * test/themes/ps.ts holds each at that, and never under 1.02. */
+	--ps-g-selected: rgb(0 0 0 / 60%);
+	--ps-g-wash-soft: rgb(0 0 0 / 19%);
+	--ps-g-wash-strong: rgb(0 0 0 / 40%);
+
+	/* Chat surface. Text on the text accent is the solid (10:1): white would
+	 * be 1.8. */
+	--chat-bg: var(--ps-g-solid);
+	--chat-fg: var(--ps-g-ink);
+	--chat-fg-muted: var(--ps-g-soft);
+	--chat-fg-faint: var(--ps-g-soft);
+	--chat-heading: var(--ps-g-soft);
+	--chat-rule: var(--ps-g-edge);
+	--chat-accent: var(--ps-g-accent-text);
+	--chat-accent-fg: #121827;
+
+	/* Every placeholder at night: the soft ink #b3c0d5 moved +0.0645 in
+	 * OKLCH L, hue and chroma kept, solved to 4.6 over the worst ground an
+	 * input stands on, the glass's field with the full moon behind (4.63;
+	 * the soft ink read 3.74 there). Past rule 2 (+0.105 from the spec's
+	 * #a7b3c8) at the user's word, "fix the night placeholder contrast too"
+	 * (2026-09-26, spec §2), and for the placeholders alone: the soft ink's
+	 * other uses keep it. */
+	--ps-g-placeholder: #c7d5ea;
+	--chat-accent-rule: rgb(217 120 74 / 50%);
+	--chat-highlight-bg: #29241c;
+	--chat-selection: #413524;
+	--composer-bg: var(--ps-g-field);
+	--composer-border: var(--ps-g-edge);
+	--window-border: var(--ps-g-edge);
+	--window-shadow: 0 0 1.5625rem rgb(0 0 0 / 60%);
+	--menu-bg: var(--ps-g-solid);
+	--body-bg-color: var(--ps-g-solid);
+
+	/* Sidebar rail */
+	--rail-bg-top: transparent;
+	--rail-bg-bottom: transparent;
+	--rail-fg: var(--ps-g-soft);
+	--rail-fg-strong: var(--ps-g-ink);
+	--rail-fg-active: var(--ps-g-ink);
+	--rail-fg-muted: var(--ps-g-soft);
+	--rail-item-active-bg: var(--ps-g-selected);
+	--rail-item-hover-bg: rgb(0 0 0 / 29%);
+	--rail-accent: var(--ps-g-accent);
+	--rail-accent-fg: #121827;
+	--rail-badge-bg: var(--ps-g-badge);
+	--rail-badge-fg: #fff;
+	--rail-input-bg: var(--ps-g-field);
+	--rail-input-border: var(--ps-g-edge);
+
+	/* Message semantics: coffee.css's, a nick without a colour moved under
+	 * rule 2, #e6a45c → #f8b56d (L +0.053, on the glass). A disconnected or
+	 * parted row's name reads 3.15:1 over the brightest night glass in coffee's
+	 * #e08a72: #feaf98 (L +0.106) is the smallest move that holds 4.5, past
+	 * rule 2's 0.08 by the user's decision (2026-09-25). */
+	--event-join: #9fbf6a;
+	--event-quit: #feaf98;
+	--nick-default: #f8b56d;
+	--notice-color: #cfcb84;
+	--action-color: #e6a45c;
+
+	/* Notice boxes: coffee.css's. */
+	--note-bg: #262321;
+	--note-fg: #c6bcaf;
+	--warn-bg: #2e2716;
+	--warn-fg: #e0c27a;
+	--error-bg: #33201c;
+	--error-fg: #eaa08e;
+	--ok-bg: #232a1a;
+	--ok-fg: #b6d48e;
+
+	/* Tints and scrollbars: coffee.css's; the accent's tints and the focus ring
+	 * are the spec's night accent at coffee's strengths. */
+	--tint-soft: rgb(255 255 255 / 4%);
+	--tint-strong: rgb(255 255 255 / 8%);
+	--accent-tint-20: rgb(217 120 74 / 20%);
+	--accent-tint-30: rgb(217 120 74 / 30%);
+	--focus-ring: rgb(217 120 74 / 55%);
+	--scrollbar-track: rgb(236 230 220 / 6%);
+	--scrollbar-thumb: rgb(236 230 220 / 25%);
+	--scrollbar-thumb-active: rgb(236 230 220 / 40%);
+
+	/* Code outside the message column: coffee.css's tokens, the comment moved
+	 * under rule 2 to hold 4.5:1 on the field, #8b8177 → #998f84 (L +0.046). */
+	--tok-comment: #998f84;
+	--tok-keyword: #e08a72;
+	--tok-string: #cfcb84;
+	--tok-number: #e6a45c;
+	--tok-function: #dfa08e;
+	--tok-operator: #e0a340;
+	--tok-punctuation: #b5ab9e;
+	--tok-tag: #9fbf6a;
+	--tok-attr: #e6a45c;
+}
+
+/* style.css's mIRC values again: coffee brightens these for its dark surface. */
+.irc-fg2 { color: #001f3f; }
+.irc-fg5 { color: #85144b; }
+.irc-fg12 { color: #0074d9; }
+
+/* Those three are dark-on-light; on the night glass, and in the message column
+ * while it carries data-ps-text="light", restate coffee's own (brighter)
+ * values. */
+:root[data-ps-light="night"] .irc-fg2,
+:root[data-ps-text="light"] #chat .chat .irc-fg2 { color: #0074d9; }
+
+:root[data-ps-light="night"] .irc-fg5,
+:root[data-ps-text="light"] #chat .chat .irc-fg5 { color: #e969a7; }
+
+:root[data-ps-light="night"] .irc-fg12,
+:root[data-ps-text="light"] #chat .chat .irc-fg12 { color: #50a8ff; }
+
+/* ---- type ---- */
+
+/* Source Sans 3 500 everywhere text is read (docs/projects/ps-theme.md §8,
+ * the user's pick of 2026-09-26); 700 is its bold, the heaviest weight the
+ * theme asks of it (the face goes to 900; 700 is the bold the user saw it
+ * picked at). Newsreader 700 for the names the eye jumps to: the nick
+ * column's nicks, channel and network names, the header title, and the
+ * names in Settings → Appearance's font-size sample, which shows a few chat
+ * lines (Appearance.vue; its times and lines are #settings', the words'
+ * face). Both ship Latin, Latin Extended and Vietnamese only (the ps:fonts
+ * block above); every other script, Cyrillic and Greek included, falls back
+ * mid-line — a name to the system serif, the words to the system sans.
+ * .context-menu substituted for #context-menu: ContextMenu.vue renders
+ * <ul id="context-menu">, not a class. */
+body,
+#chat .msg,
+#form #input,
+#sidebar,
+#context-menu,
+#settings,
+#help {
+	font-family: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+	font-weight: 500;
+}
+
+b,
+strong,
+.msg .content b,
+#chat .msg.highlight .content {
+	font-weight: 700;
+}
+
+#chat .msg .from .user,
+#chat .header .title,
+.channel-list-item .name,
+.network .lobby-title .name,
+#sidebar .lobby-title,
+.font-size-sample .from {
+	font-family: Newsreader, Georgia, serif;
+	font-weight: 700;
+}
+
+/* A nick named inside a message's text — a mention, an action's actor, the
+ * nick of a join or a quit (Message.vue puts all of them in .content) — is
+ * set in the text's own face, not the names': a second face mid-line read
+ * oddly (the user's I2, 2026-09-26). It keeps the nick's colour (the sweeps
+ * below) and is bold, the words' 700; the bold is load-bearing, since the
+ * names-large set's 3:1 (§7) rests on a nick being bold text at 20 px, which
+ * WCAG counts as large. */
+#chat .msg .content .user {
+	font-family: inherit;
+	font-weight: 700;
+}
+
+/* The gutter (plan 4 task 5; the user: "too much margin between the time
+ * stamp and the username"). In Source Sans 3 every tabular figure is 1ch and
+ * a colon about 0.51ch, so style.css's ch widths leave the time column this
+ * much after the widest time: 12h ("12:00pm", 7.28ch) 0.22ch, 24h ("00:00",
+ * 4.52ch) 0.98ch, and the seconds formats 1.46ch (24h+s, "00:00:00", 7.04ch
+ * in 8.5ch) and 0.7ch (12h+s, "12:00:00pm", 9.8ch in 10.5ch). With the nick
+ * column's left padding (0.5rem net) the gap after the usual time was 1.12,
+ * 0.99, 1.24 and 1.36rem at every step, against the nick's 1.05rem to the
+ * text (a 12-hour clock's usual hour, 1 to 9, is a figure short of its
+ * widest). The seconds formats come in to 8ch and 10ch: 0.99 and 1.11rem,
+ * like the other two, the widest time still held with 0.96ch and 0.2ch to
+ * spare at every step (huge included, in columns on a wide window). Still in
+ * ch, so a step scales them. The widest column is now 10ch, half a figure
+ * inside the 10.5ch style.css's two thresholds count (the user list's
+ * overlay, the inline flow), which covers a classic scrollbar (about 10px in
+ * Chromium on Linux) that neither sum counts. Measured with
+ * tools/scenarios/message-gutter.mjs, SEANCE_THEME=ps. */
+#chat.time-seconds .time {
+	width: 8ch;
+}
+
+#chat.time-seconds.time-12h .time {
+	width: 10ch;
+}
+
+/* The nick column is 9ch, right-aligned (the user's N, 2026-09-26: "N seems
+ * fine"; spec §2, §8). style.css gives it `flex: 0 1000 12ch; min-width:
+ * 9ch`, and the basis comes down to that floor, in the same words' ch, so a
+ * short nick sits nearer the time. In Newsreader 700 a nick of about 8
+ * letters is 7.9ch (95 % of 8-letter nicks fit, half of 9-letter ones); a
+ * longer one ends in style.css's ellipsis, Source Sans 3's "…" (1.9ch), after
+ * about 7ch of the nick (tumbleweed_42 draws "tumble…"): the user accepts
+ * longer nicks cut sooner. The shrink weight, the floor, the right
+ * alignment, the words' face and the shadow's clip (#chat .chat .from,
+ * below) stay as they were; the thresholds count the 9ch floor, so the text
+ * keeps its 30ch at both. Checked by tools/scenarios/message-gutter.mjs,
+ * SEANCE_THEME=ps. */
+#chat .from {
+	flex-basis: 9ch;
+}
+
+/* The text column. No rule between it and the nick column: style.css draws
+ * a 1px border-left and coffee.css colours it with --chat-rule; transparent
+ * keeps the pixel so nothing shifts.
+ *
+ * Its 30ch basis (style.css `flex: 1 1 30ch`) is the text's, as the
+ * thresholds' arithmetic counts it: html is border-box, so the basis held
+ * the column's padding and rule too, and between the user list's threshold
+ * and the width where the text outgrows its basis nothing asked the nick
+ * column to give way; the text sat at 30ch − 0.875rem − 1px, about 28.2ch,
+ * beside the panel (the gutter check's failure at 12h+s, medium, 860px,
+ * once Source Sans 3's narrower ch moved that threshold under 860). The
+ * basis is restated with style.css's padding (0.5rem + 0.375rem) and its
+ * 1px rule added, so the nick column shrinks first, down to its 9ch, as
+ * style.css intends. The column stays border-box: style.css's `*,
+ * *::before, *::after { box-sizing: inherit }` would hand content-box to
+ * everything in it, and a reply quote (a `max-width: 100%` button with its
+ * own padding and rule) overflowed the column by both (plan 4 task 5, fix
+ * round 1). Nothing inherits a flex-basis, and the inline flow's `display:
+ * inline` takes the column out of flex layout by itself. */
+#chat .content {
+	flex-basis: calc(30ch + 0.875rem + 1px);
+	border-left-color: transparent;
+}
+
+/* ---- motion ---- */
+
+/* Every message fades in as it enters the DOM: new ones, history, a channel
+ * opening. The sidebar rows, header and composer rise into place on load.
+ * A mention glows twice. Nothing here needs script: CSS animations run when
+ * an element is inserted or a class starts matching. */
+@keyframes ps-fade {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+
+@keyframes ps-rise {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+@keyframes ps-glow {
+	0% { box-shadow: inset 0 0 0 0 rgb(217 69 127 / 0%); }
+	30% { box-shadow: inset 0 0 0.9rem rgb(217 69 127 / 22%); }
+	100% { box-shadow: inset 0 0 0 0 rgb(217 69 127 / 0%); }
+}
+
+#chat .msg {
+	animation: ps-fade 340ms ease-out backwards;
+}
+
+/* The pending copy of an own message appears at style.css's 0.55 at once: a
+ * fade to full and a snap back down on every send is worse than none. */
+#chat .msg.pending {
+	animation-name: none;
+}
+
+/* The echo that replaces it is a new row, and a fade from nothing blinked
+ * every sent line out and back; an own message settles up from where its
+ * pending copy stood instead (style.css's 0.55), so it only brightens. */
+@keyframes ps-settle {
+	from { opacity: 0.55; }
+	to { opacity: 1; }
+}
+
+#chat .msg.self:not(.pending) {
+	animation-name: ps-settle;
+}
+
+#chat .chat-view[data-type="channel"] .msg.highlight,
+#chat .chat-view[data-type="query"] .msg.highlight {
+	animation: ps-fade 340ms ease-out backwards, ps-glow 1.8s ease-out 2;
+}
+
+.channel-list-item,
+#chat .header,
+#form {
+	animation: ps-rise 0.45s ease-out backwards;
+}
+
+.channel-list-item:nth-child(1) { animation-delay: 45ms; }
+.channel-list-item:nth-child(2) { animation-delay: 90ms; }
+.channel-list-item:nth-child(3) { animation-delay: 135ms; }
+.channel-list-item:nth-child(4) { animation-delay: 180ms; }
+.channel-list-item:nth-child(5) { animation-delay: 225ms; }
+.channel-list-item:nth-child(6) { animation-delay: 270ms; }
+.channel-list-item:nth-child(7) { animation-delay: 315ms; }
+.channel-list-item:nth-child(8) { animation-delay: 360ms; }
+.channel-list-item:nth-child(n + 9) { animation-delay: 400ms; }
+#form { animation-delay: 150ms; }
+#form #input { caret-color: var(--ps-g-accent); }
+
+/* ---- embers ----
+ *
+ * The <3 theme's glitter, replaced (spec §9): on an own message arriving and
+ * on a reaction arriving, a few small glowing sparks rise and fade, CSS only.
+ * The mockup's `.ember` and `effect("embers")` drew four sparks a burst at
+ * random offsets; with no script these are four fixed sets inside its ranges
+ * (a rise of 2.125–4.625rem, a drift of −0.5–1.375rem, 1.9–2.8 s each, 0.18 s
+ * apart, from 40 % of the row's height across its first 60 %).
+ *
+ * A send's sparks are four real dots, the row's ::before/::after and its
+ * text's (.content's), rather than two gradient dots on each of two
+ * pseudo-elements: each spark then has the mockup's own glow (a box-shadow)
+ * and rises, drifts and fades on its own clock. .content is static, so its
+ * sparks are placed on the row too (top and left are the row's) and its
+ * `overflow: hidden` (style.css) does not clip them.
+ *
+ * A send fires on the echo (`:not(.pending)`), as it settles up from the
+ * pending copy (ps-settle); the pending copy fires nothing, and with no
+ * echo-message the row is inserted as it is and fires once. `:last-child`
+ * keeps a later redraw from firing again: the burst runs while the row is the
+ * newest, and a pseudo-element runs its animation once, when it appears. So
+ * an own message that is the last row when a channel opens fires too, the
+ * <3 theme's accepted behaviour. Only messages and actions: own joins and
+ * modes are `.self` as well.
+ *
+ * A reaction fires on a chip arriving (MessageReactions.vue): a chip entering
+ * on its own takes .reaction-enter-active, and the first chip of a message
+ * comes in with its whole group, .reactions-enter-active. Not on `.self` or
+ * any class a chip keeps: that would fire again on every redraw. A smaller
+ * burst, two sparks, off the chip's text, since the chip's own pseudo-
+ * elements are its tooltip. Vue keeps an enter class only as long as the
+ * element's own animations run (style.css's 160 ms pop), so a do-nothing hold
+ * as long as the latest spark keeps it; the pop is restated because the
+ * shorthand replaces it. The chip is positioned (the tooltip's `position:
+ * relative`; the glass's backdrop filter too), so it is its sparks'
+ * containing block, and it sits inside .content, whose `overflow: hidden`
+ * (style.css) keeps Zalgo text's stacked marks off the rows around it. The
+ * sparks would be cut at its top, so for as long as the burst runs the clip
+ * is `overflow: clip` with an `overflow-clip-margin` of the sparks' rise and
+ * glow: the trade-off is that for those ~2.2 s a message's marks can spill
+ * that far (3.25rem) and no further, where `visible` would lift the clip
+ * altogether. A browser without overflow-clip-margin cuts the sparks at the
+ * column's edge instead, which only shortens their rise. .content is always
+ * a flex item or inline, so clip changes no layout: it is only not a scroll
+ * container, which nothing scrolls.
+ *
+ * No z-index: a spark paints with its row, over the rows above it, and under
+ * whatever floats over the column (the message toolbar, the jump-to-recent
+ * disc, the overlaid user list). Channels only: a query stands still behind
+ * frosted glass (spec §5.7), and .chat-view's data-type is the view the scene
+ * is told (App.vue), set in the same render as the rows. Nothing of this
+ * exists under reduced motion. */
+@keyframes ps-ember {
+	0% {
+		opacity: 0;
+		transform: translate(0, 0) scale(0.6);
+	}
+
+	15% { opacity: 1; }
+
+	100% {
+		opacity: 0;
+		transform: translate(var(--ps-ember-x), var(--ps-ember-y)) scale(0.2);
+	}
+}
+
+@keyframes ps-ember-hold {
+	to { visibility: visible; }
+}
+
+/* stylelint-disable max-line-length -- a spark's selector names its row in full */
+@media (prefers-reduced-motion: no-preference) {
+	#chat .chat-view[data-type="channel"] .msg.self:is([data-type="message"], [data-type="action"]):not(.pending):last-child::before,
+	#chat .chat-view[data-type="channel"] .msg.self:is([data-type="message"], [data-type="action"]):not(.pending):last-child::after,
+	#chat .chat-view[data-type="channel"] .msg.self:is([data-type="message"], [data-type="action"]):not(.pending):last-child > .content::before,
+	#chat .chat-view[data-type="channel"] .msg.self:is([data-type="message"], [data-type="action"]):not(.pending):last-child > .content::after,
+	#chat .chat-view[data-type="channel"] .reaction-enter-active .msg-reaction-text::before,
+	#chat .chat-view[data-type="channel"] .reaction-enter-active .msg-reaction-text::after,
+	#chat .chat-view[data-type="channel"] .reactions-enter-active .msg-reaction-text::before,
+	#chat .chat-view[data-type="channel"] .reactions-enter-active .msg-reaction-text::after {
+		content: "";
+		position: absolute;
+		top: 40%;
+		width: 0.25rem;
+		height: 0.25rem;
+		border-radius: 50%;
+		background: #ffc46e;
+		box-shadow: 0 0 0.375rem 0.125rem rgb(255 160 70 / 65%);
+		pointer-events: none;
+		animation: ps-ember 2s cubic-bezier(0.25, 0.6, 0.35, 1) both;
+	}
+
+	#chat .chat-view[data-type="channel"] .msg.self:is([data-type="message"], [data-type="action"]):not(.pending):last-child::before {
+		--ps-ember-x: 0.625rem;
+		--ps-ember-y: -3.25rem;
+
+		left: 12%;
+		animation-duration: 2.4s;
+		animation-delay: 0s;
+	}
+
+	#chat .chat-view[data-type="channel"] .msg.self:is([data-type="message"], [data-type="action"]):not(.pending):last-child::after {
+		--ps-ember-x: -0.375rem;
+		--ps-ember-y: -4.25rem;
+
+		left: 27%;
+		animation-duration: 2.1s;
+		animation-delay: 0.18s;
+	}
+
+	#chat .chat-view[data-type="channel"] .msg.self:is([data-type="message"], [data-type="action"]):not(.pending):last-child > .content::before {
+		--ps-ember-x: 1.125rem;
+		--ps-ember-y: -2.5rem;
+
+		left: 43%;
+		animation-duration: 2.6s;
+		animation-delay: 0.36s;
+	}
+
+	#chat .chat-view[data-type="channel"] .msg.self:is([data-type="message"], [data-type="action"]):not(.pending):last-child > .content::after {
+		--ps-ember-x: 0.25rem;
+		--ps-ember-y: -3.75rem;
+
+		left: 58%;
+		animation-duration: 1.95s;
+		animation-delay: 0.54s;
+	}
+
+	/* A chip's two, over the chip (left and top are the chip's). */
+	#chat .chat-view[data-type="channel"] .reaction-enter-active .msg-reaction-text::before,
+	#chat .chat-view[data-type="channel"] .reactions-enter-active .msg-reaction-text::before {
+		--ps-ember-x: 0.375rem;
+		--ps-ember-y: -2.25rem;
+
+		left: 18%;
+		animation-duration: 2.2s;
+		animation-delay: 0s;
+	}
+
+	#chat .chat-view[data-type="channel"] .reaction-enter-active .msg-reaction-text::after,
+	#chat .chat-view[data-type="channel"] .reactions-enter-active .msg-reaction-text::after {
+		--ps-ember-x: -0.25rem;
+		--ps-ember-y: -2.75rem;
+
+		left: 52%;
+		animation-duration: 1.9s;
+		animation-delay: 0.18s;
+	}
+
+	/* The hold: 2.2 s, the chip's latest spark (0 s + 2.2 s; 0.18 s + 1.9 s). */
+	#chat .chat-view[data-type="channel"] .reaction-enter-active,
+	#chat .chat-view[data-type="channel"] .reactions-enter-active {
+		animation: reaction-pop 160ms ease-out, ps-ember-hold 2.2s linear;
+	}
+
+	/* The margin: the chip sparks' highest rise (2.75rem) plus the glow's blur
+	 * and spread (0.375rem + 0.125rem). */
+	#chat .chat-view[data-type="channel"] .content:has(.reaction-enter-active, .reactions-enter-active) {
+		overflow: clip;
+		overflow-clip-margin: 3.25rem;
+	}
+}
+/* stylelint-enable max-line-length */
+
+/* ---- scene ---- */
+
+/* The plains behind the whole app (client/js/scenes/ps/scene.ts, mounted by
+ * client/js/themeScene.ts). style.css hides #theme-scene for every theme; ps
+ * shows it. It sits behind #viewport at z-index -1, so every surface between
+ * it and the message column must be clear (the rules after this block).
+ * Without the scene, the element still paints this daylight gradient on
+ * --canvas-bg-color: the fallback. Inside the scene, left and top are the
+ * picture's own coordinates; right-to-left mirrors the whole of it (plan 5). */
+#theme-scene {
+	display: block;
+	position: fixed;
+	inset: 0;
+	z-index: -1;
+	overflow: hidden;
+	pointer-events: none;
+
+	/* What travels across the scene moves in cqw/cqh of it (plan 3). */
+	/* stylelint-disable-next-line property-no-unknown */
+	container-type: size;
+	background-color: var(--canvas-bg-color);
+	/* stylelint-disable-next-line max-line-length -- one flat gradient list reads better than a wrap mid-value */
+	background-image: linear-gradient(180deg, var(--ps-sky-top, #3f8fe6) 0%, var(--ps-sky-mid, #8cc2f4) 50%, var(--ps-sky-hor, #d2e9fb) 62%, var(--ps-sky-hor, #d2e9fb) 100%);
+}
+
+/* Every layer sits in one wrapper (scene.ts sceneMarkup), the one group the
+ * private view frosts: one filtered group is one raster. Not a container,
+ * so what travels across the scene still moves in cqw/cqh of #theme-scene;
+ * and outside a query no filter, transform or will-change, so it is no
+ * layer of its own and the scene paints as it always did. */
+#theme-scene .ps-frost {
+	position: absolute;
+	inset: 0;
+	transition: filter var(--ps-flip), transform var(--ps-flip);
+}
+
+#theme-scene .ps-frost > * {
+	position: absolute;
+}
+
+/* The private view (spec §5.7): in a query the same scene at the same hour
+ * stands behind frosted glass, completely still (scene.ts sets ps-private
+ * and pauses it as a hidden page's is). Blurred 18 px as rem and slightly
+ * desaturated; the sky stays the root's own, unfiltered, and so do
+ * --canvas-bg-color, <html>'s values and #status-bar-tint. It eases in and
+ * out over the flip (0 s under reduced motion: `transition: none` below).
+ *
+ * The scale is just enough to hide the blur's edge. The filter blurs in the
+ * wrapper's own space and the scale then enlarges the result, blur and all,
+ * so a window of short side D shows the wrapper from D(s − 1)/(2s) inside
+ * its edge, where the blur has faded it by as much as that margin is short
+ * of the blur's own σ (1.125rem). The approved mockup's scale(1.08) left
+ * 1.44 σ at its 700 px window (700 · 0.08 / 2.16 / 18 px) and faded into
+ * paper there, starker than this sky. Held at the smallest window the spec
+ * measures, the 390 px phone at the default step (19.5rem):
+ * s = D / (D − 2 · 1.44 σ) = 19.5 / (19.5 − 3.24) = 1.1993, so 1.2. Larger
+ * windows keep more margin (a 1280 × 900 desktop 3.3 σ); a 320 px window,
+ * or the next font step up, keeps less (1.2 σ and 1.1 σ). Kept under 1.25,
+ * so the noon sun (10 % from the top) keeps its centre in the window. */
+#theme-scene.ps-private .ps-frost {
+	filter: blur(1.125rem) saturate(0.85);
+	transform: scale(1.2);
+}
+
+/* The box html gives everything, stated rather than inherited. style.css's
+ * `*, *::before, *::after { box-sizing: inherit }` marks every element as
+ * inheriting explicitly, and Chromium then restyles an element's children
+ * each time it restyles the element, at several times the cost: every
+ * animated element in the scene dragged its subtree into every frame. The
+ * value is the one each of them already had (task 8b). */
+#theme-scene,
+#theme-scene * {
+	box-sizing: border-box;
+}
+
+#theme-scene .ps-milky {
+	left: -10%;
+	top: 2%;
+	width: 130%;
+	height: 34%;
+	transform: rotate(-15deg);
+	opacity: var(--ps-milky, 0);
+	background: radial-gradient(50% 50% at 50% 50%, rgb(214 206 255 / 42%), rgb(160 170 230 / 16%) 45%, transparent 72%);
+	filter: blur(0.875rem);
+}
+
+#theme-scene .ps-stars {
+	inset: 0 0 40%;
+	opacity: var(--ps-stars, 0);
+}
+
+#theme-scene .ps-stars i {
+	position: absolute;
+	width: 0.125rem;
+	height: 0.125rem;
+	border-radius: 50%;
+	background: #fff;
+}
+
+#theme-scene .ps-stars i.b {
+	width: 0.1875rem;
+	height: 0.1875rem;
+	box-shadow: 0 0 0.375rem 0.0625rem rgb(255 255 255 / 55%);
+}
+
+#theme-scene .ps-stars i.tw {
+	animation: ps-twinkle var(--tw, 4s) ease-in-out infinite alternate;
+}
+
+@keyframes ps-twinkle {
+	from { opacity: 0.25; }
+	to { opacity: 1; }
+}
+
+#theme-scene .ps-glow {
+	width: 80%;
+	aspect-ratio: 2.4;
+	left: var(--ps-glow-x, 50%);
+	top: 57%;
+	transform: translate(-50%, -50%);
+	/* stylelint-disable-next-line max-line-length -- one flat gradient list reads better than a wrap mid-value */
+	background: radial-gradient(50% 50% at 50% 50%, var(--ps-glow, transparent) 0%, color-mix(in oklab, var(--ps-glow, transparent) 45%, transparent) 38%, transparent 70%);
+	opacity: var(--ps-glow-op, 0);
+}
+
+#theme-scene .ps-sun,
+#theme-scene .ps-moon {
+	aspect-ratio: 1;
+	transform: translate(-50%, -50%);
+}
+
+#theme-scene .ps-sun {
+	left: var(--ps-sun-x, 50%);
+	top: var(--ps-sun-y, 12%);
+	height: calc(27% * var(--ps-sun-scale, 1));
+	opacity: var(--ps-sun-op, 0);
+}
+
+#theme-scene .ps-moon {
+	left: var(--ps-moon-x, 50%);
+	top: var(--ps-moon-y, 12%);
+	height: 17%;
+	opacity: var(--ps-moon-op, 0);
+}
+
+#theme-scene .ps-sun svg,
+#theme-scene .ps-moon svg {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	overflow: visible;
+}
+
+/* The sun's slow rays: a turning conic, masked to a ring. */
+#theme-scene .ps-rays {
+	position: absolute;
+	inset: 14%;
+	border-radius: 50%;
+	/* stylelint-disable-next-line max-line-length -- one flat gradient list reads better than a wrap mid-value */
+	background: repeating-conic-gradient(from 0deg, color-mix(in oklab, var(--ps-sun-flame) 55%, transparent) 0 4deg, transparent 4deg 13deg);
+	mask: radial-gradient(closest-side, transparent 30%, #000 40%, transparent 100%);
+	animation: ps-spin 90s linear infinite;
+	filter: blur(0.09rem);
+	opacity: 0.85;
+}
+
+@keyframes ps-spin {
+	to { transform: rotate(360deg); }
+}
+
+/* The clouds (plains.ts `clouds`): the mockup's five, each at its own height
+ * and drifting across the scene in cqw on its own clock, faster on a windy
+ * day. Their colours are the palette's, greyed there by the weather. (The
+ * mockup left its clouds unpositioned, so they stacked from the top of its
+ * window and their heights went unused; here each stands at its own.) */
+#theme-scene .ps-cloud-field {
+	inset: 0;
+}
+
+#theme-scene .ps-cloud {
+	position: absolute;
+	top: var(--cy);
+	left: 0;
+	width: var(--cw);
+	height: calc(var(--cw) * 0.42);
+	animation: ps-drift var(--cd) linear var(--cdl) infinite;
+	filter: blur(0.025rem);
+}
+
+#theme-scene .ps-cloud i {
+	position: absolute;
+	border-radius: 50%;
+	background: linear-gradient(180deg, var(--ps-cloud) 40%, var(--ps-cloud-under) 100%);
+}
+
+#theme-scene.ps-windy .ps-cloud {
+	animation-duration: calc(var(--cd) * 0.4);
+}
+
+/* The day's own clouds (plains.ts `weatherClouds`), rebuilt with the day's
+ * weather, in the cloud field behind the five and on its box. Rain's four
+ * more, bigger and lower, are .ps-cloud: they drift, rest under reduced
+ * motion and speed up in the wind by the rules around this one. The storm's
+ * deck stands still behind them: a band of cloud over the top of the sky, a
+ * third of the way down (plains.ts DECK_HEIGHT), the underside's colour at the
+ * top lightening to the cloud's own at its foot, where a row of billows drawn
+ * as the clouds' blobs are hangs across the band's edge, so it ends in cloud
+ * and not in a line. Each billow is centred on that edge with its height tied
+ * to its width (plains.ts `billows`, in cqw), so a portrait phone draws the
+ * same wide ellipses as a desktop and the edge stays closed on every shape.
+ * Both colours are the palette's, greyed by the weather, and nothing is
+ * translucent: the deck puts nothing behind the words that the five do not
+ * (spec §11). */
+#theme-scene .ps-overcast {
+	position: absolute;
+	inset: 0;
+}
+
+/* Each day's own clouds are one set on the overcast's box (scene.ts). When
+ * the day's weather changes on a page in view, at the minute's tick past
+ * local midnight, the outgoing set fades out and the incoming one in, both
+ * over OVERCAST_FADE_MS (the user dislikes clouds popping), and the outgoing
+ * leaves the page once its fade is over. A change found as the page comes
+ * back into view, under reduced motion or in a query takes neither class and
+ * is at once. That fade is the overcast's one translucency: 2 s at local
+ * midnight, under the night treatment, the cloud colours mixing with the
+ * night sky they already stand on (spec §11). */
+#theme-scene .ps-overcast-set {
+	position: absolute;
+	inset: 0;
+	transition: opacity 2s ease;
+}
+
+#theme-scene .ps-overcast-set.ps-arriving,
+#theme-scene .ps-overcast-set.ps-leaving {
+	opacity: 0;
+}
+
+#theme-scene .ps-deck {
+	position: absolute;
+	inset: 0 0 auto;
+	height: 34%;
+	background: linear-gradient(180deg, var(--ps-cloud-under), var(--ps-cloud)) top / 100% 58% no-repeat;
+	filter: blur(0.025rem);
+}
+
+/* Rain's lighter deck (the user, 2026-09-26: "yes to the rain deck"): the
+ * storm's band and billows, a shallower band (plains.ts RAIN_DECK_HEIGHT) and
+ * flatter billows along its edge, in the same two colours. */
+#theme-scene .ps-deck.ps-deck-rain {
+	height: 22%;
+}
+
+#theme-scene .ps-deck i {
+	position: absolute;
+	border-radius: 50%;
+	background: linear-gradient(180deg, var(--ps-cloud) 40%, var(--ps-cloud-under) 100%);
+}
+
+/* A cloud stands at left: 0 and its blobs stay inside its box, so the loop
+ * starts one whole cloud (and a hair for its blur) past the left edge and ends
+ * past the right one: it drifts in and out of sight, never popping in. */
+@keyframes ps-drift {
+	from { transform: translateX(calc(-100% - 0.25rem)); }
+	/* stylelint-disable-next-line unit-no-unknown -- cqw: #theme-scene is a size container; stylelint predates it */
+	to { transform: translateX(calc(100cqw + 0.25rem)); }
+}
+
+/* The ground (plains.ts): one group, so the heat haze bends the land, the
+ * fireflies and the yurt together and leaves the near grass crisp. The land
+ * is the mockup's 1200 × 400 drawing stretched over the window's lower 56 %.
+ * Every area is filled with the colour the palette publishes for it (scene.ts
+ * `sceneVars`), never mixed here; only the lines — the rims, the river's
+ * glint — take a glow or a level of their own. */
+#theme-scene .ps-ground {
+	inset: 0;
+}
+
+#theme-scene .ps-ground > * {
+	position: absolute;
+}
+
+#theme-scene .ps-land {
+	left: 0;
+	right: 0;
+	bottom: 0;
+	width: 100%;
+	height: 56%;
+}
+
+#theme-scene .ps-l-mount2 { fill: var(--ps-mount2); }
+#theme-scene .ps-l-mount { fill: var(--ps-mount); }
+#theme-scene .ps-l-far { fill: var(--ps-far); }
+#theme-scene .ps-l-shrub { fill: var(--ps-shrub); }
+#theme-scene .ps-l-hill2 { fill: var(--ps-hill2); }
+#theme-scene .ps-l-tuft2 { fill: var(--ps-tuft2); }
+#theme-scene .ps-l-tree { fill: var(--ps-tree); }
+#theme-scene .ps-l-trunk { fill: var(--ps-trunk); }
+#theme-scene .ps-l-hill1 { fill: var(--ps-hill1); }
+#theme-scene .ps-l-tuft1 { fill: var(--ps-tuft1); }
+#theme-scene .ps-l-grass { fill: var(--ps-grass); }
+
+/* A few near tufts catch the light by day. */
+#theme-scene .ps-l-tuft-lit {
+	fill: var(--ps-tuft-lit);
+	opacity: var(--ps-tuft-lit-op);
+}
+
+/* The river runs in spring, autumn and winter and dries to a stony bed in
+ * high summer: the water (its sky, a fill attribute in plains.ts) fades by
+ * --ps-water and the stones show through as it goes. */
+#theme-scene .ps-l-riverbed { fill: var(--ps-riverbed); }
+
+#theme-scene .ps-l-bedstone {
+	fill: var(--ps-bedstone);
+	opacity: calc(1 - var(--ps-water, 1));
+}
+
+#theme-scene .ps-l-river {
+	opacity: var(--ps-water, 1);
+}
+
+#theme-scene .ps-l-river-hi {
+	fill: none;
+	stroke: var(--ps-river-hi);
+	stroke-width: 1.4;
+	opacity: calc((0.55 - var(--ps-dark) * 0.35) * var(--ps-water, 1));
+}
+
+/* A rim of light along each hill at sunrise and sunset. */
+#theme-scene .ps-l-rim {
+	fill: none;
+	stroke: var(--ps-glow);
+	stroke-width: 2.2;
+	opacity: calc(var(--ps-glow-op) * 0.85);
+}
+
+/* Fireflies in the far fields on summer and late-spring evenings (--ps-ff-op
+ * is 0 the rest of the time), each drifting and blinking on its own clock. */
+#theme-scene .ps-fireflies {
+	left: 0;
+	right: 0;
+	top: 62%;
+	bottom: 16%;
+	opacity: var(--ps-ff-op, 0);
+}
+
+#theme-scene .ps-fireflies i {
+	position: absolute;
+	width: 0.1875rem;
+	height: 0.1875rem;
+	border-radius: 50%;
+	background: #eaff9e;
+	box-shadow: 0 0 0.375rem 0.125rem rgb(212 255 120 / 75%);
+	animation:
+		ps-ffdrift var(--d) ease-in-out var(--dl) infinite alternate,
+		ps-ffblink var(--b) ease-in-out var(--bl) infinite;
+}
+
+@keyframes ps-ffdrift {
+	from { transform: translate(0, 0); }
+	to { transform: translate(var(--dx), var(--dy)); }
+}
+
+@keyframes ps-ffblink {
+	0% { opacity: 0; }
+	35% { opacity: 1; }
+	55% { opacity: 1; }
+	100% { opacity: 0; }
+}
+
+/* The yurt (plains.ts `yurtSvg`) on the ground band, centred on the place
+ * scene.ts measures in the message column's far third (--ps-yurt-left; 70 %
+ * of the scene before any column was measured). Both keep the whole yurt on
+ * screen: yurt.ts clamps the measured place, and the default is clamped here
+ * by half the yurt's width (it is 21cqh tall and 240/170 as wide). It never
+ * slides: nothing here may transition or animate its place. A large move
+ * fades it out (ps-yurt-moving), jumps it while unseen and fades it back in;
+ * the fade is a hair shorter than scene.ts's 0.4 s wait, so the jump is never
+ * seen. */
+#theme-scene .ps-yurt {
+	/* stylelint-disable-next-line unit-no-unknown -- cqh: #theme-scene is a size container; stylelint predates it */
+	left: var(--ps-yurt-left, clamp(calc(21cqh * 120 / 170), 70%, calc(100% - 21cqh * 120 / 170)));
+	bottom: 17%;
+	height: 21%;
+	aspect-ratio: 240 / 170;
+	transform: translateX(-50%);
+	transition: opacity 0.38s ease;
+}
+
+#theme-scene.ps-yurt-moving .ps-yurt,
+#theme-scene.ps-yurt-moving .ps-smoke {
+	opacity: 0;
+}
+
+#theme-scene .ps-yurt svg {
+	width: 100%;
+	height: 100%;
+	overflow: visible;
+}
+
+/* Every part in the colour the palette publishes for it; the glows are the
+ * drawing's own warm colours, lit by --ps-night-glow. */
+#theme-scene .ps-y-felt-l { stop-color: var(--ps-felt-shade); }
+#theme-scene .ps-y-felt-c { stop-color: var(--ps-felt); }
+#theme-scene .ps-y-roof-t { stop-color: var(--ps-roof-top); }
+#theme-scene .ps-y-roof-b { stop-color: var(--ps-roof-bottom); }
+#theme-scene .ps-y-band { fill: var(--ps-band); }
+
+#theme-scene .ps-y-roof {
+	stroke: var(--ps-roof-stroke);
+	stroke-width: 0.9;
+	stroke-opacity: 0.6;
+	stroke-linejoin: round;
+}
+
+#theme-scene .ps-y-band-mark { fill: var(--ps-band-mark); }
+#theme-scene .ps-y-rope { stroke: var(--ps-rope); }
+#theme-scene .ps-y-rib { stroke: var(--ps-rib); }
+#theme-scene .ps-y-door { fill: var(--ps-door); }
+#theme-scene .ps-y-door-orn { stroke: var(--ps-door-orn); }
+#theme-scene .ps-y-crown { fill: var(--ps-crown); }
+#theme-scene .ps-y-pipe { fill: var(--ps-pipe); }
+#theme-scene .ps-y-stone { fill: var(--ps-stone); }
+#theme-scene .ps-y-wood { fill: var(--ps-wood); }
+
+/* At night the door, its seams, the wall and the crown glow from inside and a
+ * soft pool of light lies on the ground before the door (the user's pick over
+ * the mockup's cone down the path, 2026-09-25); by day none of it shows. The
+ * mockup's worn path to the door is not drawn at all: by day its pale,
+ * hard-edged track read as a beam from the door ("there shouldnt be a hard
+ * beam, I want the soft glow at the door, and not in the day", 2026-09-25). */
+#theme-scene .ps-y-lit { opacity: var(--ps-night-glow, 0); }
+#theme-scene .ps-y-pool { opacity: var(--ps-night-glow, 0); }
+
+/* Snow on the roof in winter and on snowy days. */
+#theme-scene .ps-y-snow {
+	fill: #f5f8fc;
+	opacity: var(--ps-snowcap, 0);
+}
+
+/* The smoke rises from the pipe at night, on the yurt's own place: the yurt's
+ * top plus 22/170 of its height (the pipe's top in its drawing), so it goes
+ * wherever the yurt goes and fades with it. Inside the ground group, so the
+ * heat haze bends it with the yurt. */
+#theme-scene .ps-smoke {
+	/* stylelint-disable-next-line unit-no-unknown -- cqh, as the yurt's */
+	left: var(--ps-yurt-left, clamp(calc(21cqh * 120 / 170), 70%, calc(100% - 21cqh * 120 / 170)));
+	bottom: calc(17% + 21% * 148 / 170);
+	width: 0;
+	height: 0;
+	opacity: var(--ps-smoke-op, 0);
+	transition: opacity 0.38s ease;
+}
+
+#theme-scene .ps-smoke i {
+	position: absolute;
+	left: 0;
+	bottom: 0;
+	border-radius: 50%;
+	background: radial-gradient(closest-side, var(--ps-smoke) 0%, transparent 100%);
+	animation: ps-smoke-rise var(--sd) linear var(--sdl) infinite;
+	opacity: 0;
+}
+
+@keyframes ps-smoke-rise {
+	0% {
+		transform: translate(-50%, 0) scale(0.45);
+		opacity: 0;
+	}
+
+	12% { opacity: 0.9; }
+
+	100% {
+		transform: translate(calc(-50% + 2.125rem), -6rem) scale(3.1);
+		opacity: 0;
+	}
+}
+
+/* The near grass, in front of the ground and outside the haze: blades along
+ * the window's lower 19 % that lean by the weather's angle, and small flowers
+ * in spring and summer that fade at night. */
+#theme-scene .ps-blades {
+	left: 0;
+	right: 0;
+	bottom: 0;
+	width: 100%;
+	height: 19%;
+}
+
+#theme-scene .ps-blades path {
+	fill: var(--ps-blade);
+}
+
+#theme-scene .ps-blades .ps-sway {
+	transform-origin: 50% 100%;
+	animation: ps-sway 7s ease-in-out infinite alternate;
+}
+
+/* In the wind (a windy day, and a storm) the blades bend faster. */
+#theme-scene.ps-windy .ps-blades .ps-sway {
+	animation-duration: 2.4s;
+}
+
+/* The blades' own name: the mockup gave its birds' drift the same keyframes
+ * name, and the later one won — the birds must not take this one. */
+@keyframes ps-sway {
+	from { transform: skewX(calc(var(--ps-sway, 2.2deg) * -1)); }
+	to { transform: skewX(var(--ps-sway, 2.2deg)); }
+}
+
+#theme-scene .ps-blades circle {
+	opacity: calc(var(--ps-flowers, 1) * (0.85 - var(--ps-dark) * 0.7));
+}
+
+/* On a hot day, while the sun is well up (ps-hot), the heat haze bends the
+ * ground group — the land, the fireflies, the yurt and its smoke together —
+ * and leaves the near grass, outside the group, crisp (spec §5.5). The haze
+ * is the weather layer's (plains.ts `weatherLayers`): on any other day there
+ * is no #ps-heat in the page to point at. */
+#theme-scene.ps-hot .ps-ground {
+	filter: url("#ps-heat");
+}
+
+/* The birds (birds.ts; spec §5.4, layer 9: after the near grass, before the
+ * weather), the user's pick from the approved birds mockup (2026-09-25): the
+ * migrating skeins at night and around sunset, catching a little of the
+ * moon's light (N2), and by day a buzzard circling and skylarks rising. Every
+ * bird is an <svg> of its own whose wingbeats are SMIL (scene.ts pauses them
+ * with the rest). A flock's box and every bird are sized in rem, the birds
+ * placed in % of their flock's box, so a skein keeps its shape at any window
+ * size; what crosses the scene travels in cqw. The colours are published
+ * (scene.ts `sceneVars`, from birds.ts `birdsAt`); nothing is mixed here. */
+#theme-scene .ps-skeins {
+	inset: 0 0 45%;
+	opacity: var(--ps-skeins-op, 0);
+	transition: opacity 1.4s ease;
+}
+
+/* The belly gradient's svg: in the page, so #ps-b-belly resolves and its
+ * stops read the published inks, and of no size. */
+#theme-scene .ps-bird-defs {
+	position: absolute;
+	width: 0;
+	height: 0;
+	overflow: hidden;
+}
+
+/* The first --ps-skein-count flocks fly (--fi is a flock's number); the
+ * mockup's 200 × 90 px box, crossing from −240 px to 1340 px of its 1180 px
+ * window: the box's own width and 40 px more off the left edge, 160 px past
+ * the right. A flock at rest waits where its flight starts, off the scene's
+ * edge, so a stopped flock is never parked on the sky. */
+#theme-scene .ps-flock {
+	position: absolute;
+	top: var(--fy);
+	left: 0;
+	width: 12.5rem;
+	height: 5.625rem;
+	/* stylelint-disable-next-line unit-no-unknown -- cqw: #theme-scene is a size container; stylelint predates it */
+	transform: translateX(calc(-100% - 3.4cqw));
+	opacity: clamp(0, var(--ps-skein-count, 0) - var(--fi), 1);
+	transition: opacity 1.8s ease;
+	animation: ps-skein-fly var(--fd) linear var(--fdl) infinite;
+}
+
+/* South-west from midsummer on: each flock mirrored whole, the other way. */
+#theme-scene.ps-west .ps-flock {
+	/* stylelint-disable-next-line unit-no-unknown -- cqw, as the flight's */
+	transform: translateX(113.6cqw) scaleX(-1);
+	animation-name: ps-skein-west;
+}
+
+@keyframes ps-skein-fly {
+	/* stylelint-disable-next-line unit-no-unknown -- cqw, as the flight's */
+	from { transform: translateX(calc(-100% - 3.4cqw)); }
+	/* stylelint-disable-next-line unit-no-unknown -- cqw, as the flight's */
+	to { transform: translateX(113.6cqw); }
+}
+
+@keyframes ps-skein-west {
+	/* stylelint-disable-next-line unit-no-unknown -- cqw, as the flight's */
+	from { transform: translateX(113.6cqw) scaleX(-1); }
+	/* stylelint-disable-next-line unit-no-unknown -- cqw, as the flight's */
+	to { transform: translateX(calc(-100% - 3.4cqw)) scaleX(-1); }
+}
+
+/* A skein is never rigid: the whole formation rises, sinks and leans a
+ * little as it goes; far ones are small and pale. (The mockup named these
+ * keyframes `sway`, the grass's: renamed.) */
+#theme-scene .ps-skein {
+	position: absolute;
+	inset: 0;
+	transform: scale(var(--fs, 1));
+	transform-origin: 100% 50%;
+	opacity: var(--fo, 1);
+}
+
+#theme-scene .ps-skein-sway {
+	position: absolute;
+	inset: 0;
+	animation: ps-skein-sway var(--sd) ease-in-out var(--sdl) infinite alternate;
+}
+
+@keyframes ps-skein-sway {
+	from { transform: translateY(-0.3125rem) rotate(-1.4deg); }
+	to { transform: translateY(0.375rem) rotate(1.2deg); }
+}
+
+/* And each bird drifts about its place in the line. */
+#theme-scene .ps-bird {
+	position: absolute;
+	animation: ps-bird-wander var(--wd) ease-in-out var(--wdl) infinite alternate;
+}
+
+@keyframes ps-bird-wander {
+	to { transform: translate(var(--wx), var(--wy)); }
+}
+
+/* The fills are opaque and the bird's alpha is on the whole drawing, so a
+ * wing over the body never darkens twice; the body is two-tone, the back in
+ * the ink and the belly catching the moon. */
+#theme-scene .ps-bird svg {
+	display: block;
+	width: 100%;
+	height: 100%;
+	overflow: visible;
+	opacity: var(--ps-bird-alpha, 0.8);
+}
+
+#theme-scene .ps-bird .ps-b-far {
+	fill: var(--ps-bird-wing);
+	opacity: 0.55;
+}
+
+#theme-scene .ps-bird .ps-b-near { fill: var(--ps-bird-wing); }
+#theme-scene .ps-bird .ps-b-body { fill: url("#ps-b-belly"); }
+
+/* The steppe's own birds, by day: there or not, each by its own switch, and
+ * the transition is the fade. */
+#theme-scene .ps-daybirds {
+	inset: 0;
+}
+
+#theme-scene .ps-daybirds > div {
+	position: absolute;
+	transition: opacity 1.4s ease;
+}
+
+#theme-scene .ps-daybirds svg {
+	display: block;
+	width: 100%;
+	height: 100%;
+	overflow: visible;
+	fill: var(--ps-db-ink);
+}
+
+#theme-scene .ps-daybirds .ps-b-far {
+	opacity: 0.55;
+}
+
+/* The buzzard circles on a level plane seen from below and a little to the
+ * side (its SMIL); the circles drift with the wind. */
+#theme-scene .ps-buzzard {
+	left: 29%;
+	top: 17%;
+	width: 8.125rem;
+	height: 4.375rem;
+	opacity: var(--ps-buzzard-op, 0);
+	animation: ps-buzz-drift 170s ease-in-out -70s infinite alternate;
+}
+
+#theme-scene .ps-buzzard svg {
+	opacity: 0.8;
+}
+
+@keyframes ps-buzz-drift {
+	/* stylelint-disable-next-line unit-no-unknown -- cqw/cqh, as the flight's */
+	from { transform: translate(-5.08cqw, 1.14cqh); }
+	/* stylelint-disable-next-line unit-no-unknown -- cqw/cqh, as the flight's */
+	to { transform: translate(5.93cqw, -1.43cqh); }
+}
+
+/* A skylark's song flight: up out of the grass, hanging high up, then down
+ * in parachuting steps and a last drop, up its own track (% of it); which
+ * wing set shows — the flutter, the raised chute, the closed drop — steps
+ * with it. A lark at rest is hidden, so a stopped one is never left in the
+ * grass with all three sets showing. */
+#theme-scene .ps-lark {
+	top: 24%;
+	width: 0.75rem;
+	height: 62%;
+	opacity: var(--ps-lark-op, 0);
+}
+
+#theme-scene .ps-lark-track {
+	position: absolute;
+	inset: 0;
+	opacity: 0;
+	animation: ps-lark-fly var(--ld) ease-in-out var(--ldl) infinite;
+}
+
+#theme-scene .ps-lark-bird {
+	position: absolute;
+	left: 0;
+	bottom: 0;
+	width: 0.8125rem;
+	height: 0.5688rem;
+}
+
+#theme-scene .ps-lark svg {
+	opacity: 0.85;
+}
+
+#theme-scene .ps-lark .ps-lark-fl {
+	animation: ps-lark-fl var(--ld) steps(1, end) var(--ldl) infinite;
+}
+
+#theme-scene .ps-lark .ps-lark-ch {
+	animation: ps-lark-ch var(--ld) steps(1, end) var(--ldl) infinite;
+}
+
+#theme-scene .ps-lark .ps-lark-cl {
+	animation: ps-lark-cl var(--ld) steps(1, end) var(--ldl) infinite;
+}
+
+@keyframes ps-lark-fly {
+	0% {
+		transform: translate(0, 0);
+		opacity: 0;
+	}
+
+	1.5% { opacity: 1; }
+	9% { transform: translate(0.375rem, -24%); }
+	17% { transform: translate(-0.3125rem, -52%); }
+	26% { transform: translate(0.4375rem, -80%); }
+	32% { transform: translate(0.125rem, -93%); }
+	40% { transform: translate(-0.4375rem, -95%); }
+	49% { transform: translate(-0.0625rem, -91%); }
+	57% { transform: translate(-0.6875rem, -94%); }
+	63% { transform: translate(-0.625rem, -92%); }
+	69% { transform: translate(-0.5rem, -73%); }
+	73% { transform: translate(-0.5rem, -71%); }
+	80% { transform: translate(-0.375rem, -44%); }
+
+	82.5% {
+		transform: translate(-0.375rem, -41%);
+		opacity: 1;
+	}
+
+	85% {
+		transform: translate(-0.1875rem, 0);
+		opacity: 1;
+	}
+
+	86% { opacity: 0; }
+
+	100% {
+		transform: translate(-0.1875rem, 0);
+		opacity: 0;
+	}
+}
+
+@keyframes ps-lark-fl {
+	0% { opacity: 1; }
+	63% { opacity: 0; }
+	69% { opacity: 1; }
+	73% { opacity: 0; }
+	80% { opacity: 1; }
+	82.5% { opacity: 0; }
+	100% { opacity: 0; }
+}
+
+@keyframes ps-lark-ch {
+	0% { opacity: 0; }
+	63% { opacity: 1; }
+	69% { opacity: 0; }
+	73% { opacity: 1; }
+	80% { opacity: 0; }
+	100% { opacity: 0; }
+}
+
+@keyframes ps-lark-cl {
+	0% { opacity: 0; }
+	82.5% { opacity: 1; }
+	100% { opacity: 1; }
+}
+
+/* The weather, over everything, the near grass included (spec §5.1 layer 10).
+ * The veil is there in every weather at the weather's own dim and colour (0
+ * on a clear day); everything else in the weather layer is built only on the
+ * day it shows. Travel is in cqw/cqh of the scene, from the mockup's
+ * 1180 × 700 window; the marks are sized in rem. */
+#theme-scene .ps-veil {
+	inset: 0;
+	background: var(--ps-veil-c, #5a6478);
+	opacity: var(--ps-veil, 0);
+	transition: opacity 0.6s;
+}
+
+#theme-scene .ps-weather {
+	inset: 0;
+}
+
+#theme-scene .ps-weather > * {
+	position: absolute;
+}
+
+#theme-scene .ps-rain {
+	inset: 0;
+	opacity: var(--ps-rain-op, 0);
+}
+
+#theme-scene .ps-rain i {
+	position: absolute;
+	top: -8%;
+	width: 0.0813rem;
+	height: 1.25rem;
+	background: linear-gradient(transparent, rgb(214 226 244 / 75%));
+	animation: ps-drop var(--rd) linear var(--rdl) infinite;
+}
+
+@keyframes ps-drop {
+	/* stylelint-disable-next-line unit-no-unknown -- cqw/cqh: #theme-scene is a size container; stylelint predates them */
+	to { transform: translate(-3.9cqw, 118cqh); }
+}
+
+#theme-scene .ps-snow {
+	inset: 0;
+	opacity: var(--ps-snow-op, 0);
+}
+
+#theme-scene .ps-snow i {
+	position: absolute;
+	top: -6%;
+	width: var(--fs);
+	height: var(--fs);
+	border-radius: 50%;
+	background: rgb(255 255 255 / 88%);
+	animation: ps-flake var(--fd) linear var(--fdl) infinite;
+}
+
+@keyframes ps-flake {
+	/* stylelint-disable-next-line unit-no-unknown -- cqw/cqh, as ps-drop's */
+	50% { transform: translate(calc(var(--fx) * 0.5 + 1.02cqw), 57.1cqh); }
+	/* stylelint-disable-next-line unit-no-unknown -- cqh, as ps-drop's */
+	100% { transform: translate(var(--fx), 114.3cqh); }
+}
+
+/* Seeds on the wind. A seed at rest waits where its flight starts, off the
+ * scene's left edge, so a stopped seed is never a dot on the page. */
+#theme-scene .ps-seeds {
+	inset: 0;
+	opacity: var(--ps-wind-op, 0);
+}
+
+#theme-scene .ps-seeds i {
+	position: absolute;
+	top: var(--y);
+	left: 0;
+	width: 0.1875rem;
+	height: 0.1875rem;
+	border-radius: 50%;
+	background: rgb(255 248 226 / 80%);
+	/* stylelint-disable-next-line unit-no-unknown -- cqw, as ps-drop's */
+	transform: translateX(-6.8cqw);
+	animation: ps-seed var(--sd) linear var(--sdl) infinite;
+}
+
+@keyframes ps-seed {
+	/* stylelint-disable-next-line unit-no-unknown -- cqw, as ps-drop's */
+	from { transform: translate(-6.8cqw, 0); }
+	/* stylelint-disable-next-line unit-no-unknown -- cqw, as ps-drop's */
+	to { transform: translate(111.9cqw, var(--sy)); }
+}
+
+/* The storm's lightning: a flicker every 9 s, only under ps-storm. */
+#theme-scene .ps-flash {
+	inset: 0;
+	background: rgb(236 241 255);
+	opacity: 0;
+}
+
+#theme-scene.ps-storm .ps-flash {
+	animation: ps-flash 9s linear infinite;
+}
+
+@keyframes ps-flash {
+	0%,
+	90%,
+	100% { opacity: 0; }
+	91% { opacity: 0.5; }
+	92% { opacity: 0.08; }
+	93.5% { opacity: 0.42; }
+	95.5% { opacity: 0; }
+}
+
+/* The heat band: a faint warm shimmer over the horizon on a hot day. */
+#theme-scene .ps-heatband {
+	left: 0;
+	right: 0;
+	top: 52%;
+	height: 10%;
+	opacity: var(--ps-heat-op, 0);
+	background: linear-gradient(transparent, rgb(255 244 214 / 13%), transparent);
+	animation: ps-shimmer 5s ease-in-out infinite alternate;
+}
+
+@keyframes ps-shimmer {
+	/* stylelint-disable-next-line unit-no-unknown -- cqh, as ps-drop's */
+	from { transform: translateY(-0.21cqh) scaleY(0.95); }
+	/* stylelint-disable-next-line unit-no-unknown -- cqh, as ps-drop's */
+	to { transform: translateY(0.21cqh) scaleY(1.05); }
+}
+
+/* The haze's own svg: in the page, so #ps-heat resolves, and of no size. */
+#theme-scene .ps-heat-haze {
+	width: 0;
+	height: 0;
+	overflow: hidden;
+}
+
+/* A layer outside its window is out of the render tree (layers.ts): the
+ * stars, the fireflies and the smoke by day, the sun once it is down, the
+ * skeins by day or on a night with none, a flock past the night's count, the
+ * buzzard off the thermals, the larks out of season, the seeds while the
+ * wind shows none (built on any day with wind, but at --ps-wind-op 0 deep in
+ * winter), the heat band off a hot midday. Its animations stop with it, and
+ * scene.ts pauses the SMIL in its svgs, instead of running every frame at
+ * opacity 0 (spec §10). A layer that fades goes only once its fade is over. */
+#theme-scene .ps-off {
+	display: none;
+}
+
+/* A hidden page's scene is stopped (scene.ts pauses the SVG animations too). */
+#theme-scene.ps-paused * {
+	animation-play-state: paused !important;
+}
+
+/* Clear from the message column down to the scene: nothing between them paints.
+ * Named element by element; the shared tokens (--body-bg-color,
+ * --window-bg-color, --chat-bg) are the solid, and still paint the panels that
+ * ask for them. */
+body {
+	background: transparent;
+}
+
+/* The conversation's window (Chat.vue's root, and the search results', which
+ * reuse its id and its #chat): style.css paints every .window with
+ * --window-bg-color. Only this one is cleared; Help, Settings and the connect
+ * form are solid (the chrome section). */
+#chat-container {
+	background: transparent;
+}
+
+/* The windows sit flush with the sidebar, square and flat. day.css (which
+ * coffee.css imports) floats every window as a card on the desktop: a 5px
+ * inset around the app, 5px corners and a 25px shadow, and coffee adds a
+ * hairline ring. The user, 2026-09-25: "I don't like the pop-out look (the 3d
+ * look) of the channel frame, the way it separates from the network panel; …
+ * I don't like the round corners". What separates the glass panels from the
+ * column is their own hairline edge (the chrome section). The tokens coffee
+ * reads for the shadow stay defined; nothing draws them here. */
+#viewport,
+#viewport.menu-open {
+	padding: 0;
+}
+
+.window {
+	border-radius: 0;
+	box-shadow: none;
+}
+
+#loading .window {
+	margin: 0;
+}
+
+/* ps:message-palette:start — generated by
+ * `npx tsx tools/ps/palette-blocks.ts --write`; edit the generator, not
+ * this block. Each colour clears its floor (4.5:1; faint ink 3:1; the light
+ * nicks as the light sweep below says) on every ground its treatment meets in
+ * the dense sweep (every day, every 5 minutes, all six weathers): the sky, the
+ * moon's disc and the sun's core (above the horizon line), and the plains'
+ * areas (client/js/scenes/ps/grounds.ts), under the veil on a veiled day,
+ * through the halo at α 0.1614 where the words are ink or the shadow and
+ * outline at α 0.6 where they are light (docs/projects/ps-theme.md §11).
+ * The words are ink only where ink holds (the user's white sooner): the ink
+ * colours are solved over those moments alone. Generated colours are solved
+ * to 4.6.
+ * Pinned for the floors test: the stormy noon doy 121 750 min storm.
+ * Pinned for the floors test: the golden hour doy 295 1010 min clear.
+ * Pinned for the floors test: a clear noon doy 172 750 min clear.
+ * Pinned for the floors test: a snowy noon doy 32 750 min snow.
+ * Light sweep "names-large" (tools/ps/legibility.ts LIGHT_SWEEP, the user's choice, 2026-09-24):
+ * the nicks at 3.1 (large text) over the sky and the bodies; every other colour at 4.6.
+ * Its guard: below the default font-size step the names are not large
+ * text, so there they take the "sky" set (the last 32 rules),
+ * solved to 4.6 against:
+ *   #666666  doy 1 530 min clear  cloud #fffffe
+ * The worst grounds by day, darkest first, through the halo:
+ *   #c27f6a  doy 6 945 min snow  band under the veil #b76b58
+ *   #c27f6b  doy 7 945 min snow  band under the veil #b76b58
+ *   #c27f6c  doy 1 935 min snow  band under the veil #b76b59
+ *   #c27f6d  doy 1 930 min snow  band under the veil #b76b59
+ *   #c27f6e  doy 8 930 min snow  band under the veil #b76b5a
+ * The worst in the light treatment (at any hour: dark ink holds only on
+ * snowy days), brightest first, through the shadow:
+ *   #666666  doy 1 530 min clear  cloud #fffffe
+ *   #666665  doy 1 885 min clear  cloud #fffefc
+ *   #666664  doy 14 890 min clear  cloud #fffefb
+ *   #666662  doy 1 495 min clear  sun #fffef6 at 1.00 over skyMid #ecb99b
+ *   #666565  doy 6 525 min clear  cloud #fffdfc
+ * The light nicks are solved to 3.1 against:
+ *   #666666  doy 1 530 min clear  cloud #fffffe
+ * the other coloured light colours to 4.6 against:
+ *   #666666  doy 1 530 min clear  cloud #fffffe
+ * Faint ink, rule 2: #4c5a72 → #38455c, OKLCH L −0.0764;
+ *   3.01:1 on #c27f6a at doy 6 945 min snow.
+ * Code boxes paint --ps-code-bg, opaque (ps.css, after the block): the --tok-*
+ * colours are solved against it, #f4f9ff by day and #121827 otherwise.
+ * Six-digit hex throughout: the floors test reads every colour in that form. */
+/* stylelint-disable color-hex-length */
+#chat .chat {
+	--chat-fg: #1b2638;
+	--body-color: #1b2638;
+	--md-code-color: #1b2638;
+	--chat-fg-faint: #38455c;
+	--ps-code-bg: #f4f9ff;
+	--chat-fg-muted: #142747;
+	--body-color-muted: #142747;
+	--date-marker-color: #142747;
+	--chat-accent: #4a1703;
+	--link-color: #4a1703;
+	--unread-marker-color: #4a1703;
+	--highlight-border-color: #4a1703;
+	--button-color: #4a1703;
+	--action-color: #4a1703;
+	--event-join: #002e1e;
+	--channel-typing-color: #002e1e;
+	--event-quit: #550603;
+	--notice-color: #042d2d;
+	--nick-default: #002360;
+	--channel-activity-color: #002360;
+	--tok-comment: #5f7292;
+	--tok-keyword: #c34073;
+	--tok-string: #2d7f5f;
+	--tok-number: #2f6dd7;
+	--tok-function: #7a5bd7;
+	--tok-operator: #c34073;
+	--tok-punctuation: #5d7199;
+	--tok-tag: #2d7f5f;
+	--tok-attr: #8255de;
+
+	color: var(--chat-fg);
+}
+
+:root[data-ps-text="light"] #chat .chat {
+	--chat-fg: #ffffff;
+	--body-color: #ffffff;
+	--md-code-color: #ffffff;
+	--chat-fg-faint: rgb(255 255 255 / 80%);
+	--ps-code-bg: #121827;
+	--chat-fg-muted: #d9e7ff;
+	--body-color-muted: #d9e7ff;
+	--date-marker-color: #d9e7ff;
+	--chat-accent: #fee0d5;
+	--link-color: #fee0d5;
+	--unread-marker-color: #fee0d5;
+	--highlight-border-color: #fee0d5;
+	--button-color: #fee0d5;
+	--action-color: #fee0d5;
+	--event-join: #a7f7d2;
+	--channel-typing-color: #a7f7d2;
+	--event-quit: #fee0da;
+	--notice-color: #9ef6f4;
+	--nick-default: #d9e7ff;
+	--channel-activity-color: #d9e7ff;
+	--tok-comment: #6f83a4;
+	--tok-keyword: #d75384;
+	--tok-string: #419170;
+	--tok-number: #4080ea;
+	--tok-function: #8a6dea;
+	--tok-operator: #d75384;
+	--tok-punctuation: #6d83aa;
+	--tok-tag: #419170;
+	--tok-attr: #9367f2;
+}
+
+#chat .chat .user.color-1 { color: #520529; }
+#chat .chat .user.color-2 { color: #540521; }
+#chat .chat .user.color-3 { color: #550518; }
+#chat .chat .user.color-4 { color: #55060d; }
+#chat .chat .user.color-5 { color: #550800; }
+#chat .chat .user.color-6 { color: #4b1602; }
+#chat .chat .user.color-7 { color: #451c03; }
+#chat .chat .user.color-8 { color: #411f01; }
+#chat .chat .user.color-9 { color: #3d2102; }
+#chat .chat .user.color-10 { color: #392303; }
+#chat .chat .user.color-11 { color: #362401; }
+#chat .chat .user.color-12 { color: #332600; }
+#chat .chat .user.color-13 { color: #312701; }
+#chat .chat .user.color-14 { color: #2c2801; }
+#chat .chat .user.color-15 { color: #242b01; }
+#chat .chat .user.color-16 { color: #182d01; }
+#chat .chat .user.color-17 { color: #022f0a; }
+#chat .chat .user.color-18 { color: #052e1c; }
+#chat .chat .user.color-19 { color: #042d24; }
+#chat .chat .user.color-20 { color: #042d2b; }
+#chat .chat .user.color-21 { color: #032d2f; }
+#chat .chat .user.color-22 { color: #012c36; }
+#chat .chat .user.color-23 { color: #022b3b; }
+#chat .chat .user.color-24 { color: #012a46; }
+#chat .chat .user.color-25 { color: #002559; }
+#chat .chat .user.color-26 { color: #19205f; }
+#chat .chat .user.color-27 { color: #291c5d; }
+#chat .chat .user.color-28 { color: #341858; }
+#chat .chat .user.color-29 { color: #3e1351; }
+#chat .chat .user.color-30 { color: #460f46; }
+#chat .chat .user.color-31 { color: #4d093b; }
+#chat .chat .user.color-32 { color: #500731; }
+
+:root[data-ps-text="light"] #chat .chat .user.color-1 { color: #ffa5c0; }
+:root[data-ps-text="light"] #chat .chat .user.color-2 { color: #fca7b6; }
+:root[data-ps-text="light"] #chat .chat .user.color-3 { color: #fca8ad; }
+:root[data-ps-text="light"] #chat .chat .user.color-4 { color: #fda9a3; }
+:root[data-ps-text="light"] #chat .chat .user.color-5 { color: #fcaa99; }
+:root[data-ps-text="light"] #chat .chat .user.color-6 { color: #ffaa8c; }
+:root[data-ps-text="light"] #chat .chat .user.color-7 { color: #fcac82; }
+:root[data-ps-text="light"] #chat .chat .user.color-8 { color: #f9ae7a; }
+:root[data-ps-text="light"] #chat .chat .user.color-9 { color: #f2b273; }
+:root[data-ps-text="light"] #chat .chat .user.color-10 { color: #ecb56e; }
+:root[data-ps-text="light"] #chat .chat .user.color-11 { color: #e4b869; }
+:root[data-ps-text="light"] #chat .chat .user.color-12 { color: #dcbb66; }
+:root[data-ps-text="light"] #chat .chat .user.color-13 { color: #d4be68; }
+:root[data-ps-text="light"] #chat .chat .user.color-14 { color: #c9c26a; }
+:root[data-ps-text="light"] #chat .chat .user.color-15 { color: #b6c772; }
+:root[data-ps-text="light"] #chat .chat .user.color-16 { color: #a1cb7f; }
+:root[data-ps-text="light"] #chat .chat .user.color-17 { color: #8cce90; }
+:root[data-ps-text="light"] #chat .chat .user.color-18 { color: #77d1a2; }
+:root[data-ps-text="light"] #chat .chat .user.color-19 { color: #64d2b5; }
+:root[data-ps-text="light"] #chat .chat .user.color-20 { color: #63d0c6; }
+:root[data-ps-text="light"] #chat .chat .user.color-21 { color: #60cfd6; }
+:root[data-ps-text="light"] #chat .chat .user.color-22 { color: #66cce6; }
+:root[data-ps-text="light"] #chat .chat .user.color-23 { color: #69caf5; }
+:root[data-ps-text="light"] #chat .chat .user.color-24 { color: #83c6fa; }
+:root[data-ps-text="light"] #chat .chat .user.color-25 { color: #99c1fa; }
+:root[data-ps-text="light"] #chat .chat .user.color-26 { color: #aabdfd; }
+:root[data-ps-text="light"] #chat .chat .user.color-27 { color: #bbb8fb; }
+:root[data-ps-text="light"] #chat .chat .user.color-28 { color: #ccb2ff; }
+:root[data-ps-text="light"] #chat .chat .user.color-29 { color: #ddadf4; }
+:root[data-ps-text="light"] #chat .chat .user.color-30 { color: #eaaae7; }
+:root[data-ps-text="light"] #chat .chat .user.color-31 { color: #f5a7d8; }
+:root[data-ps-text="light"] #chat .chat .user.color-32 { color: #fba5cb; }
+
+/* stylelint-disable max-line-length -- one line per nick like the rest; the step test is long */
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-1 { color: #ffdee7; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-2 { color: #fddfe3; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-3 { color: #fedfe0; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-4 { color: #fee0dd; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-5 { color: #fde0d9; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-6 { color: #fee0d5; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-7 { color: #fde1d2; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-8 { color: #fde1ce; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-9 { color: #ffe1c7; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-10 { color: #ffe2be; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-11 { color: #fee3b5; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-12 { color: #fee4a4; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-13 { color: #fce68f; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-14 { color: #f1ea91; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-15 { color: #ddef99; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-16 { color: #c8f3a6; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-17 { color: #b2f7b6; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-18 { color: #9ef9c8; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-19 { color: #8dfadc; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-20 { color: #8df9ef; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-21 { color: #8af7ff; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-22 { color: #b6f0ff; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-23 { color: #c8ecfd; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-24 { color: #d2e9fe; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-25 { color: #d8e8fe; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-26 { color: #dee6fe; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-27 { color: #e4e4fe; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-28 { color: #ebe2ff; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-29 { color: #f4dfff; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-30 { color: #fedcfc; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-31 { color: #feddf1; }
+:root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat .user.color-32 { color: #ffdeeb; }
+/* stylelint-enable max-line-length */
+/* stylelint-enable color-hex-length */
+
+/* ps:message-palette:end */
+
+/* ps:glass-palette:start — generated by
+ * `npx tsx tools/ps/palette-blocks.ts --write`; edit the generator, not
+ * this block. The glass (docs/projects/ps-theme.md §6): its tint's opacity,
+ * raised from the spec's toward its cap until the glass ink and soft ink
+ * hold 4.5:1 on every ground behind it in the dense sweep (the sky, the
+ * plains and the bodies, the tint over them, the blur left out); the soft ink,
+ * moved under rule 2 where the cap was not enough; the badge's fill, the
+ * accent solved so its white numeral holds 4.5:1; the text accent, the
+ * accent's hue and chroma solved like a nick for the chrome's links, button
+ * labels and the marks that must read, held on the glass and the solid (the
+ * user's decision, 2026-09-25); and the chrome's two nick sweeps, solved to
+ * 4.6 (the message column's own nick rules, in the block above, are more
+ * specific and win inside the column). The active-row marker keeps the spec
+ * accent and has no 3:1 floor (ruling 2026-09-24: a redundant cue beside
+ * the selected fill and the full ink).
+ *   day: opacity 0.78 (spec 0.62, cap 0.78)
+ *     soft #55627a → #4c5970 (rule 2, OKLCH L −0.0324)
+ *     badge #c2562b → #c05429 (white on it 4.62:1)
+ *     text accent #c2562b → #98380d (OKLCH L −0.1118; 4.60:1 on the glass, 6.82:1 on the solid)
+ *   night: opacity 0.74 (spec 0.58, cap 0.74)
+ *     soft #a7b3c8 → #b3c0d5 (rule 2, OKLCH L +0.0403)
+ *     badge #d9784a → #b85a2b (white on it 4.63:1)
+ *     text accent #d9784a → #feae8a (OKLCH L +0.1475; 4.61:1 on the glass, 9.81:1 on the solid)
+ * Pinned for the floors test (plan 2's Review Focus 1 and 2):
+ *   dusk: doy 151 1215 min clear, darkness 0.49992:
+ *     the darkest moment still under day glass;
+ *   moon: doy 1 0 min clear, the brightest disc behind night glass:
+ *     moon #fdfaf0 at 1.00 over skyTop #080c1f.
+ * The worst grounds under day glass, darkest first, at its opacity:
+ *   #ddcaca  doy 299 1065 min clear  blade #651e36
+ *   #ddcaca  doy 302 1060 min clear  blade #661d36
+ *   #decaca  doy 304 1055 min clear  blade #6a1e36
+ *   #decaca  doy 305 1055 min clear  blade #681d36
+ *   #decaca  doy 306 1055 min clear  blade #671d37
+ * The worst under night glass, brightest first:
+ *   #4b4e56  doy 1 0 min clear  moon #fdfaf0 at 1.00 over skyTop #080c1f
+ *   #494d59  doy 32 0 min clear  roof top #f5f8fc
+ *   #4a4d56  doy 4 430 min clear  moon #fdfaf0 at 0.99 over skyTop #1e2850
+ *   #4a4d56  doy 5 430 min clear  moon #fdfaf0 at 0.99 over skyTop #1e2851
+ *   #4a4d56  doy 6 430 min clear  moon #fdfaf0 at 0.99 over skyTop #1e2951
+ * Six-digit hex throughout: the floors test reads every colour in that form. */
+/* stylelint-disable color-hex-length, no-duplicate-selectors */
+:root {
+	--ps-g-tint-a: 0.78;
+	--ps-g-soft: #4c5970;
+	--ps-g-badge: #c05429;
+	--ps-g-accent-text: #98380d;
+}
+
+:root[data-ps-light="night"] {
+	--ps-g-tint-a: 0.74;
+	--ps-g-soft: #b3c0d5;
+	--ps-g-badge: #b85a2b;
+	--ps-g-accent-text: #feae8a;
+}
+
+.user.color-1 { color: #8b3d58; }
+.user.color-2 { color: #8d3c50; }
+.user.color-3 { color: #8e3d46; }
+.user.color-4 { color: #8e3e3c; }
+.user.color-5 { color: #8d3f31; }
+.user.color-6 { color: #8c4126; }
+.user.color-7 { color: #8a4319; }
+.user.color-8 { color: #874507; }
+.user.color-9 { color: #7e4b07; }
+.user.color-10 { color: #784e0e; }
+.user.color-11 { color: #725105; }
+.user.color-12 { color: #6d5300; }
+.user.color-13 { color: #665602; }
+.user.color-14 { color: #5f5807; }
+.user.color-15 { color: #515c08; }
+.user.color-16 { color: #3c6015; }
+.user.color-17 { color: #21632b; }
+.user.color-18 { color: #136342; }
+.user.color-19 { color: #136251; }
+.user.color-20 { color: #12615c; }
+.user.color-21 { color: #0d6066; }
+.user.color-22 { color: #035f71; }
+.user.color-23 { color: #0c5e7b; }
+.user.color-24 { color: #035b8f; }
+.user.color-25 { color: #2d5794; }
+.user.color-26 { color: #435296; }
+.user.color-27 { color: #554e94; }
+.user.color-28 { color: #64498e; }
+.user.color-29 { color: #714585; }
+.user.color-30 { color: #7b427a; }
+.user.color-31 { color: #843e6c; }
+.user.color-32 { color: #883d61; }
+
+:root[data-ps-light="night"] .user.color-1 { color: #fda9c2; }
+:root[data-ps-light="night"] .user.color-2 { color: #ffa9b9; }
+:root[data-ps-light="night"] .user.color-3 { color: #ffaaae; }
+:root[data-ps-light="night"] .user.color-4 { color: #fbada7; }
+:root[data-ps-light="night"] .user.color-5 { color: #ffac9c; }
+:root[data-ps-light="night"] .user.color-6 { color: #fcae92; }
+:root[data-ps-light="night"] .user.color-7 { color: #ffae84; }
+:root[data-ps-light="night"] .user.color-8 { color: #fbb17c; }
+:root[data-ps-light="night"] .user.color-9 { color: #f4b475; }
+:root[data-ps-light="night"] .user.color-10 { color: #eeb770; }
+:root[data-ps-light="night"] .user.color-11 { color: #e7ba6b; }
+:root[data-ps-light="night"] .user.color-12 { color: #dfbd69; }
+:root[data-ps-light="night"] .user.color-13 { color: #d6c06a; }
+:root[data-ps-light="night"] .user.color-14 { color: #cbc46c; }
+:root[data-ps-light="night"] .user.color-15 { color: #b8c974; }
+:root[data-ps-light="night"] .user.color-16 { color: #a3cd82; }
+:root[data-ps-light="night"] .user.color-17 { color: #8dd192; }
+:root[data-ps-light="night"] .user.color-18 { color: #79d3a4; }
+:root[data-ps-light="night"] .user.color-19 { color: #66d4b7; }
+:root[data-ps-light="night"] .user.color-20 { color: #65d2c9; }
+:root[data-ps-light="night"] .user.color-21 { color: #62d1d8; }
+:root[data-ps-light="night"] .user.color-22 { color: #68cfe8; }
+:root[data-ps-light="night"] .user.color-23 { color: #6bccf8; }
+:root[data-ps-light="night"] .user.color-24 { color: #85c8fc; }
+:root[data-ps-light="night"] .user.color-25 { color: #9bc3fd; }
+:root[data-ps-light="night"] .user.color-26 { color: #acbfff; }
+:root[data-ps-light="night"] .user.color-27 { color: #bdbafe; }
+:root[data-ps-light="night"] .user.color-28 { color: #cdb5fc; }
+:root[data-ps-light="night"] .user.color-29 { color: #dfaff7; }
+:root[data-ps-light="night"] .user.color-30 { color: #ecace9; }
+:root[data-ps-light="night"] .user.color-31 { color: #f8a9da; }
+:root[data-ps-light="night"] .user.color-32 { color: #fda8cd; }
+/* stylelint-enable color-hex-length, no-duplicate-selectors */
+
+/* ps:glass-palette:end */
+
+/* ---- the words over the plains (docs/projects/ps-theme.md §7) ---- */
+
+/* White with a close dark shadow all day and night, but where dark ink holds
+ * (in practice on snowy days, by day: the user's white sooner, 2026-09-25,
+ * client/js/scenes/ps/grounds.ts); there, ink in a close halo of the
+ * horizon's colour. The scene sets data-ps-text on <html>; with no scene, it
+ * is ink. The load-more button and
+ * the search view's notes stand in the column outside any message, so they
+ * take the same layer. */
+#chat .chat .msg,
+#chat .chat .show-more,
+#chat .chat .search-status,
+#chat .chat .search-scope-note {
+	text-shadow: 0 0 0.375rem var(--ps-halo), 0 0 0.125rem var(--ps-halo), 0 0 0.0625rem var(--ps-halo);
+	transition: color 0.8s, text-shadow 0.8s;
+}
+
+:root[data-ps-text="light"] #chat .chat .msg,
+:root[data-ps-text="light"] #chat .chat .show-more,
+:root[data-ps-text="light"] #chat .chat .search-status,
+:root[data-ps-text="light"] #chat .chat .search-scope-note {
+	/* The calibration (§11) showed the soft shadow alone cannot carry white
+	 * text over the brightest grounds (the moon's disc, the sun's low core,
+	 * a bright dawn/dusk horizon). Shown three measured candidates, the user
+	 * chose "B" (https://claude.ai/artifact/TGGrXDMs2fxLrV9NekKMWJ): an
+	 * eight-way 1px outline at 78% black, drawn under the approved soft
+	 * shadow — listed first, since the first shadow paints on top. Measured
+	 * again with real chat phrases (short words, apostrophes, commas), B
+	 * alone was far weaker round the thin marks than on the sample sentence;
+	 * the user took the recommendation (2026-09-25): a faint second ring,
+	 * eight 2px offsets at 28% black, drawn under B. */
+	/* stylelint-disable-next-line max-line-length -- the layers read best on one line, as the halo's do */
+	text-shadow: 0 0.0625rem 0.094rem rgb(0 0 0 / 70%), 0 0 0.1875rem rgb(0 0 0 / 45%), 0 0.0625rem 0.625rem rgb(0 0 0 / 35%), 0.0625rem 0 0.0625rem rgb(0 0 0 / 78%), -0.0625rem 0 0.0625rem rgb(0 0 0 / 78%), 0 0.0625rem 0.0625rem rgb(0 0 0 / 78%), 0 -0.0625rem 0.0625rem rgb(0 0 0 / 78%), 0.0625rem 0.0625rem 0.0625rem rgb(0 0 0 / 78%), -0.0625rem 0.0625rem 0.0625rem rgb(0 0 0 / 78%), 0.0625rem -0.0625rem 0.0625rem rgb(0 0 0 / 78%), -0.0625rem -0.0625rem 0.0625rem rgb(0 0 0 / 78%), 0.125rem 0 0.0625rem rgb(0 0 0 / 28%), -0.125rem 0 0.0625rem rgb(0 0 0 / 28%), 0 0.125rem 0.0625rem rgb(0 0 0 / 28%), 0 -0.125rem 0.0625rem rgb(0 0 0 / 28%), 0.125rem 0.125rem 0.0625rem rgb(0 0 0 / 28%), -0.125rem 0.125rem 0.0625rem rgb(0 0 0 / 28%), 0.125rem -0.125rem 0.0625rem rgb(0 0 0 / 28%), -0.125rem -0.125rem 0.0625rem rgb(0 0 0 / 28%);
+}
+
+/* The browser gives a button `text-shadow: none` rather than the inherited
+ * one, and the reply quote, the reaction chips and the load-more button are
+ * buttons standing on the plains: they take the layer too. */
+#chat .chat button {
+	text-shadow: inherit;
+}
+
+/* A spoiler hides its text by making it transparent; a halo or shadow would draw it back. */
+#chat .msg .md-spoiler:not(.md-spoiler-shown) {
+	text-shadow: none;
+}
+
+/* A mention's row: a warm wash by day, a dark one by night, so the text on it
+ * keeps its floor. The selectors keep style.css's specificity: its channel
+ * rule paints --highlight-bg-color, opaque, and must not win. */
+/* stylelint-disable-next-line no-duplicate-selectors -- same rows the motion section animates, now with the fill */
+#chat .chat-view[data-type="channel"] .msg.highlight,
+#chat .chat-view[data-type="query"] .msg.highlight {
+	background: rgb(255 214 230 / 85%);
+}
+
+:root[data-ps-text="light"] #chat .chat-view[data-type="channel"] .msg.highlight,
+:root[data-ps-text="light"] #chat .chat-view[data-type="query"] .msg.highlight {
+	background: rgb(20 14 30 / 50%);
+}
+
+/* The generated nick colours outrank coffee's action, notice and wallops
+ * rows, which colour the nick with the row. Restated above them: `:root`
+ * makes these as specific as the light treatment's nick rules, and coming
+ * after the block, they win. */
+:root #chat .chat .msg[data-type="action"] .user {
+	color: var(--action-color);
+}
+
+:root #chat .chat .msg[data-type="notice"] .user,
+:root #chat .chat .msg[data-type="wallops"] .user {
+	color: var(--notice-color);
+}
+
+/* The column's code boxes (a code block, inline code, inline monospace, the
+ * monospace block) paint their own surface, --ps-code-bg, which the
+ * generated block sets per treatment (tools/ps/legibility.ts CODE_BOX: :root's
+ * paper by day, the night glass's solid surface otherwise). They no longer
+ * ride on --composer-bg, which belongs to the chrome. The --tok-* colours and
+ * --md-code-color are solved and held against this box, not the plains. */
+#chat .chat code,
+#chat .chat pre,
+#chat .chat .irc-monospace,
+#chat .chat .msg[data-type="monospace_block"] .text {
+	background: var(--ps-code-bg);
+}
+
+/* Under the light treatment a link is near-white like the text around it (the
+ * strict light sweep), so its colour no longer marks it (WCAG 1.4.1): it is
+ * underlined. By day the ink treatment's link colour still does. */
+:root[data-ps-text="light"] #chat .chat a {
+	text-decoration: underline;
+	text-underline-offset: 0.15em;
+}
+
+/* What else paints its own box in the message column (the link preview,
+ * the message toolbar and its "copied" note, the day and new-messages
+ * labels) reads these two surfaces, and they follow the column's treatment,
+ * not the chrome's light: the text on them is the column's. In the ink
+ * treatment they are the day glass's solid (:root's --window-bg-color is
+ * already; --composer-bg, a translucent field on the chrome, is pinned
+ * here); in the light treatment (all day but where dark ink holds) they are
+ * the night glass's solid (docs/projects/ps-theme.md §6), so the white text
+ * reads on them,
+ * with the night's tints for a hover on them. An accent fill turns light at
+ * night, so the text on one turns to ink. The chips are chrome, and follow
+ * the chrome (the chrome section). Hand-written, outside the generated
+ * block: these are surfaces, not text, and the floors test reads only the
+ * block. */
+/* stylelint-disable-next-line no-duplicate-selectors -- the generated block's selector, for the surfaces */
+#chat .chat {
+	--composer-bg: var(--ps-g-solid);
+}
+
+/* stylelint-disable-next-line no-duplicate-selectors -- the generated block's selector, for the surfaces */
+:root[data-ps-text="light"] #chat .chat {
+	--window-bg-color: #121827;
+	--composer-bg: #121827;
+	--tint-soft: rgb(255 255 255 / 4%);
+	--tint-strong: rgb(255 255 255 / 8%);
+	--chat-accent-fg: #1b2638;
+	--button-text-color-hover: #1b2638;
+}
+
+/* The nick column clips for its ellipsis (style.css #chat .from: content-box,
+ * padding 0.2em 0.5rem, overflow hidden), and the clip cut the shadow short.
+ * More padding gives the shadow room; the same amount taken back as negative
+ * margin keeps the box, the row height and the column alignment exactly as
+ * they were. The padding now reaches 0.4em into the row above, over the
+ * bottom of its nick, so the column itself takes no pointer: what is in it
+ * (the nick, its mode prefix) still does. */
+#chat .chat .from {
+	padding: 0.6em 0.75rem;
+	margin: -0.4em -0.25rem;
+	pointer-events: none;
+}
+
+#chat .chat .from > * {
+	pointer-events: auto;
+}
+
+/* The inline flow (style.css's narrow @container chat) sets the columns'
+ * padding to 0; an inline nick is never clipped, so it keeps that. */
+/* stylelint-disable-next-line at-rule-no-unknown */
+@container chat (max-width: calc(50ch + 2.5rem)) {
+	#chat .chat .from {
+		padding: 0;
+		margin: 0;
+	}
+}
+
+/* ---- the chrome: glass and solid (docs/projects/ps-theme.md §6) ---- */
+
+/* Glass: the sidebar, the channel header, the user list, the composer — one
+ * surface: its reply, upload and connection bars and the typing strip are its
+ * own children, so none takes a second blur — and the reaction chips float
+ * over the plains as a translucent tint with the mockup's panel blur (10px,
+ * 0.625rem; its chips had 6px, the spec gives all glass one) and saturation.
+ * Never on #status-bar-tint or an ancestor of it (html, body): iOS does not
+ * sample a fixed element that carries a backdrop filter (CLAUDE.md, "The iOS
+ * status bar"). The flip between day and night glass takes --ps-flip. On the
+ * phone layout the always-on glass (the header, the composer, the chips) has
+ * no backdrop filter (the phones section: the measured budget's fallback,
+ * spec §10); the open drawer and the overlaid user list keep it (Task 8c).
+ *
+ * By day the glass is luminous (the user's pick, 2026-09-25): while the scene
+ * runs, the backdrop is brightened (--ps-g-lift) before the saturation, and
+ * each surface reads its own tint (--ps-g-tint), the lowest the scene finds
+ * holding every colour on that surface over whatever can be behind it this
+ * minute, 0.40 to 0.78 (client/js/scenes/ps/glass.ts). Without the scene it
+ * is the generated --ps-g-tint-a with no brightening; at night it is the
+ * generated night tint, unbrightened. The backdrop filter is not in the
+ * transition: the brightening goes off in one step at the flip, when the
+ * tint is already near its cap. */
+#sidebar,
+#chat .header,
+#chat .userlist,
+#form,
+#chat .msg-reaction:not(.self, .msg-reaction-add) {
+	background-color: rgb(255 251 244 / var(--ps-g-tint));
+
+	/* Safari before 18 knows only the prefixed one, and theme files are copied, not autoprefixed. */
+	/* stylelint-disable-next-line property-no-vendor-prefix -- see above */
+	-webkit-backdrop-filter: blur(0.625rem) var(--ps-g-lift,) saturate(1.12);
+	backdrop-filter: blur(0.625rem) var(--ps-g-lift,) saturate(1.12);
+	transition: background-color var(--ps-flip), color var(--ps-flip), border-color var(--ps-flip);
+}
+
+:root[data-ps-light="night"] #sidebar,
+:root[data-ps-light="night"] #chat .header,
+:root[data-ps-light="night"] #chat .userlist,
+:root[data-ps-light="night"] #form,
+:root[data-ps-light="night"] #chat .msg-reaction:not(.self, .msg-reaction-add) {
+	background-color: rgb(12 17 32 / var(--ps-g-tint-a));
+}
+
+/* The luminous day glass's brightening, only where the scene has said it is day. */
+:root[data-ps-light="day"] {
+	--ps-g-lift: brightness(1.3);
+}
+
+/* Each surface's day tint: the scene's for what can stand behind it (the
+ * header the sky; the composer the near grass; a docked sidebar or user list
+ * every ground but the yurt, which stands in the message column; the chips,
+ * anywhere, every ground), or the generated tint while the scene has not
+ * published one. A user list laid over the chat takes the chips' (below). On
+ * the phone layout the always-on glass is unfiltered, on the generated tint,
+ * and only the open drawer and the overlaid user list read one of these, the
+ * chips' (the phones section). */
+/* stylelint-disable no-duplicate-selectors -- the glass rules above, with their tints */
+#chat .header {
+	--ps-g-tint: var(--ps-g-tint-header, var(--ps-g-tint-a));
+}
+
+#form {
+	--ps-g-tint: var(--ps-g-tint-composer, var(--ps-g-tint-a));
+}
+
+#sidebar,
+#chat .userlist {
+	--ps-g-tint: var(--ps-g-tint-side, var(--ps-g-tint-a));
+}
+
+#chat .msg-reaction:not(.self, .msg-reaction-add) {
+	--ps-g-tint: var(--ps-g-tint-float, var(--ps-g-tint-a));
+}
+/* stylelint-enable no-duplicate-selectors */
+
+/* A composer whose top has risen above the near grass (a reply bar and a
+ * longer draft on a short window, a large font step, a touch keyboard lifting
+ * it mid-scene) stands over hill1, the yurt and the sky: the scene marks it on
+ * <html> (ps-form-tall, glass.ts composerAboveGrass), and it takes the chips'
+ * tint, which holds over every ground. */
+:root.ps-form-tall #form {
+	--ps-g-tint: var(--ps-g-tint-float, var(--ps-g-tint-a));
+}
+
+/* A user list laid over a narrow chat pane (style.css's condition, verbatim)
+ * stands over the yurt too. */
+/* stylelint-disable-next-line at-rule-no-unknown */
+@container chat (max-width: calc(50ch + 8.5rem + 84px)) {
+	#chat .userlist {
+		--ps-g-tint: var(--ps-g-tint-float, var(--ps-g-tint-a));
+	}
+}
+
+/* The phone's sliding sidebar and user list keep style.css's slide
+ * (transform 160ms, 0.2s) beside the flip. */
+/* stylelint-disable-next-line no-duplicate-selectors -- the glass rule above, with the slide */
+#sidebar {
+	transition: transform 160ms, background-color var(--ps-flip), color var(--ps-flip), border-color var(--ps-flip);
+}
+
+/* stylelint-disable-next-line no-duplicate-selectors -- the glass rule above, with the slide */
+#chat .userlist {
+	transition: transform 0.2s, background-color var(--ps-flip), color var(--ps-flip), border-color var(--ps-flip);
+}
+
+/* The glass's hairline edge (the mockup's 1px, 0.0625rem) on the side that
+ * meets the message column, in the edge token: the sidebar's inner side is
+ * new; the header's foot, the user list's inner side and the composer's top
+ * are style.css's borders, coloured here. The composer's stays the edge while
+ * it has the caret too (below). */
+/* stylelint-disable no-duplicate-selectors -- the glass rules above, with their edges */
+#sidebar {
+	border-inline-end: 0.0625rem solid var(--ps-g-edge);
+}
+
+#chat .header {
+	border-block-end-color: var(--ps-g-edge);
+}
+
+#chat .userlist {
+	border-inline-start-color: var(--ps-g-edge);
+}
+
+#form {
+	border-block-start-color: var(--ps-g-edge);
+}
+/* stylelint-enable no-duplicate-selectors */
+
+/* One thin divider over the composer (the user's words, spec §2: "a single
+ * thin line matching the other borders", 2026-09-26, and "the thin divider is
+ * good", 2026-09-27). The strip's top is the one line, 1px in the edge, at
+ * every moment: style.css and coffee.css mark the caret there with the top
+ * edge in a colour and a 2px inset band under it, both taken back here at
+ * their weight, later. The input under it is style.css's flat textarea (a
+ * rounded field was tried and withdrawn at the user's word, 2026-09-27); the
+ * caret takes the accent (the motion section). */
+#form:focus-within {
+	border-block-start-color: var(--ps-g-edge);
+	box-shadow: none;
+}
+
+/* On the glass the two tints coffee.css washes with (the composer's reply,
+ * upload and connection bars; a hovered or keyboard-selected user in the
+ * list) are the glass's own washes, which move the ground away from the text
+ * (the tokens section): lighter by day, toward black at night. The solid
+ * panels keep creama's and coffee's. */
+#sidebar,
+#chat .header,
+#chat .userlist,
+#form {
+	--tint-soft: var(--ps-g-wash-soft);
+	--tint-strong: var(--ps-g-wash-strong);
+}
+
+/* The user list's count row painted --composer-bg (coffee.css), an opaque slab
+ * across the top of the glass: clear. Its sticky mode headings ("Operators",
+ * "Users") painted the window's colour; they still need a fill to veil the
+ * names scrolled under them, so they take the tint (by day the list's own),
+ * without a second blur. */
+#chat .userlist .count {
+	background-color: transparent;
+}
+
+#chat .userlist .user-mode::before {
+	background-color: rgb(255 251 244 / var(--ps-g-tint));
+}
+
+:root[data-ps-light="night"] #chat .userlist .user-mode::before {
+	background-color: rgb(12 17 32 / var(--ps-g-tint-a));
+}
+
+/* The chips are chrome standing in the column (the mockup's .chip): the
+ * glass, its ink with no shadow under it (the column's halo and outline are
+ * for words on the open plains), the edge for a border. They follow the
+ * chrome's day and night, not the column's treatment. The pressed chip (the
+ * viewer's own reaction, .self) and the add chip keep their own tints: the
+ * :not() keeps the glass off them. That makes these rules as specific as
+ * style.css's hover and focus border, so the border is restated after them,
+ * in the glass's accent. */
+/* stylelint-disable-next-line no-duplicate-selectors -- the glass rule above, with the chip's ink */
+#chat .msg-reaction:not(.self, .msg-reaction-add) {
+	border-color: var(--ps-g-edge);
+	color: var(--ps-g-ink);
+	text-shadow: none;
+}
+
+#chat .msg-reaction:not(.self, .msg-reaction-add) .msg-reaction-count {
+	color: var(--ps-g-soft);
+}
+
+#chat .msg-reaction:not(.self, .msg-reaction-add):hover:not(:disabled),
+#chat .msg-reaction:not(.self, .msg-reaction-add):focus-visible {
+	border-color: var(--ps-g-accent-text);
+}
+
+/* The add chip's "+" is its only label: style.css's 0.55 left it near 2:1 over the plains; at 1 it holds 4.5. */
+#chat .msg-reaction-add {
+	opacity: 1;
+}
+
+/* The lobby's connecting icon draws in the rail's accent (coffee.css), which
+ * is also the open row's marker; the icon is a mark that has to read, so it
+ * takes the text accent. */
+.channel-list-item .connection-status-icon.is-connecting::before {
+	color: var(--ps-g-accent-text);
+}
+
+/* One badge, as the mockup draws it: the mention badge takes the unread
+ * badge's generated fill and white numeral too. A mentioned row still stands
+ * out, its name in the full ink (coffee.css .has-highlight). */
+.channel-list-item .badge.highlight {
+	background: var(--rail-badge-bg);
+	color: var(--rail-badge-fg);
+}
+
+/* Solid: what holds dense text and controls — the settings pane, Help, the
+ * changelog, the connect form, the menus (the context menu, the Mentions
+ * popover, the composer's autocomplete), the emoji picker and its sticky
+ * headings, the upload preview and the dialogs, and the jump-to-recent disc
+ * — is the glass's colour made opaque (§6). The connect form embedded in
+ * Settings (NetworkForm.vue #connect.network-form-embedded) stays clear, on
+ * the pane. The message toolbar is solid too, but inside the column, where it
+ * follows the column's treatment (the words over the plains section). */
+.settings-modal,
+#help,
+#changelog,
+#connect,
+#context-menu,
+.mentions-popup,
+.textcomplete-menu,
+.reaction-picker,
+.reaction-picker-heading,
+#upload-preview,
+#confirm-dialog,
+#push-prompt,
+.scroll-down-arrow {
+	background-color: var(--ps-g-solid);
+}
+
+/* The flip, on all but the disc, whose fill also changes on hover and keeps
+ * style.css's 0.2s for it. */
+.settings-modal,
+#help,
+#changelog,
+#connect,
+#context-menu,
+.mentions-popup,
+.textcomplete-menu,
+.reaction-picker,
+.reaction-picker-heading,
+#upload-preview,
+#confirm-dialog,
+#push-prompt {
+	transition: background-color var(--ps-flip), color var(--ps-flip), border-color var(--ps-flip);
+}
+
+/* The disc's arrow in the glass's ink (its ring is still the accent). */
+/* stylelint-disable-next-line no-duplicate-selectors -- the solid rule above, with the ink */
+.scroll-down-arrow {
+	color: var(--ps-g-ink);
+}
+
+/* The dialogs' .vue files (ConfirmDialog.vue, UploadPreview.vue,
+ * PushPrompt.vue) set their text white, which reads on coffee's dark body and
+ * not on the day's paper: the glass ink instead. Their button strip was 30 %
+ * black, a grey band on the paper that the buttons' labels did not read on:
+ * the soft tint instead. */
+/* stylelint-disable no-duplicate-selectors -- the solid rule above, with the ink */
+#confirm-dialog,
+#upload-preview,
+#push-prompt {
+	color: var(--ps-g-ink);
+}
+/* stylelint-enable no-duplicate-selectors */
+
+#confirm-dialog .confirm-buttons,
+#upload-preview .confirm-buttons,
+#push-prompt .confirm-buttons {
+	background: var(--tint-soft);
+}
+
+/* The upload preview's file rows and the backing behind a thumbnail
+ * (UploadPreview.vue: 20 % and 30 % black) are grey bands on the paper too:
+ * the tints. */
+#upload-preview .upload-preview-item {
+	background: var(--tint-soft);
+}
+
+#upload-preview .upload-preview-media {
+	background: var(--tint-strong);
+}
+
+/* A conversation on a network that is down fades (style.css #chat.disconnected
+ * .chat-content, opacity 0.55); an opacity under 1 makes an element a backdrop
+ * root, and the user list inside it lost its blur. The fade moves onto the
+ * messages and the jump-to-recent disc's arrow (not .scroll-down, whose own
+ * opacity shows and hides it), and the user list keeps its glass. The
+ * transitions sit on the base rules, as style.css's does, so the fade eases
+ * back on reconnect instead of snapping; the disc keeps style.css's
+ * background and colour transitions beside it. */
+#chat.disconnected .chat-content {
+	opacity: 1;
+}
+
+#chat .chat-content > .chat {
+	transition: opacity 0.3s ease;
+}
+
+#chat .scroll-down-arrow {
+	transition: background 0.2s, color 0.2s, opacity 0.3s ease;
+}
+
+#chat.disconnected .chat-content > .chat,
+#chat.disconnected .scroll-down-arrow {
+	opacity: 0.55;
+}
+
+/* Native controls follow the hour (the user's report, 2026-09-26: "the
+ * select boxes in the ps theme are a light text on a light background …
+ * right now it's night"). The page's colour scheme is already the hour's
+ * (the palettes: light by day and under the fallback, dark at night), and
+ * the checkboxes, radios, the range slider, the number fields' spinners and
+ * the scrollbars follow it. A select's option list is drawn by the browser
+ * from the select's and the options' own colours: the select wore the
+ * field's wash, translucent (white 7 % at night), and the options nothing,
+ * so the list fell back to a light default under the night's light ink.
+ * Both take the solid and its ink, opaque by day and at night; the select
+ * keeps the field's wash as an image over the solid, so on the pane it
+ * still reads as a field. `select.input` outranks the `.input` rules. */
+select,
+select.input {
+	background-color: var(--ps-g-solid);
+	background-image: linear-gradient(var(--composer-bg), var(--composer-bg));
+	color: var(--ps-g-ink);
+}
+
+select option {
+	background-color: var(--ps-g-solid);
+	color: var(--ps-g-ink);
+}
+
+/* Every placeholder the app loads, restated at its own weight so this one
+ * wins (style.css's and the components' black and white smudges, coffee's
+ * faint and muted tokens): --ps-g-placeholder, the soft ink by day and a
+ * lighter one at night, where the soft ink read 3.74 on the glass's field
+ * (the jump-to search, the message search, the join form). */
+::placeholder,
+.jump-to-input .input::placeholder,
+form.message-search input::placeholder,
+.reaction-picker-input::placeholder {
+	color: var(--ps-g-placeholder);
+}
+
+/* ---- animals ---- */
+
+/* stylelint-disable-next-line no-duplicate-selectors -- the animals' files and the scene's fixed cast */
+:root {
+	/* The animals: self-animating SVG stages (tools/heart/README.md), each
+	 * one background layer. The cast below puts them into three slots — two
+	 * near, one distant visitor far off — by pointing the slot tokens at the
+	 * animal tokens; reduced motion repoints the animal tokens at the
+	 * stills, so the cast is not restated there. Heights are shares of
+	 * --strip; a distant visitor is 0.7 of its animal's.
+	 *
+	 * A height token sizes the animal's *box*, and several boxes carry
+	 * deliberate empty space — the bird's is 800 units tall for 76 units of
+	 * bird, because the sky above it is its flight path; the frog's holds
+	 * its hop, the ladybug's its wings' transit, the kitten's its raised
+	 * tail — so every token is picked from the body that actually renders,
+	 * never from the box. The share of the box each animal fills, measured
+	 * off its still: bunny 0.91, deer 0.88, horse 0.85, kitten 0.83, puppy
+	 * 0.59, frog 0.58, ladybug 0.55, bird 0.10.
+	 *
+	 * Four of those tokens were rescaled when the boxes grew to stop
+	 * clipping their animals (tools/heart/lib/build.mjs `boxOverflow`), and
+	 * the arithmetic is the point: a box height and its token move together
+	 * or the animal changes size. `token / viewBox.h` is the on-screen scale
+	 * and it is unchanged on all eight — horse 0.66/172 → 0.7176/187, deer
+	 * 0.55/196 → 0.5781/206, puppy 0.585/109 → 0.6172/115, bunny 0.44/92 →
+	 * 0.6026/126, and each far slot below by the same ratio. The rigs' own
+	 * `stage.aspect` moved the other way, so `aspect × token` — the crossing
+	 * width, in strips — is unchanged too.
+	 *
+	 * The second number a token moves is how far the animal travels:
+	 * on-screen stage width is `stage.aspect × the token`, in strips. Horse,
+	 * puppy, bunny and kitten sit at the cast's usual 10.5 and the deer
+	 * (8.8) and bird (13.2) near it; the frog (7.2) and the ladybug (3.4)
+	 * wander a shorter stretch instead of crossing, which is what a token
+	 * sized from a small body implies.
+	 *
+	 * **None of that arithmetic can be checked from inside a stylesheet**,
+	 * and it was hand-maintained across four numbers until it wasn't: each
+	 * cast rig now carries a `theme` block (`tools/heart/rigs/<animal>.mjs`)
+	 * recording the token below, the `viewBox.h` it was picked against and
+	 * the stage's width in rig units, and `test/themes/ps.ts` fails when
+	 * a rig and this file disagree. Grow a box without scaling its token
+	 * here and the test says so, with the number to write. */
+	--ps-horse: url("ps/horse.svg");
+	--ps-horse-far: url("ps/horse-far.svg");
+	--ps-deer: url("ps/deer.svg");
+	--ps-deer-far: url("ps/deer-far.svg");
+	--ps-puppy: url("ps/puppy.svg");
+	--ps-puppy-far: url("ps/puppy-far.svg");
+	--ps-bunny: url("ps/bunny.svg");
+	--ps-bunny-far: url("ps/bunny-far.svg");
+	--ps-kitten: url("ps/kitten.svg");
+	--ps-kitten-far: url("ps/kitten-far.svg");
+	--ps-frog: url("ps/frog.svg");
+	--ps-frog-far: url("ps/frog-far.svg");
+	--ps-ladybug: url("ps/ladybug.svg");
+	--ps-ladybug-far: url("ps/ladybug-far.svg");
+	--ps-bird: url("ps/bird.svg");
+	--ps-bird-far: url("ps/bird-far.svg");
+	--ps-horse-h: 0.7176;
+	--ps-deer-h: 0.5781;
+	--ps-puppy-h: 0.6172;
+	--ps-bunny-h: 0.6026;
+	--ps-kitten-h: 0.44;
+	--ps-frog-h: 0.3;
+	--ps-ladybug-h: 0.19;
+	--ps-bird-h: 1.2;
+
+	/* The cast: a horse and a bunny near, a deer far off. */
+	--ps-slot-a: var(--ps-horse);
+	--ps-slot-a-h: var(--ps-horse-h);
+	--ps-slot-b: var(--ps-bunny);
+	--ps-slot-b-h: var(--ps-bunny-h);
+	--ps-slot-f: var(--ps-deer-far);
+	--ps-slot-f-h: calc(0.7 * var(--ps-deer-h));
+}
+
+/* The animals are switched off, not removed (docs/projects/ps-theme.md §5.6):
+ * the scene keeps one animal layer on the ground with a fixed cast, and the
+ * block after it empties all three slots. Delete that block and they come
+ * back. Reduced motion repoints the animal tokens at their stills, never the
+ * slots, so no still is painted or fetched either. */
+#theme-scene .ps-animals {
+	left: 0;
+	right: 0;
+	bottom: 0;
+	height: calc(var(--strip) * 1.2);
+	background-image: var(--ps-slot-b), var(--ps-slot-a), var(--ps-slot-f);
+	background-repeat: no-repeat;
+	background-size:
+		auto calc(var(--strip) * var(--ps-slot-b-h)),
+		auto calc(var(--strip) * var(--ps-slot-a-h)),
+		auto calc(var(--strip) * var(--ps-slot-f-h));
+	background-position:
+		70% calc(100% - var(--strip) * 0.12),
+		30% calc(100% - var(--strip) * 0.12),
+		50% calc(100% - var(--strip) * 0.295);
+}
+
+/* Nothing after this block may put an animal back into a slot (test/themes/ps.ts). */
+/* stylelint-disable-next-line no-duplicate-selectors -- the off switch is its own block on purpose */
+#theme-scene .ps-animals {
+	--ps-slot-a: none;
+	--ps-slot-b: none;
+	--ps-slot-f: none;
+}
+
+/* ---- phones ---- */
+
+/* The phone layout (style.css's list, verbatim; PHONE_LAYOUT_QUERY in
+ * client/js/helpers/device.ts) opens the sidebar as a drawer over the chat,
+ * and style.css dims the whole viewport under it. Under a translucent drawer
+ * the dimming is what shows through, a grey drawer whose soft ink falls under
+ * its floor: the scrim starts at the drawer's inner edge instead, so the
+ * drawer lies over the undimmed plains, whose grounds the tint is held over.
+ * The strip beside it still takes the tap that closes the drawer, and still
+ * fades. */
+@media (max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse) {
+	/* Physical, as style.css places the drawer (right: 100% and a translate). */
+	#sidebar-overlay {
+		left: var(--sidebar-width);
+	}
+
+	/* The measured budget's pre-decided fallback (spec §10): on the phone
+	 * layout the glass carries no backdrop filter, neither the blur nor the
+	 * day's brightening, and so it takes the generated tint (--ps-g-tint-a,
+	 * 0.78 by day and 0.74 at night), which the legibility model holds over
+	 * every ground with no filter. The scene's per-surface day tints are solved
+	 * through the brightened backdrop and are not proven without it. The risen
+	 * composer is named for its rule's specificity. This is the always-on
+	 * glass's; the drawer and the user list are the next two rules. */
+	#chat .header,
+	#form,
+	:root.ps-form-tall #form,
+	#chat .msg-reaction:not(.self, .msg-reaction-add) {
+		--ps-g-tint: var(--ps-g-tint-a);
+		/* stylelint-disable-next-line property-no-vendor-prefix -- the glass's prefixed blur, undone */
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
+	}
+
+	/* The two overlays keep their glass (Task 8c, spec §10.1): unblurred, the
+	 * conversation's words showed through the open drawer and the list laid
+	 * over the chat, and the soft ink crossing them fell under its floor. The
+	 * fallback's saving was the always-on glass's; an overlay is open for
+	 * moments, and measured open it held the budget's frame interval. Both lie
+	 * over the chat, the yurt included, so they take the chips' tint, as
+	 * before the fallback, in every state: a tint that changed on opening
+	 * would ease over --ps-flip while the drawer slid in. Put away they carry
+	 * no filter (the drawer waits off screen, the list is not displayed); the
+	 * user list's sticky headings inherit the list's tint. */
+	#sidebar,
+	#chat .userlist {
+		--ps-g-tint: var(--ps-g-tint-float, var(--ps-g-tint-a));
+		/* stylelint-disable-next-line property-no-vendor-prefix -- the glass's prefixed blur, undone */
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
+	}
+
+	/* Shown, they are blurred again, brightened by day: the drawer while it is
+	 * on screen (open, or following a swipe, style.css's own pair) and the
+	 * list, which on the phone is only displayed laid over the chat. The state
+	 * selectors outrank the bare ones; reduced transparency names them
+	 * itself. */
+	#viewport.menu-open #sidebar,
+	#viewport.menu-dragging #sidebar,
+	#viewport.userlist-open #chat .userlist {
+		/* stylelint-disable-next-line property-no-vendor-prefix -- Safari before 18 knows only the prefixed one */
+		-webkit-backdrop-filter: blur(0.625rem) var(--ps-g-lift,) saturate(1.12);
+		backdrop-filter: blur(0.625rem) var(--ps-g-lift,) saturate(1.12);
+	}
+
+	/* The drawer keeps its blur until it is off screen. Dropped as it began
+	 * to close, the words behind it showed through for the whole slide out
+	 * (style.css's transform 160ms): so closing, the filter changes only once
+	 * the slide is over (a 0 s change 160 ms late), and opening, at once. The
+	 * rest of each list is the glass's own, the slide and the flip. The user
+	 * list needs neither: style.css shows it with display, so it never
+	 * slides. */
+	/* stylelint-disable no-duplicate-selectors -- the bare drawer above, with its timing */
+	#sidebar {
+		transition:
+			transform 160ms,
+			background-color var(--ps-flip),
+			color var(--ps-flip),
+			border-color var(--ps-flip),
+			-webkit-backdrop-filter 0s linear 160ms,
+			backdrop-filter 0s linear 160ms;
+	}
+
+	#viewport.menu-open #sidebar {
+		transition:
+			transform 160ms,
+			background-color var(--ps-flip),
+			color var(--ps-flip),
+			border-color var(--ps-flip),
+			-webkit-backdrop-filter 0s,
+			backdrop-filter 0s;
+	}
+
+	/* A drag follows the finger (style.css's none, restated: the open rule
+	 * above is as specific and later, and an open drawer is dragged shut). */
+	#viewport.menu-dragging #sidebar {
+		transition: none;
+	}
+	/* stylelint-enable no-duplicate-selectors */
+}
+
+/* A shorter strip for the animal layer on a small screen. */
+@media (max-width: 600px) {
+	:root {
+		--strip: 6.5rem;
+	}
+}
+
+/* ---- reduced motion ---- */
+@media (prefers-reduced-motion: reduce) {
+	/* The words' treatment flips at once with the glass: the column's notes
+	 * ease their colour over 0.8 s beside the messages, and stand down with
+	 * them. */
+	#chat .msg,
+	#chat .chat .show-more,
+	#chat .chat .search-status,
+	#chat .chat .search-scope-note,
+	.channel-list-item,
+	#chat .header,
+	#form,
+	#theme-scene * {
+		animation: none !important;
+		transition: none !important;
+	}
+
+	/* What exists only in flight leaves the render tree rather than standing
+	 * parked mid-flight (spec §9): the birds (the skeins, the buzzard, which
+	 * stopped on the sky, and the larks), the rain, snow and seeds, the
+	 * lightning, and the smoke, which is smoke only as it rises (the lit
+	 * door and its pool still say someone is home). The veil stays, so a
+	 * rainy day still looks rainy. The fireflies stay as still dots where
+	 * they are: a point of light, like a star, still reads as one, and they
+	 * are what a summer evening looks like. The grass stands at rest and the
+	 * heat band still; the heat haze's SMIL is paused with every other SVG's
+	 * (scene.ts). */
+	#theme-scene .ps-skeins,
+	#theme-scene .ps-daybirds,
+	#theme-scene .ps-rain,
+	#theme-scene .ps-snow,
+	#theme-scene .ps-seeds,
+	#theme-scene .ps-flash,
+	#theme-scene .ps-smoke {
+		display: none;
+	}
+
+	/* A cloud still, where its delay puts it in its loop (--cp, plains.ts),
+	 * on ps-drift's own path: with no animation it stood at its box's place,
+	 * left: 0, and all five piled up at the left edge. */
+	#theme-scene .ps-cloud {
+		/* stylelint-disable-next-line unit-no-unknown -- cqw, as ps-drift's */
+		transform: translateX(calc((100cqw + 100% + 0.5rem) * var(--cp) - 100% - 0.25rem));
+	}
+
+	/* The day/night flip happens at once. A token rather than `transition:
+	 * none`, so the phone's sidebar and user list keep their slide. */
+	/* stylelint-disable-next-line no-duplicate-selectors -- the flip's duration, apart from the stills */
+	:root {
+		--ps-flip: 0s;
+	}
+
+	/* The animals as stills: the slot tokens point at the animal tokens, so
+	 * repointing those is enough. In ps the off block after the animal layer
+	 * empties the slots, so no still is painted (or fetched) either. */
+	/* stylelint-disable-next-line no-duplicate-selectors -- the reduced-motion swap to stills */
+	:root {
+		--ps-horse: url("ps/horse-still.svg");
+		--ps-horse-far: url("ps/horse-far-still.svg");
+		--ps-deer: url("ps/deer-still.svg");
+		--ps-deer-far: url("ps/deer-far-still.svg");
+		--ps-puppy: url("ps/puppy-still.svg");
+		--ps-puppy-far: url("ps/puppy-far-still.svg");
+		--ps-bunny: url("ps/bunny-still.svg");
+		--ps-bunny-far: url("ps/bunny-far-still.svg");
+		--ps-kitten: url("ps/kitten-still.svg");
+		--ps-kitten-far: url("ps/kitten-far-still.svg");
+		--ps-frog: url("ps/frog-still.svg");
+		--ps-frog-far: url("ps/frog-far-still.svg");
+		--ps-ladybug: url("ps/ladybug-still.svg");
+		--ps-ladybug-far: url("ps/ladybug-far-still.svg");
+		--ps-bird: url("ps/bird-still.svg");
+		--ps-bird-far: url("ps/bird-far-still.svg");
+	}
+}
+
+/* ---- reduced transparency ---- */
+
+/* A system that asks for less transparency gets the chrome solid: no blur, the
+ * solid colour, by day and at night. The phone's overlays are named by their
+ * state selectors too, which a bare #sidebar would lose to on specificity. */
+@media (prefers-reduced-transparency: reduce) {
+	#sidebar,
+	#chat .header,
+	#chat .userlist,
+	#form,
+	#chat .msg-reaction:not(.self, .msg-reaction-add),
+	#viewport.menu-open #sidebar,
+	#viewport.menu-dragging #sidebar,
+	#viewport.userlist-open #chat .userlist,
+	:root[data-ps-light="night"] #sidebar,
+	:root[data-ps-light="night"] #chat .header,
+	:root[data-ps-light="night"] #chat .userlist,
+	:root[data-ps-light="night"] #form,
+	:root[data-ps-light="night"] #chat .msg-reaction:not(.self, .msg-reaction-add) {
+		background-color: var(--ps-g-solid);
+		/* stylelint-disable-next-line property-no-vendor-prefix -- the glass's prefixed blur, undone */
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
+	}
+}
