@@ -41,7 +41,7 @@ const react: Command = {
 			return;
 		}
 
-		const msgid = explicit ?? chan.newestMsgid();
+		const msgid = explicit ?? chan.newestReactableMsgid();
 
 		if (!msgid) {
 			client.pushMessage(chan, {
