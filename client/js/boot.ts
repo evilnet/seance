@@ -25,8 +25,9 @@ import {parseJoinList} from "./irc/client";
 import {ChanState} from "../../shared/types/chan";
 import socket from "./socket";
 import {loadMentions} from "./mentions";
+import {cancelLanding} from "./helpers/lastChannel";
 import storage from "./localStorage";
-import {installNativeHooks} from "./native";
+import {installNativeHooks, nativeAppReady, nativeLaunchUrl, onNativeUrl} from "./native";
 import {installForegroundHooks} from "./foreground";
 import {installViewportHooks} from "./helpers/viewport";
 import {onLaunch, openInstallGuideAtStart} from "./pwa";
@@ -114,6 +115,8 @@ export async function boot(): Promise<void> {
 		window.g_TheLoungeRemoveLoading();
 	}
 
+	nativeAppReady();
+
 	// Installed app (manifest `launch_handler: focus-existing`): later
 	// launches — web+irc:// links, ?uri= URLs — land here instead of reloading
 	// the window, which would drop the IRC connection.
@@ -123,7 +126,19 @@ export async function boot(): Promise<void> {
 		}
 	});
 
-	if (await handleQueryParams()) {
+	// The native shell: a link handed to the running app (irc:, ircs:,
+	// web+irc:) is the same suggestion as a `?uri=` launch, and the link the
+	// app was opened with stands in for the page URL below, so it is decided
+	// before the route and the autoconnect, like a page URL is.
+	onNativeUrl((href) => {
+		void handleQueryParams(linkQuery(href), false);
+	});
+	const launchHref = await nativeLaunchUrl();
+	const handled = launchHref
+		? await handleQueryParams(linkQuery(launchHref), false)
+		: await handleQueryParams();
+
+	if (handled) {
 		// The URL's web+irc:// link or connect parameters have been acted on:
 		// a saved network is connecting, or the connect form is pre-filled
 		// waiting for the user's approval.
@@ -230,6 +245,10 @@ async function handleQueryParams(
 		}
 
 		openSavedTarget(entry, suggestion.join);
+		// The link named one saved network; the others flagged autoconnect
+		// come up as they would have without it (Connect.vue does the same
+		// after its form). The target already exists, so it is skipped.
+		autoconnectSavedNetworks();
 		return true;
 	}
 
@@ -237,6 +256,11 @@ async function handleQueryParams(
 	// user chooses to connect.
 	await router.push({name: "Connect", query: suggestionQuery(decision.suggestion)});
 	return true;
+}
+
+/** A link as the `?uri=` query `handleQueryParams` reads. */
+function linkQuery(href: string): string {
+	return `?uri=${encodeURIComponent(href)}`;
 }
 
 /** The Connect-route query for a link the user still has to approve. */
@@ -293,6 +317,10 @@ function openSavedTarget(entry: SavedNetwork, join: string): void {
 			wanted.map((chan) => client.findChannel(chan.name)).find((chan) => chan) ??
 			(wanted.length === 0 ? client.lobby : undefined);
 		const stored = focus && store.getters.findChannel(focus.id);
+
+		// The link is where the user asked to go: a remembered conversation
+		// on another network that has not joined yet must not land later.
+		cancelLanding();
 
 		if (stored) {
 			switchToChannel(stored.channel);

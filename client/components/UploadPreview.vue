@@ -2,6 +2,7 @@
 	<div
 		id="upload-preview-overlay"
 		:class="{opened: request !== null}"
+		:data-escape-close="request !== null ? 'upload-preview' : null"
 		@transitionend.self="onOverlayShown"
 	>
 		<div
@@ -444,7 +445,11 @@ export default defineComponent({
 
 		const noteFor = (item: PreviewItem) => (item.plan ? NOTES[item.plan] : "");
 
-		const onEscape = () => close(false);
+		const onEscape = (layer: string | null) => {
+			if (layer === "upload-preview") {
+				close(false);
+			}
+		};
 
 		onMounted(() => {
 			eventbus.on("upload:confirm", open);

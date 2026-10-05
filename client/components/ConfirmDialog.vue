@@ -1,5 +1,9 @@
 <template>
-	<div id="confirm-dialog-overlay" :class="{opened: !!data}">
+	<div
+		id="confirm-dialog-overlay"
+		:class="{opened: !!data}"
+		:data-escape-close="data ? 'confirm' : null"
+	>
 		<div v-if="data !== null" id="confirm-dialog">
 			<div class="confirm-text">
 				<div class="confirm-text-title">{{ data?.title }}</div>
@@ -83,13 +87,19 @@ export default defineComponent({
 			}
 		};
 
+		const onEscape = (layer: string | null) => {
+			if (layer === "confirm") {
+				close(false);
+			}
+		};
+
 		onMounted(() => {
-			eventbus.on("escapekey", close);
+			eventbus.on("escapekey", onEscape);
 			eventbus.on("confirm-dialog", open);
 		});
 
 		onUnmounted(() => {
-			eventbus.off("escapekey", close);
+			eventbus.off("escapekey", onEscape);
 			eventbus.off("confirm-dialog", open);
 		});
 

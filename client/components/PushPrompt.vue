@@ -1,5 +1,9 @@
 <template>
-	<div id="push-prompt-overlay" :class="{opened: webpush.pushPrompt.visible}">
+	<div
+		id="push-prompt-overlay"
+		:class="{opened: webpush.pushPrompt.visible}"
+		:data-escape-close="webpush.pushPrompt.visible ? 'push-prompt' : null"
+	>
 		<div
 			v-if="webpush.pushPrompt.visible"
 			id="push-prompt"
@@ -134,8 +138,8 @@ export default defineComponent({
 		const never = () => webpush.neverPrompt();
 		const yes = () => webpush.acceptPrompt();
 
-		const onEscape = () => {
-			if (webpush.pushPrompt.visible) {
+		const onEscape = (layer: string | null) => {
+			if (layer === "push-prompt" && webpush.pushPrompt.visible) {
 				no();
 			}
 		};

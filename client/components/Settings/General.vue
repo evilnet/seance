@@ -28,6 +28,35 @@
 				How to install {{ appName }}
 			</button>
 		</div>
+		<div v-if="keepAliveAvailable">
+			<h2>Background connection</h2>
+			<div>
+				<label class="opt">
+					<input
+						:checked="store.state.settings.keepConnected"
+						type="checkbox"
+						name="keepConnected"
+					/>
+					Stay connected in the background
+					<span
+						class="tooltipped tooltipped-n tooltipped-no-delay"
+						aria-label="Keeps your connections open while the app is not on screen, with a notification Android shows the whole time. Uses more battery."
+					>
+						<button class="extra-help" />
+					</span>
+				</label>
+				<p
+					v-if="
+						store.state.settings.keepConnected &&
+						keepAliveStatus?.notifications === false
+					"
+					class="keepalive-hint"
+				>
+					Notifications are off for {{ appName }} in Android's settings, so the connection
+					notification is hidden. Android may still stop the app.
+				</p>
+			</div>
+		</div>
 		<div v-if="store.state.serverConfiguration?.fileUpload">
 			<h2>File uploads</h2>
 			<div>
@@ -149,9 +178,15 @@
 </style>
 
 <script lang="ts">
-import {computed, defineComponent, onMounted, ref} from "vue";
+import {computed, defineComponent, onMounted, onUnmounted, ref} from "vue";
 import {useStore} from "../../js/store";
 import {canDescribeInstall, openInstallGuide, promptInstall} from "../../js/pwa";
+import {
+	keepAliveAvailable as isKeepAliveAvailable,
+	keepAliveStatus as fetchKeepAliveStatus,
+	onKeepAliveStatus,
+	type KeepAliveStatus,
+} from "../../js/helpers/keepAlive";
 import eventbus from "../../js/eventbus";
 import {
 	applyBackup,
@@ -172,8 +207,22 @@ export default defineComponent({
 		const store = useStore();
 		const appName = computed(() => store.state.branding.appName);
 		const canRegisterProtocol = ref(false);
+		const keepAliveAvailable = isKeepAliveAvailable();
+		const keepAliveStatus = ref<KeepAliveStatus | null>(null);
+
+		// The status follows every call the shell answers — the toggle's
+		// enable resolves only once Android's permission prompt is answered,
+		// so the hint below keeps up without polling.
+		let stopKeepAlive: (() => void) | null = null;
 
 		onMounted(() => {
+			if (keepAliveAvailable) {
+				stopKeepAlive = onKeepAliveStatus((status) => {
+					keepAliveStatus.value = status;
+				});
+				void fetchKeepAliveStatus();
+			}
+
 			// Enable protocol handler registration if supported,
 			// and the network configuration is not locked
 			canRegisterProtocol.value =
@@ -191,6 +240,10 @@ export default defineComponent({
 		const showInstallGuide = () => {
 			openInstallGuide();
 		};
+
+		onUnmounted(() => {
+			stopKeepAlive?.();
+		});
 
 		const nativeInstallPrompt = () => {
 			// The store flag (and so the button) clears as soon as the prompt
@@ -312,6 +365,8 @@ export default defineComponent({
 			canRegisterProtocol,
 			canShowGuide,
 			showInstallGuide,
+			keepAliveAvailable,
+			keepAliveStatus,
 			nativeInstallPrompt,
 			registerProtocol,
 			includePasswords,

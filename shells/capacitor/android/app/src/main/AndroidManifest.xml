@@ -1,41 +1,85 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8" ?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Permissions -->
 
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- ConnectionService: a foreground service, its type, and (Android 13+)
+         the permission its notification needs. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- The app's whole state is the WebView's localStorage, saved networks
+         with their passwords included, so none of it goes to Google's backup
+         or to a device-to-device transfer: allowBackup covers the first (and
+         everything below Android 12), data_extraction_rules the second.
+         Across devices the user exports their own file instead (Settings ->
+         General -> Backup and restore). fullBackupContent says the same
+         thing again for Android 11 and below, which is where lint looks. -->
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-
         <activity
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density|fontScale"
             android:name=".MainActivity"
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
             android:launchMode="singleTask"
             android:exported="true">
-
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- The link schemes the app opens (docs/resources/irc-links.md):
+                 the App plugin hands them to the page as appUrlOpen, or as
+                 the launch URL when the link starts the app. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="web+irc" />
+                <data android:scheme="irc" />
+                <data android:scheme="ircs" />
+            </intent-filter>
         </activity>
+
+        <!-- The opt-in "stay connected" foreground service (ConnectionService.java).
+             specialUse: the only type without a run-time cap that fits a chat
+             connection the user asked to keep (dataSync is limited to 6 h a day
+             from Android 15); a Play listing has to declare it (README). -->
+        <service
+            android:name=".ConnectionService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the user's IRC chat connections open in the background, when the user turns that on in Settings." />
+        </service>
 
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths"></meta-data>
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
     </application>
 
-    <!-- Permissions -->
-
-    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- The composer's file picker offers the camera (UploadChooserClient.java);
+         from Android 11 the capture actions have to be declared to be seen. -->
+    <queries>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+        <intent>
+            <action android:name="android.media.action.VIDEO_CAPTURE" />
+        </intent>
+    </queries>
 </manifest>

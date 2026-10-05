@@ -250,16 +250,23 @@ export default defineComponent({
 			}
 		);
 
+		// Only with no overlay up: Escape over a context menu closes the menu.
+		const onEscape = (layer: string | null) => {
+			if (layer === null) {
+				closeSearch();
+			}
+		};
+
 		onMounted(() => {
 			setActiveChannel();
 			void doSearch();
 
-			eventbus.on("escapekey", closeSearch);
+			eventbus.on("escapekey", onEscape);
 			eventbus.on("re-search", onReSearch);
 		});
 
 		onUnmounted(() => {
-			eventbus.off("escapekey", closeSearch);
+			eventbus.off("escapekey", onEscape);
 			eventbus.off("re-search", onReSearch);
 		});
 

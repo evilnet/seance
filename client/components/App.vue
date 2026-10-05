@@ -21,6 +21,7 @@
 
 <script lang="ts">
 import {isPhoneLayout} from "../js/helpers/device";
+import {emitEscape} from "../js/helpers/escapeLayer";
 import eventbus from "../js/eventbus";
 import Mousetrap, {ExtendedKeyboardEvent} from "mousetrap";
 import throttle from "lodash/throttle";
@@ -89,7 +90,7 @@ export default defineComponent({
 		const dayChangeTimeout = ref<any>();
 
 		const escapeKey = () => {
-			eventbus.emit("escapekey");
+			emitEscape();
 		};
 
 		const toggleSidebar = (e: ExtendedKeyboardEvent) => {

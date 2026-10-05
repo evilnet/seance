@@ -30,6 +30,16 @@ describe("linkTarget helper", function () {
 			expect(linkSuggestion(parseIrcUri("web+irc://irc.example.org/#chan"))).to.deep.equal({
 				host: "irc.example.org",
 				port: 443,
+				portGiven: false,
+				tls: true,
+				join: "#chan",
+			});
+			expect(
+				linkSuggestion(parseIrcUri("web+irc://irc.example.org:8443/#chan"))
+			).to.deep.equal({
+				host: "irc.example.org",
+				port: 8443,
+				portGiven: true,
 				tls: true,
 				join: "#chan",
 			});
@@ -39,6 +49,7 @@ describe("linkTarget helper", function () {
 			expect(linkSuggestion({host: "irc.example.org"})).to.deep.equal({
 				host: "irc.example.org",
 				port: 443,
+				portGiven: false,
 				tls: true,
 				join: "",
 			});
@@ -79,9 +90,38 @@ describe("linkTarget helper", function () {
 		const suggested = (overrides = {}) => ({
 			host: "irc.example.org",
 			port: 443,
+			portGiven: true,
 			tls: true,
 			join: "#chan",
 			...overrides,
+		});
+
+		it("matches a saved network on the host alone when the link names no port", function () {
+			const decision = decideLinkTarget(suggested({portGiven: false}), {
+				saved: [net({port: 6697})],
+			});
+
+			expect(decision.kind).to.equal("saved");
+			expect(decision.kind === "saved" && decision.network.port).to.equal(6697);
+		});
+
+		it("never matches a cleartext network when the link names no port", function () {
+			const plain = net({
+				uuid: "22222222-2222-4222-8222-222222222222",
+				port: 8067,
+				tls: false,
+			});
+			const secure = net({port: 6697});
+
+			expect(decideLinkTarget(suggested({portGiven: false}), {saved: [plain]}).kind).to.equal(
+				"new"
+			);
+
+			const decision = decideLinkTarget(suggested({portGiven: false}), {
+				saved: [plain, secure],
+			});
+
+			expect(decision.kind === "saved" && decision.network.uuid).to.equal(secure.uuid);
 		});
 
 		it("matches a saved network by casefolded host and port", function () {

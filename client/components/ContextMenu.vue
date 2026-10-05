@@ -2,6 +2,7 @@
 	<div
 		v-if="isOpen"
 		id="context-menu-container"
+		data-escape-close="context-menu"
 		:class="{passthrough}"
 		@click="containerClick"
 		@contextmenu.prevent="containerClick"
@@ -254,8 +255,14 @@ export default defineComponent({
 			activeItem.value = currentIndex;
 		};
 
+		const onEscape = (layer: string | null) => {
+			if (layer === "context-menu") {
+				close();
+			}
+		};
+
 		onMounted(() => {
-			eventbus.on("escapekey", close);
+			eventbus.on("escapekey", onEscape);
 			eventbus.on("contextmenu:cancel", close);
 			eventbus.on("contextmenu:user", openUserContextMenu);
 			eventbus.on("contextmenu:channel", openChannelContextMenu);
@@ -264,7 +271,7 @@ export default defineComponent({
 		});
 
 		onUnmounted(() => {
-			eventbus.off("escapekey", close);
+			eventbus.off("escapekey", onEscape);
 			eventbus.off("contextmenu:cancel", close);
 			eventbus.off("contextmenu:user", openUserContextMenu);
 			eventbus.off("contextmenu:channel", openChannelContextMenu);
