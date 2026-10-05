@@ -3,6 +3,8 @@
  */
 
 import {MessageType} from "../../../../shared/types/msg";
+import type {Channel} from "../channel";
+import {msgidOf} from "../message";
 import type {Handler} from "../types";
 
 const quit: Handler = (client, msg) => {
@@ -14,19 +16,20 @@ const quit: Handler = (client, msg) => {
 	}
 
 	const time = client.timeOf(msg);
+	const quitIn = (chan: Channel) =>
+		client.pushMessage(chan, {
+			type: MessageType.QUIT,
+			time,
+			from: chan.userRef(nick),
+			hostmask: `${msg.source?.user ?? ""}@${msg.source?.host ?? ""}`,
+			text: reason,
+			...msgidOf(msg),
+		});
 
 	if (client.replaying) {
 		// History (draft/event-playback): the batch's channel, no user-list change.
-		const chan = client.replayTarget;
-
-		if (chan) {
-			client.pushMessage(chan, {
-				type: MessageType.QUIT,
-				time,
-				from: chan.userRef(nick),
-				hostmask: `${msg.source?.user ?? ""}@${msg.source?.host ?? ""}`,
-				text: reason,
-			});
+		if (client.replayTarget) {
+			quitIn(client.replayTarget);
 		}
 
 		return;
@@ -37,13 +40,7 @@ const quit: Handler = (client, msg) => {
 			continue;
 		}
 
-		client.pushMessage(chan, {
-			type: MessageType.QUIT,
-			time,
-			from: chan.userRef(nick),
-			hostmask: `${msg.source?.user ?? ""}@${msg.source?.host ?? ""}`,
-			text: reason,
-		});
+		quitIn(chan);
 		chan.removeUser(nick);
 	}
 };

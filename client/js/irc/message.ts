@@ -25,6 +25,18 @@ export interface IrcMessage {
 	raw: string;
 }
 
+/**
+ * `{msgid}` when the line carries one. Spread into every message a channel
+ * event pushes, live or replayed, so a replay of a line already shown is
+ * deduplicated (history.ts `replay`) instead of shown twice. Only for events
+ * nefarious2 stores in history: CHGHOST and AWAY are not stored, so their
+ * msgid must not become the catch-up cursor (`IrcClient.noteCursor`).
+ */
+export function msgidOf(msg: IrcMessage): {msgid?: string} {
+	const msgid = msg.tags.get("msgid");
+	return msgid ? {msgid} : {};
+}
+
 /** Input accepted by {@link formatLine}. */
 export interface IrcMessageInput {
 	tags?: Map<string, string> | Record<string, string>;

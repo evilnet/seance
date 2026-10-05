@@ -6,15 +6,9 @@
 import {ChanState, ChanType} from "../../../../shared/types/chan";
 import {MessageType, SharedMsg} from "../../../../shared/types/msg";
 import {newUser} from "../channel";
-import {IrcMessage} from "../message";
+import {msgidOf} from "../message";
 import {noteRestorationActivity} from "../persistence";
 import type {Handler} from "../types";
-
-/** `{msgid}` when the line carries one (history dedupe / catch-up reference). */
-function msgidOf(msg: IrcMessage): {msgid?: string} {
-	const msgid = msg.tags.get("msgid");
-	return msgid ? {msgid} : {};
-}
 
 const join: Handler = (client, msg) => {
 	const [name, account, gecos] = msg.params;

@@ -4,6 +4,7 @@
  */
 
 import {MessageType} from "../../../../shared/types/msg";
+import {msgidOf} from "../message";
 import type {Handler} from "../types";
 
 const part: Handler = (client, msg) => {
@@ -28,6 +29,7 @@ const part: Handler = (client, msg) => {
 		hostmask: `${msg.source?.user ?? ""}@${msg.source?.host ?? ""}`,
 		text: reason,
 		self: client.isSelf(nick),
+		...msgidOf(msg),
 	});
 
 	if (!client.replaying) {

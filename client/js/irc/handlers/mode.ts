@@ -8,6 +8,7 @@
 import {MessageType} from "../../../../shared/types/msg";
 import {Channel, setUserModes} from "../channel";
 import type {IrcClient} from "../client";
+import {msgidOf} from "../message";
 import type {Handler} from "../types";
 
 interface ModeChange {
@@ -115,6 +116,7 @@ const mode: Handler = (client, msg) => {
 		text,
 		users: params.filter((param) => chan.findUser(param) !== undefined),
 		self,
+		...msgidOf(msg),
 	});
 
 	if (client.replaying) {

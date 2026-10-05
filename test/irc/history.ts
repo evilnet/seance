@@ -545,6 +545,27 @@ describe("Chat history (history.ts)", function () {
 			]);
 		});
 
+		it("drops channel events already shown live (by msgid)", function () {
+			const h = setup();
+			const id = joined(h);
+			const live = [
+				"@time=2026-08-25T12:01:00.000Z;msgid=ev-part :bob!bob@host PART #seance :brb",
+				"@time=2026-08-25T12:02:00.000Z;msgid=ev-nick :carol!carol@host NICK :carol2",
+				"@time=2026-08-25T12:03:00.000Z;msgid=ev-topic :carol2!carol@host TOPIC #seance :new",
+				"@time=2026-08-25T12:04:00.000Z;msgid=ev-mode :alice!alice@host MODE #seance +v carol2",
+				"@time=2026-08-25T12:05:00.000Z;msgid=ev-kick :alice!alice@host KICK #seance carol2 :out",
+				"@time=2026-08-25T12:06:00.000Z;msgid=ev-join :dave!dave@host JOIN #seance * :Dave",
+				"@time=2026-08-25T12:07:00.000Z;msgid=ev-quit :dave!dave@host QUIT :Ping timeout",
+			];
+			h.transport.lines(...live);
+
+			socket.emit("more", {target: id, lastId: -1, condensed: false});
+			reply(h, h.sent(), [...live, hist(8)]);
+
+			const [more] = mores(id);
+			expect(more.messages.map((m) => m.text)).to.deep.equal(["message 8"]);
+		});
+
 		it("matches the reply by label, whatever the target spelling", function () {
 			const h = setup();
 			const id = joined(h);
