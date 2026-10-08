@@ -1,0 +1,3698 @@
+<title>Peace on the Plains</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+	rel="stylesheet"
+	href="https://fonts.googleapis.com/css2?family=Alegreya:wght@500;700&family=Alegreya+Sans:wght@400;500;700&family=Baloo+2:wght@600;700&family=Bitter:wght@500;700&family=Comfortaa:wght@600;700&family=Figtree:wght@400;500;700&family=Fraunces:wght@600;700&family=Lexend:wght@400;500;600&family=Lora:wght@400;500;700&family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Mulish:wght@400;500;700;800&family=Nunito:wght@400;600;700;800&family=Nunito+Sans:wght@400;500;700;800&family=Quicksand:wght@500;600;700&family=Source+Sans+3:wght@400;500;700&display=swap"
+/>
+
+<style>
+	:root {
+		--page: #f3f5f8;
+		--panel: #ffffff;
+		--ink: #1c2638;
+		--ink-soft: #5d6a80;
+		--line: #dde3ec;
+		--accent: #c2562b;
+		--accent-soft: #f1c9ae;
+		--radius: 14px;
+		--ff-text: "Alegreya Sans", "Segoe UI", system-ui, sans-serif;
+		--ff-display: Alegreya, Georgia, "Times New Roman", serif;
+		--f-size: 15.5px;
+		--f-body-w: 500;
+		--f-name-w: 700;
+	}
+	:root:not([data-theme="light"]) {
+		@media (prefers-color-scheme: dark) {
+			--page: #10141d;
+			--panel: #171d29;
+			--ink: #e7ecf4;
+			--ink-soft: #9aa7bb;
+			--line: #283143;
+			--accent: #f08a5d;
+			--accent-soft: #5a3526;
+		}
+	}
+	:root[data-theme="dark"] {
+		--page: #10141d;
+		--panel: #171d29;
+		--ink: #e7ecf4;
+		--ink-soft: #9aa7bb;
+		--line: #283143;
+		--accent: #f08a5d;
+		--accent-soft: #5a3526;
+	}
+	* {
+		box-sizing: border-box;
+	}
+	body {
+		margin: 0;
+		padding-inline: 18px;
+		padding-block: 34px 80px;
+		background: var(--page);
+		color: var(--ink);
+		font: 400 16.5px/1.6 var(--ff-text);
+		-webkit-font-smoothing: antialiased;
+	}
+	.wrap {
+		max-width: 1180px;
+		margin: 0 auto;
+		display: flex;
+		flex-direction: column;
+		gap: 34px;
+	}
+	h1,
+	h2,
+	h3 {
+		font-family: var(--ff-display);
+		margin: 0;
+		line-height: 1.12;
+		text-wrap: balance;
+	}
+	h1 {
+		font-size: clamp(34px, 5.4vw, 52px);
+		font-weight: 700;
+		letter-spacing: -0.01em;
+	}
+	h2 {
+		font-size: clamp(22px, 3vw, 28px);
+		font-weight: 700;
+	}
+	p {
+		margin: 0;
+	}
+	.lede {
+		color: var(--ink-soft);
+		font-size: 17.5px;
+		max-width: 64ch;
+	}
+	.eyebrow {
+		font: 700 11px/1.4 var(--ff-text);
+		letter-spacing: 0.15em;
+		text-transform: uppercase;
+		color: var(--accent);
+	}
+	header,
+	section {
+		display: flex;
+		flex-direction: column;
+		gap: 14px;
+	}
+
+	/* =================== the window: the plains are the whole of it =================== */
+	.app {
+		position: relative;
+		isolation: isolate;
+		height: clamp(520px, 66vw, 700px);
+		border-radius: 16px;
+		overflow: hidden;
+		border: 1px solid var(--line);
+		box-shadow: 0 2px 6px rgb(10 20 40 / 8%), 0 24px 64px rgb(10 20 40 / 16%);
+	}
+
+	.scene {
+		position: absolute;
+		inset: 0;
+		z-index: 0;
+		overflow: hidden;
+		background: linear-gradient(
+			180deg,
+			var(--sky-top) 0%,
+			var(--sky-mid) 50%,
+			var(--sky-hor) 62%,
+			var(--sky-hor) 100%
+		);
+	}
+	.scene > * {
+		position: absolute;
+	}
+
+	.milky {
+		left: -10%;
+		top: 2%;
+		width: 130%;
+		height: 34%;
+		transform: rotate(-15deg);
+		opacity: var(--milky);
+		background: radial-gradient(
+			50% 50% at 50% 50%,
+			rgb(214 206 255 / 42%),
+			rgb(160 170 230 / 16%) 45%,
+			transparent 72%
+		);
+		filter: blur(14px);
+	}
+	.stars {
+		inset: 0 0 40% 0;
+		opacity: var(--stars);
+	}
+	.stars i {
+		position: absolute;
+		width: 2px;
+		height: 2px;
+		border-radius: 50%;
+		background: #fff;
+	}
+	.stars i.b {
+		width: 3px;
+		height: 3px;
+		box-shadow: 0 0 6px 1px rgb(255 255 255 / 55%);
+	}
+	.stars i.tw {
+		animation: twinkle var(--tw, 4s) ease-in-out infinite alternate;
+	}
+	@keyframes twinkle {
+		from {
+			opacity: 0.25;
+		}
+		to {
+			opacity: 1;
+		}
+	}
+
+	.glow {
+		width: 80%;
+		aspect-ratio: 2.4;
+		left: var(--glow-x);
+		top: 57%;
+		transform: translate(-50%, -50%);
+		background: radial-gradient(
+			50% 50% at 50% 50%,
+			var(--glow) 0%,
+			color-mix(in oklab, var(--glow) 45%, transparent) 38%,
+			transparent 70%
+		);
+		opacity: var(--glow-op);
+	}
+
+	.sun,
+	.moon {
+		left: var(--x);
+		top: var(--y);
+		transform: translate(-50%, -50%);
+	}
+	.sun {
+		width: var(--sun-size);
+		aspect-ratio: 1;
+		opacity: var(--sun-op);
+	}
+	.sun .rays {
+		position: absolute;
+		inset: 14%;
+		border-radius: 50%;
+		background: repeating-conic-gradient(
+			from 0deg,
+			color-mix(in oklab, var(--sun-flame) 55%, transparent) 0 4deg,
+			transparent 4deg 13deg
+		);
+		-webkit-mask: radial-gradient(closest-side, transparent 30%, #000 40%, transparent 100%);
+		mask: radial-gradient(closest-side, transparent 30%, #000 40%, transparent 100%);
+		animation: spin 90s linear infinite;
+		filter: blur(1.5px);
+		opacity: 0.85;
+	}
+	@keyframes spin {
+		to {
+			transform: rotate(360deg);
+		}
+	}
+	.sun svg,
+	.moon svg {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		overflow: visible;
+	}
+	.moon {
+		width: var(--moon-size);
+		aspect-ratio: 1;
+		opacity: var(--moon-op);
+	}
+
+	.cloud {
+		top: var(--cy);
+		left: 0;
+		width: var(--cw);
+		height: calc(var(--cw) * 0.42);
+		animation: drift var(--cd) linear var(--cdl) infinite;
+		filter: blur(0.4px);
+	}
+	.cloud i {
+		position: absolute;
+		border-radius: 50%;
+		background: linear-gradient(180deg, var(--cloud) 40%, var(--cloud-under) 100%);
+	}
+	@keyframes drift {
+		from {
+			transform: translateX(-30%);
+		}
+		to {
+			transform: translateX(calc(1250px + 60%));
+		}
+	}
+
+	.land {
+		left: 0;
+		right: 0;
+		bottom: 0;
+		height: 56%;
+		width: 100%;
+	}
+	.l-mount {
+		fill: var(--mount);
+	}
+	.l-mount2 {
+		fill: color-mix(in oklab, var(--mount) 72%, var(--far));
+	}
+	.l-far {
+		fill: var(--far);
+	}
+	.l-hill2 {
+		fill: var(--hill2);
+	}
+	.l-hill1 {
+		fill: var(--hill1);
+	}
+	.l-grass {
+		fill: var(--grass);
+	}
+	.l-tree {
+		fill: color-mix(in oklab, var(--hill2) 55%, #1f3a24);
+	}
+	.l-trunk {
+		fill: color-mix(in oklab, var(--hill2) 40%, #3a2a1c);
+	}
+	.l-riverbed {
+		fill: color-mix(in oklab, var(--hill1) 42%, #dcc9a0);
+	}
+	.l-bedstone {
+		fill: color-mix(in oklab, var(--hill1) 30%, #a99c80);
+		opacity: calc(1 - var(--water, 1));
+	}
+	.l-river {
+		fill: url(#riverSky);
+		opacity: var(--water, 1);
+	}
+	.l-river-hi {
+		fill: none;
+		stroke: color-mix(in oklab, var(--sky-hor) 60%, #fff);
+		stroke-width: 1.4;
+		opacity: calc((0.55 - var(--dark) * 0.35) * var(--water, 1));
+	}
+	.l-rim {
+		fill: none;
+		stroke: var(--glow);
+		stroke-width: 2.2;
+		opacity: calc(var(--glow-op) * 0.85);
+	}
+	.l-tuft2 {
+		fill: color-mix(in oklab, var(--hill2) 72%, var(--blade));
+	}
+	.l-tuft1 {
+		fill: color-mix(in oklab, var(--hill1) 70%, var(--blade));
+	}
+	.l-tuft-lit {
+		fill: color-mix(in oklab, var(--hill1) 70%, #fff6c8);
+		opacity: calc(0.5 - var(--dark) * 0.45);
+	}
+	.l-shrub {
+		fill: color-mix(in oklab, var(--far) 55%, #28402c);
+	}
+	.blades {
+		left: 0;
+		right: 0;
+		bottom: 0;
+		height: 19%;
+		width: 100%;
+	}
+	.blades path {
+		fill: var(--blade);
+	}
+	.blades .sway {
+		transform-origin: 50% 100%;
+		animation: sway 7s ease-in-out infinite alternate;
+	}
+	@keyframes sway {
+		from {
+			transform: skewX(calc(var(--sway, 2.2deg) * -1));
+		}
+		to {
+			transform: skewX(var(--sway, 2.2deg));
+		}
+	}
+	.scene.windy .blades .sway {
+		animation-duration: 2.4s;
+	}
+	.scene.windy .cloud {
+		animation-duration: calc(var(--cd) * 0.4);
+	}
+	.blades circle {
+		opacity: calc(var(--flowers, 1) * (0.85 - var(--dark) * 0.7));
+	}
+
+	.yurt {
+		left: var(--yurt-left, 70%);
+		bottom: 17%;
+		height: 21%;
+		aspect-ratio: 240 / 170;
+		transform: translateX(-50%);
+		transition: opacity 0.38s ease;
+	}
+	/* a yurt does not travel: it fades out where it stood and in where it now stands (placeYurt) */
+	.app.yurt-moving .yurt,
+	.app.yurt-moving .smoke {
+		opacity: 0;
+	}
+	.yurt svg {
+		width: 100%;
+		height: 100%;
+		overflow: visible;
+	}
+	.y-felt-l {
+		stop-color: color-mix(in oklab, var(--felt) 80%, #3a3040);
+	}
+	.y-felt-c {
+		stop-color: var(--felt);
+	}
+	.y-roof-t {
+		stop-color: color-mix(in oklab, var(--felt) 92%, #fff);
+	}
+	.y-roof-b {
+		stop-color: color-mix(in oklab, var(--felt) 78%, #4a3c3c);
+	}
+	.y-band {
+		fill: var(--band);
+	}
+	.y-roof {
+		stroke: color-mix(in oklab, var(--felt) 55%, #5a4a3e);
+		stroke-width: 0.9;
+		stroke-opacity: 0.6;
+		stroke-linejoin: round;
+	}
+	.y-band-mark {
+		fill: color-mix(in oklab, var(--band) 45%, #f3e3c6);
+	}
+	.y-rope {
+		stroke: color-mix(in oklab, var(--felt) 55%, #5a4636);
+	}
+	.y-rib {
+		stroke: color-mix(in oklab, var(--felt) 72%, #6a5a4a);
+	}
+	.y-door {
+		fill: var(--door);
+	}
+	.y-door-orn {
+		stroke: color-mix(in oklab, var(--door) 35%, #f3c66a);
+	}
+	.y-crown {
+		fill: color-mix(in oklab, var(--felt) 60%, #5a4a3e);
+	}
+	.y-pipe {
+		fill: color-mix(in oklab, var(--felt) 30%, #4d4640);
+	}
+	.y-stone {
+		fill: color-mix(in oklab, var(--grass) 45%, #a8a39a);
+	}
+	.y-wood {
+		fill: color-mix(in oklab, var(--hill1) 30%, #7a5638);
+	}
+	.y-path {
+		fill: color-mix(in oklab, var(--grass) 68%, #d8c9a0);
+		opacity: 0.6;
+	}
+	.y-lit {
+		opacity: var(--night-glow);
+	}
+	.y-spill {
+		opacity: calc(var(--night-glow) * 0.85);
+	}
+
+	.smoke {
+		width: 1px;
+		height: 1px;
+		opacity: var(--smoke-op);
+		transition: opacity 0.38s ease;
+	}
+	.smoke i {
+		position: absolute;
+		left: 0;
+		bottom: 0;
+		border-radius: 50%;
+		background: radial-gradient(closest-side, var(--smoke) 0%, transparent 100%);
+		animation: rise var(--sd) linear var(--sdl) infinite;
+		opacity: 0;
+	}
+	@keyframes rise {
+		0% {
+			transform: translate(-50%, 0) scale(0.45);
+			opacity: 0;
+		}
+		12% {
+			opacity: 0.9;
+		}
+		100% {
+			transform: translate(calc(-50% + 34px), -96px) scale(3.1);
+			opacity: 0;
+		}
+	}
+
+	/* ---- seasons and weather ---- */
+	.fireflies {
+		left: 0;
+		right: 0;
+		top: 62%;
+		bottom: 16%;
+		opacity: var(--ff-op, 0);
+		pointer-events: none;
+	}
+	.fireflies i {
+		position: absolute;
+		width: 3px;
+		height: 3px;
+		border-radius: 50%;
+		background: #eaff9e;
+		box-shadow: 0 0 6px 2px rgb(212 255 120 / 75%);
+		animation: ffdrift var(--d) ease-in-out var(--dl) infinite alternate,
+			ffblink var(--b) ease-in-out var(--bl) infinite;
+	}
+	@keyframes ffdrift {
+		from {
+			transform: translate(0, 0);
+		}
+		to {
+			transform: translate(var(--dx), var(--dy));
+		}
+	}
+	@keyframes ffblink {
+		0%,
+		100% {
+			opacity: 0;
+		}
+		35%,
+		55% {
+			opacity: 1;
+		}
+	}
+
+	.birds {
+		inset: 0 0 45% 0;
+		opacity: var(--birds-op, 0);
+		pointer-events: none;
+	}
+	.flock {
+		position: absolute;
+		top: var(--fy);
+		left: 0;
+		width: 200px;
+		height: 90px;
+		animation: fly var(--fd) linear var(--fdl) infinite;
+	}
+	.birds.west .flock {
+		animation-name: flywest;
+	}
+	@keyframes fly {
+		from {
+			transform: translateX(-240px);
+		}
+		to {
+			transform: translateX(1340px);
+		}
+	}
+	@keyframes flywest {
+		from {
+			transform: translateX(1340px) scaleX(-1);
+		}
+		to {
+			transform: translateX(-240px) scaleX(-1);
+		}
+	}
+	/* a skein is never rigid: the whole formation rises, sinks and leans a little as it goes; far ones are small and pale */
+	.skein {
+		position: absolute;
+		inset: 0;
+		transform: scale(var(--fs, 1));
+		transform-origin: 100% 50%;
+		opacity: var(--fo, 1);
+	}
+	.sway {
+		position: absolute;
+		inset: 0;
+		animation: sway var(--sd) ease-in-out var(--sdl) infinite alternate;
+	}
+	@keyframes sway {
+		from {
+			transform: translateY(-5px) rotate(-1.4deg);
+		}
+		to {
+			transform: translateY(6px) rotate(1.2deg);
+		}
+	}
+	/* and each bird drifts about its place in the line */
+	.bird {
+		position: absolute;
+		animation: wander var(--wd) ease-in-out var(--wdl) infinite alternate;
+	}
+	@keyframes wander {
+		to {
+			transform: translate(var(--wx), var(--wy));
+		}
+	}
+	.bird svg {
+		display: block;
+		width: 100%;
+		height: 100%;
+		overflow: visible;
+		fill: var(--bird-ink);
+	}
+	.bird .far {
+		opacity: 0.55;
+	}
+
+	.wdim {
+		inset: 0;
+		background: var(--wdim-c, #5a6478);
+		opacity: var(--wdim, 0);
+		pointer-events: none;
+		transition: opacity 0.6s;
+	}
+	.rain,
+	.snow,
+	.seeds {
+		inset: 0;
+		pointer-events: none;
+	}
+	.rain {
+		opacity: var(--rain-op, 0);
+	}
+	.rain i {
+		position: absolute;
+		top: -8%;
+		width: 1.3px;
+		height: 20px;
+		background: linear-gradient(transparent, rgb(214 226 244 / 75%));
+		animation: drop var(--rd) linear var(--rdl) infinite;
+	}
+	@keyframes drop {
+		to {
+			transform: translate(-46px, 820px);
+		}
+	}
+	.snow {
+		opacity: var(--snow-op, 0);
+	}
+	.snow i {
+		position: absolute;
+		top: -6%;
+		width: var(--fs);
+		height: var(--fs);
+		border-radius: 50%;
+		background: rgb(255 255 255 / 88%);
+		animation: flake var(--fd) linear var(--fdl) infinite;
+	}
+	@keyframes flake {
+		50% {
+			transform: translate(calc(var(--fx) * 0.5 + 12px), 400px);
+		}
+		100% {
+			transform: translate(var(--fx), 800px);
+		}
+	}
+	.seeds {
+		opacity: var(--wind-op, 0);
+	}
+	.seeds i {
+		position: absolute;
+		top: var(--y);
+		width: 3px;
+		height: 3px;
+		border-radius: 50%;
+		background: rgb(255 248 226 / 80%);
+		animation: seed var(--sd) linear var(--sdl) infinite;
+	}
+	@keyframes seed {
+		from {
+			transform: translate(-80px, 0);
+		}
+		to {
+			transform: translate(1320px, var(--sy));
+		}
+	}
+	.flash {
+		inset: 0;
+		background: rgb(236 241 255);
+		opacity: 0;
+		pointer-events: none;
+	}
+	.scene.storm .flash {
+		animation: flash 9s linear infinite;
+	}
+	@keyframes flash {
+		0%,
+		90%,
+		100% {
+			opacity: 0;
+		}
+		91% {
+			opacity: 0.5;
+		}
+		92% {
+			opacity: 0.08;
+		}
+		93.5% {
+			opacity: 0.42;
+		}
+		95.5% {
+			opacity: 0;
+		}
+	}
+	.heatband {
+		left: 0;
+		right: 0;
+		top: 52%;
+		height: 10%;
+		pointer-events: none;
+		opacity: var(--heat-op, 0);
+		background: linear-gradient(transparent, rgb(255 244 214 / 13%), transparent);
+		animation: shimmer 5s ease-in-out infinite alternate;
+	}
+	@keyframes shimmer {
+		from {
+			transform: translateY(-1.5px) scaleY(0.95);
+		}
+		to {
+			transform: translateY(1.5px) scaleY(1.05);
+		}
+	}
+	.ground {
+		inset: 0;
+	}
+	.ground > * {
+		position: absolute;
+	}
+	/* heat bends what is seen through the hot air -- the land and the yurt together -- and leaves the near
+   grass in the foreground crisp */
+	.scene.hot .ground {
+		filter: url(#heatHaze);
+	}
+	.y-snow {
+		fill: #f5f8fc;
+		opacity: var(--snowcap, 0);
+	}
+
+	/* =================== the interface, as glass over the plains =================== */
+	.ui {
+		position: relative;
+		z-index: 2;
+		height: 100%;
+		display: grid;
+		grid-template-columns: 200px minmax(0, 1fr) 170px;
+	}
+	@media (max-width: 880px) {
+		.ui {
+			grid-template-columns: minmax(0, 1fr);
+		}
+		.side,
+		.users {
+			display: none;
+		}
+	}
+	.glass {
+		background: var(--g-glass);
+		color: var(--g-ink);
+		-webkit-backdrop-filter: blur(10px) saturate(1.12);
+		backdrop-filter: blur(10px) saturate(1.12);
+		transition: background 0.8s, color 0.8s, border-color 0.8s;
+	}
+	.side {
+		border-inline-end: 1px solid var(--g-edge);
+		padding: 14px 10px;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+		font: 500 14.5px/1.4 var(--ff-text);
+	}
+	.side .net {
+		font: 700 16px/1.2 var(--ff-display);
+		padding: 4px 10px 2px;
+	}
+	.side .nick {
+		font-size: 12.5px;
+		color: var(--g-soft);
+		padding: 0 10px 10px;
+	}
+	.side .ch {
+		padding: 6px 10px;
+		border-radius: 9px;
+		color: var(--g-soft);
+	}
+	.side .ch.on {
+		background: var(--g-on);
+		color: var(--g-ink);
+		font-weight: 700;
+	}
+	.side .ch b {
+		float: inline-end;
+		font-size: 11.5px;
+		background: var(--accent);
+		color: #fff;
+		border-radius: 999px;
+		padding: 0 7px;
+	}
+	.users {
+		border-inline-start: 1px solid var(--g-edge);
+		padding: 14px 12px;
+		font: 500 14px/1.9 var(--ff-text);
+	}
+	.users h4 {
+		margin: 0 0 4px;
+		font: 700 11px/1.4 var(--ff-text);
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--g-soft);
+	}
+	.users .u1 {
+		color: var(--g-n1);
+	}
+	.users .u2 {
+		color: var(--g-n2);
+	}
+	.users .u3 {
+		color: var(--g-n3);
+	}
+	.users .u4 {
+		color: var(--g-n4);
+	}
+
+	.chat {
+		display: grid;
+		grid-template-rows: 50px minmax(0, 1fr) 62px;
+		min-width: 0;
+	}
+	.head {
+		border-bottom: 1px solid var(--g-edge);
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding-inline: 18px;
+		font: 500 14.5px/1.3 var(--ff-text);
+	}
+	.head b {
+		font: 700 17px/1.2 var(--ff-display);
+	}
+	.head span {
+		color: var(--g-soft);
+	}
+	.compose {
+		border-top: 1px solid var(--g-edge);
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		padding-inline: 14px;
+	}
+	.compose .field {
+		flex: 1;
+		border-radius: 11px;
+		padding: 9px 13px;
+		background: var(--g-field);
+		color: var(--g-soft);
+		font: 500 14.5px/1.3 var(--ff-text);
+		border: 1px solid var(--g-edge);
+	}
+	.compose button {
+		font: 700 14px/1 var(--ff-text);
+		border: 0;
+		border-radius: 10px;
+		padding: 10px 14px;
+		cursor: pointer;
+		background: var(--accent-ui);
+		color: #fff;
+	}
+	.compose button:focus-visible {
+		outline: 2px solid #fff;
+		outline-offset: 2px;
+	}
+
+	.log {
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-end;
+		gap: 3px;
+		overflow: hidden;
+		padding: 0 18px 12px;
+		font: var(--f-body-w) var(--f-size) / 1.5 var(--ff-text);
+	}
+	.row {
+		display: grid;
+		grid-template-columns: 58px 96px minmax(0, 1fr);
+		gap: 10px;
+		align-items: baseline;
+		position: relative;
+		isolation: isolate;
+		color: var(--c-ink);
+		text-shadow: var(--c-shadow);
+		transition: color 0.8s, text-shadow 0.8s;
+		animation: fadein 0.6s ease-out;
+	}
+	.row .t {
+		color: var(--c-faint);
+		font-size: 0.82em;
+		font-variant-numeric: tabular-nums;
+		transition: color 0.8s;
+	}
+	.row .n {
+		font-family: var(--ff-display);
+		font-weight: var(--f-name-w);
+		text-align: end;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		/* the clip that makes the ellipsis would crop the shadow at the box's edge: pad the clip box out by the shadow's
+     reach and pull it back with a negative margin, so the name sits where it did */
+		padding: 0.5em 0.6em;
+		margin: -0.5em -0.6em;
+	}
+	.row .x {
+		unicode-bidi: plaintext;
+	} /* each message keeps its own direction, as the app's <bdi> does */
+	.n.c1 {
+		color: var(--c-n1);
+	}
+	.n.c2 {
+		color: var(--c-n2);
+	}
+	.n.c3 {
+		color: var(--c-n3);
+	}
+	.n.c4 {
+		color: var(--c-n4);
+	}
+	@keyframes fadein {
+		from {
+			opacity: 0;
+			transform: translateY(3px);
+		}
+		to {
+			opacity: 1;
+			transform: none;
+		}
+	}
+	.chips {
+		grid-column: 3;
+		display: flex;
+		gap: 6px;
+		margin-top: 2px;
+	}
+	.chip {
+		position: relative;
+		isolation: isolate;
+		font: 600 13px/1.5 var(--ff-text);
+		padding: 1px 9px;
+		border-radius: 999px;
+		background: var(--g-glass);
+		color: var(--g-ink);
+		text-shadow: none;
+		border: 1px solid var(--g-edge);
+		-webkit-backdrop-filter: blur(6px);
+		backdrop-filter: blur(6px);
+	}
+	@media (max-width: 560px) {
+		.row {
+			grid-template-columns: minmax(0, 1fr);
+			gap: 0;
+		}
+		.row .t {
+			display: none;
+		}
+		.row .n {
+			text-align: start;
+		}
+		.chips {
+			grid-column: 1;
+		}
+	}
+
+	/* the four candidate replacements for glitter */
+	.fx-lantern::before {
+		content: "";
+		position: absolute;
+		inset: -10px -28px;
+		z-index: -1;
+		border-radius: 40px;
+		background: radial-gradient(
+			60% 70% at 30% 50%,
+			rgb(255 196 120 / 55%),
+			rgb(255 170 90 / 18%) 45%,
+			transparent 75%
+		);
+		animation: lantern 2.4s ease-out both;
+	}
+	@keyframes lantern {
+		0% {
+			opacity: 0;
+			transform: scale(0.85);
+		}
+		25% {
+			opacity: 1;
+		}
+		100% {
+			opacity: 0;
+			transform: scale(1.06);
+		}
+	}
+	.ember {
+		position: absolute;
+		width: 4px;
+		height: 4px;
+		border-radius: 50%;
+		z-index: 2;
+		pointer-events: none;
+		background: #ffc46e;
+		box-shadow: 0 0 6px 2px rgb(255 160 70 / 65%);
+		animation: ember var(--ed) cubic-bezier(0.25, 0.6, 0.35, 1) var(--edl) both;
+	}
+	@keyframes ember {
+		0% {
+			transform: translate(0, 0) scale(0.6);
+			opacity: 0;
+		}
+		15% {
+			opacity: 1;
+		}
+		100% {
+			transform: translate(var(--ex), var(--ey)) scale(0.2);
+			opacity: 0;
+		}
+	}
+	.fx-wash .x {
+		animation: wash 2.2s ease-out both;
+	}
+	@keyframes wash {
+		0% {
+			color: #f1b35a;
+			text-shadow: 0 0 10px rgb(255 190 110 / 90%), 0 1px 2px rgb(0 0 0 / 40%);
+		}
+		100% {
+		}
+	}
+
+	.app.preload,
+	.app.preload * {
+		transition: none !important;
+	}
+	.app {
+		background: var(--g-solid, #fbf8f2);
+	}
+	.app.pm .ui {
+		grid-template-columns: 200px minmax(0, 1fr);
+	}
+	.app.pm .users,
+	.app .pmlog,
+	.app.pm #log {
+		display: none;
+	}
+	.app.pm .pmlog {
+		display: flex;
+	}
+	@media (max-width: 880px) {
+		.app.pm .ui {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+	/* a private conversation is quieter: nothing moves behind it, in any of the three */
+	.app.pm.pm-still .scene * {
+		animation-play-state: paused !important;
+	}
+	.app.pm.pm-frost .scene {
+		filter: blur(18px) saturate(0.85);
+		transform: scale(1.08);
+	}
+	.app.pm.pm-frost[dir="rtl"] .scene {
+		transform: scaleX(-1) scale(1.08);
+	}
+	.app.pm.pm-sky .scene > :not(.milky):not(.stars) {
+		visibility: hidden;
+	}
+	.app.pm.pm-glass .scene {
+		visibility: hidden;
+	}
+	.app[dir="rtl"] .scene {
+		transform: scaleX(-1);
+	}
+
+	/* =================== controls and choices =================== */
+	.bar {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 12px 18px;
+		align-items: center;
+		padding: 12px 16px;
+		border: 1px solid var(--line);
+		border-radius: var(--radius);
+		background: var(--panel);
+	}
+	.bar label {
+		font: 700 12px/1 var(--ff-text);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--ink-soft);
+	}
+	.bar input[type="range"] {
+		flex: 1 1 280px;
+		accent-color: var(--accent);
+		min-width: 200px;
+	}
+	.clock {
+		font: 700 26px/1 var(--ff-display);
+		font-variant-numeric: tabular-nums;
+		min-width: 5.3ch;
+	}
+	.phase {
+		color: var(--ink-soft);
+		font-size: 15px;
+		min-width: 11ch;
+	}
+	.btn {
+		font: 700 14px/1 var(--ff-text);
+		border: 1px solid var(--line);
+		background: var(--page);
+		color: var(--ink);
+		padding: 9px 13px;
+		border-radius: 10px;
+		cursor: pointer;
+	}
+	.btn:hover {
+		border-color: var(--accent);
+	}
+	.btn:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
+	}
+	.seg {
+		display: inline-flex;
+	}
+	.seg .btn:first-child {
+		border-start-end-radius: 0;
+		border-end-end-radius: 0;
+	}
+	.seg .btn:last-child {
+		border-start-start-radius: 0;
+		border-end-start-radius: 0;
+		margin-inline-start: -1px;
+	}
+	.side .ch {
+		cursor: pointer;
+	}
+	.side .ch:not(.on):hover {
+		background: color-mix(in oklab, var(--g-on) 55%, transparent);
+		color: var(--g-ink);
+	}
+	.btn[aria-pressed="true"] {
+		background: var(--accent);
+		border-color: var(--accent);
+		color: #fff;
+	}
+	.moonbar {
+		display: flex;
+		gap: 10px;
+		align-items: center;
+		flex-wrap: wrap;
+		font-size: 15px;
+		color: var(--ink-soft);
+	}
+	.moonbar b {
+		color: var(--ink);
+		font-variant-numeric: tabular-nums;
+	}
+	.moonbar select {
+		font: 600 14px/1 var(--ff-text);
+		padding: 8px 10px;
+		border-radius: 10px;
+		border: 1px solid var(--line);
+		background: var(--page);
+		color: var(--ink);
+	}
+	.moonbar .sep {
+		opacity: 0.4;
+	}
+
+	.opts {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+		gap: 12px;
+	}
+	.opt {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		text-align: left;
+		padding: 14px;
+		border-radius: 12px;
+		cursor: pointer;
+		border: 1px solid var(--line);
+		background: var(--panel);
+		color: inherit;
+		font: inherit;
+	}
+	.opt:hover {
+		border-color: var(--accent);
+	}
+	.opt:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
+	}
+	.opt[aria-pressed="true"] {
+		border-color: var(--accent);
+		box-shadow: inset 0 0 0 1px var(--accent);
+	}
+	.opt .name {
+		font: 700 17px/1.2 var(--ff-display);
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+	.opt .why {
+		font-size: 14.5px;
+		color: var(--ink-soft);
+		line-height: 1.5;
+	}
+	.pick {
+		width: 9px;
+		height: 9px;
+		border-radius: 50%;
+		background: var(--line);
+		flex: none;
+	}
+	.opt[aria-pressed="true"] .pick {
+		background: var(--accent);
+	}
+	.rec {
+		font: 700 10px/1 var(--ff-text);
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--accent);
+		border: 1px solid currentcolor;
+		border-radius: 999px;
+		padding: 3px 6px;
+	}
+	.spec {
+		display: block;
+		padding: 11px 13px;
+		border-radius: 10px;
+		background: var(--page);
+		color: var(--ink);
+		font: var(--sf-w) 16px/1.45 var(--sf-t);
+	}
+	.spec b {
+		font: var(--sf-n) 18px/1.2 var(--sf-d);
+	}
+	.spec i {
+		font-style: normal;
+		font-size: 12.5px;
+		color: var(--ink-soft);
+		font-variant-numeric: tabular-nums;
+	}
+	.spec small {
+		font-size: 13.5px;
+		color: var(--ink-soft);
+	}
+	.opts.type {
+		grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
+		gap: 10px;
+	}
+	.opts.type .opt {
+		padding: 12px;
+		gap: 6px;
+	}
+	.tspec {
+		display: block;
+		color: var(--ink);
+		font: var(--tw) 17px/1.35 var(--tf);
+	}
+	.tspec small {
+		display: block;
+		font-size: 13px;
+		color: var(--ink-soft);
+		margin-top: 3px;
+	}
+	.tname {
+		font: 700 12px/1.3 var(--ff-text);
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--ink-soft);
+		display: flex;
+		align-items: center;
+		gap: 7px;
+	}
+	.presets {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+	}
+	.presets .btn {
+		font-weight: 600;
+	}
+	h3.sub {
+		font: 700 18px/1.2 var(--ff-display);
+		margin-top: 6px;
+	}
+	.note {
+		border-left: 3px solid var(--accent-soft);
+		padding: 2px 0 2px 14px;
+		color: var(--ink-soft);
+		font-size: 15px;
+		max-width: 72ch;
+	}
+	.summary {
+		border: 1px solid var(--line);
+		border-radius: var(--radius);
+		background: var(--panel);
+		padding: 20px 22px;
+	}
+	.summary ol {
+		margin: 0;
+		padding-left: 20px;
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+	.summary li::marker {
+		color: var(--accent);
+		font-weight: 700;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.sun .rays,
+		.cloud,
+		.blades .sway,
+		.stars i.tw,
+		.smoke i {
+			animation: none !important;
+		}
+	}
+</style>
+
+<div class="wrap">
+	<header>
+		<span class="eyebrow">ps &middot; a proposal, second round</span>
+		<h1>Peace on the Plains</h1>
+		<p class="lede">
+			The whole window is the plains now, and the plains keep the calendar as well as the
+			clock. The channel list, the header, the box you type in and the list of people are
+			glass laid over the landscape, coloured for the hour. Every channel is the same place.
+		</p>
+	</header>
+
+	<div class="app preload" id="app">
+		<div class="scene" id="scene">
+			<div class="milky"></div>
+			<div class="stars" id="stars"></div>
+			<div class="glow"></div>
+
+			<div class="moon" id="moon">
+				<svg viewBox="-60 -60 120 120" aria-hidden="true">
+					<defs>
+						<radialGradient id="mHalo">
+							<stop offset="0" stop-color="#e3e9ff" stop-opacity=".42" />
+							<stop offset=".55" stop-color="#c7d2ff" stop-opacity=".12" />
+							<stop offset="1" stop-color="#c7d2ff" stop-opacity="0" />
+						</radialGradient>
+						<radialGradient id="mDisc" cx=".42" cy=".4" r=".7">
+							<stop offset="0" stop-color="#fdfaf0" />
+							<stop offset=".62" stop-color="#ece5cf" />
+							<stop offset="1" stop-color="#c9c0a6" />
+						</radialGradient>
+						<filter id="mSoft" x="-20%" y="-20%" width="140%" height="140%">
+							<feGaussianBlur stdDeviation="1.3" />
+						</filter>
+						<mask
+							id="mPhase"
+							maskUnits="userSpaceOnUse"
+							x="-60"
+							y="-60"
+							width="120"
+							height="120"
+						>
+							<rect x="-60" y="-60" width="120" height="120" fill="#000" />
+							<g id="mShape">
+								<path d="M0,-30 A30,30 0 0 1 0,30 Z" fill="#fff" />
+								<ellipse id="mEll" rx="0" ry="30" fill="#000" />
+							</g>
+						</mask>
+					</defs>
+					<circle r="60" fill="url(#mHalo)" />
+					<circle r="30" fill="#39426a" opacity=".32" />
+					<g mask="url(#mPhase)">
+						<circle r="30" fill="url(#mDisc)" />
+						<g filter="url(#mSoft)" fill="#8f8c82" opacity=".5">
+							<ellipse cx="-9" cy="-11" rx="9" ry="7" />
+							<ellipse cx="3" cy="-12" rx="6" ry="5" />
+							<ellipse cx="7" cy="-2" rx="7" ry="6" />
+							<ellipse cx="14" cy="6" rx="4.5" ry="6" />
+							<ellipse cx="-15" cy="3" rx="7" ry="10" />
+							<ellipse cx="-4" cy="10" rx="5" ry="4" />
+						</g>
+						<g fill="none" stroke="#b6af9c" stroke-width=".7" opacity=".7">
+							<circle cx="-4" cy="21" r="2.4" />
+							<circle cx="17" cy="-15" r="1.8" />
+							<circle cx="-20" cy="-14" r="1.5" />
+							<circle cx="10" cy="18" r="1.4" />
+							<circle cx="21" cy="10" r="1.2" />
+						</g>
+						<path
+							d="M-4,21 L-11,28 M-4,21 L4,27 M-4,21 L-4,12 M-4,21 L-14,17 M-4,21 L6,16"
+							stroke="#f4efdf"
+							stroke-width=".5"
+							opacity=".35"
+						/>
+					</g>
+				</svg>
+			</div>
+
+			<div class="sun" id="sun">
+				<div class="rays"></div>
+				<svg viewBox="-100 -100 200 200" aria-hidden="true">
+					<defs>
+						<radialGradient id="sBloom">
+							<stop
+								offset="0"
+								style="stop-color: var(--sun-bloom)"
+								stop-opacity=".95"
+							/>
+							<stop
+								offset=".5"
+								style="stop-color: var(--sun-bloom)"
+								stop-opacity=".25"
+							/>
+							<stop
+								offset="1"
+								style="stop-color: var(--sun-bloom)"
+								stop-opacity="0"
+							/>
+						</radialGradient>
+						<radialGradient id="sFlame">
+							<stop offset="0" style="stop-color: var(--sun-flame)" />
+							<stop
+								offset=".6"
+								style="stop-color: var(--sun-flame)"
+								stop-opacity=".8"
+							/>
+							<stop offset="1" style="stop-color: var(--sun-edge)" stop-opacity="0" />
+						</radialGradient>
+						<radialGradient id="sCore" cx=".45" cy=".42" r=".62">
+							<stop offset="0" stop-color="#fffef6" />
+							<stop offset=".38" stop-color="#fff3c2" />
+							<stop offset=".78" style="stop-color: var(--sun-mid)" />
+							<stop offset="1" style="stop-color: var(--sun-edge)" />
+						</radialGradient>
+						<filter id="sFire" x="-60%" y="-60%" width="220%" height="220%">
+							<feTurbulence
+								type="fractalNoise"
+								baseFrequency="0.034 0.052"
+								numOctaves="3"
+								seed="7"
+								result="n"
+							>
+								<animate
+									attributeName="baseFrequency"
+									dur="7s"
+									repeatCount="indefinite"
+									values="0.034 0.052;0.046 0.036;0.03 0.06;0.034 0.052"
+								/>
+							</feTurbulence>
+							<feDisplacementMap
+								in="SourceGraphic"
+								in2="n"
+								scale="26"
+								xChannelSelector="R"
+								yChannelSelector="G"
+							/>
+							<feGaussianBlur stdDeviation="1.2" />
+						</filter>
+					</defs>
+					<circle r="98" fill="url(#sBloom)" />
+					<g filter="url(#sFire)"><circle r="56" fill="url(#sFlame)" /></g>
+					<circle r="37" fill="url(#sCore)" />
+				</svg>
+			</div>
+
+			<div id="clouds"></div>
+			<div class="birds" id="birds"></div>
+			<div class="heatband"></div>
+
+			<div class="ground">
+				<svg
+					class="land"
+					viewBox="0 0 1200 400"
+					preserveAspectRatio="none"
+					aria-hidden="true"
+				>
+					<defs>
+						<filter id="heatHaze" x="0" y="-5%" width="100%" height="110%">
+							<feTurbulence
+								type="turbulence"
+								baseFrequency="0.007 0.05"
+								numOctaves="2"
+								seed="4"
+								result="h"
+							>
+								<animate
+									attributeName="baseFrequency"
+									dur="9s"
+									repeatCount="indefinite"
+									values="0.007 0.05;0.009 0.038;0.007 0.05"
+								/>
+							</feTurbulence>
+							<feDisplacementMap
+								in="SourceGraphic"
+								in2="h"
+								scale="2"
+								xChannelSelector="R"
+								yChannelSelector="G"
+							/>
+						</filter>
+						<linearGradient id="riverSky" x1="0" y1="0" x2="0" y2="1">
+							<stop offset="0" style="stop-color: var(--sky-hor)" />
+							<stop offset="1" style="stop-color: var(--sky-mid)" />
+						</linearGradient>
+					</defs>
+					<path
+						class="l-mount2"
+						d="M0,86 C60,70 110,54 170,62 C230,70 260,40 330,44 C400,48 430,76 500,70 C580,62 620,30 700,36 C780,42 820,70 900,64 C980,58 1030,34 1100,42 C1150,48 1180,60 1200,62 L1200,400 L0,400 Z"
+					/>
+					<path
+						class="l-mount"
+						d="M0,112 C80,96 140,84 220,92 C300,100 340,76 420,80 C500,84 560,104 640,98 C720,92 780,72 860,78 C940,84 1000,102 1080,96 C1140,92 1180,98 1200,100 L1200,400 L0,400 Z"
+					/>
+					<path
+						class="l-far"
+						d="M0,128 C200,120 400,132 600,126 C800,120 1000,132 1200,126 L1200,400 L0,400 Z"
+					/>
+					<g id="shrubs"></g>
+					<path
+						class="l-riverbed"
+						d="M318,127 C350,132 370,138 350,146 C320,156 290,164 340,176 C400,190 500,196 530,214 C552,228 500,238 450,250 L530,250 C580,238 630,226 604,210 C578,194 470,186 414,172 C370,161 390,152 422,144 C446,137 406,131 350,127 Z"
+					/>
+					<g class="l-bedstone">
+						<ellipse cx="352" cy="150" rx="4" ry="1.6" />
+						<ellipse cx="330" cy="167" rx="5" ry="2" />
+						<ellipse cx="402" cy="186" rx="4.5" ry="1.8" />
+						<ellipse cx="468" cy="199" rx="6" ry="2.2" />
+						<ellipse cx="520" cy="222" rx="5" ry="2" />
+						<ellipse cx="496" cy="238" rx="7" ry="2.6" />
+						<ellipse cx="376" cy="178" rx="3" ry="1.3" />
+					</g>
+					<path
+						class="l-river"
+						d="M318,127 C350,132 370,138 350,146 C320,156 290,164 340,176 C400,190 500,196 530,214 C552,228 500,238 450,250 L530,250 C580,238 630,226 604,210 C578,194 470,186 414,172 C370,161 390,152 422,144 C446,137 406,131 350,127 Z"
+					/>
+					<path
+						class="l-river-hi"
+						d="M350,146 C320,156 290,164 340,176 C400,190 500,196 530,214"
+					/>
+					<path
+						class="l-hill2"
+						d="M0,190 C120,170 260,160 400,172 C520,182 600,200 740,188 C880,176 1000,160 1200,176 L1200,400 L0,400 Z"
+					/>
+					<path
+						class="l-rim"
+						d="M0,190 C120,170 260,160 400,172 C520,182 600,200 740,188 C880,176 1000,160 1200,176"
+					/>
+					<g id="tufts2"></g>
+					<ellipse class="l-tree" cx="448" cy="160" rx="16" ry="12" />
+					<ellipse class="l-tree" cx="466" cy="163" rx="12" ry="10" />
+					<ellipse class="l-tree" cx="432" cy="166" rx="10" ry="8" />
+					<rect class="l-trunk" x="447" y="168" width="3" height="8" />
+					<ellipse class="l-tree" cx="1008" cy="168" rx="9" ry="7" />
+					<rect class="l-trunk" x="1007" y="173" width="2" height="6" />
+					<path
+						class="l-hill1"
+						d="M0,250 C150,226 300,214 470,226 C620,236 740,258 900,246 C1030,236 1120,226 1200,232 L1200,400 L0,400 Z"
+					/>
+					<path
+						class="l-rim"
+						d="M0,250 C150,226 300,214 470,226 C620,236 740,258 900,246 C1030,236 1120,226 1200,232"
+					/>
+					<g id="tufts1"></g>
+					<path
+						class="l-grass"
+						d="M0,300 C200,290 400,296 600,292 C800,288 1000,296 1200,290 L1200,400 L0,400 Z"
+					/>
+				</svg>
+
+				<div class="fireflies" id="fireflies"></div>
+
+				<div class="yurt" id="yurt">
+					<svg viewBox="0 0 240 170" aria-hidden="true">
+						<defs>
+							<linearGradient id="yWall" x1="0" x2="1">
+								<stop offset="0" class="y-felt-l" />
+								<stop offset=".48" class="y-felt-c" />
+								<stop offset="1" class="y-felt-l" />
+							</linearGradient>
+							<linearGradient id="yRoof" x1="0" y1="0" x2="0" y2="1">
+								<stop offset="0" class="y-roof-t" />
+								<stop offset="1" class="y-roof-b" />
+							</linearGradient>
+							<radialGradient id="yInner" cx=".5" cy=".62" r=".6">
+								<stop offset="0" stop-color="#ffd48c" stop-opacity=".62" />
+								<stop offset=".6" stop-color="#ffb86a" stop-opacity=".2" />
+								<stop offset="1" stop-color="#ffb86a" stop-opacity="0" />
+							</radialGradient>
+							<radialGradient id="ySpill" cx=".5" cy=".3" r=".7">
+								<stop offset="0" stop-color="#ffc47a" stop-opacity=".8" />
+								<stop offset="1" stop-color="#ffb060" stop-opacity="0" />
+							</radialGradient>
+							<radialGradient id="yCrownGlow">
+								<stop offset="0" stop-color="#ffd08a" stop-opacity=".95" />
+								<stop offset="1" stop-color="#ff9f4a" stop-opacity="0" />
+							</radialGradient>
+							<filter id="yBlur" x="-40%" y="-40%" width="180%" height="180%">
+								<feGaussianBlur stdDeviation="2.4" />
+							</filter>
+						</defs>
+						<path
+							class="y-path"
+							d="M112,152 C108,172 96,198 80,240 L140,240 C134,200 130,172 128,152 Z"
+						/>
+						<path
+							class="y-spill"
+							d="M104,150 C98,172 88,196 76,236 L146,236 C138,196 134,172 136,150 Z"
+							fill="url(#ySpill)"
+							filter="url(#yBlur)"
+						/>
+						<ellipse cx="120" cy="152" rx="96" ry="7" fill="#000" opacity=".16" />
+						<g class="y-wood">
+							<rect x="20" y="136" width="22" height="5" rx="2.5" />
+							<rect x="22" y="131" width="19" height="5" rx="2.5" />
+							<rect x="25" y="126" width="13" height="5" rx="2.5" />
+						</g>
+						<g class="y-stone">
+							<ellipse cx="100" cy="160" rx="5" ry="2.2" />
+							<ellipse cx="140" cy="164" rx="5.5" ry="2.4" />
+						</g>
+						<path
+							d="M38,150 L38,98 Q120,90 202,98 L202,150 Q120,158 38,150 Z"
+							fill="url(#yWall)"
+						/>
+						<path
+							d="M38,150 L38,98 Q120,90 202,98 L202,150 Q120,158 38,150 Z"
+							fill="url(#yInner)"
+							class="y-lit"
+						/>
+						<g class="y-rope" fill="none" stroke-width="1.3" opacity=".6">
+							<path d="M38,114 Q120,121 202,114" />
+							<path d="M38,130 Q120,137 202,130" />
+							<path d="M38,145 Q120,152 202,145" />
+						</g>
+						<path class="y-band" d="M38,98 Q120,90 202,98 L202,107 Q120,99 38,107 Z" />
+						<g class="y-band-mark" id="bandMarks"></g>
+						<path
+							class="y-roof"
+							d="M24,101 Q120,86 216,101 L133,49 Q120,45 107,49 Z"
+							fill="url(#yRoof)"
+						/>
+						<path
+							class="y-snow"
+							d="M27,99 Q120,85 213,99 L201,91 Q170,78 132,55 Q120,50 108,55 Q70,78 39,91 Z"
+						/>
+						<g class="y-rib" stroke-width=".8" opacity=".55" fill="none">
+							<path d="M110,50 L44,99" />
+							<path d="M114,49 L70,95" />
+							<path d="M118,48 L97,92" />
+							<path d="M122,48 L143,92" />
+							<path d="M126,49 L170,95" />
+							<path d="M130,50 L196,99" />
+						</g>
+						<ellipse class="y-crown" cx="120" cy="48" rx="14" ry="4.2" />
+						<ellipse
+							cx="120"
+							cy="47"
+							rx="16"
+							ry="9"
+							fill="url(#yCrownGlow)"
+							class="y-lit"
+							filter="url(#yBlur)"
+						/>
+						<rect class="y-pipe" x="116.5" y="24" width="7" height="24" rx="1.2" />
+						<rect class="y-pipe" x="114.5" y="22" width="11" height="3" rx="1" />
+						<path
+							d="M103,151 L103,119 Q120,113 137,119 L137,151 Z"
+							fill="#ffcf7a"
+							class="y-lit"
+							filter="url(#yBlur)"
+						/>
+						<path class="y-door" d="M104,151 L104,120 Q120,114.5 136,120 L136,151 Z" />
+						<g class="y-door-orn" fill="none" stroke-width="1.1" opacity=".85">
+							<path d="M108,148 L108,123 Q120,118.5 132,123 L132,148 Z" />
+							<path d="M120,122 L120,146" />
+							<path d="M113,134 Q116,130 120,134 Q124,138 127,134" />
+						</g>
+						<path
+							d="M104,151 L104,120 Q120,114.5 136,120 L136,151"
+							fill="none"
+							stroke="#ffd98f"
+							stroke-width="1.4"
+							class="y-lit"
+						/>
+					</svg>
+				</div>
+			</div>
+
+			<svg
+				class="blades"
+				id="blades"
+				viewBox="0 0 1200 120"
+				preserveAspectRatio="xMidYMax slice"
+				aria-hidden="true"
+			></svg>
+			<div class="smoke" id="smoke"></div>
+			<div class="wdim"></div>
+			<div class="seeds" id="seeds"></div>
+			<div class="rain" id="rain"></div>
+			<div class="snow" id="snow"></div>
+			<div class="flash"></div>
+		</div>
+
+		<div class="ui">
+			<aside class="side glass">
+				<div class="net">SeanceDev</div>
+				<div class="nick">you are <b>reed</b></div>
+				<div class="ch">#seance</div>
+				<div class="ch on" id="chanrow">#plains</div>
+				<div class="ch">#campfire <b>2</b></div>
+				<div class="ch">#river</div>
+				<div class="ch">#stargazing</div>
+				<div class="ch" id="pmrow">wren</div>
+			</aside>
+
+			<div class="chat">
+				<div class="head glass">
+					<b id="headname">#plains</b><span id="headtopic">wind in the long grass</span>
+				</div>
+				<div class="log" id="log">
+					<div class="row">
+						<span class="t">18:58</span><span class="n c3">oren</span
+						><span class="x">anyone else out by the river tonight?</span>
+					</div>
+					<div class="row">
+						<span class="t">18:59</span><span class="n c4">wren</span
+						><span class="x">just got here. the grass is so tall this year</span>
+					</div>
+					<div class="row">
+						<span class="t">19:00</span><span class="n c2">tamsin</span
+						><span class="x">there's a hawk circling the far ridge</span>
+					</div>
+					<div class="row">
+						<span class="t">19:01</span><span class="n c1">marigold</span
+						><span class="x">saw it, it's been up there all afternoon</span>
+					</div>
+					<div class="row">
+						<span class="t">19:01</span><span class="n c3">oren</span
+						><span class="x"
+							>the river's running high, you can hear it from the yurt</span
+						>
+					</div>
+					<div class="row">
+						<span class="t">19:02</span><span class="n c1">marigold</span
+						><span class="x"
+							>the light out here goes gold for about ten minutes and then it's
+							gone</span
+						>
+					</div>
+					<div class="row">
+						<span class="t">19:03</span><span class="n c2">tamsin</span
+						><span class="x">worth staying up for though</span>
+					</div>
+					<div class="row">
+						<span class="t">19:04</span><span class="n c3">oren</span
+						><span class="x">kettle's on if anyone wants tea</span>
+						<div class="chips"><span class="chip">🍵 3</span></div>
+					</div>
+					<div class="row">
+						<span class="t">19:05</span><span class="n c4">wren</span
+						><span class="x">yes please</span>
+					</div>
+				</div>
+				<div class="log pmlog" id="pmlog">
+					<div class="row">
+						<span class="t">21:40</span><span class="n c4">wren</span
+						><span class="x">are you still up?</span>
+					</div>
+					<div class="row">
+						<span class="t">21:41</span><span class="n c2">reed</span
+						><span class="x">yes, sitting outside</span>
+					</div>
+					<div class="row">
+						<span class="t">21:41</span><span class="n c4">wren</span
+						><span class="x">the stars are unreal tonight</span>
+					</div>
+					<div class="row">
+						<span class="t">21:42</span><span class="n c2">reed</span
+						><span class="x">i can see the smoke from your yurt from here</span>
+					</div>
+					<div class="row">
+						<span class="t">21:43</span><span class="n c4">wren</span
+						><span class="x">come by tomorrow, i'll bake bread</span>
+					</div>
+				</div>
+				<div class="compose glass">
+					<span class="field" id="fieldhint">Write to #plains</span>
+					<button id="react" type="button">React 🌾</button>
+					<button id="send" type="button">Send</button>
+				</div>
+			</div>
+
+			<aside class="users glass">
+				<h4>6 here</h4>
+				<div class="u1">marigold</div>
+				<div class="u2">tamsin</div>
+				<div class="u3">oren</div>
+				<div class="u4">wren</div>
+				<div class="u2">juniper</div>
+				<div class="u1">reed</div>
+			</aside>
+		</div>
+	</div>
+
+	<div class="bar">
+		<label for="time">Time</label>
+		<input id="time" type="range" min="0" max="1439" step="1" value="1122" />
+		<span class="clock" id="clock">18:42</span>
+		<span class="phase" id="phase">golden hour</span>
+		<button class="btn" id="play" type="button" aria-pressed="false">Play a day</button>
+		<button class="btn" id="now" type="button">Now</button>
+		<button class="btn" id="rtl" type="button" aria-pressed="false">Right-to-left</button>
+		<span class="seg" role="group" aria-label="Conversation shown">
+			<button class="btn" id="viewchan" type="button" aria-pressed="true">#plains</button
+			><button class="btn" id="viewpm" type="button" aria-pressed="false">
+				wren &middot; private
+			</button>
+		</span>
+	</div>
+	<div class="moonbar">
+		<b id="mdate">—</b> <span class="sep">&middot;</span> <b id="season">—</b>
+		<span class="sep">&middot;</span> sun up <b id="sunup">—</b>&ndash;<b id="sundown">—</b>
+		<span class="sep">&middot;</span> <b id="mname">—</b>, <b id="mfrac">—</b> lit
+		<button class="btn" id="mprev" type="button" aria-label="Previous day">&minus; day</button>
+		<button class="btn" id="mnext" type="button" aria-label="Next day">+ day</button>
+		<button class="btn" id="mweek" type="button">+ week</button>
+		<button class="btn" id="mmonth" type="button">+ month</button>
+		<label for="wx">Weather</label>
+		<select id="wx">
+			<option value="auto">as the day brings</option>
+			<option value="clear">clear</option>
+			<option value="rain">rain</option>
+			<option value="storm">storm</option>
+			<option value="wind">wind</option>
+			<option value="snow">snow</option>
+			<option value="heat">summer heat</option>
+		</select>
+		<b id="wxnow">—</b>
+	</div>
+
+	<p class="note">
+		<b>The year:</b> the date sets the season, and the season sets the plains. Spring is fresh
+		green with flowers and flocks flying north; summer is deep and warm, shimmers at midday, and
+		fills the far fields with fireflies after dusk; autumn turns the grass gold, brings the
+		wind, and sends the flocks back south; winter lays snow on the ground and the yurt's roof.
+		Each day draws its own weather from its season, and the sun keeps real hours &mdash; long
+		days in June, short ones in December. The weather menu previews any of it on any date.
+	</p>
+
+	<p class="note">
+		<b>The words over the plains:</b> dark ink with a pale halo in full daylight and light text
+		at night, both of which you found easy. While the light is changing &mdash; from first light
+		until the sun is well up, and from sunset until it is fully dark &mdash; the words turn
+		white with a close drop shadow. Drag to 19:30 or 06:00 to judge the hours that were hard.
+	</p>
+
+	<section>
+		<span class="eyebrow">1 &middot; the type</span>
+		<h2>Mulish and Fraunces</h2>
+		<p class="lede">
+			Your choice: Mulish for the words and Fraunces for names and titles. The picker stays,
+			so a face can still be swapped or compared &mdash; the window above and this whole page
+			change as you do. Read the result over the plains at a few hours and a few seasons
+			&mdash; noon, dusk and a snowy morning are the hardest tests. The grey line under each
+			sample shows which other alphabets the face really has: where it lacks one, your
+			system's font stands in, and you can see the join.
+		</p>
+		<div class="presets" id="presets">
+			<button class="btn" data-words="mulish" data-names="fraunces" type="button">
+				Mulish and Fraunces &mdash; your choice
+			</button>
+			<button class="btn" data-words="nunito" data-names="fraunces" type="button">
+				Nunito and Fraunces
+			</button>
+			<button class="btn" data-words="alegreyasans" data-names="alegreya" type="button">
+				Crafted
+			</button>
+			<button class="btn" data-words="nunitosans" data-names="fraunces" type="button">
+				Soft and warm
+			</button>
+			<button class="btn" data-words="mplus" data-names="mplus-same" type="button">
+				Round and calm
+			</button>
+			<button class="btn" data-words="quicksand" data-names="comfortaa" type="button">
+				Airy
+			</button>
+			<button class="btn" data-words="lora" data-names="lora" type="button">Storybook</button>
+			<button class="btn" data-words="sourcesans" data-names="bitter" type="button">
+				Plainspoken
+			</button>
+			<button class="btn" data-words="nunito" data-names="baloo" type="button">
+				Today&rsquo;s
+			</button>
+		</div>
+		<h3 class="sub">The words</h3>
+		<div class="opts type" id="g-words">
+			<button class="opt" data-g="words" data-v="nunitosans" aria-pressed="true">
+				<span class="tname"><span class="pick"></span>Nunito Sans</span>
+				<span class="tspec" style="--tf: 'Nunito Sans', system-ui, sans-serif; --tw: 500"
+					>kettle's on if anyone wants tea<small>Größe · Привет · Tiếng Việt</small></span
+				>
+				<span class="why"
+					>Nunito's calmer sibling: the same softness without the round ends.</span
+				>
+			</button>
+			<button class="opt" data-g="words" data-v="mplus" aria-pressed="false">
+				<span class="tname"><span class="pick"></span>M PLUS Rounded</span>
+				<span
+					class="tspec"
+					style="--tf: 'M PLUS Rounded 1c', system-ui, sans-serif; --tw: 500"
+					>kettle's on if anyone wants tea<small>Größe · Привет · Tiếng Việt</small></span
+				>
+				<span class="why"
+					>Rounded and gentle, very even; covers the widest range of alphabets here.</span
+				>
+			</button>
+			<button class="opt" data-g="words" data-v="nunito" aria-pressed="false">
+				<span class="tname"><span class="pick"></span>Nunito</span>
+				<span class="tspec" style="--tf: Nunito, system-ui, sans-serif; --tw: 600"
+					>kettle's on if anyone wants tea<small>Größe · Привет · Tiếng Việt</small></span
+				>
+				<span class="why">Today's face. Round, friendly, a little playful.</span>
+			</button>
+			<button class="opt" data-g="words" data-v="quicksand" aria-pressed="false">
+				<span class="tname"><span class="pick"></span>Quicksand</span>
+				<span class="tspec" style="--tf: Quicksand, system-ui, sans-serif; --tw: 600"
+					>kettle's on if anyone wants tea<small>Größe · Привет · Tiếng Việt</small></span
+				>
+				<span class="why"
+					>Airy and rounded, like handwriting tidied up. Light, so it runs a size
+					up.</span
+				>
+			</button>
+			<button class="opt" data-g="words" data-v="mulish" aria-pressed="false">
+				<span class="tname"><span class="pick"></span>Mulish</span>
+				<span class="tspec" style="--tf: Mulish, system-ui, sans-serif; --tw: 500"
+					>kettle's on if anyone wants tea<small>Größe · Привет · Tiếng Việt</small></span
+				>
+				<span class="why">Clean and minimal, with a warm open curve.</span>
+			</button>
+			<button class="opt" data-g="words" data-v="sourcesans" aria-pressed="false">
+				<span class="tname"><span class="pick"></span>Source Sans 3</span>
+				<span class="tspec" style="--tf: 'Source Sans 3', system-ui, sans-serif; --tw: 500"
+					>kettle's on if anyone wants tea<small>Größe · Привет · Tiếng Việt</small></span
+				>
+				<span class="why"
+					>The quiet professional: neutral, very readable, broad coverage.</span
+				>
+			</button>
+			<button class="opt" data-g="words" data-v="figtree" aria-pressed="false">
+				<span class="tname"><span class="pick"></span>Figtree</span>
+				<span class="tspec" style="--tf: Figtree, system-ui, sans-serif; --tw: 500"
+					>kettle's on if anyone wants tea<small>Größe · Привет · Tiếng Việt</small></span
+				>
+				<span class="why">Friendly and crisp, in between round and plain.</span>
+			</button>
+			<button class="opt" data-g="words" data-v="lexend" aria-pressed="false">
+				<span class="tname"><span class="pick"></span>Lexend</span>
+				<span class="tspec" style="--tf: Lexend, system-ui, sans-serif; --tw: 400"
+					>kettle's on if anyone wants tea<small>Größe · Привет · Tiếng Việt</small></span
+				>
+				<span class="why">Drawn to be easy to read; wide and open.</span>
+			</button>
+			<button class="opt" data-g="words" data-v="lora" aria-pressed="false">
+				<span class="tname"><span class="pick"></span>Lora</span>
+				<span class="tspec" style="--tf: Lora, system-ui, sans-serif; --tw: 400"
+					>kettle's on if anyone wants tea<small>Größe · Привет · Tiếng Việt</small></span
+				>
+				<span class="why"
+					>A serif with a calligraphic warmth; conversation reads like a story.</span
+				>
+			</button>
+			<button class="opt" data-g="words" data-v="alegreyasans" aria-pressed="false">
+				<span class="tname"><span class="pick"></span>Alegreya Sans</span>
+				<span class="tspec" style="--tf: 'Alegreya Sans', system-ui, sans-serif; --tw: 500"
+					>kettle's on if anyone wants tea<small>Größe · Привет · Tiếng Việt</small></span
+				>
+				<span class="why">The last round's choice: humanist, calligraphic.</span>
+			</button>
+		</div>
+		<h3 class="sub">The names</h3>
+		<div class="opts type" id="g-names">
+			<button class="opt" data-g="names" data-v="fraunces" aria-pressed="true">
+				<span class="tname"><span class="pick"></span>Fraunces</span>
+				<span class="tspec" style="--tf: Fraunces, Georgia, serif; --tw: 700"
+					>marigold &middot; #plains<small>tamsin · Привет</small></span
+				>
+				<span class="why">A soft, warm serif with round swelling strokes.</span>
+			</button>
+			<button class="opt" data-g="names" data-v="baloo" aria-pressed="false">
+				<span class="tname"><span class="pick"></span>Baloo 2</span>
+				<span class="tspec" style="--tf: 'Baloo 2', Georgia, serif; --tw: 700"
+					>marigold &middot; #plains<small>tamsin · Привет</small></span
+				>
+				<span class="why">Today's names: round, bold and bouncy.</span>
+			</button>
+			<button class="opt" data-g="names" data-v="comfortaa" aria-pressed="false">
+				<span class="tname"><span class="pick"></span>Comfortaa</span>
+				<span class="tspec" style="--tf: Comfortaa, Georgia, serif; --tw: 700"
+					>marigold &middot; #plains<small>tamsin · Привет</small></span
+				>
+				<span class="why">Rounded geometric; friendly and light.</span>
+			</button>
+			<button class="opt" data-g="names" data-v="lora" aria-pressed="false">
+				<span class="tname"><span class="pick"></span>Lora</span>
+				<span class="tspec" style="--tf: Lora, Georgia, serif; --tw: 700"
+					>marigold &middot; #plains<small>tamsin · Привет</small></span
+				>
+				<span class="why">Calligraphic serif, for a storybook feel.</span>
+			</button>
+			<button class="opt" data-g="names" data-v="bitter" aria-pressed="false">
+				<span class="tname"><span class="pick"></span>Bitter</span>
+				<span class="tspec" style="--tf: Bitter, Georgia, serif; --tw: 700"
+					>marigold &middot; #plains<small>tamsin · Привет</small></span
+				>
+				<span class="why">A sturdy slab: carved wood, painted signs.</span>
+			</button>
+			<button class="opt" data-g="names" data-v="alegreya" aria-pressed="false">
+				<span class="tname"><span class="pick"></span>Alegreya</span>
+				<span class="tspec" style="--tf: Alegreya, Georgia, serif; --tw: 700"
+					>marigold &middot; #plains<small>tamsin · Привет</small></span
+				>
+				<span class="why">The last round's choice: a calligraphic serif.</span>
+			</button>
+			<button class="opt" data-g="names" data-v="same" aria-pressed="false">
+				<span class="tname"><span class="pick"></span>Same as the words</span>
+				<span class="tspec" style="--tf: var(--wordsface), Georgia, serif; --tw: 800"
+					>marigold &middot; #plains<small>tamsin · Привет</small></span
+				>
+				<span class="why">Names in the words' own face, bolder.</span>
+			</button>
+		</div>
+	</section>
+
+	<section>
+		<span class="eyebrow">2 &middot; the yurt</span>
+		<h2>In the far third</h2>
+		<p class="lede">
+			Your call: the yurt stands in the far third of the open ground &mdash; the end of the
+			reading direction, so the right in English and the left in Arabic or Hebrew. The sun
+			sets on that side too, so at dusk the yurt stands dark against a burning sky before its
+			door begins to glow. In right-to-left the whole scene mirrors, so that moment survives:
+			press <b>Right-to-left</b> above to see it.
+		</p>
+	</section>
+
+	<section>
+		<span class="eyebrow">3 &middot; instead of glitter</span>
+		<h2>What happens when you send?</h2>
+		<p class="lede">
+			Pick one, then press <b>Send</b> or <b>React</b> in the window. Each is over in a couple
+			of seconds and never competes with the words.
+		</p>
+		<div class="opts" id="g-fx">
+			<button class="opt" data-g="fx" data-v="lantern" aria-pressed="false">
+				<span class="name"><span class="pick"></span>A lantern lit</span>
+				<span class="why"
+					>A soft warm light blooms behind the new line and slowly fades, like a lamp
+					being lit. Felt more than seen.</span
+				>
+			</button>
+			<button class="opt" data-g="fx" data-v="embers" aria-pressed="true">
+				<span class="name"
+					><span class="pick"></span>Embers <span class="rec">your pick</span></span
+				>
+				<span class="why"
+					>A few warm sparks lift off the line and drift out of sight, as if from the fire
+					in the yurt. The most alive.</span
+				>
+			</button>
+			<button class="opt" data-g="fx" data-v="wash" aria-pressed="false">
+				<span class="name"><span class="pick"></span>Warm ink</span>
+				<span class="why"
+					>The words arrive in firelight gold and cool into their usual colour. Nothing
+					moves; only the colour settles.</span
+				>
+			</button>
+			<button class="opt" data-g="fx" data-v="still" aria-pressed="false">
+				<span class="name"><span class="pick"></span>Stillness</span>
+				<span class="why"
+					>Only the gentle fade-in every line already has. The plains do the
+					talking.</span
+				>
+			</button>
+		</div>
+	</section>
+
+	<section>
+		<span class="eyebrow">4 &middot; private messages</span>
+		<h2>A quieter place for two</h2>
+		<p class="lede">
+			Your choice: the same plains at the same hour, softened behind frosted glass. To see it,
+			click <b>wren</b> in the window's channel list, or <b>wren &middot; private</b> in the
+			bar under the window; any pick below also switches the window and brings it into view.
+		</p>
+		<div class="opts" id="g-pm">
+			<button class="opt" data-g="pm" data-v="frost" aria-pressed="true">
+				<span class="name"
+					><span class="pick"></span>Behind frosted glass
+					<span class="rec">your pick</span></span
+				>
+				<span class="why"
+					>The same plains at the same hour, softened out of focus and perfectly still.
+					You are still in the place, just indoors. The quietest way to keep the world
+					around a private word.</span
+				>
+			</button>
+			<button class="opt" data-g="pm" data-v="sky" aria-pressed="false">
+				<span class="name"><span class="pick"></span>The sky alone</span>
+				<span class="why"
+					>Only the sky of the hour &mdash; the day's blue, the sunset's colours, the
+					stars at night &mdash; with no land, no yurt and no weather.</span
+				>
+			</button>
+			<button class="opt" data-g="pm" data-v="glass" aria-pressed="false">
+				<span class="name"><span class="pick"></span>Just the glass</span>
+				<span class="why"
+					>No scene at all: the panels' own warm paper by day and deep night-blue after
+					dark. The plainest, and the most like an ordinary chat.</span
+				>
+			</button>
+		</div>
+		<h3 class="sub">Behind the glass: still</h3>
+		<p class="lede">
+			Your choice: nothing moves behind the frost. The scene stops where it was when the
+			conversation opened and only its colours follow the hour. The moving version stays here
+			to compare.
+		</p>
+		<div class="opts" id="g-pmm">
+			<button class="opt" data-g="pmm" data-v="still" aria-pressed="true">
+				<span class="name"
+					><span class="pick"></span>Still <span class="rec">your pick</span></span
+				>
+				<span class="why"
+					>The scene stops where it was when the conversation opened; only the colours
+					follow the hour. Nothing moves behind the words at all.</span
+				>
+			</button>
+			<button class="opt" data-g="pmm" data-v="drift" aria-pressed="false">
+				<span class="name"><span class="pick"></span>Moving, softly</span>
+				<span class="why"
+					>Everything keeps its motion behind the frost. You can tell the day is going on
+					outside, but you can't make out any detail. Costs more to draw: the blur is
+					redone every frame.</span
+				>
+			</button>
+		</div>
+	</section>
+
+	<section>
+		<span class="eyebrow">read this back to me</span>
+		<h2>What you picked</h2>
+		<div class="summary"><ol id="picks"></ol></div>
+	</section>
+</div>
+
+<script>
+	/* ---------------- the plains' colours through the day ---------------- */
+	const K = [
+		{
+			t: 0,
+			top: "#070b1d",
+			mid: "#0f1a3a",
+			hor: "#1e2c55",
+			mount: "#1a2440",
+			far: "#1d2a3f",
+			hill2: "#18253a",
+			hill1: "#152033",
+			grass: "#101b2b",
+			blade: "#0c1624",
+			felt: "#6e7086",
+			band: "#4f4150",
+			door: "#4a3434",
+			cloud: "#28324f",
+			under: "#28324f",
+			glow: "#000000",
+			gop: 0,
+			stars: 1,
+			milky: 0.62,
+			dark: 1,
+		},
+		{
+			t: 300,
+			top: "#0c1430",
+			mid: "#1f2a55",
+			hor: "#4a4a78",
+			mount: "#2a3152",
+			far: "#2c3550",
+			hill2: "#283248",
+			hill1: "#232c40",
+			grass: "#1b2536",
+			blade: "#162031",
+			felt: "#7c7e92",
+			band: "#5c4652",
+			door: "#5a3b36",
+			cloud: "#353f66",
+			under: "#4b4a78",
+			glow: "#6c5a8c",
+			gop: 0.28,
+			stars: 0.72,
+			milky: 0.3,
+			dark: 0.96,
+		},
+		{
+			t: 345,
+			top: "#26315f",
+			mid: "#6a5a8e",
+			hor: "#ec9e86",
+			mount: "#5a5378",
+			far: "#6d6582",
+			hill2: "#5f5f78",
+			hill1: "#555a70",
+			grass: "#444e60",
+			blade: "#3a4456",
+			felt: "#b8aeb0",
+			band: "#8e5e5a",
+			door: "#9a4a3a",
+			cloud: "#8a7aa0",
+			under: "#f0a58c",
+			glow: "#ff9f7a",
+			gop: 0.62,
+			stars: 0.22,
+			milky: 0,
+			dark: 0.72,
+		},
+		{
+			t: 390,
+			top: "#5d80c2",
+			mid: "#f1b590",
+			hor: "#ffd08c",
+			mount: "#8f86a8",
+			far: "#c8b49a",
+			hill2: "#a9b07e",
+			hill1: "#93a86a",
+			grass: "#7f9a55",
+			blade: "#6b8747",
+			felt: "#f3e3cc",
+			band: "#b9674f",
+			door: "#c9582e",
+			cloud: "#fff0de",
+			under: "#ffb08a",
+			glow: "#ffb070",
+			gop: 0.88,
+			stars: 0,
+			milky: 0,
+			dark: 0.28,
+		},
+		{
+			t: 450,
+			top: "#7fb0e8",
+			mid: "#c6def5",
+			hor: "#ffe6bd",
+			mount: "#9fb0cc",
+			far: "#cfd6a4",
+			hill2: "#a8c77e",
+			hill1: "#93bd6a",
+			grass: "#7fb05a",
+			blade: "#6c9d4a",
+			felt: "#f6ecdd",
+			band: "#b8674e",
+			door: "#cf5a2e",
+			cloud: "#ffffff",
+			under: "#ffe2c2",
+			glow: "#ffd49a",
+			gop: 0.34,
+			stars: 0,
+			milky: 0,
+			dark: 0,
+		},
+		{
+			t: 600,
+			top: "#4f9be8",
+			mid: "#9ccaf5",
+			hor: "#d8ecfb",
+			mount: "#a9bdd8",
+			far: "#c9dea2",
+			hill2: "#9fcf78",
+			hill1: "#86c262",
+			grass: "#6fb350",
+			blade: "#5c9e40",
+			felt: "#f8f3ea",
+			band: "#b5634b",
+			door: "#cc5a2e",
+			cloud: "#ffffff",
+			under: "#eef4fb",
+			glow: "#ffe8b8",
+			gop: 0,
+			stars: 0,
+			milky: 0,
+			dark: 0,
+		},
+		{
+			t: 780,
+			top: "#3f8fe6",
+			mid: "#8cc2f4",
+			hor: "#d2e9fb",
+			mount: "#a4b9d6",
+			far: "#c6dc9c",
+			hill2: "#99cc72",
+			hill1: "#80bf5c",
+			grass: "#69b04a",
+			blade: "#579b3b",
+			felt: "#f9f5ee",
+			band: "#b5634b",
+			door: "#cc5a2e",
+			cloud: "#ffffff",
+			under: "#eaf2fb",
+			glow: "#ffe8b8",
+			gop: 0,
+			stars: 0,
+			milky: 0,
+			dark: 0,
+		},
+		{
+			t: 960,
+			top: "#4c8fdc",
+			mid: "#a0c8ef",
+			hor: "#e8e6d8",
+			mount: "#aab4cc",
+			far: "#d2d69a",
+			hill2: "#a6c56e",
+			hill1: "#8fb85c",
+			grass: "#7aa84c",
+			blade: "#66933e",
+			felt: "#f7efe0",
+			band: "#b5604a",
+			door: "#cc562c",
+			cloud: "#ffffff",
+			under: "#f6ecdc",
+			glow: "#ffd9a0",
+			gop: 0.14,
+			stars: 0,
+			milky: 0,
+			dark: 0,
+		},
+		{
+			t: 1080,
+			top: "#5a86cc",
+			mid: "#e9c49a",
+			hor: "#ffc478",
+			mount: "#a795a8",
+			far: "#e0c486",
+			hill2: "#c2b862",
+			hill1: "#b0a954",
+			grass: "#9c9a48",
+			blade: "#86843c",
+			felt: "#fbe5c8",
+			band: "#b8583e",
+			door: "#d0522a",
+			cloud: "#fff1dc",
+			under: "#ffb77a",
+			glow: "#ffae5c",
+			gop: 0.62,
+			stars: 0,
+			milky: 0,
+			dark: 0,
+		},
+		{
+			t: 1140,
+			top: "#3c4f95",
+			mid: "#e8896e",
+			hor: "#ff9a55",
+			mount: "#6f5a80",
+			far: "#b0806a",
+			hill2: "#8f7a58",
+			hill1: "#7c6e50",
+			grass: "#665e44",
+			blade: "#544d38",
+			felt: "#e9c2a8",
+			band: "#9e4a3a",
+			door: "#b34626",
+			cloud: "#f7c0a6",
+			under: "#ff8a5c",
+			glow: "#ff7a45",
+			gop: 0.96,
+			stars: 0.05,
+			milky: 0,
+			dark: 0.24,
+		},
+		{
+			t: 1185,
+			top: "#1f2a5e",
+			mid: "#6a4a78",
+			hor: "#d8755e",
+			mount: "#3f3a5c",
+			far: "#4f4658",
+			hill2: "#433f52",
+			hill1: "#3a384b",
+			grass: "#2f3142",
+			blade: "#282a3a",
+			felt: "#9d8e9a",
+			band: "#6e4a4a",
+			door: "#6e3a30",
+			cloud: "#6c5a80",
+			under: "#c27060",
+			glow: "#d0604a",
+			gop: 0.56,
+			stars: 0.45,
+			milky: 0.1,
+			dark: 0.7,
+		},
+		{
+			t: 1260,
+			top: "#0a1128",
+			mid: "#16214a",
+			hor: "#2c3566",
+			mount: "#1f2848",
+			far: "#222d45",
+			hill2: "#1d273d",
+			hill1: "#182236",
+			grass: "#121c2d",
+			blade: "#0f1827",
+			felt: "#707286",
+			band: "#503f4c",
+			door: "#4c3432",
+			cloud: "#2a3456",
+			under: "#2a3456",
+			glow: "#000000",
+			gop: 0,
+			stars: 0.95,
+			milky: 0.5,
+			dark: 1,
+		},
+		{
+			t: 1440,
+			top: "#070b1d",
+			mid: "#0f1a3a",
+			hor: "#1e2c55",
+			mount: "#1a2440",
+			far: "#1d2a3f",
+			hill2: "#18253a",
+			hill1: "#152033",
+			grass: "#101b2b",
+			blade: "#0c1624",
+			felt: "#6e7086",
+			band: "#4f4150",
+			door: "#4a3434",
+			cloud: "#28324f",
+			under: "#28324f",
+			glow: "#000000",
+			gop: 0,
+			stars: 1,
+			milky: 0.62,
+			dark: 1,
+		},
+	];
+	const COLS = [
+		"top",
+		"mid",
+		"hor",
+		"mount",
+		"far",
+		"hill2",
+		"hill1",
+		"grass",
+		"blade",
+		"felt",
+		"band",
+		"door",
+		"cloud",
+		"under",
+		"glow",
+	];
+	const NUMS = ["gop", "stars", "milky", "dark"];
+	const rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+	const mix = (a, b, u) =>
+		"#" +
+		rgb(a)
+			.map((c, i) =>
+				Math.round(c + (rgb(b)[i] - c) * u)
+					.toString(16)
+					.padStart(2, "0")
+			)
+			.join("");
+	function paletteAt(m) {
+		let i = 0;
+		while (i < K.length - 2 && m >= K[i + 1].t) i++;
+		const a = K[i],
+			b = K[i + 1],
+			u = Math.min(1, Math.max(0, (m - a.t) / (b.t - a.t)));
+		const p = {};
+		for (const c of COLS) p[c] = mix(a[c], b[c], u);
+		for (const n of NUMS) p[n] = a[n] + (b[n] - a[n]) * u;
+		return p;
+	}
+	const phaseName = (m) =>
+		m < 290
+			? "night"
+			: m < 350
+			? "first light"
+			: m < 420
+			? "sunrise"
+			: m < 540
+			? "morning"
+			: m < 870
+			? "midday"
+			: m < 1040
+			? "afternoon"
+			: m < 1110
+			? "golden hour"
+			: m < 1170
+			? "sunset"
+			: m < 1230
+			? "dusk"
+			: "night";
+
+	/* ---------------- the year: season, day length and weather ---------------- */
+	const LAT = 45; // northern mid-latitudes; the real theme would not know the viewer's latitude either
+	const ANCHORS = [
+		{d: 32, k: "winter"},
+		{d: 121, k: "spring"},
+		{d: 213, k: "summer"},
+		{d: 305, k: "autumn"},
+	];
+	const LAND = ["far", "hill2", "hill1", "grass", "blade", "mount"];
+	const REF = {
+		far: "#c6dc9c",
+		hill2: "#99cc72",
+		hill1: "#80bf5c",
+		grass: "#69b04a",
+		blade: "#579b3b",
+		mount: "#a4b9d6",
+	};
+	const SEASON_LAND = {
+		spring: {
+			far: "#cde4a4",
+			hill2: "#a2d67c",
+			hill1: "#86ca62",
+			grass: "#6fbe4e",
+			blade: "#5aa83e",
+			mount: "#a8bfdc",
+		},
+		summer: {
+			far: "#d6d894",
+			hill2: "#aec76a",
+			hill1: "#99b85a",
+			grass: "#86aa4a",
+			blade: "#72963e",
+			mount: "#aab8d2",
+		},
+		autumn: {
+			far: "#e0c98c",
+			hill2: "#cfae60",
+			hill1: "#c2984c",
+			grass: "#ad8842",
+			blade: "#967036",
+			mount: "#b0b0c8",
+		},
+		winter: {
+			far: "#eef2f7",
+			hill2: "#e5ebf3",
+			hill1: "#dde5ef",
+			grass: "#d6dfeb",
+			blade: "#b9c6d6",
+			mount: "#e6ecf6",
+		},
+	};
+	function dayOfYear(day) {
+		const d = new Date(day * 86400000),
+			y = d.getUTCFullYear();
+		return {
+			doy: (Date.UTC(y, d.getUTCMonth(), d.getUTCDate()) - Date.UTC(y, 0, 0)) / 86400000,
+			date: d,
+		};
+	}
+	function seasonOf(doy) {
+		let i = ANCHORS.length - 1;
+		for (let j = 0; j < ANCHORS.length; j++) if (doy >= ANCHORS[j].d) i = j;
+		const a = ANCHORS[i],
+			b = ANCHORS[(i + 1) % ANCHORS.length];
+		const span = (b.d - a.d + 365) % 365,
+			into = (doy - a.d + 365) % 365,
+			u = into / span;
+		const w = {winter: 0, spring: 0, summer: 0, autumn: 0};
+		w[a.k] += 1 - u;
+		w[b.k] += u;
+		const target = {};
+		for (const t of LAND) target[t] = mix(SEASON_LAND[a.k][t], SEASON_LAND[b.k][t], u);
+		// the calendar's own names, by the solstices and equinoxes
+		const name =
+			doy < 79 || doy >= 355
+				? "winter"
+				: doy < 172
+				? "spring"
+				: doy < 265
+				? "summer"
+				: "autumn";
+		const start = {winter: 355, spring: 79, summer: 172, autumn: 265}[name];
+		const pos = ((doy - start + 365) % 365) / 91;
+		return {
+			w,
+			target,
+			name: (pos < 0.34 ? "early " : pos < 0.67 ? "mid-" : "late ") + name,
+			main: name,
+		};
+	}
+	function sunTimes(doy) {
+		const decl = (-23.44 * Math.cos((2 * Math.PI * (doy + 10)) / 365) * Math.PI) / 180;
+		const cosH = -Math.tan((LAT * Math.PI) / 180) * Math.tan(decl);
+		const H = (Math.acos(Math.max(-1, Math.min(1, cosH))) * 180) / Math.PI;
+		const half = (H / 15) * 60,
+			noon = 750; // 12:30, allowing for daylight saving on average
+		return {rise: noon - half, set: noon + half};
+	}
+	// every palette key was tuned for a sunrise at 06:30 and a sunset at 19:15; a real day of any length is
+	// mapped onto that one, keeping the twilight on either side its true length
+	function canonical(m, rise, set) {
+		if (m >= rise - 90 && m < rise) return 390 - (rise - m);
+		if (m >= rise && m <= set) return 390 + ((m - rise) / (set - rise)) * (1155 - 390);
+		if (m > set && m <= set + 105) return 1155 + (m - set);
+		const start = set + 105,
+			end = rise - 90 + 1440,
+			span = end - start;
+		const pos = ((m - start + 1440) % 1440) / span;
+		return (1260 + pos * (1740 - 1260)) % 1440;
+	}
+	const WEATHER_ODDS = {
+		spring: [
+			["rain", 0.3],
+			["wind", 0.12],
+		],
+		summer: [
+			["heat", 0.45],
+			["storm", 0.12],
+		],
+		autumn: [
+			["wind", 0.38],
+			["rain", 0.2],
+		],
+		winter: [
+			["snow", 0.42],
+			["wind", 0.12],
+		],
+	};
+	function weatherFor(dayInt, main) {
+		let x = seeded(((dayInt * 2654435761) % 2147483647) + 7)();
+		x = seeded(Math.floor(x * 1e9) + dayInt)();
+		for (const [k, pr] of WEATHER_ODDS[main]) {
+			if (x < pr) return k;
+			x -= pr;
+		}
+		return "clear";
+	}
+	const WX = {
+		clear: {
+			dim: 0,
+			dimc: "#5a6478",
+			grey: 0,
+			hide: 0,
+			rain: 0,
+			snow: 0,
+			wind: 0,
+			sway: 2.2,
+			storm: 0,
+			heat: 0,
+		},
+		rain: {
+			dim: 0.28,
+			dimc: "#4f5a70",
+			grey: 0.62,
+			hide: 0.65,
+			rain: 0.9,
+			snow: 0,
+			wind: 0.3,
+			sway: 3.4,
+			storm: 0,
+			heat: 0,
+		},
+		storm: {
+			dim: 0.46,
+			dimc: "#2f3648",
+			grey: 0.86,
+			hide: 0.92,
+			rain: 1,
+			snow: 0,
+			wind: 0.6,
+			sway: 5.2,
+			storm: 1,
+			heat: 0,
+		},
+		wind: {
+			dim: 0,
+			dimc: "#5a6478",
+			grey: 0.1,
+			hide: 0,
+			rain: 0,
+			snow: 0,
+			wind: 1,
+			sway: 6.5,
+			storm: 0,
+			heat: 0,
+		},
+		snow: {
+			dim: 0.16,
+			dimc: "#b8c2d4",
+			grey: 0.5,
+			hide: 0.55,
+			rain: 0,
+			snow: 0.95,
+			wind: 0.15,
+			sway: 2.2,
+			storm: 0,
+			heat: 0,
+		},
+		heat: {
+			dim: 0,
+			dimc: "#5a6478",
+			grey: 0,
+			hide: 0,
+			rain: 0,
+			snow: 0,
+			wind: 0,
+			sway: 1.4,
+			storm: 0,
+			heat: 1,
+		},
+	};
+	let wxOverride = "auto";
+	const clampHex = (h) => h;
+	function shift(c, from, to, amount) {
+		// move colour c by (to - from), scaled: the season's offset from midsummer green, applied to any hour
+		const a = rgb(c),
+			f = rgb(from),
+			t = rgb(to);
+		return (
+			"#" +
+			a
+				.map((v, i) =>
+					Math.max(0, Math.min(255, Math.round(v + (t[i] - f[i]) * amount)))
+						.toString(16)
+						.padStart(2, "0")
+				)
+				.join("")
+		);
+	}
+
+	/* ---------------- the sun and moon on one arc ---------------- */
+	const HORIZON = 58,
+		PEAK = 10;
+	function sunAt(m, RISE, SET) {
+		const u = (m - RISE) / (SET - RISE),
+			alt = Math.sin(Math.PI * Math.min(1.08, Math.max(-0.08, u)));
+		return {x: 5 + 90 * u, y: HORIZON - alt * (HORIZON - PEAK), alt, up: u > -0.06 && u < 1.06};
+	}
+	function moonArc(m, RISE, SET) {
+		const start = SET + 15,
+			span = 1440 - start + RISE,
+			u = ((m - start + 1440) % 1440) / span;
+		const alt = Math.sin(Math.PI * Math.min(1.06, Math.max(-0.06, u)));
+		return {
+			x: 5 + 90 * u,
+			y: HORIZON - alt * (HORIZON - PEAK - 4),
+			up: u >= -0.04 && u <= 1.04,
+		};
+	}
+
+	/* ---------------- the moon's true phase ---------------- */
+	const RAD = Math.PI / 180;
+	function elongation(day) {
+		const T = (day - 10957.5) / 36525,
+			Ms = (357.5291 + 35999.0503 * T) * RAD;
+		const Ls = 280.4665 + 36000.7698 * T + 1.9146 * Math.sin(Ms) + 0.02 * Math.sin(2 * Ms);
+		const Lm = 218.3165 + 481267.8813 * T,
+			Mm = (134.9634 + 477198.8676 * T) * RAD;
+		const D = (297.8502 + 445267.1115 * T) * RAD,
+			F = (93.2721 + 483202.0175 * T) * RAD;
+		const dL =
+			6.2886 * Math.sin(Mm) +
+			1.274 * Math.sin(2 * D - Mm) +
+			0.6583 * Math.sin(2 * D) +
+			0.2136 * Math.sin(2 * Mm) -
+			0.1851 * Math.sin(Ms) -
+			0.1143 * Math.sin(2 * F);
+		return (((Lm + dL - Ls) % 360) + 360) % 360;
+	}
+	const MOON_NAMES = [
+		"new moon",
+		"waxing crescent",
+		"first quarter",
+		"waxing gibbous",
+		"full moon",
+		"waning gibbous",
+		"last quarter",
+		"waning crescent",
+	];
+	let moonDay = Math.floor(Date.now() / 86400000) + 0.9;
+	function drawMoonPhase() {
+		const e = elongation(moonDay),
+			waning = e > 180,
+			f = waning ? 360 - e : e;
+		const ell = document.getElementById("mEll");
+		ell.setAttribute("rx", Math.abs(30 * Math.cos(f * RAD)).toFixed(2));
+		ell.setAttribute("fill", f < 90 ? "#000" : "#fff");
+		document.getElementById("mShape").setAttribute("transform", waning ? "scale(-1,1)" : "");
+		document.getElementById("mdate").textContent = new Date(moonDay * 86400000)
+			.toISOString()
+			.slice(0, 10);
+		document.getElementById("mname").textContent =
+			MOON_NAMES[Math.floor(((e + 22.5) % 360) / 45) % 8];
+		document.getElementById("mfrac").textContent =
+			(((1 - Math.cos(e * RAD)) / 2) * 100).toFixed(0) + "%";
+		return {newMoon: e < 9 || e > 351};
+	}
+
+	/* ---------------- building the static pieces ---------------- */
+	const app = document.getElementById("app"),
+		scene = document.getElementById("scene");
+	const seeded = (seed) => {
+		let s = seed;
+		return () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+	};
+	{
+		const r = seeded(90210);
+		document.getElementById("stars").innerHTML = Array.from({length: 190}, () => {
+			const big = r() > 0.9,
+				tw = r() > 0.72;
+			return `<i class="${big ? "b " : ""}${tw ? "tw" : ""}" style="left:${(
+				r() * 100
+			).toFixed(2)}%;top:${(r() * 100).toFixed(2)}%;opacity:${(0.35 + r() * 0.65).toFixed(
+				2
+			)};--tw:${(2.5 + r() * 4).toFixed(1)}s"></i>`;
+		}).join("");
+	}
+	{
+		const C = [
+			{w: 170, y: 9, d: 230, dl: -40},
+			{w: 104, y: 21, d: 280, dl: -160},
+			{w: 210, y: 30, d: 320, dl: -100},
+			{w: 80, y: 14, d: 200, dl: -70},
+			{w: 130, y: 24, d: 260, dl: -215},
+		];
+		document.getElementById("clouds").innerHTML = C.map((c) => {
+			const w = c.w,
+				h = w * 0.42,
+				blobs = [
+					[0, 0.45, 0.55, 0.55],
+					[0.18, 0.12, 0.44, 0.8],
+					[0.45, 0.2, 0.4, 0.72],
+					[0.64, 0.42, 0.36, 0.56],
+					[0.28, 0.5, 0.5, 0.5],
+				];
+			return `<div class="cloud" style="--cw:${w}px;--cy:${c.y}%;--cd:${c.d}s;--cdl:${
+				c.dl
+			}s">${blobs
+				.map(
+					([x, y, bw, bh]) =>
+						`<i style="left:${x * w}px;top:${y * h}px;width:${bw * w}px;height:${
+							bh * h
+						}px"></i>`
+				)
+				.join("")}</div>`;
+		}).join("");
+	}
+	{
+		const r = seeded(4242);
+		let d = "";
+		for (let x = -4; x < 1206; x += 3.2 + r() * 2.4) {
+			const h = 26 + r() * 46,
+				lean = (r() - 0.5) * 16,
+				w = 1.6 + r() * 1.8;
+			d += `M${(x - w).toFixed(1)},120 Q${(x + lean * 0.4).toFixed(1)},${(
+				120 -
+				h * 0.55
+			).toFixed(1)} ${(x + lean).toFixed(1)},${(120 - h).toFixed(1)} Q${(
+				x +
+				lean * 0.3 +
+				w * 0.4
+			).toFixed(1)},${(120 - h * 0.5).toFixed(1)} ${(x + w).toFixed(1)},120 Z `;
+		}
+		const flowers = Array.from({length: 50}, () => {
+			const c = ["#f3c85a", "#f6f0e4", "#e79a7a", "#c9b0e6", "#f2a65a"][Math.floor(r() * 5)];
+			return `<circle cx="${(r() * 1200).toFixed(0)}" cy="${(70 + r() * 44).toFixed(
+				0
+			)}" r="${(1.4 + r() * 1.4).toFixed(1)}" fill="${c}"/>`;
+		}).join("");
+		document.getElementById(
+			"blades"
+		).innerHTML = `<g class="sway"><path d="${d}"/></g>${flowers}`;
+	}
+	{
+		const r = seeded(777);
+		document.getElementById("shrubs").innerHTML = Array.from({length: 40}, () => {
+			const x = r() * 1200,
+				y = 130 + r() * 10,
+				w = 3 + r() * 6;
+			return `<ellipse class="l-shrub" cx="${x.toFixed(0)}" cy="${y.toFixed(
+				1
+			)}" rx="${w.toFixed(1)}" ry="${(w * 0.45).toFixed(1)}"/>`;
+		}).join("");
+		const tuft = (x, y, h, cls) =>
+			`<path class="${cls}" d="M${x - 2},${y} q1,${-h * 0.6} 2,${-h} q1,${
+				h * 0.5
+			} 2,${h} z M${x + 1},${y} q2,${-h * 0.5} 5,${-h * 0.8} q-1,${h * 0.45} -2,${
+				h * 0.8
+			} z"/>`;
+		let t2 = "",
+			t1 = "";
+		for (let i = 0; i < 160; i++)
+			t2 += tuft(r() * 1200, 200 + r() * 40, 5 + r() * 5, "l-tuft2");
+		for (let i = 0; i < 240; i++)
+			t1 += tuft(
+				r() * 1200,
+				250 + r() * 44,
+				7 + r() * 8,
+				r() > 0.75 ? "l-tuft-lit" : "l-tuft1"
+			);
+		document.getElementById("tufts2").innerHTML = t2;
+		document.getElementById("tufts1").innerHTML = t1;
+	}
+	{
+		let g = "";
+		for (let i = 0; i < 16; i++) {
+			const x = 44 + i * 10.2,
+				y = 101.5 - Math.sin(((x - 38) / 164) * Math.PI) * 4;
+			g += `<path d="M${x},${y} l3,-2.4 l3,2.4 l-3,2.4 Z"/>`;
+		}
+		document.getElementById("bandMarks").innerHTML = g;
+	}
+	{
+		const S = [
+			{d: 6.2, dl: 0, w: 9},
+			{d: 7.1, dl: 1.5, w: 11},
+			{d: 6.6, dl: 3, w: 8},
+			{d: 7.6, dl: 4.4, w: 12},
+			{d: 6.9, dl: 5.6, w: 9},
+		];
+		document.getElementById("smoke").innerHTML = S.map(
+			(p) => `<i style="--sd:${p.d}s;--sdl:${p.dl}s;width:${p.w}px;height:${p.w}px"></i>`
+		).join("");
+	}
+
+	{
+		const r = seeded(31337);
+		document.getElementById("fireflies").innerHTML = Array.from(
+			{length: 34},
+			() =>
+				`<i style="left:${(r() * 100).toFixed(1)}%;top:${(r() * 100).toFixed(1)}%;--d:${(
+					5 +
+					r() * 6
+				).toFixed(1)}s;--dl:${(-r() * 6).toFixed(1)}s;` +
+				`--dx:${(r() * 60 - 30).toFixed(0)}px;--dy:${(r() * 26 - 13).toFixed(0)}px;--b:${(
+					2.6 +
+					r() * 3.2
+				).toFixed(1)}s;--bl:${(-r() * 5).toFixed(1)}s"></i>`
+		).join("");
+		// birds, side-on and heading right (a westward flock is mirrored whole): a body with neck and head -- a crane
+		// trails its legs -- and a near and a far wing swept through one stroke. The downstroke is the quicker half and
+		// lifts the body; the upstroke comes back with the wrist bent; mid-stroke the wing is edge-on and all but vanishes.
+		const BODY = {
+			goose:
+				"M3.5,11.3 Q6,10.3 9,10.2 Q14,9.6 18.5,10 Q20.5,10.2 22,10.1 L27.4,9.8 Q28.6,9.2 29.6,9.5 L31.2,10.3 " +
+				"L29.4,10.8 Q28.4,11 27.4,11 L22.6,11.4 Q21,12.8 17.5,13 Q12.5,13.3 8.5,12.4 Q6,11.9 3.5,11.3 Z",
+			crane:
+				"M5.5,11.2 Q8,10.3 10.5,10.3 Q14,9.8 17.5,10.2 Q20,10.4 22.5,9.9 L28.6,9.2 Q30.2,8.9 30.8,9.5 L32,9.9 " +
+				"L30.6,10.1 Q29.6,10.3 28.8,10.2 L23,10.9 Q20.5,12.3 17.5,12.5 Q13.5,12.9 10,12.2 Q7.5,11.9 5.5,11.2 Z " +
+				"M9.5,12.3 L0.4,12.9 L0.5,13.4 L9.6,12.8 Z",
+		};
+		const POSE = {
+			up: "M16.5,10.1 Q17.2,3.6 8.4,0.3 Q10.6,3.6 10.4,6.4 Q10.4,8.8 11.5,10.4 Z",
+			level: "M16.5,10.1 Q15.8,12.4 7,13.2 Q9.4,11.8 10.4,11.4 Q11.2,10.9 11.5,10.4 Z",
+			down: "M16.5,10.1 Q17.6,15.6 10.2,19.6 Q11.6,16.6 11.4,14.2 Q11.2,12 11.5,10.4 Z",
+			flex: "M16.5,10.1 Q15.6,7.6 7.2,8 Q9.4,8.6 10.2,9.2 Q11,9.8 11.5,10.4 Z",
+			glide: "M16.5,10.1 Q16,11.6 6.4,12.2 Q9.2,11.3 10.4,11 Q11.2,10.7 11.5,10.4 Z",
+		};
+		const LIFT = {up: "0 .7", level: "0 0", down: "0 -.7", flex: "0 0", glide: "0 0"};
+		const BEAT = [
+			["up", 0],
+			["level", 0.3],
+			["down", 0.56],
+			["flex", 0.8],
+		];
+		function bird(kind, period, flaps, glide, phase) {
+			const keys = [],
+				poses = [];
+			for (let k = 0; k < flaps; k++)
+				for (const [pose, at] of BEAT) {
+					keys.push(k + at);
+					poses.push(pose);
+				}
+			if (glide) {
+				keys.push(flaps + 0.35, flaps + glide - 0.3);
+				poses.push("glide", "glide");
+			}
+			keys.push(flaps + glide);
+			poses.push("up");
+			const units = flaps + glide,
+				dur = (units * period).toFixed(2);
+			const timing =
+				`dur="${dur}s" begin="${(-phase * units * period).toFixed(
+					2
+				)}s" repeatCount="indefinite" calcMode="spline" ` +
+				`keyTimes="${keys
+					.map((k) => (k / units).toFixed(4))
+					.join(";")}" keySplines="${Array(keys.length - 1)
+					.fill(".42 0 .58 1")
+					.join(";")}"`;
+			const wing = `<animate attributeName="d" ${timing} values="${poses
+				.map((q) => POSE[q])
+				.join(";")}"/>`;
+			return (
+				`<svg viewBox="0 0 32 20" aria-hidden="true"><g>` +
+				`<animateTransform attributeName="transform" type="translate" ${timing} values="${poses
+					.map((q) => LIFT[q])
+					.join(";")}"/>` +
+				`<path class="far" transform="translate(1.3 -.9)" d="${POSE.up}">${wing}</path><path d="${BODY[kind]}"/>` +
+				`<path d="${POSE.up}">${wing}</path></g></svg>`
+			);
+		}
+		// a V of geese with uneven arms and a straggler, a slanting line of cranes, and a far skein
+		const skeins = [
+			{kind: "goose", shape: "v", n: 13, y: 17, d: 42, dl: -8, s: 1, o: 1, period: 0.46},
+			{
+				kind: "crane",
+				shape: "line",
+				n: 8,
+				y: 29,
+				d: 52,
+				dl: -30,
+				s: 0.8,
+				o: 0.82,
+				period: 0.6,
+			},
+			{
+				kind: "goose",
+				shape: "v",
+				n: 17,
+				y: 10,
+				d: 64,
+				dl: -47,
+				s: 0.58,
+				o: 0.55,
+				period: 0.44,
+			},
+		];
+		document.getElementById("birds").innerHTML = skeins
+			.map((f) => {
+				let b = "",
+					ranks = [0, 0];
+				for (let i = 0; i < f.n; i++) {
+					let x, y;
+					if (f.shape === "v") {
+						const arm = i === 0 ? -1 : r() < 0.42 ? 0 : 1,
+							rank = arm < 0 ? 0 : ++ranks[arm];
+						x = 176 - rank * (13 + r() * 3.5);
+						y = 42 + (arm ? 1 : -1) * rank * (5.8 + r() * 1.8) + (r() - 0.5) * 2.4;
+						if (i === f.n - 1) x -= 12;
+					} else {
+						x = 176 - i * (16 + r() * 5);
+						y = 26 + i * (5 + r() * 2.2) + Math.sin(i * 0.9) * 3;
+					}
+					const k = 0.94 + r() * 0.12,
+						cranes = f.kind === "crane";
+					const flaps = cranes ? 3 + Math.floor(r() * 2) : 6 + Math.floor(r() * 4);
+					const glide = cranes ? 1 + r() * 0.7 : r() < 0.3 ? 0.7 : 0;
+					b +=
+						`<span class="bird" style="left:${x.toFixed(1)}px;top:${y.toFixed(
+							1
+						)}px;width:${(17 * k).toFixed(1)}px;height:${(10.6 * k).toFixed(1)}px;` +
+						`--wx:${(r() * 5 - 2.5).toFixed(1)}px;--wy:${(r() * 4 - 2).toFixed(
+							1
+						)}px;--wd:${(4 + r() * 5).toFixed(1)}s;--wdl:${(-r() * 9).toFixed(1)}s">` +
+						bird(f.kind, f.period * (0.92 + r() * 0.16), flaps, glide, r()) +
+						`</span>`;
+				}
+				return (
+					`<div class="flock" style="--fy:${f.y}%;--fd:${f.d}s;--fdl:${f.dl}s"><div class="skein" style="--fs:${f.s};--fo:${f.o}">` +
+					`<div class="sway" style="--sd:${(11 + r() * 6).toFixed(1)}s;--sdl:${(
+						-r() * 12
+					).toFixed(1)}s">${b}</div></div></div>`
+				);
+			})
+			.join("");
+		document.getElementById("rain").innerHTML = Array.from(
+			{length: 130},
+			() =>
+				`<i style="left:${(r() * 110).toFixed(1)}%;--rd:${(0.55 + r() * 0.35).toFixed(
+					2
+				)}s;--rdl:${(-r() * 1.2).toFixed(2)}s;opacity:${(0.4 + r() * 0.6).toFixed(2)}"></i>`
+		).join("");
+		document.getElementById("snow").innerHTML = Array.from(
+			{length: 120},
+			() =>
+				`<i style="left:${(r() * 105).toFixed(1)}%;--fs:${(2 + r() * 3.4).toFixed(
+					1
+				)}px;--fd:${(7 + r() * 7).toFixed(1)}s;--fdl:${(-r() * 14).toFixed(1)}s;--fx:${(
+					r() * 80 -
+					50
+				).toFixed(0)}px;opacity:${(0.5 + r() * 0.5).toFixed(2)}"></i>`
+		).join("");
+		document.getElementById("seeds").innerHTML = Array.from(
+			{length: 26},
+			() =>
+				`<i style="--y:${(r() * 100).toFixed(0)}%;--sd:${(3.5 + r() * 3).toFixed(
+					1
+				)}s;--sdl:${(-r() * 6).toFixed(1)}s;--sy:${(r() * 60 - 30).toFixed(0)}px"></i>`
+		).join("");
+	}
+
+	/* ---------------- the yurt sits in the open ground between the panels ---------------- */
+	const picked = {
+		words: "mulish",
+		names: "fraunces",
+		yurt: "far",
+		fx: "embers",
+		pm: "frost",
+		pmm: "still",
+	};
+	// the far third of the open ground between the panels, measured along the reading direction; the
+	// scene is mirrored in right-to-left, so its own coordinates always run from the reading start
+	let yurtLeft = 0;
+	let yurtFade = 0;
+	function placeYurt() {
+		const a = app.getBoundingClientRect(),
+			c = app.querySelector(".chat").getBoundingClientRect();
+		const rtl = app.dir === "rtl";
+		const start = rtl ? a.right - c.right : c.left - a.left;
+		const next = start + c.width * 0.72;
+		const put = () => {
+			yurtLeft = next;
+			app.style.setProperty("--yurt-left", yurtLeft.toFixed(0) + "px");
+		};
+		// a small shift follows the layout as it is; a real move is a fade out, a jump while unseen, and a fade in
+		if (!yurtLeft || app.classList.contains("preload") || Math.abs(next - yurtLeft) < 24) {
+			if (!app.classList.contains("yurt-moving")) put();
+			return;
+		}
+		clearTimeout(yurtFade);
+		app.classList.add("yurt-moving");
+		yurtFade = setTimeout(() => {
+			put();
+			placeSmoke();
+			requestAnimationFrame(() => app.classList.remove("yurt-moving"));
+		}, 400);
+	}
+	function placeSmoke() {
+		// the pipe sits at the yurt's centre line, 22/170 of its height from the top, in the scene's own coordinates
+		const y = document.getElementById("yurt"),
+			sm = document.getElementById("smoke");
+		sm.style.left = yurtLeft.toFixed(0) + "px";
+		sm.style.top = y.offsetTop + y.offsetHeight * (22 / 170) + "px";
+	}
+
+	/* ---------------- one moment of the day ---------------- */
+	const sunEl = document.getElementById("sun"),
+		moonEl = document.getElementById("moon");
+	let minute = 1122;
+	function apply(m) {
+		minute = m;
+		const {doy, date} = dayOfYear(moonDay),
+			season = seasonOf(doy),
+			{rise, set: sunset} = sunTimes(doy);
+		const cm = canonical(m, rise, sunset);
+		const p = paletteAt(cm),
+			H = app.clientHeight,
+			set = (k, v) => app.style.setProperty(k, v);
+		const wxKey =
+			wxOverride === "auto" ? weatherFor(Math.floor(moonDay), season.main) : wxOverride;
+		const wx = WX[wxKey],
+			day = 1 - p.dark;
+		// the season, as an offset from midsummer green applied at every hour, strongest by day
+		for (const t of LAND) p[t] = shift(p[t], REF[t], season.target[t], 0.35 + 0.65 * day);
+		if (season.w.winter > 0) {
+			const snowNight = season.w.winter * p.dark * 0.55;
+			for (const t of ["far", "hill2", "hill1", "grass"])
+				p[t] = mix(p[t], "#3c4a6a", snowNight);
+		}
+		// overcast greys the clouds and hides the sun
+		set("--sky-top", p.top);
+		set("--sky-mid", p.mid);
+		set("--sky-hor", p.hor);
+		set("--mount", p.mount);
+		set("--far", p.far);
+		set("--hill2", p.hill2);
+		set("--hill1", p.hill1);
+		set("--grass", p.grass);
+		set("--blade", p.blade);
+		set("--felt", p.felt);
+		set("--band", p.band);
+		set("--door", p.door);
+		set("--cloud", mix(p.cloud, p.dark > 0.5 ? "#262c3c" : "#9aa2b2", wx.grey));
+		set("--cloud-under", mix(p.under, p.dark > 0.5 ? "#1c2130" : "#7c8494", wx.grey));
+		set("--glow", p.glow);
+		set("--glow-op", (p.gop * (1 - wx.hide * 0.8)).toFixed(3));
+		set("--stars", p.stars.toFixed(3));
+		set("--milky", p.milky.toFixed(3));
+		set("--dark", p.dark.toFixed(3));
+		const nightGlow = Math.max(0, (p.dark - 0.38) / 0.62);
+		set("--night-glow", nightGlow.toFixed(3));
+		set("--smoke-op", Math.min(1, nightGlow * 1.2).toFixed(3));
+		set(
+			"--smoke",
+			`rgb(${Math.round(150 + 60 * (1 - p.dark))} ${Math.round(
+				155 + 55 * (1 - p.dark)
+			)} ${Math.round(172 + 40 * (1 - p.dark))} / .55)`
+		);
+
+		const s = sunAt(m, rise, sunset),
+			heat = 1 - Math.max(0, s.alt);
+		sunEl.style.setProperty("--x", s.x.toFixed(2) + "%");
+		sunEl.style.setProperty("--y", s.y.toFixed(2) + "%");
+		sunEl.style.setProperty("--sun-size", (H * 0.27 * (1 + 0.45 * heat)).toFixed(1) + "px");
+		sunEl.style.setProperty("--sun-op", s.up ? (1 - wx.hide).toFixed(2) : "0");
+		set("--sun-mid", mix("#ffe07a", "#ff9c3e", heat));
+		set("--sun-edge", mix("#ffb23c", "#ff5424", heat));
+		set("--sun-flame", mix("#ffcf5a", "#ff6e2c", heat));
+		set("--sun-bloom", mix("#fff2b8", "#ff9a5a", heat));
+		set("--glow-x", (s.up ? Math.min(92, Math.max(8, s.x)) : m < 720 ? 10 : 90) + "%");
+
+		const mo = moonArc(m, rise, sunset),
+			ph = drawMoonPhase();
+		moonEl.style.setProperty("--x", mo.x.toFixed(2) + "%");
+		moonEl.style.setProperty("--y", mo.y.toFixed(2) + "%");
+		moonEl.style.setProperty("--moon-size", (H * 0.17).toFixed(1) + "px");
+		moonEl.style.setProperty(
+			"--moon-op",
+			(mo.up && !ph.newMoon ? Math.min(1, p.dark * 1.25) * (1 - wx.hide * 0.85) : 0).toFixed(
+				3
+			)
+		);
+
+		// weather
+		scene.classList.toggle("windy", wx.wind > 0.5);
+		scene.classList.toggle("storm", wx.storm > 0);
+		scene.classList.toggle("hot", wx.heat > 0 && p.dark < 0.1);
+		set("--wdim", wx.dim.toFixed(2));
+		set("--wdim-c", wx.dimc);
+		set("--rain-op", wx.rain.toFixed(2));
+		set("--snow-op", wx.snow.toFixed(2));
+		set(
+			"--wind-op",
+			(
+				wx.wind *
+				(1 - p.dark * 0.6) *
+				(season.w.autumn + season.w.summer * 0.6 + season.w.spring * 0.8)
+			).toFixed(2)
+		);
+		set("--sway", wx.sway + "deg");
+		set("--heat-op", ((wx.heat * Math.max(0, day - 0.7)) / 0.3).toFixed(2));
+		set(
+			"--snowcap",
+			Math.max(
+				season.w.winter > 0.5 ? (season.w.winter - 0.4) / 0.6 : 0,
+				wxKey === "snow" ? 0.9 : 0
+			).toFixed(2)
+		);
+		set("--flowers", Math.min(1, season.w.spring + season.w.summer * 0.55).toFixed(2));
+		// the river runs in spring, autumn and winter, and dries to a stony bed in high summer
+		set("--water", Math.max(0, Math.min(1, 1 - season.w.summer * 1.35)).toFixed(2));
+		// fireflies: early summer evenings in the far fields, never in the rain or the cold
+		const warm = season.w.summer + season.w.spring * 0.45;
+		const evening =
+			Math.max(0, Math.min(1, (p.dark - 0.25) / 0.4)) * (cm > 1100 || cm < 120 ? 1 : 0.35);
+		set("--ff-op", (warm * evening * (wx.rain || wx.snow || wx.storm ? 0 : 1)).toFixed(2));
+		// flocks: migrating north in spring, south in autumn, a few in winter, by daylight
+		const migrating = Math.min(1, season.w.spring + season.w.autumn + season.w.winter * 0.3);
+		set(
+			"--birds-op",
+			(migrating * Math.max(0, day - 0.15) * (wx.rain || wx.storm ? 0.3 : 1)).toFixed(2)
+		);
+		set("--bird-ink", p.dark > 0.2 ? "rgb(24 22 34 / 85%)" : "rgb(44 50 66 / 72%)");
+		document
+			.getElementById("birds")
+			.classList.toggle("west", season.w.autumn > season.w.spring);
+
+		const fmt = (t) =>
+			`${String(Math.floor(t / 60)).padStart(2, "0")}:${String(Math.round(t % 60)).padStart(
+				2,
+				"0"
+			)}`;
+		document.getElementById("season").textContent = season.name;
+		document.getElementById("sunup").textContent = fmt(rise);
+		document.getElementById("sundown").textContent = fmt(sunset);
+		document.getElementById("wxnow").textContent =
+			wxOverride === "auto" ? `(today: ${wxKey === "heat" ? "summer heat" : wxKey})` : "";
+
+		// the glass panels: pale by day, deep by night, flipping with the rest of the interface
+		const night = p.dark > 0.5;
+		const G = night
+			? {
+					glass: "rgb(12 17 32 / 58%)",
+					ink: "#e9eef7",
+					soft: "#a7b3c8",
+					edge: "rgb(255 255 255 / 9%)",
+					field: "rgb(255 255 255 / 7%)",
+					on: "rgb(255 255 255 / 11%)",
+					n1: "#f5a785",
+					n2: "#7fd6c2",
+					n3: "#c9aaf2",
+					n4: "#f3c47e",
+					accent: "#d9784a",
+			  }
+			: {
+					glass: "rgb(255 251 244 / 62%)",
+					ink: "#1f2a3d",
+					soft: "#55627a",
+					edge: "rgb(255 255 255 / 55%)",
+					field: "rgb(255 255 255 / 72%)",
+					on: "rgb(255 255 255 / 60%)",
+					n1: "#a8491f",
+					n2: "#1f6f5e",
+					n3: "#6a4696",
+					n4: "#8a5a12",
+					accent: "#c2562b",
+			  };
+		set("--g-solid", night ? "#121827" : "#fbf8f2");
+		set("--g-glass", G.glass);
+		set("--g-ink", G.ink);
+		set("--g-soft", G.soft);
+		set("--g-edge", G.edge);
+		set("--g-field", G.field);
+		set("--g-on", G.on);
+		set("--accent-ui", G.accent);
+		set("--g-n1", G.n1);
+		set("--g-n2", G.n2);
+		set("--g-n3", G.n3);
+		set("--g-n4", G.n4);
+
+		// the words over the open plains: dark ink with a halo in full daylight, white with a close
+		// drop shadow while the light changes and through the night
+		const onPaper = app.classList.contains("pm") && picked.pm === "glass";
+		const changing = p.dark > 0.05 && !(onPaper && !night);
+		const halo = mix(p.hor, "#ffffff", 0.55);
+		const C = changing
+			? {
+					ink: "#ffffff",
+					faint: "rgb(255 255 255 / 80%)",
+					shadow: "0 1px 1.5px rgb(0 0 0 / 70%), 0 0 3px rgb(0 0 0 / 45%), 0 1px 10px rgb(0 0 0 / 35%)",
+					n1: "#ffc0a0",
+					n2: "#9ff0dc",
+					n3: "#dcc4ff",
+					n4: "#ffd99a",
+			  }
+			: {
+					ink: "#1b2638",
+					faint: "#4c5a72",
+					shadow: `0 0 6px ${halo}, 0 0 2px ${halo}, 0 0 1px ${halo}`,
+					n1: "#9c3f16",
+					n2: "#17614f",
+					n3: "#5f3c8c",
+					n4: "#7a4e0c",
+			  };
+		set("--c-ink", C.ink);
+		set("--c-faint", C.faint);
+		set("--c-shadow", C.shadow);
+		set("--c-n1", C.n1);
+		set("--c-n2", C.n2);
+		set("--c-n3", C.n3);
+		set("--c-n4", C.n4);
+
+		document.getElementById("time").value = Math.round(m) % 1440;
+		document.getElementById("clock").textContent = `${String(Math.floor(m / 60) % 24).padStart(
+			2,
+			"0"
+		)}:${String(Math.floor(m % 60)).padStart(2, "0")}`;
+		document.getElementById("phase").textContent = phaseName(cm);
+	}
+
+	/* ---------------- the type ---------------- */
+	const OLD_FONTS = {
+		crafted: {
+			t: '"Alegreya Sans", "Segoe UI", system-ui, sans-serif',
+			d: "Alegreya, Georgia, serif",
+			size: "15.5px",
+			w: 500,
+			n: 700,
+		},
+		letter: {
+			t: "Literata, Georgia, serif",
+			d: "Literata, Georgia, serif",
+			size: "14.5px",
+			w: 400,
+			n: 600,
+		},
+		frontier: {
+			t: 'Figtree, "Segoe UI", system-ui, sans-serif',
+			d: "Bitter, Georgia, serif",
+			size: "14.5px",
+			w: 500,
+			n: 700,
+		},
+		quiet: {
+			t: 'Lexend, "Segoe UI", system-ui, sans-serif',
+			d: 'Lexend, "Segoe UI", system-ui, sans-serif',
+			size: "14px",
+			w: 400,
+			n: 600,
+		},
+		today: {
+			t: 'Nunito, "Segoe UI", system-ui, sans-serif',
+			d: '"Baloo 2", Nunito, system-ui, sans-serif',
+			size: "14.5px",
+			w: 600,
+			n: 700,
+		},
+	};
+	const WORDS = {
+		nunitosans: {face: '"Nunito Sans"', size: "14.5px", w: 500, label: "Nunito Sans"},
+		mplus: {face: '"M PLUS Rounded 1c"', size: "14.5px", w: 500, label: "M PLUS Rounded"},
+		nunito: {face: "Nunito", size: "14.5px", w: 600, label: "Nunito"},
+		quicksand: {face: "Quicksand", size: "15px", w: 600, label: "Quicksand"},
+		mulish: {face: "Mulish", size: "14.5px", w: 500, label: "Mulish"},
+		sourcesans: {face: '"Source Sans 3"', size: "15px", w: 500, label: "Source Sans 3"},
+		figtree: {face: "Figtree", size: "14.5px", w: 500, label: "Figtree"},
+		lexend: {face: "Lexend", size: "14px", w: 400, label: "Lexend"},
+		lora: {face: "Lora", size: "14.5px", w: 400, label: "Lora"},
+		alegreyasans: {face: '"Alegreya Sans"', size: "15.5px", w: 500, label: "Alegreya Sans"},
+	};
+	const NAMES = {
+		fraunces: {face: "Fraunces", w: 700, label: "Fraunces"},
+		baloo: {face: '"Baloo 2"', w: 700, label: "Baloo 2"},
+		comfortaa: {face: "Comfortaa", w: 700, label: "Comfortaa"},
+		lora: {face: "Lora", w: 700, label: "Lora"},
+		bitter: {face: "Bitter", w: 700, label: "Bitter"},
+		alegreya: {face: "Alegreya", w: 700, label: "Alegreya"},
+		same: {face: null, w: 800, label: "the words' own face"},
+	};
+	function applyType() {
+		const wd = WORDS[picked.words],
+			nm = NAMES[picked.names],
+			r = document.documentElement.style;
+		const serif = /Lora|Fraunces|Bitter|Alegreya"?$|^Alegreya/.test(wd.face)
+			? "Georgia, serif"
+			: '"Segoe UI", system-ui, sans-serif';
+		r.setProperty("--wordsface", wd.face);
+		r.setProperty("--ff-text", `${wd.face}, ${serif}`);
+		r.setProperty(
+			"--ff-display",
+			`${nm.face ?? wd.face}, ${nm.face ? "Georgia, serif" : serif}`
+		);
+		r.setProperty("--f-size", wd.size);
+		r.setProperty("--f-body-w", wd.w);
+		r.setProperty("--f-name-w", nm.w);
+		for (const g of ["words", "names"])
+			document
+				.querySelectorAll(`.opt[data-g="${g}"]`)
+				.forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.v === picked[g])));
+		document
+			.querySelectorAll("#presets .btn")
+			.forEach((b) =>
+				b.setAttribute(
+					"aria-pressed",
+					String(
+						b.dataset.words === picked.words &&
+							(b.dataset.names === picked.names ||
+								(b.dataset.names === "mplus-same" && picked.names === "same"))
+					)
+				)
+			);
+		requestAnimationFrame(() => {
+			placeYurt();
+			placeSmoke();
+			renderPicks();
+		});
+	}
+
+	/* ---------------- controls ---------------- */
+	document.getElementById("time").addEventListener("input", (e) => {
+		stopPlay();
+		apply(+e.target.value);
+	});
+	let raf = 0,
+		last = 0;
+	const playBtn = document.getElementById("play");
+	function stopPlay() {
+		cancelAnimationFrame(raf);
+		raf = 0;
+		playBtn.setAttribute("aria-pressed", "false");
+		playBtn.textContent = "Play a day";
+	}
+	function tick(ts) {
+		if (last) apply((minute + ((ts - last) / 1000) * 30) % 1440);
+		last = ts;
+		raf = requestAnimationFrame(tick);
+	}
+	playBtn.addEventListener("click", () => {
+		if (raf) return stopPlay();
+		last = 0;
+		raf = requestAnimationFrame(tick);
+		playBtn.setAttribute("aria-pressed", "true");
+		playBtn.textContent = "Pause";
+	});
+	document.getElementById("now").addEventListener("click", () => {
+		stopPlay();
+		const d = new Date();
+		moonDay = Date.now() / 86400000;
+		apply(d.getHours() * 60 + d.getMinutes());
+	});
+	document.getElementById("mprev").addEventListener("click", () => {
+		moonDay -= 1;
+		apply(minute);
+	});
+	document.getElementById("mnext").addEventListener("click", () => {
+		moonDay += 1;
+		apply(minute);
+	});
+	document.getElementById("mweek").addEventListener("click", () => {
+		moonDay += 7;
+		apply(minute);
+	});
+	document.getElementById("mmonth").addEventListener("click", () => {
+		moonDay += 30;
+		apply(minute);
+	});
+	document.getElementById("rtl").addEventListener("click", (e) => {
+		const on = app.dir !== "rtl";
+		app.dir = on ? "rtl" : "ltr";
+		e.currentTarget.setAttribute("aria-pressed", String(on));
+		requestAnimationFrame(() => {
+			placeYurt();
+			placeSmoke();
+		});
+	});
+	document.getElementById("wx").addEventListener("change", (e) => {
+		wxOverride = e.target.value;
+		apply(minute);
+	});
+
+	const LABEL = {
+		yurt: {
+			far: "the yurt in the far third of the reading direction, in silhouette at sunset; the scene mirrors in right-to-left",
+		},
+		fx: {
+			lantern: "a lantern lit behind each new line",
+			embers: "embers lift off each new line",
+			wash: "new words arrive in firelight gold",
+			still: "no effect beyond the fade-in",
+		},
+	};
+	function renderPicks() {
+		document.getElementById("picks").innerHTML =
+			`<li>${WORDS[picked.words].label} for the words, ${
+				NAMES[picked.names].label
+			} for the names</li>` +
+			["yurt", "fx"].map((g) => `<li>${LABEL[g][picked[g]]}</li>`).join("") +
+			"<li>every channel is the same plains; the panels are glass coloured for the hour</li>" +
+			"<li>words in ink by day, white with a drop shadow through dusk, night and dawn</li>" +
+			"<li>the date sets the season: flocks in spring and autumn, fireflies on summer nights, weather drawn for each day, and the sun keeping real hours</li>" +
+			`<li>private messages: ${
+				{
+					frost: "the plains behind frosted glass",
+					sky: "the sky of the hour alone",
+					glass: "no scene, just the panels' paper",
+				}[picked.pm]
+			}${
+				picked.pm === "glass" ? "" : picked.pmm === "still" ? ", still" : ", moving softly"
+			}</li>`;
+	}
+	document.querySelectorAll(".opt").forEach((o) =>
+		o.addEventListener("click", () => {
+			const g = o.dataset.g;
+			picked[g] = o.dataset.v;
+			document
+				.querySelectorAll(`.opt[data-g="${g}"]`)
+				.forEach((x) => x.setAttribute("aria-pressed", String(x === o)));
+			if (g === "yurt") {
+				placeYurt();
+				placeSmoke();
+			}
+			if (g === "words" || g === "names") applyType();
+			if (g === "pm" || g === "pmm") {
+				setPM(true);
+				app.scrollIntoView({behavior: "smooth", block: "start"});
+			}
+			renderPicks();
+		})
+	);
+
+	let chanRow = document.getElementById("chanrow");
+	const rowName = (r) => r.firstChild.textContent.trim();
+	function setPM(on) {
+		app.classList.toggle("pm", on);
+		for (const k of ["frost", "sky", "glass"])
+			app.classList.toggle(`pm-${k}`, on && picked.pm === k);
+		const still = on && picked.pmm === "still";
+		app.classList.toggle("pm-still", still);
+		// the sun's fire and the heat shimmer are SVG animations, which CSS cannot pause
+		document
+			.querySelectorAll(".scene svg")
+			.forEach((g) => (still ? g.pauseAnimations() : g.unpauseAnimations()));
+		document.getElementById("viewpm").setAttribute("aria-pressed", String(on));
+		document.getElementById("viewchan").setAttribute("aria-pressed", String(!on));
+		document
+			.querySelectorAll(".side .ch")
+			.forEach((r) => r.classList.toggle("on", on ? r.id === "pmrow" : r === chanRow));
+		const name = on ? "wren" : rowName(chanRow);
+		document.getElementById("viewchan").textContent = rowName(chanRow);
+		document.getElementById("headname").textContent = name;
+		document.getElementById("headtopic").textContent = on
+			? "private conversation"
+			: "wind in the long grass";
+		document.getElementById("fieldhint").textContent = `Write to ${name}`;
+		apply(minute);
+		requestAnimationFrame(() => {
+			placeYurt();
+			placeSmoke();
+		});
+	}
+	document.getElementById("viewpm").addEventListener("click", () => setPM(true));
+	document.getElementById("viewchan").addEventListener("click", () => setPM(false));
+	document.querySelectorAll(".side .ch").forEach((r) =>
+		r.addEventListener("click", () => {
+			if (r.id === "pmrow") return setPM(true);
+			chanRow = r;
+			setPM(false);
+		})
+	);
+
+	document.querySelectorAll("#presets .btn").forEach((b) =>
+		b.addEventListener("click", () => {
+			picked.words = b.dataset.words;
+			picked.names = b.dataset.names === "mplus-same" ? "same" : b.dataset.names;
+			applyType();
+		})
+	);
+
+	/* ---------------- sending and reacting ---------------- */
+	const LINES = [
+		"the stars are coming out",
+		"can hear the horses from here",
+		"that's the first owl",
+		"someone left the lamp on",
+		"wind's dropped",
+		"good night, plains",
+	];
+	let li = 0;
+	function effect(el, kind) {
+		el.classList.remove("fx-lantern", "fx-wash");
+		void el.offsetWidth;
+		if (kind === "lantern") el.classList.add("fx-lantern");
+		else if (kind === "wash") el.classList.add("fx-wash");
+		else if (kind === "embers")
+			for (let i = 0; i < 4; i++) {
+				const e = document.createElement("span");
+				e.className = "ember";
+				e.style.left = 8 + Math.random() * 60 + "%";
+				e.style.top = "40%";
+				e.style.setProperty("--ex", (Math.random() * 30 - 8).toFixed(0) + "px");
+				e.style.setProperty("--ey", -(34 + Math.random() * 40).toFixed(0) + "px");
+				e.style.setProperty("--ed", (1.9 + Math.random() * 0.9).toFixed(2) + "s");
+				e.style.setProperty("--edl", (i * 0.18).toFixed(2) + "s");
+				el.appendChild(e);
+				setTimeout(() => e.remove(), 3400);
+			}
+	}
+	document.getElementById("send").addEventListener("click", () => {
+		const log = document.getElementById(app.classList.contains("pm") ? "pmlog" : "log"),
+			row = document.createElement("div");
+		row.className = "row";
+		row.innerHTML = `<span class="t">${
+			document.getElementById("clock").textContent
+		}</span><span class="n c2">reed</span><span class="x">${LINES[li++ % LINES.length]}</span>`;
+		log.appendChild(row);
+		while (log.children.length > 12) log.firstElementChild.remove();
+		effect(row, picked.fx);
+	});
+	document.getElementById("react").addEventListener("click", () => {
+		const target = document.getElementById(
+			app.classList.contains("pm") ? "pmlog" : "log"
+		).lastElementChild;
+		let chips = target.querySelector(".chips");
+		if (!chips) {
+			chips = document.createElement("div");
+			chips.className = "chips";
+			target.appendChild(chips);
+		}
+		const c = document.createElement("span");
+		c.className = "chip";
+		c.textContent = "🌾 1";
+		chips.appendChild(c);
+		if (picked.fx !== "still") effect(c, picked.fx === "wash" ? "lantern" : picked.fx);
+	});
+
+	/* ---------------- start ---------------- */
+	const hash = location.hash;
+	const ht = /t=(\d+)/.exec(hash),
+		hw2 = /words=(\w+)/.exec(hash),
+		hn = /names=(\w+)/.exec(hash);
+	if (hw2 && WORDS[hw2[1]]) picked.words = hw2[1];
+	if (hn && NAMES[hn[1]]) picked.names = hn[1];
+	const hd = /date=(\d{4}-\d{2}-\d{2})/.exec(hash),
+		hw = /wx=(\w+)/.exec(hash);
+	if (hd) moonDay = Date.parse(hd[1] + "T00:00:00Z") / 86400000 + 0.9;
+	if (hw && WX[hw[1]]) {
+		wxOverride = hw[1];
+		document.getElementById("wx").value = hw[1];
+	}
+	const hpm = /pm=(\w+)/.exec(hash);
+	const hpmm = /pmm=(\w+)/.exec(hash);
+	if (hpmm && ["still", "drift"].includes(hpmm[1])) {
+		picked.pmm = hpmm[1];
+		document
+			.querySelectorAll('.opt[data-g="pmm"]')
+			.forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.v === picked.pmm)));
+	}
+	if (hpm && ["frost", "sky", "glass"].includes(hpm[1])) {
+		picked.pm = hpm[1];
+		document
+			.querySelectorAll('.opt[data-g="pm"]')
+			.forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.v === picked.pm)));
+	}
+	if (/rtl/.test(hash)) {
+		app.dir = "rtl";
+		document.getElementById("rtl").setAttribute("aria-pressed", "true");
+	}
+	applyType();
+	apply(ht ? +ht[1] : 1122);
+	if (hpm) setPM(true);
+	renderPicks();
+	requestAnimationFrame(() => {
+		placeYurt();
+		requestAnimationFrame(() => {
+			placeSmoke();
+			app.classList.remove("preload");
+		});
+	});
+	document.fonts?.ready?.then(() => {
+		placeYurt();
+		placeSmoke();
+	});
+	addEventListener("resize", () => {
+		apply(minute);
+		placeYurt();
+		placeSmoke();
+	});
+</script>

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<meta charset="utf-8" />
+<title>SVG animation in CSS backgrounds</title>
+<style>
+	body {
+		font: 16px system-ui;
+		padding: 2rem;
+		display: grid;
+		gap: 1rem;
+		grid-template-columns: repeat(3, 1fr);
+	}
+	.box {
+		height: 160px;
+		border: 1px solid #999;
+		background-repeat: no-repeat;
+		background-size: contain;
+		background-position: center;
+	}
+	#smil {
+		background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='20' cy='50' r='12' fill='%23d9457f'><animate attributeName='cx' values='20;80;20' dur='2s' repeatCount='indefinite'/></circle></svg>");
+	}
+	#cssin {
+		background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'>%3Cstyle%3E@keyframes m{to{transform:translateX(60px)}}circle{animation:m 2s linear infinite alternate}%3C/style%3E<circle cx='20' cy='50' r='12' fill='%232160c8'/></svg>");
+	}
+	#morph {
+		background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path fill='%231f7354' d='M20,80 L50,20 L80,80 Z'><animate attributeName='d' values='M20,80 L50,20 L80,80 Z;M20,80 L50,60 L80,80 Z;M20,80 L50,20 L80,80 Z' dur='2s' repeatCount='indefinite'/></path></svg>");
+	}
+	img {
+		height: 160px;
+		border: 1px solid #999;
+	}
+</style>
+<div>
+	<h3>SMIL, background-image</h3>
+	<div class="box" id="smil"></div>
+</div>
+<div>
+	<h3>CSS animation inside the SVG, background-image</h3>
+	<div class="box" id="cssin"></div>
+</div>
+<div>
+	<h3>SMIL path morph, background-image</h3>
+	<div class="box" id="morph"></div>
+</div>
+<div>
+	<h3>Same SMIL as &lt;img&gt;</h3>
+	<img
+		alt=""
+		src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='20' cy='50' r='12' fill='%23d9457f'><animate attributeName='cx' values='20;80;20' dur='2s' repeatCount='indefinite'/></circle></svg>"
+	/>
+</div>
+<p style="grid-column: 1 / -1">
+	A box whose shape moves = that engine animates that form in that context. Record the verdicts in
+	README.md.
+</p>

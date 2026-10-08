@@ -1,13 +1,14 @@
 // The themes end to end in a real browser (docs/resources/themes.md): every
 // theme in the Appearance dropdown swaps the stylesheet link, is stored by
 // name, and sets the browser chrome colour — its own for the four handoff
-// themes (coffee, creama, cobalt, frost), the deploy's (whatever the tag held
-// at boot) for day and morning, which carry none. On those four the colour
-// pairs the design was checked against are measured from computed styles:
-// text, timestamps, links, the join line and a nick on a highlighted row at
-// ≥ 4.5:1, the header and footer icons at ≥ 3:1, the input placeholder — the
-// one deliberate exception — at ≥ 3:1. Day and morning are only exercised for the
-// switching; their open contrast items are docs/projects/accessibility.md's.
+// themes (coffee, creama, cobalt, frost) and ps, the deploy's (whatever
+// the tag held at boot) for day and morning, which carry none. On those
+// five the colour pairs the design was checked against are measured from
+// computed styles: text, timestamps, links, the join line and a nick on a
+// highlighted row at ≥ 4.5:1, the header and footer icons at ≥ 3:1, the
+// input placeholder — the one deliberate exception — at ≥ 3:1. Day and
+// morning are only exercised for the switching; their open contrast items
+// are docs/projects/accessibility.md's.
 // A screenshot of the chat under each theme lands in the output directory.
 //
 //   corepack yarn build && python3 -m http.server -d public 8021 &
@@ -35,6 +36,7 @@ const THEMES = [
 	"keeki",
 	"day",
 	"morning",
+	"ps",
 	"coffee",
 ];
 const OWN_COLOR = {
@@ -46,6 +48,7 @@ const OWN_COLOR = {
 	princess: "#f2f7fc",
 	princess_: "#000000",
 	keeki: "#22143a",
+	ps: "#f4f9ff",
 };
 
 export const url =

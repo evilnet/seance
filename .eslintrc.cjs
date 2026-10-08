@@ -8,6 +8,7 @@ const projects = defineConfig({
 			"./client/tsconfig.json",
 			"./shared/tsconfig.json",
 			"./test/tsconfig.json",
+			"./tools/tsconfig.json",
 		],
 	},
 }).parserOptions.project;

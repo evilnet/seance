@@ -103,6 +103,15 @@ all of them); matching errors are still printed, marked `(expected)`, but do
 not fail the run. `sign-in.mjs`, whose subject is a refused login, is the
 example.
 
+A page under the driver is kept **attended**: a synthetic `pointermove` is
+dispatched every 10 s, because a theme's scene rests 15 s into a window
+without the focus — which a headless page is (`document.hasFocus()` is false)
+— or after two minutes without input (`themeScene.ts` `createAttention`), and
+most scenarios read it running. Focus emulation is left off on purpose: it
+would change what `hasFocus()` tells the notification and AWAY paths. A
+scenario about the rest exports `sceneRest = true` and drives the focus and
+input itself (`scene-rest.mjs`).
+
 ```js
 export const url = "http://localhost:8000/";
 // export const allowWsFrameErrors = /after close/;  // only if it disconnects

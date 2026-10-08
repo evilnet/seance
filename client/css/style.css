@@ -174,6 +174,13 @@ html {
 	display: none;
 }
 
+/* A theme's own scene (client/js/themeScene.ts): hidden unless the theme
+ * shows it, so a scene never paints under a theme that did not ask for it,
+ * even for the moment between a theme switch and the scene's removal. */
+#theme-scene {
+	display: none;
+}
+
 @media (hover: none) and (pointer: coarse) {
 	@supports (-webkit-touch-callout: none) {
 		#status-bar-tint {
@@ -4782,6 +4789,12 @@ html[data-shell="native"] #image-viewer .next-image-btn {
 	animation: reaction-pop 160ms ease-out;
 }
 
+/* The first reaction on a message you are looking at: the whole group pops
+   in the same way (MessageReactions.vue's Transition wrapper). */
+#chat .reactions-enter-active {
+	animation: reaction-pop 160ms ease-out;
+}
+
 @keyframes reaction-pop {
 	from {
 		opacity: 0;
@@ -4799,7 +4812,8 @@ html[data-shell="native"] #image-viewer .next-image-btn {
 }
 
 @media (prefers-reduced-motion: reduce) {
-	#chat .reaction-enter-active {
+	#chat .reaction-enter-active,
+	#chat .reactions-enter-active {
 		animation: none;
 	}
 }

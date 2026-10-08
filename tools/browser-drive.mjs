@@ -96,6 +96,12 @@ const chrome = spawn(
 		flags.has("--devtools") ? "--auto-open-devtools-for-tabs" : "--disable-gpu",
 		"--no-first-run",
 		"--no-default-browser-check",
+		// Chromium puts raster and shared-memory buffers in /dev/shm, which is
+		// 64 MB in a container, and a page that repaints large animated layers
+		// every frame (the <3 theme's meadow) crashes the renderer when it
+		// fills; the flag moves them to /tmp, which is what Playwright does by
+		// default.
+		"--disable-dev-shm-usage",
 		// The dev ircd and the dev web server use self-signed certificates.
 		"--ignore-certificate-errors",
 		"--window-size=1280,900",
@@ -174,6 +180,15 @@ async function devtoolsTarget() {
 
 const pending = new Map();
 const consoleLogs = [];
+/**
+ * What the browser itself writes to the console (CDP Log.entryAdded): a
+ * failed resource load ("Failed to load resource: …", net::ERR_FAILED when
+ * the service worker answered it; a request DevTools blocked logs nothing),
+ * an intervention, a deprecation. Kept apart
+ * from `consoleLogs` (the page's own console.* calls and exceptions), so a
+ * scenario's "no console errors" does not start counting a 404.
+ */
+const logEntries = [];
 const wsFrames = [];
 const failures = [];
 /**
@@ -232,6 +247,20 @@ function onEvent(msg) {
 		const text = d.exception?.description ?? d.text;
 		consoleLogs.push({type: "exception", text});
 		console.log(`page exception ${text}`);
+		return;
+	}
+
+	if (method === "Log.entryAdded") {
+		const {source, level, text, url} = params.entry;
+		logEntries.push({source, level, text, url: url ?? ""});
+		const line = `log.${level} [${source}] ${text}${url ? ` ${url}` : ""}`;
+
+		if (["error", "warning"].includes(level)) {
+			console.log(line);
+		} else {
+			note(line);
+		}
+
 		return;
 	}
 
@@ -480,6 +509,16 @@ async function addInitScript(source) {
 const DISMISS_INSTALL_GUIDE =
 	'try { localStorage.setItem("thelounge.state.installGuide", "dismissed"); } catch (e) {}';
 
+/**
+ * Keeps a page attended (themeScene.ts createAttention): a theme's scene
+ * rests 15 s into a window without the focus — which a headless page is —
+ * and a scenario reads it running. A synthetic pointermove every 10 s is
+ * input to that tracker and nothing else listens for a bare Event. Focus
+ * emulation would do it too, but would change what document.hasFocus()
+ * tells every other scenario (notifications, AWAY).
+ */
+const KEEP_ATTENDED = 'setInterval(() => window.dispatchEvent(new Event("pointermove")), 10000);';
+
 /** Browser.grantPermissions, for testing notification-driven flows. */
 async function grantPermissions(permissions, origin) {
 	await send("Browser.grantPermissions", {
@@ -524,6 +563,11 @@ const page = {
 	expectWsErrors: false,
 	get consoleLogs() {
 		return consoleLogs;
+	},
+	/** The browser's own console entries (Log.entryAdded), e.g. a failed
+	 * load: `{source, level, text, url}`. */
+	get logEntries() {
+		return logEntries;
 	},
 	get wsFrames() {
 		return wsFrames;
@@ -603,6 +647,10 @@ try {
 			await addInitScript(DISMISS_INSTALL_GUIDE);
 		}
 
+		if (scenario.sceneRest !== true) {
+			await addInitScript(KEEP_ATTENDED);
+		}
+
 		note(`scenario ${scenarioPath}${page.url ? ` on ${page.url}` : ""}`);
 		await run(page);
 	} else {
@@ -611,6 +659,7 @@ try {
 		}
 
 		await addInitScript(DISMISS_INSTALL_GUIDE);
+		await addInitScript(KEEP_ATTENDED);
 		await goto(page.url);
 		note(`watching ${page.url} for ${stayMs}ms (Ctrl-C to stop)`);
 		await sleep(stayMs);
