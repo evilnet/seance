@@ -778,13 +778,27 @@ const SCENE_STATE = `(async () => {
 	// A layer that leaves or joins the page inside the window (its fade's
 	// clean-up, layers.ts) moved for part of it only: such a sample says
 	// nothing, so it is taken again (three tries).
-	let anims, animAt, allSvgs, svgAt, svgOff;
+	let anims, animAt, allSvgs, svgAt, svgOff, fireAt;
+	// The sun's fire (flame.ts) is a canvas the stepper paints: a sum of its
+	// pixels, taken with the clocks, says whether it moved and whether it is drawn.
+	const fireEl = s.querySelector(".ps-fire");
+	const fireSum = () => {
+		if (!fireEl) return null;
+		const px = fireEl.getContext("2d").getImageData(0, 0, fireEl.width, fireEl.height).data;
+		let hash = 0, alpha = 0;
+		for (let i = 0; i < px.length; i += 4) {
+			hash = (hash * 31 + px[i] + px[i + 1] * 7 + px[i + 3] * 13) | 0;
+			alpha += px[i + 3];
+		}
+		return {hash, alpha};
+	};
 	for (let tries = 0; tries < 3; tries++) {
 		anims = s.getAnimations({subtree: true});
 		animAt = anims.map((a) => a.currentTime);
 		allSvgs = [...s.querySelectorAll("svg")];
 		svgAt = allSvgs.map((v) => v.getCurrentTime());
 		svgOff = allSvgs.map((v) => !!v.closest(".ps-off"));
+		fireAt = fireSum();
 		await new Promise((r) => setTimeout(r, ${MOTION_SAMPLE_MS}));
 		if (allSvgs.every((v, i) => !!v.closest(".ps-off") === svgOff[i])) break;
 	}
@@ -846,6 +860,10 @@ const SCENE_STATE = `(async () => {
 			haze: v.classList.contains("ps-heat-haze"),
 		})),
 		running: anims.filter((a, i) => a.playState !== "idle" && a.currentTime !== animAt[i]).length,
+		fire: fireEl && (() => {
+			const now = fireSum();
+			return {drawn: now.alpha > 0, moved: now.hash !== fireAt.hash, off: !!fireEl.closest(".ps-off")};
+		})(),
 		view: s.dataset.view,
 		light: h.dataset.psLight,
 		text: h.dataset.psText,
@@ -912,12 +930,13 @@ async function atHour(page, hour) {
 }
 
 /**
- * The scene's SVGs (scene.ts sceneMarkup): the moon, the sun, the land, the
+ * The scene's SVGs (scene.ts sceneMarkup): the moon, the sun's two (its bloom
+ * and its core; the fire between them is a canvas, flame.ts), the land, the
  * near grass and the yurt; the skeins' 38 birds (geese and cranes) and the
  * one holding their belly gradient; the buzzard and the three larks. A hot day's weather layer
  * adds the heat haze.
  */
-const SVGS = 48;
+const SVGS = 49;
 const svgsOn = (s) => SVGS + (s.weather === "heat" ? 1 : 0);
 
 /** The scene's layers, back to front (scene.ts sceneMarkup, docs/projects/ps-theme.md §5.1). */
@@ -999,8 +1018,10 @@ function checkStopped(page, s, where) {
 	page.check(
 		`${where}: the scene is stopped (ps-paused ${s.paused}; ${s.svgs.length} of ${svgsOn(
 			s
-		)} SVG clocks, ${going} going; ${s.running} CSS animations running)`,
-		s.paused && s.svgs.length === svgsOn(s) && going === 0 && s.running === 0
+		)} SVG clocks, ${going} going; ${s.running} CSS animations running; the sun's fire ${
+			s.fire?.moved ? "moving" : "still"
+		})`,
+		s.paused && s.svgs.length === svgsOn(s) && going === 0 && s.running === 0 && !s.fire?.moved
 	);
 }
 
@@ -1019,8 +1040,20 @@ function checkRunning(page, s, where) {
 			s
 		)} SVG clocks, ${going} going, ${s.svgs.length - going} held in layers out of their window${
 			wrong.length ? `, ${wrong.length} the wrong way` : ""
-		}; ${s.running} CSS animations running)`,
-		!s.paused && s.svgs.length === svgsOn(s) && wrong.length === 0 && going > 0 && s.running > 0
+		}; ${s.running} CSS animations running; the sun's fire ${
+			!s.fire
+				? "missing"
+				: s.fire.off
+				? "out of its window"
+				: `${s.fire.drawn ? "drawn" : "blank"}, ${s.fire.moved ? "moving" : "still"}`
+		})`,
+		!s.paused &&
+			s.svgs.length === svgsOn(s) &&
+			wrong.length === 0 &&
+			going > 0 &&
+			s.running > 0 &&
+			!!s.fire &&
+			(s.fire.off || (s.fire.drawn && s.fire.moved))
 	);
 }
 
