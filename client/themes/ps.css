@@ -1456,15 +1456,6 @@ strong,
 	transition: opacity 1.4s ease;
 }
 
-/* The belly gradient's svg: in the page, so #ps-b-belly resolves and its
- * stops read the published inks, and of no size. */
-#theme-scene .ps-bird-defs {
-	position: absolute;
-	width: 0;
-	height: 0;
-	overflow: hidden;
-}
-
 /* The first --ps-skein-count flocks fly (--fi is a flock's number); the
  * mockup's 200 × 90 px box, crossing from −240 px to 1340 px of its 1180 px
  * window: the box's own width and 40 px more off the left edge, 160 px past
@@ -1529,6 +1520,7 @@ strong,
 /* And each bird drifts about its place in the line. */
 #theme-scene .ps-bird {
 	position: absolute;
+	overflow: hidden;
 	animation: ps-bird-wander var(--wd) ease-in-out var(--wdl) infinite alternate;
 }
 
@@ -1536,24 +1528,26 @@ strong,
 	to { transform: translate(var(--wx), var(--wy)); }
 }
 
-/* The fills are opaque and the bird's alpha is on the whole drawing, so a
- * wing over the body never darkens twice; the body is two-tone, the back in
- * the ink and the belly catching the moon. */
-#theme-scene .ps-bird svg {
-	display: block;
-	width: 100%;
+/* The wings (birds.ts wingSprite, createWings): each bird is a window on a
+ * strip of its kind's poses, drawn once in the hour's colours (the scene sets
+ * --ps-wings-goose and --ps-wings-crane) and moved a frame at a time by a
+ * transform, so a wingbeat never repaints. A frame is the bird's 32 × 20
+ * units and a 2-unit gutter: the strip is 30 cells of 34 and the window
+ * shows the first 32 of a cell. The alpha is on the whole strip, so a wing
+ * over the body never darkens twice. */
+#theme-scene .ps-wings {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: calc(100% * 30 * 34 / 32);
 	height: 100%;
-	overflow: visible;
+	background: no-repeat 0 0 / 100% 100%;
 	opacity: var(--ps-bird-alpha, 0.8);
+	will-change: transform;
 }
 
-#theme-scene .ps-bird .ps-b-far {
-	fill: var(--ps-bird-wing);
-	opacity: 0.55;
-}
-
-#theme-scene .ps-bird .ps-b-near { fill: var(--ps-bird-wing); }
-#theme-scene .ps-bird .ps-b-body { fill: url("#ps-b-belly"); }
+#theme-scene .ps-wings-goose { background-image: var(--ps-wings-goose, none); }
+#theme-scene .ps-wings-crane { background-image: var(--ps-wings-crane, none); }
 
 /* The steppe's own birds, by day: there or not, each by its own switch, and
  * the transition is the fade. */

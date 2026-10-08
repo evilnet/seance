@@ -3399,7 +3399,7 @@ describe("the ps theme's birds (plan 3 task 6, spec §5.4: the user's N2, D1 buz
 	const S = "#theme-scene";
 	/** Every rule of the birds, plain or under a root class. */
 	const BIRD_RULE =
-		/^#theme-scene(\.ps-west)? \.(ps-skeins|ps-bird-defs|ps-flock|ps-skein|ps-skein-sway|ps-bird|ps-daybirds|ps-buzzard|ps-lark|ps-lark-track|ps-lark-bird)\b/;
+		/^#theme-scene(\.ps-west)? \.(ps-skeins|ps-flock|ps-skein|ps-skein-sway|ps-bird|ps-wings|ps-daybirds|ps-buzzard|ps-lark|ps-lark-track|ps-lark-bird)\b/;
 	const own = rules.filter((r) => r.selectors.some((sel) => BIRD_RULE.test(sel)));
 	const FRAMES = [
 		"ps-skein-fly",
@@ -3419,12 +3419,6 @@ describe("the ps theme's birds (plan 3 task 6, spec §5.4: the user's N2, D1 buz
 		expect(valueOf(`${S} .ps-skeins`, "inset")).to.equal("0 0 45%");
 		expect(valueOf(`${S} .ps-skeins`, "opacity")).to.equal("var(--ps-skeins-op, 0)");
 		expect(valueOf(`${S} .ps-skeins`, "transition")).to.equal("opacity 1.4s ease");
-	});
-
-	it("keeps the belly gradient's svg in the page but of no size, never display: none", function () {
-		expect(valueOf(`${S} .ps-bird-defs`, "width")).to.equal("0");
-		expect(valueOf(`${S} .ps-bird-defs`, "height")).to.equal("0");
-		expect(declsOf(`${S} .ps-bird-defs`).filter(([p]) => p === "display")).to.deep.equal([]);
 	});
 
 	it("flies the first --ps-skein-count flocks, a rem box each, across the scene in cqw", function () {
@@ -3476,13 +3470,18 @@ describe("the ps theme's birds (plan 3 task 6, spec §5.4: the user's N2, D1 buz
 		);
 	});
 
-	it("paints the skeins in the moonlit colours scene.ts publishes, the alpha on the whole bird", function () {
-		expect(valueOf(`${S} .ps-bird svg`, "opacity")).to.equal("var(--ps-bird-alpha, 0.8)");
-		expect(valueOf(`${S} .ps-bird svg`, "overflow")).to.equal("visible");
-		expect(valueOf(`${S} .ps-bird .ps-b-far`, "fill")).to.equal("var(--ps-bird-wing)");
-		expect(valueOf(`${S} .ps-bird .ps-b-far`, "opacity")).to.equal("0.55");
-		expect(valueOf(`${S} .ps-bird .ps-b-near`, "fill")).to.equal("var(--ps-bird-wing)");
-		expect(valueOf(`${S} .ps-bird .ps-b-body`, "fill")).to.equal('url("#ps-b-belly")');
+	it("shows each bird through a window on its kind's wing strip, the alpha on the whole strip", function () {
+		expect(valueOf(`${S} .ps-bird`, "overflow")).to.equal("hidden");
+		expect(valueOf(`${S} .ps-wings`, "opacity")).to.equal("var(--ps-bird-alpha, 0.8)");
+		// 30 frames (birds.ts WING_FRAMES) of 34 units, the window showing 32 of each.
+		expect(valueOf(`${S} .ps-wings`, "width")).to.equal("calc(100% * 30 * 34 / 32)");
+		expect(valueOf(`${S} .ps-wings`, "will-change")).to.equal("transform");
+		expect(valueOf(`${S} .ps-wings-goose`, "background-image")).to.equal(
+			"var(--ps-wings-goose, none)"
+		);
+		expect(valueOf(`${S} .ps-wings-crane`, "background-image")).to.equal(
+			"var(--ps-wings-crane, none)"
+		);
 		expect(valueOf(`${S} .ps-bird`, "animation")).to.equal(
 			"ps-bird-wander var(--wd) ease-in-out var(--wdl) infinite alternate"
 		);

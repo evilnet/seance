@@ -6,6 +6,12 @@ import {
 	passageOf,
 	SKEINS,
 	skeinsMarkup,
+	createWings,
+	wingFrame,
+	wingSprite,
+	WING_CELL,
+	WING_FRAMES,
+	WING_STRIP,
 } from "../../../client/js/scenes/ps/birds";
 import {mix} from "../../../client/js/scenes/ps/colour";
 import {momentFor, sunTimes, type Moment, type Weather} from "../../../client/js/scenes/ps/engine";
@@ -371,38 +377,92 @@ describe("ps birds: the skeins (skeinsMarkup, the mockup's bird() and three skei
 		]);
 	});
 
-	it("draws every bird as its own svg, with the goose's and the crane's bodies and the mockup's poses", function () {
-		expect(markup.match(/<svg viewBox="0 0 32 20"/g)).to.have.length(38);
-		expect(markup).to.include(
-			'd="M3.5,11.3 Q6,10.3 9,10.2 Q14,9.6 18.5,10 Q20.5,10.2 22,10.1 L27.4,9.8 Q28.6,9.2 29.6,9.5 L31.2,10.3 L29.4,10.8 Q28.4,11 27.4,11 L22.6,11.4 Q21,12.8 17.5,13 Q12.5,13.3 8.5,12.4 Q6,11.9 3.5,11.3 Z"'
-		);
-		expect(markup).to.include("M9.5,12.3 L0.4,12.9 L0.5,13.4 L9.6,12.8 Z"); // the crane's legs
-		expect(markup).to.include(
-			"M16.5,10.1 Q17.2,3.6 8.4,0.3 Q10.6,3.6 10.4,6.4 Q10.4,8.8 11.5,10.4 Z"
-		); // up
-		expect(markup).to.include(
-			"M16.5,10.1 Q17.6,15.6 10.2,19.6 Q11.6,16.6 11.4,14.2 Q11.2,12 11.5,10.4 Z"
-		); // down
-		expect(markup).to.include(
-			"M16.5,10.1 Q16,11.6 6.4,12.2 Q9.2,11.3 10.4,11 Q11.2,10.7 11.5,10.4 Z"
-		); // glide
-		expect(markup.match(/class="ps-b-far"/g)).to.have.length(38);
-		expect(markup.match(/class="ps-b-near"/g)).to.have.length(38);
-		expect(markup.match(/class="ps-b-body"/g)).to.have.length(38);
+	it("draws every bird as a window on its kind's wing strip, with its own wingbeat", function () {
+		expect(markup).to.not.include("<svg");
+		expect(markup.match(/class="ps-wings ps-wings-goose"/g)).to.have.length(30);
+		expect(markup.match(/class="ps-wings ps-wings-crane"/g)).to.have.length(8);
+
+		for (const m of markup.matchAll(/data-beat="([^"]*)"/g)) {
+			const [period, flaps, glide, phase] = m[1].split(" ").map(Number);
+			expect(period).to.be.within(0.44 * 0.92 - 1e-6, 0.6 * 1.08 + 1e-6);
+			expect(flaps).to.be.within(3, 9);
+			expect(glide).to.be.within(0, 1.7);
+			expect(phase).to.be.within(0, 1);
+		}
 	});
 
-	it("beats every wing through a stroke that loops forever: every SMIL animation repeats indefinitely", function () {
-		const smil = smilIn(markup);
-		expect(smil).to.have.length(38 * 3); // the lift, and the far and the near wing
+	it("draws the strip from the mockup's bodies and poses, in the colours given", function () {
+		const goose = wingSprite("goose", "#111111", "#222222", "#333333");
+		const crane = wingSprite("crane", "#111111", "#222222", "#333333");
+		expect(goose).to.include(
+			'd="M3.5,11.3 Q6,10.3 9,10.2 Q14,9.6 18.5,10 Q20.5,10.2 22,10.1 L27.4,9.8 Q28.6,9.2 29.6,9.5 L31.2,10.3 L29.4,10.8 Q28.4,11 27.4,11 L22.6,11.4 Q21,12.8 17.5,13 Q12.5,13.3 8.5,12.4 Q6,11.9 3.5,11.3 Z"'
+		);
+		expect(crane).to.include("M9.5,12.3 L0.4,12.9 L0.5,13.4 L9.6,12.8 Z"); // the crane's legs
+		expect(goose).to.include(
+			"M16.5,10.1 Q17.2,3.6 8.4,0.3 Q10.6,3.6 10.4,6.4 Q10.4,8.8 11.5,10.4 Z"
+		); // up
+		expect(goose).to.include(
+			"M16.5,10.1 Q16,11.6 6.4,12.2 Q9.2,11.3 10.4,11 Q11.2,10.7 11.5,10.4 Z"
+		); // glide
+		expect(goose.match(/<g transform/g)).to.have.length(WING_FRAMES);
+		expect(goose).to.include('stop-color="#111111"').and.include('stop-color="#333333"');
+		expect(goose).to.include('fill="#222222" opacity=".55"');
+		expect(goose).to.include(`viewBox="0 0 ${WING_FRAMES * WING_CELL} 20"`);
+	});
 
-		for (const a of smil) {
-			expect(a).to.include('repeatCount="indefinite"');
-			const keyTimes = /keyTimes="([^"]*)"/.exec(a)![1].split(";").map(Number);
-			expect(keyTimes[0]).to.equal(0);
-			expect(keyTimes.at(-1)).to.equal(1);
-			const values = /values="([^"]*)"/.exec(a)![1].split(";");
-			expect(values).to.have.length(keyTimes.length);
-		}
+	it("starts the strip on the up pose, and the downstroke is the quicker half", function () {
+		expect(WING_STRIP[0].d).to.equal(
+			"M16.5,10.1 Q17.2,3.6 8.4,0.3 Q10.6,3.6 10.4,6.4 Q10.4,8.8 11.5,10.4 Z"
+		);
+		expect(WING_STRIP[0].lift).to.equal(0.7);
+		// The body is lowest at the down pose, 0.56 of the beat: frame 9 of 16.
+		const beat = WING_STRIP.slice(0, 16);
+		const lowest = beat.reduce((best, f, i) => (f.lift < beat[best].lift ? i : best), 0);
+		expect(lowest).to.equal(9);
+	});
+
+	it("holds the strip's frame count in step with ps.css's", function () {
+		expect(WING_FRAMES).to.equal(30);
+		expect(WING_CELL).to.equal(34);
+	});
+
+	it("shows the frame the old SMIL keyframes give at a time: beats, then the glide, then up again", function () {
+		const w = {period: 0.5, flaps: 2, glide: 1, phase: 0};
+		expect(wingFrame(w, 0)).to.equal(0);
+		expect(wingFrame(w, 0.5 / 4)).to.equal(4); // a quarter-beat in
+		expect(wingFrame(w, 0.5)).to.equal(0); // the second beat
+		expect(wingFrame(w, 1.0 + 0.4 * 0.5)).to.equal(24); // into the glide and held
+		expect(wingFrame(w, 1.5)).to.equal(0); // a loop: up again
+		// A bird that never glides only ever shows the stroke's frames.
+		const g = {period: 0.46, flaps: 7, glide: 0, phase: 0.3};
+		const frames = new Set(Array.from({length: 200}, (_, i) => wingFrame(g, i / 100)));
+		expect([...frames].every((f) => f < 16)).to.equal(true);
+	});
+
+	it("moves a bird only when its frame changes, and plays on its own when unpaused", function () {
+		const shown: number[] = [];
+		let next: ((ms: number) => void) | null = null;
+		const wings = createWings(
+			[{beat: {period: 0.5, flaps: 2, glide: 0, phase: 0}, show: (f) => shown.push(f)}],
+			{
+				frame(fn) {
+					next = fn;
+					return () => (next = null);
+				},
+			}
+		);
+		wings.setCurrentTime(0);
+		wings.setCurrentTime(0.001);
+		expect(shown).to.deep.equal([0]);
+		wings.setCurrentTime(0.5 / 4);
+		expect(shown).to.deep.equal([0, 4]);
+		wings.unpauseAnimations();
+		expect(wings.animationsPaused()).to.equal(false);
+		next!(1000);
+		next!(1000 + 125);
+		expect(wings.getCurrentTime()).to.be.closeTo(0.25, 1e-9);
+		wings.pauseAnimations();
+		expect(wings.animationsPaused()).to.equal(true);
 	});
 
 	it("sizes the birds in rem and places them in % of their flock, and names nothing in px", function () {
@@ -419,14 +479,6 @@ describe("ps birds: the skeins (skeinsMarkup, the mockup's bird() and three skei
 			expect(s).to.match(/left:-?[\d.]+%;top:-?[\d.]+%;/);
 			expect(s).to.match(/--wx:-?[\d.]+rem;--wy:-?[\d.]+rem;--wd:[\d.]+s;--wdl:-?[\d.]+s/);
 		}
-	});
-
-	it("paints the bodies two-tone from one gradient, ps-b-belly, in a 0 × 0 svg: the back in the ink, the belly lit", function () {
-		const ids = [...markup.matchAll(/\bid="([^"]*)"/g)].map((m) => m[1]);
-		expect(ids).to.deep.equal(["ps-b-belly"]);
-		expect(markup.startsWith('<svg class="ps-bird-defs" width="0" height="0"')).to.equal(true);
-		expect(markup).to.include('<stop offset=".3" style="stop-color: var(--ps-bird-ink)"/>');
-		expect(markup).to.include('<stop offset="1" style="stop-color: var(--ps-bird-belly)"/>');
 	});
 });
 
