@@ -1059,6 +1059,17 @@ strong,
 	overflow: visible;
 }
 
+/* The sun's fire (flame.ts): the canvas covers the region the fire's SVG
+ * filter covered, ±123.2 of the sun's ±100 units, and the browser scales its
+ * 160 pixels up smoothly. */
+#theme-scene .ps-fire {
+	position: absolute;
+	left: -11.6%;
+	top: -11.6%;
+	width: 123.2%;
+	height: 123.2%;
+}
+
 /* The sun's slow rays: a turning conic, masked to a ring. */
 #theme-scene .ps-rays {
 	position: absolute;

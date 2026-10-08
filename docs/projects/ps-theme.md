@@ -669,6 +669,12 @@ Two rules stay whatever the settings say: a hidden page draws nothing (a hidden 
 
 Measured by `tools/scenarios/ps-scene-settings.mjs` (headless, no GPU, a clear noon, the composer blurred, since a focused text field restyles about twice a second under every theme): restyles a second at off 0.2, once a second 1.0, 24 at 24.6, 60 at 65.7; sparse 0.0 between its steps, and coming back after a rest moved the SVG clocks on by 130 s at once; with Pause off, a window without the focus kept 24.2.
 
+### 10.5 The sun's fire off the filter path (2026-10-08)
+
+On the user's iPhone 16 (iOS 27.0.1, the Debug shell, the sun low in the west) the scene ran at **13 frames a second** and WebKit's GPU process at **392 % CPU** (Activity Monitor). Its time profile: 85 % in `FETurbulenceSoftwareApplier`. WebKit runs `feTurbulence`, `feDisplacementMap` and `feGaussianBlur` in software, at device resolution, every time the filter changes, and the fire's `baseFrequency` changed every step. With the fire's filter removed, the page ran at 60 frames a second and the GPU process at 16 %. Measured in the iOS Simulator, tried and rejected: a still turbulence is cached (23 %), but any animated attribute in the chain re-runs all of it (an `feOffset` pan: 93 %), and so does a baked noise image under the displacement (`feImage`: 100 %, 19 fps). It burned 349 % even while the scene rested, so pausing does not save it.
+
+The fire is now `flame.ts`: the spec's reference turbulence (seed 7, three octaves, the same 7 s drift), the displacement (26) and the blur (1.2) run in JS on a 160-pixel canvas over the old filter region, which `ps.css` scales up. Each of the loop's 168 frames (`FIRE_FPS` 24) is computed the first time it is shown and kept (4.3 MB for the loop): a frame holds where each pixel samples the flame's gradient, and the hour's colours are applied at paint time through a 256-entry table. The canvas is one of the stepper's clocks, so it is stepped, held and handed to native playback like the SMIL it replaces. Against Chrome's own rendering of the old filter the mean difference is 1.2/255, and no pixel is off by more than 24 (five moments of the loop, 128 and 192 pixels alike). In the Simulator: GPU process 189 % → 8 %, 60 frames a second. The heat haze (`#ps-heat`, §5.5) is the same primitive over the ground group on hot days, and it is not yet replaced.
+
 ## 11. Legibility floors
 
 Held at **every sampled minute of every season and every weather** (what is sampled, below), and checked in mocha from the palette module:

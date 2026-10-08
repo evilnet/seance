@@ -411,8 +411,9 @@ describe("ps scene: the layers it builds (sceneMarkup)", function () {
 		}
 
 		expect(svgDepth).to.equal(0);
-		// The sun's fire (1), the skeins' 38 birds (3 each), the buzzard (2) and three larks (2 each).
-		expect(smil).to.equal(1 + 38 * 3 + 2 + 3 * 2);
+		// The skeins' 38 birds (3 each), the buzzard (2) and three larks (2 each);
+		// the sun's fire is a canvas the stepper drives (flame.ts), not SMIL.
+		expect(smil).to.equal(38 * 3 + 2 + 3 * 2);
 		expect(inside(markup, "ps-skeins").match(/<svg viewBox="0 0 32 20"/g)).to.have.length(38);
 	});
 

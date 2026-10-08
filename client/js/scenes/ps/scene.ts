@@ -32,6 +32,7 @@ import type {SceneHandle, SceneHostState} from "../../themeScene";
 import {birdsAt, dayBirdsMarkup, skeinsMarkup} from "./birds";
 import {momentAt, rng, type Moment, type MoonPhase, type Weather} from "./engine";
 import {composerAboveGrass, GLASS_TINT_VARS, glassVars} from "./glass";
+import {createFire, FIRE_SIZE} from "./flame";
 import {createStepper, keepPhase, stepModeFor} from "./stepper";
 import {bodyOpacity, publishedFor, type Published} from "./grounds";
 import {FADE_MARGIN_MS, GATES, layerGates, liveLayers} from "./layers";
@@ -234,19 +235,17 @@ const MOON = `<div class="ps-moon"><svg viewBox="-60 -60 120 120">
 </g>
 </svg></div>`;
 
+// The sun: its bloom, the fire (flame.ts, drawn into the canvas, which ps.css
+// lays over the old filter's region) and the core over it.
 const SUN = `<div class="ps-sun"><div class="ps-rays"></div><svg viewBox="-100 -100 200 200">
 <defs>
 <radialGradient id="ps-s-bloom"><stop offset="0" style="stop-color: var(--ps-sun-bloom)" stop-opacity=".95"/><stop offset=".5" style="stop-color: var(--ps-sun-bloom)" stop-opacity=".25"/><stop offset="1" style="stop-color: var(--ps-sun-bloom)" stop-opacity="0"/></radialGradient>
-<radialGradient id="ps-s-flame"><stop offset="0" style="stop-color: var(--ps-sun-flame)"/><stop offset=".6" style="stop-color: var(--ps-sun-flame)" stop-opacity=".8"/><stop offset="1" style="stop-color: var(--ps-sun-edge)" stop-opacity="0"/></radialGradient>
-<radialGradient id="ps-s-core" cx=".45" cy=".42" r=".62"><stop offset="0" stop-color="#fffef6"/><stop offset=".38" stop-color="#fff3c2"/><stop offset=".78" style="stop-color: var(--ps-sun-mid)"/><stop offset="1" style="stop-color: var(--ps-sun-edge)"/></radialGradient>
-<filter id="ps-s-fire" x="-60%" y="-60%" width="220%" height="220%">
-<feTurbulence type="fractalNoise" baseFrequency="0.034 0.052" numOctaves="3" seed="7" result="n"><animate attributeName="baseFrequency" dur="7s" repeatCount="indefinite" values="0.034 0.052;0.046 0.036;0.03 0.06;0.034 0.052"/></feTurbulence>
-<feDisplacementMap in="SourceGraphic" in2="n" scale="26" xChannelSelector="R" yChannelSelector="G"/>
-<feGaussianBlur stdDeviation="1.2"/>
-</filter>
 </defs>
 <circle r="98" fill="url(#ps-s-bloom)"/>
-<g filter="url(#ps-s-fire)"><circle r="56" fill="url(#ps-s-flame)"/></g>
+</svg><canvas class="ps-fire" width="${FIRE_SIZE}" height="${FIRE_SIZE}"></canvas><svg viewBox="-100 -100 200 200">
+<defs>
+<radialGradient id="ps-s-core" cx=".45" cy=".42" r=".62"><stop offset="0" stop-color="#fffef6"/><stop offset=".38" stop-color="#fff3c2"/><stop offset=".78" style="stop-color: var(--ps-sun-mid)"/><stop offset="1" style="stop-color: var(--ps-sun-edge)"/></radialGradient>
+</defs>
 <circle r="37" fill="url(#ps-s-core)"/>
 </svg></div>`;
 
@@ -544,6 +543,32 @@ function watchComposer(root: HTMLElement, html: HTMLElement): {refind(): void; d
 	};
 }
 
+/** The sun's fire on its canvas; null where there is no 2D context to draw it in. */
+function sunFire(element: Element | null) {
+	const canvas = element as HTMLCanvasElement | null;
+	const ctx = typeof canvas?.getContext === "function" ? canvas.getContext("2d") : null;
+
+	if (!canvas || !ctx) {
+		return null;
+	}
+
+	const image = ctx.createImageData(FIRE_SIZE, FIRE_SIZE);
+	const clock = createFire(
+		{
+			size: FIRE_SIZE,
+			pixels: new Uint32Array(image.data.buffer),
+			commit: () => ctx.putImageData(image, 0, 0),
+		},
+		{
+			frame(fn) {
+				const id = window.requestAnimationFrame(fn);
+				return () => window.cancelAnimationFrame(id);
+			},
+		}
+	);
+	return {element: canvas, clock};
+}
+
 export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	const html = document.documentElement;
 	const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -552,6 +577,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	const shape = root.querySelector(".ps-m-shape") as SVGGElement;
 	const weatherLayer = root.querySelector(".ps-weather") as HTMLElement;
 	const overcast = root.querySelector(".ps-overcast") as HTMLElement;
+	const fire = sunFire(root.querySelector(".ps-fire"));
 	// The weather the layer holds: none until the first tick builds the day's.
 	let built: Weather | null = null;
 	// A fade of the weather's own clouds under way: ends it now (the outgoing out of the page).
@@ -580,9 +606,10 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 				.filter((a): a is CSSAnimation => "animationName" in a),
 		svgs() {
 			const hot = root.classList.contains("ps-hot");
-			return [...root.querySelectorAll("svg")].filter(
+			const svgs = [...root.querySelectorAll("svg")].filter(
 				(svg) => !svg.closest(".ps-off") && (hot || !svg.classList.contains("ps-heat-haze"))
 			);
+			return fire && !fire.element.closest(".ps-off") ? [...svgs, fire.clock] : svgs;
 		},
 		now: () => performance.now(),
 		after(ms, fn) {
@@ -672,6 +699,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		const m = momentAt(now);
 		const p = paletteAt(m);
 		const vars = sceneVars(m, p);
+		fire?.clock.setColours(p.sunFlame, p.sunEdge);
 
 		// Only the day's weather exists in the page (spec §10): a new day's
 		// replaces yesterday's, built for the layout as it is now, and so do
@@ -845,6 +873,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		update,
 		destroy() {
 			stepper.stop();
+			fire?.clock.pauseAnimations();
 			window.clearTimeout(timer);
 			timer = undefined;
 			gates.stop();
