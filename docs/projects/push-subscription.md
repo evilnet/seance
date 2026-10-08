@@ -484,6 +484,72 @@ bell = subscribed; **muted** bell = enabled, not subscribed (the shipped
 font is FA5 solid-only, so the outline variant does not exist — the colour
 separates the states); **bell-slash** = notifications off for the network.
 
+### The dropped duplicate is a silent push (2026-10-01)
+
+"FCM duplicate silently dropped" above was the bug. Chrome enforces
+`userVisibleOnly` per **service-worker registration**: when a push event
+ends, it counts the visible notifications of the registration the push
+arrived on, and a push that leaves none (and has no visible tab of the
+site) spends silent-push budget; once that is gone Chrome shows its own
+"This site has been updated in the background"
+(`push_messaging_notification_manager.cc` `DidCountVisibleNotifications`;
+hiding one does not count either). Since pushes moved to one registration
+per network (`push/<uuid>/`, 2026-09-05) the page's own notification sat on
+the **root** registration, so every push the seen ring dropped was silent —
+and with `AWAY *` for an unfocused or hidden page (2026-09-11) the server
+pushes exactly while a desktop page keeps running in the background. Seen on
+Windows, not Android: a hidden Android page freezes, records nothing, and
+its pushes show.
+
+The fix: for a network this device is subscribed on, the page hands its
+notification to that network's push worker with the message itself
+(`socket-events/msg.ts` → `webpush.pushWorkerFor(uuid)`, the `notification`
+message gaining `message: {msgid, from, text, time, notice}`), and the
+worker shows it exactly as the push would be shown (`showMessage`, the
+push path's own code: tag `push-<target>`, merged by msgid, Mark read and
+Reply, in the same queue as the pushes). The push for the same message
+then finds a notification on its own registration; one that lands first is
+merged into rather than shown twice. Invites, messages without a msgid and
+networks without a subscription keep the root path. A push-only worker
+from before this shows such a payload the per-channel way — still on its
+own registration. The page also closes what it put there: the server's read
+push only follows a message it pushed, so a notification the page showed
+while the account was attended would otherwise outlive the read and come
+back counted in the next push. Opening a conversation, the window coming
+back to an open one, and another session reading one to the end
+(`markread` with nothing unread) send `{type: "read", target}` to the
+network's push worker (`webpush.ts` `readOnWorker`), which closes through
+`closeForTarget` — a message, not a push, so it costs no budget. It
+compares targets the way IRC does (rfc1459 folding, ASCII only — the
+worker's `sameName`), since the open conversation and the notification
+need not spell the target alike; read relays get the same comparison.
+
+The page's copy takes the push's shape whatever the message, so the two
+merge by msgid: a private NOTICE that highlights (shown in the lobby) is
+keyed on its sender like the pushed one — a click opens a query with them,
+Reply answers them — no longer on the lobby.
+
+Left as it was:
+
+- A read relay that closes the last notification is still silent (the gate
+  in nefarious2 2f51539 keeps that to one per pushed conversation, as on
+  Android).
+- **A muted conversation is still silent.** `socket-events/msg.ts` records
+  every highlight and query message as seen, muted or not, while
+  `notifyMessage` shows nothing for a muted channel; the ircd does not know
+  about the client's mutes (`thelounge.muted`), pushes anyway, and the
+  worker drops the push as seen. Letting it through would notify a muted
+  channel whenever a desktop page is in the background, so the follow-up is
+  on the server's side: write the mutes into the account's
+  `draft/webpush/mute` metadata (`target:until;…`, which the ircd already
+  enforces, `ircd/webpush_mute.c`). That makes a mute account-wide (the
+  phone stops too), and has to merge with `setSnooze`, which today writes
+  the whole key as `*:<until>`, and with mutes set on other devices.
+
+Harness: "service worker page notifications on a push worker"; browser
+check: `tools/scenarios/push-page-notification.mjs` (seeded subscription on
+the faked Push API, a bot's PM over a real ircd).
+
 ## Replying from a notification, and opening it (2026-09-04)
 
 Reported from a phone: a reply typed into a push notification never went

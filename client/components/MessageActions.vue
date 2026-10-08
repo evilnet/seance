@@ -97,7 +97,7 @@ import {startEdit, startReply} from "../js/helpers/compose";
 import {myReactions} from "../js/helpers/messageUpdates";
 import {loadEmojiCatalog} from "../js/helpers/emoji";
 import {quickReactions, RECENTS_CHANGED, rememberReaction} from "../js/helpers/reactionRecents";
-import {hasVirtualKeyboard} from "../js/helpers/device";
+import {isTouchInput, onInputKindChange} from "../js/helpers/inputModality";
 import {ChanType} from "../../shared/types/chan";
 import {MessageType} from "../../shared/types/msg";
 import type {ClientChan, ClientMessage, ClientNetwork} from "../js/types";
@@ -122,6 +122,24 @@ const sharedQuick = () => {
 	}
 
 	return quick;
+};
+
+// Whether the last pointer was a finger (helpers/inputModality.ts), shared by
+// every toolbar on screen: the message text is unselectable exactly then
+// (style.css, `data-input`), so that is when Copy text stands in for a
+// selection. Made when the first toolbar mounts, after boot installed it.
+let touch: Ref<boolean> | undefined;
+
+const sharedTouch = () => {
+	if (!touch) {
+		const shared = ref(isTouchInput());
+		onInputKindChange((kind) => {
+			shared.value = kind === "touch";
+		});
+		touch = shared;
+	}
+
+	return touch;
 };
 
 export default defineComponent({
@@ -207,11 +225,12 @@ export default defineComponent({
 		// program.
 		const copyCode = () => copy(codeBlocks.value.join("\n\n"));
 
-		// On a touch device the message text is not selectable (the long press
-		// that would select it opens this toolbar instead — see Message.vue),
-		// so the toolbar is how the text is copied there. A pointer device
-		// selects and copies as it always has, and does not get the button.
-		const canCopyText = hasVirtualKeyboard() && !!props.message.text;
+		// While a finger is in use the message text is not selectable (the long
+		// press that would select it opens this toolbar instead — see
+		// Message.vue), so the toolbar is how the text is copied then. A mouse
+		// selects and copies as it always has, and does not get the button —
+		// on a touchscreen laptop, whichever was used last decides.
+		const canCopyText = computed(() => sharedTouch().value && !!props.message.text);
 		const copyText = () => copy(props.message.text ?? "");
 
 		// Only plain text can be edited (the IRC layer resends it tagged).

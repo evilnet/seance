@@ -1563,3 +1563,161 @@ describe("service worker mark read", function () {
 		expect(sw.kv.get("outbox")).to.have.lengthOf(1);
 	});
 });
+
+describe("service worker page notifications on a push worker", function () {
+	// The page shows its own notification for a message it took live, and
+	// the server may push the same message to this device (an unattended
+	// session is pushed to). Chrome counts visible notifications per
+	// registration: if the page's notification lives on the root worker and
+	// the push worker drops the duplicate, the push counts as silent and
+	// Chrome eventually shows "This site has been updated in the
+	// background". So for a push-enabled network the page hands the message
+	// to that network's push worker, which shows it as it would a push.
+	const NET_SCOPE = `${SCOPE}push/net-1/`;
+	const T = "2026-09-02T19:59:00.000Z";
+
+	function pageNote(
+		target: string,
+		from: string,
+		text: string,
+		msgid: string
+	): Record<string, unknown> {
+		return {
+			type: "notification",
+			chanId: 7,
+			network: "net-1",
+			target,
+			timestamp: Date.parse(T),
+			title: `${from} says:`,
+			body: text,
+			message: {msgid, from, text, time: T},
+		};
+	}
+
+	it("shows the page's message as the push would: same tag, data and actions", async function () {
+		const sw = makeSW({scope: NET_SCOPE});
+
+		await fireMessage(sw, pageNote("#seance", "alice", "hi seance", "pm-1"));
+
+		expect(sw.shown).to.have.lengthOf(1);
+		const rec = sw.shown[0];
+		expect(rec.tag).to.equal("push-#seance");
+		expect(rec.title).to.equal("alice in #seance");
+		expect(rec.body).to.equal("alice: hi seance");
+		expect(rec.data.kind).to.equal("push");
+		expect(rec.data.target).to.equal("#seance");
+		expect(rec.data.time).to.equal(T);
+		expect(rec.data.messages![0].msgid).to.equal("pm-1");
+		expect(rec.actions!.map((a) => a.action)).to.deep.equal(["markread", "reply"]);
+	});
+
+	it("a query's notification answers the sender", async function () {
+		const sw = makeSW({scope: NET_SCOPE});
+
+		await fireMessage(sw, pageNote("alice", "alice", "psst", "pm-2"));
+
+		expect(sw.shown[0].tag).to.equal("push-alice");
+		expect(sw.shown[0].title).to.equal("alice");
+		expect(sw.shown[0].data.target).to.equal("alice");
+	});
+
+	it("the push for a message the page showed leaves that notification visible and adds none", async function () {
+		const sw = makeSW({scope: NET_SCOPE});
+
+		await fireMessage(sw, pageNote("alice", "alice", "psst", "pm-3"));
+		sw.kv.set("seen", ["pm-3"]); // the page recorded it (push-seen.ts)
+		await firePush(sw, msgPayload("alice", "alice", "psst", "pm-3"));
+
+		expect(sw.shown, "no second notification").to.have.lengthOf(1);
+		expect(
+			sw.records.filter((n) => !n.closed),
+			"a notification of this registration is visible when the push ends"
+		).to.have.lengthOf(1);
+	});
+
+	it("a push that lands before the page's copy is not shown twice", async function () {
+		const sw = makeSW({scope: NET_SCOPE});
+
+		await firePush(sw, msgPayload("alice", "alice", "psst", "pm-4"));
+		await fireMessage(sw, pageNote("alice", "alice", "psst", "pm-4"));
+
+		expect(sw.shown).to.have.lengthOf(1);
+		expect(sw.records.filter((n) => !n.closed)[0].data.count).to.equal(1);
+	});
+
+	it("merges the page's message with pushed ones for the same conversation", async function () {
+		const sw = makeSW({scope: NET_SCOPE});
+
+		await firePush(sw, msgPayload("alice", "alice", "one", "pm-5"));
+		await fireMessage(sw, pageNote("alice", "alice", "two", "pm-6"));
+
+		const open = sw.records.filter((n) => !n.closed);
+		expect(open).to.have.lengthOf(1);
+		expect(open[0].data.count).to.equal(2);
+		expect(open[0].data.messages!.map((m) => m.msgid)).to.deep.equal(["pm-5", "pm-6"]);
+	});
+
+	it("an action from the page reads like its push", async function () {
+		const sw = makeSW({scope: NET_SCOPE});
+
+		await fireMessage(sw, pageNote("alice", "alice", "\x01ACTION waves\x01", "pm-7"));
+		await firePush(sw, "@msgid=pm-8 :alice!u@h PRIVMSG me :\x01ACTION nods\x01");
+
+		const open = sw.records.filter((n) => !n.closed);
+		expect(open).to.have.lengthOf(1);
+		expect(open[0].body, "both the push's shape").to.equal("*waves*\n*nods*");
+	});
+
+	it("the page reading a conversation closes it, so a later push does not bring it back", async function () {
+		const sw = makeSW({scope: NET_SCOPE});
+
+		// The page notified while the account was attended: nothing was
+		// pushed, so the server's read gate sends no read push to close it.
+		await fireMessage(sw, pageNote("alice", "alice", "old news", "pm-9"));
+		await fireMessage(sw, {type: "read", target: "alice"});
+
+		expect(
+			sw.records.filter((n) => !n.closed),
+			"closed by the page's read"
+		).to.have.lengthOf(0);
+
+		await firePush(sw, msgPayload("alice", "alice", "fresh", "pm-10"));
+
+		const open = sw.records.filter((n) => !n.closed);
+		expect(open).to.have.lengthOf(1);
+		expect(open[0].data.count, "the read message is not counted again").to.equal(1);
+		expect(open[0].body).to.equal("fresh");
+	});
+
+	it("the page's read leaves other conversations alone", async function () {
+		const sw = makeSW({scope: NET_SCOPE});
+
+		await fireMessage(sw, pageNote("alice", "alice", "a", "pm-11"));
+		await fireMessage(sw, pageNote("#seance", "bob", "b", "pm-12"));
+		await fireMessage(sw, {type: "read", target: "#seance"});
+
+		const open = sw.records.filter((n) => !n.closed);
+		expect(open.map((n) => n.tag)).to.deep.equal(["push-alice"]);
+	});
+
+	it("the page's read closes a conversation however either side spells it", async function () {
+		const sw = makeSW({scope: NET_SCOPE});
+
+		// IRC folds case (rfc1459: `[]\~` are `{}|^`), and the page's open
+		// conversation need not be spelled as the notification it closes.
+		await fireMessage(sw, pageNote("#Seance", "bob", "b", "pm-13"));
+		await fireMessage(sw, pageNote("[Alice]", "[Alice]", "a", "pm-14"));
+		await fireMessage(sw, {type: "read", target: "#seance"});
+		await fireMessage(sw, {type: "read", target: "{alice}"});
+
+		expect(sw.records.filter((n) => !n.closed)).to.have.lengthOf(0);
+	});
+
+	it("a page notification without a message keeps the per-channel shape", async function () {
+		const sw = makeSW({scope: NET_SCOPE});
+
+		await fireMessage(sw, {type: "notification", chanId: 7, title: "t", body: "b"});
+
+		expect(sw.shown[0].tag).to.equal("chan-7");
+	});
+});

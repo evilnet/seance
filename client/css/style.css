@@ -174,6 +174,13 @@ html {
 	display: none;
 }
 
+/* A theme's own scene (client/js/themeScene.ts): hidden unless the theme
+ * shows it, so a scene never paints under a theme that did not ask for it,
+ * even for the moment between a theme switch and the scene's removal. */
+#theme-scene {
+	display: none;
+}
+
 @media (hover: none) and (pointer: coarse) {
 	@supports (-webkit-touch-callout: none) {
 		#status-bar-tint {
@@ -4782,6 +4789,12 @@ html[data-shell="native"] #image-viewer .next-image-btn {
 	animation: reaction-pop 160ms ease-out;
 }
 
+/* The first reaction on a message you are looking at: the whole group pops
+   in the same way (MessageReactions.vue's Transition wrapper). */
+#chat .reactions-enter-active {
+	animation: reaction-pop 160ms ease-out;
+}
+
 @keyframes reaction-pop {
 	from {
 		opacity: 0;
@@ -4799,7 +4812,8 @@ html[data-shell="native"] #image-viewer .next-image-btn {
 }
 
 @media (prefers-reduced-motion: reduce) {
-	#chat .reaction-enter-active {
+	#chat .reaction-enter-active,
+	#chat .reactions-enter-active {
 		animation: none;
 	}
 }
@@ -4881,16 +4895,15 @@ html[data-shell="native"] #image-viewer .next-image-btn {
 
 /* The row whose toolbar is up is tinted, so it is plain which message the
  * buttons act on — the toolbar floats over the row above. Hover counts only
- * where there is a real pointer (a touch device's fake hover is not ours;
- * there the long press's `actions-open` says it), and not while the
+ * while the last pointer was a real one (`data-input`,
+ * helpers/inputModality.ts: a finger's fake hover is not ours; there the
+ * long press's `actions-open` says it), and not while the
  * scrollback is being selected, when no toolbar shows. An inset shadow, not
  * a background: a mention's highlight or our own band stays under it.
  * `--msg-hover-bg` lets a theme pick the tint (`--msg-acting-bg` on
  * `#chat .msg`). */
-@media (hover: hover) {
-	#chat .chat:not(.selecting, .selection-live) .msg.has-actions:hover {
-		box-shadow: inset 0 0 0 100vmax var(--msg-acting-bg);
-	}
+:where(html:not([data-input="touch"])) #chat .chat:not(.selecting, .selection-live) .msg.has-actions:hover {
+	box-shadow: inset 0 0 0 100vmax var(--msg-acting-bg);
 }
 
 #chat .chat:not(.selecting, .selection-live) .msg.has-actions:focus-within,
@@ -4920,55 +4933,53 @@ html[data-shell="native"] #image-viewer .next-image-btn {
 	right: calc(var(--scroll-down-inset) + var(--scroll-down-size) + 0.5rem);
 }
 
-/* A touch device fakes hover on a long press; here the long press is what
- * opens the toolbar (Message.vue sets `actions-open`, one message at a
- * time), and hover is never trusted. The text of a message that has a
- * toolbar (`has-actions`, Message.vue's `canAct`) is not selectable there,
- * so the platform's own long press — a text selection — cannot race ours;
- * the toolbar's Copy text is how the text is copied on a phone. A row
- * without one — the topic, a mode change, a notice, a condensed join — has
- * nothing to open, so it stays selectable and its first long press is the
- * platform's. Links keep their own long press (the preview), and are
- * excluded from it in Message.vue. */
-@media (hover: none) {
-	#chat .msg:hover .msg-actions {
-		display: none;
-	}
-
-	/* The long press is a gesture, so its result arrives like one: a short
-	   grow-in says the press was taken (with the nudge Message.vue asks for).
-	   A hover toolbar stays instant — it follows the pointer, not a gesture. */
-	#chat .msg.actions-open .msg-actions {
-		display: flex;
-		animation: pop-in 100ms ease-out;
-	}
+/* A finger fakes hover on a long press; while the last pointer was one
+ * (`data-input="touch"` on <html>, helpers/inputModality.ts — whatever the
+ * device calls its primary input, so a touchscreen laptop's trackpad keeps
+ * its hover) the long press is what opens the toolbar (Message.vue sets
+ * `actions-open`, one message at a time), and hover is never trusted. The
+ * text of a message that has a toolbar (`has-actions`, Message.vue's
+ * `canAct`) is not selectable there, so the platform's own long press — a
+ * text selection — cannot race ours; the toolbar's Copy text is how the text
+ * is copied on a phone. A row without one — the topic, a mode change, a
+ * notice, a condensed join — has nothing to open, so it stays selectable and
+ * its first long press is the platform's. Links keep their own long press
+ * (the preview), and are excluded from it in Message.vue. */
+:where(html[data-input="touch"]) #chat .msg:hover .msg-actions {
+	display: none;
 }
 
-@media (hover: none) and (pointer: coarse) {
-	#chat .messages .msg.has-actions {
-		user-select: none;
-		-webkit-touch-callout: none;
-	}
+/* The long press is a gesture, so its result arrives like one: a short
+   grow-in says the press was taken (with the nudge Message.vue asks for).
+   A hover toolbar stays instant — it follows the pointer, not a gesture. */
+#chat .msg.actions-open .msg-actions {
+	display: flex;
+	animation: pop-in 100ms ease-out;
+}
 
-	#chat .messages .msg a {
-		-webkit-touch-callout: default;
-	}
+:where(html[data-input="touch"]) #chat .messages .msg.has-actions {
+	user-select: none;
+	-webkit-touch-callout: none;
+}
 
-	/* The message whose toolbar is open is selectable again — but only once
-	 * the press that opened it has ended (`select-armed`, Message.vue):
-	 * flipped mid-press, the platform's own long-press detector would start
-	 * a selection off that same held finger. From the next press on it is
-	 * the platform's — a native selection with its handles — and the moment
-	 * one exists (`selection-live`, MessageList.vue via
-	 * helpers/touchSelection.ts) the whole scrollback is selectable, so the
-	 * handles can be dragged across messages: how several lines are copied
-	 * at once on a phone. A tap collapses the selection, which puts the
-	 * rule back by itself. */
-	#chat .messages .msg.select-armed,
-	#chat .chat.selection-live .messages .msg {
-		user-select: text;
-		-webkit-touch-callout: default;
-	}
+:where(html[data-input="touch"]) #chat .messages .msg a {
+	-webkit-touch-callout: default;
+}
+
+/* The message whose toolbar is open is selectable again — but only once
+ * the press that opened it has ended (`select-armed`, Message.vue):
+ * flipped mid-press, the platform's own long-press detector would start
+ * a selection off that same held finger. From the next press on it is
+ * the platform's — a native selection with its handles — and the moment
+ * one exists (`selection-live`, MessageList.vue via
+ * helpers/touchSelection.ts) the whole scrollback is selectable, so the
+ * handles can be dragged across messages: how several lines are copied
+ * at once on a phone. A tap collapses the selection, which puts the
+ * rule back by itself. */
+:where(html[data-input="touch"]) #chat .messages .msg.select-armed,
+:where(html[data-input="touch"]) #chat .chat.selection-live .messages .msg {
+	user-select: text;
+	-webkit-touch-callout: default;
 }
 
 /* Never let the toolbar or the add-a-reaction button end up in copied text

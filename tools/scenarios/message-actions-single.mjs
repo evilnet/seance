@@ -166,7 +166,9 @@ export default async function run(page) {
 		timeout: 30000,
 		label: `${CHANNEL} in the sidebar`,
 	});
-	await page.click(`.channel-list-item[data-name="${CHANNEL}"]`);
+	// A tap, as on a phone: a mouse click would tell the app a mouse is in
+	// use (helpers/inputModality.ts) and give it the hover toolbar.
+	await tap(page, `.channel-list-item[data-name="${CHANNEL}"] .name`);
 
 	// The channel has history, so previous runs are on screen too: mark this
 	// run's messages and work only on the elements carrying the mark.

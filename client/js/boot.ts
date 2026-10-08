@@ -30,6 +30,9 @@ import storage from "./localStorage";
 import {installNativeHooks, nativeAppReady, nativeLaunchUrl, onNativeUrl} from "./native";
 import {installForegroundHooks} from "./foreground";
 import {installViewportHooks} from "./helpers/viewport";
+import {installThemeSceneHooks} from "./themeScene";
+import {installInputModality} from "./helpers/inputModality";
+import {hasVirtualKeyboard} from "./helpers/device";
 import {onLaunch, openInstallGuideAtStart} from "./pwa";
 // Also registers the IRC layer's bus handlers (input, names, more, network:*).
 import {autoconnectSavedNetworks, clientForNetwork, createNetwork} from "./irc/manager";
@@ -100,6 +103,8 @@ export async function boot(): Promise<void> {
 	loadMentions();
 	installNativeHooks();
 	installForegroundHooks();
+	installThemeSceneHooks();
+	installInputModality(document.documentElement, hasVirtualKeyboard() ? "touch" : "pointer");
 	installViewportHooks();
 
 	store.commit("appLoaded");

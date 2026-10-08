@@ -68,6 +68,7 @@ import {condensedTypes} from "../../shared/irc";
 import {ChanState, ChanType} from "../../shared/types/chan";
 import {MessageType, SharedMsg} from "../../shared/types/msg";
 import clipboard from "../js/clipboard";
+import {continuesRun} from "../js/helpers/messageRuns";
 import {noteScroll, noteTouch} from "../js/helpers/scrollSettle";
 import {selectionActive, unwatchSelection, watchSelection} from "../js/helpers/touchSelection";
 import socket from "../js/socket";
@@ -398,17 +399,11 @@ export default defineComponent({
 			return true;
 		};
 
-		const isPreviousSource = (currentMessage: ClientMessage, id: number) => {
-			const previousMessage = condensedMessages.value[id - 1];
-			return (
-				previousMessage &&
-				currentMessage.type === MessageType.MESSAGE &&
-				previousMessage.type === MessageType.MESSAGE &&
-				currentMessage.from &&
-				previousMessage.from &&
-				currentMessage.from.nick === previousMessage.from.nick
-			);
-		};
+		// The ps theme's setting (Combine messages): off, and no line is a
+		// continuation, so every message shows its nick and time.
+		const isPreviousSource = (currentMessage: ClientMessage, id: number) =>
+			store.state.settings.psGroupMessages !== false &&
+			continuesRun(condensedMessages.value[id - 1], currentMessage);
 
 		const onCopy = () => {
 			if (chat.value) {

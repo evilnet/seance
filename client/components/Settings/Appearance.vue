@@ -259,6 +259,51 @@
 			</select>
 		</div>
 
+		<!-- A theme's own settings, shown while it is the theme. Only ps has
+		     any; another theme would add its block here, keyed by its name. -->
+		<template v-if="store.state.settings.theme === 'ps'">
+			<h2 id="label-ps-animation">Scene animation</h2>
+			<div role="group" aria-labelledby="label-ps-animation" class="scene-motion-options">
+				<label v-for="level in sceneMotions" :key="level" class="opt">
+					<input
+						:checked="psAnimation === level"
+						type="radio"
+						name="psAnimation"
+						:value="level"
+					/>
+					{{ sceneMotionLabels[level] }}
+					<span class="opt-hint">{{ sceneMotionHints[level] }}</span>
+				</label>
+				<label class="opt">
+					<input
+						:checked="store.state.settings.psPauseWhenAway"
+						type="checkbox"
+						name="psPauseWhenAway"
+					/>
+					Pause the scene when the window isn't in use
+					<span class="opt-hint"
+						>after 15 seconds without the focus, or 2 minutes without input; a hidden
+						tab never moves it</span
+					>
+				</label>
+			</div>
+			<h2 id="label-ps-layout">Message layout</h2>
+			<div role="group" aria-labelledby="label-ps-layout" class="scene-motion-options">
+				<label class="opt">
+					<input
+						:checked="store.state.settings.psGroupMessages"
+						type="checkbox"
+						name="psGroupMessages"
+					/>
+					Combine messages from the same person
+					<span class="opt-hint"
+						>their name and time once, for lines sent within ten minutes of each
+						other</span
+					>
+				</label>
+			</div>
+		</template>
+
 		<div>
 			<h2>Custom Stylesheet</h2>
 			<label for="user-specified-css-input" class="sr-only">
@@ -280,11 +325,13 @@ textarea#user-specified-css-input {
 	height: 100px;
 }
 
-.own-messages-options .own-messages-hint {
+.own-messages-options .own-messages-hint,
+.scene-motion-options .opt-hint {
 	color: var(--body-color-muted);
 }
 
-.own-messages-options .own-messages-hint::before {
+.own-messages-options .own-messages-hint::before,
+.scene-motion-options .opt-hint::before {
 	content: " — ";
 }
 
@@ -361,6 +408,7 @@ textarea#user-specified-css-input {
 <script lang="ts">
 import {computed, defineComponent, ref} from "vue";
 import {useStore} from "../../js/store";
+import {normalizeSceneMotion, SCENE_MOTIONS, type SceneMotion} from "../../js/themeScene";
 import {
 	fontSizeLabels,
 	fontSizeScale,
@@ -433,6 +481,23 @@ export default defineComponent({
 			plain: "nothing marks them",
 		};
 
+		// The ps theme's Scene animation levels (themeScene.ts SceneMotion).
+		const psAnimation = computed(() => normalizeSceneMotion(store.state.settings.psAnimation));
+		const sceneMotionLabels: Record<SceneMotion, string> = {
+			off: "Off",
+			sparse: "Sparse",
+			"1s": "Once a second",
+			"24": "24 frames a second",
+			"60": "60 frames a second",
+		};
+		const sceneMotionHints: Record<SceneMotion, string> = {
+			off: "a still picture; the sky still follows the time of day",
+			sparse: "moves on every five minutes, and when you come back to the window",
+			"1s": "the birds and the rain move in visible jumps",
+			"24": "smooth and light on the battery; the default",
+			"60": "your screen's own rate: the smoothest, and the most power",
+		};
+
 		// The step under the slider while it is being dragged. Applying every
 		// step live re-laid out the whole page (rem chrome) under the pointer
 		// and moved the slider with it, so a drag only renders the sample
@@ -485,6 +550,10 @@ export default defineComponent({
 		};
 
 		return {
+			sceneMotions: SCENE_MOTIONS,
+			psAnimation,
+			sceneMotionLabels,
+			sceneMotionHints,
 			store,
 			trustedGroups,
 			trustedCount,

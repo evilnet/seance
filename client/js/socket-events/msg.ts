@@ -7,6 +7,7 @@ import {SharedMsg, MessageType} from "../../../shared/types/msg";
 import {ChanType} from "../../../shared/types/chan";
 import {addMention} from "../mentions";
 import {recordSeenMsgid} from "../push-seen";
+import webpush from "../webpush";
 import {attachMediaPreviews} from "../helpers/messagePreviews";
 import * as saved from "../irc/saved-networks";
 import {insertMessage} from "../helpers/messageUpdates";
@@ -208,23 +209,57 @@ function notifyMessage(
 
 				try {
 					if (store.state.hasServiceWorker) {
-						navigator.serviceWorker.ready
-							.then((registration) => {
-								// network + target let a click find the conversation
-								// after this page (and its channel ids) is gone.
-								registration.active?.postMessage({
-									type: "notification",
-									chanId: targetId,
-									network: network.uuid,
-									target: channel.name,
-									timestamp: timestamp,
-									title: title,
-									body: body,
-								});
-							})
-							.catch(() => {
-								// no-op
-							});
+						// network + target let a click find the conversation
+						// after this page (and its channel ids) is gone.
+						const payload = {
+							type: "notification",
+							chanId: targetId,
+							network: network.uuid,
+							target: channel.name,
+							timestamp: timestamp,
+							title: title,
+							body: body,
+						};
+
+						// A message the server may also push to this device goes
+						// to the network's push worker with the message itself,
+						// and is shown there as that push would be (same tag,
+						// merged by msgid): the push then finds a notification on
+						// its own registration instead of counting as silent
+						// (webpush.ts pushWorkerFor). Anything else, or a network
+						// this device is not subscribed on, takes the root worker.
+						const message =
+							msg.msgid && msg.type !== MessageType.INVITE && msg.from?.nick
+								? {
+										msgid: msg.msgid,
+										from: msg.from.nick,
+										// the wire form, which the worker renders as `* nick …`
+										text:
+											msg.type === MessageType.ACTION
+												? `\x01ACTION ${msg.text ?? ""}\x01`
+												: msg.text ?? "",
+										time: Number.isFinite(timestamp)
+											? new Date(timestamp).toISOString()
+											: undefined,
+										notice: msg.type === MessageType.NOTICE,
+								  }
+								: undefined;
+
+						void (async () => {
+							const pushWorker = message
+								? await webpush.pushWorkerFor(network.uuid)
+								: undefined;
+
+							if (pushWorker) {
+								pushWorker.postMessage({...payload, message});
+								return;
+							}
+
+							const registration = await navigator.serviceWorker.ready;
+							registration.active?.postMessage(payload);
+						})().catch(() => {
+							// no-op
+						});
 					} else {
 						const notify = new Notification(title, {
 							tag: `chan-${targetId}`,

@@ -20,6 +20,7 @@ import {
 	type PushKeys,
 } from "./helpers/pushStore";
 import {pushScopePath} from "./push/scope";
+import {ChanType} from "../../shared/types/chan";
 
 /**
  * Web Push subscriptions (IRCv3 `draft/webpush`), one per network.
@@ -272,6 +273,29 @@ async function pushRegistration(uuid: string): Promise<ServiceWorkerRegistration
 	const registration = await navigator.serviceWorker.getRegistration(pushScopePath(uuid));
 
 	return registration && registration.scope === scopeUrl(uuid) ? registration : undefined;
+}
+
+/**
+ * The worker that receives this network's pushes on this device, when it is
+ * subscribed: the page shows its own notifications for the network through
+ * it (socket-events/msg.ts), so a push for a message the page already took
+ * finds that notification on its own registration. Chrome counts visible
+ * notifications per registration, and a push that leaves none there is
+ * "silent" — enough of those and it shows "This site has been updated in
+ * the background". Undefined when the network has no subscription here or
+ * its worker is not active.
+ */
+async function pushWorkerFor(uuid: string): Promise<ServiceWorker | undefined> {
+	if (!subs[uuid] || !("serviceWorker" in navigator)) {
+		return undefined;
+	}
+
+	try {
+		const registration = await pushRegistration(uuid);
+		return registration?.active ?? undefined;
+	} catch {
+		return undefined;
+	}
 }
 
 /** Ask the browser to re-fetch a push-only registration's worker. Nothing
@@ -945,6 +969,45 @@ socket.on("init", async () => {
 	}
 });
 
+// Reading a conversation closes what the network's push worker shows for
+// it. The page's own notifications live there (pushWorkerFor), and the
+// server's read push only follows a message it pushed — a notification the
+// page put on the worker while the account was attended has nobody else to
+// close it, and would otherwise come back counted in the next push.
+function readOnWorker(uuid: string, target: string): void {
+	void pushWorkerFor(uuid).then((worker) => worker?.postMessage({type: "read", target}));
+}
+
+/** The open conversation, when the user can see it. */
+function readActive(): void {
+	const active = store.state.activeChannel;
+
+	if (
+		!active ||
+		active.channel.type === ChanType.LOBBY ||
+		active.channel.type === ChanType.SPECIAL ||
+		document.visibilityState !== "visible" ||
+		!document.hasFocus()
+	) {
+		return;
+	}
+
+	readOnWorker(active.network.uuid, active.channel.name);
+}
+
+store.watch((state) => state.activeChannel, readActive);
+window.addEventListener("focus", readActive);
+document.addEventListener("visibilitychange", readActive);
+
+// Another session read it to the end (draft/read-marker).
+socket.on("markread", (data) => {
+	const found = data.unread === 0 ? store.getters.findChannel(data.chan) : undefined;
+
+	if (found) {
+		readOnWorker(found.network.uuid, found.channel.name);
+	}
+});
+
 /** A reply typed into a notification, as the worker hands it over: by
  * network uuid + target name (the page's channel ids mean nothing to it). */
 /** A reply typed into a notification: relayed by the service worker
@@ -1106,6 +1169,7 @@ export default {
 	onNetworkSaved,
 	networkPushInfo,
 	notifyOn,
+	pushWorkerFor,
 	pushPrompt,
 	acceptPrompt,
 	declinePrompt,

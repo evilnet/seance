@@ -157,7 +157,9 @@ export default async function run(page) {
 		timeout: 30000,
 		label: `${CHANNEL} in the sidebar`,
 	});
-	await page.click(`.channel-list-item[data-name="${CHANNEL}"]`);
+	// A tap, as on a phone: a mouse click would tell the app a mouse is in
+	// use (helpers/inputModality.ts) and give it the hover toolbar.
+	await tap(page, `.channel-list-item[data-name="${CHANNEL}"] .name`);
 
 	const token = `qr-${Date.now().toString(36)}`;
 	const talker = speaker(TALKER);

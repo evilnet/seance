@@ -46,6 +46,9 @@
 //   --width=<px>      viewport width (default 1280); --height=<px> (default 900)
 //   --mobile          emulate a touch device (mobile viewport, no hover); without it
 //                     the run answers (hover: hover) and (pointer: fine) like a desktop
+//   --touch-laptop    a desktop whose browser calls its touchscreen the primary input:
+//                     (hover: none) and (pointer: coarse), with a mouse there too
+//                     (any-hover: hover, any-pointer: fine)
 //
 // A throwaway profile is the default on purpose: localStorage (saved
 // networks, settings, `thelounge.media.trusted`) survives inside one profile,
@@ -93,6 +96,12 @@ const chrome = spawn(
 		flags.has("--devtools") ? "--auto-open-devtools-for-tabs" : "--disable-gpu",
 		"--no-first-run",
 		"--no-default-browser-check",
+		// Chromium puts raster and shared-memory buffers in /dev/shm, which is
+		// 64 MB in a container, and a page that repaints large animated layers
+		// every frame (the <3 theme's meadow) crashes the renderer when it
+		// fills; the flag moves them to /tmp, which is what Playwright does by
+		// default.
+		"--disable-dev-shm-usage",
 		// The dev ircd and the dev web server use self-signed certificates.
 		"--ignore-certificate-errors",
 		"--window-size=1280,900",
@@ -102,8 +111,14 @@ const chrome = spawn(
 		// mode, say) would apply to a run that hovers with a mouse. Without
 		// --mobile, say what a desktop says: hover type 2 = hover, pointer
 		// type 4 = fine (the touch emulation of --mobile overrides these).
+		// --touch-laptop: hover types none (1) and hover (2), pointer types
+		// coarse (2) and fine (4), the primary being the touchscreen's.
 		...(flags.has("--mobile")
 			? []
+			: flags.has("--touch-laptop")
+			? [
+					"--blink-settings=primaryHoverType=1,availableHoverTypes=3,primaryPointerType=2,availablePointerTypes=6",
+			  ]
 			: [
 					"--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4",
 			  ]),
@@ -165,6 +180,15 @@ async function devtoolsTarget() {
 
 const pending = new Map();
 const consoleLogs = [];
+/**
+ * What the browser itself writes to the console (CDP Log.entryAdded): a
+ * failed resource load ("Failed to load resource: …", net::ERR_FAILED when
+ * the service worker answered it; a request DevTools blocked logs nothing),
+ * an intervention, a deprecation. Kept apart
+ * from `consoleLogs` (the page's own console.* calls and exceptions), so a
+ * scenario's "no console errors" does not start counting a 404.
+ */
+const logEntries = [];
 const wsFrames = [];
 const failures = [];
 /**
@@ -223,6 +247,20 @@ function onEvent(msg) {
 		const text = d.exception?.description ?? d.text;
 		consoleLogs.push({type: "exception", text});
 		console.log(`page exception ${text}`);
+		return;
+	}
+
+	if (method === "Log.entryAdded") {
+		const {source, level, text, url} = params.entry;
+		logEntries.push({source, level, text, url: url ?? ""});
+		const line = `log.${level} [${source}] ${text}${url ? ` ${url}` : ""}`;
+
+		if (["error", "warning"].includes(level)) {
+			console.log(line);
+		} else {
+			note(line);
+		}
+
 		return;
 	}
 
@@ -471,6 +509,16 @@ async function addInitScript(source) {
 const DISMISS_INSTALL_GUIDE =
 	'try { localStorage.setItem("thelounge.state.installGuide", "dismissed"); } catch (e) {}';
 
+/**
+ * Keeps a page attended (themeScene.ts createAttention): a theme's scene
+ * rests 15 s into a window without the focus — which a headless page is —
+ * and a scenario reads it running. A synthetic pointermove every 10 s is
+ * input to that tracker and nothing else listens for a bare Event. Focus
+ * emulation would do it too, but would change what document.hasFocus()
+ * tells every other scenario (notifications, AWAY).
+ */
+const KEEP_ATTENDED = 'setInterval(() => window.dispatchEvent(new Event("pointermove")), 10000);';
+
 /** Browser.grantPermissions, for testing notification-driven flows. */
 async function grantPermissions(permissions, origin) {
 	await send("Browser.grantPermissions", {
@@ -515,6 +563,11 @@ const page = {
 	expectWsErrors: false,
 	get consoleLogs() {
 		return consoleLogs;
+	},
+	/** The browser's own console entries (Log.entryAdded), e.g. a failed
+	 * load: `{source, level, text, url}`. */
+	get logEntries() {
+		return logEntries;
 	},
 	get wsFrames() {
 		return wsFrames;
@@ -594,6 +647,10 @@ try {
 			await addInitScript(DISMISS_INSTALL_GUIDE);
 		}
 
+		if (scenario.sceneRest !== true) {
+			await addInitScript(KEEP_ATTENDED);
+		}
+
 		note(`scenario ${scenarioPath}${page.url ? ` on ${page.url}` : ""}`);
 		await run(page);
 	} else {
@@ -602,6 +659,7 @@ try {
 		}
 
 		await addInitScript(DISMISS_INSTALL_GUIDE);
+		await addInitScript(KEEP_ATTENDED);
 		await goto(page.url);
 		note(`watching ${page.url} for ${stayMs}ms (Ctrl-C to stop)`);
 		await sleep(stayMs);

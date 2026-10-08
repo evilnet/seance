@@ -267,8 +267,41 @@ async function networkOrCache(event) {
 // Notifications requested by the page. Routing them through the worker (rather
 // than `new Notification()` in the page) is what makes them work on Android and
 // lets "notificationclick" below reopen the app when the tab is gone.
+//
+// A message the page took live, on a network this device is subscribed to,
+// comes to that network's push-only worker with the message itself
+// (`message`): it is shown exactly as its push would be — same tag, data
+// and actions, merged by msgid — so the push the server may send for it
+// finds it already on this registration. Chrome counts visible
+// notifications per registration, and a push this worker drops as a
+// duplicate while the page's copy sits on the root worker counts as
+// silent: enough of those and Chrome shows its generic "This site has been
+// updated in the background". A worker from before this shows `message`
+// payloads the per-channel way, still on the push registration.
+//
+// The page read a conversation (opened it, came back to it, or another
+// session moved its marker): `{type: "read", target, ts?}` closes what this
+// worker shows for it. The server's read push only follows a message it
+// pushed, so a notification the page put here is closed by the page.
 self.addEventListener("message", function (event) {
+	if (event.data && event.data.type === "read" && typeof event.data.target === "string") {
+		const {target, ts} = event.data;
+
+		event.waitUntil(
+			enqueuePush(async () => {
+				await closeForTarget(target, typeof ts === "string" ? ts : undefined);
+				await updateBadge();
+			})
+		);
+		return;
+	}
+
 	if (!event.data || event.data.type !== "notification") {
+		return;
+	}
+
+	if (event.data.message && typeof event.data.message === "object") {
+		event.waitUntil(handlePageMessage(event.data));
 		return;
 	}
 
@@ -878,7 +911,17 @@ self.addEventListener("push", function (event) {
 let pushChain = Promise.resolve();
 
 function handlePush(raw) {
-	const run = pushChain.then(() => handlePushNow(raw));
+	return enqueuePush(() => handlePushNow(raw));
+}
+
+/** A page's message (see the "message" listener), in the same queue as the
+ * pushes: it merges into the same notifications they do. */
+function handlePageMessage(payload) {
+	return enqueuePush(() => handlePageMessageNow(payload));
+}
+
+function enqueuePush(task) {
+	const run = pushChain.then(task);
 
 	pushChain = run.catch(() => undefined);
 
@@ -991,136 +1034,7 @@ async function handlePushNow(raw) {
 		}
 
 		if (parsed && (parsed.command === "PRIVMSG" || parsed.command === "NOTICE")) {
-			const msgid = typeof parsed.tags.msgid === "string" ? parsed.tags.msgid : undefined;
-
-			const line = P.lineIndexOf(parsed.tags);
-
-			// A multiline message is one push per line: `batch=<base msgid>` on
-			// every line is what the lines share, while the msgid itself rides
-			// the first line only (draft/multiline's fallback form).
-			const batch = line
-				? typeof parsed.tags.batch === "string"
-					? parsed.tags.batch
-					: msgid
-				: undefined;
-
-			// Dedup against the "seen" ring (client/js/push-seen.ts): what this
-			// device has already surfaced. The live page records every pushable
-			// message it received over its own WebSocket — it owns that
-			// notification, and the server pushes to attached-but-idle sessions
-			// too (FEAT_WEBPUSH_IDLE), so without this every highlight would
-			// notify twice; a frozen page writes nothing, which is exactly when
-			// the push must show. This worker records what it showed (below), so
-			// the same push delivered again — push services promise at least
-			// once, and a notification the user already answered has no data
-			// left to merge into — shows nothing. A batch's reference is the
-			// msgid the page recorded from the BATCH opener, so the page blocks
-			// every line by it though only the first carries a msgid; the worker
-			// remembers lines one by one (`<batch>#<index>`) so the rest of a
-			// batch still lands.
-			const seenId = batch || msgid;
-			const seenKey = line ? seenId + "#" + line.index : msgid;
-
-			if (seenId) {
-				const seen = await idbGet("seen");
-
-				if (
-					Array.isArray(seen) &&
-					((msgid && seen.includes(msgid)) ||
-						seen.includes(seenId) ||
-						seen.includes(seenKey))
-				) {
-					return;
-				}
-			}
-
-			const isChannel = isChannelName(parsed.target);
-			const replyTo = isChannel ? parsed.target : parsed.nick;
-			const tag = "push-" + (replyTo || "activity");
-
-			// The page mirrors the reader's markdown setting here (client/js/
-			// push-prefs.ts); absent means the app default, on.
-			const prefs = (await idbGet("prefs")) || {};
-			const markdown = prefs.markdown !== false;
-
-			// Merge per target: the message list rides on the notification's
-			// data so it survives the worker being killed between pushes, and a
-			// multiline message grows in place, one line per push.
-			const existing = await self.registration.getNotifications({tag});
-			const prev = existing[0] && existing[0].data;
-			const added = P.addMessage(
-				(prev && prev.messages) || [],
-				{
-					from: parsed.nick,
-					text: parsed.text,
-					msgid,
-					batch: batch || undefined,
-					line: line || undefined,
-					concat: parsed.tags[P.CONCAT_TAG] === true,
-				},
-				P.MERGE_KEEP
-			);
-
-			// The ring lost this msgid but the notification still holds it: a
-			// plain message pushed again adds nothing, so show nothing again.
-			if (!added.isNew && !line) {
-				return;
-			}
-
-			const count = ((prev && prev.count) || 0) + (added.isNew ? 1 : 0);
-			const body = P.renderMergedBody(added.entries, isChannel, (text) =>
-				P.notificationText(text, {markdown})
-			);
-
-			const title = isChannel
-				? parsed.nick + " in " + parsed.target + (count > 1 ? " (" + count + ")" : "")
-				: parsed.nick + (count > 1 ? " (" + count + ")" : "");
-
-			// Inline reply renders as a text field where the browser supports
-			// it (desktop Chrome) and degrades to a button that deep-links the
-			// chat where it does not — the click handler falls back to openApp
-			// when no reply text arrives.  showSafely guards the whole call if
-			// a browser rejects the actions outright.  Reply goes last, on the
-			// right: that is where a thumb lands on a phone held in one hand.
-			// Mark read is "seen, no answer needed": the account's read marker
-			// at this notification's newest message, on every device.
-			const actions = [
-				{action: "markread", title: "Mark read"},
-				{action: "reply", type: "text", title: "Reply", placeholder: "Reply…"},
-			];
-
-			// The payload names no network: a push-only worker serves exactly
-			// one (its scope says which); the root worker, which only ever
-			// held the pre-per-network subscription, falls back to the first
-			// stashed network.
-			const stash = await getStash();
-			const network =
-				scopeNetwork || (stash.networks[0] ? stash.networks[0].uuid : undefined);
-			const time = typeof parsed.tags.time === "string" ? parsed.tags.time : undefined;
-
-			await showSafely(title, {
-				tag,
-				renotify: added.isNew,
-				icon: "img/icon-192.png",
-				body,
-				timestamp: time ? Date.parse(time) : undefined,
-				data: {
-					kind: "push",
-					count,
-					from: parsed.nick,
-					target: replyTo,
-					network,
-					time,
-					messages: added.entries,
-				},
-				actions,
-			});
-
-			if (seenId) {
-				await idbAppend("seen", seenKey, SEEN_CAP);
-			}
-
-			await updateBadge();
+			await showMessage(P, parsed, true);
 			return;
 		}
 
@@ -1140,6 +1054,163 @@ async function handlePushNow(raw) {
 		});
 		await updateBadge();
 	}
+}
+
+/** Show (or merge) one message's notification: a pushed PRIVMSG/NOTICE, or
+ * a page's message (`checkSeen` false — the page recorded it as seen
+ * itself, and is asking for it to be shown). */
+async function showMessage(P, parsed, checkSeen) {
+	const msgid = typeof parsed.tags.msgid === "string" ? parsed.tags.msgid : undefined;
+
+	const line = P.lineIndexOf(parsed.tags);
+
+	// A multiline message is one push per line: `batch=<base msgid>` on
+	// every line is what the lines share, while the msgid itself rides
+	// the first line only (draft/multiline's fallback form).
+	const batch = line
+		? typeof parsed.tags.batch === "string"
+			? parsed.tags.batch
+			: msgid
+		: undefined;
+
+	// Dedup against the "seen" ring (client/js/push-seen.ts): what this
+	// device has already surfaced. The live page records every pushable
+	// message it received over its own WebSocket — it owns that
+	// notification, and the server pushes to attached-but-idle sessions
+	// too (FEAT_WEBPUSH_IDLE), so without this every highlight would
+	// notify twice; a frozen page writes nothing, which is exactly when
+	// the push must show. This worker records what it showed (below), so
+	// the same push delivered again — push services promise at least
+	// once, and a notification the user already answered has no data
+	// left to merge into — shows nothing. A batch's reference is the
+	// msgid the page recorded from the BATCH opener, so the page blocks
+	// every line by it though only the first carries a msgid; the worker
+	// remembers lines one by one (`<batch>#<index>`) so the rest of a
+	// batch still lands.
+	const seenId = batch || msgid;
+	const seenKey = line ? seenId + "#" + line.index : msgid;
+
+	if (checkSeen && seenId) {
+		const seen = await idbGet("seen");
+
+		if (
+			Array.isArray(seen) &&
+			((msgid && seen.includes(msgid)) || seen.includes(seenId) || seen.includes(seenKey))
+		) {
+			return;
+		}
+	}
+
+	const isChannel = isChannelName(parsed.target);
+	const replyTo = isChannel ? parsed.target : parsed.nick;
+	const tag = "push-" + (replyTo || "activity");
+
+	// The page mirrors the reader's markdown setting here (client/js/
+	// push-prefs.ts); absent means the app default, on.
+	const prefs = (await idbGet("prefs")) || {};
+	const markdown = prefs.markdown !== false;
+
+	// Merge per target: the message list rides on the notification's
+	// data so it survives the worker being killed between pushes, and a
+	// multiline message grows in place, one line per push.
+	const existing = await self.registration.getNotifications({tag});
+	const prev = existing[0] && existing[0].data;
+	const added = P.addMessage(
+		(prev && prev.messages) || [],
+		{
+			from: parsed.nick,
+			text: parsed.text,
+			msgid,
+			batch: batch || undefined,
+			line: line || undefined,
+			concat: parsed.tags[P.CONCAT_TAG] === true,
+		},
+		P.MERGE_KEEP
+	);
+
+	// The ring lost this msgid but the notification still holds it: a
+	// plain message pushed again adds nothing, so show nothing again.
+	if (!added.isNew && !line) {
+		return;
+	}
+
+	const count = ((prev && prev.count) || 0) + (added.isNew ? 1 : 0);
+	const body = P.renderMergedBody(added.entries, isChannel, (text) =>
+		P.notificationText(text, {markdown})
+	);
+
+	const title = isChannel
+		? parsed.nick + " in " + parsed.target + (count > 1 ? " (" + count + ")" : "")
+		: parsed.nick + (count > 1 ? " (" + count + ")" : "");
+
+	// Inline reply renders as a text field where the browser supports
+	// it (desktop Chrome) and degrades to a button that deep-links the
+	// chat where it does not — the click handler falls back to openApp
+	// when no reply text arrives.  showSafely guards the whole call if
+	// a browser rejects the actions outright.  Reply goes last, on the
+	// right: that is where a thumb lands on a phone held in one hand.
+	// Mark read is "seen, no answer needed": the account's read marker
+	// at this notification's newest message, on every device.
+	const actions = [
+		{action: "markread", title: "Mark read"},
+		{action: "reply", type: "text", title: "Reply", placeholder: "Reply…"},
+	];
+
+	// The payload names no network: a push-only worker serves exactly
+	// one (its scope says which); the root worker, which only ever
+	// held the pre-per-network subscription, falls back to the first
+	// stashed network.
+	const stash = await getStash();
+	const network = scopeNetwork || (stash.networks[0] ? stash.networks[0].uuid : undefined);
+	const time = typeof parsed.tags.time === "string" ? parsed.tags.time : undefined;
+
+	await showSafely(title, {
+		tag,
+		renotify: added.isNew,
+		icon: "img/icon-192.png",
+		body,
+		timestamp: time ? Date.parse(time) : undefined,
+		data: {
+			kind: "push",
+			count,
+			from: parsed.nick,
+			target: replyTo,
+			network,
+			time,
+			messages: added.entries,
+		},
+		actions,
+	});
+
+	if (seenId) {
+		await idbAppend("seen", seenKey, SEEN_CAP);
+	}
+
+	await updateBadge();
+}
+
+/** The page's message as a parsed push line, shown by showMessage. */
+async function handlePageMessageNow(payload) {
+	const m = payload.message;
+
+	if (typeof m.from !== "string" || typeof payload.target !== "string") {
+		return;
+	}
+
+	await showMessage(
+		push(),
+		{
+			tags: {
+				msgid: typeof m.msgid === "string" ? m.msgid : undefined,
+				time: typeof m.time === "string" ? m.time : undefined,
+			},
+			nick: m.from,
+			command: m.notice ? "NOTICE" : "PRIVMSG",
+			target: payload.target,
+			text: typeof m.text === "string" ? m.text : "",
+		},
+		false
+	);
 }
 
 /** showNotification that cannot silently fail: if Chrome rejects any
@@ -1171,6 +1242,21 @@ async function showSafely(title, options) {
 	}
 }
 
+/** rfc1459 case folding, ASCII only — client/js/irc/casemap.ts `casefold`,
+ * which the worker cannot import. */
+function foldName(name) {
+	return name.replace(/[A-Z[\\\]~]/g, (c) =>
+		c === "~" ? "^" : String.fromCharCode(c.charCodeAt(0) + 0x20)
+	);
+}
+
+/** Whether two channel names or nicks are the same one: IRC compares them
+ * case-insensitively, and a read (the page's open conversation, a read
+ * relay) need not spell the target as the notification it closes does. */
+function sameName(a, b) {
+	return typeof a === "string" && typeof b === "string" && foldName(a) === foldName(b);
+}
+
 /** Close push notifications for `target` whose message predates `ts`. */
 async function closeForTarget(target, ts) {
 	const cutoff = ts ? Date.parse(ts) : Infinity;
@@ -1181,7 +1267,7 @@ async function closeForTarget(target, ts) {
 			continue;
 		}
 
-		const sameTarget = n.data && n.data.target === target;
+		const sameTarget = n.data && sameName(n.data.target, target);
 		const mine = !target && n.tag.startsWith("push-");
 
 		if (
