@@ -1974,6 +1974,15 @@ body {
 	padding: 0;
 }
 
+/* The native shells paint #viewport in the canvas colour, so the band it
+ * keeps clear of the status bar matches the page (style.css, data-shell).
+ * Here that would be one opaque sheet over the scene — the scene publishes
+ * its sky as --canvas-bg-color — so the app showed a flat blue where the
+ * plains should be. The viewport stays clear; the scene fills the band. */
+html[data-shell="native"] #viewport {
+	background: transparent;
+}
+
 .window {
 	border-radius: 0;
 	box-shadow: none;

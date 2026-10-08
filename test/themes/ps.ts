@@ -627,6 +627,12 @@ describe("the ps theme's chrome: glass over the plains (docs/projects/ps-theme.m
 		expect(valueOf("#loading .window", "margin")).to.equal("0");
 	});
 
+	it("keeps the native shell's viewport clear, so the scene is not covered by the canvas colour", function () {
+		// style.css paints html[data-shell="native"] #viewport in --canvas-bg-color, which
+		// the scene sets to its sky: an opaque sheet over the plains in the apps.
+		expect(valueOf('html[data-shell="native"] #viewport', "background")).to.equal("transparent");
+	});
+
 	it("gives ps the daylight fallback's canvas as its theme-color before the scene loads", function () {
 		const config = fs.readFileSync(
 			path.resolve(__dirname, "../../client/js/configuration.ts"),
