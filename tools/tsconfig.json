@@ -1,0 +1,29 @@
+{
+  "extends": "../tsconfig.base.json" /* Path to base configuration file to inherit from. */,
+  "include": ["./**/*.ts"] /* The .ts tools; the client modules they import come along. */,
+  "exclude": [
+    "./i18n/fixtures/**" /* Deliberately broken inputs for tools/i18n/check.ts's own tests. */
+  ],
+  "compilerOptions": {
+    /* Not a referenced project: nothing is emitted, it is type-checked in place
+       (`npx tsc --noEmit -p tools`) and named by .eslintrc.cjs so the type-aware
+       lint rules can see these files. */
+    "composite": false,
+    "declaration": false,
+    "noEmit": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    /* The client modules were written for the browser: engine.ts wants DOM's
+       AbortSignal, and scene.ts (whose sceneVars the ps legibility model reads)
+       iterates a NodeList, as client/tsconfig.json allows. The tools themselves
+       want Node. */
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "allowJs": false,
+    "checkJs": false,
+    "strict": true,
+
+    // TODO: Remove eventually
+    "noImplicitAny": false
+  }
+}

@@ -66,6 +66,11 @@
 		<!-- What iOS samples for the status-bar colour (style.css). A real
 		     element, first in the body: the sampler ignores pseudo-elements. -->
 		<div id="status-bar-tint" aria-hidden="true"></div>
+		<!-- A theme's own scene, behind the whole app (client/js/themeScene.ts).
+		     After #status-bar-tint on purpose: iOS samples a fixed element at the
+		     top for the status-bar colour, and a theme that shows this one gives
+		     it the same colour (docs/projects/ps-theme.md §6). -->
+		<div id="theme-scene" aria-hidden="true"></div>
 		<div id="app"></div>
 		<div id="loading">
 			<div class="window">
