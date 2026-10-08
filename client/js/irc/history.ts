@@ -376,9 +376,19 @@ function replay(client: IrcClient, chan: Channel, lines: IrcMessage[]): Replayed
 
 	for (const line of lines) {
 		// Each handler copies its line's msgid (`msgidOf`), which is what
-		// deduplicates below and serves as a BEFORE/AFTER reference.
+		// deduplicates below and serves as a BEFORE/AFTER reference. A handler
+		// that forgets still gets it here: a replayed line is a stored one.
+		const msgid = line.tags.get("msgid");
 		const result = client.collectReplay(chan, () => client.handleMessage(line));
-		collected.messages.push(...result.messages);
+
+		for (const item of result.messages) {
+			if (msgid && !item.msg.msgid) {
+				item.msg.msgid = msgid;
+			}
+
+			collected.messages.push(item);
+		}
+
 		collected.after.push(...result.after);
 	}
 
