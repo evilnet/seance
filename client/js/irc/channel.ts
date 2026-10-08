@@ -7,7 +7,7 @@
 import {ChanState, ChanType} from "../../../shared/types/chan";
 import type {SharedNetworkChan} from "../../../shared/types/network";
 import type {SharedUser} from "../../../shared/types/user";
-import type {SharedMsg, UserInMessage} from "../../../shared/types/msg";
+import {MessageType, type SharedMsg, type UserInMessage} from "../../../shared/types/msg";
 import type {HistorySpec} from "./history";
 
 export type Casefold = (s: string) => string;
@@ -16,6 +16,8 @@ export type Casefold = (s: string) => string;
 export interface MsgRef {
 	msgid?: string;
 	time: Date;
+	/** A chat line (message or action): what `/react` can target and the UI shows reactions on. */
+	reactable?: boolean;
 	/** Bumped the channel's `unread` counter when pushed (recounted by MARKREAD). */
 	unread?: boolean;
 	/** Bumped the channel's `highlight` counter when pushed. */
@@ -144,6 +146,10 @@ export class Channel {
 			this.idByMsgid.set(msg.msgid, msg.id);
 		}
 
+		if (msg.type === MessageType.MESSAGE || msg.type === MessageType.ACTION) {
+			ref.reactable = true;
+		}
+
 		this.msgRefs.set(msg.id, ref);
 		return ref;
 	}
@@ -186,19 +192,24 @@ export class Channel {
 	}
 
 	/**
-	 * msgid of the newest message that has one (`/react` without an explicit
-	 * msgid). `newestRef` may be a local line without a msgid, so fall back
-	 * to the latest remembered reference that carries one.
+	 * msgid of the newest chat line that has one (`/react` without an
+	 * explicit msgid). Joins, quits and other events carry msgids too, but
+	 * show no reactions, and `newestRef` may be a local line without a
+	 * msgid, so fall back to the latest remembered chat line.
 	 */
-	newestMsgid(): string | undefined {
-		if (this.newestRef?.msgid) {
+	newestReactableMsgid(): string | undefined {
+		if (this.newestRef?.msgid && this.newestRef.reactable) {
 			return this.newestRef.msgid;
 		}
 
 		let best: MsgRef | undefined;
 
 		for (const ref of this.msgRefs.values()) {
-			if (ref.msgid && (!best || ref.time.getTime() >= best.time.getTime())) {
+			if (
+				ref.msgid &&
+				ref.reactable &&
+				(!best || ref.time.getTime() >= best.time.getTime())
+			) {
 				best = ref;
 			}
 		}

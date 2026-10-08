@@ -3,6 +3,7 @@
  */
 
 import {MessageType} from "../../../../shared/types/msg";
+import {msgidOf} from "../message";
 import type {Handler} from "../types";
 
 const topicChange: Handler = (client, msg) => {
@@ -20,6 +21,7 @@ const topicChange: Handler = (client, msg) => {
 		from: chan.userRef(nick),
 		text: topic,
 		self: client.isSelf(nick),
+		...msgidOf(msg),
 	});
 
 	if (client.replaying) {

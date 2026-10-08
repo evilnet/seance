@@ -64,6 +64,20 @@ describe("Replies and reactions (handlers/tagmsg.ts, +draft/reply)", function ()
 			]);
 		});
 
+		it("/react skips channel events, which carry a msgid but show no reactions", function () {
+			const h = setup();
+			const id = joined(h);
+			h.transport.lines(
+				"@time=2026-08-25T12:01:00.000Z;msgid=m1 :bob!bob@host PRIVMSG #seance :hi",
+				"@time=2026-08-25T12:02:00.000Z;msgid=m2 :bob!bob@host PRIVMSG #seance :\x01ACTION waves\x01",
+				"@time=2026-08-25T12:03:00.000Z;msgid=ev-join :dave!dave@host JOIN #seance",
+				"@time=2026-08-25T12:04:00.000Z;msgid=ev-quit :dave!dave@host QUIT :bye"
+			);
+
+			h.client.input(id, "/react 👍");
+			expect(h.sent()).to.deep.equal(["@+draft/react=👍;+draft/reply=m2 TAGMSG #seance"]);
+		});
+
 		it("/react takes words, emoji runs and shortcodes, msgid or not", function () {
 			const h = setup();
 			const id = joined(h);

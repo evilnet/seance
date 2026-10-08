@@ -4,6 +4,7 @@
 
 import {ChanState} from "../../../../shared/types/chan";
 import {MessageType} from "../../../../shared/types/msg";
+import {msgidOf} from "../message";
 import type {Handler} from "../types";
 
 const kick: Handler = (client, msg) => {
@@ -25,6 +26,7 @@ const kick: Handler = (client, msg) => {
 		text: reason,
 		highlight: kickedSelf,
 		self: client.isSelf(kicker),
+		...msgidOf(msg),
 	});
 
 	if (client.replaying) {
