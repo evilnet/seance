@@ -66,6 +66,7 @@ import {paletteAt} from "../../client/js/scenes/ps/palette";
 import {
 	ALPHA_HALO,
 	ALPHA_SHADOW,
+	BAND_ALPHA,
 	checkedGrounds,
 	CODE_BOX,
 	GLASS,
@@ -623,8 +624,8 @@ export function messageBlock(s: Solved): string {
 		" * the dense sweep (every day, every 5 minutes, all six weathers): the sky, the",
 		" * moon's disc and the sun's core (above the horizon line), and the plains'",
 		" * areas (client/js/scenes/ps/grounds.ts), under the veil on a veiled day,",
-		` * through the halo at α ${ALPHA_HALO} where the words are ink or the shadow and`,
-		` * outline at α ${ALPHA_SHADOW} where they are light (docs/projects/ps-theme.md §11).`,
+		` * through the halo at α ${ALPHA_HALO} where the words are ink or the band at α`,
+		` * ${BAND_ALPHA} and the glow at α ${ALPHA_SHADOW} where they are light (docs/projects/ps-theme.md §11).`,
 		" * The words are ink only where ink holds (the user's white sooner): the ink",
 		" * colours are solved over those moments alone. Generated colours are solved",
 		" * to 4.6.",

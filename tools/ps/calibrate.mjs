@@ -596,24 +596,10 @@ export default async function run(page) {
 		read.ink.words.textShadow.split("rgb(235, 245, 253)").length === 4
 	);
 	page.check(
-		`the light treatment's shadow is the 70/45/35 % black (${read.light.words.textShadow})`,
-		/rgba\(0, 0, 0, 0\.7\).*rgba\(0, 0, 0, 0\.45\).*rgba\(0, 0, 0, 0\.35\)/.test(
+		`the light treatment's glow is the 70/55/65 % black, no outline (${read.light.words.textShadow})`,
+		/^rgba\(0, 0, 0, 0\.7\) [^,]*, rgba\(0, 0, 0, 0\.55\) [^,]*, rgba\(0, 0, 0, 0\.65\) [^,]*$/.test(
 			read.light.words.textShadow
 		)
-	);
-	page.check(
-		`the light treatment's outline (B) is eight 1px offsets at 78 % black (${
-			read.light.words.textShadow.split("0.78)").length - 1
-		} found)`,
-		read.light.words.textShadow.split("0.78)").length - 1 === 8
-	);
-	page.check(
-		`under it, the faint second ring is eight 2px offsets at 28 % black (${
-			read.light.words.textShadow.split("0.28)").length - 1
-		} found)`,
-		read.light.words.textShadow.split("0.28)").length - 1 === 8 &&
-			read.light.words.textShadow.indexOf("0.28)") >
-				read.light.words.textShadow.lastIndexOf("0.78)")
 	);
 	page.check(
 		`ink text is #1b2638 (${read.ink.words.color})`,
