@@ -54,6 +54,9 @@ export const url =
 	`&autoconnect=1`;
 
 const promptOpened = `document.querySelector("#push-prompt-overlay")?.classList.contains("opened")`;
+// A prompt takes no answer in its first moments (webpush.ts PROMPT_ARM_MS);
+// `data-armed` marks it ready.
+const promptArmed = `document.querySelector("#push-prompt[data-armed]") !== null`;
 /** The overlay fades out over 0.2 s and swallows clicks until it is hidden. */
 const promptGone = `getComputedStyle(document.querySelector("#push-prompt-overlay")).visibility === "hidden"`;
 
@@ -182,6 +185,7 @@ export default async function run(page) {
 	await page.screenshot("2-renew-prompt");
 
 	// --- 3. "No": closed, Settings says stale, Renew in Edit network works --
+	await page.waitFor(promptArmed, {label: "the prompt to take answers"});
 	await page.click("#pushPromptNo");
 	await page.waitFor(promptGone, {label: "the prompt to close on No"});
 	page.check("3. No sends nothing", webpushOut(page, before).length === 0);
@@ -261,6 +265,7 @@ export default async function run(page) {
 	page.check("3. No: asked again on the next connect", true);
 
 	// --- 4. "Never": the setting flips to ignore, no prompt on later connects
+	await page.waitFor(promptArmed, {label: "the prompt to take answers"});
 	await page.click("#pushPromptNever");
 	await page.waitFor(
 		`JSON.parse(localStorage.getItem("settings") || "{}").pushKeyChange === "ignore"`,
@@ -298,6 +303,7 @@ export default async function run(page) {
 	before = await connect(page, `${ORIGIN}/`);
 	await page.waitFor(promptOpened, {label: "the prompt once the flag is cleared"});
 	mark = page.wsFrames.length;
+	await page.waitFor(promptArmed, {label: "the prompt to take answers"});
 	await page.click("#pushPromptYes");
 	await waitFrame(
 		page,

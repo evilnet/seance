@@ -92,8 +92,8 @@ export default defineComponent({
 		const debouncedResize = ref<DebouncedFunc<() => void>>();
 		const dayChangeTimeout = ref<any>();
 
-		const escapeKey = () => {
-			emitEscape();
+		const escapeKey = (e: ExtendedKeyboardEvent) => {
+			emitEscape(e.repeat);
 		};
 
 		const toggleSidebar = (e: ExtendedKeyboardEvent) => {
