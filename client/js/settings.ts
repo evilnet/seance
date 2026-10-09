@@ -167,7 +167,7 @@ const defaultConfig = {
 	// stepper.ts. A hidden page and reduced motion still stop it whatever this
 	// says.
 	psAnimation: {
-		default: "24",
+		default: "60",
 		apply(store: TypedStore, value: string) {
 			themeScene.setMotion(normalizeSceneMotion(value));
 		},

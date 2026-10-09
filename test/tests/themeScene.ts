@@ -234,8 +234,8 @@ describe("the theme-scene hook (client/js/themeScene.ts)", function () {
 
 	it("reads an unknown stored motion level as the default", function () {
 		expect(normalizeSceneMotion("60")).to.equal("60");
-		expect(normalizeSceneMotion("fast")).to.equal("24");
-		expect(normalizeSceneMotion(undefined)).to.equal("24");
+		expect(normalizeSceneMotion("fast")).to.equal("60");
+		expect(normalizeSceneMotion(undefined)).to.equal("60");
 	});
 
 	describe("attention (createAttention)", function () {

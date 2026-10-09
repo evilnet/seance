@@ -22,7 +22,7 @@ export const SCENE_MOTIONS: readonly SceneMotion[] = ["off", "sparse", "1s", "24
 
 /** A stored value the list does not hold is the default. */
 export function normalizeSceneMotion(value: unknown): SceneMotion {
-	return SCENE_MOTIONS.includes(value as SceneMotion) ? (value as SceneMotion) : "24";
+	return SCENE_MOTIONS.includes(value as SceneMotion) ? (value as SceneMotion) : "60";
 }
 
 export interface SceneHostState {
@@ -235,7 +235,7 @@ export function createSceneHost(opts: {
 export const themeScene: SceneHost = createSceneHost({
 	root: () => document.getElementById("theme-scene"),
 	loaders: SCENES,
-	state: {visible: true, attended: true, view: "other", motion: "24"},
+	state: {visible: true, attended: true, view: "other", motion: "60"},
 	warn: (message, error) => console.warn(message, error), // eslint-disable-line no-console
 });
 

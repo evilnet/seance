@@ -43,8 +43,12 @@ export const FIRE = {
 	] as ReadonlyArray<readonly [number, number]>,
 };
 
-/** Frames of the loop kept (the scene's own SCENE_FPS: 168 for the 7 s). */
-export const FIRE_FPS = 24;
+/**
+ * Frames of the loop kept: the screen's own rate, the scene's default since
+ * 2026-10-08 (420 fields of FIRE_SIZE² bytes for the 7 s, about 10.8 MB; a
+ * stepped scene shows every 2.5th).
+ */
+export const FIRE_FPS = 60;
 
 /** The canvas's side in pixels: about 1.5 sun units a pixel; next to the blur, as fine as Chrome draws the filter (tmp check: mean difference 1.2/255). */
 export const FIRE_SIZE = 160;
