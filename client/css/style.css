@@ -508,6 +508,7 @@ p {
 #settings .extra-help,
 #settings #play::before,
 #settings .settings-menu .icon::before,
+#oper .settings-menu .icon::before,
 #form #upload::before,
 #form #submit::before,
 #chat .msg[data-type="away"] .from::before,
@@ -558,7 +559,9 @@ p {
 .channel-list-item .notify-status-icon::before,
 .channel-list-item .edit-network::before,
 .channel-list-item .add-channel::before,
+.channel-list-item .oper-panel::before,
 .channel-list-item .parted-channel-icon::before,
+#chat .oper-report-btn::before,
 .jump-to-input::before,
 .password-container .reveal-password span,
 #sidebar .collapse-network-icon::before {
@@ -594,6 +597,16 @@ p {
 .context-menu-media-host::before { content: "\f0ac"; /* https://fontawesome.com/icons/globe?style=solid */ }
 .context-menu-media-account::before { content: "\f007"; /* https://fontawesome.com/icons/user?style=solid */ }
 .context-menu-media-channel::before { content: "\f292"; /* https://fontawesome.com/icons/hashtag?style=solid */ }
+.context-menu-oper-panel::before { content: "\f505"; /* https://fontawesome.com/icons/user-shield?style=solid */ }
+.context-menu-oper-check::before { content: "\f002"; /* https://fontawesome.com/icons/search?style=solid */ }
+.context-menu-oper-kill::before { content: "\f54c"; /* https://fontawesome.com/icons/skull?style=solid */ }
+.context-menu-oper-gline::before { content: "\f0e3"; /* https://fontawesome.com/icons/gavel?style=solid */ }
+.context-menu-oper-shun::before { content: "\f6a9"; /* https://fontawesome.com/icons/volume-mute?style=solid */ }
+.context-menu-oper-zline::before { content: "\f05e"; /* https://fontawesome.com/icons/ban?style=solid */ }
+.context-menu-oper-clones::before { content: "\f24d"; /* https://fontawesome.com/icons/clone?style=solid */ }
+.context-menu-oper-who::before { content: "\f0c0"; /* https://fontawesome.com/icons/users?style=solid */ }
+.context-menu-oper-copy::before { content: "\f0c5"; /* https://fontawesome.com/icons/copy?style=solid */ }
+.context-menu-oper-target::before { content: "\f05b"; /* https://fontawesome.com/icons/crosshairs?style=solid */ }
 
 .context-menu-media-host-off::before,
 .context-menu-media-account-off::before,
@@ -1073,6 +1086,12 @@ wrapper is what the jump-to results' server glyph (::before) sits beside. */
 	gap: 0.5rem;
 	font-size: 0.75rem;
 	font-weight: normal;
+
+	/* The container the oper shield's fit rule asks (below .oper-panel). */
+	/* stylelint-disable-next-line property-no-unknown */
+	container-type: inline-size;
+	/* stylelint-disable-next-line property-no-unknown */
+	container-name: lobby-status;
 }
 
 .channel-list-item .lobby-tools {
@@ -1201,6 +1220,7 @@ of one that has already passed — and only one `animation` can hold the icon. *
 .channel-list-item .badge,
 #sidebar .add-channel-tooltip,
 #sidebar .edit-network-tooltip,
+#sidebar .oper-panel-tooltip,
 .channel-list-item .close-tooltip {
 	flex-shrink: 0;
 	line-height: 1;
@@ -1310,6 +1330,49 @@ unevenly spaced however evenly the boxes sat. */
 
 .channel-list-item[data-type="lobby"] .edit-network:hover {
 	opacity: 1;
+}
+
+/* The oper panel's shield (Windows/OperPanel.vue), shown only while opered:
+the same box, glyph size and weight as the gear and the plus beside it. */
+.channel-list-item[data-type="lobby"] .oper-panel {
+	border-radius: 3px;
+	width: 1.5rem;
+	height: 1.5rem;
+	opacity: 0.4;
+	transition: opacity 0.2s, background-color 0.2s;
+}
+
+.channel-list-item[data-type="lobby"] .oper-panel::before {
+	content: "\f505"; /* https://fontawesome.com/icons/user-shield?style=solid */
+	font-size: 0.875rem;
+	display: inline-block;
+	line-height: 1.5rem;
+	text-align: center;
+	color: #fff;
+}
+
+.channel-list-item[data-type="lobby"] .oper-panel:hover {
+	opacity: 1;
+}
+
+/* Five tools do not fit the narrow end of the sidebar: the nick yields
+first, and below ~11rem of status line the boxes and gaps tighten rather
+than letting the last tool clip. Only with the shield there — four tools
+keep their spacing. The sidebar is `7rem + 108px` wide, so this is the
+large font steps (docs/projects/oper-tools.md, "Room for it"). */
+/* stylelint-disable-next-line at-rule-no-unknown */
+@container lobby-status (max-width: 11rem) {
+	.channel-list-item .lobby-tools:has(.oper-panel) {
+		gap: 0.125rem;
+	}
+
+	.channel-list-item .lobby-tools:has(.oper-panel) .connection-status-icon,
+	.channel-list-item .lobby-tools:has(.oper-panel) .notify-status-icon,
+	.channel-list-item .lobby-tools:has(.oper-panel) .edit-network,
+	.channel-list-item .lobby-tools:has(.oper-panel) .add-channel,
+	.channel-list-item .lobby-tools:has(.oper-panel) .oper-panel {
+		width: 1.25rem;
+	}
 }
 
 .channel-list-item .connection-status-tooltip {
@@ -3230,6 +3293,14 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	margin: 0;
 }
 
+.whois-oper-actions {
+	margin: 0.4em 0 0;
+}
+
+.whois-oper-actions .btn {
+	margin: 0;
+}
+
 /* The labels escape the content column, so it must not clip. */
 #chat .msg[data-type="whois"] .content {
 	overflow: visible;
@@ -3336,6 +3407,332 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 
 #chat table.who-list .who-away {
 	font-style: italic;
+}
+
+/* Oper tools (docs/projects/oper-tools.md). Like the WHO table, everything
+ * reads the base tokens so every theme colours it.
+ *
+ * A server notice or WALLOPS (MessageTypes/snotice.vue, wallops.vue) is a
+ * small category badge and the notice in plain words; bans and kills take
+ * the unread-marker colour, oper and network events the link colour, the
+ * routine families stay muted. */
+.snotice-badge {
+	display: inline-block;
+	border: 1px solid currentcolor;
+	border-radius: 0.6em;
+	font-size: 0.75em;
+	line-height: 1.3;
+	padding: 0 0.45em;
+	margin-right: 0.4em;
+	vertical-align: 0.1em;
+	color: var(--body-color-muted);
+	white-space: nowrap;
+}
+
+.snotice-ban .snotice-badge,
+.snotice-kill .snotice-badge,
+.snotice-badge.snotice-ban,
+.snotice-badge.snotice-kill {
+	color: var(--unread-marker-color);
+}
+
+.snotice-oper .snotice-badge,
+.snotice-net .snotice-badge,
+.snotice-wallops .snotice-badge,
+.wallops .snotice-badge,
+.snotice-badge.snotice-oper,
+.snotice-badge.snotice-net,
+.snotice-badge.snotice-wallops {
+	color: var(--link-color);
+}
+
+.snotice-origin {
+	color: var(--body-color-muted);
+	font-family: monospace;
+	font-size: 0.875em;
+	margin-left: 0.5em;
+}
+
+.snotice-origin::before {
+	content: "via ";
+	font-family: inherit;
+}
+
+.wallops .wallops-from {
+	font-weight: 600;
+}
+
+/* An IP, host or mask: a chip that opens the oper actions for it. */
+.oper-chip {
+	display: inline;
+	font-family: monospace;
+	font-size: 0.9375em;
+	color: var(--link-color);
+	background: color-mix(in srgb, var(--link-color) 12%, transparent);
+	border: 1px solid color-mix(in srgb, var(--link-color) 35%, transparent);
+	border-radius: 0.3em;
+	padding: 0 0.3em;
+	cursor: pointer;
+	overflow-wrap: anywhere;
+}
+
+.oper-chip:hover,
+.oper-chip:focus-visible,
+.oper-chip.active {
+	background: color-mix(in srgb, var(--link-color) 25%, transparent);
+}
+
+.oper-chips {
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: 0.3em;
+}
+
+/* A run of values (`2.1 KiB` `26 messages`): spaced by the box, not by
+ * text nodes the template compiler would drop. */
+.oper-values {
+	display: inline-flex;
+	flex-wrap: wrap;
+	column-gap: 0.35em;
+}
+
+/* Table rows stay one line high: the flag chips do not wrap in a cell. */
+#chat table.oper-report-table .oper-chips {
+	flex-wrap: nowrap;
+}
+
+.oper-chip-static {
+	display: inline-block;
+	border: 1px solid color-mix(in srgb, var(--body-color-muted) 60%, transparent);
+	border-radius: 0.6em;
+	font-size: 0.8125em;
+	line-height: 1.35;
+	padding: 0 0.45em;
+	color: var(--body-color);
+	white-space: nowrap;
+}
+
+.oper-server,
+.oper-mono {
+	font-family: monospace;
+	font-size: 0.9375em;
+}
+
+.oper-server {
+	color: var(--body-color-muted);
+}
+
+.oper-muted,
+.oper-channel-prefix {
+	color: var(--body-color-muted);
+}
+
+.oper-state {
+	font-size: 0.875em;
+	font-weight: 600;
+}
+
+.oper-state.ok {
+	color: var(--link-color);
+}
+
+.oper-state.off,
+.oper-expiry.expired {
+	color: var(--body-color-muted);
+}
+
+.oper-expiry.expired {
+	text-decoration: line-through;
+}
+
+/* A structured answer (MessageTypes/report.vue → Oper/ReportView.vue): a
+ * header with its actions, then sections of label/value pairs, tables and
+ * monospaced lines. A rule down the left holds it together as one block in
+ * the scrollback. */
+#chat .msg[data-type="report"] .content {
+	overflow: visible;
+	min-width: 0;
+}
+
+.oper-report {
+	border-left: 2px solid color-mix(in srgb, var(--link-color) 45%, transparent);
+	padding: 0.1em 0 0.25em 0.75em;
+	max-width: 100%;
+}
+
+.oper-report.has-error {
+	border-left-color: var(--unread-marker-color);
+}
+
+.oper-report-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.25em 0.6em;
+}
+
+.oper-report-title {
+	font-weight: 700;
+}
+
+.oper-report-subtitle {
+	color: var(--body-color-muted);
+	font-size: 0.875em;
+}
+
+.oper-report-actions {
+	display: inline-flex;
+	gap: 0.15em;
+	margin-left: auto;
+}
+
+#chat .oper-report-btn {
+	width: 1.75em;
+	height: 1.75em;
+	border-radius: 3px;
+	color: var(--body-color-muted);
+	line-height: 1;
+}
+
+#chat .oper-report-btn:hover,
+#chat .oper-report-btn.active {
+	color: var(--body-color);
+	background: color-mix(in srgb, var(--body-color-muted) 15%, transparent);
+}
+
+#chat .oper-report-btn::before {
+	font-size: 0.8125em;
+}
+
+#chat .oper-report-refresh::before {
+	content: "\f2f1"; /* https://fontawesome.com/icons/sync-alt?style=solid */
+}
+
+#chat .oper-report-raw-toggle::before {
+	content: "\f121"; /* https://fontawesome.com/icons/code?style=solid */
+}
+
+#chat .oper-report-copy::before {
+	content: "\f0c5"; /* https://fontawesome.com/icons/copy?style=solid */
+}
+
+#chat .oper-report-copy.done::before {
+	content: "\f00c"; /* https://fontawesome.com/icons/check?style=solid */
+	color: var(--link-color);
+}
+
+#chat .oper-report-collapse::before {
+	content: "\f077"; /* https://fontawesome.com/icons/chevron-up?style=solid */
+}
+
+#chat .oper-report-collapse.collapsed::before {
+	content: "\f078"; /* https://fontawesome.com/icons/chevron-down?style=solid */
+}
+
+.oper-report-error {
+	color: var(--unread-marker-color);
+	margin: 0.25em 0 0;
+}
+
+.oper-report-section {
+	margin-top: 0.4em;
+}
+
+.oper-report-section-title {
+	color: var(--window-heading-color);
+	font-size: 0.8125em;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+	margin: 0.5em 0 0.15em;
+}
+
+.oper-report-entries {
+	display: grid;
+	grid-template-columns: minmax(6rem, max-content) minmax(0, 1fr);
+	gap: 0.1em 0.9em;
+	margin: 0;
+}
+
+.oper-report-entries div {
+	display: contents;
+}
+
+.oper-report-entries dt {
+	color: var(--body-color-muted);
+	white-space: nowrap;
+}
+
+.oper-report-entries dd {
+	margin: 0;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.oper-report-table-scroll {
+	max-width: 100%;
+	overflow-x: auto;
+}
+
+#chat table.oper-report-table {
+	border-collapse: collapse;
+	font-size: 0.9375em;
+	line-height: 1.4;
+}
+
+#chat table.oper-report-table th,
+#chat table.oper-report-table td {
+	padding: 0.15em 0.9em 0.15em 0;
+	text-align: left;
+	vertical-align: baseline;
+	white-space: nowrap;
+	overflow-wrap: normal;
+	word-break: normal;
+	border-bottom: 1px solid color-mix(in srgb, var(--body-color-muted) 30%, transparent);
+}
+
+#chat table.oper-report-table th {
+	color: var(--window-heading-color);
+	font-size: 0.8125em;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+	border-bottom-color: color-mix(in srgb, var(--body-color-muted) 55%, transparent);
+}
+
+#chat table.oper-report-table .right {
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+
+#chat table.oper-report-table tbody tr:last-child td {
+	border-bottom: 0;
+}
+
+.oper-report-lines,
+.oper-report-raw {
+	font-family: monospace;
+	font-size: 0.875em;
+	white-space: pre;
+	overflow-x: auto;
+	max-width: 100%;
+	margin: 0.25em 0 0;
+	padding: 0;
+	background: none;
+	border: 0;
+}
+
+.oper-report-notes {
+	color: var(--body-color-muted);
+	font-size: 0.875em;
+	margin: 0.35em 0 0;
+	padding-left: 1.2em;
+}
+
+#chat .oper-report-more {
+	color: var(--link-color);
+	font-size: 0.875em;
+	padding: 0.2em 0;
 }
 
 .changelog-text {
@@ -4494,6 +4891,7 @@ html[data-shell="native"] #footer {
 #push-prompt-overlay,
 #install-guide-overlay,
 #upload-preview-overlay,
+#oper-action-overlay,
 #upload-overlay,
 #image-viewer,
 #image-viewer .open-btn,
@@ -4509,6 +4907,7 @@ html[data-shell="native"] #footer {
 #push-prompt-overlay,
 #install-guide-overlay,
 #upload-preview-overlay,
+#oper-action-overlay,
 #upload-overlay,
 #image-viewer {
 	position: fixed;
@@ -4528,6 +4927,7 @@ html[data-shell="native"] #footer {
 #push-prompt-overlay.opened,
 #install-guide-overlay.opened,
 #upload-preview-overlay.opened,
+#oper-action-overlay.opened,
 #upload-overlay.is-dragover,
 #image-viewer.opened {
 	visibility: visible;

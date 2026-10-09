@@ -482,13 +482,12 @@ describe("oper tools: server notice and WALLOPS routing (irc/snotice.ts)", funct
 		expect(msg.type).to.equal(MessageType.SNOTICE);
 		expect(msg.text).to.equal("opr (opr@172.17.0.1) is now a global operator (O)");
 		expect(msg.showInActive).to.equal(true);
-		expect(msg.snotice).to.deep.include({
-			kind: "oper.up",
-			category: "OLDSNO",
-			route: "active",
-			origin: "irc.test",
-		});
+		expect(msg.snotice).to.deep.include({kind: "oper.up", category: "OLDSNO", route: "active"});
+		expect(msg.snotice!.origin, "our own server is not named").to.equal(undefined);
 		expect(client.lobby.shared.unread).to.equal(unread);
+
+		transport.line(":leaf.test NOTICE * :*** Notice -- bob (b@h) is now a global operator (O)");
+		expect(messages(client.lobby.id)[1].snotice!.origin).to.equal("leaf.test");
 	});
 
 	it("a routine notice stays in the network window without unread", function () {

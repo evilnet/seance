@@ -21,6 +21,7 @@ import type {IrcClient} from "./client";
 import type {IrcMessage} from "./message";
 import type {LoggedNotice} from "./noticelog";
 import {routeFor} from "./operprefs";
+import {profileById} from "./profiles";
 import type {NoticeKind, ServerProfile} from "./profiles/types";
 
 export const NOTICE_PREFIX = "*** Notice -- ";
@@ -48,6 +49,21 @@ export const UNKNOWN_KIND: NoticeKind = {
 /** Every kind the routing UI lists for a profile: WALLOPS first, unknown last. */
 export function allNoticeKinds(profile: ServerProfile): NoticeKind[] {
 	return [...WALLOPS_KINDS, ...profile.noticeKinds, UNKNOWN_KIND];
+}
+
+/**
+ * A kind's label, category, default route and template, from the profile
+ * the UI knows the network by (`SharedOperState.profile`); without one, from
+ * any profile that has it (notices restored before the network connected).
+ */
+export function findNoticeKind(kind: string, profileId?: string): NoticeKind | undefined {
+	const own = allNoticeKinds(profileById(profileId)).find((k) => k.kind === kind);
+
+	if (own || profileId) {
+		return own;
+	}
+
+	return allNoticeKinds(profileById("nefarious2")).find((k) => k.kind === kind);
 }
 
 function defaultRoute(profile: ServerProfile, kind: string): Route {
@@ -89,9 +105,14 @@ export function handleServerNotice(client: IrcClient, msg: IrcMessage): boolean 
 		kind,
 		category: event?.category ?? UNKNOWN_KIND.category,
 		fields: event?.fields ?? {},
-		origin: msg.source?.name,
 		route,
 	};
+	const origin = msg.source?.name;
+
+	// A global notice relayed from another server carries that server.
+	if (origin && client.serverName && !client.namesEqual(origin, client.serverName)) {
+		info.origin = origin;
+	}
 
 	deliver(client, {type: "snotice", time: client.timeOf(msg).getTime(), text, snotice: info});
 	return true;

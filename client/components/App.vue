@@ -13,6 +13,7 @@
 		<ContextMenu ref="contextMenu" />
 		<ConfirmDialog ref="confirmDialog" />
 		<UploadPreview />
+		<OperActionDialog />
 		<PushPrompt />
 		<InstallGuide />
 		<div id="upload-overlay"></div>
@@ -33,6 +34,7 @@ import ImageViewer from "./ImageViewer.vue";
 import ContextMenu from "./ContextMenu.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import UploadPreview from "./UploadPreview.vue";
+import OperActionDialog from "./Oper/ActionDialog.vue";
 import Mentions from "./Mentions.vue";
 import PushPrompt from "./PushPrompt.vue";
 import InstallGuide from "./InstallGuide.vue";
@@ -64,6 +66,7 @@ export default defineComponent({
 		ContextMenu,
 		ConfirmDialog,
 		UploadPreview,
+		OperActionDialog,
 		Mentions,
 		PushPrompt,
 		InstallGuide,

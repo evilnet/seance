@@ -36,6 +36,7 @@ const infoLine: Handler = (client, msg) => {
 // RPL_MYINFO: <me> <server> <version> <umodes> <chanmodes> [<chanmodes with params>]
 // The version picks the server profile the oper tools speak (profiles/).
 const myInfo: Handler = (client, msg) => {
+	client.serverName = msg.params[1];
 	client.serverVersion = msg.params[2];
 };
 

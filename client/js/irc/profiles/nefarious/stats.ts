@@ -231,6 +231,11 @@ export function parseStatsHelp(lines: IrcMessage[]): StatsEntry[] {
 // ------------------------------------------------------------------ values
 
 /** A number column value; text when the server sent something else. */
+/** A port: an identifier, so no thousands separators (`8444`, not `8,444`). */
+function portOf(value: string | undefined): ReportValue | undefined {
+	return value !== undefined && /^\d+$/.test(value) ? mono(value) : value ? text(value) : undefined;
+}
+
 function num(value: string | undefined): ReportValue | undefined {
 	if (value === undefined || value === "") {
 		return undefined;
@@ -557,7 +562,7 @@ const TABLES: Record<string, TableSpec> = {
 			}
 
 			return {
-				port: num(p[1]),
+				port: portOf(p[1]),
 				conns: num(p[2]),
 				kind: text(p[3].includes("S") ? "server" : "client"),
 				flags: flagChips(p[3], PORT_FLAGS, "CS"),
@@ -658,7 +663,7 @@ const TABLES: Record<string, TableSpec> = {
 			return {
 				name: server(p[1]),
 				host: host(p[3]),
-				port: num(p[4]),
+				port: portOf(p[4]),
 				max: num(p[5]),
 				hub: p[6] === "<NULL>" ? undefined : mono(p[6]),
 				class: text(p[7]),
@@ -684,7 +689,7 @@ const TABLES: Record<string, TableSpec> = {
 				host: hostOf(p[1]),
 				max: num(p[2]),
 				ip: ipMaskOf(p[3]),
-				port: num(p[4]),
+				port: portOf(p[4]),
 				class: text(p[5]),
 			};
 		},

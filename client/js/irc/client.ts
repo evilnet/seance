@@ -249,6 +249,8 @@ export class IrcClient {
 	oper: OperState = initialOper();
 	/** The version the server reports in 004, for {@link profile}. */
 	serverVersion: string | undefined;
+	/** The name of the server we are connected to (004). */
+	serverName: string | undefined;
 	/** Query windows brought back from the log, filled on the first announce. */
 	private restoredQueries: Channel[] = [];
 	caps = new CapNegotiator(SEANCE_CAPS);

@@ -37,7 +37,7 @@ export type SnoticeInfo = {
 	category: string;
 	/** Extracted fields: nick, user, host, ip, mask, reason, oper, server, … */
 	fields: Record<string, string>;
-	/** The server it came from (global notices carry their origin). */
+	/** The server it came from, when not the one we are on (relayed global notices). */
 	origin?: string;
 	/** Where it was routed: an active-routed line restored on reload says so. */
 	route?: Route;

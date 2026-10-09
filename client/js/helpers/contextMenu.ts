@@ -7,6 +7,7 @@ import {switchToChannel} from "../router";
 import {TypedStore} from "../store";
 import useCloseChannel from "../hooks/use-close-channel";
 import {ChanType} from "../../../shared/types/chan";
+import {isOperOn, operUserItems} from "./operMenu";
 
 type BaseContextMenuItem = {
 	label: string;
@@ -79,6 +80,16 @@ export function generateChannelContextMenu(
 				class: "join",
 				action: () => (network.isJoinChannelShown = true),
 			},
+			...(isOperOn(network)
+				? [
+						{
+							label: "Oper panel…",
+							type: "item",
+							class: "oper-panel",
+							link: `/oper/${network.uuid}/notices`,
+						},
+				  ]
+				: []),
 			{
 				label: "List all channels",
 				type: "item",
@@ -351,9 +362,12 @@ export function generateUserContextMenu(
 		},
 	];
 
+	// An opered network's oper actions close every user menu.
+	const operItems = operUserItems(network, channel.id, user.nick);
+
 	// Bail because we're in a query or we don't have a special mode.
 	if (!currentChannelUser.modes || currentChannelUser.modes.length < 1) {
-		return items;
+		return [...items, ...operItems];
 	}
 
 	// Names of the standard modes we are able to change
@@ -462,5 +476,5 @@ export function generateUserContextMenu(
 		}
 	}
 
-	return items;
+	return [...items, ...operItems];
 }

@@ -1,6 +1,6 @@
 # Oper tools: IRC operation as a first-class activity
 
-_Proposal, 2026-10-09; revised the same day with rubin's feedback. Status: proposed; nothing is built. The wire facts behind it are in `docs/resources/nefarious2-oper.md`, compiled from the nefarious2 `ircv3.2-upgrade` source and live captures against the dev rig._
+_Proposal, 2026-10-09; revised the same day with rubin's feedback. Status: phases 0 and 1 built (branch `feat/oper-tools`, see "Built" below); phases 2 and 3 to do. The wire facts behind it are in `docs/resources/nefarious2-oper.md`, compiled from the nefarious2 `ircv3.2-upgrade` source and live captures against the dev rig._
 
 ## The goal
 
@@ -408,6 +408,40 @@ What a contribution needs:
 | **1. The core**    | classifier and default routes for server notices and WALLOPS; the IndexedDB notice store and its restore on page load; the oper button and modal shell with the Notices (switchboard and routing) and Modes tabs; CHECK cards; STATS tables for g S Z o p y u l m F; oper WHOIS; act-on-user menu with kill and ban dialogs |
 | **2. Management**  | Bans tab with impact preview and the notice-fed setter column; Users tab (oper WHO); Network tab; help and completion; burst alerts                                                                                                                                                                                         |
 | **3. Reach**       | Server tab and admin actions; raw console; channel oper tools; mass message; oper-tag badges; then the parked server-side asks. Other ircds' profiles by contribution.                                                                                                                                                      |
+
+## Built (phases 0 and 1, 2026-10-09)
+
+**Foundations.**
+
+- Server profiles (`client/js/irc/profiles/`): `nefarious2`, detected by `+Nefarious(` in 004, and the `generic` fallback.
+- `OperState` (`irc/oper.ts`), dispatched as `oper:state`.
+- `irc/request.ts`, with the #119/#120 tolerance.
+- `MessageType.REPORT` and `SNOTICE`.
+- The routing function (`irc/snotice.ts`).
+- The IndexedDB notice log with its restore on page load (`irc/noticelog.ts`).
+- Per-network preferences (`irc/operprefs.ts`, `thelounge.oper`, in the settings backup).
+
+**The core.**
+
+- **Notices.** 67 classified nefarious2 notice kinds with default routes and plain-words templates; WALLOPS, WALLUSERS, server WALLOPS and DESYNCH told apart.
+- **The oper panel.** The shield and the modal, with the Notices tab (snomask switchboard, per-kind routes, the searchable log) and the Modes tab (privileges, user modes).
+- **Reports.** CHECK cards (user, channel, server, host search) and typed STATS tables for most selectors (the free-text ones and `v` render as lines).
+- **Oper WHOIS:** 672, 339, 343, 325, 616 and the bouncer 320, plus a Check button.
+- **The nick menu** gains Check / Kill… / G-line… / Shun… / Z-line… / Find clones. IP, host and mask chips carry the same actions.
+- **The kill and ban dialog**: mask suggestions from USERIP/USERHOST, the width rules checked client-side, a CHECK preview of the matches, and confirmation by listing the ban back.
+
+**Different from the plan.**
+
+- **The menu's Check is `CHECK nick`, not `CHECK nick nick`.** nefarious2 does not forward the label for a remote CHECK, so the card would wait for an answer it never recognises. Typed `/check nick nick` still works; its reply renders raw.
+- **The ban tools are nefarious2-only** for now (`profile === "nefarious2"`); KILL and Check are offered on any profile.
+- **The rig grants its oper the ban privileges.** `tools/nefarious-dev/local.conf` grants gline, shun, zline, remove and set explicitly, and turns on `CONNEXIT_NOTICES`.
+
+**Not yet** (phases 2 and 3):
+
+- the Bans, Users, Network and Server tabs;
+- burst alerts and notification rules;
+- command help and completion;
+- the raw console, channel oper tools, mass messages, oper-tag badges and bouncer admin.
 
 ## Testing
 

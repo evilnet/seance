@@ -278,7 +278,7 @@ describe("nefarious2 STATS", function () {
 			expect(report.title).to.equal("Listening ports");
 			expect(table.rows).to.have.length(9);
 			expect(table.rows[0]).to.deep.equal({
-				port: {t: "number", v: 8444},
+				port: {t: "mono", v: "8444"},
 				conns: {t: "number", v: 0},
 				kind: {t: "text", v: "client"},
 				flags: {t: "chips", v: ["TLS", "IPv4", "IPv6", "autodetect"]},
@@ -617,7 +617,7 @@ describe("nefarious2 STATS", function () {
 			expect(table.rows[0]).to.deep.equal({
 				name: {t: "server", v: "hub.example.net"},
 				host: {t: "host", v: "192.0.2.10"},
-				port: {t: "number", v: 4400},
+				port: {t: "mono", v: "4400"},
 				max: {t: "number", v: 1},
 				hub: {t: "mono", v: "*"},
 				class: {t: "text", v: "Server"},
@@ -641,7 +641,7 @@ describe("nefarious2 STATS", function () {
 				host: {t: "host", v: "*"},
 				max: {t: "number", v: 65535},
 				ip: {t: "mono", v: "*"},
-				port: {t: "number", v: 0},
+				port: {t: "mono", v: "0"},
 				class: {t: "text", v: "Users"},
 			});
 			// The server writes `0::1/128` so the mask cannot be read as a trailing.
