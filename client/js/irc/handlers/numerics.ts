@@ -9,6 +9,7 @@ import {MessageType, SharedMsg} from "../../../../shared/types/msg";
 import type {IrcClient} from "../client";
 import {errorSpec} from "../errors";
 import {formatLine} from "../message";
+import {noteSnomask, parseSnomask} from "../oper";
 import {failPendingLabel} from "../pending";
 import type {Handler} from "../types";
 
@@ -32,7 +33,36 @@ const infoLine: Handler = (client, msg) => {
 	client.pushMessage(client.lobby, {time: client.timeOf(msg), text: textOf(msg.params)});
 };
 
-const ignore: Handler = () => undefined;
+// RPL_MYINFO: <me> <server> <version> <umodes> <chanmodes> [<chanmodes with params>]
+// The version picks the server profile the oper tools speak (profiles/).
+const myInfo: Handler = (client, msg) => {
+	client.serverVersion = msg.params[2];
+};
+
+// RPL_SNOMASK: <me> <decimal> :: Server notice mask (<hex>) — the answer to
+// a `/mode <me> +s …` the user typed (the oper panel's own are labeled).
+const snomask: Handler = (client, msg) => {
+	const value = parseSnomask(msg);
+	noteSnomask(client, value);
+
+	client.pushMessage(client.lobby, {
+		time: client.timeOf(msg),
+		text:
+			value === undefined
+				? textOf(msg.params)
+				: `Server notice mask: ${value} (0x${value.toString(16)})`,
+		showInActive: true,
+	});
+};
+
+// RPL_YOUREOPER: <me> :You are now an IRC Operator — where /oper was typed.
+const youreOper: Handler = (client, msg) => {
+	client.pushMessage(client.lobby, {
+		time: client.timeOf(msg),
+		text: textOf(msg.params),
+		showInActive: true,
+	});
+};
 
 const isupport: Handler = (client, msg) => {
 	client.isupport.apply(msg.params);
@@ -175,7 +205,8 @@ export default {
 	"001": welcome,
 	"002": infoLine,
 	"003": infoLine,
-	"004": ignore,
+	"004": myInfo,
+	"008": snomask,
 	"005": isupport,
 	"250": infoLine,
 	"251": infoLine,
@@ -189,6 +220,7 @@ export default {
 	"372": motdLine,
 	"376": motdEnd,
 	"422": motdEnd,
+	"381": youreOper,
 	"396": hostHidden,
 	"432": badNick,
 	"433": badNick,

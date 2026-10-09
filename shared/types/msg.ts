@@ -1,3 +1,5 @@
+import type {OperReport, SnoticeInfo} from "./oper";
+
 export enum MessageType {
 	UNHANDLED = "unhandled",
 	ACTION = "action",
@@ -28,6 +30,10 @@ export enum MessageType {
 	RAW = "raw",
 	PLUGIN = "plugin",
 	WALLOPS = "wallops",
+	/** A classified server notice (oper tools, `snotice` carries the kind). */
+	SNOTICE = "snotice",
+	/** A structured answer to an oper command (`/stats`, `/check`, `/privs`). */
+	REPORT = "report",
 }
 
 export type SharedUser = {
@@ -167,6 +173,10 @@ export type SharedMsg = {
 	when?: Date;
 	whois?: any;
 	who?: WhoList;
+	/** SNOTICE and WALLOPS: what the oper tools made of it (kind, fields, route). */
+	snotice?: SnoticeInfo;
+	/** REPORT: the structured answer. */
+	report?: OperReport;
 
 	users: string[];
 

@@ -5,6 +5,7 @@
  */
 
 import type {OperReport, ReportValue} from "../../../../shared/types/oper";
+import {isErrorNumeric} from "../errors";
 import type {IrcMessage} from "../message";
 
 export const text = (v: string): ReportValue => ({t: "text", v});
@@ -58,7 +59,7 @@ export function trailingOf(msg: IrcMessage): string {
 }
 
 /**
- * The error a reply consists of: the first 4xx/5xx numeric (or FAIL) and its
+ * The error a reply consists of: the first error numeric (or FAIL) and its
  * text, e.g. `Permission Denied: Insufficient privileges` or
  * `CHECK: Command disabled.`. Undefined when the reply has none.
  */
@@ -68,7 +69,7 @@ export function errorOf(lines: IrcMessage[]): string | undefined {
 			return trailingOf(msg);
 		}
 
-		if (!/^[45]\d\d$/.test(msg.command)) {
+		if (!isErrorNumeric(msg.command)) {
 			continue;
 		}
 
@@ -100,7 +101,9 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
  * as UTC. Undefined when the text is not one.
  */
 export function parseCtime(value: string): number | undefined {
-	const m = /^\s*\w{3}\s+(\w{3})\s+(\d{1,2})\s+(\d{1,2}):(\d{2}):(\d{2})\s+(\d{4})\s*$/.exec(value);
+	const m = /^\s*\w{3}\s+(\w{3})\s+(\d{1,2})\s+(\d{1,2}):(\d{2}):(\d{2})\s+(\d{4})\s*$/.exec(
+		value
+	);
 
 	if (!m) {
 		return undefined;
@@ -123,5 +126,8 @@ export function fromUnix(seconds: string | number): number {
 
 /** Whether `value` looks like an IPv4 or IPv6 address (optionally with /bits). */
 export function isIp(value: string): boolean {
-	return /^(?:\d{1,3}\.){3}\d{1,3}(?:\/\d{1,2})?$/.test(value) || /^[0-9a-f:]*:[0-9a-f:.]*(?:\/\d{1,3})?$/i.test(value);
+	return (
+		/^(?:\d{1,3}\.){3}\d{1,3}(?:\/\d{1,2})?$/.test(value) ||
+		/^[0-9a-f:]*:[0-9a-f:.]*(?:\/\d{1,3})?$/i.test(value)
+	);
 }

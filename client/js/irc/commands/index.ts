@@ -36,6 +36,7 @@ import msg from "./msg";
 import mute from "./mute";
 import nick from "./nick";
 import notice from "./notice";
+import oper from "./oper";
 import part from "./part";
 import quit from "./quit";
 import raw from "./raw";
@@ -66,6 +67,7 @@ const modules: Command[] = [
 	mute,
 	nick,
 	notice,
+	oper,
 	part,
 	quit,
 	raw,

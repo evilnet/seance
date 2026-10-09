@@ -42,6 +42,16 @@ export interface WhoisData {
 	country_code?: string;
 	asn?: string;
 	whowas?: boolean;
+	/** nefarious2 672 (opers only): the WebSocket origin the user connected from. */
+	websocket?: string;
+	/** nefarious2 325: the WebIRC gateway (`is connected via <description>`). */
+	webirc?: string;
+	/** nefarious2 339: marks set on the user (DNSBL, IAuth). */
+	marks?: string[];
+	/** nefarious2 343: `is Kill listed on <x>`. */
+	killListed?: string;
+	/** nefarious2 320 (opers or self): the bouncer session line. */
+	bouncer?: string;
 	/** Absolute epoch milliseconds derived from `idle` / `logon` at the end. */
 	idleTime?: number;
 	logonTime?: number;
@@ -239,22 +249,74 @@ const whoisSecure: Handler = (client, msg) => {
 };
 
 // RPL_WHOISCERTFP: <me> <nick> :has client certificate fingerprint <fp>
+// (276 elsewhere, 616 on nefarious2): the fingerprint itself when it is one.
 const whoisCertfp: Handler = (client, msg) => {
 	const data = record(client, msg);
 
 	if (data) {
-		const certfp = last(msg);
+		const text = last(msg);
+		const certfp = /([0-9a-f]{32,})\s*$/i.exec(text)?.[1] ?? text;
 		data.certfp = data.certfp ?? certfp;
 		data.certfps = [...(data.certfps ?? []), certfp];
 	}
 };
 
-// RPL_WHOISSPECIAL: <me> <nick> :<free text> (may repeat)
+// RPL_WHOISSPECIAL: <me> <nick> :<free text> (may repeat). On nefarious2
+// it also carries SWHOIS text and, for opers, the bouncer session line.
 const whoisSpecial: Handler = (client, msg) => {
 	const data = record(client, msg);
 
+	if (!data) {
+		return;
+	}
+
+	const text = last(msg);
+
+	if (/^has a bouncer session\b/.test(text)) {
+		data.bouncer = text.replace(/^has a /, "");
+		return;
+	}
+
+	data.special = [...(data.special ?? []), text];
+};
+
+// nefarious2 RPL_WHOISWEBSOCKET (672): <me> <nick> :is connected via WebSocket (origin: <o>)
+const whoisWebsocket: Handler = (client, msg) => {
+	const data = record(client, msg);
+
 	if (data) {
-		data.special = [...(data.special ?? []), last(msg)];
+		data.websocket = /\(origin: (.*)\)$/.exec(last(msg))?.[1] ?? last(msg);
+	}
+};
+
+// nefarious2 RPL_WHOISWEBIRC (325): <me> <nick> :is connected via <description>
+const whoisWebirc: Handler = (client, msg) => {
+	const data = record(client, msg);
+
+	if (data) {
+		data.webirc = last(msg).replace(/^is connected via /, "");
+	}
+};
+
+// nefarious2 RPL_WHOISMARKS (339): <me> <nick> :is marked: <a, b> (may repeat)
+const whoisMarks: Handler = (client, msg) => {
+	const data = record(client, msg);
+
+	if (data) {
+		const marks = last(msg)
+			.replace(/^is marked: /, "")
+			.split(/,\s*/)
+			.filter(Boolean);
+		data.marks = [...(data.marks ?? []), ...marks];
+	}
+};
+
+// nefarious2 RPL_WHOISKILL (343): <me> <nick> :is Kill listed on <x>
+const whoisKill: Handler = (client, msg) => {
+	const data = record(client, msg);
+
+	if (data) {
+		data.killListed = last(msg).replace(/^is Kill listed on /, "");
 	}
 };
 
@@ -322,13 +384,18 @@ export default {
 	"318": endOfWhois,
 	"319": whoisChannels,
 	"320": whoisSpecial,
+	"325": whoisWebirc,
 	"330": whoisAccount,
 	"335": trailing("bot"),
 	"338": whoisActually,
+	"339": whoisMarks,
+	"343": whoisKill,
 	"344": whoisCountry,
 	"369": endOfWhowas,
 	"378": whoisHost,
 	"379": trailing("modes"),
 	"569": trailing("asn"),
+	"616": whoisCertfp,
 	"671": whoisSecure,
+	"672": whoisWebsocket,
 };

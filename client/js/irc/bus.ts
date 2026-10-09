@@ -8,6 +8,8 @@
 import type {EventBus} from "../socket";
 import type {IrcClient} from "./client";
 import {requestMore} from "./history";
+import {refreshOper, setSnomask} from "./oper";
+import {request} from "./request";
 import * as saved from "./saved-networks";
 import type {ConnectOptions} from "./types";
 import {REPLY_TAG} from "./wire";
@@ -153,6 +155,49 @@ export function registerBusHandlers(bus: EventBus, registry: ClientRegistry): vo
 
 	bus.handle("persistence:sessions:logout", (params) => {
 		persistenceClient(params)?.send("PERSISTENCE DETACH");
+	});
+
+	// Oper tools (oper.ts, request.ts): a labeled request whose whole answer
+	// comes back raw as `oper:reply` (the UI parses it with the profile), the
+	// snomask, a refresh of what OperState holds, and the notice log.
+	bus.handle("oper:request", ({network, id, line, untagged, end}) => {
+		const client = registry.clientForNetwork(network);
+
+		if (!client) {
+			bus.dispatch("oper:reply", {network, id, lines: [], outcome: "closed"});
+			return;
+		}
+
+		void request(client, line, {untagged, end}).then((reply) => {
+			bus.dispatch("oper:reply", {
+				network,
+				id,
+				lines: reply.lines.map((msg) => msg.raw),
+				outcome: reply.outcome,
+			});
+		});
+	});
+
+	bus.handle("oper:snomask", ({network, mask}) => {
+		const client = registry.clientForNetwork(network);
+
+		if (client) {
+			void setSnomask(client, mask);
+		}
+	});
+
+	bus.handle("oper:refresh", ({network}) => {
+		const client = registry.clientForNetwork(network);
+
+		if (client) {
+			void refreshOper(client);
+		}
+	});
+
+	bus.handle("oper:notices:get", ({network}) => {
+		const client = registry.clientForNetwork(network);
+
+		bus.dispatch("oper:notices", {network, entries: client ? client.noticeLog.all() : []});
 	});
 
 	bus.handle("open", (id) => {

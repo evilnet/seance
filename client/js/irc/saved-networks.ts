@@ -16,6 +16,8 @@
 
 import storage from "../localStorage";
 import {forgetNetworkLog} from "./querylog";
+import {forgetNoticeLog} from "./noticelog";
+import {forgetOperPrefs} from "./operprefs";
 import type {ConnectOptions} from "./types";
 
 export const STORAGE_KEY = "thelounge.networks";
@@ -393,6 +395,8 @@ export function remove(uuid: string): void {
 	}
 
 	forgetNetworkLog(uuid); // its private conversations go with it
+	forgetNoticeLog(uuid); // and its server notices
+	forgetOperPrefs(uuid);
 }
 
 /** Mark an entry as the most recently used one. */

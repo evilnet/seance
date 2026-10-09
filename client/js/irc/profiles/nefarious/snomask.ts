@@ -65,7 +65,8 @@ export const NEFARIOUS_SNOMASK: SnomaskModel = {
 			bit: 0x40,
 			name: "TCPCOMMON",
 			label: "Socket and TLS errors",
-			description: "accept() failures and TLS handshake errors — scanners make a lot of these.",
+			description:
+				"accept() failures and TLS handshake errors — scanners make a lot of these.",
 			volume: "high",
 		},
 		{
@@ -97,7 +98,8 @@ export const NEFARIOUS_SNOMASK: SnomaskModel = {
 			bit: 0x400,
 			name: "NETWORK",
 			label: "Network",
-			description: "Net junctions and breaks, bursts, jupes, clock drift and IAuth log lines.",
+			description:
+				"Net junctions and breaks, bursts, jupes, clock drift and IAuth log lines.",
 			volume: "low",
 			userDefault: true,
 			operDefault: true,

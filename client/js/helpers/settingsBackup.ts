@@ -4,7 +4,8 @@
  *
  * The file is the localStorage entries that hold preferences — the settings
  * object, the saved networks, sort orders, mutes, ignore lists, trusted media
- * hosts, recent reactions, command aliases — wrapped in a small envelope and
+ * hosts, recent reactions, command aliases, oper notice routing and snomask —
+ * wrapped in a small envelope and
  * gzipped with the
  * browser's own `CompressionStream` (no dependency; a plain-JSON file is
  * accepted too, the loader sniffs the gzip magic). Extension:
@@ -13,7 +14,7 @@
  * Left out on purpose: `thelounge.sts` (a cache), `thelounge.push*` (this
  * device's push subscriptions, bound to its service worker),
  * `thelounge.mentions` and `thelounge.querylog.*` (logs: conversation, not
- * preference) and `thelounge.state.*` (where the UI was last). Restoring replaces every covered entry, so a key the file lacks is
+ * preference), the server-notice log (IndexedDB, irc/noticelog.ts) and `thelounge.state.*` (where the UI was last). Restoring replaces every covered entry, so a key the file lacks is
  * removed — the file *is* the state afterwards — and the caller reloads the
  * page, which is how every module re-reads its storage.
  *
@@ -38,6 +39,7 @@ export const BACKUP_KEYS: readonly string[] = [
 	"thelounge.media.trusted",
 	"thelounge.reactions.recent",
 	"thelounge.aliases",
+	"thelounge.oper",
 ];
 
 /** Key prefixes the backup carries: one entry per network. */

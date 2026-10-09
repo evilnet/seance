@@ -10,6 +10,7 @@ import type {Channel} from "../channel";
 import type {IrcMessage} from "../message";
 import {settleEcho} from "../pending";
 import {isRoutineReplayNotice} from "../persistence";
+import {handleServerNotice, handleWallops} from "../snotice";
 import {EDIT_TAG, REPLY_TAG, trailingLine} from "../wire";
 import type {Handler} from "../types";
 import {ignoreListFor} from "../../ignore";
@@ -306,21 +307,16 @@ const notice: Handler = (client, msg) => {
 		return;
 	}
 
+	// `*** Notice -- …` from a server: classified and routed by importance
+	// (../snotice.ts), not shown as a NOTICE.
+	if (handleServerNotice(client, msg)) {
+		return;
+	}
+
 	handleMessage(client, msg, MessageType.NOTICE);
 };
 
-const wallops: Handler = (client, msg) => {
-	client.pushMessage(
-		client.lobby,
-		{
-			type: MessageType.WALLOPS,
-			time: client.timeOf(msg),
-			from: {nick: msg.source?.name ?? client.options.host, mode: ""},
-			text: msg.params[0] ?? "",
-			showInActive: true,
-		},
-		true
-	);
-};
+// WALLOPS, WALLUSERS and DESYNCH: one command, routed by kind (../snotice.ts).
+const wallops: Handler = (client, msg) => handleWallops(client, msg);
 
 export default {PRIVMSG: privmsg, NOTICE: notice, WALLOPS: wallops};
