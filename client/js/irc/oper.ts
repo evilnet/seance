@@ -280,6 +280,11 @@ function restoreSnomask(client: IrcClient): void {
  * modes: a resumed bouncer session keeps oper without repeating the MODE.
  */
 export function operRegistered(client: IrcClient): void {
+	// Services may set +o before 001, when nothing could be asked yet.
+	if (isOpered(client) && !client.oper.queried) {
+		operUp(client);
+	}
+
 	if (!getOperPrefs(client.uuid).wasOper || !canRequest(client)) {
 		return;
 	}

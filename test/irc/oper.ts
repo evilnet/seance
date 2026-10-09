@@ -451,6 +451,39 @@ describe("oper tools: oper state (irc/oper.ts)", function () {
 		expect(client.oper.level).to.equal("global");
 	});
 
+	it("an +o that lands before 001 is followed up once registration is done", function () {
+		const transport = new FakeTransport();
+		const client = new IrcClient({
+			host: "irc.test",
+			port: 8443,
+			tls: true,
+			nick: "opr",
+			join: "",
+			sasl: "",
+			saslAccount: "",
+			saslPassword: "",
+			ids: new IdAllocator(),
+			transportFactory: () => transport,
+			highlights: () => ({keywords: [], exceptions: []}),
+		});
+
+		client.connect();
+		transport.open();
+		transport.lines(
+			":irc.test CAP * LS :batch labeled-response",
+			":irc.test CAP opr ACK :batch labeled-response",
+			":opr!opr@host MODE opr +o"
+		);
+		expect(client.oper.level).to.equal("global");
+		expect(
+			transport.sent.some((l) => l.endsWith("PRIVS")),
+			"nothing asked before 001"
+		).to.equal(false);
+
+		transport.lines(":irc.test 001 opr :Welcome", ":irc.test 422 opr :MOTD File is missing");
+		expect(transport.sent.some((l) => /^@label=\S+ PRIVS$/.test(l))).to.equal(true);
+	});
+
 	it("a typed /mode +s answer (008) updates the snomask and says so where the user is", function () {
 		const {client, transport} = setup();
 		transport.line(":opr!opr@host MODE opr +os");
