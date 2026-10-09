@@ -1,5 +1,6 @@
 package chat.seance.app;
 
+import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
@@ -14,7 +15,12 @@ public class MainActivity extends BridgeActivity {
         // The "stay connected" service's handle for the page (before the
         // bridge builds its plugin list).
         registerPlugin(KeepAlivePlugin.class);
+        // Push without a Push API: the ircd's Web Push through UnifiedPush.
+        registerPlugin(NativePushPlugin.class);
         super.onCreate(savedInstanceState);
+
+        // Launched by tapping a push notification.
+        NativePushPlugin.onIntent(getIntent());
 
         Bridge bridge = getBridge();
 
@@ -52,5 +58,12 @@ public class MainActivity extends BridgeActivity {
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         getBridge().getWebView().getSettings().setTextZoom(Math.round(newConfig.fontScale * 100));
+    }
+
+    /** A push notification tapped while the app was running (singleTask). */
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        NativePushPlugin.onIntent(intent);
     }
 }

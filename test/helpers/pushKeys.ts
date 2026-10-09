@@ -3,6 +3,7 @@ import {
 	decodeApplicationServerKey,
 	keyChangePolicy,
 	sameApplicationServerKey,
+	usableApplicationServerKey,
 } from "../../client/js/helpers/pushKeys";
 
 // The testnet ircd's key, as `draft/webpush=vapid=<key>` carries it in CAP LS.
@@ -20,6 +21,27 @@ describe("pushKeys — decodeApplicationServerKey", () => {
 
 		expect(key.length).to.equal(65);
 		expect(key[0]).to.equal(0x04);
+	});
+});
+
+describe("pushKeys — usableApplicationServerKey", () => {
+	it("takes a P-256 public key, URL-safe or standard, padded or not", () => {
+		const standard = TESTNET_VAPID.replace(/-/g, "+").replace(/_/g, "/");
+
+		expect(usableApplicationServerKey(TESTNET_VAPID)).to.equal(true);
+		expect(usableApplicationServerKey(standard)).to.equal(true);
+		expect(usableApplicationServerKey(standard + "=")).to.equal(true);
+	});
+
+	it("refuses a key of the wrong length (caps.ts takes any of 32+ characters)", () => {
+		expect(usableApplicationServerKey(TESTNET_VAPID.slice(0, 43))).to.equal(false);
+		expect(usableApplicationServerKey(TESTNET_VAPID + "AAAA")).to.equal(false);
+	});
+
+	it("refuses what is not base64 or not an uncompressed point", () => {
+		expect(usableApplicationServerKey("")).to.equal(false);
+		expect(usableApplicationServerKey("not a key!")).to.equal(false);
+		expect(usableApplicationServerKey("A" + TESTNET_VAPID.slice(1))).to.equal(false);
 	});
 });
 

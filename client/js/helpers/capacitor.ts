@@ -64,7 +64,8 @@ export function isAndroidShell(): boolean {
  * browser, a shell whose build predates the plugin, a method the platform
  * does not implement. A rejection is never thrown on — an unhandled one at
  * every boot is what a missing method used to cost — so a caller that needs
- * to tell "it answered" from "it did not" checks for null.
+ * to tell "it answered" from "it did not" checks for null, and one that must
+ * know why the plugin refused uses {@link nativeInvoke}.
  */
 export async function nativeCall<T>(
 	plugin: string,
@@ -81,6 +82,45 @@ export async function nativeCall<T>(
 		return (await cap.nativePromise(plugin, method, options)) as T;
 	} catch {
 		return null;
+	}
+}
+
+/** A plugin call's rejection: the plugin's message, and its code when it gave one. */
+export class NativeCallError extends Error {
+	readonly code: string | undefined;
+
+	constructor(message: string, code: string | undefined) {
+		super(message);
+		this.name = "NativeCallError";
+		this.code = code;
+	}
+}
+
+/**
+ * {@link nativeCall} for a caller that must tell the plugin's answers
+ * apart: resolves to what the plugin resolved, rejects with a
+ * {@link NativeCallError} carrying the plugin's code when it rejected (or
+ * when there is no bridge to call).
+ */
+export async function nativeInvoke<T>(
+	plugin: string,
+	method: string,
+	options: unknown = {}
+): Promise<T> {
+	const cap = nativeBridge();
+
+	if (!cap) {
+		throw new NativeCallError("no native bridge", "unavailable");
+	}
+
+	try {
+		return (await cap.nativePromise(plugin, method, options)) as T;
+	} catch (error) {
+		const e = (error ?? {}) as {message?: unknown; code?: unknown};
+		throw new NativeCallError(
+			typeof e.message === "string" ? e.message : String(error),
+			typeof e.code === "string" ? e.code : undefined
+		);
 	}
 }
 
