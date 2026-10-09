@@ -3403,13 +3403,12 @@ describe("the ps theme's birds (plan 3 task 6, spec §5.4: the user's N2, D1 buz
 	const S = "#theme-scene";
 	/** Every rule of the birds, plain or under a root class. */
 	const BIRD_RULE =
-		/^#theme-scene(\.ps-west)? \.(ps-skeins|ps-flock|ps-skein|ps-skein-sway|ps-bird|ps-wings|ps-daybirds|ps-buzzard|ps-lark|ps-lark-track|ps-lark-bird)\b/;
+		/^#theme-scene(\.ps-west)? \.(ps-skeins|ps-flock|ps-skein|ps-skein-sway|ps-flock-birds|ps-daybirds|ps-buzzard|ps-lark|ps-lark-track|ps-lark-bird)\b/;
 	const own = rules.filter((r) => r.selectors.some((sel) => BIRD_RULE.test(sel)));
 	const FRAMES = [
 		"ps-skein-fly",
 		"ps-skein-west",
 		"ps-skein-sway",
-		"ps-bird-wander",
 		"ps-buzz-drift",
 		"ps-lark-fly",
 		"ps-lark-fl",
@@ -3474,21 +3473,12 @@ describe("the ps theme's birds (plan 3 task 6, spec §5.4: the user's N2, D1 buz
 		);
 	});
 
-	it("shows each bird through a window on its kind's wing strip, the alpha on the whole strip", function () {
-		expect(valueOf(`${S} .ps-bird`, "overflow")).to.equal("hidden");
-		expect(valueOf(`${S} .ps-wings`, "opacity")).to.equal("var(--ps-bird-alpha, 0.8)");
-		// 30 frames (birds.ts WING_FRAMES) of 34 units, the window showing 32 of each.
-		expect(valueOf(`${S} .ps-wings`, "width")).to.equal("calc(100% * 30 * 34 / 32)");
-		expect(valueOf(`${S} .ps-wings`, "will-change")).to.equal("transform");
-		expect(valueOf(`${S} .ps-wings-goose`, "background-image")).to.equal(
-			"var(--ps-wings-goose, none)"
-		);
-		expect(valueOf(`${S} .ps-wings-crane`, "background-image")).to.equal(
-			"var(--ps-wings-crane, none)"
-		);
-		expect(valueOf(`${S} .ps-bird`, "animation")).to.equal(
-			"ps-bird-wander var(--wd) ease-in-out var(--wdl) infinite alternate"
-		);
+	it("draws each flock's birds on one canvas: no per-bird rule, layer or animation", function () {
+		expect(valueOf(`${S} .ps-flock-birds`, "position")).to.equal("absolute");
+		expect(
+			own.flatMap((r) => r.selectors).filter((sel) => /ps-bird\b|ps-wings/.test(sel))
+		).to.deep.equal([]);
+		expect(frames("ps-bird-wander")).to.equal("");
 	});
 
 	it("inks the day birds from --ps-db-ink, each shown by its own published switch", function () {

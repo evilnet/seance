@@ -1445,10 +1445,10 @@ strong,
  * weather), the user's pick from the approved birds mockup (2026-09-25): the
  * migrating skeins at night and around sunset, catching a little of the
  * moon's light (N2), and by day a buzzard circling and skylarks rising. Every
- * bird is an <svg> of its own whose wingbeats are SMIL (scene.ts pauses them
- * with the rest). A flock's box and every bird are sized in rem, the birds
- * placed in % of their flock's box, so a skein keeps its shape at any window
- * size; what crosses the scene travels in cqw. The colours are published
+ * flock's birds are drawn on a canvas of its own (birds.ts; the stepper
+ * moves them with the rest). A flock's box is sized in rem and its canvas in
+ * % of it, so a skein keeps its shape at any window size; what crosses the
+ * scene travels in cqw. The colours are published
  * (scene.ts `sceneVars`, from birds.ts `birdsAt`); nothing is mixed here. */
 #theme-scene .ps-skeins {
 	inset: 0 0 45%;
@@ -1517,37 +1517,14 @@ strong,
 	to { transform: translateY(0.375rem) rotate(1.2deg); }
 }
 
-/* And each bird drifts about its place in the line. */
-#theme-scene .ps-bird {
+/* Each flock's birds are one canvas (birds.ts createSkeinFlocks): every
+ * bird drifting about its place in the line and beating its own wings is
+ * drawn there each step from a sprite sheet of its kind's poses, in the
+ * hour's colours and alpha, so a flock is one layer and nothing in it is
+ * restyled or repainted by the page. Its box is the one its birds reach. */
+#theme-scene .ps-flock-birds {
 	position: absolute;
-	overflow: hidden;
-	animation: ps-bird-wander var(--wd) ease-in-out var(--wdl) infinite alternate;
 }
-
-@keyframes ps-bird-wander {
-	to { transform: translate(var(--wx), var(--wy)); }
-}
-
-/* The wings (birds.ts wingSprite, createWings): each bird is a window on a
- * strip of its kind's poses, drawn once in the hour's colours (the scene sets
- * --ps-wings-goose and --ps-wings-crane) and moved a frame at a time by a
- * transform, so a wingbeat never repaints. A frame is the bird's 32 × 20
- * units and a 2-unit gutter: the strip is 30 cells of 34 and the window
- * shows the first 32 of a cell. The alpha is on the whole strip, so a wing
- * over the body never darkens twice. */
-#theme-scene .ps-wings {
-	position: absolute;
-	top: 0;
-	left: 0;
-	width: calc(100% * 30 * 34 / 32);
-	height: 100%;
-	background: no-repeat 0 0 / 100% 100%;
-	opacity: var(--ps-bird-alpha, 0.8);
-	will-change: transform;
-}
-
-#theme-scene .ps-wings-goose { background-image: var(--ps-wings-goose, none); }
-#theme-scene .ps-wings-crane { background-image: var(--ps-wings-crane, none); }
 
 /* The steppe's own birds, by day: there or not, each by its own switch, and
  * the transition is the fade. */

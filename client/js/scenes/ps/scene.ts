@@ -31,12 +31,13 @@ import {isPhoneLayout} from "../../helpers/device";
 import type {SceneHandle, SceneHostState} from "../../themeScene";
 import {
 	birdsAt,
-	createWings,
+	createSkeinFlocks,
 	dayBirdsMarkup,
+	drawSheet,
+	sheetSize,
+	skeinPlans,
 	skeinsMarkup,
-	WING_FRAMES,
-	wingSprite,
-	type WingBird,
+	type FlockSurface,
 } from "./birds";
 import {momentAt, rng, type Moment, type MoonPhase, type Weather} from "./engine";
 import {composerAboveGrass, GLASS_TINT_VARS, glassVars} from "./glass";
@@ -577,23 +578,73 @@ function sunFire(element: Element | null) {
 	return {element: canvas, clock};
 }
 
-/** The skeins' wings: every bird's strip, moved to its frame by the stepper's clock. */
-function skeinWings(root: HTMLElement) {
-	const birds: WingBird[] = [...root.querySelectorAll<HTMLElement>(".ps-wings")].map((el) => {
-		const [period, flaps, glide, phase] = (el.dataset.beat ?? "").split(" ").map(Number);
-		return {
-			beat: {period, flaps, glide, phase},
-			show(frame) {
-				el.style.transform = `translateX(${(-100 * frame) / WING_FRAMES}%)`;
-			},
-		};
-	});
-	return createWings(birds, {
+/**
+ * The skeins: each flock's canvas, its backing sized to its box in device px
+ * as it is laid out, its birds drawn by the stepper's clock from a sprite
+ * sheet per kind (a canvas of its own, redrawn only for a new look or size).
+ */
+function skeinFlocks(root: HTMLElement) {
+	const plans = skeinPlans();
+	const surfaces: FlockSurface[] = [];
+	const canvases: HTMLCanvasElement[] = [];
+
+	// Software canvases: a GPU one sent each step's 13–17 copies to the raster
+	// thread, which cost the Android emulator ~9 points of CPU at night; drawn
+	// on the CPU and uploaded once a step they cost what the strips did.
+	for (const canvas of root.querySelectorAll<HTMLCanvasElement>("canvas.ps-flock-birds")) {
+		const ctx =
+			typeof canvas.getContext === "function"
+				? canvas.getContext("2d", {willReadFrequently: true})
+				: null;
+		const plan = plans[Number(canvas.dataset.flock)];
+
+		if (!ctx || !plan) {
+			continue;
+		}
+
+		canvases.push(canvas);
+		surfaces.push({plan, ctx, size: () => ({width: canvas.width, height: canvas.height})});
+	}
+
+	if (!surfaces.length) {
+		return null;
+	}
+
+	const clock = createSkeinFlocks(surfaces, {
 		frame(fn) {
 			const id = window.requestAnimationFrame(fn);
 			return () => window.cancelAnimationFrame(id);
 		},
+		sheet(kind, look, unit) {
+			const sheet = document.createElement("canvas");
+			Object.assign(sheet, sheetSize(unit));
+			const ctx = sheet.getContext("2d", {willReadFrequently: true});
+
+			if (ctx) {
+				drawSheet(ctx, (d) => new Path2D(d), kind, look, unit);
+			}
+
+			return sheet;
+		},
 	});
+
+	// Layout size, not the skein's scale: the compositor scales the far one down.
+	const observer =
+		typeof ResizeObserver === "function"
+			? new ResizeObserver((entries) => {
+					const dpr = window.devicePixelRatio || 1;
+
+					for (const e of entries) {
+						const canvas = e.target as HTMLCanvasElement;
+						canvas.width = Math.round(e.contentRect.width * dpr);
+						canvas.height = Math.round(e.contentRect.height * dpr);
+					}
+
+					clock.redraw();
+			  })
+			: null;
+	canvases.forEach((c) => observer?.observe(c));
+	return {clock, destroy: () => observer?.disconnect()};
 }
 
 export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
@@ -606,9 +657,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	const overcast = root.querySelector(".ps-overcast") as HTMLElement;
 	const fire = sunFire(root.querySelector(".ps-fire"));
 	const skeins = root.querySelector(".ps-skeins");
-	const wings = skeinWings(root);
-	wings.setCurrentTime(0); // every bird at its own place in its stroke, as the SMIL began
-	let wingColours = "";
+	const flocks = skeinFlocks(root);
 	// The weather the layer holds: none until the first tick builds the day's.
 	let built: Weather | null = null;
 	// A fade of the weather's own clouds under way: ends it now (the outgoing out of the page).
@@ -642,8 +691,8 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 			);
 
 			// The layers gate sets ps-off on .ps-skeins itself (layers.ts GATES).
-			if (skeins && !skeins.classList.contains("ps-off")) {
-				svgs.push(wings);
+			if (flocks && skeins && !skeins.classList.contains("ps-off")) {
+				svgs.push(flocks.clock);
 			}
 
 			if (fire && !fire.element.closest(".ps-off")) {
@@ -668,7 +717,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 
 		// The canvas clocks too: one whose layer is out keeps no frame loop of its own.
 		fire?.clock.pauseAnimations();
-		wings.pauseAnimations();
+		flocks?.clock.pauseAnimations();
 		stepper.refresh();
 	};
 
@@ -744,20 +793,13 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		const p = paletteAt(m);
 		const vars = sceneVars(m, p);
 		fire?.clock.setColours(p.sunFlame, p.sunEdge);
-		const colours = [vars["--ps-bird-ink"], vars["--ps-bird-wing"], vars["--ps-bird-belly"]];
-
-		// The skeins' strips in the hour's colours, redrawn only when those change.
-		if (colours.join() !== wingColours) {
-			wingColours = colours.join();
-
-			for (const kind of ["goose", "crane"] as const) {
-				const svg = wingSprite(kind, colours[0], colours[1], colours[2]);
-				root.style.setProperty(
-					`--ps-wings-${kind}`,
-					`url("data:image/svg+xml,${encodeURIComponent(svg)}")`
-				);
-			}
-		}
+		flocks?.clock.setCount(Number(vars["--ps-skein-count"]) || 0);
+		flocks?.clock.setLook({
+			ink: vars["--ps-bird-ink"],
+			wing: vars["--ps-bird-wing"],
+			belly: vars["--ps-bird-belly"],
+			alpha: Number(vars["--ps-bird-alpha"]),
+		});
 
 		// Only the day's weather exists in the page (spec §10): a new day's
 		// replaces yesterday's, built for the layout as it is now, and so do
@@ -932,7 +974,8 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		destroy() {
 			stepper.stop();
 			fire?.clock.pauseAnimations();
-			wings.pauseAnimations();
+			flocks?.clock.pauseAnimations();
+			flocks?.destroy();
 			window.clearTimeout(timer);
 			timer = undefined;
 			gates.stop();

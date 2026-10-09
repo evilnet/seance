@@ -6,12 +6,20 @@ import {
 	passageOf,
 	SKEINS,
 	skeinsMarkup,
-	createWings,
+	createSkeinFlocks,
+	driftAt,
+	drawFlock,
+	drawSheet,
+	pathBoundsY,
+	sheetSize,
+	skeinPlans,
 	wingFrame,
-	wingSprite,
 	WING_CELL,
 	WING_FRAMES,
 	WING_STRIP,
+	type FlockContext,
+	type SheetContext,
+	type SkeinLook,
 } from "../../../client/js/scenes/ps/birds";
 import {mix} from "../../../client/js/scenes/ps/colour";
 import {momentFor, sunTimes, type Moment, type Weather} from "../../../client/js/scenes/ps/engine";
@@ -357,9 +365,10 @@ describe("ps birds: the skeins (skeinsMarkup, the mockup's bird() and three skei
 	it("flies three skeins of 13, 8 and 17 birds: a V of geese, a line of cranes, a small pale far V", function () {
 		expect(SKEINS.map((f) => f.n)).to.deep.equal([13, 8, 17]);
 		expect(flocks).to.have.length(3);
-		expect(flocks.map((f) => f.match(/<span class="ps-bird"/g)?.length)).to.deep.equal([
-			13, 8, 17,
-		]);
+		expect(flocks.map((f) => f.match(/<canvas class="ps-flock-birds"/g)?.length)).to.deep.equal(
+			[1, 1, 1]
+		);
+		expect(skeinPlans().map((p) => p.birds.length)).to.deep.equal([13, 8, 17]);
 		expect(SKEINS.map((f) => f.kind)).to.deep.equal(["goose", "crane", "goose"]);
 	});
 
@@ -377,37 +386,137 @@ describe("ps birds: the skeins (skeinsMarkup, the mockup's bird() and three skei
 		]);
 	});
 
-	it("draws every bird as a window on its kind's wing strip, with its own wingbeat", function () {
+	it("gives every bird its own wingbeat and drift, from the mockup's ranges", function () {
 		expect(markup).to.not.include("<svg");
-		expect(markup.match(/class="ps-wings ps-wings-goose"/g)).to.have.length(30);
-		expect(markup.match(/class="ps-wings ps-wings-crane"/g)).to.have.length(8);
+		const all = skeinPlans().flatMap((p) => p.birds);
+		expect(all).to.have.length(38);
 
-		for (const m of markup.matchAll(/data-beat="([^"]*)"/g)) {
-			const [period, flaps, glide, phase] = m[1].split(" ").map(Number);
-			expect(period).to.be.within(0.44 * 0.92 - 1e-6, 0.6 * 1.08 + 1e-6);
-			expect(flaps).to.be.within(3, 9);
-			expect(glide).to.be.within(0, 1.7);
-			expect(phase).to.be.within(0, 1);
+		for (const b of all) {
+			expect(b.beat.period).to.be.within(0.44 * 0.92 - 1e-6, 0.6 * 1.08 + 1e-6);
+			expect(b.beat.flaps).to.be.within(3, 9);
+			expect(b.beat.glide).to.be.within(0, 1.7);
+			expect(b.beat.phase).to.be.within(0, 1);
+			// The mockup's 17 × 10.6 px at a scale of 0.94–1.06.
+			expect(b.w).to.be.within(17 * 0.94 - 1e-9, 17 * 1.06 + 1e-9);
+			expect(b.h / b.w).to.be.closeTo(10.6 / 17, 1e-9);
+			expect(b.wx).to.be.within(-2.5, 2.5);
+			expect(b.wy).to.be.within(-2, 2);
+			expect(b.wd).to.be.within(4, 9);
+			expect(b.wdl).to.be.within(-9, 0);
 		}
 	});
 
-	it("draws the strip from the mockup's bodies and poses, in the colours given", function () {
-		const goose = wingSprite("goose", "#111111", "#222222", "#333333");
-		const crane = wingSprite("crane", "#111111", "#222222", "#333333");
-		expect(goose).to.include(
-			'd="M3.5,11.3 Q6,10.3 9,10.2 Q14,9.6 18.5,10 Q20.5,10.2 22,10.1 L27.4,9.8 Q28.6,9.2 29.6,9.5 L31.2,10.3 L29.4,10.8 Q28.4,11 27.4,11 L22.6,11.4 Q21,12.8 17.5,13 Q12.5,13.3 8.5,12.4 Q6,11.9 3.5,11.3 Z"'
+	it("keeps every bird where the per-bird markup put it (the same seeded stream, in the same order)", function () {
+		// The first goose, the V's leader, and the cranes' first, as the strips' markup had them.
+		const [geese, cranes] = skeinPlans();
+		expect(geese.birds[0].x).to.equal(176);
+		expect(cranes.birds[0].x).to.equal(176);
+		expect(cranes.birds[0].y).to.equal(26);
+	});
+
+	it("sizes each flock's canvas to the box its birds reach, drift and all, in % of the flock", function () {
+		expect(markup).to.not.match(/\dpx/);
+		const canvases = markup.match(/<canvas class="ps-flock-birds"[^>]*>/g) ?? [];
+		expect(canvases).to.have.length(3);
+
+		skeinPlans().forEach((p, i) => {
+			const {x, y, w, h} = p.box;
+			expect(canvases[i]).to.include(`data-flock="${i}"`);
+			expect(canvases[i]).to.match(
+				/style="left:-?[\d.]+%;top:-?[\d.]+%;width:[\d.]+%;height:[\d.]+%"/
+			);
+
+			for (const b of p.birds) {
+				expect(b.x + Math.min(0, b.wx)).to.be.at.least(x);
+				expect(b.y + Math.min(0, b.wy)).to.be.at.least(y);
+				expect(b.x + b.w + Math.max(0, b.wx)).to.be.at.most(x + w);
+				expect(b.y + b.h + Math.max(0, b.wy)).to.be.at.most(y + h);
+			}
+		});
+	});
+
+	it("drifts a bird as CSS's ease-in-out alternate did: out over wd seconds, back over the next", function () {
+		const b = {
+			x: 0,
+			y: 0,
+			w: 17,
+			h: 10.6,
+			wx: 2,
+			wy: -1,
+			wd: 4,
+			wdl: 0,
+			beat: {period: 0.5, flaps: 6, glide: 0, phase: 0},
+		};
+		expect(driftAt(b, 0)[0]).to.be.closeTo(0, 1e-9);
+		expect(driftAt(b, 2)[0]).to.be.closeTo(1, 1e-6); // half way, on a symmetric ease
+		expect(driftAt(b, 4)[0]).to.be.closeTo(2, 1e-6);
+		expect(driftAt(b, 6)[0]).to.be.closeTo(1, 1e-6); // and back
+		expect(driftAt(b, 8)[0]).to.be.closeTo(0, 1e-6);
+		expect(driftAt(b, 1)[0]).to.be.below(0.5); // eased: slow out of the turn
+		expect(driftAt({...b, wdl: -2}, 0)[0]).to.be.closeTo(1, 1e-6); // a negative delay starts it part way
+	});
+
+	it("bounds the body's gradient by the body itself, not its control points", function () {
+		const [top, bottom] = pathBoundsY("M0,10 Q5,0 10,10 Z");
+		expect(top).to.equal(5);
+		expect(bottom).to.equal(10);
+	});
+
+	it("draws the sprite sheet from the mockup's bodies and poses, in the colours given", function () {
+		const fills: string[] = [];
+		const stops: Array<[number, string]> = [];
+		const gradients: number[][] = [];
+		let alpha = 1;
+		let style: unknown = "";
+		const ctx: SheetContext = {
+			setTransform: () => undefined,
+			createLinearGradient(...args: number[]) {
+				gradients.push(args);
+				return {
+					addColorStop: (o: number, c: string) => stops.push([o, c]),
+				} as CanvasGradient;
+			},
+			fill: (p) =>
+				fills.push(
+					`${String(p)} ${typeof style === "string" ? style : "gradient"} ${alpha}`
+				),
+			get fillStyle() {
+				return style as string;
+			},
+			set fillStyle(v) {
+				style = v;
+			},
+			get globalAlpha() {
+				return alpha;
+			},
+			set globalAlpha(v) {
+				alpha = v;
+			},
+		};
+		const look = {ink: "#111111", wing: "#222222", belly: "#333333"};
+		drawSheet(ctx, (d) => d as unknown as Path2D, "goose", look, 2);
+		expect(fills).to.have.length(WING_FRAMES * 3);
+		// The first frame: the far wing faint, the body, the near wing.
+		expect(fills[0]).to.equal(`${WING_STRIP[0].d} #222222 0.55`);
+		expect(fills[1]).to.match(/^M3\.5,11\.3 Q6,10\.3 .* gradient 1$/);
+		expect(fills[2]).to.equal(`${WING_STRIP[0].d} #222222 1`);
+		expect(stops.slice(0, 2)).to.deep.equal([
+			[0.3, "#111111"],
+			[1, "#333333"],
+		]);
+		const [top, bottom] = pathBoundsY(fills[1].split(" gradient")[0]);
+		expect(gradients[0]).to.deep.equal([0, top, 0, bottom]);
+
+		const crane: string[] = [];
+		drawSheet(
+			{...ctx, fill: (p) => crane.push(String(p))},
+			(d) => d as unknown as Path2D,
+			"crane",
+			look,
+			2
 		);
-		expect(crane).to.include("M9.5,12.3 L0.4,12.9 L0.5,13.4 L9.6,12.8 Z"); // the crane's legs
-		expect(goose).to.include(
-			"M16.5,10.1 Q17.2,3.6 8.4,0.3 Q10.6,3.6 10.4,6.4 Q10.4,8.8 11.5,10.4 Z"
-		); // up
-		expect(goose).to.include(
-			"M16.5,10.1 Q16,11.6 6.4,12.2 Q9.2,11.3 10.4,11 Q11.2,10.7 11.5,10.4 Z"
-		); // glide
-		expect(goose.match(/<g transform/g)).to.have.length(WING_FRAMES);
-		expect(goose).to.include('stop-color="#111111"').and.include('stop-color="#333333"');
-		expect(goose).to.include('fill="#222222" opacity=".55"');
-		expect(goose).to.include(`viewBox="0 0 ${WING_FRAMES * WING_CELL} 20"`);
+		expect(crane[1]).to.include("M9.5,12.3 L0.4,12.9 L0.5,13.4 L9.6,12.8 Z"); // the crane's legs
+		expect(sheetSize(2)).to.deep.equal({width: WING_FRAMES * WING_CELL * 2, height: 40});
 	});
 
 	it("starts the strip on the up pose, and the downstroke is the quicker half", function () {
@@ -421,7 +530,7 @@ describe("ps birds: the skeins (skeinsMarkup, the mockup's bird() and three skei
 		expect(lowest).to.equal(9);
 	});
 
-	it("holds the strip's frame count in step with ps.css's", function () {
+	it("holds thirty frames in cells of 34 units", function () {
 		expect(WING_FRAMES).to.equal(30);
 		expect(WING_CELL).to.equal(34);
 	});
@@ -439,46 +548,81 @@ describe("ps birds: the skeins (skeinsMarkup, the mockup's bird() and three skei
 		expect([...frames].every((f) => f < 16)).to.equal(true);
 	});
 
-	it("moves a bird only when its frame changes, and plays on its own when unpaused", function () {
-		const shown: number[] = [];
+	/** A flock context that records what was drawn. */
+	function recorder() {
+		const log: string[] = [];
+		const ctx: FlockContext = {
+			globalAlpha: 1,
+			clearRect: (x, y, w, h) => log.push(`clear ${w}x${h}`),
+			drawImage: (_i, sx, _sy, _sw, _sh, dx, dy) =>
+				log.push(`draw ${Math.round(sx)} ${dx.toFixed(1)} ${dy.toFixed(1)}`),
+		};
+		return {log, ctx};
+	}
+
+	it("draws a flock: cleared, then each bird's frame from the sheet at its drifted place", function () {
+		const plan = skeinPlans()[1];
+		const {log, ctx} = recorder();
+		const image = {} as CanvasImageSource;
+		drawFlock(ctx, {width: 400, height: 300}, plan, {image, unit: 2}, 0, 2, 0.8);
+		expect(log[0]).to.equal("clear 400x300");
+		expect(log).to.have.length(1 + plan.birds.length);
+		expect(ctx.globalAlpha).to.equal(0.8);
+		const b = plan.birds[0];
+		const [dx, dy] = driftAt(b, 0);
+		expect(log[1]).to.equal(
+			`draw ${Math.round(wingFrame(b.beat, 0) * WING_CELL * 2)} ${(
+				(b.x + dx - plan.box.x) *
+				2
+			).toFixed(1)} ${((b.y + dy - plan.box.y) * 2).toFixed(1)}`
+		);
+	});
+
+	it("as a clock: draws nothing before it has a look, only the flocks that fly, and a sheet per kind and look", function () {
+		const plans = skeinPlans();
+		const recs = plans.map(() => recorder());
+		const sheets: string[] = [];
 		let next: ((ms: number) => void) | null = null;
-		const wings = createWings(
-			[{beat: {period: 0.5, flaps: 2, glide: 0, phase: 0}, show: (f) => shown.push(f)}],
+		const clock = createSkeinFlocks(
+			plans.map((plan, i) => ({
+				plan,
+				ctx: recs[i].ctx,
+				size: () => ({width: i === 2 ? 0 : 300, height: 200}),
+			})),
 			{
 				frame(fn) {
 					next = fn;
 					return () => (next = null);
 				},
+				sheet(kind, look, unit) {
+					sheets.push(`${kind} ${look.ink} ${unit}`);
+					return {} as CanvasImageSource;
+				},
 			}
 		);
-		wings.setCurrentTime(0);
-		wings.setCurrentTime(0.001);
-		expect(shown).to.deep.equal([0]);
-		wings.setCurrentTime(0.5 / 4);
-		expect(shown).to.deep.equal([0, 4]);
-		wings.unpauseAnimations();
-		expect(wings.animationsPaused()).to.equal(false);
+		clock.setCurrentTime(1);
+		expect(recs.every((r) => r.log.length === 0)).to.equal(true);
+
+		const look: SkeinLook = {ink: "#000000", wing: "#111111", belly: "#222222", alpha: 0.8};
+		clock.setCount(1);
+		clock.setLook(look);
+		expect(recs.map((r) => r.log.length)).to.deep.equal([1 + 13, 0, 0]);
+		clock.setCount(3);
+		clock.setCurrentTime(2);
+		// The third has no backing yet (not laid out): skipped.
+		expect(recs.map((r) => r.log.length > 0)).to.deep.equal([true, true, false]);
+		expect(sheets.map((x) => x.split(" ")[0])).to.deep.equal(["goose", "crane"]);
+		clock.setLook({...look}); // the same look: nothing redrawn, no new sheet
+		clock.setLook({...look, ink: "#010101"});
+		expect(sheets).to.have.length(4);
+
+		clock.unpauseAnimations();
+		expect(clock.animationsPaused()).to.equal(false);
 		next!(1000);
-		next!(1000 + 125);
-		expect(wings.getCurrentTime()).to.be.closeTo(0.25, 1e-9);
-		wings.pauseAnimations();
-		expect(wings.animationsPaused()).to.equal(true);
-	});
-
-	it("sizes the birds in rem and places them in % of their flock, and names nothing in px", function () {
-		expect(markup).to.not.match(/\dpx/);
-		const spans = markup.match(/<span class="ps-bird" style="[^"]*">/g) ?? [];
-		expect(spans).to.have.length(38);
-
-		for (const s of spans) {
-			const w = Number(/width:([\d.]+)rem/.exec(s)![1]);
-			const h = Number(/height:([\d.]+)rem/.exec(s)![1]);
-			// The mockup's 17 × 10.6 px at a scale of 0.94–1.06, at its 16 px rem.
-			expect(w).to.be.within((17 * 0.94) / 16 - 1e-3, (17 * 1.06) / 16 + 1e-3);
-			expect(h).to.be.within((10.6 * 0.94) / 16 - 1e-3, (10.6 * 1.06) / 16 + 1e-3);
-			expect(s).to.match(/left:-?[\d.]+%;top:-?[\d.]+%;/);
-			expect(s).to.match(/--wx:-?[\d.]+rem;--wy:-?[\d.]+rem;--wd:[\d.]+s;--wdl:-?[\d.]+s/);
-		}
+		next!(1000 + 250);
+		expect(clock.getCurrentTime()).to.be.closeTo(2.25, 1e-9);
+		clock.pauseAnimations();
+		expect(clock.animationsPaused()).to.equal(true);
 	});
 });
 

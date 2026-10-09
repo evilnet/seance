@@ -412,10 +412,12 @@ describe("ps scene: the layers it builds (sceneMarkup)", function () {
 
 		expect(svgDepth).to.equal(0);
 		// The buzzard (2) and three larks (2 each); the sun's fire is a canvas
-		// (flame.ts) and the skeins' wings are strips (birds.ts createWings),
-		// both moved by the stepper, not SMIL.
+		// (flame.ts) and so is each skein (birds.ts createSkeinFlocks), both
+		// drawn by the stepper, not SMIL.
 		expect(smil).to.equal(2 + 3 * 2);
-		expect(inside(markup, "ps-skeins").match(/class="ps-wings /g)).to.have.length(38);
+		expect(inside(markup, "ps-skeins").match(/<canvas class="ps-flock-birds"/g)).to.have.length(
+			3
+		);
 	});
 
 	it("drifts plains.ts's five clouds in the cloud field, behind the weather's own, left empty: the first tick builds the day's", function () {
