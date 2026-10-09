@@ -41,7 +41,7 @@
 			</div>
 			<div class="install-guide-footer">
 				<label class="install-guide-remember">
-					<input v-model="dontShowAgain" type="checkbox" />
+					<input v-model="dontShowAgain" v-switch type="checkbox" />
 					Don't show this again
 				</label>
 				<div class="install-guide-nav">

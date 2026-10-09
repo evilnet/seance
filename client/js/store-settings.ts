@@ -1,5 +1,6 @@
 import storage from "./localStorage";
 import {config, createState} from "./settings";
+import {migrateStoredSettings} from "./helpers/settingsMigration";
 import {Store} from "vuex";
 import {State} from "./store";
 
@@ -19,6 +20,33 @@ export function createSettingsStore(store: Store<State>) {
 			applyAll({state}) {
 				for (const settingName in config) {
 					config[settingName].apply(store, state[settingName], true);
+				}
+			},
+			/** Settings that arrived switched on, off for an upgraded user who
+			 * already chose what they override (helpers/settingsMigration.ts).
+			 * boot.ts runs it once the deploy's default theme is known, before
+			 * applyAll; what it turns off is stored at once, so the early theme
+			 * loader (loading-error-handlers.js) reads the same answer. Only
+			 * those keys are added to what was stored: writing the whole state
+			 * would store the build's default theme too, and boot.ts gives the
+			 * deploy's branded default only to a profile with no stored theme. */
+			migrate({commit}, {defaultTheme}: {defaultTheme: string}) {
+				const stored = loadFromLocalStorage();
+				const migrated = migrateStoredSettings(stored, {
+					...createState(),
+					theme: defaultTheme,
+				});
+				let changed = false;
+
+				for (const [name, value] of Object.entries(migrated)) {
+					if (!(name in stored)) {
+						commit("set", {name, value});
+						changed = true;
+					}
+				}
+
+				if (changed) {
+					storage.set("settings", JSON.stringify(migrated));
 				}
 			},
 			update({state, commit}, {name, value}) {
@@ -50,7 +78,13 @@ function loadFromLocalStorage() {
 		storage.remove("settings");
 	}
 
-	if (!storedSettings) {
+	// Only an object holds settings; anything else (`5`, `"x"`, `null`, a
+	// list) is a damaged entry and reads as nothing stored.
+	if (
+		typeof storedSettings !== "object" ||
+		storedSettings === null ||
+		Array.isArray(storedSettings)
+	) {
 		return {};
 	}
 

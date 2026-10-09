@@ -1,6 +1,5 @@
 package chat.seance.app;
 
-import android.content.res.Configuration;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import com.getcapacitor.Bridge;
@@ -14,12 +13,23 @@ public class MainActivity extends BridgeActivity {
         // The "stay connected" service's handle for the page (before the
         // bridge builds its plugin list).
         registerPlugin(KeepAlivePlugin.class);
+        // Contrast and animation settings, live (the WebView's own go stale).
+        registerPlugin(SystemAccessibilityPlugin.class);
         super.onCreate(savedInstanceState);
 
         Bridge bridge = getBridge();
 
         // The paperclip's picker offers the camera too, as iOS's does.
         bridge.getWebView().setWebChromeClient(new UploadChooserClient(bridge));
+
+        // Android's font size reaches the page as a number instead
+        // (SystemAccessibilityPlugin, client/js/helpers/systemTextSize.ts),
+        // which scales the whole interface. The WebView's own way, its text
+        // zoom, scales glyphs and never rem lengths, so text outgrew the
+        // buttons and fields around it; pinned at 100%, it does nothing. The
+        // activity declares fontScale (AndroidManifest.xml), so a change to
+        // the setting does not relaunch it and take the connections with it.
+        bridge.getWebView().getSettings().setTextZoom(100);
 
         // The window behind the WebView, in the deploy's colour
         // (capacitor.config.ts `backgroundColor`, from config.json's
@@ -38,19 +48,5 @@ public class MainActivity extends BridgeActivity {
                 // Not a colour: keep the theme's.
             }
         }
-    }
-
-    /**
-     * The activity declares fontScale (AndroidManifest.xml), so a change to
-     * Android's font-size setting no longer relaunches it. That is the point:
-     * a relaunch rebuilds the WebView, and every IRC connection dies with it.
-     * The WebView only reads the system font scale when it is created,
-     * though, so it has to be handed the new one, or the page would stop
-     * following that setting until the next launch.
-     */
-    @Override
-    public void onConfigurationChanged(Configuration newConfig) {
-        super.onConfigurationChanged(newConfig);
-        getBridge().getWebView().getSettings().setTextZoom(Math.round(newConfig.fontScale * 100));
     }
 }
