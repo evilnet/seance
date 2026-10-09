@@ -1,5 +1,6 @@
 import {expect} from "chai";
 import {
+	BIRDS_FPS,
 	birdsAt,
 	dayBirdsMarkup,
 	larkSeason,
@@ -623,6 +624,35 @@ describe("ps birds: the skeins (skeinsMarkup, the mockup's bird() and three skei
 		expect(clock.getCurrentTime()).to.be.closeTo(2.25, 1e-9);
 		clock.pauseAnimations();
 		expect(clock.animationsPaused()).to.equal(true);
+	});
+
+	it("free-running at 60 Hz, paints BIRDS_FPS times a second, not every frame", function () {
+		const plan = skeinPlans()[0];
+		const rec = recorder();
+		let next: ((ms: number) => void) | null = null;
+		const clock = createSkeinFlocks(
+			[{plan, ctx: rec.ctx, size: () => ({width: 300, height: 200})}],
+			{
+				frame(fn) {
+					next = fn;
+					return () => (next = null);
+				},
+				sheet: () => ({} as CanvasImageSource),
+			}
+		);
+		clock.setCount(1);
+		clock.setLook({ink: "#000000", wing: "#111111", belly: "#222222", alpha: 0.8});
+		const perPaint = rec.log.length;
+		clock.unpauseAnimations();
+		const start = rec.log.length;
+
+		for (let f = 0; f <= 60; f++) {
+			next!(5000 + (f * 1000) / 60);
+		}
+
+		const paints = (rec.log.length - start) / perPaint;
+		expect(paints).to.be.within(BIRDS_FPS - 1, BIRDS_FPS + 1);
+		expect(clock.getCurrentTime()).to.be.closeTo(1, 1e-9);
 	});
 });
 

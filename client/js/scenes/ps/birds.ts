@@ -532,6 +532,12 @@ export interface SkeinLook {
  * flock, nothing for the page to restyle or repaint. The sheets are drawn by
  * `deps.sheet` for a kind, a look and a unit, again only when one changes.
  */
+/** How often a free-running skein clock repaints its canvases: the old scene rate. */
+export const BIRDS_FPS = 24;
+const PAINT_STEP = 1 / BIRDS_FPS;
+// Half a 60 Hz frame: a paint due between two frames is taken at the nearer one.
+const PAINT_SLACK = 1 / 120;
+
 export function createSkeinFlocks(
 	flocks: FlockSurface[],
 	deps: {
@@ -579,13 +585,24 @@ export function createSkeinFlocks(
 		});
 	};
 
+	// Free-running (the 60 setting), the clock follows every frame but paints
+	// at most BIRDS_FPS times a second: the wingbeat is a handful of sheet
+	// frames and the drift a few px, and a canvas upload a frame was the
+	// birds' whole cost; the flight and the sway stay CSS at the screen's rate.
+	let due = 0;
+
 	const tick = (ms: number) => {
 		if (base === null) {
 			base = ms / 1000 - time;
 		}
 
 		time = ms / 1000 - base;
-		paint();
+
+		if (time + PAINT_SLACK >= due) {
+			paint();
+			due = due + PAINT_STEP > time ? due + PAINT_STEP : time + PAINT_STEP;
+		}
+
 		cancel = deps.frame(tick);
 	};
 
@@ -601,6 +618,7 @@ export function createSkeinFlocks(
 			}
 
 			base = null;
+			due = 0;
 			cancel = deps.frame(tick);
 		},
 		getCurrentTime: () => time,
