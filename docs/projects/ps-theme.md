@@ -720,18 +720,20 @@ Those went in as `ALPHA_SHADOW` = `Math.min(0.6, 0.5882)` in `tools/ps/legibilit
 
 | Season       | Moment      | Clock | Weather | Words' treatment   | Words (4.5) | Time (4.5) | Nick (3; 4.5 in ink) | Faint (3) |
 | ------------ | ----------- | ----- | ------- | ------------------ | ----------: | ---------: | -------------------: | --------: |
-| summer       | noon        | 12:30 | clear   | light              |        9.30 |       9.25 |                 5.86 |      7.81 |
-| summer       | golden hour | 18:42 | clear   | light              |       10.62 |      10.11 |                 6.20 |      8.32 |
-| summer       | sunset      | 19:42 | clear   | light              |       13.16 |      12.30 |                 7.83 |      9.97 |
-| summer       | dusk        | 20:27 | clear   | light, night glass |       14.97 |      14.71 |                 9.63 |     11.57 |
-| summer       | midnight    | 00:00 | clear   | light, night glass |       15.75 |      15.81 |                10.15 |     12.50 |
-| summer       | first light | 04:18 | clear   | light, night glass |       14.20 |      14.01 |                 9.20 |     11.08 |
-| snowy winter | noon        | 12:30 | snow    | ink                |        7.87 |       7.39 |             **6.72** |      5.11 |
-| snowy winter | golden hour | 15:53 | snow    | light              |        8.82 |       8.55 |                 5.63 |      7.63 |
-| snowy winter | sunset      | 16:53 | snow    | light              |       12.11 |      11.46 |                 7.42 |      9.74 |
-| snowy winter | dusk        | 17:38 | snow    | light, night glass |       13.74 |      13.62 |                 8.95 |     11.28 |
-| snowy winter | midnight    | 00:00 | snow    | light, night glass |       14.33 |      14.27 |                 9.59 |     11.63 |
-| snowy winter | first light | 07:07 | snow    | light, night glass |       13.23 |      13.08 |                 8.59 |     10.90 |
+| summer       | noon        | 12:30 | clear   | light              |        7.69 |       7.54 |                 5.42 |      5.66 |
+| summer       | golden hour | 18:42 | clear   | light              |        8.62 |       8.94 |                 6.13 |      6.43 |
+| summer       | sunset      | 19:42 | clear   | light              |       10.29 |      11.58 |                 7.95 |      8.36 |
+| summer       | dusk        | 20:27 | clear   | light, night glass |       11.40 |      14.19 |                 9.66 |      9.65 |
+| summer       | midnight    | 00:00 | clear   | light, night glass |       11.54 |      15.42 |                10.43 |      9.73 |
+| summer       | first light | 04:18 | clear   | light, night glass |       10.72 |      13.45 |                 9.27 |      9.16 |
+| snowy winter | noon        | 12:30 | snow    | ink                |        8.07 |       7.40 |             **7.93** |      5.23 |
+| snowy winter | golden hour | 15:53 | snow    | light              |        7.04 |       7.14 |                 5.00 |      6.34 |
+| snowy winter | sunset      | 16:53 | snow    | light              |        9.92 |      10.45 |                 7.40 |      8.48 |
+| snowy winter | dusk        | 17:38 | snow    | light, night glass |       12.03 |      12.55 |                 8.58 |     10.07 |
+| snowy winter | midnight    | 00:00 | snow    | light, night glass |       13.47 |      13.57 |                 9.27 |     11.14 |
+| snowy winter | first light | 07:07 | snow    | light, night glass |       11.13 |      11.58 |                 8.04 |      9.42 |
+
+The figures above are the band's (re-run 2026-10-08 on `feat/ps-text-band`, same moments). Under the rim the clear noon read 9.30 words, 9.25 time, 5.86 nick, 7.81 faint: the rim's dark ring sat on exactly the pixels this measures, so every light figure is lower with the band, and every one still clears its floor by at least 1.7 times (the clear noon's nick, 5.42 against 3). The snowy noon is ink, untouched by the band; its figures moved only by the run.
 
 **No sample falls under its floor.** The tightest, as a ratio to its floor, is the snowy noon's nick in the ink treatment, 6.72 against 4.5 (×1.49); by the margin over its floor, the faint colour at the same moment, 5.11 against 3. The ring 1 CSS px out is where the treatment is strongest (the rim's 78 % black under white words), so these read well above the model's worst case, which is held at every sampled minute by mocha (above); they sample the grounds the column held at those moments, not every ground. The ring's minimum, printed and not held, dips to about 2.0 by day (the logged minima are 2.03–2.08): a single ring pixel where a bright mark or edge of the scene meets a glyph. Run first against the build with the column's text shadow stripped, 11 of the 12 moments fell under their floors (the words 1.33–3.94, the nicks down to 1.01 at a clear noon); the snowy noon held, dark ink over snow needing no halo.
 
