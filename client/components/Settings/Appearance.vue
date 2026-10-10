@@ -323,6 +323,7 @@
 				<label class="opt">
 					<input
 						:checked="store.state.settings.psPauseWhenAway"
+						v-switch
 						type="checkbox"
 						name="psPauseWhenAway"
 					/>
@@ -338,6 +339,7 @@
 				<label class="opt">
 					<input
 						:checked="store.state.settings.psGroupMessages"
+						v-switch
 						type="checkbox"
 						name="psGroupMessages"
 					/>

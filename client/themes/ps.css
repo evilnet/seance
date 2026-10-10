@@ -2230,6 +2230,22 @@ body {
 
 /* ps:glass-palette:end */
 
+/* Increase Contrast (style.css's reset on :root): the night palette and the
+ * message column re-map the muted tokens on narrower selectors, which would
+ * outrank the reset, so it is restated for each of them. */
+html[data-contrast="more"]:root[data-ps-light="night"] {
+	--chat-fg-muted: var(--chat-fg);
+	--chat-fg-faint: var(--chat-fg);
+	--rail-fg-muted: var(--rail-fg);
+}
+
+html[data-contrast="more"] #chat .chat,
+html[data-contrast="more"]:root[data-ps-text="light"] #chat .chat {
+	--body-color-muted: var(--body-color);
+	--chat-fg-muted: var(--chat-fg);
+	--chat-fg-faint: var(--chat-fg);
+}
+
 /* ---- the words over the plains (docs/projects/ps-theme.md §7) ---- */
 
 /* White with a close dark shadow all day and night, but where dark ink holds

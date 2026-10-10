@@ -24,7 +24,7 @@ describe("Increase Contrast reaches every theme", function () {
 			const all = rules(fs.readFileSync(path.join(themes, file), "utf8"));
 
 			for (const [selector, body] of all) {
-				if (selector === ":root" || selector.startsWith('html[data-contrast="more"]')) {
+				if (selector === ":root" || selector.includes('html[data-contrast="more"]')) {
 					continue;
 				}
 
@@ -33,9 +33,14 @@ describe("Increase Contrast reaches every theme", function () {
 						continue;
 					}
 
+					// A selector on the root element itself takes the attribute
+					// on the same element (html[data-contrast="more"]:root[…]).
+					const scoped = selector.startsWith(":root")
+						? `html[data-contrast="more"]${selector}`
+						: `html[data-contrast="more"] ${selector}`;
 					const reset = all.find(
 						([s, b]) =>
-							s === `html[data-contrast="more"] ${selector}` &&
+							s.split(",").some((part) => part.trim() === scoped) &&
 							new RegExp(`${token}\\s*:`).test(b)
 					);
 					expect(reset, `${selector} re-maps ${token}`).to.not.equal(undefined);
