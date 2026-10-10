@@ -25,8 +25,9 @@ export function createSettingsStore(store: Store<State>) {
 			/** Settings that arrived switched on, off for an upgraded user who
 			 * already chose what they override (helpers/settingsMigration.ts).
 			 * boot.ts runs it once the deploy's default theme is known, before
-			 * applyAll; what it turns off is stored at once, so the early theme
-			 * loader (loading-error-handlers.js) reads the same answer. Only
+			 * applyAll; what it decides, on or off, is stored at once, so the
+			 * early theme loader (loading-error-handlers.js) reads the same
+			 * answer from the next launch on. Only
 			 * those keys are added to what was stored: writing the whole state
 			 * would store the build's default theme too, and boot.ts gives the
 			 * deploy's branded default only to a profile with no stored theme. */

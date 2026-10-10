@@ -52,8 +52,10 @@ export function overridesChoice(
  * object without the new key was saved before the setting existed. The
  * caller (store-settings.ts `migrate`, run by boot.ts once branding has
  * loaded) passes the deploy's default theme in `defaults`. A fresh install
- * (nothing stored) and a user who never touched the overridden setting get
- * the new default. Returns the stored object with the keys it turned off
+ * (nothing stored) gets the new default, and so does a user who never
+ * touched the overridden setting, recorded as `true`: the early theme loader
+ * cannot see the deploy's default and guesses from the build's until a
+ * stored answer tells it. Returns the stored object with the keys it decided
  * added.
  */
 export function migrateStoredSettings(
@@ -65,6 +67,11 @@ export function migrateStoredSettings(
 		return {};
 	}
 
+	// Nothing stored: boot.ts stores the whole state for a fresh profile.
+	if (Object.keys(stored).length === 0) {
+		return {};
+	}
+
 	const migrated: Record<string, unknown> = {...stored};
 
 	for (const setting of Object.keys(OVERRIDES)) {
@@ -72,9 +79,7 @@ export function migrateStoredSettings(
 			continue;
 		}
 
-		if (overridesChoice(setting, migrated, defaults)) {
-			migrated[setting] = false;
-		}
+		migrated[setting] = !overridesChoice(setting, migrated, defaults);
 	}
 
 	return migrated;
