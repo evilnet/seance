@@ -1114,12 +1114,16 @@ function onNetworkSaved(next: SavedNetwork, wasEnabled: boolean): void {
 
 		// A subscribe still running for it would store and register the
 		// subscription after the unsubscribe had finished: let it settle
-		// first (it sees push is off and stops short).
+		// first (it sees push is off and stops short). Switched back on
+		// meanwhile, the subscribe it finished is the one wanted: keep it.
 		const running = subscribing.get(next.uuid);
 
 		void (async () => {
 			await running;
-			await unsubscribe(next.uuid);
+
+			if (!pushOn(next.uuid)) {
+				await unsubscribe(next.uuid);
+			}
 		})();
 	} else {
 		// Switching push on is asking for it: an earlier "not now" is over.
