@@ -15,8 +15,11 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 import android.util.Log;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 import kotlin.Unit;
 import org.json.JSONObject;
 import org.unifiedpush.android.connector.UnifiedPush;
@@ -69,6 +72,11 @@ public class NativePushPlugin extends Plugin {
     private static JSObject pendingTap;
     /** subscribe() calls waiting for their endpoint, by network. */
     private static final Map<String, Waiting> waiting = new HashMap<>();
+    /**
+     * subscribe() calls waiting for the distributor to be chosen, in order:
+     * the first asks the connector and its answer goes to all of them.
+     */
+    private static final Map<Waiting, Consumer<Boolean>> choosing = new LinkedHashMap<>();
 
     /**
      * A subscribe() call waiting for its endpoint. Answering it lets the
@@ -277,6 +285,9 @@ public class NativePushPlugin extends Plugin {
         // second chooser replaces and a chooser closed without a result
         // never calls, so the answer may never come.
         main.postDelayed(() -> {
+            // Whatever became of it, it stops holding the chooser: one that
+            // never answers is asked again by the next subscribe().
+            choosing.remove(answer);
             if (waiting.get(network) != answer) {
                 return; // answered, superseded or withdrawn
             }
@@ -292,8 +303,20 @@ public class NativePushPlugin extends Plugin {
             }
         }, REGISTER_TIMEOUT_MS);
 
+        // One chooser at a time: a second would take the first's callback.
+        boolean asking = choosing.isEmpty();
+        choosing.put(answer, ok -> distributorChosen(network, vapid, connectorKey, answer, ok));
+        if (!asking) {
+            return;
+        }
         UnifiedPush.tryUseCurrentOrDefaultDistributor(getActivity(), ok -> {
-            main.post(() -> distributorChosen(network, vapid, connectorKey, answer, ok));
+            main.post(() -> {
+                ArrayList<Consumer<Boolean>> chosen = new ArrayList<>(choosing.values());
+                choosing.clear();
+                for (Consumer<Boolean> each : chosen) {
+                    each.accept(ok);
+                }
+            });
             return Unit.INSTANCE;
         });
     }
