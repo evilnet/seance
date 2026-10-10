@@ -16,8 +16,8 @@ import java.util.TreeMap;
  */
 final class PushMerge {
 
-    /** Messages a notification keeps. */
-    static final int KEEP = 8;
+    /** Messages a notification keeps: merge.ts's MERGE_KEEP. */
+    static final int KEEP = 4;
 
     static final class Line {
         final String text;

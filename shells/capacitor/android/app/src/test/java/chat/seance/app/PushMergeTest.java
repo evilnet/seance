@@ -5,10 +5,15 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.Test;
 
 /** The merge rules test/push/merge.ts pins for the service worker. */
@@ -88,6 +93,15 @@ public class PushMergeTest {
         }
         assertEquals(PushMerge.KEEP, entries.size());
         assertEquals("3", entries.get(0).text);
+    }
+
+    @Test
+    public void keepsAsManyAsTheServiceWorker() throws Exception {
+        // The test runs in the app module; merge.ts is at the repository root.
+        String merge = new String(Files.readAllBytes(Paths.get("../../../../client/js/push/merge.ts")), StandardCharsets.UTF_8);
+        Matcher keep = Pattern.compile("export const MERGE_KEEP = (\\d+);").matcher(merge);
+        assertTrue(keep.find());
+        assertEquals(Integer.parseInt(keep.group(1)), PushMerge.KEEP);
     }
 
     @Test
