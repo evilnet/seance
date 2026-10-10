@@ -2059,10 +2059,11 @@ describe("the ps theme's stacked message rows (the user's B, 2026-10-06; the tim
 		expect(valueOf(`${ROW} .content`, "grid-area")).to.equal("content");
 		// logical, so a right-to-left page has its time at its own start
 		expect(valueOf(ROW, "padding-inline")).to.equal("0.625rem");
-		// the text starts at its column: what the box reaches out beside it
-		// (WebKit's clip, which has no overflow-clip-margin) it gives back
-		expect(valueOf(`${ROW} .content`, "padding-inline")).to.equal("0.75rem");
-		expect(valueOf(`${ROW} .content`, "margin-inline")).to.equal("-0.75rem");
+		// the outline's room past the column: overflow-clip-margin, or on
+		// WebKit, which has none, a clip-path as far out
+		expect(valueOf(`${ROW} .content`, "overflow-clip-margin")).to.equal("0.75rem");
+		const webkit = "@supports not (overflow-clip-margin: 0.75rem)";
+		expect(valueOf(`${ROW} .content`, "clip-path", webkit)).to.equal("inset(-0.75rem)");
 	});
 
 	it("lines a mention up with the rows around it: its 5px bar is taken off the row's start", function () {
@@ -2431,8 +2432,10 @@ describe("the ps theme's embers (spec §9)", function () {
 		expect(valueOf(UNCLIP, "overflow-clip-margin", MOTION_OK)).to.equal(
 			`${rise + blur + spread}rem`
 		);
-		const unclipped = rules.filter((r) =>
-			r.decls.some(([p, v]) => /^overflow(-[xy])?$/.test(p) && v === "visible")
+		const unclipped = rules.filter(
+			(r) =>
+				r.decls.some(([p, v]) => /^overflow(-[xy])?$/.test(p) && v === "visible") &&
+				!r.decls.some(([p]) => p === "clip-path")
 		);
 		expect(
 			unclipped.flatMap((r) => r.selectors).filter((s) => /\.content(?![\w-])/.test(s)),
@@ -2521,7 +2524,8 @@ describe("the ps theme's embers (spec §9)", function () {
 		expect(ours.length).to.be.at.least(SPARKS.length);
 
 		for (const r of ours) {
-			expect(r.at, r.selectors.join(", ")).to.equal(MOTION_OK);
+			// (WebKit's clip-path twin sits in an @supports inside it)
+			expect(r.at.startsWith(MOTION_OK), r.selectors.join(", ")).to.equal(true);
 		}
 
 		const reduced = rules.filter((r) => r.at.includes("prefers-reduced-motion: reduce"));

@@ -649,17 +649,24 @@ strong,
  * padding beside it style.css's anti-Zalgo `overflow: hidden` cut it off at
  * the left (the user, 2026-10-08). The clip stays, 0.75rem out: stacked marks
  * still stop there. (A reaction's burst widens it for a moment, below.)
- * WebKit has no overflow-clip-margin and still cut it at the left (the
- * user's iPhone, 2026-10-10), so beside the text the box itself reaches
- * 0.75rem out and gives it back as padding: the text stands where it did
- * and wraps at the same width. */
+ * WebKit has no overflow-clip-margin and still cut it at the left and above a
+ * tall glyph, an emoji (the user's iPhone, 2026-10-10), so there the clip is a
+ * clip-path 0.75rem out instead: unlike a box made bigger, it takes no taps
+ * off the nick above or the row before. */
 #chat .chat .msg:is([data-type="message"], [data-type="notice"]) .content,
 #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) .content,
 #chat .chat .condensed-summary .content {
-	margin-inline: -0.75rem;
-	padding-inline: 0.75rem;
 	overflow: clip;
 	overflow-clip-margin: 0.75rem;
+}
+
+@supports not (overflow-clip-margin: 0.75rem) {
+	#chat .chat .msg:is([data-type="message"], [data-type="notice"]) .content,
+	#chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) .content,
+	#chat .chat .condensed-summary .content {
+		overflow: visible;
+		clip-path: inset(-0.75rem);
+	}
 }
 
 /* A condensed group's summary has no time or icon of its own: its text
@@ -788,8 +795,8 @@ strong,
  * is `overflow: clip` with an `overflow-clip-margin` of the sparks' rise and
  * glow: the trade-off is that for those ~2.2 s a message's marks can spill
  * that far (3.25rem) and no further, where `visible` would lift the clip
- * altogether. A browser without overflow-clip-margin cuts the sparks at the
- * column's edge instead, which only shortens their rise. .content is always
+ * altogether. WebKit, which has no overflow-clip-margin, takes the same
+ * margin as a clip-path, as the column always does there. .content is always
  * a flex item or inline, so clip changes no layout: it is only not a scroll
  * container, which nothing scrolls.
  *
@@ -907,6 +914,12 @@ strong,
 	#chat .chat-view[data-type="channel"] .content:has(.reaction-enter-active, .reactions-enter-active) {
 		overflow: clip;
 		overflow-clip-margin: 3.25rem;
+	}
+
+	@supports not (overflow-clip-margin: 3.25rem) {
+		#chat .chat-view[data-type="channel"] .content:has(.reaction-enter-active, .reactions-enter-active) {
+			clip-path: inset(-3.25rem);
+		}
 	}
 }
 /* stylelint-enable max-line-length */
