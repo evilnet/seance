@@ -2273,6 +2273,38 @@ body {
 	text-shadow: inherit;
 }
 
+/* The reply quote cut its line with an ellipsis, which takes a clip, and the
+ * clip took the outline off its arrow (an emoji on iOS), its nick and the
+ * top and bottom of its words (the user's iPhone, 2026-10-10). Only the words
+ * are cut now: the arrow and the nick stand outside the clip, and the words'
+ * box reaches 0.75rem out on every side and gives it back as padding, so they
+ * stand where they did. It takes no pointer, so a press past the quote's own
+ * box still lands on what is there and one inside it on the quote. */
+#chat .msg-reply-quote {
+	display: flex;
+	align-items: baseline;
+	overflow: visible;
+}
+
+#chat .msg-reply-arrow,
+#chat .msg-reply-nick {
+	flex: none;
+}
+
+#chat .msg-reply-nick {
+	margin-inline-end: 0.3em;
+}
+
+#chat .msg-reply-text {
+	min-width: 0;
+	margin: -0.75rem;
+	padding: 0.75rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	pointer-events: none;
+}
+
 /* A spoiler hides its text by making it transparent; a halo or shadow would draw it back. */
 #chat .msg .md-spoiler:not(.md-spoiler-shown) {
 	text-shadow: none;

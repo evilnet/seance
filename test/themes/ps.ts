@@ -2049,6 +2049,16 @@ describe("the ps theme's stacked message rows (the user's B, 2026-10-06; the tim
 		);
 	});
 
+	it("cuts a reply quote's words alone, with room for their outline, and the room takes no taps", function () {
+		expect(valueOf("#chat .msg-reply-quote", "overflow")).to.equal("visible");
+		expect(valueOf("#chat .msg-reply-arrow", "flex")).to.equal("none");
+		expect(valueOf("#chat .msg-reply-text", "overflow")).to.equal("hidden");
+		expect(valueOf("#chat .msg-reply-text", "text-overflow")).to.equal("ellipsis");
+		expect(valueOf("#chat .msg-reply-text", "margin")).to.equal("-0.75rem");
+		expect(valueOf("#chat .msg-reply-text", "padding")).to.equal("0.75rem");
+		expect(valueOf("#chat .msg-reply-text", "pointer-events")).to.equal("none");
+	});
+
 	it("lays a message out as its time, then the nick, and the text on the next line under the nick", function () {
 		expect(valueOf(ROW, "display")).to.equal("grid");
 		expect(valueOf(ROW, "grid-template-areas")?.replace(/\s+/g, " ")).to.equal(
