@@ -598,11 +598,14 @@ async function syncStoredWithShell(): Promise<void> {
 		} else if (
 			live.endpoint !== entry.endpoint ||
 			live.keys.p256dh !== entry.keys.p256dh ||
-			live.keys.auth !== entry.keys.auth
+			live.keys.auth !== entry.keys.auth ||
+			(live.vapid ?? entry.vapid) !== entry.vapid
 		) {
 			// A new endpoint, or the same one with new keys: the next REGISTER
 			// (autoRegister) carries them; the server would otherwise encrypt
-			// to keys nobody holds.
+			// to keys nobody holds. A late renewal can bring back the same
+			// endpoint and keys under the new key, and the entry must take it
+			// or the network reads as stale and is never re-registered.
 			subs[uuid] = {
 				vapid: live.vapid ?? entry.vapid,
 				endpoint: live.endpoint,
