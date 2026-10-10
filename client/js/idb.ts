@@ -8,12 +8,33 @@
 const DB_NAME = "seance-push";
 const STORE = "kv";
 
+// Every helper settles, whatever IndexedDB does: a caller awaits it on the
+// way to subscribing (webpush.ts), and a promise that never settles there
+// holds that network's subscribe — and with a Yes, the push prompt — for
+// good. A transaction can abort without an error event (quota), and an open
+// can be blocked by another connection holding the database.
+
 function open(): Promise<IDBDatabase> {
 	return new Promise((resolve, reject) => {
 		const req = indexedDB.open(DB_NAME, 1);
+		let blocked = false;
+
 		req.onupgradeneeded = () => req.result.createObjectStore(STORE);
-		req.onsuccess = () => resolve(req.result);
+
+		req.onsuccess = () => {
+			if (blocked) {
+				req.result.close(); // the caller has been told it failed
+			} else {
+				resolve(req.result);
+			}
+		};
+
 		req.onerror = () => reject(req.error);
+
+		req.onblocked = () => {
+			blocked = true;
+			reject(new Error("IndexedDB open blocked"));
+		};
 	});
 }
 
@@ -33,6 +54,11 @@ export async function idbSet(key: string, value: unknown): Promise<void> {
 			db.close();
 			reject(tx.error);
 		};
+
+		tx.onabort = () => {
+			db.close();
+			reject(tx.error);
+		};
 	});
 }
 
@@ -40,7 +66,13 @@ export async function idbGet<T>(key: string): Promise<T | undefined> {
 	const db = await open();
 
 	return new Promise((resolve, reject) => {
-		const req = db.transaction(STORE).objectStore(STORE).get(key);
+		const tx = db.transaction(STORE);
+		const req = tx.objectStore(STORE).get(key);
+
+		tx.onabort = () => {
+			db.close();
+			reject(tx.error);
+		};
 
 		req.onsuccess = () => {
 			db.close();
