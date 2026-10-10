@@ -812,96 +812,94 @@ strong,
 }
 
 /* stylelint-disable max-line-length -- a spark's selector names its row in full */
-@media (prefers-reduced-motion: no-preference) {
-	#chat .chat-view[data-type="channel"] .msg.self:is([data-type="message"], [data-type="action"]):not(.pending):last-child::before,
-	#chat .chat-view[data-type="channel"] .msg.self:is([data-type="message"], [data-type="action"]):not(.pending):last-child::after,
-	#chat .chat-view[data-type="channel"] .msg.self:is([data-type="message"], [data-type="action"]):not(.pending):last-child > .content::before,
-	#chat .chat-view[data-type="channel"] .msg.self:is([data-type="message"], [data-type="action"]):not(.pending):last-child > .content::after,
-	#chat .chat-view[data-type="channel"] .reaction-enter-active .msg-reaction-text::before,
-	#chat .chat-view[data-type="channel"] .reaction-enter-active .msg-reaction-text::after,
-	#chat .chat-view[data-type="channel"] .reactions-enter-active .msg-reaction-text::before,
-	#chat .chat-view[data-type="channel"] .reactions-enter-active .msg-reaction-text::after {
-		content: "";
-		position: absolute;
-		top: 40%;
-		width: 0.25rem;
-		height: 0.25rem;
-		border-radius: 50%;
-		background: #ffc46e;
-		box-shadow: 0 0 0.375rem 0.125rem rgb(255 160 70 / 65%);
-		pointer-events: none;
-		animation: ps-ember 2s cubic-bezier(0.25, 0.6, 0.35, 1) both;
-	}
+html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .msg.self:is([data-type="message"], [data-type="action"]):not(.pending):last-child::before,
+html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .msg.self:is([data-type="message"], [data-type="action"]):not(.pending):last-child::after,
+html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .msg.self:is([data-type="message"], [data-type="action"]):not(.pending):last-child > .content::before,
+html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .msg.self:is([data-type="message"], [data-type="action"]):not(.pending):last-child > .content::after,
+html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .reaction-enter-active .msg-reaction-text::before,
+html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .reaction-enter-active .msg-reaction-text::after,
+html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .reactions-enter-active .msg-reaction-text::before,
+html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .reactions-enter-active .msg-reaction-text::after {
+	content: "";
+	position: absolute;
+	top: 40%;
+	width: 0.25rem;
+	height: 0.25rem;
+	border-radius: 50%;
+	background: #ffc46e;
+	box-shadow: 0 0 0.375rem 0.125rem rgb(255 160 70 / 65%);
+	pointer-events: none;
+	animation: ps-ember 2s cubic-bezier(0.25, 0.6, 0.35, 1) both;
+}
 
-	#chat .chat-view[data-type="channel"] .msg.self:is([data-type="message"], [data-type="action"]):not(.pending):last-child::before {
-		--ps-ember-x: 0.625rem;
-		--ps-ember-y: -3.25rem;
+html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .msg.self:is([data-type="message"], [data-type="action"]):not(.pending):last-child::before {
+	--ps-ember-x: 0.625rem;
+	--ps-ember-y: -3.25rem;
 
-		left: 12%;
-		animation-duration: 2.4s;
-		animation-delay: 0s;
-	}
+	left: 12%;
+	animation-duration: 2.4s;
+	animation-delay: 0s;
+}
 
-	#chat .chat-view[data-type="channel"] .msg.self:is([data-type="message"], [data-type="action"]):not(.pending):last-child::after {
-		--ps-ember-x: -0.375rem;
-		--ps-ember-y: -4.25rem;
+html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .msg.self:is([data-type="message"], [data-type="action"]):not(.pending):last-child::after {
+	--ps-ember-x: -0.375rem;
+	--ps-ember-y: -4.25rem;
 
-		left: 27%;
-		animation-duration: 2.1s;
-		animation-delay: 0.18s;
-	}
+	left: 27%;
+	animation-duration: 2.1s;
+	animation-delay: 0.18s;
+}
 
-	#chat .chat-view[data-type="channel"] .msg.self:is([data-type="message"], [data-type="action"]):not(.pending):last-child > .content::before {
-		--ps-ember-x: 1.125rem;
-		--ps-ember-y: -2.5rem;
+html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .msg.self:is([data-type="message"], [data-type="action"]):not(.pending):last-child > .content::before {
+	--ps-ember-x: 1.125rem;
+	--ps-ember-y: -2.5rem;
 
-		left: 43%;
-		animation-duration: 2.6s;
-		animation-delay: 0.36s;
-	}
+	left: 43%;
+	animation-duration: 2.6s;
+	animation-delay: 0.36s;
+}
 
-	#chat .chat-view[data-type="channel"] .msg.self:is([data-type="message"], [data-type="action"]):not(.pending):last-child > .content::after {
-		--ps-ember-x: 0.25rem;
-		--ps-ember-y: -3.75rem;
+html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .msg.self:is([data-type="message"], [data-type="action"]):not(.pending):last-child > .content::after {
+	--ps-ember-x: 0.25rem;
+	--ps-ember-y: -3.75rem;
 
-		left: 58%;
-		animation-duration: 1.95s;
-		animation-delay: 0.54s;
-	}
+	left: 58%;
+	animation-duration: 1.95s;
+	animation-delay: 0.54s;
+}
 
-	/* A chip's two, over the chip (left and top are the chip's). */
-	#chat .chat-view[data-type="channel"] .reaction-enter-active .msg-reaction-text::before,
-	#chat .chat-view[data-type="channel"] .reactions-enter-active .msg-reaction-text::before {
-		--ps-ember-x: 0.375rem;
-		--ps-ember-y: -2.25rem;
+/* A chip's two, over the chip (left and top are the chip's). */
+html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .reaction-enter-active .msg-reaction-text::before,
+html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .reactions-enter-active .msg-reaction-text::before {
+	--ps-ember-x: 0.375rem;
+	--ps-ember-y: -2.25rem;
 
-		left: 18%;
-		animation-duration: 2.2s;
-		animation-delay: 0s;
-	}
+	left: 18%;
+	animation-duration: 2.2s;
+	animation-delay: 0s;
+}
 
-	#chat .chat-view[data-type="channel"] .reaction-enter-active .msg-reaction-text::after,
-	#chat .chat-view[data-type="channel"] .reactions-enter-active .msg-reaction-text::after {
-		--ps-ember-x: -0.25rem;
-		--ps-ember-y: -2.75rem;
+html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .reaction-enter-active .msg-reaction-text::after,
+html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .reactions-enter-active .msg-reaction-text::after {
+	--ps-ember-x: -0.25rem;
+	--ps-ember-y: -2.75rem;
 
-		left: 52%;
-		animation-duration: 1.9s;
-		animation-delay: 0.18s;
-	}
+	left: 52%;
+	animation-duration: 1.9s;
+	animation-delay: 0.18s;
+}
 
-	/* The hold: 2.2 s, the chip's latest spark (0 s + 2.2 s; 0.18 s + 1.9 s). */
-	#chat .chat-view[data-type="channel"] .reaction-enter-active,
-	#chat .chat-view[data-type="channel"] .reactions-enter-active {
-		animation: reaction-pop 160ms ease-out, ps-ember-hold 2.2s linear;
-	}
+/* The hold: 2.2 s, the chip's latest spark (0 s + 2.2 s; 0.18 s + 1.9 s). */
+html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .reaction-enter-active,
+html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .reactions-enter-active {
+	animation: reaction-pop 160ms ease-out, ps-ember-hold 2.2s linear;
+}
 
-	/* The margin: the chip sparks' highest rise (2.75rem) plus the glow's blur
-	 * and spread (0.375rem + 0.125rem). */
-	#chat .chat-view[data-type="channel"] .content:has(.reaction-enter-active, .reactions-enter-active) {
-		overflow: clip;
-		overflow-clip-margin: 3.25rem;
-	}
+/* The margin: the chip sparks' highest rise (2.75rem) plus the glow's blur
+ * and spread (0.375rem + 0.125rem). */
+html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:has(.reaction-enter-active, .reactions-enter-active) {
+	overflow: clip;
+	overflow-clip-margin: 3.25rem;
 }
 /* stylelint-enable max-line-length */
 
@@ -2942,79 +2940,82 @@ form.message-search input::placeholder,
 }
 
 /* ---- reduced motion ---- */
-@media (prefers-reduced-motion: reduce) {
-	/* The words' treatment flips at once with the glass: the column's notes
-	 * ease their colour over 0.8 s beside the messages, and stand down with
-	 * them. */
-	#chat .msg,
-	#chat .chat .show-more,
-	#chat .chat .search-status,
-	#chat .chat .search-scope-note,
-	.channel-list-item,
-	#chat .header,
-	#form,
-	#theme-scene * {
-		animation: none !important;
-		transition: none !important;
-	}
 
-	/* What exists only in flight leaves the render tree rather than standing
-	 * parked mid-flight (spec §9): the birds (the skeins, the buzzard, which
-	 * stopped on the sky, and the larks), the rain, snow and seeds, the
-	 * lightning, and the smoke, which is smoke only as it rises (the lit
-	 * door and its pool still say someone is home). The veil stays, so a
-	 * rainy day still looks rainy. The fireflies stay as still dots where
-	 * they are: a point of light, like a star, still reads as one, and they
-	 * are what a summer evening looks like. The grass stands at rest and the
-	 * heat band still; the heat haze's SMIL is paused with every other SVG's
-	 * (scene.ts). */
-	#theme-scene .ps-skeins,
-	#theme-scene .ps-daybirds,
-	#theme-scene .ps-rain,
-	#theme-scene .ps-snow,
-	#theme-scene .ps-seeds,
-	#theme-scene .ps-flash,
-	#theme-scene .ps-smoke {
-		display: none;
-	}
+/* Keyed on <html data-reduce-motion> (helpers/systemAccessibility.ts), never
+ * the media query, which Android's WebView answers with the value its process
+ * started with; the embers above take html:not([data-reduce-motion]). */
 
-	/* A cloud still, where its delay puts it in its loop (--cp, plains.ts),
-	 * on ps-drift's own path: with no animation it stood at its box's place,
-	 * left: 0, and all five piled up at the left edge. */
-	#theme-scene .ps-cloud {
-		/* stylelint-disable-next-line unit-no-unknown -- cqw, as ps-drift's */
-		transform: translateX(calc((100cqw + 100% + 0.5rem) * var(--cp) - 100% - 0.25rem));
-	}
+/* The words' treatment flips at once with the glass: the column's notes
+ * ease their colour over 0.8 s beside the messages, and stand down with
+ * them. */
+html[data-reduce-motion] #chat .msg,
+html[data-reduce-motion] #chat .chat .show-more,
+html[data-reduce-motion] #chat .chat .search-status,
+html[data-reduce-motion] #chat .chat .search-scope-note,
+html[data-reduce-motion] .channel-list-item,
+html[data-reduce-motion] #chat .header,
+html[data-reduce-motion] #form,
+html[data-reduce-motion] #theme-scene * {
+	animation: none !important;
+	transition: none !important;
+}
 
-	/* The day/night flip happens at once. A token rather than `transition:
-	 * none`, so the phone's sidebar and user list keep their slide. */
-	/* stylelint-disable-next-line no-duplicate-selectors -- the flip's duration, apart from the stills */
-	:root {
-		--ps-flip: 0s;
-	}
+/* What exists only in flight leaves the render tree rather than standing
+ * parked mid-flight (spec §9): the birds (the skeins, the buzzard, which
+ * stopped on the sky, and the larks), the rain, snow and seeds, the
+ * lightning, and the smoke, which is smoke only as it rises (the lit
+ * door and its pool still say someone is home). The veil stays, so a
+ * rainy day still looks rainy. The fireflies stay as still dots where
+ * they are: a point of light, like a star, still reads as one, and they
+ * are what a summer evening looks like. The grass stands at rest and the
+ * heat band still; the heat haze's SMIL is paused with every other SVG's
+ * (scene.ts). */
+html[data-reduce-motion] #theme-scene .ps-skeins,
+html[data-reduce-motion] #theme-scene .ps-daybirds,
+html[data-reduce-motion] #theme-scene .ps-rain,
+html[data-reduce-motion] #theme-scene .ps-snow,
+html[data-reduce-motion] #theme-scene .ps-seeds,
+html[data-reduce-motion] #theme-scene .ps-flash,
+html[data-reduce-motion] #theme-scene .ps-smoke {
+	display: none;
+}
 
-	/* The animals as stills: the slot tokens point at the animal tokens, so
-	 * repointing those is enough. In ps the off block after the animal layer
-	 * empties the slots, so no still is painted (or fetched) either. */
-	/* stylelint-disable-next-line no-duplicate-selectors -- the reduced-motion swap to stills */
-	:root {
-		--ps-horse: url("ps/horse-still.svg");
-		--ps-horse-far: url("ps/horse-far-still.svg");
-		--ps-deer: url("ps/deer-still.svg");
-		--ps-deer-far: url("ps/deer-far-still.svg");
-		--ps-puppy: url("ps/puppy-still.svg");
-		--ps-puppy-far: url("ps/puppy-far-still.svg");
-		--ps-bunny: url("ps/bunny-still.svg");
-		--ps-bunny-far: url("ps/bunny-far-still.svg");
-		--ps-kitten: url("ps/kitten-still.svg");
-		--ps-kitten-far: url("ps/kitten-far-still.svg");
-		--ps-frog: url("ps/frog-still.svg");
-		--ps-frog-far: url("ps/frog-far-still.svg");
-		--ps-ladybug: url("ps/ladybug-still.svg");
-		--ps-ladybug-far: url("ps/ladybug-far-still.svg");
-		--ps-bird: url("ps/bird-still.svg");
-		--ps-bird-far: url("ps/bird-far-still.svg");
-	}
+/* A cloud still, where its delay puts it in its loop (--cp, plains.ts),
+ * on ps-drift's own path: with no animation it stood at its box's place,
+ * left: 0, and all five piled up at the left edge. */
+html[data-reduce-motion] #theme-scene .ps-cloud {
+	/* stylelint-disable-next-line unit-no-unknown -- cqw, as ps-drift's */
+	transform: translateX(calc((100cqw + 100% + 0.5rem) * var(--cp) - 100% - 0.25rem));
+}
+
+/* The day/night flip happens at once. A token rather than `transition:
+ * none`, so the phone's sidebar and user list keep their slide. */
+/* stylelint-disable-next-line no-duplicate-selectors -- the flip's duration, apart from the stills */
+html[data-reduce-motion]:root {
+	--ps-flip: 0s;
+}
+
+/* The animals as stills: the slot tokens point at the animal tokens, so
+ * repointing those is enough. In ps the off block after the animal layer
+ * empties the slots, so no still is painted (or fetched) either. */
+/* stylelint-disable-next-line no-duplicate-selectors -- the reduced-motion swap to stills */
+html[data-reduce-motion]:root {
+	--ps-horse: url("ps/horse-still.svg");
+	--ps-horse-far: url("ps/horse-far-still.svg");
+	--ps-deer: url("ps/deer-still.svg");
+	--ps-deer-far: url("ps/deer-far-still.svg");
+	--ps-puppy: url("ps/puppy-still.svg");
+	--ps-puppy-far: url("ps/puppy-far-still.svg");
+	--ps-bunny: url("ps/bunny-still.svg");
+	--ps-bunny-far: url("ps/bunny-far-still.svg");
+	--ps-kitten: url("ps/kitten-still.svg");
+	--ps-kitten-far: url("ps/kitten-far-still.svg");
+	--ps-frog: url("ps/frog-still.svg");
+	--ps-frog-far: url("ps/frog-far-still.svg");
+	--ps-ladybug: url("ps/ladybug-still.svg");
+	--ps-ladybug-far: url("ps/ladybug-far-still.svg");
+	--ps-bird: url("ps/bird-still.svg");
+	--ps-bird-far: url("ps/bird-far-still.svg");
 }
 
 /* ---- reduced transparency ---- */
