@@ -1902,8 +1902,8 @@ body {
  * the dense sweep (every day, every 5 minutes, all six weathers): the sky, the
  * moon's disc and the sun's core (above the horizon line), and the plains'
  * areas (client/js/scenes/ps/grounds.ts), under the veil on a veiled day,
- * through the halo at α 0.1614 where the words are ink or the band at α
- * 0.52 and the glow at α 0.1641 where they are light (docs/projects/ps-theme.md §11).
+ * through the halo at α 0.1614 where the words are ink or the shadow and
+ * outline at α 0.6 where they are light (docs/projects/ps-theme.md §11).
  * The words are ink only where ink holds (the user's white sooner): the ink
  * colours are solved over those moments alone. Generated colours are solved
  * to 4.6.
@@ -1928,7 +1928,7 @@ body {
  *   #666666  doy 1 530 min clear  cloud #fffffe
  *   #666665  doy 1 885 min clear  cloud #fffefc
  *   #666664  doy 14 890 min clear  cloud #fffefb
- *   #666663  doy 1 495 min clear  sun #fffef6 at 1.00 over skyMid #ecb99b
+ *   #666662  doy 1 495 min clear  sun #fffef6 at 1.00 over skyMid #ecb99b
  *   #666565  doy 6 525 min clear  cloud #fffdfc
  * The light nicks are solved to 3.1 against:
  *   #666666  doy 1 530 min clear  cloud #fffffe
@@ -2256,29 +2256,18 @@ body {
 :root[data-ps-text="light"] #chat .chat .show-more,
 :root[data-ps-text="light"] #chat .chat .search-status,
 :root[data-ps-text="light"] #chat .chat .search-scope-note {
-	/* A soft dark glow, no outline: the band below carries the contrast. The
-	 * user found the eight-way rim and its second ring ugly (2026-10-08) and
-	 * picked the band out of five rendered alternatives. Measured on real chat
-	 * phrases (§11, fifth pass), this glow moves the ground round a word 0.1641
-	 * of the way to black (ALPHA_SHADOW). */
+	/* The calibration (§11) showed the soft shadow alone cannot carry white
+	 * text over the brightest grounds (the moon's disc, the sun's low core,
+	 * a bright dawn/dusk horizon). Shown three measured candidates, the user
+	 * chose "B" (https://claude.ai/artifact/TGGrXDMs2fxLrV9NekKMWJ): an
+	 * eight-way 1px outline at 78% black, drawn under the approved soft
+	 * shadow — listed first, since the first shadow paints on top. Measured
+	 * again with real chat phrases (short words, apostrophes, commas), B
+	 * alone was far weaker round the thin marks than on the sample sentence;
+	 * the user took the recommendation (2026-09-25): a faint second ring,
+	 * eight 2px offsets at 28% black, drawn under B. */
 	/* stylelint-disable-next-line max-line-length -- the layers read best on one line, as the halo's do */
-	text-shadow: 0 0 0.1875rem rgb(0 0 0 / 70%), 0 0 0.5rem rgb(0 0 0 / 55%), 0 0.0625rem 0.125rem rgb(0 0 0 / 65%);
-}
-
-/* The band: under white words the whole message column is washed 52% toward
- * black, so a word never stands on the scene's bare brightest grounds (a white
- * cloud, the moon's disc, the sun's core). 52% with the glow above darkens a
- * word's ground as far as the rim did (tools/ps/legibility.ts BAND_ALPHA), so
- * the generated colours hold their floors unchanged. It fades in and out with
- * the words' own treatment; under dark ink the plains stay bare. */
-/* stylelint-disable-next-line no-duplicate-selectors -- the generated block's selector, for the band */
-#chat .chat {
-	transition: background-color var(--ps-flip);
-}
-
-/* stylelint-disable-next-line no-duplicate-selectors -- the generated block's selector, for the band */
-:root[data-ps-text="light"] #chat .chat {
-	background-color: rgb(0 0 0 / 52%);
+	text-shadow: 0 0.0625rem 0.094rem rgb(0 0 0 / 70%), 0 0 0.1875rem rgb(0 0 0 / 45%), 0 0.0625rem 0.625rem rgb(0 0 0 / 35%), 0.0625rem 0 0.0625rem rgb(0 0 0 / 78%), -0.0625rem 0 0.0625rem rgb(0 0 0 / 78%), 0 0.0625rem 0.0625rem rgb(0 0 0 / 78%), 0 -0.0625rem 0.0625rem rgb(0 0 0 / 78%), 0.0625rem 0.0625rem 0.0625rem rgb(0 0 0 / 78%), -0.0625rem 0.0625rem 0.0625rem rgb(0 0 0 / 78%), 0.0625rem -0.0625rem 0.0625rem rgb(0 0 0 / 78%), -0.0625rem -0.0625rem 0.0625rem rgb(0 0 0 / 78%), 0.125rem 0 0.0625rem rgb(0 0 0 / 28%), -0.125rem 0 0.0625rem rgb(0 0 0 / 28%), 0 0.125rem 0.0625rem rgb(0 0 0 / 28%), 0 -0.125rem 0.0625rem rgb(0 0 0 / 28%), 0.125rem 0.125rem 0.0625rem rgb(0 0 0 / 28%), -0.125rem 0.125rem 0.0625rem rgb(0 0 0 / 28%), 0.125rem -0.125rem 0.0625rem rgb(0 0 0 / 28%), -0.125rem -0.125rem 0.0625rem rgb(0 0 0 / 28%);
 }
 
 /* The browser gives a button `text-shadow: none` rather than the inherited

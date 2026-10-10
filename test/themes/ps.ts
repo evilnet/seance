@@ -33,8 +33,6 @@ import {
 } from "../../client/js/scenes/ps/plains";
 import {OVERCAST_FADE_MS, sceneMarkup, sceneVars} from "../../client/js/scenes/ps/scene";
 import {
-	BAND,
-	BAND_ALPHA,
 	checkedGrounds,
 	dayGlassGrounds,
 	glassGround,
@@ -2793,13 +2791,28 @@ describe("the ps theme's private view (spec §5.7): the plains frosted and still
 });
 
 describe("the ps theme's words over the plains (spec §7)", function () {
-	it("draws white words over a soft glow and no outline: the user found the rim ugly and picked the band (2026-10-08)", function () {
+	/** The eight-way ring of offsets `o` (rem) at `pct` % black, blurred 0.0625rem. */
+	const ring = (o: string, pct: number) =>
+		[
+			[o, "0"],
+			[`-${o}`, "0"],
+			["0", o],
+			["0", `-${o}`],
+			[o, o],
+			[`-${o}`, o],
+			[o, `-${o}`],
+			[`-${o}`, `-${o}`],
+		].map(([x, y]) => `${x} ${y} 0.0625rem rgb(0 0 0 / ${pct}%)`);
+
+	it("draws white words over the soft shadow, the user's B (eight 1px offsets at 78 %) and under it the faint wider ring (eight 2px offsets at 28 %, the user's pick 2026-09-25), in that order: the first shadow paints on top", function () {
 		const shadow = valueOf(':root[data-ps-text="light"] #chat .chat .msg', "text-shadow");
 		expect(shadow, "the light treatment's text-shadow").to.not.equal(undefined);
 		expect(shadow!.split(/,\s*(?![^()]*\))/)).to.deep.equal([
-			"0 0 0.1875rem rgb(0 0 0 / 70%)",
-			"0 0 0.5rem rgb(0 0 0 / 55%)",
-			"0 0.0625rem 0.125rem rgb(0 0 0 / 65%)",
+			"0 0.0625rem 0.094rem rgb(0 0 0 / 70%)",
+			"0 0 0.1875rem rgb(0 0 0 / 45%)",
+			"0 0.0625rem 0.625rem rgb(0 0 0 / 35%)",
+			...ring("0.0625rem", 78),
+			...ring("0.125rem", 28),
 		]);
 
 		for (const other of [
@@ -2809,15 +2822,6 @@ describe("the ps theme's words over the plains (spec §7)", function () {
 		]) {
 			expect(valueOf(other, "text-shadow"), other).to.equal(shadow);
 		}
-	});
-
-	it("washes the message column BAND_ALPHA toward BAND under white words, and leaves it bare under dark ink", function () {
-		const [r, g, b] = [0, 2, 4].map((i) => parseInt(BAND.slice(1 + i, 3 + i), 16));
-		expect(valueOf(':root[data-ps-text="light"] #chat .chat', "background-color")).to.equal(
-			`rgb(${r} ${g} ${b} / ${Math.round(BAND_ALPHA * 100)}%)`
-		);
-		expect(valueOf("#chat .chat", "background-color")).to.equal(undefined);
-		expect(valueOf("#chat .chat", "transition")).to.equal("background-color var(--ps-flip)");
 	});
 });
 
