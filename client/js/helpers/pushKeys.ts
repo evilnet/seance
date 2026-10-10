@@ -25,6 +25,23 @@ export function decodeApplicationServerKey(b64: string): Uint8Array {
 	return out;
 }
 
+/** Whether `b64` (URL-safe or standard base64, padded or not) is an
+ * uncompressed P-256 public key — 65 bytes, 0x04 first — the only VAPID
+ * key the Android shell's UnifiedPush connector accepts. caps.ts takes any
+ * URL-safe key of 32 characters or more and the ISUPPORT fallback anything,
+ * so a browser finds out in `PushManager.subscribe()`; the shell must not. */
+export function usableApplicationServerKey(b64: string): boolean {
+	let bytes: Uint8Array;
+
+	try {
+		bytes = decodeApplicationServerKey(b64.replace(/=+$/, ""));
+	} catch {
+		return false;
+	}
+
+	return bytes.length === 65 && bytes[0] === 0x04;
+}
+
 /** Whether the key an existing browser subscription was created with
  * (`PushSubscription.options.applicationServerKey`) is `wanted`. */
 export function sameApplicationServerKey(
