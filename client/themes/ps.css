@@ -552,10 +552,16 @@ strong,
  * blur; the ink treatment's 0.375rem halo) reaches past its box, and with no
  * padding beside it style.css's anti-Zalgo `overflow: hidden` cut it off at
  * the left (the user, 2026-10-08). The clip stays, 0.75rem out: stacked marks
- * still stop there. (A reaction's burst widens it for a moment, below.) */
+ * still stop there. (A reaction's burst widens it for a moment, below.)
+ * WebKit has no overflow-clip-margin and still cut it at the left (the
+ * user's iPhone, 2026-10-10), so beside the text the box itself reaches
+ * 0.75rem out and gives it back as padding: the text stands where it did
+ * and wraps at the same width. */
 #chat .chat .msg:is([data-type="message"], [data-type="notice"]) .content,
 #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) .content,
 #chat .chat .condensed-summary .content {
+	margin-inline: -0.75rem;
+	padding-inline: 0.75rem;
 	overflow: clip;
 	overflow-clip-margin: 0.75rem;
 }
