@@ -494,8 +494,8 @@ export default defineComponent({
 			off: "a still picture; the sky still follows the time of day",
 			sparse: "moves on every five minutes, and when you come back to the window",
 			"1s": "the birds and the rain move in visible jumps",
-			"24": "smooth and light on the battery; the default",
-			"60": "your screen's own rate: the smoothest, and the most power",
+			"24": "smooth, and lighter on the battery",
+			"60": "your screen's own rate: the smoothest; the default",
 		};
 
 		// The step under the slider while it is being dragged. Applying every

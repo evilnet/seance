@@ -29,10 +29,20 @@
  */
 import {isPhoneLayout} from "../../helpers/device";
 import type {SceneHandle, SceneHostState} from "../../themeScene";
-import {birdsAt, dayBirdsMarkup, skeinsMarkup} from "./birds";
+import {
+	birdsAt,
+	createSkeinFlocks,
+	dayBirdsMarkup,
+	drawSheet,
+	sheetSize,
+	skeinPlans,
+	skeinsMarkup,
+	type FlockSurface,
+} from "./birds";
 import {momentAt, rng, type Moment, type MoonPhase, type Weather} from "./engine";
 import {composerAboveGrass, GLASS_TINT_VARS, glassVars} from "./glass";
-import {createStepper, keepPhase, stepModeFor} from "./stepper";
+import {createFire, FIRE_SIZE} from "./flame";
+import {createStepper, keepPhase, stepModeFor, type StepSvg} from "./stepper";
 import {bodyOpacity, publishedFor, type Published} from "./grounds";
 import {FADE_MARGIN_MS, GATES, layerGates, liveLayers} from "./layers";
 import {levelsAt, paletteAt, WEATHER, type Palette} from "./palette";
@@ -234,19 +244,17 @@ const MOON = `<div class="ps-moon"><svg viewBox="-60 -60 120 120">
 </g>
 </svg></div>`;
 
+// The sun: its bloom, the fire (flame.ts, drawn into the canvas, which ps.css
+// lays over the old filter's region) and the core over it.
 const SUN = `<div class="ps-sun"><div class="ps-rays"></div><svg viewBox="-100 -100 200 200">
 <defs>
 <radialGradient id="ps-s-bloom"><stop offset="0" style="stop-color: var(--ps-sun-bloom)" stop-opacity=".95"/><stop offset=".5" style="stop-color: var(--ps-sun-bloom)" stop-opacity=".25"/><stop offset="1" style="stop-color: var(--ps-sun-bloom)" stop-opacity="0"/></radialGradient>
-<radialGradient id="ps-s-flame"><stop offset="0" style="stop-color: var(--ps-sun-flame)"/><stop offset=".6" style="stop-color: var(--ps-sun-flame)" stop-opacity=".8"/><stop offset="1" style="stop-color: var(--ps-sun-edge)" stop-opacity="0"/></radialGradient>
-<radialGradient id="ps-s-core" cx=".45" cy=".42" r=".62"><stop offset="0" stop-color="#fffef6"/><stop offset=".38" stop-color="#fff3c2"/><stop offset=".78" style="stop-color: var(--ps-sun-mid)"/><stop offset="1" style="stop-color: var(--ps-sun-edge)"/></radialGradient>
-<filter id="ps-s-fire" x="-60%" y="-60%" width="220%" height="220%">
-<feTurbulence type="fractalNoise" baseFrequency="0.034 0.052" numOctaves="3" seed="7" result="n"><animate attributeName="baseFrequency" dur="7s" repeatCount="indefinite" values="0.034 0.052;0.046 0.036;0.03 0.06;0.034 0.052"/></feTurbulence>
-<feDisplacementMap in="SourceGraphic" in2="n" scale="26" xChannelSelector="R" yChannelSelector="G"/>
-<feGaussianBlur stdDeviation="1.2"/>
-</filter>
 </defs>
 <circle r="98" fill="url(#ps-s-bloom)"/>
-<g filter="url(#ps-s-fire)"><circle r="56" fill="url(#ps-s-flame)"/></g>
+</svg><canvas class="ps-fire" width="${FIRE_SIZE}" height="${FIRE_SIZE}"></canvas><svg viewBox="-100 -100 200 200">
+<defs>
+<radialGradient id="ps-s-core" cx=".45" cy=".42" r=".62"><stop offset="0" stop-color="#fffef6"/><stop offset=".38" stop-color="#fff3c2"/><stop offset=".78" style="stop-color: var(--ps-sun-mid)"/><stop offset="1" style="stop-color: var(--ps-sun-edge)"/></radialGradient>
+</defs>
 <circle r="37" fill="url(#ps-s-core)"/>
 </svg></div>`;
 
@@ -544,6 +552,101 @@ function watchComposer(root: HTMLElement, html: HTMLElement): {refind(): void; d
 	};
 }
 
+/** The sun's fire on its canvas; null where there is no 2D context to draw it in. */
+function sunFire(element: Element | null) {
+	const canvas = element as HTMLCanvasElement | null;
+	const ctx = typeof canvas?.getContext === "function" ? canvas.getContext("2d") : null;
+
+	if (!canvas || !ctx) {
+		return null;
+	}
+
+	const image = ctx.createImageData(FIRE_SIZE, FIRE_SIZE);
+	const clock = createFire(
+		{
+			size: FIRE_SIZE,
+			pixels: new Uint32Array(image.data.buffer),
+			commit: () => ctx.putImageData(image, 0, 0),
+		},
+		{
+			frame(fn) {
+				const id = window.requestAnimationFrame(fn);
+				return () => window.cancelAnimationFrame(id);
+			},
+		}
+	);
+	return {element: canvas, clock};
+}
+
+/**
+ * The skeins: each flock's canvas, its backing sized to its box in device px
+ * as it is laid out, its birds drawn by the stepper's clock from a sprite
+ * sheet per kind (a canvas of its own, redrawn only for a new look or size).
+ */
+function skeinFlocks(root: HTMLElement) {
+	const plans = skeinPlans();
+	const surfaces: FlockSurface[] = [];
+	const canvases: HTMLCanvasElement[] = [];
+
+	// Software canvases: a GPU one sent each step's 13–17 copies to the raster
+	// thread, which cost the Android emulator ~9 points of CPU at night; drawn
+	// on the CPU and uploaded once a step they cost what the strips did.
+	for (const canvas of root.querySelectorAll<HTMLCanvasElement>("canvas.ps-flock-birds")) {
+		const ctx =
+			typeof canvas.getContext === "function"
+				? canvas.getContext("2d", {willReadFrequently: true})
+				: null;
+		const plan = plans[Number(canvas.dataset.flock)];
+
+		if (!ctx || !plan) {
+			continue;
+		}
+
+		canvases.push(canvas);
+		surfaces.push({plan, ctx, size: () => ({width: canvas.width, height: canvas.height})});
+	}
+
+	if (!surfaces.length) {
+		return null;
+	}
+
+	const clock = createSkeinFlocks(surfaces, {
+		frame(fn) {
+			const id = window.requestAnimationFrame(fn);
+			return () => window.cancelAnimationFrame(id);
+		},
+		sheet(kind, look, unit) {
+			const sheet = document.createElement("canvas");
+			Object.assign(sheet, sheetSize(unit));
+			const ctx = sheet.getContext("2d", {willReadFrequently: true});
+
+			if (ctx) {
+				drawSheet(ctx, (d) => new Path2D(d), kind, look, unit);
+			}
+
+			return sheet;
+		},
+	});
+
+	// Layout size, not the skein's scale: the compositor scales the far one down.
+	const observer =
+		typeof ResizeObserver === "function"
+			? new ResizeObserver((entries) => {
+					const dpr = window.devicePixelRatio || 1;
+
+					for (const e of entries) {
+						const canvas = e.target as HTMLCanvasElement;
+						canvas.width = Math.round(e.contentRect.width * dpr);
+						canvas.height = Math.round(e.contentRect.height * dpr);
+					}
+
+					clock.redraw();
+			  })
+			: null;
+	canvases.forEach((c) => observer?.observe(c));
+	return {clock, destroy: () => observer?.disconnect()};
+}
+
 export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	const html = document.documentElement;
 	const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -552,6 +655,9 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	const shape = root.querySelector(".ps-m-shape") as SVGGElement;
 	const weatherLayer = root.querySelector(".ps-weather") as HTMLElement;
 	const overcast = root.querySelector(".ps-overcast") as HTMLElement;
+	const fire = sunFire(root.querySelector(".ps-fire"));
+	const skeins = root.querySelector(".ps-skeins");
+	const flocks = skeinFlocks(root);
 	// The weather the layer holds: none until the first tick builds the day's.
 	let built: Weather | null = null;
 	// A fade of the weather's own clouds under way: ends it now (the outgoing out of the page).
@@ -580,9 +686,20 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 				.filter((a): a is CSSAnimation => "animationName" in a),
 		svgs() {
 			const hot = root.classList.contains("ps-hot");
-			return [...root.querySelectorAll("svg")].filter(
+			const svgs: StepSvg[] = [...root.querySelectorAll("svg")].filter(
 				(svg) => !svg.closest(".ps-off") && (hot || !svg.classList.contains("ps-heat-haze"))
 			);
+
+			// The layers gate sets ps-off on .ps-skeins itself (layers.ts GATES).
+			if (flocks && skeins && !skeins.classList.contains("ps-off")) {
+				svgs.push(flocks.clock);
+			}
+
+			if (fire && !fire.element.closest(".ps-off")) {
+				svgs.push(fire.clock);
+			}
+
+			return svgs;
 		},
 		now: () => performance.now(),
 		after(ms, fn) {
@@ -598,6 +715,9 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 			}
 		}
 
+		// The canvas clocks too: one whose layer is out keeps no frame loop of its own.
+		fire?.clock.pauseAnimations();
+		flocks?.clock.pauseAnimations();
 		stepper.refresh();
 	};
 
@@ -672,6 +792,14 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		const m = momentAt(now);
 		const p = paletteAt(m);
 		const vars = sceneVars(m, p);
+		fire?.clock.setColours(p.sunFlame, p.sunEdge);
+		flocks?.clock.setCount(Number(vars["--ps-skein-count"]) || 0);
+		flocks?.clock.setLook({
+			ink: vars["--ps-bird-ink"],
+			wing: vars["--ps-bird-wing"],
+			belly: vars["--ps-bird-belly"],
+			alpha: Number(vars["--ps-bird-alpha"]),
+		});
 
 		// Only the day's weather exists in the page (spec §10): a new day's
 		// replaces yesterday's, built for the layout as it is now, and so do
@@ -845,6 +973,9 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		update,
 		destroy() {
 			stepper.stop();
+			fire?.clock.pauseAnimations();
+			flocks?.clock.pauseAnimations();
+			flocks?.destroy();
 			window.clearTimeout(timer);
 			timer = undefined;
 			gates.stop();

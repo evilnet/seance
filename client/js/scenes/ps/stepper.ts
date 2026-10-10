@@ -142,7 +142,12 @@ export function createStepper(deps: {
 					a.play();
 				}
 			} else if (a.playState === "running") {
+				// pause() only asks: the animation runs on until the next
+				// frame, which a hidden page may never draw. Writing its time
+				// completes the pause at once, where it stands.
+				const t = a.currentTime;
 				a.pause();
+				a.currentTime = t;
 			}
 		}
 

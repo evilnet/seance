@@ -888,6 +888,38 @@ describe("ps scene: mount (scene.ts, on a stand-in page)", function () {
 			});
 		});
 
+		it("at 60 stops the skeins' frame loop when they leave the render tree", function () {
+			withPage((page, clock) => {
+				const skeins = page.root.querySelector(".ps-skeins");
+				const canvas = new FakeElement("canvas.ps-flock-birds");
+				canvas.dataset.flock = "0";
+				// A 2D context the clock never draws into: the canvas has no size.
+				Object.assign(canvas, {getContext: () => ({})});
+				page.root.planted.set(".ps-skeins", skeins);
+				page.root.lists.set(".ps-skeins", () => [skeins]);
+				page.root.lists.set("canvas.ps-flock-birds", () => [canvas]);
+				clock.setSystemTime(new Date(2026, 8, 25, 23, 0)); // a clear night: the skeins fly
+				const scene = mount(page.root as unknown as HTMLElement, {
+					visible: true,
+					attended: true,
+					view: "channel",
+					motion: "60",
+				});
+				expect(skeins.classList.contains("ps-off")).to.equal(false);
+				page.frame(); // the yurt's and the composer's look-ups run; the skeins ask again
+				expect(page.pendingFrames(), "the skeins run").to.equal(1);
+
+				clock.setSystemTime(new Date(2026, 8, 26, 12, 0)); // the next noon, in rain: no birds
+				clock.tick(61000 + 1400 + FADE_MARGIN_MS); // the minute's tick, then the skeins' fade
+				expect(skeins.classList.contains("ps-off"), "out of the render tree").to.equal(
+					true
+				);
+				page.frame();
+				expect(page.pendingFrames(), "no frame loop left").to.equal(0);
+				scene.destroy();
+			});
+		});
+
 		it("starts resting when mounted into a page nobody attends to", function () {
 			withPage((page, clock) => {
 				const svg = page.plantSvg();

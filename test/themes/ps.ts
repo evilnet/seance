@@ -2049,6 +2049,16 @@ describe("the ps theme's stacked message rows (the user's B, 2026-10-06; the tim
 		);
 	});
 
+	it("cuts a reply quote's words alone, with room for their outline, and the room takes no taps", function () {
+		expect(valueOf("#chat .msg-reply-quote", "overflow")).to.equal("visible");
+		expect(valueOf("#chat .msg-reply-arrow", "flex")).to.equal("none");
+		expect(valueOf("#chat .msg-reply-text", "overflow")).to.equal("hidden");
+		expect(valueOf("#chat .msg-reply-text", "text-overflow")).to.equal("ellipsis");
+		expect(valueOf("#chat .msg-reply-text", "margin")).to.equal("-0.75rem");
+		expect(valueOf("#chat .msg-reply-text", "padding")).to.equal("0.75rem");
+		expect(valueOf("#chat .msg-reply-text", "pointer-events")).to.equal("none");
+	});
+
 	it("lays a message out as its time, then the nick, and the text on the next line under the nick", function () {
 		expect(valueOf(ROW, "display")).to.equal("grid");
 		expect(valueOf(ROW, "grid-template-areas")?.replace(/\s+/g, " ")).to.equal(
@@ -2059,7 +2069,11 @@ describe("the ps theme's stacked message rows (the user's B, 2026-10-06; the tim
 		expect(valueOf(`${ROW} .content`, "grid-area")).to.equal("content");
 		// logical, so a right-to-left page has its time at its own start
 		expect(valueOf(ROW, "padding-inline")).to.equal("0.625rem");
-		expect(valueOf(`${ROW} .content`, "padding-inline")).to.equal("0");
+		// the outline's room past the column: overflow-clip-margin, or on
+		// WebKit, which has none, a clip-path as far out
+		expect(valueOf(`${ROW} .content`, "overflow-clip-margin")).to.equal("0.75rem");
+		const webkit = "@supports not (overflow-clip-margin: 0.75rem)";
+		expect(valueOf(`${ROW} .content`, "clip-path", webkit)).to.equal("inset(-0.75rem)");
 	});
 
 	it("lines a mention up with the rows around it: its 5px bar is taken off the row's start", function () {
@@ -2428,8 +2442,10 @@ describe("the ps theme's embers (spec §9)", function () {
 		expect(valueOf(UNCLIP, "overflow-clip-margin", MOTION_OK)).to.equal(
 			`${rise + blur + spread}rem`
 		);
-		const unclipped = rules.filter((r) =>
-			r.decls.some(([p, v]) => /^overflow(-[xy])?$/.test(p) && v === "visible")
+		const unclipped = rules.filter(
+			(r) =>
+				r.decls.some(([p, v]) => /^overflow(-[xy])?$/.test(p) && v === "visible") &&
+				!r.decls.some(([p]) => p === "clip-path")
 		);
 		expect(
 			unclipped.flatMap((r) => r.selectors).filter((s) => /\.content(?![\w-])/.test(s)),
@@ -2518,7 +2534,8 @@ describe("the ps theme's embers (spec §9)", function () {
 		expect(ours.length).to.be.at.least(SPARKS.length);
 
 		for (const r of ours) {
-			expect(r.at, r.selectors.join(", ")).to.equal(MOTION_OK);
+			// (WebKit's clip-path twin sits in an @supports inside it)
+			expect(r.at.startsWith(MOTION_OK), r.selectors.join(", ")).to.equal(true);
 		}
 
 		const reduced = rules.filter((r) => r.at.includes("prefers-reduced-motion: reduce"));
@@ -3403,13 +3420,12 @@ describe("the ps theme's birds (plan 3 task 6, spec §5.4: the user's N2, D1 buz
 	const S = "#theme-scene";
 	/** Every rule of the birds, plain or under a root class. */
 	const BIRD_RULE =
-		/^#theme-scene(\.ps-west)? \.(ps-skeins|ps-bird-defs|ps-flock|ps-skein|ps-skein-sway|ps-bird|ps-daybirds|ps-buzzard|ps-lark|ps-lark-track|ps-lark-bird)\b/;
+		/^#theme-scene(\.ps-west)? \.(ps-skeins|ps-flock|ps-skein|ps-skein-sway|ps-flock-birds|ps-daybirds|ps-buzzard|ps-lark|ps-lark-track|ps-lark-bird)\b/;
 	const own = rules.filter((r) => r.selectors.some((sel) => BIRD_RULE.test(sel)));
 	const FRAMES = [
 		"ps-skein-fly",
 		"ps-skein-west",
 		"ps-skein-sway",
-		"ps-bird-wander",
 		"ps-buzz-drift",
 		"ps-lark-fly",
 		"ps-lark-fl",
@@ -3423,12 +3439,6 @@ describe("the ps theme's birds (plan 3 task 6, spec §5.4: the user's N2, D1 buz
 		expect(valueOf(`${S} .ps-skeins`, "inset")).to.equal("0 0 45%");
 		expect(valueOf(`${S} .ps-skeins`, "opacity")).to.equal("var(--ps-skeins-op, 0)");
 		expect(valueOf(`${S} .ps-skeins`, "transition")).to.equal("opacity 1.4s ease");
-	});
-
-	it("keeps the belly gradient's svg in the page but of no size, never display: none", function () {
-		expect(valueOf(`${S} .ps-bird-defs`, "width")).to.equal("0");
-		expect(valueOf(`${S} .ps-bird-defs`, "height")).to.equal("0");
-		expect(declsOf(`${S} .ps-bird-defs`).filter(([p]) => p === "display")).to.deep.equal([]);
 	});
 
 	it("flies the first --ps-skein-count flocks, a rem box each, across the scene in cqw", function () {
@@ -3480,16 +3490,12 @@ describe("the ps theme's birds (plan 3 task 6, spec §5.4: the user's N2, D1 buz
 		);
 	});
 
-	it("paints the skeins in the moonlit colours scene.ts publishes, the alpha on the whole bird", function () {
-		expect(valueOf(`${S} .ps-bird svg`, "opacity")).to.equal("var(--ps-bird-alpha, 0.8)");
-		expect(valueOf(`${S} .ps-bird svg`, "overflow")).to.equal("visible");
-		expect(valueOf(`${S} .ps-bird .ps-b-far`, "fill")).to.equal("var(--ps-bird-wing)");
-		expect(valueOf(`${S} .ps-bird .ps-b-far`, "opacity")).to.equal("0.55");
-		expect(valueOf(`${S} .ps-bird .ps-b-near`, "fill")).to.equal("var(--ps-bird-wing)");
-		expect(valueOf(`${S} .ps-bird .ps-b-body`, "fill")).to.equal('url("#ps-b-belly")');
-		expect(valueOf(`${S} .ps-bird`, "animation")).to.equal(
-			"ps-bird-wander var(--wd) ease-in-out var(--wdl) infinite alternate"
-		);
+	it("draws each flock's birds on one canvas: no per-bird rule, layer or animation", function () {
+		expect(valueOf(`${S} .ps-flock-birds`, "position")).to.equal("absolute");
+		expect(
+			own.flatMap((r) => r.selectors).filter((sel) => /ps-bird\b|ps-wings/.test(sel))
+		).to.deep.equal([]);
+		expect(frames("ps-bird-wander")).to.equal("");
 	});
 
 	it("inks the day birds from --ps-db-ink, each shown by its own published switch", function () {

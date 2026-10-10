@@ -541,18 +541,6 @@ strong,
 	border: 0;
 }
 
-/* The text's outline (its rim, its second ring and the shadow's 0.625rem
- * blur; the ink treatment's 0.375rem halo) reaches past its box, and with no
- * padding beside it style.css's anti-Zalgo `overflow: hidden` cut it off at
- * the left (the user, 2026-10-08). The clip stays, 0.75rem out: stacked marks
- * still stop there. (A reaction's burst widens it for a moment, below.) */
-#chat .chat .msg:is([data-type="message"], [data-type="notice"]) .content,
-#chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) .content,
-#chat .chat .condensed-summary .content {
-	overflow: clip;
-	overflow-clip-margin: 0.75rem;
-}
-
 /* A line inside a run: one row, its time in the column beside the text,
  * kept in place but not drawn until the line is pointed at or opened. */
 #chat .chat .msg.previous-source:is([data-type="message"], [data-type="notice"]) {
@@ -654,6 +642,31 @@ strong,
 #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) .content,
 #chat .chat .condensed-summary .content {
 	grid-area: content;
+}
+
+/* The text's outline (its rim, its second ring and the shadow's 0.625rem
+ * blur; the ink treatment's 0.375rem halo) reaches past its box, and with no
+ * padding beside it style.css's anti-Zalgo `overflow: hidden` cut it off at
+ * the left (the user, 2026-10-08). The clip stays, 0.75rem out: stacked marks
+ * still stop there. (A reaction's burst widens it for a moment, below.)
+ * WebKit has no overflow-clip-margin and still cut it at the left and above a
+ * tall glyph, an emoji (the user's iPhone, 2026-10-10), so there the clip is a
+ * clip-path 0.75rem out instead: unlike a box made bigger, it takes no taps
+ * off the nick above or the row before. */
+#chat .chat .msg:is([data-type="message"], [data-type="notice"]) .content,
+#chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) .content,
+#chat .chat .condensed-summary .content {
+	overflow: clip;
+	overflow-clip-margin: 0.75rem;
+}
+
+@supports not (overflow-clip-margin: 0.75rem) {
+	#chat .chat .msg:is([data-type="message"], [data-type="notice"]) .content,
+	#chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) .content,
+	#chat .chat .condensed-summary .content {
+		overflow: visible;
+		clip-path: inset(-0.75rem);
+	}
 }
 
 /* A condensed group's summary has no time or icon of its own: its text
@@ -782,8 +795,8 @@ strong,
  * is `overflow: clip` with an `overflow-clip-margin` of the sparks' rise and
  * glow: the trade-off is that for those ~2.2 s a message's marks can spill
  * that far (3.25rem) and no further, where `visible` would lift the clip
- * altogether. A browser without overflow-clip-margin cuts the sparks at the
- * column's edge instead, which only shortens their rise. .content is always
+ * altogether. WebKit, which has no overflow-clip-margin, takes the same
+ * margin as a clip-path, as the column always does there. .content is always
  * a flex item or inline, so clip changes no layout: it is only not a scroll
  * container, which nothing scrolls.
  *
@@ -901,6 +914,12 @@ strong,
 	#chat .chat-view[data-type="channel"] .content:has(.reaction-enter-active, .reactions-enter-active) {
 		overflow: clip;
 		overflow-clip-margin: 3.25rem;
+	}
+
+	@supports not (overflow-clip-margin: 3.25rem) {
+		#chat .chat-view[data-type="channel"] .content:has(.reaction-enter-active, .reactions-enter-active) {
+			clip-path: inset(-3.25rem);
+		}
 	}
 }
 /* stylelint-enable max-line-length */
@@ -1057,6 +1076,17 @@ strong,
 	width: 100%;
 	height: 100%;
 	overflow: visible;
+}
+
+/* The sun's fire (flame.ts): the canvas covers the region the fire's SVG
+ * filter covered, ±123.2 of the sun's ±100 units, and the browser scales its
+ * 160 pixels up smoothly. */
+#theme-scene .ps-fire {
+	position: absolute;
+	left: -11.6%;
+	top: -11.6%;
+	width: 123.2%;
+	height: 123.2%;
 }
 
 /* The sun's slow rays: a turning conic, masked to a ring. */
@@ -1434,24 +1464,15 @@ strong,
  * weather), the user's pick from the approved birds mockup (2026-09-25): the
  * migrating skeins at night and around sunset, catching a little of the
  * moon's light (N2), and by day a buzzard circling and skylarks rising. Every
- * bird is an <svg> of its own whose wingbeats are SMIL (scene.ts pauses them
- * with the rest). A flock's box and every bird are sized in rem, the birds
- * placed in % of their flock's box, so a skein keeps its shape at any window
- * size; what crosses the scene travels in cqw. The colours are published
+ * flock's birds are drawn on a canvas of its own (birds.ts; the stepper
+ * moves them with the rest). A flock's box is sized in rem and its canvas in
+ * % of it, so a skein keeps its shape at any window size; what crosses the
+ * scene travels in cqw. The colours are published
  * (scene.ts `sceneVars`, from birds.ts `birdsAt`); nothing is mixed here. */
 #theme-scene .ps-skeins {
 	inset: 0 0 45%;
 	opacity: var(--ps-skeins-op, 0);
 	transition: opacity 1.4s ease;
-}
-
-/* The belly gradient's svg: in the page, so #ps-b-belly resolves and its
- * stops read the published inks, and of no size. */
-#theme-scene .ps-bird-defs {
-	position: absolute;
-	width: 0;
-	height: 0;
-	overflow: hidden;
 }
 
 /* The first --ps-skein-count flocks fly (--fi is a flock's number); the
@@ -1515,34 +1536,14 @@ strong,
 	to { transform: translateY(0.375rem) rotate(1.2deg); }
 }
 
-/* And each bird drifts about its place in the line. */
-#theme-scene .ps-bird {
+/* Each flock's birds are one canvas (birds.ts createSkeinFlocks): every
+ * bird drifting about its place in the line and beating its own wings is
+ * drawn there each step from a sprite sheet of its kind's poses, in the
+ * hour's colours and alpha, so a flock is one layer and nothing in it is
+ * restyled or repainted by the page. Its box is the one its birds reach. */
+#theme-scene .ps-flock-birds {
 	position: absolute;
-	animation: ps-bird-wander var(--wd) ease-in-out var(--wdl) infinite alternate;
 }
-
-@keyframes ps-bird-wander {
-	to { transform: translate(var(--wx), var(--wy)); }
-}
-
-/* The fills are opaque and the bird's alpha is on the whole drawing, so a
- * wing over the body never darkens twice; the body is two-tone, the back in
- * the ink and the belly catching the moon. */
-#theme-scene .ps-bird svg {
-	display: block;
-	width: 100%;
-	height: 100%;
-	overflow: visible;
-	opacity: var(--ps-bird-alpha, 0.8);
-}
-
-#theme-scene .ps-bird .ps-b-far {
-	fill: var(--ps-bird-wing);
-	opacity: 0.55;
-}
-
-#theme-scene .ps-bird .ps-b-near { fill: var(--ps-bird-wing); }
-#theme-scene .ps-bird .ps-b-body { fill: url("#ps-b-belly"); }
 
 /* The steppe's own birds, by day: there or not, each by its own switch, and
  * the transition is the fade. */
@@ -2270,6 +2271,38 @@ body {
  * buttons standing on the plains: they take the layer too. */
 #chat .chat button {
 	text-shadow: inherit;
+}
+
+/* The reply quote cut its line with an ellipsis, which takes a clip, and the
+ * clip took the outline off its arrow (an emoji on iOS), its nick and the
+ * top and bottom of its words (the user's iPhone, 2026-10-10). Only the words
+ * are cut now: the arrow and the nick stand outside the clip, and the words'
+ * box reaches 0.75rem out on every side and gives it back as padding, so they
+ * stand where they did. It takes no pointer, so a press past the quote's own
+ * box still lands on what is there and one inside it on the quote. */
+#chat .msg-reply-quote {
+	display: flex;
+	align-items: baseline;
+	overflow: visible;
+}
+
+#chat .msg-reply-arrow,
+#chat .msg-reply-nick {
+	flex: none;
+}
+
+#chat .msg-reply-nick {
+	margin-inline-end: 0.3em;
+}
+
+#chat .msg-reply-text {
+	min-width: 0;
+	margin: -0.75rem;
+	padding: 0.75rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	pointer-events: none;
 }
 
 /* A spoiler hides its text by making it transparent; a halo or shadow would draw it back. */

@@ -41,6 +41,9 @@ export function createSettingsStore(store: Store<State>) {
 	};
 }
 
+/** Set once the ps theme's old default frame rate has been let go (loadFromLocalStorage). */
+export const PS_DEFAULT_60_KEY = "thelounge.state.psDefault60";
+
 function loadFromLocalStorage() {
 	let storedSettings: Record<string, any> = {};
 
@@ -57,6 +60,18 @@ function loadFromLocalStorage() {
 	// Older The Lounge versions converted highlights to an array, turn it back into a string
 	if (storedSettings.highlights !== null && typeof storedSettings.highlights === "object") {
 		storedSettings.highlights = storedSettings.highlights.join(", ");
+	}
+
+	// The ps theme drew at 24 frames a second by default until 2026-10-08, and
+	// the settings object is stored whole once any setting changes, so a stored
+	// "24" is almost always that old default: it gives way to the new one, once.
+	// A "24" chosen after this has run stays.
+	if (storage.get(PS_DEFAULT_60_KEY) !== "1") {
+		if (storedSettings.psAnimation === "24") {
+			delete storedSettings.psAnimation;
+		}
+
+		storage.set(PS_DEFAULT_60_KEY, "1");
 	}
 
 	return storedSettings;

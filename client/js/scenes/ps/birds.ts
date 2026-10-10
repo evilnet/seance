@@ -187,53 +187,461 @@ const BEAT: ReadonlyArray<readonly [Pose, number]> = [
 ];
 const SPLINE = ".42 0 .58 1";
 
-/**
- * One bird: `flaps` wingbeats of `period` seconds, then a glide of `glide`
- * beats' length (cranes glide between bursts), from `phase` of the way
- * through. Its own `<svg>`, so its SMIL has its own timeline, which the
- * scene's pause holds (scene.ts `motion`).
- */
-function bird(kind: Kind, period: number, flaps: number, glide: number, phase: number): string {
-	const keys: number[] = [];
-	const poses: Pose[] = [];
+/** One bird's wingbeat: `flaps` beats of `period` seconds, then a glide of `glide` beats' length, from `phase` of the way through. */
+export interface Wingbeat {
+	period: number;
+	flaps: number;
+	glide: number;
+	phase: number;
+}
 
-	for (let k = 0; k < flaps; k++) {
+/**
+ * The poses a bird passes through, in beats from the start of its cycle: the
+ * stroke `flaps` times, then (cranes glide between bursts) into a glide,
+ * held, and back up — the mockup's SMIL keyframes, eased with SPLINE.
+ */
+function wingKeys(w: Wingbeat): Array<[number, Pose]> {
+	const keys: Array<[number, Pose]> = [];
+
+	for (let k = 0; k < w.flaps; k++) {
 		for (const [pose, at] of BEAT) {
-			keys.push(k + at);
-			poses.push(pose);
+			keys.push([k + at, pose]);
 		}
 	}
 
-	if (glide) {
-		keys.push(flaps + 0.35, flaps + glide - 0.3);
-		poses.push("glide", "glide");
+	if (w.glide) {
+		keys.push([w.flaps + 0.35, "glide"], [w.flaps + w.glide - 0.3, "glide"]);
 	}
 
-	keys.push(flaps + glide);
-	poses.push("up");
-	const units = flaps + glide;
-	const dur = (units * period).toFixed(2);
-	const timing =
-		`dur="${dur}s" begin="${(-phase * units * period).toFixed(
-			2
-		)}s" repeatCount="indefinite" calcMode="spline" ` +
-		`keyTimes="${keys.map((k) => (k / units).toFixed(4)).join(";")}" keySplines="${Array(
-			keys.length - 1
-		)
-			.fill(SPLINE)
-			.join(";")}"`;
-	const wing = `<animate attributeName="d" ${timing} values="${poses
-		.map((q) => POSE[q])
-		.join(";")}"/>`;
-	return (
-		`<svg viewBox="0 0 32 20" aria-hidden="true"><g>` +
-		`<animateTransform attributeName="transform" type="translate" ${timing} values="${poses
-			.map((q) => LIFT[q])
-			.join(";")}"/>` +
-		`<path class="ps-b-far" transform="translate(1.3 -.9)" d="${POSE.up}">${wing}</path>` +
-		`<path class="ps-b-body" d="${BODY[kind]}"/>` +
-		`<path class="ps-b-near" d="${POSE.up}">${wing}</path></g></svg>`
+	keys.push([w.flaps + w.glide, "up"]);
+	return keys;
+}
+
+// SPLINE as CSS's cubic-bezier: x(t) solved for t by bisection, then y(t).
+function eased(x: number): number {
+	const [x1, y1, x2, y2] = SPLINE.split(" ").map(Number);
+	const at = (a: number, b: number, t: number) =>
+		3 * a * t * (1 - t) ** 2 + 3 * b * t * t * (1 - t) + t ** 3;
+	let lo = 0;
+	let hi = 1;
+
+	for (let i = 0; i < 30; i++) {
+		const mid = (lo + hi) / 2;
+
+		if (at(x1, x2, mid) < x) {
+			lo = mid;
+		} else {
+			hi = mid;
+		}
+	}
+
+	return at(y1, y2, (lo + hi) / 2);
+}
+
+// The poses share one shape of path (M, three Qs, Z), so a pose between two
+// is their numbers mixed, as SMIL interpolates a path's d.
+function mixPath(a: string, b: string, u: number): string {
+	const nb = b.match(/-?[\d.]+/g)!.map(Number);
+	let i = 0;
+	return a.replace(/-?[\d.]+/g, (v) =>
+		String(Number((Number(v) + (nb[i++] - Number(v)) * u).toFixed(3)))
 	);
+}
+
+function poseBetween(from: Pose, to: Pose, p: number) {
+	const u = eased(p);
+	const [fy, ty] = [from, to].map((q) => Number(LIFT[q].split(" ")[1]));
+	return {d: mixPath(POSE[from], POSE[to], u), lift: fy + (ty - fy) * u};
+}
+
+/** Frames of the wing strip: a beat; the turn from the last flex into a glide; the glide; the climb back up. */
+const BEAT_FRAMES = 16;
+const INTO_GLIDE = 8;
+const OUT_OF_GLIDE = 5;
+export const WING_FRAMES = BEAT_FRAMES + INTO_GLIDE + 1 + OUT_OF_GLIDE;
+const GLIDE_FRAME = BEAT_FRAMES + INTO_GLIDE;
+
+/** The strip's frames, in order: where the wing is and how far the stroke lifts the body. */
+export const WING_STRIP: ReadonlyArray<{d: string; lift: number}> = (() => {
+	const frames: Array<{d: string; lift: number}> = [];
+	const beat = [...BEAT, ["up", 1] as const];
+
+	for (let i = 0; i < BEAT_FRAMES; i++) {
+		const x = i / BEAT_FRAMES;
+		const k = beat.findIndex(([, at], j) => x >= at && x < beat[j + 1][1]);
+		const [from, a] = beat[k];
+		const [to, b] = beat[k + 1];
+		frames.push(poseBetween(from, to, (x - a) / (b - a)));
+	}
+
+	for (let i = 0; i < INTO_GLIDE; i++) {
+		frames.push(poseBetween("flex", "glide", i / INTO_GLIDE));
+	}
+
+	frames.push(poseBetween("glide", "glide", 0));
+
+	for (let i = 0; i < OUT_OF_GLIDE; i++) {
+		frames.push(poseBetween("glide", "up", i / OUT_OF_GLIDE));
+	}
+
+	return frames;
+})();
+
+/**
+ * The strip frame a bird shows at `t` seconds of the scene's clock: where
+ * its cycle (begun `phase` of the way through, as the SMIL's negative begin
+ * had it) puts it, to the nearest frame.
+ */
+export function wingFrame(w: Wingbeat, t: number): number {
+	const units = w.flaps + w.glide;
+	const dur = Number((units * w.period).toFixed(2));
+	const begin = -Number((w.phase * units * w.period).toFixed(2));
+	const u = (((((t - begin) / dur) % 1) + 1) % 1) * units;
+	const lastFlex = w.flaps - 0.2;
+
+	if (w.glide && u >= lastFlex) {
+		if (u < w.flaps + 0.35) {
+			const k = Math.round(((u - lastFlex) / 0.55) * INTO_GLIDE);
+			return k >= INTO_GLIDE ? GLIDE_FRAME : BEAT_FRAMES + k;
+		}
+
+		if (u < units - 0.3) {
+			return GLIDE_FRAME;
+		}
+
+		const k = Math.round(((u - (units - 0.3)) / 0.3) * OUT_OF_GLIDE);
+		return k >= OUT_OF_GLIDE ? 0 : GLIDE_FRAME + 1 + k;
+	}
+
+	return Math.round((u - Math.floor(u)) * BEAT_FRAMES) % BEAT_FRAMES;
+}
+
+/** A frame's width in the sprite sheet, in the bird's units: its 32 and a gutter, so a frame never bleeds into the next. */
+export const WING_CELL = 34;
+
+/** The bird's window in its units: a frame shows this much of its cell. */
+const FRAME_W = 32;
+const FRAME_H = 20;
+
+type Segment2 = readonly [string, ...number[]];
+
+// A path's commands (M, L, Q, Z, absolute) as numbers.
+function commands(d: string): Segment2[] {
+	return [...d.matchAll(/([MLQZ])([^MLQZ]*)/g)].map(
+		(m) => [m[1], ...(m[2].match(/-?[\d.]+/g) ?? []).map(Number)] as const
+	);
+}
+
+/**
+ * The vertical extent of a path's own geometry (its bounding box, as SVG's
+ * objectBoundingBox has it, not its control points'): where the body's
+ * gradient runs from and to.
+ */
+export function pathBoundsY(d: string): [number, number] {
+	let lo = Infinity;
+	let hi = -Infinity;
+	let y0 = 0;
+
+	const see = (y: number) => {
+		lo = Math.min(lo, y);
+		hi = Math.max(hi, y);
+	};
+
+	for (const [c, ...v] of commands(d)) {
+		if (c === "M" || c === "L") {
+			y0 = v[1];
+			see(y0);
+		} else if (c === "Q") {
+			const [, y1, , y2] = v;
+			const den = y0 - 2 * y1 + y2;
+			const t = den === 0 ? -1 : (y0 - y1) / den;
+
+			if (t > 0 && t < 1) {
+				see((1 - t) ** 2 * y0 + 2 * (1 - t) * t * y1 + t * t * y2);
+			}
+
+			see(y2);
+			y0 = y2;
+		}
+	}
+
+	return [lo, hi];
+}
+
+/** What a 2D context needs to draw a sprite sheet: the subset of CanvasRenderingContext2D used. */
+export interface SheetContext {
+	setTransform(a: number, b: number, c: number, d: number, e: number, f: number): void;
+	createLinearGradient(x0: number, y0: number, x1: number, y1: number): CanvasGradient;
+	fill(path: Path2D): void;
+	fillStyle: string | CanvasGradient | CanvasPattern;
+	globalAlpha: number;
+}
+
+/**
+ * Every pose of one kind of bird side by side, in the hour's colours, `unit`
+ * device px to the bird's unit: the far wing in the wing colour at 0.55 and a
+ * little up and behind, the body two-tone (the back in the ink, the belly
+ * catching the light from below), the near wing over it — the mockup's bird,
+ * drawn once per colour instead of morphed. The sheet is opaque; the bird's
+ * alpha is applied as it is drawn, so a wing over the body never darkens twice.
+ */
+export function drawSheet(
+	ctx: SheetContext,
+	path: (d: string) => Path2D,
+	kind: Kind,
+	look: {ink: string; wing: string; belly: string},
+	unit: number
+): void {
+	const body = path(BODY[kind]);
+	const [top, bottom] = pathBoundsY(BODY[kind]);
+
+	WING_STRIP.forEach((f, i) => {
+		const x = i * WING_CELL * unit;
+		const wing = path(f.d);
+		ctx.setTransform(unit, 0, 0, unit, x + 1.3 * unit, (f.lift - 0.9) * unit);
+		ctx.globalAlpha = 0.55;
+		ctx.fillStyle = look.wing;
+		ctx.fill(wing);
+		ctx.setTransform(unit, 0, 0, unit, x, f.lift * unit);
+		ctx.globalAlpha = 1;
+		const g = ctx.createLinearGradient(0, top, 0, bottom);
+		g.addColorStop(0.3, look.ink);
+		g.addColorStop(1, look.belly);
+		ctx.fillStyle = g;
+		ctx.fill(body);
+		ctx.fillStyle = look.wing;
+		ctx.fill(wing);
+	});
+
+	ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+/** The sheet's size in device px for `unit` device px to the bird's unit. */
+export const sheetSize = (unit: number) => ({
+	width: Math.ceil(WING_FRAMES * WING_CELL * unit),
+	height: Math.ceil(FRAME_H * unit),
+});
+
+/** One bird of a skein, in the mockup's px of its flock's 200 × 90 box. */
+export interface SkeinBird {
+	/** Its window: top-left, width and height. */
+	x: number;
+	y: number;
+	w: number;
+	h: number;
+	/** How far it drifts about its place (px), over `wd` seconds and back, from `wdl` seconds in. */
+	wx: number;
+	wy: number;
+	wd: number;
+	wdl: number;
+	beat: Wingbeat;
+}
+
+export interface SkeinPlan {
+	kind: Kind;
+	birds: SkeinBird[];
+	/** The flock's canvas: the box its birds can reach, in the mockup's px of the flock's box. */
+	box: {x: number; y: number; w: number; h: number};
+	/** The sway's period and delay, as CSS times. */
+	sd: string;
+	sdl: string;
+}
+
+/**
+ * A bird's drift at `t` seconds: CSS's `ease-in-out alternate` from its place
+ * to (wx, wy) and back, as the old per-bird animation had it.
+ */
+export function driftAt(b: SkeinBird, t: number): [number, number] {
+	const lt = (t - b.wdl) / b.wd;
+	const k = Math.floor(lt);
+	const p = lt - k;
+	const e = eased(k % 2 === 0 ? p : 1 - p);
+	return [b.wx * e, b.wy * e];
+}
+
+/** What a flock's 2D context needs: the subset of CanvasRenderingContext2D used each step. */
+export interface FlockContext {
+	clearRect(x: number, y: number, w: number, h: number): void;
+	drawImage(
+		image: CanvasImageSource,
+		sx: number,
+		sy: number,
+		sw: number,
+		sh: number,
+		dx: number,
+		dy: number,
+		dw: number,
+		dh: number
+	): void;
+	globalAlpha: number;
+}
+
+/**
+ * One flock at `t` seconds: its canvas cleared, then each bird's frame
+ * (`wingFrame`) copied from the sheet to its place, drifted, `scale` device
+ * px to the mockup's px.
+ */
+export function drawFlock(
+	ctx: FlockContext,
+	size: {width: number; height: number},
+	plan: SkeinPlan,
+	sheet: {image: CanvasImageSource; unit: number},
+	t: number,
+	scale: number,
+	alpha: number
+): void {
+	ctx.clearRect(0, 0, size.width, size.height);
+	ctx.globalAlpha = alpha;
+	const u = sheet.unit;
+
+	for (const b of plan.birds) {
+		const f = wingFrame(b.beat, t);
+		const [dx, dy] = driftAt(b, t);
+		ctx.drawImage(
+			sheet.image,
+			f * WING_CELL * u,
+			0,
+			FRAME_W * u,
+			FRAME_H * u,
+			(b.x + dx - plan.box.x) * scale,
+			(b.y + dy - plan.box.y) * scale,
+			b.w * scale,
+			b.h * scale
+		);
+	}
+}
+
+/** A flock's canvas and how big its backing is, read from its attributes (no layout). */
+export interface FlockSurface {
+	plan: SkeinPlan;
+	ctx: FlockContext;
+	size(): {width: number; height: number};
+}
+
+export interface SkeinLook {
+	ink: string;
+	wing: string;
+	belly: string;
+	alpha: number;
+}
+
+/**
+ * The skeins as one of the stepper's clocks (stepped, held and handed to
+ * native playback like the SMIL it replaces): a time set redraws each flock
+ * that flies tonight (the first `count`) on its own canvas — one layer a
+ * flock, nothing for the page to restyle or repaint. The sheets are drawn by
+ * `deps.sheet` for a kind, a look and a unit, again only when one changes.
+ */
+/** How often a free-running skein clock repaints its canvases: the old scene rate. */
+export const BIRDS_FPS = 24;
+const PAINT_STEP = 1 / BIRDS_FPS;
+// Half a 60 Hz frame: a paint due between two frames is taken at the nearer one.
+const PAINT_SLACK = 1 / 120;
+
+export function createSkeinFlocks(
+	flocks: FlockSurface[],
+	deps: {
+		frame(fn: (ms: number) => void): () => void;
+		sheet(kind: Kind, look: SkeinLook, unit: number): CanvasImageSource;
+	}
+) {
+	let time = 0;
+	let count = flocks.length;
+	let look: SkeinLook | null = null;
+	let cancel: (() => void) | null = null;
+	let base: number | null = null;
+	const sheets = new Map<string, {key: string; image: CanvasImageSource; unit: number}>();
+	// The widest bird, in the mockup's px: the sheet is drawn for it, so it is only ever scaled down.
+	const widest = Math.max(...flocks.flatMap((f) => f.plan.birds.map((b) => b.w)));
+
+	const sheetFor = (kind: Kind, scale: number) => {
+		const unit = Number(((widest * scale) / FRAME_W).toFixed(3));
+		const key = `${look!.ink}${look!.wing}${look!.belly}${unit}`;
+		const had = sheets.get(kind);
+
+		if (had?.key === key) {
+			return had;
+		}
+
+		const made = {key, image: deps.sheet(kind, look!, unit), unit};
+		sheets.set(kind, made);
+		return made;
+	};
+
+	const paint = () => {
+		if (!look) {
+			return;
+		}
+
+		flocks.forEach((f, i) => {
+			const size = f.size();
+
+			if (i >= count || !size.width || !size.height) {
+				return;
+			}
+
+			const scale = size.width / f.plan.box.w;
+			drawFlock(f.ctx, size, f.plan, sheetFor(f.plan.kind, scale), time, scale, look!.alpha);
+		});
+	};
+
+	// Free-running (the 60 setting), the clock follows every frame but paints
+	// at most BIRDS_FPS times a second: the wingbeat is a handful of sheet
+	// frames and the drift a few px, and a canvas upload a frame was the
+	// birds' whole cost; the flight and the sway stay CSS at the screen's rate.
+	let due = 0;
+
+	const tick = (ms: number) => {
+		if (base === null) {
+			base = ms / 1000 - time;
+		}
+
+		time = ms / 1000 - base;
+
+		if (time + PAINT_SLACK >= due) {
+			paint();
+			due = due + PAINT_STEP > time ? due + PAINT_STEP : time + PAINT_STEP;
+		}
+
+		cancel = deps.frame(tick);
+	};
+
+	return {
+		animationsPaused: () => cancel === null,
+		pauseAnimations() {
+			cancel?.();
+			cancel = null;
+		},
+		unpauseAnimations() {
+			if (cancel) {
+				return;
+			}
+
+			base = null;
+			due = 0;
+			cancel = deps.frame(tick);
+		},
+		getCurrentTime: () => time,
+		setCurrentTime(seconds: number) {
+			time = seconds;
+			paint();
+		},
+		/** The hour's colours and alpha; redraws at once when they change. */
+		setLook(next: SkeinLook) {
+			if (look && JSON.stringify(look) === JSON.stringify(next)) {
+				return;
+			}
+
+			look = next;
+			paint();
+		},
+		/** How many of the flocks fly (the published skein count). */
+		setCount(flying: number) {
+			count = flying;
+		},
+		/** A canvas was resized: draw again where the clock stands. */
+		redraw: paint,
+	};
 }
 
 export interface Skein {
@@ -265,80 +673,95 @@ const FLOCK_W = 200;
 const FLOCK_H = 90;
 
 /**
- * The skeins' two-tone body: the back in shadow, the belly catching light
- * from below. The stops read the scene's custom properties, so the defs live
- * inside the scene; an svg of no size rather than `display: none`, which
- * stops a gradient painting.
- */
-const DEFS =
-	`<svg class="ps-bird-defs" width="0" height="0" aria-hidden="true" focusable="false"><defs>` +
-	`<linearGradient id="ps-b-belly" x1="0" y1="0" x2="0" y2="1">` +
-	`<stop offset=".3" style="stop-color: var(--ps-bird-ink)"/>` +
-	`<stop offset="1" style="stop-color: var(--ps-bird-belly)"/>` +
-	`</linearGradient></defs></svg>`;
-
-/**
- * The skeins' layer: the belly gradient, then the three flocks, each
- * numbered (`--fi`, which ps.css holds against the published count), at its
- * height, on its own crossing; inside it the skein's scale and paleness, its
- * sway, and its birds, each drifting about its place (`--wx`/`--wy`, rem) and
- * beating its own wings. Seeded (the mockup drew the skeins from its
+ * The three skeins' birds: each at its place in the line, drifting about it
+ * and beating its own wings. Seeded (the mockup drew the skeins from its
  * fireflies' stream, which cannot be reproduced; they have their own here).
  */
-export function skeinsMarkup(): string {
+export function skeinPlans(): SkeinPlan[] {
 	const r = rng(1105);
 
-	return (
-		DEFS +
-		SKEINS.map((f, fi) => {
-			let b = "";
-			const ranks = [0, 0];
+	return SKEINS.map((f) => {
+		const birds: SkeinBird[] = [];
+		const ranks = [0, 0];
 
-			for (let i = 0; i < f.n; i++) {
-				let x: number;
-				let y: number;
+		for (let i = 0; i < f.n; i++) {
+			let x: number;
+			let y: number;
 
-				if (f.shape === "v") {
-					const arm = i === 0 ? -1 : r() < 0.42 ? 0 : 1;
-					const rank = arm < 0 ? 0 : ++ranks[arm];
-					x = 176 - rank * (13 + r() * 3.5);
-					y = 42 + (arm ? 1 : -1) * rank * (5.8 + r() * 1.8) + (r() - 0.5) * 2.4;
+			if (f.shape === "v") {
+				const arm = i === 0 ? -1 : r() < 0.42 ? 0 : 1;
+				const rank = arm < 0 ? 0 : ++ranks[arm];
+				x = 176 - rank * (13 + r() * 3.5);
+				y = 42 + (arm ? 1 : -1) * rank * (5.8 + r() * 1.8) + (r() - 0.5) * 2.4;
 
-					if (i === f.n - 1) {
-						x -= 12;
-					}
-				} else {
-					x = 176 - i * (16 + r() * 5);
-					y = 26 + i * (5 + r() * 2.2) + Math.sin(i * 0.9) * 3;
+				if (i === f.n - 1) {
+					x -= 12;
 				}
-
-				const k = 0.94 + r() * 0.12;
-				const cranes = f.kind === "crane";
-				const flaps = cranes ? 3 + Math.floor(r() * 2) : 6 + Math.floor(r() * 4);
-				const glide = cranes ? 1 + r() * 0.7 : r() < 0.3 ? 0.7 : 0;
-				const wx = rem(Number((r() * 5 - 2.5).toFixed(1)));
-				const wy = rem(Number((r() * 4 - 2).toFixed(1)));
-				const wd = (4 + r() * 5).toFixed(1);
-				const wdl = (-r() * 9).toFixed(1);
-				const period = f.period * (0.92 + r() * 0.16);
-				b +=
-					`<span class="ps-bird" style="left:${n((x / FLOCK_W) * 100)}%;top:${n(
-						(y / FLOCK_H) * 100
-					)}%;width:${rem(17 * k)};height:${rem(10.6 * k)};` +
-					`--wx:${wx};--wy:${wy};--wd:${wd}s;--wdl:${wdl}s">` +
-					bird(f.kind, period, flaps, glide, r()) +
-					`</span>`;
+			} else {
+				x = 176 - i * (16 + r() * 5);
+				y = 26 + i * (5 + r() * 2.2) + Math.sin(i * 0.9) * 3;
 			}
 
-			const sd = (11 + r() * 6).toFixed(1);
-			const sdl = (-r() * 12).toFixed(1);
+			const k = 0.94 + r() * 0.12;
+			const cranes = f.kind === "crane";
+			const flaps = cranes ? 3 + Math.floor(r() * 2) : 6 + Math.floor(r() * 4);
+			const glide = cranes ? 1 + r() * 0.7 : r() < 0.3 ? 0.7 : 0;
+			const wx = Number((r() * 5 - 2.5).toFixed(1));
+			const wy = Number((r() * 4 - 2).toFixed(1));
+			const wd = Number((4 + r() * 5).toFixed(1));
+			const wdl = Number((-r() * 9).toFixed(1));
+			const period = f.period * (0.92 + r() * 0.16);
+			birds.push({
+				x: Number(x.toFixed(2)),
+				y: Number(y.toFixed(2)),
+				w: 17 * k,
+				h: 10.6 * k,
+				wx,
+				wy,
+				wd,
+				wdl,
+				beat: {period, flaps, glide, phase: r()},
+			});
+		}
+
+		// The box every bird can reach, drift and all, a pixel to spare.
+		const x0 = Math.floor(Math.min(...birds.map((b) => b.x + Math.min(0, b.wx))) - 1);
+		const y0 = Math.floor(Math.min(...birds.map((b) => b.y + Math.min(0, b.wy))) - 1);
+		const x1 = Math.ceil(Math.max(...birds.map((b) => b.x + b.w + Math.max(0, b.wx))) + 1);
+		const y1 = Math.ceil(Math.max(...birds.map((b) => b.y + b.h + Math.max(0, b.wy))) + 1);
+		const sd = (11 + r() * 6).toFixed(1);
+		const sdl = (-r() * 12).toFixed(1);
+		return {kind: f.kind, birds, box: {x: x0, y: y0, w: x1 - x0, h: y1 - y0}, sd, sdl};
+	});
+}
+
+/**
+ * The skeins' layer: the three flocks, each numbered (`--fi`, which ps.css
+ * holds against the published count), at its height, on its own crossing;
+ * inside it the skein's scale and paleness, its sway, and one canvas holding
+ * its birds (`createSkeinFlocks` draws them), sized to the box they reach in
+ * % of the flock's.
+ */
+export function skeinsMarkup(): string {
+	const pc = (v: number, of: number) => `${n((v / of) * 100)}%`;
+	return skeinPlans()
+		.map((p, fi) => {
+			const f = SKEINS[fi];
+			const {x, y, w, h} = p.box;
 			return (
 				`<div class="ps-flock" style="--fi:${fi};--fy:${f.y}%;--fd:${f.d}s;--fdl:${f.dl}s">` +
 				`<div class="ps-skein" style="--fs:${f.s};--fo:${f.o}">` +
-				`<div class="ps-skein-sway" style="--sd:${sd}s;--sdl:${sdl}s">${b}</div></div></div>`
+				`<div class="ps-skein-sway" style="--sd:${p.sd}s;--sdl:${p.sdl}s">` +
+				`<canvas class="ps-flock-birds" data-flock="${fi}" style="left:${pc(
+					x,
+					FLOCK_W
+				)};top:${pc(y, FLOCK_H)};width:${pc(w, FLOCK_W)};height:${pc(
+					h,
+					FLOCK_H
+				)}"></canvas></div></div></div>`
 			);
-		}).join("")
-	);
+		})
+		.join("");
 }
 
 /* ---- the steppe's own birds, by day ---- */

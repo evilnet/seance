@@ -133,6 +133,7 @@ describe("ps scene: the stepper (stepper.ts)", function () {
 		});
 		const s = stepper([a], []);
 		s.start();
+		writes = 0; // the start's hold, which completes the pause (refresh)
 		clock.tick(1000);
 		expect(writes).to.be.within(SCENE_FPS - 1, SCENE_FPS);
 		s.stop();
@@ -230,6 +231,54 @@ describe("ps scene: the stepper (stepper.ts)", function () {
 			s.stop();
 			expect(a.playState, "a script's play() outlasts the CSS pause").to.equal("paused");
 			expect(svg.paused).to.equal(true);
+		});
+
+		it("60: a stop holds every animation where it stands at once, not at the next frame", function () {
+			// As the browser does: pause() leaves a pending pause the next
+			// frame completes, the time running on meanwhile; writing the
+			// time completes it at once. A hidden page may draw no frame.
+			class BrowserAnimation extends FakeAnimation {
+				pending = false;
+				private from = Date.now();
+				private held: number | null = null;
+
+				override get currentTime(): number | null {
+					return this.held ?? Date.now() - this.from;
+				}
+
+				override set currentTime(value: number | null) {
+					this.held = value;
+					this.pending = false;
+				}
+
+				override pause() {
+					this.playState = "paused";
+					this.pending = true;
+				}
+
+				override play() {
+					if (this.held !== null) {
+						this.from = Date.now() - this.held;
+						this.held = null;
+					}
+
+					this.playState = "running";
+					this.pending = false;
+				}
+			}
+
+			const a = new BrowserAnimation();
+			const s = stepper([a], [], {kind: "native"});
+			s.start();
+			clock.tick(1000);
+			s.stop();
+			clock.tick(5000); // hidden: no frame completes the pause
+			expect(a.pending, "the pause completed").to.equal(false);
+			expect(a.currentTime, "held where it stood").to.equal(1000);
+			s.start();
+			clock.tick(500);
+			expect(a.currentTime, "and moves on from there").to.equal(1500);
+			s.stop();
 		});
 
 		it("1s: one step a second", function () {
