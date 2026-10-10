@@ -2059,7 +2059,10 @@ describe("the ps theme's stacked message rows (the user's B, 2026-10-06; the tim
 		expect(valueOf(`${ROW} .content`, "grid-area")).to.equal("content");
 		// logical, so a right-to-left page has its time at its own start
 		expect(valueOf(ROW, "padding-inline")).to.equal("0.625rem");
-		expect(valueOf(`${ROW} .content`, "padding-inline")).to.equal("0");
+		// the text starts at its column: what the box reaches out beside it
+		// (WebKit's clip, which has no overflow-clip-margin) it gives back
+		expect(valueOf(`${ROW} .content`, "padding-inline")).to.equal("0.75rem");
+		expect(valueOf(`${ROW} .content`, "margin-inline")).to.equal("-0.75rem");
 	});
 
 	it("lines a mention up with the rows around it: its 5px bar is taken off the row's start", function () {
