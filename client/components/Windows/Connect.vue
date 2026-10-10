@@ -62,7 +62,7 @@
 				<label></label>
 				<div class="input-wrap">
 					<label class="tls">
-						<input v-model="rememberMe" type="checkbox" name="rememberMe" />
+						<input v-model="rememberMe" v-switch type="checkbox" name="rememberMe" />
 						{{ t("connect.rememberMe") }}
 					</label>
 				</div>
@@ -151,7 +151,7 @@
 				<label></label>
 				<div class="input-wrap">
 					<label class="tls">
-						<input v-model="form.tls" type="checkbox" name="tls" />
+						<input v-model="form.tls" v-switch type="checkbox" name="tls" />
 						Use secure connection (TLS)
 					</label>
 				</div>
@@ -192,7 +192,7 @@
 				<label></label>
 				<div class="input-wrap">
 					<label class="tls">
-						<input v-model="showSasl" type="checkbox" name="sasl" />
+						<input v-model="showSasl" v-switch type="checkbox" name="sasl" />
 						I have a services account (SASL)
 					</label>
 				</div>
@@ -236,7 +236,12 @@
 					<label></label>
 					<div class="input-wrap">
 						<label class="tls">
-							<input v-model="pushEnabled" type="checkbox" name="pushEnabled" />
+							<input
+								v-model="pushEnabled"
+								v-switch
+								type="checkbox"
+								name="pushEnabled"
+							/>
 							Push notifications (registers when the server supports them)
 						</label>
 					</div>
@@ -247,6 +252,7 @@
 						<label class="tls">
 							<input
 								v-model="rememberPassword"
+								v-switch
 								type="checkbox"
 								name="rememberPassword"
 							/>
@@ -262,6 +268,7 @@
 					<label class="tls">
 						<input
 							v-model="notifyEnabled"
+							v-switch
 							type="checkbox"
 							name="notifyEnabled"
 							@change="onNotifyToggle"
@@ -275,7 +282,7 @@
 				<label></label>
 				<div class="input-wrap">
 					<label class="tls">
-						<input v-model="autoconnect" type="checkbox" name="autoconnect" />
+						<input v-model="autoconnect" v-switch type="checkbox" name="autoconnect" />
 						Connect automatically when the app starts
 					</label>
 				</div>

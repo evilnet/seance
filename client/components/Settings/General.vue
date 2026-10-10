@@ -33,6 +33,7 @@
 			<div>
 				<label class="opt">
 					<input
+						v-switch
 						:checked="store.state.settings.keepConnected"
 						type="checkbox"
 						name="keepConnected"
@@ -62,6 +63,7 @@
 			<div>
 				<label class="opt">
 					<input
+						v-switch
 						:checked="store.state.settings.uploadCanvas"
 						type="checkbox"
 						name="uploadCanvas"
@@ -82,6 +84,7 @@
 			<div>
 				<label class="opt">
 					<input
+						v-switch
 						:checked="store.state.settings.sendTypingNotifications"
 						type="checkbox"
 						name="sendTypingNotifications"
@@ -101,6 +104,7 @@
 			<div>
 				<label class="opt">
 					<input
+						v-switch
 						:checked="store.state.settings.keepPrivateConversations"
 						type="checkbox"
 						name="keepPrivateConversations"
@@ -134,7 +138,7 @@
 			<h2>Backup and restore</h2>
 			<p>Save your settings to a file. You can restore here or on another device.</p>
 			<label class="opt">
-				<input v-model="includePasswords" type="checkbox" />
+				<input v-model="includePasswords" v-switch type="checkbox" />
 				Include network passwords
 				<span
 					class="tooltipped tooltipped-n tooltipped-no-delay"
@@ -188,6 +192,8 @@ import {
 	type KeepAliveStatus,
 } from "../../js/helpers/keepAlive";
 import eventbus from "../../js/eventbus";
+import {currentPlatform} from "../../js/helpers/platformDefaults";
+import {createState} from "../../js/settings";
 import {
 	applyBackup,
 	BackupFormatError,
@@ -278,6 +284,7 @@ export default defineComponent({
 					includePasswords: includePasswords.value,
 					settings: {...store.state.settings},
 					app: appName.value,
+					platform: currentPlatform(),
 				});
 				const bytes = await encodeBackup(backup);
 				const blob = new Blob([bytes as BlobPart], {type: "application/octet-stream"});
@@ -331,7 +338,12 @@ export default defineComponent({
 
 					// Nothing runs between the write and the reload, so no
 					// in-memory state can overwrite the file's entries.
-					applyBackup(backup);
+					// Measured against this deploy's defaults, as the
+					// migration does (store-settings.ts `migrate`).
+					applyBackup(backup, currentPlatform(), {
+						...createState(),
+						theme: store.state.serverConfiguration?.defaultTheme,
+					});
 					window.location.reload();
 				}
 			);

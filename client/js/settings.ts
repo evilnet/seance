@@ -6,6 +6,9 @@ import {prefersTwelveHourClock} from "./helpers/hourCycle";
 import {normalizeSceneMotion, themeScene} from "./themeScene";
 import {setQueryLogEnabled} from "./irc/querylog";
 import {setKeepAlive} from "./helpers/keepAlive";
+import {effectiveTheme} from "./helpers/themeAppearance";
+import {currentPlatform, PLATFORM_DEFAULTS} from "./helpers/platformDefaults";
+import {setMatchSystemTextSize} from "./helpers/systemTextSize";
 
 const defaultSettingConfig = {
 	apply() {},
@@ -15,6 +18,91 @@ const defaultSettingConfig = {
 
 const buildThemeColor =
 	document.querySelector('meta[name="theme-color"]')?.getAttribute("content") || "";
+
+const darkScheme = window.matchMedia("(prefers-color-scheme: dark)");
+
+/** The theme loadTheme last applied, theme-color included. */
+let appliedTheme: string | null = null;
+
+/** Load the theme the settings ask for: the chosen one, or its light/dark
+ * partner when following the system (helpers/themeAppearance.ts). */
+function loadTheme(store: TypedStore): void {
+	const chosen = store.state.settings.theme;
+
+	if (!chosen) {
+		return;
+	}
+
+	const value = effectiveTheme(
+		chosen,
+		store.state.settings.matchSystemAppearance,
+		darkScheme.matches
+	);
+
+	// A theme's own scene, if it has one (client/js/themeScene.ts).
+	void themeScene.setTheme(value);
+
+	const themeEl = document.getElementById("theme");
+	const themeUrl = `themes/${value}.css`;
+
+	if (!(themeEl instanceof HTMLLinkElement)) {
+		throw new Error("theme element is not a link");
+	}
+
+	const hrefAttr = themeEl.attributes.getNamedItem("href");
+
+	if (!hrefAttr) {
+		throw new Error("theme is missing href attribute");
+	}
+
+	// Nothing to do when the theme on screen is already this one: applyAll,
+	// the matchSystemAppearance toggle and a mode change that leaves an
+	// unpaired theme alone all land here, and rewriting theme-color each time
+	// would fight anything that sets it live. The early loader
+	// (loading-error-handlers.js) has usually set the href already, so the
+	// first call is measured against what this function last applied, not
+	// the href: the browser chrome's colour is still this function's to set.
+	if (value === appliedTheme) {
+		return;
+	}
+
+	if (hrefAttr.value !== themeUrl) {
+		hrefAttr.value = themeUrl;
+	}
+
+	if (!store.state.serverConfiguration) {
+		return;
+	}
+
+	const newTheme = store.state.serverConfiguration?.themes.filter(
+		(theme) => theme.name === value
+	)[0];
+
+	const metaSelector = document.querySelector('meta[name="theme-color"]');
+
+	if (!(metaSelector instanceof HTMLMetaElement)) {
+		throw new Error("theme meta element is not a meta element");
+	}
+
+	// A theme without a colour of its own (day, morning) hands the
+	// browser chrome back to the deploy: config.json's themeColor, else
+	// the colour the build put in the tag.
+	metaSelector.content =
+		newTheme?.themeColor || store.state.branding.themeColor || buildThemeColor;
+	appliedTheme = value;
+}
+
+let followingScheme = false;
+
+/** Swap the theme live when the system's light/dark mode changes. */
+function followScheme(store: TypedStore): void {
+	if (followingScheme) {
+		return;
+	}
+
+	followingScheme = true;
+	darkScheme.addEventListener("change", () => loadTheme(store));
+}
 
 const defaultConfig = {
 	advanced: {
@@ -103,6 +191,16 @@ const defaultConfig = {
 			document.documentElement.dataset.fontSize = normalizeFontSize(value);
 		},
 	},
+	// In the native shells the system's text size (iOS Text Size, Android's
+	// Font size) stands in for the step above, live; off, the step applies as
+	// on the web (helpers/systemTextSize.ts). On by default there: Apple's and
+	// Google's guidelines both ask an app to follow the system's size.
+	matchSystemTextSize: {
+		default: PLATFORM_DEFAULTS.matchSystemTextSize(currentPlatform()),
+		apply(store: TypedStore, value: boolean) {
+			setMatchSystemTextSize(value);
+		},
+	},
 	// How own messages stand out: greyed text (TheLounge's look), a band, or
 	// nothing. Applied as <html data-own-messages="...">; the looks are in
 	// style.css so every theme gets all three (helpers/ownMessages.ts).
@@ -114,50 +212,20 @@ const defaultConfig = {
 	},
 	theme: {
 		default: document.getElementById("theme")?.dataset.serverTheme,
-		// One-time note of the tag's build-time colour, before boot applies
-		// anything: the fallback for themes that carry no colour of their own.
-		apply(store: TypedStore, value: string) {
-			// A theme's own scene, if it has one (client/js/themeScene.ts).
-			void themeScene.setTheme(value);
-
-			const themeEl = document.getElementById("theme");
-			const themeUrl = `themes/${value}.css`;
-
-			if (!(themeEl instanceof HTMLLinkElement)) {
-				throw new Error("theme element is not a link");
-			}
-
-			const hrefAttr = themeEl.attributes.getNamedItem("href");
-
-			if (!hrefAttr) {
-				throw new Error("theme is missing href attribute");
-			}
-
-			if (hrefAttr.value === themeUrl) {
-				return;
-			}
-
-			hrefAttr.value = themeUrl;
-
-			if (!store.state.serverConfiguration) {
-				return;
-			}
-
-			const newTheme = store.state.serverConfiguration?.themes.filter(
-				(theme) => theme.name === value
-			)[0];
-
-			const metaSelector = document.querySelector('meta[name="theme-color"]');
-
-			if (!(metaSelector instanceof HTMLMetaElement)) {
-				throw new Error("theme meta element is not a meta element");
-			}
-
-			// A theme without a colour of its own (day, morning) hands the
-			// browser chrome back to the deploy: config.json's themeColor, else
-			// the colour the build put in the tag.
-			metaSelector.content =
-				newTheme?.themeColor || store.state.branding.themeColor || buildThemeColor;
+		apply(store: TypedStore) {
+			loadTheme(store);
+			followScheme(store);
+		},
+	},
+	// A theme that comes as a light/dark pair follows the system's mode:
+	// coffee becomes creama in light mode and back (helpers/themeAppearance.ts).
+	// On by default in the native shell, where Apple's guidelines ask an app
+	// to honour the system setting; off on the web, where a browser's theme
+	// stays the one picked.
+	matchSystemAppearance: {
+		default: PLATFORM_DEFAULTS.matchSystemAppearance(currentPlatform()),
+		apply(store: TypedStore) {
+			loadTheme(store);
 		},
 	},
 	// The ps theme's own settings (Settings → Appearance shows them under the

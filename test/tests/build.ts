@@ -1,6 +1,7 @@
 import {expect} from "chai";
 import fs from "fs";
 import path from "path";
+import {THEME_PAIRS} from "../../client/js/helpers/themeAppearance";
 
 describe("public folder", function () {
 	const publicFolder = path.join(process.cwd(), "public");
@@ -111,6 +112,15 @@ describe("public folder", function () {
 	it("loading-error-handlers.js is copied", function () {
 		expect(fs.existsSync(path.join(publicFolder, "js", "loading-error-handlers.js"))).to.be
 			.true;
+	});
+
+	it("loading-error-handlers.js carries the light/dark theme pairs", function () {
+		const contents = fs.readFileSync(
+			path.join(publicFolder, "js", "loading-error-handlers.js"),
+			"utf8"
+		);
+		expect(contents).not.to.include("__THEME_PAIRS__");
+		expect(contents).to.include(JSON.stringify(THEME_PAIRS));
 	});
 
 	it("manifest carries the installed-app fields Chrome needs", function () {

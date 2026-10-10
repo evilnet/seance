@@ -6,6 +6,7 @@
 
 import {leavePage, onStandalonePage} from "./router";
 import {closeOpenImage} from "./helpers/imageViewer";
+import {followSystemTextSize} from "./helpers/systemTextSize";
 import {reconnectAll} from "./irc/manager";
 import {isPhoneLayout} from "./helpers/device";
 import {
@@ -110,6 +111,10 @@ export function installNativeHooks(): void {
 			reconnectAll();
 		}
 	});
+
+	// The system's text size (iOS's Dynamic Type, Android's Font size)
+	// scales the whole interface (helpers/systemTextSize.ts).
+	followSystemTextSize();
 
 	// Android: the "stay connected" notification's Turn off button stops the
 	// service; the setting follows so Settings shows the truth and the next
