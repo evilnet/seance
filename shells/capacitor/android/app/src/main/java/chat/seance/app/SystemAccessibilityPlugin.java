@@ -10,6 +10,8 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.util.DisplayMetrics;
+import android.util.TypedValue;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -30,7 +32,10 @@ import com.getcapacitor.annotation.CapacitorPlugin;
  * keeps the process for as long as the user stays connected. So the shell
  * watches them and tells the page.
  *
- * - `status()`: `{highTextContrast, contrast, animatorDurationScale, fontScale}`.
+ * - `status()`: `{highTextContrast, contrast, animatorDurationScale, fontScale}`,
+ *   where `fontScale` is body text's (16sp) over its default size: Android 14's
+ *   nonlinear font scaling grows large text less than the raw
+ *   `Configuration.fontScale` says (at 2.0, 16sp is about 28dp).
  * - event `changed`: the same, whenever one of them changes.
  */
 @CapacitorPlugin(name = "SystemAccessibility")
@@ -92,8 +97,17 @@ public class SystemAccessibilityPlugin extends Plugin {
             "animatorDurationScale",
             Settings.Global.getFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
         );
-        result.put("fontScale", fontScale);
+        result.put("fontScale", bodyTextScale());
         return result;
+    }
+
+    /** 16sp in dp over 16: TypedValue applies the system's FontScaleConverter from Android 14 on. */
+    private float bodyTextScale() {
+        DisplayMetrics metrics = getContext().getResources().getDisplayMetrics();
+        return (
+            TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 16f, metrics) /
+            TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 16f, metrics)
+        );
     }
 
     private UiModeManager uiModeManager() {
