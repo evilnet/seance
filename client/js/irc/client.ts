@@ -69,6 +69,11 @@ import {
 	serverReplayCovers,
 } from "./persistence";
 import {IdAllocator, sharedIds} from "./ids";
+import {NoticeLog} from "./noticelog";
+import {initialOper, OperState, operRegistered, resetOper} from "./oper";
+import {detectProfile, type ServerProfile} from "./profiles";
+import {interceptRequestLine, resetRequests} from "./request";
+import {noticeMessage} from "./snotice";
 import {ISupport} from "./isupport";
 import {
 	formatLine,
@@ -238,6 +243,14 @@ export class IrcClient {
 	readonly lobby: Channel;
 	/** Private conversations kept on this device (querylog.ts). */
 	readonly queryLog: QueryLog;
+	/** Server notices and WALLOPS kept on the device (noticelog.ts). */
+	readonly noticeLog: NoticeLog;
+	/** Being an oper here (oper.ts): level, privileges, snomask. */
+	oper: OperState = initialOper();
+	/** The version the server reports in 004, for {@link profile}. */
+	serverVersion: string | undefined;
+	/** The name of the server we are connected to (004). */
+	serverName: string | undefined;
 	/** Query windows brought back from the log, filled on the first announce. */
 	private restoredQueries: Channel[] = [];
 	caps = new CapNegotiator(SEANCE_CAPS);
@@ -346,6 +359,8 @@ export class IrcClient {
 			() => getSavedNetwork(this.uuid) !== undefined
 		);
 
+		this.noticeLog = new NoticeLog(this.uuid, () => getSavedNetwork(this.uuid) !== undefined);
+
 		for (const name of this.queryLog.names()) {
 			if (!this.findChannel(name) && !this.isChannelName(name)) {
 				this.restoredQueries.push(this.createChannel(name, ChanType.QUERY).channel);
@@ -384,6 +399,11 @@ export class IrcClient {
 
 	get name(): string {
 		return this.networkName;
+	}
+
+	/** The ircd family this server belongs to (profiles/): what the oper tools speak. */
+	get profile(): ServerProfile {
+		return detectProfile(this.serverVersion, this.isupport);
 	}
 
 	/** True between our own QUIT/disconnect and the transport closing. */
@@ -493,6 +513,7 @@ export class IrcClient {
 			this.announced = true;
 			this.bus.dispatch("network", {network: this.network});
 			this.restoreQueryLines();
+			void this.restoreNotices();
 		}
 
 		if (this.transport.state === "open" || this.transport.state === "connecting") {
@@ -1058,6 +1079,9 @@ export class IrcClient {
 		cancelRestoration(this);
 		this.saveCursor(); // the newest one must not die with the connection
 		this.queryLog.flush();
+		this.noticeLog.flush();
+		resetRequests(this);
+		resetOper(this);
 		this.serverReplay = false;
 		this.clearPendingEdits();
 		// Before resetMultiline: a queued batch's copy is reported here, with
@@ -1154,6 +1178,7 @@ export class IrcClient {
 		this.bus.dispatch("commands", commandNames());
 		presenceRegistered(this);
 		flushDeferredMarkRead(this);
+		operRegistered(this);
 
 		if (this.caps.enabled.size > 0) {
 			this.pushMessage(
@@ -1919,6 +1944,12 @@ export class IrcClient {
 			return;
 		}
 
+		// An answer to one of our labeled requests (request.ts): its asker
+		// renders it, the handlers never see it.
+		if (interceptRequestLine(this, msg)) {
+			return;
+		}
+
 		// Our own JOIN (live, not replayed) is what triggers a history load;
 		// the reference for a catch-up is the newest message before the JOIN.
 		const selfJoin =
@@ -2225,6 +2256,40 @@ export class IrcClient {
 				moreAvailable: false,
 			});
 		}
+	}
+
+	/**
+	 * Put the server notices and WALLOPS the last page kept back into the
+	 * lobby, as one history page (noticelog.ts): the server never replays
+	 * them, and a discarded PWA would otherwise come back without them.
+	 * Asynchronous (IndexedDB), so live lines may already be there; the page
+	 * goes in ahead of them.
+	 */
+	private async restoreNotices(): Promise<void> {
+		const entries = await this.noticeLog.load();
+
+		if (entries.length === 0) {
+			return;
+		}
+
+		const ids = this.historyIds(entries.length);
+		const messages = entries.map((entry, i) => {
+			const msg: SharedMsg = {
+				users: [],
+				...noticeMessage(entry, true),
+				id: ids[i],
+			} as SharedMsg;
+			this.lobby.remember(msg);
+			return msg;
+		});
+
+		this.lobby.shared.totalMessages += messages.length;
+		this.bus.dispatch("more", {
+			chan: this.lobby.id,
+			messages,
+			totalMessages: this.lobby.shared.totalMessages,
+			moreAvailable: false,
+		});
 	}
 
 	/** Drop a channel from the model and the UI (`part` event). */

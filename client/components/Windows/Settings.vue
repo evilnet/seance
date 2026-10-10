@@ -34,13 +34,15 @@
 </template>
 
 <style>
-/* The settings window is a modal: a dimmed backdrop over the whole app
+/* The settings window is a modal (and the oper panel, Windows/OperPanel.vue,
+ * borrows the same frame): a dimmed backdrop over the whole app
  * (sidebar included — absolute within #viewport, above the sidebar's
  * z-index 10, so it never fights the hamburger or the swipe) with the
  * settings in their own pane on top. The route is still /settings/…, so
  * deep links, reloads and leavePage() behave exactly as before; only the
  * rendering is an overlay. */
-#settings.window {
+#settings.window,
+#oper.window {
 	position: absolute;
 	top: 0;
 	right: 0;
@@ -131,7 +133,8 @@
 /* On a phone the modal is the page: no backdrop margin, no rounding. The
  * breakpoint matches the sidebar's overlay mode. */
 @media (max-width: 768px) {
-	#settings.window {
+	#settings.window,
+	#oper.window {
 		padding: 0;
 	}
 

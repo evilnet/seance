@@ -76,6 +76,23 @@
 				<dd>{{ message.whois.operator }}</dd>
 			</div>
 
+			<div v-if="message.whois.marks && message.whois.marks.length">
+				<dt>Marks:</dt>
+				<dd class="oper-chips">
+					<span
+						v-for="mark in message.whois.marks"
+						:key="mark"
+						class="oper-chip-static"
+						>{{ mark }}</span
+					>
+				</dd>
+			</div>
+
+			<div v-if="message.whois.killListed">
+				<dt>Kill listed:</dt>
+				<dd>{{ message.whois.killListed }}</dd>
+			</div>
+
 			<div v-if="message.whois.helpop">
 				<dt>Available for help:</dt>
 				<dd>Yes</dd>
@@ -103,6 +120,21 @@
 				</div>
 			</template>
 
+			<div v-if="message.whois.websocket">
+				<dt>WebSocket from:</dt>
+				<dd>{{ message.whois.websocket }}</dd>
+			</div>
+
+			<div v-if="message.whois.webirc">
+				<dt>Via gateway:</dt>
+				<dd>{{ message.whois.webirc }}</dd>
+			</div>
+
+			<div v-if="message.whois.bouncer">
+				<dt>Bouncer:</dt>
+				<dd>{{ message.whois.bouncer }}</dd>
+			</div>
+
 			<div v-if="message.whois.server">
 				<dt>Connected to:</dt>
 				<dd>
@@ -120,11 +152,19 @@
 				<dd>{{ localetime(message.whois.idleTime) }}</dd>
 			</div>
 		</dl>
+		<p v-if="canCheck && !message.whois.whowas" class="whois-oper-actions">
+			<button type="button" class="btn btn-small" @click="check">
+				Check {{ message.whois.nick }}
+			</button>
+		</p>
 	</span>
 </template>
 
 <script lang="ts">
-import {defineComponent, PropType} from "vue";
+import {computed, defineComponent, PropType} from "vue";
+import socket from "../../js/socket";
+import {useStore} from "../../js/store";
+import {hasPriv, isOperOn} from "../../js/helpers/operMenu";
 import localetime from "../../js/helpers/localetime";
 import {ClientNetwork, ClientMessage} from "../../js/types";
 import ParsedMessage from "../ParsedMessage.vue";
@@ -146,9 +186,21 @@ export default defineComponent({
 			required: true,
 		},
 	},
-	setup() {
+	setup(props) {
+		const store = useStore();
+
+		// An oper with CHECK gets the full picture one click away.
+		const canCheck = computed(() => isOperOn(props.network) && hasPriv(props.network, "CHECK"));
+
+		const check = () => {
+			const target = store.state.activeChannel?.channel.id ?? props.network.channels[0].id;
+			socket.emit("input", {target, text: `/check ${String(props.message.whois.nick)}`});
+		};
+
 		return {
 			localetime: (date: Date) => localetime(date),
+			canCheck,
+			check,
 		};
 	},
 });

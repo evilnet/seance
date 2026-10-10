@@ -61,6 +61,17 @@
 							@click.stop="$emit('toggle-join-channel')"
 						/>
 					</span>
+					<span
+						v-if="opered"
+						aria-label="Oper panel…"
+						class="oper-panel-tooltip tooltipped tooltipped-e tooltipped-no-touch"
+					>
+						<button
+							class="oper-panel"
+							aria-label="Oper panel…"
+							@click.stop="openOperPanel"
+						/>
+					</span>
 				</div>
 				<span v-if="network.nick" :title="nickLabel" class="lobby-nick"
 					><span class="sr-only">Nickname: </span>{{ network.nick }}</span
@@ -76,6 +87,7 @@ import {useRouter} from "vue-router";
 import collapseNetwork from "../js/helpers/collapseNetwork";
 import roundBadgeNumber from "../js/helpers/roundBadgeNumber";
 import socket from "../js/socket";
+import {isOperOn} from "../js/helpers/operMenu";
 import webpush from "../js/webpush";
 import ChannelWrapper from "./ChannelWrapper.vue";
 
@@ -105,6 +117,13 @@ export default defineComponent({
 
 		const editNetwork = () => {
 			void router.push(`/settings/networks/${props.network.uuid}`);
+		};
+
+		// The oper panel (Windows/OperPanel.vue): only while opered here.
+		const opered = computed(() => isOperOn(props.network));
+
+		const openOperPanel = () => {
+			void router.push(`/oper/${props.network.uuid}/notices`);
 		};
 
 		// Notification state for this network (bell icon): subscribed,
@@ -180,6 +199,8 @@ export default defineComponent({
 			notifyState,
 			channel,
 			editNetwork,
+			opered,
+			openOperPanel,
 			statusClass,
 			statusLabel,
 			onStatusClick,

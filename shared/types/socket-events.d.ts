@@ -6,6 +6,7 @@ import {SharedUser} from "./user";
 import {SharedChangelogData} from "./changelog";
 import {SharedConfiguration, LockedSharedConfiguration} from "./config";
 import {SearchResponse, SearchQuery} from "./storage";
+import {SharedOperState, SnoticeInfo} from "./oper";
 
 type Session = {
 	current: boolean;
@@ -144,6 +145,19 @@ interface ServerToClientEvents {
 		code?: string;
 		reason?: string;
 	}>;
+	/** Being an oper on `network` changed: level, privileges, snomask, features (irc/oper.ts). */
+	"oper:state": EventHandler<{network: string; state: SharedOperState}>;
+	/**
+	 * The answer to an `oper:request`: every line of the labeled reply, raw,
+	 * in order. `outcome` says how it ended (`batch`, `lines`, `ack`,
+	 * `timeout`, `closed`).
+	 */
+	"oper:reply": EventHandler<{network: string; id: string; lines: string[]; outcome: string}>;
+	/** The notice log of `network` (oldest first), for the oper panel's Notices tab. */
+	"oper:notices": EventHandler<{
+		network: string;
+		entries: {time: number; type: string; text: string; from?: string; snotice: SnoticeInfo}[];
+	}>;
 	/** One `PushSession` per `PERSISTENCE LIST` row, dispatched when the list closes (Settings → session panel). */
 	"persistence:sessions": EventHandler<{sessions: PushSession[]}>;
 	"msg:special": EventHandler<{chan: number; data?: Record<string, any>}>;
@@ -237,6 +251,27 @@ interface ClientToServerEvents {
 	"persistence:sessions:list": EventHandler<{network?: string}>;
 	/** End the current device's bouncer session (`PERSISTENCE DETACH`): the hold preference clears and the session is destroyed. */
 	"persistence:sessions:logout": EventHandler<{network?: string}>;
+
+	/**
+	 * Oper tools (irc/oper.ts, irc/request.ts): send `line` to `network`
+	 * labeled and answer with `oper:reply` carrying the same `id`.
+	 * `untagged` names numerics the server sends without the label
+	 * (evilnet/nefarious2#120), `end` the numerics that end an unbatched
+	 * answer.
+	 */
+	"oper:request": EventHandler<{
+		network: string;
+		id: string;
+		line: string;
+		untagged?: string[];
+		end?: string[];
+	}>;
+	/** Set the server notice mask (decimal; 0 turns +s off) and remember it for the next oper-up. */
+	"oper:snomask": EventHandler<{network: string; mask: number}>;
+	/** Ask again for privileges, snomask and features; answered by `oper:state`. */
+	"oper:refresh": EventHandler<{network: string}>;
+	/** Ask for the notice log; answered by `oper:notices`. */
+	"oper:notices:get": EventHandler<{network: string}>;
 
 	"upload:auth": NoPayloadEventHandler;
 	"upload:ping": (token: string) => void;
