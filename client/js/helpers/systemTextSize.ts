@@ -3,8 +3,10 @@
 // style.css applies
 // while `data-system-text` is set: the matchSystemTextSize setting, on by
 // default in the shells. Off, the in-app font-size step is the whole story,
-// as on the web — where the browser's own font-size preference is already
-// honoured, every step being a percentage of it.
+// as in a WKWebView, which never applies Dynamic Type; on Android too, on
+// purpose, since the WebView's own text zoom stays pinned (below). On the
+// web the browser's own font-size preference is honoured either way, every
+// step being a percentage of it.
 //
 // iOS: a WKWebView keeps the browser's 16px whatever Dynamic Type says, but
 // WebKit resolves the system font keyword `-apple-system-body` from it — 17px

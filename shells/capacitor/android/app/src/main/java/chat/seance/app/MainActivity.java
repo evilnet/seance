@@ -26,7 +26,9 @@ public class MainActivity extends BridgeActivity {
         // (SystemAccessibilityPlugin, client/js/helpers/systemTextSize.ts),
         // which scales the whole interface. The WebView's own way, its text
         // zoom, scales glyphs and never rem lengths, so text outgrew the
-        // buttons and fields around it; pinned at 100%, it does nothing. The
+        // buttons and fields around it; pinned at 100%, it does nothing. It
+        // stays pinned with matchSystemTextSize off too: off is the in-app
+        // step alone, as on iOS, not the glyph-only zoom back. The
         // activity declares fontScale (AndroidManifest.xml), so a change to
         // the setting does not relaunch it and take the connections with it.
         bridge.getWebView().getSettings().setTextZoom(100);
