@@ -9,8 +9,7 @@
  * resume reapplies oper silently. Whoever sets `+o`/`+O` on us, the moment
  * it lands the tools ask what they need: PRIVS, the snomask (when +s), and
  * the profile's features; then the snomask the oper chose last time is put
- * back. A network that was opered when the last connection ended asks for
- * its modes on registration, since a resumed session may not repeat them.
+ * back.
  *
  * Kept free of store/DOM imports (mocha).
  */
@@ -18,7 +17,7 @@
 import type {OperLevel, SharedOperState} from "../../../shared/types/oper";
 import type {IrcClient} from "./client";
 import type {IrcMessage} from "./message";
-import {getOperPrefs, setSnomaskPref, setWasOper} from "./operprefs";
+import {getOperPrefs, setSnomaskPref} from "./operprefs";
 import {canRequest, request} from "./request";
 
 export interface OperState {
@@ -121,16 +120,11 @@ function modesChanged(client: IrcClient): void {
 
 	if (oper.level !== before) {
 		if (isOpered(client)) {
-			setWasOper(client.uuid, true);
 			operUp(client);
 		} else {
 			oper.privs = [];
 			oper.privsKnown = false;
 			oper.queried = false;
-
-			if (before !== "none" && before !== "service") {
-				setWasOper(client.uuid, false);
-			}
 		}
 	}
 
@@ -276,28 +270,26 @@ function restoreSnomask(client: IrcClient): void {
 }
 
 /**
- * Registration finished. A network that was opered last time asks for its
- * modes: a resumed bouncer session keeps oper without repeating the MODE.
+ * Registration finished. Services may have set +o before 001, when nothing
+ * could be asked yet; ask now. Everything else comes from MODE lines and
+ * 221 — a connection that joins a held bouncer session gets its modes in
+ * silence (evilnet/nefarious2#121, to be fixed server-side); until then
+ * `/umode` is how such a session tells the client it is opered.
  */
 export function operRegistered(client: IrcClient): void {
-	// Services may set +o before 001, when nothing could be asked yet.
 	if (isOpered(client) && !client.oper.queried) {
 		operUp(client);
 	}
+}
 
-	if (!getOperPrefs(client.uuid).wasOper || !canRequest(client)) {
-		return;
+/**
+ * `NOTICE <me> :Your privileges were modified` (services sent PRIVS for
+ * us): ask again, when we are an oper — an oper-up that follows asks anyway.
+ */
+export function privilegesModified(client: IrcClient): void {
+	if (isOpered(client) && canRequest(client)) {
+		void fetchPrivs(client).then(() => announceOper(client));
 	}
-
-	void request(client, `MODE ${client.nick}`).then((reply) => {
-		const line = reply.lines.find((msg) => msg.command === "221");
-
-		if (line) {
-			setUserModes(client, line.params[1] ?? "");
-		} else if (!isOpered(client)) {
-			setWasOper(client.uuid, false);
-		}
-	});
 }
 
 /** The socket closed: nothing of this holds on the next connection. */

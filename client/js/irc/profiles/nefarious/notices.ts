@@ -203,7 +203,7 @@ export const NOTICE_KINDS: NoticeKind[] = [
 		label: "Opers coming up",
 		category: "OLDSNO",
 		route: "active",
-		template: "{nick} ({host}) is now a {level} operator",
+		template: "{nick} ({host}) is now {role}",
 	},
 	{
 		kind: "oper.fail",
@@ -812,7 +812,26 @@ const RULES: Rule[] = [
 		// `O` is a global oper, `o` a local one: the reverse of the umodes.
 		kind: "oper.up",
 		re: /^(\S+) \(([^@\s]+)@(\S+)\) is now a (global|local) operator \(([Oo])\)$/,
-		map: (m) => ({nick: m[1], user: m[2], host: `${m[2]}@${m[3]}`, level: m[4]}),
+		map: (m) => ({
+			nick: m[1],
+			user: m[2],
+			host: `${m[2]}@${m[3]}`,
+			level: m[4],
+			role: `a ${m[4]} operator`,
+		}),
+	},
+	{
+		// X3's auto-oper on login (nickserv.c handle_loc_auth_oper), relayed
+		// as a global notice from the services server.
+		kind: "oper.up",
+		re: /^(\S+) \(([^@\s]+)@(\S+)\) is now an IRC (Operator|Administrator)$/,
+		map: (m) => ({
+			nick: m[1],
+			user: m[2],
+			host: `${m[2]}@${m[3]}`,
+			level: m[4] === "Administrator" ? "admin" : "global",
+			role: m[4] === "Administrator" ? "an IRC administrator" : "an IRC operator",
+		}),
 	},
 	{
 		kind: "oper.fail",

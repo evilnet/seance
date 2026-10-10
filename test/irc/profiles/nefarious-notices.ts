@@ -339,7 +339,20 @@ const CASES: Case[] = [
 		"lop (lop@10.0.0.2) is now a local operator (o)",
 		"oper.up",
 		"OLDSNO",
-		{nick: "lop", level: "local"},
+		{nick: "lop", level: "local", role: "a local operator"},
+	],
+	// X3's auto-oper on login, relayed from the services server.
+	[
+		"rubin (rubin@afternet.org) is now an IRC Operator",
+		"oper.up",
+		"OLDSNO",
+		{nick: "rubin", host: "rubin@afternet.org", level: "global", role: "an IRC operator"},
+	],
+	[
+		"rubin (rubin@afternet.org) is now an IRC Administrator",
+		"oper.up",
+		"OLDSNO",
+		{level: "admin", role: "an IRC administrator"},
 	],
 	[
 		"Failed OPER attempt by mallory (~m@203.0.113.13) (password mis-match)",

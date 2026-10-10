@@ -12,13 +12,7 @@ import {
 	MAX_ENTRIES,
 	useNoticeLogBackend,
 } from "../../client/js/irc/noticelog";
-import {
-	getOperPrefs,
-	setRoute,
-	setSnomaskPref,
-	useOperPrefsBackend,
-	OPER_PREFS_KEY,
-} from "../../client/js/irc/operprefs";
+import {setRoute, setSnomaskPref, useOperPrefsBackend} from "../../client/js/irc/operprefs";
 import {applyModeString, levelOf, parseFeature, parsePrivs} from "../../client/js/irc/oper";
 import {parseLine} from "../../client/js/irc/message";
 import {request, REQUEST_TIMEOUT_MS} from "../../client/js/irc/request";
@@ -389,7 +383,6 @@ describe("oper tools: oper state (irc/oper.ts)", function () {
 			SNOMASK_OPERDEFAULT: "5645",
 		});
 		expect(client.oper.level).to.equal("global");
-		expect(getOperPrefs(client.uuid).wasOper).to.equal(true);
 		expect(
 			messages(client.lobby.id).filter((m) => m.type !== MessageType.MODE),
 			"replies not shown raw"
@@ -427,28 +420,19 @@ describe("oper tools: oper state (irc/oper.ts)", function () {
 
 		transport.line(":opr!opr@host MODE opr -s");
 		expect(client.oper.snomask).to.equal(undefined);
-		expect(getOperPrefs(client.uuid).wasOper).to.equal(undefined);
 	});
 
-	it("a network that was opered asks for its modes on registration", async function () {
-		prefsStore.set(OPER_PREFS_KEY, JSON.stringify({u1: {wasOper: true}}));
-		const {client, transport} = setup({uuid: "u1"});
-
-		// setup() cleared `sent` after registration; register again to see it.
-		transport.close();
-		transport.open();
-		transport.lines(
-			":irc.test CAP * LS :batch labeled-response",
-			":irc.test CAP opr ACK :batch labeled-response",
-			":irc.test 001 opr :Welcome",
-			":irc.test 422 opr :MOTD File is missing"
-		);
-
-		const query = transport.sent.find((l) => / MODE opr$/.test(l));
-		expect(query).to.match(/^@label=\S+ MODE opr$/);
-		transport.line(`${/^(@label=\S+) /.exec(query!)![1]} :irc.test 221 opr +owsgx`);
+	it("asks for the privileges again when services change them", async function () {
+		const {client, transport} = setup();
+		transport.line(":opr!opr@host MODE opr +o");
 		await flush();
-		expect(client.oper.level).to.equal("global");
+		const before = transport.sent.filter((l) => l.endsWith(" PRIVS")).length;
+
+		transport.line(":irc.test NOTICE opr :Your privileges were modified");
+		expect(transport.sent.filter((l) => l.endsWith(" PRIVS")).length).to.equal(before + 1);
+		expect(messages(client.lobby.id).at(-1)?.text, "still shown").to.equal(
+			"Your privileges were modified"
+		);
 	});
 
 	it("an +o that lands before 001 is followed up once registration is done", function () {

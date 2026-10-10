@@ -646,6 +646,7 @@ A mask matching ≥ GLINEMAXUSERCOUNT (20) users → `519 <n> :Too many users af
 - **Filed:**
   - [#119](https://github.com/evilnet/nefarious2/issues/119): NOTICEs inside a labeled batch carry no `@batch`.
   - [#120](https://github.com/evilnet/nefarious2/issues/120): USERHOST, USERIP, ISON and PRIVS go out untagged and are followed by an ACK.
+  - [#121](https://github.com/evilnet/nefarious2/issues/121): a held bouncer session that is revived or attached never has its user modes sent, so a client cannot know it is +o until it asks (`/umode`).
 - **Fixed upstream:** `ead82a8`, the non-oper STATS abort on the seven long-name entries.
 - **Confirmed in the source at `8453087`, not filed:**
   - `STATS k <server> <mask>` passes 5 arguments to the 8-field 216 format (`s_stats.c:287`).

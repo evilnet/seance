@@ -10,6 +10,7 @@ import type {Channel} from "../channel";
 import type {IrcMessage} from "../message";
 import {settleEcho} from "../pending";
 import {isRoutineReplayNotice} from "../persistence";
+import {privilegesModified} from "../oper";
 import {handleServerNotice, handleWallops} from "../snotice";
 import {EDIT_TAG, REPLY_TAG, trailingLine} from "../wire";
 import type {Handler} from "../types";
@@ -311,6 +312,16 @@ const notice: Handler = (client, msg) => {
 	// (../snotice.ts), not shown as a NOTICE.
 	if (handleServerNotice(client, msg)) {
 		return;
+	}
+
+	// Services changed our privileges (X3 sends PRIVS on auto-oper): the
+	// oper tools ask for the new list (../oper.ts). Still shown.
+	if (
+		msg.source?.user === undefined &&
+		client.isSelf(msg.params[0] ?? "") &&
+		msg.params[msg.params.length - 1] === "Your privileges were modified"
+	) {
+		privilegesModified(client);
 	}
 
 	handleMessage(client, msg, MessageType.NOTICE);

@@ -77,7 +77,7 @@ A new `OperState` is fed by the handlers and announced on the bus:
 
 The store gets `network.oper` through a new `oper:state` bus event. Everything oper-only in the UI keys off it.
 
-- **The mode is the signal, not 381.** On AfterNET, opers are granted by services (X3) on SASL login, so there may be no `OPER` and no 381; a bouncer resume reapplies oper silently too. Oper state therefore keys off the own-mode change, whoever sets it, and on registration a saved network that was opered re-queries 221 and PRIVS.
+- **The mode is the signal, not 381.** On AfterNET, opers are granted by services (X3) on SASL login, so there may be no `OPER` and no 381; a bouncer resume reapplies oper silently too. Oper state therefore keys off the own-mode change, whoever sets it — a MODE line or a 221 — and X3's oper-up notice is classified like any other. A held bouncer session resumed or attached gets its modes in silence today ([evilnet/nefarious2#121](https://github.com/evilnet/nefarious2/issues/121)); that is fixed on the server, not worked around here — `/umode` is the manual way meanwhile.
 - **No oper-on-connect in Seance.** SASL-driven oper covers it, and anyone who insists on `/oper` can put it in the network's existing on-connect commands. Seance stores no OPER password.
 
 ### 3. Request/response correlation (`client/js/irc/request.ts`)
@@ -414,7 +414,7 @@ What a contribution needs:
 **Foundations.**
 
 - Server profiles (`client/js/irc/profiles/`): `nefarious2`, detected by `+Nefarious(` in 004, and the `generic` fallback.
-- `OperState` (`irc/oper.ts`), dispatched as `oper:state`.
+- `OperState` (`irc/oper.ts`), dispatched as `oper:state`; a `+o` that lands before 001 is followed up after registration, and `Your privileges were modified` re-fetches PRIVS.
 - `irc/request.ts`, with the #119/#120 tolerance.
 - `MessageType.REPORT` and `SNOTICE`.
 - The routing function (`irc/snotice.ts`).
