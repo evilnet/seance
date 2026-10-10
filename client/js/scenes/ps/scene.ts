@@ -666,6 +666,9 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 			}
 		}
 
+		// The canvas clocks too: one whose layer is out keeps no frame loop of its own.
+		fire?.clock.pauseAnimations();
+		wings.pauseAnimations();
 		stepper.refresh();
 	};
 

@@ -888,6 +888,33 @@ describe("ps scene: mount (scene.ts, on a stand-in page)", function () {
 			});
 		});
 
+		it("at 60 stops the wings' frame loop when the skeins leave the render tree", function () {
+			withPage((page, clock) => {
+				const skeins = page.root.querySelector(".ps-skeins");
+				page.root.planted.set(".ps-skeins", skeins);
+				page.root.lists.set(".ps-skeins", () => [skeins]);
+				clock.setSystemTime(new Date(2026, 8, 25, 23, 0)); // a clear night: the skeins fly
+				const scene = mount(page.root as unknown as HTMLElement, {
+					visible: true,
+					attended: true,
+					view: "channel",
+					motion: "60",
+				});
+				expect(skeins.classList.contains("ps-off")).to.equal(false);
+				page.frame(); // the yurt's and the composer's look-ups run; the wings ask again
+				expect(page.pendingFrames(), "the wings run").to.equal(1);
+
+				clock.setSystemTime(new Date(2026, 8, 26, 12, 0)); // the next noon, in rain: no birds
+				clock.tick(61000 + 1400 + FADE_MARGIN_MS); // the minute's tick, then the skeins' fade
+				expect(skeins.classList.contains("ps-off"), "out of the render tree").to.equal(
+					true
+				);
+				page.frame();
+				expect(page.pendingFrames(), "no frame loop left").to.equal(0);
+				scene.destroy();
+			});
+		});
+
 		it("starts resting when mounted into a page nobody attends to", function () {
 			withPage((page, clock) => {
 				const svg = page.plantSvg();
