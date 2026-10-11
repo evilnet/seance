@@ -2512,6 +2512,12 @@ describe("the ps theme's embers (spec §9)", function () {
 		expect(valueOf(UNCLIP, "overflow-clip-margin", MOTION_OK)).to.equal(
 			`${rise + blur + spread}rem`
 		);
+		// WebKit has no overflow-clip-margin, so the clip above would cut at
+		// the box: there the clip-path is the margin and overflow is lifted
+		// under it, as the column's own WebKit rule does.
+		const webkit = `@supports not (overflow-clip-margin: 3.25rem) ${MOTION_OK}`;
+		expect(valueOf(UNCLIP, "overflow", webkit)).to.equal("visible");
+		expect(valueOf(UNCLIP, "clip-path", webkit)).to.equal("inset(-3.25rem)");
 		const unclipped = rules.filter(
 			(r) =>
 				r.decls.some(([p, v]) => /^overflow(-[xy])?$/.test(p) && v === "visible") &&

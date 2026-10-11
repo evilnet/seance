@@ -1001,6 +1001,7 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 
 @supports not (overflow-clip-margin: 3.25rem) {
 	html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:has(.reaction-enter-active, .reactions-enter-active) {
+		overflow: visible;
 		clip-path: inset(-3.25rem);
 	}
 }
