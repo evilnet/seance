@@ -157,17 +157,21 @@ describe("settings backup (helpers/settingsBackup.ts)", function () {
 
 	it("restoring replaces every covered entry and leaves the rest alone", function () {
 		seed();
-		applyBackup({
-			format: FORMAT,
-			version: VERSION,
-			exportedAt: "",
-			entries: {
-				settings: {theme: "day"},
-				"thelounge.ignore.z": [],
-				"thelounge.sts": {evil: true},
-				"thelounge.state.sidebar": "false",
+		applyBackup(
+			{
+				format: FORMAT,
+				version: VERSION,
+				exportedAt: "",
+				entries: {
+					settings: {theme: "day"},
+					"thelounge.ignore.z": [],
+					"thelounge.sts": {evil: true},
+					"thelounge.state.sidebar": "false",
+				},
 			},
-		});
+			"web",
+			{}
+		);
 
 		expect(store.get("settings")).to.equal(JSON.stringify({theme: "day"}));
 		expect(store.has("thelounge.networks")).to.equal(false);
@@ -179,6 +183,111 @@ describe("settings backup (helpers/settingsBackup.ts)", function () {
 		expect(store.get("thelounge.push")).to.equal(JSON.stringify({a: {}}));
 		expect(store.has("thelounge.state.sidebar")).to.equal(false);
 		expect(store.get("thelounge.mentions")).to.equal("[]");
+	});
+
+	describe("settings whose default depends on the platform", function () {
+		const follow = {matchSystemAppearance: true, matchSystemTextSize: true};
+		const dontFollow = {matchSystemAppearance: false, matchSystemTextSize: false};
+		const defaults = {fontSize: "large", theme: "coffee"};
+
+		function restored(platform: "web" | "ios" | "android" | undefined, settings: object) {
+			return (target: "web" | "ios" | "android") => {
+				applyBackup(
+					{
+						format: FORMAT,
+						version: VERSION,
+						exportedAt: "",
+						...(platform ? {platform} : {}),
+						entries: {settings: {theme: "coffee", ...settings}},
+					},
+					target,
+					defaults
+				);
+				return JSON.parse(store.get("settings") ?? "null") as Record<string, unknown>;
+			};
+		}
+
+		it("records where the file was made", async function () {
+			const backup = collectBackup({settings: {}, platform: "ios"});
+			expect(backup.platform).to.equal("ios");
+			expect((await decodeBackup(await encodeBackup(backup))).platform).to.equal("ios");
+		});
+
+		it("gives a web file's defaults the shell's defaults", function () {
+			expect(restored("web", dontFollow)("android")).to.deep.equal({
+				theme: "coffee",
+				...follow,
+			});
+		});
+
+		it("gives a shell file's defaults the web's defaults", function () {
+			expect(restored("ios", follow)("web")).to.deep.equal({theme: "coffee", ...dontFollow});
+		});
+
+		it("keeps a value the person chose", function () {
+			expect(restored("ios", dontFollow)("android")).to.deep.equal({
+				theme: "coffee",
+				...dontFollow,
+			});
+			expect(restored("web", follow)("ios")).to.deep.equal({theme: "coffee", ...follow});
+		});
+
+		it("keeps a web file's text size and paired theme the person picked", function () {
+			// Following the system would override both on the shell.
+			const picked = {fontSize: "huge", theme: "creama"};
+			expect(restored("web", {...dontFollow, ...picked})("ios")).to.deep.equal({
+				...picked,
+				...dontFollow,
+			});
+			expect(restored("web", {...dontFollow, fontSize: "huge"})("android")).to.deep.equal({
+				theme: "coffee",
+				fontSize: "huge",
+				matchSystemTextSize: false,
+				matchSystemAppearance: true,
+			});
+		});
+
+		it("follows the system for a theme it would not change", function () {
+			// gates has no light/dark partner; the default step is no choice.
+			expect(
+				restored("web", {...dontFollow, fontSize: "large", theme: "gates"})("ios")
+			).to.deep.equal({fontSize: "large", theme: "gates", ...follow});
+		});
+
+		it("measures the theme against the restoring deploy's default", function () {
+			applyBackup(
+				{
+					format: FORMAT,
+					version: VERSION,
+					exportedAt: "",
+					platform: "web",
+					entries: {settings: {theme: "princess", ...dontFollow}},
+				},
+				"ios",
+				{fontSize: "large", theme: "princess"}
+			);
+			expect(JSON.parse(store.get("settings") ?? "null")).to.deep.equal({
+				theme: "princess",
+				...follow,
+			});
+		});
+
+		it("keeps a shell file's setting between shells whatever it overrides", function () {
+			const picked = {fontSize: "huge", theme: "creama"};
+			expect(restored("ios", {...follow, ...picked})("android")).to.deep.equal({
+				...picked,
+				...follow,
+			});
+		});
+
+		it("restores a file that does not say where it was made as it is", function () {
+			expect(restored(undefined, dontFollow)("ios")).to.deep.equal({
+				theme: "coffee",
+				...dontFollow,
+			});
+			// Made before the settings existed: no key, so the migration decides.
+			expect(restored(undefined, {})("ios")).to.deep.equal({theme: "coffee"});
+		});
 	});
 
 	it("names the file after the deploy and the day", function () {

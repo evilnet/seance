@@ -90,7 +90,9 @@
 	 * their browser gets a bigger client too. "medium" is 100%, the browser
 	 * default (16px unless changed); "large", the default, is a real step up
 	 * from it, and the scale runs from too small to read to too large to be
-	 * sensible on purpose: the ends exist for eyes that need them. */
+	 * sensible on purpose: the ends exist for eyes that need them. In the
+	 * native shells the system's text size can stand in for the steps
+	 * (html[data-system-text] below). */
 	font-size: 100%;
 
 	/* The sidebar scales at half rate — 220px at medium, 248px at large; a
@@ -106,7 +108,8 @@
 	--status-bar-tint-height: 8px;
 }
 
-/* The font-size setting's scale (client/js/helpers/fontSize.ts). */
+/* The font-size setting's scale (client/js/helpers/fontSize.ts); "medium" is
+ * :root's own. */
 html[data-font-size="tiny"] {
 	font-size: 62.5%;
 }
@@ -125,6 +128,18 @@ html[data-font-size="xlarge"] {
 
 html[data-font-size="huge"] {
 	font-size: 212.5%;
+}
+
+/* "Match system text size" (the matchSystemTextSize setting, native shells
+ * only, helpers/systemTextSize.ts): the system's body text size takes the
+ * place of the step, so 1rem is what the system's own apps set their text in
+ * — 17px at iOS's default Text Size, 16px at Android's default font size —
+ * and follows it. --system-text-scale is that size over the browser's 16px.
+ * Never past "huge": the chrome is rem too, and past that the header loses
+ * its buttons off the edge of a phone. After the steps, so it wins at the
+ * same specificity. */
+html[data-system-text] {
+	font-size: min(calc(100% * var(--system-text-scale, 1)), 212.5%);
 }
 
 ::placeholder {
@@ -860,13 +875,35 @@ p {
 #chat button.search,
 #chat button.menu,
 #chat button.close {
+	--header-button-size: 2.5rem;
+
 	color: #607992;
 	display: flex;
 	font-size: 1.0625rem;
 	line-height: 1;
-	height: 2.5rem;
-	width: 2.5rem;
+	height: var(--header-button-size);
+	width: var(--header-button-size);
 	flex-shrink: 0;
+}
+
+/* Five of these share the pane with the channel name. In a narrow pane (a
+ * phone) at the largest steps, or iOS's accessibility text sizes, 2.5rem
+ * each ran the last ones off the edge, so there they are capped in px, above
+ * the default step's 50px and 21px; the title keeps growing as text. A pane
+ * with room for them (24rem, in the root's size, so it moves with the step)
+ * leaves them growing with everything else. */
+/* stylelint-disable-next-line at-rule-no-unknown */
+@container chat (max-width: 24rem) {
+	#viewport .lt,
+	#viewport .rt,
+	#chat button.mentions,
+	#chat button.search,
+	#chat button.menu,
+	#chat button.close {
+		--header-button-size: min(2.5rem, 56px);
+
+		font-size: min(1.0625rem, 24px);
+	}
 }
 
 #viewport .lt::before,
@@ -875,8 +912,8 @@ p {
 #chat button.search::before,
 #chat button.menu::before,
 #chat button.close::before {
-	width: 2.5rem;
-	line-height: 2.5rem; /* Fix alignment in Microsoft Edge */
+	width: var(--header-button-size);
+	line-height: var(--header-button-size); /* Fix alignment in Microsoft Edge */
 }
 
 /* Channel list button stays fixed when scrolling... */
@@ -1173,16 +1210,14 @@ of one that has already passed — and only one `animation` can hold the icon. *
 }
 
 /* Keep the cue, drop the motion */
-@media (prefers-reduced-motion: reduce) {
-	.channel-list-item.is-typing::before {
-		animation: none;
-		color: var(--channel-typing-color);
-	}
+html[data-reduce-motion] .channel-list-item.is-typing::before {
+	animation: none;
+	color: var(--channel-typing-color);
+}
 
-	.channel-list-item.has-activity:not(.is-typing)::before {
-		animation: none;
-		color: var(--channel-activity-color);
-	}
+html[data-reduce-motion] .channel-list-item.has-activity:not(.is-typing)::before {
+	animation: none;
+	color: var(--channel-activity-color);
 }
 
 .channel-list-item .name {
@@ -1478,7 +1513,8 @@ so the toolbar has one weight; green is what marks a subscribed bell. */
  * cannot see. */
 
 /* Native checkboxes and radios do not follow the font; size them off it so
- * the big scales get a target that matches their label. */
+ * the big scales get a target that matches their label. They take the
+ * theme's button colour, not the browser's blue. */
 input[type="checkbox"],
 input[type="radio"] {
 	width: 1em;
@@ -1486,6 +1522,68 @@ input[type="radio"] {
 	margin: 0 0.4em 0 0;
 	vertical-align: -0.1em;
 	flex: 0 0 auto;
+	accent-color: var(--button-color);
+}
+
+/* In the iOS shell every checkbox is a switch (helpers/nativeSwitches.ts), in
+ * UISwitch's proportions (51×31) and a little larger than the text. */
+input[type="checkbox"][switch] {
+	width: 2em;
+	height: 1.22em;
+	vertical-align: -0.25em;
+}
+
+/* In the Android shell every checkbox is drawn as a Material switch, the
+ * counterpart of iOS's native one above: an outlined track with a small thumb
+ * when off, the theme's button colour with a larger thumb when on. Still an
+ * <input type="checkbox"> — checked state, change events and labels as
+ * before. Sized off the font, like the checkbox it replaces. */
+html[data-platform="android"] input[type="checkbox"] {
+	appearance: none;
+	position: relative;
+	width: 2.1em;
+	height: 1.3em;
+	vertical-align: -0.3em;
+	border: 0.125em solid var(--body-color-muted);
+	border-radius: 0.65em;
+	background: transparent;
+	cursor: pointer;
+	transition: background-color 0.15s, border-color 0.15s;
+}
+
+html[data-platform="android"] input[type="checkbox"]::before {
+	content: "";
+	position: absolute;
+	top: 50%;
+	left: 0.2em;
+	width: 0.6em;
+	height: 0.6em;
+	border-radius: 50%;
+	background: var(--body-color-muted);
+	transform: translateY(-50%);
+	transition: left 0.15s, width 0.15s, height 0.15s;
+}
+
+html[data-platform="android"] input[type="checkbox"]:checked {
+	border-color: var(--button-color);
+	background: var(--button-color);
+}
+
+html[data-platform="android"] input[type="checkbox"]:checked::before {
+	left: calc(100% - 0.95em);
+	width: 0.85em;
+	height: 0.85em;
+	background: var(--button-text-color-hover);
+}
+
+html[data-platform="android"] input[type="checkbox"]:focus-visible {
+	outline: 2px solid var(--button-color);
+	outline-offset: 2px;
+}
+
+html[data-platform="android"] input[type="checkbox"]:disabled {
+	opacity: 0.5;
+	cursor: default;
 }
 
 .input {
@@ -1632,10 +1730,8 @@ textarea.input {
 }
 
 /* Keep the cue, drop the motion */
-@media (prefers-reduced-motion: reduce) {
-	#chat .connecting-indicator {
-		animation: none;
-	}
+html[data-reduce-motion] #chat .connecting-indicator {
+	animation: none;
 }
 
 .header .title {
@@ -1869,6 +1965,15 @@ textarea.input {
 	opacity: 1;
 	transform: none;
 	pointer-events: auto;
+}
+
+/* A finger needs Apple's 44pt (a CSS px on iOS), and the button grows with
+   the text past that: 2.2rem is 44px at the default step. A mouse keeps the
+   36px it always had. */
+@media (pointer: coarse) {
+	#chat {
+		--scroll-down-size: max(2.2rem, 44px);
+	}
 }
 
 .scroll-down-arrow {
@@ -2676,18 +2781,16 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	}
 }
 
-@media (prefers-reduced-motion: reduce) {
-	#chat .toggle-content.media-revealed .media-frame {
-		animation: none;
-	}
+html[data-reduce-motion] #chat .toggle-content.media-revealed .media-frame {
+	animation: none;
+}
 
-	#chat .media-veil.loading .media-veil-icon::before {
-		animation: none;
-	}
+html[data-reduce-motion] #chat .media-veil.loading .media-veil-icon::before {
+	animation: none;
+}
 
-	#chat .media-veil-main:hover .media-veil-icon {
-		transform: none;
-	}
+html[data-reduce-motion] #chat .media-veil-main:hover .media-veil-icon {
+	transform: none;
 }
 
 #chat .userlist .count {
@@ -4811,11 +4914,9 @@ html[data-shell="native"] #image-viewer .next-image-btn {
 	}
 }
 
-@media (prefers-reduced-motion: reduce) {
-	#chat .reaction-enter-active,
-	#chat .reactions-enter-active {
-		animation: none;
-	}
+html[data-reduce-motion] #chat .reaction-enter-active,
+html[data-reduce-motion] #chat .reactions-enter-active {
+	animation: none;
 }
 
 #chat .msg-reaction-count {
@@ -5067,10 +5168,8 @@ html[data-shell="native"] #image-viewer .next-image-btn {
 	}
 }
 
-@media (prefers-reduced-motion: reduce) {
-	#chat .msg-copied {
-		animation: none;
-	}
+html[data-reduce-motion] #chat .msg-copied {
+	animation: none;
 }
 
 /* The one-tap reactions (the newest used, helpers/reactionRecents.ts
@@ -5249,11 +5348,9 @@ html[data-shell="native"] .reaction-picker.sheet {
 	}
 }
 
-@media (prefers-reduced-motion: reduce) {
-	.reaction-picker,
-	#chat .msg.actions-open .msg-actions {
-		animation: none;
-	}
+html[data-reduce-motion] .reaction-picker,
+html[data-reduce-motion] #chat .msg.actions-open .msg-actions {
+	animation: none;
 }
 
 .reaction-picker-search {
@@ -5719,10 +5816,8 @@ html[data-shell="native"] .reaction-picker.sheet {
 }
 
 /* Keep the cue, drop the motion */
-@media (prefers-reduced-motion: reduce) {
-	#form .connection-bar-icon.spinning::before {
-		animation: none;
-	}
+html[data-reduce-motion] #form .connection-bar-icon.spinning::before {
+	animation: none;
 }
 
 #form .connection-bar-connect {
@@ -5745,13 +5840,11 @@ html[data-shell="native"] .reaction-picker.sheet {
 	outline: 0;
 }
 
-@media (prefers-reduced-motion: reduce) {
-	#form .upload-bar-track.indeterminate .upload-bar-fill {
-		animation: none;
-		left: 0;
-		width: 100%;
-		opacity: 0.5;
-	}
+html[data-reduce-motion] #form .upload-bar-track.indeterminate .upload-bar-fill {
+	animation: none;
+	left: 0;
+	width: 100%;
+	opacity: 0.5;
 }
 
 #form .upload-bar-percent {
@@ -5864,4 +5957,36 @@ html[data-shell="native"] .reaction-picker.sheet {
 	color: var(--body-color-muted);
 	font-size: 0.8125rem;
 	margin-top: 2px;
+}
+
+/* Increase Contrast (iOS, macOS), Windows' contrast themes and Android's High
+ * contrast text ask for more: every muted and faint text tone becomes the full
+ * text colour, own messages and timestamps included. The attribute, like
+ * `data-reduce-motion` below and in the rules above, is set from the system
+ * by helpers/systemAccessibility.ts, live — not a media query, which Android's
+ * WebView answers with the settings its process started with. It outranks a
+ * theme's `:root`, so this holds whichever theme is loaded; a theme without
+ * the handoff tokens only has --body-color-muted, and the others resolve to
+ * nothing it reads. A theme that re-maps one of these tokens below :root
+ * (zelenzy's dialogs) outranks this there and restates it for its own
+ * selector. */
+html[data-contrast="more"]:root {
+	--body-color-muted: var(--body-color);
+	--chat-fg-muted: var(--chat-fg);
+	--chat-fg-faint: var(--chat-fg);
+	--rail-fg-muted: var(--rail-fg);
+}
+
+/* Reduce Motion: no slides, fades or spins anywhere — the sidebar, the
+ * settings pane, the toolbar's pop-in, the reaction picker. 0.01ms rather
+ * than none so transitionend and animationend still fire, which Vue's
+ * <Transition> waits for. The rules above that stop single animations stay:
+ * they also swap in a still look where a frozen frame would read wrong. */
+html[data-reduce-motion] *,
+html[data-reduce-motion] *::before,
+html[data-reduce-motion] *::after {
+	animation-duration: 0.01ms !important;
+	animation-iteration-count: 1 !important;
+	transition-duration: 0.01ms !important;
+	scroll-behavior: auto !important;
 }

@@ -43,6 +43,9 @@ async function waitRegistered(page, before) {
 }
 
 const promptOpened = `document.querySelector("#push-prompt-overlay")?.classList.contains("opened")`;
+// A prompt takes no answer in its first moments (webpush.ts PROMPT_ARM_MS);
+// `data-armed` marks it ready.
+const promptArmed = `document.querySelector("#push-prompt[data-armed]") !== null`;
 
 const openSettings = `(() => {
 	const el = document.querySelector(".push-networks-hint");
@@ -69,6 +72,7 @@ export default async function run(page) {
 	await page.screenshot("1-prompt");
 	page.check("prompt appears on a SASL'd connect to a webpush server", true);
 
+	await page.waitFor(promptArmed, {label: "the prompt to take answers"});
 	await page.click("#pushPromptNo");
 	await page.waitFor(`!(${promptOpened})`, {label: "the prompt to close after No"});
 	page.check("'No' closes the prompt", true);
@@ -80,6 +84,7 @@ export default async function run(page) {
 	await page.waitFor(promptOpened, {label: "the prompt to ask again after 'No'"});
 	page.check("'No' is not sticky: the prompt asks again on the next connect", true);
 
+	await page.waitFor(promptArmed, {label: "the prompt to take answers"});
 	await page.click("#pushPromptNever");
 	await page.waitFor(`!(${promptOpened})`, {label: "the prompt to close after Never"});
 	page.check("'Never' closes the prompt", true);

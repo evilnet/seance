@@ -173,6 +173,13 @@
 	color: var(--body-color);
 }
 
+/* Increase Contrast resets the muted tones on :root (style.css), which the
+ * re-mapping above outranks inside these windows: restate it here, against
+ * the dialogs' own text colour. */
+html[data-contrast="more"] .window:not(#chat) {
+	--body-color-muted: var(--body-color);
+}
+
 #chat .userlist {
 	background: var(--chat-bg);
 	border-left: 0;

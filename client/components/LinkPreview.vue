@@ -162,6 +162,7 @@ import {
 } from "../js/helpers/mediaTrust";
 import {mediaScopesOf, mediaTrustMenu} from "../js/helpers/mediaTrustMenu";
 import {animationInfo, isAnimatedImageBytes} from "../js/helpers/animatedImage";
+import {onSystemAccessibility, systemAccessibility} from "../js/helpers/systemAccessibility";
 import {imageViewerKey} from "./App.vue";
 
 /** Extensions an image preview may animate in: GIF and WebP usually do, PNG (APNG) and AVIF rarely. */
@@ -324,9 +325,11 @@ export default defineComponent({
 		const playedOnce = ref(false);
 		const frozen = ref(false);
 		let playTimer: ReturnType<typeof setTimeout> | null = null;
-		const reducedMotion =
-			typeof window !== "undefined" &&
-			window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+		// The system's Reduce Motion, live (helpers/systemAccessibility.ts).
+		const reducedMotion = ref(systemAccessibility().reduceMotion);
+		const stopFollowingMotion = onSystemAccessibility((state) => {
+			reducedMotion.value = state.reduceMotion;
+		});
 
 		const isNewest = computed(() => {
 			const last = props.channel.messages[props.channel.messages.length - 1];
@@ -336,7 +339,7 @@ export default defineComponent({
 			() =>
 				!animates.value ||
 				hovered.value ||
-				(!reducedMotion && (isNewest.value || !playedOnce.value))
+				(!reducedMotion.value && (isNewest.value || !playedOnce.value))
 		);
 
 		/** Hold the frame on screen now, in the box the image has. */
@@ -393,7 +396,7 @@ export default defineComponent({
 
 			// Reduced motion: hold the first frame from the start, not from
 			// whenever the file has been read.
-			if (reducedMotion && USUALLY_ANIMATED.test(path)) {
+			if (reducedMotion.value && USUALLY_ANIMATED.test(path)) {
 				animates.value = true;
 				await nextTick();
 				freeze();
@@ -531,6 +534,7 @@ export default defineComponent({
 		);
 
 		onUnmounted(() => {
+			stopFollowingMotion();
 			clearPlay();
 			// Let this preview go through load/loadedmetadata events again,
 			// Otherwise the browser can cause a resize on video elements

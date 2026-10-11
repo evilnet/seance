@@ -84,18 +84,33 @@ type PromptKind = "subscribe" | "renew";
  * components/PushPrompt.vue; state lives here because the decision needs
  * this module's servers/subscriptions view. `network` is the uuid of the
  * network whose connect asked (the prompt names it), `vapid` the key a
- * subscription made from this prompt is created against. */
+ * subscription made from this prompt is created against, `armed` whether
+ * it takes answers yet ({@link PROMPT_ARM_MS}). */
 const pushPrompt = reactive<{
 	visible: boolean;
 	kind: PromptKind;
 	network: string | undefined;
 	vapid: string | undefined;
+	armed: boolean;
 }>({
 	visible: false,
 	kind: "subscribe",
 	network: undefined,
 	vapid: undefined,
+	armed: false,
 });
+
+/** How long a prompt that has just opened takes no answer. It opens on its
+ * own — a network connecting, or {@link PROMPT_HANDOFF_MS} after the last
+ * prompt was answered, in the same place — so a click or tap meant for what
+ * was there before must not answer it: above all a double-click's second
+ * click, which comes up to ~500 ms (the usual OS setting) after the first,
+ * i.e. up to ~200 ms into the next prompt; 450 ms covers a double-click
+ * twice as slow as that and a tap aimed at the app as the prompt appears.
+ * Nobody reads the question and answers it this fast. */
+const PROMPT_ARM_MS = 450;
+
+let promptArmTimer: ReturnType<typeof setTimeout> | undefined;
 
 /** Per connected network, as announced by `webpush:available`: the server's
  * VAPID key (undefined when it cannot push) and whether this connection
@@ -212,6 +227,14 @@ function anyVapid(): string | undefined {
  * (Settings live per network — some servers can push, others cannot). */
 function pushOn(uuid: string): boolean {
 	return saved.pushEnabledOf(saved.get(uuid));
+}
+
+/** Whether a subscribe under way for a network should still finish: the
+ * network is still saved and its push still on. Asked after every wait, since
+ * the user can switch push off, or remove the network, while the browser
+ * asks for permission or creates the subscription. */
+function stillWanted(uuid: string): boolean {
+	return saved.get(uuid) !== undefined && pushOn(uuid);
 }
 
 /** Recompute the coarse state the Settings screen renders. */
@@ -530,36 +553,129 @@ socket.on("webpush:available", ({network, vapid, sasl}) => {
 	maybePrompt(network);
 });
 
-/** Networks with a subscribe() run in flight (a burst of connects). */
-const subscribing = new Set<string>();
+/** subscribe() runs in flight, by network: a burst of connects, a Renew
+ * click and a prompt's Yes for the same network share one run. */
+const subscribing = new Map<string, Promise<void>>();
+
+/** Networks whose turn at the prompt came while it was busy
+ * ({@link promptBusy}); {@link scheduleHandoff} looks at them again once it
+ * is free. Only these: a network decided on its own turn is not looked at
+ * again until it reconnects, so a subscribe that keeps failing under a
+ * granted permission is tried once per connection, not in a loop. */
+const waiting = new Set<string>();
+
+/** How long the prompt stays closed before the next network's opens: longer
+ * than the overlay's 0.2 s fade, so the user sees one question close and
+ * another open rather than the text changing under the pointer. */
+const PROMPT_HANDOFF_MS = 300;
+
+let handoffTimer: ReturnType<typeof setTimeout> | undefined;
 
 /** Prompts answered "not now" in this page, by `declineKey`: a reconnect
- * (every registration announces `webpush:available`) must not ask again.
- * Page-lived on purpose — a reload asks once more, "never" is the lasting
- * answer — and keyed by kind and key, so declining to subscribe does not
- * silence the renew prompt a later key rotation brings. */
+ * (every registration announces `webpush:available`) must not ask again,
+ * and a permission granted since (another network's Yes) does not turn it
+ * into a silent subscribe. Page-lived on purpose — a reload asks once more,
+ * "never" is the lasting answer — and keyed by kind and key, so declining to
+ * subscribe does not silence the renew prompt a later key rotation brings. */
 const declined = new Set<string>();
 
 function declineKey(kind: PromptKind, uuid: string, vapid: string): string {
 	return `${kind} ${uuid} ${vapid}`;
 }
 
+/** The subscribe a Yes started, until it settles: while it runs the
+ * browser's own permission dialog may be up, `Notification.permission`
+ * still says "default", and a second network asking now would open its
+ * prompt over it. Only a Yes holds the prompt — a silent subscribe (the
+ * permission already granted, or a trusted renewal) asks the user nothing,
+ * and a Renew click comes from a form, not from the prompt. */
+let promptHold: Promise<void> | undefined;
+
+let promptHoldTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** How long a Yes's subscribe may hold the prompt. A permission dialog the
+ * user leaves open, or a subscribe that never settles (a worker that never
+ * activates), must not keep every other network from being asked until the
+ * page is reloaded; past this, the next network's prompt may open over a
+ * permission dialog still up — the lesser harm. */
+const PROMPT_HOLD_MAX_MS = 60000;
+
+function holdPrompt(run: Promise<void>): void {
+	clearTimeout(promptHoldTimer);
+	promptHold = run;
+
+	const release = () => {
+		if (promptHold !== run) {
+			return; // a later Yes holds it now
+		}
+
+		clearTimeout(promptHoldTimer);
+		promptHold = undefined;
+		promptHoldTimer = undefined;
+		scheduleHandoff();
+	};
+
+	promptHoldTimer = setTimeout(release, PROMPT_HOLD_MAX_MS);
+	void run.finally(release);
+}
+
+/** The prompt is busy while it is open, while a Yes's subscribe holds it
+ * ({@link promptHold}), and while a hand-off is on its way, so a network
+ * announcing in the gap queues behind the ones already waiting instead of
+ * jumping ahead. */
+function promptBusy(): boolean {
+	return pushPrompt.visible || promptHold !== undefined || handoffTimer !== undefined;
+}
+
+/** The one place the prompt passes on: called whenever it may have become
+ * free (it closed, a Yes's subscribe settled). Once it is, the waiting
+ * networks get their turn, on a later task — never in the tick that closed
+ * the last prompt — each by its own rules and only while still connected;
+ * the first that needs the prompt opens it and the rest wait again. */
+function scheduleHandoff(): void {
+	if (waiting.size === 0 || promptBusy()) {
+		return;
+	}
+
+	handoffTimer = setTimeout(() => {
+		handoffTimer = undefined;
+
+		if (promptBusy()) {
+			return; // what made it busy calls back here when it settles
+		}
+
+		const next = [...waiting];
+		waiting.clear();
+
+		for (const uuid of next) {
+			if (networkUp(uuid)) {
+				maybePrompt(uuid);
+			}
+		}
+	}, PROMPT_HANDOFF_MS);
+}
+
 /** Offer the prompt once per connection that logged in with SASL on a
  * push-capable network: the server can push only for accounts, so an
  * anonymous connect has nothing to offer. Skipped when this browser cannot
- * subscribe or permission is already denied.
+ * subscribe or permission is already denied. One prompt at a time: a
+ * network that needs it while it is busy ({@link promptBusy}) waits its
+ * turn; one that needs no question (a silent subscribe) does not wait.
  *
- * With no entry for the network it asks to subscribe (or just subscribes
- * when permission is already granted — the network's push option is the
- * user's choice), unless the user answered "never" on this device. With an
- * entry made against a key the network no longer announces, the
- * `pushKeyChange` setting decides: `ask` (default) opens the renew prompt,
- * permission or not — the renewal replaces the endpoint the server pushes
- * to; `trust` renews on the spot when permission is granted (otherwise the
- * prompt's button is the gesture the permission ask needs); `ignore` does
- * nothing — the entry stays stale and the network's settings keep offering
- * Renew. The renew prompt's "Never" sets `ignore`, so the choice is visible
- * and reversible in Settings. */
+ * "Not now" ({@link declined}) holds for the page whatever happens to the
+ * permission meanwhile: a network the user said no to is not subscribed
+ * because another network's Yes granted permission since. Otherwise, with
+ * no entry for the network it asks to subscribe (or just subscribes when
+ * permission is already granted — the network's push option is the user's
+ * choice), unless the user answered "never" on this device. With an entry
+ * made against a key the network no longer announces, the `pushKeyChange`
+ * setting decides: `ask` (default) opens the renew prompt, permission or
+ * not — the renewal replaces the endpoint the server pushes to; `trust`
+ * renews on the spot when permission is granted (otherwise the prompt's
+ * button is the gesture the permission ask needs); `ignore` does nothing —
+ * the entry stays stale and the network's settings keep offering Renew. The
+ * renew prompt's "Never" sets `ignore`, so the choice is visible and
+ * reversible in Settings. */
 function maybePrompt(uuid: string): void {
 	const server = servers.get(uuid);
 
@@ -567,18 +683,30 @@ function maybePrompt(uuid: string): void {
 		return;
 	}
 
-	if (pushPrompt.visible || !browserSupported() || needsInstall() || permissionDenied()) {
+	// A subscribe already running for it answers the question; asking again
+	// meanwhile would reopen a renew prompt for a key it is replacing.
+	if (subscribing.has(uuid)) {
+		return;
+	}
+
+	if (!browserSupported() || needsInstall() || permissionDenied()) {
 		return;
 	}
 
 	const vapid = server.vapid;
 	const entry = subs[uuid];
 
-	if (entry) {
-		if (entry.vapid === vapid) {
-			return; // subscribed; autoRegister re-registers it
-		}
+	if (entry && entry.vapid === vapid) {
+		return; // subscribed; autoRegister re-registers it
+	}
 
+	const kind: PromptKind = entry ? "renew" : "subscribe";
+
+	if (declined.has(declineKey(kind, uuid, vapid))) {
+		return;
+	}
+
+	if (kind === "renew") {
 		const policy = keyChangePolicy(store.state.settings.pushKeyChange);
 
 		if (policy === "ignore") {
@@ -590,7 +718,7 @@ function maybePrompt(uuid: string): void {
 			return;
 		}
 
-		askOnce("renew", uuid, vapid);
+		askOrWait("renew", uuid, vapid);
 		return;
 	}
 
@@ -607,50 +735,108 @@ function maybePrompt(uuid: string): void {
 		return;
 	}
 
-	askOnce("subscribe", uuid, vapid);
+	askOrWait("subscribe", uuid, vapid);
 }
 
-/** Open the prompt unless the user already said "not now" to this very
- * question in this page. */
-function askOnce(kind: PromptKind, network: string, vapid: string): void {
-	if (!declined.has(declineKey(kind, network, vapid))) {
-		openPrompt(kind, network, vapid);
+/** Open the prompt for a network that needs it, or — while it is busy
+ * ({@link promptBusy}) — queue the network for its turn. Only a question
+ * waits: what needs no answer (a silent subscribe) goes ahead at once. */
+function askOrWait(kind: PromptKind, uuid: string, vapid: string): void {
+	if (pushPrompt.visible && pushPrompt.network === uuid) {
+		return; // already asking it
 	}
+
+	if (promptBusy()) {
+		waiting.add(uuid);
+		return;
+	}
+
+	openPrompt(kind, uuid, vapid);
 }
 
 function openPrompt(kind: PromptKind, network: string, vapid: string): void {
 	pushPrompt.kind = kind;
 	pushPrompt.network = network;
 	pushPrompt.vapid = vapid;
+	pushPrompt.armed = false;
 	pushPrompt.visible = true;
+
+	clearTimeout(promptArmTimer);
+	promptArmTimer = setTimeout(() => {
+		pushPrompt.armed = true;
+	}, PROMPT_ARM_MS);
 }
 
-/** Prompt answer: subscribe, or renew — the same flow, for the network that
- * asked (the click is the permission user gesture). */
-function acceptPrompt(): void {
+/** The prompt's one way out: every answer, a network whose push is
+ * switched off while it asks, and one that disconnects. The next network's
+ * turn follows from here, once whatever the answer started has settled. */
+function closePrompt(): void {
+	clearTimeout(promptArmTimer);
+	pushPrompt.armed = false;
 	pushPrompt.visible = false;
+	scheduleHandoff();
+}
 
-	if (pushPrompt.network !== undefined) {
-		void subscribe(pushPrompt.network);
+/** A network that drops (or is removed) while its prompt is up: the
+ * question goes with the connection, unanswered — a Yes now would subscribe
+ * against a server that cannot take the registration, and the networks
+ * waiting behind it would wait for nothing. The next connect asks again. */
+function dropNetworkPrompt(uuid: string): void {
+	waiting.delete(uuid);
+
+	if (pushPrompt.visible && pushPrompt.network === uuid) {
+		closePrompt();
 	}
 }
 
-/** Prompt answer: not now — not asked again until the page is reloaded
- * (or the network's push option is switched back on). */
-function declinePrompt(): void {
-	pushPrompt.visible = false;
-
-	if (pushPrompt.network !== undefined && pushPrompt.vapid !== undefined) {
-		declined.add(declineKey(pushPrompt.kind, pushPrompt.network, pushPrompt.vapid));
+socket.on("network:status", ({network, connected}) => {
+	if (!connected) {
+		dropNetworkPrompt(network);
 	}
-}
+});
 
-/** Prompt answer: never ask this question again on this device. For the
- * renew prompt that is the `pushKeyChange` setting flipped to `ignore`
- * (visible and reversible in Settings → Notifications); a stale entry stays
- * stale, nothing is unsubscribed behind the user's back. */
-function neverPrompt(): void {
-	if (pushPrompt.kind === "renew") {
+socket.on("quit", ({network}) => {
+	dropNetworkPrompt(network);
+});
+
+type PromptAnswer = "yes" | "no" | "never";
+
+/**
+ * The user's answer to the prompt that names `network` — the network the
+ * prompt showed when the user acted (PushPrompt.vue passes it). An answer
+ * for a prompt that is not open, or that asks about another network by now,
+ * answers nothing: the user never saw that question. Nor does one in the
+ * prompt's first moments ({@link PROMPT_ARM_MS}): it was meant for what was
+ * on screen before.
+ *
+ * - yes: subscribe, or renew — the same flow; the click is the permission
+ *   user gesture, so the subscribe starts here, in the click's task.
+ * - no: not now — not asked again until the page is reloaded (or the
+ *   network's push option is switched back on).
+ * - never: never ask this question again on this device. For the renew
+ *   prompt that is the `pushKeyChange` setting flipped to `ignore` (visible
+ *   and reversible in Settings → Notifications); a stale entry stays stale,
+ *   nothing is unsubscribed behind the user's back.
+ */
+function answerPrompt(answer: PromptAnswer, network: string | undefined): void {
+	if (
+		!pushPrompt.visible ||
+		!pushPrompt.armed ||
+		network === undefined ||
+		network !== pushPrompt.network
+	) {
+		return;
+	}
+
+	const {kind, vapid} = pushPrompt;
+
+	if (answer === "yes") {
+		holdPrompt(subscribe(network));
+	} else if (answer === "no") {
+		if (vapid !== undefined) {
+			declined.add(declineKey(kind, network, vapid));
+		}
+	} else if (kind === "renew") {
 		void store.dispatch("settings/update", {
 			name: "pushKeyChange",
 			value: "ignore",
@@ -660,7 +846,7 @@ function neverPrompt(): void {
 		storage.set(NEVER_ASK_KEY, "1");
 	}
 
-	pushPrompt.visible = false;
+	closePrompt();
 }
 
 socket.on("webpush:state", ({network, action, endpoint, ok, code, reason}) => {
@@ -686,24 +872,42 @@ socket.on("webpush:state", ({network, action, endpoint, ok, code, reason}) => {
  * gesture), create that network's registration and browser subscription
  * against the key it announced, persist the entry, tell the network to
  * forget the endpoint this replaces, and register the new one with it.
+ * Resolves when that is done — a call while a run for the network is in
+ * flight gets that run, not a second one.
  */
-async function subscribe(uuid: string): Promise<void> {
-	if (subscribing.has(uuid)) {
-		return;
+function subscribe(uuid: string): Promise<void> {
+	const running = subscribing.get(uuid);
+
+	if (running) {
+		return running;
 	}
 
 	if (!browserSupported()) {
 		refreshState();
-		return;
+		return Promise.resolve();
 	}
 
-	subscribing.add(uuid);
+	// Started before it is recorded, so the permission request is made in
+	// this task — the caller's user gesture.
+	const run = subscribeNow(uuid).finally(() => {
+		subscribing.delete(uuid);
+	});
 
+	subscribing.set(uuid, run);
+	return run;
+}
+
+async function subscribeNow(uuid: string): Promise<void> {
 	try {
 		const permission = await Notification.requestPermission();
 
 		if (permission !== "granted") {
 			setState("denied");
+			return;
+		}
+
+		if (!stillWanted(uuid)) {
+			refreshState();
 			return;
 		}
 
@@ -728,6 +932,14 @@ async function subscribe(uuid: string): Promise<void> {
 		const previous = subs[uuid]?.endpoint;
 		const material = await pushSubscription(uuid, vapid);
 
+		// Switched off or removed meanwhile: nothing is stored or registered.
+		// Switching off unsubscribes once this run has settled
+		// (onNetworkSaved), which drops the browser subscription just made.
+		if (!stillWanted(uuid)) {
+			refreshState();
+			return;
+		}
+
 		subs[uuid] = {vapid, ...material};
 		saveSubs();
 
@@ -739,6 +951,12 @@ async function subscribe(uuid: string): Promise<void> {
 		}
 
 		await writeStash();
+
+		if (!stillWanted(uuid)) {
+			refreshState();
+			return; // the unsubscribe waiting for this run forgets the entry
+		}
+
 		socket.emit("webpush:register", {
 			network: uuid,
 			endpoint: material.endpoint,
@@ -758,8 +976,6 @@ async function subscribe(uuid: string): Promise<void> {
 		setState("blocked");
 		// eslint-disable-next-line no-console
 		console.warn("[webpush] subscription failed", error);
-	} finally {
-		subscribing.delete(uuid);
 	}
 }
 
@@ -870,7 +1086,8 @@ const notifyFlags = reactive(new Map<string, boolean>());
 /** React to a saved network whose push flag changed (NetworkEdit form).
  *
  * Off: this device unsubscribes from that network right away — its
- * subscription and registration go, the network is told.
+ * subscription and registration go, the network is told, and a prompt
+ * asking about it closes.
  * On: re-register the stored entry when the network is connected, or
  * subscribe/prompt as a connect would; otherwise the next
  * `webpush:available` does it.
@@ -888,7 +1105,26 @@ function onNetworkSaved(next: SavedNetwork, wasEnabled: boolean): void {
 	}
 
 	if (!enabled) {
-		void unsubscribe(next.uuid);
+		// Its question is moot: a prompt asking about it closes, unanswered.
+		waiting.delete(next.uuid);
+
+		if (pushPrompt.visible && pushPrompt.network === next.uuid) {
+			closePrompt();
+		}
+
+		// A subscribe still running for it would store and register the
+		// subscription after the unsubscribe had finished: let it settle
+		// first (it sees push is off and stops short). Switched back on
+		// meanwhile, the subscribe it finished is the one wanted: keep it.
+		const running = subscribing.get(next.uuid);
+
+		void (async () => {
+			await running;
+
+			if (!pushOn(next.uuid)) {
+				await unsubscribe(next.uuid);
+			}
+		})();
 	} else {
 		// Switching push on is asking for it: an earlier "not now" is over.
 		for (const key of [...declined]) {
@@ -1171,7 +1407,5 @@ export default {
 	notifyOn,
 	pushWorkerFor,
 	pushPrompt,
-	acceptPrompt,
-	declinePrompt,
-	neverPrompt,
+	answerPrompt,
 };

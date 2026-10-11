@@ -28,6 +28,7 @@
  * nothing user-supplied is ever written into it.
  */
 import {isPhoneLayout} from "../../helpers/device";
+import {onSystemAccessibility, systemAccessibility} from "../../helpers/systemAccessibility";
 import type {SceneHandle, SceneHostState} from "../../themeScene";
 import {
 	birdsAt,
@@ -906,8 +907,14 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	let privateView = false;
 	let attended = initial.attended;
 	const running = () =>
-		visible && attended && sceneMotion !== "off" && !reduced.matches && !privateView;
+		visible &&
+		attended &&
+		sceneMotion !== "off" &&
+		!reduced.matches &&
+		!systemAccessibility().reduceMotion &&
+		!privateView;
 	const onReduced = () => motion(running());
+	let stopFollowingMotion: (() => void) | undefined;
 
 	// Once now, then on each minute boundary. The next minute is scheduled
 	// whatever this one's apply does: one bad minute throws (and is reported),
@@ -981,6 +988,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 			gates.stop();
 			endFade?.();
 			reduced.removeEventListener("change", onReduced);
+			stopFollowingMotion?.();
 			yurt?.destroy();
 			composer?.destroy();
 			root.replaceChildren();
@@ -1018,6 +1026,9 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	// stand over a scene still running. The first error is the one reported.
 	try {
 		reduced.addEventListener("change", onReduced);
+		// The Android shell reports Remove animations itself: its WebView
+		// answers the media query with the value its process started with.
+		stopFollowingMotion = onSystemAccessibility(onReduced);
 		yurt = placeYurt(root);
 		composer = watchComposer(root, html);
 		// A scene mounted into a hidden page starts stopped; the first visible update starts it.

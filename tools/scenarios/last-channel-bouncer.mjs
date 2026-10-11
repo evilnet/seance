@@ -52,7 +52,8 @@ export default async function run(page) {
 	// which keeps it away for the rest of this profile's life.
 	const dismissPushPrompt = async (waitMs = 8000) => {
 		for (let waited = 0; waited <= waitMs; waited += 250) {
-			if ((await page.count("#push-prompt-overlay.opened")) > 0) {
+			// `data-armed`: a prompt takes no answer in its first moments.
+			if ((await page.count("#push-prompt[data-armed]")) > 0) {
 				await page.click("#pushPromptNever");
 				await page.sleep(300);
 				return;

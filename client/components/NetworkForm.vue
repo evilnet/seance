@@ -82,11 +82,16 @@
 				<label></label>
 				<div class="input-wrap">
 					<label class="tls">
-						<input v-model="defaults.tls" type="checkbox" name="tls" />
+						<input v-model="defaults.tls" v-switch type="checkbox" name="tls" />
 						Use secure connection (TLS)
 					</label>
 					<label class="tls">
-						<input v-model="defaults.autoconnect" type="checkbox" name="autoconnect" />
+						<input
+							v-model="defaults.autoconnect"
+							v-switch
+							type="checkbox"
+							name="autoconnect"
+						/>
 						Connect automatically when the app starts
 					</label>
 				</div>
@@ -203,6 +208,7 @@ the server tab on new connection"
 						<label class="tls">
 							<input
 								v-model="defaults.rememberPassword"
+								v-switch
 								type="checkbox"
 								name="rememberPassword"
 							/>
@@ -216,6 +222,7 @@ the server tab on new connection"
 						<label class="tls">
 							<input
 								v-model="defaults.pushEnabled"
+								v-switch
 								type="checkbox"
 								name="pushEnabled"
 							/>
@@ -253,6 +260,7 @@ the server tab on new connection"
 					<label class="tls">
 						<input
 							v-model="defaults.notifyEnabled"
+							v-switch
 							type="checkbox"
 							name="notifyEnabled"
 							@change="onNotifyToggle"

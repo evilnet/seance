@@ -113,6 +113,23 @@ function brandHtml(content: string): string {
 		.replace(/__THEME_COLOR__/g, escapeHtml(branding.themeColor));
 }
 
+// The light/dark theme pairs (client/js/helpers/themeAppearance.ts), for the
+// early loader, which cannot import them.
+const themePairs = readFileSync(
+	path.resolve(__dirname, "client/js/helpers/themePairs.json"),
+	"utf8"
+);
+
+function withThemePairs(content: string): string {
+	const marker = '"__THEME_PAIRS__"';
+
+	if (!content.includes(marker)) {
+		throw new Error(`loading-error-handlers.js has lost its ${marker} marker`);
+	}
+
+	return content.replace(marker, JSON.stringify(JSON.parse(themePairs)));
+}
+
 function brandManifest(content: string): string {
 	const manifest = JSON.parse(content);
 	manifest.name = branding.appName;
@@ -325,6 +342,10 @@ const config: webpack.Configuration = {
 				{
 					from: path.resolve(__dirname, "./client/js/loading-error-handlers.js"),
 					to: "js/[name][ext]",
+					// Copied rather than bundled (it runs before the bundle
+					// loads), so the light/dark pairs it needs to pick the
+					// theme are written in here from the list the app reads.
+					transform: (content: Buffer) => withThemePairs(content.toString()),
 				},
 				{
 					from: path.resolve(__dirname, "./client/*").replace(/\\/g, "/"),

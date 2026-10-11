@@ -33,6 +33,7 @@ import {installViewportHooks} from "./helpers/viewport";
 import {installThemeSceneHooks} from "./themeScene";
 import {installInputModality} from "./helpers/inputModality";
 import {hasVirtualKeyboard} from "./helpers/device";
+import {followSystemAccessibility} from "./helpers/systemAccessibility";
 import {onLaunch, openInstallGuideAtStart} from "./pwa";
 // Also registers the IRC layer's bus handlers (input, names, more, network:*).
 import {autoconnectSavedNetworks, clientForNetwork, createNetwork} from "./irc/manager";
@@ -49,6 +50,10 @@ declare global {
 const initialHref = document.location.href;
 
 export async function boot(): Promise<void> {
+	// Reduce Motion and Increase Contrast before anything renders: the
+	// stylesheet reads them as attributes on <html>.
+	followSystemAccessibility();
+
 	// Branding first: it decides the default theme and the document title,
 	// and the connect form reads its defaults from it.
 	const branding = await loadBranding();
@@ -57,10 +62,6 @@ export async function boot(): Promise<void> {
 
 	if (branding.theme && configuration.themes.some((t) => t.name === branding.theme)) {
 		configuration.defaultTheme = branding.theme;
-	}
-
-	if (branding.themeColor) {
-		setThemeColor(branding.themeColor);
 	}
 
 	// Uploads exist only when the deploy names an uploader endpoint.
@@ -74,6 +75,10 @@ export async function boot(): Promise<void> {
 	// the removed global "Enable browser notifications" checkbox, when it was
 	// off, stamps notifyEnabled: false onto every saved network.
 	saved.migrateGlobalNotify();
+
+	// Needs the deploy's default theme, which a stored theme is measured
+	// against, and has to come before the settings are applied.
+	void store.dispatch("settings/migrate", {defaultTheme: configuration.defaultTheme});
 
 	// 'theme' setting depends on serverConfiguration.themes so
 	// settings cannot be applied before this point
@@ -96,8 +101,6 @@ export async function boot(): Promise<void> {
 			name: "theme",
 			value: configuration.defaultTheme,
 		});
-	} else if (currentTheme.themeColor) {
-		setThemeColor(currentTheme.themeColor);
 	}
 
 	loadMentions();
@@ -357,14 +360,6 @@ function hasStoredSetting(name: string): boolean {
 		return typeof stored === "object" && stored !== null && name in stored;
 	} catch (e) {
 		return false;
-	}
-}
-
-function setThemeColor(color: string): void {
-	const meta = document.querySelector('meta[name="theme-color"]');
-
-	if (meta instanceof HTMLMetaElement) {
-		meta.content = color;
 	}
 }
 

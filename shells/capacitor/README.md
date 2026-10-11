@@ -32,7 +32,7 @@ The web-side glue lives in the root app, not here. `client/js/helpers/capacitor.
 - Node.js >= 22 and Yarn (the root uses `corepack yarn`).
 - A root build: `NODE_ENV=production corepack yarn build` from the repository root produces `public/`. `cap sync` copies that directory; there is no dev-server / live-reload wiring here. **Rebuild before every sync** or the app ships whatever `public/` last held.
 - Android: Android Studio (or the command-line SDK) with an SDK matching `android/variables.gradle` (`compileSdk 36`, `minSdk 24`), JDK 21. Export `ANDROID_HOME` or let Studio manage it.
-- iOS: macOS with Xcode 15+ (Capacitor 8 targets iOS 15+). The generated project uses Swift Package Manager, so CocoaPods is not required.
+- iOS: macOS with Xcode 26+. The app targets iOS 26+, the oldest release Apple still patches (Capacitor 8 itself goes down to 15, but the CSS needs 16+ and nothing older is tested). `capacitor.config.ts` sets `experimental.ios.spm.swiftToolsVersion` to 6.2 so the `CapApp-SPM/Package.swift` that every sync regenerates can say `.iOS(.v26)`; Capacitor's default, 5.9, stops at `.v17`. The generated project uses Swift Package Manager, so CocoaPods is not required.
 - ImageMagick 7 (`magick`) only to regenerate `assets/` from new artwork.
 
 ## Workflow

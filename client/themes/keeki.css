@@ -210,12 +210,12 @@
  * flowers' 263px across), so the last frame is the first and the restart is
  * invisible; the first cut moved the flowers 70×90px in 40 s, no multiple of
  * their tile, and snapped back every 40 s. */
-@media (prefers-reduced-motion: no-preference) and (hover: hover) {
-	#sidebar::before {
+@media (hover: hover) {
+	html:not([data-reduce-motion]) #sidebar::before {
 		animation: keeki-glitter 300s linear infinite;
 	}
 
-	#sidebar::after {
+	html:not([data-reduce-motion]) #sidebar::after {
 		animation: keeki-flowers 150s linear infinite;
 	}
 

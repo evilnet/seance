@@ -29,18 +29,18 @@
 			<NetworkList />
 		</div>
 		<footer id="footer">
+			<!-- `custom`: no <a> around the button, so the button is the one
+			     control and carries the name (the tooltip span's aria-label is
+			     only the tooltip's text). -->
 			<span class="tooltipped tooltipped-n tooltipped-no-touch" aria-label="Settings"
-				><router-link
-					v-slot:default="{navigate, isActive}"
-					to="/settings"
-					role="tab"
-					aria-controls="settings"
-				>
+				><router-link v-slot:default="{navigate, isActive}" to="/settings" custom>
 					<button
 						:class="['icon', 'settings', {active: isActive}]"
+						role="tab"
+						aria-controls="settings"
+						aria-label="Settings"
 						:aria-selected="isActive"
 						@click="navigate"
-						@keypress.enter="navigate"
 					></button> </router-link
 			></span>
 			<span
@@ -50,13 +50,15 @@
 						? 'Help\n(update available)'
 						: 'Help'
 				"
-				><router-link
-					v-slot:default="{navigate, isActive}"
-					to="/help"
-					role="tab"
-					aria-controls="help"
-				>
+				><router-link v-slot:default="{navigate, isActive}" to="/help" custom>
 					<button
+						role="tab"
+						aria-controls="help"
+						:aria-label="
+							store.state.serverConfiguration?.isUpdateAvailable
+								? 'Help, update available'
+								: 'Help'
+						"
 						:aria-selected="route.name === 'Help'"
 						:class="[
 							'icon',
@@ -65,7 +67,6 @@
 							{active: isActive},
 						]"
 						@click="navigate"
-						@keypress.enter="navigate"
 					></button> </router-link
 			></span>
 		</footer>

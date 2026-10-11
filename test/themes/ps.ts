@@ -207,7 +207,32 @@ function subjectOf(selector: string): string | null {
 	return null;
 }
 
-const rules = rulesIn(css);
+/** The attribute prefixes reduced motion keys on (helpers/systemAccessibility.ts). */
+const REDUCED_MOTION = "html[data-reduce-motion]";
+const MOTION_OK = "html:not([data-reduce-motion])";
+
+/**
+ * ps.css keys reduced motion on an attribute of <html>, not a media query: a
+ * rule whose every selector carries one of those prefixes is filed under the
+ * prefix as if it were an at-rule, and its selectors are read without it.
+ */
+function scopedByMotion(list: Rule[]): Rule[] {
+	return list.map((r) => {
+		for (const prefix of [REDUCED_MOTION, MOTION_OK]) {
+			if (r.selectors.every((sel) => sel.startsWith(prefix))) {
+				return {
+					...r,
+					at: [r.at, prefix].filter(Boolean).join(" "),
+					selectors: r.selectors.map((sel) => sel.slice(prefix.length).trim() || sel),
+				};
+			}
+		}
+
+		return r;
+	});
+}
+
+const rules = scopedByMotion(rulesIn(css));
 const DAY = ":root";
 const NIGHT = ':root[data-ps-light="night"]';
 const REDUCED_TRANSPARENCY = "@media (prefers-reduced-transparency: reduce)";
@@ -1097,7 +1122,7 @@ describe("the ps theme's chrome: glass over the plains (docs/projects/ps-theme.m
 
 	it("flips day and night over 0.8s, and at once under reduced motion", function () {
 		expect(valueOf(DAY, "--ps-flip")).to.equal("0.8s");
-		expect(valueOf(DAY, "--ps-flip", "@media (prefers-reduced-motion: reduce)")).to.equal("0s");
+		expect(valueOf(DAY, "--ps-flip", REDUCED_MOTION)).to.equal("0s");
 
 		// The jump-to-recent disc keeps style.css's own 0.2s: its fill changes on hover too.
 		for (const selector of [
@@ -2208,13 +2233,12 @@ describe("the ps theme's motion", function () {
 		expect(css).to.include("@keyframes ps-rise");
 		expect(css).to.include("@keyframes ps-glow");
 		expect(css).to.match(
-			/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*animation: none !important/
+			/html\[data-reduce-motion\] #theme-scene \*[^{]*\{[^}]*animation: none !important/
 		);
 	});
 });
 
 describe("the ps theme under reduced motion (spec §9): nothing moves, and the hour still shows", function () {
-	const REDUCED_MOTION = "@media (prefers-reduced-motion: reduce)";
 	const S = "#theme-scene";
 	/**
 	 * What exists only in flight. With every scene animation gone (the block's
@@ -2319,7 +2343,6 @@ describe("the ps theme's embers (spec §9)", function () {
 	// `effect("embers")` (docs/resources/themes/ps-plains/mockup.html) are
 	// the reference; its random offsets are fixed here, four sets for a send
 	// and two for a reaction's chip.
-	const MOTION_OK = "@media (prefers-reduced-motion: no-preference)";
 	const CH = '#chat .chat-view[data-type="channel"]';
 	const OWN = `${CH} .msg.self:is([data-type="message"], [data-type="action"]):not(.pending):last-child`;
 	/** A send's four sparks, in the order they rise. */
@@ -2522,7 +2545,7 @@ describe("the ps theme's embers (spec §9)", function () {
 		}
 	});
 
-	it("exists only where motion is welcome: every ember rule under prefers-reduced-motion: no-preference, and nothing of it in the reduced-motion block", function () {
+	it("exists only where motion is welcome: every ember rule under html:not([data-reduce-motion]), and nothing of it in the reduced-motion block", function () {
 		const ours = rules.filter(
 			(r) =>
 				!r.at.startsWith("@keyframes") &&
@@ -2534,11 +2557,11 @@ describe("the ps theme's embers (spec §9)", function () {
 		expect(ours.length).to.be.at.least(SPARKS.length);
 
 		for (const r of ours) {
-			// (WebKit's clip-path twin sits in an @supports inside it)
-			expect(r.at.startsWith(MOTION_OK), r.selectors.join(", ")).to.equal(true);
+			// (WebKit's clip-path twin sits in an @supports around it)
+			expect(r.at.endsWith(MOTION_OK), r.selectors.join(", ")).to.equal(true);
 		}
 
-		const reduced = rules.filter((r) => r.at.includes("prefers-reduced-motion: reduce"));
+		const reduced = rules.filter((r) => r.at.includes(REDUCED_MOTION));
 		expect(
 			reduced.filter((r) =>
 				/ember|enter-active/.test(r.selectors.join() + JSON.stringify(r.decls))
@@ -2578,7 +2601,7 @@ describe("the ps theme's scene", function () {
 		expect(css).to.match(
 			/#theme-scene\.ps-paused \*\s*\{\s*animation-play-state:\s*paused !important;/
 		);
-		const reduced = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)"));
+		const reduced = css.slice(css.indexOf("/* ---- reduced motion ---- */"));
 		expect(reduced).to.match(/#theme-scene \*[^{]*\{\s*animation:\s*none !important;/);
 	});
 
@@ -2733,7 +2756,6 @@ describe("the ps theme's scene", function () {
 describe("the ps theme's private view (spec §5.7): the plains frosted and still in a query", function () {
 	const FROST = "#theme-scene .ps-frost";
 	const PRIVATE = "#theme-scene.ps-private .ps-frost";
-	const REDUCED_MOTION = "@media (prefers-reduced-motion: reduce)";
 
 	it("lays the one wrapper over the whole scene and positions every layer inside it, as when they were the root's own", function () {
 		expect(valueOf(FROST, "position")).to.equal("absolute");
@@ -3154,7 +3176,6 @@ describe("the ps theme's clouds and weather (plan 3 task 4, spec §5.1, §5.5)",
 		// With `animation: none` a cloud stood at its box's place, left: 0 with
 		// no transform, all five at the left edge. Frozen instead on ps-drift's
 		// own path at --cp (plains.ts), the fraction of its loop it would be at.
-		const REDUCED_MOTION = "@media (prefers-reduced-motion: reduce)";
 
 		/** A sum of lengths ("-100% - 0.25rem") as its coefficient for each unit, all of it read. */
 		const linear = (expr: string) => {
