@@ -48,6 +48,11 @@ import org.unifiedpush.android.connector.UnifiedPush;
  * - `unsubscribe({network})`, `clear({network?, target?})`.
  * - `seen({msgid})`: the page took this message while the user was looking
  *   at it; its push shows nothing ({@link PushSeen}).
+ * - `show({network, conversation, from, text, msgid?, time?, notice, silent})`:
+ *   the page's own alert for a message (the WebView has no Notification
+ *   API), shown as a push for it would be, on any network.
+ * - `askPermission()`: `{permission}`, asking for POST_NOTIFICATIONS on 13+
+ *   while it is undecided.
  * - `takeTap()` / event `tap`: `{network, target}` of a tapped notification.
  * - event `endpoint`: `{network}` — the distributor changed or dropped a
  *   network's endpoint on its own; the page re-reads and re-registers.
@@ -402,6 +407,48 @@ public class NativePushPlugin extends Plugin {
             PushService.recordSeen(getContext(), msgid);
         }
         call.resolve();
+    }
+
+    @PluginMethod
+    public void show(PluginCall call) {
+        String network = call.getString("network");
+        String conversation = call.getString("conversation");
+        String from = call.getString("from");
+        if (network == null || conversation == null || from == null) {
+            call.reject("network, conversation and from are required", "failed");
+            return;
+        }
+        Map<String, String> tags = new HashMap<>();
+        if (call.getString("msgid") != null) {
+            tags.put("msgid", call.getString("msgid"));
+        }
+        if (call.getString("time") != null) {
+            tags.put("time", call.getString("time"));
+        }
+        String command = call.getBoolean("notice", false) ? "NOTICE" : "PRIVMSG";
+        PushLine line = new PushLine(tags, from, command, conversation, call.getString("text", ""), null);
+        PushService.show(getContext(), network, conversation, line, call.getBoolean("silent", false));
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void askPermission(PluginCall call) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || !"prompt".equals(permission())) {
+            call.resolve(permissionResult());
+            return;
+        }
+        requestPermissionForAlias("notifications", call, "askAnswered");
+    }
+
+    @PermissionCallback
+    private void askAnswered(PluginCall call) {
+        new Waiting(call, getBridge()).resolve(permissionResult());
+    }
+
+    private JSObject permissionResult() {
+        JSObject result = new JSObject();
+        result.put("permission", permission());
+        return result;
     }
 
     @PluginMethod

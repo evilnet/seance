@@ -19,6 +19,7 @@ import {
 } from "./helpers/capacitor";
 import {emitEscape, topEscapeLayer} from "./helpers/escapeLayer";
 import {onNativePushTap} from "./helpers/nativePush";
+import {onNativeAlertTap} from "./helpers/nativeAlerts";
 import {store} from "./store";
 
 // A link the OS handed the app — `irc:`, `ircs:` or `web+irc:`, the schemes
@@ -135,6 +136,10 @@ export function installNativeHooks(): void {
 			openTarget(network, target);
 		}
 	});
+
+	// iOS: a tapped message notification (helpers/nativeAlerts.ts) opens
+	// its conversation, as Android's above.
+	onNativeAlertTap((network, target) => openTarget(network, target));
 
 	launchUrl = nativeCall<{url?: string}>("App", "getLaunchUrl").then((result) => {
 		const href = result?.url || null;

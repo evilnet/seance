@@ -102,13 +102,23 @@
 				Browser notifications are also per network — enabled by default, toggled in each
 				network's settings (Edit network → “Browser notifications for this network”).
 			</div>
-			<div v-if="store.state.desktopNotificationState === 'unsupported'" class="error">
+			<!-- The shells notify through the OS (helpers/nativeAlerts.ts). -->
+			<div
+				v-if="!nativeShell && store.state.desktopNotificationState === 'unsupported'"
+				class="error"
+			>
 				<strong>Warning</strong>: Notifications are not supported by your browser.
 			</div>
-			<div v-if="store.state.desktopNotificationState === 'nohttps'" class="error">
+			<div
+				v-if="!nativeShell && store.state.desktopNotificationState === 'nohttps'"
+				class="error"
+			>
 				<strong>Warning</strong>: Notifications are only supported over HTTPS connections.
 			</div>
-			<div v-if="store.state.desktopNotificationState === 'blocked'" class="error">
+			<div
+				v-if="!nativeShell && store.state.desktopNotificationState === 'blocked'"
+				class="error"
+			>
 				<strong>Warning</strong>: Notifications are blocked by your browser.
 			</div>
 		</div>
@@ -216,6 +226,8 @@ import {defineComponent, onMounted} from "vue";
 import {useStore} from "../../js/store";
 import webpush from "../../js/webpush";
 import {isAndroidShell} from "../../js/helpers/capacitor";
+import {nativeAlertsAvailable} from "../../js/helpers/nativeAlerts";
+import {playNotificationSound} from "../../js/helpers/notificationSound";
 
 export default defineComponent({
 	name: "NotificationSettings",
@@ -231,16 +243,13 @@ export default defineComponent({
 		});
 
 		const playNotification = () => {
-			const pop = new Audio();
-			pop.src = "audio/pop.wav";
-
-			// eslint-disable-next-line
-			pop.play();
+			void playNotificationSound().catch(() => undefined);
 		};
 
 		return {
 			store,
 			androidShell: isAndroidShell(),
+			nativeShell: nativeAlertsAvailable(),
 			playNotification,
 			snooze,
 		};
