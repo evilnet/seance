@@ -1,5 +1,6 @@
 package chat.seance.app;
 
+import android.content.Intent;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import com.getcapacitor.Bridge;
@@ -15,7 +16,12 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(KeepAlivePlugin.class);
         // Contrast and animation settings, live (the WebView's own go stale).
         registerPlugin(SystemAccessibilityPlugin.class);
+        // Push without a Push API: the ircd's Web Push through UnifiedPush.
+        registerPlugin(NativePushPlugin.class);
         super.onCreate(savedInstanceState);
+
+        // Launched by tapping a push notification.
+        NativePushPlugin.onIntent(getIntent());
 
         Bridge bridge = getBridge();
 
@@ -50,5 +56,12 @@ public class MainActivity extends BridgeActivity {
                 // Not a colour: keep the theme's.
             }
         }
+    }
+
+    /** A push notification tapped while the app was running (singleTask). */
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        NativePushPlugin.onIntent(intent);
     }
 }

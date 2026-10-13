@@ -25,6 +25,7 @@ import ctcp from "./ctcp";
 import disconnect from "./disconnect";
 import ignore from "./ignore";
 import ignorelist from "./ignorelist";
+import investigate from "./investigate";
 import invite from "./invite";
 import join from "./join";
 import kick from "./kick";
@@ -36,6 +37,7 @@ import msg from "./msg";
 import mute from "./mute";
 import nick from "./nick";
 import notice from "./notice";
+import oper from "./oper";
 import part from "./part";
 import quit from "./quit";
 import raw from "./raw";
@@ -55,6 +57,7 @@ const modules: Command[] = [
 	disconnect,
 	ignore,
 	ignorelist,
+	investigate,
 	invite,
 	join,
 	kick,
@@ -66,6 +69,7 @@ const modules: Command[] = [
 	mute,
 	nick,
 	notice,
+	oper,
 	part,
 	quit,
 	raw,

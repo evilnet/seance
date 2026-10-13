@@ -1,18 +1,36 @@
-# Build the static client and publish it to GitHub Pages.
+# Build the static client and publish it to GitHub Pages — the release at
+# the root and, beside it, a working build of develop and of every open pull
+# request:
 #
-# Upstream (evilnet/seance) publishes on a release only, so
-# https://evilnet.github.io/seance/ always serves the latest release. A fork
-# has its own, independent Pages site that upstream never touches, and for a
-# fork the useful trigger is a push to develop — so the push trigger below is
-# live everywhere except upstream. `workflow_dispatch` works anywhere.
+#   https://evilnet.github.io/seance/            the latest release
+#   https://evilnet.github.io/seance/develop/    the develop branch
+#   https://evilnet.github.io/seance/pr103/      pull request #103
+#   https://evilnet.github.io/seance/previews/   the list of all of these
 #
-# Only one thing can be published: with the "GitHub Actions" Pages source a
-# deployment is the whole site, so a second target (a /dev/ subpath, a PR
-# preview) is not possible without moving to a gh-pages branch.
+# A Pages deployment is the whole site, so every run assembles all of it:
+# `plan` lists what to build, `build` makes each tree (one job per build,
+# restored from the cache when that commit was built before, so a push to
+# one PR rebuilds that PR alone), `assemble` puts them in their directories
+# (tools/pages-site.mjs; a failed build becomes a stub page that links to
+# the log) and `deploy` publishes. A merged or closed PR drops out of the
+# plan and so off the site.
 #
-# The SPA uses relative asset paths and a hash router, so it works under the
-# /seance/ subpath unchanged. Pages is HTTPS, so from there only wss://
-# servers are reachable (mixed content blocks ws://).
+# PR builds run code from the PR (`yarn install`, webpack) under
+# `pull_request_target`, which is what lets a PR from a fork be published to
+# the real site. That is why only PRs by the repository's own people
+# (OWNER, MEMBER, COLLABORATOR) or ones carrying the `preview` label are
+# built — anyone else's never runs — and why the build job holds a
+# read-only token while the trusted jobs (plan, assemble, deploy) run the
+# base branch's workflow and never the PR's code. Drafts are skipped.
+#
+# The SPA uses relative asset paths and a hash router, so it works under any
+# subpath unchanged; each directory registers its own service worker in its
+# own scope. All the builds share one origin, so saved networks and settings
+# are the same in every directory. Pages is HTTPS, so only wss:// servers are
+# reachable from there.
+#
+# A fork has its own Pages site that upstream never touches; there, with no
+# release, develop stands at the root.
 name: Pages
 
 on:
@@ -21,55 +39,204 @@ on:
   push:
     branches:
       - develop
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - closed
+      - ready_for_review
+      - converted_to_draft
+      - labeled
+      - unlabeled
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  build:
-    # Upstream deploys releases; forks also deploy their develop.
-    if: github.event_name != 'push' || github.repository != 'evilnet/seance'
+  plan:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      builds: ${{ steps.plan.outputs.builds }}
+      count: ${{ steps.plan.outputs.count }}
     steps:
-      - uses: actions/checkout@v4
+      - name: List the builds
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || '' }}
+        run: |
+          set -euo pipefail
+
+          tag="$RELEASE_TAG"
+          if [ -z "$tag" ]; then
+            tag="$(gh api "repos/$REPO/releases/latest" --jq .tag_name 2>/dev/null || true)"
+          fi
+          base="${tag#v}"
+
+          develop_sha="$(gh api "repos/$REPO/commits/$DEFAULT_BRANCH" --jq .sha)"
+          builds='[]'
+
+          if [ -n "$tag" ]; then
+            tag_sha="$(gh api "repos/$REPO/commits/$tag" --jq .sha)"
+            builds="$(jq -c --arg sha "$tag_sha" --arg v "$base" \
+              '. + [{name: "release", path: "", sha: $sha, version: $v}]' <<<"$builds")"
+            builds="$(jq -c --arg sha "$develop_sha" --arg v "$base-${develop_sha:0:8}" \
+              '. + [{name: "develop", path: "develop", sha: $sha, version: $v}]' <<<"$builds")"
+          else
+            # No release (a fork): develop is the root.
+            base="dev"
+            builds="$(jq -c --arg sha "$develop_sha" --arg v "dev-${develop_sha:0:8}" \
+              '. + [{name: "develop", path: "", sha: $sha, version: $v}]' <<<"$builds")"
+          fi
+
+          # Open, not draft, and by someone we trust to run code here — or
+          # labelled `preview` by someone who can set labels.
+          prs="$(gh api --paginate "repos/$REPO/pulls?state=open&per_page=100" --jq '
+            [.[] | select(.draft | not)
+                 | select((.author_association | IN("OWNER", "MEMBER", "COLLABORATOR"))
+                          or ([.labels[].name] | index("preview")))
+                 | {number, title, url: .html_url, sha: .head.sha}]')"
+          builds="$(jq -c --argjson prs "$prs" --arg base "$base" '
+            . + ($prs | map({name: ("pr" + (.number | tostring)),
+                             path: ("pr" + (.number | tostring)),
+                             number, title, url, sha,
+                             version: ($base + "-pr" + (.number | tostring) + "." + .sha[0:7])}))' <<<"$builds")"
+
+          echo "builds=$builds" >> "$GITHUB_OUTPUT"
+          echo "count=$(jq length <<<"$builds")" >> "$GITHUB_OUTPUT"
+          jq . <<<"$builds"
+
+  build:
+    needs: plan
+    if: needs.plan.outputs.count != '0'
+    runs-on: ubuntu-latest
+    # Read-only on purpose: for a PR entry this job runs the PR's code.
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        build: ${{ fromJSON(needs.plan.outputs.builds) }}
+    name: build ${{ matrix.build.name }}
+    steps:
+      - name: Restore a build of this commit
+        id: cached
+        uses: actions/cache/restore@v4
         with:
-          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
-          # Tags and history, so that a build without SEANCE_VERSION can name
-          # itself `<latest tag>-<short sha>` (webpack.config.ts resolveVersion).
-          fetch-depth: 0
+          path: public
+          key: site-v1-${{ matrix.build.name }}-${{ matrix.build.sha }}
+
+      - uses: actions/checkout@v4
+        if: steps.cached.outputs.cache-hit != 'true'
+        with:
+          # A PR's commits are reachable in this repository through
+          # refs/pull/<n>/head, fork or not, so the sha is enough.
+          ref: ${{ matrix.build.sha }}
+          # Since checkout v4.4.0 a fork's PR head is refused under
+          # pull_request_target unless the step says so. We mean it: `plan`
+          # only lists PRs by the repository's own people or ones somebody
+          # with write access labelled `preview`, and this job holds a
+          # read-only token (see the header).
+          allow-unsafe-pr-checkout: true
 
       - name: Setup Node.js
+        if: steps.cached.outputs.cache-hit != 'true'
         uses: actions/setup-node@v4
         with:
           node-version-file: ".node-version"
 
       - name: Enable Yarn (classic) via corepack
+        if: steps.cached.outputs.cache-hit != 'true'
         run: corepack enable
 
       - name: Install
+        if: steps.cached.outputs.cache-hit != 'true'
         run: yarn --frozen-lockfile --non-interactive
 
       - name: Build
+        if: steps.cached.outputs.cache-hit != 'true'
         run: yarn build
         env:
           NODE_ENV: production
-          SEANCE_VERSION: ${{ github.event_name == 'release' && github.event.release.tag_name || '' }}
+          SEANCE_VERSION: ${{ matrix.build.version }}
+
+      - name: Keep this build for the next run
+        if: steps.cached.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: public
+          key: site-v1-${{ matrix.build.name }}-${{ matrix.build.sha }}
+
+      - name: Hand the tree to assemble
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-${{ matrix.build.name }}
+          path: public
+          retention-days: 1
+          if-no-files-found: error
+
+  assemble:
+    needs: [plan, build]
+    # Every build that could be made, even when one of them failed.
+    if: always() && needs.plan.outputs.count != '0'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: tools/pages-site.mjs
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: site-*
+          path: artifacts
+
+      # The site's base path (`/seance/` for a project site), so the index
+      # can link every build absolutely.
+      - id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Put each build in its directory
+        env:
+          BUILDS: ${{ needs.plan.outputs.builds }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SITE_BASE: ${{ steps.pages.outputs.base_path }}/
+        run: |
+          set -euo pipefail
+          printf '%s' "$BUILDS" > plan.json
+          # Artifacts land as artifacts/site-<name>/…; the tool wants <name>/.
+          mkdir -p builds
+          for d in artifacts/site-*; do
+            [ -d "$d" ] && mv "$d" "builds/${d#artifacts/site-}"
+          done
+          node tools/pages-site.mjs plan.json builds site "$RUN_URL"
 
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
         with:
-          path: public
+          path: site
 
   deploy:
-    needs: build
+    needs: assemble
+    if: always() && needs.assemble.result == 'success'
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

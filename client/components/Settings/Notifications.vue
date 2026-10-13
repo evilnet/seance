@@ -77,8 +77,14 @@
 				installing the app to the Home Screen (Share → Add to Home Screen).
 			</div>
 			<div v-if="store.state.pushNotificationState === 'denied'" class="error">
-				<strong>Warning</strong>: Notifications are blocked by your browser. Allow them in
-				the browser's site settings, then try again.
+				<template v-if="androidShell">
+					<strong>Warning</strong>: Notifications are turned off for this app. Allow them
+					in Android's settings for the app, then try again.
+				</template>
+				<template v-else>
+					<strong>Warning</strong>: Notifications are blocked by your browser. Allow them
+					in the browser's site settings, then try again.
+				</template>
 			</div>
 			<div v-if="store.state.pushNotificationState === 'server-unsupported'" class="error">
 				Push notifications need a connected server that supports the draft/webpush
@@ -209,6 +215,7 @@ your nickname or expressions defined in custom highlights."
 import {defineComponent, onMounted} from "vue";
 import {useStore} from "../../js/store";
 import webpush from "../../js/webpush";
+import {isAndroidShell} from "../../js/helpers/capacitor";
 
 export default defineComponent({
 	name: "NotificationSettings",
@@ -233,6 +240,7 @@ export default defineComponent({
 
 		return {
 			store,
+			androidShell: isAndroidShell(),
 			playNotification,
 			snooze,
 		};

@@ -24,6 +24,9 @@ export interface PushEntry {
 export interface LegacyEntry {
 	vapid: string;
 	endpoint: string;
+	/** Set when the network is known (an endpoint the Android shell's
+	 * distributor replaced): unregistered there, whatever key it announces. */
+	network?: string;
 }
 
 function isKeys(value: unknown): value is PushKeys {

@@ -10,6 +10,9 @@ import type {Channel} from "../channel";
 import type {IrcMessage} from "../message";
 import {settleEcho} from "../pending";
 import {isRoutineReplayNotice} from "../persistence";
+import {privilegesModified} from "../oper";
+import {noteServicesLine, snoopNicks} from "../servicesfeed";
+import {handleServerNotice, handleWallops} from "../snotice";
 import {EDIT_TAG, REPLY_TAG, trailingLine} from "../wire";
 import type {Handler} from "../types";
 import {ignoreListFor} from "../../ignore";
@@ -58,7 +61,18 @@ export function splitStatusTarget(
 	return {target};
 }
 
-function handleMessage(client: IrcClient, msg: IrcMessage, baseType: MessageType): void {
+/** What the services feed knew about the line before it is shown (../servicesfeed.ts). */
+interface FeedNote {
+	/** The nicks a snoop line names: rendered as nicks whether or not they are in the channel. */
+	nicks: string[];
+}
+
+function handleMessage(
+	client: IrcClient,
+	msg: IrcMessage,
+	baseType: MessageType,
+	feed?: FeedNote
+): void {
 	const source = msg.source;
 	let nick = source?.name ?? "";
 	const fromServer = !source || source.user === undefined;
@@ -142,7 +156,11 @@ function handleMessage(client: IrcClient, msg: IrcMessage, baseType: MessageType
 		}
 	}
 
-	if (!highlight && !self) {
+	if (feed) {
+		// A snoop line that names us (our own connect, say) is the bot's
+		// report, not a word to us: no highlight, no mention.
+		highlight = false;
+	} else if (!highlight && !self) {
 		highlight = client.isHighlight(text);
 	} else if (highlight && client.isHighlightException(text)) {
 		// The query auto-highlight is not derived from the text, so
@@ -158,6 +176,12 @@ function handleMessage(client: IrcClient, msg: IrcMessage, baseType: MessageType
 	while ((match = nickRegExp.exec(text))) {
 		if (chan.findUser(match[1])) {
 			users.push(match[1]);
+		}
+	}
+
+	for (const named of feed?.nicks ?? []) {
+		if (!users.includes(named)) {
+			users.push(named);
 		}
 	}
 
@@ -296,7 +320,18 @@ function handleCtcpRequest(
 	);
 }
 
-const privmsg: Handler = (client, msg) => handleMessage(client, msg, MessageType.MESSAGE);
+const privmsg: Handler = (client, msg) => {
+	// A services bot's line in its snoop or report channel is kept for the
+	// oper tools (../servicesfeed.ts); the channel still shows it as is,
+	// with the nicks a snoop line names clickable.
+	const kept = noteServicesLine(client, msg);
+	handleMessage(
+		client,
+		msg,
+		MessageType.MESSAGE,
+		kept?.type === "snoop" ? {nicks: snoopNicks(kept)} : undefined
+	);
+};
 
 const notice: Handler = (client, msg) => {
 	// "Session resumed. Replayed N message(s)…" closes the server-driven
@@ -306,21 +341,26 @@ const notice: Handler = (client, msg) => {
 		return;
 	}
 
+	// `*** Notice -- …` from a server: classified and routed by importance
+	// (../snotice.ts), not shown as a NOTICE.
+	if (handleServerNotice(client, msg)) {
+		return;
+	}
+
+	// Services changed our privileges (X3 sends PRIVS on auto-oper): the
+	// oper tools ask for the new list (../oper.ts). Still shown.
+	if (
+		msg.source?.user === undefined &&
+		client.isSelf(msg.params[0] ?? "") &&
+		msg.params[msg.params.length - 1] === "Your privileges were modified"
+	) {
+		privilegesModified(client);
+	}
+
 	handleMessage(client, msg, MessageType.NOTICE);
 };
 
-const wallops: Handler = (client, msg) => {
-	client.pushMessage(
-		client.lobby,
-		{
-			type: MessageType.WALLOPS,
-			time: client.timeOf(msg),
-			from: {nick: msg.source?.name ?? client.options.host, mode: ""},
-			text: msg.params[0] ?? "",
-			showInActive: true,
-		},
-		true
-	);
-};
+// WALLOPS, WALLUSERS and DESYNCH: one command, routed by kind (../snotice.ts).
+const wallops: Handler = (client, msg) => handleWallops(client, msg);
 
 export default {PRIVMSG: privmsg, NOTICE: notice, WALLOPS: wallops};

@@ -16,6 +16,7 @@ import history, {chathistoryBatch} from "../history";
 import {AUTHTOKEN_BATCH} from "../authtoken";
 import {MULTILINE_CAP, multilineBatch} from "../multiline";
 import {BOUNCER_REPLAY_BATCH, bouncerReplayBatch, persistenceBatch} from "../persistence";
+import {labeledBatch} from "../request";
 import type {Handler} from "../types";
 import account from "./account";
 import away from "./away";
@@ -90,6 +91,8 @@ registerBatchHandler(MULTILINE_CAP, multilineBatch);
 registerBatchHandler(AUTHTOKEN_BATCH, authtokenBatch);
 registerBatchHandler("draft/persistence", persistenceBatch);
 registerBatchHandler(BOUNCER_REPLAY_BATCH, bouncerReplayBatch);
+// Ours resolve their request (../request.ts); anyone else's are unwrapped.
+registerBatchHandler("labeled-response", labeledBatch);
 
 for (const mod of modules) {
 	for (const [command, handler] of Object.entries(mod)) {

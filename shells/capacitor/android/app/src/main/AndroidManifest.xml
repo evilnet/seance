@@ -63,6 +63,20 @@
                 android:value="Keeps the user's IRC chat connections open in the background, when the user turns that on in Settings." />
         </service>
 
+        <!-- The ircd's Web Push, through UnifiedPush (PushService.java). -->
+        <service
+            android:name=".PushService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="org.unifiedpush.android.connector.PUSH_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- A push notification swiped away (PushDismissReceiver.java). -->
+        <receiver
+            android:name=".PushDismissReceiver"
+            android:exported="false" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
