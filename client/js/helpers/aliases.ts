@@ -34,6 +34,10 @@ export const MAX_BODY_LENGTH = 2000;
 /** How deep alias-in-alias expansion may nest. */
 export const MAX_DEPTH = 8;
 
+/** How many lines one invocation may expand to. Depth alone does not bound
+ * it: three aliases of 666 `/next` lines each made 89 million. */
+export const MAX_LINES = 50;
+
 /** Alias names look like command names: letters, digits, `_` and `-`. */
 const NAME_PATTERN = /^[a-z0-9][a-z0-9_-]*$/i;
 
@@ -197,16 +201,19 @@ function substitute(template: string, rest: string, vars: AliasVars): string[] {
 		.filter((line) => line.length > 0);
 }
 
+/** Expand `line` into `out`, stopping once it holds `MAX_LINES`. */
 function expandLine(
 	line: string,
 	vars: AliasVars,
 	map: Map<string, Alias>,
-	chain: string[]
-): string[] {
+	chain: string[],
+	out: string[]
+): void {
 	const invocation = splitInvocation(line);
 
 	if (!invocation || chain.length >= MAX_DEPTH) {
-		return [line];
+		out.push(line);
+		return;
 	}
 
 	const key = invocation.name.toLowerCase();
@@ -215,14 +222,19 @@ function expandLine(
 	// A name already being expanded falls through to the built-in (or the
 	// server), so `/join` aliased to `/join #lobby` terminates.
 	if (!alias || chain.includes(key)) {
-		return [line];
+		out.push(line);
+		return;
 	}
 
 	const next = [...chain, key];
 
-	return substitute(alias.body, invocation.rest, vars).flatMap((expanded) =>
-		expandLine(expanded, vars, map, next)
-	);
+	for (const expanded of substitute(alias.body, invocation.rest, vars)) {
+		if (out.length >= MAX_LINES) {
+			return;
+		}
+
+		expandLine(expanded, vars, map, next, out);
+	}
 }
 
 /**
@@ -255,5 +267,7 @@ export function expandAlias(
 		return null;
 	}
 
-	return expandLine(text, vars, map, []);
+	const out: string[] = [];
+	expandLine(text, vars, map, [], out);
+	return out;
 }
