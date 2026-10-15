@@ -71,7 +71,11 @@ function tuft(x: number, y: number, h: number, cls: string): string {
  * The land: mountains, the far plain with its shrubs, the river (or its dry
  * bed), two hills with their rims, tufts and trees, and the grass band, back
  * to front on the mockup's 1200 × 400 box, stretched to whatever box ps.css
- * gives it, with the river's sky gradient in its defs. (The heat haze that
+ * gives it, with the river's sky gradient in its defs. The hills stretch
+ * with the window; the round things on them (the shrubs, the bed's stones,
+ * the two groves) are widened back about their own middles by the stretch's
+ * squash (`--ps-land-unsquash`, scene.ts watchLand), so a narrow window does
+ * not draw them as tall ellipses. (The heat haze that
  * bends the ground on hot days is the weather layer's: `weatherLayers`.)
  */
 export function landSvg(): string {
@@ -126,9 +130,9 @@ export function landSvg(): string {
 		`<path class="ps-l-hill2" d="${HILL2_EDGE}${TO_FOOT}"/>` +
 		`<path class="ps-l-rim" d="${HILL2_EDGE}"/>` +
 		far +
-		`<ellipse class="ps-l-tree" cx="448" cy="160" rx="16" ry="12"/><ellipse class="ps-l-tree" cx="466" cy="163" rx="12" ry="10"/>` +
-		`<ellipse class="ps-l-tree" cx="432" cy="166" rx="10" ry="8"/><rect class="ps-l-trunk" x="447" y="168" width="3" height="8"/>` +
-		`<ellipse class="ps-l-tree" cx="1008" cy="168" rx="9" ry="7"/><rect class="ps-l-trunk" x="1007" y="173" width="2" height="6"/>` +
+		`<g class="ps-l-grove"><ellipse class="ps-l-tree" cx="448" cy="160" rx="16" ry="12"/><ellipse class="ps-l-tree" cx="466" cy="163" rx="12" ry="10"/>` +
+		`<ellipse class="ps-l-tree" cx="432" cy="166" rx="10" ry="8"/><rect class="ps-l-trunk" x="447" y="168" width="3" height="8"/></g>` +
+		`<g class="ps-l-grove"><ellipse class="ps-l-tree" cx="1008" cy="168" rx="9" ry="7"/><rect class="ps-l-trunk" x="1007" y="173" width="2" height="6"/></g>` +
 		`<path class="ps-l-hill1" d="${HILL1_EDGE}${TO_FOOT}"/>` +
 		`<path class="ps-l-rim" d="${HILL1_EDGE}"/>` +
 		near +

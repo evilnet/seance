@@ -2494,20 +2494,18 @@ export default async function run(page) {
 		false
 	);
 
-	// The nick column keeps the names' face; the same nick named inside the
-	// text takes the text's face, bold, in the same colour (the user's I2).
+	// A sender's nick over its message is in the words' face, bold, as the
+	// same nick named inside the text is (the user's I2, 2026-09-26, and
+	// 2026-10-09: the names' face is the chrome's).
 	await page.waitFor(`document.querySelector('${PEER_LINES} .user')`, {
 		label: `the neighbour's line naming ${PEER}, linked`,
 	});
 	await checkDrawnIn(
 		page,
-		`the nick column names ${PEER} in Newsreader`,
+		`the sender's nick over the line names ${PEER} in Source Sans 3, not Newsreader`,
 		TEXT_HOLDER(`#chat .msg[data-type="message"][data-from="${PEER}"] .from .user`, PEER),
-		"Newsreader",
-		false,
-		// A nick wider than the column's 12ch (a run id with a w or two) ends
-		// in the column's ellipsis, which is .from's, the words' face.
-		{clippedBy: ".from"}
+		"Source Sans 3",
+		false
 	);
 	await checkDrawnIn(
 		page,
@@ -2533,8 +2531,11 @@ export default async function run(page) {
 
 	// ---- messages: the fade, no glitter, the reaction's pop
 
+	// Someone else's line: the first row in the log can be the run's own
+	// echo, which settles from its pending copy instead (ps-settle, checked
+	// below), and on a freshly started ircd it is.
 	const anim = await page.evaluate(
-		`getComputedStyle(document.querySelector("#chat .msg")).animationName`
+		`getComputedStyle(document.querySelector('#chat .msg[data-type="message"]:not(.self)')).animationName`
 	);
 	page.check(`messages fade in (${anim})`, anim.includes("ps-fade"));
 
@@ -3702,17 +3703,17 @@ export default async function run(page) {
 	);
 
 	// The font-size sample under the slider shows chat lines in the theme's
-	// own faces: the names in Newsreader, the times and lines in Source Sans 3
-	// (the user's report, 2026-09-26: it "does not use the theme fonts
-	// properly" — its names drew in the words' face).
+	// own faces: Source Sans 3 throughout, the name bold, as a message's
+	// (the user's report, 2026-09-26, and 2026-10-09: the names' face is the
+	// chrome's, not the conversation's).
 	await page.send("DOM.enable");
 	await page.send("DOM.getDocument", {depth: 0});
 	await page.send("CSS.enable");
 	await checkDrawnIn(
 		page,
-		"the font-size sample's name in Newsreader",
+		"the font-size sample's name in Source Sans 3, as the conversation's",
 		`document.querySelector(".font-size-sample .line .from")`,
-		"Newsreader",
+		"Source Sans 3",
 		false
 	);
 	await checkDrawnIn(

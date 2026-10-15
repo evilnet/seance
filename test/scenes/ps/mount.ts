@@ -502,12 +502,38 @@ describe("ps scene: mount (scene.ts, on a stand-in page)", function () {
 		});
 	});
 
+	describe("the land's round things (watchLand)", function () {
+		it("writes how much the land's stretch squashes them, for ps.css to widen them back", function () {
+			withPage((page) => {
+				const land = new FakeElement(".ps-land");
+				// a phone: 390 wide, the land 56 % of 844 tall
+				land.box = {left: 0, top: 371, width: 390, height: 472.6};
+				page.root.planted.set(".ps-land", land);
+				const scene = mountOn(page);
+				const watcher = page
+					.observers()
+					.find((o) => (o as FakeResizeObserver).targets.has(land)) as
+					| FakeResizeObserver
+					| undefined;
+				expect(watcher, "the land is observed").to.not.equal(undefined);
+				watcher!.callback();
+				// (472.6 / 400) / (390 / 1200)
+				expect(page.root.style.getPropertyValue("--ps-land-unsquash")).to.equal("3.635");
+				// undone with the area kept: the square root each way
+				expect(page.root.style.getPropertyValue("--ps-land-round-x")).to.equal("1.907");
+				expect(page.root.style.getPropertyValue("--ps-land-round-y")).to.equal("0.524");
+				scene.destroy();
+				expect(watcher!.disconnected).to.equal(true);
+			});
+		});
+	});
+
 	describe("a mount that throws leaves nothing running", function () {
 		it("runs, and a destroy leaves nothing behind (the control)", function () {
 			withPage((page, clock) => {
 				const scene = mountOn(page);
 				const running = leftBehind(page, clock);
-				expect(running.observers, "the yurt's and the composer's").to.equal(2);
+				expect(running.observers, "the yurt's, the composer's and the land's").to.equal(3);
 				expect(running.windowListeners).to.deep.equal(["resize"]);
 				expect(running.mediaListeners).to.deep.equal([
 					"(prefers-reduced-motion: reduce) change",

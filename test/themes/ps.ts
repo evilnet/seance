@@ -1975,7 +1975,7 @@ describe("the ps theme's type", function () {
 			.filter((r) => r.decls.some(([p, v]) => p === "font-family" && /^Newsreader\b/.test(v)))
 			.flatMap((r) => r.selectors);
 
-	it("sets a nick named inside a message's text in the text's own face, bold, in the nick's colour (the user's I2, 2026-09-26): the nick column keeps the names' face", function () {
+	it("sets a nick named inside a message's text in the text's own face, bold, in the nick's colour (the user's I2, 2026-09-26)", function () {
 		const IN_TEXT = "#chat .msg .content .user";
 		const inText = rules.filter((r) => r.selectors.includes(IN_TEXT));
 		expect(inText, IN_TEXT).to.have.length.greaterThan(0);
@@ -1993,9 +1993,8 @@ describe("the ps theme's type", function () {
 		expect(valueOf(IN_TEXT, "font-family")).to.equal("inherit");
 		expect(valueOf(IN_TEXT, "font-weight")).to.equal("700");
 
-		// The names' face reaches the nick column, never a nick in the text.
+		// The names' face reaches no nick in the conversation at all (below).
 		const names = namesSelectors();
-		expect(names).to.include("#chat .msg .from .user");
 		expect(names, "the bare #chat .msg .user reached the text too").to.not.include(
 			"#chat .msg .user"
 		);
@@ -2020,19 +2019,30 @@ describe("the ps theme's type", function () {
 
 		// And the chrome's names keep theirs.
 		expect(namesSelectors()).to.include.members([
-			"#chat .msg .from .user",
 			"#chat .header .title",
 			".channel-list-item .name",
 		]);
 	});
 
-	it("shows the theme's own faces in Settings → Appearance's font-size sample: its names in the names' face, its times and lines in the words' (the user's report, 2026-09-26)", function () {
+	it("sets a sender's nick over its message in the words' face, bold (the user, 2026-10-09: the names' face is the chrome's)", function () {
+		expect(
+			namesSelectors(),
+			"no nick in the conversation takes the names' face"
+		).to.not.satisfy((list: string[]) =>
+			list.some((sel) => /^#chat .*\.(from|user)(?![\w-])/.test(sel))
+		);
+		expect(valueOf("#chat .msg .from .user", "font-family")).to.equal(undefined);
+		expect(valueOf("#chat .msg .from .user", "font-weight")).to.equal("700");
+	});
+
+	it("shows the theme's own faces in Settings → Appearance's font-size sample: the words' face throughout, its nick bold as the conversation's (2026-09-26, 2026-10-09)", function () {
 		// Appearance.vue: <div class="font-size-sample"> of lines of
 		// <span class="time">, <span class="from user"> and <span class="text">,
 		// inside #settings, which the words' rule sets; the names' rule
 		// named only the chat's and the sidebar's names, so the sample's drew
 		// in the words' face at the component's bold.
-		expect(namesSelectors()).to.include(".font-size-sample .from");
+		expect(namesSelectors()).to.not.include(".font-size-sample .from");
+		expect(valueOf(".font-size-sample .from", "font-weight")).to.equal("700");
 
 		const wordsRule = rules.find(
 			(r) =>
@@ -2169,6 +2179,37 @@ describe("the ps theme's stacked message rows (the user's B, 2026-10-06; the tim
 			'"time content"'
 		);
 		expect(valueOf("#chat .chat .condensed-summary .from", "display")).to.equal("none");
+	});
+
+	it("starts an icon row's text where every message's text starts: the icon shares the text's cell, and only the first line steps past it", function () {
+		const types = ["action", "join", "part", "quit", "nick", "mode", "topic", "kick"];
+		// the rule whose one selector is the row itself, `#chat .chat .msg:is(…)` with nothing after it
+		const iconRule = rules.find(
+			(r) =>
+				r.at === "" &&
+				r.selectors.some((sel) =>
+					/^#chat \.chat \.msg:is\(\[data-type="action"\][^)]*\)$/.test(sel)
+				)
+		);
+		expect(iconRule, "the icon rows' rule").to.not.equal(undefined);
+		const ROW_SEL = iconRule!.selectors[0];
+
+		for (const type of types) {
+			expect(ROW_SEL, type).to.include(`[data-type="${type}"]`);
+		}
+
+		expect(valueOf(ROW_SEL, "grid-template-areas")).to.equal('"time content"');
+		expect(valueOf(`${ROW_SEL} .from`, "grid-area")).to.equal("content");
+		expect(valueOf(`${ROW_SEL} .from`, "inline-size")).to.equal("1.25em");
+		expect(valueOf(`${ROW_SEL} .content`, "text-indent")).to.equal("calc(1.25em + 0.375rem)");
+		expect(
+			valueOf(`${ROW_SEL} .content *`, "text-indent"),
+			"a block inside starts at its own edge"
+		).to.equal("0");
+		// after the generic system rows, which put the icon in a column of its own
+		expect(rules.indexOf(iconRule!)).to.be.above(
+			rules.findIndex((r) => r.selectors.includes(SYS))
+		);
 	});
 
 	it("wins over style.css's narrow inline flow on the same elements, so the row is alike at every width", function () {

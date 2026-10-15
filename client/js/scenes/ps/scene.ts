@@ -202,6 +202,41 @@ function driftsOf(root: HTMLElement): Animation[] {
 }
 
 /**
+ * The land is drawn on a 1200 × 400 box stretched to the window
+ * (preserveAspectRatio="none"): the hills take the stretch, and the round
+ * things on them are widened back by how much narrower than tall it made them.
+ * Writes `--ps-land-unsquash` (the vertical scale over the horizontal) on the
+ * scene's root whenever the land's box changes, and the two factors that undo
+ * it with each shape's area kept (`--ps-land-round-x`, `-y`, its square root
+ * each way: kept at full height on a phone they crowded the plain); ps.css
+ * scales the shrubs, stones and groves by them.
+ */
+function watchLand(root: HTMLElement): {destroy(): void} {
+	const land = root.querySelector(".ps-land");
+
+	if (!land) {
+		return {destroy() {}};
+	}
+
+	const observer = new ResizeObserver(() => {
+		const box = land.getBoundingClientRect();
+
+		if (box.width > 0 && box.height > 0) {
+			// The stretch makes them `squash` times taller than wide; undone
+			// with their area kept, half the correction on each axis.
+			const squash = box.height / 400 / (box.width / 1200);
+			const k = Math.sqrt(squash);
+			root.style.setProperty("--ps-land-unsquash", squash.toFixed(3));
+			root.style.setProperty("--ps-land-round-x", k.toFixed(3));
+			root.style.setProperty("--ps-land-round-y", (1 / k).toFixed(3));
+		}
+	});
+
+	observer.observe(land);
+	return {destroy: () => observer.disconnect()};
+}
+
+/**
  * The browser's chrome colour (`<meta name="theme-color">`) for the hour: the
  * sky-top the scene publishes as the page canvas, so the browser's bar runs
  * on into the sky under it (docs/projects/ps-theme.md §6).
@@ -938,6 +973,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	// Built in mount's try below; a half-built mount's destroy skips what is missing.
 	let yurt: ReturnType<typeof placeYurt> | undefined;
 	let composer: ReturnType<typeof watchComposer> | undefined;
+	let land: ReturnType<typeof watchLand> | undefined;
 
 	const update = (state: SceneHostState) => {
 		root.dataset.view = state.view;
@@ -991,6 +1027,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 			stopFollowingMotion?.();
 			yurt?.destroy();
 			composer?.destroy();
+			land?.destroy();
 			root.replaceChildren();
 			root.removeAttribute("style");
 			root.classList.remove(
@@ -1031,6 +1068,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		stopFollowingMotion = onSystemAccessibility(onReduced);
 		yurt = placeYurt(root);
 		composer = watchComposer(root, html);
+		land = watchLand(root);
 		// A scene mounted into a hidden page starts stopped; the first visible update starts it.
 		motion(false);
 		update(initial);

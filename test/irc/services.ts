@@ -491,9 +491,10 @@ describe("services support: the feed (irc/servicesfeed.ts)", function () {
 		const snoopy = join(client, transport, "#MrSnoopy");
 
 		const raw = `[21:14:03] ${B}JOIN${B} #seance by alice`;
-		transport.line(
-			`@time=2026-10-10T21:14:03.000Z :O3!O3@services.test PRIVMSG #MrSnoopy :${raw}`
-		);
+		// A minute ago: the log keeps a day (noticelog.ts MAX_AGE_MS), so a
+		// fixed date here fails from the day after it.
+		const sent = new Date(Math.floor(Date.now() / 1000) * 1000 - 60_000).toISOString();
+		transport.line(`@time=${sent} :O3!O3@services.test PRIVMSG #MrSnoopy :${raw}`);
 		await flush();
 
 		const shown = messages(snoopy);
@@ -503,7 +504,7 @@ describe("services support: the feed (irc/servicesfeed.ts)", function () {
 
 		expect(logged(client)).to.deep.equal([
 			{
-				time: Date.parse("2026-10-10T21:14:03.000Z"),
+				time: Date.parse(sent),
 				type: "snoop",
 				text: "[21:14:03] JOIN #seance by alice",
 				snotice: {

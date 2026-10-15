@@ -134,6 +134,7 @@
 
 <script lang="ts">
 import Mousetrap from "mousetrap";
+import getCaretCoordinates from "textarea-caret";
 import {wrapCursor} from "undate";
 import autocompletion from "../js/autocompletion";
 import {commands} from "../js/commands/index";
@@ -740,12 +741,37 @@ export default defineComponent({
 				return false;
 			});
 
+			// Whether the caret is on the textarea's top row (ArrowUp) or bottom
+			// row (ArrowDown) as it is drawn — a long line that wraps is several
+			// rows, which counting "\n" never saw, so ArrowUp anywhere in one
+			// went to history. The mirror-div measure is the one the
+			// autocomplete already takes of this element.
+			const onEdgeRow = (el: HTMLTextAreaElement, key: string) => {
+				const rowOf = (position: number) => getCaretCoordinates(el, position).top;
+
+				return rowOf(el.selectionStart) === rowOf(key === "up" ? 0 : el.value.length);
+			};
+
+			// Text the arrows bring in — a history entry, an own message to edit —
+			// gets the caret on the edge it was reached from: at the start after
+			// ArrowUp, at the end after ArrowDown, so holding either key keeps
+			// stepping instead of climbing through every row of a long entry.
+			const showStepped = (el: HTMLTextAreaElement, text: string, key: string) => {
+				const caret = key === "up" ? 0 : text.length;
+
+				el.value = text;
+				el.setSelectionRange(caret, caret);
+				setInputSize();
+			};
+
 			inputTrap.bind(["up", "down"], (e, key) => {
+				const el = input.value;
+
 				if (
 					store.state.isAutoCompleting ||
 					(e.target as HTMLTextAreaElement).selectionStart !==
 						(e.target as HTMLTextAreaElement).selectionEnd ||
-					!input.value
+					!el
 				) {
 					return;
 				}
@@ -769,17 +795,10 @@ export default defineComponent({
 
 					if (last) {
 						startEdit(props.channel, last);
-						input.value.value = props.channel.pendingMessage;
-						setInputSize();
+						showStepped(el, props.channel.pendingMessage, key);
 						return false;
 					}
 				}
-
-				const onRow = (
-					input.value.value.slice(undefined, input.value.selectionStart).match(/\n/g) ||
-					[]
-				).length;
-				const totalRows = (input.value.value.match(/\n/g) || []).length;
 
 				const {channel} = props;
 
@@ -793,7 +812,7 @@ export default defineComponent({
 						return; // a modified edit: the arrows just move the caret
 					}
 
-					if (key === "up" ? onRow !== 0 : onRow !== totalRows) {
+					if (!onEdgeRow(el, key)) {
 						return;
 					}
 
@@ -811,8 +830,7 @@ export default defineComponent({
 						return; // already at the oldest own message
 					}
 
-					input.value.value = channel.pendingMessage;
-					setInputSize();
+					showStepped(el, channel.pendingMessage, key);
 
 					return false;
 				}
@@ -821,7 +839,7 @@ export default defineComponent({
 					channel.inputHistory[channel.inputHistoryPosition] = channel.pendingMessage;
 				}
 
-				if (key === "up" && onRow === 0) {
+				if (key === "up" && onEdgeRow(el, key)) {
 					if (channel.inputHistoryPosition < channel.inputHistory.length - 1) {
 						channel.inputHistoryPosition++;
 					} else {
@@ -830,7 +848,7 @@ export default defineComponent({
 				} else if (
 					key === "down" &&
 					channel.inputHistoryPosition > 0 &&
-					onRow === totalRows
+					onEdgeRow(el, key)
 				) {
 					channel.inputHistoryPosition--;
 				} else {
@@ -838,8 +856,7 @@ export default defineComponent({
 				}
 
 				channel.pendingMessage = channel.inputHistory[channel.inputHistoryPosition];
-				input.value.value = channel.pendingMessage;
-				setInputSize();
+				showStepped(el, channel.pendingMessage, key);
 
 				return false;
 			});

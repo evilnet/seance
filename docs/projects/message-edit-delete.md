@@ -22,7 +22,12 @@ Spec: `docs/resources/bus-contract.md` § 1.4; server facts:
   edits look the same as anyone else's, the pending copy included, and an
   edit raises no unread count and no notification unless it highlights.
   Pencil action in `MessageActions.vue`; `input` carries an optional `edit`
-  msgid. Browser check: `tools/scenarios/edit-arrow-step.mjs`.
+  msgid. ArrowUp in an empty composer edits the newest own message and
+  ArrowUp/Down step through them, but only from the composer's top/bottom
+  row as drawn (a wrapped line is several rows), and the stepped-to text gets
+  the caret at its start after ArrowUp, at its end after ArrowDown — input
+  history follows the same rule. Browser checks:
+  `tools/scenarios/edit-arrow-step.mjs`, `tools/scenarios/input-arrow-rows.mjs`.
 - Both are replayed correctly from `draft/chathistory` (`client.afterReplay`).
 
 ## Gaps / decisions

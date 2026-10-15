@@ -439,13 +439,20 @@ strong,
 	font-weight: 700;
 }
 
-#chat .msg .from .user,
 #chat .header .title,
 .channel-list-item .name,
 .network .lobby-title .name,
-#sidebar .lobby-title,
-.font-size-sample .from {
+#sidebar .lobby-title {
 	font-family: Newsreader, Georgia, serif;
+	font-weight: 700;
+}
+
+/* A sender's nick over its message is in the words' face too, bold (the
+ * user, 2026-10-09: the names' face is for the chrome's names — the header,
+ * the channels and networks — not for the conversation). The bold is
+ * load-bearing, as below. The Appearance sample's nick follows. */
+#chat .msg .from .user,
+.font-size-sample .from {
 	font-weight: 700;
 }
 
@@ -539,6 +546,80 @@ strong,
 	padding-block: 0.0625rem 0.125rem;
 	padding-inline: 0;
 	border: 0;
+}
+
+/* The text's outline (its rim, its second ring and the shadow's 0.625rem
+ * blur; the ink treatment's 0.375rem halo) reaches past its box, and with no
+ * padding beside it style.css's anti-Zalgo `overflow: hidden` cut it off at
+ * the left (the user, 2026-10-08). The clip stays, 0.75rem out: stacked marks
+ * still stop there. (A reaction's burst widens it for a moment, below.)
+ * WebKit has no overflow-clip-margin and still cut it at the left and above a
+ * tall glyph, an emoji (the user's iPhone, 2026-10-10), so there the clip is a
+ * clip-path 0.75rem out instead: unlike a box made bigger, it takes no taps
+ * off the nick above or the row before. */
+#chat .chat .msg:is([data-type="message"], [data-type="notice"]) .content,
+#chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) .content,
+#chat .chat .condensed-summary .content {
+	overflow: clip;
+	overflow-clip-margin: 0.75rem;
+}
+
+@supports not (overflow-clip-margin: 0.75rem) {
+	#chat .chat .msg:is([data-type="message"], [data-type="notice"]) .content,
+	#chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) .content,
+	#chat .chat .condensed-summary .content {
+		overflow: visible;
+		clip-path: inset(-0.75rem);
+	}
+}
+
+/* The whois card: style.css hangs each label (`dt`) in the gutter left of
+ * the text, where the nick column stands in the default layout. The stacked
+ * rows have no such gutter and the clip above cut every label away, so here
+ * the card is a two-column grid of its own inside the text: label, value. */
+#chat .chat .whois {
+	display: grid;
+	grid-template-columns: max-content minmax(0, 1fr);
+	column-gap: 0.75rem;
+}
+
+#chat .chat .whois > div {
+	display: contents;
+}
+
+#chat .chat .whois dt {
+	position: static;
+	white-space: nowrap;
+}
+
+#chat .chat .whois dd {
+	min-inline-size: 0;
+	overflow-wrap: anywhere;
+}
+
+/* The card's first line is its own block (whois.vue's `<p>`), which the
+ * rows' `text-indent` reset (below) leaves under the icon: step it past
+ * the icon as every other row's first line does. */
+#chat .chat .msg[data-type="whois"] .content > p:first-child {
+	text-indent: calc(1.25em + 0.375rem);
+}
+
+/* A narrow pane has no room for the label column: each label stands over
+ * its value instead of squeezing it into a sliver. */
+/* stylelint-disable-next-line at-rule-no-unknown */
+@container chat (max-width: 32rem) {
+	#chat .chat .whois {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	/* Smaller, not dimmer: the colours are solved for contrast. */
+	#chat .chat .whois dt {
+		font-size: 0.875em;
+	}
+
+	#chat .chat .whois dd + dt {
+		margin-block-start: 0.25rem;
+	}
 }
 
 /* A line inside a run: one row, its time in the column beside the text,
@@ -644,30 +725,33 @@ strong,
 	grid-area: content;
 }
 
-/* The text's outline (its rim, its second ring and the shadow's 0.625rem
- * blur; the ink treatment's 0.375rem halo) reaches past its box, and with no
- * padding beside it style.css's anti-Zalgo `overflow: hidden` cut it off at
- * the left (the user, 2026-10-08). The clip stays, 0.75rem out: stacked marks
- * still stop there. (A reaction's burst widens it for a moment, below.)
- * WebKit has no overflow-clip-margin and still cut it at the left and above a
- * tall glyph, an emoji (the user's iPhone, 2026-10-10), so there the clip is a
- * clip-path 0.75rem out instead: unlike a box made bigger, it takes no taps
- * off the nick above or the row before. */
-#chat .chat .msg:is([data-type="message"], [data-type="notice"]) .content,
-#chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) .content,
-#chat .chat .condensed-summary .content {
-	overflow: clip;
-	overflow-clip-margin: 0.75rem;
+/* A row with an icon (style.css's `.from::before` glyph: an action, a join,
+ * a part, a mode…) keeps its text where every message's text stands, under
+ * the nicks (the user, 2026-10-09: the icon had pushed the whole block
+ * further in): the icon shares the text's cell, at its start, and only the
+ * text's first line steps past it. */
+/* stylelint-disable max-line-length */
+#chat .chat .msg:is([data-type="action"], [data-type="away"], [data-type="back"], [data-type="chghost"], [data-type="ctcp"], [data-type="ctcp_request"], [data-type="invite"], [data-type="join"], [data-type="kick"], [data-type="login"], [data-type="logout"], [data-type="mode"], [data-type="mode_channel"], [data-type="mode_user"], [data-type="nick"], [data-type="part"], [data-type="plugin"], [data-type="quit"], [data-type="raw"], [data-type="topic"], [data-type="who"], [data-type="whois"]) {
+	grid-template-columns: minmax(var(--ps-time-w), max-content) minmax(0, 1fr);
+	grid-template-areas: "time content";
 }
 
-@supports not (overflow-clip-margin: 0.75rem) {
-	#chat .chat .msg:is([data-type="message"], [data-type="notice"]) .content,
-	#chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) .content,
-	#chat .chat .condensed-summary .content {
-		overflow: visible;
-		clip-path: inset(-0.75rem);
-	}
+#chat .chat .msg:is([data-type="action"], [data-type="away"], [data-type="back"], [data-type="chghost"], [data-type="ctcp"], [data-type="ctcp_request"], [data-type="invite"], [data-type="join"], [data-type="kick"], [data-type="login"], [data-type="logout"], [data-type="mode"], [data-type="mode_channel"], [data-type="mode_user"], [data-type="nick"], [data-type="part"], [data-type="plugin"], [data-type="quit"], [data-type="raw"], [data-type="topic"], [data-type="who"], [data-type="whois"]) .from {
+	grid-area: content;
+	justify-self: start;
+	inline-size: 1.25em;
 }
+
+#chat .chat .msg:is([data-type="action"], [data-type="away"], [data-type="back"], [data-type="chghost"], [data-type="ctcp"], [data-type="ctcp_request"], [data-type="invite"], [data-type="join"], [data-type="kick"], [data-type="login"], [data-type="logout"], [data-type="mode"], [data-type="mode_channel"], [data-type="mode_user"], [data-type="nick"], [data-type="part"], [data-type="plugin"], [data-type="quit"], [data-type="raw"], [data-type="topic"], [data-type="who"], [data-type="whois"]) .content {
+	text-indent: calc(1.25em + 0.375rem);
+}
+
+/* text-indent is inherited: a block inside the text (a preview, a table,
+ * the reactions) starts at its own edge. */
+#chat .chat .msg:is([data-type="action"], [data-type="away"], [data-type="back"], [data-type="chghost"], [data-type="ctcp"], [data-type="ctcp_request"], [data-type="invite"], [data-type="join"], [data-type="kick"], [data-type="login"], [data-type="logout"], [data-type="mode"], [data-type="mode_channel"], [data-type="mode_user"], [data-type="nick"], [data-type="part"], [data-type="plugin"], [data-type="quit"], [data-type="raw"], [data-type="topic"], [data-type="who"], [data-type="whois"]) .content * {
+	text-indent: 0;
+}
+/* stylelint-enable max-line-length */
 
 /* A condensed group's summary has no time or icon of its own: its text
  * stands where the nicks do. */
@@ -1233,6 +1317,17 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 #theme-scene .ps-l-tuft2 { fill: var(--ps-tuft2); }
 #theme-scene .ps-l-tree { fill: var(--ps-tree); }
 #theme-scene .ps-l-trunk { fill: var(--ps-trunk); }
+
+/* The land's box is stretched to the window (plains.ts landSvg): the round
+ * things on it are put back in proportion about their own middles, their
+ * area kept (scene.ts watchLand), so a narrow window keeps them round. */
+#theme-scene .ps-l-shrub,
+#theme-scene .ps-l-bedstone ellipse,
+#theme-scene .ps-l-grove {
+	transform-box: fill-box;
+	transform-origin: center;
+	transform: scale(var(--ps-land-round-x, 1), var(--ps-land-round-y, 1));
+}
 #theme-scene .ps-l-hill1 { fill: var(--ps-hill1); }
 #theme-scene .ps-l-tuft1 { fill: var(--ps-tuft1); }
 #theme-scene .ps-l-grass { fill: var(--ps-grass); }

@@ -210,6 +210,20 @@ html {
 			background-color: var(--canvas-bg-color, var(--body-bg-color));
 		}
 
+		/* iOS reads the strip's colour at launch and not again while the app
+		 * is open (measured on iOS 27), while a theme can go on changing
+		 * --canvas-bg-color: ps's sky does every minute. The strip then
+		 * stood out as an 8px band of today's colour between a status bar
+		 * of the launch's and the header. So once launch is past
+		 * (helpers/statusBarTint.ts: the theme's first change of the colour,
+		 * or 3 s) it goes under the page (#viewport is a stacking context of
+		 * its own), still painted, and the header meets the status bar. An attribute, not a delayed animation of z-index:
+		 * WebKit took the animated value but did not restack until some
+		 * other style change came along (the user's iPhone, 2026-10-11). */
+		html[data-status-bar-read] #status-bar-tint {
+			z-index: -1;
+		}
+
 		#sidebar {
 			padding-top: var(--status-bar-tint-height);
 		}

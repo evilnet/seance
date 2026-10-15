@@ -34,6 +34,7 @@ import {installThemeSceneHooks} from "./themeScene";
 import {installInputModality} from "./helpers/inputModality";
 import {hasVirtualKeyboard} from "./helpers/device";
 import {followSystemAccessibility} from "./helpers/systemAccessibility";
+import {lowerStatusBarTintAfterLaunch} from "./helpers/statusBarTint";
 import {onLaunch, openInstallGuideAtStart} from "./pwa";
 // Also registers the IRC layer's bus handlers (input, names, more, network:*).
 import {autoconnectSavedNetworks, clientForNetwork, createNetwork} from "./irc/manager";
@@ -53,6 +54,7 @@ export async function boot(): Promise<void> {
 	// Reduce Motion and Increase Contrast before anything renders: the
 	// stylesheet reads them as attributes on <html>.
 	followSystemAccessibility();
+	lowerStatusBarTintAfterLaunch();
 
 	// Branding first: it decides the default theme and the document title,
 	// and the connect form reads its defaults from it.
