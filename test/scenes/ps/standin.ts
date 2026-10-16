@@ -277,6 +277,20 @@ export class FakeSvg {
 	}
 }
 
+/** The theme-color meta, as `instanceof HTMLMetaElement` (the stand-in's) sees it. */
+export class FakeMeta {
+	content = "";
+}
+
+/** A constructed stylesheet: what replaceSync was given. */
+export class FakeSheet {
+	text = "";
+
+	replaceSync(text: string) {
+		this.text = text;
+	}
+}
+
 /** The page mount() runs in, and the handles a test needs on it. */
 export function fakePage() {
 	const root = new FakeElement("#theme-scene");
@@ -290,6 +304,29 @@ export function fakePage() {
 	let columnShown = true;
 	/** Thrown from the column's lookup while set: a failing measurement. */
 	let columnFails: Error | null = null;
+	/** The theme-color meta: none unless a test plants it (plantMeta). */
+	let meta: FakeMeta | null = null;
+	const doc = {
+		documentElement: html,
+		adoptedStyleSheets: [] as FakeSheet[],
+		querySelector(selector: string) {
+			if (selector === 'meta[name="theme-color"]') {
+				return meta;
+			}
+
+			if (selector !== "#chat .chat") {
+				return null;
+			}
+
+			if (columnFails) {
+				throw columnFails;
+			}
+
+			return columnShown ? column : null;
+		},
+		getElementById: () => null,
+		createElement: (tag: string) => new FakeElement(tag),
+	};
 	/** Each style computation asked for: the element, and its classes at that moment. */
 	const computed: Array<{el: FakeElement; classes: string}> = [];
 	FakeResizeObserver.all = [];
@@ -311,24 +348,10 @@ export function fakePage() {
 				frames.delete(id);
 			},
 		}),
-		document: {
-			documentElement: html,
-			querySelector(selector: string) {
-				if (selector !== "#chat .chat") {
-					return null; // no theme-color meta
-				}
-
-				if (columnFails) {
-					throw columnFails;
-				}
-
-				return columnShown ? column : null;
-			},
-			getElementById: () => null,
-			createElement: (tag: string) => new FakeElement(tag),
-		},
+		document: doc,
 		ResizeObserver: FakeResizeObserver,
-		HTMLMetaElement: class {},
+		HTMLMetaElement: FakeMeta,
+		CSSStyleSheet: FakeSheet,
 		getComputedStyle(el: FakeElement) {
 			computed.push({el, classes: el.className});
 			return {
@@ -347,6 +370,13 @@ export function fakePage() {
 		media,
 		globals,
 		computed,
+		doc,
+		/** A theme-color meta holding `content`, for the scene to write and hand back. */
+		plantMeta(content: string) {
+			meta = new FakeMeta();
+			meta.content = content;
+			return meta;
+		},
 		/** The scene laid out (ps.css applied): the root's box and the yurt's. */
 		layOut(width: number) {
 			root.box = {left: 0, top: 0, width, height: 900};
