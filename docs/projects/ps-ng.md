@@ -13,8 +13,9 @@ Goals, in order: **performance first, then match the current look closely.** "Ke
 3. **Glass is pre-blurred** (§5).
 4. **Heat haze is dropped** for now; it may come back later.
 5. **Three tiers** — full, calm, still — chosen by the existing gates, a setting and device power signals (§6).
-6. **PR #98 (the canvas sun fire, canvas skeins and the text band) is superseded by NG** and will not merge. NG ports what it needs from its branch, `feat/ps-perf-band`: `flame.ts` and the skein sprite sheet from `birds.ts`.
-7. **When NG matches classic**, its default flips and classic is deleted in one commit, with the scene half of `ps.css`.
+6. **PR #98 (the canvas sun fire, canvas skeins and the text band) is superseded by NG** and will not merge. NG ports what it needs from its branch, `feat/ps-perf-band`: `flame.ts`, the skein sprite sheet from `birds.ts`, and the text band (the 52 % band behind the white words, the user's pick over the outline) — the band rides along with NG.
+7. **The budgets are ceilings, not targets** (the user, 2026-10-16: "the goal is as low as possible regardless"). Calm was lifted from 15 to 24 after the red team showed one moving layer already costs 20–21.5.
+8. **When NG matches classic**, its default flips and classic is deleted in one commit, with the scene half of `ps.css`.
 
 ## 2. What the spike measured (2026-10-16)
 
@@ -118,7 +119,7 @@ While the drawer slides, it shows its tint only; it frosts once it rests (as cla
 | Tier  | Moves                                                                                                                                                 | iPhone budget |
 | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
 | full  | everything in §4                                                                                                                                      | ≤ 30          |
-| calm  | clouds, weather (rain, snow, lightning), smoke, skeins with wings at 8 fps; still: stars, fireflies (glowing, in place), seeds, larks, buzzard, grass | ≤ 15          |
+| calm  | clouds, weather (rain, snow, lightning), smoke, skeins with wings at 8 fps; still: stars, fireflies (glowing, in place), seeds, larks, buzzard, grass | ≤ 24          |
 | still | nothing: every animation `pause()`d where it stands                                                                                                   | ≤ 3           |
 
 **Forced still** (as today): reduced motion (`data-reduce-motion`), a hidden page, a page nobody attends to (`createAttention`), a query.
