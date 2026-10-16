@@ -13,7 +13,8 @@ Goals, in order: **performance first, then match the current look closely.** "Ke
 3. **Glass is pre-blurred** (§5).
 4. **Heat haze is dropped** for now; it may come back later.
 5. **Three tiers** — full, calm, still — chosen by the existing gates, a setting and device power signals (§6).
-6. **When NG matches classic**, its default flips and classic is deleted in one commit, with the scene half of `ps.css`.
+6. **PR #98 (the canvas sun fire, canvas skeins and the text band) is superseded by NG** and will not merge. NG ports what it needs from its branch, `feat/ps-perf-band`: `flame.ts` and the skein sprite sheet from `birds.ts`.
+7. **When NG matches classic**, its default flips and classic is deleted in one commit, with the scene half of `ps.css`.
 
 ## 2. What the spike measured (2026-10-16)
 
@@ -77,24 +78,24 @@ Imported unchanged from `scenes/ps/`: `engine`, `palette`, `colour`, `grounds`, 
 
 ## 4. Element by element
 
-| Element                                                 | Classic                                                    | NG                                                                                                                             |
-| ------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Sky, Milky Way, glow, moon, sun disc, land, river, veil | SVG/CSS layers                                             | the still backdrop: one canvas, repainted on the minute                                                                        |
-| Overcast deck (rain, storm)                             | SVG billows, 2 s cross-fade                                | in the backdrop; a second backdrop canvas cross-fades by `opacity` when the weather changes                                    |
-| Sun's fire                                              | SVG `feTurbulence` on develop; `flame.ts` canvas in PR #98 | `flame.ts`'s frame cache (port it if #98 has not merged), 24 fps, in `shapes.ts`; the 90 s spin by `transform`                 |
-| Stars (52 twinkling)                                    | 52 opacity animations                                      | 4 star sheets, each twinkling by `opacity` with its own period (gate §8)                                                       |
-| Clouds (5, +4 wet)                                      | `cqw` drift                                                | each a small sprite crossing by `transform`                                                                                    |
-| Rain, snow, seeds                                       | 3 rain sheets, per-flake and per-seed animations           | tiled sheets with mixed tile heights so the repeat does not show                                                               |
-| Lightning                                               | opacity flash                                              | one layer, `opacity`                                                                                                           |
-| Near grass                                              | SVG sway                                                   | grass bitmap swaying by `skewX`                                                                                                |
-| Fireflies (34)                                          | drift + blink, 68 animations                               | each a tiny sprite, drift by `transform`, blink by `opacity` (gate §8; fallback 4 shared sheets)                               |
-| Yurt, smoke (5 puffs)                                   | SVG, fade-and-jump rule                                    | yurt a still layer placed by `transform` (`yurt.ts` rules kept); puffs rise as sprites                                         |
-| Skeins                                                  | SVG strips on develop; canvas flocks in PR #98             | flight by `transform`; wingbeats on one small canvas per flock at 12–24 fps (`shapes.ts`, sprite sheet as in #98's `birds.ts`) |
-| Buzzard, skylarks                                       | CSS + stepped wing frames                                  | glide by `transform`; the larks' wings in `shapes.ts`                                                                          |
-| Heat haze                                               | SVG displacement filter                                    | **dropped** (may return)                                                                                                       |
-| Frosted query view                                      | `blur()` on the live scene                                 | the pre-blurred backdrop copy, still                                                                                           |
-| Animals                                                 | switched off                                               | stay off                                                                                                                       |
-| Embers, settle                                          | chrome CSS                                                 | unchanged (not the scene)                                                                                                      |
+| Element                                                 | Classic                                                    | NG                                                                                                                                   |
+| ------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Sky, Milky Way, glow, moon, sun disc, land, river, veil | SVG/CSS layers                                             | the still backdrop: one canvas, repainted on the minute                                                                              |
+| Overcast deck (rain, storm)                             | SVG billows, 2 s cross-fade                                | in the backdrop; a second backdrop canvas cross-fades by `opacity` when the weather changes                                          |
+| Sun's fire                                              | SVG `feTurbulence` on develop; `flame.ts` canvas in PR #98 | `flame.ts`'s frame cache, ported from #98, 24 fps, in `shapes.ts`; the 90 s spin by `transform`                                      |
+| Stars (52 twinkling)                                    | 52 opacity animations                                      | 4 star sheets, each twinkling by `opacity` with its own period (gate §8)                                                             |
+| Clouds (5, +4 wet)                                      | `cqw` drift                                                | each a small sprite crossing by `transform`                                                                                          |
+| Rain, snow, seeds                                       | 3 rain sheets, per-flake and per-seed animations           | tiled sheets with mixed tile heights so the repeat does not show                                                                     |
+| Lightning                                               | opacity flash                                              | one layer, `opacity`                                                                                                                 |
+| Near grass                                              | SVG sway                                                   | grass bitmap swaying by `skewX`                                                                                                      |
+| Fireflies (34)                                          | drift + blink, 68 animations                               | each a tiny sprite, drift by `transform`, blink by `opacity` (gate §8; fallback 4 shared sheets)                                     |
+| Yurt, smoke (5 puffs)                                   | SVG, fade-and-jump rule                                    | yurt a still layer placed by `transform` (`yurt.ts` rules kept); puffs rise as sprites                                               |
+| Skeins                                                  | SVG strips on develop; canvas flocks in PR #98             | flight by `transform`; wingbeats on one small canvas per flock at 12–24 fps (`shapes.ts`, sprite sheet ported from #98's `birds.ts`) |
+| Buzzard, skylarks                                       | CSS + stepped wing frames                                  | glide by `transform`; the larks' wings in `shapes.ts`                                                                                |
+| Heat haze                                               | SVG displacement filter                                    | **dropped** (may return)                                                                                                             |
+| Frosted query view                                      | `blur()` on the live scene                                 | the pre-blurred backdrop copy, still                                                                                                 |
+| Animals                                                 | switched off                                               | stay off                                                                                                                             |
+| Embers, settle                                          | chrome CSS                                                 | unchanged (not the scene)                                                                                                            |
 
 Seeds and placements come from the same seeded generators as classic, so every star, cloud, firefly and bird stands where it does today.
 
