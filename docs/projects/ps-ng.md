@@ -1,6 +1,6 @@
 # ps NG — the ps scene, rebuilt to be cheap
 
-Status: **design approved 2026-10-16**, spike done (§2), implementation plan next. Branch `feat/ps-ng`.
+Status: **design approved 2026-10-16**, spike done (§2), implementation plan next. Plan 1 Task 1 (what the still markup costs on the iPhone) measured 2026-10-16, §8.1. Branch `feat/ps-ng`.
 
 The ps theme's scene (`docs/projects/ps-theme.md`) is loved and expensive: on an iPhone 16 it costs 93–106 % of a core in Safari at a rainy noon, most of it in WebKit's page process, and around 95–99 % at night. ps NG is a new renderer for the same theme. It keeps every element and the look, and draws them with a small set of cheap techniques, with tiers so a phone on low power does less.
 
@@ -148,3 +148,34 @@ Measured on every platform before anything is deployed or claimed (iPhone tether
 3. **Before the default flips:** iPhone, Android and Chrome at noon, night and storm, against classic in the same session, within the §6 budgets.
 
 Not yet known: 120 Hz screens (the compositing floor may double on ProMotion), glass over motion on iOS (one unexplained 79), night as a whole.
+
+### 8.1 Plan 1 Task 1: what the still markup costs on the iPhone (2026-10-16)
+
+iPhone 16, iOS 27.0.1, Safari, tethered. Sum = WebContent + WebKit GPU + backboardd, in % of one core; median (IQR); 50 s dwell; every reading validated by beacons through `summarize.mjs`. The user chose one sitting of about 26 minutes in place of separate runs A and B. Run id `ios2-1792189463000`, 3 rounds, 30 of 30 valid.
+
+| slot           | what                                                                                        | sum              | backboardd |
+| -------------- | ------------------------------------------------------------------------------------------- | ---------------- | ---------- |
+| coffee         | reference                                                                                   | 1.2 (1.1–32.6)   | 1.1        |
+| still          | classic markup, animations paused (`psAnimation` off)                                       | 25.1 (24.2–25.3) | 24.9       |
+| still-nofilter | still + every filter removed                                                                | 17.9 (17.0–64.6) | 17.7       |
+| rm             | classic with `data-reduce-motion` (`animation: none`), SMIL paused                          | 1.2 (1.1–1.5)    | 1.0        |
+| none           | rm's rules re-scoped to `#theme-scene.psng`, SMIL removed, gates without fades, 12:30 clear | 1.1 (1.1–1.5)    | 0.9        |
+| none-night     | none at 23:00                                                                               | 1.4 (1.3–1.5)    | 1.3        |
+| none-rain      | none 2026-10-19 12:30                                                                       | 1.2 (0.6–35.3)   | 1.0        |
+| none-hot       | none 2027-06-21 12:30                                                                       | 1.2 (1.1–1.5)    | 1.1        |
+| none-query     | none in a query (ps-private frost) at 23:00                                                 | 1.1 (1.1–1.1)    | 0.9        |
+| waapi-paused   | none + `element.animate` stand-in, `pause()` after 5 s                                      | 19.1 (16.6–48.1) | 15.5       |
+
+Single readings with WebContent-only spikes (WebContent 59–90, backboardd at most 2): coffee 64.1, none-rain 69.3, waapi-paused 77.1, still-nofilter 111.2. That is phone-side noise; it hit coffee too. One none-rain reading was 0.0 everywhere (empty trace).
+
+Rain re-run, run id `ios2-1792193002000`, 3 rounds, 6 of 6 valid: coffee 1.1 (0.9 / 1.1 / 1.2); none-rain 1.1 (0.8 / 1.1 / 1.2). An earlier attempt (`ios2-1792187814000`) is void: the harness's page server died at slot 4.
+
+Chrome desktop (rank-only, load 3.8–9.7): coffee 3.4, still 4.4, still-nofilter 2.6, rm 2.8, none 3.7. It cannot rank.
+
+**Verdict.**
+
+- The 23–25 of classic's paused still is the paused animations. WebKit keeps them as Core Animation work in backboardd. Filters account for about 7 of it.
+- `none` passes: every none slot is within 2 of the same run's coffee, rain confirmed by its re-run. `none` becomes `STILL_RULES` (`NG_STILL_CSS`, Task 5).
+- `pause()` is not still on iOS (waapi-paused 19.1 against none 1.1). Plan 2 stills animations with `cancel()` and recreates them at their phase.
+- Classic's reduced motion (`rm`) is already at coffee. Task 1b (`animation: none` in classic's own still states) was offered and not taken.
+- The user accepted the harness `none` readings as NG's iPhone numbers. Task 6's own phone run is optional.
