@@ -74,7 +74,7 @@ function tuft(x: number, y: number, h: number, cls: string): string {
  * gives it, with the river's sky gradient in its defs. The hills stretch
  * with the window; the round things on them (the shrubs, the bed's stones,
  * the two groves) are widened back about their own middles by the stretch's
- * squash (`--ps-land-unsquash`, scene.ts watchLand), so a narrow window does
+ * squash (`--ps-land-unsquash`, watchers.ts watchLand), so a narrow window does
  * not draw them as tall ellipses. (The heat haze that
  * bends the ground on hot days is the weather layer's: `weatherLayers`.)
  */

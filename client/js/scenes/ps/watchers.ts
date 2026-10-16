@@ -1,0 +1,351 @@
+/**
+ * What the ps scene watches on the page around it (docs/projects/ps-theme.md
+ * §5.3, §5.5): the yurt's place in the message column, the composer standing
+ * above the near grass, the land's stretch, and the day's own clouds in the
+ * overcast. Moved out of scene.ts so a renderer other than classic's can use
+ * them without importing scene.ts (and with it the stepper and the gates);
+ * none of them imports either.
+ */
+import {composerAboveGrass} from "./glass";
+import type {Weather} from "./engine";
+import {FADE_MARGIN_MS} from "./layers";
+import {weatherClouds} from "./plains";
+import {yurtFollower} from "./yurt";
+
+/**
+ * How long the day's own clouds take to fade out and in when the day's
+ * weather changes in view (ps.css `.ps-overcast-set`'s transition), in ms.
+ */
+export const OVERCAST_FADE_MS = 2000;
+
+/**
+ * The land is drawn on a 1200 × 400 box stretched to the window
+ * (preserveAspectRatio="none"): the hills take the stretch, and the round
+ * things on them are widened back by how much narrower than tall it made them.
+ * Writes `--ps-land-unsquash` (the vertical scale over the horizontal) on the
+ * scene's root whenever the land's box changes, and the two factors that undo
+ * it with each shape's area kept (`--ps-land-round-x`, `-y`, its square root
+ * each way: kept at full height on a phone they crowded the plain); ps.css
+ * scales the shrubs, stones and groves by them.
+ */
+export function watchLand(root: HTMLElement): {destroy(): void} {
+	const land = root.querySelector(".ps-land");
+
+	if (!land) {
+		return {destroy() {}};
+	}
+
+	const observer = new ResizeObserver(() => {
+		const box = land.getBoundingClientRect();
+
+		if (box.width > 0 && box.height > 0) {
+			// The stretch makes them `squash` times taller than wide; undone
+			// with their area kept, half the correction on each axis.
+			const squash = box.height / 400 / (box.width / 1200);
+			const k = Math.sqrt(squash);
+			root.style.setProperty("--ps-land-unsquash", squash.toFixed(3));
+			root.style.setProperty("--ps-land-round-x", k.toFixed(3));
+			root.style.setProperty("--ps-land-round-y", (1 / k).toFixed(3));
+		}
+	});
+
+	observer.observe(land);
+	return {destroy: () => observer.disconnect()};
+}
+
+/**
+ * Keeps the yurt in the message column's far third (yurt.ts, spec §5.3). It
+ * observes `#chat .chat` — MessageList.vue's scroll container; not `#chat`,
+ * which holds the user list too — and the scene itself, and hands each
+ * measurement to the follow-or-fade rule, which writes `--ps-yurt-left` on
+ * the root and toggles `ps-yurt-moving`; a scene not laid out yet (no box
+ * until ps.css shows it) places nothing. A conversation switch can replace
+ * the column, so it is looked for again on every host update and whenever
+ * the one observed leaves the page; with no column on screen (Settings,
+ * Help, the connect form) the yurt keeps its place, clamped to the scene as
+ * it is. Each measurement carries the yurt's own width (its computed width,
+ * not its box on screen, which the private view's frost scales), so the
+ * place is clamped with the whole yurt in the scene, and `seen()` (the
+ * scene's first visible update) starts the load's window, in which the first
+ * place measured is taken without a fade.
+ */
+export function placeYurt(root: HTMLElement): {seen(): void; refind(): void; destroy(): void} {
+	const yurt = root.querySelector(".ps-yurt") as HTMLElement;
+	const follower = yurtFollower({
+		place: (px) => root.style.setProperty("--ps-yurt-left", `${px.toFixed(2)}px`),
+		hide: (on) => root.classList.toggle("ps-yurt-moving", on),
+		now: () => performance.now(),
+		after(ms, fn) {
+			const id = window.setTimeout(fn, ms);
+			return () => window.clearTimeout(id);
+		},
+		nextFrame(fn) {
+			const id = window.requestAnimationFrame(fn);
+			return () => window.cancelAnimationFrame(id);
+		},
+	});
+	let column: Element | null = null;
+	let frame: number | undefined;
+
+	const measure = () => {
+		const scene = root.getBoundingClientRect();
+		const box = column?.isConnected ? column.getBoundingClientRect() : null;
+		follower.measure(
+			box && box.width > 0 ? {left: box.left - scene.left, width: box.width} : null,
+			{
+				width: scene.width,
+				rem: parseFloat(getComputedStyle(document.documentElement).fontSize) || 16,
+				yurtWidth: parseFloat(getComputedStyle(yurt).width) || 0,
+			}
+		);
+	};
+
+	// The column and the scene itself: the theme switch mounts the scene
+	// before ps.css applies, while #theme-scene is still display: none and
+	// measures 0 × 0 (the column's first observation then places nothing), and
+	// its display fires an observation of its own; so does the window
+	// narrowing with no column, which clamps the kept place again.
+	const observer = new ResizeObserver(() => {
+		measure();
+
+		if (!column?.isConnected) {
+			findSoon(); // it left the page; its replacement, if any, is there by the next frame
+		}
+	});
+
+	observer.observe(root);
+
+	function find() {
+		const found = document.querySelector("#chat .chat");
+
+		if (found === column) {
+			return;
+		}
+
+		if (column) {
+			observer.unobserve(column);
+		}
+
+		column = found;
+
+		if (column) {
+			observer.observe(column); // its first observation measures it
+		}
+	}
+
+	// Also on the next frame: the host's update comes before Vue has patched
+	// the page, and a ResizeObserver callback must not start observing itself.
+	function findSoon() {
+		if (frame === undefined) {
+			frame = window.requestAnimationFrame(() => {
+				frame = undefined;
+				find();
+			});
+		}
+	}
+
+	return {
+		seen: () => follower.seen(),
+		refind() {
+			find();
+			findSoon();
+		},
+		destroy() {
+			observer.disconnect();
+			follower.stop();
+
+			if (frame !== undefined) {
+				window.cancelAnimationFrame(frame);
+				frame = undefined;
+			}
+
+			root.classList.remove("ps-yurt-moving");
+		},
+	};
+}
+
+/**
+ * Marks <html> `ps-form-tall` while the composer's top edge stands above the
+ * near grass (glass.ts composerAboveGrass), so ps.css gives it the float tint
+ * (the controller's ruling, task 7b fix round 1). One ResizeObserver
+ * watches #form (a reply bar, a longer draft, a font step), #viewport (a
+ * touch keyboard: #viewport follows --viewport-height while the scene stays
+ * on the layout viewport) and the scene itself: the theme switch mounts the
+ * scene before ps.css applies (settings.ts calls setTheme before it swaps the
+ * link), while #theme-scene is still display: none and measures 0 × 0, and
+ * its display then fires an observation. A new #form also rises into place
+ * (ps.css ps-rise: 8 px, a transform no observer sees), so the end of its
+ * own animation checks again. Each check reads both boxes afresh, as
+ * placeYurt's measure does; the window's resize checks too. #form is looked
+ * for again on every host update and whenever the one observed leaves the
+ * page; with none on the page (the connect form) there is no class.
+ */
+export function watchComposer(
+	root: HTMLElement,
+	html: HTMLElement
+): {refind(): void; destroy(): void} {
+	let form: Element | null = null;
+	let viewport: Element | null = null;
+	let frame: number | undefined;
+
+	const check = () => {
+		html.classList.toggle(
+			"ps-form-tall",
+			!!form?.isConnected &&
+				composerAboveGrass(form.getBoundingClientRect(), root.getBoundingClientRect())
+		);
+	};
+
+	const observer = new ResizeObserver(() => {
+		if (form?.isConnected) {
+			check();
+		} else {
+			findSoon(); // it left the page; its replacement, if any, is there by the next frame
+		}
+	});
+
+	observer.observe(root);
+	const onResize = () => check();
+
+	// Its own entrance only: animations inside it bubble here too.
+	const onSettled = (event: Event) => {
+		if (event.target === form) {
+			check();
+		}
+	};
+
+	const listen = (el: Element, on: boolean) => {
+		for (const type of ["animationend", "animationcancel"]) {
+			if (on) {
+				el.addEventListener(type, onSettled);
+			} else {
+				el.removeEventListener(type, onSettled);
+			}
+		}
+	};
+
+	function find() {
+		const nextForm = document.getElementById("form");
+		const nextViewport = document.getElementById("viewport");
+
+		if (nextForm !== form) {
+			if (form) {
+				observer.unobserve(form);
+				listen(form, false);
+			}
+
+			form = nextForm;
+
+			if (form) {
+				observer.observe(form); // its first observation checks it
+				listen(form, true);
+			} else {
+				html.classList.remove("ps-form-tall");
+			}
+		}
+
+		if (nextViewport !== viewport) {
+			if (viewport) {
+				observer.unobserve(viewport);
+			}
+
+			viewport = nextViewport;
+
+			if (viewport) {
+				observer.observe(viewport);
+			}
+		}
+	}
+
+	// Also on the next frame, as placeYurt does: the host's update comes before Vue has patched the page.
+	function findSoon() {
+		if (frame === undefined) {
+			frame = window.requestAnimationFrame(() => {
+				frame = undefined;
+				find();
+			});
+		}
+	}
+
+	window.addEventListener("resize", onResize);
+
+	return {
+		refind() {
+			find();
+			findSoon();
+		},
+		destroy() {
+			observer.disconnect();
+			window.removeEventListener("resize", onResize);
+
+			if (form) {
+				listen(form, false);
+			}
+
+			if (frame !== undefined) {
+				window.cancelAnimationFrame(frame);
+				frame = undefined;
+			}
+
+			html.classList.remove("ps-form-tall");
+		},
+	};
+}
+
+/**
+ * The day's own clouds (plains.ts `weatherClouds`) are one set in the
+ * overcast, `.ps-overcast-set`. A new day's replaces the old at once, or,
+ * when `fade` (the minute's tick crossing midnight on a page in view, the
+ * scene running), cross-fades with it (the user dislikes clouds popping):
+ * the incoming set is put in at 0 and its style computed there, so its
+ * transition runs as the class comes off; the outgoing fades to 0 and
+ * leaves the page once its fade is over, as a gated layer does. `end()`
+ * ends a fade under way now (the outgoing out of the page).
+ */
+export function overcastBuilder(overcast: HTMLElement): {
+	build(weather: Weather, fade: boolean): void;
+	end(): void;
+} {
+	// A fade of the weather's own clouds under way: ends it now (the outgoing out of the page).
+	let endFade: (() => void) | undefined;
+
+	const build = (weather: Weather, fade: boolean) => {
+		endFade?.();
+		const markup = weatherClouds(weather);
+		const leaving = [...overcast.children];
+		const set = markup ? document.createElement("div") : null;
+
+		if (set) {
+			set.className = "ps-overcast-set";
+			set.innerHTML = markup;
+		}
+
+		if (!fade) {
+			overcast.replaceChildren(...(set ? [set] : []));
+			return;
+		}
+
+		for (const el of leaving) {
+			el.classList.add("ps-leaving");
+		}
+
+		if (set) {
+			set.classList.add("ps-arriving");
+			overcast.prepend(set); // behind the outgoing, which fades off it
+			void getComputedStyle(set).opacity;
+			set.classList.remove("ps-arriving");
+		}
+
+		if (leaving.length > 0) {
+			const wait = window.setTimeout(() => endFade?.(), OVERCAST_FADE_MS + FADE_MARGIN_MS);
+
+			endFade = () => {
+				window.clearTimeout(wait);
+				endFade = undefined;
+				leaving.forEach((el) => el.remove());
+			};
+		}
+	};
+
+	return {build, end: () => endFade?.()};
+}

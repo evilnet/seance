@@ -6,7 +6,7 @@ import {
 	WEATHERS,
 	type Weather,
 } from "../../../client/js/scenes/ps/engine";
-import {publishedFor} from "../../../client/js/scenes/ps/grounds";
+import {publishedFor, themeColorFor} from "../../../client/js/scenes/ps/grounds";
 import {birdsAt, dayBirdsMarkup, skeinsMarkup} from "../../../client/js/scenes/ps/birds";
 import {paletteAt} from "../../../client/js/scenes/ps/palette";
 import {clouds, FIREFLIES, smoke, yurtSvg} from "../../../client/js/scenes/ps/plains";
@@ -15,7 +15,6 @@ import {
 	sceneClasses,
 	sceneMarkup,
 	sceneVars,
-	themeColorFor,
 	weatherChanged,
 } from "../../../client/js/scenes/ps/scene";
 
