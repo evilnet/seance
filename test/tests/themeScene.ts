@@ -1,10 +1,14 @@
 import {expect} from "chai";
 import sinon from "sinon";
+import fs from "fs";
+import path from "path";
 import {
 	createAttention,
 	createSceneHost,
 	IDLE_REST_MS,
 	normalizeSceneMotion,
+	normalizePsRenderer,
+	sceneKey,
 	SCENES,
 	UNFOCUSED_REST_MS,
 	type SceneHandle,
@@ -87,8 +91,8 @@ const host = (loaders: Record<string, SceneLoader>, warn?: (m: string, e: unknow
 	});
 
 describe("the theme-scene hook (client/js/themeScene.ts)", function () {
-	it("has a scene for ps and for no other theme", function () {
-		expect(Object.keys(SCENES)).to.deep.equal(["ps"]);
+	it("has a scene for ps (classic and NG) and for no other theme", function () {
+		expect(Object.keys(SCENES)).to.deep.equal(["ps", "ps-ng"]);
 	});
 
 	it("mounts the applied theme's scene with the current state", async function () {
@@ -423,6 +427,101 @@ describe("the theme-scene hook (client/js/themeScene.ts)", function () {
 			await h.retry();
 			expect(h.mounted).to.equal(null);
 			expect(log).to.deep.equal([]);
+		});
+	});
+	describe("the ps renderer (psRenderer)", function () {
+		it("keys the scene by theme and renderer", function () {
+			expect(sceneKey("ps", "ng")).to.equal("ps-ng");
+			expect(sceneKey("ps", "classic")).to.equal("ps");
+			expect(sceneKey("coffee", "ng")).to.equal("coffee");
+		});
+
+		it("reads an unknown stored renderer as classic", function () {
+			expect(normalizePsRenderer("ng")).to.equal("ng");
+			expect(normalizePsRenderer("classic")).to.equal("classic");
+			expect(normalizePsRenderer("webgl")).to.equal("classic");
+			expect(normalizePsRenderer(undefined)).to.equal("classic");
+		});
+
+		it("setRenderer('ng') with ps mounted swaps the module", async function () {
+			const classic = fakeScene();
+			const ng = fakeScene();
+			const ngLoader = sinon.stub().resolves(ng.mod);
+			const h = host({ps: () => Promise.resolve(classic.mod), "ps-ng": ngLoader});
+			await h.setTheme("ps");
+			expect(h.mounted).to.equal("ps");
+
+			h.setRenderer("ng");
+			await new Promise((resolve) => setImmediate(resolve));
+
+			expect(classic.log.filter((l) => l === "destroy")).to.have.length(1);
+			expect(ngLoader.callCount).to.equal(1);
+			expect(h.mounted).to.equal("ps-ng");
+			expect(ng.log).to.deep.equal(["mount true true channel"]);
+		});
+
+		it("setRenderer before setTheme('ps') never loads classic", async function () {
+			const ng = fakeScene();
+			const psLoader = sinon.stub().rejects(new Error("classic must not load"));
+			const h = host({ps: psLoader, "ps-ng": () => Promise.resolve(ng.mod)});
+			h.setRenderer("ng");
+			await h.setTheme("ps");
+			expect(psLoader.called).to.equal(false);
+			expect(h.mounted).to.equal("ps-ng");
+		});
+
+		it("setRenderer with another theme only remembers it", async function () {
+			const ng = fakeScene();
+			const ngLoader = sinon.stub().resolves(ng.mod);
+			const psLoader = sinon.stub().resolves(fakeScene().mod);
+			const h = host({ps: psLoader, "ps-ng": ngLoader});
+			await h.setTheme("coffee");
+			h.setRenderer("ng");
+			await new Promise((resolve) => setImmediate(resolve));
+			expect(ngLoader.called).to.equal(false);
+			expect(h.mounted).to.equal(null);
+
+			await h.setTheme("ps");
+			expect(psLoader.called).to.equal(false);
+			expect(ngLoader.callCount).to.equal(1);
+			expect(h.mounted).to.equal("ps-ng");
+		});
+
+		it("a failing ps-ng chunk keeps the fallback and retries the ps-ng key", async function () {
+			const ng = fakeScene();
+			const warnings: string[] = [];
+			const {loader, calls} = rejectNTimesThenResolve(ng.mod, 1);
+			const psLoader = sinon.stub().resolves(fakeScene().mod);
+			const h = createSceneHost({
+				root: () => ROOT,
+				loaders: {ps: psLoader, "ps-ng": loader},
+				state: {visible: false, attended: true, view: "channel", motion: "24"},
+				warn: (m) => warnings.push(m),
+			});
+			h.setRenderer("ng");
+			await h.setTheme("ps");
+			expect(h.mounted).to.equal(null);
+			expect(warnings).to.have.length(1);
+
+			h.setVisible(true);
+			await new Promise((resolve) => setImmediate(resolve));
+
+			expect(calls()).to.equal(2);
+			expect(psLoader.called).to.equal(false);
+			expect(h.mounted).to.equal("ps-ng");
+			expect(warnings).to.have.length(1);
+		});
+
+		it("settings apply psRenderer before theme", function () {
+			// settings.ts reads document and matchMedia at import, so mocha
+			// cannot load it: applyAll walks the object in key order.
+			const source = fs.readFileSync(
+				path.join(__dirname, "../../client/js/settings.ts"),
+				"utf8"
+			);
+			const renderer = source.indexOf("psRenderer:");
+			expect(renderer).to.be.greaterThan(-1);
+			expect(renderer).to.be.below(source.indexOf("\ttheme:"));
 		});
 	});
 });

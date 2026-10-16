@@ -25,6 +25,19 @@ export function normalizeSceneMotion(value: unknown): SceneMotion {
 	return SCENE_MOTIONS.includes(value as SceneMotion) ? (value as SceneMotion) : "24";
 }
 
+/** Which scene the ps theme draws: the shipped one, or the NG rewrite (ps NG plan 1). */
+export type PsRenderer = "classic" | "ng";
+
+/** A stored value other than "ng" is classic. */
+export function normalizePsRenderer(value: unknown): PsRenderer {
+	return value === "ng" ? "ng" : "classic";
+}
+
+/** The SCENES key for a theme under a renderer: only ps has an NG scene. */
+export function sceneKey(theme: string, renderer: PsRenderer): string {
+	return theme === "ps" && renderer === "ng" ? "ps-ng" : theme;
+}
+
 export interface SceneHostState {
 	visible: boolean;
 	/**
@@ -52,6 +65,7 @@ export type SceneLoader = () => Promise<SceneModule>;
 /** The themes that have a scene, by theme name: each is its own chunk, loaded only for that theme. */
 export const SCENES: Readonly<Record<string, SceneLoader>> = {
 	ps: () => import(/* webpackChunkName: "scene-ps" */ "./scenes/ps/scene"),
+	"ps-ng": () => import(/* webpackChunkName: "scene-ps-ng" */ "./scenes/psng/scene"),
 };
 
 export interface SceneHost {
@@ -61,6 +75,8 @@ export interface SceneHost {
 	/** Whether a page nobody attends to rests its scene (default yes); no, and it counts as attended. */
 	setPauseWhenAway(pause: boolean): void;
 	setMotion(motion: SceneMotion): void;
+	/** Which ps scene to draw; swaps a mounted ps scene for the other one. */
+	setRenderer(renderer: PsRenderer): void;
 	setView(view: SceneView): void;
 	/**
 	 * Re-attempts the load of the currently-asked theme's scene, if its last
@@ -84,10 +100,11 @@ export function createSceneHost(opts: {
 	let attention = state.attended;
 	let pauseWhenAway = true;
 	let asked: string | null = null;
+	let renderer: PsRenderer = "classic";
 	let mounted: string | null = null;
 	let handle: SceneHandle | null = null;
 	let ticket = 0;
-	// The asked-for theme whose scene last failed to load, while nothing since
+	// The scene key (sceneKey) whose scene last failed to load, while nothing since
 	// has superseded that attempt. Cleared by any `setTheme` (win or lose) and
 	// by a successful mount; `retry()` reads it and nothing else sets it.
 	let failed: string | null = null;
@@ -190,7 +207,21 @@ export function createSceneHost(opts: {
 			failed = null;
 			const mine = ++ticket;
 			unmount();
-			await attempt(name, mine);
+			await attempt(sceneKey(name, renderer), mine);
+		},
+
+		setRenderer(next: PsRenderer): void {
+			const before = asked === null ? null : sceneKey(asked, renderer);
+			renderer = next;
+
+			if (asked === null || sceneKey(asked, renderer) === before) {
+				return;
+			}
+
+			failed = null;
+			const mine = ++ticket;
+			unmount();
+			void attempt(sceneKey(asked, renderer), mine);
 		},
 
 		setVisible(visible: boolean): void {

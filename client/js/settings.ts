@@ -3,7 +3,7 @@ import {mirrorPushPrefs} from "./push-prefs";
 import {normalizeFontSize} from "./helpers/fontSize";
 import {normalizeOwnMessageStyle} from "./helpers/ownMessages";
 import {prefersTwelveHourClock} from "./helpers/hourCycle";
-import {normalizeSceneMotion, themeScene} from "./themeScene";
+import {normalizePsRenderer, normalizeSceneMotion, themeScene} from "./themeScene";
 import {setQueryLogEnabled} from "./irc/querylog";
 import {setKeepAlive} from "./helpers/keepAlive";
 import {effectiveTheme} from "./helpers/themeAppearance";
@@ -208,6 +208,16 @@ const defaultConfig = {
 		default: "muted",
 		apply(store: TypedStore, value: string) {
 			document.documentElement.dataset.ownMessages = normalizeOwnMessageStyle(value);
+		},
+	},
+	// Which scene the ps theme draws: "classic" or the NG rewrite ("ng",
+	// Settings → Appearance offers it while thelounge.state.psngPreview is
+	// "1"). Declared before theme so applyAll sets it before the first
+	// setTheme, and a page that opens on NG never loads classic's chunk.
+	psRenderer: {
+		default: "classic",
+		apply(store: TypedStore, value: string) {
+			themeScene.setRenderer(normalizePsRenderer(value));
 		},
 	},
 	theme: {
