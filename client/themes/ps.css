@@ -1814,18 +1814,51 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	opacity: var(--ps-rain-op, 0);
 }
 
+/* A sheet of drops (plains.ts rain()): two falls tall, starting one fall
+ * above the drops' start at -8%, moved one fall down per loop and skewed so
+ * a drop drifts 3.9cqw left over its fall, as each drop's own clock once
+ * did. The drops on it are still. */
+#theme-scene .ps-rain-sheet {
+	position: absolute;
+	left: 0;
+	right: 0;
+	/* stylelint-disable unit-no-unknown -- cqw/cqh: #theme-scene is a size container; stylelint predates them */
+	top: calc(-8% - 118cqh);
+	height: 236cqh;
+	transform-origin: 0 118cqh;
+	/* stylelint-enable unit-no-unknown */
+	animation: ps-rain-fall var(--rd) linear infinite;
+}
+
+@keyframes ps-rain-fall {
+	/* stylelint-disable-next-line unit-no-unknown -- cqw/cqh, as above */
+	from { transform: skewX(atan2(-3.9cqw, 118cqh)) translateY(0); }
+	/* stylelint-disable-next-line unit-no-unknown -- cqw/cqh, as above */
+	to { transform: skewX(atan2(-3.9cqw, 118cqh)) translateY(118cqh); }
+}
+
+/* A drop is its ::before, and its ::after the copy one fall up; both undo
+ * the sheet's skew, so a drop hangs straight as it drifts. */
 #theme-scene .ps-rain i {
 	position: absolute;
-	top: -8%;
+}
+
+#theme-scene .ps-rain i::before,
+#theme-scene .ps-rain i::after {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 0;
 	width: 0.0813rem;
 	height: 1.25rem;
 	background: linear-gradient(transparent, rgb(214 226 244 / 75%));
-	animation: ps-drop var(--rd) linear var(--rdl) infinite;
+	/* stylelint-disable-next-line unit-no-unknown -- cqw/cqh, as above */
+	transform: skewX(atan2(3.9cqw, 118cqh));
 }
 
-@keyframes ps-drop {
-	/* stylelint-disable-next-line unit-no-unknown -- cqw/cqh: #theme-scene is a size container; stylelint predates them */
-	to { transform: translate(-3.9cqw, 118cqh); }
+#theme-scene .ps-rain i::after {
+	/* stylelint-disable-next-line unit-no-unknown -- cqh, as above */
+	top: -118cqh;
 }
 
 #theme-scene .ps-snow {

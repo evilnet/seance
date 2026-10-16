@@ -3419,10 +3419,16 @@ describe("the ps theme's clouds and weather (plan 3 task 4, spec §5.1, §5.5)",
 	});
 
 	it("moves the rain, the snow and the seeds in cqw/cqh from the mockup's 1180 × 700 window", function () {
-		expect(valueOf(`${S} .ps-rain i`, "animation")).to.equal(
-			"ps-drop var(--rd) linear var(--rdl) infinite"
+		expect(valueOf(`${S} .ps-rain-sheet`, "animation")).to.equal(
+			"ps-rain-fall var(--rd) linear infinite"
 		);
-		expect(frames("ps-drop")).to.include("translate(-3.9cqw, 118cqh)");
+		// one sheet per speed, skewed so a drop drifts 3.9cqw left over its 118cqh fall
+		expect(frames("ps-rain-fall")).to.include(
+			"skewX(atan2(-3.9cqw, 118cqh)) translateY(118cqh)"
+		);
+		expect(valueOf(`${S} .ps-rain i::after`, "transform")).to.equal(
+			"skewX(atan2(3.9cqw, 118cqh))"
+		);
 		expect(valueOf(`${S} .ps-snow i`, "animation")).to.equal(
 			"ps-flake var(--fd) linear var(--fdl) infinite"
 		);
@@ -3444,7 +3450,7 @@ describe("the ps theme's clouds and weather (plan 3 task 4, spec §5.1, §5.5)",
 
 		for (const name of [
 			"ps-drift",
-			"ps-drop",
+			"ps-rain-fall",
 			"ps-flake",
 			"ps-seed",
 			"ps-shimmer",
@@ -3473,7 +3479,7 @@ describe("the ps theme's clouds and weather (plan 3 task 4, spec §5.1, §5.5)",
 	it("keeps its keyframes' names its own, once each", function () {
 		for (const name of [
 			"ps-drift",
-			"ps-drop",
+			"ps-rain-fall",
 			"ps-flake",
 			"ps-seed",
 			"ps-shimmer",

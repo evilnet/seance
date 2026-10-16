@@ -712,7 +712,15 @@ describe("ps plains: the land, the near grass, the yurt, its smoke and the firef
 			return m ? m[1].split("<i ").length - 1 : 0;
 		};
 
-		const drops = (markup: string) => count(markup, "ps-rain");
+		/** The drops on the rain's sheets, or 0 when it is not raining. */
+		const drops = (markup: string) => {
+			const m =
+				/<div class="ps-rain">((?:<div class="ps-rain-sheet"[^>]*>[\s\S]*?<\/div>)*)<\/div>/.exec(
+					markup
+				);
+			return m ? m[1].split("<i ").length - 1 : 0;
+		};
+
 		const flakes = (markup: string) => count(markup, "ps-snow");
 		const seeds = (markup: string) => count(markup, "ps-seeds");
 		const flash = (markup: string) => classCount(markup, "ps-flash");
@@ -836,11 +844,23 @@ describe("ps plains: the land, the near grass, the yurt, its smoke and the firef
 					weatherLayers(weather, false)
 				);
 
-				for (const layer of ["ps-rain", "ps-snow", "ps-seeds"]) {
+				for (const layer of ["ps-snow", "ps-seeds"]) {
 					const all = dots(weatherLayers(weather, false), layer);
 					const half = dots(weatherLayers(weather, true), layer);
 					expect(half, `${weather} ${layer}`).to.deep.equal(all.slice(0, all.length / 2));
 				}
+
+				// The rain's sheets: each of the phone's begins the window's same sheet.
+				const sheets = (markup: string) =>
+					[...markup.matchAll(/<div class="ps-rain-sheet"[^>]*>([\s\S]*?)<\/div>/g)].map(
+						(m) => m[1].match(/<i [^>]*><\/i>/g) ?? []
+					);
+				const all = sheets(weatherLayers(weather, false));
+				const half = sheets(weatherLayers(weather, true));
+				expect(half.flat(), `${weather} ps-rain`).to.have.length(all.flat().length / 2);
+				half.forEach((s, i) =>
+					expect(s, `${weather} sheet ${i}`).to.deep.equal(all[i].slice(0, s.length))
+				);
 			}
 		});
 
@@ -851,17 +871,24 @@ describe("ps plains: the land, the near grass, the yurt, its smoke and the firef
 
 			const rain = [
 				...weatherLayers("rain", false).matchAll(
-					/<i style="left:([\d.]+)%;--rd:([\d.]+)s;--rdl:(-?[\d.]+)s;opacity:([\d.]+)"><\/i>/g
+					/<i style="left:([\d.]+)%;top:([\d.]+)cqh;opacity:([\d.]+)"><\/i>/g
 				),
 			];
 			expect(rain).to.have.length(130);
 
-			for (const [, left, rd, rdl, opacity] of rain.map((m) => m.map(Number))) {
+			for (const [, left, top, opacity] of rain.map((m) => m.map(Number))) {
 				expect(left).to.be.within(0, 110);
-				expect(rd).to.be.within(0.55, 0.9);
-				expect(rdl).to.be.within(-1.2, 0);
+				// one fall below the sheet's top, plus its phase in that fall
+				expect(top).to.be.within(118, 236);
 				expect(opacity).to.be.within(0.4, 1);
 			}
+
+			const sheets = [
+				...weatherLayers("rain", false).matchAll(
+					/<div class="ps-rain-sheet" style="--rd:([\d.]+)s">/g
+				),
+			];
+			expect(sheets.map((m) => Number(m[1]))).to.deep.equal([0.61, 0.73, 0.84]);
 
 			const snow = [
 				...weatherLayers("snow", false).matchAll(
