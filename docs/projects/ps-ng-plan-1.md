@@ -38,14 +38,17 @@
 Measurements only; results recorded in the spec. No production code.
 
 **Files:**
+
 - Modify: `tmp/perf/ng/index.html` (gitignored harness) — add variants `v=reblur`, `v=ff&n=<count>`, `v=stars&sheets=<count>`, `v=probe`
 - Modify: `docs/projects/ps-ng.md` §8 — a results table under "Before motion code"
 
 **Interfaces:**
+
 - Consumes: the harness's `place()`, `cloudSprite()`, `paintBackdrop()`, `paintGlass()`, the playlist mode, `ios-wifi-run.sh`, `reparse.sh`, `ios-one.sh`.
 - Produces: four verdicts the later plans read: re-blur cost per event, whether fireflies keep one layer each (else 4 shared sheets), whether star sheets read as pulsing, whether the frame probe sees Low Power Mode.
 
 - [ ] **Step 1: Add the variants to the harness**
+
   - `v=reblur&every=<s>`: the `bitmap` variant plus `drawBackdrop()` (repaint + `paintGlass()` with `glass=pre`) every `every` seconds; log `performance.now()` deltas of each repaint into `window.__ng.reblurMs`.
   - `v=ff&n=<count>`: backdrop plus `count` 6 × 6 CSS px glowing dots, each its own element with two CSS animations: a `transform` drift (6–12 s, alternate) and an `opacity` blink (2–5 s), periods seeded.
   - `v=stars&sheets=<count>`: night backdrop without stars plus 52 star dots split into `count` full-viewport canvases, each with one `opacity` animation (`0.55 ↔ 1`, periods 3.1, 4.3, 5.7, 7.9 s).
@@ -87,21 +90,26 @@ git commit -m "docs: ps NG — the pre-motion gates, measured"
 
 ---
 
-### Task 2: Move the shared watchers out of classic's scene.ts
+### Task 2: Move what NG shares out of classic's scene.ts
 
 **Files:**
+
 - Create: `client/js/scenes/ps/watchers.ts`
-- Modify: `client/js/scenes/ps/scene.ts` (remove `placeYurt`, `watchComposer`, `themeColorFor`; import them)
+- Create: `client/js/scenes/ps/still.ts`
+- Modify: `client/js/scenes/ps/scene.ts` (remove what moves; import it and re-export `sceneVars`, `weatherChanged`, `moonShape` so the classic tests keep their imports)
 - Modify: `client/js/scenes/ps/grounds.ts` (gains `themeColorFor`)
 - Test: `test/scenes/ps/mount.ts`, `test/scenes/ps/grounds.ts` (existing suites must pass unchanged in behaviour)
 
 **Interfaces:**
+
 - Produces:
-  - `placeYurt(root: HTMLElement): {seen(): void; refind(): void; destroy(): void}` in `watchers.ts` (body moved verbatim, its doc comment with it)
-  - `watchComposer(root: HTMLElement, html: HTMLElement): {refind(): void; destroy(): void}` in `watchers.ts`
+
+  - `placeYurt(root: HTMLElement, yurt: HTMLElement, onPlaced?: (px: number) => void): {seen(): void; refind(): void; destroy(): void}` in `watchers.ts` — the body moved, with one change: the yurt element is handed in instead of `root.querySelector(".ps-yurt")` (classic passes that), and `onPlaced` is called after each `--ps-yurt-left` write. Its effects stay: `--ps-yurt-left` on `root`, `ps-yurt-moving` toggled on `root`.
+  - `watchComposer(root: HTMLElement, html: HTMLElement): {refind(): void; destroy(): void}` in `watchers.ts`, moved verbatim (it reads only `#form` and `root`'s rect)
+  - in `still.ts`, exported: `sceneVars`, `weatherChanged`, `moonShape`, `stars` (classic's seeded generator), `STAR_COUNT`, `MOON`, `SUN` — classic's markup constants and still-scene helpers, so NG's chunk never imports classic's `scene.ts` (its stepper, layers and markup)
   - `themeColorFor(published: Published): string` in `grounds.ts`
 
-- [ ] **Step 1: Move the three functions** (no edits to their bodies), update imports in `scene.ts` and in `test/scenes/ps/*.ts` that import `themeColorFor`.
+- [ ] **Step 1: Move them** (bodies unchanged except `placeYurt`'s two parameters), update imports in `scene.ts` and in `test/scenes/ps/*.ts` that import `themeColorFor`.
 - [ ] **Step 2: Run the ps suites**
 
 Run: `npx cross-env NODE_ENV=test TS_NODE_PROJECT='./test/tsconfig.json' npx mocha --config=test/.mocharc.yml 'test/scenes/ps/*.ts' test/tests/themeScene.ts`
@@ -119,6 +127,7 @@ git commit -m "ps: the yurt and composer watchers in their own module, theme-col
 ### Task 3: The renderer switch
 
 **Files:**
+
 - Modify: `client/js/themeScene.ts`
 - Modify: `client/js/settings.ts` (new `psRenderer` entry beside `psAnimation`)
 - Modify: `client/components/Settings/Appearance.vue` (a two-option radio group under the ps settings: "Scene renderer: Classic / NG (preview)")
@@ -126,7 +135,9 @@ git commit -m "ps: the yurt and composer watchers in their own module, theme-col
 - Test: `test/tests/themeScene.ts`
 
 **Interfaces:**
+
 - Produces:
+
   - `export type PsRenderer = "classic" | "ng"` and `normalizePsRenderer(value: unknown): PsRenderer` (unknown → `"classic"`) in `themeScene.ts`
   - `SCENES["ps-ng"]: () => import(/* webpackChunkName: "scene-ps-ng" */ "./scenes/psng/scene")`
   - `sceneKey(theme: string, renderer: PsRenderer): string` — `"ps-ng"` for `ps` + `ng`, else `theme`
@@ -142,6 +153,7 @@ git commit -m "ps: the yurt and composer watchers in their own module, theme-col
 
 Run: `npx cross-env NODE_ENV=test TS_NODE_PROJECT='./test/tsconfig.json' npx mocha --config=test/.mocharc.yml test/tests/themeScene.ts`
 Expected: FAIL (`sceneKey` / `setRenderer` not defined).
+
 - [ ] **Step 3: Implement** `PsRenderer`, `normalizePsRenderer`, `sceneKey`, the `ps-ng` loader, `setRenderer`; `setTheme` resolves its loader through `sceneKey(name, renderer)`. Add the setting and the Appearance radio group (bound like `psAnimation`'s and shown under the same `v-if`; radios, so no `v-switch`). Create the stub module.
 - [ ] **Step 4: Run to see them pass**, then `npx vue-tsc --noEmit -p tsconfig.json` (or the repo's lint type-check) — Expected: PASS, no type errors.
 - [ ] **Step 5: Commit**
@@ -156,11 +168,14 @@ git commit -m "ps: a renderer setting that loads the NG scene in place of classi
 ### Task 4: Tiers (pure)
 
 **Files:**
+
 - Create: `client/js/scenes/psng/tiers.ts`
 - Test: `test/scenes/psng/tiers.ts`
 
 **Interfaces:**
+
 - Produces:
+
   - `export type Tier = "full" | "calm" | "still"`
   - `export type SceneAnimation = "auto" | "full" | "calm" | "still"`
   - `migrateAnimation(stored: unknown): SceneAnimation` — `"60"`, `"24"` → `"auto"`; `"1s"`, `"sparse"` → `"calm"`; `"off"` → `"still"`; a `SceneAnimation` value → itself; anything else → `"auto"`
@@ -179,15 +194,18 @@ git commit -m "ps: a renderer setting that loads the NG scene in place of classi
 ### Task 5: The backdrop plan and the re-blur rule (pure)
 
 **Files:**
+
 - Create: `client/js/scenes/psng/backdrop.ts` (pure part)
 - Test: `test/scenes/psng/backdrop.ts`
 
 **Interfaces:**
-- Consumes: `Moment` (`engine.ts`), `Palette` (`palette.ts`), `sceneVars` (classic `scene.ts` — move it to `scenes/ps/vars.ts` in this task if importing `scene.ts` would pull classic's markup into NG's chunk), `landSvg`, `yurtSvg`, `weatherClouds` (`plains.ts`), `moonShape`.
+
+- Consumes: `Moment` (`engine.ts`), `Palette` (`palette.ts`), Task 2's `still.ts` (`sceneVars`, `moonShape`, `stars`, `MOON`, `SUN`), `landSvg`, `yurtSvg`, `weatherClouds` (`plains.ts`).
 - Produces:
+
   - `export interface Box {width: number; height: number; dpr: number}` (CSS px, device pixel ratio)
   - `export type BackdropLayer = {kind: "sky"; stops: Array<[number, string]>} | {kind: "milky"; opacity: number} | {kind: "stars"; opacity: number; points: Array<{x: number; y: number; r: number}>} | {kind: "glow"; x: number; y: number; radius: number; colour: string; opacity: number} | {kind: "image"; name: "moon" | "sun" | "overcast" | "land" | "yurt"; url: string; x: number; y: number; width: number; height: number; opacity: number} | {kind: "veil"; colour: string; opacity: number}`
-  - `backdropLayers(m: Moment, p: Palette, box: Box, yurtLeft: number | null, phone: boolean): BackdropLayer[]` — back to front: sky, milky, stars, glow, moon, sun disc, overcast, land, yurt, veil; layers at opacity 0 omitted. Geometry and colours are classic's: each layer's place and size port the matching rule of `client/themes/ps.css` (`#theme-scene .ps-milky`, `.ps-stars`, `.ps-glow`, `.ps-moon`, `.ps-sun`, `.ps-overcast`, `.ps-ground .ps-land`, `.ps-yurt`, `.ps-veil`) resolved at `box`, with `sceneVars(m, p)` for every custom property those rules read. Star points come from classic's seeded `stars()` generator (same count, same places).
+  - `backdropLayers(m: Moment, p: Palette, box: Box, phone: boolean, yurt: {left: number} | null): BackdropLayer[]` — back to front: sky, milky, stars, glow, moon, sun disc, overcast, land, yurt (only when `yurt` is given — the frost composite; the on-screen yurt is its own element, Task 6), veil; layers at opacity 0 omitted. Geometry and colours are classic's: each layer's place and size port the matching rule of `client/themes/ps.css` (`#theme-scene .ps-milky`, `.ps-stars`, `.ps-glow`, `.ps-moon`, `.ps-sun`, `.ps-overcast`, `.ps-ground .ps-land`, `.ps-yurt`, `.ps-veil`) resolved at `box`, with `sceneVars(m, p)` for every custom property those rules read. Star points come from classic's seeded `stars()` generator (same count, same places).
   - `svgDataUrl(markup: string, vars: Record<string, string>): string` — `data:image/svg+xml;charset=utf-8,` + `encodeURIComponent` of the markup with `style="<vars as name:value;>"` added to its root `<svg>` and `xmlns` ensured
   - `export interface BackdropKey {minute: number; weather: Weather; light: "day" | "night"; yurtLeft: number | null; width: number; height: number; dpr: number}`
   - `reblurNeeded(prev: BackdropKey | null, next: BackdropKey): boolean` — true on the first key and when any field differs, except `yurtLeft` changes smaller than 1 CSS px
@@ -197,7 +215,7 @@ git commit -m "ps: a renderer setting that loads the NG scene in place of classi
   - `"layers run back to front"`: at a clear noon (`momentAt(new Date(2026, 5, 21, 12, 0), "clear")`), kinds in order `sky, glow, sun, land, yurt` (no stars, milky or moon by day), and a `veil` only when `p` sets one
   - `"night has the stars at classic's places"`: at 23:00 the `stars` layer has the same point count as classic's `stars()` markup's `<i>` count, first point equal to classic's first star's position resolved at `box`
   - `"geometry follows the box"`: the land image's `width` equals `box.width` at 390 and at 1512
-  - `"the yurt stands where yurtLeft says"`: `yurtLeft: 300` → yurt layer `x === 300`; `null` → classic's 70 % of the scene
+  - `"the yurt is in the frost composite only"`: `yurt: null` → no yurt layer; `yurt: {left: 300}` → a yurt layer with `x === 300`, placed just above `land`
   - `"svgDataUrl carries the vars"`: decoded URL contains `style="--ps-grass:#123456;"` on the root `<svg` and `xmlns="http://www.w3.org/2000/svg"`
   - `"reblurNeeded"`: `null` → true; identical keys → false; minute +1 → true; weather, light, width, height, dpr each → true; `yurtLeft` 300 → 300.4 → false, 300 → 302 → true
 - [ ] **Step 2: Run to see them fail** — `… mocha … test/scenes/psng/backdrop.ts` — Expected: FAIL.
@@ -210,26 +228,30 @@ git commit -m "ps: a renderer setting that loads the NG scene in place of classi
 ### Task 6: The NG scene — paint, frost, publish (still tier)
 
 **Files:**
+
 - Modify: `client/js/scenes/psng/backdrop.ts` (DOM part: painting and the frost copy)
 - Modify: `client/js/scenes/psng/scene.ts` (replace the stub)
 - Create: `client/js/scenes/psng/styles.ts` (the stylesheet text)
 - Test: `test/scenes/psng/mount.ts` (stand-in page in the style of `test/scenes/ps/mount.ts`)
 
 **Interfaces:**
+
 - Consumes: Task 2's `placeYurt`, `watchComposer`, `themeColorFor`; Task 4's `tierFor`; Task 5's `backdropLayers`, `svgDataUrl`, `reblurNeeded`, `REBLUR_DEBOUNCE_MS`; `momentAt`, `paletteAt`, `publishedFor`, `glassVars`.
 - Produces:
   - `paintBackdrop(ctx: CanvasRenderingContext2D, layers: BackdropLayer[], box: Box): Promise<void>` — loads each `image` layer's URL with `new Image()` (`decode()`), draws in order
-  - `frostCopy(source: HTMLCanvasElement, radiusCssPx: number, dpr: number): HTMLCanvasElement` — downscale by `1 / Math.max(1, Math.round(radiusCssPx * dpr / 2))` with `imageSmoothingQuality = "high"`, then scale back up to the source size
+  - `frostCopy(source: HTMLCanvasElement, radiusCssPx: number, dpr: number): HTMLCanvasElement` — returns the **small** canvas, downscaled by `1 / Math.max(1, Math.round(radiusCssPx * dpr / 2))` with `imageSmoothingQuality = "high"`; it is never scaled back up in a canvas (the spike measured this path: `background-size` upscales it, and the frost-view canvas draws it with one scaled `drawImage`)
   - `export const NG_CSS: string` in `styles.ts`; `export const FROST_SELECTORS = ["#sidebar", "#chat .header", "#chat .userlist", "#form"]`
-  - `export interface SceneDeps {paint: typeof paintBackdrop; frost: typeof frostCopy; toUrl(canvas: HTMLCanvasElement): Promise<string>}` and `mount(root: HTMLElement, initial: SceneHostState, deps?: Partial<SceneDeps>): SceneHandle`
+  - `export interface SceneDeps {paint: typeof paintBackdrop; frost: typeof frostCopy; toUrl(canvas: HTMLCanvasElement): Promise<string>; placeYurt: typeof placeYurt}` and `mount(root: HTMLElement, initial: SceneHostState, deps?: Partial<SceneDeps>): SceneHandle`
 
 **What `NG_CSS` holds** (one constructed `CSSStyleSheet`, adopted on mount, removed on destroy):
+
 - `#theme-scene .psng-backdrop` fills the scene (`position: absolute; inset: 0; width: 100%; height: 100%`).
-- Inside `@media not (prefers-reduced-transparency: reduce)`, under `:root[data-ps-renderer="ng"]`: each of `FROST_SELECTORS` gets `backdrop-filter: none` (and the prefixed one) and `background-image: linear-gradient(<the tint ps.css paints>, <same>), var(--psng-frost)` with `background-repeat: no-repeat` and `background-size: auto, var(--psng-frost-size)`; the day lift is `filter`-free — the frost copy is drawn already brightened by day (`ctx.filter = "brightness(1.3) saturate(1.12)"`; where `"filter" in ctx` is false, the downscaled copy's pixels are brightened and saturated through `getImageData` — it is about 1/400 of the screen, so this is cheap); `#chat .msg-reaction:not(.self, .msg-reaction-add)` gets `backdrop-filter: none` and `--ps-g-tint: var(--ps-g-tint-a)` (the phone's tint-only chips, already held by the legibility tests).
+- Inside `@media not (prefers-reduced-transparency: reduce)`, under `:root[data-ps-renderer="ng"]`: each of `FROST_SELECTORS` gets `backdrop-filter: none` (and the prefixed one) and `background-image: linear-gradient(<the tint ps.css paints>, <same>), var(--psng-frost)` with `background-repeat: no-repeat` and `background-size: auto, var(--psng-frost-size)`; the day lift is `filter`-free — the frost copy (the backdrop plus the yurt at its place) is drawn already brightened by day (`ctx.filter = "brightness(1.3) saturate(1.12)"`; where `"filter" in ctx` is false, the downscaled copy's pixels are brightened and saturated through `getImageData` — it is about 1/400 of the screen, so this is cheap); `#chat .msg-reaction:not(.self, .msg-reaction-add)` gets `backdrop-filter: none` and `--ps-g-tint: var(--ps-g-tint-a)` (the phone's tint-only chips, already held by the legibility tests).
 - `#theme-scene.psng-private .psng-backdrop { opacity: 0 }` and `#theme-scene.psng-private .psng-frost-view { opacity: 1 }` — the query view shows the frost copy (a second canvas `.psng-frost-view`, opacity 0 otherwise).
 
 **What `mount` does:**
-- Sets `html.dataset.psRenderer = "ng"`, adopts the sheet, builds `<canvas class="psng-backdrop">` and `<canvas class="psng-frost-view">` in `root`, starts `placeYurt(root)` and `watchComposer(root, html)`.
+
+- Sets `html.dataset.psRenderer = "ng"`, adopts the sheet, builds `<canvas class="psng-backdrop">`, `<img class="psng-yurt">` (`svgDataUrl(yurtSvg(), sceneVars(…))`, re-set on the minute only when the yurt's colours change) and `<canvas class="psng-frost-view">` in `root`, starts `placeYurt(root, yurtImg, onPlaced)` — `onPlaced` asks for a re-blur through the debounce — and `watchComposer(root, html)`. `NG_CSS` places the yurt with `transform: translateX(var(--ps-yurt-left))` (written only when it moves) and fades it with an `opacity` transition while `root` has `ps-yurt-moving`, as classic's fade-and-jump does.
 - On the first visible update, and on each minute boundary while visible (classic's scheduling: `60000 - (s*1000 + ms) + 20`), computes `momentAt`/`paletteAt`, publishes as classic does (`data-ps-light`, `data-ps-text`, `--ps-halo`, `--canvas-bg-color`, `glassVars`, `theme-color`), and if `reblurNeeded` repaints the backdrop, makes the frost copy, writes it to `--psng-frost` on `<html>` (a blob URL; the previous one revoked) and to the frost-view canvas.
 - Positions the frost under each panel: for each element matching `FROST_SELECTORS`, inline `background-position: <-left>px <-top>px` for the second background (`0 0, -Lpx -Tpx`) and `--psng-frost-size: <scene width>px <scene height>px` on `<html>`; re-run by a `ResizeObserver` on those elements and on `root`, and on the sidebar's `transitionend`. A resize burst re-blurs once, `REBLUR_DEBOUNCE_MS` after its last event.
 - `update(state)`: hidden → clear the minute timer; visible again → tick at once; `view === "query"` toggles `psng-private` on `root`.
@@ -240,6 +262,7 @@ git commit -m "ps: a renderer setting that loads the NG scene in place of classi
   - `"paints once per minute that changes the key, not on a resize-only reposition"`: `paint` called once at mount; clock +60 s → twice; a reposition (fire the panels' ResizeObserver with unchanged scene size) → still twice
   - `"a resize burst re-blurs once"`: five root resizes 50 ms apart, then +250 ms → `paint` +1 exactly
   - `"mounted hidden paints nothing until visible"`: `visible: false` → `paint` not called after 120 s; `update({visible: true…})` → called once, meta written
+  - `"a yurt move re-blurs once"`: call the `onPlaced` that `placeYurt` received (stub it via `deps`) twice within 250 ms → `paint` +1
   - `"a query shows the frost view"`: `update({view: "query"…})` → `root.classList.contains("psng-private")`
   - `"destroy leaves nothing"`: after destroy, `data-ps-renderer` absent, sheet removed from `document.adoptedStyleSheets`, `--psng-frost` absent, every blob URL revoked (`URL.revokeObjectURL` spy called for each `toUrl` result), no pending timers (`clock.countTimers() === 0`), meta content back to the theme's, `root.children.length === 0`
   - `"reduced transparency is never outranked"`: `NG_CSS` places every `--psng-frost` rule inside `@media not (prefers-reduced-transparency: reduce)` (string check on the sheet text) and contains no `backdrop-filter` other than `none`
@@ -254,11 +277,13 @@ git commit -m "ps: a renderer setting that loads the NG scene in place of classi
 ### Task 7: Browser check, the still tier on the iPhone, docs
 
 **Files:**
+
 - Create: `tools/scenarios/ps-ng.mjs` (pattern: `tools/scenarios/theme-ps.mjs`, its `CLOCK_SHIM` and `__setClock`)
 - Modify: `docs/projects/ps-ng.md` (status line; a "Plan 1 landed" note with the measured still-tier number)
 - Modify: `CLAUDE.md` (one bullet: the NG renderer, where it lives, its browser check)
 
 **Interfaces:**
+
 - Consumes: everything above; `tmp/perf/ng/ios-one.sh`, `tmp/perf/ng/app/` + a `ps-setup.html` variant writing `{"theme":"ps","psRenderer":"ng"}`.
 
 - [ ] **Step 1: Write the scenario's checks**
@@ -269,8 +294,8 @@ git commit -m "ps: a renderer setting that loads the NG scene in place of classi
   - screenshots: classic and NG at 2026-06-21 12:00, 20:45, 21:40, 23:30 clear, and 2026-10-19 12:00 (rain), 2026-01-15 12:00 (snow), saved side by side under `tmp/ps-ng-shots/`
 - [ ] **Step 2: Run it** — `node tools/browser-drive.mjs --scenario tools/scenarios/ps-ng.mjs` against a fresh build — Expected: every check `ok`, screenshots written.
 - [ ] **Step 3: The iPhone reading** (tethered): `./ios-one.sh ng-still http://192.168.1.38:8112/ps-setup-ng.html 3` and `./ios-one.sh classic http://192.168.1.38:8112/ps-setup.html 3` alternately at the same hour.
-Expected: NG still ≤ 3 (spec §6 budget for still); record both in spec §8.
-- [ ] **Step 4: Show the screenshots to the user**; note their verdict on the look in the spec.
+      Expected: NG still ≤ 3 (spec §6 budget for still); record both in spec §8.
+- [ ] **Step 4: Show the screenshots to the user**; note their verdict on the look in the spec. Name the two known differences: moving things no longer show through the glass (spec §5), and the glass tint now snaps at the day/night flip instead of easing over `--ps-flip` (a gradient image cannot transition; `ps.css`'s own `background-color` tint sits harmlessly under the image).
 - [ ] **Step 5: Docs and commit** — status line in the spec ("Plan 1 landed <date>"), the CLAUDE.md bullet, then `corepack yarn lint` — Expected: clean.
 
 ```bash

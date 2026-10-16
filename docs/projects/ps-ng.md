@@ -50,7 +50,7 @@ Read as a cost structure, not as NG's predicted figure (the harness moves 3 laye
 
 ## 3. Architecture
 
-**Selection.** NG is the `ps` theme. A setting `psRenderer` (`classic` | `ng`, default `classic`) decides which module the `SCENES.ps` loader in `client/js/themeScene.ts` imports, so A/B is one setting in one build. The chrome half of `ps.css` (glass, fonts, palettes, messages) serves both.
+**Selection.** NG is the `ps` theme. A setting `psRenderer` (`classic` | `ng`, default `classic`) makes the scene host in `client/js/themeScene.ts` load NG's module (its own `SCENES` entry, `ps-ng`) for the `ps` theme, so A/B is one setting in one build. The chrome half of `ps.css` (glass, fonts, palettes, messages) serves both.
 
 **Modules**, new under `client/js/scenes/psng/`:
 
