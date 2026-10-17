@@ -466,31 +466,34 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 					putImageData: () => paints.n++,
 				});
 				page.root.planted.set(".ps-fire", canvas);
-				// The fire's pending frame requests alone: its loop's callback is named `tick`.
+				// The fire's pending wake-ups alone: its timer is the one that calls back with performance.now().
 				const win = (globalThis as unknown as {window: Record<string, unknown>}).window;
 				const ids = new Set<number>();
-				const raf = win.requestAnimationFrame as (fn: () => void) => number;
-				const caf = win.cancelAnimationFrame as (id: number) => void;
+				const after = win.setTimeout as (fn: () => void, ms: number) => number;
+				const cancel = win.clearTimeout as ((id: number) => void) | undefined;
 
-				win.requestAnimationFrame = (fn: () => void) => {
-					const id = raf(fn);
+				win.setTimeout = (fn: () => void, ms: number) => {
+					const id = after(() => {
+						ids.delete(id);
+						fn();
+					}, ms);
 
-					if (fn.name === "tick") {
+					if (String(fn).includes("performance.now")) {
 						ids.add(id);
 					}
 
 					return id;
 				};
 
-				win.cancelAnimationFrame = (id: number) => {
+				win.clearTimeout = (id: number) => {
 					ids.delete(id);
-					caf(id);
+					(cancel ?? globalThis.clearTimeout)(id);
 				};
 
 				return Object.assign(paints, {pending: () => ids.size});
 			};
 
-			it("full at noon: one frame request is pending, painted colours; the loop is cancelled by still", function () {
+			it("full at noon: one wake-up is pending, painted colours; the loop is cancelled by still", function () {
 				withPage(new Date(2026, 5, 21, 12, 0), (page) => {
 					follow(page);
 					const paints = plantFire(page);

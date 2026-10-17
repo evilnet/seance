@@ -93,9 +93,9 @@
 // in-flight layer in the page (.ps-skeins, .ps-daybirds, .ps-rain, .ps-snow,
 // .ps-seeds, .ps-flash, .ps-smoke) computes `display: none`, with at least one
 // of them found so the check is never vacuous. Frame requests are counted
-// by an init script wrapping `requestAnimationFrame` that counts a call whose
-// stack names `scene-ps-ng.js` (NG's chunk), so Vue's and classic's frames
-// never count.
+// by an init script wrapping `requestAnimationFrame`, and `setTimeout` under
+// 100 ms (the fire's wake-ups), that counts a call whose stack names
+// `scene-ps-ng.js` (NG's chunk), so Vue's and classic's never count.
 //
 //   NODE_ENV=production npx webpack && python3 -m http.server -d public 8041 &
 //   SEANCE_HTTP_PORT=8041 node tools/browser-drive.mjs tools/scenarios/ps-ng.mjs \
@@ -253,6 +253,12 @@ const NG_FRAME_COUNTER = `(() => {
 	window.requestAnimationFrame = (fn) => {
 		if (/scene-ps-ng\\.js/.test(new Error().stack || "")) window.__ngFrames++;
 		return raf(fn);
+	};
+	// The fire wakes on a timer (flame.ts), one per frame of its own: a short timer from NG's chunk counts too.
+	const after = window.setTimeout.bind(window);
+	window.setTimeout = (fn, ms, ...rest) => {
+		if (ms < 100 && /scene-ps-ng\\.js/.test(new Error().stack || "")) window.__ngFrames++;
+		return after(fn, ms, ...rest);
 	};
 })()`;
 

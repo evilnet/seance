@@ -291,11 +291,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		const canvas = root.querySelector(".ps-fire");
 
 		if (canvas && typeof (canvas as HTMLCanvasElement).getContext === "function") {
-			fire = fireDriver(
-				canvas as HTMLCanvasElement,
-				(fn) => window.requestAnimationFrame(fn),
-				(id) => window.cancelAnimationFrame(id)
-			);
+			fire = fireDriver(canvas as HTMLCanvasElement);
 		}
 
 		// Still with no SMIL left, but paused so nothing (the sun's filter) keeps a clock running.

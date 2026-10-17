@@ -2,7 +2,7 @@ import {expect} from "chai";
 import {SUN} from "../../../client/js/scenes/ps/markup";
 import {FIRE_SIZE, fireDriver, ngSun} from "../../../client/js/scenes/psng/flame";
 
-/** A canvas whose 2D context counts its paints; raf/caf are a queue the test pumps. */
+/** A canvas whose 2D context counts its paints; the timer is a queue the test pumps, its delays kept. */
 function rig() {
 	let puts = 0;
 	const canvas = {
@@ -14,12 +14,15 @@ function rig() {
 	const queue = new Map<number, (ms: number) => void>();
 	let next = 1;
 
-	const raf = (fn: (ms: number) => void) => {
+	const delays: number[] = [];
+
+	const after = (fn: (ms: number) => void, delay: number) => {
 		queue.set(next, fn);
+		delays.push(delay);
 		return next++;
 	};
 
-	const caf = (id: number) => void queue.delete(id);
+	const cancel = (id: number) => void queue.delete(id);
 
 	/** One 60 Hz frame at `ms`. */
 	const pump = (ms: number) => {
@@ -28,7 +31,7 @@ function rig() {
 		due.forEach((fn) => fn(ms));
 	};
 
-	return {driver: fireDriver(canvas, raf, caf), puts: () => puts, queue, pump};
+	return {driver: fireDriver(canvas, after, cancel), puts: () => puts, queue, pump, delays};
 }
 
 describe("psng flame: fireDriver", function () {
@@ -57,6 +60,18 @@ describe("psng flame: fireDriver", function () {
 		}
 
 		expect(puts()).to.equal(24); // the colours' paint of frame 0, then frames 1..23
+		driver.destroy();
+	});
+
+	it("wakes once per frame of its own, at the next frame's start, never per screen refresh", function () {
+		const {driver, pump, delays} = rig();
+		driver.setColours("#ffcf5a", "#ffb23c");
+		driver.start();
+		pump(1000); // its clock starts here: frame 0
+		pump(1010); // a timer 10 ms into frame 0
+		expect(delays[0]).to.equal(0);
+		expect(delays[1]).to.be.closeTo(1000 / 24, 0.01);
+		expect(delays[2]).to.be.closeTo(1000 / 24 - 10, 0.01);
 		driver.destroy();
 	});
 
