@@ -336,18 +336,26 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 			}
 		};
 
-		it("full: every group's class, none else; unattended: none; attended again: all", function () {
+		it("full: every group's class, none else; unattended or a query: frozen with its classes; attended again: all", function () {
 			withPage(new Date(2026, 5, 21, 12, 0), (page) => {
 				follow(page);
 				const scene = mountOn(page);
+				const frozen = () => page.root.classList.contains("psng-frozen");
 				expect(motionClasses(page).sort()).to.deep.equal(all);
+				expect(frozen()).to.equal(false);
 				scene.update(state({attended: false}));
-				expect(motionClasses(page)).to.deep.equal([]);
+				expect(motionClasses(page).sort(), "nothing leaves the page").to.deep.equal(all);
+				expect(frozen()).to.equal(true);
 				scene.update(state());
 				expect(motionClasses(page).sort()).to.deep.equal(all);
+				expect(frozen()).to.equal(false);
 				scene.update(state({view: "query"}));
-				expect(motionClasses(page)).to.deep.equal([]);
+				expect(frozen()).to.equal(true);
+				scene.update(state({view: "query", motion: "still"}));
+				expect(motionClasses(page), "the setting at Still snaps").to.deep.equal([]);
+				expect(frozen()).to.equal(false);
 				scene.destroy();
+				expect(frozen()).to.equal(false);
 			});
 		});
 
@@ -420,6 +428,20 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 				expect(phase.callCount, "the next resume").to.equal(2);
 				// Past midnight, still from the mount day's: one day plus the minutes since.
 				expect(parseFloat(phase.secondCall.args[1])).to.be.greaterThan(86400);
+				scene.destroy();
+			});
+		});
+
+		it("--psng-t: a frozen rest's time is taken off the phase, so the loops go on from where they stood", function () {
+			withPage(new Date(2026, 5, 21, 12, 0), (page, clock) => {
+				follow(page);
+				const scene = mountOn(page);
+				const {phase} = watch(page);
+				clock.tick(10_000);
+				scene.update(state({attended: false}));
+				clock.tick(60_000);
+				scene.update(state());
+				expect(phase.lastCall.args[1]).to.equal(`${12 * 3600 + 10}s`);
 				scene.destroy();
 			});
 		});

@@ -37,6 +37,16 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 	animation: none !important;
 }
 
+/* Frozen (scene.ts freeze): every animation off, each moving element held inline where it stood; the
+ * group classes stay, so nothing leaves the page. The storm's flash goes, so it is never held lit. */
+#theme-scene.psng.psng-frozen * {
+	animation: none !important;
+}
+
+#theme-scene.psng.psng-frozen .ps-flash {
+	display: none;
+}
+
 /* What exists only in flight is out of the page while it is still: the weather's (the flash too, so
  * it is never caught lit) without psng-m-weather, and the seeds in calm, which keeps them still. */
 #theme-scene.psng:not(.psng-m-skeins) .ps-skeins,

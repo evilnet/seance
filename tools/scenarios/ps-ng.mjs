@@ -656,6 +656,54 @@ async function stillCensus(page, label) {
 	);
 }
 
+/** Each cloud's translateX on screen, in px (the DOMMatrix's e). */
+const CLOUD_X = `[...document.querySelectorAll("#theme-scene .ps-cloud")].map((el) => new DOMMatrix(getComputedStyle(el).transform).e)`;
+
+/**
+ * A rest that ends on its own (a hidden page, a query) freezes NG where it stands (scene.ts freeze):
+ * no animation, no frame from NG, its group classes kept with psng-frozen, an in-flight layer still
+ * in the page, and every cloud where it was the moment before (`before`, CLOUD_X), within 2 px.
+ */
+async function frozenCensus(page, label, before) {
+	const c = await page.evaluate(CENSUS);
+	const f = await page.evaluate(FLIGHT);
+	// Animations only: the yurt's fade (a CSS transition) runs when opening a query moves it.
+	const anims = await page.evaluate(
+		`document.getElementById("theme-scene").getAnimations({subtree: true}).filter((a) => a instanceof CSSAnimation).length`
+	);
+	const frames = await page.evaluate(NG_FRAMES);
+	const frozen = await page.evaluate(
+		`document.getElementById("theme-scene").classList.contains("psng-frozen")`
+	);
+	const x = await page.evaluate(CLOUD_X);
+	const worst = Math.max(...x.map((v, i) => Math.abs(v - before[i])));
+	page.check(
+		`${label}: frozen — psng-frozen ${frozen}, no animation (${anims}), group classes kept (${
+			c.classes.length
+		}), no frame from NG in 1 s (${frames}), in-flight layers displayed: ${
+			f.shown.join(" ") || "none"
+		}`,
+		frozen && anims === 0 && c.classes.length > 0 && frames === 0 && f.shown.length > 0
+	);
+	page.check(
+		`${label}: frozen — ${x.length} clouds where they stood (worst ${worst.toFixed(1)} px off)`,
+		x.length > 0 && x.length === before.length && worst <= 2
+	);
+	return x;
+}
+
+/** Thawed: every cloud goes on from where it was held (`held`), within 4 px, not from where the clock is. */
+async function thawCheck(page, label, held) {
+	const x = await page.evaluate(CLOUD_X);
+	const worst = Math.max(...x.map((v, i) => Math.abs(v - held[i])));
+	page.check(
+		`${label}: thawed — ${
+			x.length
+		} clouds go on from where they were held (worst ${worst.toFixed(1)} px off)`,
+		x.length > 0 && worst <= 4
+	);
+}
+
 /** Moving again: animations on the scene, the fire's frames, and an in-flight layer back in the page. */
 async function moving(page, label) {
 	const c = await page.evaluate(CENSUS);
@@ -895,18 +943,23 @@ export default async function run(page) {
 	await phaseCheck(page, "phase after reduced motion", offAt);
 	await moving(page, "reduced motion off again");
 
+	let before = await page.evaluate(CLOUD_X);
 	await page.evaluate(VISIBILITY("hidden"));
 	await page.sleep(300);
-	await stillCensus(page, "a hidden page");
+	let held = await frozenCensus(page, "a hidden page", before);
+	await page.sleep(3000); // a rest long enough that the clock would have moved them on
 	await page.evaluate(VISIBILITY("visible"));
+	await thawCheck(page, "shown again", held);
 	await page.sleep(600);
 	await moving(page, "shown again");
 
+	before = await page.evaluate(CLOUD_X);
 	await sendLine(page, `/query ${NICK}q`);
 	const VIEW = (v) => `document.getElementById("theme-scene").dataset.view === "${v}"`;
 	await page.waitFor(VIEW("query"), {label: "the query open"});
+	held = await page.evaluate(CLOUD_X);
 	await page.sleep(600);
-	await stillCensus(page, "a query");
+	await frozenCensus(page, "a query", held);
 	await page.evaluate(
 		`document.querySelector('.channel-list-item[data-name="#seance"]').click()`
 	);
