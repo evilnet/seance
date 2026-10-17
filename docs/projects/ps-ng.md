@@ -300,33 +300,31 @@ The user's picks in conversation, 2026-10-17: fix the three groups the iPhone na
 
 ### 10.2 The measurement sitting
 
-One group alone at its moment with the tier forced (`mo=full`, never Auto, which picks calm on a phone), each switch against its group's baseline in the same sitting; the harness's usual 30 s settle before each 15 s reading, the page attended and the drawer closed, the order rotated each round. 16 slots × 2 rounds ≈ 30 minutes, run as two background jobs of about 15 minutes (the tool's 45-minute limit), Auto-Lock off:
+One group alone at its moment with the tier forced (`mo=full`, never Auto, which picks calm on a phone), each switch against its group's baseline in the same sitting; the harness's usual 30 s settle before each 15 s reading, the page attended and the drawer closed, the order rotated each round. 14 slots × 2 rounds ≈ 26 minutes, run as two background jobs of about 13 minutes (the tool's 45-minute limit), Auto-Lock off:
 
-| slot                    | switch                                                                                           |
-| ----------------------- | ------------------------------------------------------------------------------------------------ |
-| `coffee`, `ng-still`    | the floor                                                                                        |
-| `skeins` (dusk)         | baseline, three flocks                                                                           |
-| `skeins-nowing`         | pose animations off (copy 0 shown): wingbeat and its layers gone                                 |
-| `skeins-constop`        | pose animations kept, every keyframe at the copy's resting opacity: the layers stay, no swap     |
-| `skeins-nowander`       | `ps-bird-wander` off                                                                             |
-| `skeins-calm`           | calm's rules on the skeins alone                                                                 |
-| `skeins-pose2all`       | all four copies on `psng-pose2`, none set to `animation: none`: two-pose timing, same layers     |
-| `skeins-flatfill`       | the body's gradient fill replaced by a solid colour                                              |
-| `daybirds` (noon)       | baseline                                                                                         |
-| `daybirds-nolarkg`      | the larks' inner `<g>` animations off (the outer pose swap still runs)                           |
-| `daybirds-nolark`       | the larks' inner `<g>` and outer pose animations off                                             |
-| `daybirds-larkg-linear` | the inner `<g>` keyframes with `steps(1)` replaced by hard-edged linear ones, in place           |
-| `daybirds-nobuzz`       | the buzzard off                                                                                  |
-| `sun`, `sun-bitmap`     | today's fire; a prototype fire drawn from cached images with `drawImage`, read with a warm cache |
+| slot                    | switch                                                                                       |
+| ----------------------- | -------------------------------------------------------------------------------------------- |
+| `coffee`, `ng-still`    | the floor                                                                                    |
+| `skeins` (dusk)         | baseline, three flocks                                                                       |
+| `skeins-nowing`         | pose animations off (copy 0 shown): wingbeat and its layers gone                             |
+| `skeins-constop`        | pose animations kept, every keyframe at the copy's resting opacity: the layers stay, no swap |
+| `skeins-nowander`       | `ps-bird-wander` off                                                                         |
+| `skeins-calm`           | calm's rules on the skeins alone                                                             |
+| `skeins-pose2all`       | all four copies on `psng-pose2`, none set to `animation: none`: two-pose timing, same layers |
+| `daybirds` (noon)       | baseline                                                                                     |
+| `daybirds-nolarkg`      | the larks' inner `<g>` animations off (the outer pose swap still runs)                       |
+| `daybirds-nolark`       | the larks' inner `<g>` and outer pose animations off                                         |
+| `daybirds-larkg-linear` | the inner `<g>` keyframes with `steps(1)` replaced by hard-edged linear ones, in place       |
+| `sun`, `sun-bitmap`     | today's fire; then §10.3's image fire (its own commit), read with a warm cache               |
 
-Every switch is CSS the harness injects, except `sun-bitmap`: a prototype path in `flame.ts` behind a `localStorage` flag, removed or made real in §10.3. Before the phone, each switch is checked in Chrome for the change it claims (animation counts, computed `display`, the fill) so no slot repeats its baseline. WebContent CPU is the measure of page work here; it does not prove where in WebContent the time goes, so a result that does not fit gets a Safari Web Inspector timeline before a fix is built on it.
+Every switch is CSS the harness injects, except `sun-bitmap`, which is fix 3 itself: the image fire is built for real in its own commit before the sitting and measured as it will ship; if it misses, that commit is reverted. `daybirds-nolark` leaves the buzzard alone, so the buzzard's share needs no slot of its own. The body's gradient fill gets a slot only if `constop` shows the swap repaints. Before the phone, each switch is checked in Chrome for the change it claims (animation counts, computed `display`, the fill) so no slot repeats its baseline. WebContent CPU is the measure of page work here; it does not prove where in WebContent the time goes, so a result that does not fit gets a Safari Web Inspector timeline before a fix is built on it.
 
 ### 10.3 The fixes
 
 Within each list the first fix that meets the target is taken; fixes from different lists combine.
 
-1. **Skeins**, by what the sitting shows. If `constop` reads like the baseline, the cost is the layers, not the swap: fewer animated layers per bird (the copies merged into fewer stacked layers, or the wander moved onto the flock's sway layer only if the birds' paths stay classic's — otherwise reported, not taken). If `constop` reads like `nowing`, the swap is the cost: (a) the swap on a flatter tree, (b) a prerendered strip of the four poses per bird moved by `transform` with hard-edged linear keyframes (never `steps()`). `element.animate` is not a fix on its own: WebKit runs CSS and Web Animations on one engine. If `flatfill` saves, the gradient's stops become literal per hour.
-2. **Larks.** The inner animations become HTML pose copies swapped by hard-edged linear opacity keyframes, as the skeins' wings are — moved and retimed together, since `steps()` stays off Core Animation wherever it sits; `larkg-linear` and `nolark` show how much each half gives.
+1. **Skeins**, by what the sitting shows. If `constop` reads like the baseline, the cost is the layers, not the swap: fewer animated layers per bird (the copies merged into fewer stacked layers, or the wander moved onto the flock's sway layer only if the birds' paths stay classic's — otherwise reported, not taken). If `constop` reads like `nowing`, the swap is the cost: (a) the swap on a flatter tree, (b) a prerendered strip of the four poses per bird moved by `transform` with hard-edged linear keyframes (never `steps()`). `element.animate` is not a fix on its own: WebKit runs CSS and Web Animations on one engine. If the swap repaints, a solid-fill slot (the gradient's stops literal per hour) is read before anything else in this list.
+2. **Larks.** Each lark shows one of three states at a time over its long cycle (`ps-lark-fl` flapping, `-ch` chute, `-cl` closed), so it becomes 4 HTML copies — the 2 flapping poses (already copies), the chute and the closed pose — under 3 state wrappers switched by hard-edged linear opacity keyframes on classic's percentages: 5 animations per lark on HTML instead of 10 on SVG `<g>`, as the skeins' wings are — moved and retimed together, since `steps()` stays off Core Animation wherever it sits; `larkg-linear` and `nolark` show how much each half gives.
 3. **Sun.** The fire from cached images if `sun-bitmap` reads ≤ 5 WebContent warm, its cache bounded (168 frames of 160 × 160 RGBA are about 17 MB: half resolution or fewer frames if memory says so) and rebuilt only when the palette changes; otherwise the fire at 12 frames a second, measured again. A video or animated image is the next fallback only if both fail, and needs its transparency, palette and stopping specified first. Calm keeps the fire held, as now.
 4. **Calm's wingbeat** follows what `skeins-calm` and `pose2all` show: if the `animation: none !important` copies are the cost, calm removes copies 1 and 3 from the render tree instead; `skeins-calm` must end no dearer than full's skeins.
 
