@@ -140,7 +140,7 @@ Plan 1's whole scene is the still tier: it creates no animation object, SMIL clo
 
 **Forced still** (as today): reduced motion (`data-reduce-motion`), a hidden page, a page nobody attends to (`createAttention`), a query.
 
-**The setting** "Scene animation" becomes Auto (default) / Full / Calm / Still in plan 2. Stored values migrate once: `60` and `24` → Auto, `1s` and `sparse` → Calm, `off` → Still. Classic reads the new values: Auto and Full play at the screen's rate (classic's `60`), Calm steps once a second (`1s`), Still is `off`. Auto means Full until plan 3's power signals exist.
+**The setting** "Scene animation" becomes Auto (default) / Full / Calm / Still in plan 2. Stored values are read as the new ones (on load, not rewritten, so an old backup restores the same way): `60` and `24` → Auto, `1s` and `sparse` → Calm, `off` → Still. Classic reads the new values: Auto and Full play at the screen's rate (classic's `60`), Calm steps once a second (`1s`), Still is `off`. Auto means Full until plan 3's power signals exist.
 
 `cancel()` applies only where a group falls back to `element.animate` (decision 2); classic's own CSS animations go still the way plan 1 measured, by `animation: none` (§8.1, `rm` and `none`).
 
@@ -210,7 +210,7 @@ The user's picks in conversation, 2026-10-16: classic's own CSS animations, grou
 
 `NG_STILL_CSS` keeps `animation: none` for the whole scene. A class per group on `#theme-scene` (`psng-m-<group>`) lifts it for that group only, and the browser plays classic's keyframes natively — no stepper, no SMIL. Going still removes the classes: the measured `animation: none` (§8.1).
 
-**Phase on resume.** Each group's animations take `animation-delay: calc(var(--d) - var(--psng-t))`, where `--d` is classic's own (negative, seeded) delay and `--psng-t` the seconds since a fixed epoch, written once on each resume — never per frame (§3 rule 3). A loop resumes where the clock puts it, not at its start. If WebKit mishandles a variable in `animation-delay`, NG writes each group's delays once on resume instead.
+**Phase on resume.** Each group's animations take `animation-delay: calc(var(--d) - var(--psng-t))`, where `--d` is classic's own (negative, seeded) delay and `--psng-t` the seconds since local midnight of the day the scene mounted, written at mount and once on each resume (never on the minute tick, so a running loop never jumps) — never per frame (§3 rule 3). A loop resumes where the clock puts it, not at its start. If WebKit mishandles a variable in `animation-delay`, NG writes each group's delays once on resume instead.
 
 ### 9.2 The groups
 
@@ -236,7 +236,7 @@ Still runs no group. It is forced by reduced motion (`data-reduce-motion`), a hi
 
 ### 9.4 Testing
 
-Mocha: `tiers.ts` as a truth table (setting × reduced motion × hidden × rest × query); the migration; `groups.ts` (tier, time, weather → groups); the `--psng-t` arithmetic; `rain.ts`'s tiles never larger than the viewport; `flame.ts`'s cache bounded. Browser (`ps-ng.mjs`): a census per tier (every running animation moves only `transform` or `opacity`, every animated box fits the viewport, no SMIL, calm's exact list, still with none); a resume keeps each loop's phase; side-by-side screenshots of classic and NG in motion for the user.
+Mocha: `tiers.ts` as a truth table (setting × reduced motion × hidden × rest × query); the migration; `groups.ts` (tier, time, weather → groups); the `--psng-t` arithmetic; `rain.ts`'s tiles never larger than the viewport; `flame.ts`'s cache bounded. Browser (`ps-ng.mjs`): a census per tier (every running animation moves only `transform` or `opacity`, no animated element wider or taller than the viewport, no SMIL, calm's exact list, still with none); a resume keeps each loop's phase; side-by-side screenshots of classic and NG in motion for the user.
 
 ### 9.5 The phone sitting
 
