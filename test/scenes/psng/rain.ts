@@ -60,8 +60,8 @@ for (const [count, vp] of [
 		const markup = rainTiles(count, vp);
 		const sheets = parse(markup);
 
-		it("three sheets at perf-band's speeds, two tiles each, the twins alike", function () {
-			expect(RAIN_TILE_SECONDS).to.deep.equal([0.61, 0.73, 0.84]);
+		it("three sheets at classic's speed (perf-band's periods ×100/118), two tiles each, the twins alike", function () {
+			expect(RAIN_TILE_SECONDS).to.deep.equal([0.52, 0.62, 0.71]);
 			expect(sheets).to.have.length(3);
 			const speeds = [
 				...markup.matchAll(/<div class="psng-rain-sheet" style="--rd:([\d.]+)s"/g),

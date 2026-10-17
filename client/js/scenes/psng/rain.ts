@@ -11,8 +11,11 @@
  */
 import {rng} from "../ps/engine";
 
-/** Each sheet's loop: perf-band's sheet speeds. */
-export const RAIN_TILE_SECONDS = [0.61, 0.73, 0.84];
+/**
+ * Each sheet's loop: perf-band's periods (0.61, 0.73, 0.84 s for a 118cqh fall) scaled to one tile
+ * height (×100/118), so a one-viewport tile falls at classic's speed.
+ */
+export const RAIN_TILE_SECONDS = [0.52, 0.62, 0.71];
 
 export function rainTiles(count: number, viewport: {width: number; height: number}): string {
 	const r = rng(1301);
