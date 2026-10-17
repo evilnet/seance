@@ -520,6 +520,7 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 					const paints = plantFire(page);
 					const scene = mountOn(page);
 					expect(paints.pending(), "the sun is below the horizon").to.equal(0);
+					expect(paints.n, "no fire frame computed").to.equal(0);
 					scene.destroy();
 				});
 			});

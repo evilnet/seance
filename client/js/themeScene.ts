@@ -12,9 +12,11 @@
 export type SceneView = "channel" | "query" | "other";
 
 /**
- * How much a scene moves (the ps theme's Scene animation setting): not at
- * all, once every five minutes and on coming back, once a second, 24 frames a
- * second, or the browser's own rate.
+ * How much a scene moves (the ps theme's Scene animation setting): `auto`
+ * (the default; full until power signals exist, docs/projects/ps-ng.md),
+ * `full` (everything at the browser's rate), `calm` (classic steps once a
+ * second, NG runs a reduced set) or `still` (nothing). Older stored values
+ * are read through normalizeSceneMotion.
  */
 export type SceneMotion = "auto" | "full" | "calm" | "still";
 

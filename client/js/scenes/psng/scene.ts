@@ -73,7 +73,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	const mounted = new Date();
 	let tier: Tier = "still";
 	let fire: ReturnType<typeof fireDriver> | undefined;
-	let sunLive = true;
+	let sunLive = false;
 	let sunOn = false;
 
 	// The fire's frame loop runs only in the full tier, with the sun's group on and its gate live;
@@ -91,6 +91,8 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	const setGroups = () => {
 		const next = tierFor(latest, reduceMotion);
 
+		// Only out of still: calm → full keeps --psng-t, since a rewrite would jump the clouds already
+		// running; the groups full adds start from the phase written on the last still → moving move.
 		if (tier === "still" && next !== "still") {
 			root.style.setProperty("--psng-t", `${phaseSeconds(new Date(), mounted)}s`);
 		}
@@ -144,7 +146,12 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		}
 
 		sunLive = live.sun;
-		fire?.setColours(p.sunFlame, p.sunEdge);
+
+		// A sun below its gate needs no fire frame: a night mount never computes one.
+		if (sunLive) {
+			fire?.setColours(p.sunFlame, p.sunEdge);
+		}
+
 		syncFire();
 
 		// Never ps-hot: it asks for the heat haze, which NG never builds.

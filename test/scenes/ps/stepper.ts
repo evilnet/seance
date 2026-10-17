@@ -107,7 +107,7 @@ describe("ps scene: the stepper (stepper.ts)", function () {
 			},
 		});
 
-	it("draws at 24 frames a second", function () {
+	it("falls back to 24 steps a second when given no mode", function () {
 		expect(SCENE_FPS).to.equal(24);
 	});
 
@@ -214,7 +214,7 @@ describe("ps scene: the stepper (stepper.ts)", function () {
 			expect(SPARSE_INTERVAL_MS).to.equal(5 * 60 * 1000);
 		});
 
-		it("60: hands playback to the browser, with no timer, and holds everything again when stopped", function () {
+		it("auto and full (native): hand playback to the browser, with no timer, and holds everything again when stopped", function () {
 			const a = new FakeAnimation();
 			const svg = new FakeSvg();
 			const s = stepper([a], [svg], {kind: "native"});
@@ -227,7 +227,7 @@ describe("ps scene: the stepper (stepper.ts)", function () {
 			expect(svg.paused).to.equal(true);
 		});
 
-		it("1s: one step a second", function () {
+		it("calm: one step a second", function () {
 			const a = new FakeAnimation();
 			const s = stepper([a], [], stepModeFor("calm")!);
 			s.start();
@@ -238,7 +238,7 @@ describe("ps scene: the stepper (stepper.ts)", function () {
 			s.stop();
 		});
 
-		it("sparse: moves on every five minutes, and at once on a start, by all the time since its last step", function () {
+		it("the old sparse pace (no setting reaches it): moves on every five minutes, and at once on a start, by all the time since its last step", function () {
 			const a = new FakeAnimation();
 			const s = stepper([a], [], {kind: "step", interval: SPARSE_INTERVAL_MS, catchUp: true});
 			s.start();

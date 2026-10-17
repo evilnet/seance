@@ -21,10 +21,10 @@ function withPage(fn: (page: Page, clock: sinon.SinonFakeTimers) => void) {
 	}
 }
 
-/** Whether the scene's stepper advances the svg's clock: one tenth of a second of the fake clock. */
-function moving(svg: FakeSvg, clock: sinon.SinonFakeTimers): boolean {
+/** Whether the scene's stepper advances the svg's clock over `ms` of the fake clock (calm steps once a second). */
+function moving(svg: FakeSvg, clock: sinon.SinonFakeTimers, ms = 1000): boolean {
 	const before = svg.time;
-	clock.tick(1000); // calm steps once a second
+	clock.tick(ms);
 	return svg.time > before;
 }
 
@@ -511,7 +511,8 @@ describe("ps scene: mount (scene.ts, on a stand-in page)", function () {
 				scene.update({visible: true, attended: true, view: "channel", motion: "calm"});
 				expect(svg.paused).to.equal(true);
 				expect(clock.countTimers(), "the minute and the second's step").to.equal(2);
-				expect(moving(svg, clock), "a second's step").to.equal(true);
+				expect(moving(svg, clock, 500), "not inside a second").to.equal(false);
+				expect(moving(svg, clock, 500), "a second's step").to.equal(true);
 				scene.destroy();
 			});
 		});

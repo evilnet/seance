@@ -156,6 +156,8 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 
 #theme-scene.psng .psng-rain-tile {
 	position: absolute;
+	/* rain.ts keeps classic's left of 0-110 % (its rng order): the drops past 100 % are clipped. */
+	overflow: hidden;
 }
 
 #theme-scene.psng .ps-rain i {
@@ -263,6 +265,7 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 	}
 }
 
+/* -70s is classic's own delay on .ps-buzzard (ps.css, ps-buzz-drift); keep the two in step. */
 #theme-scene.psng.psng-m-daybirds .ps-buzzard {
 	animation-delay: calc(-70s - var(--psng-t));
 }
