@@ -11,6 +11,7 @@
 
 import {PHONE_LAYOUT_QUERY} from "./helpers/device";
 import {createPowerMerge} from "./helpers/power";
+import {onAndroidSystemStatus} from "./helpers/systemAccessibility";
 
 export type SceneView = "channel" | "query" | "other";
 
@@ -435,7 +436,8 @@ export function installThemeSceneHooks(): void {
 	touch.addEventListener("change", syncPhone);
 	syncPhone();
 
-	// Tasks 3 and 4 add the system's battery saver here: power.update({saver}).
+	// Low power: the battery below 20 % here, the system's battery saver from
+	// the Android shell below (a shell built before `powerSave` leaves it unknown).
 	const power = createPowerMerge((lowPower) => themeScene.setDevice({lowPower}));
 	const nav = navigator as Navigator & {
 		getBattery?: () => Promise<EventTarget & {charging: boolean; level: number}>;
@@ -454,6 +456,12 @@ export function installThemeSceneHooks(): void {
 	} else {
 		power.update({battery: null});
 	}
+
+	onAndroidSystemStatus((status) => {
+		if (status.powerSave !== undefined) {
+			power.update({saver: status.powerSave});
+		}
+	});
 
 	const sync = () => {
 		const visible = document.visibilityState !== "hidden";
