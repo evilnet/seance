@@ -1,6 +1,6 @@
 # ps NG — the ps scene, rebuilt to be cheap
 
-Status: **design approved 2026-10-16**, spike done (§2), implementation plan next. Plan 1 Task 1 (what the still markup costs on the iPhone) measured 2026-10-16, §8.1. Branch `feat/ps-ng`.
+Status: **plan 1 (the still scene) built 2026-10-16** on branch `feat/ps-ng`, behind a preview flag: NG draws classic's scene markup with nothing moving, and costs what the coffee theme costs on the iPhone (§8.1). Plan 2 (motion, `docs/projects/ps-ng-plan-1.md` § Plans 2 and 3) is next. The design below was approved 2026-10-16; spike 2 (`ps-ng-plan-1.md` § What spike 2 decided) replaced its backdrop and its glass, and the sections say where.
 
 The ps theme's scene (`docs/projects/ps-theme.md`) is loved and expensive: on an iPhone 16 it costs 93–106 % of a core in Safari at a rainy noon, most of it in WebKit's page process, and around 95–99 % at night. ps NG is a new renderer for the same theme. It keeps every element and the look, and draws them with a small set of cheap techniques, with tiers so a phone on low power does less.
 
@@ -9,8 +9,8 @@ Goals, in order: **performance first, then match the current look closely.** "Ke
 ## 1. Decisions
 
 1. **A new renderer beside the old one, not a patch.** The cost is structural (§2), so fixes to classic saved 5–10 points each. NG reuses classic's DOM-free modules and replaces its renderer.
-2. **Technique A: prerendered bitmaps moved by CSS transform**, one layer per element, a small canvas only for what changes shape, no WebGL (§2).
-3. **Glass is pre-blurred** (§5).
+2. **Technique A for what moves (plan 2): prerendered bitmaps moved by CSS transform**, one layer per element, a small canvas only for what changes shape, no WebGL (§2). What stands still is classic's own markup (§4).
+3. **Glass is classic's live blur** (§5). The pre-blurred glass this item first chose was measured out in spike 2.
 4. **Heat haze is dropped** for now; it may come back later.
 5. **Three tiers** — full, calm, still — chosen by the existing gates, a setting and device power signals (§6).
 6. **PR #98 (the canvas sun fire, canvas skeins and the text band) is superseded by NG** and will not merge. NG ports what it needs from its branch, `feat/ps-perf-band`: `flame.ts`, the skein sprite sheet from `birds.ts`, and the text band (the 52 % band behind the white words, the user's pick over the outline) — the band rides along with NG.
@@ -55,18 +55,22 @@ Read as a cost structure, not as NG's predicted figure (the harness moves 3 laye
 
 **Modules**, new under `client/js/scenes/psng/`:
 
-| File          | Job                                                                                                                    |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `scene.ts`    | `mount` / `update` / `destroy`, the minute tick, publishing                                                            |
-| `backdrop.ts` | paints the still scene into one canvas; the pre-blurred copy (§5)                                                      |
-| `sprites.ts`  | draws each moving element's bitmap, once per palette change                                                            |
-| `motion.ts`   | the only place animations are created (`element.animate`); afterwards only `pause()`, `play()`, `updatePlaybackRate()` |
-| `shapes.ts`   | small canvases at low frame rates for what changes shape: wingbeats, the sun's fire                                    |
-| `tiers.ts`    | full / calm / still from the host state, the setting and device signals                                                |
+| File         | Job                                                                                                      | Plan |
+| ------------ | -------------------------------------------------------------------------------------------------------- | ---- |
+| `scene.ts`   | `mount` / `update` / `destroy`, the minute tick, the gates, publishing                                   | 1    |
+| `styles.ts`  | `NG_STILL_CSS`, the adopted stylesheet: nothing animates or transitions, the in-flight layers out        | 1    |
+| `sprites.ts` | draws each moving element's bitmap, once per palette change                                              | 2    |
+| `motion.ts`  | the only place animations are created (`element.animate`); stilled with `cancel()`, never `pause()` (§6) | 2    |
+| `shapes.ts`  | small canvases at low frame rates for what changes shape: wingbeats, the sun's fire                      | 2    |
+| `tiers.ts`   | full / calm / still from the host state, the setting and device signals                                  | 2    |
 
-Imported unchanged from `scenes/ps/`: `engine`, `palette`, `colour`, `grounds`, `glass`, `yurt`. Every NG file but `scene.ts` stays DOM-free where it can, so mocha loads it.
+There is no `backdrop.ts` and no frost of NG's own: the backdrop is classic's markup (§4), and the query view's frost is classic's `ps-private` rule (§4).
 
-**Styles.** NG's scene CSS ships inside its chunk as a stylesheet the scene adds on mount and removes on destroy (a CSS import would land in the shared `style.css` and every theme).
+Shared with classic under `scenes/ps/`: `engine`, `palette`, `colour`, `grounds`, `glass`, `yurt`, `layers` (the gates), and three modules split out of classic's `scene.ts` for both to use — `markup.ts` (the scene's markup, its variables and classes), `watchers.ts` (the yurt's place, the composer's height, the land's proportions, the day's clouds) and `publish.ts` (what goes on `<html>` and `theme-color`). NG never imports classic's `scene.ts`, so its chunk carries no stepper, birds runtime or fades, and a page that boots on NG never fetches `scene-ps.js`.
+
+**Styles.** NG's scene CSS ships inside its chunk as a stylesheet the scene adopts on mount and drops on destroy (a CSS import would land in the shared `style.css` and every theme).
+
+**The preview flag.** Settings → Appearance shows "Scene renderer: Classic / NG (preview)" under the ps theme while `localStorage["thelounge.state.psngPreview"] === "1"`, or while the stored `psRenderer` is already `ng` (a restored backup carries the setting but not the flag).
 
 **Rules the spike set:**
 
@@ -81,8 +85,8 @@ Imported unchanged from `scenes/ps/`: `engine`, `palette`, `colour`, `grounds`, 
 
 | Element                                                 | Classic                                                    | NG                                                                                                                                   |
 | ------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Sky, Milky Way, glow, moon, sun disc, land, river, veil | SVG/CSS layers                                             | the still backdrop: one canvas, repainted on the minute                                                                              |
-| Overcast deck (rain, storm)                             | SVG billows, 2 s cross-fade                                | in the backdrop; a second backdrop canvas cross-fades by `opacity` when the weather changes                                          |
+| Sky, Milky Way, glow, moon, sun disc, land, river, veil | SVG/CSS layers                                             | classic's markup, still; its colours change on the minute tick (plan 1)                                                              |
+| Overcast deck (rain, storm)                             | SVG billows, 2 s cross-fade                                | classic's billows; the day's set is swapped at once, no fade (plan 1)                                                                |
 | Sun's fire                                              | SVG `feTurbulence` on develop; `flame.ts` canvas in PR #98 | `flame.ts`'s frame cache, ported from #98, 24 fps, in `shapes.ts`; the 90 s spin by `transform`                                      |
 | Stars (52 twinkling)                                    | 52 opacity animations                                      | 4 star sheets, each twinkling by `opacity` with its own period (gate §8)                                                             |
 | Clouds (5, +4 wet)                                      | `cqw` drift                                                | each a small sprite crossing by `transform`                                                                                          |
@@ -94,23 +98,28 @@ Imported unchanged from `scenes/ps/`: `engine`, `palette`, `colour`, `grounds`, 
 | Skeins                                                  | SVG strips on develop; canvas flocks in PR #98             | flight by `transform`; wingbeats on one small canvas per flock at 12–24 fps (`shapes.ts`, sprite sheet ported from #98's `birds.ts`) |
 | Buzzard, skylarks                                       | CSS + stepped wing frames                                  | glide by `transform`; the larks' wings in `shapes.ts`                                                                                |
 | Heat haze                                               | SVG displacement filter                                    | **dropped** (may return)                                                                                                             |
-| Frosted query view                                      | `blur()` on the live scene                                 | the pre-blurred backdrop copy, still                                                                                                 |
+| Frosted query view                                      | `blur()` on the live scene                                 | classic's `ps-private` frost on the still markup; it snaps on and off instead of easing (plan 1)                                     |
 | Animals                                                 | switched off                                               | stay off                                                                                                                             |
 | Embers, settle                                          | chrome CSS                                                 | unchanged (not the scene)                                                                                                            |
 
 Seeds and placements come from the same seeded generators as classic, so every star, cloud, firefly and bird stands where it does today.
 
+**Plan 1 is the still scene**: classic's markup with every SMIL element removed, every SVG clock paused, `NG_STILL_CSS` adopted (classic's reduced-motion rules re-scoped to `#theme-scene.psng`), classic's gates applied at once and never `ps-hot`. Nothing in flight is drawn — no bird, drop, flake, seed, lightning or smoke — and each cloud rests where its delay puts it on its path. The looks that change from classic on purpose, for the user to judge:
+
+- the query view's frost snaps on and off instead of easing;
+- the day's clouds and deck swap at midnight without classic's 2 s cross-fade;
+- the yurt's move to a new place is a cut, not a fade-out and fade-in;
+- no heat haze on a hot day (decision 4).
+
 ## 5. Glass
 
-The glass (sidebar, header, composer, user list, the phone's drawer) shows a **pre-blurred copy of the backdrop** behind its tint, aligned to the scene under it, instead of a live `backdrop-filter`. The brightening and saturation are a CSS `filter` on that still copy, computed once. `glass.ts`'s tints hold, since they are solved against the same grounds.
+**The glass is classic's live `backdrop-filter`, unchanged.** NG's stylesheet touches none of the glass (`#sidebar`, `#chat .header`, `#chat .userlist`, `#form`, the reaction chips), and the browser check holds `#sidebar`'s computed `backdrop-filter` equal under both renderers. Over a still scene a live blur costs nothing: WebKit re-blurs only when the backdrop changes (§2).
 
-What changes: moving things (a cloud, the birds, rain) pass under the glass and are hidden by it rather than showing through blurred. The tint is 0.40–0.78 opaque by day, so this should read as subtle; the screenshots in §7 show it.
+Spike 2 (2026-10-16, `ps-ng-plan-1.md` § What spike 2 decided; Chrome desktop and iPhone 16 Safari, sum % of one core) tried the alternatives against live blur over motion (G0: Chrome 7.2, iPhone +3 over still, drawer open 34.3 against still's 30.9):
 
-While the drawer slides, it shows its tint only; it frosts once it rests (as classic delays its blur today).
-
-**Re-blur** (repaint the backdrop, blur again): the minute tick; a change of weather; the day/night flip; the yurt's fade-and-jump to a new place; resize, orientation or device-pixel-ratio change; the frosted query view turning on or off.
-
-**Reposition only** (new background positions, no re-blur): the sidebar opening or closing, a font-size step, any chrome layout change.
+- **G1**, the pre-blurred backdrop copy this section first described, was not measured on its own; G3 is its cheapest form, and it failed.
+- **G2**, live blur with the motion masked out of the glass: Chrome 9.1, dearer than G0, with hard edges. Out.
+- **G3**, a frosted twin of the scene behind tint-only panels: Chrome 6.3, iPhone **408** (WebKit's GPU process 390). Out.
 
 `#status-bar-tint` never carries a filter (CLAUDE.md, "The iOS status bar").
 
@@ -120,7 +129,9 @@ While the drawer slides, it shows its tint only; it frosts once it rests (as cla
 | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
 | full  | everything in §4                                                                                                                                      | ≤ 30          |
 | calm  | clouds, weather (rain, snow, lightning), smoke, skeins with wings at 8 fps; still: stars, fireflies (glowing, in place), seeds, larks, buzzard, grass | ≤ 24          |
-| still | nothing: every animation `pause()`d where it stands                                                                                                   | ≤ 3           |
+| still | nothing: no animation object exists (plan 2 `cancel()`s them and recreates them at their phase)                                                       | ≤ 3           |
+
+Plan 1's whole scene is the still tier: it creates no animation object, SMIL clock or stepper (the census in §7 holds it), and costs 1.1–1.4 on the iPhone (§8.1). `pause()` does not make a scene still on iOS — a paused animation is still Core Animation work in backboardd (19.1 against 1.1, §8.1) — so plan 2 stills with `cancel()`.
 
 **Forced still** (as today): reduced motion (`data-reduce-motion`), a hidden page, a page nobody attends to (`createAttention`), a query.
 
@@ -137,7 +148,7 @@ While the drawer slides, it shows its tint only; it frosts once it rests (as cla
 
 **Mocha** (DOM-free modules): `tiers.ts` as a truth table, the setting migration included; the motion plan (time, weather, tier → the animations that exist), holding rules 1–2 of §3; the re-blur triggers; seeded placements equal to classic's; the existing legibility suite unchanged.
 
-**Browser** (`tools/scenarios/ps-ng.mjs`): mount, unmount and the renderer switch leaving nothing behind; an animation census (no SMIL, no stepper, only `transform`/`opacity`, every animated box within the viewport); the glass's pixels matching the blurred backdrop under them; the forced-still gates and calm's exact list; side-by-side screenshots of classic and NG at pinned moments (noon, golden hour, dusk, night, rain, snow) for the user to judge — no pixel threshold.
+**Browser** (`tools/scenarios/ps-ng.mjs`, plan 1; 27 checks on the desktop, 24 with `--mobile`): the Settings radio pair under the preview flag, each choice mounting its renderer (desktop); the switch both ways — NG's `psng` class and adopted sheet, and back on classic neither, with classic's SMIL back and its clocks moving; the census — no animation on the scene, no SMIL element, every SVG clock paused, nothing moving in 300 ms, `#sidebar`'s `backdrop-filter` (the open drawer's on a phone) equal to classic's at the same minute; a hot noon — classic sets `ps-hot`, NG never does, and its grass is drawn in `--ps-grass`; reduced motion changing no pixel of NG's scene; a cold boot at 23:00 with NG stored — the first frame carries the night's `--ps-sky-top`, the sky's pixel matches it, and `scene-ps.js` is never fetched; and side-by-side screenshots of classic and NG at five pinned moments, with a contact sheet per viewport, for the user to judge — no pixel threshold. There is no glass-pixel check: the glass is classic's own (§5). Plan 2 adds the census of what moves (only `transform`/`opacity`, every animated box within the viewport) and calm's exact list.
 
 ## 8. Performance gates
 
@@ -178,4 +189,8 @@ Chrome desktop (rank-only, load 3.8–9.7): coffee 3.4, still 4.4, still-nofilte
 - `none` passes: every none slot is within 2 of the same run's coffee, rain confirmed by its re-run. `none` becomes `STILL_RULES` (`NG_STILL_CSS`, Task 5).
 - `pause()` is not still on iOS (waapi-paused 19.1 against none 1.1). Plan 2 stills animations with `cancel()` and recreates them at their phase.
 - Classic's reduced motion (`rm`) is already at coffee. Task 1b (`animation: none` in classic's own still states) was offered and not taken.
-- The user accepted the harness `none` readings as NG's iPhone numbers. Task 6's own phone run is optional.
+- The user accepted the harness `none` readings as NG's iPhone numbers. Task 6's own phone run was skipped on that ruling: NG's adopted sheet is the `none` rung's rules verbatim, and the harness readings of it stand as plan 1's iPhone figures (coffee 1.1–1.2; NG 1.1 at noon, 1.4 at night, 1.1 in rain and in a query).
+
+### 8.2 Plan 1 Task 6: the browser check (2026-10-16)
+
+`tools/scenarios/ps-ng.mjs` against the worktree's production build, headless Chrome, host load 3–15: 27 of 27 on the desktop (1280 × 900), 24 of 24 on a phone (390 × 844, `--mobile`). A cold boot's first frame came 0.1–11.5 ms after NG's mount, already on the night sky. Screenshots and the two contact sheets in `tmp/ps-ng-shots/` (gitignored).
