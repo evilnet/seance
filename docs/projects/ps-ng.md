@@ -292,42 +292,46 @@ For the user to judge in the pairs: the flowers swaying with the grass, the rain
 
 The user's picks in conversation, 2026-10-17: fix the three groups the iPhone named (§8.3) rather than move the budgets; measure each suspect before building; success is **page work (WebContent) ≤ 5 for each of the skeins, daybirds and sun measured alone, calm ≤ 24 at every moment, and full below classic at every moment** — full ≤ 30 is reported against, not gated, since one moving group already costs 15–25 in backboardd.
 
-### 10.1 What is suspected (read from the code, 2026-10-17)
+### 10.1 What is suspected (read from the code, 2026-10-17; Codex reviewed)
 
-- **Skeins**: 38 birds in 3 flocks, each bird 4 pose copies (`div.psng-pose`, each a whole `<svg>`), about 196 animations nested four transform levels deep (flock fly, sway, per-bird `ps-bird-wander`, per-pose `psng-pose4`). A flock beyond `--ps-skein-count`, and the whole layer at `--ps-skeins-op` 0, is hidden only by opacity and keeps animating.
-- **Daybirds**: the buzzard is HTML (drift, orbit, flap; no pose copies). The 3 larks have 2 pose copies each, and inside each copy's `<svg>` five `<g>` run `steps(1)` opacity animations — 30 animated SVG elements, which WebKit repaints on the main thread.
+- **Skeins**: 38 birds in 3 flocks, each bird 4 pose copies (`div.psng-pose`, each a whole `<svg>`), about 196 animations nested four transform levels deep (flock fly, sway, per-bird `ps-bird-wander`, per-pose `psng-pose4`). A flock past the night's count is already out of the render tree (`liveLayers` gates, `.ps-off`). The pose keyframes hold each copy at 1 or 0 with a 0.01 % edge, linear, not `steps()`, so they should stay on Core Animation; calm runs `psng-pose2` on copies 0 and 2 and sets copies 1 and 3 to `animation: none !important` while they stay in the page. Why that costs more than four swaps is not known: a change in which copies get their own layer is the first suspect, not the two-pose timing. The body's fill is a gradient (`url(#ps-b-belly)`) whose stops read CSS variables.
+- **Daybirds**: the buzzard is HTML (drift, orbit, flap; no pose copies). The 3 larks have 2 pose copies each, and inside each copy's `<svg>` five `<g>` run `steps(1)` opacity animations — 30 animated SVG elements. WebKit's Core Animation path refuses `steps()` timing, so these run on the main thread wherever they sit.
 - **Sun**: the fire is `flame.ts`'s canvas, 160 × 160, woken 24 times a second; every paint maps 25,600 pixels through a colour table in JavaScript and calls `putImageData`. The spinning rays (mask + blur) are not the cost (calm noon, §8.3).
 
 ### 10.2 The measurement sitting
 
-One group alone at its moment, each switch against its group's baseline in the same sitting; 13 slots × 2 rounds ≈ 25 minutes, run as two background jobs of about 13 minutes (the tool's 45-minute limit), Auto-Lock off:
+One group alone at its moment with the tier forced (`mo=full`, never Auto, which picks calm on a phone), each switch against its group's baseline in the same sitting; the harness's usual 30 s settle before each 15 s reading, the page attended and the drawer closed, the order rotated each round. 16 slots × 2 rounds ≈ 30 minutes, run as two background jobs of about 15 minutes (the tool's 45-minute limit), Auto-Lock off:
 
-| slot                            | switch                                                                                    |
-| ------------------------------- | ----------------------------------------------------------------------------------------- |
-| `coffee`, `ng-still`            | the floor                                                                                 |
-| `skeins` (dusk, three flocks)   | baseline                                                                                  |
-| `skeins-nowing`                 | pose animations off                                                                       |
-| `skeins-nowander`               | `ps-bird-wander` off                                                                      |
-| `skeins-calm`                   | calm's two-pose wingbeat, the skeins alone                                                |
-| `skeins-1flock`, `-1flock-hide` | 2026-05-14 20:45 (one flock showing): the hidden flocks as they are, then `display: none` |
-| `daybirds` (noon)               | baseline                                                                                  |
-| `daybirds-nolarkg`              | the larks' inner `<g>` animations off                                                     |
-| `daybirds-nobuzz`               | the buzzard off                                                                           |
-| `sun`, `sun-bitmap`             | today's fire; a prototype fire drawn from cached images with `drawImage`                  |
+| slot                    | switch                                                                                           |
+| ----------------------- | ------------------------------------------------------------------------------------------------ |
+| `coffee`, `ng-still`    | the floor                                                                                        |
+| `skeins` (dusk)         | baseline, three flocks                                                                           |
+| `skeins-nowing`         | pose animations off (copy 0 shown): wingbeat and its layers gone                                 |
+| `skeins-constop`        | pose animations kept, every keyframe at the copy's resting opacity: the layers stay, no swap     |
+| `skeins-nowander`       | `ps-bird-wander` off                                                                             |
+| `skeins-calm`           | calm's rules on the skeins alone                                                                 |
+| `skeins-pose2all`       | all four copies on `psng-pose2`, none set to `animation: none`: two-pose timing, same layers     |
+| `skeins-flatfill`       | the body's gradient fill replaced by a solid colour                                              |
+| `daybirds` (noon)       | baseline                                                                                         |
+| `daybirds-nolarkg`      | the larks' inner `<g>` animations off (the outer pose swap still runs)                           |
+| `daybirds-nolark`       | the larks' inner `<g>` and outer pose animations off                                             |
+| `daybirds-larkg-linear` | the inner `<g>` keyframes with `steps(1)` replaced by hard-edged linear ones, in place           |
+| `daybirds-nobuzz`       | the buzzard off                                                                                  |
+| `sun`, `sun-bitmap`     | today's fire; a prototype fire drawn from cached images with `drawImage`, read with a warm cache |
 
-Every switch is CSS the harness injects, except `sun-bitmap`: a prototype path in `flame.ts` behind a `localStorage` flag, removed or made real in §10.3.
+Every switch is CSS the harness injects, except `sun-bitmap`: a prototype path in `flame.ts` behind a `localStorage` flag, removed or made real in §10.3. Before the phone, each switch is checked in Chrome for the change it claims (animation counts, computed `display`, the fill) so no slot repeats its baseline. WebContent CPU is the measure of page work here; it does not prove where in WebContent the time goes, so a result that does not fit gets a Safari Web Inspector timeline before a fix is built on it.
 
 ### 10.3 The fixes
 
-The first fix in each list that meets the target is taken; two are never kept.
+Within each list the first fix that meets the target is taken; fixes from different lists combine.
 
-1. **Skeins.** A hidden flock (beyond the count, or the layer at opacity 0) leaves the render tree — always, since it is waste. Then, by what the sitting shows: if the wander is the cost, it folds into the flock's sway (3 animations, not 38); if the wingbeat is, (a) the pose swap with fewer nested animated layers, (b) the swap by `element.animate`, `cancel()` on still and never `pause()`, (c) a prerendered strip of the four poses per bird, one element moved through it.
-2. **Larks.** The inner `<g>` animations move up to HTML pose copies swapped by `opacity`, as the skeins' wings are.
-3. **Sun.** The fire from cached images if `sun-bitmap` reads ≤ 5 WebContent; otherwise the fire at 12 frames a second, measured again. Calm keeps the fire held, as now.
-4. **Calm's wingbeat** takes whatever the skeins end with, on two poses; `skeins-calm` must then cost no more than full's skeins.
+1. **Skeins**, by what the sitting shows. If `constop` reads like the baseline, the cost is the layers, not the swap: fewer animated layers per bird (the copies merged into fewer stacked layers, or the wander moved onto the flock's sway layer only if the birds' paths stay classic's — otherwise reported, not taken). If `constop` reads like `nowing`, the swap is the cost: (a) the swap on a flatter tree, (b) a prerendered strip of the four poses per bird moved by `transform` with hard-edged linear keyframes (never `steps()`). `element.animate` is not a fix on its own: WebKit runs CSS and Web Animations on one engine. If `flatfill` saves, the gradient's stops become literal per hour.
+2. **Larks.** The inner animations become HTML pose copies swapped by hard-edged linear opacity keyframes, as the skeins' wings are — moved and retimed together, since `steps()` stays off Core Animation wherever it sits; `larkg-linear` and `nolark` show how much each half gives.
+3. **Sun.** The fire from cached images if `sun-bitmap` reads ≤ 5 WebContent warm, its cache bounded (168 frames of 160 × 160 RGBA are about 17 MB: half resolution or fewer frames if memory says so) and rebuilt only when the palette changes; otherwise the fire at 12 frames a second, measured again. A video or animated image is the next fallback only if both fail, and needs its transparency, palette and stopping specified first. Calm keeps the fire held, as now.
+4. **Calm's wingbeat** follows what `skeins-calm` and `pose2all` show: if the `animation: none !important` copies are the cost, calm removes copies 1 and 3 from the render tree instead; `skeins-calm` must end no dearer than full's skeins.
 
-Every fix keeps classic's poses, timings and paths. The one visible change allowed is the fire's lower rate, only if the bitmap fails, and only with the user's OK on a side-by-side shot. A group no fix brings to its target stops the plan with a report before anything less like classic is tried.
+Every fix keeps classic's poses, timings and paths (as NG already draws them). The one visible change allowed is the fire's lower rate, only if the bitmap fails, and only with the user's OK on a side-by-side shot. A group no fix brings to its target stops the plan with a report before anything less like classic is tried.
 
 ### 10.4 The gate and the tests
 
-The gate is plan 3's 14 slots (`coffee`, `ng-still`, `full`/`calm`/`classic` at noon, night, storm and dusk) plus each fixed group alone, 2 rounds, split into jobs under 45 minutes. It passes on §10's success criteria. Mocha: the hidden-flock rule, the larks' pose markup, `flame.ts`'s image cache bounded and dropped on unmount. `ps-ng.mjs` stays green at its three sizes and adds: no animation on an element inside an `<svg>` in the scene, no hidden flock animating; classic/NG pairs at dusk and noon for the user. After plan 4 passes, plan 3 resumes at Task 5 (Android, then Chrome headed at 120 Hz) and Task 6.
+The gate is plan 3's 14 slots (`coffee`, `ng-still`, `full`/`calm`/`classic` at noon, night, storm and dusk) plus each fixed group alone, 2 rounds, split into jobs under 45 minutes. It passes on §10's success criteria. Mocha: the larks' pose markup and its keyframes free of `steps()`, `flame.ts`'s image cache bounded and dropped on unmount. `ps-ng.mjs` stays green at its three sizes and adds: no animation on an element inside an `<svg>` in the scene, no `steps()` timing on any running animation; classic/NG pairs at dusk and noon for the user. After plan 4 passes, plan 3 resumes at Task 5 (Android, then Chrome headed at 120 Hz) and Task 6.
