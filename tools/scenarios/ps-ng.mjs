@@ -1,32 +1,60 @@
-// The ps theme's NG scene in a real browser (docs/projects/ps-ng.md, plan 1):
-// classic's markup, still — no animation object, no SMIL clock, no stepper —
-// beside classic, in one build, switched by the `psRenderer` setting. The
-// run connects to #seance, says one line of its own, and then:
+// The ps theme's NG scene in a real browser (docs/projects/ps-ng.md, plans 1
+// and 2): classic's markup with classic's own CSS animations running group by
+// group (`psng-m-<group>` on #theme-scene, the tier from the host state, in
+// phase by `--psng-t`), beside classic, in one build, switched by the
+// `psRenderer` setting. The run connects to #seance, says one line of its own,
+// leaves `thelounge.state.psngGroups` unset (every group a tier allows) and
+// the `psAnimation` setting at Auto unless a check says otherwise, and then:
 //
 // - with the preview flag (`thelounge.state.psngPreview` = "1") set, opens
 //   Settings → Appearance, picks ps, and finds the "Scene renderer" radio
 //   pair; NG (preview) mounts NG (`psng` on #theme-scene), Classic puts
 //   classic back (desktop only: on the phone layout the settings footer is
 //   in the drawer, and the pair has nothing phone-specific to show);
-// - switches between the renderers at a pinned 21 June noon: NG has `psng`
-//   and its adopted sheet; the animation census finds no animation on the
-//   scene, no SMIL element and every SVG clock paused; `#sidebar`'s
-//   backdrop-filter (the open drawer's, on a phone) is the string classic
-//   computes at the same minute (NG never touches the glass); and back on classic nothing of NG is left —
-//   no `psng`, no NG sheet — while classic's SMIL is back and its clocks
-//   move between two samples 300 ms apart;
+// - at a pinned 21 June noon, NG freshly mounted: NG has `psng` and its
+//   adopted sheet; the FULL census (below); #sidebar's backdrop-filter (the
+//   open drawer's, on a phone) is the string classic computes at the same
+//   minute (NG never touches the glass); then Calm (below);
+// - the setting at Still: the STILL census (below), plus every SVG clock
+//   paused and nothing moving between two samples 300 ms apart (plan 1's
+//   census, now the still tier's); back at Auto, animations run again;
+// - switching to classic while NG moves: no `psng`, no `psng-m-*` or
+//   `psng-calm`, no `--psng-t` on the root, no NG sheet, no fire canvas, no
+//   frame request from NG's chunk over 1 s, and classic mounts with SMIL and
+//   its clocks move between two samples 300 ms apart;
 // - at a hot noon (1 July 12:30, `heat`): classic sets `ps-hot`, NG never
 //   does, and NG's ground is drawn — pixels of the grass bbox equal to
 //   `--ps-grass` within 10 per channel;
-// - under reduced motion (`data-reduce-motion`, through the emulated media
-//   feature), NG's scene shot alone (#viewport hidden) equals the one
-//   without it within 2 per channel over 95 % of the pixels;
-// - shoots classic and NG at 21 June 12:00, 20:45 and 23:30, 19 October
-//   12:00 (rain) and 14 January 12:00 (snow; the brief's 15 January is a
-//   clear day in the engine, so its snowy neighbour stands in), named so the
-//   pairs sort together (`desktop-0621-1200-classic.png` / `-ng.png`), and
-//   lays each viewport's pairs out on one contact sheet (classic left, NG
-//   right; `contact-desktop.png`);
+// - the FULL census and Calm again, each moment on a fresh mount, at 21 June
+//   23:00 (the stars and fireflies running), a storm day (19 July 12:00: the
+//   weather running) and the dusk with skeins (14 May 20:45: the skeins
+//   running; the brief's 21 June 20:45 has no skeins — `birdsAt` gives none
+//   all that evening, migration is spring and autumn — and 14 May is the
+//   nearest clear day that has them, 24 minutes after its sunset);
+// - the still states, each the STILL census: reduced motion toggled live
+//   (the emulated media, `data-reduce-motion` set directly if it does not
+//   arrive) off → on → off, moving before and after; a hidden page; a query
+//   (`/query`, `data-view="query"`), then back to #seance and moving;
+// - the phase: NG mounted at noon with the setting at Still, 30 s of real
+//   time, then Full: `--psng-t` equals the pinned clock's seconds since the
+//   mount day's midnight at the moment of the switch (± 3 s), and for each
+//   cloud the computed `animation-delay` is `--cdl − --psng-t` (± 1 ms; read
+//   from `effect.getTiming()`, since the serialised style rounds to six
+//   significant figures, 31 ms at noon) and its measured `translateX` (the
+//   computed matrix) is where that phase puts it, within 2 % of its path. The
+//   Date shim pins the clock but not the document timeline, so the expected
+//   place is from the animation's own `currentTime` t: progress =
+//   ((--psng-t − --cdl) + t) mod D over D, D the computed `animation-duration`
+//   (`--cd`, or 0.4 × it on a windy day), and
+//   ps-drift's path puts it at (W + w + 0.5rem) × progress − w − 0.25rem
+//   (W the scene's width, the cqw container; w the cloud's own width), the
+//   error taken round the loop's seam;
+// - shoots classic and NG in motion (Auto) at 21 June 12:00, 14 May 20:45
+//   (the dusk with skeins, above), 21 June 23:30, 19 October 12:00 (rain) and
+//   19 July 12:00 (storm), named so the pairs sort together
+//   (`desktop-0621-1200-classic.png` / `-ng.png`), and lays each viewport's
+//   pairs out on one contact sheet (classic left, NG right;
+//   `contact-desktop.png`);
 // - last, boots cold with ps and NG stored and the clock at 23:00 on a clear
 //   night (25 September): the first frame NG's root is in already carries
 //   the night's `--ps-sky-top` (read within 300 ms of the mount), the sky's
@@ -34,9 +62,33 @@
 //   channel and is not the daylight fallback, and from the load to 10 s after
 //   the mount nothing fetches classic's chunk (`js/scene-ps.js`).
 //
+// The FULL census: the root carries all nine `psng-m-*` classes and no
+// `psng-calm`; every animation under #theme-scene is a known group's (by its
+// animationName; `psng-pose2` under .ps-daybirds is the larks') and a group
+// whose class is on; every one's keyframes (`effect.getKeyframes()`) touch
+// only `transform` and `opacity`; every animated element's untransformed box
+// is at most the viewport (± 1 px): an HTML element's offsetWidth/Height (the
+// layout box, which no transform changes), an SVG element's bounding rect (its
+// transformed box: a stricter bound, none of NG's SVG animations scales up);
+// static elements larger than the viewport (the Milky Way) do not count; no
+// SMIL element is left; the groups the moment is about are running; and, where
+// the sun is up, NG's chunk requests animation frames (the fire, at 24 a
+// second) — the positive control for the zero counts below.
+// Calm: the root carries `psng-calm` and calm's five classes (clouds, smoke,
+// weather, skeins, sun), and the set of group:animationName pairs running is
+// exactly the full set at the same moment and mount narrowed to calm's groups,
+// with the skeins' `psng-pose4` as `psng-pose2` and the seeds (`ps-seed`)
+// gone — so the gates of the moment decide both; and NG's chunk requests no
+// frame over 1 s (the fire keeps the one frame it painted).
+// The STILL census: `getAnimations({subtree: true})` is empty, no SMIL, and
+// NG's chunk requests no animation frame over 1 s. Frame requests are counted
+// by an init script wrapping `requestAnimationFrame` that counts a call whose
+// stack names `scene-ps-ng.js` (NG's chunk), so Vue's and classic's frames
+// never count.
+//
 //   NODE_ENV=production npx webpack && python3 -m http.server -d public 8041 &
 //   SEANCE_HTTP_PORT=8041 node tools/browser-drive.mjs tools/scenarios/ps-ng.mjs \
-//     --out=tmp/ps-ng-shots
+//     --out=tmp/ps-ng-shots/plan2
 //   (and again with --mobile --width=390 --height=844)
 //
 // The clock is a Date shim in UTC (theme-ps.mjs's CLOCK_SHIM), with one
@@ -180,6 +232,109 @@ const HIDE_CHROME = `(() => {
 })()`;
 const SHOW_CHROME = HIDE_CHROME.replace(`"hidden"`, `""`);
 
+/** Counts the animation frames NG's chunk asks for (see the header). */
+const NG_FRAME_COUNTER = `(() => {
+	const raf = window.requestAnimationFrame.bind(window);
+	window.__ngFrames = 0;
+	window.requestAnimationFrame = (fn) => {
+		if (/scene-ps-ng\\.js/.test(new Error().stack || "")) window.__ngFrames++;
+		return raf(fn);
+	};
+})()`;
+
+/** NG's frame requests over the next second. */
+const NG_FRAMES = `new Promise((r) => {
+	const a = window.__ngFrames;
+	setTimeout(() => r(window.__ngFrames - a), 1000);
+})`;
+
+/** Each animation's group, by its animationName (groups.ts, styles.ts and classic's ps.css). */
+const GROUP_OF = {
+	"ps-drift": "clouds",
+	"ps-twinkle": "stars",
+	"ps-ffdrift": "fireflies",
+	"ps-ffblink": "fireflies",
+	"ps-smoke-rise": "smoke",
+	"ps-sway": "grass",
+	"psng-rain-fall": "weather",
+	"ps-flake": "weather",
+	"ps-seed": "weather",
+	"ps-flash": "weather",
+	"ps-shimmer": "weather",
+	"ps-skein-fly": "skeins",
+	"ps-skein-west": "skeins",
+	"ps-skein-sway": "skeins",
+	"ps-bird-wander": "skeins",
+	"psng-pose4": "skeins",
+	"psng-pose2": "skeins",
+	"ps-buzz-drift": "daybirds",
+	"psng-buzz-orbit": "daybirds",
+	"psng-buzz-flap": "daybirds",
+	"ps-lark-fly": "daybirds",
+	"ps-lark-fl": "daybirds",
+	"ps-lark-ch": "daybirds",
+	"ps-lark-cl": "daybirds",
+	"ps-spin": "sun",
+};
+const ALL_GROUPS = [...new Set(Object.values(GROUP_OF))];
+const CALM_GROUPS = ["clouds", "smoke", "weather", "skeins", "sun"];
+
+/** Every animation under the scene: its group:name, the keyframes' properties, the boxes over the viewport. */
+const CENSUS = `(() => {
+	const s = document.getElementById("theme-scene");
+	const G = ${JSON.stringify(GROUP_OF)};
+	const KEYS = new Set(["offset", "computedOffset", "easing", "composite"]);
+	const anims = s.getAnimations({subtree: true});
+	const keys = {}, props = new Set(), over = [], unknown = new Set();
+	for (const a of anims) {
+		const n = a.animationName ?? "(script)";
+		const el = a.effect.target;
+		const g = n === "psng-pose2" && el.closest(".ps-daybirds") ? "daybirds" : G[n];
+		if (!g) unknown.add(n);
+		keys[(g ?? "?") + ":" + n] = (keys[(g ?? "?") + ":" + n] || 0) + 1;
+		for (const k of a.effect.getKeyframes()) for (const p of Object.keys(k)) if (!KEYS.has(p)) props.add(p);
+		const r = el.getBoundingClientRect();
+		const html = el instanceof HTMLElement;
+		const w = html ? el.offsetWidth : r.width, h = html ? el.offsetHeight : r.height;
+		if (w > innerWidth + 1 || h > innerHeight + 1)
+			over.push((el.getAttribute("class") || el.tagName) + " " + Math.round(w) + "x" + Math.round(h));
+	}
+	return {
+		anims: anims.length,
+		keys,
+		props: [...props],
+		over: [...new Set(over)],
+		unknown: [...unknown],
+		vp: innerWidth + "x" + innerHeight,
+		classes: [...s.classList].filter((c) => /^psng-(m-|calm)/.test(c)).sort(),
+		smil: s.querySelectorAll(${JSON.stringify(SMIL)}).length,
+	};
+})()`;
+
+/** The clouds' phase (see the header): what --psng-t predicts against what the transform shows. */
+const PHASE = `(() => {
+	const s = document.getElementById("theme-scene");
+	const secs = (v) => (v.trim().endsWith("ms") ? parseFloat(v) / 1000 : parseFloat(v));
+	const t = parseFloat(s.style.getPropertyValue("--psng-t"));
+	const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+	const W = s.clientWidth;
+	return {t, clouds: [...s.querySelectorAll(".ps-cloud")].flatMap((c) => {
+		const a = c.getAnimations().find((x) => x.animationName === "ps-drift");
+		if (!a) return [];
+		const cs = getComputedStyle(c);
+		const cdl = secs(cs.getPropertyValue("--cdl"));
+		// The computed timing, not the serialised style: that rounds to six significant figures (31 ms at noon).
+		const {duration: D, delay} = a.effect.getTiming();
+		const p = ((((t - cdl) * 1000 + a.currentTime) % D) + D) % D / D;
+		const w = c.offsetWidth;
+		const span = W + w + 0.5 * rem;
+		const want = span * p - w - 0.25 * rem;
+		const got = new DOMMatrixReadOnly(cs.transform).m41;
+		const e = Math.abs(got - want) / span;
+		return [{delayOff: Math.abs(delay - (cdl - t) * 1000), p: +p.toFixed(4), err: +Math.min(e, 1 - e).toFixed(4)}];
+	})};
+})()`;
+
 /** The pinned instant (UTC; the run sets the time zone to Etc/GMT). */
 const instant = (month, day, hour, minute) => Date.UTC(2026, month - 1, day, hour, minute, 5);
 
@@ -279,20 +434,6 @@ const MATCHING = (b64, box, css, tol) => `(async () => {
 	return {want, hit, all, best, bestD};
 })()`;
 
-/** The share of pixels two shots agree on within `tol` per channel. */
-const AGREE = (a, b, tol) => `(async () => {
-	const p = await window.__png(${JSON.stringify(a)});
-	const q = await window.__png(${JSON.stringify(b)});
-	if (p.width !== q.width || p.height !== q.height) return {size: false, share: 0, worst: null};
-	let same = 0, worst = 0;
-	for (let i = 0; i < p.data.length; i += 4) {
-		const d = Math.max(...[0, 1, 2].map((c) => Math.abs(p.data[i + c] - q.data[i + c])));
-		if (d <= ${tol}) same++;
-		worst = Math.max(worst, d);
-	}
-	return {size: true, share: same / (p.data.length / 4), worst};
-})()`;
-
 const near = (a, b, tol) => a.every((v, i) => Math.abs(v - b[i]) <= tol);
 
 async function sendLine(page, text) {
@@ -359,12 +500,127 @@ async function radioPair(page, vp) {
 	});
 }
 
+async function setMotion(page, value) {
+	await page.evaluate(
+		`${STORE}.dispatch("settings/update", {name: "psAnimation", value: ${JSON.stringify(
+			value
+		)}})`
+	);
+	await page.sleep(600);
+}
+
+/** NG mounted afresh with the clock at `ms`, so the mount day (and so `--psng-t`) is that moment's. */
+async function mountNgAt(page, ms) {
+	await setRenderer(page, "classic");
+	await page.evaluate(`window.__setClock(${ms})`);
+	await setRenderer(page, "ng");
+	return at(page, ms);
+}
+
+const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
+
+/** The FULL census (header); `groups` are the ones the moment is about, `sun` whether the fire must run. */
+async function fullCensus(page, label, groups, sun) {
+	const c = await page.evaluate(CENSUS);
+	const frames = await page.evaluate(NG_FRAMES);
+	const running = [...new Set(Object.keys(c.keys).map((k) => k.split(":")[0]))];
+	console.log(`  ${label}: ${JSON.stringify(c.keys)}`);
+	page.check(
+		`${label}: full — all nine group classes, no psng-calm (${c.classes.join(" ")})`,
+		sameSet(
+			c.classes,
+			ALL_GROUPS.map((g) => `psng-m-${g}`)
+		)
+	);
+	page.check(
+		`${label}: full — ${c.anims} animations, every one a known group's (unknown: ${
+			c.unknown.join(", ") || "none"
+		}), the moment's ${groups.join(", ")} among them`,
+		c.anims > 0 && c.unknown.length === 0 && groups.every((g) => running.includes(g))
+	);
+	page.check(
+		`${label}: full — keyframes touch only transform and opacity (else: ${
+			c.props.join(", ") || "none"
+		})`,
+		c.props.every((p) => p === "transform" || p === "opacity")
+	);
+	page.check(
+		`${label}: full — every animated element within the viewport ${c.vp} ± 1 px (over: ${
+			c.over.slice(0, 4).join("; ") || "none"
+		}), no SMIL (${c.smil})`,
+		c.over.length === 0 && c.smil === 0
+	);
+
+	if (sun) {
+		page.check(
+			`${label}: full — the sun's fire asks for frames (${frames} in 1 s)`,
+			frames > 0
+		);
+	}
+
+	return c;
+}
+
+/** Calm (header), against the full census `full` taken at the same moment on the same mount. */
+async function calmCensus(page, label, full) {
+	await setMotion(page, "calm");
+	const c = await page.evaluate(CENSUS);
+	const frames = await page.evaluate(NG_FRAMES);
+	const want = [
+		...new Set(
+			Object.keys(full.keys)
+				.filter((k) => CALM_GROUPS.includes(k.split(":")[0]) && k !== "weather:ps-seed")
+				.map((k) => (k === "skeins:psng-pose4" ? "skeins:psng-pose2" : k))
+		),
+	].sort();
+	const got = Object.keys(c.keys).sort();
+	page.check(
+		`${label}: calm — psng-calm and calm's five classes (${c.classes.join(" ")})`,
+		sameSet(c.classes, ["psng-calm", ...CALM_GROUPS.map((g) => `psng-m-${g}`)])
+	);
+	page.check(
+		`${label}: calm — exactly calm's animations at this moment [${got.join(
+			", "
+		)}] = [${want.join(", ")}]`,
+		got.length > 0 && sameSet(got, want)
+	);
+	page.check(
+		`${label}: calm — keyframes only transform/opacity, nothing over the viewport, no frame from NG in 1 s (${frames})`,
+		c.props.every((p) => p === "transform" || p === "opacity") &&
+			c.over.length === 0 &&
+			frames === 0
+	);
+	await setMotion(page, "auto");
+}
+
+/** The STILL census (header). */
+async function stillCensus(page, label) {
+	const c = await page.evaluate(CENSUS);
+	const frames = await page.evaluate(NG_FRAMES);
+	page.check(
+		`${label}: still — no animation on NG's scene (${c.anims}), no group class (${
+			c.classes.join(" ") || "none"
+		}), no SMIL (${c.smil}), no frame from NG in 1 s (${frames})`,
+		c.anims === 0 && c.classes.length === 0 && c.smil === 0 && frames === 0
+	);
+}
+
+/** Moving again: animations on the scene and, with the sun up, the fire's frames. */
+async function moving(page, label) {
+	const c = await page.evaluate(CENSUS);
+	const frames = await page.evaluate(NG_FRAMES);
+	page.check(
+		`${label}: moving again — ${c.anims} animations, ${frames} frames from NG in 1 s`,
+		c.anims > 0 && frames > 0
+	);
+}
+
 const MOMENTS = [
 	["0621-1200", instant(6, 21, 12, 0), "clear"],
-	["0621-2045", instant(6, 21, 20, 45), "clear"],
+	["0514-2045-skeins", instant(5, 14, 20, 45), "clear"],
 	["0621-2330", instant(6, 21, 23, 30), "clear"],
 	["1019-1200-rain", instant(10, 19, 12, 0), "rain"],
-	["0114-1200-snow", instant(1, 14, 12, 0), "snow"],
+	["0719-1200-storm", instant(7, 19, 12, 0), "storm"],
 ];
 
 export default async function run(page) {
@@ -373,6 +629,7 @@ export default async function run(page) {
 	await page.addInitScript(CLOCK_SHIM);
 	await page.addInitScript(PAGE_HELPERS);
 	await page.addInitScript(PREVIEW_FLAG);
+	await page.addInitScript(NG_FRAME_COUNTER);
 
 	await page.goto(page.url, {waitForSelector: "#connect form"});
 	await page.evaluate(`document.querySelector("#connect form").requestSubmit()`);
@@ -385,7 +642,7 @@ export default async function run(page) {
 	);
 	await page.waitFor(`document.querySelector("#input")`, {label: "the input box"});
 	await page.sleep(1000);
-	await sendLine(page, `hello from the still plains ${RUN}`);
+	await sendLine(page, `hello from the moving plains ${RUN}`);
 	await page.waitFor(`!document.querySelector("#chat .msg.pending")`, {label: "our own line"});
 
 	// ---- ps, and the radio pair (desktop) or the store (phone)
@@ -398,40 +655,70 @@ export default async function run(page) {
 		console.log("  (the radio pair is checked on the desktop run)");
 	}
 
-	// ---- switch and census at a pinned noon
+	// ---- switch, census and glass at a pinned noon, NG fresh
 
 	const noon = instant(6, 21, 12, 0);
 	await at(page, noon);
 	const classicBackdrop = await sidebarBackdrop(page, vp === "mobile");
-	await setRenderer(page, "ng");
-	const ng = await at(page, noon);
-	const ngBackdrop = await sidebarBackdrop(page, vp === "mobile");
+	const ng = await mountNgAt(page, noon);
 	page.check(
 		`switch: NG has psng and its adopted sheet (psng ${ng.psng}, sheet ${ng.ngSheet}, ${ng.children} layers)`,
 		ng.psng && ng.ngSheet && ng.children > 0
 	);
-	page.check(
-		`census: no animation on NG's scene (${ng.animations}), no SMIL element (${ng.smil}), every SVG clock paused (${ng.svgsRunning} of ${ng.svgs} running)`,
-		ng.animations === 0 && ng.smil === 0 && ng.svgs > 0 && ng.svgsRunning === 0
+	const noonFull = await fullCensus(
+		page,
+		"0621 12:00",
+		["clouds", "grass", "daybirds", "sun"],
+		true
 	);
+	const ngBackdrop = await sidebarBackdrop(page, vp === "mobile");
 	page.check(
 		`census: #sidebar's backdrop-filter${
 			vp === "mobile" ? " (the drawer open)" : ""
 		} is classic's at the same minute (NG "${ngBackdrop}", classic "${classicBackdrop}")`,
 		ngBackdrop === classicBackdrop && classicBackdrop !== "none"
 	);
+	await calmCensus(page, "0621 12:00", noonFull);
+
+	// ---- the setting at Still: plan 1's census, now the still tier's
+
+	await setMotion(page, "still");
+	await stillCensus(page, "setting Still");
+	const still = await page.evaluate(SCENE);
 	const ngMoves = await page.evaluate(MOVES);
 	page.check(
-		`census: nothing in NG's scene moves in 300 ms (${ngMoves.moved} of ${ngMoves.clocks} clocks)`,
-		ngMoves.moved === 0
+		`setting Still: every SVG clock paused (${still.svgsRunning} of ${still.svgs} running), nothing moves in 300 ms (${ngMoves.moved} of ${ngMoves.clocks} clocks)`,
+		still.svgs > 0 && still.svgsRunning === 0 && ngMoves.moved === 0
 	);
+	await setMotion(page, "auto");
+	await moving(page, "setting Auto");
+
+	// ---- switch to classic while NG moves
 
 	await setRenderer(page, "classic");
 	const again = await at(page, noon);
 	const moves = await page.evaluate(MOVES);
+	const left = await page.evaluate(`(() => {
+		const s = document.getElementById("theme-scene");
+		return {
+			classes: [...s.classList].filter((c) => c.startsWith("psng")),
+			t: s.style.getPropertyValue("--psng-t") + getComputedStyle(s).getPropertyValue("--psng-t").trim(),
+			fire: !!s.querySelector(".ps-fire"),
+		};
+	})()`);
+	const ngFrames = await page.evaluate(NG_FRAMES);
 	page.check(
-		`switch: back on classic nothing of NG is left (psng ${again.psng}, NG sheet ${again.ngSheet})`,
-		!again.psng && !again.ngSheet
+		`switch: back on classic nothing of NG is left (psng classes [${left.classes.join(
+			" "
+		)}], --psng-t "${left.t}", NG sheet ${again.ngSheet}, fire canvas ${
+			left.fire
+		}, ${ngFrames} frames from NG in 1 s)`,
+		!again.psng &&
+			!again.ngSheet &&
+			left.classes.length === 0 &&
+			left.t === "" &&
+			!left.fire &&
+			ngFrames === 0
 	);
 	page.check(
 		`switch: classic mounts clean and runs (SMIL ${again.smil}, ${again.animations} animations, ${moves.moved} of ${moves.clocks} clocks moved in 300 ms)`,
@@ -465,43 +752,101 @@ export default async function run(page) {
 		grass.hit > 0 && grass.hit >= grass.all * 0.01
 	);
 
-	// ---- reduced motion: the same still scene
+	// ---- full and calm at night, on a storm day and at the dusk with skeins
 
-	const calm = instant(6, 21, 12, 0);
-	await at(page, calm);
-	const before = await sceneShot(page);
+	for (const [label, ms, weather, groups, sun] of [
+		[
+			"0621 23:00",
+			instant(6, 21, 23, 0),
+			"clear",
+			["clouds", "stars", "fireflies", "smoke", "grass"],
+			false,
+		],
+		["0719 12:00 storm", instant(7, 19, 12, 0), "storm", ["clouds", "weather", "grass"], false],
+		["0514 20:45 dusk", instant(5, 14, 20, 45), "clear", ["clouds", "skeins"], false],
+	]) {
+		const s = await mountNgAt(page, ms);
+		page.check(
+			`${label}: the day's weather is ${weather} (${s.weather})`,
+			s.weather === weather
+		);
+		const full = await fullCensus(page, label, groups, sun);
+		await calmCensus(page, label, full);
+	}
+
+	// ---- the still states: reduced motion off → on → off, a hidden page, a query
+
+	await mountNgAt(page, noon);
+	await moving(page, "reduced motion off");
 	await page.send("Emulation.setEmulatedMedia", {
 		features: [{name: "prefers-reduced-motion", value: "reduce"}],
 	});
 	const REDUCED = `document.documentElement.hasAttribute("data-reduce-motion")`;
-	let reduced = await page
+	const reduced = await page
 		.waitFor(REDUCED, {label: "data-reduce-motion", timeout: 3000})
 		.then(() => true)
 		.catch(() => false);
-
-	if (!reduced) {
-		console.log("  (the emulated media did not reach data-reduce-motion; set it directly)");
-		await page.evaluate(`document.documentElement.setAttribute("data-reduce-motion", "")`);
-		reduced = true;
-	}
-
-	await page.sleep(1000);
-	const after = await sceneShot(page);
-	const agree = await page.evaluate(AGREE(before.data, after.data, 2));
-	page.check(
-		`reduced motion: NG's scene equals itself without it — ${(agree.share * 100).toFixed(
-			2
-		)} % of pixels within 2 (worst ${agree.worst})`,
-		reduced && agree.size && agree.share >= 0.95
-	);
+	page.check(`reduced motion: the emulated media reaches data-reduce-motion`, reduced);
+	await page.sleep(600);
+	await stillCensus(page, "reduced motion on");
 	await page.send("Emulation.setEmulatedMedia", {features: []});
 	await page
-		.waitFor(`!document.documentElement.hasAttribute("data-reduce-motion")`, {
-			label: "reduced motion off",
-		})
+		.waitFor(`!${REDUCED}`, {label: "reduced motion off"})
 		.catch(() =>
 			page.evaluate(`document.documentElement.removeAttribute("data-reduce-motion")`)
 		);
+	await page.sleep(600);
+	await moving(page, "reduced motion off again");
+
+	await page.evaluate(VISIBILITY("hidden"));
+	await page.sleep(300);
+	await stillCensus(page, "a hidden page");
+	await page.evaluate(VISIBILITY("visible"));
+	await page.sleep(600);
+	await moving(page, "shown again");
+
+	await sendLine(page, `/query ${NICK}q`);
+	const VIEW = (v) => `document.getElementById("theme-scene").dataset.view === "${v}"`;
+	await page.waitFor(VIEW("query"), {label: "the query open"});
+	await page.sleep(600);
+	await stillCensus(page, "a query");
+	await page.evaluate(
+		`document.querySelector('.channel-list-item[data-name="#seance"]').click()`
+	);
+	await page.waitFor(VIEW("channel"), {label: "back in #seance"});
+	await page.sleep(600);
+	await moving(page, "back in #seance");
+
+	// ---- the phase: still for 30 s, then Full
+
+	await setMotion(page, "still");
+	await mountNgAt(page, noon);
+	await stillCensus(page, "phase: Still at noon");
+	await page.sleep(30000);
+	const switchedAt = await page.evaluate(`Date.now()`);
+	await setMotion(page, "full");
+	const phase = await page.evaluate(PHASE);
+	const wantT = (switchedAt - Date.UTC(2026, 5, 21)) / 1000;
+	console.log(`  phase: ${JSON.stringify(phase)}`);
+	page.check(
+		`phase: --psng-t ${phase.t}s is the clock's ${wantT.toFixed(
+			1
+		)} s since the mount day's midnight at the switch (± 3 s)`,
+		Math.abs(phase.t - wantT) <= 3
+	);
+	page.check(
+		`phase: ${
+			phase.clouds.length
+		} clouds, each animation-delay = --cdl − --psng-t (worst ${Math.max(
+			...phase.clouds.map((c) => c.delayOff)
+		).toFixed(
+			3
+		)} ms off) and translateX where (--psng-t − --cdl + currentTime) mod D puts it (worst ${(
+			Math.max(...phase.clouds.map((c) => c.err)) * 100
+		).toFixed(2)} % of its path)`,
+		phase.clouds.length > 0 && phase.clouds.every((c) => c.delayOff <= 1 && c.err <= 0.02)
+	);
+	await setMotion(page, "auto");
 
 	// ---- the pairs (no hostname in frame: the join and quit lines carry it)
 
@@ -605,10 +950,10 @@ export default async function run(page) {
 	const sheet = join(page.outDir, `contact-${vp}.html`);
 	writeFileSync(
 		sheet,
-		`<!doctype html><meta charset=utf-8><title>ps NG plan 1 — ${vp}</title><style>` +
+		`<!doctype html><meta charset=utf-8><title>ps NG plan 2, in motion — ${vp}</title><style>` +
 			`body{font:14px system-ui;margin:16px;background:#eee}h2{margin:16px 0 6px;font-size:15px}` +
 			`.r{display:flex;gap:12px}figure{margin:0}img{width:${width}px;display:block}` +
-			`figcaption{font-size:12px}</style><h1>ps NG plan 1 — classic (left) and NG (right), ${vp}</h1>${rows}`
+			`figcaption{font-size:12px}</style><h1>ps NG plan 2, in motion — classic (left) and NG (right), ${vp}</h1>${rows}`
 	);
 	await page.send("Emulation.setDeviceMetricsOverride", {
 		width: width * 2 + 60,
