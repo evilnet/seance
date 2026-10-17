@@ -123,16 +123,35 @@ function pushError(client: IrcClient, msg: SharedMsg | Partial<SharedMsg>, chann
 	client.pushMessage(chan ?? client.lobby, {...msg, showInActive: !chan}, true);
 }
 
-/** Pick a fallback nick that still fits NICKLEN. */
+/**
+ * NICKLEN only arrives after 001, so registration learns it from how the
+ * server treats a fallback that ran too long. Servers differ: nefarious2
+ * (like other ircu- and charybdis-line servers) cuts an over-long NICK and
+ * answers 433 for the cut nick if it is taken; Ergo (and others) refuse it
+ * with 432. Either way the limit is what we sent, less one; it is kept in
+ * `client.learnedNickLen`.
+ *
+ * Pick a fallback nick that still fits NICKLEN.
+ */
 function fallbackNick(client: IrcClient, wanted: string): string {
-	const maxLen = client.isupport.nicklen ?? 30;
-	const candidate = `${wanted}_`;
+	// A 433 for less than we sent: the server cut it. Without this, `alice_`
+	// cut back to a taken `alice` looped NICK/433 until timeout.
+	const sent = client.nick;
 
-	if (candidate.length <= maxLen) {
+	if (sent.length > wanted.length && sent.startsWith(wanted)) {
+		client.learnedNickLen = wanted.length;
+	}
+
+	const maxLen = client.isupport.nicklen ?? client.learnedNickLen ?? 30;
+	const candidate =
+		wanted.length < maxLen ? `${wanted}_` : `${wanted.slice(0, Math.max(1, maxLen - 1))}_`;
+
+	if (candidate !== wanted) {
 		return candidate;
 	}
 
-	return `${wanted.slice(0, Math.max(1, maxLen - 1))}_`;
+	// Already at the limit with the underscore: vary the end instead.
+	return `${wanted.slice(0, Math.max(1, maxLen - 4))}${Math.floor(1000 + Math.random() * 9000)}`;
 }
 
 // ERR_NICKNAMEINUSE / ERR_ERRONEUSNICKNAME: <me> <nick> :<reason>
@@ -151,9 +170,19 @@ const badNick: Handler = (client, msg) => {
 
 	if (!client.isConnected) {
 		// Still registering: the server will not proceed until we pick another.
-		const next = inUse
-			? fallbackNick(client, nick)
-			: `seance${Math.floor(1000 + Math.random() * 9000)}`;
+		let next: string;
+
+		if (inUse) {
+			next = fallbackNick(client, nick);
+		} else if (nick === client.nick && nick !== client.options.nick && nick.length > 1) {
+			// Our own fallback refused as erroneous: too long for a server that
+			// refuses rather than cuts. Start again from the nick asked for.
+			client.learnedNickLen = nick.length - 1;
+			next = fallbackNick(client, client.options.nick);
+		} else {
+			next = `seance${Math.floor(1000 + Math.random() * 9000)}`;
+		}
+
 		client.send(formatLine({command: "NICK", params: [next]}));
 		client.setNick(next);
 		return;

@@ -238,6 +238,9 @@ export class IrcClient {
 	/** Swapped for a new one on an STS upgrade; always subscribed via {@link reconfigure}. */
 	transport: Transport;
 	readonly isupport = new ISupport();
+	/** NICKLEN as registration learned it before 005 (`handlers/numerics.ts`);
+	 * cleared with ISUPPORT, since the next connection may be another server. */
+	learnedNickLen: number | undefined;
 	/** Attention and away bookkeeping (presence.ts). */
 	readonly presence: PresenceState = initialPresence();
 	/** Outstanding `TOKEN GENERATE` requests (draft/authtoken). */
@@ -561,7 +564,11 @@ export class IrcClient {
 		const state = this.transport.state;
 
 		if (state === "open") {
-			this.transport.send(trailingLine("QUIT", [reason ?? "Seance"]));
+			// The reason is the user's text: a line break or a long paste must
+			// not stop the close below, so it is flattened and cut to fit.
+			const text = (reason ?? "Seance").replace(/[\r\n\0]+/g, " ");
+			const [fits = ""] = splitMessage(utf8ByteLength("QUIT :"), text);
+			this.send(trailingLine("QUIT", [fits]));
 		}
 
 		this.transport.close();
@@ -792,6 +799,7 @@ export class IrcClient {
 		this.retryAt = undefined;
 		this.closeHintShown = false;
 		this.isupport.reset();
+		this.learnedNickLen = undefined;
 		this.authtoken.clear("Reconnecting");
 		this.motdBuffer = null;
 		this.host = "";
