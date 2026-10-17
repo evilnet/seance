@@ -208,7 +208,7 @@ Chrome desktop (rank-only, load 3.8–9.7): coffee 3.4, still 4.4, still-nofilte
 
 `tools/scenarios/ps-ng.mjs` against the worktree's production build, headless Chrome, host load 3–15: 27 of 27 on the desktop (1280 × 900), 24 of 24 on a phone (390 × 844, `--mobile`). A cold boot's first frame came 0.1–11.5 ms after NG's mount, already on the night sky. Screenshots and the two contact sheets in `tmp/ps-ng-shots/` (gitignored).
 
-### 8.3 Plan 3 Task 5: the iPhone gate (2026-10-17, over budget)
+### 8.3 Plan 3 Task 5: the three-platform gate (2026-10-17, over budget)
 
 iPhone 16, Safari, USB, sum of WebContent + GPU + backboardd as % of one core, medians. The gate (14 slots, 2 rounds; round 2 lost slots 19–27 to a locked screen, so those are n = 1):
 
@@ -222,6 +222,30 @@ iPhone 16, Safari, USB, sum of WebContent + GPU + backboardd as % of one core, m
 Still 1.2, coffee 4.5. Plan 2's ladder then ran one round (18 of 36 slots before the tool's 45-minute limit; n = 1), one group alone over still, total (WebContent): clouds 25.6 (0.3), smoke 16.8 (0.9), grass 15.0 (0.3), stars 31.1 (5.4), fireflies 29.0 (6.5), rain 30.2 (9.0), storm 31.8 (9.2), **skeins 72.3 (37.1)**, **daybirds 56.3 (25.6)**, **sun 52.3 (26.2)**; full noon 83, night 86, storm 76; calm noon 30.5, **calm night 105 (61.5)**; classic noon 390.
 
 What it shows: any one moving group costs backboardd 15–25 with no page work at all, so full ≤ 30 has room for about one group. The page work is in three groups — the skeins and the daybirds (wing poses) and the sun (calm keeps the spin with the fire held and reads 0.3 WebContent, so the fire is the sun's cost) — and calm's two-pose skeins cost more than full's four. NG is below classic at every moment. Plan 4 (§10) answers it; plan 3 resumes at Task 5 after it.
+
+**Android (Task 5 Step 4, 2026-10-17, rank-only).** The `seance-android` emulator (`-gpu auto`), Chrome, 2 rounds of the same 14 slots through `droid-plan3.sh`, 28 of 28 valid; sum = every Chrome process + surfaceflinger, % of one core, median of 2. No phone was tethered, and the user waived the quiet-host gate (load 3.8–13.5 here; the guest-swap gate was off too, a cold boot held 280–600 MB). A cold-booted emulator had no route to the host (10.0.2.2), so the pages load over `adb reverse`; the first attempt's slots, all error pages, are void.
+
+| moment | NG full | NG calm | classic |
+| ------ | ------- | ------- | ------- |
+| noon   | **227** | 132     | 102     |
+| night  | 111     | 89      | 165     |
+| storm  | **217** | 173     | 197     |
+| dusk   | 102     | 90      | 164     |
+
+Coffee 2.4, NG still 2.2. Classic's noon readings were 151 and 53. Nearly all of NG's day cost is the emulator's GPU process (192–200 of 217–227), which draws in software and so pays for every repainted pixel: NG's day motion repaints more than classic's here. NG is cheaper at night and dusk (by a third) and dearer at noon and in a storm; Step 4's "NG full below classic at each moment" is not met on the emulator. Unmeasured on a real Android phone.
+
+**Chrome (Task 5 Step 5, 2026-10-17).** Google Chrome headed, full-screen on the MacBook's built-in 120 Hz display (the window's own size, `HEADED=1` in `lib.mjs`), 5 rounds, every slot 5 of 5 valid and at 119.8–120 Hz by its `requestAnimationFrame` interval. Total = renderer + GPU process CPU, % of one core, median. The user waived the 2.5 load gate (load 6–14), so the figures rank rather than measure.
+
+| moment | NG full | NG calm | classic |
+| ------ | ------- | ------- | ------- |
+| noon   | 42      | 40      | 78      |
+| night  | 74      | 65      | 123     |
+| storm  | 45      | 31      | 85      |
+| dusk   | 78      | 64      | 121     |
+
+Coffee 6.0, NG still 7.5. NG's full is 36–45 % below classic at every moment: Step 5 passes. Calm saves little at night and dusk (65 and 64 against 74 and 78), where the skeins are the cost (§10.6).
+
+**Verdict.** NG is below classic on the iPhone (every moment, §8.3 above) and in Chrome; on the Android emulator it is below at night and dusk and above by day. No platform meets the §6 budgets at night or dusk. The user ruled to flip and delete regardless (2026-10-17); the skeins and calm's budget are the open work.
 
 ## 9. Plan 2: motion (designed 2026-10-16)
 
