@@ -100,10 +100,35 @@ function buzzard(div: string): string {
 	);
 }
 
-/** Classic's scene markup with every skein bird and lark a pose stack and the buzzard in boxes. */
+const LARK_STATES = ["fl", "ch", "cl"] as const;
+
+/**
+ * A lark's three wing sets (classic's `<g class="ps-lark-fl|ch|cl">`, stepped by
+ * ps.css on SVG groups, which WebKit runs on the main thread) as three HTML
+ * state boxes, `psng-lark-fl|ch|cl`, each an `<svg>` of that set alone with the
+ * body between its far and near wing, as classic layers them; the flutter's
+ * box is a pose stack. styles.ts switches the boxes by opacity.
+ */
+export function larkStates(svgMarkup: string): string {
+	const only = (state: string) =>
+		svgMarkup.replace(
+			/<g class="ps-lark-(fl|ch|cl)">([\s\S]*?)<\/g>/g,
+			(_, s: string, inner: string) => (s === state ? inner : "")
+		);
+	const fl = only("fl");
+	return LARK_STATES.map(
+		(state) =>
+			`<div class="psng-lark-${state}">` +
+			(state === "fl" ? poseStack(fl, wingTiming(fl)?.poses ?? []) : only(state)) +
+			`</div>`
+	).join("");
+}
+
+/** Classic's scene markup with every skein bird a pose stack, every lark in state boxes and the buzzard in boxes. */
 export function ngBirds(markup: string): string {
 	const stack = (svg: string) => poseStack(svg, wingTiming(svg)?.poses ?? []);
 	return markup
-		.replace(/<svg viewBox="0 0 (?:32 20|20 14)"[\s\S]*?<\/svg>/g, stack)
+		.replace(/<svg viewBox="0 0 32 20"[\s\S]*?<\/svg>/g, stack)
+		.replace(/<svg viewBox="0 0 20 14"[\s\S]*?<\/svg>/g, larkStates)
 		.replace(/<div class="ps-buzzard">[\s\S]*?<\/div>/, buzzard);
 }

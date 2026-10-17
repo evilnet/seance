@@ -122,7 +122,9 @@ describe("ps NG stylesheet (psng/styles.ts)", function () {
 			["daybirds", ".psng-buzz-orbit"],
 			["daybirds", ".psng-buzz-flap"],
 			["daybirds", ".ps-lark-track"],
-			["daybirds", ".ps-lark-fl"],
+			["daybirds", ".psng-lark-fl"],
+			["daybirds", ".psng-lark-ch"],
+			["daybirds", ".psng-lark-cl"],
 			["daybirds", ".psng-pose"],
 		];
 		const catchAll = rules.find(([sel]) => sel.startsWith("#theme-scene.psng *:not("))![0];
@@ -184,6 +186,58 @@ describe("ps NG stylesheet (psng/styles.ts)", function () {
 				sel.split(",").some((x) => /psng-pose-[13]/.test(x) && !x.includes(".psng-calm"))
 		);
 		expect(displayOutsideCalm).to.have.length(0);
+	});
+
+	it("the larks' state boxes hold each state from its own stop to the next, on linear keyframes", function () {
+		// Classic's ps-lark-fl/-ch/-cl (ps.css, steps(1, end)): the value from each stop until the next.
+		const stops = [0, 63, 69, 73, 80, 82.5];
+		const classic: Record<string, number[]> = {
+			fl: [1, 0, 1, 0, 1, 0],
+			ch: [0, 1, 0, 1, 0, 0],
+			cl: [0, 0, 0, 0, 0, 1],
+		};
+
+		for (const [state, values] of Object.entries(classic)) {
+			const block = new RegExp(`@keyframes psng-lark-${state}-h \\{([\\s\\S]*?)\\n\\}`).exec(
+				NG_STILL_CSS
+			)?.[1];
+			expect(block, `psng-lark-${state}-h`).to.be.a("string");
+			// Each frame: its percentages and its opacity.
+			const frames = [...block!.matchAll(/([\d.%,\s]+)\{\s*opacity: ([\d.]+);\s*\}/g)].map(
+				(m) => [m[1].split(",").map((p) => Number.parseFloat(p)), Number(m[2])] as const
+			);
+			expect(frames, state).to.have.length(stops.length);
+			stops.forEach((stop, i) => {
+				const until = i + 1 < stops.length ? Number((stops[i + 1] - 0.01).toFixed(2)) : 100;
+				expect(frames[i][0], `${state} from ${stop}`).to.deep.equal([stop, until]);
+				expect(frames[i][1], `${state} at ${stop}`).to.equal(values[i]);
+			});
+
+			const rule = rules.find(([sel]) =>
+				sel
+					.split(",")
+					.some(
+						(x) =>
+							x.trim() ===
+							`#theme-scene.psng.psng-m-daybirds .ps-lark .psng-lark-${state}`
+					)
+			);
+			expect(rule, `the ${state} box's rule`).to.not.equal(undefined);
+			expect(rule![1]).to.match(
+				new RegExp(`animation: psng-lark-${state}-h var\\(--ld\\) linear infinite`)
+			);
+			expect(rule![1]).to.match(/animation-delay: calc\(var\(--ldl\) - var\(--psng-t\)\)/);
+		}
+
+		// Placed like a pose (position: absolute; inset: 0), so the chute and closed states draw where classic's do.
+		const boxes = rules.find(
+			([sel, body]) =>
+				["fl", "ch", "cl"].every((k) => sel.includes(`.psng-lark-${k}`)) &&
+				/position: absolute/.test(body)
+		);
+		expect(boxes, "the state boxes placed like a pose").to.not.equal(undefined);
+		expect(boxes![1]).to.match(/inset: 0/);
+		expect(NG_STILL_CSS).to.not.match(/steps\(/);
 	});
 
 	it("never the glass, never a media query", function () {

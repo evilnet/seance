@@ -1,6 +1,6 @@
 import {expect} from "chai";
 import {dayBirdsMarkup, skeinsMarkup} from "../../../client/js/scenes/ps/birds";
-import {ngBirds, poseStack, wingTiming} from "../../../client/js/scenes/psng/poses";
+import {ngBirds, poseStack, wingTiming, larkStates} from "../../../client/js/scenes/psng/poses";
 import {NG_STILL_CSS} from "../../../client/js/scenes/psng/styles";
 
 // The birds' wingbeats as pose stacks (psng/poses.ts), read off classic's own markup (birds.ts).
@@ -77,9 +77,38 @@ describe("ps NG birds (psng/poses.ts)", function () {
 		expect(out).to.contain('<div class="ps-buzzard"><div class="psng-buzz-plane">');
 		expect(out).to.contain('class="psng-buzz-orbit"');
 		expect(out).to.contain('class="psng-buzz-flap"');
-		// The larks keep their wing sets, which classic's CSS steps.
-		expect(out.match(/class="ps-lark-ch"/g)).to.have.length(3 * 2 * 2);
+		// The larks' three wing sets are three state boxes each.
+		expect(out.match(/class="psng-lark-ch"/g)).to.have.length(3);
 		expect(out.match(/class="ps-lark-track"/g)).to.have.length(3);
+	});
+
+	it("larkStates: three HTML state boxes, the flap a pose stack, no animated group left", function () {
+		const svgs = dayBirdsMarkup().match(/<svg viewBox="0 0 20 14"[\s\S]*?<\/svg>/g)!;
+		expect(svgs).to.have.length(3);
+		const body = /<path d="(M3\.4,6\.7[^"]*)"\/>/.exec(svgs[0])![1];
+
+		for (const svg of svgs) {
+			const out = larkStates(svg);
+			const t = wingTiming(svg)!;
+			expect(out).to.not.match(/<animate|<set/);
+			expect(out).to.not.match(/ps-lark-(fl|ch|cl)/);
+			expect(out).to.not.match(/<g class=/);
+			const boxes = [...out.matchAll(/<div class="psng-lark-(fl|ch|cl)">/g)].map((m) => m[1]);
+			expect(boxes).to.deep.equal(["fl", "ch", "cl"]);
+			// The flap: wingTiming's two poses, each copy holding both wings at its pose and the body.
+			const fl = /<div class="psng-lark-fl">([\s\S]*?)<div class="psng-lark-ch">/.exec(
+				out
+			)![1];
+			expect(t.poses).to.have.length(2);
+			expect(fl.match(/class="psng-pose psng-pose-/g)).to.have.length(2);
+			// One body path per <svg>, in every state.
+			const svgsOut = out.match(/<svg[\s\S]*?<\/svg>/g)!;
+			expect(svgsOut).to.have.length(4);
+
+			for (const one of svgsOut) {
+				expect(one.split(`d="${body}"`).length - 1, one).to.equal(1);
+			}
+		}
 	});
 
 	it("the buzzard: its flap keyframes are classic's values at its keyTimes, its timings carried over", function () {

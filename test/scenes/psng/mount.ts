@@ -150,7 +150,9 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 				birds!.match(/<span class="ps-bird"[^>]*><div class="psng-pose psng-pose-0"/g)
 			).to.have.length(38);
 			expect(
-				birds!.match(/<div class="ps-lark-bird"><div class="psng-pose psng-pose-0"/g)
+				birds!.match(
+					/<div class="ps-lark-bird"><div class="psng-lark-fl"><div class="psng-pose psng-pose-0"/g
+				)
 			).to.have.length(3);
 			expect(birds).to.contain('class="psng-buzz-orbit"');
 			scene.destroy();

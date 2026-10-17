@@ -33,7 +33,7 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 
 /* Every animation off but the lifted groups' own (ps NG plan 2, Tasks 3 and 4); the rules below still
  * each of those while its psng-m-<group> class is absent. The sun's rays are exempt too (Task 6); g.ps-sway stays still for good (the wrapper sways). */
-#theme-scene.psng *:not(.ps-cloud, .ps-stars i.tw, .ps-fireflies i, .ps-smoke i, .psng-sway, .psng-rain-tile, .ps-snow i, .ps-seeds i, .ps-flash, .ps-heatband, .ps-rays, .ps-flock, .ps-skein-sway, .ps-bird, .psng-pose, .ps-buzzard, .psng-buzz-orbit, .psng-buzz-flap, .ps-lark-track, .ps-lark-fl, .ps-lark-ch, .ps-lark-cl) {
+#theme-scene.psng *:not(.ps-cloud, .ps-stars i.tw, .ps-fireflies i, .ps-smoke i, .psng-sway, .psng-rain-tile, .ps-snow i, .ps-seeds i, .ps-flash, .ps-heatband, .ps-rays, .ps-flock, .ps-skein-sway, .ps-bird, .psng-pose, .ps-buzzard, .psng-buzz-orbit, .psng-buzz-flap, .ps-lark-track, .psng-lark-fl, .psng-lark-ch, .psng-lark-cl) {
 	animation: none !important;
 }
 
@@ -103,9 +103,9 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 #theme-scene.psng:not(.psng-m-daybirds) .psng-buzz-orbit,
 #theme-scene.psng:not(.psng-m-daybirds) .psng-buzz-flap,
 #theme-scene.psng:not(.psng-m-daybirds) .ps-lark-track,
-#theme-scene.psng:not(.psng-m-daybirds) .ps-lark .ps-lark-fl,
-#theme-scene.psng:not(.psng-m-daybirds) .ps-lark .ps-lark-ch,
-#theme-scene.psng:not(.psng-m-daybirds) .ps-lark .ps-lark-cl,
+#theme-scene.psng:not(.psng-m-daybirds) .ps-lark .psng-lark-fl,
+#theme-scene.psng:not(.psng-m-daybirds) .ps-lark .psng-lark-ch,
+#theme-scene.psng:not(.psng-m-daybirds) .ps-lark .psng-lark-cl,
 #theme-scene.psng:not(.psng-m-daybirds) .ps-lark .psng-pose {
 	animation: none !important;
 }
@@ -227,7 +227,12 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 	animation-delay: calc(var(--wdl) - var(--psng-t));
 }
 
-#theme-scene.psng .psng-pose {
+/* The larks' state boxes (poses.ts larkStates) are placed as a pose is, so the chute and the closed
+ * wings draw where classic's do, not under the flutter's box. */
+#theme-scene.psng .psng-pose,
+#theme-scene.psng .psng-lark-fl,
+#theme-scene.psng .psng-lark-ch,
+#theme-scene.psng .psng-lark-cl {
 	position: absolute;
 	inset: 0;
 }
@@ -286,11 +291,123 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 	animation-delay: calc(-70s - var(--psng-t));
 }
 
-#theme-scene.psng.psng-m-daybirds .ps-lark-track,
-#theme-scene.psng.psng-m-daybirds .ps-lark .ps-lark-fl,
-#theme-scene.psng.psng-m-daybirds .ps-lark .ps-lark-ch,
-#theme-scene.psng.psng-m-daybirds .ps-lark .ps-lark-cl {
+#theme-scene.psng.psng-m-daybirds .ps-lark-track {
 	animation-delay: calc(var(--ldl) - var(--psng-t));
+}
+
+/* A lark's wing set (classic's ps-lark-fl/-ch/-cl, stepped at each stop on SVG groups): each state box holds
+ * the value classic holds from a stop to 0.01 % before the next, then ramps to the next value at the
+ * next stop on a linear timing — 6.6 ms early on the 66 s flight, under one frame — so it stays off
+ * the main thread, where a stepped timing would put it. */
+#theme-scene.psng.psng-m-daybirds .ps-lark .psng-lark-fl {
+	animation: psng-lark-fl-h var(--ld) linear infinite;
+	animation-delay: calc(var(--ldl) - var(--psng-t));
+}
+
+#theme-scene.psng.psng-m-daybirds .ps-lark .psng-lark-ch {
+	animation: psng-lark-ch-h var(--ld) linear infinite;
+	animation-delay: calc(var(--ldl) - var(--psng-t));
+}
+
+#theme-scene.psng.psng-m-daybirds .ps-lark .psng-lark-cl {
+	animation: psng-lark-cl-h var(--ld) linear infinite;
+	animation-delay: calc(var(--ldl) - var(--psng-t));
+}
+
+@keyframes psng-lark-fl-h {
+	0%,
+	62.99% {
+		opacity: 1;
+	}
+
+	63%,
+	68.99% {
+		opacity: 0;
+	}
+
+	69%,
+	72.99% {
+		opacity: 1;
+	}
+
+	73%,
+	79.99% {
+		opacity: 0;
+	}
+
+	80%,
+	82.49% {
+		opacity: 1;
+	}
+
+	82.5%,
+	100% {
+		opacity: 0;
+	}
+}
+
+@keyframes psng-lark-ch-h {
+	0%,
+	62.99% {
+		opacity: 0;
+	}
+
+	63%,
+	68.99% {
+		opacity: 1;
+	}
+
+	69%,
+	72.99% {
+		opacity: 0;
+	}
+
+	73%,
+	79.99% {
+		opacity: 1;
+	}
+
+	80%,
+	82.49% {
+		opacity: 0;
+	}
+
+	82.5%,
+	100% {
+		opacity: 0;
+	}
+}
+
+@keyframes psng-lark-cl-h {
+	0%,
+	62.99% {
+		opacity: 0;
+	}
+
+	63%,
+	68.99% {
+		opacity: 0;
+	}
+
+	69%,
+	72.99% {
+		opacity: 0;
+	}
+
+	73%,
+	79.99% {
+		opacity: 0;
+	}
+
+	80%,
+	82.49% {
+		opacity: 0;
+	}
+
+	82.5%,
+	100% {
+		opacity: 1;
+	}
 }
 
 /* The buzzard (poses.ts): classic's viewBox puts its (0, 0) at the box's centre, one unit 0.0625rem.
