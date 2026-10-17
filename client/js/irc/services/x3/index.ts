@@ -176,7 +176,29 @@ export function parseSnoop(text: string): SnoopEvent | undefined {
 // ----------------------------------------------------------------- audit
 
 /** `(<#chan>) [<nick>!<ident>@<host>:<account>]: <command args>` (log.c:995-1004). */
-const AUDIT_LINE = /^\((#\S*)?\) \[([^!\]]+)!([^@\]]+)@([^\]:]+)(?::([^\]]+))?\]: (.*)$/;
+const AUDIT_LINE = /^\((#\S*)?\) \[([^!\]]+)!([^@\]]+)@([^\]]+)\]: (.*)$/;
+
+/**
+ * `host:account` from an audit line's brackets, where the host may be an
+ * IPv6 address: with two colons or more the last part is the account only
+ * when it cannot be the address's last group (`2001:db8::1:rubin`; an
+ * all-hex account such as `beef` reads as part of the address).
+ */
+function hostAndAccount(text: string): {host: string; account?: string} {
+	const colon = text.lastIndexOf(":");
+
+	if (colon === -1) {
+		return {host: text};
+	}
+
+	const tail = text.slice(colon + 1);
+
+	if (text.indexOf(":") !== colon && /^[0-9a-f]{0,4}$/i.test(tail)) {
+		return {host: text};
+	}
+
+	return tail ? {host: text.slice(0, colon), account: tail} : {host: text.slice(0, colon)};
+}
 
 /** O3's ban commands, in both spellings. */
 const BAN_COMMANDS = new Set([
@@ -265,7 +287,7 @@ export function parseAudit(text: string): AuditEvent | undefined {
 		return undefined;
 	}
 
-	const rest = m[6].trim();
+	const rest = m[5].trim();
 	const space = rest.search(/\s/);
 	const command = (space === -1 ? rest : rest.slice(0, space)).toLowerCase();
 	const args = space === -1 ? "" : rest.slice(space + 1).trim();
@@ -274,18 +296,19 @@ export function parseAudit(text: string): AuditEvent | undefined {
 		return undefined;
 	}
 
+	const {host, account} = hostAndAccount(m[4]);
 	const event: AuditEvent = {
 		channel: m[1] ?? "",
 		nick: m[2],
 		ident: m[3],
-		host: m[4],
+		host,
 		command,
 		args,
 		coarse: auditCoarse(command, args),
 	};
 
-	if (m[5]) {
-		event.account = m[5];
+	if (account) {
+		event.account = account;
 	}
 
 	return event;

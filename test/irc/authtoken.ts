@@ -98,6 +98,22 @@ describe("draft/authtoken", function () {
 			expect(err.code).to.equal("TIMEOUT");
 			expect(q.size).to.equal(0);
 
+			// The late reply is the timed-out request's, not the next one's.
+			const next = q.request("FILEHOST", () => undefined);
+			expect(q.deliver("FILEHOST", "stale")).to.equal(true);
+			expect(q.size).to.equal(1);
+			expect(q.deliver("FILEHOST", "fresh")).to.equal(true);
+			expect(await next).to.equal("fresh");
+
+			// One that never answers gives its place up in the end.
+			const lost = q.request("FILEHOST", () => undefined);
+			clock.tick(60);
+			await lost.catch(() => undefined);
+			clock.tick(200);
+			const after = q.request("FILEHOST", () => undefined);
+			expect(q.deliver("FILEHOST", "t")).to.equal(true);
+			expect(await after).to.equal("t");
+
 			const p2 = q.request("FILEHOST", () => undefined);
 			q.clear();
 			const err2 = (await p2.catch((e: Error) => e)) as Error & {code: string};

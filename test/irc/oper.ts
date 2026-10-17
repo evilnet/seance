@@ -10,6 +10,7 @@ import {
 	trim,
 	MAX_AGE_MS,
 	MAX_ENTRIES,
+	SAVE_DELAY_MS,
 	useNoticeLogBackend,
 } from "../../client/js/irc/noticelog";
 import {
@@ -842,6 +843,28 @@ describe("oper tools: the notice log (irc/noticelog.ts)", function () {
 			log.append(entry(t + 2));
 			log.flush();
 			expect(logStore.get("n1")).to.have.length(4);
+		} finally {
+			clock.restore();
+		}
+	});
+
+	it("saves a line that arrived before the store was read, with no line after it", async function () {
+		const clock = sinon.useFakeTimers({
+			toFake: ["setTimeout", "clearTimeout"],
+			now: 5 * MAX_AGE_MS,
+		});
+
+		try {
+			const t = Date.now();
+			logStore.set("n1", [entry(t - 1000)]);
+			const log = new NoticeLog("n1", () => true);
+			log.append(entry(t));
+			log.flush(); // the page hiding before the read: nothing may be written yet
+			expect(logStore.get("n1")).to.have.length(1);
+
+			await log.load();
+			clock.tick(SAVE_DELAY_MS);
+			expect(logStore.get("n1")!.map((e) => e.time)).to.deep.equal([t - 1000, t]);
 		} finally {
 			clock.restore();
 		}

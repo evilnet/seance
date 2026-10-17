@@ -52,6 +52,14 @@ describe("the user card's verdict (helpers/verdict.ts)", function () {
 		expect(ipInCidr("203.0.113.7", "203.0.113.0/24")).to.equal(true);
 		expect(ipInCidr("203.0.114.7", "203.0.113.0/24")).to.equal(false);
 		expect(ipInCidr("203.0.113.7", "203.0.113.7")).to.equal(false);
+		expect(ipInCidr("2001:db8::5", "2001:db8::/32")).to.equal(true);
+		expect(ipInCidr("2001:db9::5", "2001:db8::/32")).to.equal(false);
+		expect(ipInCidr("2001:db8:0:1::5", "2001:db8:0:1::/64")).to.equal(true);
+		expect(ipInCidr("203.0.113.7", "2001:db8::/32")).to.equal(false);
+		expect(ipInCidr("1.2.3.4", "0.0.0.0/0")).to.equal(true);
+		expect(maskCovers("*@2001:db8::/32", {nick: "v6", ip: "2001:db8::5"})).to.equal(true);
+		// a host that is a bare IP (snoop lines carry no IP field)
+		expect(maskCovers("*@1.2.3.0/24", {nick: "h", host: "1.2.3.4"})).to.equal(true);
 
 		expect(maskCovers("*@203.0.113.7", USER)).to.equal(true);
 		expect(maskCovers("*@203.0.113.*", USER)).to.equal(true);

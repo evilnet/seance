@@ -246,6 +246,18 @@ describe("X3 services profile (irc/services/x3)", function () {
 				args: "x",
 				coarse: "other",
 			});
+			// an IPv6 host, with and without an account
+			expect(parseAudit("(#operserv) [bob!~b@2001:db8::1]: gline *@x 1h spam")).to.include({
+				host: "2001:db8::1",
+				command: "gline",
+			});
+			expect(
+				parseAudit("(#operserv) [bob!~b@2001:db8::1]: gline *@x 1h spam")
+			).to.not.have.property("account");
+			expect(parseAudit("() [bob!~b@2001:db8::1:rubin]: god on")).to.include({
+				host: "2001:db8::1",
+				account: "rubin",
+			});
 			expect(parseAudit("() [Rubin!~r@h:rubin]: god on")).to.include({
 				command: "god",
 				args: "on",

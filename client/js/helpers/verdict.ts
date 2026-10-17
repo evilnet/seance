@@ -9,6 +9,7 @@
  */
 
 import type {LoggedNotice} from "../irc/noticelog";
+import {expandV6} from "./commonality";
 import {compareWithWildcard} from "../irc/hostmask";
 import type {LiveBan} from "../irc/profiles/nefarious/stats";
 
@@ -38,7 +39,21 @@ function ipv4(ip: string): number | undefined {
 		: ((parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3]) >>> 0;
 }
 
-/** Whether `ip` is inside `cidr` (`a.b.c.d/n`); IPv4 only, false otherwise. */
+/** An IPv4 or IPv6 address as a number and its width in bits. */
+function ipBits(ip: string): {value: bigint; width: number} | undefined {
+	const v4 = ipv4(ip);
+
+	if (v4 !== undefined) {
+		return {value: BigInt(v4), width: 32};
+	}
+
+	const groups = expandV6(ip);
+	return groups
+		? {value: BigInt(`0x${groups.map((g) => g.padStart(4, "0")).join("")}`), width: 128}
+		: undefined;
+}
+
+/** Whether `ip` is inside `cidr` (`a.b.c.d/n` or `v6::/n`), the same family only. */
 export function ipInCidr(ip: string, cidr: string): boolean {
 	const m = /^(.+)\/(\d{1,3})$/.exec(cidr);
 
@@ -47,19 +62,15 @@ export function ipInCidr(ip: string, cidr: string): boolean {
 	}
 
 	const bits = Number(m[2]);
-	const a = ipv4(ip);
-	const b = ipv4(m[1]);
+	const a = ipBits(ip);
+	const b = ipBits(m[1]);
 
-	if (a === undefined || b === undefined || bits > 32) {
+	if (!a || !b || a.width !== b.width || bits > a.width) {
 		return false;
 	}
 
-	if (bits === 0) {
-		return true;
-	}
-
-	const mask = (0xffffffff << (32 - bits)) >>> 0;
-	return (a & mask) >>> 0 === (b & mask) >>> 0;
+	const shift = BigInt(a.width - bits);
+	return a.value >> shift === b.value >> shift;
 }
 
 /**
@@ -98,7 +109,11 @@ export function maskCovers(mask: string, user: Identity): boolean {
 		return true;
 	}
 
-	return user.host !== undefined && compareWithWildcard(hostPart, user.host);
+	// A host that is a bare IP (no reverse DNS; snoop quit/kill lines carry no IP field)
+	return (
+		user.host !== undefined &&
+		(compareWithWildcard(hostPart, user.host) || ipInCidr(user.host, hostPart))
+	);
 }
 
 // ------------------------------------------------------------- bans

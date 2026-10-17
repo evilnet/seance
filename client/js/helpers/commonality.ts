@@ -163,7 +163,7 @@ export function ipRange(ip: string): {cidr: string; label: string} | undefined {
 }
 
 /** The eight groups of an IPv6 address, `::` expanded; undefined when it is not one. */
-function expandV6(ip: string): string[] | undefined {
+export function expandV6(ip: string): string[] | undefined {
 	const halves = ip.split("::");
 
 	if (halves.length > 2) {

@@ -148,9 +148,17 @@ export class NoticeLog {
 			stored = [];
 		}
 
-		// Lines appended while the store was being read come after it.
+		// Lines appended while the store was being read come after it. Their
+		// save was skipped (nothing may be written before the read), so it is
+		// due now, or a page discarded before the next notice loses them.
+		const early = this.entries.length;
 		this.entries = trim([...stored, ...this.entries]);
 		this.loaded = true;
+
+		if (early > 0) {
+			this.scheduleSave();
+		}
+
 		return stored;
 	}
 

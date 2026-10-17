@@ -49,6 +49,10 @@ describe("nefarious2 bans (profiles/nefarious/bans.ts)", function () {
 		expect(checkMask("gline", "*@1.2.3.0/24")).to.deep.equal({needsForce: true});
 		expect(checkMask("gline", "*@1.2.3.*")).to.deep.equal({needsForce: true});
 		expect(checkMask("gline", "*@*.example.com")).to.deep.equal({needsForce: true});
+		// all hex letters, still a hostname
+		expect(checkMask("gline", "*@*.cafe.de")).to.deep.equal({needsForce: true});
+		expect(checkMask("gline", "*@cafe.bad.de")).to.deep.equal({needsForce: false});
+		expect(checkMask("zline", "cafe.de").error).to.match(/IP address or CIDR/);
 		expect(checkMask("gline", "*@1.2.0.0/8").error).to.match(/16/);
 		expect(checkMask("gline", "*@*.com").error).to.match(/two dots/);
 		expect(checkMask("gline", "*@foo.*.com").error).to.match(/last two labels/);

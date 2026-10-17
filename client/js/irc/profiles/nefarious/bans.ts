@@ -151,11 +151,17 @@ export interface MaskCheck {
 function checkIp(host: string): MaskCheck | undefined {
 	const cidr = /^([0-9a-f.:*?]+?)(?:\/(\d{1,3}))?$/i.exec(host);
 
-	if (!cidr || !/[.:]/.test(cidr[1]) || !/^[0-9a-f.:*?]+$/i.test(cidr[1])) {
+	if (!cidr || !/[.:]/.test(cidr[1])) {
 		return undefined; // not an IP mask
 	}
 
 	const v6 = cidr[1].includes(":");
+
+	// Hex letters belong to IPv6 only: `*.cafe.de` is a hostname.
+	if (!v6 && !/^[\d.*?]+$/.test(cidr[1])) {
+		return undefined;
+	}
+
 	const wild = /[*?]/.test(cidr[1]);
 	let bits = cidr[2] === undefined ? (v6 ? 128 : 32) : Number(cidr[2]);
 
