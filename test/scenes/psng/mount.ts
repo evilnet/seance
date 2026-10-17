@@ -17,9 +17,9 @@ import {
 	routeReducedMotion,
 	setReducedMotion,
 	type Page,
-} from "../ps/standin";
+} from "../standin";
 
-// The NG still scene's mount() (psng/scene.ts) on classic's stand-in page (ps/standin.ts).
+// The NG still scene's mount() (psng/scene.ts) on the shared stand-in page (test/scenes/standin.ts).
 
 const SMIL = "animate, animateMotion, animateTransform, set";
 const THEME_COLOR = "#3f8fe6";

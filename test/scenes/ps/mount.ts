@@ -4,9 +4,9 @@ import {weatherClouds} from "../../../client/js/scenes/ps/plains";
 import {FADE_MARGIN_MS} from "../../../client/js/scenes/ps/layers";
 import {mount, OVERCAST_FADE_MS} from "../../../client/js/scenes/ps/scene";
 import type {SceneHandle} from "../../../client/js/themeScene";
-import {FakeElement, FakeResizeObserver, installPage, type FakeSvg, type Page} from "./standin";
+import {FakeElement, FakeResizeObserver, installPage, type FakeSvg, type Page} from "../standin";
 
-// scene.ts's mount() on the stand-in page (standin.ts).
+// scene.ts's mount() on the stand-in page (test/scenes/standin.ts).
 
 /** Run `fn` with the fake page's globals installed and sinon's clock at a clear noon; both removed after. */
 function withPage(fn: (page: Page, clock: sinon.SinonFakeTimers) => void) {
