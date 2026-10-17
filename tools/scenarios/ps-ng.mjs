@@ -698,6 +698,15 @@ const MOMENTS = [
 	["0719-1200-storm", instant(7, 19, 12, 0), "storm"],
 ];
 
+// A discharging battery at 0.5 whose level a check moves, firing `levelchange`.
+const FAKE_BATTERY = `(() => {
+	const b = new EventTarget();
+	b.charging = false;
+	b.level = 0.5;
+	window.__fakeBattery = {set(l) { b.level = l; b.dispatchEvent(new Event("levelchange")); }};
+	navigator.getBattery = () => Promise.resolve(b);
+})()`;
+
 export default async function run(page) {
 	const vp = page.flags.has("--mobile") ? "mobile" : "desktop";
 	await page.send("Emulation.setTimezoneOverride", {timezoneId: "Etc/GMT"});
@@ -705,6 +714,7 @@ export default async function run(page) {
 	await page.addInitScript(PAGE_HELPERS);
 	await page.addInitScript(PREVIEW_FLAG);
 	await page.addInitScript(NG_FRAME_COUNTER);
+	await page.addInitScript(FAKE_BATTERY);
 
 	await page.goto(page.url, {waitForSelector: "#connect form"});
 	await page.evaluate(`document.querySelector("#connect form").requestSubmit()`);
@@ -986,6 +996,21 @@ export default async function run(page) {
 			mobile: false,
 		});
 		await page.sleep(600);
+	}
+
+	if (vp === "desktop") {
+		// Low power from the battery: a discharging 0.5 changes nothing, 0.1 takes Auto down to calm.
+		const setLevel = (l) => page.evaluate(`window.__fakeBattery.set(${l})`);
+		page.check(
+			"battery 0.5, discharging: Auto stays full (no psng-calm)",
+			!(await calmClass())
+		);
+		await setLevel(0.1);
+		await page.sleep(500);
+		page.check("battery 0.1: psng-calm within 500 ms", await calmClass());
+		await setLevel(0.5);
+		await page.sleep(500);
+		page.check("battery back to 0.5: psng-calm gone", !(await calmClass()));
 	}
 
 	await setMotion(page, "full");

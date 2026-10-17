@@ -10,6 +10,7 @@
  */
 
 import {PHONE_LAYOUT_QUERY} from "./helpers/device";
+import {createPowerMerge} from "./helpers/power";
 
 export type SceneView = "channel" | "query" | "other";
 
@@ -433,6 +434,26 @@ export function installThemeSceneHooks(): void {
 	layout.addEventListener("change", syncPhone);
 	touch.addEventListener("change", syncPhone);
 	syncPhone();
+
+	// Tasks 3 and 4 add the system's battery saver here: power.update({saver}).
+	const power = createPowerMerge((lowPower) => themeScene.setDevice({lowPower}));
+	const nav = navigator as Navigator & {
+		getBattery?: () => Promise<EventTarget & {charging: boolean; level: number}>;
+	};
+
+	if (nav.getBattery) {
+		nav.getBattery().then(
+			(b) => {
+				const read = () => power.update({battery: {charging: b.charging, level: b.level}});
+				b.addEventListener("chargingchange", read);
+				b.addEventListener("levelchange", read);
+				read();
+			},
+			() => power.update({battery: null})
+		);
+	} else {
+		power.update({battery: null});
+	}
 
 	const sync = () => {
 		const visible = document.visibilityState !== "hidden";
