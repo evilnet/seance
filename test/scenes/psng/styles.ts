@@ -11,7 +11,16 @@ const rules = [
 ].map((m) => [m[1].trim(), m[2]] as const);
 
 describe("ps NG stylesheet (psng/styles.ts)", function () {
-	for (const group of ["clouds", "stars", "fireflies", "smoke", "grass", "weather"]) {
+	for (const group of [
+		"clouds",
+		"stars",
+		"fireflies",
+		"smoke",
+		"grass",
+		"weather",
+		"skeins",
+		"daybirds",
+	]) {
 		it(`${group}: still without psng-m-${group}, in phase with it`, function () {
 			const still = rules.filter(
 				([sel, body]) =>
@@ -87,10 +96,63 @@ describe("ps NG stylesheet (psng/styles.ts)", function () {
 		);
 	});
 
-	it("the birds and the sun get no lift yet", function () {
-		for (const group of ["skeins", "daybirds", "sun"]) {
-			expect(NG_STILL_CSS).to.not.contain(`psng-m-${group}`);
+	it("the birds: every moving part lifted in phase, out of the page without its group", function () {
+		const lifted = (group: string, what: string) =>
+			rules.some(
+				([sel, body]) =>
+					sel.startsWith(`#theme-scene.psng.psng-m-${group} `) &&
+					sel.includes(what) &&
+					/animation-delay:[^;]*var\(--psng-t\)/.test(body)
+			);
+		const parts: Array<[string, string]> = [
+			["skeins", ".ps-flock"],
+			["skeins", ".ps-skein-sway"],
+			["skeins", ".ps-bird"],
+			["skeins", ".psng-pose"],
+			["daybirds", ".ps-buzzard"],
+			["daybirds", ".psng-buzz-orbit"],
+			["daybirds", ".psng-buzz-flap"],
+			["daybirds", ".ps-lark-track"],
+			["daybirds", ".ps-lark-fl"],
+			["daybirds", ".psng-pose"],
+		];
+		const catchAll = rules.find(([sel]) => sel.startsWith("#theme-scene.psng *:not("))![0];
+
+		for (const [group, what] of parts) {
+			expect(lifted(group, what), `${group} ${what}`).to.equal(true);
+			expect(catchAll, `${what} exempt`).to.contain(what);
 		}
+
+		// The skein sway reads its own --sdl, never the smoke's or the seeds'.
+		expect(rules).to.deep.include([
+			"#theme-scene.psng.psng-m-skeins .ps-skein-sway",
+			"\n\tanimation-delay: calc(var(--sdl) - var(--psng-t));\n",
+		]);
+
+		for (const group of ["skeins", "daybirds"]) {
+			const hidden = rules.some(
+				([s, body]) =>
+					s
+						.split(",")
+						.map((x) => x.trim())
+						.includes(`#theme-scene.psng:not(.psng-m-${group}) .ps-${group}`) &&
+					/display: none/.test(body)
+			);
+			expect(hidden, group).to.equal(true);
+		}
+
+		// One pose at a time: a hard swap at a quarter (full) or a half (calm, larks), never steps().
+		expect(NG_STILL_CSS).to.match(
+			/@keyframes psng-pose4 \{\s*0%,\s*24\.99% \{\s*opacity: 1;\s*\}\s*25%,\s*100% \{\s*opacity: 0;/
+		);
+		expect(NG_STILL_CSS).to.match(
+			/@keyframes psng-pose2 \{\s*0%,\s*49\.99% \{\s*opacity: 1;\s*\}\s*50%,\s*100% \{\s*opacity: 0;/
+		);
+		expect(NG_STILL_CSS).to.not.match(/psng-pose[^}]*steps\(/);
+	});
+
+	it("the sun gets no lift yet", function () {
+		expect(NG_STILL_CSS).to.not.contain("psng-m-sun");
 	});
 
 	it("never the glass, never a media query", function () {

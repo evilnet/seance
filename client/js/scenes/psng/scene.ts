@@ -23,6 +23,7 @@ import {HEAT_HAZE, weatherLayers} from "../ps/plains";
 import {publishMoment, unpublish} from "../ps/publish";
 import {overcastBuilder, placeYurt, watchComposer, watchLand} from "../ps/watchers";
 import {GROUPS, groupOverride, groupsFor} from "./groups";
+import {ngBirds} from "./poses";
 import {rainTiles} from "./rain";
 import {NG_STILL_CSS} from "./styles";
 import {phaseSeconds, tierFor, type Tier} from "./tiers";
@@ -199,7 +200,8 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	try {
 		root.classList.add("psng");
 		document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
-		root.innerHTML = sceneMarkup(isPhoneLayout());
+		// The birds rebuilt from their SMIL before it goes (poses.ts): wing poses, the buzzard in boxes.
+		root.innerHTML = ngBirds(sceneMarkup(isPhoneLayout()));
 		stripSmil(root);
 		// Still with no SMIL left, but paused so nothing (the sun's filter) keeps a clock running.
 		root.querySelectorAll("svg").forEach((svg) => svg.pauseAnimations());

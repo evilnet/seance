@@ -26,16 +26,16 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 }
 
 /* Every animation off but the lifted groups' own (ps NG plan 2, Tasks 3 and 4); the rules below still
- * each of those while its psng-m-<group> class is absent. The birds and the sun's rays stay still
- * here until their own tasks lift them; g.ps-sway stays still for good (the wrapper sways). */
-#theme-scene.psng *:not(.ps-cloud, .ps-stars i.tw, .ps-fireflies i, .ps-smoke i, .psng-sway, .psng-rain-tile, .ps-snow i, .ps-seeds i, .ps-flash, .ps-heatband) {
+ * each of those while its psng-m-<group> class is absent. The sun's rays stay still here until their
+ * own task lifts them; g.ps-sway stays still for good (the wrapper sways). */
+#theme-scene.psng *:not(.ps-cloud, .ps-stars i.tw, .ps-fireflies i, .ps-smoke i, .psng-sway, .psng-rain-tile, .ps-snow i, .ps-seeds i, .ps-flash, .ps-heatband, .ps-flock, .ps-skein-sway, .ps-bird, .psng-pose, .ps-buzzard, .psng-buzz-orbit, .psng-buzz-flap, .ps-lark-track, .ps-lark-fl, .ps-lark-ch, .ps-lark-cl) {
 	animation: none !important;
 }
 
 /* What exists only in flight is out of the page while it is still: the weather's (the flash too, so
  * it is never caught lit) without psng-m-weather, and the seeds in calm, which keeps them still. */
-#theme-scene.psng .ps-skeins,
-#theme-scene.psng .ps-daybirds,
+#theme-scene.psng:not(.psng-m-skeins) .ps-skeins,
+#theme-scene.psng:not(.psng-m-daybirds) .ps-daybirds,
 #theme-scene.psng:not(.psng-m-weather) .ps-rain,
 #theme-scene.psng:not(.psng-m-weather) .ps-snow,
 #theme-scene.psng:not(.psng-m-weather) .ps-seeds,
@@ -68,7 +68,19 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 #theme-scene.psng:not(.psng-m-weather) .ps-snow i,
 #theme-scene.psng:not(.psng-m-weather) .ps-seeds i,
 #theme-scene.psng:not(.psng-m-weather) .ps-flash,
-#theme-scene.psng:not(.psng-m-weather) .ps-heatband {
+#theme-scene.psng:not(.psng-m-weather) .ps-heatband,
+#theme-scene.psng:not(.psng-m-skeins) .ps-flock,
+#theme-scene.psng:not(.psng-m-skeins) .ps-skein-sway,
+#theme-scene.psng:not(.psng-m-skeins) .ps-bird,
+#theme-scene.psng:not(.psng-m-skeins) .ps-bird .psng-pose,
+#theme-scene.psng:not(.psng-m-daybirds) .ps-buzzard,
+#theme-scene.psng:not(.psng-m-daybirds) .psng-buzz-orbit,
+#theme-scene.psng:not(.psng-m-daybirds) .psng-buzz-flap,
+#theme-scene.psng:not(.psng-m-daybirds) .ps-lark-track,
+#theme-scene.psng:not(.psng-m-daybirds) .ps-lark .ps-lark-fl,
+#theme-scene.psng:not(.psng-m-daybirds) .ps-lark .ps-lark-ch,
+#theme-scene.psng:not(.psng-m-daybirds) .ps-lark .ps-lark-cl,
+#theme-scene.psng:not(.psng-m-daybirds) .ps-lark .psng-pose {
 	animation: none !important;
 }
 
@@ -162,5 +174,179 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 #theme-scene.psng.psng-m-weather .ps-flash,
 #theme-scene.psng.psng-m-weather .ps-heatband {
 	animation-delay: calc(0s - var(--psng-t));
+}
+
+/* ---- the birds (ps NG plan 2, Task 5) ----
+ * The flocks' flight, the skeins' sway, each bird's wander, the buzzard's drift and the larks' song
+ * flights and wing sets are classic's own animations, in phase (each delay rule names its own
+ * element: --sdl is the smoke's and the seeds' too). The wingbeats are poses.ts's stacks: one copy
+ * of the bird per pose, each shown by opacity for its share of the beat, a hard swap on linear
+ * timing; its delay is the SMIL's begin, the copy's share and one beat back, so it is never
+ * positive and the copies' order is the beat's. */
+#theme-scene.psng.psng-m-skeins .ps-flock {
+	animation-delay: calc(var(--fdl) - var(--psng-t));
+}
+
+#theme-scene.psng.psng-m-skeins .ps-skein-sway {
+	animation-delay: calc(var(--sdl) - var(--psng-t));
+}
+
+#theme-scene.psng.psng-m-skeins .ps-bird {
+	animation-delay: calc(var(--wdl) - var(--psng-t));
+}
+
+#theme-scene.psng .psng-pose {
+	position: absolute;
+	inset: 0;
+}
+
+#theme-scene.psng .psng-pose:not(.psng-pose-0) {
+	opacity: 0;
+}
+
+#theme-scene.psng.psng-m-skeins .ps-bird .psng-pose {
+	animation: psng-pose4 var(--wdur) linear infinite;
+	animation-delay: calc(var(--wbegin) - var(--psng-t) + (var(--pf) - 1) * var(--wdur));
+}
+
+/* Calm: up and down alone, each half the beat. */
+#theme-scene.psng.psng-m-skeins.psng-calm .ps-bird .psng-pose {
+	animation-name: psng-pose2;
+}
+
+#theme-scene.psng.psng-calm .ps-bird .psng-pose-1,
+#theme-scene.psng.psng-calm .ps-bird .psng-pose-3 {
+	animation: none !important;
+	opacity: 0;
+}
+
+#theme-scene.psng.psng-m-daybirds .ps-lark .psng-pose {
+	animation: psng-pose2 var(--wdur) linear infinite;
+	animation-delay: calc(var(--wbegin) - var(--psng-t) + (var(--pf) - 1) * var(--wdur));
+}
+
+@keyframes psng-pose4 {
+	0%,
+	24.99% {
+		opacity: 1;
+	}
+
+	25%,
+	100% {
+		opacity: 0;
+	}
+}
+
+@keyframes psng-pose2 {
+	0%,
+	49.99% {
+		opacity: 1;
+	}
+
+	50%,
+	100% {
+		opacity: 0;
+	}
+}
+
+#theme-scene.psng.psng-m-daybirds .ps-buzzard {
+	animation-delay: calc(-70s - var(--psng-t));
+}
+
+#theme-scene.psng.psng-m-daybirds .ps-lark-track,
+#theme-scene.psng.psng-m-daybirds .ps-lark .ps-lark-fl,
+#theme-scene.psng.psng-m-daybirds .ps-lark .ps-lark-ch,
+#theme-scene.psng.psng-m-daybirds .ps-lark .ps-lark-cl {
+	animation-delay: calc(var(--ldl) - var(--psng-t));
+}
+
+/* The buzzard (poses.ts): classic's viewBox puts its (0, 0) at the box's centre, one unit 0.0625rem.
+ * The plane is classic's scale(1 .5), moved to the centre of the circle fitted through LOOP's bounding
+ * box, (-1, 1); the arm turns once per circle, from where LOOP starts (44, 0), -1.3deg; at the arm's
+ * end, the radius (45) out, the bird faces along the circle (rotate="auto": a quarter turn on the
+ * arm); the flap is classic's scale keyframes, eased as its keySplines. Each box is 0 x 0 at the
+ * point its transform turns about, but the flap, centred on it. */
+#theme-scene.psng .psng-buzz-plane,
+#theme-scene.psng .psng-buzz-orbit,
+#theme-scene.psng .psng-buzz-bird {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 0;
+	height: 0;
+}
+
+#theme-scene.psng .psng-buzz-plane {
+	left: 50%;
+	top: 50%;
+	transform: scaleY(0.5) translate(-0.0625rem, 0.0625rem);
+}
+
+#theme-scene.psng .psng-buzz-orbit {
+	transform: rotate(-1.3deg);
+}
+
+#theme-scene.psng .psng-buzz-bird {
+	transform: translateX(2.8125rem) rotate(90deg);
+}
+
+#theme-scene.psng .psng-buzz-flap {
+	position: absolute;
+	left: -0.8125rem;
+	top: -1.25rem;
+	width: 1.625rem;
+	height: 2.5rem;
+}
+
+#theme-scene.psng.psng-m-daybirds .psng-buzz-orbit {
+	animation: psng-buzz-orbit var(--psng-od) linear infinite;
+	animation-delay: calc(var(--psng-ob) - var(--psng-t));
+}
+
+#theme-scene.psng.psng-m-daybirds .psng-buzz-flap {
+	animation: psng-buzz-flap var(--psng-fd) cubic-bezier(0.42, 0, 0.58, 1) infinite;
+	animation-delay: calc(var(--psng-fb) - var(--psng-t));
+}
+
+@keyframes psng-buzz-orbit {
+	from {
+		transform: rotate(-1.3deg);
+	}
+
+	to {
+		transform: rotate(358.7deg);
+	}
+}
+
+/* classic's flap values at its keyTimes (birds.ts buzzard(): seconds of 52). */
+@keyframes psng-buzz-flap {
+	0% {
+		transform: scaleY(1);
+	}
+
+	0.6154% {
+		transform: scaleY(0.62);
+	}
+
+	1.2308% {
+		transform: scaleY(0.88);
+	}
+
+	1.8462% {
+		transform: scaleY(0.62);
+	}
+
+	2.4615% {
+		transform: scaleY(0.88);
+	}
+
+	3.0769% {
+		transform: scaleY(0.66);
+	}
+
+	3.75%,
+	100% {
+		transform: scaleY(1);
+	}
 }
 `;
