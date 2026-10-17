@@ -135,6 +135,65 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 		});
 	});
 
+	describe("the weather layer", function () {
+		/** The weather and overcast layers, planted so the test holds what the scene writes. */
+		const layers = (page: Page) => {
+			const weather = new FakeElement(".ps-weather");
+			const overcast = new FakeElement(".ps-overcast");
+			page.root.planted.set(".ps-weather", weather);
+			page.root.planted.set(".ps-overcast", overcast);
+			return {weather, overcast};
+		};
+
+		it("a rain day: classic's layers with the rain in tiles, no haze, no SMIL", function () {
+			const at = new Date(2026, 9, 19, 12, 0);
+			expect(momentAt(at).weather).to.equal("rain");
+			withPage(at, (page) => {
+				const {weather} = layers(page);
+				const smil = new FakeElement("animate");
+				const removed = sinon.spy(smil, "remove");
+				weather.lists.set(SMIL, () => [smil]);
+				const scene = mountOn(page);
+				expect(weather.markup).to.contain('<div class="ps-rain">');
+				expect(weather.markup.match(/class="psng-rain-tile"/g)).to.have.length(6);
+				expect(weather.markup).to.contain('<div class="ps-seeds">');
+				expect(weather.markup).to.not.match(/ps-heat|<animate|<set/);
+				expect(removed.called, "SMIL stripped from the layer").to.equal(true);
+				scene.destroy();
+			});
+		});
+
+		it("a hot day: the heat band, never the haze", function () {
+			const at = new Date(2026, 5, 22, 13, 0);
+			expect(momentAt(at).weather).to.equal("heat");
+			withPage(at, (page) => {
+				const {weather} = layers(page);
+				const scene = mountOn(page);
+				expect(weather.markup).to.contain('<div class="ps-heatband"></div>');
+				expect(weather.markup).to.not.match(/ps-heat-haze|ps-heat"|feTurbulence/);
+				scene.destroy();
+			});
+		});
+
+		it("rain into a clear day at local midnight: the rain gone in the tick that rebuilds the overcast", function () {
+			const at = new Date(2026, 2, 29, 23, 58, 30);
+			expect(momentAt(at).weather).to.equal("rain");
+			expect(momentAt(new Date(2026, 2, 30, 0, 1)).weather).to.equal("clear");
+			withPage(at, (page, clock) => {
+				const {weather, overcast} = layers(page);
+				const scene = mountOn(page);
+				expect(weather.markup).to.contain("psng-rain-tile");
+				const rebuilt = sinon.spy(overcast, "replaceChildren");
+				clock.tick(60000);
+				expect(weather.markup, "23:59 still rain").to.contain("psng-rain-tile");
+				clock.tick(60000);
+				expect(rebuilt.callCount, "the overcast rebuilt at 00:00").to.equal(1);
+				expect(weather.markup, "and the rain gone with it").to.equal("");
+				scene.destroy();
+			});
+		});
+	});
+
 	for (const hour of [12, 23]) {
 		it(`publishes what classic publishes (2026-06-21 ${hour}:00)`, function () {
 			const at = new Date(2026, 5, 21, hour, 0);

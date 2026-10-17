@@ -25,19 +25,22 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 	transition: none !important;
 }
 
-/* Every animation off but the five lifted groups' own (ps NG plan 2, Task 3); the rules below still
- * each of those while its psng-m-<group> class is absent. The weather, the birds and the sun's rays
- * stay still here until their own tasks lift them; g.ps-sway stays still for good (the wrapper sways). */
-#theme-scene.psng *:not(.ps-cloud, .ps-stars i.tw, .ps-fireflies i, .ps-smoke i, .psng-sway) {
+/* Every animation off but the lifted groups' own (ps NG plan 2, Tasks 3 and 4); the rules below still
+ * each of those while its psng-m-<group> class is absent. The birds and the sun's rays stay still
+ * here until their own tasks lift them; g.ps-sway stays still for good (the wrapper sways). */
+#theme-scene.psng *:not(.ps-cloud, .ps-stars i.tw, .ps-fireflies i, .ps-smoke i, .psng-sway, .psng-rain-tile, .ps-snow i, .ps-seeds i, .ps-flash, .ps-heatband) {
 	animation: none !important;
 }
 
+/* What exists only in flight is out of the page while it is still: the weather's (the flash too, so
+ * it is never caught lit) without psng-m-weather, and the seeds in calm, which keeps them still. */
 #theme-scene.psng .ps-skeins,
 #theme-scene.psng .ps-daybirds,
-#theme-scene.psng .ps-rain,
-#theme-scene.psng .ps-snow,
-#theme-scene.psng .ps-seeds,
-#theme-scene.psng .ps-flash,
+#theme-scene.psng:not(.psng-m-weather) .ps-rain,
+#theme-scene.psng:not(.psng-m-weather) .ps-snow,
+#theme-scene.psng:not(.psng-m-weather) .ps-seeds,
+#theme-scene.psng:not(.psng-m-weather) .ps-flash,
+#theme-scene.psng.psng-calm .ps-seeds,
 #theme-scene.psng:not(.psng-m-smoke) .ps-smoke {
 	display: none;
 }
@@ -60,7 +63,16 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 #theme-scene.psng:not(.psng-m-stars) .ps-stars i.tw,
 #theme-scene.psng:not(.psng-m-fireflies) .ps-fireflies i,
 #theme-scene.psng:not(.psng-m-smoke) .ps-smoke i,
-#theme-scene.psng:not(.psng-m-grass) .psng-sway {
+#theme-scene.psng:not(.psng-m-grass) .psng-sway,
+#theme-scene.psng:not(.psng-m-weather) .psng-rain-tile,
+#theme-scene.psng:not(.psng-m-weather) .ps-snow i,
+#theme-scene.psng:not(.psng-m-weather) .ps-seeds i,
+#theme-scene.psng:not(.psng-m-weather) .ps-flash,
+#theme-scene.psng:not(.psng-m-weather) .ps-heatband {
+	animation: none !important;
+}
+
+#theme-scene.psng.psng-calm .ps-seeds i {
 	animation: none !important;
 }
 
@@ -103,5 +115,52 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 
 #theme-scene.psng.psng-m-grass.ps-windy .psng-sway {
 	animation-duration: 2.4s;
+}
+
+/* ---- the weather (ps NG plan 2, Task 4) ----
+ * Snow, seeds, the storm's flash and the heat band are classic's own animations, in phase. The rain is
+ * rain.ts's tiles: each the scene's size, falling exactly its own height (a translateY percentage is of
+ * the element's own box) over its sheet's --rd, its twin one tile up; the drops in them are classic's
+ * (ps.css .ps-rain i) with its animation off, top from rain.ts, and classic's slant (3.9cqw across a
+ * 118cqh fall) drawn into each drop as a skew, since a tile moves only in Y. */
+#theme-scene.psng .psng-rain-sheet {
+	position: absolute;
+	inset: 0;
+}
+
+#theme-scene.psng .psng-rain-tile {
+	position: absolute;
+}
+
+#theme-scene.psng .ps-rain i {
+	transform: skewX(atan2(-3.9cqw, 118cqh));
+}
+
+#theme-scene.psng.psng-m-weather .psng-rain-tile {
+	animation: psng-rain-fall var(--rd) linear infinite;
+	animation-delay: calc(0s - var(--psng-t));
+}
+
+@keyframes psng-rain-fall {
+	from {
+		transform: translateY(0);
+	}
+
+	to {
+		transform: translateY(100%);
+	}
+}
+
+#theme-scene.psng.psng-m-weather .ps-snow i {
+	animation-delay: calc(var(--fdl) - var(--psng-t));
+}
+
+#theme-scene.psng.psng-m-weather .ps-seeds i {
+	animation-delay: calc(var(--sdl) - var(--psng-t));
+}
+
+#theme-scene.psng.psng-m-weather .ps-flash,
+#theme-scene.psng.psng-m-weather .ps-heatband {
+	animation-delay: calc(0s - var(--psng-t));
 }
 `;

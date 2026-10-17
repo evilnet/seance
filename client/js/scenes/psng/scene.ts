@@ -3,8 +3,9 @@
  * markup (scenes/ps/markup.ts) with every SMIL element taken out and every
  * svg's clock paused, its own stylesheet (styles.ts: no animation, no
  * transition, the in-flight layers out, each cloud at rest on its path), and
- * classic's gates applied at once, without fades. It never builds the weather
- * layer and never sets `ps-hot`. Once a minute while the page is visible
+ * classic's gates applied at once, without fades. Its weather layer is
+ * classic's with the rain in viewport-sized tiles (rain.ts) and never the heat
+ * haze, and it never sets `ps-hot`. Once a minute while the page is visible
  * (and at once when it is shown) it writes the moment as classic does and
  * publishes exactly what classic publishes (publish.ts). It imports nothing
  * from scenes/ps/scene.ts, so classic's stepper, birds runtime and fades
@@ -18,13 +19,34 @@ import {momentAt, type Weather} from "../ps/engine";
 import {GATES, liveLayers, type Gate} from "../ps/layers";
 import {sceneClasses, sceneMarkup, sceneVars, weatherChanged} from "../ps/markup";
 import {paletteAt} from "../ps/palette";
+import {HEAT_HAZE, weatherLayers} from "../ps/plains";
 import {publishMoment, unpublish} from "../ps/publish";
 import {overcastBuilder, placeYurt, watchComposer, watchLand} from "../ps/watchers";
 import {GROUPS, groupOverride, groupsFor} from "./groups";
+import {rainTiles} from "./rain";
 import {NG_STILL_CSS} from "./styles";
 import {phaseSeconds, tierFor, type Tier} from "./tiers";
 
 const MOTION_CLASSES = [...GROUPS.map((g) => `psng-m-${g}`), "psng-calm"];
+const SMIL = "animate, animateMotion, animateTransform, set";
+
+/** Every SMIL element under `el` out of the page. */
+const stripSmil = (el: Element) => el.querySelectorAll(SMIL).forEach((s) => s.remove());
+
+/**
+ * The day's weather as classic draws it (plains.ts `weatherLayers`, halved on a phone), but never
+ * the heat haze, and the rain as viewport-sized tiles (rain.ts) in classic's place among the layers.
+ */
+function weatherMarkup(weather: Weather): string {
+	return weatherLayers(weather, isPhoneLayout())
+		.replace(HEAT_HAZE, "")
+		.replace(/<div class="ps-rain">(.*?)<\/div>/, (_, drops: string) =>
+			rainTiles(drops.split("<i ").length - 1, {
+				width: window.innerWidth,
+				height: window.innerHeight,
+			})
+		);
+}
 
 export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	const html = document.documentElement;
@@ -38,6 +60,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	let visible = false;
 	let built: Weather | null = null;
 	let overcast: ReturnType<typeof overcastBuilder> | undefined;
+	let weatherLayer: HTMLElement | undefined;
 	let yurt: ReturnType<typeof placeYurt> | undefined;
 	let composer: ReturnType<typeof watchComposer> | undefined;
 	let land: ReturnType<typeof watchLand> | undefined;
@@ -75,9 +98,15 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		const p = paletteAt(m);
 		const vars = sceneVars(m, p);
 
-		// The day's own clouds (weatherClouds: no SMIL), replaced at once.
+		// The day's own clouds (weatherClouds: no SMIL) and its weather, replaced at once, together.
 		if (weatherChanged(built, m.weather)) {
 			overcast?.build(m.weather, false);
+
+			if (weatherLayer) {
+				weatherLayer.innerHTML = weatherMarkup(m.weather);
+				stripSmil(weatherLayer);
+			}
+
 			built = m.weather;
 		}
 
@@ -171,9 +200,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		root.classList.add("psng");
 		document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
 		root.innerHTML = sceneMarkup(isPhoneLayout());
-		root.querySelectorAll("animate, animateMotion, animateTransform, set").forEach((el) =>
-			el.remove()
-		);
+		stripSmil(root);
 		// Still with no SMIL left, but paused so nothing (the sun's filter) keeps a clock running.
 		root.querySelectorAll("svg").forEach((svg) => svg.pauseAnimations());
 		// The near grass sways as one box (styles.ts): its svg in a div.psng-sway, once.
@@ -187,6 +214,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		}
 
 		overcast = overcastBuilder(root.querySelector(".ps-overcast") as HTMLElement);
+		weatherLayer = root.querySelector(".ps-weather") as HTMLElement;
 		yurt = placeYurt(root);
 		composer = watchComposer(root, html);
 		land = watchLand(root);
