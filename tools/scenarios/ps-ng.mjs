@@ -32,9 +32,13 @@
 //   all that evening, migration is spring and autumn — and 14 May is the
 //   nearest clear day that has them, 24 minutes after its sunset);
 // - the still states, each the STILL census: reduced motion toggled live
-//   (the emulated media, `data-reduce-motion` set directly if it does not
-//   arrive) off → on → off, moving before and after; a hidden page; a query
-//   (`/query`, `data-view="query"`), then back to #seance and moving;
+//   through the emulated media off → on → off — setting it must bring
+//   `data-reduce-motion` and clearing it must take it away, each a check of
+//   its own, within 3 s — moving before and after, and after it goes off the
+//   clouds' phase as below (the move out of still at the moment the media
+//   was cleared); a hidden page; a query (`/query`, `data-view="query"`),
+//   then back to #seance and moving ("moving" is animations on the scene,
+//   frames from NG's chunk and at least one in-flight layer displayed);
 // - the phase: NG mounted at noon with the setting at Still, 30 s of real
 //   time, then Full: `--psng-t` equals the pinned clock's seconds since the
 //   mount day's midnight at the moment of the switch (± 3 s), and for each
@@ -49,6 +53,10 @@
 //   ps-drift's path puts it at (W + w + 0.5rem) × progress − w − 0.25rem
 //   (W the scene's width, the cqw container; w the cloud's own width), the
 //   error taken round the loop's seam;
+// - switching the theme from ps to coffee while NG moves: no `psng*` class on
+//   #theme-scene, no `--psng-t` (inline or computed), no NG adopted sheet, no
+//   `.ps-fire`, no frame request from NG's chunk over 1 s; then back to ps,
+//   NG mounted and moving;
 // - shoots classic and NG in motion (Auto) at 21 June 12:00, 14 May 20:45
 //   (the dusk with skeins, above), 21 June 23:30, 19 October 12:00 (rain) and
 //   19 July 12:00 (storm), named so the pairs sort together
@@ -80,8 +88,11 @@
 // with the skeins' `psng-pose4` as `psng-pose2` and the seeds (`ps-seed`)
 // gone — so the gates of the moment decide both; and NG's chunk requests no
 // frame over 1 s (the fire keeps the one frame it painted).
-// The STILL census: `getAnimations({subtree: true})` is empty, no SMIL, and
-// NG's chunk requests no animation frame over 1 s. Frame requests are counted
+// The STILL census: `getAnimations({subtree: true})` is empty, no group
+// class, no SMIL, NG's chunk requests no animation frame over 1 s, and every
+// in-flight layer in the page (.ps-skeins, .ps-daybirds, .ps-rain, .ps-snow,
+// .ps-seeds, .ps-flash, .ps-smoke) computes `display: none`, with at least one
+// of them found so the check is never vacuous. Frame requests are counted
 // by an init script wrapping `requestAnimationFrame` that counts a call whose
 // stack names `scene-ps-ng.js` (NG's chunk), so Vue's and classic's frames
 // never count.
@@ -89,7 +100,8 @@
 //   NODE_ENV=production npx webpack && python3 -m http.server -d public 8041 &
 //   SEANCE_HTTP_PORT=8041 node tools/browser-drive.mjs tools/scenarios/ps-ng.mjs \
 //     --out=tmp/ps-ng-shots/plan2
-//   (and again with --mobile --width=390 --height=844)
+//   (and again with --mobile --width=390 --height=844, and as a landscape
+//   phone with --mobile --width=932 --height=430)
 //
 // The clock is a Date shim in UTC (theme-ps.mjs's CLOCK_SHIM), with one
 // addition: `sessionStorage["psng.clock"]` presets it for the next document,
@@ -593,9 +605,34 @@ async function calmCensus(page, label, full) {
 	await setMotion(page, "auto");
 }
 
+/** What exists only in flight: out of the page while NG is still (styles.ts). */
+const IN_FLIGHT = [
+	".ps-skeins",
+	".ps-daybirds",
+	".ps-rain",
+	".ps-snow",
+	".ps-seeds",
+	".ps-flash",
+	".ps-smoke",
+];
+
+/** Of the in-flight layers in the page: how many, and which compute a display other than none. */
+const FLIGHT = `(() => {
+	const s = document.getElementById("theme-scene");
+	const found = ${JSON.stringify(
+		IN_FLIGHT
+	)}.flatMap((q) => [...s.querySelectorAll(q)].map((el) => [q, el]));
+	return {
+		found: found.length,
+		names: [...new Set(found.map(([q]) => q))],
+		shown: [...new Set(found.filter(([, el]) => getComputedStyle(el).display !== "none").map(([q]) => q))],
+	};
+})()`;
+
 /** The STILL census (header). */
 async function stillCensus(page, label) {
 	const c = await page.evaluate(CENSUS);
+	const f = await page.evaluate(FLIGHT);
 	const frames = await page.evaluate(NG_FRAMES);
 	page.check(
 		`${label}: still — no animation on NG's scene (${c.anims}), no group class (${
@@ -603,15 +640,51 @@ async function stillCensus(page, label) {
 		}), no SMIL (${c.smil}), no frame from NG in 1 s (${frames})`,
 		c.anims === 0 && c.classes.length === 0 && c.smil === 0 && frames === 0
 	);
+	page.check(
+		`${label}: still — every in-flight layer out of the page: ${f.found} found (${f.names.join(
+			" "
+		)}), displayed: ${f.shown.join(" ") || "none"}`,
+		f.found > 0 && f.shown.length === 0
+	);
 }
 
-/** Moving again: animations on the scene and, with the sun up, the fire's frames. */
+/** Moving again: animations on the scene, the fire's frames, and an in-flight layer back in the page. */
 async function moving(page, label) {
 	const c = await page.evaluate(CENSUS);
+	const f = await page.evaluate(FLIGHT);
 	const frames = await page.evaluate(NG_FRAMES);
 	page.check(
-		`${label}: moving again — ${c.anims} animations, ${frames} frames from NG in 1 s`,
-		c.anims > 0 && frames > 0
+		`${label}: moving again — ${
+			c.anims
+		} animations, ${frames} frames from NG in 1 s, in-flight layers displayed: ${
+			f.shown.join(" ") || "none"
+		}`,
+		c.anims > 0 && frames > 0 && f.shown.length > 0
+	);
+}
+
+/** The clouds' phase (header) after a move out of still at `switchedAt` (the pinned clock), NG mounted on 21 June. */
+async function phaseCheck(page, label, switchedAt) {
+	const phase = await page.evaluate(PHASE);
+	const wantT = (switchedAt - Date.UTC(2026, 5, 21)) / 1000;
+	console.log(`  ${label}: ${JSON.stringify(phase)}`);
+	page.check(
+		`${label}: --psng-t ${phase.t}s is the clock's ${wantT.toFixed(
+			1
+		)} s since the mount day's midnight at the switch (± 3 s)`,
+		Math.abs(phase.t - wantT) <= 3
+	);
+	page.check(
+		`${label}: ${
+			phase.clouds.length
+		} clouds, each animation-delay = --cdl − --psng-t (worst ${Math.max(
+			...phase.clouds.map((c) => c.delayOff)
+		).toFixed(
+			3
+		)} ms off) and translateX where (--psng-t − --cdl + currentTime) mod D puts it (worst ${(
+			Math.max(...phase.clouds.map((c) => c.err)) * 100
+		).toFixed(2)} % of its path)`,
+		phase.clouds.length > 0 && phase.clouds.every((c) => c.delayOff <= 1 && c.err <= 0.02)
 	);
 }
 
@@ -789,13 +862,15 @@ export default async function run(page) {
 	page.check(`reduced motion: the emulated media reaches data-reduce-motion`, reduced);
 	await page.sleep(600);
 	await stillCensus(page, "reduced motion on");
+	const offAt = await page.evaluate(`Date.now()`);
 	await page.send("Emulation.setEmulatedMedia", {features: []});
-	await page
-		.waitFor(`!${REDUCED}`, {label: "reduced motion off"})
-		.catch(() =>
-			page.evaluate(`document.documentElement.removeAttribute("data-reduce-motion")`)
-		);
+	const unreduced = await page
+		.waitFor(`!${REDUCED}`, {label: "reduced motion off", timeout: 3000})
+		.then(() => true)
+		.catch(() => false);
+	page.check(`reduced motion: clearing the emulated media clears data-reduce-motion`, unreduced);
 	await page.sleep(600);
+	await phaseCheck(page, "phase after reduced motion", offAt);
 	await moving(page, "reduced motion off again");
 
 	await page.evaluate(VISIBILITY("hidden"));
@@ -825,28 +900,48 @@ export default async function run(page) {
 	await page.sleep(30000);
 	const switchedAt = await page.evaluate(`Date.now()`);
 	await setMotion(page, "full");
-	const phase = await page.evaluate(PHASE);
-	const wantT = (switchedAt - Date.UTC(2026, 5, 21)) / 1000;
-	console.log(`  phase: ${JSON.stringify(phase)}`);
-	page.check(
-		`phase: --psng-t ${phase.t}s is the clock's ${wantT.toFixed(
-			1
-		)} s since the mount day's midnight at the switch (± 3 s)`,
-		Math.abs(phase.t - wantT) <= 3
-	);
-	page.check(
-		`phase: ${
-			phase.clouds.length
-		} clouds, each animation-delay = --cdl − --psng-t (worst ${Math.max(
-			...phase.clouds.map((c) => c.delayOff)
-		).toFixed(
-			3
-		)} ms off) and translateX where (--psng-t − --cdl + currentTime) mod D puts it (worst ${(
-			Math.max(...phase.clouds.map((c) => c.err)) * 100
-		).toFixed(2)} % of its path)`,
-		phase.clouds.length > 0 && phase.clouds.every((c) => c.delayOff <= 1 && c.err <= 0.02)
-	);
+	await phaseCheck(page, "phase", switchedAt);
 	await setMotion(page, "auto");
+
+	// ---- the theme to coffee while NG moves, then back to ps
+
+	const beforeCoffee = await page.evaluate(CENSUS);
+	await page.evaluate(`${STORE}.dispatch("settings/update", {name: "theme", value: "coffee"})`);
+	await page.waitFor(`!document.getElementById("theme-scene").classList.contains("psng")`, {
+		label: "NG gone with coffee",
+	});
+	await page.sleep(600);
+	const coffee = await page.evaluate(`(() => {
+		const s = document.getElementById("theme-scene");
+		return {
+			classes: [...s.classList].filter((c) => c.startsWith("psng")),
+			t: s.style.getPropertyValue("--psng-t") + getComputedStyle(s).getPropertyValue("--psng-t").trim(),
+			sheet: document.adoptedStyleSheets.some((sh) =>
+				[...sh.cssRules].some((r) => r.cssText.includes("#theme-scene.psng"))
+			),
+			fire: !!document.querySelector(".ps-fire"),
+		};
+	})()`);
+	const coffeeFrames = await page.evaluate(NG_FRAMES);
+	page.check(
+		`theme to coffee while NG moved (${
+			beforeCoffee.anims
+		} animations): no psng class [${coffee.classes.join(" ")}], no --psng-t "${
+			coffee.t
+		}", NG sheet ${coffee.sheet}, fire canvas ${
+			coffee.fire
+		}, ${coffeeFrames} frames from NG in 1 s`,
+		beforeCoffee.anims > 0 &&
+			coffee.classes.length === 0 &&
+			coffee.t === "" &&
+			!coffee.sheet &&
+			!coffee.fire &&
+			coffeeFrames === 0
+	);
+	await page.evaluate(`${STORE}.dispatch("settings/update", {name: "theme", value: "ps"})`);
+	await waitRenderer(page, "ng");
+	await at(page, noon);
+	await moving(page, "theme back to ps");
 
 	// ---- the pairs (no hostname in frame: the join and quit lines carry it)
 
