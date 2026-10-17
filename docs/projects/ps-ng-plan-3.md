@@ -242,6 +242,10 @@ No product code. Spec §8.3: before the default flips, iPhone, Android and Chrom
 - Modify: `/Users/rdrake/workspace/afternet/seance/tmp/perf/ng2/lib.mjs` (gitignored harness in the **main checkout**, outside the worktree; add the slots below to `VARIANTS`)
 - Modify: `docs/projects/ps-ng.md` (a new §8.3 with the tables)
 
+- [ ] **Step 0: Merge `fix/psng-fire-pace` into `feat/ps-ng`**
+
+The branch (pushed, three commits, 2026-10-17) is what the gate must measure: the sun's fire waking 24 times a second instead of on every screen refresh (it cost a 120 Hz desktop about 15 % of a core), the yurt's fade, and a rest that freezes the scene in place and resumes from there. `ps-ng.mjs` will conflict with Task 6's edits only if Task 6 comes first; here it merges cleanly or with small hand fixes. Update spec §9.1 (the phase is the clock minus the time spent frozen) and the CLAUDE.md ps NG bullet (a rest freezes; reduced motion, Still and the drawer snap). Run `test/scenes/psng/*.ts` and `ps-ng.mjs` desktop; expected PASS (86/86 on the branch).
+
 - [ ] **Step 1: Refresh the harness's app and preflight**
 
 `NODE_ENV=production corepack yarn build` in the worktree; `rsync -a public/ <main>/tmp/perf/ng2/app/` and put `<script src="spike.js"></script>` back as the first line of `<head>` in `app/index.html`. Slots, with explicit `mo=` so Auto's device rule never chooses: `coffee`, `ng-still`, and for each of four moments — `noon` `2026-09-25T12:30`, `night` `2026-09-25T23:30`, `storm` `2026-07-19T12:00`, `dusk` `2026-05-14T20:45` (plan 2's three-flock skeins) — `full-<m>`, `calm-<m>`, `classic-<m>`: **14 slots**. `DRYRUN=1 SLOTS="…" ./ios-run.sh 2` prints the playlist and duration (14 × 2 × 50 s + 45 s ≈ 24 min). One Chrome round through `run-chrome.mjs` with the same slots must give a valid beacon for every slot, and each slot's beacon records the groups running (`#theme-scene`'s `psng-m-` classes); `dusk` must show `skeins`, `storm` must show `weather`.
@@ -259,8 +263,8 @@ Run plan 2's ladder (`SHORT=plan2`) at that moment only, to name the group, and 
 - [ ] **Step 4: Android** — a real phone if the user has one tethered, else the emulator rank-only on a host with load < 2.5: `droid-plan2.sh` with the same 14 slots.
       Expected: NG's full below classic's at each moment.
 
-- [ ] **Step 5: Chrome** — `run-chrome.mjs`, 5 rounds, load gate 2.5.
-      Expected: NG's full below classic's at each moment.
+- [ ] **Step 5: Chrome, headed, on the laptop's 120 Hz screen** — not headless. Headless renders at 60 Hz in a 1512 × 900 window, and on 2026-10-17 it showed NG cheaper than classic while the user's Chrome on the built-in XDR display (120 Hz, 3024 × 1964) showed the reverse: anything that wakes per screen refresh costs twice as much there. Run `run-chrome.mjs`'s slots with `headless: false`, the window full-screen on the built-in display, the Mac on its charger with **Low Power Mode off** (it slows the CPU and inflates every percentage), 5 rounds, load gate 2.5. Each slot records the median `requestAnimationFrame` interval; it must be ~8.3 ms, or the slot is not at 120 Hz and is re-run. Windows open on the user's screen: tell the user first and run while they are away from the Mac. Cost per slot is renderer + GPU process CPU, as Chrome's Task Manager counts them (the user's reference reading: classic 12–18 %, NG after the fire fix 11–15 %, with Low Power Mode on).
+      Expected: NG's full at or below classic's at each moment; every slot at ~8.3 ms.
 
 - [ ] **Step 6: Write §8.3 and commit**
 
