@@ -31,7 +31,9 @@ import {
 	RAIN_DECK_HEIGHT,
 	weatherLayers,
 } from "../../client/js/scenes/ps/plains";
-import {OVERCAST_FADE_MS, sceneMarkup, sceneVars} from "../../client/js/scenes/ps/scene";
+import {sceneMarkup, sceneVars} from "../../client/js/scenes/ps/markup";
+import {OVERCAST_FADE_MS} from "../../client/js/scenes/ps/watchers";
+import {NG_STILL_CSS} from "../../client/js/scenes/psng/styles";
 import {
 	checkedGrounds,
 	dayGlassGrounds,
@@ -3007,7 +3009,8 @@ describe("the ps theme's plains (plan 3: the land, the river, the near grass, th
 	});
 
 	it("sways the blades by the weather's angle with its own keyframes", function () {
-		expect(valueOf(`${S} .ps-blades .ps-sway`, "animation")).to.match(/^ps-sway /);
+		// NG sways the grass as one wrapper, div.psng-sway, on ps.css's keyframes.
+		expect(NG_STILL_CSS).to.match(/\.psng-m-grass \.psng-sway \{\s*animation: ps-sway /);
 		const frames = css.match(/@keyframes ps-sway\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
 		expect(frames).to.include("skewX(");
 		expect(frames).to.include("var(--ps-sway");
@@ -3203,7 +3206,7 @@ describe("the ps theme's clouds and weather (plan 3 task 4, spec §5.1, §5.5)",
 	});
 
 	it("speeds the blades to 2.4 s and the clouds to 0.4 of their time on a windy day", function () {
-		expect(valueOf(`${S}.ps-windy .ps-blades .ps-sway`, "animation-duration")).to.equal("2.4s");
+		expect(NG_STILL_CSS).to.match(/\.ps-windy \.psng-sway \{\s*animation-duration: 2\.4s;/);
 		expect(valueOf(`${S}.ps-windy .ps-cloud`, "animation-duration")).to.equal(
 			"calc(var(--cd) * 0.4)"
 		);

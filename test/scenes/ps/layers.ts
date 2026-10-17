@@ -11,7 +11,7 @@ import {
 	type GateEffects,
 } from "../../../client/js/scenes/ps/layers";
 import {levelsAt, paletteAt} from "../../../client/js/scenes/ps/palette";
-import {sceneVars} from "../../../client/js/scenes/ps/scene";
+import {sceneVars} from "../../../client/js/scenes/ps/markup";
 
 const at = (doy: number, minute: number, weather: Weather) =>
 	momentFor({minute, doy, dayNumber: 20574, epochDays: 20574 + minute / 1440, weather});

@@ -3,7 +3,6 @@ import sinon from "sinon";
 import {momentAt} from "../../../client/js/scenes/ps/engine";
 import {sceneClasses} from "../../../client/js/scenes/ps/markup";
 import {paletteAt} from "../../../client/js/scenes/ps/palette";
-import {mount as mountClassic} from "../../../client/js/scenes/ps/scene";
 import {mount, RELEASE_MS} from "../../../client/js/scenes/psng/scene";
 import {NG_STILL_CSS} from "../../../client/js/scenes/psng/styles";
 import type {SceneHandle, SceneHostState} from "../../../client/js/themeScene";
@@ -218,47 +217,115 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 		});
 	});
 
-	for (const hour of [12, 23]) {
-		it(`publishes what classic publishes (2026-06-21 ${hour}:00)`, function () {
-			const at = new Date(2026, 5, 21, hour, 0);
-
-			const run = (fn: typeof mount) => {
-				let out: ReturnType<typeof published> | undefined;
-				withPage(at, (page) => {
-					const meta = page.plantMeta(THEME_COLOR);
-					const scene = fn(page.root as unknown as HTMLElement, state());
-					out = published(page, meta);
-					scene.destroy();
-				});
-				return out!;
-			};
-
-			const ng = run(mount);
-			const classic = run(mountClassic);
-			expect(ng.meta).to.not.equal(THEME_COLOR);
-			expect(ng).to.deep.equal(classic);
-		});
-	}
-
-	it("NG then classic on the same root: classic's destroy still leaves nothing", function () {
-		withPage(new Date(2026, 5, 21, 23, 0), (page, clock) => {
+	// Captured from NG when classic was deleted (2026-10-17), where it matched classic exactly.
+	it("publishes the noon of 21 June 2026", function () {
+		withPage(new Date(2026, 5, 21, 12, 0), (page) => {
 			const meta = page.plantMeta(THEME_COLOR);
-			const root = page.root as unknown as HTMLElement;
-			mount(root, state()).destroy();
-			mountClassic(root, state({view: "query"})).destroy();
-			expect(page.doc.adoptedStyleSheets).to.deep.equal([]);
-			expect([...page.root.classList.names]).to.deep.equal([]);
-			expect(page.root.markup).to.equal("");
-			expect([...page.root.style.props.keys()]).to.deep.equal([]);
-			expect(Object.keys(page.root.dataset)).to.deep.equal([]);
-			expect(clock.countTimers()).to.equal(0);
-			expect(page.observers().filter((o) => !o.disconnected)).to.have.length(0);
-			expect(page.win.all).to.deep.equal([]);
-			expect(page.pendingFrames()).to.equal(0);
-			expect(meta.content).to.equal(THEME_COLOR);
-			expect(Object.keys(page.html.dataset)).to.deep.equal([]);
-			expect([...page.html.style.props.keys()]).to.deep.equal([]);
-			expect([...page.html.classList.names]).to.deep.equal([]);
+			const scene = mountOn(page);
+			expect(published(page, meta)).to.deep.equal({
+				htmlData: {
+					psLight: "day",
+					psText: "light",
+				},
+				htmlStyle: {
+					"--ps-halo": "#ebf6fd",
+					"--canvas-bg-color": "#4291e6",
+					"--ps-g-tint-header": "0.44",
+					"--ps-g-tint-composer": "0.40",
+					"--ps-g-tint-side": "0.51",
+					"--ps-g-tint-float": "0.60",
+				},
+				htmlClasses: [],
+				rootWeather: "clear",
+				rootSeason: "summer",
+				rootStyle: {
+					"--ps-sky-top": "#4291e6",
+					"--ps-sky-mid": "#8fc3f4",
+					"--ps-sky-hor": "#d3eafb",
+					"--ps-stars": "0.000",
+					"--ps-milky": "0.000",
+					"--ps-glow": "#ffe8b8",
+					"--ps-glow-op": "0.000",
+					"--ps-glow-x": "47.08%",
+					"--ps-sun-x": "47.08%",
+					"--ps-sun-y": "10.25%",
+					"--ps-sun-scale": "1.002",
+					"--ps-sun-op": "1.00",
+					"--ps-sun-mid": "#ffe07a",
+					"--ps-sun-edge": "#ffb23c",
+					"--ps-sun-flame": "#ffce5a",
+					"--ps-sun-bloom": "#fff2b8",
+					"--ps-moon-x": "172.98%",
+					"--ps-moon-y": "66.24%",
+					"--ps-moon-op": "0.000",
+					"--ps-mount": "#aabcd6",
+					"--ps-far": "#d3dd9c",
+					"--ps-hill2": "#aacf73",
+					"--ps-hill1": "#92c15f",
+					"--ps-grass": "#7db44d",
+					"--ps-blade": "#689f3f",
+					"--ps-felt": "#f9f5ed",
+					"--ps-band": "#b5634b",
+					"--ps-door": "#cc5a2e",
+					"--ps-cloud": "#ffffff",
+					"--ps-cloud-under": "#ebf2fb",
+					"--ps-mount2": "#b5c6c8",
+					"--ps-tree": "#68884e",
+					"--ps-trunk": "#66673d",
+					"--ps-shrub": "#829267",
+					"--ps-tuft2": "#97c165",
+					"--ps-tuft1": "#85b755",
+					"--ps-tuft-lit": "#b3d17f",
+					"--ps-riverbed": "#bec686",
+					"--ps-bedstone": "#a3a778",
+					"--ps-river-hi": "#e5f2fd",
+					"--ps-river-sky-top": "#d3eafb",
+					"--ps-river-sky-bottom": "#8fc3f4",
+					"--ps-felt-shade": "#cfcac8",
+					"--ps-roof-top": "#f9f6ee",
+					"--ps-roof-bottom": "#d0c9c3",
+					"--ps-roof-stroke": "#aea49a",
+					"--ps-band-mark": "#d9a98d",
+					"--ps-rope": "#aea296",
+					"--ps-rib": "#cfc7bc",
+					"--ps-door-orn": "#e7a155",
+					"--ps-crown": "#b6ada3",
+					"--ps-pipe": "#7d7670",
+					"--ps-stone": "#96ab7b",
+					"--ps-wood": "#847544",
+					"--ps-water": "0.25",
+					"--ps-flowers": "0.75",
+					"--ps-snowcap": "0.00",
+					"--ps-ff-op": "0.00",
+					"--ps-wind-op": "0.00",
+					"--ps-sway": "2.2deg",
+					"--ps-heat-op": "0.00",
+					"--ps-veil": "0.00",
+					"--ps-veil-c": "#5a6478",
+					"--ps-rain-op": "0.00",
+					"--ps-snow-op": "0.00",
+					"--ps-tuft-lit-op": "0.50",
+					"--ps-night-glow": "0.000",
+					"--ps-smoke-op": "0.000",
+					"--ps-smoke": "rgb(210 210 212 / 55%)",
+					"--ps-dark": "0.000",
+					"--ps-skeins-op": "0.00",
+					"--ps-skein-count": "0",
+					"--ps-bird-ink": "#2c3242",
+					"--ps-bird-wing": "#2c3242",
+					"--ps-bird-belly": "#2c3242",
+					"--ps-bird-alpha": "0.740",
+					"--ps-buzzard-op": "1",
+					"--ps-lark-op": "1",
+					"--ps-db-ink": "#3a3436",
+				},
+				moon: {
+					rx: "1.46",
+					fill: "#000",
+				},
+				meta: "#4291e6",
+			});
+			scene.destroy();
 		});
 	});
 

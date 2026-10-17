@@ -16,7 +16,7 @@ import {
 	sceneMarkup,
 	sceneVars,
 	weatherChanged,
-} from "../../../client/js/scenes/ps/scene";
+} from "../../../client/js/scenes/ps/markup";
 
 const days = (iso: string) => Date.parse(iso) / 86400000;
 

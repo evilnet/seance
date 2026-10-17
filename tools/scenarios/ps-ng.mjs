@@ -542,10 +542,15 @@ async function setMotion(page, value) {
 }
 
 /** NG mounted afresh with the clock at `ms`, so the mount day (and so `--psng-t`) is that moment's. */
+/** A fresh mount on `ms`'s day: the theme to coffee and back, so the phase starts from that day. */
 async function mountNgAt(page, ms) {
-	await setRenderer(page, "classic");
+	await page.evaluate(`${STORE}.dispatch("settings/update", {name: "theme", value: "coffee"})`);
+	await page.waitFor(`!document.getElementById("theme-scene").classList.contains("psng")`, {
+		label: "NG gone with coffee",
+	});
 	await page.evaluate(`window.__setClock(${ms})`);
-	await setRenderer(page, "ng");
+	await page.evaluate(`${STORE}.dispatch("settings/update", {name: "theme", value: "ps"})`);
+	await waitRenderer(page, "ng");
 	return at(page, ms);
 }
 
