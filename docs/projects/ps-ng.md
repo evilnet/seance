@@ -208,6 +208,21 @@ Chrome desktop (rank-only, load 3.8–9.7): coffee 3.4, still 4.4, still-nofilte
 
 `tools/scenarios/ps-ng.mjs` against the worktree's production build, headless Chrome, host load 3–15: 27 of 27 on the desktop (1280 × 900), 24 of 24 on a phone (390 × 844, `--mobile`). A cold boot's first frame came 0.1–11.5 ms after NG's mount, already on the night sky. Screenshots and the two contact sheets in `tmp/ps-ng-shots/` (gitignored).
 
+### 8.3 Plan 3 Task 5: the iPhone gate (2026-10-17, over budget)
+
+iPhone 16, Safari, USB, sum of WebContent + GPU + backboardd as % of one core, medians. The gate (14 slots, 2 rounds; round 2 lost slots 19–27 to a locked screen, so those are n = 1):
+
+| moment | NG full (≤ 30) | NG calm (≤ 24) | classic |
+| ------ | -------------- | -------------- | ------- |
+| noon   | 83             | 29             | 393     |
+| night  | 86             | 104            | 126     |
+| storm  | 65             | 48             | 398     |
+| dusk   | 86             | 102            | 118     |
+
+Still 1.2, coffee 4.5. Plan 2's ladder then ran one round (18 of 36 slots before the tool's 45-minute limit; n = 1), one group alone over still, total (WebContent): clouds 25.6 (0.3), smoke 16.8 (0.9), grass 15.0 (0.3), stars 31.1 (5.4), fireflies 29.0 (6.5), rain 30.2 (9.0), storm 31.8 (9.2), **skeins 72.3 (37.1)**, **daybirds 56.3 (25.6)**, **sun 52.3 (26.2)**; full noon 83, night 86, storm 76; calm noon 30.5, **calm night 105 (61.5)**; classic noon 390.
+
+What it shows: any one moving group costs backboardd 15–25 with no page work at all, so full ≤ 30 has room for about one group. The page work is in three groups — the skeins and the daybirds (wing poses) and the sun (calm keeps the spin with the fire held and reads 0.3 WebContent, so the fire is the sun's cost) — and calm's two-pose skeins cost more than full's four. NG is below classic at every moment. Plan 4 (§10) answers it; plan 3 resumes at Task 5 after it.
+
 ## 9. Plan 2: motion (designed 2026-10-16)
 
 The user's picks in conversation, 2026-10-16: classic's own CSS animations, group by group (decision 2); one iPhone sitting at the end with a slot per group; the Android emulator on a quiet host in plan 2 (rank-only) and a real Android phone in plan 3; the new setting and its migration in plan 2, Auto meaning Full until plan 3. The inventory this design stands on is `tmp/ps-ng-plan2-inventory.md` (gitignored; every count and line from it).
@@ -272,3 +287,47 @@ Built overnight from `ps-ng-plan-2.md`, one commit per task:
 Screenshots in motion, classic and NG side by side, desktop and phone, with a contact sheet per viewport: `tmp/ps-ng-shots/plan2/` (gitignored; `contact-desktop.png`, `contact-mobile.png`; the landscape phone in `landscape/`), at 21 June 12:00, 14 May 20:45, 21 June 23:30, 19 October 12:00 (rain) and 19 July 12:00 (storm). The brief's 21 June 20:45 has no skeins at all — the passage is spring and autumn (`birdsAt`) — so 14 May 20:45, the nearest clear day with skeins, 24 minutes after its sunset, stands in for the dusk.
 
 For the user to judge in the pairs: the flowers swaying with the grass, the rain falling straight with its slant drawn in, the buzzard on a fitted circle, and the cranes flapping without their glide.
+
+## 10. Plan 4: the birds and the sun (designed 2026-10-17)
+
+The user's picks in conversation, 2026-10-17: fix the three groups the iPhone named (§8.3) rather than move the budgets; measure each suspect before building; success is **page work (WebContent) ≤ 5 for each of the skeins, daybirds and sun measured alone, calm ≤ 24 at every moment, and full below classic at every moment** — full ≤ 30 is reported against, not gated, since one moving group already costs 15–25 in backboardd.
+
+### 10.1 What is suspected (read from the code, 2026-10-17)
+
+- **Skeins**: 38 birds in 3 flocks, each bird 4 pose copies (`div.psng-pose`, each a whole `<svg>`), about 196 animations nested four transform levels deep (flock fly, sway, per-bird `ps-bird-wander`, per-pose `psng-pose4`). A flock beyond `--ps-skein-count`, and the whole layer at `--ps-skeins-op` 0, is hidden only by opacity and keeps animating.
+- **Daybirds**: the buzzard is HTML (drift, orbit, flap; no pose copies). The 3 larks have 2 pose copies each, and inside each copy's `<svg>` five `<g>` run `steps(1)` opacity animations — 30 animated SVG elements, which WebKit repaints on the main thread.
+- **Sun**: the fire is `flame.ts`'s canvas, 160 × 160, woken 24 times a second; every paint maps 25,600 pixels through a colour table in JavaScript and calls `putImageData`. The spinning rays (mask + blur) are not the cost (calm noon, §8.3).
+
+### 10.2 The measurement sitting
+
+One group alone at its moment, each switch against its group's baseline in the same sitting; 13 slots × 2 rounds ≈ 25 minutes, run as two background jobs of about 13 minutes (the tool's 45-minute limit), Auto-Lock off:
+
+| slot                            | switch                                                                                    |
+| ------------------------------- | ----------------------------------------------------------------------------------------- |
+| `coffee`, `ng-still`            | the floor                                                                                 |
+| `skeins` (dusk, three flocks)   | baseline                                                                                  |
+| `skeins-nowing`                 | pose animations off                                                                       |
+| `skeins-nowander`               | `ps-bird-wander` off                                                                      |
+| `skeins-calm`                   | calm's two-pose wingbeat, the skeins alone                                                |
+| `skeins-1flock`, `-1flock-hide` | 2026-05-14 20:45 (one flock showing): the hidden flocks as they are, then `display: none` |
+| `daybirds` (noon)               | baseline                                                                                  |
+| `daybirds-nolarkg`              | the larks' inner `<g>` animations off                                                     |
+| `daybirds-nobuzz`               | the buzzard off                                                                           |
+| `sun`, `sun-bitmap`             | today's fire; a prototype fire drawn from cached images with `drawImage`                  |
+
+Every switch is CSS the harness injects, except `sun-bitmap`: a prototype path in `flame.ts` behind a `localStorage` flag, removed or made real in §10.3.
+
+### 10.3 The fixes
+
+The first fix in each list that meets the target is taken; two are never kept.
+
+1. **Skeins.** A hidden flock (beyond the count, or the layer at opacity 0) leaves the render tree — always, since it is waste. Then, by what the sitting shows: if the wander is the cost, it folds into the flock's sway (3 animations, not 38); if the wingbeat is, (a) the pose swap with fewer nested animated layers, (b) the swap by `element.animate`, `cancel()` on still and never `pause()`, (c) a prerendered strip of the four poses per bird, one element moved through it.
+2. **Larks.** The inner `<g>` animations move up to HTML pose copies swapped by `opacity`, as the skeins' wings are.
+3. **Sun.** The fire from cached images if `sun-bitmap` reads ≤ 5 WebContent; otherwise the fire at 12 frames a second, measured again. Calm keeps the fire held, as now.
+4. **Calm's wingbeat** takes whatever the skeins end with, on two poses; `skeins-calm` must then cost no more than full's skeins.
+
+Every fix keeps classic's poses, timings and paths. The one visible change allowed is the fire's lower rate, only if the bitmap fails, and only with the user's OK on a side-by-side shot. A group no fix brings to its target stops the plan with a report before anything less like classic is tried.
+
+### 10.4 The gate and the tests
+
+The gate is plan 3's 14 slots (`coffee`, `ng-still`, `full`/`calm`/`classic` at noon, night, storm and dusk) plus each fixed group alone, 2 rounds, split into jobs under 45 minutes. It passes on §10's success criteria. Mocha: the hidden-flock rule, the larks' pose markup, `flame.ts`'s image cache bounded and dropped on unmount. `ps-ng.mjs` stays green at its three sizes and adds: no animation on an element inside an `<svg>` in the scene, no hidden flock animating; classic/NG pairs at dusk and noon for the user. After plan 4 passes, plan 3 resumes at Task 5 (Android, then Chrome headed at 120 Hz) and Task 6.
