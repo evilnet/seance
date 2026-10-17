@@ -628,7 +628,9 @@ describe("the ps theme's chrome: glass over the plains (docs/projects/ps-theme.m
 	it("keeps the native shell's viewport clear, so the scene is not covered by the canvas colour", function () {
 		// style.css paints html[data-shell="native"] #viewport in --canvas-bg-color, which
 		// the scene sets to its sky: an opaque sheet over the plains in the apps.
-		expect(valueOf('html[data-shell="native"] #viewport', "background")).to.equal("transparent");
+		expect(valueOf('html[data-shell="native"] #viewport', "background")).to.equal(
+			"transparent"
+		);
 	});
 
 	it("gives ps the daylight fallback's canvas as its theme-color before the scene loads", function () {
@@ -2610,8 +2612,8 @@ describe("the ps theme's embers (spec §9)", function () {
 		expect(ours.length).to.be.at.least(SPARKS.length);
 
 		for (const r of ours) {
-			// (WebKit's clip-path twin sits in an @supports inside it)
-			expect(r.at.startsWith(MOTION_OK), r.selectors.join(", ")).to.equal(true);
+			// (WebKit's clip-path twin is the same gated selector in an @supports)
+			expect(r.at.includes(MOTION_OK), r.selectors.join(", ")).to.equal(true);
 		}
 
 		const reduced = rules.filter((r) => r.at.includes(REDUCED_MOTION));
