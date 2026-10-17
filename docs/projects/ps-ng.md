@@ -13,7 +13,7 @@ Goals, in order: **performance first, then match the current look closely.** "Ke
 3. **Glass is classic's live blur** (§5). The pre-blurred glass this item first chose was measured out in spike 2.
 4. **Heat haze is dropped** for now; it may come back later.
 5. **Three tiers** — full, calm, still — chosen by the existing gates, a setting and device power signals (§6).
-6. **PR #98 (the canvas sun fire, canvas skeins and the text band) is superseded by NG** and will not merge. NG ports what it needs from its branch, `feat/ps-perf-band`: `flame.ts`, the skein sprite sheet from `birds.ts`, and the text band (the 52 % band behind the white words, the user's pick over the outline) — the band rides along with NG.
+6. **PR #98 (the canvas sun fire, canvas skeins and the text band) is superseded by NG** and will not merge. NG ports what it needs from its branch, `feat/ps-perf-band`: `flame.ts`, the skein sprite sheet from `birds.ts`, and, at first, the text band (the 52 % band behind the white words); on 2026-10-17 the user chose the original outline instead ("follow OG", as #98 itself had gone back to it on 2026-10-10), so NG carries the outline.
 7. **The budgets are ceilings, not targets** (the user, 2026-10-16: "the goal is as low as possible regardless"). Calm was lifted from 15 to 24 after the red team showed one moving layer already costs 20–21.5.
 8. **When NG matches classic**, its default flips and classic is deleted in one commit, with the scene half of `ps.css`.
 

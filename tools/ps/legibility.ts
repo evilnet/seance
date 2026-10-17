@@ -13,10 +13,10 @@
  *
  * **The surfaces.** A word sits on one of two:
  * - `column`: the message column, straight on the scene, through its
- *   treatment's own layer (the halo by day; while the light treatment, all
- *   day but where dark ink holds, the band under the column and the glow) at
- *   the strength measured in rendered pixels, ALPHA_HALO or BAND_ALPHA then
- *   ALPHA_SHADOW;
+ *   treatment's own layer (the halo by day; the shadow and outline while the
+ *   light treatment, all day but where dark ink holds) at the strength
+ *   measured in rendered pixels,
+ *   ALPHA_HALO or ALPHA_SHADOW;
  * - `glass`: the chrome, the glass tint (GLASS) composited over the scene,
  *   with no layer under the text. The backdrop blur is left out: it only
  *   averages neighbouring grounds, so leaving it out is conservative. At the
@@ -118,32 +118,8 @@ export {ALPHA_HALO, INK};
  * before 08:50 to after 15:45 on every one (it was 15:40). ALPHA_HALO =
  * min(0.6, 0.1614) lives in client/js/scenes/ps/grounds.ts, beside the rule
  * that runs on it.
- *
- * **2026-10-08, fifth pass (the band).** The user found the rim and its
- * second ring ugly and, shown five rendered alternatives, picked the band: the
- * light treatment's words take a soft glow with no outline (`0 0 0.1875rem`
- * 70 %, `0 0 0.5rem` 55 %, `0 0.0625rem 0.125rem` 65 % black), and the whole
- * message column under them is washed BAND_ALPHA toward BAND (client/themes/
- * ps.css, the band). The same phrases, grounds and DPRs: **the shadow
- * 0.1641** (Source Sans 3 "it,", DPR 2, over the moon's disc #fdfaf0; the
- * samples alone 0.2196); a lighter glow, `0 0 0.5rem` 55 % and `0 0.0625rem
- * 0.125rem` 65 % alone, read 0.0784 (Source Sans 3 "it,", DPR 3, over the
- * white cloud) and would have needed a heavier band. The halo did not change
- * (0.1918 on this run, above its record). The band is a flat fill, so its
- * strength is exact rather than measured: only the glow carries a measured α.
  */
-export const ALPHA_SHADOW = Math.min(0.6, 0.1641);
-
-/**
- * The band under the light treatment's words (client/themes/ps.css): a flat
- * BAND wash at BAND_ALPHA over the whole message column. 0.52 is the least
- * that, with the glow's ALPHA_SHADOW, darkens the brightest ground (a white
- * cloud by day, #ffffff) as far as the rim's 0.6 did — white over it 5.74:1
- * either way — so the generated colours, solved against that ground, stay
- * where the rim had them. Under dark ink the column is bare.
- */
-export const BAND = "#000000";
-export const BAND_ALPHA = 0.52;
+export const ALPHA_SHADOW = Math.min(0.6, 0.6039);
 export const INK_FAINT = "#4c5a72";
 
 export type Surface = "column" | "glass";
@@ -318,9 +294,7 @@ export function bodyGrounds(m: Moment, p: Palette): Ground[] {
 }
 
 export function effectiveGround(ground: string, text: Text, halo: string): string {
-	return text === "ink"
-		? mix(ground, halo, ALPHA_HALO)
-		: mix(mix(ground, BAND, BAND_ALPHA), "#000000", ALPHA_SHADOW);
+	return text === "ink" ? mix(ground, halo, ALPHA_HALO) : mix(ground, "#000000", ALPHA_SHADOW);
 }
 
 export function glassGround(ground: string, light: Light, alpha: number): string {
