@@ -912,7 +912,7 @@ async function atHour(page, hour) {
 }
 
 /**
- * The scene's SVGs (scene.ts sceneMarkup): the moon, the sun, the land, the
+ * The scene's SVGs (markup.ts sceneMarkup): the moon, the sun, the land, the
  * near grass and the yurt; the skeins' 38 birds (geese and cranes) and the
  * one holding their belly gradient; the buzzard and the three larks. A hot day's weather layer
  * adds the heat haze.
@@ -920,7 +920,7 @@ async function atHour(page, hour) {
 const SVGS = 48;
 const svgsOn = (s) => SVGS + (s.weather === "heat" ? 1 : 0);
 
-/** The scene's layers, back to front (scene.ts sceneMarkup, docs/projects/ps-theme.md §5.1). */
+/** The scene's layers, back to front (markup.ts sceneMarkup, docs/projects/ps-theme.md §5.1). */
 const LAYERS = [
 	"ps-milky",
 	"ps-stars",
@@ -2837,7 +2837,7 @@ export default async function run(page) {
 		`noon: the canvas is the sky's top (${noon.canvas} = ${noon.skyTop})`,
 		noon.canvas !== "" && noon.canvas === noon.skyTop
 	);
-	// The browser's own bar runs on into the sky (scene.ts themeColorFor).
+	// The browser's own bar runs on into the sky (publish.ts themeColorFor).
 	page.check(
 		`noon: theme-color is the canvas (${noon.meta} = ${noon.canvas})`,
 		noon.canvas !== "" && noon.meta === noon.canvas
@@ -3482,7 +3482,7 @@ export default async function run(page) {
 	// A clear 4 October into a windy 5th, by the scene's own minute timer.
 	// The wind shortens the clouds' drift (ps.css ps-windy); the same time
 	// under a shorter loop is another place, and the clouds jumped hundreds of
-	// pixels (measured 126 to 1006 px before scene.ts kept their place).
+	// pixels (measured 126 to 1006 px before watchers.ts kept their place).
 	// Sampled every 100 ms across the flip: they move only as they drift.
 	const CLOUD_X = `JSON.stringify({windy: document.getElementById("theme-scene").classList.contains("ps-windy"), x: [...document.querySelectorAll("#theme-scene .ps-cloud-field > .ps-cloud")].map((e) => e.getBoundingClientRect().left)})`;
 	await at(page, Date.UTC(2026, 9, 4, 23, 59, 52));

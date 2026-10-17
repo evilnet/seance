@@ -1012,7 +1012,7 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	background-image: linear-gradient(180deg, var(--ps-sky-top, #3f8fe6) 0%, var(--ps-sky-mid, #8cc2f4) 50%, var(--ps-sky-hor, #d2e9fb) 62%, var(--ps-sky-hor, #d2e9fb) 100%);
 }
 
-/* Every layer sits in one wrapper (scene.ts sceneMarkup), the one group the
+/* Every layer sits in one wrapper (markup.ts sceneMarkup), the one group the
  * private view frosts: one filtered group is one raster. Not a container,
  * so what travels across the scene still moves in cqw/cqh of #theme-scene;
  * and outside a query no filter, transform or will-change, so it is no
@@ -1206,7 +1206,7 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	inset: 0;
 }
 
-/* Each day's own clouds are one set on the overcast's box (scene.ts). When
+/* Each day's own clouds are one set on the overcast's box (watchers.ts overcastBuilder). When
  * the day's weather changes on a page in view, at the minute's tick past
  * local midnight, the outgoing set fades out and the incoming one in, both
  * over OVERCAST_FADE_MS (the user dislikes clouds popping), and the outgoing
@@ -1259,7 +1259,7 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 /* The ground (plains.ts): one group, so the heat haze bends the land, the
  * fireflies and the yurt together and leaves the near grass crisp. The land
  * is the mockup's 1200 × 400 drawing stretched over the window's lower 56 %.
- * Every area is filled with the colour the palette publishes for it (scene.ts
+ * Every area is filled with the colour the palette publishes for it (markup.ts
  * `sceneVars`), never mixed here; only the lines — the rims, the river's
  * glint — take a glow or a level of their own. */
 #theme-scene .ps-ground {
@@ -1289,7 +1289,7 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 
 /* The land's box is stretched to the window (plains.ts landSvg): the round
  * things on it are put back in proportion about their own middles, their
- * area kept (scene.ts watchLand), so a narrow window keeps them round. */
+ * area kept (watchers.ts watchLand), so a narrow window keeps them round. */
 #theme-scene .ps-l-shrub,
 #theme-scene .ps-l-bedstone ellipse,
 #theme-scene .ps-l-grove {
@@ -1371,13 +1371,13 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 }
 
 /* The yurt (plains.ts `yurtSvg`) on the ground band, centred on the place
- * scene.ts measures in the message column's far third (--ps-yurt-left; 70 %
+ * watchers.ts placeYurt measures in the message column's far third (--ps-yurt-left; 70 %
  * of the scene before any column was measured). Both keep the whole yurt on
  * screen: yurt.ts clamps the measured place, and the default is clamped here
  * by half the yurt's width (it is 21cqh tall and 240/170 as wide). It never
  * slides: nothing here may transition or animate its place. A large move
  * fades it out (ps-yurt-moving), jumps it while unseen and fades it back in;
- * the fade is a hair shorter than scene.ts's 0.4 s wait, so the jump is never
+ * the fade is a hair shorter than watchers.ts's 0.4 s wait, so the jump is never
  * seen. */
 #theme-scene .ps-yurt {
 	/* stylelint-disable-next-line unit-no-unknown -- cqh: #theme-scene is a size container; stylelint predates it */
@@ -1531,7 +1531,7 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
  * with the rest). A flock's box and every bird are sized in rem, the birds
  * placed in % of their flock's box, so a skein keeps its shape at any window
  * size; what crosses the scene travels in cqw. The colours are published
- * (scene.ts `sceneVars`, from birds.ts `birdsAt`); nothing is mixed here. */
+ * (markup.ts `sceneVars`, from birds.ts `birdsAt`); nothing is mixed here. */
 #theme-scene .ps-skeins {
 	inset: 0 0 45%;
 	opacity: var(--ps-skeins-op, 0);

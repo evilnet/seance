@@ -460,6 +460,24 @@ describe("the theme-scene hook (client/js/themeScene.ts)", function () {
 			expect(ng.log).to.deep.equal(["mount true true channel"]);
 		});
 
+		it("setRenderer('classic') with ps-ng mounted swaps back", async function () {
+			const classic = fakeScene();
+			const ng = fakeScene();
+			const psLoader = sinon.stub().resolves(classic.mod);
+			const h = host({ps: psLoader, "ps-ng": () => Promise.resolve(ng.mod)});
+			h.setRenderer("ng");
+			await h.setTheme("ps");
+			expect(h.mounted).to.equal("ps-ng");
+			expect(psLoader.callCount).to.equal(0);
+
+			h.setRenderer("classic");
+			await new Promise((resolve) => setImmediate(resolve));
+
+			expect(ng.log.filter((l) => l === "destroy")).to.have.length(1);
+			expect(psLoader.callCount).to.equal(1);
+			expect(h.mounted).to.equal("ps");
+		});
+
 		it("setRenderer before setTheme('ps') never loads classic", async function () {
 			const ng = fakeScene();
 			const psLoader = sinon.stub().rejects(new Error("classic must not load"));

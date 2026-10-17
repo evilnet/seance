@@ -145,6 +145,28 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 		});
 	}
 
+	it("NG then classic on the same root: classic's destroy still leaves nothing", function () {
+		withPage(new Date(2026, 5, 21, 23, 0), (page, clock) => {
+			const meta = page.plantMeta(THEME_COLOR);
+			const root = page.root as unknown as HTMLElement;
+			mount(root, state()).destroy();
+			mountClassic(root, state({view: "query"})).destroy();
+			expect(page.doc.adoptedStyleSheets).to.deep.equal([]);
+			expect([...page.root.classList.names]).to.deep.equal([]);
+			expect(page.root.markup).to.equal("");
+			expect([...page.root.style.props.keys()]).to.deep.equal([]);
+			expect(Object.keys(page.root.dataset)).to.deep.equal([]);
+			expect(clock.countTimers()).to.equal(0);
+			expect(page.observers().filter((o) => !o.disconnected)).to.have.length(0);
+			expect(page.win.all).to.deep.equal([]);
+			expect(page.pendingFrames()).to.equal(0);
+			expect(meta.content).to.equal(THEME_COLOR);
+			expect(Object.keys(page.html.dataset)).to.deep.equal([]);
+			expect([...page.html.style.props.keys()]).to.deep.equal([]);
+			expect([...page.html.classList.names]).to.deep.equal([]);
+		});
+	});
+
 	it("ticks on the minute, not while hidden", function () {
 		withPage(new Date(2026, 5, 21, 20, 30, 0), (page, clock) => {
 			const scene = mountOn(page, {visible: false});
