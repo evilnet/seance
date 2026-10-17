@@ -329,3 +329,26 @@ Every fix keeps classic's poses, timings and paths (as NG already draws them). T
 ### 10.4 The gate and the tests
 
 The gate is plan 3's 14 slots (`coffee`, `ng-still`, `full`/`calm`/`classic` at noon, night, storm and dusk) plus `skeins`, `daybirds` and `sun` alone, 2 rounds, in two jobs of about 17 minutes. It passes on §10's success criteria. Mocha: the larks' state boxes and their keyframes free of `steps()`, `flame.ts`'s sprite emptied on a palette change and on destroy, calm's copies out of the page. `ps-ng.mjs` stays green at its three sizes and adds: no animation on an element inside an `<svg>` in the scene, each lark in the state its clock gives it across a freeze; classic/NG pairs at dusk and noon for the user. After plan 4 passes, plan 3 resumes at Task 5 (Android, then Chrome headed at 120 Hz) and Task 6.
+
+### 10.5 The measurement sitting (2026-10-17)
+
+iPhone 16, Safari, USB, rid `ios2-1792260636000`, `SHORT=plan4`, 9 slots × 2 rounds on the build at `21f1a8ec` (the sprite fire and calm's copies out of the page; the larks still on their SVG groups). % of one core, medians (n = 2 unless noted). The Mac's load ran 16–47 through it; slot 9 (`skeins-nowing`, round 2) lost its trace to xctrace ("timed out waiting for device to boot") and reads all zeros, so `skeins-nowing` is n = 1, and the two `daybirds-nolark` readings disagree (WebContent 20.4 with a 38 s recording window under load 34, and 0.4).
+
+| slot              | sum  | WebContent | GPU  | backboardd |
+| ----------------- | ---- | ---------- | ---- | ---------- |
+| `coffee`          | 1.0  | 0.1        | 0.0  | 0.9        |
+| `ng-still`        | 1.5  | 0.2        | 0.0  | 1.4        |
+| `skeins` (dusk)   | 69.5 | 34.0       | 9.6  | 25.9       |
+| `skeins-nowing`   | 31.4 | 9.9        | 0.2  | 21.3       |
+| `skeins-constop`  | 91.6 | 59.7       | 0.8  | 31.2       |
+| `skeins-calm`     | 98.6 | 57.2       | 12.9 | 28.5       |
+| `daybirds` (noon) | 54.1 | 24.0       | 9.3  | 20.8       |
+| `daybirds-nolark` | 26.5 | 10.4       | 0.6  | 15.5       |
+| `sun` (noon)      | 49.4 | 4.6        | 22.1 | 22.7       |
+
+What it shows:
+
+- **Sun**: the sprite fire reads 4.6 WebContent (26.2 for the old fire, §8.3): under 5, so it stays at 24 frames a second; no 12-frame fire.
+- **Skeins**: the reading fits neither of §10.3's branches. Holding every copy at its resting opacity on a constant keyframe (`constop`) costs far _more_ page work than the swap (59.7 against 34.0), and calm's two swapping copies with copies 1 and 3 out of the page cost as much (57.2): the cheapest skeins are the ones where all four copies run the same keyframes. With the poses off (`nowing`, n = 1) the page work is near 10 — the wander, sway and flight alone. Per §10.2 a reading that does not fit gets a Safari Web Inspector timeline of the `skeins` and `skeins-constop` slots before a fix is designed.
+- **Calm**: `skeins-calm` is above `skeins`, so calm's copies-out change (§10.3 item 4) is reverted (`f31e2a2b`) and reported; calm's skeins stay over budget until the skeins' fix.
+- **Daybirds**: the larks were most of the page work (24.0 with them, 10.4 or 0.4 without); the lark state boxes (`c72a15b4`) were built after this build and are measured at the gate.
