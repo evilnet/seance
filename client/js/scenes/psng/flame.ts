@@ -301,6 +301,30 @@ export function fireColours(flame: string, edge: string): Uint32Array {
 	return lut;
 }
 
+type Context2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+type SpriteCanvas = HTMLCanvasElement | OffscreenCanvas;
+
+/**
+ * The sprite the fire draws from: one cell of FIRE_SIZE² per frame of the loop, stacked down,
+ * 160 × 26,880 pixels, about 17 MB. Null where neither canvas exists (the old path).
+ */
+function makeSprite(): SpriteCanvas | null {
+	const height = FIRE_SIZE * Math.round(FIRE.loop * FIRE_FPS_NG);
+
+	if (typeof OffscreenCanvas !== "undefined") {
+		return new OffscreenCanvas(FIRE_SIZE, height);
+	}
+
+	if (typeof document === "undefined") {
+		return null;
+	}
+
+	const canvas = document.createElement("canvas");
+	canvas.width = FIRE_SIZE;
+	canvas.height = height;
+	return canvas;
+}
+
 /**
  * The fire's frame loop: at most FIRE_FPS_NG paints a second from a cache of
  * one loop's frames (computed the first time each is needed). It wakes once per
@@ -310,12 +334,19 @@ export function fireColours(flame: string, edge: string): Uint32Array {
  * nothing; `start()` resumes the loop where it left off. A new pair of
  * colours paints the current frame at once, running or not, so a fire that
  * is held still still shows.
+ *
+ * Each frame is coloured once per pair of colours into its cell of a sprite and
+ * drawn from there after (spec §10.3: mapping 25,600 pixels through the table on
+ * every paint was the sun's page work on the iPhone). A new pair of colours, or
+ * destroy, empties the sprite; a `sprite` that gives null keeps the old path,
+ * the table and `putImageData` on every paint.
  */
 export function fireDriver(
 	canvas: HTMLCanvasElement,
 	after: (fn: (ms: number) => void, delay: number) => number = (fn, delay) =>
 		window.setTimeout(() => fn(performance.now()), delay),
-	cancel: (id: number) => void = (id) => window.clearTimeout(id)
+	cancel: (id: number) => void = (id) => window.clearTimeout(id),
+	sprite: () => SpriteCanvas | null = makeSprite
 ) {
 	const ctx = canvas.getContext("2d");
 	const turbulence = createTurbulence(FIRE.seed);
@@ -323,12 +354,19 @@ export function fireDriver(
 	const count = Math.round(FIRE.loop * FIRE_FPS_NG);
 	const image = ctx?.createImageData(FIRE_SIZE, FIRE_SIZE);
 	const pixels = image ? new Uint32Array(image.data.buffer) : null;
+	const filled = new Set<number>(); // the sprite's cells holding the current colours
+	let spriteCanvas: SpriteCanvas | null | undefined; // undefined: not made yet
+	let spriteCtx: Context2D | null = null;
 	let lut: Uint32Array | null = null;
 	let colours = "";
 	let time = 0;
 	let shown = -1;
 	let pending: number | null = null;
 	let base: number | null = null; // the frame clock, in s, at fire time 0
+
+	if (ctx) {
+		ctx.globalCompositeOperation = "copy"; // a cell replaces the whole canvas: no clearRect
+	}
 
 	const paint = (force: boolean) => {
 		const index = Math.floor(time * FIRE_FPS_NG) % count;
@@ -337,18 +375,48 @@ export function fireDriver(
 			return;
 		}
 
-		let field = frames.get(index);
-
-		if (!field) {
-			field = fireField(turbulence, ...frequencyAt(index / FIRE_FPS_NG));
-			frames.set(index, field);
+		if (spriteCanvas === undefined) {
+			spriteCanvas = sprite();
+			// A canvas with no 2D context (or a stand-in with no getContext) is no sprite: the old path.
+			spriteCtx =
+				typeof spriteCanvas?.getContext === "function"
+					? (spriteCanvas.getContext("2d") as Context2D | null) ?? null
+					: null;
 		}
 
-		for (let i = 0; i < field.length; i++) {
-			pixels[i] = lut[field[i]];
+		if (!spriteCtx || !filled.has(index)) {
+			let field = frames.get(index);
+
+			if (!field) {
+				field = fireField(turbulence, ...frequencyAt(index / FIRE_FPS_NG));
+				frames.set(index, field);
+			}
+
+			for (let i = 0; i < field.length; i++) {
+				pixels[i] = lut[field[i]];
+			}
+
+			if (!spriteCtx) {
+				ctx.putImageData(image, 0, 0);
+				shown = index;
+				return;
+			}
+
+			spriteCtx.putImageData(image, 0, index * FIRE_SIZE);
+			filled.add(index);
 		}
 
-		ctx.putImageData(image, 0, 0);
+		ctx.drawImage(
+			spriteCanvas as SpriteCanvas,
+			0,
+			index * FIRE_SIZE,
+			FIRE_SIZE,
+			FIRE_SIZE,
+			0,
+			0,
+			FIRE_SIZE,
+			FIRE_SIZE
+		);
 		shown = index;
 	};
 
@@ -386,15 +454,26 @@ export function fireDriver(
 
 			colours = flame + edge;
 			lut = fireColours(flame, edge);
+			filled.clear();
 			paint(true);
 		},
 		destroy() {
 			stop();
 			frames.clear();
+			filled.clear();
+			// Drop the sprite and the colours: nothing is drawn until a new pair arrives.
+			spriteCanvas = undefined;
+			spriteCtx = null;
+			lut = null;
+			colours = "";
 		},
 		/** For tests: the frames held. */
 		get cachedFrames() {
 			return frames.size;
+		},
+		/** For tests: the sprite's cells filled for the current colours. */
+		get spriteFrames() {
+			return filled.size;
 		},
 	};
 }
