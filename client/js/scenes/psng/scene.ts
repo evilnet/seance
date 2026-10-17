@@ -22,7 +22,7 @@ import {publishMoment, unpublish} from "../ps/publish";
 import {overcastBuilder, placeYurt, watchComposer, watchLand} from "../ps/watchers";
 import {GROUPS, groupOverride, groupsFor} from "./groups";
 import {NG_STILL_CSS} from "./styles";
-import {tierFor} from "./tiers";
+import {phaseSeconds, tierFor, type Tier} from "./tiers";
 
 const MOTION_CLASSES = [...GROUPS.map((g) => `psng-m-${g}`), "psng-calm"];
 
@@ -45,10 +45,19 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	let reduceMotion = systemAccessibility().reduceMotion;
 	let unsubscribe: (() => void) | undefined;
 	const only = groupOverride(storage);
+	const mounted = new Date();
+	let tier: Tier = "still";
 
-	// Exactly the classes of the tier's running groups; the rest come off.
+	// Exactly the classes of the tier's running groups; the rest come off. On a move from still (the
+	// mount's included) the phase first, so the animations the classes start begin in it.
 	const setGroups = () => {
-		const tier = tierFor(latest, reduceMotion);
+		const next = tierFor(latest, reduceMotion);
+
+		if (tier === "still" && next !== "still") {
+			root.style.setProperty("--psng-t", `${phaseSeconds(new Date(), mounted)}s`);
+		}
+
+		tier = next;
 		const on = new Set(groupsFor(tier, only).values());
 		const classes = new Set([...on].map((g) => `psng-m-${g}`));
 
@@ -167,6 +176,16 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		);
 		// Still with no SMIL left, but paused so nothing (the sun's filter) keeps a clock running.
 		root.querySelectorAll("svg").forEach((svg) => svg.pauseAnimations());
+		// The near grass sways as one box (styles.ts): its svg in a div.psng-sway, once.
+		const blades = root.querySelector(".ps-blades");
+
+		if (blades) {
+			const sway = document.createElement("div");
+			sway.className = "psng-sway";
+			blades.replaceWith(sway);
+			sway.append(blades);
+		}
+
 		overcast = overcastBuilder(root.querySelector(".ps-overcast") as HTMLElement);
 		yurt = placeYurt(root);
 		composer = watchComposer(root, html);

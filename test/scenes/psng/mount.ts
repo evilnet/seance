@@ -68,7 +68,8 @@ function published(page: Page, meta: {content: string}) {
 		htmlClasses: [...page.html.classList.names].sort(),
 		rootWeather: page.root.dataset.weather,
 		rootSeason: page.root.dataset.season,
-		rootStyle: Object.fromEntries(page.root.style.props),
+		// --psng-t is NG's own clock for its animations' phase, not something it publishes.
+		rootStyle: Object.fromEntries([...page.root.style.props].filter(([n]) => n !== "--psng-t")),
 		moon: Object.fromEntries(page.root.querySelector(".ps-m-ell").attrs),
 		meta: meta.content,
 	};
@@ -92,8 +93,10 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 	});
 
 	it("the still stylesheet holds the still rules and lifts the heat haze's filter", function () {
-		expect(NG_STILL_CSS).to.contain("#theme-scene.psng * {");
-		expect(NG_STILL_CSS).to.contain("animation: none !important;");
+		expect(NG_STILL_CSS).to.contain("#theme-scene.psng * {\n\ttransition: none !important;");
+		expect(NG_STILL_CSS).to.match(
+			/#theme-scene\.psng \*:not\([^{]+\{\s*animation: none !important;/
+		);
 		expect(NG_STILL_CSS).to.contain("var(--cp)");
 		expect(NG_STILL_CSS).to.match(/#theme-scene\.psng \.ps-ground \{\s*filter: none;?\s*\}/);
 		expect(NG_STILL_CSS).to.not.match(/backdrop-filter|#sidebar|#form|\.header|\.userlist/);
@@ -295,6 +298,61 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 				scene.update(state({motion: "calm"}));
 				scene.destroy();
 				expect(motionClasses(page)).to.deep.equal([]);
+			});
+		});
+
+		/** The scene root's --psng-t writes and motion-class toggles, as sinon spies (their callIds order them). */
+		const watch = (page: Page) => ({
+			phase: sinon.spy(page.root.style, "setProperty").withArgs("--psng-t"),
+			on: sinon.spy(page.root.classList, "toggle").withArgs(sinon.match(/^psng-m-/), true),
+		});
+
+		it("--psng-t: written at mount before any group class, from the mount day's midnight", function () {
+			withPage(new Date(2026, 5, 21, 12, 0), (page) => {
+				follow(page);
+				const {phase, on} = watch(page);
+				const scene = mountOn(page);
+				expect(phase.callCount).to.equal(1);
+				expect(phase.firstCall.args[1]).to.equal(`${12 * 3600}s`);
+				expect(on.called).to.equal(true);
+				expect(phase.firstCall.calledBefore(on.firstCall)).to.equal(true);
+				scene.destroy();
+			});
+		});
+
+		it("--psng-t: once on still → full, never on full → full, calm, or the minute across midnight", function () {
+			withPage(new Date(2026, 5, 21, 23, 58, 30), (page, clock) => {
+				follow(page);
+				const scene = mountOn(page, {attended: false});
+				const {phase, on} = watch(page);
+				scene.update(state());
+				expect(phase.callCount, "still → full").to.equal(1);
+				expect(phase.firstCall.args[1]).to.equal(`${23 * 3600 + 58 * 60 + 30}s`);
+				expect(phase.firstCall.calledBefore(on.firstCall)).to.equal(true);
+				scene.update(state());
+				scene.update(state({motion: "calm"}));
+				scene.update(state());
+				clock.tick(3 * 60000);
+				expect(phase.callCount, "full → full, full → calm, the ticks").to.equal(1);
+				scene.update(state({attended: false}));
+				scene.update(state());
+				expect(phase.callCount, "the next resume").to.equal(2);
+				// Past midnight, still from the mount day's: one day plus the minutes since.
+				expect(parseFloat(phase.secondCall.args[1])).to.be.greaterThan(86400);
+				scene.destroy();
+			});
+		});
+
+		it("the near grass is wrapped once at mount, in a div.psng-sway", function () {
+			withPage(new Date(2026, 5, 21, 12, 0), (page) => {
+				follow(page);
+				const scene = mountOn(page);
+				const sway = page.root.querySelector(".ps-blades").parent;
+				expect(sway?.className).to.equal("psng-sway");
+				scene.update(state({attended: false}));
+				scene.update(state());
+				expect(page.root.querySelector(".ps-blades").parent).to.equal(sway);
+				scene.destroy();
 			});
 		});
 

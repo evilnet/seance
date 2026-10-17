@@ -16,3 +16,9 @@ export function tierFor(state: SceneHostState, reduceMotion: boolean): Tier {
 
 	return state.motion === "calm" ? "calm" : "full";
 }
+
+/** Seconds from local midnight of `reference`'s day to `now`: the phase every loop of the NG scene starts from. */
+export function phaseSeconds(now: Date, reference: Date): number {
+	const midnight = new Date(reference.getFullYear(), reference.getMonth(), reference.getDate());
+	return (now.getTime() - midnight.getTime()) / 1000;
+}

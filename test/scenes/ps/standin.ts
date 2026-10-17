@@ -184,6 +184,24 @@ export class FakeElement extends Listeners {
 		this.children.unshift(...nodes);
 	}
 
+	append(...nodes: FakeElement[]) {
+		nodes.forEach((node) => node.remove());
+		nodes.forEach((node) => (node.parent = this));
+		this.children.push(...nodes);
+	}
+
+	/** Its place in its parent's children to `node` (a no-op without a parent, as in the DOM). */
+	replaceWith(node: FakeElement) {
+		const parent = this.parent;
+
+		if (parent) {
+			node.remove();
+			parent.children[parent.children.indexOf(this)] = node;
+			node.parent = parent;
+			this.parent = null;
+		}
+	}
+
 	remove() {
 		if (this.parent) {
 			this.parent.children = this.parent.children.filter((c) => c !== this);
