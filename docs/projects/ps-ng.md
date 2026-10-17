@@ -115,7 +115,7 @@ Seeds and placements come from the same seeded generators as classic, so every s
 
 **The glass is classic's live `backdrop-filter`, unchanged.** NG's stylesheet touches none of the glass (`#sidebar`, `#chat .header`, `#chat .userlist`, `#form`, the reaction chips), and the browser check holds `#sidebar`'s computed `backdrop-filter` equal under both renderers. Over a still scene a live blur costs nothing: WebKit re-blurs only when the backdrop changes (§2).
 
-Spike 2 (2026-10-16, `ps-ng-plan-1.md` § What spike 2 decided; Chrome desktop and iPhone 16 Safari, sum % of one core) tried the alternatives against live blur over motion (G0: Chrome 7.2, iPhone +3 over still, drawer open 34.3 against still's 30.9):
+Spike 2 (2026-10-16, `ps-ng-plan-1.md` § What spike 2 decided; Chrome desktop and iPhone 16 Safari, sum % of one core) tried the alternatives against live blur over motion (G0: Chrome 7.2, iPhone +3 over still; in spike 2's short iPhone run, drawer open, 2026-10-16 (`tmp/perf/ng2/ios-short.md`), G0 34.3 against still's 30.9):
 
 - **G1**, the pre-blurred backdrop copy this section first described, was not measured on its own; G3 is its cheapest form, and it failed.
 - **G2**, live blur with the motion masked out of the glass: Chrome 9.1, dearer than G0, with hard edges. Out.
@@ -146,7 +146,7 @@ Plan 1's whole scene is the still tier: it creates no animation object, SMIL clo
 
 ## 7. Testing
 
-**Mocha** (DOM-free modules): `tiers.ts` as a truth table, the setting migration included; the motion plan (time, weather, tier → the animations that exist), holding rules 1–2 of §3; the re-blur triggers; seeded placements equal to classic's; the existing legibility suite unchanged.
+**Mocha** (DOM-free modules): `tiers.ts` as a truth table, the setting migration included; the motion plan (time, weather, tier → the animations that exist), holding rules 1–2 of §3; seeded placements equal to classic's; the existing legibility suite unchanged.
 
 **Browser** (`tools/scenarios/ps-ng.mjs`, plan 1; 27 checks on the desktop, 24 with `--mobile`): the Settings radio pair under the preview flag, each choice mounting its renderer (desktop); the switch both ways — NG's `psng` class and adopted sheet, and back on classic neither, with classic's SMIL back and its clocks moving; the census — no animation on the scene, no SMIL element, every SVG clock paused, nothing moving in 300 ms, `#sidebar`'s `backdrop-filter` (the open drawer's on a phone) equal to classic's at the same minute; a hot noon — classic sets `ps-hot`, NG never does, and its grass is drawn in `--ps-grass`; reduced motion changing no pixel of NG's scene; a cold boot at 23:00 with NG stored — the first frame carries the night's `--ps-sky-top`, the sky's pixel matches it, and `scene-ps.js` is never fetched; and side-by-side screenshots of classic and NG at five pinned moments, with a contact sheet per viewport, for the user to judge — no pixel threshold. There is no glass-pixel check: the glass is classic's own (§5). Plan 2 adds the census of what moves (only `transform`/`opacity`, every animated box within the viewport) and calm's exact list.
 
@@ -154,7 +154,7 @@ Plan 1's whole scene is the still tier: it creates no animation object, SMIL clo
 
 Measured on every platform before anything is deployed or claimed (iPhone tethered via `ios-one.sh`, Android, Chrome; host load gated or the run labelled rank-only).
 
-1. **Before motion code:** the backdrop repaint + re-blur at 3× density; 34 tiny firefly layers; star sheets twinkling; the Low Power Mode frame probe; an Android baseline on a quiet host or a real phone.
+1. **Before motion code:** 34 tiny firefly layers; star sheets twinkling; the Low Power Mode frame probe; an Android baseline on a quiet host or a real phone. (The backdrop repaint and re-blur gate that stood first here is superseded by plan 1: there is no canvas backdrop and no re-blur.)
 2. **As each element lands:** one iPhone reading, so each addition's cost is visible alone.
 3. **Before the default flips:** iPhone, Android and Chrome at noon, night and storm, against classic in the same session, within the §6 budgets.
 
