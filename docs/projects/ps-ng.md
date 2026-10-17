@@ -1,6 +1,6 @@
 # ps NG — the ps scene, rebuilt to be cheap
 
-Status: **plan 1 (the still scene) built 2026-10-16** on branch `feat/ps-ng`, behind a preview flag: NG draws classic's scene markup with nothing moving, and costs what the coffee theme costs on the iPhone (§8.1). Plan 2 (motion, `docs/projects/ps-ng-plan-1.md` § Plans 2 and 3) is next. The design below was approved 2026-10-16; spike 2 (`ps-ng-plan-1.md` § What spike 2 decided) replaced its backdrop and its glass, and the sections say where.
+Status: **plan 1 (the still scene) built 2026-10-16** on branch `feat/ps-ng`, behind a preview flag: NG draws classic's scene markup with nothing moving, and costs what the coffee theme costs on the iPhone (§8.1). Plan 2 (motion) is designed in §9 (approved in conversation 2026-10-16) and is next. The design below was approved 2026-10-16; spike 2 (`ps-ng-plan-1.md` § What spike 2 decided) replaced its backdrop and its glass, and the sections say where.
 
 The ps theme's scene (`docs/projects/ps-theme.md`) is loved and expensive: on an iPhone 16 it costs 93–106 % of a core in Safari at a rainy noon, most of it in WebKit's page process, and around 95–99 % at night. ps NG is a new renderer for the same theme. It keeps every element and the look, and draws them with a small set of cheap techniques, with tiers so a phone on low power does less.
 
@@ -9,7 +9,7 @@ Goals, in order: **performance first, then match the current look closely.** "Ke
 ## 1. Decisions
 
 1. **A new renderer beside the old one, not a patch.** The cost is structural (§2), so fixes to classic saved 5–10 points each. NG reuses classic's DOM-free modules and replaces its renderer.
-2. **Technique A for what moves (plan 2): prerendered bitmaps moved by CSS transform**, one layer per element, a small canvas only for what changes shape, no WebGL (§2). What stands still is classic's own markup (§4).
+2. **What moves is classic's own CSS animations, played natively, group by group** (plan 2, the user's pick 2026-10-16, §9): every keyframe classic's scene uses already moves only `transform` and `opacity`. Only what classic drives with SMIL gets new code (wing poses swapped by `opacity`, the sun's fire, the buzzard's path, the grass sway), and rain gets tiles no larger than the viewport. A group that disappoints moves, on its own, to `element.animate` (where phase or rate must be set in code) or to prerendered bitmaps moved by transform — the technique this item first named. No WebGL (§2). What stands still is classic's own markup (§4).
 3. **Glass is classic's live blur** (§5). The pre-blurred glass this item first chose was measured out in spike 2.
 4. **Heat haze is dropped** for now; it may come back later.
 5. **Three tiers** — full, calm, still — chosen by the existing gates, a setting and device power signals (§6).
@@ -55,14 +55,17 @@ Read as a cost structure, not as NG's predicted figure (the harness moves 3 laye
 
 **Modules**, new under `client/js/scenes/psng/`:
 
-| File         | Job                                                                                                      | Plan |
-| ------------ | -------------------------------------------------------------------------------------------------------- | ---- |
-| `scene.ts`   | `mount` / `update` / `destroy`, the minute tick, the gates, publishing                                   | 1    |
-| `styles.ts`  | `NG_STILL_CSS`, the adopted stylesheet: nothing animates or transitions, the in-flight layers out        | 1    |
-| `sprites.ts` | draws each moving element's bitmap, once per palette change                                              | 2    |
-| `motion.ts`  | the only place animations are created (`element.animate`); stilled with `cancel()`, never `pause()` (§6) | 2    |
-| `shapes.ts`  | small canvases at low frame rates for what changes shape: wingbeats, the sun's fire                      | 2    |
-| `tiers.ts`   | full / calm / still from the host state, the setting and device signals                                  | 2    |
+| File        | Job                                                                                                       | Plan |
+| ----------- | --------------------------------------------------------------------------------------------------------- | ---- |
+| `scene.ts`  | `mount` / `update` / `destroy`, the minute tick, the gates, publishing                                    | 1    |
+| `styles.ts` | `NG_STILL_CSS`, the adopted stylesheet: nothing animates or transitions, the in-flight layers out         | 1    |
+| `groups.ts` | DOM-free: the motion groups, which run in each tier, and the gates each needs (§9)                        | 2    |
+| `tiers.ts`  | DOM-free: full / calm / still from the host state and the setting; the forced-still states (§6, §9)       | 2    |
+| `poses.ts`  | the SMIL replacements: skein and lark wing poses swapped by `opacity`, the buzzard's path, the grass sway | 2    |
+| `flame.ts`  | the sun's fire: #98's frame cache, ported, 24 fps                                                         | 2    |
+| `rain.ts`   | rain, snow and seed tiles, each no larger than the viewport, looping over one tile                        | 2    |
+
+The `sprites.ts`, `motion.ts` and `shapes.ts` this table first listed are not built unless a group falls back (decision 2).
 
 There is no `backdrop.ts` and no frost of NG's own: the backdrop is classic's markup (§4), and the query view's frost is classic's `ps-private` rule (§4).
 
@@ -82,6 +85,8 @@ Shared with classic under `scenes/ps/`: `engine`, `palette`, `colour`, `grounds`
 **Published as classic publishes:** `data-ps-light`, `data-ps-text`, `--ps-halo`, `--canvas-bg-color`, the glass tints, `theme-color`. The chrome and its legibility tests apply unchanged.
 
 ## 4. Element by element
+
+The NG column below is the first design. Plan 2 replaced it with classic's own CSS, group by group: where the two differ, §9.2 holds.
 
 | Element                                                 | Classic                                                    | NG                                                                                                                                   |
 | ------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
@@ -129,13 +134,15 @@ Spike 2 (2026-10-16, `ps-ng-plan-1.md` § What spike 2 decided; Chrome desktop a
 | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
 | full  | everything in §4                                                                                                                                      | ≤ 30          |
 | calm  | clouds, weather (rain, snow, lightning), smoke, skeins with wings at 8 fps; still: stars, fireflies (glowing, in place), seeds, larks, buzzard, grass | ≤ 24          |
-| still | nothing: no animation object exists (plan 2 `cancel()`s them and recreates them at their phase)                                                       | ≤ 3           |
+| still | nothing: no animation object exists (plan 2: `animation: none`, and each loop resumes at its phase through `--psng-t`, §9)                            | ≤ 3           |
 
-Plan 1's whole scene is the still tier: it creates no animation object, SMIL clock or stepper (the census in §7 holds it), and costs 1.1–1.4 on the iPhone (§8.1). `pause()` does not make a scene still on iOS — a paused animation is still Core Animation work in backboardd (19.1 against 1.1, §8.1) — so plan 2 stills with `cancel()`.
+Plan 1's whole scene is the still tier: it creates no animation object, SMIL clock or stepper (the census in §7 holds it), and costs 1.1–1.4 on the iPhone (§8.1). `pause()` does not make a scene still on iOS — a paused animation is still Core Animation work in backboardd (19.1 against 1.1, §8.1) — so plan 2 stills with `animation: none`, and with `cancel()` wherever it creates animations itself.
 
 **Forced still** (as today): reduced motion (`data-reduce-motion`), a hidden page, a page nobody attends to (`createAttention`), a query.
 
-**The setting** "Scene animation" becomes Auto (default) / Full / Calm / Still. Stored values migrate once: `60` and `24` → Auto, `1s` and `sparse` → Calm, `off` → Still.
+**The setting** "Scene animation" becomes Auto (default) / Full / Calm / Still in plan 2. Stored values migrate once: `60` and `24` → Auto, `1s` and `sparse` → Calm, `off` → Still. Classic reads the new values: Auto and Full play at the screen's rate (classic's `60`), Calm steps once a second (`1s`), Still is `off`. Auto means Full until plan 3's power signals exist.
+
+`cancel()` applies only where a group falls back to `element.animate` (decision 2); classic's own CSS animations go still the way plan 1 measured, by `animation: none` (§8.1, `rm` and `none`).
 
 **Auto** is full unless a power signal says otherwise, then calm; every signal is watched live:
 
@@ -154,7 +161,7 @@ Plan 1's whole scene is the still tier: it creates no animation object, SMIL clo
 
 Measured on every platform before anything is deployed or claimed (iPhone tethered via `ios-one.sh`, Android, Chrome; host load gated or the run labelled rank-only).
 
-1. **Before motion code:** 34 tiny firefly layers; star sheets twinkling; the Low Power Mode frame probe; an Android baseline on a quiet host or a real phone. (The backdrop repaint and re-blur gate that stood first here is superseded by plan 1: there is no canvas backdrop and no re-blur.)
+1. **Plan 2's sitting (§9.5):** each group alone over the still scene, full and calm, against coffee and classic in the same sitting; the Android emulator's ladder on a quiet host, rank-only. The Low Power Mode frame probe moves to plan 3 with Auto. (The backdrop repaint and re-blur gate that stood first here is superseded by plan 1: there is no canvas backdrop and no re-blur.)
 2. **As each element lands:** one iPhone reading, so each addition's cost is visible alone.
 3. **Before the default flips:** iPhone, Android and Chrome at noon, night and storm, against classic in the same session, within the §6 budgets.
 
@@ -187,10 +194,57 @@ Chrome desktop (rank-only, load 3.8–9.7): coffee 3.4, still 4.4, still-nofilte
 
 - The 23–25 of classic's paused still is the paused animations. WebKit keeps them as Core Animation work in backboardd. Filters account for about 7 of it.
 - `none` passes: every none slot is within 2 of the same run's coffee, rain confirmed by its re-run. `none` becomes `STILL_RULES` (`NG_STILL_CSS`, Task 5).
-- `pause()` is not still on iOS (waapi-paused 19.1 against none 1.1). Plan 2 stills animations with `cancel()` and recreates them at their phase.
+- `pause()` is not still on iOS (waapi-paused 19.1 against none 1.1). Plan 2 never holds an animation paused: CSS animations go to `animation: none`, and any it creates with `element.animate` are `cancel()`led and recreated at their phase.
 - Classic's reduced motion (`rm`) is already at coffee. Task 1b (`animation: none` in classic's own still states) was offered and not taken.
 - The user accepted the harness `none` readings as NG's iPhone numbers. Task 6's own phone run was skipped on that ruling: NG's adopted sheet is the `none` rung's rules verbatim, and the harness readings of it stand as plan 1's iPhone figures (coffee 1.1–1.2; NG 1.1 at noon, 1.4 at night, 1.1 in rain and in a query).
 
 ### 8.2 Plan 1 Task 6: the browser check (2026-10-16)
 
 `tools/scenarios/ps-ng.mjs` against the worktree's production build, headless Chrome, host load 3–15: 27 of 27 on the desktop (1280 × 900), 24 of 24 on a phone (390 × 844, `--mobile`). A cold boot's first frame came 0.1–11.5 ms after NG's mount, already on the night sky. Screenshots and the two contact sheets in `tmp/ps-ng-shots/` (gitignored).
+
+## 9. Plan 2: motion (designed 2026-10-16)
+
+The user's picks in conversation, 2026-10-16: classic's own CSS animations, group by group (decision 2); one iPhone sitting at the end with a slot per group; the Android emulator on a quiet host in plan 2 (rank-only) and a real Android phone in plan 3; the new setting and its migration in plan 2, Auto meaning Full until plan 3. The inventory this design stands on is `tmp/ps-ng-plan2-inventory.md` (gitignored; every count and line from it).
+
+### 9.1 How a group comes back
+
+`NG_STILL_CSS` keeps `animation: none` for the whole scene. A class per group on `#theme-scene` (`psng-m-<group>`) lifts it for that group only, and the browser plays classic's keyframes natively — no stepper, no SMIL. Going still removes the classes: the measured `animation: none` (§8.1).
+
+**Phase on resume.** Each group's animations take `animation-delay: calc(var(--d) - var(--psng-t))`, where `--d` is classic's own (negative, seeded) delay and `--psng-t` the seconds since a fixed epoch, written once on each resume — never per frame (§3 rule 3). A loop resumes where the clock puts it, not at its start. If WebKit mishandles a variable in `animation-delay`, NG writes each group's delays once on resume instead.
+
+### 9.2 The groups
+
+| Group                                                 | Classic today                                            | NG                                                                         | Full | Calm                           |
+| ----------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------- | ---- | ------------------------------ |
+| clouds (5, +4 wet)                                    | CSS `ps-drift` in `cqw`                                  | classic's CSS                                                              | runs | runs                           |
+| stars (52 of 190 twinkle)                             | CSS `opacity`                                            | classic's CSS                                                              | runs | still                          |
+| fireflies (34; 17 on a phone)                         | CSS drift + blink                                        | classic's CSS                                                              | runs | glowing, in place              |
+| smoke (5 puffs)                                       | CSS                                                      | classic's CSS                                                              | runs | runs                           |
+| rain, snow, seeds (130 / 120 / 26; halved on a phone) | per-particle CSS; rain sheets 2.36 viewports tall on #98 | `rain.ts`: tiles no larger than the viewport, one loop per tile            | runs | rain and snow run; seeds still |
+| lightning                                             | `opacity` flash                                          | classic's CSS                                                              | runs | runs                           |
+| grass sway                                            | SVG `<g>` transform                                      | one wrapper element carrying classic's keyframe                            | runs | still                          |
+| skeins (38 birds, 3 flocks)                           | CSS flight + 76 SMIL wing morphs                         | classic's flight CSS; wings as 3–4 poses swapped by `opacity` (`poses.ts`) | runs | flight runs; wings at 8 fps    |
+| buzzard, skylarks                                     | SMIL `animateMotion` + 6 wing morphs                     | the path as a CSS loop; the larks' wings as poses                          | runs | still                          |
+| sun                                                   | CSS ray spin + SMIL `baseFrequency` fire                 | the spin is classic's CSS; the fire is `flame.ts`, 24 fps                  | runs | spin runs; fire still          |
+| heat haze                                             | SVG displacement                                         | dropped (decision 4)                                                       | —    | —                              |
+
+The gates stand as in plan 1: a group runs only while `liveLayers` (`layers.ts`) has its layer on.
+
+### 9.3 Tiers and the setting
+
+Still runs no group. It is forced by reduced motion (`data-reduce-motion`), a hidden page, a page at rest (`createAttention`: 15 s unfocused or 2 minutes idle), a query, or the setting at Still. The setting and its migration are §6.
+
+### 9.4 Testing
+
+Mocha: `tiers.ts` as a truth table (setting × reduced motion × hidden × rest × query); the migration; `groups.ts` (tier, time, weather → groups); the `--psng-t` arithmetic; `rain.ts`'s tiles never larger than the viewport; `flame.ts`'s cache bounded. Browser (`ps-ng.mjs`): a census per tier (every running animation moves only `transform` or `opacity`, every animated box fits the viewport, no SMIL, calm's exact list, still with none); a resume keeps each loop's phase; side-by-side screenshots of classic and NG in motion for the user.
+
+### 9.5 The phone sitting
+
+One sitting, about 30 minutes, iPhone 16 Safari, through `tmp/perf/ng2` with a per-group query knob: `coffee`; still; each group alone over still; full; calm; classic as shipped — with night and rain slots for the groups that only exist there. Within budget: full ≤ 30, calm ≤ 24, still ≤ 3 (§6). A group over its share falls back on its own (decision 2) and is re-measured in a short second run. The Android emulator runs the same ladder on a quiet host, rank-only.
+
+### 9.6 Risks
+
+1. **Night as a whole** runs the most at once. If full at night is over 30, the fireflies become 4 shared sheets (§4), then the stars.
+2. **The sun's fire canvas**: a canvas cost about 14 in the spike. If over its share, it becomes prerendered frames swapped by `opacity`, or stays still in Full too.
+3. **A variable in `animation-delay`**: the fallback is in §9.1.
+4. **Classic under the new setting**: Calm becomes classic's once-a-second stepping; nothing else in classic changes.
