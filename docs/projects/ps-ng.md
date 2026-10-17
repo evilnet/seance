@@ -352,3 +352,18 @@ What it shows:
 - **Skeins**: the reading fits neither of §10.3's branches. Holding every copy at its resting opacity on a constant keyframe (`constop`) costs far _more_ page work than the swap (59.7 against 34.0), and calm's two swapping copies with copies 1 and 3 out of the page cost as much (57.2): the cheapest skeins are the ones where all four copies run the same keyframes. With the poses off (`nowing`, n = 1) the page work is near 10 — the wander, sway and flight alone. Per §10.2 a reading that does not fit gets a Safari Web Inspector timeline of the `skeins` and `skeins-constop` slots before a fix is designed.
 - **Calm**: `skeins-calm` is above `skeins`, so calm's copies-out change (§10.3 item 4) is reverted (`f31e2a2b`) and reported; calm's skeins stay over budget until the skeins' fix.
 - **Daybirds**: the larks were most of the page work (24.0 with them, 10.4 or 0.4 without); the lark state boxes (`c72a15b4`) were built after this build and are measured at the gate.
+
+### 10.6 The gate (2026-10-17, failed on calm and the skeins)
+
+iPhone 16, Safari, USB, build `f0cbbc6a` (the sprite fire, the lark state boxes, the 80-beat wingbeats; calm's copies-out reverted), two jobs of 2 rounds, every slot n = 2: `gate4a` (noon, night, sun) and `gate4b` rid `ios2-1792266428000` (storm, dusk, skeins, daybirds). Sum of WebContent + GPU + backboardd as % of one core, medians, WebContent in brackets; §8.3's plan 3 gate beside it.
+
+| moment | NG full (vs 30) | NG calm (≤ 24) | classic | plan 3: full / calm |
+| ------ | --------------- | -------------- | ------- | ------------------- |
+| noon   | 68.1 (6.7)      | 31.6 (0.3)     | 397.1   | 83 / 29             |
+| night  | 88.5 (40.4)     | 60.3 (23.6)    | 117.4   | 86 / 104            |
+| storm  | 77.2 (13.7)     | 43.4 (6.7)     | 395.3   | 65 / 48             |
+| dusk   | 92.2 (40.8)     | 57.8 (21.6)    | 117.4   | 86 / 102            |
+
+Alone, WebContent: skeins 28.4 (✗, ≤ 5), daybirds 0.9 (✓), sun 4.5 (✓). Still 1.1–1.3, coffee 0.8–0.9.
+
+Against §10's criteria: **full below classic at every moment** — passes; **daybirds and sun ≤ 5** — pass; **skeins ≤ 5** — fails at 28.4 (the user's pick after §10.5's short job: stop the skeins there and go to the gate); **calm ≤ 24** — fails at every moment. Calm's page work fell (night 61.5 → 23.6, dusk → 21.6), but calm noon is 31.4 backboardd with 0.3 page work: one moving group's Core Animation cost already sits past 24 (§8.3), so calm ≤ 24 cannot be met by page work alone, and at night and dusk the skeins' page work is the rest. Plan 3 stays paused until the user decides what follows.
