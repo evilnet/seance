@@ -26,9 +26,8 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 }
 
 /* Every animation off but the lifted groups' own (ps NG plan 2, Tasks 3 and 4); the rules below still
- * each of those while its psng-m-<group> class is absent. The sun's rays stay still here until their
- * own task lifts them; g.ps-sway stays still for good (the wrapper sways). */
-#theme-scene.psng *:not(.ps-cloud, .ps-stars i.tw, .ps-fireflies i, .ps-smoke i, .psng-sway, .psng-rain-tile, .ps-snow i, .ps-seeds i, .ps-flash, .ps-heatband, .ps-flock, .ps-skein-sway, .ps-bird, .psng-pose, .ps-buzzard, .psng-buzz-orbit, .psng-buzz-flap, .ps-lark-track, .ps-lark-fl, .ps-lark-ch, .ps-lark-cl) {
+ * each of those while its psng-m-<group> class is absent. The sun's rays are exempt too (Task 6); g.ps-sway stays still for good (the wrapper sways). */
+#theme-scene.psng *:not(.ps-cloud, .ps-stars i.tw, .ps-fireflies i, .ps-smoke i, .psng-sway, .psng-rain-tile, .ps-snow i, .ps-seeds i, .ps-flash, .ps-heatband, .ps-rays, .ps-flock, .ps-skein-sway, .ps-bird, .psng-pose, .ps-buzzard, .psng-buzz-orbit, .psng-buzz-flap, .ps-lark-track, .ps-lark-fl, .ps-lark-ch, .ps-lark-cl) {
 	animation: none !important;
 }
 
@@ -55,6 +54,16 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 	filter: none;
 }
 
+/* The sun's fire canvas (ngSun) lies over the region the old filter covered, +-123.2 of the sun's +-100
+ * units; the browser scales its 160 pixels up smoothly. */
+#theme-scene.psng .ps-fire {
+	position: absolute;
+	left: -11.6%;
+	top: -11.6%;
+	width: 123.2%;
+	height: 123.2%;
+}
+
 /* ---- the groups (ps NG plan 2, Task 3) ----
  * Each still while its class is absent; with it, classic's own animation runs, its delay moved by
  * --psng-t (seconds since local midnight of the mount day, written by scene.ts on each resume) so a
@@ -69,6 +78,7 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 #theme-scene.psng:not(.psng-m-weather) .ps-seeds i,
 #theme-scene.psng:not(.psng-m-weather) .ps-flash,
 #theme-scene.psng:not(.psng-m-weather) .ps-heatband,
+#theme-scene.psng:not(.psng-m-sun) .ps-rays,
 #theme-scene.psng:not(.psng-m-skeins) .ps-flock,
 #theme-scene.psng:not(.psng-m-skeins) .ps-skein-sway,
 #theme-scene.psng:not(.psng-m-skeins) .ps-bird,
@@ -90,6 +100,10 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 
 #theme-scene.psng.psng-m-clouds .ps-cloud {
 	animation-delay: calc(var(--cdl) - var(--psng-t));
+}
+
+#theme-scene.psng.psng-m-sun .ps-rays {
+	animation-delay: calc(0s - var(--psng-t));
 }
 
 #theme-scene.psng.psng-m-stars .ps-stars i.tw {

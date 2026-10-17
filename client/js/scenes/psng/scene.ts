@@ -22,6 +22,7 @@ import {paletteAt} from "../ps/palette";
 import {HEAT_HAZE, weatherLayers} from "../ps/plains";
 import {publishMoment, unpublish} from "../ps/publish";
 import {overcastBuilder, placeYurt, watchComposer, watchLand} from "../ps/watchers";
+import {fireDriver, ngSun} from "./flame";
 import {GROUPS, groupOverride, groupsFor} from "./groups";
 import {ngBirds} from "./poses";
 import {rainTiles} from "./rain";
@@ -71,6 +72,19 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	const only = groupOverride(storage);
 	const mounted = new Date();
 	let tier: Tier = "still";
+	let fire: ReturnType<typeof fireDriver> | undefined;
+	let sunLive = true;
+	let sunOn = false;
+
+	// The fire's frame loop runs only in the full tier, with the sun's group on and its gate live;
+	// anywhere else no frame is requested (calm keeps the one frame it has painted).
+	const syncFire = () => {
+		if (tier === "full" && sunOn && sunLive) {
+			fire?.start();
+		} else {
+			fire?.stop();
+		}
+	};
 
 	// Exactly the classes of the tier's running groups; the rest come off. On a move from still (the
 	// mount's included) the phase first, so the animations the classes start begin in it.
@@ -92,6 +106,9 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		for (const name of MOTION_CLASSES) {
 			root.classList.toggle(name, classes.has(name));
 		}
+
+		sunOn = on.has("sun");
+		syncFire();
 	};
 
 	const apply = (now: Date) => {
@@ -125,6 +142,10 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		for (const [name, value] of Object.entries(vars)) {
 			root.style.setProperty(name, value);
 		}
+
+		sunLive = live.sun;
+		fire?.setColours(p.sunFlame, p.sunEdge);
+		syncFire();
 
 		// Never ps-hot: it asks for the heat haze, which NG never builds.
 		for (const [name, on] of Object.entries(sceneClasses(m, p))) {
@@ -173,6 +194,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 			window.clearTimeout(timer);
 			timer = undefined;
 			unsubscribe?.();
+			fire?.destroy();
 			overcast?.end();
 			yurt?.destroy();
 			composer?.destroy();
@@ -201,8 +223,18 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		root.classList.add("psng");
 		document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
 		// The birds rebuilt from their SMIL before it goes (poses.ts): wing poses, the buzzard in boxes.
-		root.innerHTML = ngBirds(sceneMarkup(isPhoneLayout()));
+		root.innerHTML = ngSun(ngBirds(sceneMarkup(isPhoneLayout())));
 		stripSmil(root);
+		const canvas = root.querySelector(".ps-fire");
+
+		if (canvas && typeof (canvas as HTMLCanvasElement).getContext === "function") {
+			fire = fireDriver(
+				canvas as HTMLCanvasElement,
+				(fn) => window.requestAnimationFrame(fn),
+				(id) => window.cancelAnimationFrame(id)
+			);
+		}
+
 		// Still with no SMIL left, but paused so nothing (the sun's filter) keeps a clock running.
 		root.querySelectorAll("svg").forEach((svg) => svg.pauseAnimations());
 		// The near grass sways as one box (styles.ts): its svg in a div.psng-sway, once.

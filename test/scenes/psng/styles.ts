@@ -20,6 +20,7 @@ describe("ps NG stylesheet (psng/styles.ts)", function () {
 		"weather",
 		"skeins",
 		"daybirds",
+		"sun",
 	]) {
 		it(`${group}: still without psng-m-${group}, in phase with it`, function () {
 			const still = rules.filter(
@@ -149,10 +150,6 @@ describe("ps NG stylesheet (psng/styles.ts)", function () {
 			/@keyframes psng-pose2 \{\s*0%,\s*49\.99% \{\s*opacity: 1;\s*\}\s*50%,\s*100% \{\s*opacity: 0;/
 		);
 		expect(NG_STILL_CSS).to.not.match(/psng-pose[^}]*steps\(/);
-	});
-
-	it("the sun gets no lift yet", function () {
-		expect(NG_STILL_CSS).to.not.contain("psng-m-sun");
 	});
 
 	it("never the glass, never a media query", function () {

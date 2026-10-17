@@ -448,5 +448,91 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 				}
 			});
 		});
+
+		describe("the sun's fire", function () {
+			/** A planted .ps-fire canvas with a 2D context that counts its paints. */
+			const plantFire = (page: Page) => {
+				const paints = {n: 0};
+				const canvas = new FakeElement(".ps-fire") as FakeElement & {
+					getContext: () => unknown;
+				};
+				canvas.getContext = () => ({
+					createImageData: (w: number, h: number) => ({
+						data: new Uint8ClampedArray(w * h * 4),
+					}),
+					putImageData: () => paints.n++,
+				});
+				page.root.planted.set(".ps-fire", canvas);
+				// The fire's pending frame requests alone: its loop's callback is named `tick`.
+				const win = (globalThis as unknown as {window: Record<string, unknown>}).window;
+				const ids = new Set<number>();
+				const raf = win.requestAnimationFrame as (fn: () => void) => number;
+				const caf = win.cancelAnimationFrame as (id: number) => void;
+
+				win.requestAnimationFrame = (fn: () => void) => {
+					const id = raf(fn);
+
+					if (fn.name === "tick") {
+						ids.add(id);
+					}
+
+					return id;
+				};
+
+				win.cancelAnimationFrame = (id: number) => {
+					ids.delete(id);
+					caf(id);
+				};
+
+				return Object.assign(paints, {pending: () => ids.size});
+			};
+
+			it("full at noon: one frame request is pending, painted colours; the loop is cancelled by still", function () {
+				withPage(new Date(2026, 5, 21, 12, 0), (page) => {
+					follow(page);
+					const paints = plantFire(page);
+					const scene = mountOn(page);
+					expect(paints.pending()).to.equal(1);
+					expect(paints.n, "the minute's colours paint a frame").to.equal(1);
+					scene.update(state({attended: false}));
+					expect(paints.pending()).to.equal(0);
+					scene.update(state());
+					expect(paints.pending()).to.equal(1);
+					scene.destroy();
+					expect(paints.pending(), "destroy with the loop running").to.equal(0);
+				});
+			});
+
+			it("calm: one frame painted and no frame request", function () {
+				withPage(new Date(2026, 5, 21, 12, 0), (page) => {
+					follow(page);
+					const paints = plantFire(page);
+					const scene = mountOn(page, {motion: "calm"});
+					expect(paints.n).to.equal(1);
+					expect(paints.pending()).to.equal(0);
+					scene.destroy();
+				});
+			});
+
+			it("its gate off (midnight): no frame request", function () {
+				withPage(new Date(2026, 5, 21, 0, 0), (page) => {
+					follow(page);
+					const paints = plantFire(page);
+					const scene = mountOn(page);
+					expect(paints.pending(), "the sun is below the horizon").to.equal(0);
+					scene.destroy();
+				});
+			});
+
+			it("the markup has the canvas and no #ps-s-fire", function () {
+				withPage(new Date(2026, 5, 21, 12, 0), (page) => {
+					follow(page);
+					const scene = mountOn(page);
+					expect(page.root.markup).to.include('<canvas class="ps-fire"');
+					expect(page.root.markup).to.not.include("ps-s-fire");
+					scene.destroy();
+				});
+			});
+		});
 	});
 });
