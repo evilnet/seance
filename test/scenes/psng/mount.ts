@@ -4,7 +4,7 @@ import {momentAt} from "../../../client/js/scenes/ps/engine";
 import {sceneClasses} from "../../../client/js/scenes/ps/markup";
 import {paletteAt} from "../../../client/js/scenes/ps/palette";
 import {mount as mountClassic} from "../../../client/js/scenes/ps/scene";
-import {mount} from "../../../client/js/scenes/psng/scene";
+import {mount, RELEASE_MS} from "../../../client/js/scenes/psng/scene";
 import {NG_STILL_CSS} from "../../../client/js/scenes/psng/styles";
 import type {SceneHandle, SceneHostState} from "../../../client/js/themeScene";
 import {followSystemAccessibility} from "../../../client/js/helpers/systemAccessibility";
@@ -552,8 +552,8 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 				const moving = (page: Page) =>
 					[...page.root.classList.names].filter((c) => c.startsWith("psng-m-")).length;
 
-				it("a phone: open or dragged, the scene is still (no group class, no fire loop); closed, all back", function () {
-					withPage(new Date(2026, 5, 21, 12, 0), (page) => {
+				it("a phone: open or dragged, the scene is still (no group class, no fire loop); closed, all back after the slide", function () {
+					withPage(new Date(2026, 5, 21, 12, 0), (page, clock) => {
 						follow(page);
 						const paints = plantFire(page);
 						const set = plantDrawer(page, true);
@@ -566,6 +566,16 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 						set("menu-open");
 						expect(moving(page)).to.equal(0);
 						set();
+						expect(moving(page), "still while the drawer slides shut").to.equal(0);
+						clock.tick(RELEASE_MS - 1);
+						set("menu-dragging");
+						set();
+						clock.tick(RELEASE_MS - 1);
+						expect(
+							moving(page),
+							"a drag before the release starts the wait again"
+						).to.equal(0);
+						clock.tick(1);
 						expect(moving(page)).to.equal(GROUPS.length);
 						expect(paints.pending()).to.equal(1);
 						scene.destroy();

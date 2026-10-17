@@ -29,6 +29,8 @@ import {rainTiles} from "./rain";
 import {NG_STILL_CSS} from "./styles";
 import {phaseSeconds, tierFor, type Tier} from "./tiers";
 
+/** How long the scene stays still after the phone's drawer closes: its 160 ms slide, and some margin. */
+export const RELEASE_MS = 400;
 const MOTION_CLASSES = [...GROUPS.map((g) => `psng-m-${g}`), "psng-calm"];
 const SMIL = "animate, animateMotion, animateTransform, set";
 
@@ -78,6 +80,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	let held = false;
 	let viewport: HTMLElement | null = null;
 	let drawer: MutationObserver | undefined;
+	let release: number | undefined;
 
 	// The fire's frame loop runs only in the full tier, with the sun's group on and its gate live;
 	// anywhere else no frame is requested (calm keeps the one frame it has painted).
@@ -129,9 +132,20 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 			(cls.contains("menu-open") || cls.contains("menu-dragging")) &&
 			isPhoneLayout();
 
-		if (next !== held) {
-			held = next;
+		window.clearTimeout(release);
+		release = undefined;
+
+		if (next && !held) {
+			held = true;
 			setGroups();
+		} else if (!next && held) {
+			// Bringing the groups back costs the phone ~45 ms of style work (measured over USB): done
+			// mid-slide it dropped the closing drawer's last frames, so it waits for the slide (160 ms).
+			release = window.setTimeout(() => {
+				release = undefined;
+				held = false;
+				setGroups();
+			}, RELEASE_MS);
 		}
 	};
 
@@ -239,6 +253,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		update,
 		destroy() {
 			window.clearTimeout(timer);
+			window.clearTimeout(release);
 			timer = undefined;
 			unsubscribe?.();
 			drawer?.disconnect();
