@@ -10,7 +10,8 @@
  */
 
 import {PHONE_LAYOUT_QUERY} from "./helpers/device";
-import {createPowerMerge} from "./helpers/power";
+import {isIOSShell, nativeCall, nativeListen} from "./helpers/capacitor";
+import {createPowerMerge, framesSayLowPower} from "./helpers/power";
 import {onAndroidSystemStatus} from "./helpers/systemAccessibility";
 
 export type SceneView = "channel" | "query" | "other";
@@ -437,7 +438,8 @@ export function installThemeSceneHooks(): void {
 	syncPhone();
 
 	// Low power: the battery below 20 % here, the system's battery saver from
-	// the Android shell below (a shell built before `powerSave` leaves it unknown).
+	// the shells and Safari's frame rate below (a shell built before it reports
+	// nothing leaves it unknown).
 	const power = createPowerMerge((lowPower) => themeScene.setDevice({lowPower}));
 	const nav = navigator as Navigator & {
 		getBattery?: () => Promise<EventTarget & {charging: boolean; level: number}>;
@@ -462,6 +464,65 @@ export function installThemeSceneHooks(): void {
 			power.update({saver: status.powerSave});
 		}
 	});
+
+	type PowerStatus = {lowPower: boolean};
+
+	if (isIOSShell()) {
+		void nativeCall<PowerStatus>("Power", "status").then((s) => {
+			if (s) {
+				power.update({saver: s.lowPower});
+			}
+		});
+		nativeListen("Power", "changed", (s: PowerStatus) => power.update({saver: s.lowPower}));
+	} else if (
+		/iPhone|iPad|iPod/.test(navigator.userAgent) ||
+		(/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
+	) {
+		// Safari on iOS: Low Power Mode shows only as a 30 fps cap. Sampled on
+		// load and on each return to the page, and every 2 minutes while it
+		// says low power, so a passing slowdown does not stick.
+		let probing = false;
+		let again = 0;
+
+		const probe = () => {
+			if (probing || document.visibilityState === "hidden") {
+				return;
+			}
+
+			probing = true;
+			const gaps: number[] = [];
+			let last = 0;
+
+			const step = (t: number) => {
+				if (last) {
+					gaps.push(t - last);
+				}
+
+				last = t;
+
+				if (gaps.length < 30) {
+					requestAnimationFrame(step);
+					return;
+				}
+
+				probing = false;
+				gaps.sort((a, b) => a - b);
+				const low = framesSayLowPower(gaps[15]);
+				power.update({saver: low});
+				window.clearTimeout(again);
+
+				if (low) {
+					again = window.setTimeout(probe, 2 * 60 * 1000);
+				}
+			};
+
+			requestAnimationFrame(step);
+		};
+
+		document.addEventListener("visibilitychange", probe);
+		// Not during boot, whose own long frames would read as low power.
+		window.setTimeout(probe, 2000);
+	}
 
 	const sync = () => {
 		const visible = document.visibilityState !== "hidden";

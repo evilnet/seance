@@ -155,6 +155,8 @@ A narrow desktop window stays Full; an iPad in split view narrow enough for the 
 
 Low power is two signals: a battery discharging below 20 % (the Battery API, where a browser has it), and the system's battery saver (Android's, iOS's Low Power Mode). Thermal state and data saver are dropped.
 
+How each is read (`helpers/power.ts` merges the latest reading of each): the battery through `navigator.getBattery`; Android's battery saver as `powerSave` on the shell's `SystemAccessibility` plugin; iOS's Low Power Mode in the shell from a `Power` plugin in `SceneDelegate.swift`, and in Safari from the frame rate — on iOS a page too slow to keep 60 fps (a median frame of 28 ms or more over 30 frames) counts as low power, sampled 2 s after load, on each return to the page and every 2 minutes while it says low power. Measured 2026-10-17 on the iPhone 16 (coffee theme, median of 120 frames): Safari 17 ms with Low Power Mode off and 33 ms on; the shell 17 ms both ways — WebKit caps a Safari page at 30 fps in Low Power Mode but not the shell's web view, hence the plugin.
+
 ## 7. Testing
 
 **Mocha** (DOM-free modules): `tiers.ts` as a truth table, the setting migration included; the motion plan (time, weather, tier → the animations that exist), holding rules 1–2 of §3; seeded placements equal to classic's; the existing legibility suite unchanged.

@@ -28,3 +28,12 @@ export function createPowerMerge(set: (low: boolean) => void): {
 		},
 	};
 }
+
+/**
+ * Safari on iOS holds a page to 30 frames a second in Low Power Mode (a
+ * median 33 ms against 17 off, iPhone 16, 2026-10-17) and has no other tell;
+ * the shell's web view is not held, and reports it natively instead.
+ */
+export function framesSayLowPower(median: number): boolean {
+	return median >= 28;
+}

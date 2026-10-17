@@ -1,6 +1,6 @@
 import {expect} from "chai";
 
-import {createPowerMerge, lowPowerFrom} from "../../client/js/helpers/power";
+import {createPowerMerge, framesSayLowPower, lowPowerFrom} from "../../client/js/helpers/power";
 
 describe("power", () => {
 	describe("lowPowerFrom", () => {
@@ -68,6 +68,20 @@ describe("power", () => {
 			merge.update({battery: null});
 			merge.update({saver: false});
 			expect(calls).to.deep.equal([false]);
+		});
+	});
+
+	describe("framesSayLowPower", () => {
+		it("30 fps (33 ms a frame) is low power", () => {
+			expect(framesSayLowPower(33)).to.equal(true);
+		});
+
+		it("60 fps (17 ms) is not", () => {
+			expect(framesSayLowPower(17)).to.equal(false);
+		});
+
+		it("120 fps (8.3 ms) is not", () => {
+			expect(framesSayLowPower(8.3)).to.equal(false);
 		});
 	});
 });
