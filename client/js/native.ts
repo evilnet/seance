@@ -200,6 +200,8 @@ export function installNativeHooks(): void {
 	// the band in the deploy's colour for those).
 	window.CapacitorSystemBarsAndroidInterface?.onDOMReady();
 
+	let barStyle: string | undefined;
+
 	const styleStatusBar = () => {
 		const rgb = getComputedStyle(document.documentElement).backgroundColor;
 		const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(rgb);
@@ -212,6 +214,11 @@ export function installNativeHooks(): void {
 		// Style names the bar's text: DARK is light text for a dark page.
 		const style = (r * 299 + g * 587 + b * 114) / 1000 < 128 ? "DARK" : "LIGHT";
 
+		if (style === barStyle) {
+			return;
+		}
+
+		barStyle = style;
 		void nativeCall("StatusBar", "setStyle", {style});
 
 		// Android's navigation bar draws its buttons over the page too, and
@@ -226,6 +233,16 @@ export function installNativeHooks(): void {
 
 	const theme = document.getElementById("theme") as HTMLLinkElement | null;
 	theme?.addEventListener("load", styleStatusBar);
+
+	// A theme with a scene recolours the page as the hours pass: ps writes
+	// the sky's colour into --canvas-bg-color on <html> every minute, so a
+	// bar styled once at load kept dark text on a sky that had turned to
+	// night. Inline style on <html> is where such a colour lands; the check
+	// above sends nothing unless the answer changes.
+	new MutationObserver(styleStatusBar).observe(document.documentElement, {
+		attributes: true,
+		attributeFilter: ["style"],
+	});
 
 	// The stylesheet the settings chose (boot.ts, before this runs) may be in
 	// already — `sheet` is null while a swapped href is still loading.
