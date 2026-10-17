@@ -63,7 +63,7 @@ Read as a cost structure, not as NG's predicted figure (the harness moves 3 laye
 | `tiers.ts`  | DOM-free: full / calm / still from the host state and the setting; the forced-still states (§6, §9)       | 2    |
 | `poses.ts`  | the SMIL replacements: skein and lark wing poses swapped by `opacity`, the buzzard's path, the grass sway | 2    |
 | `flame.ts`  | the sun's fire: #98's frame cache, ported, 24 fps                                                         | 2    |
-| `rain.ts`   | rain, snow and seed tiles, each no larger than the viewport, looping over one tile                        | 2    |
+| `rain.ts`   | rain tiles, each no larger than the viewport, looping over one tile                                       | 2    |
 
 The `sprites.ts`, `motion.ts` and `shapes.ts` this table first listed are not built unless a group falls back (decision 2).
 
@@ -130,11 +130,11 @@ Spike 2 (2026-10-16, `ps-ng-plan-1.md` § What spike 2 decided; Chrome desktop a
 
 ## 6. Tiers
 
-| Tier  | Moves                                                                                                                                                 | iPhone budget |
-| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| full  | everything in §4                                                                                                                                      | ≤ 30          |
-| calm  | clouds, weather (rain, snow, lightning), smoke, skeins with wings at 8 fps; still: stars, fireflies (glowing, in place), seeds, larks, buzzard, grass | ≤ 24          |
-| still | nothing: no animation object exists (plan 2: `animation: none`, and each loop resumes at its phase through `--psng-t`, §9)                            | ≤ 3           |
+| Tier  | Moves                                                                                                                                                     | iPhone budget |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| full  | everything in §4                                                                                                                                          | ≤ 30          |
+| calm  | clouds, weather (rain, snow, lightning), smoke, skeins with wings on two poses; still: stars, fireflies (glowing, in place), seeds, larks, buzzard, grass | ≤ 24          |
+| still | nothing: no animation object exists (plan 2: `animation: none`, and each loop resumes at its phase through `--psng-t`, §9)                                | ≤ 3           |
 
 Plan 1's whole scene is the still tier: it creates no animation object, SMIL clock or stepper (the census in §7 holds it), and costs 1.1–1.4 on the iPhone (§8.1). `pause()` does not make a scene still on iOS — a paused animation is still Core Animation work in backboardd (19.1 against 1.1, §8.1) — so plan 2 stills with `animation: none`, and with `cancel()` wherever it creates animations itself.
 
@@ -214,19 +214,19 @@ The user's picks in conversation, 2026-10-16: classic's own CSS animations, grou
 
 ### 9.2 The groups
 
-| Group                                                 | Classic today                                            | NG                                                                         | Full | Calm                           |
-| ----------------------------------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------- | ---- | ------------------------------ |
-| clouds (5, +4 wet)                                    | CSS `ps-drift` in `cqw`                                  | classic's CSS                                                              | runs | runs                           |
-| stars (52 of 190 twinkle)                             | CSS `opacity`                                            | classic's CSS                                                              | runs | still                          |
-| fireflies (34; 17 on a phone)                         | CSS drift + blink                                        | classic's CSS                                                              | runs | glowing, in place              |
-| smoke (5 puffs)                                       | CSS                                                      | classic's CSS                                                              | runs | runs                           |
-| rain, snow, seeds (130 / 120 / 26; halved on a phone) | per-particle CSS; rain sheets 2.36 viewports tall on #98 | `rain.ts`: tiles no larger than the viewport, one loop per tile            | runs | rain and snow run; seeds still |
-| lightning                                             | `opacity` flash                                          | classic's CSS                                                              | runs | runs                           |
-| grass sway                                            | SVG `<g>` transform                                      | one wrapper element carrying classic's keyframe                            | runs | still                          |
-| skeins (38 birds, 3 flocks)                           | CSS flight + 76 SMIL wing morphs                         | classic's flight CSS; wings as 3–4 poses swapped by `opacity` (`poses.ts`) | runs | flight runs; wings at 8 fps    |
-| buzzard, skylarks                                     | SMIL `animateMotion` + 6 wing morphs                     | the path as a CSS loop; the larks' wings as poses                          | runs | still                          |
-| sun                                                   | CSS ray spin + SMIL `baseFrequency` fire                 | the spin is classic's CSS; the fire is `flame.ts`, 24 fps                  | runs | spin runs; fire still          |
-| heat haze                                             | SVG displacement                                         | dropped (decision 4)                                                       | —    | —                              |
+| Group                                                 | Classic today                                            | NG                                                                                                                                                                                         | Full | Calm                            |
+| ----------------------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---- | ------------------------------- |
+| clouds (5, +4 wet)                                    | CSS `ps-drift` in `cqw`                                  | classic's CSS                                                                                                                                                                              | runs | runs                            |
+| stars (52 of 190 twinkle)                             | CSS `opacity`                                            | classic's CSS                                                                                                                                                                              | runs | still                           |
+| fireflies (34; 17 on a phone)                         | CSS drift + blink                                        | classic's CSS                                                                                                                                                                              | runs | glowing, in place               |
+| smoke (5 puffs)                                       | CSS                                                      | classic's CSS                                                                                                                                                                              | runs | runs                            |
+| rain, snow, seeds (130 / 120 / 26; halved on a phone) | per-particle CSS; rain sheets 2.36 viewports tall on #98 | rain in `rain.ts` tiles no larger than the viewport; snow, seeds and lightning are classic's per-particle CSS (tiny boxes, already inside the viewport), tiles only if the sitting says so | runs | rain and snow run; seeds still  |
+| lightning                                             | `opacity` flash                                          | classic's CSS                                                                                                                                                                              | runs | runs                            |
+| grass sway                                            | SVG `<g>` transform                                      | one wrapper element carrying classic's keyframe                                                                                                                                            | runs | still                           |
+| skeins (38 birds, 3 flocks)                           | CSS flight + 76 SMIL wing morphs                         | classic's flight CSS; wings as 3–4 poses swapped by `opacity` (`poses.ts`)                                                                                                                 | runs | flight runs; wings on two poses |
+| buzzard, skylarks                                     | SMIL `animateMotion` + 6 wing morphs                     | the path as a CSS loop; the larks' wings as poses                                                                                                                                          | runs | still                           |
+| sun                                                   | CSS ray spin + SMIL `baseFrequency` fire                 | the spin is classic's CSS; the fire is `flame.ts`, 24 fps                                                                                                                                  | runs | spin runs; fire still           |
+| heat haze                                             | SVG displacement                                         | dropped (decision 4)                                                                                                                                                                       | —    | —                               |
 
 The gates stand as in plan 1: a group runs only while `liveLayers` (`layers.ts`) has its layer on.
 
