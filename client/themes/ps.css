@@ -2442,6 +2442,20 @@ html[data-contrast="more"]:root[data-ps-text="light"] #chat .chat {
 	pointer-events: none;
 }
 
+/* A word reaction's text (style.css: `.msg-reaction.word`, up to 22ch with an
+ * ellipsis) clips for the ellipsis, and on the chips that carry the outline
+ * (the viewer's own, the add chip) the clip took the rim and shadow off every
+ * side (the user's iPhone, 2026-10-17). As with the reply quote, the box
+ * reaches 0.75rem out and gives it back as padding, so the text stands and
+ * cuts where it did; it takes no pointer, so a press past the chip lands on
+ * what is there. */
+#chat .msg-reaction.word .msg-reaction-text {
+	max-width: calc(22ch + 1.5rem);
+	margin: -0.75rem;
+	padding: 0.75rem;
+	pointer-events: none;
+}
+
 /* A spoiler hides its text by making it transparent; a halo or shadow would draw it back. */
 #chat .msg .md-spoiler:not(.md-spoiler-shown) {
 	text-shadow: none;
