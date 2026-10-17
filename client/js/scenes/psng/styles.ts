@@ -366,12 +366,4 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 		transform: scaleY(1);
 	}
 }
-
-/* The phone's drawer out (scene.ts psng-hold): every loop paused where it is, so the drawer's live
- * blur samples a still backdrop while it slides. Paused, not removed: a 160 ms slide must not
- * rebuild every animation at its start. */
-#theme-scene.psng.psng-hold,
-#theme-scene.psng.psng-hold * {
-	animation-play-state: paused !important;
-}
 `;

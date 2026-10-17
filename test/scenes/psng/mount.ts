@@ -549,28 +549,26 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 					return set;
 				};
 
-				it("a phone: open or dragged, the scene holds and the fire stops; closed, both run again", function () {
+				const moving = (page: Page) =>
+					[...page.root.classList.names].filter((c) => c.startsWith("psng-m-")).length;
+
+				it("a phone: open or dragged, the scene is still (no group class, no fire loop); closed, all back", function () {
 					withPage(new Date(2026, 5, 21, 12, 0), (page) => {
 						follow(page);
 						const paints = plantFire(page);
 						const set = plantDrawer(page, true);
 						const scene = mountOn(page);
-						expect(page.root.classList.contains("psng-hold")).to.equal(false);
+						expect(moving(page)).to.equal(GROUPS.length);
 						expect(paints.pending()).to.equal(1);
 						set("menu-dragging");
-						expect(page.root.classList.contains("psng-hold")).to.equal(true);
+						expect(moving(page), "removed, not paused").to.equal(0);
 						expect(paints.pending()).to.equal(0);
 						set("menu-open");
-						expect(page.root.classList.contains("psng-hold")).to.equal(true);
+						expect(moving(page)).to.equal(0);
 						set();
-						expect(page.root.classList.contains("psng-hold")).to.equal(false);
+						expect(moving(page)).to.equal(GROUPS.length);
 						expect(paints.pending()).to.equal(1);
-						expect(
-							page.root.classList.contains("psng-m-clouds"),
-							"groups stay on"
-						).to.equal(true);
 						scene.destroy();
-						expect(page.root.classList.contains("psng-hold")).to.equal(false);
 					});
 				});
 
@@ -581,16 +579,10 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 						const set = plantDrawer(page, false);
 						const scene = mountOn(page);
 						set("menu-open");
-						expect(page.root.classList.contains("psng-hold")).to.equal(false);
+						expect(moving(page)).to.equal(GROUPS.length);
 						expect(paints.pending()).to.equal(1);
 						scene.destroy();
 					});
-				});
-
-				it("the stylesheet pauses every animation under psng-hold", function () {
-					expect(NG_STILL_CSS).to.match(
-						/#theme-scene\.psng\.psng-hold \*\s*\{\s*animation-play-state: paused !important;/
-					);
 				});
 			});
 

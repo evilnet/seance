@@ -79,10 +79,10 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	let viewport: HTMLElement | null = null;
 	let drawer: MutationObserver | undefined;
 
-	// The fire's frame loop runs only in the full tier, with the sun's group on and its gate live,
-	// and not while the drawer is out; anywhere else no frame is requested (the last one stays).
+	// The fire's frame loop runs only in the full tier, with the sun's group on and its gate live;
+	// anywhere else no frame is requested (calm keeps the one frame it has painted).
 	const syncFire = () => {
-		if (tier === "full" && sunOn && sunLive && !held) {
+		if (tier === "full" && sunOn && sunLive) {
 			fire?.start();
 		} else {
 			fire?.stop();
@@ -92,7 +92,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	// Exactly the classes of the tier's running groups; the rest come off. On a move from still (the
 	// mount's included) the phase first, so the animations the classes start begin in it.
 	const setGroups = () => {
-		const next = tierFor(latest, reduceMotion);
+		const next = held ? "still" : tierFor(latest, reduceMotion);
 
 		// Only out of still: calm → full keeps --psng-t, since a rewrite would jump the clouds already
 		// running; the groups full adds start from the phase written on the last still → moving move.
@@ -118,16 +118,21 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 
 	// On the phone layout the sidebar is a drawer whose live blur re-samples the scene every frame
 	// of its slide; with the full tier moving behind it the slide lagged on an iPhone (calm and
-	// still did not). While it is out (open, or following a finger) the scene holds. On the desktop
-	// menu-open only means the sidebar is shown, so it holds nothing there.
+	// still did not). While it is out (open, or following a finger) the scene is still: its
+	// animations removed, not paused — a paused animation still costs iOS's compositor about what a
+	// running one does (plan 1's ladder: paused 25, none 1.1). On the desktop menu-open only means
+	// the sidebar is shown, so it holds nothing there.
 	const syncHold = () => {
 		const cls = viewport?.classList;
-		held =
+		const next =
 			!!cls &&
 			(cls.contains("menu-open") || cls.contains("menu-dragging")) &&
 			isPhoneLayout();
-		root.classList.toggle("psng-hold", held);
-		syncFire();
+
+		if (next !== held) {
+			held = next;
+			setGroups();
+		}
 	};
 
 	// #viewport is the app's, which may mount after the scene: looked for again on each update.
@@ -253,7 +258,6 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 				"ps-storm",
 				"ps-hot",
 				"ps-west",
-				"psng-hold",
 				...MOTION_CLASSES
 			);
 			delete root.dataset.view;
