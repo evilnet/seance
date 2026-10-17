@@ -4,7 +4,7 @@
 // phase by `--psng-t`), beside classic, in one build, switched by the
 // `psRenderer` setting. The run connects to #seance, says one line of its own,
 // leaves `thelounge.state.psngGroups` unset (every group a tier allows) and
-// the `psAnimation` setting at Auto unless a check says otherwise, and then:
+// the `psAnimation` setting at Full (Auto follows the device since plan 3; one check covers it), and then:
 //
 // - with the preview flag (`thelounge.state.psngPreview` = "1") set, opens
 //   Settings → Appearance, picks ps, and finds the "Scene renderer" radio
@@ -112,6 +112,8 @@ import {writeFileSync} from "node:fs";
 import {join} from "node:path";
 import {pathToFileURL} from "node:url";
 
+const PHONE_LAYOUT_QUERY =
+	"(max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse)";
 const RUN = Date.now().toString(36);
 const NICK = `ng${RUN}`;
 const BASE = `http://localhost:${process.env.SEANCE_HTTP_PORT ?? "8021"}/`;
@@ -602,7 +604,7 @@ async function calmCensus(page, label, full) {
 			c.over.length === 0 &&
 			frames === 0
 	);
-	await setMotion(page, "auto");
+	await setMotion(page, "full");
 }
 
 /** What exists only in flight: out of the page while NG is still (styles.ts). */
@@ -718,6 +720,10 @@ export default async function run(page) {
 	await sendLine(page, `hello from the moving plains ${RUN}`);
 	await page.waitFor(`!document.querySelector("#chat .msg.pending")`, {label: "our own line"});
 
+	// Auto follows the device (plan 3): every census below is of Full's groups,
+	// so the setting is Full until the Auto check.
+	await setMotion(page, "full");
+
 	// ---- ps, and the radio pair (desktop) or the store (phone)
 
 	if (vp === "desktop") {
@@ -763,7 +769,7 @@ export default async function run(page) {
 		`setting Still: every SVG clock paused (${still.svgsRunning} of ${still.svgs} running), nothing moves in 300 ms (${ngMoves.moved} of ${ngMoves.clocks} clocks)`,
 		still.svgs > 0 && still.svgsRunning === 0 && ngMoves.moved === 0
 	);
-	await setMotion(page, "auto");
+	await setMotion(page, "full");
 	await moving(page, "setting Auto");
 
 	// ---- switch to classic while NG moves
@@ -901,7 +907,7 @@ export default async function run(page) {
 	const switchedAt = await page.evaluate(`Date.now()`);
 	await setMotion(page, "full");
 	await phaseCheck(page, "phase", switchedAt);
-	await setMotion(page, "auto");
+	await setMotion(page, "full");
 
 	// ---- the theme to coffee while NG moves, then back to ps
 
@@ -942,6 +948,47 @@ export default async function run(page) {
 	await waitRenderer(page, "ng");
 	await at(page, noon);
 	await moving(page, "theme back to ps");
+
+	// ---- Auto follows the device: calm on a touch phone, full elsewhere
+
+	await setMotion(page, "auto");
+	await mountNgAt(page, noon);
+	const calmClass = () =>
+		page.evaluate(`document.getElementById("theme-scene").classList.contains("psng-calm")`);
+	page.check(
+		`Auto on ${vp === "mobile" ? "a touch phone" : "a desktop viewport"}: ${
+			vp === "mobile" ? "psng-calm" : "no psng-calm"
+		}`,
+		(await calmClass()) === (vp === "mobile")
+	);
+
+	if (vp === "desktop") {
+		await page.send("Emulation.setDeviceMetricsOverride", {
+			width: 390,
+			height: 844,
+			deviceScaleFactor: 1,
+			mobile: false,
+		});
+		await page.sleep(600);
+		const narrow = await page.evaluate(
+			`({layout: matchMedia(${JSON.stringify(
+				PHONE_LAYOUT_QUERY
+			)}).matches, coarse: matchMedia("(pointer: coarse)").matches})`
+		);
+		page.check(
+			`Auto on a desktop resized to 390 x 844, no touch (phone layout ${narrow.layout}, coarse ${narrow.coarse}): no psng-calm`,
+			narrow.layout && !narrow.coarse && !(await calmClass())
+		);
+		await page.send("Emulation.setDeviceMetricsOverride", {
+			width: 1280,
+			height: 900,
+			deviceScaleFactor: 1,
+			mobile: false,
+		});
+		await page.sleep(600);
+	}
+
+	await setMotion(page, "full");
 
 	// ---- the pairs (no hostname in frame: the join and quit lines carry it)
 

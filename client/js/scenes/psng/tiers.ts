@@ -14,7 +14,12 @@ export function tierFor(state: SceneHostState, reduceMotion: boolean): Tier {
 		return "still";
 	}
 
-	return state.motion === "calm" ? "calm" : "full";
+	if (state.motion !== "auto") {
+		return state.motion;
+	}
+
+	// Auto follows the device: a touch phone is calm (still on low power), anything else full (calm on low power).
+	return state.phone ? (state.lowPower ? "still" : "calm") : state.lowPower ? "calm" : "full";
 }
 
 /** Seconds from local midnight of `reference`'s day to `now`: the phase every loop of the NG scene starts from. */

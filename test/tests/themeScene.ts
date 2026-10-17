@@ -86,7 +86,14 @@ const host = (loaders: Record<string, SceneLoader>, warn?: (m: string, e: unknow
 	createSceneHost({
 		root: () => ROOT,
 		loaders,
-		state: {visible: true, attended: true, view: "channel", motion: "auto"},
+		state: {
+			visible: true,
+			attended: true,
+			view: "channel",
+			motion: "auto",
+			phone: false,
+			lowPower: false,
+		},
 		warn,
 	});
 
@@ -171,7 +178,14 @@ describe("the theme-scene hook (client/js/themeScene.ts)", function () {
 		const h = createSceneHost({
 			root: () => fakeRoot,
 			loaders: {ps: () => Promise.resolve(throwing)},
-			state: {visible: true, attended: true, view: "channel", motion: "auto"},
+			state: {
+				visible: true,
+				attended: true,
+				view: "channel",
+				motion: "auto",
+				phone: false,
+				lowPower: false,
+			},
 			warn: (m) => warnings.push(m),
 		});
 		await h.setTheme("ps");
@@ -234,6 +248,26 @@ describe("the theme-scene hook (client/js/themeScene.ts)", function () {
 			"update false calm",
 			"update false full",
 		]);
+	});
+
+	it("setDevice re-tiers a mounted scene, and a repeat is no update", async function () {
+		const seen: string[] = [];
+		const mod: SceneModule = {
+			mount(_root, st) {
+				seen.push(`mount ${st.phone} ${st.lowPower}`);
+				return {
+					update: (next: SceneHostState) =>
+						seen.push(`update ${next.phone} ${next.lowPower}`),
+					destroy: () => undefined,
+				};
+			},
+		};
+		const h = host({ps: () => Promise.resolve(mod)});
+		await h.setTheme("ps");
+		h.setDevice({phone: true});
+		h.setDevice({phone: true});
+		h.setDevice({lowPower: true});
+		expect(seen).to.deep.equal(["mount false false", "update true false", "update true true"]);
 	});
 
 	it("reads the old stored motion levels across, and anything else as auto", function () {
@@ -365,7 +399,14 @@ describe("the theme-scene hook (client/js/themeScene.ts)", function () {
 			const h = createSceneHost({
 				root: () => ROOT,
 				loaders: {ps: rejectOnceThenResolve(mod)},
-				state: {visible: false, attended: true, view: "channel", motion: "auto"},
+				state: {
+					visible: false,
+					attended: true,
+					view: "channel",
+					motion: "auto",
+					phone: false,
+					lowPower: false,
+				},
 				warn: (m) => warnings.push(m),
 			});
 			await h.setTheme("ps");
@@ -530,7 +571,14 @@ describe("the theme-scene hook (client/js/themeScene.ts)", function () {
 			const h = createSceneHost({
 				root: () => ROOT,
 				loaders: {ps: psLoader, "ps-ng": loader},
-				state: {visible: false, attended: true, view: "channel", motion: "auto"},
+				state: {
+					visible: false,
+					attended: true,
+					view: "channel",
+					motion: "auto",
+					phone: false,
+					lowPower: false,
+				},
 				warn: (m) => warnings.push(m),
 			});
 			h.setRenderer("ng");

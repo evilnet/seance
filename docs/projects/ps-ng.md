@@ -140,16 +140,20 @@ Plan 1's whole scene is the still tier: it creates no animation object, SMIL clo
 
 **Forced still** (as today): reduced motion (`data-reduce-motion`), a hidden page, a page nobody attends to (`createAttention`), a query.
 
-**The setting** "Scene animation" becomes Auto (default) / Full / Calm / Still in plan 2. Stored values are read as the new ones (on load, not rewritten, so an old backup restores the same way): `60` and `24` → Auto, `1s` and `sparse` → Calm, `off` → Still. Classic reads the new values: Auto and Full play at the screen's rate (classic's `60`), Calm steps once a second (`1s`), Still is `off`. Auto means Full until plan 3's power signals exist.
+**The setting** "Scene animation" becomes Auto (default) / Full / Calm / Still in plan 2. Stored values are read as the new ones (on load, not rewritten, so an old backup restores the same way): `60` and `24` → Auto, `1s` and `sparse` → Calm, `off` → Still. Classic reads the new values: Auto and Full play at the screen's rate (classic's `60`), Calm steps once a second (`1s`), Still is `off`. Auto follows the device (below).
 
 `cancel()` applies only where a group falls back to `element.animate` (decision 2); classic's own CSS animations go still the way plan 1 measured, by `animation: none` (§8.1, `rm` and `none`).
 
-**Auto** is full unless a power signal says otherwise, then calm; every signal is watched live:
+**Auto** follows the device (the user, 2026-10-17):
 
-- iOS shell: Low Power Mode or thermal state serious or worse (`ProcessInfo`), through a small native plugin in the style of `SystemAccessibilityPlugin`.
-- Android shell: battery saver or thermal throttling (`PowerManager`), the same plugin.
-- Chromium: discharging below 20 % (Battery API), or data saver.
-- Safari on the web: a short frame-interval probe, if Low Power Mode's 30 fps cap still shows on iOS 26/27 (unverified; gate §8).
+| Auto on…                                                         | normal power | low power |
+| ---------------------------------------------------------------- | ------------ | --------- |
+| a phone: `PHONE_LAYOUT_QUERY` **and** `(pointer: coarse)` match  | calm         | still     |
+| anything else (desktop at any width, tablet, a mouse-driven PWA) | full         | calm      |
+
+A narrow desktop window stays Full; an iPad in split view narrow enough for the phone layout counts as a phone. Full, Calm and Still chosen by hand ignore device and power; the forced-still states win over everything. Both are watched live (`themeScene.ts` `setDevice`).
+
+Low power is two signals: a battery discharging below 20 % (the Battery API, where a browser has it), and the system's battery saver (Android's, iOS's Low Power Mode). Thermal state and data saver are dropped.
 
 ## 7. Testing
 

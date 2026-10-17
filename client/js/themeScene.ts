@@ -9,6 +9,8 @@
  * time. It touches the document only inside functions, so mocha loads it.
  */
 
+import {PHONE_LAYOUT_QUERY} from "./helpers/device";
+
 export type SceneView = "channel" | "query" | "other";
 
 /**
@@ -63,6 +65,10 @@ export interface SceneHostState {
 	attended: boolean;
 	view: SceneView;
 	motion: SceneMotion;
+	/** A touch phone: the phone layout on a coarse pointer. Auto's tier follows it. */
+	phone: boolean;
+	/** The device asks to save power (battery below 20 %, a system battery saver). Auto's tier follows it. */
+	lowPower: boolean;
 }
 
 export interface SceneHandle {
@@ -89,6 +95,8 @@ export interface SceneHost {
 	/** Whether a page nobody attends to rests its scene (default yes); no, and it counts as attended. */
 	setPauseWhenAway(pause: boolean): void;
 	setMotion(motion: SceneMotion): void;
+	/** What the device is; a mounted scene is updated once, and only when a value changed. */
+	setDevice(device: Partial<{phone: boolean; lowPower: boolean}>): void;
 	/** Which ps scene to draw; swaps a mounted ps scene for the other one. */
 	setRenderer(renderer: PsRenderer): void;
 	setView(view: SceneView): void;
@@ -263,6 +271,17 @@ export function createSceneHost(opts: {
 			}
 		},
 
+		setDevice(device: Partial<{phone: boolean; lowPower: boolean}>): void {
+			const phone = device.phone ?? state.phone;
+			const lowPower = device.lowPower ?? state.lowPower;
+
+			if (state.phone !== phone || state.lowPower !== lowPower) {
+				state.phone = phone;
+				state.lowPower = lowPower;
+				handle?.update({...state});
+			}
+		},
+
 		setView(view: SceneView): void {
 			if (state.view === view) {
 				return;
@@ -280,7 +299,14 @@ export function createSceneHost(opts: {
 export const themeScene: SceneHost = createSceneHost({
 	root: () => document.getElementById("theme-scene"),
 	loaders: SCENES,
-	state: {visible: true, attended: true, view: "other", motion: "auto"},
+	state: {
+		visible: true,
+		attended: true,
+		view: "other",
+		motion: "auto",
+		phone: false,
+		lowPower: false,
+	},
 	warn: (message, error) => console.warn(message, error), // eslint-disable-line no-console
 });
 
@@ -400,6 +426,13 @@ export function installThemeSceneHooks(): void {
 	for (const type of ["pointermove", "pointerdown", "keydown", "wheel", "touchstart"]) {
 		window.addEventListener(type, onInput, {capture: true, passive: true});
 	}
+
+	const layout = window.matchMedia(PHONE_LAYOUT_QUERY);
+	const touch = window.matchMedia("(pointer: coarse)");
+	const syncPhone = () => themeScene.setDevice({phone: layout.matches && touch.matches});
+	layout.addEventListener("change", syncPhone);
+	touch.addEventListener("change", syncPhone);
+	syncPhone();
 
 	const sync = () => {
 		const visible = document.visibilityState !== "hidden";

@@ -587,7 +587,7 @@ export default defineComponent({
 			still: "Still",
 		};
 		const sceneMotionHints: Record<SceneMotion, string> = {
-			auto: "follows your device; for now the same as Full",
+			auto: "follows your device: Full on a computer or tablet, Calm on a phone, one step less on low power",
 			full: "everything moves, at your screen's rate",
 			calm: "clouds, weather, smoke and the birds' flight; the rest holds still",
 			still: "a still picture; the sky still follows the time of day",

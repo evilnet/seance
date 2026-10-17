@@ -11,18 +11,40 @@ describe("ps NG tiers (psng/tiers.ts)", function () {
 			for (const view of ["channel", "query"] as const) {
 				for (const reduce of [true, false]) {
 					for (const motion of motions) {
-						const state: SceneHostState = {visible, attended, view, motion};
-						const still = !visible || !attended || view === "query" || reduce;
-						const want =
-							still || motion === "still"
-								? "still"
-								: motion === "calm"
-								? "calm"
-								: "full";
-						rows++;
-						it(`${JSON.stringify(state)} reduce=${reduce} is ${want}`, function () {
-							expect(tierFor(state, reduce)).to.equal(want);
-						});
+						for (const phone of [true, false]) {
+							for (const lowPower of [true, false]) {
+								const state: SceneHostState = {
+									visible,
+									attended,
+									view,
+									motion,
+									phone,
+									lowPower,
+								};
+								const still = !visible || !attended || view === "query" || reduce;
+								const auto = phone
+									? lowPower
+										? "still"
+										: "calm"
+									: lowPower
+									? "calm"
+									: "full";
+								const want =
+									still || motion === "still"
+										? "still"
+										: motion === "calm"
+										? "calm"
+										: motion === "full"
+										? "full"
+										: auto;
+								rows++;
+								it(`${JSON.stringify(
+									state
+								)} reduce=${reduce} is ${want}`, function () {
+									expect(tierFor(state, reduce)).to.equal(want);
+								});
+							}
+						}
 					}
 				}
 			}
@@ -30,7 +52,7 @@ describe("ps NG tiers (psng/tiers.ts)", function () {
 	}
 
 	it("covers every combination", function () {
-		expect(rows).to.equal(64);
+		expect(rows).to.equal(256);
 	});
 
 	it("phaseSeconds: from local midnight of the reference's day, past its midnight too", function () {

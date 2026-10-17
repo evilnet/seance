@@ -42,6 +42,8 @@ const state = (over: Partial<SceneHostState> = {}): SceneHostState => ({
 	attended: true,
 	view: "channel",
 	motion: "auto",
+	phone: false,
+	lowPower: false,
 	...over,
 });
 
