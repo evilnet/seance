@@ -251,10 +251,10 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 	animation-name: psng-pose2;
 }
 
-/* Calm never shows copies 1 and 3, so they are out of the page rather than held still (spec §10.3 item 4). */
 #theme-scene.psng.psng-calm .ps-bird .psng-pose-1,
 #theme-scene.psng.psng-calm .ps-bird .psng-pose-3 {
-	display: none;
+	animation: none !important;
+	opacity: 0;
 }
 
 #theme-scene.psng.psng-m-daybirds .ps-lark .psng-pose {

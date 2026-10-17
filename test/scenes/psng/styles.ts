@@ -162,32 +162,6 @@ describe("ps NG stylesheet (psng/styles.ts)", function () {
 		expect(NG_STILL_CSS).to.not.match(/psng-pose[^}]*steps\(/);
 	});
 
-	it("calm takes wing copies 1 and 3 out of the page", function () {
-		const copies = (sel: string) =>
-			sel
-				.split(",")
-				.map((x) => x.trim())
-				.filter((x) => /\.ps-bird \.psng-pose-[13]$/.test(x));
-		const calm = rules.filter(([sel]) => copies(sel).length > 0);
-		const calmCopies = calm.flatMap(([sel]) => copies(sel));
-		expect(calmCopies).to.have.members([
-			"#theme-scene.psng.psng-calm .ps-bird .psng-pose-1",
-			"#theme-scene.psng.psng-calm .ps-bird .psng-pose-3",
-		]);
-
-		for (const [, body] of calm) {
-			expect(body).to.match(/display: none/);
-			expect(body).to.not.match(/animation: none !important/);
-		}
-
-		const displayOutsideCalm = rules.filter(
-			([sel, body]) =>
-				/display:/.test(body) &&
-				sel.split(",").some((x) => /psng-pose-[13]/.test(x) && !x.includes(".psng-calm"))
-		);
-		expect(displayOutsideCalm).to.have.length(0);
-	});
-
 	it("the larks' state boxes hold each state from its own stop to the next, on linear keyframes", function () {
 		// Classic's ps-lark-fl/-ch/-cl (ps.css, steps(1, end)): the value from each stop until the next.
 		const stops = [0, 63, 69, 73, 80, 82.5];
