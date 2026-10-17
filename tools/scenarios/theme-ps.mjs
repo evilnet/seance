@@ -3,8 +3,8 @@
 // app — the sky, 190 stars, the sun and the moon, five clouds (nine in rain
 // and a storm, each wet day's under a still deck, rain's the lighter), the plains (the land and river, the
 // fireflies, the yurt and its smoke, the near grass), the birds and the
-// day's weather (client/js/scenes/ps/scene.ts, through the hook in
-// client/js/themeScene.ts). The run then:
+// day's weather (client/js/scenes/psng/scene.ts, NG, the one renderer,
+// through the hook in client/js/themeScene.ts). The run then:
 //
 // - reads the type: all nine font files (Source Sans 3 upright and italic,
 //   Newsreader; Latin, Latin Extended and Vietnamese each) loaded, each drawing its text
@@ -33,11 +33,11 @@
 //   switch, and the sky again after the switch back; in Settings the theme
 //   select and its options are the solid in its ink at 22:00 and at noon
 //   (the user's report, 2026-09-26: light text on a light list at night);
-// - hides and shows the page: the scene stops (its class, all its SVG clocks
-//   — 48, and 49 on a hot day with the haze — and every CSS animation in it)
-//   and starts again, every SVG running but those in a layer outside its
-//   window (ps-off, layers.ts) and the haze while it bends nothing; stays
-//   stopped under reduced motion, its clouds (five, or nine on a wet day)
+// - hides and shows the page: the scene freezes (its `psng-m-` group classes
+//   kept, `psng-frozen` on the root, no CSS animation left on it) and runs
+//   again (the group classes, no `psng-frozen`, animations moving); stays
+//   stopped under reduced motion (no group class), its clouds (five, or nine
+//   on a wet day)
 //   resting in as many places across the sky (--cp, on ps-drift's path)
 //   rather than piled at the left edge; and a scene mounted into a hidden
 //   page starts stopped;
@@ -51,12 +51,12 @@
 //   nine places on the sky and the storm's deck stands; and the colours are
 //   the hour's, the same as without reduced motion at the same minute;
 // - pins the clock (a Date shim, in UTC) to fixed days, and reads the plains:
-//   a clear noon (no drop, flake or seed in the page, no haze, white words,
+//   a clear noon (no drop, flake or seed in the page, white words,
 //   the stars, the skeins, the fireflies and the smoke out of the render
 //   tree, the five clouds alone), a rainy one (130 drops and the rain's 26
 //   seeds, no flake; nine clouds, four of them the rain's, and no bird in
-//   the render tree), a hot one (the haze on the ground group and not on the
-//   near grass), a snowy one (120 flakes, dark ink words, snow on the roof,
+//   the render tree), a hot one (no `ps-hot`, the ground unfiltered: NG
+//   never builds the heat haze), a snowy one (120 flakes, dark ink words, snow on the roof,
 //   five clouds) and a stormy one (nine clouds and the deck, no bird); a
 //   rainy and a stormy dusk in the autumn passage fly no skein where a clear
 //   one flies three (the user, 2026-09-26: birds don't fly in rainstorms); a
@@ -64,8 +64,8 @@
 //   flowers, summer's dry river and autumn's running one; a clear evening
 //   across local midnight into a rainy day and a rainy one into a clear
 //   day, the weather layer and the rain's clouds rebuilt by the minute's
-//   own timer (Review Focus 3), the rain's four fading in and out over 2 s
-//   rather than popping (plan 4's final fix); and the storm's deck and
+//   own timer (Review Focus 3), the rain's four in at once and gone at once
+//   (NG has no cross-fade); and the storm's deck and
 //   rain's lighter one (the user: "yes to the rain deck") measured
 //   and shot at 1280 × 720 and on a 390 × 844 phone, its billows wide and
 //   its band's edge closed on both;
@@ -86,9 +86,9 @@
 // - follows the open conversation: channel, query, none (Settings); and a
 //   query is frosted and still (spec §5.7): at a clear noon the root takes
 //   ps-private, the scene's one wrapper (.ps-frost) is blurred, desaturated
-//   and scaled while the root and #status-bar-tint are not, every animation
-//   document.getAnimations() has on the scene is paused and every SVG
-//   reports animationsPaused(), the published values are #seance's at the
+//   and scaled while the root and #status-bar-tint are not, the scene frozen
+//   and nothing in document.getAnimations() running on it, the published
+//   values are #seance's at the
 //   same minute and the sun keeps its centre in the window; an hour on,
 //   inside the query and shown again, the canvas has moved and the scene is
 //   still; so at golden hour; and back in #seance it runs, unfrosted;
@@ -115,6 +115,9 @@
 // - blocks the scene's chunk and reloads: the daylight fallback stays, ink
 //   over it, and the console complains of the blocked request and nothing
 //   else — the hook's one warning, naming it;
+// - boots with the old `psRenderer: "classic"` left in the stored settings:
+//   NG mounts (`#theme-scene.psng`), `js/scene-ps.js` (NG's chunk) is fetched
+//   once and no `scene-ps-ng.js`;
 // - and last boots cold with ps saved, straight onto #seance at 4× CPU,
 //   four times, three of them with ps.css held back until the scene has
 //   mounted (the yurt's boot race, the final review): the place in the
@@ -752,7 +755,7 @@ const VISIBILITY = (state) => `(() => {
 	document.dispatchEvent(new Event("visibilitychange"));
 })()`;
 
-/** How far apart SCENE_STATE samples the scene's clocks to tell what moves: several of the stepper's 24 frames a second. */
+/** How far apart SCENE_STATE samples the scene's animations to tell what moves. */
 const MOTION_SAMPLE_MS = 250;
 
 /**
@@ -762,9 +765,9 @@ const MOTION_SAMPLE_MS = 250;
  * outside its window (layers.ts), both without the `ps-off` class itself;
  * `land`, `blades`, `yurt` and `ground` say whether those are rendered
  * (checkVisibility: in the page is not enough, a hidden ground holds them
- * too); `svgs` is each SVG's clock and whether it sits in a layer that is
- * out, or is the heat haze, `paused` there meaning its clock did not move
- * over MOTION_SAMPLE_MS; `ink` is the colour of someone else's message
+ * too); `svgs` counts the scene's SVGs; `groups` its `psng-m-` motion
+ * classes, `frozen` whether `psng-frozen` is on, `cssAnims` its CSS
+ * animations (transitions aside); `ink` is the colour of someone else's message
  * text (the neighbour's), null when there is none; `running` counts the
  * animations in the scene whose clock moved over the same span; `meta` is the browser's
  * theme-color; the clock is the page's own, under whatever time zone is
@@ -772,22 +775,10 @@ const MOTION_SAMPLE_MS = 250;
  */
 const SCENE_STATE = `(async () => {
 	const s = document.getElementById("theme-scene"), h = document.documentElement;
-	// What moves (stepper.ts): every animation and SVG clock is held and
-	// stepped 24 times a second, so playState and animationsPaused() say
-	// nothing; a clock moving between two samples ${MOTION_SAMPLE_MS} ms apart does.
-	// A layer that leaves or joins the page inside the window (its fade's
-	// clean-up, layers.ts) moved for part of it only: such a sample says
-	// nothing, so it is taken again (three tries).
-	let anims, animAt, allSvgs, svgAt, svgOff;
-	for (let tries = 0; tries < 3; tries++) {
-		anims = s.getAnimations({subtree: true});
-		animAt = anims.map((a) => a.currentTime);
-		allSvgs = [...s.querySelectorAll("svg")];
-		svgAt = allSvgs.map((v) => v.getCurrentTime());
-		svgOff = allSvgs.map((v) => !!v.closest(".ps-off"));
-		await new Promise((r) => setTimeout(r, ${MOTION_SAMPLE_MS}));
-		if (allSvgs.every((v, i) => !!v.closest(".ps-off") === svgOff[i])) break;
-	}
+	// What moves: an animation whose clock moved between two samples ${MOTION_SAMPLE_MS} ms apart.
+	const anims = s.getAnimations({subtree: true});
+	const animAt = anims.map((a) => a.currentTime);
+	await new Promise((r) => setTimeout(r, ${MOTION_SAMPLE_MS}));
 	const content = ${OTHERS_LINE};
 	const d = new Date();
 	const n = (sel) => s.querySelectorAll(sel).length;
@@ -806,14 +797,14 @@ const SCENE_STATE = `(async () => {
 		stars: n(".ps-stars i"),
 		sun: !!s.querySelector(".ps-sun"),
 		moon: !!s.querySelector(".ps-moon"),
-		clouds: n(".ps-cloud-field .ps-cloud") - n(".ps-overcast-set.ps-leaving .ps-cloud"),
-		overcast: n(".ps-cloud-field > .ps-overcast > .ps-overcast-set:not(.ps-leaving) > .ps-cloud"),
-		deck: n(".ps-cloud-field > .ps-overcast > .ps-overcast-set:not(.ps-leaving) > .ps-deck"),
+		clouds: n(".ps-cloud-field .ps-cloud"),
+		overcast: n(".ps-cloud-field > .ps-overcast > .ps-overcast-set > .ps-cloud"),
+		deck: n(".ps-cloud-field > .ps-overcast > .ps-overcast-set > .ps-deck"),
 		sets: [...s.querySelectorAll(".ps-cloud-field > .ps-overcast > *")].map((e) => ({
 			cls: e.className, op: +(+getComputedStyle(e).opacity).toFixed(3), clouds: e.querySelectorAll(".ps-cloud").length,
 		})),
 		deckBottom: (() => { const e = s.querySelector(".ps-deck"); return e ? +(e.getBoundingClientRect().bottom / s.getBoundingClientRect().height * 100).toFixed(1) : null; })(),
-		rainDeck: n(".ps-overcast-set:not(.ps-leaving) > .ps-deck.ps-deck-rain"),
+		rainDeck: n(".ps-overcast-set > .ps-deck.ps-deck-rain"),
 		birds: {
 			skeins: [...s.querySelectorAll(".ps-skeins, .ps-flock, .ps-bird")].filter((e) => e.checkVisibility()).length,
 			buzzard: [...s.querySelectorAll(".ps-buzzard")].filter((e) => e.checkVisibility()).length,
@@ -822,14 +813,13 @@ const SCENE_STATE = `(async () => {
 		ground: shown(".ps-ground"),
 		land: shown(".ps-ground > .ps-land"),
 		yurt: shown(".ps-ground > .ps-yurt"),
-		blades: shown(":scope > .ps-frost > .ps-blades"),
+		blades: shown(":scope > .ps-frost > .psng-sway > .ps-blades"),
 		fireflies: n(".ps-ground > .ps-fireflies i"),
-		drops: n(".ps-rain i"),
+		drops: n(".ps-rain i") / 2, // NG draws each drop twice: a tile and its twin one tile up (psng/rain.ts)
 		flakes: n(".ps-snow i"),
 		seeds: n(".ps-seeds i"),
 		flash: n(".ps-flash"),
 		heatband: shown(".ps-heatband"),
-		haze: n(".ps-heat-haze"),
 		weatherLayer: weather ? weather.children.length : null,
 		groundFilter: style(".ps-ground", "filter"),
 		bladesFilter: style(":scope > .ps-frost > .ps-blades", "filter"),
@@ -839,12 +829,10 @@ const SCENE_STATE = `(async () => {
 		water: s.style.getPropertyValue("--ps-water"),
 		flowers: s.style.getPropertyValue("--ps-flowers"),
 		snowcap: s.style.getPropertyValue("--ps-snowcap"),
-		paused: s.classList.contains("ps-paused"),
-		svgs: allSvgs.map((v, i) => ({
-			paused: v.getCurrentTime() === svgAt[i],
-			off: svgOff[i],
-			haze: v.classList.contains("ps-heat-haze"),
-		})),
+		groups: [...s.classList].filter((c) => c.startsWith("psng-m-")).length,
+		frozen: s.classList.contains("psng-frozen"),
+		svgs: n("svg"),
+		cssAnims: anims.filter((a) => a instanceof CSSAnimation).length,
 		running: anims.filter((a, i) => a.playState !== "idle" && a.currentTime !== animAt[i]).length,
 		view: s.dataset.view,
 		light: h.dataset.psLight,
@@ -911,15 +899,6 @@ async function atHour(page, hour) {
 	return page.evaluate(SCENE_STATE);
 }
 
-/**
- * The scene's SVGs (markup.ts sceneMarkup): the moon, the sun, the land, the
- * near grass and the yurt; the skeins' 38 birds (geese and cranes) and the
- * one holding their belly gradient; the buzzard and the three larks. A hot day's weather layer
- * adds the heat haze.
- */
-const SVGS = 48;
-const svgsOn = (s) => SVGS + (s.weather === "heat" ? 1 : 0);
-
 /** The scene's layers, back to front (markup.ts sceneMarkup, docs/projects/ps-theme.md §5.1). */
 const LAYERS = [
 	"ps-milky",
@@ -929,7 +908,7 @@ const LAYERS = [
 	"ps-sun",
 	"ps-cloud-field",
 	"ps-ground",
-	"ps-blades",
+	"psng-sway", // NG wraps the near grass (svg.ps-blades) in its swaying div
 	"ps-skeins",
 	"ps-daybirds",
 	"ps-veil",
@@ -993,34 +972,23 @@ function checkDeck(page, d, where) {
 	);
 }
 
-/** The scene is stopped: its class, every SVG clock and every CSS animation. */
+/**
+ * The scene is stopped: no CSS animation on it — frozen (a hidden page, a
+ * query: its group classes kept, `psng-frozen` on) or still (reduced motion,
+ * a scene mounted hidden: no group class).
+ */
 function checkStopped(page, s, where) {
-	const going = s.svgs.filter((v) => !v.paused).length;
 	page.check(
-		`${where}: the scene is stopped (ps-paused ${s.paused}; ${s.svgs.length} of ${svgsOn(
-			s
-		)} SVG clocks, ${going} going; ${s.running} CSS animations running)`,
-		s.paused && s.svgs.length === svgsOn(s) && going === 0 && s.running === 0
+		`${where}: the scene is stopped (${s.groups} psng-m- classes, psng-frozen ${s.frozen}; ${s.cssAnims} CSS animations, ${s.running} running)`,
+		s.cssAnims === 0 && s.running === 0 && (s.frozen ? s.groups > 0 : s.groups === 0)
 	);
 }
 
-/**
- * The scene runs: no pause class, CSS animations playing, and every SVG
- * clock going but those in a layer outside its window (ps-off) and the heat
- * haze's while the day is not hot (scene.ts syncSvgs, layers.ts: nothing
- * animates unseen).
- */
+/** The scene runs: its group classes on, not frozen, CSS animations moving. */
 function checkRunning(page, s, where) {
-	const live = (v) => !v.off && (s.hot || !v.haze);
-	const wrong = s.svgs.filter((v) => v.paused === live(v));
-	const going = s.svgs.filter((v) => !v.paused).length;
 	page.check(
-		`${where}: the scene runs (ps-paused ${s.paused}; ${s.svgs.length} of ${svgsOn(
-			s
-		)} SVG clocks, ${going} going, ${s.svgs.length - going} held in layers out of their window${
-			wrong.length ? `, ${wrong.length} the wrong way` : ""
-		}; ${s.running} CSS animations running)`,
-		!s.paused && s.svgs.length === svgsOn(s) && wrong.length === 0 && going > 0 && s.running > 0
+		`${where}: the scene runs (${s.groups} psng-m- classes, psng-frozen ${s.frozen}; ${s.running} CSS animations running)`,
+		s.groups > 0 && !s.frozen && s.running > 0
 	);
 }
 
@@ -1030,8 +998,8 @@ function checkRunning(page, s, where) {
  * this font step, the root's own filter and #status-bar-tint's (neither is
  * frosted), the halo on <html>, every animation `document.getAnimations()`
  * holds on the scene (CSS animations and transitions, pseudo-elements
- * included) by play state, whether every SVG's clock is paused, and the
- * sun's centre on the screen while it is shown.
+ * included) by play state, and the sun's centre on the screen while it is
+ * shown.
  */
 const FROST_STATE = `(() => {
 	const s = document.getElementById("theme-scene");
@@ -1041,7 +1009,6 @@ const FROST_STATE = `(() => {
 	const mine = document.getAnimations().filter((a) => a.effect && a.effect.target && s.contains(a.effect.target));
 	const sun = s.querySelector(".ps-sun");
 	const b = sun.getBoundingClientRect();
-	const svgs = [...s.querySelectorAll("svg")];
 	return {
 		private: s.classList.contains("ps-private"),
 		filter: cs ? cs.filter : null,
@@ -1052,8 +1019,6 @@ const FROST_STATE = `(() => {
 		halo: document.documentElement.style.getPropertyValue("--ps-halo"),
 		paused: mine.filter((a) => a.playState === "paused").length,
 		running: mine.filter((a) => a.playState === "running").map((a) => a.animationName || a.transitionProperty || "?"),
-		svgs: svgs.length,
-		svgsPaused: svgs.filter((v) => v.animationsPaused()).length,
 		sun: {
 			shown: !sun.closest(".ps-off") && Number(getComputedStyle(sun).opacity) > 0,
 			cx: Math.round(b.left + b.width / 2),
@@ -1073,9 +1038,9 @@ const FADE_SETTLE_MS = 1000;
 /**
  * A query's scene: frosted — the wrapper blurred 1.125rem and desaturated
  * to 0.85, scaled 1.2, the root and #status-bar-tint unfiltered — and
- * completely still: stopped as a hidden page's is (its class, every SVG
- * clock, no CSS animation running), every animation document.getAnimations()
- * has on it paused, and the sun, when up, still centred in the window.
+ * completely still: frozen as a hidden page's is (checkStopped), nothing
+ * document.getAnimations() has on it running, and the sun, when up, still
+ * centred in the window.
  */
 function checkFrosted(page, s, f, where) {
 	page.check(
@@ -1088,12 +1053,12 @@ function checkFrosted(page, s, f, where) {
 	);
 	checkStopped(page, s, where);
 	page.check(
-		`${where}: every animation on the scene paused (document.getAnimations(): ${
+		`${where}: frozen, and nothing on the scene running (document.getAnimations(): ${
 			f.paused
 		} paused, ${f.running.length} running${
 			f.running.length ? ` — ${f.running.slice(0, 4).join(", ")}` : ""
-		}; ${f.svgsPaused} of ${f.svgs} SVGs report animationsPaused())`,
-		f.paused > 0 && f.running.length === 0 && f.svgs > 0 && f.svgsPaused === f.svgs
+		})`,
+		s.frozen && f.running.length === 0
 	);
 
 	if (f.sun.shown) {
@@ -1802,6 +1767,16 @@ const toggleUserlist = (page, times) =>
 	})()`);
 
 async function openAppearance(page) {
+	// On the phone layout the sidebar, and its footer's settings button, starts closed.
+	// (A closed drawer is slid off screen, which checkVisibility() does not see.)
+	if (
+		await page.evaluate(
+			`document.querySelector("#footer button.settings").getBoundingClientRect().right <= 0`
+		)
+	) {
+		await page.click(`#chat .header button.lt`);
+		await page.sleep(400);
+	}
 	await page.click(`#footer button.settings`);
 	await page.waitFor(`document.querySelector(".settings-menu button.appearance")`, {
 		label: "settings open",
@@ -2957,16 +2932,17 @@ export default async function run(page) {
 	await atHour(page, 12);
 	// Late in the UTC day the noon zone is already on the next date, whose
 	// weather can differ from the dusk leg's: a layer then fades in or out
-	// (the buzzard's opacity, 1.4–1.8 s). ps-paused holds animations, not
-	// transitions, so a fade still in flight read as running. Wait the fades
-	// out first, as the plains' checks below wait out theirs.
+	// (the buzzard's opacity, 1.4–1.8 s). Wait the fades out first, as the
+	// plains' checks below wait out theirs.
 	await page.waitFor(
 		`!document.getElementById("theme-scene").getAnimations({subtree: true}).some((a) => a instanceof CSSTransition && a.playState === "running")`,
 		{timeout: 5000, label: "the scene's fades settled"}
 	);
 	checkRunning(page, await page.evaluate(SCENE_STATE), "shown");
 	await page.evaluate(VISIBILITY("hidden"));
-	checkStopped(page, await page.evaluate(SCENE_STATE), "hidden");
+	const hidden = await page.evaluate(SCENE_STATE);
+	checkStopped(page, hidden, "hidden");
+	page.check(`hidden: frozen, not snapped still (psng-frozen ${hidden.frozen})`, hidden.frozen);
 	await page.evaluate(VISIBILITY("visible"));
 	await page.sleep(300);
 	checkRunning(page, await page.evaluate(SCENE_STATE), "shown again");
@@ -2985,10 +2961,6 @@ export default async function run(page) {
 	page.check(
 		`a clear noon: no rain drop, snowflake or seed in the page (${clear.drops}, ${clear.flakes}, ${clear.seeds}; the weather layer holds ${clear.weatherLayer})`,
 		clear.drops + clear.flakes + clear.seeds === 0 && clear.weatherLayer === 0
-	);
-	page.check(
-		`a clear noon: no heat haze (the ground's filter ${clear.groundFilter}; ${clear.haze} haze, ps-hot ${clear.hot})`,
-		clear.groundFilter === "none" && clear.haze === 0 && !clear.hot
 	);
 	page.check(
 		`a clear noon: the five clouds alone, no deck (${clear.clouds} clouds, ${clear.overcast} of the weather's, ${clear.deck} deck)`,
@@ -3014,10 +2986,6 @@ export default async function run(page) {
 	page.check(
 		`a rainy noon (${rain.weather}): 130 drops and the rain's wind's 26 seeds, no snowflake (${rain.drops}, ${rain.seeds}, ${rain.flakes})`,
 		rain.weather === "rain" && rain.drops === 130 && rain.seeds === 26 && rain.flakes === 0
-	);
-	page.check(
-		`a rainy noon: no heat haze (the ground's filter ${rain.groundFilter}, ${rain.haze} haze)`,
-		rain.groundFilter === "none" && rain.haze === 0
 	);
 	// Cloudier, and no bird (the user, 2026-09-26).
 	page.check(
@@ -3056,16 +3024,10 @@ export default async function run(page) {
 	await page.sleep(400);
 
 	const heat = await at(page, noonOn(7, 1));
-	// The haze bends the ground group (land, river, fireflies, yurt, smoke)
-	// as one and leaves the near grass crisp (spec §5.5).
+	// NG never builds the heat haze nor sets ps-hot: the ground stays unfiltered.
 	page.check(
-		`a hot noon (${heat.weather}): the haze on the ground group and not on the near grass (ground ${heat.groundFilter}, near grass ${heat.bladesFilter}; ${heat.haze} haze, ps-hot ${heat.hot}, the heat band shown ${heat.heatband})`,
-		heat.weather === "heat" &&
-			heat.hot &&
-			heat.groundFilter === 'url("#ps-heat")' &&
-			heat.bladesFilter === "none" &&
-			heat.haze === 1 &&
-			heat.heatband
+		`a hot noon (${heat.weather}): no ps-hot, the ground unfiltered (${heat.groundFilter}; ps-hot ${heat.hot})`,
+		heat.weather === "heat" && !heat.hot && heat.groundFilter === "none"
 	);
 	page.check(
 		`a hot noon: no drop, flake or seed (${heat.drops}, ${heat.flakes}, ${heat.seeds})`,
@@ -3283,15 +3245,13 @@ export default async function run(page) {
 				faint: 3,
 			};
 			page.check(
-				`${where}: the sample stands — the day's weather, the scene stopped (${
+				`${where}: the sample stands — the day's weather, the scene frozen (${
 					frozen.running
-				} running, ${
-					frozen.svgs.filter((v) => !v.paused).length
-				} SVG clocks going, ${easing} easing), the frames ${m.W}×${m.H} and ${m.BW}×${
-					m.BH
-				} for a ${sample.clip.width}×${sample.clip.height} clip at DPR ${
-					sample.dpr
-				}, the frame still (shot twice, ${
+				} running, ${frozen.cssAnims} CSS animations, psng-frozen ${
+					frozen.frozen
+				}, ${easing} easing), the frames ${m.W}×${m.H} and ${m.BW}×${m.BH} for a ${
+					sample.clip.width
+				}×${sample.clip.height} clip at DPR ${sample.dpr}, the frame still (shot twice, ${
 					m.moved
 				} px apart by more than ${GLYPH_CORE_DIFF} levels${
 					m.moved ? ` at ${JSON.stringify(m.movedAt)}` : ""
@@ -3304,9 +3264,9 @@ export default async function run(page) {
 					.join(", ")} measured (${sample.cut} outside the band or cut by its edges)`,
 				s.doy === doy &&
 					s.weather === want &&
-					frozen.paused &&
+					frozen.frozen &&
 					frozen.running === 0 &&
-					frozen.svgs.every((v) => v.paused) &&
+					frozen.cssAnims === 0 &&
 					easing === 0 &&
 					m.W === sample.clip.width * sample.dpr &&
 					m.H === sample.clip.height * sample.dpr &&
@@ -3510,8 +3470,7 @@ export default async function run(page) {
 	// ---- across local midnight with the page open (Review Focus 3)
 
 	// A clear 25 September into a rainy 26th, by the scene's own minute
-	// timer: the rain's four fade in over 2 s rather than popping in (plan
-	// 4's final fix, item 5; the user dislikes clouds popping).
+	// timer: NG swaps the day's clouds at once (no cross-fade, unlike classic).
 	const clearEve = await at(page, Date.UTC(2026, 8, 25, 23, 59, 52));
 	page.check(
 		`25 September at ${hhmm(clearEve.minute)}: clear, no set in the overcast (${JSON.stringify(
@@ -3520,27 +3479,15 @@ export default async function run(page) {
 		clearEve.weather === "clear" && clearEve.sets.length === 0
 	);
 	await settle(page, `document.getElementById("theme-scene").dataset.weather === "rain"`, 15000);
-	await page.sleep(500); // into the fade: it starts at 0 on the frame after the flip
-	const fadingIn = await page.evaluate(SCENE_STATE);
-	page.check(
-		`past local midnight into a rainy 26th: the rain's four fade in, not pop (${JSON.stringify(
-			fadingIn.sets
-		)})`,
-		fadingIn.sets.length === 1 &&
-			fadingIn.sets[0].cls === "ps-overcast-set" &&
-			fadingIn.sets[0].clouds === 4 &&
-			fadingIn.sets[0].op > 0 &&
-			fadingIn.sets[0].op < 0.95
-	);
-	await page.screenshot("ps-midnight-sep26-fade-in");
-	await page.sleep(1800);
+	await page.sleep(500);
 	const inRain = await page.evaluate(SCENE_STATE);
 	page.check(
-		`and 2 s on, the four are in whole (${JSON.stringify(inRain.sets)}; ${
-			inRain.clouds
-		} clouds)`,
-		inRain.sets.length === 1 && inRain.sets[0].op === 1 && inRain.clouds === 9
+		`past local midnight into a rainy 26th: the rain's four are in (${JSON.stringify(
+			inRain.sets
+		)}; ${inRain.clouds} clouds)`,
+		inRain.sets.length === 1 && inRain.sets[0].clouds === 4 && inRain.clouds === 9
 	);
+	await page.screenshot("ps-midnight-sep26");
 
 	// A rainy 26 September into a clear 27th, by the scene's own minute timer:
 	// no visibility poke once the clock is set. The tick is due at 00:00:00.02.
@@ -3552,22 +3499,7 @@ export default async function run(page) {
 		eve.weather === "rain" && eve.drops === 130 && eve.clouds === 9 && eve.overcast === 4
 	);
 	await settle(page, `document.getElementById("theme-scene").dataset.weather !== "rain"`, 25000);
-	// The rain's four fade out over 2 s (plan 4's final fix, item 5), still
-	// in the page, and then leave it.
 	await page.sleep(500);
-	const fadingOut = await page.evaluate(SCENE_STATE);
-	page.check(
-		`past local midnight into a clear 27th: the rain's four fade out, not pop (${JSON.stringify(
-			fadingOut.sets
-		)})`,
-		fadingOut.sets.length === 1 &&
-			fadingOut.sets[0].cls === "ps-overcast-set ps-leaving" &&
-			fadingOut.sets[0].clouds === 4 &&
-			fadingOut.sets[0].op > 0.05 &&
-			fadingOut.sets[0].op < 1
-	);
-	await page.screenshot("ps-midnight-sep27-fade-out");
-	await page.sleep(1800);
 	const morning = await page.evaluate(SCENE_STATE);
 	page.check(
 		`after local midnight (${morning.date}): 27 September is clear and the rain is gone (${morning.weather}, ${morning.drops} drops, ${morning.seeds} seeds, the weather layer holds ${morning.weatherLayer}; ${morning.clouds} clouds, ${morning.overcast} of the rain's, ${morning.sets.length} sets left)`,
@@ -3735,14 +3667,14 @@ export default async function run(page) {
 	page.check(
 		`coffee: the plains are gone with it (land ${coffee.land}, near grass ${
 			coffee.blades
-		}, yurt ${coffee.yurt}, ${coffee.fireflies} fireflies, ${coffee.svgs.length} SVGs, ${
+		}, yurt ${coffee.yurt}, ${coffee.fireflies} fireflies, ${coffee.svgs} SVGs, ${
 			coffee.drops + coffee.flakes + coffee.seeds
 		} particles; ${leftovers} of their elements anywhere in the page)`,
 		!coffee.land &&
 			!coffee.blades &&
 			!coffee.yurt &&
 			coffee.fireflies === 0 &&
-			coffee.svgs.length === 0 &&
+			coffee.svgs === 0 &&
 			coffee.drops + coffee.flakes + coffee.seeds === 0 &&
 			leftovers === 0
 	);
@@ -4227,6 +4159,12 @@ export default async function run(page) {
 			};
 		});
 	})()`;
+	// NG runs the drift only while the clouds' group is on (psng-m-clouds); the phone's drawer
+	// above stills the scene until its slide is over.
+	await page.waitFor(
+		`[...document.querySelectorAll("#theme-scene .ps-cloud")].some((el) => el.getAnimations().some((x) => x.animationName === "ps-drift"))`,
+		{label: "the clouds drifting again", timeout: 10000}
+	);
 	const driftWeather = await page.evaluate(
 		`document.getElementById("theme-scene").dataset.weather`
 	);
@@ -4435,6 +4373,44 @@ export default async function run(page) {
 	await page.send("Network.setBlockedURLs", {urls: []});
 	await page.send("Network.setBypassServiceWorker", {bypass: false});
 	await page.send("Network.setCacheDisabled", {cacheDisabled: false});
+
+	// ---- a stored psRenderer: "classic" (the setting is gone) still boots NG,
+	// and the one scene chunk, js/scene-ps.js (NG's), is fetched once
+
+	// Resource Timing's default buffer (250) could drop the lazily fetched chunk.
+	await page.send("Page.addScriptToEvaluateOnNewDocument", {
+		source: `performance.setResourceTimingBufferSize(10000)`,
+	});
+	await page.evaluate(`(() => {
+		const set = JSON.parse(localStorage.getItem("settings") || "{}");
+		set.psRenderer = "classic";
+		localStorage.setItem("settings", JSON.stringify(set));
+	})()`);
+	await coldReload(
+		page,
+		"/",
+		`(() => { const s = document.getElementById("theme-scene"); return s.classList.contains("psng") && s.children.length > 0; })()`,
+		`the boot with psRenderer "classic" stored`
+	);
+	await page.sleep(SETTLE_MS);
+	const legacy = await page.evaluate(`(() => {
+		const names = performance.getEntriesByType("resource").map((e) => e.name);
+		return {
+			psng: document.getElementById("theme-scene").classList.contains("psng"),
+			stored: JSON.parse(localStorage.getItem("settings") || "{}").psRenderer ?? null,
+			chunk: names.filter((n) => /\\/js\\/scene-ps\\.js(\\?|$)/.test(n)).length,
+			ng: names.filter((n) => /\\/js\\/scene-ps-ng\\.js(\\?|$)/.test(n)).length,
+			entries: names.length,
+		};
+	})()`);
+	page.check(
+		`psRenderer "classic" stored (now ${legacy.stored}): the scene is NG (psng ${legacy.psng})`,
+		legacy.psng
+	);
+	page.check(
+		`psRenderer "classic" stored: js/scene-ps.js fetched ${legacy.chunk} time(s), scene-ps-ng.js ${legacy.ng} (${legacy.entries} entries)`,
+		legacy.chunk === 1 && legacy.ng === 0
+	);
 
 	// ---- a cold boot with ps saved, straight onto #seance, at 4× (the yurt's boot race)
 

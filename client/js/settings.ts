@@ -3,7 +3,7 @@ import {mirrorPushPrefs} from "./push-prefs";
 import {normalizeFontSize} from "./helpers/fontSize";
 import {normalizeOwnMessageStyle} from "./helpers/ownMessages";
 import {prefersTwelveHourClock} from "./helpers/hourCycle";
-import {normalizePsRenderer, normalizeSceneMotion, themeScene} from "./themeScene";
+import {normalizeSceneMotion, themeScene} from "./themeScene";
 import {setQueryLogEnabled} from "./irc/querylog";
 import {setKeepAlive} from "./helpers/keepAlive";
 import {effectiveTheme} from "./helpers/themeAppearance";
@@ -210,16 +210,6 @@ const defaultConfig = {
 			document.documentElement.dataset.ownMessages = normalizeOwnMessageStyle(value);
 		},
 	},
-	// Which scene the ps theme draws: "classic" or the NG rewrite ("ng",
-	// Settings → Appearance offers it while thelounge.state.psngPreview is
-	// "1"). Declared before theme so applyAll sets it before the first
-	// setTheme, and a page that opens on NG never loads classic's chunk.
-	psRenderer: {
-		default: "classic",
-		apply(store: TypedStore, value: string) {
-			themeScene.setRenderer(normalizePsRenderer(value));
-		},
-	},
 	theme: {
 		default: document.getElementById("theme")?.dataset.serverTheme,
 		apply(store: TypedStore) {
@@ -241,7 +231,7 @@ const defaultConfig = {
 	// The ps theme's own settings (Settings → Appearance shows them under the
 	// theme while ps is the theme). How much its scene moves: "auto" (follows the
 	// device), "full", "calm" or "still" — themeScene.ts SceneMotion, the
-	// scene's stepper.ts. A hidden page and reduced motion still stop it whatever this
+	// scene's psng/tiers.ts. A hidden page and reduced motion still stop it whatever this
 	// says.
 	psAnimation: {
 		default: "auto",

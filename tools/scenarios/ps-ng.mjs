@@ -1,30 +1,23 @@
 // The ps theme's NG scene in a real browser (docs/projects/ps-ng.md, plans 1
-// and 2): classic's markup with classic's own CSS animations running group by
+// to 4): classic's markup with classic's own CSS animations running group by
 // group (`psng-m-<group>` on #theme-scene, the tier from the host state, in
-// phase by `--psng-t`), beside classic, in one build, switched by the
-// `psRenderer` setting. The run connects to #seance, says one line of its own,
-// leaves `thelounge.state.psngGroups` unset (every group a tier allows) and
-// the `psAnimation` setting at Full (Auto follows the device since plan 3; one check covers it), and then:
+// phase by `--psng-t`). NG is the only renderer, its chunk `js/scene-ps.js`.
+// The run connects to #seance, says one line of its own, leaves
+// `thelounge.state.psngGroups` unset (every group a tier allows) and the
+// `psAnimation` setting at Full (Auto follows the device since plan 3; one
+// check covers it), and then:
 //
-// - with the preview flag (`thelounge.state.psngPreview` = "1") set, opens
-//   Settings → Appearance, picks ps, and finds the "Scene renderer" radio
-//   pair; NG (preview) mounts NG (`psng` on #theme-scene), Classic puts
-//   classic back (desktop only: on the phone layout the settings footer is
-//   in the drawer, and the pair has nothing phone-specific to show);
+// - picks ps through the store and waits for NG (`psng` on #theme-scene);
 // - at a pinned 21 June noon, NG freshly mounted: NG has `psng` and its
 //   adopted sheet; the FULL census (below); #sidebar's backdrop-filter (the
-//   open drawer's, on a phone) is the string classic computes at the same
-//   minute (NG never touches the glass); then Calm (below);
+//   open drawer's, on a phone) is not "none" (NG never touches the glass's
+//   blur); then Calm (below);
 // - the setting at Still: the STILL census (below), plus every SVG clock
 //   paused and nothing moving between two samples 300 ms apart (plan 1's
-//   census, now the still tier's); back at Auto, animations run again;
-// - switching to classic while NG moves: no `psng`, no `psng-m-*` or
-//   `psng-calm`, no `--psng-t` on the root, no NG sheet, no fire canvas, no
-//   frame request from NG's chunk over 1 s, and classic mounts with SMIL and
-//   its clocks move between two samples 300 ms apart;
-// - at a hot noon (1 July 12:30, `heat`): classic sets `ps-hot`, NG never
-//   does, and NG's ground is drawn — pixels of the grass bbox equal to
-//   `--ps-grass` within 10 per channel;
+//   census, now the still tier's); back at Full, animations run again;
+// - at a hot noon (1 July 12:30, `heat`): NG never sets `ps-hot`, and its
+//   ground is drawn — pixels of the grass bbox equal to `--ps-grass` within
+//   10 per channel;
 // - the FULL census and Calm again, each moment on a fresh mount, at 21 June
 //   23:00 (the stars and fireflies running), a storm day (19 July 12:00: the
 //   weather running) and the dusk with skeins (14 May 20:45: the skeins
@@ -36,13 +29,15 @@
 //   `data-reduce-motion` and clearing it must take it away, each a check of
 //   its own, within 3 s — moving before and after, and after it goes off the
 //   clouds' phase as below (the move out of still at the moment the media
-//   was cleared); a hidden page; a query (`/query`, `data-view="query"`),
-//   then back to #seance and moving ("moving" is animations on the scene,
-//   frames from NG's chunk and at least one in-flight layer displayed); at
-//   noon, before the hidden page, while it is frozen and once shown again,
-//   each lark shows the state its clock puts it in (plan 4: from its `--ld`,
-//   `--ldl` and `--psng-t`, sampled 1 % or more from a stop, its state box
-//   at opacity > 0 and the other two at 0; frozen, the state it had before);
+//   was cleared); then the rests that freeze: a hidden page and a query
+//   (`/query`, `data-view="query"`), each cloud held where it stood and,
+//   shown again or back in #seance, going on from there, then moving
+//   ("moving" is animations on the scene, frames from NG's chunk and at least
+//   one in-flight layer displayed); at noon, before the hidden page, while it
+//   is frozen and once shown again, each lark shows the state its clock puts
+//   it in (plan 4: from its `--ld`, `--ldl` and `--psng-t`, sampled 1 % or
+//   more from a stop, its state box at opacity > 0 and the other two at 0;
+//   frozen, the state it had before);
 // - the phase: NG mounted at noon with the setting at Still, 30 s of real
 //   time, then Full: `--psng-t` equals the pinned clock's seconds since the
 //   mount day's midnight at the moment of the switch (± 3 s), and for each
@@ -61,23 +56,21 @@
 //   #theme-scene, no `--psng-t` (inline or computed), no NG adopted sheet, no
 //   `.ps-fire`, no frame request from NG's chunk over 1 s; then back to ps,
 //   NG mounted and moving;
-// - shoots classic and NG in motion (Auto) at 21 June 12:00, 14 May 20:45
-//   (the dusk with skeins, above), 21 June 23:30, 19 October 12:00 (rain) and
-//   19 July 12:00 (storm), named so the pairs sort together
-//   (`desktop-0621-1200-classic.png` / `-ng.png`), and lays each viewport's
-//   pairs out on one contact sheet (classic left, NG right;
-//   `contact-desktop.png`); then at 21 June noon pauses the larks in both
-//   renderers at the same points of their flights — the chute (66 %), the
+// - Auto: calm on a touch phone, full on a desktop (also resized to a phone's
+//   size without touch), calm on a low battery;
+// - shoots NG in motion (Full) at 21 June 12:00, 14 May 20:45 (the dusk with
+//   skeins, above), 21 June 23:30, 19 October 12:00 (rain) and 19 July 12:00
+//   (storm) (`desktop-0621-1200.png`), and lays each viewport's shots out on
+//   one contact sheet (one column; `contact-desktop.png`); then at 21 June
+//   noon pauses the larks at points of their flights — the chute (66 %), the
 //   closed drop (84 %) and the flutter (30 %) — checks each shows that state
-//   in both, the chute's and the closed wing drawn within 0.5 px of classic's
-//   (plan 4: never one box lower), and shoots each lark close
-//   (`desktop-lark0-66-classic.png` / `-ng.png`);
-// - last, boots cold with ps and NG stored and the clock at 23:00 on a clear
-//   night (25 September): the first frame NG's root is in already carries
-//   the night's `--ps-sky-top` (read within 300 ms of the mount), the sky's
-//   pixel at the top centre of the scene shot alone matches it within 6 per
-//   channel and is not the daylight fallback, and from the load to 10 s after
-//   the mount nothing fetches classic's chunk (`js/scene-ps.js`).
+//   and shoots each lark close (`desktop-lark0-66.png`);
+// - last, boots cold with ps stored and the clock at 23:00 on a clear night
+//   (25 September): the first frame NG's root is in already carries the
+//   night's `--ps-sky-top` (read within 300 ms of the mount), the sky's pixel
+//   at the top centre of the scene shot alone matches it within 6 per channel
+//   and is not the daylight fallback, and from the load to 10 s after the
+//   mount NG's chunk (`js/scene-ps.js`) is fetched and no `scene-ps-ng.js`.
 //
 // The FULL census: the root carries all nine `psng-m-*` classes and no
 // `psng-calm`; every animation under #theme-scene is a known group's (by its
@@ -105,7 +98,7 @@
 // of them found so the check is never vacuous. Frame requests are counted
 // by an init script wrapping `requestAnimationFrame`, and `setTimeout` under
 // 100 ms (the fire's wake-ups), that counts a call whose stack names
-// `scene-ps-ng.js` (NG's chunk), so Vue's and classic's never count.
+// `scene-ps.js` (NG's chunk), so Vue's never count.
 //
 //   NODE_ENV=production npx webpack && python3 -m http.server -d public 8041 &
 //   SEANCE_HTTP_PORT=8041 node tools/browser-drive.mjs tools/scenarios/ps-ng.mjs \
@@ -197,8 +190,6 @@ const PAGE_HELPERS = `(() => {
 	};
 })()`;
 
-const PREVIEW_FLAG = `try { localStorage.setItem("thelounge.state.psngPreview", "1"); } catch (e) {}`;
-
 const STORE = `document.querySelector("[data-v-app]").__vue_app__.config.globalProperties.$store`;
 
 /** Make the page believe it was hidden or shown, and tell it (theme-ps.mjs). */
@@ -233,8 +224,7 @@ const SCENE = `(() => {
 
 /**
  * Whether anything in the scene moves: every animation's currentTime and
- * every SVG clock, sampled twice 300 ms apart (a stepped scene's
- * animations read paused, so playState says nothing).
+ * every SVG clock, sampled twice 300 ms apart.
  */
 const MOVES = `(async () => {
 	const s = document.getElementById("theme-scene");
@@ -261,13 +251,13 @@ const NG_FRAME_COUNTER = `(() => {
 	const raf = window.requestAnimationFrame.bind(window);
 	window.__ngFrames = 0;
 	window.requestAnimationFrame = (fn) => {
-		if (/scene-ps-ng\\.js/.test(new Error().stack || "")) window.__ngFrames++;
+		if (/scene-ps\\.js/.test(new Error().stack || "")) window.__ngFrames++;
 		return raf(fn);
 	};
 	// The fire wakes on a timer (flame.ts), one per frame of its own: a short timer from NG's chunk counts too.
 	const after = window.setTimeout.bind(window);
 	window.setTimeout = (fn, ms, ...rest) => {
-		if (ms < 100 && /scene-ps-ng\\.js/.test(new Error().stack || "")) window.__ngFrames++;
+		if (ms < 100 && /scene-ps\\.js/.test(new Error().stack || "")) window.__ngFrames++;
 		return after(fn, ms, ...rest);
 	};
 })()`;
@@ -402,23 +392,12 @@ async function sidebarBackdrop(page, phone) {
 	return value;
 }
 
-async function setRenderer(page, value) {
-	await page.evaluate(
-		`${STORE}.dispatch("settings/update", {name: "psRenderer", value: ${JSON.stringify(
-			value
-		)}})`
-	);
-	await waitRenderer(page, value);
-}
-
-async function waitRenderer(page, value) {
+/** NG mounted: `psng` on #theme-scene with its layers in. */
+async function waitNg(page) {
 	const sel = `document.querySelector("#theme-scene")`;
-	await page.waitFor(
-		value === "ng"
-			? `${sel}.classList.contains("psng") && ${sel}.children.length > 0`
-			: `!${sel}.classList.contains("psng") && !!${sel}.querySelector(".ps-frost")`,
-		{label: `the ${value} scene mounted`}
-	);
+	await page.waitFor(`${sel}.classList.contains("psng") && ${sel}.children.length > 0`, {
+		label: "the NG scene mounted",
+	});
 }
 
 /** #theme-scene alone, as base64 PNG: the chrome hidden, the scene's own box. */
@@ -479,59 +458,6 @@ async function sendLine(page, text) {
 	);
 }
 
-/** The radio pair in Settings → Appearance, once, on the desktop. */
-async function radioPair(page, vp) {
-	await page.click(`#footer button.settings`);
-	await page.waitFor(`document.querySelector(".settings-menu button.appearance")`, {
-		label: "settings open",
-	});
-	await page.click(`.settings-menu button.appearance`);
-	await page.waitFor(`document.querySelector("#theme-select")`, {label: "the theme select"});
-	await page.evaluate(`(() => {
-		const el = document.querySelector("#theme-select");
-		el.value = "ps";
-		el.dispatchEvent(new Event("change", {bubbles: true}));
-	})()`);
-	await waitRenderer(page, "classic");
-	const pair = await page.evaluate(`(() => {
-		const h = document.getElementById("label-ps-renderer");
-		return {
-			heading: h ? h.textContent.trim() : null,
-			radios: [...document.querySelectorAll('input[name="psRenderer"]')].map((r) => ({
-				value: r.value,
-				label: r.closest("label").textContent.trim(),
-				checked: r.checked,
-			})),
-		};
-	})()`);
-	page.check(
-		`settings: with the preview flag the "Scene renderer" pair shows (${JSON.stringify(pair)})`,
-		pair.heading === "Scene renderer" &&
-			pair.radios.length === 2 &&
-			pair.radios[0].label === "Classic" &&
-			pair.radios[0].checked &&
-			pair.radios[1].label === "NG (preview)"
-	);
-	await page.evaluate(
-		`document.querySelector('#label-ps-renderer').scrollIntoView({block: "center"})`
-	);
-	await page.click(`input[name="psRenderer"][value="ng"]`);
-	await waitRenderer(page, "ng");
-	page.check(`settings: picking NG (preview) mounts NG`, (await page.evaluate(SCENE)).psng);
-	await page.screenshot(`${vp}-settings-renderer-ng`);
-	await page.click(`input[name="psRenderer"][value="classic"]`);
-	await waitRenderer(page, "classic");
-	const back = await page.evaluate(SCENE);
-	page.check(
-		`settings: picking Classic puts classic back (psng ${back.psng}, SMIL ${back.smil})`,
-		!back.psng && back.smil > 0
-	);
-	await page.click(`.settings-modal-done`);
-	await page.waitFor(`!document.querySelector(".settings-modal-done")`, {
-		label: "settings closed",
-	});
-}
-
 async function setMotion(page, value) {
 	await page.evaluate(
 		`${STORE}.dispatch("settings/update", {name: "psAnimation", value: ${JSON.stringify(
@@ -541,7 +467,6 @@ async function setMotion(page, value) {
 	await page.sleep(600);
 }
 
-/** NG mounted afresh with the clock at `ms`, so the mount day (and so `--psng-t`) is that moment's. */
 /** A fresh mount on `ms`'s day: the theme to coffee and back, so the phase starts from that day. */
 async function mountNgAt(page, ms) {
 	await page.evaluate(`${STORE}.dispatch("settings/update", {name: "theme", value: "coffee"})`);
@@ -550,7 +475,7 @@ async function mountNgAt(page, ms) {
 	});
 	await page.evaluate(`window.__setClock(${ms})`);
 	await page.evaluate(`${STORE}.dispatch("settings/update", {name: "theme", value: "ps"})`);
-	await waitRenderer(page, "ng");
+	await waitNg(page);
 	return at(page, ms);
 }
 
@@ -851,7 +776,6 @@ export default async function run(page) {
 	await page.send("Emulation.setTimezoneOverride", {timezoneId: "Etc/GMT"});
 	await page.addInitScript(CLOCK_SHIM);
 	await page.addInitScript(PAGE_HELPERS);
-	await page.addInitScript(PREVIEW_FLAG);
 	await page.addInitScript(NG_FRAME_COUNTER);
 	await page.addInitScript(FAKE_BATTERY);
 
@@ -873,24 +797,17 @@ export default async function run(page) {
 	// so the setting is Full until the Auto check.
 	await setMotion(page, "full");
 
-	// ---- ps, and the radio pair (desktop) or the store (phone)
+	// ---- ps: NG
 
-	if (vp === "desktop") {
-		await radioPair(page, vp);
-	} else {
-		await page.evaluate(`${STORE}.dispatch("settings/update", {name: "theme", value: "ps"})`);
-		await waitRenderer(page, "classic");
-		console.log("  (the radio pair is checked on the desktop run)");
-	}
+	await page.evaluate(`${STORE}.dispatch("settings/update", {name: "theme", value: "ps"})`);
+	await waitNg(page);
 
-	// ---- switch, census and glass at a pinned noon, NG fresh
+	// ---- census and glass at a pinned noon, NG fresh
 
 	const noon = instant(6, 21, 12, 0);
-	await at(page, noon);
-	const classicBackdrop = await sidebarBackdrop(page, vp === "mobile");
 	const ng = await mountNgAt(page, noon);
 	page.check(
-		`switch: NG has psng and its adopted sheet (psng ${ng.psng}, sheet ${ng.ngSheet}, ${ng.children} layers)`,
+		`mount: NG has psng and its adopted sheet (psng ${ng.psng}, sheet ${ng.ngSheet}, ${ng.children} layers)`,
 		ng.psng && ng.ngSheet && ng.children > 0
 	);
 	const noonFull = await fullCensus(
@@ -903,8 +820,8 @@ export default async function run(page) {
 	page.check(
 		`census: #sidebar's backdrop-filter${
 			vp === "mobile" ? " (the drawer open)" : ""
-		} is classic's at the same minute (NG "${ngBackdrop}", classic "${classicBackdrop}")`,
-		ngBackdrop === classicBackdrop && classicBackdrop !== "none"
+		} is the glass's blur ("${ngBackdrop}")`,
+		ngBackdrop !== "none" && ngBackdrop !== ""
 	);
 	await calmCensus(page, "0621 12:00", noonFull);
 
@@ -919,51 +836,16 @@ export default async function run(page) {
 		still.svgs > 0 && still.svgsRunning === 0 && ngMoves.moved === 0
 	);
 	await setMotion(page, "full");
-	await moving(page, "setting Auto");
+	await moving(page, "setting Full");
 
-	// ---- switch to classic while NG moves
-
-	await setRenderer(page, "classic");
-	const again = await at(page, noon);
-	const moves = await page.evaluate(MOVES);
-	const left = await page.evaluate(`(() => {
-		const s = document.getElementById("theme-scene");
-		return {
-			classes: [...s.classList].filter((c) => c.startsWith("psng")),
-			t: s.style.getPropertyValue("--psng-t") + getComputedStyle(s).getPropertyValue("--psng-t").trim(),
-			fire: !!s.querySelector(".ps-fire"),
-		};
-	})()`);
-	const ngFrames = await page.evaluate(NG_FRAMES);
-	page.check(
-		`switch: back on classic nothing of NG is left (psng classes [${left.classes.join(
-			" "
-		)}], --psng-t "${left.t}", NG sheet ${again.ngSheet}, fire canvas ${
-			left.fire
-		}, ${ngFrames} frames from NG in 1 s)`,
-		!again.psng &&
-			!again.ngSheet &&
-			left.classes.length === 0 &&
-			left.t === "" &&
-			!left.fire &&
-			ngFrames === 0
-	);
-	page.check(
-		`switch: classic mounts clean and runs (SMIL ${again.smil}, ${again.animations} animations, ${moves.moved} of ${moves.clocks} clocks moved in 300 ms)`,
-		again.smil > 0 && again.animations > 0 && moves.moved > 0
-	);
-
-	// ---- hot noon: classic's ps-hot, NG's none, NG's ground drawn
+	// ---- hot noon: no ps-hot, NG's ground drawn
 
 	const hotAt = instant(7, 1, 12, 30);
-	const hotClassic = await at(page, hotAt);
-	page.check(
-		`hot noon: 1 July 12:30 is ${hotClassic.weather} and classic sets ps-hot (${hotClassic.hot})`,
-		hotClassic.weather === "heat" && hotClassic.hot
-	);
-	await setRenderer(page, "ng");
 	const hot = await at(page, hotAt);
-	page.check(`hot noon: NG never sets ps-hot (${hot.hot})`, !hot.hot);
+	page.check(
+		`hot noon: 1 July 12:30 is ${hot.weather} and NG never sets ps-hot (${hot.hot})`,
+		hot.weather === "heat" && !hot.hot
+	);
 	const grassBox = await page.evaluate(
 		`document.querySelector("#theme-scene .ps-l-grass").getBoundingClientRect().toJSON()`
 	);
@@ -1102,7 +984,7 @@ export default async function run(page) {
 			coffeeFrames === 0
 	);
 	await page.evaluate(`${STORE}.dispatch("settings/update", {name: "theme", value: "ps"})`);
-	await waitRenderer(page, "ng");
+	await waitNg(page);
 	await at(page, noon);
 	await moving(page, "theme back to ps");
 
@@ -1162,7 +1044,7 @@ export default async function run(page) {
 
 	await setMotion(page, "full");
 
-	// ---- the pairs (no hostname in frame: the join and quit lines carry it)
+	// ---- the shots (no hostname in frame: the join and quit lines carry it)
 
 	await page.evaluate(`(() => {
 		const st = document.createElement("style");
@@ -1172,28 +1054,23 @@ export default async function run(page) {
 	const names = [];
 
 	for (const [name, ms, weather] of MOMENTS) {
-		for (const renderer of ["classic", "ng"]) {
-			await setRenderer(page, renderer);
-			const s = await at(page, ms, 2000);
-			page.check(
-				`shot ${vp}-${name}-${renderer}: the day's weather is ${weather} (${s.weather})`,
-				s.weather === weather
-			);
-			// Our own line in frame: the drawer's round trip can leave the log scrolled up.
-			await page.evaluate(`(() => {
-				const c = document.querySelector("#chat .chat");
-				c.scrollTop = c.scrollHeight;
-			})()`);
-			await page.sleep(300);
-			await page.screenshot(`${vp}-${name}-${renderer}`);
-		}
-
+		const s = await at(page, ms, 2000);
+		page.check(
+			`shot ${vp}-${name}: the day's weather is ${weather} (${s.weather})`,
+			s.weather === weather
+		);
+		// Our own line in frame: the drawer's round trip can leave the log scrolled up.
+		await page.evaluate(`(() => {
+			const c = document.querySelector("#chat .chat");
+			c.scrollTop = c.scrollHeight;
+		})()`);
+		await page.sleep(300);
+		await page.screenshot(`${vp}-${name}`);
 		names.push(name);
 	}
 
-	// ---- the larks, classic and NG paused at the same points of their flights: the first in its
-	// chute (66 %), the second closed (84 %), the third fluttering (30 %); the shown wing set drawn in
-	// the same place by both, and a close shot of each for the user
+	// ---- the larks paused at points of their flights: the first in its chute (66 %), the second
+	// closed (84 %), the third fluttering (30 %); each showing that state, and a close shot of each
 
 	const LARK_AT = [66, 84, 30];
 	const LARK_SEEK = `(() => {
@@ -1201,78 +1078,54 @@ export default async function run(page) {
 		return [...document.querySelectorAll("#theme-scene .ps-lark")].map((l, i) => {
 			const ld = parseFloat(getComputedStyle(l).getPropertyValue("--ld")) * 1000;
 			for (const a of l.getAnimations({subtree: true})) {
-				if (!/^(ps-lark-|psng-lark-)/.test(a.animationName)) continue;
+				if (!/^psng-lark-/.test(a.animationName)) continue;
 				const d = a.effect.getTiming().delay;
 				a.pause();
 				a.currentTime = ((((pct[i] / 100) * ld + d) % ld) + ld) % ld;
 			}
-			const psng = !!l.querySelector(".psng-lark-fl");
-			const set = (k) => psng ? l.querySelector(".psng-lark-" + k) : [...l.querySelectorAll(".ps-lark-" + k)].at(-1);
 			const op = (el) => parseFloat(getComputedStyle(el).opacity);
-			const shown = ["fl", "ch", "cl"].filter((k) => op(set(k)) > 0);
-			// The near wing of the shown set: the last path drawn in it.
-			const wing = shown.length === 1 ? [...set(shown[0]).querySelectorAll("path")].at(-1).getBoundingClientRect().toJSON() : null;
+			const shown = ["fl", "ch", "cl"].filter((k) => op(l.querySelector(".psng-lark-" + k)) > 0);
 			const bird = l.querySelector(".ps-lark-bird").getBoundingClientRect().toJSON();
-			return {shown, wing, bird};
+			return {shown, bird};
 		});
 	})()`;
-	const larkPair = {};
+	await at(page, noon, 2000);
+	await page.evaluate(LARK_SEEK);
+	await page.sleep(300);
+	const larks = await page.evaluate(LARK_SEEK);
+	await page.evaluate(HIDE_CHROME);
+	await page.sleep(150);
 
-	for (const renderer of ["classic", "ng"]) {
-		await setRenderer(page, renderer);
-		await at(page, noon, 2000);
-		await page.evaluate(LARK_SEEK);
-		await page.sleep(300);
-		larkPair[renderer] = await page.evaluate(LARK_SEEK);
-		await page.evaluate(HIDE_CHROME);
-		await page.sleep(150);
-
-		for (const [i, l] of larkPair[renderer].entries()) {
-			const rem = 16;
-			const shot = await page.send("Page.captureScreenshot", {
-				format: "png",
-				clip: {
-					x: l.bird.x - 1.5 * rem,
-					y: l.bird.y - 1.5 * rem,
-					width: l.bird.width + 3 * rem,
-					height: l.bird.height + 3 * rem,
-					scale: 6,
-				},
-			});
-			writeFileSync(
-				join(page.outDir, `${vp}-lark${i}-${LARK_AT[i]}-${renderer}.png`),
-				Buffer.from(shot.data, "base64")
-			);
-		}
-
-		await page.evaluate(SHOW_CHROME);
-	}
-
-	for (const [i, want] of [["ch"], ["cl"], ["fl"]].entries()) {
-		const c = larkPair.classic[i];
-		const n = larkPair.ng[i];
-		// The flutter's wing is mid-beat in both, at different poses: only its state is compared.
-		const off =
-			want[0] === "fl"
-				? 0
-				: c.wing && n.wing
-				? Math.max(
-						...["x", "y", "width", "height"].map((k) => Math.abs(c.wing[k] - n.wing[k]))
-				  )
-				: Infinity;
-		page.check(
-			`lark ${i} at ${LARK_AT[i]} %: classic shows ${c.shown.join("+")}, NG ${n.shown.join(
-				"+"
-			)}${
-				want[0] === "fl" ? "" : `, its near wing drawn ${off.toFixed(2)} px from classic's`
-			}`,
-			c.shown.join() === want.join() && n.shown.join() === want.join() && off <= 0.5
+	for (const [i, l] of larks.entries()) {
+		const rem = 16;
+		const shot = await page.send("Page.captureScreenshot", {
+			format: "png",
+			clip: {
+				x: l.bird.x - 1.5 * rem,
+				y: l.bird.y - 1.5 * rem,
+				width: l.bird.width + 3 * rem,
+				height: l.bird.height + 3 * rem,
+				scale: 6,
+			},
+		});
+		writeFileSync(
+			join(page.outDir, `${vp}-lark${i}-${LARK_AT[i]}.png`),
+			Buffer.from(shot.data, "base64")
 		);
 	}
 
-	// ---- last: a cold start at night with NG stored
+	await page.evaluate(SHOW_CHROME);
 
-	await setRenderer(page, "ng");
+	for (const [i, want] of ["ch", "cl", "fl"].entries()) {
+		const shown = larks[i]?.shown ?? [];
+		page.check(
+			`lark ${i} at ${LARK_AT[i]} %: shows ${shown.join("+") || "nothing"} (want ${want})`,
+			shown.join() === want
+		);
+	}
+
+	// ---- last: a cold start at night with ps stored
+
 	const night = instant(9, 25, 23, 0);
 	await page.evaluate(`sessionStorage.setItem("psng.clock", "${night}")`);
 	await page.evaluate(`window.__beforeReload = true`);
@@ -1312,7 +1165,7 @@ export default async function run(page) {
 		`cold start: the sky at the scene's top centre [${skyGot}] is --ps-sky-top [${skyWant}] ± 6, not the daylight fallback`,
 		near(skyGot, skyWant, 6) && !near(skyGot, FALLBACK_SKY, 6)
 	);
-	await page.screenshot(`${vp}-cold-0925-2300-ng`);
+	await page.screenshot(`${vp}-cold-0925-2300`);
 
 	const wait = 10000 - (shotAt - boot.mountAt);
 
@@ -1323,42 +1176,37 @@ export default async function run(page) {
 	const chunks = await page.evaluate(
 		`performance.getEntriesByType("resource").map((e) => e.name).filter((n) => /\\/js\\/scene-ps(-ng)?\\.js(\\?|$)/.test(n))`
 	);
+	const ngChunk = chunks.filter((n) => /\/js\/scene-ps\.js(\?|$)/.test(n));
 	page.check(
-		`network: with NG stored, nothing fetched classic's chunk from the load to 10 s after the mount (${
+		`network: from the load to 10 s after the mount NG's chunk js/scene-ps.js is fetched once and no scene-ps-ng.js (${
 			chunks.map((n) => n.replace(/^.*\//, "")).join(", ") || "no scene chunk"
 		})`,
-		chunks.length > 0 && !chunks.some((n) => /\/js\/scene-ps\.js(\?|$)/.test(n))
+		ngChunk.length === 1 && chunks.length === ngChunk.length
 	);
 
-	// ---- the contact sheet: classic left, NG right, one row per moment
+	// ---- the contact sheet: one row per moment
 
 	const width = vp === "mobile" ? 300 : 620;
 	const rows = names
-		.map(
-			(n) =>
-				`<h2>${n}</h2><div class="r"><figure><img src="${vp}-${n}-classic.png"><figcaption>classic</figcaption></figure>` +
-				`<figure><img src="${vp}-${n}-ng.png"><figcaption>NG</figcaption></figure></div>`
-		)
+		.map((n) => `<h2>${n}</h2><figure><img src="${vp}-${n}.png"></figure>`)
 		.join("");
 	const sheet = join(page.outDir, `contact-${vp}.html`);
 	writeFileSync(
 		sheet,
-		`<!doctype html><meta charset=utf-8><title>ps NG plan 2, in motion — ${vp}</title><style>` +
+		`<!doctype html><meta charset=utf-8><title>ps NG, in motion — ${vp}</title><style>` +
 			`body{font:14px system-ui;margin:16px;background:#eee}h2{margin:16px 0 6px;font-size:15px}` +
-			`.r{display:flex;gap:12px}figure{margin:0}img{width:${width}px;display:block}` +
-			`figcaption{font-size:12px}</style><h1>ps NG plan 2, in motion — classic (left) and NG (right), ${vp}</h1>${rows}`
+			`figure{margin:0}img{width:${width}px;display:block}</style>` +
+			`<h1>ps NG, in motion — ${vp}</h1>${rows}`
 	);
 	await page.send("Emulation.setDeviceMetricsOverride", {
-		width: width * 2 + 60,
+		width: width + 40,
 		height: 900,
 		deviceScaleFactor: 1,
 		mobile: false,
 	});
 	await page.goto(pathToFileURL(sheet).href);
 	await page.waitFor(
-		`document.readyState === "complete" && document.images.length === ${
-			names.length * 2
-		} && [...document.images].every((i) => i.complete && i.naturalWidth > 0)`,
+		`document.readyState === "complete" && document.images.length === ${names.length} && [...document.images].every((i) => i.complete && i.naturalWidth > 0)`,
 		{
 			label: "the contact sheet's images",
 		}

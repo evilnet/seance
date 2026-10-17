@@ -1,6 +1,6 @@
 # ps NG — the ps scene, rebuilt to be cheap
 
-Status: **plan 1 (the still scene) built 2026-10-16** on branch `feat/ps-ng`, behind a preview flag: NG draws classic's scene markup with nothing moving, and costs what the coffee theme costs on the iPhone (§8.1). **Plan 2 (motion) built 2026-10-16** (§9, what landed in §9.7): classic's own CSS animations run again group by group, by tier, in phase, with the browser check green on the desktop and a phone; its iPhone sitting (§9.5) is still to do. The design below was approved 2026-10-16; spike 2 (`ps-ng-plan-1.md` § What spike 2 decided) replaced its backdrop and its glass, and the sections say where.
+Status: **NG is the ps scene; classic deleted 2026-10-17** (decision 8, done on the user's go with the iPhone budgets still unmet, §8.3, §10.6). Plan 1 (the still scene) and plan 2 (motion) were built 2026-10-16 (§8.1, §9.7), plan 4 (the birds and the sun) 2026-10-17 (§10); plan 3's three-platform gate is §8.3. The design below was approved 2026-10-16; spike 2 (`ps-ng-plan-1.md` § What spike 2 decided) replaced its backdrop and its glass, and the sections say where.
 
 The ps theme's scene (`docs/projects/ps-theme.md`) is loved and expensive: on an iPhone 16 it costs 93–106 % of a core in Safari at a rainy noon, most of it in WebKit's page process, and around 95–99 % at night. ps NG is a new renderer for the same theme. It keeps every element and the look, and draws them with a small set of cheap techniques, with tiers so a phone on low power does less.
 
@@ -15,7 +15,7 @@ Goals, in order: **performance first, then match the current look closely.** "Ke
 5. **Three tiers** — full, calm, still — chosen by the existing gates, a setting and device power signals (§6).
 6. **PR #98 (the canvas sun fire, canvas skeins and the text band) is superseded by NG** and will not merge. NG ports what it needs from its branch, `feat/ps-perf-band`: `flame.ts`, the skein sprite sheet from `birds.ts`, and, at first, the text band (the 52 % band behind the white words); on 2026-10-17 the user chose the original outline instead ("follow OG", as #98 itself had gone back to it on 2026-10-10), so NG carries the outline.
 7. **The budgets are ceilings, not targets** (the user, 2026-10-16: "the goal is as low as possible regardless"). Calm was lifted from 15 to 24 after the red team showed one moving layer already costs 20–21.5.
-8. **When NG matches classic**, its default flips and classic is deleted in one commit, with the scene half of `ps.css`.
+8. **When NG matches classic**, its default flips and classic is deleted in one commit, with the scene half of `ps.css`. **Done 2026-10-17** (the user: "flip and delete"), with NG still over the iPhone budgets at night and dusk (§8.3).
 
 ## 2. What the spike measured (2026-10-16)
 

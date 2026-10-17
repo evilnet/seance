@@ -8,15 +8,8 @@
  */
 import {composerAboveGrass} from "./glass";
 import type {Weather} from "./engine";
-import {FADE_MARGIN_MS} from "./layers";
 import {weatherClouds} from "./plains";
 import {yurtFollower} from "./yurt";
-
-/**
- * How long the day's own clouds take to fade out and in when the day's
- * weather changes in view (ps.css `.ps-overcast-set`'s transition), in ms.
- */
-export const OVERCAST_FADE_MS = 2000;
 
 /**
  * The land is drawn on a 1200 × 400 box stretched to the window
@@ -294,25 +287,11 @@ export function watchComposer(
 
 /**
  * The day's own clouds (plains.ts `weatherClouds`) are one set in the
- * overcast, `.ps-overcast-set`. A new day's replaces the old at once, or,
- * when `fade` (the minute's tick crossing midnight on a page in view, the
- * scene running), cross-fades with it (the user dislikes clouds popping):
- * the incoming set is put in at 0 and its style computed there, so its
- * transition runs as the class comes off; the outgoing fades to 0 and
- * leaves the page once its fade is over, as a gated layer does. `end()`
- * ends a fade under way now (the outgoing out of the page).
+ * overcast, `.ps-overcast-set`; a new day's replaces the old at once.
  */
-export function overcastBuilder(overcast: HTMLElement): {
-	build(weather: Weather, fade: boolean): void;
-	end(): void;
-} {
-	// A fade of the weather's own clouds under way: ends it now (the outgoing out of the page).
-	let endFade: (() => void) | undefined;
-
-	const build = (weather: Weather, fade: boolean) => {
-		endFade?.();
+export function overcastBuilder(overcast: HTMLElement): {build(weather: Weather): void} {
+	const build = (weather: Weather) => {
 		const markup = weatherClouds(weather);
-		const leaving = [...overcast.children];
 		const set = markup ? document.createElement("div") : null;
 
 		if (set) {
@@ -320,32 +299,8 @@ export function overcastBuilder(overcast: HTMLElement): {
 			set.innerHTML = markup;
 		}
 
-		if (!fade) {
-			overcast.replaceChildren(...(set ? [set] : []));
-			return;
-		}
-
-		for (const el of leaving) {
-			el.classList.add("ps-leaving");
-		}
-
-		if (set) {
-			set.classList.add("ps-arriving");
-			overcast.prepend(set); // behind the outgoing, which fades off it
-			void getComputedStyle(set).opacity;
-			set.classList.remove("ps-arriving");
-		}
-
-		if (leaving.length > 0) {
-			const wait = window.setTimeout(() => endFade?.(), OVERCAST_FADE_MS + FADE_MARGIN_MS);
-
-			endFade = () => {
-				window.clearTimeout(wait);
-				endFade = undefined;
-				leaving.forEach((el) => el.remove());
-			};
-		}
+		overcast.replaceChildren(...(set ? [set] : []));
 	};
 
-	return {build, end: () => endFade?.()};
+	return {build};
 }

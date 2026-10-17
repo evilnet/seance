@@ -6,10 +6,7 @@
  * classic's gates applied at once, without fades. Its weather layer is
  * classic's with the rain in viewport-sized tiles (rain.ts) and never the heat
  * haze, and it never sets `ps-hot`. Once a minute while the page is visible
- * (and at once when it is shown) it writes the moment as classic does and
- * publishes exactly what classic publishes (publish.ts). It imports nothing
- * from scenes/ps/scene.ts, so classic's stepper, birds runtime and fades
- * never ride along.
+ * (and at once when it is shown) it writes and publishes the moment (publish.ts).
  */
 import {isPhoneLayout} from "../../helpers/device";
 import {onSystemAccessibility, systemAccessibility} from "../../helpers/systemAccessibility";
@@ -249,7 +246,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 
 		// The day's own clouds (weatherClouds: no SMIL) and its weather, replaced at once, together.
 		if (weatherChanged(built, m.weather)) {
-			overcast?.build(m.weather, false);
+			overcast?.build(m.weather);
 
 			if (weatherLayer) {
 				weatherLayer.innerHTML = weatherMarkup(m.weather);
@@ -334,7 +331,6 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 			unsubscribe?.();
 			drawer?.disconnect();
 			fire?.destroy();
-			overcast?.end();
 			yurt?.destroy();
 			composer?.destroy();
 			land?.destroy();

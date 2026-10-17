@@ -350,29 +350,6 @@
 					>
 				</label>
 			</div>
-			<template v-if="psngOffered">
-				<h2 id="label-ps-renderer">Scene renderer</h2>
-				<div role="group" aria-labelledby="label-ps-renderer" class="scene-motion-options">
-					<label class="opt">
-						<input
-							:checked="psRenderer === 'classic'"
-							type="radio"
-							name="psRenderer"
-							value="classic"
-						/>
-						Classic
-					</label>
-					<label class="opt">
-						<input
-							:checked="psRenderer === 'ng'"
-							type="radio"
-							name="psRenderer"
-							value="ng"
-						/>
-						NG (preview)
-					</label>
-				</div>
-			</template>
 		</template>
 
 		<div>
@@ -485,13 +462,7 @@ textarea#user-specified-css-input {
 <script lang="ts">
 import {computed, defineComponent, ref} from "vue";
 import {useStore} from "../../js/store";
-import {
-	normalizePsRenderer,
-	normalizeSceneMotion,
-	SCENE_MOTIONS,
-	type SceneMotion,
-} from "../../js/themeScene";
-import storage from "../../js/localStorage";
+import {normalizeSceneMotion, SCENE_MOTIONS, type SceneMotion} from "../../js/themeScene";
 import {
 	describeThemePairs,
 	effectiveTheme,
@@ -574,12 +545,6 @@ export default defineComponent({
 
 		// The ps theme's Scene animation levels (themeScene.ts SceneMotion).
 		const psAnimation = computed(() => normalizeSceneMotion(store.state.settings.psAnimation));
-		// The NG renderer is offered behind a preview flag, or while it is the
-		// stored choice: a restored backup carries psRenderer but not the flag,
-		// and must not leave a user in NG with no way back.
-		const psRenderer = computed(() => normalizePsRenderer(store.state.settings.psRenderer));
-		const psngFlag = storage.get("thelounge.state.psngPreview") === "1";
-		const psngOffered = computed(() => psngFlag || psRenderer.value === "ng");
 		const sceneMotionLabels: Record<SceneMotion, string> = {
 			auto: "Auto",
 			full: "Full",
@@ -696,8 +661,6 @@ export default defineComponent({
 		return {
 			sceneMotions: SCENE_MOTIONS,
 			psAnimation,
-			psRenderer,
-			psngOffered,
 			sceneMotionLabels,
 			sceneMotionHints,
 			store,

@@ -1009,7 +1009,7 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 
 /* ---- scene ---- */
 
-/* The plains behind the whole app (client/js/scenes/ps/scene.ts, mounted by
+/* The plains behind the whole app (client/js/scenes/psng/scene.ts, mounted by
  * client/js/themeScene.ts). style.css hides #theme-scene for every theme; ps
  * shows it. It sits behind #viewport at z-index -1, so every surface between
  * it and the message column must be clear (the rules after this block).
@@ -1040,7 +1040,6 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 #theme-scene .ps-frost {
 	position: absolute;
 	inset: 0;
-	transition: filter var(--ps-flip), transform var(--ps-flip);
 }
 
 #theme-scene .ps-frost > * {
@@ -1048,8 +1047,8 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 }
 
 /* The private view (spec §5.7): in a query the same scene at the same hour
- * stands behind frosted glass, completely still (scene.ts sets ps-private
- * and pauses it as a hidden page's is). Blurred 18 px as rem and slightly
+ * stands behind frosted glass, completely still (psng/scene.ts sets ps-private
+ * and stills it as a hidden page's is). Blurred 18 px as rem and slightly
  * desaturated; the sky stays the root's own, unfiltered, and so do
  * --canvas-bg-color, <html>'s values and #status-bar-tint. It eases in and
  * out over the flip (0 s under reduced motion: `transition: none` below).
@@ -1226,24 +1225,11 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	inset: 0;
 }
 
-/* Each day's own clouds are one set on the overcast's box (watchers.ts overcastBuilder). When
- * the day's weather changes on a page in view, at the minute's tick past
- * local midnight, the outgoing set fades out and the incoming one in, both
- * over OVERCAST_FADE_MS (the user dislikes clouds popping), and the outgoing
- * leaves the page once its fade is over. A change found as the page comes
- * back into view, under reduced motion or in a query takes neither class and
- * is at once. That fade is the overcast's one translucency: 2 s at local
- * midnight, under the night treatment, the cloud colours mixing with the
- * night sky they already stand on (spec §11). */
+/* Each day's own clouds are one set on the overcast's box (watchers.ts overcastBuilder); a new
+ * day's replaces the old at once. */
 #theme-scene .ps-overcast-set {
 	position: absolute;
 	inset: 0;
-	transition: opacity 2s ease;
-}
-
-#theme-scene .ps-overcast-set.ps-arriving,
-#theme-scene .ps-overcast-set.ps-leaving {
-	opacity: 0;
 }
 
 #theme-scene .ps-deck {
@@ -1513,18 +1499,9 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	fill: var(--ps-blade);
 }
 
-#theme-scene .ps-blades .ps-sway {
-	transform-origin: 50% 100%;
-	animation: ps-sway 7s ease-in-out infinite alternate;
-}
-
-/* In the wind (a windy day, and a storm) the blades bend faster. */
-#theme-scene.ps-windy .ps-blades .ps-sway {
-	animation-duration: 2.4s;
-}
-
-/* The blades' own name: the mockup gave its birds' drift the same keyframes
- * name, and the later one won — the birds must not take this one. */
+/* The near grass's sway (NG plays it on its wrapper, psng/styles.ts). The
+ * blades' own name: the mockup gave its birds' drift the same keyframes name,
+ * and the later one won — the birds must not take this one. */
 @keyframes ps-sway {
 	from { transform: skewX(calc(var(--ps-sway, 2.2deg) * -1)); }
 	to { transform: skewX(var(--ps-sway, 2.2deg)); }
@@ -1534,28 +1511,18 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	opacity: calc(var(--ps-flowers, 1) * (0.85 - var(--ps-dark) * 0.7));
 }
 
-/* On a hot day, while the sun is well up (ps-hot), the heat haze bends the
- * ground group — the land, the fireflies, the yurt and its smoke together —
- * and leaves the near grass, outside the group, crisp (spec §5.5). The haze
- * is the weather layer's (plains.ts `weatherLayers`): on any other day there
- * is no #ps-heat in the page to point at. */
-#theme-scene.ps-hot .ps-ground {
-	filter: url("#ps-heat");
-}
-
 /* The birds (birds.ts; spec §5.4, layer 9: after the near grass, before the
  * weather), the user's pick from the approved birds mockup (2026-09-25): the
  * migrating skeins at night and around sunset, catching a little of the
  * moon's light (N2), and by day a buzzard circling and skylarks rising. Every
- * bird is an <svg> of its own whose wingbeats are SMIL (scene.ts pauses them
- * with the rest). A flock's box and every bird are sized in rem, the birds
+ * bird is an <svg> of its own whose wingbeats NG plays as pose stacks
+ * (psng/poses.ts). A flock's box and every bird are sized in rem, the birds
  * placed in % of their flock's box, so a skein keeps its shape at any window
  * size; what crosses the scene travels in cqw. The colours are published
  * (markup.ts `sceneVars`, from birds.ts `birdsAt`); nothing is mixed here. */
 #theme-scene .ps-skeins {
 	inset: 0 0 45%;
 	opacity: var(--ps-skeins-op, 0);
-	transition: opacity 1.4s ease;
 }
 
 /* The belly gradient's svg: in the page, so #ps-b-belly resolves and its
@@ -1581,7 +1548,6 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	/* stylelint-disable-next-line unit-no-unknown -- cqw: #theme-scene is a size container; stylelint predates it */
 	transform: translateX(calc(-100% - 3.4cqw));
 	opacity: clamp(0, var(--ps-skein-count, 0) - var(--fi), 1);
-	transition: opacity 1.8s ease;
 	animation: ps-skein-fly var(--fd) linear var(--fdl) infinite;
 }
 
@@ -1665,7 +1631,6 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 
 #theme-scene .ps-daybirds > div {
 	position: absolute;
-	transition: opacity 1.4s ease;
 }
 
 #theme-scene .ps-daybirds svg {
@@ -1816,7 +1781,6 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	inset: 0;
 	background: var(--ps-veil-c, #5a6478);
 	opacity: var(--ps-veil, 0);
-	transition: opacity 0.6s;
 }
 
 #theme-scene .ps-weather {
@@ -1838,12 +1802,6 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	width: 0.0813rem;
 	height: 1.25rem;
 	background: linear-gradient(transparent, rgb(214 226 244 / 75%));
-	animation: ps-drop var(--rd) linear var(--rdl) infinite;
-}
-
-@keyframes ps-drop {
-	/* stylelint-disable-next-line unit-no-unknown -- cqw/cqh: #theme-scene is a size container; stylelint predates them */
-	to { transform: translate(-3.9cqw, 118cqh); }
 }
 
 #theme-scene .ps-snow {
@@ -1862,9 +1820,9 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 }
 
 @keyframes ps-flake {
-	/* stylelint-disable-next-line unit-no-unknown -- cqw/cqh, as ps-drop's */
+	/* stylelint-disable-next-line unit-no-unknown -- cqw/cqh, as the rain's */
 	50% { transform: translate(calc(var(--fx) * 0.5 + 1.02cqw), 57.1cqh); }
-	/* stylelint-disable-next-line unit-no-unknown -- cqh, as ps-drop's */
+	/* stylelint-disable-next-line unit-no-unknown -- cqh, as the rain's */
 	100% { transform: translate(var(--fx), 114.3cqh); }
 }
 
@@ -1883,15 +1841,15 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	height: 0.1875rem;
 	border-radius: 50%;
 	background: rgb(255 248 226 / 80%);
-	/* stylelint-disable-next-line unit-no-unknown -- cqw, as ps-drop's */
+	/* stylelint-disable-next-line unit-no-unknown -- cqw, as the rain's */
 	transform: translateX(-6.8cqw);
 	animation: ps-seed var(--sd) linear var(--sdl) infinite;
 }
 
 @keyframes ps-seed {
-	/* stylelint-disable-next-line unit-no-unknown -- cqw, as ps-drop's */
+	/* stylelint-disable-next-line unit-no-unknown -- cqw, as the rain's */
 	from { transform: translate(-6.8cqw, 0); }
-	/* stylelint-disable-next-line unit-no-unknown -- cqw, as ps-drop's */
+	/* stylelint-disable-next-line unit-no-unknown -- cqw, as the rain's */
 	to { transform: translate(111.9cqw, var(--sy)); }
 }
 
@@ -1928,17 +1886,10 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 }
 
 @keyframes ps-shimmer {
-	/* stylelint-disable-next-line unit-no-unknown -- cqh, as ps-drop's */
+	/* stylelint-disable-next-line unit-no-unknown -- cqh, as the rain's */
 	from { transform: translateY(-0.21cqh) scaleY(0.95); }
-	/* stylelint-disable-next-line unit-no-unknown -- cqh, as ps-drop's */
+	/* stylelint-disable-next-line unit-no-unknown -- cqh, as the rain's */
 	to { transform: translateY(0.21cqh) scaleY(1.05); }
-}
-
-/* The haze's own svg: in the page, so #ps-heat resolves, and of no size. */
-#theme-scene .ps-heat-haze {
-	width: 0;
-	height: 0;
-	overflow: hidden;
 }
 
 /* A layer outside its window is out of the render tree (layers.ts): the
@@ -1946,23 +1897,10 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
  * skeins by day or on a night with none, a flock past the night's count, the
  * buzzard off the thermals, the larks out of season, the seeds while the
  * wind shows none (built on any day with wind, but at --ps-wind-op 0 deep in
- * winter), the heat band off a hot midday. Its animations stop with it, and
- * scene.ts pauses the SMIL in its svgs, instead of running every frame at
- * opacity 0 (spec §10). A layer that fades goes only once its fade is over. */
+ * winter), the heat band off a hot midday. Its animations stop with it,
+ * instead of running every frame at opacity 0 (spec §10). */
 #theme-scene .ps-off {
 	display: none;
-}
-
-/* A stopped scene — a hidden page, a query, a page nobody attends to
- * (themeScene.ts createAttention) — holds every animation where it stands
- * (scene.ts pauses the SVG animations too). The lightning alone would be
- * wrong held: a flicker caught lit would stay lit, so it is not shown. */
-#theme-scene.ps-paused * {
-	animation-play-state: paused !important;
-}
-
-#theme-scene.ps-paused .ps-flash {
-	visibility: hidden;
 }
 
 /* Clear from the message column down to the scene: nothing between them paints.
@@ -3138,8 +3076,7 @@ html[data-reduce-motion] #theme-scene * {
  * rainy day still looks rainy. The fireflies stay as still dots where
  * they are: a point of light, like a star, still reads as one, and they
  * are what a summer evening looks like. The grass stands at rest and the
- * heat band still; the heat haze's SMIL is paused with every other SVG's
- * (scene.ts). */
+ * heat band still. */
 html[data-reduce-motion] #theme-scene .ps-skeins,
 html[data-reduce-motion] #theme-scene .ps-daybirds,
 html[data-reduce-motion] #theme-scene .ps-rain,

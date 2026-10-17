@@ -8,9 +8,10 @@
 //
 // Needs the dev ircd (a second user says two lines). Pins a clear noon on
 // 25 September with a Date shim, so the scene is the same every run. Each
-// level is read off the main thread's style recalculations a second (CDP
-// Performance.getMetrics) over a few seconds: still ≈ 0, calm ≈ 1,
-// full = the browser's own, more than 24 here.
+// level is read off the motion classes on `#theme-scene.psng` (psng/groups.ts):
+// Full is every group's `psng-m-<group>`, Calm is `psng-calm` with only
+// calm's groups (clouds, smoke, weather, skeins, sun), Still is no `psng-m-`
+// class at all.
 
 const IRCD = process.env.SEANCE_IRC_URL ?? "ws://127.0.0.1:8067/";
 const PORT = process.env.SEANCE_PORT ?? "8006";
@@ -46,23 +47,32 @@ function speaker(nick) {
 	};
 }
 
-/**
- * Style recalculations a second on the main thread, over `ms`. The composer
- * is blurred first: a focused text field restyles about twice a second under
- * every theme (measured 2.2 against 0.0 blurred), which is not the scene's.
- */
-async function styles(page, ms) {
-	await page.evaluate(`document.activeElement && document.activeElement.blur()`);
-	const read = async () => {
-		const {metrics} = await page.send("Performance.getMetrics");
-		const get = (n) => metrics.find((m) => m.name === n).value;
-		return {n: get("RecalcStyleCount"), at: get("Timestamp")};
-	};
-	const a = await read();
-	await page.sleep(ms);
-	const b = await read();
-	return (b.n - a.n) / (b.at - a.at);
-}
+const ALL = [
+	"clouds",
+	"stars",
+	"fireflies",
+	"smoke",
+	"grass",
+	"weather",
+	"skeins",
+	"daybirds",
+	"sun",
+];
+const CALM = ["clouds", "smoke", "weather", "skeins", "sun"];
+
+/** The scene root's motion classes: its groups (sorted), `psng-calm` and `psng-frozen`. */
+const motion = (page) =>
+	page.evaluate(`(() => {
+		const c = document.querySelector("#theme-scene").classList;
+		return {
+			ng: c.contains("psng"),
+			groups: [...c].filter((n) => n.startsWith("psng-m-")).map((n) => n.slice(7)).sort().join(","),
+			calm: c.contains("psng-calm"),
+			frozen: c.contains("psng-frozen"),
+		};
+	})()`);
+
+const sorted = (list) => [...list].sort().join(",");
 
 const SETTING = (name) => `document.querySelector('#settings [name="${name}"]')`;
 
@@ -84,7 +94,6 @@ async function setLevel(page, level) {
 }
 
 export default async function run(page) {
-	await page.send("Performance.enable");
 	await page.send("Emulation.setTimezoneOverride", {timezoneId: "Etc/GMT"});
 	await page.send("Emulation.setFocusEmulationEnabled", {enabled: true});
 	await page.addInitScript(`try { localStorage.setItem("settings", JSON.stringify({theme: "ps"})); } catch (e) {}
@@ -120,23 +129,23 @@ export default async function run(page) {
 	await page.screenshot("ps-settings-section");
 	await closeSettings(page);
 
-	// Each level, by the restyles it costs.
-	const rates = {};
+	// Each level, by the scene's motion classes.
+	const at = {};
 	for (const level of ["still", "calm", "full"]) {
 		await setLevel(page, level);
-		rates[level] = await styles(page, 4000);
+		at[level] = await motion(page);
 	}
 	page.check(
-		`still: the scene is still (${rates.still.toFixed(1)} restyles a second)`,
-		rates.still < 1
+		`still: no psng-m- class (${at.still.groups || "none"}, psng-calm ${at.still.calm})`,
+		at.still.ng && at.still.groups === "" && !at.still.calm
 	);
 	page.check(
-		`calm: about one restyle a second (${rates.calm.toFixed(1)})`,
-		rates.calm > 0.5 && rates.calm < 2.5
+		`calm: psng-calm with only calm's groups (${at.calm.groups})`,
+		at.calm.ng && at.calm.calm && at.calm.groups === sorted(CALM)
 	);
 	page.check(
-		`full: the browser's own rate, more than 24 (${rates.full.toFixed(1)})`,
-		rates.full > 30
+		`full: every group of the moment, no psng-calm (${at.full.groups})`,
+		at.full.ng && !at.full.calm && at.full.groups === sorted(ALL)
 	);
 
 	// Pause when away, off: a window without the focus keeps moving.
@@ -146,12 +155,10 @@ export default async function run(page) {
 	await closeSettings(page);
 	await page.evaluate(`window.dispatchEvent(new Event("blur"))`);
 	await page.sleep(16000);
-	const away = await styles(page, 3000);
+	const away = await motion(page);
 	page.check(
-		`pause when away off: a window without the focus still moves (${away.toFixed(
-			1
-		)} restyles a second)`,
-		away > 12
+		`pause when away off: a window without the focus still moves (${away.groups}, psng-frozen ${away.frozen})`,
+		away.groups === sorted(ALL) && !away.frozen
 	);
 	await page.evaluate(`window.dispatchEvent(new Event("focus"))`);
 
