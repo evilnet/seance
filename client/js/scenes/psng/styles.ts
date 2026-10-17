@@ -25,10 +25,26 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 	transition: none !important;
 }
 
+/* But the yurt (and its smoke) keep classic's fade: a move of its place (the sidebar opened or closed, a
+ * resize) fades it out, jumps it unseen and fades it back (yurt.ts), and without the fade it blinked. */
+#theme-scene.psng .ps-yurt, #theme-scene.psng .ps-smoke {
+	transition: opacity 0.38s ease !important;
+}
+
 /* Every animation off but the lifted groups' own (ps NG plan 2, Tasks 3 and 4); the rules below still
  * each of those while its psng-m-<group> class is absent. The sun's rays are exempt too (Task 6); g.ps-sway stays still for good (the wrapper sways). */
 #theme-scene.psng *:not(.ps-cloud, .ps-stars i.tw, .ps-fireflies i, .ps-smoke i, .psng-sway, .psng-rain-tile, .ps-snow i, .ps-seeds i, .ps-flash, .ps-heatband, .ps-rays, .ps-flock, .ps-skein-sway, .ps-bird, .psng-pose, .ps-buzzard, .psng-buzz-orbit, .psng-buzz-flap, .ps-lark-track, .ps-lark-fl, .ps-lark-ch, .ps-lark-cl) {
 	animation: none !important;
+}
+
+/* Frozen (scene.ts freeze): every animation off, each moving element held inline where it stood; the
+ * group classes stay, so nothing leaves the page. The storm's flash goes, so it is never held lit. */
+#theme-scene.psng.psng-frozen * {
+	animation: none !important;
+}
+
+#theme-scene.psng.psng-frozen .ps-flash {
+	display: none;
 }
 
 /* What exists only in flight is out of the page while it is still: the weather's (the flash too, so

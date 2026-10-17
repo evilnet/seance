@@ -216,7 +216,9 @@ The user's picks in conversation, 2026-10-16: classic's own CSS animations, grou
 
 `NG_STILL_CSS` keeps `animation: none` for the whole scene. A class per group on `#theme-scene` (`psng-m-<group>`) lifts it for that group only, and the browser plays classic's keyframes natively — no stepper, no SMIL. Going still removes the classes: the measured `animation: none` (§8.1).
 
-**Phase on resume.** Each group's animations take `animation-delay: calc(var(--d) - var(--psng-t))`, where `--d` is classic's own (negative, seeded) delay and `--psng-t` the seconds since local midnight of the day the scene mounted, written at mount and once on each resume (never on the minute tick, so a running loop never jumps) — never per frame (§3 rule 3). A loop resumes where the clock puts it, not at its start. If WebKit mishandles a variable in `animation-delay`, NG writes each group's delays once on resume instead.
+**Phase on resume.** Each group's animations take `animation-delay: calc(var(--d) - var(--psng-t))`, where `--d` is classic's own (negative, seeded) delay and `--psng-t` the seconds since local midnight of the day the scene mounted, less the time the scene has spent frozen (below), written at mount and once on each resume (never on the minute tick, so a running loop never jumps) — never per frame (§3 rule 3). A loop resumes where the clock, less its frozen time, puts it, not at its start.
+
+**A rest freezes; a choice snaps.** A still that ends on its own — a hidden or unattended page, a query — freezes the scene where it stands: each running animation's `transform` and `opacity` are pinned inline, then `psng-frozen` on the root takes every animation away (`animation: none`, so nothing is left for Core Animation), the group classes stay so no layer leaves the page, and the time spent frozen comes off `--psng-t`, so on the way back each loop goes on from where it stood. Reduced motion, the setting at Still and the phone's open drawer drop the group classes instead, and the scene snaps to its still look. If WebKit mishandles a variable in `animation-delay`, NG writes each group's delays once on resume instead.
 
 ### 9.2 The groups
 

@@ -78,6 +78,9 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	let sunLive = false;
 	let sunOn = false;
 	let held = false;
+	let frozen: HTMLElement[] | null = null;
+	let frozenAt: number | null = null;
+	let restedS = 0; // seconds spent frozen since the mount, off --psng-t
 	let viewport: HTMLElement | null = null;
 	let drawer: MutationObserver | undefined;
 	let release: number | undefined;
@@ -92,15 +95,88 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		}
 	};
 
+	// A rest that ends on its own (the window left for another, a hidden page, a query) freezes the
+	// scene where it stands instead of snapping it to its still places: each running animation's
+	// transform and opacity pinned inline, then every animation removed (psng-frozen), the group
+	// classes kept so nothing leaves the page. Its clock stops too: the time spent frozen is taken
+	// off --psng-t, so the loops go on from where they stood. Reduced motion, the setting at Still and
+	// the phone's drawer snap as before (the drawer: a read at a drag's start would cost its frame).
+	const freeze = () => {
+		const pins: [HTMLElement, string, string][] = [];
+
+		for (const a of root.getAnimations?.({subtree: true}) ?? []) {
+			const effect = a.effect as KeyframeEffect | null;
+			const el = effect?.target as HTMLElement | null | undefined;
+
+			if (!el || effect?.pseudoElement) {
+				continue;
+			}
+
+			const touched = new Set(effect!.getKeyframes().flatMap((k) => Object.keys(k)));
+			const cs = getComputedStyle(el);
+			pins.push([
+				el,
+				touched.has("transform") ? cs.transform : "",
+				touched.has("opacity") ? cs.opacity : "",
+			]);
+		}
+
+		// Every read before any write: one style pass, not one per element.
+		for (const [el, transform, opacity] of pins) {
+			if (transform) {
+				el.style.setProperty("transform", transform, "important");
+			}
+
+			if (opacity) {
+				el.style.setProperty("opacity", opacity, "important");
+			}
+		}
+
+		frozen = pins.map(([el]) => el);
+		frozenAt = Date.now();
+		root.classList.add("psng-frozen");
+	};
+
+	const thaw = () => {
+		for (const el of frozen ?? []) {
+			el.style.removeProperty("transform");
+			el.style.removeProperty("opacity");
+		}
+
+		if (frozenAt !== null) {
+			restedS += (Date.now() - frozenAt) / 1000;
+		}
+
+		frozen = null;
+		frozenAt = null;
+		root.classList.remove("psng-frozen");
+	};
+
 	// Exactly the classes of the tier's running groups; the rest come off. On a move from still (the
 	// mount's included) the phase first, so the animations the classes start begin in it.
 	const setGroups = () => {
 		const next = held ? "still" : tierFor(latest, reduceMotion);
+		const pause = next === "still" && !held && !reduceMotion && latest.motion !== "still";
+
+		if (frozen && !pause) {
+			thaw();
+		}
+
+		if (pause) {
+			if (tier !== "still") {
+				freeze();
+				tier = next;
+				sunOn = false;
+				syncFire();
+			}
+
+			return;
+		}
 
 		// Only out of still: calm → full keeps --psng-t, since a rewrite would jump the clouds already
 		// running; the groups full adds start from the phase written on the last still → moving move.
 		if (tier === "still" && next !== "still") {
-			root.style.setProperty("--psng-t", `${phaseSeconds(new Date(), mounted)}s`);
+			root.style.setProperty("--psng-t", `${phaseSeconds(new Date(), mounted) - restedS}s`);
 		}
 
 		tier = next;
@@ -273,6 +349,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 				"ps-storm",
 				"ps-hot",
 				"ps-west",
+				"psng-frozen",
 				...MOTION_CLASSES
 			);
 			delete root.dataset.view;
@@ -291,11 +368,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		const canvas = root.querySelector(".ps-fire");
 
 		if (canvas && typeof (canvas as HTMLCanvasElement).getContext === "function") {
-			fire = fireDriver(
-				canvas as HTMLCanvasElement,
-				(fn) => window.requestAnimationFrame(fn),
-				(id) => window.cancelAnimationFrame(id)
-			);
+			fire = fireDriver(canvas as HTMLCanvasElement);
 		}
 
 		// Still with no SMIL left, but paused so nothing (the sun's filter) keeps a clock running.

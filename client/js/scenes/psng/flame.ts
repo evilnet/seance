@@ -303,7 +303,9 @@ export function fireColours(flame: string, edge: string): Uint32Array {
 
 /**
  * The fire's frame loop: at most FIRE_FPS_NG paints a second from a cache of
- * one loop's frames (computed the first time each is needed). `stop()`
+ * one loop's frames (computed the first time each is needed). It wakes once per
+ * frame of its own on a timer, not on every refresh of the screen: a frame request
+ * per vsync cost a desktop at 120 Hz about 15 % of a core for 24 paints. `stop()`
  * cancels the pending frame request, so a stopped fire asks the browser for
  * nothing; `start()` resumes the loop where it left off. A new pair of
  * colours paints the current frame at once, running or not, so a fire that
@@ -311,8 +313,9 @@ export function fireColours(flame: string, edge: string): Uint32Array {
  */
 export function fireDriver(
 	canvas: HTMLCanvasElement,
-	raf: (fn: (ms: number) => void) => number = (fn) => requestAnimationFrame(fn),
-	caf: (id: number) => void = (id) => cancelAnimationFrame(id)
+	after: (fn: (ms: number) => void, delay: number) => number = (fn, delay) =>
+		window.setTimeout(() => fn(performance.now()), delay),
+	cancel: (id: number) => void = (id) => window.clearTimeout(id)
 ) {
 	const ctx = canvas.getContext("2d");
 	const turbulence = createTurbulence(FIRE.seed);
@@ -356,12 +359,14 @@ export function fireDriver(
 
 		time = ms / 1000 - base;
 		paint(false);
-		pending = raf(tick);
+		// Wake at the next frame's start; at least 1 ms, so a timer that fires early never spins.
+		const next = (Math.floor(time * FIRE_FPS_NG) + 1) / FIRE_FPS_NG;
+		pending = after(tick, Math.max(1, (next - time) * 1000));
 	};
 
 	const stop = () => {
 		if (pending !== null) {
-			caf(pending);
+			cancel(pending);
 			pending = null;
 		}
 	};
@@ -370,7 +375,7 @@ export function fireDriver(
 		start() {
 			if (pending === null) {
 				base = null;
-				pending = raf(tick);
+				pending = after(tick, 0);
 			}
 		},
 		stop,

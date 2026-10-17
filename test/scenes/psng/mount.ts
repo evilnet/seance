@@ -336,18 +336,26 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 			}
 		};
 
-		it("full: every group's class, none else; unattended: none; attended again: all", function () {
+		it("full: every group's class, none else; unattended or a query: frozen with its classes; attended again: all", function () {
 			withPage(new Date(2026, 5, 21, 12, 0), (page) => {
 				follow(page);
 				const scene = mountOn(page);
+				const frozen = () => page.root.classList.contains("psng-frozen");
 				expect(motionClasses(page).sort()).to.deep.equal(all);
+				expect(frozen()).to.equal(false);
 				scene.update(state({attended: false}));
-				expect(motionClasses(page)).to.deep.equal([]);
+				expect(motionClasses(page).sort(), "nothing leaves the page").to.deep.equal(all);
+				expect(frozen()).to.equal(true);
 				scene.update(state());
 				expect(motionClasses(page).sort()).to.deep.equal(all);
+				expect(frozen()).to.equal(false);
 				scene.update(state({view: "query"}));
-				expect(motionClasses(page)).to.deep.equal([]);
+				expect(frozen()).to.equal(true);
+				scene.update(state({view: "query", motion: "still"}));
+				expect(motionClasses(page), "the setting at Still snaps").to.deep.equal([]);
+				expect(frozen()).to.equal(false);
 				scene.destroy();
+				expect(frozen()).to.equal(false);
 			});
 		});
 
@@ -424,6 +432,20 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 			});
 		});
 
+		it("--psng-t: a frozen rest's time is taken off the phase, so the loops go on from where they stood", function () {
+			withPage(new Date(2026, 5, 21, 12, 0), (page, clock) => {
+				follow(page);
+				const scene = mountOn(page);
+				const {phase} = watch(page);
+				clock.tick(10_000);
+				scene.update(state({attended: false}));
+				clock.tick(60_000);
+				scene.update(state());
+				expect(phase.lastCall.args[1]).to.equal(`${12 * 3600 + 10}s`);
+				scene.destroy();
+			});
+		});
+
 		it("the near grass is wrapped once at mount, in a div.psng-sway", function () {
 			withPage(new Date(2026, 5, 21, 12, 0), (page) => {
 				follow(page);
@@ -466,31 +488,34 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 					putImageData: () => paints.n++,
 				});
 				page.root.planted.set(".ps-fire", canvas);
-				// The fire's pending frame requests alone: its loop's callback is named `tick`.
+				// The fire's pending wake-ups alone: its timer is the one that calls back with performance.now().
 				const win = (globalThis as unknown as {window: Record<string, unknown>}).window;
 				const ids = new Set<number>();
-				const raf = win.requestAnimationFrame as (fn: () => void) => number;
-				const caf = win.cancelAnimationFrame as (id: number) => void;
+				const after = win.setTimeout as (fn: () => void, ms: number) => number;
+				const cancel = win.clearTimeout as ((id: number) => void) | undefined;
 
-				win.requestAnimationFrame = (fn: () => void) => {
-					const id = raf(fn);
+				win.setTimeout = (fn: () => void, ms: number) => {
+					const id = after(() => {
+						ids.delete(id);
+						fn();
+					}, ms);
 
-					if (fn.name === "tick") {
+					if (String(fn).includes("performance.now")) {
 						ids.add(id);
 					}
 
 					return id;
 				};
 
-				win.cancelAnimationFrame = (id: number) => {
+				win.clearTimeout = (id: number) => {
 					ids.delete(id);
-					caf(id);
+					(cancel ?? globalThis.clearTimeout)(id);
 				};
 
 				return Object.assign(paints, {pending: () => ids.size});
 			};
 
-			it("full at noon: one frame request is pending, painted colours; the loop is cancelled by still", function () {
+			it("full at noon: one wake-up is pending, painted colours; the loop is cancelled by still", function () {
 				withPage(new Date(2026, 5, 21, 12, 0), (page) => {
 					follow(page);
 					const paints = plantFire(page);
