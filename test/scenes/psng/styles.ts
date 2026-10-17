@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import {NG_STILL_CSS} from "../../../client/js/scenes/psng/styles";
+import {NG_STILL_CSS, POSE_BEATS} from "../../../client/js/scenes/psng/styles";
 
 // NG's stylesheet (psng/styles.ts) on its text: each lifted group still while its class is absent, in phase while present.
 
@@ -152,13 +152,55 @@ describe("ps NG stylesheet (psng/styles.ts)", function () {
 			expect(hidden, group).to.equal(true);
 		}
 
-		// One pose at a time: a hard swap at a quarter (full) or a half (calm, larks), never steps().
-		expect(NG_STILL_CSS).to.match(
-			/@keyframes psng-pose4 \{\s*0%,\s*24\.99% \{\s*opacity: 1;\s*\}\s*25%,\s*100% \{\s*opacity: 0;/
-		);
-		expect(NG_STILL_CSS).to.match(
-			/@keyframes psng-pose2 \{\s*0%,\s*49\.99% \{\s*opacity: 1;\s*\}\s*50%,\s*100% \{\s*opacity: 0;/
-		);
+		// One pose at a time: a hard swap at a quarter (full) or a half (calm, larks), never steps(),
+		// 80 beats to one iteration (plan 4 §10.5: WebKit works on the main thread at every iteration of
+		// every animation), shown at 0.999 and hidden at 0.001 (an opacity of exactly 1 or 0 at a swap
+		// repaints the bird).
+		for (const [name, poses] of [
+			["psng-pose4", 4],
+			["psng-pose2", 2],
+		] as const) {
+			const block = new RegExp(`@keyframes ${name} \\{([\\s\\S]*?)\\n\\}`).exec(
+				NG_STILL_CSS
+			)?.[1];
+			expect(block, name).to.be.a("string");
+			const frames = [...block!.matchAll(/([\d.%,\s]+)\{\s*opacity: ([\d.]+);\s*\}/g)].map(
+				(m) => ({
+					at: m[1].split(",").map((x) => Number.parseFloat(x)),
+					opacity: Number(m[2]),
+				})
+			);
+			expect(frames, name).to.have.length(2 * POSE_BEATS);
+			const beat = 100 / POSE_BEATS;
+
+			for (let k = 0; k < POSE_BEATS; k++) {
+				const on = frames[2 * k];
+				const off = frames[2 * k + 1];
+				const edge = k * beat + beat / poses;
+				expect(on.opacity, `${name} beat ${k} shown`).to.equal(0.999);
+				expect(off.opacity, `${name} beat ${k} hidden`).to.equal(0.001);
+				expect(on.at[0], `${name} beat ${k} start`).to.be.closeTo(k * beat, 1e-4);
+				expect(on.at[1], `${name} beat ${k} edge`)
+					.to.be.closeTo(edge, 2e-4)
+					.and.below(edge);
+				expect(off.at[0], `${name} beat ${k} edge`).to.be.closeTo(edge, 1e-4);
+				expect(off.at.at(-1), `${name} beat ${k} end`).to.be.closeTo((k + 1) * beat, 2e-4);
+			}
+		}
+
+		for (const sel of [
+			"#theme-scene.psng.psng-m-skeins .ps-bird .psng-pose",
+			"#theme-scene.psng.psng-m-daybirds .ps-lark .psng-pose",
+		]) {
+			const rule = rules.find(([s]) => s === sel);
+			expect(rule, sel).to.not.equal(undefined);
+			expect(rule![1], sel).to.match(
+				new RegExp(
+					`animation: psng-pose[24] calc\\(var\\(--wdur\\) \\* ${POSE_BEATS}\\) linear infinite`
+				)
+			);
+		}
+
 		expect(NG_STILL_CSS).to.not.match(/psng-pose[^}]*steps\(/);
 	});
 
