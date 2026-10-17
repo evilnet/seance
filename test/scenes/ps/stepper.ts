@@ -202,21 +202,16 @@ describe("ps scene: the stepper (stepper.ts)", function () {
 	});
 
 	describe("the Scene animation setting's paces (stepModeFor)", function () {
-		it("maps each level: off never runs, sparse every five minutes catching up, 1s, 24, and 60 the browser's own", function () {
-			expect(stepModeFor("off")).to.equal(null);
-			expect(stepModeFor("sparse")).to.deep.equal({
+		it("maps each level: still never runs, calm steps once a second, auto and full are the browser's own", function () {
+			expect(stepModeFor("still")).to.equal(null);
+			expect(stepModeFor("calm")).to.deep.equal({
 				kind: "step",
-				interval: SPARSE_INTERVAL_MS,
-				catchUp: true,
-			});
-			expect(SPARSE_INTERVAL_MS).to.equal(5 * 60 * 1000);
-			expect(stepModeFor("1s")).to.deep.equal({kind: "step", interval: 1000, catchUp: false});
-			expect(stepModeFor("24")).to.deep.equal({
-				kind: "step",
-				interval: 1000 / 24,
+				interval: 1000,
 				catchUp: false,
 			});
-			expect(stepModeFor("60")).to.deep.equal({kind: "native"});
+			expect(stepModeFor("auto")).to.deep.equal({kind: "native"});
+			expect(stepModeFor("full")).to.deep.equal({kind: "native"});
+			expect(SPARSE_INTERVAL_MS).to.equal(5 * 60 * 1000);
 		});
 
 		it("60: hands playback to the browser, with no timer, and holds everything again when stopped", function () {
@@ -234,7 +229,7 @@ describe("ps scene: the stepper (stepper.ts)", function () {
 
 		it("1s: one step a second", function () {
 			const a = new FakeAnimation();
-			const s = stepper([a], [], stepModeFor("1s")!);
+			const s = stepper([a], [], stepModeFor("calm")!);
 			s.start();
 			clock.tick(999);
 			expect(a.currentTime).to.equal(0);
@@ -245,7 +240,7 @@ describe("ps scene: the stepper (stepper.ts)", function () {
 
 		it("sparse: moves on every five minutes, and at once on a start, by all the time since its last step", function () {
 			const a = new FakeAnimation();
-			const s = stepper([a], [], stepModeFor("sparse")!);
+			const s = stepper([a], [], {kind: "step", interval: SPARSE_INTERVAL_MS, catchUp: true});
 			s.start();
 			clock.tick(SPARSE_INTERVAL_MS);
 			expect(a.currentTime).to.equal(SPARSE_INTERVAL_MS);
@@ -263,7 +258,7 @@ describe("ps scene: the stepper (stepper.ts)", function () {
 			const s = stepper([a], [], {kind: "native"});
 			s.start();
 			a.currentTime = 9000; // the browser played it on
-			s.setMode(stepModeFor("24")!);
+			s.setMode({kind: "step", interval: 1000 / 24, catchUp: false});
 			expect(s.running).to.equal(true);
 			expect(a.playState).to.equal("paused");
 			clock.tick(1000);

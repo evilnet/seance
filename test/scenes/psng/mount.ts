@@ -31,7 +31,7 @@ const state = (over: Partial<SceneHostState> = {}): SceneHostState => ({
 	visible: true,
 	attended: true,
 	view: "channel",
-	motion: "24",
+	motion: "auto",
 	...over,
 });
 

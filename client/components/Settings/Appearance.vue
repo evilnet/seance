@@ -581,18 +581,16 @@ export default defineComponent({
 		const psngFlag = storage.get("thelounge.state.psngPreview") === "1";
 		const psngOffered = computed(() => psngFlag || psRenderer.value === "ng");
 		const sceneMotionLabels: Record<SceneMotion, string> = {
-			off: "Off",
-			sparse: "Sparse",
-			"1s": "Once a second",
-			"24": "24 frames a second",
-			"60": "60 frames a second",
+			auto: "Auto",
+			full: "Full",
+			calm: "Calm",
+			still: "Still",
 		};
 		const sceneMotionHints: Record<SceneMotion, string> = {
-			off: "a still picture; the sky still follows the time of day",
-			sparse: "moves on every five minutes, and when you come back to the window",
-			"1s": "the birds and the rain move in visible jumps",
-			"24": "smooth and light on the battery; the default",
-			"60": "your screen's own rate: the smoothest, and the most power",
+			auto: "follows your device; for now the same as Full",
+			full: "everything moves, at your screen's rate",
+			calm: "clouds, weather, smoke and the birds' flight; the rest holds still",
+			still: "a still picture; the sky still follows the time of day",
 		};
 
 		// The step under the slider while it is being dragged. Applying every

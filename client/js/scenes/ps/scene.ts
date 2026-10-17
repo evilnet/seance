@@ -224,7 +224,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	const running = () =>
 		visible &&
 		attended &&
-		sceneMotion !== "off" &&
+		sceneMotion !== "still" &&
 		!reduced.matches &&
 		!systemAccessibility().reduceMotion &&
 		!privateView;

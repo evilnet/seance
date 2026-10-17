@@ -86,7 +86,7 @@ const host = (loaders: Record<string, SceneLoader>, warn?: (m: string, e: unknow
 	createSceneHost({
 		root: () => ROOT,
 		loaders,
-		state: {visible: true, attended: true, view: "channel", motion: "24"},
+		state: {visible: true, attended: true, view: "channel", motion: "auto"},
 		warn,
 	});
 
@@ -171,7 +171,7 @@ describe("the theme-scene hook (client/js/themeScene.ts)", function () {
 		const h = createSceneHost({
 			root: () => fakeRoot,
 			loaders: {ps: () => Promise.resolve(throwing)},
-			state: {visible: true, attended: true, view: "channel", motion: "24"},
+			state: {visible: true, attended: true, view: "channel", motion: "auto"},
 			warn: (m) => warnings.push(m),
 		});
 		await h.setTheme("ps");
@@ -219,27 +219,44 @@ describe("the theme-scene hook (client/js/themeScene.ts)", function () {
 			},
 		};
 		const h = host({ps: () => Promise.resolve(mod)});
-		h.setMotion("1s");
+		h.setMotion("calm");
 		await h.setTheme("ps");
 		h.setAttended(false);
 		h.setPauseWhenAway(false); // attended again, whatever attention says
 		h.setAttended(false);
 		h.setPauseWhenAway(true); // and resting again
-		h.setMotion("60");
-		h.setMotion("60");
+		h.setMotion("full");
+		h.setMotion("full");
 		expect(seen).to.deep.equal([
-			"mount true 1s",
-			"update false 1s",
-			"update true 1s",
-			"update false 1s",
-			"update false 60",
+			"mount true calm",
+			"update false calm",
+			"update true calm",
+			"update false calm",
+			"update false full",
 		]);
 	});
 
-	it("reads an unknown stored motion level as the default", function () {
-		expect(normalizeSceneMotion("60")).to.equal("60");
-		expect(normalizeSceneMotion("fast")).to.equal("24");
-		expect(normalizeSceneMotion(undefined)).to.equal("24");
+	it("reads the old stored motion levels across, and anything else as auto", function () {
+		for (const [stored, level] of [
+			["60", "auto"],
+			["24", "auto"],
+			["1s", "calm"],
+			["sparse", "calm"],
+			["off", "still"],
+			["auto", "auto"],
+			["full", "full"],
+			["calm", "calm"],
+			["still", "still"],
+			["bogus", "auto"],
+			[undefined, "auto"],
+		] as const) {
+			expect(normalizeSceneMotion(stored), String(stored)).to.equal(level);
+		}
+	});
+
+	it("defaults the stored setting to auto", function () {
+		const src = fs.readFileSync(path.join(__dirname, "../../client/js/settings.ts"), "utf8");
+		expect(src).to.match(/psAnimation: \{\s*default: "auto",/);
 	});
 
 	describe("attention (createAttention)", function () {
@@ -348,7 +365,7 @@ describe("the theme-scene hook (client/js/themeScene.ts)", function () {
 			const h = createSceneHost({
 				root: () => ROOT,
 				loaders: {ps: rejectOnceThenResolve(mod)},
-				state: {visible: false, attended: true, view: "channel", motion: "24"},
+				state: {visible: false, attended: true, view: "channel", motion: "auto"},
 				warn: (m) => warnings.push(m),
 			});
 			await h.setTheme("ps");
@@ -513,7 +530,7 @@ describe("the theme-scene hook (client/js/themeScene.ts)", function () {
 			const h = createSceneHost({
 				root: () => ROOT,
 				loaders: {ps: psLoader, "ps-ng": loader},
-				state: {visible: false, attended: true, view: "channel", motion: "24"},
+				state: {visible: false, attended: true, view: "channel", motion: "auto"},
 				warn: (m) => warnings.push(m),
 			});
 			h.setRenderer("ng");

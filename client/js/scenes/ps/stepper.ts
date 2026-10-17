@@ -36,19 +36,16 @@ export const SPARSE_INTERVAL_MS = 5 * 60 * 1000;
  */
 export type StepMode = {kind: "native"} | {kind: "step"; interval: number; catchUp: boolean};
 
-/** The step mode for a motion level (the ps theme's Scene animation setting); null for off, which never runs. */
+/** The step mode for a motion level (the ps theme's Scene animation setting); null for still, which never runs. */
 export function stepModeFor(motion: SceneMotion): StepMode | null {
 	switch (motion) {
-		case "off":
+		case "still":
 			return null;
-		case "sparse":
-			return {kind: "step", interval: SPARSE_INTERVAL_MS, catchUp: true};
-		case "1s":
+		case "calm":
 			return {kind: "step", interval: 1000, catchUp: false};
-		case "60":
-			return {kind: "native"};
 		default:
-			return {kind: "step", interval: 1000 / SCENE_FPS, catchUp: false};
+			// auto, full
+			return {kind: "native"};
 	}
 }
 

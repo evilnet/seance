@@ -16,13 +16,25 @@ export type SceneView = "channel" | "query" | "other";
  * all, once every five minutes and on coming back, once a second, 24 frames a
  * second, or the browser's own rate.
  */
-export type SceneMotion = "off" | "sparse" | "1s" | "24" | "60";
+export type SceneMotion = "auto" | "full" | "calm" | "still";
 
-export const SCENE_MOTIONS: readonly SceneMotion[] = ["off", "sparse", "1s", "24", "60"];
+export const SCENE_MOTIONS: readonly SceneMotion[] = ["auto", "full", "calm", "still"];
 
-/** A stored value the list does not hold is the default. */
+const LEGACY_MOTIONS: Record<string, SceneMotion> = {
+	"60": "auto",
+	"24": "auto",
+	"1s": "calm",
+	sparse: "calm",
+	off: "still",
+};
+
+/** Read on load, never rewritten: the old values (60/24/1s/sparse/off) map across, anything else is auto. */
 export function normalizeSceneMotion(value: unknown): SceneMotion {
-	return SCENE_MOTIONS.includes(value as SceneMotion) ? (value as SceneMotion) : "24";
+	if (SCENE_MOTIONS.includes(value as SceneMotion)) {
+		return value as SceneMotion;
+	}
+
+	return LEGACY_MOTIONS[value as string] ?? "auto";
 }
 
 /** Which scene the ps theme draws: the shipped one, or the NG rewrite (ps NG plan 1). */
@@ -266,7 +278,7 @@ export function createSceneHost(opts: {
 export const themeScene: SceneHost = createSceneHost({
 	root: () => document.getElementById("theme-scene"),
 	loaders: SCENES,
-	state: {visible: true, attended: true, view: "other", motion: "24"},
+	state: {visible: true, attended: true, view: "other", motion: "auto"},
 	warn: (message, error) => console.warn(message, error), // eslint-disable-line no-console
 });
 

@@ -1,6 +1,6 @@
 // The ps theme's own settings (Settings → Appearance, shown under the theme
-// select while ps is the theme): Scene animation (off, sparse, once a
-// second, 24 frames a second, the browser's own rate), Pause the scene when
+// select while ps is the theme): Scene animation (auto, full, calm,
+// still), Pause the scene when
 // the window isn't in use, and Combine messages from the same person.
 //
 //   NODE_ENV=production corepack yarn build && python3 -m http.server -d public 8006 &
@@ -9,8 +9,8 @@
 // Needs the dev ircd (a second user says two lines). Pins a clear noon on
 // 25 September with a Date shim, so the scene is the same every run. Each
 // level is read off the main thread's style recalculations a second (CDP
-// Performance.getMetrics) over a few seconds: off and sparse ≈ 0, once a
-// second ≈ 1, 24 ≈ 24, 60 = the browser's own, more than 24 here.
+// Performance.getMetrics) over a few seconds: still ≈ 0, calm ≈ 1,
+// full = the browser's own, more than 24 here.
 
 const IRCD = process.env.SEANCE_IRC_URL ?? "ws://127.0.0.1:8067/";
 const PORT = process.env.SEANCE_PORT ?? "8006";
@@ -83,9 +83,6 @@ async function setLevel(page, level) {
 	await page.sleep(1500);
 }
 
-/** The SVG clocks' sum, in seconds: what the scene's SMIL has advanced to. */
-const SVG_TIME = `[...document.querySelectorAll("#theme-scene svg")].filter((v) => !v.closest(".ps-off")).reduce((t, v) => t + v.getCurrentTime(), 0)`;
-
 export default async function run(page) {
 	await page.send("Performance.enable");
 	await page.send("Emulation.setTimezoneOverride", {timezoneId: "Etc/GMT"});
@@ -113,8 +110,8 @@ export default async function run(page) {
 		`under ps, Appearance has the theme's settings: Scene animation ${d.levels.join("/")} at ${
 			d.level
 		}, pause when away ${d.pause}, combine ${d.group}`,
-		d.levels.join() === "off,sparse,1s,24,60" &&
-			d.level === "24" &&
+		d.levels.join() === "auto,full,calm,still" &&
+			d.level === "auto" &&
 			d.pause === true &&
 			d.group === true
 	);
@@ -125,49 +122,25 @@ export default async function run(page) {
 
 	// Each level, by the restyles it costs.
 	const rates = {};
-	for (const level of ["off", "1s", "24", "60"]) {
+	for (const level of ["still", "calm", "full"]) {
 		await setLevel(page, level);
 		rates[level] = await styles(page, 4000);
 	}
 	page.check(
-		`off: the scene is still (${rates.off.toFixed(1)} restyles a second)`,
-		rates.off < 1
+		`still: the scene is still (${rates.still.toFixed(1)} restyles a second)`,
+		rates.still < 1
 	);
 	page.check(
-		`once a second: about one restyle a second (${rates["1s"].toFixed(1)})`,
-		rates["1s"] > 0.5 && rates["1s"] < 2.5
+		`calm: about one restyle a second (${rates.calm.toFixed(1)})`,
+		rates.calm > 0.5 && rates.calm < 2.5
 	);
 	page.check(
-		`24: about 24 a second (${rates["24"].toFixed(1)})`,
-		rates["24"] > 18 && rates["24"] < 30
-	);
-	page.check(
-		`60: the browser's own rate, more than 24 (${rates["60"].toFixed(1)})`,
-		rates["60"] > 30
-	);
-
-	// Sparse: still in between, and up to date on coming back.
-	await setLevel(page, "sparse");
-	const sparse = await styles(page, 4000);
-	page.check(
-		`sparse: still between its steps (${sparse.toFixed(1)} restyles a second)`,
-		sparse < 1
-	);
-	await page.evaluate(`window.dispatchEvent(new Event("blur"))`);
-	await page.sleep(16000); // rests
-	const before = await page.evaluate(SVG_TIME);
-	await page.evaluate(`window.dispatchEvent(new Event("focus"))`);
-	await page.sleep(200);
-	const after = await page.evaluate(SVG_TIME);
-	page.check(
-		`sparse: coming back moves the scene on at once (the SVG clocks ${before.toFixed(
-			1
-		)} → ${after.toFixed(1)} s)`,
-		after - before > 10
+		`full: the browser's own rate, more than 24 (${rates.full.toFixed(1)})`,
+		rates.full > 30
 	);
 
 	// Pause when away, off: a window without the focus keeps moving.
-	await setLevel(page, "24");
+	await setLevel(page, "full");
 	await openAppearance(page);
 	await page.click(`#settings input[name="psPauseWhenAway"]`);
 	await closeSettings(page);
