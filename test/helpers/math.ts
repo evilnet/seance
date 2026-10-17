@@ -28,6 +28,23 @@ describe("helpers/math — renderMath", () => {
 		expect(html).to.contain("katex-error");
 	});
 
+	it("leaves inline TeX that asks for huge lengths as text", async () => {
+		for (const tex of [
+			"\\rule{1em}{5000em}",
+			"\\raisebox{-3000em}{x}",
+			"\\kern{-9999em}x",
+			"\\rule{1cm}{5000cm}",
+		]) {
+			expect(await renderMath(tex, false), tex).to.equal(undefined);
+		}
+	});
+
+	it("renders a tall but ordinary inline expression", async () => {
+		const html = await renderMath("\\begin{pmatrix}a&b\\\\c&d\\end{pmatrix}", false);
+
+		expect(html).to.contain("katex");
+	});
+
 	it("renders nothing for empty TeX", async () => {
 		expect(await renderMath("", false)).to.equal(undefined);
 		expect(await renderMath("   ", true)).to.equal(undefined);
