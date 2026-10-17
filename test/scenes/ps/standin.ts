@@ -240,6 +240,26 @@ export interface Observer {
 	disconnected: boolean;
 }
 
+/** NG's watch on #viewport's classes (psng/scene.ts): `notify()` stands in for a class change. */
+export class FakeMutationObserver {
+	static all: Array<{disconnected: boolean; callback: () => void}> = [];
+	disconnected = false;
+
+	constructor(public callback: () => void) {
+		FakeMutationObserver.all.push(this);
+	}
+
+	observe() {}
+
+	disconnect() {
+		this.disconnected = true;
+	}
+
+	static notify() {
+		FakeMutationObserver.all.filter((o) => !o.disconnected).forEach((o) => o.callback());
+	}
+}
+
 export class FakeResizeObserver implements Observer {
 	static all: Observer[] = [];
 	targets = new Set<unknown>();
@@ -379,6 +399,7 @@ export function fakePage() {
 	/** Each style computation asked for: the element, and its classes at that moment. */
 	const computed: Array<{el: FakeElement; classes: string}> = [];
 	FakeResizeObserver.all = [];
+	FakeMutationObserver.all = [];
 
 	const globals: Record<string, unknown> = {
 		window: Object.assign(win, {
@@ -399,6 +420,7 @@ export function fakePage() {
 		}),
 		document: doc,
 		ResizeObserver: FakeResizeObserver,
+		MutationObserver: FakeMutationObserver,
 		HTMLMetaElement: FakeMeta,
 		CSSStyleSheet: FakeSheet,
 		getComputedStyle(el: FakeElement) {

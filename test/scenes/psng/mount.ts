@@ -11,6 +11,7 @@ import {followSystemAccessibility} from "../../../client/js/helpers/systemAccess
 import {GROUPS} from "../../../client/js/scenes/psng/groups";
 import {
 	FakeElement,
+	FakeMutationObserver,
 	FakeSvg,
 	installPage,
 	routeReducedMotion,
@@ -522,6 +523,74 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 					expect(paints.pending(), "the sun is below the horizon").to.equal(0);
 					expect(paints.n, "no fire frame computed").to.equal(0);
 					scene.destroy();
+				});
+			});
+
+			describe("the phone's drawer", function () {
+				/** A #viewport the scene finds, a MutationObserver it reports through, and the phone layout on or off. */
+				const plantDrawer = (page: Page, phone: boolean) => {
+					const viewport = new FakeElement("#viewport") as FakeElement & {
+						isConnected: boolean;
+					};
+					viewport.isConnected = true;
+					const g = page.globals as Record<string, unknown>;
+					(g.document as {getElementById: unknown}).getElementById = (id: string) =>
+						id === "viewport" ? viewport : null;
+					const win = g.window as {matchMedia: (q: string) => {matches: boolean}};
+					const media = win.matchMedia;
+					win.matchMedia = (q: string) =>
+						q.includes("max-width: 768px") ? {...media(q), matches: phone} : media(q);
+
+					const set = (...names: string[]) => {
+						viewport.classList.names = new Set(names);
+						FakeMutationObserver.notify();
+					};
+
+					return set;
+				};
+
+				it("a phone: open or dragged, the scene holds and the fire stops; closed, both run again", function () {
+					withPage(new Date(2026, 5, 21, 12, 0), (page) => {
+						follow(page);
+						const paints = plantFire(page);
+						const set = plantDrawer(page, true);
+						const scene = mountOn(page);
+						expect(page.root.classList.contains("psng-hold")).to.equal(false);
+						expect(paints.pending()).to.equal(1);
+						set("menu-dragging");
+						expect(page.root.classList.contains("psng-hold")).to.equal(true);
+						expect(paints.pending()).to.equal(0);
+						set("menu-open");
+						expect(page.root.classList.contains("psng-hold")).to.equal(true);
+						set();
+						expect(page.root.classList.contains("psng-hold")).to.equal(false);
+						expect(paints.pending()).to.equal(1);
+						expect(
+							page.root.classList.contains("psng-m-clouds"),
+							"groups stay on"
+						).to.equal(true);
+						scene.destroy();
+						expect(page.root.classList.contains("psng-hold")).to.equal(false);
+					});
+				});
+
+				it("the desktop: menu-open is the sidebar shown, and holds nothing", function () {
+					withPage(new Date(2026, 5, 21, 12, 0), (page) => {
+						follow(page);
+						const paints = plantFire(page);
+						const set = plantDrawer(page, false);
+						const scene = mountOn(page);
+						set("menu-open");
+						expect(page.root.classList.contains("psng-hold")).to.equal(false);
+						expect(paints.pending()).to.equal(1);
+						scene.destroy();
+					});
+				});
+
+				it("the stylesheet pauses every animation under psng-hold", function () {
+					expect(NG_STILL_CSS).to.match(
+						/#theme-scene\.psng\.psng-hold \*\s*\{\s*animation-play-state: paused !important;/
+					);
 				});
 			});
 

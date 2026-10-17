@@ -75,11 +75,14 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	let fire: ReturnType<typeof fireDriver> | undefined;
 	let sunLive = false;
 	let sunOn = false;
+	let held = false;
+	let viewport: HTMLElement | null = null;
+	let drawer: MutationObserver | undefined;
 
-	// The fire's frame loop runs only in the full tier, with the sun's group on and its gate live;
-	// anywhere else no frame is requested (calm keeps the one frame it has painted).
+	// The fire's frame loop runs only in the full tier, with the sun's group on and its gate live,
+	// and not while the drawer is out; anywhere else no frame is requested (the last one stays).
 	const syncFire = () => {
-		if (tier === "full" && sunOn && sunLive) {
+		if (tier === "full" && sunOn && sunLive && !held) {
 			fire?.start();
 		} else {
 			fire?.stop();
@@ -111,6 +114,37 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 
 		sunOn = on.has("sun");
 		syncFire();
+	};
+
+	// On the phone layout the sidebar is a drawer whose live blur re-samples the scene every frame
+	// of its slide; with the full tier moving behind it the slide lagged on an iPhone (calm and
+	// still did not). While it is out (open, or following a finger) the scene holds. On the desktop
+	// menu-open only means the sidebar is shown, so it holds nothing there.
+	const syncHold = () => {
+		const cls = viewport?.classList;
+		held =
+			!!cls &&
+			(cls.contains("menu-open") || cls.contains("menu-dragging")) &&
+			isPhoneLayout();
+		root.classList.toggle("psng-hold", held);
+		syncFire();
+	};
+
+	// #viewport is the app's, which may mount after the scene: looked for again on each update.
+	const findViewport = () => {
+		if (viewport?.isConnected) {
+			return;
+		}
+
+		drawer?.disconnect();
+		viewport = document.getElementById("viewport");
+
+		if (viewport) {
+			drawer = new MutationObserver(syncHold);
+			drawer.observe(viewport, {attributes: true, attributeFilter: ["class"]});
+		}
+
+		syncHold();
 	};
 
 	const apply = (now: Date) => {
@@ -179,6 +213,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	const update = (state: SceneHostState) => {
 		latest = state;
 		setGroups();
+		findViewport();
 		root.dataset.view = state.view;
 		root.classList.toggle("ps-private", state.view === "query");
 		yurt?.refind();
@@ -201,6 +236,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 			window.clearTimeout(timer);
 			timer = undefined;
 			unsubscribe?.();
+			drawer?.disconnect();
 			fire?.destroy();
 			overcast?.end();
 			yurt?.destroy();
@@ -217,6 +253,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 				"ps-storm",
 				"ps-hot",
 				"ps-west",
+				"psng-hold",
 				...MOTION_CLASSES
 			);
 			delete root.dataset.view;
