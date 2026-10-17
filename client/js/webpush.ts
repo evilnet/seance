@@ -34,7 +34,8 @@ import {
 	onNativeEndpointChange,
 	refreshNativePush,
 } from "./helpers/nativePush";
-import {isAndroidShell} from "./helpers/capacitor";
+import {isAndroidShell, isIOSShell} from "./helpers/capacitor";
+import {clearNativeAlert} from "./helpers/nativeAlerts";
 import {ChanType} from "../../shared/types/chan";
 
 /**
@@ -1495,6 +1496,11 @@ function readOnWorker(uuid: string, target: string): void {
 	// the distributor that brought them is gone.
 	if (isAndroidShell()) {
 		nativeClearNotifications(uuid, target);
+		return;
+	}
+
+	if (isIOSShell()) {
+		clearNativeAlert(uuid, target);
 		return;
 	}
 
