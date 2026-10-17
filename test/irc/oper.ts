@@ -13,11 +13,13 @@ import {
 	useNoticeLogBackend,
 } from "../../client/js/irc/noticelog";
 import {
+	getNote,
 	getOperPrefs,
 	OPER_PREFS_KEY,
 	resetRoutes,
 	routeFor,
 	setRoute,
+	setNote,
 	setSnomaskPref,
 	setTemporaryRoute,
 	sweepTemporaryRoutes,
@@ -599,6 +601,41 @@ describe("oper tools: temporary routes (irc/operprefs.ts)", function () {
 		expect(temporaryRouteFor("n1", "oper.up", now)).to.equal(undefined);
 		expect(sweepTemporaryRoutes("n1", now)).to.equal(false);
 		expect(getOperPrefs("n1")).to.deep.equal({routes: {"oper.up": "off"}, snomask: 5645});
+	});
+
+	it("drops a malformed temporary route from a restored file instead of throwing", function () {
+		prefsStore.set(
+			OPER_PREFS_KEY,
+			JSON.stringify({
+				n1: {temporary: {"client.connect": null, "oper.up": {route: "off"}}},
+			})
+		);
+		expect(sweepTemporaryRoutes("n1", now)).to.equal(false);
+		expect(routeFor("n1", "client.connect", "network", now)).to.equal("network");
+		expect(temporaryRouteFor("n1", "oper.up", now)).to.equal(undefined);
+	});
+
+	it("drops a restored network entry or `temporary` that is not an object", function () {
+		prefsStore.set(OPER_PREFS_KEY, JSON.stringify({n1: "x", n2: {temporary: [null]}}));
+		expect(getOperPrefs("n1")).to.deep.equal({});
+		expect(sweepTemporaryRoutes("n2", now)).to.equal(false);
+		expect(routeFor("n2", "oper.up", "active", now)).to.equal("active");
+		setRoute("n1", "oper.up", "off");
+		expect(getOperPrefs("n1")).to.deep.equal({routes: {"oper.up": "off"}});
+	});
+
+	it("keeps notes by their own keys, `constructor` and `__proto__` included", function () {
+		setNote("n1", "alice", "seen before");
+		expect(getNote("n1", "constructor")).to.equal("");
+		expect(getNote("n1", "toString")).to.equal("");
+
+		setNote("n1", "__proto__", "odd nick");
+		expect(getNote("n1", "__proto__")).to.equal("odd nick");
+		expect(getNote("n1", "alice")).to.equal("seen before");
+
+		setNote("n1", "__proto__", "");
+		expect(getNote("n1", "__proto__")).to.equal("");
+		expect(Object.keys(getOperPrefs("n1").notes ?? {})).to.deep.equal(["alice"]);
 	});
 
 	it("the IRC layer routes by it: a kind shown here for a while is promoted, then not", function () {

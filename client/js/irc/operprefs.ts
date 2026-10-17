@@ -57,12 +57,36 @@ export function useOperPrefsBackend(next: Backend | null): void {
 	backend = next ?? storage;
 }
 
+const isObject = (value: unknown): value is Record<string, unknown> =>
+	typeof value === "object" && value !== null && !Array.isArray(value);
+
 function readAll(): Record<string, OperPrefs> {
 	try {
 		const parsed: unknown = JSON.parse(backend.get(OPER_PREFS_KEY) ?? "{}");
-		return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-			? (parsed as Record<string, OperPrefs>)
-			: {};
+
+		if (!isObject(parsed)) {
+			return {};
+		}
+
+		// A restored settings file can carry anything here; a temporary route
+		// without a numeric `until` made every sweep throw, for good.
+		for (const [uuid, prefs] of Object.entries(parsed)) {
+			if (!isObject(prefs)) {
+				delete parsed[uuid];
+			} else if (prefs.temporary !== undefined && !isObject(prefs.temporary)) {
+				delete prefs.temporary;
+			} else if (isObject(prefs.temporary)) {
+				const temporary = prefs.temporary;
+
+				for (const [kind, entry] of Object.entries(temporary)) {
+					if (!isObject(entry) || typeof entry.until !== "number") {
+						delete temporary[kind];
+					}
+				}
+			}
+		}
+
+		return parsed as Record<string, OperPrefs>;
 	} catch {
 		return {};
 	}
@@ -235,20 +259,25 @@ export function setWasOper(uuid: string, wasOper: boolean): void {
 
 /** The note kept about `key` (a channel, an IP, an account) on this network, or "". */
 export function getNote(uuid: string, key: string): string {
-	return getOperPrefs(uuid).notes?.[key.toLowerCase()] ?? "";
+	const notes = getOperPrefs(uuid).notes ?? {};
+	const k = key.toLowerCase();
+
+	// Own keys only: `constructor` is a fine nick, and not a note.
+	return Object.hasOwn(notes, k) ? notes[k] : "";
 }
 
 /** Keep (or, blank, drop) the note about `key`. */
 export function setNote(uuid: string, key: string, text: string): void {
 	update(uuid, (prefs) => {
-		const notes = {...(prefs.notes ?? {})};
 		const k = key.toLowerCase();
+		const entries = Object.entries(prefs.notes ?? {}).filter(([name]) => name !== k);
 
-		if (text.trim() === "") {
-			delete notes[k];
-		} else {
-			notes[k] = text.trim();
+		if (text.trim() !== "") {
+			entries.push([k, text.trim()]);
 		}
+
+		// fromEntries defines keys, so `__proto__` is a key like any other
+		const notes = Object.fromEntries(entries);
 
 		if (Object.keys(notes).length > 0) {
 			prefs.notes = notes;

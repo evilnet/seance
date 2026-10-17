@@ -201,6 +201,13 @@ function rebaseSettings(
 	return rebased;
 }
 
+/** A restore that did not fit in storage; what it had written is undone. */
+export class BackupStorageError extends Error {
+	constructor() {
+		super("There isn't room on this device to import that file. Nothing was changed.");
+	}
+}
+
 /**
  * Replace every covered entry with the backup's. Keys the backup does not
  * carry are removed, so the device ends up exactly as the file says — but
@@ -212,10 +219,11 @@ export function applyBackup(
 	platform: Platform,
 	defaults: Record<string, unknown>
 ): void {
-	for (const key of storedBackupKeys()) {
-		backend.remove(key);
-	}
+	const before = new Map(storedBackupKeys().map((key) => [key, backend.get(key)]));
+	const written: string[] = [];
 
+	// Write first, remove after: localStorage swallows a full quota, and a
+	// restore that removed first left a device with no networks at all.
 	for (const [key, value] of Object.entries(backup.entries)) {
 		if (!isBackupKey(key)) {
 			continue; // never let a file write arbitrary keys
@@ -223,7 +231,30 @@ export function applyBackup(
 
 		const restored =
 			key === "settings" ? rebaseSettings(value, backup.platform, platform, defaults) : value;
-		backend.set(key, JSON.stringify(restored));
+		const json = JSON.stringify(restored);
+		backend.set(key, json);
+
+		if (backend.get(key) !== json) {
+			for (const done of written) {
+				const old = before.get(done);
+
+				if (old === undefined || old === null) {
+					backend.remove(done);
+				} else {
+					backend.set(done, old);
+				}
+			}
+
+			throw new BackupStorageError();
+		}
+
+		written.push(key);
+	}
+
+	for (const key of before.keys()) {
+		if (!written.includes(key)) {
+			backend.remove(key);
+		}
 	}
 }
 

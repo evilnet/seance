@@ -90,11 +90,14 @@ still carries every setting.
 
 Choosing a file decodes and validates it, then asks through the app's confirm
 dialog (naming the file, the number of networks and whether it carries
-passwords). On confirm, `applyBackup` removes every covered key
-present in storage and writes the file's (the platform-dependent settings
-rebased as above), and the page reloads — that is how
-every module re-reads its storage (the settings store, `saved-networks.ts`,
-`sort.ts`, `mute.ts`, `ignore.ts`, `mediaTrust.ts` all load at boot). Nothing
-runs between the writes and the reload, so in-memory state cannot overwrite
-the file's entries. A reload on Settings stays on Settings (`router.ts`
+passwords). On confirm, `applyBackup` writes the file's keys (the
+platform-dependent settings rebased as above), then removes every covered key
+the file does not carry, and the page reloads — that is how every module
+re-reads its storage (the settings store, `saved-networks.ts`, `sort.ts`,
+`mute.ts`, `ignore.ts`, `mediaTrust.ts` all load at boot). Nothing runs
+between the writes and the reload, so in-memory state cannot overwrite the
+file's entries. Writes come first because `localStorage.ts` swallows a full
+quota: each write is read back, and one that did not land undoes the ones
+before it and throws `BackupStorageError`, which the form shows instead of
+reloading, so a full device keeps what it had. A reload on Settings stays on Settings (`router.ts`
 `onStandalonePage`); autoconnect networks come back on their own.

@@ -5,7 +5,9 @@ import {
 	isValidAliasName,
 	loadAliases,
 	MAX_ALIASES,
+	MAX_BODY_LENGTH,
 	MAX_DEPTH,
+	MAX_LINES,
 	saveAliases,
 	STORAGE_KEY,
 	useStorageBackend,
@@ -114,6 +116,22 @@ describe("command aliases (helpers/aliases.ts)", function () {
 			const result = expandAlias("/n0 go", {});
 			expect(result).to.have.length(1);
 			expect(result?.[0]).to.match(/^\/n\d+ deep$/);
+		});
+
+		it("stops at MAX_LINES however the aliases multiply", function () {
+			const fan = (to: string) =>
+				Array(Math.floor(MAX_BODY_LENGTH / (to.length + 1)))
+					.fill(to)
+					.join("\n");
+			set([
+				{name: "a", body: fan("/b")},
+				{name: "b", body: fan("/c")},
+				{name: "c", body: fan("/msg x hi")},
+			]);
+
+			const result = expandAlias("/a", {});
+			expect(result).to.have.length(MAX_LINES);
+			expect(result?.every((line) => line === "/msg x hi")).to.equal(true);
 		});
 
 		it("prefers an explicit list over storage (the settings preview)", function () {

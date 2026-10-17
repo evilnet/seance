@@ -340,10 +340,16 @@ export default defineComponent({
 					// in-memory state can overwrite the file's entries.
 					// Measured against this deploy's defaults, as the
 					// migration does (store-settings.ts `migrate`).
-					applyBackup(backup, currentPlatform(), {
-						...createState(),
-						theme: store.state.serverConfiguration?.defaultTheme,
-					});
+					try {
+						applyBackup(backup, currentPlatform(), {
+							...createState(),
+							theme: store.state.serverConfiguration?.defaultTheme,
+						});
+					} catch (e) {
+						error.value = e instanceof Error ? e.message : "Couldn't import the file.";
+						return;
+					}
+
 					window.location.reload();
 				}
 			);

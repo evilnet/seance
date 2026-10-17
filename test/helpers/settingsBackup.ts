@@ -2,6 +2,7 @@ import {expect} from "chai";
 import {
 	applyBackup,
 	BackupFormatError,
+	BackupStorageError,
 	collectBackup,
 	decodeBackup,
 	encodeBackup,
@@ -153,6 +154,32 @@ describe("settings backup (helpers/settingsBackup.ts)", function () {
 
 		const damaged = await failure(new Uint8Array([0x1f, 0x8b, 1, 2, 3, 4]));
 		expect(damaged).to.be.instanceOf(BackupFormatError);
+	});
+
+	it("a restore that runs out of storage changes nothing and says so", function () {
+		seed();
+		const before = new Map(store);
+		// localStorage.ts swallows QuotaExceededError: the write just does not land
+		useStorageBackend({
+			get: (key) => store.get(key) ?? null,
+			set: (key, value) => void (key === "thelounge.networks" || store.set(key, value)),
+			remove: (key) => void store.delete(key),
+			keys: () => [...store.keys()],
+		});
+
+		expect(() =>
+			applyBackup(
+				{
+					format: FORMAT,
+					version: VERSION,
+					exportedAt: "",
+					entries: {settings: {theme: "day"}, "thelounge.networks": [{uuid: "n"}]},
+				},
+				"web",
+				{}
+			)
+		).to.throw(BackupStorageError);
+		expect(store).to.deep.equal(before);
 	});
 
 	it("restoring replaces every covered entry and leaves the rest alone", function () {
