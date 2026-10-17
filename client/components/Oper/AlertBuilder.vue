@@ -106,6 +106,7 @@
 									>
 								</span>
 								<input
+									v-if="row.key !== 'log'"
 									v-model="row.value"
 									class="input oper-mono oper-alert-value"
 									type="text"
@@ -573,11 +574,21 @@ export default defineComponent({
 
 			try {
 				if (req.edit) {
-					const both = await replaceAlert(c, req.edit.name, command.value);
+					const both = await replaceAlert(
+						c,
+						req.edit.name,
+						command.value,
+						buildCommand(formFromAlert(req.edit))
+					);
 					const deleted = verdictText(both.deleted, c);
 					const added = both.added ? verdictText(both.added, c) : "";
 					const ok = both.added?.kind === "reply" && !!both.added.value?.ok;
-					const text = [deleted, added].filter(Boolean).join(" ");
+					const restored = !both.restored
+						? ""
+						: both.restored.kind === "reply" && both.restored.value?.ok
+						? "The old alert was put back."
+						: `The old alert could not be put back: ${verdictText(both.restored, c)}`;
+					const text = [deleted, added, restored].filter(Boolean).join(" ");
 
 					if (ok) {
 						result.value = text;

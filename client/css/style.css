@@ -4486,6 +4486,7 @@ button.snotice-badge:focus-visible {
 }
 
 .oper-alert-remove {
+	grid-column: -2; /* the last column, also on a `log` row, which has no value */
 	width: 1.75rem;
 	height: 1.75rem;
 	border-radius: 0.3rem;

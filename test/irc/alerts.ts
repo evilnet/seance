@@ -355,7 +355,8 @@ describe("the alert builder's wire side (irc/alerts.ts, services/x3/alerts.ts)",
 		const replaced = replaceAlert(
 			client,
 			"seance-bots",
-			"addalert seance-bots gline ident r????"
+			"addalert seance-bots gline ident r????",
+			"addalert seance-bots notice ident a"
 		);
 		await Promise.resolve();
 		expect(transport.sent).to.deep.equal(["@label=svc3 PRIVMSG O3 :delalert seance-bots"]);
@@ -371,10 +372,72 @@ describe("the alert builder's wire side (irc/alerts.ts, services/x3/alerts.ts)",
 		expect(both.deleted.kind === "reply" && both.deleted.value?.ok).to.equal(true);
 		expect(both.added?.kind === "reply" && both.added.value?.ok).to.equal(true);
 
+		// O3 refuses the new one after the old is gone: the old is put back.
+		transport.sent = [];
+		const refused = replaceAlert(
+			client,
+			"seance-bots",
+			"addalert seance-bots gline ident r????",
+			"addalert seance-bots notice ident a"
+		);
+		await Promise.resolve();
+		notice(transport, "O3", `Removed alert named ${B}seance-bots${B}.`);
+		await Promise.resolve();
+		await Promise.resolve();
+		await Promise.resolve();
+		notice(transport, "O3", "Access denied.");
+		await Promise.resolve();
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(transport.sent[2]).to.match(/PRIVMSG O3 :addalert seance-bots notice ident a$/);
+		notice(transport, "O3", `Added alert named ${B}seance-bots${B}.`);
+		const back = await refused;
+		expect(back.added?.kind === "reply" && back.added.value?.ok).to.equal(false);
+		expect(back.restored?.kind === "reply" && back.restored.value?.ok).to.equal(true);
+
+		// Too long to send: nothing is deleted.
+		transport.sent = [];
+		const long = await replaceAlert(
+			client,
+			"seance-bots",
+			`addalert seance-bots notice ident a reason ${"x".repeat(480)}`,
+			"addalert seance-bots notice ident a"
+		);
+		expect(long).to.deep.equal({deleted: {kind: "toolong"}});
+		expect(transport.sent).to.deep.equal([]);
+
 		// The bot gone: the delete fails and the add is not tried.
-		const half = replaceAlert(client, "x", "addalert x notice ident a");
+		const half = replaceAlert(
+			client,
+			"x",
+			"addalert x notice ident a",
+			"addalert x notice ident b"
+		);
 		transport.line(":irc.test 401 opr O3 :No such nick");
 		expect(await half).to.deep.equal({deleted: {kind: "missing"}});
+	});
+
+	it("does not put the old alert back when the add goes unanswered", async function () {
+		const clock = sinon.useFakeTimers();
+
+		try {
+			const {client, transport} = setup();
+			const replaced = replaceAlert(
+				client,
+				"seance-bots",
+				"addalert seance-bots gline ident r????",
+				"addalert seance-bots notice ident a"
+			);
+			await Promise.resolve();
+			notice(transport, "O3", `Removed alert named ${B}seance-bots${B}.`);
+			await clock.tickAsync(60_000);
+			const result = await replaced;
+			expect(result.added).to.deep.equal({kind: "timeout"});
+			expect(result.restored).to.equal(undefined);
+			expect(transport.sent).to.have.length(2);
+		} finally {
+			clock.restore();
+		}
 	});
 
 	it("asks AuthServ for the oper's own level once, when logged in", async function () {

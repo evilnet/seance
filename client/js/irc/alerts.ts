@@ -12,7 +12,7 @@
 
 import type {IrcClient} from "./client";
 import {formatLine} from "./message";
-import {sendQuiet} from "./quiet";
+import {fitsQuiet, sendQuiet} from "./quiet";
 import {canRequest, request} from "./request";
 import {collectServiceReply, type ServiceAnswer} from "./services";
 import {servicesProfileFor} from "./services/index";
@@ -27,7 +27,7 @@ import type {
 /** What a lookup came to: the parsed value (undefined when the bot said "no such thing") or why there is none. */
 export type LookupResult<T> =
 	| {kind: "reply"; value: T | undefined; lines: string[]}
-	| {kind: "missing" | "timeout" | "closed" | "unavailable"};
+	| {kind: "missing" | "timeout" | "closed" | "toolong" | "unavailable"};
 
 /** The lookups and the oper bot of a network with a package set up, or undefined. */
 function lookupsOf(client: IrcClient): {lookups: ServicesLookups; bot: string} | undefined {
@@ -53,9 +53,15 @@ async function ask<T>(client: IrcClient, lookup: ServiceLookup<T>): Promise<Look
 		return {kind: "unavailable"};
 	}
 
+	const line = lookup.command(bot);
+
+	if (!fitsQuiet(line)) {
+		return {kind: "toolong"};
+	}
+
 	const reply = collectServiceReply(client, bot, {accept: (text) => lookup.accept(text)});
 
-	if (!sendQuiet(client, lookup.command(bot))) {
+	if (!sendQuiet(client, line)) {
 		return {kind: "closed"};
 	}
 
@@ -97,21 +103,42 @@ export function delAlert(client: IrcClient, name: string): Promise<LookupResult<
 
 /**
  * O3 has no edit: replacing an alert is `delalert` then `addalert`, one
- * after the other, both verdicts reported. The add is skipped when the
- * delete could not be asked at all (the bot missing, the network down).
+ * after the other, both verdicts reported. Nothing is deleted when the add
+ * could not be sent (too long), and the add is skipped when the delete
+ * could not be asked at all (the bot missing, the network down). When the
+ * delete went through and O3 refused the add, `restore` — the old alert's
+ * own `addalert` — puts it back; an add that went unanswered may still have
+ * landed, so nothing is resent then.
  */
 export async function replaceAlert(
 	client: IrcClient,
 	name: string,
-	command: string
-): Promise<{deleted: LookupResult<CommandReply>; added?: LookupResult<CommandReply>}> {
+	command: string,
+	restore: string
+): Promise<{
+	deleted: LookupResult<CommandReply>;
+	added?: LookupResult<CommandReply>;
+	restored?: LookupResult<CommandReply>;
+}> {
+	const l = lookupsOf(client);
+
+	if (l && !fitsQuiet(l.lookups.addAlert(command).command(l.bot))) {
+		return {deleted: {kind: "toolong"}};
+	}
+
 	const deleted = await delAlert(client, name);
 
 	if (deleted.kind !== "reply") {
 		return {deleted};
 	}
 
-	return {deleted, added: await addAlert(client, command)};
+	const added = await addAlert(client, command);
+
+	if (deleted.value?.ok && added.kind === "reply" && !added.value?.ok) {
+		return {deleted, added, restored: await addAlert(client, restore)};
+	}
+
+	return {deleted, added};
 }
 
 /** How many nicks one WHO asks about (the line must stay under the server's 500 bytes). */
@@ -209,6 +236,8 @@ export function describeFailure(client: IrcClient, result: LookupResult<unknown>
 			return `${bot} did not answer.`;
 		case "closed":
 			return "The connection is down.";
+		case "toolong":
+			return `That is too long to send to ${bot}: shorten the reason or the criteria.`;
 		case "unavailable":
 			return "No oper service is set up for this network.";
 		default:

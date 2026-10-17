@@ -14,7 +14,7 @@
  */
 
 import type {IrcClient} from "./client";
-import type {IrcMessage} from "./message";
+import {type IrcMessage, MAX_LINE_BYTES, utf8ByteLength} from "./message";
 import {tagPrefix} from "./wire";
 
 interface Registry {
@@ -58,6 +58,11 @@ export function quietLabel(client: IrcClient): string | undefined {
 	}
 
 	return label;
+}
+
+/** Whether `line` still fits under `MAX_LINE_BYTES` with a quiet label in front. */
+export function fitsQuiet(line: string): boolean {
+	return utf8ByteLength(`${tagPrefix({label: "svc99999"})}${line}`) <= MAX_LINE_BYTES;
 }
 
 /** Send `line` so that its echo is dropped; returns what `client.send` does. */
