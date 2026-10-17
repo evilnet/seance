@@ -135,10 +135,18 @@ export function applyMarkdown(fragments: ParsedStyle[]): Markdown {
 	const verbatim: Range[] = [];
 	let offset = 0;
 
-	for (const cut of cutPieces(text, scanned, boundaries)) {
-		const source = fragments.find((fragment) => covers(fragment, cut.start, cut.end));
+	// Cuts and fragments both run left to right, and no cut crosses a
+	// fragment boundary (each is a cut point): walk them together.
+	let next = 0;
 
-		if (!source) {
+	for (const cut of cutPieces(text, scanned, boundaries)) {
+		while (next < fragments.length && fragments[next].end <= cut.start) {
+			next++;
+		}
+
+		const source = fragments[next];
+
+		if (!source || !covers(source, cut.start, cut.end)) {
 			continue;
 		}
 
@@ -191,20 +199,57 @@ function cutPieces(text: string, {removals, ranges}: Scan, extraCuts: number[]):
 	const sorted = [...points].sort((a, b) => a - b);
 	const cuts: Cut[] = [];
 
+	// Every item's ends are cut points, so a cut lies wholly inside an item
+	// or wholly outside it. One sweep keeps what is open at each cut; asking
+	// every item at every cut was quadratic (16 KB of "`a" took 360ms).
+	const opens = new Map<number, number[]>();
+	const closes = new Map<number, number[]>();
+	const items = [...removals, ...ranges];
+
+	const at = (map: Map<number, number[]>, point: number) => {
+		let list = map.get(point);
+
+		if (!list) {
+			list = [];
+			map.set(point, list);
+		}
+
+		return list;
+	};
+
+	items.forEach((item, index) => {
+		if (item.start < item.end) {
+			at(opens, item.start).push(index);
+			at(closes, item.end).push(index);
+		}
+	});
+
+	const open = new Set<number>();
+	let openRemovals = 0;
+
 	for (let k = 0; k < sorted.length - 1; k++) {
 		const start = sorted[k];
 		const end = sorted[k + 1];
 
-		if (removals.some((removal) => covers(removal, start, end))) {
+		for (const index of closes.get(start) ?? []) {
+			open.delete(index);
+			openRemovals -= index < removals.length ? 1 : 0;
+		}
+
+		for (const index of opens.get(start) ?? []) {
+			open.add(index);
+			openRemovals += index < removals.length ? 1 : 0;
+		}
+
+		if (openRemovals > 0) {
 			continue;
 		}
 
 		const flags: PieceFlags = {};
 
-		for (const range of ranges) {
-			if (!covers(range, start, end)) {
-				continue;
-			}
+		// In the order the scan found them: a later range's flag wins
+		for (const index of [...open].sort((a, b) => a - b)) {
+			const range = items[index] as ScanRange;
 
 			if (range.flag === "href") {
 				flags.href = range.href;
@@ -246,7 +291,27 @@ function scan(text: string): Scan {
 	ranges.push(...tables.ranges);
 	removals.push(...tables.removals);
 
-	const skips: Range[] = [...opaqueSpans(text), ...tables.zones];
+	const skips: Range[] = [...opaqueSpans(text), ...tables.zones].sort(
+		(a, b) => a.start - b.start
+	);
+
+	// `i` only moves forward, so the skips behind it are never asked again
+	let firstSkip = 0;
+
+	const skipAt = (pos: number): Range | undefined => {
+		while (firstSkip < skips.length && skips[firstSkip].end <= pos) {
+			firstSkip++;
+		}
+
+		for (let q = firstSkip; q < skips.length && skips[q].start <= pos; q++) {
+			if (pos < skips[q].end) {
+				return skips[q];
+			}
+		}
+
+		return undefined;
+	};
+
 	const stack: OpenDelimiter[] = [];
 	let i = 0;
 
@@ -255,7 +320,7 @@ function scan(text: string): Scan {
 	const inTable = (pos: number) => tables.ranges.some((r) => r.start <= pos && pos < r.end);
 
 	while (i < text.length) {
-		const skip = skips.find((r) => r.start <= i && i < r.end);
+		const skip = skipAt(i);
 
 		if (skip) {
 			i = skip.end;
@@ -384,8 +449,11 @@ function scan(text: string): Scan {
 				const end = i + match[0].length;
 				removals.push({start: i, end: textStart}, {start: textEnd, end});
 				ranges.push({start: textStart, end: textEnd, flag: "href", href: match[2]});
-				// The link text is scanned normally; the "](url)" tail is not
-				skips.push({start: textEnd, end});
+				// The link text is scanned normally; the "](url)" tail is not.
+				// skipAt() needs skips sorted by start; every skip behind
+				// firstSkip ends before i, so the insert never lands there
+				const at = skips.findIndex((r) => r.start > textEnd);
+				skips.splice(at === -1 ? skips.length : at, 0, {start: textEnd, end});
 				i = textStart;
 				continue;
 			}
@@ -817,6 +885,28 @@ function tableAt(
 	// split on once the markers are gone
 	removals.push({start: sepLine.start, end: Math.min(sepLine.stop + 1, text.length)});
 
+	// Whitespace just before `end` (not before `floor`) / from `start` (not past `ceil`).
+	// Counted, not `/\s*$/` on a slice: that was per pipe, quadratic in a wide row.
+	const spaceBefore = (end: number, floor: number) => {
+		let n = 0;
+
+		while (end - n > floor && /\s/.test(text[end - n - 1])) {
+			n++;
+		}
+
+		return n;
+	};
+
+	const spaceAfter = (from: number, ceil: number) => {
+		let n = 0;
+
+		while (from + n < ceil && /\s/.test(text[from + n])) {
+			n++;
+		}
+
+		return n;
+	};
+
 	for (const row of rows) {
 		// Leading and trailing pipe, with the cell padding around them
 		const raw = text.slice(row.start, row.stop);
@@ -825,7 +915,7 @@ function tableAt(
 
 		if (lead) {
 			const pipe = row.start + lead[0].length - 1;
-			const after = /^\s*/.exec(text.slice(pipe + 1, row.stop))![0].length;
+			const after = spaceAfter(pipe + 1, row.stop);
 
 			removals.push({start: row.start, end: pipe + 1 + after});
 			leadEnd = pipe + 1 + after;
@@ -836,7 +926,7 @@ function tableAt(
 
 		if (trail && trail[0].length !== raw.length) {
 			const pipe = row.stop - trail[0].length;
-			const before = /\s*$/.exec(text.slice(row.start, pipe))![0].length;
+			const before = spaceBefore(pipe, row.start);
 
 			removals.push({start: pipe - before, end: row.stop});
 			trailStart = pipe - before;
@@ -851,8 +941,8 @@ function tableAt(
 			}
 
 			if (k >= leadEnd && k < trailStart) {
-				const before = /\s*$/.exec(text.slice(row.start, k))![0].length;
-				const after = /^\s*/.exec(text.slice(k + 1, row.stop))![0].length;
+				const before = spaceBefore(k, row.start);
+				const after = spaceAfter(k + 1, row.stop);
 
 				// A cell is trimmed on both sides of the pipe that bounds it
 				if (before > 0) {

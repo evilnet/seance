@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import constants from "../../../client/js/constants";
+import constants from "../../client/js/constants";
 import {describe} from "mocha";
 
 describe("client-side constants", function () {

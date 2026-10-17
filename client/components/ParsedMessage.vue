@@ -25,8 +25,7 @@ export default defineComponent({
 					: (props.message as ClientMessage).text,
 				props.message as ClientMessage,
 				props.network,
-				// Optional: mounted without a store (the browser specs in
-				// test/client do that), no store means no Markdown.
+				// Optional: mounted without a store, no store means no Markdown.
 				{markdown: props.markdown && store?.state.settings.markdown}
 			);
 	},

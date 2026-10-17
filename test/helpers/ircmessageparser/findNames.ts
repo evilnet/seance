@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import findNames from "../../../../../client/js/helpers/ircmessageparser/findNames";
+import findNames from "../../../client/js/helpers/ircmessageparser/findNames";
 
 describe("findNames", () => {
 	it("should find nicks in text", () => {

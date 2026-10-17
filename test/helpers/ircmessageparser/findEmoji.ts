@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import findEmoji from "../../../../../client/js/helpers/ircmessageparser/findEmoji";
+import findEmoji from "../../../client/js/helpers/ircmessageparser/findEmoji";
 
 describe("findEmoji", () => {
 	it("should find default emoji presentation character", () => {
