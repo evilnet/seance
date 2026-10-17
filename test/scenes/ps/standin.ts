@@ -146,6 +146,18 @@ export class FakeElement extends Listeners {
 		this.attrs.set(name, String(value));
 	}
 
+	toggleAttribute(name: string, force?: boolean) {
+		const on = force ?? !this.attrs.has(name);
+
+		if (on) {
+			this.attrs.set(name, "");
+		} else {
+			this.attrs.delete(name);
+		}
+
+		return on;
+	}
+
 	removeAttribute(name: string) {
 		this.attrs.delete(name);
 
@@ -289,6 +301,25 @@ export class FakeSheet {
 	replaceSync(text: string) {
 		this.text = text;
 	}
+}
+
+/**
+ * The system's reduced-motion setting, for systemAccessibility(): it follows
+ * the first window it sees for good, so every page's matchMedia answers from
+ * here (routeReducedMotion) and setReducedMotion fires the change.
+ */
+const reducedMotion = {on: false, listeners: [] as Listener[]};
+
+export function routeReducedMotion(page: {globals: Record<string, unknown>}) {
+	(page.globals.window as {matchMedia: unknown}).matchMedia = (query: string) => ({
+		matches: query.includes("reduced-motion") && reducedMotion.on,
+		addEventListener: (_type: string, fn: Listener) => reducedMotion.listeners.push(fn),
+	});
+}
+
+export function setReducedMotion(on: boolean) {
+	reducedMotion.on = on;
+	reducedMotion.listeners.forEach((fn) => fn());
 }
 
 /** The page mount() runs in, and the handles a test needs on it. */

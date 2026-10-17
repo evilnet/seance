@@ -7,7 +7,16 @@ import {mount as mountClassic} from "../../../client/js/scenes/ps/scene";
 import {mount} from "../../../client/js/scenes/psng/scene";
 import {NG_STILL_CSS} from "../../../client/js/scenes/psng/styles";
 import type {SceneHandle, SceneHostState} from "../../../client/js/themeScene";
-import {FakeElement, FakeSvg, installPage, type Page} from "../ps/standin";
+import {followSystemAccessibility} from "../../../client/js/helpers/systemAccessibility";
+import {GROUPS} from "../../../client/js/scenes/psng/groups";
+import {
+	FakeElement,
+	FakeSvg,
+	installPage,
+	routeReducedMotion,
+	setReducedMotion,
+	type Page,
+} from "../ps/standin";
 
 // The NG still scene's mount() (psng/scene.ts) on classic's stand-in page (ps/standin.ts).
 
@@ -220,6 +229,88 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 			expect(Object.keys(page.html.dataset)).to.deep.equal([]);
 			expect([...page.html.style.props.keys()]).to.deep.equal([]);
 			expect([...page.html.classList.names]).to.deep.equal([]);
+		});
+	});
+
+	describe("motion groups", function () {
+		const motionClasses = (page: Page) =>
+			[...page.root.classList.names].filter(
+				(n) => n.startsWith("psng-m-") || n === "psng-calm"
+			);
+		const all = GROUPS.map((g) => `psng-m-${g}`).sort();
+		const calm = ["clouds", "smoke", "weather", "skeins", "sun"].map((g) => `psng-m-${g}`);
+
+		// systemAccessibility() follows the first window it is given for good.
+		let following = false;
+
+		const follow = (page: Page) => {
+			routeReducedMotion(page);
+
+			if (!following) {
+				following = true;
+				followSystemAccessibility();
+			}
+		};
+
+		it("full: every group's class, none else; unattended: none; attended again: all", function () {
+			withPage(new Date(2026, 5, 21, 12, 0), (page) => {
+				follow(page);
+				const scene = mountOn(page);
+				expect(motionClasses(page).sort()).to.deep.equal(all);
+				scene.update(state({attended: false}));
+				expect(motionClasses(page)).to.deep.equal([]);
+				scene.update(state());
+				expect(motionClasses(page).sort()).to.deep.equal(all);
+				scene.update(state({view: "query"}));
+				expect(motionClasses(page)).to.deep.equal([]);
+				scene.destroy();
+			});
+		});
+
+		it("reduced motion on takes every class off, and off puts them back", function () {
+			withPage(new Date(2026, 5, 21, 12, 0), (page) => {
+				follow(page);
+				const scene = mountOn(page);
+				setReducedMotion(true);
+
+				try {
+					expect(motionClasses(page)).to.deep.equal([]);
+					setReducedMotion(false);
+					expect(motionClasses(page).sort()).to.deep.equal(all);
+				} finally {
+					setReducedMotion(false);
+				}
+
+				scene.destroy();
+			});
+		});
+
+		it("calm: its five and psng-calm; destroy removes every class", function () {
+			withPage(new Date(2026, 5, 21, 12, 0), (page) => {
+				follow(page);
+				const scene = mountOn(page, {motion: "calm"});
+				expect(motionClasses(page).sort()).to.deep.equal([...calm, "psng-calm"].sort());
+				scene.update(state({motion: "full"}));
+				expect(motionClasses(page)).to.not.include("psng-calm");
+				scene.update(state({motion: "calm"}));
+				scene.destroy();
+				expect(motionClasses(page)).to.deep.equal([]);
+			});
+		});
+
+		it("destroy stops listening for reduced motion", function () {
+			withPage(new Date(2026, 5, 21, 12, 0), (page) => {
+				follow(page);
+				const scene = mountOn(page);
+				scene.destroy();
+				setReducedMotion(true);
+
+				try {
+					expect(motionClasses(page)).to.deep.equal([]);
+				} finally {
+					setReducedMotion(false);
+				}
+			});
 		});
 	});
 });

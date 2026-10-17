@@ -11,6 +11,8 @@
  * never ride along.
  */
 import {isPhoneLayout} from "../../helpers/device";
+import {onSystemAccessibility, systemAccessibility} from "../../helpers/systemAccessibility";
+import storage from "../../localStorage";
 import type {SceneHandle, SceneHostState} from "../../themeScene";
 import {momentAt, type Weather} from "../ps/engine";
 import {GATES, liveLayers, type Gate} from "../ps/layers";
@@ -18,7 +20,11 @@ import {sceneClasses, sceneMarkup, sceneVars, weatherChanged} from "../ps/markup
 import {paletteAt} from "../ps/palette";
 import {publishMoment, unpublish} from "../ps/publish";
 import {overcastBuilder, placeYurt, watchComposer, watchLand} from "../ps/watchers";
+import {GROUPS, groupOverride, groupsFor} from "./groups";
 import {NG_STILL_CSS} from "./styles";
+import {tierFor} from "./tiers";
+
+const MOTION_CLASSES = [...GROUPS.map((g) => `psng-m-${g}`), "psng-calm"];
 
 export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	const html = document.documentElement;
@@ -35,6 +41,25 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	let yurt: ReturnType<typeof placeYurt> | undefined;
 	let composer: ReturnType<typeof watchComposer> | undefined;
 	let land: ReturnType<typeof watchLand> | undefined;
+	let latest = initial;
+	let reduceMotion = systemAccessibility().reduceMotion;
+	let unsubscribe: (() => void) | undefined;
+	const only = groupOverride(storage);
+
+	// Exactly the classes of the tier's running groups; the rest come off.
+	const setGroups = () => {
+		const tier = tierFor(latest, reduceMotion);
+		const on = new Set(groupsFor(tier, only).values());
+		const classes = new Set([...on].map((g) => `psng-m-${g}`));
+
+		if (tier === "calm") {
+			classes.add("psng-calm");
+		}
+
+		for (const name of MOTION_CLASSES) {
+			root.classList.toggle(name, classes.has(name));
+		}
+	};
 
 	const apply = (now: Date) => {
 		const m = momentAt(now);
@@ -85,6 +110,8 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	};
 
 	const update = (state: SceneHostState) => {
+		latest = state;
+		setGroups();
 		root.dataset.view = state.view;
 		root.classList.toggle("ps-private", state.view === "query");
 		yurt?.refind();
@@ -106,6 +133,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		destroy() {
 			window.clearTimeout(timer);
 			timer = undefined;
+			unsubscribe?.();
 			overcast?.end();
 			yurt?.destroy();
 			composer?.destroy();
@@ -120,7 +148,8 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 				"ps-windy",
 				"ps-storm",
 				"ps-hot",
-				"ps-west"
+				"ps-west",
+				...MOTION_CLASSES
 			);
 			delete root.dataset.view;
 			delete root.dataset.weather;
@@ -142,6 +171,10 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		yurt = placeYurt(root);
 		composer = watchComposer(root, html);
 		land = watchLand(root);
+		unsubscribe = onSystemAccessibility((a) => {
+			reduceMotion = a.reduceMotion;
+			setGroups();
+		});
 		update(initial);
 	} catch (error) {
 		try {
