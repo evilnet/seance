@@ -1,6 +1,6 @@
 # ps NG — the ps scene, rebuilt to be cheap
 
-Status: **NG is the ps scene; classic deleted 2026-10-17** (decision 8, done on the user's go with the iPhone budgets still unmet, §8.3, §10.6). Plan 1 (the still scene) and plan 2 (motion) were built 2026-10-16 (§8.1, §9.7), plan 4 (the birds and the sun) 2026-10-17 (§10); plan 3's three-platform gate is §8.3. The design below was approved 2026-10-16; spike 2 (`ps-ng-plan-1.md` § What spike 2 decided) replaced its backdrop and its glass, and the sections say where.
+Status: **NG is the ps scene; classic deleted 2026-10-17; plan 5 (calm in budget, cheaper skeins) designed, §11** (decision 8, done on the user's go with the iPhone budgets still unmet, §8.3, §10.6). Plan 1 (the still scene) and plan 2 (motion) were built 2026-10-16 (§8.1, §9.7), plan 4 (the birds and the sun) 2026-10-17 (§10); plan 3's three-platform gate is §8.3. The design below was approved 2026-10-16; spike 2 (`ps-ng-plan-1.md` § What spike 2 decided) replaced its backdrop and its glass, and the sections say where.
 
 The ps theme's scene (`docs/projects/ps-theme.md`) is loved and expensive: on an iPhone 16 it costs 93–106 % of a core in Safari at a rainy noon, most of it in WebKit's page process, and around 95–99 % at night. ps NG is a new renderer for the same theme. It keeps every element and the look, and draws them with a small set of cheap techniques, with tiers so a phone on low power does less.
 
@@ -393,3 +393,28 @@ Alone, WebContent: skeins 28.4 (✗, ≤ 5), daybirds 0.9 (✓), sun 4.5 (✓). 
 Against §10's criteria: **full below classic at every moment** — passes; **daybirds and sun ≤ 5** — pass; **skeins ≤ 5** — fails at 28.4 (the user's pick after §10.5's short job: stop the skeins there and go to the gate); **calm ≤ 24** — fails at every moment. Calm's page work fell (night 61.5 → 23.6, dusk → 21.6), but calm noon is 31.4 backboardd with 0.3 page work: one moving group's Core Animation cost already sits past 24 (§8.3), so calm ≤ 24 cannot be met by page work alone, and at night and dusk the skeins' page work is the rest. Plan 3 stays paused until the user decides what follows.
 
 After the gate (the user's "2"), a diagnostic job on the skeins alone at dusk (rid `ios2-1792268123000`, n = 2, WebContent with the running animations): as built 29.0 (196), half the wings off 21.5 (124), the per-bird wander off 13.6 (158), the wings off 9.9 (44). Each wing copy costs about 0.1 and the 38 wanders about 0.4 each, more together than apart; with no wingbeat at all the skeins still read 9.9, so ≤ 5 would need the per-bird wander changed as well — a change to classic's look. The user's pick (option 4, 2026-10-17): stop plan 4 here with the skeins at about 29 and calm over 24, push what is built, and resume plan 3. A strip per bird, the wander dropped, or both remain open for a later plan.
+
+## 11. Plan 5: calm in budget, cheaper skeins (designed 2026-10-17)
+
+The user's picks after §8.3 and §10.6: calm moves **one group, the clouds**; the skeins' wings become **strips** and their per-bird wander gives way to **the skein's own sway**. Full keeps every other group as it is. Android by day (§8.3) is out of scope until there is a real Android phone to measure.
+
+### 11.1 Calm
+
+Calm's page work is already small (0.3 at noon, §10.6); its cost is Core Animation's, 15–25 per moving group (§8.3), and calm moves four. So calm becomes the clouds alone: `psng/groups.ts`'s calm set is `clouds`, and smoke, the weather, the sun's spin and the skeins stand at their still look in calm, as they do in the still tier. §6's calm row reads "clouds; everything else still" once it lands.
+
+Measured first: the clouds alone at noon (§8.3's ladder read 25.6, n = 1), 2 rounds on the iPhone. If they read over 24, the clouds are made cheaper in calm (fewer of them, or a slower drift), not swapped for another group.
+
+### 11.2 The skeins
+
+The skeins alone cost 29 WebContent (§10.6): about 19 is the wings (38 birds × 4 pose copies swapped by `opacity`, about 150 animations) and about 15 the 38 per-bird wanders (`ps-bird-wander`), more together than apart.
+
+- **Wing strips.** Each bird's four pose copies become one `<svg>` holding the four poses side by side, inside a clip box one pose wide; one `translateX` loop with discrete holds steps through them (`transform` only), each bird keeping its own delay so the birds flap out of step. 38 animations in place of about 150. The cranes still never glide (§9).
+- **No per-bird wander.** The birds hold their places in the V; `ps-skein-sway` (the whole formation rising, sinking and leaning) is the skein's only motion besides its flight.
+
+Measured first, on a throwaway harness build (`tmp/perf/ng2`, `x=` switches as in plan 4): `skeins` against `x=strip`, `x=nowander` and both, at dusk, 2 rounds. The strip is untested on iOS and plan 4's opacity reading went against its prediction (§10.5), so if the strip does not beat the pose stack, the stack stays and only the wander change ships.
+
+### 11.3 The gate and the tests
+
+- iPhone, one job of plan 3's moments plus the skeins alone: **calm ≤ 24 at noon, night, storm and dusk** (gated); the skeins alone at ≤ 5 WebContent and full at night and dusk below §10.6's 88.5 and 92.2 (reported).
+- Mocha: the strip markup (the pose stack's replacement in `psng/poses.ts`) and calm's group set (`test/scenes/psng/`).
+- `tools/scenarios/ps-ng.mjs`: the censuses take the strip's keyframes and calm's single group (calm against full at the same moment is clouds only).
