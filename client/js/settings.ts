@@ -229,13 +229,12 @@ const defaultConfig = {
 		},
 	},
 	// The ps theme's own settings (Settings → Appearance shows them under the
-	// theme while ps is the theme). How much its scene moves: "off", "sparse"
-	// (every five minutes and on coming back), "1s", "24" (frames a second) or
-	// "60" (the browser's own rate) — themeScene.ts SceneMotion, the scene's
-	// stepper.ts. A hidden page and reduced motion still stop it whatever this
+	// theme while ps is the theme). How much its scene moves: "auto" (follows the
+	// device), "full", "calm" or "still" — themeScene.ts SceneMotion, the
+	// scene's psng/tiers.ts. A hidden page and reduced motion still stop it whatever this
 	// says.
 	psAnimation: {
-		default: "24",
+		default: "auto",
 		apply(store: TypedStore, value: string) {
 			themeScene.setMotion(normalizeSceneMotion(value));
 		},

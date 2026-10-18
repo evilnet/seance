@@ -137,7 +137,7 @@ client/js/scenes/ps/yurt.ts    Vue-free, DOM-free: where the yurt stands, and th
 client/js/scenes/ps/grounds.ts Vue-free, DOM-free: the one list of grounds the words meet, the words' treatment
 client/js/scenes/ps/glass.ts   Vue-free, DOM-free: the luminous day glass's per-surface tints
 client/js/scenes/ps/layers.ts  Vue-free, DOM-free: which animated layers are in the render tree
-client/js/scenes/ps/scene.ts   builds and updates the scene's elements (DOM, no Vue); its own chunk
+client/js/scenes/psng/        the scene (NG, docs/projects/ps-ng.md): builds and updates its elements; its own chunk
 client/themes/ps.css           the chrome, the type, the fallback daylight, the scene's static styling
 tools/ps/legibility.ts         the legibility model: the sweeps, the surfaces, the measured strengths
 tools/ps/palette-blocks.ts     the generator of ps.css's two colour blocks (§7, §11)
@@ -185,6 +185,8 @@ The tests pin the true instants against measured values, not the mean month, to 
 
 ## 5. The scene
 
+> **Superseded 2026-10-17.** The classic renderer described here (`scene.ts`, `stepper.ts`, SMIL, the paused and stepped animations) was deleted when ps NG became the ps scene; see `docs/projects/ps-ng.md`. The markup, engine, palette and legibility model below are still NG's.
+
 ### 5.1 Layers, back to front
 
 The mockup's window is the drawing. As built (`scene.ts` `sceneMarkup`, twelve layers in `#theme-scene`), back to front:
@@ -217,6 +219,7 @@ The sun's colours (core, edge, flame, bloom) mix from noon gold to horizon orang
 
 The mockup's drawing (`plains.ts` `yurtSvg`, its markup byte for byte after the `ps-` renames): felt walls and roof with a rope band and ribs, a patterned band, a carved and painted door, a crown ring with a stove pipe, stones and a woodpile beside it, desaturated so text over it stays readable. The worn path to the door the mockup drew is gone, at the user's word (§2): nothing before the door reads as a beam, by day or at night.
 
+- **Placement (since 2026-10-17): right-anchored, CSS alone.** Its centre stands 22 % of the window's width in from the message column's far end (the scene's edge, or the user list's inner edge while a channel shows it), clamped whole on screen (`ps.css` `--ps-yurt-x`); a sidebar opening or closing never moves it, and a move is a cut. The far-third rule below, with its script, was retired for that.
 - **Placement: the far third.** Its centre stands at 72 % of the message column's width, measured from the column's reading-start edge, on the ground band (its foot at 17 % from the bottom, 21 % of the window tall). The message column is `#chat .chat` (`MessageList.vue`'s scroll container), which excludes the user list: `#chat` itself includes the user list and would push the yurt behind it. The scene observes the column with a `ResizeObserver`, looks for it again on every conversation switch, and writes the place as `--ps-yurt-left`; the place is clamped so the whole yurt stays on the screen (on a 390 px phone it stands a little left of the column's 72 %). Before any column has been measured (a page opened on Settings, Help or the connect form) it stands at 70 % of the scene, clamped the same way in CSS; with no message column on screen later, it keeps its last place, clamped again if the window narrows there (followed or faded by the rule below).
 - **It never moves.** When its place changes by more than 1.5 rem (the user list opens, the pane resizes, a private conversation opens), it fades out where it stood (`ps-yurt-moving`, 0.38 s), jumps while unseen after 0.4 s and fades back in where it now stands, and its smoke goes with it. A change during the fade only retargets the jump, so the user list opened and closed inside one fade leaves it where it stood. A smaller change, such as a window being resized, simply follows the layout with no animation. The first place measured within 1 s of the scene first being seen is taken at once, so an ordinary load onto a channel shows no move. A measurement taken while the scene has no box yet places nothing and leaves that second unspent: `#theme-scene` is `display: none` until `ps.css` applies, and the scene can mount first (the boot race the final review found, which painted the yurt cut in half at the left edge and then faded it across); the scene observes its own box as well as the column's, so its display measures again. Nothing transitions its position (`yurt.ts` `yurtFollower`, pure, driven by mocha's clock).
 - **At night**: the door, the seams and the crown glow warm from inside, a soft round pool of light lies at the door (the user's "C", §2), and smoke rises from the crown. By day there is no smoke, no glow and no pool, and nobody is ever drawn.
@@ -347,6 +350,8 @@ Both are bundled in `client/themes/ps/` with their OFL licences, Google Fonts' w
 **Reduced motion** (`html[data-reduce-motion]`, which `helpers/systemAccessibility.ts` keeps live, Android's Remove animations included) stands down: drifting clouds (each stands still where its own delay puts it in its drift, `--cp` on `ps-drift`'s path, so the five, or nine in the wet, are spread across the sky rather than piled at the left edge where `animation: none` left them: plan 3's final fix wave), twinkling stars, the sun's fire and rays, grass sway, fireflies, embers, and the fades and rises. **The colours stay correct for the hour**: a reader at midnight gets the night. As built in plan 4 (2026-09-26), what exists only in flight is out of the render tree, not parked: the birds, the rain, the snow and the seeds, the lightning and the smoke are `display: none` (a buzzard had stood on the noon sky, and a drop at `top: -8%` showed on a short window), while the veil stays at the weather's level, so a rainy day still looks rainy. The fireflies stay as still points of light where they are, as the stars do, and the smoke goes rather than standing as a grey blot over the crown; the lit door and its pool still say someone is home. The words' own colour eases (`.show-more`, the search notes) flip at once with the rest. No scene animation runs under reduced motion in any weather (the browser check reads `document.getAnimations()` and every SVG clock at six moments), and the SVG clocks were already paused by the scene. `style.css`'s own 0.2–0.3 s eases on buttons, the focus ring and the jump-to-recent arrow are the app's, not the theme's, and still run at the flip (§13).
 
 ## 10. Performance
+
+> **Superseded 2026-10-17.** The classic renderer described here (`scene.ts`, `stepper.ts`, SMIL, the paused and stepped animations) was deleted when ps NG became the ps scene; see `docs/projects/ps-ng.md`. The markup, engine, palette and legibility model below are still NG's.
 
 Rules:
 
@@ -636,6 +641,8 @@ Against the unblurred build the three overlay checks failed, and nothing else ne
 
 ### 10.3 Twenty-four frames a second (2026-10-05)
 
+> **Gone 2026-10-17** with the classic renderer: NG never holds or steps an animation (a paused animation still costs an iPhone 19 % of a core); its Calm runs a reduced set of groups instead (`docs/projects/ps-ng.md` §9).
+
 **Why.** The user, 2026-10-05: "can you lower frame rates? 24 fps would be sufficient rather then 60fps". No CSS or SVG feature caps an animation's frame rate, and a `steps()` timing function does not reduce the browser's main frames. Left to the browser, every running animation restyles its element on every main frame, and every frame moves what the glass blurs.
 
 **What.** `client/js/scenes/ps/stepper.ts`: while the scene runs, every CSS animation in it (`getAnimations({subtree: true})`, the CSSAnimations only) is paused, and so is every SVG clock; one timer advances them together by the real time elapsed, `SCENE_FPS` (24) times a second, so the browser draws a scene frame only then. Real elapsed time, not a nominal 1/24 s, so a late timer never slows the scene down. A stop (a hidden page, the rest, a query, reduced motion) clears the timer, and a start resumes from where everything stood. The transitions (a layer's fade, the day/night flip, the overcast's cross-fade) run natively: the scene times its clean-ups against them. A step only writes: reading an animation's state between writes makes the browser restyle once per animation (measured: 3060 style recalculations a second at dusk instead of 25), so what to step is collected by `refresh()`, which `syncSvgs` calls whenever the layers, the weather or the heat haze change. Which SVGs are stepped is the old rule: none in a layer out of the render tree, the heat haze's only on a hot day. On a 60 Hz screen 24 frames a second lands on two vsyncs out of five, an uneven cadence; 30 would divide evenly, and 24 divides 120 and 144 Hz.
@@ -657,6 +664,8 @@ Natively this machine reached only 31–39 frames a second at dusk and in rain; 
 **The wind keeps the clouds in place (2026-10-07).** The wind runs the clouds' drift at 0.4 of its duration (`ps.css` `ps-windy`, set by the day's weather), and the same time under a shorter loop is another place: crossing a midnight into a windy day (or out of one) with the page open threw the five clouds 126 to 1006 px at once. `scene.ts` `apply` now reads each drift's place in its loop before the class flips and puts it back at that place under the new timing (`stepper.ts` `keepPhase`, in the first whole loop after the delay), then has the stepper read the times again (`reread`). Measured across 4 → 5 October: the clouds move 1 to 2 px across the flip, their ordinary drift; `theme-ps.mjs` holds it under 20 px.
 
 ### 10.4 The theme's own settings (2026-10-07)
+
+> **Since 2026-10-17** the levels are Auto, Full, Calm and Still (`psng/tiers.ts`; `docs/projects/ps-ng.md` §6, §9.3); the older stored values are read through `normalizeSceneMotion`.
 
 The user, 2026-10-07: "theme-specific settings, one of which being the animation level; off, sparse (maybe only updates once every 5 minutes or when coming into focus), every 1 second, 24 fps (default), and 60 fps, an option whether to disable animation when backgrounded (this is default on)", and "an option for combining messages or not (default yes)".
 

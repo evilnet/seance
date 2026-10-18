@@ -546,18 +546,16 @@ export default defineComponent({
 		// The ps theme's Scene animation levels (themeScene.ts SceneMotion).
 		const psAnimation = computed(() => normalizeSceneMotion(store.state.settings.psAnimation));
 		const sceneMotionLabels: Record<SceneMotion, string> = {
-			off: "Off",
-			sparse: "Sparse",
-			"1s": "Once a second",
-			"24": "24 frames a second",
-			"60": "60 frames a second",
+			auto: "Auto",
+			full: "Full",
+			calm: "Calm",
+			still: "Still",
 		};
 		const sceneMotionHints: Record<SceneMotion, string> = {
-			off: "a still picture; the sky still follows the time of day",
-			sparse: "moves on every five minutes, and when you come back to the window",
-			"1s": "the birds and the rain move in visible jumps",
-			"24": "smooth and light on the battery; the default",
-			"60": "your screen's own rate: the smoothest, and the most power",
+			auto: "follows your device: Full on a computer or tablet, Calm on a phone, one step less on low power",
+			full: "everything moves, at your screen's rate",
+			calm: "clouds, weather, smoke and the birds' flight; the rest holds still",
+			still: "a still picture; the sky still follows the time of day",
 		};
 
 		// The step under the slider while it is being dragged. Applying every

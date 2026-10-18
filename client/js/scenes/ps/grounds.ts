@@ -111,7 +111,7 @@ const POOL = "#ffc47a";
 const ROOF_SNOW = "#f5f8fc";
 
 /**
- * The opacity the scene draws the moon and the sun at (scene.ts sceneVars
+ * The opacity the scene draws the moon and the sun at (markup.ts sceneVars
  * writes these): the moon while it is up and present, by the dark and the
  * weather's cloud; the sun while it is up, by the weather's cloud.
  */
@@ -344,4 +344,13 @@ export function publishedFor(p: Palette, m: Moment): Published {
 		halo: haloFor(p),
 		canvas: p.skyTop,
 	};
+}
+
+/**
+ * The browser's chrome colour (`<meta name="theme-color">`) for the hour: the
+ * sky-top the scene publishes as the page canvas, so the browser's bar runs
+ * on into the sky under it (docs/projects/ps-theme.md §6).
+ */
+export function themeColorFor(published: Published): string {
+	return published.canvas;
 }

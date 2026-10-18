@@ -1,14 +1,18 @@
 package chat.seance.app;
 
 import android.app.UiModeManager;
+import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.res.Configuration;
 import android.database.ContentObserver;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.provider.Settings;
 import android.util.DisplayMetrics;
 import android.util.TypedValue;
@@ -32,10 +36,11 @@ import com.getcapacitor.annotation.CapacitorPlugin;
  * keeps the process for as long as the user stays connected. So the shell
  * watches them and tells the page.
  *
- * - `status()`: `{highTextContrast, contrast, animatorDurationScale, fontScale}`,
+ * - `status()`: `{highTextContrast, contrast, animatorDurationScale, fontScale, powerSave}`,
  *   where `fontScale` is body text's (16sp) over its default size: Android 14's
  *   nonlinear font scaling grows large text less than the raw
- *   `Configuration.fontScale` says (at 2.0, 16sp is about 28dp).
+ *   `Configuration.fontScale` says (at 2.0, 16sp is about 28dp), and
+ *   `powerSave`, whether battery saver is on (the ps scene's Auto does less).
  * - event `changed`: the same, whenever one of them changes.
  */
 @CapacitorPlugin(name = "SystemAccessibility")
@@ -46,6 +51,7 @@ public class SystemAccessibilityPlugin extends Plugin {
 
     private ContentObserver settingsObserver;
     private UiModeManager.ContrastChangeListener contrastListener;
+    private BroadcastReceiver powerSaveReceiver;
     private float fontScale;
 
     @Override
@@ -69,6 +75,14 @@ public class SystemAccessibilityPlugin extends Plugin {
             contrastListener = (contrast) -> notifyListeners("changed", status());
             uiModeManager().addContrastChangeListener(getContext().getMainExecutor(), contrastListener);
         }
+
+        powerSaveReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                notifyListeners("changed", status());
+            }
+        };
+        getContext().registerReceiver(powerSaveReceiver, new IntentFilter(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED));
     }
 
     /** The activity declares fontScale, so it is not relaunched: it hears the change here. */
@@ -98,6 +112,7 @@ public class SystemAccessibilityPlugin extends Plugin {
             Settings.Global.getFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
         );
         result.put("fontScale", bodyTextScale());
+        result.put("powerSave", powerManager().isPowerSaveMode());
         return result;
     }
 
@@ -108,6 +123,10 @@ public class SystemAccessibilityPlugin extends Plugin {
             TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 16f, metrics) /
             TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 16f, metrics)
         );
+    }
+
+    private PowerManager powerManager() {
+        return (PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
     }
 
     private UiModeManager uiModeManager() {
@@ -124,6 +143,11 @@ public class SystemAccessibilityPlugin extends Plugin {
         if (contrastListener != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             uiModeManager().removeContrastChangeListener(contrastListener);
             contrastListener = null;
+        }
+
+        if (powerSaveReceiver != null) {
+            getContext().unregisterReceiver(powerSaveReceiver);
+            powerSaveReceiver = null;
         }
     }
 }

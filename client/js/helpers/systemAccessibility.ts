@@ -44,10 +44,12 @@ export function fromAndroidSettings(s: AndroidAccessibilitySettings): SystemAcce
 }
 
 /** Everything SystemAccessibilityPlugin.java reports, `status` and
- * `changed` alike: the accessibility settings and the font scale
- * (helpers/systemTextSize.ts). A shell built before a field omits it. */
+ * `changed` alike: the accessibility settings, the font scale
+ * (helpers/systemTextSize.ts) and battery saver (the ps scene's Auto,
+ * themeScene.ts). A shell built before a field omits it. */
 export interface AndroidSystemStatus extends Partial<AndroidAccessibilitySettings> {
 	fontScale?: number;
+	powerSave?: boolean;
 }
 
 const statusListeners = new Set<(status: AndroidSystemStatus) => void>();

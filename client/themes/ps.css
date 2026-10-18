@@ -552,12 +552,25 @@ strong,
  * blur; the ink treatment's 0.375rem halo) reaches past its box, and with no
  * padding beside it style.css's anti-Zalgo `overflow: hidden` cut it off at
  * the left (the user, 2026-10-08). The clip stays, 0.75rem out: stacked marks
- * still stop there. (A reaction's burst widens it for a moment, below.) */
+ * still stop there. (A reaction's burst widens it for a moment, below.)
+ * WebKit has no overflow-clip-margin and still cut it at the left and above a
+ * tall glyph, an emoji (the user's iPhone, 2026-10-10), so there the clip is a
+ * clip-path 0.75rem out instead: unlike a box made bigger, it takes no taps
+ * off the nick above or the row before. */
 #chat .chat .msg:is([data-type="message"], [data-type="notice"]) .content,
 #chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) .content,
 #chat .chat .condensed-summary .content {
 	overflow: clip;
 	overflow-clip-margin: 0.75rem;
+}
+
+@supports not (overflow-clip-margin: 0.75rem) {
+	#chat .chat .msg:is([data-type="message"], [data-type="notice"]) .content,
+	#chat .chat .msg:not([data-type="message"], [data-type="notice"], [data-type="condensed"]) .content,
+	#chat .chat .condensed-summary .content {
+		overflow: visible;
+		clip-path: inset(-0.75rem);
+	}
 }
 
 /* The whois card: style.css hangs each label (`dt`) in the gutter left of
@@ -866,8 +879,8 @@ strong,
  * is `overflow: clip` with an `overflow-clip-margin` of the sparks' rise and
  * glow: the trade-off is that for those ~2.2 s a message's marks can spill
  * that far (3.25rem) and no further, where `visible` would lift the clip
- * altogether. A browser without overflow-clip-margin cuts the sparks at the
- * column's edge instead, which only shortens their rise. .content is always
+ * altogether. WebKit, which has no overflow-clip-margin, takes the same
+ * margin as a clip-path, as the column always does there. .content is always
  * a flex item or inline, so clip changes no layout: it is only not a scroll
  * container, which nothing scrolls.
  *
@@ -985,11 +998,18 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	overflow: clip;
 	overflow-clip-margin: 3.25rem;
 }
+
+@supports not (overflow-clip-margin: 3.25rem) {
+	html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:has(.reaction-enter-active, .reactions-enter-active) {
+		overflow: visible;
+		clip-path: inset(-3.25rem);
+	}
+}
 /* stylelint-enable max-line-length */
 
 /* ---- scene ---- */
 
-/* The plains behind the whole app (client/js/scenes/ps/scene.ts, mounted by
+/* The plains behind the whole app (client/js/scenes/psng/scene.ts, mounted by
  * client/js/themeScene.ts). style.css hides #theme-scene for every theme; ps
  * shows it. It sits behind #viewport at z-index -1, so every surface between
  * it and the message column must be clear (the rules after this block).
@@ -1012,7 +1032,7 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	background-image: linear-gradient(180deg, var(--ps-sky-top, #3f8fe6) 0%, var(--ps-sky-mid, #8cc2f4) 50%, var(--ps-sky-hor, #d2e9fb) 62%, var(--ps-sky-hor, #d2e9fb) 100%);
 }
 
-/* Every layer sits in one wrapper (scene.ts sceneMarkup), the one group the
+/* Every layer sits in one wrapper (markup.ts sceneMarkup), the one group the
  * private view frosts: one filtered group is one raster. Not a container,
  * so what travels across the scene still moves in cqw/cqh of #theme-scene;
  * and outside a query no filter, transform or will-change, so it is no
@@ -1020,7 +1040,6 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 #theme-scene .ps-frost {
 	position: absolute;
 	inset: 0;
-	transition: filter var(--ps-flip), transform var(--ps-flip);
 }
 
 #theme-scene .ps-frost > * {
@@ -1028,8 +1047,8 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 }
 
 /* The private view (spec §5.7): in a query the same scene at the same hour
- * stands behind frosted glass, completely still (scene.ts sets ps-private
- * and pauses it as a hidden page's is). Blurred 18 px as rem and slightly
+ * stands behind frosted glass, completely still (psng/scene.ts sets ps-private
+ * and stills it as a hidden page's is). Blurred 18 px as rem and slightly
  * desaturated; the sky stays the root's own, unfiltered, and so do
  * --canvas-bg-color, <html>'s values and #status-bar-tint. It eases in and
  * out over the flip (0 s under reduced motion: `transition: none` below).
@@ -1206,24 +1225,11 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	inset: 0;
 }
 
-/* Each day's own clouds are one set on the overcast's box (scene.ts). When
- * the day's weather changes on a page in view, at the minute's tick past
- * local midnight, the outgoing set fades out and the incoming one in, both
- * over OVERCAST_FADE_MS (the user dislikes clouds popping), and the outgoing
- * leaves the page once its fade is over. A change found as the page comes
- * back into view, under reduced motion or in a query takes neither class and
- * is at once. That fade is the overcast's one translucency: 2 s at local
- * midnight, under the night treatment, the cloud colours mixing with the
- * night sky they already stand on (spec §11). */
+/* Each day's own clouds are one set on the overcast's box (watchers.ts overcastBuilder); a new
+ * day's replaces the old at once. */
 #theme-scene .ps-overcast-set {
 	position: absolute;
 	inset: 0;
-	transition: opacity 2s ease;
-}
-
-#theme-scene .ps-overcast-set.ps-arriving,
-#theme-scene .ps-overcast-set.ps-leaving {
-	opacity: 0;
 }
 
 #theme-scene .ps-deck {
@@ -1259,7 +1265,7 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 /* The ground (plains.ts): one group, so the heat haze bends the land, the
  * fireflies and the yurt together and leaves the near grass crisp. The land
  * is the mockup's 1200 × 400 drawing stretched over the window's lower 56 %.
- * Every area is filled with the colour the palette publishes for it (scene.ts
+ * Every area is filled with the colour the palette publishes for it (markup.ts
  * `sceneVars`), never mixed here; only the lines — the rims, the river's
  * glint — take a glow or a level of their own. */
 #theme-scene .ps-ground {
@@ -1289,7 +1295,7 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 
 /* The land's box is stretched to the window (plains.ts landSvg): the round
  * things on it are put back in proportion about their own middles, their
- * area kept (scene.ts watchLand), so a narrow window keeps them round. */
+ * area kept (watchers.ts watchLand), so a narrow window keeps them round. */
 #theme-scene .ps-l-shrub,
 #theme-scene .ps-l-bedstone ellipse,
 #theme-scene .ps-l-grove {
@@ -1370,28 +1376,31 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	100% { opacity: 0; }
 }
 
-/* The yurt (plains.ts `yurtSvg`) on the ground band, centred on the place
- * scene.ts measures in the message column's far third (--ps-yurt-left; 70 %
- * of the scene before any column was measured). Both keep the whole yurt on
- * screen: yurt.ts clamps the measured place, and the default is clamped here
- * by half the yurt's width (it is 21cqh tall and 240/170 as wide). It never
- * slides: nothing here may transition or animate its place. A large move
- * fades it out (ps-yurt-moving), jumps it while unseen and fades it back in;
- * the fade is a hair shorter than scene.ts's 0.4 s wait, so the jump is never
- * seen. */
-#theme-scene .ps-yurt {
+/* The yurt (plains.ts `yurtSvg`) on the ground band, its centre 22 % of the
+ * scene's width in from the message column's far end: the scene's edge, or
+ * the user list's inner edge while a channel shows it (--ps-yurt-in), so a
+ * sidebar opening or closing never moves it. Clamped so the whole yurt stays
+ * on screen (it is 21cqh tall and 240/170 as wide). It never slides: nothing
+ * here may transition or animate its place, and a move is a cut. */
+#theme-scene .ps-yurt,
+#theme-scene .ps-smoke {
 	/* stylelint-disable-next-line unit-no-unknown -- cqh: #theme-scene is a size container; stylelint predates it */
-	left: var(--ps-yurt-left, clamp(calc(21cqh * 120 / 170), 70%, calc(100% - 21cqh * 120 / 170)));
+	--ps-yurt-half: calc(21cqh * 120 / 170);
+	/* stylelint-disable-next-line unit-no-unknown -- cqw, as above */
+	--ps-yurt-x: clamp(var(--ps-yurt-half), calc(100% - var(--ps-yurt-in, 0px) - 22cqw), calc(100% - var(--ps-yurt-half)));
+}
+
+html:has(.userlist-open .chat-view[data-type="channel"]) #theme-scene .ps-yurt,
+html:has(.userlist-open .chat-view[data-type="channel"]) #theme-scene .ps-smoke {
+	--ps-yurt-in: var(--userlist-width);
+}
+
+#theme-scene .ps-yurt {
+	left: var(--ps-yurt-x);
 	bottom: 17%;
 	height: 21%;
 	aspect-ratio: 240 / 170;
 	transform: translateX(-50%);
-	transition: opacity 0.38s ease;
-}
-
-#theme-scene.ps-yurt-moving .ps-yurt,
-#theme-scene.ps-yurt-moving .ps-smoke {
-	opacity: 0;
 }
 
 #theme-scene .ps-yurt svg {
@@ -1445,13 +1454,11 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
  * wherever the yurt goes and fades with it. Inside the ground group, so the
  * heat haze bends it with the yurt. */
 #theme-scene .ps-smoke {
-	/* stylelint-disable-next-line unit-no-unknown -- cqh, as the yurt's */
-	left: var(--ps-yurt-left, clamp(calc(21cqh * 120 / 170), 70%, calc(100% - 21cqh * 120 / 170)));
+	left: var(--ps-yurt-x);
 	bottom: calc(17% + 21% * 148 / 170);
 	width: 0;
 	height: 0;
 	opacity: var(--ps-smoke-op, 0);
-	transition: opacity 0.38s ease;
 }
 
 #theme-scene .ps-smoke i {
@@ -1493,18 +1500,9 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	fill: var(--ps-blade);
 }
 
-#theme-scene .ps-blades .ps-sway {
-	transform-origin: 50% 100%;
-	animation: ps-sway 7s ease-in-out infinite alternate;
-}
-
-/* In the wind (a windy day, and a storm) the blades bend faster. */
-#theme-scene.ps-windy .ps-blades .ps-sway {
-	animation-duration: 2.4s;
-}
-
-/* The blades' own name: the mockup gave its birds' drift the same keyframes
- * name, and the later one won — the birds must not take this one. */
+/* The near grass's sway (NG plays it on its wrapper, psng/styles.ts). The
+ * blades' own name: the mockup gave its birds' drift the same keyframes name,
+ * and the later one won — the birds must not take this one. */
 @keyframes ps-sway {
 	from { transform: skewX(calc(var(--ps-sway, 2.2deg) * -1)); }
 	to { transform: skewX(var(--ps-sway, 2.2deg)); }
@@ -1514,28 +1512,18 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	opacity: calc(var(--ps-flowers, 1) * (0.85 - var(--ps-dark) * 0.7));
 }
 
-/* On a hot day, while the sun is well up (ps-hot), the heat haze bends the
- * ground group — the land, the fireflies, the yurt and its smoke together —
- * and leaves the near grass, outside the group, crisp (spec §5.5). The haze
- * is the weather layer's (plains.ts `weatherLayers`): on any other day there
- * is no #ps-heat in the page to point at. */
-#theme-scene.ps-hot .ps-ground {
-	filter: url("#ps-heat");
-}
-
 /* The birds (birds.ts; spec §5.4, layer 9: after the near grass, before the
  * weather), the user's pick from the approved birds mockup (2026-09-25): the
  * migrating skeins at night and around sunset, catching a little of the
  * moon's light (N2), and by day a buzzard circling and skylarks rising. Every
- * bird is an <svg> of its own whose wingbeats are SMIL (scene.ts pauses them
- * with the rest). A flock's box and every bird are sized in rem, the birds
+ * bird is an <svg> of its own whose wingbeats NG plays as pose stacks
+ * (psng/poses.ts). A flock's box and every bird are sized in rem, the birds
  * placed in % of their flock's box, so a skein keeps its shape at any window
  * size; what crosses the scene travels in cqw. The colours are published
- * (scene.ts `sceneVars`, from birds.ts `birdsAt`); nothing is mixed here. */
+ * (markup.ts `sceneVars`, from birds.ts `birdsAt`); nothing is mixed here. */
 #theme-scene .ps-skeins {
 	inset: 0 0 45%;
 	opacity: var(--ps-skeins-op, 0);
-	transition: opacity 1.4s ease;
 }
 
 /* The belly gradient's svg: in the page, so #ps-b-belly resolves and its
@@ -1561,7 +1549,6 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	/* stylelint-disable-next-line unit-no-unknown -- cqw: #theme-scene is a size container; stylelint predates it */
 	transform: translateX(calc(-100% - 3.4cqw));
 	opacity: clamp(0, var(--ps-skein-count, 0) - var(--fi), 1);
-	transition: opacity 1.8s ease;
 	animation: ps-skein-fly var(--fd) linear var(--fdl) infinite;
 }
 
@@ -1645,7 +1632,6 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 
 #theme-scene .ps-daybirds > div {
 	position: absolute;
-	transition: opacity 1.4s ease;
 }
 
 #theme-scene .ps-daybirds svg {
@@ -1796,7 +1782,6 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	inset: 0;
 	background: var(--ps-veil-c, #5a6478);
 	opacity: var(--ps-veil, 0);
-	transition: opacity 0.6s;
 }
 
 #theme-scene .ps-weather {
@@ -1818,12 +1803,6 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	width: 0.0813rem;
 	height: 1.25rem;
 	background: linear-gradient(transparent, rgb(214 226 244 / 75%));
-	animation: ps-drop var(--rd) linear var(--rdl) infinite;
-}
-
-@keyframes ps-drop {
-	/* stylelint-disable-next-line unit-no-unknown -- cqw/cqh: #theme-scene is a size container; stylelint predates them */
-	to { transform: translate(-3.9cqw, 118cqh); }
 }
 
 #theme-scene .ps-snow {
@@ -1842,9 +1821,9 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 }
 
 @keyframes ps-flake {
-	/* stylelint-disable-next-line unit-no-unknown -- cqw/cqh, as ps-drop's */
+	/* stylelint-disable-next-line unit-no-unknown -- cqw/cqh, as the rain's */
 	50% { transform: translate(calc(var(--fx) * 0.5 + 1.02cqw), 57.1cqh); }
-	/* stylelint-disable-next-line unit-no-unknown -- cqh, as ps-drop's */
+	/* stylelint-disable-next-line unit-no-unknown -- cqh, as the rain's */
 	100% { transform: translate(var(--fx), 114.3cqh); }
 }
 
@@ -1863,15 +1842,15 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	height: 0.1875rem;
 	border-radius: 50%;
 	background: rgb(255 248 226 / 80%);
-	/* stylelint-disable-next-line unit-no-unknown -- cqw, as ps-drop's */
+	/* stylelint-disable-next-line unit-no-unknown -- cqw, as the rain's */
 	transform: translateX(-6.8cqw);
 	animation: ps-seed var(--sd) linear var(--sdl) infinite;
 }
 
 @keyframes ps-seed {
-	/* stylelint-disable-next-line unit-no-unknown -- cqw, as ps-drop's */
+	/* stylelint-disable-next-line unit-no-unknown -- cqw, as the rain's */
 	from { transform: translate(-6.8cqw, 0); }
-	/* stylelint-disable-next-line unit-no-unknown -- cqw, as ps-drop's */
+	/* stylelint-disable-next-line unit-no-unknown -- cqw, as the rain's */
 	to { transform: translate(111.9cqw, var(--sy)); }
 }
 
@@ -1908,17 +1887,10 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 }
 
 @keyframes ps-shimmer {
-	/* stylelint-disable-next-line unit-no-unknown -- cqh, as ps-drop's */
+	/* stylelint-disable-next-line unit-no-unknown -- cqh, as the rain's */
 	from { transform: translateY(-0.21cqh) scaleY(0.95); }
-	/* stylelint-disable-next-line unit-no-unknown -- cqh, as ps-drop's */
+	/* stylelint-disable-next-line unit-no-unknown -- cqh, as the rain's */
 	to { transform: translateY(0.21cqh) scaleY(1.05); }
-}
-
-/* The haze's own svg: in the page, so #ps-heat resolves, and of no size. */
-#theme-scene .ps-heat-haze {
-	width: 0;
-	height: 0;
-	overflow: hidden;
 }
 
 /* A layer outside its window is out of the render tree (layers.ts): the
@@ -1926,23 +1898,10 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
  * skeins by day or on a night with none, a flock past the night's count, the
  * buzzard off the thermals, the larks out of season, the seeds while the
  * wind shows none (built on any day with wind, but at --ps-wind-op 0 deep in
- * winter), the heat band off a hot midday. Its animations stop with it, and
- * scene.ts pauses the SMIL in its svgs, instead of running every frame at
- * opacity 0 (spec §10). A layer that fades goes only once its fade is over. */
+ * winter), the heat band off a hot midday. Its animations stop with it,
+ * instead of running every frame at opacity 0 (spec §10). */
 #theme-scene .ps-off {
 	display: none;
-}
-
-/* A stopped scene — a hidden page, a query, a page nobody attends to
- * (themeScene.ts createAttention) — holds every animation where it stands
- * (scene.ts pauses the SVG animations too). The lightning alone would be
- * wrong held: a flicker caught lit would stay lit, so it is not shown. */
-#theme-scene.ps-paused * {
-	animation-play-state: paused !important;
-}
-
-#theme-scene.ps-paused .ps-flash {
-	visibility: hidden;
 }
 
 /* Clear from the message column down to the scene: nothing between them paints.
@@ -2388,6 +2347,52 @@ html[data-contrast="more"]:root[data-ps-text="light"] #chat .chat {
  * buttons standing on the plains: they take the layer too. */
 #chat .chat button {
 	text-shadow: inherit;
+}
+
+/* The reply quote cut its line with an ellipsis, which takes a clip, and the
+ * clip took the outline off its arrow (an emoji on iOS), its nick and the
+ * top and bottom of its words (the user's iPhone, 2026-10-10). Only the words
+ * are cut now: the arrow and the nick stand outside the clip, and the words'
+ * box reaches 0.75rem out on every side and gives it back as padding, so they
+ * stand where they did. It takes no pointer, so a press past the quote's own
+ * box still lands on what is there and one inside it on the quote. */
+#chat .msg-reply-quote {
+	display: flex;
+	align-items: baseline;
+	overflow: visible;
+}
+
+#chat .msg-reply-arrow,
+#chat .msg-reply-nick {
+	flex: none;
+}
+
+#chat .msg-reply-nick {
+	margin-inline-end: 0.3em;
+}
+
+#chat .msg-reply-text {
+	min-width: 0;
+	margin: -0.75rem;
+	padding: 0.75rem;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+/* A word reaction's text (style.css: `.msg-reaction.word`, up to 22ch with an
+ * ellipsis) clips for the ellipsis, and on the chips that carry the outline
+ * (the viewer's own, the add chip) the clip took the rim and shadow off every
+ * side (the user's iPhone, 2026-10-17). As with the reply quote, the box
+ * reaches 0.75rem out and gives it back as padding, so the text stands and
+ * cuts where it did; it takes no pointer, so a press past the chip lands on
+ * what is there. */
+#chat .msg-reaction.word .msg-reaction-text {
+	max-width: calc(22ch + 1.5rem);
+	margin: -0.75rem;
+	padding: 0.75rem;
+	pointer-events: none;
 }
 
 /* A spoiler hides its text by making it transparent; a halo or shadow would draw it back. */
@@ -3072,8 +3077,7 @@ html[data-reduce-motion] #theme-scene * {
  * rainy day still looks rainy. The fireflies stay as still dots where
  * they are: a point of light, like a star, still reads as one, and they
  * are what a summer evening looks like. The grass stands at rest and the
- * heat band still; the heat haze's SMIL is paused with every other SVG's
- * (scene.ts). */
+ * heat band still. */
 html[data-reduce-motion] #theme-scene .ps-skeins,
 html[data-reduce-motion] #theme-scene .ps-daybirds,
 html[data-reduce-motion] #theme-scene .ps-rain,

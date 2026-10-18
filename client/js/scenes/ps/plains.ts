@@ -74,7 +74,7 @@ function tuft(x: number, y: number, h: number, cls: string): string {
  * gives it, with the river's sky gradient in its defs. The hills stretch
  * with the window; the round things on them (the shrubs, the bed's stones,
  * the two groves) are widened back about their own middles by the stretch's
- * squash (`--ps-land-unsquash`, scene.ts watchLand), so a narrow window does
+ * squash (`--ps-land-unsquash`, watchers.ts watchLand), so a narrow window does
  * not draw them as tall ellipses. (The heat haze that
  * bends the ground on hot days is the weather layer's: `weatherLayers`.)
  */
@@ -483,12 +483,12 @@ export function weatherClouds(weather: Weather): string {
 }
 
 /** The mockup's particle counts; a phone gets half. */
-const RAIN_DROPS = 130;
+export const RAIN_DROPS = 130;
 const SNOWFLAKES = 120;
 const SEEDS = 26;
 
 /** `count` rain drops, each falling on its own clock (ps.css `ps-drop`). */
-function rain(count: number): string {
+export function rain(count: number): string {
 	const r = rng(1301);
 	let out = "";
 
@@ -543,7 +543,7 @@ function seeds(count: number): string {
  * `display: none`, where a reference to the filter may not resolve. ps.css
  * applies it to the ground group, and only by day (`ps-hot`).
  */
-const HEAT_HAZE =
+export const HEAT_HAZE =
 	`<svg class="ps-heat-haze" width="0" height="0" aria-hidden="true" focusable="false">` +
 	`<filter id="ps-heat" x="0" y="-5%" width="100%" height="110%">` +
 	`<feTurbulence type="turbulence" baseFrequency="0.007 0.05" numOctaves="2" seed="4" result="h">` +
