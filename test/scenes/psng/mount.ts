@@ -137,7 +137,7 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 		});
 	});
 
-	it("the birds: each bird's and lark's place a pose stack, the buzzard in boxes, no SMIL in their layers", function () {
+	it("the birds: each bird's place a wing strip, each lark's a pose stack, the buzzard in boxes, no SMIL in their layers", function () {
 		withPage(new Date(2026, 2, 5, 21, 0), (page) => {
 			const scene = mountOn(page);
 			const birds = /<div class="ps-skeins">[\s\S]*<div class="ps-veil"/.exec(
@@ -146,7 +146,9 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 			expect(birds, "the bird layers in the markup").to.be.a("string");
 			expect(birds).to.not.match(/<animate|<set/);
 			expect(
-				birds!.match(/<span class="ps-bird"[^>]*><div class="psng-pose psng-pose-0"/g)
+				birds!.match(
+					/<span class="ps-bird"[^>]*><div class="psng-strip"[^>]*><div class="psng-pose psng-pose-0"/g
+				)
 			).to.have.length(38);
 			expect(
 				birds!.match(

@@ -82,14 +82,15 @@
 // transformed box: a stricter bound, none of NG's SVG animations scales up);
 // static elements larger than the viewport (the Milky Way) do not count; no
 // SMIL element is left; no animated element sits inside an `<svg>` (plan 4:
-// WebKit runs those on the main thread); the groups the moment is about are running; and, where
+// WebKit runs those on the main thread); the groups the moment is about are running; where
+// the skeins fly, every bird on a wing strip sampled at a whole pose (plan 5); and, where
 // the sun is up, NG's chunk requests animation frames (the fire, at 24 a
 // second) — the positive control for the zero counts below.
 // Calm (plan 5): the root carries `psng-calm` and the clouds' class alone, the
 // set of group:animationName pairs running is exactly the full set at the same
 // moment and mount narrowed to the clouds, nothing falls (rain, snow, seeds and
 // flash out of the page), and NG's chunk requests no frame over 1 s.
-// The STILL census: `getAnimations({subtree: true})` is empty, no group
+// The STILL census: every wing strip at rest (pose 0), `getAnimations({subtree: true})` is empty, no group
 // class, no SMIL, NG's chunk requests no animation frame over 1 s, and every
 // in-flight layer in the page (.ps-skeins, .ps-daybirds, .ps-rain, .ps-snow,
 // .ps-seeds, .ps-flash, .ps-smoke) computes `display: none`, with at least one
@@ -283,6 +284,7 @@ const GROUP_OF = {
 	"ps-skein-west": "skeins",
 	"ps-skein-sway": "skeins",
 	"psng-pose4": "skeins",
+	"psng-strip4": "skeins",
 	"psng-pose2": "daybirds",
 	"ps-buzz-drift": "daybirds",
 	"psng-buzz-orbit": "daybirds",
@@ -482,6 +484,16 @@ const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x))
 async function fullCensus(page, label, groups, sun) {
 	const c = await page.evaluate(CENSUS);
 	const frames = await page.evaluate(NG_FRAMES);
+
+	if (groups.includes("skeins")) {
+		const s = await page.evaluate(STRIPS);
+		page.check(
+			`${label}: full — every skein bird on a wing strip (${s.strips} of ${
+				s.birds
+			}), each sampled at a whole pose (off: ${s.off.join(" ") || "none"})`,
+			s.birds > 0 && s.strips === s.birds && s.off.length === 0
+		);
+	}
 	const running = [...new Set(Object.keys(c.keys).map((k) => k.split(":")[0]))];
 	console.log(`  ${label}: ${JSON.stringify(c.keys)}`);
 	page.check(
@@ -588,9 +600,36 @@ const FLIGHT = `(() => {
 	};
 })()`;
 
+/**
+ * The skeins' wing strips (plan 5): how many birds and strips, and each strip's sampled translateX
+ * in bird widths, listed when it is not within 0.02 of a whole pose 0..3 (the holds jump, never slide).
+ */
+const STRIPS = `(() => {
+	const birds = [...document.querySelectorAll("#theme-scene .ps-skein .ps-bird")];
+	const off = [];
+	let strips = 0;
+	for (const b of birds) {
+		const s = b.querySelector(":scope > .psng-strip");
+		if (!s) continue;
+		strips++;
+		const w = b.getBoundingClientRect().width;
+		const p = w ? -new DOMMatrix(getComputedStyle(s).transform).e / w : 0;
+		if (Math.abs(p - Math.round(p)) > 0.02 || p < -0.02 || p > 3.02) off.push(p.toFixed(2));
+	}
+	return {birds: birds.length, strips, off};
+})()`;
+
+/** Every strip at rest: no transform, so pose 0 is the bird shown. */
+const STRIPS_AT_REST = `[...document.querySelectorAll("#theme-scene .psng-strip")].filter((s) => getComputedStyle(s).transform !== "none").length`;
+
 /** The STILL census (header). */
 async function stillCensus(page, label) {
 	const c = await page.evaluate(CENSUS);
+	const moved = await page.evaluate(STRIPS_AT_REST);
+	page.check(
+		`${label}: still — every wing strip at rest on pose 0 (${moved} moved)`,
+		moved === 0
+	);
 	const f = await page.evaluate(FLIGHT);
 	const frames = await page.evaluate(NG_FRAMES);
 	page.check(

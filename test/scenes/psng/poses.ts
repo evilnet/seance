@@ -1,6 +1,12 @@
 import {expect} from "chai";
 import {dayBirdsMarkup, skeinsMarkup} from "../../../client/js/scenes/ps/birds";
-import {ngBirds, poseStack, wingTiming, larkStates} from "../../../client/js/scenes/psng/poses";
+import {
+	ngBirds,
+	poseStack,
+	wingStrip,
+	wingTiming,
+	larkStates,
+} from "../../../client/js/scenes/psng/poses";
 import {NG_STILL_CSS} from "../../../client/js/scenes/psng/styles";
 
 // The birds' wingbeats as pose stacks (psng/poses.ts), read off classic's own markup (birds.ts).
@@ -67,6 +73,19 @@ describe("ps NG birds (psng/poses.ts)", function () {
 		});
 	});
 
+	it("wingStrip: one psng-strip around the bird's pose stack, carrying its beat and begin", function () {
+		const svg = birdSvgs[0];
+		const t = wingTiming(svg)!;
+		const strip = wingStrip(svg);
+		expect(strip.match(/class="psng-strip"/g)).to.have.length(1);
+		expect(strip).to.equal(
+			`<div class="psng-strip" style="--wdur:${t.beat}s;--wbegin:${t.begin}s">` +
+				poseStack(svg, t.poses) +
+				`</div>`
+		);
+		expect(wingStrip("<svg></svg>")).to.equal("<svg></svg>");
+	});
+
 	it("ngBirds: every bird and lark a stack, the buzzard in boxes, no SMIL left in either layer", function () {
 		const out = ngBirds(
 			`<div class="ps-skeins">${skeinsMarkup()}</div><div class="ps-daybirds">${dayBirdsMarkup()}</div>`
@@ -74,6 +93,9 @@ describe("ps NG birds (psng/poses.ts)", function () {
 		expect(out).to.not.match(/<animate|<set/);
 		expect(out.match(/class="psng-pose psng-pose-/g)).to.have.length(38 * 4 + 3 * 2);
 		expect(out.match(/class="ps-bird"/g)).to.have.length(38);
+		// Every skein bird's stack in one strip; no lark in a strip.
+		expect(out.match(/class="psng-strip"/g)).to.have.length(38);
+		expect(out.split('<div class="ps-daybirds">')[1]).to.not.contain("psng-strip");
 		expect(out).to.contain('<div class="ps-buzzard"><div class="psng-buzz-plane">');
 		expect(out).to.contain('class="psng-buzz-orbit"');
 		expect(out).to.contain('class="psng-buzz-flap"');
