@@ -19,18 +19,25 @@ export interface Box {
 
 export class FakeStyle {
 	props = new Map<string, string>();
+	priorities = new Map<string, string>();
 
-	setProperty(name: string, value: string) {
+	setProperty(name: string, value: string, priority = "") {
 		this.props.set(name, value);
+		this.priorities.set(name, priority);
 	}
 
 	removeProperty(name: string) {
 		this.props.delete(name);
+		this.priorities.delete(name);
 		return "";
 	}
 
 	getPropertyValue(name: string) {
 		return this.props.get(name) ?? "";
+	}
+
+	getPropertyPriority(name: string) {
+		return this.priorities.get(name) ?? "";
 	}
 }
 
@@ -86,6 +93,12 @@ export class FakeElement extends Listeners {
 		play(): void;
 		cancel?(): void;
 		addEventListener?(type: "cancel", listener: () => void): void;
+		/** What a freeze reads: the element it moves and the properties its keyframes touch. */
+		effect?: {
+			target: {style: FakeStyle};
+			pseudoElement: string | null;
+			getKeyframes(): object[];
+		};
 	}> = [];
 	dataset: Record<string, string> = {};
 	style = new FakeStyle();

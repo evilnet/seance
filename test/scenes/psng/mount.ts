@@ -515,6 +515,38 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 			});
 		});
 
+		it("a freeze pins what moves and a thaw puts back the element's own inline values", function () {
+			withPage(new Date(2026, 5, 21, 23, 0), (page) => {
+				follow(page);
+				const scene = mountOn(page);
+				// A twinkling star carries its own opacity inline; its animation moves opacity.
+				const star = new FakeElement("i.tw");
+				star.style.setProperty("opacity", "0.35");
+				const bird = new FakeElement(".ps-bird");
+				const effect = (target: FakeElement, prop: string) => ({
+					target,
+					pseudoElement: null,
+					getKeyframes: () => [{[prop]: "x"}],
+				});
+				const running = {playState: "running", currentTime: 0, pause() {}, play() {}};
+				page.root.animations = [
+					{...running, effect: effect(star, "opacity")},
+					{...running, effect: effect(bird, "transform")},
+				];
+
+				scene.update(state({attended: false}));
+				expect(star.style.getPropertyValue("opacity")).to.equal("1");
+				expect(star.style.getPropertyPriority("opacity")).to.equal("important");
+
+				page.root.animations = [];
+				scene.update(state());
+				expect(star.style.getPropertyValue("opacity")).to.equal("0.35");
+				expect(star.style.getPropertyPriority("opacity")).to.equal("");
+				expect(bird.style.props.has("transform")).to.equal(false);
+				scene.destroy();
+			});
+		});
+
 		it("the near grass is wrapped once at mount, in a div.psng-sway", function () {
 			withPage(new Date(2026, 5, 21, 12, 0), (page) => {
 				follow(page);

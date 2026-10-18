@@ -30,6 +30,8 @@ import {phaseSeconds, tierFor, type Tier} from "./tiers";
 export const RELEASE_MS = 400;
 const MOTION_CLASSES = [...GROUPS.map((g) => `psng-m-${g}`), "psng-calm"];
 const SMIL = "animate, animateMotion, animateTransform, set";
+/** What a freeze pins inline. */
+const PINNED = ["transform", "opacity"] as const;
 
 /** Every SMIL element under `el` out of the page. */
 const stripSmil = (el: Element) => el.querySelectorAll(SMIL).forEach((s) => s.remove());
@@ -74,7 +76,9 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	let sunLive = false;
 	let sunOn = false;
 	let held = false;
-	let frozen: HTMLElement[] | null = null;
+	// Each frozen element with its own inline transform and opacity from before the pins (a
+	// twinkling star's opacity is inline), put back as they were on thaw.
+	let frozen: {el: HTMLElement; saved: [string, string][]}[] | null = null;
 	let frozenAt: number | null = null;
 	let restedS = 0; // seconds spent frozen since the mount, off --psng-t
 	let viewport: HTMLElement | null = null;
@@ -117,6 +121,15 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 			]);
 		}
 
+		// The elements' own inline values, read before any pin is written.
+		frozen = pins.map(([el]) => ({
+			el,
+			saved: PINNED.map((p): [string, string] => [
+				el.style.getPropertyValue(p),
+				el.style.getPropertyPriority(p),
+			]),
+		}));
+
 		// Every read before any write: one style pass, not one per element.
 		for (const [el, transform, opacity] of pins) {
 			if (transform) {
@@ -128,15 +141,21 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 			}
 		}
 
-		frozen = pins.map(([el]) => el);
 		frozenAt = Date.now();
 		root.classList.add("psng-frozen");
 	};
 
 	const thaw = () => {
-		for (const el of frozen ?? []) {
-			el.style.removeProperty("transform");
-			el.style.removeProperty("opacity");
+		for (const {el, saved} of frozen ?? []) {
+			PINNED.forEach((p, i) => {
+				const [value, priority] = saved[i];
+
+				if (value) {
+					el.style.setProperty(p, value, priority);
+				} else {
+					el.style.removeProperty(p);
+				}
+			});
 		}
 
 		if (frozenAt !== null) {
