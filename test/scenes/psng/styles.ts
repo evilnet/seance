@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import {NG_STILL_CSS, POSE_BEATS, stripKeyframes} from "../../../client/js/scenes/psng/styles";
+import {NG_STILL_CSS, POSE_BEATS} from "../../../client/js/scenes/psng/styles";
 
 // NG's stylesheet (psng/styles.ts) on its text: each lifted group still while its class is absent, in phase while present.
 
@@ -120,7 +120,7 @@ describe("ps NG stylesheet (psng/styles.ts)", function () {
 		const parts: Array<[string, string]> = [
 			["skeins", ".ps-flock"],
 			["skeins", ".ps-skein-sway"],
-			["skeins", ".psng-strip"],
+			["skeins", ".psng-pose"],
 			["daybirds", ".ps-buzzard"],
 			["daybirds", ".psng-buzz-orbit"],
 			["daybirds", ".psng-buzz-flap"],
@@ -191,7 +191,10 @@ describe("ps NG stylesheet (psng/styles.ts)", function () {
 			}
 		}
 
-		for (const sel of ["#theme-scene.psng.psng-m-daybirds .ps-lark .psng-pose"]) {
+		for (const sel of [
+			"#theme-scene.psng.psng-m-skeins .ps-bird .psng-pose",
+			"#theme-scene.psng.psng-m-daybirds .ps-lark .psng-pose",
+		]) {
 			const rule = rules.find(([s]) => s === sel);
 			expect(rule, sel).to.not.equal(undefined);
 			expect(rule![1], sel).to.match(
@@ -202,62 +205,6 @@ describe("ps NG stylesheet (psng/styles.ts)", function () {
 		}
 
 		expect(NG_STILL_CSS).to.not.match(/psng-pose[^}]*steps\(/);
-	});
-
-	it("the skeins' wing strips: four translateX holds a beat, 80 beats an iteration, never steps()", function () {
-		const kf = stripKeyframes("psng-strip4", 4);
-		expect(kf).to.not.contain("steps(");
-		const holds = [
-			...kf.matchAll(/([\d.%,\s]+)\{\s*transform: translateX\((-?\d+)%\);\s*\}/g),
-		].map((m) => ({at: m[1].split(",").map((x) => Number.parseFloat(x)), x: Number(m[2])}));
-		expect(holds).to.have.length(4 * POSE_BEATS);
-		const beat = 100 / POSE_BEATS;
-
-		for (let k = 0; k < POSE_BEATS; k++) {
-			for (let j = 0; j < 4; j++) {
-				const h = holds[4 * k + j];
-				const start = k * beat + (j * beat) / 4;
-				expect(h.x, `beat ${k} pose ${j}`).to.equal(-j * 100);
-				expect(h.at[0], `beat ${k} pose ${j} start`).to.be.closeTo(start, 1e-4);
-				expect(h.at.at(-1), `beat ${k} pose ${j} end`).to.be.closeTo(
-					start + beat / 4,
-					2e-4
-				);
-			}
-		}
-
-		expect(holds.at(-1)!.at.at(-1)).to.equal(100);
-		expect(stripKeyframes("x", 4, 1.5)).to.contain("translateX(-150%)");
-	});
-
-	it("the skeins' wing strips: one animation a bird, in phase, clipped across, the opacity stack's keyframes kept for the gate", function () {
-		const rule = (sel: string) => rules.find(([s]) => s === sel)?.[1];
-		const strip = rule("#theme-scene.psng.psng-m-skeins .psng-strip");
-		expect(strip).to.match(
-			new RegExp(
-				`animation: psng-strip4 calc\\(var\\(--wdur\\) \\* ${POSE_BEATS}\\) linear infinite`
-			)
-		);
-		expect(strip).to.contain(
-			"animation-delay: calc(var(--wbegin) - var(--psng-t) - var(--wdur))"
-		);
-		expect(rule("#theme-scene.psng .ps-bird")).to.contain("overflow: clip visible");
-		expect(rule("#theme-scene.psng .psng-strip .psng-pose")).to.contain(
-			"left: calc(var(--pi) * 100%)"
-		);
-		const catchAll = rules.find(([sel]) => sel.startsWith("#theme-scene.psng *:not("));
-		expect(catchAll?.[0]).to.contain(".psng-strip");
-		expect(
-			rules.some(([sel]) =>
-				sel
-					.split(",")
-					.map((x) => x.trim())
-					.includes("#theme-scene.psng:not(.psng-m-skeins) .ps-bird .psng-strip")
-			)
-		).to.equal(true);
-		expect(rule("#theme-scene.psng.psng-m-skeins .ps-bird .psng-pose")).to.equal(undefined);
-		expect(NG_STILL_CSS).to.match(/@keyframes psng-pose4 \{/);
-		expect(NG_STILL_CSS).to.match(/@keyframes psng-strip4 \{/);
 	});
 
 	it("the larks' state boxes hold each state from its own stop to the next, on linear keyframes", function () {

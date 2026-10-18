@@ -73,25 +73,6 @@ export function poseStack(svgMarkup: string, poses: readonly string[]): string {
 		.join("");
 }
 
-/**
- * A skein bird's pose stack in one strip (ps NG plan 5): the copies side by side in `psng-strip`,
- * which styles.ts slides one pose at a time inside the bird's box, one animation for the bird in
- * place of one a copy. Markup with no wing timing comes back as it was.
- */
-export function wingStrip(svgMarkup: string): string {
-	const t = wingTiming(svgMarkup);
-
-	if (!t) {
-		return svgMarkup;
-	}
-
-	return (
-		`<div class="psng-strip" style="--wdur:${t.beat}s;--wbegin:${t.begin}s">` +
-		poseStack(svgMarkup, t.poses) +
-		`</div>`
-	);
-}
-
 const seconds = (re: RegExp, s: string) => (re.exec(s) ?? []).slice(1, 3).map(Number);
 
 /**
@@ -143,10 +124,11 @@ export function larkStates(svgMarkup: string): string {
 	).join("");
 }
 
-/** Classic's scene markup with every skein bird a wing strip, every lark in state boxes and the buzzard in boxes. */
+/** Classic's scene markup with every skein bird a pose stack, every lark in state boxes and the buzzard in boxes. */
 export function ngBirds(markup: string): string {
+	const stack = (svg: string) => poseStack(svg, wingTiming(svg)?.poses ?? []);
 	return markup
-		.replace(/<svg viewBox="0 0 32 20"[\s\S]*?<\/svg>/g, wingStrip)
+		.replace(/<svg viewBox="0 0 32 20"[\s\S]*?<\/svg>/g, stack)
 		.replace(/<svg viewBox="0 0 20 14"[\s\S]*?<\/svg>/g, larkStates)
 		.replace(/<div class="ps-buzzard">[\s\S]*?<\/div>/, buzzard);
 }

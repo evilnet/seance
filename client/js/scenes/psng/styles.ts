@@ -32,33 +32,6 @@ function poseKeyframes(name: string, poses: number): string {
 	return `@keyframes ${name} {\n${frames.join("\n\n")}\n}`;
 }
 
-/**
- * A skein bird's wing strip's keyframes (ps NG plan 5): the strip holds each pose for its share of the
- * beat, a hard jump between (two stops 0.0001 % apart, never steps(), which WebKit runs on the main
- * thread), POSE_BEATS beats in one iteration as the pose stacks do. Pose j sits `gap` bird widths
- * from the first (poses.ts wingStrip, the strip's rules).
- */
-export function stripKeyframes(name: string, poses: number, gap = 1): string {
-	const at = (x: number) => `${Number(x.toFixed(4))}%`;
-	const beat = 100 / POSE_BEATS;
-	const frames: string[] = [];
-
-	for (let k = 0; k < POSE_BEATS; k++) {
-		for (let j = 0; j < poses; j++) {
-			const start = k * beat + (j * beat) / poses;
-			const last = k === POSE_BEATS - 1 && j === poses - 1;
-			const end = last ? "100%" : at(start + beat / poses - 0.0001);
-			frames.push(
-				`\t${at(start)},\n\t${end} {\n\t\ttransform: translateX(${Number(
-					(-j * gap * 100).toFixed(4)
-				)}%);\n\t}`
-			);
-		}
-	}
-
-	return `@keyframes ${name} {\n${frames.join("\n\n")}\n}`;
-}
-
 export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`none\`) — lift verbatim into NG's stylesheet ====
  *
  * classic's reduced-motion rules (ps.css "---- reduced motion ----"), only the ones that touch the scene,
@@ -79,7 +52,7 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 
 /* Every animation off but the lifted groups' own (ps NG plan 2, Tasks 3 and 4); the rules below still
  * each of those while its psng-m-<group> class is absent. The sun's rays are exempt too (Task 6); g.ps-sway stays still for good (the wrapper sways). */
-#theme-scene.psng *:not(.ps-cloud, .ps-stars i.tw, .ps-fireflies i, .ps-smoke i, .psng-sway, .psng-rain-tile, .ps-snow i, .ps-seeds i, .ps-flash, .ps-heatband, .ps-rays, .ps-flock, .ps-skein-sway, .psng-strip, .psng-pose, .ps-buzzard, .psng-buzz-orbit, .psng-buzz-flap, .ps-lark-track, .psng-lark-fl, .psng-lark-ch, .psng-lark-cl) {
+#theme-scene.psng *:not(.ps-cloud, .ps-stars i.tw, .ps-fireflies i, .ps-smoke i, .psng-sway, .psng-rain-tile, .ps-snow i, .ps-seeds i, .ps-flash, .ps-heatband, .ps-rays, .ps-flock, .ps-skein-sway, .psng-pose, .ps-buzzard, .psng-buzz-orbit, .psng-buzz-flap, .ps-lark-track, .psng-lark-fl, .psng-lark-ch, .psng-lark-cl) {
 	animation: none !important;
 }
 
@@ -142,7 +115,7 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 #theme-scene.psng:not(.psng-m-sun) .ps-rays,
 #theme-scene.psng:not(.psng-m-skeins) .ps-flock,
 #theme-scene.psng:not(.psng-m-skeins) .ps-skein-sway,
-#theme-scene.psng:not(.psng-m-skeins) .ps-bird .psng-strip,
+#theme-scene.psng:not(.psng-m-skeins) .ps-bird .psng-pose,
 #theme-scene.psng:not(.psng-m-daybirds) .ps-buzzard,
 #theme-scene.psng:not(.psng-m-daybirds) .psng-buzz-orbit,
 #theme-scene.psng:not(.psng-m-daybirds) .psng-buzz-flap,
@@ -277,32 +250,10 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 	opacity: 0;
 }
 
-/* A skein bird's wings are a strip (poses.ts wingStrip, plan 5): the copies side by side, all shown,
- * and the strip slid one pose at a time inside the bird's box, which clips across only — a far wing
- * reaches 3 % above the box at its up pose and nothing reaches past it sideways. Pose 0 is the
- * bird at rest. The delay is pose 0's in the stacks (--pf 0). */
-#theme-scene.psng .ps-bird {
-	overflow: clip visible;
+#theme-scene.psng.psng-m-skeins .ps-bird .psng-pose {
+	animation: psng-pose4 calc(var(--wdur) * ${POSE_BEATS}) linear infinite;
+	animation-delay: calc(var(--wbegin) - var(--psng-t) + (var(--pf) - 1) * var(--wdur));
 }
-
-#theme-scene.psng .psng-strip {
-	position: absolute;
-	inset: 0;
-}
-
-#theme-scene.psng .psng-strip .psng-pose {
-	left: calc(var(--pi) * 100%);
-	right: auto;
-	width: 100%;
-	opacity: 1;
-}
-
-#theme-scene.psng.psng-m-skeins .psng-strip {
-	animation: psng-strip4 calc(var(--wdur) * ${POSE_BEATS}) linear infinite;
-	animation-delay: calc(var(--wbegin) - var(--psng-t) - var(--wdur));
-}
-
-${stripKeyframes("psng-strip4", 4)}
 
 #theme-scene.psng.psng-m-daybirds .ps-lark .psng-pose {
 	animation: psng-pose2 calc(var(--wdur) * ${POSE_BEATS}) linear infinite;
