@@ -338,7 +338,7 @@ public class PushService extends org.unifiedpush.android.connector.PushService {
         NotificationManagerCompat.from(context).createNotificationChannel(
             new NotificationChannelCompat.Builder(CHANNEL_ID, NotificationManagerCompat.IMPORTANCE_HIGH)
                 .setName("Messages")
-                .setDescription("Mentions and private messages while the app is closed")
+                .setDescription("Mentions and private messages")
                 .build()
         );
     }
