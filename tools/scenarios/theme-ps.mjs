@@ -80,9 +80,13 @@
 //   3 — with the scene stopped and the frame shot twice alike;
 // - replies to a long line: the quote under the reply stays inside its text
 //   column, and on the phone inside its row;
-// - toggles the user list twice inside the yurt's 0.4 s fade and samples the
-//   yurt every frame: it is never seen anywhere but where it stood and where
-//   it ends, and ends fully shown at 72 % of the column (Review Focus 2);
+// - places the yurt by ps.css alone and samples it every frame: at 22:00 in
+//   #seance its centre is the scene's width less the user list's (while a
+//   channel shows it open) less 22 % of the width, clamped whole on the
+//   scene, within 1 px; one user list toggle moves it by the list's width in
+//   one cut, two 100 ms apart leave it where it stood, and the sidebar shut
+//   and opened again moves it not at all (0.5 px) — never seen between its
+//   places and never below full opacity (Review Focus 2);
 // - follows the open conversation: channel, query, none (Settings); and a
 //   query is frosted and still (spec §5.7): at a clear noon the root takes
 //   ps-private, the scene's one wrapper (.ps-frost) is blurred, desaturated
@@ -95,9 +99,9 @@
 // - switches to coffee (the scene and its plains go and leave nothing on
 //   <html>) and back to ps (one scene again, not two);
 // - on a phone: a scene mounted there builds half the fireflies (17) and,
-//   on a rainy day, half the drops and seeds (65 and 13); the yurt stands at
-//   72 % of the column, kept whole on the screen, and the drawer opening
-//   over the chat does not move it (Review Focus 5); the always-on glass
+//   on a rainy day, half the drops and seeds (65 and 13); the yurt stands
+//   where ps.css puts it, and the drawer opening over the chat does not
+//   move it (Review Focus 5); the always-on glass
 //   unblurred on the generated tint (the measured budget's fallback,
 //   ps-theme.md §10), the header and composer at noon; the two overlays
 //   glass again (Task 8c, §10.1): at noon the open drawer and the overlaid
@@ -109,9 +113,9 @@
 //   off the scene's left edge and ends wholly off its right, never popping
 //   in (each drift is paused at its loop's two ends; late in the run, since
 //   an animation paused from script no longer follows animation-play-state);
-// - reloads onto Settings: with no message column the yurt stands at 70 % of
-//   the scene, and fades to the column's far third once a conversation opens
-//   (Review Focus 4);
+// - reloads onto Settings: with no message column the yurt stands where
+//   ps.css puts it, and a conversation opening moves it only by the user
+//   list, in one cut, at full opacity (Review Focus 4);
 // - blocks the scene's chunk and reloads: the daylight fallback stays, ink
 //   over it, and the console complains of the blocked request and nothing
 //   else — the hook's one warning, naming it;
@@ -120,9 +124,9 @@
 //   once and no `scene-ps-ng.js`;
 // - and last boots cold with ps saved, straight onto #seance at 4× CPU,
 //   four times, three of them with ps.css held back until the scene has
-//   mounted (the yurt's boot race, the final review): the place in the
-//   first frame the scene is laid out is where the yurt ends, nothing is
-//   written at 0, and nothing fades.
+//   mounted (the yurt's boot race, the final review): the yurt's centre in
+//   the first frame the scene is laid out is where it ends, where ps.css
+//   puts it, and it is never shown below full opacity.
 //
 // Along the way it keeps the older promises: **the browser fetches no animal
 // file at all** — not in #seance, not in #kittens, not as a still under
@@ -1029,7 +1033,7 @@ const FROST_STATE = `(() => {
 	};
 })()`;
 
-/** The frost's ease (--ps-flip, 0.8 s) and the yurt's fade to its new place (0.4 s, then 0.38 s), over. */
+/** The frost's ease (--ps-flip, 0.8 s), over. */
 const FROST_SETTLE_MS = 1500;
 
 /** A layer's fade at the tick that comes with a new hour (layers.ts: 1.8 s at most), over. */
@@ -1559,35 +1563,36 @@ const CLOUD_RESTS = `(() => {
 
 /**
  * For the cold boots (the yurt's boot race), from the first line of every
- * document: each --ps-yurt-left the scene writes; whether the yurt ever
- * fades (ps-yurt-moving); and, from an observer of the scene made after the
- * scene's own (once it has mounted), the place in the rendering update where
- * the scene is first laid out with a box, which runs after the scene's
- * observers and just before that frame is painted.
+ * document, once the scene has mounted: from an observer of the scene, the
+ * yurt's centre in the rendering update where the scene is first laid out
+ * with a box (after layout, just before that frame is painted); and from
+ * then on, every frame that shows the scene, the yurt's lowest opacity.
  */
 const BOOT_SAMPLER = `(() => {
 	const T0 = performance.now();
-	const rec = (window.__boot = {writes: [], moved: false, laidOut: null});
+	const rec = (window.__boot = {laidOut: null, minOp: 1, frames: 0});
 	const now = () => Math.round(performance.now() - T0);
 	const start = () => {
 		const root = document.getElementById("theme-scene");
 		if (!root) return requestAnimationFrame(start);
-		new MutationObserver(() => {
-			const v = root.style.getPropertyValue("--ps-yurt-left");
-			if (v && rec.writes.at(-1)?.v !== v) rec.writes.push({t: now(), v});
-			rec.moved ||= root.classList.contains("ps-yurt-moving");
-		}).observe(root, {attributes: true, attributeFilter: ["style", "class"]});
 		const mounted = new MutationObserver(() => {
-			if (!root.querySelector(".ps-yurt")) return;
+			const y = root.querySelector(".ps-yurt");
+			if (!y) return;
 			mounted.disconnect();
 			new ResizeObserver((entries) => {
 				if (rec.laidOut || !entries.some((e) => e.contentRect.width > 0)) return;
-				rec.laidOut = {
-					t: now(),
-					left: root.style.getPropertyValue("--ps-yurt-left") || "(unset: 70 %)",
-					moving: root.classList.contains("ps-yurt-moving"),
-				};
+				const b = y.getBoundingClientRect(), sc = root.getBoundingClientRect();
+				rec.laidOut = {t: now(), cx: b.left - sc.left + b.width / 2};
 			}).observe(root);
+			const take = () => {
+				if (!y.isConnected) return;
+				if (root.getBoundingClientRect().width > 0) {
+					rec.frames++;
+					rec.minOp = Math.min(rec.minOp, Number(getComputedStyle(y).opacity));
+				}
+				if (now() < 15000) requestAnimationFrame(take);
+			};
+			requestAnimationFrame(take);
 		});
 		mounted.observe(root, {childList: true});
 	};
@@ -1598,7 +1603,7 @@ const BOOT_SAMPLER = `(() => {
  * Forces the race: every write of ps.css to #theme's href (the early one in
  * loading-error-handlers.js, by setAttribute, and settings.ts's, through the
  * Attr) is held until the scene has mounted and the message column exists,
- * and two frames more, so the column's first observation lands while
+ * and two frames more, so the scene and the column are built while
  * #theme-scene is still display: none; then the last one is let through.
  */
 const HOLD_THEME = `(() => {
@@ -1667,35 +1672,51 @@ async function coldReload(page, path, expression, label) {
 }
 
 /**
- * The yurt against the message column (docs/projects/ps-theme.md §5.3):
- * its centre, opacity and whether it is moving, the place the scene wrote
- * (--ps-yurt-left, unset before it has measured a column), the column's box
- * and the scene's width, all in the viewport's pixels. `due` is where the
- * design puts it: 72 % of the column, kept whole on the scene; with no
- * column, 70 % of the scene.
+ * The yurt's place (ps.css, the rules around --ps-yurt-x; no script places
+ * it): its centre and opacity in the scene's pixels, and `due`, where the
+ * rule puts it — the scene's width, less the user list's while a channel
+ * shows it open (`listed`, `inset`: --userlist-width resolved on a probe),
+ * less 22 % of the scene's width, clamped to half the yurt's width (21 % of
+ * the scene's height, 240/170 as wide) from either edge. `private`: a
+ * query's frost scales the scene 1.2, so a place is only measured without it.
  */
 const YURT = `(() => {
 	const s = document.getElementById("theme-scene");
 	const y = s.querySelector(".ps-yurt");
 	const b = y.getBoundingClientRect(), sc = s.getBoundingClientRect();
-	const c = document.querySelector("#chat .chat");
-	const cb = c && c.getBoundingClientRect().width > 0 ? c.getBoundingClientRect() : null;
-	const half = b.width / 2;
-	const at = cb ? cb.left - sc.left + 0.72 * cb.width : 0.7 * sc.width;
+	const probe = document.body.appendChild(document.createElement("div"));
+	probe.style.cssText = "position: absolute; visibility: hidden; height: 0; width: var(--userlist-width)";
+	const list = probe.getBoundingClientRect().width;
+	probe.remove();
+	const listed = document.documentElement.matches(':has(.userlist-open .chat-view[data-type="channel"])');
+	const inset = listed ? list : 0;
+	const half = (0.21 * sc.height * 120) / 170;
 	return {
-		cx: b.left - sc.left + half,
+		cx: b.left - sc.left + b.width / 2,
 		op: Number(getComputedStyle(y).opacity),
-		moving: s.classList.contains("ps-yurt-moving"),
-		left: s.style.getPropertyValue("--ps-yurt-left"),
-		column: cb && {left: Math.round(cb.left), width: Math.round(cb.width)},
+		listed,
+		inset,
+		private: s.classList.contains("ps-private"),
 		sceneWidth: sc.width,
-		due: Math.min(Math.max(at, half), sc.width - half),
+		due: Math.min(Math.max(sc.width - inset - 0.22 * sc.width, half), sc.width - half),
 	};
 })()`;
 
+/** Check the yurt stands where ps.css puts it (YURT), fully shown. */
+function checkYurtPlace(page, y, label) {
+	page.check(
+		`${label}: the yurt stands where ps.css puts it (centre ${y.cx.toFixed(
+			1
+		)}, due ${y.due.toFixed(1)} of ${y.sceneWidth}; user list ${
+			y.listed ? `open, ${y.inset.toFixed(1)} px` : "not in a channel's view"
+		}; opacity ${y.op}${y.private ? "; frosted" : ""})`,
+		!y.private && y.op > 0.99 && Math.abs(y.cx - y.due) <= 1
+	);
+}
+
 /**
- * Sample the yurt every animation frame (its centre, opacity, whether it is
- * moving, and the place written) until YURT_STOP; its smoke goes with it.
+ * Sample the yurt every animation frame (its centre and opacity) until
+ * YURT_STOP; its smoke goes with it.
  */
 const YURT_START = `(() => {
 	const s = document.getElementById("theme-scene");
@@ -1708,8 +1729,6 @@ const YURT_START = `(() => {
 			op: Number(getComputedStyle(y).opacity),
 			smokeX: Math.round((k.left - sc.left) * 10) / 10,
 			smokeOp: Number(getComputedStyle(sm).opacity),
-			left: s.style.getPropertyValue("--ps-yurt-left") || "(unset)",
-			moving: s.classList.contains("ps-yurt-moving"),
 		});
 		window.__yurtFrame = requestAnimationFrame(take);
 	};
@@ -1720,10 +1739,11 @@ const YURT_STOP = `(() => { cancelAnimationFrame(window.__yurtFrame); return win
 
 /**
  * Across `action`, the yurt is never seen anywhere but where it stood and
- * where it ends (its smoke likewise, at the pipe above either), and it ends
- * fully shown, still, where the design puts it. Returns the trace.
+ * where it ends (its smoke likewise, at the pipe above either) — a move is
+ * a cut — its opacity never leaves full (nothing fades it), and it ends
+ * where ps.css puts it. Returns the trace.
  */
-async function checkYurtMove(page, label, action, settleMs = 1600) {
+async function checkYurtMove(page, label, action, settleMs = 1000, alsoAt = []) {
 	const before = await page.evaluate(YURT);
 	const smokeBefore = await page.evaluate(
 		`document.querySelector("#theme-scene .ps-smoke").getBoundingClientRect().left - document.getElementById("theme-scene").getBoundingClientRect().left`
@@ -1734,12 +1754,13 @@ async function checkYurtMove(page, label, action, settleMs = 1600) {
 	const trace = await page.evaluate(YURT_STOP);
 	const after = await page.evaluate(YURT);
 	const smokeAfter = trace.at(-1).smokeX;
-	const near = (x, a, b) => Math.min(Math.abs(x - a), Math.abs(x - b)) <= 1;
-	const elsewhere = trace.filter((p) => p.op > 0.01 && !near(p.cx, before.cx, after.cx));
+	// `alsoAt`: places it may pass through on the way (two toggles visit the other place).
+	const near = (x, ...at) => at.some((a) => Math.abs(x - a) <= 1);
+	const elsewhere = trace.filter((p) => !near(p.cx, before.cx, after.cx, ...alsoAt));
 	const smokeElsewhere = trace.filter(
-		(p) => p.smokeOp > 0.01 && !near(p.smokeX, smokeBefore, smokeAfter)
+		(p) => p.smokeOp > 0.01 && !near(p.smokeX, smokeBefore, smokeAfter, ...alsoAt)
 	);
-	const last = trace.at(-1);
+	const minOp = Math.min(...trace.map((p) => p.op));
 	page.check(
 		`${label}: the yurt is never seen between its places (${elsewhere.length} of ${
 			trace.length
@@ -1749,14 +1770,20 @@ async function checkYurtMove(page, label, action, settleMs = 1600) {
 		trace.length > 10 && elsewhere.length === 0 && smokeElsewhere.length === 0
 	);
 	page.check(
-		`${label}: it ends fully shown and still, where the design puts it (opacity ${
-			last.op
-		}, moving ${last.moving}, centre ${after.cx.toFixed(1)}, due ${after.due.toFixed(1)}${
-			after.column ? ` in the column ${JSON.stringify(after.column)}` : ", no column"
-		})`,
-		last.op > 0.99 && !last.moving && Math.abs(after.cx - after.due) <= 1
+		`${label}: the yurt never fades (lowest opacity ${minOp} over ${trace.length} frames)`,
+		minOp > 0.99
 	);
-	return {before, after, trace, minOp: Math.min(...trace.map((p) => p.op))};
+	checkYurtPlace(page, after, `${label}, after`);
+	return {before, after, trace};
+}
+
+/** Toggle the sidebar from the header's button and wait for #viewport to show it `open`. */
+async function toggleSidebar(page, open) {
+	await page.click(`#chat .header .lt`);
+	await page.waitFor(
+		`document.getElementById("viewport").classList.contains("menu-open") === ${open}`,
+		{label: `the sidebar ${open ? "open" : "closed"}`}
+	);
 }
 
 /** Toggle the user list `times` times, 100 ms apart, from the header's button. */
@@ -3407,34 +3434,59 @@ export default async function run(page) {
 
 	// ---- the yurt never slides (Review Focus 2)
 
-	// At night, so its smoke is up and goes with it. One toggle first, the
-	// control: the column changes width and the yurt fades out and back in
-	// at its new place. Then the brief's case: the user list toggled twice,
-	// 100 ms apart, inside one 0.4 s fade.
+	// At night, so its smoke is up and goes with it. ps.css places the yurt
+	// by the user list's inner edge while a channel shows the list open, so
+	// one toggle moves it by exactly the list's width, in one cut and at full
+	// opacity. Then the user list toggled twice, 100 ms apart: it ends where
+	// it stood. Then the sidebar shut and opened again: nothing moves.
 	await at(page, Date.UTC(2026, 8, 25, 22, 0));
+	checkYurtPlace(page, await page.evaluate(YURT), "#seance at 22:00");
 	const one = await checkYurtMove(page, "the user list toggled once", () =>
 		toggleUserlist(page, 1)
 	);
 	page.check(
-		`the user list toggled once: the column changed (${JSON.stringify(
-			one.before.column
-		)} → ${JSON.stringify(one.after.column)}) and the yurt faded (lowest opacity ${one.minOp})`,
-		one.before.column?.width !== one.after.column?.width && one.minOp < 0.05
+		`the user list toggled once: the yurt moved by the list's width (open ${
+			one.before.listed
+		} → ${one.after.listed}; centre ${one.before.cx.toFixed(1)} → ${one.after.cx.toFixed(
+			1
+		)}, the list ${Math.max(one.before.inset, one.after.inset).toFixed(1)} px)`,
+		one.before.listed !== one.after.listed &&
+			Math.abs(one.after.cx - one.before.cx - (one.before.inset - one.after.inset)) <= 1
 	);
 	await checkYurtMove(page, "the user list toggled back", () => toggleUserlist(page, 1));
-	const twice = await checkYurtMove(page, "the user list toggled twice inside the fade", () =>
-		toggleUserlist(page, 2)
+	const twice = await checkYurtMove(
+		page,
+		"the user list toggled twice, 100 ms apart",
+		() => toggleUserlist(page, 2),
+		1000,
+		[one.before.cx, one.after.cx]
 	);
-	// The first toggle started a fade (the second came inside it and only
-	// retargeted it), and only the place it stood at was ever written.
-	const lefts = [...new Set(twice.trace.map((p) => p.left))];
 	page.check(
-		`the user list toggled twice: the yurt faded and ends where it stood (lowest opacity ${
-			twice.minOp
-		}; ${twice.before.cx.toFixed(1)} → ${twice.after.cx.toFixed(
+		`the user list toggled twice: the yurt ends where it stood (${twice.before.cx.toFixed(
 			1
-		)}; places written ${JSON.stringify(lefts)})`,
-		twice.minOp < 0.05 && Math.abs(twice.before.cx - twice.after.cx) <= 1 && lefts.length === 1
+		)} → ${twice.after.cx.toFixed(1)})`,
+		twice.before.listed === twice.after.listed &&
+			Math.abs(twice.before.cx - twice.after.cx) <= 1
+	);
+	const sidebarWasOpen = await page.evaluate(
+		`document.getElementById("viewport").classList.contains("menu-open")`
+	);
+	const sidebar = await checkYurtMove(
+		page,
+		"the sidebar shut and opened again",
+		async () => {
+			await toggleSidebar(page, !sidebarWasOpen);
+			await page.sleep(600); // its slide
+			await toggleSidebar(page, sidebarWasOpen);
+		},
+		600
+	);
+	const drift = Math.max(...sidebar.trace.map((p) => Math.abs(p.cx - sidebar.before.cx)));
+	page.check(
+		`the sidebar shut and opened again: the yurt does not move (at most ${drift.toFixed(
+			2
+		)} px from ${sidebar.before.cx.toFixed(1)} over ${sidebar.trace.length} frames)`,
+		drift <= 0.5 && Math.abs(sidebar.after.cx - sidebar.before.cx) <= 0.5
 	);
 
 	// ---- the wind rises at midnight and the clouds stay where they are
@@ -3902,7 +3954,7 @@ export default async function run(page) {
 
 	await page.sleep(800);
 
-	// ---- a phone: half the particles, the yurt in the column (Review Focus 5)
+	// ---- a phone: half the particles, the yurt in its place (Review Focus 5)
 
 	// The fireflies are built when the scene mounts and the weather when a day
 	// begins, each for the layout of the moment, so the scene is mounted
@@ -3952,19 +4004,9 @@ export default async function run(page) {
 	checkDeck(page, await page.evaluate(DECK_GEOMETRY), "a phone on a rainy noon");
 	await page.screenshot("ps-phone-rain-sep26-1230");
 	const phoneYurt = await page.evaluate(YURT);
-	page.check(
-		`a phone: the yurt at 72 % of the column, kept whole on the screen (centre ${phoneYurt.cx.toFixed(
-			1
-		)}, due ${phoneYurt.due.toFixed(1)}, column ${JSON.stringify(phoneYurt.column)}, place ${
-			phoneYurt.left
-		})`,
-		!!phoneYurt.column &&
-			phoneYurt.left !== "" &&
-			phoneYurt.op > 0.99 &&
-			Math.abs(phoneYurt.cx - phoneYurt.due) <= 1
-	);
-	// The drawer lies over the chat: the column does not resize under it, so
-	// the yurt stays where it stands.
+	checkYurtPlace(page, phoneYurt, "a phone");
+	// The drawer lies over the chat and ps.css never places the yurt by it,
+	// so the yurt stays where it stands.
 	await page.click(`#chat .header .lt`);
 	await page.waitFor(`document.getElementById("viewport").classList.contains("menu-open")`, {
 		label: "the phone's sidebar open over the yurt",
@@ -3972,15 +4014,10 @@ export default async function run(page) {
 	await page.sleep(1000);
 	const drawnOver = await page.evaluate(YURT);
 	page.check(
-		`a phone: opening the drawer does not move the yurt (place ${phoneYurt.left} → ${
-			drawnOver.left
-		}, centre ${phoneYurt.cx.toFixed(1)} → ${drawnOver.cx.toFixed(1)}, moving ${
-			drawnOver.moving
-		})`,
-		drawnOver.left === phoneYurt.left &&
-			Math.abs(drawnOver.cx - phoneYurt.cx) < 0.5 &&
-			!drawnOver.moving &&
-			drawnOver.op > 0.99
+		`a phone: opening the drawer does not move the yurt (centre ${phoneYurt.cx.toFixed(
+			1
+		)} → ${drawnOver.cx.toFixed(1)}, opacity ${drawnOver.op})`,
+		Math.abs(drawnOver.cx - phoneYurt.cx) < 0.5 && drawnOver.op > 0.99
 	);
 	await page.screenshot("ps-phone-rain-sidebar");
 	await page.evaluate(`document.getElementById("sidebar-overlay").click()`);
@@ -4206,9 +4243,10 @@ export default async function run(page) {
 
 	// ---- a load straight onto Settings (Review Focus 4)
 
-	// No message column: the yurt stands at the scene's 70 % (ps.css, before
-	// the scene has measured a column), and when a conversation opens it
-	// fades out and back in at the column's 72 %, never sliding there.
+	// No message column, and the yurt stands where ps.css puts it all the
+	// same (it never asked for a column); a conversation opening moves it
+	// only if that conversation is a channel showing the user list, and then
+	// in one cut by the list's width.
 	await page.evaluate(
 		`(() => { window.__coldLoad = true; history.replaceState(null, "", "/#/settings/appearance"); })()`
 	);
@@ -4236,17 +4274,7 @@ export default async function run(page) {
 
 	await page.sleep(1500);
 	const cold = await page.evaluate(YURT);
-	page.check(
-		`a load onto Settings: no column, the yurt at 70 % of the scene (centre ${cold.cx.toFixed(
-			1
-		)}, due ${cold.due.toFixed(1)} of ${cold.sceneWidth}; place "${cold.left}", opacity ${
-			cold.op
-		})`,
-		cold.column === null &&
-			cold.left === "" &&
-			cold.op > 0.99 &&
-			Math.abs(cold.cx - cold.due) <= 1
-	);
+	checkYurtPlace(page, cold, "a load onto Settings, no message column");
 	await page.screenshot("ps-settings-first");
 	await closeSettings(page);
 	await page.waitFor(`document.querySelector("#connect form")`, {
@@ -4271,10 +4299,16 @@ export default async function run(page) {
 		},
 		2500
 	);
-	// Long after the load's first second, so it fades rather than jumping in sight.
+	const shift = opened.after.cx - opened.before.cx;
 	page.check(
-		`a load onto Settings, then a conversation: the yurt faded on its way (lowest opacity ${opened.minOp})`,
-		opened.minOp < 0.05
+		`a load onto Settings, then a conversation: the yurt moved only by the user list (${
+			opened.after.listed
+				? `open in the channel, ${opened.after.inset.toFixed(1)} px`
+				: "not shown in a channel"
+		}; centre ${opened.before.cx.toFixed(1)} → ${opened.after.cx.toFixed(1)})`,
+		opened.after.listed
+			? Math.abs(shift - (opened.before.inset - opened.after.inset)) <= 1
+			: Math.abs(shift) <= 0.5
 	);
 	await page.screenshot("ps-settings-first-then-seance");
 
@@ -4415,15 +4449,16 @@ export default async function run(page) {
 	// ---- a cold boot with ps saved, straight onto #seance, at 4× (the yurt's boot race)
 
 	// The scene can mount before ps.css shows #theme-scene (display: none,
-	// 0 × 0 until then). The column's first observation used to put the yurt
-	// at 0 and spend the load's first second on it: painted cut in half at
-	// the left edge, then faded across to its place (the final review,
-	// 2026-09-26). Here the network autoconnects and each reload lands
-	// straight on #seance with the CPU at 4×; in the first three ps.css is
-	// held until the scene has mounted and the column exists (HOLD_THEME), so
-	// each is the race, and the fourth boots as it comes. In every one the
-	// place in the first frame the scene is laid out is where the yurt ends,
-	// nothing is written at 0, and nothing fades.
+	// 0 × 0 until then). When a script placed the yurt, its first look at the
+	// column put it at 0 and spent the load's first second on it: painted cut
+	// in half at the left edge, then faded across to its place (the final
+	// review, 2026-09-26). ps.css alone places it now, so this holds by
+	// construction, and is kept as the guard. Here the network autoconnects
+	// and each reload lands straight on #seance with the CPU at 4×; in the
+	// first three ps.css is held until the scene has mounted and the column
+	// exists (HOLD_THEME), and the fourth boots as it comes. In every one the
+	// yurt's centre in the first frame the scene is laid out is where it
+	// ends, where ps.css puts it, and it is never shown below full opacity.
 	await page.evaluate(`(() => {
 		const nets = JSON.parse(localStorage.getItem("thelounge.networks") || "[]");
 		for (const n of nets) n.autoconnect = true;
@@ -4447,7 +4482,7 @@ export default async function run(page) {
 			`window.__boot && window.__boot.laidOut && document.querySelector("#chat .chat")`,
 			`the cold boot (${boot})`
 		);
-		await page.sleep(4000); // the load's second and a fade's worth, at 4×
+		await page.sleep(4000); // the load settled, at 4×
 		const b = await page.evaluate(
 			`({boot: window.__boot, held: window.__held ?? null, route: location.hash})`
 		);
@@ -4459,27 +4494,19 @@ export default async function run(page) {
 				b.held
 					? `ps.css held until the scene had mounted (${b.held.at} → ${b.held.released} ms)`
 					: "ps.css as it comes"
-			}, and no place written at 0 (${b.boot.writes
-				.map((w) => `${w.t} ms ${w.v}`)
-				.join(", ")})`,
-			(boot === "as it comes") === (b.held === null) &&
-				b.boot.writes.length > 0 &&
-				!b.boot.writes.some((w) => parseFloat(w.v) === 0)
+			}`,
+			(boot === "as it comes") === (b.held === null)
 		);
 		page.check(
-			`${label}: the place in the first frame the scene is laid out is where it ends (${
-				b.boot.laidOut.left
-			} at ${b.boot.laidOut.t} ms, then ${end.left}; centre ${end.cx.toFixed(
+			`${label}: the place in the first frame the scene is laid out is where it ends (centre ${b.boot.laidOut.cx.toFixed(
 				1
-			)}, due ${end.due.toFixed(1)})`,
-			b.boot.laidOut.left === end.left &&
-				!!end.column &&
-				end.op > 0.99 &&
-				Math.abs(end.cx - end.due) <= 1
+			)} at ${b.boot.laidOut.t} ms, then ${end.cx.toFixed(1)})`,
+			Math.abs(b.boot.laidOut.cx - end.cx) <= 1
 		);
+		checkYurtPlace(page, end, label);
 		page.check(
-			`${label}: and it never fades across (moving ${b.boot.moved || b.boot.laidOut.moving})`,
-			!b.boot.moved && !b.boot.laidOut.moving && !end.moving
+			`${label}: and it is never shown below full opacity (lowest ${b.boot.minOp} over ${b.boot.frames} frames)`,
+			b.boot.frames > 0 && b.boot.minOp > 0.99
 		);
 	}
 

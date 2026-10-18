@@ -616,7 +616,7 @@ const CLOUD_X = `[...document.querySelectorAll("#theme-scene .ps-cloud")].map((e
 async function frozenCensus(page, label, before) {
 	const c = await page.evaluate(CENSUS);
 	const f = await page.evaluate(FLIGHT);
-	// Animations only: the yurt's fade (a CSS transition) runs when opening a query moves it.
+	// CSS animations only (no transition runs in NG's scene).
 	const anims = await page.evaluate(
 		`document.getElementById("theme-scene").getAnimations({subtree: true}).filter((a) => a instanceof CSSAnimation).length`
 	);

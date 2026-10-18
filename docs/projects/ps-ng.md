@@ -113,7 +113,7 @@ Seeds and placements come from the same seeded generators as classic, so every s
 
 - the query view's frost snaps on and off instead of easing;
 - the day's clouds and deck swap at midnight without classic's 2 s cross-fade;
-- the yurt's move to a new place: `ps-yurt-moving` hides it at once (no fade-out) and it reappears in its new place about 0.4 s later (ps.css, `watchers.ts` `placeYurt`), a short gap rather than a clean cut;
+- the yurt's move to a new place is a cut: since 2026-10-17 its place is CSS alone, right-anchored (`ps-theme.md` §5), and no script hides or moves it;
 - no heat haze on a hot day (decision 4).
 
 ## 5. Glass

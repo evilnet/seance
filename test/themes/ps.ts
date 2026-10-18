@@ -3009,53 +3009,59 @@ describe("the ps theme's yurt and its smoke (plan 3, spec §5.3)", function () {
 	const YURT = `${S} .ps-yurt`;
 	const SMOKE = `${S} .ps-smoke`;
 	/**
-	 * The place: what scene.ts measured (yurt.ts clamps it so the whole yurt
-	 * is on screen); before that, 70 % of the scene clamped the same way. The
-	 * yurt is 21 % of the scene's height tall, so half its width is
-	 * 21cqh × 120/170.
+	 * The place: 22 % of the scene's width in from the column's far end — the
+	 * scene's edge, or the user list's inner edge while a channel shows it —
+	 * clamped so the whole yurt is on screen. The yurt is 21 % of the scene's
+	 * height tall, so half its width is 21cqh × 120/170. CSS alone: no script
+	 * measures or writes it.
 	 */
 	const PLACE =
-		"var(--ps-yurt-left, clamp(calc(21cqh * 120 / 170), 70%, calc(100% - 21cqh * 120 / 170)))";
+		"clamp(var(--ps-yurt-half), calc(100% - var(--ps-yurt-in, 0px) - 22cqw), calc(100% - var(--ps-yurt-half)))";
+	const LIST_OPEN = 'html:has(.userlist-open .chat-view[data-type="channel"])';
 
-	it("stands on the ground band at the place the scene measures, 70 % before it has one", function () {
-		expect(valueOf(YURT, "left")).to.equal(PLACE);
+	it("stands on the ground band 22 % of the scene in from the column's far end, whole on screen", function () {
+		expect(valueOf(YURT, "--ps-yurt-half")).to.equal("calc(21cqh * 120 / 170)");
+		expect(valueOf(YURT, "--ps-yurt-x")).to.equal(PLACE);
+		expect(valueOf(YURT, "left")).to.equal("var(--ps-yurt-x)");
 		expect(valueOf(YURT, "bottom")).to.equal("17%");
 		expect(valueOf(YURT, "height")).to.equal("21%");
 		expect(valueOf(YURT, "aspect-ratio")).to.equal("240 / 170");
 		expect(valueOf(YURT, "transform")).to.equal("translateX(-50%)");
 	});
 
+	it("steps in by the user list's width while a channel shows the list, and by nothing else", function () {
+		for (const sel of [YURT, SMOKE]) {
+			expect(valueOf(`${LIST_OPEN} ${sel}`, "--ps-yurt-in"), sel).to.equal(
+				"var(--userlist-width)"
+			);
+		}
+
+		const setters = rules.filter((r) => r.decls.some(([p]) => p === "--ps-yurt-in"));
+		expect(setters.flatMap((r) => r.selectors).sort()).to.deep.equal(
+			[`${LIST_OPEN} ${YURT}`, `${LIST_OPEN} ${SMOKE}`].sort()
+		);
+		expect(css, "no script writes the place any more").to.not.include("--ps-yurt-left");
+	});
+
 	it("puts the smoke at the pipe, on the same place: the yurt's top plus 22/170 of its height", function () {
-		expect(valueOf(SMOKE, "left")).to.equal(PLACE);
+		expect(valueOf(SMOKE, "--ps-yurt-x")).to.equal(PLACE);
+		expect(valueOf(SMOKE, "left")).to.equal("var(--ps-yurt-x)");
 		expect(valueOf(SMOKE, "bottom")).to.equal("calc(17% + 21% * 148 / 170)");
 		expect(valueOf(SMOKE, "opacity")).to.match(/^var\(--ps-smoke-op(, 0)?\)$/);
 	});
 
-	it("never transitions its place: the yurt and the smoke transition opacity only", function () {
+	it("never slides: neither the yurt nor the smoke transitions or animates", function () {
 		for (const sel of [YURT, SMOKE]) {
 			const all = rules.filter((r) => r.selectors.some((s) => s.startsWith(sel)));
 			const transitions = all.flatMap((r) =>
 				r.decls.filter(([p]) => p.startsWith("transition")).map(([p, v]) => `${p}: ${v}`)
 			);
-			expect(valueOf(sel, "transition"), sel).to.match(/^opacity [\d.]+s/);
-
-			for (const t of transitions) {
-				if (t === "transition: none !important") {
-					continue; // reduced motion
-				}
-
-				expect(t, sel).to.not.match(/\b(left|transform|inset|all|bottom|translate)\b/);
-				expect(t, sel).to.match(/^transition: opacity\b/);
-			}
-
-			// Nor may an animation carry it.
+			expect(
+				transitions.filter((t) => t !== "transition: none !important"),
+				sel
+			).to.deep.equal([]);
 			expect(valueOf(sel, "animation"), sel).to.equal(undefined);
 		}
-	});
-
-	it("hides the yurt and its smoke while it moves (ps-yurt-moving)", function () {
-		expect(valueOf(`${S}.ps-yurt-moving .ps-yurt`, "opacity")).to.equal("0");
-		expect(valueOf(`${S}.ps-yurt-moving .ps-smoke`, "opacity")).to.equal("0");
 	});
 
 	it("fills the felt, roof, band, door and the rest from the colours the palette publishes", function () {
@@ -3084,9 +3090,7 @@ describe("the ps theme's yurt and its smoke (plan 3, spec §5.3)", function () {
 
 	it("mixes no colour in CSS: every yurt and smoke colour is published", function () {
 		const own = rules.filter((r) =>
-			r.selectors.some((sel) =>
-				/^#theme-scene(\.ps-yurt-moving)? \.(ps-yurt|ps-y-|ps-smoke)/.test(sel)
-			)
+			r.selectors.some((sel) => /^#theme-scene \.(ps-yurt|ps-y-|ps-smoke)/.test(sel))
 		);
 		expect(own.length, "the yurt's rules").to.be.at.least(18);
 

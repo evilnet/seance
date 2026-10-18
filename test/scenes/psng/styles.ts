@@ -48,12 +48,10 @@ describe("ps NG stylesheet (psng/styles.ts)", function () {
 		expect(NG_STILL_CSS).to.contain("var(--cp)");
 	});
 
-	it("the yurt and its smoke keep classic's fade when the yurt moves, and nothing else transitions", function () {
-		expect(rules).to.deep.include([
-			"#theme-scene.psng .ps-yurt, #theme-scene.psng .ps-smoke",
-			"\n\ttransition: opacity 0.38s ease !important;\n",
+	it("nothing transitions: the one transition rule is the catch-all none (the yurt's move is a cut)", function () {
+		expect(rules.filter(([, body]) => body.includes("transition"))).to.deep.equal([
+			["#theme-scene.psng *", "\n\ttransition: none !important;\n"],
 		]);
-		expect(rules.filter(([, body]) => body.includes("transition")).length).to.equal(2);
 	});
 
 	it("the weather: every kind in flight lifted, out of the page without its class, the seeds out in calm", function () {

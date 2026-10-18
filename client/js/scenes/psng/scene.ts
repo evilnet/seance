@@ -18,7 +18,7 @@ import {sceneClasses, sceneMarkup, sceneVars, weatherChanged} from "../ps/markup
 import {paletteAt} from "../ps/palette";
 import {HEAT_HAZE, weatherLayers} from "../ps/plains";
 import {publishMoment, unpublish} from "../ps/publish";
-import {overcastBuilder, placeYurt, watchComposer, watchLand} from "../ps/watchers";
+import {overcastBuilder, watchComposer, watchLand} from "../ps/watchers";
 import {fireDriver, ngSun} from "./flame";
 import {GROUPS, groupOverride, groupsFor} from "./groups";
 import {ngBirds} from "./poses";
@@ -62,7 +62,6 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	let built: Weather | null = null;
 	let overcast: ReturnType<typeof overcastBuilder> | undefined;
 	let weatherLayer: HTMLElement | undefined;
-	let yurt: ReturnType<typeof placeYurt> | undefined;
 	let composer: ReturnType<typeof watchComposer> | undefined;
 	let land: ReturnType<typeof watchLand> | undefined;
 	let latest = initial;
@@ -308,12 +307,10 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		findViewport();
 		root.dataset.view = state.view;
 		root.classList.toggle("ps-private", state.view === "query");
-		yurt?.refind();
 		composer?.refind();
 
 		if (state.visible && !visible) {
 			visible = true;
-			yurt?.seen();
 			tick(); // synchronously, so a cold start paints the right sky
 		} else if (!state.visible && visible) {
 			visible = false;
@@ -331,7 +328,6 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 			unsubscribe?.();
 			drawer?.disconnect();
 			fire?.destroy();
-			yurt?.destroy();
 			composer?.destroy();
 			land?.destroy();
 			unpublish(html, meta, themeColor, wrote);
@@ -381,7 +377,6 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 
 		overcast = overcastBuilder(root.querySelector(".ps-overcast") as HTMLElement);
 		weatherLayer = root.querySelector(".ps-weather") as HTMLElement;
-		yurt = placeYurt(root);
 		composer = watchComposer(root, html);
 		land = watchLand(root);
 		unsubscribe = onSystemAccessibility((a) => {

@@ -1,15 +1,11 @@
 /**
  * What the ps scene watches on the page around it (docs/projects/ps-theme.md
- * §5.3, §5.5): the yurt's place in the message column, the composer standing
- * above the near grass, the land's stretch, and the day's own clouds in the
- * overcast. Moved out of scene.ts so a renderer other than classic's can use
- * them without importing scene.ts (and with it the stepper and the gates);
- * none of them imports either.
+ * §5.5): the composer standing above the near grass, the land's stretch, and
+ * the day's own clouds in the overcast. The yurt's place is CSS alone (ps.css).
  */
 import {composerAboveGrass} from "./glass";
 import type {Weather} from "./engine";
 import {weatherClouds} from "./plains";
-import {yurtFollower} from "./yurt";
 
 /**
  * The land is drawn on a 1200 × 400 box stretched to the window
@@ -47,117 +43,6 @@ export function watchLand(root: HTMLElement): {destroy(): void} {
 }
 
 /**
- * Keeps the yurt in the message column's far third (yurt.ts, spec §5.3). It
- * observes `#chat .chat` — MessageList.vue's scroll container; not `#chat`,
- * which holds the user list too — and the scene itself, and hands each
- * measurement to the follow-or-fade rule, which writes `--ps-yurt-left` on
- * the root and toggles `ps-yurt-moving`; a scene not laid out yet (no box
- * until ps.css shows it) places nothing. A conversation switch can replace
- * the column, so it is looked for again on every host update and whenever
- * the one observed leaves the page; with no column on screen (Settings,
- * Help, the connect form) the yurt keeps its place, clamped to the scene as
- * it is. Each measurement carries the yurt's own width (its computed width,
- * not its box on screen, which the private view's frost scales), so the
- * place is clamped with the whole yurt in the scene, and `seen()` (the
- * scene's first visible update) starts the load's window, in which the first
- * place measured is taken without a fade.
- */
-export function placeYurt(root: HTMLElement): {seen(): void; refind(): void; destroy(): void} {
-	const yurt = root.querySelector(".ps-yurt") as HTMLElement;
-	const follower = yurtFollower({
-		place: (px) => root.style.setProperty("--ps-yurt-left", `${px.toFixed(2)}px`),
-		hide: (on) => root.classList.toggle("ps-yurt-moving", on),
-		now: () => performance.now(),
-		after(ms, fn) {
-			const id = window.setTimeout(fn, ms);
-			return () => window.clearTimeout(id);
-		},
-		nextFrame(fn) {
-			const id = window.requestAnimationFrame(fn);
-			return () => window.cancelAnimationFrame(id);
-		},
-	});
-	let column: Element | null = null;
-	let frame: number | undefined;
-
-	const measure = () => {
-		const scene = root.getBoundingClientRect();
-		const box = column?.isConnected ? column.getBoundingClientRect() : null;
-		follower.measure(
-			box && box.width > 0 ? {left: box.left - scene.left, width: box.width} : null,
-			{
-				width: scene.width,
-				rem: parseFloat(getComputedStyle(document.documentElement).fontSize) || 16,
-				yurtWidth: parseFloat(getComputedStyle(yurt).width) || 0,
-			}
-		);
-	};
-
-	// The column and the scene itself: the theme switch mounts the scene
-	// before ps.css applies, while #theme-scene is still display: none and
-	// measures 0 × 0 (the column's first observation then places nothing), and
-	// its display fires an observation of its own; so does the window
-	// narrowing with no column, which clamps the kept place again.
-	const observer = new ResizeObserver(() => {
-		measure();
-
-		if (!column?.isConnected) {
-			findSoon(); // it left the page; its replacement, if any, is there by the next frame
-		}
-	});
-
-	observer.observe(root);
-
-	function find() {
-		const found = document.querySelector("#chat .chat");
-
-		if (found === column) {
-			return;
-		}
-
-		if (column) {
-			observer.unobserve(column);
-		}
-
-		column = found;
-
-		if (column) {
-			observer.observe(column); // its first observation measures it
-		}
-	}
-
-	// Also on the next frame: the host's update comes before Vue has patched
-	// the page, and a ResizeObserver callback must not start observing itself.
-	function findSoon() {
-		if (frame === undefined) {
-			frame = window.requestAnimationFrame(() => {
-				frame = undefined;
-				find();
-			});
-		}
-	}
-
-	return {
-		seen: () => follower.seen(),
-		refind() {
-			find();
-			findSoon();
-		},
-		destroy() {
-			observer.disconnect();
-			follower.stop();
-
-			if (frame !== undefined) {
-				window.cancelAnimationFrame(frame);
-				frame = undefined;
-			}
-
-			root.classList.remove("ps-yurt-moving");
-		},
-	};
-}
-
-/**
  * Marks <html> `ps-form-tall` while the composer's top edge stands above the
  * near grass (glass.ts composerAboveGrass), so ps.css gives it the float tint
  * (the controller's ruling, task 7b fix round 1). One ResizeObserver
@@ -169,7 +54,7 @@ export function placeYurt(root: HTMLElement): {seen(): void; refind(): void; des
  * its display then fires an observation. A new #form also rises into place
  * (ps.css ps-rise: 8 px, a transform no observer sees), so the end of its
  * own animation checks again. Each check reads both boxes afresh, as
- * placeYurt's measure does; the window's resize checks too. #form is looked
+ * the window's resize checks too. #form is looked
  * for again on every host update and whenever the one observed leaves the
  * page; with none on the page (the connect form) there is no class.
  */
@@ -250,7 +135,7 @@ export function watchComposer(
 		}
 	}
 
-	// Also on the next frame, as placeYurt does: the host's update comes before Vue has patched the page.
+	// Also on the next frame: the host's update comes before Vue has patched the page.
 	function findSoon() {
 		if (frame === undefined) {
 			frame = window.requestAnimationFrame(() => {

@@ -1376,28 +1376,31 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	100% { opacity: 0; }
 }
 
-/* The yurt (plains.ts `yurtSvg`) on the ground band, centred on the place
- * watchers.ts placeYurt measures in the message column's far third (--ps-yurt-left; 70 %
- * of the scene before any column was measured). Both keep the whole yurt on
- * screen: yurt.ts clamps the measured place, and the default is clamped here
- * by half the yurt's width (it is 21cqh tall and 240/170 as wide). It never
- * slides: nothing here may transition or animate its place. A large move
- * fades it out (ps-yurt-moving), jumps it while unseen and fades it back in;
- * the fade is a hair shorter than watchers.ts's 0.4 s wait, so the jump is never
- * seen. */
-#theme-scene .ps-yurt {
+/* The yurt (plains.ts `yurtSvg`) on the ground band, its centre 22 % of the
+ * scene's width in from the message column's far end: the scene's edge, or
+ * the user list's inner edge while a channel shows it (--ps-yurt-in), so a
+ * sidebar opening or closing never moves it. Clamped so the whole yurt stays
+ * on screen (it is 21cqh tall and 240/170 as wide). It never slides: nothing
+ * here may transition or animate its place, and a move is a cut. */
+#theme-scene .ps-yurt,
+#theme-scene .ps-smoke {
 	/* stylelint-disable-next-line unit-no-unknown -- cqh: #theme-scene is a size container; stylelint predates it */
-	left: var(--ps-yurt-left, clamp(calc(21cqh * 120 / 170), 70%, calc(100% - 21cqh * 120 / 170)));
+	--ps-yurt-half: calc(21cqh * 120 / 170);
+	/* stylelint-disable-next-line unit-no-unknown -- cqw, as above */
+	--ps-yurt-x: clamp(var(--ps-yurt-half), calc(100% - var(--ps-yurt-in, 0px) - 22cqw), calc(100% - var(--ps-yurt-half)));
+}
+
+html:has(.userlist-open .chat-view[data-type="channel"]) #theme-scene .ps-yurt,
+html:has(.userlist-open .chat-view[data-type="channel"]) #theme-scene .ps-smoke {
+	--ps-yurt-in: var(--userlist-width);
+}
+
+#theme-scene .ps-yurt {
+	left: var(--ps-yurt-x);
 	bottom: 17%;
 	height: 21%;
 	aspect-ratio: 240 / 170;
 	transform: translateX(-50%);
-	transition: opacity 0.38s ease;
-}
-
-#theme-scene.ps-yurt-moving .ps-yurt,
-#theme-scene.ps-yurt-moving .ps-smoke {
-	opacity: 0;
 }
 
 #theme-scene .ps-yurt svg {
@@ -1451,13 +1454,11 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
  * wherever the yurt goes and fades with it. Inside the ground group, so the
  * heat haze bends it with the yurt. */
 #theme-scene .ps-smoke {
-	/* stylelint-disable-next-line unit-no-unknown -- cqh, as the yurt's */
-	left: var(--ps-yurt-left, clamp(calc(21cqh * 120 / 170), 70%, calc(100% - 21cqh * 120 / 170)));
+	left: var(--ps-yurt-x);
 	bottom: calc(17% + 21% * 148 / 170);
 	width: 0;
 	height: 0;
 	opacity: var(--ps-smoke-op, 0);
-	transition: opacity 0.38s ease;
 }
 
 #theme-scene .ps-smoke i {
