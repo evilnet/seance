@@ -244,7 +244,14 @@ function notifyMessage(
 						body,
 						sound: !sound.silentNotification,
 						message: wire,
-					}).catch(() => undefined);
+					})
+						.catch(() => false)
+						.then((shown) => {
+							// Notifications refused: the page's ping, as before the OS took it.
+							if (!shown && store.state.settings.notification) {
+								void playNotificationSound().catch(() => undefined);
+							}
+						});
 					return true;
 				}
 

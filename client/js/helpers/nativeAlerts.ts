@@ -84,9 +84,10 @@ export function iosAlertId(network: string, target: string): number {
 	return hash >>> 1 || 1;
 }
 
-export async function showNativeAlert(alert: NativeAlert): Promise<void> {
+/** Hand `alert` to the OS; false when it was not shown (the permission refused or undecided). */
+export async function showNativeAlert(alert: NativeAlert): Promise<boolean> {
 	if ((await askNativeAlertPermission()) !== true) {
-		return;
+		return false;
 	}
 
 	if (isAndroidShell()) {
@@ -96,7 +97,7 @@ export async function showNativeAlert(alert: NativeAlert): Promise<void> {
 			...alert.message,
 			silent: !alert.sound,
 		});
-		return;
+		return true;
 	}
 
 	await nativeCall("LocalNotifications", "schedule", {
@@ -110,6 +111,7 @@ export async function showNativeAlert(alert: NativeAlert): Promise<void> {
 			},
 		],
 	});
+	return true;
 }
 
 /** The conversation was read: its iOS alert goes. */
