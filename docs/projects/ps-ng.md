@@ -396,25 +396,26 @@ After the gate (the user's "2"), a diagnostic job on the skeins alone at dusk (r
 
 ## 11. Plan 5: calm in budget, cheaper skeins (designed 2026-10-17)
 
-The user's picks after §8.3 and §10.6: calm moves **one group, the clouds**; the skeins' wings become **strips** and their per-bird wander gives way to **the skein's own sway**. Full keeps every other group as it is. Android by day (§8.3) is out of scope until there is a real Android phone to measure.
+The user's picks after §8.3 and §10.6: calm moves **one group, the clouds**; the skeins' wings become **strips** and their per-bird wander gives way to **the skein's own sway**. Full keeps every other group as it is. Android by day (§8.3) is out of scope until there is a real Android phone to measure. Red-teamed by a ponytail review (2026-10-17; Codex skipped this round by the user): measure once at the gate, a smaller strip, and the places the change reaches.
 
 ### 11.1 Calm
 
-Calm's page work is already small (0.3 at noon, §10.6); its cost is Core Animation's, 15–25 per moving group (§8.3), and calm moves four. So calm becomes the clouds alone: `psng/groups.ts`'s calm set is `clouds`, and smoke, the weather, the sun's spin and the skeins stand at their still look in calm, as they do in the still tier. §6's calm row reads "clouds; everything else still" once it lands.
+Calm's page work is already small (0.3 at noon, §10.6); its cost is Core Animation's, 15–25 per moving group (§8.3), and calm moves four. So calm becomes the clouds alone: `psng/groups.ts`'s `CALM` is `["clouds"]`, and smoke, the weather, the sun's spin and the skeins stand at their still look in calm, as they do in the still tier. On a wet day that means no rain, snow or lightning in calm — the wet weather's own clouds move, nothing falls (the user: "OK, clouds only"). The `psng-calm` class stays: the Auto checks read it as the tier's marker.
 
-Measured first: the clouds alone at noon (§8.3's ladder read 25.6, n = 1), 2 rounds on the iPhone. If they read over 24, the clouds are made cheaper in calm (fewer of them, or a slower drift), not swapped for another group.
+If the clouds alone read over 24 at the gate (§8.3's ladder read 25.6, n = 1), calm gets fewer clouds; the drift's speed is not a lever, since the cost is per composited frame.
 
 ### 11.2 The skeins
 
-The skeins alone cost 29 WebContent (§10.6): about 19 is the wings (38 birds × 4 pose copies swapped by `opacity`, about 150 animations) and about 15 the 38 per-bird wanders (`ps-bird-wander`), more together than apart.
+The skeins alone cost 29 WebContent (§10.6): about 19 is the wings (38 birds × 4 pose copies swapped by `opacity`, about 150 animations) and about 15 the 38 per-bird wanders (`ps-bird-wander`), more together than apart; without the wander they read 13.6 (§10.6).
 
-- **Wing strips.** Each bird's four pose copies become one `<svg>` holding the four poses side by side, inside a clip box one pose wide; one `translateX` loop with discrete holds steps through them (`transform` only), each bird keeping its own delay so the birds flap out of step. 38 animations in place of about 150. The cranes still never glide (§9).
-- **No per-bird wander.** The birds hold their places in the V; `ps-skein-sway` (the whole formation rising, sinking and leaning) is the skein's only motion besides its flight.
+- **Wing strips.** `poseStack`'s four pose boxes stay as they are (`--pi` on each), laid side by side in one wrapper inside a clip box one pose wide (`left: calc(var(--pi) * 100%)`), and one `translateX` loop on the wrapper steps through them with discrete holds in its keyframes — never `steps()`, which WebKit runs on the main thread (§2) — over `POSE_BEATS` beats per iteration as the pose loop does, each bird keeping its own delay so the birds flap out of step. The animation stays outside the `<svg>` (the census forbids motion inside one). 38 animations in place of about 150. Two poses are not a cheaper lever: calm's two-copy skeins read 57.2 against the four's 34.0 (§10.5). The cranes still never glide (§9).
+- **No per-bird wander.** `ps-bird-wander`'s animation and keyframes and NG's rules for it go; the birds hold their places in the V and `ps-skein-sway` is the skein's motion besides its flight. `birds.ts` keeps drawing `--wx`/`--wy`/`--wd`/`--wdl` from its seeded stream (dead values; dropping the draws would reshape every V).
 
-Measured first, on a throwaway harness build (`tmp/perf/ng2`, `x=` switches as in plan 4): `skeins` against `x=strip`, `x=nowander` and both, at dusk, 2 rounds. The strip is untested on iOS and plan 4's opacity reading went against its prediction (§10.5), so if the strip does not beat the pose stack, the stack stays and only the wander change ships.
+The strip ships behind a harness switch (`x=strip`, plan 4's `x=` table) so the gate compares it with the pose stack in one build; if it does not beat the stack, the stack stays and only the wander's removal ships.
 
 ### 11.3 The gate and the tests
 
-- iPhone, one job of plan 3's moments plus the skeins alone: **calm ≤ 24 at noon, night, storm and dusk** (gated); the skeins alone at ≤ 5 WebContent and full at night and dusk below §10.6's 88.5 and 92.2 (reported).
-- Mocha: the strip markup (the pose stack's replacement in `psng/poses.ts`) and calm's group set (`test/scenes/psng/`).
-- `tools/scenarios/ps-ng.mjs`: the censuses take the strip's keyframes and calm's single group (calm against full at the same moment is clouds only).
+- iPhone, one job of 2 rounds (5 slots, about 25 minutes): calm noon and calm storm (**≤ 24, gated**; night and dusk move the same clouds as noon, storm adds the wet weather's four), the skeins alone with the pose stack and with `x=strip` (≤ 5 WebContent, reported), and full at dusk (below §10.6's 92.2, reported).
+- Mocha: the strip's wrapper (`test/scenes/psng/poses.ts`), calm's group set (`test/scenes/psng/groups.ts`), the wander's rules gone (`test/scenes/psng/styles.ts`, `test/scenes/ps/birds.ts` keeps its pinned values).
+- `tools/scenarios/ps-ng.mjs`: `CALM_GROUPS`, the strip's keyframe name in the known list, the dead calm pose and seed mapping out, the wander's checks out, its header.
+- Words: the Scene animation setting's Calm description (`Settings/Appearance.vue`), §6's calm row, the CLAUDE.md ps NG bullet.
