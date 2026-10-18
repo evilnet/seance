@@ -282,7 +282,6 @@ const GROUP_OF = {
 	"ps-skein-fly": "skeins",
 	"ps-skein-west": "skeins",
 	"ps-skein-sway": "skeins",
-	"ps-bird-wander": "skeins",
 	"psng-pose4": "skeins",
 	"psng-pose2": "daybirds",
 	"ps-buzz-drift": "daybirds",

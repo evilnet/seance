@@ -11,6 +11,12 @@ const rules = [
 ].map((m) => [m[1].trim(), m[2]] as const);
 
 describe("ps NG stylesheet (psng/styles.ts)", function () {
+	it("no bird wanders: NG has no animation rule of its own on .ps-bird", function () {
+		expect(NG_STILL_CSS).not.to.contain("ps-bird-wander");
+		expect(NG_STILL_CSS).not.to.match(/\.ps-bird \{[^}]*animation/);
+		expect(NG_STILL_CSS).not.to.match(/\.ps-bird[,)]/);
+	});
+
 	it("calm keeps no rules of its own for the seeds or the birds (calm is the clouds alone)", function () {
 		expect(NG_STILL_CSS).not.to.contain("psng-calm .ps-seeds");
 		expect(NG_STILL_CSS).not.to.contain("psng-calm .ps-bird");
@@ -114,7 +120,6 @@ describe("ps NG stylesheet (psng/styles.ts)", function () {
 		const parts: Array<[string, string]> = [
 			["skeins", ".ps-flock"],
 			["skeins", ".ps-skein-sway"],
-			["skeins", ".ps-bird"],
 			["skeins", ".psng-pose"],
 			["daybirds", ".ps-buzzard"],
 			["daybirds", ".psng-buzz-orbit"],

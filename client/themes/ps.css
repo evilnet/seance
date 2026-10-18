@@ -1595,14 +1595,10 @@ html:has(.userlist-open .chat-view[data-type="channel"]) #theme-scene .ps-smoke 
 	to { transform: translateY(0.375rem) rotate(1.2deg); }
 }
 
-/* And each bird drifts about its place in the line. */
+/* Each bird holds its place in the line; the skein's sway moves them
+ * together (ps NG plan 5: 38 wanders cost the iPhone about 15 % of a core). */
 #theme-scene .ps-bird {
 	position: absolute;
-	animation: ps-bird-wander var(--wd) ease-in-out var(--wdl) infinite alternate;
-}
-
-@keyframes ps-bird-wander {
-	to { transform: translate(var(--wx), var(--wy)); }
 }
 
 /* The fills are opaque and the bird's alpha is on the whole drawing, so a

@@ -52,7 +52,7 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 
 /* Every animation off but the lifted groups' own (ps NG plan 2, Tasks 3 and 4); the rules below still
  * each of those while its psng-m-<group> class is absent. The sun's rays are exempt too (Task 6); g.ps-sway stays still for good (the wrapper sways). */
-#theme-scene.psng *:not(.ps-cloud, .ps-stars i.tw, .ps-fireflies i, .ps-smoke i, .psng-sway, .psng-rain-tile, .ps-snow i, .ps-seeds i, .ps-flash, .ps-heatband, .ps-rays, .ps-flock, .ps-skein-sway, .ps-bird, .psng-pose, .ps-buzzard, .psng-buzz-orbit, .psng-buzz-flap, .ps-lark-track, .psng-lark-fl, .psng-lark-ch, .psng-lark-cl) {
+#theme-scene.psng *:not(.ps-cloud, .ps-stars i.tw, .ps-fireflies i, .ps-smoke i, .psng-sway, .psng-rain-tile, .ps-snow i, .ps-seeds i, .ps-flash, .ps-heatband, .ps-rays, .ps-flock, .ps-skein-sway, .psng-pose, .ps-buzzard, .psng-buzz-orbit, .psng-buzz-flap, .ps-lark-track, .psng-lark-fl, .psng-lark-ch, .psng-lark-cl) {
 	animation: none !important;
 }
 
@@ -115,7 +115,6 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 #theme-scene.psng:not(.psng-m-sun) .ps-rays,
 #theme-scene.psng:not(.psng-m-skeins) .ps-flock,
 #theme-scene.psng:not(.psng-m-skeins) .ps-skein-sway,
-#theme-scene.psng:not(.psng-m-skeins) .ps-bird,
 #theme-scene.psng:not(.psng-m-skeins) .ps-bird .psng-pose,
 #theme-scene.psng:not(.psng-m-daybirds) .ps-buzzard,
 #theme-scene.psng:not(.psng-m-daybirds) .psng-buzz-orbit,
@@ -223,7 +222,7 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 }
 
 /* ---- the birds (ps NG plan 2, Task 5) ----
- * The flocks' flight, the skeins' sway, each bird's wander, the buzzard's drift and the larks' song
+ * The flocks' flight, the skeins' sway, the buzzard's drift and the larks' song
  * flights and wing sets are classic's own animations, in phase (each delay rule names its own
  * element: --sdl is the smoke's and the seeds' too). The wingbeats are poses.ts's stacks: one copy
  * of the bird per pose, each shown by opacity for its share of the beat, a hard swap on linear
@@ -235,10 +234,6 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 
 #theme-scene.psng.psng-m-skeins .ps-skein-sway {
 	animation-delay: calc(var(--sdl) - var(--psng-t));
-}
-
-#theme-scene.psng.psng-m-skeins .ps-bird {
-	animation-delay: calc(var(--wdl) - var(--psng-t));
 }
 
 /* The larks' state boxes (poses.ts larkStates) are placed as a pose is, so the chute and the closed

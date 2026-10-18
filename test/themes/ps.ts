@@ -3419,7 +3419,6 @@ describe("the ps theme's birds (plan 3 task 6, spec §5.4: the user's N2, D1 buz
 		"ps-skein-fly",
 		"ps-skein-west",
 		"ps-skein-sway",
-		"ps-bird-wander",
 		"ps-buzz-drift",
 		"ps-lark-fly",
 		"ps-lark-fl",
@@ -3497,9 +3496,9 @@ describe("the ps theme's birds (plan 3 task 6, spec §5.4: the user's N2, D1 buz
 		expect(valueOf(`${S} .ps-bird .ps-b-far`, "opacity")).to.equal("0.55");
 		expect(valueOf(`${S} .ps-bird .ps-b-near`, "fill")).to.equal("var(--ps-bird-wing)");
 		expect(valueOf(`${S} .ps-bird .ps-b-body`, "fill")).to.equal('url("#ps-b-belly")');
-		expect(valueOf(`${S} .ps-bird`, "animation")).to.equal(
-			"ps-bird-wander var(--wd) ease-in-out var(--wdl) infinite alternate"
-		);
+		// Plan 5: a bird holds its place in the V; the skein's sway moves them together.
+		expect(valueOf(`${S} .ps-bird`, "animation")).to.equal(undefined);
+		expect(css).not.to.contain("ps-bird-wander");
 	});
 
 	it("inks the day birds from --ps-db-ink, each shown by its own published switch", function () {
