@@ -85,12 +85,10 @@
 // WebKit runs those on the main thread); the groups the moment is about are running; and, where
 // the sun is up, NG's chunk requests animation frames (the fire, at 24 a
 // second) — the positive control for the zero counts below.
-// Calm: the root carries `psng-calm` and calm's five classes (clouds, smoke,
-// weather, skeins, sun), and the set of group:animationName pairs running is
-// exactly the full set at the same moment and mount narrowed to calm's groups,
-// with the skeins' `psng-pose4` as `psng-pose2` and the seeds (`ps-seed`)
-// gone — so the gates of the moment decide both; and NG's chunk requests no
-// frame over 1 s (the fire keeps the one frame it painted).
+// Calm (plan 5): the root carries `psng-calm` and the clouds' class alone, the
+// set of group:animationName pairs running is exactly the full set at the same
+// moment and mount narrowed to the clouds, nothing falls (rain, snow, seeds and
+// flash out of the page), and NG's chunk requests no frame over 1 s.
 // The STILL census: `getAnimations({subtree: true})` is empty, no group
 // class, no SMIL, NG's chunk requests no animation frame over 1 s, and every
 // in-flight layer in the page (.ps-skeins, .ps-daybirds, .ps-rain, .ps-snow,
@@ -286,7 +284,7 @@ const GROUP_OF = {
 	"ps-skein-sway": "skeins",
 	"ps-bird-wander": "skeins",
 	"psng-pose4": "skeins",
-	"psng-pose2": "skeins",
+	"psng-pose2": "daybirds",
 	"ps-buzz-drift": "daybirds",
 	"psng-buzz-orbit": "daybirds",
 	"psng-buzz-flap": "daybirds",
@@ -297,7 +295,7 @@ const GROUP_OF = {
 	"ps-spin": "sun",
 };
 const ALL_GROUPS = [...new Set(Object.values(GROUP_OF))];
-const CALM_GROUPS = ["clouds", "smoke", "weather", "skeins", "sun"];
+const CALM_GROUPS = ["clouds"];
 
 /** Every animation under the scene: its group:name, the keyframes' properties, the boxes over the viewport. */
 const CENSUS = `(() => {
@@ -536,15 +534,11 @@ async function calmCensus(page, label, full) {
 	const c = await page.evaluate(CENSUS);
 	const frames = await page.evaluate(NG_FRAMES);
 	const want = [
-		...new Set(
-			Object.keys(full.keys)
-				.filter((k) => CALM_GROUPS.includes(k.split(":")[0]) && k !== "weather:ps-seed")
-				.map((k) => (k === "skeins:psng-pose4" ? "skeins:psng-pose2" : k))
-		),
+		...new Set(Object.keys(full.keys).filter((k) => CALM_GROUPS.includes(k.split(":")[0]))),
 	].sort();
 	const got = Object.keys(c.keys).sort();
 	page.check(
-		`${label}: calm — psng-calm and calm's five classes (${c.classes.join(" ")})`,
+		`${label}: calm — psng-calm and the clouds' class (${c.classes.join(" ")})`,
 		sameSet(c.classes, ["psng-calm", ...CALM_GROUPS.map((g) => `psng-m-${g}`)])
 	);
 	page.check(
@@ -558,6 +552,15 @@ async function calmCensus(page, label, full) {
 		c.props.every((p) => p === "transform" || p === "opacity") &&
 			c.over.length === 0 &&
 			frames === 0
+	);
+	const falling =
+		await page.evaluate(`[".ps-rain", ".ps-snow", ".ps-seeds", ".ps-flash"].filter((sel) =>
+		[...document.querySelectorAll("#theme-scene " + sel)].some((el) => getComputedStyle(el).display !== "none"))`);
+	page.check(
+		`${label}: calm — nothing falls: rain, snow, seeds and flash out of the page (${
+			falling.join(" ") || "none in"
+		})`,
+		falling.length === 0
 	);
 	await setMotion(page, "full");
 }

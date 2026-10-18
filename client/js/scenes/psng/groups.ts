@@ -24,7 +24,7 @@ export const GROUPS: readonly Group[] = [
 	"sun",
 ];
 
-const CALM: readonly Group[] = ["clouds", "smoke", "weather", "skeins", "sun"];
+const CALM: readonly Group[] = ["clouds"];
 
 /** The groups that run in a tier, narrowed to `only` when given (the phone ladder). */
 export function groupsFor(tier: Tier, only?: ReadonlySet<Group>): Set<Group> {

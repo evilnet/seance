@@ -130,11 +130,11 @@ Spike 2 (2026-10-16, `ps-ng-plan-1.md` § What spike 2 decided; Chrome desktop a
 
 ## 6. Tiers
 
-| Tier  | Moves                                                                                                                                                     | iPhone budget |
-| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| full  | everything in §4                                                                                                                                          | ≤ 30          |
-| calm  | clouds, weather (rain, snow, lightning), smoke, skeins with wings on two poses; still: stars, fireflies (glowing, in place), seeds, larks, buzzard, grass | ≤ 24          |
-| still | nothing: no animation object exists (plan 2: `animation: none`, and each loop resumes at its phase through `--psng-t`, §9)                                | ≤ 3           |
+| Tier  | Moves                                                                                                                      | iPhone budget |
+| ----- | -------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| full  | everything in §4                                                                                                           | ≤ 30          |
+| calm  | clouds; everything else still (plan 5, §11.1)                                                                              | ≤ 24          |
+| still | nothing: no animation object exists (plan 2: `animation: none`, and each loop resumes at its phase through `--psng-t`, §9) | ≤ 3           |
 
 Plan 1's whole scene is the still tier: it creates no animation object, SMIL clock or stepper (the census in §7 holds it), and costs 1.1–1.4 on the iPhone (§8.1). `pause()` does not make a scene still on iOS — a paused animation is still Core Animation work in backboardd (19.1 against 1.1, §8.1) — so plan 2 stills with `animation: none`, and with `cancel()` wherever it creates animations itself.
 

@@ -11,6 +11,11 @@ const rules = [
 ].map((m) => [m[1].trim(), m[2]] as const);
 
 describe("ps NG stylesheet (psng/styles.ts)", function () {
+	it("calm keeps no rules of its own for the seeds or the birds (calm is the clouds alone)", function () {
+		expect(NG_STILL_CSS).not.to.contain("psng-calm .ps-seeds");
+		expect(NG_STILL_CSS).not.to.contain("psng-calm .ps-bird");
+	});
+
 	for (const group of [
 		"clouds",
 		"stars",
@@ -54,7 +59,7 @@ describe("ps NG stylesheet (psng/styles.ts)", function () {
 		]);
 	});
 
-	it("the weather: every kind in flight lifted, out of the page without its class, the seeds out in calm", function () {
+	it("the weather: every kind in flight lifted, out of the page without its class", function () {
 		const lifted = (what: string) =>
 			rules.some(
 				([sel, body]) =>
@@ -93,11 +98,6 @@ describe("ps NG stylesheet (psng/styles.ts)", function () {
 			);
 		}
 
-		expect(hidden("#theme-scene.psng.psng-calm .ps-seeds"), "calm: seeds out").to.equal(true);
-		expect(rules).to.deep.include([
-			"#theme-scene.psng.psng-calm .ps-seeds i",
-			"\n\tanimation: none !important;\n",
-		]);
 		expect(NG_STILL_CSS, "the tiles fall one tile height").to.match(
 			/@keyframes psng-rain-fall \{[\s\S]*?to \{\s*transform: translateY\(100%\);/
 		);

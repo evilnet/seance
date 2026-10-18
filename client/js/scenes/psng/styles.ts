@@ -67,14 +67,13 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 }
 
 /* What exists only in flight is out of the page while it is still: the weather's (the flash too, so
- * it is never caught lit) without psng-m-weather, and the seeds in calm, which keeps them still. */
+ * it is never caught lit) without psng-m-weather. */
 #theme-scene.psng:not(.psng-m-skeins) .ps-skeins,
 #theme-scene.psng:not(.psng-m-daybirds) .ps-daybirds,
 #theme-scene.psng:not(.psng-m-weather) .ps-rain,
 #theme-scene.psng:not(.psng-m-weather) .ps-snow,
 #theme-scene.psng:not(.psng-m-weather) .ps-seeds,
 #theme-scene.psng:not(.psng-m-weather) .ps-flash,
-#theme-scene.psng.psng-calm .ps-seeds,
 #theme-scene.psng:not(.psng-m-smoke) .ps-smoke {
 	display: none;
 }
@@ -126,10 +125,6 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 #theme-scene.psng:not(.psng-m-daybirds) .ps-lark .psng-lark-ch,
 #theme-scene.psng:not(.psng-m-daybirds) .ps-lark .psng-lark-cl,
 #theme-scene.psng:not(.psng-m-daybirds) .ps-lark .psng-pose {
-	animation: none !important;
-}
-
-#theme-scene.psng.psng-calm .ps-seeds i {
 	animation: none !important;
 }
 
@@ -263,17 +258,6 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 #theme-scene.psng.psng-m-skeins .ps-bird .psng-pose {
 	animation: psng-pose4 calc(var(--wdur) * ${POSE_BEATS}) linear infinite;
 	animation-delay: calc(var(--wbegin) - var(--psng-t) + (var(--pf) - 1) * var(--wdur));
-}
-
-/* Calm: up and down alone, each half the beat. */
-#theme-scene.psng.psng-m-skeins.psng-calm .ps-bird .psng-pose {
-	animation-name: psng-pose2;
-}
-
-#theme-scene.psng.psng-calm .ps-bird .psng-pose-1,
-#theme-scene.psng.psng-calm .ps-bird .psng-pose-3 {
-	animation: none !important;
-	opacity: 0;
 }
 
 #theme-scene.psng.psng-m-daybirds .ps-lark .psng-pose {

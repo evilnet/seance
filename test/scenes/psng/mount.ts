@@ -391,7 +391,7 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 				(n) => n.startsWith("psng-m-") || n === "psng-calm"
 			);
 		const all = GROUPS.map((g) => `psng-m-${g}`).sort();
-		const calm = ["clouds", "smoke", "weather", "skeins", "sun"].map((g) => `psng-m-${g}`);
+		const calm = ["psng-m-clouds"];
 
 		// systemAccessibility() follows the first window it is given for good.
 		let following = false;
@@ -446,7 +446,7 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 			});
 		});
 
-		it("calm: its five and psng-calm; destroy removes every class", function () {
+		it("calm: the clouds and psng-calm; destroy removes every class", function () {
 			withPage(new Date(2026, 5, 21, 12, 0), (page) => {
 				follow(page);
 				const scene = mountOn(page, {motion: "calm"});

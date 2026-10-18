@@ -4,11 +4,9 @@ import {GROUPS, groupOverride, groupsFor, type Group} from "../../../client/js/s
 const store = (value: string | null) => ({get: () => value});
 
 describe("ps NG groups (psng/groups.ts)", function () {
-	it("full runs every group, calm five, still none", function () {
+	it("full runs every group, calm the clouds, still none", function () {
 		expect([...groupsFor("full")].sort()).to.deep.equal([...GROUPS].sort());
-		expect([...groupsFor("calm")].sort()).to.deep.equal(
-			["clouds", "smoke", "weather", "skeins", "sun"].sort()
-		);
+		expect([...groupsFor("calm")]).to.deep.equal(["clouds"]);
 		expect(groupsFor("still").size).to.equal(0);
 	});
 
@@ -21,6 +19,7 @@ describe("ps NG groups (psng/groups.ts)", function () {
 
 	it("`only` cannot add a group the tier lacks", function () {
 		expect(groupsFor("calm", new Set<Group>(["stars"])).size).to.equal(0);
+		expect(groupsFor("calm", new Set<Group>(["smoke", "weather"])).size).to.equal(0);
 	});
 
 	it("groupOverride reads names, ignores unknown ones, and is undefined when unset", function () {
