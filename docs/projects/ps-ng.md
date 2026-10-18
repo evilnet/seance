@@ -419,3 +419,21 @@ The strip ships behind a harness switch (`x=strip`, plan 4's `x=` table) so the 
 - Mocha: the strip's wrapper (`test/scenes/psng/poses.ts`), calm's group set (`test/scenes/psng/groups.ts`), the wander's rules gone (`test/scenes/psng/styles.ts`, `test/scenes/ps/birds.ts` keeps its pinned values).
 - `tools/scenarios/ps-ng.mjs`: `CALM_GROUPS`, the strip's keyframe name in the known list, the dead calm pose and seed mapping out, the wander's checks out, its header.
 - Words: the Scene animation setting's Calm description (`Settings/Appearance.vue`), §6's calm row, the CLAUDE.md ps NG bullet.
+
+### 11.4 The gate (2026-10-18, failed: calm over 24, the strip no better, the skeins worse)
+
+iPhone 16, Safari, USB, rid `ios2-1792334245000`, `SHORT=gate5`, build `65bf63c7` (calm = the clouds, no wander, the strips), 2 rounds, every slot n = 2, host load 5–16 (waived). Sum of WebContent + GPU + backboardd as % of one core, both readings per slot (WebContent in brackets); §10.6 beside it.
+
+| slot                        | readings           | §10.6       |
+| --------------------------- | ------------------ | ----------- |
+| calm noon (≤ 24)            | 30.3, 27.8 (0.3)   | 31.6        |
+| calm storm (≤ 24)           | 36.2, 36.0 (0.2)   | 43.4        |
+| skeins alone, strips        | 64.9, 69.3 (42–44) | 69.5 (34.0) |
+| skeins alone, opacity stack | 75.6, 68.1 (41–43) | —           |
+| full dusk                   | 144.1, 143.6 (106) | 92.2 (40.8) |
+
+Still 1.1–2.5, coffee 1.0–1.9.
+
+- **Calm fails ≤ 24.** The clouds alone cost 28–30 at noon, all of it backboardd (WebContent 0.3), and 36 in a storm; one moving group already sits past the budget (§8.3, §10.6). Taking the other three groups out lowered calm by only 2–7. The spec's fallback is fewer clouds in calm: the user's call.
+- **The strip does not beat the stack.** 42–44 WebContent against 41–43 with the opacity stack back (`x=stack`, no wander either), so 38 animations instead of 152 bought nothing, and per §11.2 only the wander's removal was to ship.
+- **Both are worse than before, which the change should not do.** The skeins alone read 42 WebContent with the wander gone, against 28.4 in §10.6 with it; full dusk reads 106 WebContent against 40.8. Something in this build costs the page about 60 points at dusk. The suspect is `#theme-scene.psng .ps-bird { overflow: clip visible }`, which both variants carry on 38 birds; unmeasured.
