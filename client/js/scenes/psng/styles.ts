@@ -127,6 +127,13 @@ export const NG_STILL_CSS = `/* ==== STILL_RULES (ps NG plan 1, Task 1, rung \`n
 	animation: none !important;
 }
 
+/* Calm shows two of the sky's five clouds and none of the wet weather's: the compositor pays for every
+ * moving cloud (ps NG plan 5, spec §11.4), and calm's budget is the clouds' alone. */
+#theme-scene.psng.psng-calm .ps-cloud-field > .ps-cloud:nth-child(n + 4),
+#theme-scene.psng.psng-calm .ps-cloud:not(.ps-cloud-field > .ps-cloud) {
+	display: none;
+}
+
 #theme-scene.psng.psng-m-clouds .ps-cloud {
 	animation-delay: calc(var(--cdl) - var(--psng-t));
 }
