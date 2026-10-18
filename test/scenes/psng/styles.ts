@@ -259,6 +259,11 @@ describe("ps NG stylesheet (psng/styles.ts)", function () {
 		expect(NG_STILL_CSS).to.not.match(/steps\(/);
 	});
 
+	it("calm shows two of the sky's clouds and none of the wet weather's", function () {
+		expect(NG_STILL_CSS).to.contain(".psng-calm .ps-cloud-field > .ps-cloud:nth-child(n + 4)");
+		expect(NG_STILL_CSS).to.contain(".psng-calm .ps-cloud:not(.ps-cloud-field > .ps-cloud)");
+	});
+
 	it("never the glass, never a media query", function () {
 		expect(NG_STILL_CSS).to.not.match(
 			/backdrop-filter|#sidebar|#form|\.header|\.userlist|@media/

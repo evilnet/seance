@@ -1,5 +1,7 @@
 # ps NG plan 5: calm in budget, cheaper skeins — Implementation Plan
 
+> **Outcome (2026-10-18):** Task 3's wing strips were reverted after the iPhone gate (spec §11.4); the rest shipped, with calm cut to two sky clouds.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Calm moves the clouds alone; the skeins lose their per-bird wander and fly on wing strips; one iPhone gate decides whether the strip stays.
@@ -26,7 +28,7 @@
 1. **A still scene's bird** (reduced motion, Still, a query, a hidden page): the strip at rest shows pose 0 and only pose 0 — not three neighbours poking out of the clip, not a blank box. Pinned in Task 3 (`ps-ng.mjs` still census: each `.ps-bird`'s visible pose box is `psng-pose-0`).
 2. **A rest and its resume** (freeze pins the running transform inline): a frozen strip holds one whole pose, and thawing resumes at the clock's phase. Pinned in Task 3 (the existing freeze/thaw check covers `.psng-strip` once it is in `GROUP_OF`).
 3. **The larks by day** are unchanged: still pose stacks, `psng-pose2`, under `psng-m-daybirds`. Pinned in Task 1 (`GROUP_OF`) and Task 3 (the `ngBirds` count test).
-4. **Calm on a wet day** (a phone, storm): the wet weather's clouds move, no rain, snow, seeds or flash in the page. Pinned in Task 1 (calm census at the storm moment).
+4. **Calm on a wet day** (a phone, storm): calm shows two sky clouds and no wet-weather clouds, no rain, snow, seeds or flash in the page. Pinned in Task 1 (calm census at the storm moment).
 5. **A stored `thelounge.state.psngGroups`** naming groups calm no longer has (e.g. `smoke`): calm runs nothing, not smoke. Pinned by the existing "`only` cannot add a group the tier lacks" test, extended in Task 1.
 
 ---

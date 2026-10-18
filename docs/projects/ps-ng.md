@@ -1,6 +1,6 @@
 # ps NG — the ps scene, rebuilt to be cheap
 
-Status: **NG is the ps scene; classic deleted 2026-10-17; plan 5 (calm in budget, cheaper skeins) designed, §11** (decision 8, done on the user's go with the iPhone budgets still unmet, §8.3, §10.6). Plan 1 (the still scene) and plan 2 (motion) were built 2026-10-16 (§8.1, §9.7), plan 4 (the birds and the sun) 2026-10-17 (§10); plan 3's three-platform gate is §8.3. The design below was approved 2026-10-16; spike 2 (`ps-ng-plan-1.md` § What spike 2 decided) replaced its backdrop and its glass, and the sections say where.
+Status: **NG is the ps scene; classic deleted 2026-10-17; plan 5 (calm in budget, the skeins without the wander) built 2026-10-18, gate passed, §11.4** (decision 8, done on the user's go with the iPhone budgets still unmet, §8.3, §10.6). Plan 1 (the still scene) and plan 2 (motion) were built 2026-10-16 (§8.1, §9.7), plan 4 (the birds and the sun) 2026-10-17 (§10); plan 3's three-platform gate is §8.3. The design below was approved 2026-10-16; spike 2 (`ps-ng-plan-1.md` § What spike 2 decided) replaced its backdrop and its glass, and the sections say where.
 
 The ps theme's scene (`docs/projects/ps-theme.md`) is loved and expensive: on an iPhone 16 it costs 93–106 % of a core in Safari at a rainy noon, most of it in WebKit's page process, and around 95–99 % at night. ps NG is a new renderer for the same theme. It keeps every element and the look, and draws them with a small set of cheap techniques, with tiers so a phone on low power does less.
 
@@ -400,11 +400,13 @@ The user's picks after §8.3 and §10.6: calm moves **one group, the clouds**; t
 
 ### 11.1 Calm
 
-Calm's page work is already small (0.3 at noon, §10.6); its cost is Core Animation's, 15–25 per moving group (§8.3), and calm moves four. So calm becomes the clouds alone: `psng/groups.ts`'s `CALM` is `["clouds"]`, and smoke, the weather, the sun's spin and the skeins stand at their still look in calm, as they do in the still tier. On a wet day that means no rain, snow or lightning in calm — the wet weather's own clouds move, nothing falls (the user: "OK, clouds only"). The `psng-calm` class stays: the Auto checks read it as the tier's marker.
+Calm's page work is already small (0.3 at noon, §10.6); its cost is Core Animation's, 15–25 per moving group (§8.3), and calm moves four. So calm becomes the clouds alone: `psng/groups.ts`'s `CALM` is `["clouds"]`, and smoke, the weather, the sun's spin and the skeins stand at their still look in calm, as they do in the still tier. On a wet day that means no rain, snow or lightning in calm — calm shows two of the sky's clouds and none of the wet weather's, nothing falls (§11.4) (the user: "OK, clouds only"). The `psng-calm` class stays: the Auto checks read it as the tier's marker.
 
 If the clouds alone read over 24 at the gate (§8.3's ladder read 25.6, n = 1), calm gets fewer clouds; the drift's speed is not a lever, since the cost is per composited frame.
 
 ### 11.2 The skeins
+
+> **Superseded by §11.4:** the wing strips below were built, measured and reverted; the skeins keep the pose stacks and lose only the wander.
 
 The skeins alone cost 29 WebContent (§10.6): about 19 is the wings (38 birds × 4 pose copies swapped by `opacity`, about 150 animations) and about 15 the 38 per-bird wanders (`ps-bird-wander`), more together than apart; without the wander they read 13.6 (§10.6).
 
@@ -420,7 +422,7 @@ The strip ships behind a harness switch (`x=strip`, plan 4's `x=` table) so the 
 - `tools/scenarios/ps-ng.mjs`: `CALM_GROUPS`, the strip's keyframe name in the known list, the dead calm pose and seed mapping out, the wander's checks out, its header.
 - Words: the Scene animation setting's Calm description (`Settings/Appearance.vue`), §6's calm row, the CLAUDE.md ps NG bullet.
 
-### 11.4 The gate (2026-10-18, failed: calm over 24, the strip no better, the skeins worse)
+### 11.4 The gate (2026-10-18: failed on the strips, then passed without them)
 
 iPhone 16, Safari, USB, rid `ios2-1792334245000`, `SHORT=gate5`, build `65bf63c7` (calm = the clouds, no wander, the strips), 2 rounds, every slot n = 2, host load 5–16 (waived). Sum of WebContent + GPU + backboardd as % of one core, both readings per slot (WebContent in brackets); §10.6 beside it.
 
