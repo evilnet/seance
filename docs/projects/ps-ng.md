@@ -441,3 +441,25 @@ Still 1.1–2.5, coffee 1.0–1.9.
 - **Both are worse than before, which the change should not do.** The skeins alone read 42 WebContent with the wander gone, against 28.4 in §10.6 with it; full dusk reads 106 WebContent against 40.8. Something in this build costs the page about 60 points at dusk. The suspect is `#theme-scene.psng .ps-bird { overflow: clip visible }`, which both variants carry on 38 birds; unmeasured.
 
 **Resolved (2026-10-18, same day).** The regression is `65bf63c7`, the strips. iPhone, `SHORT=base`/`clip`, load 5–16, n = 2: skeins alone WebContent 29.4 at `826f8736`, **14.6 at `9c90547d`** (the birds hold their places, no strips), 43.3 at `65bf63c7`; full dusk 91.7 (WebContent 41.4), **84.2 (36.0)**, 142.8 (106.2). `overflow: clip visible` is not the cause (`x=noclip`: skeins 47.6, dusk 106.3), and the opacity stack on the strip markup stays at 42, so the `.psng-strip` wrapper and its placed pose boxes cost it. The strips are reverted; the poses are the stacks of plan 2 again, without the wander. Gate rerun on the reverted tree (`b3ec7320`, rid `ios2-1792344702000`, n = 2, `SHORT=g5b`): calm noon 31.3 (WebContent 0.3), calm storm 34.2 (0.3) — still over 24, all backboardd, the clouds' cost; skeins alone 40.3 (13.9); full dusk 84.6 (36.5). Calm now shows two of the sky's five clouds and none of the wet weather's (`styles.ts`, the user's pick of the fewer-clouds fallback): calm noon 19.3, calm storm 20.4, both ≤ 24 (rid `ios2-1792346007000`; skeins alone 39.4 (15.1), full dusk 83.8 (35.2)). **The gate passes.**
+
+### 11.5 The phone sitting before merge (2026-10-18)
+
+§9.5's ladder on PR #116's head (`6c91f198`: §11.4's tree plus the review fixes — the shells' plugin paths and a thaw that keeps a star's own opacity), iPhone 16, Safari, USB, rid `ios2-1792355935000`, 19 slots × 2 rounds rotated, 38 of 38 valid; % of one core, median (WebContent). Classic cannot run: this build deletes it (§10.6 has it at 397 noon, 117 dusk). The host's load ran 7–42 through it (a macOS Contacts sync and ReportCrash, not ours); the phone's readings agree within 2 points per slot except `calm-storm` (19.1, 31.5), re-run in a short second job (rid `ios2-1792358107000`, 3 rounds): 19.4, 19.5, 20.1.
+
+| slot           | sum        |     | slot                | sum         |
+| -------------- | ---------- | --- | ------------------- | ----------- |
+| coffee         | 0.9 (0.1)  |     | sun (noon)          | 47.6 (4.6)  |
+| still          | 0.3 (0.1)  |     | full noon           | 61.8 (6.3)  |
+| clouds         | 26.0 (0.3) |     | full night          | 82.3 (36.2) |
+| stars          | 30.6 (5.4) |     | full storm          | 77.1 (14.1) |
+| fireflies      | 27.0 (6.2) |     | full dusk           | 83.8 (36.8) |
+| smoke          | 15.9 (0.9) |     | calm noon           | 19.1 (0.2)  |
+| grass          | 13.6 (0.3) |     | calm night          | 20.4 (0.2)  |
+| weather, rain  | 30.6 (9.3) |     | calm storm (re-run) | 19.5 (0.2)  |
+| weather, storm | 29.3 (9.1) |     | skeins alone (dusk) | 39.4 (14.5) |
+| daybirds       | 15.1 (1.0) |     |                     |             |
+
+- **Still ≤ 3 and calm ≤ 24 pass**, at noon, night and in a storm.
+- **No regression from §11.4**: skeins alone 39.4 and full dusk 83.8 again, calm noon 19.1 against 19.3.
+- **Full ≤ 30 fails at every moment**, as since §10.6; full is at or below §10.6 everywhere (noon 68.1 → 61.8, night 88.5 → 82.3, storm 77.2 → 77.1, dusk 92.2 → 83.8) and far below classic.
+- Each moving group alone costs 14–31, mostly backboardd; the page work is the skeins (14.5), the rain (9.3), the fireflies (6.2) and the stars (5.4). The sun's fire is the one GPU cost (21.5).
