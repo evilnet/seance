@@ -25,6 +25,9 @@ socket.on("network", function (data) {
 	openOnAnnounce(network);
 });
 
+/** A network announced just now opened a deep link or the remembered conversation. */
+let askedForOpened = false;
+
 /**
  * Where the view goes while the network connects. In order: the conversation
  * a notification deep link is waiting for on it, the one the last page had
@@ -42,12 +45,17 @@ socket.on("network", function (data) {
  * networks boot dials there come up in the sidebar and the view stays put —
  * the remembered conversation is left for them to open, and no landing is
  * begun for it. A deep link is different: the user asked for it.
+ *
+ * Nor once another network has opened the conversation it was asked for: boot
+ * announces every autoconnect network in one go (`autoconnectSavedNetworks`),
+ * and the ones after a deep link's or a remembered conversation's network
+ * used to move the view on to their own last channel — the last announce won.
  */
 function openOnAnnounce(network: ClientNetwork): void {
 	const pending = getPendingTarget();
 	const fromDeepLink = pending !== null && pending.network === network.uuid;
 
-	if (!fromDeepLink && onStandalonePage()) {
+	if (!fromDeepLink && (onStandalonePage() || askedForOpened)) {
 		return;
 	}
 
@@ -60,6 +68,11 @@ function openOnAnnounce(network: ClientNetwork): void {
 		switchToChannel(joinList[joinList.length - 1] ?? network.channels[0]);
 		return;
 	}
+
+	// For the rest of this burst of announces; a network connected later
+	// (the connect form) opens as before.
+	askedForOpened = true;
+	queueMicrotask(() => (askedForOpened = false));
 
 	const hit = findChannelByName(network.uuid, waitingFor.target);
 
