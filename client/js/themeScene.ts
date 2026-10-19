@@ -381,9 +381,19 @@ export function createAttention(opts: {
  * the browser and would animate, and repaint the glass over it, all day.
  */
 export function installThemeSceneHooks(): void {
+	// A theme's own CSS motion (Keeki's drift) pauses on the same signals.
+	let away = false;
+	let lowPower = false;
+	const rest = () =>
+		document.documentElement.toggleAttribute("data-motion-rest", away || lowPower);
+
 	const attention = createAttention({
 		focused: document.hasFocus(),
-		set: (attended) => themeScene.setAttended(attended),
+		set(attended) {
+			themeScene.setAttended(attended);
+			away = !attended;
+			rest();
+		},
 		now: () => performance.now(),
 		after(ms, fn) {
 			const id = window.setTimeout(fn, ms);
@@ -408,7 +418,11 @@ export function installThemeSceneHooks(): void {
 	// Low power: the battery below 20 % here, the system's battery saver from
 	// the shells and Safari's frame rate below (a shell built before it reports
 	// nothing leaves it unknown).
-	const power = createPowerMerge((lowPower) => themeScene.setDevice({lowPower}));
+	const power = createPowerMerge((low) => {
+		themeScene.setDevice({lowPower: low});
+		lowPower = low;
+		rest();
+	});
 	const nav = navigator as Navigator & {
 		getBattery?: () => Promise<EventTarget & {charging: boolean; level: number}>;
 	};

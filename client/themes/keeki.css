@@ -230,6 +230,12 @@
 		animation: keeki-flowers 150s linear infinite;
 	}
 
+	/* Held where it stands while nobody attends or on low power (themeScene.ts). */
+	html[data-motion-rest] #sidebar::before,
+	html[data-motion-rest] #sidebar::after {
+		animation-play-state: paused;
+	}
+
 	@keyframes keeki-glitter {
 		to {
 			transform: translate(421px, 907px);
