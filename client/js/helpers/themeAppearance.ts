@@ -46,10 +46,12 @@ export function effectiveTheme(chosen: string, matchSystem: boolean, systemDark:
 
 /** The theme picker's name for a pair, from its halves' display names, dark
  * first: "Coffee / Creama", or the one name when the halves share it
- * (Princess_ and Princess are "Princess"). */
+ * (Princess_ and Princess are "Princess") or one half's name starts the
+ * other's (Keeki and Keeki Blush are "Keeki"). */
 export function pairLabel(dark: string, light: string): string {
-	const plain = (name: string) => name.replace(/_+$/, "");
-	return plain(dark) === plain(light) ? plain(light) : `${dark} / ${light}`;
+	const [a, b] = [dark, light].map((name) => name.replace(/_+$/, ""));
+	const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+	return long === short || long.startsWith(`${short} `) ? short : `${dark} / ${light}`;
 }
 
 /** A theme as the build lists it (configuration.ts `themes`). */

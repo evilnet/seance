@@ -53,10 +53,12 @@ describe("themeAppearance", function () {
 		expect(effectiveTheme("gates", true, true)).to.equal("gates");
 	});
 
-	it("names a pair by both halves, dark first, or by the name they share", function () {
+	it("names a pair by both halves, dark first, or by the name they share or start with", function () {
 		expect(pairLabel("Coffee", "Creama")).to.equal("Coffee / Creama");
 		expect(pairLabel("Morning", "Day")).to.equal("Morning / Day");
 		expect(pairLabel("Princess_", "Princess")).to.equal("Princess");
+		expect(pairLabel("Keeki", "Keeki Blush")).to.equal("Keeki");
+		expect(pairLabel("Day", "Daybreak")).to.equal("Day / Daybreak");
 	});
 
 	describe("the theme picker's entries", function () {
