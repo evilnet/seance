@@ -71,7 +71,11 @@ function tuft(x: number, y: number, h: number, cls: string): string {
  * The land: mountains, the far plain with its shrubs, the river (or its dry
  * bed), two hills with their rims, tufts and trees, and the grass band, back
  * to front on the mockup's 1200 × 400 box, stretched to whatever box ps.css
- * gives it, with the river's sky gradient in its defs. (The heat haze that
+ * gives it, with the river's sky gradient in its defs. The hills stretch
+ * with the window; the round things on them (the shrubs, the bed's stones,
+ * the two groves) are widened back about their own middles by the stretch's
+ * squash (`--ps-land-unsquash`, watchers.ts watchLand), so a narrow window does
+ * not draw them as tall ellipses. (The heat haze that
  * bends the ground on hot days is the weather layer's: `weatherLayers`.)
  */
 export function landSvg(): string {
@@ -126,9 +130,9 @@ export function landSvg(): string {
 		`<path class="ps-l-hill2" d="${HILL2_EDGE}${TO_FOOT}"/>` +
 		`<path class="ps-l-rim" d="${HILL2_EDGE}"/>` +
 		far +
-		`<ellipse class="ps-l-tree" cx="448" cy="160" rx="16" ry="12"/><ellipse class="ps-l-tree" cx="466" cy="163" rx="12" ry="10"/>` +
-		`<ellipse class="ps-l-tree" cx="432" cy="166" rx="10" ry="8"/><rect class="ps-l-trunk" x="447" y="168" width="3" height="8"/>` +
-		`<ellipse class="ps-l-tree" cx="1008" cy="168" rx="9" ry="7"/><rect class="ps-l-trunk" x="1007" y="173" width="2" height="6"/>` +
+		`<g class="ps-l-grove"><ellipse class="ps-l-tree" cx="448" cy="160" rx="16" ry="12"/><ellipse class="ps-l-tree" cx="466" cy="163" rx="12" ry="10"/>` +
+		`<ellipse class="ps-l-tree" cx="432" cy="166" rx="10" ry="8"/><rect class="ps-l-trunk" x="447" y="168" width="3" height="8"/></g>` +
+		`<g class="ps-l-grove"><ellipse class="ps-l-tree" cx="1008" cy="168" rx="9" ry="7"/><rect class="ps-l-trunk" x="1007" y="173" width="2" height="6"/></g>` +
 		`<path class="ps-l-hill1" d="${HILL1_EDGE}${TO_FOOT}"/>` +
 		`<path class="ps-l-rim" d="${HILL1_EDGE}"/>` +
 		near +
@@ -479,12 +483,12 @@ export function weatherClouds(weather: Weather): string {
 }
 
 /** The mockup's particle counts; a phone gets half. */
-const RAIN_DROPS = 130;
+export const RAIN_DROPS = 130;
 const SNOWFLAKES = 120;
 const SEEDS = 26;
 
 /** `count` rain drops, each falling on its own clock (ps.css `ps-drop`). */
-function rain(count: number): string {
+export function rain(count: number): string {
 	const r = rng(1301);
 	let out = "";
 
@@ -539,7 +543,7 @@ function seeds(count: number): string {
  * `display: none`, where a reference to the filter may not resolve. ps.css
  * applies it to the ground group, and only by day (`ps-hot`).
  */
-const HEAT_HAZE =
+export const HEAT_HAZE =
 	`<svg class="ps-heat-haze" width="0" height="0" aria-hidden="true" focusable="false">` +
 	`<filter id="ps-heat" x="0" y="-5%" width="100%" height="110%">` +
 	`<feTurbulence type="turbulence" baseFrequency="0.007 0.05" numOctaves="2" seed="4" result="h">` +

@@ -16,7 +16,10 @@
 
 import storage from "../localStorage";
 import {forgetNetworkLog} from "./querylog";
+import {forgetNoticeLog} from "./noticelog";
+import {forgetOperPrefs} from "./operprefs";
 import type {ConnectOptions} from "./types";
+import type {ServicesConfig} from "../../../shared/types/network";
 
 export const STORAGE_KEY = "thelounge.networks";
 
@@ -57,6 +60,11 @@ export type SavedNetwork = ConnectOptions & {
 	lastUsed?: number;
 	/** Newest message seen on this network (see {@link NetworkCursor}). */
 	cursor?: NetworkCursor;
+	/**
+	 * Services support (docs/projects/oper-tools.md): the package and its
+	 * bots by role, set in the edit form once opered. Absent means none.
+	 */
+	services?: ServicesConfig;
 };
 
 /** The subset of the localStorage wrapper this module needs. */
@@ -155,6 +163,32 @@ function asCursor(value: unknown): NetworkCursor | undefined {
 	return {msgid, time};
 }
 
+/** The services roles, in the order the form shows them. */
+export const SERVICE_ROLES = ["oper", "account", "channel", "report", "snoop"] as const;
+
+/** A stored / incoming services block, or undefined when it names no known package. */
+export function asServices(value: unknown): ServicesConfig | undefined {
+	if (!value || typeof value !== "object") {
+		return undefined;
+	}
+
+	const raw = value as {package?: unknown; bots?: unknown};
+
+	if (asString(raw.package).toLowerCase() !== "x3") {
+		return undefined;
+	}
+
+	const bots =
+		raw.bots && typeof raw.bots === "object" ? (raw.bots as Record<string, unknown>) : {};
+	const out = {} as ServicesConfig["bots"];
+
+	for (const role of SERVICE_ROLES) {
+		out[role] = asString(bots[role]);
+	}
+
+	return {package: "x3", bots: out};
+}
+
 /** Accepts a newline-separated string (textarea) or an array. */
 export function parseCommands(value: unknown): string[] {
 	const lines: string[] = Array.isArray(value)
@@ -205,6 +239,12 @@ export function normalize(raw: Record<string, unknown>): SavedNetwork | undefine
 
 	if (cursor) {
 		net.cursor = cursor;
+	}
+
+	const services = asServices(raw.services);
+
+	if (services) {
+		net.services = services;
 	}
 
 	return net;
@@ -277,6 +317,12 @@ export function fromForm(data: Record<string, unknown>, existing?: SavedNetwork)
 	// A blank password field in the edit form means "keep what I had".
 	if (existing && asString(data.saslPassword) === "" && existing.saslPassword) {
 		base.saslPassword = existing.saslPassword;
+	}
+
+	// The services block travels whole: the key present with nothing in it
+	// is "None" (the loop above keeps the stored one for a missing key).
+	if ("services" in data) {
+		base.services = data.services;
 	}
 
 	const net = normalize(base);
@@ -393,6 +439,8 @@ export function remove(uuid: string): void {
 	}
 
 	forgetNetworkLog(uuid); // its private conversations go with it
+	forgetNoticeLog(uuid); // and its server notices
+	forgetOperPrefs(uuid);
 }
 
 /** Mark an entry as the most recently used one. */

@@ -72,6 +72,17 @@ const config: CapacitorConfig = {
 		contentInset: "never",
 		preferredContentMode: "mobile",
 	},
+	experimental: {
+		ios: {
+			spm: {
+				// CapApp-SPM/Package.swift is regenerated on every sync with
+				// the deployment target from project.pbxproj as `.iOS(.v26)`.
+				// The default tools version, 5.9, stops at `.v17`; 6.2
+				// (Xcode 26) is the first that knows `.v26`.
+				swiftToolsVersion: "6.2",
+			},
+		},
+	},
 	plugins: {
 		// Translucent over the page, which paints under it in the theme's
 		// canvas colour; native.ts picks the text style from that colour at

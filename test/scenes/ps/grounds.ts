@@ -28,7 +28,7 @@ import {
 	stopsAt,
 	TEXT_LIGHT_AT,
 } from "../../../client/js/scenes/ps/palette";
-import {sceneVars} from "../../../client/js/scenes/ps/scene";
+import {sceneVars} from "../../../client/js/scenes/ps/markup";
 import {SAMPLING} from "../../../tools/ps/legibility";
 
 /** A moment at a local minute on a day of the year; the moon's phase does not matter to the grounds. */

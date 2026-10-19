@@ -1,6 +1,6 @@
 // The ps theme's own settings (Settings → Appearance, shown under the theme
-// select while ps is the theme): Scene animation (off, sparse, once a
-// second, 24 frames a second, the browser's own rate), Pause the scene when
+// select while ps is the theme): Scene animation (auto, full, calm,
+// still), Pause the scene when
 // the window isn't in use, and Combine messages from the same person.
 //
 //   NODE_ENV=production corepack yarn build && python3 -m http.server -d public 8006 &
@@ -8,9 +8,10 @@
 //
 // Needs the dev ircd (a second user says two lines). Pins a clear noon on
 // 25 September with a Date shim, so the scene is the same every run. Each
-// level is read off the main thread's style recalculations a second (CDP
-// Performance.getMetrics) over a few seconds: off and sparse ≈ 0, once a
-// second ≈ 1, 24 ≈ 24, 60 = the browser's own, more than 24 here.
+// level is read off the motion classes on `#theme-scene.psng` (psng/groups.ts):
+// Full is every group's `psng-m-<group>`, Calm is `psng-calm` with only
+// calm's groups (clouds, smoke, weather, skeins, sun), Still is no `psng-m-`
+// class at all.
 
 const IRCD = process.env.SEANCE_IRC_URL ?? "ws://127.0.0.1:8067/";
 const PORT = process.env.SEANCE_PORT ?? "8006";
@@ -46,23 +47,32 @@ function speaker(nick) {
 	};
 }
 
-/**
- * Style recalculations a second on the main thread, over `ms`. The composer
- * is blurred first: a focused text field restyles about twice a second under
- * every theme (measured 2.2 against 0.0 blurred), which is not the scene's.
- */
-async function styles(page, ms) {
-	await page.evaluate(`document.activeElement && document.activeElement.blur()`);
-	const read = async () => {
-		const {metrics} = await page.send("Performance.getMetrics");
-		const get = (n) => metrics.find((m) => m.name === n).value;
-		return {n: get("RecalcStyleCount"), at: get("Timestamp")};
-	};
-	const a = await read();
-	await page.sleep(ms);
-	const b = await read();
-	return (b.n - a.n) / (b.at - a.at);
-}
+const ALL = [
+	"clouds",
+	"stars",
+	"fireflies",
+	"smoke",
+	"grass",
+	"weather",
+	"skeins",
+	"daybirds",
+	"sun",
+];
+const CALM = ["clouds", "smoke", "weather", "skeins", "sun"];
+
+/** The scene root's motion classes: its groups (sorted), `psng-calm` and `psng-frozen`. */
+const motion = (page) =>
+	page.evaluate(`(() => {
+		const c = document.querySelector("#theme-scene").classList;
+		return {
+			ng: c.contains("psng"),
+			groups: [...c].filter((n) => n.startsWith("psng-m-")).map((n) => n.slice(7)).sort().join(","),
+			calm: c.contains("psng-calm"),
+			frozen: c.contains("psng-frozen"),
+		};
+	})()`);
+
+const sorted = (list) => [...list].sort().join(",");
 
 const SETTING = (name) => `document.querySelector('#settings [name="${name}"]')`;
 
@@ -83,11 +93,7 @@ async function setLevel(page, level) {
 	await page.sleep(1500);
 }
 
-/** The SVG clocks' sum, in seconds: what the scene's SMIL has advanced to. */
-const SVG_TIME = `[...document.querySelectorAll("#theme-scene svg")].filter((v) => !v.closest(".ps-off")).reduce((t, v) => t + v.getCurrentTime(), 0)`;
-
 export default async function run(page) {
-	await page.send("Performance.enable");
 	await page.send("Emulation.setTimezoneOverride", {timezoneId: "Etc/GMT"});
 	await page.send("Emulation.setFocusEmulationEnabled", {enabled: true});
 	await page.addInitScript(`try { localStorage.setItem("settings", JSON.stringify({theme: "ps"})); } catch (e) {}
@@ -113,8 +119,8 @@ export default async function run(page) {
 		`under ps, Appearance has the theme's settings: Scene animation ${d.levels.join("/")} at ${
 			d.level
 		}, pause when away ${d.pause}, combine ${d.group}`,
-		d.levels.join() === "off,sparse,1s,24,60" &&
-			d.level === "24" &&
+		d.levels.join() === "auto,full,calm,still" &&
+			d.level === "auto" &&
 			d.pause === true &&
 			d.group === true
 	);
@@ -123,62 +129,36 @@ export default async function run(page) {
 	await page.screenshot("ps-settings-section");
 	await closeSettings(page);
 
-	// Each level, by the restyles it costs.
-	const rates = {};
-	for (const level of ["off", "1s", "24", "60"]) {
+	// Each level, by the scene's motion classes.
+	const at = {};
+	for (const level of ["still", "calm", "full"]) {
 		await setLevel(page, level);
-		rates[level] = await styles(page, 4000);
+		at[level] = await motion(page);
 	}
 	page.check(
-		`off: the scene is still (${rates.off.toFixed(1)} restyles a second)`,
-		rates.off < 1
+		`still: no psng-m- class (${at.still.groups || "none"}, psng-calm ${at.still.calm})`,
+		at.still.ng && at.still.groups === "" && !at.still.calm
 	);
 	page.check(
-		`once a second: about one restyle a second (${rates["1s"].toFixed(1)})`,
-		rates["1s"] > 0.5 && rates["1s"] < 2.5
+		`calm: psng-calm with only calm's groups (${at.calm.groups})`,
+		at.calm.ng && at.calm.calm && at.calm.groups === sorted(CALM)
 	);
 	page.check(
-		`24: about 24 a second (${rates["24"].toFixed(1)})`,
-		rates["24"] > 18 && rates["24"] < 30
-	);
-	page.check(
-		`60: the browser's own rate, more than 24 (${rates["60"].toFixed(1)})`,
-		rates["60"] > 30
-	);
-
-	// Sparse: still in between, and up to date on coming back.
-	await setLevel(page, "sparse");
-	const sparse = await styles(page, 4000);
-	page.check(
-		`sparse: still between its steps (${sparse.toFixed(1)} restyles a second)`,
-		sparse < 1
-	);
-	await page.evaluate(`window.dispatchEvent(new Event("blur"))`);
-	await page.sleep(16000); // rests
-	const before = await page.evaluate(SVG_TIME);
-	await page.evaluate(`window.dispatchEvent(new Event("focus"))`);
-	await page.sleep(200);
-	const after = await page.evaluate(SVG_TIME);
-	page.check(
-		`sparse: coming back moves the scene on at once (the SVG clocks ${before.toFixed(
-			1
-		)} → ${after.toFixed(1)} s)`,
-		after - before > 10
+		`full: every group of the moment, no psng-calm (${at.full.groups})`,
+		at.full.ng && !at.full.calm && at.full.groups === sorted(ALL)
 	);
 
 	// Pause when away, off: a window without the focus keeps moving.
-	await setLevel(page, "24");
+	await setLevel(page, "full");
 	await openAppearance(page);
 	await page.click(`#settings input[name="psPauseWhenAway"]`);
 	await closeSettings(page);
 	await page.evaluate(`window.dispatchEvent(new Event("blur"))`);
 	await page.sleep(16000);
-	const away = await styles(page, 3000);
+	const away = await motion(page);
 	page.check(
-		`pause when away off: a window without the focus still moves (${away.toFixed(
-			1
-		)} restyles a second)`,
-		away > 12
+		`pause when away off: a window without the focus still moves (${away.groups}, psng-frozen ${away.frozen})`,
+		away.groups === sorted(ALL) && !away.frozen
 	);
 	await page.evaluate(`window.dispatchEvent(new Event("focus"))`);
 

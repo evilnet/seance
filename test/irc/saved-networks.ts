@@ -381,4 +381,60 @@ describe("saved-networks", function () {
 		expect(saved.displayName(entry({name: "Home"}))).to.equal("Home");
 		expect(saved.displayName({name: "", host: "wss://h.example/ws"})).to.equal("h.example");
 	});
+
+	it("has no services block by default, and round-trips one", function () {
+		saved.save(entry());
+		expect(saved.get(entry().uuid)).to.not.have.property("services");
+		expect(JSON.parse(backend.get(saved.STORAGE_KEY) as string)[0]).to.not.have.property(
+			"services"
+		);
+
+		const services = {
+			package: "x3" as const,
+			bots: {
+				oper: "O3",
+				account: "AuthServ",
+				channel: "ChanServ",
+				report: "#operserv",
+				snoop: "",
+			},
+		};
+		saved.save(entry({services}));
+		expect(saved.get(entry().uuid)?.services).to.deep.equal(services);
+		expect(saved.toConnectOptions(entry({services}))).to.not.have.property("services");
+
+		// The edit form sends the key whole; nothing in it is None, a missing
+		// key keeps what was stored.
+		expect(
+			saved.fromForm({uuid: entry().uuid, nick: "alice"}, saved.get(entry().uuid)).services
+		).to.deep.equal(services);
+		expect(
+			saved.fromForm({uuid: entry().uuid, services: undefined}, saved.get(entry().uuid))
+		).to.not.have.property("services");
+		expect(
+			saved.fromForm({uuid: entry().uuid, services: null}, saved.get(entry().uuid))
+		).to.not.have.property("services");
+	});
+
+	it("coerces a loose services block and drops an unknown package", function () {
+		expect(saved.asServices(undefined)).to.equal(undefined);
+		expect(saved.asServices("x3")).to.equal(undefined);
+		expect(saved.asServices({package: "anope", bots: {oper: "OperServ"}})).to.equal(undefined);
+		expect(saved.asServices({package: "X3"})).to.deep.equal({
+			package: "x3",
+			bots: {oper: "", account: "", channel: "", report: "", snoop: ""},
+		});
+		expect(
+			saved.asServices({package: "x3", bots: {oper: " O3 ", snoop: "#MrSnoopy", extra: "x"}})
+		).to.deep.equal({
+			package: "x3",
+			bots: {oper: "O3", account: "", channel: "", report: "", snoop: "#MrSnoopy"},
+		});
+		expect(
+			saved.normalize({uuid: "u", host: "h", services: {package: "x3"}})?.services
+		).to.deep.equal({
+			package: "x3",
+			bots: {oper: "", account: "", channel: "", report: "", snoop: ""},
+		});
+	});
 });

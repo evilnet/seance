@@ -14,6 +14,7 @@ import "./webpush";
 import "./pwa";
 import "./keybinds";
 import {setAppBadge} from "./helpers/appBadge";
+import {switchDirective} from "./helpers/nativeSwitches";
 
 const favicon = document.getElementById("favicon");
 const faviconNormal = favicon?.getAttribute("href") || "";
@@ -23,6 +24,8 @@ export const VueApp = createApp(App);
 
 VueApp.use(router);
 VueApp.use(store, key);
+// Checkboxes are switches in the native shells (helpers/nativeSwitches.ts).
+VueApp.directive("switch", switchDirective);
 
 VueApp.mount("#app");
 

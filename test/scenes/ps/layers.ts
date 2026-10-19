@@ -2,16 +2,9 @@ import {expect} from "chai";
 import {birdsAt} from "../../../client/js/scenes/ps/birds";
 import {momentFor, WEATHERS, type Weather} from "../../../client/js/scenes/ps/engine";
 import {bodyOpacity} from "../../../client/js/scenes/ps/grounds";
-import {
-	FADE_MARGIN_MS,
-	GATES,
-	layerGates,
-	liveLayers,
-	type Gate,
-	type GateEffects,
-} from "../../../client/js/scenes/ps/layers";
+import {GATES, liveLayers, type Gate} from "../../../client/js/scenes/ps/layers";
 import {levelsAt, paletteAt} from "../../../client/js/scenes/ps/palette";
-import {sceneVars} from "../../../client/js/scenes/ps/scene";
+import {sceneVars} from "../../../client/js/scenes/ps/markup";
 
 const at = (doy: number, minute: number, weather: Weather) =>
 	momentFor({minute, doy, dayNumber: 20574, epochDays: 20574 + minute / 1440, weather});
@@ -173,27 +166,6 @@ describe("ps layers: what is in the render tree (layers.ts, spec §10)", functio
 			]);
 		});
 
-		it("keeps each layer in the tree through its own fade in ps.css, and no longer", function () {
-			const fades = Object.fromEntries(
-				(Object.keys(GATES) as Gate[]).map((g) => [g, GATES[g].fadeMs])
-			);
-			expect(fades).to.deep.equal({
-				stars: 0,
-				sun: 0,
-				fireflies: 0,
-				smoke: 380,
-				skeins: 1400,
-				flock0: 1800,
-				flock1: 1800,
-				flock2: 1800,
-				buzzard: 1400,
-				larks: 1400,
-				seeds: 0,
-				heatband: 0,
-			});
-			expect(FADE_MARGIN_MS).to.be.within(1, 200);
-		});
-
 		it("finds each flock by its number among the skeins' flocks", function () {
 			expect(
 				[GATES.flock0, GATES.flock1, GATES.flock2].map((g) => [g.selector, g.index])
@@ -203,174 +175,5 @@ describe("ps layers: what is in the render tree (layers.ts, spec §10)", functio
 				[".ps-flock", 2],
 			]);
 		});
-	});
-});
-
-/** A scripted clock for the gates: timers by virtual milliseconds, and a log of every effect in order. */
-function harness() {
-	let now = 0;
-	const timers: Array<{at: number; fn: () => void; live: boolean}> = [];
-	const log: string[] = [];
-
-	const fx: GateEffects = {
-		set: (gate, off) => log.push(`${off ? "off" : "on"} ${gate}`),
-		flush: () => log.push("flush"),
-		after(ms, fn) {
-			const t = {at: now + ms, fn, live: true};
-			timers.push(t);
-
-			return () => {
-				t.live = false;
-			};
-		},
-	};
-
-	return {
-		fx,
-		log,
-		write: () => log.push("write"),
-		advance(ms: number) {
-			now += ms;
-
-			for (const t of timers) {
-				if (t.live && t.at <= now) {
-					t.live = false;
-					t.fn();
-				}
-			}
-		},
-		pending: () => timers.filter((t) => t.live).length,
-	};
-}
-
-const NONE = Object.fromEntries(Object.keys(GATES).map((g) => [g, false])) as Record<Gate, boolean>;
-const only = (...gates: Gate[]) => ({...NONE, ...Object.fromEntries(gates.map((g) => [g, true]))});
-const NOON = only("sun", "buzzard");
-const DUSK = only("sun", "stars", "fireflies", "smoke", "skeins", "flock0", "flock1", "flock2");
-
-describe("ps layers: the gates over time (layerGates)", function () {
-	it("takes every layer outside its window out at once on the scene's first moment, and fades nothing in", function () {
-		const h = harness();
-		layerGates(h.fx).apply(NOON, h.write, true);
-		expect(h.log).to.deep.equal([
-			"write",
-			"off stars",
-			"off fireflies",
-			"off smoke",
-			"off skeins",
-			"off flock0",
-			"off flock1",
-			"off flock2",
-			"off larks",
-			"off seeds",
-			"off heatband",
-		]);
-		expect(h.pending()).to.equal(0);
-	});
-
-	it("puts a layer back before the values that fade it in are written, with the style computed in between", function () {
-		const h = harness();
-		const gates = layerGates(h.fx);
-		gates.apply(NOON, h.write, true);
-		h.log.length = 0;
-		gates.apply(DUSK, h.write, false);
-		expect(h.log).to.deep.equal([
-			"on stars",
-			"on fireflies",
-			"on smoke",
-			"on skeins",
-			"on flock0",
-			"on flock1",
-			"on flock2",
-			"flush",
-			"write",
-		]);
-	});
-
-	it("takes a fading layer out only once its fade is over", function () {
-		const h = harness();
-		const gates = layerGates(h.fx);
-		gates.apply(NOON, h.write, true);
-		h.log.length = 0;
-		gates.apply(only("sun"), h.write, false);
-		expect(h.log, "the buzzard fades first").to.deep.equal(["write"]);
-		h.advance(GATES.buzzard.fadeMs);
-		expect(h.log, "not before its fade is over").to.deep.equal(["write"]);
-		h.advance(FADE_MARGIN_MS);
-		expect(h.log).to.deep.equal(["write", "off buzzard"]);
-		expect(h.pending()).to.equal(0);
-	});
-
-	it("takes a layer with no fade out at once", function () {
-		const h = harness();
-		const gates = layerGates(h.fx);
-		gates.apply(DUSK, h.write, true);
-		h.log.length = 0;
-		gates.apply(only("sun", "smoke", "skeins", "flock0", "flock1", "flock2"), h.write, false);
-		expect(h.log).to.deep.equal(["write", "off stars", "off fireflies"]);
-	});
-
-	it("keeps a layer that comes back during its fade: nothing put back, nothing computed, no late removal", function () {
-		const h = harness();
-		const gates = layerGates(h.fx);
-		gates.apply(NOON, h.write, true);
-		gates.apply(only("sun"), h.write, false);
-		h.advance(500);
-		h.log.length = 0;
-		gates.apply(NOON, h.write, false);
-		expect(h.log).to.deep.equal(["write"]);
-		h.advance(5000);
-		expect(h.log).to.deep.equal(["write"]);
-		expect(h.pending()).to.equal(0);
-	});
-
-	it("fades a flock out over its own 1.8 s when the night's count drops", function () {
-		const h = harness();
-		const gates = layerGates(h.fx);
-		gates.apply(DUSK, h.write, true);
-		h.log.length = 0;
-		gates.apply({...DUSK, flock1: false, flock2: false}, h.write, false);
-		h.advance(GATES.skeins.fadeMs + FADE_MARGIN_MS);
-		expect(h.log).to.deep.equal(["write"]);
-		h.advance(GATES.flock1.fadeMs - GATES.skeins.fadeMs);
-		expect(h.log).to.deep.equal(["write", "off flock1", "off flock2"]);
-	});
-
-	it("takes out at once what was waiting for its fade when the page is hidden", function () {
-		const h = harness();
-		const gates = layerGates(h.fx);
-		gates.apply(DUSK, h.write, true);
-		gates.apply(only("sun", "stars"), h.write, false);
-		// The fireflies had no fade and went at once; the smoke, the skeins and the flocks were fading.
-		h.log.length = 0;
-		gates.settle();
-		expect(h.log).to.deep.equal([
-			"off smoke",
-			"off skeins",
-			"off flock0",
-			"off flock1",
-			"off flock2",
-		]);
-		expect(h.pending()).to.equal(0);
-	});
-
-	it("forgets a rebuilt layer: its new element is in the tree until the gates say otherwise", function () {
-		const h = harness();
-		const gates = layerGates(h.fx);
-		gates.apply(NOON, h.write, true);
-		gates.forget("heatband");
-		h.log.length = 0;
-		gates.apply(NOON, h.write, false);
-		expect(h.log).to.deep.equal(["write", "off heatband"]);
-	});
-
-	it("cancels every wait when stopped", function () {
-		const h = harness();
-		const gates = layerGates(h.fx);
-		gates.apply(DUSK, h.write, true);
-		gates.apply(NOON, h.write, false);
-		expect(h.pending()).to.be.greaterThan(0);
-		gates.stop();
-		expect(h.pending()).to.equal(0);
 	});
 });

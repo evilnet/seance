@@ -9,20 +9,38 @@
  * time. It touches the document only inside functions, so mocha loads it.
  */
 
+import {PHONE_LAYOUT_QUERY} from "./helpers/device";
+import {isIOSShell, nativeCall, nativeListen} from "./helpers/capacitor";
+import {createPowerMerge, framesSayLowPower} from "./helpers/power";
+import {onAndroidSystemStatus} from "./helpers/systemAccessibility";
+
 export type SceneView = "channel" | "query" | "other";
 
 /**
- * How much a scene moves (the ps theme's Scene animation setting): not at
- * all, once every five minutes and on coming back, once a second, 24 frames a
- * second, or the browser's own rate.
+ * How much a scene moves (the ps theme's Scene animation setting): `auto`
+ * (the default; full until power signals exist, docs/projects/ps-ng.md),
+ * `full` (everything at the browser's rate), `calm` (a reduced set) or
+ * `still` (nothing). Older stored values are read through normalizeSceneMotion.
  */
-export type SceneMotion = "off" | "sparse" | "1s" | "24" | "60";
+export type SceneMotion = "auto" | "full" | "calm" | "still";
 
-export const SCENE_MOTIONS: readonly SceneMotion[] = ["off", "sparse", "1s", "24", "60"];
+export const SCENE_MOTIONS: readonly SceneMotion[] = ["auto", "full", "calm", "still"];
 
-/** A stored value the list does not hold is the default. */
+const LEGACY_MOTIONS: Record<string, SceneMotion> = {
+	"60": "auto",
+	"24": "auto",
+	"1s": "calm",
+	sparse: "calm",
+	off: "still",
+};
+
+/** Read on load, never rewritten: the old values (60/24/1s/sparse/off) map across, anything else is auto. */
 export function normalizeSceneMotion(value: unknown): SceneMotion {
-	return SCENE_MOTIONS.includes(value as SceneMotion) ? (value as SceneMotion) : "24";
+	if (SCENE_MOTIONS.includes(value as SceneMotion)) {
+		return value as SceneMotion;
+	}
+
+	return LEGACY_MOTIONS[value as string] ?? "auto";
 }
 
 export interface SceneHostState {
@@ -36,6 +54,10 @@ export interface SceneHostState {
 	attended: boolean;
 	view: SceneView;
 	motion: SceneMotion;
+	/** A touch phone: the phone layout on a coarse pointer. Auto's tier follows it. */
+	phone: boolean;
+	/** The device asks to save power (battery below 20 %, a system battery saver). Auto's tier follows it. */
+	lowPower: boolean;
 }
 
 export interface SceneHandle {
@@ -51,7 +73,7 @@ export type SceneLoader = () => Promise<SceneModule>;
 
 /** The themes that have a scene, by theme name: each is its own chunk, loaded only for that theme. */
 export const SCENES: Readonly<Record<string, SceneLoader>> = {
-	ps: () => import(/* webpackChunkName: "scene-ps" */ "./scenes/ps/scene"),
+	ps: () => import(/* webpackChunkName: "scene-ps" */ "./scenes/psng/scene"),
 };
 
 export interface SceneHost {
@@ -61,6 +83,8 @@ export interface SceneHost {
 	/** Whether a page nobody attends to rests its scene (default yes); no, and it counts as attended. */
 	setPauseWhenAway(pause: boolean): void;
 	setMotion(motion: SceneMotion): void;
+	/** What the device is; a mounted scene is updated once, and only when a value changed. */
+	setDevice(device: Partial<{phone: boolean; lowPower: boolean}>): void;
 	setView(view: SceneView): void;
 	/**
 	 * Re-attempts the load of the currently-asked theme's scene, if its last
@@ -87,7 +111,7 @@ export function createSceneHost(opts: {
 	let mounted: string | null = null;
 	let handle: SceneHandle | null = null;
 	let ticket = 0;
-	// The asked-for theme whose scene last failed to load, while nothing since
+	// The theme whose scene last failed to load, while nothing since
 	// has superseded that attempt. Cleared by any `setTheme` (win or lose) and
 	// by a successful mount; `retry()` reads it and nothing else sets it.
 	let failed: string | null = null;
@@ -218,6 +242,17 @@ export function createSceneHost(opts: {
 			}
 		},
 
+		setDevice(device: Partial<{phone: boolean; lowPower: boolean}>): void {
+			const phone = device.phone ?? state.phone;
+			const lowPower = device.lowPower ?? state.lowPower;
+
+			if (state.phone !== phone || state.lowPower !== lowPower) {
+				state.phone = phone;
+				state.lowPower = lowPower;
+				handle?.update({...state});
+			}
+		},
+
 		setView(view: SceneView): void {
 			if (state.view === view) {
 				return;
@@ -235,7 +270,14 @@ export function createSceneHost(opts: {
 export const themeScene: SceneHost = createSceneHost({
 	root: () => document.getElementById("theme-scene"),
 	loaders: SCENES,
-	state: {visible: true, attended: true, view: "other", motion: "24"},
+	state: {
+		visible: true,
+		attended: true,
+		view: "other",
+		motion: "auto",
+		phone: false,
+		lowPower: false,
+	},
 	warn: (message, error) => console.warn(message, error), // eslint-disable-line no-console
 });
 
@@ -354,6 +396,100 @@ export function installThemeSceneHooks(): void {
 
 	for (const type of ["pointermove", "pointerdown", "keydown", "wheel", "touchstart"]) {
 		window.addEventListener(type, onInput, {capture: true, passive: true});
+	}
+
+	const layout = window.matchMedia(PHONE_LAYOUT_QUERY);
+	const touch = window.matchMedia("(pointer: coarse)");
+	const syncPhone = () => themeScene.setDevice({phone: layout.matches && touch.matches});
+	layout.addEventListener("change", syncPhone);
+	touch.addEventListener("change", syncPhone);
+	syncPhone();
+
+	// Low power: the battery below 20 % here, the system's battery saver from
+	// the shells and Safari's frame rate below (a shell built before it reports
+	// nothing leaves it unknown).
+	const power = createPowerMerge((lowPower) => themeScene.setDevice({lowPower}));
+	const nav = navigator as Navigator & {
+		getBattery?: () => Promise<EventTarget & {charging: boolean; level: number}>;
+	};
+
+	if (nav.getBattery) {
+		nav.getBattery().then(
+			(b) => {
+				const read = () => power.update({battery: {charging: b.charging, level: b.level}});
+				b.addEventListener("chargingchange", read);
+				b.addEventListener("levelchange", read);
+				read();
+			},
+			() => power.update({battery: null})
+		);
+	} else {
+		power.update({battery: null});
+	}
+
+	onAndroidSystemStatus((status) => {
+		if (status.powerSave !== undefined) {
+			power.update({saver: status.powerSave});
+		}
+	});
+
+	type PowerStatus = {lowPower: boolean};
+
+	if (isIOSShell()) {
+		void nativeCall<PowerStatus>("Power", "status").then((s) => {
+			if (s) {
+				power.update({saver: s.lowPower});
+			}
+		});
+		nativeListen("Power", "changed", (s: PowerStatus) => power.update({saver: s.lowPower}));
+	} else if (
+		/iPhone|iPad|iPod/.test(navigator.userAgent) ||
+		(/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
+	) {
+		// Safari on iOS: Low Power Mode shows only as a 30 fps cap. Sampled on
+		// load and on each return to the page, and every 2 minutes while it
+		// says low power, so a passing slowdown does not stick.
+		let probing = false;
+		let again = 0;
+
+		const probe = () => {
+			if (probing || document.visibilityState === "hidden") {
+				return;
+			}
+
+			probing = true;
+			const gaps: number[] = [];
+			let last = 0;
+
+			const step = (t: number) => {
+				if (last) {
+					gaps.push(t - last);
+				}
+
+				last = t;
+
+				if (gaps.length < 30) {
+					requestAnimationFrame(step);
+					return;
+				}
+
+				probing = false;
+				gaps.sort((a, b) => a - b);
+				const low = framesSayLowPower(gaps[15]);
+				power.update({saver: low});
+				window.clearTimeout(again);
+
+				if (low) {
+					again = window.setTimeout(probe, 2 * 60 * 1000);
+				}
+			};
+
+			requestAnimationFrame(step);
+		};
+
+		document.addEventListener("visibilitychange", probe);
+		// Not during boot, whose own long frames would read as low power.
+		window.setTimeout(probe, 2000);
 	}
 
 	const sync = () => {

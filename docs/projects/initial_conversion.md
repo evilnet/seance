@@ -150,7 +150,7 @@ No fixed order. Tackle items in whatever sequence the friction dictates.
 ## E. Cleanup and shipping
 
 1. [x] **Dependency purge**
-   - [x] a. Remove `socket.io`, `socket.io-client`, `express` _Done 2026-08-25: deps 26→6, devDeps 81→63. No browser IRC lib re-added (parser is hand-rolled). `chalk`/`semver`/`got` remain only for `scripts/changelog.js` + `scripts/generate-emoji.js`._, `irc-framework` (the server-side copy — re-add the browser-friendly choice from §0.2 as a client dep), `ldapjs`, `sqlite`, `web-push`, `ws`, `ua-parser-js` (if unused client-side), etc.
+   - [x] a. Remove `socket.io`, `socket.io-client`, `express` _Done 2026-08-25: deps 26→6, devDeps 81→63. No browser IRC lib re-added (parser is hand-rolled). `chalk`/`semver`/`got` remain only for `scripts/changelog.js` + `scripts/generate-emoji.js`; `changelog.js`, `chalk` and `semver` went 2026-10-14._, `irc-framework` (the server-side copy — re-add the browser-friendly choice from §0.2 as a client dep), `ldapjs`, `sqlite`, `web-push`, `ws`, `ua-parser-js` (if unused client-side), etc.
    - [x] b. `yarn install`, `yarn build`, `yarn lint`, `yarn test` all clean. _522 mocha passing; coverage 63% statements._
 2. [ ] **Bus contract reshape (optional, end-state)**
    - [ ] a. With everything on IRC, the `ServerToClientEvents`/`ClientToServerEvents` types are no longer the right contract. Consider migrating `socket-events/*` into `client/js/irc/handlers/` and reshaping the bus around an IRC-native store. Worth doing only after the dust settles.

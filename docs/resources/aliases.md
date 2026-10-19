@@ -30,7 +30,11 @@ trimmed of trailing whitespace and blank lines are dropped.
 A body line may invoke another alias. Expansion nests to `MAX_DEPTH` (8), and
 a name already on the expansion chain is left alone rather than re-expanded,
 so an alias may shadow and wrap a built-in (`/join` → `/join #lobby $*`)
-and a mutual cycle terminates. Matching is case-insensitive.
+and a mutual cycle terminates. One invocation expands to at most `MAX_LINES`
+(50) lines; the rest are dropped, since nesting alone multiplies (three
+aliases of a few hundred lines each would send millions), and it looks at
+no more than `MAX_EXPANSIONS` (1000) lines on the way, kept or not, since
+lines that expand to nothing are never counted. Matching is case-insensitive.
 
 ## Where it hooks in
 

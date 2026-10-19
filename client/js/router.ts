@@ -7,6 +7,7 @@ import Help from "../components/Windows/Help.vue";
 import Changelog from "../components/Windows/Changelog.vue";
 import NetworkEdit from "../components/Windows/NetworkEdit.vue";
 import SearchResults from "../components/Windows/SearchResults.vue";
+import OperPanel from "../components/Windows/OperPanel.vue";
 import RoutedChat from "../components/RoutedChat.vue";
 import {store} from "./store";
 import socket from "./socket";
@@ -86,6 +87,13 @@ const router = createRouter({
 			name: "Help",
 			path: "/help",
 			component: Help,
+		},
+		{
+			// The oper panel (docs/projects/oper-tools.md): a modal like
+			// Settings, opened from the network header's shield.
+			name: "OperPanel",
+			path: "/oper/:uuid/:tab?",
+			component: OperPanel,
 		},
 		{
 			name: "Changelog",
@@ -206,6 +214,11 @@ router.beforeEach((to, from) => {
 
 	// Disallow navigating to invalid channels
 	if (to.name === "RoutedChat" && !store.getters.findChannel(Number(to.params.id))) {
+		return false;
+	}
+
+	// The oper panel belongs to a network that is here.
+	if (to.name === "OperPanel" && !store.getters.findNetwork(String(to.params.uuid))) {
 		return false;
 	}
 

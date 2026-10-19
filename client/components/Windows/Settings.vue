@@ -34,13 +34,15 @@
 </template>
 
 <style>
-/* The settings window is a modal: a dimmed backdrop over the whole app
+/* The settings window is a modal (and the oper panel, Windows/OperPanel.vue,
+ * borrows the same frame): a dimmed backdrop over the whole app
  * (sidebar included — absolute within #viewport, above the sidebar's
  * z-index 10, so it never fights the hamburger or the swipe) with the
  * settings in their own pane on top. The route is still /settings/…, so
  * deep links, reloads and leavePage() behave exactly as before; only the
  * rendering is an overlay. */
-#settings.window {
+#settings.window,
+#oper.window {
 	position: absolute;
 	top: 0;
 	right: 0;
@@ -52,7 +54,14 @@
 	align-items: center;
 	justify-content: center;
 	padding: 1.5rem;
+	/* clip, not hidden: a hidden box still scrolls when something inside it
+	 * is scrolled into view — focus moving to a field as the keyboard opens,
+	 * VoiceOver or TalkBack stepping through, scrollIntoView — and the pane
+	 * slid up off a strip of empty backdrop it could not scroll back from.
+	 * Only .settings-modal-body scrolls. hidden first, for a browser without
+	 * clip (Safari 15 and older), which drops the declaration it cannot read. */
 	overflow: hidden;
+	overflow: clip;
 }
 
 /* A fixed height, not content-driven: the footer holds still when tabs of
@@ -68,6 +77,7 @@
 	border-radius: 8px;
 	box-shadow: 0 8px 40px rgb(0 0 0 / 45%);
 	overflow: hidden;
+	overflow: clip;
 	/* stylelint-disable-next-line property-no-unknown */
 	container-type: inline-size;
 	/* stylelint-disable-next-line property-no-unknown */
@@ -131,7 +141,8 @@
 /* On a phone the modal is the page: no backdrop margin, no rounding. The
  * breakpoint matches the sidebar's overlay mode. */
 @media (max-width: 768px) {
-	#settings.window {
+	#settings.window,
+	#oper.window {
 		padding: 0;
 	}
 

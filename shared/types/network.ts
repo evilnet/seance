@@ -36,6 +36,31 @@ export type SharedNetworkStatus = {
 	retryAt?: number;
 };
 
+/** The services packages the client knows how to talk to (irc/services/). */
+export type ServicesPackage = "x3";
+
+/**
+ * The network's services, as the oper set them up in the network's edit
+ * form (docs/projects/oper-tools.md, "Services support"): which package,
+ * and its bots and channels by role — nothing is assumed from a network's
+ * name. A channel may be blank when the network does not run it.
+ */
+export type ServicesConfig = {
+	package: ServicesPackage;
+	bots: {
+		/** The oper service (X3: `O3`), which takes G-lines and shuns. */
+		oper: string;
+		/** The account service (`AuthServ`). */
+		account: string;
+		/** The channel service (`ChanServ`). */
+		channel: string;
+		/** Where the audit lines land (`#operserv`): what opers made services do. */
+		report: string;
+		/** The connect/join/part/quit feed (`#mrsnoopy`). */
+		snoop: string;
+	};
+};
+
 export type SharedNetwork = {
 	uuid: string;
 	name: string;
@@ -43,4 +68,6 @@ export type SharedNetwork = {
 	serverOptions: SharedServerOptions;
 	status: SharedNetworkStatus;
 	channels: SharedNetworkChan[];
+	/** Services support, when the oper configured it (absent: none). */
+	services?: ServicesConfig;
 };

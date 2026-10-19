@@ -31,7 +31,8 @@ import {
 	RAIN_DECK_HEIGHT,
 	weatherLayers,
 } from "../../client/js/scenes/ps/plains";
-import {OVERCAST_FADE_MS, sceneMarkup, sceneVars} from "../../client/js/scenes/ps/scene";
+import {sceneMarkup, sceneVars} from "../../client/js/scenes/ps/markup";
+import {NG_STILL_CSS} from "../../client/js/scenes/psng/styles";
 import {
 	checkedGrounds,
 	dayGlassGrounds,
@@ -207,7 +208,32 @@ function subjectOf(selector: string): string | null {
 	return null;
 }
 
-const rules = rulesIn(css);
+/** The attribute prefixes reduced motion keys on (helpers/systemAccessibility.ts). */
+const REDUCED_MOTION = "html[data-reduce-motion]";
+const MOTION_OK = "html:not([data-reduce-motion])";
+
+/**
+ * ps.css keys reduced motion on an attribute of <html>, not a media query: a
+ * rule whose every selector carries one of those prefixes is filed under the
+ * prefix as if it were an at-rule, and its selectors are read without it.
+ */
+function scopedByMotion(list: Rule[]): Rule[] {
+	return list.map((r) => {
+		for (const prefix of [REDUCED_MOTION, MOTION_OK]) {
+			if (r.selectors.every((sel) => sel.startsWith(prefix))) {
+				return {
+					...r,
+					at: [r.at, prefix].filter(Boolean).join(" "),
+					selectors: r.selectors.map((sel) => sel.slice(prefix.length).trim() || sel),
+				};
+			}
+		}
+
+		return r;
+	});
+}
+
+const rules = scopedByMotion(rulesIn(css));
 const DAY = ":root";
 const NIGHT = ':root[data-ps-light="night"]';
 const REDUCED_TRANSPARENCY = "@media (prefers-reduced-transparency: reduce)";
@@ -598,6 +624,14 @@ describe("the ps theme's chrome: glass over the plains (docs/projects/ps-theme.m
 		expect(valueOf(".window", "border-radius")).to.equal("0");
 		expect(valueOf(".window", "box-shadow")).to.equal("none");
 		expect(valueOf("#loading .window", "margin")).to.equal("0");
+	});
+
+	it("keeps the native shell's viewport clear, so the scene is not covered by the canvas colour", function () {
+		// style.css paints html[data-shell="native"] #viewport in --canvas-bg-color, which
+		// the scene sets to its sky: an opaque sheet over the plains in the apps.
+		expect(valueOf('html[data-shell="native"] #viewport', "background")).to.equal(
+			"transparent"
+		);
 	});
 
 	it("gives ps the daylight fallback's canvas as its theme-color before the scene loads", function () {
@@ -1097,7 +1131,7 @@ describe("the ps theme's chrome: glass over the plains (docs/projects/ps-theme.m
 
 	it("flips day and night over 0.8s, and at once under reduced motion", function () {
 		expect(valueOf(DAY, "--ps-flip")).to.equal("0.8s");
-		expect(valueOf(DAY, "--ps-flip", "@media (prefers-reduced-motion: reduce)")).to.equal("0s");
+		expect(valueOf(DAY, "--ps-flip", REDUCED_MOTION)).to.equal("0s");
 
 		// The jump-to-recent disc keeps style.css's own 0.2s: its fill changes on hover too.
 		for (const selector of [
@@ -1950,7 +1984,7 @@ describe("the ps theme's type", function () {
 			.filter((r) => r.decls.some(([p, v]) => p === "font-family" && /^Newsreader\b/.test(v)))
 			.flatMap((r) => r.selectors);
 
-	it("sets a nick named inside a message's text in the text's own face, bold, in the nick's colour (the user's I2, 2026-09-26): the nick column keeps the names' face", function () {
+	it("sets a nick named inside a message's text in the text's own face, bold, in the nick's colour (the user's I2, 2026-09-26)", function () {
 		const IN_TEXT = "#chat .msg .content .user";
 		const inText = rules.filter((r) => r.selectors.includes(IN_TEXT));
 		expect(inText, IN_TEXT).to.have.length.greaterThan(0);
@@ -1968,9 +2002,8 @@ describe("the ps theme's type", function () {
 		expect(valueOf(IN_TEXT, "font-family")).to.equal("inherit");
 		expect(valueOf(IN_TEXT, "font-weight")).to.equal("700");
 
-		// The names' face reaches the nick column, never a nick in the text.
+		// The names' face reaches no nick in the conversation at all (below).
 		const names = namesSelectors();
-		expect(names).to.include("#chat .msg .from .user");
 		expect(names, "the bare #chat .msg .user reached the text too").to.not.include(
 			"#chat .msg .user"
 		);
@@ -1995,19 +2028,30 @@ describe("the ps theme's type", function () {
 
 		// And the chrome's names keep theirs.
 		expect(namesSelectors()).to.include.members([
-			"#chat .msg .from .user",
 			"#chat .header .title",
 			".channel-list-item .name",
 		]);
 	});
 
-	it("shows the theme's own faces in Settings → Appearance's font-size sample: its names in the names' face, its times and lines in the words' (the user's report, 2026-09-26)", function () {
+	it("sets a sender's nick over its message in the words' face, bold (the user, 2026-10-09: the names' face is the chrome's)", function () {
+		expect(
+			namesSelectors(),
+			"no nick in the conversation takes the names' face"
+		).to.not.satisfy((list: string[]) =>
+			list.some((sel) => /^#chat .*\.(from|user)(?![\w-])/.test(sel))
+		);
+		expect(valueOf("#chat .msg .from .user", "font-family")).to.equal(undefined);
+		expect(valueOf("#chat .msg .from .user", "font-weight")).to.equal("700");
+	});
+
+	it("shows the theme's own faces in Settings → Appearance's font-size sample: the words' face throughout, its nick bold as the conversation's (2026-09-26, 2026-10-09)", function () {
 		// Appearance.vue: <div class="font-size-sample"> of lines of
 		// <span class="time">, <span class="from user"> and <span class="text">,
 		// inside #settings, which the words' rule sets; the names' rule
 		// named only the chat's and the sidebar's names, so the sample's drew
 		// in the words' face at the component's bold.
-		expect(namesSelectors()).to.include(".font-size-sample .from");
+		expect(namesSelectors()).to.not.include(".font-size-sample .from");
+		expect(valueOf(".font-size-sample .from", "font-weight")).to.equal("700");
 
 		const wordsRule = rules.find(
 			(r) =>
@@ -2049,6 +2093,16 @@ describe("the ps theme's stacked message rows (the user's B, 2026-10-06; the tim
 		);
 	});
 
+	it("cuts a reply quote's words alone, with room for their outline, and the room takes no taps", function () {
+		expect(valueOf("#chat .msg-reply-quote", "overflow")).to.equal("visible");
+		expect(valueOf("#chat .msg-reply-arrow", "flex")).to.equal("none");
+		expect(valueOf("#chat .msg-reply-text", "overflow")).to.equal("hidden");
+		expect(valueOf("#chat .msg-reply-text", "text-overflow")).to.equal("ellipsis");
+		expect(valueOf("#chat .msg-reply-text", "margin")).to.equal("-0.75rem");
+		expect(valueOf("#chat .msg-reply-text", "padding")).to.equal("0.75rem");
+		expect(valueOf("#chat .msg-reply-text", "pointer-events")).to.equal("none");
+	});
+
 	it("lays a message out as its time, then the nick, and the text on the next line under the nick", function () {
 		expect(valueOf(ROW, "display")).to.equal("grid");
 		expect(valueOf(ROW, "grid-template-areas")?.replace(/\s+/g, " ")).to.equal(
@@ -2059,7 +2113,11 @@ describe("the ps theme's stacked message rows (the user's B, 2026-10-06; the tim
 		expect(valueOf(`${ROW} .content`, "grid-area")).to.equal("content");
 		// logical, so a right-to-left page has its time at its own start
 		expect(valueOf(ROW, "padding-inline")).to.equal("0.625rem");
-		expect(valueOf(`${ROW} .content`, "padding-inline")).to.equal("0");
+		// the outline's room past the column: overflow-clip-margin, or on
+		// WebKit, which has none, a clip-path as far out
+		expect(valueOf(`${ROW} .content`, "overflow-clip-margin")).to.equal("0.75rem");
+		const webkit = "@supports not (overflow-clip-margin: 0.75rem)";
+		expect(valueOf(`${ROW} .content`, "clip-path", webkit)).to.equal("inset(-0.75rem)");
 	});
 
 	it("lines a mention up with the rows around it: its 5px bar is taken off the row's start", function () {
@@ -2132,6 +2190,37 @@ describe("the ps theme's stacked message rows (the user's B, 2026-10-06; the tim
 		expect(valueOf("#chat .chat .condensed-summary .from", "display")).to.equal("none");
 	});
 
+	it("starts an icon row's text where every message's text starts: the icon shares the text's cell, and only the first line steps past it", function () {
+		const types = ["action", "join", "part", "quit", "nick", "mode", "topic", "kick"];
+		// the rule whose one selector is the row itself, `#chat .chat .msg:is(…)` with nothing after it
+		const iconRule = rules.find(
+			(r) =>
+				r.at === "" &&
+				r.selectors.some((sel) =>
+					/^#chat \.chat \.msg:is\(\[data-type="action"\][^)]*\)$/.test(sel)
+				)
+		);
+		expect(iconRule, "the icon rows' rule").to.not.equal(undefined);
+		const ROW_SEL = iconRule!.selectors[0];
+
+		for (const type of types) {
+			expect(ROW_SEL, type).to.include(`[data-type="${type}"]`);
+		}
+
+		expect(valueOf(ROW_SEL, "grid-template-areas")).to.equal('"time content"');
+		expect(valueOf(`${ROW_SEL} .from`, "grid-area")).to.equal("content");
+		expect(valueOf(`${ROW_SEL} .from`, "inline-size")).to.equal("1.25em");
+		expect(valueOf(`${ROW_SEL} .content`, "text-indent")).to.equal("calc(1.25em + 0.375rem)");
+		expect(
+			valueOf(`${ROW_SEL} .content *`, "text-indent"),
+			"a block inside starts at its own edge"
+		).to.equal("0");
+		// after the generic system rows, which put the icon in a column of its own
+		expect(rules.indexOf(iconRule!)).to.be.above(
+			rules.findIndex((r) => r.selectors.includes(SYS))
+		);
+	});
+
 	it("wins over style.css's narrow inline flow on the same elements, so the row is alike at every width", function () {
 		const narrow = style.filter(
 			(r) =>
@@ -2194,13 +2283,12 @@ describe("the ps theme's motion", function () {
 		expect(css).to.include("@keyframes ps-rise");
 		expect(css).to.include("@keyframes ps-glow");
 		expect(css).to.match(
-			/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*animation: none !important/
+			/html\[data-reduce-motion\] #theme-scene \*[^{]*\{[^}]*animation: none !important/
 		);
 	});
 });
 
 describe("the ps theme under reduced motion (spec §9): nothing moves, and the hour still shows", function () {
-	const REDUCED_MOTION = "@media (prefers-reduced-motion: reduce)";
 	const S = "#theme-scene";
 	/**
 	 * What exists only in flight. With every scene animation gone (the block's
@@ -2305,7 +2393,6 @@ describe("the ps theme's embers (spec §9)", function () {
 	// `effect("embers")` (docs/resources/themes/ps-plains/mockup.html) are
 	// the reference; its random offsets are fixed here, four sets for a send
 	// and two for a reaction's chip.
-	const MOTION_OK = "@media (prefers-reduced-motion: no-preference)";
 	const CH = '#chat .chat-view[data-type="channel"]';
 	const OWN = `${CH} .msg.self:is([data-type="message"], [data-type="action"]):not(.pending):last-child`;
 	/** A send's four sparks, in the order they rise. */
@@ -2428,8 +2515,16 @@ describe("the ps theme's embers (spec §9)", function () {
 		expect(valueOf(UNCLIP, "overflow-clip-margin", MOTION_OK)).to.equal(
 			`${rise + blur + spread}rem`
 		);
-		const unclipped = rules.filter((r) =>
-			r.decls.some(([p, v]) => /^overflow(-[xy])?$/.test(p) && v === "visible")
+		// WebKit has no overflow-clip-margin, so the clip above would cut at
+		// the box: there the clip-path is the margin and overflow is lifted
+		// under it, as the column's own WebKit rule does.
+		const webkit = `@supports not (overflow-clip-margin: 3.25rem) ${MOTION_OK}`;
+		expect(valueOf(UNCLIP, "overflow", webkit)).to.equal("visible");
+		expect(valueOf(UNCLIP, "clip-path", webkit)).to.equal("inset(-3.25rem)");
+		const unclipped = rules.filter(
+			(r) =>
+				r.decls.some(([p, v]) => /^overflow(-[xy])?$/.test(p) && v === "visible") &&
+				!r.decls.some(([p]) => p === "clip-path")
 		);
 		expect(
 			unclipped.flatMap((r) => r.selectors).filter((s) => /\.content(?![\w-])/.test(s)),
@@ -2506,7 +2601,7 @@ describe("the ps theme's embers (spec §9)", function () {
 		}
 	});
 
-	it("exists only where motion is welcome: every ember rule under prefers-reduced-motion: no-preference, and nothing of it in the reduced-motion block", function () {
+	it("exists only where motion is welcome: every ember rule under html:not([data-reduce-motion]), and nothing of it in the reduced-motion block", function () {
 		const ours = rules.filter(
 			(r) =>
 				!r.at.startsWith("@keyframes") &&
@@ -2518,10 +2613,11 @@ describe("the ps theme's embers (spec §9)", function () {
 		expect(ours.length).to.be.at.least(SPARKS.length);
 
 		for (const r of ours) {
-			expect(r.at, r.selectors.join(", ")).to.equal(MOTION_OK);
+			// (WebKit's clip-path twin is the same gated selector in an @supports)
+			expect(r.at.includes(MOTION_OK), r.selectors.join(", ")).to.equal(true);
 		}
 
-		const reduced = rules.filter((r) => r.at.includes("prefers-reduced-motion: reduce"));
+		const reduced = rules.filter((r) => r.at.includes(REDUCED_MOTION));
 		expect(
 			reduced.filter((r) =>
 				/ember|enter-active/.test(r.selectors.join() + JSON.stringify(r.decls))
@@ -2557,38 +2653,13 @@ describe("the ps theme's scene", function () {
 		expect(css).to.not.match(/\[data-ps-(light|text)[^\]]*\][^{]*\{[^}]*--canvas-bg-color/);
 	});
 
-	it("stops every scene animation while paused and under reduced motion", function () {
-		expect(css).to.match(
-			/#theme-scene\.ps-paused \*\s*\{\s*animation-play-state:\s*paused !important;/
-		);
-		const reduced = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)"));
+	it("stops every scene animation under reduced motion", function () {
+		const reduced = css.slice(css.indexOf("/* ---- reduced motion ---- */"));
 		expect(reduced).to.match(/#theme-scene \*[^{]*\{\s*animation:\s*none !important;/);
 	});
 
-	it("takes a layer outside its window out of the render tree, and waits out exactly the fade ps.css gives it (layers.ts, spec §10)", function () {
+	it("takes a layer outside its window out of the render tree (layers.ts, spec §10)", function () {
 		expect(valueOf("#theme-scene .ps-off", "display")).to.equal("none");
-		// Where each gated layer's opacity transition is declared: the day birds share theirs.
-		const fadeRule: Record<Gate, string> = {
-			stars: "#theme-scene .ps-stars",
-			sun: "#theme-scene .ps-sun",
-			fireflies: "#theme-scene .ps-fireflies",
-			smoke: "#theme-scene .ps-smoke",
-			skeins: "#theme-scene .ps-skeins",
-			flock0: "#theme-scene .ps-flock",
-			flock1: "#theme-scene .ps-flock",
-			flock2: "#theme-scene .ps-flock",
-			buzzard: "#theme-scene .ps-daybirds > div",
-			larks: "#theme-scene .ps-daybirds > div",
-			seeds: "#theme-scene .ps-seeds",
-			heatband: "#theme-scene .ps-heatband",
-		};
-
-		for (const gate of Object.keys(GATES) as Gate[]) {
-			const {fadeMs} = GATES[gate];
-			expect(valueOf(fadeRule[gate], "transition"), gate).to.equal(
-				fadeMs > 0 ? `opacity ${fadeMs / 1000}s ease` : undefined
-			);
-		}
 
 		// Nothing gives a gated layer a display of its own that could outrank the
 		// gate and show it. Reduced motion's `display: none` (the layers that
@@ -2716,7 +2787,6 @@ describe("the ps theme's scene", function () {
 describe("the ps theme's private view (spec §5.7): the plains frosted and still in a query", function () {
 	const FROST = "#theme-scene .ps-frost";
 	const PRIVATE = "#theme-scene.ps-private .ps-frost";
-	const REDUCED_MOTION = "@media (prefers-reduced-motion: reduce)";
 
 	it("lays the one wrapper over the whole scene and positions every layer inside it, as when they were the root's own", function () {
 		expect(valueOf(FROST, "position")).to.equal("absolute");
@@ -2748,10 +2818,8 @@ describe("the ps theme's private view (spec §5.7): the plains frosted and still
 		expect(50 - 40 * scale).to.be.above(0);
 	});
 
-	it("eases the frost in and out over the theme's flip, and gives the wrapper no filter, transform or layer outside a query", function () {
-		expect(valueOf(FROST, "transition")).to.equal(
-			"filter var(--ps-flip), transform var(--ps-flip)"
-		);
+	it("snaps the frost (no transition: NG's scene has none), and gives the wrapper no filter, transform or layer outside a query", function () {
+		expect(valueOf(FROST, "transition")).to.equal(undefined);
 
 		for (const property of [
 			"filter",
@@ -2785,7 +2853,7 @@ describe("the ps theme's private view (spec §5.7): the plains frosted and still
 			r.selectors.filter((s) => s.includes("ps-private")).map((s) => [r.at, s])
 		);
 		expect(underPrivate).to.deep.equal([["", PRIVATE]]);
-		// The still is the hidden page's own pause (scene.ts sets ps-paused too): no rule of its own.
+		// The still is the hidden page's own (psng/scene.ts): no rule of its own.
 		expect(css).to.not.match(/ps-private[^{]*\{[^}]*animation/);
 	});
 });
@@ -2913,7 +2981,8 @@ describe("the ps theme's plains (plan 3: the land, the river, the near grass, th
 	});
 
 	it("sways the blades by the weather's angle with its own keyframes", function () {
-		expect(valueOf(`${S} .ps-blades .ps-sway`, "animation")).to.match(/^ps-sway /);
+		// NG sways the grass as one wrapper, div.psng-sway, on ps.css's keyframes.
+		expect(NG_STILL_CSS).to.match(/\.psng-m-grass \.psng-sway \{\s*animation: ps-sway /);
 		const frames = css.match(/@keyframes ps-sway\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
 		expect(frames).to.include("skewX(");
 		expect(frames).to.include("var(--ps-sway");
@@ -2940,53 +3009,59 @@ describe("the ps theme's yurt and its smoke (plan 3, spec §5.3)", function () {
 	const YURT = `${S} .ps-yurt`;
 	const SMOKE = `${S} .ps-smoke`;
 	/**
-	 * The place: what scene.ts measured (yurt.ts clamps it so the whole yurt
-	 * is on screen); before that, 70 % of the scene clamped the same way. The
-	 * yurt is 21 % of the scene's height tall, so half its width is
-	 * 21cqh × 120/170.
+	 * The place: 22 % of the scene's width in from the column's far end — the
+	 * scene's edge, or the user list's inner edge while a channel shows it —
+	 * clamped so the whole yurt is on screen. The yurt is 21 % of the scene's
+	 * height tall, so half its width is 21cqh × 120/170. CSS alone: no script
+	 * measures or writes it.
 	 */
 	const PLACE =
-		"var(--ps-yurt-left, clamp(calc(21cqh * 120 / 170), 70%, calc(100% - 21cqh * 120 / 170)))";
+		"clamp(var(--ps-yurt-half), calc(100% - var(--ps-yurt-in, 0px) - 22cqw), calc(100% - var(--ps-yurt-half)))";
+	const LIST_OPEN = 'html:has(.userlist-open .chat-view[data-type="channel"])';
 
-	it("stands on the ground band at the place the scene measures, 70 % before it has one", function () {
-		expect(valueOf(YURT, "left")).to.equal(PLACE);
+	it("stands on the ground band 22 % of the scene in from the column's far end, whole on screen", function () {
+		expect(valueOf(YURT, "--ps-yurt-half")).to.equal("calc(21cqh * 120 / 170)");
+		expect(valueOf(YURT, "--ps-yurt-x")).to.equal(PLACE);
+		expect(valueOf(YURT, "left")).to.equal("var(--ps-yurt-x)");
 		expect(valueOf(YURT, "bottom")).to.equal("17%");
 		expect(valueOf(YURT, "height")).to.equal("21%");
 		expect(valueOf(YURT, "aspect-ratio")).to.equal("240 / 170");
 		expect(valueOf(YURT, "transform")).to.equal("translateX(-50%)");
 	});
 
+	it("steps in by the user list's width while a channel shows the list, and by nothing else", function () {
+		for (const sel of [YURT, SMOKE]) {
+			expect(valueOf(`${LIST_OPEN} ${sel}`, "--ps-yurt-in"), sel).to.equal(
+				"var(--userlist-width)"
+			);
+		}
+
+		const setters = rules.filter((r) => r.decls.some(([p]) => p === "--ps-yurt-in"));
+		expect(setters.flatMap((r) => r.selectors).sort()).to.deep.equal(
+			[`${LIST_OPEN} ${YURT}`, `${LIST_OPEN} ${SMOKE}`].sort()
+		);
+		expect(css, "no script writes the place any more").to.not.include("--ps-yurt-left");
+	});
+
 	it("puts the smoke at the pipe, on the same place: the yurt's top plus 22/170 of its height", function () {
-		expect(valueOf(SMOKE, "left")).to.equal(PLACE);
+		expect(valueOf(SMOKE, "--ps-yurt-x")).to.equal(PLACE);
+		expect(valueOf(SMOKE, "left")).to.equal("var(--ps-yurt-x)");
 		expect(valueOf(SMOKE, "bottom")).to.equal("calc(17% + 21% * 148 / 170)");
 		expect(valueOf(SMOKE, "opacity")).to.match(/^var\(--ps-smoke-op(, 0)?\)$/);
 	});
 
-	it("never transitions its place: the yurt and the smoke transition opacity only", function () {
+	it("never slides: neither the yurt nor the smoke transitions or animates", function () {
 		for (const sel of [YURT, SMOKE]) {
 			const all = rules.filter((r) => r.selectors.some((s) => s.startsWith(sel)));
 			const transitions = all.flatMap((r) =>
 				r.decls.filter(([p]) => p.startsWith("transition")).map(([p, v]) => `${p}: ${v}`)
 			);
-			expect(valueOf(sel, "transition"), sel).to.match(/^opacity [\d.]+s/);
-
-			for (const t of transitions) {
-				if (t === "transition: none !important") {
-					continue; // reduced motion
-				}
-
-				expect(t, sel).to.not.match(/\b(left|transform|inset|all|bottom|translate)\b/);
-				expect(t, sel).to.match(/^transition: opacity\b/);
-			}
-
-			// Nor may an animation carry it.
+			expect(
+				transitions.filter((t) => t !== "transition: none !important"),
+				sel
+			).to.deep.equal([]);
 			expect(valueOf(sel, "animation"), sel).to.equal(undefined);
 		}
-	});
-
-	it("hides the yurt and its smoke while it moves (ps-yurt-moving)", function () {
-		expect(valueOf(`${S}.ps-yurt-moving .ps-yurt`, "opacity")).to.equal("0");
-		expect(valueOf(`${S}.ps-yurt-moving .ps-smoke`, "opacity")).to.equal("0");
 	});
 
 	it("fills the felt, roof, band, door and the rest from the colours the palette publishes", function () {
@@ -3015,9 +3090,7 @@ describe("the ps theme's yurt and its smoke (plan 3, spec §5.3)", function () {
 
 	it("mixes no colour in CSS: every yurt and smoke colour is published", function () {
 		const own = rules.filter((r) =>
-			r.selectors.some((sel) =>
-				/^#theme-scene(\.ps-yurt-moving)? \.(ps-yurt|ps-y-|ps-smoke)/.test(sel)
-			)
+			r.selectors.some((sel) => /^#theme-scene \.(ps-yurt|ps-y-|ps-smoke)/.test(sel))
 		);
 		expect(own.length, "the yurt's rules").to.be.at.least(18);
 
@@ -3085,31 +3158,13 @@ describe("the ps theme's clouds and weather (plan 3 task 4, spec §5.1, §5.5)",
 	const S = "#theme-scene";
 	/** Every rule of the clouds, the veil and the weather layer, plain or under a root class. */
 	const WEATHER_RULE =
-		/^#theme-scene(\.ps-(windy|storm|hot))? \.(ps-cloud|ps-overcast|ps-deck|ps-veil|ps-weather|ps-rain|ps-snow|ps-seeds|ps-flash|ps-heatband|ps-heat-haze)\b/;
+		/^#theme-scene(\.ps-(windy|storm|hot))? \.(ps-cloud|ps-overcast|ps-deck|ps-veil|ps-weather|ps-rain|ps-snow|ps-seeds|ps-flash|ps-heatband)\b/;
 	const own = rules.filter((r) => r.selectors.some((sel) => WEATHER_RULE.test(sel)));
 	const frames = (name: string) =>
 		css.match(new RegExp(`@keyframes ${name}\\s*\\{([\\s\\S]*?)\\n\\}`))?.[1] ?? "";
 
-	it("bends the ground with the heat haze only on a hot day, and leaves the near grass out of it", function () {
-		expect(valueOf(`${S}.ps-hot .ps-ground`, "filter")).to.equal('url("#ps-heat")');
-		expect(valueOf(`${S} .ps-ground`, "filter")).to.equal(undefined);
-		// Nothing else takes the haze, and nothing filters the blades.
-		const hazed = rules.filter((r) => r.decls.some(([, v]) => v.includes("#ps-heat")));
-		expect(hazed.map((r) => r.selectors)).to.deep.equal([[`${S}.ps-hot .ps-ground`]]);
-		const blades = rules.filter((r) => r.selectors.some((sel) => sel.includes(".ps-blades")));
-		expect(blades.flatMap((r) => r.decls).filter(([p]) => p === "filter")).to.deep.equal([]);
-	});
-
-	it("keeps the haze's svg in the page but out of sight: no size, never display: none", function () {
-		const decls = declsOf(`${S} .ps-heat-haze`);
-		expect(decls.length).to.be.greaterThan(0);
-		expect(valueOf(`${S} .ps-heat-haze`, "width")).to.equal("0");
-		expect(valueOf(`${S} .ps-heat-haze`, "height")).to.equal("0");
-		expect(decls.filter(([p]) => p === "display")).to.deep.equal([]);
-	});
-
 	it("speeds the blades to 2.4 s and the clouds to 0.4 of their time on a windy day", function () {
-		expect(valueOf(`${S}.ps-windy .ps-blades .ps-sway`, "animation-duration")).to.equal("2.4s");
+		expect(NG_STILL_CSS).to.match(/\.ps-windy \.psng-sway \{\s*animation-duration: 2\.4s;/);
 		expect(valueOf(`${S}.ps-windy .ps-cloud`, "animation-duration")).to.equal(
 			"calc(var(--cd) * 0.4)"
 		);
@@ -3137,7 +3192,6 @@ describe("the ps theme's clouds and weather (plan 3 task 4, spec §5.1, §5.5)",
 		// With `animation: none` a cloud stood at its box's place, left: 0 with
 		// no transform, all five at the left edge. Frozen instead on ps-drift's
 		// own path at --cp (plains.ts), the fraction of its loop it would be at.
-		const REDUCED_MOTION = "@media (prefers-reduced-motion: reduce)";
 
 		/** A sum of lengths ("-100% - 0.25rem") as its coefficient for each unit, all of it read. */
 		const linear = (expr: string) => {
@@ -3281,28 +3335,6 @@ describe("the ps theme's clouds and weather (plan 3 task 4, spec §5.1, §5.5)",
 
 			expect(overcast.filter((r) => r.at !== "").map((r) => r.selectors)).to.deep.equal([]);
 		});
-
-		it("fades a day's set out and the next one in over OVERCAST_FADE_MS, and nothing else in the overcast is ever translucent", function () {
-			// Each day's clouds are one set on the overcast's box (scene.ts
-			// puts them there); at local midnight in view the outgoing takes
-			// .ps-leaving and the incoming comes in with .ps-arriving, both at 0,
-			// and the opacity eases between. That fade is the overcast's one
-			// translucency: 2 s, at midnight, under the night treatment (spec §11).
-			expect(declsOf(`${S} .ps-overcast-set`)).to.deep.equal([
-				["position", "absolute"],
-				["inset", "0"],
-				["transition", `opacity ${OVERCAST_FADE_MS / 1000}s ease`],
-			]);
-			expect(declsOf(`${S} .ps-overcast-set.ps-arriving`)).to.deep.equal([["opacity", "0"]]);
-			expect(declsOf(`${S} .ps-overcast-set.ps-leaving`)).to.deep.equal([["opacity", "0"]]);
-			expect(sets.flatMap((r) => r.selectors).sort()).to.deep.equal(
-				[
-					`${S} .ps-overcast-set`,
-					`${S} .ps-overcast-set.ps-arriving`,
-					`${S} .ps-overcast-set.ps-leaving`,
-				].sort()
-			);
-		});
 	});
 
 	it("veils the scene in the weather's colour and opacity, --ps-veil-c and --ps-veil", function () {
@@ -3329,15 +3361,7 @@ describe("the ps theme's clouds and weather (plan 3 task 4, spec §5.1, §5.5)",
 		expect(flash).to.match(/91%\s*\{\s*opacity:\s*0\.5;/);
 	});
 
-	it("never holds the lightning lit: a stopped scene does not show it", function () {
-		expect(valueOf(`${S}.ps-paused .ps-flash`, "visibility")).to.equal("hidden");
-	});
-
-	it("moves the rain, the snow and the seeds in cqw/cqh from the mockup's 1180 × 700 window", function () {
-		expect(valueOf(`${S} .ps-rain i`, "animation")).to.equal(
-			"ps-drop var(--rd) linear var(--rdl) infinite"
-		);
-		expect(frames("ps-drop")).to.include("translate(-3.9cqw, 118cqh)");
+	it("moves the snow and the seeds in cqw/cqh from the mockup's 1180 × 700 window", function () {
 		expect(valueOf(`${S} .ps-snow i`, "animation")).to.equal(
 			"ps-flake var(--fd) linear var(--fdl) infinite"
 		);
@@ -3357,14 +3381,7 @@ describe("the ps theme's clouds and weather (plan 3 task 4, spec §5.1, §5.5)",
 			}
 		}
 
-		for (const name of [
-			"ps-drift",
-			"ps-drop",
-			"ps-flake",
-			"ps-seed",
-			"ps-shimmer",
-			"ps-flash",
-		]) {
+		for (const name of ["ps-drift", "ps-flake", "ps-seed", "ps-shimmer", "ps-flash"]) {
 			const body = frames(name);
 			expect(body, name).to.not.equal("");
 			expect(body, name).to.not.match(/\dpx/);
@@ -3386,14 +3403,7 @@ describe("the ps theme's clouds and weather (plan 3 task 4, spec §5.1, §5.5)",
 	});
 
 	it("keeps its keyframes' names its own, once each", function () {
-		for (const name of [
-			"ps-drift",
-			"ps-drop",
-			"ps-flake",
-			"ps-seed",
-			"ps-shimmer",
-			"ps-flash",
-		]) {
+		for (const name of ["ps-drift", "ps-flake", "ps-seed", "ps-shimmer", "ps-flash"]) {
 			expect(css.match(new RegExp(`@keyframes ${name}\\b`, "g")), name).to.have.length(1);
 		}
 	});
@@ -3409,7 +3419,6 @@ describe("the ps theme's birds (plan 3 task 6, spec §5.4: the user's N2, D1 buz
 		"ps-skein-fly",
 		"ps-skein-west",
 		"ps-skein-sway",
-		"ps-bird-wander",
 		"ps-buzz-drift",
 		"ps-lark-fly",
 		"ps-lark-fl",
@@ -3419,10 +3428,10 @@ describe("the ps theme's birds (plan 3 task 6, spec §5.4: the user's N2, D1 buz
 	const frames = (name: string) =>
 		css.match(new RegExp(`@keyframes ${name}\\s*\\{([\\s\\S]*?)\\n\\}`))?.[1] ?? "";
 
-	it("shows the skeins' layer at the published level, on the sky above the land, fading over 1.4 s", function () {
+	it("shows the skeins' layer at the published level, on the sky above the land", function () {
 		expect(valueOf(`${S} .ps-skeins`, "inset")).to.equal("0 0 45%");
 		expect(valueOf(`${S} .ps-skeins`, "opacity")).to.equal("var(--ps-skeins-op, 0)");
-		expect(valueOf(`${S} .ps-skeins`, "transition")).to.equal("opacity 1.4s ease");
+		expect(valueOf(`${S} .ps-skeins`, "transition")).to.equal(undefined);
 	});
 
 	it("keeps the belly gradient's svg in the page but of no size, never display: none", function () {
@@ -3438,7 +3447,7 @@ describe("the ps theme's birds (plan 3 task 6, spec §5.4: the user's N2, D1 buz
 		expect(valueOf(`${S} .ps-flock`, "opacity")).to.equal(
 			"clamp(0, var(--ps-skein-count, 0) - var(--fi), 1)"
 		);
-		expect(valueOf(`${S} .ps-flock`, "transition")).to.equal("opacity 1.8s ease");
+		expect(valueOf(`${S} .ps-flock`, "transition")).to.equal(undefined);
 		expect(valueOf(`${S} .ps-flock`, "animation")).to.equal(
 			"ps-skein-fly var(--fd) linear var(--fdl) infinite"
 		);
@@ -3487,15 +3496,15 @@ describe("the ps theme's birds (plan 3 task 6, spec §5.4: the user's N2, D1 buz
 		expect(valueOf(`${S} .ps-bird .ps-b-far`, "opacity")).to.equal("0.55");
 		expect(valueOf(`${S} .ps-bird .ps-b-near`, "fill")).to.equal("var(--ps-bird-wing)");
 		expect(valueOf(`${S} .ps-bird .ps-b-body`, "fill")).to.equal('url("#ps-b-belly")');
-		expect(valueOf(`${S} .ps-bird`, "animation")).to.equal(
-			"ps-bird-wander var(--wd) ease-in-out var(--wdl) infinite alternate"
-		);
+		// Plan 5: a bird holds its place in the V; the skein's sway moves them together.
+		expect(valueOf(`${S} .ps-bird`, "animation")).to.equal(undefined);
+		expect(css).not.to.contain("ps-bird-wander");
 	});
 
 	it("inks the day birds from --ps-db-ink, each shown by its own published switch", function () {
 		expect(valueOf(`${S} .ps-daybirds svg`, "fill")).to.equal("var(--ps-db-ink)");
 		expect(valueOf(`${S} .ps-daybirds .ps-b-far`, "opacity")).to.equal("0.55");
-		expect(valueOf(`${S} .ps-daybirds > div`, "transition")).to.equal("opacity 1.4s ease");
+		expect(valueOf(`${S} .ps-daybirds > div`, "transition")).to.equal(undefined);
 		expect(valueOf(`${S} .ps-buzzard`, "opacity")).to.equal("var(--ps-buzzard-op, 0)");
 		expect(valueOf(`${S} .ps-lark`, "opacity")).to.equal("var(--ps-lark-op, 0)");
 	});

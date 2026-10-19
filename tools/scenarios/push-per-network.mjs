@@ -43,6 +43,9 @@ export const url =
 
 const frameText = (f) => (typeof f.payloadData === "string" ? f.payloadData : "");
 const promptOpened = `document.querySelector("#push-prompt-overlay")?.classList.contains("opened")`;
+// A prompt takes no answer in its first moments (webpush.ts PROMPT_ARM_MS);
+// `data-armed` marks it ready.
+const promptArmed = `document.querySelector("#push-prompt[data-armed]") !== null`;
 const promptGone = `getComputedStyle(document.querySelector("#push-prompt-overlay")).visibility === "hidden"`;
 
 /** The socket (requestId) that authenticated as `account`, among frames
@@ -241,6 +244,7 @@ export default async function run(page) {
 	);
 	await page.screenshot("2-prompt-network-2");
 	const mark = page.wsFrames.length;
+	await page.waitFor(promptArmed, {label: "the prompt to take answers"});
 	await page.click("#pushPromptYes");
 	await waitFrame(
 		page,

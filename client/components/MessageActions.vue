@@ -182,8 +182,7 @@ export default defineComponent({
 		const codeBlocks = computed(() => {
 			const text = props.message.text ?? "";
 
-			// Optional: mounted without a store (the browser specs in
-			// test/client do that), no store means no Markdown
+			// Optional: mounted without a store, no store means no Markdown
 			if (!store?.state.settings.markdown || !text.includes("```")) {
 				return [];
 			}

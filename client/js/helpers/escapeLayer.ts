@@ -28,7 +28,9 @@ export function topEscapeLayer(): string | null {
 	return top ? top.dataset.escapeClose || "" : null;
 }
 
-/** Close the topmost overlay, or — with none up — what Escape leaves. */
-export function emitEscape(): void {
-	eventbus.emit("escapekey", topEscapeLayer());
+/** Close the topmost overlay, or — with none up — what Escape leaves.
+ * `repeat` says the press is a held key's auto-repeat; an overlay that came
+ * up under a held key (the push prompt's next network) may ignore it. */
+export function emitEscape(repeat = false): void {
+	eventbus.emit("escapekey", topEscapeLayer(), repeat);
 }

@@ -8,7 +8,10 @@
 import type {EventBus} from "../socket";
 import type {IrcClient} from "./client";
 import {requestMore} from "./history";
+import {refreshOper, setSnomask} from "./oper";
+import {request} from "./request";
 import * as saved from "./saved-networks";
+import {checkServices, servicesBan} from "./services";
 import type {ConnectOptions} from "./types";
 import {REPLY_TAG} from "./wire";
 
@@ -43,6 +46,8 @@ export function networkInfo(
 		name: stored?.name || client?.name || "",
 		nick: client?.nick ?? stored?.nick ?? "",
 		connected: client?.isConnected ?? false,
+		// Always present, so a store network set back to None loses it too.
+		services: stored?.services,
 	};
 }
 
@@ -155,6 +160,77 @@ export function registerBusHandlers(bus: EventBus, registry: ClientRegistry): vo
 		persistenceClient(params)?.send("PERSISTENCE DETACH");
 	});
 
+	// Oper tools (oper.ts, request.ts): a labeled request whose whole answer
+	// comes back raw as `oper:reply` (the UI parses it with the profile), the
+	// snomask, a refresh of what OperState holds, and the notice log.
+	bus.handle("oper:request", ({network, id, line, untagged, end}) => {
+		const client = registry.clientForNetwork(network);
+
+		if (!client) {
+			bus.dispatch("oper:reply", {network, id, lines: [], outcome: "closed"});
+			return;
+		}
+
+		void request(client, line, {untagged, end}).then((reply) => {
+			bus.dispatch("oper:reply", {
+				network,
+				id,
+				lines: reply.lines.map((msg) => msg.raw),
+				outcome: reply.outcome,
+			});
+		});
+	});
+
+	bus.handle("oper:snomask", ({network, mask}) => {
+		const client = registry.clientForNetwork(network);
+
+		if (client) {
+			void setSnomask(client, mask);
+		}
+	});
+
+	bus.handle("oper:refresh", ({network}) => {
+		const client = registry.clientForNetwork(network);
+
+		if (client) {
+			void refreshOper(client);
+		}
+	});
+
+	bus.handle("oper:notices:get", ({network}) => {
+		const client = registry.clientForNetwork(network);
+
+		bus.dispatch("oper:notices", {network, entries: client ? client.noticeLog.all() : []});
+	});
+
+	// Services support (services.ts): the edit form's liveness check on the
+	// bots, and a G-line or shun asked of the oper service.
+	bus.handle("services:check", ({network, id, services}) => {
+		const client = registry.clientForNetwork(network);
+
+		if (!client) {
+			bus.dispatch("services:checked", {network, id, results: [], failure: "closed"});
+			return;
+		}
+
+		void checkServices(client, services).then((result) => {
+			bus.dispatch("services:checked", {network, id, ...result});
+		});
+	});
+
+	bus.handle("services:ban", ({network, id, type, mask, seconds, reason}) => {
+		const client = registry.clientForNetwork(network);
+
+		if (!client) {
+			bus.dispatch("services:banned", {network, id, outcome: "closed"});
+			return;
+		}
+
+		void servicesBan(client, {type, mask, seconds, reason}).then((reply) => {
+			bus.dispatch("services:banned", {network, id, ...reply});
+		});
+	});
+
 	bus.handle("open", (id) => {
 		for (const client of registry.allClients()) {
 			client.open(client.channelById(id) ? id : 0);
@@ -231,6 +307,9 @@ export function registerBusHandlers(bus: EventBus, registry: ClientRegistry): vo
 			if (next.name && next.name !== client.name) {
 				client.setNetworkName(next.name);
 			}
+
+			// Services support applies at once: the feed and the ban path read it live.
+			client.setServices(next.services);
 		}
 
 		const info = networkInfo(registry, uuid);

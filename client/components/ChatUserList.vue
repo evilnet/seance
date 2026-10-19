@@ -57,10 +57,10 @@
 </template>
 
 <script lang="ts">
-import {filter as fuzzyFilter} from "fuzzy";
 import {computed, defineComponent, nextTick, PropType, ref} from "vue";
 import type {UserInMessage} from "../../shared/types/msg";
 import type {ClientChan, ClientUser} from "../js/types";
+import {fuzzyHtml} from "../js/helpers/fuzzyHtml";
 import Username from "./Username.vue";
 
 const modes = {
@@ -90,11 +90,7 @@ export default defineComponent({
 				return;
 			}
 
-			return fuzzyFilter(userSearchInput.value, props.channel.users, {
-				pre: "<b>",
-				post: "</b>",
-				extract: (u) => u.nick,
-			});
+			return fuzzyHtml(userSearchInput.value, props.channel.users, (u) => u.nick);
 		});
 
 		const groupedUsers = computed(() => {

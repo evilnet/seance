@@ -839,6 +839,22 @@ describe("irc commands", function () {
 			expect(h.transport.closeCalls).to.have.length(2);
 		});
 
+		it("still closes when the reason holds a line break or runs long", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.input(id, "/disconnect one\rtwo");
+			expect(h.sentAfter()).to.deep.equal(["QUIT :one two"]);
+			expect(h.transport.closeCalls).to.have.length(1);
+
+			const h2 = setup();
+			const id2 = joined(h2);
+			h2.client.input(id2, `/quit ${"word ".repeat(200)}`);
+			const [quit] = h2.sentAfter();
+			expect(quit).to.match(/^QUIT :word word/);
+			expect(new TextEncoder().encode(quit).length).to.be.at.most(500);
+			expect(h2.transport.closeCalls).to.have.length(1);
+		});
+
 		it("reconnects the current network with no arguments", function () {
 			const h = setup();
 			const id = joined(h);

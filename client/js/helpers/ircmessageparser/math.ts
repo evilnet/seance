@@ -42,11 +42,29 @@ function ensureCss() {
 	document.head.appendChild(link);
 }
 
+// TeX sets its own lengths (`\rule`, `\raisebox`, `\kern`) and anyone in a
+// channel can type them: `\rule{1em}{5000em}` made one row 80,000px tall.
+// Inline TeX that asks for a length past this stays text; display TeX has
+// its own box, clipped in style.css. KaTeX's `maxSize` caps only `\rule`.
+const MAX_INLINE_EM = 10;
+
+function oversized(html: string): boolean {
+	for (const [style] of html.matchAll(/style="[^"]*"/g)) {
+		for (const [, n] of style.matchAll(/([\d.]+)em/g)) {
+			if (parseFloat(n) > MAX_INLINE_EM) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 // Renders `tex` to the HTML KaTeX stands behind — safe to set as innerHTML,
 // because KaTeX escapes everything it is given and emits only its own markup.
 // `throwOnError: false` renders a broken TeX as red error text instead of
-// throwing; undefined comes back only when the chunk failed (offline) or the
-// TeX is empty.
+// throwing; undefined comes back when the chunk failed (offline), the TeX is
+// empty, or inline TeX is oversized.
 export async function renderMath(tex: string, display: boolean): Promise<string | undefined> {
 	if (tex.trim() === "") {
 		return undefined;
@@ -61,7 +79,9 @@ export async function renderMath(tex: string, display: boolean): Promise<string 
 	try {
 		ensureCss();
 
-		return katex.renderToString(tex, {displayMode: display, throwOnError: false});
+		const html = katex.renderToString(tex, {displayMode: display, throwOnError: false});
+
+		return !display && oversized(html) ? undefined : html;
 	} catch {
 		return undefined;
 	}

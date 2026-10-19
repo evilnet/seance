@@ -13,6 +13,9 @@
 		<ContextMenu ref="contextMenu" />
 		<ConfirmDialog ref="confirmDialog" />
 		<UploadPreview />
+		<InvestigateCard />
+		<AlertBuilder />
+		<OperActionDialog />
 		<PushPrompt />
 		<InstallGuide />
 		<div id="upload-overlay"></div>
@@ -33,6 +36,9 @@ import ImageViewer from "./ImageViewer.vue";
 import ContextMenu from "./ContextMenu.vue";
 import ConfirmDialog from "./ConfirmDialog.vue";
 import UploadPreview from "./UploadPreview.vue";
+import OperActionDialog from "./Oper/ActionDialog.vue";
+import InvestigateCard from "./Oper/InvestigateCard.vue";
+import AlertBuilder from "./Oper/AlertBuilder.vue";
 import Mentions from "./Mentions.vue";
 import PushPrompt from "./PushPrompt.vue";
 import InstallGuide from "./InstallGuide.vue";
@@ -64,6 +70,9 @@ export default defineComponent({
 		ContextMenu,
 		ConfirmDialog,
 		UploadPreview,
+		OperActionDialog,
+		InvestigateCard,
+		AlertBuilder,
 		Mentions,
 		PushPrompt,
 		InstallGuide,
@@ -92,8 +101,8 @@ export default defineComponent({
 		const debouncedResize = ref<DebouncedFunc<() => void>>();
 		const dayChangeTimeout = ref<any>();
 
-		const escapeKey = () => {
-			emitEscape();
+		const escapeKey = (e: ExtendedKeyboardEvent) => {
+			emitEscape(e.repeat);
 		};
 
 		const toggleSidebar = (e: ExtendedKeyboardEvent) => {

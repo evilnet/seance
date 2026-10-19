@@ -3,7 +3,6 @@ check-leaks: true
 recursive: true
 reporter: dot
 ignore:
-  - "test/client/**"
   - "test/e2e/**"
   - "test/public/**"
 extension: ["ts", "js"]

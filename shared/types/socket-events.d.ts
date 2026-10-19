@@ -1,11 +1,12 @@
 import {SharedMention} from "./mention";
 import {ChanState, SharedChan} from "./chan";
-import {SharedNetwork, SharedServerOptions} from "./network";
+import {ServicesConfig, SharedNetwork, SharedServerOptions} from "./network";
 import {SharedMsg, LinkPreview, TypingState} from "./msg";
 import {SharedUser} from "./user";
 import {SharedChangelogData} from "./changelog";
 import {SharedConfiguration, LockedSharedConfiguration} from "./config";
 import {SearchResponse, SearchQuery} from "./storage";
+import {SharedOperState, SnoticeInfo} from "./oper";
 
 type Session = {
 	current: boolean;
@@ -144,6 +145,41 @@ interface ServerToClientEvents {
 		code?: string;
 		reason?: string;
 	}>;
+	/** Being an oper on `network` changed: level, privileges, snomask, features (irc/oper.ts). */
+	"oper:state": EventHandler<{network: string; state: SharedOperState}>;
+	/**
+	 * The answer to an `oper:request`: every line of the labeled reply, raw,
+	 * in order. `outcome` says how it ended (`batch`, `lines`, `ack`,
+	 * `timeout`, `closed`).
+	 */
+	"oper:reply": EventHandler<{network: string; id: string; lines: string[]; outcome: string}>;
+	/** The notice log of `network` (oldest first), for the oper panel's Notices tab. */
+	"oper:notices": EventHandler<{
+		network: string;
+		entries: {time: number; type: string; text: string; from?: string; snotice: SnoticeInfo}[];
+	}>;
+	/**
+	 * The answer to a `services:check` (irc/services.ts `checkServices`):
+	 * each configured bot, whether it is online and whether it looks like
+	 * the package; `failure` when none could be asked.
+	 */
+	"services:checked": EventHandler<{
+		network: string;
+		id: string;
+		results: {role: string; bot: string; online: boolean; looksLikeX3: boolean}[];
+		failure?: "closed" | "timeout";
+	}>;
+	/**
+	 * The oper service's verdict on a `services:ban`: `ok` or `refused` with
+	 * its words in `text`, `timeout` when it never answered, `closed` when
+	 * the network is down.
+	 */
+	"services:banned": EventHandler<{
+		network: string;
+		id: string;
+		outcome: "ok" | "refused" | "timeout" | "closed";
+		text?: string;
+	}>;
 	/** One `PushSession` per `PERSISTENCE LIST` row, dispatched when the list closes (Settings → session panel). */
 	"persistence:sessions": EventHandler<{sessions: PushSession[]}>;
 	"msg:special": EventHandler<{chan: number; data?: Record<string, any>}>;
@@ -237,6 +273,38 @@ interface ClientToServerEvents {
 	"persistence:sessions:list": EventHandler<{network?: string}>;
 	/** End the current device's bouncer session (`PERSISTENCE DETACH`): the hold preference clears and the session is destroyed. */
 	"persistence:sessions:logout": EventHandler<{network?: string}>;
+
+	/**
+	 * Oper tools (irc/oper.ts, irc/request.ts): send `line` to `network`
+	 * labeled and answer with `oper:reply` carrying the same `id`.
+	 * `untagged` names numerics the server sends without the label
+	 * (evilnet/nefarious2#120), `end` the numerics that end an unbatched
+	 * answer.
+	 */
+	"oper:request": EventHandler<{
+		network: string;
+		id: string;
+		line: string;
+		untagged?: string[];
+		end?: string[];
+	}>;
+	/** Set the server notice mask (decimal; 0 turns +s off) and remember it for the next oper-up. */
+	"oper:snomask": EventHandler<{network: string; mask: number}>;
+	/** Ask again for privileges, snomask and features; answered by `oper:state`. */
+	"oper:refresh": EventHandler<{network: string}>;
+	/** Ask for the notice log; answered by `oper:notices`. */
+	"oper:notices:get": EventHandler<{network: string}>;
+	/** WHOIS the services bots named in `services` (the edit form's liveness check); answered by `services:checked`. */
+	"services:check": EventHandler<{network: string; id: string; services: ServicesConfig}>;
+	/** Ask the oper service for a G-line or shun (irc/services.ts); answered by `services:banned`. */
+	"services:ban": EventHandler<{
+		network: string;
+		id: string;
+		type: "gline" | "shun";
+		mask: string;
+		seconds: number;
+		reason: string;
+	}>;
 
 	"upload:auth": NoPayloadEventHandler;
 	"upload:ping": (token: string) => void;

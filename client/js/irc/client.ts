@@ -20,6 +20,7 @@ import {createHighlightTester} from "../highlight";
 import {ChanState, ChanType} from "../../../shared/types/chan";
 import {MessageType, SharedMsg, TypingState} from "../../../shared/types/msg";
 import type {
+	ServicesConfig,
 	SharedNetwork,
 	SharedNetworkStatus,
 	SharedServerOptions,
@@ -69,6 +70,11 @@ import {
 	serverReplayCovers,
 } from "./persistence";
 import {IdAllocator, sharedIds} from "./ids";
+import {NoticeLog} from "./noticelog";
+import {initialOper, OperState, operRegistered, resetOper} from "./oper";
+import {detectProfile, type ServerProfile} from "./profiles";
+import {interceptRequestLine, resetRequests} from "./request";
+import {noticeMessage} from "./snotice";
 import {ISupport} from "./isupport";
 import {
 	formatLine,
@@ -91,6 +97,8 @@ import {
 	upgradeOptions,
 } from "./sts";
 import {channelOrder, get as getSavedNetwork, NetworkCursor, setCursor} from "./saved-networks";
+import {noteServiceReply, resetServiceReplies} from "./services";
+import {dropQuietLine} from "./quiet";
 import {ReconnectOptions, TransportEvent, TransportOptions, WsTransport} from "./transport";
 import type {ConnectOptions, InputOptions, IrcClientState, Transport} from "./types";
 import {
@@ -230,6 +238,9 @@ export class IrcClient {
 	/** Swapped for a new one on an STS upgrade; always subscribed via {@link reconfigure}. */
 	transport: Transport;
 	readonly isupport = new ISupport();
+	/** NICKLEN as registration learned it before 005 (`handlers/numerics.ts`);
+	 * cleared with ISUPPORT, since the next connection may be another server. */
+	learnedNickLen: number | undefined;
 	/** Attention and away bookkeeping (presence.ts). */
 	readonly presence: PresenceState = initialPresence();
 	/** Outstanding `TOKEN GENERATE` requests (draft/authtoken). */
@@ -238,6 +249,20 @@ export class IrcClient {
 	readonly lobby: Channel;
 	/** Private conversations kept on this device (querylog.ts). */
 	readonly queryLog: QueryLog;
+	/** Server notices and WALLOPS kept on the device (noticelog.ts). */
+	readonly noticeLog: NoticeLog;
+	/** Being an oper here (oper.ts): level, privileges, snomask. */
+	oper: OperState = initialOper();
+	/** The version the server reports in 004, for {@link profile}. */
+	serverVersion: string | undefined;
+	/** The name of the server we are connected to (004). */
+	serverName: string | undefined;
+	/**
+	 * The network's services, as the oper set them up (services.ts,
+	 * servicesfeed.ts): read from the saved network, changed by the edit
+	 * form through {@link setServices}. Undefined: none configured.
+	 */
+	services: ServicesConfig | undefined;
 	/** Query windows brought back from the log, filled on the first announce. */
 	private restoredQueries: Channel[] = [];
 	caps = new CapNegotiator(SEANCE_CAPS);
@@ -328,6 +353,7 @@ export class IrcClient {
 		this.unsubscribeTransport = this.transport.on((ev) => this.onTransportEvent(ev));
 
 		this.cursor = savedCursor(this.uuid);
+		this.services = getSavedNetwork(this.uuid)?.services;
 		this.lobby = new Channel(this.ids.chanId(), this.networkName, ChanType.LOBBY, (s) =>
 			this.casefold(s)
 		);
@@ -345,6 +371,8 @@ export class IrcClient {
 			(s) => this.casefold(s),
 			() => getSavedNetwork(this.uuid) !== undefined
 		);
+
+		this.noticeLog = new NoticeLog(this.uuid, () => getSavedNetwork(this.uuid) !== undefined);
 
 		for (const name of this.queryLog.names()) {
 			if (!this.findChannel(name) && !this.isChannelName(name)) {
@@ -384,6 +412,11 @@ export class IrcClient {
 
 	get name(): string {
 		return this.networkName;
+	}
+
+	/** The ircd family this server belongs to (profiles/): what the oper tools speak. */
+	get profile(): ServerProfile {
+		return detectProfile(this.serverVersion, this.isupport);
 	}
 
 	/** True between our own QUIT/disconnect and the transport closing. */
@@ -453,7 +486,13 @@ export class IrcClient {
 			serverOptions: this.serverOptions,
 			status: this.status,
 			channels: this.channels.map((chan) => chan.snapshot()),
+			...(this.services ? {services: this.services} : {}),
 		};
+	}
+
+	/** The services setting changed (`network:edit`); takes effect at once. */
+	setServices(services: ServicesConfig | undefined): void {
+		this.services = services;
 	}
 
 	/** Fields `network:info` / the edit form expect, minus `channels`. */
@@ -493,6 +532,7 @@ export class IrcClient {
 			this.announced = true;
 			this.bus.dispatch("network", {network: this.network});
 			this.restoreQueryLines();
+			void this.restoreNotices();
 		}
 
 		if (this.transport.state === "open" || this.transport.state === "connecting") {
@@ -524,7 +564,11 @@ export class IrcClient {
 		const state = this.transport.state;
 
 		if (state === "open") {
-			this.transport.send(trailingLine("QUIT", [reason ?? "Seance"]));
+			// The reason is the user's text: a line break or a long paste must
+			// not stop the close below, so it is flattened and cut to fit.
+			const text = (reason ?? "Seance").replace(/[\r\n\0]+/g, " ");
+			const [fits = ""] = splitMessage(utf8ByteLength("QUIT :"), text);
+			this.send(trailingLine("QUIT", [fits]));
 		}
 
 		this.transport.close();
@@ -755,6 +799,7 @@ export class IrcClient {
 		this.retryAt = undefined;
 		this.closeHintShown = false;
 		this.isupport.reset();
+		this.learnedNickLen = undefined;
 		this.authtoken.clear("Reconnecting");
 		this.motdBuffer = null;
 		this.host = "";
@@ -1058,6 +1103,10 @@ export class IrcClient {
 		cancelRestoration(this);
 		this.saveCursor(); // the newest one must not die with the connection
 		this.queryLog.flush();
+		this.noticeLog.flush();
+		resetRequests(this);
+		resetServiceReplies(this);
+		resetOper(this);
 		this.serverReplay = false;
 		this.clearPendingEdits();
 		// Before resetMultiline: a queued batch's copy is reported here, with
@@ -1154,6 +1203,7 @@ export class IrcClient {
 		this.bus.dispatch("commands", commandNames());
 		presenceRegistered(this);
 		flushDeferredMarkRead(this);
+		operRegistered(this);
 
 		if (this.caps.enabled.size > 0) {
 			this.pushMessage(
@@ -1919,6 +1969,25 @@ export class IrcClient {
 			return;
 		}
 
+		// An answer to one of our labeled requests (request.ts): its asker
+		// renders it, the handlers never see it.
+		if (interceptRequestLine(this, msg)) {
+			return;
+		}
+
+		// The echo of a quiet line of ours — a lookup sent to a services bot
+		// (quiet.ts) — opens no window and shows nowhere.
+		if (dropQuietLine(this, msg)) {
+			return;
+		}
+
+		// A services bot answering a command we sent it, or the server
+		// saying there is no such bot (services.ts). A line a quiet watcher
+		// consumed is shown in no window — the asker renders the answer.
+		if (noteServiceReply(this, msg)) {
+			return;
+		}
+
 		// Our own JOIN (live, not replayed) is what triggers a history load;
 		// the reference for a catch-up is the newest message before the JOIN.
 		const selfJoin =
@@ -2225,6 +2294,44 @@ export class IrcClient {
 				moreAvailable: false,
 			});
 		}
+	}
+
+	/**
+	 * Put the server notices and WALLOPS the last page kept back into the
+	 * lobby, as one history page (noticelog.ts): the server never replays
+	 * them, and a discarded PWA would otherwise come back without them.
+	 * Asynchronous (IndexedDB), so live lines may already be there; the page
+	 * goes in ahead of them.
+	 */
+	private async restoreNotices(): Promise<void> {
+		// The services feed's lines (servicesfeed.ts) were channel messages,
+		// never lobby lines: they come back for the Opers rollup only.
+		const entries = (await this.noticeLog.load()).filter(
+			(entry) => entry.type === "snotice" || entry.type === "wallops"
+		);
+
+		if (entries.length === 0) {
+			return;
+		}
+
+		const ids = this.historyIds(entries.length);
+		const messages = entries.map((entry, i) => {
+			const msg: SharedMsg = {
+				users: [],
+				...noticeMessage(entry, true),
+				id: ids[i],
+			} as SharedMsg;
+			this.lobby.remember(msg);
+			return msg;
+		});
+
+		this.lobby.shared.totalMessages += messages.length;
+		this.bus.dispatch("more", {
+			chan: this.lobby.id,
+			messages,
+			totalMessages: this.lobby.shared.totalMessages,
+			moreAvailable: false,
+		});
 	}
 
 	/** Drop a channel from the model and the UI (`part` event). */

@@ -45,14 +45,12 @@
     "./public/**"
   ],
   "dependencies": {
-    "chalk": "4.1.2",
     "flourite": "1.3.0",
     "got": "11.8.6",
     "katex": "0.16.22",
     "linkify-it": "3.0.3",
     "lodash": "4.17.21",
     "prismjs": "1.30.0",
-    "semver": "7.5.2",
     "tlds": "1.228.0"
   },
   "devDependencies": {
@@ -72,6 +70,7 @@
     "@types/node": "22.19.17",
     "@types/prismjs": "1.26.6",
     "@types/sortablejs": "1.15.8",
+    "@types/textarea-caret": "3.0.4",
     "@types/webpack-env": "1.16.4",
     "@typescript-eslint/eslint-plugin": "7.8.0",
     "@typescript-eslint/parser": "7.8.0",
@@ -112,6 +111,7 @@
     "sortablejs": "1.15.2",
     "stylelint": "14.3.0",
     "stylelint-config-standard": "24.0.0",
+    "textarea-caret": "3.1.0",
     "ts-node": "10.7.0",
     "ts-sinon": "2.0.2",
     "tsx": "4.21.0",

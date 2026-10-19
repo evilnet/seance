@@ -12,7 +12,8 @@
 
 <p align="center">
 	<strong>Try it:</strong> <a href="https://evilnet.github.io/seance/">evilnet.github.io/seance</a>
-	— the latest build of <code>develop</code>, straight from GitHub Pages
+	— the latest release, straight from GitHub Pages. <code>develop</code> and every open
+	pull request are built beside it: <a href="https://evilnet.github.io/seance/previews/">evilnet.github.io/seance/previews</a>
 </p>
 
 ## Overview

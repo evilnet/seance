@@ -90,7 +90,9 @@
 	 * their browser gets a bigger client too. "medium" is 100%, the browser
 	 * default (16px unless changed); "large", the default, is a real step up
 	 * from it, and the scale runs from too small to read to too large to be
-	 * sensible on purpose: the ends exist for eyes that need them. */
+	 * sensible on purpose: the ends exist for eyes that need them. In the
+	 * native shells the system's text size can stand in for the steps
+	 * (html[data-system-text] below). */
 	font-size: 100%;
 
 	/* The sidebar scales at half rate — 220px at medium, 248px at large; a
@@ -106,7 +108,8 @@
 	--status-bar-tint-height: 8px;
 }
 
-/* The font-size setting's scale (client/js/helpers/fontSize.ts). */
+/* The font-size setting's scale (client/js/helpers/fontSize.ts); "medium" is
+ * :root's own. */
 html[data-font-size="tiny"] {
 	font-size: 62.5%;
 }
@@ -125,6 +128,18 @@ html[data-font-size="xlarge"] {
 
 html[data-font-size="huge"] {
 	font-size: 212.5%;
+}
+
+/* "Match system text size" (the matchSystemTextSize setting, native shells
+ * only, helpers/systemTextSize.ts): the system's body text size takes the
+ * place of the step, so 1rem is what the system's own apps set their text in
+ * — 17px at iOS's default Text Size, 16px at Android's default font size —
+ * and follows it. --system-text-scale is that size over the browser's 16px.
+ * Never past "huge": the chrome is rem too, and past that the header loses
+ * its buttons off the edge of a phone. After the steps, so it wins at the
+ * same specificity. */
+html[data-system-text] {
+	font-size: min(calc(100% * var(--system-text-scale, 1)), 212.5%);
 }
 
 ::placeholder {
@@ -193,6 +208,20 @@ html {
 			z-index: 2000;
 			pointer-events: none;
 			background-color: var(--canvas-bg-color, var(--body-bg-color));
+		}
+
+		/* iOS reads the strip's colour at launch and not again while the app
+		 * is open (measured on iOS 27), while a theme can go on changing
+		 * --canvas-bg-color: ps's sky does every minute. The strip then
+		 * stood out as an 8px band of today's colour between a status bar
+		 * of the launch's and the header. So once launch is past
+		 * (helpers/statusBarTint.ts: the theme's first change of the colour,
+		 * or 3 s) it goes under the page (#viewport is a stacking context of
+		 * its own), still painted, and the header meets the status bar. An attribute, not a delayed animation of z-index:
+		 * WebKit took the animated value but did not restack until some
+		 * other style change came along (the user's iPhone, 2026-10-11). */
+		html[data-status-bar-read] #status-bar-tint {
+			z-index: -1;
 		}
 
 		#sidebar {
@@ -532,6 +561,10 @@ p {
 #settings .extra-help,
 #settings #play::before,
 #settings .settings-menu .icon::before,
+#oper .settings-menu .icon::before,
+#oper .oper-row::before,
+#oper .oper-fold > summary::before,
+#context-menu .oper-route-current::after,
 #form #upload::before,
 #form #submit::before,
 #chat .msg[data-type="away"] .from::before,
@@ -582,7 +615,9 @@ p {
 .channel-list-item .notify-status-icon::before,
 .channel-list-item .edit-network::before,
 .channel-list-item .add-channel::before,
+.channel-list-item .oper-panel::before,
 .channel-list-item .parted-channel-icon::before,
+#chat .oper-report-btn::before,
 .jump-to-input::before,
 .password-container .reveal-password span,
 #sidebar .collapse-network-icon::before {
@@ -618,6 +653,22 @@ p {
 .context-menu-media-host::before { content: "\f0ac"; /* https://fontawesome.com/icons/globe?style=solid */ }
 .context-menu-media-account::before { content: "\f007"; /* https://fontawesome.com/icons/user?style=solid */ }
 .context-menu-media-channel::before { content: "\f292"; /* https://fontawesome.com/icons/hashtag?style=solid */ }
+.context-menu-oper-panel::before { content: "\f505"; /* https://fontawesome.com/icons/user-shield?style=solid */ }
+.context-menu-oper-investigate::before { content: "\f06e"; /* https://fontawesome.com/icons/eye?style=solid */ }
+.context-menu-oper-check::before { content: "\f002"; /* https://fontawesome.com/icons/search?style=solid */ }
+.context-menu-oper-kill::before { content: "\f54c"; /* https://fontawesome.com/icons/skull?style=solid */ }
+.context-menu-oper-gline::before { content: "\f0e3"; /* https://fontawesome.com/icons/gavel?style=solid */ }
+.context-menu-oper-shun::before { content: "\f6a9"; /* https://fontawesome.com/icons/volume-mute?style=solid */ }
+.context-menu-oper-zline::before { content: "\f05e"; /* https://fontawesome.com/icons/ban?style=solid */ }
+.context-menu-oper-clones::before { content: "\f24d"; /* https://fontawesome.com/icons/clone?style=solid */ }
+.context-menu-oper-who::before { content: "\f0c0"; /* https://fontawesome.com/icons/users?style=solid */ }
+.context-menu-oper-copy::before { content: "\f0c5"; /* https://fontawesome.com/icons/copy?style=solid */ }
+.context-menu-oper-target::before { content: "\f05b"; /* https://fontawesome.com/icons/crosshairs?style=solid */ }
+.context-menu-oper-route-kind::before { content: "\f0f3"; /* https://fontawesome.com/icons/bell?style=solid */ }
+.context-menu-oper-route-active::before { content: "\f075"; /* https://fontawesome.com/icons/comment?style=solid */ }
+.context-menu-oper-route-network::before { content: "\f233"; /* https://fontawesome.com/icons/server?style=solid */ }
+.context-menu-oper-route-off::before { content: "\f070"; /* https://fontawesome.com/icons/eye-slash?style=solid */ }
+.context-menu-oper-route-stop::before { content: "\f1f6"; /* https://fontawesome.com/icons/bell-slash?style=solid */ }
 
 .context-menu-media-host-off::before,
 .context-menu-media-account-off::before,
@@ -884,13 +935,35 @@ p {
 #chat button.search,
 #chat button.menu,
 #chat button.close {
+	--header-button-size: 2.5rem;
+
 	color: #607992;
 	display: flex;
 	font-size: 1.0625rem;
 	line-height: 1;
-	height: 2.5rem;
-	width: 2.5rem;
+	height: var(--header-button-size);
+	width: var(--header-button-size);
 	flex-shrink: 0;
+}
+
+/* Five of these share the pane with the channel name. In a narrow pane (a
+ * phone) at the largest steps, or iOS's accessibility text sizes, 2.5rem
+ * each ran the last ones off the edge, so there they are capped in px, above
+ * the default step's 50px and 21px; the title keeps growing as text. A pane
+ * with room for them (24rem, in the root's size, so it moves with the step)
+ * leaves them growing with everything else. */
+/* stylelint-disable-next-line at-rule-no-unknown */
+@container chat (max-width: 24rem) {
+	#viewport .lt,
+	#viewport .rt,
+	#chat button.mentions,
+	#chat button.search,
+	#chat button.menu,
+	#chat button.close {
+		--header-button-size: min(2.5rem, 56px);
+
+		font-size: min(1.0625rem, 24px);
+	}
 }
 
 #viewport .lt::before,
@@ -899,8 +972,8 @@ p {
 #chat button.search::before,
 #chat button.menu::before,
 #chat button.close::before {
-	width: 2.5rem;
-	line-height: 2.5rem; /* Fix alignment in Microsoft Edge */
+	width: var(--header-button-size);
+	line-height: var(--header-button-size); /* Fix alignment in Microsoft Edge */
 }
 
 /* Channel list button stays fixed when scrolling... */
@@ -1097,6 +1170,12 @@ wrapper is what the jump-to results' server glyph (::before) sits beside. */
 	gap: 0.5rem;
 	font-size: 0.75rem;
 	font-weight: normal;
+
+	/* The container the oper shield's fit rule asks (below .oper-panel). */
+	/* stylelint-disable-next-line property-no-unknown */
+	container-type: inline-size;
+	/* stylelint-disable-next-line property-no-unknown */
+	container-name: lobby-status;
 }
 
 .channel-list-item .lobby-tools {
@@ -1197,16 +1276,14 @@ of one that has already passed — and only one `animation` can hold the icon. *
 }
 
 /* Keep the cue, drop the motion */
-@media (prefers-reduced-motion: reduce) {
-	.channel-list-item.is-typing::before {
-		animation: none;
-		color: var(--channel-typing-color);
-	}
+html[data-reduce-motion] .channel-list-item.is-typing::before {
+	animation: none;
+	color: var(--channel-typing-color);
+}
 
-	.channel-list-item.has-activity:not(.is-typing)::before {
-		animation: none;
-		color: var(--channel-activity-color);
-	}
+html[data-reduce-motion] .channel-list-item.has-activity:not(.is-typing)::before {
+	animation: none;
+	color: var(--channel-activity-color);
 }
 
 .channel-list-item .name {
@@ -1225,6 +1302,7 @@ of one that has already passed — and only one `animation` can hold the icon. *
 .channel-list-item .badge,
 #sidebar .add-channel-tooltip,
 #sidebar .edit-network-tooltip,
+#sidebar .oper-panel-tooltip,
 .channel-list-item .close-tooltip {
 	flex-shrink: 0;
 	line-height: 1;
@@ -1334,6 +1412,49 @@ unevenly spaced however evenly the boxes sat. */
 
 .channel-list-item[data-type="lobby"] .edit-network:hover {
 	opacity: 1;
+}
+
+/* The oper panel's shield (Windows/OperPanel.vue), shown only while opered:
+the same box, glyph size and weight as the gear and the plus beside it. */
+.channel-list-item[data-type="lobby"] .oper-panel {
+	border-radius: 3px;
+	width: 1.5rem;
+	height: 1.5rem;
+	opacity: 0.4;
+	transition: opacity 0.2s, background-color 0.2s;
+}
+
+.channel-list-item[data-type="lobby"] .oper-panel::before {
+	content: "\f505"; /* https://fontawesome.com/icons/user-shield?style=solid */
+	font-size: 0.875rem;
+	display: inline-block;
+	line-height: 1.5rem;
+	text-align: center;
+	color: #fff;
+}
+
+.channel-list-item[data-type="lobby"] .oper-panel:hover {
+	opacity: 1;
+}
+
+/* Five tools do not fit the narrow end of the sidebar: the nick yields
+first, and below ~11rem of status line the boxes and gaps tighten rather
+than letting the last tool clip. Only with the shield there — four tools
+keep their spacing. The sidebar is `7rem + 108px` wide, so this is the
+large font steps (docs/projects/oper-tools.md, "Room for it"). */
+/* stylelint-disable-next-line at-rule-no-unknown */
+@container lobby-status (max-width: 11rem) {
+	.channel-list-item .lobby-tools:has(.oper-panel) {
+		gap: 0.125rem;
+	}
+
+	.channel-list-item .lobby-tools:has(.oper-panel) .connection-status-icon,
+	.channel-list-item .lobby-tools:has(.oper-panel) .notify-status-icon,
+	.channel-list-item .lobby-tools:has(.oper-panel) .edit-network,
+	.channel-list-item .lobby-tools:has(.oper-panel) .add-channel,
+	.channel-list-item .lobby-tools:has(.oper-panel) .oper-panel {
+		width: 1.25rem;
+	}
 }
 
 .channel-list-item .connection-status-tooltip {
@@ -1502,7 +1623,8 @@ so the toolbar has one weight; green is what marks a subscribed bell. */
  * cannot see. */
 
 /* Native checkboxes and radios do not follow the font; size them off it so
- * the big scales get a target that matches their label. */
+ * the big scales get a target that matches their label. They take the
+ * theme's button colour, not the browser's blue. */
 input[type="checkbox"],
 input[type="radio"] {
 	width: 1em;
@@ -1510,6 +1632,68 @@ input[type="radio"] {
 	margin: 0 0.4em 0 0;
 	vertical-align: -0.1em;
 	flex: 0 0 auto;
+	accent-color: var(--button-color);
+}
+
+/* In the iOS shell every checkbox is a switch (helpers/nativeSwitches.ts), in
+ * UISwitch's proportions (51×31) and a little larger than the text. */
+input[type="checkbox"][switch] {
+	width: 2em;
+	height: 1.22em;
+	vertical-align: -0.25em;
+}
+
+/* In the Android shell every checkbox is drawn as a Material switch, the
+ * counterpart of iOS's native one above: an outlined track with a small thumb
+ * when off, the theme's button colour with a larger thumb when on. Still an
+ * <input type="checkbox"> — checked state, change events and labels as
+ * before. Sized off the font, like the checkbox it replaces. */
+html[data-platform="android"] input[type="checkbox"] {
+	appearance: none;
+	position: relative;
+	width: 2.1em;
+	height: 1.3em;
+	vertical-align: -0.3em;
+	border: 0.125em solid var(--body-color-muted);
+	border-radius: 0.65em;
+	background: transparent;
+	cursor: pointer;
+	transition: background-color 0.15s, border-color 0.15s;
+}
+
+html[data-platform="android"] input[type="checkbox"]::before {
+	content: "";
+	position: absolute;
+	top: 50%;
+	left: 0.2em;
+	width: 0.6em;
+	height: 0.6em;
+	border-radius: 50%;
+	background: var(--body-color-muted);
+	transform: translateY(-50%);
+	transition: left 0.15s, width 0.15s, height 0.15s;
+}
+
+html[data-platform="android"] input[type="checkbox"]:checked {
+	border-color: var(--button-color);
+	background: var(--button-color);
+}
+
+html[data-platform="android"] input[type="checkbox"]:checked::before {
+	left: calc(100% - 0.95em);
+	width: 0.85em;
+	height: 0.85em;
+	background: var(--button-text-color-hover);
+}
+
+html[data-platform="android"] input[type="checkbox"]:focus-visible {
+	outline: 2px solid var(--button-color);
+	outline-offset: 2px;
+}
+
+html[data-platform="android"] input[type="checkbox"]:disabled {
+	opacity: 0.5;
+	cursor: default;
 }
 
 .input {
@@ -1656,10 +1840,8 @@ textarea.input {
 }
 
 /* Keep the cue, drop the motion */
-@media (prefers-reduced-motion: reduce) {
-	#chat .connecting-indicator {
-		animation: none;
-	}
+html[data-reduce-motion] #chat .connecting-indicator {
+	animation: none;
 }
 
 .header .title {
@@ -1893,6 +2075,15 @@ textarea.input {
 	opacity: 1;
 	transform: none;
 	pointer-events: auto;
+}
+
+/* A finger needs Apple's 44pt (a CSS px on iOS), and the button grows with
+   the text past that: 2.2rem is 44px at the default step. A mouse keeps the
+   36px it always had. */
+@media (pointer: coarse) {
+	#chat {
+		--scroll-down-size: max(2.2rem, 44px);
+	}
 }
 
 .scroll-down-arrow {
@@ -2700,18 +2891,16 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	}
 }
 
-@media (prefers-reduced-motion: reduce) {
-	#chat .toggle-content.media-revealed .media-frame {
-		animation: none;
-	}
+html[data-reduce-motion] #chat .toggle-content.media-revealed .media-frame {
+	animation: none;
+}
 
-	#chat .media-veil.loading .media-veil-icon::before {
-		animation: none;
-	}
+html[data-reduce-motion] #chat .media-veil.loading .media-veil-icon::before {
+	animation: none;
+}
 
-	#chat .media-veil-main:hover .media-veil-icon {
-		transform: none;
-	}
+html[data-reduce-motion] #chat .media-veil-main:hover .media-veil-icon {
+	transform: none;
 }
 
 #chat .userlist .count {
@@ -3254,6 +3443,14 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 	margin: 0;
 }
 
+.whois-oper-actions {
+	margin: 0.4em 0 0;
+}
+
+.whois-oper-actions .btn {
+	margin: 0;
+}
+
 /* The labels escape the content column, so it must not clip. */
 #chat .msg[data-type="whois"] .content {
 	overflow: visible;
@@ -3360,6 +3557,1094 @@ part/quit messages where we don't load previews (adds a blank line otherwise) */
 
 #chat table.who-list .who-away {
 	font-style: italic;
+}
+
+/* Oper tools (docs/projects/oper-tools.md). Like the WHO table, everything
+ * reads the base tokens so every theme colours it.
+ *
+ * A server notice or WALLOPS (MessageTypes/snotice.vue, wallops.vue) is a
+ * small category badge and the notice in plain words; bans and kills take
+ * the unread-marker colour, oper and network events the link colour, the
+ * routine families stay muted. */
+.snotice-badge {
+	display: inline-block;
+	border: 1px solid currentcolor;
+	border-radius: 0.6em;
+	font-size: 0.75em;
+	line-height: 1.3;
+	padding: 0 0.45em;
+	margin-right: 0.4em;
+	vertical-align: 0.1em;
+	color: var(--body-color-muted);
+	white-space: nowrap;
+}
+
+/* The badge is a button (Oper/NoticeBadge.vue): a tap opens "where these
+ * show" for the kind. Reset so it draws exactly as the span it was. */
+button.snotice-badge {
+	font: inherit;
+	font-size: 0.75em;
+	background: none;
+	cursor: pointer;
+}
+
+button.snotice-badge:hover,
+button.snotice-badge:focus-visible {
+	background: color-mix(in srgb, currentcolor 12%, transparent);
+}
+
+/* The oper panel's own bits (Oper/OperActivity.vue, OperAlerts.vue,
+ * OperMe.vue). Amber is the one colour of its own: an outlying count, a
+ * route chosen for a while. */
+#oper {
+	--oper-amber: #c7841a;
+}
+
+/* A segmented control: a row of buttons sharing one border, the pressed
+ * one filled (aria-pressed for a toggle group, aria-checked for a
+ * radiogroup). */
+.oper-seg {
+	display: inline-flex;
+	border: 1px solid color-mix(in srgb, var(--body-color-muted) 50%, transparent);
+	border-radius: 0.4rem;
+	overflow: hidden;
+}
+
+.oper-seg button {
+	padding: 0.25rem 0.7rem;
+	color: var(--body-color);
+	font-size: 0.9375em;
+	line-height: 1.4;
+	white-space: nowrap;
+}
+
+.oper-seg button + button {
+	border-left: 1px solid color-mix(in srgb, var(--body-color-muted) 50%, transparent);
+}
+
+.oper-seg button:hover,
+.oper-seg button:focus-visible {
+	background: color-mix(in srgb, var(--body-color-muted) 12%, transparent);
+}
+
+.oper-seg button[aria-pressed="true"],
+.oper-seg button[aria-checked="true"] {
+	background: var(--button-color);
+	color: var(--button-text-color-hover);
+}
+
+.oper-seg button[aria-checked="true"].tmp {
+	background: var(--oper-amber);
+}
+
+/* A folded row (`<details>`): a FontAwesome caret instead of the browser's
+ * marker, turned when open. */
+#oper .oper-fold > summary {
+	list-style: none;
+}
+
+#oper .oper-fold > summary::-webkit-details-marker {
+	display: none;
+}
+
+#oper .oper-fold > summary::before {
+	content: "\f0da"; /* https://fontawesome.com/icons/caret-right?style=solid */
+	display: inline-block;
+	width: 0.8em;
+	margin-right: 0.3em;
+}
+
+#oper .oper-fold[open] > summary::before {
+	content: "\f0d7"; /* https://fontawesome.com/icons/caret-down?style=solid */
+}
+
+/* The "where these show" menu: the kind's name is a heading, not a
+ * choice, and the place it shows now carries a check mark. */
+#context-menu .context-menu-oper-route-kind {
+	font-weight: 600;
+	cursor: default;
+}
+
+#context-menu .context-menu-oper-route-kind.active {
+	background: none;
+}
+
+#context-menu .oper-route-current::after {
+	content: "\f00c"; /* https://fontawesome.com/icons/check?style=solid */
+	margin-left: 0.6em;
+}
+
+.snotice-ban .snotice-badge,
+.snotice-kill .snotice-badge,
+.snotice-badge.snotice-ban,
+.snotice-badge.snotice-kill {
+	color: var(--unread-marker-color);
+}
+
+.snotice-oper .snotice-badge,
+.snotice-net .snotice-badge,
+.snotice-wallops .snotice-badge,
+.wallops .snotice-badge,
+.snotice-badge.snotice-oper,
+.snotice-badge.snotice-net,
+.snotice-badge.snotice-wallops {
+	color: var(--link-color);
+}
+
+.snotice-origin {
+	color: var(--body-color-muted);
+	font-family: monospace;
+	font-size: 0.875em;
+	margin-left: 0.5em;
+}
+
+.snotice-origin::before {
+	content: "via ";
+	font-family: inherit;
+}
+
+.wallops .wallops-from {
+	font-weight: 600;
+}
+
+/* An IP, host or mask: a chip that opens the oper actions for it. */
+.oper-chip {
+	display: inline;
+	font-family: monospace;
+	font-size: 0.9375em;
+	color: var(--link-color);
+	background: color-mix(in srgb, var(--link-color) 12%, transparent);
+	border: 1px solid color-mix(in srgb, var(--link-color) 35%, transparent);
+	border-radius: 0.3em;
+	padding: 0 0.3em;
+	cursor: pointer;
+	overflow-wrap: anywhere;
+}
+
+.oper-chip:hover,
+.oper-chip:focus-visible,
+.oper-chip.active {
+	background: color-mix(in srgb, var(--link-color) 25%, transparent);
+}
+
+.oper-chips {
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: 0.3em;
+}
+
+/* A run of values (`2.1 KiB` `26 messages`): spaced by the box, not by
+ * text nodes the template compiler would drop. */
+.oper-values {
+	display: inline-flex;
+	flex-wrap: wrap;
+	column-gap: 0.35em;
+}
+
+/* Table rows stay one line high: the flag chips do not wrap in a cell. */
+#chat table.oper-report-table .oper-chips {
+	flex-wrap: nowrap;
+}
+
+.oper-chip-static {
+	display: inline-block;
+	border: 1px solid color-mix(in srgb, var(--body-color-muted) 60%, transparent);
+	border-radius: 0.6em;
+	font-size: 0.8125em;
+	line-height: 1.35;
+	padding: 0 0.45em;
+	color: var(--body-color);
+	white-space: nowrap;
+}
+
+.oper-server,
+.oper-mono {
+	font-family: monospace;
+	font-size: 0.9375em;
+}
+
+.oper-server {
+	color: var(--body-color-muted);
+}
+
+.oper-muted,
+.oper-channel-prefix {
+	color: var(--body-color-muted);
+}
+
+.oper-state {
+	font-size: 0.875em;
+	font-weight: 600;
+}
+
+.oper-state.ok {
+	color: var(--link-color);
+}
+
+.oper-state.off,
+.oper-expiry.expired {
+	color: var(--body-color-muted);
+}
+
+.oper-expiry.expired {
+	text-decoration: line-through;
+}
+
+/* A structured answer (MessageTypes/report.vue → Oper/ReportView.vue): a
+ * header with its actions, then sections of label/value pairs, tables and
+ * monospaced lines. A rule down the left holds it together as one block in
+ * the scrollback. */
+#chat .msg[data-type="report"] .content {
+	overflow: visible;
+	min-width: 0;
+}
+
+.oper-report {
+	border-left: 2px solid color-mix(in srgb, var(--link-color) 45%, transparent);
+	padding: 0.1em 0 0.25em 0.75em;
+	max-width: 100%;
+}
+
+.oper-report.has-error {
+	border-left-color: var(--unread-marker-color);
+}
+
+.oper-report-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.25em 0.6em;
+}
+
+.oper-report-title {
+	font-weight: 700;
+}
+
+.oper-report-subtitle {
+	color: var(--body-color-muted);
+	font-size: 0.875em;
+}
+
+.oper-report-actions {
+	display: inline-flex;
+	gap: 0.15em;
+	margin-left: auto;
+}
+
+#chat .oper-report-btn {
+	width: 1.75em;
+	height: 1.75em;
+	border-radius: 3px;
+	color: var(--body-color-muted);
+	line-height: 1;
+}
+
+#chat .oper-report-btn:hover,
+#chat .oper-report-btn.active {
+	color: var(--body-color);
+	background: color-mix(in srgb, var(--body-color-muted) 15%, transparent);
+}
+
+#chat .oper-report-btn::before {
+	font-size: 0.8125em;
+}
+
+#chat .oper-report-refresh::before {
+	content: "\f2f1"; /* https://fontawesome.com/icons/sync-alt?style=solid */
+}
+
+#chat .oper-report-raw-toggle::before {
+	content: "\f121"; /* https://fontawesome.com/icons/code?style=solid */
+}
+
+#chat .oper-report-copy::before {
+	content: "\f0c5"; /* https://fontawesome.com/icons/copy?style=solid */
+}
+
+#chat .oper-report-copy.done::before {
+	content: "\f00c"; /* https://fontawesome.com/icons/check?style=solid */
+	color: var(--link-color);
+}
+
+#chat .oper-report-collapse::before {
+	content: "\f077"; /* https://fontawesome.com/icons/chevron-up?style=solid */
+}
+
+#chat .oper-report-collapse.collapsed::before {
+	content: "\f078"; /* https://fontawesome.com/icons/chevron-down?style=solid */
+}
+
+.oper-report-error {
+	color: var(--unread-marker-color);
+	margin: 0.25em 0 0;
+}
+
+.oper-report-section {
+	margin-top: 0.4em;
+}
+
+.oper-report-section-title {
+	color: var(--window-heading-color);
+	font-size: 0.8125em;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+	margin: 0.5em 0 0.15em;
+}
+
+.oper-report-entries {
+	display: grid;
+	grid-template-columns: minmax(6rem, max-content) minmax(0, 1fr);
+	gap: 0.1em 0.9em;
+	margin: 0;
+}
+
+.oper-report-entries div {
+	display: contents;
+}
+
+.oper-report-entries dt {
+	color: var(--body-color-muted);
+	white-space: nowrap;
+}
+
+.oper-report-entries dd {
+	margin: 0;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.oper-report-table-scroll {
+	max-width: 100%;
+	overflow-x: auto;
+}
+
+#chat table.oper-report-table {
+	border-collapse: collapse;
+	font-size: 0.9375em;
+	line-height: 1.4;
+}
+
+#chat table.oper-report-table th,
+#chat table.oper-report-table td {
+	padding: 0.15em 0.9em 0.15em 0;
+	text-align: left;
+	vertical-align: baseline;
+	white-space: nowrap;
+	overflow-wrap: normal;
+	word-break: normal;
+	border-bottom: 1px solid color-mix(in srgb, var(--body-color-muted) 30%, transparent);
+}
+
+#chat table.oper-report-table th {
+	color: var(--window-heading-color);
+	font-size: 0.8125em;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+	border-bottom-color: color-mix(in srgb, var(--body-color-muted) 55%, transparent);
+}
+
+#chat table.oper-report-table .right {
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+
+#chat table.oper-report-table tbody tr:last-child td {
+	border-bottom: 0;
+}
+
+.oper-report-lines,
+.oper-report-raw {
+	font-family: monospace;
+	font-size: 0.875em;
+	white-space: pre;
+	overflow-x: auto;
+	max-width: 100%;
+	margin: 0.25em 0 0;
+	padding: 0;
+	background: none;
+	border: 0;
+}
+
+.oper-report-notes {
+	color: var(--body-color-muted);
+	font-size: 0.875em;
+	margin: 0.35em 0 0;
+	padding-left: 1.2em;
+}
+
+#chat .oper-report-more {
+	color: var(--link-color);
+	font-size: 0.875em;
+	padding: 0.2em 0;
+}
+
+/* The investigation cards (Oper/InvestigateCard.vue, InvestigateUser.vue;
+ * docs/projects/oper-tools.md "The channel card" / "The user card"): an
+ * overlay like the kill/ban dialog's, holding a Settings-style pane — a
+ * header, a body that scrolls by itself, a footer of actions. The body is
+ * the size container the Compare columns ask: two columns when there is
+ * room, one with tabs under 40rem. A value shared with the compared user,
+ * or with most of a channel's users, is tinted (`same`). */
+#oper-investigate-overlay {
+	position: fixed;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 1.5rem;
+	background: var(--overlay-bg-color);
+	visibility: hidden;
+	opacity: 0;
+	transition: opacity 0.2s, visibility 0.2s;
+	z-index: 999;
+}
+
+#oper-investigate-overlay.opened {
+	visibility: visible;
+	opacity: 1;
+}
+
+.oper-investigate {
+	--oper-amber: #c7841a;
+
+	width: min(60rem, 100%);
+	height: min(50rem, 100%);
+	user-select: text;
+}
+
+.oper-investigate .settings-modal-header h1 {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.oper-investigate-back {
+	font-weight: normal;
+	font-size: 0.875em;
+}
+
+/* The whole pane's width, not `.container`'s 30rem column: the user
+ * blocks and the Compare columns need the room. */
+.oper-investigate-body.container {
+	/* stylelint-disable-next-line property-no-unknown */
+	container-type: inline-size;
+	/* stylelint-disable-next-line property-no-unknown */
+	container-name: investigate;
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+	width: 100%;
+	margin: 0;
+	padding: 0 1.25rem 1rem;
+}
+
+.oper-investigate .oper-facts {
+	grid-template-columns: minmax(5.5rem, max-content) minmax(0, 1fr);
+	gap: 0.2em 0.9em;
+}
+
+.oper-investigate .oper-report-section-title {
+	margin: 0.25em 0 0.15em;
+}
+
+/* The tint of a shared value: a wash of the link colour behind it. */
+.oper-investigate .same {
+	background: color-mix(in srgb, var(--link-color) 18%, transparent);
+	box-shadow: 0 0 0 0.15em color-mix(in srgb, var(--link-color) 18%, transparent);
+	border-radius: 0.2em;
+}
+
+.oper-investigate dl .same dd > *:first-child {
+	background: color-mix(in srgb, var(--link-color) 18%, transparent);
+	border-radius: 0.2em;
+}
+
+.oper-investigate dl .same {
+	background: none;
+	box-shadow: none;
+}
+
+/* The oper's own note: amber edge, the text, Edit. */
+.oper-note {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.6rem;
+	border-left: 3px solid var(--oper-amber);
+	padding: 0.25rem 0.6rem;
+	background: color-mix(in srgb, var(--oper-amber) 10%, transparent);
+	border-radius: 0 0.3rem 0.3rem 0;
+}
+
+.oper-note-text {
+	flex: 1 1 auto;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.oper-note-edit {
+	flex-direction: column;
+}
+
+.oper-note-edit .input {
+	width: 100%;
+	margin: 0;
+	resize: vertical;
+}
+
+.oper-note-buttons {
+	display: flex;
+	gap: 0.4rem;
+}
+
+/* What most users have in common: the chips and the two buttons. */
+.oper-common-facts {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.35em;
+	margin: 0;
+}
+
+.oper-common-lead {
+	font-weight: 600;
+	margin-right: 0.2em;
+}
+
+.oper-common-chip {
+	font-size: 0.9375em;
+	color: var(--body-color);
+	border-color: color-mix(in srgb, var(--link-color) 50%, transparent);
+	background: color-mix(in srgb, var(--link-color) 10%, transparent);
+}
+
+.oper-common-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem;
+	margin-top: 0.5rem;
+}
+
+.oper-trace-count {
+	color: var(--body-color-muted);
+	font-size: 0.9375em;
+}
+
+/* The users: three-line blocks, the ones sharing every common fact
+ * tinted along their edge, the odd one out plain. */
+.oper-users-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 1rem;
+}
+
+.oper-users-sort {
+	color: var(--body-color-muted);
+	font-size: 0.875em;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.4em;
+}
+
+.oper-users-sort .input {
+	width: auto;
+	margin: 0;
+	padding: 0.1em 1.6em 0.1em 0.5em;
+	height: auto;
+	font-size: inherit;
+}
+
+.oper-user-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.45rem;
+}
+
+.oper-user-block {
+	border-left: 3px solid color-mix(in srgb, var(--body-color-muted) 35%, transparent);
+	padding: 0.15rem 0.6rem;
+	line-height: 1.5;
+}
+
+.oper-user-block.same-all {
+	border-left-color: var(--link-color);
+	background: color-mix(in srgb, var(--link-color) 6%, transparent);
+}
+
+.oper-user-block.odd {
+	border-left-style: dashed;
+}
+
+.oper-user-line {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.15em 0.4em;
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.oper-user-line.oper-mono {
+	display: block;
+}
+
+.oper-user-detail {
+	display: block;
+	font-size: 0.9375em;
+}
+
+.oper-user-nick {
+	font-weight: 700;
+	color: var(--link-color);
+	padding: 0;
+	cursor: pointer;
+}
+
+.oper-user-nick:hover,
+.oper-user-nick:focus-visible {
+	text-decoration: underline;
+}
+
+.oper-user-timing {
+	font-size: 0.875em;
+	margin-left: auto;
+}
+
+#oper-investigate-overlay .btn-small.oper-lookup {
+	margin-left: 0.4em;
+}
+
+/* Last hour here, bans near, seen before: plain lists. */
+.oper-recent-list,
+.oper-bans,
+.oper-seen {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	line-height: 1.5;
+}
+
+.oper-bans li.expired {
+	color: var(--body-color-muted);
+}
+
+.oper-verdict {
+	margin: 0.5rem 0 0;
+	padding: 0.5rem 0.75rem;
+	border-left: 3px solid var(--link-color);
+	background: color-mix(in srgb, var(--link-color) 8%, transparent);
+	border-radius: 0 0.3rem 0.3rem 0;
+	font-weight: 600;
+}
+
+/* Compare: two columns side by side, one with tabs when narrow. */
+.oper-compare {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: 1rem;
+}
+
+.oper-investigate-compare .oper-compare {
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.oper-compare-tabs {
+	display: none;
+	grid-column: 1 / -1;
+	justify-self: start;
+}
+
+.oper-compare-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 0.5rem;
+}
+
+.oper-compare-title {
+	font-size: 1.125em;
+	margin: 0 0 0.25rem;
+}
+
+.oper-compare-col {
+	min-width: 0;
+}
+
+.oper-compare-ask {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.oper-compare-ask .input {
+	flex: 1 1 10rem;
+	margin: 0;
+	width: auto;
+}
+
+.oper-compare-offer {
+	margin: 0;
+}
+
+/* stylelint-disable-next-line at-rule-no-unknown */
+@container investigate (max-width: 40rem) {
+	.oper-investigate-compare .oper-compare {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.oper-investigate-compare .oper-compare-tabs {
+		display: inline-flex;
+	}
+
+	.oper-investigate-compare .oper-compare[data-tab="a"] .oper-compare-b,
+	.oper-investigate-compare .oper-compare[data-tab="b"] .oper-compare-a {
+		display: none;
+	}
+}
+
+.oper-investigate-raw {
+	max-height: 16rem;
+	overflow: auto;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	border-top: 1px solid color-mix(in srgb, var(--body-color-muted) 30%, transparent);
+	padding-top: 0.5rem;
+}
+
+.oper-investigate-footer {
+	flex-wrap: wrap;
+}
+
+.oper-investigate-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem;
+}
+
+#oper-investigate-overlay .btn-small {
+	margin: 0;
+	padding: 0.3em 0.75em;
+	font-size: 0.875em;
+	line-height: 1.4;
+	border-width: 1px;
+	letter-spacing: 0;
+	text-transform: none;
+}
+
+#oper-investigate-overlay .btn-small.active {
+	background: var(--button-color);
+	color: var(--button-text-color-hover);
+}
+
+#oper-investigate-overlay .btn-cancel {
+	border-color: transparent;
+}
+
+.oper-toast {
+	color: var(--oper-amber);
+	font-size: 0.875em;
+}
+
+/* On a phone the card is the page, like the settings modal. */
+@media (max-width: 768px) {
+	#oper-investigate-overlay {
+		padding: 0;
+	}
+
+	.oper-investigate {
+		height: 100%;
+		border-radius: 0;
+	}
+
+	.oper-user-timing {
+		margin-left: 0;
+		flex-basis: 100%;
+	}
+}
+
+/* The alert builder (Oper/AlertBuilder.vue): O3's `addalert` as a form in
+ * the same frame as the cards — a pane over the whole app, the page on a
+ * phone. The criteria are rows: a switch, the criterion in words, its
+ * value in monospace, a "wide" tag in amber, ✕. */
+#oper-alert-overlay {
+	position: fixed;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 1.5rem;
+	background: var(--overlay-bg-color);
+	visibility: hidden;
+	opacity: 0;
+	transition: opacity 0.2s, visibility 0.2s;
+	z-index: 999;
+}
+
+#oper-alert-overlay.opened {
+	visibility: visible;
+	opacity: 1;
+}
+
+.oper-alert-builder {
+	--oper-amber: #c7841a;
+
+	width: min(46rem, 100%);
+	height: min(44rem, 100%);
+	user-select: text;
+}
+
+.oper-alert-builder .settings-modal-header h1 {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.oper-alert-form.container {
+	display: flex;
+	flex-direction: column;
+	gap: 0.9rem;
+	width: 100%;
+	margin: 0;
+	padding: 0 1.25rem 1rem;
+}
+
+.oper-alert-grid {
+	display: grid;
+	grid-template-columns: minmax(9rem, 1fr) minmax(13rem, 1.7fr) minmax(7rem, 0.8fr);
+	gap: 0.6rem 0.9rem;
+}
+
+.oper-alert-add label {
+	white-space: nowrap;
+}
+
+.oper-alert-field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.3rem;
+	min-width: 0;
+}
+
+.oper-alert-label,
+.oper-alert-section-title {
+	color: var(--body-color-muted);
+	font-size: 0.875em;
+}
+
+.oper-alert-section-title {
+	margin-bottom: 0.2rem;
+}
+
+#oper-alert-overlay .input {
+	margin: 0;
+	width: 100%;
+	min-width: 0;
+}
+
+#oper-alert-overlay .oper-mono {
+	font-family: monospace;
+}
+
+.oper-alert-rows {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.oper-alert-row {
+	display: grid;
+	grid-template-columns: auto minmax(7rem, 11rem) minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 0.3rem 0.6rem;
+	padding: 0.3rem 0;
+	border-bottom: 1px solid color-mix(in srgb, var(--body-color-muted) 25%, transparent);
+}
+
+.oper-alert-row.off .oper-alert-row-label {
+	color: var(--body-color-muted);
+}
+
+.oper-alert-row.off .oper-alert-value {
+	opacity: 0.55;
+}
+
+.oper-alert-switch {
+	margin: 0;
+	width: 1.1rem;
+	height: 1.1rem;
+	cursor: pointer;
+}
+
+.oper-alert-row-label {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.oper-wide {
+	display: inline-block;
+	margin-left: 0.35em;
+	padding: 0 0.35em;
+	border: 1px solid var(--oper-amber);
+	border-radius: 0.3em;
+	color: var(--oper-amber);
+	font-size: 0.75em;
+	line-height: 1.5;
+	vertical-align: 0.1em;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.oper-alert-remove {
+	grid-column: -2; /* the last column, also on a `log` row, which has no value */
+	width: 1.75rem;
+	height: 1.75rem;
+	border-radius: 0.3rem;
+	color: var(--body-color-muted);
+	font-size: 0.875em;
+}
+
+.oper-alert-remove:hover,
+.oper-alert-remove:focus-visible {
+	color: var(--body-color);
+	background: color-mix(in srgb, var(--body-color-muted) 15%, transparent);
+}
+
+.oper-alert-add {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	margin-top: 0.5rem;
+}
+
+.oper-alert-add .input {
+	width: auto;
+	max-width: 100%;
+}
+
+.oper-alert-note {
+	margin: 0;
+	font-size: 0.9375em;
+}
+
+.oper-alert-command {
+	margin: 0;
+	padding: 0.5rem 0.65rem;
+	border-radius: 0.3rem;
+	background: color-mix(in srgb, var(--body-color-muted) 12%, transparent);
+	font-family: monospace;
+	font-size: 0.875em;
+	line-height: 1.5;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	user-select: all;
+}
+
+.oper-alert-matches {
+	margin: 0;
+	font-weight: 700;
+}
+
+.oper-alert-matches.muted,
+.oper-alert-matches[data-state="asking"],
+.oper-alert-matches[data-state="idle"] {
+	color: var(--body-color-muted);
+	font-weight: normal;
+}
+
+.oper-alert-matches[data-state="failed"] {
+	color: var(--body-color-muted);
+	font-weight: normal;
+}
+
+.oper-alert-matches.warn {
+	color: var(--oper-amber);
+}
+
+.oper-alert-nicks {
+	margin: -0.5rem 0 0;
+	color: var(--body-color-muted);
+	font-size: 0.875em;
+	overflow-wrap: anywhere;
+}
+
+.oper-alert-footer {
+	flex-wrap: wrap;
+	gap: 0.5rem 1rem;
+}
+
+.oper-alert-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.4rem;
+}
+
+#oper-alert-overlay .btn-small {
+	margin: 0;
+	padding: 0.3em 0.75em;
+	font-size: 0.875em;
+	line-height: 1.4;
+	border-width: 1px;
+	letter-spacing: 0;
+	text-transform: none;
+}
+
+#oper-alert-overlay .btn-cancel {
+	border-color: transparent;
+}
+
+.oper-alert-result {
+	color: var(--link-color);
+	font-size: 0.875em;
+}
+
+.oper-alert-error {
+	color: #e74c3c;
+	font-size: 0.875em;
+}
+
+/* On a phone the builder is the page, and a row wraps its value under the label. */
+@media (max-width: 768px) {
+	#oper-alert-overlay {
+		padding: 0;
+	}
+
+	.oper-alert-builder {
+		height: 100%;
+		border-radius: 0;
+	}
+
+	.oper-alert-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.oper-alert-row {
+		grid-template-columns: auto minmax(0, 1fr) auto;
+	}
+
+	.oper-alert-row .oper-alert-remove {
+		grid-column: 3;
+		grid-row: 1;
+	}
+
+	.oper-alert-row .oper-alert-value {
+		grid-column: 2 / -1;
+		grid-row: 2;
+	}
 }
 
 .changelog-text {
@@ -4090,11 +5375,13 @@ html[data-shell="native"] #footer {
 }
 
 /* Display TeX stands alone; inline TeX is no taller than its line. KaTeX's
- * own stylesheet does the typesetting once the first span has linked it. */
+ * own stylesheet does the typesetting once the first span has linked it.
+ * TeX may set any length; see math.ts. */
 .md-math-block {
 	display: block;
 	margin: 2px 0;
 	overflow-x: auto;
+	max-height: 30em;
 }
 
 /* Syntax highlighting. The classes are Prism's token types, grouped onto the
@@ -4518,6 +5805,7 @@ html[data-shell="native"] #footer {
 #push-prompt-overlay,
 #install-guide-overlay,
 #upload-preview-overlay,
+#oper-action-overlay,
 #upload-overlay,
 #image-viewer,
 #image-viewer .open-btn,
@@ -4533,6 +5821,7 @@ html[data-shell="native"] #footer {
 #push-prompt-overlay,
 #install-guide-overlay,
 #upload-preview-overlay,
+#oper-action-overlay,
 #upload-overlay,
 #image-viewer {
 	position: fixed;
@@ -4552,6 +5841,7 @@ html[data-shell="native"] #footer {
 #push-prompt-overlay.opened,
 #install-guide-overlay.opened,
 #upload-preview-overlay.opened,
+#oper-action-overlay.opened,
 #upload-overlay.is-dragover,
 #image-viewer.opened {
 	visibility: visible;
@@ -4835,11 +6125,9 @@ html[data-shell="native"] #image-viewer .next-image-btn {
 	}
 }
 
-@media (prefers-reduced-motion: reduce) {
-	#chat .reaction-enter-active,
-	#chat .reactions-enter-active {
-		animation: none;
-	}
+html[data-reduce-motion] #chat .reaction-enter-active,
+html[data-reduce-motion] #chat .reactions-enter-active {
+	animation: none;
 }
 
 #chat .msg-reaction-count {
@@ -5091,10 +6379,8 @@ html[data-shell="native"] #image-viewer .next-image-btn {
 	}
 }
 
-@media (prefers-reduced-motion: reduce) {
-	#chat .msg-copied {
-		animation: none;
-	}
+html[data-reduce-motion] #chat .msg-copied {
+	animation: none;
 }
 
 /* The one-tap reactions (the newest used, helpers/reactionRecents.ts
@@ -5273,11 +6559,9 @@ html[data-shell="native"] .reaction-picker.sheet {
 	}
 }
 
-@media (prefers-reduced-motion: reduce) {
-	.reaction-picker,
-	#chat .msg.actions-open .msg-actions {
-		animation: none;
-	}
+html[data-reduce-motion] .reaction-picker,
+html[data-reduce-motion] #chat .msg.actions-open .msg-actions {
+	animation: none;
 }
 
 .reaction-picker-search {
@@ -5743,10 +7027,8 @@ html[data-shell="native"] .reaction-picker.sheet {
 }
 
 /* Keep the cue, drop the motion */
-@media (prefers-reduced-motion: reduce) {
-	#form .connection-bar-icon.spinning::before {
-		animation: none;
-	}
+html[data-reduce-motion] #form .connection-bar-icon.spinning::before {
+	animation: none;
 }
 
 #form .connection-bar-connect {
@@ -5769,13 +7051,11 @@ html[data-shell="native"] .reaction-picker.sheet {
 	outline: 0;
 }
 
-@media (prefers-reduced-motion: reduce) {
-	#form .upload-bar-track.indeterminate .upload-bar-fill {
-		animation: none;
-		left: 0;
-		width: 100%;
-		opacity: 0.5;
-	}
+html[data-reduce-motion] #form .upload-bar-track.indeterminate .upload-bar-fill {
+	animation: none;
+	left: 0;
+	width: 100%;
+	opacity: 0.5;
 }
 
 #form .upload-bar-percent {
@@ -5888,4 +7168,36 @@ html[data-shell="native"] .reaction-picker.sheet {
 	color: var(--body-color-muted);
 	font-size: 0.8125rem;
 	margin-top: 2px;
+}
+
+/* Increase Contrast (iOS, macOS), Windows' contrast themes and Android's High
+ * contrast text ask for more: every muted and faint text tone becomes the full
+ * text colour, own messages and timestamps included. The attribute, like
+ * `data-reduce-motion` below and in the rules above, is set from the system
+ * by helpers/systemAccessibility.ts, live — not a media query, which Android's
+ * WebView answers with the settings its process started with. It outranks a
+ * theme's `:root`, so this holds whichever theme is loaded; a theme without
+ * the handoff tokens only has --body-color-muted, and the others resolve to
+ * nothing it reads. A theme that re-maps one of these tokens below :root
+ * (zelenzy's dialogs) outranks this there and restates it for its own
+ * selector. */
+html[data-contrast="more"]:root {
+	--body-color-muted: var(--body-color);
+	--chat-fg-muted: var(--chat-fg);
+	--chat-fg-faint: var(--chat-fg);
+	--rail-fg-muted: var(--rail-fg);
+}
+
+/* Reduce Motion: no slides, fades or spins anywhere — the sidebar, the
+ * settings pane, the toolbar's pop-in, the reaction picker. 0.01ms rather
+ * than none so transitionend and animationend still fire, which Vue's
+ * <Transition> waits for. The rules above that stop single animations stay:
+ * they also swap in a still look where a frozen frame would read wrong. */
+html[data-reduce-motion] *,
+html[data-reduce-motion] *::before,
+html[data-reduce-motion] *::after {
+	animation-duration: 0.01ms !important;
+	animation-iteration-count: 1 !important;
+	transition-duration: 0.01ms !important;
+	scroll-behavior: auto !important;
 }

@@ -75,3 +75,15 @@ export function errorSpec(numeric: string): ErrorSpec | undefined {
 
 	return undefined;
 }
+
+/**
+ * Numerics in the 4xx/5xx range that are replies, not errors: nefarious2
+ * (ircu) put lists there — the oper MOTD (535-537), STATS S/Z rows (542,
+ * 546), the end of the shun list (545) and the Z-line list (548, 549).
+ */
+const REPLIES_IN_ERROR_RANGE = new Set(["535", "536", "537", "542", "545", "546", "548", "549"]);
+
+/** Whether a numeric is an error reply (4xx/5xx, minus the lists above). */
+export function isErrorNumeric(command: string): boolean {
+	return /^[45]\d\d$/.test(command) && !REPLIES_IN_ERROR_RANGE.has(command);
+}

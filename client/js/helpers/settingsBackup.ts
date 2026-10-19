@@ -4,7 +4,8 @@
  *
  * The file is the localStorage entries that hold preferences — the settings
  * object, the saved networks, sort orders, mutes, ignore lists, trusted media
- * hosts, recent reactions, command aliases — wrapped in a small envelope and
+ * hosts, recent reactions, command aliases, oper notice routing and snomask —
+ * wrapped in a small envelope and
  * gzipped with the
  * browser's own `CompressionStream` (no dependency; a plain-JSON file is
  * accepted too, the loader sniffs the gzip magic). Extension:
@@ -13,7 +14,7 @@
  * Left out on purpose: `thelounge.sts` (a cache), `thelounge.push*` (this
  * device's push subscriptions, bound to its service worker),
  * `thelounge.mentions` and `thelounge.querylog.*` (logs: conversation, not
- * preference) and `thelounge.state.*` (where the UI was last). Restoring replaces every covered entry, so a key the file lacks is
+ * preference), the server-notice log (IndexedDB, irc/noticelog.ts) and `thelounge.state.*` (where the UI was last). Restoring replaces every covered entry, so a key the file lacks is
  * removed — the file *is* the state afterwards — and the caller reloads the
  * page, which is how every module re-reads its storage.
  *
@@ -22,6 +23,8 @@
  */
 
 import storage from "../localStorage";
+import {isPlatform, PLATFORM_DEFAULTS, type Platform} from "./platformDefaults";
+import {overridesChoice} from "./settingsMigration";
 
 export const FILE_EXTENSION = ".seance-settings";
 export const FORMAT = "seance-settings";
@@ -38,6 +41,7 @@ export const BACKUP_KEYS: readonly string[] = [
 	"thelounge.media.trusted",
 	"thelounge.reactions.recent",
 	"thelounge.aliases",
+	"thelounge.oper",
 ];
 
 /** Key prefixes the backup carries: one entry per network. */
@@ -50,6 +54,10 @@ export interface SettingsBackup {
 	exportedAt: string;
 	/** The deploy's app name, for the person reading the file; not checked. */
 	app?: string;
+	/** Where the file was made (helpers/platformDefaults.ts). A restore
+	 * elsewhere moves a setting that only held that platform's default onto
+	 * its own. Absent from files made before it was recorded. */
+	platform?: Platform;
 	/** localStorage key → its parsed JSON value. */
 	entries: Record<string, unknown>;
 }
@@ -84,6 +92,8 @@ export interface CollectOptions {
 	 * been changed, so the caller passes the store's, defaults and all. */
 	settings?: Record<string, unknown>;
 	app?: string;
+	/** Where this backup is made, recorded in the file. */
+	platform?: Platform;
 	now?: Date;
 }
 
@@ -126,6 +136,7 @@ export function collectBackup(options: CollectOptions = {}): SettingsBackup {
 		version: VERSION,
 		exportedAt: (options.now ?? new Date()).toISOString(),
 		...(options.app ? {app: options.app} : {}),
+		...(options.platform ? {platform: options.platform} : {}),
 		entries,
 	};
 }
@@ -152,20 +163,98 @@ export function networkCount(backup: SettingsBackup): number {
 }
 
 /**
- * Replace every covered entry with the backup's. Keys the backup does not
- * carry are removed, so the device ends up exactly as the file says.
+ * The settings object as it should land on `target`: a platform-dependent
+ * setting (helpers/platformDefaults.ts) that holds the default of the
+ * platform the file was made on is the person's choice of nothing, so it
+ * takes `target`'s default — a web backup restored in a shell follows the
+ * system, as a fresh install there would — unless switching it on would
+ * override a text size or a paired theme the file records as picked
+ * (`overridesChoice`, helpers/settingsMigration.ts, against `defaults`: the
+ * restoring deploy's), which then stays as it was. A value that differs from
+ * the source's default was chosen and is kept. The key stays either way: a
+ * settings object without it reads as one saved before the setting existed
+ * (helpers/settingsMigration.ts).
  */
-export function applyBackup(backup: SettingsBackup): void {
-	for (const key of storedBackupKeys()) {
-		backend.remove(key);
+function rebaseSettings(
+	settings: unknown,
+	source: Platform | undefined,
+	target: Platform,
+	defaults: Record<string, unknown>
+): unknown {
+	if (!source || typeof settings !== "object" || settings === null || Array.isArray(settings)) {
+		return settings;
 	}
 
+	const rebased: Record<string, unknown> = {...settings};
+
+	for (const [name, platformDefault] of Object.entries(PLATFORM_DEFAULTS)) {
+		const from = platformDefault(source);
+		const to = platformDefault(target);
+
+		if (!(name in rebased) || rebased[name] !== from || from === to) {
+			continue;
+		}
+
+		rebased[name] = to && !overridesChoice(name, rebased, defaults);
+	}
+
+	return rebased;
+}
+
+/** A restore that did not fit in storage; what it had written is undone. */
+export class BackupStorageError extends Error {
+	constructor() {
+		super("There isn't room on this device to import that file. Nothing was changed.");
+	}
+}
+
+/**
+ * Replace every covered entry with the backup's. Keys the backup does not
+ * carry are removed, so the device ends up exactly as the file says — but
+ * for the platform-dependent settings, which `platform` (where this restore
+ * runs) rebases against this deploy's `defaults` (see rebaseSettings).
+ */
+export function applyBackup(
+	backup: SettingsBackup,
+	platform: Platform,
+	defaults: Record<string, unknown>
+): void {
+	const before = new Map(storedBackupKeys().map((key) => [key, backend.get(key)]));
+	const written: string[] = [];
+
+	// Write first, remove after: localStorage swallows a full quota, and a
+	// restore that removed first left a device with no networks at all.
 	for (const [key, value] of Object.entries(backup.entries)) {
 		if (!isBackupKey(key)) {
 			continue; // never let a file write arbitrary keys
 		}
 
-		backend.set(key, JSON.stringify(value));
+		const restored =
+			key === "settings" ? rebaseSettings(value, backup.platform, platform, defaults) : value;
+		const json = JSON.stringify(restored);
+		backend.set(key, json);
+
+		if (backend.get(key) !== json) {
+			for (const done of written) {
+				const old = before.get(done);
+
+				if (old === undefined || old === null) {
+					backend.remove(done);
+				} else {
+					backend.set(done, old);
+				}
+			}
+
+			throw new BackupStorageError();
+		}
+
+		written.push(key);
+	}
+
+	for (const key of before.keys()) {
+		if (!written.includes(key)) {
+			backend.remove(key);
+		}
 	}
 }
 
@@ -227,6 +316,7 @@ function validate(value: unknown): SettingsBackup {
 		version: obj.version,
 		exportedAt: typeof obj.exportedAt === "string" ? obj.exportedAt : "",
 		...(typeof obj.app === "string" ? {app: obj.app} : {}),
+		...(isPlatform(obj.platform) ? {platform: obj.platform} : {}),
 		entries: obj.entries as Record<string, unknown>,
 	};
 }

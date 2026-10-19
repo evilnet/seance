@@ -45,7 +45,15 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
+    // Push (PushService.java): UnifiedPush, with its embedded FCM
+    // distributor for phones that have Google Play services and no other
+    // distributor. FCM takes the ircd's Web Push (VAPID) directly: no
+    // Firebase project, no relay.
+    implementation "org.unifiedpush.android:connector:$unifiedPushConnectorVersion"
+    implementation "org.unifiedpush.android:embedded-fcm-distributor:$unifiedPushFcmVersion"
     testImplementation "junit:junit:$junitVersion"
+    // android.jar's org.json is stubs on the JVM; the push tests parse JSON.
+    testImplementation "org.json:json:$orgJsonVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')

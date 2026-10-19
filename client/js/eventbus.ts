@@ -46,6 +46,11 @@ class EventBus {
 				});
 		}
 	}
+
+	/** Whether anything listens for `type` right now. */
+	has(type: string): boolean {
+		return events.has(type) && events.get(type).length > 0;
+	}
 }
 
 export default new EventBus();

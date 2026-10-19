@@ -82,11 +82,16 @@
 				<label></label>
 				<div class="input-wrap">
 					<label class="tls">
-						<input v-model="defaults.tls" type="checkbox" name="tls" />
+						<input v-model="defaults.tls" v-switch type="checkbox" name="tls" />
 						Use secure connection (TLS)
 					</label>
 					<label class="tls">
-						<input v-model="defaults.autoconnect" type="checkbox" name="autoconnect" />
+						<input
+							v-model="defaults.autoconnect"
+							v-switch
+							type="checkbox"
+							name="autoconnect"
+						/>
 						Connect automatically when the app starts
 					</label>
 				</div>
@@ -203,6 +208,7 @@ the server tab on new connection"
 						<label class="tls">
 							<input
 								v-model="defaults.rememberPassword"
+								v-switch
 								type="checkbox"
 								name="rememberPassword"
 							/>
@@ -216,6 +222,7 @@ the server tab on new connection"
 						<label class="tls">
 							<input
 								v-model="defaults.pushEnabled"
+								v-switch
 								type="checkbox"
 								name="pushEnabled"
 							/>
@@ -253,6 +260,7 @@ the server tab on new connection"
 					<label class="tls">
 						<input
 							v-model="defaults.notifyEnabled"
+							v-switch
 							type="checkbox"
 							name="notifyEnabled"
 							@change="onNotifyToggle"
@@ -267,6 +275,64 @@ the server tab on new connection"
 					</label>
 				</div>
 			</div>
+
+			<!--
+				Services support (docs/projects/oper-tools.md): shown once this
+				network is connected and opered. The package's conventional names
+				are prefilled when picked (empty fields only), and the bots are
+				WHOISed as the fields change so the oper sees they are there.
+			-->
+			<template v-if="showServices">
+				<h2 id="label-services">Services support</h2>
+				<div class="connect-row">
+					<label for="connect:servicesPackage">Services package</label>
+					<select
+						id="connect:servicesPackage"
+						v-model="servicesPackage"
+						class="input"
+						name="servicesPackage"
+						@change="onServicesPackage"
+					>
+						<option value="">None</option>
+						<option v-for="p in SERVICES_PROFILES" :key="p.id" :value="p.id">
+							{{ p.name }}
+						</option>
+					</select>
+				</div>
+				<template v-if="servicesPackage">
+					<div v-for="role in SERVICE_ROLE_FIELDS" :key="role.id" class="connect-row">
+						<label :for="'connect:services-' + role.id">{{ role.label }}</label>
+						<input
+							:id="'connect:services-' + role.id"
+							v-model.trim="serviceBots[role.id]"
+							class="input"
+							:name="'services-' + role.id"
+							:placeholder="role.placeholder"
+							autocapitalize="off"
+							:autocorrect.attr="'off'"
+							spellcheck="false"
+							maxlength="100"
+						/>
+					</div>
+					<div class="connect-row">
+						<label></label>
+						<div class="input-wrap services-notes">
+							<p class="services-help">
+								Prefilled with {{ servicesName }}'s usual names; change them if this
+								network renamed its bots. Leave a channel blank if the network
+								doesn't run it.
+							</p>
+							<p
+								:class="['services-check', {ok: checkOk, pending: checkPending}]"
+								role="status"
+								aria-live="polite"
+							>
+								{{ checkText }}
+							</p>
+						</div>
+					</div>
+				</template>
+			</template>
 
 			<div>
 				<button type="submit" class="btn" :disabled="disabled ? true : false">
@@ -351,15 +417,74 @@ the server tab on new connection"
 	width: auto;
 	margin: 0;
 }
+
+#connect .services-notes {
+	margin-top: 8px;
+}
+
+#connect .services-help,
+#connect .services-check {
+	margin: 0 0 6px;
+	font-size: 90%;
+	opacity: 0.85;
+}
+
+#connect .services-check.ok {
+	color: var(--link-color);
+	opacity: 1;
+}
+
+#connect .services-check.pending {
+	font-style: italic;
+}
 </style>
 
 <script lang="ts">
 import RevealPassword from "./RevealPassword.vue";
 import SidebarToggle from "./SidebarToggle.vue";
-import {computed, defineComponent, nextTick, onMounted, PropType, ref, watch} from "vue";
-import {displayName, parseCommands, SavedNetwork} from "../js/irc/saved-networks";
+import {
+	computed,
+	defineComponent,
+	nextTick,
+	onMounted,
+	onUnmounted,
+	PropType,
+	reactive,
+	ref,
+	watch,
+} from "vue";
+import {displayName, parseCommands, SavedNetwork, SERVICE_ROLES} from "../js/irc/saved-networks";
+import {SERVICES_PROFILES, servicesProfileById} from "../js/irc/services/index";
+import {describeServiceCheck} from "../js/irc/services";
+import {servicesCheck} from "../js/helpers/operRequest";
+import {isOperOn} from "../js/helpers/operMenu";
+import {useStore} from "../js/store";
 import webpush from "../js/webpush";
-import type {SharedNetworkStatus} from "../../shared/types/network";
+import type {ServicesConfig, SharedNetworkStatus} from "../../shared/types/network";
+
+/** The services roles as the form shows them, in order. */
+const SERVICE_ROLE_FIELDS: {
+	id: typeof SERVICE_ROLES[number];
+	label: string;
+	placeholder: string;
+}[] = [
+	{id: "oper", label: "Oper service", placeholder: "The bot that takes G-lines"},
+	{id: "account", label: "Account service", placeholder: "The bot that holds accounts"},
+	{id: "channel", label: "Channel service", placeholder: "The bot that holds channels"},
+	{
+		id: "report",
+		label: "Oper report channel",
+		placeholder: "Where services report oper commands",
+	},
+	{id: "snoop", label: "Snoop channel", placeholder: "The connect and join feed"},
+];
+
+/** How long the bots' fields rest before they are checked again. */
+const CHECK_DELAY_MS = 600;
+
+function blankBots(): ServicesConfig["bots"] {
+	return {oper: "", account: "", channel: "", report: "", snoop: ""};
+}
 
 /** What the edit form binds to: a saved entry plus the live connection flag. */
 export type NetworkFormDefaults = SavedNetwork & {
@@ -398,8 +523,109 @@ export default defineComponent({
 		},
 	},
 	setup(props) {
+		const store = useStore();
 		const commandsInput = ref<HTMLTextAreaElement | null>(null);
 		const commandsText = ref((props.defaults.commands ?? []).join("\n"));
+
+		// --- Services support: the package and the bots by role, shown once
+		// this network is connected and opered (nothing to set up before).
+		const liveNetwork = computed(() =>
+			props.defaults.uuid ? store.getters.findNetwork(props.defaults.uuid) : undefined
+		);
+		const showServices = computed(
+			() => !!props.defaults.uuid && !!props.status?.connected && isOperOn(liveNetwork.value)
+		);
+		const servicesPackage = ref<string>(props.defaults.services?.package ?? "");
+		const serviceBots = reactive<ServicesConfig["bots"]>({
+			...blankBots(),
+			...(props.defaults.services?.bots ?? {}),
+		});
+		const servicesName = computed(
+			() => servicesProfileById(servicesPackage.value)?.name ?? "the package"
+		);
+		const checkText = ref("");
+		const checkOk = ref(false);
+		const checkPending = ref(false);
+		let checkTimer: ReturnType<typeof setTimeout> | undefined;
+		let checkSeq = 0;
+
+		const servicesValue = (): ServicesConfig | undefined => {
+			const profile = servicesProfileById(servicesPackage.value);
+			return profile ? {package: profile.id, bots: {...serviceBots}} : undefined;
+		};
+
+		/** Picking a package fills the empty fields with its usual names, never a typed one. */
+		const onServicesPackage = () => {
+			const profile = servicesProfileById(servicesPackage.value);
+
+			if (!profile) {
+				return;
+			}
+
+			for (const role of SERVICE_ROLES) {
+				if (serviceBots[role].trim() === "") {
+					serviceBots[role] = profile.defaults[role];
+				}
+			}
+		};
+
+		/** WHOIS the bots and say in plain words which are there. */
+		const runCheck = async () => {
+			const services = servicesValue();
+			const uuid = props.defaults.uuid;
+
+			if (!services || !uuid || !showServices.value) {
+				checkText.value = "";
+				checkOk.value = false;
+				return;
+			}
+
+			const seq = ++checkSeq;
+			checkPending.value = true;
+			checkText.value = "Checking that the bots are online…";
+			const reply = await servicesCheck(uuid, services);
+
+			if (seq !== checkSeq) {
+				return; // the fields moved on
+			}
+
+			checkPending.value = false;
+			checkText.value = describeServiceCheck(reply, servicesName.value);
+			checkOk.value =
+				!reply.failure && reply.results.length > 0 && reply.results.every((r) => r.online);
+		};
+
+		const scheduleCheck = () => {
+			clearTimeout(checkTimer);
+			checkSeq++;
+			checkPending.value = false;
+
+			if (!servicesPackage.value || !showServices.value) {
+				checkText.value = "";
+				checkOk.value = false;
+				return;
+			}
+
+			checkTimer = setTimeout(() => void runCheck(), CHECK_DELAY_MS);
+		};
+
+		watch([servicesPackage, () => ({...serviceBots}), showServices], scheduleCheck, {
+			deep: true,
+		});
+
+		// Another network's entry: its own setting, not the last one's.
+		watch(
+			() => props.defaults.uuid,
+			() => {
+				servicesPackage.value = props.defaults.services?.package ?? "";
+				Object.assign(serviceBots, blankBots(), props.defaults.services?.bots ?? {});
+			}
+		);
+
+		onUnmounted(() => {
+			clearTimeout(checkTimer);
+			checkSeq++;
+		});
 
 		// This device's push situation for the network being edited (reactive
 		// over webpush's servers/subscriptions): `stale` — a subscription is
@@ -470,6 +696,10 @@ export default defineComponent({
 			const data: SavedNetwork = {
 				...props.defaults,
 				commands: parseCommands(commandsText.value),
+				// The key is always sent: absent would mean "keep", and
+				// undefined means None. A form without the section (not opered
+				// right now) hands back what was stored.
+				services: showServices.value ? servicesValue() : props.defaults.services,
 			};
 			delete (data as NetworkFormDefaults).connected;
 			return data;
@@ -514,6 +744,16 @@ export default defineComponent({
 			pushInfo,
 			renewPush,
 			onNotifyToggle,
+			SERVICES_PROFILES,
+			SERVICE_ROLE_FIELDS,
+			showServices,
+			servicesPackage,
+			serviceBots,
+			servicesName,
+			onServicesPackage,
+			checkText,
+			checkOk,
+			checkPending,
 			commandsInput,
 			commandsText,
 			resizeCommandsInput,
