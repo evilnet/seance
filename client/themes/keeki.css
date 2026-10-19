@@ -311,12 +311,13 @@ html[data-shell="native"] {
  * pseudo-element the rail has spare — the footer's ::after and the scroll
  * area's two, which are placed against #sidebar and so neither scroll nor
  * clip — moved by transform and opacity alone, on the compositor. Each stands
- * on the pipe's top. Keeki Blush, the day, sets --keeki-smoke to
- * none. */
-@media (prefers-reduced-motion: no-preference) and (hover: hover) {
-	#footer::after,
-	#sidebar .scrollable-area::before,
-	#sidebar .scrollable-area::after {
+ * on the pipe's top. At rest (`data-motion-rest`: nobody attending, or low
+ * power — see the drift above) the puffs are not there at all; they need no
+ * place to resume from. Keeki Blush, the day, sets --keeki-smoke to none. */
+@media (hover: hover) {
+	html:not([data-reduce-motion], [data-motion-rest]) #footer::after,
+	html:not([data-reduce-motion], [data-motion-rest]) #sidebar .scrollable-area::before,
+	html:not([data-reduce-motion], [data-motion-rest]) #sidebar .scrollable-area::after {
 		content: var(--keeki-smoke);
 		position: absolute;
 		bottom: calc(var(--keeki-lift, 0rem) + 3.25rem + var(--keeki-yurt-w) * 146 / 226);
