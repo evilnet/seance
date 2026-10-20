@@ -9,9 +9,9 @@
  * resume reapplies oper silently. Whoever sets `+o`/`+O` on us, the moment
  * it lands the tools ask what they need: PRIVS, the snomask (when +s), and
  * the profile's features; then the snomask the oper chose last time is put
- * back. A network that was opered when its last connection ended, and is
- * registered again without a mode line, asks for its modes: a held bouncer
- * session attached gets them in silence (evilnet/nefarious2#121).
+ * back. A held bouncer session revived or attached is told its modes like a
+ * fresh registration, after the MOTD (nefarious2 d759a1a), so a reconnect
+ * needs nothing of its own.
  *
  * Kept free of store/DOM imports (mocha).
  */
@@ -19,7 +19,7 @@
 import type {OperLevel, SharedOperState} from "../../../shared/types/oper";
 import type {IrcClient} from "./client";
 import type {IrcMessage} from "./message";
-import {getOperPrefs, setSnomaskPref, setWasOper} from "./operprefs";
+import {getOperPrefs, setSnomaskPref} from "./operprefs";
 import {canRequest, request} from "./request";
 
 export interface OperState {
@@ -122,16 +122,11 @@ function modesChanged(client: IrcClient): void {
 
 	if (oper.level !== before) {
 		if (isOpered(client)) {
-			setWasOper(client.uuid, true);
 			operUp(client);
 		} else {
 			oper.privs = [];
 			oper.privsKnown = false;
 			oper.queried = false;
-
-			if (before !== "none" && before !== "service") {
-				setWasOper(client.uuid, false);
-			}
 		}
 	}
 
@@ -293,42 +288,14 @@ function restoreSnomask(client: IrcClient): void {
 
 /**
  * Registration finished. Services may have set +o before 001, when nothing
- * could be asked yet; ask now. Otherwise everything comes from MODE lines
- * and 221 — except on a connection that attaches to a held bouncer session,
- * which gets its modes in silence (evilnet/nefarious2#121, open). So a
- * network that was opered when its last connection ended, and has seen no
- * mode by now, asks with one `MODE <me>`; nobody else pays the command.
- * Taken out once the server sends them.
+ * could be asked yet; ask now. Everything else comes from MODE lines and
+ * 221 — on a bouncer revive or attach too, whose modes the server sends
+ * after the MOTD (nefarious2 d759a1a), so this asks for none.
  */
 export function operRegistered(client: IrcClient): void {
-	if (isOpered(client)) {
-		if (!client.oper.queried) {
-			operUp(client);
-		}
-
-		return;
+	if (isOpered(client) && !client.oper.queried) {
+		operUp(client);
 	}
-
-	if (!getOperPrefs(client.uuid).wasOper || !canRequest(client)) {
-		return;
-	}
-
-	const ask = async () => {
-		const reply = await request(client, `MODE ${client.nick}`);
-		const line = reply.lines.find((msg) => msg.command === "221");
-
-		if (line) {
-			setUserModes(client, line.params[1] ?? "");
-
-			// Not opered after all (the session ended opered, this one did
-			// not /oper): forget it, or every registration pays the MODE.
-			if (!isOpered(client)) {
-				setWasOper(client.uuid, false);
-			}
-		}
-	};
-
-	void (client.background.fits(2000) ? ask() : client.whenRoom("oper:modes").then(ask));
 }
 
 /**

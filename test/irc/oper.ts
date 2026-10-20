@@ -420,7 +420,6 @@ describe("oper tools: oper state (irc/oper.ts)", function () {
 			SNOMASK_OPERDEFAULT: "5645",
 		});
 		expect(client.oper.level).to.equal("global");
-		expect(getOperPrefs(client.uuid).wasOper).to.equal(true);
 		expect(
 			messages(client.lobby.id).filter((m) => m.type !== MessageType.MODE),
 			"replies not shown raw"
@@ -458,7 +457,6 @@ describe("oper tools: oper state (irc/oper.ts)", function () {
 
 		transport.line(":opr!opr@host MODE opr -s");
 		expect(client.oper.snomask).to.equal(undefined);
-		expect(getOperPrefs(client.uuid).wasOper).to.equal(undefined);
 	});
 
 	/** Register `transport` again, as a reconnect does (setup() cleared `sent`). */
@@ -474,53 +472,39 @@ describe("oper tools: oper state (irc/oper.ts)", function () {
 		);
 	}
 
-	it("a network that was opered asks for its modes on a registration that brought none", async function () {
-		// A held bouncer session attached gets its modes in silence
-		// (evilnet/nefarious2#121); the client remembers it was opered and asks.
+	it("a bouncer revive or attach takes its oper state from the MODE line after the MOTD", async function () {
+		// nefarious2 d759a1a: the revived or attached connection is told its
+		// modes (and a non-default snomask) after the end of the MOTD, as a
+		// fresh registration is. A field an older build stored asks nothing.
 		prefsStore.set(OPER_PREFS_KEY, JSON.stringify({u1: {wasOper: true}}));
 		const {client, transport} = setup({uuid: "u1"});
-		expect(client.oper.level, "nothing before registration ends").to.equal("none");
 
 		reregister(transport);
+		expect(client.oper.level, "nothing before the mode line").to.equal("none");
+		expect(
+			transport.sent.some((l) => / MODE opr$/.test(l)),
+			"no MODE <me>"
+		).to.equal(false);
 
-		const query = transport.sent.find((l) => / MODE opr$/.test(l));
-		expect(query).to.match(/^@label=\S+ MODE opr$/);
-		transport.line(`${/^(@label=\S+) /.exec(query!)![1]} :irc.test 221 opr +owsgx`);
+		transport.lines(
+			":opr!opr@host MODE opr +owsg",
+			":irc.test 008 opr 983039 :: Server notice mask (0xeffff)"
+		);
 		await flush();
+
 		expect(client.oper.level).to.equal("global");
+		expect(client.oper.snomask).to.equal(983039);
 		expect(
 			transport.sent.some((l) => l.endsWith(" PRIVS")),
 			"then the oper-up queries"
 		).to.equal(true);
-	});
-
-	it("forgets it was opered when the registration's MODE shows it is not", async function () {
-		prefsStore.set(OPER_PREFS_KEY, JSON.stringify({u4: {wasOper: true}}));
-		const {client, transport} = setup({uuid: "u4"});
-
-		reregister(transport);
-		const query = transport.sent.find((l) => / MODE opr$/.test(l));
-		transport.line(`${/^(@label=\S+) /.exec(query!)![1]} :irc.test 221 opr +ix`);
-		await flush();
-		expect(client.oper.level).to.equal("none");
-		expect(getOperPrefs("u4").wasOper).to.equal(undefined);
-
-		transport.sent = [];
-		reregister(transport);
 		expect(
 			transport.sent.some((l) => / MODE opr$/.test(l)),
-			"the next registration asks nothing"
+			"still no MODE <me>"
 		).to.equal(false);
 	});
 
-	it("a network that was never opered asks nothing on registration", function () {
-		const {transport} = setup({uuid: "u2"});
-		reregister(transport);
-		expect(transport.sent.some((l) => / MODE opr$/.test(l))).to.equal(false);
-	});
-
 	it("a network opered before registration ended asks nothing more", function () {
-		prefsStore.set(OPER_PREFS_KEY, JSON.stringify({u3: {wasOper: true}}));
 		const {transport} = setup({uuid: "u3"});
 		reregister(transport, [":opr!opr@host MODE opr +o"]);
 		expect(transport.sent.some((l) => / MODE opr$/.test(l))).to.equal(false);
@@ -674,7 +658,7 @@ describe("oper tools: temporary routes (irc/operprefs.ts)", function () {
 			JSON.stringify({
 				n1: {
 					snomask: "1 x",
-					wasOper: "yes",
+					wasOper: true,
 					routes: {"oper.up": "loud", "client.connect": "off"},
 					temporary: {"ban.add": {route: "off", until: now + HOUR, revert: "loud"}},
 					notes: {alice: "seen before", bob: 3},
