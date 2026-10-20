@@ -11,17 +11,9 @@ import webpush from "../webpush";
 import {attachMediaPreviews} from "../helpers/messagePreviews";
 import * as saved from "../irc/saved-networks";
 import {insertMessage} from "../helpers/messageUpdates";
-
-let pop;
-
-try {
-	pop = new Audio();
-	pop.src = "audio/pop.wav";
-} catch (e) {
-	pop = {
-		play() {},
-	};
-}
+import {nativeAlertsAvailable, showNativeAlert} from "../helpers/nativeAlerts";
+import {alertSound, playNotificationSound} from "../helpers/notificationSound";
+import {hasVirtualKeyboard} from "../helpers/device";
 
 socket.on("msg", function (data) {
 	const receivingChannel = store.getters.findChannel(data.chan);
@@ -95,28 +87,33 @@ socket.on("msg", function (data) {
 		});
 	}
 
+	let shellAlerted = false;
+
 	if (data.msg.self) {
 		channel.firstUnread = data.msg.id;
 	} else if (!data.replay && (!data.msg.editOf || data.msg.highlight)) {
 		// An edit is not news (it replaces a message in place) unless it
 		// brings a highlight with it.
-		notifyMessage(data.chan, channel, store.state.activeChannel, data.msg);
+		shellAlerted = notifyMessage(data.chan, channel, store.state.activeChannel, data.msg);
 	}
 
 	// Mark pushable messages as taken by this live page, so the service
 	// worker drops the FCM duplicate the ircd may emit for the same
 	// message while this session is attached-but-idle (FEAT_WEBPUSH_IDLE).
 	// The subset is what the server pushes: PMs and channel mentions. The
-	// Android shell's push service keeps its own ring, fed only while the
-	// user is looking (the shell's page cannot notify by itself) and only
-	// for a network it is subscribed on.
+	// Android shell's push service keeps its own ring, fed only for a network
+	// it is subscribed on, and not for a message the page alerted about: that
+	// alert went through the service, which records it as it shows it.
 	if (
 		!data.msg.self &&
 		data.msg.msgid &&
 		(data.msg.highlight || channel.type === ChanType.QUERY)
 	) {
 		recordSeenMsgid(data.msg.msgid);
-		webpush.recordSeenOnShell(receivingChannel.network.uuid, data.msg.msgid);
+
+		if (!shellAlerted) {
+			webpush.recordSeenOnShell(receivingChannel.network.uuid, data.msg.msgid);
+		}
 	}
 
 	let messageLimit = 0;
@@ -150,14 +147,15 @@ declare global {
 	}
 }
 
+/** Alert the user to `msg`; true when the alert went to a native shell. */
 function notifyMessage(
 	targetId: number,
 	channel: ClientChan,
 	activeChannel: NetChan | undefined,
 	msg: ClientMessage
-) {
+): boolean {
 	if (channel.muted) {
-		return;
+		return false;
 	}
 
 	// Browser notifications enroll per network (the editor's checkbox,
@@ -165,7 +163,7 @@ function notifyMessage(
 	const network = store.state.networks.find((net) => net.channels.some((c) => c === channel));
 
 	if (!network || !saved.notifyEnabledOf(saved.get(network.uuid))) {
-		return;
+		return false;
 	}
 
 	// Do not disturb (global, this network's mode, or another device's):
@@ -180,15 +178,26 @@ function notifyMessage(
 		(store.state.settings.notifyAllMessages && msg.type === MessageType.MESSAGE)
 	) {
 		if (!document.hasFocus() || !activeChannel || activeChannel.channel !== channel) {
-			if (store.state.settings.notification) {
-				try {
-					void Promise.resolve(pop.play()).catch(() => undefined); // autoplay may be blocked
-				} catch (exception) {
-					// On mobile, sounds can not be played without user interaction.
-				}
+			const native = nativeAlertsAvailable();
+			const ua = navigator.userAgent;
+			const notifying =
+				native || ("Notification" in window && Notification.permission === "granted");
+			const sound = alertSound({
+				soundOn: store.state.settings.notification,
+				native,
+				notifying,
+				ios: "audioSession" in navigator && hasVirtualKeyboard(),
+				// Linux and ChromeOS notifications are usually silent.
+				osSound: !/Linux|CrOS/.test(ua) || /Android/.test(ua),
+				visible: document.visibilityState === "visible",
+			});
+
+			if (sound.inPage) {
+				// Autoplay may be blocked: on mobile, without user interaction.
+				void playNotificationSound().catch(() => undefined);
 			}
 
-			if ("Notification" in window && Notification.permission === "granted") {
+			if (notifying) {
 				let title: string;
 				let body: string;
 				// TODO: fix msg type and get rid of that conditional
@@ -217,6 +226,41 @@ function notifyMessage(
 				}
 
 				const timestamp = Date.parse(String(msg.time));
+				// The message in a push's terms, the wire text: the push
+				// worker and the Android shell render an action as `* nick …`.
+				const wire = {
+					from: nick,
+					text:
+						msg.type === MessageType.INVITE
+							? `invited you to ${msg.channel ?? ""}`
+							: msg.type === MessageType.ACTION
+							? `\x01ACTION ${msg.text ?? ""}\x01`
+							: msg.text ?? "",
+					msgid: msg.msgid,
+					time: Number.isFinite(timestamp)
+						? new Date(timestamp).toISOString()
+						: undefined,
+					notice: msg.type === MessageType.NOTICE,
+				};
+
+				if (native) {
+					void showNativeAlert({
+						network: network.uuid,
+						target: channel.name,
+						title,
+						body,
+						sound: !sound.silentNotification,
+						message: wire,
+					})
+						.catch(() => false)
+						.then((shown) => {
+							// Notifications refused: the page's ping, as before the OS took it.
+							if (!shown && store.state.settings.notification) {
+								void playNotificationSound().catch(() => undefined);
+							}
+						});
+					return true;
+				}
 
 				try {
 					if (store.state.hasServiceWorker) {
@@ -230,6 +274,7 @@ function notifyMessage(
 							timestamp: timestamp,
 							title: title,
 							body: body,
+							silent: sound.silentNotification,
 						};
 
 						// A message the server may also push to this device goes
@@ -241,19 +286,7 @@ function notifyMessage(
 						// this device is not subscribed on, takes the root worker.
 						const message =
 							msg.msgid && msg.type !== MessageType.INVITE && msg.from?.nick
-								? {
-										msgid: msg.msgid,
-										from: msg.from.nick,
-										// the wire form, which the worker renders as `* nick …`
-										text:
-											msg.type === MessageType.ACTION
-												? `\x01ACTION ${msg.text ?? ""}\x01`
-												: msg.text ?? "",
-										time: Number.isFinite(timestamp)
-											? new Date(timestamp).toISOString()
-											: undefined,
-										notice: msg.type === MessageType.NOTICE,
-								  }
+								? wire
 								: undefined;
 
 						void (async () => {
@@ -277,6 +310,7 @@ function notifyMessage(
 							icon: "img/icon-192.png",
 							body: body,
 							timestamp: timestamp,
+							silent: sound.silentNotification,
 						});
 						notify.addEventListener("click", function () {
 							this.close();
@@ -295,6 +329,8 @@ function notifyMessage(
 			}
 		}
 	}
+
+	return false;
 }
 
 function updateUserList(channel: ClientChan, msg: SharedMsg) {

@@ -4,12 +4,14 @@
 // Badge plugin, because WKWebView has no `navigator.setAppBadge`.
 //
 // iOS shows a badge only with the notification permission's badge grant, so
-// the first highlight asks for it, badge only (the plugin requests nothing
-// else). A refusal is remembered by the OS and nothing here asks again; a
-// sheet dismissed without an answer (the app backgrounded under it) leaves
-// the permission undecided, and the next highlight asks again.
+// the first highlight asks for it, through helpers/nativeAlerts.ts, together
+// with banners and sound: iOS prompts only once. A refusal is remembered by
+// the OS and nothing here asks again; a sheet dismissed without an answer
+// (the app backgrounded under it) leaves the permission undecided, and the
+// next highlight asks again.
 
-import {isNativeShell, nativeCall} from "./capacitor";
+import {isIOSShell, isNativeShell, nativeCall} from "./capacitor";
+import {askNativeAlertPermission} from "./nativeAlerts";
 
 interface BadgePermission {
 	display?: "granted" | "denied" | "prompt" | "prompt-with-rationale";
@@ -48,6 +50,10 @@ async function applyNativeBadge(): Promise<void> {
 
 /** Granted or denied, remembered; still undecided (sheet dismissed), null. */
 async function askBadgePermission(): Promise<boolean | null> {
+	if (isIOSShell()) {
+		return askNativeAlertPermission();
+	}
+
 	const check = await nativeCall<BadgePermission>("Badge", "checkPermissions");
 	let status = check?.display;
 

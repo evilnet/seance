@@ -114,7 +114,7 @@ public class PushService extends org.unifiedpush.android.connector.PushService {
         if (line != null && line.command.equals("MARKREAD")) {
             markRead(this, network, line.target, line.timestamp);
         } else if (line != null && (line.command.equals("PRIVMSG") || line.command.equals("NOTICE"))) {
-            show(network, line);
+            show(this, network, null, line, false);
         } else {
             // Something the ircd pushed that is not a message this build
             // can read: say so rather than drop it, as the service worker does.
@@ -148,23 +148,29 @@ public class PushService extends org.unifiedpush.android.connector.PushService {
         }
     }
 
-    private void show(String network, PushLine line) {
-        boolean channel = PushLine.isChannel(line.target);
-        String conversation = channel ? line.target : line.nick;
+    /**
+     * A message, from a push or from the page (NativePushPlugin `show`).
+     * `conversation`: the page's window for it (a lobby, say); null takes
+     * the line's channel, or its sender. `silent`: no sound or vibration.
+     */
+    static void show(Context context, String network, String conversation, PushLine line, boolean silent) {
+        if (conversation == null) {
+            conversation = PushLine.isChannel(line.target) ? line.target : line.nick;
+        }
         String key = key(network, conversation);
 
         synchronized (lock) {
-            PushSeen seen = seen(this);
+            PushSeen seen = seen(context);
             if (seen.covers(line)) {
                 return; // the page showed it, or this service already did
             }
-            PushMerge.Result merged = PushMerge.add(shownEntries(this, key), line, System.currentTimeMillis(), PushMerge.KEEP);
+            PushMerge.Result merged = PushMerge.add(shownEntries(context, key), line, System.currentTimeMillis(), PushMerge.KEEP);
             if (merged.changed) {
                 // A later line of a message already shown grows it in place without a second alert.
-                post(this, network, conversation, merged.entries, !merged.isNew);
+                post(context, network, conversation, merged.entries, !merged.isNew, silent);
             }
             seen.add(PushSeen.seenKey(line));
-            saveSeen(this, seen);
+            saveSeen(context, seen);
         }
     }
 
@@ -239,13 +245,20 @@ public class PushService extends org.unifiedpush.android.connector.PushService {
                     posted.forget(key);
                     NotificationManagerCompat.from(context).cancel(TAG_PREFIX + key, 0);
                 } else if (conversation != null) {
-                    post(context, network, conversation, change.getValue(), true);
+                    post(context, network, conversation, change.getValue(), true, false);
                 }
             }
         }
     }
 
-    private static void post(Context context, String network, String conversation, List<PushMerge.Entry> entries, boolean quiet) {
+    private static void post(
+        Context context,
+        String network,
+        String conversation,
+        List<PushMerge.Entry> entries,
+        boolean quiet,
+        boolean silent
+    ) {
         boolean channel = PushLine.isChannel(conversation);
         String key = key(network, conversation);
 
@@ -269,6 +282,7 @@ public class PushService extends org.unifiedpush.android.connector.PushService {
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setSubText(PushSubscriptions.name(context, network))
             .setOnlyAlertOnce(quiet)
+            .setSilent(silent)
             .addExtras(extras);
 
         NotificationManagerCompat manager = NotificationManagerCompat.from(context);
@@ -324,7 +338,7 @@ public class PushService extends org.unifiedpush.android.connector.PushService {
         NotificationManagerCompat.from(context).createNotificationChannel(
             new NotificationChannelCompat.Builder(CHANNEL_ID, NotificationManagerCompat.IMPORTANCE_HIGH)
                 .setName("Messages")
-                .setDescription("Mentions and private messages while the app is closed")
+                .setDescription("Mentions and private messages")
                 .build()
         );
     }
