@@ -10,6 +10,7 @@ import sinon from "ts-sinon";
 import storage from "../../client/js/localStorage";
 import {IrcClient, IrcClientOptions} from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";
+import {NO_FAKE_LAG} from "../../client/js/irc/fakelag";
 import type {Transport} from "../../client/js/irc/types";
 import type {TransportEvent, TransportState} from "../../client/js/irc/transport";
 import type {SharedMsg} from "../../shared/types/msg";
@@ -107,6 +108,9 @@ export function setup(overrides: Partial<IrcClientOptions> = {}): Harness {
 		ids: new IdAllocator(),
 		transportFactory: () => transport,
 		highlights: () => ({keywords: [], exceptions: []}),
+		// Background work goes out at once unless a test models the server's
+		// fake lag itself (test/irc/catchup.ts).
+		fakeLag: NO_FAKE_LAG,
 		...overrides,
 	});
 	let mark = 0;

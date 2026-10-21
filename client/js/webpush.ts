@@ -684,6 +684,7 @@ function autoRegister(uuid: string, vapid: string | undefined): void {
 				network: uuid,
 				endpoint: entry.endpoint,
 				keys: entry.keys,
+				renewal: true,
 			});
 			await writeStash(); // every connect: the worker's copy of the networks stays current
 		}

@@ -34,6 +34,7 @@ import type {Transport} from "../../client/js/irc/types";
 import type {TransportEvent, TransportState} from "../../client/js/irc/transport";
 import {MessageType, SharedMsg} from "../../shared/types/msg";
 import type {SharedOperState} from "../../shared/types/oper";
+import {NO_FAKE_LAG} from "../../client/js/irc/fakelag";
 
 class FakeTransport implements Transport {
 	state: TransportState = "closed";
@@ -166,6 +167,7 @@ function setup(opts: {labels?: boolean; version?: string; uuid?: string} = {}): 
 		ids: new IdAllocator(),
 		transportFactory: () => transport,
 		highlights: () => ({keywords: [], exceptions: []}),
+		fakeLag: NO_FAKE_LAG,
 	});
 
 	client.connect();
@@ -511,6 +513,7 @@ describe("oper tools: oper state (irc/oper.ts)", function () {
 			ids: new IdAllocator(),
 			transportFactory: () => transport,
 			highlights: () => ({keywords: [], exceptions: []}),
+			fakeLag: NO_FAKE_LAG,
 		});
 
 		client.connect();

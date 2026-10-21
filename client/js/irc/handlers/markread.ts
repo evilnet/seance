@@ -233,6 +233,11 @@ export function scheduleMarkRead(client: IrcClient, chan: Channel): void {
 	}, MARKREAD_DEBOUNCE_MS);
 }
 
+/** One command: what a background marker send is reckoned to cost. */
+const MARKREAD_COST_MS = 2000;
+/** A channel's marker goes ahead of the catch-up at most this often. */
+export const MARKREAD_JUMP_GAP_MS = 10_000;
+
 function sendMarkRead(client: IrcClient, chan: Channel): void {
 	if (!chan.readMarker) {
 		return;
@@ -247,17 +252,47 @@ function sendMarkRead(client: IrcClient, chan: Channel): void {
 		return;
 	}
 
-	chan.markReadDeferred = false;
-
 	if (!markReadEnabled(client)) {
+		chan.markReadDeferred = false;
 		return;
 	}
 
-	client.send(
-		formatLine({
-			command: "MARKREAD",
-			params: [chan.name, `timestamp=${chan.readMarker.toISOString()}`],
-		})
+	// Nobody waits on the marker the moment it moves: it is background work
+	// (fakelag.ts), sent with whatever is newest when the clock has room —
+	// ahead of the catch-up, since the account's other devices close their
+	// notifications on it, but at most once per MARKREAD_JUMP_GAP_MS for a
+	// channel: in an open channel where a line arrives (or is typed) every
+	// few seconds, each line's marker at the front would take all the
+	// clock's room and the catch-up would never run. Deferred until sent,
+	// so a socket that closes first hands it to flushDeferredMarkRead on
+	// the next registration.
+	const key = `markread:${chan.id}`;
+	const front = Date.now() - chan.markReadJumpedAt >= MARKREAD_JUMP_GAP_MS;
+
+	if (front) {
+		client.background.take(key); // one queued at the back moves up
+		chan.markReadJumpedAt = Date.now();
+	}
+
+	chan.markReadDeferred = true;
+	client.background.add(
+		{
+			key,
+			cost: MARKREAD_COST_MS,
+			run() {
+				chan.markReadDeferred = false;
+
+				if (chan.readMarker && markReadEnabled(client)) {
+					client.send(
+						formatLine({
+							command: "MARKREAD",
+							params: [chan.name, `timestamp=${chan.readMarker.toISOString()}`],
+						})
+					);
+				}
+			},
+		},
+		{front}
 	);
 }
 
@@ -286,6 +321,7 @@ export function markReadAt(client: IrcClient, target: string, time: Date): void 
 		}
 
 		cancelMarkRead(chan);
+		client.background.take(`markread:${chan.id}`);
 		chan.markReadDeferred = false;
 		// Moves the badge too: the server's echo of this same marker is
 		// not newer, so applyReadMarker would ignore it.
@@ -335,6 +371,7 @@ const markread: Handler = (client, msg) => {
 		return;
 	}
 
+	chan.markerAnswered = true;
 	const time = parseMarker(param);
 
 	if (time) {

@@ -9,6 +9,7 @@ import {MARKREAD_DEBOUNCE_MS} from "../../client/js/irc/handlers/markread";
 import type {Transport} from "../../client/js/irc/types";
 import type {TransportEvent, TransportState} from "../../client/js/irc/transport";
 import type {SharedMsg} from "../../shared/types/msg";
+import {NO_FAKE_LAG} from "../../client/js/irc/fakelag";
 
 class FakeTransport implements Transport {
 	state: TransportState = "closed";
@@ -122,7 +123,7 @@ interface Harness {
 const BASE_CAPS = "batch message-tags server-time echo-message extended-join draft/chathistory";
 
 /** A registered client (not yet in any channel). */
-function setup(opts: {readMarker?: boolean} = {}): Harness {
+function setup(opts: {readMarker?: boolean; account?: string} = {}): Harness {
 	const transport = new FakeTransport();
 	const client = new IrcClient({
 		host: "irc.test",
@@ -131,11 +132,12 @@ function setup(opts: {readMarker?: boolean} = {}): Harness {
 		nick: "alice",
 		join: "#seance",
 		sasl: "",
-		saslAccount: "",
+		saslAccount: opts.account ?? "",
 		saslPassword: "",
 		ids: new IdAllocator(),
 		transportFactory: () => transport,
 		highlights: () => ({keywords: [], exceptions: []}),
+		fakeLag: NO_FAKE_LAG,
 	});
 	let mark = 0;
 	const caps = opts.readMarker === false ? BASE_CAPS : `${BASE_CAPS} draft/read-marker`;
@@ -426,6 +428,25 @@ describe("Read markers (handlers/markread.ts)", function () {
 			]);
 		});
 
+		for (const account of ["alice", ""]) {
+			it(`${account ? "asks" : "does not ask"} again after a reconnect for ${
+				account ? "an account (read elsewhere meanwhile)" : "a guest"
+			}`, function () {
+				const h = setup({account});
+				expect(join(h)).to.include("MARKREAD #seance");
+				marker(h, "timestamp=*");
+
+				h.transport.drop();
+				reopen(h);
+				welcome(h);
+				// The server says nothing after the re-JOIN: an account's is asked.
+				const out = [...h.sent(), ...join(h)];
+				clock.tick(30_000);
+				out.push(...h.sent());
+				expect(markreads(out).includes("MARKREAD #seance")).to.equal(!!account);
+			});
+		}
+
 		it("asks for no marker or history page before 001", function () {
 			const h = setup();
 			joined(h);
@@ -489,6 +510,18 @@ describe("Read markers (handlers/markread.ts)", function () {
 
 		const without = setup({readMarker: false});
 		expect(join(without)).to.not.include("MARKREAD #seance");
+	});
+
+	it("asks once: an answer of `*` (no marker stored) is still an answer", function () {
+		const h = setup();
+		expect(join(h)).to.include("MARKREAD #seance");
+		h.transport.line(":irc.test MARKREAD #seance timestamp=*");
+		const chan = h.client.findChannel("#seance")!;
+		expect(chan.markerAnswered).to.equal(true);
+
+		// The same channel joined again on the next connection: not asked.
+		h.transport.line(":alice!alice@host KICK #seance alice :bye");
+		expect(join(h)).to.not.include("MARKREAD #seance");
 	});
 
 	describe("a marker asked for by the page (the `markread` emit — a notification's Mark read)", function () {

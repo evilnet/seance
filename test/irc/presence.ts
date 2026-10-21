@@ -73,6 +73,9 @@ class FakeTransport implements Transport {
 
 const CAPS = "server-time message-tags batch labeled-response draft/read-marker";
 
+/** Enough for the fake-lag clock to make room for a background line. */
+const FAKE_LAG_ROOM_MS = 10_000;
+
 interface Harness {
 	client: IrcClient;
 	transport: FakeTransport;
@@ -220,7 +223,7 @@ describe("attention and AWAY * (presence.ts)", function () {
 		const h = connect();
 		const chanId = joined(h);
 		socket.emit("open", chanId);
-		clock.tick(MARKREAD_DEBOUNCE_MS);
+		clock.tick(MARKREAD_DEBOUNCE_MS + FAKE_LAG_ROOM_MS);
 		h.sent(); // MODE + the marker for the JOIN row
 
 		h.client.setAttended(false);
@@ -238,7 +241,9 @@ describe("attention and AWAY * (presence.ts)", function () {
 		// (the app badge) while nobody looks.
 		const told = h.dispatch.getCalls().filter((c) => c.args[0] === "markread");
 		expect(told.pop()?.args[1]).to.include({chan: chanId, unread: 0, highlight: 0});
-		clock.tick(MARKREAD_DEBOUNCE_MS);
+		// The marker is background work: it waits for room on the fake-lag
+		// clock the AWAY lines just spent (fakelag.ts).
+		clock.tick(MARKREAD_DEBOUNCE_MS + FAKE_LAG_ROOM_MS);
 		expect(h.sent()).to.deep.equal([
 			"AWAY",
 			"MARKREAD #seance timestamp=2026-08-25T12:02:00.000Z",
@@ -286,7 +291,7 @@ describe("attention and AWAY * (presence.ts)", function () {
 		expect(h.sent().filter((l) => l.startsWith("MARKREAD"))).to.deep.equal([]);
 
 		h.client.setAttended(true);
-		clock.tick(MARKREAD_DEBOUNCE_MS);
+		clock.tick(MARKREAD_DEBOUNCE_MS + FAKE_LAG_ROOM_MS);
 		expect(chan.shared.unread).to.equal(0);
 		expect(h.sent()).to.include("MARKREAD #seance timestamp=2026-08-25T12:02:00.000Z");
 	});

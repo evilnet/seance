@@ -4,6 +4,7 @@
  * can re-JOIN.
  */
 
+import {noteJoinsSent} from "../catchup";
 import {ChanType} from "../../../../shared/types/chan";
 import {MessageType} from "../../../../shared/types/msg";
 import {formatLine} from "../message";
@@ -52,6 +53,7 @@ const join: Command = {
 		});
 
 		const keyList = keys.join(",").replace(/,+$/, "");
+		noteJoinsSent(client, names);
 		client.send(
 			formatLine({
 				command: "JOIN",

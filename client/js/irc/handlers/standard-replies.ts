@@ -14,6 +14,7 @@
  */
 
 import {MessageType} from "../../../../shared/types/msg";
+import {targetsFailed} from "../catchup";
 import {chatHistoryFailed} from "../history";
 import {multilineCooldown, multilineRejected} from "../multiline";
 import {inRestorationWindow, noteRestorationActivity, persistenceFailed} from "../persistence";
@@ -146,6 +147,10 @@ function reply(kind: "FAIL" | "WARN" | "NOTE"): Handler {
 		const [command = "*", code = "", ...rest] = msg.params;
 
 		if (kind === "FAIL" && command.toUpperCase() === "CHATHISTORY") {
+			if (targetsFailed(client, msg)) {
+				return; // our TARGETS: the catch-up goes in JOIN order (catchup.ts)
+			}
+
 			chatHistoryFailed(client, msg); // answers the pending `more`; still shown below
 		}
 

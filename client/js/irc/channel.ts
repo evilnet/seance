@@ -108,6 +108,14 @@ export class Channel {
 	newestRef: MsgRef | undefined = undefined;
 	/** History has been requested at least once (so `newestRef` is a valid catch-up reference). */
 	historyRequested = false;
+	/**
+	 * Everything up to the newest line the server stamped is held: the
+	 * JOIN's fill (or a reconnect's walk) was answered in full, or TARGETS
+	 * said nothing was new. Cleared when a JOIN's catch-up is scheduled and
+	 * set again when it completes, so a catch-up the socket cut short is
+	 * never taken for one that finished (catchup.ts).
+	 */
+	historyFilled = false;
 	/** A `more` page the connection died on; asked again once we are back (history.ts). */
 	lostMore: HistorySpec | undefined = undefined;
 	/**
@@ -116,11 +124,18 @@ export class Channel {
 	 * at or before it never count as unread.
 	 */
 	readMarker: Date | undefined = undefined;
+	/**
+	 * The server has told us this channel's marker at least once, `*` (none
+	 * stored) included: asking again would only cost fake lag.
+	 */
+	markerAnswered = false;
 	/** Pending debounced `MARKREAD` send (handlers/markread.ts). */
 	markReadTimer: ReturnType<typeof setTimeout> | null = null;
 	/** A debounced `MARKREAD` came due while the connection was not
 	 * registered; sent once it is (`flushDeferredMarkRead`). */
 	markReadDeferred = false;
+	/** When this channel's marker last went ahead of the catch-up (ms; handlers/markread.ts). */
+	markReadJumpedAt = 0;
 	private readonly fold: Casefold;
 
 	constructor(
@@ -220,6 +235,28 @@ export class Channel {
 	/** msgids already shown (history deduplication). */
 	get msgids(): IterableIterator<string> {
 		return this.idByMsgid.keys();
+	}
+
+	/**
+	 * The newest message the server stamped — one with a msgid, whose time is
+	 * the server's. `newestRef` can be a local line on our own clock (an
+	 * error while the socket was dead), later than lines the server stored
+	 * that we never got: never vouch for "nothing new" by that one.
+	 */
+	newestServerRef(): MsgRef | undefined {
+		if (this.newestRef?.msgid) {
+			return this.newestRef;
+		}
+
+		let best: MsgRef | undefined;
+
+		for (const ref of this.msgRefs.values()) {
+			if (ref.msgid && (!best || ref.time.getTime() > best.time.getTime())) {
+				best = ref;
+			}
+		}
+
+		return best;
 	}
 
 	/**

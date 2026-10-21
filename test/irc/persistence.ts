@@ -78,6 +78,13 @@ describe("Session persistence and quiet re-joins (irc/persistence.ts)", function
 			const two = setup();
 			register(two, CAPS, [":irc.test PERSISTENCE STATUS ON OFF"]);
 			expect(two.client.persistenceHold).to.equal(false);
+			// A setting of ON not in force may be an alias, told right behind
+			// the MOTD: the autojoin waits a quiet period for its note, then
+			// JOINs what never came — not the full wait for a held session.
+			expect(two.transport.sent.filter((l) => l.startsWith("JOIN"))).to.deep.equal([]);
+			clock.tick(RESTORE_QUIET_MS - 1);
+			expect(two.transport.sent.filter((l) => l.startsWith("JOIN"))).to.deep.equal([]);
+			clock.tick(1);
 			expect(two.transport.sent.filter((l) => l.startsWith("JOIN"))).to.deep.equal([
 				"JOIN #seance",
 			]);
@@ -121,6 +128,46 @@ describe("Session persistence and quiet re-joins (irc/persistence.ts)", function
 			expect(h.messages().some((m) => /Session persistence/i.test(m.text ?? ""))).to.equal(
 				false
 			);
+		});
+
+		it("skips SET ON when the registration STATUS says the account's setting is already ON", function () {
+			const signIn = (status: string, after: string[] = []) => {
+				const h = setup({sasl: "plain", saslAccount: "acc", saslPassword: "pw"});
+				h.client.connect();
+				h.transport.open();
+				h.transport.line(`:irc.test CAP * LS :${CAPS} sasl=PLAIN`);
+				const req = h.transport.sent.find((l) => l.startsWith("CAP REQ :"))!;
+				h.transport.line(`:irc.test CAP alice ACK :${req.slice("CAP REQ :".length)}`);
+				h.transport.line("AUTHENTICATE +");
+				h.transport.lines(
+					":irc.test 900 alice alice!alice@host acc :You are now logged in as acc",
+					":irc.test 903 alice :SASL authentication successful",
+					":irc.test 001 alice :Welcome to the SeanceDev IRC Network, alice",
+					`:irc.test PERSISTENCE STATUS ${status}`,
+					":irc.test 422 alice :MOTD File is missing",
+					...after
+				);
+				// Decided once the restoration is in, or was never coming.
+				clock.tick(RESTORE_MAX_WAIT_MS);
+				return h.transport.sent.includes("PERSISTENCE SET ON");
+			};
+
+			// Every command after 001 costs fake lag; this one would change nothing.
+			expect(signIn("ON ON")).to.equal(false);
+			// ON but not in force (no session, the bouncer off): SET ON creates one.
+			expect(signIn("ON OFF")).to.equal(true);
+			// …unless this connection is an alias of another device's session,
+			// which is held: the alias reads `ON OFF` too.
+			expect(
+				signIn("ON OFF", [
+					":irc.test NOTE BOUNCER ALIAS_ATTACHED :Attached to session s1 as alias on irc.test",
+				])
+			).to.equal(false);
+			// DEFAULT follows the server's default; ON pins it for the account.
+			expect(signIn("DEFAULT ON")).to.equal(true);
+			expect(signIn("OFF OFF")).to.equal(true);
+			// A build that sends the effective state alone: cannot tell, so ask.
+			expect(signIn("ON")).to.equal(true);
 		});
 
 		it("does not auto-enable persistence without SASL", function () {
@@ -242,6 +289,22 @@ describe("Session persistence and quiet re-joins (irc/persistence.ts)", function
 			expect(h.transport.sent.slice(afterFirst)).to.deep.equal([]);
 			expect(seance.state).to.equal(ChanState.JOINED);
 			expect(seance.users.size).to.equal(2);
+		});
+
+		it("an alias attach (STATUS ON OFF, then the note after the MOTD) JOINs nothing the server hands back", function () {
+			const h = setup();
+			const seance = h.client.findChannel("#seance")!;
+			// nefarious2's alias path: STATUS before the MOTD end, the note and
+			// the channel state after it (bounce_setup_local_alias).
+			register(h, CAPS, [":irc.test PERSISTENCE STATUS ON OFF"]);
+			h.transport.line(
+				":irc.test NOTE BOUNCER ALIAS_ATTACHED :Attached to session AZ7 as alias on irc.test"
+			);
+			restore(h, "Not Just Linux");
+			clock.tick(RESTORE_MAX_WAIT_MS);
+
+			expect(h.transport.sent.filter((l) => l.startsWith("JOIN"))).to.deep.equal([]);
+			expect(seance.state).to.equal(ChanState.JOINED);
 		});
 
 		it("holds the autojoin through an unbatched burst and its bouncer note", function () {

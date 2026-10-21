@@ -9,6 +9,7 @@ import type {Transport} from "../../client/js/irc/types";
 import type {TransportEvent, TransportState} from "../../client/js/irc/transport";
 import {ChanType} from "../../shared/types/chan";
 import {MessageType, SharedMsg} from "../../shared/types/msg";
+import {NO_FAKE_LAG} from "../../client/js/irc/fakelag";
 
 class FakeTransport implements Transport {
 	state: TransportState = "closed";
@@ -151,6 +152,7 @@ function setup(opts: SetupOptions = {}): Harness {
 		ids: new IdAllocator(),
 		transportFactory: () => transport,
 		highlights: () => ({keywords: [], exceptions: []}),
+		fakeLag: NO_FAKE_LAG,
 	});
 	let mark = 0;
 	const caps = [

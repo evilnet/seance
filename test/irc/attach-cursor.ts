@@ -581,18 +581,16 @@ describe("PERSISTENCE ATTACH catch-up cursor (irc/persistence.ts)", function () 
 			expect(chathistory(h.sent())).to.have.length(1);
 			// The resumed session's AWAY (presence.ts: no mute list to wait
 			// for here) goes out once on the reconnect, at registration: after
-			// CAP END and before what the registration starts (PERSISTENCE
-			// SET, the catch-up).
+			// CAP END and before what the registration starts (the catch-up,
+			// and PERSISTENCE SET once the restoration is in).
 			const all = h.transport.sent;
 			const end = all.lastIndexOf("CAP END");
 			expect(all.slice(end).filter((l) => l === "AWAY")).to.have.length(1);
-			expect(all.slice(end, end + 3)).to.deep.equal([
-				"CAP END",
-				"AWAY",
-				"PERSISTENCE SET ON",
-			]);
-			const sent = all.filter((l) => l !== "AWAY");
-			expect(sent[sent.length - 2]).to.match(/CHATHISTORY LATEST #seance \* \d+$/);
+			expect(all.slice(end, end + 2)).to.deep.equal(["CAP END", "AWAY"]);
+			expect(all.slice(end)).to.include("PERSISTENCE SET ON");
+			expect(
+				all.slice(end).some((l) => /CHATHISTORY LATEST #seance \* \d+$/.test(l))
+			).to.equal(true);
 		});
 
 		it("keeps the old dance when the server has no attach-cursor token", function () {

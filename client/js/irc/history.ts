@@ -53,6 +53,9 @@ import type {Handler} from "./types";
 
 /** How long to wait for the server before answering `more` with nothing. */
 export const HISTORY_TIMEOUT_MS = 15_000;
+
+/** One `CHATHISTORY BEFORE` page of the catch-up walk: a command. */
+const PAGE_COST_MS = 2000;
 /** Page size for `more` (the old server also paged by 100). */
 export const MORE_PAGE_SIZE = 100;
 /** Page size for the LATEST request on first JOIN. */
@@ -62,6 +65,14 @@ const MAX_CATCHUP_PAGES = 5;
 /** Clock-skew allowance when deciding a page has reached what we already
  * held (the spec's FUZZ_INTERVAL, "perhaps 1 to 10 seconds"). */
 export const CATCHUP_FUZZ_MS = 5_000;
+
+/** The open channel's next page goes at once while the server's clock stays under this (ms). */
+const PAGE_NOW_LIMIT_MS = 6_000;
+
+/** A page for the channel being looked at can go now without nearing the ceiling. */
+export function pageFitsNow(client: IrcClient): boolean {
+	return client.fakeLag.ahead() + PAGE_COST_MS <= PAGE_NOW_LIMIT_MS;
+}
 
 export type HistorySubcommand = "LATEST" | "BEFORE" | "AFTER";
 
@@ -301,6 +312,11 @@ export function abortHistory(client: IrcClient): void {
 
 		resolve(client, request, null, "timeout");
 	}
+	// A walk waiting for its next page in the background queue (which the
+	// close empties) is dropped whole, its pages undelivered: what the
+	// channel holds has not moved, so the next connection walks the same gap
+	// from the same floor. Landing its newest pages would have moved it, and
+	// that walk would stop at them with the older part never fetched.
 }
 
 /**
@@ -519,6 +535,8 @@ function resolve(
 	clearTimeout(request.timer);
 
 	const {chan} = request;
+	const answered = outcome === "batch" || outcome === "ack";
+
 	const {messages, after} =
 		lines && lines.length > 0 ? replay(client, chan, lines) : {messages: [], after: []};
 	const fullPage = lines !== null && lines.length >= request.limit;
@@ -560,25 +578,58 @@ function resolve(
 		request.gapAfter.unshift(...after);
 
 		if (!reached && !end && fullPage && request.pagesLeft > 0 && oldest) {
-			const next = requestHistory(client, chan, {
+			// The next page back is background work like the rest of the
+			// catch-up (fakelag.ts): asked for as soon as each reply landed,
+			// a busy channel's walk alone put the server's clock 10 s ahead.
+			// At the front, so a channel finishes its walk before the next
+			// channel starts one.
+			const spec: HistorySpec = {
 				subcommand: "BEFORE",
 				ref: oldest,
 				limit: request.limit,
 				mode: "append",
 				pagesLeft: request.pagesLeft - 1,
 				floor: request.floor,
-			});
+			};
+			const {gap, gapAfter} = request;
+			const job = {
+				key: `page:${chan.id}`,
+				cost: PAGE_COST_MS,
+				run() {
+					const next = requestHistory(client, chan, spec);
 
-			if (next) {
-				next.gap = request.gap;
-				next.gapAfter = request.gapAfter;
-				return;
+					if (next) {
+						next.gap = gap;
+						next.gapAfter = gapAfter;
+						return;
+					}
+
+					deliverAppend(client, chan, gap);
+					runAfter(gapAfter);
+				},
+			};
+
+			// The channel being looked at is the user waiting: its pages go at
+			// once while the clock stays clear of the ceiling (two lines'
+			// room); anyone else's, and that one past it, wait their turn.
+			if (chan.id === client.activeChannelId && pageFitsNow(client)) {
+				job.run();
+			} else {
+				client.background.add(job, {front: true});
 			}
+
+			return;
 		}
 
 		// Done (or the next page could not be asked for): deliver what we
 		// gathered, in order. A FAIL or timeout mid-walk still lands the
-		// newer pages already received.
+		// newer pages already received. Only a walk that met what we hold, or
+		// that the server said is the end, vouches for the whole gap: the page
+		// cap and a short page (nefarious2 filters pages) stop it short.
+		if (answered && (reached || end)) {
+			chan.historyFilled = true;
+		}
+
 		deliverAppend(client, chan, request.gap);
 		runAfter(request.gapAfter);
 		return;
@@ -593,6 +644,10 @@ function resolve(
 	// reading fullness stopped the scrollback where the server had more
 	// (2026-09-06). An older server that never sends the tag ends with an
 	// empty page, which still closes the button.
+	if (answered && request.mode === "prepend" && request.subcommand === "LATEST") {
+		chan.historyFilled = true;
+	}
+
 	const more = outcome === "timeout" || (lines !== null && lines.length > 0 && !end) || fullPage;
 	deliverPrepend(client, chan, messages, more);
 	runAfter(after);

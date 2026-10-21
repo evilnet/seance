@@ -21,6 +21,7 @@ import type {Handler} from "../types";
 import account from "./account";
 import away from "./away";
 import batch, {registerBatchHandler} from "./batch";
+import {targetsBatch} from "../catchup";
 import cap from "./cap";
 import chghost from "./chghost";
 import error from "./error";
@@ -87,6 +88,7 @@ export const handlers = new Map<string, Handler>();
 
 // Batch types delivered as a unit (everything else is unwrapped in order).
 registerBatchHandler("chathistory", chathistoryBatch);
+registerBatchHandler("draft/chathistory-targets", targetsBatch);
 registerBatchHandler(MULTILINE_CAP, multilineBatch);
 registerBatchHandler(AUTHTOKEN_BATCH, authtokenBatch);
 registerBatchHandler("draft/persistence", persistenceBatch);

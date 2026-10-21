@@ -281,6 +281,8 @@ interface ClientToServerEvents {
 		network: string;
 		endpoint: string;
 		keys: {p256dh: string; auth: string};
+		/** The connect-time renewal of a stored subscription: nobody is waiting, so it waits for room in the fake-lag budget. */
+		renewal?: boolean;
 	}>;
 	"webpush:unregister": EventHandler<{network: string; endpoint: string}>;
 	/** Account metadata write for webpush settings (payload tier; the mute list is irc/pushMute.ts's). An empty value deletes the key. */

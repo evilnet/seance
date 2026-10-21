@@ -152,23 +152,35 @@ function operUp(client: IrcClient): void {
 	}
 
 	oper.queried = true;
-	void refreshOper(client).then(() => restoreSnomask(client));
+	// Five or so commands nobody is waiting on, every one charged fake lag
+	// (opers too: PRIVS, GET and MODE are MFLG_SLOW): one at a time through
+	// the background queue, behind the user's own lines.
+	void refreshOper(client, {background: true}).then(() => restoreSnomask(client));
 }
 
 /** Ask again for everything {@link OperState} holds (the panel's Refresh, oper-up). */
-export async function refreshOper(client: IrcClient): Promise<void> {
+export async function refreshOper(
+	client: IrcClient,
+	{background = false}: {background?: boolean} = {}
+): Promise<void> {
 	if (!canRequest(client)) {
 		return;
 	}
 
-	const queries: Promise<void>[] = [fetchPrivs(client)];
+	// In turn when in the background; at once when the clock has room now
+	// (or the user asked), so the lines keep their order with what follows.
+	const inTurn = (key: string, query: () => Promise<void>): Promise<void> =>
+		background && !client.background.fits(2000)
+			? client.whenRoom(`oper:${key}`).then(query)
+			: query();
+	const queries: Promise<void>[] = [inTurn("privs", () => fetchPrivs(client))];
 
 	if (client.oper.umodes.has("s")) {
-		queries.push(readSnomask(client));
+		queries.push(inTurn("snomask", () => readSnomask(client)));
 	}
 
 	for (const name of client.profile.operFeatures) {
-		queries.push(fetchFeature(client, name));
+		queries.push(inTurn(`get:${name}`, () => fetchFeature(client, name)));
 	}
 
 	await Promise.all(queries);
@@ -272,7 +284,10 @@ function restoreSnomask(client: IrcClient): void {
 	const wanted = getOperPrefs(client.uuid).snomask;
 
 	if (wanted !== undefined && wanted !== client.oper.snomask && isOpered(client)) {
-		void setSnomask(client, wanted, false);
+		const restore = () => setSnomask(client, wanted, false);
+		void (client.background.fits(2000)
+			? restore()
+			: client.whenRoom("oper:restore").then(restore));
 	}
 }
 
@@ -298,13 +313,16 @@ export function operRegistered(client: IrcClient): void {
 		return;
 	}
 
-	void request(client, `MODE ${client.nick}`).then((reply) => {
+	const ask = async () => {
+		const reply = await request(client, `MODE ${client.nick}`);
 		const line = reply.lines.find((msg) => msg.command === "221");
 
 		if (line) {
 			setUserModes(client, line.params[1] ?? "");
 		}
-	});
+	};
+
+	void (client.background.fits(2000) ? ask() : client.whenRoom("oper:modes").then(ask));
 }
 
 /**
