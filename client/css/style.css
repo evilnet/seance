@@ -1097,11 +1097,14 @@ p {
 	white-space: nowrap;
 }
 
-/* Centred on the first line's 1.25rem. */
+/* Centred on the first line's 1.25rem. The label clips (overflow: hidden,
+ * for its line clamp) and the dot's ring is a 1px box-shadow outside its
+ * box: the start margin keeps the ring inside the clip, or its outer edge is
+ * cut off. */
 #sidebar .presence-pill .presence-dot {
 	float: inline-start;
 	margin-block-start: 0.375rem;
-	margin-inline-end: 0.375rem;
+	margin-inline: 1px 0.375rem;
 }
 
 #sidebar .presence-pill-caret {
