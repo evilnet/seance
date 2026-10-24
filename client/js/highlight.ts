@@ -165,6 +165,8 @@ export function createHighlightTester() {
 	let regex: RegExp | null = null;
 	let exceptionKey: string | null = null;
 	let exceptionRegex: RegExp | null = null;
+	let findKey: string | null = null;
+	let findRegex: RegExp | null = null;
 
 	return {
 		isHighlight(text: string, nick: string, keywords: string[], exceptions: string[]) {
@@ -187,6 +189,21 @@ export function createHighlightTester() {
 			}
 
 			return exceptionRegex !== null && exceptionRegex.test(stripIrcFormatting(text));
+		},
+		/**
+		 * Where in `plain` (text without IRC formatting) the nick or a
+		 * keyword first occurs, -1 if nowhere. Built without the exceptions,
+		 * whose form is anchored at the start and so always matches at 0.
+		 */
+		mentionIndex(plain: string, nick: string, keywords: string[]) {
+			const wanted = [nick, ...keywords].join(SEP);
+
+			if (findKey !== wanted) {
+				findKey = wanted;
+				findRegex = buildHighlightRegex(nick, keywords);
+			}
+
+			return findRegex?.exec(plain)?.index ?? -1;
 		},
 	};
 }

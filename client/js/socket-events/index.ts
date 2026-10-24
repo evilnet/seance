@@ -9,6 +9,7 @@
 // helpers/mediaPreview.ts).
 import "./connection";
 import "./commands";
+import "./inbox";
 import "./init";
 import "./join";
 import "./markread";

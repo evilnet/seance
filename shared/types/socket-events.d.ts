@@ -1,4 +1,4 @@
-import {SharedMention} from "./mention";
+import {InboxEntry} from "./mention";
 import {ChanState, SharedChan} from "./chan";
 import {
 	ServicesConfig,
@@ -60,8 +60,6 @@ interface ServerToClientEvents {
 	"push:unregister": NoPayloadEventHandler;
 
 	"sessions:list": EventHandler<Session[]>;
-
-	"mentions:list": EventHandler<SharedMention[]>;
 
 	"setting:new": EventHandler<{name: string; value: any}>;
 	"setting:all": EventHandler<{[key: string]: any}>;
@@ -208,10 +206,24 @@ interface ServerToClientEvents {
 		unread?: number;
 		/**
 		 * History catch-up replay: show the message (highlight included)
-		 * but do not notify, play a sound or record a mention.
+		 * but do not notify or play a sound.
 		 */
 		replay?: boolean;
 	}>;
+	/**
+	 * Unread mentions for the inbox (docs/projects/inbox.md): a live or
+	 * catch-up highlight that counted as unread, or the highlights past the
+	 * read marker in a history page.
+	 */
+	"inbox:add": EventHandler<{entries: InboxEntry[]}>;
+	/** `target` on network `network` (uuid) is read up to `time` (ISO 8601). */
+	"inbox:read": EventHandler<{network: string; target: string; time: string}>;
+	/**
+	 * The message `msgid` in `target` on network `network` was deleted, or replaced by
+	 * an edit from `by` (whom the inbox checks against the entry's sender),
+	 * whether or not it is loaded.
+	 */
+	"inbox:drop": EventHandler<{network: string; target: string; msgid: string; by?: string}>;
 
 	init: EventHandler<{active: number; networks: SharedNetwork[]; token?: string}>;
 
@@ -344,10 +356,6 @@ interface ClientToServerEvents {
 		network: SharedNetwork["uuid"];
 		order: SharedChan["id"][];
 	}>;
-
-	"mentions:dismiss": (msgId: number) => void;
-	"mentions:dismiss_all": NoPayloadEventHandler;
-	"mentions:get": NoPayloadEventHandler;
 
 	more: EventHandler<{target: number; lastId: number; condensed: boolean}>;
 	/** The UI dropped these messages from a channel's buffer (see bus-contract § 2). */

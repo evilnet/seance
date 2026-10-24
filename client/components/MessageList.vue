@@ -72,6 +72,7 @@ import {continuesRun} from "../js/helpers/messageRuns";
 import {noteScroll, noteTouch} from "../js/helpers/scrollSettle";
 import {selectionActive, unwatchSelection, watchSelection} from "../js/helpers/touchSelection";
 import socket from "../js/socket";
+import {jumpStep, revealMessage, type JumpTarget} from "../js/helpers/jumpToMessage";
 import Message from "./Message.vue";
 import MessageCondensed from "./MessageCondensed.vue";
 import DateMarker from "./DateMarker.vue";
@@ -273,6 +274,58 @@ export default defineComponent({
 		const canLoadMore = () =>
 			props.network.status.connected &&
 			(props.channel.type !== ChanType.CHANNEL || props.channel.state === ChanState.JOINED);
+
+		// The inbox's jump to a mention (helpers/jumpToMessage.ts): runs once
+		// this list shows the target's channel, after the mount's own jump to
+		// the bottom, and again as each page it asked for lands.
+		let jumping: JumpTarget | null = null;
+		let jumpPages = 0;
+
+		const runJump = async () => {
+			const target = store.state.jumpTarget;
+
+			if (!target || target.chanId !== props.channel.id) {
+				return;
+			}
+
+			if (jumping !== target) {
+				jumping = target;
+				jumpPages = 0;
+			}
+
+			if (props.channel.historyLoading) {
+				return; // the page's arrival runs this again
+			}
+
+			await nextTick();
+
+			if (store.state.jumpTarget !== target || props.channel.historyLoading) {
+				return;
+			}
+
+			const more = props.channel.moreHistoryAvailable;
+			const step = jumpStep(props.channel.messages, target, more && canLoadMore(), jumpPages);
+
+			if (step.kind === "more") {
+				jumpPages++;
+				onShowMoreClick();
+				return;
+			}
+
+			// Not joined yet (a reload's placeholder): wait for the channel.
+			if (step.kind !== "found" && more && !canLoadMore()) {
+				return;
+			}
+
+			store.commit("jumpTarget", null);
+			const el = step.kind === "none" ? null : document.getElementById(`msg-${step.id}`);
+
+			if (el) {
+				pendingAnchor = null; // a jump supersedes any anchor being verified
+				props.channel.scrolledToBottom = false;
+				revealMessage(el);
+			}
+		};
 
 		nextTick(() => {
 			if (!chat.value) {
@@ -613,8 +666,13 @@ export default defineComponent({
 
 		watch(
 			() => props.channel.id,
-			() => {
+			(id, previous) => {
 				props.channel.scrolledToBottom = true;
+
+				// A jump the channel left before it landed is not carried along.
+				if (store.state.jumpTarget?.chanId === previous) {
+					store.commit("jumpTarget", null);
+				}
 
 				// Re-add the intersection observer to trigger the check again on channel switch
 				// Otherwise if last channel had the button visible, switching to a new channel won't trigger the history
@@ -636,7 +694,28 @@ export default defineComponent({
 				historyObserver.value.unobserve(loadMoreButton.value);
 				historyObserver.value.observe(loadMoreButton.value);
 			}
+
+			if (ready) {
+				void runJump();
+			}
 		});
+
+		watch(
+			() => [store.state.jumpTarget, props.channel.id],
+			() => void runJump(),
+			{immediate: true}
+		);
+
+		// A page that failed (FAIL CHATHISTORY, the timeout) changes no
+		// message: its end runs the jump on, to the next page or the nearest.
+		watch(
+			() => props.channel.historyLoading,
+			(loading) => {
+				if (!loading) {
+					void runJump();
+				}
+			}
+		);
 
 		watch(
 			() => props.channel.messages,
@@ -652,6 +731,7 @@ export default defineComponent({
 					delta > 0 &&
 					messages[delta] === previous[0];
 				await keepScrollPosition(prepended);
+				void runJump();
 			},
 			{
 				deep: true,

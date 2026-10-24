@@ -3,13 +3,16 @@
 import {ActionContext, createStore, Store, useStore as baseUseStore} from "vuex";
 import {createSettingsStore} from "./store-settings";
 import storage from "./localStorage";
-import type {ClientChan, ClientNetwork, NetChan, ClientMention} from "./types";
+import type {ClientChan, ClientNetwork, NetChan} from "./types";
+import type {InboxEntry} from "../../shared/types/mention";
 import type {InjectionKey} from "vue";
 
 import {SettingsState} from "./settings";
 import {SharedConfiguration, LockedSharedConfiguration} from "../../shared/types/config";
 import {BrandingConfig, DEFAULT_BRANDING, brandingString} from "./branding";
 import type {UploadProgress} from "./upload";
+import type {JumpTarget} from "./helpers/jumpToMessage";
+import {conversationKey} from "./helpers/inbox";
 
 enum DesktopNotificationState {
 	Unsupported = "unsupported",
@@ -40,7 +43,7 @@ export type State = {
 	isConnected: boolean;
 	networks: ClientNetwork[];
 	// TODO: type
-	mentions: ClientMention[];
+	mentions: InboxEntry[];
 	hasServiceWorker: boolean;
 	/** Chrome offered `beforeinstallprompt` and the app is not installed yet. */
 	installPromptAvailable: boolean;
@@ -53,6 +56,8 @@ export type State = {
 	userlistOpen: boolean;
 	/** The file upload in flight (`client/js/upload.ts`); `null` when idle. */
 	uploadProgress: UploadProgress | null;
+	/** A message the open conversation is to be taken to (helpers/jumpToMessage.ts). */
+	jumpTarget: JumpTarget | null;
 };
 
 const state = (): State => ({
@@ -74,6 +79,7 @@ const state = (): State => ({
 	sidebarDragging: false,
 	userlistOpen: storage.get("thelounge.state.userlist") !== "false",
 	uploadProgress: null,
+	jumpTarget: null,
 });
 
 type Getters = {
@@ -92,7 +98,15 @@ type Getters = {
 		channel: ClientChan;
 	} | null;
 	findNetwork: (state: State) => (uuid: string) => ClientNetwork | null;
-	highlightCount(state: State): number;
+	/** The conversation an inbox entry belongs to, when this page has it. */
+	findConversation: (state: State) => (network: string, target: string) => NetChan | null;
+	/** What the inbox shows: every entry but those of muted conversations. */
+	visibleMentions: (
+		state: State,
+		getters: {findConversation: (network: string, target: string) => NetChan | null}
+	) => InboxEntry[];
+	/** Unread mentions as the inbox shows them (docs/projects/inbox.md). */
+	mentionCount(state: State, getters: {visibleMentions: InboxEntry[]}): number;
 	title(state: State, getters: Omit<Getters, "title">): string;
 };
 
@@ -133,6 +147,14 @@ const getters: Getters = {
 
 		return null;
 	},
+	findConversation: (state) => (network: string, target: string) => {
+		const key = conversationKey(network, target);
+		const net = state.networks.find((n) => n.uuid === network);
+		const channel = net?.channels.find((c) => conversationKey(network, c.name) === key);
+		return net && channel ? {network: net, channel} : null;
+	},
+	visibleMentions: (state, getters) =>
+		state.mentions.filter((e) => !getters.findConversation(e.network, e.target)?.channel.muted),
 	findNetwork: (state) => (uuid: string) => {
 		for (const network of state.networks) {
 			if (network.uuid === uuid) {
@@ -142,25 +164,11 @@ const getters: Getters = {
 
 		return null;
 	},
-	highlightCount(state) {
-		let highlightCount = 0;
-
-		for (const network of state.networks) {
-			for (const channel of network.channels) {
-				if (channel.muted) {
-					continue;
-				}
-
-				highlightCount += channel.highlight;
-			}
-		}
-
-		return highlightCount;
-	},
+	// The one count of unread mentions: the @ button, the title, the
+	// favicon and the app icon all read it.
+	mentionCount: (state, getters) => getters.visibleMentions.length,
 	title(state, getters) {
-		const alertEventCount = getters.highlightCount
-			? `(${getters.highlightCount.toString()}) `
-			: "";
+		const alertEventCount = getters.mentionCount ? `(${getters.mentionCount.toString()}) ` : "";
 		const channelname = state.activeChannel ? `${state.activeChannel.channel.name} — ` : "";
 
 		return alertEventCount + channelname + state.branding.appName;
@@ -199,6 +207,7 @@ type Mutations = {
 	toggleUserlist(state: State): void;
 	userlistOpen(state: State, payload: State["userlistOpen"]): void;
 	uploadProgress(state: State, progress: State["uploadProgress"]): void;
+	jumpTarget(state: State, target: State["jumpTarget"]): void;
 };
 
 const mutations: Mutations = {
@@ -230,6 +239,7 @@ const mutations: Mutations = {
 		state.mentions = mentions;
 	},
 	removeNetwork(state, networkId) {
+		state.mentions = state.mentions.filter((e) => e.network !== networkId);
 		state.networks.splice(
 			state.networks.findIndex((n) => n.uuid === networkId),
 			1
@@ -276,6 +286,9 @@ const mutations: Mutations = {
 	uploadProgress(state, progress) {
 		state.uploadProgress = progress;
 	},
+	jumpTarget(state, target) {
+		state.jumpTarget = target;
+	},
 };
 
 export type TypedCommit = <T extends keyof Mutations>(
@@ -293,8 +306,11 @@ type Actions = {
 
 const actions: Actions = {
 	partChannel({commit, state}, netChan) {
-		const mentions = state.mentions.filter((msg) => !(msg.chanId === netChan.channel.id));
-		commit("mentions", mentions);
+		const key = conversationKey(netChan.network.uuid, netChan.channel.name);
+		commit(
+			"mentions",
+			state.mentions.filter((e) => conversationKey(e.network, e.target) !== key)
+		);
 	},
 };
 

@@ -244,7 +244,7 @@
 					<span v-else><kbd>⌥</kbd> <kbd>M</kbd></span>
 				</div>
 				<div class="description">
-					<p>Toggle recent mentions popup.</p>
+					<p>Toggle unread mentions popup.</p>
 				</div>
 			</div>
 

@@ -246,6 +246,18 @@ function handleMessage(
 		message.editOf = editOf;
 	}
 
+	// The original leaves the inbox, loaded or not; the inbox checks that
+	// the edit's sender wrote it (`by`). The edit brings its own entry if it
+	// still mentions us.
+	if (editOf && !self) {
+		client.dispatch("inbox:drop", {
+			network: client.uuid,
+			target: chan.name,
+			msgid: editOf,
+			by: nick,
+		});
+	}
+
 	// A live message of ours is the echo of one we sent: its pending copy
 	// comes down before the real one goes in (bus-contract §1.9).
 	if (self && !client.replaying) {

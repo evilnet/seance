@@ -91,7 +91,7 @@ export default defineComponent({
 
 		const viewportClasses = computed(() => {
 			return {
-				notified: store.getters.highlightCount > 0,
+				notified: store.getters.mentionCount > 0,
 				"menu-open": store.state.appLoaded && store.state.sidebarOpen,
 				"menu-dragging": store.state.sidebarDragging,
 				"userlist-open": store.state.userlistOpen,

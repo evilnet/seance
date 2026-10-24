@@ -28,6 +28,7 @@ import {SAID_TYPES, countsAsUnread, type Channel, type MsgRef} from "../channel"
 import type {IrcClient} from "../client";
 import {formatLine} from "../message";
 import type {Handler} from "../types";
+import type {InboxEntry} from "../../../../shared/types/mention";
 
 export const MARKREAD_CAP = "draft/read-marker";
 /** Delay between the user reading a channel and the `MARKREAD` going out. */
@@ -37,7 +38,8 @@ export function markReadEnabled(client: IrcClient): boolean {
 	return client.caps.hasCapability(MARKREAD_CAP);
 }
 
-function markable(chan: Channel): boolean {
+/** A channel or a query: what has a read point (the lobby has none). */
+export function markable(chan: Channel): boolean {
 	return chan.type === ChanType.CHANNEL || chan.type === ChanType.QUERY;
 }
 
@@ -60,6 +62,13 @@ export function parseMarker(param: string | undefined): Date | undefined {
 /** `chan` is read up to `time`; a query's read point is kept with its log. */
 function moveReadMarker(client: IrcClient, chan: Channel, time: Date): void {
 	chan.readMarker = time;
+	// Whoever read it (this device, another session's MARKREAD, a line of
+	// ours in a history page), the inbox drops what it covers.
+	client.dispatch("inbox:read", {
+		network: client.uuid,
+		target: chan.name,
+		time: time.toISOString(),
+	});
 
 	if (chan.type === ChanType.QUERY) {
 		client.queryLog.setRead(chan.name, time);
@@ -158,6 +167,7 @@ export function countPageUnread(
 
 	let unread = 0;
 	let highlight = 0;
+	const mentions: InboxEntry[] = [];
 
 	for (const [msg, ref] of page) {
 		if (ref.time.getTime() <= readTo || !countsAsUnread(msg)) {
@@ -170,7 +180,16 @@ export function countPageUnread(
 		if (msg.highlight) {
 			ref.highlight = true;
 			highlight++;
+			const entry = client.inboxEntry(chan, msg);
+
+			if (entry) {
+				mentions.push(entry);
+			}
 		}
+	}
+
+	if (mentions.length > 0) {
+		client.dispatch("inbox:add", {entries: mentions});
 	}
 
 	if (unread === 0) {

@@ -9,6 +9,7 @@ import {MARKREAD_DEBOUNCE_MS} from "../../client/js/irc/handlers/markread";
 import type {Transport} from "../../client/js/irc/types";
 import type {TransportEvent, TransportState} from "../../client/js/irc/transport";
 import type {SharedMsg} from "../../shared/types/msg";
+import type {InboxEntry} from "../../shared/types/mention";
 import {NO_FAKE_LAG} from "../../client/js/irc/fakelag";
 
 class FakeTransport implements Transport {
@@ -575,5 +576,173 @@ describe("Read markers (handlers/markread.ts)", function () {
 			});
 			expect(h.sent()).to.deep.equal([]);
 		});
+	});
+});
+
+describe("The inbox's events (docs/projects/inbox.md)", function () {
+	interface InboxRead {
+		network: string;
+		target: string;
+		time: string;
+	}
+
+	const added = () => payloads<{entries: InboxEntry[]}>("inbox:add").flatMap((p) => p.entries);
+
+	beforeEach(function () {
+		installSpy();
+		clock = sinon.useFakeTimers({
+			now: new Date("2026-08-25T12:30:00.000Z"),
+			toFake: ["setTimeout", "clearTimeout", "Date"],
+		});
+	});
+
+	afterEach(function () {
+		clock.restore();
+		removeSpy();
+	});
+
+	it("adds an unread highlight as an entry by network, target and msgid, and nothing else", function () {
+		const h = setup();
+		joined(h);
+		live(h, 1);
+		live(h, 2, "alice: ping");
+
+		expect(added()).to.deep.equal([
+			{
+				network: h.client.uuid,
+				target: "#seance",
+				msgid: "m2",
+				time: "2026-08-25T12:02:00.000Z",
+				type: "message",
+				text: "alice: ping",
+				from: added()[0].from,
+			},
+		]);
+		expect(added()[0].from.nick).to.equal("bob");
+	});
+
+	it("adds no highlight in the conversation someone is looking at", function () {
+		const h = setup();
+		const chanId = joined(h);
+		socket.emit("open", chanId);
+		live(h, 1, "alice: ping");
+		expect(added()).to.have.length(0);
+	});
+
+	it("adds no highlight already read on another session", function () {
+		const h = setup();
+		joined(h);
+		marker(h, "timestamp=2026-08-25T12:05:00.000Z");
+		live(h, 4, "alice: old news"); // e.g. a catch-up line
+		expect(added()).to.have.length(0);
+		live(h, 6, "alice: new");
+		expect(added().map((e) => e.msgid)).to.deep.equal(["m6"]);
+	});
+
+	it("adds a query line, and nothing from the lobby, which no read point clears", function () {
+		const h = setup();
+		joined(h);
+		h.transport.line(
+			"@time=2026-08-25T12:10:00.000Z;msgid=q1 :carol!carol@host PRIVMSG alice :hello there"
+		);
+		h.transport.line(
+			"@time=2026-08-25T12:11:00.000Z;msgid=n1 :dave!dave@host NOTICE alice :alice: a notice"
+		);
+
+		const lobbyLine = payloads<MsgPayload>("msg").find((p) => p.msg.msgid === "n1");
+		expect(lobbyLine?.chan, "the notice landed in the lobby").to.equal(h.client.lobby.id);
+		expect(lobbyLine?.msg.highlight, "and highlights").to.equal(true);
+		expect(added().map((e) => [e.target, e.msgid])).to.deep.equal([["carol", "q1"]]);
+	});
+
+	it("says how far a conversation is read, whoever read it", function () {
+		const h = setup();
+		const chanId = joined(h);
+		live(h, 1, "alice: ping");
+
+		marker(h, "timestamp=2026-08-25T12:00:30.000Z"); // another session
+		live(h, 2);
+		socket.emit("open", chanId); // this device: read to the newest line
+
+		expect(payloads<InboxRead>("inbox:read")).to.deep.equal([
+			{network: h.client.uuid, target: "#seance", time: "2026-08-25T12:00:30.000Z"},
+			{network: h.client.uuid, target: "#seance", time: "2026-08-25T12:02:00.000Z"},
+		]);
+	});
+
+	it("adds the highlights past the marker in a history page, not the older ones", function () {
+		const h = setup();
+		const label = join(h)
+			.find((l) => l.includes("CHATHISTORY"))
+			?.match(/^@label=([^ ;]+)/)?.[1];
+		marker(h, "timestamp=2026-08-25T11:30:00.000Z");
+		h.transport.lines(
+			`${label ? `@label=${label} ` : ""}:irc.test BATCH +hist1 chathistory #seance`,
+			"@batch=hist1;time=2026-08-25T11:00:00.000Z;msgid=h1 :bob!bob@host PRIVMSG #seance :alice: read already",
+			"@batch=hist1;time=2026-08-25T11:45:00.000Z;msgid=h2 :bob!bob@host PRIVMSG #seance :nothing to see",
+			"@batch=hist1;time=2026-08-25T11:50:00.000Z;msgid=h3 :bob!bob@host PRIVMSG #seance :alice: unread",
+			":irc.test BATCH -hist1"
+		);
+
+		expect(added().map((e) => e.msgid)).to.deep.equal(["h3"]);
+	});
+
+	it("marks a query's entry as one for the whole conversation", function () {
+		const h = setup();
+		joined(h);
+		h.transport.line(
+			"@time=2026-08-25T12:10:00.000Z;msgid=q1 :carol!carol@host PRIVMSG alice :hello there"
+		);
+		h.transport.line(
+			"@time=2026-08-25T12:10:00.000Z;msgid=q2 :carol!carol@host PRIVMSG alice :still there?"
+		);
+		expect(added().map((e) => [e.msgid, e.query])).to.deep.equal([
+			["q1", true],
+			["q2", true],
+		]);
+		live(h, 11, "alice: in a channel");
+		expect(added()[2]).to.not.have.property("query");
+	});
+
+	it("cuts a long line to just before the mention", function () {
+		const h = setup();
+		joined(h);
+		const lead = "lorem ipsum dolor sit amet ".repeat(5);
+		live(h, 1, `${lead}so what do you think, alice?`);
+		const text = added()[0].text;
+		expect(text.startsWith("…"), text).to.equal(true);
+		expect(text.endsWith("so what do you think, alice?")).to.equal(true);
+		expect(text.length).to.be.lessThan(70);
+	});
+
+	it("reports a deleted message's msgid, loaded or not", function () {
+		const h = setup();
+		joined(h);
+		h.transport.line(":bob!bob@host REDACT #seance never-loaded");
+		expect(payloads("inbox:drop")).to.deep.equal([
+			{network: h.client.uuid, target: "#seance", msgid: "never-loaded"},
+		]);
+	});
+
+	it("reports an edit's original with the editor, for the inbox to check", function () {
+		const h = setup();
+		joined(h);
+		h.transport.line(
+			"@time=2026-08-25T12:10:00.000Z;msgid=e1;+seance/edit=gone :bob!bob@host PRIVMSG #seance :fixed"
+		);
+		expect(payloads("inbox:drop")).to.deep.equal([
+			{network: h.client.uuid, target: "#seance", msgid: "gone", by: "bob"},
+		]);
+	});
+
+	it("a marker that arrives after a highlight it covers reports the read point past it", function () {
+		const h = setup();
+		joined(h);
+		live(h, 3, "alice: caught up before the marker came");
+		expect(added().map((e) => e.msgid)).to.deep.equal(["m3"]);
+
+		marker(h, "timestamp=2026-08-25T12:03:00.000Z");
+		const read = payloads<InboxRead>("inbox:read");
+		expect(read[read.length - 1].time).to.equal("2026-08-25T12:03:00.000Z");
 	});
 });

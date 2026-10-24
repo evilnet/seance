@@ -1,5 +1,5 @@
-// The app icon's badge: the unread highlight count (vue.ts watches the
-// store's `highlightCount`). In a browser that is the Badging API, which an
+// The app icon's badge: the unread mention count (vue.ts watches the
+// store's `mentionCount`, the inbox's). In a browser that is the Badging API, which an
 // installed PWA honours; in the native shell (shells/capacitor) it is the
 // Badge plugin, because WKWebView has no `navigator.setAppBadge`.
 //

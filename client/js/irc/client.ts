@@ -55,9 +55,12 @@ import {
 	countPageUnread,
 	flushDeferredMarkRead,
 	markReadAt,
+	markable,
 	readNow,
 	scheduleMarkRead,
 } from "./handlers/markread";
+import {entryFor} from "../helpers/inbox";
+import type {InboxEntry} from "../../../shared/types/mention";
 import {
 	effectiveMode,
 	type GlobalModeState,
@@ -2656,6 +2659,19 @@ export class IrcClient {
 		return this.highlightTester.isHighlightException(text, exceptions);
 	}
 
+	/** The inbox entry for an unread highlight in `chan` (helpers/inbox.ts), or null. */
+	inboxEntry(chan: Channel, msg: SharedMsg): InboxEntry | null {
+		if (!markable(chan)) {
+			return null; // the lobby: no read point would ever clear it
+		}
+
+		const {keywords} = this.options.highlights?.() ?? {keywords: []};
+		return entryFor(this.uuid, chan.name, msg, {
+			query: chan.type === ChanType.QUERY,
+			findMention: (plain) => this.highlightTester.mentionIndex(plain, this.nick, keywords),
+		});
+	}
+
 	findChannel(name: string): Channel | undefined {
 		return this.channels.find((chan) => this.namesEqual(chan.name, name));
 	}
@@ -2992,7 +3008,8 @@ export class IrcClient {
 	 * appends) the message counts as unread as it would have live — what
 	 * someone else said, not an edit, newer than the read marker — and
 	 * `increasesUnread` is ignored; the flag travels on the `msg` event so
-	 * the consumer skips notifications and the mentions list.
+	 * the consumer skips notifications. An unread highlight, replayed or
+	 * not, also goes out as `inbox:add`.
 	 */
 	pushMessage(
 		chan: Channel,
@@ -3077,6 +3094,16 @@ export class IrcClient {
 			highlight: shared.highlight,
 			...(replay ? {replay: true} : {}),
 		});
+
+		// An unread highlight in a conversation, live or caught up, is an
+		// inbox entry; one read already (looked at, or past another
+		// session's marker) is not, nor one in the lobby, which no read
+		// marker ever clears.
+		const entry = ref.highlight ? this.inboxEntry(chan, msg) : null;
+
+		if (entry) {
+			this.bus.dispatch("inbox:add", {entries: [entry]});
+		}
 
 		return msg;
 	}

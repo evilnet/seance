@@ -208,6 +208,7 @@ import {useStore} from "../js/store";
 import {isTouchInput} from "../js/helpers/inputModality";
 import {selectionActive} from "../js/helpers/touchSelection";
 import {nudge} from "../js/helpers/haptics";
+import {revealMessage} from "../js/helpers/jumpToMessage";
 
 MessageTypes.ParsedMessage = ParsedMessage;
 MessageTypes.LinkPreview = LinkPreview;
@@ -525,17 +526,7 @@ export default defineComponent({
 				return;
 			}
 
-			el.scrollIntoView({block: "center", inline: "nearest"});
-
-			if (typeof el.animate === "function") {
-				el.animate(
-					[
-						{backgroundColor: "var(--highlight-bg-color)"},
-						{backgroundColor: "transparent"},
-					],
-					{duration: 1500, easing: "ease-out"}
-				);
-			}
+			revealMessage(el);
 		};
 
 		// Deleted messages keep their text; the placeholder toggles it.

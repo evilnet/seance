@@ -60,10 +60,10 @@ store.watch(
 // the shell's badge plugin keeps the last count across a restart, and the
 // count it kept is not this page's until the page has said so.
 store.watch(
-	(_, getters: CallableGetters) => getters.highlightCount,
-	(highlightCount) => {
-		favicon?.setAttribute("href", highlightCount > 0 ? faviconAlerted : faviconNormal);
-		setAppBadge(highlightCount);
+	(_, getters: CallableGetters) => getters.mentionCount,
+	(mentionCount) => {
+		favicon?.setAttribute("href", mentionCount > 0 ? faviconAlerted : faviconNormal);
+		setAppBadge(mentionCount);
 	},
 	{immediate: true}
 );

@@ -64,9 +64,17 @@
 					</span>
 					<button
 						class="mentions"
-						aria-label="Open your mentions"
+						:aria-label="
+							mentionCount
+								? `Open your mentions, ${mentionCount} unread`
+								: 'Open your mentions'
+						"
 						@click="openMentions"
-					/>
+					>
+						<span v-if="mentionCount" class="mentions-badge" aria-hidden="true">{{
+							mentionBadge
+						}}</span>
+					</button>
 					<button
 						class="menu"
 						aria-label="Open the context menu"
@@ -271,6 +279,10 @@ export default defineComponent({
 			});
 		};
 
+		// Unread mentions on every network: the @ button's badge.
+		const mentionCount = computed(() => store.getters.mentionCount);
+		const mentionBadge = computed(() => (mentionCount.value > 99 ? "99+" : mentionCount.value));
+
 		const openMentions = (event: any) => {
 			eventbus.emit("mentions:toggle", {
 				event: event,
@@ -318,6 +330,8 @@ export default defineComponent({
 			saveTopic,
 			openContextMenu,
 			openMentions,
+			mentionCount,
+			mentionBadge,
 		};
 	},
 });
