@@ -182,6 +182,15 @@ export class WsTransport {
 		ws.addEventListener("open", () => {
 			if (ws === this.ws) {
 				this.clearConnectTimer();
+
+				// A socket that opened reached the server, whatever `onLine` said
+				// at the dial (it can be wrong): the server counted it, and a
+				// refund at its registration needs the dial it gives back.
+				if (!this.dialing) {
+					this.opts.gate?.record(Date.now());
+					this.dialing = true;
+				}
+
 				this._state = "open";
 				this.openedAt = Date.now();
 				this.emit({type: "open", subprotocol: ws.protocol});

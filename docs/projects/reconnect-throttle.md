@@ -64,7 +64,9 @@ when it need not).
 
 The cost: a dial that fails looks the same whether IPcheck refused it or the
 server is simply down (connection refused, DNS failure, both close with 1006),
-and only a radio that is off is told apart (`navigator.onLine`). So after three
+and only a radio that is off is told apart (`navigator.onLine`; a dial made
+then is not recorded unless its socket opens anyway, since `onLine` can be
+wrong and an open socket reached the server). So after three
 quick failures against a server that is down, the next try waits up to 42 s
 instead of the schedule's next step. The wait is never longer than one window,
 whatever the record says: a clock that ran ahead and was put back cannot hold
@@ -76,40 +78,74 @@ has suspended the page, and it cannot see dials from other devices behind the
 same address. Carrier NAT puts many phones behind one address, so the
 per-address count reaches its limit faster for exactly the users this hurts.
 
-## What the server could do
+## What the server does now
 
-Ordered by recommendation.
+Implemented 2026-10-27 on the testnet's nefarious2 (branch
+`ipcheck-sasl-refund`, from the proposal that stood here: refund on SASL
+success, capped per account, refusals not counted). Three features, all off
+by default so a stock server behaves as before:
 
-1. **Refund the attempt once the connection logs in.** Call
-   `IPcheck_connect_fail(cptr, 0)` when SASL succeeds, before registration
-   completes. It is the hook nefarious2 already uses for a connection that is
-   "not penalized for the failure" (`s_auth.c:906`, `m_nick.c:315`, both with
-   `disconnect = 0`, which lowers `attempts` and leaves the clone count alone;
-   `m_webirc.c:153` uses it with `1` to undo a transplanted address).
-   The success points are `sasl_complete_login()` in `ircd/sasl_auth.c` (local
-   Keycloak and the P10 relay) and `iauth_cmd_sasl_done()` in `ircd/s_auth.c`
-   (IAuth). Guard it with `IsIPChecked(cptr)` and do it once per connection.
+1. **`IPCHECK_SASL_REFUND`** (integer, 0 = off). When a connection that
+   logged in with SASL registers — the fresh path in `register_user`, a
+   bouncer revive (`bounce_revive`, the phone's case) and a local alias attach
+   (`bounce_setup_local_alias`) — `IPcheck_login_refund` gives back the
+   attempt the accept charged its address: `ip_registry_connect_fail(…, 0)`,
+   the hook WEBIRC and the nick-collision paths already use, which lowers
+   `attempts` by one, never below one, and moves neither `last_connect` nor
+   `connected`. The window stays; the chain just does not grow. It runs
+   before `IPcheck_connect_succeeded`, so the `on N ca A(L) …` notice
+   reports the refunded count. At registration rather than at the 903: a
+   login that never registers earns nothing.
 
-   Unauthenticated floods stay throttled exactly as now. An attacker gains
-   nothing without a valid account, and an account holder still meets the
-   clone limit and the connection class limits. If a per-account cap is
-   wanted, a small counter keyed by account would bound how often one account
-   can reconnect.
+   The value is the cap: that many refunds per account every
+   **`IPCHECK_SASL_REFUND_PERIOD`** (integer, 600) seconds, counted in memory
+   by `ircd/ipcheck_refund.c` — a pure module shaped like
+   `register_throttle.c` (a fixed table, the oldest window evicted, lazy
+   expiry, nothing saved; `ircd/test/ipcheck_refund_cmocka.c`). A failed or
+   missing login earns nothing, and the check at the accept is unchanged: a
+   client without credentials still gets four connections and a refusal
+   before any TLS, and an account holder in a loop still pays a handshake and
+   a login per connection, up to the cap.
 
-   A narrower form refunds only a connection that resumes or attaches to a
-   held bouncer session (`bounce_revive`, `bounce_setup_local_alias`). It
-   covers Seance with SASL and persistence, which is the phone case, and
-   changes nothing for other clients.
+2. **`IPCHECK_COUNT_REFUSALS`** (boolean, TRUE). FALSE makes a refused
+   connection leave no trace — the decision is taken before the counting, so
+   neither `attempts` nor `last_connect` moves — and a client in a retry loop
+   gets back 40 s after its last accepted connection, as `register_throttle.c`
+   already does for REGISTER. TRUE keeps ircu's penalty.
 
-2. **Stop a refused connection from renewing the window.** Set
-   `entry->last_connect` after the refusal check instead of before. A client
-   in a retry loop then gets back 40 s after its last accepted connection or
-   drop.
-   This is weaker, and it changes ircu's deliberate penalty for clients that
-   hammer the server.
-
-3. **A separate limit for WebSocket ports.** Not recommended: it relaxes the
+3. **A separate limit for WebSocket ports.** Not done: it relaxes the
    throttle for everything on those ports, logged in or not.
+
+The client learns of the refund from the deploy, not the server: `config.json`
+`defaultNetwork.ipcheckRefund: {limit, periodSeconds}` (branding.md) gives
+`ThrottleRule.refund` to the ledger for that host alone, `IrcClient` records a
+refund at 001 when this connection's SASL succeeded (`DialLedger.refunded`),
+and the replay lowers the count by one for it when the count is above one —
+the server gives nothing back below that and spends none of the account's
+budget on it. The budget is mirrored more strictly than the server keeps it:
+the server counts the refunds it granted in a fixed window from the first;
+the replay honours a refund only while fewer than `limit` refunds that would
+have lowered the count, honoured or not, fall in the period before it. This
+device's count never runs below the server's, so every refund the server
+granted is among those, and the replay never honours one the server refused
+(`test/irc/dialLedger.ts` checks this over random histories against a model
+of the server's rule).
+
+What the replay cannot see is another device on the same account drawing on
+the same budget, or on the same address: then this device thinks the count
+lower than it is, by at most the refunds the other device drew, and a dial can
+meet a refusal. The client records its own refused dial and its end like any
+other, so after a refusal it waits out the window itself — the lockout is one
+window, not a spiral, either way. `IPCHECK_COUNT_REFUSALS` off makes that
+window run from the last accepted connection rather than from the refused
+one, so it is the kinder setting to pair with the refund, not a requirement.
+A server that has not been told to refund (any other network) is replayed as
+before.
+
+The ledger keeps a host's events from where the replay last started the count
+over — a chain of short connections can run longer than four windows, since a
+drop restarts nothing within 162 s of the last connect, and a refund lets a
+dial in — and its refunds a refund period further back, at most 200 of each.
 
 The alternative that needs no server change is a native shell (E.4), which
 can hold its socket in the background for longer than a page can.

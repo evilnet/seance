@@ -1034,4 +1034,41 @@ describe("WsTransport: the dial gate (irc/dialLedger.ts)", function () {
 			}
 		}
 	});
+
+	it("records a dial made 'offline' that opens anyway, once, and its end", function () {
+		// `onLine` can be wrong: a socket that opened reached the server.
+		const nav = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+		Object.defineProperty(globalThis, "navigator", {
+			value: {onLine: false},
+			configurable: true,
+		});
+
+		try {
+			const g = gate(0);
+			const {t} = make({gate: g});
+			t.connect();
+			expect(g.record.called).to.equal(false);
+			clock.tick(300);
+			last().open();
+			expect(g.record.args).to.deep.equal([[300]]);
+			clock.tick(5_000);
+			last().closed(1006, "", false);
+			expect(g.closed.args).to.deep.equal([[5_300]]);
+		} finally {
+			if (nav) {
+				Object.defineProperty(globalThis, "navigator", nav);
+			} else {
+				delete (globalThis as {navigator?: unknown}).navigator;
+			}
+		}
+	});
+
+	it("records an online dial once, not again when it opens", function () {
+		const g = gate(0);
+		const {t} = make({gate: g});
+		t.connect();
+		clock.tick(300);
+		last().open();
+		expect(g.record.args).to.deep.equal([[0]]);
+	});
 });

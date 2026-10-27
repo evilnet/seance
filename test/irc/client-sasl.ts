@@ -10,7 +10,13 @@ import socket from "../../client/js/socket";
 import {IrcClient, IrcClientOptions, SASL_REQUIRED_HINT} from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";
 import {encodePlain, SASL_TIMEOUT_MS} from "../../client/js/irc/sasl";
-import {DEFAULT_BRANDING, resetBranding, setBranding} from "../../client/js/branding";
+import {
+	DEFAULT_BRANDING,
+	normalizeBranding,
+	resetBranding,
+	setBranding,
+} from "../../client/js/branding";
+import {useStorageBackend} from "../../client/js/irc/dialLedger";
 import type {Transport} from "../../client/js/irc/types";
 import type {TransportEvent, TransportState} from "../../client/js/irc/transport";
 import {MessageType, SharedMsg} from "../../shared/types/msg";
@@ -543,5 +549,69 @@ describe("IrcClient SASL", function () {
 		expect(transport.sent[transport.sent.length - 1]).to.equal("AUTHENTICATE EXTERNAL");
 		transport.line("AUTHENTICATE +");
 		expect(transport.sent[transport.sent.length - 1]).to.equal("AUTHENTICATE +");
+	});
+
+	describe("tells the dial ledger of the server's refund (irc/dialLedger.ts)", function () {
+		const data = new Map<string, string>();
+
+		beforeEach(function () {
+			data.clear();
+			useStorageBackend({
+				get: (k) => data.get(k) ?? null,
+				set: (k, v) => void data.set(k, v),
+				remove: (k) => void data.delete(k),
+			});
+		});
+
+		afterEach(function () {
+			useStorageBackend(null);
+		});
+
+		const refunds = (): number[] =>
+			(JSON.parse(data.get("thelounge.state.dials") ?? "{}")["irc.test"]?.r ??
+				[]) as number[];
+
+		function login(transport: FakeTransport): void {
+			offer(transport, `${OFFERED_CAPS} sasl=PLAIN`);
+			transport.line("AUTHENTICATE +");
+			transport.lines(
+				":irc.test 900 alice alice!alice@host alice :You are now logged in as alice",
+				":irc.test 903 alice :SASL authentication successful"
+			);
+			finishRegistration(transport);
+		}
+
+		it("records a refund at 001 when this connection logged in, for the deploy's own host", function () {
+			setBranding(
+				normalizeBranding({
+					defaultNetwork: {
+						host: "IRC.Test",
+						ipcheckRefund: {limit: 10, periodSeconds: 600},
+					},
+				})
+			);
+			const {transport} = setup();
+			login(transport);
+			expect(refunds()).to.have.length(1);
+		});
+
+		it("records none for a connection that did not log in", function () {
+			setBranding(
+				normalizeBranding({defaultNetwork: {host: "irc.test", ipcheckRefund: {limit: 10}}})
+			);
+			const {transport} = setup({sasl: ""});
+			offer(transport, OFFERED_CAPS);
+			finishRegistration(transport);
+			expect(refunds()).to.deep.equal([]);
+		});
+
+		it("records none for a server the deploy did not say refunds", function () {
+			setBranding(
+				normalizeBranding({defaultNetwork: {host: "irc.other", ipcheckRefund: {limit: 10}}})
+			);
+			const {transport} = setup();
+			login(transport);
+			expect(refunds()).to.deep.equal([]);
+		});
 	});
 });
