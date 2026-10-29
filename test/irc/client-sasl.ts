@@ -7,7 +7,7 @@
 import {expect} from "chai";
 import sinon from "ts-sinon";
 import socket from "../../client/js/socket";
-import {IrcClient, IrcClientOptions, SASL_REQUIRED_HINT} from "../../client/js/irc/client";
+import {IrcClient, IrcClientOptions, saslRequiredHint} from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";
 import {encodePlain, SASL_TIMEOUT_MS} from "../../client/js/irc/sasl";
 import {DEFAULT_BRANDING, resetBranding, setBranding} from "../../client/js/branding";
@@ -141,7 +141,7 @@ function expectAborted(transport: FakeTransport, client: IrcClient): void {
 	expect(errors(client.lobby.id)[1]).to.equal(
 		"Not connecting to irc.test without the login you asked for."
 	);
-	expect(texts(client.lobby.id)).to.include(SASL_REQUIRED_HINT);
+	expect(texts(client.lobby.id)).to.include(saslRequiredHint());
 }
 
 /** Options for the deploys that keep the old "connect anyway" behaviour. */
@@ -493,7 +493,7 @@ describe("IrcClient SASL", function () {
 				"Not connecting to irc.test without the login you asked for; trying again.",
 			]);
 			// Not a credentials problem, and the close that followed was ours.
-			expect(texts(client.lobby.id)).to.not.include(SASL_REQUIRED_HINT);
+			expect(texts(client.lobby.id)).to.not.include(saslRequiredHint());
 			expect(texts(client.lobby.id)).to.include("Reconnecting in 1s (attempt 1)…");
 		} finally {
 			clock.restore();

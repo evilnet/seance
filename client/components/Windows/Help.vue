@@ -1,16 +1,17 @@
 <template>
-	<div id="help" class="window" role="tabpanel" aria-label="Help">
+	<div id="help" class="window" role="tabpanel" :aria-label="title">
 		<div class="header">
 			<SidebarToggle />
 		</div>
 		<div class="container">
-			<h1 class="title">Help</h1>
+			<h1 class="title">{{ title }}</h1>
 
 			<h2 class="help-version-title">
-				<span>{{ store.getters.brandingString("help.about") }} {{ appName }}</span>
+				<span>{{ t("help.about") }} {{ appName }}</span>
 				<small>
-					v{{ build.version }} (<router-link id="view-changelog" to="/changelog"
-						>release notes</router-link
+					v{{ build.version }} (<router-link id="view-changelog" to="/changelog">{{
+						t("help.releaseNotesLink")
+					}}</router-link
 					>)
 				</small>
 			</h2>
@@ -22,43 +23,71 @@
 					role="status"
 				>
 					<span class="update-banner-icon" aria-hidden="true"></span>
-					<span class="update-banner-text">New version available</span>
+					<span class="update-banner-text">{{ t("help.updateAvailable") }}</span>
 					<button type="button" class="update-banner-reload" @click="reloadForUpdate">
-						Reload
+						{{ t("help.reload") }}
 					</button>
 				</div>
 
 				<template v-if="pastRelease">
 					<p>
-						{{ appName }} is built from
-						<a :href="source.commit" target="_blank" rel="noopener"
-							>commit <code>{{ build.gitCommit }}</code></a
-						>, after v{{ build.release }}.
+						<I18nFrame
+							:text="
+								t('help.builtFromCommit', {
+									app: appName,
+									commit: KEEP,
+									version: build.release,
+								})
+							"
+							><template v-slot:commit
+								><a :href="source.commit" target="_blank" rel="noopener"
+									><I18nFrame :text="t('help.commitHash', {hash: KEEP})"
+										><template v-slot:hash
+											><code>{{ build.gitCommit }}</code></template
+										></I18nFrame
+									></a
+								></template
+							></I18nFrame
+						>
 					</p>
 
 					<ul>
 						<li>
-							Compare
-							<a :href="source.sinceRelease" target="_blank" rel="noopener"
-								>between <code>v{{ build.release }}</code> and
-								<code>{{ build.gitCommit }}</code></a
+							<I18nFrame :text="t('help.compareSince', {range: KEEP})"
+								><template v-slot:range
+									><a :href="source.sinceRelease" target="_blank" rel="noopener"
+										><I18nFrame :text="t('help.range', {from: KEEP, to: KEEP})"
+											><template v-slot:from
+												><code>v{{ build.release }}</code></template
+											><template v-slot:to
+												><code>{{ build.gitCommit }}</code></template
+											></I18nFrame
+										></a
+									></template
+								></I18nFrame
 							>
-							to see what changed since the release
 						</li>
 						<li>
-							Compare
-							<a :href="source.behindDevelop" target="_blank" rel="noopener"
-								>between <code>{{ build.gitCommit }}</code> and
-								<code>develop</code></a
+							<I18nFrame :text="t('help.compareBehind', {range: KEEP})"
+								><template v-slot:range
+									><a :href="source.behindDevelop" target="_blank" rel="noopener"
+										><I18nFrame :text="t('help.range', {from: KEEP, to: KEEP})"
+											><template v-slot:from
+												><code>{{ build.gitCommit }}</code></template
+											><template v-slot:to
+												><code>develop</code></template
+											></I18nFrame
+										></a
+									></template
+								></I18nFrame
 							>
-							to see what you are missing
 						</li>
 					</ul>
 				</template>
 
 				<p v-if="links.website">
 					<a :href="links.website" target="_blank" rel="noopener" class="website-link">{{
-						store.getters.brandingString("help.website")
+						t("help.website")
 					}}</a>
 				</p>
 				<p v-if="links.help">
@@ -67,12 +96,12 @@
 						target="_blank"
 						rel="noopener"
 						class="documentation-link"
-						>{{ store.getters.brandingString("help.documentation") }}</a
+						>{{ t("help.documentation") }}</a
 					>
 				</p>
 				<p v-if="links.privacy">
 					<a :href="links.privacy" target="_blank" rel="noopener" class="privacy-link">{{
-						store.getters.brandingString("help.privacy")
+						t("help.privacy")
 					}}</a>
 				</p>
 				<p>
@@ -81,42 +110,42 @@
 						target="_blank"
 						rel="noopener"
 						class="report-issue-link"
-						>Report an issue…</a
+						>{{ t("help.reportIssue") }}</a
 					>
 				</p>
 			</div>
 
-			<h2 v-if="isTouch">Gestures</h2>
+			<h2 v-if="isTouch">{{ t("help.gestures.heading") }}</h2>
 
 			<div v-if="isTouch" class="help-item">
-				<div class="subject gesture">Single-Finger Swipe Left</div>
+				<div class="subject gesture">{{ t("help.gestures.swipeLeft") }}</div>
 				<div class="description">
-					<p>Hide sidebar.</p>
+					<p>{{ t("help.gestures.hideSidebar") }}</p>
 				</div>
 			</div>
 
 			<div v-if="isTouch" class="help-item">
-				<div class="subject gesture">Single-Finger Swipe Right</div>
+				<div class="subject gesture">{{ t("help.gestures.swipeRight") }}</div>
 				<div class="description">
-					<p>Show sidebar.</p>
+					<p>{{ t("help.gestures.showSidebar") }}</p>
 				</div>
 			</div>
 
 			<div v-if="isTouch" class="help-item">
-				<div class="subject gesture">Two-Finger Swipe Left</div>
+				<div class="subject gesture">{{ t("help.gestures.twoSwipeLeft") }}</div>
 				<div class="description">
-					<p>Switch to the next window in the channel list.</p>
+					<p>{{ t("help.shortcuts.nextWindow") }}</p>
 				</div>
 			</div>
 
 			<div v-if="isTouch" class="help-item">
-				<div class="subject gesture">Two-Finger Swipe Right</div>
+				<div class="subject gesture">{{ t("help.gestures.twoSwipeRight") }}</div>
 				<div class="description">
-					<p>Switch to the previous window in the channel list.</p>
+					<p>{{ t("help.shortcuts.prevWindow") }}</p>
 				</div>
 			</div>
 
-			<h2>Keyboard Shortcuts</h2>
+			<h2>{{ t("help.shortcuts.heading") }}</h2>
 
 			<div class="help-item">
 				<div class="subject">
@@ -124,7 +153,7 @@
 					<span v-else><kbd>⌥</kbd> <kbd>⇧</kbd> <kbd>↓</kbd></span>
 				</div>
 				<div class="description">
-					<p>Switch to the next lobby in the channel list.</p>
+					<p>{{ t("help.shortcuts.nextLobby") }}</p>
 				</div>
 			</div>
 
@@ -134,7 +163,7 @@
 					<span v-else><kbd>⌥</kbd> <kbd>⇧</kbd> <kbd>↑</kbd></span>
 				</div>
 				<div class="description">
-					<p>Switch to the previous lobby in the channel list.</p>
+					<p>{{ t("help.shortcuts.prevLobby") }}</p>
 				</div>
 			</div>
 
@@ -144,7 +173,7 @@
 					<span v-else><kbd>⌥</kbd> <kbd>⇧</kbd> <kbd>←</kbd></span>
 				</div>
 				<div class="description">
-					<p>Collapse current network.</p>
+					<p>{{ t("help.shortcuts.collapseNetwork") }}</p>
 				</div>
 			</div>
 
@@ -154,7 +183,7 @@
 					<span v-else><kbd>⌥</kbd> <kbd>⇧</kbd> <kbd>→</kbd></span>
 				</div>
 				<div class="description">
-					<p>Expand current network.</p>
+					<p>{{ t("help.shortcuts.expandNetwork") }}</p>
 				</div>
 			</div>
 
@@ -164,7 +193,7 @@
 					<span v-else><kbd>⌥</kbd> <kbd>↓</kbd></span>
 				</div>
 				<div class="description">
-					<p>Switch to the next window in the channel list.</p>
+					<p>{{ t("help.shortcuts.nextWindow") }}</p>
 				</div>
 			</div>
 
@@ -174,7 +203,7 @@
 					<span v-else><kbd>⌥</kbd> <kbd>↑</kbd></span>
 				</div>
 				<div class="description">
-					<p>Switch to the previous window in the channel list.</p>
+					<p>{{ t("help.shortcuts.prevWindow") }}</p>
 				</div>
 			</div>
 
@@ -184,7 +213,7 @@
 					<span v-else><kbd>⌥</kbd> <kbd>⌘</kbd> <kbd>↓</kbd></span>
 				</div>
 				<div class="description">
-					<p>Switch to the next window with unread messages in the channel list.</p>
+					<p>{{ t("help.shortcuts.nextUnread") }}</p>
 				</div>
 			</div>
 
@@ -194,7 +223,7 @@
 					<span v-else><kbd>⌥</kbd> <kbd>⌘</kbd> <kbd>↑</kbd></span>
 				</div>
 				<div class="description">
-					<p>Switch to the previous window with unread messages in the channel list.</p>
+					<p>{{ t("help.shortcuts.prevUnread") }}</p>
 				</div>
 			</div>
 
@@ -204,7 +233,7 @@
 					<span v-else><kbd>⌥</kbd> <kbd>A</kbd></span>
 				</div>
 				<div class="description">
-					<p>Switch to the first window with unread messages.</p>
+					<p>{{ t("help.shortcuts.firstUnread") }}</p>
 				</div>
 			</div>
 
@@ -214,7 +243,7 @@
 					<span v-else><kbd>⌥</kbd> <kbd>S</kbd></span>
 				</div>
 				<div class="description">
-					<p>Toggle sidebar.</p>
+					<p>{{ t("help.shortcuts.toggleSidebar") }}</p>
 				</div>
 			</div>
 
@@ -224,7 +253,7 @@
 					<span v-else><kbd>⌥</kbd> <kbd>U</kbd></span>
 				</div>
 				<div class="description">
-					<p>Toggle channel user list.</p>
+					<p>{{ t("help.shortcuts.toggleUserlist") }}</p>
 				</div>
 			</div>
 
@@ -234,7 +263,7 @@
 					<span v-else><kbd>⌥</kbd> <kbd>J</kbd></span>
 				</div>
 				<div class="description">
-					<p>Toggle jump to channel switcher.</p>
+					<p>{{ t("help.shortcuts.toggleJump") }}</p>
 				</div>
 			</div>
 
@@ -244,7 +273,7 @@
 					<span v-else><kbd>⌥</kbd> <kbd>M</kbd></span>
 				</div>
 				<div class="description">
-					<p>Toggle unread mentions popup.</p>
+					<p>{{ t("help.shortcuts.toggleMentions") }}</p>
 				</div>
 			</div>
 
@@ -254,7 +283,7 @@
 					<span v-else><kbd>⌥</kbd> <kbd>K</kbd></span>
 				</div>
 				<div class="description">
-					<p>Toggle Markdown rendering.</p>
+					<p>{{ t("help.shortcuts.toggleMarkdown") }}</p>
 				</div>
 			</div>
 
@@ -264,7 +293,7 @@
 					<span v-else><kbd>⌥</kbd> <kbd>/</kbd></span>
 				</div>
 				<div class="description">
-					<p>Switch to the help menu.</p>
+					<p>{{ t("help.shortcuts.helpMenu") }}</p>
 				</div>
 			</div>
 
@@ -274,13 +303,12 @@
 				</div>
 				<div class="description">
 					<p>
-						Close current contextual window (context menu, image viewer, topic edit,
-						etc) and remove focus from input.
+						{{ t("help.shortcuts.escape") }}
 					</p>
 				</div>
 			</div>
 
-			<h2>Formatting Shortcuts</h2>
+			<h2>{{ t("help.formatting.heading") }}</h2>
 
 			<div class="help-item">
 				<div class="subject">
@@ -289,24 +317,26 @@
 				</div>
 				<div class="description">
 					<p>
-						Mark any text typed after this shortcut to be colored. After hitting this
-						shortcut, enter an integer in the range
-						<code>0—15</code> to select the desired color, or use the autocompletion
-						menu to choose a color name (see below).
+						<I18nFrame :text="t('help.formatting.colorP1', {range: KEEP})"
+							><template v-slot:range><code>0—15</code></template></I18nFrame
+						>
 					</p>
 					<p>
-						Background color can be specified by putting a comma and another integer in
-						the range <code>0—15</code> after the foreground color number
-						(autocompletion works too).
+						<I18nFrame :text="t('help.formatting.colorP2', {range: KEEP})"
+							><template v-slot:range><code>0—15</code></template></I18nFrame
+						>
 					</p>
 					<p>
-						A color reference can be found
-						<a
-							href="https://modern.ircdocs.horse/formatting.html#colors"
-							target="_blank"
-							rel="noopener"
-							>here</a
-						>.
+						<I18nFrame :text="t('help.formatting.colorReference', {link: KEEP})"
+							><template v-slot:link
+								><a
+									href="https://modern.ircdocs.horse/formatting.html#colors"
+									target="_blank"
+									rel="noopener"
+									>{{ t("help.formatting.colorHere") }}</a
+								></template
+							></I18nFrame
+						>
 					</p>
 				</div>
 			</div>
@@ -318,8 +348,13 @@
 				</div>
 				<div class="description">
 					<p>
-						Mark all text typed after this shortcut as
-						<span class="irc-bold">bold</span>.
+						<I18nFrame :text="t('help.formatting.markAs', {style: KEEP})"
+							><template v-slot:style
+								><span class="irc-bold">{{
+									t("help.formatting.bold")
+								}}</span></template
+							></I18nFrame
+						>
 					</p>
 				</div>
 			</div>
@@ -331,8 +366,13 @@
 				</div>
 				<div class="description">
 					<p>
-						Mark all text typed after this shortcut as
-						<span class="irc-underline">underlined</span>.
+						<I18nFrame :text="t('help.formatting.markAs', {style: KEEP})"
+							><template v-slot:style
+								><span class="irc-underline">{{
+									t("help.formatting.underline")
+								}}</span></template
+							></I18nFrame
+						>
 					</p>
 				</div>
 			</div>
@@ -344,8 +384,13 @@
 				</div>
 				<div class="description">
 					<p>
-						Mark all text typed after this shortcut as
-						<span class="irc-italic">italics</span>.
+						<I18nFrame :text="t('help.formatting.markAs', {style: KEEP})"
+							><template v-slot:style
+								><span class="irc-italic">{{
+									t("help.formatting.italic")
+								}}</span></template
+							></I18nFrame
+						>
 					</p>
 				</div>
 			</div>
@@ -357,8 +402,13 @@
 				</div>
 				<div class="description">
 					<p>
-						Mark all text typed after this shortcut as
-						<span class="irc-strikethrough">struck through</span>.
+						<I18nFrame :text="t('help.formatting.markAs', {style: KEEP})"
+							><template v-slot:style
+								><span class="irc-strikethrough">{{
+									t("help.formatting.strikethrough")
+								}}</span></template
+							></I18nFrame
+						>
 					</p>
 				</div>
 			</div>
@@ -370,8 +420,13 @@
 				</div>
 				<div class="description">
 					<p>
-						Mark all text typed after this shortcut as
-						<span class="irc-monospace">monospaced</span>.
+						<I18nFrame :text="t('help.formatting.markAs', {style: KEEP})"
+							><template v-slot:style
+								><span class="irc-monospace">{{
+									t("help.formatting.monospace")
+								}}</span></template
+							></I18nFrame
+						>
 					</p>
 				</div>
 			</div>
@@ -383,28 +438,32 @@
 				</div>
 				<div class="description">
 					<p>
-						Mark all text typed after this shortcut to be reset to its original
-						formatting.
+						{{ t("help.formatting.reset") }}
 					</p>
 				</div>
 			</div>
 
-			<h2>Autocompletion</h2>
+			<h2>{{ t("help.autocomplete.heading") }}</h2>
 
 			<p>
-				To auto-complete nicknames, channels, commands, and emoji, type one of the
-				characters below to open a suggestion list. Use the <kbd>↑</kbd> and
-				<kbd>↓</kbd> keys to highlight an item, and insert it by pressing <kbd>Tab</kbd> or
-				<kbd>Enter</kbd> (or by clicking the desired item).
+				<I18nFrame
+					:text="
+						t('help.autocomplete.intro', {up: KEEP, down: KEEP, tab: KEEP, enter: KEEP})
+					"
+					><template v-slot:up><kbd>↑</kbd></template
+					><template v-slot:down><kbd>↓</kbd></template
+					><template v-slot:tab><kbd>Tab</kbd></template
+					><template v-slot:enter><kbd>Enter</kbd></template></I18nFrame
+				>
 			</p>
-			<p>Autocompletion can be disabled in settings.</p>
+			<p>{{ t("help.autocomplete.disabled") }}</p>
 
 			<div class="help-item">
 				<div class="subject">
 					<code>@</code>
 				</div>
 				<div class="description">
-					<p>Nickname</p>
+					<p>{{ t("help.autocomplete.nick") }}</p>
 				</div>
 			</div>
 
@@ -413,7 +472,7 @@
 					<code>#</code>
 				</div>
 				<div class="description">
-					<p>Channel</p>
+					<p>{{ t("help.autocomplete.channel") }}</p>
 				</div>
 			</div>
 
@@ -422,7 +481,7 @@
 					<code>/</code>
 				</div>
 				<div class="description">
-					<p>Commands (see list of commands below)</p>
+					<p>{{ t("help.autocomplete.commands") }}</p>
 				</div>
 			</div>
 
@@ -432,20 +491,21 @@
 				</div>
 				<div class="description">
 					<p>
-						Emoji (note: requires two search characters, to avoid conflicting with
-						common emoticons like <code>:)</code>)
+						<I18nFrame :text="t('help.autocomplete.emoji', {example: KEEP})"
+							><template v-slot:example><code>:)</code></template></I18nFrame
+						>
 					</p>
 				</div>
 			</div>
 
-			<h2>Commands</h2>
+			<h2>{{ t("help.commands.heading") }}</h2>
 
 			<div class="help-item">
 				<div class="subject">
 					<code>/away [message]</code>
 				</div>
 				<div class="description">
-					<p>Mark yourself as away with an optional message.</p>
+					<p>{{ t("help.commands.away") }}</p>
 				</div>
 			</div>
 
@@ -454,7 +514,11 @@
 					<code>/back</code>
 				</div>
 				<div class="description">
-					<p>Remove your away status (set with <code>/away</code>).</p>
+					<p>
+						<I18nFrame :text="t('help.commands.back', {command: KEEP})"
+							><template v-slot:command><code>/away</code></template></I18nFrame
+						>
+					</p>
 				</div>
 			</div>
 
@@ -464,8 +528,9 @@
 				</div>
 				<div class="description">
 					<p>
-						Ban (<code>+b</code>) a user from the current channel. This can be a
-						nickname or a hostmask.
+						<I18nFrame :text="t('help.commands.ban', {mode: KEEP})"
+							><template v-slot:mode><code>+b</code></template></I18nFrame
+						>
 					</p>
 				</div>
 			</div>
@@ -475,7 +540,7 @@
 					<code>/banlist</code>
 				</div>
 				<div class="description">
-					<p>Load the banlist for the current channel.</p>
+					<p>{{ t("help.commands.banlist") }}</p>
 				</div>
 			</div>
 
@@ -485,8 +550,9 @@
 				</div>
 				<div class="description">
 					<p>
-						Collapse all previews in the current channel (opposite of
-						<code>/expand</code>)
+						<I18nFrame :text="t('help.commands.collapse', {command: KEEP})"
+							><template v-slot:command><code>/expand</code></template></I18nFrame
+						>
 					</p>
 				</div>
 			</div>
@@ -497,10 +563,12 @@
 				</div>
 				<div class="description">
 					<p>
-						Connect to a new IRC network. If <code>port</code> starts with a
-						<code>+</code> sign, the connection will be made secure using TLS.
+						<I18nFrame :text="t('help.commands.connect', {port: KEEP, plus: KEEP})"
+							><template v-slot:port><code>port</code></template
+							><template v-slot:plus><code>+</code></template></I18nFrame
+						>
 					</p>
-					<p>Alias: <code>/server</code></p>
+					<p>{{ t("help.commands.alias") }} <code>/server</code></p>
 				</div>
 			</div>
 
@@ -510,14 +578,17 @@
 				</div>
 				<div class="description">
 					<p>
-						Send a <abbr title="Client-to-client protocol">CTCP</abbr>
-						request. Read more about this on
-						<a
-							href="https://en.wikipedia.org/wiki/Client-to-client_protocol"
-							target="_blank"
-							rel="noopener"
-							>the dedicated Wikipedia article</a
-						>.
+						<I18nFrame :text="t('help.commands.ctcp', {ctcp: KEEP, link: KEEP})"
+							><template v-slot:ctcp><abbr :title="ctcpTitle">CTCP</abbr></template
+							><template v-slot:link
+								><a
+									href="https://en.wikipedia.org/wiki/Client-to-client_protocol"
+									target="_blank"
+									rel="noopener"
+									>{{ t("help.commands.ctcpLink") }}</a
+								></template
+							></I18nFrame
+						>
 					</p>
 				</div>
 			</div>
@@ -528,9 +599,12 @@
 				</div>
 				<div class="description">
 					<p>
-						Ask a user which client they run: a
-						<abbr title="Client-to-client protocol">CTCP</abbr> VERSION request, the
-						same as <code>/ctcp nick version</code>. The answer shows where you asked.
+						<I18nFrame :text="t('help.commands.ver', {ctcp: KEEP, command: KEEP})"
+							><template v-slot:ctcp><abbr :title="ctcpTitle">CTCP</abbr></template
+							><template v-slot:command
+								><code>/ctcp nick version</code></template
+							></I18nFrame
+						>
 					</p>
 				</div>
 			</div>
@@ -541,8 +615,9 @@
 				</div>
 				<div class="description">
 					<p>
-						Remove op (<code>-o</code>) from one or several users in the current
-						channel.
+						<I18nFrame :text="t('help.commands.deop', {mode: KEEP})"
+							><template v-slot:mode><code>-o</code></template></I18nFrame
+						>
 					</p>
 				</div>
 			</div>
@@ -553,8 +628,9 @@
 				</div>
 				<div class="description">
 					<p>
-						Remove voice (<code>-v</code>) from one or several users in the current
-						channel.
+						<I18nFrame :text="t('help.commands.devoice', {mode: KEEP})"
+							><template v-slot:mode><code>-v</code></template></I18nFrame
+						>
 					</p>
 				</div>
 			</div>
@@ -564,7 +640,7 @@
 					<code>/disconnect [message]</code>
 				</div>
 				<div class="description">
-					<p>Disconnect from the current network with an optionally-provided message.</p>
+					<p>{{ t("help.commands.disconnectLong") }}</p>
 				</div>
 			</div>
 
@@ -574,8 +650,9 @@
 				</div>
 				<div class="description">
 					<p>
-						Expand all previews in the current channel (opposite of
-						<code>/collapse</code>)
+						<I18nFrame :text="t('help.commands.expand', {command: KEEP})"
+							><template v-slot:command><code>/collapse</code></template></I18nFrame
+						>
 					</p>
 				</div>
 			</div>
@@ -586,9 +663,9 @@
 				</div>
 				<div class="description">
 					<p>
-						Invite a user to the specified channel. If
-						<code>channel</code> is omitted, user will be invited to the current
-						channel.
+						<I18nFrame :text="t('help.commands.invite', {channel: KEEP})"
+							><template v-slot:channel><code>channel</code></template></I18nFrame
+						>
 					</p>
 				</div>
 			</div>
@@ -599,8 +676,7 @@
 				</div>
 				<div class="description">
 					<p>
-						Block any messages from the specified user on the current network. This can
-						be a nickname or a hostmask.
+						{{ t("help.commands.ignore") }}
 					</p>
 				</div>
 			</div>
@@ -610,7 +686,7 @@
 					<code>/ignorelist</code>
 				</div>
 				<div class="description">
-					<p>Load the list of ignored users for the current network.</p>
+					<p>{{ t("help.commands.ignorelist") }}</p>
 				</div>
 			</div>
 
@@ -620,8 +696,7 @@
 				</div>
 				<div class="description">
 					<p>
-						Join a channel. Password is only needed in protected channels and can
-						usually be omitted.
+						{{ t("help.commands.join") }}
 					</p>
 				</div>
 			</div>
@@ -631,7 +706,7 @@
 					<code>/kick nick [reason]</code>
 				</div>
 				<div class="description">
-					<p>Kick a user from the current channel.</p>
+					<p>{{ t("help.commands.kick") }}</p>
 				</div>
 			</div>
 
@@ -641,8 +716,10 @@
 				</div>
 				<div class="description">
 					<p>
-						Kick and ban (<code>+b</code>) a user from the current channel. Unlike
-						<code>/ban</code>, only nicknames (and not host masks) can be used.
+						<I18nFrame :text="t('help.commands.kickban', {mode: KEEP, ban: KEEP})"
+							><template v-slot:mode><code>+b</code></template
+							><template v-slot:ban><code>/ban</code></template></I18nFrame
+						>
 					</p>
 				</div>
 			</div>
@@ -652,7 +729,7 @@
 					<code>/list</code>
 				</div>
 				<div class="description">
-					<p>Retrieve a list of available channels on this network.</p>
+					<p>{{ t("help.commands.list") }}</p>
 				</div>
 			</div>
 
@@ -662,8 +739,7 @@
 				</div>
 				<div class="description">
 					<p>
-						Send an action message to the current channel. {{ appName }} will display it
-						inline, as if the message was posted in the third person.
+						{{ t("help.commands.me", {appName}) }}
 					</p>
 				</div>
 			</div>
@@ -674,9 +750,7 @@
 				</div>
 				<div class="description">
 					<p>
-						Set the given flags to the current channel if the active window is a
-						channel, another user if the active window is a private message window, or
-						yourself if the current window is a server window.
+						{{ t("help.commands.mode") }}
 					</p>
 				</div>
 			</div>
@@ -686,7 +760,7 @@
 					<code>/msg channel message</code>
 				</div>
 				<div class="description">
-					<p>Send a message to the specified channel.</p>
+					<p>{{ t("help.commands.msg") }}</p>
 				</div>
 			</div>
 
@@ -696,10 +770,9 @@
 				</div>
 				<div class="description">
 					<p>
-						Prevent messages from generating any feedback for a channel. This turns off
-						the highlight indicator, hides mentions and inhibits push notifications.
-						Muting a network lobby mutes the entire network. Not specifying any channel
-						target mutes the current channel. Revert with <code>/unmute</code>.
+						<I18nFrame :text="t('help.commands.mute', {command: KEEP})"
+							><template v-slot:command><code>/unmute</code></template></I18nFrame
+						>
 					</p>
 				</div>
 			</div>
@@ -709,7 +782,7 @@
 					<code>/nick newnick</code>
 				</div>
 				<div class="description">
-					<p>Change your nickname on the current network.</p>
+					<p>{{ t("help.commands.nick") }}</p>
 				</div>
 			</div>
 
@@ -718,7 +791,7 @@
 					<code>/notice channel message</code>
 				</div>
 				<div class="description">
-					<p>Sends a notice message to the specified channel.</p>
+					<p>{{ t("help.commands.notice") }}</p>
 				</div>
 			</div>
 
@@ -727,7 +800,11 @@
 					<code>/op nick [...nick]</code>
 				</div>
 				<div class="description">
-					<p>Give op (<code>+o</code>) to one or several users in the current channel.</p>
+					<p>
+						<I18nFrame :text="t('help.commands.op', {mode: KEEP})"
+							><template v-slot:mode><code>+o</code></template></I18nFrame
+						>
+					</p>
 				</div>
 			</div>
 
@@ -737,10 +814,11 @@
 				</div>
 				<div class="description">
 					<p>
-						Close the specified channel or private message window, or the current
-						channel if <code>channel</code> is omitted.
+						<I18nFrame :text="t('help.commands.part', {channel: KEEP})"
+							><template v-slot:channel><code>channel</code></template></I18nFrame
+						>
 					</p>
-					<p>Aliases: <code>/close</code>, <code>/leave</code></p>
+					<p>{{ t("help.commands.aliases") }} <code>/close</code>, <code>/leave</code></p>
 				</div>
 			</div>
 
@@ -750,10 +828,9 @@
 				</div>
 				<div class="description">
 					<p>
-						Leave and immediately rejoin the current channel. Useful to quickly get op
-						from ChanServ in an empty channel, for example.
+						{{ t("help.commands.rejoin") }}
 					</p>
-					<p>Alias: <code>/cycle</code></p>
+					<p>{{ t("help.commands.alias") }} <code>/cycle</code></p>
 				</div>
 			</div>
 
@@ -762,7 +839,7 @@
 					<code>/query nick</code>
 				</div>
 				<div class="description">
-					<p>Send a private message to the specified user.</p>
+					<p>{{ t("help.commands.query") }}</p>
 				</div>
 			</div>
 
@@ -771,7 +848,7 @@
 					<code>/quit [message]</code>
 				</div>
 				<div class="description">
-					<p>Disconnect from the current network with an optional message.</p>
+					<p>{{ t("help.commands.quit") }}</p>
 				</div>
 			</div>
 
@@ -780,8 +857,8 @@
 					<code>/raw message</code>
 				</div>
 				<div class="description">
-					<p>Send a raw message to the current IRC network.</p>
-					<p>Aliases: <code>/quote</code>, <code>/send</code></p>
+					<p>{{ t("help.commands.raw") }}</p>
+					<p>{{ t("help.commands.aliases") }} <code>/quote</code>, <code>/send</code></p>
 				</div>
 			</div>
 
@@ -790,7 +867,7 @@
 					<code>/slap nick</code>
 				</div>
 				<div class="description">
-					<p>Slap someone in the current channel with a trout!</p>
+					<p>{{ t("help.commands.slap") }}</p>
 				</div>
 			</div>
 
@@ -799,7 +876,7 @@
 					<code>/search query</code>
 				</div>
 				<div class="description">
-					<p>Search for messages in the current channel / user</p>
+					<p>{{ t("help.commands.search") }}</p>
 				</div>
 			</div>
 
@@ -809,8 +886,9 @@
 				</div>
 				<div class="description">
 					<p>
-						Get the topic in the current channel. If <code>newtopic</code> is specified,
-						sets the topic in the current channel.
+						<I18nFrame :text="t('help.commands.topic', {newtopic: KEEP})"
+							><template v-slot:newtopic><code>newtopic</code></template></I18nFrame
+						>
 					</p>
 				</div>
 			</div>
@@ -820,7 +898,7 @@
 					<code>/cleartopic</code>
 				</div>
 				<div class="description">
-					<p>Clear the topic in the current channel.</p>
+					<p>{{ t("help.commands.cleartopic") }}</p>
 				</div>
 			</div>
 
@@ -830,8 +908,9 @@
 				</div>
 				<div class="description">
 					<p>
-						Unban (<code>-b</code>) a user from the current channel. This can be a
-						nickname or a hostmask.
+						<I18nFrame :text="t('help.commands.unban', {mode: KEEP})"
+							><template v-slot:mode><code>-b</code></template></I18nFrame
+						>
 					</p>
 				</div>
 			</div>
@@ -842,8 +921,7 @@
 				</div>
 				<div class="description">
 					<p>
-						Unblock messages from the specified user on the current network. This can be
-						a nickname or a hostmask.
+						{{ t("help.commands.unignore") }}
 					</p>
 				</div>
 			</div>
@@ -854,8 +932,9 @@
 				</div>
 				<div class="description">
 					<p>
-						Un-mutes the given channel(s) or the current channel if no channel is
-						provided. See <code>/mute</code> for more information.
+						<I18nFrame :text="t('help.commands.unmute', {mute: KEEP})"
+							><template v-slot:mute><code>/mute</code></template></I18nFrame
+						>
 					</p>
 				</div>
 			</div>
@@ -866,7 +945,9 @@
 				</div>
 				<div class="description">
 					<p>
-						Give voice (<code>+v</code>) to one or several users in the current channel.
+						<I18nFrame :text="t('help.commands.voice', {mode: KEEP})"
+							><template v-slot:mode><code>+v</code></template></I18nFrame
+						>
 					</p>
 				</div>
 			</div>
@@ -877,9 +958,9 @@
 				</div>
 				<div class="description">
 					<p>
-						List who matches the mask (a channel, a nick or a wildcard
-						<code>nick!user@host</code>), as a table. Without a mask, the users of the
-						current channel.
+						<I18nFrame :text="t('help.commands.who', {mask: KEEP})"
+							><template v-slot:mask><code>nick!user@host</code></template></I18nFrame
+						>
 					</p>
 				</div>
 			</div>
@@ -889,7 +970,7 @@
 					<code>/whois nick</code>
 				</div>
 				<div class="description">
-					<p>Retrieve information about the given user on the current network.</p>
+					<p>{{ t("help.commands.whois") }}</p>
 				</div>
 			</div>
 		</div>
@@ -899,16 +980,23 @@
 <script lang="ts">
 import {computed, defineComponent, ref} from "vue";
 import {useStore} from "../../js/store";
+import {useI18n} from "../../js/i18n";
+import {KEEP} from "../../js/i18n/core";
 import {buildIdentityOf, isPastRelease, sourceLinks} from "../../js/helpers/sourceLinks";
 import SidebarToggle from "../SidebarToggle.vue";
+import I18nFrame from "../I18nFrame.vue";
 
 export default defineComponent({
 	name: "Help",
 	components: {
 		SidebarToggle,
+		I18nFrame,
 	},
 	setup() {
 		const store = useStore();
+		const {t} = useI18n();
+		const title = computed(() => t("help.title"));
+		const ctcpTitle = computed(() => t("help.commands.ctcpTitle"));
 		const isApple = navigator.platform.match(/(Mac|iPhone|iPod|iPad)/i) || false;
 		const isTouch = navigator.maxTouchPoints > 0;
 		const appName = computed(() => store.state.branding.appName);
@@ -925,6 +1013,9 @@ export default defineComponent({
 		const reloadForUpdate = () => window.location.reload();
 
 		return {
+			title,
+			ctcpTitle,
+			KEEP,
 			appName,
 			build,
 			isApple,
@@ -934,6 +1025,7 @@ export default defineComponent({
 			reloadForUpdate,
 			source,
 			store,
+			t,
 		};
 	},
 });

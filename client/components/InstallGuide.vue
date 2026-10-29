@@ -14,7 +14,12 @@
 			<div class="install-guide-header">
 				<img class="install-guide-icon" src="img/icon-192.png" alt="" />
 				<h1 id="install-guide-title">{{ appName }}</h1>
-				<button class="install-guide-close" type="button" aria-label="Close" @click="close">
+				<button
+					class="install-guide-close"
+					type="button"
+					:aria-label="closeLabel"
+					@click="close"
+				>
 					✕
 				</button>
 			</div>
@@ -24,7 +29,7 @@
 				</div>
 				<div class="install-guide-text" aria-live="polite">
 					<p v-if="index > 0" class="install-guide-count">
-						Step {{ index }} of {{ steps.length - 1 }}
+						{{ t("install.stepCount", {step: index, total: steps.length - 1}) }}
 					</p>
 					<h2>{{ step.title }}</h2>
 					<p>{{ step.body }}</p>
@@ -34,7 +39,7 @@
 						type="button"
 						@click="install"
 					>
-						Install
+						{{ t("install.installButton") }}
 					</button>
 					<p v-if="step.note" class="install-guide-note">{{ step.note }}</p>
 				</div>
@@ -42,7 +47,7 @@
 			<div class="install-guide-footer">
 				<label class="install-guide-remember">
 					<input v-model="dontShowAgain" v-switch type="checkbox" />
-					Don't show this again
+					{{ t("install.dontShowAgain") }}
 				</label>
 				<div class="install-guide-nav">
 					<div class="install-guide-dots" aria-hidden="true">
@@ -53,13 +58,17 @@
 						></span>
 					</div>
 					<button v-if="index > 0" class="btn btn-secondary" type="button" @click="back">
-						Back
+						{{ t("install.back") }}
 					</button>
 					<button v-if="index === 0" class="btn" type="button" @click="next">
-						Show me how
+						{{ t("install.showMeHow") }}
 					</button>
-					<button v-else-if="!last" class="btn" type="button" @click="next">Next</button>
-					<button v-else class="btn" type="button" @click="close">Done</button>
+					<button v-else-if="!last" class="btn" type="button" @click="next">
+						{{ t("install.next") }}
+					</button>
+					<button v-else class="btn" type="button" @click="close">
+						{{ t("install.done") }}
+					</button>
 				</div>
 			</div>
 		</div>
@@ -244,6 +253,7 @@ import {useStore} from "../js/store";
 import {dismissInstallGuide, promptInstall} from "../js/pwa";
 import {currentEnvironment, detectInstallTarget, installSteps} from "../js/helpers/installGuide";
 import InstallGuideArt from "./InstallGuideArt.vue";
+import {useI18n} from "../js/i18n";
 
 /**
  * The install guide: a short walkthrough of how this browser installs the
@@ -258,17 +268,22 @@ export default defineComponent({
 	components: {InstallGuideArt},
 	setup() {
 		const store = useStore();
+		const {t, locale} = useI18n();
 		const index = ref(0);
 		const dontShowAgain = ref(false);
 
 		const appName = computed(() => store.state.branding.appName);
 		const target = detectInstallTarget(currentEnvironment());
 
-		const steps = computed(() =>
-			installSteps(target, appName.value, {
+		// The steps' words come from the core resolver: rebuilt on a
+		// language change through `locale`.
+		const steps = computed(() => {
+			void locale.value;
+			return installSteps(target, appName.value, {
 				canPrompt: store.state.installPromptAvailable,
-			})
-		);
+			});
+		});
+		const closeLabel = computed(() => t("install.close"));
 		const step = computed(() => steps.value[index.value]);
 		const last = computed(() => index.value >= steps.value.length - 1);
 
@@ -323,6 +338,8 @@ export default defineComponent({
 		});
 
 		return {
+			t,
+			closeLabel,
 			store,
 			appName,
 			steps,

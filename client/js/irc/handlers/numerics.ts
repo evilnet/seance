@@ -9,6 +9,7 @@ import {MessageType, SharedMsg} from "../../../../shared/types/msg";
 import type {IrcClient} from "../client";
 import {errorSpec} from "../errors";
 import {formatLine} from "../message";
+import {t} from "../../i18n/core";
 import {noteSnomask, parseSnomask} from "../oper";
 import {failPendingLabel} from "../pending";
 import type {Handler} from "../types";
@@ -51,7 +52,7 @@ const snomask: Handler = (client, msg) => {
 		text:
 			value === undefined
 				? textOf(msg.params)
-				: `Server notice mask: ${value} (0x${value.toString(16)})`,
+				: t("msg.snomask", {value: String(value), hex: value.toString(16)}),
 		showInActive: true,
 	});
 };
@@ -158,9 +159,9 @@ function fallbackNick(client: IrcClient, wanted: string): string {
 const badNick: Handler = (client, msg) => {
 	const [, nick = client.nick, reason = ""] = msg.params;
 	const inUse = msg.command === "433";
-	const text = `${nick}: ${
-		reason || (inUse ? "Nickname is already in use." : "Nickname is invalid.")
-	}`;
+	// The server's own reason wins; our sentence is only the fallback.
+	const fallback = inUse ? t("msg.nickInUse") : t("msg.nickInvalid");
+	const text = `${nick}: ${reason || fallback}`;
 
 	client.pushMessage(
 		client.lobby,
@@ -205,7 +206,10 @@ export const numericError: Handler = (client, msg) => {
 	// ours it rejects is reported with its text, where it was typed.
 	const label = msg.tags.get("label");
 
-	if (label && failPendingLabel(client, label, reason || `error ${msg.command}`)) {
+	if (
+		label &&
+		failPendingLabel(client, label, reason || t("pending.numericError", {code: msg.command}))
+	) {
 		return;
 	}
 

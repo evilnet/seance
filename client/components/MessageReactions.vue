@@ -5,9 +5,9 @@
 	     A badge is keyed on its text alone, so toggling yours on and off
 	     never remounts it — it keeps its identity (and a keyboard user's
 	     focus) across the toggle. A theme can hang its own flourish on the
-	     same enter classes (ps.css's embers). -->
+	     same enter classes. -->
 	<Transition name="reactions">
-		<span v-if="badges.length" class="msg-reactions" role="group" aria-label="Reactions">
+		<span v-if="badges.length" class="msg-reactions" role="group" :aria-label="groupAria">
 			<TransitionGroup name="reaction" tag="span" class="msg-reactions-list">
 				<button
 					v-for="badge in badges"
@@ -32,8 +32,8 @@
 				ref="addButton"
 				type="button"
 				class="msg-reaction msg-reaction-add tooltipped tooltipped-n"
-				aria-label="Add a reaction"
-				data-tooltip="Add a reaction"
+				:aria-label="addAria"
+				:data-tooltip="addAria"
 				:aria-expanded="pickerOpen"
 				@mouseenter="preloadEmoji"
 				@mousedown.stop
@@ -55,6 +55,7 @@
 <script lang="ts">
 import {computed, defineComponent, PropType, ref, watch} from "vue";
 import socket from "../js/socket";
+import {useI18n} from "../js/i18n";
 import {isEmojiOnly, loadEmojiCatalog} from "../js/helpers/emoji";
 import {myReactions} from "../js/helpers/messageUpdates";
 import {rememberReaction} from "../js/helpers/reactionRecents";
@@ -80,6 +81,9 @@ export default defineComponent({
 		network: {type: Object as PropType<ClientNetwork>, required: true},
 	},
 	setup(props) {
+		const {t} = useI18n();
+		const groupAria = computed(() => t("reactions.groupAria"));
+		const addAria = computed(() => t("reactions.add"));
 		const pickerOpen = ref(false);
 		const addButton = ref<HTMLButtonElement | null>(null);
 
@@ -96,7 +100,11 @@ export default defineComponent({
 					nicks: r.nicks,
 					self,
 					emoji,
-					label: `${r.text} by ${who}${self ? " (click to remove yours)" : ""}`,
+					label:
+						t("reactions.by", {
+							reaction: r.text,
+							users: who,
+						}) + (self ? t("reactions.clickToRemoveSuffix") : ""),
 					// A long word reaction is cut off by the badge, so the
 					// tooltip carries it in full next to who sent it.
 					title: emoji ? who : `${r.text} — ${who}`,
@@ -142,7 +150,19 @@ export default defineComponent({
 			}
 		);
 
-		return {badges, canToggle, mine, pickerOpen, addButton, toggle, pick, preloadEmoji};
+		return {
+			t,
+			groupAria,
+			addAria,
+			badges,
+			canToggle,
+			mine,
+			pickerOpen,
+			addButton,
+			toggle,
+			pick,
+			preloadEmoji,
+		};
 	},
 });
 </script>

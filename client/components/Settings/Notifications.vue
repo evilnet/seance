@@ -1,12 +1,9 @@
 <template>
 	<div>
-		<h2>Push Notifications</h2>
+		<h2>{{ t("settings.notifications.pushHeading") }}</h2>
 		<div>
 			<div class="push-networks-hint">
-				Push is set up per network — turn it on or off in each network's settings (Edit
-				network → “Push notifications for this network”), where the enrollment status is
-				also shown. The browser delivers the notifications; each push-capable server decides
-				whether to wake this app.
+				{{ t("settings.notifications.pushPerNetwork") }}
 			</div>
 			<div
 				id="label-push-key-change"
@@ -14,8 +11,7 @@
 				role="heading"
 				aria-level="3"
 			>
-				When a server's push identity (its key) changes, this device's subscription for it
-				stops working. Then:
+				{{ t("settings.notifications.keyChangeIntro") }}
 			</div>
 			<div role="group" aria-labelledby="label-push-key-change">
 				<label class="opt">
@@ -25,7 +21,7 @@
 						name="pushKeyChange"
 						value="ask"
 					/>
-					Wary — ask before renewing the subscription
+					{{ t("settings.notifications.keyChangeAsk") }}
 				</label>
 				<label class="opt">
 					<input
@@ -34,7 +30,7 @@
 						name="pushKeyChange"
 						value="trust"
 					/>
-					Naive — renew it on the spot, without asking
+					{{ t("settings.notifications.keyChangeTrust") }}
 				</label>
 				<label class="opt">
 					<input
@@ -43,8 +39,7 @@
 						name="pushKeyChange"
 						value="ignore"
 					/>
-					Suspicious — leave it alone; push from that server stays off until you renew
-					from the network settings
+					{{ t("settings.notifications.keyChangeIgnore") }}
 				</label>
 			</div>
 			<div class="dnd-schedule">
@@ -55,109 +50,113 @@
 						:checked="schedule.enabled"
 						@change="update({enabled: ($event.target as HTMLInputElement).checked})"
 					/>
-					Do not disturb on a schedule
+					{{ t("dnd.scheduleToggle") }}
 				</label>
 				<!-- Inactive while the schedule is off: dimmed and disabled. -->
 				<fieldset
 					:class="['dnd-schedule-fields', {disabled: !schedule.enabled}]"
 					:disabled="!schedule.enabled"
 				>
+					<!-- One sentence, "From [start] until [end]", cut around its two
+					     fields (frameSegments): each label holds the words before
+					     its field. -->
 					<div class="dnd-times">
 						<label
-							>From
+							>{{ windowParts[0] }}
 							<input
 								type="time"
-								aria-label="Do not disturb from"
+								:aria-label="startLabel"
 								:value="schedule.start"
 								@change="setTime('start', $event)"
 						/></label>
 						<label
-							>until
+							>{{ windowParts[1] }}
 							<input
 								type="time"
-								aria-label="Do not disturb until"
+								:aria-label="endLabel"
 								:value="schedule.end"
 								@change="setTime('end', $event)"
 						/></label>
+						<span v-if="windowParts[2].trim()">{{ windowParts[2] }}</span>
 					</div>
-					<div class="dnd-days" role="group" aria-label="Days">
-						<label v-for="(name, day) in DAYS" :key="day">
+					<div class="dnd-days" role="group" :aria-label="daysLabel">
+						<label v-for="day in DAYS" :key="day">
 							<input
 								v-switch
 								type="checkbox"
-								:aria-label="DAY_FULL_NAMES[day]"
+								:aria-label="weekdayName(day, 'long')"
 								:checked="schedule.days.includes(day)"
 								@change="toggleDay(day)"
 							/>
-							{{ name }}
+							{{ weekdayName(day) }}
 						</label>
 					</div>
 				</fieldset>
 				<p class="dnd-schedule-hint">
-					While do not disturb is on, you show as away and nothing alerts you here or
-					through push. Push stops on all your devices signed in to the same account. If
-					no {{ appName }} is open when a scheduled window starts, push stops once one
-					opens. Same start and end: all day.
+					{{ t("dnd.scheduleHint", {appName}) }}
 				</p>
 			</div>
 			<div v-if="store.state.pushNotificationState === 'stale'" id="pushStale" class="error">
-				<strong>Warning</strong>: A server's push identity (its key) changed, so this
-				device's push subscription for it no longer works. Renew it from that network's
-				settings (Edit network → “Renew push notifications”) to keep being notified while
-				the app is closed.
+				<strong>{{ t("settings.notifications.warning") }}</strong
+				>:
+				{{ t("settings.notifications.stale") }}
 			</div>
 			<div v-if="store.state.pushNotificationState === 'unsupported'" class="error">
-				Push notifications are not supported by this browser (they need the Push API, a
-				service worker and a secure context).
+				{{ t("settings.notifications.unsupported") }}
 			</div>
 			<div v-if="store.state.pushNotificationState === 'not-installed'" class="error">
-				<strong>Warning</strong>: On iOS, push notifications are only available after
-				installing the app to the Home Screen (Share → Add to Home Screen).
+				<strong>{{ t("settings.notifications.warning") }}</strong
+				>:
+				{{ t("settings.notifications.iosNotInstalled") }}
 			</div>
 			<div v-if="store.state.pushNotificationState === 'denied'" class="error">
-				<template v-if="androidShell">
-					<strong>Warning</strong>: Notifications are turned off for this app. Allow them
-					in Android's settings for the app, then try again.
-				</template>
-				<template v-else>
-					<strong>Warning</strong>: Notifications are blocked by your browser. Allow them
-					in the browser's site settings, then try again.
-				</template>
+				<strong>{{ t("settings.notifications.warning") }}</strong
+				>:
+				{{
+					androidShell
+						? t("settings.notifications.pushDeniedAndroid")
+						: t("settings.notifications.pushDenied")
+				}}
 			</div>
 			<div v-if="store.state.pushNotificationState === 'server-unsupported'" class="error">
-				Push notifications need a connected server that supports the draft/webpush
-				capability and you to be logged in to an account.
+				{{ t("settings.notifications.serverUnsupported") }}
 			</div>
 			<div v-if="store.state.pushNotificationState === 'blocked'" class="error">
-				<strong>Warning</strong>: The server refused the push subscription. It may require
-				logging in (SASL) before subscribing.
+				<strong>{{ t("settings.notifications.warning") }}</strong
+				>:
+				{{ t("settings.notifications.pushBlocked") }}
 			</div>
 		</div>
 
-		<h2>Browser Notifications</h2>
+		<h2>{{ t("settings.notifications.browserHeading") }}</h2>
 		<div>
 			<div class="push-networks-hint">
-				Browser notifications are also per network — enabled by default, toggled in each
-				network's settings (Edit network → “Browser notifications for this network”).
+				{{ t("settings.notifications.browserPerNetwork") }}
 			</div>
 			<!-- The shells notify through the OS (helpers/nativeAlerts.ts). -->
 			<div
 				v-if="!nativeShell && store.state.desktopNotificationState === 'unsupported'"
 				class="error"
 			>
-				<strong>Warning</strong>: Notifications are not supported by your browser.
+				<strong>{{ t("settings.notifications.warning") }}</strong
+				>:
+				{{ t("settings.notifications.browserUnsupported") }}
 			</div>
 			<div
 				v-if="!nativeShell && store.state.desktopNotificationState === 'nohttps'"
 				class="error"
 			>
-				<strong>Warning</strong>: Notifications are only supported over HTTPS connections.
+				<strong>{{ t("settings.notifications.warning") }}</strong
+				>:
+				{{ t("settings.notifications.noHttps") }}
 			</div>
 			<div
 				v-if="!nativeShell && store.state.desktopNotificationState === 'blocked'"
 				class="error"
 			>
-				<strong>Warning</strong>: Notifications are blocked by your browser.
+				<strong>{{ t("settings.notifications.warning") }}</strong
+				>:
+				{{ t("settings.notifications.browserBlocked") }}
 			</div>
 		</div>
 		<div>
@@ -168,12 +167,14 @@
 					type="checkbox"
 					name="notification"
 				/>
-				Enable notification sound
+				{{ t("settings.notifications.sound") }}
 			</label>
 		</div>
 		<div>
 			<div class="opt">
-				<button id="play" @click.prevent="playNotification">Play sound</button>
+				<button id="play" @click.prevent="playNotification">
+					{{ t("settings.notifications.playSound") }}
+				</button>
 			</div>
 		</div>
 
@@ -185,7 +186,7 @@
 					type="checkbox"
 					name="notifyAllMessages"
 				/>
-				Enable notification for all messages
+				{{ t("settings.notifications.notifyAll") }}
 			</label>
 		</div>
 
@@ -197,11 +198,10 @@
 					type="checkbox"
 					name="highlightMessages"
 				/>
-				Highlight messages that mention you
+				{{ t("settings.notifications.highlight") }}
 				<span
 					class="tooltipped tooltipped-n tooltipped-no-delay"
-					aria-label="Messages that mention you or match a custom highlight get a
-colored background and border in the channel."
+					:aria-label="highlightHelp"
 				>
 					<button class="extra-help" />
 				</span>
@@ -211,23 +211,23 @@ colored background and border in the channel."
 		<div v-if="!store.state.serverConfiguration?.public">
 			<label class="opt">
 				<label for="highlights" class="opt">
-					Custom highlights
+					{{ t("settings.notifications.highlights") }}
 					<span
 						class="tooltipped tooltipped-n tooltipped-no-delay"
-						aria-label="If a message contains any of these comma-separated
-expressions, it will trigger a highlight."
+						:aria-label="highlightsHelp"
 					>
 						<button class="extra-help" />
 					</span>
 				</label>
 				<input
 					id="highlights"
+					dir="auto"
 					:value="store.state.settings.highlights"
 					type="text"
 					name="highlights"
 					class="input"
 					autocomplete="off"
-					placeholder="Comma-separated, e.g.: word, some more words, anotherword"
+					:placeholder="commaListPlaceholder"
 				/>
 			</label>
 		</div>
@@ -235,24 +235,23 @@ expressions, it will trigger a highlight."
 		<div v-if="!store.state.serverConfiguration?.public">
 			<label class="opt">
 				<label for="highlightExceptions" class="opt">
-					Highlight exceptions
+					{{ t("settings.notifications.highlightExceptions") }}
 					<span
 						class="tooltipped tooltipped-n tooltipped-no-delay"
-						aria-label="If a message contains any of these comma-separated
-expressions, it will not trigger a highlight even if it contains
-your nickname or expressions defined in custom highlights."
+						:aria-label="highlightExceptionsHelp"
 					>
 						<button class="extra-help" />
 					</span>
 				</label>
 				<input
 					id="highlightExceptions"
+					dir="auto"
 					:value="store.state.settings.highlightExceptions"
 					type="text"
 					name="highlightExceptions"
 					class="input"
 					autocomplete="off"
-					placeholder="Comma-separated, e.g.: word, some more words, anotherword"
+					:placeholder="commaListPlaceholder"
 				/>
 			</label>
 		</div>
@@ -262,9 +261,11 @@ your nickname or expressions defined in custom highlights."
 <script lang="ts">
 import {computed, defineComponent, onMounted} from "vue";
 import {useStore} from "../../js/store";
+import {useI18n} from "../../js/i18n";
 import webpush from "../../js/webpush";
 import dnd from "../../js/dnd";
-import {DAYS, DAY_FULL_NAMES, HHMM, type DndSchedule} from "../../js/helpers/dnd";
+import {DAYS, HHMM, weekdayName, type DndSchedule} from "../../js/helpers/dnd";
+import {frameSegments, KEEP} from "../../js/i18n/core";
 import {isAndroidShell} from "../../js/helpers/capacitor";
 import {nativeAlertsAvailable} from "../../js/helpers/nativeAlerts";
 import {playNotificationSound} from "../../js/helpers/notificationSound";
@@ -273,6 +274,29 @@ export default defineComponent({
 	name: "NotificationSettings",
 	setup() {
 		const store = useStore();
+		const {t, locale} = useI18n();
+
+		const highlightHelp = computed(() => t("settings.notifications.highlightHelp"));
+		const highlightsHelp = computed(() => t("settings.notifications.highlightsHelp"));
+		const highlightExceptionsHelp = computed(() =>
+			t("settings.notifications.highlightExceptionsHelp")
+		);
+		const commaListPlaceholder = computed(() => t("settings.notifications.commaList"));
+		// Two names on frameSegments on purpose: each half is a <label> around
+		// its own time field, so the halves stay in "from … until …" order.
+		const windowParts = computed(() =>
+			frameSegments(t("dnd.scheduleWindow", {start: KEEP, end: KEEP}), ["start", "end"])
+		);
+		const startLabel = computed(() => t("dnd.scheduleStartAria"));
+		const endLabel = computed(() => t("dnd.scheduleEndAria"));
+		const daysLabel = computed(() => t("dnd.scheduleDaysAria"));
+
+		// A weekday's name in the language shown (Intl, helpers/dnd.ts).
+		const dayName = (day: number, width?: "short" | "long") => {
+			void locale.value;
+
+			return weekdayName(day, width);
+		};
 
 		// The do-not-disturb schedule (client/js/dnd.ts); every edit saves at once.
 		const schedule = computed(() => dnd.state.schedule);
@@ -308,12 +332,21 @@ export default defineComponent({
 
 		return {
 			store,
+			t,
+			highlightHelp,
+			highlightsHelp,
+			highlightExceptionsHelp,
+			commaListPlaceholder,
 			androidShell: isAndroidShell(),
 			nativeShell: nativeAlertsAvailable(),
 			playNotification,
 			// Sunday = 0, the day a window starts on (helpers/dnd.ts DndSchedule.days).
 			DAYS,
-			DAY_FULL_NAMES,
+			weekdayName: dayName,
+			windowParts,
+			startLabel,
+			endLabel,
+			daysLabel,
 			appName: computed(() => store.state.branding.appName),
 			schedule,
 			update,

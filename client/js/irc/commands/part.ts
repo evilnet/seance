@@ -7,6 +7,7 @@
 import {ChanState, ChanType} from "../../../../shared/types/chan";
 import {MessageType} from "../../../../shared/types/msg";
 import {trailingLine} from "../wire";
+import {t} from "../../i18n/core";
 import type {Command} from "../types";
 
 const part: Command = {
@@ -27,7 +28,7 @@ const part: Command = {
 		if (target.type === ChanType.LOBBY) {
 			client.pushMessage(chan, {
 				type: MessageType.ERROR,
-				text: "You can not part from networks, use /quit instead.",
+				text: t("cmd.partLobby"),
 			});
 			return;
 		}

@@ -10,6 +10,9 @@
 // `index.html` that must exist before any JavaScript runs (`<title>`,
 // `theme-color`, the loading splash). See docs/resources/branding.md.
 
+import enCatalog from "../locales/en.json";
+import {interpolate, t as coreT, tCount as coreTCount, type Vars} from "./i18n/core";
+
 export interface BrandingNetwork {
 	/** Display name for the network (defaults to the host name). */
 	name?: string;
@@ -205,6 +208,30 @@ export const UPLOAD_PRESETS: Record<string, BrandingUploads> = {
 	},
 };
 
+/**
+ * Client-side translation (client/js/translate, docs/resources/translation.md).
+ * Everything is optional; absent means the shipped defaults with the public
+ * Hugging Face CDN as the weight source.
+ */
+export interface BrandingTranslation {
+	/** Default true. `false` hides the feature and never starts the worker. */
+	enabled?: boolean;
+	/** Mirror base URL for the weights; the layout is documented in branding.md § Translation. */
+	modelBase?: string;
+	/** The WebLLM model id, and its compiled library URL when it is not a prebuilt one. */
+	llm?: {model?: string; lib?: string};
+	/** The NLLB repo and OPUS-MT repos keyed "from-to". */
+	cpu?: {nllb?: string; opus?: Record<string, string>};
+	/**
+	 * Route overrides: target → source (or "*") → quality classes, best
+	 * first. A string is a class of one (so a flat list is a strict order);
+	 * a nested list is a class of equivalent candidates (router.ts).
+	 */
+	routes?: Record<string, Record<string, (string | string[])[]>>;
+	/** Network vocabulary seeded into every channel's term memory. */
+	glossary?: [string, string][];
+}
+
 export interface BrandingConfig {
 	appName: string;
 	shortName?: string;
@@ -216,34 +243,21 @@ export interface BrandingConfig {
 	themeColor?: string;
 	links?: BrandingLinks;
 	features?: BrandingFeatures;
-	/** Overrides for a small set of UI strings, keyed like `connect.title`. */
+	/**
+	 * Overrides for UI strings, keyed like `connect.title`: every key of the
+	 * English catalog (`client/locales/messages.pot`) may be overridden. An
+	 * override is the deploy's voice and wins in every locale; unknown keys
+	 * are dropped by `normalizeStrings`.
+	 */
 	strings?: Record<string, string>;
 	/** File uploader endpoint. Absent means uploads are off. */
 	uploads?: BrandingUploads;
+	/** Client-side translation; absent means defaults. */
+	translation?: BrandingTranslation;
 }
 
 /** Upload size limit applied when `uploads.maxSizeBytes` is unset. */
 export const DEFAULT_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
-
-/** Keys accepted in `strings`, with the copy used when not overridden. */
-export const BRANDING_STRINGS: Record<string, string> = {
-	"connect.title": "Connect to IRC",
-	"connect.savedNetworks": "Saved networks",
-	"connect.savedNetworksEmpty":
-		"No saved networks yet. Networks you connect to are remembered here.",
-	"connect.submit": "Connect",
-	// The sign-in panel (`features.signIn`).
-	"connect.signInTitle": "Sign in",
-	"connect.signInIntro": "",
-	"connect.signInSubmit": "Sign in",
-	"connect.rememberMe": "Stay signed in on this device",
-	"connect.guestTitle": "No account?",
-	"connect.guestSubmit": "Connect as guest",
-	"help.about": "About",
-	"help.website": "Website",
-	"help.documentation": "Documentation",
-	"help.privacy": "Privacy policy",
-};
 
 export const DEFAULT_BRANDING: BrandingConfig = {
 	appName: "Seance",
@@ -282,15 +296,41 @@ export function setBranding(config: BrandingConfig): BrandingConfig {
 	return current;
 }
 
-/** Look up a UI string, honouring `strings` overrides from the config. */
-export function brandingString(key: string, config: BrandingConfig = current): string {
+/** The deploy's `strings` entry for a key: its voice, when the entry is a
+ * non-empty string; `undefined` otherwise (a malformed or empty override
+ * falls through to the catalogs). */
+function stringOverride(key: string, config: BrandingConfig): string | undefined {
 	const override = config.strings?.[key];
+	return typeof override === "string" && override.length > 0 ? override : undefined;
+}
 
-	if (typeof override === "string" && override.length > 0) {
-		return override;
+/**
+ * One override-aware resolver, shared by everything the reader reads on the
+ * Vue side: the page's t()/tCount() (useI18n) and the splash loop.
+ * (brandingString() keeps its own equivalent chain — string override → core
+ * resolver.) The deploy's `strings` overrides are its voice (in the deploy's
+ * language)
+ * and win in every locale, and `{var}` placeholders interpolate in the
+ * override too — a plural key's override is a flat template, so `{count}`/
+ * `{n}` interpolate into it. Without an override the active locale's
+ * catalog answers exactly as the core resolver resolves it (locale → en →
+ * the key itself).
+ */
+export function brandingT(key: string, vars: Vars = {}, count?: number): string {
+	const override = stringOverride(key, current);
+
+	if (override !== undefined) {
+		return interpolate(override, count === undefined ? vars : {...vars, count, n: count});
 	}
 
-	return BRANDING_STRINGS[key] ?? key;
+	return count === undefined ? coreT(key, vars) : coreTCount(key, count, vars);
+}
+
+/** Look up a UI string, honouring `strings` overrides from config.json.
+ * The override is the deploy's voice (in the deploy's language) and wins
+ * in every locale; without one, the active locale's catalog answers. */
+export function brandingString(key: string, config: BrandingConfig = current): string {
+	return stringOverride(key, config) ?? coreT(key); // locale catalog → en → the key
 }
 
 /**
@@ -358,15 +398,47 @@ function optionalPort(value: unknown): number | undefined {
 	return port;
 }
 
-function optionalUrl(value: unknown): string | undefined {
+/** Where a relative URL in `config.json` is resolved from: the page. */
+function pageBase(): string | undefined {
+	if (typeof document !== "undefined" && document.baseURI) {
+		return document.baseURI;
+	}
+
+	if (typeof location !== "undefined" && location.href) {
+		return location.href;
+	}
+
+	return undefined; // no DOM (mocha): only absolute URLs are usable
+}
+
+// `base` has no default: relative resolution is opt-in per caller — a
+// literal `undefined` (links.*, which must stay on the strict http(s)://
+// path) means exactly that, not "fall back to the page".
+function optionalUrl(value: unknown, base: string | undefined): string | undefined {
 	const url = optionalString(value);
 
 	if (url === undefined) {
 		return undefined;
 	}
 
-	// Only http(s) links are ever rendered as anchors.
-	return /^https?:\/\//i.test(url) ? url : undefined;
+	// Only http(s) is ever rendered as an anchor or fetched from.
+	if (/^https?:\/\//i.test(url)) {
+		return url;
+	}
+
+	// A relative path is the in-tree mirror branding.md describes
+	// (`models/` next to the app); it resolves against the page. Anything
+	// carrying another scheme, or a space, is not a path — drop it.
+	if (base === undefined || /^[a-z][a-z0-9+.-]*:/i.test(url) || /\s/.test(url)) {
+		return undefined;
+	}
+
+	try {
+		const resolved = new URL(url, base);
+		return /^https?:$/i.test(resolved.protocol) ? resolved.href : undefined;
+	} catch {
+		return undefined;
+	}
 }
 
 function normalizeChannels(value: unknown): string[] | undefined {
@@ -577,6 +649,12 @@ function normalizeUploads(value: unknown): BrandingUploads | undefined {
 	return uploads;
 }
 
+// The gettext catalog is the source of English copy (the former hardcoded
+// string dict moved into the pot), so its keys — compiled into en.json —
+// define what `strings` may override. Unknown keys are dropped silently, as
+// before: a typo in one field never takes the app down.
+const KNOWN_KEYS = new Set<string>(Object.keys(enCatalog));
+
 function normalizeStrings(value: unknown): Record<string, string> {
 	const strings: Record<string, string> = {};
 
@@ -585,12 +663,161 @@ function normalizeStrings(value: unknown): Record<string, string> {
 	}
 
 	for (const [key, text] of Object.entries(value)) {
-		if (typeof text === "string" && key in BRANDING_STRINGS) {
+		if (typeof text === "string" && KNOWN_KEYS.has(key)) {
 			strings[key] = text;
 		}
 	}
 
 	return strings;
+}
+
+function normalizeRouteEntry(value: unknown): (string | string[])[] | undefined {
+	if (!Array.isArray(value)) {
+		return undefined;
+	}
+
+	const entry: (string | string[])[] = [];
+
+	for (const element of value) {
+		if (Array.isArray(element)) {
+			const group = normalizeStringList(element);
+
+			if (group) {
+				entry.push(group);
+			}
+		} else {
+			const candidate = optionalString(element);
+
+			if (candidate !== undefined) {
+				entry.push(candidate);
+			}
+		}
+	}
+
+	return entry.length > 0 ? entry : undefined;
+}
+
+function normalizeRoutes(
+	value: unknown
+): Record<string, Record<string, (string | string[])[]>> | undefined {
+	if (!isRecord(value)) {
+		return undefined;
+	}
+
+	const routes: Record<string, Record<string, (string | string[])[]>> = {};
+
+	for (const [to, sources] of Object.entries(value)) {
+		if (!isRecord(sources)) {
+			continue;
+		}
+
+		const forTarget: Record<string, (string | string[])[]> = {};
+
+		for (const [from, candidates] of Object.entries(sources)) {
+			const entry = normalizeRouteEntry(candidates);
+
+			if (entry) {
+				forTarget[from] = entry;
+			}
+		}
+
+		if (Object.keys(forTarget).length > 0) {
+			routes[to] = forTarget;
+		}
+	}
+
+	return Object.keys(routes).length > 0 ? routes : undefined;
+}
+
+function normalizeGlossary(value: unknown): [string, string][] | undefined {
+	if (!Array.isArray(value)) {
+		return undefined;
+	}
+
+	const pairs: [string, string][] = [];
+
+	for (const entry of value) {
+		if (
+			Array.isArray(entry) &&
+			entry.length === 2 &&
+			typeof entry[0] === "string" &&
+			typeof entry[1] === "string"
+		) {
+			pairs.push([entry[0], entry[1]]);
+		}
+	}
+
+	return pairs.length > 0 ? pairs : undefined;
+}
+
+export function normalizeTranslation(
+	value: unknown,
+	base: string | undefined = pageBase()
+): BrandingTranslation | undefined {
+	if (!isRecord(value)) {
+		return undefined;
+	}
+
+	const translation: BrandingTranslation = {};
+	const enabled = optionalBoolean(value.enabled);
+	const modelBase = optionalUrl(value.modelBase, base);
+
+	if (enabled !== undefined) {
+		translation.enabled = enabled;
+	}
+
+	if (modelBase !== undefined) {
+		translation.modelBase = modelBase;
+	}
+
+	if (isRecord(value.llm)) {
+		const llm: {model?: string; lib?: string} = {};
+		const model = optionalString(value.llm.model);
+		const lib = optionalUrl(value.llm.lib, base);
+
+		if (model !== undefined) {
+			llm.model = model;
+		}
+
+		if (lib !== undefined) {
+			llm.lib = lib;
+		}
+
+		if (Object.keys(llm).length > 0) {
+			translation.llm = llm;
+		}
+	}
+
+	if (isRecord(value.cpu)) {
+		const cpu: {nllb?: string; opus?: Record<string, string>} = {};
+		const nllb = optionalString(value.cpu.nllb);
+		const opus = normalizeStringMap(value.cpu.opus);
+
+		if (nllb !== undefined) {
+			cpu.nllb = nllb;
+		}
+
+		if (opus && Object.keys(opus).length > 0) {
+			cpu.opus = opus;
+		}
+
+		if (Object.keys(cpu).length > 0) {
+			translation.cpu = cpu;
+		}
+	}
+
+	const routes = normalizeRoutes(value.routes);
+	const glossary = normalizeGlossary(value.glossary);
+
+	if (routes) {
+		translation.routes = routes;
+	}
+
+	if (glossary) {
+		translation.glossary = glossary;
+	}
+
+	return Object.keys(translation).length > 0 ? translation : undefined;
 }
 
 /**
@@ -609,7 +836,11 @@ export function normalizeBranding(
 	const links: BrandingLinks = {};
 
 	for (const key of ["website", "help", "privacy", "source"] as const) {
-		const link = optionalUrl(rawLinks[key]) ?? defaults.links?.[key];
+		// Only the translation model mirror may be a relative path; a link is
+		// rendered as an anchor or opened directly and stays on the strict
+		// http(s):// path — a typo like "github" must never resolve against
+		// the app's own origin.
+		const link = optionalUrl(rawLinks[key], undefined) ?? defaults.links?.[key];
 
 		if (link !== undefined) {
 			links[key] = link;
@@ -644,6 +875,7 @@ export function normalizeBranding(
 	const theme = optionalString(source.theme) ?? defaults.theme;
 	const themeColor = optionalString(source.themeColor) ?? defaults.themeColor;
 	const uploads = normalizeUploads(source.uploads) ?? defaults.uploads;
+	const translation = normalizeTranslation(source.translation) ?? defaults.translation;
 
 	if (shortName !== undefined) {
 		config.shortName = shortName;
@@ -663,6 +895,10 @@ export function normalizeBranding(
 
 	if (uploads !== undefined) {
 		config.uploads = uploads;
+	}
+
+	if (translation !== undefined) {
+		config.translation = translation;
 	}
 
 	return config;

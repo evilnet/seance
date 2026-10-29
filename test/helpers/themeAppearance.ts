@@ -43,7 +43,7 @@ describe("themeAppearance", function () {
 	it("names every pair in the settings hint, dark first", function () {
 		const label = (name: string) => name.charAt(0).toUpperCase() + name.slice(1);
 		expect(describeThemePairs(label)).to.equal(
-			"Coffee / Creama, Cobalt / Frost, Princess, Morning / Day and Keeki / Keekiblush"
+			"Coffee / Creama, Cobalt / Frost, Princess, Morning / Day, and Keeki / Keekiblush"
 		);
 		expect(THEME_PAIRS).to.have.length(5);
 	});

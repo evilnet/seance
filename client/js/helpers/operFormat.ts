@@ -6,6 +6,7 @@
  */
 
 import type {OperReport, ReportValue} from "../../../shared/types/oper";
+import {t} from "../i18n/core";
 import {formatDuration} from "../irc/profiles/nefarious/bans";
 
 export {formatDuration};
@@ -33,20 +34,20 @@ export function relativeTime(epochMs: number, now = Date.now()): string {
 	const diff = Math.round((epochMs - now) / 1000);
 
 	if (Math.abs(diff) < 5) {
-		return "now";
+		return t("oper.time.now");
 	}
 
 	const span = formatDuration(Math.abs(diff));
-	return diff > 0 ? `in ${span}` : `${span} ago`;
+	return diff > 0 ? t("oper.time.in", {span}) : t("oper.time.ago", {span});
 }
 
 /** An expiry: `never`, `expired`, or `in 6h`. */
 export function formatExpiry(epochMs: number, now = Date.now()): string {
 	if (!epochMs) {
-		return "never";
+		return t("oper.time.never");
 	}
 
-	return epochMs <= now ? "expired" : relativeTime(epochMs, now);
+	return epochMs <= now ? t("oper.time.expired") : relativeTime(epochMs, now);
 }
 
 /** The plain text of a value: what a copy of a report gets. */
@@ -113,36 +114,96 @@ export function reportText(report: OperReport, now = Date.now()): string {
 	return out.join("\n");
 }
 
-/** Short badge text and colour family per server notice category. */
-const CATEGORIES: Record<string, {label: string; family: string}> = {
-	OLDSNO: {label: "server", family: "server"},
-	SERVKILL: {label: "kill", family: "kill"},
-	OPERKILL: {label: "kill", family: "kill"},
-	HACK2: {label: "desync", family: "mode"},
-	HACK3: {label: "mode", family: "mode"},
-	HACK4: {label: "mode", family: "mode"},
-	UNAUTH: {label: "refused", family: "conn"},
-	TCPCOMMON: {label: "tls", family: "conn"},
-	TOOMANY: {label: "limit", family: "conn"},
-	GLINE: {label: "ban", family: "ban"},
-	AUTO: {label: "auto-ban", family: "ban"},
-	NETWORK: {label: "net", family: "net"},
-	IPMISMATCH: {label: "dns", family: "conn"},
-	OLDREALOP: {label: "oper", family: "oper"},
-	CONNEXIT: {label: "conn", family: "conn"},
-	NICKCHG: {label: "nick", family: "conn"},
-	AUTH: {label: "iauth", family: "server"},
-	DEBUG: {label: "debug", family: "server"},
-	WEBIRC: {label: "webirc", family: "conn"},
-	WHOIS: {label: "whois", family: "oper"},
-	WALLOPS: {label: "wallops", family: "wallops"},
-	OTHER: {label: "notice", family: "server"},
+/** Colour family per server notice category; its words are {@link categoryLabel}'s. */
+const FAMILIES: Record<string, string> = {
+	OLDSNO: "server",
+	SERVKILL: "kill",
+	OPERKILL: "kill",
+	HACK2: "mode",
+	HACK3: "mode",
+	HACK4: "mode",
+	UNAUTH: "conn",
+	TCPCOMMON: "conn",
+	TOOMANY: "conn",
+	GLINE: "ban",
+	AUTO: "ban",
+	NETWORK: "net",
+	IPMISMATCH: "conn",
+	OLDREALOP: "oper",
+	CONNEXIT: "conn",
+	NICKCHG: "conn",
+	AUTH: "server",
+	DEBUG: "server",
+	WEBIRC: "conn",
+	WHOIS: "oper",
+	WALLOPS: "wallops",
+	OTHER: "server",
 	/** The services feed (irc/servicesfeed.ts): snoop and audit lines. */
-	SERVICES: {label: "services", family: "oper"},
+	SERVICES: "oper",
 };
 
+/**
+ * The badge's short word for a category, in the reader's language; jargon
+ * the oper reads as is (tls, iauth, webirc, whois, wallops, dns, oper)
+ * stays. Undefined for a category nobody lists.
+ */
+function categoryLabel(category: string): string | undefined {
+	switch (category) {
+		case "OLDSNO":
+			return t("oper.badge.server");
+		case "SERVKILL":
+		case "OPERKILL":
+			return t("oper.badge.kill");
+		case "HACK2":
+			return t("oper.badge.desync");
+		case "HACK3":
+		case "HACK4":
+			return t("oper.badge.mode");
+		case "UNAUTH":
+			return t("oper.badge.refused");
+		case "TCPCOMMON":
+			return "tls";
+		case "TOOMANY":
+			return t("oper.badge.limit");
+		case "GLINE":
+			return t("oper.badge.ban");
+		case "AUTO":
+			return t("oper.badge.autoBan");
+		case "NETWORK":
+			return t("oper.badge.net");
+		case "IPMISMATCH":
+			return "dns";
+		case "OLDREALOP":
+			return "oper";
+		case "CONNEXIT":
+			return t("oper.badge.conn");
+		case "NICKCHG":
+			return t("oper.badge.nick");
+		case "AUTH":
+			return "iauth";
+		case "DEBUG":
+			return t("oper.badge.debug");
+		case "WEBIRC":
+			return "webirc";
+		case "WHOIS":
+			return "whois";
+		case "WALLOPS":
+			return "wallops";
+		case "OTHER":
+			return t("oper.badge.notice");
+		case "SERVICES":
+			return t("oper.badge.services");
+		default:
+			return undefined;
+	}
+}
+
+/** Short badge text and colour family per server notice category. */
 export function categoryBadge(category: string): {label: string; family: string} {
-	return CATEGORIES[category] ?? {label: category.toLowerCase(), family: "server"};
+	const label = categoryLabel(category);
+	return label !== undefined
+		? {label, family: FAMILIES[category] ?? "server"}
+		: {label: category.toLowerCase(), family: "server"};
 }
 
 /** The WALLOPS family's badge per kind. */
@@ -151,9 +212,9 @@ export function wallopsBadge(kind: string): string {
 		case "wallusers":
 			return "wallusers";
 		case "desynch":
-			return "desync";
+			return t("oper.badge.desync");
 		case "wallops.server":
-			return "server";
+			return t("oper.badge.server");
 		default:
 			return "wallops";
 	}

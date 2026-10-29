@@ -15,6 +15,7 @@
  */
 
 import storage from "../localStorage";
+import {collator} from "../i18n/collation";
 import {forgetNetworkLog} from "./querylog";
 import {forgetClosedQueries} from "./closedQueries";
 import {forgetNoticeLog} from "./noticelog";
@@ -421,7 +422,8 @@ function forStorage(net: SavedNetwork): SavedNetwork {
 
 function byRecency(a: SavedNetwork, b: SavedNetwork): number {
 	const diff = (b.lastUsed ?? 0) - (a.lastUsed ?? 0);
-	return diff !== 0 ? diff : displayName(a).localeCompare(displayName(b));
+	// Recency ties break by the active locale's collation of the names.
+	return diff !== 0 ? diff : collator().compare(displayName(a), displayName(b));
 }
 
 /** Every saved network, most recently used first. */

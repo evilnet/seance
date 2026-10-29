@@ -218,3 +218,38 @@ back, in order:
 - The server caps an account at `WEBPUSH_MAX_REGISTRATIONS` (10) push
   endpoints and answers `FAIL WEBPUSH MAX_REGISTRATIONS`; fresh Chromium
   profiles against one test account use them up.
+
+## The watchdogs
+
+`tools/serve-watchdog.sh` and `tools/ircd-watchdog.sh` keep the two
+long-running dev processes up (a pidfile makes a second launch a no-op, and
+each restarts its child in a loop). They were written against this machine's
+paths; every one of them is now an environment variable whose default is
+that value, so another checkout, another port or another build directory
+needs no edit:
+
+| Variable             | Default                       | What it is                                            |
+| -------------------- | ----------------------------- | ----------------------------------------------------- |
+| `SEANCE_DIR`         | `/seance`                     | The checkout `tools/serve.py` is run from             |
+| `SERVE_PID`          | `/tmp/serve-8000.pid`         | Pidfile guarding the single `serve.py`                |
+| `SERVE_PORT`         | `8000`                        | Port `serve.py` listens on                            |
+| `SERVE_SAN`          | `10.0.0.41`                   | Address the self-signed certificate is issued for     |
+| `SERVE_LOG`          | `/tmp/serve-8000.log`         | `serve.py`'s stdout and stderr                        |
+| `IRCD_PID`           | `/tmp/ircd-6667.pid`          | Pidfile guarding the single ircd                      |
+| `NEFARIOUS_DIR`      | `/seance/tmp/nefarious2/ircd` | The built ircd (the directory holding the binary)     |
+| `NEFARIOUS_CONF_DIR` | `/seance/tmp/nefarious-dev`   | Run directory: `ircd.conf`, state, the agent's socket |
+| `IRCD_LOG`           | `/tmp/ircd.log`               | The ircd's stdout and stderr                          |
+
+`tools/iauth-agent.py` (the SASL agent the ircd spawns, one fixed
+credential, no services package) reads three of its own:
+
+| Variable          | Default          | What it is                                              |
+| ----------------- | ---------------- | ------------------------------------------------------- |
+| `IAUTH_TEST_USER` | `pushtest1`      | The account it accepts                                  |
+| `IAUTH_TEST_PASS` | `pushtest1-pass` | That account's password                                 |
+| `IAUTH_DEBUG_LOG` | _unset_          | Where to trace the wire. **Unset means no log at all.** |
+
+The trace used to be written unconditionally to `/tmp/iauth-debug.log`: the
+agent lives as long as the ircd and every SASL exchange went into it, on a
+machine where nothing rotated it. Set `IAUTH_DEBUG_LOG` when a login is
+being debugged, and unset it again afterwards.

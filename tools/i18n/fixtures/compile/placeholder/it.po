@@ -1,0 +1,18 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: seance\n"
+"Language: it\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. A nick joined the channel — the translation ate the {nick} token.
+msgctxt "activity.join"
+msgid "{nick} joined the channel"
+msgstr "è entrato nel canale"
+
+#. A nick left the channel — untranslated, must compile to an empty string.
+msgctxt "activity.part"
+msgid "{nick} left the channel"
+msgstr ""

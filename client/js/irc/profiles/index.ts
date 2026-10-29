@@ -7,6 +7,7 @@
  * only need the family, so the branch is not told apart here.
  */
 
+import {t} from "../../i18n/core";
 import type {ISupport} from "../isupport";
 import {generic} from "./generic";
 import {nefarious} from "./nefarious";
@@ -25,6 +26,14 @@ export function detectProfile(version: string | undefined, isupport?: ISupport):
 	}
 
 	return generic;
+}
+
+/**
+ * A profile's display name: the ircd family as it calls itself, or, for
+ * the fallback, "IRC server" in the reader's language.
+ */
+export function profileName(profile: Pick<ServerProfile, "id" | "name">): string {
+	return profile.id === "generic" ? t("oper.profile.generic") : profile.name;
 }
 
 /** A profile by id (what `SharedOperState.profile` carries), else the generic one. */

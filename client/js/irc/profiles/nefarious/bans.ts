@@ -7,6 +7,8 @@
  * Kept free of store/DOM imports (mocha).
  */
 
+import {t} from "../../../i18n/core";
+
 export type BanType = "gline" | "shun" | "zline";
 
 /** The longest a G-line, shun or Z-line may run (7 days). */
@@ -98,11 +100,14 @@ export function maskSuggestions(type: BanType, user: UserAddress): {mask: string
 
 	if (type === "zline") {
 		if (ip) {
-			out.push({mask: ip, label: "This IP"});
+			out.push({mask: ip, label: t("oper.ban.suggest.ip")});
 			const v4 = IPV4.exec(ip);
 
 			if (v4) {
-				out.push({mask: `${v4[1]}.${v4[2]}.${v4[3]}.0/24`, label: "The /24"});
+				out.push({
+					mask: `${v4[1]}.${v4[2]}.${v4[3]}.0/24`,
+					label: t("oper.ban.suggest.slash24"),
+				});
 			}
 		}
 
@@ -110,21 +115,24 @@ export function maskSuggestions(type: BanType, user: UserAddress): {mask: string
 	}
 
 	if (ip) {
-		out.push({mask: `*@${ip}`, label: "This IP"});
+		out.push({mask: `*@${ip}`, label: t("oper.ban.suggest.ip")});
 
 		if (ident) {
-			out.push({mask: `${ident}@${ip}`, label: "This ident on this IP"});
+			out.push({mask: `${ident}@${ip}`, label: t("oper.ban.suggest.identIp")});
 		}
 
 		const v4 = IPV4.exec(ip);
 
 		if (v4) {
-			out.push({mask: `*@${v4[1]}.${v4[2]}.${v4[3]}.0/24`, label: "The /24 (needs force)"});
+			out.push({
+				mask: `*@${v4[1]}.${v4[2]}.${v4[3]}.0/24`,
+				label: t("oper.ban.suggest.slash24Force"),
+			});
 		}
 	}
 
 	if (user.host && user.host !== ip) {
-		out.push({mask: `*@${user.host}`, label: "This host name"});
+		out.push({mask: `*@${user.host}`, label: t("oper.ban.suggest.host")});
 	}
 
 	return out;
@@ -172,11 +180,11 @@ function checkIp(host: string): MaskCheck | undefined {
 	}
 
 	if (bits > (v6 ? 128 : 32)) {
-		return {error: "That CIDR has more bits than an address.", needsForce: false};
+		return {error: t("oper.ban.check.cidrTooLong"), needsForce: false};
 	}
 
 	if (bits < 16) {
-		return {error: "Wider than /16: the server refuses it even forced.", needsForce: false};
+		return {error: t("oper.ban.check.tooWide"), needsForce: false};
 	}
 
 	return {needsForce: wild || bits < (v6 ? 128 : 32)};
@@ -192,37 +200,37 @@ export function checkMask(type: BanType, rawMask: string): MaskCheck {
 	const mask = normaliseMask(type, rawMask);
 
 	if (mask === "" || mask === "*@") {
-		return {error: "Enter a mask.", needsForce: false};
+		return {error: t("oper.ban.check.empty"), needsForce: false};
 	}
 
 	if (/\s/.test(mask)) {
-		return {error: "A mask cannot contain spaces (use ? for one).", needsForce: false};
+		return {error: t("oper.ban.check.spaces"), needsForce: false};
 	}
 
 	if (mask.startsWith("$")) {
 		if (type === "zline") {
-			return {error: "Z-lines take IP masks only.", needsForce: false};
+			return {error: t("oper.ban.check.zlineIpOnly"), needsForce: false};
 		}
 
 		return /^\$[RV].+/.test(mask)
 			? {needsForce: false}
-			: {error: "Only $R (realname) and $V (CTCP version) masks exist.", needsForce: false};
+			: {error: t("oper.ban.check.extended"), needsForce: false};
 	}
 
 	if (/^[#&]/.test(mask)) {
 		return type === "gline"
 			? {needsForce: false}
-			: {error: "Only a G-line can ban a channel name.", needsForce: false};
+			: {error: t("oper.ban.check.channelGlineOnly"), needsForce: false};
 	}
 
 	if (type === "zline") {
 		if (mask.includes("@") || !/^[0-9a-f.:*?/]+$/i.test(mask)) {
-			return {error: "Z-line masks must be an IP address or CIDR.", needsForce: false};
+			return {error: t("oper.ban.check.zlineMask"), needsForce: false};
 		}
 
 		return (
 			checkIp(mask) ?? {
-				error: "Z-line masks must be an IP address or CIDR.",
+				error: t("oper.ban.check.zlineMask"),
 				needsForce: false,
 			}
 		);
@@ -231,7 +239,7 @@ export function checkMask(type: BanType, rawMask: string): MaskCheck {
 	const host = mask.slice(mask.lastIndexOf("@") + 1);
 
 	if (host === "") {
-		return {error: "The host part is empty.", needsForce: false};
+		return {error: t("oper.ban.check.emptyHost"), needsForce: false};
 	}
 
 	const ip = checkIp(host);
@@ -243,12 +251,12 @@ export function checkMask(type: BanType, rawMask: string): MaskCheck {
 	const labels = host.split(".");
 
 	if (labels.length < 3 && /[*?]/.test(host)) {
-		return {error: "A wildcard host needs at least two dots.", needsForce: false};
+		return {error: t("oper.ban.check.twoDots"), needsForce: false};
 	}
 
 	if (labels.slice(-2).some((label) => /[*?]/.test(label))) {
 		return {
-			error: "No wildcards in the last two labels (*.com bans the world).",
+			error: t("oper.ban.check.lastLabels"),
 			needsForce: false,
 		};
 	}

@@ -14,14 +14,9 @@ export type FontSize = typeof fontSizes[number];
 
 export const defaultFontSize: FontSize = "large";
 
-export const fontSizeLabels: Record<FontSize, string> = {
-	tiny: "Tiny",
-	small: "Small",
-	medium: "Medium",
-	large: "Large",
-	xlarge: "Extra large",
-	huge: "Huge",
-};
+// The steps' reader-facing labels ("Tiny"…"Huge") live in the pot and are
+// translated at the render site (Settings/Appearance.vue): this module is
+// Vue-free and the pot is the only source of English copy.
 
 /** Each step as a percentage of the browser's default font size. The root
  * is set from style.css (`html[data-font-size=…]`), which must agree with

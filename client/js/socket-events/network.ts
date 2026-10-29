@@ -7,6 +7,7 @@ import {toClientChan} from "../chan";
 import {ClientNetwork} from "../types";
 import {ChanState, ChanType} from "../../../shared/types/chan";
 import {applyStoredChannelOrder, applyStoredNetworkOrder} from "../sort";
+import {collator} from "../i18n/collation";
 import {applyStoredMuteStatus} from "../mute";
 
 socket.on("network", function (data) {
@@ -17,10 +18,10 @@ socket.on("network", function (data) {
 		isCollapsed: false,
 	};
 
-	applyStoredChannelOrder(network);
+	applyStoredChannelOrder(network, collator());
 	applyStoredMuteStatus(network);
 	store.commit("networks", [...store.state.networks, network]);
-	applyStoredNetworkOrder();
+	applyStoredNetworkOrder(collator());
 
 	openOnAnnounce(network);
 });

@@ -8,18 +8,18 @@
 		@click="onClick"
 	>
 		<template v-if="link !== null">
-			<button class="close-btn" aria-label="Close"></button>
+			<button class="close-btn" :aria-label="closeAria"></button>
 
 			<button
 				v-if="previousImage"
 				class="previous-image-btn"
-				aria-label="Previous image"
+				:aria-label="previousAria"
 				@click.stop="previous"
 			></button>
 			<button
 				v-if="nextImage"
 				class="next-image-btn"
-				aria-label="Next image"
+				:aria-label="nextAria"
 				@click.stop="next"
 			></button>
 
@@ -43,6 +43,7 @@
 import Mousetrap from "mousetrap";
 import {computed, defineComponent, ref, watch} from "vue";
 import eventbus from "../js/eventbus";
+import {useI18n} from "../js/i18n";
 import {useStore} from "../js/store";
 import {isPreviewRevealed} from "../js/helpers/mediaTrust";
 import {setImageViewerClose} from "../js/helpers/imageViewer";
@@ -53,6 +54,10 @@ export default defineComponent({
 	name: "ImageViewer",
 	setup() {
 		const store = useStore();
+		const {t} = useI18n();
+		const closeAria = computed(() => t("image.close"));
+		const previousAria = computed(() => t("image.previous"));
+		const nextAria = computed(() => t("image.next"));
 		const viewer = ref<HTMLDivElement>();
 		const image = ref<HTMLImageElement>();
 
@@ -469,6 +474,10 @@ export default defineComponent({
 		});
 
 		return {
+			t,
+			closeAria,
+			previousAria,
+			nextAria,
 			link,
 			channel,
 			image,

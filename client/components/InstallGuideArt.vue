@@ -85,7 +85,7 @@
 			<g class="art-accent">
 				<rect class="art-row-accent" x="108" y="142" width="104" height="19" rx="4" />
 				<text class="art-text art-text-accent art-text-small" x="114" y="155">
-					Add to Home Screen
+					{{ t("install.art.addToHomeScreen") }}
 				</text>
 				<rect class="art-glyph-accent" x="199" y="147" width="9" height="9" rx="2" />
 				<path class="art-glyph-accent" d="M203.5 149.5 v4 M201.5 151.5 h4" />
@@ -99,12 +99,12 @@
 			<rect class="art-frame" x="100" y="6" width="120" height="188" rx="16" />
 			<rect class="art-sheet" x="100" y="40" width="120" height="154" rx="14" />
 			<text class="art-text art-text-strong art-text-small" x="108" y="58">
-				Add to Home Screen
+				{{ t("install.art.addToHomeScreen") }}
 			</text>
 			<g class="art-accent">
 				<rect class="art-row-accent" x="190" y="47" width="24" height="16" rx="4" />
 				<text class="art-text art-text-accent" x="202" y="58" text-anchor="middle">
-					Add
+					{{ t("install.art.add") }}
 				</text>
 			</g>
 			<rect class="art-row" x="108" y="74" width="104" height="30" rx="6" />
@@ -138,7 +138,9 @@
 			<g class="art-accent">
 				<rect class="art-row-accent" x="132" y="106" width="78" height="19" rx="4" />
 				<path class="art-glyph-accent" d="M141 111 v7 M138 115 l3 3 l3 -3 M137 121 h8" />
-				<text class="art-text art-text-accent" x="150" y="119">Install app</text>
+				<text class="art-text art-text-accent" x="150" y="119">
+					{{ t("install.art.installApp") }}
+				</text>
 			</g>
 			<rect class="art-line" x="136" y="134" width="44" height="5" rx="2.5" />
 			<rect class="art-line" x="136" y="146" width="30" height="5" rx="2.5" />
@@ -151,15 +153,19 @@
 			<rect class="art-line" x="108" y="38" width="96" height="5" rx="2.5" />
 			<rect class="art-line" x="108" y="50" width="84" height="5" rx="2.5" />
 			<rect class="art-sheet" x="100" y="108" width="120" height="86" rx="12" />
-			<text class="art-text art-text-strong" x="110" y="126">Install app</text>
+			<text class="art-text art-text-strong" x="110" y="126">
+				{{ t("install.art.installApp") }}
+			</text>
 			<image :href="icon" x="110" y="136" width="22" height="22" />
 			<text class="art-text art-text-strong" x="138" y="145">{{ appName }}</text>
 			<text class="art-text art-text-muted" x="138" y="156">{{ host }}</text>
-			<text class="art-text art-text-muted" x="152" y="182" text-anchor="middle">Cancel</text>
+			<text class="art-text art-text-muted" x="152" y="182" text-anchor="middle">
+				{{ t("install.art.cancel") }}
+			</text>
 			<g class="art-accent">
 				<rect class="art-button-accent" x="172" y="170" width="40" height="17" rx="8.5" />
 				<text class="art-text art-text-on-accent" x="192" y="181.5" text-anchor="middle">
-					Install
+					{{ t("install.art.install") }}
 				</text>
 			</g>
 		</template>
@@ -194,12 +200,14 @@
 			<rect class="art-line" x="24" y="140" width="120" height="5" rx="2.5" />
 			<template v-if="kind === 'desktop-confirm'">
 				<rect class="art-sheet" x="168" y="70" width="138" height="78" rx="6" />
-				<text class="art-text art-text-strong" x="178" y="86">Install app?</text>
+				<text class="art-text art-text-strong" x="178" y="86">
+					{{ t("install.art.installAppQuestion") }}
+				</text>
 				<image :href="icon" x="178" y="94" width="20" height="20" />
 				<text class="art-text art-text-strong" x="204" y="103">{{ appName }}</text>
 				<text class="art-text art-text-muted" x="204" y="113">{{ host }}</text>
 				<text class="art-text art-text-muted" x="208" y="137" text-anchor="middle">
-					Cancel
+					{{ t("install.art.cancel") }}
 				</text>
 				<g class="art-accent">
 					<rect class="art-button-accent" x="240" y="125" width="56" height="17" rx="4" />
@@ -209,7 +217,7 @@
 						y="136.5"
 						text-anchor="middle"
 					>
-						Install
+						{{ t("install.art.install") }}
 					</text>
 				</g>
 			</template>
@@ -222,10 +230,18 @@
 			<rect class="art-menubar" x="8" y="25" width="304" height="7" />
 			<text class="art-text art-text-strong" x="20" y="28.5">Safari</text>
 			<rect class="art-row-accent" x="50" y="19" width="20" height="12" rx="3" />
-			<text class="art-text art-text-accent" x="60" y="28.5" text-anchor="middle">File</text>
-			<text class="art-text art-text-muted" x="78" y="28.5">Edit</text>
-			<text class="art-text art-text-muted" x="100" y="28.5">View</text>
-			<text class="art-text art-text-muted" x="126" y="28.5">History</text>
+			<text class="art-text art-text-accent" x="60" y="28.5" text-anchor="middle">
+				{{ t("install.art.menuFile") }}
+			</text>
+			<text class="art-text art-text-muted" x="78" y="28.5">
+				{{ t("install.art.menuEdit") }}
+			</text>
+			<text class="art-text art-text-muted" x="100" y="28.5">
+				{{ t("install.art.menuView") }}
+			</text>
+			<text class="art-text art-text-muted" x="126" y="28.5">
+				{{ t("install.art.menuHistory") }}
+			</text>
 			<rect class="art-line" x="24" y="50" width="140" height="5" rx="2.5" />
 			<rect class="art-line" x="24" y="64" width="200" height="5" rx="2.5" />
 			<rect class="art-line" x="24" y="78" width="170" height="5" rx="2.5" />
@@ -235,7 +251,9 @@
 			<line class="art-rule" x1="54" y1="68" x2="156" y2="68" />
 			<g class="art-accent">
 				<rect class="art-row-accent" x="54" y="72" width="102" height="19" rx="4" />
-				<text class="art-text art-text-accent" x="62" y="85">Add to Dock…</text>
+				<text class="art-text art-text-accent" x="62" y="85">
+					{{ t("install.art.addToDock") }}
+				</text>
 			</g>
 			<rect class="art-line" x="58" y="100" width="52" height="5" rx="2.5" />
 			<rect class="art-line" x="58" y="112" width="36" height="5" rx="2.5" />
@@ -409,6 +427,7 @@
 <script lang="ts">
 import {computed, defineComponent, PropType} from "vue";
 import type {InstallArt} from "../js/helpers/installGuide";
+import {useI18n} from "../js/i18n";
 
 const PHONE_ART = new Set<InstallArt>([
 	"ios-share-bottom",
@@ -432,6 +451,7 @@ export default defineComponent({
 		appName: {type: String, required: true},
 	},
 	setup(props) {
+		const {t} = useI18n();
 		// Relative, like every asset the page loads: a deploy under a path
 		// keeps working.
 		const icon = "img/icon-192.png";
@@ -467,7 +487,7 @@ export default defineComponent({
 			PHONE_ART.has(props.kind) ? "92 0 136 200" : "0 0 320 200"
 		);
 
-		return {icon, host, homeCells, viewBox};
+		return {t, icon, host, homeCells, viewBox};
 	},
 });
 </script>

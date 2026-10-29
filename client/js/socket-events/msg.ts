@@ -1,3 +1,4 @@
+import {t} from "../i18n/core";
 import socket from "../socket";
 import {notificationText} from "../push/strip";
 import {store} from "../store";
@@ -11,6 +12,7 @@ import {attachMediaPreviews} from "../helpers/messagePreviews";
 import * as saved from "../irc/saved-networks";
 import {SAID_TYPES} from "../irc/channel";
 import {insertMessage} from "../helpers/messageUpdates";
+import {forgetTranslations} from "../translate/reader";
 import {nativeAlertsAvailable, showNativeAlert} from "../helpers/nativeAlerts";
 import {alertSound, playNotificationSound} from "../helpers/notificationSound";
 import {hasVirtualKeyboard} from "../helpers/device";
@@ -126,9 +128,17 @@ socket.on("msg", function (data) {
 
 	if (messageLimit > 0 && channel.messages.length > messageLimit) {
 		const dropped = channel.messages.splice(0, channel.messages.length - messageLimit);
+
+		// Their translations (client/js/translate/reader.ts) are keyed by
+		// message id and can never be reached again: they leave with them,
+		// and so does the pipeline's memory of the work behind them.
+		const droppedIds = dropped.map((m) => m.id);
+
+		store.commit("translationRemoveMany", droppedIds);
+		forgetTranslations(droppedIds);
 		channel.moreHistoryAvailable = true;
 		// The IRC layer must stop counting them as shown (bus-contract § 2).
-		socket.emit("history:trim", {target: channel.id, ids: dropped.map((m) => m.id)});
+		socket.emit("history:trim", {target: channel.id, ids: droppedIds});
 	}
 
 	if (channel.type === ChanType.CHANNEL) {
@@ -201,17 +211,22 @@ function notifyMessage(
 				const nick = msg.from && msg.from.nick ? msg.from.nick : "unkonown";
 
 				if (msg.type === MessageType.INVITE) {
-					title = "New channel invite:";
-					body = nick + " invited you to " + msg.channel;
+					title = t("notify.channelInvite");
+					body = t("notify.inviteBody", {nick, channel: msg.channel ?? ""});
 				} else {
-					title = nick;
-
-					if (channel.type !== ChanType.QUERY) {
-						title += ` (${channel.name})`;
-					}
-
+					// Titles of "someone says" notifications, one per shape: the
+					// whole sentence is the translator's, the nick and channel
+					// inside it verbatim.
 					if (msg.type === MessageType.MESSAGE) {
-						title += " says:";
+						title =
+							channel.type !== ChanType.QUERY
+								? t("notify.titleChannelSays", {nick, channel: channel.name})
+								: t("notify.titleSays", {nick});
+					} else {
+						title =
+							channel.type !== ChanType.QUERY
+								? t("notify.titleChannel", {nick, channel: channel.name})
+								: nick;
 					}
 
 					// TODO: fix msg type and get rid of that conditional
@@ -229,7 +244,7 @@ function notifyMessage(
 					from: nick,
 					text:
 						msg.type === MessageType.INVITE
-							? `invited you to ${msg.channel ?? ""}`
+							? t("notify.inviteText", {channel: msg.channel ?? ""})
 							: msg.type === MessageType.ACTION
 							? `\x01ACTION ${msg.text ?? ""}\x01`
 							: msg.text ?? "",

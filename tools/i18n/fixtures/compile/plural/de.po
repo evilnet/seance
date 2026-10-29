@@ -1,0 +1,20 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: seance\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. Condensed summary line for a join burst.
+msgctxt "condensed.join"
+msgid "{count} user has joined"
+msgid_plural "{count} users have joined"
+msgstr[0] "{count} Benutzer ist beigetreten"
+msgstr[1] "{count} Benutzer sind beigetreten"
+
+#. Button on the connect form.
+msgctxt "connect.submit"
+msgid "Connect"
+msgstr "Verbinden"

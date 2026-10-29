@@ -1,4 +1,6 @@
-const colorCodeMap = [
+// `[wire code, English name]`; the name a reader sees is resolved from the
+// catalog in autocompletion.ts, which matches against both.
+const colorCodeMap: [string, string][] = [
 	["00", "White"],
 	["01", "Black"],
 	["02", "Blue"],
@@ -17,15 +19,7 @@ const colorCodeMap = [
 	["15", "Light Grey"],
 ];
 
-const timeFormats = {
-	msgDefault: "HH:mm",
-	msgWithSeconds: "HH:mm:ss",
-	msg12h: "h:mma",
-	msg12hWithSeconds: "h:mm:ssa",
-};
-
 export default {
 	colorCodeMap,
 	commands: [] as string[],
-	timeFormats,
 };

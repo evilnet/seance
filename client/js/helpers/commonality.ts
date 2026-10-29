@@ -9,6 +9,8 @@
  */
 
 import type {LoggedNotice} from "../irc/noticelog";
+import {t, tCount} from "../i18n/core";
+import {andList} from "./operList";
 
 export type FactKey =
 	| "authed"
@@ -110,9 +112,17 @@ export function identShapeLabel(ident: string, glob: string): string {
 		if (fixed.length === run.length) {
 			parts.push(run);
 		} else if (fixed.length > 0) {
-			parts.push(`${run.length} ${cls}s (${run})`);
+			parts.push(
+				cls === "digit"
+					? tCount("oper.investigate.identDigitsGlob", run.length, {glob: run})
+					: tCount("oper.investigate.identLettersGlob", run.length, {glob: run})
+			);
 		} else {
-			parts.push(`${run.length} ${cls}${run.length === 1 ? "" : "s"}`);
+			parts.push(
+				cls === "digit"
+					? tCount("oper.investigate.identDigits", run.length)
+					: tCount("oper.investigate.identLetters", run.length)
+			);
 		}
 
 		i = j;
@@ -140,6 +150,20 @@ export function connectAgeBucket(connectedAt: number, now: number): AgeBucket {
 	}
 
 	return "> 1 d";
+}
+
+/** `connected < 15 min`: a connect-age bucket as the channel card's chip says it. */
+function connectedLabel(bucket: AgeBucket): string {
+	switch (bucket) {
+		case "< 15 min":
+			return t("oper.investigate.fact.connectedUnder15m");
+		case "< 1 h":
+			return t("oper.investigate.fact.connectedUnder1h");
+		case "< 1 d":
+			return t("oper.investigate.fact.connectedUnder1d");
+		default:
+			return t("oper.investigate.fact.connectedOver1d");
+	}
 }
 
 /** The /24 of an IPv4 or the /64 of an IPv6, as a CIDR, and as people say it (`203.0.113.*`). */
@@ -200,13 +224,15 @@ function candidates(user: CommonUser, now: number): Candidate[] {
 			key: "authed",
 			group: user.authed ? "yes" : "no",
 			value: user.authed ? "yes" : "no",
-			label: user.authed ? "authed" : "not authed",
+			label: user.authed
+				? t("oper.investigate.fact.authed")
+				: t("oper.investigate.fact.notAuthed"),
 		});
 	}
 
 	if (user.connectedAt !== undefined) {
 		const bucket = connectAgeBucket(user.connectedAt, now);
-		out.push({key: "connectAge", group: bucket, value: bucket, label: `connected ${bucket}`});
+		out.push({key: "connectAge", group: bucket, value: bucket, label: connectedLabel(bucket)});
 	}
 
 	if (user.realname !== undefined && user.realname !== "") {
@@ -214,7 +240,7 @@ function candidates(user: CommonUser, now: number): Candidate[] {
 			key: "realname",
 			group: user.realname.toLowerCase(),
 			value: user.realname,
-			label: `realname '${user.realname}'`,
+			label: t("oper.investigate.fact.realname", {realname: user.realname}),
 		});
 	}
 
@@ -236,7 +262,7 @@ function candidates(user: CommonUser, now: number): Candidate[] {
 			key: "server",
 			group: user.server.toLowerCase(),
 			value: user.server,
-			label: `server ${user.server}`,
+			label: t("oper.investigate.fact.server", {server: user.server}),
 		});
 	}
 
@@ -245,7 +271,7 @@ function candidates(user: CommonUser, now: number): Candidate[] {
 			key: "version",
 			group: user.version,
 			value: user.version,
-			label: `version '${user.version}'`,
+			label: t("oper.investigate.fact.version", {version: user.version}),
 		});
 	}
 
@@ -310,7 +336,9 @@ export function commonality(users: CommonUser[], now = Date.now(), min = 3): Com
 			facts.push({
 				key,
 				value: glob,
-				label: `ident ${identShapeLabel(best.values[0], glob)}`,
+				label: t("oper.investigate.fact.ident", {
+					shape: identShapeLabel(best.values[0], glob),
+				}),
 				count: best.nicks.length,
 				nicks: best.nicks,
 			});
@@ -356,14 +384,6 @@ export interface ChannelEvent {
 
 const FOLD_MS = 60_000;
 
-function listOf(names: string[]): string {
-	if (names.length <= 1) {
-		return names.join("");
-	}
-
-	return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
-}
-
 /**
  * The kept feed's snoop lines about `channel` within the last hour, as
  * sentences, oldest first; consecutive joins within a minute are folded
@@ -381,7 +401,13 @@ export function lastHourHere(
 
 	const flushJoins = () => {
 		if (joins) {
-			out.push({time: joins.time, kind: "join", text: `${listOf(joins.nicks)} joined`});
+			out.push({
+				time: joins.time,
+				kind: "join",
+				text: tCount("oper.investigate.lastHour.joined", joins.nicks.length, {
+					nicks: andList(joins.nicks),
+				}),
+			});
 			joins = undefined;
 		}
 	};
@@ -410,7 +436,7 @@ export function lastHourHere(
 			if (keyword === "create") {
 				flushJoins();
 				out[out.length - 1].kind = "create";
-				out[out.length - 1].text = `${f.nick} created the channel`;
+				out[out.length - 1].text = t("oper.investigate.lastHour.created", {nick: f.nick});
 			}
 
 			continue;
@@ -423,14 +449,27 @@ export function lastHourHere(
 				out.push({
 					time: entry.time,
 					kind: "part",
-					text: f.reason ? `${f.nick} left (${f.reason})` : `${f.nick} left`,
+					text: f.reason
+						? t("oper.investigate.lastHour.leftReason", {
+								nick: f.nick,
+								reason: f.reason,
+						  })
+						: t("oper.investigate.lastHour.left", {nick: f.nick}),
 				});
 				break;
 			case "kick":
-				out.push({time: entry.time, kind: "kick", text: `${f.kicker} kicked ${f.nick}`});
+				out.push({
+					time: entry.time,
+					kind: "kick",
+					text: t("oper.investigate.lastHour.kicked", {kicker: f.kicker, nick: f.nick}),
+				});
 				break;
 			case "mode":
-				out.push({time: entry.time, kind: "mode", text: `${f.modes} by ${f.setter}`});
+				out.push({
+					time: entry.time,
+					kind: "mode",
+					text: t("oper.investigate.lastHour.mode", {modes: f.modes, setter: f.setter}),
+				});
 				break;
 			default:
 				break;

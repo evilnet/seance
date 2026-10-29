@@ -5,7 +5,8 @@
  * docs/resources/nefarious2-oper.md §4.
  */
 
-import type {SnomaskModel} from "../types";
+import {t} from "../../../i18n/core";
+import type {SnomaskBit, SnomaskModel} from "../types";
 
 export const NEFARIOUS_SNOMASK: SnomaskModel = {
 	all: 0xeffff,
@@ -182,4 +183,104 @@ export const NEFARIOUS_SNOMASK: SnomaskModel = {
 /** The bit names set in `mask`, lowest first. */
 export function bitNames(model: SnomaskModel, mask: number): string[] {
 	return model.bits.filter((b) => (mask & b.bit) !== 0).map((b) => b.name);
+}
+
+/**
+ * A bit's name in the reader's language (the switchboard, "Stop receiving
+ * … notices"). The table's `label` stays the English data; a bit this
+ * profile does not list keeps it.
+ */
+export function bitLabel(bit: Pick<SnomaskBit, "name" | "label">): string {
+	switch (bit.name) {
+		case "OLDSNO":
+			return t("oper.snomask.OLDSNO.label");
+		case "SERVKILL":
+			return t("oper.snomask.SERVKILL.label");
+		case "OPERKILL":
+			return t("oper.snomask.OPERKILL.label");
+		case "HACK2":
+			return t("oper.snomask.HACK2.label");
+		case "HACK3":
+			return t("oper.snomask.HACK3.label");
+		case "UNAUTH":
+			return t("oper.snomask.UNAUTH.label");
+		case "TCPCOMMON":
+			return t("oper.snomask.TCPCOMMON.label");
+		case "TOOMANY":
+			return t("oper.snomask.TOOMANY.label");
+		case "HACK4":
+			return t("oper.snomask.HACK4.label");
+		case "GLINE":
+			return t("oper.snomask.GLINE.label");
+		case "NETWORK":
+			return t("oper.snomask.NETWORK.label");
+		case "IPMISMATCH":
+			return t("oper.snomask.IPMISMATCH.label");
+		case "THROTTLE":
+			return t("oper.snomask.THROTTLE.label");
+		case "OLDREALOP":
+			return t("oper.snomask.OLDREALOP.label");
+		case "CONNEXIT":
+			return t("oper.snomask.CONNEXIT.label");
+		case "AUTO":
+			return t("oper.snomask.AUTO.label");
+		case "DEBUG":
+			return t("oper.snomask.DEBUG.label");
+		case "NICKCHG":
+			return t("oper.snomask.NICKCHG.label");
+		case "AUTH":
+			return t("oper.snomask.AUTH.label");
+		case "WEBIRC":
+			return t("oper.snomask.WEBIRC.label");
+		default:
+			return bit.label;
+	}
+}
+
+/** "Stop receiving … notices" for a bit, a whole phrase per bit. */
+export function bitStopLabel(bit: Pick<SnomaskBit, "name" | "label">): string {
+	switch (bit.name) {
+		case "OLDSNO":
+			return t("oper.snomask.OLDSNO.stop");
+		case "SERVKILL":
+			return t("oper.snomask.SERVKILL.stop");
+		case "OPERKILL":
+			return t("oper.snomask.OPERKILL.stop");
+		case "HACK2":
+			return t("oper.snomask.HACK2.stop");
+		case "HACK3":
+			return t("oper.snomask.HACK3.stop");
+		case "UNAUTH":
+			return t("oper.snomask.UNAUTH.stop");
+		case "TCPCOMMON":
+			return t("oper.snomask.TCPCOMMON.stop");
+		case "TOOMANY":
+			return t("oper.snomask.TOOMANY.stop");
+		case "HACK4":
+			return t("oper.snomask.HACK4.stop");
+		case "GLINE":
+			return t("oper.snomask.GLINE.stop");
+		case "NETWORK":
+			return t("oper.snomask.NETWORK.stop");
+		case "IPMISMATCH":
+			return t("oper.snomask.IPMISMATCH.stop");
+		case "THROTTLE":
+			return t("oper.snomask.THROTTLE.stop");
+		case "OLDREALOP":
+			return t("oper.snomask.OLDREALOP.stop");
+		case "CONNEXIT":
+			return t("oper.snomask.CONNEXIT.stop");
+		case "AUTO":
+			return t("oper.snomask.AUTO.stop");
+		case "DEBUG":
+			return t("oper.snomask.DEBUG.stop");
+		case "NICKCHG":
+			return t("oper.snomask.NICKCHG.stop");
+		case "AUTH":
+			return t("oper.snomask.AUTH.stop");
+		case "WEBIRC":
+			return t("oper.snomask.WEBIRC.stop");
+		default:
+			return t("oper.snomask.stopOther", {name: bit.label});
+	}
 }

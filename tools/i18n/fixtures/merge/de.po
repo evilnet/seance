@@ -1,0 +1,26 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: seance\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#, c-format
+#. Heading of the connect form — the English copy drifted ("!" added).
+#: client/components/Windows/Connect.vue:107
+msgctxt "connect.title"
+msgid "Connect to IRC!"
+msgstr "Mit IRC verbinden"
+
+# Kept short: the Help window's link column is narrow.
+#. About link in the Help window.
+msgctxt "help.about"
+msgid "About"
+msgstr "Über"
+
+#. A key the pot no longer carries.
+msgctxt "old.key"
+msgid "Gone"
+msgstr "Weg"

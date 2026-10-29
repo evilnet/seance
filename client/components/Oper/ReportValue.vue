@@ -18,7 +18,7 @@
 			v-else-if="one.t === 'ip' || one.t === 'host' || one.t === 'mask'"
 			type="button"
 			:class="['oper-chip', 'oper-chip-' + one.t]"
-			:title="chipTitle"
+			:title="t('oper.chip.title')"
 			@click.stop="openMenu($event, one.t, one.v)"
 		>
 			{{ one.v }}
@@ -35,14 +35,17 @@
 		<time
 			v-else-if="one.t === 'expiry'"
 			:class="['oper-expiry', {expired: one.v > 0 && one.v <= now}]"
-			:title="one.v ? absolute(one.v) : 'Never expires'"
+			:title="one.v ? absolute(one.v) : t('oper.report.neverExpires')"
 			>{{ expiry(one.v) }}</time
 		>
 		<span v-else-if="one.t === 'duration'" class="oper-duration">{{ duration(one.v) }}</span>
-		<span v-else-if="one.t === 'bytes'" class="oper-bytes" :title="`${one.v} bytes`">{{
-			bytes(one.v)
-		}}</span>
-		<span v-else-if="one.t === 'number'" class="oper-number">{{ one.v.toLocaleString() }}</span>
+		<span
+			v-else-if="one.t === 'bytes'"
+			class="oper-bytes"
+			:title="tCount('oper.report.bytes', one.v)"
+			>{{ bytes(one.v) }}</span
+		>
+		<span v-else-if="one.t === 'number'" class="oper-number">{{ number(one.v) }}</span>
 		<span v-else-if="one.t === 'chips'" class="oper-chips"
 			><span v-for="chip in one.v" :key="chip" class="oper-chip-static">{{
 				chip
@@ -62,9 +65,11 @@ import type {ReportValue} from "../../../shared/types/oper";
 import type {ClientNetwork} from "../../js/types";
 import {formatBytes, formatDuration, formatExpiry, relativeTime} from "../../js/helpers/operFormat";
 import {openOperTargetMenu} from "../../js/helpers/operMenu";
-import localetime from "../../js/helpers/localetime";
+import {formatDateTime} from "../../js/i18n/dates";
+import {formatNumber} from "../../js/i18n/numbers";
 import useNow from "../../js/hooks/use-now";
 import {useStore} from "../../js/store";
+import {useI18n} from "../../js/i18n";
 import ParsedMessage from "../ParsedMessage.vue";
 import Username from "../Username.vue";
 
@@ -84,6 +89,7 @@ export default defineComponent({
 	setup(props) {
 		const store = useStore();
 		const now = useNow();
+		const {t, tCount} = useI18n();
 		const values = computed<ReportValue[]>(() =>
 			props.value === undefined
 				? []
@@ -104,12 +110,16 @@ export default defineComponent({
 			one,
 			now,
 			openMenu,
-			chipTitle: "Oper actions",
-			absolute: (ms: number) => localetime(new Date(ms)),
+			t,
+			tCount,
+			absolute: (ms: number) => formatDateTime(new Date(ms)),
 			relative: (ms: number) => relativeTime(ms, now.value),
 			expiry: (ms: number) => formatExpiry(ms, now.value),
 			duration: formatDuration,
 			bytes: formatBytes,
+			// The app's language writes the digits and the grouping, not the
+			// browser's (toLocaleString() is the browser locale).
+			number: formatNumber,
 		};
 	},
 });

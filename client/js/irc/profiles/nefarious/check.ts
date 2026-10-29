@@ -18,6 +18,7 @@ import type {
 	ReportValue,
 } from "../../../../../shared/types/oper";
 import type {IrcMessage} from "../../message";
+import {t, tCount} from "../../../i18n/core";
 import {
 	bytes,
 	channel,
@@ -204,17 +205,17 @@ function readCard(lines: IrcMessage[]): Card | undefined {
 const MERGED = new Set(["Privileges", "Capabilities", "Channel(s)", "Marks"]);
 
 function userCard(card: Card, command: string, lines: IrcMessage[]): OperReport {
-	const identity = new SectionBuilder("Identity");
-	const connection = new SectionBuilder("Connection");
-	const oper = new SectionBuilder("Oper");
-	const channels = new SectionBuilder("Channels");
-	const caps = new SectionBuilder("Capabilities");
-	const marks = new SectionBuilder("Marks");
-	const traffic = new SectionBuilder("Traffic");
-	const other = new SectionBuilder("Other");
-	const bouncer = new SectionBuilder("Bouncer session");
+	const identity = new SectionBuilder(t("oper.check.section.identity"));
+	const connection = new SectionBuilder(t("oper.check.section.connection"));
+	const oper = new SectionBuilder(t("oper.check.section.oper"));
+	const channels = new SectionBuilder(t("oper.check.section.channels"));
+	const caps = new SectionBuilder(t("oper.check.section.capabilities"));
+	const marks = new SectionBuilder(t("oper.check.section.marks"));
+	const traffic = new SectionBuilder(t("oper.check.section.traffic"));
+	const other = new SectionBuilder(t("oper.check.section.other"));
+	const bouncer = new SectionBuilder(t("oper.check.section.bouncerSession"));
 	const bouncerSubs: SectionBuilder[] = [];
-	const detail = new SectionBuilder("Bouncer detail");
+	const detail = new SectionBuilder(t("oper.check.section.bouncerDetail"));
 
 	// First pass: merge wrapped labels, keep the order of everything else.
 	type Line = {label: string; value: string} | {raw: string};
@@ -287,7 +288,7 @@ function userCard(card: Card, command: string, lines: IrcMessage[]): OperReport 
 					// disconnect time equal to the connect time carries nothing.
 					until:
 						until === "connected"
-							? state("connected", true)
+							? state(t("oper.check.history.connected"), true)
 							: until === hist[5].trim()
 							? undefined
 							: ctimeValue(until),
@@ -302,10 +303,10 @@ function userCard(card: Card, command: string, lines: IrcMessage[]): OperReport 
 					modes: status.startsWith("+")
 						? mono(status.replace(/ \(local\)$/, ""))
 						: state(status, false),
-					local: local ? text("local") : undefined,
+					local: local ? text(t("oper.check.alias.local")) : undefined,
 				});
 			} else {
-				other.add("Line", text(item.raw.trim()));
+				other.add(t("oper.check.row.line"), text(item.raw.trim()));
 			}
 
 			continue;
@@ -327,28 +328,28 @@ function userCard(card: Card, command: string, lines: IrcMessage[]): OperReport 
 
 		if (inBouncer) {
 			if (label === "Primary" && value === "") {
-				section = new SectionBuilder("Bouncer primary");
+				section = new SectionBuilder(t("oper.check.section.bouncerPrimary"));
 				bouncerSubs.push(section);
 				table = undefined;
 				continue;
 			}
 
 			if (label === "Primary (remote)" && value === "") {
-				section = new SectionBuilder("Bouncer primary (remote)");
+				section = new SectionBuilder(t("oper.check.section.bouncerPrimaryRemote"));
 				bouncerSubs.push(section);
 				table = undefined;
 				continue;
 			}
 
 			if (label === "Aliases") {
-				const sub = new SectionBuilder("Bouncer aliases");
+				const sub = new SectionBuilder(t("oper.check.section.bouncerAliases"));
 				aliasTable = {
 					columns: [
 						{key: "n", label: "#", align: "right"},
-						{key: "numeric", label: "Numeric"},
-						{key: "server", label: "Server"},
-						{key: "modes", label: "Modes"},
-						{key: "local", label: "Where"},
+						{key: "numeric", label: t("oper.check.col.numeric")},
+						{key: "server", label: t("oper.check.col.server")},
+						{key: "modes", label: t("oper.check.col.modes")},
+						{key: "local", label: t("oper.check.col.where")},
 					],
 					rows: [],
 				};
@@ -359,15 +360,15 @@ function userCard(card: Card, command: string, lines: IrcMessage[]): OperReport 
 			}
 
 			if (label === "Connection History") {
-				const sub = new SectionBuilder("Connection history");
+				const sub = new SectionBuilder(t("oper.check.section.connectionHistory"));
 				historyTable = {
 					columns: [
 						{key: "n", label: "#", align: "right"},
-						{key: "ip", label: "IP"},
-						{key: "host", label: "Host"},
-						{key: "count", label: "Times", align: "right"},
-						{key: "last", label: "Last connected"},
-						{key: "until", label: "Until"},
+						{key: "ip", label: t("oper.check.col.ip")},
+						{key: "host", label: t("oper.check.col.host")},
+						{key: "count", label: t("oper.check.col.times"), align: "right"},
+						{key: "last", label: t("oper.check.col.lastConnected")},
+						{key: "until", label: t("oper.check.col.until")},
 					],
 					rows: [],
 				};
@@ -405,7 +406,7 @@ function userCard(card: Card, command: string, lines: IrcMessage[]): OperReport 
 	return {
 		kind: "check-user",
 		title: `CHECK ${card.target}`,
-		subtitle: "User",
+		subtitle: t("oper.check.subtitle.user"),
 		command,
 		sections,
 		raw: rawLines(lines),
@@ -437,7 +438,12 @@ function hostAndIp(value: string): ReportValue[] {
 /** `N bytes (max. M bytes)` → [bytes, "of", bytes]. */
 function queueValue(value: string): ReportValue | ReportValue[] {
 	const m = /^(\d+) bytes \(max\. (\d+) bytes\)$/.exec(value);
-	return m ? [bytes(Number(m[1])), text("of"), bytes(Number(m[2]))] : text(value);
+	return m ? [bytes(Number(m[1])), text(t("oper.check.of")), bytes(Number(m[2]))] : text(value);
+}
+
+/** `N messages`, the count as the server printed it. */
+function messagesText(count: string): string {
+	return tCount("oper.check.messages", Number(count));
 }
 
 /** `<A.aaa> Kb (<n> protocol messages)` → [bytes, "n messages"]. */
@@ -449,58 +455,58 @@ function dataValue(value: string): ReportValue | ReportValue[] {
 		return text(value);
 	}
 
-	return [bytes(amount), text(`${m[2]} messages`)];
+	return [bytes(amount), text(messagesText(m[2]))];
 }
 
 function userEntry(s: UserSections, label: string, value: string): void {
 	switch (label) {
 		case "Nick": {
 			const m = /^(\S+) \((\S+)\)$/.exec(value);
-			s.identity.add("Nick", nick(m ? m[1] : value));
+			s.identity.add(t("oper.check.row.nick"), nick(m ? m[1] : value));
 
 			if (m) {
-				s.identity.add("Numeric", text(m[2]));
+				s.identity.add(t("oper.check.row.numeric"), text(m[2]));
 			}
 
 			return;
 		}
 
 		case "User/Hostmask":
-			s.identity.add("Visible host", host(value));
+			s.identity.add(t("oper.check.row.visibleHost"), host(value));
 			return;
 
 		case "Real User/Host": {
 			const [real, addr] = hostAndIp(value);
-			s.identity.add("Real host", real);
-			s.identity.add("IP", addr);
+			s.identity.add(t("oper.check.row.realHost"), real);
+			s.identity.add(t("oper.check.row.ip"), addr);
 			return;
 		}
 
 		case "Connect host/ip":
-			s.identity.add("Connected via", hostAndIp(value));
+			s.identity.add(t("oper.check.row.connectedVia"), hostAndIp(value));
 			return;
 		case "Real Name":
-			s.identity.add("Real name", text(value));
+			s.identity.add(t("oper.check.row.realName"), text(value));
 			return;
 		case "Status":
-			s.identity.add("Status", text(value));
+			s.identity.add(t("oper.check.row.status"), text(value));
 			return;
 		case "Bouncer Alias":
 		case "Alias Numeric":
 			s.identity.add(label, text(value));
 			return;
 		case "Class":
-			s.identity.add("Class", text(value));
+			s.identity.add(t("oper.check.row.class"), text(value));
 			return;
 		case "Country":
 		case "Continent":
 			s.identity.add(label, text(value));
 			return;
 		case "Connected to":
-			s.identity.add("Server", server(value));
+			s.identity.add(t("oper.check.row.server"), server(value));
 			return;
 		case "Session ID":
-			s.identity.add("Session ID", mono(value));
+			s.identity.add(t("oper.check.row.sessionID"), mono(value));
 			return;
 		case "CTCP Version":
 		case "SWHOIS":
@@ -509,67 +515,73 @@ function userEntry(s: UserSections, label: string, value: string): void {
 			s.identity.add(label, text(value));
 			return;
 		case "Exemptions":
-			s.identity.add("Exemptions", chips(splitList(value, ",")));
+			s.identity.add(t("oper.check.row.exemptions"), chips(splitList(value, ",")));
 			return;
 		case "Umode(s)":
 			umodeEntries(s, value);
 			return;
 		case "Signed on":
-			s.connection.add("Signed on", ctimeValue(value));
+			s.connection.add(t("oper.check.row.signedOn"), ctimeValue(value));
 			return;
 		case "Timestamp":
-			s.connection.add("Nick TS", ctimeUnixValue(value));
+			s.connection.add(t("oper.check.row.nickTS"), ctimeUnixValue(value));
 			return;
 
 		case "Idle for": {
 			const seconds = parseIdle(value);
-			s.connection.add("Idle", seconds === undefined ? text(value) : duration(seconds));
+			s.connection.add(
+				t("oper.check.row.idle"),
+				seconds === undefined ? text(value) : duration(seconds)
+			);
 			return;
 		}
 
 		case "Away message":
-			s.connection.add("Away", text(value));
+			s.connection.add(t("oper.check.row.away"), text(value));
 			return;
 		case "Ports":
-			s.connection.add("Ports", mono(value));
+			s.connection.add(t("oper.check.row.ports"), mono(value));
 			return;
 		case "SSL Ciphers":
-			s.connection.add("TLS cipher", mono(value));
+			s.connection.add(t("oper.check.row.tlsCipher"), mono(value));
 			return;
 		case "SSL Fingerprint":
-			s.connection.add("Certificate fingerprint", mono(value));
+			s.connection.add(t("oper.check.row.certificateFingerprint"), mono(value));
 			return;
 		case "Opered":
-			s.oper.add("Opered", text(value));
+			s.oper.add(t("oper.check.row.opered"), text(value));
 			return;
 		case "Privileges":
-			s.oper.add("Privileges", chips(splitList(value, " ")));
+			s.oper.add(t("oper.check.row.privileges"), chips(splitList(value, " ")));
 			return;
 		case "Channel(s)":
 			if (value === "<none>" || value.startsWith("- ")) {
-				s.channels.add("Channels", text(value));
+				s.channels.add(t("oper.check.row.channels"), text(value));
 			} else {
-				s.channels.add("Channels", splitList(value, " ").map(channelValue));
+				s.channels.add(
+					t("oper.check.row.channels"),
+					splitList(value, " ").map(channelValue)
+				);
 			}
 
 			return;
 		case "Capabilities":
-			s.caps.add("Capabilities", chips(splitList(value, " ")));
+			s.caps.add(t("oper.check.row.capabilities"), chips(splitList(value, " ")));
 			return;
 		case "Marks":
-			s.marks.add("Marks", chips(splitList(value, ",")));
+			s.marks.add(t("oper.check.row.marks"), chips(splitList(value, ",")));
 			return;
 		case "Data sent":
-			s.traffic.add("Sent", dataValue(value));
+			s.traffic.add(t("oper.check.row.sent"), dataValue(value));
 			return;
 		case "Data received":
-			s.traffic.add("Received", dataValue(value));
+			s.traffic.add(t("oper.check.row.received"), dataValue(value));
 			return;
 		case "receiveQ size":
-			s.traffic.add("Receive queue", queueValue(value));
+			s.traffic.add(t("oper.check.row.receiveQueue"), queueValue(value));
 			return;
 		case "sendQ size":
-			s.traffic.add("Send queue", queueValue(value));
+			s.traffic.add(t("oper.check.row.sendQueue"), queueValue(value));
 			return;
 		default:
 			s.other.add(label, text(value));
@@ -582,20 +594,20 @@ function userEntry(s: UserSections, label: string, value: string): void {
  */
 function umodeEntries(s: UserSections, value: string): void {
 	if (value === "<none>") {
-		s.connection.add("User modes", text(value));
+		s.connection.add(t("oper.check.row.userModes"), text(value));
 		return;
 	}
 
 	const [letters, ...rest] = value.split(/\s+/);
-	s.connection.add("User modes", mono(letters));
+	s.connection.add(t("oper.check.row.userModes"), mono(letters));
 
 	if (letters.includes("r") && rest.length > 0) {
-		s.identity.add("Account", text(rest.shift()!.replace(/:\d+$/, "")));
+		s.identity.add(t("oper.check.row.account"), text(rest.shift()!.replace(/:\d+$/, "")));
 	}
 
 	if (rest.length > 0) {
 		s.identity.add(
-			"Host cloaks",
+			t("oper.check.row.hostCloaks"),
 			rest.map((h) => (isIp(h) ? ip(h) : host(h)))
 		);
 	}
@@ -604,21 +616,35 @@ function umodeEntries(s: UserSections, value: string): void {
 /** `<numeric> on <server>, idle <n>s` (a bouncer connection's activity). */
 function activityValue(value: string): ReportValue | ReportValue[] {
 	const m = /^(\S+) on (\S+), idle (\d+)s$/.exec(value);
-	return m ? [mono(m[1]), server(m[2]), text("idle"), duration(Number(m[3]))] : text(value);
+	return m
+		? [mono(m[1]), server(m[2]), text(t("oper.check.idle")), duration(Number(m[3]))]
+		: text(value);
 }
 
 function bouncerEntry(section: SectionBuilder, label: string, value: string): void {
 	switch (label) {
 		case "Session state":
-			section.add("State", state(value, value.startsWith("ACTIVE")));
+			section.add(t("oper.check.row.state"), state(value, value.startsWith("ACTIVE")));
 			return;
 		case "Session ID":
-			section.add("Session ID", mono(value));
+			section.add(t("oper.check.row.sessionID"), mono(value));
 			return;
 
 		case "Managing server": {
 			const m = /^(\S+) \((local|remote)\)$/.exec(value);
-			section.add("Managing server", m ? [server(m[1]), text(m[2])] : text(value));
+			section.add(
+				t("oper.check.row.managingServer"),
+				m
+					? [
+							server(m[1]),
+							text(
+								m[2] === "local"
+									? t("oper.check.managing.local")
+									: t("oper.check.managing.remote")
+							),
+					  ]
+					: text(value)
+			);
 			return;
 		}
 
@@ -640,7 +666,10 @@ function bouncerEntry(section: SectionBuilder, label: string, value: string): vo
 		}
 
 		case "Resume count":
-			section.add("Resumes", /^\d+$/.test(value) ? number(Number(value)) : text(value));
+			section.add(
+				t("oper.check.row.resumes"),
+				/^\d+$/.test(value) ? number(Number(value)) : text(value)
+			);
 			return;
 
 		case "Session totals": {
@@ -651,8 +680,8 @@ function bouncerEntry(section: SectionBuilder, label: string, value: string): vo
 			const recv = m ? parseKb(m[2]) : undefined;
 
 			if (m && sent !== undefined && recv !== undefined) {
-				section.add("Sent", [bytes(sent), text(`${m[3]} messages`)]);
-				section.add("Received", [bytes(recv), text(`${m[4]} messages`)]);
+				section.add(t("oper.check.row.sent"), [bytes(sent), text(messagesText(m[3]))]);
+				section.add(t("oper.check.row.received"), [bytes(recv), text(messagesText(m[4]))]);
 			} else {
 				section.add(label, text(value));
 			}
@@ -661,17 +690,17 @@ function bouncerEntry(section: SectionBuilder, label: string, value: string): vo
 		}
 
 		case "IP":
-			section.add("IP", isIp(value) ? ip(value) : text(value));
+			section.add(t("oper.check.row.ip"), isIp(value) ? ip(value) : text(value));
 			return;
 		case "Server":
-			section.add("Server", server(value));
+			section.add(t("oper.check.row.server"), server(value));
 			return;
 		case "Numeric":
 		case "Port":
 			section.add(label, mono(value));
 			return;
 		case "TLS":
-			section.add("TLS", state(value, value === "yes"));
+			section.add(t("oper.check.row.tls"), state(value, value === "yes"));
 			return;
 		default:
 			section.add(label, text(value));
@@ -692,21 +721,44 @@ const MEMBER_RE = /^ (.{3}) (.{2}) (.)(.)(\S+) \((\S+?)@(\S+)\) {3}\((.*)\x0f\) 
 /** The same without the reset code, for a server that leaves it out. */
 const MEMBER_LOOSE_RE = /^ (.{3}) (.{2}) (.)(.)(\S+) \((\S+?)@(\S+)\) {3}\((.*)\) (\S*)\s*$/;
 
-const STATUS_NAMES: Record<string, string> = {
-	"~": "alias",
-	"<": "delayed",
-	"@": "op",
-	"%": "halfop",
-	"+": "voice",
-};
+/** A member's status prefix in words; "" for none. */
+function statusName(prefix: string): string {
+	switch (prefix) {
+		case "~":
+			return t("oper.check.status.alias");
+		case "<":
+			return t("oper.check.status.delayed");
+		case "@":
+			return t("oper.check.status.op");
+		case "%":
+			return t("oper.check.status.halfop");
+		case "+":
+			return t("oper.check.status.voice");
+		default:
+			return "";
+	}
+}
+
+/** A member's status in words, a zombie (`!`, parted but kept) said so. */
+function memberStatus(zombie: boolean, prefix: string): string | undefined {
+	const name = statusName(prefix);
+
+	if (zombie) {
+		return name
+			? t("oper.check.status.zombieWith", {status: name})
+			: t("oper.check.status.zombie");
+	}
+
+	return name || undefined;
+}
 
 function channelCard(card: Card, command: string, lines: IrcMessage[]): OperReport {
-	const info = new SectionBuilder("Channel");
-	const members = new SectionBuilder("Members");
-	const totals = new SectionBuilder("Totals");
-	const bans = new SectionBuilder("Bans");
-	const excepts = new SectionBuilder("Excepts");
-	const other = new SectionBuilder("Other");
+	const info = new SectionBuilder(t("oper.check.section.channel"));
+	const members = new SectionBuilder(t("oper.check.section.members"));
+	const totals = new SectionBuilder(t("oper.check.section.totals"));
+	const bans = new SectionBuilder(t("oper.check.section.bans"));
+	const excepts = new SectionBuilder(t("oper.check.section.excepts"));
+	const other = new SectionBuilder(t("oper.check.section.other"));
 
 	const memberRows: Record<string, ReportValue | undefined>[] = [];
 	let mode: "info" | "bans" | "excepts" = "info";
@@ -718,7 +770,7 @@ function channelCard(card: Card, command: string, lines: IrcMessage[]): OperRepo
 			if (row) {
 				memberRows.push(row);
 			} else {
-				other.add("Member", text(bodyOf(msg).trim()));
+				other.add(t("oper.check.row.member"), text(bodyOf(msg).trim()));
 			}
 
 			continue;
@@ -741,9 +793,9 @@ function channelCard(card: Card, command: string, lines: IrcMessage[]): OperRepo
 			target.table ??= {
 				columns: [
 					{key: "n", label: "#", align: "right"},
-					{key: "mask", label: "Mask"},
-					{key: "by", label: "Set by"},
-					{key: "when", label: "When"},
+					{key: "mask", label: t("oper.check.col.mask")},
+					{key: "by", label: t("oper.check.col.setBy")},
+					{key: "when", label: t("oper.check.col.when")},
 				],
 				rows: [],
 			};
@@ -759,7 +811,7 @@ function channelCard(card: Card, command: string, lines: IrcMessage[]): OperRepo
 		const m = LABEL_RE.exec(body);
 
 		if (!m) {
-			other.add("Line", text(body.trim()));
+			other.add(t("oper.check.row.line"), text(body.trim()));
 			continue;
 		}
 
@@ -768,19 +820,19 @@ function channelCard(card: Card, command: string, lines: IrcMessage[]): OperRepo
 
 		switch (label) {
 			case "Creation time":
-				info.add("Created", ctimeValue(value));
+				info.add(t("oper.check.row.created"), ctimeValue(value));
 				break;
 			case "Destruction time":
-				info.add("Destroyed at", ctimeValue(value));
+				info.add(t("oper.check.row.destroyedAt"), ctimeValue(value));
 				break;
 			case "Topic":
-				info.add("Topic", text(value));
+				info.add(t("oper.check.row.topic"), text(value));
 				break;
 			case "Set by":
-				info.add("Topic set by", setterValue(value));
+				info.add(t("oper.check.row.topicSetBy"), setterValue(value));
 				break;
 			case "Channel mode(s)":
-				info.add("Modes", value === "<none>" ? text(value) : mono(value));
+				info.add(t("oper.check.row.modes"), value === "<none>" ? text(value) : mono(value));
 				break;
 			case "Total users":
 				totalEntries(totals, value);
@@ -800,16 +852,22 @@ function channelCard(card: Card, command: string, lines: IrcMessage[]): OperRepo
 		const has = (key: string) => memberRows.some((r) => r[key] !== undefined);
 		members.table = {
 			columns: [
-				{key: "status", label: "Status"},
-				{key: "nick", label: "Nick"},
-				{key: "host", label: "User@host"},
-				{key: "realname", label: "Real name"},
-				...(has("account") ? [{key: "account", label: "Account"}] : []),
+				{key: "status", label: t("oper.check.col.status")},
+				{key: "nick", label: t("oper.check.col.nick")},
+				{key: "host", label: t("oper.check.col.userHost")},
+				{key: "realname", label: t("oper.check.col.realName")},
+				...(has("account") ? [{key: "account", label: t("oper.check.col.account")}] : []),
 				...(has("clones")
-					? [{key: "clones", label: "Clones", align: "right" as const}]
+					? [{key: "clones", label: t("oper.check.col.clones"), align: "right" as const}]
 					: []),
 				...(has("oplevel")
-					? [{key: "oplevel", label: "Op level", align: "right" as const}]
+					? [
+							{
+								key: "oplevel",
+								label: t("oper.check.col.opLevel"),
+								align: "right" as const,
+							},
+					  ]
 					: []),
 			],
 			rows: memberRows,
@@ -819,7 +877,7 @@ function channelCard(card: Card, command: string, lines: IrcMessage[]): OperRepo
 	return {
 		kind: "check-channel",
 		title: `CHECK ${card.target}`,
-		subtitle: "Channel",
+		subtitle: t("oper.check.subtitle.channel"),
 		command,
 		sections: buildSections([info, members, totals, bans, excepts, other]),
 		raw: rawLines(lines),
@@ -834,10 +892,10 @@ function memberRow(param: string): Record<string, ReportValue | undefined> | und
 	}
 
 	const [, oplvl, clones, zombie, status, who, user, where, realname, account] = m;
-	const words = [zombie === "!" ? "zombie" : "", STATUS_NAMES[status] ?? ""].filter(Boolean);
+	const words = memberStatus(zombie === "!", status);
 
 	return {
-		status: words.length > 0 ? text(words.join(" ")) : undefined,
+		status: words ? text(words) : undefined,
 		nick: nick(who),
 		host: host(`${user}@${where}`),
 		realname: text(realname),
@@ -852,34 +910,65 @@ function totalEntries(section: SectionBuilder, value: string): void {
 	const m = /^(\d+) \((.*)\)$/.exec(value);
 
 	if (!m) {
-		section.add("Users", text(value));
+		section.add(t("oper.check.row.users"), text(value));
 		return;
 	}
 
-	section.add("Users", number(Number(m[1])));
+	section.add(t("oper.check.row.users"), number(Number(m[1])));
 
 	for (const part of m[2].split(",")) {
 		const p = /^\s*(\d+) (\w+)\s*$/.exec(part);
 
 		if (p) {
-			section.add(p[2].charAt(0).toUpperCase() + p[2].slice(1), number(Number(p[1])));
+			section.add(totalLabel(p[2]), number(Number(p[1])));
 		}
+	}
+}
+
+/** A word of the channel card's total line (`3 ops`) as a row label. */
+function totalLabel(word: string): string {
+	switch (word) {
+		case "ops":
+			return t("oper.check.total.ops");
+		case "halfops":
+			return t("oper.check.total.halfops");
+		case "voiced":
+			return t("oper.check.total.voiced");
+		case "clones":
+			return t("oper.check.total.clones");
+		case "authed":
+			return t("oper.check.total.authed");
+		case "delayed":
+			return t("oper.check.total.delayed");
+		case "aliases":
+			return t("oper.check.total.aliases");
+		default:
+			return word.charAt(0).toUpperCase() + word.slice(1);
 	}
 }
 
 // ---------------------------------------------------------------- server card
 
-const DOWNLINK_FLAGS: Record<string, string> = {
-	"*": "bursting",
-	"!": "awaiting EOB ack",
-	"=": "service",
-	"+": "hub",
-};
+/** A downlink's flag character in words; undefined for none. */
+function downlinkFlag(flag: string): string | undefined {
+	switch (flag) {
+		case "*":
+			return t("oper.check.downlink.bursting");
+		case "!":
+			return t("oper.check.downlink.awaitingAck");
+		case "=":
+			return t("oper.check.downlink.service");
+		case "+":
+			return t("oper.check.downlink.hub");
+		default:
+			return undefined;
+	}
+}
 
 function serverCard(card: Card, command: string, lines: IrcMessage[]): OperReport {
-	const info = new SectionBuilder("Server");
-	const downlinks = new SectionBuilder("Downlinks");
-	const other = new SectionBuilder("Other");
+	const info = new SectionBuilder(t("oper.check.section.server"));
+	const downlinks = new SectionBuilder(t("oper.check.section.downlinks"));
+	const other = new SectionBuilder(t("oper.check.section.other"));
 	let inDownlinks = false;
 
 	for (const msg of card.body) {
@@ -895,12 +984,12 @@ function serverCard(card: Card, command: string, lines: IrcMessage[]): OperRepor
 			downlinks.table ??= {
 				columns: [
 					{key: "n", label: "#", align: "right"},
-					{key: "name", label: "Server"},
-					{key: "flag", label: "State"},
+					{key: "name", label: t("oper.check.col.server")},
+					{key: "flag", label: t("oper.check.col.state")},
 				],
 				rows: [],
 			};
-			const flag = DOWNLINK_FLAGS[link[2]];
+			const flag = downlinkFlag(link[2]);
 			downlinks.table.rows.push({
 				n: number(Number(link[1])),
 				name: server(link[3]),
@@ -912,7 +1001,7 @@ function serverCard(card: Card, command: string, lines: IrcMessage[]): OperRepor
 		const m = LABEL_RE.exec(body);
 
 		if (!m) {
-			other.add("Line", text(body.trim()));
+			other.add(t("oper.check.row.line"), text(body.trim()));
 			continue;
 		}
 
@@ -924,38 +1013,40 @@ function serverCard(card: Card, command: string, lines: IrcMessage[]): OperRepor
 				inDownlinks = true;
 				break;
 			case "Connected at":
-				info.add("Connected", ctimeUnixValue(value));
+				info.add(t("oper.check.row.connected"), ctimeUnixValue(value));
 				break;
 			case "Server name":
-				info.add("Name", server(value));
+				info.add(t("oper.check.row.name"), server(value));
 				break;
 			case "NOOP":
 				info.add("NOOP", state(value, false));
 				break;
 			case "SSL Fingerprint":
-				info.add("Certificate fingerprint", mono(value));
+				info.add(t("oper.check.row.certificateFingerprint"), mono(value));
 				break;
 			case "SSL Ciphers":
-				info.add("TLS cipher", mono(value));
+				info.add(t("oper.check.row.tlsCipher"), mono(value));
 				break;
 			case "Numeric":
-				info.add("Numeric", mono(value));
+				info.add(t("oper.check.row.numeric"), mono(value));
 				break;
 
 			case "Users": {
 				const u = /^(\d+) \/ (\d+)$/.exec(value);
 				info.add(
-					"Users",
-					u ? [number(Number(u[1])), text("of"), number(Number(u[2]))] : text(value)
+					t("oper.check.row.users"),
+					u
+						? [number(Number(u[1])), text(t("oper.check.of")), number(Number(u[2]))]
+						: text(value)
 				);
 				break;
 			}
 
 			case "Status":
-				info.add("Status", text(value));
+				info.add(t("oper.check.row.status"), text(value));
 				break;
 			case "Class":
-				info.add("Class", text(value));
+				info.add(t("oper.check.row.class"), text(value));
 				break;
 			default:
 				other.add(label, text(value));
@@ -965,7 +1056,7 @@ function serverCard(card: Card, command: string, lines: IrcMessage[]): OperRepor
 	return {
 		kind: "check-server",
 		title: `CHECK ${card.target}`,
-		subtitle: "Server",
+		subtitle: t("oper.check.subtitle.server"),
 		command,
 		sections: buildSections([info, downlinks, other]),
 		raw: rawLines(lines),
@@ -975,8 +1066,8 @@ function serverCard(card: Card, command: string, lines: IrcMessage[]): OperRepor
 // -------------------------------------------------------------- host search
 
 function hostCard(card: Card, command: string, lines: IrcMessage[]): OperReport {
-	const matches = new SectionBuilder("Matches");
-	const other = new SectionBuilder("Other");
+	const matches = new SectionBuilder(t("oper.check.section.matches"));
+	const other = new SectionBuilder(t("oper.check.section.other"));
 	const notes: string[] = [];
 	const rows: Record<string, ReportValue | undefined>[] = [];
 	/** Each row's channels with their prefixes (`@#seance`), as `-c` lists them. */
@@ -1017,7 +1108,7 @@ function hostCard(card: Card, command: string, lines: IrcMessage[]): OperReport 
 		}
 
 		if (/^More than \d+ results, truncating\.\.\.$/.test(body.trim())) {
-			notes.push(`${body.trim()} The server stops at its MAX_CHECK_OUTPUT limit.`);
+			notes.push(t("oper.check.truncated", {line: body.trim()}));
 			continue;
 		}
 
@@ -1028,7 +1119,10 @@ function hostCard(card: Card, command: string, lines: IrcMessage[]): OperReport 
 			continue;
 		}
 
-		other.add(m ? m[1].trim() : "Line", text(m ? clean(m[2] ?? "") : body.trim()));
+		other.add(
+			m ? m[1].trim() : t("oper.check.row.line"),
+			text(m ? clean(m[2] ?? "") : body.trim())
+		);
 	}
 
 	// A table cell holds one value: a row's channels are chips, prefixes kept.
@@ -1044,10 +1138,10 @@ function hostCard(card: Card, command: string, lines: IrcMessage[]): OperReport 
 		matches.table = {
 			columns: [
 				{key: "n", label: "#", align: "right"},
-				{key: "nick", label: "Nick"},
-				{key: "user", label: "User"},
-				{key: "host", label: "Host"},
-				...(withChannels ? [{key: "channels", label: "Channels"}] : []),
+				{key: "nick", label: t("oper.check.col.nick")},
+				{key: "user", label: t("oper.check.col.user")},
+				{key: "host", label: t("oper.check.col.host")},
+				...(withChannels ? [{key: "channels", label: t("oper.check.col.channels")}] : []),
 			],
 			rows,
 		};
@@ -1058,7 +1152,7 @@ function hostCard(card: Card, command: string, lines: IrcMessage[]): OperReport 
 	return {
 		kind: "check-host",
 		title: `CHECK ${card.target}`,
-		subtitle: count === 1 ? "1 match" : `${count} matches`,
+		subtitle: tCount("oper.check.subtitle.matches", count),
 		command,
 		sections: buildSections([matches, other]),
 		...(notes.length > 0 ? {notes} : {}),
@@ -1078,15 +1172,17 @@ function humanError(lines: IrcMessage[], target: string): string | undefined {
 
 	switch (err.command) {
 		case "292":
-			return `No matching user, channel, server or host${target ? ` for ${target}` : ""}`;
+			return target
+				? t("oper.check.error.noMatchFor", {target})
+				: t("oper.check.error.noMatch");
 		case "481":
-			return "Permission denied: you are not an IRC operator";
+			return t("oper.check.error.notOper");
 		case "517":
-			return "You don't have the CHECK privilege";
+			return t("oper.check.error.noPrivilege");
 		case "461":
-			return "CHECK needs a target: a nick, a channel, a server or a hostmask";
+			return t("oper.check.error.needsTarget");
 		case "402":
-			return `No such server: ${err.params[1] ?? target}`;
+			return t("oper.check.error.noSuchServer", {server: err.params[1] ?? target});
 		default:
 			return errorOf([err]);
 	}
@@ -1141,7 +1237,8 @@ export function parseCheck(lines: IrcMessage[], command = ""): CheckFacts | unde
 	}
 
 	const type =
-		(["user", "channel", "server", "host"] as const).find((t) => t === card.type) ?? "user";
+		(["user", "channel", "server", "host"] as const).find((kind) => kind === card.type) ??
+		"user";
 	const facts: CheckFacts = {type, target: card.target, fields: {}, members: [], bans: []};
 	let inBans = false;
 

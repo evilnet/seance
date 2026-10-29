@@ -15,10 +15,12 @@ import socket from "./socket";
 import AppearanceSettings from "../components/Settings/Appearance.vue";
 import GeneralSettings from "../components/Settings/General.vue";
 import NotificationSettings from "../components/Settings/Notifications.vue";
+import TranslationSettings from "../components/Settings/Translation.vue";
 import AliasSettings from "../components/Settings/Aliases.vue";
 import NetworkSettings from "../components/Settings/Networks.vue";
 import {ClientChan} from "./types";
 import {shouldShowGeneralSettings} from "./helpers/settingsTabs";
+import {forgetTranslations} from "./translate/reader";
 import * as saved from "./irc/saved-networks";
 import {clearPendingTarget, setPendingTarget} from "./helpers/pendingTarget";
 // Before createWebHashHistory(): the image viewer's popstate listener has to
@@ -75,6 +77,11 @@ const router = createRouter({
 					name: "Notifications",
 					path: "notifications",
 					component: NotificationSettings,
+				},
+				{
+					name: "Translation",
+					path: "translation",
+					component: TranslationSettings,
 				},
 				{
 					name: "Aliases",
@@ -297,8 +304,15 @@ router.afterEach((to) => {
 		if (channel.messages?.length > 100) {
 			const dropped = channel.messages.splice(0, channel.messages.length - 100);
 			channel.moreHistoryAvailable = true;
-			// The IRC layer must stop counting them as shown (bus-contract § 2).
-			socket.emit("history:trim", {target: channel.id, ids: dropped.map((m) => m.id)});
+
+			if (dropped.length > 0) {
+				const droppedIds = dropped.map((m) => m.id);
+
+				store.commit("translationRemoveMany", droppedIds);
+				forgetTranslations(droppedIds);
+				// The IRC layer must stop counting them as shown (bus-contract § 2).
+				socket.emit("history:trim", {target: channel.id, ids: droppedIds});
+			}
 		}
 	}
 });

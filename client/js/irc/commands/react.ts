@@ -13,6 +13,7 @@
 import {ChanType} from "../../../../shared/types/chan";
 import {MessageType} from "../../../../shared/types/msg";
 import {normalizeReaction} from "../../helpers/emoji";
+import {t} from "../../i18n/core";
 import type {Command} from "../types";
 
 const react: Command = {
@@ -21,7 +22,7 @@ const react: Command = {
 		if (chan.type !== ChanType.CHANNEL && chan.type !== ChanType.QUERY) {
 			client.pushMessage(chan, {
 				type: MessageType.ERROR,
-				text: `${cmd} command can only be used in channels and queries.`,
+				text: t("cmd.channelsAndQueriesOnly", {cmd}),
 			});
 			return;
 		}
@@ -36,7 +37,7 @@ const react: Command = {
 		if (text.length === 0) {
 			client.pushMessage(chan, {
 				type: MessageType.ERROR,
-				text: `Usage: /${cmd} <text> [msgid]`,
+				text: t("cmd.usageReact", {cmd}),
 			});
 			return;
 		}
@@ -46,7 +47,7 @@ const react: Command = {
 		if (!msgid) {
 			client.pushMessage(chan, {
 				type: MessageType.ERROR,
-				text: "No message to react to: none here carries a msgid.",
+				text: t("cmd.reactNoTarget"),
 			});
 			return;
 		}

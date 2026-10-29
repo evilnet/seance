@@ -1,9 +1,9 @@
 <template>
 	<div class="oper-activity">
 		<div class="oper-activity-bar">
-			<div class="oper-seg" role="group" aria-label="Period">
+			<div class="oper-seg" role="group" :aria-label="t('oper.activity.period')">
 				<button
-					v-for="p in PERIODS"
+					v-for="p in periods"
 					:key="p.id"
 					type="button"
 					:aria-pressed="period === p.id"
@@ -12,12 +12,16 @@
 					{{ p.label }}
 				</button>
 			</div>
-			<div class="oper-seg oper-activity-view" role="group" aria-label="View">
+			<div
+				class="oper-seg oper-activity-view"
+				role="group"
+				:aria-label="t('oper.activity.view')"
+			>
 				<button type="button" :aria-pressed="view === 'oper'" @click="setView('oper')">
-					By oper
+					{{ t("oper.activity.byOper") }}
 				</button>
 				<button type="button" :aria-pressed="view === 'kind'" @click="setView('kind')">
-					By kind
+					{{ t("oper.activity.byKind") }}
 				</button>
 			</div>
 		</div>
@@ -28,18 +32,21 @@
 		     business: its lines count for nothing here (the cards say when
 		     it is missing). -->
 		<p v-if="missingReport" class="oper-muted oper-activity-missing oper-missing-report">
-			<span>Not in {{ missingReport }}: what services did for opers isn't counted.</span>
+			<span
+				>{{ missingFrame[0] }}<bdi>{{ missingReport }}</bdi
+				>{{ missingFrame[1] }}</span
+			>
 			<button
 				type="button"
 				class="btn btn-small oper-join-channel"
 				@click="join(missingReport)"
 			>
-				Join
+				{{ t("oper.activity.join") }}
 			</button>
 		</p>
 
 		<p v-if="!rows.length" class="oper-muted oper-activity-empty">
-			Nothing kept for this period.
+			{{ t("oper.activity.empty") }}
 		</p>
 
 		<!-- By oper: actor → coarse kind → the notices. -->
@@ -61,11 +68,15 @@
 							:user="{nick: row.actor.name, mode: ''}"
 							:network="network"
 						/>
-						<span v-else class="oper-server">{{ row.actor.name }}</span>
+						<span v-else class="oper-server">{{
+							row.actor.type === "service"
+								? t("oper.activity.services")
+								: t("oper.activity.servers")
+						}}</span>
 					</span>
-					<span :class="['oper-row-count', {hot: row.hot}]"
-						>{{ row.count }} {{ row.count === 1 ? "action" : "actions" }}</span
-					>
+					<span :class="['oper-row-count', {hot: row.hot}]">{{
+						tCount("oper.activity.actions", row.count)
+					}}</span>
 					<time class="oper-row-time" :title="absolute(row.last)">{{
 						clock(row.last)
 					}}</time>
@@ -148,8 +159,7 @@
 		</ul>
 
 		<p v-if="recent.length" class="oper-muted oper-activity-foot">
-			From the {{ recent.length }} {{ recent.length === 1 ? "notice" : "notices" }} kept since
-			{{ keptSince }}.
+			{{ tCount("oper.activity.foot", recent.length, {since: keptSince}) }}
 		</p>
 	</div>
 </template>
@@ -306,7 +316,9 @@ import type {ClientNetwork} from "../../js/types";
 import type {LoggedNotice} from "../../js/irc/noticelog";
 import socket from "../../js/socket";
 import storage from "../../js/localStorage";
-import localetime from "../../js/helpers/localetime";
+import {formatDateTime, formatTime} from "../../js/i18n/dates";
+import {useI18n} from "../../js/i18n";
+import {frameSegments, KEEP} from "../../js/i18n/core";
 import useNow from "../../js/hooks/use-now";
 import {
 	actorOf as actorOfEntry,
@@ -327,12 +339,6 @@ import Username from "../Username.vue";
 
 const VIEW_KEY = "thelounge.oper.activityView";
 
-const PERIODS: {id: Period; label: string}[] = [
-	{id: "today", label: "Today"},
-	{id: "24h", label: "24 h"},
-	{id: "reload", label: "Since reload"},
-];
-
 /**
  * The Opers tab (docs/projects/oper-tools.md, "The panel, redrawn"): what
  * the opers have been doing, rolled up from the notice log
@@ -347,6 +353,15 @@ export default defineComponent({
 	},
 	setup(props) {
 		const now = useNow();
+		const {t, tCount, locale} = useI18n();
+		const periods = computed((): {id: Period; label: string}[] => [
+			{id: "today", label: t("oper.activity.today")},
+			{id: "24h", label: t("oper.activity.last24h")},
+			{id: "reload", label: t("oper.activity.sinceReload")},
+		]);
+		const missingFrame = computed(() =>
+			frameSegments(t("oper.activity.missingReport", {channel: KEEP}), ["channel"])
+		);
 		const period = ref<Period>("today");
 		const view = ref<"oper" | "kind">(storage.get(VIEW_KEY) === "kind" ? "kind" : "oper");
 		const recent = ref<LoggedNotice[]>([]);
@@ -416,8 +431,10 @@ export default defineComponent({
 			socket.off("oper:notices", onNotices);
 		});
 
-		const clock = (t: number) => dayjs(t).format("HH:mm");
-		const seconds = (t: number) => dayjs(t).format("HH:mm:ss");
+		// The app's language and its 12/24-hour setting, like every other
+		// time in the app (dayjs's "HH:mm" was always 24-hour).
+		const clock = (ms: number) => formatTime(ms, false);
+		const seconds = (ms: number) => formatTime(ms, true);
 		const span = (g: KindGroup) =>
 			clock(g.first) === clock(g.last)
 				? clock(g.last)
@@ -431,11 +448,20 @@ export default defineComponent({
 
 			return dayjs(first).isSame(dayjs(now.value), "day")
 				? clock(first)
-				: dayjs(first).format("D MMMM, HH:mm");
+				: new Intl.DateTimeFormat(locale.value, {
+						day: "numeric",
+						month: "long",
+						hour: "2-digit",
+						minute: "2-digit",
+						hourCycle: "h23",
+				  }).format(first);
 		});
 
 		return {
-			PERIODS,
+			t,
+			tCount,
+			periods,
+			missingFrame,
 			period,
 			view,
 			setView,
@@ -453,7 +479,7 @@ export default defineComponent({
 			seconds,
 			span,
 			keptSince,
-			absolute: (t: number) => localetime(new Date(t)),
+			absolute: (ms: number) => formatDateTime(new Date(ms)),
 		};
 	},
 });

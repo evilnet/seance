@@ -10,3 +10,4 @@
 *.gif binary
 *.webp binary
 *.wav binary
+*.wasm binary

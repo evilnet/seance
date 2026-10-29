@@ -10,6 +10,7 @@
  * imports (mocha, test/irc/alerts.ts).
  */
 
+import {t} from "../i18n/core";
 import type {IrcClient} from "./client";
 import {formatLine} from "./message";
 import {fitsQuiet, sendQuiet} from "./quiet";
@@ -41,9 +42,9 @@ export function canAsk(client: IrcClient): boolean {
 	return lookupsOf(client) !== undefined;
 }
 
-/** The oper service's nick, for the messages ("O3 did not answer."). */
+/** The oper service's nick, for the messages ("O3 did not answer."); empty when none is named. */
 export function operBot(client: IrcClient): string {
-	return client.services?.bots.oper.trim() || "the oper service";
+	return client.services?.bots.oper.trim() ?? "";
 }
 
 async function ask<T>(client: IrcClient, lookup: ServiceLookup<T>): Promise<LookupResult<T>> {
@@ -231,15 +232,17 @@ export function describeFailure(client: IrcClient, result: LookupResult<unknown>
 
 	switch (result.kind) {
 		case "missing":
-			return `${bot} is not online (no such nick).`;
+			return bot
+				? t("oper.services.botOffline", {bot})
+				: t("oper.services.operServiceOffline");
 		case "timeout":
-			return `${bot} did not answer.`;
+			return bot ? t("oper.services.botSilent", {bot}) : t("oper.services.operServiceSilent");
 		case "closed":
-			return "The connection is down.";
+			return t("oper.services.connectionDown");
 		case "toolong":
-			return `That is too long to send to ${bot}: shorten the reason or the criteria.`;
+			return bot ? t("oper.services.tooLong", {bot}) : t("oper.services.tooLongOperService");
 		case "unavailable":
-			return "No oper service is set up for this network.";
+			return t("oper.services.noOperService");
 		default:
 			return "";
 	}

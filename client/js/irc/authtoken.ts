@@ -15,6 +15,7 @@
  * feed the queue; `upload.ts` consumes it through `IrcClient.generateToken`.
  */
 
+import {t} from "../i18n/core";
 import type {ISupport} from "./isupport";
 
 export const AUTHTOKEN_CAP = "draft/authtoken";
@@ -98,9 +99,7 @@ export class TokenRequests {
 				resolve,
 				reject,
 				timer: setTimeout(() => {
-					reject(
-						new TokenError("The server did not answer the token request", "TIMEOUT")
-					);
+					reject(new TokenError(t("token.timeout"), "TIMEOUT"));
 					// The server answers in order: its late reply is this request's,
 					// and must not go to the next one (a token scoped to another
 					// channel, or another request's FAIL). Keep the place a while.
@@ -139,15 +138,15 @@ export class TokenRequests {
 		}
 
 		clearTimeout(entry.timer);
-		entry.reject(new TokenError(description || `Token request failed (${code})`, code));
+		entry.reject(new TokenError(description || t("token.failed", {code}), code));
 		return true;
 	}
 
 	/** Reject everything (connection closed). */
-	clear(reason = "Disconnected"): void {
+	clear(reason?: string): void {
 		for (const entry of this.pending.splice(0)) {
 			clearTimeout(entry.timer);
-			entry.reject(new TokenError(reason, "DISCONNECTED"));
+			entry.reject(new TokenError(reason ?? t("token.disconnected"), "DISCONNECTED"));
 		}
 	}
 

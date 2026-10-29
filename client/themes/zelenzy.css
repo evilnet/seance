@@ -182,8 +182,14 @@ html[data-contrast="more"] .window:not(#chat) {
 
 #chat .userlist {
 	background: var(--chat-bg);
-	border-left: 0;
+	border-inline-start: 0;
 	box-shadow: inset 1px 0 0 var(--win-shadow);
+}
+
+/* The list's inner edge faces the scrollback; in RTL it sits on the other
+ * side of the pane. */
+[dir="rtl"] #chat .userlist {
+	box-shadow: inset -1px 0 0 var(--win-shadow);
 }
 
 #chat .userlist .count {
@@ -256,6 +262,14 @@ form.message-search input::placeholder {
 #footer button.active,
 .btn:active {
 	background: var(--rail-item-active-bg);
+	box-shadow: inset 0 0 0 1px var(--win-border), inset 1px 1px 2px rgb(0 0 0 / 20%);
+}
+
+/* The shadows here are a ring and corner lighting — direction-neutral —
+ * but they restate themselves for the active row under RTL, or coffee's
+ * RTL marker override (higher specificity, imported file) and then
+ * mardam's bevel restate would both paint over them. */
+[dir="rtl"] .channel-list-item.active {
 	box-shadow: inset 0 0 0 1px var(--win-border), inset 1px 1px 2px rgb(0 0 0 / 20%);
 }
 

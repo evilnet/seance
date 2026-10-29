@@ -1,10 +1,9 @@
 import {expect} from "chai";
+import en from "../../client/locales/en.json";
 import {
 	defaultPsWords,
 	normalizePsWords,
 	psWords,
-	psWordsHints,
-	psWordsLabels,
 	SHADOW_WORDS,
 	SURFACE_WORDS,
 } from "../../client/js/helpers/psWords";
@@ -28,15 +27,20 @@ describe("helpers/psWords (the ps theme's Words over the plains setting)", funct
 		}
 	});
 
-	it("has a label and a one-line hint for each", function () {
+	it("has an English label and a one-line hint for each (Appearance.vue's keys)", function () {
+		const catalog = en as Record<string, unknown>;
+		const key = (w: string) =>
+			`settings.appearance.psWords${w.charAt(0).toUpperCase()}${w.slice(1)}`;
+
 		for (const w of psWords) {
-			expect(psWordsLabels[w], w).to.be.a("string").and.not.empty;
-			expect(psWordsHints[w], w).to.be.a("string").and.not.empty;
-			expect(psWordsHints[w], w).to.not.include("\n");
+			expect(catalog[key(w)], w).to.be.a("string").and.not.empty;
+			expect(catalog[`${key(w)}Hint`], w).to.be.a("string").and.not.empty;
+			expect(catalog[`${key(w)}Hint`], w).to.not.include("\n");
 		}
 
-		// The two that read under the theme's usual floor by day say so (the build's own figures, docs/projects/ps-words.md §10).
-		expect(psWordsHints.glow).to.include("by day");
-		expect(psWordsHints.rim).to.include("by day");
+		// The two that read under the theme's usual floor by day say so (the
+		// build's own figures, docs/projects/ps-words.md §10).
+		expect(catalog["settings.appearance.psWordsGlowHint"]).to.include("by day");
+		expect(catalog["settings.appearance.psWordsRimHint"]).to.include("by day");
 	});
 });

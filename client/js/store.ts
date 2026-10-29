@@ -9,8 +9,12 @@ import type {InjectionKey} from "vue";
 
 import {SettingsState} from "./settings";
 import {SharedConfiguration, LockedSharedConfiguration} from "../../shared/types/config";
-import {BrandingConfig, DEFAULT_BRANDING, brandingString} from "./branding";
+import {BrandingConfig, DEFAULT_BRANDING} from "./branding";
 import type {UploadProgress} from "./upload";
+import type {Capability} from "./translate/capability";
+import type {ModelView} from "./translate/service";
+import type {ChannelTranslation} from "./translate/channelStore";
+import type {Device, EngineName} from "./translate/engine";
 import {conversationKey} from "./helpers/inbox";
 
 enum DesktopNotificationState {
@@ -30,6 +34,86 @@ function detectDesktopNotificationState(): DesktopNotificationState {
 	}
 
 	return DesktopNotificationState.Blocked;
+}
+
+/** A message's translation (spec § Reading pipeline, 5): in memory only, keyed by the message's store id. */
+export interface TranslationEntry {
+	/**
+	 * `skipped`: detection left the line alone (`reason` says why) and no
+	 * request was made. A mark, never a translation: no text, nothing to
+	 * copy or quote as context.
+	 */
+	status: "pending" | "done" | "failed" | "dropped" | "skipped";
+	/** Restored text so far (pending) or the result (done). */
+	text: string;
+	/** Detected source (ISO 639-1) or "" when the engine detected it. */
+	from: string;
+	to: string;
+	/**
+	 * The detector's runners-up (`detect.ts` `candidates`), which the chip's
+	 * menu offers as one-click "Retranslate from …" corrections. Session
+	 * only, like the rest of the entry; an explicit source keeps the list it
+	 * inherited, so the alternatives stay on offer.
+	 */
+	candidates: string[];
+	engine: EngineName | null;
+	error: string | null;
+	/** "Show original only": the line is kept but not rendered. */
+	hidden: boolean;
+	/**
+	 * Why a `skipped` line was not translated: `same`, detected as the
+	 * reading language (`from` names it); `unsure`, the detector could not
+	 * place it and the reading language is among its `candidates` (or it has
+	 * none). Unset on every other status.
+	 */
+	reason?: "same" | "unsure";
+}
+
+/** A draft's translation in the composer (spec § Composer), keyed by the channel's store id. */
+export interface OutgoingTranslation {
+	status: "pending" | "done" | "failed";
+	/** The draft the strip was made from; a different draft invalidates it. */
+	draft: string;
+	/** Restored text so far (pending) or the translation (done). */
+	text: string;
+	/**
+	 * The draft's language, as the writer chose it (`writeSource`): the
+	 * chip's label. Null until the source is known, or when none is named.
+	 * A retry leaves it alone -- the draft is still in that language.
+	 */
+	from: string | null;
+	/**
+	 * The source the request in flight named: `from` on the first try, null
+	 * on the bare second one (the chip's title says "auto").
+	 */
+	requestFrom: string | null;
+	/** The bare second try ran (`outgoing.ts` `bareRetry`). */
+	retried: boolean;
+	to: string;
+	/**
+	 * The route that produced it (`writer.ts` `engineFor`): the engine and
+	 * the model, both null until the route has answered.
+	 */
+	engine: EngineName | null;
+	/**
+	 * The device the route runs its model on: the strip's chip says GPU or
+	 * CPU by it, and its download note follows that copy. Unset until the
+	 * route has answered.
+	 */
+	device?: Device;
+	model: string | null;
+	error: string | null;
+	/**
+	 * The round trip: idle until the translation is done, then it always
+	 * runs. `engine` is the route the read-back came down, which the posted
+	 * line's translation carries (writer.ts `recordSentReadBack`).
+	 */
+	check: {
+		status: "idle" | "pending" | "done" | "failed";
+		text: string;
+		to: string | null;
+		engine?: EngineName | null;
+	};
 }
 
 export type State = {
@@ -55,6 +139,23 @@ export type State = {
 	userlistOpen: boolean;
 	/** The file upload in flight (`client/js/upload.ts`); `null` when idle. */
 	uploadProgress: UploadProgress | null;
+	/**
+	 * Client-side translation: the device probe, the model manager's rows and
+	 * what the worker last reported about itself (`null` while it is healthy).
+	 */
+	translation: {
+		capability: Capability | null;
+		models: ModelView[];
+		workerError: string | null;
+		/** The queue paused an engine after repeated failures (spec § Lifecycle). */
+		paused: {engine: EngineName; message: string} | null;
+		/** The channel id whose translation panel was asked for (the channel menu). */
+		panelFor: number | null;
+	};
+	translations: Record<number, TranslationEntry>;
+	outgoingTranslations: Record<number, OutgoingTranslation>;
+	/** Per-channel switch state, keyed `<network uuid>/<channel name>` (translate/channelStore.ts). */
+	translateChannels: Record<string, ChannelTranslation>;
 };
 
 const state = (): State => ({
@@ -76,11 +177,13 @@ const state = (): State => ({
 	sidebarDragging: false,
 	userlistOpen: storage.get("thelounge.state.userlist") !== "false",
 	uploadProgress: null,
+	translation: {capability: null, models: [], workerError: null, paused: null, panelFor: null},
+	translations: {},
+	outgoingTranslations: {},
+	translateChannels: {},
 });
 
 type Getters = {
-	/** Branded UI copy: `strings` overrides from config.json, else the default text. */
-	brandingString: (state: State) => (key: string) => string;
 	findChannelOnCurrentNetwork: (state: State) => (name: string) => ClientChan | undefined;
 	findChannelOnNetwork: (state: State) => (
 		networkUuid: string,
@@ -112,7 +215,6 @@ export type CallableGetters = {
 };
 
 const getters: Getters = {
-	brandingString: (state) => (key: string) => brandingString(key, state.branding),
 	findChannelOnCurrentNetwork: (state) => (name: string) => {
 		name = name.toLowerCase();
 		return state.activeChannel?.network.channels.find((c) => c.name.toLowerCase() === name);
@@ -203,6 +305,29 @@ type Mutations = {
 	toggleUserlist(state: State): void;
 	userlistOpen(state: State, payload: State["userlistOpen"]): void;
 	uploadProgress(state: State, progress: State["uploadProgress"]): void;
+	translationCapability(state: State, capability: Capability): void;
+	translationModels(state: State, models: ModelView[]): void;
+	translationWorkerError(state: State, message: string | null): void;
+	translationPaused(state: State, paused: State["translation"]["paused"]): void;
+	/** Ask the view of that channel to open its translation panel; null clears it. */
+	translationPanelFor(state: State, id: number | null): void;
+	translationEntry(state: State, payload: {id: number; entry: TranslationEntry}): void;
+	translationPatch(state: State, payload: {id: number; patch: Partial<TranslationEntry>}): void;
+	translationRemove(state: State, id: number): void;
+	/** Prune several at once: a channel's messages left the store (trim, part, quit). */
+	translationRemoveMany(state: State, ids: number[]): void;
+	outgoingTranslationSet(
+		state: State,
+		payload: {chanId: number; value: OutgoingTranslation}
+	): void;
+	outgoingTranslationPatch(
+		state: State,
+		payload: {chanId: number; patch: Partial<OutgoingTranslation>}
+	): void;
+	outgoingTranslationRemove(state: State, chanId: number): void;
+	translateChannelSet(state: State, payload: {key: string; value: ChannelTranslation}): void;
+	translateChannelRemove(state: State, key: string): void;
+	translateChannelsLoaded(state: State, all: Record<string, ChannelTranslation>): void;
 };
 
 const mutations: Mutations = {
@@ -280,6 +405,61 @@ const mutations: Mutations = {
 	},
 	uploadProgress(state, progress) {
 		state.uploadProgress = progress;
+	},
+	translationCapability(state, capability) {
+		state.translation.capability = capability;
+	},
+	translationModels(state, models) {
+		state.translation.models = models;
+	},
+	translationWorkerError(state, message) {
+		state.translation.workerError = message;
+	},
+	translationPaused(state, paused) {
+		state.translation.paused = paused;
+	},
+	translationPanelFor(state, id) {
+		state.translation.panelFor = id;
+	},
+	translationEntry(state, {id, entry}) {
+		state.translations[id] = entry;
+	},
+	translationPatch(state, {id, patch}) {
+		const entry = state.translations[id];
+
+		if (entry) {
+			Object.assign(entry, patch);
+		}
+	},
+	translationRemove(state, id) {
+		delete state.translations[id];
+	},
+	translationRemoveMany(state, ids) {
+		for (const id of ids) {
+			delete state.translations[id];
+		}
+	},
+	outgoingTranslationSet(state, {chanId, value}) {
+		state.outgoingTranslations[chanId] = value;
+	},
+	outgoingTranslationPatch(state, {chanId, patch}) {
+		const entry = state.outgoingTranslations[chanId];
+
+		if (entry) {
+			Object.assign(entry, patch);
+		}
+	},
+	outgoingTranslationRemove(state, chanId) {
+		delete state.outgoingTranslations[chanId];
+	},
+	translateChannelSet(state, {key, value}) {
+		state.translateChannels[key] = value;
+	},
+	translateChannelRemove(state, key) {
+		delete state.translateChannels[key];
+	},
+	translateChannelsLoaded(state, all) {
+		state.translateChannels = all;
 	},
 };
 

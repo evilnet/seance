@@ -516,7 +516,7 @@ export default async function run(page) {
 		`the menu names the kind and the choices (${menu.join(" | ")})`,
 		menu[0] === "Opers coming up" &&
 			menu.some((m) => /until I change it/.test(m)) &&
-			menu.some((m) => /Stop receiving server events/.test(m))
+			menu.some((m) => /Stop receiving server event notices/.test(m))
 	);
 	await page.screenshot("6b-badge-menu");
 	await page.click("#context-menu .context-menu-oper-route-network");

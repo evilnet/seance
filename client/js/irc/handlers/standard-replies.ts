@@ -13,6 +13,7 @@
  * (../webpush.ts); everything else is shown raw.
  */
 
+import {t} from "../../i18n/core";
 import {MessageType} from "../../../../shared/types/msg";
 import {targetsFailed} from "../catchup";
 import {chatHistoryFailed} from "../history";
@@ -23,29 +24,36 @@ import type {Handler} from "../types";
 import type {IrcClient} from "../client";
 import type {IrcMessage} from "../message";
 
-/** nefarious2 `m_redact.c` codes → what to tell the user. */
-const REDACT_ERRORS: Record<string, string> = {
-	DISABLED: "Deleting messages is disabled on this server.",
-	INVALID_TARGET: "Messages can only be deleted in channels.",
-	REDACT_FORBIDDEN: "You are not allowed to delete that message.",
-	UNKNOWN_MSGID: "The server no longer has that message.",
-	REDACT_WINDOW_EXPIRED: "That message is too old to delete.",
+/** nefarious2 `m_redact.c` codes → what to tell the user. The table holds
+ * resolvers, not key strings, so every t() call keeps its key as a plain
+ * literal (the pot ↔ call-site scanner only sees direct calls). */
+const REDACT_ERRORS: Record<string, () => string> = {
+	DISABLED: () => t("sr.redactDisabled"),
+	INVALID_TARGET: () => t("sr.redactInvalidTarget"),
+	REDACT_FORBIDDEN: () => t("sr.redactForbidden"),
+	UNKNOWN_MSGID: () => t("sr.redactUnknownMsgid"),
+	REDACT_WINDOW_EXPIRED: () => t("sr.redactWindowExpired"),
 };
 
 function redactFailed(client: IrcClient, msg: IrcMessage): void {
 	const [, code = "", ...rest] = msg.params;
 	const description = rest.length > 0 ? rest[rest.length - 1] : "";
 	const [target, msgid] = rest.slice(0, -1);
-	const why = REDACT_ERRORS[code.toUpperCase()] ?? description ?? code;
+	const say = REDACT_ERRORS[code.toUpperCase()];
+	// A code we do not know is shown as the server's own description (or
+	// the raw code) — that part is verbatim, only the known codes are ours.
+	const why = say !== undefined ? say() : description ?? code;
 	const edit = msgid ? client.rejectEdit(msgid) : undefined;
 	const chan = edit ?? (target ? client.findChannel(target) : undefined) ?? client.lobby;
+
+	const text = edit ? t("sr.redactEditPrefix", {why}) : t("sr.redactPrefix", {why});
 
 	client.pushMessage(
 		chan,
 		{
 			type: MessageType.ERROR,
 			time: client.timeOf(msg),
-			text: `${edit ? "Edit not sent" : "Could not delete message"}: ${why}`,
+			text,
 			showInActive: chan === client.lobby,
 		},
 		true
@@ -78,23 +86,25 @@ function multilineFailed(client: IrcClient, msg: IrcMessage): void {
 
 	switch (code.toUpperCase()) {
 		case "MULTILINE_MAX_BYTES":
-			why = `it was too long for one multi-line message${
-				limit ? ` (the server's limit is ${limit} bytes)` : ""
-			}.`;
+			why =
+				limit !== undefined
+					? t("sr.multiline.maxBytesLimit", {limit})
+					: t("sr.multiline.maxBytes");
 			break;
 
 		case "MULTILINE_MAX_LINES":
-			why = `it had too many lines for one multi-line message${
-				limit ? ` (the server's limit is ${limit})` : ""
-			}.`;
+			why =
+				limit !== undefined
+					? t("sr.multiline.maxLinesLimit", {limit})
+					: t("sr.multiline.maxLines");
 			break;
 
 		case "MULTILINE_INVALID_TARGET":
-			why = "its lines did not all go to the same target.";
+			why = t("sr.multiline.invalidTarget");
 			break;
 
 		default:
-			why = description || "the server rejected the multi-line batch.";
+			why = description || t("sr.multiline.rejected");
 	}
 
 	client.pushMessage(
@@ -102,7 +112,7 @@ function multilineFailed(client: IrcClient, msg: IrcMessage): void {
 		{
 			type: MessageType.ERROR,
 			time: client.timeOf(msg),
-			text: `Message not sent: ${why}`,
+			text: t("sr.multilineNotSent", {why}),
 			showInActive: chan === client.lobby,
 		},
 		true

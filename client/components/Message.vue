@@ -10,6 +10,8 @@
 				'previous-source': isPreviousSource,
 				'has-actions': canAct,
 				'actions-open': actionsOpen,
+				translated,
+				unchanged,
 				'select-armed': actionsOpen && selectArmed,
 			},
 		]"
@@ -57,7 +59,7 @@
 						><span class="msg-reply-nick">{{ quote.nick }}</span
 						>&#32;<span class="msg-reply-text"><QuotePreview :text="quote.text" /></span
 					></template>
-					<span v-else class="msg-reply-text">(unknown message)</span>
+					<span v-else class="msg-reply-text">{{ t("message.replyUnknown") }}</span>
 				</button>
 				<StatusmsgMarker :group="message.statusmsgGroup" />
 				<Username
@@ -69,19 +71,27 @@
 					v-if="message.redacted && !revealed"
 					type="button"
 					class="msg-redacted"
-					aria-label="Deleted message, click to reveal"
+					:aria-label="redactedRevealLabel"
 					@click="revealed = true"
 				>
 					{{ redactedLabel }}</button
 				><span
 					v-else-if="message.redacted"
 					class="msg-redacted-revealed"
-					title="Click to hide again"
+					:title="redactedHideTitle"
 					@click="hideRevealed"
 					><ParsedMessage :message="message" />
 					<span class="msg-redacted-note">{{ redactedLabel }}</span></span
 				><ParsedMessage v-else :message="message" />
-				<span v-if="message.editOf" class="msg-edited" :title="editedTitle">(edited)</span>
+				<span v-if="message.editOf" class="msg-edited" :title="editedTitle">{{
+					t("message.editedBadge")
+				}}</span>
+				<TranslationLine
+					v-if="hasTranslationEntry && channel && (!message.redacted || revealed)"
+					:message="message"
+					:channel="channel"
+					:network="network"
+				/>
 				<!-- A deleted message hides its previews with its text: the
 				placeholder would otherwise sit above the very image it deleted.
 				Revealing the text brings them back. -->
@@ -115,14 +125,20 @@
 			<span v-else class="from">
 				<template v-if="message.from && message.from.nick">
 					<span class="only-copy" aria-hidden="true">-</span>
-					<Username :user="message.from" :network="network" :channel="channel" />
+					<!-- A notice's sender is labelled (style.css draws data-label before it). -->
+					<Username
+						:user="message.from"
+						:network="network"
+						:channel="channel"
+						:data-label="message.type === 'notice' ? noticeLabel : undefined"
+					/>
 					<span class="only-copy" aria-hidden="true">-&nbsp;</span>
 				</template>
 			</span>
 			<span class="content" dir="auto">
 				<span
 					v-if="message.showInActive"
-					aria-label="This message was shown in your active channel"
+					:aria-label="shownInActiveLabel"
 					class="msg-shown-in-active tooltipped tooltipped-e"
 					><span></span
 				></span>
@@ -140,26 +156,34 @@
 						><span class="msg-reply-nick">{{ quote.nick }}</span
 						>&#32;<span class="msg-reply-text"><QuotePreview :text="quote.text" /></span
 					></template>
-					<span v-else class="msg-reply-text">(unknown message)</span>
+					<span v-else class="msg-reply-text">{{ t("message.replyUnknown") }}</span>
 				</button>
 				<StatusmsgMarker :group="message.statusmsgGroup" />
 				<button
 					v-if="message.redacted && !revealed"
 					type="button"
 					class="msg-redacted"
-					aria-label="Deleted message, click to reveal"
+					:aria-label="redactedRevealLabel"
 					@click="revealed = true"
 				>
 					{{ redactedLabel }}</button
 				><span
 					v-else-if="message.redacted"
 					class="msg-redacted-revealed"
-					title="Click to hide again"
+					:title="redactedHideTitle"
 					@click="hideRevealed"
 					><ParsedMessage :network="network" :message="message" />
 					<span class="msg-redacted-note">{{ redactedLabel }}</span></span
 				><ParsedMessage v-else :network="network" :message="message" />
-				<span v-if="message.editOf" class="msg-edited" :title="editedTitle">(edited)</span>
+				<span v-if="message.editOf" class="msg-edited" :title="editedTitle">{{
+					t("message.editedBadge")
+				}}</span>
+				<TranslationLine
+					v-if="hasTranslationEntry && channel && (!message.redacted || revealed)"
+					:message="message"
+					:channel="channel"
+					:network="network"
+				/>
 				<!-- A deleted message hides its previews with its text: the
 				placeholder would otherwise sit above the very image it deleted.
 				Revealing the text brings them back. -->
@@ -187,10 +211,7 @@
 
 <script lang="ts">
 import {computed, defineComponent, onUnmounted, PropType, ref, watch} from "vue";
-import dayjs from "dayjs";
 
-import constants from "../js/constants";
-import localetime from "../js/helpers/localetime";
 import Username from "./Username.vue";
 import LinkPreview from "./LinkPreview.vue";
 import ParsedMessage from "./ParsedMessage.vue";
@@ -198,6 +219,8 @@ import MessageTypes from "./MessageTypes";
 import StatusmsgMarker from "./StatusmsgMarker.vue";
 import MessageActions from "./MessageActions.vue";
 import MessageReactions from "./MessageReactions.vue";
+import TranslationLine from "./TranslationLine.vue";
+import {UNCHANGED} from "../js/translate/outgoing";
 import QuotePreview from "./QuotePreview.vue";
 import {replyQuote} from "../js/helpers/messageUpdates";
 import {quoteLayout, toPlainText} from "../js/helpers/ircmessageparser/layout";
@@ -206,6 +229,8 @@ import {MessageType} from "../../shared/types/msg";
 import type {ClientChan, ClientMessage, ClientNetwork} from "../js/types";
 import {useStore} from "../js/store";
 import {isTouchInput} from "../js/helpers/inputModality";
+import {formatDateTime, formatTime} from "../js/i18n/dates";
+import {useI18n} from "../js/i18n";
 import {selectionActive} from "../js/helpers/touchSelection";
 import {nudge} from "../js/helpers/haptics";
 
@@ -259,6 +284,7 @@ export default defineComponent({
 		StatusmsgMarker,
 		MessageActions,
 		MessageReactions,
+		TranslationLine,
 		QuotePreview,
 	},
 	props: {
@@ -271,6 +297,7 @@ export default defineComponent({
 	},
 	setup(props) {
 		const store = useStore();
+		const {t, locale} = useI18n();
 
 		// On a touch device the toolbar opens on a long press, as it does in
 		// every native chat client, and a tap anywhere puts it away. The
@@ -448,35 +475,65 @@ export default defineComponent({
 			}
 		});
 
-		const timeFormat = computed(() => {
-			let format: keyof typeof constants.timeFormats;
-
-			if (store.state.settings.use12hClock) {
-				format = store.state.settings.showSeconds ? "msg12hWithSeconds" : "msg12h";
-			} else {
-				format = store.state.settings.showSeconds ? "msgWithSeconds" : "msgDefault";
-			}
-
-			return constants.timeFormats[format];
-		});
-
+		// The clock and the tooltip both follow the use12hClock setting; the
+		// tooltip always spells the seconds (the cell shows only what fits
+		// its fixed column) and adds the date. locale.value is read so a
+		// language change re-renders what Intl rendered.
 		const messageTime = computed(() => {
-			return dayjs(props.message.time).format(timeFormat.value);
+			void locale.value;
+			return formatTime(
+				props.message.time.getTime(),
+				store.state.settings.showSeconds,
+				store.state.settings.use12hClock
+			);
 		});
 
 		const messageTimeLocale = computed(() => {
-			return localetime(props.message.time);
+			void locale.value;
+			return formatDateTime(props.message.time, store.state.settings.use12hClock);
 		});
 
 		// An edit keeps its original's time (msg:edit); when it was made is editedAt.
 		const editedTitle = computed(() => {
 			return props.message.editedAt
-				? `Edited ${localetime(props.message.editedAt)}`
-				: "This message was edited";
+				? t("message.editedAt", {
+						time: formatDateTime(
+							props.message.editedAt,
+							store.state.settings.use12hClock
+						),
+				  })
+				: t("message.edited");
 		});
 
 		const messageComponent = computed(() => {
 			return "message-" + (props.message.type || "invalid"); // TODO: force existence of type in sharedmsg
+		});
+
+		// Every row of every channel is a Message, and almost none has a
+		// translation entry: the row mounts no TranslationLine until it has
+		// one (each of its states, the skipped chip included, is an entry).
+		const hasTranslationEntry = computed(() => !!store.state.translations[props.message.id]);
+
+		// A finished, shown translation is the bright line; the original dims
+		// (docs/resources/translation.md § Reading a channel). Pending,
+		// failed, dropped or hidden ("Show original only") keep the original
+		// at its normal colour.
+		const translated = computed(() => {
+			const entry = store.state.translations[props.message.id];
+
+			return !!entry && entry.status === "done" && !entry.hidden;
+		});
+
+		// A line the engine handed back as it was (the `unchanged` verdict,
+		// shown as the "=" chip) has no translation row to be the bright
+		// line, so the original is it: it takes the translated ink, which
+		// matters for an own line, dimmed by `.self` like every other.
+		const unchanged = computed(() => {
+			const entry = store.state.translations[props.message.id];
+
+			return (
+				!!entry && entry.status === "failed" && entry.error === UNCHANGED && !entry.hidden
+			);
 		});
 
 		const isAction = () => {
@@ -510,8 +567,8 @@ export default defineComponent({
 
 		const quoteLabel = computed(() =>
 			quote.value
-				? `Replying to ${quote.value.nick}: ${quotePlain.value}. Jump to that message.`
-				: "Replying to a message that is not loaded"
+				? t("message.replyingTo", {nick: quote.value.nick, text: quotePlain.value})
+				: t("message.replyMissing")
 		);
 
 		const jumpToParent = () => {
@@ -549,9 +606,15 @@ export default defineComponent({
 			}
 
 			return r.reason
-				? `[Message deleted by ${r.by}: ${r.reason}]`
-				: `[Message deleted by ${r.by}]`;
+				? t("message.deletedWithReason", {nick: r.by, reason: r.reason})
+				: t("message.deleted", {nick: r.by});
 		});
+
+		// Labels of the deletion placeholder and its reveal state.
+		const redactedRevealLabel = computed(() => t("message.redactedReveal"));
+		const redactedHideTitle = computed(() => t("message.redactedHide"));
+		const shownInActiveLabel = computed(() => t("message.shownInActive"));
+		const noticeLabel = computed(() => t("message.noticeFrom"));
 
 		const hideRevealed = (e: MouseEvent) => {
 			// Let links inside the revealed text keep working.
@@ -572,7 +635,6 @@ export default defineComponent({
 			onTouchEnd,
 			onContextMenu,
 			onClick,
-			timeFormat,
 			messageTime,
 			messageTimeLocale,
 			editedTitle,
@@ -582,10 +644,18 @@ export default defineComponent({
 			quotePlain,
 			quoteLabel,
 			jumpToParent,
+			t,
 			revealed,
 			redactedLabel,
+			redactedRevealLabel,
+			redactedHideTitle,
+			shownInActiveLabel,
+			noticeLabel,
 			hideRevealed,
 			canAct,
+			translated,
+			unchanged,
+			hasTranslationEntry,
 		};
 	},
 });

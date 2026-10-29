@@ -12,8 +12,12 @@
     "url": "https://github.com/evilnet/seance/issues"
   },
   "scripts": {
-    "build:client": "webpack",
-    "build": "webpack",
+    "build:client": "yarn i18n:compile && webpack",
+    "i18n:compile": "tsx tools/i18n/compile.ts",
+    "i18n:check": "tsx tools/i18n/check.ts",
+    "i18n:merge": "tsx tools/i18n/merge.ts",
+    "i18n:sync": "tsx tools/i18n/sync.ts",
+    "build": "yarn i18n:compile && webpack",
     "coverage": "webpack --mode=development && cross-env NODE_ENV=test TS_NODE_PROJECT='./test/tsconfig.json' nyc --nycrc-path=test/.nycrc-mocha.json mocha --config=test/.mocharc.yml 'test/**/*.ts' && nyc --nycrc-path=test/.nycrc-report.json report",
     "format:prettier": "prettier --write \"**/*.*\"",
     "lint:check-eslint": "eslint-config-prettier .eslintrc.cjs",
@@ -45,7 +49,11 @@
     "./public/**"
   ],
   "dependencies": {
+    "@huggingface/transformers": "4.2.0",
+    "@mlc-ai/web-llm": "0.2.85",
+    "@wllama/wllama": "3.8.1",
     "flourite": "1.3.0",
+    "franc": "6.2.0",
     "got": "11.8.6",
     "katex": "0.16.22",
     "linkify-it": "3.0.3",

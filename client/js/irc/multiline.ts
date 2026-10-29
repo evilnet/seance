@@ -14,6 +14,7 @@
  * This module is store- and DOM-free (it runs under mocha).
  */
 
+import {t} from "../i18n/core";
 import {MessageType} from "../../../shared/types/msg";
 import type {IrcClient} from "./client";
 import {BatchHandler, OpenBatch, openBatchesOf} from "./handlers/batch";
@@ -339,8 +340,7 @@ export function planMultiline(
 
 	if (budget <= 0) {
 		throw new RangeError(
-			`No room for message text: ${prefixBytes} bytes of line prefix, ` +
-				`${limits.maxBytes} bytes per message`
+			t("multiline.noRoom", {prefix: prefixBytes, maxBytes: limits.maxBytes})
 		);
 	}
 

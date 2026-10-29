@@ -5,6 +5,7 @@
 
 import {MessageType} from "../../../../shared/types/msg";
 import {trailingLine} from "../wire";
+import {t} from "../../i18n/core";
 import type {Command} from "../types";
 
 const ctcp: Command = {
@@ -18,7 +19,7 @@ const ctcp: Command = {
 		if (cmd === "ver" ? words.length !== 1 : params.length < 2) {
 			client.pushMessage(chan, {
 				type: MessageType.ERROR,
-				text: cmd === "ver" ? "Usage: /ver <nick>" : "Usage: /ctcp <nick> <ctcp_type>",
+				text: cmd === "ver" ? t("cmd.usageVer") : t("cmd.usageCtcp"),
 			});
 			return;
 		}

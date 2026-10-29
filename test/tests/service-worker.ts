@@ -9,12 +9,26 @@
  * page's connection, else a throwaway-connection MARKREAD, else the outbox).
  */
 import {expect} from "chai";
-import {readFileSync} from "node:fs";
+import {existsSync, readFileSync} from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
+import {interpolate, setCatalog, t} from "../../client/js/i18n/core";
+import enCatalog from "../../client/locales/en.json";
+import {applyLocale} from "../../client/js/push/i18n";
 import {CONCAT_TAG, lineIndexOf, parsePushLine} from "../../client/js/push/line";
 import {addMessage, MERGE_KEEP, renderMergedBody} from "../../client/js/push/merge";
+import {appUrlFromScope, networkFromScope} from "../../client/js/push/scope";
 import {notificationText, stripFormatting} from "../../client/js/push/strip";
+import {pseudo} from "../../tools/i18n/pseudo";
+
+// The harness pushes with stored prefs whose locale the worker applies into
+// the SHARED core catalog (applyLocale → setCatalog); a qqx run would leave
+// every later file resolving pseudo-copy. This file is safe today only
+// through mocha file order — hand the real English catalog back after every
+// test instead of leaning on that order.
+afterEach(function () {
+	setCatalog("en", enCatalog, undefined);
+});
 
 const SW_SOURCE = readFileSync(path.join(__dirname, "../../client/service-worker.js"), "utf8");
 
@@ -31,7 +45,12 @@ interface Rec {
 		time?: string;
 		messages?: Array<{from: string; text: string; msgid?: string}>;
 	};
-	actions?: Array<{action: string; type?: string; title: string}>;
+	actions?: Array<{
+		action: string;
+		type?: string;
+		title: string;
+		placeholder?: string;
+	}>;
 	silent?: boolean;
 	renotify?: boolean;
 	shownAt?: number;
@@ -405,6 +424,8 @@ function makeSW(options: HarnessOptions = {}): SWHarness {
 		clearTimeout,
 		MessageChannel,
 		TextEncoder,
+		Response,
+		Headers,
 		btoa: (s: string) => Buffer.from(s, "binary").toString("base64"),
 		navigator: {
 			userAgent: options.userAgent ?? "Mozilla/5.0 (X11; Linux x86_64)",
@@ -472,15 +493,31 @@ function makeSW(options: HarnessOptions = {}): SWHarness {
 					put: (): Promise<void> => Promise.resolve(),
 				}),
 		},
-		fetch: (): Promise<any> =>
-			Promise.resolve({
-				ok: true,
+		fetch(url: string): Promise<any> {
+			// The locale catalogs come off disk — the real compiled artifacts:
+			// the worker's i18n (client/js/push/i18n.ts) fetches
+			// `<app>/locales/<tag>.json`, and the HTTP round-trip is the one
+			// piece of the browser this vm cannot run. Everything else keeps
+			// the empty 200 the push tests have always seen.
+			const catalog = /locales\/([A-Za-z0-9-]+)\.json$/.exec(String(url));
+			const file =
+				catalog !== null
+					? path.join(__dirname, "../../client/locales", catalog[1] + ".json")
+					: null;
+			const body = file !== null && existsSync(file) ? readFileSync(file, "utf8") : null;
+
+			return Promise.resolve({
+				ok: file === null || body !== null,
+				status: file !== null && body === null ? 404 : 200,
 				clone() {
 					return this;
 				},
-				text: (): Promise<string> => Promise.resolve(""),
+				text: (): Promise<string> => Promise.resolve(body ?? ""),
+				json: (): Promise<unknown> =>
+					Promise.resolve(body === null ? {} : JSON.parse(body)),
 				arrayBuffer: (): Promise<ArrayBuffer> => Promise.resolve(new ArrayBuffer(0)),
-			}),
+			});
+		},
 		importScripts(): void {},
 		skipWaiting: (): Promise<void> => Promise.resolve(),
 		indexedDB: {
@@ -558,6 +595,8 @@ function makeSW(options: HarnessOptions = {}): SWHarness {
 	// and `push()` in the worker falls back to its inline minimum.
 	if (!options.noPushModule) {
 		sandbox.seancePush = {
+			networkFromScope,
+			appUrlFromScope,
 			parsePushLine,
 			lineIndexOf,
 			CONCAT_TAG,
@@ -566,6 +605,24 @@ function makeSW(options: HarnessOptions = {}): SWHarness {
 			addMessage,
 			renderMergedBody,
 			MERGE_KEEP,
+			// The worker's i18n surface (worker-entry.ts installs the same
+			// three, with the worker's global fetch bound): applyLocale
+			// applies the prefs' locale per push, and t/interpolate resolve
+			// the worker's own copy through it. The fetcher is this sandbox's
+			// fetch, so the real loader runs against the same fake transport
+			// the worker's own fetch calls would.
+			applyLocale: (appUrl: string, tag?: string | null) =>
+				applyLocale(
+					(url: string) =>
+						sandbox.fetch(url) as {
+							ok: boolean;
+							json(): Promise<unknown>;
+						},
+					appUrl,
+					tag
+				),
+			t,
+			interpolate,
 		};
 	}
 
@@ -966,6 +1023,72 @@ describe("service worker push notifications", function () {
 		expect(sw.shown[0].actions!.map((a) => a.action)).to.deep.equal(["markread", "reply"]);
 		expect(sw.shown[0].actions![0].title).to.equal("Mark read");
 		expect(sw.shown[0].actions![1].type, "the reply is the inline text field").to.equal("text");
+	});
+
+	it("localizes the actions, placeholder and title through the prefs' locale (qqx)", async function () {
+		const sw = makeSW();
+		sw.kv.set("prefs", {markdown: true, locale: "qqx"});
+
+		await firePush(sw, hlPayload("alice", "#seance", "hey there"));
+
+		const shown = sw.shown[0];
+		// The channel title resolves whole ({nick} in {target}) through the
+		// catalog; nick and target are user content and stay verbatim.
+		expect(shown.title).to.equal(
+			interpolate(pseudo("{nick} in {target}"), {nick: "alice", target: "#seance"})
+		);
+		const actions = shown.actions!;
+		expect(actions.map((a) => a.title)).to.deep.equal([pseudo("Mark read"), pseudo("Reply")]);
+		expect(actions[1].placeholder).to.equal(pseudo("Reply…"));
+	});
+
+	it("keeps the exact English copy when the prefs carry no locale", async function () {
+		const sw = makeSW();
+
+		await firePush(sw, hlPayload("alice", "#seance", "hey there"));
+
+		const actions = sw.shown[0].actions!;
+		expect(actions.map((a) => a.title)).to.deep.equal(["Mark read", "Reply"]);
+		expect(actions[1].placeholder).to.equal("Reply…");
+		expect(sw.shown[0].title).to.equal("alice in #seance");
+		expect(sw.shown[0].body).to.equal("alice: hey there");
+	});
+
+	it("falls back to English for a locale the deploy has no catalog for", async function () {
+		const sw = makeSW();
+		sw.kv.set("prefs", {locale: "zz"});
+
+		await firePush(sw, hlPayload("alice", "#seance", "hey there"));
+
+		expect(sw.shown[0].actions!.map((a) => a.title)).to.deep.equal(["Mark read", "Reply"]);
+		expect(sw.shown[0].title).to.equal("alice in #seance");
+	});
+
+	it("localizes the unread-count suffix with the title (a bare number, no plurals)", async function () {
+		const sw = makeSW();
+
+		await firePush(sw, msgPayload("alice", "pushtest", "first"));
+		await firePush(sw, msgPayload("alice", "pushtest", "second"));
+
+		const live = sw.records.filter((n) => !n.closed);
+		expect(live[0].title).to.equal("alice (2)");
+	});
+
+	it("resolves the fallback body from the default locale when IndexedDB rejects", async function () {
+		// A previous push may have installed another locale; the failure path
+		// knows nothing about the prefs, so it must reset to the default
+		// rather than speak a locale it cannot name.
+		const localized = makeSW();
+		localized.kv.set("prefs", {locale: "qqx"});
+		await firePush(localized, msgPayload("alice", "pushtest", "hello there"));
+		expect(localized.shown[0].actions![0].title).to.equal(pseudo("Mark read"));
+
+		const failed = makeSW({failIndexedDB: true});
+		await firePush(failed, msgPayload("alice", "pushtest", "hello there"));
+
+		expect(failed.shown).to.have.lengthOf(1);
+		expect(failed.shown[0].tag).to.equal("push-activity");
+		expect(failed.shown[0].body).to.equal("New activity while you were away.");
 	});
 
 	it("drops a push delivered twice (same msgid), even after its notification was closed", async function () {
@@ -1606,6 +1729,16 @@ describe("service worker push notifications (inline fallback, js/push.js not loa
 		expect(live[0].body).to.equal("**hi**\n**bye**");
 		expect(live[0].data.count).to.equal(2);
 	});
+
+	it("still shows the English actions when the chunk (and with it the catalog) is gone", async function () {
+		const sw = makeSW({noPushModule: true});
+
+		await firePush(sw, msgPayload("alice", "pushtest", "hello there"));
+
+		const actions = sw.shown[0].actions!;
+		expect(actions.map((a) => a.title)).to.deep.equal(["Mark read", "Reply"]);
+		expect(actions[1].placeholder).to.equal("Reply…");
+	});
 });
 
 /** Fire a page-posted message at the worker's `message` handler. */
@@ -2053,6 +2186,25 @@ describe("service worker build announcement", function () {
 
 		expect(a.posted).to.deep.equal([]);
 	});
+
+	it("keeps the translation engines' model caches on a shell update", async function () {
+		const sw = makeSW({clients: []});
+		const deleted: string[] = [];
+
+		sw.sandbox.caches.keys = (): Promise<string[]> =>
+			Promise.resolve(["older-build", "transformers-cache", "webllm/model", "webllm/config"]);
+
+		sw.sandbox.caches.delete = (name: string): Promise<boolean> => {
+			deleted.push(name);
+			return Promise.resolve(true);
+		};
+
+		sw.sandbox.clients.claim = (): Promise<void> => Promise.resolve();
+
+		await activate(sw);
+
+		expect(deleted).to.deep.equal(["older-build"]);
+	});
 });
 
 describe("service worker mark read", function () {
@@ -2184,6 +2336,338 @@ describe("service worker mark read", function () {
 
 		expect(sw.lastSent()).to.include(`MARKREAD alice timestamp=${T}`);
 		expect(sw.kv.get("outbox")).to.have.lengthOf(1);
+	});
+});
+
+describe("service worker copy fallback (SW_COPY_FALLBACK)", function () {
+	it("stays equal to the compiled en catalog's sw.* entries", function () {
+		// The worker's t() falls back to these literals when js/push.js did
+		// not load and no catalog exists anywhere. They must never drift from
+		// the pot's sw.* msgids — en.json is compiled from them, so this pin
+		// fails when either side changes alone.
+		const block = /const SW_COPY_FALLBACK = (\{[\s\S]*?\});/.exec(SW_SOURCE);
+		expect(block, "SW_COPY_FALLBACK found in service-worker.js").to.not.equal(null);
+
+		// The object literal is prettier-formatted (trailing comma), so drop
+		// it before parsing as JSON.
+		const literal = block![1].replace(/,(\s*\})$/, "$1");
+		const fallback = JSON.parse(literal) as Record<string, string>;
+		const en = JSON.parse(
+			readFileSync(path.join(__dirname, "../../client/locales/en.json"), "utf8")
+		) as Record<string, string>;
+		const swKeys = Object.keys(en)
+			.filter((key) => key.startsWith("sw."))
+			.sort();
+
+		expect(swKeys, "the pot carries sw.* keys").to.have.lengthOf.above(0);
+		expect(Object.keys(fallback).sort()).to.deep.equal(swKeys);
+
+		for (const key of swKeys) {
+			expect(fallback[key], key).to.equal(en[key]);
+		}
+	});
+});
+
+describe("service worker push module surface", function () {
+	it("binds exactly the keys worker-entry.ts exports", async function () {
+		// The sandbox's seancePush stands in for js/push.js's module: if a
+		// key is added to worker-entry.ts's export and not to this harness
+		// (or the other way), the worker would run with a silently narrower
+		// surface than the browser's. worker-entry.ts assigns onto `self`
+		// at import time, so stand one in for Node first.
+		(globalThis as {self?: unknown}).self = {};
+
+		try {
+			const {seancePush} = await import("../../client/js/push/worker-entry");
+			const sw = makeSW();
+
+			expect(Object.keys(sw.sandbox.seancePush as object)).to.deep.equal(
+				Object.keys(seancePush)
+			);
+		} finally {
+			delete (globalThis as {self?: unknown}).self;
+		}
+	});
+});
+
+describe("service worker shell cache", function () {
+	/**
+	 * Drive one `fetch` event through the worker and report what it put into
+	 * the shell cache. `length` is the response's `content-length` header,
+	 * `null` for a response that carries none.
+	 */
+	async function cached(sw: SWHarness, url: string, length: string | null): Promise<string[]> {
+		const put: string[] = [];
+		const waited: Promise<unknown>[] = [];
+		let responded: Promise<unknown> = Promise.resolve();
+
+		sw.sandbox.fetch = (): Promise<any> =>
+			Promise.resolve({
+				ok: true,
+				status: 200,
+				redirected: false,
+				headers: {
+					get: (name: string): string | null =>
+						name.toLowerCase() === "content-length" ? length : null,
+				},
+				clone(): unknown {
+					return this;
+				},
+			});
+
+		sw.sandbox.caches.open = (): Promise<any> =>
+			Promise.resolve({
+				match: (): Promise<undefined> => Promise.resolve(undefined),
+				put(request: any): Promise<void> {
+					put.push(typeof request === "string" ? request : request.url);
+					return Promise.resolve();
+				},
+			});
+
+		const request = {url, method: "GET", mode: "no-cors", destination: "script"};
+
+		for (const handler of sw.handlers.fetch ?? []) {
+			handler({
+				request,
+				respondWith(p: Promise<unknown>) {
+					responded = p;
+				},
+				waitUntil: (p: Promise<unknown>) => waited.push(p),
+			});
+		}
+
+		await Promise.all([responded, ...waited]);
+		return put;
+	}
+
+	it("caches an ordinary asset", async function () {
+		const sw = makeSW();
+
+		expect(await cached(sw, `${SCOPE}js/bundle.js`, String(900 * 1024))).to.deep.equal([
+			`${SCOPE}js/bundle.js`,
+		]);
+	});
+
+	it("caches a response that does not say how big it is", async function () {
+		const sw = makeSW();
+
+		expect(await cached(sw, `${SCOPE}css/style.css`, null)).to.deep.equal([
+			`${SCOPE}css/style.css`,
+		]);
+	});
+
+	it("does not put a response over 8 MiB into the shell cache", async function () {
+		const sw = makeSW();
+
+		// A 9 MiB same-origin GET: served, never stored. The shell cache is
+		// what makes the app open offline, not a general-purpose store.
+		expect(await cached(sw, `${SCOPE}media/clip.webm`, String(9 * 1024 * 1024))).to.deep.equal(
+			[]
+		);
+	});
+
+	it("never sees a request under models/ (a same-origin mirror is excluded)", async function () {
+		const sw = makeSW();
+
+		expect(await cached(sw, `${SCOPE}models/Xenova/nllb/onnx/x.onnx`, "1024")).to.deep.equal(
+			[]
+		);
+	});
+});
+
+describe("service worker cross-origin isolation headers", function () {
+	// docs/projects/translation-devices.md § Multithreading: the root worker
+	// makes the app's documents and its own worker scripts cross-origin
+	// isolated (multithreaded WebAssembly for the CPU models), from the
+	// network and from the shell cache alike.
+	const COOP = "cross-origin-opener-policy";
+	const COEP = "cross-origin-embedder-policy";
+
+	interface Served {
+		/** What the worker answered with; undefined when it never called respondWith. */
+		response: Response | undefined;
+		/** What it stored in the shell cache. */
+		put: Response[];
+	}
+
+	/**
+	 * Drive one `fetch` event through the worker. `network` is what the
+	 * network answers (a function, so each call gets a fresh body), or
+	 * "offline" for a fetch that rejects; `cached` is the shell cache's copy.
+	 */
+	async function serveFetch(
+		sw: SWHarness,
+		request: {url: string; mode: string; destination: string},
+		network: (() => Response) | "offline",
+		cached?: () => Response
+	): Promise<Served> {
+		const put: Response[] = [];
+		const waited: Promise<unknown>[] = [];
+		let responded: Promise<Response> | undefined;
+
+		sw.sandbox.fetch = (): Promise<Response> =>
+			network === "offline"
+				? Promise.reject(new TypeError("Failed to fetch"))
+				: Promise.resolve(network());
+		sw.sandbox.caches.open = (): Promise<any> =>
+			Promise.resolve({
+				match: (): Promise<Response | undefined> => Promise.resolve(cached?.()),
+				put(_request: unknown, response: Response): Promise<void> {
+					put.push(response);
+					return Promise.resolve();
+				},
+			});
+
+		for (const handler of sw.handlers.fetch ?? []) {
+			handler({
+				request: {method: "GET", ...request},
+				clientId: "",
+				respondWith(p: Promise<Response>) {
+					responded = p;
+				},
+				waitUntil: (p: Promise<unknown>) => waited.push(p),
+			});
+		}
+
+		const response = responded ? await responded : undefined;
+		await Promise.all(waited);
+		return {response, put};
+	}
+
+	const page =
+		(headers: Record<string, string> = {}) =>
+		() =>
+			new Response("<!doctype html><title>app</title>", {
+				status: 200,
+				headers: {"content-type": "text/html", ...headers},
+			});
+	const script = () => () =>
+		new Response("self.onmessage = () => {};", {
+			status: 200,
+			headers: {"content-type": "text/javascript"},
+		});
+	const navigation = {url: SCOPE, mode: "navigate", destination: "document"};
+
+	it("isolates a navigation served from the network", async function () {
+		const {response, put} = await serveFetch(makeSW(), navigation, page());
+
+		expect(response?.status).to.equal(200);
+		expect(response?.headers.get(COOP)).to.equal("same-origin");
+		expect(response?.headers.get(COEP)).to.equal("credentialless");
+		expect(response?.headers.get("content-type")).to.equal("text/html");
+		expect(await response?.text()).to.equal("<!doctype html><title>app</title>");
+		// The shell cache still gets a copy.
+		expect(put).to.have.length(1);
+	});
+
+	it("isolates a navigation served from the shell cache", async function () {
+		// A copy stored by an older worker carries no headers of its own.
+		const {response} = await serveFetch(makeSW(), navigation, "offline", page());
+
+		expect(response?.headers.get(COOP)).to.equal("same-origin");
+		expect(response?.headers.get(COEP)).to.equal("credentialless");
+		expect(await response?.text()).to.equal("<!doctype html><title>app</title>");
+	});
+
+	it("isolates the app's own worker script", async function () {
+		const {response} = await serveFetch(
+			makeSW(),
+			{
+				url: `${SCOPE}js/translate-worker.js?v=abc`,
+				mode: "same-origin",
+				destination: "worker",
+			},
+			script()
+		);
+
+		expect(response?.headers.get(COOP)).to.equal("same-origin");
+		expect(response?.headers.get(COEP)).to.equal("credentialless");
+		expect(await response?.text()).to.equal("self.onmessage = () => {};");
+	});
+
+	it("isolates the app's own worker script from the shell cache", async function () {
+		const {response} = await serveFetch(
+			makeSW(),
+			{
+				url: `${SCOPE}js/translate-worker.js?v=abc`,
+				mode: "same-origin",
+				destination: "worker",
+			},
+			"offline",
+			script()
+		);
+
+		expect(response?.headers.get(COEP)).to.equal("credentialless");
+	});
+
+	it("leaves an ordinary script's headers alone", async function () {
+		const {response} = await serveFetch(
+			makeSW(),
+			{url: `${SCOPE}js/bundle.js?v=abc`, mode: "no-cors", destination: "script"},
+			script()
+		);
+
+		expect(response?.headers.get(COOP)).to.equal(null);
+		expect(response?.headers.get(COEP)).to.equal(null);
+	});
+
+	it("keeps the deploy's own policy where it sent one", async function () {
+		// branding.md § Threads: a deploy may choose `require-corp`.
+		const {response} = await serveFetch(
+			makeSW(),
+			navigation,
+			page({"Cross-Origin-Embedder-Policy": "require-corp"})
+		);
+
+		expect(response?.headers.get(COEP)).to.equal("require-corp");
+		expect(response?.headers.get(COOP)).to.equal("same-origin");
+	});
+
+	it("isolates under Chromium's user agent", async function () {
+		const sw = makeSW({
+			userAgent:
+				"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+		});
+		const {response} = await serveFetch(sw, navigation, page());
+
+		expect(response?.headers.get(COEP)).to.equal("credentialless");
+	});
+
+	it("adds nothing under WebKit, which has no credentialless", async function () {
+		// Spec § Multithreading: Safari and every iOS browser stay as they
+		// were, COOP included.
+		for (const userAgent of [
+			"Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
+			"Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/129.0.6668.69 Mobile/15E148 Safari/604.1",
+			"Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15",
+		]) {
+			const {response} = await serveFetch(makeSW({userAgent}), navigation, page());
+
+			expect(response?.status, userAgent).to.equal(200);
+			expect(response?.headers.get(COOP), userAgent).to.equal(null);
+			expect(response?.headers.get(COEP), userAgent).to.equal(null);
+		}
+	});
+
+	it("never touches a cross-origin request", async function () {
+		const {response} = await serveFetch(
+			makeSW(),
+			{url: "https://cdn.example/preview.png", mode: "no-cors", destination: "image"},
+			page()
+		);
+
+		expect(response).to.equal(undefined);
+	});
+
+	it("adds nothing on a push-only worker", async function () {
+		const sw = makeSW({scope: `${SCOPE}push/net-1/`});
+		const {response} = await serveFetch(
+			sw,
+			{url: `${SCOPE}push/net-1/`, mode: "navigate", destination: "document"},
+			page()
+		);
+
+		expect(response).to.equal(undefined);
 	});
 });
 

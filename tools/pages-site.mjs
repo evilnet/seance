@@ -15,6 +15,11 @@
 // ("" for the root). `<artifacts dir>/<name>/` holds each build's `public/`
 // tree where the job succeeded. Kept dependency-free; the pure parts are
 // exported for test/tools/pages-site.ts.
+//
+// Source maps (`*.map`, ~18 MB a build) stay out of the site: every build
+// keeps them in its own `public/` (and the workflow's cache), but the site
+// carries several builds and nobody debugs a preview from its maps. The
+// bundles' `sourceMappingURL` comments stay; only DevTools follows them.
 
 import {cpSync, existsSync, mkdirSync, readFileSync, writeFileSync} from "node:fs";
 import {join} from "node:path";
@@ -148,6 +153,11 @@ export function renderStub(entry, {runUrl, base} = {}) {
 `;
 }
 
+/** Whether a file of a build is published: everything but a source map. */
+export function keepOnSite(path) {
+	return !path.endsWith(".map");
+}
+
 /**
  * Copy each build into place and write the index. Returns the entries with
  * `failed` set where no build was found.
@@ -162,7 +172,7 @@ export function assemble(plan, artifactsDir, outDir, {repo, runUrl, base, now = 
 		mkdirSync(to, {recursive: true});
 
 		if (built) {
-			cpSync(from, to, {recursive: true});
+			cpSync(from, to, {recursive: true, filter: keepOnSite});
 		} else {
 			writeFileSync(join(to, "index.html"), renderStub(entry, {runUrl, base}));
 		}

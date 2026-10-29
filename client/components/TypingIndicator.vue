@@ -7,6 +7,7 @@
 <script lang="ts">
 import {computed, defineComponent, PropType} from "vue";
 import type {ClientChan} from "../js/types";
+import {useI18n} from "../js/i18n";
 import {typingSummary} from "../js/helpers/typingState";
 
 // A one-line "alice is typing…" strip above the input, with a fixed height
@@ -24,11 +25,13 @@ export default defineComponent({
 		channel: {type: Object as PropType<ClientChan>, required: true},
 	},
 	setup(props) {
+		const {t, tCount} = useI18n();
+
 		const visible = computed(
 			() => props.channel.typing.length > 0 || props.channel.typingReserved
 		);
 
-		const summary = computed(() => typingSummary(props.channel.typing));
+		const summary = computed(() => typingSummary(props.channel.typing, t, tCount));
 
 		return {visible, summary};
 	},

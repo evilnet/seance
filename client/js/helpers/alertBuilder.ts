@@ -12,12 +12,13 @@
  */
 
 import type {ServiceAlert} from "../irc/services/types";
+import {t, tCount} from "../i18n/core";
 
 // -------------------------------------------------------------- reactions
 
 export interface ReactionDef {
+	/** O3's keyword; its label is {@link reactionLabel}. */
 	id: string;
-	label: string;
 	/** The O3 level the reaction needs (x3-services.md §7 Alerts). */
 	level: number;
 	/** A criterion the reaction cannot do without. */
@@ -28,19 +29,51 @@ export interface ReactionDef {
 export const ALERT_BASE_LEVEL = 800;
 
 export const REACTIONS: ReactionDef[] = [
-	{id: "notice", label: "Notice the opers", level: ALERT_BASE_LEVEL},
-	{id: "noticeuser", label: "Notice the user", level: ALERT_BASE_LEVEL},
-	{id: "msguser", label: "Message the user", level: ALERT_BASE_LEVEL},
-	{id: "gline", label: "G-line", level: 900},
-	{id: "shun", label: "Shun", level: 900},
-	{id: "tempshun", label: "Temporary shun", level: 900},
-	{id: "track", label: "Track", level: 900},
-	{id: "kill", label: "Kill", level: 900},
-	{id: "mark", label: "Mark", level: 999},
-	{id: "version", label: "Ask for the version", level: 999},
-	{id: "svsjoin", label: "Force-join a channel", level: 999, needs: "chantarget"},
-	{id: "svspart", label: "Force-part a channel", level: 999, needs: "chantarget"},
+	{id: "notice", level: ALERT_BASE_LEVEL},
+	{id: "noticeuser", level: ALERT_BASE_LEVEL},
+	{id: "msguser", level: ALERT_BASE_LEVEL},
+	{id: "gline", level: 900},
+	{id: "shun", level: 900},
+	{id: "tempshun", level: 900},
+	{id: "track", level: 900},
+	{id: "kill", level: 900},
+	{id: "mark", level: 999},
+	{id: "version", level: 999},
+	{id: "svsjoin", level: 999, needs: "chantarget"},
+	{id: "svspart", level: 999, needs: "chantarget"},
 ];
+
+/** A reaction in plain words (`Notice the opers`). */
+export function reactionLabel(id: string): string {
+	switch (id) {
+		case "notice":
+			return t("oper.alertBuilder.reaction.notice");
+		case "noticeuser":
+			return t("oper.alertBuilder.reaction.noticeuser");
+		case "msguser":
+			return t("oper.alertBuilder.reaction.msguser");
+		case "gline":
+			return t("oper.alertBuilder.reaction.gline");
+		case "shun":
+			return t("oper.alertBuilder.reaction.shun");
+		case "tempshun":
+			return t("oper.alertBuilder.reaction.tempshun");
+		case "track":
+			return t("oper.alertBuilder.reaction.track");
+		case "kill":
+			return t("oper.alertBuilder.reaction.kill");
+		case "mark":
+			return t("oper.alertBuilder.reaction.mark");
+		case "version":
+			return t("oper.alertBuilder.reaction.version");
+		case "svsjoin":
+			return t("oper.alertBuilder.reaction.svsjoin");
+		case "svspart":
+			return t("oper.alertBuilder.reaction.svspart");
+		default:
+			return id;
+	}
+}
 
 export function reactionDef(id: string): ReactionDef | undefined {
 	return REACTIONS.find((r) => r.id === id);
@@ -56,8 +89,8 @@ export function reactionTooLow(reaction: ReactionDef, level: number | undefined)
 export type ExpiryId = "1d" | "3d" | "1w" | "1M" | "never";
 
 export interface ExpiryDef {
+	/** X3's duration; its label is {@link expiryLabel}. */
 	id: ExpiryId;
-	label: string;
 	/** Seconds, 0 for never. */
 	seconds: number;
 }
@@ -66,12 +99,28 @@ const DAY = 86400;
 
 /** In X3's units (`1d 3d 1w 1M`, case-sensitive: `M` is a month). */
 export const EXPIRIES: ExpiryDef[] = [
-	{id: "1d", label: "today", seconds: DAY},
-	{id: "3d", label: "3 days", seconds: 3 * DAY},
-	{id: "1w", label: "1 week", seconds: 7 * DAY},
-	{id: "1M", label: "1 month", seconds: 30 * DAY},
-	{id: "never", label: "never", seconds: 0},
+	{id: "1d", seconds: DAY},
+	{id: "3d", seconds: 3 * DAY},
+	{id: "1w", seconds: 7 * DAY},
+	{id: "1M", seconds: 30 * DAY},
+	{id: "never", seconds: 0},
 ];
+
+/** An expiry in plain words (`1 week`, `never`). */
+export function expiryLabel(id: ExpiryId): string {
+	switch (id) {
+		case "1d":
+			return t("oper.alertBuilder.expiry.1d");
+		case "3d":
+			return t("oper.alertBuilder.expiry.3d");
+		case "1w":
+			return t("oper.alertBuilder.expiry.1w");
+		case "1M":
+			return t("oper.alertBuilder.expiry.1M");
+		default:
+			return t("oper.alertBuilder.expiry.never");
+	}
+}
 
 export const DEFAULT_EXPIRY: ExpiryId = "1w";
 
@@ -105,34 +154,119 @@ export function expiryFor(expires: string | undefined, now = Date.now()): Expiry
 // -------------------------------------------------------------- criteria
 
 export interface CriterionDef {
-	/** O3's keyword (`info`, `nickage`). */
+	/** O3's keyword (`info`, `nickage`); in words {@link criterionLabel}, its hint {@link criterionPlaceholder}. */
 	key: string;
-	/** In plain words (`realname`, `nick age`). */
-	label: string;
-	placeholder: string;
 }
 
 /** The criteria the builder offers, in the order the "add" list shows them. */
 export const CRITERIA: CriterionDef[] = [
-	{key: "channel", label: "in channel", placeholder: "#chan"},
-	{key: "authed", label: "authed", placeholder: "yes or no"},
-	{key: "info", label: "realname", placeholder: "a glob, * and ?"},
-	{key: "ident", label: "ident", placeholder: "r???? (a glob)"},
-	{key: "ip", label: "IP", placeholder: "1.2.3.4, 1.2.*, 1.2.3.0/24"},
-	{key: "nickage", label: "nick age", placeholder: "<300 (seconds)"},
-	{key: "last", label: "nick seen within", placeholder: "1h"},
-	{key: "server", label: "server", placeholder: "a glob on the uplink"},
-	{key: "nick", label: "nick", placeholder: "a glob"},
-	{key: "host", label: "host", placeholder: "a glob on the hostname"},
-	{key: "version", label: "version", placeholder: "a glob on the CTCP VERSION reply"},
-	{key: "account", label: "account", placeholder: "a glob; implies authed"},
-	{key: "clones", label: "clones from the IP", placeholder: "at least N"},
-	{key: "numchannels", label: "channels", placeholder: "exactly N"},
-	{key: "modes", label: "user modes", placeholder: "+o-i"},
-	{key: "marked", label: "marked", placeholder: "a glob on the marks"},
-	{key: "regex", label: "values are regexes", placeholder: "yes"},
-	{key: "chantarget", label: "target channel", placeholder: "#chan (svsjoin, svspart)"},
+	{key: "channel"},
+	{key: "authed"},
+	{key: "info"},
+	{key: "ident"},
+	{key: "ip"},
+	{key: "nickage"},
+	{key: "last"},
+	{key: "server"},
+	{key: "nick"},
+	{key: "host"},
+	{key: "version"},
+	{key: "account"},
+	{key: "clones"},
+	{key: "numchannels"},
+	{key: "modes"},
+	{key: "marked"},
+	{key: "regex"},
+	{key: "chantarget"},
 ];
+
+/** A criterion in plain words (`realname`, `nick age`); one the builder does not list, its keyword. */
+export function criterionLabel(key: string): string {
+	switch (key) {
+		case "channel":
+			return t("oper.alertBuilder.criterion.channel");
+		case "authed":
+			return t("oper.alertBuilder.criterion.authed");
+		case "info":
+			return t("oper.alertBuilder.criterion.info");
+		case "ident":
+			return t("oper.alertBuilder.criterion.ident");
+		case "ip":
+			return t("oper.alertBuilder.criterion.ip");
+		case "nickage":
+			return t("oper.alertBuilder.criterion.nickage");
+		case "last":
+			return t("oper.alertBuilder.criterion.last");
+		case "server":
+			return t("oper.alertBuilder.criterion.server");
+		case "nick":
+			return t("oper.alertBuilder.criterion.nick");
+		case "host":
+			return t("oper.alertBuilder.criterion.host");
+		case "version":
+			return t("oper.alertBuilder.criterion.version");
+		case "account":
+			return t("oper.alertBuilder.criterion.account");
+		case "clones":
+			return t("oper.alertBuilder.criterion.clones");
+		case "numchannels":
+			return t("oper.alertBuilder.criterion.numchannels");
+		case "modes":
+			return t("oper.alertBuilder.criterion.modes");
+		case "marked":
+			return t("oper.alertBuilder.criterion.marked");
+		case "regex":
+			return t("oper.alertBuilder.criterion.regex");
+		case "chantarget":
+			return t("oper.alertBuilder.criterion.chantarget");
+		default:
+			return key;
+	}
+}
+
+/** The hint in a criterion's value field (`a glob, * and ?`). */
+export function criterionPlaceholder(key: string): string {
+	switch (key) {
+		case "channel":
+			return t("oper.alertBuilder.placeholder.channel");
+		case "authed":
+			return t("oper.alertBuilder.placeholder.authed");
+		case "info":
+			return t("oper.alertBuilder.placeholder.info");
+		case "ident":
+			return t("oper.alertBuilder.placeholder.ident");
+		case "ip":
+			return t("oper.alertBuilder.placeholder.ip");
+		case "nickage":
+			return t("oper.alertBuilder.placeholder.nickage");
+		case "last":
+			return t("oper.alertBuilder.placeholder.last");
+		case "server":
+			return t("oper.alertBuilder.placeholder.server");
+		case "nick":
+			return t("oper.alertBuilder.placeholder.nick");
+		case "host":
+			return t("oper.alertBuilder.placeholder.host");
+		case "version":
+			return t("oper.alertBuilder.placeholder.version");
+		case "account":
+			return t("oper.alertBuilder.placeholder.account");
+		case "clones":
+			return t("oper.alertBuilder.placeholder.clones");
+		case "numchannels":
+			return t("oper.alertBuilder.placeholder.numchannels");
+		case "modes":
+			return t("oper.alertBuilder.placeholder.modes");
+		case "marked":
+			return t("oper.alertBuilder.placeholder.marked");
+		case "regex":
+			return t("oper.alertBuilder.placeholder.regex");
+		case "chantarget":
+			return t("oper.alertBuilder.placeholder.chantarget");
+		default:
+			return "";
+	}
+}
 
 export function criterionDef(key: string): CriterionDef | undefined {
 	return CRITERIA.find((c) => c.key === key);
@@ -163,20 +297,22 @@ export function wideReason(row: CriterionRow, rows: CriterionRow[]): string | un
 
 	switch (row.key) {
 		case "ip":
-			return /[*?/]/.test(value) ? "an IP range" : undefined;
+			return /[*?/]/.test(value) ? t("oper.alertBuilder.wide.ipRange") : undefined;
 		case "nickage":
-			return "a nick age";
+			return t("oper.alertBuilder.wide.nickage");
 		case "last":
-			return "a time window";
+			return t("oper.alertBuilder.wide.last");
 		case "server":
-			return "a whole server";
+			return t("oper.alertBuilder.wide.server");
 		case "clones":
-			return Number(value) <= 2 || !/^\d+$/.test(value) ? "2 clones or fewer" : undefined;
+			return Number(value) <= 2 || !/^\d+$/.test(value)
+				? t("oper.alertBuilder.wide.clones")
+				: undefined;
 
 		case "authed": {
 			if (/^(no|false|0)$/i.test(value)) {
 				const others = rows.filter((r) => r !== row && r.on && r.value.trim() !== "");
-				return others.length === 0 ? "every unauthed user" : undefined;
+				return others.length === 0 ? t("oper.alertBuilder.wide.unauthed") : undefined;
 			}
 
 			return undefined;
@@ -379,30 +515,40 @@ export function formFromAlert(alert: ServiceAlert, now = Date.now()): AlertForm 
 /** Above this many matches the count line turns amber. */
 export const MANY_MATCHES = 25;
 
-/** `Matches 3 users right now · none are opers`, or that nothing does. */
+/**
+ * `Matches 3 users right now · none are opers`, or that nothing does. The
+ * clauses are independent phrases: the count, then who of them are opers,
+ * then the warning past {@link MANY_MATCHES}.
+ */
 export function matchesText(
 	count: number,
 	opers: string[] | undefined
 ): {text: string; warn: boolean} {
 	if (count === 0) {
-		return {text: "Nothing matches right now.", warn: false};
+		return {text: t("oper.alertBuilder.matches.none"), warn: false};
 	}
 
-	const users = `Matches ${count} ${count === 1 ? "user" : "users"} right now`;
-	const who =
-		opers === undefined
-			? ""
-			: opers.length === 0
-			? " · none are opers"
-			: ` · ${
-					opers.length === 1 ? "one is an oper" : `${opers.length} are opers`
-			  }: ${opers.join(", ")}`;
+	let text = tCount("oper.alertBuilder.matches.users", count);
+
+	if (opers !== undefined) {
+		const who =
+			opers.length === 0
+				? t("oper.alertBuilder.matches.noOpers")
+				: opers.length === 1
+				? t("oper.alertBuilder.matches.oneOper", {opers: opers[0]})
+				: tCount("oper.alertBuilder.matches.opers", opers.length, {
+						opers: opers.join(t("oper.list.separator")),
+				  });
+		text = t("oper.alertBuilder.matches.clauses", {first: text, second: who});
+	}
+
 	const warn = count > MANY_MATCHES;
 
-	return {
-		text: `${users}${who}${warn ? " — that's a lot; check the criteria" : ""}`,
-		warn,
-	};
+	if (warn) {
+		text = t("oper.alertBuilder.matches.tooMany", {matches: text});
+	}
+
+	return {text, warn};
 }
 
 /** The request the `oper:alert-builder` eventbus event carries. */

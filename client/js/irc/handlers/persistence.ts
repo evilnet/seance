@@ -23,6 +23,7 @@
  * the server will replay the gap itself.
  */
 
+import {t} from "../../i18n/core";
 import type {Handler} from "../types";
 
 const persistence: Handler = (client, msg) => {
@@ -85,11 +86,12 @@ const persistence: Handler = (client, msg) => {
 		}
 
 		client.pushMessage(client.lobby, {
+			// Two whole sentences, never an appended fragment: the
+			// client-setting-differs variant is its own key.
 			text:
-				"Session persistence (the server keeps you in your channels while " +
-				`disconnected): ${effective}${
-					setting && setting !== effective ? ` (your setting: ${setting})` : ""
-				}`,
+				setting && setting !== effective
+					? t("persistence.statusClientSetting", {state: effective, setting})
+					: t("persistence.status", {state: effective}),
 		});
 		return;
 	}
@@ -107,12 +109,12 @@ const persistence: Handler = (client, msg) => {
 		}
 
 		client.pushMessage(client.lobby, {
-			text: `Session persistence set to: ${(rest[0] ?? "").toUpperCase()}`,
+			text: t("persistence.set", {state: (rest[0] ?? "").toUpperCase()}),
 		});
 		return;
 	}
 
-	client.pushMessage(client.lobby, {text: `Persistence: ${msg.params.join(" ")}`});
+	client.pushMessage(client.lobby, {text: t("persistence.echo", {params: msg.params.join(" ")})});
 };
 
 export default {PERSISTENCE: persistence};

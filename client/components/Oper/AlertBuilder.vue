@@ -20,7 +20,7 @@
 				<button
 					class="settings-modal-close"
 					type="button"
-					aria-label="Close the alert builder"
+					:aria-label="t('oper.alertBuilder.form.close')"
 					@click="close"
 				>
 					✕
@@ -30,13 +30,14 @@
 			<div class="settings-modal-body">
 				<div class="container oper-alert-form">
 					<p v-if="!canAsk" class="oper-alert-note oper-muted">
-						No oper service is set up for this network (the network's edit form,
-						Services support): the command can be copied, not sent.
+						{{ t("oper.alertBuilder.form.noService") }}
 					</p>
 
 					<div class="oper-alert-grid">
 						<div class="oper-alert-field">
-							<label class="oper-alert-label" for="oper-alert-name">Name</label>
+							<label class="oper-alert-label" for="oper-alert-name">{{
+								t("oper.alertBuilder.form.name")
+							}}</label>
 							<input
 								id="oper-alert-name"
 								ref="nameField"
@@ -46,40 +47,56 @@
 								spellcheck="false"
 								autocomplete="off"
 								pattern="[A-Za-z0-9\-]+"
-								placeholder="letters, digits, dashes"
+								:placeholder="t('oper.alertBuilder.form.namePlaceholder')"
 								:readonly="!!request.edit"
 								required
 							/>
 						</div>
 						<div class="oper-alert-field">
-							<label class="oper-alert-label" for="oper-alert-reaction"
-								>Reaction</label
-							>
+							<label class="oper-alert-label" for="oper-alert-reaction">{{
+								t("oper.alertBuilder.form.reaction")
+							}}</label>
 							<select id="oper-alert-reaction" v-model="reaction" class="input">
 								<option
 									v-for="r in REACTIONS"
 									:key="r.id"
 									:value="r.id"
 									:disabled="tooLow(r)"
-									:title="tooLow(r) ? `needs O3 level ${r.level}` : undefined"
+									:title="
+										tooLow(r)
+											? t('oper.alertBuilder.form.needsLevel', {
+													level: r.level,
+											  })
+											: undefined
+									"
 								>
-									{{ r.label }} · {{ r.id }} · level {{ r.level
-									}}{{ r.needs ? ` · needs ${r.needs}` : "" }}
+									{{ reactionOption(r) }}
 								</option>
 							</select>
 						</div>
 						<div class="oper-alert-field">
-							<label class="oper-alert-label" for="oper-alert-expires">Expires</label>
+							<label class="oper-alert-label" for="oper-alert-expires">{{
+								t("oper.alertBuilder.form.expires")
+							}}</label>
 							<select id="oper-alert-expires" v-model="expires" class="input">
 								<option v-for="e in EXPIRIES" :key="e.id" :value="e.id">
-									{{ e.label }}{{ e.id === "never" ? "" : ` (${e.id})` }}
+									{{
+										e.id === "never"
+											? expiryLabel(e.id)
+											: t("oper.alertBuilder.form.expiryOption", {
+													label: expiryLabel(e.id),
+													duration: e.id,
+											  })
+									}}
 								</option>
 							</select>
 						</div>
 					</div>
 
 					<div class="oper-alert-section">
-						<div class="oper-alert-section-title">Match users who…</div>
+						<div class="oper-alert-section-title">
+							{{ t("oper.alertBuilder.form.matchUsers") }}
+						</div>
 						<ul class="oper-alert-rows">
 							<li
 								v-for="row in rows"
@@ -93,7 +110,11 @@
 									class="oper-alert-switch"
 									type="checkbox"
 									role="switch"
-									:aria-label="`Use ${labelOf(row.key)}`"
+									:aria-label="
+										t('oper.alertBuilder.form.useCriterion', {
+											criterion: labelOf(row.key),
+										})
+									"
 									:aria-checked="row.on"
 								/>
 								<span class="oper-alert-row-label" :title="row.key">
@@ -101,8 +122,8 @@
 									<span
 										v-if="wide(row)"
 										class="oper-wide"
-										:title="`Wide on its own: ${wide(row)}`"
-										>wide</span
+										:title="t('oper.alertBuilder.form.wideTitle', {reason: wide(row)!})"
+										>{{ t("oper.alertBuilder.form.wide") }}</span
 									>
 								</span>
 								<input
@@ -113,13 +134,21 @@
 									spellcheck="false"
 									autocomplete="off"
 									:placeholder="placeholderOf(row.key)"
-									:aria-label="`Value for ${labelOf(row.key)}`"
+									:aria-label="
+										t('oper.alertBuilder.form.valueFor', {
+											criterion: labelOf(row.key),
+										})
+									"
 								/>
 								<button
 									type="button"
 									class="oper-alert-remove"
-									:aria-label="`Remove ${labelOf(row.key)}`"
-									title="Remove"
+									:aria-label="
+										t('oper.alertBuilder.form.removeCriterion', {
+											criterion: labelOf(row.key),
+										})
+									"
+									:title="t('oper.alertBuilder.form.remove')"
 									@click="remove(row)"
 								>
 									✕
@@ -127,38 +156,51 @@
 							</li>
 						</ul>
 						<p v-if="rows.length === 0" class="oper-muted oper-alert-note">
-							No criteria yet: add one below.
+							{{ t("oper.alertBuilder.form.noCriteria") }}
 						</p>
 						<div class="oper-alert-add">
-							<label class="oper-muted" for="oper-alert-add">+ add</label>
+							<label class="oper-muted" for="oper-alert-add">{{
+								t("oper.alertBuilder.form.add")
+							}}</label>
 							<select
 								id="oper-alert-add"
 								v-model="addKey"
 								class="input"
 								@change="add"
 							>
-								<option value="">a criterion…</option>
+								<option value="">
+									{{ t("oper.alertBuilder.form.addPrompt") }}
+								</option>
 								<option v-for="c in remaining" :key="c.key" :value="c.key">
-									{{ c.label }} ({{ c.key }})
+									{{
+										t("oper.alertBuilder.form.criterionOption", {
+											label: criterionLabel(c.key),
+											keyword: c.key,
+										})
+									}}
 								</option>
 							</select>
 						</div>
 					</div>
 
 					<div class="oper-alert-field">
-						<label class="oper-alert-label" for="oper-alert-reason">Reason</label>
+						<label class="oper-alert-label" for="oper-alert-reason">{{
+							t("oper.alertBuilder.form.reason")
+						}}</label>
 						<input
 							id="oper-alert-reason"
 							v-model="reason"
 							class="input"
 							type="text"
 							maxlength="250"
-							placeholder="Shown with the alert; see <you>"
+							:placeholder="t('oper.alertBuilder.form.reasonPlaceholder')"
 						/>
 					</div>
 
 					<div class="oper-alert-field">
-						<span class="oper-alert-label">The command</span>
+						<span class="oper-alert-label">{{
+							t("oper.alertBuilder.form.command")
+						}}</span>
 						<pre class="oper-alert-command"><code>{{ command }}</code></pre>
 					</div>
 
@@ -168,10 +210,12 @@
 						aria-live="polite"
 						:data-state="matches.state"
 					>
-						<template v-if="matches.state === 'asking'">Counting the matches…</template>
-						<template v-else-if="matches.state === 'idle'"
-							>Switch on a criterion to count the matches.</template
-						>
+						<template v-if="matches.state === 'asking'">{{
+							t("oper.alertBuilder.form.counting")
+						}}</template>
+						<template v-else-if="matches.state === 'idle'">{{
+							t("oper.alertBuilder.form.countIdle")
+						}}</template>
 						<template v-else-if="matches.state === 'failed'">{{
 							matches.note
 						}}</template>
@@ -190,11 +234,19 @@
 						class="btn btn-small oper-alert-submit"
 						:disabled="!canSubmit"
 					>
-						{{ busy ? "Sending…" : request.edit ? "Replace alert" : "Add alert" }}
+						{{
+							busy
+								? t("oper.alertBuilder.form.sending")
+								: request.edit
+								? t("oper.alertBuilder.form.replace")
+								: t("oper.alertBuilder.form.submit")
+						}}
 					</button>
-					<button type="button" class="btn btn-small" @click="copy">Copy command</button>
+					<button type="button" class="btn btn-small" @click="copy">
+						{{ t("oper.alertBuilder.form.copy") }}
+					</button>
 					<button type="button" class="btn btn-small btn-cancel" @click="close">
-						Cancel
+						{{ t("oper.alertBuilder.form.cancel") }}
 					</button>
 				</div>
 				<span v-if="result" class="oper-alert-result" role="status">{{ result }}</span>
@@ -217,6 +269,7 @@ import {
 	watch,
 } from "vue";
 import eventbus from "../../js/eventbus";
+import {useI18n} from "../../js/i18n";
 import {useStore} from "../../js/store";
 import {clientForNetwork} from "../../js/irc/manager";
 import {
@@ -235,12 +288,14 @@ import {
 	buildCommand,
 	buildCriteria,
 	CRITERIA,
-	criterionDef,
+	criterionLabel,
+	criterionPlaceholder,
 	type CriterionRow,
 	DEFAULT_EXPIRY,
 	defaultName,
 	defaultReason,
 	EXPIRIES,
+	expiryLabel,
 	type ExpiryId,
 	formFromAlert,
 	isValidName,
@@ -248,6 +303,7 @@ import {
 	newRow,
 	type ReactionDef,
 	REACTIONS,
+	reactionLabel,
 	reactionTooLow,
 	rowsFromFacts,
 	wideReason,
@@ -285,6 +341,7 @@ export default defineComponent({
 	name: "AlertBuilder",
 	setup() {
 		const store = useStore();
+		const {t, tCount} = useI18n();
 		const request = shallowRef<AlertBuilderRequest | undefined>();
 		const name = ref("");
 		const reaction = ref("notice");
@@ -326,12 +383,12 @@ export default defineComponent({
 
 		const title = computed(() =>
 			request.value?.edit
-				? `Replace alert ${request.value.edit.name}`
+				? t("oper.alertBuilder.form.titleReplace", {name: request.value.edit.name})
 				: request.value?.channel
-				? `Alert on ${request.value.channel}`
+				? t("oper.alertBuilder.form.titleOn", {target: request.value.channel})
 				: request.value?.nick
-				? `Alert on ${request.value.nick}`
-				: `New ${bot.value} alert`
+				? t("oper.alertBuilder.form.titleOn", {target: request.value.nick})
+				: t("oper.alertBuilder.form.titleNew", {bot: bot.value})
 		);
 
 		const command = computed(() =>
@@ -357,14 +414,30 @@ export default defineComponent({
 		);
 		const nicksText = computed(() => {
 			const list = matches.value.nicks;
-			const shown = list.slice(0, NICKS_SHOWN).join(", ");
+			const shown = list.slice(0, NICKS_SHOWN).join(t("oper.list.separator"));
 			return list.length > NICKS_SHOWN
-				? `${shown} +${list.length - NICKS_SHOWN} more`
+				? tCount("oper.alertBuilder.form.moreNicks", list.length - NICKS_SHOWN, {
+						nicks: shown,
+				  })
 				: shown;
 		});
 
-		const labelOf = (key: string) => criterionDef(key)?.label ?? key;
-		const placeholderOf = (key: string) => criterionDef(key)?.placeholder ?? "";
+		const labelOf = (key: string) => criterionLabel(key);
+		const placeholderOf = (key: string) => criterionPlaceholder(key);
+		/** `Notice the opers · notice · level 800 · needs chantarget`: one Reaction option. */
+		const reactionOption = (r: ReactionDef) =>
+			r.needs
+				? t("oper.alertBuilder.form.reactionOptionNeeds", {
+						label: reactionLabel(r.id),
+						keyword: r.id,
+						level: r.level,
+						needs: r.needs,
+				  })
+				: t("oper.alertBuilder.form.reactionOption", {
+						label: reactionLabel(r.id),
+						keyword: r.id,
+						level: r.level,
+				  });
 		const wide = (row: CriterionRow) => wideReason(row, rows.value);
 		const tooLow = (r: ReactionDef) => reactionTooLow(r, level.value);
 
@@ -394,7 +467,7 @@ export default defineComponent({
 					state: "failed",
 					count: 0,
 					nicks: [],
-					note: "No oper service is set up for this network.",
+					note: t("oper.services.noOperService"),
 				});
 				return;
 			}
@@ -423,7 +496,7 @@ export default defineComponent({
 						nicks: [],
 						note:
 							answer.kind === "reply"
-								? `${bot.value} did not answer.`
+								? t("oper.services.botSilent", {bot: bot.value})
 								: describeFailure(c, answer),
 					});
 					return;
@@ -557,7 +630,7 @@ export default defineComponent({
 				return c ? describeFailure(c, r) : "";
 			}
 
-			return r.value?.text ?? `${bot.value} did not answer.`;
+			return r.value?.text ?? t("oper.services.botSilent", {bot: bot.value});
 		};
 
 		const submit = async () => {
@@ -586,8 +659,10 @@ export default defineComponent({
 					const restored = !both.restored
 						? ""
 						: both.restored.kind === "reply" && both.restored.value?.ok
-						? "The old alert was put back."
-						: `The old alert could not be put back: ${verdictText(both.restored, c)}`;
+						? t("oper.alertBuilder.form.restored")
+						: t("oper.alertBuilder.form.notRestored", {
+								reply: verdictText(both.restored, c),
+						  });
 					const text = [deleted, added, restored].filter(Boolean).join(" ");
 
 					if (ok) {
@@ -627,9 +702,9 @@ export default defineComponent({
 
 			try {
 				await navigator.clipboard.writeText(text);
-				say("Copied.");
+				say(t("oper.alertBuilder.form.copied"));
 			} catch {
-				say("Couldn't copy; select the command instead.");
+				say(t("oper.alertBuilder.form.copyFailed"));
 			}
 		};
 
@@ -653,6 +728,10 @@ export default defineComponent({
 		});
 
 		return {
+			t,
+			reactionOption,
+			expiryLabel,
+			criterionLabel,
 			REACTIONS,
 			EXPIRIES,
 			request,

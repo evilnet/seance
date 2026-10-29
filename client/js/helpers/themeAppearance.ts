@@ -10,6 +10,7 @@
 // bundled) needs them too: webpack.config.ts writes the same list into it.
 
 import pairs from "./themePairs.json";
+import {activeLocale} from "../i18n/core";
 
 type Appearance = "light" | "dark";
 
@@ -109,11 +110,10 @@ export function themeChoices(
 	return choices;
 }
 
-/** The pairs as a sentence's list, "Coffee / Creama, …and Morning / Day",
- * each as the picker names it, by `label` (Settings → Appearance's hint). */
+/** The pairs as a sentence's list, "Coffee / Creama, …, and Morning / Day",
+ * each as the picker names it, by `label` (Settings → Appearance's hint);
+ * joined the active language's way (Intl.ListFormat). */
 export function describeThemePairs(label: (theme: string) => string): string {
 	const names = THEME_PAIRS.map(([dark, light]) => pairLabel(label(dark), label(light)));
-	return names.length > 1
-		? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`
-		: names.join("");
+	return new Intl.ListFormat(activeLocale(), {type: "conjunction"}).format(names);
 }

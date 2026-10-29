@@ -5,6 +5,7 @@
 
 import {MessageType} from "../../../../shared/types/msg";
 import {formatLine} from "../message";
+import {t} from "../../i18n/core";
 import type {Command} from "../types";
 
 const nick: Command = {
@@ -14,7 +15,7 @@ const nick: Command = {
 		if (args.length === 0 || args[0].length === 0) {
 			client.pushMessage(chan, {
 				type: MessageType.ERROR,
-				text: "Usage: /nick <your new nick>",
+				text: t("cmd.usageNickChange"),
 			});
 			return;
 		}
@@ -22,7 +23,7 @@ const nick: Command = {
 		if (args.length !== 1) {
 			client.pushMessage(chan, {
 				type: MessageType.ERROR,
-				text: "Nicknames may not contain spaces.",
+				text: t("cmd.nickSpaces"),
 			});
 			return;
 		}
@@ -32,7 +33,7 @@ const nick: Command = {
 		if (newNick.length > 100) {
 			client.pushMessage(chan, {
 				type: MessageType.ERROR,
-				text: "Nicknames may not be this long.",
+				text: t("cmd.nickTooLong"),
 			});
 			return;
 		}

@@ -2,13 +2,17 @@
 	<div class="network-settings">
 		<div class="network-settings-heading">
 			<div>
-				<h2>Networks</h2>
-				<p>Manage the IRC networks saved in this browser.</p>
+				<h2>{{ t("settings.networks.heading") }}</h2>
+				<p>{{ t("settings.networks.intro") }}</p>
 			</div>
-			<router-link v-if="canAddNetwork" class="btn" to="/connect">Add network</router-link>
+			<router-link v-if="canAddNetwork" class="btn" to="/connect">
+				{{ t("settings.networks.add") }}
+			</router-link>
 		</div>
 
-		<p v-if="networks.length === 0" class="network-settings-empty">No networks saved yet.</p>
+		<p v-if="networks.length === 0" class="network-settings-empty">
+			{{ t("settings.networks.empty") }}
+		</p>
 		<ul v-else class="network-settings-list">
 			<li v-for="network in networks" :key="network.uuid" class="network-settings-item">
 				<div class="network-settings-summary">
@@ -28,10 +32,10 @@
 						{{ connectLabel(network.uuid) }}
 					</button>
 					<router-link class="btn btn-sm" :to="`/settings/networks/${network.uuid}`">
-						Edit
+						{{ t("settings.networks.edit") }}
 					</router-link>
 					<button type="button" class="btn btn-sm btn-danger" @click="remove(network)">
-						Delete
+						{{ t("settings.networks.delete") }}
 					</button>
 				</div>
 			</li>
@@ -101,7 +105,7 @@
 
 .network-settings-status::before {
 	content: "●";
-	margin-right: 5px;
+	margin-inline-end: 5px;
 }
 
 .network-settings-status.is-connected::before {
@@ -147,6 +151,7 @@ import * as saved from "../../js/irc/saved-networks";
 import type {SavedNetwork} from "../../js/irc/saved-networks";
 import {switchToChannel} from "../../js/router";
 import socket from "../../js/socket";
+import {useI18n} from "../../js/i18n";
 import {useStore} from "../../js/store";
 import webpush from "../../js/webpush";
 
@@ -154,6 +159,7 @@ export default defineComponent({
 	name: "NetworkSettings",
 	setup() {
 		const store = useStore();
+		const {t} = useI18n();
 		const networks = ref(saved.list());
 		const live = (uuid: string) => store.getters.findNetwork(uuid);
 		const canAddNetwork = computed(
@@ -166,10 +172,10 @@ export default defineComponent({
 		const statusLabel = (uuid: string) => {
 			const status = live(uuid)?.status;
 			return status?.connected
-				? "Connected"
+				? t("settings.networks.connected")
 				: status?.connecting
-				? "Connecting…"
-				: "Disconnected";
+				? t("settings.networks.connecting")
+				: t("settings.networks.disconnected");
 		};
 
 		const statusClass = (uuid: string) =>
@@ -181,10 +187,10 @@ export default defineComponent({
 
 		const connectLabel = (uuid: string) =>
 			live(uuid)?.status.connected
-				? "Open"
+				? t("settings.networks.open")
 				: live(uuid)?.status.connecting
-				? "Connecting…"
-				: "Connect";
+				? t("settings.networks.connecting")
+				: t("settings.networks.connect");
 
 		const connect = (network: SavedNetwork) => {
 			const current = live(network.uuid);
@@ -208,9 +214,11 @@ export default defineComponent({
 			eventbus.emit(
 				"confirm-dialog",
 				{
-					title: `Delete ${saved.displayName(network)}?`,
-					text: "This removes the saved network and disconnects it if it is running.",
-					button: "Delete network",
+					title: t("settings.networks.deleteTitle", {
+						name: saved.displayName(network),
+					}),
+					text: t("settings.networks.deleteText"),
+					button: t("settings.networks.deleteButton"),
 				},
 				async (confirmed: boolean) => {
 					if (!confirmed) {
@@ -240,6 +248,7 @@ export default defineComponent({
 			connectLabel,
 			connect,
 			remove,
+			t,
 		};
 	},
 });

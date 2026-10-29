@@ -1,0 +1,190 @@
+{
+  "en": {
+    "nplurals": 2,
+    "expr": "n != 1"
+  },
+  "de": {
+    "nplurals": 2,
+    "expr": "n != 1"
+  },
+  "fr": {
+    "nplurals": 2,
+    "expr": "n > 1"
+  },
+  "es": {
+    "nplurals": 2,
+    "expr": "n != 1"
+  },
+  "pt": {
+    "nplurals": 2,
+    "expr": "n != 1"
+  },
+  "ru": {
+    "nplurals": 3,
+    "expr": "(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2)"
+  },
+  "ar": {
+    "nplurals": 6,
+    "expr": "n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 ? 4 : 5"
+  },
+  "fa": {
+    "nplurals": 2,
+    "expr": "n > 1"
+  },
+  "ja": {
+    "nplurals": 1,
+    "expr": "0"
+  },
+  "qqx": {
+    "nplurals": 2,
+    "expr": "n != 1"
+  },
+  "it": {
+    "nplurals": 2,
+    "expr": "(n != 1)"
+  },
+  "nl": {
+    "nplurals": 2,
+    "expr": "(n != 1)"
+  },
+  "sv": {
+    "nplurals": 2,
+    "expr": "(n != 1)"
+  },
+  "da": {
+    "nplurals": 2,
+    "expr": "(n != 1)"
+  },
+  "nb": {
+    "nplurals": 2,
+    "expr": "(n != 1)"
+  },
+  "fi": {
+    "nplurals": 2,
+    "expr": "(n != 1)"
+  },
+  "pl": {
+    "nplurals": 3,
+    "expr": "(n==1) ? 0 : (n%10>=2 && n%10<=4) && (n%100<10 || n%100>=20) ? 1 : 2"
+  },
+  "cs": {
+    "nplurals": 3,
+    "expr": "(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2"
+  },
+  "sk": {
+    "nplurals": 3,
+    "expr": "(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2"
+  },
+  "hu": {
+    "nplurals": 2,
+    "expr": "(n != 1)"
+  },
+  "ro": {
+    "nplurals": 3,
+    "expr": "(n==1) ? 0 : (n==0 || (n%100 > 0 && n%100 < 20)) ? 1 : 2"
+  },
+  "bg": {
+    "nplurals": 2,
+    "expr": "(n != 1)"
+  },
+  "uk": {
+    "nplurals": 3,
+    "expr": "(n%10==1 && n%100!=11) ? 0 : (n%10>=2 && n%10<=4) && (n%100<10 || n%100>=20) ? 1 : 2"
+  },
+  "sr": {
+    "nplurals": 3,
+    "expr": "(n%10==1 && n%100!=11) ? 0 : (n%10>=2 && n%10<=4) && (n%100<10 || n%100>=20) ? 1 : 2"
+  },
+  "sl": {
+    "nplurals": 4,
+    "expr": "(n%100==1) ? 0 : (n%100==2) ? 1 : (n%100==3 || n%100==4) ? 2 : 3"
+  },
+  "el": {
+    "nplurals": 2,
+    "expr": "(n != 1)"
+  },
+  "tr": {
+    "nplurals": 2,
+    "expr": "(n > 1)"
+  },
+  "he": {
+    "nplurals": 2,
+    "expr": "(n != 1)"
+  },
+  "hi": {
+    "nplurals": 2,
+    "expr": "(n != 1)"
+  },
+  "ta": {
+    "nplurals": 2,
+    "expr": "(n != 1)"
+  },
+  "th": {
+    "nplurals": 1,
+    "expr": "0"
+  },
+  "vi": {
+    "nplurals": 1,
+    "expr": "0"
+  },
+  "id": {
+    "nplurals": 1,
+    "expr": "0"
+  },
+  "ms": {
+    "nplurals": 1,
+    "expr": "0"
+  },
+  "zh": {
+    "nplurals": 1,
+    "expr": "0"
+  },
+  "ko": {
+    "nplurals": 1,
+    "expr": "0"
+  },
+  "ca": {
+    "nplurals": 2,
+    "expr": "(n != 1)"
+  },
+  "eu": {
+    "nplurals": 2,
+    "expr": "(n != 1)"
+  },
+  "gl": {
+    "nplurals": 2,
+    "expr": "(n != 1)"
+  },
+  "ga": {
+    "nplurals": 5,
+    "expr": "(n==1) ? 0 : (n==2) ? 1 : (n<7) ? 2 : (n<11) ? 3 : 4"
+  },
+  "cy": {
+    "nplurals": 4,
+    "expr": "(n==1) ? 0 : (n==2) ? 1 : (n != 8 && n != 11) ? 2 : 3"
+  },
+  "sw": {
+    "nplurals": 2,
+    "expr": "(n != 1)"
+  },
+  "af": {
+    "nplurals": 2,
+    "expr": "(n != 1)"
+  },
+  "ur": {
+    "nplurals": 2,
+    "expr": "(n != 1)"
+  },
+  "hr": {
+    "nplurals": 3,
+    "expr": "(n%10==1 && n%100!=11) ? 0 : (n%10>=2 && n%10<=4) && (n%100<10 || n%100>=20) ? 1 : 2"
+  },
+  "bn": {
+    "nplurals": 2,
+    "expr": "(n != 1)"
+  },
+  "fil": {
+    "nplurals": 2,
+    "expr": "(n != 1)"
+  }
+}

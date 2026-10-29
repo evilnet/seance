@@ -60,16 +60,17 @@ inside `public/` only (traversal is refused), directories and extensionless
 paths fall back to `index.html`, and every response carries an explicit
 `Content-Type` plus this `Content-Security-Policy`:
 
-| Directive                    | Value                       | Why                                               |
-| ---------------------------- | --------------------------- | ------------------------------------------------- |
-| `default-src`, `script-src`  | `'self'`                    | Only the bundled SPA runs                         |
-| `style-src`                  | `'self' 'unsafe-inline'`    | `#user-specified-css` and Vue-injected styles     |
-| `img-src`, `media-src`       | `'self' data: blob: https:` | Link previews, avatars, uploaded media            |
-| `font-src`                   | `'self' data:`              | Bundled fonts                                     |
-| `connect-src`                | `'self' ws: wss: https:`    | The user picks the IRC host; `https:` for uploads |
-| `worker-src`, `manifest-src` | `'self'`                    | Service worker and web manifest                   |
-| `object-src`, `frame-src`    | `'none'`                    | No plugins, no frames                             |
-| `base-uri`, `form-action`    | `'self'` / `'none'`         | No base-tag or form exfiltration                  |
+| Directive                    | Value                       | Why                                                                      |
+| ---------------------------- | --------------------------- | ------------------------------------------------------------------------ |
+| `default-src`                | `'self'`                    | Only the bundled SPA runs                                                |
+| `script-src`                 | `'self' 'wasm-unsafe-eval'` | The translation worker compiles WebAssembly; no inline script, no eval   |
+| `style-src`                  | `'self' 'unsafe-inline'`    | `#user-specified-css` and Vue-injected styles                            |
+| `img-src`, `media-src`       | `'self' data: blob: https:` | Link previews, avatars, uploaded media                                   |
+| `font-src`                   | `'self' data:`              | Bundled fonts                                                            |
+| `connect-src`                | `'self' ws: wss: https:`    | The user picks the IRC host; `https:` for uploads and translation models |
+| `worker-src`, `manifest-src` | `'self'`                    | Service and translation workers, web manifest                            |
+| `object-src`, `frame-src`    | `'none'`                    | No plugins, no frames                                                    |
+| `base-uri`, `form-action`    | `'self'` / `'none'`         | No base-tag or form exfiltration                                         |
 
 The renderer runs with `contextIsolation: true`, `nodeIntegration: false` and
 `sandbox: true`; `webSecurity` stays on. `preload.js` exposes only

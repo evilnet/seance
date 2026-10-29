@@ -10,6 +10,7 @@ import {ChanType} from "../../../../shared/types/chan";
 import {MessageType} from "../../../../shared/types/msg";
 import type {IrcClient} from "../client";
 import type {IrcMessage} from "../message";
+import {t} from "../../i18n/core";
 import type {Handler} from "../types";
 import {AWAY_STAR} from "../presence";
 
@@ -124,7 +125,7 @@ function finish(client: IrcClient, msg: IrcMessage, whowas: boolean): void {
 		client.pushMessage(client.lobby, {
 			type: MessageType.ERROR,
 			time: client.timeOf(msg),
-			text: `No such nick: ${nick}`,
+			text: t("msg.noSuchNick", {nick}),
 			showInActive: true,
 		});
 		return;
@@ -352,7 +353,7 @@ const away: Handler = (client, msg) => {
 	// kept as the star: the whois card shows "Away" with no message for it,
 	// the query "is away" with none.
 	const star = raw === AWAY_STAR;
-	const state = star ? AWAY_STAR : raw || "is away";
+	const state = star ? AWAY_STAR : raw || t("whois.awayNoReason");
 	const inProgress = pendingFor(client).get(client.casefold(nick));
 
 	if (inProgress) {

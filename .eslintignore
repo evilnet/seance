@@ -6,3 +6,9 @@ tmp/
 shells/capacitor/
 .claude/
 testnet/
+.codex/
+.dsh/
+public.previous/
+# Data fixtures that mimic call-site trees for the toolchain tests; never
+# imported, deliberately not lint-clean.
+tools/i18n/fixtures/

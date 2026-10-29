@@ -6,6 +6,7 @@ import {store} from "../store";
 import {ClientNetwork, ClientChan} from "../types";
 import {SharedNetwork, SharedNetworkChan} from "../../../shared/types/network";
 import {applyStoredNetworkOrder, applyStoredChannelOrder} from "../sort";
+import {collator} from "../i18n/collation";
 import {applyStoredMuteStatus} from "../mute";
 
 // `init` used to be the server's "here is everything you have" event after
@@ -14,10 +15,10 @@ import {applyStoredMuteStatus} from "../mute";
 // the IRC layer will reuse when it (re)connects.
 socket.on("init", function (data) {
 	store.commit("networks", mergeNetworkData(data.networks));
-	applyStoredNetworkOrder();
+	applyStoredNetworkOrder(collator());
 
 	for (const network of store.state.networks) {
-		applyStoredChannelOrder(network);
+		applyStoredChannelOrder(network, collator());
 		applyStoredMuteStatus(network);
 	}
 

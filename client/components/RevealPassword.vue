@@ -8,28 +8,35 @@
 				'reveal-password tooltipped tooltipped-n tooltipped-no-delay',
 				{'reveal-password-visible': isVisible},
 			]"
-			:aria-label="isVisible ? 'Hide password' : 'Show password'"
+			:aria-label="visibilityLabel"
 			@click="onClick"
 		>
-			<span :aria-label="isVisible ? 'Hide password' : 'Show password'" />
+			<span :aria-label="visibilityLabel" />
 		</span>
 	</div>
 </template>
 
 <script lang="ts">
-import {defineComponent, ref} from "vue";
+import {computed, defineComponent, ref} from "vue";
+import {useI18n} from "../js/i18n";
 
 export default defineComponent({
 	name: "RevealPassword",
 	setup() {
 		const isVisible = ref(false);
+		const {t} = useI18n();
 
 		const onClick = () => {
 			isVisible.value = !isVisible.value;
 		};
 
+		const visibilityLabel = computed(() =>
+			isVisible.value ? t("input.hidePassword") : t("input.showPassword")
+		);
+
 		return {
 			isVisible,
+			visibilityLabel,
 			onClick,
 		};
 	},

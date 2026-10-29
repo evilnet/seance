@@ -6,19 +6,14 @@
 // `data-own-messages` attribute on <html> (settings.ts) and the three looks
 // live entirely in style.css (`html[data-own-messages=…]`), so no theme file
 // changes and a theme that bands its own rows keeps its band under the
-// default. Vue-free: test/helpers/ownMessages.ts.
+// default. Vue-free: test/helpers/ownMessages.ts. The labels are pot keys,
+// translated in Appearance.vue.
 
 export const ownMessageStyles = ["muted", "band", "plain"] as const;
 
 export type OwnMessageStyle = typeof ownMessageStyles[number];
 
 export const defaultOwnMessageStyle: OwnMessageStyle = "muted";
-
-export const ownMessageStyleLabels: Record<OwnMessageStyle, string> = {
-	muted: "Greyed text",
-	band: "Highlighted row",
-	plain: "Same as everyone else's",
-};
 
 /** A stored setting can be anything (stale key, hand-edited localStorage);
  * anything that is not one of the three means the default. */

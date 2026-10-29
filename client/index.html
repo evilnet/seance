@@ -15,6 +15,11 @@
 			}
 		</style>
 
+		<!-- Before first paint: the stored (or system) language decides <html
+		     lang> and the text direction, so an RTL language never flashes
+		     left-to-right. A file, not an inline script: a CSP refuses those. -->
+		<script src="js/prepaint.js?v=__HASH__"></script>
+
 		<link rel="preload" as="script" href="js/loading-error-handlers.js?v=__HASH__" />
 		<link rel="preload" as="script" href="js/bundle.vendor.js?v=__HASH__" />
 		<link rel="preload" as="script" href="js/bundle.js?v=__HASH__" />
@@ -77,7 +82,7 @@
 				<div id="loading-status-container">
 					<img src="img/logo-tile.png" alt="" width="160" height="160" />
 					<p id="loading-page-message">
-						__APP_NAME__ requires a modern browser with JavaScript enabled.
+						This application requires a modern browser with JavaScript enabled.
 					</p>
 				</div>
 				<div id="loading-reload-container">

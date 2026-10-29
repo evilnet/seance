@@ -1,0 +1,43 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: seance\n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#, fuzzy
+#. Target of an action, the English copy drifted.
+msgctxt "fuzzy.target"
+msgid "Target"
+msgstr "Cible"
+
+#. Label for a working feature.
+msgctxt "good.key"
+msgid "Good"
+msgstr "Bon"
+
+#. Left untranslated on purpose.
+msgctxt "untranslated.key"
+msgid "Untranslated"
+msgstr ""
+
+#. Left untranslated on purpose, plural.
+msgctxt "untranslated.plural"
+msgid "{count} user has joined"
+msgid_plural "{count} users have joined"
+msgstr[0] ""
+msgstr[1] ""
+
+#. Intentionally empty English copy; left untranslated here too.
+msgctxt "intentional.empty"
+msgid ""
+msgstr ""
+
+#. Half-translated plural: the singular form only.
+msgctxt "partial.plural"
+msgid "marked away once"
+msgid_plural "marked away {count} times"
+msgstr[0] "marqué absent une fois"
+msgstr[1] ""

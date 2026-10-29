@@ -6,6 +6,7 @@
 import {ChanType} from "../../../../shared/types/chan";
 import {MessageType} from "../../../../shared/types/msg";
 import {REPLY_TAG} from "../wire";
+import {t} from "../../i18n/core";
 import type {Command, CommandContext} from "../types";
 import {splitTarget} from "./target";
 
@@ -15,7 +16,7 @@ function openQuery({client, chan}: CommandContext, targetName: string): boolean 
 	if (/[\s\0]/.test(targetName)) {
 		client.pushMessage(chan, {
 			type: MessageType.ERROR,
-			text: "You can not open query windows for names containing spaces.",
+			text: t("cmd.query.spaces"),
 		});
 		return false;
 	}
@@ -27,7 +28,7 @@ function openQuery({client, chan}: CommandContext, targetName: string): boolean 
 	if (client.isChannelName(targetName)) {
 		client.pushMessage(chan, {
 			type: MessageType.ERROR,
-			text: "You can not open query windows for channels, use /join instead.",
+			text: t("cmd.query.channel"),
 		});
 		return false;
 	}
@@ -35,7 +36,7 @@ function openQuery({client, chan}: CommandContext, targetName: string): boolean 
 	if (client.isupport.prefix.symbols.includes(targetName[0])) {
 		client.pushMessage(chan, {
 			type: MessageType.ERROR,
-			text: "You can not open query windows for names starting with a user prefix.",
+			text: t("cmd.query.prefix"),
 		});
 		return false;
 	}
@@ -64,7 +65,7 @@ const msg: Command = {
 			if (!targetName) {
 				client.pushMessage(chan, {
 					type: MessageType.ERROR,
-					text: "You cannot open a query window without an argument.",
+					text: t("cmd.query.noArg"),
 				});
 				return;
 			}

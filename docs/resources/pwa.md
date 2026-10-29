@@ -68,7 +68,10 @@ Ship `NODE_ENV=production corepack yarn build`.
   `pwa.ts` `checkForUpdate()`, from the foreground hooks (throttled to one
   check per five minutes) and hourly while a window stays open, because
   browsers never look on their own for a page that stays put. The new worker
-  precaches its shell, `skipWaiting`s, claims every window and announces
+  precaches its shell, `skipWaiting`s, deletes every cache from an older
+  build (but never the translation engines' model caches —
+  `transformers-cache` and `webllm/*`, see `docs/resources/translation.md`
+  § Weights), claims every window and announces
   `{type: "build", build}` to them; a page whose own token differs commits
   `updateAvailable`, which lights the Help icon ("update available") and
   shows "Reload to update" at the top of Help. A page that has just loaded

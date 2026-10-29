@@ -1,18 +1,20 @@
 <template>
 	<span class="content who">
 		<p class="who-title">
-			Who is on <ParsedMessage :network="network" :text="message.who.target" />
+			{{ titleParts[0]
+			}}<bdi><ParsedMessage :network="network" :text="message.who.target" /></bdi
+			>{{ titleParts[1] }}
 			<span class="who-count">{{ countLabel }}</span>
 		</p>
 		<div class="who-scroll">
 			<table class="who-list">
 				<thead>
 					<tr>
-						<th class="who-nick">Nick</th>
-						<th class="who-status">Status</th>
-						<th class="who-host">User@host</th>
-						<th v-if="hasAccounts" class="who-account">Account</th>
-						<th class="who-realname">Real name</th>
+						<th class="who-nick">{{ t("who.nick") }}</th>
+						<th class="who-status">{{ t("who.status") }}</th>
+						<th class="who-host">{{ t("who.host") }}</th>
+						<th v-if="hasAccounts" class="who-account">{{ t("who.account") }}</th>
+						<th class="who-realname">{{ t("who.realName") }}</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -30,7 +32,9 @@
 						</td>
 						<td
 							class="who-host"
-							:title="entry.server ? `on ${entry.server}` : undefined"
+							:title="
+								entry.server ? t('who.onServer', {server: entry.server}) : undefined
+							"
 						>
 							<span class="who-ident">{{ entry.ident }}</span
 							><span class="who-at">@</span><wbr /><span class="who-hostname">{{
@@ -57,6 +61,8 @@ import type {WhoEntry} from "../../../shared/types/msg";
 import {ClientNetwork, ClientMessage} from "../../js/types";
 import ParsedMessage from "../ParsedMessage.vue";
 import Username from "../Username.vue";
+import {useI18n} from "../../js/i18n";
+import {frameSegments, KEEP} from "../../js/i18n/core";
 
 interface Flag {
 	text: string;
@@ -80,12 +86,14 @@ export default defineComponent({
 		},
 	},
 	setup(props) {
+		const {t, tCount} = useI18n();
 		const entries = computed<WhoEntry[]>(() => props.message.who?.entries ?? []);
 
-		const countLabel = computed(() => {
-			const n = entries.value.length;
-			return n === 1 ? "1 user" : `${n} users`;
-		});
+		// "Who is on <target>", cut around the target (a parsed channel or mask).
+		const titleParts = computed(() =>
+			frameSegments(t("who.title", {target: KEEP}), ["target"])
+		);
+		const countLabel = computed(() => tCount("who.count", entries.value.length));
 
 		// The column only exists when the server told us (WHOX `a` field).
 		const hasAccounts = computed(() => entries.value.some((e) => e.account !== undefined));
@@ -103,21 +111,21 @@ export default defineComponent({
 			}
 
 			if (entry.oper) {
-				flags.push({text: "oper", cls: "who-flag who-oper"});
+				flags.push({text: t("who.flagOper"), cls: "who-flag who-oper"});
 			}
 
 			if (entry.away) {
-				flags.push({text: "away", cls: "who-flag who-away"});
+				flags.push({text: t("who.flagAway"), cls: "who-flag who-away"});
 			}
 
 			if (entry.bot) {
-				flags.push({text: "bot", cls: "who-flag who-bot"});
+				flags.push({text: t("who.flagBot"), cls: "who-flag who-bot"});
 			}
 
 			return flags;
 		};
 
-		return {countLabel, hasAccounts, userOf, flagsOf};
+		return {t, titleParts, countLabel, hasAccounts, userOf, flagsOf};
 	},
 });
 </script>

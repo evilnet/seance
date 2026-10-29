@@ -8,6 +8,7 @@
  */
 
 import {MessageType} from "../../../../shared/types/msg";
+import {t, tCount} from "../../i18n/core";
 import type {OperReport} from "../../../../shared/types/oper";
 import type {Channel} from "../channel";
 import type {IrcClient} from "../client";
@@ -30,9 +31,9 @@ function emptyNote(lines: IrcMessage[], outcome: string): string | undefined {
 	}
 
 	return outcome === "timeout"
-		? "The server did not answer."
+		? t("oper.report.noAnswer")
 		: outcome === "closed"
-		? "Not sent: the connection is down."
+		? t("oper.report.notSent")
 		: undefined;
 }
 
@@ -70,7 +71,7 @@ export async function runPrivs(client: IrcClient, chan: Channel, args: string[])
 		pushReport(
 			client,
 			chan,
-			errorReport("privs", "PRIVS", line, reply.lines, error ?? "No privileges reported.")
+			errorReport("privs", "PRIVS", line, reply.lines, error ?? t("oper.report.noPrivs"))
 		);
 		return;
 	}
@@ -86,10 +87,10 @@ export async function runPrivs(client: IrcClient, chan: Channel, args: string[])
 
 		pushReport(client, chan, {
 			kind: "privs",
-			title: `Privileges of ${target}`,
-			subtitle: `${privs.length} privileges`,
+			title: t("oper.report.privsOf", {target}),
+			subtitle: tCount("oper.report.privsCount", privs.length),
 			command: line,
-			sections: [{entries: [{label: "Privileges", value: chips(privs)}]}],
+			sections: [{entries: [{label: t("oper.report.privsLabel"), value: chips(privs)}]}],
 			raw: rawLines([msg]),
 		});
 	}
@@ -110,7 +111,7 @@ const oper: Command = {
 		const params = args.filter((arg) => arg.length > 0);
 
 		if (cmd === "check" && params.length === 0) {
-			usage(client, chan, "Usage: /check <nick|#channel|server|hostmask> [-flags]");
+			usage(client, chan, t("oper.usage.check"));
 			return;
 		}
 
