@@ -13817,6 +13817,12 @@ msgctxt "translate.model.nllb"
 msgid "NLLB-200 600M (200 languages)"
 msgstr ""
 
+#. The name of a translation engine in Settings → Translation: the device's own translator (Apple's Translation framework on iPhone, iPad and Mac), which uses the language packs downloaded in the system settings. "Apple Translation" is the feature's name; keep it recognisable.
+#: client/js/helpers/modelLabel.ts
+msgctxt "translate.model.apple"
+msgid "Apple Translation (built into the system)"
+msgstr ""
+
 #. The name of a translation model in Settings → Translation: an OPUS-MT pair. {from} and {to} are language names. OPUS-MT is a product name.
 #: client/js/helpers/modelLabel.ts
 msgctxt "translate.model.opus"
@@ -14295,6 +14301,18 @@ msgstr ""
 #: client/components/ChatInput.vue
 msgctxt "translate.strip.routeGpuRetried"
 msgid "{from} → {to} · {model} (GPU) · retried without a source"
+msgstr ""
+
+#. Tooltip of the composer translation strip's direction chip, naming the route a translation took. {from} and {to} are language names (or the word from translate.strip.sourceAuto). This one was done by the device's own translator (Apple's Translation framework), with a language pack from the system settings; "Apple Translation" is the feature's name.
+#: client/components/ChatInput.vue
+msgctxt "translate.strip.routeSystem"
+msgid "{from} → {to} · Apple Translation (built into the system)"
+msgstr ""
+
+#. Tooltip of the composer translation strip's direction chip when the first attempt was tried again with no source language named. {from} and {to} are language names. This one was done by the device's own translator (Apple's Translation framework); "Apple Translation" is the feature's name.
+#: client/components/ChatInput.vue
+msgctxt "translate.strip.routeSystemRetried"
+msgid "{from} → {to} · Apple Translation (built into the system) · retried without a source"
 msgstr ""
 
 #. Tooltip and aria-label of the send button in the composer's translation strip after the translation failed: the message goes out in the language the user typed it in.

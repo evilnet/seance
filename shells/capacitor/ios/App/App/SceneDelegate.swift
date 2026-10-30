@@ -27,6 +27,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 class BridgeViewController: CAPBridgeViewController {
     override func capacitorDidLoad() {
         bridge?.registerPluginInstance(PowerPlugin())
+        bridge?.registerPluginInstance(AppleTranslatePlugin())
     }
 }
 

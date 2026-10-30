@@ -27,14 +27,17 @@ import {
 	BATCH_REFUSED,
 	Device,
 	EngineName,
+	WorkerEngineName,
 	LoadProgress,
 	ModelRef,
 	TranslateChunk,
 	TranslateRequest,
 	parseGpuLost,
 } from "./engine";
+import {AppleError, AppleTranslator} from "./engines/apple";
 import {ABORTED} from "./outgoing";
 import {
+	APPLE_REF,
 	Candidate,
 	DeviceChoices,
 	EngineSwitches,
@@ -55,6 +58,8 @@ import {routesFor as shippedRoutesFor} from "./routes.default";
 export const GPU_IDLE_UNLOAD_MS = 3 * 60 * 1000;
 /** A loaded CPU model with no request for this long gives its memory back. */
 export const CPU_IDLE_UNLOAD_MS = 5 * 60 * 1000;
+export const APPLE_NOT_A_DOWNLOAD =
+	"the system translator's language packs are managed by the system";
 export const TRANSLATION_UNAVAILABLE = "no translation engine can take this request";
 /**
  * How long a route waits for the worker to say what is downloaded
@@ -107,6 +112,11 @@ export interface ServiceDeps {
 	askCpuFallback?(ref: ModelRef, info: CpuFallbackInfo): Promise<CpuFallbackAnswer>;
 	/** "Always use the CPU here": the store glue writes `translateLlmDevice`. */
 	saveLlmDevice?(device: "cpu"): void;
+	/**
+	 * The iOS shell's system translator, on the main thread (the worker has
+	 * no Capacitor bridge). Absent everywhere else.
+	 */
+	apple?: AppleTranslator;
 }
 
 /**
@@ -143,6 +153,8 @@ export interface ServiceSettings {
 	switches: EngineSwitches;
 	/** The device setting per model family (`translate*Device`). */
 	devices: DeviceChoices;
+	/** The system translator, where there is one (`ServiceDeps.apple`); absent is on. */
+	system?: boolean;
 }
 
 export type ModelStatus = "idle" | "downloading" | "ready" | "failed";
@@ -224,24 +236,24 @@ export class TranslateService {
 	 */
 	private llmSwitch: Promise<void> | null = null;
 	/** Requests and downloads running per engine: an engine is never unloaded under one. */
-	private engineRunning: Record<EngineName, number> = {llm: 0, seq2seq: 0};
+	private engineRunning: Record<WorkerEngineName, number> = {llm: 0, seq2seq: 0};
 	/** Waiting for an engine to fall idle: a delete that must not unload under a request. */
-	private engineWaiters: {engine: EngineName; resolve: () => void}[] = [];
+	private engineWaiters: {engine: WorkerEngineName; resolve: () => void}[] = [];
 	/** Engines given a model since they were last unloaded. */
-	private loadedEngines = new Set<EngineName>();
+	private loadedEngines = new Set<WorkerEngineName>();
 	/**
 	 * The device each slot was last given work on: the slot holds one
 	 * device's models at a time (engines/onDevice.ts), so this is the device
 	 * its models are on. It picks the idle wait and whether deleting a copy
 	 * has to unload it first.
 	 */
-	private engineDevice: Record<EngineName, Device | null> = {llm: null, seq2seq: null};
+	private engineDevice: Record<WorkerEngineName, Device | null> = {llm: null, seq2seq: null};
 	/**
 	 * The families the seq2seq engine has held since it was last loaded
 	 * (OPUS-MT, NLLB-200): its unload follows their own switches.
 	 */
 	private seq2seqFamilies = new Set<ModelRef["family"]>();
-	private engineTimers: Record<EngineName, unknown> = {llm: null, seq2seq: null};
+	private engineTimers: Record<WorkerEngineName, unknown> = {llm: null, seq2seq: null};
 	/** Whether translation is wanted anywhere (reader.ts `translationInUse`); unset, it always is. */
 	private inUse: (() => boolean) | null = null;
 	private usageTimer: unknown = null;
@@ -257,7 +269,7 @@ export class TranslateService {
 	 */
 	private cpuHeapUsed = false;
 	/** An engine's unload `makeRoom` posted, until the worker answers: every caller waits on it. */
-	private evicting: Record<EngineName, Promise<void> | null> = {llm: null, seq2seq: null};
+	private evicting: Record<WorkerEngineName, Promise<void> | null> = {llm: null, seq2seq: null};
 	/**
 	 * The GPU fallback question this session (`askCpuFallback`): not asked
 	 * yet, a yes (the language model's Auto takes the CPU after the GPU), or
@@ -544,12 +556,12 @@ export class TranslateService {
 	 * engine has used: a fresh worker (`recycleWorker`), since that heap does
 	 * not shrink. The other engine loaded: unload it.
 	 */
-	private makeRoom(engine: EngineName): Promise<void> | null {
+	private makeRoom(engine: WorkerEngineName): Promise<void> | null {
 		if (!this.oneEngineAtATime()) {
 			return null;
 		}
 
-		const other: EngineName = engine === "llm" ? "seq2seq" : "llm";
+		const other: WorkerEngineName = engine === "llm" ? "seq2seq" : "llm";
 
 		if (this.engineRunning[other] > 0) {
 			return this.whenEngineIdle(other);
@@ -735,6 +747,14 @@ export class TranslateService {
 			return {route: null, refused: null, refusedDevice: null};
 		}
 
+		// Ahead of the table, and of the worker's cache probe: the system
+		// translator needs no download, no consent and no worker.
+		const apple = await this.appleRoute(from, to, hint);
+
+		if (apple) {
+			return {route: apple, refused: null, refusedDevice: null};
+		}
+
 		const capability = await this.capabilities();
 
 		if (capability.tier !== "none") {
@@ -806,6 +826,32 @@ export class TranslateService {
 				cachedOnly = true;
 			}
 		}
+	}
+
+	/**
+	 * The system translator's route: there is one, it is switched on and not
+	 * down, the request has a source that is not its target (a polish is the
+	 * language model's alone, router.ts), and the pair's language pack is
+	 * installed. Anything else is the table's. Its `device` is only what the
+	 * route type asks for: the system's translator runs outside the page.
+	 */
+	private async appleRoute(
+		from: string | null,
+		to: string,
+		hint: string | null
+	): Promise<Route | null> {
+		const apple = this.deps.apple;
+		const source = from ?? hint;
+
+		if (!apple || this.settings.system === false || this.down.has("apple@cpu")) {
+			return null;
+		}
+
+		if (!source || source === to || !(await apple.installed(source, to))) {
+			return null;
+		}
+
+		return {candidate: "apple", ref: APPLE_REF, device: "cpu"};
 	}
 
 	/**
@@ -1080,6 +1126,47 @@ export class TranslateService {
 							? `${TRANSLATION_UNAVAILABLE}: ${lastLoadError}`
 							: TRANSLATION_UNAVAILABLE
 					);
+				}
+
+				if (route.ref.engine === "apple") {
+					const id = this.nextId++;
+					// appleRoute only answers with a source.
+					const from = (request.from ?? hint) as string;
+					let text: string;
+
+					try {
+						text = await (this.deps.apple as AppleTranslator).translate(
+							request.text,
+							from,
+							request.to
+						);
+					} catch (e) {
+						// A pack deleted since the status was asked has already
+						// been forgotten (engines/apple.ts) and routes elsewhere
+						// now; anything else takes the engine out for the
+						// session, like any candidate that fails.
+						const error = e instanceof AppleError ? e : null;
+
+						if (error?.code !== "notInstalled") {
+							this.down.add("apple@cpu");
+						}
+
+						lastLoadError = `${APPLE_REF.id}: ${
+							e instanceof Error ? e.message : String(e)
+						}`;
+						checkAborted();
+						continue;
+					}
+
+					// A system translation cannot be cancelled: an abort drops it.
+					if (signal?.aborted) {
+						return;
+					}
+
+					completed = true;
+					yield {id, text, done: true};
+
+					return;
 				}
 
 				// A GPU model switch is settling: the old model's requests
@@ -1431,6 +1518,12 @@ export class TranslateService {
 
 	/** Settings' Download of `ref`'s copy for `device`. */
 	async download(ref: ModelRef, device: Device): Promise<void> {
+		// The system translator's packs are the system's: downloaded from
+		// its own sheet (engines/apple.ts `prepare`), never by the worker.
+		if (ref.engine === "apple") {
+			throw new Error(APPLE_NOT_A_DOWNLOAD);
+		}
+
 		const view = this.view(ref, device);
 
 		// Settings' Download, which shows the size: the user's yes.
@@ -1557,6 +1650,12 @@ export class TranslateService {
 	 * left alone.
 	 */
 	async remove(ref: ModelRef, device: Device): Promise<void> {
+		// The system translator's packs are the system's: downloaded from
+		// its own sheet (engines/apple.ts `prepare`), never by the worker.
+		if (ref.engine === "apple") {
+			throw new Error(APPLE_NOT_A_DOWNLOAD);
+		}
+
 		const view = this.view(ref, device);
 
 		this.inFlight++;
@@ -1655,7 +1754,7 @@ export class TranslateService {
 	 * own tick, so a teardown in that same tick rejects it as a disposal
 	 * rather than leaving it posted to a worker that will never answer.
 	 */
-	private releaseEngineForDelete(engine: EngineName, device: Device): Promise<void> {
+	private releaseEngineForDelete(engine: WorkerEngineName, device: Device): Promise<void> {
 		const onDevice = () =>
 			this.engineDevice[engine] === null || this.engineDevice[engine] === device;
 
@@ -1681,7 +1780,7 @@ export class TranslateService {
 		});
 	}
 
-	private unloadForDelete(engine: EngineName): Promise<void> {
+	private unloadForDelete(engine: WorkerEngineName): Promise<void> {
 		return this.client()
 			.unload(engine)
 			.then(() => {
@@ -1690,7 +1789,7 @@ export class TranslateService {
 	}
 
 	/** Resolves once nothing runs on `engine`; at once when nothing does. */
-	private whenEngineIdle(engine: EngineName): Promise<void> {
+	private whenEngineIdle(engine: WorkerEngineName): Promise<void> {
 		if (this.engineRunning[engine] === 0) {
 			return Promise.resolve();
 		}
@@ -1818,6 +1917,11 @@ export class TranslateService {
 	private engineStarted(ref: ModelRef, device: Device): void {
 		const engine = ref.engine;
 
+		// The system translator holds nothing in the page to unload.
+		if (engine === "apple") {
+			return;
+		}
+
 		this.engineDevice[engine] = device;
 
 		if (engine === "seq2seq") {
@@ -1835,7 +1939,7 @@ export class TranslateService {
 		this.clearEngineTimer(engine);
 	}
 
-	private engineEnded(engine: EngineName): void {
+	private engineEnded(engine: WorkerEngineName): void {
 		this.engineRunning[engine] = Math.max(0, this.engineRunning[engine] - 1);
 
 		if (this.engineRunning[engine] === 0) {
@@ -1859,7 +1963,7 @@ export class TranslateService {
 	 * first -- by the device its models are on, 3 minutes on the GPU and 5 on
 	 * the CPU.
 	 */
-	private afterEngineIdle(engine: EngineName): void {
+	private afterEngineIdle(engine: WorkerEngineName): void {
 		if (this.engineRunning[engine] > 0 || !this.loadedEngines.has(engine)) {
 			return;
 		}
@@ -1891,7 +1995,7 @@ export class TranslateService {
 	 * way round). The engine unloads whole, so it stays while any of its
 	 * families is still on.
 	 */
-	private engineAllowed(engine: EngineName): boolean {
+	private engineAllowed(engine: WorkerEngineName): boolean {
 		const switches = this.settings.switches;
 
 		if (engine === "llm") {
@@ -1906,7 +2010,7 @@ export class TranslateService {
 	}
 
 	/** The engine's models out of memory; the last engine going takes the worker. */
-	private unloadEngine(engine: EngineName): void {
+	private unloadEngine(engine: WorkerEngineName): void {
 		this.clearEngineTimer(engine);
 
 		const worker = this.worker;
@@ -1927,7 +2031,7 @@ export class TranslateService {
 		});
 	}
 
-	private clearEngineTimer(engine: EngineName): void {
+	private clearEngineTimer(engine: WorkerEngineName): void {
 		if (this.engineTimers[engine] !== null) {
 			this.deps.clearTimeout(this.engineTimers[engine]);
 			this.engineTimers[engine] = null;

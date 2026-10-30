@@ -5,7 +5,7 @@
 // Nothing here knows about the libraries: worker-entry.ts hands in the real
 // engines, tests and fakePort.ts hand in scripted ones.
 
-import {Device, Engine, EngineError, EngineName, ModelRef} from "./engine";
+import {Device, Engine, EngineError, WorkerEngineName, ModelRef} from "./engine";
 import {CacheApi, GpuBudget, ModelCatalog, cacheStates, copyDevices} from "./models";
 import {EngineSnapshot, MainToWorker, WorkerPort, errorMessage} from "./protocol";
 
@@ -31,6 +31,16 @@ export function serveEngines(port: WorkerPort, engines: EngineSet, deps: WorkerD
 	// devices' copies of one model are two loads, never joined. Progress is
 	// posted once per report and client.ts fans it out to the `load` caller
 	// and to every stream waiting on that copy.
+	// The engine a ref names. `apple` is the main thread's (engine.ts
+	// `EngineName`): a ref naming it here is a bug in the caller.
+	const engineFor = (ref: ModelRef): Engine => {
+		if (ref.engine === "apple") {
+			throw new Error("the system translator does not run in the worker");
+		}
+
+		return engines[ref.engine];
+	};
+
 	const load = (ref: ModelRef, device: Device): Promise<void> => {
 		const key = `${ref.id}@${device}`;
 		const inFlight = loading.get(key);
@@ -39,7 +49,7 @@ export function serveEngines(port: WorkerPort, engines: EngineSet, deps: WorkerD
 			return inFlight;
 		}
 
-		const promise = engines[ref.engine]
+		const promise = engineFor(ref)
 			.load(ref, device, (progress) =>
 				port.postMessage({type: "progress", ref, device, progress})
 			)
@@ -61,7 +71,7 @@ export function serveEngines(port: WorkerPort, engines: EngineSet, deps: WorkerD
 		copyDevices(ref)[0] ??
 		"cpu";
 
-	const snapshot = (): Record<EngineName, EngineSnapshot> => ({
+	const snapshot = (): Record<WorkerEngineName, EngineSnapshot> => ({
 		llm: {status: engines.llm.status(), models: engines.llm.loadedModels()},
 		seq2seq: {
 			status: engines.seq2seq.status(),
@@ -115,7 +125,7 @@ export function serveEngines(port: WorkerPort, engines: EngineSet, deps: WorkerD
 				break;
 
 			case "translate": {
-				const engine = engines[message.ref.engine];
+				const engine = engineFor(message.ref);
 				const controller = new AbortController();
 				const device = deviceFor(engine, message.ref, message.req.device);
 				const req = {...message.req, device};

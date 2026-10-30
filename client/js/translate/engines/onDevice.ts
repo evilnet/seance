@@ -11,7 +11,7 @@ import {
 	Device,
 	Engine,
 	EngineCapabilities,
-	EngineName,
+	WorkerEngineName,
 	EngineStatus,
 	LoadProgress,
 	ModelRef,
@@ -20,7 +20,7 @@ import {
 } from "../engine";
 
 export class OnDevice implements Engine {
-	readonly name: EngineName;
+	readonly name: WorkerEngineName;
 	private engines: Record<Device, Engine>;
 	private active: Device = "gpu";
 	/** The requests streaming on each device, settled when their stream ends. */
@@ -28,7 +28,7 @@ export class OnDevice implements Engine {
 	/** Each device's newest `load`, from its call until it settles. */
 	private loading: Record<Device, Promise<void> | null> = {gpu: null, cpu: null};
 
-	constructor(name: EngineName, engines: Record<Device, Engine>) {
+	constructor(name: WorkerEngineName, engines: Record<Device, Engine>) {
 		this.name = name;
 		this.engines = engines;
 	}

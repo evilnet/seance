@@ -15,7 +15,7 @@ import {
 	Engine,
 	EngineCapabilities,
 	EngineError,
-	EngineName,
+	WorkerEngineName,
 	EngineStatus,
 	LoadProgress,
 	ModelRef,
@@ -82,7 +82,7 @@ interface TranslateFakeRequestLog {
 	/** The source the request asked for: null when it was left to the engine. */
 	from: string | null;
 	to: string;
-	engine: EngineName;
+	engine: WorkerEngineName;
 	/** The marker form the route chose (spans.ts `renderMarkers`). */
 	markers: string;
 	/** How many recent lines the context carried: 0 is a bare request. */
@@ -100,14 +100,14 @@ interface TranslateFakeGlobal {
 	 * reads to see a model unloaded (service.ts idle and not-in-use unloads).
 	 * A terminated fake worker holds nothing, as a real one frees its memory.
 	 */
-	loaded?: Partial<Record<EngineName, string[]>>;
+	loaded?: Partial<Record<WorkerEngineName, string[]>>;
 }
 
 function fakeGlobal(): TranslateFakeGlobal {
 	return (globalThis.__seanceTranslateFake ??= {requests: []});
 }
 
-function publishLoaded(engine: EngineName, ids: string[]): void {
+function publishLoaded(engine: WorkerEngineName, ids: string[]): void {
 	const g = fakeGlobal();
 
 	g.loaded = {...(g.loaded ?? {}), [engine]: [...ids]};
@@ -118,7 +118,7 @@ declare global {
 	var __seanceTranslateFake: TranslateFakeGlobal | undefined;
 }
 
-function logRequest(req: TranslateRequest, engine: EngineName): void {
+function logRequest(req: TranslateRequest, engine: WorkerEngineName): void {
 	const g = fakeGlobal();
 
 	g.requests.push({

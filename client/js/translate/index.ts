@@ -15,6 +15,8 @@ import {emptyContext, type Device, type ModelRef} from "./engine";
 import {TranslateClient} from "./client";
 import {FAKE_CAPABILITY, fakePort} from "./fakePort";
 import {buildCatalog, listedSize, nativeDevice, normalizeDeviceChoice} from "./models";
+import {APPLE_PLUGIN, AppleTranslator} from "./engines/apple";
+import {isIOSShell, nativeInvoke} from "../helpers/capacitor";
 import {MainPort} from "./protocol";
 import {RouteTable} from "./router";
 import {
@@ -81,6 +83,7 @@ export function serviceSettings(): ServiceSettings {
 			opus: normalizeDeviceChoice(settings.translateOpusDevice),
 			nllb: normalizeDeviceChoice(settings.translateNllbDevice),
 		},
+		system: settings.translateSystem !== false,
 	};
 }
 
@@ -242,6 +245,14 @@ function create(): TranslateService {
 		});
 	};
 
+	// The system translator: the iOS shell's AppleTranslate plugin, on this
+	// thread, since the worker has no bridge. Nowhere else.
+	if (!fake && isIOSShell()) {
+		deps.apple = new AppleTranslator({
+			invoke: (method, options) => nativeInvoke(APPLE_PLUGIN, method, options),
+		});
+	}
+
 	// An unset GPU model ("") is no choice: it resolves every time it is read
 	// — the deploy's model, else what the device probe fits, else the shipped
 	// default (models.ts `llmChoice`) — so a later deploy default, and a
@@ -275,6 +286,7 @@ function create(): TranslateService {
 				devices.llm,
 				devices.opus,
 				devices.nllb,
+				store.state.settings.translateSystem !== false,
 			];
 		},
 		() => created.setSettings(serviceSettings())

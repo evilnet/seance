@@ -695,6 +695,12 @@ export default defineComponent({
 			// the pot check can see.
 			const vars = {from, to: readerName(entry.to), model: entry.model};
 
+			if (entry.engine === "apple") {
+				return entry.retried
+					? t("translate.strip.routeSystemRetried", vars)
+					: t("translate.strip.routeSystem", vars);
+			}
+
 			if (entry.retried) {
 				return gpu
 					? t("translate.strip.routeGpuRetried", vars)
