@@ -43,6 +43,8 @@ import {modelDisplayName} from "../helpers/translateWhy";
 const initialSearch = window.location.search;
 
 let service: TranslateService | null = null;
+let apple: AppleTranslator | null = null;
+
 let usage: (() => boolean) | null = null;
 
 /**
@@ -62,6 +64,16 @@ export function translateService(): TranslateService {
 	}
 
 	return service;
+}
+
+/**
+ * The system translator the service routes to first (the iOS shell's), for
+ * Settings to ask about its packs; null everywhere else.
+ */
+export function systemTranslator(): AppleTranslator | null {
+	translateService();
+
+	return apple;
 }
 
 /**
@@ -248,9 +260,10 @@ function create(): TranslateService {
 	// The system translator: the iOS shell's AppleTranslate plugin, on this
 	// thread, since the worker has no bridge. Nowhere else.
 	if (!fake && isIOSShell()) {
-		deps.apple = new AppleTranslator({
+		apple = new AppleTranslator({
 			invoke: (method, options) => nativeInvoke(APPLE_PLUGIN, method, options),
 		});
+		deps.apple = apple;
 	}
 
 	// An unset GPU model ("") is no choice: it resolves every time it is read

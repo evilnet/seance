@@ -142,6 +142,15 @@ export class AppleTranslator {
 		return lines.map((line) => (line.trim() === "" ? line : answer.lines[next++])).join("\n");
 	}
 
+	/** The languages the system translates (ISO 639 codes); none when the bridge does not answer. */
+	async languages(): Promise<string[]> {
+		const answer = await this.deps
+			.invoke<{languages: string[]}>("languages", {})
+			.catch(() => ({languages: [] as string[]}));
+
+		return Array.isArray(answer.languages) ? answer.languages : [];
+	}
+
 	/** The system's download sheet for the pair's pack; the status after it. */
 	async prepare(from: string, to: string): Promise<AppleStatus> {
 		this.forget();

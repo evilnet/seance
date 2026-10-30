@@ -135,4 +135,14 @@ describe("translate/engines/apple", () => {
 
 		expect(bridge.calls.map((c) => c.options.strategy)).to.deep.equal(["low", "high"]);
 	});
+
+	it("lists the system's languages, and none when the bridge does not answer", async () => {
+		const answering = new AppleTranslator({
+			invoke: <T>() => Promise.resolve({languages: ["de", "en", "ja"]} as T),
+		});
+		const silent = new AppleTranslator({invoke: () => Promise.reject(new Error("no bridge"))});
+
+		expect(await answering.languages()).to.deep.equal(["de", "en", "ja"]);
+		expect(await silent.languages()).to.deep.equal([]);
+	});
 });

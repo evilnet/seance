@@ -15,6 +15,8 @@ import UIKit
 ///   `skipsTranslation`, so the engine never sees inside one (26.4+).
 /// - `prepare({from, to, strategy?})`: asks the user to download the pair's
 ///   pack in the system's own sheet, then `{status}` as `availability` says it.
+/// - `languages()`: `{languages}`, the language codes (ISO 639) the framework
+///   translates, once each.
 ///
 /// `strategy` is `low` (the default: the downloaded packs, ~80 ms a line) or
 /// `high` (Apple's on-device 3B model, 13–27× slower). Before 26.4 there is no
@@ -31,6 +33,7 @@ class AppleTranslatePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "availability", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "translate", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "prepare", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "languages", returnType: CAPPluginReturnPromise),
     ]
 
     private let translator = SerialTranslator()
@@ -61,6 +64,15 @@ class AppleTranslatePlugin: CAPPlugin, CAPBridgedPlugin {
                 let (code, message) = Self.describe(error)
                 call.reject(message, code, error)
             }
+        }
+    }
+
+    @objc func languages(_ call: CAPPluginCall) {
+        Task {
+            let supported = await LanguageAvailability().supportedLanguages
+            var seen = Set<String>()
+            let codes = supported.compactMap { $0.languageCode?.identifier }.filter { seen.insert($0).inserted }
+            call.resolve(["languages": codes.sorted()])
         }
     }
 
