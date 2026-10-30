@@ -3029,10 +3029,21 @@ describe("translate/service", () => {
 			r.service.dispose();
 		});
 
-		it("leaves a pair without its pack, and a polish, to the table", async () => {
+		it("offers a missing pack once: downloaded, the pair is Apple's", async () => {
+			const r = appleRig({"de>en": "supported"});
+
+			expect(await text(r.service.translate(base))).to.equal("[Hallo]");
+			expect(r.bridge.calls.filter((c) => c.method === "prepare")).to.have.length(1);
+			r.service.dispose();
+		});
+
+		it("leaves a declined pack, and a polish, to the table", async () => {
 			const r = appleRig({"de>en": "supported", "en>en": "installed"});
 
+			r.bridge.sheet = "decline";
 			expect(await text(r.service.translate(base))).to.equal("llm:Hallo");
+			expect(await text(r.service.translate(base))).to.equal("llm:Hallo");
+			expect(r.bridge.calls.filter((c) => c.method === "prepare")).to.have.length(1);
 			expect((await r.service.route("en", "en"))?.candidate).to.equal("llm");
 			r.service.dispose();
 		});
@@ -3062,6 +3073,8 @@ describe("translate/service", () => {
 			await r.service.route("de", "en");
 			r.bridge.status["de>en"] = "supported";
 			r.bridge.reject = "notInstalled";
+			// Offered again, and declined this time.
+			r.bridge.sheet = "decline";
 			expect(await text(r.service.translate(base))).to.equal("llm:Hallo");
 			expect((await r.service.route("fr", "en"))?.candidate).to.equal("apple");
 			r.service.dispose();

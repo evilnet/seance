@@ -820,7 +820,7 @@ export default defineComponent({
 			systemFailed.value = false;
 
 			try {
-				systemStatus.value = await system.prepare(systemSource.value, target);
+				systemStatus.value = (await system.prepare(systemSource.value, target)).status;
 				systemFailed.value = systemStatus.value !== "installed";
 			} catch {
 				systemFailed.value = true;

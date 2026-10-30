@@ -9,7 +9,9 @@ import {
 /**
  * A bridge standing in for the shell's AppleTranslate plugin: `status` per
  * pair, `answer` turns one line into its translation, `reject` makes the
- * next `translate` call fail with that code.
+ * next `translate` call fail with that code, and `sheet` is what the
+ * download sheet does: install the pack, be declined, or leave it
+ * downloading.
  */
 export function fakeBridge(status: Record<string, AppleStatus> = {}) {
 	const calls: {method: string; options: Record<string, unknown>}[] = [];
@@ -17,15 +19,27 @@ export function fakeBridge(status: Record<string, AppleStatus> = {}) {
 		status,
 		answer: (line: string) => `[${line}]`,
 		reject: null as string | null,
+		sheet: "install" as "install" | "decline" | "downloading",
 		calls,
 		deps: {
 			invoke<T>(method: string, options: Record<string, unknown>): Promise<T> {
 				calls.push({method, options});
 
-				if (method === "availability" || method === "prepare") {
-					const key = `${String(options.from)}>${String(options.to)}`;
+				const key = `${String(options.from)}>${String(options.to)}`;
 
+				if (method === "availability") {
 					return Promise.resolve({status: bridge.status[key] ?? "unsupported"} as T);
+				}
+
+				if (method === "prepare") {
+					if (bridge.sheet === "install" && bridge.status[key] === "supported") {
+						bridge.status[key] = "installed";
+					}
+
+					return Promise.resolve({
+						status: bridge.status[key] ?? "unsupported",
+						...(bridge.sheet === "decline" ? {error: "cancelled"} : {}),
+					} as T);
 				}
 
 				if (bridge.reject) {
@@ -113,10 +127,10 @@ describe("translate/engines/apple", () => {
 	});
 
 	it("prepare asks for the pack and reports the status after it", async () => {
-		const bridge = fakeBridge({"pl>en": "installed"});
+		const bridge = fakeBridge({"pl>en": "supported"});
 		const apple = new AppleTranslator(bridge.deps, {strategy: "high", skip: false});
 
-		expect(await apple.prepare("pl", "en")).to.equal("installed");
+		expect(await apple.prepare("pl", "en")).to.deep.equal({status: "installed"});
 		expect(bridge.calls[0]).to.deep.equal({
 			method: "prepare",
 			options: {from: "pl", to: "en", strategy: "high"},
@@ -144,5 +158,42 @@ describe("translate/engines/apple", () => {
 
 		expect(await answering.languages()).to.deep.equal(["de", "en", "ja"]);
 		expect(await silent.languages()).to.deep.equal([]);
+	});
+
+	describe("offering a pack", () => {
+		it("asks once for every request waiting on the pair, and is then installed", async () => {
+			const bridge = fakeBridge({"pl>en": "supported"});
+			const apple = new AppleTranslator(bridge.deps);
+
+			const answers = await Promise.all([apple.offer("pl", "en"), apple.offer("pl", "en")]);
+
+			expect(answers).to.deep.equal([true, true]);
+			expect(bridge.calls.filter((c) => c.method === "prepare")).to.have.length(1);
+			expect(await apple.installed("pl", "en")).to.equal(true);
+		});
+
+		it("declined, the pair is not offered again on this page load", async () => {
+			const bridge = fakeBridge({"pl>en": "supported"});
+			const apple = new AppleTranslator(bridge.deps);
+
+			bridge.sheet = "decline";
+			expect(await apple.offer("pl", "en")).to.equal(false);
+			bridge.sheet = "install";
+			expect(await apple.offer("pl", "en")).to.equal(false);
+			expect(bridge.calls.filter((c) => c.method === "prepare")).to.have.length(1);
+		});
+
+		it("accepted but still downloading, it asks the status afresh until the pack lands", async () => {
+			const bridge = fakeBridge({"pl>en": "supported"});
+			const apple = new AppleTranslator(bridge.deps);
+
+			bridge.sheet = "downloading";
+			expect(await apple.offer("pl", "en")).to.equal(false);
+			expect(await apple.status("pl", "en")).to.equal("supported");
+			bridge.status["pl>en"] = "installed";
+			expect(await apple.status("pl", "en")).to.equal("installed");
+			expect(await apple.offer("pl", "en")).to.equal(false);
+			expect(bridge.calls.filter((c) => c.method === "prepare")).to.have.length(1);
+		});
 	});
 });

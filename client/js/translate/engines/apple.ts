@@ -12,10 +12,12 @@
 // all. `high` is Apple's on-device 3B model, 13–27× slower and only
 // sometimes better.
 //
-// A pair is taken only when its pack is installed (`status`): the router
-// tries this engine first and falls through to the route table otherwise,
-// so a missing pack never blocks a translation. `prepare` asks the user to
-// download one in the system's own sheet.
+// A pair is taken when its pack is installed (`status`). A pair whose pack
+// can be downloaded is offered once (`offer`): the system's own sheet, the
+// first time a translation needs it, as the page asks before downloading a
+// model of its own (consent.ts). Declined, or the pair unsupported, the
+// router falls through to the route table, so a missing pack never blocks a
+// translation. Settings asks about a pack directly (`prepare`).
 //
 // Vue-free and DOM-free behind `AppleDeps`, so mocha drives it with a fake
 // bridge (test/translate/apple.ts).
@@ -38,6 +40,12 @@ export interface AppleOptions {
 	skip: boolean;
 }
 
+/** What the download sheet left: the pair's status, and the plugin's error code when it did not finish. */
+export interface PrepareResult {
+	status: AppleStatus;
+	error?: string;
+}
+
 /** A plugin rejection, or a bridge that is not there (`unavailable`). */
 export class AppleError extends Error {
 	constructor(message: string, readonly code: string) {
@@ -48,6 +56,12 @@ export class AppleError extends Error {
 
 export class AppleTranslator {
 	private statuses = new Map<string, Promise<AppleStatus>>();
+	/** Sheets open now, one per pair, every request for the pair waiting on it. */
+	private offers = new Map<string, Promise<boolean>>();
+	/** Pairs offered on this page load: declined, or downloading in the background. */
+	private offered = new Set<string>();
+	/** Accepted and still downloading: their status is asked afresh until it is `installed`. */
+	private pending = new Set<string>();
 	private deps: AppleDeps;
 	private options: AppleOptions;
 
@@ -72,7 +86,7 @@ export class AppleTranslator {
 	 */
 	status(from: string, to: string): Promise<AppleStatus> {
 		const key = this.key(from, to);
-		let status = this.statuses.get(key);
+		let status = this.pending.has(key) ? undefined : this.statuses.get(key);
 
 		if (!status) {
 			status = this.deps
@@ -82,7 +96,13 @@ export class AppleTranslator {
 					strategy: this.options.strategy,
 				})
 				.then(
-					(answer) => answer.status,
+					(answer) => {
+						if (answer.status === "installed") {
+							this.pending.delete(key);
+						}
+
+						return answer.status;
+					},
 					() => "unsupported" as const
 				);
 			this.statuses.set(key, status);
@@ -151,17 +171,60 @@ export class AppleTranslator {
 		return Array.isArray(answer.languages) ? answer.languages : [];
 	}
 
+	/**
+	 * The pair's pack offered in the system's sheet, once per page load:
+	 * true when it is installed afterwards. Every request for the pair while
+	 * the sheet is up waits on the one answer. Declined (closed, or failed),
+	 * the pair is not offered again until the next load; accepted, its
+	 * status is asked afresh until the background download lands.
+	 */
+	offer(from: string, to: string): Promise<boolean> {
+		const key = this.key(from, to);
+		const open = this.offers.get(key);
+
+		if (open) {
+			return open;
+		}
+
+		if (this.offered.has(key)) {
+			return Promise.resolve(false);
+		}
+
+		this.offered.add(key);
+
+		const answer = this.prepare(from, to)
+			.then(
+				(result) => {
+					if (result.status === "installed") {
+						return true;
+					}
+
+					if (!result.error) {
+						this.pending.add(key);
+					}
+
+					return false;
+				},
+				() => false
+			)
+			.finally(() => this.offers.delete(key));
+
+		this.offers.set(key, answer);
+
+		return answer;
+	}
+
 	/** The system's download sheet for the pair's pack; the status after it. */
-	async prepare(from: string, to: string): Promise<AppleStatus> {
+	async prepare(from: string, to: string): Promise<PrepareResult> {
 		this.forget();
 
 		const answer = await this.deps
-			.invoke<{status: AppleStatus}>("prepare", {from, to, strategy: this.options.strategy})
+			.invoke<PrepareResult>("prepare", {from, to, strategy: this.options.strategy})
 			.catch((e: unknown) => {
 				throw asAppleError(e);
 			});
 
-		return answer.status;
+		return {status: answer.status, ...(answer.error ? {error: answer.error} : {})};
 	}
 
 	private key(from: string, to: string): string {

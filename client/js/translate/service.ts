@@ -832,7 +832,8 @@ export class TranslateService {
 	 * The system translator's route: there is one, it is switched on and not
 	 * down, the request has a source that is not its target (a polish is the
 	 * language model's alone, router.ts), and the pair's language pack is
-	 * installed. Anything else is the table's. Its `device` is only what the
+	 * installed, or downloaded when its sheet first offers it. Anything else
+	 * is the table's. Its `device` is only what the
 	 * route type asks for: the system's translator runs outside the page.
 	 */
 	private async appleRoute(
@@ -847,11 +848,19 @@ export class TranslateService {
 			return null;
 		}
 
-		if (!source || source === to || !(await apple.installed(source, to))) {
+		if (!source || source === to) {
 			return null;
 		}
 
-		return {candidate: "apple", ref: APPLE_REF, device: "cpu"};
+		const status = await apple.status(source, to);
+
+		// A pack that can be downloaded is offered once (engines/apple.ts
+		// `offer`): the system's sheet, then the table if it is declined.
+		if (status === "installed" || (status === "supported" && (await apple.offer(source, to)))) {
+			return {candidate: "apple", ref: APPLE_REF, device: "cpu"};
+		}
+
+		return null;
 	}
 
 	/**
