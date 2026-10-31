@@ -2389,15 +2389,16 @@ textarea.input {
    is 1000 but is only in the document while a menu is open, and no menu can be
    opened from the sheet. */
 .translation-panel--sheet {
-	position: fixed;
+	/* Absolute in #viewport, not fixed: #viewport follows the visual viewport
+	   (helpers/viewport.ts), which iOS shrinks for the keyboard where it never
+	   shrinks the layout one, and in the shell `.screen-overlay` starts it at
+	   the insets. */
+	position: absolute;
 	inset: 0;
 	z-index: 1001;
 	width: auto;
 	max-width: none;
-
-	/* iOS never shrinks the layout viewport for the keyboard, so the sheet
-	   follows the visual viewport helpers/viewport.ts publishes. */
-	height: var(--viewport-height, 100%);
+	height: auto;
 	max-height: none;
 	overflow: hidden;
 	gap: 0;
@@ -2415,10 +2416,11 @@ textarea.input {
 
 /* The sheet sits flush against the top of the page, above the sidebar's
  * z-index: it needs #status-bar-tint's same reservation so the title clears
- * it on an iOS home-screen app (see #status-bar-tint above). */
+ * it on an iOS home-screen app (see #status-bar-tint above). The shell has no
+ * tint, and `.screen-overlay` already starts the sheet below the status bar. */
 @media (hover: none) and (pointer: coarse) {
 	@supports (-webkit-touch-callout: none) {
-		.translation-panel--sheet .translation-panel-title {
+		html:not([data-shell="native"]) .translation-panel--sheet .translation-panel-title {
 			padding-top: calc(1rem + var(--status-bar-tint-height, 0px));
 		}
 	}
@@ -2532,8 +2534,10 @@ textarea.input {
 	flex-direction: column;
 	gap: 0.5rem;
 
-	/* Above the home indicator, whatever the device says that is. */
-	padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 20px));
+	/* Out of iOS's home indicator strip in the shell, as the composer is
+	   (Android's bar is under the sheet's edge, which `.screen-overlay` or
+	   its own rule moves). */
+	padding: 0.75rem 1rem max(0.75rem, var(--inset-inner-bottom, 0px));
 	border-top: 1px solid var(--window-border, rgb(128 128 128 / 30%));
 }
 
@@ -2675,6 +2679,14 @@ textarea.input {
 	border-radius: 0.75rem 0.75rem 0 0;
 }
 
+/* Fixed to the screen's bottom edge, which in the shell is under Android's
+ * button bar: it stops above it (iOS's home indicator is reserved by the
+ * actions row); in landscape the notch is a side. */
+html[data-shell="native"] .source-language-picker--sheet {
+	bottom: var(--inset-outer-bottom);
+	padding: 0 var(--inset-right) 0 var(--inset-left);
+}
+
 .source-language-picker--sheet .source-language-picker-field {
 	gap: 0.375rem;
 	padding: 1rem;
@@ -2693,8 +2705,10 @@ textarea.input {
 }
 
 .source-language-picker--sheet .source-language-picker-actions {
-	/* Above the home indicator, whatever the device says that is. */
-	padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 20px));
+	/* Out of iOS's home indicator strip in the shell, as the composer is
+	   (Android's bar is under the sheet's edge, which `.screen-overlay` or
+	   its own rule moves). */
+	padding: 0.75rem 1rem max(0.75rem, var(--inset-inner-bottom, 0px));
 	border-top: 1px solid var(--window-border, rgb(128 128 128 / 30%));
 }
 

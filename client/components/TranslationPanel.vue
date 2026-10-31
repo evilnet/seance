@@ -1,12 +1,12 @@
 <template>
-	<!-- One markup, two layouts. The sheet is teleported to <body> so it can
-	     cover the whole screen: the desktop panel is absolutely positioned
+	<!-- One markup, two layouts. The sheet is teleported to #viewport so it can
+	     cover the whole app: the desktop panel is absolutely positioned
 	     inside the channel view, which clips its overflow. -->
-	<Teleport to="body" :disabled="!phone">
+	<Teleport to="#viewport" :disabled="!phone">
 		<div
 			ref="panel"
 			class="translation-panel"
-			:class="{'translation-panel--sheet': phone}"
+			:class="{'translation-panel--sheet screen-overlay': phone}"
 			role="dialog"
 			:aria-modal="phone ? 'true' : undefined"
 			:aria-label="panelLabel"
