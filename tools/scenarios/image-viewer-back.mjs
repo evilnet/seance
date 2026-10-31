@@ -16,9 +16,9 @@
 // each open image has one close watcher whose close request (Android's back)
 // closes it, that a real Escape closes it, and with --mobile that the
 // viewer's own gesture holds: a pinch beside the image zooms it and does not
-// close it, a tap on a zoomed image does not close it, a tap at the fitted
-// size does; on a desktop, that a mouse pan let go over the backdrop is not a
-// click. SEANCE_APP overrides the app's origin.
+// close it, a tap on a zoomed image does not close it, a tap on the backdrop
+// beside a zoomed image does, a tap at the fitted size does; on a desktop,
+// that a mouse pan let go over the backdrop is not a click. SEANCE_APP overrides the app's origin.
 
 const app = process.env.SEANCE_APP || "http://localhost:8000";
 
@@ -99,6 +99,19 @@ const WRAP_CLOSE_WATCHER = `(() => {
 			super.destroy();
 		}
 	};
+})()`;
+
+/** A spot on the backdrop, off the image as drawn and clear of the buttons
+ * by a finger's width: Chrome's touch adjustment snaps a tap beside one onto
+ * it, as on a phone. */
+const BACKDROP_SPOT = `(() => {
+	const v = document.querySelector("#image-viewer");
+	for (let y = innerHeight - 30; y > 0; y -= 20)
+		for (let x = 30; x < innerWidth; x += 20)
+			if ([[0, 0], [-40, 0], [40, 0], [0, -40], [0, 40]].every(
+				([dx, dy]) => document.elementFromPoint(x + dx, y + dy) === v
+			)) return JSON.stringify({x, y});
+	return "null";
 })()`;
 
 function finger(x, y, id) {
@@ -218,25 +231,44 @@ export default async function run(page) {
 		await tapAt(page, midX, viewer.y + viewer.height / 2);
 		page.check("a tap on a zoomed image leaves it open", await page.evaluate(OPEN));
 
+		// 4b. But a tap on the backdrop beside a zoomed image does: zoomed a
+		// little, from a fresh open, so there is backdrop left beside it.
+		await press(page, "#image-viewer .close-btn", 0);
+		await openLastImage(page);
+		const fresh = await boxes(page);
+		const fit = await page.evaluate(SCALE);
+		const cx = fresh.img.x + fresh.img.width / 2;
+		const cy = fresh.img.y + fresh.img.height / 2;
+		await touch(page, "touchStart", [finger(cx - 50, cy, 0), finger(cx + 50, cy, 1)]);
+
+		for (let step = 1; step <= 5; step++) {
+			await page.sleep(16);
+			await touch(page, "touchMove", [
+				finger(cx - 50 - step * 5, cy, 0),
+				finger(cx + 50 + step * 5, cy, 1),
+			]);
+		}
+
+		await touch(page, "touchEnd", []);
+		await page.sleep(500);
+		const little = await page.evaluate(SCALE);
+		page.check(`a small pinch zooms in (${fit} → ${little})`, little > fit * 1.2);
+		const beside = JSON.parse(await page.evaluate(BACKDROP_SPOT));
+		page.check(
+			`the zoomed image leaves backdrop beside it (${JSON.stringify(beside)})`,
+			beside !== null
+		);
+		await tapAt(page, beside.x, beside.y);
+		page.check("a tap beside a zoomed image closes it", !(await page.evaluate(OPEN)));
+		await openLastImage(page);
+
 		// 5. The buttons keep their taps: ✕ by finger closes.
 		await press(page, "#image-viewer .close-btn", 0);
 		page.check("a tap on ✕ closes the image", !(await page.evaluate(OPEN)));
 
 		// 6. At the fitted size, a tap on the backdrop closes it.
 		await openLastImage(page);
-		const spot = JSON.parse(
-			await page.evaluate(`(() => {
-				const v = document.querySelector("#image-viewer");
-				for (let y = innerHeight - 30; y > 0; y -= 20)
-					for (let x = 30; x < innerWidth; x += 20)
-						// Clear of the buttons by a finger's width: Chrome's touch
-						// adjustment snaps a tap beside one onto it, as on a phone.
-						if ([[0, 0], [-40, 0], [40, 0], [0, -40], [0, 40]].every(
-							([dx, dy]) => document.elementFromPoint(x + dx, y + dy) === v
-						)) return JSON.stringify({x, y});
-				return "null";
-			})()`)
-		);
+		const spot = JSON.parse(await page.evaluate(BACKDROP_SPOT));
 		await tapAt(page, spot.x, spot.y);
 		page.check("a tap at the fitted size closes the image", !(await page.evaluate(OPEN)));
 		await stackClean("touch");
