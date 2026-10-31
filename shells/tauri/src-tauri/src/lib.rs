@@ -186,11 +186,16 @@ fn seance_call(
     }
 }
 
-/// The app's own pages: the bundled assets, never the network.
-fn is_app_url(url: &Url) -> bool {
+/// The app's own pages: the bundled assets, never the network — except
+/// under `tauri dev`, which serves them from the CLI's dev server
+/// (`dev_url`), so that origin is the app's too.
+fn is_app_url(url: &Url, dev_url: Option<&Url>) -> bool {
     match url.scheme() {
         "tauri" => url.host_str() == Some("localhost"),
-        "http" | "https" => url.host_str() == Some("tauri.localhost"),
+        "http" | "https" => {
+            url.host_str() == Some("tauri.localhost")
+                || (tauri::is_dev() && dev_url.is_some_and(|dev| dev.origin() == url.origin()))
+        }
         _ => false,
     }
 }
@@ -205,6 +210,7 @@ fn open_external(url: &Url) {
 fn create_main(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     let version = app.package_info().version.to_string();
     let handle = app.clone();
+    let dev_url = app.config().build.dev_url.clone();
 
     WebviewWindowBuilder::new(app, MAIN, WebviewUrl::App("index.html".into()))
         .title(app.package_info().name.clone())
@@ -213,8 +219,8 @@ fn create_main(app: &AppHandle) -> tauri::Result<WebviewWindow> {
         .initialization_script(init_script(&version))
         // The window navigates inside the app alone; target=_blank and
         // window.open() never make a window.
-        .on_navigation(|url| {
-            let inside = is_app_url(url);
+        .on_navigation(move |url| {
+            let inside = is_app_url(url, dev_url.as_ref());
 
             if !inside {
                 open_external(url);
