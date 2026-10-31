@@ -10,7 +10,7 @@
  */
 
 import {PHONE_LAYOUT_QUERY} from "./helpers/device";
-import {isIOSShell, nativeCall, nativeListen} from "./helpers/capacitor";
+import {isIOSShell, nativeCall, nativeListen} from "./helpers/shell";
 import {createPowerMerge, framesSayLowPower} from "./helpers/power";
 import {onAndroidSystemStatus} from "./helpers/systemAccessibility";
 

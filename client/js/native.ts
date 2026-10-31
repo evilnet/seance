@@ -1,6 +1,8 @@
-// Native-shell glue (shells/capacitor): everything the page does *because* it
-// is running inside the shell — the launch link, the status bar, the splash,
-// Android's back button. The bridge itself is `helpers/capacitor.ts`, which
+// App-shell glue: everything the page does *because* it is running inside a
+// shell. Every shell, phone or desktop, hands the page links (the launch link
+// and those opened while it runs) and notification taps; the phone shells
+// (shells/capacitor) add the status bar, the splash, the system text size and
+// Android's back button. The bridge itself is `helpers/shell.ts`, which
 // imports nothing and is what the leaf helpers (haptics, keepAlive, appBadge,
 // viewport) talk to; this file is free to pull in the store and the router.
 
@@ -10,23 +12,25 @@ import {followSystemTextSize} from "./helpers/systemTextSize";
 import {reconnectAll} from "./irc/manager";
 import {isPhoneLayout} from "./helpers/device";
 import {
-	nativeBridge,
 	nativeCall,
 	nativeListen,
 	nativePlatform,
 	isAndroidShell,
+	isDesktopShell,
 	isIOSShell,
-} from "./helpers/capacitor";
+	isShell,
+} from "./helpers/shell";
 import {emitEscape, topEscapeLayer} from "./helpers/escapeLayer";
 import {onNativePushTap} from "./helpers/nativePush";
 import {onNativeAlertTap} from "./helpers/nativeAlerts";
 import {store} from "./store";
 
 // A link the OS handed the app — `irc:`, `ircs:` or `web+irc:`, the schemes
-// Info.plist claims. Cold, it is the launch URL (`getLaunchUrl`), which
+// Info.plist claims (a desktop shell claims `web+irc:` alone). Cold, it is the launch URL (`getLaunchUrl`), which
 // boot.ts awaits before it routes, the way a browser page reads `?uri=`.
 // While running it comes through `appUrlOpen`; iOS reports the launch URL
-// that way too, so that one is delivered once (Android never does).
+// that way too, so that one is delivered once (Android and the desktop
+// shells never do).
 //
 // The bridge outlives a reload (Settings' restore reloads the page): Android
 // keeps answering `getLaunchUrl` with the intent the activity started with,
@@ -98,33 +102,16 @@ function hideSplash(): void {
  * goes now if the theme's load did not take it down already.
  */
 export function nativeAppReady(): void {
-	hideSplash();
+	// The desktop shells show their window when the page is ready; there is
+	// no launch image to take down.
+	if (!isDesktopShell()) {
+		hideSplash();
+	}
 }
 
 export function installNativeHooks(): void {
-	if (!nativeBridge()) {
+	if (!isShell()) {
 		return;
-	}
-
-	// iOS/Android drop the WebSocket while backgrounded: retry on foreground.
-	// (No build check: a new build of the shell is a new app from the store.)
-	nativeListen("App", "appStateChange", ({isActive}: {isActive?: boolean}) => {
-		if (isActive) {
-			reconnectAll();
-		}
-	});
-
-	// The system's text size (iOS's Dynamic Type, Android's Font size)
-	// scales the whole interface (helpers/systemTextSize.ts).
-	followSystemTextSize();
-
-	// Android: the "stay connected" notification's Turn off button stops the
-	// service; the setting follows so Settings shows the truth and the next
-	// launch does not start it again (helpers/keepAlive.ts).
-	if (isAndroidShell()) {
-		nativeListen("KeepAlive", "stopped", () => {
-			void store.dispatch("settings/update", {name: "keepConnected", value: false});
-		});
 	}
 
 	// Android: a tapped push notification (PushService.java) opens its
@@ -149,8 +136,8 @@ export function installNativeHooks(): void {
 		}
 
 		noteLinkHandled(href);
-		// Only iOS echoes the launch link through `appUrlOpen`; kept on
-		// Android, the token would swallow a later opening of the same link.
+		// Only iOS echoes the launch link through `appUrlOpen`; kept
+		// elsewhere, the token would swallow a later opening of the same link.
 		launchHref = isIOSShell() ? href : null;
 		return href;
 	});
@@ -178,6 +165,37 @@ export function installNativeHooks(): void {
 			}
 		});
 	});
+
+	// A desktop window is a window like a browser's: the page's own
+	// visibility and focus events (foreground.ts) see it come back, it has
+	// no status bar, no splash and no back button, and its text size is the
+	// page's setting. It says which shell it is, and that is all.
+	if (isDesktopShell()) {
+		document.documentElement.dataset.shell = "desktop";
+		document.documentElement.dataset.platform = nativePlatform();
+		return;
+	}
+
+	// iOS/Android drop the WebSocket while backgrounded: retry on foreground.
+	// (No build check: a new build of the shell is a new app from the store.)
+	nativeListen("App", "appStateChange", ({isActive}: {isActive?: boolean}) => {
+		if (isActive) {
+			reconnectAll();
+		}
+	});
+
+	// The system's text size (iOS's Dynamic Type, Android's Font size)
+	// scales the whole interface (helpers/systemTextSize.ts).
+	followSystemTextSize();
+
+	// Android: the "stay connected" notification's Turn off button stops the
+	// service; the setting follows so Settings shows the truth and the next
+	// launch does not start it again (helpers/keepAlive.ts).
+	if (isAndroidShell()) {
+		nativeListen("KeepAlive", "stopped", () => {
+			void store.dispatch("settings/update", {name: "keepConnected", value: false});
+		});
+	}
 
 	// The WebView fills the screen (capacitor.config.ts), so the page draws
 	// under the status bar: `viewport-fit=cover` makes env(safe-area-inset-top)

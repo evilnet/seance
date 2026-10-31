@@ -13,7 +13,7 @@
 // Imports nothing but the bridge, so boot.ts can call it before anything
 // mounts and a component can subscribe without pulling in the store.
 
-import {isAndroidShell, nativeCall, nativeListen} from "./capacitor";
+import {isAndroidShell, nativeCall, nativeListen} from "./shell";
 
 export interface SystemAccessibility {
 	reduceMotion: boolean;

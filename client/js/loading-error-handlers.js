@@ -129,7 +129,8 @@
 		const matchSystem =
 			typeof userSettings.matchSystemAppearance === "boolean"
 				? userSettings.matchSystemAppearance
-				: window.Capacitor?.isNativePlatform?.() === true &&
+				: (window.Capacitor?.isNativePlatform?.() === true ||
+						typeof window.seanceShell?.call === "function") &&
 				  !(storedTheme && storedTheme !== defaultTheme && pairOf(storedTheme));
 		const theme = matchSystem ? pairedTheme(chosen) : chosen;
 
@@ -164,7 +165,11 @@
 		location.hostname === "127.0.0.1" ||
 		location.hostname === "[::1]";
 
-	if (isAllowedServiceWorkersHost && "serviceWorker" in navigator) {
+	// A desktop shell (helpers/shell.ts) serves the app from itself and
+	// updates it itself: no worker (docs/projects/desktop-shells.md § 4.2).
+	const inDesktopShell = typeof window.seanceShell?.call === "function";
+
+	if (isAllowedServiceWorkersHost && !inDesktopShell && "serviceWorker" in navigator) {
 		navigator.serviceWorker.register("service-worker.js", {scope: "./"}).catch((e) => {
 			// eslint-disable-next-line no-console
 			console.error("Service worker registration failed:", e);

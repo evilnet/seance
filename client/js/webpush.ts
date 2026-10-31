@@ -35,7 +35,7 @@ import {
 	onNativeEndpointChange,
 	refreshNativePush,
 } from "./helpers/nativePush";
-import {isAndroidShell, isIOSShell} from "./helpers/capacitor";
+import {isAndroidShell, isIOSShell} from "./helpers/shell";
 import {clearNativeAlert} from "./helpers/nativeAlerts";
 import {ChanType} from "../../shared/types/chan";
 import type {ClientChan} from "./types";
