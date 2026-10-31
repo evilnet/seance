@@ -1305,3 +1305,18 @@ read" in a closed app's shade. The sync registration is fire-and-forget and
 its refusal is logged once (`background sync refused: NotAllowedError`).
 The card's `data.time` is its newest line's, so a close that runs late
 (the sweep) never takes a card holding a line past the read marker.
+
+**A registration of a network this device no longer has (2026-10-31).**
+The Windows desktop, on the current build, still saw Chrome's generic with
+every push; the report is still to come. One structural way to get exactly
+that is a second push registration of this app whose subscription the server
+still pushes every message to — `push/<uuid>/` for a uuid no saved network
+has — whose worker finds each message already shown by the live network's
+registration and shows nothing. Settings' network removal unsubscribes first,
+so it should not arise, but nothing swept one up if it did. Now
+`dropStaleRegistrations` runs at every boot after `dropRootSubscription`:
+every `push/<uuid>/` registration under this app's base whose uuid is no
+saved network loses its subscription (endpoint queued for UNREGISTER on the
+network whose key it carries) and is unregistered; the journal says so.
+Another app on the origin (a Pages preview) has its own base and is never
+touched.
