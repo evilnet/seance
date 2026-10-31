@@ -18,6 +18,7 @@
 import type * as FengariType from "fengari";
 import type {ScriptMessageEvent} from "./types";
 import {ScriptStorageError, loadScriptData, saveScriptData} from "./storage";
+import {t} from "../../i18n/core";
 
 let fengariPromise: Promise<typeof FengariType> | null = null;
 
@@ -49,6 +50,24 @@ export const MAX_HANDLERS = 50;
 export const MAX_COMMANDS = 100;
 /** The storage bucket and error owner of `/lua` snippets. */
 const SNIPPET_ID = "global";
+
+/**
+ * What the bootstrap reports through host.error, as a sentence: `kind` is
+ * "skipped" (an event's handlers ran out of instructions), "handler" or
+ * "command" (one failed); `name` is the event or command, `detail` the
+ * error as the interpreter described it.
+ */
+function hostErrorText(kind: string, name: string, detail: string): string {
+	switch (kind) {
+		case "skipped":
+			return t("scripting.eventSkipped", {event: name});
+		case "command":
+			return t("scripting.commandFailed", {command: name, error: detail});
+		default:
+			return t("scripting.handlerFailed", {event: name, error: detail});
+	}
+}
+
 /** How deep, and how many entries, a Lua table is followed when it is handed to JavaScript. */
 const MAX_TABLE_DEPTH = 8;
 const MAX_TABLE_ENTRIES = 1000;
@@ -226,11 +245,11 @@ const BOOTSTRAP = `
 			local h = list[i]
 			local ok, err = host.run(h.fn, copy(data, 1))
 			if ok == nil then
-				host.error(h.id, "Skipped the rest of this " .. evt .. " event: its handlers ran out of instructions")
+				host.error(h.id, "skipped", evt)
 				return
 			end
 			if not ok then
-				host.error(h.id, "Error in " .. evt .. " handler: " .. describe(err))
+				host.error(h.id, "handler", evt, describe(err))
 			end
 		end
 	end
@@ -240,7 +259,7 @@ const BOOTSTRAP = `
 		if not cmd then return false end
 		local ok, err = host.run(cmd.fn, args, rest)
 		if not ok then
-			host.error(cmd.id, "Error in /" .. name .. " command: " .. describe(err))
+			host.error(cmd.id, "command", name, describe(err))
 		end
 		return true
 	end
@@ -458,9 +477,16 @@ export class LuaSandbox {
 			return 2;
 		});
 
+		// host.error(id, kind, name, detail): the sentence is the host's, in
+		// the reader's language; the name and the error text are verbatim.
 		fn("error", (state) => {
 			const id = this.getString(state, 1);
-			this.host.onError(this.getString(state, 2), id === SNIPPET_ID ? undefined : id);
+			const text = hostErrorText(
+				this.getString(state, 2),
+				this.getString(state, 3),
+				this.getString(state, 4)
+			);
+			this.host.onError(text, id === SNIPPET_ID ? undefined : id);
 			return 0;
 		});
 

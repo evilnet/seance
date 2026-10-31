@@ -10986,6 +10986,12 @@ msgctxt "reactions.titleTemplate"
 msgid "React with {reaction}"
 msgstr "Reagera med {reaction}"
 
+#. Lua script error (shown after '[Lua error] ' in the conversation and in the script editor's error banner): a slash command defined by a script failed. {command} is the command's name (verbatim), after its slash; {error} is the Lua interpreter's error text (verbatim, mostly English).
+#: client/js/irc/scripting/engine.ts
+msgctxt "scripting.commandFailed"
+msgid "Error in /{command} command: {error}"
+msgstr "Fel i kommandot /{command}: {error}"
+
 #. Error shown when /lua or a script reload is tried while Lua scripting is switched off. 'Settings → Scripts' names the place in the app (the Settings window's Scripts tab).
 #: client/js/irc/scripting/manager.ts
 msgctxt "scripting.disabled"
@@ -10997,6 +11003,18 @@ msgstr "Skript är avstängda. Slå på dem under Inställningar → Skript."
 msgctxt "scripting.errorLine"
 msgid "[Lua error] {error}"
 msgstr "[Lua-fel] {error}"
+
+#. Lua script error (shown after '[Lua error] ' in the conversation and in the script editor's error banner): the scripts' handlers for one event used up their instruction budget, so the remaining handlers were not run. {event} is the event's name as scripts use it (verbatim, e.g. message, join, kick).
+#: client/js/irc/scripting/engine.ts
+msgctxt "scripting.eventSkipped"
+msgid "Skipped the rest of this {event} event: its handlers ran out of instructions"
+msgstr "Resten av den här {event}-händelsen hoppades över: dess hanterare fick slut på instruktioner"
+
+#. Lua script error (shown after '[Lua error] ' in the conversation and in the script editor's error banner): a script's handler for an event failed. {event} is the event's name as scripts use it (verbatim, e.g. message, join); {error} is the Lua interpreter's error text (verbatim, mostly English).
+#: client/js/irc/scripting/engine.ts
+msgctxt "scripting.handlerFailed"
+msgid "Error in {event} handler: {error}"
+msgstr "Fel i {event}-hanteraren: {error}"
 
 #. Error under the Name field of the Lua script editor when it is empty.
 #: client/js/irc/scripting/library.ts
