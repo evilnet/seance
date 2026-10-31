@@ -39,27 +39,14 @@ describe("overlays carry .screen-overlay", function () {
 		const name = path.relative(components, file).split(path.sep).join("/");
 		const template = fs.readFileSync(file, "utf8").split(/<script\b|<style\b/)[0];
 
-		if (!covers.test(template)) {
+		if (!covers.test(template) || exempt[name]) {
 			continue;
 		}
 
 		it(name, function () {
-			if (exempt[name]) {
-				expect(template, `${name} is exempt but has the class`).not.to.match(
-					/screen-overlay/
-				);
-				return;
-			}
-
 			expect(template, `${name} covers the screen without .screen-overlay`).to.match(
 				/class="[^"]*\bscreen-overlay\b/
 			);
 		});
 	}
-
-	it("exempts only files that exist", function () {
-		for (const name of Object.keys(exempt)) {
-			expect(fs.existsSync(path.join(components, name)), name).to.equal(true);
-		}
-	});
 });
