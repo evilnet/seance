@@ -14,6 +14,7 @@ import type {IrcClient} from "../client";
 import {LuaSandbox, type SandboxHost} from "./engine";
 import {isScriptingEnabled, onScriptingEnabledChange} from "./enabled";
 import {loadScripts, saveScript, getScript} from "./storage";
+import {t, tCount} from "../../i18n/core";
 import type {
 	Script,
 	ScriptMessageEvent,
@@ -38,7 +39,7 @@ function storeLastError(script: Script, error: string | undefined): void {
 	}
 }
 
-export const SCRIPTING_DISABLED_ERROR = "Scripting is disabled. Turn it on in Settings → Scripts.";
+export const scriptingDisabledError = (): string => t("scripting.disabled");
 
 export interface ActiveContextProvider {
 	getContext(): {channel: string; network: string; nick: string};
@@ -164,7 +165,7 @@ class ScriptManager implements SandboxHost {
 	public async ensureSandbox(): Promise<LuaSandbox> {
 		for (;;) {
 			if (!isScriptingEnabled()) {
-				throw new Error(SCRIPTING_DISABLED_ERROR);
+				throw new Error(scriptingDisabledError());
 			}
 
 			if (this.sandbox) {
@@ -247,7 +248,7 @@ class ScriptManager implements SandboxHost {
 		try {
 			sandbox = await this.ensureSandbox();
 		} catch {
-			return {success: false, error: SCRIPTING_DISABLED_ERROR};
+			return {success: false, error: scriptingDisabledError()};
 		}
 
 		// Only now, and only for the synchronous run: an event handler that
@@ -494,9 +495,7 @@ class ScriptManager implements SandboxHost {
 
 	private sendPaced(client: IrcClient, line: string): void {
 		if (client.background.count((key) => key.startsWith(QUEUE_KEY)) >= MAX_QUEUED_LINES) {
-			this.print(
-				`[Lua error] Not sent: ${MAX_QUEUED_LINES} script lines are already waiting to go out`
-			);
+			this.print(tCount("scripting.queueFull", MAX_QUEUED_LINES));
 			return;
 		}
 
@@ -581,7 +580,7 @@ class ScriptManager implements SandboxHost {
 			}
 		}
 
-		this.print(`[Lua error] ${error}`);
+		this.print(t("scripting.errorLine", {error}));
 		// eslint-disable-next-line no-console
 		console.error("[scripting error]", error);
 	}

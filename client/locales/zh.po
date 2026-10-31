@@ -264,6 +264,30 @@ msgctxt "cmd.lobbySend"
 msgid "Messages can not be sent to lobbies."
 msgstr "无法向网络窗口发送消息。"
 
+#. Line shown after /lua when the Lua code ran and returned nothing to show.
+#: client/js/irc/commands/lua.ts
+msgctxt "cmd.lua.done"
+msgid "Lua execution completed."
+msgstr "Lua 执行完毕。"
+
+#. Error line after /lua when the Lua code failed. {error} is the Lua interpreter's error text (verbatim, mostly English).
+#: client/js/irc/commands/lua.ts
+msgctxt "cmd.lua.error"
+msgid "Lua error: {error}"
+msgstr "Lua 错误：{error}"
+
+#. Error line after /lua when the Lua code failed without saying why.
+#: client/js/irc/commands/lua.ts
+msgctxt "cmd.lua.errorUnknown"
+msgid "Lua error: unknown error"
+msgstr "Lua 错误：未知错误"
+
+#. Error line after /lua when the Lua code could not be run at all (e.g. scripting is off). {error} is the reason (verbatim).
+#: client/js/irc/commands/lua.ts
+msgctxt "cmd.lua.failed"
+msgid "Lua execution failed: {error}"
+msgstr "Lua 执行失败：{error}"
+
 #. Error when /mute or /unmute names several channels or users with no open window. {targets} is the comma-joined list of names as typed, user input, verbatim. Plural for more than one name.
 #: client/js/irc/commands/mute.ts
 msgctxt "cmd.mute.nonePlural"
@@ -347,6 +371,12 @@ msgstr "用法：/{cmd} <nick>[!ident][@host]"
 msgctxt "cmd.usageJoin"
 msgid "Usage: /join <channel> [key]"
 msgstr "用法：/join <channel> [key]"
+
+#. Usage line of /lua when no code is given. '<code>' is command syntax (Lua code to run). {first} and {second} are example commands (verbatim: /lua return 2 + 2 and /lua seance.print("hello")).
+#: client/js/irc/commands/lua.ts
+msgctxt "cmd.usageLua"
+msgid "Usage: /lua <code> (e.g. {first} or {second})"
+msgstr "用法：/lua <code>（例如 {first} 或 {second}）"
 
 #. Usage line of the mode-list commands (/ban, /unban, …) when no nick is given. {cmd} is the command as typed, user input, verbatim; the '<nick>' placeholder is command syntax, not user data.
 #: client/js/irc/commands/ban.ts
@@ -1706,6 +1736,12 @@ msgctxt "help.builtFromCommit"
 msgid "{app} is built from {commit}, after v{version}."
 msgstr "{app} 构建自 {commit}，晚于 v{version}。"
 
+#. aria-label of the ✕ button at the top right of the Help window (a modal over the app); clicking closes Help and returns to the chat.
+#: client/components/Windows/Help.vue
+msgctxt "help.close"
+msgid "Close help"
+msgstr "关闭帮助"
+
 #. Lead-in of the alias line under a command description in the help window; the alternative command follows it as a code fragment. Keep the trailing colon.
 #: client/components/Windows/Help.vue
 msgctxt "help.commands.alias"
@@ -2259,6 +2295,42 @@ msgstr "打开或关闭频道用户列表。"
 msgctxt "help.title"
 msgid "Help"
 msgstr "帮助"
+
+#. Help > About: the sentence saying which build is running, for the build of the project's development branch. {branch} is the git branch name develop (verbatim, a code element).
+#: client/components/Windows/Help.vue
+msgctxt "help.track.develop"
+msgid "This is the build of the {branch} branch."
+msgstr "这是 {branch} 分支的构建。"
+
+#. Help > About: the sentence saying which build is running, for a build someone made themselves from a git branch. {branch} is the branch name (verbatim, a code element).
+#: client/components/Windows/Help.vue
+msgctxt "help.track.local"
+msgid "This is a local build of the {branch} branch."
+msgstr "这是 {branch} 分支的本地构建。"
+
+#. Help > About: the sentence saying which build is running, for the preview build of a pull request on the project's website. {pr} is a link whose text is help.track.prLink ('pull request #142').
+#: client/components/Windows/Help.vue
+msgctxt "help.track.pr"
+msgid "This is a preview of {pr}."
+msgstr "这是 {pr} 的预览版。"
+
+#. Text of the link in help.track.pr that opens the pull request on the source host. Mid-sentence. {number} is the pull request's number; keep the # before it.
+#: client/components/Windows/Help.vue
+msgctxt "help.track.prLink"
+msgid "pull request #{number}"
+msgstr "拉取请求 #{number}"
+
+#. Help > About: the sentence saying which build is running, for a release build. {version} is the release number, kept after its v (e.g. 5.2.0).
+#: client/components/Windows/Help.vue
+msgctxt "help.track.release"
+msgid "This is the v{version} release."
+msgstr "这是 v{version} 正式版。"
+
+#. Help > About: sentence after help.track.* (which says which build this is), shown when the build is newer than its release. 'It' is that build. {commit} is a link whose text is help.commitHash ('commit 1a2b3c4'); {version} is the release number, kept after its v.
+#: client/components/Windows/Help.vue
+msgctxt "help.trackBuiltFromCommit"
+msgid "It is built from {commit}, after v{version}."
+msgstr "它构建自 {commit}，晚于 v{version}。"
 
 #. Text of the banner at the top of the help window shown when a newer build of the app was published; a Reload button follows it.
 #: client/components/Windows/Help.vue
@@ -10860,6 +10932,97 @@ msgctxt "reactions.titleTemplate"
 msgid "React with {reaction}"
 msgstr "用 {reaction} 回应"
 
+#. Error shown when /lua or a script reload is tried while Lua scripting is switched off. 'Settings → Scripts' names the place in the app (the Settings window's Scripts tab).
+#: client/js/irc/scripting/manager.ts
+msgctxt "scripting.disabled"
+msgid "Scripting is disabled. Turn it on in Settings → Scripts."
+msgstr "脚本已关闭。请在“设置 → 脚本”中开启。"
+
+#. Local line shown in the conversation when a Lua script fails. '[Lua error]' is the prefix every scripting error line has: keep the brackets. {error} is the error text from the Lua interpreter (verbatim, mostly English).
+#: client/js/irc/scripting/manager.ts
+msgctxt "scripting.errorLine"
+msgid "[Lua error] {error}"
+msgstr "[Lua 错误] {error}"
+
+#. Error under the Name field of the Lua script editor when it is empty.
+#: client/js/irc/scripting/library.ts
+msgctxt "scripting.nameEmpty"
+msgid "A script needs a name."
+msgstr "脚本需要一个名称。"
+
+#. Error under the Name field of the Lua script editor when the name has other characters. '_' and '-' are the underscore and hyphen characters themselves; 'letters' means a-z (Latin, unaccented). {max} is the most characters a name may have, a number.
+#: client/js/irc/scripting/library.ts
+msgctxt "scripting.nameInvalid"
+msgid "Letters, digits, _ and - only, starting with a letter or digit, at most {max}."
+msgstr "只能使用字母、数字、_ 和 -，以字母或数字开头，最多 {max} 个。"
+
+#. Error under the Name field of the Lua script editor when another script has that name. {name} is the name typed (verbatim).
+#: client/js/irc/scripting/library.ts
+msgctxt "scripting.nameTaken"
+msgid "Another script is already called {name}."
+msgstr "已有另一个脚本叫 {name}。"
+
+#. Local line shown in the conversation when a Lua script tries to send another IRC line while too many of its lines wait to be sent. '[Lua error]' is the prefix every scripting error line has: keep the brackets. {count} is the limit, a number.
+#: client/js/irc/scripting/manager.ts
+msgctxt "scripting.queueFull"
+msgid "[Lua error] Not sent: {count} script line is already waiting to go out"
+msgid_plural "[Lua error] Not sent: {count} script lines are already waiting to go out"
+msgstr[0] "[Lua 错误] 未发送：已有 {count} 行脚本内容在等待发送"
+
+#. Error when a Lua script's code is too long to save. {name} is the script's name (verbatim); {max} the limit, a number. Use the language's quotation marks.
+#: client/js/irc/scripting/storage.ts
+msgctxt "scripting.storage.codeTooLong"
+msgid "“{name}” is over {max} characters."
+msgstr "“{name}”超过了 {max} 个字符。"
+
+#. Error raised inside a Lua script when what it saved through seance.storage (verbatim, the API's name) is too long. {max} is the limit, a number.
+#: client/js/irc/scripting/storage.ts
+msgctxt "scripting.storage.dataTooLong"
+msgid "seance.storage is over {max} characters for this script."
+msgstr "此脚本的 seance.storage 超过了 {max} 个字符。"
+
+#. Error when all the user's Lua scripts together are too long to save. {max} is the limit, a number.
+#: client/js/irc/scripting/storage.ts
+msgctxt "scripting.storage.libraryTooLong"
+msgid "Your scripts are over {max} characters together."
+msgstr "你的脚本合计超过了 {max} 个字符。"
+
+#. Error when a Lua script or its saved data could not be saved because the browser's storage is full. Shown in the script editor, or as the script's error.
+#: client/js/irc/scripting/storage.ts
+msgctxt "scripting.storage.noRoom"
+msgid "There isn't room on this device to save that."
+msgstr "此设备上没有足够的空间来保存它。"
+
+#. Error raised inside a Lua script when what all scripts saved through seance.storage (verbatim, the API's name) is too long together. {max} is the limit, a number.
+#: client/js/irc/scripting/storage.ts
+msgctxt "scripting.storage.totalDataTooLong"
+msgid "seance.storage is over {max} characters for all scripts together."
+msgstr "所有脚本的 seance.storage 合计超过了 {max} 个字符。"
+
+#. Description given to the Auto-responder example Lua script when it is added. 'pong!' and '!ping' are the literal chat text it answers and sends: keep them verbatim.
+#: client/js/irc/scripting/library.ts
+msgctxt "scripting.template.responderDescription"
+msgid "Replies pong! to !ping"
+msgstr "收到 !ping 时回复 pong!"
+
+#. Folder name given to the Auto-responder example script when it is added (stored with the script; the user can rename it). Short, a label.
+#: client/js/irc/scripting/library.ts
+msgctxt "scripting.template.responderFolder"
+msgid "Automation"
+msgstr "自动化"
+
+#. Description given to the /slap example Lua script when it is added. Keep '/slap' verbatim (the command's name).
+#: client/js/irc/scripting/library.ts
+msgctxt "scripting.template.slapDescription"
+msgid "Adds a /slap command"
+msgstr "添加 /slap 命令"
+
+#. Folder name given to the /slap example script when it is added (stored with the script; the user can rename it). Short, a label: slash commands.
+#: client/js/irc/scripting/library.ts
+msgctxt "scripting.template.slapFolder"
+msgid "Commands"
+msgstr "命令"
+
 #. aria-label of the magnifier button in a chat window's header; clicking it opens the message-search field for the conversation.
 #: client/components/MessageSearchForm.vue:19
 msgctxt "search.openForm"
@@ -11722,11 +11885,11 @@ msgctxt "settings.general.backupHeading"
 msgid "Backup and restore"
 msgstr "备份和恢复"
 
-#. Intro line under the Backup and restore heading in Settings > General; says what exporting does.
+#. Intro under the Backup and restore heading in Settings > General; says what exporting does, and that Lua scripts in a restored file come back switched off, as does the Enable scripting switch.
 #: client/components/Settings/General.vue
 msgctxt "settings.general.backupIntro"
-msgid "Save your settings to a file. You can restore here or on another device."
-msgstr "将你的设置保存到文件。你可以在这里或另一台设备上恢复。"
+msgid "Save your settings to a file. You can restore here or on another device. Scripts in an imported file arrive switched off, and so does scripting itself."
+msgstr "将你的设置保存到文件。你可以在这里或另一台设备上恢复。导入文件中的脚本到达时处于关闭状态，脚本功能本身也是如此。"
 
 #. Part of the restore-confirmation sentence in Settings > General: fills the list of what the file replaces for muted users and ignored users. Comma-joined by position.
 #: client/components/Settings/General.vue
@@ -12059,6 +12222,30 @@ msgctxt "settings.notifications.commaList"
 msgid "Comma-separated, e.g.: word, some more words, anotherword"
 msgstr "逗号分隔，例如：word, some more words, anotherword"
 
+#. The Copy button's label for a moment after the diagnostics report was copied to the clipboard.
+#: client/components/Settings/Notifications.vue:130
+msgctxt "settings.notifications.copied"
+msgid "Copied"
+msgstr ""
+
+#. Button in the push diagnostics fold: copies the diagnostics report to the clipboard.
+#: client/components/Settings/Notifications.vue:130
+msgctxt "settings.notifications.copyDiagnostics"
+msgid "Copy"
+msgstr ""
+
+#. Heading of the fold at the end of Settings → Notifications → Push that holds the push diagnostics report (what this device knows about push) and its buttons.
+#: client/components/Settings/Notifications.vue:130
+msgctxt "settings.notifications.diagnosticsHeading"
+msgid "Diagnostics"
+msgstr ""
+
+#. Help text under the Diagnostics heading in Settings → Notifications: what the report contains, that it is safe to paste, and what the Subscribe now button does. 'Subscribe now' names the button labelled settings.notifications.subscribeNow.
+#: client/components/Settings/Notifications.vue:130
+msgctxt "settings.notifications.diagnosticsHelp"
+msgid "What this device knows about push: its permission, each network's subscription, and what the browser and the server answered. Copy it and paste it where someone can read it — nothing in it lets anyone push to this device. Subscribe now asks for this device's subscription again, on every connected network."
+msgstr ""
+
 #. Checkbox in Settings > Notifications; when ticked, messages mentioning you are drawn with a colored background and can notify.
 #: client/components/Settings/Notifications.vue
 msgctxt "settings.notifications.highlight"
@@ -12173,6 +12360,12 @@ msgctxt "settings.notifications.pushPerNetwork"
 msgid "Push is set up per network — turn it on or off in each network's settings (Edit network → “Push notifications for this network”), where the enrollment status is also shown. The browser delivers the notifications; each push-capable server decides whether to wake this app."
 msgstr "推送按网络设置——在每个网络的设置中开启或关闭（编辑网络 → “此网络的推送通知”），注册状态也显示在那里。通知由浏览器送达；每个支持推送的服务器决定是否唤醒此应用。"
 
+#. Button in the push diagnostics fold: builds the diagnostics report again.
+#: client/components/Settings/Notifications.vue:130
+msgctxt "settings.notifications.refreshDiagnostics"
+msgid "Refresh"
+msgstr ""
+
 #. Warning line in Settings > Notifications when the chat server itself does not offer web push; names the IRCv3 draft/webpush capability, which stays verbatim.
 #: client/components/Settings/Notifications.vue
 msgctxt "settings.notifications.serverUnsupported"
@@ -12191,6 +12384,12 @@ msgctxt "settings.notifications.stale"
 msgid "A server's push identity (its key) changed, so this device's push subscription for it no longer works. Renew it from that network's settings (Edit network → “Renew push notifications”) to keep being notified while the app is closed."
 msgstr "服务器的推送身份（其密钥）已更改，因此此设备对它的推送订阅不再有效。请在该网络的设置中更新（编辑网络 → “更新推送通知”），以便在应用关闭时仍能收到通知。"
 
+#. Button in the push diagnostics fold: subscribes this device to push on every connected chat network that announced a push key (a tap, which the browser may require).
+#: client/components/Settings/Notifications.vue:130
+msgctxt "settings.notifications.subscribeNow"
+msgid "Subscribe now"
+msgstr ""
+
 #. Warning line in Settings > Notifications when the browser cannot do web push; the parentheses name the browser features push requires.
 #: client/components/Settings/Notifications.vue
 msgctxt "settings.notifications.unsupported"
@@ -12202,6 +12401,333 @@ msgstr "此浏览器不支持推送通知（需要 Push API、Service Worker 和
 msgctxt "settings.notifications.warning"
 msgid "Warning"
 msgstr "警告"
+
+#. Lua API reference, the description of seance.current_channel, seance.current_network and seance.nick: the channel, network and nick of the conversation open now.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.api.context"
+msgid "Context of the currently active chat tab."
+msgstr "当前活动聊天标签页的上下文。"
+
+#. Lua API reference, the description of seance.on("message", …). {msg} is the handler's argument and {from}, {target}, {text}, {type}, {self} its fields (all verbatim code elements: msg, .from, .target, .text, .type, .self).
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.api.message"
+msgid "Incoming messages. {msg} has {from}, {target}, {text}, {type} and {self}."
+msgstr "收到的消息。{msg} 包含 {from}、{target}、{text}、{type} 和 {self}。"
+
+#. Lua API reference, the description of seance.print("text"): a line shown only on this device, never sent.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.api.print"
+msgid "Show a local line in the active conversation."
+msgstr "在当前对话中显示一行仅本地可见的内容。"
+
+#. Lua API reference, the description of seance.register_command("name", …). {command} is the example command /name (verbatim, a code element).
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.api.registerCommand"
+msgid "Registers a custom slash command {command}."
+msgstr "注册一个自定义斜杠命令 {command}。"
+
+#. Lua API reference, the description of seance.reply(msg, "text") and seance.send("RAW LINE").
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.api.replySend"
+msgid "Reply to a message, or send a raw IRC line on the current network."
+msgstr "回复一条消息，或在当前网络上发送一行原始 IRC 命令。"
+
+#. Lua API reference, the description of seance.storage.get/set: data each script keeps for itself that survives a reload.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.api.storage"
+msgid "Persistent per-script data across restarts."
+msgstr "每个脚本独立的持久数据，重启后仍保留。"
+
+#. Summary line of the folded reference under the Lua script editor's code field, listing the functions a script can call.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.apiSummary"
+msgid "Lua API reference"
+msgstr "Lua API 参考"
+
+#. Accessible name of the Lua script editor dialog. {name} is the script's name (user data, verbatim).
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.ariaNamed"
+msgid "Edit script {name}"
+msgstr "编辑脚本 {name}"
+
+#. Note in the footer of the Lua script editor, beside Done.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.autosave"
+msgid "Changes are saved as you type."
+msgstr "更改会在输入时自动保存。"
+
+#. Number of characters of the Lua script, the {characters} in settings.scriptEdit.size ('12 lines · 340 characters'). {count} is the number of characters.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.charCount"
+msgid "{count} character"
+msgid_plural "{count} characters"
+msgstr[0] "{count} 个字符"
+
+#. Button in the Lua script editor that compiles the code (without running it) and says whether it is valid Lua.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.checkSyntax"
+msgid "Check syntax"
+msgstr "检查语法"
+
+#. Brief status in the footer of the Lua script editor while Check syntax compiles the code.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.checking"
+msgid "Checking…"
+msgstr "正在检查…"
+
+#. aria-label of the ✕ button at the top right of the Lua script editor; closes it back to the script list.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.close"
+msgid "Close the editor"
+msgstr "关闭编辑器"
+
+#. Accessible name of the code field in the Lua script editor.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.codeAria"
+msgid "Lua code"
+msgstr "Lua 代码"
+
+#. Placeholder of the empty code field in the Lua script editor. It is a Lua comment: keep the leading '-- '.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.codePlaceholder"
+msgid "-- Write your Lua code here"
+msgstr "-- 在此编写你的 Lua 代码"
+
+#. Button in the Lua script editor that deletes the script, and the confirm button of the dialog that asks first.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.delete"
+msgid "Delete"
+msgstr "删除"
+
+#. Text of the dialog asking to confirm deleting a Lua script; its saved data is what the script stored for itself.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.deleteText"
+msgid "This deletes the script and its saved data. This cannot be undone."
+msgstr "这将删除该脚本及其保存的数据。此操作无法撤销。"
+
+#. Title of the dialog asking to confirm deleting a Lua script. {name} is the script's name (user data, verbatim); use the language's quotation marks.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.deleteTitle"
+msgid "Delete script “{name}”?"
+msgstr "删除脚本“{name}”？"
+
+#. Label of the description field in the Lua script editor.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.description"
+msgid "Description"
+msgstr "描述"
+
+#. Placeholder of the description field in the Lua script editor.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.descriptionPlaceholder"
+msgid "What does this script do?"
+msgstr "这个脚本是做什么的？"
+
+#. Button in the Lua script editor that makes a copy of the script and opens the copy.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.duplicate"
+msgid "Duplicate"
+msgstr "复制"
+
+#. Bold label of the banner in the Lua script editor showing the script's last error; the error text (from the Lua interpreter, verbatim) follows it.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.errorLabel"
+msgid "Error:"
+msgstr "错误："
+
+#. Button in the Lua script editor that downloads the script's code as a .lua file; keep '.lua' (the file extension).
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.export"
+msgid "Export .lua"
+msgstr "导出 .lua"
+
+#. Label of the folder field in the Lua script editor: a free-text label that groups scripts in the list.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.folder"
+msgid "Folder"
+msgstr "文件夹"
+
+#. Number of lines of the Lua script, the {lines} in settings.scriptEdit.size ('12 lines · 340 characters'). {count} is the number of lines.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.lineCount"
+msgid "{count} line"
+msgid_plural "{count} lines"
+msgstr[0] "{count} 行"
+
+#. Shown in the Lua script editor when the script it was opened on no longer exists.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.missing"
+msgid "This script is gone — deleted here or in another tab."
+msgstr "此脚本已不存在——已在这里或另一个标签页中删除。"
+
+#. Label of the script's name field in the Lua script editor.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.name"
+msgid "Name"
+msgstr "名称"
+
+#. Bold label of the banner in the Lua script editor when a change could not be saved; the reason (scripting.storage.*) follows it.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.notSavedLabel"
+msgid "Not saved:"
+msgstr "未保存："
+
+#. Label of the switch in the Lua script editor that turns this one script on or off.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.run"
+msgid "Run this script"
+msgstr "运行此脚本"
+
+#. Brief status in the footer of the Lua script editor after a change was saved.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.saved"
+msgid "Saved"
+msgstr "已保存"
+
+#. Size line under the Lua script editor's code field, e.g. '12 lines · 340 characters'. {lines} is settings.scriptEdit.lineCount and {characters} settings.scriptEdit.charCount, already translated; keep the middle dot or use the language's list separator.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.size"
+msgid "{lines} · {characters}"
+msgstr "{lines} · {characters}"
+
+#. Brief status in the footer of the Lua script editor: Check syntax found an error (shown in the error banner).
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.syntaxError"
+msgid "Syntax error"
+msgstr "语法错误"
+
+#. Brief status in the footer of the Lua script editor: Check syntax found the code valid.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.syntaxOk"
+msgid "Syntax OK"
+msgstr "语法正确"
+
+#. Title of the Lua script editor (an overlay over Settings > Scripts), before the script's name; also its accessible name while the script is missing.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.title"
+msgid "Edit script"
+msgstr "编辑脚本"
+
+#. Name of the folder scripts are filed under when they have none: a heading in the Settings > Scripts list, and the placeholder of the editor's Folder field.
+#: client/components/Settings/Scripts.vue
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scripts.defaultFolder"
+msgid "Unsorted"
+msgstr "未分类"
+
+#. Shown in Settings > Scripts in place of the list while the user has no Lua scripts.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.empty"
+msgid "No scripts yet."
+msgstr "还没有脚本。"
+
+#. Label of the switch in Settings > Scripts that turns Lua scripting on for the whole app (off by default).
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.enable"
+msgid "Enable scripting"
+msgstr "启用脚本"
+
+#. Button after 'Or try an example:' in Settings > Scripts: adds an example script that answers a chat message automatically (it replies pong! to !ping).
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.exampleResponder"
+msgid "Auto-responder"
+msgstr "自动回复"
+
+#. Button after 'Or try an example:' in Settings > Scripts: adds an example script that defines a /slap slash command. Keep '/slap' verbatim (the command's name).
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.exampleSlap"
+msgid "/slap command"
+msgstr "/slap 命令"
+
+#. Lead-in in Settings > Scripts before two buttons that each add a ready-made example script (settings.scripts.exampleResponder, settings.scripts.exampleSlap).
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.examples"
+msgid "Or try an example:"
+msgstr "或者试试示例："
+
+#. Heading of the Settings > Scripts pane, and the accessible name of the pane. Lua scripts the user writes and runs in the app.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.heading"
+msgid "Scripts"
+msgstr "脚本"
+
+#. Button in Settings > Scripts that opens a file picker to import a Lua script file; keep '.lua' (the file extension) and the ellipsis.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.import"
+msgid "Import .lua…"
+msgstr "导入 .lua…"
+
+#. aria-label of the hidden file input behind the Import .lua… button in Settings > Scripts.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.importAria"
+msgid "Lua file to import"
+msgstr "要导入的 Lua 文件"
+
+#. Error in Settings > Scripts when an imported Lua file is too long. {file} is the file's name (verbatim); {max} is the limit, a number.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.importTooLong"
+msgid "{file} is over {max} characters."
+msgstr "{file} 超过了 {max} 个字符。"
+
+#. Intro under the Settings > Scripts heading; says what Lua scripts are for and that they stay on this device. Keep 'Lua' (the programming language) as is.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.intro"
+msgid "Lua scripts that run in this browser: auto-responders, slash commands of your own, small helpers. They are kept on this device only."
+msgstr "在此浏览器中运行的 Lua 脚本：自动回复、你自己的斜杠命令、小工具。它们只保存在这台设备上。"
+
+#. Button in Settings > Scripts that creates an empty Lua script and opens it in the editor.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.new"
+msgid "New script"
+msgstr "新建脚本"
+
+#. Shown in Settings > Scripts in place of the list when the search finds no script.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.noMatch"
+msgid "No script matches."
+msgstr "没有匹配的脚本。"
+
+#. Note under the Enable scripting switch while it is off. {command} is the /lua command (verbatim, a code element). Keep 'Lua' as is.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.offNote"
+msgid "While this is off the Lua interpreter is not loaded, no script runs and {command} is disabled. Your scripts are kept."
+msgstr "关闭时不会加载 Lua 解释器，不会运行任何脚本，{command} 也不可用。你的脚本会保留。"
+
+#. aria-label of the on/off switch on a script's row in Settings > Scripts; on means the script runs. {name} is the script's name (user data, verbatim).
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.runAria"
+msgid "Run {name}"
+msgstr "运行 {name}"
+
+#. aria-label of the search field above the script list in Settings > Scripts.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.searchAria"
+msgid "Search scripts"
+msgstr "搜索脚本"
+
+#. Placeholder of the search field above the script list in Settings > Scripts (shown once there are many scripts); it searches the scripts' names, folders and code.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.searchPlaceholder"
+msgid "Search name, folder, text…"
+msgstr "搜索名称、文件夹、内容…"
+
+#. State of a Lua script in the Settings > Scripts list: its last run failed with an error.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.stateError"
+msgid "Error"
+msgstr "错误"
+
+#. State of a Lua script in the Settings > Scripts list (and the tooltip of its switch): it is switched off.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.stateOff"
+msgid "Off"
+msgstr "关闭"
+
+#. State of a Lua script in the Settings > Scripts list (and the tooltip of its switch): it is switched on and runs.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.stateRunning"
+msgid "Running"
+msgstr "运行中"
 
 #. Label of the Settings modal's Aliases tab (tab strip); switching tabs navigates to the Aliases settings pane.
 #: client/components/Settings/Navigation.vue
@@ -12243,6 +12769,12 @@ msgstr "网络"
 msgctxt "settings.tabs.notifications"
 msgid "Notifications"
 msgstr "通知"
+
+#. Label of the Settings modal's Scripts tab (tab strip); opens the pane where the user turns Lua scripting on and manages their Lua scripts.
+#: client/components/Settings/Navigation.vue
+msgctxt "settings.tabs.scripts"
+msgid "Scripts"
+msgstr "脚本"
 
 #. Name of the Translation tab in the Settings tab strip: on-device translation of messages.
 #: client/components/Settings/Navigation.vue
@@ -14300,17 +14832,23 @@ msgctxt "windows.changelog.allReleasesLink"
 msgid "see all releases"
 msgstr "查看所有版本"
 
-#. aria-label of the changelog window, which shows the app's release notes.
+#. aria-label of the release notes window (a modal over the app), which links to the app's release notes.
 #: client/components/Windows/Changelog.vue
 msgctxt "windows.changelog.aria"
-msgid "Changelog"
-msgstr "更新日志"
+msgid "Release notes"
+msgstr "发布说明"
 
-#. Link at the top of the changelog window that goes back to the help page; the left double angle quote is part of the copy.
+#. Link in the footer of the release notes window that goes back to the Help window; the left double angle quote is part of the copy.
 #: client/components/Windows/Changelog.vue
 msgctxt "windows.changelog.back"
 msgid "« Help"
 msgstr "« 帮助"
+
+#. aria-label of the ✕ button at the top right of the release notes window (a modal over the app); clicking closes it and returns to the chat.
+#: client/components/Windows/Changelog.vue
+msgctxt "windows.changelog.close"
+msgid "Close the release notes"
+msgstr "关闭发布说明"
 
 #. Changelog window paragraph. {readNotes} is a link whose text is windows.changelog.readNotesLink ('Read the notes for v5.2.0') and {allReleases} a link whose text is windows.changelog.allReleasesLink ('see all releases').
 #: client/components/Windows/Changelog.vue
@@ -14354,8 +14892,11 @@ msgctxt "windows.settings.close"
 msgid "Close settings"
 msgstr "关闭设置"
 
-#. Button in the footer of the settings window; clicking closes the settings and returns to the chat.
+#. Button in the footer of the settings window, and of the Help, release notes and Lua script editor windows that share its frame; clicking closes the window.
 #: client/components/Windows/Settings.vue
+#: client/components/Windows/Help.vue
+#: client/components/Windows/Changelog.vue
+#: client/components/Settings/ScriptEdit.vue
 msgctxt "windows.settings.done"
 msgid "Done"
 msgstr "完成"

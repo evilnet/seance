@@ -4,6 +4,8 @@
 
 import storage from "../../localStorage";
 import type {Script, ScriptStorageBackend} from "./types";
+import {t} from "../../i18n/core";
+import {formatNumber} from "../../i18n/numbers";
 
 export const STORAGE_KEY = "thelounge.scripts";
 export const STORAGE_PREFIX = "thelounge.script_storage.";
@@ -190,7 +192,7 @@ function write(key: string, value: string): void {
 	backend.set(key, value);
 
 	if (backend.get(key) !== value) {
-		throw new ScriptStorageError("There isn't room on this device to save that.");
+		throw new ScriptStorageError(t("scripting.storage.noRoom"));
 	}
 }
 
@@ -205,7 +207,10 @@ export function saveScripts(list: Script[]): void {
 
 	if (long) {
 		throw new ScriptStorageError(
-			`“${long.name}” is over ${MAX_CODE_LENGTH.toLocaleString("en")} characters.`
+			t("scripting.storage.codeTooLong", {
+				name: long.name,
+				max: formatNumber(MAX_CODE_LENGTH),
+			})
 		);
 	}
 
@@ -219,7 +224,7 @@ export function saveScripts(list: Script[]): void {
 
 	if (json.length > MAX_LIBRARY_LENGTH) {
 		throw new ScriptStorageError(
-			`Your scripts are over ${MAX_LIBRARY_LENGTH.toLocaleString("en")} characters together.`
+			t("scripting.storage.libraryTooLong", {max: formatNumber(MAX_LIBRARY_LENGTH)})
 		);
 	}
 
@@ -288,9 +293,7 @@ export function saveScriptData(scriptId: string, data: Record<string, string>): 
 
 	if (json.length > MAX_DATA_LENGTH) {
 		throw new ScriptStorageError(
-			`seance.storage is over ${MAX_DATA_LENGTH.toLocaleString(
-				"en"
-			)} characters for this script.`
+			t("scripting.storage.dataTooLong", {max: formatNumber(MAX_DATA_LENGTH)})
 		);
 	}
 
@@ -304,9 +307,7 @@ export function saveScriptData(scriptId: string, data: Record<string, string>): 
 
 	if (total > MAX_TOTAL_DATA_LENGTH) {
 		throw new ScriptStorageError(
-			`seance.storage is over ${MAX_TOTAL_DATA_LENGTH.toLocaleString(
-				"en"
-			)} characters for all scripts together.`
+			t("scripting.storage.totalDataTooLong", {max: formatNumber(MAX_TOTAL_DATA_LENGTH)})
 		);
 	}
 

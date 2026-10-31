@@ -266,6 +266,30 @@ msgctxt "cmd.lobbySend"
 msgid "Messages can not be sent to lobbies."
 msgstr ""
 
+#. Line shown after /lua when the Lua code ran and returned nothing to show.
+#: client/js/irc/commands/lua.ts
+msgctxt "cmd.lua.done"
+msgid "Lua execution completed."
+msgstr ""
+
+#. Error line after /lua when the Lua code failed. {error} is the Lua interpreter's error text (verbatim, mostly English).
+#: client/js/irc/commands/lua.ts
+msgctxt "cmd.lua.error"
+msgid "Lua error: {error}"
+msgstr ""
+
+#. Error line after /lua when the Lua code failed without saying why.
+#: client/js/irc/commands/lua.ts
+msgctxt "cmd.lua.errorUnknown"
+msgid "Lua error: unknown error"
+msgstr ""
+
+#. Error line after /lua when the Lua code could not be run at all (e.g. scripting is off). {error} is the reason (verbatim).
+#: client/js/irc/commands/lua.ts
+msgctxt "cmd.lua.failed"
+msgid "Lua execution failed: {error}"
+msgstr ""
+
 #. Error when /mute or /unmute names several channels or users with no open window. {targets} is the comma-joined list of names as typed, user input, verbatim. Plural for more than one name.
 #: client/js/irc/commands/mute.ts
 msgctxt "cmd.mute.nonePlural"
@@ -348,6 +372,12 @@ msgstr ""
 #: client/js/irc/commands/join.ts
 msgctxt "cmd.usageJoin"
 msgid "Usage: /join <channel> [key]"
+msgstr ""
+
+#. Usage line of /lua when no code is given. '<code>' is command syntax (Lua code to run). {first} and {second} are example commands (verbatim: /lua return 2 + 2 and /lua seance.print("hello")).
+#: client/js/irc/commands/lua.ts
+msgctxt "cmd.usageLua"
+msgid "Usage: /lua <code> (e.g. {first} or {second})"
 msgstr ""
 
 #. Usage line of the mode-list commands (/ban, /unban, …) when no nick is given. {cmd} is the command as typed, user input, verbatim; the '<nick>' placeholder is command syntax, not user data.
@@ -10957,6 +10987,98 @@ msgctxt "reactions.titleTemplate"
 msgid "React with {reaction}"
 msgstr ""
 
+#. Error shown when /lua or a script reload is tried while Lua scripting is switched off. 'Settings → Scripts' names the place in the app (the Settings window's Scripts tab).
+#: client/js/irc/scripting/manager.ts
+msgctxt "scripting.disabled"
+msgid "Scripting is disabled. Turn it on in Settings → Scripts."
+msgstr ""
+
+#. Local line shown in the conversation when a Lua script fails. '[Lua error]' is the prefix every scripting error line has: keep the brackets. {error} is the error text from the Lua interpreter (verbatim, mostly English).
+#: client/js/irc/scripting/manager.ts
+msgctxt "scripting.errorLine"
+msgid "[Lua error] {error}"
+msgstr ""
+
+#. Error under the Name field of the Lua script editor when it is empty.
+#: client/js/irc/scripting/library.ts
+msgctxt "scripting.nameEmpty"
+msgid "A script needs a name."
+msgstr ""
+
+#. Error under the Name field of the Lua script editor when the name has other characters. '_' and '-' are the underscore and hyphen characters themselves; 'letters' means a-z (Latin, unaccented). {max} is the most characters a name may have, a number.
+#: client/js/irc/scripting/library.ts
+msgctxt "scripting.nameInvalid"
+msgid "Letters, digits, _ and - only, starting with a letter or digit, at most {max}."
+msgstr ""
+
+#. Error under the Name field of the Lua script editor when another script has that name. {name} is the name typed (verbatim).
+#: client/js/irc/scripting/library.ts
+msgctxt "scripting.nameTaken"
+msgid "Another script is already called {name}."
+msgstr ""
+
+#. Local line shown in the conversation when a Lua script tries to send another IRC line while too many of its lines wait to be sent. '[Lua error]' is the prefix every scripting error line has: keep the brackets. {count} is the limit, a number.
+#: client/js/irc/scripting/manager.ts
+msgctxt "scripting.queueFull"
+msgid "[Lua error] Not sent: {count} script line is already waiting to go out"
+msgid_plural "[Lua error] Not sent: {count} script lines are already waiting to go out"
+msgstr[0] ""
+msgstr[1] ""
+
+#. Error when a Lua script's code is too long to save. {name} is the script's name (verbatim); {max} the limit, a number. Use the language's quotation marks.
+#: client/js/irc/scripting/storage.ts
+msgctxt "scripting.storage.codeTooLong"
+msgid "“{name}” is over {max} characters."
+msgstr ""
+
+#. Error raised inside a Lua script when what it saved through seance.storage (verbatim, the API's name) is too long. {max} is the limit, a number.
+#: client/js/irc/scripting/storage.ts
+msgctxt "scripting.storage.dataTooLong"
+msgid "seance.storage is over {max} characters for this script."
+msgstr ""
+
+#. Error when all the user's Lua scripts together are too long to save. {max} is the limit, a number.
+#: client/js/irc/scripting/storage.ts
+msgctxt "scripting.storage.libraryTooLong"
+msgid "Your scripts are over {max} characters together."
+msgstr ""
+
+#. Error when a Lua script or its saved data could not be saved because the browser's storage is full. Shown in the script editor, or as the script's error.
+#: client/js/irc/scripting/storage.ts
+msgctxt "scripting.storage.noRoom"
+msgid "There isn't room on this device to save that."
+msgstr ""
+
+#. Error raised inside a Lua script when what all scripts saved through seance.storage (verbatim, the API's name) is too long together. {max} is the limit, a number.
+#: client/js/irc/scripting/storage.ts
+msgctxt "scripting.storage.totalDataTooLong"
+msgid "seance.storage is over {max} characters for all scripts together."
+msgstr ""
+
+#. Description given to the Auto-responder example Lua script when it is added. 'pong!' and '!ping' are the literal chat text it answers and sends: keep them verbatim.
+#: client/js/irc/scripting/library.ts
+msgctxt "scripting.template.responderDescription"
+msgid "Replies pong! to !ping"
+msgstr ""
+
+#. Folder name given to the Auto-responder example script when it is added (stored with the script; the user can rename it). Short, a label.
+#: client/js/irc/scripting/library.ts
+msgctxt "scripting.template.responderFolder"
+msgid "Automation"
+msgstr ""
+
+#. Description given to the /slap example Lua script when it is added. Keep '/slap' verbatim (the command's name).
+#: client/js/irc/scripting/library.ts
+msgctxt "scripting.template.slapDescription"
+msgid "Adds a /slap command"
+msgstr ""
+
+#. Folder name given to the /slap example script when it is added (stored with the script; the user can rename it). Short, a label: slash commands.
+#: client/js/irc/scripting/library.ts
+msgctxt "scripting.template.slapFolder"
+msgid "Commands"
+msgstr ""
+
 #. aria-label of the magnifier button in a chat window's header; clicking it opens the message-search field for the conversation.
 #: client/components/MessageSearchForm.vue:19
 msgctxt "search.openForm"
@@ -12337,6 +12459,335 @@ msgstr ""
 #: client/components/Settings/Notifications.vue
 msgctxt "settings.notifications.warning"
 msgid "Warning"
+msgstr ""
+
+#. Lua API reference, the description of seance.current_channel, seance.current_network and seance.nick: the channel, network and nick of the conversation open now.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.api.context"
+msgid "Context of the currently active chat tab."
+msgstr ""
+
+#. Lua API reference, the description of seance.on("message", …). {msg} is the handler's argument and {from}, {target}, {text}, {type}, {self} its fields (all verbatim code elements: msg, .from, .target, .text, .type, .self).
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.api.message"
+msgid "Incoming messages. {msg} has {from}, {target}, {text}, {type} and {self}."
+msgstr ""
+
+#. Lua API reference, the description of seance.print("text"): a line shown only on this device, never sent.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.api.print"
+msgid "Show a local line in the active conversation."
+msgstr ""
+
+#. Lua API reference, the description of seance.register_command("name", …). {command} is the example command /name (verbatim, a code element).
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.api.registerCommand"
+msgid "Registers a custom slash command {command}."
+msgstr ""
+
+#. Lua API reference, the description of seance.reply(msg, "text") and seance.send("RAW LINE").
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.api.replySend"
+msgid "Reply to a message, or send a raw IRC line on the current network."
+msgstr ""
+
+#. Lua API reference, the description of seance.storage.get/set: data each script keeps for itself that survives a reload.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.api.storage"
+msgid "Persistent per-script data across restarts."
+msgstr ""
+
+#. Summary line of the folded reference under the Lua script editor's code field, listing the functions a script can call.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.apiSummary"
+msgid "Lua API reference"
+msgstr ""
+
+#. Accessible name of the Lua script editor dialog. {name} is the script's name (user data, verbatim).
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.ariaNamed"
+msgid "Edit script {name}"
+msgstr ""
+
+#. Note in the footer of the Lua script editor, beside Done.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.autosave"
+msgid "Changes are saved as you type."
+msgstr ""
+
+#. Number of characters of the Lua script, the {characters} in settings.scriptEdit.size ('12 lines · 340 characters'). {count} is the number of characters.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.charCount"
+msgid "{count} character"
+msgid_plural "{count} characters"
+msgstr[0] ""
+msgstr[1] ""
+
+#. Button in the Lua script editor that compiles the code (without running it) and says whether it is valid Lua.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.checkSyntax"
+msgid "Check syntax"
+msgstr ""
+
+#. Brief status in the footer of the Lua script editor while Check syntax compiles the code.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.checking"
+msgid "Checking…"
+msgstr ""
+
+#. aria-label of the ✕ button at the top right of the Lua script editor; closes it back to the script list.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.close"
+msgid "Close the editor"
+msgstr ""
+
+#. Accessible name of the code field in the Lua script editor.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.codeAria"
+msgid "Lua code"
+msgstr ""
+
+#. Placeholder of the empty code field in the Lua script editor. It is a Lua comment: keep the leading '-- '.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.codePlaceholder"
+msgid "-- Write your Lua code here"
+msgstr ""
+
+#. Button in the Lua script editor that deletes the script, and the confirm button of the dialog that asks first.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.delete"
+msgid "Delete"
+msgstr ""
+
+#. Text of the dialog asking to confirm deleting a Lua script; its saved data is what the script stored for itself.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.deleteText"
+msgid "This deletes the script and its saved data. This cannot be undone."
+msgstr ""
+
+#. Title of the dialog asking to confirm deleting a Lua script. {name} is the script's name (user data, verbatim); use the language's quotation marks.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.deleteTitle"
+msgid "Delete script “{name}”?"
+msgstr ""
+
+#. Label of the description field in the Lua script editor.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.description"
+msgid "Description"
+msgstr ""
+
+#. Placeholder of the description field in the Lua script editor.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.descriptionPlaceholder"
+msgid "What does this script do?"
+msgstr ""
+
+#. Button in the Lua script editor that makes a copy of the script and opens the copy.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.duplicate"
+msgid "Duplicate"
+msgstr ""
+
+#. Bold label of the banner in the Lua script editor showing the script's last error; the error text (from the Lua interpreter, verbatim) follows it.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.errorLabel"
+msgid "Error:"
+msgstr ""
+
+#. Button in the Lua script editor that downloads the script's code as a .lua file; keep '.lua' (the file extension).
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.export"
+msgid "Export .lua"
+msgstr ""
+
+#. Label of the folder field in the Lua script editor: a free-text label that groups scripts in the list.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.folder"
+msgid "Folder"
+msgstr ""
+
+#. Number of lines of the Lua script, the {lines} in settings.scriptEdit.size ('12 lines · 340 characters'). {count} is the number of lines.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.lineCount"
+msgid "{count} line"
+msgid_plural "{count} lines"
+msgstr[0] ""
+msgstr[1] ""
+
+#. Shown in the Lua script editor when the script it was opened on no longer exists.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.missing"
+msgid "This script is gone — deleted here or in another tab."
+msgstr ""
+
+#. Label of the script's name field in the Lua script editor.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.name"
+msgid "Name"
+msgstr ""
+
+#. Bold label of the banner in the Lua script editor when a change could not be saved; the reason (scripting.storage.*) follows it.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.notSavedLabel"
+msgid "Not saved:"
+msgstr ""
+
+#. Label of the switch in the Lua script editor that turns this one script on or off.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.run"
+msgid "Run this script"
+msgstr ""
+
+#. Brief status in the footer of the Lua script editor after a change was saved.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.saved"
+msgid "Saved"
+msgstr ""
+
+#. Size line under the Lua script editor's code field, e.g. '12 lines · 340 characters'. {lines} is settings.scriptEdit.lineCount and {characters} settings.scriptEdit.charCount, already translated; keep the middle dot or use the language's list separator.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.size"
+msgid "{lines} · {characters}"
+msgstr ""
+
+#. Brief status in the footer of the Lua script editor: Check syntax found an error (shown in the error banner).
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.syntaxError"
+msgid "Syntax error"
+msgstr ""
+
+#. Brief status in the footer of the Lua script editor: Check syntax found the code valid.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.syntaxOk"
+msgid "Syntax OK"
+msgstr ""
+
+#. Title of the Lua script editor (an overlay over Settings > Scripts), before the script's name; also its accessible name while the script is missing.
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scriptEdit.title"
+msgid "Edit script"
+msgstr ""
+
+#. Name of the folder scripts are filed under when they have none: a heading in the Settings > Scripts list, and the placeholder of the editor's Folder field.
+#: client/components/Settings/Scripts.vue
+#: client/components/Settings/ScriptEdit.vue
+msgctxt "settings.scripts.defaultFolder"
+msgid "Unsorted"
+msgstr ""
+
+#. Shown in Settings > Scripts in place of the list while the user has no Lua scripts.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.empty"
+msgid "No scripts yet."
+msgstr ""
+
+#. Label of the switch in Settings > Scripts that turns Lua scripting on for the whole app (off by default).
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.enable"
+msgid "Enable scripting"
+msgstr ""
+
+#. Button after 'Or try an example:' in Settings > Scripts: adds an example script that answers a chat message automatically (it replies pong! to !ping).
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.exampleResponder"
+msgid "Auto-responder"
+msgstr ""
+
+#. Button after 'Or try an example:' in Settings > Scripts: adds an example script that defines a /slap slash command. Keep '/slap' verbatim (the command's name).
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.exampleSlap"
+msgid "/slap command"
+msgstr ""
+
+#. Lead-in in Settings > Scripts before two buttons that each add a ready-made example script (settings.scripts.exampleResponder, settings.scripts.exampleSlap).
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.examples"
+msgid "Or try an example:"
+msgstr ""
+
+#. Heading of the Settings > Scripts pane, and the accessible name of the pane. Lua scripts the user writes and runs in the app.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.heading"
+msgid "Scripts"
+msgstr ""
+
+#. Button in Settings > Scripts that opens a file picker to import a Lua script file; keep '.lua' (the file extension) and the ellipsis.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.import"
+msgid "Import .lua…"
+msgstr ""
+
+#. aria-label of the hidden file input behind the Import .lua… button in Settings > Scripts.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.importAria"
+msgid "Lua file to import"
+msgstr ""
+
+#. Error in Settings > Scripts when an imported Lua file is too long. {file} is the file's name (verbatim); {max} is the limit, a number.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.importTooLong"
+msgid "{file} is over {max} characters."
+msgstr ""
+
+#. Intro under the Settings > Scripts heading; says what Lua scripts are for and that they stay on this device. Keep 'Lua' (the programming language) as is.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.intro"
+msgid "Lua scripts that run in this browser: auto-responders, slash commands of your own, small helpers. They are kept on this device only."
+msgstr ""
+
+#. Button in Settings > Scripts that creates an empty Lua script and opens it in the editor.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.new"
+msgid "New script"
+msgstr ""
+
+#. Shown in Settings > Scripts in place of the list when the search finds no script.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.noMatch"
+msgid "No script matches."
+msgstr ""
+
+#. Note under the Enable scripting switch while it is off. {command} is the /lua command (verbatim, a code element). Keep 'Lua' as is.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.offNote"
+msgid "While this is off the Lua interpreter is not loaded, no script runs and {command} is disabled. Your scripts are kept."
+msgstr ""
+
+#. aria-label of the on/off switch on a script's row in Settings > Scripts; on means the script runs. {name} is the script's name (user data, verbatim).
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.runAria"
+msgid "Run {name}"
+msgstr ""
+
+#. aria-label of the search field above the script list in Settings > Scripts.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.searchAria"
+msgid "Search scripts"
+msgstr ""
+
+#. Placeholder of the search field above the script list in Settings > Scripts (shown once there are many scripts); it searches the scripts' names, folders and code.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.searchPlaceholder"
+msgid "Search name, folder, text…"
+msgstr ""
+
+#. State of a Lua script in the Settings > Scripts list: its last run failed with an error.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.stateError"
+msgid "Error"
+msgstr ""
+
+#. State of a Lua script in the Settings > Scripts list (and the tooltip of its switch): it is switched off.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.stateOff"
+msgid "Off"
+msgstr ""
+
+#. State of a Lua script in the Settings > Scripts list (and the tooltip of its switch): it is switched on and runs.
+#: client/components/Settings/Scripts.vue
+msgctxt "settings.scripts.stateRunning"
+msgid "Running"
 msgstr ""
 
 #. Label of the Settings modal's Aliases tab (tab strip); switching tabs navigates to the Aliases settings pane.
@@ -14512,10 +14963,11 @@ msgctxt "windows.settings.close"
 msgid "Close settings"
 msgstr ""
 
-#. Button in the footer of the settings window, and of the Help and release notes windows that share its frame; clicking closes the window and returns to the chat.
+#. Button in the footer of the settings window, and of the Help, release notes and Lua script editor windows that share its frame; clicking closes the window.
 #: client/components/Windows/Settings.vue
 #: client/components/Windows/Help.vue
 #: client/components/Windows/Changelog.vue
+#: client/components/Settings/ScriptEdit.vue
 msgctxt "windows.settings.done"
 msgid "Done"
 msgstr ""

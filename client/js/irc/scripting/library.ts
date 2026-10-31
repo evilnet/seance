@@ -6,6 +6,7 @@
 
 import {isValidScriptName, MAX_NAME_LENGTH} from "./storage";
 import type {Script} from "./types";
+import {t} from "../../i18n/core";
 
 export function newScriptId(): string {
 	return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -46,15 +47,15 @@ export function importedScriptName(fileName: string): string {
  */
 export function scriptNameError(scripts: Script[], name: string, id: string): string | null {
 	if (name.length === 0) {
-		return "A script needs a name.";
+		return t("scripting.nameEmpty");
 	}
 
 	if (!isValidScriptName(name)) {
-		return `Letters, digits, _ and - only, starting with a letter or digit, at most ${MAX_NAME_LENGTH}.`;
+		return t("scripting.nameInvalid", {max: MAX_NAME_LENGTH});
 	}
 
 	if (nameTaken(scripts, name, id)) {
-		return `Another script is already called ${name}.`;
+		return t("scripting.nameTaken", {name});
 	}
 
 	return null;
@@ -65,8 +66,8 @@ export function scriptTemplate(kind: "responder" | "slap", scripts: Script[]): S
 		return {
 			id: newScriptId(),
 			name: uniqueScriptName(scripts, "auto_ping"),
-			folder: "Automation",
-			description: "Replies pong! to !ping",
+			folder: t("scripting.template.responderFolder"),
+			description: t("scripting.template.responderDescription"),
 			code: `-- Auto-responder example\nseance.on("message", function(msg)\n    if msg.text == "!ping" and not msg.self then\n        seance.reply(msg, "pong! " .. seance.nick)\n    end\nend)\n`,
 			enabled: true,
 			createdAt: Date.now(),
@@ -76,8 +77,8 @@ export function scriptTemplate(kind: "responder" | "slap", scripts: Script[]): S
 	return {
 		id: newScriptId(),
 		name: uniqueScriptName(scripts, "slap_cmd"),
-		folder: "Commands",
-		description: "Adds a /slap command",
+		folder: t("scripting.template.slapFolder"),
+		description: t("scripting.template.slapDescription"),
 		code: `-- Custom /slap command\nseance.register_command("slap", function(args, rest)\n    local target = rest ~= "" and rest or "themselves"\n    local chan = seance.current_channel\n    if chan ~= "" then\n        seance.send("PRIVMSG " .. chan .. " :\\001ACTION slaps " .. target .. " with a large trout\\001")\n    end\nend)\n`,
 		enabled: true,
 		createdAt: Date.now(),
