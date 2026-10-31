@@ -287,6 +287,48 @@ describe("settings backup (helpers/settingsBackup.ts)", function () {
 		expect(store.get("settings")).to.equal(JSON.stringify({theme: "day"}));
 	});
 
+	it("an older file without scripts leaves the device's scripts alone", function () {
+		// Both histories wrote version-1 files and only develop's carried
+		// scripts: a version-1 file without them says nothing about them.
+		seed();
+		store.set("thelounge.scripts", JSON.stringify([{id: "s", name: "s", code: "x"}]));
+		store.set("thelounge.script_storage.s", JSON.stringify({n: 1}));
+		applyBackup(
+			{format: FORMAT, version: 1, exportedAt: "", entries: {settings: {theme: "day"}}},
+			"web",
+			{}
+		);
+
+		expect(store.has("thelounge.scripts")).to.equal(true);
+		expect(store.get("thelounge.script_storage.s")).to.equal(JSON.stringify({n: 1}));
+		// A current file without them does clear them.
+		applyBackup(
+			{format: FORMAT, version: VERSION, exportedAt: "", entries: {settings: {}}},
+			"web",
+			{}
+		);
+		expect(store.has("thelounge.scripts")).to.equal(false);
+		expect(store.has("thelounge.script_storage.s")).to.equal(false);
+	});
+
+	it("an older file that carries scripts still restores them, switched off", function () {
+		seed();
+		applyBackup(
+			{
+				format: FORMAT,
+				version: 1,
+				exportedAt: "",
+				entries: {"thelounge.scripts": [{id: "a", name: "a", code: "x", enabled: true}]},
+			},
+			"web",
+			{}
+		);
+
+		expect(JSON.parse(store.get("thelounge.scripts") as string)).to.deep.equal([
+			{id: "a", name: "a", code: "x", enabled: false},
+		]);
+	});
+
 	it("restores scripts and the scripting switch turned off", function () {
 		seed();
 		applyBackup(

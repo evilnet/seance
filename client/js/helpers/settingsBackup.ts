@@ -32,17 +32,29 @@ export const FORMAT = "seance-settings";
 export const VERSION = 2;
 
 /**
- * The file version a key first travelled in. A restore empties the keys the
- * file covers, so an older file must not be read as "this key was empty on
- * that device": a key the format did not carry yet is left alone, because
- * that file could never have held it. Keys from version 1 are not listed.
+ * The file version a key (or, ending in ".", a key prefix) first travelled
+ * in. A restore empties the keys the file covers, so an older file must not
+ * be read as "this key was empty on that device": a key the format did not
+ * carry yet is left alone, because that file could never have held it. Keys
+ * from version 1 are not listed. Scripting is listed though develop's own
+ * version-1 files carry it: this branch's version-1 files never did, and the
+ * number alone cannot tell the two apart, so an older file without scripts
+ * leaves them as they are (one that has them still restores them).
  */
-const KEY_SINCE: Record<string, number> = {"thelounge.translate": 2};
+const KEY_SINCE: Record<string, number> = {
+	"thelounge.translate": 2,
+	"thelounge.scripts": 2,
+	"thelounge.script_storage.": 2,
+};
 
 /** Whether a file of `version` says anything about `key` — a missing entry
  * for a key it covers means "not set", and the restore removes it. */
 function coveredBy(version: number, key: string): boolean {
-	return (KEY_SINCE[key] ?? 1) <= version;
+	const since =
+		KEY_SINCE[key] ??
+		Object.entries(KEY_SINCE).find(([k]) => k.endsWith(".") && key.startsWith(k))?.[1] ??
+		1;
+	return since <= version;
 }
 
 /** Whole keys the backup carries. `settings` has no prefix (store-settings.ts). */
