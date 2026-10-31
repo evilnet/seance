@@ -126,7 +126,11 @@ export default async function run(page) {
 	);
 	await page.screenshot("context-menu-open");
 
-	await page.evaluate(`document.querySelector("#context-menu-container").click()`);
+	await page.evaluate(`((el) => {
+			// v-backdrop counts a click pressed and released on the backdrop itself.
+			for (const type of ["pointerdown", "pointerup"]) el.dispatchEvent(new PointerEvent(type, {bubbles: true}));
+			el.click();
+		})(document.querySelector("#context-menu-container"))`);
 	await page.waitFor(`document.querySelectorAll("[data-escape-close]").length === 0`, {
 		label: "the menu to close",
 	});

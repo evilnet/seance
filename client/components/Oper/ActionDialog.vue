@@ -1,9 +1,9 @@
 <template>
 	<div
 		id="oper-action-overlay"
+		v-backdrop="close"
 		:class="{opened: !!request}"
 		:data-escape-close="request ? 'oper-action' : null"
-		@click.self="close"
 	>
 		<form
 			v-if="request && network"

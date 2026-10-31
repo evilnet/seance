@@ -2,9 +2,9 @@
 	<div
 		v-if="isOpen"
 		id="context-menu-container"
+		v-backdrop="close"
 		data-escape-close="context-menu"
 		:class="{passthrough}"
-		@click="containerClick"
 		@contextmenu.prevent="containerClick"
 		@keydown.exact.up.prevent="navigateMenu(-1)"
 		@keydown.exact.down.prevent="navigateMenu(1)"

@@ -15,6 +15,7 @@ import "./pwa";
 import "./keybinds";
 import {setAppBadge} from "./helpers/appBadge";
 import {switchDirective} from "./helpers/nativeSwitches";
+import {backdropDirective} from "./helpers/backdrop";
 
 const favicon = document.getElementById("favicon");
 const faviconNormal = favicon?.getAttribute("href") || "";
@@ -26,6 +27,8 @@ VueApp.use(router);
 VueApp.use(store, key);
 // Checkboxes are switches in the native shells (helpers/nativeSwitches.ts).
 VueApp.directive("switch", switchDirective);
+// A backdrop closes on a click that began on it (helpers/backdrop.ts).
+VueApp.directive("backdrop", backdropDirective);
 
 VueApp.mount("#app");
 

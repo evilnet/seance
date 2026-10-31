@@ -2,8 +2,8 @@
 	<div
 		v-if="isOpen"
 		id="mentions-popup-container"
+		v-backdrop="closePopup"
 		data-escape-close="mentions"
-		@click="containerClick"
 		@contextmenu="containerClick"
 	>
 		<div

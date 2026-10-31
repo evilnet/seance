@@ -239,7 +239,11 @@ export default async function run(page) {
 		`the badge says 2 (${await page.evaluate(badgeText)})`,
 		(await page.evaluate(badgeText)) === "2"
 	);
-	await page.evaluate(`document.querySelector("#mentions-popup-container").click()`);
+	await page.evaluate(`((el) => {
+			// v-backdrop counts a click pressed and released on the backdrop itself.
+			for (const type of ["pointerdown", "pointerup"]) el.dispatchEvent(new PointerEvent(type, {bubbles: true}));
+			el.click();
+		})(document.querySelector("#mentions-popup-container"))`);
 
 	// Three private lines are one entry; then 70 lines push the mentions out
 	// of the first history page a reload fetches.

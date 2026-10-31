@@ -133,8 +133,11 @@ export default async function run(page) {
 	if (!narrow) {
 		// The backdrop: a click on the dimmed window itself, outside the pane.
 		await leaves("A backdrop click", () =>
-			page.evaluate(`document.querySelector("#help.window").dispatchEvent(
-				new MouseEvent("click", {bubbles: true}))`)
+			page.evaluate(`((el) => {
+			// v-backdrop counts a click pressed and released on the backdrop itself.
+			for (const type of ["pointerdown", "pointerup"]) el.dispatchEvent(new PointerEvent(type, {bubbles: true}));
+			el.click();
+		})(document.querySelector("#help.window"))`)
 		);
 	}
 
