@@ -2,7 +2,7 @@
 	<div
 		id="help"
 		v-backdrop="close"
-		class="window"
+		class="window screen-overlay"
 		role="dialog"
 		aria-modal="true"
 		aria-label="Help"

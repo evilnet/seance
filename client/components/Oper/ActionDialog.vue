@@ -1,6 +1,7 @@
 <template>
 	<div
 		id="oper-action-overlay"
+		class="screen-overlay"
 		v-backdrop="close"
 		:class="{opened: !!request}"
 		:data-escape-close="request ? 'oper-action' : null"

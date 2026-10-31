@@ -1,6 +1,7 @@
 <template>
 	<div
 		id="install-guide-overlay"
+		class="screen-overlay"
 		v-backdrop="close"
 		:class="{opened: store.state.installGuideOpen}"
 	>

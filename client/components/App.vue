@@ -3,6 +3,7 @@
 		<Sidebar v-if="store.state.appLoaded" :overlay="overlay" />
 		<div
 			id="sidebar-overlay"
+			class="screen-overlay"
 			ref="overlay"
 			aria-hidden="true"
 			@click="store.commit('sidebarOpen', false)"
@@ -18,7 +19,7 @@
 		<OperActionDialog />
 		<PushPrompt />
 		<InstallGuide />
-		<div id="upload-overlay"></div>
+		<div id="upload-overlay" class="screen-overlay"></div>
 	</div>
 </template>
 

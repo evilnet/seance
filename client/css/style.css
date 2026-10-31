@@ -306,6 +306,26 @@ html[data-shell="native"] #viewport {
 	background: var(--canvas-bg-color, var(--body-bg-color));
 }
 
+/* Whatever covers the screen — a modal's backdrop, a full-screen sheet, the
+ * sidebar's dimmer — carries `.screen-overlay`, and in the shell it starts
+ * at the insets: pinned to the screen (fixed) or to #viewport's padding box
+ * (absolute), its title and ✕ sat under the clock and its buttons under
+ * Android's. The side insets are the notch's in landscape, and the bars'
+ * bands are not the page's to dim. One rule for every overlay, on every
+ * layout, so a new one is safe by carrying the class (test/tests/
+ * screenOverlays.ts fails one that does not), never by joining a list.
+ * `:is()` with an id lifts it over the overlays' own `#id { top: 0 }`. */
+html[data-shell="native"] :is(.screen-overlay, #specificity-of-an-id) {
+	top: var(--inset-top);
+	bottom: var(--inset-outer-bottom);
+	left: var(--inset-left);
+	right: var(--inset-right);
+
+	/* `.window` is `height: 100%`, which with a moved top runs past the
+	 * bottom edge by the same amount; the two pinned edges size it. */
+	height: auto;
+}
+
 *,
 *::before,
 *::after {
@@ -5809,27 +5829,6 @@ html[data-shell="native"] #footer {
 		padding-top: var(--inset-top);
 		padding-bottom: var(--inset-outer-bottom);
 		padding-left: var(--inset-left);
-	}
-
-	/* The settings modal (and Help and the release notes, which share its
-	 * frame) and the sidebar's dimmer pin all four edges to
-	 * #viewport the same way, so they too span the padding box: the pane's
-	 * title sat under the clock and its Done button under Android's buttons.
-	 * Both start at the insets instead (the dimmer would only dim the bars'
-	 * bands, which are not the page's to dim) — the side ones too, which are
-	 * the notch's in landscape. */
-	html[data-shell="native"] #settings.window,
-	html[data-shell="native"] #help.window,
-	html[data-shell="native"] #changelog.window,
-	html[data-shell="native"] #sidebar-overlay {
-		top: var(--inset-top);
-		bottom: var(--inset-outer-bottom);
-		left: var(--inset-left);
-		right: var(--inset-right);
-
-		/* `.window` is `height: 100%`, which with a moved top runs past the
-		 * bottom edge by the same amount; the two pinned edges size it. */
-		height: auto;
 	}
 
 	#sidebar-overlay {
