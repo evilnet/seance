@@ -7,7 +7,17 @@
 			aria-hidden="true"
 			@click="store.commit('sidebarOpen', false)"
 		/>
-		<router-view ref="loungeWindow"></router-view>
+		<!-- Connect reads its query once, as it is set up: a link handed to
+		     the running app (a shell's appUrlOpen, a PWA launch) while it is
+		     open, or Cancel on a link back to the plain form, has to mount a
+		     new one. Every other route keeps its component. -->
+		<router-view v-slot:default="{Component, route}">
+			<component
+				:is="Component"
+				ref="loungeWindow"
+				:key="route.name === 'Connect' ? route.fullPath : undefined"
+			/>
+		</router-view>
 		<Mentions />
 		<ImageViewer ref="imageViewer" />
 		<ContextMenu ref="contextMenu" />

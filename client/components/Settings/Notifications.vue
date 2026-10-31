@@ -288,7 +288,7 @@ import {useStore} from "../../js/store";
 import webpush from "../../js/webpush";
 import dnd from "../../js/dnd";
 import {DAYS, DAY_FULL_NAMES, HHMM, type DndSchedule} from "../../js/helpers/dnd";
-import {isAndroidShell} from "../../js/helpers/capacitor";
+import {isAndroidShell} from "../../js/helpers/shell";
 import {nativeAlertsAvailable} from "../../js/helpers/nativeAlerts";
 import {playNotificationSound} from "../../js/helpers/notificationSound";
 

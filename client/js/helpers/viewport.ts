@@ -27,7 +27,7 @@
  */
 
 import {hasVirtualKeyboard} from "./device";
-import {isIOSShell, nativeCall, nativeListen} from "./capacitor";
+import {isIOSShell, nativeCall, nativeListen} from "./shell";
 
 /** When a measurement is re-read after its event, in ms. The keyboard animates for ~250 ms. */
 export const SETTLE_DELAYS_MS = [50, 150, 300, 600];

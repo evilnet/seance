@@ -49,16 +49,16 @@ scheme is the whole cost, which is why nothing here depends on it.
 
 ## Where it is wired
 
-| Place                                      | What it does                                                               |
-| ------------------------------------------ | -------------------------------------------------------------------------- |
-| `client/manifest.webmanifest`              | `protocol_handlers`: the installed PWA claims `web+irc` → `./?uri=%s`      |
-| `client/components/Settings/General.vue`   | pre-install equivalent, `registerProtocolHandler("web+irc", …)`, in a tab  |
-| `client/js/helpers/parseIrcUri.ts`         | `?uri=` → `{name, host, port, join, tls}`                                  |
-| `client/js/helpers/linkTarget.ts`          | matches the link against saved networks / deploy policy; strips secrets    |
-| `client/js/boot.ts`                        | `handleQueryParams()` pushes those onto the `Connect` route                |
-| `client/js/pwa.ts`                         | `launchQueue`: a link with the app already open does not reload it         |
-| `shells/electron/main.js` + `package.json` | `setAsDefaultProtocolClient("web+irc")`, argv/`open-url`, electron-builder |
-| `test/tests/build.ts`                      | asserts the built manifest still carries the handler                       |
+| Place                                    | What it does                                                              |
+| ---------------------------------------- | ------------------------------------------------------------------------- |
+| `client/manifest.webmanifest`            | `protocol_handlers`: the installed PWA claims `web+irc` → `./?uri=%s`     |
+| `client/components/Settings/General.vue` | pre-install equivalent, `registerProtocolHandler("web+irc", …)`, in a tab |
+| `client/js/helpers/parseIrcUri.ts`       | `?uri=` → `{name, host, port, join, tls}`                                 |
+| `client/js/helpers/linkTarget.ts`        | matches the link against saved networks / deploy policy; strips secrets   |
+| `client/js/boot.ts`                      | `handleQueryParams()` pushes those onto the `Connect` route               |
+| `client/js/pwa.ts`                       | `launchQueue`: a link with the app already open does not reload it        |
+| `shells/tauri/src-tauri/src/lib.rs`      | deep-link plugin (`web+irc`), a second launch's argv → `App.appUrlOpen`   |
+| `test/tests/build.ts`                    | asserts the built manifest still carries the handler                      |
 
 Not wired yet: the Capacitor shells (an Android `intent-filter` and iOS
 `CFBundleURLTypes` entry would do it). Matching a link against saved networks

@@ -58,7 +58,7 @@ SASL `OAUTHBEARER` mechanism the nefarious2 fork already implements.
   (`Windows/Connect.vue`, `sasl` select) grows a "Sign in with passkey"
   option beside PLAIN.
 - **PWA/native shells:** the OIDC redirect must work inside the installed app
-  (`docs/resources/pwa.md`; in-scope redirect URI) and in Electron/Capacitor
+  (`docs/resources/pwa.md`; in-scope redirect URI) and in the app shells (Capacitor, Tauri)
   (system browser + custom-scheme return, or an in-app popup).
 - **Dev environment:** `tools/nefarious-dev` has no services and no Keycloak
   (`docs/resources/nefarious2-dev.md`); a Keycloak container with a WebAuthn
