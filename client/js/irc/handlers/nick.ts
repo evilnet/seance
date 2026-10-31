@@ -6,6 +6,7 @@ import {t} from "../../i18n/core";
 import {MessageType} from "../../../../shared/types/msg";
 import {msgidOf} from "../message";
 import type {Handler} from "../types";
+import {scriptManager} from "../scripting/manager";
 
 const nick: Handler = (client, msg) => {
 	const oldNick = msg.source?.name ?? "";
@@ -13,6 +14,16 @@ const nick: Handler = (client, msg) => {
 
 	if (!oldNick || !newNick) {
 		return;
+	}
+
+	if (!client.replaying) {
+		scriptManager.dispatchNick({
+			network: client.name,
+			networkUuid: client.uuid,
+			oldNick,
+			newNick,
+			self: client.isSelf(oldNick) || client.isSelf(newNick),
+		});
 	}
 
 	const time = client.timeOf(msg);

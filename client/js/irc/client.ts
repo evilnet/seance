@@ -37,6 +37,7 @@ import {QueryLog} from "./querylog";
 import {commandNames, dispatchInput} from "./commands";
 import {describeClose} from "./disconnect";
 import {handlers, unhandled} from "./handlers";
+import {scriptManager} from "./scripting/manager";
 import {FILEHOST_SERVICE, TokenRequests, filehostUrlOf} from "./authtoken";
 import {interceptBatchLine, resetBatches} from "./handlers/batch";
 import {PAYLOAD_KEY} from "./handlers/metadata";
@@ -1708,6 +1709,7 @@ export class IrcClient {
 	 * echoed them.
 	 */
 	sendMessage(target: string, text: string, opts: SendMessageOptions = {}) {
+		scriptManager.dispatchSend(text, target);
 		// The message itself ends the typing session on the receiver's side:
 		// forget ours (no `done`), and let the next `active` go out at once.
 		this.resetTyping(target);

@@ -6586,13 +6586,16 @@ html[data-shell="native"] #footer {
 		padding-left: var(--inset-left);
 	}
 
-	/* The settings modal and the sidebar's dimmer pin all four edges to
+	/* The settings modal (and Help and the release notes, which share its
+	 * frame) and the sidebar's dimmer pin all four edges to
 	 * #viewport the same way, so they too span the padding box: the pane's
 	 * title sat under the clock and its Done button under Android's buttons.
 	 * Both start at the insets instead (the dimmer would only dim the bars'
 	 * bands, which are not the page's to dim) — the side ones too, which are
 	 * the notch's in landscape. */
 	html[data-shell="native"] #settings.window,
+	html[data-shell="native"] #help.window,
+	html[data-shell="native"] #changelog.window,
 	html[data-shell="native"] #sidebar-overlay {
 		top: var(--inset-top);
 		bottom: var(--inset-outer-bottom);
@@ -6895,6 +6898,11 @@ html[data-shell="native"] #footer {
 #upload-preview-overlay,
 #image-viewer {
 	background: rgb(0 0 0 / 90%);
+}
+
+/* Every touch on the viewer is its pan or pinch (ImageViewer.vue). */
+#image-viewer {
+	touch-action: none;
 }
 
 #image-viewer .close-btn,

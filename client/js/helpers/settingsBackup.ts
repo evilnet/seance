@@ -57,12 +57,16 @@ export const BACKUP_KEYS: readonly string[] = [
 	"thelounge.reactions.recent",
 	"thelounge.aliases",
 	"thelounge.translate",
+	"thelounge.scripts",
 	"thelounge.oper",
 	"thelounge.dnd",
 ];
 
 /** Key prefixes the backup carries: one entry per network. */
-export const BACKUP_PREFIXES: readonly string[] = ["thelounge.ignore."];
+export const BACKUP_PREFIXES: readonly string[] = [
+	"thelounge.ignore.",
+	"thelounge.script_storage.",
+];
 
 export interface SettingsBackup {
 	format: typeof FORMAT;
@@ -229,6 +233,32 @@ function rebaseSettings(
 	return rebased;
 }
 
+/**
+ * A file's scripts arrive switched off, and so does the scripting switch: a
+ * script can send any line and read every message, so one from a file —
+ * perhaps someone else's — runs only once the user has turned it on here.
+ */
+function disarmScripts(key: string, value: unknown): unknown {
+	if (
+		key === "settings" &&
+		typeof value === "object" &&
+		value !== null &&
+		!Array.isArray(value)
+	) {
+		return "enableScripting" in value ? {...value, enableScripting: false} : value;
+	}
+
+	if (key === "thelounge.scripts" && Array.isArray(value)) {
+		return value.map((script: unknown) =>
+			typeof script === "object" && script !== null && !Array.isArray(script)
+				? {...script, enabled: false}
+				: script
+		);
+	}
+
+	return value;
+}
+
 /** A restore that did not fit in storage; what it had written is undone. */
 export class BackupStorageError extends Error {
 	constructor() {
@@ -240,9 +270,10 @@ export class BackupStorageError extends Error {
  * Replace every covered entry with the backup's. Keys the backup does not
  * carry are removed, so the device ends up exactly as the file says — except
  * for keys the file's own version did not cover yet (`coveredBy`), which a
- * restore from an older app leaves as they are, and for the
- * platform-dependent settings, which `platform` (where this restore runs)
- * rebases against this deploy's `defaults` (see rebaseSettings).
+ * restore from an older app leaves as they are, for the platform-dependent
+ * settings, which `platform` (where this restore runs) rebases against this
+ * deploy's `defaults` (see rebaseSettings), and for scripting, which arrives
+ * switched off (see disarmScripts).
  */
 export function applyBackup(
 	backup: SettingsBackup,
@@ -259,8 +290,10 @@ export function applyBackup(
 			continue; // never let a file write arbitrary keys
 		}
 
-		const restored =
-			key === "settings" ? rebaseSettings(value, backup.platform, platform, defaults) : value;
+		const restored = disarmScripts(
+			key,
+			key === "settings" ? rebaseSettings(value, backup.platform, platform, defaults) : value
+		);
 		const json = JSON.stringify(restored);
 		backend.set(key, json);
 

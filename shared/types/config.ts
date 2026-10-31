@@ -16,6 +16,10 @@ type SharedConfigurationBase = {
 	release: string;
 	/** Short sha the build was made from; null when unknown. */
 	gitCommit: string | null;
+	/** The Pages build this is (`release`, `develop`, `pr<N>`); empty for any other. */
+	buildTrack: string;
+	/** The branch a build made elsewhere was made from; null when unknown. */
+	gitBranch: string | null;
 	themes: ConfigTheme[];
 	defaultTheme: string;
 	fileUploadMaxFileSize?: number;

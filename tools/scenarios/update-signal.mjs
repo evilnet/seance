@@ -196,7 +196,7 @@ export default async function run(page) {
 		await page.screenshot("update-available-icon");
 
 		await page.click("#footer .help");
-		await page.waitFor(`document.querySelector("#help .update-available button")`, {
+		await page.waitFor(`document.querySelector("#help .update-banner-reload")`, {
 			timeout: 5000,
 			label: "Help to offer Reload to update",
 		});
@@ -205,7 +205,7 @@ export default async function run(page) {
 		// Reload to update: the page comes back as the new build, quiet.
 		page.check(
 			"Reload to update reloads",
-			await reloaded(() => page.click("#help .update-available button"))
+			await reloaded(() => page.click("#help .update-banner-reload"))
 		);
 		await page.waitFor("navigator.serviceWorker.controller !== null", {
 			timeout: 15000,

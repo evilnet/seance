@@ -3111,17 +3111,16 @@ html[data-contrast="more"]:root[data-ps-light="night"]:is(:not([data-ps-words]),
 	color: var(--rail-badge-fg);
 }
 
-/* Solid: what holds dense text and controls — the settings pane, Help, the
- * changelog, the connect form, the menus (the context menu, the Mentions
- * popover, the composer's autocomplete), the emoji picker and its sticky
- * headings, the upload preview and the dialogs, and the jump-to-recent disc
+/* Solid: what holds dense text and controls — the settings pane (Help and
+ * the release notes are that pane too), the connect form, the menus (the
+ * context menu, the Mentions popover, the composer's autocomplete), the
+ * emoji picker and its sticky headings, the upload preview and the dialogs,
+ * and the jump-to-recent disc
  * — is the glass's colour made opaque (§6). The connect form embedded in
  * Settings (NetworkForm.vue #connect.network-form-embedded) stays clear, on
  * the pane. The message toolbar is solid too, but inside the column, where it
  * follows the column's treatment (the words over the plains section). */
 .settings-modal,
-#help,
-#changelog,
 #connect,
 #context-menu,
 .mentions-popup,
@@ -3138,8 +3137,6 @@ html[data-contrast="more"]:root[data-ps-light="night"]:is(:not([data-ps-words]),
 /* The flip, on all but the disc, whose fill also changes on hover and keeps
  * style.css's 0.2s for it. */
 .settings-modal,
-#help,
-#changelog,
 #connect,
 #context-menu,
 .mentions-popup,

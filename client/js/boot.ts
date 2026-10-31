@@ -39,8 +39,10 @@ import {lowerStatusBarTintAfterLaunch} from "./helpers/statusBarTint";
 import {onLaunch, openInstallGuideAtStart} from "./pwa";
 import {DEV_I18N} from "./i18n/core";
 import dnd from "./dnd";
+import {setContextProvider, scriptManager} from "./irc/scripting/manager";
+import {MessageType} from "../../shared/types/msg";
 // Also registers the IRC layer's bus handlers (input, names, more, network:*).
-import {autoconnectSavedNetworks, clientForNetwork, createNetwork} from "./irc/manager";
+import {allClients, autoconnectSavedNetworks, clientForNetwork, createNetwork} from "./irc/manager";
 
 declare global {
 	interface Window {
@@ -132,6 +134,47 @@ export async function boot(): Promise<void> {
 	// After the stored settings, before any network dials: the first AWAY *
 	// decision already knows about do-not-disturb.
 	dnd.start();
+
+	setContextProvider({
+		getContext() {
+			const active = store.state.activeChannel;
+			return {
+				channel: active?.channel.name ?? "",
+				network: active?.network.name ?? "",
+				nick: active?.network.nick ?? "",
+			};
+		},
+		clientFor(networkUuid) {
+			if (networkUuid !== undefined) {
+				return clientForNetwork(networkUuid);
+			}
+
+			const active = store.state.activeChannel;
+			return (active ? clientForNetwork(active.network.uuid) : undefined) ?? allClients()[0];
+		},
+		print(text) {
+			const active = store.state.activeChannel;
+
+			if (!active) {
+				return;
+			}
+
+			const client = clientForNetwork(active.network.uuid);
+
+			if (!client) {
+				return;
+			}
+
+			const chan = client.findChannel(active.channel.name) ?? client.lobby;
+			client.pushMessage(chan, {
+				type: MessageType.MESSAGE,
+				text,
+				from: {nick: "lua", mode: ""},
+			});
+		},
+	});
+
+	void scriptManager.init();
 
 	store.commit("appLoaded");
 

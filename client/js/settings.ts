@@ -15,6 +15,7 @@ import {setKeepAlive} from "./helpers/keepAlive";
 import {effectiveTheme} from "./helpers/themeAppearance";
 import {currentPlatform, PLATFORM_DEFAULTS} from "./helpers/platformDefaults";
 import {setMatchSystemTextSize} from "./helpers/systemTextSize";
+import {setScriptingEnabled} from "./irc/scripting/enabled";
 
 const defaultSettingConfig = {
 	apply() {},
@@ -379,6 +380,17 @@ const defaultConfig = {
 	// Search is local (client/js/search.ts) and always available.
 	searchEnabled: {
 		default: true,
+	},
+	// Lua scripting (Settings → Scripts → Enable scripting). Off by
+	// default: while off the script manager never creates its sandbox, so
+	// the Fengari chunk — the Lua parser/interpreter — is never fetched,
+	// no script handler or /lua command can run, and the Scripts tab shows
+	// only the switch. applyAll runs this at boot, before networks dial.
+	enableScripting: {
+		default: false,
+		apply(store: TypedStore, value: boolean) {
+			setScriptingEnabled(value === true);
+		},
 	},
 };
 

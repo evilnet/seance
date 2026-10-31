@@ -18,6 +18,7 @@ import {MessageType} from "../../../../shared/types/msg";
 import type {Channel} from "../channel";
 import type {IrcClient} from "../client";
 import type {Command, InputOptions} from "../types";
+import {scriptManager} from "../scripting/manager";
 import alias from "./alias";
 import away from "./away";
 import ban from "./ban";
@@ -32,6 +33,7 @@ import join from "./join";
 import kick from "./kick";
 import kill from "./kill";
 import list from "./list";
+import lua from "./lua";
 import me from "./me";
 import mode from "./mode";
 import msg from "./msg";
@@ -64,6 +66,7 @@ const modules: Command[] = [
 	kick,
 	kill,
 	list,
+	lua,
 	me,
 	mode,
 	msg,
@@ -111,7 +114,7 @@ export function commandNames(): string[] {
  * the alias body, and a body typed with Shift+Enter is one definition, not a
  * definition followed by stray input.
  */
-const multilineCommands = new Set(["alias", "me", "notice", "msg", "query", "say"]);
+const multilineCommands = new Set(["alias", "lua", "me", "notice", "msg", "query", "say"]);
 
 /**
  * Handle everything the user typed into `chan` (may span several lines).
@@ -223,6 +226,12 @@ function inputLine(
 		}
 
 		command.input({client, chan, cmd, args, rest, opts});
+		return;
+	}
+
+	if (scriptManager.hasCommand(cmd)) {
+		// Handled even when it fails (the error is reported): never sent raw.
+		scriptManager.runCommand(cmd, args, rest, {chan, client});
 		return;
 	}
 

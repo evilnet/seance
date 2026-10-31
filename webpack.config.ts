@@ -20,6 +20,13 @@ interface BuildIdentity {
 	/** Short sha of HEAD, or null outside a git checkout. */
 	commit: string | null;
 	/**
+	 * Which build this is, as the Pages workflow names it: `release`,
+	 * `develop` or `pr<N>`. Empty for a build made anywhere else.
+	 */
+	track: string;
+	/** The branch a build made anywhere else was made from; null when detached. */
+	branch: string | null;
+	/**
 	 * The build token: `?v=` on the asset URLs, the service worker's cache
 	 * name, `process.env.SEANCE_BUILD` in the bundle. Two builds of different
 	 * commits never share one, which is what makes a deploy detectable — the
@@ -45,21 +52,26 @@ function resolveBuild(): BuildIdentity {
 
 	const commit = git("rev-parse", "--short=8", "HEAD");
 	const dirty = commit !== null && git("status", "--porcelain", "--untracked-files=no") !== "";
-	// The release workflow names the build after the tag it checks out;
+	// The Pages workflow names the build (SEANCE_VERSION: `5.0.2`,
+	// `5.0.2-e5ed5af2`, `5.0.2-pr142.e5ed5af`) and the release it is or
+	// follows (SEANCE_RELEASE), since its shallow checkout has no tags;
 	// otherwise the nearest tag names the release the build follows. The tag
 	// is the only source of a version — package.json carries none — so a
 	// checkout without tags (a shallow clone, no git) is "dev" plus its
 	// commit.
-	const releaseVersion = process.env.SEANCE_VERSION?.trim().replace(/^v/, "");
+	const env = (name: string) => process.env[name]?.trim().replace(/^v/, "") || "";
+	const releaseVersion = env("SEANCE_VERSION");
 	const nearestTag = git("describe", "--tags", "--abbrev=0")?.replace(/^v/, "");
-	const release = releaseVersion || nearestTag || "dev";
+	const release = env("SEANCE_RELEASE") || releaseVersion || nearestTag || "dev";
 	const version = releaseVersion || (commit ? `${release}-${commit}` : release);
 	const identity = commit
 		? `${version}@${commit}${dirty ? `+${Date.now()}` : ""}`
 		: `${version}@${Date.now()}`;
 	const build = createHash("sha256").update(identity).digest("hex").substring(0, 10);
+	const track = process.env.SEANCE_TRACK?.trim() || "";
+	const branch = track ? null : git("symbolic-ref", "--short", "-q", "HEAD") || null;
 
-	return {version, release, commit, build};
+	return {version, release, commit, track, branch, build};
 }
 
 const buildIdentity = resolveBuild();
@@ -171,9 +183,10 @@ function brandManifest(content: string): string {
 // `@license` comment terser extracts by itself, but not its copyright line, and
 // flourite's build carries nothing at all — so state both, in a `/*!` banner
 // that ends up in the chunk's `.LICENSE.txt`. The markdown chunks are MIT (see
-// docs/projects/markdown-messages.md); so is franc, and the translation worker
-// carries two Apache-2.0 libraries and three MIT ones (docs/resources/
-// translation.md § Licences).
+// docs/projects/markdown-messages.md); so is franc, and CodeMirror, the script
+// editor's (client/js/helpers/luaEditor.ts); the translation worker carries
+// two Apache-2.0 libraries and three MIT ones (docs/resources/translation.md §
+// Licences).
 const chunkNotices: Record<string, string> = {
 	"js/highlighter.js":
 		"/*! prismjs 1.30.0 (and the js/prism-*.js grammar chunks) | MIT | " +
@@ -183,6 +196,10 @@ const chunkNotices: Record<string, string> = {
 		"Copyright (c) 2024 Teknologi Umum | https://github.com/teknologi-umum/flourite */\n",
 	"js/katex.js":
 		"/*! katex 0.16.22 | MIT | Copyright (c) 2013-2024 Khan Academy and other contributors | https://katex.org */\n",
+	"js/code-editor.js":
+		"/*! CodeMirror 6 (@codemirror/state, view, language, commands, legacy-modes, streamparser; @lezer/common, " +
+		"highlight, lr; style-mod, w3c-keyname, crelt, @marijn/find-cluster-break) | MIT | " +
+		"Copyright (C) 2016-2021 Marijn Haverbeke and others | https://codemirror.net */\n",
 	// The language guesser's chunk: franc and the three helpers it pulls in.
 	"js/franc.js":
 		"/*! franc 6.2.0, n-gram 2.0.2, trigram-utils 2.0.1, collapse-white-space 2.1.0 | MIT | " +
@@ -214,7 +231,7 @@ const chunkNotices: Record<string, string> = {
 
 const noticePlugin = new webpack.BannerPlugin({
 	raw: true,
-	test: /^js\/(highlighter|flourite|katex|franc)\.js$/,
+	test: /^js\/(highlighter|flourite|katex|franc|code-editor)\.js$/,
 	banner: ({filename}) => chunkNotices[filename] ?? "",
 });
 
@@ -296,6 +313,14 @@ const config: webpack.Configuration = {
 	},
 	resolve: {
 		extensions: [".ts", ".js", ".vue"],
+		fallback: {
+			fs: false,
+			path: false,
+			os: false,
+			crypto: false,
+			readline: false,
+			child_process: false,
+		},
 	},
 	module: {
 		rules: [
@@ -316,6 +341,11 @@ const config: webpack.Configuration = {
 							loader: path.resolve(__dirname, "tools/i18n/instrument-loader.mjs"),
 						},
 				  ]),
+			{
+				// A step budget on Lua's pattern matcher (Josephur/seance#23).
+				test: /fengari[\\/]src[\\/]lstrlib\.js$/,
+				use: {loader: path.resolve(__dirname, "scripts/fengari-match-budget.js")},
+			},
 			{
 				test: /\.vue$/,
 				use: {
@@ -391,7 +421,10 @@ const config: webpack.Configuration = {
 			"process.env.SEANCE_VERSION": JSON.stringify(version),
 			"process.env.SEANCE_RELEASE": JSON.stringify(buildIdentity.release),
 			"process.env.SEANCE_COMMIT": JSON.stringify(buildIdentity.commit ?? ""),
+			"process.env.SEANCE_TRACK": JSON.stringify(buildIdentity.track),
+			"process.env.SEANCE_BRANCH": JSON.stringify(buildIdentity.branch ?? ""),
 			"process.env.SEANCE_BUILD": JSON.stringify(buildToken),
+			"process.env.FENGARICONF": "undefined",
 		}),
 		miniCssExtractPlugin,
 		new CopyPlugin({
@@ -516,7 +549,7 @@ const config: webpack.Configuration = {
 		}),
 		// socket.io uses debug, we don't need it
 		new webpack.NormalModuleReplacementPlugin(
-			/debug/,
+			/(^|[/\\])debug([/\\]|$)/,
 			path.resolve(__dirname, "scripts/noop.js")
 		),
 	],

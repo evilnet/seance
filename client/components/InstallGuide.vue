@@ -1,8 +1,8 @@
 <template>
 	<div
 		id="install-guide-overlay"
+		v-backdrop="close"
 		:class="{opened: store.state.installGuideOpen}"
-		@click.self="close"
 	>
 		<div
 			v-if="store.state.installGuideOpen && step"

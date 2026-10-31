@@ -6,6 +6,7 @@ import {ChanState} from "../../../../shared/types/chan";
 import {MessageType} from "../../../../shared/types/msg";
 import {msgidOf} from "../message";
 import type {Handler} from "../types";
+import {scriptManager} from "../scripting/manager";
 
 const kick: Handler = (client, msg) => {
 	const [name, kicked, reason = ""] = msg.params;
@@ -32,6 +33,16 @@ const kick: Handler = (client, msg) => {
 	if (client.replaying) {
 		return; // history: no state changes
 	}
+
+	scriptManager.dispatchKick({
+		network: client.name,
+		networkUuid: client.uuid,
+		channel: chan.name,
+		nick: kicker,
+		kicked,
+		reason: reason || undefined,
+		self: kickedSelf,
+	});
 
 	if (kickedSelf) {
 		chan.users.clear();

@@ -6,6 +6,7 @@
 import {MessageType} from "../../../../shared/types/msg";
 import {msgidOf} from "../message";
 import type {Handler} from "../types";
+import {scriptManager} from "../scripting/manager";
 
 const part: Handler = (client, msg) => {
 	const [name, reason = ""] = msg.params;
@@ -14,6 +15,17 @@ const part: Handler = (client, msg) => {
 
 	if (!chan || !nick) {
 		return;
+	}
+
+	if (!client.replaying) {
+		scriptManager.dispatchPart({
+			network: client.name,
+			networkUuid: client.uuid,
+			channel: name,
+			nick,
+			message: reason || undefined,
+			self: client.isSelf(nick),
+		});
 	}
 
 	if (client.isSelf(nick) && !client.replaying) {

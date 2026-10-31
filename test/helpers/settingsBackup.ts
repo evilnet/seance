@@ -287,6 +287,31 @@ describe("settings backup (helpers/settingsBackup.ts)", function () {
 		expect(store.get("settings")).to.equal(JSON.stringify({theme: "day"}));
 	});
 
+	it("restores scripts and the scripting switch turned off", function () {
+		seed();
+		applyBackup(
+			{
+				format: FORMAT,
+				version: VERSION,
+				exportedAt: "",
+				entries: {
+					settings: {theme: "day", enableScripting: true},
+					"thelounge.scripts": [{id: "a", name: "a", code: "x", enabled: true}],
+				},
+			},
+			"web",
+			{}
+		);
+
+		expect(JSON.parse(store.get("settings") as string)).to.deep.equal({
+			theme: "day",
+			enableScripting: false,
+		});
+		expect(JSON.parse(store.get("thelounge.scripts") as string)).to.deep.equal([
+			{id: "a", name: "a", code: "x", enabled: false},
+		]);
+	});
+
 	describe("settings whose default depends on the platform", function () {
 		const follow = {matchSystemAppearance: true, matchSystemTextSize: true};
 		const dontFollow = {matchSystemAppearance: false, matchSystemTextSize: false};

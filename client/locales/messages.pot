@@ -1718,6 +1718,12 @@ msgctxt "help.builtFromCommit"
 msgid "{app} is built from {commit}, after v{version}."
 msgstr ""
 
+#. aria-label of the ✕ button at the top right of the Help window (a modal over the app); clicking closes Help and returns to the chat.
+#: client/components/Windows/Help.vue
+msgctxt "help.close"
+msgid "Close help"
+msgstr ""
+
 #. Lead-in of the alias line under a command description in the help window; the alternative command follows it as a code fragment. Keep the trailing colon.
 #: client/components/Windows/Help.vue
 msgctxt "help.commands.alias"
@@ -2270,6 +2276,42 @@ msgstr ""
 #: client/components/Windows/Help.vue
 msgctxt "help.title"
 msgid "Help"
+msgstr ""
+
+#. Help > About: the sentence saying which build is running, for the build of the project's development branch. {branch} is the git branch name develop (verbatim, a code element).
+#: client/components/Windows/Help.vue
+msgctxt "help.track.develop"
+msgid "This is the build of the {branch} branch."
+msgstr ""
+
+#. Help > About: the sentence saying which build is running, for a build someone made themselves from a git branch. {branch} is the branch name (verbatim, a code element).
+#: client/components/Windows/Help.vue
+msgctxt "help.track.local"
+msgid "This is a local build of the {branch} branch."
+msgstr ""
+
+#. Help > About: the sentence saying which build is running, for the preview build of a pull request on the project's website. {pr} is a link whose text is help.track.prLink ('pull request #142').
+#: client/components/Windows/Help.vue
+msgctxt "help.track.pr"
+msgid "This is a preview of {pr}."
+msgstr ""
+
+#. Text of the link in help.track.pr that opens the pull request on the source host. Mid-sentence. {number} is the pull request's number; keep the # before it.
+#: client/components/Windows/Help.vue
+msgctxt "help.track.prLink"
+msgid "pull request #{number}"
+msgstr ""
+
+#. Help > About: the sentence saying which build is running, for a release build. {version} is the release number, kept after its v (e.g. 5.2.0).
+#: client/components/Windows/Help.vue
+msgctxt "help.track.release"
+msgid "This is the v{version} release."
+msgstr ""
+
+#. Help > About: sentence after help.track.* (which says which build this is), shown when the build is newer than its release. 'It' is that build. {commit} is a link whose text is help.commitHash ('commit 1a2b3c4'); {version} is the release number, kept after its v.
+#: client/components/Windows/Help.vue
+msgctxt "help.trackBuiltFromCommit"
+msgid "It is built from {commit}, after v{version}."
 msgstr ""
 
 #. Text of the banner at the top of the help window shown when a newer build of the app was published; a Reload button follows it.
@@ -11779,10 +11821,10 @@ msgctxt "settings.general.backupHeading"
 msgid "Backup and restore"
 msgstr ""
 
-#. Intro line under the Backup and restore heading in Settings > General; says what exporting does.
+#. Intro under the Backup and restore heading in Settings > General; says what exporting does, and that Lua scripts in a restored file come back switched off, as does the Enable scripting switch.
 #: client/components/Settings/General.vue
 msgctxt "settings.general.backupIntro"
-msgid "Save your settings to a file. You can restore here or on another device."
+msgid "Save your settings to a file. You can restore here or on another device. Scripts in an imported file arrive switched off, and so does scripting itself."
 msgstr ""
 
 #. Part of the restore-confirmation sentence in Settings > General: fills the list of what the file replaces for muted users and ignored users. Comma-joined by position.
@@ -12336,6 +12378,12 @@ msgstr ""
 #: client/components/Settings/SettingTabItem.vue
 msgctxt "settings.tabs.notifications"
 msgid "Notifications"
+msgstr ""
+
+#. Label of the Settings modal's Scripts tab (tab strip); opens the pane where the user turns Lua scripting on and manages their Lua scripts.
+#: client/components/Settings/Navigation.vue
+msgctxt "settings.tabs.scripts"
+msgid "Scripts"
 msgstr ""
 
 #. Name of the Translation tab in the Settings tab strip: on-device translation of messages.
@@ -14404,16 +14452,22 @@ msgctxt "windows.changelog.allReleasesLink"
 msgid "see all releases"
 msgstr ""
 
-#. aria-label of the changelog window, which shows the app's release notes.
+#. aria-label of the release notes window (a modal over the app), which links to the app's release notes.
 #: client/components/Windows/Changelog.vue
 msgctxt "windows.changelog.aria"
-msgid "Changelog"
+msgid "Release notes"
 msgstr ""
 
-#. Link at the top of the changelog window that goes back to the help page; the left double angle quote is part of the copy.
+#. Link in the footer of the release notes window that goes back to the Help window; the left double angle quote is part of the copy.
 #: client/components/Windows/Changelog.vue
 msgctxt "windows.changelog.back"
 msgid "« Help"
+msgstr ""
+
+#. aria-label of the ✕ button at the top right of the release notes window (a modal over the app); clicking closes it and returns to the chat.
+#: client/components/Windows/Changelog.vue
+msgctxt "windows.changelog.close"
+msgid "Close the release notes"
 msgstr ""
 
 #. Changelog window paragraph. {readNotes} is a link whose text is windows.changelog.readNotesLink ('Read the notes for v5.2.0') and {allReleases} a link whose text is windows.changelog.allReleasesLink ('see all releases').
@@ -14458,8 +14512,10 @@ msgctxt "windows.settings.close"
 msgid "Close settings"
 msgstr ""
 
-#. Button in the footer of the settings window; clicking closes the settings and returns to the chat.
+#. Button in the footer of the settings window, and of the Help and release notes windows that share its frame; clicking closes the window and returns to the chat.
 #: client/components/Windows/Settings.vue
+#: client/components/Windows/Help.vue
+#: client/components/Windows/Changelog.vue
 msgctxt "windows.settings.done"
 msgid "Done"
 msgstr ""

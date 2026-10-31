@@ -20,12 +20,16 @@ const configuration: SharedConfiguration = {
 	ldapEnabled: false,
 	isUpdateAvailable: false,
 	applicationServerKey: "",
-	// The build's name, the release it is or follows, and the commit it was
-	// made from — filled in by webpack (`resolveBuild`, from the release's
-	// tag; package.json carries no version); Help links them.
+	// The build's name, the release it is or follows, the commit it was
+	// made from and which build it is (the Pages workflow's `release`,
+	// `develop` or `pr<N>`, else the branch of a local build) — filled in by
+	// webpack (`resolveBuild`, from the release's tag; package.json carries
+	// no version); Help links them.
 	version: process.env.SEANCE_VERSION || "dev",
 	release: process.env.SEANCE_RELEASE || "dev",
 	gitCommit: process.env.SEANCE_COMMIT || null,
+	buildTrack: process.env.SEANCE_TRACK || "",
+	gitBranch: process.env.SEANCE_BRANCH || null,
 	// One CSS file each under client/themes/; docs/resources/themes.md. The
 	// four handoff themes (Ink & Amber, Cobalt Frost) carry their titlebar
 	// tone as the browser chrome colour, the older two leave it to the

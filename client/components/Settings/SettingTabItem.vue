@@ -46,7 +46,8 @@ export default defineComponent({
 		const isActiveRoute = computed(
 			() =>
 				route.name === props.name ||
-				(props.name === "Networks" && route.name === "NetworkEdit")
+				(props.name === "Networks" && route.name === "NetworkEdit") ||
+				(props.name === "Scripts" && route.name === "ScriptEdit")
 		);
 		const label = computed(() => props.label ?? props.name);
 

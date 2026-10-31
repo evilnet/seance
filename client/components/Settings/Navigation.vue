@@ -34,6 +34,7 @@
 				to="translation"
 			/>
 			<SettingTabItem name="Aliases" :label="tabAliases" class-name="aliases" to="aliases" />
+			<SettingTabItem name="Scripts" :label="tabScripts" class-name="scripts" to="scripts" />
 		</ul>
 	</aside>
 </template>
@@ -118,6 +119,10 @@
 	content: "\f120"; /* https://fontawesome.com/icons/terminal */
 }
 
+.settings-menu .scripts::before {
+	content: "\f121"; /* https://fontawesome.com/icons/code */
+}
+
 .settings-menu button:hover,
 .settings-menu button.active {
 	color: var(--body-color);
@@ -128,9 +133,9 @@
 	cursor: default;
 }
 
-/* Five labelled tabs need roughly 40rem; below that the inactive ones are
+/* Six labelled tabs need roughly 45rem; below that the inactive ones are
  * icons alone (their names stay as aria-label and title). */
-@container settings (max-width: 41rem) {
+@container settings (max-width: 46rem) {
 	.settings-menu button:not(.active) .tab-label {
 		display: none;
 	}
@@ -169,6 +174,7 @@ export default defineComponent({
 		const tabNotifications = computed(() => t("settings.tabs.notifications"));
 		const tabTranslation = computed(() => t("settings.tabs.translation"));
 		const tabAliases = computed(() => t("settings.tabs.aliases"));
+		const tabScripts = computed(() => t("settings.tabs.scripts"));
 
 		// The strip scrolls, so the active tab may sit off screen (opening
 		// Aliases from a deep link, or coming back to the tab the user
@@ -192,6 +198,7 @@ export default defineComponent({
 			tabNotifications,
 			tabTranslation,
 			tabAliases,
+			tabScripts,
 			showGeneral: shouldShowGeneralSettings(),
 			showNetworks: brandingFeatures(store.state.branding).saveNetworks,
 		};

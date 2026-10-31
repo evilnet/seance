@@ -1,11 +1,11 @@
 <template>
 	<div
 		id="oper"
+		v-backdrop="close"
 		class="window"
 		role="dialog"
 		aria-modal="true"
 		:aria-label="t('oper.panel.aria', {network: networkName})"
-		@click.self="close"
 	>
 		<div class="settings-modal oper-modal">
 			<div class="settings-modal-header">

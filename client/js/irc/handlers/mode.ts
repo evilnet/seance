@@ -11,6 +11,7 @@ import type {IrcClient} from "../client";
 import {msgidOf} from "../message";
 import {noteUserModes, setUserModes as setOwnModes} from "../oper";
 import type {Handler} from "../types";
+import {scriptManager} from "../scripting/manager";
 
 interface ModeChange {
 	add: boolean;
@@ -91,6 +92,17 @@ const mode: Handler = (client, msg) => {
 
 	if (!target) {
 		return;
+	}
+
+	if (!client.replaying) {
+		scriptManager.dispatchMode({
+			network: client.name,
+			networkUuid: client.uuid,
+			target,
+			mode: modes,
+			params,
+			from: nick,
+		});
 	}
 
 	if (client.isSelf(target)) {

@@ -1,11 +1,11 @@
 <template>
 	<div
 		id="settings"
+		v-backdrop="close"
 		class="window"
 		role="dialog"
 		aria-modal="true"
 		:aria-label="dialogLabel"
-		@click.self="close"
 	>
 		<div class="settings-modal">
 			<div class="settings-modal-header">
@@ -37,14 +37,17 @@
 
 <style>
 /* The settings window is a modal (and the oper panel, Windows/OperPanel.vue,
- * borrows the same frame): a dimmed backdrop over the whole app
+ * Help and the release notes, Windows/Help.vue and Windows/Changelog.vue,
+ * borrow the same frame): a dimmed backdrop over the whole app
  * (sidebar included — absolute within #viewport, above the sidebar's
  * z-index 10, so it never fights the hamburger or the swipe) with the
  * settings in their own pane on top. The route is still /settings/…, so
  * deep links, reloads and leavePage() behave exactly as before; only the
  * rendering is an overlay. */
 #settings.window,
-#oper.window {
+#oper.window,
+#help.window,
+#changelog.window {
 	position: absolute;
 	top: 0;
 	right: 0;
@@ -144,7 +147,9 @@
  * breakpoint matches the sidebar's overlay mode. */
 @media (max-width: 768px) {
 	#settings.window,
-	#oper.window {
+	#oper.window,
+	#help.window,
+	#changelog.window {
 		padding: 0;
 	}
 

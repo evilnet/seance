@@ -24,7 +24,7 @@
 
 <script lang="ts">
 import {isPhoneLayout} from "../js/helpers/device";
-import {emitEscape} from "../js/helpers/escapeLayer";
+import {emitEscape, topEscapeLayer} from "../js/helpers/escapeLayer";
 import eventbus from "../js/eventbus";
 import Mousetrap, {ExtendedKeyboardEvent} from "mousetrap";
 import throttle from "lodash/throttle";
@@ -102,6 +102,13 @@ export default defineComponent({
 		const dayChangeTimeout = ref<any>();
 
 		const escapeKey = (e: ExtendedKeyboardEvent) => {
+			// An overlay takes this press, and keybinds.ts must not also leave
+			// the page under it: the overlay can be gone from the DOM by the
+			// time that listener runs (its close resolves in microtasks).
+			if (topEscapeLayer() !== null) {
+				e.preventDefault();
+			}
+
 			emitEscape(e.repeat);
 		};
 

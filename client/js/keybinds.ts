@@ -2,6 +2,7 @@ import Mousetrap from "mousetrap";
 
 import {store} from "./store";
 import {switchToChannel, router, navigate, leavePage} from "./router";
+import {topEscapeLayer} from "./helpers/escapeLayer";
 import isChannelCollapsed from "./helpers/isChannelCollapsed";
 import isIgnoredKeybind from "./helpers/isIgnoredKeybind";
 import listenForTwoFingerSwipes from "./helpers/listenForTwoFingerSwipes";
@@ -202,13 +203,19 @@ const ignoredKeys = {
 };
 
 document.addEventListener("keydown", (e) => {
-	// Escape leaves the help screen and the settings and oper modals. Not
+	// Escape leaves the help, release notes, settings and oper modals. Not
 	// `router.go(-1)`: the history is kept one deep (router.ts). Never from
 	// inside a form field — settings are full of them, and Escape there
-	// means "leave the field", not "throw me out of the page".
+	// means "leave the field", not "throw me out of the page" — and never
+	// while an overlay is up over the page (the script editor, a confirm
+	// dialog): Escape closes that one alone (helpers/escapeLayer.ts; App.vue
+	// marks the press it gave an overlay, which may be gone by now).
 	if (
 		e.key === "Escape" &&
+		!e.defaultPrevented &&
+		topEscapeLayer() === null &&
 		(router.currentRoute.value.name === "Help" ||
+			router.currentRoute.value.name === "Changelog" ||
 			router.currentRoute.value.path.startsWith("/settings") ||
 			router.currentRoute.value.name === "OperPanel") &&
 		!(
@@ -245,8 +252,13 @@ document.addEventListener("keydown", (e) => {
 
 	const tagName = (e.target as HTMLElement).tagName;
 
-	// Ignore if we're already typing into <input> or <textarea>
-	if (tagName === "INPUT" || tagName === "TEXTAREA") {
+	// Ignore if we're already typing into <input>, <textarea> or an editor
+	// (the script editor's CodeMirror is contenteditable)
+	if (
+		tagName === "INPUT" ||
+		tagName === "TEXTAREA" ||
+		(e.target as HTMLElement).isContentEditable
+	) {
 		return;
 	}
 

@@ -9,6 +9,7 @@ import {newUser} from "../channel";
 import {msgidOf} from "../message";
 import {noteRestorationActivity} from "../persistence";
 import type {Handler} from "../types";
+import {scriptManager} from "../scripting/manager";
 
 const join: Handler = (client, msg) => {
 	const [name, account, gecos] = msg.params;
@@ -20,6 +21,19 @@ const join: Handler = (client, msg) => {
 
 	const self = client.isSelf(nick);
 	let chan = client.findChannel(name);
+
+	if (!client.replaying) {
+		scriptManager.dispatchJoin({
+			network: client.name,
+			networkUuid: client.uuid,
+			channel: name,
+			nick,
+			account: account === "*" ? undefined : account,
+			ident: msg.source?.user,
+			host: msg.source?.host,
+			self,
+		});
+	}
 
 	if (client.replaying) {
 		// History (draft/event-playback): a message only, no state changes.

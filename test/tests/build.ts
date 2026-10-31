@@ -265,10 +265,13 @@ describe("public folder", function () {
 			expect(contents.includes("css/style.css?v=")).to.be.true;
 			expect(contents.includes('addEventListener("notificationclick"')).to.be.true;
 
-			// Nothing is left that expects the old Node server
-			expect(contents.includes("socket.io")).to.be.false;
-			expect(contents.includes("uploads")).to.be.false;
-			expect(contents.includes("storage")).to.be.false;
+			// Nothing is left that expects the old Node server: no socket.io and
+			// none of its paths (the old worker kept `storage/` and `uploads/`
+			// out of its cache, spelled `socket\.io|storage|uploads` in a regex).
+			// The bare words are fair game: the push code's comments talk about
+			// the browser's storage.
+			expect(contents).not.to.match(/socket\\?\.io/);
+			expect(contents).not.to.match(/\b(?:storage|uploads)[/|]/);
 
 			// Web Push (draft/webpush, phase 2 slice 0): the push handler is
 			// back — the ircd delivers raw lines now (push-subscription.md).
@@ -297,5 +300,16 @@ describe("public folder", function () {
 		expect(new Set(inHtml)).to.deep.equal(new Set([token]));
 
 		expect(bundle.includes(`"${token}"`), "the bundle carries the token").to.be.true;
+	});
+
+	it("the Lua chunk carries the pattern step budget", function () {
+		const js = path.join(publicFolder, "js");
+		const chunk = fs
+			.readdirSync(js)
+			.find((f) => /^fengari.*\.js$/.test(f) && !f.endsWith(".map"));
+		expect(chunk, "a fengari chunk is built").to.be.a("string");
+		const source = fs.readFileSync(path.join(js, chunk as string), "utf8");
+		// scripts/fengari-match-budget.js; the message survives minification.
+		expect(source).to.include("pattern too complex (step limit)");
 	});
 });

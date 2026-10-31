@@ -16,6 +16,7 @@ import {handleServerNotice, handleWallops} from "../snotice";
 import {EDIT_TAG, REPLY_TAG, trailingLine} from "../wire";
 import type {Handler} from "../types";
 import {ignoreListFor} from "../../ignore";
+import {scriptManager} from "../scripting/manager";
 
 const nickRegExp = /(?:\x03[0-9]{1,2}(?:,[0-9]{1,2})?)?([\w[\]\\`^{|}-]+)/g;
 
@@ -110,6 +111,34 @@ function handleMessage(
 			handleCtcpRequest(client, msg, nick, self, ctcp, time);
 			return;
 		}
+	}
+
+	if (!client.replaying) {
+		const rawTags: Record<string, string> = {};
+
+		if (msg.tags) {
+			for (const [k, v] of Object.entries(msg.tags)) {
+				if (typeof v === "string") {
+					rawTags[k] = v;
+				}
+			}
+		}
+
+		scriptManager.dispatchMessage({
+			network: client.name,
+			networkUuid: client.uuid,
+			target,
+			from: nick,
+			text,
+			type:
+				type === MessageType.ACTION
+					? "action"
+					: baseType === MessageType.NOTICE
+					? "notice"
+					: "message",
+			self,
+			tags: rawTags,
+		});
 	}
 
 	let chan: Channel | undefined;

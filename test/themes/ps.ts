@@ -411,8 +411,6 @@ const GLASS_SURFACES = [
 
 const SOLID_SURFACES = [
 	".settings-modal",
-	"#help",
-	"#changelog",
 	"#connect",
 	"#context-menu",
 	".mentions-popup",

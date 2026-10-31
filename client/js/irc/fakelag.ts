@@ -227,6 +227,11 @@ export class BackgroundQueue {
 		return job;
 	}
 
+	/** How many queued jobs have a key that passes `test`. */
+	count(test: (key: string) => boolean): number {
+		return this.jobs.filter((j) => test(j.key)).length;
+	}
+
 	/** Forget every job whose key passes `test`. */
 	drop(test: (key: string) => boolean): void {
 		this.jobs = this.jobs.filter((j) => !test(j.key));
