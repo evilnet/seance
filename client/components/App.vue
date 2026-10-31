@@ -4,6 +4,7 @@
 		<div
 			id="sidebar-overlay"
 			ref="overlay"
+			class="screen-overlay"
 			aria-hidden="true"
 			@click="store.commit('sidebarOpen', false)"
 		/>
@@ -18,7 +19,7 @@
 		<OperActionDialog />
 		<PushPrompt />
 		<InstallGuide />
-		<div id="upload-overlay"></div>
+		<div id="upload-overlay" class="screen-overlay"></div>
 	</div>
 </template>
 

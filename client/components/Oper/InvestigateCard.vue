@@ -2,6 +2,7 @@
 	<div
 		id="oper-investigate-overlay"
 		v-backdrop="close"
+		class="screen-overlay"
 		:class="{opened: !!top}"
 		:data-escape-close="top ? 'oper-investigate' : null"
 	>

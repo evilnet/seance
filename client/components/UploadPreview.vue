@@ -1,6 +1,7 @@
 <template>
 	<div
 		id="upload-preview-overlay"
+		class="screen-overlay"
 		:class="{opened: request !== null}"
 		:data-escape-close="request !== null ? 'upload-preview' : null"
 		@transitionend.self="onOverlayShown"
@@ -100,8 +101,9 @@
 	color: #fff;
 	margin: 10px;
 	border-radius: 5px;
-	width: min(640px, calc(100vw - 20px));
-	max-height: calc(100vh - 20px);
+	/* The overlay's box, not the screen's: in the shell it stops at the insets. */
+	width: min(640px, calc(100% - 20px));
+	max-height: calc(100% - 20px);
 	display: flex;
 	flex-direction: column;
 }

@@ -1,6 +1,7 @@
 <template>
 	<div
 		id="push-prompt-overlay"
+		class="screen-overlay"
 		:class="{opened: webpush.pushPrompt.visible}"
 		:data-escape-close="webpush.pushPrompt.visible ? 'push-prompt' : null"
 	>

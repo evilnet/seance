@@ -3,6 +3,7 @@
 		v-if="isOpen"
 		id="context-menu-container"
 		v-backdrop="close"
+		class="screen-overlay"
 		data-escape-close="context-menu"
 		:class="{passthrough}"
 		@contextmenu.prevent.self="close"

@@ -1,6 +1,7 @@
 <template>
 	<div
 		id="confirm-dialog-overlay"
+		class="screen-overlay"
 		:class="{opened: !!data}"
 		:data-escape-close="data ? 'confirm' : null"
 	>

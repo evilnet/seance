@@ -420,6 +420,17 @@
 		bottom: 0;
 		top: 3rem; /* header height */
 	}
+
+	/* Placed against #viewport's padding box, which in the shell runs under
+	 * the status bar and the navigation bar: start under the header where it
+	 * really is, and stop above the bars. */
+	html[data-shell="native"] .mentions-popup {
+		top: calc(var(--inset-top) + 3rem);
+		bottom: var(--inset-outer-bottom);
+		left: var(--inset-left);
+		right: var(--inset-right);
+		width: auto;
+	}
 }
 </style>
 

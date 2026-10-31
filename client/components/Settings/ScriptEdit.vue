@@ -1,6 +1,11 @@
 <template>
 	<Teleport to="#viewport">
-		<div id="script-editor-overlay" v-backdrop="close" data-escape-close="script-editor">
+		<div
+			id="script-editor-overlay"
+			v-backdrop="close"
+			class="screen-overlay"
+			data-escape-close="script-editor"
+		>
 			<div
 				ref="pane"
 				class="settings-modal script-editor"
