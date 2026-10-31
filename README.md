@@ -43,8 +43,9 @@ SASL, `message-tags`,
   indicators, inline media previews, search, mentions, multiple networks.
 - **Installable.** Seance also supports use as a Chrome/Edge/Android PWA
   (Progressive Web App) ([`docs/resources/pwa.md`](docs/resources/pwa.md)),
-  and has a framework for being built as an Electron and
-  Capacitor app for desktop and mobile stores (ios/apple/etc) under [`shells/`](shells/).
+  and has app shells under [`shells/`](shells/): Capacitor for iOS and
+  Android, and Tauri for Windows, macOS and Linux
+  ([`docs/projects/desktop-shells.md`](docs/projects/desktop-shells.md)).
 
 Seance is built primarily and tested for **nefarious2** (`ircv3.2-upgrade` beta
 branch), EvilNet's ircd, but any ircd that offers IRC over WebSocket and the
@@ -137,8 +138,8 @@ conventions.
 
 ## Status
 
-Usable as a daily client against nefarious2; branding, PWA, and Electron
-packaging are in place, mobile shells are scaffolded. Push notifications
+Usable as a daily client against nefarious2; branding and the PWA are
+in place, the mobile shells ship, and the desktop shell (Tauri) is a spike. Push notifications
 work on chrome/PWA but not yet in the app frameworks (it needs the
 ircd's `draft/webpush` to send). The original plan and its checklist are in
 [`docs/projects/initial_conversion.md`](docs/projects/initial_conversion.md).

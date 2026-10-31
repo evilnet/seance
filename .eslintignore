@@ -6,3 +6,4 @@ tmp/
 shells/capacitor/
 .claude/
 testnet/
+shells/tauri/src-tauri/

@@ -46,6 +46,12 @@ export default async function run(page) {
 	await page.waitFor(`document.querySelector('.channel-list-item[data-name="#seance"]')`, {
 		label: "joined #seance after approval",
 	});
+	// The row is no proof of a dial: an autojoin channel is listed as a
+	// placeholder before the socket opens. Wait for the socket itself.
+	for (let waited = 0; page.wsFrames.length === 0 && waited < 5000; waited += 100) {
+		await page.sleep(100);
+	}
+
 	page.check("socket opened after approval", page.wsFrames.length > 0);
 	page.check(
 		"network saved after approval",

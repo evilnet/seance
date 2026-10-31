@@ -2,7 +2,7 @@
 
 What makes a Seance deploy installable from Chrome/Edge (desktop, Android,
 ChromeOS), how the installed app behaves, and how to check a deploy. The
-Electron and Capacitor shells (`shells/`) are separate; this is the
+app shells (`shells/`: Capacitor, Tauri) are separate; this is the
 zero-install path where the network just hosts `public/`.
 
 ## Deploy requirements
@@ -125,7 +125,7 @@ and `maxTouchPoints` (an iPad asking for the desktop site says it is a Mac):
 When Chrome or Edge has already fired `beforeinstallprompt`, the introduction
 carries the real Install button (`promptInstall`) and the manual steps stay
 as the fallback; `appinstalled` closes the guide and dismisses it for good.
-The guide never opens in an installed window, in a Capacitor/Electron shell,
+The guide never opens in an installed window, in an app shell (Capacitor, Tauri),
 or on a page that arrived with `?uri=`/connect parameters (that path has its
 own approval flow to show).
 

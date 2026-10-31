@@ -29,7 +29,7 @@ export interface InstallEnvironment {
 	maxTouchPoints?: number;
 	/** `display-mode: standalone` or `navigator.standalone`: already installed. */
 	standalone?: boolean;
-	/** A Capacitor or Electron shell: nothing to install. */
+	/** An app shell, phone or desktop: nothing to install. */
 	native?: boolean;
 }
 

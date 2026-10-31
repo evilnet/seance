@@ -1,0 +1,6 @@
+node_modules/
+src-tauri/target/
+# Generated from public/img by `yarn icons` (the deploy's logo, so a rebrand
+# carries over); never edited by hand.
+src-tauri/icons/
+src-tauri/gen/

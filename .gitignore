@@ -36,8 +36,6 @@ shells/capacitor/ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
 shells/capacitor/ios/App/App.xcodeproj/xcuserdata/
 shells/capacitor/ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
 .DS_Store
-shells/electron/node_modules/
-shells/electron/dist/
 
 # agent scratch (local session state)
 .claude-config/

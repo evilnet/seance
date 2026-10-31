@@ -1,7 +1,7 @@
 // Progressive-web-app glue for the browser build.
 //
 // Everything here is feature-detected and a no-op where the platform does not
-// offer it (plain http on a LAN host, the Electron/Capacitor shells, old
+// offer it (plain http on a LAN host, the app shells, old
 // browsers). It covers the four things Chrome needs beyond a manifest to make
 // an installed Seance behave like an app:
 //
@@ -33,7 +33,7 @@ import {
 	detectInstallTarget,
 	shouldShowInstallGuide,
 } from "./helpers/installGuide";
-import {isNativeShell as isCapacitorShell} from "./helpers/capacitor";
+import {isShell} from "./helpers/shell";
 
 /** A window that stays open re-checks the worker script this often. */
 const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
@@ -73,7 +73,7 @@ export function isStandalone(): boolean {
 
 function isSecureContext(): boolean {
 	// Secure contexts cover https:, localhost, and privileged custom schemes
-	// such as the Electron shell's app://; the explicit hosts are a fallback
+	// such as an app shell's; the explicit hosts are a fallback
 	// for browsers that don't expose isSecureContext.
 	return (
 		window.isSecureContext === true ||
@@ -85,11 +85,12 @@ function isSecureContext(): boolean {
 }
 
 function registerServiceWorker(): void {
-	// The native shell (shells/capacitor) loads the bundle from the app
-	// itself: nothing to cache for offline, and a new build is a new app from
-	// the store, not a worker update. WKWebView would refuse the worker on
-	// the app's custom scheme anyway.
-	if (!("serviceWorker" in navigator) || !isSecureContext() || isCapacitorShell()) {
+	// An app shell, phone or desktop, loads the bundle from the app itself:
+	// nothing to cache for offline, and a new build is a new app (from the
+	// store, or the desktop shell's updater), not a worker update. WKWebView
+	// would refuse the worker on the app's custom scheme anyway
+	// (docs/projects/desktop-shells.md § 4.2).
+	if (!("serviceWorker" in navigator) || !isSecureContext() || isShell()) {
 		return;
 	}
 
@@ -178,9 +179,9 @@ function watchInstallPrompt(): void {
 	});
 }
 
-/** True in a Capacitor or Electron shell: there is nothing to install. */
+/** True in an app shell, phone or desktop: there is nothing to install. */
 function isNativeShell(): boolean {
-	return isCapacitorShell() || /Electron\//.test(navigator.userAgent);
+	return isShell();
 }
 
 /**

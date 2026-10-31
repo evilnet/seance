@@ -7,7 +7,7 @@
 //   and a push are the same notification: merged per conversation, cleared
 //   on read (webpush.ts readOnWorker), tapped through helpers/nativePush.ts.
 
-import {isAndroidShell, isIOSShell, nativeCall, nativeListen} from "./capacitor";
+import {isAndroidShell, isIOSShell, nativeCall, nativeListen} from "./shell";
 
 /** The ping, from the app bundle's copy of the web build (`App/public/`).
  * iOS only: the plugin looks a bare name up in `public/`'s top level alone,

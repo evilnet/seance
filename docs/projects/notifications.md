@@ -2,7 +2,7 @@
 
 _Noted 2026-08-27. Status: exploration → plan. Supersedes plan item D.11
 (web push) in `initial_conversion.md`. Related: `docs/resources/pwa.md`,
-`connecting-status-stuck.md`, the Capacitor/Electron READMEs in `shells/`._
+`connecting-status-stuck.md`, the shells' READMEs in `shells/`._
 
 ## Goal
 
@@ -54,7 +54,7 @@ cross-device dismissal.
 ## The three delivery layers
 
 1. **Live connection (app open or backgrounded but alive).** Desktop
-   browsers, the PWA window, Electron: the WebSocket stays up, the page
+   browsers, the PWA window, a desktop shell: the WebSocket stays up, the page
    decides what to notify. Everything here is client-side work.
 2. **Web Push (app closed, or mobile OS killed the socket).** The push
    service (FCM / Apple / Mozilla) wakes the service worker with an encrypted
@@ -129,9 +129,9 @@ nefarious2 `ircv3.2-upgrade` (`tmp/nefarious2/ircd/m_webpush.c`,
 
 ## Platform matrix (what the browser lets us do)
 
-| Capability                                     | Desktop Chrome/Edge (incl. PWA)        | Firefox desktop | Android Chrome (PWA)  | iOS/iPadOS home-screen web app                                                                           | Electron shell        | Capacitor shells                                                                               |
+| Capability                                     | Desktop Chrome/Edge (incl. PWA)        | Firefox desktop | Android Chrome (PWA)  | iOS/iPadOS home-screen web app                                                                           | Desktop shell (Tauri) | Capacitor shells                                                                               |
 | ---------------------------------------------- | -------------------------------------- | --------------- | --------------------- | -------------------------------------------------------------------------------------------------------- | --------------------- | ---------------------------------------------------------------------------------------------- |
-| Notification API while page alive              | yes                                    | yes             | yes                   | yes (installed only)                                                                                     | native via Electron   | iOS: `@capacitor/local-notifications`; Android: the shell's push service (`NativePush` `show`) |
+| Notification API while page alive              | yes                                    | yes             | yes                   | yes (installed only)                                                                                     | native via the shell  | iOS: `@capacitor/local-notifications`; Android: the shell's push service (`NativePush` `show`) |
 | Web Push (`PushManager`)                       | yes                                    | yes             | yes                   | yes since 16.4, **only when installed to Home Screen**; permission must be requested from a user gesture | **no** push service   | no (need APNs/FCM)                                                                             |
 | Notification `actions` (buttons, inline reply) | yes (`type: "text"` inline)            | no actions      | yes                   | **no**                                                                                                   | limited (macOS reply) | native                                                                                         |
 | `tag` replace / `renotify` / `silent`          | yes                                    | tag yes         | yes                   | tag yes; `renotify`/`silent` unreliable                                                                  | n/a                   | native grouping/channels                                                                       |
@@ -199,9 +199,9 @@ before promising iOS push to an EU network. Sources:
 
 ## Shells
 
-- **Electron**: no push service, but the app process keeps the socket open;
-  layer 1 is enough. Use `Notification` + `app.setBadgeCount`, and macOS
-  reply actions via the shell's `main.js`.
+- **Desktop (Tauri)**: no push service, but the app process keeps the
+  socket open; layer 1 is enough. Notifications and the badge go through
+  the shell (`docs/projects/desktop-shells.md` § 4.2, § 5.2).
 - **Capacitor**: `@capacitor/push-notifications` gives an FCM/APNs token, but
   the ircd speaks Web Push. Options: (a) run **pushgarden**-style relay
   (Web Push endpoint that forwards to FCM/APNs) — a small piece of network
