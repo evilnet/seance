@@ -321,8 +321,10 @@ html[data-shell="native"] :is(.screen-overlay, #specificity-of-an-id) {
 	left: var(--inset-left);
 	right: var(--inset-right);
 
-	/* `.window` is `height: 100%`, which with a moved top runs past the
-	 * bottom edge by the same amount; the two pinned edges size it. */
+	/* `.window` and the context menu's band are `height: 100%` (the band
+	 * `width: 100%` too), which with moved edges run past the opposite ones
+	 * by the same amount; the pinned edges size them. */
+	width: auto;
 	height: auto;
 }
 

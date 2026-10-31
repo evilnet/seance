@@ -3,8 +3,8 @@
 		<Sidebar v-if="store.state.appLoaded" :overlay="overlay" />
 		<div
 			id="sidebar-overlay"
-			class="screen-overlay"
 			ref="overlay"
+			class="screen-overlay"
 			aria-hidden="true"
 			@click="store.commit('sidebarOpen', false)"
 		/>
