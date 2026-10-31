@@ -2,10 +2,10 @@
 	<div
 		v-if="isOpen"
 		id="context-menu-container"
+		v-backdrop="close"
 		data-escape-close="context-menu"
 		:class="{passthrough}"
-		@click="containerClick"
-		@contextmenu.prevent="containerClick"
+		@contextmenu.prevent.self="close"
 		@keydown.exact.up.prevent="navigateMenu(-1)"
 		@keydown.exact.down.prevent="navigateMenu(1)"
 		@keydown.exact.tab.prevent="navigateMenu(1)"
@@ -107,12 +107,6 @@ export default defineComponent({
 		const enablePointerEvents = () => {
 			passthrough.value = false;
 			document.body.removeEventListener("pointerup", enablePointerEvents);
-		};
-
-		const containerClick = (event: MouseEvent) => {
-			if (event.currentTarget === event.target) {
-				close();
-			}
 		};
 
 		const positionContextMenu = (event: MouseEvent) => {
@@ -310,7 +304,6 @@ export default defineComponent({
 			contextMenu,
 			passthrough,
 			close,
-			containerClick,
 			navigateMenu,
 			hoverItem,
 			clickItem,

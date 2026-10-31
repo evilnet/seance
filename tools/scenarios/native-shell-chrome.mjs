@@ -14,6 +14,8 @@
 // --inset-inner-bottom the strip only the composer and the sidebar's footer
 // reserve (iOS's home indicator). Exactly one is ever non-zero.
 
+import {clickBackdrop} from "./lib/backdrop.mjs";
+
 const IRCD = process.env.SEANCE_IRC_URL ?? "wss://localhost:8443/";
 const CHANNEL = process.env.SEANCE_IRC_CHANNEL ?? "#seance";
 const PORT = process.env.SEANCE_PORT ?? "8000";
@@ -126,7 +128,7 @@ export default async function run(page) {
 	);
 	await page.screenshot("context-menu-open");
 
-	await page.evaluate(`document.querySelector("#context-menu-container").click()`);
+	await clickBackdrop(page, "#context-menu-container");
 	await page.waitFor(`document.querySelectorAll("[data-escape-close]").length === 0`, {
 		label: "the menu to close",
 	});

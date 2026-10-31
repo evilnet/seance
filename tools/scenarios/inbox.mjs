@@ -13,6 +13,8 @@
 // opens the channel from one of its mentions, and the private conversation
 // from its one row.
 
+import {clickBackdrop} from "./lib/backdrop.mjs";
+
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"; // dev ircd's self-signed cert
 
 const IRCD = process.env.SEANCE_IRC_WS ?? "wss://localhost:8443/";
@@ -239,7 +241,7 @@ export default async function run(page) {
 		`the badge says 2 (${await page.evaluate(badgeText)})`,
 		(await page.evaluate(badgeText)) === "2"
 	);
-	await page.evaluate(`document.querySelector("#mentions-popup-container").click()`);
+	await clickBackdrop(page, "#mentions-popup-container");
 
 	// Three private lines are one entry; then 70 lines push the mentions out
 	// of the first history page a reload fetches.
