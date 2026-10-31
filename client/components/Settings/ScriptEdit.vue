@@ -58,6 +58,7 @@
 									<input
 										v-model="script.folder"
 										class="input"
+										dir="auto"
 										type="text"
 										list="script-folder-list"
 										:maxlength="maxFolderLength"
@@ -79,6 +80,7 @@
 									<input
 										v-model="script.description"
 										class="input"
+										dir="auto"
 										type="text"
 										:maxlength="maxDescriptionLength"
 										:placeholder="
@@ -130,7 +132,8 @@
 								{{ script.lastError }}
 							</div>
 
-							<div class="script-code-wrap">
+							<!-- Lua reads left to right in every interface language. -->
+							<div class="script-code-wrap" dir="ltr">
 								<!-- CodeMirror (helpers/luaEditor.ts) mounts here; the plain
 								     field stands in until its chunk has loaded, and for good
 								     if it cannot. -->
@@ -282,7 +285,7 @@
 .script-editor-kind {
 	color: var(--body-color-muted);
 	font-weight: normal;
-	margin-right: 0.4em;
+	margin-inline-end: 0.4em;
 }
 
 .script-editor-name {
@@ -368,7 +371,7 @@
 
 /* Away from the others: the one that cannot be taken back. */
 .script-editor .script-tools .script-delete {
-	margin-left: auto;
+	margin-inline-start: auto;
 	border-color: #e74c3c;
 	color: #e74c3c;
 }
@@ -446,8 +449,15 @@
 }
 
 .script-editor .script-api dd {
-	margin-left: 1rem;
+	margin-inline-start: 1rem;
 	color: var(--body-color-muted);
+}
+
+/* Lua reads left to right inside a right-to-left sentence too (".from",
+ * "seance.on(…)"). */
+.script-editor .script-api code {
+	direction: ltr;
+	unicode-bidi: isolate;
 }
 
 /* On a phone it is the whole screen, as the settings are. */

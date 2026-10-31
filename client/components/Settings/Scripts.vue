@@ -49,6 +49,7 @@
 				v-if="scripts.length > SEARCH_FROM"
 				v-model="query"
 				class="input scripts-search"
+				dir="auto"
 				type="search"
 				:placeholder="t('settings.scripts.searchPlaceholder')"
 				:aria-label="t('settings.scripts.searchAria')"
