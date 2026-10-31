@@ -357,7 +357,7 @@ events) — the IRC layer dispatches against that contract.
 **M7 — `client/js/webpush.ts` (replaces the stub).** The state machine:
 
 - `pushNotificationState`: `unsupported` (no `PushManager`/no SW/ insecure
-  context — Electron and Capacitor shells included, per the platform
+  context — the app shells included, per the platform
   matrix) / `not-installed` (iOS: PWA not on the Home Screen) / `denied` /
   `blocked` (server refused) / `stale` (stored subscription made against a
   key no connected server announces — see § VAPID rotation) / `subscribed` /
