@@ -107,8 +107,10 @@ export function followSystemTextSize(): void {
 	render();
 }
 
-/** True where there is a system text size to follow (the setting's toggle
- * is shown only there). */
+/** True where there is a system text size to follow, the phone shells (the
+ * setting's toggle is shown only there). A desktop has none: its windows take
+ * the page's own font-size step (platformDefaults.ts). */
 export function systemTextSizeAvailable(): boolean {
-	return currentPlatform() !== "web";
+	const platform = currentPlatform();
+	return platform === "ios" || platform === "android";
 }
