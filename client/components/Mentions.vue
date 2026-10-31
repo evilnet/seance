@@ -4,7 +4,7 @@
 		id="mentions-popup-container"
 		v-backdrop="closePopup"
 		data-escape-close="mentions"
-		@contextmenu="containerClick"
+		@contextmenu.self="closePopup"
 	>
 		<div
 			ref="popup"
@@ -606,12 +606,6 @@ export default defineComponent({
 			dismissMentions(store.getters.visibleMentions);
 		};
 
-		const containerClick = (event: Event) => {
-			if (event.currentTarget === event.target) {
-				isOpen.value = false;
-			}
-		};
-
 		const togglePopup = () => {
 			isOpen.value = !isOpen.value;
 		};
@@ -653,7 +647,6 @@ export default defineComponent({
 			dismissAllMentions,
 			openGroup,
 			openFromRow,
-			containerClick,
 			closePopup,
 		};
 	},

@@ -3,9 +3,8 @@ import fs from "fs";
 import path from "path";
 
 // A backdrop closes its modal through `v-backdrop`, which only counts a click
-// that began on it (client/js/helpers/backdrop.ts). `@click.self` also counts
-// a drag that began inside the modal and ended past its edge: a text
-// selection that closes the dialog it was made in.
+// pressed and released on it (client/js/helpers/backdrop.ts). `@click.self`
+// also counts a drag that began inside the modal and ended past its edge.
 describe("backdrops use v-backdrop, not @click.self", function () {
 	const components = path.join(process.cwd(), "client", "components");
 
@@ -16,19 +15,13 @@ describe("backdrops use v-backdrop, not @click.self", function () {
 		});
 	}
 
-	for (const file of vueFiles(components)) {
-		const source = fs.readFileSync(file, "utf8");
+	it("no component closes on @click.self", function () {
+		const files = vueFiles(components);
+		expect(files.length).to.be.greaterThan(10);
 
-		if (!source.includes("@click.self") && !source.includes("v-on:click.self")) {
-			continue;
-		}
-
-		it(path.relative(components, file), function () {
-			expect(source).not.to.match(/(@|v-on:)click\.self/);
-		});
-	}
-
-	it("finds the components", function () {
-		expect(vueFiles(components).length).to.be.greaterThan(10);
+		const offenders = files
+			.filter((file) => /(@|v-on:)click\.self/.test(fs.readFileSync(file, "utf8")))
+			.map((file) => path.relative(components, file));
+		expect(offenders).to.deep.equal([]);
 	});
 });

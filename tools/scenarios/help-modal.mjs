@@ -12,6 +12,8 @@
 // needed — Help renders without one, and every way out lands on the
 // connect form.
 
+import {clickBackdrop} from "./lib/backdrop.mjs";
+
 const BASE = process.env.SEANCE_HTTP ?? "http://localhost:8000/";
 
 export const url = `${BASE}#/help`;
@@ -132,13 +134,7 @@ export default async function run(page) {
 
 	if (!narrow) {
 		// The backdrop: a click on the dimmed window itself, outside the pane.
-		await leaves("A backdrop click", () =>
-			page.evaluate(`((el) => {
-			// v-backdrop counts a click pressed and released on the backdrop itself.
-			for (const type of ["pointerdown", "pointerup"]) el.dispatchEvent(new PointerEvent(type, {bubbles: true}));
-			el.click();
-		})(document.querySelector("#help.window"))`)
-		);
+		await leaves("A backdrop click", () => clickBackdrop(page, "#help.window"));
 	}
 
 	// Escape closes the release notes too.

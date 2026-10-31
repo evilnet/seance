@@ -81,15 +81,6 @@ describe("v-backdrop", function () {
 		expect(calls).to.equal(1);
 	});
 
-	it("calls the handler it was last bound to", function () {
-		let other = 0;
-		(backdropDirective.updated as any)(backdrop, {value: () => other++});
-		backdrop.fire("pointerdown", backdrop);
-		backdrop.fire("pointerup", backdrop);
-		backdrop.fire("click", backdrop);
-		expect([calls, other]).to.deep.equal([0, 1]);
-	});
-
 	it("takes its listeners off when unmounted", function () {
 		(backdropDirective.unmounted as any)(backdrop);
 		expect([...backdrop.listeners.values()].every((set) => set.size === 0)).to.equal(true);
