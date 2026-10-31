@@ -5027,6 +5027,17 @@ html[data-shell="native"] #footer {
 	margin-bottom: var(--inset-inner-bottom);
 }
 
+/* A modal that is the whole page on a phone runs to the bottom edge too, so
+ * its footer is raised out of the home indicator's strip the way the
+ * composer is, or the Done button's border meets the screen's rounded
+ * corner. The phone layout's list: the cards and the alert builder are the
+ * page on a landscape phone as well. */
+@media (max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse) {
+	html[data-shell="native"] .settings-modal-footer {
+		padding-bottom: max(0.6rem, var(--inset-inner-bottom));
+	}
+}
+
 #user-visible-error {
 	font-size: 0.9375rem;
 	line-height: 1.5;
