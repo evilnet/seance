@@ -5899,6 +5899,19 @@ html[data-shell="native"] #footer {
 	}
 }
 
+/* A mid-width pane — the widest time column (10.5ch), the full nick column
+ * (12ch) and 50 characters of text no longer fit — gives the text the
+ * nick column's last 3ch: most nicks are under 9 characters, and right
+ * aligned in a 12ch column they stand off from their time across a band of
+ * nothing. A longer nick takes the ellipsis sooner. The floor stays 9ch,
+ * so the thresholds below are unchanged. */
+/* stylelint-disable-next-line at-rule-no-unknown */
+@container chat (max-width: calc(72.5ch + 2.5rem)) {
+	#chat .from {
+		flex-basis: 9ch;
+	}
+}
+
 /* The user list is a side panel only while the messages keep their 30
  * characters beside it: the widest time column (10.5ch), the nick column
  * at its floor (9ch), the text (30ch), their paddings (2.5rem) and the
