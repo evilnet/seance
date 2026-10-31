@@ -37,6 +37,43 @@ describe("translate/spans", () => {
 		);
 	});
 
+	describe("emoji", () => {
+		// The Marian (OPUS-MT) models drop or mangle emoji -- "thanks for the
+		// help 👍" came back "danke für die Hilfe" (rdrake, PR #139) -- so an
+		// emoji never reaches an engine: it is a verbatim span like a shortcode.
+		it("an emoji sequence is one span, whole: a skin tone, a ZWJ family, a flag, VS16", () => {
+			const {spans} = protect("thanks 👍🏽 and 👩\u200D👩\u200D👧 from 🇩🇪, ❤\uFE0F ok");
+
+			expect(spans).to.deep.equal(["👍🏽", "👩\u200D👩\u200D👧", "🇩🇪", "❤\uFE0F"]);
+		});
+
+		it("each emoji of a run is its own span", () => {
+			const {text, spans} = protect("nice work 🎉🎉");
+
+			expect(spans).to.deep.equal(["🎉", "🎉"]);
+			expect(text).to.equal(`nice work ${placeholder(1)}${placeholder(2)}`);
+		});
+
+		it("an emoji the engine dropped comes back", () => {
+			const info = protect("thanks for the help 👍");
+
+			expect(restoreAll("danke für die Hilfe", info)).to.include("👍");
+			expect(restoreAll(`danke für die Hilfe ${placeholder(1)}`, info)).to.equal(
+				"danke für die Hilfe 👍"
+			);
+		});
+
+		it("an emoji inside a URL or a code span stays in that span", () => {
+			const {spans} = protect("see https://x.test/🎉 and `echo 👍`");
+
+			expect(spans).to.deep.equal(["`echo 👍`", "https://x.test/🎉"]);
+		});
+
+		it("a line of emoji alone leaves nothing to translate", () => {
+			expect(hasNoLetters(protect("👍🏽 🎉🎉").text)).to.equal(true);
+		});
+	});
+
 	it("a code span containing a URL is one span", () => {
 		const {spans} = protect("run `curl https://x.test` now");
 

@@ -88,8 +88,18 @@ export interface ProtectOptions {
 	markers?: MarkerForm;
 }
 
+/**
+ * An emoji, whole: a pictograph or a pair of regional indicators (a flag),
+ * then any skin-tone modifiers, variation selector 16 and ZWJ-joined
+ * pictographs. The Marian (OPUS-MT) models drop or mangle emoji ("thanks for
+ * the help 👍" → "danke für die Hilfe"; rdrake, PR #139), so none reaches an
+ * engine: each is a verbatim span, as a shortcode is.
+ */
+const EMOJI_RX =
+	/(?:\p{Extended_Pictographic}|\p{Regional_Indicator}{2})(?:[\u{1F3FB}-\u{1F3FF}]|\u{FE0F}|\u{200D}\p{Extended_Pictographic}\u{FE0F}?)*/gu;
+
 // Order matters: a code span swallows the URL inside it, a URL swallows the
-// shortcode-looking `:80:` inside it. Placeholders never match a later
+// shortcode-looking `:80:` (or an emoji) inside it. Placeholders never match a later
 // pattern (no letters, no colons, no control characters).
 // A shortcode body must contain at least one letter, but :+1: and :-1: are
 // special cases.
@@ -98,6 +108,7 @@ const PATTERNS: RegExp[] = [
 	/\bhttps?:\/\/[^\s<>()]+/gi,
 	/\bwww\.[^\s<>()]+/gi,
 	/:(?:[+-]1|(?=[a-z0-9_+-]*[a-z])[a-z0-9_+-]{2,}):/gi,
+	EMOJI_RX,
 	/\x03(?:\d{1,2}(?:,\d{1,2})?)?|[\x02\x0f\x11\x16\x1d\x1e\x1f]/g,
 ];
 
@@ -520,7 +531,7 @@ function protectNicks(text: string, nicks: string[], spans: Spans): string {
 /**
  * Protect, stage by stage: each stage runs on the previous one's output, so
  * a placeholder never matches a later pattern. Fenced blocks, then TeX,
- * then pipe tables, then the opaque spans (code, URLs, shortcodes,
+ * then pipe tables, then the opaque spans (code, URLs, shortcodes, emoji,
  * formatting codes), then links, emphasis pairs, line prefixes, the channel
  * names and finally the nicknames.
  */
