@@ -191,6 +191,29 @@ export default async function run(page) {
 		page.check("a pinch leaves the viewer open", await page.evaluate(OPEN));
 		await page.screenshot("2-pinched");
 
+		// A quick two-finger pan sideways: the channel swipe on <body> must
+		// not see it and switch the conversation under the image.
+		const swipeY = viewer.y + viewer.height / 2;
+		await touch(page, "touchStart", [
+			finger(midX - 60, swipeY, 0),
+			finger(midX + 20, swipeY, 1),
+		]);
+
+		for (let step = 1; step <= 6; step++) {
+			await touch(page, "touchMove", [
+				finger(midX - 60 + step * 25, swipeY, 0),
+				finger(midX + 20 + step * 25, swipeY, 1),
+			]);
+		}
+
+		await touch(page, "touchEnd", []);
+		await page.sleep(500);
+		page.check(
+			"a two-finger pan does not switch the conversation",
+			(await page.evaluate(`location.hash`)) === hash
+		);
+		page.check("a two-finger pan leaves the viewer open", await page.evaluate(OPEN));
+
 		// 4. A tap while zoomed in does not close it.
 		await tapAt(page, midX, viewer.y + viewer.height / 2);
 		page.check("a tap on a zoomed image leaves it open", await page.evaluate(OPEN));

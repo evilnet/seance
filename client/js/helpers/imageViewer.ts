@@ -28,27 +28,17 @@ let watcher: CloseWatcherLike | null = null;
 function watchForClose(): void {
 	const Ctor = (globalThis as {CloseWatcher?: CloseWatcherCtor}).CloseWatcher;
 
-	if (!Ctor || watcher) {
+	if (!Ctor) {
 		return;
 	}
 
-	try {
-		watcher = new Ctor();
-	} catch {
-		// Refused (no user activation left for another watcher): ✕ still works.
-		return;
-	}
-
-	watcher.onclose = () => {
-		watcher = null;
-		closeOpenImage();
-	};
+	watcher = new Ctor();
+	watcher.onclose = () => closeOpenImage();
 }
 
 function stopWatching(): void {
-	const w = watcher;
+	watcher?.destroy();
 	watcher = null;
-	w?.destroy();
 }
 
 export function setImageViewerClose(fn: (() => void) | null): void {

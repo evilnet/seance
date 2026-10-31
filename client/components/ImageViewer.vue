@@ -5,6 +5,9 @@
 		:class="{opened: link !== null}"
 		@wheel="onMouseWheel"
 		@touchstart="onTouchStart"
+		@touchmove.passive.stop="onTouchMove"
+		@touchend.stop="onTouchEnd"
+		@touchcancel.stop="onTouchCancel"
 		@click="onClick"
 	>
 		<template v-if="link !== null">
@@ -51,8 +54,6 @@ import {SharedMsg} from "../../shared/types/msg";
 // A tap: one finger, moved less than this, lifted within this.
 const TAP_SLOP_PX = 10;
 const TAP_MAX_MS = 400;
-// A finger lifted this soon after a pinch ended is the pinch's, not a tap.
-const AFTER_PINCH_MS = 350;
 
 export default defineComponent({
 	name: "ImageViewer",
@@ -255,14 +256,16 @@ export default defineComponent({
 			};
 		};
 
-		// Touch: the viewer owns every touch on it but its buttons — one finger
-		// pans, two pinch, wherever they land (the fitted image on a phone is
-		// a small part of the screen, and a pinch starting beside it used to
-		// do nothing and then close the viewer). Only a tap closes: one finger
-		// that barely moved, on an image at its fitted size, not straight after
-		// a pinch. The touchend is cancelled, so the compatibility mouse events
-		// (whose mouseup closes on a click) and the click never follow.
-		let gesture: {
+		// Touch: the viewer owns every touch on it — one finger pans, two
+		// pinch, wherever they land (the fitted image on a phone is a small
+		// part of the screen, and a pinch starting beside it used to do
+		// nothing and then close the viewer). Only a tap closes: one finger
+		// that barely moved, on an image at its fitted size. The touchend is
+		// cancelled, so the compatibility mouse events (whose mouseup closes
+		// on a click) and the click never follow; a touch on a button starts
+		// no gesture and keeps its click. No touch leaves the viewer: the
+		// sidebar's swipe and the two-finger channel swipe listen on <body>.
+		type Gesture = {
 			ref: {x: number; y: number; scale: number};
 			base: {x: number; y: number; scale: number};
 			origin: {x: number; y: number};
@@ -270,19 +273,14 @@ export default defineComponent({
 			multi: boolean;
 			moved: number;
 			startedAt: number;
-		} | null = null;
-		let multiEndedAt = 0;
-		// Takes the gesture's listeners off the viewer again.
-		let detachGesture: (() => void) | null = null;
+		};
+		let gesture: Gesture | null = null;
 
-		const rebase = (touches: TouchList) => {
-			if (!gesture) {
-				return;
-			}
-
-			gesture.ref = reduceTouches(touches);
-			gesture.base = {...transform.value};
-			gesture.fingers = touches.length;
+		// The fingers changed: measure from where they and the image are now.
+		const rebase = (g: Gesture, touches: TouchList) => {
+			g.ref = reduceTouches(touches);
+			g.base = {...transform.value};
+			g.fingers = touches.length;
 		};
 
 		const onTouchMove = (e: TouchEvent) => {
@@ -291,16 +289,10 @@ export default defineComponent({
 			}
 
 			if (e.touches.length !== gesture.fingers) {
-				rebase(e.touches);
+				rebase(gesture, e.touches);
 			}
 
 			const touch = reduceTouches(e.touches);
-
-			// A second finger that landed on a button never reached
-			// onTouchStart, but it is a pinch all the same.
-			if (e.touches.length > 1) {
-				gesture.multi = true;
-			}
 
 			if (!gesture.multi) {
 				gesture.moved = Math.max(
@@ -331,13 +323,6 @@ export default defineComponent({
 		};
 
 		const endGesture = () => {
-			detachGesture?.();
-			detachGesture = null;
-
-			if (gesture?.multi) {
-				multiEndedAt = Date.now();
-			}
-
 			gesture = null;
 			correctPosition();
 		};
@@ -351,7 +336,7 @@ export default defineComponent({
 
 			if (e.touches.length > 0) {
 				// A finger of a pinch lifted: the rest pan on from here.
-				rebase(e.touches);
+				rebase(gesture, e.touches);
 				return;
 			}
 
@@ -359,7 +344,6 @@ export default defineComponent({
 				!gesture.multi &&
 				gesture.moved < TAP_SLOP_PX &&
 				Date.now() - gesture.startedAt < TAP_MAX_MS &&
-				Date.now() - multiEndedAt > AFTER_PINCH_MS &&
 				transform.value.scale <= fitScale * 1.05;
 
 			endGesture();
@@ -377,15 +361,15 @@ export default defineComponent({
 			// prevent sidebar touchstart event, we don't want to interact with sidebar while in image viewer
 			e.stopImmediatePropagation();
 
-			// The buttons and the open link keep their own taps.
-			if ((e.target as Element | null)?.closest?.("button, a")) {
+			if (gesture) {
+				// Another finger joins, wherever it lands: a pinch, never a tap.
+				gesture.multi = true;
+				rebase(gesture, e.touches);
 				return;
 			}
 
-			if (gesture) {
-				// Another finger joins: a pinch, never a tap.
-				gesture.multi = true;
-				rebase(e.touches);
+			// The buttons and the open link keep their own taps.
+			if ((e.target as Element | null)?.closest?.("button, a")) {
 				return;
 			}
 
@@ -398,17 +382,6 @@ export default defineComponent({
 				multi: e.touches.length > 1,
 				moved: 0,
 				startedAt: Date.now(),
-			};
-
-			const el = viewer.value;
-			el?.addEventListener("touchmove", onTouchMove, {passive: true});
-			el?.addEventListener("touchend", onTouchEnd);
-			el?.addEventListener("touchcancel", onTouchCancel);
-
-			detachGesture = () => {
-				el?.removeEventListener("touchmove", onTouchMove);
-				el?.removeEventListener("touchend", onTouchEnd);
-				el?.removeEventListener("touchcancel", onTouchCancel);
 			};
 		};
 
@@ -573,6 +546,9 @@ export default defineComponent({
 			onMouseWheel,
 			onClick,
 			onTouchStart,
+			onTouchMove,
+			onTouchEnd,
+			onTouchCancel,
 			previousImage,
 			nextImage,
 			computeImageStyles,
