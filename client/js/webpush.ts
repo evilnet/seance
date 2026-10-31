@@ -21,7 +21,7 @@ import {
 	type PushEntry,
 	type PushKeys,
 } from "./helpers/pushStore";
-import {pushScopePath} from "./push/scope";
+import {networkFromScope, pushScopePath} from "./push/scope";
 import {
 	loadNativePush,
 	nativeClearNotifications,
@@ -626,6 +626,66 @@ async function dropRootSubscription(): Promise<void> {
  * registration found is also asked for a newer worker
  * ({@link checkForNewWorker}): this is the one moment a deploy reaches the
  * push-only workers already installed on a device. */
+/** A push-only registration of this app for a network this device no
+ * longer has (`push/<uuid>/` under this app's base, the uuid of no saved
+ * network): its subscription is still an endpoint the server pushes every
+ * message to, and its worker, finding the message already shown by the
+ * live network's, showed nothing — on Chrome a silent push per message.
+ * Dropped at every boot: the subscription (its endpoint queued for
+ * UNREGISTER on the network whose key it carries) and the registration.
+ * Another app on the origin (a Pages preview) has its own base and is
+ * never touched. */
+async function dropStaleRegistrations(): Promise<void> {
+	if (!workerPush()) {
+		return;
+	}
+
+	try {
+		const base = new URL(pushScopePath(""), document.baseURI).href;
+		let queued = false;
+
+		for (const registration of await navigator.serviceWorker.getRegistrations()) {
+			if (!registration.scope.startsWith(base)) {
+				continue;
+			}
+
+			const uuid = networkFromScope(registration.scope);
+
+			if (uuid === undefined || uuid === "" || saved.get(uuid) !== undefined) {
+				continue;
+			}
+
+			const existing = await registration.pushManager.getSubscription();
+			const key = existing?.options.applicationServerKey;
+			const vapid = key ? base64url(new Uint8Array(key)) : undefined;
+
+			note(
+				`boot: push registration ${short(uuid)} is of no saved network — ${
+					existing ? `its subscription (${endpointLabel(existing.endpoint)}) and ` : ""
+				}the registration dropped${vapid ? ", endpoint queued for UNREGISTER" : ""}`
+			);
+
+			if (existing) {
+				if (vapid && queueUnregister({vapid, endpoint: existing.endpoint})) {
+					queued = true;
+				}
+
+				await existing.unsubscribe();
+			}
+
+			delete subs[uuid];
+			await registration.unregister();
+		}
+
+		if (queued) {
+			saveLegacy();
+		}
+	} catch (error) {
+		// eslint-disable-next-line no-console
+		console.warn("[webpush] could not drop stale push registrations", error);
+	}
+}
+
 async function syncStoredWithBrowser(): Promise<void> {
 	if (pushBackend() === "native") {
 		return syncStoredWithShell();
@@ -1648,6 +1708,7 @@ loadStored();
 synced = loadNativePush()
 	.then(syncStoredWithBrowser)
 	.then(dropRootSubscription)
+	.then(dropStaleRegistrations)
 	.catch(() => undefined);
 refreshState();
 
