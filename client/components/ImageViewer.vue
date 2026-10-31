@@ -4,7 +4,7 @@
 		ref="viewer"
 		:class="{opened: link !== null}"
 		@wheel="onMouseWheel"
-		@touchstart.passive="onTouchStart"
+		@touchstart="onTouchStart"
 		@click="onClick"
 	>
 		<template v-if="link !== null">
@@ -33,7 +33,6 @@
 				:style="computeImageStyles"
 				@load="onImageLoad"
 				@mousedown="onImageMouseDown"
-				@touchstart.passive="onImageTouchStart"
 			/>
 		</template>
 	</div>
@@ -48,6 +47,12 @@ import {isPreviewRevealed} from "../js/helpers/mediaTrust";
 import {setImageViewerClose} from "../js/helpers/imageViewer";
 import {ClientChan, ClientLinkPreview} from "../js/types";
 import {SharedMsg} from "../../shared/types/msg";
+
+// A tap: one finger, moved less than this, lifted within this.
+const TAP_SLOP_PX = 10;
+const TAP_MAX_MS = 400;
+// A finger lifted this soon after a pinch ended is the pinch's, not a tap.
+const AFTER_PINCH_MS = 350;
 
 export default defineComponent({
 	name: "ImageViewer",
@@ -78,6 +83,9 @@ export default defineComponent({
 			x: 0,
 			y: 0,
 		});
+
+		// The scale prepareImage() fitted the image to: a tap closes only there.
+		let fitScale = 1;
 
 		const computeImageStyles = computed(() => {
 			// Sub pixels may cause the image to blur in certain browsers
@@ -154,6 +162,7 @@ export default defineComponent({
 			position.value.x = Math.floor(-image.value!.naturalWidth / 2);
 			position.value.y = Math.floor(-image.value!.naturalHeight / 2);
 			transform.value.scale = Math.max(scale, 0.1);
+			fitScale = transform.value.scale;
 			transform.value.x = width / 2;
 			transform.value.y = height / 2;
 		};
@@ -246,94 +255,165 @@ export default defineComponent({
 			};
 		};
 
+		// Touch: the viewer owns every touch on it but its buttons — one finger
+		// pans, two pinch, wherever they land (the fitted image on a phone is
+		// a small part of the screen, and a pinch starting beside it used to
+		// do nothing and then close the viewer). Only a tap closes: one finger
+		// that barely moved, on an image at its fitted size, not straight after
+		// a pinch. The touchend is cancelled, so the compatibility mouse events
+		// (whose mouseup closes on a click) and the click never follow.
+		let gesture: {
+			ref: {x: number; y: number; scale: number};
+			base: {x: number; y: number; scale: number};
+			origin: {x: number; y: number};
+			fingers: number;
+			multi: boolean;
+			moved: number;
+			startedAt: number;
+		} | null = null;
+		let multiEndedAt = 0;
+		// Takes the gesture's listeners off the viewer again.
+		let detachGesture: (() => void) | null = null;
+
+		const rebase = (touches: TouchList) => {
+			if (!gesture) {
+				return;
+			}
+
+			gesture.ref = reduceTouches(touches);
+			gesture.base = {...transform.value};
+			gesture.fingers = touches.length;
+		};
+
+		const onTouchMove = (e: TouchEvent) => {
+			if (!gesture) {
+				return;
+			}
+
+			if (e.touches.length !== gesture.fingers) {
+				rebase(e.touches);
+			}
+
+			const touch = reduceTouches(e.touches);
+
+			// A second finger that landed on a button never reached
+			// onTouchStart, but it is a pinch all the same.
+			if (e.touches.length > 1) {
+				gesture.multi = true;
+			}
+
+			if (!gesture.multi) {
+				gesture.moved = Math.max(
+					gesture.moved,
+					Math.hypot(touch.x - gesture.origin.x, touch.y - gesture.origin.y)
+				);
+			}
+
+			const deltaX = touch.x - gesture.ref.x;
+			const deltaY = touch.y - gesture.ref.y;
+			const deltaScale = touch.scale / gesture.ref.scale;
+			const newScale = Math.min(3, Math.max(0.1, gesture.base.scale * deltaScale));
+			const fixedPosition = calculateZoomShift(
+				newScale,
+				gesture.base.scale,
+				gesture.base.x,
+				gesture.base.y
+			);
+
+			if (!fixedPosition) {
+				return;
+			}
+
+			transform.value.x = fixedPosition.x + deltaX;
+			transform.value.y = fixedPosition.y + deltaY;
+			transform.value.scale = newScale;
+			correctPosition();
+		};
+
+		const endGesture = () => {
+			detachGesture?.();
+			detachGesture = null;
+
+			if (gesture?.multi) {
+				multiEndedAt = Date.now();
+			}
+
+			gesture = null;
+			correctPosition();
+		};
+
+		const onTouchEnd = (e: TouchEvent) => {
+			if (!gesture) {
+				return;
+			}
+
+			e.preventDefault();
+
+			if (e.touches.length > 0) {
+				// A finger of a pinch lifted: the rest pan on from here.
+				rebase(e.touches);
+				return;
+			}
+
+			const tapped =
+				!gesture.multi &&
+				gesture.moved < TAP_SLOP_PX &&
+				Date.now() - gesture.startedAt < TAP_MAX_MS &&
+				Date.now() - multiEndedAt > AFTER_PINCH_MS &&
+				transform.value.scale <= fitScale * 1.05;
+
+			endGesture();
+
+			if (tapped) {
+				closeViewer();
+			}
+		};
+
+		const onTouchCancel = () => {
+			endGesture();
+		};
+
 		const onTouchStart = (e: TouchEvent) => {
 			// prevent sidebar touchstart event, we don't want to interact with sidebar while in image viewer
 			e.stopImmediatePropagation();
+
+			// The buttons and the open link keep their own taps.
+			if ((e.target as Element | null)?.closest?.("button, a")) {
+				return;
+			}
+
+			if (gesture) {
+				// Another finger joins: a pinch, never a tap.
+				gesture.multi = true;
+				rebase(e.touches);
+				return;
+			}
+
+			const first = reduceTouches(e.touches);
+			gesture = {
+				ref: first,
+				base: {...transform.value},
+				origin: {x: first.x, y: first.y},
+				fingers: e.touches.length,
+				multi: e.touches.length > 1,
+				moved: 0,
+				startedAt: Date.now(),
+			};
+
+			const el = viewer.value;
+			el?.addEventListener("touchmove", onTouchMove, {passive: true});
+			el?.addEventListener("touchend", onTouchEnd);
+			el?.addEventListener("touchcancel", onTouchCancel);
+
+			detachGesture = () => {
+				el?.removeEventListener("touchmove", onTouchMove);
+				el?.removeEventListener("touchend", onTouchEnd);
+				el?.removeEventListener("touchcancel", onTouchCancel);
+			};
 		};
 
-		// Touch image manipulation:
-		// 1. Move around by dragging it with one finger
-		// 2. Change image scale by using two fingers
-		const onImageTouchStart = (e: TouchEvent) => {
-			const img = image.value;
-			let touch = reduceTouches(e.touches);
-			let currentTouches = e.touches;
-			let touchEndFingers = 0;
-
-			const currentTransform = {
-				x: touch.x,
-				y: touch.y,
-				scale: touch.scale,
-			};
-
-			const startTransform = {
-				x: transform.value.x,
-				y: transform.value.y,
-				scale: transform.value.scale,
-			};
-
-			const touchMove = (moveEvent) => {
-				touch = reduceTouches(moveEvent.touches);
-
-				if (currentTouches.length !== moveEvent.touches.length) {
-					currentTransform.x = touch.x;
-					currentTransform.y = touch.y;
-					currentTransform.scale = touch.scale;
-					startTransform.x = transform.value.x;
-					startTransform.y = transform.value.y;
-					startTransform.scale = transform.value.scale;
-				}
-
-				const deltaX = touch.x - currentTransform.x;
-				const deltaY = touch.y - currentTransform.y;
-				const deltaScale = touch.scale / currentTransform.scale;
-				currentTouches = moveEvent.touches;
-				touchEndFingers = 0;
-
-				const newScale = Math.min(3, Math.max(0.1, startTransform.scale * deltaScale));
-
-				const fixedPosition = calculateZoomShift(
-					newScale,
-					startTransform.scale,
-					startTransform.x,
-					startTransform.y
-				);
-
-				if (!fixedPosition) {
-					return;
-				}
-
-				transform.value.x = fixedPosition.x + deltaX;
-				transform.value.y = fixedPosition.y + deltaY;
-				transform.value.scale = newScale;
-				correctPosition();
-			};
-
-			const touchEnd = (endEvent: TouchEvent) => {
-				const changedTouches = endEvent.changedTouches.length;
-
-				if (currentTouches.length > changedTouches + touchEndFingers) {
-					touchEndFingers += changedTouches;
-					return;
-				}
-
-				// todo: this is swipe to close, but it's not working very well due to unfinished delta calculation
-				/* if (
-					transform.value.scale <= 1 &&
-					endEvent.changedTouches[0].clientY - startTransform.y <= -70
-				) {
-					return this.closeViewer();
-				}*/
-
-				correctPosition();
-
-				img?.removeEventListener("touchmove", touchMove);
-				img?.removeEventListener("touchend", touchEnd);
-			};
-
-			img?.addEventListener("touchmove", touchMove, {passive: true});
-			img?.addEventListener("touchend", touchEnd, {passive: true});
-		};
+		// A mouse pan just ended; its click is not a close.
+		let panEnded = false;
 
 		// Image mouse manipulation:
 		// 1. Mouse wheel scrolling will zoom in and out
@@ -389,19 +469,28 @@ export default defineComponent({
 				correctPosition();
 			};
 
+			// On the window, not the image: a pan that leaves the image is still
+			// the pan, and its release is not a click on the backdrop.
 			const mouseUp = (upEvent: MouseEvent) => {
 				correctPosition();
+				window.removeEventListener("mousemove", mouseMove);
+				window.removeEventListener("mouseup", mouseUp);
 
-				if (movedDistance < 2 && upEvent.button === 0) {
-					closeViewer();
+				if (movedDistance >= 2) {
+					// The click that follows lands on the backdrop when the
+					// release did: it ends the pan, it does not close.
+					panEnded = true;
+					setTimeout(() => (panEnded = false), 0);
+					return;
 				}
 
-				image.value?.removeEventListener("mousemove", mouseMove);
-				image.value?.removeEventListener("mouseup", mouseUp);
+				if (upEvent.button === 0 && upEvent.target === image.value) {
+					closeViewer();
+				}
 			};
 
-			image.value?.addEventListener("mousemove", mouseMove);
-			image.value?.addEventListener("mouseup", mouseUp);
+			window.addEventListener("mousemove", mouseMove);
+			window.addEventListener("mouseup", mouseUp);
 		};
 
 		// If image is zoomed in, holding ctrl while scrolling will move the image up and down
@@ -440,7 +529,7 @@ export default defineComponent({
 
 		const onClick = (e: Event) => {
 			// If click triggers on the image, ignore it
-			if (e.target === image.value) {
+			if (e.target === image.value || panEnded) {
 				return;
 			}
 
@@ -449,6 +538,9 @@ export default defineComponent({
 
 		watch(link, (newLink, oldLink) => {
 			if (newLink === null) {
+				// Closed under a finger (Android's back, Escape): the <img> it
+				// rested on is gone, so its touchend never reaches the viewer.
+				endGesture();
 				setImageViewerClose(null);
 				eventbus.off("escapekey", closeViewer);
 				eventbus.off("resize", correctPosition);
@@ -483,7 +575,6 @@ export default defineComponent({
 			onTouchStart,
 			previousImage,
 			nextImage,
-			onImageTouchStart,
 			computeImageStyles,
 			viewer,
 		};

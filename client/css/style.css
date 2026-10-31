@@ -6102,6 +6102,11 @@ html[data-shell="native"] #footer {
 	background: rgb(0 0 0 / 90%);
 }
 
+/* Every touch on the viewer is its pan or pinch (ImageViewer.vue). */
+#image-viewer {
+	touch-action: none;
+}
+
 #image-viewer .close-btn,
 #image-viewer .open-btn,
 #image-viewer .previous-image-btn,
