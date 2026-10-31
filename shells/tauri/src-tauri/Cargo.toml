@@ -1,0 +1,44 @@
+[package]
+name = "seance-tauri"
+version = "0.1.0"
+description = "Tauri desktop shell for the Seance IRC client"
+license = "MIT"
+edition = "2021"
+rust-version = "1.80"
+
+[lib]
+name = "seance_tauri_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "=2.7.4", features = [] }
+
+[dependencies]
+tauri = { version = "=2.12.5", features = ["tray-icon"] }
+tauri-plugin-single-instance = { version = "=2.5.5", features = ["deep-link"] }
+tauri-plugin-deep-link = "=2.6.3"
+tauri-plugin-window-state = "=2.5.0"
+tauri-plugin-opener = "=2.7.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true
+
+# `--features snapshot` (debug builds): the Smoke.snapshot call writes the web
+# view's own rendering to a file — screenshots that do not need the screen,
+# which a locked or headless machine does not give. Off in every real build.
+[features]
+snapshot = ["dep:objc2", "dep:objc2-web-kit", "dep:objc2-app-kit", "dep:objc2-foundation", "dep:objc2-core-foundation", "dep:block2"]
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { version = "0.6", optional = true }
+objc2-web-kit = { version = "0.3", optional = true, features = ["WKWebView", "WKSnapshotConfiguration", "block2", "objc2-app-kit", "objc2-core-foundation"] }
+objc2-app-kit = { version = "0.3", optional = true, features = ["NSImage", "NSResponder", "NSView"] }
+objc2-foundation = { version = "0.3", optional = true, features = ["NSData", "NSString", "NSError"] }
+block2 = { version = "0.6", optional = true }
+objc2-core-foundation = { version = "0.3", optional = true, features = ["CFCGTypes"] }
