@@ -10,10 +10,15 @@
 
 import type {Directive} from "vue";
 
+type Close = (event: MouseEvent) => void;
+
+// The bound function as of the last render, and how to take the listeners off.
+const closes = new WeakMap<HTMLElement, Close>();
 const detach = new WeakMap<HTMLElement, () => void>();
 
-export const backdropDirective: Directive<HTMLElement, (event: MouseEvent) => void> = {
+export const backdropDirective: Directive<HTMLElement, Close> = {
 	mounted(el, binding) {
+		closes.set(el, binding.value);
 		let pressed = false;
 		let armed = false;
 
@@ -27,7 +32,7 @@ export const backdropDirective: Directive<HTMLElement, (event: MouseEvent) => vo
 
 		const onClick = (event: MouseEvent) => {
 			if (armed) {
-				binding.value(event);
+				closes.get(el)?.(event);
 			}
 
 			pressed = armed = false;
@@ -42,8 +47,12 @@ export const backdropDirective: Directive<HTMLElement, (event: MouseEvent) => vo
 			el.removeEventListener("click", onClick);
 		});
 	},
+	updated(el, binding) {
+		closes.set(el, binding.value);
+	},
 	unmounted(el) {
 		detach.get(el)?.();
 		detach.delete(el);
+		closes.delete(el);
 	},
 };
