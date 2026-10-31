@@ -2,6 +2,7 @@
 	<div
 		id="oper-alert-overlay"
 		v-backdrop="close"
+		class="screen-overlay"
 		:class="{opened: !!request}"
 		:data-escape-close="request ? 'oper-alert-builder' : null"
 	>

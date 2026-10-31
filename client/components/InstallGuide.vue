@@ -2,6 +2,7 @@
 	<div
 		id="install-guide-overlay"
 		v-backdrop="close"
+		class="screen-overlay"
 		:class="{opened: store.state.installGuideOpen}"
 	>
 		<div
@@ -225,6 +226,12 @@
 		height: 100%;
 		margin: 0;
 		border-radius: 0;
+	}
+
+	/* The page runs to the bottom edge in the shell: out of the home
+	 * indicator's strip, as the composer is. */
+	html[data-shell="native"] .install-guide-footer {
+		padding-bottom: max(0.75rem, var(--inset-inner-bottom));
 	}
 
 	/* The phone drawings are portrait: give them height rather than width. */

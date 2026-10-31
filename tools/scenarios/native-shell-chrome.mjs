@@ -309,6 +309,59 @@ export default async function run(page) {
 			viewer.nextRight === TOP
 	);
 
+	// 4. Everything that covers the screen starts below the status bar and
+	// stops above the bars (`.screen-overlay`, one rule): every overlay the
+	// page has mounted, then Settings open, its ✕ in reach, on a phone.
+	await page.send("Emulation.setDeviceMetricsOverride", {
+		width: 390,
+		height: 844,
+		deviceScaleFactor: 1,
+		mobile: true,
+	});
+	await page.evaluate(setShell("android"));
+	const OVERLAY_EDGES = `[...document.querySelectorAll(".screen-overlay")].map((el) => {
+		const s = getComputedStyle(el);
+		return {id: el.id, top: parseFloat(s.top), bottom: parseFloat(s.bottom)};
+	})`;
+	const mounted = await page.evaluate(OVERLAY_EDGES);
+	page.check(
+		`every mounted overlay starts at the insets (${JSON.stringify(mounted)})`,
+		mounted.length >= 5 && mounted.every((o) => o.top === TOP && o.bottom === BOTTOM)
+	);
+
+	await page.evaluate(`location.hash = "#/settings"`);
+	await page.waitFor(`document.querySelector("#settings .settings-modal-close")`, {
+		label: "the settings modal",
+	});
+	const close = await page.evaluate(`(() => {
+		const r = document.querySelector("#settings .settings-modal-close").getBoundingClientRect();
+		const pane = document.querySelector("#settings").getBoundingClientRect();
+		return {close: r.top, top: pane.top, bottom: innerHeight - pane.bottom};
+	})()`);
+	page.check(
+		`Settings' ✕ is below the status bar (${JSON.stringify(close)})`,
+		close.top === TOP && close.close >= TOP && close.bottom === BOTTOM
+	);
+	await page.screenshot("settings-in-shell");
+	await page.click("#settings .settings-modal-close");
+	await page.waitFor(`!document.querySelector("#settings")`, {label: "settings to close"});
+
+	// Mentions is a popover, not an overlay: on the phone it starts under the
+	// header, which in the shell is under the status bar.
+	await page.click("#chat button.mentions");
+	await page.waitFor(`document.querySelector(".mentions-popup")`, {label: "the mentions"});
+	const mentions = await page.evaluate(`(() => {
+		const r = document.querySelector(".mentions-popup").getBoundingClientRect();
+		const header = document.querySelector("#chat .header").getBoundingClientRect();
+		return {top: r.top, header: header.bottom, bottom: innerHeight - r.bottom};
+	})()`);
+	page.check(
+		`the mentions start under the header (${JSON.stringify(mentions)})`,
+		Math.abs(mentions.top - mentions.header) < 1 && mentions.bottom === BOTTOM
+	);
+	await pressEscape(page);
+	await page.send("Emulation.clearDeviceMetricsOverride");
+
 	await page.evaluate(setShell(null));
 	page.check(
 		"the page is itself again with the shell off",
