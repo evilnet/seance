@@ -25,6 +25,7 @@
     },
     "files": [
       "main.js",
+      "context-menu.js",
       "preload.js",
       "package.json"
     ],

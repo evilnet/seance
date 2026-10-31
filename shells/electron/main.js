@@ -9,6 +9,7 @@ const {app, BrowserWindow, Menu, protocol, net, screen, shell} = require("electr
 const fs = require("fs");
 const path = require("path");
 const {pathToFileURL} = require("url");
+const {installContextMenu} = require("./context-menu");
 
 const APP_SCHEME = "app";
 const APP_HOST = "seance";
@@ -286,6 +287,9 @@ function createWindow() {
 	if (state.maximized) {
 		win.maximize();
 	}
+
+	// Right-click menu with the spelling suggestions (context-menu.js).
+	installContextMenu(win, Menu);
 
 	// target=_blank and window.open() never create Electron windows.
 	win.webContents.setWindowOpenHandler(({url}) => {
