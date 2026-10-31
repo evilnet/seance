@@ -1,11 +1,11 @@
 <template>
 	<div
 		id="help"
+		v-backdrop="close"
 		class="window"
 		role="dialog"
 		aria-modal="true"
 		aria-label="Help"
-		@click.self="close"
 	>
 		<div class="settings-modal help-modal">
 			<div class="settings-modal-header">

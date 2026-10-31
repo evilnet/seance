@@ -1,9 +1,9 @@
 <template>
 	<div
 		id="oper-investigate-overlay"
+		v-backdrop="close"
 		:class="{opened: !!top}"
 		:data-escape-close="top ? 'oper-investigate' : null"
-		@click.self="close"
 	>
 		<div
 			v-if="top && network && model"

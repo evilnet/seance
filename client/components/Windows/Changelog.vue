@@ -1,11 +1,11 @@
 <template>
 	<div
 		id="changelog"
+		v-backdrop="close"
 		class="window"
 		role="dialog"
 		aria-modal="true"
 		aria-label="Release notes"
-		@click.self="close"
 	>
 		<div class="settings-modal changelog-modal">
 			<div class="settings-modal-header">
