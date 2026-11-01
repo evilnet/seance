@@ -398,6 +398,35 @@ describe("irc commands", function () {
 			expect(msg.whois.whowas).to.equal(undefined);
 		});
 
+		it("takes the IP alone from the ratbox family's shorter 338", function () {
+			const h = setup();
+			joined(h);
+			h.transport.lines(
+				":irc.test 311 alice bob ~bob host.example * :Bob Example",
+				":irc.test 338 alice bob 10.0.0.9 :actually using host",
+				":irc.test 318 alice bob :End of /WHOIS list."
+			);
+
+			const whois = lastMessage(1).whois;
+			expect(whois.actual_ip).to.equal("10.0.0.9");
+			expect(whois.actual_hostname).to.equal(undefined);
+			expect(whois.actual_username).to.equal(undefined);
+		});
+
+		it("ignores a shorter 338 that names no address", function () {
+			const h = setup();
+			joined(h);
+			h.transport.lines(
+				":irc.test 311 alice bob ~bob host.example * :Bob Example",
+				":irc.test 338 alice bob something :else entirely",
+				":irc.test 318 alice bob :End of /WHOIS list."
+			);
+
+			const whois = lastMessage(1).whois;
+			expect(whois.actual_ip).to.equal(undefined);
+			expect(whois.actual_hostname).to.equal(undefined);
+		});
+
 		it("reports an unknown nick in the lobby without opening a window", function () {
 			const h = setup();
 			joined(h);
