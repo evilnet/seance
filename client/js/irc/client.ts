@@ -45,6 +45,8 @@ import {
 	MULTILINE_CAP,
 	MultilineLimits,
 	MultilinePlan,
+	batchesWaiting,
+	holdBehindBatches,
 	parseMultilineValue,
 	planMultiline,
 	resetMultiline,
@@ -120,7 +122,14 @@ import {
 	splitMessage,
 	utf8ByteLength,
 } from "./message";
-import {LABEL_TAG_BYTES, pendingLabel, resetPending, showPending} from "./pending";
+import {
+	armPending,
+	LABEL_TAG_BYTES,
+	PendingMessage,
+	pendingLabel,
+	resetPending,
+	showPending,
+} from "./pending";
 import {splitStatusTarget} from "./handlers/privmsg";
 import {mechanismOffered, SASL_TIMEOUT_MS, SaslAuth, SaslMechanism, SaslResult} from "./sasl";
 import {
@@ -1860,34 +1869,68 @@ export class IrcClient {
 			? MessageType.ACTION
 			: MessageType.MESSAGE;
 
-		for (let i = 0; i < chunks.length; i++) {
-			const chunk = chunks[i];
-			const body = opts.action ? `\x01ACTION ${chunk}\x01` : chunk;
+		const lines = chunks.map((chunk, i) => {
 			const base = i === 0 ? firstTags : opts.tags;
 			const label = echo ? pendingLabel(this) : undefined;
-			const tags = label ? {...base, label} : base;
+			return {
+				chunk,
+				base,
+				label,
+				body: opts.action ? `\x01ACTION ${chunk}\x01` : chunk,
+				tags: label ? {...base, label} : base,
+			};
+		});
+		// Behind a batch still waiting for its turn, the message waits too, so
+		// it does not reach the channel before what was typed ahead of it. Its
+		// copy shows now, in place; its timeout starts when it goes out.
+		const held = batchesWaiting(this);
+		const pending: PendingMessage[] = [];
 
-			if (!this.send(trailingLine(command, [target, body], tags))) {
-				return;
+		const pendingFields = (chunk: string, label: string | undefined, i: number) => ({
+			type,
+			text: chunk,
+			label,
+			replyTo: opts.tags?.[REPLY_TAG],
+			editOf: i === 0 ? opts.firstTags?.[EDIT_TAG] : undefined,
+			statusmsgGroup: group,
+		});
+
+		const deliver = (): boolean => {
+			for (const [i, line] of lines.entries()) {
+				if (!this.send(trailingLine(command, [target, line.body], line.tags))) {
+					return false;
+				}
+
+				if (!echo) {
+					this.handleLine(
+						`${tagPrefix(line.base)}:${this.nick}!${this.ident}@${
+							this.host || "localhost"
+						} ${command} ${target} :${line.body}`
+					);
+				} else if (chan && !held) {
+					showPending(this, chan, pendingFields(line.chunk, line.label, i));
+				} else if (pending[i]) {
+					armPending(this, pending[i]);
+				}
 			}
 
-			if (!echo) {
-				this.handleLine(
-					`${tagPrefix(base)}:${this.nick}!${this.ident}@${
-						this.host || "localhost"
-					} ${command} ${target} :${body}`
+			return true;
+		};
+
+		if (!held) {
+			deliver();
+			return;
+		}
+
+		if (chan) {
+			for (const [i, line] of lines.entries()) {
+				pending.push(
+					showPending(this, chan, pendingFields(line.chunk, line.label, i), {arm: false})
 				);
-			} else if (chan) {
-				showPending(this, chan, {
-					type,
-					text: chunk,
-					label,
-					replyTo: opts.tags?.[REPLY_TAG],
-					editOf: i === 0 ? opts.firstTags?.[EDIT_TAG] : undefined,
-					statusmsgGroup: group,
-				});
 			}
 		}
+
+		holdBehindBatches(this, deliver, pending);
 	}
 
 	/**
