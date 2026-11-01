@@ -56,6 +56,23 @@ multi-batch plan while `+seance/edit` goes on the first only, because one edit
 replaces one message. Without `echo-message` the joined text is synthesised
 locally, exactly as the single-line path does.
 
+**One line too long for one message** goes out the same way: a batch of
+`draft/multiline-concat` chunks, so a client that speaks multiline shows the
+URL, hash or paste as the one line it was, and the server keeps it as one
+message. That includes a line that would fit a batch line but not a plain
+PRIVMSG once its client tags (a long reply reference) ride on it. A line that
+fits one message stays one plain PRIVMSG. Without the capability a long line
+becomes separate messages, as before. nefarious2 never splits or rewraps
+anything itself: a client body over 512 bytes is an Excess Flood disconnect,
+an untagged line it delivers is cut at 510 bytes with the sender's source
+counted in (so `sendMessage` budgets our host at nefarious2's `HOSTLEN`, 75,
+while the server has not yet named it), and a recipient without multiline gets
+each chunk as its own PRIVMSG — the first five, then `[N more lines]`. Where a
+run has no space to break at, both splitters cut between two visible
+characters (`graphemeCut` in `message.ts`, `Intl.Segmenter`), so an emoji
+sequence, a flag or an accented letter is never torn across two lines; one
+character larger than a whole line is cut by code point after all.
+
 **Errors** (`handlers/standard-replies.ts`). `FAIL BATCH MULTILINE_*` means
 the server threw the whole batch away, so nothing was sent: it becomes an
 error line reading "Message not sent: …" in the channel a context parameter

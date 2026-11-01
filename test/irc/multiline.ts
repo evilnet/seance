@@ -809,6 +809,95 @@ describe("multiline sending", function () {
 			}
 		});
 
+		it("sends one line too long for a message as one batch of concat chunks", function () {
+			const {client, transport, chanId} = setup();
+			const long = Array.from({length: 120}, (_, i) => `word${i}`).join(" ");
+
+			client.input(chanId, long);
+
+			expect(transport.sent[0]).to.equal("BATCH +m1 draft/multiline #seance");
+			expect(transport.sent[transport.sent.length - 1]).to.equal("BATCH -m1");
+			const inner = transport.sent.slice(1, -1);
+			expect(inner.length).to.be.greaterThan(1);
+			expect(inner[0]).to.match(/^@batch=m1 PRIVMSG #seance :word0 /);
+
+			for (const line of inner.slice(1)) {
+				expect(line).to.match(/^@batch=m1;draft\/multiline-concat PRIVMSG #seance :/);
+			}
+
+			const rejoined = inner.map((line) => line.slice(line.indexOf(" :") + 2)).join("");
+			expect(rejoined).to.equal(long);
+
+			for (const line of transport.sent) {
+				expect(utf8ByteLength(line)).to.be.at.most(MAX_LINE_BYTES);
+			}
+		});
+
+		it("sends a long run with no spaces, a URL say, as one batch", function () {
+			const {client, transport, chanId} = setup();
+			const url = `https://example.com/${"a1".repeat(400)}`;
+
+			client.input(chanId, url);
+
+			expect(transport.sent[0]).to.equal("BATCH +m1 draft/multiline #seance");
+			const inner = transport.sent.slice(1, -1);
+			expect(inner.map((line) => line.slice(line.indexOf(" :") + 2)).join("")).to.equal(url);
+		});
+
+		it("batches a line that fits a batch but not one message with its tags", function () {
+			const {client, transport} = setup();
+			const reply = {"+draft/reply": "r".repeat(200)};
+			const text = "x".repeat(290);
+
+			client.sendMessage("#seance", text, {tags: reply});
+
+			expect(transport.sent[0]).to.equal(
+				`@+draft/reply=${"r".repeat(200)} BATCH +m1 draft/multiline #seance`
+			);
+			expect(transport.sent.slice(1)).to.deep.equal([
+				`@batch=m1 PRIVMSG #seance :${text}`,
+				"BATCH -m1",
+			]);
+		});
+
+		it("keeps a line that fits one message a plain PRIVMSG", function () {
+			const {client, transport, chanId} = setup();
+			const text = "y".repeat(300);
+
+			client.input(chanId, text);
+
+			expect(transport.sent).to.deep.equal([`PRIVMSG #seance :${text}`]);
+		});
+
+		it("splits a long line into separate messages without the capability", function () {
+			const {client, transport, chanId} = setup(
+				"batch message-tags server-time echo-message"
+			);
+			const long = Array.from({length: 120}, (_, i) => `word${i}`).join(" ");
+
+			client.input(chanId, long);
+
+			expect(transport.sent.length).to.be.greaterThan(1);
+
+			for (const line of transport.sent) {
+				expect(line).to.match(/^PRIVMSG #seance :word/);
+			}
+		});
+
+		it("leaves room for a 75-byte host while ours is still unknown", function () {
+			const {client, transport, chanId} = setup("batch message-tags server-time");
+			client.host = ""; // nothing from the server has named our host yet
+
+			client.input(chanId, "x".repeat(1000));
+
+			// What a recipient gets is `:alice!alice@<host> PRIVMSG #seance :<text>`,
+			// and nefarious2 cuts an untagged line at 510 bytes
+			const source = ":alice!alice@".length + 75 + " PRIVMSG #seance :".length;
+			const bodies = transport.sent.map((line) => line.slice("PRIVMSG #seance :".length));
+			expect(bodies[0]).to.have.length(MAX_LINE_BYTES - source);
+			expect(bodies.join("")).to.equal("x".repeat(1000));
+		});
+
 		it("sends one line without a batch", function () {
 			const {client, transport, chanId} = setup();
 

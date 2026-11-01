@@ -263,6 +263,9 @@ export const SASL_REQUIRED_HINT =
 /** Prefix characters a channel name may start with when the user omits one. */
 const CHANNEL_PREFIXES = "#&!+";
 
+/** Bytes to allow for our host before the server has told us it: nefarious2's HOSTLEN. */
+export const UNKNOWN_HOST_BYTES = 75;
+
 /** A `+typing` TAGMSG: one command of fake lag. */
 const TYPING_COST_MS = 2000;
 
@@ -1760,17 +1763,37 @@ export class IrcClient {
 		const firstTags: ClientTags | undefined =
 			opts.tags || opts.firstTags ? {...opts.firstTags, ...opts.tags} : undefined;
 		// The server prepends our full source to the echo; budget for it even
-		// when the host is still unknown (63 is the usual hostname limit).
-		const hostLen = this.host.length || 63;
+		// when the host is still unknown. nefarious2's HOSTLEN is 75 (a cloak
+		// can run that long), past the usual 63, and an untagged line it
+		// delivers is cut at 510 bytes, source included.
+		const hostLen = this.host.length || UNKNOWN_HOST_BYTES;
 		const sourceBytes =
 			utf8ByteLength(`:${this.nick}!${this.ident}@`) +
 			hostLen +
 			utf8ByteLength(` ${command} ${target} :`);
 		const actionBytes = opts.action ? "\x01ACTION \x01".length : 0;
+		// With `echo-message` each line is labelled so its echo can be told
+		// apart (pending.ts); without it there is no echo to label.
+		const echo = this.caps.hasCapability("echo-message");
+		const labelled = echo && this.caps.hasCapability("labeled-response");
+		// The frame cap applies to the whole line; the first chunk carries the
+		// most tags, so every chunk is budgeted as if it did.
+		const prefixBytes =
+			sourceBytes +
+			actionBytes +
+			utf8ByteLength(tagPrefix(firstTags)) +
+			(labelled ? LABEL_TAG_BYTES : 0);
+		const fitsOneLine = (line: string) =>
+			utf8ByteLength(line.replace(/[\r\n\0]/g, " ")) <= MAX_LINE_BYTES - prefixBytes;
 		const limits = this.multilineLimits();
 		let plain = text;
 
-		if (limits && text.includes("\n")) {
+		// More than one line goes out as a batch, and so does one line too
+		// long for a single message: with `draft/multiline-concat` the
+		// receiver joins the pieces back into the one line that was typed (a
+		// URL, a hash, a paste) and the server keeps it as one message.
+		// Without the cap it is split into separate messages below.
+		if (limits && (text.includes("\n") || !fitsOneLine(text))) {
 			let plan: MultilinePlan;
 
 			try {
@@ -1797,7 +1820,7 @@ export class IrcClient {
 				return; // nothing but blank lines
 			}
 
-			if (count > 1) {
+			if (count > 1 || !fitsOneLine(plan[0][0].text)) {
 				// `opts.tags` (a reply) belongs on every batch, `opts.firstTags`
 				// (an edit) only on the first — one edit replaces one message.
 				sendMultiline(
@@ -1816,17 +1839,6 @@ export class IrcClient {
 			plain = plan[0][0].text;
 		}
 
-		// With `echo-message` each line is labelled so its echo can be told
-		// apart (pending.ts); without it there is no echo to label.
-		const echo = this.caps.hasCapability("echo-message");
-		const labelled = echo && this.caps.hasCapability("labeled-response");
-		// The frame cap applies to the whole line; the first chunk carries the
-		// most tags, so every chunk is budgeted as if it did.
-		const prefixBytes =
-			sourceBytes +
-			actionBytes +
-			utf8ByteLength(tagPrefix(firstTags)) +
-			(labelled ? LABEL_TAG_BYTES : 0);
 		let chunks: string[];
 
 		try {
