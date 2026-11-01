@@ -82,6 +82,17 @@ Window bounds (and maximized state) are remembered in
 connected display. A single-instance lock keeps one window per user; a second
 launch focuses it.
 
+## Spellcheck
+
+Chromium underlines misspellings itself (`spellcheck: true`), but Electron
+shows no right-click menu unless the app builds one. `context-menu.js`
+builds it for editable fields: the dictionary's suggestions (clicking one
+calls `replaceMisspelling`), Add to Dictionary, and the usual
+undo/cut/copy/paste/select-all, each gated on what the field can do. A
+read-only selection gets Copy alone; everywhere else there is no native
+menu, so the SPA's own context menus (messages, channels, users) keep
+owning the right-click there.
+
 ## `web+irc://` links
 
 The shell registers itself as the handler for `web+irc:` with
