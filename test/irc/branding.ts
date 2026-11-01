@@ -117,6 +117,29 @@ describe("branding", function () {
 			expect(normalizeBranding({defaultNetwork: {port: 1}}).defaultNetwork).to.equal(
 				undefined
 			);
+		});
+
+		it("keeps the default network's IPcheck refund when it is whole and positive", function () {
+			const network = (refund: unknown) =>
+				normalizeBranding({defaultNetwork: {host: "irc.example", ipcheckRefund: refund}})
+					.defaultNetwork;
+			expect(network({limit: 10, periodSeconds: 600})?.ipcheckRefund).to.deep.equal({
+				limit: 10,
+				periodSeconds: 600,
+			});
+			expect(network({limit: "5"})?.ipcheckRefund).to.deep.equal({
+				limit: 5,
+				periodSeconds: 600,
+			});
+			expect(network({limit: 0})?.ipcheckRefund).to.equal(undefined);
+			expect(network({limit: 2.5})?.ipcheckRefund).to.equal(undefined);
+			expect(network({periodSeconds: 600})?.ipcheckRefund).to.equal(undefined);
+			// The server grants nothing with a period of 0 or less: neither does the client.
+			expect(network({limit: 10, periodSeconds: 0})?.ipcheckRefund).to.equal(undefined);
+			expect(network({limit: 10, periodSeconds: -5})?.ipcheckRefund).to.equal(undefined);
+			expect(network({limit: 10, periodSeconds: "x"})?.ipcheckRefund).to.equal(undefined);
+			expect(network(true)?.ipcheckRefund).to.equal(undefined);
+			expect(network(undefined)?.ipcheckRefund).to.equal(undefined);
 			expect(
 				normalizeBranding({defaultNetwork: {host: "h", port: 70000, channels: "a, b"}})
 					.defaultNetwork

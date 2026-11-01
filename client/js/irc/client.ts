@@ -15,8 +15,8 @@
  */
 
 import socket, {EventBus} from "../socket";
-import {brandingFeatures} from "../branding";
-import {dialGateFor, type DialGate} from "./dialLedger";
+import {brandingFeatures, getBranding} from "../branding";
+import {dialGateFor, NEFARIOUS_RULE, type DialLedger, type ThrottleRule} from "./dialLedger";
 import {createHighlightTester} from "../highlight";
 import {ChanState, ChanType} from "../../../shared/types/chan";
 import {MessageType, SharedMsg, TypingState} from "../../../shared/types/msg";
@@ -266,6 +266,26 @@ const CHANNEL_PREFIXES = "#&!+";
 /** A `+typing` TAGMSG: one command of fake lag. */
 const TYPING_COST_MS = 2000;
 
+/**
+ * The throttle rule for `host` (irc/dialLedger.ts): nefarious2's, plus the
+ * refund the deploy says its own server gives a SASL login
+ * (`defaultNetwork.ipcheckRefund`, docs/resources/branding.md) — for that
+ * host alone; any other server is taken to refund nothing.
+ */
+function dialRuleFor(host: string): ThrottleRule {
+	const network = getBranding().defaultNetwork;
+	const refund = network?.ipcheckRefund;
+
+	if (!refund || network.host.toLowerCase() !== host.toLowerCase()) {
+		return NEFARIOUS_RULE;
+	}
+
+	return {
+		...NEFARIOUS_RULE,
+		refund: {limit: refund.limit, periodMs: refund.periodSeconds * 1000},
+	};
+}
+
 export class IrcClient {
 	readonly uuid: string;
 	/** Replaced (not mutated) when an STS upgrade changes port/tls, see {@link reconfigure}. */
@@ -420,7 +440,9 @@ export class IrcClient {
 	/** The server holds our session across disconnects (`PERSISTENCE STATUS ON`, see persistence.ts). */
 	persistenceHold = false;
 	/** This network's host in the dial ledger (irc/dialLedger.ts). */
-	private dialLedger: DialGate | null = null;
+	private dialLedger: DialLedger | null = null;
+	/** SASL succeeded on this connection: the server gives the dial back (irc/dialLedger.ts). */
+	private loggedIn = false;
 	/** The user's setting from the last `PERSISTENCE STATUS` line (`ON`,
 	 * `OFF`, `DEFAULT`), undefined before one. An alias of another device's
 	 * session reads `ON OFF`: not held itself, though the session is. */
@@ -584,6 +606,14 @@ export class IrcClient {
 	/** The 001 handler: see {@link isWelcomed}. */
 	markWelcomed(): void {
 		this.welcomed = true;
+
+		// A server that refunds a login's connection attempt does it here, at
+		// registration (irc/dialLedger.ts; the ledger keeps it only when the
+		// deploy says this server does).
+		if (this.loggedIn) {
+			this.dialLedger?.refunded(Date.now());
+		}
+
 		this.fakeLag.start();
 		this.background.pump(); // anything queued before 001 can go now
 	}
@@ -856,7 +886,7 @@ export class IrcClient {
 		// A drop counts there only when the server lets the connection go: a
 		// session the bouncer holds stays counted (bounce_hold_client never
 		// calls IPcheck_disconnect), so its drop restarts nothing.
-		const ledger = dialGateFor(this.options.host);
+		const ledger = dialGateFor(this.options.host, dialRuleFor(this.options.host));
 		this.dialLedger = ledger;
 		transportOptions.gate = {
 			waitMs: (now) => ledger.waitMs(now),
@@ -1013,6 +1043,7 @@ export class IrcClient {
 		this._state = "registering";
 		this.connected = false;
 		this.welcomed = false;
+		this.loggedIn = false;
 		this.fakeLag.stop();
 		this.retryAt = undefined;
 		this.retryThrottled = false;
@@ -1261,12 +1292,14 @@ export class IrcClient {
 
 		if (!result.ok) {
 			this.saslOk = false;
+			this.loggedIn = false;
 
 			if (this.saslFailed(result.error ?? "unknown error", timedOut)) {
 				return;
 			}
 		} else {
 			this.saslOk = true;
+			this.loggedIn = true;
 
 			// The one window `PERSISTENCE ATTACH` fits in: the server refuses
 			// it without an account and again once we are registered. It goes
