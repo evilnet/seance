@@ -4,15 +4,16 @@
 
 import {trailingLine} from "../wire";
 import type {Command} from "../types";
+import {textAfter} from "./words";
 
 const kill: Command = {
 	commands: ["kill"],
-	input({client, args}) {
+	input({client, args, rest}) {
 		if (args.length === 0 || args[0].length === 0) {
 			return;
 		}
 
-		client.send(trailingLine("KILL", [args[0], args.slice(1).join(" ")]));
+		client.send(trailingLine("KILL", [args[0], textAfter(rest, 1)]));
 	},
 };
 

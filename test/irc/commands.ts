@@ -292,6 +292,47 @@ describe("irc commands", function () {
 		});
 	});
 
+	describe("doubled spaces", function () {
+		it("are one separator between a command's words", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.input(id, "/join  #other");
+			h.client.input(id, "/kick  bob");
+			h.client.input(id, "/ban  bob");
+			h.client.input(id, "/kill  troll");
+			h.client.input(id, "/nick  alice2");
+			expect(h.sentAfter()).to.deep.equal([
+				"JOIN #other",
+				"KICK #seance bob",
+				"MODE #seance +b bob",
+				"KILL troll :",
+				"NICK alice2",
+			]);
+		});
+
+		it("are kept inside a reason or an action as typed", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.input(id, "/kick bob  be   nice");
+			h.client.input(id, "/kill  troll  no  thanks");
+			h.client.input(id, "/me  waves   twice");
+			expect(h.sentAfter()).to.deep.equal([
+				"KICK #seance bob :be   nice",
+				"KILL troll :no  thanks",
+				"PRIVMSG #seance :\x01ACTION waves   twice\x01",
+			]);
+		});
+
+		it("do not hide the nick /ignore is given", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.input(id, "/ignore  troll");
+			expect(ignoreListFor(h.client.uuid).list.map((entry) => entry.nick)).to.include(
+				"troll"
+			);
+		});
+	});
+
 	describe("/whois", function () {
 		it("doubles a single nick so the remote server answers with idle time", function () {
 			const h = setup();
