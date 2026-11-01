@@ -9,8 +9,10 @@
 // going takes the worker with it. Model views feed Settings. A model that
 // is not downloaded yet is downloaded only once the user has agreed to it
 // (consent.ts, asked through `ServiceDeps.askDownload` when the route is
-// resolved); Settings' own Download is that agreement. Vue-free: index.ts
-// wires the real worker, the store, the settings and the dialog.
+// resolved); Settings' own Download is that agreement. The language model
+// failing on the GPU under Auto asks once a session whether to carry on on
+// the CPU (`ServiceDeps.askCpuFallback`). Vue-free: index.ts wires the real
+// worker, the store, the settings and the dialogs.
 
 import {Capability} from "./capability";
 import {
@@ -29,6 +31,7 @@ import {
 	ModelRef,
 	TranslateChunk,
 	TranslateRequest,
+	parseGpuLost,
 } from "./engine";
 import {ABORTED} from "./outgoing";
 import {
@@ -39,9 +42,12 @@ import {
 	ModelCatalog,
 	candidateOf,
 	catalogModels,
+	choiceFor,
 	copyDevices,
+	modelBlock,
 	selectLlm,
 } from "./models";
+import {CPU_BATCH_MAX_LINES} from "./queue";
 import {DownKey, Route, RouteTable, explainRoute, mergeRoutes, routeInput} from "./router";
 import {routesFor as shippedRoutesFor} from "./routes.default";
 
@@ -58,6 +64,19 @@ export const TRANSLATION_UNAVAILABLE = "no translation engine can take this requ
  */
 export const CACHE_WAIT_MS = 60 * 1000;
 
+/** The answers to `askCpuFallback`. */
+export type CpuFallbackAnswer = "once" | "always" | "no";
+
+/** What the GPU fallback question says. */
+export interface CpuFallbackInfo {
+	/** The CPU copy is on the device already: nothing to download. */
+	cached: boolean;
+	/** The CPU copy's download size. */
+	sizeBytes: number;
+	/** The browser's own words for the GPU loss (engine.ts `parseGpuLost`), verbatim; null without one. */
+	reason: string | null;
+}
+
 export interface ServiceDeps {
 	createClient(): {client: TranslateClient; terminate(): void};
 	probe(): Promise<Capability>;
@@ -72,6 +91,17 @@ export interface ServiceDeps {
 	askDownload?(ref: ModelRef, device: Device): Promise<boolean>;
 	/** Where the yeses are remembered; in memory when absent. */
 	consent?: ConsentStore;
+	/**
+	 * The question once the language model's GPU copy has stopped (a load
+	 * failure, or the second failed generation in a row) while its device
+	 * choice is Auto and its CPU copy can run here: "once" carries on on the
+	 * CPU for the session, "always" also pins the setting
+	 * (`saveLlmDevice`), "no" fails as before and is not asked again this
+	 * session. Absent, nothing is asked.
+	 */
+	askCpuFallback?(ref: ModelRef, info: CpuFallbackInfo): Promise<CpuFallbackAnswer>;
+	/** "Always use the CPU here": the store glue writes `translateLlmDevice`. */
+	saveLlmDevice?(device: "cpu"): void;
 }
 
 /**
@@ -223,6 +253,14 @@ export class TranslateService {
 	private cpuHeapUsed = false;
 	/** An engine's unload `makeRoom` posted, until the worker answers: every caller waits on it. */
 	private evicting: Record<EngineName, Promise<void> | null> = {llm: null, seq2seq: null};
+	/**
+	 * The GPU fallback question this session (`askCpuFallback`): not asked
+	 * yet, a yes (the language model's Auto takes the CPU after the GPU), or
+	 * "not now" (never asked again). No stored state: a reload starts over.
+	 */
+	private cpuFallback: "unasked" | "yes" | "declined" = "unasked";
+	/** The fallback question while it is open: every failure and every route waits on this one. */
+	private cpuQuestion: Promise<CpuFallbackAnswer> | null = null;
 
 	constructor(
 		private deps: ServiceDeps,
@@ -684,6 +722,13 @@ export class TranslateService {
 			await this.cacheOrDeadline();
 		}
 
+		// The GPU fallback question is open: what it answers decides where
+		// the language model runs, and a download question raised meanwhile
+		// would take its place in the one dialog.
+		while (this.cpuQuestion) {
+			await this.cpuQuestion;
+		}
+
 		const consent = this.consent;
 		let cachedOnly = !!consent?.anyDeclined;
 
@@ -695,6 +740,7 @@ export class TranslateService {
 				{from, to, hint},
 				this.down
 			),
+			llmCpuAfterGpu: this.cpuFallback === "yes",
 			// Per copy: one device's download, or its yes, says nothing of
 			// the other's.
 			cached: (ref: ModelRef, device: Device) =>
@@ -782,7 +828,86 @@ export class TranslateService {
 	 * engine is kept alive at most as long as another request's download.
 	 */
 	loadTicks(): number {
+		// The GPU fallback question is open: a request waiting on the answer
+		// must not time out meanwhile, so the counter moves on every read.
+		if (this.cpuQuestion) {
+			this.ticks++;
+		}
+
 		return this.ticks;
+	}
+
+	/**
+	 * Whether the language model's GPU copy stopping is the moment to ask
+	 * about the CPU: the hook is wired, the question has not been answered
+	 * "not now" (or yes) this session, the device choice is Auto, and the
+	 * CPU copy can run here and is not down itself.
+	 */
+	private cpuFallbackDue(ref: ModelRef): boolean {
+		return (
+			!!this.deps.askCpuFallback &&
+			this.cpuFallback === "unasked" &&
+			ref.family === "llm" &&
+			choiceFor(ref, this.settings.devices) === "auto" &&
+			!!this.probed &&
+			modelBlock(ref, "cpu", this.probed, this.settings.switches) === null &&
+			!this.down.has(`${candidateOf(ref)}@cpu`)
+		);
+	}
+
+	/**
+	 * After the language model's GPU copy was marked down: true when the
+	 * request may carry on on the CPU. Asks once; a failure while the
+	 * question is open waits on the same one, and one after the answer
+	 * takes it.
+	 */
+	private carryOnOnCpu(ref: ModelRef, error: string): Promise<boolean> {
+		if (!this.cpuQuestion) {
+			if (!this.cpuFallbackDue(ref)) {
+				return Promise.resolve(this.cpuFallback === "yes");
+			}
+
+			const deps = this.deps;
+			const info: CpuFallbackInfo = {
+				cached: this.views.get(copyKey(ref, "cpu"))?.cached === true,
+				sizeBytes: ref.copies.cpu?.sizeBytes ?? 0,
+				reason: parseGpuLost(error)?.reason ?? null,
+			};
+
+			this.cpuQuestion = Promise.resolve()
+				.then(() => deps.askCpuFallback!(ref, info))
+				.catch((): CpuFallbackAnswer => "no")
+				.then((answer) => {
+					this.cpuQuestion = null;
+					this.answerCpuFallback(ref, answer);
+
+					return answer;
+				});
+		}
+
+		return this.cpuQuestion.then((answer) => answer !== "no");
+	}
+
+	private answerCpuFallback(ref: ModelRef, answer: CpuFallbackAnswer): void {
+		// The deadlines that waited on the question get a fresh period.
+		this.ticks++;
+
+		if (answer === "no") {
+			this.cpuFallback = "declined";
+			return;
+		}
+
+		this.cpuFallback = "yes";
+		// The question named the download: either yes is its consent.
+		this.consent?.grant(this.consentId(ref, "cpu"));
+
+		if (answer === "always") {
+			this.setSettings({
+				...this.settings,
+				devices: {...this.settings.devices, llm: "cpu"},
+			});
+			this.deps.saveLlmDevice?.("cpu");
+		}
 	}
 
 	/**
@@ -903,6 +1028,17 @@ export class TranslateService {
 					throw new TranslateError(BATCH_REFUSED, "request");
 				}
 
+				// Nor does the language model on the CPU take a batch larger than
+				// its own (queue.ts `CPU_BATCH_MAX_LINES`): one made for the GPU
+				// before its copy stopped and the user chose the CPU.
+				if (
+					request.lines &&
+					route.device === "cpu" &&
+					request.lines.length > CPU_BATCH_MAX_LINES
+				) {
+					throw new TranslateError(BATCH_REFUSED, "request");
+				}
+
 				// On a phone the other engine goes first (`makeRoom`); then
 				// route again, since the wait may have moved things.
 				const room = this.makeRoom(route.ref.engine);
@@ -946,6 +1082,13 @@ export class TranslateService {
 				}
 
 				const llmSeq = this.llmStartSeq;
+				// The language model's GPU copy stopped in this attempt: the
+				// fallback question comes after the attempt's bookkeeping.
+				let stopped: string | null = null;
+				// A request carried on to the CPU by the fallback may have had
+				// its deadline armed for the GPU: its progress keeps it alive.
+				const slowerThanPlanned =
+					this.cpuFallback === "yes" && llmId !== null && route.device === "cpu";
 
 				try {
 					for await (const chunk of client.translate(
@@ -959,6 +1102,11 @@ export class TranslateService {
 						}
 					)) {
 						yielded = true;
+
+						if (slowerThanPlanned) {
+							this.ticks++;
+						}
+
 						yield chunk;
 					}
 
@@ -1019,6 +1167,10 @@ export class TranslateService {
 							!this.otherLlmStartedSince(llmId, llmSeq))
 					) {
 						this.down.add(`${route.candidate}@${route.device}`);
+
+						if (llmId && route.device === "gpu") {
+							stopped = message;
+						}
 					}
 				} finally {
 					if (llmId) {
@@ -1026,6 +1178,14 @@ export class TranslateService {
 					}
 
 					this.engineEnded(route.ref.engine);
+				}
+
+				// Asked with nothing held: the dialog may stay open a while. A
+				// yes routes the same request again, now to the CPU; a no
+				// routes it as before. The loop's own checks see a teardown
+				// or an abort meanwhile.
+				if (stopped !== null) {
+					await this.carryOnOnCpu(route.ref, stopped);
 				}
 			}
 		} finally {

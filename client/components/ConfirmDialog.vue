@@ -10,8 +10,29 @@
 				<div class="confirm-text-title">{{ data?.title }}</div>
 				<p>{{ data?.text }}</p>
 				<p v-if="data?.note" class="confirm-note">{{ data.note }}</p>
+				<p v-if="data?.quote" class="confirm-quote">
+					<I18nFrame :text="data.quote.frame"
+						><template v-slot:reason
+							><bdi>{{ data.quote.reason }}</bdi></template
+						></I18nFrame
+					>
+				</p>
 			</div>
-			<div class="confirm-buttons">
+			<div v-if="data?.alt" class="confirm-buttons confirm-buttons-stacked">
+				<button
+					:class="['btn', data.primary ? 'btn-confirm' : 'btn-danger']"
+					@click="close(true)"
+				>
+					{{ data.button }}
+				</button>
+				<button class="btn btn-alt" @click="close(true, true)">
+					{{ data.alt }}
+				</button>
+				<button class="btn btn-cancel" @click="close(false)">
+					{{ data.cancel || t("confirm.cancel") }}
+				</button>
+			</div>
+			<div v-else class="confirm-buttons">
 				<button class="btn btn-cancel" @click="close(false)">
 					{{ data?.cancel || t("confirm.cancel") }}
 				</button>
@@ -62,9 +83,28 @@
 	border-color: transparent;
 }
 
+/* Three answers (the GPU fallback): one under the other, the main one first. */
+#confirm-dialog .confirm-buttons-stacked {
+	flex-direction: column;
+	align-items: stretch;
+	gap: 0.625rem;
+}
+
+#confirm-dialog .confirm-buttons-stacked .btn {
+	margin-inline-start: 0;
+}
+
 #confirm-dialog .confirm-note {
 	margin-top: 0.5rem;
 	font-weight: 700;
+}
+
+#confirm-dialog .confirm-quote {
+	margin-top: 0.5rem;
+	margin-bottom: 0;
+	font-size: 0.875rem;
+	opacity: 0.8;
+	overflow-wrap: anywhere;
 }
 </style>
 
@@ -72,6 +112,7 @@
 import eventbus from "../js/eventbus";
 import {useI18n} from "../js/i18n";
 import {defineComponent, onMounted, onUnmounted, ref} from "vue";
+import I18nFrame from "./I18nFrame.vue";
 
 type ConfirmDialogData = {
 	title: string;
@@ -83,14 +124,27 @@ type ConfirmDialogData = {
 	cancel?: string;
 	/** The button is an ordinary action, not a destructive one: no danger colour. */
 	primary?: boolean;
+	/**
+	 * A second yes (the GPU fallback's "Always use the CPU here"): the three
+	 * answers stack, the button first, then this, then the cancel; the
+	 * callback's `alt` says it was this one.
+	 */
+	alt?: string;
+	/**
+	 * A smaller line quoting someone else's words: `frame` is a t() result
+	 * that KEEPs {reason}, and `reason` is shown in it verbatim, in a <bdi>
+	 * (the browser's own text for a lost GPU).
+	 */
+	quote?: {frame: string; reason: string};
 };
 
 type ConfirmDialogCallback = {
-	(confirmed: boolean): void;
+	(confirmed: boolean, alt?: boolean): void;
 };
 
 export default defineComponent({
 	name: "ConfirmDialog",
+	components: {I18nFrame},
 	setup() {
 		const {t} = useI18n();
 		const data = ref<ConfirmDialogData>();
@@ -107,11 +161,11 @@ export default defineComponent({
 			previous?.(false);
 		};
 
-		const close = (result: boolean) => {
+		const close = (result: boolean, alt = false) => {
 			data.value = undefined;
 
 			if (callback.value) {
-				callback.value(!!result);
+				callback.value(!!result, result && alt);
 			}
 		};
 

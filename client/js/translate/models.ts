@@ -596,19 +596,23 @@ const ALL_ON: EngineSwitches = {llm: true, opus: true, nllb: true};
  * GPU, on a phone (its GPU memory is kept for the language model), the GPU
  * first on a computer; a device the model has no copy for is left out.
  * What the walk does with each device -- blocked, down, a declined
- * download -- is the router's (router.ts `explainRoute`).
+ * download -- is the router's (router.ts `explainRoute`). `llmCpuAfterGpu`:
+ * the user said yes, this session, to carrying the language model on on
+ * the CPU once its GPU copy stopped (service.ts `askCpuFallback`), and its
+ * Auto is the GPU, then the CPU.
  */
 export function deviceOrder(
 	ref: ModelRef,
 	choice: DeviceChoice,
-	capability: Capability | null
+	capability: Capability | null,
+	llmCpuAfterGpu = false
 ): Device[] {
 	if (choice !== "auto") {
 		return [choice];
 	}
 
 	if (ref.family === "llm") {
-		return ["gpu"];
+		return llmCpuAfterGpu ? ["gpu", "cpu"] : ["gpu"];
 	}
 
 	if (ref.family === "nllb") {

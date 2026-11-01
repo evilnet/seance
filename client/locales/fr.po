@@ -13436,7 +13436,7 @@ msgctxt "translate.consent.metered"
 msgid "Your connection is metered or set to save data."
 msgstr "Votre connexion est limitée ou en mode économie de données."
 
-#. Button in the dialog asking before a translation model is downloaded: declines the download for now. The translation then uses a model already on the device, or fails saying which model it needs. Keep it short (a button).
+#. Button that declines for now, in two dialogs: the one asking before a translation model is downloaded (the translation then uses a model already on the device, or fails saying which model it needs), and the one titled 'The GPU stopped' (the translation fails as it would have, and the question is not asked again until the app is reopened). Keep it short (a button).
 #: client/js/translate/index.ts
 msgctxt "translate.consent.notNow"
 msgid "Not now"
@@ -13571,6 +13571,42 @@ msgstr "Formel"
 msgctxt "translate.formality.label"
 msgid "Address people"
 msgstr "Registre"
+
+#. Second button of the dialog titled 'The GPU stopped': runs the translation model on the main processor (CPU) from now on, on this device, by setting Settings → Translation → Run on to CPU. Keep it short (a button).
+#: client/js/translate/index.ts
+msgctxt "translate.gpuFallback.always"
+msgid "Always use the CPU here"
+msgstr "Toujours utiliser le CPU ici"
+
+#. Main button of the dialog titled 'The GPU stopped': runs the translation model on the main processor (CPU) for the rest of this visit, starting with the translation that just failed; the next time the app is opened it tries the GPU again. Keep it short (a button).
+#: client/js/translate/index.ts
+msgctxt "translate.gpuFallback.once"
+msgid "Use the CPU this time"
+msgstr "Utiliser le CPU cette fois"
+
+#. Smaller line under the body of the dialog titled 'The GPU stopped', shown only when the browser gave a reason for losing the GPU. {reason} is the browser's own message, quoted verbatim and never translated (often English, e.g. 'Device was lost: out of memory').
+#: client/js/translate/index.ts
+msgctxt "translate.gpuFallback.reason"
+msgid "The browser said: {reason}"
+msgstr "Le navigateur a indiqué : {reason}"
+
+#. Body of the dialog titled 'The GPU stopped', when the model's CPU copy is not on this device yet. {model} is the model's name as Settings lists it, e.g. 'Qwen3 1.7B'; {size} the CPU copy's download size with its unit, e.g. '1.0 GiB'. GPU = graphics processor, CPU = main processor (keep the usual abbreviations). The buttons are 'Use the CPU this time', 'Always use the CPU here' and 'Not now'.
+#: client/js/translate/index.ts
+msgctxt "translate.gpuFallback.text"
+msgid "{model} stopped working on this device's GPU. Run it on the CPU instead? It is slower, and needs a {size} download."
+msgstr "{model} ne fonctionne plus sur le GPU de cet appareil. L'exécuter sur le CPU à la place ? C'est plus lent et nécessite un téléchargement de {size}."
+
+#. Body of the dialog titled 'The GPU stopped', when the model's CPU copy is already downloaded on this device (so nothing to download). {model} is the model's name as Settings lists it, e.g. 'Qwen3 1.7B'. GPU = graphics processor, CPU = main processor (keep the usual abbreviations). The buttons are 'Use the CPU this time', 'Always use the CPU here' and 'Not now'.
+#: client/js/translate/index.ts
+msgctxt "translate.gpuFallback.textCached"
+msgid "{model} stopped working on this device's GPU. Run it on the CPU instead? It is slower."
+msgstr "{model} ne fonctionne plus sur le GPU de cet appareil. L'exécuter sur le CPU à la place ? C'est plus lent."
+
+#. Title of the dialog shown when the translation language model (Qwen3) has just stopped working on this device's graphics processor (GPU) — the browser lost the GPU device, or the model failed on it twice — and it could run on the main processor (CPU) instead. GPU is the usual abbreviation for the graphics processor. Short, a heading.
+#: client/js/translate/index.ts
+msgctxt "translate.gpuFallback.title"
+msgid "The GPU stopped"
+msgstr "Le GPU s'est arrêté"
 
 #. Tooltip of the translate button in a chat window's header while translation is off; clicking it turns reading on. {reading} is a language name.
 #: client/components/Chat.vue

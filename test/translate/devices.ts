@@ -68,6 +68,13 @@ describe("translate/devices", () => {
 			expect(deviceOrder(catalog.llm, "auto", desktop)).to.deep.equal(["gpu"]);
 		});
 
+		it("puts the CPU after the GPU for the language model once the user said yes to it", () => {
+			expect(deviceOrder(catalog.llm, "auto", desktop, true)).to.deep.equal(["gpu", "cpu"]);
+			// A pinned choice and the other models are untouched by it.
+			expect(deviceOrder(catalog.llm, "gpu", desktop, true)).to.deep.equal(["gpu"]);
+			expect(deviceOrder(opus, "auto", phone, true)).to.deep.equal(["cpu", "gpu"]);
+		});
+
 		it("tries NLLB-200's GPU copy first only where it fits", () => {
 			expect(deviceOrder(catalog.nllb, "auto", desktop)).to.deep.equal(["gpu", "cpu"]);
 			// Its 500 MiB embedding never binds on a 128 MiB phone.

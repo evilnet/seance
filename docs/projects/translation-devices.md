@@ -181,6 +181,22 @@ is an order of two:
 These orders are a placeholder, stated as such in the code and the docs,
 until measured on real GPUs (non-goal above).
 
+**Amended 2026-11-01: the user chose C: ask, this time / always / not now.**
+The language model under Auto is still the GPU alone, until its GPU copy is
+marked down (a load failure, or a second failed generation in a row). Then,
+when the CPU copy can run on the device (`modelBlock(ref, "cpu", …)` is
+null), a dialog asks — "The GPU stopped", the model, the CPU copy's download
+size unless it is on the device, and the browser's reason when the loss
+carried one. **Use the CPU this time**: for the rest of the session the
+language model's Auto order is the GPU, then the CPU, and the request that
+failed carries on there. **Always use the CPU here**: the same, and
+`translateLlmDevice` becomes `cpu`. **Not now**: the failure stands as
+before, and the question is not asked again this session. Either yes is the
+CPU copy's download consent. Nothing is stored for "this time" or "not now":
+the next page load starts from Auto. Pinned to the GPU, the question never
+comes; the second bullet below is what "Not now" leaves, and what a device the
+question cannot help (an iPhone, the 4B, no Memory64) has.
+
 The router walks a candidate's devices in Auto's order the way it walks
 candidates now: a device whose copy is blocked, marked down, or refused for
 download (the user said "Not now") is passed over for the next one. So:
@@ -193,7 +209,8 @@ download (the user said "Not now") is passed over for the next one. So:
 - A GPU copy marked down after two failures in a row (the device loss the
   phone hits) moves an Auto NLLB-200 or OPUS-MT to its other copy; the
   language model has no other copy under Auto, so it stays down for the
-  session as today.
+  session as today — unless the question in the amendment above is
+  answered yes.
 - The session's down set and refusals are keyed by model **and device**: a
   GPU loss marks down that model's GPU copy alone, for the session, as
   today (no stored state) **(my call)**.

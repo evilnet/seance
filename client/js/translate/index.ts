@@ -17,11 +17,17 @@ import {FAKE_CAPABILITY, fakePort} from "./fakePort";
 import {buildCatalog, listedSize, nativeDevice, normalizeDeviceChoice} from "./models";
 import {MainPort} from "./protocol";
 import {RouteTable} from "./router";
-import {ServiceDeps, ServiceSettings, TranslateService} from "./service";
+import {
+	CpuFallbackAnswer,
+	CpuFallbackInfo,
+	ServiceDeps,
+	ServiceSettings,
+	TranslateService,
+} from "./service";
 import {storedConsent} from "./consent";
 import eventbus from "../eventbus";
 import storage from "../localStorage";
-import {t} from "../i18n/core";
+import {KEEP, t} from "../i18n/core";
 import friendlysize from "../helpers/friendlysize";
 import {modelDisplayName} from "../helpers/translateWhy";
 
@@ -144,6 +150,39 @@ function askDownload(ref: ModelRef, device: Device): Promise<boolean> {
 	});
 }
 
+/**
+ * The language model stopped on the GPU (service.ts `askCpuFallback`): carry
+ * on on the CPU this time, always, or not now. A whole sentence with the
+ * download and one without; the browser's reason, when the loss carried
+ * one, quoted verbatim under it.
+ */
+function askCpuFallback(ref: ModelRef, info: CpuFallbackInfo): Promise<CpuFallbackAnswer> {
+	const model = modelDisplayName(ref);
+
+	return new Promise((resolve) => {
+		eventbus.emit(
+			"confirm-dialog",
+			{
+				title: t("translate.gpuFallback.title"),
+				text: info.cached
+					? t("translate.gpuFallback.textCached", {model})
+					: t("translate.gpuFallback.text", {model, size: friendlysize(info.sizeBytes)}),
+				quote: info.reason
+					? {
+							frame: t("translate.gpuFallback.reason", {reason: KEEP}),
+							reason: info.reason,
+					  }
+					: undefined,
+				button: t("translate.gpuFallback.once"),
+				alt: t("translate.gpuFallback.always"),
+				cancel: t("translate.consent.notNow"),
+				primary: true,
+			},
+			(yes: boolean, always?: boolean) => resolve(!yes ? "no" : always ? "always" : "once")
+		);
+	});
+}
+
 function create(): TranslateService {
 	const branding = getBranding().translation ?? {};
 	const fake = useFake();
@@ -180,6 +219,18 @@ function create(): TranslateService {
 		deps.askDownload = askDownload;
 		deps.consent = storedConsent(storage);
 	}
+
+	// The GPU stopped under Auto: ask about the CPU. "Always" is the
+	// setting, so Settings shows it and the backup carries it.
+	deps.askCpuFallback = askCpuFallback;
+
+	deps.saveLlmDevice = (device) => {
+		void store.dispatch("settings/update", {
+			name: "translateLlmDevice",
+			value: device,
+			sync: true,
+		});
+	};
 
 	// An unset GPU model ("") is no choice: it resolves every time it is read
 	// — the deploy's model, else what the device probe fits, else the shipped

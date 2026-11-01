@@ -14,12 +14,14 @@ import {
 	Device,
 	Engine,
 	EngineCapabilities,
+	EngineError,
 	EngineName,
 	EngineStatus,
 	LoadProgress,
 	ModelRef,
 	TranslateChunk,
 	TranslateRequest,
+	gpuLost,
 } from "./engine";
 import {languageName} from "./languages";
 import {Capability} from "./capability";
@@ -64,6 +66,12 @@ const ECHO_ONCE_TOKEN = "[echo-once]";
  *  carries the token as well, and has to reach its read-back. */
 const ANSWER_TOKEN = "[answer]";
 const ANSWER_REPLY = "Yes, of course, it starts at nine.";
+/** The token a request's text (or any of its lines) can carry to lose the
+ *  GPU: the language model on the GPU fails as a lost device does (a
+ *  load-class failure carrying the browser's reason), so a scenario sees
+ *  its copy marked down and the "The GPU stopped" question (service.ts
+ *  `askCpuFallback`); on the CPU the request translates. */
+const GPU_LOST_TOKEN = "[gpu-lost]";
 
 interface TranslateFakeRequestLog {
 	id: number;
@@ -220,6 +228,13 @@ class ScriptedEngine implements Engine {
 		}
 
 		const failKey = req.lines ? req.lines.join("\n") : req.text;
+
+		if (this.name === "llm" && this.device === "gpu" && failKey.includes(GPU_LOST_TOKEN)) {
+			throw new EngineError(
+				gpuLost("Device was lost: the fake GPU stopped", "generate failed"),
+				"load"
+			);
+		}
 
 		if (failKey.includes(FAIL_TOKEN) && !this.failedOnce.has(failKey)) {
 			this.failedOnce.add(failKey);

@@ -96,6 +96,12 @@ export interface RouteInput {
 	 * nothing routes.
 	 */
 	capability: Capability | null;
+	/**
+	 * The session's yes to the language model on the CPU after its GPU copy
+	 * stopped (service.ts `askCpuFallback`): its Auto order is the GPU, then
+	 * the CPU (`deviceOrder`). Absent, the GPU alone.
+	 */
+	llmCpuAfterGpu?: boolean;
 }
 
 export interface Route {
@@ -207,7 +213,12 @@ function walkDevices(
 ): {device: Device; why: null} | {device: null; why: RouteBlock} {
 	const blocks: RouteBlock[] = [];
 
-	for (const device of deviceOrder(ref, choiceFor(ref, input.devices), input.capability)) {
+	for (const device of deviceOrder(
+		ref,
+		choiceFor(ref, input.devices),
+		input.capability,
+		input.llmCpuAfterGpu
+	)) {
 		const block: RouteBlock | null =
 			modelBlock(ref, device, input.capability, input.switches) ??
 			(input.down.has(`${candidate}@${device}`)

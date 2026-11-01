@@ -582,6 +582,29 @@ device at a time; a load on one device first waits for a load still in flight
 on the other, then unloads it, since a language model's reload is listed as
 loaded only once it finishes.
 
+**When the GPU stops, the language model asks about the CPU** (2026-11-01,
+`docs/projects/translation-devices.md` § Auto). A load-class failure of the
+language model's GPU copy (a load failure, or the second failed generation in
+a row) marks that copy down as before; if the device choice is Auto
+(`translateLlmDevice`), the CPU copy can run here (`modelBlock(ref, "cpu", …)`
+is null: never on an iPhone or iPad, never the 4B, never without Memory64 or
+SIMD) and the question has not been answered "Not now" this session, the
+service asks through `ServiceDeps.askCpuFallback` (`index.ts`: the confirm
+dialog, "The GPU stopped", with the copy's download size when it is not on the
+device and the browser's own words from `parseGpuLost` quoted under it).
+**Use the CPU this time** makes the language model's Auto order the GPU, then
+the CPU, for the rest of the session (`RouteInput.llmCpuAfterGpu`), and the
+request that failed is routed again and carries on on the CPU; **Always use
+the CPU here** does the same and pins `translateLlmDevice` to `cpu`
+(`ServiceDeps.saveLlmDevice`); **Not now** leaves the failure as it was and the
+question is not asked again until a reload. Either yes is the CPU copy's
+download consent (`<id>@cpu`). While the dialog is open every route waits for
+it (one question for every failure at once) and `loadTicks()` moves on every
+read, so no deadline armed before it runs out; a request carried on to the CPU
+under that yes moves the counter on every chunk, since its deadline may have
+been armed for the GPU, and a batch larger than `CPU_BATCH_MAX_LINES` is
+refused with `BATCH_REFUSED` so the queue sends its lines one at a time.
+
 **The CPU language model's numbers** (`models.ts`): a context window of 1024
 tokens (`CPU_CONTEXT_WINDOW`: it holds the 700-token context budget, the
 prompt and a 160-token answer; the prompt costs what it costs on the CPU

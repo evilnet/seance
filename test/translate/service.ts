@@ -4,6 +4,7 @@ import type {Capability} from "../../client/js/translate/capability";
 import {
 	BATCH_REFUSED,
 	emptyContext,
+	gpuLost,
 	type Device,
 	type ModelRef,
 } from "../../client/js/translate/engine";
@@ -27,11 +28,14 @@ import {
 	TRANSLATION_UNAVAILABLE,
 	TranslateService,
 	loadNote,
+	type CpuFallbackAnswer,
+	type CpuFallbackInfo,
 	type ServiceDeps,
 } from "../../client/js/translate/service";
 import {serveEngines} from "../../client/js/translate/worker";
 import {
 	PAUSE_AFTER_FAILURES,
+	REQUEST_TIMEOUT_MS,
 	TranslateQueue,
 	type QueueUpdate,
 } from "../../client/js/translate/queue";
@@ -125,8 +129,14 @@ function rig(
 	tier: Capability["tier"] = "gpu",
 	enabled = true,
 	routes: RouteTable = DEFAULT_ROUTES,
-	consent: Pick<ServiceDeps, "askDownload" | "consent"> = {},
-	shape: {catalog?: ModelCatalog; maxBufferBytes?: number} = {}
+	consent: Pick<ServiceDeps, "askDownload" | "consent" | "askCpuFallback" | "saveLlmDevice"> = {},
+	shape: {
+		catalog?: ModelCatalog;
+		maxBufferBytes?: number;
+		/** Fields laid over the probe's answer (an iPhone, no Memory64). */
+		capability?: Partial<Capability>;
+		selectedLlm?: string;
+	} = {}
 ) {
 	const clock = sinon.useFakeTimers();
 	const workers: {terminated: boolean}[] = [];
@@ -206,7 +216,7 @@ function rig(
 		},
 		probe() {
 			probes += 1;
-			const probed = capability(tier);
+			const probed = {...capability(tier), ...shape.capability};
 
 			return Promise.resolve(
 				shape.maxBufferBytes === undefined
@@ -224,7 +234,7 @@ function rig(
 			catalog: shape.catalog ?? catalog,
 			// A chosen model, so the probe's own default (an unset choice
 			// resolves against the device) leaves these rigs alone.
-			selectedLlm: QWEN3_1_7B_ID,
+			selectedLlm: shape.selectedLlm ?? QWEN3_1_7B_ID,
 			routesFor: () => routes,
 			ortBase: "https://app.test/js/ort/",
 			enabled,
@@ -2343,6 +2353,355 @@ describe("translate/service", () => {
 			expect(
 				views.filter((v) => v.ref.id === QWEN3_4B_ID).map((v) => v.device)
 			).to.deep.equal(["gpu"]);
+			r.service.dispose();
+		});
+	});
+
+	// The language model fails on the GPU under Auto: the user is asked
+	// whether to carry on on the CPU (translation-devices.md § Auto, the
+	// amendment of 2026-11-01).
+	describe("the GPU stopped: carry on on the CPU?", () => {
+		const ON = {llm: true, opus: true, nllb: true};
+		/** The language model alone serves German to English: no other class to fall to. */
+		const LLM_ONLY: RouteTable = {en: {de: ["llm"]}};
+		const LOST = gpuLost("Device was lost: out of memory", "generate failed");
+
+		/** The question the test answers: what it was asked, and how to answer the next. */
+		function question() {
+			const asked: {ref: ModelRef; info: CpuFallbackInfo}[] = [];
+			const answers: ((answer: CpuFallbackAnswer) => void)[] = [];
+			const saved: string[] = [];
+
+			const askCpuFallback = (ref: ModelRef, info: CpuFallbackInfo) => {
+				asked.push({ref, info});
+
+				return new Promise<CpuFallbackAnswer>((resolve) => answers.push(resolve));
+			};
+
+			const saveLlmDevice = (device: "cpu") => {
+				saved.push(device);
+			};
+
+			const answer = (choice: CpuFallbackAnswer) => {
+				const next = answers.shift();
+
+				expect(next, "a question is open").to.not.equal(undefined);
+				next!(choice);
+			};
+
+			return {
+				asked,
+				saved,
+				askCpuFallback,
+				saveLlmDevice,
+				answer,
+				get open() {
+					return answers.length;
+				},
+			};
+		}
+
+		/** Every GPU load of the language model fails as a lost device does. */
+		function gpuAlwaysFails(r: ReturnType<typeof rig>) {
+			const original = r.llm.load.bind(r.llm);
+
+			r.llm.load = (ref, device, onProgress) => {
+				if (device === "gpu") {
+					r.llm.calls.load.push(ref);
+					r.llm.calls.devices.push(device);
+
+					return Promise.reject(new Error(LOST));
+				}
+
+				return original(ref, device, onProgress);
+			};
+		}
+
+		async function failure(iterable: AsyncIterable<{text: string; done: boolean}>) {
+			try {
+				await text(iterable);
+			} catch (e) {
+				return (e as Error).message;
+			}
+
+			return null;
+		}
+
+		it("asks once, and Use the CPU this time carries the same request on to the CPU", async () => {
+			const q = question();
+			const downloads: string[] = [];
+			const store = memoryConsent();
+			const r = rig("gpu", true, LLM_ONLY, {
+				askCpuFallback: q.askCpuFallback,
+				saveLlmDevice: q.saveLlmDevice,
+				askDownload(ref) {
+					downloads.push(ref.id);
+
+					return Promise.resolve(true);
+				},
+				consent: store,
+			});
+			clock = r.clock;
+			// The GPU copy is on the device; the CPU copy is not.
+			r.cached.add(`${catalog.llm.id}@gpu`);
+			r.llm.failLoad = new Error(LOST);
+
+			const result = text(r.service.translate(base));
+
+			await r.clock.tickAsync(10);
+			expect(q.asked).to.have.length(1);
+			expect(q.asked[0].ref.id).to.equal(catalog.llm.id);
+			expect(q.asked[0].info).to.deep.equal({
+				cached: false,
+				sizeBytes: catalog.llm.copies.cpu!.sizeBytes,
+				reason: "Device was lost: out of memory",
+			});
+			q.answer("once");
+
+			expect(await result).to.equal("llm:Hallo");
+			expect(r.llm.calls.devices).to.deep.equal(["gpu", "cpu"]);
+			// A yes is the CPU copy's download consent: no second question.
+			expect(downloads).to.deep.equal([]);
+			expect(store.has(`${catalog.llm.id}@cpu`)).to.equal(true);
+			expect(q.saved).to.deep.equal([]);
+			// For the rest of the session Auto takes the CPU after the GPU.
+			expect(await r.service.route("de", "en")).to.deep.include({
+				candidate: "llm",
+				device: "cpu",
+			});
+			expect(await text(r.service.translate(base))).to.equal("llm:Hallo");
+			expect(q.asked).to.have.length(1);
+			r.service.dispose();
+		});
+
+		it("says nothing of a reason the failure did not carry, and knows a CPU copy on the device", async () => {
+			const q = question();
+			const r = rig("gpu", true, LLM_ONLY, {askCpuFallback: q.askCpuFallback});
+			clock = r.clock;
+			r.cached.add(`${catalog.llm.id}@cpu`);
+			r.llm.failLoad = new Error("shader compilation failed");
+
+			const result = text(r.service.translate(base));
+
+			await r.clock.tickAsync(10);
+			expect(q.asked[0].info).to.deep.include({cached: true, reason: null});
+			q.answer("once");
+			expect(await result).to.equal("llm:Hallo");
+			r.service.dispose();
+		});
+
+		it("Always use the CPU here pins the setting through the store glue", async () => {
+			const q = question();
+			const r = rig("gpu", true, LLM_ONLY, {
+				askCpuFallback: q.askCpuFallback,
+				saveLlmDevice: q.saveLlmDevice,
+			});
+			clock = r.clock;
+			r.llm.failLoad = new Error(LOST);
+
+			const result = text(r.service.translate(base));
+
+			await r.clock.tickAsync(10);
+			q.answer("always");
+			expect(await result).to.equal("llm:Hallo");
+			expect(q.saved).to.deep.equal(["cpu"]);
+			expect(await r.service.route("de", "en")).to.deep.include({
+				candidate: "llm",
+				device: "cpu",
+			});
+			r.service.dispose();
+		});
+
+		it("Not now fails the request as before, and the question is not asked again this session", async () => {
+			const q = question();
+			const r = rig("gpu", true, LLM_ONLY, {askCpuFallback: q.askCpuFallback});
+			clock = r.clock;
+			r.llm.failLoad = new Error(LOST);
+
+			const result = failure(r.service.translate(base));
+
+			await r.clock.tickAsync(10);
+			q.answer("no");
+			expect(await result).to.match(new RegExp(`^${TRANSLATION_UNAVAILABLE}`));
+			expect(r.llm.calls.devices).to.deep.equal(["gpu"]);
+
+			// Settings' Download lifts the GPU copy's down-mark; it fails again.
+			await r.service.download(catalog.llm, "gpu");
+			r.llm.failLoad = new Error(LOST);
+			r.llm.calls.devices.length = 0;
+			// The download loaded it: unload so the next request loads again.
+			await r.llm.unload();
+
+			expect(await failure(r.service.translate(base))).to.match(
+				new RegExp(`^${TRANSLATION_UNAVAILABLE}`)
+			);
+			expect(r.llm.calls.devices).to.deep.equal(["gpu"]);
+			expect(q.asked).to.have.length(1);
+			expect(q.open).to.equal(0);
+			r.service.dispose();
+		});
+
+		it("is never asked while the language model is pinned to the GPU", async () => {
+			const q = question();
+			const r = rig("gpu", true, LLM_ONLY, {askCpuFallback: q.askCpuFallback});
+			clock = r.clock;
+			r.service.setSettings({switches: ON, devices: {...AUTO, llm: "gpu"}});
+			r.llm.failLoad = new Error(LOST);
+
+			expect(await failure(r.service.translate(base))).to.match(
+				new RegExp(`^${TRANSLATION_UNAVAILABLE}`)
+			);
+			expect(q.asked).to.deep.equal([]);
+			r.service.dispose();
+		});
+
+		for (const [name, over] of [
+			["on an iPhone or iPad", {appleMobile: true}],
+			["without Memory64", {reasons: ["NO_MEMORY64"]}],
+		] as [string, Partial<Capability>][]) {
+			it(`is never asked where the CPU copy cannot run: ${name}`, async () => {
+				const q = question();
+				const r = rig(
+					"gpu",
+					true,
+					LLM_ONLY,
+					{askCpuFallback: q.askCpuFallback},
+					{capability: over}
+				);
+				clock = r.clock;
+				r.llm.failLoad = new Error(LOST);
+
+				expect(await failure(r.service.translate(base))).to.match(
+					new RegExp(`^${TRANSLATION_UNAVAILABLE}`)
+				);
+				expect(q.asked).to.deep.equal([]);
+				r.service.dispose();
+			});
+		}
+
+		it("is never asked for the 4B, which has no CPU copy", async () => {
+			const q = question();
+			const r = rig(
+				"gpu",
+				true,
+				LLM_ONLY,
+				{askCpuFallback: q.askCpuFallback},
+				{catalog: buildCatalog({seq2seqGpu: true}, QWEN3_4B_ID), selectedLlm: QWEN3_4B_ID}
+			);
+			clock = r.clock;
+			expect(r.service.catalog.llm.id).to.equal(QWEN3_4B_ID);
+			r.llm.failLoad = new Error(LOST);
+
+			expect(await failure(r.service.translate(base))).to.match(
+				new RegExp(`^${TRANSLATION_UNAVAILABLE}`)
+			);
+			expect(q.asked).to.deep.equal([]);
+			r.service.dispose();
+		});
+
+		it("without the hook nothing is asked and the request fails as before", async () => {
+			const r = rig("gpu", true, LLM_ONLY);
+			clock = r.clock;
+			r.llm.failLoad = new Error(LOST);
+
+			expect(await failure(r.service.translate(base))).to.match(
+				new RegExp(`^${TRANSLATION_UNAVAILABLE}`)
+			);
+			expect(r.llm.calls.devices).to.deep.equal(["gpu"]);
+			r.service.dispose();
+		});
+
+		it("two requests failing at once share one question, and both carry on", async () => {
+			const q = question();
+			const r = rig("gpu", true, LLM_ONLY, {askCpuFallback: q.askCpuFallback});
+			clock = r.clock;
+			gpuAlwaysFails(r);
+
+			const first = text(r.service.translate(base));
+			const second = text(r.service.translate({...base, text: "Welt"}));
+
+			await r.clock.tickAsync(10);
+			expect(q.asked).to.have.length(1);
+			// A request routed while the question is open waits for it too.
+			const third = text(r.service.translate({...base, text: "Drei"}));
+
+			await r.clock.tickAsync(10);
+			expect(q.asked).to.have.length(1);
+			q.answer("once");
+
+			expect(await Promise.all([first, second, third])).to.deep.equal([
+				"llm:Hallo",
+				"llm:Welt",
+				"llm:Drei",
+			]);
+			expect(q.asked).to.have.length(1);
+			r.service.dispose();
+		});
+
+		it("a batch made for the GPU is refused on the CPU, for the queue to send line by line", async () => {
+			const q = question();
+			const r = rig("gpu", true, LLM_ONLY, {askCpuFallback: q.askCpuFallback});
+			clock = r.clock;
+			r.llm.failLoad = new Error(LOST);
+
+			const lines = ["Eins", "Zwei", "Drei", "Vier", "Fünf", "Sechs"];
+			const result = failure(r.service.translate({...base, text: "", lines}));
+
+			await r.clock.tickAsync(10);
+			q.answer("once");
+			expect(await result).to.equal(BATCH_REFUSED);
+			expect(r.llm.calls.translate.filter((req) => req.device === "cpu")).to.deep.equal([]);
+
+			// One line at a time, it runs on the CPU.
+			expect(await text(r.service.translate({...base, text: "Eins"}))).to.equal("llm:Eins");
+			r.service.dispose();
+		});
+
+		it("the request's deadline does not run out while the question is open", async () => {
+			const q = question();
+			const r = rig("gpu", true, LLM_ONLY, {askCpuFallback: q.askCpuFallback});
+			clock = r.clock;
+			r.llm.failLoad = new Error(LOST);
+
+			const updates: [number, QueueUpdate][] = [];
+			const queue = new TranslateQueue({
+				route: (from, to, hint) =>
+					r.service
+						.route(from, to, hint)
+						.then((route) =>
+							route ? {engine: route.ref.engine, device: route.device} : null
+						),
+				translate: (req, signal) => r.service.translate(req, signal),
+				priority: () => 0,
+				arrivals: () => 0,
+				onUpdate: (id, update) => updates.push([id, update]),
+				loadTicks: () => r.service.loadTicks(),
+			});
+			const p = protect("Hallo");
+
+			queue.enqueue({
+				id: 1,
+				chanId: 1,
+				text: p.text,
+				spans: p.spans,
+				meta: p.meta,
+				from: "de",
+				to: "en",
+				context: emptyContext(),
+				arrivalsAtEnqueue: 0,
+				single: true,
+			});
+			await r.clock.tickAsync(10);
+			expect(q.asked).to.have.length(1);
+
+			// The user takes their time.
+			await r.clock.tickAsync(REQUEST_TIMEOUT_MS * 3);
+			q.answer("once");
+			await r.clock.tickAsync(10);
+
+			const last = updates.filter(([id]) => id === 1).pop()?.[1];
+
+			expect(last).to.deep.include({status: "done", text: "llm:Hallo"});
 			r.service.dispose();
 		});
 	});
