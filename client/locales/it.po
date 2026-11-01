@@ -13322,6 +13322,20 @@ msgctxt "translate.capability.none"
 msgid "Translation cannot run on this device."
 msgstr "La traduzione non può funzionare su questo dispositivo."
 
+#. Settings → Translation, in the lines about this device's GPU. Shown only while a developer test setting changes how many tokens (word pieces) of a text the translation model sends to the graphics processor (GPU) at once. {count} is that number of tokens, e.g. 64. {key} is the name of the stored setting, e.g. 'thelounge.state.gpuPrefillChunk' — never translate it. The singular form shows for one, the plural for any other number.
+#: client/components/Settings/Translation.vue
+msgctxt "translate.capability.prefillChunk"
+msgid "Prompts go to the GPU {count} token at a time (test switch {key})."
+msgid_plural "Prompts go to the GPU {count} tokens at a time (test switch {key})."
+msgstr[0] "I prompt vanno alla GPU {count} token alla volta (opzione di test {key})."
+msgstr[1] "I prompt vanno alla GPU {count} token alla volta (opzione di test {key})."
+
+#. Settings → Translation, in the lines about this device's GPU. Shown only while a developer test setting says the translation model sends a text to the graphics processor (GPU) in the chunk size its own files set (the default on a computer). {key} is the name of the stored setting, e.g. 'thelounge.state.gpuPrefillChunk' — never translate it.
+#: client/components/Settings/Translation.vue
+msgctxt "translate.capability.prefillChunkLibrary"
+msgid "Prompts go to the GPU in the model's own chunks (test switch {key})."
+msgstr "I prompt vanno alla GPU nei blocchi propri del modello (opzione di test {key})."
+
 #. One reason the graphics-processor model cannot run, listed under the device verdict in Settings → Translation: the graphics hardware allows too few storage buffers per shader, or too little workgroup memory, for the translation library. Lowercase start, short phrase like the other reasons in the list.
 #: client/components/Settings/Translation.vue
 msgctxt "translate.capability.reason.gpuLimits"

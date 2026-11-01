@@ -2248,6 +2248,10 @@
   "translate.capability.cpu": "このデバイスには CPU しかありません。",
   "translate.capability.gpu": "このデバイスには GPU と CPU があります。",
   "translate.capability.none": "このデバイスでは翻訳を実行できません。",
+  "translate.capability.prefillChunk": {
+    "other": "プロンプトは一度に {count} トークンずつGPUに送られます（テストスイッチ {key}）。"
+  },
+  "translate.capability.prefillChunkLibrary": "プロンプトはモデル自身のチャンク単位でGPUに送られます（テストスイッチ {key}）。",
   "translate.capability.reason.gpuLimits": "GPUのシェーダー制限が低すぎます",
   "translate.capability.reason.insecureOrigin": "安全でないオリジン: WebGPU には HTTPS か localhost が必要です — アプリを HTTPS で配信してください",
   "translate.capability.reason.noAdapter": "WebGPUアダプターが利用できません",

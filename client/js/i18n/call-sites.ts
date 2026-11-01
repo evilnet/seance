@@ -2139,6 +2139,8 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"translate.capability.cpu",
 	"translate.capability.gpu",
 	"translate.capability.none",
+	"translate.capability.prefillChunk",
+	"translate.capability.prefillChunkLibrary",
 	"translate.capability.reason.gpuLimits",
 	"translate.capability.reason.insecureOrigin",
 	"translate.capability.reason.noAdapter",

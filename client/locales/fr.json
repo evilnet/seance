@@ -2196,6 +2196,11 @@
   "translate.capability.cpu": "Cet appareil n'a qu'un CPU.",
   "translate.capability.gpu": "Cet appareil a un GPU et un CPU.",
   "translate.capability.none": "La traduction ne peut pas s'exécuter sur cet appareil.",
+  "translate.capability.prefillChunk": {
+    "one": "Les invites sont envoyées au GPU {count} jeton à la fois (option de test {key}).",
+    "other": "Les invites sont envoyées au GPU {count} jetons à la fois (option de test {key})."
+  },
+  "translate.capability.prefillChunkLibrary": "Les invites sont envoyées au GPU par blocs définis par le modèle (option de test {key}).",
   "translate.capability.reason.gpuLimits": "limites des shaders du GPU trop basses",
   "translate.capability.reason.insecureOrigin": "origine non sécurisée : WebGPU nécessite HTTPS ou localhost — servez l'application sur HTTPS",
   "translate.capability.reason.noAdapter": "adaptateur WebGPU indisponible",

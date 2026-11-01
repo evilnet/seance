@@ -2246,6 +2246,11 @@
   "translate.capability.cpu": "Denne enhed har kun en CPU.",
   "translate.capability.gpu": "Denne enhed har en GPU og en CPU.",
   "translate.capability.none": "Oversættelse kan ikke køre på denne enhed.",
+  "translate.capability.prefillChunk": {
+    "one": "Prompter sendes til GPU'en {count} token ad gangen (testindstilling {key}).",
+    "other": "Prompter sendes til GPU'en {count} tokens ad gangen (testindstilling {key})."
+  },
+  "translate.capability.prefillChunkLibrary": "Prompter sendes til GPU'en i modellens egne blokke (testindstilling {key}).",
   "translate.capability.reason.gpuLimits": "GPU'ens shadergrænser er for lave",
   "translate.capability.reason.insecureOrigin": "usikker oprindelse: WebGPU kræver HTTPS eller localhost — server appen over HTTPS",
   "translate.capability.reason.noAdapter": "WebGPU-adapter ikke tilgængelig",

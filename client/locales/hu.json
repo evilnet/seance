@@ -2300,6 +2300,11 @@
   "translate.capability.cpu": "Ezen az eszközön csak CPU van.",
   "translate.capability.gpu": "Ezen az eszközön van GPU és CPU.",
   "translate.capability.none": "A fordítás nem futtatható ezen az eszközön.",
+  "translate.capability.prefillChunk": {
+    "one": "A promptok egyszerre {count} tokenként jutnak a GPU-ra (tesztkapcsoló: {key}).",
+    "other": "A promptok egyszerre {count} tokenként jutnak a GPU-ra (tesztkapcsoló: {key})."
+  },
+  "translate.capability.prefillChunkLibrary": "A promptok a modell saját blokkjaiban jutnak a GPU-ra (tesztkapcsoló: {key}).",
   "translate.capability.reason.gpuLimits": "túl alacsony GPU-shaderkorlátok",
   "translate.capability.reason.insecureOrigin": "nem biztonságos forrás: a WebGPU-hoz HTTPS vagy localhost kell — szolgáld ki az alkalmazást HTTPS-en",
   "translate.capability.reason.noAdapter": "a WebGPU-adapter nem érhető el",

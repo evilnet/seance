@@ -2410,6 +2410,13 @@
   "translate.capability.cpu": "To urządzenie ma tylko CPU.",
   "translate.capability.gpu": "To urządzenie ma GPU i CPU.",
   "translate.capability.none": "Tłumaczenie nie może działać na tym urządzeniu.",
+  "translate.capability.prefillChunk": {
+    "one": "Prompty trafiają do GPU po {count} tokenie naraz (przełącznik testowy {key}).",
+    "few": "Prompty trafiają do GPU po {count} tokeny naraz (przełącznik testowy {key}).",
+    "many": "Prompty trafiają do GPU po {count} tokenów naraz (przełącznik testowy {key}).",
+    "other": "Prompty trafiają do GPU po {count} tokenów naraz (przełącznik testowy {key})."
+  },
+  "translate.capability.prefillChunkLibrary": "Prompty trafiają do GPU we własnych blokach modelu (przełącznik testowy {key}).",
   "translate.capability.reason.gpuLimits": "zbyt niskie limity shaderów GPU",
   "translate.capability.reason.insecureOrigin": "niezabezpieczone pochodzenie (origin): WebGPU wymaga HTTPS lub localhost — udostępnij aplikację przez HTTPS",
   "translate.capability.reason.noAdapter": "adapter WebGPU niedostępny",

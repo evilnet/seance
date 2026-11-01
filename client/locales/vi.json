@@ -2246,6 +2246,10 @@
   "translate.capability.cpu": "Thiết bị này chỉ có CPU.",
   "translate.capability.gpu": "Thiết bị này có GPU và CPU.",
   "translate.capability.none": "Không thể dịch trên thiết bị này.",
+  "translate.capability.prefillChunk": {
+    "other": "Lời nhắc được gửi tới GPU mỗi lần {count} token (công tắc thử nghiệm {key})."
+  },
+  "translate.capability.prefillChunkLibrary": "Lời nhắc được gửi tới GPU theo các khối riêng của mô hình (công tắc thử nghiệm {key}).",
   "translate.capability.reason.gpuLimits": "giới hạn shader của GPU quá thấp",
   "translate.capability.reason.insecureOrigin": "nguồn không an toàn: WebGPU cần HTTPS hoặc localhost — cung cấp ứng dụng qua HTTPS",
   "translate.capability.reason.noAdapter": "adapter WebGPU không khả dụng",

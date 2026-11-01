@@ -253,6 +253,35 @@ export interface GpuBudget {
 	 * computer, so the message a computer's worker is told is unchanged.
 	 */
 	mobile?: boolean;
+	/**
+	 * The prefill chunk test switch (gpuPrefillChunk.ts), read on the page:
+	 * tokens, or null for the library's own chunk; absent when it is not set.
+	 */
+	prefillChunk?: number | null;
+}
+
+/**
+ * How many tokens of a prompt a phone's GPU is given at a time. WebLLM
+ * prefills a prompt in chunks of the model library's `prefill_chunk_size`
+ * (1024 for these builds): on a phone (Adreno 750, Vulkan) a ~300-word
+ * message lost the device where a one-word one did not, so the GPU work of
+ * one chunk is the likely trigger. The compiled kernels take any length up
+ * to the library's, so a smaller chunk only spreads the same work over more
+ * dispatches.
+ */
+export const MOBILE_PREFILL_CHUNK = 64;
+
+/**
+ * The prefill chunk a GPU model runs with after its load (engines/webllm.ts),
+ * or null for the library's own: the test switch's value when it is set,
+ * else `MOBILE_PREFILL_CHUNK` on a phone or tablet.
+ */
+export function prefillChunkFor(gpu: GpuBudget | null | undefined): number | null {
+	if (gpu?.prefillChunk !== undefined) {
+		return gpu.prefillChunk;
+	}
+
+	return gpu?.mobile ? MOBILE_PREFILL_CHUNK : null;
 }
 
 /**

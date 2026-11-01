@@ -412,6 +412,37 @@ app served under a subpath; Download seeds the pinned manifest and fetches
 the library from the app's own URL, and stops at WebLLM's device check,
 before any weight).
 
+**The prefill chunk.** WebLLM 0.2.85 gives the GPU a prompt in chunks of
+the model library's `prefill_chunk_size` (1024 tokens for these builds;
+`LLMChatPipeline.prefillChunkSize`, read from the library's metadata at load).
+On a phone (Adreno 750, Chrome 156, Android 17, Vulkan, a 128 MiB binding) the
+GPU model lost the device, and stock WebLLM on chat.webllm.ai with
+Qwen3-0.6B answered a one-word message but failed on a ~300-word one: one big
+prefill job is the likely trigger. So a phone or tablet's GPU model takes a
+prompt 64 tokens at a time (`models.ts` `MOBILE_PREFILL_CHUNK`,
+`prefillChunkFor`): after every GPU reload — the small-buffer build's too,
+never the CPU instance — `engines/webllm.ts` asks
+`WebLlmDeps.setPrefillChunk`, which `webllm.real.ts` implements by lowering
+the pipeline's field in `MLCEngine.loadedModelIdToPipeline` to
+`min(tokens, the library's)`. The compiled kernels and the KV cache are sized
+for the library's value, so a smaller chunk only spreads the same work over
+more dispatches. That is WebLLM's internals, not its API: a library without
+them warns once on the console ("WebLLM internals changed: prefill chunk not
+set") and keeps its own chunk; the load stands. A computer keeps the
+library's chunk. **Its test switch** is
+`localStorage["thelounge.state.gpuPrefillChunk"]`, a whole number of tokens
+for phone and computer alike, `0` for the library's own
+(`translate/gpuPrefillChunk.ts`); it is read with the probe, so a reload
+applies it, Settings → Translation says "Prompts go to the GPU 32 tokens at
+a time (test switch …)" while it is set, and the backup never carries it.
+**Both switches as URL parameters**, for a phone without a console:
+`?gpuPrefillChunk=32` and `?gpuTestLimitMiB=128` are stored under their keys
+at boot (`translate/testSwitches.ts`, `boot.ts` `applyTestSwitches`, before
+anything probes the device), `=0` or an empty value removes the key, a value
+that is neither changes nothing, and the parameters are taken out of the
+address bar with every other parameter and the hash kept. A switch given on
+the URL is in force from that load.
+
 #### Memory: the window, the 4B, one engine at a time
 
 A phone binding enough is not a phone holding enough. On an iPhone,

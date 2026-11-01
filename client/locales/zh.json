@@ -2248,6 +2248,10 @@
   "translate.capability.cpu": "此设备只有 CPU。",
   "translate.capability.gpu": "此设备有 GPU 和 CPU。",
   "translate.capability.none": "该设备无法运行翻译。",
+  "translate.capability.prefillChunk": {
+    "other": "提示每次以 {count} 个 token 发送到 GPU（测试开关 {key}）。"
+  },
+  "translate.capability.prefillChunkLibrary": "提示按模型自身的分块发送到 GPU（测试开关 {key}）。",
   "translate.capability.reason.gpuLimits": "GPU 着色器限制过低",
   "translate.capability.reason.insecureOrigin": "不安全的源：WebGPU 需要 HTTPS 或 localhost——请通过 HTTPS 提供此应用",
   "translate.capability.reason.noAdapter": "WebGPU适配器不可用",

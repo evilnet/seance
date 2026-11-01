@@ -2219,6 +2219,11 @@
   "translate.capability.cpu": "CPU lang ang mayroon sa device na ito.",
   "translate.capability.gpu": "May GPU at CPU ang device na ito.",
   "translate.capability.none": "Hindi kayang tumakbo ng pagsasalin sa device na ito.",
+  "translate.capability.prefillChunk": {
+    "one": "Ipinapadala ang mga prompt sa GPU nang {count} token bawat beses (test switch {key}).",
+    "other": "Ipinapadala ang mga prompt sa GPU nang {count} na token bawat beses (test switch {key})."
+  },
+  "translate.capability.prefillChunkLibrary": "Ipinapadala ang mga prompt sa GPU ayon sa sariling mga bahagi ng modelo (test switch {key}).",
   "translate.capability.reason.gpuLimits": "masyadong mababa ang mga limitasyon ng shader ng GPU",
   "translate.capability.reason.insecureOrigin": "hindi secure na origin: kailangan ng WebGPU ng HTTPS o localhost — i-serve ang app sa HTTPS",
   "translate.capability.reason.noAdapter": "hindi available ang WebGPU adapter",

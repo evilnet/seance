@@ -41,6 +41,7 @@ import {DEV_I18N} from "./i18n/core";
 import dnd from "./dnd";
 import {setContextProvider, scriptManager} from "./irc/scripting/manager";
 import {MessageType} from "../../shared/types/msg";
+import {takeTestSwitches} from "./translate/testSwitches";
 // Also registers the IRC layer's bus handlers (input, names, more, network:*).
 import {allClients, autoconnectSavedNetworks, clientForNetwork, createNetwork} from "./irc/manager";
 
@@ -56,6 +57,12 @@ declare global {
 const initialHref = document.location.href;
 
 export async function boot(): Promise<void> {
+	// The GPU test switches given as URL parameters (?gpuPrefillChunk=,
+	// ?gpuTestLimitMiB=; translate/testSwitches.ts): stored before
+	// translation ever probes the device, and taken out of the address bar
+	// before the link handling below reads it.
+	applyTestSwitches();
+
 	// Reduce Motion and Increase Contrast before anything renders: the
 	// stylesheet reads them as attributes on <html>.
 	followSystemAccessibility();
@@ -426,6 +433,22 @@ function hasStoredSetting(name: string): boolean {
 		return typeof stored === "object" && stored !== null && name in stored;
 	} catch (e) {
 		return false;
+	}
+}
+
+function applyTestSwitches(): void {
+	let localStore: Storage | null = null;
+
+	try {
+		localStore = window.localStorage;
+	} catch {
+		// A private window: the switches cannot be kept.
+	}
+
+	const clean = takeTestSwitches(window.location.href, localStore);
+
+	if (clean !== null) {
+		window.history.replaceState(window.history.state, "", clean);
 	}
 }
 

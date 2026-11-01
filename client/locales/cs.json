@@ -2353,6 +2353,12 @@
   "translate.capability.cpu": "Toto zařízení má jen CPU.",
   "translate.capability.gpu": "Toto zařízení má GPU i CPU.",
   "translate.capability.none": "Překlad na tomto zařízení nelze spustit.",
+  "translate.capability.prefillChunk": {
+    "one": "Výzvy jdou do GPU po {count} tokenu (testovací přepínač {key}).",
+    "few": "Výzvy jdou do GPU po {count} tokenech (testovací přepínač {key}).",
+    "other": "Výzvy jdou do GPU po {count} tokenech (testovací přepínač {key})."
+  },
+  "translate.capability.prefillChunkLibrary": "Výzvy jdou do GPU ve vlastních blocích modelu (testovací přepínač {key}).",
   "translate.capability.reason.gpuLimits": "příliš nízké limity shaderů GPU",
   "translate.capability.reason.insecureOrigin": "nezabezpečený původ: WebGPU vyžaduje HTTPS nebo localhost — zpřístupněte aplikaci přes HTTPS",
   "translate.capability.reason.noAdapter": "adaptér WebGPU není k dispozici",

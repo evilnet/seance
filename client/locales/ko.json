@@ -2244,6 +2244,10 @@
   "translate.capability.cpu": "이 기기에는 CPU만 있습니다.",
   "translate.capability.gpu": "이 기기에는 GPU와 CPU가 있습니다.",
   "translate.capability.none": "이 기기에서는 번역을 실행할 수 없습니다.",
+  "translate.capability.prefillChunk": {
+    "other": "프롬프트는 한 번에 {count}토큰씩 GPU로 전달됩니다(테스트 스위치 {key})."
+  },
+  "translate.capability.prefillChunkLibrary": "프롬프트는 모델 자체의 청크 단위로 GPU에 전달됩니다(테스트 스위치 {key}).",
   "translate.capability.reason.gpuLimits": "GPU 셰이더 한도가 너무 낮음",
   "translate.capability.reason.insecureOrigin": "안전하지 않은 출처: WebGPU에는 HTTPS 또는 localhost가 필요합니다 — 앱을 HTTPS로 제공하세요",
   "translate.capability.reason.noAdapter": "WebGPU 어댑터를 사용할 수 없음",

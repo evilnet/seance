@@ -55,9 +55,49 @@ const seedDeps: SeedDeps = {
 	response: (body) => new Response(body, {headers: {"Content-Type": "application/json"}}),
 };
 
+/** Whether the "internals changed" warning has been given (once per worker). */
+let prefillWarned = false;
+
+/**
+ * Lowers a loaded pipeline's prefill chunk (webllm.ts `setPrefillChunk`,
+ * models.ts `prefillChunkFor`). WebLLM 0.2.85 reads it from the library's
+ * metadata into `LLMChatPipeline.prefillChunkSize` at load and chunks every
+ * prefill by it; the compiled kernels and the KV cache are sized for the
+ * library's value, so any smaller one is safe. Not public API: reached
+ * through `MLCEngine.loadedModelIdToPipeline`, and a library that no longer
+ * has it is told once on the console and keeps its own chunk.
+ */
+function setPrefillChunk(mlc: MlcLike, modelId: string, tokens: number): boolean {
+	try {
+		const pipelines = (mlc as unknown as {loadedModelIdToPipeline?: unknown})
+			.loadedModelIdToPipeline;
+		const pipeline =
+			pipelines instanceof Map
+				? (pipelines.get(modelId) as {prefillChunkSize?: unknown} | undefined)
+				: undefined;
+		const current = pipeline?.prefillChunkSize;
+
+		if (pipeline && typeof current === "number" && current > 0) {
+			pipeline.prefillChunkSize = Math.min(tokens, current);
+			return true;
+		}
+	} catch {
+		// Fall through to the warning: whatever threw is the internals changing.
+	}
+
+	if (!prefillWarned) {
+		prefillWarned = true;
+		// eslint-disable-next-line no-console -- the only trace a changed library leaves
+		console.warn("WebLLM internals changed: prefill chunk not set");
+	}
+
+	return false;
+}
+
 export const realWebLlmDeps: WebLlmDeps = {
 	prebuilt,
 	appRoot,
+	setPrefillChunk,
 	seedSplit: (build) => seedSplitManifest({model: build.model, split: build.split}, seedDeps),
 	create(appConfig, onProgress) {
 		return new MLCEngine({

@@ -2300,6 +2300,11 @@
   "translate.capability.cpu": "Bu cihazda yalnızca CPU var.",
   "translate.capability.gpu": "Bu cihazda GPU ve CPU var.",
   "translate.capability.none": "Çeviri bu cihazda çalışamaz.",
+  "translate.capability.prefillChunk": {
+    "one": "İstemler GPU'ya bir seferde {count} token olarak gider (test anahtarı {key}).",
+    "other": "İstemler GPU'ya bir seferde {count} token olarak gider (test anahtarı {key})."
+  },
+  "translate.capability.prefillChunkLibrary": "İstemler GPU'ya modelin kendi parçaları hâlinde gider (test anahtarı {key}).",
   "translate.capability.reason.gpuLimits": "GPU shader sınırları çok düşük",
   "translate.capability.reason.insecureOrigin": "güvensiz kaynak: WebGPU, HTTPS veya localhost gerektirir — uygulamayı HTTPS üzerinden sun",
   "translate.capability.reason.noAdapter": "WebGPU adaptörü bulunamadı",

@@ -8,6 +8,7 @@
 // is the only place that reads `navigator`; tests pass their own env.
 
 import {LLM_MIN_BUFFER_BYTES} from "./models";
+import {readGpuPrefillChunk} from "./gpuPrefillChunk";
 import {readGpuTestLimit} from "./gpuTestLimit";
 
 export type Tier = "gpu" | "cpu" | "none";
@@ -60,6 +61,11 @@ export interface Capability {
 	 * already held to it, and the worker holds WebLLM's device to it too.
 	 */
 	bufferCapBytes?: number | null;
+	/**
+	 * The prefill chunk test switch (gpuPrefillChunk.ts), when set: tokens,
+	 * or null for the library's own chunk (models.ts `prefillChunkFor`).
+	 */
+	prefillChunk?: number | null;
 }
 
 export interface AdapterLike {
@@ -94,6 +100,8 @@ export interface ProbeEnv {
 	appleMobile?: boolean;
 	/** The test switch (gpuTestLimit.ts): bind no more than this; absent or null, no cap. */
 	bufferCapBytes?: number | null;
+	/** The prefill chunk test switch (gpuPrefillChunk.ts); absent, not set. */
+	prefillChunk?: number | null;
 }
 
 // A model binds each weight tensor whole, so the floor is the smallest GPU
@@ -185,6 +193,8 @@ export async function probe(env: ProbeEnv): Promise<Capability> {
 		mobile: env.mobile === true,
 		appleMobile: env.appleMobile === true,
 		bufferCapBytes: env.bufferCapBytes ?? null,
+		// Only when set, so a probe without the switch reads as it always did.
+		...(env.prefillChunk !== undefined ? {prefillChunk: env.prefillChunk} : {}),
 	};
 }
 
@@ -223,6 +233,7 @@ export function browserEnv(): ProbeEnv {
 		mobile: isMobile(nav),
 		appleMobile: isAppleMobile(nav),
 		bufferCapBytes: readGpuTestLimit(),
+		prefillChunk: readGpuPrefillChunk(),
 	};
 }
 

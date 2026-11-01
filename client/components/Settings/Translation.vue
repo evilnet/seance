@@ -95,6 +95,24 @@
 						key: testLimitKey,
 					})
 				}}</span>
+				<!-- The prefill chunk test switch (translate/gpuPrefillChunk.ts)
+				     is on: how a prompt goes to the GPU is the switch's. -->
+				<span
+					v-if="typeof capability.prefillChunk === 'number'"
+					class="translate-device-test-chunk"
+					>{{
+						tCount("translate.capability.prefillChunk", capability.prefillChunk, {
+							key: prefillChunkKey,
+						})
+					}}</span
+				>
+				<span
+					v-else-if="capability.prefillChunk === null"
+					class="translate-device-test-chunk"
+					>{{
+						t("translate.capability.prefillChunkLibrary", {key: prefillChunkKey})
+					}}</span
+				>
 				<!-- How many threads the CPU models take, or that a reload
 				     brings them (translate/threads.ts). -->
 				<span v-if="threads" class="translate-device-threads">{{ threads }}</span>
@@ -407,6 +425,7 @@
 .translate-device-has,
 .translate-device-limit,
 .translate-device-test-limit,
+.translate-device-test-chunk,
 .translate-device-threads {
 	display: block;
 }
@@ -640,6 +659,7 @@ import {
 	smallBufferBuildFor,
 } from "../../js/translate/models";
 import {GPU_TEST_LIMIT_KEY} from "../../js/translate/gpuTestLimit";
+import {GPU_PREFILL_CHUNK_KEY} from "../../js/translate/gpuPrefillChunk";
 import {translateErrorText} from "../../js/helpers/translateErrors";
 import {translateWhyText} from "../../js/helpers/translateWhy";
 import {isLimitedLanguage} from "../../js/translate/routes.default";
@@ -1137,6 +1157,7 @@ export default defineComponent({
 			whyText: translateWhyText,
 			smallBuild,
 			testLimitKey: GPU_TEST_LIMIT_KEY,
+			prefillChunkKey: GPU_PREFILL_CHUNK_KEY,
 			store,
 			enabled,
 			capability,

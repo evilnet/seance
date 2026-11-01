@@ -2246,6 +2246,10 @@
   "translate.capability.cpu": "อุปกรณ์นี้มีเพียง CPU",
   "translate.capability.gpu": "อุปกรณ์นี้มีทั้ง GPU และ CPU",
   "translate.capability.none": "การแปลไม่สามารถทำงานบนอุปกรณ์นี้ได้",
+  "translate.capability.prefillChunk": {
+    "other": "ข้อความสั่งจะส่งไปยัง GPU ครั้งละ {count} โทเค็น (สวิตช์ทดสอบ {key})"
+  },
+  "translate.capability.prefillChunkLibrary": "ข้อความสั่งจะส่งไปยัง GPU เป็นช่วงตามที่โมเดลกำหนดเอง (สวิตช์ทดสอบ {key})",
   "translate.capability.reason.gpuLimits": "ขีดจำกัดเชเดอร์ของ GPU ต่ำเกินไป",
   "translate.capability.reason.insecureOrigin": "แหล่งที่มาไม่ปลอดภัย: WebGPU ต้องการ HTTPS หรือ localhost — ให้บริการแอปผ่าน HTTPS",
   "translate.capability.reason.noAdapter": "ไม่มี WebGPU adapter ที่ใช้ได้",

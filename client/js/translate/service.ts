@@ -514,6 +514,10 @@ export class TranslateService {
 					// The phone's smaller context window (models.ts
 					// `contextWindowFor`); a computer's message is unchanged.
 					...(this.probed.mobile ? {mobile: true} : {}),
+					// The prefill chunk test switch (models.ts `prefillChunkFor`).
+					...(this.probed.prefillChunk !== undefined
+						? {prefillChunk: this.probed.prefillChunk}
+						: {}),
 			  }
 			: undefined;
 	}

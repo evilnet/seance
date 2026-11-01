@@ -53,6 +53,7 @@ import {
 	GpuBudget,
 	ModelCatalog,
 	contextWindowFor,
+	prefillChunkFor,
 	smallBufferBuildFor,
 } from "../models";
 import {
@@ -131,6 +132,13 @@ export interface WebLlmDeps {
 	 * CPU instance has none, and a GPU loss is never reported as its own.
 	 */
 	takeDeviceLoss?: () => {reason: string; message: string} | null;
+	/**
+	 * Lowers the loaded model's prefill chunk to `tokens` (models.ts
+	 * `prefillChunkFor`), after a GPU reload of `modelId` (the id WebLLM
+	 * loaded: the small-buffer build's when that loaded). False when the
+	 * library's internals are not what it expects; it never throws.
+	 */
+	setPrefillChunk?(mlc: MlcLike, modelId: string, tokens: number): boolean;
 }
 
 /** How one instance runs: on which device, and with which window. */
@@ -461,6 +469,26 @@ export class WebLlmEngine implements Engine {
 		}
 	}
 
+	/**
+	 * A phone's GPU takes a prompt in smaller chunks (models.ts
+	 * `prefillChunkFor`): set on the pipeline just loaded. The CPU instance
+	 * is left alone. A library that will not take it keeps its own chunk,
+	 * and the load stands.
+	 */
+	private applyPrefillChunk(mlc: MlcLike, modelId: string): void {
+		const tokens = this.device === "gpu" ? prefillChunkFor(this.gpu) : null;
+
+		if (tokens === null || !this.deps.setPrefillChunk) {
+			return;
+		}
+
+		try {
+			this.deps.setPrefillChunk(mlc, modelId, tokens);
+		} catch {
+			// webllm.real.ts never throws; a stand-in that does changes nothing.
+		}
+	}
+
 	/** The build of `ref` this device loads (models.ts `smallBufferBuildFor`); null: the model itself. */
 	buildFor(ref: ModelRef): SmallBufferBuild | null {
 		return this.device === "gpu" ? smallBufferBuildFor(ref, this.gpu?.maxBufferBytes) : null;
@@ -544,12 +572,15 @@ export class WebLlmEngine implements Engine {
 			// one it always was, and the record's own window holds. An
 			// instance given its own window (the CPU's) always asks for it.
 			const window = this.fixedWindow ?? contextWindowFor(this.gpu);
+			const loadedId = build?.id ?? ref.id;
 
 			if (window !== null) {
-				await this.engine.reload(build?.id ?? ref.id, {context_window_size: window});
+				await this.engine.reload(loadedId, {context_window_size: window});
 			} else {
-				await this.engine.reload(build?.id ?? ref.id);
+				await this.engine.reload(loadedId);
 			}
+
+			this.applyPrefillChunk(this.engine, loadedId);
 
 			this.window = window ?? recordWindow(appConfig.model_list[0]);
 			this.model = ref.id;

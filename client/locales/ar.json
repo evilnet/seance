@@ -2559,6 +2559,15 @@
   "translate.capability.cpu": "لا يحتوي هذا الجهاز إلا على CPU.",
   "translate.capability.gpu": "يحتوي هذا الجهاز على GPU و CPU.",
   "translate.capability.none": "لا يمكن تشغيل الترجمة على هذا الجهاز.",
+  "translate.capability.prefillChunk": {
+    "zero": "تُرسَل الطلبات إلى GPU بمعدل {count} رمز في كل مرة (مفتاح الاختبار {key}).",
+    "one": "تُرسَل الطلبات إلى GPU بمعدل {count} رمز في كل مرة (مفتاح الاختبار {key}).",
+    "two": "تُرسَل الطلبات إلى GPU بمعدل {count} رمزين في كل مرة (مفتاح الاختبار {key}).",
+    "few": "تُرسَل الطلبات إلى GPU بمعدل {count} رموز في كل مرة (مفتاح الاختبار {key}).",
+    "many": "تُرسَل الطلبات إلى GPU بمعدل {count} رمزًا في كل مرة (مفتاح الاختبار {key}).",
+    "other": "تُرسَل الطلبات إلى GPU بمعدل {count} رمز في كل مرة (مفتاح الاختبار {key})."
+  },
+  "translate.capability.prefillChunkLibrary": "تُرسَل الطلبات إلى GPU بالأجزاء التي يحددها النموذج نفسه (مفتاح الاختبار {key}).",
   "translate.capability.reason.gpuLimits": "حدود مظللات GPU منخفضة جدًا",
   "translate.capability.reason.insecureOrigin": "مصدر غير آمن: يحتاج WebGPU إلى HTTPS أو localhost — افتح التطبيق عبر HTTPS",
   "translate.capability.reason.noAdapter": "محوّل WebGPU غير متاح",

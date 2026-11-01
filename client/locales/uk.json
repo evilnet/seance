@@ -2431,6 +2431,13 @@
   "translate.capability.cpu": "На цьому пристрої є лише CPU.",
   "translate.capability.gpu": "На цьому пристрої є GPU і CPU.",
   "translate.capability.none": "На цьому пристрої переклад недоступний.",
+  "translate.capability.prefillChunk": {
+    "one": "Запити передаються на GPU по {count} токену за раз (тестовий перемикач {key}).",
+    "few": "Запити передаються на GPU по {count} токени за раз (тестовий перемикач {key}).",
+    "many": "Запити передаються на GPU по {count} токенів за раз (тестовий перемикач {key}).",
+    "other": "Запити передаються на GPU по {count} токенів за раз (тестовий перемикач {key})."
+  },
+  "translate.capability.prefillChunkLibrary": "Запити передаються на GPU блоками, заданими самою моделлю (тестовий перемикач {key}).",
   "translate.capability.reason.gpuLimits": "надто низькі ліміти шейдерів GPU",
   "translate.capability.reason.insecureOrigin": "незахищене джерело: WebGPU потребує HTTPS або localhost — відкрийте застосунок через HTTPS",
   "translate.capability.reason.noAdapter": "адаптер WebGPU недоступний",

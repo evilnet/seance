@@ -2212,6 +2212,11 @@
   "translate.capability.cpu": "Questo dispositivo ha solo una CPU.",
   "translate.capability.gpu": "Questo dispositivo ha una GPU e una CPU.",
   "translate.capability.none": "La traduzione non può funzionare su questo dispositivo.",
+  "translate.capability.prefillChunk": {
+    "one": "I prompt vanno alla GPU {count} token alla volta (opzione di test {key}).",
+    "other": "I prompt vanno alla GPU {count} token alla volta (opzione di test {key})."
+  },
+  "translate.capability.prefillChunkLibrary": "I prompt vanno alla GPU nei blocchi propri del modello (opzione di test {key}).",
   "translate.capability.reason.gpuLimits": "limiti degli shader della GPU troppo bassi",
   "translate.capability.reason.insecureOrigin": "origine non sicura: WebGPU richiede HTTPS o localhost — servi l'app via HTTPS",
   "translate.capability.reason.noAdapter": "adattatore WebGPU non disponibile",

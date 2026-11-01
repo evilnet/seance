@@ -2250,6 +2250,11 @@
   "translate.capability.cpu": "Den här enheten har bara en CPU.",
   "translate.capability.gpu": "Den här enheten har en GPU och en CPU.",
   "translate.capability.none": "Översättning kan inte köras på den här enheten.",
+  "translate.capability.prefillChunk": {
+    "one": "Prompter skickas till GPU:n {count} token åt gången (testinställning {key}).",
+    "other": "Prompter skickas till GPU:n {count} token åt gången (testinställning {key})."
+  },
+  "translate.capability.prefillChunkLibrary": "Prompter skickas till GPU:n i modellens egna block (testinställning {key}).",
   "translate.capability.reason.gpuLimits": "GPU:ns shadergränser är för låga",
   "translate.capability.reason.insecureOrigin": "osäkert ursprung: WebGPU kräver HTTPS eller localhost — servera appen via HTTPS",
   "translate.capability.reason.noAdapter": "WebGPU-adapter inte tillgänglig",

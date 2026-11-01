@@ -2207,6 +2207,11 @@
   "translate.capability.cpu": "Dit apparaat heeft alleen een CPU.",
   "translate.capability.gpu": "Dit apparaat heeft een GPU en een CPU.",
   "translate.capability.none": "Vertaling kan niet draaien op dit apparaat.",
+  "translate.capability.prefillChunk": {
+    "one": "Prompts gaan per {count} token naar de GPU (testschakelaar {key}).",
+    "other": "Prompts gaan per {count} tokens naar de GPU (testschakelaar {key})."
+  },
+  "translate.capability.prefillChunkLibrary": "Prompts gaan in de eigen blokken van het model naar de GPU (testschakelaar {key}).",
   "translate.capability.reason.gpuLimits": "shaderlimieten van de GPU te laag",
   "translate.capability.reason.insecureOrigin": "onveilige oorsprong: WebGPU vereist HTTPS of localhost — bied de app aan via HTTPS",
   "translate.capability.reason.noAdapter": "WebGPU-adapter niet beschikbaar",

@@ -2311,6 +2311,12 @@
   "translate.capability.cpu": "Acest dispozitiv are doar CPU.",
   "translate.capability.gpu": "Acest dispozitiv are GPU și CPU.",
   "translate.capability.none": "Traducerea nu poate fi rulată pe acest dispozitiv.",
+  "translate.capability.prefillChunk": {
+    "one": "Prompturile ajung la GPU câte {count} token o dată (comutator de test {key}).",
+    "few": "Prompturile ajung la GPU câte {count} tokeni o dată (comutator de test {key}).",
+    "other": "Prompturile ajung la GPU câte {count} de tokeni o dată (comutator de test {key})."
+  },
+  "translate.capability.prefillChunkLibrary": "Prompturile ajung la GPU în blocurile proprii ale modelului (comutator de test {key}).",
   "translate.capability.reason.gpuLimits": "limitele shaderelor GPU sunt prea mici",
   "translate.capability.reason.insecureOrigin": "origine nesigură: WebGPU necesită HTTPS sau localhost — servește aplicația prin HTTPS",
   "translate.capability.reason.noAdapter": "adaptorul WebGPU nu este disponibil",
