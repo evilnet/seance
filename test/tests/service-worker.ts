@@ -2446,6 +2446,69 @@ describe("service worker closes that outlive the event", function () {
 	});
 });
 
+describe("service worker closes on Android with the app closed", function () {
+	// Android ends the process with the push event, and Chrome refuses a
+	// Background Sync to a worker with no window of the app open: nothing
+	// scheduled for after the event runs there. So the closes happen inside
+	// the event, silent push or not, and no stub is shown.
+	const ANDROID_UA =
+		"Mozilla/5.0 (Linux; Android 15; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36";
+
+	it("a read relay closes the last card inside the event and converts nothing", async function () {
+		const sw = makeSW({userAgent: ANDROID_UA, deadTimers: true});
+
+		await firePush(sw, msgPayload("alice", "pushtest", "hello there"));
+		await firePush(
+			sw,
+			`{"t":"read","target":"alice","ts":"${new Date(Date.now() + 5000).toISOString()}"}`
+		);
+
+		expect(sw.records.filter((n) => !n.closed)).to.have.lengthOf(0);
+		expect(sw.shown, "nothing re-shown").to.have.lengthOf(1);
+		expect(sw.kv.get("closes") ?? {}).to.deep.equal({});
+	});
+
+	it("Mark read closes the last card at once", async function () {
+		const sw = makeSW({userAgent: ANDROID_UA, deadTimers: true});
+		const rec = await pushed(sw);
+
+		await fireClick(sw, rec, "markread");
+
+		expect(sw.records.filter((n) => !n.closed)).to.have.lengthOf(0);
+		expect(sw.shown, "nothing re-shown").to.have.lengthOf(1);
+	});
+
+	it("a relay with nothing to close shows no stub", async function () {
+		const sw = makeSW({userAgent: ANDROID_UA, deadTimers: true});
+
+		await firePush(sw, `{"t":"read","target":"alice","ts":"${new Date().toISOString()}"}`);
+
+		expect(sw.shown).to.have.lengthOf(0);
+		expect(
+			((sw.kv.get("pushlog") as string[]) ?? []).some((l) =>
+				l.includes("no runner for a later close")
+			)
+		).to.equal(true);
+	});
+
+	it("with a window of the app open (backgrounded, not closed) the last card still turns into Marked as read", async function () {
+		const hidden = makeClient();
+		hidden.visibilityState = "hidden";
+		const sw = makeSW({userAgent: ANDROID_UA, deadTimers: true, clients: [hidden]});
+
+		await firePush(sw, msgPayload("alice", "pushtest", "hello there"));
+		await firePush(
+			sw,
+			`{"t":"read","target":"alice","ts":"${new Date(Date.now() + 5000).toISOString()}"}`
+		);
+
+		const live = sw.records.filter((n) => !n.closed);
+		expect(live).to.have.lengthOf(1);
+		expect(live[0].body).to.equal("Marked as read");
+		expect(sw.synced).to.include("seance-closes");
+	});
+});
+
 describe("service worker read markers against late pushes", function () {
 	// FCM delivers a dozing phone's backlog after the tap that woke it: a
 	// push for a message at or before the conversation's read marker (a

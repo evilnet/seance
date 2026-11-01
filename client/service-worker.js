@@ -1827,7 +1827,7 @@ async function closeOrConvert(target, ts) {
 		return 0;
 	}
 
-	const keep = matched.length === all.length ? newest(matched) : null;
+	const keep = matched.length === all.length && (await closesRunLater()) ? newest(matched) : null;
 
 	for (const n of matched) {
 		if (n !== keep) {
@@ -1882,6 +1882,13 @@ async function keepChromeCount(target, quietTag = undefined) {
 	const windows = await appWindows();
 
 	if (windows.some((c) => c.visibilityState === "visible")) {
+		return;
+	}
+
+	// A stub nothing can close later would stand until the next push: a
+	// silent push is the lesser cost there (closesRunLater).
+	if (!(await closesRunLater(windows))) {
+		void logPush("no runner for a later close: no stub for " + (target || "all"));
 		return;
 	}
 
@@ -1940,7 +1947,10 @@ async function markedReadHere(data) {
 		(n) => n.tag && n.tag.startsWith("push-")
 	);
 	const mine = all.filter((n) => n.data && sameName(n.data.target, data.target));
-	const keep = mine.length > 0 && mine.length === all.length ? newest(mine) : null;
+	const keep =
+		mine.length > 0 && mine.length === all.length && (await closesRunLater())
+			? newest(mine)
+			: null;
 
 	for (const n of mine) {
 		if (n !== keep) {
@@ -2479,6 +2489,23 @@ async function scheduleStubClose(tag, delayMs) {
 
 	// Fire and forget: nothing the caller does should wait on it.
 	registerClosesSync();
+}
+
+/** Whether a close left for after this event can be expected to run: the
+ * timer where the worker lives on, or the Background Sync Chrome fires —
+ * which needs a window of the app open. On Android with no window the
+ * process ends with the event (GCMNativeBackgroundTask.java) and nothing
+ * runs: there a relay closes the last card inside its event too, and shows
+ * no stub — a silent push Chrome counts against the origin's budget, and
+ * past it shows its generic — rather than leave "Marked as read" standing
+ * until the next push (the user, 2026-11-01: it has to go by itself). A
+ * backgrounded phone has a window, so its sync is registered and fires. */
+async function closesRunLater(windows = undefined) {
+	if (!/Android/.test(self.navigator.userAgent)) {
+		return true;
+	}
+
+	return (windows || (await appWindows())).length > 0;
 }
 
 /** Whether this worker has learnt that Background Sync is refused here,
