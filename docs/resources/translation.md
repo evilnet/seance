@@ -585,7 +585,10 @@ loaded only once it finishes.
 **When the GPU stops, the language model asks about the CPU** (2026-11-01,
 `docs/projects/translation-devices.md` § Auto). A load-class failure of the
 language model's GPU copy (a load failure, or the second failed generation in
-a row) marks that copy down as before; if the device choice is Auto
+a row) marks that copy down as before; if the GPU actually ran it (the copy was
+on the device or its download had finished, or the failure carried a GPU-loss
+reason — a download that broke off is not the GPU stopping), the device choice
+is Auto
 (`translateLlmDevice`), the CPU copy can run here (`modelBlock(ref, "cpu", …)`
 is null: never on an iPhone or iPad, never the 4B, never without Memory64 or
 SIMD) and the question has not been answered "Not now" this session, the
@@ -600,10 +603,16 @@ the CPU here** does the same and pins `translateLlmDevice` to `cpu`
 question is not asked again until a reload. Either yes is the CPU copy's
 download consent (`<id>@cpu`). While the dialog is open every route waits for
 it (one question for every failure at once) and `loadTicks()` moves on every
-read, so no deadline armed before it runs out; a request carried on to the CPU
-under that yes moves the counter on every chunk, since its deadline may have
-been armed for the GPU, and a batch larger than `CPU_BATCH_MAX_LINES` is
-refused with `BATCH_REFUSED` so the queue sends its lines one at a time.
+read, so no deadline armed before it runs out. A request carried over to the
+CPU by the answer (one whose `translate` call saw it) still has the GPU's
+two-minute deadline, where a cold CPU start takes about three: until its first
+chunk the service moves the counter every minute (`keepAlive`), never so that
+it outlives `CPU_REQUEST_TIMEOUT_MS` from the answer (or from the end of a
+download that ran after it), then on each chunk; a batch larger than
+`CPU_BATCH_MAX_LINES` is refused with `BATCH_REFUSED` so the queue sends its
+lines one at a time. Both translation questions are `ConfirmDialog` questions
+that `wait`: they queue behind any dialog that is up, and one the user opens
+over them sends them back to wait rather than answering them no.
 
 **The CPU language model's numbers** (`models.ts`): a context window of 1024
 tokens (`CPU_CONTEXT_WINDOW`: it holds the 700-token context budget, the

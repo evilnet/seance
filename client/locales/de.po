@@ -13576,7 +13576,7 @@ msgstr "Anrede"
 #: client/js/translate/index.ts
 msgctxt "translate.gpuFallback.always"
 msgid "Always use the CPU here"
-msgstr "Immer die CPU verwenden"
+msgstr "Hier immer die CPU verwenden"
 
 #. Main button of the dialog titled 'The GPU stopped': runs the translation model on the main processor (CPU) for the rest of this visit, starting with the translation that just failed; the next time the app is opened it tries the GPU again. Keep it short (a button).
 #: client/js/translate/index.ts

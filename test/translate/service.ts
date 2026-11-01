@@ -16,7 +16,7 @@ import {
 	type DeviceChoices,
 	type ModelCatalog,
 } from "../../client/js/translate/models";
-import {ABORTED} from "../../client/js/translate/outgoing";
+import {ABORTED, WRITE_TIMEOUT_MS, translateDraft} from "../../client/js/translate/outgoing";
 import {createPortPair} from "../../client/js/translate/protocol";
 import type {RouteTable} from "../../client/js/translate/router";
 import {DEFAULT_ROUTES} from "../../client/js/translate/routes.default";
@@ -34,6 +34,7 @@ import {
 } from "../../client/js/translate/service";
 import {serveEngines} from "../../client/js/translate/worker";
 import {
+	CPU_REQUEST_TIMEOUT_MS,
 	PAUSE_AFTER_FAILURES,
 	REQUEST_TIMEOUT_MS,
 	TranslateQueue,
@@ -2418,6 +2419,53 @@ describe("translate/service", () => {
 			};
 		}
 
+		/** The reading queue as reader.ts builds it, deadline and all; `updates` by line id. */
+		function readingQueue(r: ReturnType<typeof rig>) {
+			const updates: [number, QueueUpdate][] = [];
+			const queue = new TranslateQueue({
+				route: (from, to, hint) =>
+					r.service
+						.route(from, to, hint)
+						.then((route) =>
+							route ? {engine: route.ref.engine, device: route.device} : null
+						),
+				translate: (req, signal) => r.service.translate(req, signal),
+				priority: () => 0,
+				arrivals: () => 0,
+				onUpdate: (id, update) => updates.push([id, update]),
+				loadTicks: () => r.service.loadTicks(),
+			});
+			const p = protect("Hallo");
+
+			queue.enqueue({
+				id: 1,
+				chanId: 1,
+				text: p.text,
+				spans: p.spans,
+				meta: p.meta,
+				from: "de",
+				to: "en",
+				context: emptyContext(),
+				arrivalsAtEnqueue: 0,
+				single: true,
+			});
+
+			return {last: () => updates.filter(([id]) => id === 1).pop()?.[1]};
+		}
+
+		/** The language model on the CPU keeps its first chunk back for `ms`. */
+		function slowCpuStart(r: ReturnType<typeof rig>, ms: number) {
+			const original = r.llm.translate.bind(r.llm);
+
+			r.llm.translate = async function* (req, signal) {
+				if (req.device === "cpu") {
+					await new Promise<void>((resolve) => setTimeout(resolve, ms));
+				}
+
+				yield* original(req, signal);
+			};
+		}
+
 		async function failure(iterable: AsyncIterable<{text: string; done: boolean}>) {
 			try {
 				await text(iterable);
@@ -2479,7 +2527,8 @@ describe("translate/service", () => {
 			const q = question();
 			const r = rig("gpu", true, LLM_ONLY, {askCpuFallback: q.askCpuFallback});
 			clock = r.clock;
-			r.cached.add(`${catalog.llm.id}@cpu`);
+			// Both copies on the device: a plain failure of the GPU copy asks.
+			r.cached.add(catalog.llm.id);
 			r.llm.failLoad = new Error("shader compilation failed");
 
 			const result = text(r.service.translate(base));
@@ -2565,6 +2614,145 @@ describe("translate/service", () => {
 			expect(r.llm.calls.devices).to.deep.equal(["gpu"]);
 			expect(q.asked).to.have.length(1);
 			expect(q.open).to.equal(0);
+			r.service.dispose();
+		});
+
+		it("a failed download of the GPU copy does not ask: the GPU never ran", async () => {
+			const q = question();
+			const r = rig("gpu", true, LLM_ONLY, {askCpuFallback: q.askCpuFallback});
+			clock = r.clock;
+			// Not on the device, and the download fails short of done.
+			r.llm.failLoad = new Error("QuotaExceededError: the cache is full");
+
+			expect(await failure(r.service.translate(base))).to.match(
+				new RegExp(`^${TRANSLATION_UNAVAILABLE}`)
+			);
+			expect(q.asked).to.deep.equal([]);
+			r.service.dispose();
+		});
+
+		it("a GPU-loss reason asks even before the copy is on the device", async () => {
+			const q = question();
+			const r = rig("gpu", true, LLM_ONLY, {askCpuFallback: q.askCpuFallback});
+			clock = r.clock;
+			r.llm.failLoad = new Error(LOST);
+
+			const result = text(r.service.translate(base));
+
+			await r.clock.tickAsync(10);
+			expect(q.asked).to.have.length(1);
+			q.answer("no");
+			await failure(result);
+			r.service.dispose();
+		});
+
+		it("a first generation failure (request-class) marks nothing down and asks nothing", async () => {
+			const q = question();
+			const r = rig("gpu", true, LLM_ONLY, {askCpuFallback: q.askCpuFallback});
+			clock = r.clock;
+			r.cached.add(catalog.llm.id);
+			r.llm.failTranslate = new Error("generation failed once");
+
+			expect(await failure(r.service.translate(base))).to.equal("generation failed once");
+			expect(q.asked).to.deep.equal([]);
+			expect(await r.service.route("de", "en")).to.deep.include({
+				candidate: "llm",
+				device: "gpu",
+			});
+			r.service.dispose();
+		});
+
+		it("the composer's deadline does not run out while the question is open", async () => {
+			const q = question();
+			const r = rig("gpu", true, LLM_ONLY, {askCpuFallback: q.askCpuFallback});
+			clock = r.clock;
+			r.llm.failLoad = new Error(LOST);
+
+			const result = translateDraft(
+				{
+					translate: (req, signal) => r.service.translate(req, signal),
+					setTimeout: (fn, ms) => setTimeout(fn, ms),
+					clearTimeout: (handle) => clearTimeout(handle as NodeJS.Timeout),
+					loadTicks: () => r.service.loadTicks(),
+				},
+				{
+					text: "Hallo",
+					from: "de",
+					to: "en",
+					purpose: "write",
+					context: emptyContext(),
+					batches: false,
+					device: "gpu",
+					engine: "llm",
+				},
+				new AbortController().signal,
+				() => {}
+			);
+
+			result.catch(() => {});
+			await r.clock.tickAsync(10);
+			expect(q.asked).to.have.length(1);
+			await r.clock.tickAsync(WRITE_TIMEOUT_MS * 3);
+			q.answer("once");
+			await r.clock.tickAsync(10);
+			expect(await result).to.equal("llm:Hallo");
+			r.service.dispose();
+		});
+
+		it("a request carried on to the CPU outlives its GPU deadline until its first chunk", async () => {
+			const q = question();
+			const r = rig("gpu", true, LLM_ONLY, {askCpuFallback: q.askCpuFallback});
+			clock = r.clock;
+			r.llm.failLoad = new Error(LOST);
+			// A cold CPU start: the first token after 200 s, past the
+			// two minutes the reading queue armed for the GPU.
+			slowCpuStart(r, 200 * 1000);
+
+			const line = readingQueue(r);
+
+			// Answered just before the deadline would have expired: the
+			// answer's own tick buys one period, which a cold start outlasts.
+			await r.clock.tickAsync(REQUEST_TIMEOUT_MS - 50);
+			expect(q.open).to.equal(1);
+			q.answer("once");
+			await r.clock.tickAsync(200 * 1000 + 100);
+			expect(line.last()).to.deep.include({status: "done", text: "llm:Hallo"});
+			r.service.dispose();
+		});
+
+		it("a carried-over request still times out within CPU_REQUEST_TIMEOUT_MS of the answer", async () => {
+			const q = question();
+			const r = rig("gpu", true, LLM_ONLY, {askCpuFallback: q.askCpuFallback});
+			clock = r.clock;
+			r.llm.failLoad = new Error(LOST);
+			slowCpuStart(r, CPU_REQUEST_TIMEOUT_MS + 60 * 1000);
+
+			const line = readingQueue(r);
+
+			await r.clock.tickAsync(REQUEST_TIMEOUT_MS - 50);
+			q.answer("once");
+			await r.clock.tickAsync(CPU_REQUEST_TIMEOUT_MS + 1000);
+			expect(line.last()).to.deep.include({status: "failed"});
+			r.service.dispose();
+		});
+
+		it("only the carried-over attempt keeps deadlines alive, not later CPU requests", async () => {
+			const q = question();
+			const r = rig("gpu", true, LLM_ONLY, {askCpuFallback: q.askCpuFallback});
+			clock = r.clock;
+			r.llm.failLoad = new Error(LOST);
+
+			const first = text(r.service.translate(base));
+
+			await r.clock.tickAsync(10);
+			q.answer("once");
+			await first;
+
+			const ticks = r.service.loadTicks();
+
+			// Loaded already: a later request on the CPU streams without moving the counter.
+			expect(await text(r.service.translate({...base, text: "Welt"}))).to.equal("llm:Welt");
+			expect(r.service.loadTicks()).to.equal(ticks);
 			r.service.dispose();
 		});
 

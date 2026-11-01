@@ -4,13 +4,20 @@
 		class="screen-overlay"
 		:class="{opened: !!data}"
 		:data-escape-close="data ? 'confirm' : null"
+		@transitionend="onOverlayShown"
 	>
-		<div v-if="data !== null" id="confirm-dialog">
+		<div
+			v-if="data"
+			id="confirm-dialog"
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="confirm-dialog-title"
+		>
 			<div class="confirm-text">
-				<div class="confirm-text-title">{{ data?.title }}</div>
-				<p>{{ data?.text }}</p>
-				<p v-if="data?.note" class="confirm-note">{{ data.note }}</p>
-				<p v-if="data?.quote" class="confirm-quote">
+				<div id="confirm-dialog-title" class="confirm-text-title">{{ data.title }}</div>
+				<p>{{ data.text }}</p>
+				<p v-if="data.note" class="confirm-note">{{ data.note }}</p>
+				<p v-if="data.quote" class="confirm-quote">
 					<I18nFrame :text="data.quote.frame"
 						><template v-slot:reason
 							><bdi>{{ data.quote.reason }}</bdi></template
@@ -18,8 +25,9 @@
 					>
 				</p>
 			</div>
-			<div v-if="data?.alt" class="confirm-buttons confirm-buttons-stacked">
+			<div v-if="data.alt" class="confirm-buttons confirm-buttons-stacked">
 				<button
+					ref="confirmButton"
 					:class="['btn', data.primary ? 'btn-confirm' : 'btn-danger']"
 					@click="close(true)"
 				>
@@ -28,19 +36,20 @@
 				<button class="btn btn-alt" @click="close(true, true)">
 					{{ data.alt }}
 				</button>
-				<button class="btn btn-cancel" @click="close(false)">
+				<button ref="cancelButton" class="btn btn-cancel" @click="close(false)">
 					{{ data.cancel || t("confirm.cancel") }}
 				</button>
 			</div>
 			<div v-else class="confirm-buttons">
-				<button class="btn btn-cancel" @click="close(false)">
-					{{ data?.cancel || t("confirm.cancel") }}
+				<button ref="cancelButton" class="btn btn-cancel" @click="close(false)">
+					{{ data.cancel || t("confirm.cancel") }}
 				</button>
 				<button
-					:class="['btn', data?.primary ? 'btn-confirm' : 'btn-danger']"
+					ref="confirmButton"
+					:class="['btn', data.primary ? 'btn-confirm' : 'btn-danger']"
 					@click="close(true)"
 				>
-					{{ data?.button }}
+					{{ data.button }}
 				</button>
 			</div>
 		</div>
@@ -94,6 +103,13 @@
 	margin-inline-start: 0;
 }
 
+/* The main answer is filled, the other two outlined (the button tokens'
+   hover fill). */
+#confirm-dialog .confirm-buttons-stacked .btn-confirm {
+	background: var(--button-color);
+	color: var(--button-text-color-hover);
+}
+
 #confirm-dialog .confirm-note {
 	margin-top: 0.5rem;
 	font-weight: 700;
@@ -111,7 +127,7 @@
 <script lang="ts">
 import eventbus from "../js/eventbus";
 import {useI18n} from "../js/i18n";
-import {defineComponent, onMounted, onUnmounted, ref} from "vue";
+import {defineComponent, nextTick, onMounted, onUnmounted, ref} from "vue";
 import I18nFrame from "./I18nFrame.vue";
 
 type ConfirmDialogData = {
@@ -136,6 +152,13 @@ type ConfirmDialogData = {
 	 * (the browser's own text for a lost GPU).
 	 */
 	quote?: {frame: string; reason: string};
+	/**
+	 * A question nobody asked for by a click (the translation's download and
+	 * GPU fallback questions): it waits behind whatever dialog is up rather
+	 * than replacing it, and a dialog the user opens over it puts it back to
+	 * wait instead of answering it no.
+	 */
+	wait?: boolean;
 };
 
 type ConfirmDialogCallback = {
@@ -149,23 +172,89 @@ export default defineComponent({
 		const {t} = useI18n();
 		const data = ref<ConfirmDialogData>();
 		const callback = ref<ConfirmDialogCallback>();
+		const confirmButton = ref<HTMLButtonElement | null>(null);
+		const cancelButton = ref<HTMLButtonElement | null>(null);
+		/** Questions waiting their turn (`wait`), oldest first. */
+		const waiting: {data: ConfirmDialogData; callback: ConfirmDialogCallback}[] = [];
+		/** What had the focus before the dialog opened: it gets it back. */
+		let returnFocus: HTMLElement | null = null;
 
-		const open = (incoming: ConfirmDialogData, cb: ConfirmDialogCallback) => {
-			// One dialog at a time: a question still open when another
-			// arrives is answered no, rather than left waiting for ever
-			// (a translation's download question holds requests on it).
-			const previous = data.value ? callback.value : undefined;
+		/**
+		 * The main answer takes the focus; a destructive dialog's cancel does,
+		 * so Enter never deletes by accident. The overlay fades in with a
+		 * `visibility` transition and a hidden button cannot take the focus,
+		 * so this runs right after the render (a question replacing another,
+		 * the overlay already shown) and again when the fade ends.
+		 */
+		const focusAnswer = () => {
+			if (data.value) {
+				(data.value.primary ? confirmButton.value : cancelButton.value)?.focus();
+			}
+		};
+
+		const onOverlayShown = (event: TransitionEvent) => {
+			if (event.target === event.currentTarget && event.propertyName === "opacity") {
+				focusAnswer();
+			}
+		};
+
+		const show = (incoming: ConfirmDialogData, cb: ConfirmDialogCallback) => {
+			if (!data.value) {
+				returnFocus =
+					document.activeElement instanceof HTMLElement ? document.activeElement : null;
+			}
 
 			data.value = incoming;
 			callback.value = cb;
-			previous?.(false);
+			void nextTick(focusAnswer);
+		};
+
+		const open = (incoming: ConfirmDialogData, cb: ConfirmDialogCallback) => {
+			if (data.value && callback.value) {
+				// A question that waits its turn queues behind what is up.
+				if (incoming.wait) {
+					waiting.push({data: incoming, callback: cb});
+					return;
+				}
+
+				// One dialog at a time: a question still open when another
+				// arrives is answered no, rather than left waiting for ever
+				// (a translation's download question holds requests on it) --
+				// unless it is one that waits, which goes back to waiting.
+				if (data.value.wait) {
+					waiting.unshift({data: data.value, callback: callback.value});
+				} else {
+					const previous = callback.value;
+
+					show(incoming, cb);
+					previous(false);
+					return;
+				}
+			}
+
+			show(incoming, cb);
 		};
 
 		const close = (result: boolean, alt = false) => {
-			data.value = undefined;
+			const answer = callback.value;
 
-			if (callback.value) {
-				callback.value(!!result, result && alt);
+			data.value = undefined;
+			callback.value = undefined;
+			answer?.(!!result, result && alt);
+
+			// The answer may itself have opened a dialog; otherwise the next
+			// waiting question, else the focus goes back where it was.
+			if (data.value) {
+				return;
+			}
+
+			const next = waiting.shift();
+
+			if (next) {
+				show(next.data, next.callback);
+			} else if (returnFocus?.isConnected) {
+				returnFocus.focus();
+				returnFocus = null;
 			}
 		};
 
@@ -189,6 +278,9 @@ export default defineComponent({
 			t,
 			data,
 			close,
+			confirmButton,
+			cancelButton,
+			onOverlayShown,
 		};
 	},
 });

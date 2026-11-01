@@ -1102,6 +1102,18 @@ describe("i18n toolchain", () => {
 						"Willst du den Verlauf für {channel} wirklich löschen? Das kann nicht rückgängig gemacht werden."
 					)
 				).to.equal(null);
+				// Spanish opens a question or an exclamation with ¿ or ¡: the
+				// sentence after the break starts there.
+				expect(
+					slotVerdict(
+						"es",
+						"{model} stopped working on this device's GPU. Run it on the CPU instead? It is slower.",
+						"{model} ha dejado de funcionar en la GPU de este dispositivo. ¿Ejecutarlo en la CPU en su lugar? Es más lento."
+					)
+				).to.equal(null);
+				expect(
+					slotVerdict("es", "Saved. Welcome back!", "Guardado. ¡Bienvenido de nuevo!")
+				).to.equal(null);
 				// A one-sentence source is not judged on sentence count at
 				// all, an abbreviation is not a sentence end, and an ellipsis
 				// before a number is a continuation rather than a full stop.

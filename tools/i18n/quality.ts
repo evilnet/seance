@@ -524,9 +524,11 @@ const SOURCE_BREAK = /[.!?]+\s+(?=[\p{Lu}\p{N}{])/gu;
  * The same break in an answer, counted generously — the gate is about copy
  * that went missing, so anything a target legitimately breaks a sentence
  * with counts: an ellipsis, a semicolon, the Arabic question mark, the Urdu
- * full stop, and the CJK marks, which take no space after them.
+ * full stop, and the CJK marks, which take no space after them. The next
+ * sentence may open with Spanish's ¿ or ¡ (es refused "… dispositivo.
+ * ¿Ejecutarlo en la CPU?" until it could).
  */
-const ANSWER_BREAK = /[.!?…;؟۔]+\s+(?=[\p{L}\p{N}{])|[。！？；]+\s*(?=[\p{L}\p{N}{])/gu;
+const ANSWER_BREAK = /[.!?…;؟۔]+\s+(?=[\p{L}\p{N}{¿¡])|[。！？；]+\s*(?=[\p{L}\p{N}{])/gu;
 
 /**
  * Targets that mark a sentence break with a space rather than with

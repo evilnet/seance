@@ -4,7 +4,8 @@
 // copy is marked down, and the confirm dialog asks whether to carry on on
 // the CPU (service.ts `askCpuFallback`, index.ts) -- the title, the body
 // with the CPU copy's download size, the browser's reason quoted under it in
-// a <bdi>, and three buttons. "Use the CPU this time" carries the same
+// a <bdi>, three buttons (the main one filled and focused, in a modal
+// dialog labelled by its title). "Use the CPU this time" carries the same
 // request on to the CPU (it resolves with the fake's translation, the
 // fake's request log shows it ran) and leaves the setting on Auto; after
 // the one reload the question comes back, and "Always use the CPU here"
@@ -71,6 +72,9 @@ export default async function run(page) {
 			quote: d.querySelector(".confirm-quote")?.textContent.trim() ?? null,
 			bdi: d.querySelector(".confirm-quote bdi")?.textContent ?? null,
 			buttons: [...d.querySelectorAll(".confirm-buttons button")].map((b) => b.textContent.trim()),
+			role: d.getAttribute("role"),
+			modal: d.getAttribute("aria-modal"),
+			labelled: document.getElementById(d.getAttribute("aria-labelledby"))?.textContent.trim() ?? null,
 		};
 	})()`);
 
@@ -91,8 +95,37 @@ export default async function run(page) {
 			dialog.buttons.includes(EN["translate.gpuFallback.always"]) &&
 			dialog.buttons.includes(EN["translate.consent.notNow"])
 	);
-	// The overlay fades in.
+	page.check(
+		`a modal dialog labelled by its title (${dialog.role}, ${dialog.modal}, ${dialog.labelled})`,
+		dialog.role === "dialog" && dialog.modal === "true" && dialog.labelled === dialog.title
+	);
+
+	// The overlay fades in; the main answer takes the focus once it has.
 	await page.sleep(600);
+
+	const focused = await page.evaluate(`document.activeElement?.textContent.trim() ?? null`);
+
+	page.check(
+		`the main answer has the focus (${focused})`,
+		focused === EN["translate.gpuFallback.once"]
+	);
+
+	// Away from the focus (whose fill every button shares), the main answer
+	// is filled and "Always" is outlined.
+	await page.evaluate(`document.activeElement.blur()`);
+	// The buttons' colour transition (0.2 s).
+	await page.sleep(400);
+
+	const fills = await page.evaluate(`(() => {
+		const bg = (b) => getComputedStyle(b).backgroundColor;
+		const [main, always] = document.querySelectorAll("#confirm-dialog .confirm-buttons button");
+		return {main: bg(main), always: bg(always)};
+	})()`);
+
+	page.check(
+		`the main answer stands out (${fills.main} vs ${fills.always})`,
+		fills.main !== fills.always && !/rgba\(0, 0, 0, 0\)|transparent/.test(fills.main)
+	);
 	await page.screenshot("gpu-fallback-dialog");
 
 	await clickButton(page, EN["translate.gpuFallback.once"]);

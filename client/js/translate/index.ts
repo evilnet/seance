@@ -129,28 +129,12 @@ function consentText(model: string, device: Device, usual: Device, size: string)
 }
 
 /**
- * The download question on screen, if one is: the GPU fallback question waits
- * for it, since the one dialog would answer the question it replaces "no"
- * (a session's "Not now" to downloads). The other way round needs nothing:
- * the service routes nothing while the fallback question is open.
+ * The download question, in the app's confirm dialog (ConfirmDialog.vue): the
+ * copy's own size. It waits behind any dialog that is up (`wait`), and one
+ * the user opens over it sends it back to wait: a question displaced and
+ * answered no would be a session's "Not now" to downloads.
  */
-let downloadQuestion: Promise<boolean> | null = null;
-
-/** The download question, in the app's confirm dialog (ConfirmDialog.vue): the copy's own size. */
 function askDownload(ref: ModelRef, device: Device): Promise<boolean> {
-	const asked = showDownloadQuestion(ref, device);
-	const settled = asked.finally(() => {
-		if (downloadQuestion === settled) {
-			downloadQuestion = null;
-		}
-	});
-
-	downloadQuestion = settled;
-
-	return settled;
-}
-
-function showDownloadQuestion(ref: ModelRef, device: Device): Promise<boolean> {
 	const model = modelDisplayName(ref);
 	const sizeBytes = ref.copies[device]?.sizeBytes ?? listedSize(ref);
 	const usual = nativeDevice(ref);
@@ -165,6 +149,7 @@ function showDownloadQuestion(ref: ModelRef, device: Device): Promise<boolean> {
 				button: t("translate.model.download"),
 				cancel: t("translate.consent.notNow"),
 				primary: true,
+				wait: true,
 			},
 			(yes: boolean) => resolve(yes)
 		);
@@ -177,12 +162,8 @@ function showDownloadQuestion(ref: ModelRef, device: Device): Promise<boolean> {
  * download and one without; the browser's reason, when the loss carried
  * one, quoted verbatim under it.
  */
-async function askCpuFallback(ref: ModelRef, info: CpuFallbackInfo): Promise<CpuFallbackAnswer> {
+function askCpuFallback(ref: ModelRef, info: CpuFallbackInfo): Promise<CpuFallbackAnswer> {
 	const model = modelDisplayName(ref);
-
-	while (downloadQuestion) {
-		await downloadQuestion;
-	}
 
 	return new Promise((resolve) => {
 		eventbus.emit(
@@ -202,6 +183,10 @@ async function askCpuFallback(ref: ModelRef, info: CpuFallbackInfo): Promise<Cpu
 				alt: t("translate.gpuFallback.always"),
 				cancel: t("translate.consent.notNow"),
 				primary: true,
+				// Behind any dialog that is up, and back to waiting under one
+				// the user opens (ConfirmDialog.vue): displaced, it would be a
+				// session's "Not now".
+				wait: true,
 			},
 			(yes: boolean, always?: boolean) => resolve(!yes ? "no" : always ? "always" : "once")
 		);

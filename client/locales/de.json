@@ -2266,7 +2266,7 @@
   "translate.formality.casual": "Locker",
   "translate.formality.formal": "Förmlich",
   "translate.formality.label": "Anrede",
-  "translate.gpuFallback.always": "Immer die CPU verwenden",
+  "translate.gpuFallback.always": "Hier immer die CPU verwenden",
   "translate.gpuFallback.once": "Diesmal die CPU verwenden",
   "translate.gpuFallback.reason": "Der Browser meldete: {reason}",
   "translate.gpuFallback.text": "{model} funktioniert auf der GPU dieses Geräts nicht mehr. Stattdessen auf der CPU ausführen? Das ist langsamer und erfordert einen Download von {size}.",

@@ -47,7 +47,7 @@ import {
 	modelBlock,
 	selectLlm,
 } from "./models";
-import {CPU_BATCH_MAX_LINES} from "./queue";
+import {CPU_BATCH_MAX_LINES, CPU_REQUEST_TIMEOUT_MS, REQUEST_TIMEOUT_MS} from "./queue";
 import {DownKey, Route, RouteTable, explainRoute, mergeRoutes, routeInput} from "./router";
 import {routesFor as shippedRoutesFor} from "./routes.default";
 
@@ -261,6 +261,10 @@ export class TranslateService {
 	private cpuFallback: "unasked" | "yes" | "declined" = "unasked";
 	/** The fallback question while it is open: every failure and every route waits on this one. */
 	private cpuQuestion: Promise<CpuFallbackAnswer> | null = null;
+	/** How many times the fallback question was answered: a request that saw it change was carried over. */
+	private cpuAnswers = 0;
+	/** When the last answer came (`Date.now()`): a carried-over request's extension is counted from it. */
+	private cpuAnsweredAt = 0;
 
 	constructor(
 		private deps: ServiceDeps,
@@ -722,13 +726,6 @@ export class TranslateService {
 			await this.cacheOrDeadline();
 		}
 
-		// The GPU fallback question is open: what it answers decides where
-		// the language model runs, and a download question raised meanwhile
-		// would take its place in the one dialog.
-		while (this.cpuQuestion) {
-			await this.cpuQuestion;
-		}
-
 		const consent = this.consent;
 		let cachedOnly = !!consent?.anyDeclined;
 
@@ -751,6 +748,14 @@ export class TranslateService {
 		});
 
 		for (;;) {
+			// The GPU fallback question is open: what it answers decides where
+			// the language model runs, and a download question raised
+			// meanwhile would wait behind it. Checked on every pass: a
+			// download question answered while it opened routes again here.
+			while (this.cpuQuestion) {
+				await this.cpuQuestion;
+			}
+
 			const route = explainRoute(this.table, this.options.catalog, input(cachedOnly)).route;
 
 			if (!route) {
@@ -888,9 +893,57 @@ export class TranslateService {
 		return this.cpuQuestion.then((answer) => answer !== "no");
 	}
 
+	/**
+	 * Keeps the deadline counter moving for an attempt carried over to the
+	 * CPU until its first chunk (`started`), about every half of the GPU's
+	 * deadline, so the deadline its caller armed for the GPU outlasts a cold
+	 * CPU start. Never past CPU_REQUEST_TIMEOUT_MS from the answer, or from
+	 * the attempt's last load progress when a download ran after it (a
+	 * download moves the counter itself, and the cold start comes after it).
+	 */
+	private keepAlive(started: () => boolean): {progressed(): void; stop(): void} {
+		const period = REQUEST_TIMEOUT_MS / 2;
+		let since = this.cpuAnsweredAt;
+		let handle: unknown = null;
+
+		const schedule = () => {
+			handle = this.deps.setTimeout(() => {
+				handle = null;
+
+				if (started()) {
+					return;
+				}
+
+				// The deadline re-armed by this tick can run out up to two
+				// periods of the GPU's deadline later.
+				if (Date.now() - since + 2 * REQUEST_TIMEOUT_MS <= CPU_REQUEST_TIMEOUT_MS) {
+					this.ticks++;
+				}
+
+				schedule();
+			}, period);
+		};
+
+		schedule();
+
+		return {
+			progressed() {
+				since = Math.max(since, Date.now());
+			},
+			stop: () => {
+				if (handle !== null) {
+					this.deps.clearTimeout(handle);
+					handle = null;
+				}
+			},
+		};
+	}
+
 	private answerCpuFallback(ref: ModelRef, answer: CpuFallbackAnswer): void {
 		// The deadlines that waited on the question get a fresh period.
 		this.ticks++;
+		this.cpuAnswers++;
+		this.cpuAnsweredAt = Date.now();
 
 		if (answer === "no") {
 			this.cpuFallback = "declined";
@@ -941,6 +994,9 @@ export class TranslateService {
 		// signal every time, each closing over an id already abandoned.
 		let currentId = 0;
 		const hint = request.hint ?? request.context.sourceHint ?? null;
+		// The fallback question answered during this call: an attempt on the
+		// CPU after it was carried over, its deadline armed for the GPU.
+		const answersAtStart = this.cpuAnswers;
 		// A teardown (pagehide, unload all) while the route was still being
 		// resolved -- the first route asks the worker what is downloaded --
 		// ends this call like one during the translation itself, rather than
@@ -1085,10 +1141,16 @@ export class TranslateService {
 				// The language model's GPU copy stopped in this attempt: the
 				// fallback question comes after the attempt's bookkeeping.
 				let stopped: string | null = null;
-				// A request carried on to the CPU by the fallback may have had
-				// its deadline armed for the GPU: its progress keeps it alive.
-				const slowerThanPlanned =
-					this.cpuFallback === "yes" && llmId !== null && route.device === "cpu";
+				// This attempt was carried on to the CPU by the fallback's yes,
+				// and its caller armed the deadline for the GPU (two minutes,
+				// where a cold CPU start takes about three): it is kept alive
+				// until its first chunk, then by each chunk (`keepAlive`).
+				const carriedOver =
+					llmId !== null &&
+					route.device === "cpu" &&
+					this.cpuFallback === "yes" &&
+					this.cpuAnswers !== answersAtStart;
+				const alive = carriedOver ? this.keepAlive(() => yielded) : null;
 
 				try {
 					for await (const chunk of client.translate(
@@ -1096,6 +1158,7 @@ export class TranslateService {
 						route.ref,
 						(progress: LoadProgress) => {
 							this.ticks++;
+							alive?.progressed();
 							view.status = "downloading";
 							view.fraction = progress.fraction;
 							this.publish();
@@ -1103,7 +1166,7 @@ export class TranslateService {
 					)) {
 						yielded = true;
 
-						if (slowerThanPlanned) {
+						if (carriedOver) {
 							this.ticks++;
 						}
 
@@ -1168,11 +1231,22 @@ export class TranslateService {
 					) {
 						this.down.add(`${route.candidate}@${route.device}`);
 
-						if (llmId && route.device === "gpu") {
+						// The GPU ran it and stopped: the copy was on the device
+						// (or its download had finished), or the browser said
+						// the GPU was lost. A download that broke off short of
+						// done -- the network, the quota, the cache -- is not
+						// the GPU stopping, and asks nothing.
+						if (
+							llmId &&
+							route.device === "gpu" &&
+							(view.cached || view.fraction >= 1 || parseGpuLost(message) !== null)
+						) {
 							stopped = message;
 						}
 					}
 				} finally {
+					alive?.stop();
+
 					if (llmId) {
 						this.llmEnded(llmId);
 					}
