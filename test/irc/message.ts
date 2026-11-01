@@ -4,6 +4,7 @@ import {
 	formatLine,
 	formatSource,
 	formatTags,
+	graphemeCut,
 	MAX_LINE_BYTES,
 	parseLine,
 	parseSource,
@@ -350,6 +351,16 @@ describe("irc/message", function () {
 		});
 	});
 
+	describe("graphemeCut", function () {
+		it("moves a cut back to the last character boundary", function () {
+			const text = "ab\u{1F1E8}\u{1F1E6}cd"; // a b [flag: 4 units] c d
+			expect(graphemeCut(text, 0, 4)).to.equal(2); // between the flag's halves
+			expect(graphemeCut(text, 0, 6)).to.equal(6);
+			expect(graphemeCut(text, 2, 4)).to.equal(4); // nothing whole fits: cut as asked
+			expect(graphemeCut(text, 0, text.length)).to.equal(text.length);
+		});
+	});
+
 	describe("splitMessage", function () {
 		const prefix = "PRIVMSG #channel :";
 
@@ -362,6 +373,33 @@ describe("irc/message", function () {
 
 		it("returns the text unchanged when it fits", function () {
 			expect(splitMessage(prefix.length, "hello world")).to.deep.equal(["hello world"]);
+		});
+
+		it("cuts a run with no space between visible characters", function () {
+			const family = "\u{1F468}\u200D\u{1F469}\u200D\u{1F467}"; // 18 bytes
+			const flag = "\u{1F1E8}\u{1F1E6}"; // 8 bytes
+			const accented = "e\u0301"; // 3 bytes
+
+			for (const unit of [family, flag, accented]) {
+				const text = unit.repeat(40);
+				const chunks = splitMessage(prefix.length, text, prefix.length + 50);
+
+				expect(chunks.length).to.be.greaterThan(1);
+				expect(chunks.join("")).to.equal(text);
+
+				for (const chunk of chunks) {
+					expect(chunk.split(unit).join("")).to.equal("", `${chunk} split a character`);
+					expect(utf8ByteLength(chunk)).to.be.at.most(50);
+				}
+			}
+		});
+
+		it("still cuts a single character larger than the whole budget", function () {
+			const zalgo = "a" + "\u0301".repeat(60); // one character, 121 bytes
+			const chunks = splitMessage(prefix.length, zalgo, prefix.length + 50);
+
+			expect(chunks.join("")).to.equal(zalgo);
+			check(chunks, prefix.length + 50);
 		});
 
 		it("returns [] for empty text", function () {

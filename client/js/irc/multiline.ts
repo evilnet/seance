@@ -18,7 +18,14 @@ import {MessageType} from "../../../shared/types/msg";
 import type {IrcClient} from "./client";
 import {BatchHandler, OpenBatch, openBatchesOf} from "./handlers/batch";
 import {splitStatusTarget} from "./handlers/privmsg";
-import {formatLine, IrcMessage, IrcSource, MAX_LINE_BYTES, utf8ByteLength} from "./message";
+import {
+	formatLine,
+	graphemeCut,
+	IrcMessage,
+	IrcSource,
+	MAX_LINE_BYTES,
+	utf8ByteLength,
+} from "./message";
 import {armPending, pendingLabel, PendingMessage, settlePending, showPending} from "./pending";
 import {ClientTags, EDIT_TAG, REPLY_TAG, trailingLine} from "./wire";
 
@@ -300,7 +307,7 @@ function splitConcat(text: string, budget: number): string[] {
 			pos = start + ((text.codePointAt(start) as number) > 0xffff ? 2 : 1);
 		}
 
-		const end = afterSpace > start ? afterSpace : pos;
+		const end = afterSpace > start ? afterSpace : graphemeCut(text, start, pos);
 		chunks.push(text.slice(start, end));
 		start = end;
 	}

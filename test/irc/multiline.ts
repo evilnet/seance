@@ -587,6 +587,18 @@ describe("multiline sending", function () {
 			}
 		});
 
+		it("cuts concat chunks between visible characters", function () {
+			const flag = "\u{1F1E8}\u{1F1E6}";
+			const text = "z" + flag.repeat(200);
+			const plan = planMultiline(text, 100, {maxBytes: 16384, maxLines: 100});
+
+			expect(rejoin(plan[0])).to.equal(text);
+
+			for (const line of plan[0].slice(1)) {
+				expect(line.text.split(flag).join("")).to.equal("");
+			}
+		});
+
 		it("splits a line with no spaces at the byte budget", function () {
 			const text = `${"x".repeat(30)}\ny`;
 			const plan = planMultiline(text, MAX_LINE_BYTES - 10, {maxBytes: 16384, maxLines: 100});
