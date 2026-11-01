@@ -25,6 +25,8 @@ export type PieceFlags = {
 	strikethrough?: true;
 	monospace?: true;
 	codeBlock?: true;
+	// Which fenced block: two written back to back stay two
+	codeId?: number;
 	quote?: true;
 	spoiler?: true;
 	verbatim?: true;
@@ -62,7 +64,17 @@ const linkRx = /^\[([^\]\n]+)\]\(((?:https?:\/\/|web\+irc:)(?:[^\s()]|\([^\s()]*
 
 type ScanFlag = keyof Omit<
 	PieceFlags,
-	"href" | "lang" | "file" | "header" | "list" | "table" | "math" | "mathBlock" | "mathId"
+	| "href"
+	| "lang"
+	| "file"
+	| "header"
+	| "list"
+	| "table"
+	| "math"
+	| "mathBlock"
+	| "mathId"
+	| "codeId"
+	| "codeBlock"
 >;
 
 // The flags a range can carry: a bare one, or one of the kind that name a value
@@ -70,6 +82,7 @@ type ScanRange =
 	| (Range & {flag: ScanFlag})
 	| (Range & {flag: "href"; href: string})
 	| (Range & {flag: "lang"; lang?: string; file?: string})
+	| (Range & {flag: "codeBlock"; id: number})
 	| (Range & {flag: "header"; level: HeaderLevel})
 	| (Range & {flag: "list"; list: "ul" | "ol"; num: number})
 	| (Range & {flag: "table"; table: string})
@@ -308,6 +321,9 @@ function cutPieces(text: string, {removals, ranges}: Scan, extraCuts: number[]):
 				flags.list = range.list === "ol" ? `ol:${range.num}` : "ul";
 			} else if (range.flag === "table") {
 				flags.table = range.table;
+			} else if (range.flag === "codeBlock") {
+				flags.codeBlock = true;
+				flags.codeId = range.id;
 			} else if (range.flag === "math" || range.flag === "mathBlock") {
 				flags[range.flag] = range.tex;
 				flags.mathId = range.id;
@@ -682,7 +698,7 @@ function codeBlock(text: string, i: number, removals: Range[], ranges: ScanRange
 	}
 
 	removals.push({start: removeStart, end: contentStart}, {start: contentEnd, end: removeEnd});
-	ranges.push({start: contentStart, end: contentEnd, flag: "codeBlock"});
+	ranges.push({start: contentStart, end: contentEnd, flag: "codeBlock", id: ranges.length});
 	ranges.push({start: contentStart, end: contentEnd, flag: "verbatim"});
 
 	if (lang || file) {
