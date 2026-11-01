@@ -1320,3 +1320,18 @@ saved network loses its subscription (endpoint queued for UNREGISTER on the
 network whose key it carries) and is unregistered; the journal says so.
 Another app on the origin (a Pages preview) has its own base and is never
 touched.
+
+**Android with the app closed closes inside the event (2026-11-01).** The
+user, twice: "Marked as read" has to go by itself. On Android with no window
+of the app open nothing scheduled for after the event runs (the process
+ends with the event, the sync is refused), so there `closesRunLater()` is
+false and the worker gives up the count instead: a relay closes the last
+card inside its event too and converts nothing, Mark read closes the last
+card at once, and `keepChromeCount` shows no stub — each a silent push
+Chrome counts against the origin's budget (`kMaximumHourlyBudget` 12/24 an
+hour, a silent push costs 2: about six a day for a fully engaged site), and
+past it Chrome shows "This site has been updated in the background", which
+it deletes itself once the site shows two notifications. A backgrounded
+phone still has a window, so its sync registers and fires and the in-place
+"Marked as read" stays the rule there, as on every desktop. Tests: § closes
+on Android with the app closed.
