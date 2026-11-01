@@ -9,7 +9,10 @@
  */
 
 import type {Route} from "../../../shared/types/oper";
+import {t, tCount} from "../i18n/core";
 import type {AlertLine, NoticeKind, ServerProfile, SnomaskModel} from "../irc/profiles/types";
+import {alertLineHint, alertLineLabel} from "../irc/profiles/nefarious/alerts";
+import {kindLabel} from "../irc/profiles/noticeText";
 import {allNoticeKinds} from "../irc/snotice";
 
 /** A line of the folded "Everything else" row: one kind on its own. */
@@ -25,8 +28,9 @@ export interface AlertLines {
 }
 
 /**
- * The lines for a profile. A profile without any gets everything under
- * "Everything else", one kind per line, so the tab is never empty.
+ * The lines for a profile, labelled in the reader's language. A profile
+ * without any gets everything under "Everything else", one kind per line,
+ * so the tab is never empty.
  */
 export function alertLinesFor(profile: ServerProfile): AlertLines {
 	const kinds = allNoticeKinds(profile);
@@ -39,13 +43,24 @@ export function alertLinesFor(profile: ServerProfile): AlertLines {
 
 		if (own.length > 0) {
 			own.forEach((k) => covered.add(k));
-			lines.push({...line, kinds: own});
+			const hint = alertLineHint(line);
+			lines.push({
+				...line,
+				label: alertLineLabel(line),
+				...(hint !== undefined ? {hint} : {}),
+				kinds: own,
+			});
 		}
 	}
 
 	const rest: RestLine[] = kinds
 		.filter((k) => !covered.has(k.kind))
-		.map((k) => ({id: `kind:${k.kind}`, label: k.label, section: "else", kinds: [k.kind]}));
+		.map((k) => ({
+			id: `kind:${k.kind}`,
+			label: kindLabel(k),
+			section: "else",
+			kinds: [k.kind],
+		}));
 
 	return {lines, rest};
 }
@@ -64,12 +79,20 @@ export function endOfToday(now = Date.now()): number {
 	return d.getTime();
 }
 
-/** The choices "Here" offers, with when each one lapses. */
-export const HERE_DURATIONS: {label: string; until: (now: number) => number | undefined}[] = [
-	{label: "for today", until: (now) => endOfToday(now)},
-	{label: "for 3 days", until: (now) => now + 3 * DAY_MS},
-	{label: "for a week", until: (now) => now + 7 * DAY_MS},
-	{label: "until I change it", until: () => undefined},
+/**
+ * The choices "Here" offers, with when each one lapses. `label` is the
+ * English data the tests read; the menu says each one as a whole phrase
+ * of its own (helpers/operMenu.ts `hereItems`, by `id`).
+ */
+export const HERE_DURATIONS: {
+	id: "today" | "days3" | "week" | "forGood";
+	label: string;
+	until: (now: number) => number | undefined;
+}[] = [
+	{id: "today", label: "for today", until: (now) => endOfToday(now)},
+	{id: "days3", label: "for 3 days", until: (now) => now + 3 * DAY_MS},
+	{id: "week", label: "for a week", until: (now) => now + 7 * DAY_MS},
+	{id: "forGood", label: "until I change it", until: () => undefined},
 ];
 
 /** `until tonight`, `until tomorrow`, `2 more days`: what a temporary route has left. */
@@ -77,11 +100,11 @@ export function untilText(until: number, now = Date.now()): string {
 	const tonight = endOfToday(now);
 
 	if (until <= tonight) {
-		return "until tonight";
+		return t("oper.alerts.until.tonight");
 	}
 
 	const days = Math.ceil((until - tonight) / DAY_MS);
-	return days <= 1 ? "until tomorrow" : `${days} more days`;
+	return days <= 1 ? t("oper.alerts.until.tomorrow") : tCount("oper.alerts.until.days", days);
 }
 
 /**

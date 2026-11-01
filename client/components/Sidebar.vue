@@ -3,9 +3,28 @@
 		<div class="scrollable-area">
 			<div class="logo-container">
 				<img src="img/logo-tile.png" class="logo" :alt="appName" role="presentation" />
+				<!-- The language selector's development-build entry point:
+				     a popover holding the same LanguageSelect that Settings
+				     -> Translation carries, reachable without leaving the
+				     page. Production builds have the Settings one only. -->
 				<span
 					v-if="isDevelopment"
-					:title="`${appName} has been built in development mode`"
+					class="tooltipped tooltipped-n tooltipped-no-touch"
+					:aria-label="languageLabel"
+				>
+					<button
+						class="locale-toggle"
+						type="button"
+						:aria-label="languageLabel"
+						:aria-expanded="localeOpen"
+						@click="toggleLocale"
+					>
+						🌐
+					</button>
+				</span>
+				<span
+					v-if="isDevelopment"
+					:title="devBuildTitle"
 					:style="{
 						backgroundColor: '#ff9e18',
 						color: '#000',
@@ -13,18 +32,29 @@
 						borderRadius: '4px',
 						fontSize: '12px',
 					}"
-					>DEVELOPER</span
+					>{{ t("sidebar.developerBadge") }}</span
 				>
 				<button
 					v-if="isDevelopment"
 					class="devtools-toggle"
 					type="button"
-					title="Toggle eruda devtools"
-					aria-label="Toggle eruda devtools"
+					:title="devtoolsLabel"
+					:aria-label="devtoolsLabel"
 					@click="toggleDevtools"
 				>
 					🐞
 				</button>
+				<div
+					v-if="isDevelopment && localeOpen"
+					id="locale-popover"
+					class="locale-popover"
+					@keydown.esc="onLocaleKey"
+				>
+					<LanguageSelect
+						:model-value="store.state.settings.locale"
+						@change="onLocalePick"
+					/>
+				</div>
 				<PresencePill />
 			</div>
 			<NetworkList />
@@ -33,33 +63,23 @@
 			<!-- `custom`: no <a> around the button, so the button is the one
 			     control and carries the name (the tooltip span's aria-label is
 			     only the tooltip's text). -->
-			<span class="tooltipped tooltipped-n tooltipped-no-touch" aria-label="Settings"
+			<span class="tooltipped tooltipped-n tooltipped-no-touch" :aria-label="settingsLabel"
 				><router-link v-slot:default="{navigate, isActive}" to="/settings" custom>
 					<button
 						:class="['icon', 'settings', {active: isActive}]"
 						role="tab"
 						aria-controls="settings"
-						aria-label="Settings"
+						:aria-label="settingsLabel"
 						:aria-selected="isActive"
 						@click="navigate"
 					></button> </router-link
 			></span>
-			<span
-				class="tooltipped tooltipped-n tooltipped-no-touch"
-				:aria-label="
-					store.state.serverConfiguration?.isUpdateAvailable
-						? 'Help\n(update available)'
-						: 'Help'
-				"
+			<span class="tooltipped tooltipped-n tooltipped-no-touch" :aria-label="helpLabel"
 				><router-link v-slot:default="{navigate, isActive}" to="/help" custom>
 					<button
 						role="tab"
 						aria-controls="help"
-						:aria-label="
-							store.state.serverConfiguration?.isUpdateAvailable
-								? 'Help, update available'
-								: 'Help'
-						"
+						:aria-label="helpLabel"
 						:aria-selected="route.name === 'Help'"
 						:class="[
 							'icon',
@@ -78,7 +98,10 @@
 import {computed, defineComponent, nextTick, onMounted, onUnmounted, PropType, ref} from "vue";
 import {useRoute} from "vue-router";
 import {useStore} from "../js/store";
+import {useI18n} from "../js/i18n";
 import NetworkList from "./NetworkList.vue";
+import LanguageSelect from "./LanguageSelect.vue";
+import eventbus from "../js/eventbus";
 import PresencePill from "./PresencePill.vue";
 import {devtoolsAvailable, toggleDevtools} from "../js/devtools";
 
@@ -86,6 +109,7 @@ export default defineComponent({
 	name: "Sidebar",
 	components: {
 		NetworkList,
+		LanguageSelect,
 		PresencePill,
 	},
 	props: {
@@ -110,6 +134,13 @@ export default defineComponent({
 			store.commit("sidebarOpen", state);
 		};
 
+		/**
+		 * Which way the pane slides: the sidebar docks at the inline-start
+		 * edge, which is the left one in LTR and the right one in RTL. -1 in
+		 * RTL maps inline progress to and from screen coordinates.
+		 */
+		const slideDir = () => (document.documentElement.dir === "rtl" ? -1 : 1);
+
 		const onTouchMove = (e: TouchEvent) => {
 			const touch = (touchCurPos.value = e.touches.item(0));
 
@@ -122,7 +153,12 @@ export default defineComponent({
 				return;
 			}
 
-			let distX = touch.screenX - touchStartPos.value.screenX;
+			const dirFactor = slideDir();
+
+			// distX is drag progress in the inline direction (positive = the
+			// pane is being revealed); the angle check below only compares
+			// magnitudes, so the sign flip does not move its threshold.
+			let distX = dirFactor * (touch.screenX - touchStartPos.value.screenX);
 			const distY = touch.screenY - touchStartPos.value.screenY;
 
 			if (!menuIsMoving.value) {
@@ -158,8 +194,14 @@ export default defineComponent({
 				distX = 0;
 			}
 
+			// The pane's rest position is the slid-away transform, so the drag
+			// runs from `-menuWidth` (hidden) to 0 (shown), mirrored by the
+			// direction factor; the class state takes over on release.
 			if (sidebar.value) {
-				sidebar.value.style.transform = "translate3d(" + distX.toString() + "px, 0, 0)";
+				sidebar.value.style.transform =
+					"translate3d(" +
+					(dirFactor * (distX - menuWidth.value)).toString() +
+					"px, 0, 0)";
 			}
 
 			if (props.overlay) {
@@ -189,7 +231,9 @@ export default defineComponent({
 					absDiff > menuWidth.value / 2 ||
 					(Date.now() - touchStartTime.value < 180 && absDiff > 50)
 				) {
-					toggle(diff > 0);
+					// Positive inline progress opens the pane: a rightward
+					// swipe in LTR, a leftward one in RTL.
+					toggle(diff * slideDir() > 0);
 				}
 			}
 
@@ -256,10 +300,18 @@ export default defineComponent({
 			menuWidth.value = parseFloat(styles.width);
 			menuIsAbsolute.value = styles.position === "absolute";
 
-			if (
-				!store.state.sidebarOpen ||
-				(touchStartPos.value?.screenX && touchStartPos.value.screenX > menuWidth.value)
-			) {
+			// The drag engages anywhere except the pane's own docked strip:
+			// measured from the start edge, which is the left one in LTR and
+			// the right one in RTL. (Distance 0 at the docked edge counts as
+			// no gesture, mirroring the old screenX 0 check.)
+			const rtl = document.documentElement.dir === "rtl";
+			const dockX = touchStartPos.value
+				? rtl
+					? window.innerWidth - touchStartPos.value.screenX
+					: touchStartPos.value.screenX
+				: 0;
+
+			if (!store.state.sidebarOpen || (dockX && dockX > menuWidth.value)) {
 				touchStartTime.value = Date.now();
 				drag = new AbortController();
 
@@ -282,10 +334,72 @@ export default defineComponent({
 
 		const appName = computed(() => store.state.branding.appName);
 
+		// Footer and dev-mode labels, reactive on a locale change.
+		const {t} = useI18n();
+		const settingsLabel = computed(() => t("sidebar.settings"));
+		const helpLabel = computed(() =>
+			store.state.serverConfiguration?.isUpdateAvailable
+				? t("sidebar.helpUpdate")
+				: t("sidebar.help")
+		);
+		const devtoolsLabel = computed(() => t("sidebar.toggleDevtools"));
+		const devBuildTitle = computed(() => t("sidebar.devBuildTitle", {app: appName.value}));
+
+		// The globe beside the logo: the most primitive language access —
+		// no settings navigation, works on the connect form and over a dead
+		// network alike. The panel reuses LanguageSelect (the same list the
+		// connect form and Appearance render); a pick applies at once and
+		// closes the panel. Escape and a click outside close it.
+		const localeOpen = ref(false);
+		const languageLabel = computed(() => t("sidebar.language"));
+
+		const closeLocale = () => {
+			localeOpen.value = false;
+		};
+
+		const toggleLocale = () => {
+			localeOpen.value = !localeOpen.value;
+
+			if (localeOpen.value) {
+				void nextTick(() => {
+					(
+						document
+							.getElementById("locale-popover")
+							?.querySelector("select") as HTMLSelectElement | null
+					)?.focus();
+				});
+			}
+		};
+
+		const onLocalePick = (tag: string) => {
+			void store.dispatch("settings/update", {name: "locale", value: tag});
+			closeLocale();
+		};
+
+		// Escape with the focus inside the panel: keybinds.ts deliberately
+		// ignores Escape inside form fields, so the panel listens for its
+		// own (the select bubbles the keydown up here).
+		const onLocaleKey = () => {
+			closeLocale();
+		};
+
+		onMounted(() => eventbus.on("escapekey", closeLocale));
+		onUnmounted(() => eventbus.off("escapekey", closeLocale));
+
 		return {
 			appName,
 			isDevelopment,
 			toggleDevtools,
+			t,
+			settingsLabel,
+			helpLabel,
+			devtoolsLabel,
+			devBuildTitle,
+			localeOpen,
+			languageLabel,
+			toggleLocale,
+			onLocalePick,
+			onLocaleKey,
 			store,
 			route,
 			sidebar,

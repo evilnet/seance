@@ -4,8 +4,7 @@
 			<span class="time" />
 			<span class="from" />
 			<span class="content" @click="onCollapseClick"
-				>{{ condensedText
-				}}<button class="toggle-button" aria-label="Toggle status messages"
+				>{{ condensedText }}<button class="toggle-button" :aria-label="toggleLabel"
 			/></span>
 		</div>
 		<Message
@@ -22,6 +21,8 @@ import {computed, defineComponent, PropType, ref} from "vue";
 import {condensedTypes} from "../../shared/irc";
 import {MessageType} from "../../shared/types/msg";
 import {ClientMessage, ClientNetwork} from "../js/types";
+import {localeRef, useI18n} from "../js/i18n";
+import {warnFragmentJoin} from "../js/i18n/core";
 import Message from "./Message.vue";
 
 export default defineComponent({
@@ -42,12 +43,16 @@ export default defineComponent({
 		focused: Boolean,
 	},
 	setup(props) {
+		const {t, tCount} = useI18n();
+
 		const isCollapsed = ref(true);
 
 		const onCollapseClick = () => {
 			isCollapsed.value = !isCollapsed.value;
 			props.keepScrollPosition();
 		};
+
+		const toggleLabel = computed(() => t("condensed.toggle"));
 
 		const condensedText = computed(() => {
 			const obj: Record<string, number> = {};
@@ -82,83 +87,67 @@ export default defineComponent({
 			// Count quits as parts in condensed messages to reduce information density
 			obj.part += obj.quit;
 
-			const strings: string[] = [];
-			condensedTypes.forEach((type) => {
-				if (obj[type]) {
-					switch (type) {
-						case "chghost":
-							strings.push(
-								String(obj[type]) +
-									(obj[type] > 1
-										? " users have changed hostname"
-										: " user has changed hostname")
-							);
-							break;
-						case "join":
-							strings.push(
-								String(obj[type]) +
-									(obj[type] > 1 ? " users have joined" : " user has joined")
-							);
-							break;
-						case "part":
-							strings.push(
-								String(obj[type]) +
-									(obj[type] > 1 ? " users have left" : " user has left")
-							);
-							break;
-						case "nick":
-							strings.push(
-								String(obj[type]) +
-									(obj[type] > 1
-										? " users have changed nick"
-										: " user has changed nick")
-							);
-							break;
-						case "kick":
-							strings.push(
-								String(obj[type]) +
-									(obj[type] > 1 ? " users were kicked" : " user was kicked")
-							);
-							break;
-						case "mode":
-							strings.push(
-								String(obj[type]) +
-									(obj[type] > 1 ? " modes were set" : " mode was set")
-							);
-							break;
-						case "away":
-							strings.push(
-								"marked away " +
-									(obj[type] > 1 ? String(obj[type]) + " times" : "once")
-							);
-							break;
-						case "back":
-							strings.push(
-								"marked back " +
-									(obj[type] > 1 ? String(obj[type]) + " times" : "once")
-							);
-							break;
-					}
-				}
-			});
+			const parts: string[] = [];
 
-			if (strings.length) {
-				let text = strings.pop();
+			// Every tCount keeps its key as a plain literal (the pot ↔
+			// call-site scanner only sees direct calls), so the per-type
+			// labels are a switch, not a key table. "quit" is folded into
+			// "part" above; away/back build their own marked parts.
+			for (const type of condensedTypes) {
+				const count = obj[type];
 
-				if (strings.length) {
-					text = strings.join(", ") + ", and " + text!;
+				if (!count) {
+					continue;
 				}
 
-				return text;
+				switch (type) {
+					case "away":
+						parts.push(tCount("condensed.away", count));
+						break;
+					case "back":
+						parts.push(tCount("condensed.back", count));
+						break;
+					case "chghost":
+						parts.push(tCount("condensed.chghost", count));
+						break;
+					case "join":
+						parts.push(tCount("condensed.join", count));
+						break;
+					case "kick":
+						parts.push(tCount("condensed.kicked", count));
+						break;
+					case "mode":
+						parts.push(tCount("condensed.modes", count));
+						break;
+					case "nick":
+						parts.push(tCount("condensed.nick", count));
+						break;
+					case "part":
+						parts.push(tCount("condensed.left", count));
+						break;
+					case "quit":
+						break; // folded into part above
+				}
 			}
 
-			return "";
+			if (parts.length === 0) {
+				return "";
+			}
+
+			// "3 users have joined, 1 mode was set and 1 user has left" — the
+			// list conjunction is the locale's, not ", and ".
+			if (parts.length > 1) {
+				warnFragmentJoin(parts.length);
+			}
+
+			return new Intl.ListFormat(localeRef.value, {type: "conjunction"}).format(parts);
 		});
 
 		return {
 			isCollapsed,
 			condensedText,
 			onCollapseClick,
+			toggleLabel,
 		};
 	},
 });

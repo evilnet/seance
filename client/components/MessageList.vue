@@ -12,8 +12,8 @@
 				class="btn"
 				@click="onShowMoreClick"
 			>
-				<span v-if="channel.historyLoading">Loading…</span>
-				<span v-else>Show older messages</span>
+				<span v-if="channel.historyLoading">{{ t("chat.historyLoading") }}</span>
+				<span v-else>{{ t("chat.showOlder") }}</span>
 			</button>
 		</div>
 		<div
@@ -36,7 +36,7 @@
 					:key="message.id + '-unread'"
 					class="unread-marker"
 				>
-					<span class="unread-marker-text" />
+					<span class="unread-marker-text" :data-label="t('chat.unreadMarker')" />
 				</div>
 
 				<MessageCondensed
@@ -88,6 +88,7 @@ import {
 	watch,
 } from "vue";
 import {useStore} from "../js/store";
+import {useI18n} from "../js/i18n";
 import {ClientChan, ClientMessage, ClientNetwork, ClientLinkPreview} from "../js/types";
 
 /** A pressed pointer that travels this far is dragging out a selection. */
@@ -117,6 +118,7 @@ export default defineComponent({
 	},
 	setup(props) {
 		const store = useStore();
+		const {t} = useI18n();
 
 		const chat = ref<HTMLDivElement | null>(null);
 		const loadMoreButton = ref<HTMLButtonElement | null>(null);
@@ -704,6 +706,7 @@ export default defineComponent({
 		return {
 			chat,
 			store,
+			t,
 			onShowMoreClick,
 			loadMoreButton,
 			onCopy,

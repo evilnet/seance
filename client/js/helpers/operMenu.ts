@@ -7,6 +7,7 @@
  */
 
 import socket from "../socket";
+import {t} from "../i18n/core";
 import eventbus from "../eventbus";
 import {operRequest} from "./operRequest";
 import type {ContextMenuItem} from "./contextMenu";
@@ -16,6 +17,8 @@ import type {BanType} from "../irc/profiles/nefarious/bans";
 import type {NoticeKind} from "../irc/profiles/types";
 import {profileById} from "../irc/profiles";
 import {allNoticeKinds, findNoticeKind} from "../irc/snotice";
+import {kindLabel} from "../irc/profiles/noticeText";
+import {bitStopLabel} from "../irc/profiles/nefarious/snomask";
 import {routeFor, setRoute, setTemporaryRoute, temporaryRouteFor} from "../irc/operprefs";
 import {categoryBadge, wallopsBadge} from "./operFormat";
 import {HERE_DURATIONS, reconcileMask, untilText} from "./operAlerts";
@@ -54,7 +57,7 @@ export function operChannelItems(network: ClientNetwork, channel: string): Conte
 
 	return [
 		{
-			label: "Investigate",
+			label: t("oper.menu.investigate"),
 			type: "item",
 			class: "oper-investigate",
 			action: () =>
@@ -169,7 +172,7 @@ export function operUserItems(
 
 	const items: ContextMenuItem[] = [
 		{
-			label: "Investigate",
+			label: t("oper.menu.investigate"),
 			type: "item",
 			class: "oper-investigate",
 			action: () => openInvestigation({network: network.uuid, kind: "user", target: nick}),
@@ -178,7 +181,7 @@ export function operUserItems(
 
 	if (hasPriv(network, "CHECK")) {
 		items.push({
-			label: "Check",
+			label: t("oper.menu.check"),
 			type: "item",
 			class: "oper-check",
 			// Asked of our own server: the user's own (`CHECK nick nick`) would
@@ -191,7 +194,7 @@ export function operUserItems(
 
 	if (hasPriv(network, "KILL", "LOCAL_KILL")) {
 		items.push({
-			label: "Kill…",
+			label: t("oper.menu.kill"),
 			type: "item",
 			class: "oper-kill",
 			action: () => openOperAction({network: network.uuid, chan, action: "kill", nick}),
@@ -202,7 +205,7 @@ export function operUserItems(
 
 	if (hasPriv(network, "CHECK")) {
 		items.push({
-			label: "Find clones",
+			label: t("oper.menu.findClones"),
 			type: "item",
 			class: "oper-clones",
 			action() {
@@ -234,7 +237,7 @@ export function operTargetItems(
 
 	if (opered && hasPriv(network, "CHECK")) {
 		items.push({
-			label: kind === "ip" ? "Check this IP" : "Check matching users",
+			label: kind === "ip" ? t("oper.menu.checkIp") : t("oper.menu.checkMatching"),
 			type: "item",
 			class: "oper-check",
 			action: () => input(chan, `/check ${kind === "mask" ? value : host}`),
@@ -243,7 +246,7 @@ export function operTargetItems(
 
 	if (opered && kind !== "mask") {
 		items.push({
-			label: "Who is on it",
+			label: t("oper.menu.whoIsOn"),
 			type: "item",
 			class: "oper-who",
 			action: () => input(chan, `/who ${host} x${kind === "ip" ? "i" : "h"}`),
@@ -256,7 +259,7 @@ export function operTargetItems(
 	}
 
 	items.push({
-		label: "Copy",
+		label: t("oper.menu.copy"),
 		type: "item",
 		class: "oper-copy",
 		action: () => void navigator.clipboard?.writeText(value).catch(() => undefined),
@@ -347,8 +350,21 @@ export function hereItems(
 	pick: (until: number | undefined) => void,
 	now = Date.now()
 ): ContextMenuItem[] {
+	const label = (id: typeof HERE_DURATIONS[number]["id"]): string => {
+		switch (id) {
+			case "today":
+				return t("oper.menu.here.today");
+			case "days3":
+				return t("oper.menu.here.days3");
+			case "week":
+				return t("oper.menu.here.week");
+			case "forGood":
+				return t("oper.menu.here.forGood");
+		}
+	};
+
 	return HERE_DURATIONS.map((d) => ({
-		label: `Show here ${d.label}`,
+		label: label(d.id),
 		type: "item",
 		class: cls,
 		action: () => pick(d.until(now)),
@@ -385,8 +401,11 @@ export function noticeRouteItems(
 	// A temporary Here is said in the header (the duration it was chosen
 	// for is not kept); a permanent one marks "until I change it".
 	const header = temporary
-		? `${kind.label} — here ${untilText(temporary.until, now)}`
-		: kind.label;
+		? t("oper.menu.kindHereUntil", {
+				kind: kindLabel(kind),
+				until: untilText(temporary.until, now),
+		  })
+		: kindLabel(kind);
 	const here = hereItems("oper-route-active", (until) =>
 		applyNoticeRoute(network, [kind], "active", until)
 	);
@@ -401,13 +420,13 @@ export function noticeRouteItems(
 		{type: "divider"},
 		...here,
 		{
-			label: "Show in the network window",
+			label: t("oper.menu.showNetwork"),
 			type: "item",
 			class: mark("network", "oper-route-network"),
 			action: () => applyNoticeRoute(network, [kind], "network"),
 		},
 		{
-			label: "Show nowhere",
+			label: t("oper.menu.showNowhere"),
 			type: "item",
 			class: mark("off", "oper-route-off"),
 			action: () => applyNoticeRoute(network, [kind], "off"),
@@ -418,14 +437,14 @@ export function noticeRouteItems(
 	const umodes = network.oper?.umodes ?? "";
 
 	if (info.category === "WALLOPS") {
-		const letter = info.kind === "desynch" ? "g" : "w";
-		const label = info.kind === "desynch" ? "desync reports" : "WALLOPS";
+		const desynch = info.kind === "desynch";
+		const letter = desynch ? "g" : "w";
 
 		if (umodes.includes(letter) && lobby !== undefined) {
 			items.push(
 				{type: "divider"},
 				{
-					label: `Stop receiving ${label} (-${letter})`,
+					label: desynch ? t("oper.menu.stopDesync") : t("oper.menu.stopWallops"),
 					type: "item",
 					class: "oper-route-stop",
 					action: () => input(lobby, `/umode -${letter}`),
@@ -444,7 +463,7 @@ export function noticeRouteItems(
 		items.push(
 			{type: "divider"},
 			{
-				label: `Stop receiving ${bit.label.toLowerCase()} notices`,
+				label: bitStopLabel(bit),
 				type: "item",
 				class: "oper-route-stop",
 				action: () =>
@@ -474,9 +493,9 @@ export function noticeBadge(
 		case "wallops":
 			return {label: wallopsBadge(info.kind), family: "wallops"};
 		case "snoop":
-			return {label: "snoop", family: "oper"};
+			return {label: t("oper.badge.snoop"), family: "oper"};
 		case "audit":
-			return {label: "services", family: "oper"};
+			return {label: t("oper.badge.services"), family: "oper"};
 		default:
 			return categoryBadge(info.category);
 	}

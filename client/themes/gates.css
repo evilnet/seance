@@ -149,6 +149,15 @@ body,
 		inset -3px 0 0 var(--dos-bright-blue);
 }
 
+/* The window frames' inner edges face the chat; in RTL both panes sit on
+ * the other side, so the rules move with them. */
+[dir="rtl"] #sidebar {
+	box-shadow:
+		inset 1px 0 0 var(--dos-bright-blue),
+		inset 2px 0 0 var(--dos-blue),
+		inset 3px 0 0 var(--dos-bright-blue);
+}
+
 #chat .header {
 	border-bottom-color: var(--dos-bright-blue);
 	box-shadow:
@@ -158,11 +167,18 @@ body,
 }
 
 #chat .userlist {
-	border-left-color: var(--dos-bright-blue);
+	border-inline-start-color: var(--dos-bright-blue);
 	box-shadow:
 		inset 1px 0 0 var(--dos-bright-blue),
 		inset 2px 0 0 var(--dos-blue),
 		inset 3px 0 0 var(--dos-bright-blue);
+}
+
+[dir="rtl"] #chat .userlist {
+	box-shadow:
+		inset -1px 0 0 var(--dos-bright-blue),
+		inset -2px 0 0 var(--dos-blue),
+		inset -3px 0 0 var(--dos-bright-blue);
 }
 
 #form {
@@ -200,6 +216,10 @@ body,
 .channel-list-item.active {
 	color: var(--dos-white);
 	box-shadow: inset 2px 0 0 var(--dos-red);
+}
+
+[dir="rtl"] .channel-list-item.active {
+	box-shadow: inset -2px 0 0 var(--dos-red);
 }
 
 .channel-list-item.has-unread .name {

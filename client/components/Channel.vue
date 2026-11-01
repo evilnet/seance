@@ -1,7 +1,9 @@
 <template>
 	<!-- TODO: investigate -->
 	<ChannelWrapper ref="wrapper" v-bind="$props">
-		<span class="name">{{ channel.name }}</span>
+		<span class="name"
+			><bdi>{{ channel.name }}</bdi></span
+		>
 		<span
 			v-if="channel.unread"
 			:class="{highlight: channel.highlight && !channel.muted}"
@@ -12,17 +14,17 @@
 			<span
 				v-if="channel.state === 0"
 				class="parted-channel-tooltip tooltipped tooltipped-w"
-				aria-label="Not currently joined"
+				:aria-label="partedAria"
 			>
 				<span class="parted-channel-icon" />
 			</span>
-			<span class="close-tooltip tooltipped tooltipped-w" data-tooltip="Leave">
-				<button class="close" aria-label="Leave" @click.stop="close" />
+			<span class="close-tooltip tooltipped tooltipped-w" :data-tooltip="leaveLabel">
+				<button class="close" :aria-label="leaveLabel" @click.stop="close" />
 			</span>
 		</template>
 		<template v-else>
-			<span class="close-tooltip tooltipped tooltipped-w" data-tooltip="Close">
-				<button class="close" aria-label="Close" @click.stop="close" />
+			<span class="close-tooltip tooltipped tooltipped-w" :data-tooltip="closeLabel">
+				<button class="close" :aria-label="closeLabel" @click.stop="close" />
 			</span>
 		</template>
 	</ChannelWrapper>
@@ -30,6 +32,7 @@
 
 <script lang="ts">
 import {PropType, defineComponent, computed} from "vue";
+import {useI18n} from "../js/i18n";
 import roundBadgeNumber from "../js/helpers/roundBadgeNumber";
 import useCloseChannel from "../js/hooks/use-close-channel";
 import {ClientChan, ClientNetwork} from "../js/types";
@@ -53,10 +56,18 @@ export default defineComponent({
 		isFiltering: Boolean,
 	},
 	setup(props) {
+		const {t} = useI18n();
+		const partedAria = computed(() => t("channel.partedAria"));
+		const leaveLabel = computed(() => t("channel.leave"));
+		const closeLabel = computed(() => t("channel.close"));
 		const unreadCount = computed(() => roundBadgeNumber(props.channel.unread));
 		const close = useCloseChannel(props.channel);
 
 		return {
+			t,
+			partedAria,
+			leaveLabel,
+			closeLabel,
 			unreadCount,
 			close,
 		};

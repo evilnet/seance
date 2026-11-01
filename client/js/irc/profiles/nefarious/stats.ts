@@ -41,6 +41,7 @@ import {
 	time,
 	trailingOf,
 } from "../report";
+import {t} from "../../../i18n/core";
 import type {StatsEntry} from "../types";
 
 /**
@@ -156,55 +157,106 @@ export function statsEntry(selector: string): StatsEntry | undefined {
 	return STATS_ENTRIES.find((e) => e.name === name);
 }
 
-const TITLES: Record<string, string> = {
-	access: "Client blocks",
-	authtoken: "Auth tokens",
-	chathistory: "Chathistory storage",
-	chathistoryads: "Chathistory federation",
-	classes: "Connection classes",
-	commands: "Command usage",
-	connect: "Connect blocks",
-	crules: "Routing rules",
-	dnsbl: "DNSBL",
-	engine: "Event engine",
-	excepts: "Exceptions",
-	features: "Features (changed)",
-	featuresall: "Features (all)",
-	gitsync: "GitSync",
-	glines: "G-lines",
-	histogram: "Message length histogram",
-	iauth: "IAuth statistics",
-	iauthconf: "IAuth configuration",
-	jupes: "Nick jupes",
-	klines: "K-lines",
-	links: "Connections",
-	locals: "Local traffic",
-	mappings: "Service mappings",
-	maskrules: "Routing rules (masks)",
-	memory: "Memory",
-	memusage: "List usage",
-	metadata: "Metadata storage",
-	modules: "Modules",
-	motds: "MOTD files",
-	nameservers: "Nameservers",
-	operators: "Operator blocks",
-	ports: "Listening ports",
-	quarantines: "Quarantined channels",
-	shuns: "Shuns",
-	spoofhosts: "Spoofed hosts",
-	uptime: "Uptime",
-	usage: "Resource usage",
-	userload: "User load",
-	uworld: "Service servers",
-	vservers: "Servers",
-	vserversmach: "Servers",
-	webhook: "Keycloak webhook",
-	webirc: "WebIRC blocks",
-	webpush: "Web push",
-	zlines: "Z-lines",
-};
+/** Our heading for a selector's report; undefined for one we have none for. */
+function titleOf(name: string): string | undefined {
+	switch (name) {
+		case "access":
+			return t("oper.stats.title.access");
+		case "authtoken":
+			return t("oper.stats.title.authtoken");
+		case "chathistory":
+			return t("oper.stats.title.chathistory");
+		case "chathistoryads":
+			return t("oper.stats.title.chathistoryads");
+		case "classes":
+			return t("oper.stats.title.classes");
+		case "commands":
+			return t("oper.stats.title.commands");
+		case "connect":
+			return t("oper.stats.title.connect");
+		case "crules":
+			return t("oper.stats.title.crules");
+		case "dnsbl":
+			return t("oper.stats.title.dnsbl");
+		case "engine":
+			return t("oper.stats.title.engine");
+		case "excepts":
+			return t("oper.stats.title.excepts");
+		case "features":
+			return t("oper.stats.title.features");
+		case "featuresall":
+			return t("oper.stats.title.featuresall");
+		case "gitsync":
+			return t("oper.stats.title.gitsync");
+		case "glines":
+			return t("oper.stats.title.glines");
+		case "histogram":
+			return t("oper.stats.title.histogram");
+		case "iauth":
+			return t("oper.stats.title.iauth");
+		case "iauthconf":
+			return t("oper.stats.title.iauthconf");
+		case "jupes":
+			return t("oper.stats.title.jupes");
+		case "klines":
+			return t("oper.stats.title.klines");
+		case "links":
+			return t("oper.stats.title.links");
+		case "locals":
+			return t("oper.stats.title.locals");
+		case "mappings":
+			return t("oper.stats.title.mappings");
+		case "maskrules":
+			return t("oper.stats.title.maskrules");
+		case "memory":
+			return t("oper.stats.title.memory");
+		case "memusage":
+			return t("oper.stats.title.memusage");
+		case "metadata":
+			return t("oper.stats.title.metadata");
+		case "modules":
+			return t("oper.stats.title.modules");
+		case "motds":
+			return t("oper.stats.title.motds");
+		case "nameservers":
+			return t("oper.stats.title.nameservers");
+		case "operators":
+			return t("oper.stats.title.operators");
+		case "ports":
+			return t("oper.stats.title.ports");
+		case "quarantines":
+			return t("oper.stats.title.quarantines");
+		case "shuns":
+			return t("oper.stats.title.shuns");
+		case "spoofhosts":
+			return t("oper.stats.title.spoofhosts");
+		case "uptime":
+			return t("oper.stats.title.uptime");
+		case "usage":
+			return t("oper.stats.title.usage");
+		case "userload":
+			return t("oper.stats.title.userload");
+		case "uworld":
+			return t("oper.stats.title.uworld");
+		case "vservers":
+		case "vserversmach":
+			return t("oper.stats.title.servers");
+		case "webhook":
+			return t("oper.stats.title.webhook");
+		case "webirc":
+			return t("oper.stats.title.webirc");
+		case "webpush":
+			return t("oper.stats.title.webpush");
+		case "zlines":
+			return t("oper.stats.title.zlines");
+		default:
+			return undefined;
+	}
+}
 
-const HELP_TITLE = "STATS selectors";
+function helpTitle(): string {
+	return t("oper.stats.title.help");
+}
 
 /** `<c> (<name>) - <description>`, the letter a space for long-name-only entries. */
 const HELP_LINE = /^(\S| ) \(([^)\s]+)\) - (.*)$/;
@@ -304,14 +356,14 @@ export function banState(token: string): ReportValue {
 	const active = local === ">" || (global && local !== "<");
 
 	if (local === ">") {
-		return state("active (locally activated)", true);
+		return state(t("oper.stats.ban.activeLocally"), true);
 	}
 
 	if (local === "<") {
-		return state("inactive (locally deactivated)", false);
+		return state(t("oper.stats.ban.inactiveLocally"), false);
 	}
 
-	return state(active ? "active" : "inactive", active);
+	return state(active ? t("oper.stats.ban.active") : t("oper.stats.ban.inactive"), active);
 }
 
 /** A `user@host` mask; `*` and empty stay as they are. */
@@ -339,7 +391,8 @@ type Row = Record<string, ReportValue | undefined>;
 
 interface TableSpec {
 	numerics: string[];
-	columns: ReportColumn[];
+	/** Built when a report is, so the headings take the language then. */
+	columns: (this: void) => ReportColumn[];
 	/**
 	 * A row from the params after our own nick: a Row, `null` to skip the
 	 * line silently (a header row), undefined when it does not parse (kept
@@ -390,7 +443,7 @@ function tableSections(spec: TableSpec, data: IrcMessage[]): ReportSection[] {
 	const sections: ReportSection[] = [];
 
 	if (rows.length > 0) {
-		sections.push({table: {columns: spec.columns, rows}});
+		sections.push({table: {columns: spec.columns(), rows}});
 	}
 
 	if (leftover.length > 0) {
@@ -403,13 +456,13 @@ function tableSections(spec: TableSpec, data: IrcMessage[]): ReportSection[] {
 function banTable(numeric: string): TableSpec {
 	return {
 		numerics: [numeric],
-		columns: [
-			left("mask", "Mask"),
-			left("expires", "Expires"),
-			left("lastmod", "Last changed"),
-			left("lifetime", "Kept until"),
-			left("state", "State"),
-			left("reason", "Reason"),
+		columns: () => [
+			left("mask", t("oper.stats.col.mask")),
+			left("expires", t("oper.stats.col.expires")),
+			left("lastmod", t("oper.stats.col.lastChanged")),
+			left("lifetime", t("oper.stats.col.keptUntil")),
+			left("state", t("oper.stats.col.state")),
+			left("reason", t("oper.stats.col.reason")),
 		],
 		// <G|S|Z> <mask> <expire> <lastmod> <lifetime> <state><+|-> <reason>
 		row(p) {
@@ -482,47 +535,55 @@ export function parseBanRow(msg: IrcMessage): LiveBan | undefined {
 }
 
 /** `P` port flag letters (`listener.c:131-188`); `C`/`S` become the kind column. */
-const PORT_FLAGS: Record<string, string> = {
-	E: "TLS",
-	W: "WebSocket",
-	A: "autodetect",
-	"4": "IPv4",
-	"6": "IPv6",
-	H: "hidden",
-	P: "paste",
-};
+function portFlags(): Record<string, string> {
+	return {
+		E: "TLS",
+		W: "WebSocket",
+		A: t("oper.stats.flag.autodetect"),
+		"4": "IPv4",
+		"6": "IPv6",
+		H: t("oper.stats.flag.hidden"),
+		P: t("oper.stats.flag.paste"),
+	};
+}
 
 /** `E` except flags (`s_stats.c` stats_excepts). */
-const EXCEPT_FLAGS: Record<string, string> = {
-	s: "shun",
-	k: "K-line",
-	g: "G-line",
-	z: "Z-line",
-	i: "ident",
-	r: "rDNS",
-	I: "IPcheck",
-	t: "target limit",
-	l: "list delay",
-};
+function exceptFlags(): Record<string, string> {
+	return {
+		s: "shun",
+		k: "K-line",
+		g: "G-line",
+		z: "Z-line",
+		i: "ident",
+		r: "rDNS",
+		I: "IPcheck",
+		t: t("oper.stats.flag.targetLimit"),
+		l: t("oper.stats.flag.listDelay"),
+	};
+}
 
 /** `W` webirc flags (`s_stats.c` stats_webirc); `*` means none. */
-const WEBIRC_FLAGS: Record<string, string> = {
-	u: "user ident",
-	i: "no ident",
-	f: "strip TLS fingerprint",
-	o: "options",
-	a: "trust account",
-};
+function webircFlags(): Record<string, string> {
+	return {
+		u: t("oper.stats.flag.userIdent"),
+		i: t("oper.stats.flag.noIdent"),
+		f: t("oper.stats.flag.stripFingerprint"),
+		o: t("oper.stats.flag.options"),
+		a: t("oper.stats.flag.trustAccount"),
+	};
+}
 
 /** `V` server flags: one letter or `-` per position. */
-const SERVER_FLAGS: Record<string, string> = {
-	B: "bursting",
-	A: "burst ack",
-	H: "hub",
-	S: "service",
-	"6": "IPv6",
-	O: "oplevels",
-};
+function serverFlags(): Record<string, string> {
+	return {
+		B: t("oper.stats.flag.bursting"),
+		A: t("oper.stats.flag.burstAck"),
+		H: t("oper.stats.flag.hub"),
+		S: t("oper.stats.flag.service"),
+		"6": "IPv6",
+		O: "oplevels",
+	};
+}
 
 function flagChips(letters: string, names: Record<string, string>, skip = ""): ReportValue {
 	const out: string[] = [];
@@ -544,19 +605,19 @@ const TABLES: Record<string, TableSpec> = {
 	zlines: banTable("546"),
 	jupes: {
 		numerics: ["222"],
-		columns: [left("nick", "Nick")],
+		columns: () => [left("nick", t("oper.stats.col.nick"))],
 		row: (p) => (p[0] === "J" && p[1] ? {nick: mono(p[1])} : undefined),
 	},
 	klines: {
 		numerics: ["216"],
-		columns: [
-			left("mask", "Mask"),
-			left("type", "Type"),
-			left("reason", "Reason"),
-			left("realname", "Real name mask"),
-			left("version", "Version mask"),
-			left("country", "Country"),
-			left("continent", "Continent"),
+		columns: () => [
+			left("mask", t("oper.stats.col.mask")),
+			left("type", t("oper.stats.col.type")),
+			left("reason", t("oper.stats.col.reason")),
+			left("realname", t("oper.stats.col.realnameMask")),
+			left("version", t("oper.stats.col.versionMask")),
+			left("country", t("oper.stats.col.country")),
+			left("continent", t("oper.stats.col.continent")),
 		],
 		// <K|k> <user>@<host> "<reason>" "<realname>" "<version>" <cc> <continent> 0 0
 		row(p) {
@@ -570,7 +631,7 @@ const TABLES: Record<string, TableSpec> = {
 
 			return {
 				mask: host(m[2]),
-				type: text(m[1] === "k" ? "CIDR" : "host"),
+				type: text(m[1] === "k" ? "CIDR" : t("oper.stats.klineType.host")),
 				reason: text(m[3]),
 				realname: mono(m[4]),
 				version: mono(m[5]),
@@ -581,11 +642,11 @@ const TABLES: Record<string, TableSpec> = {
 	},
 	operators: {
 		numerics: ["243"],
-		columns: [
-			left("name", "Name"),
-			left("mask", "Host"),
-			left("kind", "Kind"),
-			left("class", "Class"),
+		columns: () => [
+			left("name", t("oper.stats.col.name")),
+			left("mask", t("oper.stats.col.host")),
+			left("kind", t("oper.stats.col.kind")),
+			left("class", t("oper.stats.col.class")),
 		],
 		// <O|o> <user>@<host> * <name> <class>
 		row(p) {
@@ -596,20 +657,22 @@ const TABLES: Record<string, TableSpec> = {
 			return {
 				name: text(p[3]),
 				mask: host(p[1]),
-				kind: text(p[0] === "O" ? "global" : "local"),
+				kind: text(
+					p[0] === "O" ? t("oper.stats.operKind.global") : t("oper.stats.operKind.local")
+				),
 				class: text(p[4]),
 			};
 		},
 	},
 	ports: {
 		numerics: ["217"],
-		columns: [
-			right("port", "Port"),
-			right("conns", "Connections"),
-			left("kind", "Kind"),
-			left("flags", "Flags"),
-			left("state", "State"),
-			left("bind", "Bound to"),
+		columns: () => [
+			right("port", t("oper.stats.col.port")),
+			right("conns", t("oper.stats.col.connections")),
+			left("kind", t("oper.stats.col.kind")),
+			left("flags", t("oper.stats.col.flags")),
+			left("state", t("oper.stats.col.state")),
+			left("bind", t("oper.stats.col.boundTo")),
 		],
 		// P <port> <conns> <flags> <active|disabled> [<bindip>]
 		row(p) {
@@ -620,8 +683,12 @@ const TABLES: Record<string, TableSpec> = {
 			return {
 				port: portOf(p[1]),
 				conns: num(p[2]),
-				kind: text(p[3].includes("S") ? "server" : "client"),
-				flags: flagChips(p[3], PORT_FLAGS, "CS"),
+				kind: text(
+					p[3].includes("S")
+						? t("oper.stats.portKind.server")
+						: t("oper.stats.portKind.client")
+				),
+				flags: flagChips(p[3], portFlags(), "CS"),
 				state: state(p[4], p[4] === "active"),
 				bind: p[5] ? mono(p[5]) : undefined,
 			};
@@ -629,14 +696,14 @@ const TABLES: Record<string, TableSpec> = {
 	},
 	classes: {
 		numerics: ["218"],
-		columns: [
-			left("class", "Class"),
-			right("ping", "Ping every"),
-			right("connfreq", "Connect every"),
-			right("maxlinks", "Max links"),
+		columns: () => [
+			left("class", t("oper.stats.col.class")),
+			right("ping", t("oper.stats.col.pingEvery")),
+			right("connfreq", t("oper.stats.col.connectEvery")),
+			right("maxlinks", t("oper.stats.col.maxLinks")),
 			right("sendq", "SendQ"),
 			right("recvq", "RecvQ"),
-			right("links", "Connected"),
+			right("links", t("oper.stats.col.connected")),
 		],
 		// <Y|y> <class> <ping> <connfreq> <maxlinks> <sendq> <recvq> <links>
 		row(p) {
@@ -645,7 +712,7 @@ const TABLES: Record<string, TableSpec> = {
 			}
 
 			return {
-				class: text(p[0] === "y" ? `${p[1]} (invalid)` : p[1]),
+				class: text(p[0] === "y" ? t("oper.stats.classInvalid", {class: p[1]}) : p[1]),
 				ping: secondsOf(p[2]),
 				connfreq: secondsOf(p[3]),
 				maxlinks: num(p[4]),
@@ -657,14 +724,14 @@ const TABLES: Record<string, TableSpec> = {
 	},
 	links: {
 		numerics: ["211"],
-		columns: [
-			left("name", "Connection"),
+		columns: () => [
+			left("name", t("oper.stats.col.connection")),
 			right("sendq", "SendQ"),
-			right("sentMsgs", "Sent"),
-			right("sentBytes", "Sent bytes"),
-			right("recvMsgs", "Received"),
-			right("recvBytes", "Received bytes"),
-			right("open", "Open for"),
+			right("sentMsgs", t("oper.stats.col.sent")),
+			right("sentBytes", t("oper.stats.col.sentBytes")),
+			right("recvMsgs", t("oper.stats.col.received")),
+			right("recvBytes", t("oper.stats.col.receivedBytes")),
+			right("open", t("oper.stats.col.openFor")),
 		],
 		// header: Connection SendQ SendM SendKBytes RcveM RcveKBytes :Open since
 		// rows:   <name> <sendq> <sendM> <sendKB> <rcveM> <rcveKB> <secs>
@@ -690,7 +757,11 @@ const TABLES: Record<string, TableSpec> = {
 	},
 	commands: {
 		numerics: ["212"],
-		columns: [left("command", "Command"), right("count", "Count"), right("bytes", "Bytes")],
+		columns: () => [
+			left("command", t("oper.stats.col.command")),
+			right("count", t("oper.stats.col.count")),
+			right("bytes", t("oper.stats.col.bytes")),
+		],
 		row(p) {
 			if (p.length < 3) {
 				return undefined;
@@ -702,13 +773,13 @@ const TABLES: Record<string, TableSpec> = {
 	},
 	connect: {
 		numerics: ["213"],
-		columns: [
-			left("name", "Server"),
-			left("host", "Host"),
-			right("port", "Port"),
-			right("max", "Maximum"),
-			left("hub", "Hub limit"),
-			left("class", "Class"),
+		columns: () => [
+			left("name", t("oper.stats.col.server")),
+			left("host", t("oper.stats.col.host")),
+			right("port", t("oper.stats.col.port")),
+			right("max", t("oper.stats.col.maximum")),
+			left("hub", t("oper.stats.col.hubLimit")),
+			left("class", t("oper.stats.col.class")),
 		],
 		// C <name> * <host> <port> <maximum> <hub_limit|<NULL>> <class>
 		row(p) {
@@ -728,12 +799,12 @@ const TABLES: Record<string, TableSpec> = {
 	},
 	access: {
 		numerics: ["215"],
-		columns: [
-			left("host", "Host"),
-			right("max", "Maximum"),
-			left("ip", "IP mask"),
-			right("port", "Port"),
-			left("class", "Class"),
+		columns: () => [
+			left("host", t("oper.stats.col.host")),
+			right("max", t("oper.stats.col.maximum")),
+			left("ip", t("oper.stats.col.ipMask")),
+			right("port", t("oper.stats.col.port")),
+			left("class", t("oper.stats.col.class")),
 		],
 		// I <[user@]host> <max> <[0]ipmask|*> <port> <class>
 		row(p) {
@@ -752,21 +823,27 @@ const TABLES: Record<string, TableSpec> = {
 	},
 	excepts: {
 		numerics: ["223"],
-		columns: [left("mask", "Mask"), left("flags", "Exempt from")],
+		columns: () => [
+			left("mask", t("oper.stats.col.mask")),
+			left("flags", t("oper.stats.col.exemptFrom")),
+		],
 		// E <user>@<host> * <flags>
 		row(p) {
 			if (p.length < 2 || p[0] !== "E") {
 				return undefined;
 			}
 
-			return {mask: host(p[1]), flags: flagChips(p[3] ?? "", EXCEPT_FLAGS)};
+			return {mask: host(p[1]), flags: flagChips(p[3] ?? "", exceptFlags())};
 		},
 	},
 	features: featureTable(),
 	featuresall: featureTable(),
 	quarantines: {
 		numerics: ["228"],
-		columns: [left("channel", "Channel"), left("reason", "Reason")],
+		columns: () => [
+			left("channel", t("oper.stats.col.channel")),
+			left("reason", t("oper.stats.col.reason")),
+		],
 		// Q <chan> <reason>
 		row(p) {
 			if (p.length < 2 || p[0] !== "Q") {
@@ -778,11 +855,11 @@ const TABLES: Record<string, TableSpec> = {
 	},
 	spoofhosts: {
 		numerics: ["245"],
-		columns: [
+		columns: () => [
 			right("index", "#"),
-			left("kind", "Kind"),
-			left("spoof", "Spoofed host"),
-			left("mask", "Applies to"),
+			left("kind", t("oper.stats.col.kind")),
+			left("spoof", t("oper.stats.col.spoofedHost")),
+			left("mask", t("oper.stats.col.appliesTo")),
 		],
 		// <index> <auto|oper|user> <spoofhost> <user>@<host>
 		row(p) {
@@ -796,11 +873,11 @@ const TABLES: Record<string, TableSpec> = {
 	},
 	webirc: {
 		numerics: ["220"],
-		columns: [
-			left("mask", "Mask"),
-			left("ident", "Ident"),
-			left("flags", "Flags"),
-			left("description", "Description"),
+		columns: () => [
+			left("mask", t("oper.stats.col.mask")),
+			left("ident", t("oper.stats.col.ident")),
+			left("flags", t("oper.stats.col.flags")),
+			left("description", t("oper.stats.col.description")),
 		],
 		// W <user>@<host> * <ident|(none)> <flags> <description>
 		row(p) {
@@ -811,32 +888,32 @@ const TABLES: Record<string, TableSpec> = {
 			return {
 				mask: host(p[1]),
 				ident: p[3] === "(none)" ? undefined : mono(p[3]),
-				flags: flagChips(p[4], WEBIRC_FLAGS),
+				flags: flagChips(p[4], webircFlags()),
 				description: p.length > 5 ? text(p.slice(5).join(" ")) : undefined,
 			};
 		},
 	},
 	uworld: {
 		numerics: ["248"],
-		columns: [left("server", "Server")],
+		columns: () => [left("server", t("oper.stats.col.server"))],
 		row: (p) => (p[0] === "U" && p[1] ? {server: server(p[1])} : undefined),
 	},
 	vserversmach: {
 		numerics: ["236"],
-		columns: [
-			left("server", "Server"),
-			left("uplink", "Uplink"),
-			left("flags", "Flags"),
-			right("hops", "Hops"),
-			left("numeric", "Numeric"),
-			right("lag", "Lag"),
-			right("rtt", "RTT (ms)"),
-			right("up", "Up (ms)"),
-			right("down", "Down (ms)"),
-			right("clients", "Clients"),
-			left("proto", "Protocol"),
-			left("linkts", "Linked"),
-			left("info", "Info"),
+		columns: () => [
+			left("server", t("oper.stats.col.server")),
+			left("uplink", t("oper.stats.col.uplink")),
+			left("flags", t("oper.stats.col.flags")),
+			right("hops", t("oper.stats.col.hops")),
+			left("numeric", t("oper.stats.col.numeric")),
+			right("lag", t("oper.stats.col.lag")),
+			right("rtt", t("oper.stats.col.rtt")),
+			right("up", t("oper.stats.col.up")),
+			right("down", t("oper.stats.col.down")),
+			right("clients", t("oper.stats.col.clients")),
+			left("proto", t("oper.stats.col.protocol")),
+			left("linkts", t("oper.stats.col.linked")),
+			left("info", t("oper.stats.col.info")),
 		],
 		// <name> <uplink> <flags6> <hops> <numeric> <numint> <lag> <rtt> <up>
 		// <down> <clients> <maxmask> P<proto> <linkts> <info>
@@ -848,7 +925,7 @@ const TABLES: Record<string, TableSpec> = {
 			return {
 				server: server(p[0]),
 				uplink: server(p[1]),
-				flags: flagChips(p[2], SERVER_FLAGS),
+				flags: flagChips(p[2], serverFlags()),
 				hops: num(p[3]),
 				numeric: mono(p[4]),
 				lag: num(p[6]),
@@ -864,7 +941,10 @@ const TABLES: Record<string, TableSpec> = {
 	},
 	motds: {
 		numerics: ["246"],
-		columns: [left("mask", "Host mask"), left("path", "File")],
+		columns: () => [
+			left("mask", t("oper.stats.col.hostMask")),
+			left("path", t("oper.stats.col.file")),
+		],
 		// T <hostmask> <path>
 		row(p) {
 			if (p.length < 3 || p[0] !== "T") {
@@ -878,10 +958,10 @@ const TABLES: Record<string, TableSpec> = {
 	maskrules: ruleTable(),
 	modules: {
 		numerics: ["241"],
-		columns: [
-			left("module", "Module"),
-			left("description", "Description"),
-			left("entry", "Entry point"),
+		columns: () => [
+			left("module", t("oper.stats.col.module")),
+			left("description", t("oper.stats.col.description")),
+			left("entry", t("oper.stats.col.entryPoint")),
 		],
 		// header: Module  Description      Entry Point
 		// rows:   <module>  <description…>     0x<entry>
@@ -905,16 +985,16 @@ const TABLES: Record<string, TableSpec> = {
 	},
 	nameservers: {
 		numerics: ["226"],
-		columns: [left("ip", "Address")],
+		columns: () => [left("ip", t("oper.stats.col.address"))],
 		row: (p) => (p[0] ? {ip: ip(p[0])} : undefined),
 	},
 	mappings: {
 		numerics: ["276"],
-		columns: [
-			left("command", "Command"),
-			left("name", "Name"),
-			left("prepend", "Prepend"),
-			left("target", "Target"),
+		columns: () => [
+			left("command", t("oper.stats.col.command")),
+			left("name", t("oper.stats.col.name")),
+			left("prepend", t("oper.stats.col.prepend")),
+			left("target", t("oper.stats.col.target")),
 		],
 		// header: Command   Name      Prepend    Target
 		row(p) {
@@ -939,7 +1019,11 @@ const TABLES: Record<string, TableSpec> = {
 function featureTable(): TableSpec {
 	return {
 		numerics: ["238"],
-		columns: [left("name", "Feature"), left("value", "Value"), left("set", "Set")],
+		columns: () => [
+			left("name", t("oper.stats.col.feature")),
+			left("value", t("oper.stats.col.value")),
+			left("set", t("oper.stats.col.set")),
+		],
 		// <F|f> <NAME> [<value…>]; also F LOG <subsys> <FILE|FACILITY|SNOMASK|LEVEL> <value>
 		// and F LOG <facility>
 		row(p) {
@@ -957,8 +1041,11 @@ function featureTable(): TableSpec {
 
 			return {
 				name: mono(name),
-				value: value === "" ? text("not set") : mono(value),
-				set: state(p[0] === "F" ? "set" : "default", p[0] === "F"),
+				value: value === "" ? text(t("oper.stats.feature.notSet")) : mono(value),
+				set: state(
+					p[0] === "F" ? t("oper.stats.feature.set") : t("oper.stats.feature.default"),
+					p[0] === "F"
+				),
 			};
 		},
 	};
@@ -967,7 +1054,11 @@ function featureTable(): TableSpec {
 function ruleTable(): TableSpec {
 	return {
 		numerics: ["275"],
-		columns: [left("kind", "Applies to"), left("mask", "Server mask"), left("rule", "Rule")],
+		columns: () => [
+			left("kind", t("oper.stats.col.appliesTo")),
+			left("mask", t("oper.stats.col.serverMask")),
+			left("rule", t("oper.stats.col.rule")),
+		],
 		// <D|d> <servermask> <rule…>
 		row(p) {
 			if (p.length < 3 || (p[0] !== "D" && p[0] !== "d")) {
@@ -975,7 +1066,7 @@ function ruleTable(): TableSpec {
 			}
 
 			return {
-				kind: text(p[0] === "D" ? "all" : "masks"),
+				kind: text(p[0] === "D" ? t("oper.stats.rule.all") : t("oper.stats.rule.masks")),
 				mask: mask(p[1]),
 				rule: mono(p.slice(2).join(" ")),
 			};
@@ -995,18 +1086,26 @@ function uptimeSections(data: IrcMessage[]): ReportSection[] {
 	const leftover: string[] = [];
 
 	for (const msg of data) {
-		const t = trailingOf(msg);
-		const up = msg.command === "242" && /Server Up (\d+) days?, (\d+):(\d{2}):(\d{2})/.exec(t);
+		const line = trailingOf(msg);
+		const up =
+			msg.command === "242" && /Server Up (\d+) days?, (\d+):(\d{2}):(\d{2})/.exec(line);
 		const max =
-			msg.command === "250" && /Highest connection count: (\d+) \((\d+) clients?\)/.exec(t);
+			msg.command === "250" &&
+			/Highest connection count: (\d+) \((\d+) clients?\)/.exec(line);
 
 		if (up) {
 			const secs =
 				Number(up[1]) * 86400 + Number(up[2]) * 3600 + Number(up[3]) * 60 + Number(up[4]);
-			entries.push({label: "Up for", value: duration(secs)});
+			entries.push({label: t("oper.stats.uptime.upFor"), value: duration(secs)});
 		} else if (max) {
-			entries.push({label: "Highest connection count", value: number(Number(max[1]))});
-			entries.push({label: "Highest client count", value: number(Number(max[2]))});
+			entries.push({
+				label: t("oper.stats.uptime.highestConnections"),
+				value: number(Number(max[1])),
+			});
+			entries.push({
+				label: t("oper.stats.uptime.highestClients"),
+				value: number(Number(max[2])),
+			});
 		} else {
 			leftover.push(lineText(msg));
 		}
@@ -1022,7 +1121,7 @@ function engineSections(data: IrcMessage[]): ReportSection[] {
 
 	for (const msg of data) {
 		if (msg.command === "237" && msg.params[1]) {
-			entries.push({label: "Engine", value: mono(msg.params[1])});
+			entries.push({label: t("oper.stats.engine"), value: mono(msg.params[1])});
 		} else {
 			leftover.push(lineText(msg));
 		}
@@ -1041,14 +1140,14 @@ function userloadSections(data: IrcMessage[]): ReportSection[] {
 	const leftover: string[] = [];
 
 	for (const msg of data) {
-		const t = msg.command === "NOTICE" ? trailingOf(msg) : "";
+		const line = msg.command === "NOTICE" ? trailingOf(msg) : "";
 
-		if (/Userload for:/.test(t)) {
+		if (/Userload for:/.test(line)) {
 			continue;
 		}
 
 		const m = /^\s*(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+)\s+(\d+)\s+(\d+)\s+(.+?)\s*$/.exec(
-			t
+			line
 		);
 
 		if (!m) {
@@ -1072,12 +1171,12 @@ function userloadSections(data: IrcMessage[]): ReportSection[] {
 		sections.push({
 			table: {
 				columns: [
-					left("what", "Load of"),
-					right("minute", "Minute"),
-					right("hour", "Hour"),
-					right("day", "Day"),
-					right("yesterday", "Yesterday"),
-					right("before", "Day before"),
+					left("what", t("oper.stats.col.loadOf")),
+					right("minute", t("oper.stats.col.minute")),
+					right("hour", t("oper.stats.col.hour")),
+					right("day", t("oper.stats.col.day")),
+					right("yesterday", t("oper.stats.col.yesterday")),
+					right("before", t("oper.stats.col.dayBefore")),
 				],
 				rows,
 			},
@@ -1120,14 +1219,14 @@ function subsystemSections(data: IrcMessage[]): ReportSection[] {
 	};
 
 	for (const msg of data) {
-		const t = subsystemText(msg);
+		const line = subsystemText(msg);
 
 		if (!current) {
-			current = open(t);
+			current = open(line);
 			continue;
 		}
 
-		const kv = KEY_VALUE.exec(t);
+		const kv = KEY_VALUE.exec(line);
 
 		if (kv) {
 			const value = kv[2].trim();
@@ -1138,12 +1237,12 @@ function subsystemSections(data: IrcMessage[]): ReportSection[] {
 			continue;
 		}
 
-		if (!/^\s/.test(t) && t.trim() !== "") {
-			current = open(t);
+		if (!/^\s/.test(line) && line.trim() !== "") {
+			current = open(line);
 			continue;
 		}
 
-		(current.lines ??= []).push(t.replace(/^\s{2}/, ""));
+		(current.lines ??= []).push(line.replace(/^\s{2}/, ""));
 	}
 
 	return sections;
@@ -1154,9 +1253,9 @@ function helpSections(entries: StatsEntry[]): ReportSection[] {
 		{
 			table: {
 				columns: [
-					left("letter", "Letter"),
-					left("name", "Name"),
-					left("description", "Description"),
+					left("letter", t("oper.stats.col.letter")),
+					left("name", t("oper.stats.col.name")),
+					left("description", t("oper.stats.col.description")),
 				],
 				rows: entries.map((e) => ({
 					letter: e.letter ? mono(e.letter) : undefined,
@@ -1228,7 +1327,7 @@ export function statsReport(selector: string, lines: IrcMessage[], command: stri
 	const entry = statsEntry(sel);
 	const subtitle = `STATS ${sel || "*"}`;
 	const raw = rawLines(lines);
-	const title = entry ? TITLES[entry.name] ?? entry.description : HELP_TITLE;
+	const title = entry ? titleOf(entry.name) ?? entry.description : helpTitle();
 
 	try {
 		// 542 (shuns) and 546 (Z-lines) are rows in the 5xx range; errorOf
@@ -1244,7 +1343,7 @@ export function statsReport(selector: string, lines: IrcMessage[], command: stri
 		const report: OperReport = {kind: "stats", title, subtitle, command, sections: [], raw};
 
 		if (data.length === 0) {
-			report.notes = ["Nothing to show"];
+			report.notes = [t("oper.stats.nothingToShow")];
 			return report;
 		}
 
@@ -1254,7 +1353,7 @@ export function statsReport(selector: string, lines: IrcMessage[], command: stri
 		// what a server sends for a selector it does not have (`webhook` on
 		// an older build, `usage` without DEBUGMODE).
 		if (!entry || (help.length > 0 && help.length === data.length)) {
-			report.title = HELP_TITLE;
+			report.title = helpTitle();
 
 			if (help.length === 0) {
 				report.sections = [{lines: data.map(lineText)}];
@@ -1267,9 +1366,7 @@ export function statsReport(selector: string, lines: IrcMessage[], command: stri
 			);
 
 			if (sel && sel !== "*") {
-				report.notes = [
-					`The server does not know "${sel}"; this is its list of selectors.`,
-				];
+				report.notes = [t("oper.stats.unknownSelector", {selector: sel})];
 			}
 
 			return report;
@@ -1278,7 +1375,7 @@ export function statsReport(selector: string, lines: IrcMessage[], command: stri
 		report.sections = sectionsFor(entry.name, data);
 
 		if (report.sections.length === 0) {
-			report.notes = ["Nothing to show"];
+			report.notes = [t("oper.stats.nothingToShow")];
 		}
 
 		return report;

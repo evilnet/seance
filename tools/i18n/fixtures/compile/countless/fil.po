@@ -1,0 +1,15 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: seance\n"
+"Language: fil\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. Condensed summary: how often a user went away.
+msgctxt "condensed.away"
+msgid "marked away once"
+msgid_plural "marked away {count} times"
+msgstr[0] "minarkahang away nang isang beses"
+msgstr[1] "minarkahang away nang {count} beses"

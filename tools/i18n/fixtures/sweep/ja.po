@@ -1,0 +1,26 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: seance\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#. The one form a one-form language has: it translates the plural text, so
+#. it carries {count} where the singular msgid does not.
+msgctxt "condensed.away"
+msgid "marked away once"
+msgid_plural "marked away {count} times"
+msgstr[0] "{count}回離席しました"
+
+#. The same shape, with the placeholder lost.
+msgctxt "condensed.back"
+msgid "marked back once"
+msgid_plural "marked back {count} times"
+msgstr[0] "復帰しました"
+
+#. A singular entry, still checked against msgid.
+msgctxt "connect.submit"
+msgid "Connect"
+msgstr "接続"

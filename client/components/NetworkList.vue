@@ -3,18 +3,19 @@
 		v-if="store.state.networks.length === 0"
 		class="empty"
 		role="navigation"
-		aria-label="Network and Channel list"
+		:aria-label="listLabel"
 	>
-		You are not connected to any networks yet.
+		{{ t("sidebar.empty") }}
 	</div>
-	<div v-else ref="networklist" role="navigation" aria-label="Network and Channel list">
+	<div v-else ref="networklist" role="navigation" :aria-label="listLabel">
 		<div class="jump-to-input">
-			<label for="channel-search-input" class="sr-only">Search among the channel list</label>
+			<label for="channel-search-input" class="sr-only">{{ t("sidebar.searchLabel") }}</label>
 			<input
 				id="channel-search-input"
 				ref="searchInput"
+				dir="auto"
 				:value="searchText"
-				placeholder="Jump to..."
+				:placeholder="jumpToPlaceholder"
 				type="search"
 				class="search input mousetrap"
 				tabindex="-1"
@@ -52,7 +53,7 @@
 					/>
 				</div>
 			</div>
-			<div v-else class="no-results">No results found.</div>
+			<div v-else class="no-results">{{ t("sidebar.noResults") }}</div>
 		</div>
 		<Draggable
 			v-else
@@ -154,7 +155,7 @@
 	border: 0;
 	color: #fff;
 	background-color: rgba(255, 255, 255, 0.1);
-	padding-right: 2.5rem;
+	padding-inline-end: 2.5rem;
 	appearance: none;
 }
 
@@ -166,7 +167,7 @@
 	content: "\f002"; /* http://fontawesome.io/icon/search/ */
 	color: rgba(255, 255, 255, 0.35);
 	position: absolute;
-	right: 8px;
+	inset-inline-end: 8px;
 	top: 0;
 	bottom: 0;
 	pointer-events: none;
@@ -220,6 +221,7 @@ import distance from "../js/helpers/distance";
 import eventbus from "../js/eventbus";
 import {ClientChan, NetChan} from "../js/types";
 import {useStore} from "../js/store";
+import {useI18n} from "../js/i18n";
 import {switchToChannel} from "../js/router";
 import Sortable from "sortablejs";
 
@@ -233,6 +235,10 @@ export default defineComponent({
 	},
 	setup() {
 		const store = useStore();
+		// The sidebar's own copy, reactive on a locale change.
+		const {t} = useI18n();
+		const listLabel = computed(() => t("sidebar.networkList"));
+		const jumpToPlaceholder = computed(() => t("sidebar.jumpTo"));
 		const searchText = ref("");
 		const activeSearchItem = ref<ClientChan | null>();
 		// Number of milliseconds a touch has to last to be considered long
@@ -546,6 +552,9 @@ export default defineComponent({
 
 		return {
 			store,
+			t,
+			listLabel,
+			jumpToPlaceholder,
 			networklist,
 			searchInput,
 			searchText,

@@ -28,6 +28,7 @@ import type {Channel} from "../channel";
 import type {IrcClient} from "../client";
 import type {IrcMessage} from "../message";
 import type {Handler} from "../types";
+import {t} from "../../i18n/core";
 
 /**
  * The WHOX field spec `commands/who.ts` asks for: token, channel, user,
@@ -211,7 +212,7 @@ const endOfWho: Handler = (client, msg) => {
 		client.pushMessage(query.chan, {
 			type: MessageType.ERROR,
 			time: client.timeOf(msg),
-			text: `No one matched WHO ${query.target || mask}`,
+			text: t("who.noMatch", {mask: query.target || mask}),
 		});
 		return;
 	}

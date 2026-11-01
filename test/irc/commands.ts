@@ -5,6 +5,7 @@ import storage from "../../client/js/localStorage";
 import {IrcClient, IrcClientOptions} from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";
 import {commandNames} from "../../client/js/irc/commands";
+import {draftGate, sendableTranslation} from "../../client/js/translate/outgoing";
 import {loadAliases} from "../../client/js/helpers/aliases";
 import {ignoreListFor} from "../../client/js/ignore";
 import type {Transport} from "../../client/js/irc/types";
@@ -924,6 +925,113 @@ describe("irc commands", function () {
 				},
 			]);
 			expect(h.sentAfter()).to.deep.equal([]);
+		});
+	});
+
+	// The composer's second Enter (ChatInput.vue) sends what the strip holds
+	// through sendableTranslation: the model wrote it, from a prompt quoting
+	// other people's lines, so no line of it may run as a command.
+	describe("a translation sent from the composer", function () {
+		const MULTILINE = "batch message-tags draft/multiline=max-bytes=4096,max-lines=24";
+
+		function send(h: Harness, id: number, draft: string, translated: string): string[] {
+			const line = sendableTranslation(
+				draftGate(draft, false),
+				translated,
+				h.client.multilineLimits() === undefined
+			);
+			h.client.input(id, line);
+			return h.sentAfter();
+		}
+
+		it("says a later line that begins with a slash, one line per input", function () {
+			const h = setup();
+			const id = joined(h);
+			expect(
+				send(h, id, "Hello everyone\nsee you", "Hallo zusammen\n/part #seance bye")
+			).to.deep.equal([
+				"PRIVMSG #seance :Hallo zusammen",
+				"PRIVMSG #seance :/part #seance bye",
+			]);
+		});
+
+		it("leaves the lines verbatim in one draft/multiline message", function () {
+			const h = setup();
+			const id = joined(h, "", MULTILINE);
+			const sent = send(
+				h,
+				id,
+				"Hello everyone\nsee you",
+				"Hallo zusammen\n/part #seance bye"
+			);
+			expect(sent.some((l) => / PART /.test(l))).to.be.false;
+			expect(sent.filter((l) => l.includes("PRIVMSG"))).to.deep.equal([
+				"@batch=m1 PRIVMSG #seance :Hallo zusammen",
+				"@batch=m1 PRIVMSG #seance :/part #seance bye",
+			]);
+		});
+
+		it("keeps an action's later lines text in both modes", function () {
+			const plain = setup();
+			const plainId = joined(plain);
+			expect(send(plain, plainId, "/me waves\nbye", "winkt\n/quit tschüss")).to.deep.equal([
+				"PRIVMSG #seance :\u0001ACTION winkt\u0001",
+				"PRIVMSG #seance :/quit tschüss",
+			]);
+			expect(plain.client.isQuitting).to.be.false;
+
+			const multi = setup();
+			const multiId = joined(multi, "", MULTILINE);
+			const sent = send(multi, multiId, "/me waves\nbye", "winkt\n/quit tschüss");
+			expect(sent.some((l) => /^QUIT/.test(l))).to.be.false;
+			expect(sent.filter((l) => l.includes("PRIVMSG"))).to.deep.equal([
+				"@batch=m1 PRIVMSG #seance :\u0001ACTION winkt\u0001",
+				"@batch=m1 PRIVMSG #seance :\u0001ACTION /quit tschüss\u0001",
+			]);
+		});
+
+		it("escapes the first line in every mode, and a model's // goes as //", function () {
+			const h = setup();
+			const id = joined(h);
+			expect(send(h, id, "hi\nthere", "/quit\n//shrug")).to.deep.equal([
+				"PRIVMSG #seance :/quit",
+				"PRIVMSG #seance ://shrug",
+			]);
+
+			const multi = setup();
+			const multiId = joined(multi, "", MULTILINE);
+			const sent = send(multi, multiId, "hi\nthere", "/quit\n//shrug");
+			expect(sent.filter((l) => l.includes("PRIVMSG"))).to.deep.equal([
+				"@batch=m1 PRIVMSG #seance :/quit",
+				"@batch=m1 PRIVMSG #seance ://shrug",
+			]);
+		});
+
+		it("runs a later line the user typed as a command, as it would untranslated", function () {
+			const h = setup();
+			const id = joined(h);
+			expect(
+				send(h, id, "Hello everyone\n/part #seance", "Hallo zusammen\n/part #seance")
+			).to.deep.equal(["PRIVMSG #seance :Hallo zusammen", "PART #seance :Seance"]);
+		});
+
+		it("sends the user's own command line, never the model's in its place", function () {
+			const h = setup();
+			const id = joined(h);
+			const sent = send(h, id, "Hello everyone\n/part #seance", "Hallo zusammen\n/quit bye");
+			expect(sent).to.deep.equal(["PRIVMSG #seance :Hallo zusammen", "PART #seance :Seance"]);
+			expect(h.client.isQuitting).to.be.false;
+		});
+
+		it("keeps a line the user escaped as text, text", function () {
+			const h = setup();
+			const id = joined(h);
+			const sent = send(h, id, "Hello everyone\n//shrug", "Hallo zusammen\n/quit bye");
+			expect(sent).to.deep.equal([
+				"PRIVMSG #seance :Hallo zusammen",
+				"PRIVMSG #seance :/quit bye",
+			]);
+			expect(h.client.isQuitting).to.be.false;
 		});
 	});
 

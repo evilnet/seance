@@ -37,6 +37,8 @@ import isChannelCollapsed from "../js/helpers/isChannelCollapsed";
 import {ClientNetwork, ClientChan} from "../js/types";
 import {computed, defineComponent, PropType} from "vue";
 import {useStore} from "../js/store";
+import {useI18n} from "../js/i18n";
+import {ChanType} from "../../shared/types/chan";
 import {switchToChannel} from "../js/router";
 
 export default defineComponent({
@@ -55,6 +57,8 @@ export default defineComponent({
 	},
 	setup(props) {
 		const store = useStore();
+		// The row's aria-label/title speaks through the plural-aware counter.
+		const {t, tCount} = useI18n();
 		const activeChannel = computed(() => store.state.activeChannel);
 		const isChannelVisible = computed(
 			() => props.isFiltering || !isChannelCollapsed(props.network, props.channel)
@@ -80,27 +84,41 @@ export default defineComponent({
 		// non-zero value here always means a pulse that is still running.
 		const hasActivity = computed(() => props.channel.activityUntil > 0);
 
-		const getAriaLabel = () => {
-			const extra: string[] = [];
-			const type = props.channel.type;
-
-			if (props.channel.unread > 0) {
-				if (props.channel.unread > 1) {
-					extra.push(`${props.channel.unread} unread messages`);
-				} else {
-					extra.push(`${props.channel.unread} unread message`);
-				}
+		// The row's label is one whole phrase: the kind of window, its name
+		// and — at most — one count. Two tCount results are never glued
+		// together, so a row with both mentions and unread messages names
+		// the mentions, which is what the reader is being told about.
+		const typeLabel = () => {
+			switch (props.channel.type) {
+				case ChanType.LOBBY:
+					return t("channel.type.lobby");
+				case ChanType.QUERY:
+					return t("channel.type.query");
+				case ChanType.SPECIAL:
+					return t("channel.type.special");
+				default:
+					return t("channel.type.channel");
 			}
+		};
+
+		const getAriaLabel = () => {
+			const vars = {type: typeLabel(), name: props.channel.name};
 
 			if (props.channel.highlight > 0) {
-				if (props.channel.highlight > 1) {
-					extra.push(`${props.channel.highlight} mentions`);
-				} else {
-					extra.push(`${props.channel.highlight} mention`);
-				}
+				return t("channel.rowLabelCount", {
+					...vars,
+					extra: tCount("sidebar.mentions", props.channel.highlight),
+				});
 			}
 
-			return `${type}: ${props.channel.name} ${extra.length ? `(${extra.join(", ")})` : ""}`;
+			if (props.channel.unread > 0) {
+				return t("channel.rowLabelCount", {
+					...vars,
+					extra: tCount("sidebar.unread", props.channel.unread),
+				});
+			}
+
+			return t("channel.rowLabel", vars);
 		};
 
 		const click = () => {

@@ -50,21 +50,30 @@ const MIME = {
 	".wav": "audio/wav",
 	".mp3": "audio/mpeg",
 	".ogg": "audio/ogg",
+	// The translation engines' WebAssembly (js/ort/*.wasm): served as
+	// application/octet-stream under nosniff it cannot compile streaming.
+	".wasm": "application/wasm",
 };
 
 // 'self' is app://seance. Inline styles are needed for #user-specified-css
 // and Vue-injected style attributes; https: images/media cover link
 // previews and uploads; ws:/wss: (and https: for the uploader) may target any
-// host because the user picks the network. Everything else is denied.
+// host because the user picks the network. 'wasm-unsafe-eval' lets the
+// on-device translation worker compile WebAssembly (ONNX Runtime, WebLLM's
+// model library and tokenizer) and nothing else: no eval, no inline script —
+// the pre-paint language script is js/prepaint.js for that reason. Model
+// weights and libraries come over https:. blob: in worker-src is for the
+// CPU language model's library, wllama, which starts its worker (and its
+// thread workers) from blob: URLs. Everything else is denied.
 const CSP = [
 	"default-src 'self'",
-	"script-src 'self'",
+	"script-src 'self' 'wasm-unsafe-eval'",
 	"style-src 'self' 'unsafe-inline'",
 	"img-src 'self' data: blob: https:",
 	"media-src 'self' data: blob: https:",
 	"font-src 'self' data:",
 	"connect-src 'self' ws: wss: https:",
-	"worker-src 'self'",
+	"worker-src 'self' blob:",
 	"manifest-src 'self'",
 	"object-src 'none'",
 	"frame-src 'none'",

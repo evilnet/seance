@@ -8,23 +8,23 @@
 					v-if="rerun"
 					type="button"
 					class="oper-report-btn oper-report-refresh"
-					:aria-label="`Run ${report.command} again`"
-					:title="`Run again: ${report.command}`"
+					:aria-label="t('oper.report.rerunLabel', {command: report.command})"
+					:title="t('oper.report.rerunTitle', {command: report.command})"
 					@click="refresh"
 				/>
 				<button
 					type="button"
 					:class="['oper-report-btn', 'oper-report-raw-toggle', {active: showRaw}]"
 					:aria-pressed="showRaw"
-					aria-label="Show the raw reply"
-					title="Raw reply"
+					:aria-label="t('oper.report.rawLabel')"
+					:title="t('oper.report.rawTitle')"
 					@click="showRaw = !showRaw"
 				/>
 				<button
 					type="button"
 					:class="['oper-report-btn', 'oper-report-copy', {done: copied}]"
-					:aria-label="copied ? 'Copied' : 'Copy as text'"
-					:title="copied ? 'Copied' : 'Copy as text'"
+					:aria-label="copied ? t('oper.report.copied') : t('oper.report.copy')"
+					:title="copied ? t('oper.report.copied') : t('oper.report.copy')"
 					@click="copy"
 				/>
 				<button
@@ -32,7 +32,7 @@
 					type="button"
 					:class="['oper-report-btn', 'oper-report-collapse', {collapsed}]"
 					:aria-expanded="!collapsed"
-					:aria-label="collapsed ? 'Expand' : 'Collapse'"
+					:aria-label="collapsed ? t('oper.report.expand') : t('oper.report.collapse')"
 					@click="collapsed = !collapsed"
 				/>
 			</span>
@@ -94,7 +94,7 @@
 							class="oper-report-more"
 							@click="expanded[s] = true"
 						>
-							Show all {{ section.table.rows.length }} rows
+							{{ tCount("oper.report.showAllRows", section.table.rows.length) }}
 						</button>
 					</div>
 					<pre v-if="section.lines" class="oper-report-lines">{{
@@ -116,6 +116,7 @@ import type {ClientNetwork} from "../../js/types";
 import {reportText} from "../../js/helpers/operFormat";
 import socket from "../../js/socket";
 import {useStore} from "../../js/store";
+import {useI18n} from "../../js/i18n";
 import ReportValue from "./ReportValue.vue";
 
 /** Rows shown before "Show all": a G-line list can run to hundreds. */
@@ -134,6 +135,7 @@ export default defineComponent({
 	},
 	setup(props) {
 		const store = useStore();
+		const {t, tCount} = useI18n();
 		const showRaw = ref(false);
 		const collapsed = ref(false);
 		const copied = ref(false);
@@ -168,6 +170,8 @@ export default defineComponent({
 		};
 
 		return {
+			t,
+			tCount,
 			showRaw,
 			collapsed,
 			copied,

@@ -121,9 +121,19 @@ export default defineComponent({
 			const menuHeight = contextMenu.value?.offsetHeight;
 
 			if (element && element.classList.contains("menu")) {
+				// Dropdown anchored under the header button. LTR right-aligns it
+				// to the button (it opens toward the content); RTL mirrors the
+				// button onto the opposite screen edge, so the menu anchors to
+				// the button's other edge and opens the mirrored way. Clamp both
+				// inside the viewport: whichever edge the mirrored layout parks
+				// the button against, the menu stays on screen.
+				const rect = element.getBoundingClientRect();
+				const rtl = window.getComputedStyle(element).direction === "rtl";
+				const left = rtl ? rect.left : rect.right - menuWidth;
+
 				return {
-					left: element.getBoundingClientRect().left - (menuWidth - element.offsetWidth),
-					top: element.getBoundingClientRect().top + element.offsetHeight,
+					left: Math.min(Math.max(left, 0), window.innerWidth - menuWidth),
+					top: rect.top + element.offsetHeight,
 				};
 			}
 

@@ -5,6 +5,7 @@
 // `ClientChan.typing`. Every helper returns the input array untouched when
 // nothing changes, so reactive watchers only fire on real updates.
 import type {TypingState} from "../../../shared/types/msg";
+import type {Vars} from "../i18n/core";
 
 export type TypingEntry = {
 	nick: string;
@@ -83,23 +84,34 @@ export function expireTyping(entries: TypingEntry[], now: number): TypingEntry[]
 	return entries.filter((e) => e.expiresAt > now);
 }
 
+type Translate = (key: string, vars?: Vars) => string;
+type TranslateCount = (key: string, count: number, vars?: Vars) => string;
+
 /**
- * "alice is typing…", "alice and bob are typing…",
- * "alice, bob and 2 others are typing…"; empty string when nobody is.
+ * "alice is typing…", "alice and bob are typing…", "alice, bob and carol
+ * are typing…", "alice, bob and 2 others are typing…"; empty when nobody
+ * is. One key per length up to three (word order is free per locale);
+ * beyond that the two longest-typing nicks are named and the rest is a
+ * count. `t`/`tCount` are passed in so TypingIndicator.vue keeps
+ * useI18n's reactive pair.
  */
-export function typingSummary(entries: TypingEntry[]): string {
-	const nicks = entries.map((e) => e.nick);
+export function typingSummary(
+	entries: TypingEntry[],
+	t: Translate,
+	tCount: TranslateCount
+): string {
+	const nicks = entries.map((entry) => entry.nick);
 
 	switch (nicks.length) {
 		case 0:
 			return "";
 		case 1:
-			return `${nicks[0]} is typing…`;
+			return t("typing.one", {nick: nicks[0]});
 		case 2:
-			return `${nicks[0]} and ${nicks[1]} are typing…`;
+			return t("typing.two", {nick1: nicks[0], nick2: nicks[1]});
 		case 3:
-			return `${nicks[0]}, ${nicks[1]} and ${nicks[2]} are typing…`;
+			return t("typing.three", {nick1: nicks[0], nick2: nicks[1], nick3: nicks[2]});
 		default:
-			return `${nicks[0]}, ${nicks[1]} and ${nicks.length - 2} others are typing…`;
+			return tCount("typing.many", nicks.length - 2, {nick1: nicks[0], nick2: nicks[1]});
 	}
 }

@@ -11,6 +11,8 @@
  * and the guide's only job there is to show where.
  */
 
+import {t} from "../i18n/core";
+
 /** The localStorage key holding the user's answer to "don't show this again". */
 export const STORAGE_KEY = "thelounge.state.installGuide";
 export const DISMISSED = "dismissed";
@@ -210,31 +212,29 @@ interface StepOptions {
 	canPrompt: boolean;
 }
 
-function introBody(appName: string): string {
-	return (
-		`${appName} runs best as an app on this device: it opens in its own window, ` +
-		`keeps your networks and settings, and can alert you when someone mentions you.`
-	);
-}
+// The steps' words are the catalog's (install.*), resolved when the steps
+// are built: InstallGuide.vue rebuilds them on a language change. The
+// labels a step names (Add to Home Screen, Install app, …) are the
+// browser's own, which the translations follow.
 
 function iosSteps(target: InstallTarget, appName: string): InstallStep[] {
 	const finish: InstallStep = {
-		title: "Tap Add",
-		body: `${appName} appears on your Home Screen. Open it from there from now on.`,
+		title: t("install.ios.addTitle"),
+		body: t("install.ios.addBody", {appName}),
 		art: "ios-add",
 	};
 
 	const choose: InstallStep = {
-		title: "Choose Add to Home Screen",
-		body: "It is further down the list. Scroll the sheet if you do not see it.",
+		title: t("install.ios.chooseTitle"),
+		body: t("install.ios.chooseBody"),
 		art: "share-sheet",
 	};
 
 	if (target.browser === "chrome" || target.browser === "edge") {
 		return [
 			{
-				title: "Open the Share menu",
-				body: "Tap the Share button at the right end of the address bar.",
+				title: t("install.ios.shareTitle"),
+				body: t("install.ios.shareAddressBar"),
 				art: "ios-share-top",
 			},
 			choose,
@@ -245,8 +245,8 @@ function iosSteps(target: InstallTarget, appName: string): InstallStep[] {
 	if (target.browser === "firefox") {
 		return [
 			{
-				title: "Open the Share menu",
-				body: "Tap the menu button in the toolbar, then Share.",
+				title: t("install.ios.shareTitle"),
+				body: t("install.ios.shareFirefox"),
 				art: "ios-share-bottom",
 			},
 			choose,
@@ -256,10 +256,8 @@ function iosSteps(target: InstallTarget, appName: string): InstallStep[] {
 
 	return [
 		{
-			title: "Open the Share menu",
-			body: target.tablet
-				? "Tap the Share button at the top right of the screen."
-				: "Tap the Share button in the toolbar at the bottom of the screen.",
+			title: t("install.ios.shareTitle"),
+			body: target.tablet ? t("install.ios.shareTopRight") : t("install.ios.shareBottom"),
 			art: target.tablet ? "ios-share-top" : "ios-share-bottom",
 		},
 		choose,
@@ -268,9 +266,10 @@ function iosSteps(target: InstallTarget, appName: string): InstallStep[] {
 }
 
 function androidSteps(target: InstallTarget, appName: string): InstallStep[] {
+	const menuTitle = t("install.android.menuTitle");
 	const confirm: InstallStep = {
-		title: "Confirm",
-		body: `Tap Install. ${appName} appears on your home screen and in your app list.`,
+		title: t("install.confirmTitle"),
+		body: t("install.android.confirmBody", {appName}),
 		art: "android-confirm",
 	};
 
@@ -278,31 +277,31 @@ function androidSteps(target: InstallTarget, appName: string): InstallStep[] {
 		case "samsung":
 			return [
 				{
-					title: "Open the browser menu",
-					body: "Tap the menu button at the bottom right of the screen.",
+					title: menuTitle,
+					body: t("install.android.samsungMenu"),
 					art: "android-menu",
 				},
 				{
-					title: "Choose Add page to, then Home screen",
-					body: "Samsung Internet lists the option under Add page to.",
+					title: t("install.android.samsungChooseTitle"),
+					body: t("install.android.samsungChooseBody"),
 					art: "android-menu",
 				},
 				{
-					title: "Confirm",
-					body: `Tap Add. ${appName} appears on your home screen.`,
+					title: t("install.confirmTitle"),
+					body: t("install.android.samsungConfirmBody", {appName}),
 					art: "android-confirm",
 				},
 			];
 		case "edge":
 			return [
 				{
-					title: "Open the browser menu",
-					body: "Tap the three dots at the bottom of the screen.",
+					title: menuTitle,
+					body: t("install.android.edgeMenu"),
 					art: "android-menu",
 				},
 				{
-					title: "Choose Add to phone",
-					body: "It is in the second row of the menu.",
+					title: t("install.android.edgeChooseTitle"),
+					body: t("install.android.edgeChooseBody"),
 					art: "android-menu",
 				},
 				confirm,
@@ -310,13 +309,13 @@ function androidSteps(target: InstallTarget, appName: string): InstallStep[] {
 		case "firefox":
 			return [
 				{
-					title: "Open the browser menu",
-					body: "Tap the three dots in the toolbar.",
+					title: menuTitle,
+					body: t("install.android.firefoxMenu"),
 					art: "android-menu",
 				},
 				{
-					title: "Choose Install",
-					body: "Older versions say Add to Home screen instead.",
+					title: t("install.android.firefoxChooseTitle"),
+					body: t("install.android.olderVersions"),
 					art: "android-menu",
 				},
 				confirm,
@@ -324,13 +323,13 @@ function androidSteps(target: InstallTarget, appName: string): InstallStep[] {
 		default:
 			return [
 				{
-					title: "Open the browser menu",
-					body: "Tap the three dots at the top right of the screen.",
+					title: menuTitle,
+					body: t("install.android.chromeMenu"),
 					art: "android-menu",
 				},
 				{
-					title: "Choose Install app",
-					body: "Older versions say Add to Home screen instead.",
+					title: t("install.android.chromeChooseTitle"),
+					body: t("install.android.olderVersions"),
 					art: "android-menu",
 				},
 				confirm,
@@ -338,56 +337,56 @@ function androidSteps(target: InstallTarget, appName: string): InstallStep[] {
 	}
 }
 
+/** The desktop confirmation: where the installed app ends up, by OS. */
+function desktopConfirmBody(target: InstallTarget, appName: string): string {
+	return target.os === "mac"
+		? t("install.desktop.confirmMac", {appName})
+		: target.os === "windows"
+		? t("install.desktop.confirmWindows", {appName})
+		: t("install.desktop.confirmOther", {appName});
+}
+
 function desktopSteps(target: InstallTarget, appName: string): InstallStep[] {
-	const where =
-		target.os === "mac"
-			? "a shortcut in Launchpad and the Dock"
-			: target.os === "windows"
-			? "a shortcut in the Start menu"
-			: "a shortcut in your app launcher";
+	const confirm: InstallStep = {
+		title: t("install.confirmTitle"),
+		body: desktopConfirmBody(target, appName),
+		art: "desktop-confirm",
+	};
 
 	if (target.browser === "edge") {
 		return [
 			{
-				title: "Use the install button in the address bar",
-				body: "It is at the right end of the address bar, next to the favourites star.",
-				note: "Not there? Open the browser menu and choose Apps, then Install this site as an app.",
+				title: t("install.desktop.omniboxTitle"),
+				body: t("install.desktop.edgeOmnibox"),
+				note: t("install.desktop.edgeNote"),
 				art: "desktop-omnibox",
 			},
-			{
-				title: "Confirm",
-				body: `Click Install. ${appName} opens in its own window and gets ${where}.`,
-				art: "desktop-confirm",
-			},
+			confirm,
 		];
 	}
 
 	return [
 		{
-			title: "Use the install button in the address bar",
-			body: "It is at the right end of the address bar, next to the bookmark star.",
-			note: "Not there? Open the browser menu and choose Cast, save and share, then Install page as app.",
+			title: t("install.desktop.omniboxTitle"),
+			body: t("install.desktop.chromeOmnibox"),
+			note: t("install.desktop.chromeNote"),
 			art: "desktop-omnibox",
 		},
-		{
-			title: "Confirm",
-			body: `Click Install. ${appName} opens in its own window and gets ${where}.`,
-			art: "desktop-confirm",
-		},
+		confirm,
 	];
 }
 
 function macSafariSteps(appName: string): InstallStep[] {
 	return [
 		{
-			title: "Choose File, then Add to Dock",
-			body: "The Share button in the toolbar offers the same option.",
-			note: "Needs Safari 17 or later (macOS Sonoma).",
+			title: t("install.mac.dockTitle"),
+			body: t("install.mac.dockBody"),
+			note: t("install.mac.dockNote"),
 			art: "mac-dock",
 		},
 		{
-			title: "Confirm",
-			body: `Click Add. ${appName} opens in its own window from the Dock from now on.`,
+			title: t("install.confirmTitle"),
+			body: t("install.mac.confirmBody", {appName}),
 			art: "home-screen",
 		},
 	];
@@ -409,14 +408,14 @@ export function installSteps(
 	}
 
 	const intro: InstallStep = {
-		title: `Install ${appName}`,
-		body: introBody(appName),
+		title: t("install.introTitle", {appName}),
+		body: t("install.introBody", {appName}),
 		art: "intro",
 	};
 
 	if (options.canPrompt) {
 		intro.action = "prompt";
-		intro.note = "Prefer to do it by hand? The next steps show where the option is.";
+		intro.note = t("install.introPromptNote");
 	}
 
 	switch (target.platform) {

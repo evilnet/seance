@@ -38,6 +38,7 @@
  * store/DOM imports (mocha, test/irc/investigate.ts).
  */
 
+import {t} from "../i18n/core";
 import {ChanState} from "../../../shared/types/chan";
 import {
 	commonality,
@@ -194,7 +195,7 @@ class Pacer {
 	}
 
 	drop(owner: object): void {
-		this.queue = this.queue.filter((t) => t.owner !== owner);
+		this.queue = this.queue.filter((task) => task.owner !== owner);
 	}
 
 	private refill(): void {
@@ -208,7 +209,7 @@ class Pacer {
 			return;
 		}
 
-		const index = this.queue.findIndex((t) => t.lane === "server" || !this.servicesBusy);
+		const index = this.queue.findIndex((task) => task.lane === "server" || !this.servicesBusy);
 
 		if (index === -1) {
 			return;
@@ -297,13 +298,13 @@ function errorText(lines: IrcMessage[]): string | undefined {
 
 	switch (err.command) {
 		case "481":
-			return "not an IRC operator here";
+			return t("oper.investigate.note.notOper");
 		case "517":
-			return "no CHECK privilege";
+			return t("oper.investigate.note.noCheck");
 		case "401":
-			return "no such nick";
+			return t("oper.investigate.note.noSuchNick");
 		case "403":
-			return "no such channel";
+			return t("oper.investigate.note.noSuchChannel");
 		default:
 			return last(err);
 	}
@@ -435,7 +436,7 @@ export class Investigation {
 	): void {
 		if (!canRequest(this.client)) {
 			this.sources[source] = "off";
-			this.notes[source] = "the server does not label replies";
+			this.notes[source] = t("oper.investigate.note.noLabels");
 			return;
 		}
 
@@ -456,7 +457,9 @@ export class Investigation {
 				if (reply.outcome === "closed" || reply.outcome === "timeout") {
 					this.sources[source] = "failed";
 					this.notes[source] =
-						reply.outcome === "closed" ? "the connection is down" : "no answer";
+						reply.outcome === "closed"
+							? t("oper.investigate.note.closed")
+							: t("oper.investigate.note.noAnswer");
 				} else {
 					const error = errorText(reply.lines);
 
@@ -517,10 +520,10 @@ export class Investigation {
 					this.sources[source] = "failed";
 					this.notes[source] =
 						answer.kind === "missing"
-							? `${bot} is not online`
+							? t("oper.investigate.note.botOffline", {bot})
 							: answer.kind === "timeout"
-							? `${bot} did not answer`
-							: "the connection is down";
+							? t("oper.investigate.note.botSilent", {bot})
+							: t("oper.investigate.note.closed");
 					apply(undefined, answer);
 				}
 
@@ -726,7 +729,7 @@ export class Investigation {
 		}
 
 		if (model.users.length === 0 && reply.outcome !== "closed") {
-			this.notes.who ??= "nobody answered to WHO";
+			this.notes.who ??= t("oper.investigate.note.noWho");
 		}
 	}
 
@@ -1049,7 +1052,9 @@ export class Investigation {
 			}
 		} else {
 			this.sources.stats = "off";
-			this.notes.stats = nefarious ? "not opered" : "no ban list on this server";
+			this.notes.stats = nefarious
+				? t("oper.investigate.note.notOpered")
+				: t("oper.investigate.note.noBanList");
 			this.askGtrace(0);
 		}
 

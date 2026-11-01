@@ -6,6 +6,7 @@
  */
 
 import {ChanType} from "../../../../shared/types/chan";
+import {t} from "../../i18n/core";
 import {MessageType} from "../../../../shared/types/msg";
 import type {Channel} from "../channel";
 import type {IrcClient} from "../client";
@@ -46,11 +47,14 @@ const mute: Command = {
 		}
 
 		if (missing.length > 0) {
+			const missingList = missing.join(",");
+
 			client.pushMessage(chan, {
 				type: MessageType.ERROR,
-				text: `No open ${
-					missing.length === 1 ? "channel or user" : "channels or users"
-				} found for ${missing.join(",")}`,
+				text:
+					missing.length === 1
+						? t("cmd.mute.noneSingular", {targets: missingList})
+						: t("cmd.mute.nonePlural", {targets: missingList}),
 			});
 			return;
 		}

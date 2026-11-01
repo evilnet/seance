@@ -1,5 +1,6 @@
 <script lang="ts">
 import {computed, defineComponent, h, nextTick, ref, VNode, watch} from "vue";
+import {useI18n} from "../js/i18n";
 import {excerptRange, MIN_GUESS_LINES, splitLines} from "../js/helpers/ircmessageparser/codeLines";
 import type {Highlighted} from "../js/helpers/ircmessageparser/highlighter";
 
@@ -18,6 +19,7 @@ export default defineComponent({
 		file: {type: String, default: undefined},
 	},
 	setup(props) {
+		const {t, tCount} = useI18n();
 		// The Prism id the block is being shown as, set only once it really is
 		const id = ref<string | undefined>(undefined);
 		const tokens = ref<Highlighted | undefined>(undefined);
@@ -178,7 +180,9 @@ export default defineComponent({
 							"aria-expanded": expanded.value ? "true" : "false",
 							onClick: toggle,
 						},
-						expanded.value ? "Show less" : `Show all ${plain.value.length} lines`
+						expanded.value
+							? t("code.showLess")
+							: tCount("code.showAllLines", plain.value.length)
 					)
 				);
 			}

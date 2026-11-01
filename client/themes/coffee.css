@@ -176,6 +176,11 @@ body {
 	box-shadow: inset 2px 0 0 var(--rail-accent);
 }
 
+/* The marker rides the row's inline-start edge; RTL rows mirror. */
+[dir="rtl"] .channel-list-item.active {
+	box-shadow: inset -2px 0 0 var(--rail-accent);
+}
+
 .channel-list-item .badge {
 	background: var(--rail-badge-bg);
 	color: var(--rail-badge-fg);
@@ -526,7 +531,6 @@ kbd {
 
 /* Connect form, settings, version checker */
 #connect .connect-notice,
-#connect .saved-networks-empty,
 #connect .connect-note,
 #version-checker.loading {
 	background-color: var(--note-bg);

@@ -1,10 +1,19 @@
 <template>
 	<div>
-		<h2>Messages</h2>
+		<h2>{{ t("settings.appearance.messagesHeading") }}</h2>
 		<div>
 			<label class="opt">
-				<input v-switch :checked="store.state.settings.motd" type="checkbox" name="motd" />
-				Show <abbr title="Message Of The Day">MOTD</abbr>
+				<input
+					v-switch
+					:checked="store.state.settings.motd"
+					type="checkbox"
+					name="motd"
+				/>{{ " "
+				}}<I18nFrame :text="t('settings.appearance.showMotd', {motd: KEEP})"
+					><template v-slot:motd
+						><abbr :title="motdTitle">MOTD</abbr></template
+					></I18nFrame
+				>
 			</label>
 		</div>
 		<div>
@@ -15,7 +24,7 @@
 					type="checkbox"
 					name="markdown"
 				/>
-				Render Markdown formatting (bold, code, spoilers…)
+				{{ t("settings.appearance.markdown") }}
 			</label>
 		</div>
 		<div>
@@ -26,7 +35,7 @@
 					type="checkbox"
 					name="showSeconds"
 				/>
-				Include seconds in timestamp
+				{{ t("settings.appearance.showSeconds") }}
 			</label>
 		</div>
 		<div>
@@ -37,10 +46,10 @@
 					type="checkbox"
 					name="use12hClock"
 				/>
-				Use 12-hour timestamps
+				{{ t("settings.appearance.use12hClock") }}
 			</label>
 		</div>
-		<h2 id="label-own-messages">Your own messages</h2>
+		<h2 id="label-own-messages">{{ t("settings.appearance.ownMessagesHeading") }}</h2>
 		<div role="group" aria-labelledby="label-own-messages" class="own-messages-options">
 			<label v-for="style in ownMessageStyles" :key="style" class="opt">
 				<input
@@ -53,7 +62,7 @@
 				<span class="own-messages-hint">{{ ownMessageHints[style] }}</span>
 			</label>
 		</div>
-		<h2 id="label-media-previews">Media previews</h2>
+		<h2 id="label-media-previews">{{ t("settings.appearance.mediaHeading") }}</h2>
 		<div role="group" aria-labelledby="label-media-previews">
 			<label class="opt">
 				<input
@@ -62,11 +71,11 @@
 					type="checkbox"
 					name="media"
 				/>
-				Preview images, video and audio links inline
+				{{ t("settings.appearance.media") }}
 			</label>
 			<div
 				role="group"
-				aria-label="When to load previews"
+				:aria-label="mediaRevealGroupLabel"
 				:class="['media-reveal-options', {disabled: !store.state.settings.media}]"
 			>
 				<label class="opt">
@@ -77,7 +86,7 @@
 						name="mediaReveal"
 						value="click"
 					/>
-					Click to reveal — nothing is fetched from the media site until you ask to see it
+					{{ t("settings.appearance.mediaClick") }}
 				</label>
 				<label class="opt">
 					<input
@@ -87,7 +96,7 @@
 						name="mediaReveal"
 						value="always"
 					/>
-					Show automatically — the media site sees your address as soon as a link appears
+					{{ t("settings.appearance.mediaAlways") }}
 				</label>
 			</div>
 			<div
@@ -95,19 +104,24 @@
 				class="trusted-hosts"
 			>
 				<div class="trusted-hosts-head">
-					<span class="trusted-hosts-title">Always shown</span>
+					<span class="trusted-hosts-title">{{
+						t("settings.appearance.trustedHeading")
+					}}</span>
 					<button
 						v-if="trustedCount > 0"
 						type="button"
 						class="trusted-hosts-clear"
 						@click="clearTrusted()"
 					>
-						Clear all
+						{{ t("settings.appearance.trustedClear") }}
 					</button>
 				</div>
 				<p class="trusted-hosts-help">
-					Media in these scopes loads without asking. Add one with
-					<em>Always show</em> on any preview.
+					<I18nFrame :text="t('settings.appearance.trustedHelp', {button: KEEP})"
+						><template v-slot:button
+							><em>{{ t("settings.appearance.trustedButtonName") }}</em></template
+						></I18nFrame
+					>
 				</p>
 				<template v-for="group in trustedGroups" :key="group.kind">
 					<div v-if="group.entries.length > 0" class="trusted-group">
@@ -125,23 +139,22 @@
 								<button
 									type="button"
 									class="trusted-host-remove"
-									:aria-label="`Stop always showing ${group.verb} ${entry.name}`"
-									:title="`Stop always showing ${group.verb} ${entry.name}`"
+									:aria-label="untrustLabel(group.kind, entry.name)"
+									:title="untrustLabel(group.kind, entry.name)"
 									@click="untrust(group.kind, entry.key)"
 								></button>
 							</li>
 						</ul>
 					</div>
 				</template>
-				<p v-if="trustedCount === 0" class="trusted-hosts-empty">Nothing yet.</p>
+				<p v-if="trustedCount === 0" class="trusted-hosts-empty">
+					{{ t("settings.appearance.trustedEmpty") }}
+				</p>
 			</div>
 		</div>
 		<h2 id="label-status-messages">
-			Status messages
-			<span
-				class="tooltipped tooltipped-n tooltipped-no-delay"
-				aria-label="Joins, parts, quits, kicks, nick changes, and mode changes"
-			>
+			{{ t("settings.appearance.statusHeading") }}
+			<span class="tooltipped tooltipped-n tooltipped-no-delay" :aria-label="statusHelpLabel">
 				<button class="extra-help" />
 			</span>
 		</h2>
@@ -153,7 +166,7 @@
 					name="statusMessages"
 					value="shown"
 				/>
-				Show all status messages individually
+				{{ t("settings.appearance.statusShown") }}
 			</label>
 			<label class="opt">
 				<input
@@ -162,7 +175,7 @@
 					name="statusMessages"
 					value="condensed"
 				/>
-				Condense status messages together
+				{{ t("settings.appearance.statusCondensed") }}
 			</label>
 			<label class="opt">
 				<input
@@ -171,10 +184,10 @@
 					name="statusMessages"
 					value="hidden"
 				/>
-				Hide all status messages
+				{{ t("settings.appearance.statusHidden") }}
 			</label>
 		</div>
-		<h2>Visual Aids</h2>
+		<h2>{{ t("settings.appearance.visualAids") }}</h2>
 		<div>
 			<label class="opt">
 				<input
@@ -183,7 +196,7 @@
 					type="checkbox"
 					name="coloredNicks"
 				/>
-				Enable colored nicknames
+				{{ t("settings.appearance.coloredNicks") }}
 			</label>
 			<label class="opt">
 				<input
@@ -192,32 +205,33 @@
 					type="checkbox"
 					name="autocomplete"
 				/>
-				Enable autocomplete
+				{{ t("settings.appearance.autocomplete") }}
 			</label>
 		</div>
 		<div>
 			<label class="opt">
 				<label for="nickPostfix" class="opt">
-					Nick autocomplete postfix
+					{{ t("settings.appearance.nickPostfix") }}
 					<span
 						class="tooltipped tooltipped-n tooltipped-no-delay"
-						aria-label="Nick autocomplete postfix (for example a comma)"
+						:aria-label="nickPostfixHelp"
 					>
 						<button class="extra-help" />
 					</span>
 				</label>
 				<input
 					id="nickPostfix"
+					dir="auto"
 					:value="store.state.settings.nickPostfix"
 					type="text"
 					name="nickPostfix"
 					class="input"
-					placeholder="Nick autocomplete postfix (e.g. ', ')"
+					:placeholder="nickPostfixPlaceholder"
 				/>
 			</label>
 		</div>
 
-		<h2 id="label-font-size">Font size</h2>
+		<h2 id="label-font-size">{{ t("settings.appearance.fontSizeHeading") }}</h2>
 		<div v-if="systemTextSize">
 			<label class="opt">
 				<input
@@ -226,7 +240,7 @@
 					type="checkbox"
 					name="matchSystemTextSize"
 				/>
-				Match the system text size
+				{{ t("settings.appearance.matchSystemTextSize") }}
 			</label>
 			<p v-if="store.state.settings.matchSystemTextSize" class="theme-pair-hint">
 				{{ systemTextSizeHint }}
@@ -250,7 +264,7 @@
 					list="font-size-stops"
 					:value="shownIndex"
 					:aria-valuetext="shownLabel"
-					aria-label="Message font size"
+					:aria-label="fontSizeAriaLabel"
 					@input="onFontSizeInput"
 					@change="onFontSizeChange"
 				/>
@@ -278,7 +292,7 @@
 			</div>
 		</div>
 
-		<h2>Theme</h2>
+		<h2>{{ t("settings.appearance.theme") }}</h2>
 		<div>
 			<label class="opt">
 				<input
@@ -287,11 +301,11 @@
 					type="checkbox"
 					name="matchSystemAppearance"
 				/>
-				Match the system's light or dark mode
+				{{ t("settings.appearance.matchSystemAppearance") }}
 			</label>
 		</div>
 		<div>
-			<label for="theme-select" class="sr-only">Theme</label>
+			<label for="theme-select" class="sr-only">{{ t("settings.appearance.theme") }}</label>
 			<select
 				id="theme-select"
 				:value="store.state.settings.theme"
@@ -308,7 +322,7 @@
 		<!-- A theme's own settings, shown while it is the theme. Only ps has
 		     any; another theme would add its block here, keyed by its name. -->
 		<template v-if="store.state.settings.theme === 'ps'">
-			<h2 id="label-ps-animation">Scene animation</h2>
+			<h2 id="label-ps-animation">{{ t("settings.appearance.psAnimationHeading") }}</h2>
 			<div role="group" aria-labelledby="label-ps-animation" class="scene-motion-options">
 				<label v-for="level in sceneMotions" :key="level" class="opt">
 					<input
@@ -322,19 +336,16 @@
 				</label>
 				<label class="opt">
 					<input
-						:checked="store.state.settings.psPauseWhenAway"
 						v-switch
+						:checked="store.state.settings.psPauseWhenAway"
 						type="checkbox"
 						name="psPauseWhenAway"
 					/>
-					Pause the scene when the window isn't in use
-					<span class="opt-hint"
-						>after 15 seconds without the focus, or 2 minutes without input; a hidden
-						tab never moves it</span
-					>
+					{{ t("settings.appearance.psPauseWhenAway") }}
+					<span class="opt-hint">{{ t("settings.appearance.psPauseWhenAwayHint") }}</span>
 				</label>
 			</div>
-			<h2 id="label-ps-words">Words over the plains</h2>
+			<h2 id="label-ps-words">{{ t("settings.appearance.psWordsHeading") }}</h2>
 			<div role="group" aria-labelledby="label-ps-words" class="scene-motion-options">
 				<label v-for="w in psWords" :key="w" class="opt">
 					<input :checked="psWordsValue === w" type="radio" name="psWords" :value="w" />
@@ -342,35 +353,33 @@
 					<span class="opt-hint">{{ psWordsHints[w] }}</span>
 				</label>
 			</div>
-			<h2 id="label-ps-layout">Message layout</h2>
+			<h2 id="label-ps-layout">{{ t("settings.appearance.psLayoutHeading") }}</h2>
 			<div role="group" aria-labelledby="label-ps-layout" class="scene-motion-options">
 				<label class="opt">
 					<input
-						:checked="store.state.settings.psGroupMessages"
 						v-switch
+						:checked="store.state.settings.psGroupMessages"
 						type="checkbox"
 						name="psGroupMessages"
 					/>
-					Combine messages from the same person
-					<span class="opt-hint"
-						>their name and time once, for lines sent within ten minutes of each
-						other</span
-					>
+					{{ t("settings.appearance.psGroupMessages") }}
+					<span class="opt-hint">{{ t("settings.appearance.psGroupMessagesHint") }}</span>
 				</label>
 			</div>
 		</template>
 
 		<div>
-			<h2>Custom Stylesheet</h2>
+			<h2>{{ t("settings.appearance.customStylesheet") }}</h2>
 			<label for="user-specified-css-input" class="sr-only">
-				Custom stylesheet. You can override any style with CSS here.
+				{{ t("settings.appearance.customStylesheetHelp") }}
 			</label>
 			<textarea
 				id="user-specified-css-input"
+				dir="auto"
 				:value="store.state.settings.userStyles"
 				class="input"
 				name="userStyles"
-				placeholder="/* You can override any style with CSS here */"
+				:placeholder="customStylesheetPlaceholder"
 			/>
 		</div>
 	</div>
@@ -449,14 +458,14 @@ textarea#user-specified-css-input {
 
 .font-size-sample .time {
 	flex: 0 0 auto;
-	margin-right: 0.6em;
+	margin-inline-end: 0.6em;
 	color: var(--body-color-muted);
 	font-variant-numeric: tabular-nums;
 }
 
 .font-size-sample .from {
 	flex: 0 0 auto;
-	margin-right: 0.6em;
+	margin-inline-end: 0.6em;
 	font-weight: bold;
 }
 
@@ -470,8 +479,11 @@ textarea#user-specified-css-input {
 <script lang="ts">
 import {computed, defineComponent, ref} from "vue";
 import {useStore} from "../../js/store";
+import {useI18n} from "../../js/i18n";
+import {KEEP} from "../../js/i18n/core";
+import I18nFrame from "../I18nFrame.vue";
 import {normalizeSceneMotion, SCENE_MOTIONS, type SceneMotion} from "../../js/themeScene";
-import {normalizePsWords, psWords, psWordsHints, psWordsLabels} from "../../js/helpers/psWords";
+import {normalizePsWords, psWords, type PsWords} from "../../js/helpers/psWords";
 import {
 	describeThemePairs,
 	effectiveTheme,
@@ -481,7 +493,6 @@ import {
 import {isIOSShell} from "../../js/helpers/capacitor";
 import {systemTextSizeAvailable} from "../../js/helpers/systemTextSize";
 import {
-	fontSizeLabels,
 	fontSizeScale,
 	fontSizes,
 	normalizeFontSize,
@@ -489,7 +500,6 @@ import {
 } from "../../js/helpers/fontSize";
 import {
 	normalizeOwnMessageStyle,
-	ownMessageStyleLabels,
 	ownMessageStyles,
 	OwnMessageStyle,
 } from "../../js/helpers/ownMessages";
@@ -505,8 +515,29 @@ type TrustedEntry = {key: string; name: string; network: string};
 
 export default defineComponent({
 	name: "AppearanceSettings",
+	components: {I18nFrame},
 	setup() {
 		const store = useStore();
+		const {t} = useI18n();
+
+		const motdTitle = computed(() => t("settings.appearance.motdTitle"));
+		const mediaRevealGroupLabel = computed(() => t("settings.appearance.mediaRevealGroup"));
+		const statusHelpLabel = computed(() => t("settings.appearance.statusHelp"));
+		const nickPostfixHelp = computed(() => t("settings.appearance.nickPostfixHelp"));
+		const nickPostfixPlaceholder = computed(() =>
+			t("settings.appearance.nickPostfixPlaceholder")
+		);
+		const fontSizeAriaLabel = computed(() => t("settings.appearance.fontSizeAria"));
+		const customStylesheetPlaceholder = computed(() =>
+			t("settings.appearance.customStylesheetPlaceholder")
+		);
+
+		/** Remove-button label of the always-shown list: "in" a channel,
+		 * "from" a site or a person. */
+		const untrustLabel = (kind: TrustKind, name: string) =>
+			kind === "channel"
+				? t("settings.appearance.untrustIn", {name})
+				: t("settings.appearance.untrustFrom", {name});
 
 		// Channel and account keys carry the network uuid; show its name.
 		const networkName = (uuid: string) =>
@@ -523,17 +554,19 @@ export default defineComponent({
 			});
 
 		const trustedGroups = computed(() => [
-			{kind: "host" as TrustKind, title: "Sites", verb: "from", entries: entriesOf("host")},
+			{
+				kind: "host" as TrustKind,
+				title: t("settings.appearance.trustedSites"),
+				entries: entriesOf("host"),
+			},
 			{
 				kind: "account" as TrustKind,
-				title: "People",
-				verb: "from",
+				title: t("settings.appearance.trustedPeople"),
 				entries: entriesOf("account"),
 			},
 			{
 				kind: "channel" as TrustKind,
-				title: "Channels",
-				verb: "in",
+				title: t("settings.appearance.trustedChannels"),
 				entries: entriesOf("channel"),
 			},
 		]);
@@ -546,28 +579,51 @@ export default defineComponent({
 		const ownMessages = computed(() =>
 			normalizeOwnMessageStyle(store.state.settings.ownMessages)
 		);
-		const ownMessageHints: Record<OwnMessageStyle, string> = {
-			muted: "the text in the muted colour, as before",
-			band: "the row on a lighter or darker band, the text like everyone else's",
-			plain: "nothing marks them",
-		};
+		// Labels and hints translate here, at the render site, like the font
+		// size steps below: the module is Vue-free.
+		const ownMessageStyleLabels = computed<Record<OwnMessageStyle, string>>(() => ({
+			muted: t("settings.appearance.ownMessagesMuted"),
+			band: t("settings.appearance.ownMessagesBand"),
+			plain: t("settings.appearance.ownMessagesPlain"),
+		}));
+		const ownMessageHints = computed<Record<OwnMessageStyle, string>>(() => ({
+			muted: t("settings.appearance.ownMessagesMutedHint"),
+			band: t("settings.appearance.ownMessagesBandHint"),
+			plain: t("settings.appearance.ownMessagesPlainHint"),
+		}));
 
 		// The ps theme's Scene animation levels (themeScene.ts SceneMotion).
 		const psAnimation = computed(() => normalizeSceneMotion(store.state.settings.psAnimation));
-		// The ps theme's Words over the plains (helpers/psWords.ts).
+		const sceneMotionLabels = computed<Record<SceneMotion, string>>(() => ({
+			auto: t("settings.appearance.psMotionAuto"),
+			full: t("settings.appearance.psMotionFull"),
+			calm: t("settings.appearance.psMotionCalm"),
+			still: t("settings.appearance.psMotionStill"),
+		}));
+		const sceneMotionHints = computed<Record<SceneMotion, string>>(() => ({
+			auto: t("settings.appearance.psMotionAutoHint"),
+			full: t("settings.appearance.psMotionFullHint"),
+			calm: t("settings.appearance.psMotionCalmHint"),
+			still: t("settings.appearance.psMotionStillHint"),
+		}));
+		// The ps theme's Words over the plains (helpers/psWords.ts; docs/projects/ps-words.md).
 		const psWordsValue = computed(() => normalizePsWords(store.state.settings.psWords));
-		const sceneMotionLabels: Record<SceneMotion, string> = {
-			auto: "Auto",
-			full: "Full",
-			calm: "Calm",
-			still: "Still",
-		};
-		const sceneMotionHints: Record<SceneMotion, string> = {
-			auto: "follows your device: Full on a computer or tablet, Calm on a phone, one step less on low power",
-			full: "everything moves, at your screen's rate",
-			calm: "the clouds drift; the rest holds still",
-			still: "a still picture; the sky still follows the time of day",
-		};
+		const psWordsLabels = computed<Record<PsWords, string>>(() => ({
+			bubbles: t("settings.appearance.psWordsBubbles"),
+			glass: t("settings.appearance.psWordsGlass"),
+			scrim: t("settings.appearance.psWordsScrim"),
+			outline: t("settings.appearance.psWordsOutline"),
+			rim: t("settings.appearance.psWordsRim"),
+			glow: t("settings.appearance.psWordsGlow"),
+		}));
+		const psWordsHints = computed<Record<PsWords, string>>(() => ({
+			bubbles: t("settings.appearance.psWordsBubblesHint"),
+			glass: t("settings.appearance.psWordsGlassHint"),
+			scrim: t("settings.appearance.psWordsScrimHint"),
+			outline: t("settings.appearance.psWordsOutlineHint"),
+			rim: t("settings.appearance.psWordsRimHint"),
+			glow: t("settings.appearance.psWordsGlowHint"),
+		}));
 
 		// The step under the slider while it is being dragged. Applying every
 		// step live re-laid out the whole page (rem chrome) under the pointer
@@ -577,32 +633,45 @@ export default defineComponent({
 		const draggedTo = ref<FontSize | null>(null);
 		const shown = computed(() => draggedTo.value ?? fontSize.value);
 		const shownIndex = computed(() => fontSizes.indexOf(shown.value));
-		const shownLabel = computed(() => fontSizeLabels[shown.value]);
+		// The steps' labels translate here, at the render site: the module is
+		// Vue-free and the pot is the only source of English copy.
+		const fontSizeLabels = computed<Record<FontSize, string>>(() => ({
+			tiny: t("settings.appearance.fontSizeTiny"),
+			small: t("settings.appearance.fontSizeSmall"),
+			medium: t("settings.appearance.fontSizeMedium"),
+			large: t("settings.appearance.fontSizeLarge"),
+			xlarge: t("settings.appearance.fontSizeXlarge"),
+			huge: t("settings.appearance.fontSizeHuge"),
+		}));
+		const shownLabel = computed(() => fontSizeLabels.value[shown.value]);
 		// The sample at the shown step: its percentage of the browser default,
 		// through whatever the page is at now (1rem = the applied step).
 		const sampleFontSize = computed(
 			() => `${fontSizeScale[shown.value] / fontSizeScale[fontSize.value]}rem`
 		);
-		const sampleLines = [
+		// The sample conversation speaks through the pot like everything else;
+		// the sample nicks and clock times stand in for user content and
+		// render verbatim.
+		const sampleLines = computed(() => [
 			{
 				time: "12:34",
 				from: "grandma",
 				color: "color-4",
-				text: "Can you read this without your glasses?",
+				text: t("settings.appearance.sampleGlasses"),
 			},
 			{
 				time: "12:35",
 				from: "you",
 				color: "color-10",
-				text: "Yes! Slide it until this is comfortable.",
+				text: t("settings.appearance.sampleSlide"),
 			},
 			{
 				time: "12:35",
 				from: "grandma",
 				color: "color-4",
-				text: "The ends are meant to be too small and too big.",
+				text: t("settings.appearance.sampleEnds"),
 			},
-		];
+		]);
 
 		const stepOf = (event: Event) =>
 			fontSizes[Number((event.target as HTMLInputElement).value)];
@@ -635,27 +704,29 @@ export default defineComponent({
 		const themePairHint = computed(() => {
 			const themes = store.state.serverConfiguration?.themes ?? [];
 			const label = (name: string) =>
-				themes.find((t) => t.name === name)?.displayName ?? name;
+				themes.find((theme) => theme.name === name)?.displayName ?? name;
 			const chosen = store.state.settings.theme;
 			const partner = chosen ? themePartner(chosen) : null;
 
 			if (!store.state.settings.matchSystemAppearance) {
-				return "When on, each light/dark pair is one entry that shows the half matching the system.";
+				return t("settings.appearance.themePairOff");
 			}
 
 			if (!partner) {
-				return `${label(
-					chosen
-				)} looks the same in light and dark mode; ${describeThemePairs(
-					label
-				)} follow the system.`;
+				return t("settings.appearance.themePairNone", {
+					theme: label(chosen),
+					pairs: describeThemePairs(label),
+				});
 			}
 
 			const [dark, light] =
 				effectiveTheme(chosen, true, true) === chosen
 					? [chosen, partner]
 					: [partner, chosen];
-			return `${label(dark)} in dark mode, ${label(light)} in light mode.`;
+			return t("settings.appearance.themePairHalves", {
+				dark: label(dark),
+				light: label(light),
+			});
 		});
 
 		// In the native shells the system's text size can stand in for the
@@ -665,11 +736,15 @@ export default defineComponent({
 		const matchingSystemTextSize = computed(
 			() => systemTextSize && store.state.settings.matchSystemTextSize
 		);
-		const systemTextSizeHint = isIOSShell()
-			? "Set it in iOS Settings → Display & Brightness → Text Size, or Accessibility → Display & Text Size for larger sizes."
-			: "Set it in Android Settings → Display → Display size and text.";
+		const iosShell = isIOSShell();
+		const systemTextSizeHint = computed(() =>
+			iosShell
+				? t("settings.appearance.systemTextSizeIos")
+				: t("settings.appearance.systemTextSizeAndroid")
+		);
 
 		return {
+			KEEP,
 			sceneMotions: SCENE_MOTIONS,
 			psAnimation,
 			sceneMotionLabels,
@@ -679,6 +754,15 @@ export default defineComponent({
 			psWordsLabels,
 			psWordsHints,
 			store,
+			t,
+			motdTitle,
+			mediaRevealGroupLabel,
+			statusHelpLabel,
+			nickPostfixHelp,
+			nickPostfixPlaceholder,
+			fontSizeAriaLabel,
+			customStylesheetPlaceholder,
+			untrustLabel,
 			systemTextSize,
 			matchingSystemTextSize,
 			systemTextSizeHint,

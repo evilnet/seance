@@ -5,15 +5,15 @@
 		class="window screen-overlay"
 		role="dialog"
 		aria-modal="true"
-		aria-label="Settings"
+		:aria-label="dialogLabel"
 	>
 		<div class="settings-modal">
 			<div class="settings-modal-header">
-				<h1>Settings</h1>
+				<h1>{{ t("windows.settings.title") }}</h1>
 				<button
 					class="settings-modal-close"
 					type="button"
-					aria-label="Close settings"
+					:aria-label="closeAria"
 					@click="close"
 				>
 					✕
@@ -26,8 +26,10 @@
 				</div>
 			</div>
 			<div class="settings-modal-footer">
-				<span class="settings-modal-note">Changes are saved as you make them.</span>
-				<button class="btn settings-modal-done" type="button" @click="close">Done</button>
+				<span class="settings-modal-note">{{ t("windows.settings.note") }}</span>
+				<button class="btn settings-modal-done" type="button" @click="close">
+					{{ t("windows.settings.done") }}
+				</button>
 			</div>
 		</div>
 	</div>
@@ -160,9 +162,10 @@
 </style>
 
 <script lang="ts">
-import {defineComponent} from "vue";
+import {defineComponent, computed} from "vue";
 import {useRoute} from "vue-router";
 import Navigation from "../Settings/Navigation.vue";
+import {useI18n} from "../../js/i18n";
 import {useStore} from "../../js/store";
 import {leavePage} from "../../js/router";
 
@@ -174,6 +177,9 @@ export default defineComponent({
 	setup() {
 		const store = useStore();
 		const route = useRoute();
+		const {t} = useI18n();
+		const dialogLabel = computed(() => t("windows.settings.title"));
+		const closeAria = computed(() => t("windows.settings.close"));
 
 		const onChange = (event: Event) => {
 			// NetworkEdit has its own form and persistence contract; its fields
@@ -206,6 +212,9 @@ export default defineComponent({
 		};
 
 		return {
+			t,
+			dialogLabel,
+			closeAria,
 			onChange,
 			close,
 		};

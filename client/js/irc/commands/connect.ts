@@ -7,6 +7,7 @@
 
 import {MessageType} from "../../../../shared/types/msg";
 import socket from "../../socket";
+import {t} from "../../i18n/core";
 import type {Command, ConnectOptions} from "../types";
 
 /** nefarious2's WebSocket ports: 8443 for wss://, 8067 for ws://. */
@@ -24,7 +25,7 @@ const connect: Command = {
 			if (client.isConnected) {
 				client.pushMessage(chan, {
 					type: MessageType.ERROR,
-					text: "You are already connected.",
+					text: t("cmd.alreadyConnected"),
 				});
 				return;
 			}

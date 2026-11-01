@@ -11,7 +11,7 @@
 					v-else-if="isChip(part.field)"
 					type="button"
 					:class="['oper-chip', 'oper-chip-' + typeOf(part.field)]"
-					title="Oper actions"
+					:title="t('oper.chip.title')"
 					@click.stop="openMenu($event, part.field, part.value)"
 				>
 					{{ part.value }}</button
@@ -40,9 +40,11 @@ import type {SnoticeInfo} from "../../../shared/types/oper";
 import type {ClientNetwork} from "../../js/types";
 import {fieldType, splitTemplate} from "../../js/irc/profiles/fields";
 import {findNoticeKind} from "../../js/irc/snotice";
+import {kindTemplate} from "../../js/irc/profiles/noticeText";
+import {useI18n} from "../../js/i18n";
 import {formatExpiry} from "../../js/helpers/operFormat";
 import {openOperTargetMenu} from "../../js/helpers/operMenu";
-import localetime from "../../js/helpers/localetime";
+import {formatDateTime} from "../../js/i18n/dates";
 import useNow from "../../js/hooks/use-now";
 import {useStore} from "../../js/store";
 import ParsedMessage from "../ParsedMessage.vue";
@@ -65,10 +67,13 @@ export default defineComponent({
 	setup(props) {
 		const store = useStore();
 		const now = useNow();
+		const {t, locale} = useI18n();
 
 		const parts = computed(() => {
+			void locale.value; // the template is translated: follow the language
 			const kind = findNoticeKind(props.info.kind, props.network.oper?.profile);
-			return kind?.template ? splitTemplate(kind.template, props.info.fields) : undefined;
+			const template = kind ? kindTemplate(kind, props.info.fields) : undefined;
+			return template ? splitTemplate(template, props.info.fields) : undefined;
 		});
 
 		const typeOf = (field: string) => fieldType(field);
@@ -84,11 +89,12 @@ export default defineComponent({
 		const ms = (value: string) => Number(value) * 1000;
 
 		return {
+			t,
 			parts,
 			typeOf,
 			isChip,
 			openMenu,
-			absolute: (value: string) => localetime(new Date(ms(value))),
+			absolute: (value: string) => formatDateTime(new Date(ms(value))),
 			expiry: (value: string) => formatExpiry(ms(value), now.value),
 		};
 	},

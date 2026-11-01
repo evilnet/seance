@@ -1,12 +1,16 @@
 import type {TypedStore} from "./store";
 import {mirrorPushPrefs} from "./push-prefs";
+import {activate} from "./i18n";
+import {setHour12Source} from "./i18n/dates";
 import {normalizeFontSize} from "./helpers/fontSize";
 import {normalizeOwnMessageStyle} from "./helpers/ownMessages";
 import {normalizePsWords} from "./helpers/psWords";
 import {prefersTwelveHourClock} from "./helpers/hourCycle";
+import storage from "./localStorage";
 import {normalizeSceneMotion, themeScene} from "./themeScene";
 import {setQueryLogEnabled} from "./irc/querylog";
 import {setClosedQueriesKept} from "./irc/closedQueries";
+import {forgetPrivateTerms, loadAll} from "./translate/channelStore";
 import {setKeepAlive} from "./helpers/keepAlive";
 import {effectiveTheme} from "./helpers/themeAppearance";
 import {currentPlatform, PLATFORM_DEFAULTS} from "./helpers/platformDefaults";
@@ -148,6 +152,17 @@ const defaultConfig = {
 	links: {
 		default: true,
 	},
+	// Display language: "auto" (follow the browser) or a locale tag from
+	// client/js/i18n/available.ts (generated). apply() resolves, lazy-loads
+	// the catalog, sets <html lang>/<html dir> and mirrors the tag to the
+	// push worker. Nothing renders before boot's applyAll, and the pre-paint
+	// script in index.html covers the direction before that.
+	locale: {
+		default: "auto",
+		apply(store: TypedStore, value: string) {
+			void activate(value);
+		},
+	},
 	markdown: {
 		default: true,
 		// Mirrored to the service worker (it cannot read localStorage) so a
@@ -175,6 +190,11 @@ const defaultConfig = {
 	// at load; a stored setting is assigned over it (store-settings.ts).
 	use12hClock: {
 		default: prefersTwelveHourClock(),
+		// Every timestamp that names no clock (tooltips, ban lists, whois, the
+		// oper cards) reads this one through the getter, reactively.
+		apply(store: TypedStore) {
+			setHour12Source(() => !!store.state.settings.use12hClock);
+		},
 	},
 	statusMessages: {
 		default: "condensed",
@@ -183,6 +203,53 @@ const defaultConfig = {
 	 * (client/js/webpush.ts, helpers/pushKeys.ts keyChangePolicy). */
 	pushKeyChange: {
 		default: "ask",
+	},
+	/**
+	 * Translation (client/js/translate): one language everywhere — the
+	 * interface's and the reading target's (the unified control; the
+	 * Settings → Translation select and the dev sidebar globe both write
+	 * this). "auto" resolves from the browser. reader.ts
+	 * `readingLanguage()` reads it through `userLanguageRef`.
+	 */
+	/** auto | formal | casual, one line of the prompt. */
+	translateFormality: {
+		default: "auto",
+	},
+	/** Let the router pick the GPU model / the CPU models. */
+	translateLlm: {
+		default: true,
+	},
+	translateCpu: {
+		default: true,
+	},
+	/** NLLB-200 (translate/models.ts). Off until the
+	 * user switches it on, for new and existing users alike: its licence is
+	 * CC-BY-NC-4.0 (non-commercial use only), so a stored settings object
+	 * that never chose (one saved before the setting existed) reads as off.
+	 * The OPUS-MT pairs and the language model serve without it. */
+	translateNllb: {
+		default: false,
+	},
+	/** Which device each model runs on: auto | gpu | cpu (translate/models.ts `DeviceChoices`). */
+	translateLlmDevice: {
+		default: "auto",
+	},
+	translateOpusDevice: {
+		default: "auto",
+	},
+	translateNllbDevice: {
+		default: "auto",
+	},
+	/** Which GPU model (translate/models.ts LLM_CHOICES, or the deploy's own) the
+	 * LLM candidate runs. "" until the user picks one, and a stored id that is no
+	 * longer a choice counts as unset: both resolve at read time (models.ts
+	 * `llmChoice`) to the deploy's own model, else — on a gpu-tier device — the
+	 * one its memory fits (`defaultLlmForAdapter`), else the catalog's default.
+	 * Nothing writes a resolved id back here, so a later deploy default, and a
+	 * device the probe has since measured, both still reach users who never
+	 * chose. */
+	translateLlmModel: {
+		default: "",
 	},
 	// UI scale: the root font size everything in style.css is sized off in
 	// rem. The scale and its normalization live in helpers/fontSize.ts; the
@@ -281,13 +348,21 @@ const defaultConfig = {
 	},
 	// Keep the recent lines of private conversations in this browser so they
 	// come back after a reload (irc/querylog.ts). Off deletes what is kept
-	// and keeps nothing more; applyAll runs this at boot too, before any
+	// (the translation terms learnt in queries included) and keeps nothing
+	// more; applyAll runs this at boot too, before any
 	// network is created, so a page with it off restores nothing.
 	keepPrivateConversations: {
 		default: true,
 		apply(store: TypedStore, value: boolean) {
 			setQueryLogEnabled(value);
 			setClosedQueriesKept(value); // the closed ones' names too, here and shared
+
+			// And the translation terms learnt in queries: whole short lines
+			// the user sent in private (translate/writer.ts records none
+			// while this is off). The store's copy is what prompts read.
+			if (!value && forgetPrivateTerms()) {
+				store.commit("translateChannelsLoaded", loadAll());
+			}
 		},
 	},
 	userStyles: {
@@ -345,3 +420,42 @@ function normalizeConfig(obj: any) {
 export type SettingsState = {
 	[key in keyof typeof defaultConfig]: typeof defaultConfig[key]["default"];
 };
+
+/**
+ * One-time migration for the removed "Read messages in" override
+ * (`translateTo`): the interface language and the reading language are one
+ * control now, so a user who had pinned a reading override keeps it as their
+ * interface language — unless they had already picked one, which wins. The
+ * old key is deleted either way, before the settings store's first write can
+ * drop it silently. No-op when the override was "auto" or absent.
+ */
+export function migrateReadingToLocale(): void {
+	let raw: string | null;
+
+	try {
+		raw = storage.get("settings");
+	} catch {
+		return;
+	}
+
+	let stored: Record<string, unknown>;
+
+	try {
+		stored = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+	} catch {
+		return; // garbage settings blob: leave it alone
+	}
+
+	const override = stored.translateTo;
+
+	if (typeof override !== "string" || override === "auto") {
+		return;
+	}
+
+	if (stored.locale === undefined || stored.locale === "auto") {
+		stored.locale = override;
+	}
+
+	delete stored.translateTo;
+	storage.set("settings", JSON.stringify(stored));
+}

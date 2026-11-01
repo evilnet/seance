@@ -7,13 +7,58 @@ import {TextareaEditor} from "@textcomplete/textarea";
 import fuzzy from "fuzzy";
 
 import emojiMap from "./helpers/simplemap.json";
+import {matchColorCodes} from "./helpers/colorMatch";
 import {fuzzyHtml} from "./helpers/fuzzyHtml";
 import {aliasNames} from "./helpers/aliases";
+import {brandingT} from "./branding";
 import {scriptManager} from "./irc/scripting/manager";
 import {store} from "./store";
 import {ChanType} from "../../shared/types/chan";
 
 export default enableAutocomplete;
+
+/** The colour names a translator sees, resolved through the one
+ * override-aware chain. Every key is a literal (the pot ↔ call-site scanner
+ * only sees direct calls); the pair list in constants.ts stays the wire
+ * truth, matched against the English name and the translation alike. */
+const colorName = (code: string, en: string): string => {
+	switch (code) {
+		case "00":
+			return brandingT("irc.colorWhite");
+		case "01":
+			return brandingT("irc.colorBlack");
+		case "02":
+			return brandingT("irc.colorBlue");
+		case "03":
+			return brandingT("irc.colorGreen");
+		case "04":
+			return brandingT("irc.colorRed");
+		case "05":
+			return brandingT("irc.colorBrown");
+		case "06":
+			return brandingT("irc.colorMagenta");
+		case "07":
+			return brandingT("irc.colorOrange");
+		case "08":
+			return brandingT("irc.colorYellow");
+		case "09":
+			return brandingT("irc.colorLightGreen");
+		case "10":
+			return brandingT("irc.colorCyan");
+		case "11":
+			return brandingT("irc.colorLightCyan");
+		case "12":
+			return brandingT("irc.colorLightBlue");
+		case "13":
+			return brandingT("irc.colorPink");
+		case "14":
+			return brandingT("irc.colorGrey");
+		case "15":
+			return brandingT("irc.colorLightGrey");
+		default:
+			return en;
+	}
+};
 
 const emojiSearchTerms = Object.keys(emojiMap);
 const emojiStrategy: StrategyProps = {
@@ -90,25 +135,7 @@ const foregroundColorStrategy: StrategyProps = {
 	id: "foreground-colors",
 	match: /\x03(\d{0,2}|[A-Za-z ]{0,10})$/,
 	search(term: string, callback: (matches: string[][]) => void) {
-		term = term.toLowerCase();
-
-		const matchingColorCodes = constants.colorCodeMap
-			.filter((i) => fuzzy.test(term, i[0]) || fuzzy.test(term, i[1]))
-			.map((i) => {
-				if (fuzzy.test(term, i[1])) {
-					return [
-						i[0],
-						fuzzy.match(term, i[1], {
-							pre: "<b>",
-							post: "</b>",
-						}).rendered,
-					];
-				}
-
-				return i;
-			});
-
-		callback(matchingColorCodes);
+		callback(matchColorCodes(term, constants.colorCodeMap, colorName));
 	},
 	template(value: string[]) {
 		return `<span class="irc-fg${parseInt(value[0], 10)}">${value[1]}</span>`;
@@ -123,23 +150,9 @@ const backgroundColorStrategy: StrategyProps = {
 	id: "background-colors",
 	match: /\x03(\d{2}),(\d{0,2}|[A-Za-z ]{0,10})$/,
 	search(term: string, callback: (matchingColorCodes: string[][]) => void, match: string[]) {
-		term = term.toLowerCase();
-		const matchingColorCodes = constants.colorCodeMap
-			.filter((i) => fuzzy.test(term, i[0]) || fuzzy.test(term, i[1]))
-			.map((pair) => {
-				if (fuzzy.test(term, pair[1])) {
-					return [
-						pair[0],
-						fuzzy.match(term, pair[1], {
-							pre: "<b>",
-							post: "</b>",
-						}).rendered,
-					];
-				}
-
-				return pair;
-			})
-			.map((pair) => pair.concat(match[1])); // Needed to pass fg color to `template`...
+		const matchingColorCodes = matchColorCodes(term, constants.colorCodeMap, colorName).map(
+			(pair) => pair.concat(match[1])
+		); // Needed to pass fg color to `template`...
 
 		callback(matchingColorCodes);
 	},

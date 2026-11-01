@@ -21,7 +21,7 @@ export async function toggleDevtools(): Promise<void> {
 	}
 
 	if (!eruda) {
-		eruda = (await import(/* webpackChunkName: "js/eruda" */ "eruda")).default;
+		eruda = (await import(/* webpackChunkName: "eruda" */ "eruda")).default;
 		eruda.init({useShadowDom: true, defaults: {displaySize: 50}});
 	}
 

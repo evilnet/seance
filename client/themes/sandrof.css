@@ -138,9 +138,19 @@ body {
 	box-shadow: inset -1px 0 0 rgb(51 255 102 / 12%);
 }
 
+/* The rail's inner edge faces the chat; in RTL the rail sits on the other
+ * side, so the edge moves with it. */
+[dir="rtl"] #sidebar {
+	box-shadow: inset 1px 0 0 rgb(51 255 102 / 12%);
+}
+
 /* The active row lights up its edge in phosphor, not a flat fill. */
 #sidebar .channel-list-item.active {
 	box-shadow: inset 2px 0 0 var(--rail-accent), inset 0 0 1.5em rgb(51 255 102 / 8%);
+}
+
+[dir="rtl"] #sidebar .channel-list-item.active {
+	box-shadow: inset -2px 0 0 var(--rail-accent), inset 0 0 1.5em rgb(51 255 102 / 8%);
 }
 
 /* Nick palette: greens only, varied by lightness and a touch of hue. */

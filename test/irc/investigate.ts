@@ -13,6 +13,7 @@ import {
 import {useNoticeLogBackend, type LoggedNotice} from "../../client/js/irc/noticelog";
 import {useOperPrefsBackend} from "../../client/js/irc/operprefs";
 import {SERVICE_QUIET_MS} from "../../client/js/irc/services";
+import {fateText} from "../../client/js/helpers/verdict";
 import {X3_DEFAULTS} from "../../client/js/irc/services/x3";
 import type {Transport} from "../../client/js/irc/types";
 import type {TransportEvent, TransportState} from "../../client/js/irc/transport";
@@ -660,7 +661,7 @@ describe("the user investigation (irc/investigate.ts)", function () {
 		// Seen before, from the feed, before any ban list is in.
 		expect(model.seen.map((s) => s.nick)).to.deep.equal(["spamfan"]);
 		expect(model.seen[0].matched).to.deep.equal(["ip", "host", "realname"]);
-		expect(model.seen[0].fate).to.equal("G-lined by rubin for 'bot group'");
+		expect(fateText(model.seen[0].fate!)).to.equal("G-lined by rubin for 'bot group'");
 		expect(model.verdict).to.equal(
 			"Likely the same as spamfan (Fri): same IP, same host, same realname, same ident shape; G-lined then by rubin for 'bot group'."
 		);

@@ -86,6 +86,12 @@ export class Channel {
 	/** The user asked for the modes (`/mode #chan`): show the next 324 even if it is unchanged. */
 	modesAsked = false;
 	/**
+	 * For a `ChanType.SPECIAL` window, what it shows besides its kind: the
+	 * channel of a mode list (casefolded by the client). The title is a
+	 * translated string and cannot identify the window (findings F15).
+	 */
+	specialTarget: string | undefined = undefined;
+	/**
 	 * Last away state seen for the peer of a query window: their message,
 	 * `*` (`draft/pre-away`: away, no reason given), "" once back.
 	 */

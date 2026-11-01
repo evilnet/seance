@@ -8,10 +8,54 @@
  */
 
 (function () {
+	// The splash speaks before the app's catalogs exist: English literals
+	// first (the pot is the only source of English copy — these four keys
+	// are pinned to this file by test/tests/i18n-toolchain.ts), overlaid
+	// best-effort by the locale the pre-paint script wrote into <html lang>.
+	// The overlay fetch may never answer (offline, file://, a deploy without
+	// that catalog); every path below degrades to the English fallback.
+	const I18N_COPY = {
+		"loading.starting": "Loading the app…",
+		"loading.error": "An error has occurred that prevented the client from loading correctly.",
+		"loading.errorDetails": "More details",
+		"loading.errorDevtools": "Open the developer tools of your browser for more information.",
+	};
+
+	let overlay = null;
+	let lastKey = null;
+
+	const tr = (key) => {
+		const localized = overlay && overlay[key];
+		return typeof localized === "string" && localized.length > 0 ? localized : I18N_COPY[key];
+	};
+
 	const msg = document.getElementById("loading-page-message");
 
-	if (msg) {
-		msg.textContent = "Loading the app…";
+	const say = (key) => {
+		lastKey = key;
+
+		if (msg) {
+			msg.textContent = tr(key);
+		}
+	};
+
+	say("loading.starting");
+
+	// Best-effort overlay: the pre-paint script (js/prepaint.js) has already
+	// resolved the locale (and the direction); en needs no fetch, and a
+	// production build never serves qqx.json, so the 404 just falls through.
+	const lang = (document.documentElement.lang || "").trim();
+
+	if (lang && lang !== "en") {
+		fetch(new URL(`locales/${lang}.json`, document.baseURI))
+			.then((response) => (response.ok ? response.json() : null))
+			.then((catalog) => {
+				if (catalog && typeof catalog === "object") {
+					overlay = catalog;
+					say(lastKey ?? "loading.starting"); // re-render in the real language
+				}
+			})
+			.catch(() => {});
 	}
 
 	document.getElementById("loading-reload")?.addEventListener("click", () => location.reload());
@@ -42,16 +86,16 @@
 			return;
 		}
 
-		msg.textContent = "An error has occurred that prevented the client from loading correctly.";
+		say("loading.error");
 
 		const summary = document.createElement("summary");
-		summary.textContent = "More details";
+		summary.textContent = tr("loading.errorDetails");
 
 		const data = document.createElement("pre");
 		data.textContent = e.message; // e is an ErrorEvent
 
 		const info = document.createElement("p");
-		info.textContent = "Open the developer tools of your browser for more information.";
+		info.textContent = tr("loading.errorDevtools");
 
 		const details = document.createElement("details");
 		details.appendChild(summary);

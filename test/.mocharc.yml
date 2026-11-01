@@ -11,3 +11,4 @@ node-option:
 global:
   - "__VUE_PROD_DEVTOOLS__"
   - "__VUE__"
+  - "__seanceTranslateFake"

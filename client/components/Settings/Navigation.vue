@@ -1,17 +1,40 @@
 <template>
 	<aside class="settings-menu">
-		<ul role="navigation" aria-label="Settings tabs">
+		<ul role="navigation" :aria-label="tabsAria">
 			<SettingTabItem
 				v-if="showNetworks"
 				name="Networks"
+				:label="tabNetworks"
 				class-name="networks"
 				to="networks"
 			/>
-			<SettingTabItem v-if="showGeneral" name="General" class-name="general" to="" />
-			<SettingTabItem name="Appearance" class-name="appearance" to="appearance" />
-			<SettingTabItem name="Notifications" class-name="notifications" to="notifications" />
-			<SettingTabItem name="Aliases" class-name="aliases" to="aliases" />
-			<SettingTabItem name="Scripts" class-name="scripts" to="scripts" />
+			<SettingTabItem
+				v-if="showGeneral"
+				name="General"
+				:label="tabGeneral"
+				class-name="general"
+				to=""
+			/>
+			<SettingTabItem
+				name="Appearance"
+				:label="tabAppearance"
+				class-name="appearance"
+				to="appearance"
+			/>
+			<SettingTabItem
+				name="Notifications"
+				:label="tabNotifications"
+				class-name="notifications"
+				to="notifications"
+			/>
+			<SettingTabItem
+				name="Translation"
+				:label="tabTranslation"
+				class-name="translation"
+				to="translation"
+			/>
+			<SettingTabItem name="Aliases" :label="tabAliases" class-name="aliases" to="aliases" />
+			<SettingTabItem name="Scripts" :label="tabScripts" class-name="scripts" to="scripts" />
 		</ul>
 	</aside>
 </template>
@@ -65,7 +88,7 @@
 	height: 1em;
 	display: inline-block;
 	content: "";
-	margin-right: 0.45em;
+	margin-inline-end: 0.45em;
 }
 
 .settings-menu .appearance::before {
@@ -78,6 +101,10 @@
 
 .settings-menu .notifications::before {
 	content: "\f0f3"; /* http://fontawesome.io/icon/bell/ */
+}
+
+.settings-menu .translation::before {
+	content: "\f1ab"; /* https://fontawesome.com/icons/language?style=solid */
 }
 
 .settings-menu .general::before {
@@ -114,15 +141,16 @@
 	}
 
 	.settings-menu button:not(.active)::before {
-		margin-right: 0;
+		margin-inline-end: 0;
 	}
 }
 </style>
 
 <script lang="ts">
 import SettingTabItem from "./SettingTabItem.vue";
-import {defineComponent, nextTick, onMounted, watch} from "vue";
+import {computed, defineComponent, nextTick, onMounted, watch} from "vue";
 import {useRoute} from "vue-router";
+import {useI18n} from "../../js/i18n";
 import {useStore} from "../../js/store";
 import {brandingFeatures} from "../../js/branding";
 import {shouldShowGeneralSettings} from "../../js/helpers/settingsTabs";
@@ -135,6 +163,18 @@ export default defineComponent({
 	setup() {
 		const store = useStore();
 		const route = useRoute();
+		const {t} = useI18n();
+
+		// The visible labels of the tab strip; `name` keeps the route
+		// identity (SettingTabItem's active-tab detection), never these.
+		const tabsAria = computed(() => t("settings.tabs.aria"));
+		const tabNetworks = computed(() => t("settings.tabs.networks"));
+		const tabGeneral = computed(() => t("settings.tabs.general"));
+		const tabAppearance = computed(() => t("settings.tabs.appearance"));
+		const tabNotifications = computed(() => t("settings.tabs.notifications"));
+		const tabTranslation = computed(() => t("settings.tabs.translation"));
+		const tabAliases = computed(() => t("settings.tabs.aliases"));
+		const tabScripts = computed(() => t("settings.tabs.scripts"));
 
 		// The strip scrolls, so the active tab may sit off screen (opening
 		// Aliases from a deep link, or coming back to the tab the user
@@ -151,6 +191,14 @@ export default defineComponent({
 		watch(() => route.name, revealActive);
 
 		return {
+			tabsAria,
+			tabNetworks,
+			tabGeneral,
+			tabAppearance,
+			tabNotifications,
+			tabTranslation,
+			tabAliases,
+			tabScripts,
 			showGeneral: shouldShowGeneralSettings(),
 			showNetworks: brandingFeatures(store.state.branding).saveNetworks,
 		};

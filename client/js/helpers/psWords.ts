@@ -20,23 +20,7 @@ export const SURFACE_WORDS: readonly PsWords[] = ["bubbles", "glass", "scrim"];
 /** The words carrying a text-shadow over the open plains. */
 export const SHADOW_WORDS: readonly PsWords[] = ["outline", "rim", "glow"];
 
-export const psWordsLabels: Record<PsWords, string> = {
-	bubbles: "Bubbles",
-	glass: "Glass",
-	scrim: "Scrim",
-	outline: "Outline",
-	rim: "Tinted rim",
-	glow: "Soft glow",
-};
-
-export const psWordsHints: Record<PsWords, string> = {
-	bubbles: "each message on a translucent card: paper by day, dark at night",
-	glass: "the whole column on frosted glass, the plains a wash behind it",
-	scrim: "a soft wash across the column, stronger near the edge, no blur",
-	outline: "white words in a dark outline; ink on snowy days",
-	rim: "a thinner rim in the sky's own colour; by day it reads under the usual floor",
-	glow: "a soft dark glow and nothing else; by day it reads well under the usual floor",
-};
+// The labels and hints are the pot's (settings.appearance.psWords<Value> and …Hint), read with t() in Appearance.vue.
 
 /** A stored setting can be anything (a stale key, hand-edited localStorage); anything that is not one of the six means the default. */
 export function normalizePsWords(value: unknown): PsWords {

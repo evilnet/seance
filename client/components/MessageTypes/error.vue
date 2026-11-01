@@ -8,6 +8,7 @@
 import ParsedMessage from "../ParsedMessage.vue";
 import {computed, defineComponent, PropType} from "vue";
 import {ClientNetwork, ClientMessage} from "../../js/types";
+import {useI18n} from "../../js/i18n";
 
 export default defineComponent({
 	name: "MessageTypeError",
@@ -25,6 +26,8 @@ export default defineComponent({
 		},
 	},
 	setup(props) {
+		const {t} = useI18n();
+
 		const errorMessage = computed(() => {
 			// TODO: enforce chan and nick fields so that we can get rid of that
 			const chan = props.message.channel || "!UNKNOWN_CHAN";
@@ -32,34 +35,38 @@ export default defineComponent({
 
 			switch (props.message.error) {
 				case "bad_channel_key":
-					return `Cannot join ${chan} - Bad channel key.`;
+					return t("error.badChannelKey", {channel: chan});
 				case "banned_from_channel":
-					return `Cannot join ${chan} - You have been banned from the channel.`;
+					return t("error.bannedFromChannel", {channel: chan});
 				case "cannot_send_to_channel":
-					return `Cannot send to channel ${chan}`;
+					return t("error.cannotSendToChannel", {channel: chan});
 				case "channel_is_full":
-					return `Cannot join ${chan} - Channel is full.`;
+					return t("error.channelIsFull", {channel: chan});
 				case "chanop_privs_needed":
-					return "Cannot perform action: You're not a channel operator.";
+					return t("error.chanopPrivsNeeded");
 				case "invite_only_channel":
-					return `Cannot join ${chan} - Channel is invite only.`;
+					return t("error.inviteOnlyChannel", {channel: chan});
 				case "no_such_nick":
-					return `User ${nick} hasn't logged in or does not exist.`;
+					return t("error.noSuchNick", {nick});
 				case "not_on_channel":
-					return "Cannot perform action: You're not on the channel.";
+					return t("error.notOnChannel");
 				case "password_mismatch":
-					return "Password mismatch.";
+					return t("error.passwordMismatch");
 				case "too_many_channels":
-					return `Cannot join ${chan} - You've already reached the maximum number of channels allowed.`;
+					return t("error.tooManyChannels", {channel: chan});
 				case "unknown_command":
 					// TODO: not having message.command should never happen, so force existence
-					return `Unknown command: ${props.message.command || "!UNDEFINED_COMMAND_BUG"}`;
+					return t("error.unknownCommand", {
+						command: props.message.command || "!UNDEFINED_COMMAND_BUG",
+					});
 				case "user_not_in_channel":
-					return `User ${nick} is not on the channel.`;
+					return t("error.userNotInChannel", {nick});
 				case "user_on_channel":
-					return `User ${nick} is already on the channel.`;
+					return t("error.userOnChannel", {nick});
 				default:
 					if (props.message.reason) {
+						// The server's own reason text with the error code beside
+						// it: both verbatim, only the layout is ours.
 						return `${props.message.reason} (${
 							props.message.error || "!UNDEFINED_ERR"
 						})`;

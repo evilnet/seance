@@ -3,7 +3,7 @@
 		id="connect"
 		:class="['window', {'network-form-embedded': embedded}]"
 		:role="embedded ? undefined : 'tabpanel'"
-		aria-label="Edit network"
+		:aria-label="ariaEditLabel"
 	>
 		<div v-if="!embedded" class="header">
 			<SidebarToggle />
@@ -11,7 +11,7 @@
 		<form :class="{container: !embedded}" method="post" action="" @submit.prevent="onSubmit">
 			<h1 class="title">
 				<input v-model="defaults.uuid" type="hidden" name="uuid" />
-				Edit {{ displayName(defaults) }}
+				{{ t("form.editTitle", {name: displayName(defaults)}) }}
 			</h1>
 
 			<!--
@@ -23,7 +23,7 @@
 				WebSocket connection, or they wait on later phases (STS: D.6).
 			-->
 			<div v-if="status" class="connect-row connect-status">
-				<label>Status</label>
+				<label>{{ t("form.status") }}</label>
 				<div class="input-wrap">
 					<span :class="['connection-status', statusClass]">{{ statusText }}</span>
 					<button
@@ -37,27 +37,29 @@
 				</div>
 			</div>
 
-			<h2>Network settings</h2>
+			<h2>{{ t("form.networkSettings") }}</h2>
 			<div class="connect-row">
-				<label for="connect:name">Name</label>
+				<label for="connect:name">{{ t("form.name") }}</label>
 				<input
 					id="connect:name"
 					v-model.trim="defaults.name"
+					dir="auto"
 					class="input"
 					name="name"
 					maxlength="100"
-					placeholder="Optional, defaults to the server's network name"
+					:placeholder="namePlaceholder"
 				/>
 			</div>
 			<div class="connect-row">
-				<label for="connect:host">Server</label>
+				<label for="connect:host">{{ t("form.server") }}</label>
 				<div class="input-wrap">
 					<input
 						id="connect:host"
 						v-model.trim="defaults.host"
+						dir="auto"
 						class="input"
 						name="host"
-						aria-label="Server address"
+						:aria-label="serverAddressLabel"
 						autocapitalize="off"
 						:autocorrect.attr="'off'"
 						spellcheck="false"
@@ -68,12 +70,13 @@
 					<input
 						id="connect:port"
 						v-model.number="defaults.port"
+						dir="auto"
 						class="input"
 						type="number"
 						min="1"
 						max="65535"
 						name="port"
-						aria-label="Server port"
+						:aria-label="serverPortLabel"
 						required
 					/>
 				</div>
@@ -83,7 +86,7 @@
 				<div class="input-wrap">
 					<label class="tls">
 						<input v-model="defaults.tls" v-switch type="checkbox" name="tls" />
-						Use secure connection (TLS)
+						{{ t("form.useTls") }}
 					</label>
 					<label class="tls">
 						<input
@@ -92,7 +95,7 @@
 							type="checkbox"
 							name="autoconnect"
 						/>
-						Connect automatically when the app starts
+						{{ t("form.autoconnect") }}
 					</label>
 				</div>
 			</div>
@@ -100,16 +103,16 @@
 				v-if="status ? status.connected || status.connecting : defaults.connected"
 				class="connect-note"
 			>
-				Server, port, TLS, channels and authentication changes apply the next time this
-				network connects (a network that is waiting to reconnect retries right away).
+				{{ t("form.applyNote") }}
 			</div>
 
-			<h2>User preferences</h2>
+			<h2>{{ t("form.userPreferences") }}</h2>
 			<div class="connect-row">
-				<label for="connect:nick">Nick</label>
+				<label for="connect:nick">{{ t("form.nick") }}</label>
 				<input
 					id="connect:nick"
 					v-model.trim="defaults.nick"
+					dir="auto"
 					class="input nick"
 					name="nick"
 					pattern="[^\s:!@]+"
@@ -121,13 +124,14 @@
 				/>
 			</div>
 			<div class="connect-row">
-				<label for="connect:channels">Channels</label>
+				<label for="connect:channels">{{ t("form.channels") }}</label>
 				<input
 					id="connect:channels"
 					v-model.trim="defaults.join"
+					dir="auto"
 					class="input"
 					name="join"
-					placeholder="#channel, #another key (joined on connect)"
+					:placeholder="channelsPlaceholder"
 					autocapitalize="off"
 					:autocorrect.attr="'off'"
 					spellcheck="false"
@@ -135,12 +139,10 @@
 			</div>
 			<div class="connect-row">
 				<label for="connect:commands">
-					Commands
+					{{ t("form.commands") }}
 					<span
 						class="tooltipped tooltipped-ne tooltipped-no-delay"
-						aria-label="One /command per line.
-Each command will be executed in
-the server tab on new connection"
+						:aria-label="commandsHelp"
 					>
 						<button class="extra-help" type="button" />
 					</span>
@@ -149,6 +151,7 @@ the server tab on new connection"
 					id="connect:commands"
 					ref="commandsInput"
 					v-model="commandsText"
+					dir="auto"
 					autocomplete="off"
 					class="input"
 					name="commands"
@@ -156,24 +159,25 @@ the server tab on new connection"
 				/>
 			</div>
 
-			<h2 id="label-auth">Authentication</h2>
+			<h2 id="label-auth">{{ t("form.authentication") }}</h2>
 			<div class="connect-row connect-auth" role="group" aria-labelledby="label-auth">
 				<label class="opt">
 					<input v-model="defaults.sasl" type="radio" name="sasl" value="" />
-					No authentication
+					{{ t("form.noAuth") }}
 				</label>
 				<label class="opt">
 					<input v-model="defaults.sasl" type="radio" name="sasl" value="plain" />
-					Username + password (SASL PLAIN)
+					{{ t("form.saslPlain") }}
 				</label>
 			</div>
 
 			<template v-if="defaults.sasl === 'plain'">
 				<div class="connect-row">
-					<label for="connect:saslAccount">Account</label>
+					<label for="connect:saslAccount">{{ t("form.account") }}</label>
 					<input
 						id="connect:saslAccount"
 						v-model.trim="defaults.saslAccount"
+						dir="auto"
 						class="input"
 						name="saslAccount"
 						maxlength="100"
@@ -185,7 +189,7 @@ the server tab on new connection"
 					/>
 				</div>
 				<div class="connect-row">
-					<label for="connect:saslPassword">Password</label>
+					<label for="connect:saslPassword">{{ t("form.password") }}</label>
 					<RevealPassword
 						v-slot:default="slotProps"
 						class="input-wrap password-container"
@@ -193,12 +197,13 @@ the server tab on new connection"
 						<input
 							id="connect:saslPassword"
 							v-model="defaults.saslPassword"
+							dir="auto"
 							class="input"
 							:type="slotProps.isVisible ? 'text' : 'password'"
 							name="saslPassword"
 							maxlength="300"
 							autocomplete="current-password"
-							placeholder="Leave empty to keep the current password"
+							:placeholder="passwordPlaceholder"
 						/>
 					</RevealPassword>
 				</div>
@@ -212,7 +217,7 @@ the server tab on new connection"
 								type="checkbox"
 								name="rememberPassword"
 							/>
-							Remember password on this device
+							{{ t("form.rememberPassword") }}
 						</label>
 					</div>
 				</div>
@@ -226,10 +231,10 @@ the server tab on new connection"
 								type="checkbox"
 								name="pushEnabled"
 							/>
-							Push notifications for this network
+							{{ t("form.pushNotifications") }}
 							<span
 								class="tooltipped tooltipped-n tooltipped-no-delay"
-								aria-label="Register this device for push notifications on this network. The server must support the draft/webpush capability. Push needs authentication, so this only appears with SASL configured. Each network is set up independently."
+								:aria-label="pushHelp"
 							>
 								<button class="extra-help" />
 							</span>
@@ -244,11 +249,10 @@ the server tab on new connection"
 					<label></label>
 					<div class="input-wrap">
 						<div class="push-stale-hint">
-							This server's push identity (its key) changed, so this device's push
-							subscription for it no longer works.
+							{{ t("form.pushStaleHint") }}
 						</div>
 						<button id="pushRenew" type="button" class="btn" @click.prevent="renewPush">
-							Renew push notifications
+							{{ t("form.pushRenew") }}
 						</button>
 					</div>
 				</div>
@@ -265,10 +269,10 @@ the server tab on new connection"
 							name="notifyEnabled"
 							@change="onNotifyToggle"
 						/>
-						Browser notifications for this network
+						{{ t("form.browserNotifications") }}
 						<span
 							class="tooltipped tooltipped-n tooltipped-no-delay"
-							aria-label="Show browser notifications for highlights and queries on this network. Needs the browser's permission; asks when first saved. Each network is set up independently."
+							:aria-label="browserNotificationsHelp"
 						>
 							<button class="extra-help" />
 						</span>
@@ -277,7 +281,7 @@ the server tab on new connection"
 			</div>
 
 			<div class="connect-row">
-				<label for="connect:presenceMode">Presence</label>
+				<label for="connect:presenceMode">{{ t("form.presence") }}</label>
 				<div class="input-wrap">
 					<!-- The dot menu's four words; what each means is the hint. -->
 					<select
@@ -287,11 +291,11 @@ the server tab on new connection"
 						name="presenceMode"
 						aria-describedby="connect-presence-hint"
 					>
-						<option value="global">Same as global</option>
-						<option value="online">Online</option>
-						<option value="auto">Auto</option>
-						<option value="away">Away</option>
-						<option value="dnd">Do not disturb</option>
+						<option value="global">{{ t("presence.mode.global") }}</option>
+						<option value="online">{{ t("presence.mode.online") }}</option>
+						<option value="auto">{{ t("presence.mode.auto") }}</option>
+						<option value="away">{{ t("presence.mode.away") }}</option>
+						<option value="dnd">{{ t("presence.mode.dnd") }}</option>
 					</select>
 					<div id="connect-presence-hint" class="presence-mode-hint">
 						{{ presenceHint }}
@@ -306,9 +310,9 @@ the server tab on new connection"
 				WHOISed as the fields change so the oper sees they are there.
 			-->
 			<template v-if="showServices">
-				<h2 id="label-services">Services support</h2>
+				<h2 id="label-services">{{ t("form.servicesHeading") }}</h2>
 				<div class="connect-row">
-					<label for="connect:servicesPackage">Services package</label>
+					<label for="connect:servicesPackage">{{ t("form.servicesPackage") }}</label>
 					<select
 						id="connect:servicesPackage"
 						v-model="servicesPackage"
@@ -316,14 +320,14 @@ the server tab on new connection"
 						name="servicesPackage"
 						@change="onServicesPackage"
 					>
-						<option value="">None</option>
+						<option value="">{{ t("form.servicesNone") }}</option>
 						<option v-for="p in SERVICES_PROFILES" :key="p.id" :value="p.id">
 							{{ p.name }}
 						</option>
 					</select>
 				</div>
 				<template v-if="servicesPackage">
-					<div v-for="role in SERVICE_ROLE_FIELDS" :key="role.id" class="connect-row">
+					<div v-for="role in serviceRoleFields" :key="role.id" class="connect-row">
 						<label :for="'connect:services-' + role.id">{{ role.label }}</label>
 						<input
 							:id="'connect:services-' + role.id"
@@ -341,9 +345,7 @@ the server tab on new connection"
 						<label></label>
 						<div class="input-wrap services-notes">
 							<p class="services-help">
-								Prefilled with {{ servicesName }}'s usual names; change them if this
-								network renamed its bots. Leave a channel blank if the network
-								doesn't run it.
+								{{ t("form.servicesHelp", {package: servicesName}) }}
 							</p>
 							<p
 								:class="['services-check', {ok: checkOk, pending: checkPending}]"
@@ -359,7 +361,7 @@ the server tab on new connection"
 
 			<div>
 				<button type="submit" class="btn" :disabled="disabled ? true : false">
-					Save network
+					{{ t("form.save") }}
 				</button>
 			</div>
 		</form>
@@ -427,7 +429,7 @@ the server tab on new connection"
 
 #connect .connection-status::before {
 	content: "●";
-	margin-right: 6px;
+	margin-inline-end: 6px;
 }
 
 #connect .connection-status.is-connected::before {
@@ -498,32 +500,14 @@ import {isOperOn} from "../js/helpers/operMenu";
 import {askNativeAlertPermission, nativeAlertsAvailable} from "../js/helpers/nativeAlerts";
 import {useStore} from "../js/store";
 import webpush from "../js/webpush";
+import {useI18n} from "../js/i18n";
 import type {ServicesConfig, SharedNetworkStatus} from "../../shared/types/network";
-// What each presence mode means, under the select (the dot menu's words).
-const PRESENCE_HINTS: Record<NetworkMode, string> = {
-	global: "Follows the global mode under the logo.",
-	online: "Never away.",
-	auto: "Away when you're not looking.",
-	away: "Always away.",
-	dnd: "Away and silenced.",
-};
-
 /** The services roles as the form shows them, in order. */
-const SERVICE_ROLE_FIELDS: {
+type ServiceRoleField = {
 	id: typeof SERVICE_ROLES[number];
 	label: string;
 	placeholder: string;
-}[] = [
-	{id: "oper", label: "Oper service", placeholder: "The bot that takes G-lines"},
-	{id: "account", label: "Account service", placeholder: "The bot that holds accounts"},
-	{id: "channel", label: "Channel service", placeholder: "The bot that holds channels"},
-	{
-		id: "report",
-		label: "Oper report channel",
-		placeholder: "Where services report oper commands",
-	},
-	{id: "snoop", label: "Snoop channel", placeholder: "The connect and join feed"},
-];
+};
 
 /** How long the bots' fields rest before they are checked again. */
 const CHECK_DELAY_MS = 600;
@@ -569,6 +553,17 @@ export default defineComponent({
 		},
 	},
 	setup(props) {
+		const {t} = useI18n();
+		// Labels bound to attributes: computeds, so a locale change re-renders.
+		const ariaEditLabel = computed(() => t("form.ariaEdit"));
+		const namePlaceholder = computed(() => t("form.namePlaceholder"));
+		const serverAddressLabel = computed(() => t("form.serverAddress"));
+		const serverPortLabel = computed(() => t("form.serverPort"));
+		const channelsPlaceholder = computed(() => t("form.channelsPlaceholder"));
+		const commandsHelp = computed(() => t("form.commandsHelp"));
+		const passwordPlaceholder = computed(() => t("form.passwordPlaceholder"));
+		const pushHelp = computed(() => t("form.pushHelp"));
+		const browserNotificationsHelp = computed(() => t("form.browserNotificationsHelp"));
 		const store = useStore();
 		const commandsInput = ref<HTMLTextAreaElement | null>(null);
 		const commandsText = ref((props.defaults.commands ?? []).join("\n"));
@@ -595,14 +590,53 @@ export default defineComponent({
 				props.defaults.presenceMode = mode;
 			},
 		});
-		// Same as global names what the global mode is now.
-		const presenceHint = computed(() =>
-			presenceMode.value === "global"
-				? `Follows the global mode under the logo, now ${
-						{online: "Online", auto: "Auto", away: "Away"}[dnd.state.mode.value]
-				  }.`
-				: PRESENCE_HINTS[presenceMode.value]
-		);
+		// What each presence mode means, under the select (the dot menu's
+		// words); Same as global names what the global mode is now.
+		const presenceHint = computed(() => {
+			switch (presenceMode.value) {
+				case "global":
+					return dnd.state.mode.value === "online"
+						? t("form.presenceHintGlobalOnline")
+						: dnd.state.mode.value === "away"
+						? t("form.presenceHintGlobalAway")
+						: t("form.presenceHintGlobalAuto");
+				case "online":
+					return t("form.presenceHintOnline");
+				case "auto":
+					return t("form.presenceHintAuto");
+				case "away":
+					return t("form.presenceHintAway");
+				default:
+					return t("form.presenceHintDnd");
+			}
+		});
+		const serviceRoleFields = computed((): ServiceRoleField[] => [
+			{
+				id: "oper",
+				label: t("form.servicesOper"),
+				placeholder: t("form.servicesOperPlaceholder"),
+			},
+			{
+				id: "account",
+				label: t("form.servicesAccount"),
+				placeholder: t("form.servicesAccountPlaceholder"),
+			},
+			{
+				id: "channel",
+				label: t("form.servicesChannel"),
+				placeholder: t("form.servicesChannelPlaceholder"),
+			},
+			{
+				id: "report",
+				label: t("form.servicesReport"),
+				placeholder: t("form.servicesReportPlaceholder"),
+			},
+			{
+				id: "snoop",
+				label: t("form.servicesSnoop"),
+				placeholder: t("form.servicesSnoopPlaceholder"),
+			},
+		]);
 		// Another network (or a fresh copy of this one) is a fresh form.
 		watch(
 			() => props.defaults,
@@ -619,7 +653,9 @@ export default defineComponent({
 			...(props.defaults.services?.bots ?? {}),
 		});
 		const servicesName = computed(
-			() => servicesProfileById(servicesPackage.value)?.name ?? "the package"
+			() =>
+				servicesProfileById(servicesPackage.value)?.name ??
+				t("form.servicesPackageFallback")
 		);
 		const checkText = ref("");
 		const checkOk = ref(false);
@@ -660,7 +696,7 @@ export default defineComponent({
 
 			const seq = ++checkSeq;
 			checkPending.value = true;
-			checkText.value = "Checking that the bots are online…";
+			checkText.value = t("form.servicesChecking");
 			const reply = await servicesCheck(uuid, services);
 
 			if (seq !== checkSeq) {
@@ -805,10 +841,10 @@ export default defineComponent({
 			}
 
 			if (s.connected) {
-				return s.secure ? "Connected (TLS)" : "Connected (not secure)";
+				return s.secure ? t("form.connectedTls") : t("form.connectedInsecure");
 			}
 
-			return s.connecting ? "Connecting…" : "Disconnected";
+			return s.connecting ? t("form.connecting") : t("form.disconnected");
 		});
 
 		const statusClass = computed(() =>
@@ -820,7 +856,11 @@ export default defineComponent({
 		);
 
 		const actionLabel = computed(() =>
-			props.status?.connected ? "Disconnect" : props.status?.connecting ? "Cancel" : "Connect"
+			props.status?.connected
+				? t("form.actionDisconnect")
+				: props.status?.connecting
+				? t("form.actionCancel")
+				: t("form.actionConnect")
 		);
 
 		const onAction = () => {
@@ -829,13 +869,23 @@ export default defineComponent({
 		};
 
 		return {
+			t,
+			ariaEditLabel,
+			namePlaceholder,
+			serverAddressLabel,
+			serverPortLabel,
+			channelsPlaceholder,
+			commandsHelp,
+			passwordPlaceholder,
+			pushHelp,
+			browserNotificationsHelp,
 			presenceMode,
 			presenceHint,
 			pushInfo,
 			renewPush,
 			onNotifyToggle,
 			SERVICES_PROFILES,
-			SERVICE_ROLE_FIELDS,
+			serviceRoleFields,
 			showServices,
 			servicesPackage,
 			serviceBots,

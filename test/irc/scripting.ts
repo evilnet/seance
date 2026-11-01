@@ -34,7 +34,7 @@ import {
 	scriptManager,
 	setContextProvider,
 	MAX_QUEUED_LINES,
-	SCRIPTING_DISABLED_ERROR,
+	scriptingDisabledError,
 } from "../../client/js/irc/scripting/manager";
 import {IRCU_FAKE_LAG} from "../../client/js/irc/fakelag";
 import {register, setup} from "./support";
@@ -925,7 +925,7 @@ describe("Lua scripting subsystem", function () {
 			expect(isScriptingEnabled()).to.be.false;
 			const res = await scriptManager.evalSnippet("return 1");
 			expect(res.success).to.be.false;
-			expect(res.error).to.equal(SCRIPTING_DISABLED_ERROR);
+			expect(res.error).to.equal(scriptingDisabledError());
 			expect(scriptManager.loaded).to.be.false;
 			expect(scriptManager.hasCommand("anything")).to.be.false;
 			expect(scriptManager.getCommandNames()).to.deep.equal([]);

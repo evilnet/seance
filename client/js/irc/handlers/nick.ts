@@ -2,6 +2,7 @@
  * NICK: rename across every channel; update our own nick when it is us.
  */
 
+import {t} from "../../i18n/core";
 import {MessageType} from "../../../../shared/types/msg";
 import {msgidOf} from "../message";
 import type {Handler} from "../types";
@@ -46,7 +47,7 @@ const nick: Handler = (client, msg) => {
 
 	if (client.isSelf(oldNick)) {
 		client.setNick(newNick);
-		client.pushMessage(client.lobby, {text: `You're now known as ${newNick}`}, true);
+		client.pushMessage(client.lobby, {text: t("msg.youAreKnownAs", {nick: newNick})}, true);
 	}
 
 	for (const chan of client.channels) {

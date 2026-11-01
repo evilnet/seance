@@ -7,12 +7,12 @@
  * `ChanType.SPECIAL` window (channel list, ignore list) goes through.
  */
 
+import {t, tCount} from "../../i18n/core";
 import {ChanType, SpecialChanType} from "../../../../shared/types/chan";
 import type {Channel} from "../channel";
 import type {IrcClient} from "../client";
 import type {Handler} from "../types";
 
-export const CHANNEL_LIST_CHAN = "Channel List";
 export const MAX_CHANS = 500;
 
 export interface ChannelListEntry {
@@ -46,17 +46,29 @@ export function resetChannelList(client: IrcClient): void {
 }
 
 /**
- * Create the special window `name` (announcing it with `join`, not opened)
- * or, when it already exists, replace its data and dispatch `msg:special`
- * (which the UI answers by navigating to it).
+ * Create the special window for `special` (and, for a per-channel list,
+ * `target`), announcing it with `join` and not opening it — or, when it
+ * already exists, replace its data and dispatch `msg:special` (which the UI
+ * answers by navigating to it).
+ *
+ * The window is found by what it shows, never by `name`: the title is
+ * translated, so the same list run again in another locale would otherwise
+ * open a second window (findings F15). `name` is what a new window is
+ * called; an existing one keeps the title it was opened with, there being
+ * no bus event for a rename.
  */
 export function showSpecial(
 	client: IrcClient,
 	name: string,
 	special: SpecialChanType,
-	data: SpecialData
+	data: SpecialData,
+	target?: string
 ): Channel {
-	const existing = client.findChannel(name);
+	// Channel names are case-insensitive, and so is the list's identity.
+	const specialTarget = target === undefined ? undefined : client.casefold(target);
+	const existing = client.channels.find(
+		(chan) => chan.shared.special === special && chan.specialTarget === specialTarget
+	);
 
 	if (existing) {
 		existing.shared.data = data;
@@ -66,6 +78,7 @@ export function showSpecial(
 
 	const {channel, index} = client.createChannel(name, ChanType.SPECIAL);
 	channel.shared.special = special;
+	channel.specialTarget = specialTarget;
 	channel.shared.data = data;
 	client.dispatch("join", {
 		network: client.uuid,
@@ -77,13 +90,13 @@ export function showSpecial(
 }
 
 function updateListStatus(client: IrcClient, data: ChannelListData): void {
-	showSpecial(client, CHANNEL_LIST_CHAN, SpecialChanType.CHANNELLIST, data);
+	showSpecial(client, t("list.channelList"), SpecialChanType.CHANNELLIST, data);
 }
 
 // RPL_LISTSTART: <me> Channel :Users  Name
 const listStart: Handler = (client) => {
 	resetChannelList(client);
-	updateListStatus(client, {text: "Loading channel list, this can take a moment..."});
+	updateListStatus(client, {text: t("list.loading")});
 };
 
 // RPL_LIST: <me> <channel> <# visible> :<topic>
@@ -96,7 +109,7 @@ const listEntry: Handler = (client, msg) => {
 
 	const cache = cacheFor(client);
 	cache.push({channel, num_users: parseInt(count ?? "0", 10) || 0, topic});
-	updateListStatus(client, {text: `Loaded ${cache.length} channels...`});
+	updateListStatus(client, {text: tCount("list.loaded", cache.length)});
 };
 
 // RPL_LISTEND: <me> :End of /LIST

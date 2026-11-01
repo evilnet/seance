@@ -2,7 +2,6 @@ import {expect} from "chai";
 import sinon from "ts-sinon";
 import {BrandingUploads, DEFAULT_UPLOAD_MAX_BYTES} from "../../client/js/branding";
 import {
-	UPLOADS_NOT_CONFIGURED,
 	UploadHost,
 	UploadProgress,
 	Uploader,
@@ -275,13 +274,13 @@ describe("upload", function () {
 			const config = {endpoint: ENDPOINT};
 
 			expect(() => parseUploadResponse('{"url":"javascript:alert(1)"}', config)).to.throw(
-				'did not return a "url" URL'
+				'Upload failed: the uploader did not return a "url" URL'
 			);
 			expect(() => parseUploadResponse('{"error":"quota exceeded"}', config)).to.throw(
 				"quota exceeded"
 			);
 			expect(() => parseUploadResponse("<html>nope</html>", config)).to.throw(
-				"did not return a URL"
+				"Upload failed: the uploader did not return a URL"
 			);
 		});
 	});
@@ -442,7 +441,9 @@ describe("upload", function () {
 			]);
 
 			expect(host.errors.length).to.equal(1);
-			expect(host.errors[0]).to.contain("sound.ogg is not a type this uploader accepts");
+			expect(host.errors[0]).to.equal(
+				`File sound.ogg is not a type this uploader accepts (${BOXLABS.accept?.join(", ")})`
+			);
 			expect(fetchStub.called).to.be.false;
 		});
 
@@ -567,7 +568,7 @@ describe("upload", function () {
 			await uploader.triggerUpload([textFile()]);
 			await uploader.triggerUpload([textFile()]);
 
-			expect(host.errors).to.deep.equal([UPLOADS_NOT_CONFIGURED]);
+			expect(host.errors).to.deep.equal(["File uploads are not configured in this client."]);
 			expect(host.urls).to.deep.equal([]);
 			expect(fetchStub.called).to.be.false;
 		});

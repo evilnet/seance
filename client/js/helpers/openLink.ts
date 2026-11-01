@@ -4,6 +4,7 @@
  */
 
 import eventbus from "../eventbus";
+import {t} from "../i18n/core";
 
 /** Open `href` in a new tab the way an anchor would (https and web+irc: alike). */
 function openExternal(href: string): void {
@@ -24,9 +25,9 @@ export function confirmMismatch(href: string, shown: string, host: string): void
 	eventbus.emit(
 		"confirm-dialog",
 		{
-			title: "Check this link",
-			text: `The link text shows ${shown}, but it goes to ${host}.`,
-			button: "Open anyway",
+			title: t("link.checkTitle"),
+			text: t("link.checkText", {shown, host}),
+			button: t("link.openAnyway"),
 		},
 		(confirmed: boolean) => {
 			if (confirmed) {

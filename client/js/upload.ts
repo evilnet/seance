@@ -22,11 +22,10 @@ import {ChanType} from "../../shared/types/chan";
 import {BrandingUploads, DEFAULT_UPLOAD_MAX_BYTES} from "./branding";
 import eventbus from "./eventbus";
 import {isAnimatedImage} from "./helpers/animatedImage";
+import {t} from "./i18n/core";
 import {FILEHOST_SERVICE} from "./irc/authtoken";
 import type {IrcClient} from "./irc/client";
 import type {TypedStore} from "./store";
-
-export const UPLOADS_NOT_CONFIGURED = "File uploads are not configured in this client.";
 
 /** Where an upload in flight stands; `null` on the host means idle. */
 export interface UploadProgress {
@@ -373,7 +372,7 @@ export function parseUploadResponse(body: string, config: BrandingUploads): stri
 			throw new UploadError(message);
 		}
 
-		throw new UploadError(`Upload failed: the uploader did not return a "${key}" URL`);
+		throw new UploadError(t("upload.missingField", {field: key}));
 	}
 
 	if (typeof parsed === "string") {
@@ -385,7 +384,7 @@ export function parseUploadResponse(body: string, config: BrandingUploads): stri
 		: undefined;
 
 	if (url === undefined) {
-		throw new UploadError("Upload failed: the uploader did not return a URL");
+		throw new UploadError(t("upload.noUrl"));
 	}
 
 	return url;
@@ -467,7 +466,7 @@ async function uploadAttempt(
 	}
 
 	if (doFetch === undefined) {
-		throw new UploadError("Upload failed: fetch is not available");
+		throw new UploadError(t("upload.noFetch"));
 	}
 
 	const init: RequestInit = {
@@ -480,11 +479,11 @@ async function uploadAttempt(
 		response = await doFetch(config.endpoint, init);
 	} catch (e: unknown) {
 		if (e instanceof Error && e.name === "AbortError") {
-			throw new UploadError("Upload cancelled");
+			throw new UploadError(t("upload.cancelled"));
 		}
 
 		const reason = e instanceof Error ? e.message : String(e);
-		throw new UploadError(`Upload failed: ${reason}`);
+		throw new UploadError(t("upload.failed", {reason}));
 	}
 
 	let body = "";
@@ -496,7 +495,7 @@ async function uploadAttempt(
 	}
 
 	if (!response.ok) {
-		let message = `Upload failed: HTTP ${response.status}`;
+		let message = t("upload.failedHttp", {status: response.status});
 
 		try {
 			message = responseError(JSON.parse(body), config) ?? message;
@@ -533,7 +532,7 @@ export async function uploadFilehost(
 		token = await source.generate(source.scope);
 	} catch (e: unknown) {
 		const reason = e instanceof Error ? e.message : String(e);
-		throw new UploadError(`Upload refused by the network: ${reason}`);
+		throw new UploadError(t("upload.refused", {reason}));
 	}
 
 	const XHR = options.xhr ?? (typeof XMLHttpRequest === "function" ? XMLHttpRequest : undefined);
@@ -549,7 +548,7 @@ export async function uploadFilehost(
 	}
 
 	if (doFetch === undefined) {
-		throw new UploadError("Upload failed: fetch is not available");
+		throw new UploadError(t("upload.noFetch"));
 	}
 
 	const headers: Record<string, string> = {
@@ -576,11 +575,11 @@ export async function uploadFilehost(
 		});
 	} catch (e: unknown) {
 		if (e instanceof Error && e.name === "AbortError") {
-			throw new UploadError("Upload cancelled");
+			throw new UploadError(t("upload.cancelled"));
 		}
 
 		const reason = e instanceof Error ? e.message : String(e);
-		throw new UploadError(`Upload failed: ${reason}`);
+		throw new UploadError(t("upload.failed", {reason}));
 	}
 
 	let body = "";
@@ -592,14 +591,14 @@ export async function uploadFilehost(
 	}
 
 	if (!response.ok) {
-		let message = `Upload failed: HTTP ${response.status}`;
+		let message = t("upload.failedHttp", {status: response.status});
 
 		try {
 			const parsed: unknown = JSON.parse(body);
 			const text = isRecord(parsed) ? parsed.message ?? parsed.error : undefined;
 
 			if (typeof text === "string" && text.length > 0) {
-				message = `Upload failed: ${text}`;
+				message = t("upload.failed", {reason: text});
 			}
 		} catch (e) {
 			// Not JSON; keep the status line.
@@ -911,14 +910,14 @@ export class Uploader {
 		if (!config && !filehost) {
 			if (!this.warnedUnconfigured) {
 				this.warnedUnconfigured = true;
-				host.showError(UPLOADS_NOT_CONFIGURED);
+				host.showError(t("upload.notConfigured"));
 			}
 
 			return;
 		}
 
 		if (!host.isConnected()) {
-			host.showError("You are currently disconnected, unable to initiate upload process.");
+			host.showError(t("upload.disconnected"));
 
 			return;
 		}
@@ -934,7 +933,7 @@ export class Uploader {
 			}
 
 			if (file.size > maxFileSize) {
-				host.showError(`File ${file.name} is over the maximum allowed size`);
+				host.showError(t("upload.tooLarge", {file: file.name}));
 				continue;
 			}
 
@@ -943,9 +942,7 @@ export class Uploader {
 			// should say so plainly.
 			if (config && !acceptsType(config, file.type)) {
 				const acceptedTypes = (config.accept ?? []).join(", ");
-				host.showError(
-					`File ${file.name} is not a type this uploader accepts (${acceptedTypes})`
-				);
+				host.showError(t("upload.badType", {file: file.name, types: acceptedTypes}));
 				continue;
 			}
 

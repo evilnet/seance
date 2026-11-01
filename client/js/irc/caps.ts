@@ -41,7 +41,12 @@ export interface CapResult {
 	missingRequired: string[];
 	/** Caps the server refused in this message (after any per-cap retry was queued). */
 	naked: string[];
-	error?: string;
+	/**
+	 * Why negotiation cannot go on, as a code: the IRC layer has no copy of
+	 * its own, so the lobby (handlers/cap.ts) renders it through the
+	 * catalog. `MISSING_CAPS` carries `missingRequired` as its detail.
+	 */
+	errorCode?: "MISSING_CAPS";
 }
 
 /**
@@ -269,8 +274,8 @@ export class CapNegotiator {
 		this.maybeEnd(result);
 		result.done = this.ended;
 
-		if (result.missingRequired.length > 0 && result.error === undefined) {
-			result.error = `Missing required capabilities: ${result.missingRequired.join(" ")}`;
+		if (result.missingRequired.length > 0 && result.errorCode === undefined) {
+			result.errorCode = "MISSING_CAPS";
 		}
 
 		return result;

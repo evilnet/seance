@@ -11,18 +11,22 @@
 				class="settings-modal script-editor"
 				role="dialog"
 				aria-modal="true"
-				:aria-label="script ? `Edit script ${script.name}` : 'Edit script'"
+				:aria-label="
+					script
+						? t('settings.scriptEdit.ariaNamed', {name: script.name})
+						: t('settings.scriptEdit.title')
+				"
 				tabindex="-1"
 			>
 				<div class="settings-modal-header">
 					<h1>
-						<span class="script-editor-kind">Edit script</span>
+						<span class="script-editor-kind">{{ t("settings.scriptEdit.title") }}</span>
 						<span v-if="script" class="script-editor-name">{{ script.name }}</span>
 					</h1>
 					<button
 						class="settings-modal-close"
 						type="button"
-						aria-label="Close the editor"
+						:aria-label="t('settings.scriptEdit.close')"
 						@click="close"
 					>
 						✕
@@ -32,13 +36,13 @@
 				<div class="settings-modal-body">
 					<div class="script-editor-content">
 						<p v-if="!script" class="script-missing">
-							This script is gone — deleted here or in another tab.
+							{{ t("settings.scriptEdit.missing") }}
 						</p>
 
 						<template v-else>
 							<div class="script-fields">
 								<label class="script-field script-name-field">
-									<span>Name</span>
+									<span>{{ t("settings.scriptEdit.name") }}</span>
 									<input
 										v-model.trim="nameDraft"
 										class="input script-name"
@@ -55,10 +59,11 @@
 									/>
 								</label>
 								<label class="script-field script-folder-field">
-									<span>Folder</span>
+									<span>{{ t("settings.scriptEdit.folder") }}</span>
 									<input
 										v-model="script.folder"
 										class="input"
+										dir="auto"
 										type="text"
 										list="script-folder-list"
 										:maxlength="maxFolderLength"
@@ -76,13 +81,16 @@
 									</datalist>
 								</label>
 								<label class="script-field script-desc-field">
-									<span>Description</span>
+									<span>{{ t("settings.scriptEdit.description") }}</span>
 									<input
 										v-model="script.description"
 										class="input"
+										dir="auto"
 										type="text"
 										:maxlength="maxDescriptionLength"
-										placeholder="What does this script do?"
+										:placeholder="
+											t('settings.scriptEdit.descriptionPlaceholder')
+										"
 										@input="schedulePersist"
 										@change="commit"
 									/>
@@ -94,7 +102,7 @@
 										type="checkbox"
 										@change="onRunChange"
 									/>
-									Run this script
+									{{ t("settings.scriptEdit.run") }}
 								</label>
 							</div>
 							<p v-if="nameError" class="script-error-line" role="alert">
@@ -103,31 +111,34 @@
 
 							<div class="script-tools">
 								<button class="btn btn-sm" type="button" @click="checkSyntax">
-									Check syntax
+									{{ t("settings.scriptEdit.checkSyntax") }}
 								</button>
 								<button class="btn btn-sm" type="button" @click="duplicate">
-									Duplicate
+									{{ t("settings.scriptEdit.duplicate") }}
 								</button>
 								<button class="btn btn-sm" type="button" @click="exportScript">
-									Export .lua
+									{{ t("settings.scriptEdit.export") }}
 								</button>
 								<button
 									class="btn btn-sm script-delete"
 									type="button"
 									@click="remove"
 								>
-									Delete
+									{{ t("settings.scriptEdit.delete") }}
 								</button>
 							</div>
 
 							<div v-if="saveError" class="script-banner" role="alert">
-								<strong>Not saved:</strong> {{ saveError }}
+								<strong>{{ t("settings.scriptEdit.notSavedLabel") }}</strong>
+								{{ saveError }}
 							</div>
 							<div v-if="script.lastError" class="script-banner" role="alert">
-								<strong>Error:</strong> {{ script.lastError }}
+								<strong>{{ t("settings.scriptEdit.errorLabel") }}</strong>
+								{{ script.lastError }}
 							</div>
 
-							<div class="script-code-wrap">
+							<!-- Lua reads left to right in every interface language. -->
+							<div class="script-code-wrap" dir="ltr">
 								<!-- CodeMirror (helpers/luaEditor.ts) mounts here; the plain
 								     field stands in until its chunk has loaded, and for good
 								     if it cannot. -->
@@ -137,9 +148,9 @@
 									v-model="script.code"
 									:maxlength="maxCodeLength"
 									class="script-code"
-									aria-label="Lua code"
+									:aria-label="t('settings.scriptEdit.codeAria')"
 									aria-describedby="script-code-foot"
-									placeholder="-- Write your Lua code here"
+									:placeholder="t('settings.scriptEdit.codePlaceholder')"
 									spellcheck="false"
 									autocapitalize="off"
 									autocomplete="off"
@@ -149,19 +160,36 @@
 								/>
 							</div>
 							<p id="script-code-foot" class="script-foot">
-								{{ lineCount }} lines · {{ script.code.length }} characters
+								{{ sizeLine }}
 							</p>
 
 							<details class="script-api">
-								<summary>Lua API reference</summary>
+								<summary>{{ t("settings.scriptEdit.apiSummary") }}</summary>
 								<dl>
 									<dt>
 										<code>seance.on("message", function(msg) ... end)</code>
 									</dt>
 									<dd>
-										Incoming messages. <code>msg</code> has <code>.from</code>,
-										<code>.target</code>, <code>.text</code>,
-										<code>.type</code> and <code>.self</code>.
+										<I18nFrame
+											:text="
+												t('settings.scriptEdit.api.message', {
+													msg: KEEP,
+													from: KEEP,
+													target: KEEP,
+													text: KEEP,
+													type: KEEP,
+													self: KEEP,
+												})
+											"
+											><template v-slot:msg><code>msg</code></template
+											><template v-slot:from><code>.from</code></template
+											><template v-slot:target><code>.target</code></template
+											><template v-slot:text><code>.text</code></template
+											><template v-slot:type><code>.type</code></template
+											><template v-slot:self
+												><code>.self</code></template
+											></I18nFrame
+										>
 									</dd>
 									<dt>
 										<code
@@ -169,31 +197,39 @@
 											... end)</code
 										>
 									</dt>
-									<dd>Registers a custom slash command <code>/name</code>.</dd>
+									<dd>
+										<I18nFrame
+											:text="
+												t('settings.scriptEdit.api.registerCommand', {
+													command: KEEP,
+												})
+											"
+											><template v-slot:command
+												><code>/name</code></template
+											></I18nFrame
+										>
+									</dd>
 									<dt>
 										<code>seance.reply(msg, "text")</code> ·
 										<code>seance.send("RAW LINE")</code>
 									</dt>
-									<dd>
-										Reply to a message, or send a raw IRC line on the current
-										network.
-									</dd>
+									<dd>{{ t("settings.scriptEdit.api.replySend") }}</dd>
 									<dt><code>seance.print("text")</code></dt>
-									<dd>Show a local line in the active conversation.</dd>
+									<dd>{{ t("settings.scriptEdit.api.print") }}</dd>
 									<dt>
 										<code
 											>seance.storage.get("k") / seance.storage.set("k",
 											"v")</code
 										>
 									</dt>
-									<dd>Persistent per-script data across restarts.</dd>
+									<dd>{{ t("settings.scriptEdit.api.storage") }}</dd>
 									<dt>
 										<code
 											>seance.current_channel / seance.current_network /
 											seance.nick</code
 										>
 									</dt>
-									<dd>Context of the currently active chat tab.</dd>
+									<dd>{{ t("settings.scriptEdit.api.context") }}</dd>
 								</dl>
 							</details>
 						</template>
@@ -202,10 +238,10 @@
 
 				<div class="settings-modal-footer">
 					<span class="settings-modal-note script-status" role="status">{{
-						statusMsg || "Changes are saved as you type."
+						statusMsg || t("settings.scriptEdit.autosave")
 					}}</span>
 					<button class="btn settings-modal-done" type="button" @click="close">
-						Done
+						{{ t("windows.settings.done") }}
 					</button>
 				</div>
 			</div>
@@ -254,7 +290,7 @@
 .script-editor-kind {
 	color: var(--body-color-muted);
 	font-weight: normal;
-	margin-right: 0.4em;
+	margin-inline-end: 0.4em;
 }
 
 .script-editor-name {
@@ -340,7 +376,7 @@
 
 /* Away from the others: the one that cannot be taken back. */
 .script-editor .script-tools .script-delete {
-	margin-left: auto;
+	margin-inline-start: auto;
 	border-color: #e74c3c;
 	color: #e74c3c;
 }
@@ -418,8 +454,15 @@
 }
 
 .script-editor .script-api dd {
-	margin-left: 1rem;
+	margin-inline-start: 1rem;
 	color: var(--body-color-muted);
+}
+
+/* Lua reads left to right inside a right-to-left sentence too (".from",
+ * "seance.on(…)"). */
+.script-editor .script-api code {
+	direction: ltr;
+	unicode-bidi: isolate;
 }
 
 /* On a phone it is the whole screen, as the settings are. */
@@ -440,6 +483,9 @@ import {computed, defineComponent, nextTick, onMounted, onUnmounted, ref} from "
 import {useRoute} from "vue-router";
 import eventbus from "../../js/eventbus";
 import {navigate} from "../../js/router";
+import {useI18n} from "../../js/i18n";
+import {KEEP} from "../../js/i18n/core";
+import I18nFrame from "../I18nFrame.vue";
 import {
 	deleteScript,
 	getScript,
@@ -447,7 +493,6 @@ import {
 	normalizeFolder,
 	saveScript,
 	scriptFolders,
-	DEFAULT_FOLDER,
 	MAX_CODE_LENGTH,
 	MAX_DESCRIPTION_LENGTH,
 	MAX_FOLDER_LENGTH,
@@ -473,7 +518,11 @@ const loadLuaEditor = () =>
  */
 export default defineComponent({
 	name: "ScriptEdit",
+	components: {
+		I18nFrame,
+	},
 	setup() {
+		const {t, tCount} = useI18n();
 		const route = useRoute();
 		const id = String(route.params.id);
 		const script = ref<Script | undefined>(getScript(id));
@@ -489,8 +538,15 @@ export default defineComponent({
 		let flashTimer: ReturnType<typeof setTimeout> | undefined;
 		let dirty = false;
 
+		const defaultFolder = computed(() => t("settings.scripts.defaultFolder"));
 		const folders = computed(() => scriptFolders(loadScripts()));
 		const lineCount = computed(() => (script.value ? script.value.code.split("\n").length : 1));
+		const sizeLine = computed(() =>
+			t("settings.scriptEdit.size", {
+				lines: tCount("settings.scriptEdit.lineCount", lineCount.value),
+				characters: tCount("settings.scriptEdit.charCount", script.value?.code.length ?? 0),
+			})
+		);
 		const nameError = computed(() =>
 			script.value ? scriptNameError(loadScripts(), nameDraft.value, id) : null
 		);
@@ -543,7 +599,7 @@ export default defineComponent({
 
 			if (ok) {
 				dirty = true;
-				flash("Saved");
+				flash(t("settings.scriptEdit.saved"));
 			}
 
 			return ok;
@@ -626,7 +682,10 @@ export default defineComponent({
 				parent: codeHost.value,
 				doc: script.value.code,
 				maxLength: MAX_CODE_LENGTH,
-				attributes: {"aria-label": "Lua code", "aria-describedby": "script-code-foot"},
+				attributes: {
+					"aria-label": t("settings.scriptEdit.codeAria"),
+					"aria-describedby": "script-code-foot",
+				},
 				onChange(doc) {
 					if (script.value) {
 						script.value.code = doc;
@@ -663,7 +722,7 @@ export default defineComponent({
 			}
 
 			persistNow();
-			flash("Checking…");
+			flash(t("settings.scriptEdit.checking"));
 			// Compiled, never run: running it would fire its top-level code
 			// and register its handlers a second time.
 			const error = await scriptManager.checkSyntax(script.value.code);
@@ -674,7 +733,11 @@ export default defineComponent({
 
 			script.value.lastError = error;
 			write({...script.value});
-			flash(error === undefined ? "Syntax OK" : "Syntax error");
+			flash(
+				error === undefined
+					? t("settings.scriptEdit.syntaxOk")
+					: t("settings.scriptEdit.syntaxError")
+			);
 		};
 
 		const duplicate = () => {
@@ -705,9 +768,9 @@ export default defineComponent({
 			eventbus.emit(
 				"confirm-dialog",
 				{
-					title: `Delete script “${script.value.name}”?`,
-					text: "This deletes the script and its saved data. This cannot be undone.",
-					button: "Delete",
+					title: t("settings.scriptEdit.deleteTitle", {name: script.value.name}),
+					text: t("settings.scriptEdit.deleteText"),
+					button: t("settings.scriptEdit.delete"),
 				},
 				(confirmed: boolean) => {
 					if (!confirmed) {
@@ -749,10 +812,14 @@ export default defineComponent({
 			saveError,
 			folders,
 			lineCount,
+			sizeLine,
 			pane,
 			codeHost,
 			editorReady,
-			defaultFolder: DEFAULT_FOLDER,
+			defaultFolder,
+			t,
+			tCount,
+			KEEP,
 			maxNameLength: MAX_NAME_LENGTH,
 			maxFolderLength: MAX_FOLDER_LENGTH,
 			maxDescriptionLength: MAX_DESCRIPTION_LENGTH,

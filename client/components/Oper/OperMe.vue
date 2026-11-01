@@ -10,13 +10,19 @@
 
 		<details class="oper-fold oper-me-privs" :open="privs.length <= 12">
 			<summary>
-				Privileges · {{ network.oper?.privsKnown ? privs.length : "?" }}
+				{{
+					network.oper?.privsKnown
+						? t("oper.me.privileges", {count: privs.length})
+						: t("oper.me.privilegesUnknown")
+				}}
 				<button type="button" class="btn btn-small oper-refresh" @click.prevent="refresh">
-					Refresh
+					{{ t("oper.me.refresh") }}
 				</button>
 			</summary>
-			<p v-if="!network.oper?.privsKnown" class="oper-muted">Not reported yet.</p>
-			<p v-else-if="!privs.length" class="oper-muted">None.</p>
+			<p v-if="!network.oper?.privsKnown" class="oper-muted">
+				{{ t("oper.me.privsNotReported") }}
+			</p>
+			<p v-else-if="!privs.length" class="oper-muted">{{ t("oper.me.privsNone") }}</p>
 			<p v-else class="oper-chips oper-privs">
 				<span v-for="p in privs" :key="p" class="oper-chip-static" :title="privHelp(p)">{{
 					p
@@ -24,7 +30,7 @@
 			</p>
 		</details>
 
-		<h2>User modes</h2>
+		<h2>{{ t("oper.me.userModes") }}</h2>
 		<ul class="oper-umodes">
 			<li v-for="m in modes" :key="m.letter" :class="{unavailable: !allowed(m)}">
 				<label :title="m.description">
@@ -39,7 +45,9 @@
 					<span class="oper-umode-text">
 						<span class="oper-umode-label">{{ m.label }}</span>
 						<span class="sr-only">. {{ m.description }}</span>
-						<span v-if="!allowed(m)" class="oper-umode-needs">needs {{ m.priv }}</span>
+						<span v-if="!allowed(m)" class="oper-umode-needs">{{
+							t("oper.me.needsPriv", {priv: m.priv ?? ""})
+						}}</span>
 					</span>
 				</label>
 			</li>
@@ -132,7 +140,8 @@ import {computed, defineComponent, PropType} from "vue";
 import type {ClientNetwork} from "../../js/types";
 import socket from "../../js/socket";
 import {hasPriv} from "../../js/helpers/operMenu";
-import {profileById} from "../../js/irc/profiles";
+import {profileById, profileName} from "../../js/irc/profiles";
+import {useI18n} from "../../js/i18n";
 
 interface UserMode {
 	letter: string;
@@ -143,90 +152,26 @@ interface UserMode {
 }
 
 /** nefarious2's user modes an oper may want to flip (docs/resources/nefarious2-oper.md §3). */
-const NEFARIOUS_MODES: UserMode[] = [
-	{
-		letter: "s",
-		label: "Server notices",
-		description: "Receive the server notices your mask selects.",
-	},
-	{letter: "w", label: "WALLOPS", description: "Receive WALLOPS and WALLUSERS."},
-	{
-		letter: "g",
-		label: "Desync reports",
-		description: "Receive DESYNCH reports (protocol violations).",
-	},
-	{letter: "d", label: "Deaf", description: "Receive no channel messages."},
-	{letter: "D", label: "No private messages", description: "Refuse every private message."},
-	{
-		letter: "R",
-		label: "Logged-in senders only",
-		description: "Private messages only from users logged in to an account.",
-	},
-	{
-		letter: "q",
-		label: "Common channels only",
-		description: "Private messages and invites only from users you share a channel with.",
-	},
-	{letter: "p", label: "Hide channels", description: "Your channels are not listed in WHOIS."},
-	{
-		letter: "I",
-		label: "Hide idle time",
-		description: "Your idle time is not shown in WHOIS.",
-		priv: "HIDE_IDLE",
-	},
-	{
-		letter: "W",
-		label: "WHOIS notices",
-		description: "Be told when someone does a /whois on you.",
-		priv: "WHOIS_NOTICE",
-	},
-	{
-		letter: "H",
-		label: "Hide oper status",
-		description: "Not shown as an oper in WHOIS, WHO or message tags.",
-		priv: "HIDE_OPER",
-	},
-	{
-		letter: "X",
-		label: "Extra oper powers",
-		description: "Kick and deop network services, join through modes.",
-		priv: "XTRAOP",
-	},
+const NEFARIOUS_MODES: {letter: string; priv?: string}[] = [
+	{letter: "s"},
+	{letter: "w"},
+	{letter: "g"},
+	{letter: "d"},
+	{letter: "D"},
+	{letter: "R"},
+	{letter: "q"},
+	{letter: "p"},
+	{letter: "I", priv: "HIDE_IDLE"},
+	{letter: "W", priv: "WHOIS_NOTICE"},
+	{letter: "H", priv: "HIDE_OPER"},
+	{letter: "X", priv: "XTRAOP"},
 ];
 
-const GENERIC_MODES: UserMode[] = [
-	{letter: "s", label: "Server notices", description: "Receive server notices."},
-	{letter: "w", label: "WALLOPS", description: "Receive WALLOPS."},
-	{
-		letter: "i",
-		label: "Invisible",
-		description: "Not shown to users who share no channel with you.",
-	},
+const GENERIC_MODES: {letter: string; priv?: string}[] = [
+	{letter: "s"},
+	{letter: "w"},
+	{letter: "i"},
 ];
-
-const PRIV_HELP: Record<string, string> = {
-	KILL: "KILL any user",
-	LOCAL_KILL: "KILL users on this server",
-	GLINE: "Set network-wide G-lines",
-	LOCAL_GLINE: "Set G-lines on this server",
-	WIDE_GLINE: "Force wide G-line masks",
-	SHUN: "Set network-wide shuns",
-	ZLINE: "Set network-wide Z-lines",
-	CHECK: "Use /check",
-	WHOX: "Use WHO's x flag (see invisible users)",
-	SEE_CHAN: "See secret channels",
-	LIST_CHAN: "List secret channels",
-	REHASH: "Rehash this server",
-	REMOTEREHASH: "Rehash other servers",
-	OPMODE: "Set channel modes with OPMODE",
-	JUPE: "Jupe servers",
-	SET: "Change server features",
-	REMOVE: "Force-remove bans",
-	TEMPSHUN: "Temporarily shun a user",
-	PROPAGATE: "Global oper",
-	DISPLAY: "Shown as an oper",
-	SEE_OPERS: "See hidden opers",
-};
 
 /**
  * The Me tab (docs/projects/oper-tools.md, "The panel, redrawn"): one line
@@ -240,23 +185,142 @@ export default defineComponent({
 	},
 	setup(props) {
 		const profile = computed(() => profileById(props.network.oper?.profile));
-		const modes = computed(() =>
-			profile.value.id === "nefarious2" ? NEFARIOUS_MODES : GENERIC_MODES
+		const {t, locale} = useI18n();
+		const nefarious = computed(() => profile.value.id === "nefarious2");
+
+		/** A mode's label and the explanation on hover, in words. */
+		const modeText = (letter: string): {label: string; description: string} => {
+			switch (letter) {
+				case "s":
+					return {
+						label: t("oper.me.mode.s"),
+						description: nefarious.value
+							? t("oper.me.mode.sHelp")
+							: t("oper.me.mode.sHelpGeneric"),
+					};
+				case "w":
+					return {
+						label: t("oper.me.mode.w"),
+						description: nefarious.value
+							? t("oper.me.mode.wHelp")
+							: t("oper.me.mode.wHelpGeneric"),
+					};
+				case "g":
+					return {label: t("oper.me.mode.g"), description: t("oper.me.mode.gHelp")};
+				case "d":
+					return {label: t("oper.me.mode.d"), description: t("oper.me.mode.dHelp")};
+				case "D":
+					return {
+						label: t("oper.me.mode.DUpper"),
+						description: t("oper.me.mode.DUpperHelp"),
+					};
+				case "R":
+					return {
+						label: t("oper.me.mode.RUpper"),
+						description: t("oper.me.mode.RUpperHelp"),
+					};
+				case "q":
+					return {label: t("oper.me.mode.q"), description: t("oper.me.mode.qHelp")};
+				case "p":
+					return {label: t("oper.me.mode.p"), description: t("oper.me.mode.pHelp")};
+				case "I":
+					return {
+						label: t("oper.me.mode.IUpper"),
+						description: t("oper.me.mode.IUpperHelp"),
+					};
+				case "W":
+					return {
+						label: t("oper.me.mode.WUpper"),
+						description: t("oper.me.mode.WUpperHelp"),
+					};
+				case "H":
+					return {
+						label: t("oper.me.mode.HUpper"),
+						description: t("oper.me.mode.HUpperHelp"),
+					};
+				case "X":
+					return {
+						label: t("oper.me.mode.XUpper"),
+						description: t("oper.me.mode.XUpperHelp"),
+					};
+				case "i":
+					return {label: t("oper.me.mode.i"), description: t("oper.me.mode.iHelp")};
+				default:
+					return {label: letter, description: ""};
+			}
+		};
+
+		const modes = computed((): UserMode[] =>
+			(nefarious.value ? NEFARIOUS_MODES : GENERIC_MODES).map((m) => ({
+				...m,
+				...modeText(m.letter),
+			}))
 		);
+
+		/** What a privilege allows, on hover; an unknown one is its own name. */
+		const privHelp = (p: string): string => {
+			switch (p) {
+				case "KILL":
+					return t("oper.me.priv.KILL");
+				case "LOCAL_KILL":
+					return t("oper.me.priv.LOCAL_KILL");
+				case "GLINE":
+					return t("oper.me.priv.GLINE");
+				case "LOCAL_GLINE":
+					return t("oper.me.priv.LOCAL_GLINE");
+				case "WIDE_GLINE":
+					return t("oper.me.priv.WIDE_GLINE");
+				case "SHUN":
+					return t("oper.me.priv.SHUN");
+				case "ZLINE":
+					return t("oper.me.priv.ZLINE");
+				case "CHECK":
+					return t("oper.me.priv.CHECK");
+				case "WHOX":
+					return t("oper.me.priv.WHOX");
+				case "SEE_CHAN":
+					return t("oper.me.priv.SEE_CHAN");
+				case "LIST_CHAN":
+					return t("oper.me.priv.LIST_CHAN");
+				case "REHASH":
+					return t("oper.me.priv.REHASH");
+				case "REMOTEREHASH":
+					return t("oper.me.priv.REMOTEREHASH");
+				case "OPMODE":
+					return t("oper.me.priv.OPMODE");
+				case "JUPE":
+					return t("oper.me.priv.JUPE");
+				case "SET":
+					return t("oper.me.priv.SET");
+				case "REMOVE":
+					return t("oper.me.priv.REMOVE");
+				case "TEMPSHUN":
+					return t("oper.me.priv.TEMPSHUN");
+				case "PROPAGATE":
+					return t("oper.me.priv.PROPAGATE");
+				case "DISPLAY":
+					return t("oper.me.priv.DISPLAY");
+				case "SEE_OPERS":
+					return t("oper.me.priv.SEE_OPERS");
+				default:
+					return p;
+			}
+		};
+
 		const privs = computed(() => [...(props.network.oper?.privs ?? [])].sort());
 
 		const levelLabel = computed(() => {
 			switch (props.network.oper?.level) {
 				case "admin":
-					return "Administrator";
+					return t("oper.me.level.admin");
 				case "global":
-					return "Global operator";
+					return t("oper.me.level.global");
 				case "local":
-					return "Local operator (this server)";
+					return t("oper.me.level.local");
 				case "service":
-					return "Network service";
+					return t("oper.me.level.service");
 				default:
-					return "Not an operator";
+					return t("oper.me.level.none");
 			}
 		});
 
@@ -273,15 +337,19 @@ export default defineComponent({
 		const refresh = () => socket.emit("oper:refresh", {network: props.network.uuid});
 
 		return {
+			t,
 			modes,
 			privs,
 			levelLabel,
-			profileName: computed(() => profile.value.name),
+			profileName: computed(() => {
+				void locale.value; // the generic profile's name is translated
+				return profileName(profile.value);
+			}),
 			has,
 			allowed,
 			set,
 			refresh,
-			privHelp: (p: string) => PRIV_HELP[p] ?? p,
+			privHelp,
 		};
 	},
 });

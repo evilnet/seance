@@ -12,6 +12,8 @@ import type {LoggedNotice} from "../irc/noticelog";
 import {expandV6} from "./commonality";
 import {compareWithWildcard} from "../irc/hostmask";
 import type {LiveBan} from "../irc/profiles/nefarious/stats";
+import {activeLocale, t, tCount} from "../i18n/core";
+import {andList, commaList} from "./operList";
 
 /** Who the card is about, as far as it knows. */
 export interface Identity {
@@ -231,6 +233,16 @@ export function bansNear(
 
 export type Matched = "ip" | "host" | "realname" | "account";
 
+/**
+ * What the feed says became of someone: a ban that covers them (by the
+ * oper or server that set it, with its reason when the notice gave one),
+ * a kill, or a ban they hit.
+ */
+export type Fate =
+	| {kind: "ban"; type: string; by?: string; reason?: string}
+	| {kind: "kill"; by: string}
+	| {kind: "hit"; type: string};
+
 export interface SeenEntry {
 	nick: string;
 	/** The newest sighting, epoch ms. */
@@ -241,8 +253,84 @@ export interface SeenEntry {
 	ident?: string;
 	realname?: string;
 	account?: string;
-	/** What happened to them, when the feed says: `G-lined by rubin`, `killed by X`. */
-	fate?: string;
+	/** What happened to them, when the feed says: G-lined by rubin, killed by X ({@link fateText}). */
+	fate?: Fate;
+}
+
+/**
+ * A fate in words: `G-lined by rubin for 'bot group'`, `killed by X`, `hit
+ * a G-line`. `then` is the form the verdict's strongest sighting uses
+ * (`G-lined then by rubin …`: back then, not now).
+ */
+export function fateText(fate: Fate, then = false): string {
+	switch (fate.kind) {
+		case "kill":
+			return then
+				? t("oper.investigate.fate.killedThen", {by: fate.by})
+				: t("oper.investigate.fate.killed", {by: fate.by});
+		case "hit":
+			return then
+				? t("oper.investigate.fate.hitThen", {type: fate.type})
+				: t("oper.investigate.fate.hit", {type: fate.type});
+		default:
+			return banFateText(fate, then);
+	}
+}
+
+function banFateText(fate: {type: string; by?: string; reason?: string}, then: boolean): string {
+	const vars = {
+		type: fate.type,
+		by: fate.by ?? t("oper.investigate.fate.someServer"),
+		reason: fate.reason ?? "",
+	};
+	const why = fate.reason !== undefined && fate.reason !== "";
+	const type = fate.type.toLowerCase();
+
+	if (type === "shun") {
+		if (then) {
+			return why
+				? t("oper.investigate.fate.shunnedThenReason", vars)
+				: t("oper.investigate.fate.shunnedThen", vars);
+		}
+
+		return why
+			? t("oper.investigate.fate.shunnedReason", vars)
+			: t("oper.investigate.fate.shunned", vars);
+	}
+
+	if (type === "g-line") {
+		if (then) {
+			return why
+				? t("oper.investigate.fate.glinedThenReason", vars)
+				: t("oper.investigate.fate.glinedThen", vars);
+		}
+
+		return why
+			? t("oper.investigate.fate.glinedReason", vars)
+			: t("oper.investigate.fate.glined", vars);
+	}
+
+	if (type === "z-line") {
+		if (then) {
+			return why
+				? t("oper.investigate.fate.zlinedThenReason", vars)
+				: t("oper.investigate.fate.zlinedThen", vars);
+		}
+
+		return why
+			? t("oper.investigate.fate.zlinedReason", vars)
+			: t("oper.investigate.fate.zlined", vars);
+	}
+
+	if (then) {
+		return why
+			? t("oper.investigate.fate.bannedThenReason", vars)
+			: t("oper.investigate.fate.bannedThen", vars);
+	}
+
+	return why
+		? t("oper.investigate.fate.bannedReason", vars)
+		: t("oper.investigate.fate.banned", vars);
 }
 
 /** The identity a feed entry describes, when it describes one. */
@@ -322,32 +410,41 @@ function same(a: string | undefined, b: string | undefined): boolean {
 }
 
 /** The fate of a nick the feed records: banned, killed. */
-function fateOf(feed: LoggedNotice[], who: Identity): string | undefined {
+function fateOf(feed: LoggedNotice[], who: Identity): Fate | undefined {
 	for (const e of [...feed].reverse()) {
 		const f = e.snotice.fields;
 		const kind = e.snotice.kind;
 
 		if (e.type === "snotice") {
 			if (kind === "ban.add" && f.mask && maskCovers(f.mask, who)) {
-				const verb = f.type === "shun" ? "shunned" : `${f.type ?? "G-line"}d`;
-				const reason = f.reason ? ` for '${f.reason}'` : "";
-				return `${verb} by ${f.oper ?? f.server ?? "a server"}${reason}`;
+				const fate: Fate = {kind: "ban", type: f.type ?? "G-line"};
+				const by = f.oper ?? f.server;
+
+				if (by) {
+					fate.by = by;
+				}
+
+				if (f.reason) {
+					fate.reason = f.reason;
+				}
+
+				return fate;
 			}
 
 			if (kind === "kill.oper" && same(f.nick, who.nick)) {
-				return `killed by ${f.killer}`;
+				return {kind: "kill", by: f.killer ?? ""};
 			}
 
 			if (kind === "ban.hit" && same(f.nick, who.nick)) {
-				return `hit a ${f.type ?? "G-line"}`;
+				return {kind: "hit", type: f.type ?? "G-line"};
 			}
 		} else if (e.type === "snoop" && kind.endsWith(".snoop.kill") && same(f.nick, who.nick)) {
-			return `killed by ${f.killer}`;
+			return {kind: "kill", by: f.killer ?? ""};
 		} else if (e.type === "audit" && kind.endsWith(".audit.glines") && e.from) {
 			const mask = (f.args ?? "").split(/\s+/)[0] ?? "";
 
 			if (mask && (f.command === "gline" || f.command === "shun") && maskCovers(mask, who)) {
-				return `${f.command === "shun" ? "shunned" : "G-lined"} by ${e.from}`;
+				return {kind: "ban", type: f.command === "shun" ? "shun" : "G-line", by: e.from};
 			}
 		}
 	}
@@ -476,8 +573,6 @@ export function seenBefore(
 
 // ---------------------------------------------------------- verdict
 
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
 /** `21:14` today, else the bare day (`Tue`), else the date for anything a week old. */
 export function whenText(time: number, now = Date.now()): string {
 	const d = new Date(time);
@@ -495,7 +590,7 @@ export function whenText(time: number, now = Date.now()): string {
 	}
 
 	if (now - time < 6 * 24 * 60 * 60_000) {
-		return DAYS[d.getDay()];
+		return new Intl.DateTimeFormat(activeLocale(), {weekday: "short"}).format(d);
 	}
 
 	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
@@ -503,22 +598,26 @@ export function whenText(time: number, now = Date.now()): string {
 	).padStart(2, "0")}`;
 }
 
-function ago(time: number, now: number): string {
+/** `12 s ago`, `5 min ago`, `3 h ago`, `2 d ago`. */
+export function agoText(time: number, now = Date.now()): string {
 	const s = Math.max(0, Math.round((now - time) / 1000));
 
 	if (s < 60) {
-		return `${s} s ago`;
+		return tCount("oper.investigate.agoSeconds", s);
 	}
 
 	if (s < 3600) {
-		return `${Math.round(s / 60)} min ago`;
+		const m = Math.round(s / 60);
+		return tCount("oper.investigate.agoMinutes", m);
 	}
 
 	if (s < 86400) {
-		return `${Math.round(s / 3600)} h ago`;
+		const h = Math.round(s / 3600);
+		return tCount("oper.investigate.agoHours", h);
 	}
 
-	return `${Math.round(s / 86400)} d ago`;
+	const days = Math.round(s / 86400);
+	return tCount("oper.investigate.agoDays", days);
 }
 
 function sameIdentShape(a: string | undefined, b: string | undefined): boolean {
@@ -528,6 +627,34 @@ function sameIdentShape(a: string | undefined, b: string | undefined): boolean {
 
 	const shape = (s: string) => s.replace(/[0-9]/g, "#").replace(/[A-Za-z]/g, "a");
 	return shape(a) === shape(b);
+}
+
+/** `same IP`, `same realname`: one item of the strong verdict's list. */
+function sameText(m: Matched): string {
+	switch (m) {
+		case "ip":
+			return t("oper.investigate.same.ip");
+		case "host":
+			return t("oper.investigate.same.host");
+		case "realname":
+			return t("oper.investigate.same.realname");
+		default:
+			return t("oper.investigate.same.account");
+	}
+}
+
+/** `the IP`, `the realname`: one item of the weak verdict's list. */
+function sharedText(m: Matched): string {
+	switch (m) {
+		case "ip":
+			return t("oper.investigate.shares.ip");
+		case "host":
+			return t("oper.investigate.shares.host");
+		case "realname":
+			return t("oper.investigate.shares.realname");
+		default:
+			return t("oper.investigate.shares.account");
+	}
 }
 
 export interface VerdictInput {
@@ -549,10 +676,26 @@ export function verdict(input: VerdictInput): string {
 	const live = input.liveBans[0];
 
 	if (live) {
-		const by = live.by ? live.by : undefined;
-		const when = live.setAt !== undefined ? ago(live.setAt, now) : undefined;
-		const detail = [by, when].filter(Boolean).join(", ");
-		return `Covered by a live ${live.type}: ${live.mask}${detail ? ` (${detail})` : ""}.`;
+		const vars = {
+			type: live.type,
+			mask: live.mask,
+			by: live.by ?? "",
+			when: live.setAt !== undefined ? agoText(live.setAt, now) : "",
+		};
+
+		if (live.by && live.setAt !== undefined) {
+			return t("oper.investigate.verdict.liveBanByWhen", vars);
+		}
+
+		if (live.by) {
+			return t("oper.investigate.verdict.liveBanBy", vars);
+		}
+
+		if (live.setAt !== undefined) {
+			return t("oper.investigate.verdict.liveBanWhen", vars);
+		}
+
+		return t("oper.investigate.verdict.liveBan", vars);
 	}
 
 	const others = input.seen.filter((s) => s.nick.toLowerCase() !== user.nick.toLowerCase());
@@ -563,28 +706,35 @@ export function verdict(input: VerdictInput): string {
 	);
 
 	if (strong) {
-		const what = strong.matched.map((m) => `same ${m === "ip" ? "IP" : m}`);
+		const what = strong.matched.map(sameText);
 
 		if (sameIdentShape(strong.ident, user.ident)) {
-			what.push("same ident shape");
+			what.push(t("oper.investigate.same.identShape"));
 		}
 
-		// `G-lined by rubin for 'x'` → `G-lined then by rubin for 'x'`.
-		const fate = strong.fate
-			? `; ${strong.fate.replace(/^(\S+(?: a \S+)?) /, "$1 then ")}`
-			: "";
-		return `Likely the same as ${strong.nick} (${whenText(strong.time, now)}): ${what.join(
-			", "
-		)}${fate}.`;
+		const vars = {
+			nick: strong.nick,
+			when: whenText(strong.time, now),
+			matches: commaList(what),
+			fate: strong.fate ? fateText(strong.fate, true) : "",
+		};
+		return strong.fate
+			? t("oper.investigate.verdict.likelyFate", vars)
+			: t("oper.investigate.verdict.likely", vars);
 	}
 
 	const weak = others[0];
 
 	if (weak) {
-		const what = weak.matched.map((m) => `the ${m === "ip" ? "IP" : m}`);
-		return `Nothing conclusive: ${weak.nick} (${whenText(weak.time, now)}) shares ${what.join(
-			" and "
-		)}${weak.fate ? `, and was ${weak.fate}` : ""}.`;
+		const vars = {
+			nick: weak.nick,
+			when: whenText(weak.time, now),
+			matches: andList(weak.matched.map(sharedText)),
+			fate: weak.fate ? fateText(weak.fate) : "",
+		};
+		return weak.fate
+			? t("oper.investigate.verdict.weakFate", vars)
+			: t("oper.investigate.verdict.weak", vars);
 	}
 
 	// The nick itself, seen from somewhere else (seenBefore keeps that; the
@@ -592,12 +742,23 @@ export function verdict(input: VerdictInput): string {
 	const elsewhere = input.seen[0];
 
 	if (elsewhere) {
-		const where = elsewhere.ip ?? elsewhere.host ?? "another address";
-		return `Nothing conclusive: the nick was seen from ${where} (${whenText(
-			elsewhere.time,
-			now
-		)})${elsewhere.fate ? `, and was ${elsewhere.fate}` : ""}.`;
+		const where = elsewhere.ip ?? elsewhere.host;
+		const vars = {
+			where: where ?? "",
+			when: whenText(elsewhere.time, now),
+			fate: elsewhere.fate ? fateText(elsewhere.fate) : "",
+		};
+
+		if (where) {
+			return elsewhere.fate
+				? t("oper.investigate.verdict.elsewhereFate", vars)
+				: t("oper.investigate.verdict.elsewhere", vars);
+		}
+
+		return elsewhere.fate
+			? t("oper.investigate.verdict.elsewhereUnknownFate", vars)
+			: t("oper.investigate.verdict.elsewhereUnknown", vars);
 	}
 
-	return "No bans cover them and nothing in the kept feed shares their IP, host or realname.";
+	return t("oper.investigate.verdict.nothing");
 }

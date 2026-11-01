@@ -5,6 +5,7 @@
 import {MessageType} from "../../../../shared/types/msg";
 import type {Command} from "../types";
 import {scriptManager} from "../scripting/manager";
+import {t} from "../../i18n/core";
 
 const lua: Command = {
 	commands: ["lua"],
@@ -15,7 +16,10 @@ const lua: Command = {
 		if (code.length === 0) {
 			client.pushMessage(chan, {
 				type: MessageType.ERROR,
-				text: 'Usage: /lua <code> (e.g. /lua return 2 + 2 or /lua seance.print("hello"))',
+				text: t("cmd.usageLua", {
+					first: "/lua return 2 + 2",
+					second: '/lua seance.print("hello")',
+				}),
 			});
 			return;
 		}
@@ -27,7 +31,9 @@ const lua: Command = {
 				if (!res.success) {
 					client.pushMessage(chan, {
 						type: MessageType.ERROR,
-						text: `Lua error: ${res.error ?? "unknown error"}`,
+						text: res.error
+							? t("cmd.lua.error", {error: res.error})
+							: t("cmd.lua.errorUnknown"),
 					});
 					return;
 				}
@@ -40,7 +46,7 @@ const lua: Command = {
 				} else {
 					client.pushMessage(chan, {
 						type: MessageType.MESSAGE,
-						text: "Lua execution completed.",
+						text: t("cmd.lua.done"),
 						from: {
 							nick: "lua",
 							mode: "",
@@ -50,7 +56,7 @@ const lua: Command = {
 			} catch (err: any) {
 				client.pushMessage(chan, {
 					type: MessageType.ERROR,
-					text: `Lua execution failed: ${err?.message ?? String(err)}`,
+					text: t("cmd.lua.failed", {error: err?.message ?? String(err)}),
 				});
 			}
 		})();

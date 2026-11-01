@@ -46,6 +46,10 @@ describe("settings backup (helpers/settingsBackup.ts)", function () {
 			JSON.stringify([{nick: "spam", ident: "*", hostname: "*", when: 1}])
 		);
 		store.set("thelounge.muted", JSON.stringify(["a/#x"]));
+		store.set(
+			"thelounge.translate",
+			JSON.stringify({"a/#x": {read: true, languages: ["de"], terms: {}}})
+		);
 		store.set("thelounge.sts", JSON.stringify({}));
 		store.set("thelounge.push", JSON.stringify({a: {}}));
 		store.set("thelounge.state.lastChannel", JSON.stringify({}));
@@ -64,12 +68,15 @@ describe("settings backup (helpers/settingsBackup.ts)", function () {
 
 	it("knows which keys are preferences", function () {
 		expect(isBackupKey("settings")).to.equal(true);
+		expect(isBackupKey("thelounge.translate")).to.equal(true);
 		expect(isBackupKey("thelounge.ignore.some-uuid")).to.equal(true);
 		expect(isBackupKey("thelounge.dnd")).to.equal(true);
 		expect(isBackupKey("thelounge.sts")).to.equal(false);
 		expect(isBackupKey("thelounge.push")).to.equal(false);
 		expect(isBackupKey("thelounge.state.sidebar")).to.equal(false);
 		expect(isBackupKey("thelounge.state.dndMute")).to.equal(false);
+		// The models the user agreed to download belong to this device's storage.
+		expect(isBackupKey("thelounge.state.translateConsent")).to.equal(false);
 		expect(isBackupKey("thelounge.mentions")).to.equal(false);
 	});
 
@@ -86,8 +93,37 @@ describe("settings backup (helpers/settingsBackup.ts)", function () {
 			"thelounge.ignore.a",
 			"thelounge.muted",
 			"thelounge.networks",
+			"thelounge.translate",
 		]);
+		// The per-channel translation state travels with the rest: which
+		// channels read, into what, and their term memory.
+		expect(backup.entries["thelounge.translate"]).to.deep.equal({
+			"a/#x": {read: true, languages: ["de"], terms: {}},
+		});
 		expect(backup.entries.settings).to.deep.equal({theme: "creama", coloredNicks: false});
+	});
+
+	it("carries a channel's translation terms and never a query's", function () {
+		const term = {source: "meet at 5", target: "um 5", from: "en", to: "de"};
+		store.set(
+			"thelounge.translate",
+			JSON.stringify({
+				"a/#x": {read: true, terms: [term]},
+				"a/alice": {read: true, write: "de", terms: [term]},
+			})
+		);
+		const backup = collectBackup();
+
+		// A term is a whole short line the user sent; a query's is what was
+		// said in private, and the queries' logs never travel either.
+		expect(backup.entries["thelounge.translate"]).to.deep.equal({
+			"a/#x": {read: true, terms: [term]},
+			"a/alice": {read: true, write: "de", terms: []},
+		});
+		// The device keeps its own.
+		expect(
+			JSON.parse(store.get("thelounge.translate") as string)["a/alice"].terms
+		).to.have.length(1);
 	});
 
 	it("strips saved passwords unless asked to keep them", function () {
@@ -134,6 +170,17 @@ describe("settings backup (helpers/settingsBackup.ts)", function () {
 		expect(await decodeBackup(bytes)).to.deep.equal(backup);
 	});
 
+	it("carries the per-channel translation state through a whole round trip", async function () {
+		seed();
+		const bytes = await encodeBackup(collectBackup());
+
+		store.set("thelounge.translate", JSON.stringify({"a/#x": {read: false}}));
+		applyBackup(await decodeBackup(bytes), "web", {});
+		expect(JSON.parse(store.get("thelounge.translate") as string)).to.deep.equal({
+			"a/#x": {read: true, languages: ["de"], terms: {}},
+		});
+	});
+
 	it("reads a plain JSON file too", async function () {
 		seed();
 		const backup = collectBackup();
@@ -152,7 +199,9 @@ describe("settings backup (helpers/settingsBackup.ts)", function () {
 			encode(JSON.stringify({format: FORMAT, version: VERSION + 1, entries: {}}))
 		);
 		expect(newer).to.be.instanceOf(BackupFormatError);
-		expect((newer as Error).message).to.match(/newer version/);
+		// The Vue-free module carries stable codes; the render site
+		// (Settings/General.vue) translates them.
+		expect((newer as BackupFormatError).code).to.equal("newer-version");
 
 		const damaged = await failure(new Uint8Array([0x1f, 0x8b, 1, 2, 3, 4]));
 		expect(damaged).to.be.instanceOf(BackupFormatError);
@@ -212,6 +261,30 @@ describe("settings backup (helpers/settingsBackup.ts)", function () {
 		expect(store.get("thelounge.push")).to.equal(JSON.stringify({a: {}}));
 		expect(store.has("thelounge.state.sidebar")).to.equal(false);
 		expect(store.get("thelounge.mentions")).to.equal("[]");
+	});
+
+	it("an older file leaves a key its version never carried alone", function () {
+		// thelounge.translate joined the format in version 2: a v1 file says
+		// nothing about it, so a restore must not read its absence as "this
+		// device had no translation state".
+		seed();
+		applyBackup(
+			{
+				format: FORMAT,
+				version: 1,
+				exportedAt: "",
+				entries: {settings: {theme: "day"}},
+			},
+			"web",
+			{}
+		);
+
+		expect(JSON.parse(store.get("thelounge.translate") as string)).to.deep.equal({
+			"a/#x": {read: true, languages: ["de"], terms: {}},
+		});
+		// Everything version 1 did carry is still replaced by the file.
+		expect(store.has("thelounge.muted")).to.equal(false);
+		expect(store.get("settings")).to.equal(JSON.stringify({theme: "day"}));
 	});
 
 	it("restores scripts and the scripting switch turned off", function () {

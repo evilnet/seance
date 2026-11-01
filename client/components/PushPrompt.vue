@@ -16,39 +16,36 @@
 			aria-modal="true"
 		>
 			<div v-if="webpush.pushPrompt.kind === 'renew'" class="confirm-text">
-				<div class="confirm-text-title">Renew push notifications?</div>
+				<div class="confirm-text-title">{{ t("push.renewTitle") }}</div>
 				<p class="push-prompt-target">
 					<strong>{{ target.name }}</strong>
 					<span v-if="target.server"> · {{ target.server }}</span>
 					<span v-if="target.account"> · {{ target.account }}</span>
 				</p>
 				<p>
-					This server's push key changed, so this device's push subscription for it no
-					longer works. Subscribe again to keep being notified while the app is closed.
-					You can also do this later from this network's settings.
+					{{ t("push.renewBody") }}
 				</p>
 			</div>
 			<div v-else class="confirm-text">
-				<div class="confirm-text-title">Enable push notifications?</div>
+				<div class="confirm-text-title">{{ t("push.enableTitle") }}</div>
 				<p class="push-prompt-target">
 					<strong>{{ target.name }}</strong>
 					<span v-if="target.server"> · {{ target.server }}</span>
 					<span v-if="target.account"> · {{ target.account }}</span>
 				</p>
 				<p>
-					This server can wake this app when it has messages for you while it is closed.
-					You can change this per network, in each network's settings.
+					{{ t("push.enableBody") }}
 				</p>
 			</div>
 			<div class="confirm-buttons">
 				<button id="pushPromptNever" type="button" class="btn" @click.prevent="never">
-					Never
+					{{ t("push.never") }}
 				</button>
 				<button id="pushPromptNo" type="button" class="btn btn-cancel" @click.prevent="no">
-					No
+					{{ t("push.no") }}
 				</button>
 				<button id="pushPromptYes" type="button" class="btn" @click.prevent="yes">
-					Yes
+					{{ t("push.yes") }}
 				</button>
 			</div>
 		</div>
@@ -89,7 +86,7 @@
 
 #push-prompt .confirm-buttons .btn {
 	margin-bottom: 0;
-	margin-left: 10px;
+	margin-inline-start: 10px;
 }
 
 #push-prompt .confirm-buttons .btn-cancel {
@@ -100,6 +97,7 @@
 <script lang="ts">
 import {computed, defineComponent, onMounted, onUnmounted, ref} from "vue";
 import eventbus from "../js/eventbus";
+import {useI18n} from "../js/i18n";
 import {useStore} from "../js/store";
 import webpush from "../js/webpush";
 import * as saved from "../js/irc/saved-networks";
@@ -122,6 +120,7 @@ export default defineComponent({
 	name: "PushPrompt",
 	setup() {
 		const store = useStore();
+		const {t} = useI18n();
 
 		// The network whose connect opened the prompt: its live name (ISUPPORT
 		// NETWORK when the entry has none), the server it dials, the account
@@ -132,7 +131,7 @@ export default defineComponent({
 			const live = uuid ? store.getters.findNetwork(uuid) : null;
 
 			return {
-				name: live?.name || entry?.name || entry?.host || "this network",
+				name: live?.name || entry?.name || entry?.host || t("push.fallbackNetwork"),
 				server: entry ? `${entry.host}:${entry.port}` : "",
 				account: entry?.saslAccount ?? "",
 			};
@@ -169,6 +168,7 @@ export default defineComponent({
 		});
 
 		return {
+			t,
 			webpush,
 			dialog,
 			target,

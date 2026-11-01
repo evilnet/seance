@@ -1,4 +1,5 @@
 import {expect} from "chai";
+import {t, tCount} from "../../client/js/i18n/core";
 import {
 	applyTyping,
 	expireTyping,
@@ -75,15 +76,16 @@ describe("typing state (server→client `typing`)", function () {
 		expect(expireTyping(list, T0 + TYPING_PAUSED_TTL)).to.deep.equal([]);
 	});
 
-	it("summarises who is typing", function () {
+	it("summarises who is typing, in English through the catalog", function () {
 		const e = (nick: string): TypingEntry => ({nick, state: "active", expiresAt: 0});
-		expect(typingSummary([])).to.equal("");
-		expect(typingSummary([e("alice")])).to.equal("alice is typing…");
-		expect(typingSummary([e("alice"), e("bob")])).to.equal("alice and bob are typing…");
-		expect(typingSummary([e("alice"), e("bob"), e("carol")])).to.equal(
+		const summary = (entries: TypingEntry[]) => typingSummary(entries, t, tCount);
+		expect(summary([])).to.equal("");
+		expect(summary([e("alice")])).to.equal("alice is typing…");
+		expect(summary([e("alice"), e("bob")])).to.equal("alice and bob are typing…");
+		expect(summary([e("alice"), e("bob"), e("carol")])).to.equal(
 			"alice, bob and carol are typing…"
 		);
-		expect(typingSummary([e("alice"), e("bob"), e("carol"), e("dave")])).to.equal(
+		expect(summary([e("alice"), e("bob"), e("carol"), e("dave")])).to.equal(
 			"alice, bob and 2 others are typing…"
 		);
 	});

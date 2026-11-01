@@ -1,0 +1,283 @@
+[
+  {
+    "note": "1: the reported line — two marker pairs around words that must be translated (the composer's shape)",
+    "expect": "a German sentence, both pairs around the German words (Zeitstempel / Reihenfolge)",
+    "text": "please keep the *timestamps* in the log, I need the **ordering**",
+    "from": "en",
+    "to": "de",
+    "purpose": "write",
+    "context": {
+      "recent": [
+        {
+          "nick": "ada",
+          "text": "hat jemand das Log von gestern?"
+        },
+        {
+          "nick": "jonas",
+          "text": "ich schau mal",
+          "translated": "let me look"
+        },
+        {
+          "nick": "ps",
+          "text": "the build is green again"
+        },
+        {
+          "nick": "ada",
+          "text": "danke, ich merge es nach dem Mittag"
+        }
+      ],
+      "names": ["ada", "jonas", "ps"],
+      "terms": [["rig", "Testaufbau"]],
+      "topic": "release day",
+      "voice": ["bis später", "ich schau es mir an"],
+      "formality": "auto",
+      "variant": ""
+    }
+  },
+  {
+    "note": "2: the reported near-echo — a mark around the target language's own name",
+    "expect": "a German sentence, the pair around Deutsch/German",
+    "text": "hello this is supposed to be in *German*",
+    "from": "en",
+    "to": "de",
+    "purpose": "write",
+    "context": {
+      "recent": [
+        {
+          "nick": "ada",
+          "text": "hat jemand das Log von gestern?"
+        },
+        {
+          "nick": "jonas",
+          "text": "ich schau mal",
+          "translated": "let me look"
+        },
+        {
+          "nick": "ps",
+          "text": "the build is green again"
+        },
+        {
+          "nick": "ada",
+          "text": "danke, ich merge es nach dem Mittag"
+        }
+      ],
+      "names": ["ada", "jonas", "ps"],
+      "terms": [["rig", "Testaufbau"]],
+      "topic": "release day",
+      "voice": ["bis später", "ich schau es mir an"],
+      "formality": "auto",
+      "variant": ""
+    }
+  },
+  {
+    "note": "3: the same, longer, with a nick to carry through",
+    "expect": "all three clauses in German; `ps` verbatim; the pair intact",
+    "text": "Hello this is supposed to be in *German*. Hopefully it can escape markdown marks; in addition it should replace nicknames, like ps",
+    "from": "en",
+    "to": "de",
+    "purpose": "write",
+    "nicks": ["ps"],
+    "context": {
+      "recent": [
+        {
+          "nick": "ada",
+          "text": "hat jemand das Log von gestern?"
+        },
+        {
+          "nick": "jonas",
+          "text": "ich schau mal",
+          "translated": "let me look"
+        },
+        {
+          "nick": "ps",
+          "text": "the build is green again"
+        },
+        {
+          "nick": "ada",
+          "text": "danke, ich merge es nach dem Mittag"
+        }
+      ],
+      "names": ["ada", "jonas", "ps"],
+      "terms": [["rig", "Testaufbau"]],
+      "topic": "release day",
+      "voice": ["bis später", "ich schau es mir an"],
+      "formality": "auto",
+      "variant": ""
+    }
+  },
+  {
+    "note": "4: three pairs in one short line, one of them strike-through",
+    "expect": "German with all three pairs around their own words (Terms says rig -> Testaufbau)",
+    "text": "the ~~old~~ **new** rig is *ready*",
+    "from": "en",
+    "to": "de",
+    "purpose": "write",
+    "context": {
+      "recent": [
+        {
+          "nick": "ada",
+          "text": "hat jemand das Log von gestern?"
+        },
+        {
+          "nick": "jonas",
+          "text": "ich schau mal",
+          "translated": "let me look"
+        },
+        {
+          "nick": "ps",
+          "text": "the build is green again"
+        },
+        {
+          "nick": "ada",
+          "text": "danke, ich merge es nach dem Mittag"
+        }
+      ],
+      "names": ["ada", "jonas", "ps"],
+      "terms": [["rig", "Testaufbau"]],
+      "topic": "release day",
+      "voice": ["bis später", "ich schau es mir an"],
+      "formality": "auto",
+      "variant": ""
+    }
+  },
+  {
+    "note": "5: a link and a mark together — the link's target must stay hidden",
+    "expect": "German, the link shape and its URL intact, the pair around jetzt",
+    "text": "see [the log](https://example.org/log) *now*",
+    "from": "en",
+    "to": "de",
+    "purpose": "write",
+    "context": {
+      "recent": [
+        {
+          "nick": "ada",
+          "text": "hat jemand das Log von gestern?"
+        },
+        {
+          "nick": "jonas",
+          "text": "ich schau mal",
+          "translated": "let me look"
+        },
+        {
+          "nick": "ps",
+          "text": "the build is green again"
+        },
+        {
+          "nick": "ada",
+          "text": "danke, ich merge es nach dem Mittag"
+        }
+      ],
+      "names": ["ada", "jonas", "ps"],
+      "terms": [["rig", "Testaufbau"]],
+      "topic": "release day",
+      "voice": ["bis später", "ich schau es mir an"],
+      "formality": "auto",
+      "variant": ""
+    }
+  },
+  {
+    "note": "6: a spoiler pair at the very front of the line",
+    "expect": "German with the ||…|| pair around the German word",
+    "text": "||spoiler|| ahead",
+    "from": "en",
+    "to": "de",
+    "purpose": "write",
+    "context": {
+      "recent": [
+        {
+          "nick": "ada",
+          "text": "hat jemand das Log von gestern?"
+        },
+        {
+          "nick": "jonas",
+          "text": "ich schau mal",
+          "translated": "let me look"
+        },
+        {
+          "nick": "ps",
+          "text": "the build is green again"
+        },
+        {
+          "nick": "ada",
+          "text": "danke, ich merge es nach dem Mittag"
+        }
+      ],
+      "names": ["ada", "jonas", "ps"],
+      "terms": [["rig", "Testaufbau"]],
+      "topic": "release day",
+      "voice": ["bis später", "ich schau es mir an"],
+      "formality": "auto",
+      "variant": ""
+    }
+  },
+  {
+    "note": "7: the reading direction — two pairs, de into en",
+    "expect": "English, the pairs around important/today",
+    "text": "Hallo, das ist *wichtig* und du solltest es dir **heute** ansehen",
+    "from": "de",
+    "to": "en",
+    "purpose": "read",
+    "context": {
+      "recent": [
+        {
+          "nick": "ada",
+          "text": "hat jemand das Log von gestern?"
+        },
+        {
+          "nick": "jonas",
+          "text": "ich schau mal",
+          "translated": "let me look"
+        },
+        {
+          "nick": "ps",
+          "text": "the build is green again"
+        },
+        {
+          "nick": "ada",
+          "text": "danke, ich merge es nach dem Mittag"
+        }
+      ],
+      "names": ["ada", "jonas", "ps"],
+      "terms": [["rig", "Testaufbau"]],
+      "topic": "release day",
+      "voice": ["bis später", "ich schau es mir an"],
+      "formality": "auto",
+      "variant": ""
+    }
+  },
+  {
+    "note": "8: the reading direction, short, with the Terms entry in play",
+    "expect": "English with both pairs around their own words",
+    "text": "das **neue** Rig ist *fertig*",
+    "from": "de",
+    "to": "en",
+    "purpose": "read",
+    "context": {
+      "recent": [
+        {
+          "nick": "ada",
+          "text": "hat jemand das Log von gestern?"
+        },
+        {
+          "nick": "jonas",
+          "text": "ich schau mal",
+          "translated": "let me look"
+        },
+        {
+          "nick": "ps",
+          "text": "the build is green again"
+        },
+        {
+          "nick": "ada",
+          "text": "danke, ich merge es nach dem Mittag"
+        }
+      ],
+      "names": ["ada", "jonas", "ps"],
+      "terms": [["rig", "Testaufbau"]],
+      "topic": "release day",
+      "voice": ["bis später", "ich schau es mir an"],
+      "formality": "auto",
+      "variant": ""
+    }
+  }
+]

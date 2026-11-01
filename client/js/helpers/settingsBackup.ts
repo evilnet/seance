@@ -4,8 +4,8 @@
  *
  * The file is the localStorage entries that hold preferences — the settings
  * object, the saved networks, sort orders, mutes, ignore lists, trusted media
- * hosts, recent reactions, command aliases, oper notice routing and snomask —
- * wrapped in a small envelope and
+ * hosts, recent reactions, command aliases, the per-channel translation state,
+ * oper notice routing and snomask — wrapped in a small envelope and
  * gzipped with the
  * browser's own `CompressionStream` (no dependency; a plain-JSON file is
  * accepted too, the loader sniffs the gzip magic). Extension:
@@ -25,10 +25,25 @@
 import storage from "../localStorage";
 import {isPlatform, PLATFORM_DEFAULTS, type Platform} from "./platformDefaults";
 import {overridesChoice} from "./settingsMigration";
+import {withoutPrivateTerms} from "../translate/channelStore";
 
 export const FILE_EXTENSION = ".seance-settings";
 export const FORMAT = "seance-settings";
-export const VERSION = 1;
+export const VERSION = 2;
+
+/**
+ * The file version a key first travelled in. A restore empties the keys the
+ * file covers, so an older file must not be read as "this key was empty on
+ * that device": a key the format did not carry yet is left alone, because
+ * that file could never have held it. Keys from version 1 are not listed.
+ */
+const KEY_SINCE: Record<string, number> = {"thelounge.translate": 2};
+
+/** Whether a file of `version` says anything about `key` — a missing entry
+ * for a key it covers means "not set", and the restore removes it. */
+function coveredBy(version: number, key: string): boolean {
+	return (KEY_SINCE[key] ?? 1) <= version;
+}
 
 /** Whole keys the backup carries. `settings` has no prefix (store-settings.ts). */
 export const BACKUP_KEYS: readonly string[] = [
@@ -41,6 +56,7 @@ export const BACKUP_KEYS: readonly string[] = [
 	"thelounge.media.trusted",
 	"thelounge.reactions.recent",
 	"thelounge.aliases",
+	"thelounge.translate",
 	"thelounge.scripts",
 	"thelounge.oper",
 	"thelounge.dnd",
@@ -134,6 +150,17 @@ export function collectBackup(options: CollectOptions = {}): SettingsBackup {
 			void saslPassword;
 			return {...rest, rememberPassword: false};
 		});
+	}
+
+	// Per-channel translation state travels, but not the terms learnt in
+	// private conversations: each is a whole short line the user sent in a
+	// query, and the queries' own logs (thelounge.querylog.*) never travel.
+	const translate = entries["thelounge.translate"];
+
+	if (typeof translate === "object" && translate !== null && !Array.isArray(translate)) {
+		entries["thelounge.translate"] = withoutPrivateTerms(
+			translate as Record<string, {terms?: unknown}>
+		);
 	}
 
 	return {
@@ -241,10 +268,12 @@ export class BackupStorageError extends Error {
 
 /**
  * Replace every covered entry with the backup's. Keys the backup does not
- * carry are removed, so the device ends up exactly as the file says — but
- * for the platform-dependent settings, which `platform` (where this restore
- * runs) rebases against this deploy's `defaults` (see rebaseSettings), and
- * scripting, which arrives switched off (see disarmScripts).
+ * carry are removed, so the device ends up exactly as the file says — except
+ * for keys the file's own version did not cover yet (`coveredBy`), which a
+ * restore from an older app leaves as they are, for the platform-dependent
+ * settings, which `platform` (where this restore runs) rebases against this
+ * deploy's `defaults` (see rebaseSettings), and for scripting, which arrives
+ * switched off (see disarmScripts).
  */
 export function applyBackup(
 	backup: SettingsBackup,
@@ -285,8 +314,10 @@ export function applyBackup(
 		written.push(key);
 	}
 
+	// Then clear what the file does not carry, among the keys its version
+	// covers (KEY_SINCE): a key it could never have carried stays.
 	for (const key of before.keys()) {
-		if (!written.includes(key)) {
+		if (!written.includes(key) && coveredBy(backup.version, key)) {
 			backend.remove(key);
 		}
 	}
@@ -324,25 +355,43 @@ export async function encodeBackup(backup: SettingsBackup): Promise<Uint8Array> 
 	return pipe(json, new CompressionStream("gzip"));
 }
 
-export class BackupFormatError extends Error {}
+/**
+ * Why a backup file was refused. Stable identifiers on purpose: this module
+ * is Vue-free and carries no English copy — the render site
+ * (Settings/General.vue) translates the code into reader-visible wording.
+ */
+export type BackupFormatErrorCode =
+	| "not-settings"
+	| "newer-version"
+	| "damaged"
+	| "no-decompression";
+
+export class BackupFormatError extends Error {
+	readonly code: BackupFormatErrorCode;
+
+	constructor(code: BackupFormatErrorCode) {
+		super(code);
+		this.code = code;
+	}
+}
 
 function validate(value: unknown): SettingsBackup {
 	if (typeof value !== "object" || value === null) {
-		throw new BackupFormatError("This isn't a settings file.");
+		throw new BackupFormatError("not-settings");
 	}
 
 	const obj = value as Record<string, unknown>;
 
 	if (obj.format !== FORMAT) {
-		throw new BackupFormatError("This isn't a settings file.");
+		throw new BackupFormatError("not-settings");
 	}
 
 	if (typeof obj.version !== "number" || obj.version > VERSION) {
-		throw new BackupFormatError("This file was made by a newer version.");
+		throw new BackupFormatError("newer-version");
 	}
 
 	if (typeof obj.entries !== "object" || obj.entries === null || Array.isArray(obj.entries)) {
-		throw new BackupFormatError("This file is damaged.");
+		throw new BackupFormatError("damaged");
 	}
 
 	return {
@@ -361,13 +410,13 @@ export async function decodeBackup(bytes: Uint8Array): Promise<SettingsBackup> {
 
 	if (isGzip(bytes)) {
 		if (typeof DecompressionStream === "undefined") {
-			throw new BackupFormatError("This browser can't read compressed files.");
+			throw new BackupFormatError("no-decompression");
 		}
 
 		try {
 			json = await pipe(bytes, new DecompressionStream("gzip"));
 		} catch (e) {
-			throw new BackupFormatError("This file is damaged.");
+			throw new BackupFormatError("damaged");
 		}
 	}
 
@@ -376,7 +425,7 @@ export async function decodeBackup(bytes: Uint8Array): Promise<SettingsBackup> {
 	try {
 		parsed = JSON.parse(new TextDecoder().decode(json));
 	} catch (e) {
-		throw new BackupFormatError("This isn't a settings file.");
+		throw new BackupFormatError("not-settings");
 	}
 
 	return validate(parsed);

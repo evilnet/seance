@@ -15,19 +15,19 @@
 		>
 			<div class="mentions-popup-title">
 				<h2 id="mentions-popup-heading">
-					Mentions
-					<span v-if="total" class="mentions-total" :aria-label="`${total} unread`">{{
-						total
+					{{ t("mentions.title") }}
+					<span v-if="total" class="mentions-total" :aria-label="totalLabel">{{
+						totalText
 					}}</span>
 				</h2>
 				<button v-if="total" class="btn dismiss-all-mentions" @click="dismissAllMentions()">
-					Dismiss all
+					{{ t("mentions.dismissAll") }}
 				</button>
 				<!-- On the phone the pane is the whole screen: nothing outside it to tap. -->
 				<button
 					class="mentions-close"
 					type="button"
-					aria-label="Close mentions"
+					:aria-label="t('mentions.close')"
 					@click="closePopup"
 				>
 					✕
@@ -36,9 +36,9 @@
 
 			<div v-if="groups.length === 0" class="mentions-empty">
 				<span class="mentions-empty-icon" aria-hidden="true"></span>
-				<p class="mentions-empty-title">You're all caught up</p>
+				<p class="mentions-empty-title">{{ t("mentions.empty") }}</p>
 				<p class="mentions-empty-hint">
-					A mention leaves this list once you read it, here or on any other device.
+					{{ t("mentions.emptyHint") }}
 				</p>
 			</div>
 
@@ -53,7 +53,11 @@
 						<button
 							class="mentions-group-header"
 							:disabled="!group.conversation"
-							:title="group.conversation ? `Open ${group.target}` : group.missing"
+							:title="
+								group.conversation
+									? t('mentions.open', {target: group.target})
+									: group.missing
+							"
 							@click="openGroup(group)"
 						>
 							<span class="mentions-group-name">{{ group.target }}</span>
@@ -73,7 +77,7 @@
 							class="btn dismiss-group-mentions"
 							@click="dismissGroup(group)"
 						>
-							Dismiss
+							{{ t("mentions.dismissGroup") }}
 						</button>
 					</div>
 					<p v-if="group.missing" class="mentions-group-missing">{{ group.missing }}</p>
@@ -93,16 +97,13 @@
 							<span class="from" @click.stop>
 								<Username :user="(message.from as any)" />
 							</span>
-							<time
-								class="time"
-								:datetime="message.time"
-								:title="message.localetime"
-								>{{ messageTime(message.time) }}</time
-							>
+							<time class="time" :datetime="message.time" :title="message.fullTime">{{
+								messageTime(message.time)
+							}}</time>
 							<button
 								class="msg-dismiss"
-								title="Dismiss on this device"
-								aria-label="Dismiss on this device"
+								:title="t('mentions.dismissOne')"
+								:aria-label="t('mentions.dismissOne')"
 								@click.stop="
 									group.query ? dismissGroup(group) : dismissMention(message)
 								"
@@ -440,18 +441,18 @@ import {dismissMentions} from "../js/mentions";
 import eventbus from "../js/eventbus";
 import {switchToChannel} from "../js/router";
 import {entryKey, groupByConversation} from "../js/helpers/inbox";
-import localetime from "../js/helpers/localetime";
-import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime";
+import {formatDateTime, formatRelativeTime} from "../js/i18n/dates";
+import {formatNumber} from "../js/i18n/numbers";
 import {computed, defineComponent, nextTick, ref, onMounted, onUnmounted, watch} from "vue";
 import {useStore} from "../js/store";
+import {useI18n} from "../js/i18n";
 import type {InboxEntry} from "../../shared/types/mention";
 import type {NetChan} from "../js/types";
 import {ChanType} from "../../shared/types/chan";
 
 type MentionWithContext = InboxEntry & {
 	key: string;
-	localetime: string;
+	fullTime: string;
 };
 
 type GroupWithContext = {
@@ -470,10 +471,8 @@ type GroupWithContext = {
 	shown: MentionWithContext[];
 };
 
-/** How often "a few seconds ago" is redone while the pane is open. */
+/** How often the relative times ("now", "5 minutes ago") are redone while the pane is open. */
 const CLOCK_TICK_MS = 30_000;
-
-dayjs.extend(relativeTime);
 
 export default defineComponent({
 	name: "Mentions",
@@ -483,9 +482,13 @@ export default defineComponent({
 	},
 	setup() {
 		const store = useStore();
+		const {t, tCount, locale} = useI18n();
 		const isOpen = ref(false);
 
 		const groups = computed((): GroupWithContext[] => {
+			// locale.value is read so a language change redoes the
+			// Intl-formatted times (Intl itself is not reactive).
+			void locale.value;
 			const several = store.state.networks.length > 1;
 
 			return groupByConversation(store.getters.visibleMentions).map((group) => {
@@ -499,30 +502,37 @@ export default defineComponent({
 				const entries = group.entries.map((entry) => ({
 					...entry,
 					key: entryKey(entry),
-					localetime: localetime(new Date(entry.time)),
+					fullTime: formatDateTime(new Date(entry.time)),
 				}));
 				const unread = query ? conversation?.channel.unread ?? 0 : 0;
 				let missing = "";
 
 				if (!conversation) {
 					const network = store.getters.findNetwork(group.network);
-					const where = several && network ? ` on ${network.name}` : "";
+					const on = several && network ? network.name : "";
 					missing = !network
-						? "Its network isn't on this page: dismiss these."
+						? t("mentions.missingNetwork")
 						: query
-						? `No conversation with ${target}${where} open: open one to read these, or dismiss them.`
-						: `Not in ${target}${where}: join it to read these, or dismiss them.`;
+						? on
+							? t("mentions.missingQueryOn", {target, network: on})
+							: t("mentions.missingQuery", {target})
+						: on
+						? t("mentions.missingChannelOn", {target, network: on})
+						: t("mentions.missingChannel", {target});
 				}
 
 				return {
 					key: group.key,
 					target,
 					networkName,
-					label: networkName ? `${target} on ${networkName}` : target,
+					label: networkName
+						? t("mentions.targetOn", {target, network: networkName})
+						: target,
 					conversation,
 					missing,
 					query,
-					unreadLabel: unread > 1 ? `${unread} unread` : "",
+					unreadLabel:
+						unread > 1 ? tCount("mentions.unread", unread, {count: unread}) : "",
 					entries,
 					shown: query ? entries.slice(-1) : entries,
 				};
@@ -530,13 +540,19 @@ export default defineComponent({
 		});
 
 		const total = computed(() => store.getters.mentionCount);
+		const totalText = computed(() => formatNumber(total.value));
+		const totalLabel = computed(() =>
+			tCount("mentions.unread", total.value, {count: total.value})
+		);
 
 		// Read by messageTime, so the times are redone on each tick.
 		const now = ref(Date.now());
 		let clock: ReturnType<typeof setInterval> | null = null;
 
 		const messageTime = (time: string) => {
-			return dayjs(time).from(now.value);
+			void now.value;
+			void locale.value;
+			return formatRelativeTime(new Date(time).getTime());
 		};
 
 		// Under the @ button, measured against the container the pane is
@@ -652,6 +668,9 @@ export default defineComponent({
 			placement,
 			groups,
 			total,
+			totalText,
+			totalLabel,
+			t,
 			messageTime,
 			dismissMention,
 			dismissGroup,

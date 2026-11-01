@@ -1,17 +1,21 @@
 import {expect} from "chai";
 import sinon from "ts-sinon";
 import {
-	BRANDING_STRINGS,
 	DEFAULT_BRANDING,
 	brandingFeatures,
 	brandingString,
+	brandingT,
 	expandNick,
 	getBranding,
 	nickFromAccount,
 	loadBranding,
 	normalizeBranding,
+	normalizeTranslation,
 	resetBranding,
+	setBranding,
 } from "../../client/js/branding";
+import {setCatalog, t as coreT} from "../../client/js/i18n/core";
+import enCatalog from "../../client/locales/en.json";
 
 /** Minimal stand-in for a `fetch` returning the given body. */
 function fakeFetch(body: string | object, status = 200): typeof fetch {
@@ -27,9 +31,16 @@ function fakeFetch(body: string | object, status = 200): typeof fetch {
 }
 
 describe("branding", function () {
+	beforeEach(function () {
+		// brandingString resolves through the i18n core, so every test starts
+		// from the compiled en catalog the app boots with.
+		setCatalog("en", enCatalog, undefined);
+	});
+
 	afterEach(function () {
 		sinon.restore();
 		resetBranding();
+		setCatalog("en", enCatalog, undefined);
 	});
 
 	describe("normalizeBranding", function () {
@@ -89,6 +100,22 @@ describe("branding", function () {
 				signIn: false,
 			});
 			expect(config.strings).to.deep.equal({"connect.submit": "Go"});
+		});
+
+		it("drops a relative links.* value even when a page base exists, unlike a mirror path", function () {
+			// A typo'd `links.source: "github"` must never resolve against the
+			// app's own origin (https://<app-origin>/github); only translation's
+			// model mirror may be a relative path.
+			(global as unknown as {document: {baseURI: string}}).document = {
+				baseURI: "https://irc.example/client/index.html",
+			};
+
+			try {
+				const config = normalizeBranding({links: {source: "github"}});
+				expect(config.links?.source).to.equal(DEFAULT_BRANDING.links?.source);
+			} finally {
+				delete (global as {document?: unknown}).document;
+			}
 		});
 
 		it("validates the default network and normalises its channels", function () {
@@ -161,9 +188,7 @@ describe("branding", function () {
 			});
 
 			expect(brandingString("connect.title", config)).to.equal("Join TestNet");
-			expect(brandingString("connect.submit", config)).to.equal(
-				BRANDING_STRINGS["connect.submit"]
-			);
+			expect(brandingString("connect.submit", config)).to.equal(enCatalog["connect.submit"]);
 			expect(brandingString("unknown.key", config)).to.equal("unknown.key");
 			expect(brandingFeatures(config)).to.deep.equal({
 				multiNetwork: true,
@@ -178,6 +203,72 @@ describe("branding", function () {
 				brandingFeatures(normalizeBranding({features: {saslDisconnectOnFail: false}}))
 					.saslDisconnectOnFail
 			).to.equal(false);
+		});
+	});
+
+	describe("brandingString over the i18n catalogs", function () {
+		it("branding strings override every locale; locale overrides en", function () {
+			setBranding({appName: "Test", strings: {"connect.title": "Join the seance"}});
+			setCatalog("en", {"connect.title": "Connect to IRC"}, undefined);
+			expect(brandingString("connect.title")).to.equal("Join the seance");
+			setCatalog("de", {"connect.title": "Connect to IRC"}, {"connect.title": "Verbinden"});
+			expect(brandingString("connect.title")).to.equal("Join the seance"); // deploy voice wins
+			expect(coreT("connect.title")).to.equal("Verbinden"); // without an override the locale wins
+		});
+
+		it("without an override the active locale answers, en behind it", function () {
+			setBranding({appName: "Test"});
+			setCatalog("en", enCatalog, undefined);
+			// The en copy now lives in the pot (compiled to en.json), not in a
+			// hardcoded dict.
+			expect(brandingString("connect.submit")).to.equal("Connect");
+			setCatalog("de", enCatalog, {"connect.title": "Verbinden"});
+			expect(brandingString("connect.title")).to.equal("Verbinden"); // the locale, not a dict
+			expect(brandingString("connect.rememberMe")).to.equal("Stay signed in on this device"); // a key the locale overlay omits falls to en
+		});
+	});
+
+	describe("brandingT: the one override-aware resolver (t, tCount, splash)", function () {
+		// The catalog the app's useI18n() and the splash loop resolve through
+		// is the same core one; a fake en keeps the shapes readable.
+		const en = {
+			"connect.title": "Connect to IRC",
+			"composer.connectingTo": "Connecting to {network}…",
+			"condensed.join": {one: "{count} user has joined", other: "{count} users have joined"},
+		};
+
+		beforeEach(function () {
+			setCatalog("en", en, undefined);
+			setBranding({appName: "Test"});
+		});
+
+		it("honours an override on a flat key and falls through without one", function () {
+			expect(brandingT("connect.title")).to.equal("Connect to IRC");
+			setBranding({appName: "Test", strings: {"connect.title": "Join TestNet"}});
+			expect(brandingT("connect.title")).to.equal("Join TestNet");
+		});
+
+		it("interpolates {vars} in an override of a var-bearing key", function () {
+			// The old override branch returned the raw string, rendering a
+			// literal "{network}" (ChatInput's connection strip).
+			setBranding({
+				appName: "Test",
+				strings: {"composer.connectingTo": "Dialling {network}…"},
+			});
+			expect(brandingT("composer.connectingTo", {network: "TestNet"})).to.equal(
+				"Dialling TestNet…"
+			);
+		});
+
+		it("treats an override of a plural key as the template, {count}/{n} filled", function () {
+			setBranding({appName: "Test", strings: {"condensed.join": "{count} folks in"}});
+			expect(brandingT("condensed.join", {}, 1)).to.equal("1 folks in");
+			expect(brandingT("condensed.join", {n: 0}, 0)).to.equal("0 folks in");
+		});
+
+		it("without an override a plural key resolves the catalog's categories", function () {
+			expect(brandingT("condensed.join", {}, 1)).to.equal("1 user has joined");
+			expect(brandingT("condensed.join", {}, 3)).to.equal("3 users have joined");
 		});
 	});
 
@@ -457,6 +548,99 @@ describe("branding", function () {
 			expect(normalizeBranding({uploads: {endpoint: "https://"}})).to.not.have.property(
 				"uploads"
 			);
+		});
+	});
+
+	describe("translation", function () {
+		it("is absent by default", function () {
+			expect(normalizeBranding({}).translation).to.equal(undefined);
+		});
+
+		it("parses the whole block", function () {
+			const config = normalizeBranding({
+				translation: {
+					enabled: false,
+					modelBase: "https://models.example.test/",
+					llm: {
+						model: "gemma-3-1b-it-q4f16_1-MLC",
+						lib: "https://models.example.test/g.wasm",
+					},
+					cpu: {nllb: "mirror/nllb", opus: {"fi-en": "mirror/opus-fi-en"}},
+					routes: {en: {de: ["opus:de-en", "nllb"]}},
+					glossary: [["rig", "Testaufbau"]],
+				},
+			});
+
+			expect(config.translation).to.deep.equal({
+				enabled: false,
+				modelBase: "https://models.example.test/",
+				llm: {
+					model: "gemma-3-1b-it-q4f16_1-MLC",
+					lib: "https://models.example.test/g.wasm",
+				},
+				cpu: {nllb: "mirror/nllb", opus: {"fi-en": "mirror/opus-fi-en"}},
+				routes: {en: {de: ["opus:de-en", "nllb"]}},
+				glossary: [["rig", "Testaufbau"]],
+			});
+		});
+
+		it("keeps a route's quality classes and drops what is not a candidate", function () {
+			const config = normalizeBranding({
+				translation: {
+					routes: {
+						en: {de: [["llm", "opus:de-en", 7], "nllb", [], [3]], sw: ["nllb", "llm"]},
+					},
+				},
+			});
+
+			expect(config.translation).to.deep.equal({
+				routes: {en: {de: [["llm", "opus:de-en"], "nllb"], sw: ["nllb", "llm"]}},
+			});
+		});
+
+		it("drops what it cannot use and keeps the rest", function () {
+			const config = normalizeBranding({
+				translation: {
+					enabled: "yes",
+					modelBase: "not a url",
+					llm: "Qwen",
+					cpu: {nllb: 7, opus: {"de-en": 1, "fr-en": "ok"}},
+					routes: {en: {de: "nllb", fr: ["llm", 3]}},
+					glossary: [["a", "b"], ["c"], "d"],
+				},
+			});
+
+			expect(config.translation).to.deep.equal({
+				cpu: {opus: {"fr-en": "ok"}},
+				routes: {en: {fr: ["llm"]}},
+				glossary: [["a", "b"]],
+			});
+			expect(normalizeBranding({translation: "off"}).translation).to.equal(undefined);
+		});
+
+		it("resolves a relative mirror against the page", function () {
+			// The in-tree mirror branding.md describes: `models/` next to the
+			// app, whatever path the deploy is served from.
+			const translation = normalizeTranslation(
+				{modelBase: "models/", llm: {lib: "../libs/qwen3.wasm"}},
+				"https://irc.example/client/index.html"
+			);
+
+			expect(translation).to.deep.equal({
+				modelBase: "https://irc.example/client/models/",
+				llm: {lib: "https://irc.example/libs/qwen3.wasm"},
+			});
+		});
+
+		it("still drops a mirror that is not a URL at all", function () {
+			const base = "https://irc.example/client/";
+
+			expect(normalizeTranslation({modelBase: "not a url"}, base)).to.equal(undefined);
+			expect(normalizeTranslation({modelBase: "javascript:alert(1)"}, base)).to.equal(
+				undefined
+			);
+			// Nothing to resolve against (no document, no base): relative is dropped.
+			expect(normalizeTranslation({modelBase: "models/"})).to.equal(undefined);
 		});
 	});
 });

@@ -1,0 +1,906 @@
+[
+  {
+    "note": "1: en→de question",
+    "expect": "a question, not an answer; the log and yesterday kept",
+    "text": "can you send me the log from yesterday?",
+    "from": "en",
+    "to": "de",
+    "purpose": "write"
+  },
+  {
+    "note": "2: en→de complex",
+    "expect": "one sentence with all three clauses; rebase, main, force-push, CI as terms",
+    "text": "If the build is still red after you rebase onto main, ping me before you force-push, because the deploy job reads the tag that CI writes.",
+    "from": "en",
+    "to": "de",
+    "purpose": "write"
+  },
+  {
+    "note": "3: en→de paragraph",
+    "expect": "all four sentences, in order, on one line",
+    "text": "We moved the deploy to Thursday because the build bot was flaky again. Please keep the timestamps in the log this time. If anyone still sees the login loop, paste the console output in here. Thanks for the patience, it has been a long week.",
+    "from": "en",
+    "to": "de",
+    "purpose": "write"
+  },
+  {
+    "note": "4: en→de lines",
+    "expect": "three lines, in order, the second in the first person, the third a question",
+    "text": "the build is green\nI'll merge it after lunch\ncan someone restart the bot?",
+    "from": "en",
+    "to": "de",
+    "purpose": "write"
+  },
+  {
+    "note": "5: en→de untranslatable",
+    "expect": "brb, kubectl, staging, nginx, 502, lol carried through; the rest translated",
+    "text": "brb, need to kubectl the pod on staging, the nginx ingress is 502ing again, lol",
+    "from": "en",
+    "to": "de",
+    "purpose": "write"
+  },
+  {
+    "note": "6: en→de markdown",
+    "expect": "the URL and the backticked command unchanged; *urgent* translated inside its marks",
+    "text": "see https://example.org/x?y=1 and run `tail -f irc.log` first, it's *urgent*",
+    "from": "en",
+    "to": "de",
+    "purpose": "write",
+    "markers": "literal"
+  },
+  {
+    "note": "7: en→de idiom",
+    "expect": "the meaning (it is easy; do not take on too much), not the words",
+    "text": "it's not rocket science, just don't bite off more than you can chew",
+    "from": "en",
+    "to": "de",
+    "purpose": "write"
+  },
+  {
+    "note": "8: en→de nick",
+    "expect": "ps kept as the address; a question with both alternatives",
+    "text": "ps, are you coming to the standup tonight or should we move it?",
+    "from": "en",
+    "to": "de",
+    "purpose": "write",
+    "nicks": ["ps"],
+    "context": {
+      "names": ["ps"]
+    }
+  },
+  {
+    "note": "9: en→de numbers",
+    "expect": "both times, the date and 2.4 GB intact",
+    "text": "the meeting moved from 14:30 to 3pm on March 3rd; bring the 2.4 GB dump",
+    "from": "en",
+    "to": "de",
+    "purpose": "write"
+  },
+  {
+    "note": "10: en→fr question",
+    "expect": "a question, not an answer; the log and yesterday kept",
+    "text": "can you send me the log from yesterday?",
+    "from": "en",
+    "to": "fr",
+    "purpose": "write"
+  },
+  {
+    "note": "11: en→fr complex",
+    "expect": "one sentence with all three clauses; rebase, main, force-push, CI as terms",
+    "text": "If the build is still red after you rebase onto main, ping me before you force-push, because the deploy job reads the tag that CI writes.",
+    "from": "en",
+    "to": "fr",
+    "purpose": "write"
+  },
+  {
+    "note": "12: en→fr paragraph",
+    "expect": "all four sentences, in order, on one line",
+    "text": "We moved the deploy to Thursday because the build bot was flaky again. Please keep the timestamps in the log this time. If anyone still sees the login loop, paste the console output in here. Thanks for the patience, it has been a long week.",
+    "from": "en",
+    "to": "fr",
+    "purpose": "write"
+  },
+  {
+    "note": "13: en→fr lines",
+    "expect": "three lines, in order, the second in the first person, the third a question",
+    "text": "the build is green\nI'll merge it after lunch\ncan someone restart the bot?",
+    "from": "en",
+    "to": "fr",
+    "purpose": "write"
+  },
+  {
+    "note": "14: en→fr untranslatable",
+    "expect": "brb, kubectl, staging, nginx, 502, lol carried through; the rest translated",
+    "text": "brb, need to kubectl the pod on staging, the nginx ingress is 502ing again, lol",
+    "from": "en",
+    "to": "fr",
+    "purpose": "write"
+  },
+  {
+    "note": "15: en→fr markdown",
+    "expect": "the URL and the backticked command unchanged; *urgent* translated inside its marks",
+    "text": "see https://example.org/x?y=1 and run `tail -f irc.log` first, it's *urgent*",
+    "from": "en",
+    "to": "fr",
+    "purpose": "write",
+    "markers": "literal"
+  },
+  {
+    "note": "16: en→fr idiom",
+    "expect": "the meaning (it is easy; do not take on too much), not the words",
+    "text": "it's not rocket science, just don't bite off more than you can chew",
+    "from": "en",
+    "to": "fr",
+    "purpose": "write"
+  },
+  {
+    "note": "17: en→fr nick",
+    "expect": "ps kept as the address; a question with both alternatives",
+    "text": "ps, are you coming to the standup tonight or should we move it?",
+    "from": "en",
+    "to": "fr",
+    "purpose": "write",
+    "nicks": ["ps"],
+    "context": {
+      "names": ["ps"]
+    }
+  },
+  {
+    "note": "18: en→fr numbers",
+    "expect": "both times, the date and 2.4 GB intact",
+    "text": "the meeting moved from 14:30 to 3pm on March 3rd; bring the 2.4 GB dump",
+    "from": "en",
+    "to": "fr",
+    "purpose": "write"
+  },
+  {
+    "note": "19: en→es question",
+    "expect": "a question, not an answer; the log and yesterday kept",
+    "text": "can you send me the log from yesterday?",
+    "from": "en",
+    "to": "es",
+    "purpose": "write"
+  },
+  {
+    "note": "20: en→es complex",
+    "expect": "one sentence with all three clauses; rebase, main, force-push, CI as terms",
+    "text": "If the build is still red after you rebase onto main, ping me before you force-push, because the deploy job reads the tag that CI writes.",
+    "from": "en",
+    "to": "es",
+    "purpose": "write"
+  },
+  {
+    "note": "21: en→es paragraph",
+    "expect": "all four sentences, in order, on one line",
+    "text": "We moved the deploy to Thursday because the build bot was flaky again. Please keep the timestamps in the log this time. If anyone still sees the login loop, paste the console output in here. Thanks for the patience, it has been a long week.",
+    "from": "en",
+    "to": "es",
+    "purpose": "write"
+  },
+  {
+    "note": "22: en→es lines",
+    "expect": "three lines, in order, the second in the first person, the third a question",
+    "text": "the build is green\nI'll merge it after lunch\ncan someone restart the bot?",
+    "from": "en",
+    "to": "es",
+    "purpose": "write"
+  },
+  {
+    "note": "23: en→es untranslatable",
+    "expect": "brb, kubectl, staging, nginx, 502, lol carried through; the rest translated",
+    "text": "brb, need to kubectl the pod on staging, the nginx ingress is 502ing again, lol",
+    "from": "en",
+    "to": "es",
+    "purpose": "write"
+  },
+  {
+    "note": "24: en→es markdown",
+    "expect": "the URL and the backticked command unchanged; *urgent* translated inside its marks",
+    "text": "see https://example.org/x?y=1 and run `tail -f irc.log` first, it's *urgent*",
+    "from": "en",
+    "to": "es",
+    "purpose": "write",
+    "markers": "literal"
+  },
+  {
+    "note": "25: en→es idiom",
+    "expect": "the meaning (it is easy; do not take on too much), not the words",
+    "text": "it's not rocket science, just don't bite off more than you can chew",
+    "from": "en",
+    "to": "es",
+    "purpose": "write"
+  },
+  {
+    "note": "26: en→es nick",
+    "expect": "ps kept as the address; a question with both alternatives",
+    "text": "ps, are you coming to the standup tonight or should we move it?",
+    "from": "en",
+    "to": "es",
+    "purpose": "write",
+    "nicks": ["ps"],
+    "context": {
+      "names": ["ps"]
+    }
+  },
+  {
+    "note": "27: en→es numbers",
+    "expect": "both times, the date and 2.4 GB intact",
+    "text": "the meeting moved from 14:30 to 3pm on March 3rd; bring the 2.4 GB dump",
+    "from": "en",
+    "to": "es",
+    "purpose": "write"
+  },
+  {
+    "note": "28: en→it question",
+    "expect": "a question, not an answer; the log and yesterday kept",
+    "text": "can you send me the log from yesterday?",
+    "from": "en",
+    "to": "it",
+    "purpose": "write"
+  },
+  {
+    "note": "29: en→it complex",
+    "expect": "one sentence with all three clauses; rebase, main, force-push, CI as terms",
+    "text": "If the build is still red after you rebase onto main, ping me before you force-push, because the deploy job reads the tag that CI writes.",
+    "from": "en",
+    "to": "it",
+    "purpose": "write"
+  },
+  {
+    "note": "30: en→it paragraph",
+    "expect": "all four sentences, in order, on one line",
+    "text": "We moved the deploy to Thursday because the build bot was flaky again. Please keep the timestamps in the log this time. If anyone still sees the login loop, paste the console output in here. Thanks for the patience, it has been a long week.",
+    "from": "en",
+    "to": "it",
+    "purpose": "write"
+  },
+  {
+    "note": "31: en→it lines",
+    "expect": "three lines, in order, the second in the first person, the third a question",
+    "text": "the build is green\nI'll merge it after lunch\ncan someone restart the bot?",
+    "from": "en",
+    "to": "it",
+    "purpose": "write"
+  },
+  {
+    "note": "32: en→it untranslatable",
+    "expect": "brb, kubectl, staging, nginx, 502, lol carried through; the rest translated",
+    "text": "brb, need to kubectl the pod on staging, the nginx ingress is 502ing again, lol",
+    "from": "en",
+    "to": "it",
+    "purpose": "write"
+  },
+  {
+    "note": "33: en→it markdown",
+    "expect": "the URL and the backticked command unchanged; *urgent* translated inside its marks",
+    "text": "see https://example.org/x?y=1 and run `tail -f irc.log` first, it's *urgent*",
+    "from": "en",
+    "to": "it",
+    "purpose": "write",
+    "markers": "literal"
+  },
+  {
+    "note": "34: en→it idiom",
+    "expect": "the meaning (it is easy; do not take on too much), not the words",
+    "text": "it's not rocket science, just don't bite off more than you can chew",
+    "from": "en",
+    "to": "it",
+    "purpose": "write"
+  },
+  {
+    "note": "35: en→it nick",
+    "expect": "ps kept as the address; a question with both alternatives",
+    "text": "ps, are you coming to the standup tonight or should we move it?",
+    "from": "en",
+    "to": "it",
+    "purpose": "write",
+    "nicks": ["ps"],
+    "context": {
+      "names": ["ps"]
+    }
+  },
+  {
+    "note": "36: en→it numbers",
+    "expect": "both times, the date and 2.4 GB intact",
+    "text": "the meeting moved from 14:30 to 3pm on March 3rd; bring the 2.4 GB dump",
+    "from": "en",
+    "to": "it",
+    "purpose": "write"
+  },
+  {
+    "note": "37: en→pt question",
+    "expect": "a question, not an answer; the log and yesterday kept",
+    "text": "can you send me the log from yesterday?",
+    "from": "en",
+    "to": "pt",
+    "purpose": "write"
+  },
+  {
+    "note": "38: en→pt complex",
+    "expect": "one sentence with all three clauses; rebase, main, force-push, CI as terms",
+    "text": "If the build is still red after you rebase onto main, ping me before you force-push, because the deploy job reads the tag that CI writes.",
+    "from": "en",
+    "to": "pt",
+    "purpose": "write"
+  },
+  {
+    "note": "39: en→pt paragraph",
+    "expect": "all four sentences, in order, on one line",
+    "text": "We moved the deploy to Thursday because the build bot was flaky again. Please keep the timestamps in the log this time. If anyone still sees the login loop, paste the console output in here. Thanks for the patience, it has been a long week.",
+    "from": "en",
+    "to": "pt",
+    "purpose": "write"
+  },
+  {
+    "note": "40: en→pt lines",
+    "expect": "three lines, in order, the second in the first person, the third a question",
+    "text": "the build is green\nI'll merge it after lunch\ncan someone restart the bot?",
+    "from": "en",
+    "to": "pt",
+    "purpose": "write"
+  },
+  {
+    "note": "41: en→pt untranslatable",
+    "expect": "brb, kubectl, staging, nginx, 502, lol carried through; the rest translated",
+    "text": "brb, need to kubectl the pod on staging, the nginx ingress is 502ing again, lol",
+    "from": "en",
+    "to": "pt",
+    "purpose": "write"
+  },
+  {
+    "note": "42: en→pt markdown",
+    "expect": "the URL and the backticked command unchanged; *urgent* translated inside its marks",
+    "text": "see https://example.org/x?y=1 and run `tail -f irc.log` first, it's *urgent*",
+    "from": "en",
+    "to": "pt",
+    "purpose": "write",
+    "markers": "literal"
+  },
+  {
+    "note": "43: en→pt idiom",
+    "expect": "the meaning (it is easy; do not take on too much), not the words",
+    "text": "it's not rocket science, just don't bite off more than you can chew",
+    "from": "en",
+    "to": "pt",
+    "purpose": "write"
+  },
+  {
+    "note": "44: en→pt nick",
+    "expect": "ps kept as the address; a question with both alternatives",
+    "text": "ps, are you coming to the standup tonight or should we move it?",
+    "from": "en",
+    "to": "pt",
+    "purpose": "write",
+    "nicks": ["ps"],
+    "context": {
+      "names": ["ps"]
+    }
+  },
+  {
+    "note": "45: en→pt numbers",
+    "expect": "both times, the date and 2.4 GB intact",
+    "text": "the meeting moved from 14:30 to 3pm on March 3rd; bring the 2.4 GB dump",
+    "from": "en",
+    "to": "pt",
+    "purpose": "write"
+  },
+  {
+    "note": "46: en→ja question",
+    "expect": "a question, not an answer; the log and yesterday kept",
+    "text": "can you send me the log from yesterday?",
+    "from": "en",
+    "to": "ja",
+    "purpose": "write"
+  },
+  {
+    "note": "47: en→ja complex",
+    "expect": "one sentence with all three clauses; rebase, main, force-push, CI as terms",
+    "text": "If the build is still red after you rebase onto main, ping me before you force-push, because the deploy job reads the tag that CI writes.",
+    "from": "en",
+    "to": "ja",
+    "purpose": "write"
+  },
+  {
+    "note": "48: en→ja paragraph",
+    "expect": "all four sentences, in order, on one line",
+    "text": "We moved the deploy to Thursday because the build bot was flaky again. Please keep the timestamps in the log this time. If anyone still sees the login loop, paste the console output in here. Thanks for the patience, it has been a long week.",
+    "from": "en",
+    "to": "ja",
+    "purpose": "write"
+  },
+  {
+    "note": "49: en→ja lines",
+    "expect": "three lines, in order, the second in the first person, the third a question",
+    "text": "the build is green\nI'll merge it after lunch\ncan someone restart the bot?",
+    "from": "en",
+    "to": "ja",
+    "purpose": "write"
+  },
+  {
+    "note": "50: en→ja untranslatable",
+    "expect": "brb, kubectl, staging, nginx, 502, lol carried through; the rest translated",
+    "text": "brb, need to kubectl the pod on staging, the nginx ingress is 502ing again, lol",
+    "from": "en",
+    "to": "ja",
+    "purpose": "write"
+  },
+  {
+    "note": "51: en→ja markdown",
+    "expect": "the URL and the backticked command unchanged; *urgent* translated inside its marks",
+    "text": "see https://example.org/x?y=1 and run `tail -f irc.log` first, it's *urgent*",
+    "from": "en",
+    "to": "ja",
+    "purpose": "write",
+    "markers": "literal"
+  },
+  {
+    "note": "52: en→ja idiom",
+    "expect": "the meaning (it is easy; do not take on too much), not the words",
+    "text": "it's not rocket science, just don't bite off more than you can chew",
+    "from": "en",
+    "to": "ja",
+    "purpose": "write"
+  },
+  {
+    "note": "53: en→ja nick",
+    "expect": "ps kept as the address; a question with both alternatives",
+    "text": "ps, are you coming to the standup tonight or should we move it?",
+    "from": "en",
+    "to": "ja",
+    "purpose": "write",
+    "nicks": ["ps"],
+    "context": {
+      "names": ["ps"]
+    }
+  },
+  {
+    "note": "54: en→ja numbers",
+    "expect": "both times, the date and 2.4 GB intact",
+    "text": "the meeting moved from 14:30 to 3pm on March 3rd; bring the 2.4 GB dump",
+    "from": "en",
+    "to": "ja",
+    "purpose": "write"
+  },
+  {
+    "note": "55: en→zh question",
+    "expect": "a question, not an answer; the log and yesterday kept",
+    "text": "can you send me the log from yesterday?",
+    "from": "en",
+    "to": "zh",
+    "purpose": "write"
+  },
+  {
+    "note": "56: en→zh complex",
+    "expect": "one sentence with all three clauses; rebase, main, force-push, CI as terms",
+    "text": "If the build is still red after you rebase onto main, ping me before you force-push, because the deploy job reads the tag that CI writes.",
+    "from": "en",
+    "to": "zh",
+    "purpose": "write"
+  },
+  {
+    "note": "57: en→zh paragraph",
+    "expect": "all four sentences, in order, on one line",
+    "text": "We moved the deploy to Thursday because the build bot was flaky again. Please keep the timestamps in the log this time. If anyone still sees the login loop, paste the console output in here. Thanks for the patience, it has been a long week.",
+    "from": "en",
+    "to": "zh",
+    "purpose": "write"
+  },
+  {
+    "note": "58: en→zh lines",
+    "expect": "three lines, in order, the second in the first person, the third a question",
+    "text": "the build is green\nI'll merge it after lunch\ncan someone restart the bot?",
+    "from": "en",
+    "to": "zh",
+    "purpose": "write"
+  },
+  {
+    "note": "59: en→zh untranslatable",
+    "expect": "brb, kubectl, staging, nginx, 502, lol carried through; the rest translated",
+    "text": "brb, need to kubectl the pod on staging, the nginx ingress is 502ing again, lol",
+    "from": "en",
+    "to": "zh",
+    "purpose": "write"
+  },
+  {
+    "note": "60: en→zh markdown",
+    "expect": "the URL and the backticked command unchanged; *urgent* translated inside its marks",
+    "text": "see https://example.org/x?y=1 and run `tail -f irc.log` first, it's *urgent*",
+    "from": "en",
+    "to": "zh",
+    "purpose": "write",
+    "markers": "literal"
+  },
+  {
+    "note": "61: en→zh idiom",
+    "expect": "the meaning (it is easy; do not take on too much), not the words",
+    "text": "it's not rocket science, just don't bite off more than you can chew",
+    "from": "en",
+    "to": "zh",
+    "purpose": "write"
+  },
+  {
+    "note": "62: en→zh nick",
+    "expect": "ps kept as the address; a question with both alternatives",
+    "text": "ps, are you coming to the standup tonight or should we move it?",
+    "from": "en",
+    "to": "zh",
+    "purpose": "write",
+    "nicks": ["ps"],
+    "context": {
+      "names": ["ps"]
+    }
+  },
+  {
+    "note": "63: en→zh numbers",
+    "expect": "both times, the date and 2.4 GB intact",
+    "text": "the meeting moved from 14:30 to 3pm on March 3rd; bring the 2.4 GB dump",
+    "from": "en",
+    "to": "zh",
+    "purpose": "write"
+  },
+  {
+    "note": "64: en→ru question",
+    "expect": "a question, not an answer; the log and yesterday kept",
+    "text": "can you send me the log from yesterday?",
+    "from": "en",
+    "to": "ru",
+    "purpose": "write"
+  },
+  {
+    "note": "65: en→ru complex",
+    "expect": "one sentence with all three clauses; rebase, main, force-push, CI as terms",
+    "text": "If the build is still red after you rebase onto main, ping me before you force-push, because the deploy job reads the tag that CI writes.",
+    "from": "en",
+    "to": "ru",
+    "purpose": "write"
+  },
+  {
+    "note": "66: en→ru paragraph",
+    "expect": "all four sentences, in order, on one line",
+    "text": "We moved the deploy to Thursday because the build bot was flaky again. Please keep the timestamps in the log this time. If anyone still sees the login loop, paste the console output in here. Thanks for the patience, it has been a long week.",
+    "from": "en",
+    "to": "ru",
+    "purpose": "write"
+  },
+  {
+    "note": "67: en→ru lines",
+    "expect": "three lines, in order, the second in the first person, the third a question",
+    "text": "the build is green\nI'll merge it after lunch\ncan someone restart the bot?",
+    "from": "en",
+    "to": "ru",
+    "purpose": "write"
+  },
+  {
+    "note": "68: en→ru untranslatable",
+    "expect": "brb, kubectl, staging, nginx, 502, lol carried through; the rest translated",
+    "text": "brb, need to kubectl the pod on staging, the nginx ingress is 502ing again, lol",
+    "from": "en",
+    "to": "ru",
+    "purpose": "write"
+  },
+  {
+    "note": "69: en→ru markdown",
+    "expect": "the URL and the backticked command unchanged; *urgent* translated inside its marks",
+    "text": "see https://example.org/x?y=1 and run `tail -f irc.log` first, it's *urgent*",
+    "from": "en",
+    "to": "ru",
+    "purpose": "write",
+    "markers": "literal"
+  },
+  {
+    "note": "70: en→ru idiom",
+    "expect": "the meaning (it is easy; do not take on too much), not the words",
+    "text": "it's not rocket science, just don't bite off more than you can chew",
+    "from": "en",
+    "to": "ru",
+    "purpose": "write"
+  },
+  {
+    "note": "71: en→ru nick",
+    "expect": "ps kept as the address; a question with both alternatives",
+    "text": "ps, are you coming to the standup tonight or should we move it?",
+    "from": "en",
+    "to": "ru",
+    "purpose": "write",
+    "nicks": ["ps"],
+    "context": {
+      "names": ["ps"]
+    }
+  },
+  {
+    "note": "72: en→ru numbers",
+    "expect": "both times, the date and 2.4 GB intact",
+    "text": "the meeting moved from 14:30 to 3pm on March 3rd; bring the 2.4 GB dump",
+    "from": "en",
+    "to": "ru",
+    "purpose": "write"
+  },
+  {
+    "note": "73: en→nl question",
+    "expect": "a question, not an answer; the log and yesterday kept",
+    "text": "can you send me the log from yesterday?",
+    "from": "en",
+    "to": "nl",
+    "purpose": "write"
+  },
+  {
+    "note": "74: en→nl paragraph",
+    "expect": "all four sentences, in order, on one line",
+    "text": "We moved the deploy to Thursday because the build bot was flaky again. Please keep the timestamps in the log this time. If anyone still sees the login loop, paste the console output in here. Thanks for the patience, it has been a long week.",
+    "from": "en",
+    "to": "nl",
+    "purpose": "write"
+  },
+  {
+    "note": "75: en→nl lines",
+    "expect": "three lines, in order, the second in the first person, the third a question",
+    "text": "the build is green\nI'll merge it after lunch\ncan someone restart the bot?",
+    "from": "en",
+    "to": "nl",
+    "purpose": "write"
+  },
+  {
+    "note": "76: en→pl question",
+    "expect": "a question, not an answer; the log and yesterday kept",
+    "text": "can you send me the log from yesterday?",
+    "from": "en",
+    "to": "pl",
+    "purpose": "write"
+  },
+  {
+    "note": "77: en→pl paragraph",
+    "expect": "all four sentences, in order, on one line",
+    "text": "We moved the deploy to Thursday because the build bot was flaky again. Please keep the timestamps in the log this time. If anyone still sees the login loop, paste the console output in here. Thanks for the patience, it has been a long week.",
+    "from": "en",
+    "to": "pl",
+    "purpose": "write"
+  },
+  {
+    "note": "78: en→pl lines",
+    "expect": "three lines, in order, the second in the first person, the third a question",
+    "text": "the build is green\nI'll merge it after lunch\ncan someone restart the bot?",
+    "from": "en",
+    "to": "pl",
+    "purpose": "write"
+  },
+  {
+    "note": "79: en→uk question",
+    "expect": "a question, not an answer; the log and yesterday kept",
+    "text": "can you send me the log from yesterday?",
+    "from": "en",
+    "to": "uk",
+    "purpose": "write"
+  },
+  {
+    "note": "80: en→uk paragraph",
+    "expect": "all four sentences, in order, on one line",
+    "text": "We moved the deploy to Thursday because the build bot was flaky again. Please keep the timestamps in the log this time. If anyone still sees the login loop, paste the console output in here. Thanks for the patience, it has been a long week.",
+    "from": "en",
+    "to": "uk",
+    "purpose": "write"
+  },
+  {
+    "note": "81: en→uk lines",
+    "expect": "three lines, in order, the second in the first person, the third a question",
+    "text": "the build is green\nI'll merge it after lunch\ncan someone restart the bot?",
+    "from": "en",
+    "to": "uk",
+    "purpose": "write"
+  },
+  {
+    "note": "82: en→tr question",
+    "expect": "a question, not an answer; the log and yesterday kept",
+    "text": "can you send me the log from yesterday?",
+    "from": "en",
+    "to": "tr",
+    "purpose": "write"
+  },
+  {
+    "note": "83: en→tr paragraph",
+    "expect": "all four sentences, in order, on one line",
+    "text": "We moved the deploy to Thursday because the build bot was flaky again. Please keep the timestamps in the log this time. If anyone still sees the login loop, paste the console output in here. Thanks for the patience, it has been a long week.",
+    "from": "en",
+    "to": "tr",
+    "purpose": "write"
+  },
+  {
+    "note": "84: en→tr lines",
+    "expect": "three lines, in order, the second in the first person, the third a question",
+    "text": "the build is green\nI'll merge it after lunch\ncan someone restart the bot?",
+    "from": "en",
+    "to": "tr",
+    "purpose": "write"
+  },
+  {
+    "note": "85: en→ko question",
+    "expect": "a question, not an answer; the log and yesterday kept",
+    "text": "can you send me the log from yesterday?",
+    "from": "en",
+    "to": "ko",
+    "purpose": "write"
+  },
+  {
+    "note": "86: en→ko paragraph",
+    "expect": "all four sentences, in order, on one line",
+    "text": "We moved the deploy to Thursday because the build bot was flaky again. Please keep the timestamps in the log this time. If anyone still sees the login loop, paste the console output in here. Thanks for the patience, it has been a long week.",
+    "from": "en",
+    "to": "ko",
+    "purpose": "write"
+  },
+  {
+    "note": "87: en→ko lines",
+    "expect": "three lines, in order, the second in the first person, the third a question",
+    "text": "the build is green\nI'll merge it after lunch\ncan someone restart the bot?",
+    "from": "en",
+    "to": "ko",
+    "purpose": "write"
+  },
+  {
+    "note": "88: en→sv question",
+    "expect": "a question, not an answer; the log and yesterday kept",
+    "text": "can you send me the log from yesterday?",
+    "from": "en",
+    "to": "sv",
+    "purpose": "write"
+  },
+  {
+    "note": "89: en→sv paragraph",
+    "expect": "all four sentences, in order, on one line",
+    "text": "We moved the deploy to Thursday because the build bot was flaky again. Please keep the timestamps in the log this time. If anyone still sees the login loop, paste the console output in here. Thanks for the patience, it has been a long week.",
+    "from": "en",
+    "to": "sv",
+    "purpose": "write"
+  },
+  {
+    "note": "90: en→sv lines",
+    "expect": "three lines, in order, the second in the first person, the third a question",
+    "text": "the build is green\nI'll merge it after lunch\ncan someone restart the bot?",
+    "from": "en",
+    "to": "sv",
+    "purpose": "write"
+  },
+  {
+    "note": "91: en→cs question",
+    "expect": "a question, not an answer; the log and yesterday kept",
+    "text": "can you send me the log from yesterday?",
+    "from": "en",
+    "to": "cs",
+    "purpose": "write"
+  },
+  {
+    "note": "92: en→cs paragraph",
+    "expect": "all four sentences, in order, on one line",
+    "text": "We moved the deploy to Thursday because the build bot was flaky again. Please keep the timestamps in the log this time. If anyone still sees the login loop, paste the console output in here. Thanks for the patience, it has been a long week.",
+    "from": "en",
+    "to": "cs",
+    "purpose": "write"
+  },
+  {
+    "note": "93: en→cs lines",
+    "expect": "three lines, in order, the second in the first person, the third a question",
+    "text": "the build is green\nI'll merge it after lunch\ncan someone restart the bot?",
+    "from": "en",
+    "to": "cs",
+    "purpose": "write"
+  },
+  {
+    "note": "94: en→ar question",
+    "expect": "a question, not an answer; the log and yesterday kept",
+    "text": "can you send me the log from yesterday?",
+    "from": "en",
+    "to": "ar",
+    "purpose": "write"
+  },
+  {
+    "note": "95: en→ar paragraph",
+    "expect": "all four sentences, in order, on one line",
+    "text": "We moved the deploy to Thursday because the build bot was flaky again. Please keep the timestamps in the log this time. If anyone still sees the login loop, paste the console output in here. Thanks for the patience, it has been a long week.",
+    "from": "en",
+    "to": "ar",
+    "purpose": "write"
+  },
+  {
+    "note": "96: en→ar lines",
+    "expect": "three lines, in order, the second in the first person, the third a question",
+    "text": "the build is green\nI'll merge it after lunch\ncan someone restart the bot?",
+    "from": "en",
+    "to": "ar",
+    "purpose": "write"
+  },
+  {
+    "note": "97: en→hi question",
+    "expect": "a question, not an answer; the log and yesterday kept",
+    "text": "can you send me the log from yesterday?",
+    "from": "en",
+    "to": "hi",
+    "purpose": "write"
+  },
+  {
+    "note": "98: en→hi paragraph",
+    "expect": "all four sentences, in order, on one line",
+    "text": "We moved the deploy to Thursday because the build bot was flaky again. Please keep the timestamps in the log this time. If anyone still sees the login loop, paste the console output in here. Thanks for the patience, it has been a long week.",
+    "from": "en",
+    "to": "hi",
+    "purpose": "write"
+  },
+  {
+    "note": "99: en→hi lines",
+    "expect": "three lines, in order, the second in the first person, the third a question",
+    "text": "the build is green\nI'll merge it after lunch\ncan someone restart the bot?",
+    "from": "en",
+    "to": "hi",
+    "purpose": "write"
+  },
+  {
+    "note": "100: en→vi question",
+    "expect": "a question, not an answer; the log and yesterday kept",
+    "text": "can you send me the log from yesterday?",
+    "from": "en",
+    "to": "vi",
+    "purpose": "write"
+  },
+  {
+    "note": "101: en→vi paragraph",
+    "expect": "all four sentences, in order, on one line",
+    "text": "We moved the deploy to Thursday because the build bot was flaky again. Please keep the timestamps in the log this time. If anyone still sees the login loop, paste the console output in here. Thanks for the patience, it has been a long week.",
+    "from": "en",
+    "to": "vi",
+    "purpose": "write"
+  },
+  {
+    "note": "102: en→vi lines",
+    "expect": "three lines, in order, the second in the first person, the third a question",
+    "text": "the build is green\nI'll merge it after lunch\ncan someone restart the bot?",
+    "from": "en",
+    "to": "vi",
+    "purpose": "write"
+  },
+  {
+    "note": "103: en→id question",
+    "expect": "a question, not an answer; the log and yesterday kept",
+    "text": "can you send me the log from yesterday?",
+    "from": "en",
+    "to": "id",
+    "purpose": "write"
+  },
+  {
+    "note": "104: en→id paragraph",
+    "expect": "all four sentences, in order, on one line",
+    "text": "We moved the deploy to Thursday because the build bot was flaky again. Please keep the timestamps in the log this time. If anyone still sees the login loop, paste the console output in here. Thanks for the patience, it has been a long week.",
+    "from": "en",
+    "to": "id",
+    "purpose": "write"
+  },
+  {
+    "note": "105: en→id lines",
+    "expect": "three lines, in order, the second in the first person, the third a question",
+    "text": "the build is green\nI'll merge it after lunch\ncan someone restart the bot?",
+    "from": "en",
+    "to": "id",
+    "purpose": "write"
+  },
+  {
+    "note": "106: en→el question",
+    "expect": "a question, not an answer; the log and yesterday kept",
+    "text": "can you send me the log from yesterday?",
+    "from": "en",
+    "to": "el",
+    "purpose": "write"
+  },
+  {
+    "note": "107: en→el paragraph",
+    "expect": "all four sentences, in order, on one line",
+    "text": "We moved the deploy to Thursday because the build bot was flaky again. Please keep the timestamps in the log this time. If anyone still sees the login loop, paste the console output in here. Thanks for the patience, it has been a long week.",
+    "from": "en",
+    "to": "el",
+    "purpose": "write"
+  },
+  {
+    "note": "108: en→el lines",
+    "expect": "three lines, in order, the second in the first person, the third a question",
+    "text": "the build is green\nI'll merge it after lunch\ncan someone restart the bot?",
+    "from": "en",
+    "to": "el",
+    "purpose": "write"
+  }
+]

@@ -282,7 +282,7 @@
 }
 
 #chat .unread-marker-text::before {
-	content: "❀ New messages ❀";
+	content: "❀ " attr(data-label) " ❀";
 }
 
 /* The yurt stands on the footer at the rail's right, clear of the channel

@@ -1,6 +1,6 @@
 <template>
 	<div class="oper-alerts">
-		<section v-for="section in SECTIONS" :key="section.id" class="oper-alerts-section">
+		<section v-for="section in sections" :key="section.id" class="oper-alerts-section">
 			<h2>{{ section.label }}</h2>
 			<ul class="oper-lines">
 				<li
@@ -18,10 +18,10 @@
 						<div
 							class="oper-seg oper-route-seg"
 							role="radiogroup"
-							:aria-label="`Where ${line.label.toLowerCase()} show`"
+							:aria-label="t('oper.alerts.whereLabel', {name: line.label})"
 						>
 							<button
-								v-for="pos in POSITIONS"
+								v-for="pos in positions"
 								:key="pos.route"
 								type="button"
 								role="radio"
@@ -40,7 +40,7 @@
 
 		<details v-if="rest.length" class="oper-fold">
 			<summary>
-				Everything else · {{ rest.length }} {{ rest.length === 1 ? "kind" : "kinds" }}
+				{{ tCount("oper.alerts.everythingElse", rest.length) }}
 			</summary>
 			<ul class="oper-lines oper-lines-rest">
 				<li v-for="line in rest" :key="line.id" class="oper-line" :data-line="line.id">
@@ -52,10 +52,10 @@
 						<div
 							class="oper-seg oper-route-seg"
 							role="radiogroup"
-							:aria-label="`Where ${line.label.toLowerCase()} show`"
+							:aria-label="t('oper.alerts.whereLabel', {name: line.label})"
 						>
 							<button
-								v-for="pos in POSITIONS"
+								v-for="pos in positions"
 								:key="pos.route"
 								type="button"
 								role="radio"
@@ -74,19 +74,20 @@
 
 		<section v-if="x3" class="oper-alerts-section oper-o3">
 			<div class="oper-o3-head">
-				<h2>{{ operBot }} alerts</h2>
+				<h2>{{ t("oper.alerts.o3.heading", {bot: operBot}) }}</h2>
 				<button type="button" class="btn btn-small oper-o3-new" @click="newAlert">
-					New {{ operBot }} alert…
+					{{ t("oper.alerts.o3.new", {bot: operBot}) }}
 				</button>
 			</div>
 			<details class="oper-fold oper-o3-fold" @toggle="onToggle">
 				<summary>
-					Your {{ operBot }} alerts<template v-if="alerts.state === 'done'">
-						· {{ alerts.list.length }}</template
-					>
+					<template v-if="alerts.state === 'done'">{{
+						t("oper.alerts.o3.yoursCount", {bot: operBot, count: alerts.list.length})
+					}}</template>
+					<template v-else>{{ t("oper.alerts.o3.yours", {bot: operBot}) }}</template>
 				</summary>
 				<p v-if="alerts.state === 'asking'" class="oper-muted oper-o3-note">
-					Asking {{ operBot }}…
+					{{ t("oper.alerts.o3.asking", {bot: operBot}) }}
 				</p>
 				<p v-else-if="alerts.state === 'failed'" class="oper-muted oper-o3-note">
 					{{ alerts.note }}
@@ -95,7 +96,7 @@
 					v-else-if="alerts.state === 'done' && alerts.list.length === 0"
 					class="oper-muted oper-o3-note"
 				>
-					No alerts of yours.
+					{{ t("oper.alerts.o3.none") }}
 				</p>
 				<ul v-else-if="alerts.state === 'done'" class="oper-lines oper-o3-list">
 					<li
@@ -106,44 +107,50 @@
 					>
 						<div class="oper-line-text">
 							<span class="oper-line-label">
-								<code>{{ a.name }}</code> · {{ a.reaction }} · by {{ a.owner }} ·
+								<code>{{ a.name }}</code> · {{ a.reaction }} · {{ byParts[0]
+								}}<bdi>{{ a.owner }}</bdi
+								>{{ byParts[1] }} ·
 								{{ expiresText(a) }}
 							</span>
 							<span class="oper-line-hint oper-mono">{{ a.criteria }}</span>
-							<span v-if="a.triggered" class="oper-line-hint"
-								>last fired
-								{{ a.triggered === "Never" ? "never" : `${a.triggered} ago` }}</span
-							>
+							<span v-if="a.triggered" class="oper-line-hint">{{
+								a.triggered === "Never"
+									? t("oper.alerts.o3.neverFired")
+									: t("oper.alerts.o3.lastFired", {when: a.triggered})
+							}}</span>
 						</div>
 						<div class="oper-line-ctl">
 							<template v-if="deleting === a.name">
-								<span class="oper-o3-confirm">Delete {{ a.name }}?</span>
+								<span class="oper-o3-confirm"
+									>{{ deleteParts[0] }}<bdi>{{ a.name }}</bdi
+									>{{ deleteParts[1] }}</span
+								>
 								<button
 									type="button"
 									class="btn btn-small btn-danger"
 									:disabled="busy"
 									@click="confirmDelete(a)"
 								>
-									Delete
+									{{ t("oper.alerts.o3.delete") }}
 								</button>
 								<button
 									type="button"
 									class="btn btn-small btn-cancel"
 									@click="deleting = ''"
 								>
-									Keep
+									{{ t("oper.alerts.o3.keep") }}
 								</button>
 							</template>
 							<template v-else>
 								<button type="button" class="btn btn-small" @click="edit(a)">
-									Edit
+									{{ t("oper.alerts.o3.edit") }}
 								</button>
 								<button
 									type="button"
 									class="btn btn-small"
 									@click="deleting = a.name"
 								>
-									Delete
+									{{ t("oper.alerts.o3.delete") }}
 								</button>
 							</template>
 						</div>
@@ -156,17 +163,16 @@
 		</section>
 
 		<details v-if="model" class="oper-fold oper-raw">
-			<summary>Raw mask and presets</summary>
+			<summary>{{ t("oper.alerts.raw.summary") }}</summary>
 			<div class="oper-mask-readout">
 				<span>
-					Mask <code :title="`0x${draft.toString(16)}`">{{ draft }}</code>
+					{{ t("oper.alerts.raw.mask") }}
+					<code :title="`0x${draft.toString(16)}`">{{ draft }}</code>
 				</span>
-				<span v-if="pending" class="oper-muted">Applying…</span>
-				<span v-else-if="!hasS" class="oper-muted"
-					>Server notices are off (+s not set).</span
-				>
+				<span v-if="pending" class="oper-muted">{{ t("oper.alerts.raw.applying") }}</span>
+				<span v-else-if="!hasS" class="oper-muted">{{ t("oper.alerts.raw.sOff") }}</span>
 			</div>
-			<div class="oper-presets" role="group" aria-label="Presets">
+			<div class="oper-presets" role="group" :aria-label="t('oper.alerts.raw.presets')">
 				<button
 					v-for="p in presets"
 					:key="p.label"
@@ -177,7 +183,9 @@
 				>
 					{{ p.label }}
 				</button>
-				<button type="button" class="btn btn-small" @click="apply(0)">Off</button>
+				<button type="button" class="btn btn-small" @click="apply(0)">
+					{{ t("oper.alerts.raw.off") }}
+				</button>
 			</div>
 			<ul class="oper-bits">
 				<li
@@ -197,8 +205,10 @@
 							:disabled="unavailable(bit) && (draft & bit.bit) === 0"
 							@change="toggle(bit.bit)"
 						/>
-						<span class="oper-bit-label">{{ bit.label }}</span>
-						<span v-if="silent(bit)" class="oper-muted">silent here</span>
+						<span class="oper-bit-label">{{ bitLabel(bit) }}</span>
+						<span v-if="silent(bit)" class="oper-muted">{{
+							t("oper.alerts.raw.silent")
+						}}</span>
 					</label>
 				</li>
 			</ul>
@@ -398,6 +408,9 @@ import {clientForNetwork} from "../../js/irc/manager";
 import {delAlert, describeFailure, listAlerts} from "../../js/irc/alerts";
 import type {ServiceAlert} from "../../js/irc/services/types";
 import type {AlertBuilderRequest} from "../../js/helpers/alertBuilder";
+import {bitLabel} from "../../js/irc/profiles/nefarious/snomask";
+import {useI18n} from "../../js/i18n";
+import {frameSegments, KEEP} from "../../js/i18n/core";
 
 interface AlertsState {
 	state: "idle" | "asking" | "done" | "failed";
@@ -406,17 +419,6 @@ interface AlertsState {
 	/** The last delete's verdict, in the bot's words. */
 	result: string;
 }
-
-const SECTIONS: {id: "actions" | "network"; label: string}[] = [
-	{id: "actions", label: "Oper actions"},
-	{id: "network", label: "The network"},
-];
-
-const POSITIONS: {route: Route; label: string; title: string}[] = [
-	{route: "active", label: "Here", title: "In the window you are looking at"},
-	{route: "network", label: "Network", title: "In the network window, no unread"},
-	{route: "off", label: "Off", title: "Never shown; the server stops sending it when it can"},
-];
 
 type Line = AlertLine | RestLine;
 
@@ -437,11 +439,47 @@ export default defineComponent({
 	},
 	setup(props) {
 		const now = useNow();
+		const {t, tCount, locale} = useI18n();
 		const profile = computed(() => profileById(props.network.oper?.profile));
+
+		const sections = computed((): {id: "actions" | "network"; label: string}[] => [
+			{id: "actions", label: t("oper.alerts.section.actions")},
+			{id: "network", label: t("oper.alerts.section.network")},
+		]);
+
+		const positions = computed((): {route: Route; label: string; title: string}[] => [
+			{
+				route: "active",
+				label: t("oper.alerts.position.here"),
+				title: t("oper.alerts.position.hereTitle"),
+			},
+			{
+				route: "network",
+				label: t("oper.alerts.position.network"),
+				title: t("oper.alerts.position.networkTitle"),
+			},
+			{
+				route: "off",
+				label: t("oper.alerts.position.off"),
+				title: t("oper.alerts.position.offTitle"),
+			},
+		]);
+
+		// The alert row's "by {owner}" and the inline "Delete {name}?",
+		// split around the user's own words (rendered in <bdi>).
+		const byParts = computed(() =>
+			frameSegments(t("oper.alerts.o3.by", {owner: KEEP}), ["owner"])
+		);
+		const deleteParts = computed(() =>
+			frameSegments(t("oper.alerts.o3.confirmDelete", {name: KEEP}), ["name"])
+		);
 		const model = computed(() => profile.value.snomask);
 		const kinds = computed(() => allNoticeKinds(profile.value));
 		const kindIndex = computed(() => new Map(kinds.value.map((k) => [k.kind, k])));
-		const alertLines = computed(() => alertLinesFor(profile.value));
+		const alertLines = computed(() => {
+			void locale.value; // the lines are labelled in the reader's language
+			return alertLinesFor(profile.value);
+		});
 		const rest = computed(() => alertLines.value.rest);
 		const linesIn = (section: "actions" | "network") =>
 			alertLines.value.lines.filter((l) => l.section === section);
@@ -549,10 +587,10 @@ export default defineComponent({
 			const operDefault = Number(features.value[m.operDefaultFeature ?? ""]) || m.operDefault;
 
 			return [
-				{label: "Oper default", mask: operDefault},
-				{label: "Ban watch", mask: named("GLINE", "AUTO", "OPERKILL")},
-				{label: "Linking", mask: named("NETWORK", "OLDSNO")},
-				{label: "Everything", mask: m.all},
+				{label: t("oper.alerts.preset.operDefault"), mask: operDefault},
+				{label: t("oper.alerts.preset.banWatch"), mask: named("GLINE", "AUTO", "OPERKILL")},
+				{label: t("oper.alerts.preset.linking"), mask: named("NETWORK", "OLDSNO")},
+				{label: t("oper.alerts.preset.everything"), mask: m.all},
 			];
 		});
 
@@ -570,7 +608,11 @@ export default defineComponent({
 			const client = clientForNetwork(props.network.uuid);
 
 			if (!client) {
-				alerts.value = {...alerts.value, state: "failed", note: "The network is gone."};
+				alerts.value = {
+					...alerts.value,
+					state: "failed",
+					note: t("oper.alerts.o3.networkGone"),
+				};
 				return;
 			}
 
@@ -629,7 +671,8 @@ export default defineComponent({
 					...alerts.value,
 					result:
 						answer.kind === "reply"
-							? answer.value?.text ?? `${operBot.value} did not answer.`
+							? answer.value?.text ??
+							  t("oper.alerts.o3.noAnswer", {bot: operBot.value})
 							: describeFailure(client, answer),
 				};
 
@@ -647,7 +690,7 @@ export default defineComponent({
 
 		const expiresText = (alert: ServiceAlert) => {
 			if (!alert.expires) {
-				return "never expires";
+				return t("oper.alerts.o3.neverExpires");
 			}
 
 			const at = Date.parse(
@@ -655,15 +698,15 @@ export default defineComponent({
 			);
 
 			if (!Number.isFinite(at)) {
-				return `expires ${alert.expires}`;
+				return t("oper.alerts.o3.expiresAt", {when: alert.expires});
 			}
 
 			const left = Math.round((at - now.value) / 3_600_000);
 			return left <= 0
-				? "expired"
+				? t("oper.alerts.o3.expired")
 				: left < 48
-				? `expires in ${left} h`
-				: `expires in ${Math.round(left / 24)} d`;
+				? t("oper.alerts.o3.expiresHours", {hours: left})
+				: t("oper.alerts.o3.expiresDays", {days: Math.round(left / 24)});
 		};
 
 		onMounted(() => {
@@ -683,6 +726,13 @@ export default defineComponent({
 		});
 
 		return {
+			t,
+			tCount,
+			byParts,
+			deleteParts,
+			bitLabel,
+			sections,
+			positions,
 			x3,
 			operBot,
 			alerts,
@@ -693,8 +743,6 @@ export default defineComponent({
 			edit,
 			confirmDelete,
 			expiresText,
-			SECTIONS,
-			POSITIONS,
 			model,
 			rest,
 			linesIn,
