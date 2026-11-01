@@ -587,6 +587,18 @@ describe("multiline sending", function () {
 			}
 		});
 
+		it("cuts concat chunks between visible characters", function () {
+			const flag = "\u{1F1E8}\u{1F1E6}";
+			const text = "z" + flag.repeat(200);
+			const plan = planMultiline(text, 100, {maxBytes: 16384, maxLines: 100});
+
+			expect(rejoin(plan[0])).to.equal(text);
+
+			for (const line of plan[0].slice(1)) {
+				expect(line.text.split(flag).join("")).to.equal("");
+			}
+		});
+
 		it("splits a line with no spaces at the byte budget", function () {
 			const text = `${"x".repeat(30)}\ny`;
 			const plan = planMultiline(text, MAX_LINE_BYTES - 10, {maxBytes: 16384, maxLines: 100});
@@ -795,6 +807,141 @@ describe("multiline sending", function () {
 			} finally {
 				clock.restore();
 			}
+		});
+
+		it("sends one line too long for a message as one batch of concat chunks", function () {
+			const {client, transport, chanId} = setup();
+			const long = Array.from({length: 120}, (_, i) => `word${i}`).join(" ");
+
+			client.input(chanId, long);
+
+			expect(transport.sent[0]).to.equal("BATCH +m1 draft/multiline #seance");
+			expect(transport.sent[transport.sent.length - 1]).to.equal("BATCH -m1");
+			const inner = transport.sent.slice(1, -1);
+			expect(inner.length).to.be.greaterThan(1);
+			expect(inner[0]).to.match(/^@batch=m1 PRIVMSG #seance :word0 /);
+
+			for (const line of inner.slice(1)) {
+				expect(line).to.match(/^@batch=m1;draft\/multiline-concat PRIVMSG #seance :/);
+			}
+
+			const rejoined = inner.map((line) => line.slice(line.indexOf(" :") + 2)).join("");
+			expect(rejoined).to.equal(long);
+
+			for (const line of transport.sent) {
+				expect(utf8ByteLength(line)).to.be.at.most(MAX_LINE_BYTES);
+			}
+		});
+
+		it("sends a long run with no spaces, a URL say, as one batch", function () {
+			const {client, transport, chanId} = setup();
+			const url = `https://example.com/${"a1".repeat(400)}`;
+
+			client.input(chanId, url);
+
+			expect(transport.sent[0]).to.equal("BATCH +m1 draft/multiline #seance");
+			const inner = transport.sent.slice(1, -1);
+			expect(inner.map((line) => line.slice(line.indexOf(" :") + 2)).join("")).to.equal(url);
+		});
+
+		it("batches a line that fits a batch but not one message with its tags", function () {
+			const {client, transport} = setup();
+			const reply = {"+draft/reply": "r".repeat(200)};
+			const text = "x".repeat(290);
+
+			client.sendMessage("#seance", text, {tags: reply});
+
+			expect(transport.sent[0]).to.equal(
+				`@+draft/reply=${"r".repeat(200)} BATCH +m1 draft/multiline #seance`
+			);
+			expect(transport.sent.slice(1)).to.deep.equal([
+				`@batch=m1 PRIVMSG #seance :${text}`,
+				"BATCH -m1",
+			]);
+		});
+
+		it("sends a /me too long for a message as one batch of actions", function () {
+			const {client, transport, chanId} = setup();
+			const long = Array.from({length: 120}, (_, i) => `waves${i}`).join(" ");
+
+			client.input(chanId, `/me ${long}`);
+
+			expect(transport.sent[0]).to.equal("BATCH +m1 draft/multiline #seance");
+			const inner = transport.sent.slice(1, -1);
+			expect(inner.length).to.be.greaterThan(1);
+
+			for (const line of inner) {
+				expect(line).to.match(/ PRIVMSG #seance :\x01ACTION .*\x01$/);
+				expect(utf8ByteLength(line)).to.be.at.most(MAX_LINE_BYTES);
+			}
+
+			const rejoined = inner
+				.map((line) => line.slice(line.indexOf(" :\x01ACTION ") + 10, -1))
+				.join("");
+			expect(rejoined).to.equal(long);
+		});
+
+		it("sends an edit too long for a message as one batch carrying the edit", function () {
+			const {client, transport, chanId} = setup();
+
+			client.input(chanId, "z".repeat(700), {edit: "old"});
+
+			expect(transport.sent[0]).to.equal(
+				"@+seance/edit=old BATCH +m1 draft/multiline #seance"
+			);
+			expect(transport.sent.filter((line) => / BATCH \+/.test(` ${line}`))).to.have.length(1);
+			expect(transport.sent[transport.sent.length - 1]).to.equal("BATCH -m1");
+		});
+
+		it("counts the label in deciding what fits one message", function () {
+			const {client, transport, chanId} = setup(`${OFFERED_CAPS} labeled-response`);
+			// Fits one message without a label, not with one.
+			const prefix = utf8ByteLength(":alice!alice@host PRIVMSG #seance :");
+			const text = "q".repeat(MAX_LINE_BYTES - prefix);
+
+			client.input(chanId, text);
+
+			expect(transport.sent[0]).to.match(/^@label=s\d+ BATCH \+m1 draft\/multiline #seance$/);
+			const copies = messages(chanId).filter((m) => m.pending);
+			expect(copies.map((m) => m.text)).to.deep.equal([text]);
+		});
+
+		it("keeps a line that fits one message a plain PRIVMSG", function () {
+			const {client, transport, chanId} = setup();
+			const text = "y".repeat(300);
+
+			client.input(chanId, text);
+
+			expect(transport.sent).to.deep.equal([`PRIVMSG #seance :${text}`]);
+		});
+
+		it("splits a long line into separate messages without the capability", function () {
+			const {client, transport, chanId} = setup(
+				"batch message-tags server-time echo-message"
+			);
+			const long = Array.from({length: 120}, (_, i) => `word${i}`).join(" ");
+
+			client.input(chanId, long);
+
+			expect(transport.sent.length).to.be.greaterThan(1);
+
+			for (const line of transport.sent) {
+				expect(line).to.match(/^PRIVMSG #seance :word/);
+			}
+		});
+
+		it("leaves room for a 75-byte host while ours is still unknown", function () {
+			const {client, transport, chanId} = setup("batch message-tags server-time");
+			client.host = ""; // nothing from the server has named our host yet
+
+			client.input(chanId, "x".repeat(1000));
+
+			// What a recipient gets is `:alice!alice@<host> PRIVMSG #seance :<text>`,
+			// and nefarious2 cuts an untagged line at 510 bytes
+			const source = ":alice!alice@".length + 75 + " PRIVMSG #seance :".length;
+			const bodies = transport.sent.map((line) => line.slice("PRIVMSG #seance :".length));
+			expect(bodies[0]).to.have.length(MAX_LINE_BYTES - source);
+			expect(bodies.join("")).to.equal("x".repeat(1000));
 		});
 
 		it("sends one line without a batch", function () {
@@ -1225,6 +1372,67 @@ describe("multiline cooldown", function () {
 
 		clock.tick(60000);
 		expect(transport.sent).to.deep.equal([]);
+	});
+
+	it("sends a message typed behind a waiting batch after it, not before", function () {
+		const {client, transport, chanId} = setup(ONE_PER_BATCH);
+
+		client.input(chanId, "one\ntwo");
+		client.input(chanId, "short");
+
+		// Only the first batch is out; "short" waits behind the second.
+		expect(transport.sent).to.deep.equal([
+			"BATCH +m1 draft/multiline #seance",
+			"@batch=m1 PRIVMSG #seance :one",
+			"BATCH -m1",
+		]);
+
+		transport.sent.length = 0;
+		clock.tick(60000);
+
+		expect(transport.sent).to.deep.equal([
+			"BATCH +m2 draft/multiline #seance",
+			"@batch=m2 PRIVMSG #seance :two",
+			"BATCH -m2",
+			"PRIVMSG #seance :short",
+		]);
+	});
+
+	it("shows a held message's copy at once, after the batches ahead of it", function () {
+		const {client, chanId} = setup(ONE_PER_BATCH);
+
+		client.input(chanId, "one\ntwo");
+		client.input(chanId, "short");
+
+		const shown = messages(chanId);
+		expect(shown.map((m) => m.text)).to.deep.equal(["one", "two", "short"]);
+		expect(shown.every((m) => m.pending)).to.equal(true);
+	});
+
+	it("sends a message at once once no batch is waiting", function () {
+		const {client, transport, chanId} = setup();
+
+		client.input(chanId, "x".repeat(700));
+		client.input(chanId, "short");
+
+		// The batch is on the wire and its cooldown pending: the server reads
+		// "short" after it all the same.
+		expect(transport.sent[transport.sent.length - 2]).to.equal("BATCH -m1");
+		expect(transport.sent[transport.sent.length - 1]).to.equal("PRIVMSG #seance :short");
+	});
+
+	it("still sends a held message when the batch ahead of it fails", function () {
+		const {client, transport, chanId} = setup(ONE_PER_BATCH);
+
+		client.input(chanId, "one\ntwo");
+		client.input(chanId, "short");
+		transport.sent.length = 0;
+		transport.line(":irc.test FAIL BATCH MULTILINE_INVALID :Multiline batch is invalid");
+
+		expect(transport.sent).to.deep.equal(["PRIVMSG #seance :short"]);
+
+		clock.tick(60000);
+		expect(transport.sent).to.deep.equal(["PRIVMSG #seance :short"]);
 	});
 
 	it("drops the queue when the transport closes", function () {

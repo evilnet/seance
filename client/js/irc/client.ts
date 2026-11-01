@@ -45,6 +45,8 @@ import {
 	MULTILINE_CAP,
 	MultilineLimits,
 	MultilinePlan,
+	batchesWaiting,
+	holdBehindBatches,
 	parseMultilineValue,
 	planMultiline,
 	resetMultiline,
@@ -120,7 +122,14 @@ import {
 	splitMessage,
 	utf8ByteLength,
 } from "./message";
-import {LABEL_TAG_BYTES, pendingLabel, resetPending, showPending} from "./pending";
+import {
+	armPending,
+	LABEL_TAG_BYTES,
+	PendingMessage,
+	pendingLabel,
+	resetPending,
+	showPending,
+} from "./pending";
 import {splitStatusTarget} from "./handlers/privmsg";
 import {mechanismOffered, SASL_TIMEOUT_MS, SaslAuth, SaslMechanism, SaslResult} from "./sasl";
 import {
@@ -262,6 +271,9 @@ export const SASL_REQUIRED_HINT =
 
 /** Prefix characters a channel name may start with when the user omits one. */
 const CHANNEL_PREFIXES = "#&!+";
+
+/** Bytes to allow for our host before the server has told us it: nefarious2's HOSTLEN. */
+export const UNKNOWN_HOST_BYTES = 75;
 
 /** A `+typing` TAGMSG: one command of fake lag. */
 const TYPING_COST_MS = 2000;
@@ -1760,17 +1772,37 @@ export class IrcClient {
 		const firstTags: ClientTags | undefined =
 			opts.tags || opts.firstTags ? {...opts.firstTags, ...opts.tags} : undefined;
 		// The server prepends our full source to the echo; budget for it even
-		// when the host is still unknown (63 is the usual hostname limit).
-		const hostLen = this.host.length || 63;
+		// when the host is still unknown. nefarious2's HOSTLEN is 75 (a cloak
+		// can run that long), past the usual 63, and an untagged line it
+		// delivers is cut at 510 bytes, source included.
+		const hostLen = this.host.length || UNKNOWN_HOST_BYTES;
 		const sourceBytes =
 			utf8ByteLength(`:${this.nick}!${this.ident}@`) +
 			hostLen +
 			utf8ByteLength(` ${command} ${target} :`);
 		const actionBytes = opts.action ? "\x01ACTION \x01".length : 0;
+		// With `echo-message` each line is labelled so its echo can be told
+		// apart (pending.ts); without it there is no echo to label.
+		const echo = this.caps.hasCapability("echo-message");
+		const labelled = echo && this.caps.hasCapability("labeled-response");
+		// The frame cap applies to the whole line; the first chunk carries the
+		// most tags, so every chunk is budgeted as if it did.
+		const prefixBytes =
+			sourceBytes +
+			actionBytes +
+			utf8ByteLength(tagPrefix(firstTags)) +
+			(labelled ? LABEL_TAG_BYTES : 0);
+		const fitsOneLine = (line: string) =>
+			utf8ByteLength(line.replace(/[\r\n\0]/g, " ")) <= MAX_LINE_BYTES - prefixBytes;
 		const limits = this.multilineLimits();
 		let plain = text;
 
-		if (limits && text.includes("\n")) {
+		// More than one line goes out as a batch, and so does one line too
+		// long for a single message: with `draft/multiline-concat` the
+		// receiver joins the pieces back into the one line that was typed (a
+		// URL, a hash, a paste) and the server keeps it as one message.
+		// Without the cap it is split into separate messages below.
+		if (limits && (text.includes("\n") || !fitsOneLine(text))) {
 			let plan: MultilinePlan;
 
 			try {
@@ -1797,7 +1829,7 @@ export class IrcClient {
 				return; // nothing but blank lines
 			}
 
-			if (count > 1) {
+			if (count > 1 || !fitsOneLine(plan[0][0].text)) {
 				// `opts.tags` (a reply) belongs on every batch, `opts.firstTags`
 				// (an edit) only on the first — one edit replaces one message.
 				sendMultiline(
@@ -1816,17 +1848,6 @@ export class IrcClient {
 			plain = plan[0][0].text;
 		}
 
-		// With `echo-message` each line is labelled so its echo can be told
-		// apart (pending.ts); without it there is no echo to label.
-		const echo = this.caps.hasCapability("echo-message");
-		const labelled = echo && this.caps.hasCapability("labeled-response");
-		// The frame cap applies to the whole line; the first chunk carries the
-		// most tags, so every chunk is budgeted as if it did.
-		const prefixBytes =
-			sourceBytes +
-			actionBytes +
-			utf8ByteLength(tagPrefix(firstTags)) +
-			(labelled ? LABEL_TAG_BYTES : 0);
 		let chunks: string[];
 
 		try {
@@ -1848,34 +1869,68 @@ export class IrcClient {
 			? MessageType.ACTION
 			: MessageType.MESSAGE;
 
-		for (let i = 0; i < chunks.length; i++) {
-			const chunk = chunks[i];
-			const body = opts.action ? `\x01ACTION ${chunk}\x01` : chunk;
+		const lines = chunks.map((chunk, i) => {
 			const base = i === 0 ? firstTags : opts.tags;
 			const label = echo ? pendingLabel(this) : undefined;
-			const tags = label ? {...base, label} : base;
+			return {
+				chunk,
+				base,
+				label,
+				body: opts.action ? `\x01ACTION ${chunk}\x01` : chunk,
+				tags: label ? {...base, label} : base,
+			};
+		});
+		// Behind a batch still waiting for its turn, the message waits too, so
+		// it does not reach the channel before what was typed ahead of it. Its
+		// copy shows now, in place; its timeout starts when it goes out.
+		const held = batchesWaiting(this);
+		const pending: PendingMessage[] = [];
 
-			if (!this.send(trailingLine(command, [target, body], tags))) {
-				return;
+		const pendingFields = (chunk: string, label: string | undefined, i: number) => ({
+			type,
+			text: chunk,
+			label,
+			replyTo: opts.tags?.[REPLY_TAG],
+			editOf: i === 0 ? opts.firstTags?.[EDIT_TAG] : undefined,
+			statusmsgGroup: group,
+		});
+
+		const deliver = (): boolean => {
+			for (const [i, line] of lines.entries()) {
+				if (!this.send(trailingLine(command, [target, line.body], line.tags))) {
+					return false;
+				}
+
+				if (!echo) {
+					this.handleLine(
+						`${tagPrefix(line.base)}:${this.nick}!${this.ident}@${
+							this.host || "localhost"
+						} ${command} ${target} :${line.body}`
+					);
+				} else if (chan && !held) {
+					showPending(this, chan, pendingFields(line.chunk, line.label, i));
+				} else if (pending[i]) {
+					armPending(this, pending[i]);
+				}
 			}
 
-			if (!echo) {
-				this.handleLine(
-					`${tagPrefix(base)}:${this.nick}!${this.ident}@${
-						this.host || "localhost"
-					} ${command} ${target} :${body}`
+			return true;
+		};
+
+		if (!held) {
+			deliver();
+			return;
+		}
+
+		if (chan) {
+			for (const [i, line] of lines.entries()) {
+				pending.push(
+					showPending(this, chan, pendingFields(line.chunk, line.label, i), {arm: false})
 				);
-			} else if (chan) {
-				showPending(this, chan, {
-					type,
-					text: chunk,
-					label,
-					replyTo: opts.tags?.[REPLY_TAG],
-					editOf: i === 0 ? opts.firstTags?.[EDIT_TAG] : undefined,
-					statusmsgGroup: group,
-				});
 			}
 		}
+
+		holdBehindBatches(this, deliver, pending);
 	}
 
 	/**
