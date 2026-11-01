@@ -128,8 +128,29 @@ function consentText(model: string, device: Device, usual: Device, size: string)
 		: t("translate.consent.textGpu", {model, size});
 }
 
+/**
+ * The download question on screen, if one is: the GPU fallback question waits
+ * for it, since the one dialog would answer the question it replaces "no"
+ * (a session's "Not now" to downloads). The other way round needs nothing:
+ * the service routes nothing while the fallback question is open.
+ */
+let downloadQuestion: Promise<boolean> | null = null;
+
 /** The download question, in the app's confirm dialog (ConfirmDialog.vue): the copy's own size. */
 function askDownload(ref: ModelRef, device: Device): Promise<boolean> {
+	const asked = showDownloadQuestion(ref, device);
+	const settled = asked.finally(() => {
+		if (downloadQuestion === settled) {
+			downloadQuestion = null;
+		}
+	});
+
+	downloadQuestion = settled;
+
+	return settled;
+}
+
+function showDownloadQuestion(ref: ModelRef, device: Device): Promise<boolean> {
 	const model = modelDisplayName(ref);
 	const sizeBytes = ref.copies[device]?.sizeBytes ?? listedSize(ref);
 	const usual = nativeDevice(ref);
@@ -156,8 +177,12 @@ function askDownload(ref: ModelRef, device: Device): Promise<boolean> {
  * download and one without; the browser's reason, when the loss carried
  * one, quoted verbatim under it.
  */
-function askCpuFallback(ref: ModelRef, info: CpuFallbackInfo): Promise<CpuFallbackAnswer> {
+async function askCpuFallback(ref: ModelRef, info: CpuFallbackInfo): Promise<CpuFallbackAnswer> {
 	const model = modelDisplayName(ref);
+
+	while (downloadQuestion) {
+		await downloadQuestion;
+	}
 
 	return new Promise((resolve) => {
 		eventbus.emit(

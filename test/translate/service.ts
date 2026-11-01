@@ -135,7 +135,8 @@ function rig(
 		maxBufferBytes?: number;
 		/** Fields laid over the probe's answer (an iPhone, no Memory64). */
 		capability?: Partial<Capability>;
-		selectedLlm?: string;
+		/** Null: no choice, resolved against the probe. */
+		selectedLlm?: string | null;
 	} = {}
 ) {
 	const clock = sinon.useFakeTimers();
@@ -234,7 +235,7 @@ function rig(
 			catalog: shape.catalog ?? catalog,
 			// A chosen model, so the probe's own default (an unset choice
 			// resolves against the device) leaves these rigs alone.
-			selectedLlm: shape.selectedLlm ?? QWEN3_1_7B_ID,
+			selectedLlm: shape.selectedLlm === undefined ? QWEN3_1_7B_ID : shape.selectedLlm,
 			routesFor: () => routes,
 			ortBase: "https://app.test/js/ort/",
 			enabled,
@@ -2509,6 +2510,32 @@ describe("translate/service", () => {
 				candidate: "llm",
 				device: "cpu",
 			});
+			r.service.dispose();
+		});
+
+		it("Always with no model chosen keeps the model the device defaults to and its CPU load", async () => {
+			const q = question();
+			const r = rig(
+				"gpu",
+				true,
+				LLM_ONLY,
+				{askCpuFallback: q.askCpuFallback, saveLlmDevice: q.saveLlmDevice},
+				// A device whose default is the 1.7B (the 4B needs 6 GiB reported).
+				{selectedLlm: null, capability: {deviceMemoryGiB: 4}}
+			);
+			clock = r.clock;
+			await r.service.capabilities();
+			expect(r.service.catalog.llm.id).to.equal(QWEN3_1_7B_ID);
+			r.llm.failLoad = new Error(LOST);
+
+			const result = text(r.service.translate(base));
+
+			await r.clock.tickAsync(10);
+			q.answer("always");
+			expect(await result).to.equal("llm:Hallo");
+			expect(r.service.catalog.llm.id).to.equal(QWEN3_1_7B_ID);
+			expect(r.llm.calls.devices).to.deep.equal(["gpu", "cpu"]);
+			expect(r.llm.calls.unload).to.equal(0);
 			r.service.dispose();
 		});
 
