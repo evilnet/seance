@@ -9,9 +9,13 @@
 		<div
 			v-if="data"
 			id="confirm-dialog"
+			ref="dialogElement"
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="confirm-dialog-title"
+			tabindex="-1"
+			:data-armed="armed ? '' : null"
+			@keydown.capture="onKeydown"
 		>
 			<div class="confirm-text">
 				<div id="confirm-dialog-title" class="confirm-text-title">{{ data.title }}</div>
@@ -29,25 +33,25 @@
 				<button
 					ref="confirmButton"
 					:class="['btn', data.primary ? 'btn-confirm' : 'btn-danger']"
-					@click="close(true)"
+					@click="choose(true)"
 				>
 					{{ data.button }}
 				</button>
-				<button class="btn btn-alt" @click="close(true, true)">
+				<button class="btn btn-alt" @click="choose(true, true)">
 					{{ data.alt }}
 				</button>
-				<button ref="cancelButton" class="btn btn-cancel" @click="close(false)">
+				<button ref="cancelButton" class="btn btn-cancel" @click="choose(false)">
 					{{ data.cancel || t("confirm.cancel") }}
 				</button>
 			</div>
 			<div v-else class="confirm-buttons">
-				<button ref="cancelButton" class="btn btn-cancel" @click="close(false)">
+				<button ref="cancelButton" class="btn btn-cancel" @click="choose(false)">
 					{{ data.cancel || t("confirm.cancel") }}
 				</button>
 				<button
 					ref="confirmButton"
 					:class="['btn', data.primary ? 'btn-confirm' : 'btn-danger']"
-					@click="close(true)"
+					@click="choose(true)"
 				>
 					{{ data.button }}
 				</button>
@@ -63,6 +67,10 @@
 	margin: 10px;
 	border-radius: 5px;
 	max-width: 500px;
+}
+
+#confirm-dialog:focus {
+	outline: 0;
 }
 
 #confirm-dialog .confirm-text {
@@ -130,6 +138,14 @@ import {useI18n} from "../js/i18n";
 import {defineComponent, nextTick, onMounted, onUnmounted, ref} from "vue";
 import I18nFrame from "./I18nFrame.vue";
 
+/**
+ * How long a question that opened by itself (`wait`) takes no answer: a
+ * click or a key meant for what was there before -- a double-click's second
+ * click, an Enter typed into the composer -- must not answer it (the push
+ * prompt's PROMPT_ARM_MS, webpush.ts). Nobody reads it and answers this fast.
+ */
+const ARM_MS = 450;
+
 type ConfirmDialogData = {
 	title: string;
 	text: string;
@@ -176,20 +192,36 @@ export default defineComponent({
 		const cancelButton = ref<HTMLButtonElement | null>(null);
 		/** Questions waiting their turn (`wait`), oldest first. */
 		const waiting: {data: ConfirmDialogData; callback: ConfirmDialogCallback}[] = [];
-		/** What had the focus before the dialog opened: it gets it back. */
+		const dialogElement = ref<HTMLElement | null>(null);
+		/** Whether the question on screen takes answers yet (`ARM_MS`). */
+		const armed = ref(true);
+		let armTimer: ReturnType<typeof setTimeout> | undefined;
+		/**
+		 * What had the focus before the first dialog of a run of them (one
+		 * question after another) opened: it gets it back after the last.
+		 */
 		let returnFocus: HTMLElement | null = null;
+		let inRun = false;
 
 		/**
 		 * The main answer takes the focus; a destructive dialog's cancel does,
-		 * so Enter never deletes by accident. The overlay fades in with a
-		 * `visibility` transition and a hidden button cannot take the focus,
-		 * so this runs right after the render (a question replacing another,
-		 * the overlay already shown) and again when the fade ends.
+		 * so Enter never deletes by accident; a question that opened by itself
+		 * keeps it on the dialog until it is armed. The overlay fades in with
+		 * a `visibility` transition and a hidden element cannot take the
+		 * focus, so this runs right after the render (a question replacing
+		 * another, the overlay already shown) and again when the fade ends.
 		 */
 		const focusAnswer = () => {
-			if (data.value) {
-				(data.value.primary ? confirmButton.value : cancelButton.value)?.focus();
+			if (!data.value) {
+				return;
 			}
+
+			if (!armed.value) {
+				dialogElement.value?.focus();
+				return;
+			}
+
+			(data.value.primary ? confirmButton.value : cancelButton.value)?.focus();
 		};
 
 		const onOverlayShown = (event: TransitionEvent) => {
@@ -199,13 +231,31 @@ export default defineComponent({
 		};
 
 		const show = (incoming: ConfirmDialogData, cb: ConfirmDialogCallback) => {
-			if (!data.value) {
+			if (!inRun) {
+				inRun = true;
 				returnFocus =
 					document.activeElement instanceof HTMLElement ? document.activeElement : null;
 			}
 
 			data.value = incoming;
 			callback.value = cb;
+			clearTimeout(armTimer);
+			armed.value = !incoming.wait;
+
+			if (incoming.wait) {
+				armTimer = setTimeout(() => {
+					armed.value = true;
+
+					// Onto the main answer, unless the user has moved the focus
+					// within the dialog meanwhile.
+					const active = document.activeElement;
+
+					if (!dialogElement.value?.contains(active) || active === dialogElement.value) {
+						void nextTick(focusAnswer);
+					}
+				}, ARM_MS);
+			}
+
 			void nextTick(focusAnswer);
 		};
 
@@ -238,6 +288,7 @@ export default defineComponent({
 		const close = (result: boolean, alt = false) => {
 			const answer = callback.value;
 
+			clearTimeout(armTimer);
 			data.value = undefined;
 			callback.value = undefined;
 			answer?.(!!result, result && alt);
@@ -252,15 +303,38 @@ export default defineComponent({
 
 			if (next) {
 				show(next.data, next.callback);
-			} else if (returnFocus?.isConnected) {
+				return;
+			}
+
+			if (returnFocus?.isConnected) {
 				returnFocus.focus();
-				returnFocus = null;
+			}
+
+			returnFocus = null;
+			inRun = false;
+		};
+
+		/** A button's answer: none before the question is armed. */
+		const choose = (result: boolean, alt = false) => {
+			if (armed.value) {
+				close(result, alt);
 			}
 		};
 
-		const onEscape = (layer: string | null) => {
-			if (layer === "confirm") {
+		// One press answers one question: a held Escape's auto-repeats would
+		// answer each queued question no as it comes up, unseen.
+		const onEscape = (layer: string | null, repeat?: boolean) => {
+			if (layer === "confirm" && !repeat && armed.value) {
 				close(false);
+			}
+		};
+
+		// A held Enter or Space never answers a question that opened by
+		// itself: its repeats are not a decision.
+		const onKeydown = (event: KeyboardEvent) => {
+			if (data.value?.wait && event.repeat && (event.key === "Enter" || event.key === " ")) {
+				event.preventDefault();
+				event.stopPropagation();
 			}
 		};
 
@@ -270,6 +344,7 @@ export default defineComponent({
 		});
 
 		onUnmounted(() => {
+			clearTimeout(armTimer);
 			eventbus.off("escapekey", onEscape);
 			eventbus.off("confirm-dialog", open);
 		});
@@ -277,10 +352,13 @@ export default defineComponent({
 		return {
 			t,
 			data,
-			close,
+			armed,
+			choose,
 			confirmButton,
 			cancelButton,
+			dialogElement,
 			onOverlayShown,
+			onKeydown,
 		};
 	},
 });

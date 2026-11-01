@@ -603,16 +603,25 @@ the CPU here** does the same and pins `translateLlmDevice` to `cpu`
 question is not asked again until a reload. Either yes is the CPU copy's
 download consent (`<id>@cpu`). While the dialog is open every route waits for
 it (one question for every failure at once) and `loadTicks()` moves on every
-read, so no deadline armed before it runs out. A request carried over to the
-CPU by the answer (one whose `translate` call saw it) still has the GPU's
-two-minute deadline, where a cold CPU start takes about three: until its first
-chunk the service moves the counter every minute (`keepAlive`), never so that
-it outlives `CPU_REQUEST_TIMEOUT_MS` from the answer (or from the end of a
-download that ran after it), then on each chunk; a batch larger than
+read, so no deadline armed before it runs out. A language-model attempt on
+the CPU under that yes may have had its deadline armed for the GPU (two
+minutes, where a cold CPU start takes about three): the request carried over by
+the answer, or a reading line routed to the GPU before it and run after. Each
+of its chunks moves the counter, and until the first one an attempt that was
+carried over or that starts the model cold is kept alive (`keepAlive`): a tick
+every minute and a last one 5 s (`KEEP_ALIVE_SLACK_MS`) before
+`since + CPU_REQUEST_TIMEOUT_MS − 2 × REQUEST_TIMEOUT_MS`, so every deadline
+check for about four minutes sees a fresh tick and none lets it outlive
+`CPU_REQUEST_TIMEOUT_MS` from `since` (the answer, the later attempt's start, or
+the end of a download that ran after it). A batch larger than
 `CPU_BATCH_MAX_LINES` is refused with `BATCH_REFUSED` so the queue sends its
 lines one at a time. Both translation questions are `ConfirmDialog` questions
-that `wait`: they queue behind any dialog that is up, and one the user opens
-over them sends them back to wait rather than answering them no.
+that `wait`: they queue behind any dialog that is up, one the user opens
+over them sends them back to wait rather than answering them no, and since
+they open without a click they take no answer for their first 450 ms
+(`ARM_MS`, the push prompt's rule; `data-armed` after, the focus on the dialog
+until then and on the main answer once armed), never from a held key's
+repeats, and a held Escape answers one question, not each in turn.
 
 **The CPU language model's numbers** (`models.ts`): a context window of 1024
 tokens (`CPU_CONTEXT_WINDOW`: it holds the 700-token context budget, the

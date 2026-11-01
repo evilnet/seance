@@ -5,7 +5,8 @@
 // the CPU (service.ts `askCpuFallback`, index.ts) -- the title, the body
 // with the CPU copy's download size, the browser's reason quoted under it in
 // a <bdi>, three buttons (the main one filled and focused, in a modal
-// dialog labelled by its title). "Use the CPU this time" carries the same
+// dialog labelled by its title), and no answer taken in its first 450 ms
+// (`data-armed` after). "Use the CPU this time" carries the same
 // request on to the CPU (it resolves with the fake's translation, the
 // fake's request log shows it ran) and leaves the setting on Auto; after
 // the one reload the question comes back, and "Always use the CPU here"
@@ -25,6 +26,9 @@ import {readFileSync} from "node:fs";
 const BASE = process.env.SEANCE_HTTP ?? "http://localhost:8021/";
 const EN = JSON.parse(readFileSync("client/locales/en.json", "utf8"));
 const OPEN = `!!document.querySelector("#confirm-dialog-overlay.opened")`;
+// The question opened by itself: it takes no answer for its first 450 ms
+// (ConfirmDialog.vue ARM_MS), then says so with data-armed.
+const ARMED = `!!document.querySelector("#confirm-dialog[data-armed]")`;
 const STORED_DEVICE = `JSON.parse(localStorage.getItem("settings") ?? "{}").translateLlmDevice ?? null`;
 const REQUESTS = `((window.__seanceTranslateFake && window.__seanceTranslateFake.requests) || [])`;
 
@@ -63,6 +67,20 @@ export default async function run(page) {
 	await page.goto(page.url, {waitForSelector: "#connect form"});
 	await page.evaluate(START);
 	await page.waitFor(OPEN, {timeout: 20000, label: "the GPU fallback question"});
+
+	// A click as it appears (a double-click's second click, a tap meant for
+	// what was there) answers nothing.
+	const early = await page.evaluate(`(() => {
+		const armed = ${ARMED};
+		${BUTTON(EN["translate.gpuFallback.once"])}.click();
+		return {armed, open: ${OPEN}};
+	})()`);
+
+	page.check(
+		`not armed at first, and an early click answers nothing (armed ${early.armed}, open ${early.open})`,
+		early.armed === false && early.open === true
+	);
+	await page.waitFor(ARMED, {timeout: 5000, label: "the question armed"});
 
 	const dialog = await page.evaluate(`(() => {
 		const d = document.getElementById("confirm-dialog");
@@ -155,6 +173,7 @@ export default async function run(page) {
 	await page.goto(page.url, {waitForSelector: "#connect form"});
 	await page.evaluate(START);
 	await page.waitFor(OPEN, {timeout: 20000, label: "the question again after a reload"});
+	await page.waitFor(ARMED, {timeout: 5000, label: "the question armed"});
 	await clickButton(page, EN["translate.gpuFallback.always"]);
 	await page.waitFor(`!!window.__fallback`, {timeout: 20000, label: "the translation"});
 

@@ -63,6 +63,11 @@ export const TRANSLATION_UNAVAILABLE = "no translation engine can take this requ
  * of the multi-MiB worker on a slow phone line can take a while.
  */
 export const CACHE_WAIT_MS = 60 * 1000;
+/**
+ * How far before the latest moment `keepAlive` aims its last tick: a timer
+ * fires late, and a tick past that moment is not given.
+ */
+export const KEEP_ALIVE_SLACK_MS = 5 * 1000;
 
 /** The answers to `askCpuFallback`. */
 export type CpuFallbackAnswer = "once" | "always" | "no";
@@ -265,6 +270,12 @@ export class TranslateService {
 	private cpuAnswers = 0;
 	/** When the last answer came (`Date.now()`): a carried-over request's extension is counted from it. */
 	private cpuAnsweredAt = 0;
+	/**
+	 * The language model on the CPU has answered since its slot was last
+	 * loaded: an attempt that finds it so is warm, one that does not may
+	 * take a cold start (`keepAlive`).
+	 */
+	private cpuLlmWarm = false;
 
 	constructor(
 		private deps: ServiceDeps,
@@ -894,34 +905,46 @@ export class TranslateService {
 	}
 
 	/**
-	 * Keeps the deadline counter moving for an attempt carried over to the
-	 * CPU until its first chunk (`started`), about every half of the GPU's
-	 * deadline, so the deadline its caller armed for the GPU outlasts a cold
-	 * CPU start. Never past CPU_REQUEST_TIMEOUT_MS from the answer, or from
-	 * the attempt's last load progress when a download ran after it (a
+	 * Keeps the deadline counter moving for an attempt on the CPU whose
+	 * deadline may be the GPU's, until its first chunk (`started`): a tick
+	 * about every half of the GPU's deadline, and the last one at
+	 * `since + CPU_REQUEST_TIMEOUT_MS - 2 x REQUEST_TIMEOUT_MS -
+	 * KEEP_ALIVE_SLACK_MS`, so every deadline check up to about four minutes
+	 * after `since` sees a fresh tick and none lets it live past
+	 * CPU_REQUEST_TIMEOUT_MS (a deadline re-armed by a tick runs out at most
+	 * two of its periods later). `since` is the answer for the request that
+	 * was carried over, the attempt's start for a later one, and moves to
+	 * the attempt's last load progress when a download runs after it (a
 	 * download moves the counter itself, and the cold start comes after it).
 	 */
-	private keepAlive(started: () => boolean): {progressed(): void; stop(): void} {
+	private keepAlive(started: () => boolean, from: number): {progressed(): void; stop(): void} {
 		const period = REQUEST_TIMEOUT_MS / 2;
-		let since = this.cpuAnsweredAt;
+		let since = from;
 		let handle: unknown = null;
+		// The latest a tick may land: two of the GPU deadline's periods short of the CPU's.
+		const latest = () => since + CPU_REQUEST_TIMEOUT_MS - 2 * REQUEST_TIMEOUT_MS;
 
 		const schedule = () => {
-			handle = this.deps.setTimeout(() => {
-				handle = null;
+			// The last tick is aimed a little before the latest, since a
+			// timer fires late; between, every half period.
+			const aim = latest() - KEEP_ALIVE_SLACK_MS - Date.now();
 
-				if (started()) {
-					return;
-				}
+			handle = this.deps.setTimeout(
+				() => {
+					handle = null;
 
-				// The deadline re-armed by this tick can run out up to two
-				// periods of the GPU's deadline later.
-				if (Date.now() - since + 2 * REQUEST_TIMEOUT_MS <= CPU_REQUEST_TIMEOUT_MS) {
-					this.ticks++;
-				}
+					if (started()) {
+						return;
+					}
 
-				schedule();
-			}, period);
+					if (Date.now() <= latest()) {
+						this.ticks++;
+					}
+
+					schedule();
+				},
+				aim > 0 ? Math.min(period, aim) : period
+			);
 		};
 
 		schedule();
@@ -1130,6 +1153,17 @@ export class TranslateService {
 				currentId = id;
 
 				const llmId = route.ref.engine === "llm" ? route.ref.id : null;
+				// Whether the language model is loaded on the CPU and has
+				// answered there: read before this attempt counts the slot as
+				// loaded. A slot unloaded since is cold, whatever it said.
+				const cpuLlmLoaded =
+					this.loadedEngines.has("llm") && this.engineDevice.llm === "cpu";
+
+				if (!cpuLlmLoaded) {
+					this.cpuLlmWarm = false;
+				}
+
+				const cpuColdStart = !(cpuLlmLoaded && this.cpuLlmWarm);
 
 				this.engineStarted(route.ref, route.device);
 
@@ -1141,16 +1175,23 @@ export class TranslateService {
 				// The language model's GPU copy stopped in this attempt: the
 				// fallback question comes after the attempt's bookkeeping.
 				let stopped: string | null = null;
-				// This attempt was carried on to the CPU by the fallback's yes,
-				// and its caller armed the deadline for the GPU (two minutes,
-				// where a cold CPU start takes about three): it is kept alive
-				// until its first chunk, then by each chunk (`keepAlive`).
-				const carriedOver =
-					llmId !== null &&
-					route.device === "cpu" &&
-					this.cpuFallback === "yes" &&
-					this.cpuAnswers !== answersAtStart;
-				const alive = carriedOver ? this.keepAlive(() => yielded) : null;
+				// The language model on the CPU under the fallback's yes: its
+				// caller may have armed the deadline for the GPU (two minutes,
+				// where a cold CPU start takes about three) -- the request that
+				// was carried over, or a reading line routed to the GPU before
+				// the answer and run after it. Every chunk moves the counter;
+				// until the first one, an attempt carried over or starting the
+				// model cold is kept alive (`keepAlive`).
+				const fellBack =
+					llmId !== null && route.device === "cpu" && this.cpuFallback === "yes";
+				const carriedOver = fellBack && this.cpuAnswers !== answersAtStart;
+				const alive =
+					fellBack && (carriedOver || cpuColdStart)
+						? this.keepAlive(
+								() => yielded,
+								carriedOver ? this.cpuAnsweredAt : Date.now()
+						  )
+						: null;
 
 				try {
 					for await (const chunk of client.translate(
@@ -1166,7 +1207,11 @@ export class TranslateService {
 					)) {
 						yielded = true;
 
-						if (carriedOver) {
+						if (llmId !== null && route.device === "cpu") {
+							this.cpuLlmWarm = true;
+						}
+
+						if (fellBack) {
 							this.ticks++;
 						}
 

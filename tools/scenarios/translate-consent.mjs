@@ -194,6 +194,10 @@ export default async function run(page) {
 	await page.screenshot("consent-fake-question");
 	// Past the overlay's fade-in before the click.
 	await page.sleep(500);
+	// The download question opened by itself: no answer before it is armed (ConfirmDialog.vue ARM_MS).
+	await page.waitFor(`!!document.querySelector("#confirm-dialog[data-armed]")`, {
+		label: "the download question armed",
+	});
 	await page.click("#confirm-dialog .btn-cancel");
 
 	// The question came over the sheet the switch was thrown in; put it away.
@@ -270,6 +274,10 @@ export default async function run(page) {
 	await page.waitFor(OPEN, {label: "the question after a Retry"});
 	// Past the overlay's fade-in before the click.
 	await page.sleep(500);
+	// The download question opened by itself: no answer before it is armed (ConfirmDialog.vue ARM_MS).
+	await page.waitFor(`!!document.querySelector("#confirm-dialog[data-armed]")`, {
+		label: "the download question armed",
+	});
 	await page.click("#confirm-dialog .btn-confirm");
 	await page.waitFor(
 		`(() => { const m = ${rowOf(

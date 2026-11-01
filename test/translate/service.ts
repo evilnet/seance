@@ -2420,45 +2420,63 @@ describe("translate/service", () => {
 		}
 
 		/** The reading queue as reader.ts builds it, deadline and all; `updates` by line id. */
-		function readingQueue(r: ReturnType<typeof rig>) {
+		function readingQueue(
+			r: ReturnType<typeof rig>,
+			options: {lines?: string[]; staleGpuRoute?: boolean} = {}
+		) {
 			const updates: [number, QueueUpdate][] = [];
 			const queue = new TranslateQueue({
+				// `staleGpuRoute`: every line was routed to the GPU before the
+				// answer (the queue keeps the device it was routed for).
 				route: (from, to, hint) =>
-					r.service
-						.route(from, to, hint)
-						.then((route) =>
-							route ? {engine: route.ref.engine, device: route.device} : null
-						),
+					options.staleGpuRoute
+						? Promise.resolve({engine: "llm" as const, device: "gpu" as const})
+						: r.service
+								.route(from, to, hint)
+								.then((route) =>
+									route ? {engine: route.ref.engine, device: route.device} : null
+								),
 				translate: (req, signal) => r.service.translate(req, signal),
 				priority: () => 0,
 				arrivals: () => 0,
 				onUpdate: (id, update) => updates.push([id, update]),
 				loadTicks: () => r.service.loadTicks(),
 			});
-			const p = protect("Hallo");
+			const texts = options.lines ?? ["Hallo"];
 
-			queue.enqueue({
-				id: 1,
-				chanId: 1,
-				text: p.text,
-				spans: p.spans,
-				meta: p.meta,
-				from: "de",
-				to: "en",
-				context: emptyContext(),
-				arrivalsAtEnqueue: 0,
-				single: true,
+			texts.forEach((line, i) => {
+				const p = protect(line);
+
+				queue.enqueue({
+					id: i + 1,
+					chanId: 1,
+					text: p.text,
+					spans: p.spans,
+					meta: p.meta,
+					from: "de",
+					to: "en",
+					context: emptyContext(),
+					arrivalsAtEnqueue: 0,
+					single: texts.length === 1,
+				});
 			});
 
-			return {last: () => updates.filter(([id]) => id === 1).pop()?.[1]};
+			const lastOf = (id: number) => updates.filter(([n]) => n === id).pop()?.[1];
+
+			return {last: () => lastOf(1), lastOf};
 		}
 
-		/** The language model on the CPU keeps its first chunk back for `ms`. */
-		function slowCpuStart(r: ReturnType<typeof rig>, ms: number) {
+		/**
+		 * The language model on the CPU keeps its first chunk back for `ms`;
+		 * `once`, only on its first request (a cold start, then warm).
+		 */
+		function slowCpuStart(r: ReturnType<typeof rig>, ms: number, once = false) {
 			const original = r.llm.translate.bind(r.llm);
+			let held = false;
 
 			r.llm.translate = async function* (req, signal) {
-				if (req.device === "cpu") {
+				if (req.device === "cpu" && !(once && held)) {
+					held = true;
 					await new Promise<void>((resolve) => setTimeout(resolve, ms));
 				}
 
@@ -2736,7 +2754,59 @@ describe("translate/service", () => {
 			r.service.dispose();
 		});
 
-		it("only the carried-over attempt keeps deadlines alive, not later CPU requests", async () => {
+		it("about four minutes, even answered a minute before a deadline check and with timers late", async () => {
+			const q = question();
+			const r = rig("gpu", true, LLM_ONLY, {askCpuFallback: q.askCpuFallback});
+			clock = r.clock;
+			r.llm.failLoad = new Error(LOST);
+			slowCpuStart(r, 225 * 1000);
+
+			const line = readingQueue(r);
+
+			// The queue armed its deadline at about 0; answered 61 s before
+			// its first check, so the check right after the half-period tick
+			// is the one that must still see a fresh tick.
+			await r.clock.tickAsync(REQUEST_TIMEOUT_MS - 61 * 1000);
+			q.answer("once");
+			await r.clock.tickAsync(0);
+			// Timers in a page fire late: every tick's own clock reading runs
+			// a little ahead of the moment it was scheduled for.
+			r.clock.setSystemTime(Date.now() + 5);
+			await r.clock.tickAsync(225 * 1000 + 100);
+			expect(line.last()).to.deep.include({status: "done", text: "llm:Hallo"});
+			r.service.dispose();
+		});
+
+		it("a line routed to the GPU before the answer, run after it on a cold CPU, is kept alive", async () => {
+			const q = question();
+			const r = rig("gpu", true, LLM_ONLY, {askCpuFallback: q.askCpuFallback});
+			clock = r.clock;
+			r.llm.failLoad = new Error(LOST);
+
+			// The carried-over batch is refused before the CPU model loads.
+			const batch = failure(
+				r.service.translate({...base, text: "", lines: ["1", "2", "3", "4", "5", "6"]})
+			);
+
+			await r.clock.tickAsync(10);
+			q.answer("once");
+			expect(await batch).to.equal(BATCH_REFUSED);
+
+			// A 2-line group the queue routed to the GPU: a GPU deadline,
+			// and its first chunk 150 s into a cold CPU start whose load
+			// reports no progress (none to re-arm the deadline with).
+			slowCpuStart(r, 150 * 1000, true);
+			r.llm.loadTicks = 0;
+
+			const group = readingQueue(r, {lines: ["Eins", "Zwei"], staleGpuRoute: true});
+
+			await r.clock.tickAsync(150 * 1000 + 1000);
+			expect(group.lastOf(1)).to.deep.include({status: "done"});
+			expect(group.lastOf(2)).to.deep.include({status: "done"});
+			r.service.dispose();
+		});
+
+		it("a warm CPU request under the yes still moves the counter with each chunk", async () => {
 			const q = question();
 			const r = rig("gpu", true, LLM_ONLY, {askCpuFallback: q.askCpuFallback});
 			clock = r.clock;
@@ -2750,9 +2820,8 @@ describe("translate/service", () => {
 
 			const ticks = r.service.loadTicks();
 
-			// Loaded already: a later request on the CPU streams without moving the counter.
 			expect(await text(r.service.translate({...base, text: "Welt"}))).to.equal("llm:Welt");
-			expect(r.service.loadTicks()).to.equal(ticks);
+			expect(r.service.loadTicks()).to.be.greaterThan(ticks);
 			r.service.dispose();
 		});
 

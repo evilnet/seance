@@ -1234,6 +1234,10 @@ export default async function run(page) {
 		await page.screenshot("consent-question");
 		// Past the overlay's fade-in before the click.
 		await page.sleep(500);
+		// The download question opened by itself: no answer before it is armed (ConfirmDialog.vue ARM_MS).
+		await page.waitFor(`!!document.querySelector("#confirm-dialog[data-armed]")`, {
+			label: "the download question armed",
+		});
 		await page.click("#confirm-dialog .btn-cancel");
 
 		if (MOBILE) {
@@ -1292,6 +1296,10 @@ export default async function run(page) {
 		page.check(`consent: a Retry asks once more (${again})`, again === 2);
 		// Past the overlay's fade-in before the click.
 		await page.sleep(500);
+		// The download question opened by itself: no answer before it is armed (ConfirmDialog.vue ARM_MS).
+		await page.waitFor(`!!document.querySelector("#confirm-dialog[data-armed]")`, {
+			label: "the download question armed",
+		});
 		await page.click("#confirm-dialog .btn-cancel");
 		await page.waitFor(
 			`!!document.querySelector('[data-consent-retry] .msg-translation[data-status="failed"]')`,
