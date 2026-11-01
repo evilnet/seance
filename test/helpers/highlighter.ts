@@ -158,6 +158,45 @@ describe("highlighter — markup", () => {
 	});
 });
 
+describe("highlighter — guessLanguage reads a script's #! line", () => {
+	const scripts: [string, string][] = [
+		["#!/bin/bash\necho hi\nls -la", "bash"],
+		["#!/bin/sh\nset -e\nmake", "bash"],
+		["#! /bin/zsh\nprint hi", "bash"],
+		["#!/usr/bin/env python3\nprint(1)\nx = 2", "python"],
+		["#!/usr/bin/python3.11 -u\nprint(1)", "python"],
+		["#!/usr/bin/env pypy3\nprint(1)", "python"],
+		["#!/usr/bin/env -S node --no-warnings\nconsole.log(1)", "javascript"],
+		["#!/usr/bin/env LANG=C perl\nprint 1;", "perl"],
+		["#!/usr/local/bin/ruby2.7\nputs 1", "ruby"],
+		["#!/usr/bin/env deno\nconsole.log(1)", "typescript"],
+		["\n#!/usr/bin/env lua\nprint(1)", "lua"],
+	];
+
+	for (const [code, lang] of scripts) {
+		it(`${code.trim().split("\n")[0]} → ${lang}`, async () => {
+			expect(await guessLanguage(code)).to.equal(lang);
+		});
+	}
+
+	it("names nothing for an interpreter it does not know", async () => {
+		expect(await guessLanguage("#!/usr/bin/env frobnicate\nfrob 1\nfrob 2")).to.equal(
+			undefined
+		);
+		expect(await guessLanguage("#!/usr/bin/env\nnothing named")).to.equal(undefined);
+	});
+
+	it("still needs MIN_GUESS_LINES", async () => {
+		expect(await guessLanguage("#!/bin/sh")).to.equal(undefined);
+	});
+
+	it("reads #! only at the start of the block", async () => {
+		expect(await guessLanguage("hello there\n#!/bin/sh\nnothing to see here")).to.equal(
+			undefined
+		);
+	});
+});
+
 describe("highlighter — guessLanguage sees markup by its shape", () => {
 	// flourite scores markup badly: these all used to come back undefined or,
 	// worse, confidently wrong.
