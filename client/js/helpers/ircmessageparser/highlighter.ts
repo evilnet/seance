@@ -143,6 +143,15 @@ export async function guessLanguage(code: string): Promise<string | undefined> {
 		return undefined;
 	}
 
+	// A script says what runs it, and flourite cannot be asked: it reads only
+	// `#!/usr/bin/env <name>` and `#!/bin/bash`, and answers those with no
+	// points at all, which `confidence` takes for no answer.
+	const interpreted = shebangLanguage(code);
+
+	if (interpreted) {
+		return interpreted;
+	}
+
 	// A document that opens with a tag and closes it is not in doubt, and
 	// flourite is at its worst here: plain XML ties with C, a POM reads as
 	// Julia. Deciding by shape also spares the guesser's chunk.
@@ -170,6 +179,71 @@ export async function guessLanguage(code: string): Promise<string | undefined> {
 	}
 
 	return normalizeLang(guess.language);
+}
+
+// A `#!` line: the interpreter's path, then whatever follows it
+const SHEBANG = /^\s*#![ \t]*(\S+)(?:[ \t]+([^\n]*))?/;
+
+// The interpreters a `#!` line names, by the name they run as with any
+// version left off (`python3.11`, `ruby2.7`), and the language they read.
+const INTERPRETERS: Record<string, string> = {
+	sh: "bash",
+	bash: "bash",
+	dash: "bash",
+	ash: "bash",
+	ksh: "bash",
+	zsh: "bash",
+	python: "python",
+	pypy: "python",
+	node: "javascript",
+	nodejs: "javascript",
+	bun: "javascript",
+	deno: "typescript",
+	"ts-node": "typescript",
+	ruby: "ruby",
+	perl: "perl",
+	php: "php",
+	lua: "lua",
+	luajit: "lua",
+	rscript: "r",
+	pwsh: "powershell",
+	julia: "julia",
+	groovy: "groovy",
+	elixir: "elixir",
+	make: "makefile",
+};
+
+// The language a script's `#!` line names, as a Prism id. `env` is looked
+// past, with its options and `NAME=value` settings (`env -S node --flag`).
+function shebangLanguage(code: string): string | undefined {
+	const line = SHEBANG.exec(code);
+
+	if (!line) {
+		return undefined;
+	}
+
+	const words = (line[2] ?? "").split(/\s+/).filter(Boolean);
+	let program: string | undefined = baseName(line[1]);
+
+	if (program === "env") {
+		program = words.find((word) => !word.startsWith("-") && !word.includes("="));
+	}
+
+	if (!program) {
+		return undefined;
+	}
+
+	const id =
+		INTERPRETERS[
+			baseName(program)
+				.toLowerCase()
+				.replace(/[\d.]+$/, "")
+		];
+	return id && languages[id] ? id : undefined;
+}
+
+function baseName(path: string): string {
+	return path.slice(path.lastIndexOf("/") + 1);
 }
 
 // How a markup document opens: an XML declaration, a doctype, a comment, or

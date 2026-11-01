@@ -36,7 +36,7 @@ function redactFailed(client: IrcClient, msg: IrcMessage): void {
 	const [, code = "", ...rest] = msg.params;
 	const description = rest.length > 0 ? rest[rest.length - 1] : "";
 	const [target, msgid] = rest.slice(0, -1);
-	const why = REDACT_ERRORS[code.toUpperCase()] ?? description ?? code;
+	const why = REDACT_ERRORS[code.toUpperCase()] ?? (description || code);
 	const edit = msgid ? client.rejectEdit(msgid) : undefined;
 	const chan = edit ?? (target ? client.findChannel(target) : undefined) ?? client.lobby;
 

@@ -12,6 +12,7 @@ import type {IrcClient} from "../client";
 import type {IrcMessage} from "../message";
 import type {Handler} from "../types";
 import {AWAY_STAR} from "../presence";
+import {isIp} from "../profiles/report";
 
 export interface WhoisData {
 	nick: string;
@@ -221,16 +222,34 @@ const whoisHost: Handler = (client, msg) => {
 	}
 };
 
-// RPL_WHOISACTUALLY: <me> <nick> [<user>@]<host> <ip> :Actual user@host, Actual IP
+// RPL_WHOISACTUALLY, in two shapes: ircu and nefarious2 send
+// `<me> <nick> [<user>@]<host> <ip> :Actual user@host, Actual IP`; the
+// ratbox family (Charybdis, Solanum) sends `<me> <nick> <ip> :actually using
+// host`, the IP alone.
 const whoisActually: Handler = (client, msg) => {
 	const data = record(client, msg);
+
+	if (!data) {
+		return;
+	}
+
+	if (msg.params.length === 4) {
+		const ip = msg.params[2];
+
+		if (isIp(ip)) {
+			data.actual_ip = ip;
+		}
+
+		return;
+	}
+
 	const userHost = msg.params[msg.params.length - 3] ?? "";
 	const ip = msg.params[msg.params.length - 2] ?? "";
 	const at = userHost.indexOf("@");
 	const host = userHost.slice(at + 1);
 
 	// UnrealIRCd reuses 338 for something else; ignore it when nothing parses.
-	if (data && ip && host && msg.params.length >= 4) {
+	if (ip && host && msg.params.length >= 5) {
 		data.actual_ip = ip;
 		data.actual_hostname = host;
 

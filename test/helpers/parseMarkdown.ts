@@ -274,6 +274,22 @@ describe("markdown — code block", () => {
 		expect(md("````\na\n```\n````")).to.deep.equal([{text: "a\n```", codeBlock: true}]);
 	});
 
+	it("keeps two fences written back to back as two blocks", () => {
+		const {fragments} = applyMarkdown(parseStyle("```\na\n```\n```\nb\n```"));
+
+		expect(fragments.map((fragment) => fragment.text)).to.deep.equal(["a", "b"]);
+		expect(fragments[0].codeId).to.be.a("number");
+		expect(fragments[0].codeId).to.not.equal(fragments[1].codeId);
+	});
+
+	it("keeps one block's pieces under one id", () => {
+		const {fragments} = applyMarkdown(parseStyle("```\na \x02b\x02\n```"));
+
+		expect(fragments).to.have.length(2);
+		expect(fragments[0].codeId).to.be.a("number");
+		expect(fragments[1].codeId).to.equal(fragments[0].codeId);
+	});
+
 	it("carries the file a `lang:file` tag named", () => {
 		expect(md("```js:index.ts\nlet x = 1;\n```")).to.deep.equal([
 			{text: "let x = 1;", codeBlock: true, lang: "js", file: "index.ts"},

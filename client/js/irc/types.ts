@@ -82,7 +82,7 @@ export interface CommandContext {
 	chan: Channel;
 	/** Lower-cased command name without the slash (`msg`, `me`, ...). */
 	cmd: string;
-	/** Space-split arguments (may contain empty strings for repeated spaces). */
+	/** The words after the command name; a run of spaces is one separator. */
 	args: string[];
 	/** Everything after the command name, untrimmed. */
 	rest: string;

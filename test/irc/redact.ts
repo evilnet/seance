@@ -208,6 +208,12 @@ describe("Message deletion (REDACT, handlers/redact.ts)", function () {
 
 			h.transport.line("FAIL REDACT SOMETHING_NEW #seance m1 :Server says no");
 			expect(h.lastMessage().text).to.equal("Could not delete message: Server says no");
+
+			// A code it does not know, and no words from the server: say the code
+			h.transport.line("FAIL REDACT SOMETHING_NEW");
+			expect(h.lastMessage().text).to.equal("Could not delete message: SOMETHING_NEW");
+			h.transport.line("FAIL REDACT SOMETHING_NEW bob m1 :");
+			expect(h.lastMessage().text).to.equal("Could not delete message: SOMETHING_NEW");
 		});
 	});
 });
