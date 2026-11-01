@@ -260,11 +260,13 @@ export default defineComponent({
 		// pinch, wherever they land (the fitted image on a phone is a small
 		// part of the screen, and a pinch starting beside it used to do
 		// nothing and then close the viewer). Only a tap closes: one finger
-		// that barely moved, on an image at its fitted size. The touchend is
-		// cancelled, so the compatibility mouse events (whose mouseup closes
-		// on a click) and the click never follow; a touch on a button starts
-		// no gesture and keeps its click. No touch leaves the viewer: the
-		// sidebar's swipe and the two-finger channel swipe listen on <body>.
+		// that barely moved, anywhere on an image at its fitted size, and on
+		// the backdrop beside a zoomed one (a tap on the zoomed image itself
+		// does nothing). The touchend is cancelled, so the compatibility
+		// mouse events (whose mouseup closes on a click) and the click never
+		// follow; a touch on a button starts no gesture and keeps its click.
+		// No touch leaves the viewer: the sidebar's swipe and the two-finger
+		// channel swipe listen on <body>.
 		type Gesture = {
 			ref: {x: number; y: number; scale: number};
 			base: {x: number; y: number; scale: number};
@@ -327,6 +329,20 @@ export default defineComponent({
 			correctPosition();
 		};
 
+		// Whether a point is off the image as it is drawn now, zoom and pan
+		// included: the backdrop around it.
+		const outsideImage = (point: {x: number; y: number}) => {
+			const rect = image.value?.getBoundingClientRect();
+
+			return (
+				!!rect &&
+				(point.x < rect.left ||
+					point.x > rect.right ||
+					point.y < rect.top ||
+					point.y > rect.bottom)
+			);
+		};
+
 		const onTouchEnd = (e: TouchEvent) => {
 			if (!gesture) {
 				return;
@@ -344,7 +360,7 @@ export default defineComponent({
 				!gesture.multi &&
 				gesture.moved < TAP_SLOP_PX &&
 				Date.now() - gesture.startedAt < TAP_MAX_MS &&
-				transform.value.scale <= fitScale * 1.05;
+				(transform.value.scale <= fitScale * 1.05 || outsideImage(gesture.origin));
 
 			endGesture();
 
