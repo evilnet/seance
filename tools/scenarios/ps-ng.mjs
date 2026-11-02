@@ -98,7 +98,7 @@
 // 100 ms (the fire's wake-ups), that counts a call whose stack names
 // `scene-ps.js` (NG's chunk), so Vue's never count.
 //
-//   NODE_ENV=production npx webpack && python3 -m http.server -d public 8041 &
+//   NODE_ENV=production pnpm build && python3 -m http.server -d public 8041 &
 //   SEANCE_HTTP_PORT=8041 node tools/browser-drive.mjs tools/scenarios/ps-ng.mjs \
 //     --out=tmp/ps-ng-shots/plan2
 //   (and again with --mobile --width=390 --height=844, and as a landscape

@@ -23,7 +23,7 @@ let fengariPromise: Promise<typeof FengariType> | null = null;
 
 export function getFengari(): Promise<typeof FengariType> {
 	if (!fengariPromise) {
-		fengariPromise = import(/* webpackChunkName: "fengari" */ "fengari");
+		fengariPromise = import("fengari");
 	}
 
 	return fengariPromise;

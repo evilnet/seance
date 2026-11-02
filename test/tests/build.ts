@@ -5,6 +5,14 @@ import {THEME_PAIRS} from "../../client/js/helpers/themeAppearance";
 
 describe("public folder", function () {
 	const publicFolder = path.join(process.cwd(), "public");
+	// The entry is content-hashed (vite.config.mts: lazy chunks import it by
+	// name, so it cannot carry `?v=`).
+	const entry = () =>
+		fs.readdirSync(path.join(publicFolder, "js")).find((f) => /^bundle-[\w-]+\.js$/.test(f));
+	// Whether minified code holds the string literal `text`: Oxc may write a
+	// string with backticks rather than double quotes.
+	const hasString = (code: string, text: string) =>
+		code.includes(`"${text}"`) || code.includes(`\`${text}\``);
 
 	it("font awesome files are copied", function () {
 		expect(fs.existsSync(path.join(publicFolder, "fonts", "fa-solid-900.woff"))).to.be.true;
@@ -60,13 +68,12 @@ describe("public folder", function () {
 	});
 
 	it("javascript files are built", function () {
-		expect(fs.existsSync(path.join(publicFolder, "js", "bundle.js"))).to.be.true;
+		expect(entry(), "js/bundle-<hash>.js").to.be.a("string");
 		expect(fs.existsSync(path.join(publicFolder, "js", "push.js"))).to.be.true;
 	});
 
 	it("style files are built", function () {
 		expect(fs.existsSync(path.join(publicFolder, "css", "style.css"))).to.be.true;
-		expect(fs.existsSync(path.join(publicFolder, "css", "style.css.map"))).to.be.true;
 
 		for (const theme of [
 			"coffee",
@@ -99,14 +106,13 @@ describe("public folder", function () {
 			expect(contents.includes("var(--body-color)")).to.be.true;
 			expect(contents.includes("url(../fonts/fa-solid-900.woff2)")).to.be.true;
 			expect(contents.includes(".tooltipped{position:relative}")).to.be.true;
-			expect(contents.includes("sourceMappingURL")).to.be.true;
 
 			done();
 		});
 	});
 
 	it("javascript map is created", function () {
-		expect(fs.existsSync(path.join(publicFolder, "js", "bundle.js.map"))).to.be.true;
+		expect(fs.existsSync(path.join(publicFolder, "js", `${entry()}.map`))).to.be.true;
 	});
 
 	it("loading-error-handlers.js is copied", function () {
@@ -120,7 +126,8 @@ describe("public folder", function () {
 			"utf8"
 		);
 		expect(contents).not.to.include("__THEME_PAIRS__");
-		expect(contents).to.include(JSON.stringify(THEME_PAIRS));
+		const pairs = JSON.stringify(THEME_PAIRS);
+		expect(contents.includes(pairs) || contents.includes(pairs.replace(/"/g, "`"))).to.be.true;
 	});
 
 	it("manifest carries the installed-app fields Chrome needs", function () {
@@ -179,12 +186,14 @@ describe("public folder", function () {
 			expect(err).to.be.null;
 
 			// Offline shell: index.html and the manifest are precached on install
-			expect(contents.includes('"index.html"')).to.be.true;
-			expect(contents.includes('"manifest.webmanifest"')).to.be.true;
+			expect(hasString(contents, "index.html")).to.be.true;
+			expect(hasString(contents, "manifest.webmanifest")).to.be.true;
 			// ...and the bundle, so an installed app opens offline right away
-			expect(contents.includes("js/bundle.js?v=")).to.be.true;
+			expect(hasString(contents, `js/${entry()}`)).to.be.true;
+			// ...and what the entry imports statically (Rolldown's runtime).
+			expect(hasString(contents, "js/rolldown-runtime.js")).to.be.true;
 			expect(contents.includes("css/style.css?v=")).to.be.true;
-			expect(contents.includes('addEventListener("notificationclick"')).to.be.true;
+			expect(contents).to.match(/addEventListener\(["`]notificationclick["`]/);
 
 			// Nothing is left that expects the old Node server: no socket.io and
 			// none of its paths (the old worker kept `storage/` and `uploads/`
@@ -196,7 +205,7 @@ describe("public folder", function () {
 
 			// Web Push (draft/webpush, phase 2 slice 0): the push handler is
 			// back — the ircd delivers raw lines now (push-subscription.md).
-			expect(contents.includes('addEventListener("push"')).to.be.true;
+			expect(contents).to.match(/addEventListener\(["`]push["`]/);
 
 			done();
 		});
@@ -208,10 +217,11 @@ describe("public folder", function () {
 		// carry it too so the precache keys match the page's requests.
 		const html = fs.readFileSync(path.join(publicFolder, "index.html"), "utf8");
 		const worker = fs.readFileSync(path.join(publicFolder, "service-worker.js"), "utf8");
-		const bundle = fs.readFileSync(path.join(publicFolder, "js", "bundle.js"), "utf8");
+		const bundle = fs.readFileSync(path.join(publicFolder, "js", entry()!), "utf8");
 
-		// Minified in a production build (`const cacheName="…"`).
-		const inWorker = /const cacheName\s*=\s*"([^"]+)"/.exec(worker);
+		// Minified in a production build (`const cacheName="…"`, or with
+		// backticks).
+		const inWorker = /const cacheName\s*=\s*["`]([^"`]+)["`]/.exec(worker);
 		expect(inWorker, "cacheName in service-worker.js").to.not.be.null;
 		const token = inWorker![1];
 		expect(token).to.match(/^(dev|[0-9a-f]{10})$/);
@@ -220,7 +230,8 @@ describe("public folder", function () {
 		expect(inHtml).to.not.be.empty;
 		expect(new Set(inHtml)).to.deep.equal(new Set([token]));
 
-		expect(bundle.includes(`"${token}"`), "the bundle carries the token").to.be.true;
+		// Oxc's minifier may write the string as a template literal.
+		expect(hasString(bundle, token), "the bundle carries the token").to.be.true;
 	});
 
 	it("the Lua chunk carries the pattern step budget", function () {

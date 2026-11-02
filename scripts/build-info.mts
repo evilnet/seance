@@ -1,12 +1,12 @@
-// What webpack.config.ts and vite.config.ts share: the build's identity,
-// the deploy's branding, and the text transforms applied to the files
-// copied into public/.
+// What vite.config.mts and vite.push.config.mts share: the build's identity
+// and its `process.env.*` defines, the deploy's branding, and the text
+// transforms applied to the files copied into public/.
 import * as path from "path";
 import {execFileSync} from "child_process";
 import {createHash} from "crypto";
 import {readFileSync} from "fs";
 
-const root = path.resolve(__dirname, "..");
+const root = path.resolve(import.meta.dirname, "..");
 
 // What a build is, for the Help window and for telling one build from the
 // next (docs/resources/pwa.md § Updates).
@@ -74,6 +74,23 @@ export function resolveBuild(): BuildIdentity {
 
 export const buildIdentity = resolveBuild();
 export const version = buildIdentity.version;
+
+const isProduction = process.env.NODE_ENV === "production";
+
+/** The token that marks one deploy; `dev` (never an update) outside production. */
+export const buildToken = isProduction ? buildIdentity.build : "dev";
+
+/** What `process.env.*` reads in client code are replaced with. */
+export const defines = {
+	"process.env.NODE_ENV": JSON.stringify(isProduction ? "production" : "development"),
+	"process.env.SEANCE_VERSION": JSON.stringify(version),
+	"process.env.SEANCE_RELEASE": JSON.stringify(buildIdentity.release),
+	"process.env.SEANCE_COMMIT": JSON.stringify(buildIdentity.commit ?? ""),
+	"process.env.SEANCE_TRACK": JSON.stringify(buildIdentity.track),
+	"process.env.SEANCE_BRANCH": JSON.stringify(buildIdentity.branch ?? ""),
+	"process.env.SEANCE_BUILD": JSON.stringify(buildToken),
+	"process.env.FENGARICONF": "undefined",
+};
 
 // Build-time branding. `client/config.json` is the same file the app fetches
 // at runtime (copied to `public/config.json`); the values below only feed the

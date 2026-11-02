@@ -19,8 +19,8 @@ pnpm, at the version `package.json`'s `packageManager` names (`npm i -g pnpm@12.
 | Task                                                      | Command                                       |
 | --------------------------------------------------------- | --------------------------------------------- |
 | Install deps                                              | `pnpm install`                                |
-| Build the SPA (webpack → `public/`)                       | `pnpm build` (`NODE_ENV=production` for prod) |
-| Webpack watch                                             | `pnpm watch`                                  |
+| Build the SPA (Vite → `public/`)                          | `pnpm build` (`NODE_ENV=production` for prod) |
+| Rebuild on change                                         | `pnpm watch`                                  |
 | Serve the built SPA                                       | `python3 -m http.server -d public 8000`       |
 | Lint everything (eslint + prettier + stylelint)           | `pnpm lint`                                   |
 | Auto-format                                               | `pnpm format:prettier`                        |
@@ -41,7 +41,7 @@ NODE_ENV=test pnpm exec mocha --config=test/.mocharc.yml test/irc/client.ts
 
 CI (`.github/workflows/ci.yml`) runs on every pull request and push to `develop`: a frozen-lockfile install, `pnpm lint`, the production build, `pnpm test:mocha`, and `tools/scenarios/smoke.mjs` (the built app boots in Chromium with no console error).
 
-`pnpm test:mocha` runs `webpack --mode=development` first because `test/tests/build.ts` inspects `public/`. Live tests (`test/irc/*.live.ts`) are `describe.skip` unless `SEANCE_IRC_URL` is set:
+`pnpm test:mocha` runs the production-shaped `pnpm build` first because `test/tests/build.ts` inspects `public/`. Live tests (`test/irc/*.live.ts`) are `describe.skip` unless `SEANCE_IRC_URL` is set:
 
 ```sh
 SEANCE_IRC_URL=wss://localhost:8443/ NODE_ENV=test \
@@ -71,7 +71,7 @@ Two TypeScript trees (`client/`, `shared/`) share `tsconfig.base.json`; `tsconfi
 
 ### `client/` — the app
 
-Vue 3 + Vuex + Vue Router SPA built by webpack (`webpack.config.ts`) into `public/`. Components in `client/components/` (`.vue` SFCs); app logic in `client/js/` (`store.ts`, `router.ts`, `store-settings.ts`, `commands/` for UI-only slash commands, `helpers/`); themes in `client/themes/` (one CSS file each, `coffee` is the default; `docs/resources/themes.md`); service worker `client/service-worker.js` (offline shell, web push: one raw IRC line per push, parsed/stripped/merged by `client/js/push/*`, bundled as `js/push.js` and loaded with `importScripts`; see `docs/projects/push-payload-multiline.md`).
+Vue 3 + Vuex + Vue Router SPA built by Vite (`vite.config.mts`, helpers in `scripts/build-info.mts`; the push worker is `vite.push.config.mts`) into `public/`. Components in `client/components/` (`.vue` SFCs); app logic in `client/js/` (`store.ts`, `router.ts`, `store-settings.ts`, `commands/` for UI-only slash commands, `helpers/`); themes in `client/themes/` (one CSS file each, `coffee` is the default; `docs/resources/themes.md`); service worker `client/service-worker.js` (offline shell, web push: one raw IRC line per push, parsed/stripped/merged by `client/js/push/*`, bundled as `js/push.js` and loaded with `importScripts`; see `docs/projects/push-payload-multiline.md`).
 
 - **`client/js/boot.ts`** — boot sequence: `loadBranding()` (`config.json`) → commit static `configuration.ts` → apply stored settings → `appLoaded` → drop splash → handle `?uri=`/query params → route to the last channel or `Connect` → `autoconnectSavedNetworks()`, last, once the page has its route: the saved networks flagged autoconnect are dialed whatever page the URL opened on (a reload on Settings or Help brings them back too; the connect form no longer does this on mount). Importing `./irc/manager` registers the IRC bus handlers.
 - **Attention** — moved to `docs/resources/client-features.md` § Attention.
@@ -105,7 +105,7 @@ Vue 3 + Vuex + Vue Router SPA built by webpack (`webpack.config.ts`) into `publi
 - **Lua scripting** — moved to `docs/resources/client-features.md` § Lua scripting.
 - **`client/js/socket.ts`** — `EventBus`, an in-process replacement for socket.io-client. `on/once/off` subscribe to server→client events, `dispatch(event, payload)` fires them; `emit(event, payload)` is routed to the single `handle(event, fn)` registered for it (unhandled emits `console.warn`). The `socket.on/emit` call-site shape across `socket-events/*` and components is kept **on purpose** so the IRC layer plugs in without touching ~50 call sites. No networking lives here.
 - **`client/js/socket-events/*`** — the bus consumers that mutate the store (`init`, `msg`, `join`, `names`, `network`, `more`, ...). `index.ts` lists them.
-- **`client/js/branding.ts`** + **`client/config.json`** — deploy branding schema/loader; `config.json` is copied to `public/` and fetched at runtime, and read by webpack for `index.html`/manifest.
+- **`client/js/branding.ts`** + **`client/config.json`** — deploy branding schema/loader; `config.json` is copied to `public/` and fetched at runtime, and read by the build for `index.html`/manifest.
 
 ### `client/js/irc/` — the IRC layer
 

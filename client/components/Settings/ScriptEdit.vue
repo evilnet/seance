@@ -459,8 +459,7 @@ import type {Script} from "../../js/irc/scripting/types";
 import {scriptManager} from "../../js/irc/scripting/manager";
 import type {LuaEditor} from "../../js/helpers/luaEditor";
 
-const loadLuaEditor = () =>
-	import(/* webpackChunkName: "code-editor" */ "../../js/helpers/luaEditor");
+const loadLuaEditor = () => import("../../js/helpers/luaEditor");
 
 /**
  * One script, in an overlay over the settings (the route is a child of

@@ -1,6 +1,6 @@
 # Vite 8 sweep: what moving the client build off webpack takes
 
-_Survey, 2026-11-02. Status: **finished, nothing shipped.** Briefly stopped and then resumed the same day at rdrake's request, to close the spike's gaps (native shells, Safari/Firefox, a development build, the Pages workflow) and to say what the move improves. Read beside the stack audit (`docs/projects/stack-audit.md` on `claude/stack-audit-1b0a45`), which weighs Vite against Rspack and an updated webpack. Reopens the
+_Survey, 2026-11-02. Status: **migration under way** on branch `feat/vite8` (steps 1, 2 and 4 of the plan below; step 3 is the stack audit's TypeScript work). Earlier the same day: finished, nothing shipped. Briefly stopped and then resumed the same day at rdrake's request, to close the spike's gaps (native shells, Safari/Firefox, a development build, the Pages workflow) and to say what the move improves. Read beside the stack audit (`docs/projects/stack-audit.md` on `claude/stack-audit-1b0a45`), which weighs Vite against Rspack and an updated webpack. Reopens the
 toolchain spec shelved on 2026-09-11 (local branch
 `docs/toolchain-upgrade-spec`, `docs/projects/toolchain-upgrade.md`), which
 set Vite aside as a config rewrite for a dev loop we do not use. This page
@@ -248,6 +248,19 @@ Found on the way and **not caused by Vite** (both on the webpack build too):
    reports every SFC as "not a module" (20 errors, 5 files). How many real
    template errors exist is unknown until TypeScript is bumped; nothing
    checks `.vue` files today.
+8. **Copied scripts are not minified by Vite.** webpack's terser minified
+   every `.js` asset, copied ones included; Vite only minifies what it
+   bundles. The spike shipped `service-worker.js` at 90 KB (webpack: 30 KB)
+   and `loading-error-handlers.js` at 6.8 KB (2.6 KB). `vite.config.mts`
+   now runs them through `minifySync` (Oxc, the bundle's own minifier) as
+   classic scripts for `build.target`, back to 29.6 KB and 2.6 KB. Oxc
+   writes their strings with backticks too (item 2), so the build test and
+   `update-signal.mjs` accept either quote.
+9. **The entry has no `?v=`**, so anything that read the page's build from
+   the bundle's URL now reads it from `css/style.css?v=` (`update-signal.mjs`).
+10. Safari logs "`rolldown-runtime.js` was preloaded … but not used": Vite's
+    preload helper adds a `modulepreload` for the runtime when a lazy chunk
+    loads, though the entry already imported it. Harmless.
 
 ## The local `desktop/mac-translate` branch
 

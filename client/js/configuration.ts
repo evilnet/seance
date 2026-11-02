@@ -23,7 +23,7 @@ const configuration: SharedConfiguration = {
 	// The build's name, the release it is or follows, the commit it was
 	// made from and which build it is (the Pages workflow's `release`,
 	// `develop` or `pr<N>`, else the branch of a local build) — filled in by
-	// webpack (`resolveBuild`, from the release's tag; package.json carries
+	// the build (`resolveBuild`, from the release's tag; package.json carries
 	// no version); Help links them.
 	version: process.env.SEANCE_VERSION || "dev",
 	release: process.env.SEANCE_RELEASE || "dev",

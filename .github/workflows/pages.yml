@@ -15,7 +15,7 @@
 # the log) and `deploy` publishes. A merged or closed PR drops out of the
 # plan and so off the site.
 #
-# PR builds run code from the PR (`pnpm install`, webpack) under
+# PR builds run code from the PR (`pnpm install`, `pnpm build`) under
 # `pull_request_target`, which is what lets a PR from a fork be published to
 # the real site. That is why only PRs by the repository's own people
 # (OWNER, MEMBER, COLLABORATOR) or ones carrying the `preview` label are

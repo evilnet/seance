@@ -73,7 +73,7 @@ export type SceneLoader = () => Promise<SceneModule>;
 
 /** The themes that have a scene, by theme name: each is its own chunk, loaded only for that theme. */
 export const SCENES: Readonly<Record<string, SceneLoader>> = {
-	ps: () => import(/* webpackChunkName: "scene-ps" */ "./scenes/psng/scene"),
+	ps: () => import("./scenes/psng/scene"),
 };
 
 export interface SceneHost {

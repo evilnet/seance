@@ -1,6 +1,7 @@
 "use strict";
 
-// A webpack loader for fengari/src/lstrlib.js: puts a step budget on Lua's
+// A build-time patch to fengari/src/lstrlib.js (a transform in vite.config.mts):
+// puts a step budget on Lua's
 // pattern matcher. Fengari's `match` counts only its recursion depth
 // (MAXCCALLS), and a whole string.find/match/gmatch/gsub is one native call
 // the sandbox's instruction hook cannot interrupt, so a backtracking pattern
@@ -58,10 +59,4 @@ function patch(source) {
 	return source;
 }
 
-module.exports = function (source) {
-	return patch(source);
-};
-
-module.exports.patch = patch;
-module.exports.MAX_STEPS = MAX_STEPS;
-module.exports.ERROR = ERROR;
+module.exports = {patch, MAX_STEPS, ERROR};

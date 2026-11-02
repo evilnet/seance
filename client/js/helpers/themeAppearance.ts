@@ -7,7 +7,8 @@
 //
 // The pairs themselves are themePairs.json, `[dark, light]` each, because
 // the early loader (loading-error-handlers.js, which is copied rather than
-// bundled) needs them too: webpack.config.ts writes the same list into it.
+// bundled) needs them too: the build (vite.config.mts) writes the same list
+// into it.
 
 import pairs from "./themePairs.json";
 

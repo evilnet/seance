@@ -2,7 +2,7 @@
 // pushKeyChange policies, end to end in a real browser against the testnet
 // ircd (SASL + draft/webpush), on one network.
 //
-//   npx webpack && python3 -m http.server -d public 8001 &
+//   pnpm build && python3 -m http.server -d public 8001 &
 //   node tools/browser-drive.mjs tools/scenarios/push-renew.mjs [--chrome=…]
 //
 // Headless Chromium has no push service, so the Push API is faked per
