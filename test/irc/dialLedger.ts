@@ -6,7 +6,7 @@
  */
 
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import type {TransportOptions} from "../../client/js/irc/transport";
 import {FakeTransport, register, setup} from "./support";
 import {

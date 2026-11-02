@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import {IrcClient} from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";
 import {
