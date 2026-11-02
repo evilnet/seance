@@ -1,7 +1,8 @@
 /**
  * `/who [mask] [flags]`. Without arguments, the current channel. With
  * `WHOX` in ISUPPORT the query asks for the fields `handlers/who.ts` lays
- * out (`%tcuhsnfdar,<token>`: account names included), unless the user
+ * out (`%tcuhsnfdar,<token>`, appended to the flags when there are any:
+ * account names included), unless the user
  * wrote a `%` spec of their own, which is sent as typed and answered as
  * plain text. The result is one `who` message in the channel the mask
  * names when we are in it, otherwise where the command was typed.
@@ -45,7 +46,16 @@ const who: Command = {
 		const token = whox ? nextToken(client) : undefined;
 
 		if (token !== undefined) {
-			params.push(`%${WHOX_FIELDS},${token}`);
+			// The field spec belongs to the flags parameter (`xi%tcuhsnfdar,7`):
+			// ircu reads a third parameter as the mask instead, which would
+			// match `%tcuhsnfdar,7` against hosts and answer in plain 352s.
+			const spec = `%${WHOX_FIELDS},${token}`;
+
+			if (params.length > 1) {
+				params[1] += spec;
+			} else {
+				params.push(spec);
+			}
 		}
 
 		beginWho(client, {

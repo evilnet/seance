@@ -5152,11 +5152,17 @@ html[data-shell="native"] #footer {
 }
 
 /* No wider than the window: past that an item wraps instead of running off
- * the screen (ContextMenu.vue measures the menu at the left edge). */
+ * the screen (ContextMenu.vue measures the menu at the left edge). A long
+ * menu (a nick's oper actions at a large font step) on a short screen
+ * scrolls rather than running off the top; ContextMenu.vue clamps its top
+ * to the band. */
 #context-menu {
 	box-sizing: border-box;
 	min-inline-size: min(12rem, 100vw);
 	max-inline-size: 100vw;
+	max-height: 100%;
+	overflow-y: auto;
+	overscroll-behavior: contain;
 }
 
 #context-menu .context-menu-item {
