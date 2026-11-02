@@ -563,6 +563,23 @@ Harness: "service worker page notifications on a push worker"; browser
 check: `tools/scenarios/push-page-notification.mjs` (seeded subscription on
 the faked Push API, a bot's PM over a real ircd).
 
+### A replayed message is not the page's (2026-10-19)
+
+Reported as real alerts arriving as "This site has been updated in the
+background" while test PMs sent to a live page showed. The page recorded
+every pushable message in the seen ring, replayed ones included, but
+notifies only live ones (`data.replay` skips `notifyMessage`). The
+catch-up after a reconnect (`CHATHISTORY AFTER`, the bouncer replay)
+brings exactly what the server pushed while the page was away, and a
+waking device gets those pushes in the same burst: when the replay won the
+race the push was dropped as seen with nothing on its registration — a
+silent push, for the very alert it carried. `socket-events/msg.ts`: a
+replayed message is recorded only while the page is visible and focused on
+its own conversation (the user is reading it, and a visible tab owes Chrome
+no notification); otherwise its push shows. The same check now gates the
+Android shell's ring, which was fed for every message the page had not
+alerted about.
+
 ## Replying from a notification, and opening it (2026-09-04)
 
 Reported from a phone: a reply typed into a push notification never went
