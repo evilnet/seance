@@ -23,11 +23,7 @@ const ban: Command = {
 			return;
 		}
 
-		if (
-			cmd !== "banlist" &&
-			cmd !== "exceptlist" &&
-			(args.length === 0 || args[0].length === 0)
-		) {
+		if (cmd !== "banlist" && cmd !== "exceptlist" && args.length === 0) {
 			client.pushMessage(chan, {
 				type: MessageType.ERROR,
 				text: `Usage: /${cmd} <nick>`,

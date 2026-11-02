@@ -20,7 +20,7 @@ const kick: Command = {
 			return;
 		}
 
-		if (args.length === 0 || args[0].length === 0) {
+		if (args.length === 0) {
 			return;
 		}
 

@@ -21,7 +21,7 @@ const shortcuts: Record<string, string> = {
 const mode: Command = {
 	commands: ["mode", "umode", "op", "deop", "hop", "dehop", "voice", "devoice"],
 	input({client, chan, cmd, args}) {
-		const params = args.filter((arg) => arg.length > 0);
+		const params = [...args];
 
 		if (cmd === "umode") {
 			client.send(formatLine({command: "MODE", params: [client.nick, ...params]}));
