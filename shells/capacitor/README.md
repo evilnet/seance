@@ -49,6 +49,8 @@ Re-run `pnpm sync` after every root `pnpm build` (web assets) and after adding o
 
 Both `android/` and `ios/` are committed (as Capacitor recommends) so native customisations survive; the synced web assets, Gradle caches, SPM resolution state and build outputs are ignored via the root `.gitignore`. The root ESLint ignores `shells/capacitor/` (it has its own `tsconfig.json`; run `pnpm typecheck` here); Prettier formats this directory except the generated `android/` and `ios/` trees.
 
+A Debug build on a connected iPhone — web build, sync, `xcodebuild -allowProvisioningUpdates`, install and launch — is `tools/ios-device.sh [udid]` (the first paired iPhone by default). It needs an Apple ID signed into Xcode for the team in `ios/signing.xcconfig`; a free team's profile lapses after 7 days ("Seance is no longer available" on the phone), and a new certificate has to be trusted on the phone (Settings → General → VPN & Device Management) before the first launch.
+
 A simulator build from the command line, without signing:
 
 ```sh
