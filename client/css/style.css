@@ -422,6 +422,10 @@ button {
 	margin: 0;
 	outline: none;
 	padding: 0;
+
+	/* Written out: the minifier prefixes user-select for Safari, but not a
+	   CSS-wide keyword such as inherit. */
+	-webkit-user-select: inherit; /* stylelint-disable-line property-no-vendor-prefix */
 	user-select: inherit;
 	cursor: pointer;
 }

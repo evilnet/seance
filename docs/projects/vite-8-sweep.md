@@ -1,6 +1,6 @@
 # Vite 8 sweep: what moving the client build off webpack takes
 
-_Survey, 2026-11-02. Status: **migration under way** on branch `feat/vite8` (steps 1, 2 and 4 of the plan below; step 3 is the stack audit's TypeScript work). Earlier the same day: finished, nothing shipped. Briefly stopped and then resumed the same day at rdrake's request, to close the spike's gaps (native shells, Safari/Firefox, a development build, the Pages workflow) and to say what the move improves. Read beside the stack audit (`docs/projects/stack-audit.md` on `claude/stack-audit-1b0a45`), which weighs Vite against Rspack and an updated webpack. Reopens the
+_Survey, 2026-11-02. Status: **migration under way** on branch `feat/vite8` (steps 1, 2, 4 and 5 of the plan below; step 3 is the stack audit's TypeScript work). Earlier the same day: finished, nothing shipped. Briefly stopped and then resumed the same day at rdrake's request, to close the spike's gaps (native shells, Safari/Firefox, a development build, the Pages workflow) and to say what the move improves. Read beside the stack audit (`docs/projects/stack-audit.md` on `claude/stack-audit-1b0a45`), which weighs Vite against Rspack and an updated webpack. Reopens the
 toolchain spec shelved on 2026-09-11 (local branch
 `docs/toolchain-upgrade-spec`, `docs/projects/toolchain-upgrade.md`), which
 set Vite aside as a config rewrite for a dev loop we do not use. This page
@@ -233,8 +233,14 @@ Found on the way and **not caused by Vite** (both on the webpack build too):
    greps the bundle for a quoted string will too.
 3. **Lightning CSS rejects primer-tooltips' IE hack**
    (`@media (min-width: 0\0)`) and fails the build;
-   `css.lightningcss.errorRecovery: true` drops that one rule. cssnano still
-   runs from `postcss.config.js`, so CSS is minified twice until step 5.
+   `css.lightningcss.errorRecovery: true` drops that one rule. Since step 5
+   Lightning CSS is the only CSS tool (no `postcss.config.js`). Against
+   cssnano + postcss-preset-env the only properties lost are fallbacks the
+   targets do not need (`font-feature-settings: "tnum"` beside
+   `font-variant-numeric`, a plain `text-decoration` before
+   `underline dotted`). It does not prefix a CSS-wide keyword:
+   `user-select: inherit` got no `-webkit-` twin, so `style.css` writes
+   that one out.
 4. **TypeScript 5.4.5 cannot parse `@vitejs/plugin-vue`'s `.d.mts`**
    (`export {… as "module.exports"}`, TS 5.6 syntax), so `tsc -p tsconfig.json` fails on `vite.config.ts` even with `skipLibCheck`; and
    `moduleResolution: "node"` cannot see Vite's types at all (`exports`
