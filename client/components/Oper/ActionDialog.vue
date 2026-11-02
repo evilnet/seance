@@ -278,6 +278,7 @@ import {computed, defineComponent, nextTick, onMounted, onUnmounted, ref, watch}
 import eventbus from "../../js/eventbus";
 import {useStore} from "../../js/store";
 import {operRequest, servicesBan} from "../../js/helpers/operRequest";
+import {clientForNetwork} from "../../js/irc/manager";
 import {hasPriv, type OperActionRequest, userhostItem, userIp} from "../../js/helpers/operMenu";
 import {
 	BAN_MAX_SECONDS,
@@ -535,12 +536,15 @@ export default defineComponent({
 				return;
 			}
 
+			// The network's casemapping: `[bob]` is `{bob}` on rfc1459.
+			const client = clientForNetwork(n.uuid);
+			const same = client ? (x: string, y: string) => client.namesEqual(x, y) : undefined;
 			// This dialog's answer only: one closed since (or reopened for
 			// the same nick on another network) has moved the generation on.
 			const asked = generation;
 			looking.value = true;
 			const [{ident, ip}, hostReply] = await Promise.all([
-				userIp(n.uuid, nick),
+				userIp(n.uuid, nick, same),
 				operRequest(n.uuid, `USERHOST ${nick}`, {untagged: ["302"]}),
 			]);
 
@@ -549,7 +553,7 @@ export default defineComponent({
 			}
 
 			looking.value = false;
-			const held = userhostItem(hostReply.lines, "302", nick);
+			const held = userhostItem(hostReply.lines, "302", nick, same);
 			const host = held?.host;
 			who.value = held ? `${held.user}@${held.host}` : "";
 
@@ -567,22 +571,26 @@ export default defineComponent({
 		// What was typed survives a dismiss (Cancel, the backdrop, Escape,
 		// Android's Back) and comes back when the same dialog opens again;
 		// a success forgets it. One draft at a time, as the note's.
-		let draft:
-			| {
-					key: string;
-					mask: string;
-					reason: string;
-					durationChoice: string;
-					customDuration: string;
-					scope: string;
-			  }
-			| undefined;
+		// By target, the most recent few: Alice's typed reason survives
+		// opening Bob's dialog in between.
+		const drafts = new Map<
+			string,
+			{
+				mask: string;
+				reason: string;
+				durationChoice: string;
+				customDuration: string;
+				scope: string;
+			}
+		>();
+		const MAX_DRAFTS = 8;
 		const keyOf = (r: OperActionRequest) =>
 			`${r.network} ${r.action} ${r.nick ?? ""} ${r.mask ?? ""}`;
 
 		const restoreDraft = (r: OperActionRequest) => {
-			if (draft?.key !== keyOf(r)) {
-				draft = undefined;
+			const draft = drafts.get(keyOf(r));
+
+			if (!draft) {
 				return;
 			}
 
@@ -630,14 +638,18 @@ export default defineComponent({
 			const r = request.value;
 
 			if (r && !result.value) {
-				draft = {
-					key: keyOf(r),
+				drafts.delete(keyOf(r)); // re-inserted last: the newest
+				drafts.set(keyOf(r), {
 					mask: mask.value,
 					reason: reason.value,
 					durationChoice: durationChoice.value,
 					customDuration: customDuration.value,
 					scope: scope.value,
-				};
+				});
+
+				if (drafts.size > MAX_DRAFTS) {
+					drafts.delete(drafts.keys().next().value as string);
+				}
 			}
 
 			close();
@@ -753,7 +765,7 @@ export default defineComponent({
 				}
 
 				result.value = `Killed ${r.nick}.`;
-				draft = undefined;
+				drafts.delete(keyOf(r));
 				eventbus.emit("oper:acted", {network: r.network, nick: r.nick});
 				closeSoon(900);
 				return;
@@ -779,7 +791,7 @@ export default defineComponent({
 				switch (reply.outcome) {
 					case "ok":
 						result.value = `${NAMES[type]} set via ${bot}: ${reply.text ?? ""}`;
-						draft = undefined;
+						drafts.delete(keyOf(r));
 						eventbus.emit("oper:acted", {network: r.network, nick: r.nick});
 						closeSoon(1500);
 						return;
@@ -819,7 +831,7 @@ export default defineComponent({
 			}
 
 			busy.value = false;
-			draft = undefined;
+			drafts.delete(keyOf(r));
 			eventbus.emit("oper:acted", {network: r.network, nick: r.nick});
 			const found = check.lines.some(
 				(msg) => msg.command === (type === "zline" ? "548" : "280")

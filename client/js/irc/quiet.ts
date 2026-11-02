@@ -89,6 +89,23 @@ export function isRepeatedMissingBot(msg: IrcMessage): boolean {
 	return repeatedMissing.has(msg);
 }
 
+/**
+ * A quiet line's 401: still handed on (the services layer learns from it
+ * that the bot is missing, services.ts), but marked when that bot's 401 was
+ * shown in the last `MISSING_BOT_QUIET_MS`, so it is not shown again.
+ */
+export function noteMissingBot(client: IrcClient, msg: IrcMessage, now: number = Date.now()): void {
+	const missing = registryOf(client).missing;
+	const bot = client.casefold(msg.params[1] ?? "");
+	const shown = missing.get(bot);
+
+	if (shown !== undefined && now - shown < MISSING_BOT_QUIET_MS) {
+		repeatedMissing.add(msg);
+	} else {
+		missing.set(bot, now);
+	}
+}
+
 /** Whether `label` is one of this client's quiet labels (and forget it). */
 export function takeQuietLabel(client: IrcClient, label: string | undefined): boolean {
 	const registry = registries.get(client);
@@ -127,18 +144,7 @@ export function dropQuietLine(
 	}
 
 	if (msg.command === "401") {
-		const missing = registryOf(client).missing;
-		const bot = (msg.params[1] ?? "").toLowerCase();
-		const shown = missing.get(bot);
-
-		// Still handed on: the services layer learns from it that the bot is
-		// missing (services.ts). Only showing it again is skipped.
-		if (shown !== undefined && now - shown < MISSING_BOT_QUIET_MS) {
-			repeatedMissing.add(msg);
-		} else {
-			missing.set(bot, now);
-		}
-
+		noteMissingBot(client, msg, now);
 		return false;
 	}
 

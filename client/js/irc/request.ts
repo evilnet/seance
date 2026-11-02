@@ -37,7 +37,7 @@ import type {IrcClient} from "./client";
 import {isErrorNumeric} from "./errors";
 import {openBatchesOf, type BatchHandler, type OpenBatch} from "./handlers/batch";
 import type {IrcMessage} from "./message";
-import {takeQuietLabel} from "./quiet";
+import {noteMissingBot, takeQuietLabel} from "./quiet";
 import {NOTICE_PREFIX} from "./snotice";
 import {tagPrefix} from "./wire";
 
@@ -252,8 +252,16 @@ export const labeledBatch: BatchHandler = (client, batch) => {
 		return;
 	}
 
-	// The echo of a quiet line (quiet.ts) wrapped in a batch: dropped whole.
+	// The echo of a quiet line (quiet.ts) wrapped in a batch: dropped, but
+	// a 401 in it (the bot is not online) goes on to the services layer.
 	if (takeQuietLabel(client, batch.tags.get("label"))) {
+		for (const msg of batch.messages) {
+			if (msg.command === "401") {
+				noteMissingBot(client, msg);
+				client.handleMessage(msg);
+			}
+		}
+
 		return;
 	}
 

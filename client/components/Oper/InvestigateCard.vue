@@ -850,9 +850,11 @@ export default defineComponent({
 			// Watch: the channel itself, the cards out of the way. Join & watch:
 			// the join, from the lobby, where a refusal (+i, +k, banned) says so —
 			// a joined channel opens by itself. No JOIN for a channel we are in.
+			// Read before the cards close: inChannel follows the top card.
+			const watching = inChannel.value && joined;
 			closeAll();
 
-			if (inChannel.value && joined) {
+			if (watching) {
 				void navigate("RoutedChat", {id: joined.id});
 				return;
 			}
@@ -1157,8 +1159,9 @@ export default defineComponent({
 				noteOpener =
 					document.activeElement instanceof HTMLElement ? document.activeElement : null;
 			} else {
-				void nextTick(() => giveBack(noteOpener ?? dialog.value));
+				const back = noteOpener ?? dialog.value;
 				noteOpener = null;
+				void nextTick(() => giveBack(back));
 			}
 		});
 

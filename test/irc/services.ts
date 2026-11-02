@@ -453,6 +453,26 @@ describe("services support: quiet lookups (irc/quiet.ts)", function () {
 		expect(errorCount(), "a missing bot's 401 shows once").to.equal(errorsBefore);
 		expect((await waiting).kind).to.equal("missing");
 
+		// A 401 inside the quiet lookup's batch reaches the services layer too,
+		// and is shown once for a bot not seen missing before.
+		const batched = awaitServiceReply(client, "Gone", () => undefined);
+		sendQuiet(client, "PRIVMSG Gone :whois w");
+		transport.lines(
+			"@label=svc7 :irc.test BATCH +g labeled-response",
+			"@batch=g :irc.test 401 opr Gone :No such nick",
+			":irc.test BATCH -g"
+		);
+		expect((await batched).kind).to.equal("missing");
+		expect(errorCount(), "the batched 401 shows").to.equal(errorsBefore + 1);
+		sendQuiet(client, "PRIVMSG Gone :whois v");
+		transport.lines(
+			"@label=svc8 :irc.test BATCH +h labeled-response",
+			"@batch=h :irc.test 401 opr Gone :No such nick",
+			":irc.test BATCH -h"
+		);
+		await flush();
+		expect(errorCount(), "and only once").to.equal(errorsBefore + 1);
+
 		// Without labeled-response the line goes out plain (and its echo shows).
 		const plain = new FakeTransport();
 		const other = new IrcClient({

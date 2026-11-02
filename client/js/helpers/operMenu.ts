@@ -140,10 +140,10 @@ function input(chan: number, text: string): void {
 export function userhostItem(
 	lines: {command: string; params: string[]}[],
 	command: "302" | "340",
-	nick: string
+	nick: string,
+	/** The network's casemapping (`IrcClient.namesEqual`): `[bob]` is `{bob}` on rfc1459. */
+	same: (a: string, b: string) => boolean = (a, b) => a.toLowerCase() === b.toLowerCase()
 ): {user: string; host: string} | undefined {
-	const want = nick.toLowerCase();
-
 	for (const line of lines) {
 		if (line.command !== command) {
 			continue;
@@ -152,7 +152,7 @@ export function userhostItem(
 		for (const item of (line.params.at(-1) ?? "").trim().split(/\s+/)) {
 			const m = /^([^*=]+)\*?=[+-](.*)@(.*)$/.exec(item);
 
-			if (m && m[1].toLowerCase() === want) {
+			if (m && same(m[1], nick)) {
 				return {user: m[2], host: m[3]};
 			}
 		}
@@ -163,10 +163,11 @@ export function userhostItem(
 
 export async function userIp(
 	network: string,
-	nick: string
+	nick: string,
+	same?: (a: string, b: string) => boolean
 ): Promise<{ident?: string; ip?: string}> {
 	const reply = await operRequest(network, `USERIP ${nick}`, {untagged: ["340"]});
-	const item = userhostItem(reply.lines, "340", nick);
+	const item = userhostItem(reply.lines, "340", nick, same);
 	return item ? {ident: item.user, ip: item.host} : {};
 }
 
