@@ -1972,7 +1972,7 @@ html[data-shell="native"] #viewport {
  * Pinned for the floors test: a snowy noon doy 32 750 min snow.
  * Light sweep "names-large" (tools/ps/legibility.ts LIGHT_SWEEP, the user's choice, 2026-09-24):
  * the nicks at 3.1 (large text) over the sky and the bodies; every other colour at 4.6.
- * Its guard: below the default font-size step the names are not large
+ * Its guard: below the large font-size step the names are not large
  * text, so there they take the "sky" set (the last 32 rules),
  * solved to 4.6 against:
  *   #666666  doy 1 530 min clear  cloud #fffffe
