@@ -36,14 +36,14 @@ importers:
         specifier: 0.16.22
         version: 0.16.22
       linkify-it:
-        specifier: 3.0.3
-        version: 3.0.3
+        specifier: 6.1.0
+        version: 6.1.0
       prismjs:
         specifier: 1.30.0
         version: 1.30.0
       tlds:
-        specifier: 1.228.0
-        version: 1.228.0
+        specifier: 1.261.0
+        version: 1.261.0
     devDependencies:
       '@fortawesome/fontawesome-free':
         specifier: 5.15.4
@@ -63,9 +63,6 @@ importers:
       '@types/chai':
         specifier: 4.3.5
         version: 4.3.5
-      '@types/linkify-it':
-        specifier: 3.0.5
-        version: 3.0.5
       '@types/mocha':
         specifier: 9.1.1
         version: 9.1.1
@@ -727,9 +724,6 @@ packages:
 
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
-
-  '@types/linkify-it@3.0.5':
-    resolution: {integrity: sha512-yg6E+u0/+Zjva+buc3EIb+29XEg4wltq7cSmd4Uc2EE/1nUVmxyzpX6gUXD0V8jIrG0r7YeOGVIbYRkxeooCtw==}
 
   '@types/minimatch@3.0.5':
     resolution: {integrity: sha512-Klz949h02Gz2uZCMGwDUSDS1YBlTdDDgbWHi+81l29tQALUtvz4rAYi5uoVhE5Lagoq6DeqAUlbrHvW/mXDgdQ==}
@@ -1751,8 +1745,8 @@ packages:
   lines-and-columns@1.2.4:
     resolution: {integrity: sha512-7ylylesZQ/PV29jhEDl3Ufjo6ZX7gCqJr5F7PKrqc93v7fzSymt1BpwEU8nAUXs8qzzvqhbjhK5QZg6Mt/HkBg==}
 
-  linkify-it@3.0.3:
-    resolution: {integrity: sha512-ynTsyrFSdE5oZ/O9GEf00kPngmOfVwazR5GKDq6EYfhlpFug3J2zybX56a2PRRpc9P+FuSoGNAwjlbDs9jJBPQ==}
+  linkify-it@6.1.0:
+    resolution: {integrity: sha512-wJ/TwpSDTLepCrQoYWYIExIKg5Zchex2Nn5yk2mFnB+6PtdkHtyLx742md9csRjjOnGkKIS/RrbY7l8D6gT9Vw==}
 
   locate-path@5.0.0:
     resolution: {integrity: sha512-t7hw9pI+WvuwNJXwk5zVHpyhIqzg2qTlklJOf0mVxGSbe3Fp2VieZcduNYjaLDoy6p9uGpQEGWG87WpMKlNq8g==}
@@ -2392,8 +2386,8 @@ packages:
     resolution: {integrity: sha512-wXR/dYpcqKmfWpEdZjiKJOwCNFndD0DMnrW/cYjVGttEkBfVgcLFHoNrlj47mjOVic9yyNu65alsgF4NQyTa2g==}
     engines: {node: '>=12.0.0'}
 
-  tlds@1.228.0:
-    resolution: {integrity: sha512-Q0TU9zh5hDs2CpRFNM7SOW3K7OSgUgJC/cMrq9t44ei4tu+G3KV8BZyIJuYVvryJHH96mKgc9WXdhgKVvGD7jg==}
+  tlds@1.261.0:
+    resolution: {integrity: sha512-QXqwfEl9ddlGBaRFXIvNKK6OhipSiLXuRuLJX5DErz0o0Q0rYxulWLdFryTkV5PkdZct5iMInwYEGe/eR++1AA==}
     hasBin: true
 
   tmp@0.2.7:
@@ -2455,8 +2449,8 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  uc.micro@1.0.6:
-    resolution: {integrity: sha512-8Y75pvTYkLJW2hWQHXxoqRgV7qb9B+9vFEtidML+7koHUFapnVJAZ6cKs+Qjz5Aw3aZWHMC6u0wJE3At+nSGwA==}
+  uc.micro@3.0.0:
+    resolution: {integrity: sha512-U3PppEkleoTnIfi8BozMx3yju3qc/L6SwqWo2Sw+54PX+PX0q9I+r1Um5HCmqD7n9VDX5/v3vQH/AjA6deDdtw==}
 
   undate@0.3.0:
     resolution: {integrity: sha512-ssH8QTNBY6B+2fRr3stSQ+9m2NT8qTaun3ExTx5ibzYQvP7yX4+BnX0McNxFCvh6S5ia/DYu6bsCKQx/U4nb/Q==}
@@ -3121,8 +3115,6 @@ snapshots:
   '@types/chai@4.3.5': {}
 
   '@types/json-schema@7.0.15': {}
-
-  '@types/linkify-it@3.0.5': {}
 
   '@types/minimatch@3.0.5': {}
 
@@ -4137,9 +4129,9 @@ snapshots:
 
   lines-and-columns@1.2.4: {}
 
-  linkify-it@3.0.3:
+  linkify-it@6.1.0:
     dependencies:
-      uc.micro: 1.0.6
+      uc.micro: 3.0.0
 
   locate-path@5.0.0:
     dependencies:
@@ -4843,7 +4835,7 @@ snapshots:
       fdir: 6.5.0(picomatch@4.0.7)
       picomatch: 4.0.7
 
-  tlds@1.228.0: {}
+  tlds@1.261.0: {}
 
   tmp@0.2.7: {}
 
@@ -4886,7 +4878,7 @@ snapshots:
 
   typescript@5.4.5: {}
 
-  uc.micro@1.0.6: {}
+  uc.micro@3.0.0: {}
 
   undate@0.3.0: {}
 
