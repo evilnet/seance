@@ -42,6 +42,7 @@ Live tests (`test/irc/*.live.ts`) are skipped unless `SEANCE_IRC_URL` is set; ru
 - **`client/js/irc/`** — the IRC layer: `transport.ts` (WebSocket) → `message.ts` (parser) → `caps.ts`/`sasl.ts`/`isupport.ts` → `client.ts` (`IrcClient`, one per network) → `handlers/` → `socket.dispatch(...)`. Input comes back through `bus.ts` → `commands/`. Module notes and protocol rules (unread counts, reconnects, SASL, retries, the server's throttle, pending messages, …): `docs/resources/irc-layer.md`.
   - **To add a handler**: a file in `handlers/` exporting `{COMMAND: handler}` and one entry in `handlers/index.ts` `modules`. Handlers mutate the client's model through `client.*` (`pushMessage`, `findChannel`, `timeOf`, …), never the transport or the store. Model: `handlers/away.ts`.
   - **To add a command**: a file in `commands/` exporting a `Command` and one entry in `commands/index.ts`. Build lines with `formatLine` / `trailingLine`. Model: `commands/away.ts`. Unknown commands are sent raw.
+- **`shells/`** — the app shells around `public/`: `capacitor/` (iOS, Android), `tauri/` (Windows, macOS, Linux). The page reaches every shell through one bridge, `client/js/helpers/shell.ts`. Plan: `docs/projects/desktop-shells.md`; each shell has a README.
 - **`shared/`** — cross-cutting types and helpers.
 - **`attic/`** — TheLounge's old server. Reference only; never import from it.
 - **`tools/`** — dev ircd, `irc-ws-probe.mjs`, `browser-drive.mjs` + `scenarios/` (real-Chromium checks; `docs/resources/browser-testing.md`).
