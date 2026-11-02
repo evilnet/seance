@@ -5,174 +5,15 @@ import ForkTsCheckerWebpackPlugin from "fork-ts-checker-webpack-plugin";
 import MiniCssExtractPlugin from "mini-css-extract-plugin";
 import {VueLoaderPlugin} from "vue-loader";
 import babelConfig from "./babel.config.cjs";
-import {execFileSync} from "child_process";
-import {createHash} from "crypto";
-import {readFileSync} from "fs";
-
-// What a build is, for the Help window and for telling one build from the
-// next (docs/resources/pwa.md § Updates).
-interface BuildIdentity {
-	/** What Help shows: `5.0.2` for a release, `5.0.2-e5ed5af2` past one. */
-	version: string;
-	/** The release this build is, or follows: the tag without its `v`. */
-	release: string;
-	/** Short sha of HEAD, or null outside a git checkout. */
-	commit: string | null;
-	/**
-	 * Which build this is, as the Pages workflow names it: `release`,
-	 * `develop` or `pr<N>`. Empty for a build made anywhere else.
-	 */
-	track: string;
-	/** The branch a build made anywhere else was made from; null when detached. */
-	branch: string | null;
-	/**
-	 * The build token: `?v=` on the asset URLs, the service worker's cache
-	 * name, `process.env.SEANCE_BUILD` in the bundle. Two builds of different
-	 * commits never share one, which is what makes a deploy detectable — the
-	 * browser only installs a new worker when the script's bytes change, and
-	 * the page only offers "Reload to update" when the worker's token is not
-	 * its own. Rebuilding the same clean commit gives the same token; a dirty
-	 * tree or no git at all makes every build distinct.
-	 */
-	build: string;
-}
-
-function resolveBuild(): BuildIdentity {
-	const git = (...args: string[]): string | null => {
-		try {
-			return execFileSync("git", args, {
-				encoding: "utf8",
-				stdio: ["ignore", "pipe", "ignore"],
-			}).trim();
-		} catch {
-			return null;
-		}
-	};
-
-	const commit = git("rev-parse", "--short=8", "HEAD");
-	const dirty = commit !== null && git("status", "--porcelain", "--untracked-files=no") !== "";
-	// The Pages workflow names the build (SEANCE_VERSION: `5.0.2`,
-	// `5.0.2-e5ed5af2`, `5.0.2-pr142.e5ed5af`) and the release it is or
-	// follows (SEANCE_RELEASE), since its shallow checkout has no tags;
-	// otherwise the nearest tag names the release the build follows. The tag
-	// is the only source of a version — package.json carries none — so a
-	// checkout without tags (a shallow clone, no git) is "dev" plus its
-	// commit.
-	const env = (name: string) => process.env[name]?.trim().replace(/^v/, "") || "";
-	const releaseVersion = env("SEANCE_VERSION");
-	const nearestTag = git("describe", "--tags", "--abbrev=0")?.replace(/^v/, "");
-	const release = env("SEANCE_RELEASE") || releaseVersion || nearestTag || "dev";
-	const version = releaseVersion || (commit ? `${release}-${commit}` : release);
-	const identity = commit
-		? `${version}@${commit}${dirty ? `+${Date.now()}` : ""}`
-		: `${version}@${Date.now()}`;
-	const build = createHash("sha256").update(identity).digest("hex").substring(0, 10);
-	const track = process.env.SEANCE_TRACK?.trim() || "";
-	const branch = track ? null : git("symbolic-ref", "--short", "-q", "HEAD") || null;
-
-	return {version, release, commit, track, branch, build};
-}
-
-const buildIdentity = resolveBuild();
-const version = buildIdentity.version;
-
-// Build-time branding. `client/config.json` is the same file the app fetches
-// at runtime (copied to `public/config.json`); the values below only feed the
-// parts of index.html and the manifest that exist before any script runs.
-// See docs/resources/branding.md.
-interface BuildBranding {
-	appName: string;
-	shortName: string;
-	description: string;
-	themeColor: string;
-}
-
-function readBranding(): BuildBranding {
-	let raw: Record<string, unknown> = {};
-
-	try {
-		raw = JSON.parse(readFileSync(path.resolve(__dirname, "client/config.json"), "utf8"));
-	} catch (e: any) {
-		throw new Error(`client/config.json is missing or not valid JSON: ${e.message}`);
-	}
-
-	const str = (value: unknown, fallback: string): string =>
-		typeof value === "string" && value.trim().length > 0 ? value.trim() : fallback;
-
-	const appName = str(raw.appName, "Seance");
-
-	return {
-		appName,
-		shortName: str(raw.shortName, appName),
-		description: str(raw.description, "IRC client"),
-		themeColor: str(raw.themeColor, "#1a1816"),
-	};
-}
-
-const branding = readBranding();
-
-function escapeHtml(text: string): string {
-	return text
-		.replace(/&/g, "&amp;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;")
-		.replace(/"/g, "&quot;");
-}
-
-function brandHtml(content: string): string {
-	return content
-		.replace(/__APP_NAME__/g, escapeHtml(branding.appName))
-		.replace(/__THEME_COLOR__/g, escapeHtml(branding.themeColor));
-}
-
-// The light/dark theme pairs (client/js/helpers/themeAppearance.ts), for the
-// early loader, which cannot import them.
-const themePairs = readFileSync(
-	path.resolve(__dirname, "client/js/helpers/themePairs.json"),
-	"utf8"
-);
-
-function withThemePairs(content: string): string {
-	const marker = '"__THEME_PAIRS__"';
-
-	if (!content.includes(marker)) {
-		throw new Error(`loading-error-handlers.js has lost its ${marker} marker`);
-	}
-
-	return content.replace(marker, JSON.stringify(JSON.parse(themePairs)));
-}
-
-function brandManifest(content: string): string {
-	const manifest = JSON.parse(content);
-	manifest.name = branding.appName;
-	manifest.short_name = branding.shortName;
-	manifest.description = branding.description;
-	manifest.theme_color = branding.themeColor;
-	manifest.background_color = branding.themeColor;
-	return JSON.stringify(manifest, null, "\t") + "\n";
-}
-
-// Third-party notices for the lazily loaded chunks. Prism's core carries a
-// `@license` comment terser extracts by itself, but not its copyright line, and
-// flourite's build carries nothing at all — so state both, in a `/*!` banner
-// that ends up in the chunk's `.LICENSE.txt`. All are MIT; see
-// docs/projects/markdown-messages.md. CodeMirror is the script editor's
-// (client/js/helpers/luaEditor.ts).
-const chunkNotices: Record<string, string> = {
-	"js/highlighter.js":
-		"/*! prismjs 1.30.0 (and the js/prism-*.js grammar chunks) | MIT | " +
-		"Copyright (c) 2012 Lea Verou | https://github.com/PrismJS/prism */\n",
-	"js/flourite.js":
-		"/*! flourite 1.3.0 | MIT | Copyright (c) 2015 Toni Sučić, " +
-		"Copyright (c) 2024 Teknologi Umum | https://github.com/teknologi-umum/flourite */\n",
-	"js/katex.js":
-		"/*! katex 0.16.22 | MIT | Copyright (c) 2013-2024 Khan Academy and other contributors | https://katex.org */\n",
-	"js/code-editor.js":
-		"/*! CodeMirror 6 (@codemirror/state, view, language, commands, legacy-modes, streamparser; @lezer/common, " +
-		"highlight, lr; style-mod, w3c-keyname, crelt, @marijn/find-cluster-break) | MIT | " +
-		"Copyright (C) 2016-2021 Marijn Haverbeke and others | https://codemirror.net */\n",
-};
-
+import {
+	buildIdentity,
+	version,
+	branding,
+	brandHtml,
+	withThemePairs,
+	brandManifest,
+	chunkNotices,
+} from "./scripts/build-info";
 const noticePlugin = new webpack.BannerPlugin({
 	raw: true,
 	test: /^js\/(highlighter|flourite|katex|code-editor)\.js$/,
@@ -270,9 +111,6 @@ const config: webpack.Configuration = {
 				use: {
 					loader: "vue-loader",
 					options: {
-						compilerOptions: {
-							preserveWhitespace: false,
-						},
 						appendTsSuffixTo: [/\.vue$/],
 					},
 				},
@@ -326,9 +164,6 @@ const config: webpack.Configuration = {
 				},
 			},
 		},
-	},
-	externals: {
-		json3: "JSON", // socket.io uses json3.js, but we do not target any browsers that need it
 	},
 	plugins: [
 		tsCheckerPlugin,
@@ -437,11 +272,6 @@ const config: webpack.Configuration = {
 				},
 			],
 		}),
-		// socket.io uses debug, we don't need it
-		new webpack.NormalModuleReplacementPlugin(
-			/(^|[/\\])debug([/\\]|$)/,
-			path.resolve(__dirname, "scripts/noop.js")
-		),
 	],
 };
 
