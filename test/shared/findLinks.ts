@@ -408,6 +408,26 @@ describe("findLinks", () => {
 		expect(actual).to.deep.equal(expected);
 	});
 
+	it("keeps the port on urls without a schema", () => {
+		const input = "irc.example.net:6697 and example.com:8080/foo";
+		const expected = [
+			{
+				link: "http://irc.example.net:6697",
+				start: 0,
+				end: 20,
+			},
+			{
+				link: "http://example.com:8080/foo",
+				start: 25,
+				end: 45,
+			},
+		];
+
+		const actual = findLinks(input);
+
+		expect(actual).to.deep.equal(expected);
+	});
+
 	it("should find web+ schema urls", () => {
 		const input = "web+ap://instance.example/@Example web+whatever://example.com?some=value";
 		const expected = [

@@ -1,4 +1,4 @@
-import {LinkifyIt, type Match} from "linkify-it";
+import {LinkifyIt, REBuilder, type Match} from "linkify-it";
 import tlds from "tlds";
 
 export type LinkPart = {
@@ -7,11 +7,26 @@ export type LinkPart = {
 	link: string;
 };
 
+// linkify-it 6 also dropped the port from links without a schema
+// ("irc.example.net:6697"); this puts it back. Same fragments as the stock
+// method plus the port; fuzzyIP is never on here, so its branch is left out.
+class FuzzyPortREBuilder extends REBuilder {
+	get_fuzzy_url_host_port(): RegExp {
+		return (this.cache.fuzzy_url_host_port ??= new RegExp(
+			`(?:(?:(?:${this.get_domain().source})\\.){1,10}(?:${this.get_tld().source}))` +
+				this.get_port().source +
+				this.get_host_terminator().source
+		));
+	}
+}
+
 // linkify-it 6 turned two things off by default that 3 did: fuzzy links (no
 // schema, "example.com"), and user:pass@ in a URL, without which the link
 // stops at the user name and points somewhere the text does not say.
 function create() {
-	return new LinkifyIt({fuzzyLink: true, urlAuth: true}).tlds(tlds).tlds("onion", true);
+	return new LinkifyIt({fuzzyLink: true, urlAuth: true, rebuilder: new FuzzyPortREBuilder()})
+		.tlds(tlds)
+		.tlds("onion", true);
 }
 
 const linkify = create();
