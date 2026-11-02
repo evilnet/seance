@@ -8,8 +8,10 @@
 	>
 		<div
 			v-if="top && network && model"
+			ref="dialog"
 			class="settings-modal oper-investigate"
 			:class="{'oper-investigate-compare': !!compareModel}"
+			tabindex="-1"
 			role="dialog"
 			aria-modal="true"
 			:aria-label="title"
@@ -338,6 +340,17 @@
 										<template v-else-if="u.lookup === 'asking'">
 											· <span class="oper-muted">asking…</span></template
 										>
+										<template v-else-if="u.lookup === 'failed'">
+											·
+											<span class="oper-muted">the lookup failed</span>
+											<button
+												type="button"
+												class="btn btn-small oper-lookup"
+												@click="lookup(u.nick)"
+											>
+												Try again
+											</button></template
+										>
 										<button
 											v-else-if="u.lookup === 'pending'"
 											type="button"
@@ -371,7 +384,8 @@
 							<div
 								v-if="compareModel"
 								class="oper-compare-tabs oper-seg"
-								role="tablist"
+								role="group"
+								aria-label="Show"
 							>
 								<button
 									type="button"
@@ -546,8 +560,10 @@ import {
 	onUnmounted,
 	ref,
 	shallowRef,
+	watch,
 } from "vue";
 import eventbus from "../../js/eventbus";
+import {navigate} from "../../js/router";
 import socket from "../../js/socket";
 import {useStore} from "../../js/store";
 import {clientForNetwork} from "../../js/irc/manager";
@@ -559,7 +575,7 @@ import {
 	type SourceId,
 	type UserModel,
 } from "../../js/irc/investigate";
-import {getNote, setNote} from "../../js/irc/operprefs";
+import {setNote} from "../../js/irc/operprefs";
 import {servicesProfileFor} from "../../js/irc/services/index";
 import {
 	canBan as canBanOn,
@@ -677,7 +693,18 @@ export default defineComponent({
 			const m = model.value;
 			return m?.kind === "channel" && (!!network.value?.services || m.recent.length > 0);
 		});
-		const noteKey = computed(() => top.value?.investigation.noteKey ?? "");
+		// The key the note dialog writes to, fixed when it opens: the key the
+		// note shown came from (no orphan under the nick once the IP lands),
+		// and a label that does not change under the oper's typing.
+		const editingKey = ref("");
+		watch(editingNote, (open) => {
+			if (!open) {
+				editingKey.value = ""; // closed by any way (Escape, a card stacked over it)
+			}
+		});
+		const noteKey = computed(
+			() => editingKey.value || (tick.value, top.value?.investigation.noteSource) || ""
+		);
 
 		const canBan = computed(() => !!network.value && canBanOn(network.value, "gline"));
 		const canKill = computed(
@@ -709,7 +736,7 @@ export default defineComponent({
 		});
 
 		const readNote = () => {
-			note.value = top.value ? getNote(top.value.request.network, noteKey.value) : "";
+			note.value = top.value?.investigation.note ?? "";
 		};
 
 		const bump = () => {
@@ -733,6 +760,18 @@ export default defineComponent({
 			compareTab.value = "a";
 			investigation.start();
 			readNote();
+		};
+
+		/** Every card closed, and its lookups stopped. */
+		const closeAll = () => {
+			for (const card of stack.value) {
+				card.investigation.stop();
+				card.compare?.stop();
+			}
+
+			stack.value = [];
+			editingNote.value = false;
+			asking.value = false;
 		};
 
 		const close = () => {
@@ -803,12 +842,23 @@ export default defineComponent({
 				return;
 			}
 
-			socket.emit("input", {target: lobby, text: `/join ${card.request.target}`});
-			say(
-				inChannel.value
-					? `Watching ${card.request.target}`
-					: `Joining ${card.request.target}…`
+			const target = card.request.target;
+			const joined = network.value?.channels.find(
+				(c) => c.name.toLowerCase() === target.toLowerCase()
 			);
+
+			// Watch: the channel itself, the cards out of the way. Join & watch:
+			// the join, from the lobby, where a refusal (+i, +k, banned) says so —
+			// a joined channel opens by itself. No JOIN for a channel we are in.
+			closeAll();
+
+			if (inChannel.value && joined) {
+				void navigate("RoutedChat", {id: joined.id});
+				return;
+			}
+
+			void navigate("RoutedChat", {id: lobby});
+			socket.emit("input", {target: lobby, text: `/join ${target}`});
 		};
 
 		/** A user's own facts in the channel card's terms, for the alert builder. */
@@ -940,6 +990,7 @@ export default defineComponent({
 				draftFor = card;
 			}
 
+			editingKey.value = top.value.investigation.noteSource;
 			editingNote.value = true;
 			void nextTick(() => noteField.value?.focus());
 		};
@@ -951,23 +1002,31 @@ export default defineComponent({
 
 			draftFor = undefined;
 			editingNote.value = false;
+			editingKey.value = "";
 			readNote();
 		};
 
 		/** The backdrop: closes like Escape, keeping the draft. */
 		const closeNote = () => {
 			editingNote.value = false;
+			editingKey.value = "";
 		};
 
 		const cancelNote = () => {
 			draftFor = undefined;
 			editingNote.value = false;
+			editingKey.value = "";
 		};
 
 		const askCompare = () => {
 			asking.value = true;
 			compareWith.value = "";
-			void nextTick(() => compareField.value?.focus());
+			void nextTick(() => {
+				compareField.value?.focus();
+				// The field sits at the bottom of the card's scrolling body: on a
+				// phone the keyboard would come up over it.
+				compareField.value?.scrollIntoView({block: "nearest"});
+			});
 		};
 
 		const startCompare = () => {
@@ -981,6 +1040,17 @@ export default defineComponent({
 			const client = clientForNetwork(card.request.network);
 
 			if (!client) {
+				return;
+			}
+
+			// Another user: comparing them with themselves tints every row and
+			// reads as a match, and a channel is no user.
+			if (client.namesEqual(nick, card.request.target) || /^[#&]/.test(nick)) {
+				say(
+					/^[#&]/.test(nick)
+						? "Compare takes a nick, not a channel."
+						: `That is ${card.request.target}: compare with someone else.`
+				);
 				return;
 			}
 
@@ -1031,12 +1101,85 @@ export default defineComponent({
 			)}`;
 		};
 
+		// The card's own Kill… or G-line… went through: what it says about the
+		// user is out of date, so it asks again.
+		const onActed = (data: {network: string; nick?: string}) => {
+			const card = top.value;
+			const client = card && clientForNetwork(card.request.network);
+
+			if (
+				card &&
+				client &&
+				data.nick &&
+				card.request.network === data.network &&
+				card.request.kind === "user" &&
+				client.namesEqual(card.request.target, data.nick)
+			) {
+				refresh();
+			}
+		};
+
+		// Focus goes into the card when one opens (a screen reader reads it,
+		// Tab starts inside it) and back to what opened it when the last one
+		// closes; the note dialog does the same over the card.
+		const dialog = ref<HTMLElement | null>(null);
+		let opener: HTMLElement | null = null;
+		let noteOpener: HTMLElement | null = null;
+
+		const giveBack = (el: HTMLElement | null) => {
+			if (el?.isConnected) {
+				el.focus({preventScroll: true});
+			}
+		};
+
+		watch(
+			() => stack.value.length,
+			(count, before) => {
+				if (
+					count > 0 &&
+					(before ?? 0) === 0 &&
+					document.activeElement instanceof HTMLElement
+				) {
+					opener = document.activeElement;
+				}
+
+				if (count > 0) {
+					void nextTick(() => dialog.value?.focus({preventScroll: true}));
+				} else {
+					giveBack(opener);
+					opener = null;
+				}
+			}
+		);
+
+		watch(editingNote, (open) => {
+			if (open) {
+				noteOpener =
+					document.activeElement instanceof HTMLElement ? document.activeElement : null;
+			} else {
+				void nextTick(() => giveBack(noteOpener ?? dialog.value));
+				noteOpener = null;
+			}
+		});
+
+		// The card's network was deleted under it: nothing left to show.
+		watch(
+			() => !!top.value && !network.value,
+			(gone) => {
+				if (gone) {
+					closeAll();
+				}
+			}
+		);
+
 		onMounted(() => {
+			eventbus.on("oper:acted", onActed);
 			eventbus.on("oper:investigate", openCard);
 			eventbus.on("escapekey", onEscape);
 		});
 
 		onUnmounted(() => {
+			eventbus.off("oper:acted", onActed);
 			eventbus.off("oper:investigate", openCard);
 			eventbus.off("escapekey", onEscape);
 			clearTimeout(toastTimer);
@@ -1048,6 +1191,7 @@ export default defineComponent({
 		});
 
 		return {
+			dialog,
 			stack,
 			top,
 			network,

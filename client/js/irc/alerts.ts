@@ -191,7 +191,8 @@ export async function opersAmong(
 	return opers;
 }
 
-const levels = new WeakMap<IrcClient, Promise<number | undefined>>();
+/** By client, for the account it asked about: a reconnect as another account asks again. */
+const levels = new WeakMap<IrcClient, {account: string; level: Promise<number | undefined>}>();
 
 /**
  * The oper's own level with the oper service, from the account service's
@@ -200,14 +201,13 @@ const levels = new WeakMap<IrcClient, Promise<number | undefined>>();
  * asked, or not told. Asked once per connection and remembered.
  */
 export function operLevel(client: IrcClient): Promise<number | undefined> {
-	const cached = levels.get(client);
-
-	if (cached) {
-		return cached;
-	}
-
 	const lookups = servicesProfileFor(client.services)?.lookups;
 	const account = client.account;
+	const cached = levels.get(client);
+
+	if (cached && cached.account === account) {
+		return cached.level;
+	}
 
 	if (!lookups || !account) {
 		return Promise.resolve(undefined);
@@ -221,7 +221,7 @@ export function operLevel(client: IrcClient): Promise<number | undefined> {
 		levels.delete(client); // nothing learnt: ask again next time
 		return undefined;
 	});
-	levels.set(client, promise);
+	levels.set(client, {account, level: promise});
 	return promise;
 }
 

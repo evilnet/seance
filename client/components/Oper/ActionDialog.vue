@@ -1,7 +1,7 @@
 <template>
 	<div
 		id="oper-action-overlay"
-		v-backdrop="close"
+		v-backdrop="dismiss"
 		class="screen-overlay"
 		:class="{opened: !!request}"
 		:data-escape-close="request ? 'oper-action' : null"
@@ -18,6 +18,13 @@
 				<div class="oper-action-title">{{ title }}</div>
 
 				<template v-if="request.action === 'kill'">
+					<p v-if="who" class="oper-action-hint">
+						{{ request.nick }} is <span class="oper-action-who">{{ who }}</span> right
+						now.
+					</p>
+					<p v-else-if="looking" class="oper-action-hint">
+						Looking up {{ request.nick }}…
+					</p>
 					<label class="oper-action-label" for="oper-action-reason">Reason</label>
 					<input
 						id="oper-action-reason"
@@ -72,10 +79,15 @@
 						{{ preview.text }}
 					</p>
 
-					<label v-if="maskCheck.needsForce && !viaServices" class="oper-action-check">
-						<input v-model="force" v-switch type="checkbox" :disabled="!canForce" />
-						Force this wide mask
-						<span v-if="!canForce" class="oper-muted"
+					<label v-if="mustConfirm" class="oper-action-check">
+						<input
+							v-model="force"
+							v-switch
+							type="checkbox"
+							:disabled="forceFlag && !viaServices && !canForce"
+						/>
+						{{ confirmLabel }}
+						<span v-if="forceFlag && !viaServices && !canForce" class="oper-muted"
 							>(needs the WIDE_{{ banType.toUpperCase() }} privilege)</span
 						>
 					</label>
@@ -131,7 +143,9 @@
 				<p v-if="result" class="oper-action-result">{{ result }}</p>
 			</div>
 			<div class="oper-action-buttons">
-				<button type="button" class="btn btn-cancel" @click="close">Cancel</button>
+				<button type="button" class="btn btn-cancel" :disabled="busy" @click="dismiss">
+					Cancel
+				</button>
 				<button type="submit" class="btn btn-danger" :disabled="!canSubmit || busy">
 					{{ busy ? "Sending…" : actionLabel }}
 				</button>
@@ -187,7 +201,8 @@
 	width: 100%;
 }
 
-#oper-action-dialog .oper-action-mask {
+#oper-action-dialog .oper-action-mask,
+#oper-action-dialog .oper-action-who {
 	font-family: monospace;
 }
 
@@ -325,6 +340,8 @@ export default defineComponent({
 		const scope = ref("*");
 		const force = ref(false);
 		const looking = ref(false);
+		/** `ident@host` of whoever holds the nick now (USERHOST), shown on a kill. */
+		const who = ref("");
 		const busy = ref(false);
 		// What the server or the bot said went wrong; `problem` adds the
 		// dialog's own reason not to send (a line over the byte cap).
@@ -409,6 +426,28 @@ export default defineComponent({
 			return out.length ? out : [{value: "*", label: "The whole network"}];
 		});
 
+		/** The server's force (`!`): a mask wide by its shape, or by the 20+ it matches now. */
+		const forceFlag = computed(
+			() => maskCheck.value.needsForce || (preview.value?.count ?? 0) >= 20
+		);
+		/** Realname, version and channel masks: no shape rule and no preview. */
+		const unchecked = computed(() => /^(\$|[#&])/.test(mask.value.trim()));
+		/**
+		 * A wide ban is confirmed by hand, whichever way it goes: forced on
+		 * the server, or through O3 (which has no force, so the switch is
+		 * the only gate), or a mask nobody can preview.
+		 */
+		const mustConfirm = computed(
+			() => request.value?.action !== "kill" && (forceFlag.value || unchecked.value)
+		);
+		const confirmLabel = computed(() =>
+			unchecked.value && !forceFlag.value
+				? "Yes, ban everyone this matches (it can't be previewed)"
+				: viaServices.value
+				? "Yes, set this wide mask"
+				: "Force this wide mask"
+		);
+
 		/** The exact line Submit sends (without the label the IRC layer adds). */
 		const outgoingLine = computed(() => {
 			const r = request.value;
@@ -441,7 +480,7 @@ export default defineComponent({
 				scope: scope.value,
 				seconds: seconds.value ?? 0,
 				reason: why,
-				force: maskCheck.value.needsForce && force.value,
+				force: forceFlag.value && force.value,
 			});
 		});
 		const budget = computed(() => lineBudget(outgoingLine.value));
@@ -464,7 +503,7 @@ export default defineComponent({
 			const s = seconds.value;
 			return (
 				!maskCheck.value.error &&
-				(!maskCheck.value.needsForce || force.value || viaServices.value) &&
+				(!mustConfirm.value || force.value) &&
 				s !== undefined &&
 				s > 0 &&
 				s <= BAN_MAX_SECONDS
@@ -477,6 +516,7 @@ export default defineComponent({
 			durationChoice.value = "3600";
 			customDuration.value = "";
 			force.value = false;
+			who.value = "";
 			sendProblem.value = "";
 			result.value = "";
 			rawSuggestions.value = [];
@@ -509,7 +549,13 @@ export default defineComponent({
 			}
 
 			looking.value = false;
-			const host = userhostItem(hostReply.lines, "302", nick)?.host;
+			const held = userhostItem(hostReply.lines, "302", nick);
+			const host = held?.host;
+			who.value = held ? `${held.user}@${held.host}` : "";
+
+			if (request.value?.action === "kill") {
+				return;
+			}
 
 			rawSuggestions.value = maskSuggestions(banType.value, {ident, ip, host});
 
@@ -518,13 +564,46 @@ export default defineComponent({
 			}
 		};
 
+		// What was typed survives a dismiss (Cancel, the backdrop, Escape,
+		// Android's Back) and comes back when the same dialog opens again;
+		// a success forgets it. One draft at a time, as the note's.
+		let draft:
+			| {
+					key: string;
+					mask: string;
+					reason: string;
+					durationChoice: string;
+					customDuration: string;
+					scope: string;
+			  }
+			| undefined;
+		const keyOf = (r: OperActionRequest) =>
+			`${r.network} ${r.action} ${r.nick ?? ""} ${r.mask ?? ""}`;
+
+		const restoreDraft = (r: OperActionRequest) => {
+			if (draft?.key !== keyOf(r)) {
+				draft = undefined;
+				return;
+			}
+
+			mask.value = draft.mask;
+			reason.value = draft.reason;
+			durationChoice.value = draft.durationChoice;
+			customDuration.value = draft.customDuration;
+			scope.value = draft.scope;
+		};
+
 		const open = (incoming: OperActionRequest) => {
 			clearTimeout(closeTimer);
 			generation++;
 			request.value = incoming;
 			reset();
 
-			if (incoming.action !== "kill" && incoming.nick) {
+			restoreDraft(incoming);
+
+			// A kill too: the dialog says who holds the nick now, so a nick
+			// clicked in an old line is not taken for whoever has it today.
+			if (incoming.nick) {
 				void lookUp(incoming.nick);
 			}
 
@@ -540,6 +619,28 @@ export default defineComponent({
 			clearTimeout(previewTimer);
 			clearTimeout(closeTimer);
 			previewFor = "";
+		};
+
+		/** Cancel, the backdrop, Escape: not while a line is out (it cannot be called back). */
+		const dismiss = () => {
+			if (busy.value) {
+				return;
+			}
+
+			const r = request.value;
+
+			if (r && !result.value) {
+				draft = {
+					key: keyOf(r),
+					mask: mask.value,
+					reason: reason.value,
+					durationChoice: durationChoice.value,
+					customDuration: customDuration.value,
+					scope: scope.value,
+				};
+			}
+
+			close();
 		};
 
 		const closeSoon = (ms: number) => {
@@ -652,6 +753,8 @@ export default defineComponent({
 				}
 
 				result.value = `Killed ${r.nick}.`;
+				draft = undefined;
+				eventbus.emit("oper:acted", {network: r.network, nick: r.nick});
 				closeSoon(900);
 				return;
 			}
@@ -676,6 +779,8 @@ export default defineComponent({
 				switch (reply.outcome) {
 					case "ok":
 						result.value = `${NAMES[type]} set via ${bot}: ${reply.text ?? ""}`;
+						draft = undefined;
+						eventbus.emit("oper:acted", {network: r.network, nick: r.nick});
 						closeSoon(1500);
 						return;
 					case "refused":
@@ -714,6 +819,8 @@ export default defineComponent({
 			}
 
 			busy.value = false;
+			draft = undefined;
+			eventbus.emit("oper:acted", {network: r.network, nick: r.nick});
 			const found = check.lines.some(
 				(msg) => msg.command === (type === "zline" ? "548" : "280")
 			);
@@ -725,7 +832,7 @@ export default defineComponent({
 
 		const onEscape = (layer: string | null) => {
 			if (layer === "oper-action") {
-				close();
+				dismiss();
 			}
 		};
 
@@ -766,7 +873,12 @@ export default defineComponent({
 			actionLabel,
 			maskCheck,
 			canSubmit,
+			who,
+			forceFlag,
+			mustConfirm,
+			confirmLabel,
 			close,
+			dismiss,
 			submit,
 		};
 	},

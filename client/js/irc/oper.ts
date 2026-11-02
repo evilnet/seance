@@ -303,14 +303,21 @@ export async function setSnomask(client: IrcClient, mask: number, remember = tru
 
 /** Put back the snomask the oper chose, when the server gave us another. */
 function restoreSnomask(client: IrcClient): void {
-	const wanted = getOperPrefs(client.uuid).snomask;
+	// Read again when its turn comes: a mask chosen in the panel while this
+	// waited behind fake lag is the one to keep, not the one from before.
+	const restore = (): Promise<void> | undefined => {
+		const wanted = getOperPrefs(client.uuid).snomask;
 
-	if (wanted !== undefined && wanted !== client.oper.snomask && isOpered(client)) {
-		const restore = () => setSnomask(client, wanted, false);
-		void (client.background.fits(2000)
-			? restore()
-			: client.whenRoom("oper:restore").then(restore));
+		return wanted !== undefined && wanted !== client.oper.snomask && isOpered(client)
+			? setSnomask(client, wanted, false)
+			: undefined;
+	};
+
+	if (getOperPrefs(client.uuid).snomask === undefined) {
+		return;
 	}
+
+	void (client.background.fits(2000) ? restore() : client.whenRoom("oper:restore").then(restore));
 }
 
 /**

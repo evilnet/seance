@@ -463,6 +463,39 @@ describe("oper tools: oper state (irc/oper.ts)", function () {
 		expect(transport.sent.at(-1)).to.match(/^@label=\S+ MODE opr \+s 983039$/);
 	});
 
+	it("a restore that waited its turn reads the chosen mask again when it runs", async function () {
+		const {client, transport} = setup();
+		setSnomaskPref(client.uuid, 983039);
+		// The clock is full: everything waits its turn behind fake lag.
+		const waiting: (() => void)[] = [];
+		const room = () => waiting.splice(0).forEach((go) => go());
+		sinon.stub(client.background, "fits").returns(false);
+		sinon
+			.stub(client, "whenRoom")
+			.callsFake(() => new Promise<void>((resolve) => waiting.push(resolve)));
+
+		transport.line(":opr!opr@host MODE opr +ow");
+		await flush();
+		room(); // the oper-up queries' turn
+		await flush();
+
+		for (const line of transport.sent.filter((l) => /PRIVS|GET /.test(l))) {
+			transport.line(`${/^(@label=\S+) /.exec(line)![1]} :irc.test ACK`);
+		}
+
+		await flush();
+		expect(waiting, "the restore is queued").to.have.length(1);
+		// The oper picks another mask in the panel while the restore waits.
+		setSnomaskPref(client.uuid, 5645);
+		room();
+		await flush();
+
+		expect(
+			transport.sent.some((l) => / MODE opr \+s 983039$/.test(l)),
+			"the old mask"
+		).to.equal(false);
+	});
+
 	it("-o drops the level and the privileges; the snomask goes with -s", function () {
 		const {client, transport} = setup();
 		transport.line(":opr!opr@host MODE opr +ows");

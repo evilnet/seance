@@ -11,7 +11,7 @@ import {
 	type UserModel,
 } from "../../client/js/irc/investigate";
 import {useNoticeLogBackend, type LoggedNotice} from "../../client/js/irc/noticelog";
-import {useOperPrefsBackend} from "../../client/js/irc/operprefs";
+import {setNote, useOperPrefsBackend} from "../../client/js/irc/operprefs";
 import {SERVICE_QUIET_MS} from "../../client/js/irc/services";
 import {X3_DEFAULTS} from "../../client/js/irc/services/x3";
 import type {Transport} from "../../client/js/irc/types";
@@ -627,6 +627,10 @@ describe("the user investigation (irc/investigate.ts)", function () {
 			)
 		);
 
+		// A note saved under the nick before the IP was known (the card's
+		// first seconds): still the note shown once the IP arrives.
+		setNote(client.uuid, "spamfan2", "seen spamming #help");
+
 		const inv = new Investigation(client, "user", "spamfan2");
 		inv.start();
 
@@ -656,6 +660,9 @@ describe("the user investigation (irc/investigate.ts)", function () {
 		expect(model.user.idle).to.equal(64);
 		expect(model.user.connectedAt).to.equal(Date.UTC(2026, 9, 10, 20, 55, 0));
 		expect(inv.noteKey).to.equal("203.0.113.7");
+		expect(inv.noteSource, "the key the note is under").to.equal("spamfan2");
+		expect(inv.note).to.equal("seen spamming #help");
+		setNote(client.uuid, "spamfan2", "");
 
 		// Seen before, from the feed, before any ban list is in.
 		expect(model.seen.map((s) => s.nick)).to.deep.equal(["spamfan"]);

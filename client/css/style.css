@@ -4324,6 +4324,12 @@ button.snotice-badge:focus-visible {
 	opacity: 1;
 }
 
+/* The card takes focus when it opens (InvestigateCard.vue) so Tab and a
+ * screen reader start inside it; the frame itself is not a control. */
+.oper-investigate:focus {
+	outline: none;
+}
+
 .oper-investigate {
 	width: min(60rem, 100%);
 	height: min(50rem, 100%);

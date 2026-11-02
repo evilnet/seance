@@ -464,5 +464,10 @@ describe("the alert builder's wire side (irc/alerts.ts, services/x3/alerts.ts)",
 		expect(await level).to.equal(900);
 		expect(await operLevel(client)).to.equal(900);
 		expect(transport.sent).to.have.length(1);
+
+		// Logged in as someone else now: their level, not rubin's.
+		transport.line(":irc.test 900 opr opr!opr@host other :You are now logged in as other");
+		void operLevel(client);
+		expect(transport.sent.at(-1)).to.equal("@label=svc2 PRIVMSG AuthServ :accountinfo other");
 	});
 });

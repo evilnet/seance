@@ -364,8 +364,28 @@ export class Investigation {
 		return this.model.user.ip ?? this.model.user.account ?? this.model.user.nick;
 	}
 
+	/**
+	 * Every key a note on this card may be under, best first: a user's IP,
+	 * account and nick (the IP comes later than the nick, so a note saved
+	 * before it arrived is under the nick).
+	 */
+	get noteKeys(): string[] {
+		if (this.model.kind === "channel") {
+			return [this.model.target];
+		}
+
+		const {ip, account, nick} = this.model.user;
+		return [ip, account, nick].filter((k): k is string => !!k);
+	}
+
+	/** The key the note shown is under: the first that holds one, else the best. */
+	get noteSource(): string {
+		const keys = this.noteKeys;
+		return keys.find((k) => getNote(this.client.uuid, k) !== "") ?? keys[0] ?? "";
+	}
+
 	get note(): string {
-		return getNote(this.client.uuid, this.noteKey);
+		return getNote(this.client.uuid, this.noteSource);
 	}
 
 	/** The services lookups this network's package offers, when it is set up. */
