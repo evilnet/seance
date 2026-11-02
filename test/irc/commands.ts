@@ -360,6 +360,14 @@ describe("irc commands", function () {
 			]);
 		});
 
+		it("before a /msg or /notice target do not hide it", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.input(id, "/msg  bob hi");
+			h.client.input(id, "/notice  bob hello");
+			expect(h.sentAfter()).to.deep.equal(["PRIVMSG bob :hi", "NOTICE bob :hello"]);
+		});
+
 		it("do not hide the nick /ignore is given", function () {
 			const h = setup();
 			const id = joined(h);
