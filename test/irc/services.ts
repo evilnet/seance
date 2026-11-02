@@ -394,6 +394,15 @@ describe("services support: quiet lookups (irc/quiet.ts)", function () {
 		transport.line(":opr!opr@host PRIVMSG O3 :hello");
 		expect(windows()).to.deep.equal(["irc.test", "#seance", "O3"]);
 
+		const errorCount = () =>
+			dispatch
+				.getCalls()
+				.filter(
+					(c) =>
+						c.args[0] === "msg" &&
+						String((c.args[1] as {msg: SharedMsg}).msg.type) === "error"
+				).length;
+
 		// A label the server never echoes (a 401 instead) is forgotten and the
 		// numeric is shown: the oper should know the bot is not there.
 		sendQuiet(client, "PRIVMSG Nobody :whois x");
@@ -405,6 +414,15 @@ describe("services support: quiet lookups (irc/quiet.ts)", function () {
 				.map((c) => (c.args[1] as {msg: SharedMsg}).msg.type)
 		).to.include("error");
 		expect(takeQuietLabel(client, "svc4")).to.equal(false);
+
+		// The same bot missing again, for the card's next lookup: shown once
+		// is enough, the rest are dropped.
+		const errorsBefore = errorCount();
+		sendQuiet(client, "PRIVMSG Nobody :whois y");
+		transport.line("@label=svc5 :irc.test 401 opr Nobody :No such nick");
+		sendQuiet(client, "PRIVMSG NOBODY :whois z");
+		transport.line("@label=svc6 :irc.test 401 opr NOBODY :No such nick");
+		expect(errorCount(), "a missing bot's 401 shows once").to.equal(errorsBefore);
 
 		// Without labeled-response the line goes out plain (and its echo shows).
 		const plain = new FakeTransport();

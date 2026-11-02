@@ -81,9 +81,10 @@
 </style>
 
 <script lang="ts">
-import {computed, defineComponent} from "vue";
+import {computed, defineComponent, watch} from "vue";
 import {useRoute, useRouter} from "vue-router";
 import {useStore} from "../../js/store";
+import socket from "../../js/socket";
 import {leavePage} from "../../js/router";
 import {isOperOn} from "../../js/helpers/operMenu";
 import OperActivity from "../Oper/OperActivity.vue";
@@ -122,6 +123,18 @@ export default defineComponent({
 			const wanted = OLD_TABS[String(route.params.tab)] ?? String(route.params.tab);
 			return TABS.some((t) => t.id === wanted) ? wanted : "opers";
 		});
+
+		// The oper-up queries wait their turn behind fake lag (nobody was
+		// waiting on them); an open panel is someone waiting, so it asks now.
+		watch(
+			() => network.value?.uuid,
+			(uuid) => {
+				if (uuid && opered.value && !network.value?.oper?.privsKnown) {
+					socket.emit("oper:refresh", {network: uuid});
+				}
+			},
+			{immediate: true}
+		);
 
 		const go = (id: string) => {
 			void router.push(`/oper/${String(route.params.uuid)}/${id}`);

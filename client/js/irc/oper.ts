@@ -164,22 +164,49 @@ export async function refreshOper(
 
 	// In turn when in the background; at once when the clock has room now
 	// (or the user asked), so the lines keep their order with what follows.
-	const inTurn = (key: string, query: () => Promise<void>): Promise<void> =>
-		background && !client.background.fits(2000)
-			? client.whenRoom(`oper:${key}`).then(query)
-			: query();
-	const queries: Promise<void>[] = [inTurn("privs", () => fetchPrivs(client))];
+	// A query that waited its turn is dropped if the answer came in the
+	// meantime (the panel opened and asked at once). Each answer is
+	// announced as it lands: the panel fills in as they arrive.
+	const inTurn = (
+		key: string,
+		known: () => boolean,
+		query: () => Promise<void>
+	): Promise<void> => {
+		const run = () => (known() ? undefined : query().then(() => announceOper(client)));
+		return background && !client.background.fits(2000)
+			? client.whenRoom(`oper:${key}`).then(run)
+			: Promise.resolve(query()).then(() => announceOper(client));
+	};
+
+	const queries: Promise<void>[] = [
+		inTurn(
+			"privs",
+			() => client.oper.privsKnown,
+			() => fetchPrivs(client)
+		),
+	];
 
 	if (client.oper.umodes.has("s")) {
-		queries.push(inTurn("snomask", () => readSnomask(client)));
+		queries.push(
+			inTurn(
+				"snomask",
+				() => client.oper.snomask !== undefined,
+				() => readSnomask(client)
+			)
+		);
 	}
 
 	for (const name of client.profile.operFeatures) {
-		queries.push(inTurn(`get:${name}`, () => fetchFeature(client, name)));
+		queries.push(
+			inTurn(
+				`get:${name}`,
+				() => name in client.oper.features,
+				() => fetchFeature(client, name)
+			)
+		);
 	}
 
 	await Promise.all(queries);
-	announceOper(client);
 }
 
 /** `PRIVS`: 270, sent untagged and followed by an ACK (evilnet/nefarious2#120). */

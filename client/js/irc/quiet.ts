@@ -20,7 +20,13 @@ import {tagPrefix} from "./wire";
 interface Registry {
 	next: number;
 	labels: Set<string>;
+	/** A missing bot (lowercased) → when its 401 was last shown. */
+	missing: Map<string, number>;
 }
+
+/** How long a missing bot's 401 stays shown once: a card's lookups would
+ * otherwise print one per lookup, ten in a row. */
+export const MISSING_BOT_QUIET_MS = 10 * 60_000;
 
 /** Labels kept per client; a line never answered would leak one, so the set is capped. */
 const MAX_LABELS = 64;
@@ -31,7 +37,7 @@ function registryOf(client: IrcClient): Registry {
 	let registry = registries.get(client);
 
 	if (!registry) {
-		registry = {next: 0, labels: new Set()};
+		registry = {next: 0, labels: new Set(), missing: new Map()};
 		registries.set(client, registry);
 	}
 
@@ -88,9 +94,14 @@ export function takeQuietLabel(client: IrcClient, label: string | undefined): bo
  * requests have taken theirs: the echo of a quiet line (a PRIVMSG or
  * NOTICE of ours carrying the label) or its `ACK` is dropped — returns
  * true. A numeric with the label (a `401` for a bot that is not online)
- * forgets the label but is still shown: the oper should see it.
+ * forgets the label but is still shown: the oper should see it — once per
+ * bot in `MISSING_BOT_QUIET_MS`, the rest dropped.
  */
-export function dropQuietLine(client: IrcClient, msg: IrcMessage): boolean {
+export function dropQuietLine(
+	client: IrcClient,
+	msg: IrcMessage,
+	now: number = Date.now()
+): boolean {
 	const label = msg.tags.get("label");
 
 	// A labeled batch opener keeps its label for the close (request.ts
@@ -101,6 +112,19 @@ export function dropQuietLine(client: IrcClient, msg: IrcMessage): boolean {
 
 	if (msg.command === "ACK") {
 		return true;
+	}
+
+	if (msg.command === "401") {
+		const missing = registryOf(client).missing;
+		const bot = (msg.params[1] ?? "").toLowerCase();
+		const shown = missing.get(bot);
+
+		if (shown !== undefined && now - shown < MISSING_BOT_QUIET_MS) {
+			return true;
+		}
+
+		missing.set(bot, now);
+		return false;
 	}
 
 	return (

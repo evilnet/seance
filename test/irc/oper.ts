@@ -426,6 +426,25 @@ describe("oper tools: oper state (irc/oper.ts)", function () {
 		).to.have.length(0);
 	});
 
+	it("announces each oper-up answer as it lands, not after the last one", async function () {
+		const {transport} = setup();
+
+		transport.line(":opr!opr@host MODE opr +owsg");
+		await flush();
+
+		const privs = transport.sent.find((l) => l.endsWith("PRIVS"))!;
+		transport.lines(
+			":irc.test 270 opr opr :CHAN_LIMIT KILL CHECK",
+			`${/^(@label=\S+) /.exec(privs)![1]} :irc.test ACK`
+		);
+		await flush();
+
+		// The snomask and the features are still out: the panel shows the
+		// privileges anyway.
+		expect(operStates().at(-1)).to.include({privsKnown: true});
+		expect(operStates().at(-1)!.privs).to.deep.equal(["CHAN_LIMIT", "KILL", "CHECK"]);
+	});
+
 	it("puts back the snomask chosen last time after oper-up", async function () {
 		const {client, transport} = setup();
 		setSnomaskPref(client.uuid, 983039);
