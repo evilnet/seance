@@ -525,6 +525,7 @@
 					class="input"
 					rows="3"
 					placeholder="Kept on this device only"
+					@keydown.esc.stop="closeNote"
 				></textarea>
 			</div>
 			<div class="oper-note-dialog-buttons">

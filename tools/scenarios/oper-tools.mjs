@@ -156,6 +156,15 @@ async function openUserList(page) {
 const msgs = (type) => `Array.from(document.querySelectorAll("#chat .msg[data-type='${type}']"))`;
 
 export default async function run(page) {
+	// SEANCE_THEME=<name> runs it in another theme (the design survey).
+	if (process.env.SEANCE_THEME) {
+		await page.addInitScript(`(() => {
+			const s = JSON.parse(localStorage.getItem("settings") || "{}");
+			s.theme = ${JSON.stringify(process.env.SEANCE_THEME)};
+			localStorage.setItem("settings", JSON.stringify(s));
+		})()`);
+	}
+
 	await cleanup();
 	await page.goto(page.url, {waitForSelector: "#connect form"});
 	await page.evaluate(`document.querySelector("#connect form").requestSubmit()`);
@@ -479,8 +488,17 @@ export default async function run(page) {
 
 	// Me: the status line, the privileges (folded when many), the modes grid.
 	await page.click(`.settings-menu button.oper-me`);
+	await page.sleep(1500);
+	// A 270 that arrived without the privileges showing (seen 2026-11-02,
+	// not yet explained): the check says so, then Refresh asks again.
+	const privsShown = await page.evaluate(`!!document.querySelector(".oper-me .oper-privs")`);
+	page.check("the privileges show without a Refresh", privsShown);
+	if (!privsShown) {
+		await page.click(".oper-me-privs .oper-refresh");
+	}
 	await page.waitFor(`!!document.querySelector(".oper-me .oper-privs")`, {
 		label: "the privileges",
+		timeout: 30000,
 	});
 	const privs = await page.evaluate(
 		`Array.from(document.querySelectorAll(".oper-privs .oper-chip-static")).map((c) => c.textContent.trim())`
