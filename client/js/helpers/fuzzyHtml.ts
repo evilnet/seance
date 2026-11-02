@@ -1,10 +1,21 @@
 import {filter} from "fuzzy";
-import escape from "lodash/escape";
 
 // Private-use characters mark the matched letters while the text is raw, so
 // the escape below cannot touch them and a name holding `<` still matches.
 const PRE = "\uE000";
 const POST = "\uE001";
+
+const ENTITIES: Record<string, string> = {
+	"&": "&amp;",
+	"<": "&lt;",
+	">": "&gt;",
+	'"': "&quot;",
+	"'": "&#39;",
+};
+
+function escape(text: string): string {
+	return text.replace(/[&<>"']/g, (c) => ENTITIES[c]);
+}
 
 /**
  * `fuzzy.filter` whose `string` is safe to render as HTML: the item's text

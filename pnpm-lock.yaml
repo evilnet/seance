@@ -38,9 +38,6 @@ importers:
       linkify-it:
         specifier: 3.0.3
         version: 3.0.3
-      lodash:
-        specifier: 4.17.21
-        version: 4.17.21
       prismjs:
         specifier: 1.30.0
         version: 1.30.0
@@ -69,9 +66,6 @@ importers:
       '@types/linkify-it':
         specifier: 3.0.5
         version: 3.0.5
-      '@types/lodash':
-        specifier: 4.14.202
-        version: 4.14.202
       '@types/mocha':
         specifier: 9.1.1
         version: 9.1.1
@@ -736,9 +730,6 @@ packages:
 
   '@types/linkify-it@3.0.5':
     resolution: {integrity: sha512-yg6E+u0/+Zjva+buc3EIb+29XEg4wltq7cSmd4Uc2EE/1nUVmxyzpX6gUXD0V8jIrG0r7YeOGVIbYRkxeooCtw==}
-
-  '@types/lodash@4.14.202':
-    resolution: {integrity: sha512-OvlIYQK9tNneDlS0VN54LLd5uiPCBOp7gS5Z0f1mjoJYBrtStzgmJBxONW3U6OZqdtNzZPmn9BS/7WI7BFFcFQ==}
 
   '@types/minimatch@3.0.5':
     resolution: {integrity: sha512-Klz949h02Gz2uZCMGwDUSDS1YBlTdDDgbWHi+81l29tQALUtvz4rAYi5uoVhE5Lagoq6DeqAUlbrHvW/mXDgdQ==}
@@ -3132,8 +3123,6 @@ snapshots:
   '@types/json-schema@7.0.15': {}
 
   '@types/linkify-it@3.0.5': {}
-
-  '@types/lodash@4.14.202': {}
 
   '@types/minimatch@3.0.5': {}
 
