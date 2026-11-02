@@ -179,7 +179,7 @@ export const chunkNotices: Record<string, string> = {
 		"/*! flourite 1.3.0 | MIT | Copyright (c) 2015 Toni Sučić, " +
 		"Copyright (c) 2024 Teknologi Umum | https://github.com/teknologi-umum/flourite */\n",
 	"js/katex.js":
-		"/*! katex 0.16.22 | MIT | Copyright (c) 2013-2024 Khan Academy and other contributors | https://katex.org */\n",
+		"/*! katex 0.19.1 | MIT | Copyright (c) 2013-2024 Khan Academy and other contributors | https://katex.org */\n",
 	"js/code-editor.js":
 		"/*! CodeMirror 6 (@codemirror/state, view, language, commands, legacy-modes, streamparser; @lezer/common, " +
 		"highlight, lr; style-mod, w3c-keyname, crelt, @marijn/find-cluster-break) | MIT | " +
