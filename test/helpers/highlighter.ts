@@ -164,12 +164,10 @@ describe("highlighter — guessLanguage reads a script's #! line", () => {
 		["#!/bin/sh\nset -e\nmake", "bash"],
 		["#! /bin/zsh\nprint hi", "bash"],
 		["#!/usr/bin/env python3\nprint(1)\nx = 2", "python"],
-		["#!/usr/bin/python3.11 -u\nprint(1)", "python"],
-		["#!/usr/bin/env pypy3\nprint(1)", "python"],
+		["#!/usr/bin/python3.11 -u\nmain()", "python"],
 		["#!/usr/bin/env -S node --no-warnings\nconsole.log(1)", "javascript"],
 		["#!/usr/bin/env LANG=C perl\nprint 1;", "perl"],
 		["#!/usr/local/bin/ruby2.7\nputs 1", "ruby"],
-		["#!/usr/bin/env deno\nconsole.log(1)", "typescript"],
 		["\n#!/usr/bin/env lua\nprint(1)", "lua"],
 	];
 

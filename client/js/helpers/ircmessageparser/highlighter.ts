@@ -189,28 +189,13 @@ const SHEBANG = /^\s*#![ \t]*(\S+)(?:[ \t]+([^\n]*))?/;
 const INTERPRETERS: Record<string, string> = {
 	sh: "bash",
 	bash: "bash",
-	dash: "bash",
-	ash: "bash",
-	ksh: "bash",
 	zsh: "bash",
 	python: "python",
-	pypy: "python",
 	node: "javascript",
-	nodejs: "javascript",
-	bun: "javascript",
-	deno: "typescript",
-	"ts-node": "typescript",
 	ruby: "ruby",
 	perl: "perl",
 	php: "php",
 	lua: "lua",
-	luajit: "lua",
-	rscript: "r",
-	pwsh: "powershell",
-	julia: "julia",
-	groovy: "groovy",
-	elixir: "elixir",
-	make: "makefile",
 };
 
 // The language a script's `#!` line names, as a Prism id. `env` is looked
