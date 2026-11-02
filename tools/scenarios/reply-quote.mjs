@@ -2,7 +2,7 @@
 // span monospace — with the markers and control codes gone, and so does the
 // composer's "Replying to" bar.
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d
 //   node tools/browser-drive.mjs tools/scenarios/reply-quote.mjs
 //

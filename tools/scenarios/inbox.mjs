@@ -2,7 +2,7 @@
 // conversation, a count on the @ button, a mention leaving the list once its
 // conversation is read, and the list surviving a reload with its channels.
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d
 //   node tools/browser-drive.mjs tools/scenarios/inbox.mjs
 //   node tools/browser-drive.mjs tools/scenarios/inbox.mjs --mobile --width=390 --height=844

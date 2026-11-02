@@ -1,6 +1,6 @@
 // Capacitor configuration for the Seance native shell.
 //
-// The web app is the root build (`NODE_ENV=production yarn build` -> `public/`);
+// The web app is the root build (`NODE_ENV=production pnpm build` -> `public/`);
 // this file only wraps it. `appName` and `themeColor` are read from
 // `public/config.json` (the same branding file the SPA fetches at boot, see
 // docs/resources/branding.md) when the Capacitor CLI evaluates this config,

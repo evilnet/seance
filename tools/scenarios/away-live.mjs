@@ -8,7 +8,7 @@
 // Needs the testnet rig (SASL, draft/persistence, draft/pre-away,
 // draft/metadata-2) and an account of its own:
 //
-//   corepack yarn build && python3 -m http.server -d public 8001 &
+//   pnpm build && python3 -m http.server -d public 8001 &
 //   SEANCE_SASL_ACCOUNT=idleuser SEANCE_SASL_PASSWORD=idlepass \
 //     node tools/browser-drive.mjs tools/scenarios/away-live.mjs
 //

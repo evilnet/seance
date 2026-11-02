@@ -1,0 +1,9 @@
+# pnpm settings for the root project. Not a workspace: shells/capacitor is a
+# separate project with its own lockfile and its own settings file.
+
+# Dependency install scripts run only when listed here (pnpm refuses the
+# install otherwise). esbuild's checks its platform binary, which tsx uses;
+# Font Awesome's only prints an attribution line.
+allowBuilds:
+    esbuild: true
+    "@fortawesome/fontawesome-free": false

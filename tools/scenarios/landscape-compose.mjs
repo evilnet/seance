@@ -2,7 +2,7 @@
 // the channel header goes while the composer has the caret, and comes back
 // when it loses it (style.css `@container viewport (max-height: 18rem)`).
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d
 //   node tools/browser-drive.mjs tools/scenarios/landscape-compose.mjs --mobile
 //

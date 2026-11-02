@@ -3,7 +3,7 @@
 // says so — instead of dialling into a refusal that would renew the server's
 // window.
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d
 //   node tools/browser-drive.mjs tools/scenarios/reconnect-throttle.mjs
 //   (also --mobile --width=390 --height=844)

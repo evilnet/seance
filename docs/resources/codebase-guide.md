@@ -10,41 +10,42 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Status** (see `docs/projects/initial_conversion.md` for the checklist): phases 0 (discovery), A (server moved to `attic/`), B (bus stubbed), C (minimum IRC) are done; D (fill-in) is done except D.7 read markers/`MARKREAD` and D.11 web push (both deferred); E is in progress — E.3 branding is done, E.1 dependency purge is underway, E.2 bus-contract reshape is optional, E.4 native shells not started. Milestones M4 (daily-driver) and M5 (shippable) are not yet ticked.
 
-Upstream is still `github.com/thelounge/thelounge`; divergence only grows. localStorage keys are still `thelounge.*` (renaming needs a migration). Node.js >= 22, Yarn 1 (classic), MIT licensed.
+Upstream is still `github.com/thelounge/thelounge`; divergence only grows. localStorage keys are still `thelounge.*` (renaming needs a migration). Node.js >= 22 (CI and `.node-version`: 26), pnpm, MIT licensed.
 
 ## Common commands
 
-`yarn` is not on PATH on this machine — use `corepack yarn <cmd>` (or `npx` for one-offs).
+pnpm, the version in `package.json`'s `packageManager` (any `pnpm` switches itself to it): `npm i -g pnpm`, or pnpm's standalone installer. Node 25+ ships no corepack, and pnpm advises against it anyway. Dependency install scripts run only when `pnpm-workspace.yaml`'s `allowBuilds` names them.
 
 | Task                                                      | Command                                       |
 | --------------------------------------------------------- | --------------------------------------------- |
-| Install deps                                              | `yarn install`                                |
-| Build the SPA (webpack → `public/`)                       | `yarn build` (`NODE_ENV=production` for prod) |
-| Webpack watch                                             | `yarn watch`                                  |
+| Install deps                                              | `pnpm install`                                |
+| Build the SPA (webpack → `public/`)                       | `pnpm build` (`NODE_ENV=production` for prod) |
+| Webpack watch                                             | `pnpm watch`                                  |
 | Serve the built SPA                                       | `python3 -m http.server -d public 8000`       |
-| Lint everything (eslint + prettier + stylelint)           | `yarn lint`                                   |
-| Auto-format                                               | `yarn format:prettier`                        |
-| Full test (lint + mocha)                                  | `yarn test`                                   |
-| Mocha only (builds first)                                 | `yarn test:mocha`                             |
-| Mocha without the spec glob                               | `yarn test:nospec`                            |
-| Coverage                                                  | `yarn coverage`                               |
-| Install git pre-commit hook                               | `yarn githooks-install`                       |
-| Playwright e2e (builds first, needs `SEANCE_E2E_IRC_URL`) | `yarn test:e2e`                               |
+| Lint everything (eslint + prettier + stylelint)           | `pnpm lint`                                   |
+| Auto-format                                               | `pnpm format:prettier`                        |
+| Full test (lint + mocha)                                  | `pnpm test`                                   |
+| Mocha only (builds first)                                 | `pnpm test:mocha`                             |
+| Mocha without the spec glob                               | `pnpm test:nospec`                            |
+| Coverage                                                  | `pnpm coverage`                               |
+| Install git pre-commit hook                               | `pnpm githooks-install`                       |
+| Playwright e2e (builds first, needs `SEANCE_E2E_IRC_URL`) | `pnpm test:e2e`                               |
 
-There is no `yarn dev`/`yarn start`; build and serve `public/` statically.
+There is no `pnpm dev`/`pnpm start`; build and serve `public/` statically.
 
 Run a single mocha file:
 
 ```sh
-npx cross-env NODE_ENV=test TS_NODE_PROJECT='./test/tsconfig.json' \
-  npx mocha --config=test/.mocharc.yml test/irc/client.ts
+NODE_ENV=test pnpm exec mocha --config=test/.mocharc.yml test/irc/client.ts
 ```
 
-`yarn test:mocha` runs `webpack --mode=development` first because `test/tests/build.ts` inspects `public/`. Live tests (`test/irc/*.live.ts`) are `describe.skip` unless `SEANCE_IRC_URL` is set:
+CI (`.github/workflows/ci.yml`) runs on every pull request and push to `develop`: a frozen-lockfile install, `pnpm lint`, the production build, `pnpm test:mocha`, and `tools/scenarios/smoke.mjs` (the built app boots in Chromium with no console error).
+
+`pnpm test:mocha` runs `webpack --mode=development` first because `test/tests/build.ts` inspects `public/`. Live tests (`test/irc/*.live.ts`) are `describe.skip` unless `SEANCE_IRC_URL` is set:
 
 ```sh
-SEANCE_IRC_URL=wss://localhost:8443/ npx cross-env NODE_ENV=test \
-  TS_NODE_PROJECT='./test/tsconfig.json' npx mocha --config=test/.mocharc.yml test/irc/client.live.ts
+SEANCE_IRC_URL=wss://localhost:8443/ NODE_ENV=test \
+  pnpm exec mocha --config=test/.mocharc.yml test/irc/client.live.ts
 ```
 
 `SEANCE_IRC_CHANNEL` overrides the channel the newer files join (default `#seance`), so they can be pointed at a public network. They relax TLS verification for `localhost` only (self-signed dev cert). Run live files **one at a time** — they share module singletons (the bus spy, the network manager, the id allocator) and time out waiting for `init` when several run in one mocha process (verified 2026-08-25: all pass individually, 4/6 fail combined; the ircd was not throttling). Making them coexist is an open follow-up. Quick headless smoke check after a build (expects the connect form and no console errors):
@@ -141,23 +142,23 @@ Cross-cutting types and helpers. `shared/types/socket-events.ts` (`ServerToClien
 
 - **`attic/`** — TheLounge's old `server/`, CLI entry, defaults and server tests. **Reference only**: not built, linted, type-checked or tested; excluded from ESLint, Prettier and the TS references. Look there for "how did the old server do X"; never import from it. See `attic/README.md`.
 - **GitHub Pages** (`.github/workflows/pages.yml`) — `evilnet.github.io/seance/` is the latest release; `develop/` and `pr<N>/` beside it are the develop branch and every open non-draft PR by a collaborator (or labelled `preview`), listed at `previews/`. One deployment is the whole site, so every run assembles all of them (`tools/pages-site.mjs`, `test/tools/pages-site.ts`), each build cached by commit so a PR push rebuilds that PR alone; a failed build becomes a stub page. PR builds run the PR's code under `pull_request_target` with a read-only token — that gating is the security boundary, keep it. Version strings: the tag, `<tag>-<sha8>` for develop, `<tag>-pr<N>.<sha7>` for a PR; with them the build step passes `SEANCE_RELEASE` (the tag — the shallow checkout has none to find) and `SEANCE_TRACK` (`release`, `develop`, `pr<N>`), and Help's About opens with which build this is in words ("This is a preview of pull request #142.", `helpers/sourceLinks.ts` `buildTrackOf`, `test/helpers/sourceLinks.ts`); a build made anywhere else names its git branch.
-- **`tools/`** — `nefarious-dev/` (dev ircd), `irc-ws-probe.mjs`, `pwa-check.mjs`, `pages-site.mjs` (the Pages site), and `browser-drive.mjs` + `scenarios/` (drives a real Chromium over the DevTools protocol: WebSocket frames with byte sizes for the nefarious2 framing bugs, or a scenario that clicks/asserts/screenshots — nothing in `yarn test` touches the DOM or a browser). See `docs/resources/browser-testing.md` and the `browser-check` skill.
+- **`tools/`** — `nefarious-dev/` (dev ircd), `irc-ws-probe.mjs`, `pwa-check.mjs`, `pages-site.mjs` (the Pages site), and `browser-drive.mjs` + `scenarios/` (drives a real Chromium over the DevTools protocol: WebSocket frames with byte sizes for the nefarious2 framing bugs, or a scenario that clicks/asserts/screenshots — nothing in `pnpm test` touches the DOM or a browser). See `docs/resources/browser-testing.md` and the `browser-check` skill.
 - **`docs/`** — PARA layout (`projects/`, `areas/`, `resources/`, `archives/`), see `docs/README.md`.
 - **`tmp/`** — gitignored scratch: the nefarious2 checkout, the fix patch, dev-server state.
 - **`test/`** — see Conventions.
 
 ## Conventions
 
-- Prettier is enforced (pre-commit hook via `yarn githooks-install`). If `yarn lint` fails, run `yarn format:prettier` first.
+- Prettier is enforced (pre-commit hook via `pnpm githooks-install`). If `pnpm lint` fails, run `pnpm format:prettier` first.
 - **UI sizing: rem, never px** — moved to `docs/resources/client-features.md` § UI sizing: rem, never px.
 - `client/` compiles with `strict: true`; `noImplicitAny: false` remains in the tsconfigs with a "TODO: Remove eventually" — write explicit types in new code. No Node built-ins in `client/` (it must bundle for the browser; `transport.ts` uses only the global `WebSocket`).
 - **Pipeline the registration exchange.** Lines are processed in order and pre-registration commands are not charged fake lag, so never wait for a reply whose outcome the server already knows: `CAP END` (or the SASL opener) goes out in the same flush as `CAP REQ`, and the active channel's history/marker in the same flush as the `JOIN` (`caps.ts` `pipelineEnd`, `catchup.ts` `prefetchCatchup`).
 - **Nothing but registration before 001** — moved to `docs/resources/irc-layer.md` § Nothing but registration before 001.
 - **Don't add per-channel commands to the connect path** — moved to `docs/resources/irc-layer.md` § Don't add per-channel commands to the connect path.
 - `MAX_LINE_BYTES = 500` (`client/js/irc/message.ts`) caps every outbound line, tags included: nefarious2 kills connections on inbound WS frames >= 528 bytes (#98) and the branch rejects message bodies over 512 bytes as excess flood, and browsers cannot control fragmentation. `splitMessage` chunks long text; do not raise the cap.
-- After changing `client/`, run `yarn build` (or `yarn watch`) — the mocha build test and the headless check both read `public/`. `public/` is gitignored and shared by every branch, so it does not change on checkout: rebuild after switching branches.
+- After changing `client/`, run `pnpm build` (or `pnpm watch`) — the mocha build test and the headless check both read `public/`. `public/` is gitignored and shared by every branch, so it does not change on checkout: rebuild after switching branches.
 - **Whatever covers the screen carries `.screen-overlay`.** A modal's backdrop, a full-screen sheet, a dimmer: the class is the one rule (`html[data-shell="native"] :is(.screen-overlay, …)` in `style.css`) that starts it below the native shell's status bar and notch and stops it above Android's buttons, whether it is fixed to the screen or absolute in `#viewport` (whose padding box runs under the bars). Never add an overlay's id to an inset rule. `test/tests/screenOverlays.ts` fails a component with `role="dialog"`, `aria-modal`, an `id="…-overlay"` or a `<Teleport to="body">` that lacks the class, unless its exemption list says why it keeps clear of the bars itself (the image viewer, the reaction picker, Mentions, the connect page). Browser check: `tools/scenarios/native-shell-chrome.mjs`.
-- **The suite has no browser and no DOM.** No component is ever mounted (the Playwright e2e in `test/e2e/` is the exception, and only against a live ircd), so a change under `client/components/`, `client/css/` or the store is unverified by `yarn test` however green it is. Check those in a real browser (`docs/resources/browser-testing.md`).
+- **The suite has no browser and no DOM.** No component is ever mounted (the Playwright e2e in `test/e2e/` is the exception, and only against a live ircd), so a change under `client/components/`, `client/css/` or the store is unverified by `pnpm test` however green it is. Check those in a real browser (`docs/resources/browser-testing.md`).
 - Tests mirror the source under `test/`: `test/irc/*.ts` for the IRC layer, `test/shared/`, `test/helpers/` (`client/js/helpers/`, e.g. `parseMarkdown.ts`, `layout.ts`, `highlighter.ts`), `test/push/` (`client/js/push/`, the service worker's push module), `test/tests/` (`build.ts`, `eventBus.ts`; everything that needs no DOM lives under `test/helpers/` and `test/tests/`), `test/e2e/` (Playwright, ignored by mocha, needs a built `public/` and `SEANCE_E2E_IRC_URL`). Mocha config `test/.mocharc.yml` (tsx loader, `check-leaks`).
 - IRC unit tests use a `FakeTransport` injected through `transportFactory` and drive lines with `transport.line(...)`, asserting on a `sinon.spy(socket, "dispatch")`. **Gotcha:** `test/irc/client.ts` installs that spy in a root-level `beforeEach`, which mocha applies to every file in the run; other files (`multi-network.ts`, `history.ts`, ...) check `socket.dispatch.isSinonProxy` and only `restore()` a spy they own. Follow that pattern in new test files or the suite fails when run together.
 - Modules that must run under mocha (`irc/*`, `saved-networks.ts`, `sts.ts`) stay free of store/DOM imports; tests swap storage via `useStorageBackend`.

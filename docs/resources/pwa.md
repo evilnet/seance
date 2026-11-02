@@ -23,10 +23,10 @@ No server-side piece is needed. The static host must serve
 or `application/json`) — most do by extension; nginx needs
 `types { application/manifest+json webmanifest; }` if it doesn't already.
 
-`yarn build` without `NODE_ENV=production` is a **dev** build: the service
+`pnpm build` without `NODE_ENV=production` is a **dev** build: the service
 worker's cache name is `dev`, it caches nothing and never precaches, so the
 app is installable but not offline-capable and no update is ever detected.
-Ship `NODE_ENV=production corepack yarn build`.
+Ship `NODE_ENV=production pnpm build`.
 
 ## What the installed app does
 
@@ -145,7 +145,7 @@ and `--platform=ios` override the user agent to walk the phone routes).
 ## Verifying a deploy
 
 ```sh
-NODE_ENV=production corepack yarn build
+NODE_ENV=production pnpm build
 python3 -m http.server -d public 8000 &
 node tools/pwa-check.mjs http://localhost:8000/
 ```

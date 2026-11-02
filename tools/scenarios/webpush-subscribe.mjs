@@ -1,6 +1,6 @@
 // Push subscription (draft/webpush) round-trip, end to end in a real browser.
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   pnpm build && python3 -m http.server -d public 8000 &
 //   (testnet ircd with CAP_draft_webpush + SASLDB — see
 //   docs/projects/push-subscription.md; the ports below assume it)
 //   node tools/browser-drive.mjs tools/scenarios/webpush-subscribe.mjs

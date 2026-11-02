@@ -1,6 +1,6 @@
 #!/bin/sh
 # Serve the built SPA (public/) on http://127.0.0.1:8765 for local testing.
-# Build first: NODE_ENV=production corepack yarn build
+# Build first: NODE_ENV=production pnpm build
 # Dev ircd:    tools/nefarious-dev/run.sh -d   (ws://localhost:8067, wss://localhost:8443)
 #
 #   tools/serve.sh        # foreground

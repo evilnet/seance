@@ -3,7 +3,7 @@
 // restarts the schedule (client/js/irc/transport.ts;
 // docs/projects/seamless-reconnect.md § Round seven).
 //
-//   NODE_ENV=production corepack yarn build && python3 -m http.server -d public 8001 &
+//   NODE_ENV=production pnpm build && python3 -m http.server -d public 8001 &
 //   node tools/browser-drive.mjs tools/scenarios/reconnect-after-backoff.mjs [--chrome=…]
 //
 // Needs an ircd speaking plain WebSocket on 127.0.0.1:8067 (the dev ircd or

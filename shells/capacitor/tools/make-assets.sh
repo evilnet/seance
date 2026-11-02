@@ -18,7 +18,7 @@
 #                          own (the adaptive icon outranks ic_launcher.png),
 #                          and so does the Android 12+ launch screen.
 #
-# Then `corepack yarn assets` (= npx capacitor-assets generate) writes every
+# Then `pnpm assets` (= npx capacitor-assets generate) writes every
 # iOS / Android size into the native projects. A rebrand replaces the three
 # files in assets/ (or reruns this with its own art and colours) and runs
 # the generator again.

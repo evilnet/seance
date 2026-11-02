@@ -1,7 +1,7 @@
 // A closed query stays closed in this device's other tabs
 // (irc/closedQueries.ts, manager.ts's `storage` listener).
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d
 //   node tools/browser-drive.mjs tools/scenarios/query-close-sync.mjs
 //

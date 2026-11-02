@@ -1,0 +1,67 @@
+# The gate every pull request and every push to develop goes through: the
+# lockfile installs as committed, the linters pass, the production build
+# succeeds, mocha passes, and the built app boots in a real Chromium.
+#
+# What it cannot see: anything rendered beyond "the app boots" (the suite has
+# no DOM; the browser scenarios in tools/scenarios/ stay author-side), live
+# IRC (the test/irc/*.live.ts files and the Playwright e2e need an ircd), the
+# native shells. Pages (pages.yml) builds and publishes separately.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: ".node-version"
+
+      # pnpm switches itself to the version in package.json's packageManager.
+      # Not through corepack: Node 25+ ships none.
+      - name: Install pnpm
+        run: npm install --global pnpm@12
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      # Before mocha: test/tests/build.ts inspects public/.
+      - name: Production build
+        run: pnpm build
+        env:
+          NODE_ENV: production
+
+      - name: Mocha
+        run: pnpm test:mocha
+
+      # tools/scenarios/smoke.mjs: the connect form appears, and nothing
+      # throws or logs an error. Ubuntu 24.04's AppArmor forbids the
+      # unprivileged user namespaces Chromium's sandbox needs, and
+      # browser-drive keeps the sandbox on, so lift that for this runner.
+      - name: Smoke
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          pnpm exec playwright install --with-deps chromium
+          export CHROME_BIN="$(node -e 'console.log(require("@playwright/test").chromium.executablePath())')"
+          python3 -m http.server -d public 8000 &
+          node tools/browser-drive.mjs tools/scenarios/smoke.mjs --no-ws

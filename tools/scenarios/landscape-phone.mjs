@@ -2,7 +2,7 @@
 // overlay, not a side panel (helpers/device.ts PHONE_LAYOUT_QUERY and the
 // matching `@media` lists in style.css and Mentions.vue).
 //
-//   corepack yarn build && python3 -m http.server -d public 8001 &
+//   pnpm build && python3 -m http.server -d public 8001 &
 //   node tools/browser-drive.mjs tools/scenarios/landscape-phone.mjs --mobile
 //
 // No ircd: the connect form has the sidebar too. `--mobile` gives the page a

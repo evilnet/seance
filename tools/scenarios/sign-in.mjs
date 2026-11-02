@@ -3,7 +3,7 @@
 // question is who you are rather than where to connect.
 //
 // It needs a deploy config, so put one in place before building — this is
-// the whole feature under test, and `yarn test` never renders a component:
+// the whole feature under test, and `pnpm test` never renders a component:
 //
 //   cp client/config.json /tmp/config.json.orig
 //   cat > client/config.json <<'JSON'
@@ -20,7 +20,7 @@
 //     "features": {"signIn": true, "allowCustomServer": false, "multiNetwork": false}
 //   }
 //   JSON
-//   corepack yarn build && python3 -m http.server -d public 8023 &
+//   pnpm build && python3 -m http.server -d public 8023 &
 //   node tools/browser-drive.mjs tools/scenarios/sign-in.mjs
 //   cp /tmp/config.json.orig client/config.json
 //

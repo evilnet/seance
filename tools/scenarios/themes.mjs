@@ -11,7 +11,7 @@
 // are docs/projects/accessibility.md's.
 // A screenshot of the chat under each theme lands in the output directory.
 //
-//   corepack yarn build && python3 -m http.server -d public 8021 &
+//   pnpm build && python3 -m http.server -d public 8021 &
 //   node tools/browser-drive.mjs tools/scenarios/themes.mjs
 //
 // The default target is a plain-WS ircd on 127.0.0.1:8067 (the dev ircd's

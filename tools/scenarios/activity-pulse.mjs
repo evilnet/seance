@@ -1,10 +1,10 @@
 // The sidebar activity pulse, end to end in a real browser.
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d
 //   node tools/browser-drive.mjs tools/scenarios/activity-pulse.mjs
 //
-// The claim under test is a CSS class on a sidebar row, which `yarn test`
+// The claim under test is a CSS class on a sidebar row, which `pnpm test`
 // cannot see: `has-activity` goes on when somebody *says* something in a
 // channel you are not reading, and only then. Joins and quits must leave the
 // row alone, the deadline must lapse on its own, and the active and muted

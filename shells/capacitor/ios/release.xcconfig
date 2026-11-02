@@ -2,7 +2,7 @@
 // can come from an untracked file: see signing.xcconfig below.
 #include? "signing.xcconfig"
 
-// The version, from git (tools/stamp-version.mjs, run by `yarn sync`) through
+// The version, from git (tools/stamp-version.mjs, run by `pnpm sync`) through
 // an untracked file, so a sync never leaves the project changed. Without one
 // (a checkout that has not synced) the build still says something.
 MARKETING_VERSION = 0.0.0

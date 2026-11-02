@@ -9,7 +9,7 @@
 // (webpush.ts imports the store). The worker's own two roads (the throwaway
 // connection, the outbox write) are the harness's, test/tests/service-worker.ts.
 //
-//   NODE_ENV=production corepack yarn build && python3 -m http.server -d public 8004 &
+//   NODE_ENV=production pnpm build && python3 -m http.server -d public 8004 &
 //   node tools/browser-drive.mjs tools/scenarios/push-mark-read.mjs [--chrome=…]
 //
 // Needs the testnet ircd on ws://127.0.0.1:8067 with the SASL account below:

@@ -8,7 +8,7 @@
 // its locale from `--lang`, which this driver does not pass, so drive it with
 // the environment instead and run it once per locale:
 //
-//   corepack yarn build && python3 -m http.server -d public 8031 &
+//   pnpm build && python3 -m http.server -d public 8031 &
 //   LANGUAGE=en-US LANG=en_US.UTF-8 node tools/browser-drive.mjs tools/scenarios/clock-locale.mjs
 //   LANGUAGE=de-DE LANG=de_DE.UTF-8 node tools/browser-drive.mjs tools/scenarios/clock-locale.mjs
 //

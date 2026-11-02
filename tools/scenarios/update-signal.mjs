@@ -3,7 +3,7 @@
 // (client/service-worker.js announceBuild, client/js/pwa.ts, build.ts,
 // Windows/Help.vue).
 //
-//   NODE_ENV=production corepack yarn build
+//   NODE_ENV=production pnpm build
 //   node tools/browser-drive.mjs tools/scenarios/update-signal.mjs
 //
 // No ircd is involved: the connect form is all the page needs to show. The
@@ -165,7 +165,7 @@ export default async function run(page) {
 
 		if (tokenA === "dev") {
 			throw new Error(
-				"public/ is a development build (token `dev`, never an update): NODE_ENV=production corepack yarn build"
+				"public/ is a development build (token `dev`, never an update): NODE_ENV=production pnpm build"
 			);
 		}
 

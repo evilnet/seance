@@ -4,7 +4,7 @@
 // gone the moment the network registers again
 // (docs/projects/seamless-reconnect.md § Round eight).
 //
-//   NODE_ENV=production corepack yarn build && python3 -m http.server -d public 8001 &
+//   NODE_ENV=production pnpm build && python3 -m http.server -d public 8001 &
 //   node tools/browser-drive.mjs tools/scenarios/disconnected-channel.mjs [--chrome=…]
 //   node tools/browser-drive.mjs tools/scenarios/disconnected-channel.mjs --mobile --width=390 --height=844
 //

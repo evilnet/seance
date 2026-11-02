@@ -2,7 +2,7 @@
 // a browser that is not one: the safe-area tokens on html[data-shell="native"]
 // and the `data-escape-close` marker the Android back button looks for.
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d
 //   node tools/browser-drive.mjs tools/scenarios/native-shell-chrome.mjs
 //

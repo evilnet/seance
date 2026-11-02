@@ -77,14 +77,14 @@ CAPs or modify the implementation to suit us.
 
 ## Building and serving
 
-Requires [Node.js](https://nodejs.org/) 22 or newer and Yarn 1 (classic), which
-ships with Node's `corepack`.
+Requires [Node.js](https://nodejs.org/) 22 or newer and [pnpm](https://pnpm.io/)
+(`npm i -g pnpm`; it switches itself to the version `package.json` names).
 
 ```sh
 git clone https://github.com/evilnet/seance.git
 cd seance
-corepack yarn install
-NODE_ENV=production corepack yarn build
+pnpm install
+NODE_ENV=production pnpm build
 ```
 
 That produces `public/`. Serve it from any static host:
@@ -106,14 +106,14 @@ with a self-signed certificate, is described in
 ## Development
 
 ```sh
-corepack yarn watch      # rebuild public/ on change
-corepack yarn lint       # eslint + prettier + stylelint
-corepack yarn test       # lint + mocha
-corepack yarn test:mocha # mocha only (builds first)
+pnpm watch      # rebuild public/ on change
+pnpm lint       # eslint + prettier + stylelint
+pnpm test       # lint + mocha
+pnpm test:mocha # mocha only (builds first)
 ```
 
-Run `corepack yarn githooks-install` once to get the pre-commit lint hook. If
-linting fails, `corepack yarn format:prettier` usually fixes it.
+Run `pnpm githooks-install` once to get the pre-commit lint hook. If
+linting fails, `pnpm format:prettier` usually fixes it.
 
 Live tests against a real ircd (`test/irc/*.live.ts`) run when
 `SEANCE_IRC_URL` points at one, e.g. `SEANCE_IRC_URL=wss://localhost:8443/`.

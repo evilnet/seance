@@ -8,7 +8,7 @@
 // settings.ts, style.css). A real mouse drag checks nothing moves under the
 // pointer and the slider lands on the stop under it.
 //
-//   corepack yarn build && python3 -m http.server -d public 8021 &
+//   pnpm build && python3 -m http.server -d public 8021 &
 //   node tools/browser-drive.mjs tools/scenarios/font-size-setting.mjs
 //
 // The default target is a plain-WS ircd on 127.0.0.1:8067 (the dev ircd's

@@ -1,6 +1,6 @@
 // Per-network push settings verification:
 //
-//   corepack yarn build && python3 -m http.server -d public 8100 &
+//   pnpm build && python3 -m http.server -d public 8100 &
 //   node tools/browser-drive.mjs tools/scenarios/push-network-setting.mjs
 //
 // Push notification settings live in the network settings (some servers can

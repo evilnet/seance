@@ -6,7 +6,7 @@
 // message duplicated, blank lines drew ERR_NOTEXTTOSEND and the closer drew
 // FAIL BATCH NO_ACTIVE_BATCH, all shown to the user.
 //
-//   corepack yarn build && python3 -m http.server -d public 8001 &
+//   pnpm build && python3 -m http.server -d public 8001 &
 //   tools/nefarious-dev/run.sh -d   (or the native testnet on 8067)
 //   CHROME_BIN=… node tools/browser-drive.mjs tools/scenarios/multiline-paste.mjs \
 //     --url='http://127.0.0.1:8001/?host=127.0.0.1&port=8067&tls=false&nick=mlpaste&join=%23seance'

@@ -14,7 +14,7 @@
   "scripts": {
     "build:client": "webpack",
     "build": "webpack",
-    "coverage": "webpack --mode=development && cross-env NODE_ENV=test TS_NODE_PROJECT='./test/tsconfig.json' nyc --nycrc-path=test/.nycrc-mocha.json mocha --config=test/.mocharc.yml 'test/**/*.ts' && nyc --nycrc-path=test/.nycrc-report.json report",
+    "coverage": "webpack --mode=development && NODE_ENV=test TS_NODE_PROJECT='./test/tsconfig.json' nyc --nycrc-path=test/.nycrc-mocha.json mocha --config=test/.mocharc.yml 'test/**/*.ts' && nyc --nycrc-path=test/.nycrc-report.json report",
     "format:prettier": "prettier --write \"**/*.*\"",
     "lint:check-eslint": "eslint-config-prettier .eslintrc.cjs",
     "lint:eslint": "eslint . --report-unused-disable-directives --color",
@@ -23,8 +23,8 @@
     "lint": "run-p --aggregate-output --continue-on-error lint:*",
     "test": "run-p --aggregate-output --continue-on-error lint:* test:mocha",
     "test:e2e": "webpack && playwright test",
-    "test:mocha": "webpack --mode=development && cross-env NODE_ENV=test TS_NODE_PROJECT='./test/tsconfig.json' mocha --config=test/.mocharc.yml 'test/**/*.ts'",
-    "test:nospec": "webpack --mode=development && cross-env NODE_ENV=test TS_NODE_PROJECT='./test/tsconfig.json' mocha --config=test/.mocharc.yml",
+    "test:mocha": "webpack --mode=development && NODE_ENV=test TS_NODE_PROJECT='./test/tsconfig.json' mocha --config=test/.mocharc.yml 'test/**/*.ts'",
+    "test:nospec": "webpack --mode=development && NODE_ENV=test TS_NODE_PROJECT='./test/tsconfig.json' mocha --config=test/.mocharc.yml",
     "watch": "webpack --watch",
     "githooks-install": "git config core.hooksPath scripts/git-hooks"
   },
@@ -87,7 +87,6 @@
     "babel-preset-typescript-vue3": "2.0.17",
     "chai": "4.3.7",
     "copy-webpack-plugin": "13.0.1",
-    "cross-env": "7.0.3",
     "css-loader": "7.1.4",
     "cssnano": "5.0.17",
     "dayjs": "1.10.8",
@@ -131,5 +130,6 @@
     "vuex": "4.0.2",
     "webpack": "5.106.0",
     "webpack-cli": "6.0.1"
-  }
+  },
+  "packageManager": "pnpm@12.16.1"
 }

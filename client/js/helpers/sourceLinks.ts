@@ -23,7 +23,7 @@ export interface BuildIdentity {
 /**
  * Which build this is, for Help: one of the Pages site's — the release at
  * the root, `develop/`, a pull request's `pr<N>/` — or one made anywhere
- * else (`yarn build` on someone's machine, a native shell's), which names
+ * else (`pnpm build` on someone's machine, a native shell's), which names
  * its branch when it knows it.
  */
 export interface BuildTrack {

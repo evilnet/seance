@@ -1,7 +1,7 @@
 // On a touch device the message action toolbar opens on a long press, one
 // message at a time, and a tap puts it away.
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d
 //   node tools/browser-drive.mjs tools/scenarios/message-actions-single.mjs --mobile
 //
@@ -16,7 +16,7 @@
 // `--mobile` is required: the toolbar only opens on a long press where
 // `(hover: none) and (pointer: coarse)` matches, and the scenario refuses to
 // pass vacuously on a desktop viewport. The pointer-device behaviour (hover,
-// drag, the jump arrow) is tools/scenarios/message-actions-toolbar.mjs. Nothing in `yarn test` mounts a
+// drag, the jump arrow) is tools/scenarios/message-actions-toolbar.mjs. Nothing in `pnpm test` mounts a
 // component, which is why this exists. The second user is driven over the
 // same WebSocket the app uses, as tools/scenarios/reaction-picker.mjs does.
 
