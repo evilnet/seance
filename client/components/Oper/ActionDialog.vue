@@ -263,7 +263,7 @@ import {computed, defineComponent, nextTick, onMounted, onUnmounted, ref, watch}
 import eventbus from "../../js/eventbus";
 import {useStore} from "../../js/store";
 import {operRequest, servicesBan} from "../../js/helpers/operRequest";
-import {hasPriv, type OperActionRequest, userIp} from "../../js/helpers/operMenu";
+import {hasPriv, type OperActionRequest, userhostItem, userIp} from "../../js/helpers/operMenu";
 import {
 	BAN_MAX_SECONDS,
 	banLine,
@@ -483,6 +483,7 @@ export default defineComponent({
 			preview.value = null;
 			previewFor = "";
 			busy.value = false;
+			looking.value = false;
 			scope.value = scopes.value[0]?.value ?? "*";
 		};
 
@@ -494,22 +495,21 @@ export default defineComponent({
 				return;
 			}
 
+			// This dialog's answer only: one closed since (or reopened for
+			// the same nick on another network) has moved the generation on.
+			const asked = generation;
 			looking.value = true;
 			const [{ident, ip}, hostReply] = await Promise.all([
 				userIp(n.uuid, nick),
 				operRequest(n.uuid, `USERHOST ${nick}`, {untagged: ["302"]}),
 			]);
-			looking.value = false;
-			const item = hostReply.lines
-				.find((msg) => msg.command === "302")
-				?.params.at(-1)
-				?.trim()
-				.split(" ")[0];
-			const host = item ? /@(.*)$/.exec(item)?.[1] : undefined;
 
-			if (request.value?.nick !== nick) {
+			if (asked !== generation) {
 				return; // the dialog moved on
 			}
+
+			looking.value = false;
+			const host = userhostItem(hostReply.lines, "302", nick)?.host;
 
 			rawSuggestions.value = maskSuggestions(banType.value, {ident, ip, host});
 

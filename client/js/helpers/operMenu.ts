@@ -63,6 +63,20 @@ export function operChannelItems(network: ClientNetwork, channel: string): Conte
 	];
 }
 
+/**
+ * The window an oper action on `network` runs in and answers to: the
+ * active one when it is on that network, else the network's lobby. Never
+ * the active window of another network, or the command goes out there.
+ */
+export function operChanFor(
+	network: Pick<ClientNetwork, "uuid" | "channels">,
+	active: {network: Pick<ClientNetwork, "uuid">; channel: {id: number}} | undefined
+): number {
+	return active && active.network.uuid === network.uuid
+		? active.channel.id
+		: network.channels[0]?.id ?? 0;
+}
+
 /** Opered (local, global or admin) on this network. */
 export function isOperOn(network: Pick<ClientNetwork, "oper"> | undefined): boolean {
 	const level = network?.oper?.level;
@@ -118,15 +132,42 @@ function input(chan: number, text: string): void {
 }
 
 /** `USERIP <nick>` → the real IP (opers see it; 340 is untagged, #120). */
+/**
+ * The `nick[*]=[+-]user@host` item for `nick` in the 302/340 lines of a
+ * reply, by its nick: the server sends these untagged (#120), so a reply
+ * can hold one the oper's own /userip or /userhost drew for someone else.
+ */
+export function userhostItem(
+	lines: {command: string; params: string[]}[],
+	command: "302" | "340",
+	nick: string
+): {user: string; host: string} | undefined {
+	const want = nick.toLowerCase();
+
+	for (const line of lines) {
+		if (line.command !== command) {
+			continue;
+		}
+
+		for (const item of (line.params.at(-1) ?? "").trim().split(/\s+/)) {
+			const m = /^([^*=]+)\*?=[+-](.*)@(.*)$/.exec(item);
+
+			if (m && m[1].toLowerCase() === want) {
+				return {user: m[2], host: m[3]};
+			}
+		}
+	}
+
+	return undefined;
+}
+
 export async function userIp(
 	network: string,
 	nick: string
 ): Promise<{ident?: string; ip?: string}> {
 	const reply = await operRequest(network, `USERIP ${nick}`, {untagged: ["340"]});
-	const line = reply.lines.find((msg) => msg.command === "340");
-	const item = line?.params[line.params.length - 1]?.trim().split(" ")[0];
-	const m = item ? /^[^=]+=[+-](.*)@(.*)$/.exec(item) : null;
-	return m ? {ident: m[1], ip: m[2]} : {};
+	const item = userhostItem(reply.lines, "340", nick);
+	return item ? {ident: item.user, ip: item.host} : {};
 }
 
 function banItems(

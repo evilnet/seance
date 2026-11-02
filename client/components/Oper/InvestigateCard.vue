@@ -567,6 +567,7 @@ import {
 	type InvestigateRequest,
 	openOperAction,
 	openOperTargetMenu,
+	operChanFor,
 } from "../../js/helpers/operMenu";
 import type {FactKey} from "../../js/helpers/commonality";
 import type {AlertBuilderRequest} from "../../js/helpers/alertBuilder";
@@ -880,7 +881,7 @@ export default defineComponent({
 		};
 
 		const activeChan = () =>
-			store.state.activeChannel?.channel.id ?? network.value?.channels[0]?.id ?? 0;
+			network.value ? operChanFor(network.value, store.state.activeChannel) : 0;
 
 		const banUser = () => {
 			const m = model.value;

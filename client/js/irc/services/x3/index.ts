@@ -359,11 +359,12 @@ export function banCommand(bot: string, ban: ServicesBanRequest): string {
 	return `PRIVMSG ${bot} :${ban.type} ${ban.mask} ${x3Duration(ban.seconds)} ${ban.reason}`;
 }
 
-const BAN_REPLIES: {re: RegExp; ok: boolean}[] = [
+// `mask: false`: what the reply quotes is not the mask (the duration).
+const BAN_REPLIES: {re: RegExp; ok: boolean; mask?: false}[] = [
 	{re: /^(?:G-line|Shun) issued for (\S+)\.$/, ok: true},
 	{re: /^Invalid (?:G-line|Shun) '(.*)'\.$/, ok: false},
 	{re: /^(?:Gline|Shun) (\S+)\?\s+Now that would be smooth\.$/, ok: false},
-	{re: /^Invalid time span '(.*)'\.$/, ok: false},
+	{re: /^Invalid time span '(.*)'\.$/, ok: false, mask: false},
 	{re: /^Access denied\.$/, ok: false},
 	{re: /^(?:G-line|Shun) (?:removed|not found) for (\S+)\.$/, ok: true},
 ];
@@ -371,13 +372,13 @@ const BAN_REPLIES: {re: RegExp; ok: boolean}[] = [
 export function parseBanReply(text: string): BanReply | undefined {
 	const line = text.trim();
 
-	for (const {re, ok} of BAN_REPLIES) {
+	for (const {re, ok, mask} of BAN_REPLIES) {
 		const m = re.exec(line);
 
 		if (m) {
 			const reply: BanReply = {ok, text: line};
 
-			if (m[1]) {
+			if (m[1] && mask !== false) {
 				reply.mask = m[1];
 			}
 

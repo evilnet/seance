@@ -828,10 +828,14 @@ export class Investigation {
 					continue;
 				}
 
+				// By the nick it names, on both cards: an untagged 340 the oper's
+				// own /userip drew can land in this request's answer (#120).
 				const user =
 					this.kind === "channel"
 						? this.channel.users.find((u) => this.client.namesEqual(u.nick, m[1]))
-						: this.userModel.user;
+						: this.client.namesEqual(this.userModel.user.nick, m[1])
+						? this.userModel.user
+						: undefined;
 				const ip = goodIp(m[3]);
 
 				if (user && ip) {

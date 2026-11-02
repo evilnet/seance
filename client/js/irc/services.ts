@@ -444,7 +444,15 @@ export async function servicesBan(
 
 	// Trimmed as ActionDialog.vue trims it: the dialog measures this same line.
 	const bot = services.bots.oper.trim();
-	const reply = awaitServiceReply(client, bot, (text) => profile.parseBanReply(text));
+	// A reply that names a mask must name this one: a dialog closed while
+	// its ban was out leaves that watcher waiting, and O3's answer to it
+	// would otherwise confirm the next ban too.
+	const reply = awaitServiceReply(client, bot, (text) => {
+		const verdict = profile.parseBanReply(text);
+		return verdict && (!verdict.mask || verdict.mask.toLowerCase() === ban.mask.toLowerCase())
+			? verdict
+			: undefined;
+	});
 
 	if (!sendQuiet(client, profile.banCommand(bot, ban))) {
 		resetServiceReplies(client);

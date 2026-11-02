@@ -229,7 +229,7 @@ import type {ClientNetwork} from "../../js/types";
 import type {InvestigatedUser, SourceId, SourceState, UserModel} from "../../js/irc/investigate";
 import {type BanNear, type SeenEntry, whenText} from "../../js/helpers/verdict";
 import {formatDuration, relativeTime} from "../../js/helpers/operFormat";
-import {openOperTargetMenu} from "../../js/helpers/operMenu";
+import {openOperTargetMenu, operChanFor} from "../../js/helpers/operMenu";
 import localetime from "../../js/helpers/localetime";
 import useNow from "../../js/hooks/use-now";
 import {useStore} from "../../js/store";
@@ -324,7 +324,7 @@ export default defineComponent({
 		};
 
 		const openMenu = (event: MouseEvent, kind: "ip" | "host" | "mask", value: string) => {
-			const chan = store.state.activeChannel?.channel.id ?? props.network.channels[0].id;
+			const chan = operChanFor(props.network, store.state.activeChannel);
 			openOperTargetMenu(event, props.network, chan, kind, value);
 		};
 

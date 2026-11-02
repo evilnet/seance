@@ -636,6 +636,13 @@ export default async function run(page) {
 	// Save, whole inside the window; Save keeps it on the card, and Escape
 	// closes the note before the card.
 	const noteButton = `Array.from(document.querySelectorAll("${overlay} .oper-investigate-actions button")).find((b) => b.textContent.trim() === "Note…")`;
+	// The lookups settled first: a footer that re-renders between press and
+	// release (G-line… appearing as the privileges land) eats the click.
+	await page.waitFor(
+		`!/asking…/.test(document.querySelector("${overlay} .oper-investigate")?.textContent ?? "")`,
+		{label: "the user card's lookups done", timeout: 20000}
+	);
+	await page.sleep(300);
 	await page.evaluate(`${noteButton}.setAttribute("data-probe", "note")`);
 	await page.click(`${overlay} button[data-probe="note"]`);
 	await page.waitFor(`document.activeElement?.id === "oper-note-field"`, {
@@ -712,7 +719,9 @@ export default async function run(page) {
 		label: "the snoop lines in the channel",
 		timeout: 20000,
 	});
-	const rendered = await page.evaluate(`${snoopMsgs}.map((m) => ({
+	// This run's lines only: the rig keeps the channel's history, so earlier
+	// runs' identical lines come back above them.
+	const rendered = await page.evaluate(`${snoopMsgs}.slice(-${snoopLines.length}).map((m) => ({
 		nicks: Array.from(m.querySelectorAll(".content .user")).map((u) => u.dataset.name),
 		channels: Array.from(m.querySelectorAll(".content .inline-channel")).map((c) => c.textContent.trim()),
 		highlight: m.classList.contains("highlight"),
@@ -747,7 +756,9 @@ export default async function run(page) {
 	// The nick menu from the connect line (a tap on a nick opens it), and
 	// Investigate on it: the user card for a nick that is in no channel of
 	// ours, its lookups failing gracefully against the rig.
-	await page.click(`#chat .msg .content .user[data-name="clonebot7"]`, 1);
+	// The last one: this run's connect line (earlier runs' are above it).
+	const clonebotLast = (await page.count(`#chat .msg .content .user[data-name="clonebot7"]`)) - 1;
+	await page.click(`#chat .msg .content .user[data-name="clonebot7"]`, clonebotLast);
 	await page.waitFor(`!!document.querySelector("#context-menu .context-menu-oper-investigate")`, {
 		label: "Investigate in the snoop nick's menu",
 	});
@@ -784,7 +795,7 @@ export default async function run(page) {
 
 	// The channel menu from the JOIN line's #chan, and Investigate on it.
 	const exampleIndex = await page.evaluate(
-		`Array.from(document.querySelectorAll("#chat .msg .content .inline-channel")).findIndex((c) => c.textContent.trim() === "#example")`
+		`Array.from(document.querySelectorAll("#chat .msg .content .inline-channel")).findLastIndex((c) => c.textContent.trim() === "#example")`
 	);
 	page.check("the #chan in the JOIN line is found", exampleIndex >= 0);
 	await rightClick(page, `#chat .msg .content .inline-channel`, exampleIndex);

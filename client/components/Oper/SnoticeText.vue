@@ -41,7 +41,7 @@ import type {ClientNetwork} from "../../js/types";
 import {fieldType, splitTemplate} from "../../js/irc/profiles/fields";
 import {findNoticeKind} from "../../js/irc/snotice";
 import {formatExpiry} from "../../js/helpers/operFormat";
-import {openOperTargetMenu} from "../../js/helpers/operMenu";
+import {openOperTargetMenu, operChanFor} from "../../js/helpers/operMenu";
 import localetime from "../../js/helpers/localetime";
 import useNow from "../../js/hooks/use-now";
 import {useStore} from "../../js/store";
@@ -76,7 +76,7 @@ export default defineComponent({
 
 		const openMenu = (event: MouseEvent, field: string, value: string) => {
 			const type = fieldType(field) as "ip" | "host" | "mask";
-			const chan = store.state.activeChannel?.channel.id ?? props.network.channels[0].id;
+			const chan = operChanFor(props.network, store.state.activeChannel);
 			openOperTargetMenu(event, props.network, chan, type, value);
 		};
 

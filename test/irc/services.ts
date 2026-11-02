@@ -343,6 +343,32 @@ describe("services support: a bot's reply (irc/services.ts awaitServiceReply)", 
 		transport.line(":O3!O3@services.test NOTICE opr :Shun issued for *@h.");
 		expect(await ok).to.deep.equal({outcome: "ok", text: "Shun issued for *@h."});
 
+		// Two bans out at once (the first dialog closed while its ban was
+		// out): O3's answer for one mask confirms that one only.
+		const first = servicesBan(client, {
+			type: "gline",
+			mask: "*@a.example",
+			seconds: 60,
+			reason: "r",
+		});
+		const second = servicesBan(client, {
+			type: "gline",
+			mask: "*@b.example",
+			seconds: 60,
+			reason: "r",
+		});
+		let secondDone = false;
+		void second.then(() => (secondDone = true));
+		transport.line(":O3!O3@services.test NOTICE opr :G-line issued for *@a.example.");
+		expect(await first).to.deep.equal({outcome: "ok", text: "G-line issued for *@a.example."});
+		await Promise.resolve();
+		expect(secondDone, "the other ban is still waiting for its own answer").to.equal(false);
+		transport.line(":O3!O3@services.test NOTICE opr :Invalid G-line '*@b.example'.");
+		expect(await second).to.deep.equal({
+			outcome: "refused",
+			text: "Invalid G-line '*@b.example'.",
+		});
+
 		// The bot is not on the network: the server's 401 says so at once.
 		const gone = servicesBan(client, {type: "gline", mask: "*@h", seconds: 60, reason: "r"});
 		transport.line(":irc.test 401 opr O3 :No such nick");
@@ -355,7 +381,7 @@ describe("services support: a bot's reply (irc/services.ts awaitServiceReply)", 
 		expect(
 			await servicesBan(client, {type: "shun", mask: "x", seconds: 1, reason: "r"})
 		).to.deep.equal({outcome: "closed", text: "No oper service is set up for this network."});
-		expect(transport.sent).to.have.length(3);
+		expect(transport.sent).to.have.length(5);
 	});
 });
 
@@ -420,9 +446,12 @@ describe("services support: quiet lookups (irc/quiet.ts)", function () {
 		const errorsBefore = errorCount();
 		sendQuiet(client, "PRIVMSG Nobody :whois y");
 		transport.line("@label=svc5 :irc.test 401 opr Nobody :No such nick");
+		// …but a lookup waiting on the bot still learns it is missing.
+		const waiting = awaitServiceReply(client, "NOBODY", () => undefined);
 		sendQuiet(client, "PRIVMSG NOBODY :whois z");
 		transport.line("@label=svc6 :irc.test 401 opr NOBODY :No such nick");
 		expect(errorCount(), "a missing bot's 401 shows once").to.equal(errorsBefore);
+		expect((await waiting).kind).to.equal("missing");
 
 		// Without labeled-response the line goes out plain (and its echo shows).
 		const plain = new FakeTransport();

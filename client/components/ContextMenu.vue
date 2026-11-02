@@ -238,8 +238,18 @@ export default defineComponent({
 		const openUserContextMenu = (data: {
 			user: Pick<ClientUser, "nick" | "modes">;
 			event: MouseEvent;
+			network?: ClientNetwork;
+			channel?: ClientChan;
 		}) => {
-			const {network, channel} = store.state.activeChannel;
+			// The network the nick was shown for (an oper card, a notice), not
+			// the active one: a card can be open for another network, and its
+			// Kill… or Whois would act there. The active channel only when it
+			// is on that network; else that network's lobby.
+			const active = store.state.activeChannel;
+			const network = data.network ?? active.network;
+			const channel =
+				data.channel ??
+				(active.network.uuid === network.uuid ? active.channel : network.channels[0]);
 
 			const newItems = generateUserContextMenu(
 				store,

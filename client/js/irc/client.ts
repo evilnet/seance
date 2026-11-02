@@ -142,7 +142,7 @@ import {
 } from "./sts";
 import {channelOrder, get as getSavedNetwork, NetworkCursor, setCursor} from "./saved-networks";
 import {noteServiceReply, resetServiceReplies} from "./services";
-import {dropQuietLine} from "./quiet";
+import {dropQuietLine, isRepeatedMissingBot} from "./quiet";
 import {BackgroundQueue, FakeLagClock, type FakeLagModel} from "./fakelag";
 import {
 	isOffline,
@@ -2556,6 +2556,11 @@ export class IrcClient {
 		// saying there is no such bot (services.ts). A line a quiet watcher
 		// consumed is shown in no window — the asker renders the answer.
 		if (noteServiceReply(this, msg)) {
+			return;
+		}
+
+		// That bot's 401 was shown a moment ago: the services layer has it.
+		if (isRepeatedMissingBot(msg)) {
 			return;
 		}
 

@@ -77,6 +77,18 @@ export function sendQuiet(client: IrcClient, line: string): boolean {
 	return client.send(label ? `${tagPrefix({label})}${line}` : line);
 }
 
+/** Labeled 401s for a bot whose 401 was shown a moment ago. */
+const repeatedMissing = new WeakSet<IrcMessage>();
+
+/**
+ * A quiet line's 401 for a bot already reported missing in the last
+ * `MISSING_BOT_QUIET_MS`: called after the services layer has seen it, so
+ * it is dropped before it is shown a second time.
+ */
+export function isRepeatedMissingBot(msg: IrcMessage): boolean {
+	return repeatedMissing.has(msg);
+}
+
 /** Whether `label` is one of this client's quiet labels (and forget it). */
 export function takeQuietLabel(client: IrcClient, label: string | undefined): boolean {
 	const registry = registries.get(client);
@@ -95,7 +107,7 @@ export function takeQuietLabel(client: IrcClient, label: string | undefined): bo
  * NOTICE of ours carrying the label) or its `ACK` is dropped — returns
  * true. A numeric with the label (a `401` for a bot that is not online)
  * forgets the label but is still shown: the oper should see it — once per
- * bot in `MISSING_BOT_QUIET_MS`, the rest dropped.
+ * bot in `MISSING_BOT_QUIET_MS` ({@link isRepeatedMissingBot}).
  */
 export function dropQuietLine(
 	client: IrcClient,
@@ -119,11 +131,14 @@ export function dropQuietLine(
 		const bot = (msg.params[1] ?? "").toLowerCase();
 		const shown = missing.get(bot);
 
+		// Still handed on: the services layer learns from it that the bot is
+		// missing (services.ts). Only showing it again is skipped.
 		if (shown !== undefined && now - shown < MISSING_BOT_QUIET_MS) {
-			return true;
+			repeatedMissing.add(msg);
+		} else {
+			missing.set(bot, now);
 		}
 
-		missing.set(bot, now);
 		return false;
 	}
 
