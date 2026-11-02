@@ -37,7 +37,7 @@ function readBranding(): Branding {
 const branding = readBranding();
 const appName =
 	typeof branding.appName === "string" && branding.appName.trim() ? branding.appName : "Seance";
-// The deploy's theme colour (same default as webpack.config.ts): what the
+// The deploy's theme colour (same default as scripts/build-info.mts): what the
 // WebView shows before the page paints and under over-scroll.
 const themeColor =
 	typeof branding.themeColor === "string" && /^#[0-9a-f]{6}$/i.test(branding.themeColor)

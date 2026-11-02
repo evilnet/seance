@@ -2,7 +2,7 @@
 // windows. `branding.links.source` names the repository (GitHub URL shapes;
 // the default is upstream, a fork points it at itself) and the build's
 // identity comes from `configuration.ts` — `version`, `release`, `gitCommit`,
-// `buildTrack`, `gitBranch`, filled in by webpack's `resolveBuild`. Vue-free:
+// `buildTrack`, `gitBranch`, filled in by the build's `resolveBuild`. Vue-free:
 // test/helpers/sourceLinks.ts.
 
 import {UPSTREAM_REPOSITORY} from "../branding";

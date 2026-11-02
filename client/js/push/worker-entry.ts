@@ -1,6 +1,6 @@
 /**
  * Entry of the service worker's push chunk (public/js/push.js, built by
- * the second webpack configuration). The worker `importScripts` it at
+ * vite.push.config.mts). The worker `importScripts` it at
  * start-up and reaches everything through `self.seancePush`; keep this
  * object's shape in step with `push()` in client/service-worker.js.
  */

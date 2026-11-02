@@ -2,7 +2,7 @@
 // prompt (webpush.ts `waiting` / `scheduleHandoff`): the prompt is one at a
 // time, and the second network used to be skipped until it reconnected.
 //
-//   npx webpack && python3 -m http.server -d public 8001 &
+//   pnpm build && python3 -m http.server -d public 8001 &
 //   node tools/browser-drive.mjs tools/scenarios/push-prompt-every-network.mjs
 //
 // Defaults to the testnet ircd the other push scenarios use. Against a real

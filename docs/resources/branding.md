@@ -2,10 +2,10 @@
 
 Seance is a static SPA: `pnpm build` writes everything to `public/`, and an IRC network ships that directory as its own client. Two layers of branding exist:
 
-| Layer          | Source                                 | Applied when    | Covers                                                                                                              |
-| -------------- | -------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------- |
-| **Runtime**    | `public/config.json` (fetched)         | Every page load | Everything the Vue app renders: title, connect-form defaults, help links, UI strings, feature flags, default theme  |
-| **Build-time** | `client/config.json` (read by webpack) | `pnpm build`    | `index.html` `<title>`, `application-name`, `theme-color`, the loading splash text, and the web app manifest fields |
+| Layer          | Source                                   | Applied when    | Covers                                                                                                              |
+| -------------- | ---------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **Runtime**    | `public/config.json` (fetched)           | Every page load | Everything the Vue app renders: title, connect-form defaults, help links, UI strings, feature flags, default theme  |
+| **Build-time** | `client/config.json` (read by the build) | `pnpm build`    | `index.html` `<title>`, `application-name`, `theme-color`, the loading splash text, and the web app manifest fields |
 
 Both read the **same file**: `client/config.json` is copied to `public/config.json` unchanged. A deploy that only edits `public/config.json` gets full runtime branding without rebuilding; the pre-JavaScript bits (browser tab title before boot, PWA manifest name, splash text) keep whatever was in `client/config.json` at build time. Rebuild (or overwrite those files, see below) to change them.
 

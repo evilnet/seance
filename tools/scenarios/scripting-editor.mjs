@@ -148,7 +148,7 @@ export default async function run(page) {
 	page.check(
 		"the CodeMirror chunk loads on demand",
 		(await page.evaluate(
-			`performance.getEntriesByType("resource").some((e) => e.name.includes("js/code-editor.js"))`
+			`performance.getEntriesByType("resource").some((e) => /\\/js\\/code-editor\\.[\\w-]+\\.js$/.test(e.name))`
 		)) === true
 	);
 	const tokens = await page.evaluate(`(() => {

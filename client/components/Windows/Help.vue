@@ -1002,7 +1002,7 @@ export default defineComponent({
 		const appName = computed(() => store.state.branding.appName);
 		const links = computed(() => store.state.branding.links ?? {});
 
-		// What this build is (configuration.ts, filled in by webpack), which
+		// What this build is (configuration.ts, filled in by the build), which
 		// of the Pages site's builds it is, and where it comes from
 		// (branding.links.source).
 		const build = computed(() => buildIdentityOf(store.state.serverConfiguration));

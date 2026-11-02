@@ -22,6 +22,84 @@ import type {Token} from "prismjs";
 import components from "prismjs/components.json";
 import {MIN_GUESS_LINES, splitLines} from "./codeLines";
 
+// The grammars this deploy ships, one lazily loaded chunk each (see
+// ensureLanguage). Written out rather than globbed so the same map loads
+// under mocha, where no bundler rewrites the imports.
+const grammars: Record<string, () => Promise<unknown>> = {
+	actionscript: () => import("prismjs/components/prism-actionscript"),
+	apacheconf: () => import("prismjs/components/prism-apacheconf"),
+	bash: () => import("prismjs/components/prism-bash"),
+	batch: () => import("prismjs/components/prism-batch"),
+	c: () => import("prismjs/components/prism-c"),
+	clike: () => import("prismjs/components/prism-clike"),
+	clojure: () => import("prismjs/components/prism-clojure"),
+	cmake: () => import("prismjs/components/prism-cmake"),
+	coffeescript: () => import("prismjs/components/prism-coffeescript"),
+	cpp: () => import("prismjs/components/prism-cpp"),
+	csharp: () => import("prismjs/components/prism-csharp"),
+	csp: () => import("prismjs/components/prism-csp"),
+	css: () => import("prismjs/components/prism-css"),
+	"css-extras": () => import("prismjs/components/prism-css-extras"),
+	dart: () => import("prismjs/components/prism-dart"),
+	diff: () => import("prismjs/components/prism-diff"),
+	docker: () => import("prismjs/components/prism-docker"),
+	elixir: () => import("prismjs/components/prism-elixir"),
+	erlang: () => import("prismjs/components/prism-erlang"),
+	flow: () => import("prismjs/components/prism-flow"),
+	fsharp: () => import("prismjs/components/prism-fsharp"),
+	git: () => import("prismjs/components/prism-git"),
+	go: () => import("prismjs/components/prism-go"),
+	graphql: () => import("prismjs/components/prism-graphql"),
+	groovy: () => import("prismjs/components/prism-groovy"),
+	haskell: () => import("prismjs/components/prism-haskell"),
+	hpkp: () => import("prismjs/components/prism-hpkp"),
+	hsts: () => import("prismjs/components/prism-hsts"),
+	http: () => import("prismjs/components/prism-http"),
+	ini: () => import("prismjs/components/prism-ini"),
+	java: () => import("prismjs/components/prism-java"),
+	javadoclike: () => import("prismjs/components/prism-javadoclike"),
+	javascript: () => import("prismjs/components/prism-javascript"),
+	"js-extras": () => import("prismjs/components/prism-js-extras"),
+	"js-templates": () => import("prismjs/components/prism-js-templates"),
+	jsdoc: () => import("prismjs/components/prism-jsdoc"),
+	json: () => import("prismjs/components/prism-json"),
+	json5: () => import("prismjs/components/prism-json5"),
+	jsx: () => import("prismjs/components/prism-jsx"),
+	julia: () => import("prismjs/components/prism-julia"),
+	kotlin: () => import("prismjs/components/prism-kotlin"),
+	lua: () => import("prismjs/components/prism-lua"),
+	makefile: () => import("prismjs/components/prism-makefile"),
+	markdown: () => import("prismjs/components/prism-markdown"),
+	markup: () => import("prismjs/components/prism-markup"),
+	"markup-templating": () => import("prismjs/components/prism-markup-templating"),
+	matlab: () => import("prismjs/components/prism-matlab"),
+	n4js: () => import("prismjs/components/prism-n4js"),
+	nginx: () => import("prismjs/components/prism-nginx"),
+	objectivec: () => import("prismjs/components/prism-objectivec"),
+	ocaml: () => import("prismjs/components/prism-ocaml"),
+	pascal: () => import("prismjs/components/prism-pascal"),
+	perl: () => import("prismjs/components/prism-perl"),
+	php: () => import("prismjs/components/prism-php"),
+	powershell: () => import("prismjs/components/prism-powershell"),
+	properties: () => import("prismjs/components/prism-properties"),
+	protobuf: () => import("prismjs/components/prism-protobuf"),
+	python: () => import("prismjs/components/prism-python"),
+	r: () => import("prismjs/components/prism-r"),
+	regex: () => import("prismjs/components/prism-regex"),
+	rest: () => import("prismjs/components/prism-rest"),
+	ruby: () => import("prismjs/components/prism-ruby"),
+	rust: () => import("prismjs/components/prism-rust"),
+	scala: () => import("prismjs/components/prism-scala"),
+	sql: () => import("prismjs/components/prism-sql"),
+	swift: () => import("prismjs/components/prism-swift"),
+	toml: () => import("prismjs/components/prism-toml"),
+	tsx: () => import("prismjs/components/prism-tsx"),
+	typescript: () => import("prismjs/components/prism-typescript"),
+	uri: () => import("prismjs/components/prism-uri"),
+	vim: () => import("prismjs/components/prism-vim"),
+	yaml: () => import("prismjs/components/prism-yaml"),
+};
+
 // The block's shape is decided without any of this module; re-exported so the
 // highlighting interface still reads as one.
 export {MIN_GUESS_LINES, splitLines};
@@ -162,7 +240,7 @@ export async function guessLanguage(code: string): Promise<string | undefined> {
 	let detect;
 
 	try {
-		detect = (await import(/* webpackChunkName: "flourite" */ "flourite")).default;
+		detect = (await import("flourite")).default;
 	} catch {
 		return undefined;
 	}
@@ -268,20 +346,21 @@ async function loadLanguage(id: string): Promise<boolean> {
 		await ensureLanguage(dep);
 	}
 
+	// One chunk per grammar. The glob is what this deploy ships: the
+	// languages worth carrying for a chat client, closed over Prism's own
+	// require/modify/optional links (`components.json`) — every language
+	// flourite can name included, since the guess is the path nobody types.
+	// All ~300 of Prism's grammars would be 1.3 MB of chunks and a 300-entry
+	// map in the main bundle, which is what loading them on demand was for.
+	// A tag outside the list simply stays plain.
+	const load = grammars[id];
+
+	if (!load) {
+		return false;
+	}
+
 	try {
-		// One named chunk per grammar. The `webpackInclude` list is what this
-		// deploy ships: the languages worth carrying for a chat client, closed
-		// over Prism's own require/modify/optional links (`components.json`) —
-		// every language flourite can name included, since the guess is the
-		// path nobody types.
-		// All ~300 of Prism's grammars would be 1.3 MB of chunks and put a
-		// 300-entry filename map in the main bundle, which is what loading them
-		// on demand was for. A tag outside the list simply stays plain.
-		await import(
-			/* webpackChunkName: "[request]" */
-			/* webpackInclude: /prism-(actionscript|ansi|apacheconf|bash|batch|c|clike|clojure|cmake|coffeescript|cpp|csharp|csp|css|css-extras|dart|diff|docker|elixir|erlang|flow|fsharp|git|go|graphql|groovy|haskell|hpkp|hsts|http|ini|java|javadoclike|javascript|js-extras|js-templates|jsdoc|json|json5|jsx|julia|kotlin|lua|makefile|markdown|markup|markup-templating|matlab|n4js|nginx|objectivec|ocaml|pascal|perl|php|powershell|properties|protobuf|python|r|regex|rest|ruby|rust|scala|sql|swift|toml|tsx|typescript|uri|vim|yaml)\.js$/ */
-			`prismjs/components/prism-${id}`
-		);
+		await load();
 	} catch {
 		// Not shipped, not fetchable: the block stays plain
 		return false;

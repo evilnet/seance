@@ -37,7 +37,7 @@ let pending: Promise<EmojiGroup[]> | undefined;
  */
 export function loadEmojiCatalog(): Promise<EmojiGroup[]> {
 	if (!pending) {
-		pending = import(/* webpackChunkName: "emoji-catalog" */ "./emoji-catalog")
+		pending = import("./emoji-catalog")
 			.then((module) => module.default)
 			.catch((error) => {
 				pending = undefined;

@@ -29,7 +29,6 @@ yarn.lock
 .editorconfig
 .eslintignore
 .gitattributes
-.browserslistrc
 .node-version
 
 *.css

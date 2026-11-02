@@ -72,7 +72,7 @@
 		document.getElementById("loading")?.remove();
 	};
 
-	// The light/dark theme pairs, `[dark, light]` each: webpack.config.ts
+	// The light/dark theme pairs, `[dark, light]` each: the build (vite.config.mts)
 	// writes client/js/helpers/themePairs.json over the marker (this file is
 	// copied, not bundled, so it cannot import themeAppearance.ts).
 	/** @type {unknown} */

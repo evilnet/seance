@@ -2,8 +2,8 @@
  * Live SASL check against a real nefarious2 (ircv3.2-upgrade).
  *
  * Skipped unless SEANCE_IRC_URL is set, e.g.
- *   SEANCE_IRC_URL=wss://localhost:8443/ npx cross-env NODE_ENV=test \
- *     TS_NODE_PROJECT=./test/tsconfig.json npx mocha --config=test/.mocharc.yml \
+ *   SEANCE_IRC_URL=wss://localhost:8443/ NODE_ENV=test \
+ *     pnpm exec mocha --config=test/.mocharc.yml \
  *     test/irc/sasl.live.ts
  *
  * The dev ircd has no services, so SASL cannot succeed. Three things are

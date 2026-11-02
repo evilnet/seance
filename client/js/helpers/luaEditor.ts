@@ -3,7 +3,7 @@
  * with the Lua mode, line numbers, undo history and bracket matching. Its
  * tokens carry the same `tok-*` classes Prism gives a code block in chat, so
  * every theme's `--tok-*` palette colours both alike. Loaded on demand as its
- * own chunk (`js/code-editor.js`) through `loadLuaEditor()` in ScriptEdit.vue:
+ * own chunk (`js/code-editor.<hash>.js`) through `loadLuaEditor()` in ScriptEdit.vue:
  * nothing of CodeMirror is fetched until a script is opened.
  */
 

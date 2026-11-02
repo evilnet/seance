@@ -129,7 +129,7 @@ module.exports = defineConfig({
 	},
 	overrides: [
 		{
-			files: ["**/*.ts", "**/*.vue"],
+			files: ["**/*.ts", "**/*.mts", "**/*.vue"],
 			parser: "@typescript-eslint/parser",
 			parserOptions: {
 				tsconfigRootDir: __dirname,

@@ -2,8 +2,8 @@
  * Live CHATHISTORY test against a real nefarious2 (ircv3.2-upgrade branch,
  * `CHATHISTORY_REQUIRE_AUTH` off). Skipped unless SEANCE_IRC_URL is set:
  *
- *   SEANCE_IRC_URL=wss://localhost:8443/ npx cross-env NODE_ENV=test \
- *     TS_NODE_PROJECT=./test/tsconfig.json npx mocha --config=test/.mocharc.yml \
+ *   SEANCE_IRC_URL=wss://localhost:8443/ NODE_ENV=test \
+ *     pnpm exec mocha --config=test/.mocharc.yml \
  *     test/irc/history.live.ts
  *
  * A TCP participant (SEANCE_IRC_TCP_PORT, default 6667) seeds #seance with

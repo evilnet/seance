@@ -12,19 +12,12 @@ type Katex = {
 let katexPromise: Promise<Katex | undefined> | undefined;
 
 function load(): Promise<Katex | undefined> {
-	katexPromise ??= import(/* webpackChunkName: "katex" */ "katex")
-		.then((mod: unknown) => {
-			// The UMD build reaches an ESM import as its `default`
-			const katex = mod as {default?: Katex} & Katex;
-
-			return katex.default ?? katex;
-		})
-		.catch(() => undefined);
+	katexPromise ??= import("katex").then((mod) => mod.default).catch(() => undefined);
 
 	return katexPromise;
 }
 
-// The stylesheet ships as a static file (webpack.config.ts copies it and the
+// The stylesheet ships as a static file (vite.config.mts copies it and the
 // fonts next to the app). The first span that renders links it — before that
 // nothing is fetched, and offline the TeX simply stays text.
 let cssRequested = false;

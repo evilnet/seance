@@ -1,5 +1,5 @@
 // Stamps the native projects with the version the web build reports
-// (webpack.config.ts `resolveBuild`): the nearest `vX.Y.Z` tag, `v` stripped,
+// (scripts/build-info.mts `resolveBuild`): the nearest `vX.Y.Z` tag, `v` stripped,
 // is the marketing version, and the build number is derived from it.
 //
 // Both stores ask one thing of a build number: that it never goes down. The

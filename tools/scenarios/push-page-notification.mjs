@@ -1,7 +1,7 @@
 // A live page's own notification for a push-enabled network lands on that
 // network's push worker, in the push's shape — in a real browser.
 //
-//   npx webpack && python3 -m http.server -d public 8005 &
+//   pnpm build && python3 -m http.server -d public 8005 &
 //   node tools/browser-drive.mjs tools/scenarios/push-page-notification.mjs
 //
 // Needs an ircd on ws://127.0.0.1:8067/ (no SASL, no webpush needed: the

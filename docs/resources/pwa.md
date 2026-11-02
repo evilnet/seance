@@ -51,18 +51,23 @@ Ship `NODE_ENV=production pnpm build`.
   "Install _App_ as an app". The button disappears once the prompt is shown
   or the app is installed (`appinstalled`).
 - **Offline cold start.** On install the service worker precaches the shell:
-  `index.html`, the manifest, `config.json`, the three JS bundles, `style.css`,
-  the default theme, the FontAwesome woff2 and the splash logos. So an installed
+  `index.html`, the manifest, `config.json`, the JS entry and what it imports
+  statically (Rolldown's runtime chunk), the loading-error handlers, the push
+  module, `style.css`, the default theme, the FontAwesome woff2 and the splash
+  logos. So an installed
   app launched with no connectivity still opens to the UI (saved networks show
   as disconnected and reconnect with backoff when the host comes back) instead
   of Chrome's error page. Runtime fetches are network-first with a cache
   fallback for everything else under the scope; WebSocket traffic never touches
   the worker.
 - **Updates.** Every build carries a _build token_ (`resolveBuild` in
-  `webpack.config.ts`: a hash of the version and the commit, so two builds of
+  `scripts/build-info.mts`: a hash of the version and the commit, so two builds of
   different commits never share one; a dirty tree or a checkout without git
   makes every build distinct): `?v=` on the asset URLs, the worker's cache
   name, and `process.env.SEANCE_BUILD` in the bundle (`client/js/build.ts`).
+  The one exception is the entry, `js/bundle-<hash>.js`: it is named by its
+  content instead, because lazy chunks import it by its plain name and a
+  page that had loaded `bundle.js?v=…` would run a second copy of the app.
   A deploy is a byte-different `service-worker.js`, which the browser
   installs when it next looks: on a page load, or when the app asks —
   `pwa.ts` `checkForUpdate()`, from the foreground hooks (throttled to one
