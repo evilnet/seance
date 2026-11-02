@@ -162,15 +162,14 @@ jobs:
         with:
           node-version-file: ".node-version"
 
-      # The package manager the tree uses: pnpm (it switches itself to the
-      # version in package.json's packageManager), or Yarn 1 for a release
-      # or PR from before the move to pnpm. Not through corepack: Node 25+
-      # ships none.
+      # The package manager the tree uses: pnpm, at the version package.json's
+      # packageManager names, or Yarn 1 for a release or PR from before the
+      # move to pnpm. Not through corepack: Node 25+ ships none.
       - name: Install
         if: steps.cached.outputs.cache-hit != 'true'
         run: |
           if [ -f pnpm-lock.yaml ]; then
-            npm install --global pnpm@12
+            npm install --global "$(node -p 'require("./package.json").packageManager')"
             pnpm install --frozen-lockfile
             echo "PM=pnpm" >> "$GITHUB_ENV"
           else

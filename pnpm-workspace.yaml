@@ -7,3 +7,13 @@
 allowBuilds:
     esbuild: true
     "@fortawesome/fontawesome-free": false
+
+# Use the pnpm already installed, without switching to packageManager's
+# version: the switch writes the lockfile as two YAML documents, and GitHub's
+# dependency graph reads only the first, so Dependabot alerts and security
+# updates would stop. Install the version packageManager names instead.
+pmOnFail: ignore
+
+# Run scripts through pnpm's own shell, so `NODE_ENV=test mocha …` works on
+# Windows too (what cross-env used to do).
+shellEmulator: true

@@ -78,7 +78,8 @@ CAPs or modify the implementation to suit us.
 ## Building and serving
 
 Requires [Node.js](https://nodejs.org/) 22 or newer and [pnpm](https://pnpm.io/)
-(`npm i -g pnpm`; it switches itself to the version `package.json` names).
+at the version `package.json`'s `packageManager` names
+(`npm i -g pnpm@12.16.1`).
 
 ```sh
 git clone https://github.com/evilnet/seance.git

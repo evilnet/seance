@@ -14,7 +14,7 @@ Upstream is still `github.com/thelounge/thelounge`; divergence only grows. local
 
 ## Common commands
 
-pnpm, the version in `package.json`'s `packageManager` (any `pnpm` switches itself to it): `npm i -g pnpm`, or pnpm's standalone installer. Node 25+ ships no corepack, and pnpm advises against it anyway. Dependency install scripts run only when `pnpm-workspace.yaml`'s `allowBuilds` names them.
+pnpm, at the version `package.json`'s `packageManager` names (`npm i -g pnpm@12.16.1`; pnpm does not switch itself, because that writes a two-document lockfile GitHub's dependency graph cannot read). Node 25+ ships no corepack, and pnpm advises against it anyway. Dependency install scripts run only when `pnpm-workspace.yaml`'s `allowBuilds` names them.
 
 | Task                                                      | Command                                       |
 | --------------------------------------------------------- | --------------------------------------------- |
