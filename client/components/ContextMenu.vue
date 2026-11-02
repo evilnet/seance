@@ -120,26 +120,31 @@ export default defineComponent({
 			const menuWidth = contextMenu.value?.offsetWidth;
 			const menuHeight = contextMenu.value?.offsetHeight;
 
+			// The container is the visible band (#viewport, sized to the visual
+			// viewport on touch devices): `innerHeight` still counts the part
+			// under iOS's keyboard. The menu is capped to the band's height in
+			// style.css and scrolls, so clamping its top to 0 keeps it whole.
+			// In the native shell the container starts below the status bar
+			// (style.css), so viewport coordinates are taken into its own —
+			// `clientX/Y`, which match `getBoundingClientRect()`; `pageX/Y` are
+			// off by the scroll while iOS scrolls the page for the keyboard.
+			const container = contextMenu.value.parentElement;
+			const band = container?.getBoundingClientRect();
+			const bandWidth = container?.clientWidth || window.innerWidth;
+			const bandHeight = container?.clientHeight || window.innerHeight;
+			const fit = (offset: {left: number; top: number}) => ({
+				left: Math.max(0, Math.min(offset.left - (band?.left ?? 0), bandWidth - menuWidth)),
+				top: Math.max(0, Math.min(offset.top - (band?.top ?? 0), bandHeight - menuHeight)),
+			});
+
 			if (element && element.classList.contains("menu")) {
-				return {
+				return fit({
 					left: element.getBoundingClientRect().left - (menuWidth - element.offsetWidth),
 					top: element.getBoundingClientRect().top + element.offsetHeight,
-				};
+				});
 			}
 
-			const offset = {left: event.pageX, top: event.pageY};
-
-			// Never off the left or top edge: a menu as wide as a phone's
-			// screen (the presence pill's at the large step) began 2px off it.
-			if (window.innerWidth - offset.left < menuWidth) {
-				offset.left = Math.max(0, window.innerWidth - menuWidth);
-			}
-
-			if (window.innerHeight - offset.top < menuHeight) {
-				offset.top = Math.max(0, window.innerHeight - menuHeight);
-			}
-
-			return offset;
+			return fit({left: event.clientX, top: event.clientY});
 		};
 
 		const hoverItem = (id: number) => {
