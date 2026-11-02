@@ -823,6 +823,25 @@ describe("Lua scripting subsystem", function () {
 			return h;
 		}
 
+		it("hands a message handler the line's tags", function () {
+			const h = connected();
+			const seen = sinon.spy(scriptManager, "dispatchMessage");
+
+			try {
+				h.transport.line(
+					"@time=2026-10-27T12:00:00.000Z;msgid=abc;account=bobacct :bob!b@host PRIVMSG #seance :hi"
+				);
+				expect(seen.calledOnce).to.equal(true);
+				expect(seen.firstCall.args[0].tags).to.deep.equal({
+					time: "2026-10-27T12:00:00.000Z",
+					msgid: "abc",
+					account: "bobacct",
+				});
+			} finally {
+				seen.restore();
+			}
+		});
+
 		it("sends a handler's reply through the fake-lag queue and ignores its own echo", function () {
 			const h = connected();
 			h.transport.line(":bob!b@host PRIVMSG #seance :!ping");

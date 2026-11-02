@@ -11,8 +11,6 @@ import type {Command} from "../types";
 const invite: Command = {
 	commands: ["invite", "invitelist"],
 	input({client, chan, cmd, args}) {
-		const params = args.filter((arg) => arg.length > 0);
-
 		if (cmd === "invitelist") {
 			if (chan.type !== ChanType.CHANNEL) {
 				client.pushMessage(chan, {
@@ -27,10 +25,10 @@ const invite: Command = {
 			return;
 		}
 
-		if (params.length === 2) {
-			client.send(formatLine({command: "INVITE", params: [params[0], params[1]]}));
-		} else if (params.length === 1 && chan.type === ChanType.CHANNEL) {
-			client.send(formatLine({command: "INVITE", params: [params[0], chan.name]}));
+		if (args.length === 2) {
+			client.send(formatLine({command: "INVITE", params: [args[0], args[1]]}));
+		} else if (args.length === 1 && chan.type === ChanType.CHANNEL) {
+			client.send(formatLine({command: "INVITE", params: [args[0], chan.name]}));
 		} else {
 			client.pushMessage(chan, {
 				type: MessageType.ERROR,

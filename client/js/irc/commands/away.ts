@@ -8,12 +8,13 @@
 import {sendBack, userAwayChanged} from "../presence";
 import {trailingLine} from "../wire";
 import type {Command} from "../types";
+import {textAfter} from "./words";
 
 const away: Command = {
 	commands: ["away", "back"],
-	input({client, cmd, args}) {
+	input({client, cmd, rest}) {
 		if (cmd === "away") {
-			const text = args.join(" ") || " ";
+			const text = textAfter(rest, 0) || " ";
 			userAwayChanged(client, true, text);
 			client.send(trailingLine("AWAY", [text]));
 			return;

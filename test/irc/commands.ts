@@ -292,6 +292,92 @@ describe("irc commands", function () {
 		});
 	});
 
+	describe("doubled spaces", function () {
+		it("are one separator between a command's words", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.input(id, "/join  #other");
+			h.client.input(id, "/kick  bob");
+			h.client.input(id, "/ban  bob");
+			h.client.input(id, "/kill  troll");
+			h.client.input(id, "/nick  alice2");
+			expect(h.sentAfter()).to.deep.equal([
+				"JOIN #other",
+				"KICK #seance bob",
+				"MODE #seance +b bob",
+				"KILL troll :",
+				"NICK alice2",
+			]);
+		});
+
+		it("are kept inside a reason or an action as typed", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.input(id, "/kick bob  be   nice");
+			h.client.input(id, "/kill  troll  no  thanks");
+			h.client.input(id, "/me  waves   twice");
+			expect(h.sentAfter()).to.deep.equal([
+				"KICK #seance bob :be   nice",
+				"KILL troll :no  thanks",
+				"PRIVMSG #seance :\x01ACTION waves   twice\x01",
+			]);
+		});
+
+		it("are kept in an away, part or CTCP text as typed", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.input(id, "/away gone   out");
+			h.client.input(id, "/ctcp bob ping  12   34");
+			h.client.input(id, "/part #seance see  you");
+			expect(h.sentAfter()).to.deep.equal([
+				"AWAY :gone   out",
+				"PRIVMSG bob :\x01PING 12   34\x01",
+				"PART #seance :see  you",
+			]);
+
+			h.client.input(id, "/part  so  long");
+			expect(h.sentAfter()).to.deep.equal(["PART #seance :so  long"]);
+		});
+
+		it("are kept in a quit or disconnect reason as typed", function () {
+			const h = setup();
+			h.client.input(joined(h), "/quit bye  all");
+			expect(h.sentAfter()).to.deep.equal(["QUIT :bye  all"]);
+
+			const h2 = setup();
+			h2.client.input(joined(h2), "/disconnect back   soon");
+			expect(h2.sentAfter()).to.deep.equal(["QUIT :back   soon"]);
+		});
+
+		it("before a named channel do not reach the topic", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.input(id, "/topic  #seance new topic");
+			h.client.input(id, "/topic #seance  indented");
+			expect(h.sentAfter()).to.deep.equal([
+				"TOPIC #seance :new topic",
+				"TOPIC #seance : indented",
+			]);
+		});
+
+		it("before a /msg or /notice target do not hide it", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.input(id, "/msg  bob hi");
+			h.client.input(id, "/notice  bob hello");
+			expect(h.sentAfter()).to.deep.equal(["PRIVMSG bob :hi", "NOTICE bob :hello"]);
+		});
+
+		it("do not hide the nick /ignore is given", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.input(id, "/ignore  troll");
+			expect(ignoreListFor(h.client.uuid).list.map((entry) => entry.nick)).to.include(
+				"troll"
+			);
+		});
+	});
+
 	describe("/whois", function () {
 		it("doubles a single nick so the remote server answers with idle time", function () {
 			const h = setup();
@@ -355,6 +441,35 @@ describe("irc commands", function () {
 			expect(msg.whois.special).to.deep.equal(["is a cool person"]);
 			expect(msg.whois.idleTime).to.be.closeTo(Date.now() - 120 * 1000, 2000);
 			expect(msg.whois.whowas).to.equal(undefined);
+		});
+
+		it("takes the IP alone from the ratbox family's shorter 338", function () {
+			const h = setup();
+			joined(h);
+			h.transport.lines(
+				":irc.test 311 alice bob ~bob host.example * :Bob Example",
+				":irc.test 338 alice bob 10.0.0.9 :actually using host",
+				":irc.test 318 alice bob :End of /WHOIS list."
+			);
+
+			const whois = lastMessage(1).whois;
+			expect(whois.actual_ip).to.equal("10.0.0.9");
+			expect(whois.actual_hostname).to.equal(undefined);
+			expect(whois.actual_username).to.equal(undefined);
+		});
+
+		it("ignores a shorter 338 that names no address", function () {
+			const h = setup();
+			joined(h);
+			h.transport.lines(
+				":irc.test 311 alice bob ~bob host.example * :Bob Example",
+				":irc.test 338 alice bob something :else entirely",
+				":irc.test 318 alice bob :End of /WHOIS list."
+			);
+
+			const whois = lastMessage(1).whois;
+			expect(whois.actual_ip).to.equal(undefined);
+			expect(whois.actual_hostname).to.equal(undefined);
 		});
 
 		it("reports an unknown nick in the lobby without opening a window", function () {

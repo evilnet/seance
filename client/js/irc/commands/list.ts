@@ -11,7 +11,7 @@ const list: Command = {
 	commands: ["list"],
 	input({client, args}) {
 		resetChannelList(client);
-		client.send(formatLine({command: "LIST", params: args.filter((arg) => arg.length > 0)}));
+		client.send(formatLine({command: "LIST", params: args}));
 	},
 };
 

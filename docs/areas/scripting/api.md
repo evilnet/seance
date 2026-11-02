@@ -201,9 +201,14 @@ end)
 `seance.register_command(name, fn)` adds `/name`. When you type it, `fn` is
 called with:
 
-- `args` — the text after the command split at single spaces:
-  `/greet alice bob` gives `{"alice", "bob"}`. Two spaces in a row give an
-  empty word between them.
+- `args` — the words after the command: `/greet alice bob` gives
+  `{"alice", "bob"}`. A run of spaces counts as one, so this gives the
+  same:
+
+  ```
+  /greet  alice   bob
+  ```
+
 - `rest` — the text after the command name exactly as typed (`""` when
   there is none).
 

@@ -4,7 +4,7 @@
 
 /** A command's target and everything after it. */
 export interface TargetAndBody {
-	/** The first token, or "" when the rest does not start with one. */
+	/** The first token (past any leading spaces), or "" when there is none. */
 	target: string;
 	/** Everything after the single separator, line feeds included. */
 	body: string;
@@ -22,7 +22,7 @@ export interface TargetAndBody {
  * {@link Channel} names can carry a separator.
  */
 export function splitTarget(rest: string): TargetAndBody {
-	const match = /^(\S+)(?:[ \n]([\s\S]*))?$/.exec(rest);
+	const match = /^ *(\S+)(?:[ \n]([\s\S]*))?$/.exec(rest);
 
 	return match ? {target: match[1], body: match[2] ?? ""} : {target: "", body: ""};
 }

@@ -11,7 +11,7 @@ const nick: Command = {
 	commands: ["nick"],
 	allowDisconnected: true,
 	input({client, chan, args}) {
-		if (args.length === 0 || args[0].length === 0) {
+		if (args.length === 0) {
 			client.pushMessage(chan, {
 				type: MessageType.ERROR,
 				text: "Usage: /nick <your new nick>",

@@ -49,6 +49,7 @@ import rejoin from "./rejoin";
 import topic from "./topic";
 import who from "./who";
 import whois from "./whois";
+import {wordsOf} from "./words";
 
 const modules: Command[] = [
 	alias,
@@ -218,7 +219,7 @@ function inputLine(
 		rest = space === -1 ? "" : body.slice(space + 1);
 	}
 
-	const args = rest.length > 0 ? rest.split(" ") : [];
+	const args = wordsOf(rest);
 	const command = commands.get(cmd);
 
 	if (command) {

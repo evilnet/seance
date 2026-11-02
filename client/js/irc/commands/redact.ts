@@ -6,11 +6,12 @@
 
 import {MessageType} from "../../../../shared/types/msg";
 import type {Command} from "../types";
+import {textAfter} from "./words";
 
 const redact: Command = {
 	commands: ["redact", "delete"],
-	input({client, chan, cmd, args}) {
-		const [msgid = "", ...reason] = args.filter((arg) => arg.length > 0);
+	input({client, chan, cmd, args, rest}) {
+		const msgid = args[0] ?? "";
 
 		if (msgid.length === 0) {
 			client.pushMessage(chan, {
@@ -20,7 +21,8 @@ const redact: Command = {
 			return;
 		}
 
-		client.redact(chan, msgid, reason.length > 0 ? reason.join(" ") : undefined);
+		const reason = textAfter(rest, 1);
+		client.redact(chan, msgid, reason.length > 0 ? reason : undefined);
 	},
 };
 

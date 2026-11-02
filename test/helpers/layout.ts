@@ -450,6 +450,26 @@ describe("layout — monospace blocks", () => {
 	});
 });
 
+describe("layout — code blocks side by side", () => {
+	it("keeps adjacent code blocks in different languages apart", () => {
+		expect(layout("```js\na\n```\n```py\nb\n```", markdown)).to.deep.equal([
+			codeBlock([text("a")], "js"),
+			codeBlock([text("b")], "py"),
+		]);
+	});
+
+	it("keeps two fences written back to back apart, in the same language or none", () => {
+		expect(layout("```\na\n```\n```\nb\n```", markdown)).to.deep.equal([
+			codeBlock([text("a")]),
+			codeBlock([text("b")]),
+		]);
+		expect(layout("```js\na\n```\n\n```js\nb\n```", markdown)).to.deep.equal([
+			codeBlock([text("a")], "js"),
+			codeBlock([text("b")], "js"),
+		]);
+	});
+});
+
 describe("toPlainText", () => {
 	it("concatenates the text of every node, markers gone", () => {
 		expect(toPlainText(layout("**a** `b` [c](https://example.com/)", markdown))).to.equal(
@@ -487,6 +507,13 @@ describe("codeBlocksOf", () => {
 	it("returns a block's characters, fence and tag gone", () => {
 		expect(codeBlocksOf(layout("```js\nlet x = 1;\n```", markdown))).to.deep.equal([
 			"let x = 1;",
+		]);
+	});
+
+	it("returns back-to-back fences as separate blocks", () => {
+		expect(codeBlocksOf(layout("```\na\n```\n```\nb\n```", markdown))).to.deep.equal([
+			"a",
+			"b",
 		]);
 	});
 

@@ -25,7 +25,7 @@ function nextToken(client: object): string {
 const who: Command = {
 	commands: ["who"],
 	input({client, chan, args}) {
-		const params = args.filter((arg) => arg.length > 0);
+		const params = [...args];
 
 		if (params.length === 0) {
 			if (chan.type !== ChanType.CHANNEL) {

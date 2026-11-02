@@ -75,6 +75,7 @@ type WrapKey = typeof WRAP_KEYS[number];
 // value is its level, so two levels never end up under one element either.
 // `verdict` rides along on an href: the whole link's, judged once.
 type Wrap = Partial<Record<WrapKey, boolean | string | number>> & {
+	codeId?: number;
 	lang?: string;
 	file?: string;
 	verdict?: LinkVerdict;
@@ -490,6 +491,10 @@ function wrapOf(fragment: ParsedStyle | undefined): Wrap {
 		}
 	}
 
+	if (fragment.codeBlock && fragment.codeId !== undefined) {
+		wrap.codeId = fragment.codeId;
+	}
+
 	if (fragment.codeBlock && fragment.lang) {
 		wrap.lang = fragment.lang;
 	}
@@ -502,7 +507,12 @@ function wrapOf(fragment: ParsedStyle | undefined): Wrap {
 }
 
 function sameWrap(a: Wrap, b: Wrap) {
-	return WRAP_KEYS.every((key) => a[key] === b[key]) && a.lang === b.lang && a.file === b.file;
+	return (
+		WRAP_KEYS.every((key) => a[key] === b[key]) &&
+		a.codeId === b.codeId &&
+		a.lang === b.lang &&
+		a.file === b.file
+	);
 }
 
 function wrapNode(key: WrapKey, wrap: Wrap, children: LayoutNode[]): LayoutNode {
@@ -560,8 +570,9 @@ function groupNodes(nodes: WrappedNodes[], level = 0): LayoutNode[] {
 	while (i < nodes.length) {
 		const wrap = nodes[i].wrap;
 		const value = wrap[key];
-		// A code block only continues while its language — and `lang:file` name
-		// — stay the same
+		// A code block only continues within one fence, and while its language
+		// — and `lang:file` name — stay the same
+		const codeId = key === "codeBlock" ? wrap.codeId : undefined;
 		const lang = key === "codeBlock" ? wrap.lang : undefined;
 		const file = key === "codeBlock" ? wrap.file : undefined;
 		let j = i + 1;
@@ -569,7 +580,10 @@ function groupNodes(nodes: WrappedNodes[], level = 0): LayoutNode[] {
 		while (
 			j < nodes.length &&
 			nodes[j].wrap[key] === value &&
-			(key !== "codeBlock" || (nodes[j].wrap.lang === lang && nodes[j].wrap.file === file))
+			(key !== "codeBlock" ||
+				(nodes[j].wrap.codeId === codeId &&
+					nodes[j].wrap.lang === lang &&
+					nodes[j].wrap.file === file))
 		) {
 			j += 1;
 		}
