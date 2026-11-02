@@ -2,8 +2,8 @@
  * Live `draft/multiline` round-trip against a real nefarious2
  * (ircv3.2-upgrade). Skipped unless SEANCE_IRC_URL is set:
  *
- *   SEANCE_IRC_URL=wss://localhost:8443/ npx cross-env NODE_ENV=test \
- *     TS_NODE_PROJECT=./test/tsconfig.json npx mocha --config=test/.mocharc.yml \
+ *   SEANCE_IRC_URL=wss://localhost:8443/ NODE_ENV=test \
+ *     pnpm exec mocha --config=test/.mocharc.yml \
  *     test/irc/multiline.live.ts
  *
  * SEANCE_IRC_CHANNEL overrides the channel (default #seance) — on a public

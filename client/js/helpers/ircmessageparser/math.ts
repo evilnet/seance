@@ -12,14 +12,7 @@ type Katex = {
 let katexPromise: Promise<Katex | undefined> | undefined;
 
 function load(): Promise<Katex | undefined> {
-	katexPromise ??= import("katex")
-		.then((mod: unknown) => {
-			// The UMD build reaches an ESM import as its `default`
-			const katex = mod as {default?: Katex} & Katex;
-
-			return katex.default ?? katex;
-		})
-		.catch(() => undefined);
+	katexPromise ??= import("katex").then((mod) => mod.default).catch(() => undefined);
 
 	return katexPromise;
 }

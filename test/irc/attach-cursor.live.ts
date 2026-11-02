@@ -4,8 +4,8 @@
  * e-testnet). Skipped unless SEANCE_IRC_URL is set:
  *
  *   SEANCE_IRC_URL=ws://127.0.0.1:18067/ SEANCE_IRC_SASL_ACCOUNT=seance1 \
- *     SEANCE_IRC_SASL_PASSWORD=seancepass1 npx cross-env NODE_ENV=test \
- *     TS_NODE_PROJECT=./test/tsconfig.json npx mocha \
+ *     SEANCE_IRC_SASL_PASSWORD=seancepass1 NODE_ENV=test \
+ *     pnpm exec mocha \
  *     --config=test/.mocharc.yml test/irc/attach-cursor.live.ts
  *
  * Node's global `WebSocket` (what `WsTransport` uses) always sends a closing

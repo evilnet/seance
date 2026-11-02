@@ -4,8 +4,8 @@
  * testnet or tools/nefarious-dev with the same features).
  * Skipped unless SEANCE_IRC_URL is set:
  *
- *   SEANCE_IRC_URL=ws://127.0.0.1:8067/ npx cross-env NODE_ENV=test \
- *     TS_NODE_PROJECT=./test/tsconfig.json npx mocha --config=test/.mocharc.yml \
+ *   SEANCE_IRC_URL=ws://127.0.0.1:8067/ NODE_ENV=test \
+ *     pnpm exec mocha --config=test/.mocharc.yml \
  *     test/irc/webpush.live.ts
  *
  * The ircd must run iauthd-ts with the static `SASLDB` users for the SASL
