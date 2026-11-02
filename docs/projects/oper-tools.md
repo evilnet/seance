@@ -110,7 +110,7 @@ A classified server notice is its own type, `MessageType.SNOTICE`: `{kind, categ
 
 Server notices, WALLOPS and anything else server-volunteered pass through one function. It picks the destination from the event's kind:
 
-- **`active`**: shown in the window the user is looking at. Stored in the network's lobby with `showInActive`, the mechanism `/whois` replies already use. Raises the network's unread like a NOTICE does today.
+- **`active`**: shown in the window the user is looking at. Stored in the network's lobby with `showInActive`, the mechanism `/whois` replies already use. Raises **no** unread (`snotice.ts` `deliver` passes `increasesUnread = false`, pinned in `test/irc/oper.ts`): the line is already in front of the oper. When the active window is on another network, `socket-events/msg.ts` drops `showInActive` and the line lands in its own lobby, silently.
 - **`network`**: stored and shown in the lobby only, with **no unread**. Routine lines must not keep lighting the network up.
 - **`off`**: dropped. The oper chose not to see this kind.
 

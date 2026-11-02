@@ -438,11 +438,12 @@ export async function servicesBan(
 	const services = client.services;
 	const profile = servicesProfileFor(services);
 
-	if (!services || !profile || !services.bots.oper) {
+	if (!services || !profile || !services.bots.oper.trim()) {
 		return {outcome: "closed", text: "No oper service is set up for this network."};
 	}
 
-	const bot = services.bots.oper;
+	// Trimmed as ActionDialog.vue trims it: the dialog measures this same line.
+	const bot = services.bots.oper.trim();
 	const reply = awaitServiceReply(client, bot, (text) => profile.parseBanReply(text));
 
 	if (!sendQuiet(client, profile.banCommand(bot, ban))) {

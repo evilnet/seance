@@ -38,6 +38,7 @@ import {isErrorNumeric} from "./errors";
 import {openBatchesOf, type BatchHandler, type OpenBatch} from "./handlers/batch";
 import type {IrcMessage} from "./message";
 import {takeQuietLabel} from "./quiet";
+import {NOTICE_PREFIX} from "./snotice";
 import {tagPrefix} from "./wire";
 
 export const LABELED_RESPONSE_CAP = "labeled-response";
@@ -208,7 +209,14 @@ export function interceptRequestLine(client: IrcClient, msg: IrcMessage): boolea
 	const fromServer = msg.source !== undefined && msg.source.user === undefined;
 
 	// #119: a server NOTICE to us inside our open labeled batch belongs to it.
-	if (msg.command === "NOTICE" && fromServer && client.isSelf(msg.params[0] ?? "")) {
+	// A real server notice (`*** Notice -- `, the +W "did a /whois on you")
+	// is never part of a reply: it goes on to be routed.
+	if (
+		msg.command === "NOTICE" &&
+		fromServer &&
+		client.isSelf(msg.params[0] ?? "") &&
+		!(msg.params[msg.params.length - 1] ?? "").startsWith(NOTICE_PREFIX)
+	) {
 		const batch = openLabeledBatch(client);
 
 		if (batch) {

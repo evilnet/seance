@@ -59,27 +59,53 @@ function openDb(): Promise<IDBDatabase> {
 	});
 }
 
+/**
+ * Run one transaction on an open `db` and close it however the transaction
+ * ends: complete, error, abort (a `QuotaExceededError` on `put`, or the
+ * browser's own) or a throw while starting it. Exported for the tests.
+ */
+export function transactOn<T>(
+	db: IDBDatabase,
+	mode: IDBTransactionMode,
+	run: (store: IDBObjectStore) => IDBRequest<T> | void
+): Promise<T | undefined> {
+	return new Promise<T | undefined>((resolve, reject) => {
+		let settled = false;
+
+		const fail = (error: unknown) => {
+			if (!settled) {
+				settled = true;
+				db.close();
+				reject(error);
+			}
+		};
+
+		try {
+			const tx = db.transaction(STORE, mode);
+			const req = run(tx.objectStore(STORE));
+
+			tx.oncomplete = () => {
+				if (!settled) {
+					settled = true;
+					db.close();
+					resolve(req ? req.result : undefined);
+				}
+			};
+
+			tx.onerror = () => fail(tx.error);
+			tx.onabort = () =>
+				fail(tx.error ?? new DOMException("Transaction aborted", "AbortError"));
+		} catch (err: unknown) {
+			fail(err);
+		}
+	});
+}
+
 function transact<T>(
 	mode: IDBTransactionMode,
 	run: (store: IDBObjectStore) => IDBRequest<T> | void
 ): Promise<T | undefined> {
-	return openDb().then(
-		(db) =>
-			new Promise<T | undefined>((resolve, reject) => {
-				const tx = db.transaction(STORE, mode);
-				const req = run(tx.objectStore(STORE));
-
-				tx.oncomplete = () => {
-					db.close();
-					resolve(req ? req.result : undefined);
-				};
-
-				tx.onerror = () => {
-					db.close();
-					reject(tx.error);
-				};
-			})
-	);
+	return openDb().then((db) => transactOn(db, mode, run));
 }
 
 const indexedDbBackend: NoticeLogBackend = {

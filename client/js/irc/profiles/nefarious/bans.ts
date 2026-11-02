@@ -165,6 +165,15 @@ function checkIp(host: string): MaskCheck | undefined {
 	const wild = /[*?]/.test(cidr[1]);
 	let bits = cidr[2] === undefined ? (v6 ? 128 : 32) : Number(cidr[2]);
 
+	// gline_checkmask counts the fixed width at dots only, so a v6 mask with
+	// a wildcard ends at 0 bits: refused, and `!` cannot lift that.
+	if (v6 && wild) {
+		return {
+			error: "IPv6 masks cannot use wildcards; use CIDR (e.g. 2001:db8::/32).",
+			needsForce: false,
+		};
+	}
+
 	if (!v6 && wild) {
 		// `1.2.3.*` is a /24, `1.2.*` a /16: count the fixed octets.
 		const fixed = cidr[1].split(".").findIndex((part) => /[*?]/.test(part));

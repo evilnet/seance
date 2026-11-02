@@ -76,6 +76,15 @@
 	/* Color of the progress bar shown above the input while a file is being uploaded. Defaults to button color */
 	--upload-progressbar-color: var(--button-color);
 
+	/* The oper tools' one colour of their own (an outlying count, a route
+	 * chosen for a while, a "wide" criterion): amber pulled a third of the
+	 * way toward the text colour, so it darkens on a light theme and lightens
+	 * on a dark one and holds 4.5:1 as small text on both. A theme may set
+	 * its own in --oper-amber-theme. Mixed again on the oper surfaces below,
+	 * since a theme can change --body-color inside a window (Zelenzy) and a
+	 * custom property's var() is resolved where it is declared. */
+	--oper-amber: var(--oper-amber-theme, color-mix(in oklab, #c7841a 65%, var(--body-color)));
+
 	/* Color the sidebar channel icon pulses to while someone is typing there */
 	--channel-typing-color: #84ce88;
 
@@ -106,6 +115,13 @@
 	/* #status-bar-tint's height, and the room the sidebar leaves for it. In px:
 	 * it answers to iOS's sampler, not to the UI scale. */
 	--status-bar-tint-height: 8px;
+}
+
+.window,
+.oper-investigate,
+.oper-alert-builder,
+#oper-action-overlay {
+	--oper-amber: var(--oper-amber-theme, color-mix(in oklab, #c7841a 65%, var(--body-color)));
 }
 
 /* The font-size setting's scale (client/js/helpers/fontSize.ts); "medium" is
@@ -1650,19 +1666,31 @@ the same box, glyph size and weight as the gear and the plus beside it. */
 first, and below ~11rem of status line the boxes and gaps tighten rather
 than letting the last tool clip. Only with the shield there — four tools
 keep their spacing. The sidebar is `7rem + 108px` wide, so this is the
-large font steps (docs/projects/oper-tools.md, "Room for it"). */
+large font steps (docs/projects/oper-tools.md, "Room for it"). A finger
+(`data-input="touch"`) keeps the full boxes and gaps: the nick gives way
+entirely first, then the tools wrap to a second line rather than shrink. */
 /* stylelint-disable-next-line at-rule-no-unknown */
 @container lobby-status (max-width: 11rem) {
-	.channel-list-item .lobby-tools:has(.oper-panel) {
+	:where(html:not([data-input="touch"])) .lobby-tools:has(.oper-panel) {
 		gap: 0.125rem;
 	}
 
-	.channel-list-item .lobby-tools:has(.oper-panel) .connection-status-icon,
-	.channel-list-item .lobby-tools:has(.oper-panel) .notify-status-icon,
-	.channel-list-item .lobby-tools:has(.oper-panel) .edit-network,
-	.channel-list-item .lobby-tools:has(.oper-panel) .add-channel,
-	.channel-list-item .lobby-tools:has(.oper-panel) .oper-panel {
+	:where(html:not([data-input="touch"])) .lobby-tools:has(.oper-panel) .connection-status-icon,
+	:where(html:not([data-input="touch"])) .lobby-tools:has(.oper-panel) .notify-status-icon,
+	:where(html:not([data-input="touch"])) .lobby-tools:has(.oper-panel) .edit-network,
+	:where(html:not([data-input="touch"])) .lobby-tools:has(.oper-panel) .add-channel,
+	:where(html:not([data-input="touch"])) .lobby-tools:has(.oper-panel) .oper-panel {
 		width: 1.25rem;
+	}
+
+	:where(html[data-input="touch"]) .lobby-tools:has(.oper-panel) {
+		flex-shrink: 1;
+		flex-wrap: wrap;
+		row-gap: 0.25rem;
+	}
+
+	:where(html[data-input="touch"]) .lobby-status:has(.oper-panel) .lobby-nick {
+		flex-shrink: 1000;
 	}
 }
 
@@ -3824,11 +3852,59 @@ button.snotice-badge:focus-visible {
 	background: color-mix(in srgb, currentcolor 12%, transparent);
 }
 
-/* The oper panel's own bits (Oper/OperActivity.vue, OperAlerts.vue,
- * OperMe.vue). Amber is the one colour of its own: an outlying count, a
- * route chosen for a while. */
-#oper {
-	--oper-amber: #c7841a;
+/* What a tooltip says, said where a finger cannot hover (`data-input` on
+ * <html>, helpers/inputModality.ts — the last pointer, not the device): the
+ * routes' meanings, the privileges and user modes in words, a "wide"
+ * criterion's reason, and a relative time's absolute one. Hidden while the
+ * last pointer was a mouse, which has the tooltips. */
+.oper-touch-hint {
+	display: none;
+}
+
+.oper-priv {
+	display: contents;
+}
+
+:where(html[data-input="touch"]) .oper-touch-hint {
+	display: block;
+	color: var(--body-color-muted);
+	font-size: 0.8125em;
+	font-weight: normal;
+	line-height: 1.35;
+	overflow-wrap: anywhere;
+	white-space: normal;
+}
+
+:where(html[data-input="touch"]) .oper-route-legend {
+	margin: 0 0 0.75rem;
+}
+
+:where(html[data-input="touch"]) .oper-route-legend-item {
+	display: block;
+}
+
+:where(html[data-input="touch"]) .oper-privs {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: 0.5rem;
+}
+
+:where(html[data-input="touch"]) .oper-priv {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.15rem 0.5rem;
+}
+
+:where(html[data-input="touch"]) .oper-priv .oper-touch-hint {
+	flex: 1 1 12rem;
+}
+
+:where(html[data-input="touch"]) time[data-abs]::after {
+	content: " · " attr(data-abs);
+	color: var(--body-color-muted);
+	font-size: 0.875em;
 }
 
 /* A segmented control: a row of buttons sharing one border, the pressed
@@ -3866,6 +3942,10 @@ button.snotice-badge:focus-visible {
 
 .oper-seg button[aria-checked="true"].tmp {
 	background: var(--oper-amber);
+
+	/* The amber is chosen against the window colour; the button text
+	 * colour does not hold against it. */
+	color: var(--window-bg-color);
 }
 
 /* A folded row (`<details>`): a FontAwesome caret instead of the browser's
@@ -4220,7 +4300,10 @@ button.snotice-badge:focus-visible {
  * room, one with tabs under 40rem. A value shared with the compared user,
  * or with most of a channel's users, is tinted (`same`). */
 #oper-investigate-overlay {
-	position: fixed;
+	/* Absolute in #viewport, not fixed: fixed measures against the layout
+	 * viewport, which iOS does not shrink for the keyboard, so the footer
+	 * sat under it. #viewport is the visible band (see #sidebar-overlay). */
+	position: absolute;
 	top: 0;
 	bottom: 0;
 	left: 0;
@@ -4242,8 +4325,6 @@ button.snotice-badge:focus-visible {
 }
 
 .oper-investigate {
-	--oper-amber: #c7841a;
-
 	width: min(60rem, 100%);
 	height: min(50rem, 100%);
 	user-select: text;
@@ -4588,8 +4669,9 @@ button.snotice-badge:focus-visible {
 	font-size: 0.875em;
 }
 
-/* On a phone the card is the page, like the settings modal. */
-@media (max-width: 768px) {
+/* On a phone the card is the page, like the settings modal. The phone
+ * layout's own list (PHONE_LAYOUT_QUERY), so a landscape phone counts. */
+@media (max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse) {
 	#oper-investigate-overlay {
 		padding: 0;
 	}
@@ -4610,7 +4692,7 @@ button.snotice-badge:focus-visible {
  * phone. The criteria are rows: a switch, the criterion in words, its
  * value in monospace, a "wide" tag in amber, ✕. */
 #oper-alert-overlay {
-	position: fixed;
+	position: absolute; /* in #viewport, above the keyboard; see #oper-investigate-overlay */
 	top: 0;
 	bottom: 0;
 	left: 0;
@@ -4632,8 +4714,6 @@ button.snotice-badge:focus-visible {
 }
 
 .oper-alert-builder {
-	--oper-amber: #c7841a;
-
 	width: min(46rem, 100%);
 	height: min(44rem, 100%);
 	user-select: text;
@@ -4725,6 +4805,7 @@ button.snotice-badge:focus-visible {
 .oper-alert-row-label {
 	min-width: 0;
 	overflow-wrap: anywhere;
+	cursor: pointer;
 }
 
 .oper-wide {
@@ -4845,12 +4926,13 @@ button.snotice-badge:focus-visible {
 }
 
 .oper-alert-error {
-	color: #e74c3c;
+	color: var(--error-fg, color-mix(in oklab, #e74c3c 60%, var(--body-color)));
 	font-size: 0.875em;
 }
 
-/* On a phone the builder is the page, and a row wraps its value under the label. */
-@media (max-width: 768px) {
+/* On a phone the builder is the page, and a row wraps its value under the
+ * label: the phone layout's list, so a landscape phone gets one column too. */
+@media (max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse) {
 	#oper-alert-overlay {
 		padding: 0;
 	}
@@ -4877,6 +4959,67 @@ button.snotice-badge:focus-visible {
 		grid-column: 2 / -1;
 		grid-row: 2;
 	}
+}
+
+/* Touch targets in the oper tools, while the last pointer was a finger
+ * (`data-input`, helpers/inputModality.ts): 2.75rem, 44pt at the medium
+ * step, for every small button, with real gaps between neighbours. The
+ * badge on a notice keeps its size in the line and grows its hit area
+ * instead, a transparent ::after around it. Same specificity as the rules
+ * they follow, so they win by coming later; the mouse keeps the compact
+ * sizes. */
+:where(html[data-input="touch"]) button.snotice-badge {
+	position: relative;
+}
+
+/* The hit area grows sideways only: the text column clips (the Zalgo
+ * guard), and reaching into the rows around would take taps meant for
+ * their nicks and links. */
+:where(html[data-input="touch"]) button.snotice-badge::after {
+	content: "";
+	position: absolute;
+	inset: 0 -0.5em;
+}
+
+:where(html[data-input="touch"]) .oper-report-actions {
+	gap: 0.5rem;
+}
+
+:where(html[data-input="touch"]) #chat .oper-report-btn {
+	width: 2.75rem;
+	height: 2.75rem;
+}
+
+/* Refresh sits apart from the toggles beside it: a missed tap re-runs
+ * the command. */
+:where(html[data-input="touch"]) #chat .oper-report-refresh {
+	margin-right: 0.5rem;
+}
+
+:where(html[data-input="touch"]) .oper-users-sort .input,
+:where(html[data-input="touch"]) .oper-seg button,
+:where(html[data-input="touch"]) .oper-alert-remove,
+:where(html[data-input="touch"]) #oper .btn-small,
+:where(html[data-input="touch"]) #oper-investigate-overlay .btn-small,
+:where(html[data-input="touch"]) #oper-alert-overlay .btn-small,
+:where(html[data-input="touch"]) #oper-action-dialog .btn,
+:where(html[data-input="touch"]) #oper-action-dialog .oper-chip {
+	min-height: 2.75rem;
+	min-width: 2.75rem;
+}
+
+:where(html[data-input="touch"]) .oper-alert-remove {
+	width: 2.75rem;
+	height: 2.75rem;
+}
+
+:where(html[data-input="touch"]) .oper-alert-row {
+	column-gap: 0.75rem;
+}
+
+:where(html[data-input="touch"]) .oper-investigate-actions,
+:where(html[data-input="touch"]) .oper-alert-actions {
+	gap: 0.5rem;
 }
 
 .changelog-text {
@@ -6116,6 +6259,13 @@ html[data-shell="native"] #footer {
 	transition: opacity 0.2s, visibility 0.2s;
 	z-index: 999;
 	user-select: none;
+}
+
+/* The oper dialog holds text fields: absolute in #viewport, the visible
+ * band, so iOS's keyboard does not cover its buttons (fixed measures
+ * against the layout viewport, which iOS never shrinks). */
+#oper-action-overlay {
+	position: absolute;
 }
 
 #confirm-dialog-overlay.opened,

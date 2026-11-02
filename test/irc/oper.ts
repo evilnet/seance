@@ -7,6 +7,7 @@ import {dispatchInput} from "../../client/js/irc/commands";
 import {
 	LoggedNotice,
 	NoticeLog,
+	transactOn,
 	trim,
 	MAX_AGE_MS,
 	MAX_ENTRIES,
@@ -245,6 +246,26 @@ describe("oper tools: labeled requests (irc/request.ts)", function () {
 		expect(messages(client.lobby.id)).to.have.length(0);
 	});
 
+	it("leaves a real server notice (a +W whois notice) inside our open batch to be routed", async function () {
+		const {client, transport} = setup();
+		const reply = request(client, "STATS u");
+		const label = lastLabel(transport);
+
+		transport.lines(
+			`@label=${label} :irc.test BATCH +AD labeled-response`,
+			":irc.test NOTICE opr :*** Notice -- bob (b@h) did a /whois on you.",
+			"@batch=AD :irc.test 219 opr u :End of /STATS report",
+			":irc.test BATCH -AD"
+		);
+
+		const unit = await reply;
+		expect(unit.lines.map((m) => m.command)).to.deep.equal(["219"]);
+		expect(
+			messages(client.lobby.id).map((m) => m.text),
+			"routed, not swallowed"
+		).to.satisfy((texts: string[]) => texts.some((t) => t.includes("bob")));
+	});
+
 	it("collects an untagged reply it named and resolves on the ACK (evilnet/nefarious2#120)", async function () {
 		const {client, transport} = setup();
 		const reply = request(client, "PRIVS", {untagged: ["270"]});
@@ -471,6 +492,25 @@ describe("oper tools: oper state (irc/oper.ts)", function () {
 			transport.sent.some((l) => l.endsWith(" PRIVS")),
 			"then the oper-up queries"
 		).to.equal(true);
+	});
+
+	it("forgets it was opered when the registration's MODE shows it is not", async function () {
+		prefsStore.set(OPER_PREFS_KEY, JSON.stringify({u4: {wasOper: true}}));
+		const {client, transport} = setup({uuid: "u4"});
+
+		reregister(transport);
+		const query = transport.sent.find((l) => / MODE opr$/.test(l));
+		transport.line(`${/^(@label=\S+) /.exec(query!)![1]} :irc.test 221 opr +ix`);
+		await flush();
+		expect(client.oper.level).to.equal("none");
+		expect(getOperPrefs("u4").wasOper).to.equal(undefined);
+
+		transport.sent = [];
+		reregister(transport);
+		expect(
+			transport.sent.some((l) => / MODE opr$/.test(l)),
+			"the next registration asks nothing"
+		).to.equal(false);
 	});
 
 	it("a network that was never opered asks nothing on registration", function () {
@@ -871,6 +911,55 @@ describe("oper tools: the notice log (irc/noticelog.ts)", function () {
 		type: "snotice",
 		text: `t${time}`,
 		snotice: {kind, category: "OLDSNO", fields: {}, route: "network"},
+	});
+
+	/** A stand-in IDBDatabase whose one transaction the test ends by hand. */
+	function fakeDb(opts: {throwOnTransaction?: boolean} = {}) {
+		const tx: Record<string, unknown> = {
+			error: null,
+			objectStore: () => ({put: () => ({})}),
+		};
+		const db = {
+			closed: 0,
+			close() {
+				db.closed++;
+			},
+			transaction() {
+				if (opts.throwOnTransaction) {
+					throw new DOMException("closing", "InvalidStateError");
+				}
+
+				return tx;
+			},
+		};
+		return {db: db as unknown as IDBDatabase & {closed: number}, tx};
+	}
+
+	it("an aborted transaction rejects and closes the database", async function () {
+		const {db, tx} = fakeDb();
+		const done = transactOn(db, "readwrite", (store) => {
+			store.put([], "u1");
+		});
+
+		tx.error = new DOMException("quota", "QuotaExceededError");
+		(tx.onabort as () => void)();
+
+		const error = await done.then(
+			() => undefined,
+			(err: unknown) => err
+		);
+		expect((error as DOMException).name).to.equal("QuotaExceededError");
+		expect(db.closed).to.equal(1);
+	});
+
+	it("a transaction that cannot start rejects and closes the database", async function () {
+		const {db} = fakeDb({throwOnTransaction: true});
+		const error = await transactOn(db, "readonly", () => undefined).then(
+			() => undefined,
+			(err: unknown) => err
+		);
+		expect((error as DOMException).name).to.equal("InvalidStateError");
+		expect(db.closed).to.equal(1);
 	});
 
 	it("keeps the newest entries within a day", function () {

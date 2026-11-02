@@ -430,6 +430,23 @@ describe("nefarious2 CHECK reports", function () {
 			]);
 		});
 
+		it("rejoins wrapped Marks lines as one list, two marks never one chip", function () {
+			const rows = CHECK_ALICE.map((msg) => [msg.command, msg.params[1]] as [string, string]);
+			const at = rows.findIndex(([, text]) => text.includes("Marks::"));
+			rows.splice(
+				at,
+				1,
+				["290", "          Marks:: sasl-required, geoip-block"],
+				["290", "          Marks:: cloud-provider, manual-watch"]
+			);
+			const report = checkReport(reply("rubin", rows), "CHECK alice")!;
+
+			expect(entry(report, "Marks", "Marks")).to.deep.equal({
+				t: "chips",
+				v: ["sasl-required", "geoip-block", "cloud-provider", "manual-watch"],
+			});
+		});
+
 		it("lays out the bouncer block, its primary, aliases and history", function () {
 			const alice = checkReport(CHECK_ALICE, "CHECK alice")!;
 

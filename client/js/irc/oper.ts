@@ -2,7 +2,7 @@
  * Being an IRC operator on one network: the level (from our own user
  * modes), the privileges (PRIVS), the server notice mask (008) and the
  * server features the oper tools need to know (GET). Announced to the UI as
- * `oper:state` (bus-contract §1.11); docs/projects/oper-tools.md.
+ * `oper:state` (bus-contract §1.10); docs/projects/oper-tools.md.
  *
  * The mode is the signal, not 381. On AfterNET opers are granted by
  * services on SASL login, so there may be no OPER and no 381, and a bouncer
@@ -319,6 +319,12 @@ export function operRegistered(client: IrcClient): void {
 
 		if (line) {
 			setUserModes(client, line.params[1] ?? "");
+
+			// Not opered after all (the session ended opered, this one did
+			// not /oper): forget it, or every registration pays the MODE.
+			if (!isOpered(client)) {
+				setWasOper(client.uuid, false);
+			}
 		}
 	};
 

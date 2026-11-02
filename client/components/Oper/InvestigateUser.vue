@@ -65,9 +65,11 @@
 				<dt>Connected</dt>
 				<dd>
 					<template v-if="user.connectedAt !== undefined">
-						<time :title="absolute(user.connectedAt)">{{
-							relative(user.connectedAt)
-						}}</time>
+						<time
+							:title="absolute(user.connectedAt)"
+							:data-abs="absolute(user.connectedAt)"
+							>{{ relative(user.connectedAt) }}</time
+						>
 						<span v-if="user.idle !== undefined" class="oper-muted">
 							· idle {{ duration(user.idle) }}</span
 						>

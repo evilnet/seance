@@ -18,9 +18,12 @@
 			<p v-if="!network.oper?.privsKnown" class="oper-muted">Not reported yet.</p>
 			<p v-else-if="!privs.length" class="oper-muted">None.</p>
 			<p v-else class="oper-chips oper-privs">
-				<span v-for="p in privs" :key="p" class="oper-chip-static" :title="privHelp(p)">{{
-					p
-				}}</span>
+				<span v-for="p in privs" :key="p" class="oper-priv"
+					><span class="oper-chip-static" :title="privHelp(p)">{{ p }}</span
+					><span v-if="privHelp(p) !== p" class="oper-touch-hint" aria-hidden="true">{{
+						privHelp(p)
+					}}</span></span
+				>
 			</p>
 		</details>
 
@@ -31,7 +34,7 @@
 					<input
 						v-switch
 						type="checkbox"
-						:checked="has(m.letter)"
+						:checked="shown(m.letter)"
 						:disabled="!allowed(m) && !has(m.letter)"
 						@change="set(m.letter, ($event.target as HTMLInputElement).checked)"
 					/>
@@ -39,6 +42,7 @@
 					<span class="oper-umode-text">
 						<span class="oper-umode-label">{{ m.label }}</span>
 						<span class="sr-only">. {{ m.description }}</span>
+						<span class="oper-touch-hint" aria-hidden="true">{{ m.description }}</span>
 						<span v-if="!allowed(m)" class="oper-umode-needs">needs {{ m.priv }}</span>
 					</span>
 				</label>
@@ -128,10 +132,11 @@
 </style>
 
 <script lang="ts">
-import {computed, defineComponent, PropType} from "vue";
+import {computed, defineComponent, onUnmounted, PropType, reactive, watch} from "vue";
 import type {ClientNetwork} from "../../js/types";
 import socket from "../../js/socket";
 import {hasPriv} from "../../js/helpers/operMenu";
+import {PendingSwitches} from "../../js/helpers/pendingSwitches";
 import {profileById} from "../../js/irc/profiles";
 
 interface UserMode {
@@ -263,7 +268,21 @@ export default defineComponent({
 		const has = (letter: string) => (props.network.oper?.umodes ?? "").includes(letter);
 		const allowed = (m: UserMode) => !m.priv || hasPriv(props.network, m.priv);
 
+		// A switch shows what was asked until the server's MODE line agrees
+		// or 4 s (plus the fake lag of the taps queued ahead) pass without
+		// one (a refusal), then the real mode again. Reactive, so a request
+		// settling re-renders the switch.
+		const pending = reactive(new PendingSwitches(4000));
+		watch(
+			() => props.network.oper?.umodes ?? "",
+			() => pending.reconcile(has)
+		);
+		onUnmounted(() => pending.dispose());
+
+		const shown = (letter: string) => pending.shown(letter, has(letter));
+
 		const set = (letter: string, on: boolean) => {
+			pending.request(letter, on);
 			socket.emit("input", {
 				target: props.network.channels[0].id,
 				text: `/umode ${on ? "+" : "-"}${letter}`,
@@ -278,6 +297,7 @@ export default defineComponent({
 			levelLabel,
 			profileName: computed(() => profile.value.name),
 			has,
+			shown,
 			allowed,
 			set,
 			refresh,

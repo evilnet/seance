@@ -54,7 +54,7 @@
 							<button
 								type="button"
 								class="btn btn-small btn-cancel"
-								@click="editingNote = false"
+								@click="cancelNote"
 							>
 								Cancel
 							</button>
@@ -70,6 +70,7 @@
 									<time
 										v-if="model.createdAt !== undefined"
 										:title="absolute(model.createdAt)"
+										:data-abs="absolute(model.createdAt)"
 										>{{ relative(model.createdAt) }}</time
 									>
 									<span v-else class="oper-muted">{{
@@ -896,8 +897,32 @@ export default defineComponent({
 			});
 		};
 
+		// A note being written is kept, not lost, when the editor closes any
+		// way but Save or Cancel — Escape, Android's Back, the card closing or
+		// another stacked over it — and comes back when the editor next opens
+		// on the same card, if it was changed. One draft at a time; Cancel
+		// throws it away. Kept by card (network, kind, target), not by note
+		// key: a user card's key moves from the nick to the IP or the account
+		// as the lookups answer, and the note under the new key may differ
+		// from the one the editor opened on — an untouched draft is not kept.
+		let draftFor: string | undefined;
+		let draftFrom = "";
+
+		const cardKey = (request: InvestigateRequest) =>
+			`${request.network} ${request.kind} ${request.target}`;
+
 		const editNote = () => {
-			noteDraft.value = note.value;
+			if (!top.value) {
+				return;
+			}
+
+			const card = cardKey(top.value.request);
+
+			if (draftFor !== card || noteDraft.value === draftFrom) {
+				noteDraft.value = draftFrom = note.value;
+				draftFor = card;
+			}
+
 			editingNote.value = true;
 			void nextTick(() => noteField.value?.focus());
 		};
@@ -907,8 +932,14 @@ export default defineComponent({
 				setNote(top.value.request.network, noteKey.value, noteDraft.value);
 			}
 
+			draftFor = undefined;
 			editingNote.value = false;
 			readNote();
+		};
+
+		const cancelNote = () => {
+			draftFor = undefined;
+			editingNote.value = false;
 		};
 
 		const askCompare = () => {
@@ -1043,6 +1074,7 @@ export default defineComponent({
 			killUser,
 			editNote,
 			saveNote,
+			cancelNote,
 			askCompare,
 			startCompare,
 			endCompare,

@@ -28,7 +28,11 @@
 			><span v-if="one.prefix" class="oper-channel-prefix">{{ one.prefix }}</span
 			><ParsedMessage :network="network" :text="one.v"
 		/></span>
-		<time v-else-if="one.t === 'time'" class="oper-time" :title="absolute(one.v)"
+		<time
+			v-else-if="one.t === 'time'"
+			class="oper-time"
+			:title="absolute(one.v)"
+			:data-abs="one.text ? undefined : absolute(one.v)"
 			>{{ one.text ? absolute(one.v) : relative(one.v) }}
 			<span v-if="one.text" class="oper-muted">({{ relative(one.v) }})</span></time
 		>
@@ -36,6 +40,7 @@
 			v-else-if="one.t === 'expiry'"
 			:class="['oper-expiry', {expired: one.v > 0 && one.v <= now}]"
 			:title="one.v ? absolute(one.v) : 'Never expires'"
+			:data-abs="one.v ? absolute(one.v) : undefined"
 			>{{ expiry(one.v) }}</time
 		>
 		<span v-else-if="one.t === 'duration'" class="oper-duration">{{ duration(one.v) }}</span>
