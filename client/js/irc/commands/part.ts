@@ -8,21 +8,14 @@ import {ChanState, ChanType} from "../../../../shared/types/chan";
 import {MessageType} from "../../../../shared/types/msg";
 import {trailingLine} from "../wire";
 import type {Command} from "../types";
+import {textAfter} from "./words";
 
 const part: Command = {
 	commands: ["close", "leave", "part"],
 	allowDisconnected: true,
-	input({client, chan, args}) {
-		let target = chan;
-
-		if (args.length > 0) {
-			const named = client.findChannel(args[0]);
-
-			if (named) {
-				target = named;
-				args.shift();
-			}
-		}
+	input({client, chan, args, rest}) {
+		const named = args.length > 0 ? client.findChannel(args[0]) : undefined;
+		const target = named ?? chan;
 
 		if (target.type === ChanType.LOBBY) {
 			client.pushMessage(chan, {
@@ -51,7 +44,7 @@ const part: Command = {
 			return;
 		}
 
-		const reason = args.join(" ") || client.options.leaveMessage || "Seance";
+		const reason = textAfter(rest, named ? 1 : 0) || client.options.leaveMessage || "Seance";
 		client.send(trailingLine("PART", [target.name, reason]));
 	},
 };

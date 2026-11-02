@@ -323,6 +323,43 @@ describe("irc commands", function () {
 			]);
 		});
 
+		it("are kept in an away, part or CTCP text as typed", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.input(id, "/away gone   out");
+			h.client.input(id, "/ctcp bob ping  12   34");
+			h.client.input(id, "/part #seance see  you");
+			expect(h.sentAfter()).to.deep.equal([
+				"AWAY :gone   out",
+				"PRIVMSG bob :\x01PING 12   34\x01",
+				"PART #seance :see  you",
+			]);
+
+			h.client.input(id, "/part  so  long");
+			expect(h.sentAfter()).to.deep.equal(["PART #seance :so  long"]);
+		});
+
+		it("are kept in a quit or disconnect reason as typed", function () {
+			const h = setup();
+			h.client.input(joined(h), "/quit bye  all");
+			expect(h.sentAfter()).to.deep.equal(["QUIT :bye  all"]);
+
+			const h2 = setup();
+			h2.client.input(joined(h2), "/disconnect back   soon");
+			expect(h2.sentAfter()).to.deep.equal(["QUIT :back   soon"]);
+		});
+
+		it("before a named channel do not reach the topic", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.input(id, "/topic  #seance new topic");
+			h.client.input(id, "/topic #seance  indented");
+			expect(h.sentAfter()).to.deep.equal([
+				"TOPIC #seance :new topic",
+				"TOPIC #seance : indented",
+			]);
+		});
+
 		it("do not hide the nick /ignore is given", function () {
 			const h = setup();
 			const id = joined(h);

@@ -39,6 +39,14 @@ describe("Message deletion (REDACT, handlers/redact.ts)", function () {
 			]);
 		});
 
+		it("keeps the reason's spacing as typed", function () {
+			const h = setup();
+			const id = joined(h);
+
+			h.client.input(id, "/redact  m1  oops,  wrong   channel");
+			expect(h.sent()).to.deep.equal(["REDACT #seance m1 :oops,  wrong   channel"]);
+		});
+
 		it("routes the msg:redact bus emit to the owning client", function () {
 			const h = setup();
 			const id = joined(h);

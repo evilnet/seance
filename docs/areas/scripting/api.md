@@ -202,8 +202,13 @@ end)
 called with:
 
 - `args` — the words after the command: `/greet alice bob` gives
-  `{"alice", "bob"}`. A run of spaces counts as one, so `/greet alice bob`
-  gives the same.
+  `{"alice", "bob"}`. A run of spaces counts as one, so this gives the
+  same:
+
+  ```
+  /greet  alice   bob
+  ```
+
 - `rest` — the text after the command name exactly as typed (`""` when
   there is none).
 
