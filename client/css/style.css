@@ -4400,19 +4400,85 @@ button.snotice-badge:focus-visible {
 	overflow-wrap: anywhere;
 }
 
-.oper-note-edit {
-	flex-direction: column;
+/* Writing the note (Note… or Edit): a small dialog over the card, laid out
+ * like the kill/ban dialog's (ActionDialog.vue). Absolute in #viewport, the
+ * visible band, and its body scrolls while Cancel and Save stay: with the
+ * keyboard up on a landscape phone the band is a few lines tall. */
+#oper-note-overlay {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--overlay-bg-color);
+	visibility: hidden;
+	opacity: 0;
+	transition: opacity 0.2s, visibility 0.2s;
+	z-index: 999;
 }
 
-.oper-note-edit .input {
+/* Visible at once on the way in (the fade out keeps its 0.2 s): a
+ * visibility transition starts at hidden, and the field's focus() on the
+ * same tick found nothing to focus. */
+#oper-note-overlay.opened {
+	visibility: visible;
+	opacity: 1;
+	transition: opacity 0.2s;
+}
+
+#oper-note-dialog {
+	display: flex;
+	flex-direction: column;
+	width: min(32rem, calc(100vw - 1.5rem));
+	max-height: calc(100% - 1.5rem);
+	margin: 0.75rem;
+	overflow: hidden;
+	border-radius: 5px;
+	background: var(--window-bg-color);
+	color: var(--body-color);
+}
+
+.oper-note-dialog-body {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+	padding: 1rem;
+}
+
+.oper-note-dialog-title {
+	font-size: 1.25rem;
+	font-weight: 700;
+	overflow-wrap: anywhere;
+}
+
+.oper-note-dialog-body .input {
 	width: 100%;
 	margin: 0;
 	resize: vertical;
 }
 
-.oper-note-buttons {
+.oper-note-dialog-buttons {
+	flex-shrink: 0;
 	display: flex;
-	gap: 0.4rem;
+	justify-content: flex-end;
+	gap: 0.6rem;
+	padding: 0.8rem 1rem;
+	background: rgb(0 0 0 / 30%);
+}
+
+.oper-note-dialog-buttons .btn {
+	margin: 0;
+}
+
+.oper-note-dialog-buttons .btn-cancel {
+	border-color: transparent;
 }
 
 /* What most users have in common: the chips and the two buttons. */

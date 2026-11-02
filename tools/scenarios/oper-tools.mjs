@@ -613,6 +613,59 @@ export default async function run(page) {
 		`the user card says the snoop channel is missing ("${seenNote}")`,
 		seenNote === `Not in ${snoopChannel}: earlier sessions aren't kept.`
 	);
+
+	// Note… opens its own dialog over the card: the field, then Cancel and
+	// Save, whole inside the window; Save keeps it on the card, and Escape
+	// closes the note before the card.
+	const noteButton = `Array.from(document.querySelectorAll("${overlay} .oper-investigate-actions button")).find((b) => b.textContent.trim() === "Note…")`;
+	await page.evaluate(`${noteButton}.setAttribute("data-probe", "note")`);
+	await page.click(`${overlay} button[data-probe="note"]`);
+	await page.waitFor(`document.activeElement?.id === "oper-note-field"`, {
+		label: "the note dialog, its field focused",
+	});
+	await page.sleep(400); // the overlay fades in
+	const noteDialog = await page.evaluate(`(() => {
+		const r = document.querySelector("#oper-note-dialog").getBoundingClientRect();
+		const save = document.querySelector('#oper-note-dialog button[type="submit"]').getBoundingClientRect();
+		return {inside: r.top >= 0 && r.bottom <= innerHeight && r.left >= 0 && r.right <= innerWidth,
+			saveInside: save.bottom <= r.bottom && save.top >= r.top};
+	})()`);
+	page.check("the note dialog is inside the window", noteDialog.inside);
+	page.check("the note dialog's Save is in view", noteDialog.saveInside);
+	await page.screenshot("note-dialog", {selector: "#oper-note-dialog", pad: 8});
+	await page.fill("#oper-note-field", "seen in a probe run");
+	await page.click('#oper-note-dialog button[type="submit"]');
+	await page.waitFor(`!document.querySelector("#oper-note-overlay.opened")`, {
+		label: "the note dialog closed on Save",
+	});
+	page.check(
+		"Save puts the note on the card",
+		(await page.evaluate(
+			`document.querySelector("${overlay} .oper-note-text")?.textContent.trim() ?? ""`
+		)) === "seen in a probe run"
+	);
+	await page.sleep(400); // the note overlay fades out and would take the click
+	await page.click(`${overlay} .oper-note .btn`); // Edit
+	await page.waitFor(`document.activeElement?.id === "oper-note-field"`, {
+		label: "Edit reopens the note dialog",
+	});
+	await page.send("Input.dispatchKeyEvent", {
+		type: "keyDown",
+		key: "Escape",
+		code: "Escape",
+		windowsVirtualKeyCode: 27,
+	});
+	await page.send("Input.dispatchKeyEvent", {
+		type: "keyUp",
+		key: "Escape",
+		code: "Escape",
+		windowsVirtualKeyCode: 27,
+	});
+	await page.waitFor(`!document.querySelector("#oper-note-overlay.opened")`, {
+		label: "Escape closes the note dialog",
+	});
+	page.check("Escape leaves the card open", (await page.count(`${overlay}.opened`)) === 1);
+	await page.sleep(400);
 	await closeCard();
 
 	const o3 = helper("O3", () => {}, "Oper Services", snoopChannel);

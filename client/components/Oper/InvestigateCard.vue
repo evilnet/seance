@@ -38,28 +38,6 @@
 						<span class="oper-note-text">{{ note }}</span>
 						<button type="button" class="btn btn-small" @click="editNote">Edit</button>
 					</div>
-					<div v-if="editingNote" class="oper-note oper-note-edit">
-						<textarea
-							ref="noteField"
-							v-model="noteDraft"
-							class="input"
-							rows="2"
-							:placeholder="`A note about ${noteKey}, kept on this device`"
-							@keydown.esc.stop="editingNote = false"
-						></textarea>
-						<div class="oper-note-buttons">
-							<button type="button" class="btn btn-small" @click="saveNote">
-								Save
-							</button>
-							<button
-								type="button"
-								class="btn btn-small btn-cancel"
-								@click="cancelNote"
-							>
-								Cancel
-							</button>
-						</div>
-					</div>
 
 					<!-- ------------------------------------------------ channel -->
 					<template v-if="model.kind === 'channel'">
@@ -518,6 +496,43 @@
 			</div>
 		</div>
 	</div>
+
+	<!-- The note is its own small dialog over the card, like Kill…: on a
+	     phone the card's body is a short band once the keyboard is up, and
+	     an editor inside it lost its Save under the card's action bar. -->
+	<div
+		id="oper-note-overlay"
+		v-backdrop="closeNote"
+		class="screen-overlay"
+		:class="{opened: editingNote}"
+	>
+		<form
+			v-if="editingNote"
+			id="oper-note-dialog"
+			role="dialog"
+			aria-modal="true"
+			:aria-label="`Note on ${noteKey}`"
+			@submit.prevent="saveNote"
+		>
+			<div class="oper-note-dialog-body">
+				<label class="oper-note-dialog-title" for="oper-note-field"
+					>Note on {{ noteKey }}</label
+				>
+				<textarea
+					id="oper-note-field"
+					ref="noteField"
+					v-model="noteDraft"
+					class="input"
+					rows="3"
+					placeholder="Kept on this device only"
+				></textarea>
+			</div>
+			<div class="oper-note-dialog-buttons">
+				<button type="button" class="btn btn-cancel" @click="cancelNote">Cancel</button>
+				<button type="submit" class="btn">Save</button>
+			</div>
+		</form>
+	</div>
 </template>
 
 <script lang="ts">
@@ -937,6 +952,11 @@ export default defineComponent({
 			readNote();
 		};
 
+		/** The backdrop: closes like Escape, keeping the draft. */
+		const closeNote = () => {
+			editingNote.value = false;
+		};
+
 		const cancelNote = () => {
 			draftFor = undefined;
 			editingNote.value = false;
@@ -1075,6 +1095,7 @@ export default defineComponent({
 			editNote,
 			saveNote,
 			cancelNote,
+			closeNote,
 			askCompare,
 			startCompare,
 			endCompare,
