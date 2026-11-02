@@ -1,7 +1,7 @@
 // Masked markdown links show where they go, and one whose text names another
 // address asks before opening (helpers/linkSafety.ts, parse.ts).
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d
 //   node tools/browser-drive.mjs tools/scenarios/masked-links.mjs
 //   (also --mobile --width=390 --height=844, and SEANCE_THEME=ps)

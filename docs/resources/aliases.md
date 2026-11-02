@@ -77,4 +77,4 @@ not saved; every valid change persists at once, like the rest of the
 settings — a variables reference, and a "Try it" box that runs
 `expandAlias` against the current rows with placeholder `$chan`/`$me` values.
 
-Nothing in `yarn test` renders it; browser check: `tools/scenarios/aliases.mjs`.
+Nothing in `pnpm test` renders it; browser check: `tools/scenarios/aliases.mjs`.

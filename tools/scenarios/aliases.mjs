@@ -2,11 +2,11 @@
 // (docs/resources/aliases.md, client/components/Settings/Aliases.vue,
 // client/js/helpers/aliases.ts).
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d
 //   node tools/browser-drive.mjs tools/scenarios/aliases.mjs
 //
-// The claims under test are what `yarn test` cannot see: the Aliases tab
+// The claims under test are what `pnpm test` cannot see: the Aliases tab
 // renders and edits, a row persists to localStorage as soon as it is valid,
 // an invalid row shows its error and is *not* saved, the "Try it" box
 // previews the expansion, and a typed `/alias` in a real channel goes out

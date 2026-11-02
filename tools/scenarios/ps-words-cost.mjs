@@ -7,7 +7,7 @@
 // message list), on the desktop layout and on the phone layout. Scene
 // animation is set to Full so the clouds, the grass and the birds move.
 //
-//   NODE_ENV=production corepack yarn build && python3 -m http.server -d public 8021 &
+//   NODE_ENV=production pnpm build && python3 -m http.server -d public 8021 &
 //   node tools/browser-drive.mjs tools/scenarios/ps-words-cost.mjs --chrome=…
 //
 // Needs the dev ircd (8067). Prints a table; the only checks are that each

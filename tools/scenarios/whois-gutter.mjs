@@ -1,11 +1,11 @@
 // The /whois reply as a definition list whose labels sit in the gutter —
 // right-aligned against the row separator bar like nicks — with the values
 // in the text column (whois.vue, the `.whois` rules in style.css). What
-// `yarn test` cannot see: that the absolutely positioned labels labels sit in the gutter, left of the separator
+// `pnpm test` cannot see: that the absolutely positioned labels labels sit in the gutter, left of the separator
 // bar; values right of it. Needs the dev ircd (ws://127.0.0.1:8067) and the
 // build served on :8001:
 //
-//   corepack yarn build && python3 -m http.server -d public 8001 &
+//   pnpm build && python3 -m http.server -d public 8001 &
 //   node tools/browser-drive.mjs tools/scenarios/whois-gutter.mjs
 
 const RUN = Date.now().toString(36);

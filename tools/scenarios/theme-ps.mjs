@@ -247,7 +247,7 @@
 // "nah i don't like the new input box. but the thin divider is good"), and
 // its eight checks with it; the divider's eight stay.
 //
-//   NODE_ENV=production corepack yarn build && python3 -m http.server -d public 8021 &
+//   NODE_ENV=production pnpm build && python3 -m http.server -d public 8021 &
 //   node tools/browser-drive.mjs tools/scenarios/theme-ps.mjs
 //
 // A development build works too: its i18n tripwire ("[seance i18n] …"

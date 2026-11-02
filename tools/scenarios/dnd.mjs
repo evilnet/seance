@@ -6,7 +6,7 @@
 // narrowest sidebar. No account on the dev ircd, so the METADATA writes are
 // not exercised here (test/irc/pushMute.ts covers them).
 //
-//   corepack yarn build && python3 -m http.server -d public 8001 &
+//   pnpm build && python3 -m http.server -d public 8001 &
 //   node tools/browser-drive.mjs tools/scenarios/dnd.mjs
 //   node tools/browser-drive.mjs tools/scenarios/dnd.mjs --mobile --width=390 --height=844
 //

@@ -1,6 +1,6 @@
 // UI cleanup verification for the push-notification settings work:
 //
-//   corepack yarn build && python3 -m http.server -d public 8001 &
+//   pnpm build && python3 -m http.server -d public 8001 &
 //   node tools/browser-drive.mjs tools/scenarios/ui-cleanup.mjs
 //
 // SEANCE_URL (default http://127.0.0.1:8001/) points it at another build;

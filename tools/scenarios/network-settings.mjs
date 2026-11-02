@@ -1,7 +1,7 @@
 // Saved networks live under Settings → Networks. Opening management UI must
 // not connect; add, edit and delete are explicit actions.
 //
-//   corepack yarn build && python3 -m http.server -d public 8020 &
+//   pnpm build && python3 -m http.server -d public 8020 &
 //   SEANCE_PORT=8020 node tools/browser-drive.mjs tools/scenarios/network-settings.mjs
 
 const PORT = process.env.SEANCE_PORT ?? "8000";

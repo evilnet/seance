@@ -1,13 +1,13 @@
 // The connecting indicator in the chat header, in a real browser.
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d
 //   node tools/browser-drive.mjs tools/scenarios/connecting-indicator.mjs
 //
 // Dialling used to paint the full-width red `#user-visible-error` bar across
 // the bottom of the chat. It is now a small spinning icon in the top right
 // of the header, driven by `network.status.connecting`, and the red bar is
-// left for actual errors. `yarn test` mounts no component, so the claims
+// left for actual errors. `pnpm test` mounts no component, so the claims
 // worth checking here are: the icon is there while dialling, it really
 // turns, no red bar comes with it, and it goes away once registered.
 

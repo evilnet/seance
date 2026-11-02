@@ -22,7 +22,7 @@
 // reports O3's absence, Cancel closes it; the Alerts tab offers "New O3
 // alert…" and the folded list says O3 is not online.
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d      # local.conf grants the ban privileges
 //   node tools/browser-drive.mjs tools/scenarios/oper-tools.mjs
 //   node tools/browser-drive.mjs tools/scenarios/oper-tools.mjs --mobile --width=390 --height=844

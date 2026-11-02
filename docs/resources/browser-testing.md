@@ -1,6 +1,6 @@
 # Checking Seance in a real browser
 
-`corepack yarn test` never mounts a Vue component, never opens a socket from a
+`pnpm test` never mounts a Vue component, never opens a socket from a
 browser and never touches the DOM. That is deliberate — modules that run under
 mocha stay free of store and DOM imports — but it means the whole rendering
 layer, the store, and everything about how Chrome actually talks to nefarious2
@@ -18,7 +18,7 @@ It does two jobs.
 ## Setup
 
 ```sh
-corepack yarn build                       # public/ is what gets served
+pnpm build                       # public/ is what gets served
 python3 -m http.server -d public 8000 &   # or an nginx container over public/
 tools/nefarious-dev/run.sh -d             # dev ircd, when IRC is involved
 ```

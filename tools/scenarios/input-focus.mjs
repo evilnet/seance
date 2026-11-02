@@ -1,6 +1,6 @@
 // Opening a conversation puts the caret in the message input
 // (ChatInput.vue `focusForTyping`), except on a touch-primary device where
-// focusing would raise the on-screen keyboard. What `yarn test` cannot see:
+// focusing would raise the on-screen keyboard. What `pnpm test` cannot see:
 // which element actually holds focus after the conversation opened through
 // every way in — a *real* click on a sidebar row when the input did NOT
 // already have it (the user clicked into the scrollback first), Alt+Up, the
@@ -8,7 +8,7 @@
 // a row from the settings page, the channel that opens first after
 // connecting, and the remembered conversation after a cold load.
 //
-//   corepack yarn build && python3 -m http.server -d public 8001 &
+//   pnpm build && python3 -m http.server -d public 8001 &
 //   node tools/browser-drive.mjs tools/scenarios/input-focus.mjs
 //   node tools/browser-drive.mjs tools/scenarios/input-focus.mjs --mobile --width=390 --height=844
 

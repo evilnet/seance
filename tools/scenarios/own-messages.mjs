@@ -8,7 +8,7 @@
 // survives a reload (client/js/helpers/ownMessages.ts, settings.ts,
 // style.css).
 //
-//   corepack yarn build && python3 -m http.server -d public 8021 &
+//   pnpm build && python3 -m http.server -d public 8021 &
 //   node tools/browser-drive.mjs tools/scenarios/own-messages.mjs
 //
 // The default target is a plain-WS ircd on 127.0.0.1:8067 (the dev ircd's

@@ -1,5 +1,5 @@
 // Deliver spec-shaped push lines to the REAL service worker and assert the
-// notifications it shows — what `yarn test` cannot see. Speaks the DevTools
+// notifications it shows — what `pnpm test` cannot see. Speaks the DevTools
 // protocol at browser level (tools/browser-drive.mjs attaches per page and
 // cannot reach the worker target), like tmp/sw-reply-probe2.mjs.
 //

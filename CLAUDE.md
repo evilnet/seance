@@ -6,30 +6,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Seance** is TheLounge's Vue 3 client turned into a static, bouncer-less IRC client. The browser speaks IRCv3 directly to **nefarious2** (EvilNet's ircd, `ircv3.2-upgrade` branch) over a WebSocket — one IRC line per WS message, `text.ircv3.net` subprotocol — with no Node server in between. Output is a `public/` tree an IRC network can rebrand via `config.json` and ship as its own web/PWA/native client. Other ircds should work too; nefarious2-only behaviour belongs in `client/js/irc/profiles/`.
 
-Status: `docs/projects/initial_conversion.md`. Upstream is still `github.com/thelounge/thelounge`. Node.js >= 22, Yarn 1 (classic), MIT.
+Status: `docs/projects/initial_conversion.md`. Upstream is still `github.com/thelounge/thelounge`. Node.js >= 22 (CI and `.node-version`: 26), pnpm, MIT.
 
 ## Commands
 
-`yarn` is not on PATH on this machine — use `corepack yarn <cmd>` (or `npx` for one-offs).
+pnpm, at the version `package.json`'s `packageManager` names (`npm i -g pnpm@12.16.1`; pnpm does not switch itself, because that writes a two-document lockfile GitHub's dependency graph cannot read). Node 25+ ships no corepack, and pnpm advises against it anyway. Dependency install scripts run only when `pnpm-workspace.yaml`'s `allowBuilds` names them.
 
 | Task                                            | Command                                       |
 | ----------------------------------------------- | --------------------------------------------- |
-| Install deps                                    | `yarn install`                                |
-| Build the SPA (webpack → `public/`)             | `yarn build` (`NODE_ENV=production` for prod) |
-| Webpack watch                                   | `yarn watch`                                  |
+| Install deps                                    | `pnpm install`                                |
+| Build the SPA (webpack → `public/`)             | `pnpm build` (`NODE_ENV=production` for prod) |
+| Webpack watch                                   | `pnpm watch`                                  |
 | Serve the built SPA                             | `python3 -m http.server -d public 8000`       |
-| Lint everything (eslint + prettier + stylelint) | `yarn lint`                                   |
-| Auto-format                                     | `yarn format:prettier`                        |
-| Full test (lint + mocha)                        | `yarn test`                                   |
-| Mocha only (builds first)                       | `yarn test:mocha`                             |
-| Playwright e2e (needs `SEANCE_E2E_IRC_URL`)     | `yarn test:e2e`                               |
+| Lint everything (eslint + prettier + stylelint) | `pnpm lint`                                   |
+| Auto-format                                     | `pnpm format:prettier`                        |
+| Full test (lint + mocha)                        | `pnpm test`                                   |
+| Mocha only (builds first)                       | `pnpm test:mocha`                             |
+| Playwright e2e (needs `SEANCE_E2E_IRC_URL`)     | `pnpm test:e2e`                               |
 
-There is no `yarn dev`/`yarn start`; build and serve `public/` statically. One mocha file:
+There is no `pnpm dev`/`pnpm start`; build and serve `public/` statically. One mocha file:
 
 ```sh
-npx cross-env NODE_ENV=test TS_NODE_PROJECT='./test/tsconfig.json' \
-  npx mocha --config=test/.mocharc.yml test/irc/client.ts
+NODE_ENV=test pnpm exec mocha --config=test/.mocharc.yml test/irc/client.ts
 ```
+
+CI (`.github/workflows/ci.yml`) runs on every pull request and push to `develop`: a frozen-lockfile install, `pnpm lint`, the production build, `pnpm test:mocha`, and `tools/scenarios/smoke.mjs` (the built app boots in Chromium with no console error).
 
 Live tests (`test/irc/*.live.ts`) are skipped unless `SEANCE_IRC_URL` is set; run them one file at a time. The dev ircd is `tools/nefarious-dev/run.sh` (Docker; `ws://` 8067, `wss://` 8443, channel `#seance`). Both: `docs/resources/nefarious2-dev.md`.
 
@@ -46,7 +47,7 @@ Live tests (`test/irc/*.live.ts`) are skipped unless `SEANCE_IRC_URL` is set; ru
 
 ## Rules
 
-- **The suite has no browser and no DOM.** A change under `client/components/`, `client/css/` or the store is unverified by `yarn test`; check it in a real browser (`docs/resources/browser-testing.md`). Feature sections in `docs/` name their browser scenario.
+- **The suite has no browser and no DOM.** A change under `client/components/`, `client/css/` or the store is unverified by `pnpm test`; check it in a real browser (`docs/resources/browser-testing.md`). Feature sections in `docs/` name their browser scenario.
 - **Rebuild after changing `client/` or switching branches.** `public/` is gitignored and shared, and the mocha build test reads it.
 - **Size the UI in `rem`, never `px`.** Breakpoints stay px; anything that must follow the font scale uses a container query. Details: `docs/resources/client-features.md` § UI sizing.
 - **Reduced motion and high contrast** are read from `html[data-reduce-motion]` / `html[data-contrast="more"]`, never `@media`.
@@ -57,7 +58,7 @@ Live tests (`test/irc/*.live.ts`) are skipped unless `SEANCE_IRC_URL` is set; ru
 - **The connect path is expensive**: each command costs ~2 s of server fake lag and the socket is ignored past 10 s. Pipeline registration (`CAP END` in the same flush as `CAP REQ`), autojoin is one `JOIN a,b,c`, per-channel work goes through `catchup.ts`, and anything automatic nobody is waiting for goes through `IrcClient.background`, not `send`. Nothing but registration before 001 (`client.isWelcomed`). Details: `docs/resources/irc-layer.md`.
 - **`MAX_LINE_BYTES = 500`** caps every outbound line, tags included. Do not raise it.
 - **localStorage keys are still `thelounge.*`.** Do not rename without a migration.
-- **Prettier is enforced**; if `yarn lint` fails, run `yarn format:prettier` first.
+- **Prettier is enforced**; if `pnpm lint` fails, run `pnpm format:prettier` first.
 
 ## Tests
 

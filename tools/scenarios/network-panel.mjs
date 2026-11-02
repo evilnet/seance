@@ -1,7 +1,7 @@
 // The network header in the sidebar is two rows: the name alone on the first
 // line (chevron, name, unread badge); on the second the tools (connection
 // state, notifications, edit, join) on the left and the nick on the right
-// (NetworkLobby.vue, the `.lobby-wrap` rules in style.css). What `yarn test`
+// (NetworkLobby.vue, the `.lobby-wrap` rules in style.css). What `pnpm test`
 // cannot see: that the name gets its whole line and is not clipped, that the
 // tools sit under it as an evenly spaced toolbar with every glyph centred in
 // its box, that the nick is the one the connection uses (and follows a /nick),
@@ -9,7 +9,7 @@
 // header looks hovered, active, collapsed, disconnected and in the jump-to
 // results.
 //
-//   corepack yarn build && python3 -m http.server -d public 8001 &
+//   pnpm build && python3 -m http.server -d public 8001 &
 //   node tools/browser-drive.mjs tools/scenarios/network-panel.mjs
 //
 // The default target is a plain-WS ircd on 127.0.0.1:8067 (the testnet rig,

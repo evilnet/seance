@@ -3,7 +3,7 @@
 // inactive tabs to icons when the pane is narrow, settings scrolling in
 // their own section, and an always-visible footer with a Done button.
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   pnpm build && python3 -m http.server -d public 8000 &
 //   node tools/browser-drive.mjs tools/scenarios/settings-modal.mjs
 //   node tools/browser-drive.mjs tools/scenarios/settings-modal.mjs --width=390 --height=844
 //

@@ -1,7 +1,7 @@
 // The "seen" ring for a multiline message, in a real browser
 // (docs/projects/push-payload-multiline.md §3.2 and §5.3, client/js/push-seen.ts).
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d
 //   node tools/browser-drive.mjs tools/scenarios/push-seen-multiline.mjs
 //
@@ -10,7 +10,7 @@
 //     tools/scenarios/push-seen-multiline.mjs \
 //     --url='http://127.0.0.1:8002/?host=127.0.0.1&port=8067&tls=false&nick=seenpage&autoconnect=1'
 //
-// What `yarn test` cannot see: a live page that receives a multiline
+// What `pnpm test` cannot see: a live page that receives a multiline
 // message over its own WebSocket writes the msgid from the BATCH opener
 // into the IndexedDB `seen` ring the service worker reads. The ircd puts
 // that same msgid as the `batch` reference on every pushed line of the

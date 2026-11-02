@@ -9,7 +9,7 @@
 // prints what tools/ps/legibility.ts records as ALPHA_HALO, ALPHA_SHADOW,
 // ALPHA_RIM, ALPHA_GLOW and ALPHA_GLOW_HALO.
 //
-//   NODE_ENV=production corepack yarn build && python3 -m http.server -d public 8021 &
+//   NODE_ENV=production pnpm build && python3 -m http.server -d public 8021 &
 //   node tools/browser-drive.mjs tools/ps/calibrate.mjs --chrome=… --out=<dir>
 //
 // It writes the whole result to <dir>/ps-calibration.json, next to one

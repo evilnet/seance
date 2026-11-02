@@ -19,6 +19,7 @@ docs/superpowers/
 *.sh
 *.opts
 *.txt
+pnpm-lock.yaml
 yarn.lock
 .gitignore
 .npmrc

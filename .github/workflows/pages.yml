@@ -15,7 +15,7 @@
 # the log) and `deploy` publishes. A merged or closed PR drops out of the
 # plan and so off the site.
 #
-# PR builds run code from the PR (`yarn install`, webpack) under
+# PR builds run code from the PR (`pnpm install`, webpack) under
 # `pull_request_target`, which is what lets a PR from a fork be published to
 # the real site. That is why only PRs by the repository's own people
 # (OWNER, MEMBER, COLLABORATOR) or ones carrying the `preview` label are
@@ -135,7 +135,7 @@ jobs:
     steps:
       - name: Restore a build of this commit
         id: cached
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: public
           # The release is in the key: a develop or PR build says which
@@ -143,7 +143,7 @@ jobs:
           # build it again.
           key: site-v2-${{ matrix.build.name }}-${{ matrix.build.sha }}-${{ needs.plan.outputs.release }}
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: steps.cached.outputs.cache-hit != 'true'
         with:
           # A PR's commits are reachable in this repository through
@@ -158,21 +158,29 @@ jobs:
 
       - name: Setup Node.js
         if: steps.cached.outputs.cache-hit != 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: ".node-version"
 
-      - name: Enable Yarn (classic) via corepack
-        if: steps.cached.outputs.cache-hit != 'true'
-        run: corepack enable
-
+      # The package manager the tree uses: pnpm, at the version package.json's
+      # packageManager names, or Yarn 1 for a release or PR from before the
+      # move to pnpm. Not through corepack: Node 25+ ships none.
       - name: Install
         if: steps.cached.outputs.cache-hit != 'true'
-        run: yarn --frozen-lockfile --non-interactive
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            npm install --global "$(node -p 'require("./package.json").packageManager')"
+            pnpm install --frozen-lockfile
+            echo "PM=pnpm" >> "$GITHUB_ENV"
+          else
+            npm install --global yarn@1.22.22
+            yarn --frozen-lockfile --non-interactive
+            echo "PM=yarn" >> "$GITHUB_ENV"
+          fi
 
       - name: Build
         if: steps.cached.outputs.cache-hit != 'true'
-        run: yarn build
+        run: $PM build
         env:
           NODE_ENV: production
           # What Help's About says: the version, the release it is or
@@ -184,13 +192,13 @@ jobs:
 
       - name: Keep this build for the next run
         if: steps.cached.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: public
           key: site-v2-${{ matrix.build.name }}-${{ matrix.build.sha }}-${{ needs.plan.outputs.release }}
 
       - name: Hand the tree to assemble
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: site-${{ matrix.build.name }}
           path: public
@@ -206,12 +214,12 @@ jobs:
       contents: read
       pages: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           sparse-checkout: tools/pages-site.mjs
           sparse-checkout-cone-mode: false
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: site-*
           path: artifacts
@@ -219,7 +227,7 @@ jobs:
       # The site's base path (`/seance/` for a project site), so the index
       # can link every build absolutely.
       - id: pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Put each build in its directory
         env:
@@ -237,7 +245,7 @@ jobs:
           node tools/pages-site.mjs plan.json builds site "$RUN_URL"
 
       - name: Upload site
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: site
 
@@ -254,7 +262,7 @@ jobs:
     steps:
       - name: Deploy
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
         env:
           # deploy-pages names the deployment after GITHUB_SHA, and Pages
           # answers a second deployment of a name it has with the first one:

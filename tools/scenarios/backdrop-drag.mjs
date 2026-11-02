@@ -1,7 +1,7 @@
 // A drag out of a modal does not close it; a click on its backdrop does
 // (client/js/helpers/backdrop.ts, `v-backdrop`).
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   pnpm build && python3 -m http.server -d public 8000 &
 //   node tools/browser-drive.mjs tools/scenarios/backdrop-drag.mjs
 //
 // Uses the Help modal (its paragraphs are selectable; Settings has none),

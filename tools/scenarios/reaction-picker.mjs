@@ -1,10 +1,10 @@
 // The reaction picker, end to end in a real browser.
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d
 //   node tools/browser-drive.mjs tools/scenarios/reaction-picker.mjs
 //
-// Everything here is invisible to `yarn test`: the picker is a Vue component
+// Everything here is invisible to `pnpm test`: the picker is a Vue component
 // teleported to <body> and positioned from `getBoundingClientRect`, its
 // catalog arrives as a lazily imported chunk, and what it sends only shows up
 // as a badge under a message. The claims under test are that it opens where

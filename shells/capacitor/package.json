@@ -35,5 +35,6 @@
     "@capacitor/cli": "^8.5.0",
     "@types/node": "^22.0.0",
     "typescript": "^5.4.0"
-  }
+  },
+  "packageManager": "pnpm@12.16.1"
 }

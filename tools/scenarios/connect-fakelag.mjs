@@ -1,7 +1,7 @@
 // The connect burst against nefarious2's fake lag, measured from what the
 // page actually sends.
 //
-//   corepack yarn build && python3 -m http.server -d public 8047 &
+//   pnpm build && python3 -m http.server -d public 8047 &
 //   node tools/browser-drive.mjs tools/scenarios/connect-fakelag.mjs --no-ws
 //
 // Needs the dev ircd (tools/nefarious-dev/run.sh). `SEANCE_PORT` (default
