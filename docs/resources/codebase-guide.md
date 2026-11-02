@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Status** (see `docs/projects/initial_conversion.md` for the checklist): phases 0 (discovery), A (server moved to `attic/`), B (bus stubbed), C (minimum IRC) are done; D (fill-in) is done except D.7 read markers/`MARKREAD` and D.11 web push (both deferred); E is in progress — E.3 branding is done, E.1 dependency purge is underway, E.2 bus-contract reshape is optional, E.4 native shells not started. Milestones M4 (daily-driver) and M5 (shippable) are not yet ticked.
 
-Upstream is still `github.com/thelounge/thelounge`; divergence only grows. localStorage keys are still `thelounge.*` (renaming needs a migration). Node.js >= 22 (CI and `.node-version`: 26), pnpm, MIT licensed.
+Upstream is still `github.com/thelounge/thelounge`; divergence only grows. localStorage keys are still `thelounge.*` (renaming needs a migration). Node.js 22.22.2+, 24.15+ or 26+ (CI and `.node-version`: 26), pnpm, MIT licensed.
 
 ## Common commands
 
