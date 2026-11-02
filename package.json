@@ -76,6 +76,7 @@
     "@types/mousetrap": "1.6.15",
     "@types/node": "22.19.17",
     "@types/prismjs": "1.26.6",
+    "@types/sinon": "9.0.11",
     "@types/sortablejs": "1.15.8",
     "@types/textarea-caret": "3.0.4",
     "@types/webpack-env": "1.16.4",

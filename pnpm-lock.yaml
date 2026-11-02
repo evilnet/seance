@@ -96,6 +96,9 @@ importers:
       '@types/prismjs':
         specifier: 1.26.6
         version: 1.26.6
+      '@types/sinon':
+        specifier: 9.0.11
+        version: 9.0.11
       '@types/sortablejs':
         specifier: 1.15.8
         version: 1.15.8
