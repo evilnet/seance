@@ -28,7 +28,7 @@ import {isPhoneLayout} from "../js/helpers/device";
 import {emitEscape, topEscapeLayer} from "../js/helpers/escapeLayer";
 import eventbus from "../js/eventbus";
 import Mousetrap, {ExtendedKeyboardEvent} from "mousetrap";
-import throttle from "lodash/throttle";
+import {throttle} from "../js/helpers/throttle";
 import storage from "../js/localStorage";
 import isIgnoredKeybind from "../js/helpers/isIgnoredKeybind";
 
@@ -57,7 +57,6 @@ import {
 import {useStore} from "../js/store";
 import {themeScene} from "../js/themeScene";
 import {ChanType} from "../../shared/types/chan";
-import type {DebouncedFunc} from "lodash";
 
 export const imageViewerKey = Symbol() as InjectionKey<Ref<typeof ImageViewer | null>>;
 const contextMenuKey = Symbol() as InjectionKey<Ref<typeof ContextMenu | null>>;
@@ -99,7 +98,7 @@ export default defineComponent({
 			};
 		});
 
-		const debouncedResize = ref<DebouncedFunc<() => void>>();
+		const debouncedResize = ref<() => void>();
 		const dayChangeTimeout = ref<any>();
 
 		const escapeKey = (e: ExtendedKeyboardEvent) => {

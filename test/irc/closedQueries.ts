@@ -5,7 +5,7 @@
  */
 
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 // The client first: pushMute and closedQueries are part of its import cycle.
 import "../../client/js/irc/client";
 import {ChanType} from "../../shared/types/chan";

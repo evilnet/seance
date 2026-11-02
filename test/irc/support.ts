@@ -6,7 +6,7 @@
  */
 
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import storage from "../../client/js/localStorage";
 import {IrcClient, IrcClientOptions} from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";

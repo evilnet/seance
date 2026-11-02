@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import {BrandingUploads, DEFAULT_UPLOAD_MAX_BYTES} from "../../client/js/branding";
 import {
 	UPLOADS_NOT_CONFIGURED,

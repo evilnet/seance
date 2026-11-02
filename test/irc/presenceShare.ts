@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 // First: support loads client.ts, which pushMute.ts needs initialised (the
 // pushMute ↔ presence ↔ client import cycle).
 import {register, setup, type Harness} from "./support";
