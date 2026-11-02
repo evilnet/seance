@@ -1,35 +1,28 @@
 /**
- * Calls `fn` at most once per `wait` ms: the first call runs at once, and
- * calls inside the window collapse into one trailing call, with the latest
- * arguments, when it ends.
+ * Calls `fn` at most once per `wait` ms: at once when it has not run within
+ * the last `wait` ms, otherwise once when that window ends.
  */
-export function throttle<A extends unknown[]>(
-	fn: (...args: A) => void,
-	wait: number
-): (...args: A) => void {
+export function throttle(fn: () => void, wait: number): () => void {
 	let last = -Infinity;
 	let timer: ReturnType<typeof setTimeout> | undefined;
-	let pending: A | undefined;
 
-	const run = (args: A) => {
+	const run = () => {
+		timer = undefined;
 		last = Date.now();
-		fn(...args);
+		fn();
 	};
 
-	return (...args: A) => {
-		const remaining = wait - (Date.now() - last);
-
-		if (remaining <= 0 && timer === undefined) {
-			run(args);
+	return () => {
+		if (timer !== undefined) {
 			return;
 		}
 
-		pending = args;
-		timer ??= setTimeout(() => {
-			timer = undefined;
-			const latest = pending as A;
-			pending = undefined;
-			run(latest);
-		}, remaining);
+		const remaining = last + wait - Date.now();
+
+		if (remaining <= 0) {
+			run();
+		} else {
+			timer = setTimeout(run, remaining);
+		}
 	};
 }
