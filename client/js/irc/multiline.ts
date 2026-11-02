@@ -18,7 +18,14 @@ import {MessageType} from "../../../shared/types/msg";
 import type {IrcClient} from "./client";
 import {BatchHandler, OpenBatch, openBatchesOf} from "./handlers/batch";
 import {splitStatusTarget} from "./handlers/privmsg";
-import {formatLine, IrcMessage, IrcSource, MAX_LINE_BYTES, utf8ByteLength} from "./message";
+import {
+	formatLine,
+	graphemeCut,
+	IrcMessage,
+	IrcSource,
+	MAX_LINE_BYTES,
+	utf8ByteLength,
+} from "./message";
 import {armPending, pendingLabel, PendingMessage, settlePending, showPending} from "./pending";
 import {ClientTags, EDIT_TAG, REPLY_TAG, trailingLine} from "./wire";
 
@@ -300,7 +307,7 @@ function splitConcat(text: string, budget: number): string[] {
 			pos = start + ((text.codePointAt(start) as number) > 0xffff ? 2 : 1);
 		}
 
-		const end = afterSpace > start ? afterSpace : pos;
+		const end = afterSpace > start ? afterSpace : graphemeCut(text, start, pos);
 		chunks.push(text.slice(start, end));
 		start = end;
 	}
@@ -482,6 +489,18 @@ interface SentBatch {
 }
 
 /**
+ * A plain message typed while a batch is still queued. It goes out the
+ * moment no batch is ahead of it, so the server sees the user's messages in
+ * the order they were typed.
+ */
+interface HeldMessage {
+	/** Put the message on the wire; false when the transport is gone. */
+	send: () => boolean;
+	/** Its pending copies, shown when it was typed and armed by `send`. */
+	pending: PendingMessage[];
+}
+
+/**
  * One batch at a time, per client.
  *
  * nefarious2 charges a cooldown for every multiline batch it delivers —
@@ -499,8 +518,11 @@ interface SentBatch {
 interface MultilineQueue {
 	/** On the wire, waiting for the server's verdict. */
 	inFlight: SentBatch | null;
-	/** Planned and not sent yet, in order. */
-	waiting: SentBatch[];
+	/**
+	 * Planned and not sent yet, in order: batches, and the plain messages
+	 * typed after one of them ({@link holdBehindBatches}).
+	 */
+	waiting: (SentBatch | HeldMessage)[];
 	/** Verdict timer for {@link inFlight}. */
 	verdict: ReturnType<typeof setTimeout> | null;
 	/** Cooldown re-send timer (a `MULTILINE_COOLDOWN` FAIL); nothing goes out while it runs. */
@@ -511,6 +533,10 @@ interface MultilineQueue {
 	 * is never dropped mid-cooldown. Nothing goes out while it runs.
 	 */
 	pace: ReturnType<typeof setTimeout> | null;
+}
+
+function isHeld(entry: SentBatch | HeldMessage): entry is HeldMessage {
+	return "send" in entry;
 }
 
 const queues = new WeakMap<IrcClient, MultilineQueue>();
@@ -599,20 +625,53 @@ export function sendMultiline(
 	pump(client);
 }
 
-/** Put the next batch on the wire, if one may go now. */
+/**
+ * True while a batch is queued, or on the wire with no answer yet: a plain
+ * message sent now could overtake it (one the server sends back with
+ * `MULTILINE_COOLDOWN` is sent again, after whatever went out meanwhile).
+ */
+export function batchesWaiting(client: IrcClient): boolean {
+	const queue = queueOf(client);
+	return queue.waiting.length > 0 || queue.inFlight !== null;
+}
+
+/**
+ * Queue a plain message behind the batches waiting to go out. Its lines need
+ * no cooldown of their own: once the batch ahead of it has been answered, the
+ * server has taken it, so they follow at once.
+ */
+export function holdBehindBatches(
+	client: IrcClient,
+	send: () => boolean,
+	pending: PendingMessage[]
+): void {
+	queueOf(client).waiting.push({send, pending});
+	pump(client);
+}
+
+/**
+ * Put what may go now on the wire: the next batch once the one before it has
+ * been answered and its cooldown is over, and every plain message with no
+ * batch ahead of it, queued or unanswered.
+ */
 function pump(client: IrcClient): void {
 	const queue = queueOf(client);
 
-	if (queue.inFlight || queue.retry || queue.pace || queue.waiting.length === 0) {
-		return;
-	}
+	for (;;) {
+		const next = queue.waiting[0];
 
-	const batch = queue.waiting.shift() as SentBatch;
+		if (!next || queue.inFlight || (!isHeld(next) && (queue.retry || queue.pace))) {
+			return;
+		}
 
-	if (!transmit(client, batch)) {
-		// The transport is gone and `send` has reported it; the rest of the
-		// message goes with it.
-		resetMultiline(client);
+		queue.waiting.shift();
+
+		if (!(isHeld(next) ? next.send() : transmit(client, next))) {
+			// The transport is gone and `send` has reported it; the rest of the
+			// message goes with it.
+			resetMultiline(client);
+			return;
+		}
 	}
 }
 
@@ -659,6 +718,7 @@ function transmit(client: IrcClient, batch: SentBatch): boolean {
 			queue.verdict = null;
 			queue.inFlight = null;
 			paceAfter(client, batch);
+			pump(client);
 		},
 		echo ? MULTILINE_VERDICT_MS : MULTILINE_SETTLE_MS
 	);
@@ -713,9 +773,11 @@ export function multilineAccepted(client: IrcClient): void {
 
 	if (batch) {
 		paceAfter(client, batch);
-	} else {
-		pump(client);
 	}
+
+	// A plain message held behind the batch goes now; the next batch waits
+	// out the cooldown.
+	pump(client);
 }
 
 /**
@@ -767,7 +829,7 @@ export function multilineCooldown(client: IrcClient, seconds: number): boolean {
 	if (seconds * 1000 > MULTILINE_MAX_COOLDOWN_MS) {
 		// Do not leave the rest of the message queued behind a batch that is
 		// not going out.
-		resetMultiline(client);
+		dropBatches(client);
 		return false;
 	}
 
@@ -788,7 +850,25 @@ export function multilineCooldown(client: IrcClient, seconds: number): boolean {
  * arriving on its own with the middle missing.
  */
 export function multilineRejected(client: IrcClient): void {
+	dropBatches(client);
+}
+
+/**
+ * Give up on the queued batches but not on the plain messages typed after
+ * them: those are messages of their own, and go out now.
+ */
+function dropBatches(client: IrcClient): void {
+	const queue = queueOf(client);
+	const held = queue.waiting.filter(isHeld);
+
+	queue.waiting = queue.waiting.filter((entry) => !isHeld(entry));
 	resetMultiline(client);
+
+	for (const message of held) {
+		if (!message.send()) {
+			break;
+		}
+	}
 }
 
 /**
@@ -812,9 +892,19 @@ export function resetMultiline(client: IrcClient): void {
 		clearTimeout(queue.pace);
 	}
 
-	for (const batch of [queue.inFlight, ...queue.waiting]) {
-		if (batch?.pending) {
-			settlePending(client, batch.pending);
+	for (const entry of [queue.inFlight, ...queue.waiting]) {
+		if (!entry) {
+			continue;
+		}
+
+		if (!isHeld(entry)) {
+			if (entry.pending) {
+				settlePending(client, entry.pending);
+			}
+		} else {
+			for (const pending of entry.pending) {
+				settlePending(client, pending);
+			}
 		}
 	}
 

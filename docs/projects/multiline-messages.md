@@ -56,6 +56,37 @@ multi-batch plan while `+seance/edit` goes on the first only, because one edit
 replaces one message. Without `echo-message` the joined text is synthesised
 locally, exactly as the single-line path does.
 
+**One line too long for one message** goes out the same way: a batch of
+`draft/multiline-concat` chunks, so a client that speaks multiline shows the
+URL, hash or paste as the one line it was, and the server keeps it as one
+message. That includes a line that would fit a batch line but not a plain
+PRIVMSG once its client tags (a long reply reference) ride on it. A line that
+fits one message stays one plain PRIVMSG. Without the capability a long line
+becomes separate messages, as before. nefarious2 never splits or rewraps
+anything itself: a client body over 512 bytes is an Excess Flood disconnect,
+an untagged line it delivers is cut at 510 bytes with the sender's source
+counted in (so `sendMessage` budgets our host at nefarious2's `HOSTLEN`, 75,
+while the server has not yet named it), and a recipient without multiline gets
+each chunk as its own PRIVMSG — the first five, then `[N more lines]`. Where a
+run has no space to break at, both splitters cut between two visible
+characters (`graphemeCut` in `message.ts`, `Intl.Segmenter`), so an emoji
+sequence, a flag or an accented letter is never torn across two lines; one
+character larger than a whole line is cut by code point after all.
+
+**A plain message typed behind a batch waits its turn.** While a batch is
+queued, or on the wire with no answer yet, a plain PRIVMSG/NOTICE does not
+go straight out (`batchesWaiting`, `holdBehindBatches`): its pending copy
+shows at once, in order, and it goes out the moment the batch ahead of it is
+answered — the echo, or a `MULTILINE_COOLDOWN` re-send's echo — without
+waiting out the cooldown, which is the next batch's to wait. An unanswered
+batch has to hold it too: one the server sends back to cool down is sent
+again, and a plain line sent meanwhile would reach the channel first. The
+cost is the echo's round trip; without `echo-message` it is the 1.5 s settle
+period (`MULTILINE_SETTLE_MS`), and a lost echo holds it for the 30 s verdict
+wait (`MULTILINE_VERDICT_MS`). A batch the server rejects outright takes its
+own message down but sends the plain ones typed after it; a close reports
+every copy still waiting as not sent.
+
 **Errors** (`handlers/standard-replies.ts`). `FAIL BATCH MULTILINE_*` means
 the server threw the whole batch away, so nothing was sent: it becomes an
 error line reading "Message not sent: …" in the channel a context parameter
