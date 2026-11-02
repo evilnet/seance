@@ -1412,6 +1412,10 @@ export class IrcClient {
 		}
 
 		resetBatches(this);
+		// Before resetMultiline, which takes the copies of what it had queued
+		// down without a word: every copy still waiting is reported here, with
+		// the reason, where it was typed.
+		resetPending(this, "connection lost");
 		resetMultiline(this);
 		abortHistory(this);
 		cancelCatchup(this);
@@ -1424,9 +1428,6 @@ export class IrcClient {
 		resetOper(this);
 		this.serverReplay = false;
 		this.clearPendingEdits();
-		// Before resetMultiline: a queued batch's copy is reported here, with
-		// the reason, rather than dropped without a word there.
-		resetPending(this, "connection lost");
 		this.clearTyping();
 
 		for (const chan of this.channels) {

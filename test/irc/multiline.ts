@@ -1435,6 +1435,29 @@ describe("multiline cooldown", function () {
 		expect(transport.sent).to.deep.equal(["PRIVMSG #seance :short"]);
 	});
 
+	it("reports every copy not sent when the connection drops, held ones too", function () {
+		const {client, transport, chanId} = setup(ONE_PER_BATCH);
+
+		client.input(chanId, "one\ntwo");
+		client.input(chanId, "short"); // held behind "two"
+		transport.closed();
+
+		const settled = dispatch
+			.getCalls()
+			.filter((call) => call.args[0] === "msg:settled")
+			.map((call) => (call.args[1] as {id: number}).id);
+		const shown = messages(chanId);
+		const copies = shown.filter((m) => m.pending);
+		expect(copies.map((m) => m.text)).to.deep.equal(["one", "two", "short"]);
+		expect(settled).to.have.members(copies.map((m) => m.id));
+		const errors = shown.filter((m) => !m.pending);
+		expect(errors.map((m) => [m.type, m.text])).to.deep.equal([
+			[MessageType.ERROR, "Not sent (connection lost): one"],
+			[MessageType.ERROR, "Not sent (connection lost): two"],
+			[MessageType.ERROR, "Not sent (connection lost): short"],
+		]);
+	});
+
 	it("drops the queue when the transport closes", function () {
 		const {client, transport, chanId} = setup(ONE_PER_BATCH);
 
