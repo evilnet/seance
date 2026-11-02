@@ -1,11 +1,12 @@
 # The gate every pull request and every push to develop goes through: the
 # lockfile installs as committed, the linters pass, the production build
-# succeeds, mocha passes, and the built app boots in a real Chromium.
+# succeeds, the Capacitor shell's committed files match its dependencies,
+# mocha passes, and the built app boots in a real Chromium.
 #
 # What it cannot see: anything rendered beyond "the app boots" (the suite has
 # no DOM; the browser scenarios in tools/scenarios/ stay author-side), live
 # IRC (the test/irc/*.live.ts files and the Playwright e2e need an ircd), the
-# native shells. Pages (pages.yml) builds and publishes separately.
+# native builds themselves. Pages (pages.yml) builds and publishes separately.
 name: CI
 
 on:
@@ -51,6 +52,21 @@ jobs:
         run: pnpm build
         env:
           NODE_ENV: production
+
+      # cap sync writes the plugin list and the exact @capacitor/ios version
+      # into committed files (Package.swift, capacitor.settings.gradle,
+      # capacitor.build.gradle). A dependency bump that skips it, such as
+      # every Dependabot PR, leaves the native shells on the old versions,
+      # so fail when a sync would change anything tracked. Needs public/.
+      - name: Capacitor shell in sync
+        working-directory: shells/capacitor
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm sync
+          if ! git diff --exit-code; then
+            echo "::error::cap sync changed committed files: run 'pnpm sync' in shells/capacitor and commit the result"
+            exit 1
+          fi
 
       - name: Mocha
         run: pnpm test:mocha
