@@ -72,6 +72,18 @@ describe("public folder", function () {
 		expect(fs.existsSync(path.join(publicFolder, "js", "push.js"))).to.be.true;
 	});
 
+	it("lazy chunks carry a content hash in their names", function () {
+		// A chunk imports the entry by its hashed name. Under a fixed name, a
+		// page left open across a deploy would fetch the new build's chunk and
+		// run the new entry beside its own (vite.config.mts chunkFileNames).
+		const unhashed = fs
+			.readdirSync(path.join(publicFolder, "js"))
+			.filter((f) => f.endsWith(".js"))
+			.filter((f) => !["loading-error-handlers.js", "push.js"].includes(f))
+			.filter((f) => !/^bundle-[\w-]+\.js$/.test(f) && !/^[\w-]+\.[\w-]{8}\.js$/.test(f));
+		expect(unhashed).to.deep.equal([]);
+	});
+
 	it("style files are built", function () {
 		expect(fs.existsSync(path.join(publicFolder, "css", "style.css"))).to.be.true;
 
@@ -191,7 +203,11 @@ describe("public folder", function () {
 			// ...and the bundle, so an installed app opens offline right away
 			expect(hasString(contents, `js/${entry()}`)).to.be.true;
 			// ...and what the entry imports statically (Rolldown's runtime).
-			expect(hasString(contents, "js/rolldown-runtime.js")).to.be.true;
+			const runtime = fs
+				.readdirSync(path.join(publicFolder, "js"))
+				.find((f) => /^rolldown-runtime\.[\w-]+\.js$/.test(f));
+			expect(runtime, "js/rolldown-runtime.<hash>.js").to.be.a("string");
+			expect(hasString(contents, `js/${runtime}`)).to.be.true;
 			expect(contents.includes("css/style.css?v=")).to.be.true;
 			expect(contents).to.match(/addEventListener\(["`]notificationclick["`]/);
 

@@ -264,14 +264,28 @@ Found on the way and **not caused by Vite** (both on the webpack build too):
    `update-signal.mjs` accept either quote.
 9. **The entry has no `?v=`**, so anything that read the page's build from
    the bundle's URL now reads it from `css/style.css?v=` (`update-signal.mjs`).
-10. Safari logs "`rolldown-runtime.js` was preloaded … but not used": Vite's
-    preload helper adds a `modulepreload` for the runtime when a lazy chunk
-    loads, though the entry already imported it. Harmless.
+10. Safari logged "`rolldown-runtime.js` was preloaded … but not used":
+    Vite's preload helper added a `modulepreload` for a lazy chunk's static
+    imports, which are only the entry and the runtime, both always loaded
+    already. `build.modulePreload: false` ends it.
 11. **A watch rebuild clears what it did not write.** Under `vite build --watch` each app rebuild deletes the files in `public/` it did not
     produce (Rolldown, natively; `emptyOutDir: false` does not stop it), so
     a separate push-worker build lost `js/push.js` on the first change.
     `vite.config.mts` therefore builds the push worker itself after every
     write (`pushWorker`), and `pnpm build` is a single `vite build`.
+    Nothing imports the copied files (`index.html`, the worker, themes) or
+    the worker's own modules, so both plugins register them with
+    `addWatchFile`, or watch would not see them change.
+12. **Lazy chunks must be hashed too** (found by a Codex review). A chunk
+    imports the entry by its hashed name. Under the spike's fixed chunk
+    names, a page left open across a deploy fetched the new build's
+    `scene-ps.js` and ran the new entry beside its own: two apps, two
+    sockets per network. Reproduced in Chrome by swapping build B under an
+    open build A and picking the ps theme. Chunks are now
+    `js/<name>.<hash>.js`, so an old page asks for its own build's chunk;
+    after a deploy that chunk is gone, so the feature waits for a reload
+    instead (the scene stays off, code stays plain). `test/tests/build.ts`
+    fails on any unhashed chunk.
 
 ## The local `desktop/mac-translate` branch
 

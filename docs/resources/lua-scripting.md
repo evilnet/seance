@@ -18,7 +18,7 @@ manager subscribes to it.
 
 While it is off:
 
-- Fengari is packaged into an asynchronous chunk (`js/fengari.js`) and is
+- Fengari is packaged into an asynchronous chunk (`js/fengari.<hash>.js`) and is
   **never downloaded** — the manager never creates its sandbox (not at boot,
   not for `/lua`, not for a syntax check), so there is 0 byte impact.
 - No script handler fires, no script command is known, `/lua` answers that
@@ -315,7 +315,7 @@ seance.storage.set("last_seen", seance.current_channel)
      standard library's globals as `tok-function`), so every theme's
      `--tok-*` palette colours both alike. Tab indents (four spaces at the
      caret, or the selected lines); Shift+Tab is left to the browser, so it
-     leaves the field. It is its own lazily loaded chunk, `js/code-editor.js`
+     leaves the field. It is its own lazily loaded chunk, `js/code-editor.<hash>.js`
      (about 300 KB, 96 KB gzipped, licence banner in `scripts/build-info.mts`),
      imported when an editor opens; until it arrives, or if it cannot, a
      plain textarea stands in. A name the library would drop on its next load — invalid, or

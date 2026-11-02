@@ -1,6 +1,5 @@
-// The app build: client/js/vue.ts into public/, with fixed names for the
-// lazy chunks, a content-hashed entry, and the static files copied and
-// stamped beside it. The service worker's push module is vite.push.config.mts,
+// The app build: client/js/vue.ts into public/, with content-hashed entry
+// and lazy chunks, and the static files copied and stamped beside it. The service worker's push module is vite.push.config.mts,
 // built after each app build (pushWorker below). Background:
 // docs/projects/vite-8-sweep.md.
 import * as path from "path";
@@ -111,6 +110,15 @@ function staticFiles(): Plugin {
 			const target = config.build.target;
 			scriptTarget = target === false ? [] : [target].flat();
 		},
+		// Nothing imports these files, so `pnpm watch` would not see them
+		// change without being told.
+		buildStart() {
+			for (const pattern of ["client/*", ...copies.map((c) => c.from)]) {
+				for (const file of globSync(pattern, {cwd: root})) {
+					this.addWatchFile(path.join(root, file));
+				}
+			}
+		},
 		generateBundle(_options, bundle) {
 			// The entry is content-hashed and loaded without `?v=`: lazy
 			// chunks import shared code from it by its plain file name, and a
@@ -120,8 +128,13 @@ function staticFiles(): Plugin {
 			// The entry's static imports (Rolldown's runtime chunk) are part of
 			// the shell too: the offline cold start needs them precached.
 			const entry = Object.values(bundle).find((c) => c.type === "chunk" && c.isEntry);
-			const entryName = entry?.type === "chunk" ? entry.fileName : "js/bundle.js";
-			const shell = [entryName, ...(entry?.type === "chunk" ? entry.imports : [])];
+
+			if (entry?.type !== "chunk") {
+				throw new Error("no entry chunk to stamp into index.html");
+			}
+
+			const entryName = entry.fileName;
+			const shell = [entryName, ...entry.imports];
 			const stampEntry = (text: string) =>
 				text
 					.replace(/js\/bundle\.js\?v=__HASH__/g, entryName)
@@ -167,6 +180,14 @@ function staticFiles(): Plugin {
 function pushWorker(): Plugin {
 	return {
 		name: "seance:push-worker",
+		// The worker's own modules are not in the app's graph; watching them
+		// makes `pnpm watch` rebuild (and so rebuild the worker) when they
+		// change.
+		buildStart() {
+			for (const file of globSync("client/js/push/*.ts", {cwd: root})) {
+				this.addWatchFile(path.join(root, file));
+			}
+		},
 		closeBundle: {
 			sequential: true,
 			async handler() {
@@ -179,9 +200,12 @@ function pushWorker(): Plugin {
 	};
 }
 
-// The lazy chunks have fixed names, which the licence notices and
-// test/tests/build.ts key on. Rolldown names a chunk after its module
-// (luaEditor, scene, dist), so a few are renamed by module.
+// Lazy chunks are js/<name>.<hash>.js. The hash is not optional: a chunk
+// imports the entry by its hashed name, so a page left open across a deploy
+// that fetched the new build's chunk under an unchanged name would run the
+// new entry beside its own (a second app). With hashed names it asks for its
+// own build's chunk. The licence notices key on the name; Rolldown names a
+// chunk after its module (luaEditor, scene, dist), so a few are renamed.
 const chunkNames: [RegExp, string][] = [
 	[/[\\/]flourite[\\/]/, "flourite"],
 	[/[\\/]scenes[\\/]psng[\\/]scene\.ts$/, "scene-ps"],
@@ -220,12 +244,15 @@ export default defineConfig({
 		// The entry is ~1.3 MB; nothing to act on in a warning about it.
 		chunkSizeWarningLimit: 2000,
 		cssCodeSplit: false,
-		modulePreload: {polyfill: false},
+		// A lazy chunk's static imports are the entry and Rolldown's runtime,
+		// which every page has already loaded; preloading them only made Safari
+		// warn that they went unused.
+		modulePreload: false,
 		rolldownOptions: {
 			input: {bundle: path.resolve(root, "client/js/vue.ts")},
 			output: {
 				entryFileNames: "js/bundle-[hash].js",
-				chunkFileNames: (chunk) => `js/${chunkName(chunk)}.js`,
+				chunkFileNames: (chunk) => `js/${chunkName(chunk)}.[hash].js`,
 				assetFileNames: (asset) =>
 					asset.names.some((n) => n.endsWith(".css"))
 						? "css/style.css"

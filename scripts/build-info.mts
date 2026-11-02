@@ -165,10 +165,10 @@ export function brandManifest(content: string): string {
 	return JSON.stringify(manifest, null, "\t") + "\n";
 }
 
-// Third-party notices for the lazily loaded chunks. Prism's core carries a
-// `@license` comment terser extracts by itself, but not its copyright line, and
-// flourite's build carries nothing at all — so state both, in a `/*!` banner
-// that ends up in the chunk's `.LICENSE.txt`. All are MIT; see
+// Third-party notices for the lazily loaded chunks, as a `/*!` banner at the
+// top of each (vite.config.mts postBanner), keyed by the chunk's name without
+// its hash. The minifier drops Prism's own `@license` comment, and flourite's
+// build carries none at all. All are MIT; see
 // docs/projects/markdown-messages.md. CodeMirror is the script editor's
 // (client/js/helpers/luaEditor.ts).
 export const chunkNotices: Record<string, string> = {
