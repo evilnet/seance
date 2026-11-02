@@ -1,6 +1,6 @@
 # Vite 8 sweep: what moving the client build off webpack takes
 
-_Survey, 2026-11-02. Status: **migration under way** on branch `feat/vite8` (steps 1, 2, 4 and 5 of the plan below; step 3 is the stack audit's TypeScript work). Earlier the same day: finished, nothing shipped. Briefly stopped and then resumed the same day at rdrake's request, to close the spike's gaps (native shells, Safari/Firefox, a development build, the Pages workflow) and to say what the move improves. Read beside the stack audit (`docs/projects/stack-audit.md` on `claude/stack-audit-1b0a45`), which weighs Vite against Rspack and an updated webpack. Reopens the
+_Survey, 2026-11-02. Status: **migration done on branch `feat/vite8`**, on top of the pnpm move (#160): steps 1, 2, 4, 5 and 6 of the plan below, one commit each. Step 3 (TypeScript) belongs to the stack audit; until it lands the Vite configs are not type-checked (gotcha 4). Step 7 is later work. Earlier the same day: finished, nothing shipped. Briefly stopped and then resumed the same day at rdrake's request, to close the spike's gaps (native shells, Safari/Firefox, a development build, the Pages workflow) and to say what the move improves. Read beside the stack audit (`docs/projects/stack-audit.md` on `claude/stack-audit-1b0a45`), which weighs Vite against Rspack and an updated webpack. Reopens the
 toolchain spec shelved on 2026-09-11 (local branch
 `docs/toolchain-upgrade-spec`, `docs/projects/toolchain-upgrade.md`), which
 set Vite aside as a config rewrite for a dev loop we do not use. This page
@@ -267,6 +267,11 @@ Found on the way and **not caused by Vite** (both on the webpack build too):
 10. Safari logs "`rolldown-runtime.js` was preloaded … but not used": Vite's
     preload helper adds a `modulepreload` for the runtime when a lazy chunk
     loads, though the entry already imported it. Harmless.
+11. **A watch rebuild clears what it did not write.** Under `vite build --watch` each app rebuild deletes the files in `public/` it did not
+    produce (Rolldown, natively; `emptyOutDir: false` does not stop it), so
+    a separate push-worker build lost `js/push.js` on the first change.
+    `vite.config.mts` therefore builds the push worker itself after every
+    write (`pushWorker`), and `pnpm build` is a single `vite build`.
 
 ## The local `desktop/mac-translate` branch
 
