@@ -61,7 +61,6 @@ describe("public folder", function () {
 
 	it("javascript files are built", function () {
 		expect(fs.existsSync(path.join(publicFolder, "js", "bundle.js"))).to.be.true;
-		expect(fs.existsSync(path.join(publicFolder, "js", "bundle.vendor.js"))).to.be.true;
 		expect(fs.existsSync(path.join(publicFolder, "js", "push.js"))).to.be.true;
 	});
 

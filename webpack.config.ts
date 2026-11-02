@@ -151,17 +151,6 @@ const config: webpack.Configuration = {
 				// stale-cache hazard (ids move between builds) for no gain:
 				// the highlighter chunk is their only consumer.
 				defaultVendors: false,
-				commons: {
-					// eruda (development-only devtools) stays its own lazy chunk,
-					// loaded on first click; see client/js/devtools.ts.
-					test: /[\\/]node_modules[\\/](?!eruda[\\/])/,
-					name: "js/bundle.vendor.js",
-					// Initial chunks only: with "all", the dependencies of a
-					// lazily loaded chunk (Prism and its ~300 grammars) are
-					// hoisted into the vendor bundle, which is the opposite of
-					// what importing them on demand is for.
-					chunks: "initial",
-				},
 			},
 		},
 	},
@@ -277,9 +266,8 @@ const config: webpack.Configuration = {
 
 // The service worker's push module (client/js/push/*), bundled for a
 // worker and loaded with `importScripts("js/push.js")` — its own
-// configuration so the app's vendor cache group cannot pull its
-// dependencies (linkify-it, emoji-regex) into js/bundle.vendor.js, which
-// a worker cannot load. `dependencies` runs it after the app build (whose
+// configuration so the app's chunking cannot pull its dependencies
+// (linkify-it, emoji-regex) into a chunk a worker cannot load. `dependencies` runs it after the app build (whose
 // `clean` would otherwise race its output).
 const pushConfig: webpack.Configuration = {
 	name: "push",

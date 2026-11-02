@@ -80,7 +80,6 @@ const shellPaths = [
 	"config.json",
 	"favicon.ico",
 	`js/loading-error-handlers.js?v=${cacheName}`,
-	`js/bundle.vendor.js?v=${cacheName}`,
 	`js/bundle.js?v=${cacheName}`,
 	`js/push.js?v=${cacheName}`,
 	`css/style.css?v=${cacheName}`,
