@@ -138,7 +138,7 @@ const HEX = /^#[0-9a-f]{6}$/;
 /** What a code box draws: the highlighter's tokens and the block's own text. */
 const ON_CODE_BOX = /^--tok-[a-z]+$|^--md-code-color$/;
 
-/** The sweep the light nicks take below the default font-size step, if the light sweep needs one. */
+/** The sweep the light nicks take below the large font-size step, if the light sweep needs one. */
 const SMALL = smallStepSweep(SWEEP);
 
 /** The scrim's far edge: this fraction of the card tint (ps.css's scrim gradient, docs/projects/ps-words.md §4.3). */
@@ -598,8 +598,8 @@ describe("ps: the words over the plains and on the glass keep their floors: ever
 		expect(names).to.include(`${LIGHT_ROOT} --chat-fg-faint`);
 	});
 
-	it("gives the names below the default font-size step (tiny, small, medium, or no step yet) their own light set, after the light rules and before the action and notice rules", function () {
-		// Bold Newsreader is WCAG large text from the default step up (fontSize.ts).
+	it("gives the names below the large font-size step (tiny, small, medium, or no step yet) their own light set, after the light rules and before the action and notice rules", function () {
+		// Bold Newsreader is WCAG large text from the large step up (fontSize.ts).
 		expect(LARGE_TEXT_STEPS).to.deep.equal(["large", "xlarge", "huge"]);
 		expect(SMALL_STEPS_ROOT).to.equal(
 			':root:where(:not([data-font-size="large"], [data-font-size="xlarge"], [data-font-size="huge"]))[data-ps-text="light"] #chat .chat'

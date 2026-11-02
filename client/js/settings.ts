@@ -189,7 +189,7 @@ const defaultConfig = {
 	// values live in style.css, keyed off <html data-font-size="...">, so
 	// themes and the custom stylesheet can override them.
 	fontSize: {
-		default: "large",
+		default: "medium",
 		apply(store: TypedStore, value: string) {
 			document.documentElement.dataset.fontSize = normalizeFontSize(value);
 		},

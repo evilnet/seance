@@ -52,7 +52,7 @@
  *   purpose, by the user's decision; the spec accent stays for the open row's
  *   marker, the caret, the focus glow and the tints.
  * - **The user chose LIGHT_SWEEP "names-large"** (2026-09-24, "names-large is
- *   easiest to read"). **Its guard:** below the default font-size step the
+ *   easiest to read"). **Its guard:** below the large font-size step the
  *   names are not large text, so the block also writes the `sky` set there,
  *   under SMALL_STEPS_ROOT.
  */
@@ -385,7 +385,7 @@ export interface Solved {
 		ink: Record<string, string>;
 		light: Record<string, string>;
 		nicks: Record<Text, string[]>;
-		/** The light nicks below the default font-size step (smallStepSweep), and what they were solved against; null when the sweep needs none. */
+		/** The light nicks below the large font-size step (smallStepSweep), and what they were solved against; null when the sweep needs none. */
 		small: {sweep: LightSweep; nicks: string[]; against: CheckedGround} | null;
 	};
 	glass: Record<Light, GlassSolved>;
@@ -831,7 +831,7 @@ export function messageBlock(s: Solved): string {
 		` * ${SWEEP_TEXT[s.sweep]}.`,
 		...(c.small
 			? [
-					" * Its guard: below the default font-size step the names are not large",
+					" * Its guard: below the large font-size step the names are not large",
 					` * text, so there they take the "${c.small.sweep}" set (the last 32 rules),`,
 					` * solved to ${lightSweepFloors(c.small.sweep).nicks.solveTo} against:`,
 					groundLine(c.small.against),

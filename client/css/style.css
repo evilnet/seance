@@ -88,9 +88,9 @@
 	 * interface together. The steps below are percentages of the browser's
 	 * default font size rather than pixels, so a user who raised that in
 	 * their browser gets a bigger client too. "medium" is 100%, the browser
-	 * default (16px unless changed); "large", the default, is a real step up
-	 * from it, and the scale runs from too small to read to too large to be
-	 * sensible on purpose: the ends exist for eyes that need them. In the
+	 * default (16px unless changed) and the default step, and the scale runs
+	 * from too small to read to too large to be sensible on purpose: the ends
+	 * exist for eyes that need them. In the
 	 * native shells the system's text size can stand in for the steps
 	 * (html[data-system-text] below). */
 	font-size: 100%;
