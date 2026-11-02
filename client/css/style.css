@@ -1130,17 +1130,16 @@ p {
 }
 
 /* The label always says the state, the end time included: up to two centred
- * lines, clamped only past that. */
+ * lines, cut off only past that. A plain block, not -webkit-box with
+ * -webkit-line-clamp: WebKit leaves the floated dot and caret out of a
+ * -webkit-box's intrinsic width, so the shrink-to-fit pill was as narrow as
+ * "Auto" and the dot, the caret and the label took a line each. */
 #sidebar .presence-pill-text {
-	/* -webkit-line-clamp only works on this display. */
-	/* stylelint-disable-next-line value-no-vendor-prefix */
-	display: -webkit-box;
+	display: block;
+	max-block-size: 2.5rem; /* two of the pill's 1.25rem lines */
 	overflow: hidden;
 	white-space: normal;
 	text-align: center;
-	-webkit-box-orient: vertical;
-	-webkit-line-clamp: 2;
-	line-clamp: 2;
 }
 
 #sidebar .presence-pill-part {
