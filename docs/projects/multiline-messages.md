@@ -73,6 +73,20 @@ characters (`graphemeCut` in `message.ts`, `Intl.Segmenter`), so an emoji
 sequence, a flag or an accented letter is never torn across two lines; one
 character larger than a whole line is cut by code point after all.
 
+**A plain message typed behind a batch waits its turn.** While a batch is
+queued, or on the wire with no answer yet, a plain PRIVMSG/NOTICE does not
+go straight out (`batchesWaiting`, `holdBehindBatches`): its pending copy
+shows at once, in order, and it goes out the moment the batch ahead of it is
+answered — the echo, or a `MULTILINE_COOLDOWN` re-send's echo — without
+waiting out the cooldown, which is the next batch's to wait. An unanswered
+batch has to hold it too: one the server sends back to cool down is sent
+again, and a plain line sent meanwhile would reach the channel first. The
+cost is the echo's round trip; without `echo-message` it is the 1.5 s settle
+period (`MULTILINE_SETTLE_MS`), and a lost echo holds it for the 30 s verdict
+wait (`MULTILINE_VERDICT_MS`). A batch the server rejects outright takes its
+own message down but sends the plain ones typed after it; a close reports
+every copy still waiting as not sent.
+
 **Errors** (`handlers/standard-replies.ts`). `FAIL BATCH MULTILINE_*` means
 the server threw the whole batch away, so nothing was sent: it becomes an
 error line reading "Message not sent: …" in the channel a context parameter

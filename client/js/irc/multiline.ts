@@ -626,17 +626,19 @@ export function sendMultiline(
 }
 
 /**
- * True while a batch is queued and not yet on the wire: a plain message sent
- * now would overtake it.
+ * True while a batch is queued, or on the wire with no answer yet: a plain
+ * message sent now could overtake it (one the server sends back with
+ * `MULTILINE_COOLDOWN` is sent again, after whatever went out meanwhile).
  */
 export function batchesWaiting(client: IrcClient): boolean {
-	return queueOf(client).waiting.length > 0;
+	const queue = queueOf(client);
+	return queue.waiting.length > 0 || queue.inFlight !== null;
 }
 
 /**
  * Queue a plain message behind the batches waiting to go out. Its lines need
- * no cooldown of their own: once the batch ahead of it is on the wire, the
- * server reads them after it, so they follow at once.
+ * no cooldown of their own: once the batch ahead of it has been answered, the
+ * server has taken it, so they follow at once.
  */
 export function holdBehindBatches(
 	client: IrcClient,
@@ -650,7 +652,7 @@ export function holdBehindBatches(
 /**
  * Put what may go now on the wire: the next batch once the one before it has
  * been answered and its cooldown is over, and every plain message with no
- * batch left ahead of it.
+ * batch ahead of it, queued or unanswered.
  */
 function pump(client: IrcClient): void {
 	const queue = queueOf(client);
@@ -658,7 +660,7 @@ function pump(client: IrcClient): void {
 	for (;;) {
 		const next = queue.waiting[0];
 
-		if (!next || (!isHeld(next) && (queue.inFlight || queue.retry || queue.pace))) {
+		if (!next || queue.inFlight || (!isHeld(next) && (queue.retry || queue.pace))) {
 			return;
 		}
 
@@ -716,6 +718,7 @@ function transmit(client: IrcClient, batch: SentBatch): boolean {
 			queue.verdict = null;
 			queue.inFlight = null;
 			paceAfter(client, batch);
+			pump(client);
 		},
 		echo ? MULTILINE_VERDICT_MS : MULTILINE_SETTLE_MS
 	);
@@ -770,9 +773,11 @@ export function multilineAccepted(client: IrcClient): void {
 
 	if (batch) {
 		paceAfter(client, batch);
-	} else {
-		pump(client);
 	}
+
+	// A plain message held behind the batch goes now; the next batch waits
+	// out the cooldown.
+	pump(client);
 }
 
 /**

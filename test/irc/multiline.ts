@@ -505,6 +505,21 @@ describe("multiline batches", function () {
 	});
 });
 
+/**
+ * Our own batch coming back, which is how the server says it took it and
+ * how the sender learns the next one may go out. The server rewrites the
+ * reference, so it is never the one we sent.
+ */
+function echoBatch(transport: FakeTransport, ref: string, ...lines: string[]): void {
+	transport.line(`:alice!alice@host BATCH +${ref} draft/multiline #seance`);
+
+	for (const line of lines) {
+		transport.line(`@batch=${ref} :alice!alice@host PRIVMSG #seance :${line}`);
+	}
+
+	transport.line(`:alice!alice@host BATCH -${ref}`);
+}
+
 describe("multiline sending", function () {
 	beforeEach(function () {
 		installSpy();
@@ -526,21 +541,6 @@ describe("multiline sending", function () {
 	/** The offered caps with `draft/multiline` carrying `value`. */
 	function offering(value: string, extra = "echo-message "): string {
 		return `batch message-tags server-time ${extra}draft/multiline=${value}`;
-	}
-
-	/**
-	 * Our own batch coming back, which is how the server says it took it and
-	 * how the sender learns the next one may go out. The server rewrites the
-	 * reference, so it is never the one we sent.
-	 */
-	function echoBatch(transport: FakeTransport, ref: string, ...lines: string[]): void {
-		transport.line(`:alice!alice@host BATCH +${ref} draft/multiline #seance`);
-
-		for (const line of lines) {
-			transport.line(`@batch=${ref} :alice!alice@host PRIVMSG #seance :${line}`);
-		}
-
-		transport.line(`:alice!alice@host BATCH -${ref}`);
 	}
 
 	describe("planMultiline", function () {
@@ -1394,8 +1394,11 @@ describe("multiline cooldown", function () {
 			"BATCH +m2 draft/multiline #seance",
 			"@batch=m2 PRIVMSG #seance :two",
 			"BATCH -m2",
-			"PRIVMSG #seance :short",
 		]);
+
+		echoBatch(transport, "s2", "two");
+
+		expect(transport.sent[transport.sent.length - 1]).to.equal("PRIVMSG #seance :short");
 	});
 
 	it("shows a held message's copy at once, after the batches ahead of it", function () {
@@ -1409,15 +1412,44 @@ describe("multiline cooldown", function () {
 		expect(shown.every((m) => m.pending)).to.equal(true);
 	});
 
-	it("sends a message at once once no batch is waiting", function () {
+	it("sends a held message as soon as the batch ahead of it is echoed", function () {
+		const {client, transport, chanId} = setup();
+		const long = "x".repeat(700);
+
+		client.input(chanId, long);
+		client.input(chanId, "short");
+
+		// On the wire but unanswered: the server might yet send it back.
+		expect(transport.sent[transport.sent.length - 1]).to.equal("BATCH -m1");
+
+		const chunks = transport.sent
+			.filter((line) => line.startsWith("@batch=m1"))
+			.map((line) => line.slice(line.indexOf(" :") + 2));
+		echoBatch(transport, "s1", ...chunks);
+
+		// The server has it, so "short" follows now; the cooldown is the next
+		// batch's to wait out, not a plain message's.
+		expect(transport.sent[transport.sent.length - 1]).to.equal("PRIVMSG #seance :short");
+	});
+
+	it("keeps a held message behind a batch the server sends back to cool down", function () {
 		const {client, transport, chanId} = setup();
 
 		client.input(chanId, "x".repeat(700));
 		client.input(chanId, "short");
+		transport.sent.length = 0;
+		cooldown(transport, 1);
+		clock.tick(2000);
 
-		// The batch is on the wire and its cooldown pending: the server reads
-		// "short" after it all the same.
-		expect(transport.sent[transport.sent.length - 2]).to.equal("BATCH -m1");
+		expect(transport.sent[0]).to.equal("BATCH +m2 draft/multiline #seance");
+		expect(transport.sent[transport.sent.length - 1]).to.equal("BATCH -m2");
+		expect(transport.sent).to.not.include("PRIVMSG #seance :short");
+
+		const chunks = transport.sent
+			.filter((line) => line.startsWith("@batch=m2"))
+			.map((line) => line.slice(line.indexOf(" :") + 2));
+		echoBatch(transport, "s1", ...chunks);
+
 		expect(transport.sent[transport.sent.length - 1]).to.equal("PRIVMSG #seance :short");
 	});
 

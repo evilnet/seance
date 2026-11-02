@@ -1881,9 +1881,10 @@ export class IrcClient {
 				tags: label ? {...base, label} : base,
 			};
 		});
-		// Behind a batch still waiting for its turn, the message waits too, so
-		// it does not reach the channel before what was typed ahead of it. Its
-		// copy shows now, in place; its timeout starts when it goes out.
+		// Behind a batch still waiting for its turn or its answer, the message
+		// waits too, so it does not reach the channel before what was typed
+		// ahead of it. Its copy shows now, in place; its timeout starts when it
+		// goes out.
 		const held = batchesWaiting(this);
 		const pending: PendingMessage[] = [];
 
