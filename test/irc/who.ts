@@ -247,7 +247,7 @@ describe("WHO (handlers/who.ts, commands/who.ts)", function () {
 		const {client, transport} = setup();
 
 		dispatchInput(client, client.lobby, "/who *!*@*.example.org o");
-		expect(transport.sent).to.deep.equal(["WHO *!*@*.example.org o %tcuhsnfdar,1"]);
+		expect(transport.sent).to.deep.equal(["WHO *!*@*.example.org o%tcuhsnfdar,1"]);
 
 		transport.lines(
 			":irc.test 354 alice 1 * ~op host.example.org irc.test carol H* 0 carol :Carol",
@@ -258,6 +258,23 @@ describe("WHO (handlers/who.ts, commands/who.ts)", function () {
 		expect(msgs).to.have.length(1);
 		expect(msgs[0].who!.target).to.equal("*!*@*.example.org");
 		expect(msgs[0].who!.entries[0]).to.include({nick: "carol", channel: undefined, oper: true});
+	});
+
+	it("flags carry the WHOX spec, so an IP match (the oper menu's 'Who is on it') fills the table", function () {
+		const {client, transport} = setup();
+
+		dispatchInput(client, client.lobby, "/who 1.2.3.4 xi");
+		expect(transport.sent).to.deep.equal(["WHO 1.2.3.4 xi%tcuhsnfdar,1"]);
+
+		transport.lines(
+			":irc.test 354 alice 1 * ~v host.example.org irc.test victim H 0 0 :Victim",
+			":irc.test 315 alice 1.2.3.4 :End of /WHO list."
+		);
+
+		const msgs = messages(client.lobby.id);
+		expect(msgs).to.have.length(1);
+		expect(msgs[0].who!.target).to.equal("1.2.3.4");
+		expect(msgs[0].who!.entries[0]).to.include({nick: "victim", ident: "~v"});
 	});
 
 	it("no rows: one error line, no table", function () {
