@@ -47,6 +47,13 @@ describe("alertSound", function () {
 		});
 	});
 
+	it("plays in the Linux desktop shell, whose alerts are usually silent", function () {
+		expect(alertSound({...base, native: true, osSound: false})).to.deep.equal({
+			inPage: true,
+			silentNotification: true,
+		});
+	});
+
 	it("never plays in a native shell, where the OS alert has the sound", function () {
 		expect(alertSound({...base, native: true, ios: true})).to.deep.equal({
 			inPage: false,

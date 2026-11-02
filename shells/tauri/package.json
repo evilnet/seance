@@ -1,0 +1,17 @@
+{
+  "name": "seance-tauri",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tauri desktop shell for the Seance IRC client",
+  "license": "MIT",
+  "scripts": {
+    "icons": "node tools/icons.mjs",
+    "start": "pnpm icons && tauri dev --no-watch",
+    "build": "pnpm icons && tauri build",
+    "smoke": "pnpm icons && cd src-tauri && cargo run -- --smoke"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.12.4"
+  },
+  "packageManager": "pnpm@12.16.1"
+}

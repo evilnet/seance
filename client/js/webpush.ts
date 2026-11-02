@@ -35,8 +35,8 @@ import {
 	onNativeEndpointChange,
 	refreshNativePush,
 } from "./helpers/nativePush";
-import {isAndroidShell, isIOSShell} from "./helpers/shell";
-import {clearNativeAlert} from "./helpers/nativeAlerts";
+import {isAndroidShell} from "./helpers/shell";
+import {clearNativeAlert, nativeAlertsAvailable} from "./helpers/nativeAlerts";
 import {ChanType} from "../../shared/types/chan";
 import type {ClientChan} from "./types";
 
@@ -1767,7 +1767,8 @@ function readOnWorker(uuid: string, channel: ClientChan, echo = false): void {
 		return;
 	}
 
-	if (isIOSShell()) {
+	// iOS and the desktop shells: the page's own alert, the shell's.
+	if (nativeAlertsAvailable()) {
 		clearNativeAlert(uuid, target);
 		return;
 	}

@@ -109,6 +109,42 @@ export function nativeAppReady(): void {
 	}
 }
 
+// Input types that hold no text to correct, cut or paste.
+const NON_TEXT_INPUTS = new Set([
+	"button",
+	"checkbox",
+	"color",
+	"file",
+	"image",
+	"radio",
+	"range",
+	"reset",
+	"submit",
+]);
+
+/**
+ * A desktop web view's own right-click menu belongs over text the user can
+ * act on: a text field (where it carries the spelling guesses) or a
+ * selection (Copy). Anywhere else it offers Reload, Back or Inspect, which
+ * an app has no use for; the page's own menus (nicks, channels, messages)
+ * cancel the event themselves and are unaffected.
+ */
+function wantsNativeMenu(target: EventTarget | null): boolean {
+	if (target instanceof HTMLTextAreaElement) {
+		return true;
+	}
+
+	if (target instanceof HTMLInputElement) {
+		return !NON_TEXT_INPUTS.has(target.type);
+	}
+
+	if (target instanceof HTMLElement && target.isContentEditable) {
+		return true;
+	}
+
+	return Boolean(window.getSelection()?.toString().trim());
+}
+
 export function installNativeHooks(): void {
 	if (!isShell()) {
 		return;
@@ -173,6 +209,11 @@ export function installNativeHooks(): void {
 	if (isDesktopShell()) {
 		document.documentElement.dataset.shell = "desktop";
 		document.documentElement.dataset.platform = nativePlatform();
+		document.addEventListener("contextmenu", (event) => {
+			if (!wantsNativeMenu(event.target)) {
+				event.preventDefault();
+			}
+		});
 		return;
 	}
 
