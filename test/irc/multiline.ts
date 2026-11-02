@@ -1,8 +1,9 @@
 import {expect} from "chai";
 import sinon from "ts-sinon";
 import socket from "../../client/js/socket";
-import {IrcClient} from "../../client/js/irc/client";
+import {IrcClient, UNKNOWN_HOST_BYTES} from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";
+import {LABEL_TAG_BYTES} from "../../client/js/irc/pending";
 import {
 	batchCooldownMs,
 	joinMultiline,
@@ -895,15 +896,24 @@ describe("multiline sending", function () {
 
 		it("counts the label in deciding what fits one message", function () {
 			const {client, transport, chanId} = setup(`${OFFERED_CAPS} labeled-response`);
-			// Fits one message without a label, not with one.
+			// The longest text that fits one message with the label on.
 			const prefix = utf8ByteLength(":alice!alice@host PRIVMSG #seance :");
-			const text = "q".repeat(MAX_LINE_BYTES - prefix);
+			const fits = "q".repeat(MAX_LINE_BYTES - prefix - LABEL_TAG_BYTES);
+			const over = `${fits}q`;
 
-			client.input(chanId, text);
+			client.input(chanId, fits);
+
+			expect(transport.sent).to.have.length(1);
+			expect(transport.sent[0]).to.match(/^@label=s\d+ PRIVMSG #seance :q+$/);
+			expect(transport.sent[0]).to.include(` :${fits}`);
+
+			// One byte more, and it goes out as a batch.
+			transport.sent.length = 0;
+			client.input(chanId, over);
 
 			expect(transport.sent[0]).to.match(/^@label=s\d+ BATCH \+m1 draft\/multiline #seance$/);
 			const copies = messages(chanId).filter((m) => m.pending);
-			expect(copies.map((m) => m.text)).to.deep.equal([text]);
+			expect(copies.map((m) => m.text)).to.deep.equal([fits, over]);
 		});
 
 		it("keeps a line that fits one message a plain PRIVMSG", function () {
@@ -938,7 +948,8 @@ describe("multiline sending", function () {
 
 			// What a recipient gets is `:alice!alice@<host> PRIVMSG #seance :<text>`,
 			// and nefarious2 cuts an untagged line at 510 bytes
-			const source = ":alice!alice@".length + 75 + " PRIVMSG #seance :".length;
+			const source =
+				":alice!alice@".length + UNKNOWN_HOST_BYTES + " PRIVMSG #seance :".length;
 			const bodies = transport.sent.map((line) => line.slice("PRIVMSG #seance :".length));
 			expect(bodies[0]).to.have.length(MAX_LINE_BYTES - source);
 			expect(bodies.join("")).to.equal("x".repeat(1000));
@@ -1402,10 +1413,12 @@ describe("multiline cooldown", function () {
 	});
 
 	it("shows a held message's copy at once, after the batches ahead of it", function () {
-		const {client, chanId} = setup(ONE_PER_BATCH);
+		const {client, transport, chanId} = setup(ONE_PER_BATCH);
 
 		client.input(chanId, "one\ntwo");
 		client.input(chanId, "short");
+
+		expect(transport.sent).to.not.include("PRIVMSG #seance :short");
 
 		const shown = messages(chanId);
 		expect(shown.map((m) => m.text)).to.deep.equal(["one", "two", "short"]);
