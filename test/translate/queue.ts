@@ -4,6 +4,7 @@ import {WORKER_DISPOSED} from "../../client/js/translate/client";
 import {
 	BATCH_REFUSED,
 	emptyContext,
+	type EngineName,
 	type TranslateChunk,
 	type TranslateRequest,
 } from "../../client/js/translate/engine";
@@ -40,7 +41,7 @@ function rig(script: Script = (req) => [`[en] ${req.lines ? req.lines.join(" | "
 	const paused: [string, string][] = [];
 	const resumed: string[] = [];
 	const arrivals = new Map<number, number>();
-	let engineFor: (from: string | null, to: string) => "llm" | "seq2seq" | null = () => "llm";
+	let engineFor: (from: string | null, to: string) => EngineName | null = () => "llm";
 	let deviceFor: (engine: string) => "gpu" | "cpu" = () => "gpu";
 	const deps: QueueDeps = {
 		route(from, to, _hint) {
@@ -149,6 +150,19 @@ describe("translate/queue", () => {
 				.filter(([, u]) => u.status === "done")
 				.map(([, u]) => (u as {text: string}).text)
 		).to.deep.equal(["[en] das ist *wichtig*", "[en] das ist *wichtig*"]);
+	});
+
+	// The iOS shell's system translator is a route like the others: what it
+	// takes is sent, not left waiting behind the two worker engines.
+	it("sends a message routed to the Apple engine", async () => {
+		const r = rig();
+		clock = r.clock;
+		r.setEngine(() => "apple");
+		r.queue.enqueue(item(1, "guten Morgen"));
+		await settle(r.clock);
+
+		expect(r.requests).to.have.length(1);
+		expect(r.updates.some(([, u]) => u.status === "done")).to.equal(true);
 	});
 
 	// The prompt's hint and the router's are two different things (detect.ts
