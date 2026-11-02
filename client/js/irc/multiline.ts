@@ -858,9 +858,11 @@ export function multilineRejected(client: IrcClient): void {
  * them: those are messages of their own, and go out now.
  */
 function dropBatches(client: IrcClient): void {
-	const held = queueOf(client).waiting.filter(isHeld);
+	const queue = queueOf(client);
+	const held = queue.waiting.filter(isHeld);
 
-	resetMultiline(client, {keepHeld: true});
+	queue.waiting = queue.waiting.filter((entry) => !isHeld(entry));
+	resetMultiline(client);
 
 	for (const message of held) {
 		if (!message.send()) {
@@ -875,10 +877,7 @@ function dropBatches(client: IrcClient): void {
  * The pending copies come down without a word of their own: on a close
  * `IrcClient` has already reported them, and a `FAIL` is shown once.
  */
-export function resetMultiline(
-	client: IrcClient,
-	{keepHeld = false}: {keepHeld?: boolean} = {}
-): void {
+export function resetMultiline(client: IrcClient): void {
 	const queue = queueOf(client);
 
 	if (queue.verdict) {
@@ -902,7 +901,7 @@ export function resetMultiline(
 			if (entry.pending) {
 				settlePending(client, entry.pending);
 			}
-		} else if (!keepHeld) {
+		} else {
 			for (const pending of entry.pending) {
 				settlePending(client, pending);
 			}
