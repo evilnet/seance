@@ -6067,6 +6067,22 @@ html[data-shell="native"] #footer {
 	margin-bottom: var(--inset-inner-bottom);
 }
 
+/* The pages that scroll (connect, a network's settings, …) end above the
+ * home indicator too, or their last button sits in the screen's rounded
+ * corners. A spacer, not padding: a column flexbox's scroll range can drop
+ * its bottom padding. A chat window's composer already keeps the strip, as
+ * a modal's footer does (below); an overlay centres its pane, so a spacer
+ * there would push the pane up by half its height. */
+html[data-shell="native"] .window::after {
+	content: "";
+	flex: none;
+	height: var(--inset-inner-bottom);
+}
+
+html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:has(#form))::after {
+	content: none;
+}
+
 /* A modal that is the whole page on a phone runs to the bottom edge too, so
  * its footer is raised out of the home indicator's strip the way the
  * composer is, or the Done button's border meets the screen's rounded
