@@ -24,7 +24,7 @@
  * Set SEANCE_IRC_VERBOSE=1 to print every raw line.
  */
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import socket from "../../client/js/socket";
 import {IrcClient} from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";

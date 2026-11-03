@@ -1,128 +1,118 @@
 // @ts-check
-const {defineConfig} = require("eslint-define-config");
+const projects = [
+	"./tsconfig.json",
+	"./client/tsconfig.json",
+	"./shared/tsconfig.json",
+	"./test/tsconfig.json",
+	"./tools/tsconfig.json",
+];
 
-const projects = defineConfig({
-	parserOptions: {
-		project: [
-			"./tsconfig.json",
-			"./client/tsconfig.json",
-			"./shared/tsconfig.json",
-			"./test/tsconfig.json",
-			"./tools/tsconfig.json",
-		],
-	},
-}).parserOptions.project;
+/** @type {import("eslint").Linter.RulesRecord} */
+const baseRules = {
+	"block-scoped-var": "error",
+	curly: ["error", "all"],
+	"dot-notation": "error",
+	eqeqeq: "error",
+	"handle-callback-err": "error",
+	"no-alert": "error",
+	"no-catch-shadow": "error",
+	"no-control-regex": "off",
+	"no-console": "error",
+	"no-duplicate-imports": "error",
+	"no-else-return": "error",
+	"no-implicit-globals": "error",
+	"no-restricted-globals": ["error", "event", "fdescribe"],
+	"no-template-curly-in-string": "error",
+	"no-unsafe-negation": "error",
+	"no-useless-computed-key": "error",
+	"no-useless-constructor": "error",
+	"no-useless-return": "error",
+	"no-use-before-define": [
+		"error",
+		{
+			functions: false,
+		},
+	],
+	"no-var": "error",
+	"object-shorthand": [
+		"error",
+		"methods",
+		{
+			avoidExplicitReturnArrows: true,
+		},
+	],
+	"padding-line-between-statements": [
+		"error",
+		{
+			blankLine: "always",
+			prev: ["block", "block-like"],
+			next: "*",
+		},
+		{
+			blankLine: "always",
+			prev: "*",
+			next: ["block", "block-like"],
+		},
+	],
+	"prefer-const": "error",
+	"prefer-rest-params": "error",
+	"prefer-spread": "error",
+	"spaced-comment": ["error", "always"],
+	strict: "off",
+	yoda: "error",
+};
 
-const baseRules = defineConfig({
-	rules: {
-		"block-scoped-var": "error",
-		curly: ["error", "all"],
-		"dot-notation": "error",
-		eqeqeq: "error",
-		"handle-callback-err": "error",
-		"no-alert": "error",
-		"no-catch-shadow": "error",
-		"no-control-regex": "off",
-		"no-console": "error",
-		"no-duplicate-imports": "error",
-		"no-else-return": "error",
-		"no-implicit-globals": "error",
-		"no-restricted-globals": ["error", "event", "fdescribe"],
-		"no-template-curly-in-string": "error",
-		"no-unsafe-negation": "error",
-		"no-useless-computed-key": "error",
-		"no-useless-constructor": "error",
-		"no-useless-return": "error",
-		"no-use-before-define": [
-			"error",
-			{
-				functions: false,
-			},
-		],
-		"no-var": "error",
-		"object-shorthand": [
-			"error",
-			"methods",
-			{
-				avoidExplicitReturnArrows: true,
-			},
-		],
-		"padding-line-between-statements": [
-			"error",
-			{
-				blankLine: "always",
-				prev: ["block", "block-like"],
-				next: "*",
-			},
-			{
-				blankLine: "always",
-				prev: "*",
-				next: ["block", "block-like"],
-			},
-		],
-		"prefer-const": "error",
-		"prefer-rest-params": "error",
-		"prefer-spread": "error",
-		"spaced-comment": ["error", "always"],
-		strict: "off",
-		yoda: "error",
-	},
-}).rules;
+/** @type {import("eslint").Linter.RulesRecord} */
+const vueRules = {
+	"import/no-default-export": 0,
+	"import/unambiguous": 0, // vue SFC can miss script tags
+	"@typescript-eslint/prefer-readonly": 0, // can be used in template
+	"vue/component-tags-order": [
+		"error",
+		{
+			order: ["template", "style", "script"],
+		},
+	],
+	"vue/multi-word-component-names": "off",
+	"vue/no-mutating-props": "off",
+	"vue/no-v-html": "off",
+	"vue/require-default-prop": "off",
+	"vue/v-slot-style": ["error", "longform"],
+};
 
-const vueRules = defineConfig({
-	rules: {
-		"import/no-default-export": 0,
-		"import/unambiguous": 0, // vue SFC can miss script tags
-		"@typescript-eslint/prefer-readonly": 0, // can be used in template
-		"vue/component-tags-order": [
-			"error",
-			{
-				order: ["template", "style", "script"],
-			},
-		],
-		"vue/multi-word-component-names": "off",
-		"vue/no-mutating-props": "off",
-		"vue/no-v-html": "off",
-		"vue/require-default-prop": "off",
-		"vue/v-slot-style": ["error", "longform"],
-	},
-}).rules;
+/** @type {import("eslint").Linter.RulesRecord} */
+const tsRules = {
+	// note you must disable the base rule as it can report incorrect errors
+	"no-shadow": "off",
+	"@typescript-eslint/no-shadow": ["error"],
+	"@typescript-eslint/no-redundant-type-constituents": "off",
+};
 
-const tsRules = defineConfig({
-	rules: {
-		// note you must disable the base rule as it can report incorrect errors
-		"no-shadow": "off",
-		"@typescript-eslint/no-shadow": ["error"],
-		"@typescript-eslint/no-redundant-type-constituents": "off",
-	},
-}).rules;
+/** @type {import("eslint").Linter.RulesRecord} */
+const tsRulesTemp = {
+	// TODO: eventually remove these
+	"@typescript-eslint/ban-ts-comment": "off",
+	"@typescript-eslint/no-explicit-any": "off",
+	"@typescript-eslint/no-non-null-assertion": "off",
+	"@typescript-eslint/no-this-alias": "off",
+	"@typescript-eslint/no-unnecessary-type-assertion": "off",
+	"@typescript-eslint/no-unsafe-argument": "off",
+	"@typescript-eslint/no-unsafe-assignment": "off",
+	"@typescript-eslint/no-unsafe-call": "off",
+	"@typescript-eslint/no-unsafe-member-access": "off",
+	"@typescript-eslint/no-unused-vars": "off",
+};
 
-const tsRulesTemp = defineConfig({
-	rules: {
-		// TODO: eventually remove these
-		"@typescript-eslint/ban-ts-comment": "off",
-		"@typescript-eslint/no-explicit-any": "off",
-		"@typescript-eslint/no-non-null-assertion": "off",
-		"@typescript-eslint/no-this-alias": "off",
-		"@typescript-eslint/no-unnecessary-type-assertion": "off",
-		"@typescript-eslint/no-unsafe-argument": "off",
-		"@typescript-eslint/no-unsafe-assignment": "off",
-		"@typescript-eslint/no-unsafe-call": "off",
-		"@typescript-eslint/no-unsafe-member-access": "off",
-		"@typescript-eslint/no-unused-vars": "off",
-	},
-}).rules;
+/** @type {import("eslint").Linter.RulesRecord} */
+const tsTestRulesTemp = {
+	// TODO: remove these
+	"@typescript-eslint/no-unsafe-return": "off",
+	"@typescript-eslint/no-empty-function": "off",
+	"@typescript-eslint/restrict-plus-operands": "off",
+};
 
-const tsTestRulesTemp = defineConfig({
-	rules: {
-		// TODO: remove these
-		"@typescript-eslint/no-unsafe-return": "off",
-		"@typescript-eslint/no-empty-function": "off",
-		"@typescript-eslint/restrict-plus-operands": "off",
-	},
-}).rules;
-
-module.exports = defineConfig({
+/** @type {import("eslint").Linter.Config} */
+module.exports = {
 	root: true,
 	parserOptions: {
 		ecmaVersion: 2022,
@@ -190,4 +180,4 @@ module.exports = defineConfig({
 	},
 	extends: ["eslint:recommended", "prettier"],
 	rules: baseRules,
-});
+};

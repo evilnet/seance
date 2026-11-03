@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import {TypingReporter, TYPING_PAUSE_AFTER} from "../../client/js/helpers/typingReporter";
 import type {TypingState} from "../../shared/types/msg";
 

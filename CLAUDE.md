@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Seance** is TheLounge's Vue 3 client turned into a static, bouncer-less IRC client. The browser speaks IRCv3 directly to **nefarious2** (EvilNet's ircd, `ircv3.2-upgrade` branch) over a WebSocket — one IRC line per WS message, `text.ircv3.net` subprotocol — with no Node server in between. Output is a `public/` tree an IRC network can rebrand via `config.json` and ship as its own web/PWA/native client. Other ircds should work too; nefarious2-only behaviour belongs in `client/js/irc/profiles/`.
 
-Status: `docs/projects/initial_conversion.md`. Upstream is still `github.com/thelounge/thelounge`. Node.js >= 22 (CI and `.node-version`: 26), pnpm, MIT.
+Status: `docs/projects/initial_conversion.md`. Upstream is still `github.com/thelounge/thelounge`. Node.js 22.22.2+, 24.15+ or 26+ (CI and `.node-version`: 26), pnpm, MIT.
 
 ## Commands
 

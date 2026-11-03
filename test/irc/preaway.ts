@@ -10,7 +10,7 @@
  */
 
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import {dispatchInput} from "../../client/js/irc/commands";
 import * as saved from "../../client/js/irc/saved-networks";
 import {

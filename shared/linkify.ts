@@ -1,4 +1,4 @@
-import LinkifyIt, {Match} from "linkify-it";
+import {LinkifyIt, REBuilder, type Match} from "linkify-it";
 import tlds from "tlds";
 
 export type LinkPart = {
@@ -7,7 +7,33 @@ export type LinkPart = {
 	link: string;
 };
 
-const linkify = LinkifyIt().tlds(tlds).tlds("onion", true);
+// linkify-it 6 also dropped the port from links without a schema
+// ("irc.example.net:6697"); this puts it back. Same fragments as the stock
+// method plus the port; fuzzyIP is never on here, so its branch is left out.
+class FuzzyPortREBuilder extends REBuilder {
+	get_fuzzy_url_host_port(): RegExp {
+		return (this.cache.fuzzy_url_host_port ??= new RegExp(
+			`(?:(?:(?:${this.get_domain().source})\\.){1,10}(?:${this.get_tld().source}))` +
+				this.get_port().source +
+				this.get_host_terminator().source
+		));
+	}
+}
+
+// linkify-it 6 turned two things off by default that 3 did: fuzzy links (no
+// schema, "example.com"), and user:pass@ in a URL, without which the link
+// stops at the user name and points somewhere the text does not say.
+function create() {
+	return new LinkifyIt({fuzzyLink: true, urlAuth: true, rebuilder: new FuzzyPortREBuilder()})
+		.tlds(tlds)
+		.tlds("onion", true);
+}
+
+const linkify = create();
+
+// Validates "//" links for the override below. linkify-it keeps its own
+// validator private, so a second instance with the stock "//" schema does it.
+const stock = create();
 
 // Known schemes to detect in text
 const commonSchemes = [
@@ -27,12 +53,15 @@ const commonSchemes = [
 	"gemini",
 ];
 
+// Each one validates its tail like http:
 for (const schema of commonSchemes) {
-	linkify.add(schema + ":", "http:");
+	linkify.add(schema + ":", {
+		validate: (text, pos, self) => self.testSchemaAt(text, "http:", pos),
+	});
 }
 
 linkify.add("web+", {
-	validate(text: string, pos: number, self: LinkifyIt.LinkifyIt) {
+	validate(text: string, pos: number, self: LinkifyIt) {
 		const webSchemaRe = /^[a-z]+:/gi;
 
 		if (!webSchemaRe.test(text.slice(pos))) {
@@ -59,7 +88,7 @@ linkify.add("web+", {
 // We take the validation logic from linkify and just add our own
 // normalizer.
 linkify.add("//", {
-	validate: (linkify as any).__schemas__["//"].validate,
+	validate: (text, pos) => stock.testSchemaAt(text, "//", pos),
 	normalize(match) {
 		match.schema = ""; // this counts as not having a schema
 		match.url = "http:" + match.url;

@@ -9,7 +9,7 @@
  */
 
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import socket from "../../client/js/socket";
 import {SEANCE_CAPS, webpushVapidOf} from "../../client/js/irc/caps";
 import {registerBusHandlers} from "../../client/js/irc/bus";

@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 "use strict";
 
-const got = require("got");
 const path = require("path");
 const fs = require("fs");
 
@@ -9,10 +8,15 @@ const fs = require("fs");
 const emojiModifiersRegex = /[\u{1f3fb}-\u{1f3ff}]|\u{fe0f}/gu;
 
 (async () => {
-	const response = await got(
+	const response = await fetch(
 		"https://raw.githubusercontent.com/github/gemoji/master/db/emoji.json"
 	);
-	const emojiStrategy = JSON.parse(response.body);
+
+	if (!response.ok) {
+		throw new Error(`gemoji download failed: HTTP ${response.status}`);
+	}
+
+	const emojiStrategy = await response.json();
 	const emojiMap = {};
 	const fullNameEmojiMap = {};
 

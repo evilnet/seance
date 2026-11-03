@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import {EventBus} from "../../client/js/socket";
 
 describe("client event bus", function () {
