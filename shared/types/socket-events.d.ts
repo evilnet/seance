@@ -387,7 +387,3 @@ interface ClientToServerEvents {
 
 	search: EventHandler<SearchQuery>;
 }
-
-interface InterServerEvents {}
-
-interface SocketData {}

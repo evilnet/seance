@@ -101,14 +101,9 @@ const tsRulesTemp = {
 	"@typescript-eslint/no-unsafe-call": "off",
 	"@typescript-eslint/no-unsafe-member-access": "off",
 	"@typescript-eslint/no-unused-vars": "off",
-};
-
-/** @type {import("eslint").Linter.RulesRecord} */
-const tsTestRulesTemp = {
-	// TODO: remove these
-	"@typescript-eslint/no-unsafe-return": "off",
-	"@typescript-eslint/no-empty-function": "off",
-	"@typescript-eslint/restrict-plus-operands": "off",
+	// New in typescript-eslint 8's recommended sets.
+	"@typescript-eslint/prefer-promise-reject-errors": "off",
+	"@typescript-eslint/no-base-to-string": "off",
 };
 
 /** @type {import("eslint").Linter.Config} */
@@ -130,7 +125,7 @@ module.exports = {
 			extends: [
 				"eslint:recommended",
 				"plugin:@typescript-eslint/recommended",
-				"plugin:@typescript-eslint/recommended-requiring-type-checking",
+				"plugin:@typescript-eslint/recommended-type-checked",
 				"prettier",
 			],
 			rules: {
@@ -156,19 +151,16 @@ module.exports = {
 				"eslint:recommended",
 				"plugin:vue/vue3-recommended",
 				"plugin:@typescript-eslint/recommended",
-				"plugin:@typescript-eslint/recommended-requiring-type-checking",
+				"plugin:@typescript-eslint/recommended-type-checked",
 				"prettier",
 			],
 			rules: {...baseRules, ...tsRules, ...tsRulesTemp, ...vueRules},
 		},
 		{
-			files: ["./tests/**/*.ts"],
-			parser: "@typescript-eslint/parser",
+			files: ["test/**/*.ts"],
 			rules: {
-				...baseRules,
-				...tsRules,
-				...tsRulesTemp,
-				...tsTestRulesTemp,
+				// chai's property assertions: `expect(x).to.be.true`.
+				"@typescript-eslint/no-unused-expressions": "off",
 			},
 		},
 	],

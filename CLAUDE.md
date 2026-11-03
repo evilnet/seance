@@ -19,8 +19,9 @@ pnpm, at the version `package.json`'s `packageManager` names (`npm i -g pnpm@12.
 | Rebuild on change                               | `pnpm watch`                                  |
 | Serve the built SPA                             | `python3 -m http.server -d public 8000`       |
 | Lint everything (eslint + prettier + stylelint) | `pnpm lint`                                   |
+| Type-check (TypeScript 7; not test/ or `.vue`)  | `pnpm typecheck`                              |
 | Auto-format                                     | `pnpm format:prettier`                        |
-| Full test (lint + mocha)                        | `pnpm test`                                   |
+| Full test (lint + typecheck + mocha)            | `pnpm test`                                   |
 | Mocha only (builds first)                       | `pnpm test:mocha`                             |
 | Playwright e2e (needs `SEANCE_E2E_IRC_URL`)     | `pnpm test:e2e`                               |
 
@@ -30,7 +31,7 @@ There is no `pnpm dev`/`pnpm start`; build and serve `public/` statically. One m
 NODE_ENV=test pnpm exec mocha --config=test/.mocharc.yml test/irc/client.ts
 ```
 
-CI (`.github/workflows/ci.yml`) runs on every pull request and push to `develop`: a frozen-lockfile install, `pnpm lint`, the production build, `pnpm test:mocha`, and `tools/scenarios/smoke.mjs` (the built app boots in Chromium with no console error).
+CI (`.github/workflows/ci.yml`) runs on every pull request and push to `develop`: a frozen-lockfile install, `pnpm lint`, `pnpm typecheck`, the production build, `pnpm test:mocha`, and `tools/scenarios/smoke.mjs` (the built app boots in Chromium with no console error).
 
 Live tests (`test/irc/*.live.ts`) are skipped unless `SEANCE_IRC_URL` is set; run them one file at a time. The dev ircd is `tools/nefarious-dev/run.sh` (Docker; `ws://` 8067, `wss://` 8443, channel `#seance`). Both: `docs/resources/nefarious2-dev.md`.
 

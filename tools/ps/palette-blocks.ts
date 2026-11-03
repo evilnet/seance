@@ -522,7 +522,7 @@ function fitsRuleTwo(colour: string, text: Text, grounds: CheckedGround[], floor
 function solveSurface(light: Light, raw: CheckedGround[], lifted: CheckedGround[]): SurfaceSolved {
 	const spec = SURFACE[light];
 	const text: Text = light === "day" ? "ink" : "light";
-	let alpha = spec.cap;
+	let alpha: number = spec.cap;
 
 	if (light === "day") {
 		alpha = spec.base;
