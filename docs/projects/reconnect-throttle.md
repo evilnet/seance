@@ -63,10 +63,10 @@ after every registration, never do. If the server refuses the dial, the
 refusal is recorded and the retry after it waits. Once nobody presses
 anything, the worst case is one wait of at most 42 s, never a spiral; each
 press during a refusal renews the server's window, which is the user's call.
-It cannot see dials or drops from other devices behind the same
-address, nor tell whether another network on the same server still holds a
-connection (then the server would not reset at our drop, and the ledger waits
-when it need not).
+On its own it cannot see dials or drops from other devices behind the same
+address, nor whether another connection from the address is still open (then
+the server does not move its gap at our drop); the server's own report at
+registration, below, fills in both.
 
 The cost: a dial that fails looks the same whether IPcheck refused it or the
 server is simply down (connection refused, DNS failure, both close with 1006),
@@ -83,6 +83,60 @@ That is as far as a client can go. It cannot keep a socket alive while the OS
 has suspended the page, and it cannot see dials from other devices behind the
 same address. Carrier NAT puts many phones behind one address, so the
 per-address count reaches its limit faster for exactly the users this hurts.
+
+### The server's own count (2026-11-03)
+
+The ledger used to guess everything from this device's record, and guessed
+wrong in the common case: a phone at home is often an alias of the desktop's
+session on the same address. The server then ignores the phone's drops (they
+are not the address's last connection, `ip_registry_disconnect` moves nothing),
+so each return after 40 s starts a fresh count; the ledger recorded every drop,
+kept the chain going, and held the fourth return for up to 42 s while the
+server would have let it in. That was the strip popping up "way too often".
+It also assumed nefarious2's default limit of 4, and AfterNET runs 6.
+
+nefarious2 says where it stands when a connection registers (fresh or alias;
+a revive sends nothing): `NOTICE nick :on 2 ca 1(6) ft 10(10) tr`
+(`ip_registry_connect_succeeded`, after any SASL refund): the address's open
+connections, the chain's count with this connection in it, and the server's
+`IPCHECK_CLONE_LIMIT`. The client (`handlers/privmsg.ts` → `IrcClient.noteIpcheck`)
+records it as a sync, `[dial, count, notice, limit]` in the host's `s`. Every
+choice errs toward waiting, since a wait costs seconds and a refusal renews
+the server's window:
+
+- from the connection's dial on, the replay takes the server's count. That
+  covers what this device cannot see: drops the server ignored because another
+  connection from the address was open (the alias-at-home case: the count is
+  back at 1 at every registration, so the next return dials), other devices
+  behind the address, connections from it on other servers. A dial another
+  tab recorded after ours counts on top, even when the report has it already
+  (a late notice cannot erase it; a dial accepted after the report is not
+  missed);
+- the server's last accept came before it reported, so after a report the gap
+  runs from the report;
+- a dial recorded in the 15 s before the report (the transport's connect
+  timeout) may reach the server after it, so it counts on top as well; and a
+  report older than one already applied can raise the count, never lower it;
+- the limit holds for the rest of the chain and goes with it: a new chain
+  uses the default 4 until its own first registration reports again;
+- every drop is still recorded. Leaving out the drop of a connection that
+  shared its address looked right but is not: if the other connection leaves
+  first, ours is the address's last and the server does move its gap. With
+  the count synced at each registration the drops cost nothing until the
+  chain is a dial from the limit;
+- a SASL refund is recorded at 001 as before; one between a dial and its
+  report is already in the count, so it spends the refund budget and lowers
+  nothing (on the alias path, where the notice comes first, it is recorded at
+  the notice).
+
+Three Codex reviews (2026-11-03) found the cases behind these rules; each has a
+test. A dial that never opened still ends with a drop (a refusal moved the server's
+gap at the accept; one that timed out after the accept moves it again at its
+close), the conservative choice. What stays invisible: another device's dial
+after our last registration. Tests: `test/irc/dialLedger.ts` (one per review
+finding, and a random-history check against a model of IPcheck with a
+desktop on the same address and other devices' connections before and during
+our registration).
 
 ## What the server does now
 

@@ -9,7 +9,10 @@
 //   (also --mobile --width=390 --height=844)
 //
 // The dev ircd's own throttle is relaxed (100 / 1 s / 1 s), so nothing here
-// is refused by the server: what is checked is the client's ledger. The
+// is refused by the server: what is checked is the client's ledger. (The
+// ircd's registration notice reports that limit, `ca 1(100)`, and the ledger
+// takes it; the seed below replaces the record without one, so the default
+// limit of 4 applies again.) The
 // page's WebSocket constructor is wrapped to count dials. Three dials are
 // written into `thelounge.state.dials` as if the app had been reopened three
 // times in quick succession, and the socket is dropped under the client;
