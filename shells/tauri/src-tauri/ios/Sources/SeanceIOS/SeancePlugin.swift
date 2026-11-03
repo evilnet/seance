@@ -27,6 +27,12 @@ final class SeancePlugin: Plugin {
         self.webview = webview
         _ = notifications
 
+        // The page lays itself out edge to edge from env(safe-area-inset-*)
+        // (client/css/style.css); wry leaves the scroll view on .automatic,
+        // which pads it by the safe areas again and makes every screen
+        // scroll by their height.
+        webview.scrollView.contentInsetAdjustmentBehavior = .never
+
         let center = NotificationCenter.default
         let on = { (name: Notification.Name, block: @escaping (Notification) -> Void) in
             self.observers.append(center.addObserver(forName: name, object: nil, queue: .main, using: block))
