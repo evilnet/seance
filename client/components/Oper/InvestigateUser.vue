@@ -140,7 +140,7 @@
 			</div>
 			<div class="wide">
 				<dt>Channels</dt>
-				<dd>
+				<dd class="oper-prop-flow">
 					<template v-if="user.channels && user.channels.length">
 						<span v-if="user.channels.length === 1" class="oper-muted">only </span
 						><span v-for="(c, i) in user.channels" :key="c"
