@@ -7,6 +7,7 @@ import type {Channel} from "../channel";
 import {msgidOf} from "../message";
 import type {Handler} from "../types";
 import {scriptManager} from "../scripting/manager";
+import {forgetBot} from "../bottrust";
 
 const quit: Handler = (client, msg) => {
 	const nick = msg.source?.name ?? "";
@@ -17,6 +18,7 @@ const quit: Handler = (client, msg) => {
 	}
 
 	if (!client.replaying) {
+		forgetBot(client, nick);
 		scriptManager.dispatchQuit({
 			network: client.name,
 			networkUuid: client.uuid,

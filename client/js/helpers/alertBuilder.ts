@@ -183,7 +183,9 @@ export function wideReason(row: CriterionRow, rows: CriterionRow[]): string | un
 		}
 
 		default:
-			return undefined;
+			// Wildcards and nothing else (`*`, `?*`, spaces made `?`) match
+			// every value: a realname or version of `*` catches everyone.
+			return value !== "" && /^[*?\s]+$/.test(value) ? "matches any value" : undefined;
 	}
 }
 
@@ -282,8 +284,11 @@ export function defaultReason(from: {channel?: string; me: string}): string {
  * `criterion` uses); every other value goes as typed.
  */
 export function criterionWord(key: string, value: string): string {
+	// Every criterion is one word to O3: a space would start the next
+	// keyword (`host a.example reason x`). A space matches one character
+	// in a realname or version; nothing else holds one, so it goes.
 	const v = value.trim();
-	return key === "info" || key === "version" ? v.replace(/\s+/g, "?") : v;
+	return key === "info" || key === "version" ? v.replace(/\s+/g, "?") : v.replace(/\s+/g, "");
 }
 
 /** The criteria text: every row that is on and has a value, `key value` each (`log`, which takes no value, alone). */
@@ -382,7 +387,9 @@ export const MANY_MATCHES = 25;
 /** `Matches 3 users right now · none are opers`, or that nothing does. */
 export function matchesText(
 	count: number,
-	opers: string[] | undefined
+	opers: string[] | undefined,
+	/** How many of the matches were checked for opers (the WHO asks 20 at most). */
+	checked: number = count
 ): {text: string; warn: boolean} {
 	if (count === 0) {
 		return {text: "Nothing matches right now.", warn: false};
@@ -393,7 +400,9 @@ export function matchesText(
 		opers === undefined
 			? ""
 			: opers.length === 0
-			? " · none are opers"
+			? checked < count
+				? ` · none of the first ${checked} are opers`
+				: " · none are opers"
 			: ` · ${
 					opers.length === 1 ? "one is an oper" : `${opers.length} are opers`
 			  }: ${opers.join(", ")}`;

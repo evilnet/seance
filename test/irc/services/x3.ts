@@ -368,7 +368,11 @@ describe("X3 services profile (irc/services/x3)", function () {
 				}
 			);
 			expect(parseBanReply("Gline *@*?  Now that would be smooth.")?.ok).to.equal(false);
-			expect(parseBanReply("Invalid time span '1x'.")).to.include({ok: false, mask: "1x"});
+			// The quoted text is the duration, not a mask: a verdict for any ban out.
+			expect(parseBanReply("Invalid time span '1x'.")).to.deep.equal({
+				ok: false,
+				text: "Invalid time span '1x'.",
+			});
 			expect(parseBanReply("Access denied.")).to.deep.equal({
 				ok: false,
 				text: "Access denied.",

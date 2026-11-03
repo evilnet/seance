@@ -2,16 +2,16 @@
  * Being an IRC operator on one network: the level (from our own user
  * modes), the privileges (PRIVS), the server notice mask (008) and the
  * server features the oper tools need to know (GET). Announced to the UI as
- * `oper:state` (bus-contract §1.11); docs/projects/oper-tools.md.
+ * `oper:state` (bus-contract §1.10); docs/projects/oper-tools.md.
  *
  * The mode is the signal, not 381. On AfterNET opers are granted by
  * services on SASL login, so there may be no OPER and no 381, and a bouncer
  * resume reapplies oper silently. Whoever sets `+o`/`+O` on us, the moment
  * it lands the tools ask what they need: PRIVS, the snomask (when +s), and
  * the profile's features; then the snomask the oper chose last time is put
- * back. A network that was opered when its last connection ended, and is
- * registered again without a mode line, asks for its modes: a held bouncer
- * session attached gets them in silence (evilnet/nefarious2#121).
+ * back. A held bouncer session revived or attached is told its modes like a
+ * fresh registration, after the MOTD (nefarious2 d759a1a), so a reconnect
+ * needs nothing of its own.
  *
  * Kept free of store/DOM imports (mocha).
  */
@@ -19,8 +19,9 @@
 import type {OperLevel, SharedOperState} from "../../../shared/types/oper";
 import type {IrcClient} from "./client";
 import type {IrcMessage} from "./message";
-import {getOperPrefs, setSnomaskPref, setWasOper} from "./operprefs";
+import {getOperPrefs, setSnomaskPref} from "./operprefs";
 import {canRequest, request} from "./request";
+import {verifyServiceBots} from "./services";
 
 export interface OperState {
 	umodes: Set<string>;
@@ -122,16 +123,11 @@ function modesChanged(client: IrcClient): void {
 
 	if (oper.level !== before) {
 		if (isOpered(client)) {
-			setWasOper(client.uuid, true);
 			operUp(client);
 		} else {
 			oper.privs = [];
 			oper.privsKnown = false;
 			oper.queried = false;
-
-			if (before !== "none" && before !== "service") {
-				setWasOper(client.uuid, false);
-			}
 		}
 	}
 
@@ -155,7 +151,12 @@ function operUp(client: IrcClient): void {
 	// Five or so commands nobody is waiting on, every one charged fake lag
 	// (opers too: PRIVS, GET and MODE are MFLG_SLOW): one at a time through
 	// the background queue, behind the user's own lines.
-	void refreshOper(client, {background: true}).then(() => restoreSnomask(client));
+	void refreshOper(client, {background: true}).then(() => {
+		restoreSnomask(client);
+		// Which services bots are real (bottrust.ts), before the first
+		// lookup or snoop line needs to know: behind everything else.
+		verifyServiceBots(client);
+	});
 }
 
 /** Ask again for everything {@link OperState} holds (the panel's Refresh, oper-up). */
@@ -169,22 +170,49 @@ export async function refreshOper(
 
 	// In turn when in the background; at once when the clock has room now
 	// (or the user asked), so the lines keep their order with what follows.
-	const inTurn = (key: string, query: () => Promise<void>): Promise<void> =>
-		background && !client.background.fits(2000)
-			? client.whenRoom(`oper:${key}`).then(query)
-			: query();
-	const queries: Promise<void>[] = [inTurn("privs", () => fetchPrivs(client))];
+	// A query that waited its turn is dropped if the answer came in the
+	// meantime (the panel opened and asked at once). Each answer is
+	// announced as it lands: the panel fills in as they arrive.
+	const inTurn = (
+		key: string,
+		known: () => boolean,
+		query: () => Promise<void>
+	): Promise<void> => {
+		const run = () => (known() ? undefined : query().then(() => announceOper(client)));
+		return background && !client.background.fits(2000)
+			? client.whenRoom(`oper:${key}`).then(run)
+			: Promise.resolve(query()).then(() => announceOper(client));
+	};
+
+	const queries: Promise<void>[] = [
+		inTurn(
+			"privs",
+			() => client.oper.privsKnown,
+			() => fetchPrivs(client)
+		),
+	];
 
 	if (client.oper.umodes.has("s")) {
-		queries.push(inTurn("snomask", () => readSnomask(client)));
+		queries.push(
+			inTurn(
+				"snomask",
+				() => client.oper.snomask !== undefined,
+				() => readSnomask(client)
+			)
+		);
 	}
 
 	for (const name of client.profile.operFeatures) {
-		queries.push(inTurn(`get:${name}`, () => fetchFeature(client, name)));
+		queries.push(
+			inTurn(
+				`get:${name}`,
+				() => name in client.oper.features,
+				() => fetchFeature(client, name)
+			)
+		);
 	}
 
 	await Promise.all(queries);
-	announceOper(client);
 }
 
 /** `PRIVS`: 270, sent untagged and followed by an ACK (evilnet/nefarious2#120). */
@@ -281,48 +309,33 @@ export async function setSnomask(client: IrcClient, mask: number, remember = tru
 
 /** Put back the snomask the oper chose, when the server gave us another. */
 function restoreSnomask(client: IrcClient): void {
-	const wanted = getOperPrefs(client.uuid).snomask;
+	// Read again when its turn comes: a mask chosen in the panel while this
+	// waited behind fake lag is the one to keep, not the one from before.
+	const restore = (): Promise<void> | undefined => {
+		const wanted = getOperPrefs(client.uuid).snomask;
 
-	if (wanted !== undefined && wanted !== client.oper.snomask && isOpered(client)) {
-		const restore = () => setSnomask(client, wanted, false);
-		void (client.background.fits(2000)
-			? restore()
-			: client.whenRoom("oper:restore").then(restore));
+		return wanted !== undefined && wanted !== client.oper.snomask && isOpered(client)
+			? setSnomask(client, wanted, false)
+			: undefined;
+	};
+
+	if (getOperPrefs(client.uuid).snomask === undefined) {
+		return;
 	}
+
+	void (client.background.fits(2000) ? restore() : client.whenRoom("oper:restore").then(restore));
 }
 
 /**
  * Registration finished. Services may have set +o before 001, when nothing
- * could be asked yet; ask now. Otherwise everything comes from MODE lines
- * and 221 — except on a connection that attaches to a held bouncer session,
- * which gets its modes in silence (evilnet/nefarious2#121, open). So a
- * network that was opered when its last connection ended, and has seen no
- * mode by now, asks with one `MODE <me>`; nobody else pays the command.
- * Taken out once the server sends them.
+ * could be asked yet; ask now. Everything else comes from MODE lines and
+ * 221 — on a bouncer revive or attach too, whose modes the server sends
+ * after the MOTD (nefarious2 d759a1a), so this asks for none.
  */
 export function operRegistered(client: IrcClient): void {
-	if (isOpered(client)) {
-		if (!client.oper.queried) {
-			operUp(client);
-		}
-
-		return;
+	if (isOpered(client) && !client.oper.queried) {
+		operUp(client);
 	}
-
-	if (!getOperPrefs(client.uuid).wasOper || !canRequest(client)) {
-		return;
-	}
-
-	const ask = async () => {
-		const reply = await request(client, `MODE ${client.nick}`);
-		const line = reply.lines.find((msg) => msg.command === "221");
-
-		if (line) {
-			setUserModes(client, line.params[1] ?? "");
-		}
-	};
-
-	void (client.background.fits(2000) ? ask() : client.whenRoom("oper:modes").then(ask));
 }
 
 /**

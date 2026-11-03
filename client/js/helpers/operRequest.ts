@@ -51,7 +51,7 @@ export function operRequest(
 // pairs, for the edit form's liveness line and the ban dialog's O3 path.
 
 export interface ServicesCheckReply {
-	results: {role: string; bot: string; online: boolean; looksLikeX3: boolean}[];
+	results: {role: string; bot: string; online: boolean; looksLikeX3: boolean; trusted: boolean}[];
 	failure?: "closed" | "timeout";
 }
 

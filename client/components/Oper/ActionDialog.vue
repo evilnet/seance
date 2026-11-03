@@ -1,7 +1,7 @@
 <template>
 	<div
 		id="oper-action-overlay"
-		v-backdrop="close"
+		v-backdrop="dismiss"
 		class="screen-overlay"
 		:class="{opened: !!request}"
 		:data-escape-close="request ? 'oper-action' : null"
@@ -18,6 +18,13 @@
 				<div class="oper-action-title">{{ title }}</div>
 
 				<template v-if="request.action === 'kill'">
+					<p v-if="who" class="oper-action-hint">
+						{{ request.nick }} is <span class="oper-action-who">{{ who }}</span> right
+						now.
+					</p>
+					<p v-else-if="looking" class="oper-action-hint">
+						Looking up {{ request.nick }}…
+					</p>
 					<label class="oper-action-label" for="oper-action-reason">Reason</label>
 					<input
 						id="oper-action-reason"
@@ -72,10 +79,15 @@
 						{{ preview.text }}
 					</p>
 
-					<label v-if="maskCheck.needsForce && !viaServices" class="oper-action-check">
-						<input v-model="force" v-switch type="checkbox" :disabled="!canForce" />
-						Force this wide mask
-						<span v-if="!canForce" class="oper-muted"
+					<label v-if="mustConfirm" class="oper-action-check">
+						<input
+							v-model="force"
+							v-switch
+							type="checkbox"
+							:disabled="forceFlag && !viaServices && !canForce"
+						/>
+						{{ confirmLabel }}
+						<span v-if="forceFlag && !viaServices && !canForce" class="oper-muted"
 							>(needs the WIDE_{{ banType.toUpperCase() }} privilege)</span
 						>
 					</label>
@@ -131,8 +143,19 @@
 				<p v-if="result" class="oper-action-result">{{ result }}</p>
 			</div>
 			<div class="oper-action-buttons">
-				<button type="button" class="btn btn-cancel" @click="close">Cancel</button>
-				<button type="submit" class="btn btn-danger" :disabled="!canSubmit || busy">
+				<button
+					type="button"
+					class="oper-btn oper-btn-ghost oper-cancel"
+					:disabled="busy"
+					@click="dismiss"
+				>
+					Cancel
+				</button>
+				<button
+					type="submit"
+					class="oper-btn oper-btn-danger solid"
+					:disabled="!canSubmit || busy"
+				>
 					{{ busy ? "Sending…" : actionLabel }}
 				</button>
 			</div>
@@ -142,33 +165,49 @@
 
 <style>
 #oper-action-dialog {
-	background: var(--body-bg-color);
+	/* The window's colour pair, like the cards': --body-bg-color is the
+	 * sidebar's, dark under day's dark-on-light text. */
+	background: var(--window-bg-color);
 	color: var(--body-color);
 	margin: 0.75rem;
-	border-radius: 5px;
+	border: 1px solid var(--oper-line-2);
+	border-radius: 0.75rem;
+	box-shadow: 0 1.5rem 3rem -1rem rgb(0 0 0 / 50%);
 	width: min(32rem, calc(100vw - 1.5rem));
 	max-height: calc(100% - 1.5rem);
-	overflow-y: auto;
+
+	/* The body scrolls, the buttons stay: with the keyboard up the dialog
+	 * is a short band and Cancel / the submit must not scroll away. */
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
 	user-select: text;
 }
 
 #oper-action-dialog .oper-action-body {
-	padding: 1rem;
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	padding: 1.25rem 1.5rem 1.5rem;
 	display: flex;
 	flex-direction: column;
-	gap: 0.35rem;
+	gap: 0.45rem;
 }
 
 #oper-action-dialog .oper-action-title {
-	font-size: 1.25rem;
-	font-weight: 700;
+	font-size: 1.125rem;
+	font-weight: 600;
 	margin-bottom: 0.5rem;
 }
 
 #oper-action-dialog .oper-action-label {
 	color: var(--body-color-muted);
-	font-size: 0.875rem;
-	margin-top: 0.5rem;
+	font-size: 0.75rem;
+	font-weight: 600;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	margin-top: 0.75rem;
 }
 
 #oper-action-dialog .input {
@@ -176,7 +215,8 @@
 	width: 100%;
 }
 
-#oper-action-dialog .oper-action-mask {
+#oper-action-dialog .oper-action-mask,
+#oper-action-dialog .oper-action-who {
 	font-family: monospace;
 }
 
@@ -215,34 +255,28 @@
 }
 
 #oper-action-dialog .oper-action-preview.wide {
-	color: var(--link-color);
+	color: var(--oper-amber);
 }
 
 #oper-action-dialog .oper-action-error {
-	color: #e74c3c;
+	color: var(--oper-red);
 	font-size: 0.875rem;
 	margin: 0.25rem 0 0;
 }
 
 #oper-action-dialog .oper-action-result {
-	color: var(--link-color);
+	color: var(--body-color);
 	margin: 0.25rem 0 0;
 }
 
 #oper-action-dialog .oper-action-buttons {
+	flex-shrink: 0;
 	display: flex;
 	justify-content: flex-end;
-	gap: 0.6rem;
-	padding: 0.8rem 1rem;
-	background: rgb(0 0 0 / 30%);
-}
-
-#oper-action-dialog .oper-action-buttons .btn {
-	margin: 0;
-}
-
-#oper-action-dialog .btn-cancel {
-	border-color: transparent;
+	gap: 0.5rem;
+	padding: 0.9rem 1.5rem;
+	background: var(--oper-sunk);
+	box-shadow: inset 0 1px 0 var(--oper-line);
 }
 </style>
 
@@ -251,7 +285,8 @@ import {computed, defineComponent, nextTick, onMounted, onUnmounted, ref, watch}
 import eventbus from "../../js/eventbus";
 import {useStore} from "../../js/store";
 import {operRequest, servicesBan} from "../../js/helpers/operRequest";
-import {hasPriv, type OperActionRequest, userIp} from "../../js/helpers/operMenu";
+import {clientForNetwork} from "../../js/irc/manager";
+import {hasPriv, type OperActionRequest, userhostItem, userIp} from "../../js/helpers/operMenu";
 import {
 	BAN_MAX_SECONDS,
 	banLine,
@@ -264,6 +299,9 @@ import {
 	parseDuration,
 } from "../../js/irc/profiles/nefarious/bans";
 import {profileById} from "../../js/irc/profiles";
+import {servicesProfileFor} from "../../js/irc/services/index";
+import {hasVirtualKeyboard} from "../../js/helpers/device";
+import {lineBudget, lineTooLongText} from "../../js/helpers/operLine";
 import {errorOf} from "../../js/irc/profiles/report";
 import type {IrcMessage} from "../../js/irc/message";
 
@@ -310,13 +348,23 @@ export default defineComponent({
 		const scope = ref("*");
 		const force = ref(false);
 		const looking = ref(false);
+		/** `ident@host` of whoever holds the nick now (USERHOST), shown on a kill. */
+		const who = ref("");
 		const busy = ref(false);
-		const problem = ref("");
+		// What the server or the bot said went wrong; `problem` adds the
+		// dialog's own reason not to send (a line over the byte cap).
+		const sendProblem = ref("");
 		const result = ref("");
 		const rawSuggestions = ref<{mask: string; label: string}[]>([]);
 		const preview = ref<{count: number; text: string} | null>(null);
 		let previewTimer: ReturnType<typeof setTimeout> | undefined;
 		let previewFor = "";
+		// The close a moment after a success: cleared on open and close, so a
+		// late one never closes the next dialog opened.
+		let closeTimer: ReturnType<typeof setTimeout> | undefined;
+		/** Bumped on every open and close: an answer to an earlier dialog's
+		 * submit finds it changed and leaves this one alone. */
+		let generation = 0;
 
 		const network = computed(() =>
 			request.value ? store.getters.findNetwork(request.value.network) : undefined
@@ -386,8 +434,73 @@ export default defineComponent({
 			return out.length ? out : [{value: "*", label: "The whole network"}];
 		});
 
+		/** The server's force (`!`): a mask wide by its shape, or by the 20+ it matches now. */
+		const forceFlag = computed(
+			() => maskCheck.value.needsForce || (preview.value?.count ?? 0) >= 20
+		);
+		/** Realname, version and channel masks: no shape rule and no preview. */
+		const unchecked = computed(() => /^(\$|[#&])/.test(mask.value.trim()));
+		/**
+		 * A wide ban is confirmed by hand, whichever way it goes: forced on
+		 * the server, or through O3 (which has no force, so the switch is
+		 * the only gate), or a mask nobody can preview.
+		 */
+		const mustConfirm = computed(
+			() => request.value?.action !== "kill" && (forceFlag.value || unchecked.value)
+		);
+		const confirmLabel = computed(() =>
+			unchecked.value && !forceFlag.value
+				? "Yes, ban everyone this matches (it can't be previewed)"
+				: viaServices.value
+				? "Yes, set this wide mask"
+				: "Force this wide mask"
+		);
+
+		/** The exact line Submit sends (without the label the IRC layer adds). */
+		const outgoingLine = computed(() => {
+			const r = request.value;
+
+			if (!r) {
+				return "";
+			}
+
+			const why = reason.value.trim();
+
+			if (r.action === "kill") {
+				return killLine(r.nick ?? "", why);
+			}
+
+			const type = banType.value;
+			const profile = servicesProfileFor(network.value?.services);
+
+			if (viaServices.value && type !== "zline" && profile) {
+				return profile.banCommand(serviceBot.value, {
+					type,
+					mask: normaliseMask(type, mask.value),
+					seconds: seconds.value ?? 0,
+					reason: why,
+				});
+			}
+
+			return banLine({
+				type,
+				mask: mask.value,
+				scope: scope.value,
+				seconds: seconds.value ?? 0,
+				reason: why,
+				force: forceFlag.value && force.value,
+			});
+		});
+		const budget = computed(() => lineBudget(outgoingLine.value));
+		const problem = computed(() => sendProblem.value || lineTooLongText(budget.value));
+
 		const canSubmit = computed(() => {
-			if (!request.value || reason.value.trim() === "") {
+			// A result in means it was sent: a second press would send it again.
+			if (!request.value || reason.value.trim() === "" || result.value) {
+				return false;
+			}
+
+			if (budget.value.over > 0) {
 				return false;
 			}
 
@@ -398,7 +511,7 @@ export default defineComponent({
 			const s = seconds.value;
 			return (
 				!maskCheck.value.error &&
-				(!maskCheck.value.needsForce || force.value || viaServices.value) &&
+				(!mustConfirm.value || force.value) &&
 				s !== undefined &&
 				s > 0 &&
 				s <= BAN_MAX_SECONDS
@@ -411,12 +524,14 @@ export default defineComponent({
 			durationChoice.value = "3600";
 			customDuration.value = "";
 			force.value = false;
-			problem.value = "";
+			who.value = "";
+			sendProblem.value = "";
 			result.value = "";
 			rawSuggestions.value = [];
 			preview.value = null;
 			previewFor = "";
 			busy.value = false;
+			looking.value = false;
 			scope.value = scopes.value[0]?.value ?? "*";
 		};
 
@@ -428,21 +543,29 @@ export default defineComponent({
 				return;
 			}
 
+			// The network's casemapping: `[bob]` is `{bob}` on rfc1459.
+			const client = clientForNetwork(n.uuid);
+			const same = client ? (x: string, y: string) => client.namesEqual(x, y) : undefined;
+			// This dialog's answer only: one closed since (or reopened for
+			// the same nick on another network) has moved the generation on.
+			const asked = generation;
 			looking.value = true;
 			const [{ident, ip}, hostReply] = await Promise.all([
-				userIp(n.uuid, nick),
+				userIp(n.uuid, nick, same),
 				operRequest(n.uuid, `USERHOST ${nick}`, {untagged: ["302"]}),
 			]);
-			looking.value = false;
-			const item = hostReply.lines
-				.find((msg) => msg.command === "302")
-				?.params.at(-1)
-				?.trim()
-				.split(" ")[0];
-			const host = item ? /@(.*)$/.exec(item)?.[1] : undefined;
 
-			if (request.value?.nick !== nick) {
+			if (asked !== generation) {
 				return; // the dialog moved on
+			}
+
+			looking.value = false;
+			const held = userhostItem(hostReply.lines, "302", nick, same);
+			const host = held?.host;
+			who.value = held ? `${held.user}@${held.host}` : "";
+
+			if (request.value?.action === "kill") {
+				return;
 			}
 
 			rawSuggestions.value = maskSuggestions(banType.value, {ident, ip, host});
@@ -452,20 +575,96 @@ export default defineComponent({
 			}
 		};
 
+		// What was typed survives a dismiss (Cancel, the backdrop, Escape,
+		// Android's Back) and comes back when the same dialog opens again;
+		// a success forgets it. One draft at a time, as the note's.
+		// By target, the most recent few: Alice's typed reason survives
+		// opening Bob's dialog in between.
+		const drafts = new Map<
+			string,
+			{
+				mask: string;
+				reason: string;
+				durationChoice: string;
+				customDuration: string;
+				scope: string;
+			}
+		>();
+		const MAX_DRAFTS = 8;
+		const keyOf = (r: OperActionRequest) =>
+			`${r.network} ${r.action} ${r.nick ?? ""} ${r.mask ?? ""}`;
+
+		const restoreDraft = (r: OperActionRequest) => {
+			const draft = drafts.get(keyOf(r));
+
+			if (!draft) {
+				return;
+			}
+
+			mask.value = draft.mask;
+			reason.value = draft.reason;
+			durationChoice.value = draft.durationChoice;
+			customDuration.value = draft.customDuration;
+			scope.value = draft.scope;
+		};
+
 		const open = (incoming: OperActionRequest) => {
+			clearTimeout(closeTimer);
+			generation++;
 			request.value = incoming;
 			reset();
 
-			if (incoming.action !== "kill" && incoming.nick) {
+			restoreDraft(incoming);
+
+			// A kill too: the dialog says who holds the nick now, so a nick
+			// clicked in an old line is not taken for whoever has it today.
+			if (incoming.nick) {
 				void lookUp(incoming.nick);
 			}
 
-			void nextTick(() => firstField.value?.focus());
+			// Not on a touch phone: the keyboard would come up over the buttons.
+			if (!hasVirtualKeyboard()) {
+				void nextTick(() => firstField.value?.focus());
+			}
 		};
 
 		const close = () => {
+			generation++;
 			request.value = null;
 			clearTimeout(previewTimer);
+			clearTimeout(closeTimer);
+			previewFor = "";
+		};
+
+		/** Cancel, the backdrop, Escape: not while a line is out (it cannot be called back). */
+		const dismiss = () => {
+			if (busy.value) {
+				return;
+			}
+
+			const r = request.value;
+
+			if (r && !result.value) {
+				drafts.delete(keyOf(r)); // re-inserted last: the newest
+				drafts.set(keyOf(r), {
+					mask: mask.value,
+					reason: reason.value,
+					durationChoice: durationChoice.value,
+					customDuration: customDuration.value,
+					scope: scope.value,
+				});
+
+				if (drafts.size > MAX_DRAFTS) {
+					drafts.delete(drafts.keys().next().value as string);
+				}
+			}
+
+			close();
+		};
+
+		const closeSoon = (ms: number) => {
+			clearTimeout(closeTimer);
+			closeTimer = setTimeout(close, ms);
 		};
 
 		/** Who the mask matches now, from a CHECK host search (no CHECK: no preview). */
@@ -517,7 +716,9 @@ export default defineComponent({
 		};
 
 		watch([mask, banType], () => {
+			// A CHECK still out for the old mask must not land on the new one.
 			preview.value = null;
+			previewFor = "";
 			clearTimeout(previewTimer);
 
 			if (request.value && request.value.action !== "kill" && mask.value.trim()) {
@@ -547,28 +748,33 @@ export default defineComponent({
 			const r = request.value;
 			const n = network.value;
 
-			if (!r || !n || !canSubmit.value) {
+			if (!r || !n || !canSubmit.value || busy.value) {
 				return;
 			}
 
 			busy.value = true;
-			problem.value = "";
+			sendProblem.value = "";
+			const asked = generation;
 
 			if (r.action === "kill") {
-				const reply = await operRequest(
-					n.uuid,
-					killLine(r.nick ?? "", reason.value.trim())
-				);
+				const reply = await operRequest(n.uuid, outgoingLine.value);
+
+				if (asked !== generation) {
+					return;
+				}
+
 				busy.value = false;
 				const error = errorText(reply.lines, reply.outcome);
 
 				if (error) {
-					problem.value = error;
+					sendProblem.value = error;
 					return;
 				}
 
 				result.value = `Killed ${r.nick}.`;
-				setTimeout(close, 900);
+				drafts.delete(keyOf(r));
+				eventbus.emit("oper:acted", {network: r.network, nick: r.nick});
+				closeSoon(900);
 				return;
 			}
 
@@ -582,59 +788,70 @@ export default defineComponent({
 					seconds: seconds.value ?? 0,
 					reason: reason.value.trim(),
 				});
+
+				if (asked !== generation) {
+					return;
+				}
+
 				busy.value = false;
 
 				switch (reply.outcome) {
 					case "ok":
 						result.value = `${NAMES[type]} set via ${bot}: ${reply.text ?? ""}`;
-						setTimeout(close, 1500);
+						drafts.delete(keyOf(r));
+						eventbus.emit("oper:acted", {network: r.network, nick: r.nick});
+						closeSoon(1500);
 						return;
 					case "refused":
 						// O3's own words; the title already says who answered.
-						problem.value = reply.text ?? `${bot} refused it.`;
+						sendProblem.value = reply.text ?? `${bot} refused it.`;
 						return;
 					case "closed":
-						problem.value = "Not sent: the connection is down.";
+						sendProblem.value = "Not sent: the connection is down.";
 						return;
 					default:
-						problem.value = `${bot} did not answer.`;
+						sendProblem.value = `${bot} did not answer.`;
 						return;
 				}
 			}
 
-			const line = banLine({
-				type,
-				mask: mask.value,
-				scope: scope.value,
-				seconds: seconds.value ?? 0,
-				reason: reason.value.trim(),
-				force: maskCheck.value.needsForce && force.value,
-			});
-			const reply = await operRequest(n.uuid, line);
+			const reply = await operRequest(n.uuid, outgoingLine.value);
+
+			if (asked !== generation) {
+				return;
+			}
+
 			const error = errorText(reply.lines, reply.outcome);
 
 			if (error) {
 				busy.value = false;
-				problem.value = error;
+				sendProblem.value = error;
 				return;
 			}
 
 			// Silence means it worked; listing it back says so for certain.
 			const query = `${type.toUpperCase()} ${normaliseMask(type, mask.value)}`;
 			const check = await operRequest(n.uuid, query, {end: LIST_END[type]});
+
+			if (asked !== generation) {
+				return;
+			}
+
 			busy.value = false;
+			drafts.delete(keyOf(r));
+			eventbus.emit("oper:acted", {network: r.network, nick: r.nick});
 			const found = check.lines.some(
 				(msg) => msg.command === (type === "zline" ? "548" : "280")
 			);
 			result.value = found
 				? `${NAMES[type]} set for ${formatDuration(seconds.value ?? 0)}.`
 				: `${NAMES[type]} sent; the server does not list it yet.`;
-			setTimeout(close, found ? 1200 : 2500);
+			closeSoon(found ? 1200 : 2500);
 		};
 
 		const onEscape = (layer: string | null) => {
 			if (layer === "oper-action") {
-				close();
+				dismiss();
 			}
 		};
 
@@ -647,6 +864,7 @@ export default defineComponent({
 			eventbus.off("oper:action", open);
 			eventbus.off("escapekey", onEscape);
 			clearTimeout(previewTimer);
+			clearTimeout(closeTimer);
 		});
 
 		return {
@@ -674,7 +892,12 @@ export default defineComponent({
 			actionLabel,
 			maskCheck,
 			canSubmit,
+			who,
+			forceFlag,
+			mustConfirm,
+			confirmLabel,
 			close,
+			dismiss,
 			submit,
 		};
 	},

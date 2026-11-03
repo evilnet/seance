@@ -1,5 +1,12 @@
 import {expect} from "chai";
-import {banServiceBot, canBan} from "../../client/js/helpers/operMenu";
+import socket from "../../client/js/socket";
+import {
+	banServiceBot,
+	canBan,
+	operChanFor,
+	operTargetItems,
+	userhostItem,
+} from "../../client/js/helpers/operMenu";
 import type {ClientNetwork} from "../../client/js/types";
 
 /** A network as the menu helpers see it: the oper state and the services setting. */
@@ -58,6 +65,75 @@ describe("ban gating (helpers/operMenu.ts canBan)", function () {
 		).to.equal(false);
 		expect(canBan(network({privsKnown: false}), "gline"), "not reported yet: offered").to.equal(
 			true
+		);
+	});
+});
+
+describe("a chip's menu (helpers/operMenu.ts operTargetItems)", function () {
+	const run = (items: ReturnType<typeof operTargetItems>, cls: string): void => {
+		items.find((item) => item.type === "item" && item.class === cls)?.action?.();
+	};
+
+	it("says where a Check or a Who went, so the card can point there", function () {
+		const net = network({privs: ["CHECK"]});
+		const sent: number[] = [];
+		const emitted: unknown[] = [];
+		const emit = socket.emit.bind(socket);
+		socket.emit = ((name: string, data: unknown) => {
+			emitted.push([name, data]);
+		}) as typeof socket.emit;
+
+		try {
+			run(
+				operTargetItems(net, 7, "ip", "198.51.100.4", (c) => sent.push(c)),
+				"oper-check"
+			);
+			run(
+				operTargetItems(net, 7, "host", "u@a.example", (c) => sent.push(c)),
+				"oper-who"
+			);
+			run(operTargetItems(net, 7, "ip", "198.51.100.4"), "oper-who");
+		} finally {
+			socket.emit = emit;
+		}
+
+		expect(sent).to.deep.equal([7, 7]);
+		expect(emitted).to.deep.equal([
+			["input", {target: 7, text: "/check 198.51.100.4"}],
+			["input", {target: 7, text: "/who a.example xh"}],
+			["input", {target: 7, text: "/who 198.51.100.4 xi"}],
+		]);
+	});
+});
+
+describe("operChanFor (helpers/operMenu.ts)", function () {
+	const a = {uuid: "a", channels: [{id: 10}, {id: 11}]};
+	const b = {uuid: "b", channels: [{id: 20}, {id: 21}]};
+
+	it("runs in the active window when it is on the card's network", function () {
+		expect(operChanFor(a, {network: a, channel: {id: 11}})).to.equal(11);
+	});
+
+	it("runs in the card's own lobby when another network's window is active", function () {
+		expect(operChanFor(a, {network: b, channel: {id: 21}})).to.equal(10);
+	});
+});
+
+describe("userhostItem (helpers/operMenu.ts)", function () {
+	const line = (command: string, text: string) => ({command, params: ["me", text]});
+
+	it("finds the item for the asked nick, not the first one", function () {
+		const lines = [
+			line("340", "alice=+a@192.0.2.10"),
+			line("340", "Bob*=+b@192.0.2.20 carol=-c@192.0.2.30"),
+		];
+		expect(userhostItem(lines, "340", "bob")).to.deep.equal({user: "b", host: "192.0.2.20"});
+		expect(userhostItem(lines, "340", "carol")).to.deep.equal({user: "c", host: "192.0.2.30"});
+	});
+
+	it("is undefined when only someone else's answer came", function () {
+		expect(userhostItem([line("302", "alice=+a@host.example")], "302", "bob")).to.equal(
+			undefined
 		);
 	});
 });

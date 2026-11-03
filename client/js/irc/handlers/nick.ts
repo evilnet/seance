@@ -6,6 +6,7 @@ import {MessageType} from "../../../../shared/types/msg";
 import {msgidOf} from "../message";
 import type {Handler} from "../types";
 import {scriptManager} from "../scripting/manager";
+import {forgetBot} from "../bottrust";
 
 const nick: Handler = (client, msg) => {
 	const oldNick = msg.source?.name ?? "";
@@ -16,6 +17,9 @@ const nick: Handler = (client, msg) => {
 	}
 
 	if (!client.replaying) {
+		// A services bot's nick, left or newly taken, is someone to ask about again.
+		forgetBot(client, oldNick);
+		forgetBot(client, newNick);
 		scriptManager.dispatchNick({
 			network: client.name,
 			networkUuid: client.uuid,

@@ -1,7 +1,7 @@
 <template>
 	<div
 		id="oper-alert-overlay"
-		v-backdrop="close"
+		v-backdrop="dismiss"
 		class="screen-overlay"
 		:class="{opened: !!request}"
 		:data-escape-close="request ? 'oper-alert-builder' : null"
@@ -22,7 +22,7 @@
 					class="settings-modal-close"
 					type="button"
 					aria-label="Close the alert builder"
-					@click="close"
+					@click="dismiss"
 				>
 					✕
 				</button>
@@ -64,7 +64,8 @@
 									:disabled="tooLow(r)"
 									:title="tooLow(r) ? `needs O3 level ${r.level}` : undefined"
 								>
-									{{ r.label }} · {{ r.id }} · level {{ r.level
+									{{ r.label }} · {{ r.id }} ·
+									{{ tooLow(r) ? "needs O3 level" : "level" }} {{ r.level
 									}}{{ r.needs ? ` · needs ${r.needs}` : "" }}
 								</option>
 							</select>
@@ -89,6 +90,7 @@
 								:data-key="row.key"
 							>
 								<input
+									:id="`oper-alert-on-${row.id}`"
 									v-model="row.on"
 									v-switch
 									class="oper-alert-switch"
@@ -97,7 +99,12 @@
 									:aria-label="`Use ${labelOf(row.key)}`"
 									:aria-checked="row.on"
 								/>
-								<span class="oper-alert-row-label" :title="row.key">
+								<!-- A label, so the words toggle the row as the switch does. -->
+								<label
+									class="oper-alert-row-label"
+									:for="`oper-alert-on-${row.id}`"
+									:title="row.key"
+								>
 									{{ labelOf(row.key) }}
 									<span
 										v-if="wide(row)"
@@ -105,7 +112,10 @@
 										:title="`Wide on its own: ${wide(row)}`"
 										>wide</span
 									>
-								</span>
+									<span v-if="wide(row)" class="oper-touch-hint"
+										>Wide on its own: {{ wide(row) }}</span
+									>
+								</label>
 								<input
 									v-if="row.key !== 'log'"
 									v-model="row.value"
@@ -188,13 +198,20 @@
 				<div class="oper-alert-actions">
 					<button
 						type="submit"
-						class="btn btn-small oper-alert-submit"
+						class="oper-btn oper-btn-primary oper-alert-submit"
 						:disabled="!canSubmit"
 					>
 						{{ busy ? "Sending…" : request.edit ? "Replace alert" : "Add alert" }}
 					</button>
-					<button type="button" class="btn btn-small" @click="copy">Copy command</button>
-					<button type="button" class="btn btn-small btn-cancel" @click="close">
+					<button type="button" class="oper-btn oper-btn-secondary" @click="copy">
+						Copy command
+					</button>
+					<button
+						type="button"
+						class="oper-btn oper-btn-ghost oper-cancel"
+						:disabled="busy"
+						@click="dismiss"
+					>
 						Cancel
 					</button>
 				</div>
@@ -218,6 +235,7 @@ import {
 	watch,
 } from "vue";
 import eventbus from "../../js/eventbus";
+import {hasVirtualKeyboard} from "../../js/helpers/device";
 import {useStore} from "../../js/store";
 import {clientForNetwork} from "../../js/irc/manager";
 import {
@@ -226,6 +244,7 @@ import {
 	describeFailure,
 	operLevel,
 	opersAmong,
+	WHO_NICKS,
 	replaceAlert,
 	tracePrint,
 	type LookupResult,
@@ -309,6 +328,8 @@ export default defineComponent({
 		});
 		let traceTimer: ReturnType<typeof setTimeout> | undefined;
 		let closeTimer: ReturnType<typeof setTimeout> | undefined;
+		/** Bumped on every open and close: a submit's late answer finds it moved. */
+		let formGeneration = 0;
 		let toastTimer: ReturnType<typeof setTimeout> | undefined;
 		let traceGeneration = 0;
 		let traceBusy = false;
@@ -437,16 +458,16 @@ export default defineComponent({
 
 				const nicks = answer.value.users.map((u) => u.nick);
 				const flagged = answer.value.users.filter((u) => u.flags?.includes("*"));
-				const opers =
-					flagged.length > 0 || nicks.length === 0
-						? flagged.map((u) => u.nick)
-						: await opersAmong(c, nicks);
+				const byFlags = flagged.length > 0 || nicks.length === 0;
+				const opers = byFlags ? flagged.map((u) => u.nick) : await opersAmong(c, nicks);
+				// Only what was looked at: the WHO asks the first WHO_NICKS.
+				const checked = byFlags ? nicks.length : Math.min(nicks.length, WHO_NICKS);
 
 				if (generation !== traceGeneration) {
 					return;
 				}
 
-				const worded = matchesText(answer.value.count, opers);
+				const worded = matchesText(answer.value.count, opers, checked);
 				setMatches({state: "done", count: answer.value.count, nicks, ...worded});
 			} finally {
 				traceBusy = false;
@@ -502,6 +523,7 @@ export default defineComponent({
 		// ------------------------------------------------------ open, close
 
 		const open = (req: AlertBuilderRequest) => {
+			formGeneration++;
 			const c = clientForNetwork(req.network);
 			const me = c?.nick ?? "";
 
@@ -540,10 +562,15 @@ export default defineComponent({
 			}
 
 			scheduleTrace();
-			void nextTick(() => nameField.value?.focus());
+
+			// Not on a touch phone: the keyboard would come up over the buttons.
+			if (!hasVirtualKeyboard()) {
+				void nextTick(() => nameField.value?.focus());
+			}
 		};
 
 		const close = () => {
+			formGeneration++;
 			clearTimeout(traceTimer);
 			clearTimeout(closeTimer);
 			traceTimer = undefined;
@@ -569,6 +596,11 @@ export default defineComponent({
 				return;
 			}
 
+			// O3 can take 10 s: a form closed or opened again since must not
+			// take this answer, or its close timer.
+			const asked = formGeneration;
+			const current = () => asked === formGeneration;
+
 			busy.value = true;
 			result.value = "";
 			problem.value = "";
@@ -591,14 +623,18 @@ export default defineComponent({
 						: `The old alert could not be put back: ${verdictText(both.restored, c)}`;
 					const text = [deleted, added, restored].filter(Boolean).join(" ");
 
+					if (ok || (both.deleted.kind === "reply" && both.deleted.value?.ok)) {
+						eventbus.emit("oper:alerts-changed", {network: req.network});
+					}
+
+					if (!current()) {
+						return;
+					}
+
 					if (ok) {
 						result.value = text;
 					} else {
 						problem.value = text;
-					}
-
-					if (ok || (both.deleted.kind === "reply" && both.deleted.value?.ok)) {
-						eventbus.emit("oper:alerts-changed", {network: req.network});
 					}
 
 					if (ok) {
@@ -612,14 +648,23 @@ export default defineComponent({
 				const text = verdictText(answer, c);
 
 				if (answer.kind === "reply" && answer.value?.ok) {
-					result.value = text;
 					eventbus.emit("oper:alerts-changed", {network: req.network});
+				}
+
+				if (!current()) {
+					return;
+				}
+
+				if (answer.kind === "reply" && answer.value?.ok) {
+					result.value = text;
 					closeTimer = setTimeout(close, CLOSE_AFTER_MS);
 				} else {
 					problem.value = text;
 				}
 			} finally {
-				busy.value = false;
+				if (current()) {
+					busy.value = false;
+				}
 			}
 		};
 
@@ -634,9 +679,20 @@ export default defineComponent({
 			}
 		};
 
+		/**
+		 * ✕, Cancel, the backdrop, Escape: not while O3 is answering. The
+		 * line is out and cannot be called back, and a Replace that fails
+		 * half-way has to say whether the old alert was put back.
+		 */
+		const dismiss = () => {
+			if (!busy.value) {
+				close();
+			}
+		};
+
 		const onEscape = (layer: string | null) => {
 			if (layer === "oper-alert-builder") {
-				close();
+				dismiss();
 			}
 		};
 
@@ -654,6 +710,7 @@ export default defineComponent({
 		});
 
 		return {
+			dismiss,
 			REACTIONS,
 			EXPIRIES,
 			request,

@@ -12,8 +12,16 @@
 import type {ServicesConfig} from "../../../shared/types/network";
 import type {IrcClient} from "./client";
 import type {IrcMessage} from "./message";
+import {
+	BOT_SEND_FRESH_MS,
+	botOnline,
+	botSendable,
+	fromTrustedBot,
+	recheckBot,
+	verifyBot,
+	whoisBot,
+} from "./bottrust";
 import {sendQuiet} from "./quiet";
-import {request} from "./request";
 import {servicesProfileFor} from "./services/index";
 import {X3_REALNAMES} from "./services/x3";
 import {cleanIrcMessage as stripFormatting} from "../../../shared/irc";
@@ -33,6 +41,11 @@ export interface ServiceCheck {
 	online: boolean;
 	/** It carries the package's usual realname, or the server calls it a service. */
 	looksLikeX3: boolean;
+	/**
+	 * WHOIS calls it a network service: its replies and feed lines count
+	 * (bottrust.ts). Online but not this is someone else holding the nick.
+	 */
+	trusted: boolean;
 }
 
 /** The check as a whole: the bots, or why none could be asked. */
@@ -61,31 +74,21 @@ export async function checkServices(
 		.map((role) => ({role, bot: services.bots[role].trim()}))
 		.filter((b) => b.bot !== "");
 
+	// The same WHOIS the trust check asks (bottrust.ts): checking the bots
+	// here also settles which of them are real for this connection.
 	const replies = await Promise.all(
-		bots.map((b) =>
-			request(client, `WHOIS ${b.bot}`, {
-				end: ["318", "401"],
-				timeoutMs: SERVICE_CHECK_TIMEOUT_MS,
-			})
-		)
+		bots.map((b) => whoisBot(client, b.bot, SERVICE_CHECK_TIMEOUT_MS))
 	);
 
 	const results: ServiceCheck[] = bots.map((b, i) => {
-		const lines = replies[i].lines;
-		const user = lines.find((msg) => msg.command === "311");
-		const realname = user?.params[user.params.length - 1] ?? "";
-		const service = lines.some(
-			(msg) =>
-				(msg.command === "310" || msg.command === "313") &&
-				/service/i.test(msg.params[msg.params.length - 1] ?? "")
-		);
-		const online = user !== undefined;
+		const {online, service, realname} = replies[i].whois;
 
 		return {
 			role: b.role,
 			bot: b.bot,
 			online,
 			looksLikeX3: online && (service || X3_REALNAMES.includes(realname.trim())),
+			trusted: online && service,
 		};
 	});
 
@@ -140,16 +143,24 @@ export function describeServiceCheck(check: ServicesCheckResult, packageName = "
 		const names = listOf(online.map((r) => r.bot));
 		const verb = online.length === 1 ? "is" : "are";
 		const odd = online.filter((r) => !r.looksLikeX3).map((r) => r.bot);
+		const fake = online.filter((r) => !r.trusted).map((r) => r.bot);
 		const look =
 			odd.length === 0
 				? ` and ${online.length === 1 ? "looks" : "look"} like ${packageName}`
 				: "";
-		let sentence = `${offline.length === 0 ? "✓ " : ""}${names} ${verb} online${look}.`;
+		const tick = offline.length === 0 && fake.length === 0 ? "✓ " : "";
+		let sentence = `${tick}${names} ${verb} online${look}.`;
 
 		if (odd.length > 0) {
 			sentence += ` ${listOf(odd)} ${
 				odd.length === 1 ? "doesn't" : "don't"
 			} look like ${packageName}.`;
+		}
+
+		if (fake.length > 0) {
+			sentence += ` ${listOf(fake)} ${
+				fake.length === 1 ? "isn't a network service" : "aren't network services"
+			}, so Seance won't trust ${fake.length === 1 ? "its" : "their"} replies.`;
 		}
 
 		parts.push(sentence);
@@ -169,8 +180,58 @@ export const SERVICE_REPLY_TIMEOUT_MS = 10_000;
 export type ServiceAnswer<T> =
 	| {kind: "reply"; value: T}
 	| {kind: "missing"}
+	/** Online, but WHOIS does not call it a network service (bottrust.ts). */
+	| {kind: "untrusted"}
 	| {kind: "timeout"}
 	| {kind: "closed"};
+
+/** Check each configured bot in the background (oper-up): one WHOIS each, behind the fake lag. */
+export function verifyServiceBots(client: IrcClient): void {
+	const bots = client.services?.bots;
+
+	if (!bots || !servicesProfileFor(client.services)) {
+		return;
+	}
+
+	const seen = new Set<string>();
+
+	for (const bot of [bots.oper, bots.account, bots.channel].map((b) => b.trim())) {
+		if (bot !== "" && !seen.has(client.casefold(bot))) {
+			seen.add(client.casefold(bot));
+			void verifyBot(client, bot, {background: true});
+		}
+	}
+}
+
+/** Why a bot was not asked (`readyBot`). */
+export type NotReady = {kind: "missing" | "untrusted" | "timeout" | "closed"};
+
+/**
+ * Before a conversation with `bot`: check it is the real bot (bottrust.ts;
+ * WHOIS again once the last check is five minutes old). Callers skip the
+ * wait when `botSendable` already says yes, so a checked bot is asked in
+ * the same tick. Undefined when it is the bot; otherwise the answer to give
+ * instead of asking — `missing`, `untrusted`, or `closed`/`timeout` when
+ * the WHOIS itself could not be had.
+ */
+export async function readyBot(client: IrcClient, bot: string): Promise<NotReady | undefined> {
+	if (!client.isWelcomed) {
+		return {kind: "closed"};
+	}
+
+	const trust = await verifyBot(client, bot, {maxAge: BOT_SEND_FRESH_MS});
+
+	if (trust === "trusted") {
+		return undefined;
+	}
+
+	if (trust === "unknown") {
+		return {kind: client.isWelcomed ? "timeout" : "closed"};
+	}
+
+	// Asked, and not trusted: not online at all, or someone else.
+	return {kind: botOnline(client, bot) ? "untrusted" : "missing"};
+}
 
 interface ReplyWatcher<T> {
 	bot: string;
@@ -301,6 +362,13 @@ export function noteServiceReply(client: IrcClient, msg: IrcMessage): boolean {
 
 	for (const watcher of [...list]) {
 		if (!client.namesEqual(watcher.bot, from)) {
+			continue;
+		}
+
+		// The bot's nick from another address is not the bot (bottrust.ts):
+		// shown as the ordinary notice it is, and the bot asked about again.
+		if (!fromTrustedBot(client, msg, watcher.bot)) {
+			void recheckBot(client, watcher.bot);
 			continue;
 		}
 
@@ -438,12 +506,27 @@ export async function servicesBan(
 	const services = client.services;
 	const profile = servicesProfileFor(services);
 
-	if (!services || !profile || !services.bots.oper) {
+	if (!services || !profile || !services.bots.oper.trim()) {
 		return {outcome: "closed", text: "No oper service is set up for this network."};
 	}
 
-	const bot = services.bots.oper;
-	const reply = awaitServiceReply(client, bot, (text) => profile.parseBanReply(text));
+	// Trimmed as ActionDialog.vue trims it: the dialog measures this same line.
+	const bot = services.bots.oper.trim();
+	const notReady = botSendable(client, bot) ? undefined : await readyBot(client, bot);
+
+	if (notReady) {
+		return banRefusal(bot, notReady);
+	}
+
+	// A reply that names a mask must name this one: a dialog closed while
+	// its ban was out leaves that watcher waiting, and O3's answer to it
+	// would otherwise confirm the next ban too.
+	const reply = awaitServiceReply(client, bot, (text) => {
+		const verdict = profile.parseBanReply(text);
+		return verdict && (!verdict.mask || verdict.mask.toLowerCase() === ban.mask.toLowerCase())
+			? verdict
+			: undefined;
+	});
 
 	if (!sendQuiet(client, profile.banCommand(bot, ban))) {
 		resetServiceReplies(client);
@@ -452,12 +535,25 @@ export async function servicesBan(
 
 	const answer = await reply;
 
+	return answer.kind === "reply"
+		? {outcome: answer.value.ok ? "ok" : "refused", text: answer.value.text}
+		: banRefusal(bot, answer);
+}
+
+function banRefusal(bot: string, answer: NotReady): ServicesBanOutcome {
 	switch (answer.kind) {
-		case "reply":
-			return {outcome: answer.value.ok ? "ok" : "refused", text: answer.value.text};
 		case "missing":
 			return {outcome: "refused", text: `${bot} is not online (no such nick).`};
+		case "untrusted":
+			return {outcome: "refused", text: untrustedText(bot)};
+		case "timeout":
+			return {outcome: "timeout"};
 		default:
-			return {outcome: answer.kind};
+			return {outcome: "closed"};
 	}
+}
+
+/** What a card or form says when the bot's nick is held by someone else. */
+export function untrustedText(bot: string): string {
+	return `${bot} is online but isn't a network service, so Seance won't trust it.`;
 }

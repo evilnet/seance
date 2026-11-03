@@ -14,7 +14,8 @@ import type {IrcClient} from "./client";
 import {formatLine} from "./message";
 import {fitsQuiet, sendQuiet} from "./quiet";
 import {canRequest, request} from "./request";
-import {collectServiceReply, type ServiceAnswer} from "./services";
+import {botSendable} from "./bottrust";
+import {collectServiceReply, readyBot, type ServiceAnswer} from "./services";
 import {servicesProfileFor} from "./services/index";
 import type {
 	CommandReply,
@@ -27,7 +28,7 @@ import type {
 /** What a lookup came to: the parsed value (undefined when the bot said "no such thing") or why there is none. */
 export type LookupResult<T> =
 	| {kind: "reply"; value: T | undefined; lines: string[]}
-	| {kind: "missing" | "timeout" | "closed" | "toolong" | "unavailable"};
+	| {kind: "missing" | "untrusted" | "timeout" | "closed" | "toolong" | "unavailable"};
 
 /** The lookups and the oper bot of a network with a package set up, or undefined. */
 function lookupsOf(client: IrcClient): {lookups: ServicesLookups; bot: string} | undefined {
@@ -57,6 +58,12 @@ async function ask<T>(client: IrcClient, lookup: ServiceLookup<T>): Promise<Look
 
 	if (!fitsQuiet(line)) {
 		return {kind: "toolong"};
+	}
+
+	const notReady = botSendable(client, bot) ? undefined : await readyBot(client, bot);
+
+	if (notReady) {
+		return {kind: notReady.kind};
 	}
 
 	const reply = collectServiceReply(client, bot, {accept: (text) => lookup.accept(text)});
@@ -191,7 +198,8 @@ export async function opersAmong(
 	return opers;
 }
 
-const levels = new WeakMap<IrcClient, Promise<number | undefined>>();
+/** By client, for the account it asked about: a reconnect as another account asks again. */
+const levels = new WeakMap<IrcClient, {account: string; level: Promise<number | undefined>}>();
 
 /**
  * The oper's own level with the oper service, from the account service's
@@ -200,14 +208,13 @@ const levels = new WeakMap<IrcClient, Promise<number | undefined>>();
  * asked, or not told. Asked once per connection and remembered.
  */
 export function operLevel(client: IrcClient): Promise<number | undefined> {
-	const cached = levels.get(client);
-
-	if (cached) {
-		return cached;
-	}
-
 	const lookups = servicesProfileFor(client.services)?.lookups;
 	const account = client.account;
+	const cached = levels.get(client);
+
+	if (cached && cached.account === account) {
+		return cached.level;
+	}
 
 	if (!lookups || !account) {
 		return Promise.resolve(undefined);
@@ -221,7 +228,7 @@ export function operLevel(client: IrcClient): Promise<number | undefined> {
 		levels.delete(client); // nothing learnt: ask again next time
 		return undefined;
 	});
-	levels.set(client, promise);
+	levels.set(client, {account, level: promise});
 	return promise;
 }
 

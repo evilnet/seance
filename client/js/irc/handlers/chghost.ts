@@ -4,6 +4,7 @@
 
 import {MessageType} from "../../../../shared/types/msg";
 import type {Handler} from "../types";
+import {forgetBot} from "../bottrust";
 
 const chghost: Handler = (client, msg) => {
 	const nick = msg.source?.name ?? "";
@@ -14,6 +15,10 @@ const chghost: Handler = (client, msg) => {
 
 	if (!nick) {
 		return;
+	}
+
+	if (!client.replaying) {
+		forgetBot(client, nick);
 	}
 
 	if (self) {

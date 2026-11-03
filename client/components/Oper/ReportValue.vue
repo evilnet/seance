@@ -28,7 +28,11 @@
 			><span v-if="one.prefix" class="oper-channel-prefix">{{ one.prefix }}</span
 			><ParsedMessage :network="network" :text="one.v"
 		/></span>
-		<time v-else-if="one.t === 'time'" class="oper-time" :title="absolute(one.v)"
+		<time
+			v-else-if="one.t === 'time'"
+			class="oper-time"
+			:title="absolute(one.v)"
+			:data-abs="one.text ? undefined : absolute(one.v)"
 			>{{ one.text ? absolute(one.v) : relative(one.v) }}
 			<span v-if="one.text" class="oper-muted">({{ relative(one.v) }})</span></time
 		>
@@ -36,6 +40,7 @@
 			v-else-if="one.t === 'expiry'"
 			:class="['oper-expiry', {expired: one.v > 0 && one.v <= now}]"
 			:title="one.v ? absolute(one.v) : 'Never expires'"
+			:data-abs="one.v ? absolute(one.v) : undefined"
 			>{{ expiry(one.v) }}</time
 		>
 		<span v-else-if="one.t === 'duration'" class="oper-duration">{{ duration(one.v) }}</span>
@@ -61,7 +66,7 @@ import {computed, defineComponent, PropType} from "vue";
 import type {ReportValue} from "../../../shared/types/oper";
 import type {ClientNetwork} from "../../js/types";
 import {formatBytes, formatDuration, formatExpiry, relativeTime} from "../../js/helpers/operFormat";
-import {openOperTargetMenu} from "../../js/helpers/operMenu";
+import {openOperTargetMenu, operChanFor} from "../../js/helpers/operMenu";
 import localetime from "../../js/helpers/localetime";
 import useNow from "../../js/hooks/use-now";
 import {useStore} from "../../js/store";
@@ -94,8 +99,7 @@ export default defineComponent({
 		const one = computed(() => values.value[0]);
 
 		const openMenu = (event: MouseEvent, kind: "ip" | "host" | "mask", value: string) => {
-			const chan =
-				props.chan ?? store.state.activeChannel?.channel.id ?? props.network.channels[0].id;
+			const chan = props.chan ?? operChanFor(props.network, store.state.activeChannel);
 			openOperTargetMenu(event, props.network, chan, kind, value);
 		};
 
