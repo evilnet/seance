@@ -367,7 +367,7 @@ export default defineComponent({
 
 		// The server said the wait is its connection throttle (irc/handlers/error.ts).
 		const throttledWait = computed(
-			() => retryInSeconds.value > 0 && props.network.status.retryThrottled === true
+			() => retryInSeconds.value > 0 && props.network.status.retryReason === "throttled"
 		);
 
 		const connectionLabel = computed(() => {
@@ -377,7 +377,7 @@ export default defineComponent({
 				return `Disconnected from ${name}.`;
 			}
 
-			if (props.network.status.retryOffline === true && retryInSeconds.value > 0) {
+			if (props.network.status.retryReason === "offline" && retryInSeconds.value > 0) {
 				return `You're offline. Will reconnect to ${name} when the network is back.`;
 			}
 

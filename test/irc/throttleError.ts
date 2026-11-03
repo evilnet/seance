@@ -13,12 +13,12 @@ describe("parseThrottleError (handlers/error.ts)", function () {
 		).to.deep.equal({});
 	});
 
-	it('reads the wait after "retry in", capped at five minutes', function () {
+	it('reads the wait after "retry in", a second more (whole seconds), capped at five minutes', function () {
 		const wait = (text: string) => parseThrottleError(text)?.waitMs;
-		expect(wait("too fast -- throttled (retry in 37 seconds)")).to.equal(37_000);
-		expect(wait("throttled; retry in 37s")).to.equal(37_000);
-		expect(wait("Throttled: Retry in 5 sec")).to.equal(5_000);
-		expect(wait("throttled (retry in 1)")).to.equal(1_000);
+		expect(wait("too fast -- throttled (retry in 37 seconds)")).to.equal(38_000);
+		expect(wait("throttled; retry in 37s")).to.equal(38_000);
+		expect(wait("Throttled: Retry in 5 sec")).to.equal(6_000);
+		expect(wait("throttled (retry in 1)")).to.equal(2_000);
 		expect(wait("throttled (retry in 99999 seconds)")).to.equal(MAX_THROTTLE_WAIT_MS);
 	});
 

@@ -938,17 +938,17 @@ describe("WsTransport: the server's throttle", function () {
 		return events.filter((e) => e.type === "reconnecting").pop();
 	}
 
-	it("waits the seconds the server named, and a second more, when it said it throttled us", function () {
+	it("waits what the server's throttle set (handlers/error.ts adds the second)", function () {
 		const {t, events} = make({reconnect: fastReconnect});
 		t.connect();
 		last().open();
-		t.throttled(37_000);
+		t.throttled(38_000);
 		last().closed(1006, "", false);
 		expect(lastReconnecting(events)).to.deep.equal({
 			type: "reconnecting",
 			attempt: 1,
 			delayMs: 38_000,
-			throttled: true,
+			reason: "throttled",
 		});
 		clock.tick(37_999);
 		expect(FakeWebSocket.instances).to.have.length(1);
@@ -965,7 +965,7 @@ describe("WsTransport: the server's throttle", function () {
 		last().closed(1006, "", false);
 		expect(lastReconnecting(events)).to.include({
 			delayMs: UNREACHED_RETRY_MS,
-			throttled: true,
+			reason: "throttled",
 		});
 	});
 
@@ -1098,7 +1098,10 @@ describe("WsTransport: the server's throttle", function () {
 			const {t, events} = make({reconnect: fastReconnect});
 			t.connect();
 			last().closed(1006, "", false);
-			expect(lastReconnecting(events)).to.include({delayMs: OFFLINE_RETRY_MS, offline: true});
+			expect(lastReconnecting(events)).to.include({
+				delayMs: OFFLINE_RETRY_MS,
+				reason: "offline",
+			});
 			expect(t.holding(), "the online poke dials at once").to.equal(false);
 
 			// A stable connection lost with the radio gone: no instant retry either.
@@ -1106,7 +1109,10 @@ describe("WsTransport: the server's throttle", function () {
 			last().open();
 			clock.tick(STABLE_MS);
 			last().closed(1006, "", false);
-			expect(lastReconnecting(events)).to.include({delayMs: OFFLINE_RETRY_MS, offline: true});
+			expect(lastReconnecting(events)).to.include({
+				delayMs: OFFLINE_RETRY_MS,
+				reason: "offline",
+			});
 		});
 	});
 
@@ -1152,14 +1158,14 @@ describe("WsTransport: the server's throttle", function () {
 
 		expect(lastReconnecting(events)).to.include({delayMs: 1000}); // at the cap
 		last().open();
-		t.throttled(0);
+		t.throttled(1000);
 		last().closed(1006, "", false);
-		expect(lastReconnecting(events)).to.include({delayMs: 1000, throttled: true});
+		expect(lastReconnecting(events)).to.include({delayMs: 1000, reason: "throttled"});
 		clock.tick(1000);
 		last().open();
-		t.throttled(100);
+		t.throttled(1100);
 		last().closed(1006, "", false);
-		expect(lastReconnecting(events)).to.include({delayMs: 1100, throttled: true});
+		expect(lastReconnecting(events)).to.include({delayMs: 1100, reason: "throttled"});
 	});
 
 	it("a dial that replaces an open socket and never opens retries quickly, not at once", function () {

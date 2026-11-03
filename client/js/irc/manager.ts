@@ -347,10 +347,12 @@ export function syncPresenceAll(): void {
  * to the foreground — browsers from foreground.ts, native shells from
  * native.ts; deliberately disconnected networks are left alone.
  */
-export function reconnectAll(): void {
+export function reconnectAll(opts: {networkBack?: boolean} = {}): void {
 	const now = Date.now();
 
-	if (now - lastPokeAt < POKE_INTERVAL_MS) {
+	// The network coming back is rare and the one signal an offline wait
+	// waits for: never folded into a focus poke a moment before it.
+	if (!opts.networkBack && now - lastPokeAt < POKE_INTERVAL_MS) {
 		return;
 	}
 
@@ -359,9 +361,7 @@ export function reconnectAll(): void {
 	for (const client of clients.values()) {
 		const transport = client.transport;
 
-		// A long wait (the server's throttle, or after the quick retries) is
-		// left to run: dialling now would renew a refusal's window. Connect
-		// now still cuts it.
+		// A long wait is left to run (transport.ts holding).
 		if (transport.state === "reconnect-wait" && !transport.holding?.()) {
 			client.connect();
 		} else if (transport.state === "connecting") {

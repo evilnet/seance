@@ -157,18 +157,11 @@ socket.on("network:status", function (data) {
 		delete network.status.retryAt;
 	}
 
-	// And whether that wait is the server's connection throttle.
-	if (data.retryThrottled) {
-		network.status.retryThrottled = true;
+	// And why that wait: the server's throttle, or no network here.
+	if (data.retryReason) {
+		network.status.retryReason = data.retryReason;
 	} else {
-		delete network.status.retryThrottled;
-	}
-
-	// Or the device's own lack of a network.
-	if (data.retryOffline) {
-		network.status.retryOffline = true;
-	} else {
-		delete network.status.retryOffline;
+		delete network.status.retryReason;
 	}
 
 	// A private conversation to reopen now that we are registered: the one

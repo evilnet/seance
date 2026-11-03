@@ -54,7 +54,7 @@ and the server says when it throttles:
   server counts whole seconds), at most five minutes; any other number in
   the text (a kill reason's) is not a wait. With no `retry in`, as in stock
   nefarious2's `Your host is trying to (re)connect too fast -- throttled`,
-  it waits 42 s. The wait is flagged (`status.retryThrottled`): the strip
+  it waits 42 s. The wait is flagged (`status.retryReason` = `"throttled"`): the strip
   says "Reconnecting to <network> in Ns: the server limits quick
   reconnects."
 - **A dial that fails before it opens.** Today nefarious2 refuses before the
@@ -76,11 +76,11 @@ and the server says when it throttles:
 - **Offline** (`navigator.onLine` false; only its false is trustworthy):
   whatever the socket did, nothing is retried on a timer but a 30 s
   backstop (`OFFLINE_RETRY_MS`), since the app's `online` event dials as
-  soon as the network is back (`foreground.ts` → `reconnectAll`). The
+  soon as the network is back (`foreground.ts` → `reconnectAll`, which never folds that event into a focus poke a moment before it). The
   lobby says once "You're offline. Will reconnect when the network is
   back." with no certificate hint, later failed tries say nothing, and the
   strip says "You're offline. Will reconnect to <network> when the network
-  is back." (`status.retryOffline`). Browser check
+  is back." (`status.retryReason` = `"offline"`). Browser check
   `tools/scenarios/offline.mjs`.
 - **The long waits hold** (`WsTransport.holding`): the foreground poke
   (`manager.ts` `reconnectAll`, the app coming back, focus, `online`)

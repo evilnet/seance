@@ -144,7 +144,14 @@ import {channelOrder, get as getSavedNetwork, NetworkCursor, setCursor} from "./
 import {noteServiceReply, resetServiceReplies} from "./services";
 import {dropQuietLine} from "./quiet";
 import {BackgroundQueue, FakeLagClock, type FakeLagModel} from "./fakelag";
-import {ReconnectOptions, TransportEvent, TransportOptions, WsTransport} from "./transport";
+import {
+	isOffline,
+	ReconnectOptions,
+	RetryReason,
+	TransportEvent,
+	TransportOptions,
+	WsTransport,
+} from "./transport";
 import type {ConnectOptions, InputOptions, IrcClientState, Transport} from "./types";
 import {
 	ClientTags,
@@ -276,11 +283,6 @@ export const UNKNOWN_HOST_BYTES = 75;
 
 /** A `+typing` TAGMSG: one command of fake lag. */
 const TYPING_COST_MS = 2000;
-
-/** The device reports no network (`navigator.onLine`; only its false is trustworthy). */
-function isOffline(): boolean {
-	return (globalThis.navigator as {onLine?: boolean} | undefined)?.onLine === false;
-}
 
 export class IrcClient {
 	readonly uuid: string;
@@ -495,10 +497,8 @@ export class IrcClient {
 	private closeExplained = false;
 	/** When the transport's next automatic dial is due; only while waiting for a retry. */
 	private retryAt: number | undefined;
-	/** The server said it throttled us, and that wait is its (handlers/error.ts). */
-	private retryThrottled = false;
-	/** The device has no network: the wait ends when it is back (transport.ts). */
-	private retryOffline = false;
+	/** Why that wait: the server's throttle, or no network here (transport.ts). */
+	private retryReason: RetryReason | undefined;
 	/** The lobby has said we are offline, since the last socket that opened. */
 	private offlineNoted = false;
 	private activeChanId = 0;
@@ -665,8 +665,7 @@ export class IrcClient {
 			connecting: this._state === "connecting" || this._state === "registering",
 			secure: this.options.tls,
 			...(this.retryAt !== undefined ? {retryAt: this.retryAt} : {}),
-			...(this.retryThrottled ? {retryThrottled: true} : {}),
-			...(this.retryOffline ? {retryOffline: true} : {}),
+			...(this.retryReason ? {retryReason: this.retryReason} : {}),
 		};
 	}
 
@@ -743,8 +742,7 @@ export class IrcClient {
 		this.quitting = false;
 		this.closeHintShown = false;
 		this.retryAt = undefined;
-		this.retryThrottled = false;
-		this.retryOffline = false;
+		this.retryReason = undefined;
 		this._state = "connecting";
 		this.bus.dispatch("connecting");
 		this.announceStatus();
@@ -774,8 +772,7 @@ export class IrcClient {
 
 		this.transport.close();
 		this.retryAt = undefined;
-		this.retryThrottled = false;
-		this.retryOffline = false;
+		this.retryReason = undefined;
 
 		if (state === "reconnect-wait") {
 			// The socket is already gone, so no close event follows: settle here.
@@ -964,20 +961,16 @@ export class IrcClient {
 				this._state = "connecting";
 				this.bus.dispatch("connecting");
 
-				// The server's throttle, waited out (handlers/error.ts): the
-				// close before this event did not know it was one.
-				if (ev.throttled) {
+				// The server's throttle or no network here: the close before
+				// this event did not know why it would wait.
+				if (ev.reason) {
 					this.retryAt = Date.now() + ev.delayMs;
-					this.retryThrottled = true;
+					this.retryReason = ev.reason;
 					this.announceStatus();
 				}
 
-				// No network here: say so once, and wait for it (transport.ts).
-				if (ev.offline) {
-					this.retryAt = Date.now() + ev.delayMs;
-					this.retryOffline = true;
-					this.announceStatus();
-
+				// No network: say so once, and wait for it.
+				if (ev.reason === "offline") {
 					if (!this.offlineNoted) {
 						this.offlineNoted = true;
 						this.pushMessage(
@@ -994,17 +987,18 @@ export class IrcClient {
 					this.lobby,
 					{
 						// A stable connection's loss retries at once (transport.ts).
-						text: ev.throttled
-							? `Waiting ${Math.round(
-									ev.delayMs / 1000
-							  )}s: the server says it limits how often a device can reconnect (attempt ${
-									ev.attempt
-							  })…`
-							: ev.delayMs < 500
-							? `Reconnecting now (attempt ${ev.attempt})…`
-							: `Reconnecting in ${Math.round(ev.delayMs / 1000)}s (attempt ${
-									ev.attempt
-							  })…`,
+						text:
+							ev.reason === "throttled"
+								? `Waiting ${Math.round(
+										ev.delayMs / 1000
+								  )}s: the server says it limits how often a device can reconnect (attempt ${
+										ev.attempt
+								  })…`
+								: ev.delayMs < 500
+								? `Reconnecting now (attempt ${ev.attempt})…`
+								: `Reconnecting in ${Math.round(ev.delayMs / 1000)}s (attempt ${
+										ev.attempt
+								  })…`,
 					},
 					true
 				);
@@ -1013,8 +1007,7 @@ export class IrcClient {
 				// The scheduled retry is dialling now: no due time any more.
 				this._state = "connecting";
 				this.retryAt = undefined;
-				this.retryThrottled = false;
-				this.retryOffline = false;
+				this.retryReason = undefined;
 				this.announceStatus();
 				this.pushMessage(
 					this.lobby,
@@ -1039,8 +1032,7 @@ export class IrcClient {
 		this.welcomed = false;
 		this.fakeLag.stop();
 		this.retryAt = undefined;
-		this.retryThrottled = false;
-		this.retryOffline = false;
+		this.retryReason = undefined;
 		this.closeHintShown = false;
 		this.isupport.reset();
 		this.learnedNickLen = undefined;
@@ -1378,8 +1370,7 @@ export class IrcClient {
 		// The wait before the transport's retry, for the UI to count down;
 		// an immediate retry has nothing worth counting. Whether it is the
 		// server's throttle comes with the `reconnecting` that follows.
-		this.retryThrottled = false;
-		this.retryOffline = false;
+		this.retryReason = undefined;
 		this.retryAt =
 			willReconnect && delayMs !== undefined && delayMs > 0
 				? Date.now() + delayMs
@@ -1442,8 +1433,7 @@ export class IrcClient {
 			connecting: willReconnect,
 			secure: this.options.tls,
 			...(this.retryAt !== undefined ? {retryAt: this.retryAt} : {}),
-			...(this.retryThrottled ? {retryThrottled: true} : {}),
-			...(this.retryOffline ? {retryOffline: true} : {}),
+			...(this.retryReason ? {retryReason: this.retryReason} : {}),
 		});
 
 		// Offline, and the lobby has said so: each failed try says nothing new.

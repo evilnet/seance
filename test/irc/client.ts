@@ -1445,7 +1445,7 @@ describe("IrcClient: the server's throttle (handlers/error.ts)", function () {
 		h.transport.line(
 			"ERROR :Your host is trying to (re)connect too fast -- throttled (retry in 37 seconds)"
 		);
-		expect(h.transport.throttleWaits).to.deep.equal([37_000]);
+		expect(h.transport.throttleWaits).to.deep.equal([38_000]);
 		expect(lastMessage(h.client.lobby.id).text).to.match(/too fast -- throttled/);
 	});
 
@@ -1492,7 +1492,12 @@ describe("IrcClient: offline (transport.ts OFFLINE_RETRY_MS)", function () {
 			willReconnect: true,
 			delayMs: 30_000,
 		});
-		h.transport.emitEvent({type: "reconnecting", attempt: 1, delayMs: 30_000, offline: true});
+		h.transport.emitEvent({
+			type: "reconnecting",
+			attempt: 1,
+			delayMs: 30_000,
+			reason: "offline",
+		});
 	}
 
 	it("says so once, flags the wait, and keeps the certificate hint out of it", function () {
@@ -1507,8 +1512,8 @@ describe("IrcClient: offline (transport.ts OFFLINE_RETRY_MS)", function () {
 		expect(lobby.filter((t) => /You're offline/.test(t ?? ""))).to.have.length(1);
 		expect(lobby.filter((t) => /Could not connect/.test(t ?? ""))).to.have.length(1);
 		expect(lobby.some((t) => /does not reveal why/.test(t ?? ""))).to.equal(false);
-		const status = payloads<{retryOffline?: boolean}>("network:status").pop();
-		expect(status?.retryOffline).to.equal(true);
+		const status = payloads<{retryReason?: string}>("network:status").pop();
+		expect(status?.retryReason).to.equal("offline");
 	});
 
 	it("drops the flag when the next dial goes out", function () {
@@ -1518,7 +1523,7 @@ describe("IrcClient: offline (transport.ts OFFLINE_RETRY_MS)", function () {
 			lostOffline(h);
 		});
 		h.transport.retry(1);
-		const status = payloads<{retryOffline?: boolean}>("network:status").pop();
-		expect(status?.retryOffline).to.equal(undefined);
+		const status = payloads<{retryReason?: string}>("network:status").pop();
+		expect(status?.retryReason).to.equal(undefined);
 	});
 });
