@@ -302,7 +302,7 @@ const defaultConfig = {
 			}
 		},
 	},
-	// Search is local (client/js/search.ts) and always available.
+	// Always available: the server's history, or what is loaded when it has no search.
 	searchEnabled: {
 		default: true,
 	},

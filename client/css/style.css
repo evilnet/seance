@@ -7311,13 +7311,6 @@ html[data-shell="native"] #image-viewer .next-image-btn {
 	white-space: nowrap;
 }
 
-.chat-view[data-type="search-results"] .search-status {
-	display: flex;
-	height: 100%;
-	justify-content: center;
-	align-items: center;
-}
-
 /* Replies, reactions, deletion and edits (bus-contract §1.4) */
 
 #chat .msg-reply-quote {

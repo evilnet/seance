@@ -13,6 +13,7 @@
 
 import {MessageType} from "../../../../shared/types/msg";
 import history, {chathistoryBatch} from "../history";
+import {searchBatch} from "../historysearch";
 import {AUTHTOKEN_BATCH} from "../authtoken";
 import {MULTILINE_CAP, multilineBatch} from "../multiline";
 import {BOUNCER_REPLAY_BATCH, bouncerReplayBatch, persistenceBatch} from "../persistence";
@@ -90,6 +91,9 @@ export const handlers = new Map<string, Handler>();
 
 // Batch types delivered as a unit (everything else is unwrapped in order).
 registerBatchHandler("chathistory", chathistoryBatch);
+// The spec names the batch both ways; nefarious2 sends `search`.
+registerBatchHandler("search", searchBatch);
+registerBatchHandler("soju.im/search", searchBatch);
 registerBatchHandler("draft/chathistory-targets", targetsBatch);
 registerBatchHandler(MULTILINE_CAP, multilineBatch);
 registerBatchHandler(AUTHTOKEN_BATCH, authtokenBatch);

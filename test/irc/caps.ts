@@ -5,7 +5,7 @@ import {IrcMessage, MAX_LINE_BYTES, parseLine, utf8ByteLength} from "../../clien
 // The CAP LS exchange nefarious2 (ircv3.2-upgrade) produced in the prototype
 // run, see docs/resources/nefarious2-websocket.md §Prototype status.
 const NEFARIOUS_LS_1 =
-	":irc.seance.test CAP * LS * :multi-prefix userhost-in-names extended-join away-notify account-notify cap-notify server-time echo-message account-tag chghost invite-notify labeled-response batch setname standard-replies message-tags no-implicit-names draft/no-implicit-names draft/extended-isupport draft/pre-away draft/multiline=max-bytes=16384,max-lines=100 draft/chathistory=100 draft/event-playback draft/message-redaction draft/read-marker draft/metadata-2=before-connect,max-subs=50,max-keys=20,max-value-bytes=300 draft/webpush=vapid=BLB6-4OioBPa__W4w93qeXLpdHYwSr8xONZjy_8uA1CpBkiyd_lc8ztobgKxEs1F7dFHQGB3yW5mgi54GkJBnGU draft/bouncer draft/persistence draft/authtoken";
+	":irc.seance.test CAP * LS * :multi-prefix userhost-in-names extended-join away-notify account-notify cap-notify server-time echo-message account-tag chghost invite-notify labeled-response batch setname standard-replies message-tags no-implicit-names draft/no-implicit-names draft/extended-isupport draft/pre-away draft/multiline=max-bytes=16384,max-lines=100 draft/chathistory=100 draft/event-playback draft/message-redaction draft/read-marker draft/metadata-2=before-connect,max-subs=50,max-keys=20,max-value-bytes=300 draft/webpush=vapid=BLB6-4OioBPa__W4w93qeXLpdHYwSr8xONZjy_8uA1CpBkiyd_lc8ztobgKxEs1F7dFHQGB3yW5mgi54GkJBnGU draft/bouncer draft/persistence soju.im/search draft/authtoken";
 const NEFARIOUS_LS_2 = ":irc.seance.test CAP * LS : tls";
 
 // nefarious2 master: no CAP 302 support, one unversioned line.

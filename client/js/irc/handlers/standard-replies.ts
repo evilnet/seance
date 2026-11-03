@@ -16,6 +16,7 @@
 import {MessageType} from "../../../../shared/types/msg";
 import {targetsFailed} from "../catchup";
 import {chatHistoryFailed} from "../history";
+import {searchContextFailed, searchFailed} from "../historysearch";
 import {multilineCooldown, multilineRejected} from "../multiline";
 import {inRestorationWindow, noteRestorationActivity, persistenceFailed} from "../persistence";
 import {isOwnMetadataKey} from "./metadata";
@@ -146,7 +147,16 @@ function reply(kind: "FAIL" | "WARN" | "NOTE"): Handler {
 	return (client, msg) => {
 		const [command = "*", code = "", ...rest] = msg.params;
 
+		if (kind === "FAIL" && command.toUpperCase() === "SEARCH") {
+			searchFailed(client, msg); // the search window says so
+			return;
+		}
+
 		if (kind === "FAIL" && command.toUpperCase() === "CHATHISTORY") {
+			if (searchContextFailed(client, msg)) {
+				return; // the search window's
+			}
+
 			if (targetsFailed(client, msg)) {
 				return; // our TARGETS: the catch-up goes in JOIN order (catchup.ts)
 			}
