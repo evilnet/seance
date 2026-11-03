@@ -27,6 +27,8 @@ export interface Transport {
 	abandon?(reason: string): void;
 	/** The server said it throttled us: the next retry waits `delayMs`, or the fallback. Optional. */
 	throttled?(delayMs?: number): void;
+	/** A long wait (the server's throttle, or after the quick retries) is in progress: the foreground poke leaves it be. Optional. */
+	holding?(): boolean;
 }
 
 /**

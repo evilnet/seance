@@ -166,8 +166,8 @@ async function check(page, proxy) {
 			)}) || {textContent: ""}).textContent.trim()`
 		)) === "Connect now"
 	);
-	// A dial the proxy refuses never opens, so the wait after it is the
-	// fallback (transport.ts UNREACHED_RETRY_MS, 42 s).
+	// A dial the proxy refuses never opens; the quick retries are spent by
+	// now, so the wait after it is the long one (transport.ts, 42–47 s).
 	await page.waitFor(barSays("/^Reconnecting to .+ in [3-9]\\d*s…$/"), {
 		timeout: 15000,
 		label: "a longer countdown",
@@ -178,7 +178,7 @@ async function check(page, proxy) {
 	const after = await barText(page);
 	page.check(
 		`2. Connect now dials at once (${after})`,
-		/^Connecting to /.test(after) || /in 4[12]s…$/.test(after)
+		/^Connecting to /.test(after) || /in 4[0-7]s…$/.test(after)
 	);
 
 	// 3. Typing is allowed; Enter with plain text sends nothing and keeps the

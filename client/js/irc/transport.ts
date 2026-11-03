@@ -22,9 +22,13 @@
  * throttled us (`ERROR … throttled`, handlers/error.ts → {@link
  * WsTransport.throttled}) gets the wait it names, or {@link
  * UNREACHED_RETRY_MS}. One that refuses us before the WebSocket opens says
- * nothing a page can read, so a dial that never opened waits
- * {@link UNREACHED_RETRY_MS} before the next automatic one: past the 40 s
- * window, so a refused dial cannot keep the server's window open.
+ * nothing a page can read, and neither does a network that is not ready
+ * yet, which is far more common: a dial that fails before it opens is
+ * retried quickly ({@link QUICK_RETRY_MS}), and after those
+ * {@link UNREACHED_RETRY_MS} and a little jitter pass before the next
+ * automatic one: past the 40 s window, so a refused dial cannot keep the
+ * server's window open. Those long waits are {@link WsTransport.holding}:
+ * the foreground poke leaves them be, and only Connect now cuts them.
  */
 
 export interface ReconnectOptions {
@@ -87,6 +91,10 @@ export const CONNECT_TIMEOUT_MS = 15_000;
  * the next dial is past it whatever refused this one.
  */
 export const UNREACHED_RETRY_MS = 42_000;
+/** Up to this much is added to {@link UNREACHED_RETRY_MS}: networks and tabs that failed together do not retry together. */
+export const UNREACHED_JITTER_MS = 5_000;
+/** The quick retries after dials that failed before opening, before the long wait. */
+export const QUICK_RETRY_MS = [1_000, 2_000, 4_000] as const;
 const PING_RE = /^(?:@\S+ )?(?::\S+ )?PING(?: (.*))?$/i; // [tags] [prefix] PING [params]
 
 export class WsTransport {
@@ -102,6 +110,10 @@ export class WsTransport {
 	private openedAt: number | null = null; // null = not open (0 is a real fake-clock time)
 	/** The server said it throttled us: the retry after this socket waits this long. */
 	private throttleMs: number | null = null;
+	/** Dials in a row that failed before opening, of the {@link QUICK_RETRY_MS} allowed. */
+	private quickFailures = 0;
+	/** The long wait in progress ends then ({@link holding}); null otherwise. */
+	private holdUntil: number | null = null;
 	private connectingSince = 0;
 	private connectTimer: ReturnType<typeof setTimeout> | null = null;
 	private probeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -147,11 +159,25 @@ export class WsTransport {
 		}
 	}
 
+	/**
+	 * A long wait is in progress: the server's throttle, or the one after the
+	 * quick retries. The foreground poke leaves it be (redialling would
+	 * renew a refusal's window); Connect now still dials.
+	 */
+	holding(): boolean {
+		return (
+			this._state === "reconnect-wait" &&
+			this.holdUntil !== null &&
+			Date.now() < this.holdUntil
+		);
+	}
+
 	/** Open the socket now, on whatever attempt count the schedule is at. */
 	private dial(): void {
 		this.clearTimer();
 		this.closedByUs = false;
 		this.throttleMs = null;
+		this.holdUntil = null;
 		// A superseded socket's open says nothing about this one.
 		this.openedAt = null;
 		const Impl = this.opts.WebSocketImpl ?? globalThis.WebSocket;
@@ -181,7 +207,7 @@ export class WsTransport {
 			if (ws === this.ws && this._state === "connecting") {
 				this.ws = null; // its late events are ignored
 				ws.close();
-				this.handleClosed(1006, "connect timed out", false);
+				this.handleClosed(1006, "connect timed out", false, "timeout");
 			}
 		}, CONNECT_TIMEOUT_MS);
 		ws.binaryType = "arraybuffer";
@@ -251,7 +277,7 @@ export class WsTransport {
 			if (ws && this._state === "open") {
 				this.ws = null; // its late close event is ignored
 				ws.close();
-				this.handleClosed(1006, "no reply to PING", false);
+				this.handleClosed(1006, "no reply to PING", false, "probe");
 			}
 		}, timeoutMs);
 	}
@@ -361,11 +387,17 @@ export class WsTransport {
 		}
 	}
 
-	private handleClosed(code: number, reason: string, wasClean: boolean): void {
+	/** `cause`: the transport gave up itself — a dial that hung, a probe with no answer. */
+	private handleClosed(
+		code: number,
+		reason: string,
+		wasClean: boolean,
+		cause?: "timeout" | "probe"
+	): void {
 		// A socket that dies while we are probing it (the foreground poke
-		// asked "are you alive?" and the OS answered with the close) is the
-		// user waiting at the screen: retry at once.
-		const probing = this.probeTimer !== null;
+		// asked "are you alive?" and the OS answered with the close, or
+		// nothing answered) is the user waiting at the screen: retry at once.
+		const probing = cause === "probe" || this.probeTimer !== null;
 
 		this.clearProbe();
 		this.clearConnectTimer();
@@ -379,12 +411,21 @@ export class WsTransport {
 		// staring at the screen. A retry that fails backs off from there.
 		const wasStable =
 			this.openedAt !== null && Date.now() - this.openedAt >= STABLE_CONNECTION_MS;
-		// A dial that never opened may have been the server refusing us
-		// (IPcheck, before the WebSocket upgrade, reads as any failure). One
-		// made with the radio off never reached it.
+		// A dial that failed before it opened may have been the server
+		// refusing us (IPcheck, before the WebSocket upgrade, reads as any
+		// failure) or a network not ready yet. A refusal comes at once: one
+		// that hung until the timeout was the signal, and one made with the
+		// radio off never reached a server; both keep the usual backoff.
+		const opened = this.openedAt !== null;
 		const unreached =
-			this.openedAt === null &&
+			!opened &&
+			cause !== "timeout" &&
 			(globalThis.navigator as {onLine?: boolean} | undefined)?.onLine !== false;
+
+		if (opened) {
+			this.quickFailures = 0;
+		}
+
 		const serverWait = this.throttleMs;
 		this.throttleMs = null;
 
@@ -406,13 +447,19 @@ export class WsTransport {
 				delayMs = 0;
 			}
 
-			// The server's own word replaces the schedule; else a dial that
-			// never opened waits past the window that may have refused it.
+			// The server's own word replaces the schedule (and spends the
+			// quick retries); else a dial that never opened is retried
+			// quickly, then waits past the window that may have refused it.
 			if (serverWait !== null) {
 				delayMs = serverWait;
 				throttled = true;
+				this.quickFailures = QUICK_RETRY_MS.length;
+				this.holdUntil = Date.now() + delayMs;
+			} else if (unreached && this.quickFailures < QUICK_RETRY_MS.length) {
+				delayMs = QUICK_RETRY_MS[this.quickFailures++];
 			} else if (unreached) {
-				delayMs = UNREACHED_RETRY_MS;
+				delayMs = UNREACHED_RETRY_MS + Math.round(Math.random() * UNREACHED_JITTER_MS);
+				this.holdUntil = Date.now() + delayMs;
 			}
 		}
 

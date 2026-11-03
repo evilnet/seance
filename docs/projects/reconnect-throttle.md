@@ -49,29 +49,42 @@ and the server says when it throttles:
 - **The server says so.** An `ERROR` line whose text has the word
   `throttled` is the server's connection throttle
   (`handlers/error.ts` `parseThrottleError` → `IrcClient.noteThrottled` →
-  `WsTransport.throttled`). If the text names a wait in seconds — the first
-  `N s`, `N sec`, `N secs` or `N second(s)` in it — the retry after the close
-  waits that and a second more (the server counts whole seconds); if it names
-  none, as stock nefarious2's `Your host is trying to (re)connect too fast -- throttled` does, it waits 42 s. The wait is flagged
-  (`status.retryThrottled`): the strip says "Reconnecting to <network> in
-  Ns: the server limits quick reconnects." and the lobby says "Waiting Ns:
-  the server says it limits how often a device can reconnect".
-- **The fallback.** Today nefarious2 refuses before the WebSocket upgrade,
-  which a page reads as any failed dial (1006). So a dial that never opened
-  waits `UNREACHED_RETRY_MS` (42 s) before the next automatic one: past
-  IPcheck's 40 s window, so a refused dial cannot keep it open, and a second
-  refusal in a row is impossible once nobody presses anything. The strip
-  counts it down ("Reconnecting to <network> in Ns…") without claiming the
-  server said anything. A dial made while `navigator.onLine` is false keeps
-  the usual backoff: it never reached a server.
+  `WsTransport.throttled`). If it says `retry in N` (optionally `s`, `sec`,
+  `seconds`), the retry after the close waits N seconds and one more (the
+  server counts whole seconds), at most five minutes; any other number in
+  the text (a kill reason's) is not a wait. With no `retry in`, as in stock
+  nefarious2's `Your host is trying to (re)connect too fast -- throttled`,
+  it waits 42 s. The wait is flagged (`status.retryThrottled`): the strip
+  says "Reconnecting to <network> in Ns: the server limits quick
+  reconnects."
+- **A dial that fails before it opens.** Today nefarious2 refuses before the
+  WebSocket upgrade, which a page reads as any failed dial (1006), and so is
+  a network that is not ready yet (the radio waking as the app comes back, a
+  Wi-Fi handoff), which is far more common. So such a dial is retried
+  quickly, after 1, 2 and 4 s (`QUICK_RETRY_MS`); once those are spent the
+  next automatic dial waits 42 s and up to 5 s of jitter
+  (`UNREACHED_RETRY_MS`, `UNREACHED_JITTER_MS`), past IPcheck's 40 s
+  window, and every one after it too, until a socket opens, which earns the
+  quick retries again. Connect now does not: a user pressing it during a
+  refusal would otherwise get a fresh burst each time. A server's throttle
+  spends them as well. The strip counts the long wait down ("Reconnecting
+  to <network> in Ns…") without claiming the server said anything. When it
+  really was a refusal, the quick retries cost about 7 s more than waiting
+  at once (each renews the window).
+- **Not a refusal:** a dial that hung until the 15 s connect timeout (a
+  refusal comes at once; that was the signal) and one made while
+  `navigator.onLine` is false keep the usual backoff.
+- **The long waits hold** (`WsTransport.holding`): the foreground poke
+  (`manager.ts` `reconnectAll`, the app coming back, focus, `online`)
+  leaves them be, since dialling would renew a refusal's window. Connect
+  now, the sidebar's status icon and a typed `/connect` dial at once
+  whatever the wait. Every other wait the poke still cuts.
 - **Unchanged:** a connection that opened and dropped retries on the usual
-  schedule (at once after a stable one or during a probe, else the backoff);
-  Connect now, the sidebar's status icon and a typed `/connect` dial at once,
-  whatever the wait; the foreground poke restarts the schedule.
+  schedule (at once after a stable one or after a probe, else the backoff).
 
-The cost of the fallback: when the server is simply down or unreachable,
-automatic retries come every 42 s instead of on the quick schedule. The
-foreground poke and Connect now still dial at once.
+The cost: when the server is simply down or unreachable, automatic retries
+come every 42–47 s once the quick ones are spent. Connect now still dials
+at once.
 
 ### What the server is asked for
 

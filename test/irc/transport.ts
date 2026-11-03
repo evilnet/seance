@@ -2,6 +2,8 @@ import {expect} from "chai";
 import sinon from "sinon";
 import {
 	CONNECT_TIMEOUT_MS,
+	QUICK_RETRY_MS,
+	UNREACHED_JITTER_MS,
 	UNREACHED_RETRY_MS,
 	WsTransport,
 	TransportEvent,
@@ -404,7 +406,7 @@ describe("WsTransport", function () {
 
 			expected.forEach((delayMs, i) => {
 				expect(FakeWebSocket.instances).to.have.length(i + 1);
-				last().open(); // one that never opened waits UNREACHED_RETRY_MS
+				last().open(); // one that never opened retries quickly, then waits long
 				last().closed(1006, "", false);
 				expect(t.state).to.equal("reconnect-wait");
 				const closeEv = events[events.length - 2];
@@ -628,7 +630,7 @@ describe("WsTransport foreground recovery", function () {
 		expect(events.at(-1)).to.include({type: "close", code: 1006, reason: "no reply to PING"});
 	});
 
-	it("abandons a dial that never opens and retries after the fallback wait", function () {
+	it("abandons a dial that never opens and retries with the usual backoff", function () {
 		const {t, events} = make({reconnect: fastReconnect});
 		t.connect();
 		const stuck = last();
@@ -645,7 +647,7 @@ describe("WsTransport foreground recovery", function () {
 		stuck.open();
 		expect(t.state).to.equal("reconnect-wait");
 
-		clock.tick(UNREACHED_RETRY_MS);
+		clock.tick(fastReconnect.initialDelayMs);
 		expect(FakeWebSocket.instances).to.have.lengthOf(2);
 		expect(t.state).to.equal("connecting");
 	});
@@ -692,6 +694,20 @@ describe("WsTransport foreground recovery", function () {
 		t.redial();
 		expect(t.state).to.equal("connecting");
 		expect(FakeWebSocket.instances).to.have.lengthOf(2);
+	});
+
+	it("retries at once when a probe of a young socket gets no answer", function () {
+		const {t, events} = make({reconnect: fastReconnect});
+		t.connect();
+		last().open();
+		clock.tick(3000);
+		t.probe(4000);
+		clock.tick(4000);
+		expect(events[events.length - 1]).to.deep.equal({
+			type: "reconnecting",
+			attempt: 1,
+			delayMs: 0,
+		});
 	});
 
 	it("retries at once when the socket dies during a probe, even if young", function () {
@@ -878,10 +894,13 @@ describe("WsTransport.abandon()", function () {
 		expect(t.state).to.equal("reconnect-wait");
 		expect(events[events.length - 2]).to.include({type: "close", reason: "giving up"});
 
-		// It never opened: the fallback wait, past the abandoned dial's own
-		// timeout, which must not fire meanwhile.
-		clock.tick(UNREACHED_RETRY_MS); // the retry dials
+		// It never opened: the first quick retry dials.
+		clock.tick(QUICK_RETRY_MS[0]);
 		expect(FakeWebSocket.instances).to.have.lengthOf(2);
+
+		// The abandoned dial's own timeout (at 17 s) must not fire on the new
+		// socket (whose own is at 18 s).
+		clock.tick(CONNECT_TIMEOUT_MS - 500);
 		expect(events.filter((e) => e.type === "close")).to.have.lengthOf(1);
 		expect(t.state).to.equal("connecting");
 	});
@@ -978,25 +997,83 @@ describe("WsTransport: the server's throttle", function () {
 		});
 	});
 
-	it("waits the fallback after a dial that never opened, unflagged", function () {
+	const isLongWait = (ev: TransportEvent | undefined) => {
+		const d = (ev as {delayMs: number}).delayMs;
+		return d >= UNREACHED_RETRY_MS && d <= UNREACHED_RETRY_MS + UNREACHED_JITTER_MS;
+	};
+
+	it("retries quickly after dials that never opened, then waits the long wait, unflagged", function () {
 		const {t, events} = make({reconnect: fastReconnect});
 		t.connect();
+
+		for (const quick of QUICK_RETRY_MS) {
+			last().closed(1006, "", false);
+			expect(lastReconnecting(events)).to.include({delayMs: quick});
+			expect(t.holding()).to.equal(false);
+			clock.tick(quick);
+		}
+
 		last().closed(1006, "", false);
-		expect(lastReconnecting(events)).to.deep.equal({
-			type: "reconnecting",
-			attempt: 1,
-			delayMs: UNREACHED_RETRY_MS,
-		});
-		clock.tick(UNREACHED_RETRY_MS);
-		last().closed(1006, "", false);
-		expect(lastReconnecting(events)).to.include({attempt: 2, delayMs: UNREACHED_RETRY_MS});
+		expect(isLongWait(lastReconnecting(events))).to.equal(true);
+		expect(lastReconnecting(events)).to.not.have.property("throttled");
+		expect(t.holding()).to.equal(true);
 	});
 
-	it("waits the fallback after a dial that timed out", function () {
+	it("keeps the long wait until a socket opens, whatever the backoff had reached", function () {
+		const {t, events} = make({reconnect: {...fastReconnect, maxDelayMs: 120_000}});
+		t.connect();
+
+		for (let i = 0; i < 12; i++) {
+			last().closed(1006, "", false);
+			clock.tick((lastReconnecting(events) as {delayMs: number}).delayMs);
+		}
+
+		last().closed(1006, "", false);
+		expect(isLongWait(lastReconnecting(events))).to.equal(true);
+		clock.tick(UNREACHED_RETRY_MS + UNREACHED_JITTER_MS);
+
+		// One that opens, even briefly, earns the quick retries again.
+		last().open();
+		last().closed(1006, "", false);
+		clock.tick((lastReconnecting(events) as {delayMs: number}).delayMs);
+		last().closed(1006, "", false);
+		expect(lastReconnecting(events)).to.include({delayMs: QUICK_RETRY_MS[0]});
+	});
+
+	it("a Connect now does not earn the quick retries again", function () {
+		const {t, events} = make({reconnect: fastReconnect});
+		t.connect();
+
+		for (const quick of QUICK_RETRY_MS) {
+			last().closed(1006, "", false);
+			clock.tick(quick);
+		}
+
+		last().closed(1006, "", false);
+		t.connect();
+		last().closed(1006, "", false);
+		expect(isLongWait(lastReconnecting(events))).to.equal(true);
+	});
+
+	it("the server's wait spends the quick retries", function () {
+		const {t, events} = make({reconnect: fastReconnect});
+		t.connect();
+		last().open();
+		t.throttled(5_000);
+		last().closed(1006, "", false);
+		expect(t.holding()).to.equal(true);
+		clock.tick(6_000);
+		expect(t.holding()).to.equal(false);
+		last().closed(1006, "", false);
+		expect(isLongWait(lastReconnecting(events))).to.equal(true);
+	});
+
+	it("keeps the usual backoff after a dial that hung until the timeout", function () {
 		const {t, events} = make({reconnect: fastReconnect});
 		t.connect();
 		clock.tick(CONNECT_TIMEOUT_MS);
-		expect(lastReconnecting(events)).to.include({delayMs: UNREACHED_RETRY_MS});
+		expect(lastReconnecting(events)).to.include({delayMs: 100});
+		expect(t.holding()).to.equal(false);
 	});
 
 	it("keeps the usual backoff for a dial made with the radio off", function () {
@@ -1055,18 +1132,7 @@ describe("WsTransport: the server's throttle", function () {
 		expect(lastReconnecting(events)).to.include({delayMs: 1100, throttled: true});
 	});
 
-	it("waits the fallback after a never-opened dial, whatever the backoff had reached", function () {
-		const {t, events} = make({reconnect: {...fastReconnect, maxDelayMs: 120_000}});
-		t.connect();
-
-		for (let i = 0; i < 12; i++) {
-			last().closed(1006, "", false);
-			expect(lastReconnecting(events)).to.include({delayMs: UNREACHED_RETRY_MS});
-			clock.tick(UNREACHED_RETRY_MS);
-		}
-	});
-
-	it("a dial that replaces an open socket and never opens waits the fallback", function () {
+	it("a dial that replaces an open socket and never opens retries quickly, not at once", function () {
 		const {t, events} = make({reconnect: fastReconnect});
 		t.connect();
 		last().open();
@@ -1074,7 +1140,7 @@ describe("WsTransport: the server's throttle", function () {
 		t.close();
 		t.connect(); // before the old socket's close event
 		last().closed(1006, "", false);
-		expect(lastReconnecting(events)).to.include({delayMs: UNREACHED_RETRY_MS});
+		expect(lastReconnecting(events)).to.include({delayMs: QUICK_RETRY_MS[0]});
 	});
 
 	it("a connect() (the user's Connect now) dials at once during the wait", function () {

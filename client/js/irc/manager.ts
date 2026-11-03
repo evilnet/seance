@@ -359,7 +359,10 @@ export function reconnectAll(): void {
 	for (const client of clients.values()) {
 		const transport = client.transport;
 
-		if (transport.state === "reconnect-wait") {
+		// A long wait (the server's throttle, or after the quick retries) is
+		// left to run: dialling now would renew a refusal's window. Connect
+		// now still cuts it.
+		if (transport.state === "reconnect-wait" && !transport.holding?.()) {
 			client.connect();
 		} else if (transport.state === "connecting") {
 			// A dial started while the OS had the radio off can sit in

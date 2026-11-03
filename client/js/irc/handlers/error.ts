@@ -7,8 +7,10 @@
  *
  * An ERROR that says "throttled" is the server's connection throttle
  * (nefarious2: `Your host is trying to (re)connect too fast -- throttled`):
- * the retry waits the seconds it names, else the transport's fallback
- * (docs/projects/reconnect-throttle.md).
+ * the retry waits the seconds it names after "retry in", at most
+ * {@link MAX_THROTTLE_WAIT_MS}, else the transport's fallback
+ * (docs/projects/reconnect-throttle.md). Any other number in the text (a
+ * kill or ban reason's) is not a wait.
  */
 
 import {MessageType} from "../../../../shared/types/msg";
@@ -19,8 +21,11 @@ export interface ThrottleError {
 	waitMs?: number;
 }
 
-/** "N s", "N sec", "N secs", "N second(s)", the first one in the text. */
-const SECONDS = /\b(\d{1,5})\s*s(?:ec(?:ond)?s?)?\b/i;
+/** "retry in N", optionally followed by s / sec / secs / second(s). */
+const RETRY_IN = /\bretry in (\d{1,6})(?:\s*s(?:ec(?:ond)?s?)?)?\b/i;
+
+/** The longest wait an ERROR may set: past this, the server is not throttling, it is something else. */
+export const MAX_THROTTLE_WAIT_MS = 300_000;
 
 /** The server's throttle in an ERROR's text, or undefined for any other ERROR. */
 export function parseThrottleError(text: string): ThrottleError | undefined {
@@ -28,8 +33,8 @@ export function parseThrottleError(text: string): ThrottleError | undefined {
 		return undefined;
 	}
 
-	const match = SECONDS.exec(text);
-	return match ? {waitMs: Number(match[1]) * 1000} : {};
+	const match = RETRY_IN.exec(text);
+	return match ? {waitMs: Math.min(Number(match[1]) * 1000, MAX_THROTTLE_WAIT_MS)} : {};
 }
 
 const error: Handler = (client, msg) => {

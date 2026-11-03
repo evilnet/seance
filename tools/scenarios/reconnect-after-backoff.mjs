@@ -13,16 +13,17 @@
 // the retries pile up), and then let through again. `SEANCE_URL` overrides
 // where the built tree is served from.
 //
-// A refused dial never opens, and the transport waits UNREACHED_RETRY_MS
-// (42 s) after one: what the server's connection throttle would need, since
-// a page cannot tell a refusal from a dead server (docs/projects/reconnect-throttle.md).
+// A refused dial never opens, which a page cannot tell from a network not
+// ready yet: the transport retries quickly (1, 2, 4 s), then waits 42–47 s,
+// past the server's 40 s throttle window; the foreground poke leaves that
+// long wait be, Connect now cuts it (docs/projects/reconnect-throttle.md).
 //
 // Claims:
 //   1. the network registers through the proxy;
-//   2. after the cut, the retry that is refused waits the fallback, 42 s;
-//   3. a foreground signal (window focus) dials at once;
-//   4. when that dial fails too, the next wait is the fallback again;
-//   5. once dials go through again, a foreground signal registers at once;
+//   2. during the quick retries a foreground signal (window focus) dials at once;
+//   3. after the quick retries the wait is the long one, 42–47 s;
+//   4. a foreground signal during the long wait does not dial;
+//   5. once dials go through again, a typed /connect registers at once;
 //   6. no console errors.
 
 import {startProxy} from "./lib/irc-proxy.mjs";
@@ -31,8 +32,8 @@ const HOST = process.env.SEANCE_URL ?? "http://127.0.0.1:8001";
 const IRC = {host: "127.0.0.1", port: 8067};
 const PROXY_PORT = 9874;
 const NICK = "rc" + Math.random().toString(36).slice(2, 7);
-/** Long enough for the first retry (about 1 s) to be refused. */
-const AWAY_MS = 5_000;
+/** Inside the quick retries: the first retry (about 1 s) refused, the next not yet due. */
+const AWAY_MS = 2_500;
 
 export const url = `${HOST}/?host=127.0.0.1&port=${PROXY_PORT}&tls=false&nick=${NICK}&join=%23seance`;
 
@@ -102,46 +103,53 @@ async function check(page, proxy) {
 	page.expectWsErrors = true;
 	proxy.cut();
 	await page.sleep(AWAY_MS);
-	let lines = await page.evaluate(LINES);
-	const before = lastWait(lines);
-	page.check(
-		`2. the refused retry waits the fallback (last wait ${before?.seconds}s, attempt ${before?.attempt})`,
-		Boolean(before) && before.seconds >= 40 && before.seconds <= 42
-	);
-	await page.screenshot("2-away");
 
-	// 3. The app comes back — a focus signal — while dials are still refused.
-	const linesBefore = lines.length;
+	// 2. The app comes back during the quick retries: it dials at once.
+	let lines = await page.evaluate(LINES);
+	let mark = lines.length;
 	await page.evaluate(`window.dispatchEvent(new Event("focus"))`);
 	await page.waitFor(
-		`/Connecting to 127\\.0\\.0\\.1:${PROXY_PORT}/.test((${LINES}).slice(${linesBefore}).join("\\n"))`,
+		`/Connecting to 127\\.0\\.0\\.1:${PROXY_PORT}/.test((${LINES}).slice(${mark}).join("\\n"))`,
 		{timeout: 3000, label: "the foreground dial"}
 	);
-	page.check("3. the foreground signal dialled at once", true);
+	page.check("2. during the quick retries the foreground signal dialled at once", true);
+	await page.screenshot("2-quick");
 
-	// 4. Its failure schedules the next wait.
-	await page.waitFor(
-		`/Reconnecting in \\d+s/.test((${LINES}).slice(${linesBefore}).join("\\n"))`,
-		{timeout: 5000, label: "the wait after the failed foreground dial"}
-	);
+	// 3. The quick retries run out: the long wait.
+	await page.waitFor(`/Reconnecting in 4[2-7]s/.test((${LINES}).join("\\n"))`, {
+		timeout: 20000,
+		label: "the long wait",
+	});
 	lines = await page.evaluate(LINES);
-	const after = lastWait(lines);
+	const quick = lines.filter((l) => /Reconnecting in [124]s/.test(l)).length;
+	const long = lastWait(lines);
 	page.check(
-		`4. the wait after the failed foreground dial is the fallback again (${after?.seconds}s, attempt ${after?.attempt})`,
-		Boolean(after) && after.index >= linesBefore && after.seconds >= 40 && after.attempt === 1
+		`3. after quick retries (${quick} seen) the wait is the long one (${long?.seconds}s)`,
+		quick >= 2 && Boolean(long) && long.seconds >= 42 && long.seconds <= 47
 	);
-	await page.screenshot("3-poked");
+	await page.screenshot("3-long");
 
-	// 5. The radio is back and the app comes to the front again: it dials at
-	// once and gets through. (A dial refused just before the switch reports
-	// its error late: errors stay expected until the registration is in.)
-	proxy.accept();
-	const frames = page.wsFrames.length;
+	// 4. The app comes back during the long wait: it leaves it be.
+	mark = lines.length;
 	await page.sleep(1100); // past the foreground poke's once-a-second limit
 	await page.evaluate(`window.dispatchEvent(new Event("focus"))`);
+	await page.sleep(2000);
+	lines = await page.evaluate(LINES);
+	page.check(
+		"4. a foreground signal during the long wait does not dial",
+		!lines.slice(mark).some((l) => /Connecting to /.test(l))
+	);
+
+	// 5. The radio is back; the user asks: /connect dials at once and gets
+	// through. (A dial refused just before the switch reports its error
+	// late: errors stay expected until the registration is in.)
+	proxy.accept();
+	const frames = page.wsFrames.length;
+	await page.fill("#input", "/connect");
+	await page.evaluate(`document.querySelector("#form").requestSubmit()`);
 	await until(page, () => registered(page, frames), 10000, "the re-registration");
 	page.expectWsErrors = false;
-	page.check("5. registered again at the foreground signal", registered(page, frames));
+	page.check("5. a typed /connect registered at once", registered(page, frames));
 	await page.screenshot("4-back");
 
 	page.check("6. no console errors", page.consoleErrors.length === 0);
