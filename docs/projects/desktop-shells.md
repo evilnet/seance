@@ -86,10 +86,10 @@ registration in `loading-error-handlers.js`). Two finds on the way:
   sidebar row as proof of a dial, but an autojoin channel is a placeholder
   before the socket opens; it waits for the socket now.
 
-Not done in step 1: web push in a desktop shell. `webpush.ts` still offers
-the push prompt and registers a `push/<uuid>/` worker when a server
-announces its key, and the subscribe fails there. § 5.2 turns that off and
-says so in Settings → Notifications.
+Web push is off in a desktop shell (§ 5.2): `webpush.ts` picks no push
+backend there, so no prompt, no `push/<uuid>/` worker and no subscribe,
+and Settings → Notifications says the app notifies while it runs instead.
+Gating on the Push API alone was not enough, since WebView2 may expose it.
 
 ## 4. The shell (`shells/tauri/`)
 

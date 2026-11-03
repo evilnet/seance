@@ -2,51 +2,55 @@
 	<div>
 		<h2>Push Notifications</h2>
 		<div>
-			<div class="push-networks-hint">
-				Push is set up per network — turn it on or off in each network's settings (Edit
-				network → “Push notifications for this network”), where the enrollment status is
-				also shown. The browser delivers the notifications; each push-capable server decides
-				whether to wake this app.
-			</div>
-			<div
-				id="label-push-key-change"
-				class="push-networks-hint"
-				role="heading"
-				aria-level="3"
-			>
-				When a server's push identity (its key) changes, this device's subscription for it
-				stops working. Then:
-			</div>
-			<div role="group" aria-labelledby="label-push-key-change">
-				<label class="opt">
-					<input
-						:checked="store.state.settings.pushKeyChange === 'ask'"
-						type="radio"
-						name="pushKeyChange"
-						value="ask"
-					/>
-					Wary — ask before renewing the subscription
-				</label>
-				<label class="opt">
-					<input
-						:checked="store.state.settings.pushKeyChange === 'trust'"
-						type="radio"
-						name="pushKeyChange"
-						value="trust"
-					/>
-					Naive — renew it on the spot, without asking
-				</label>
-				<label class="opt">
-					<input
-						:checked="store.state.settings.pushKeyChange === 'ignore'"
-						type="radio"
-						name="pushKeyChange"
-						value="ignore"
-					/>
-					Suspicious — leave it alone; push from that server stays off until you renew
-					from the network settings
-				</label>
-			</div>
+			<!-- A desktop shell takes no push (webpush.ts pushBackend): only the
+			     do-not-disturb schedule and the desktop-shell note apply. -->
+			<template v-if="!desktopShell">
+				<div class="push-networks-hint">
+					Push is set up per network — turn it on or off in each network's settings (Edit
+					network → “Push notifications for this network”), where the enrollment status is
+					also shown. The browser delivers the notifications; each push-capable server
+					decides whether to wake this app.
+				</div>
+				<div
+					id="label-push-key-change"
+					class="push-networks-hint"
+					role="heading"
+					aria-level="3"
+				>
+					When a server's push identity (its key) changes, this device's subscription for
+					it stops working. Then:
+				</div>
+				<div role="group" aria-labelledby="label-push-key-change">
+					<label class="opt">
+						<input
+							:checked="store.state.settings.pushKeyChange === 'ask'"
+							type="radio"
+							name="pushKeyChange"
+							value="ask"
+						/>
+						Wary — ask before renewing the subscription
+					</label>
+					<label class="opt">
+						<input
+							:checked="store.state.settings.pushKeyChange === 'trust'"
+							type="radio"
+							name="pushKeyChange"
+							value="trust"
+						/>
+						Naive — renew it on the spot, without asking
+					</label>
+					<label class="opt">
+						<input
+							:checked="store.state.settings.pushKeyChange === 'ignore'"
+							type="radio"
+							name="pushKeyChange"
+							value="ignore"
+						/>
+						Suspicious — leave it alone; push from that server stays off until you renew
+						from the network settings
+					</label>
+				</div>
+			</template>
 			<div class="dnd-schedule">
 				<label class="opt">
 					<input
@@ -110,6 +114,10 @@
 				Push notifications are not supported by this browser (they need the Push API, a
 				service worker and a secure context).
 			</div>
+			<div v-if="store.state.pushNotificationState === 'desktop-shell'" class="error">
+				The desktop app shows notifications while it is running. Push notifications, which
+				reach a closed app, are not available here.
+			</div>
 			<div v-if="store.state.pushNotificationState === 'not-installed'" class="error">
 				<strong>Warning</strong>: On iOS, push notifications are only available after
 				installing the app to the Home Screen (Share → Add to Home Screen).
@@ -132,7 +140,7 @@
 				<strong>Warning</strong>: The server refused the push subscription. It may require
 				logging in (SASL) before subscribing.
 			</div>
-			<details class="push-diagnostics" @toggle="onDiagnosticsToggle">
+			<details v-if="!desktopShell" class="push-diagnostics" @toggle="onDiagnosticsToggle">
 				<summary>Diagnostics</summary>
 				<p class="push-networks-hint">
 					What this device knows about push: its permission, each network's subscription,
@@ -288,7 +296,7 @@ import {useStore} from "../../js/store";
 import webpush from "../../js/webpush";
 import dnd from "../../js/dnd";
 import {DAYS, DAY_FULL_NAMES, HHMM, type DndSchedule} from "../../js/helpers/dnd";
-import {isAndroidShell} from "../../js/helpers/shell";
+import {isAndroidShell, isDesktopShell} from "../../js/helpers/shell";
 import {nativeAlertsAvailable} from "../../js/helpers/nativeAlerts";
 import {playNotificationSound} from "../../js/helpers/notificationSound";
 
@@ -377,6 +385,7 @@ export default defineComponent({
 		return {
 			store,
 			androidShell: isAndroidShell(),
+			desktopShell: isDesktopShell(),
 			nativeShell: nativeAlertsAvailable(),
 			playNotification,
 			diagnosticsText,

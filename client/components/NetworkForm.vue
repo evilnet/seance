@@ -216,7 +216,8 @@ the server tab on new connection"
 						</label>
 					</div>
 				</div>
-				<div class="connect-row">
+				<!-- A desktop shell takes no push (webpush.ts pushBackend). -->
+				<div v-if="!desktopShell" class="connect-row">
 					<label></label>
 					<div class="input-wrap">
 						<label class="tls">
@@ -237,7 +238,7 @@ the server tab on new connection"
 					</div>
 				</div>
 				<div
-					v-if="defaults.pushEnabled && pushInfo.stale"
+					v-if="!desktopShell && defaults.pushEnabled && pushInfo.stale"
 					id="pushStaleRow"
 					class="connect-row"
 				>
@@ -496,6 +497,7 @@ import {describeServiceCheck} from "../js/irc/services";
 import {servicesCheck} from "../js/helpers/operRequest";
 import {isOperOn} from "../js/helpers/operMenu";
 import {askNativeAlertPermission, nativeAlertsAvailable} from "../js/helpers/nativeAlerts";
+import {isDesktopShell} from "../js/helpers/shell";
 import {useStore} from "../js/store";
 import webpush from "../js/webpush";
 import type {ServicesConfig, SharedNetworkStatus} from "../../shared/types/network";
@@ -832,6 +834,7 @@ export default defineComponent({
 			presenceMode,
 			presenceHint,
 			pushInfo,
+			desktopShell: isDesktopShell(),
 			renewPush,
 			onNotifyToggle,
 			SERVICES_PROFILES,
