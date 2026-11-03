@@ -1,7 +1,8 @@
-// Seance's Tauri shell (docs/projects/desktop-shells.md). The window loads the
-// built SPA from the bundle — `public/`, compiled in by `frontendDist` — and
-// the page speaks IRC over WebSocket itself; the shell adds a window, links,
-// the badge and the platform's close behaviour.
+// Seance's Tauri shell (docs/projects/desktop-shells.md), on the desktop and,
+// as a prototype, on the phones. The window loads the built SPA from the
+// bundle — `public/`, compiled in by `frontendDist` — and the page speaks IRC
+// over WebSocket itself; the shell adds a window, links, the badge and the
+// platform's close behaviour.
 //
 // The page reaches the shell through `window.seanceShell` (the init script
 // below), the contract client/js/helpers/shell.ts reads in every shell:
@@ -10,10 +11,12 @@
 // use, and `listen(plugin, event, cb)` hears what `emit()` evaluates in the
 // page. No Tauri plugin API is exposed to the page (capabilities/default.json).
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(any(windows, target_os = "linux"))]
 mod alerts;
 #[cfg(target_os = "macos")]
 mod apple;
+#[cfg(mobile)]
+mod mobile;
 
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -28,8 +31,12 @@ const MAIN: &str = "main";
 const PLATFORM: &str = "macos";
 #[cfg(target_os = "windows")]
 const PLATFORM: &str = "windows";
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(target_os = "linux")]
 const PLATFORM: &str = "linux";
+#[cfg(target_os = "android")]
+const PLATFORM: &str = "android";
+#[cfg(target_os = "ios")]
+const PLATFORM: &str = "ios";
 
 /// `window.seanceShell`, defined before any of the page's scripts run. The
 /// object is frozen and the emit hook is not writable, so a page script can
@@ -93,8 +100,16 @@ struct Links {
     listening: bool,
 }
 
+/// `web+irc:` everywhere; the phones also open `irc:` and `ircs:`, which
+/// the page reads the same way (client/js/helpers/parseIrcUri.ts).
 fn is_irc_link(value: &str) -> bool {
-    value.len() > 9 && value.get(..9).is_some_and(|p| p.eq_ignore_ascii_case("web+irc:/"))
+    // Bytes, not a str slice: a link from outside may put a multi-byte
+    // character where a slice would cut it.
+    let has = |scheme: &str| {
+        value.len() > scheme.len()
+            && value.as_bytes()[..scheme.len()].eq_ignore_ascii_case(scheme.as_bytes())
+    };
+    has("web+irc:/") || (cfg!(mobile) && (has("irc:/") || has("ircs:/")))
 }
 
 /// A link from the OS (a deep link, a second launch's argv): to the running
@@ -158,6 +173,7 @@ fn emit(app: &AppHandle, plugin: &str, event: &str, data: Value, retain: bool) {
     }
 }
 
+#[cfg(desktop)]
 fn show_main(app: &AppHandle) {
     if let Some(window) = app.get_webview_window(MAIN) {
         let _ = window.unminimize();
@@ -165,6 +181,10 @@ fn show_main(app: &AppHandle) {
         let _ = window.set_focus();
     }
 }
+
+/// A phone's app is in front already when its page can be reached.
+#[cfg(mobile)]
+fn show_main(_: &AppHandle) {}
 
 #[tauri::command]
 async fn seance_call(
@@ -189,6 +209,7 @@ async fn seance_call(
         }
         // The Dock bounces once, the taskbar button flashes, the window is
         // marked urgent; nothing while the window has the focus.
+        #[cfg(desktop)]
         ("App", "requestAttention") => {
             if !window.is_focused().unwrap_or(false) {
                 let _ =
@@ -196,7 +217,10 @@ async fn seance_call(
             }
             Ok(json!({}))
         }
+        // A phone's badge is its own plugin's (src/mobile.rs).
+        #[cfg(desktop)]
         ("Badge", "checkPermissions" | "requestPermissions") => Ok(json!({ "display": "granted" })),
+        #[cfg(desktop)]
         ("Badge", "set") => {
             let count = options
                 .get("count")
@@ -206,11 +230,12 @@ async fn seance_call(
             set_badge(&window, count);
             Ok(json!({}))
         }
+        #[cfg(desktop)]
         ("Badge", "clear") => {
             set_badge(&window, 0);
             Ok(json!({}))
         }
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(any(windows, target_os = "linux"))]
         ("LocalNotifications", _) => alerts::call(window.app_handle(), &method, &options),
         #[cfg(all(debug_assertions, feature = "snapshot"))]
         ("Smoke", "snapshot") => {
@@ -226,7 +251,7 @@ async fn seance_call(
             smoke::report(window.app_handle(), &options);
             Ok(json!({}))
         }
-        _ => native(&plugin, &method, &options).await,
+        _ => native(window.app_handle(), &plugin, &method, &options).await,
     }
 }
 
@@ -240,6 +265,7 @@ static BADGE: std::sync::atomic::AtomicI64 = std::sync::atomic::AtomicI64::new(0
 /// The unread count on the app's icon: the Dock (macOS) and launchers that
 /// show a count (Linux). A Windows taskbar button takes a small image over
 /// its icon, not a number, so there it is a dot while anything is unread.
+#[cfg(desktop)]
 fn set_badge(window: &WebviewWindow, count: i64) {
     #[cfg(windows)]
     {
@@ -280,14 +306,33 @@ fn unread_dot() -> tauri::image::Image<'static> {
 /// What the shell's own Rust does not answer: on macOS the message alerts,
 /// in Swift (src/apple.rs).
 #[cfg(target_os = "macos")]
-async fn native(plugin: &str, method: &str, options: &Value) -> Result<Value, ShellError> {
+async fn native(
+    _: &AppHandle,
+    plugin: &str,
+    method: &str,
+    options: &Value,
+) -> Result<Value, ShellError> {
     apple::call(plugin, method, options)
         .await
         .map_err(|(code, message)| ShellError { message, code })
 }
 
-#[cfg(not(target_os = "macos"))]
-async fn native(plugin: &str, method: &str, _: &Value) -> Result<Value, ShellError> {
+/// On a phone, the shell's own Kotlin or Swift (src/mobile.rs), with the
+/// plugin names and shapes the Capacitor shells answer.
+#[cfg(mobile)]
+async fn native(
+    app: &AppHandle,
+    plugin: &str,
+    method: &str,
+    options: &Value,
+) -> Result<Value, ShellError> {
+    mobile::call(app, plugin, method, options)
+        .await
+        .map_err(|(code, message)| ShellError { message, code })
+}
+
+#[cfg(any(windows, target_os = "linux"))]
+async fn native(_: &AppHandle, plugin: &str, method: &str, _: &Value) -> Result<Value, ShellError> {
     Err(ShellError {
         message: format!("{plugin}.{method} is not implemented"),
         code: "unimplemented".into(),
@@ -320,10 +365,14 @@ fn create_main(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     let handle = app.clone();
     let dev_url = app.config().build.dev_url.clone();
 
-    WebviewWindowBuilder::new(app, MAIN, WebviewUrl::App("index.html".into()))
+    let builder = WebviewWindowBuilder::new(app, MAIN, WebviewUrl::App("index.html".into()));
+    #[cfg(desktop)]
+    let builder = builder
         .title(app.package_info().name.clone())
         .inner_size(1100.0, 760.0)
-        .min_inner_size(400.0, 300.0)
+        .min_inner_size(400.0, 300.0);
+
+    builder
         .initialization_script(init_script(&version))
         // The window navigates inside the app alone; target=_blank and
         // window.open() never make a window.
@@ -376,7 +425,7 @@ fn create_main(app: &AppHandle) -> tauri::Result<WebviewWindow> {
 /// WebKitGTK ships with it off and, with no languages named, checks against
 /// none, so it gets the locale's (a language without a dictionary installed
 /// is skipped).
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(target_os = "linux")]
 fn enable_spell_checking(window: &WebviewWindow) {
     use webkit2gtk::{WebContextExt, WebViewExt};
 
@@ -393,7 +442,7 @@ fn enable_spell_checking(window: &WebviewWindow) {
 /// The user's languages as dictionary names (`en_US`), most wanted first:
 /// gettext's order — `LANGUAGE`'s list, then the first of `LC_ALL`,
 /// `LC_MESSAGES` and `LANG` that is set.
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(target_os = "linux")]
 fn locale_languages() -> Vec<String> {
     let var = |name| std::env::var(name).ok().filter(|v| !v.is_empty());
     let mut found = Vec::new();
@@ -414,13 +463,14 @@ fn locale_languages() -> Vec<String> {
     found
 }
 
-#[cfg(not(all(unix, not(target_os = "macos"))))]
+#[cfg(not(target_os = "linux"))]
 fn enable_spell_checking(_: &WebviewWindow) {}
 
 /// Close follows the platform (desktop-shells.md § 5.2): a Mac app keeps
 /// running in the Dock and the window comes back from its icon; on Windows
 /// the window goes to the notification area; on Linux, where a tray may not
 /// be shown at all, closing the window quits.
+#[cfg(desktop)]
 fn install_close_behaviour(app: &AppHandle) -> tauri::Result<()> {
     if PLATFORM == "linux" {
         return Ok(());
@@ -478,9 +528,11 @@ fn install_close_behaviour(app: &AppHandle) -> tauri::Result<()> {
     Ok(())
 }
 
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let launch_arg = std::env::args().skip(1).find(|arg| is_irc_link(arg));
 
+    #[cfg(desktop)]
     let builder = tauri::Builder::default()
         // First: a second launch hands its argv (Windows, Linux: the link)
         // to this one and exits.
@@ -492,6 +544,12 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_window_state::Builder::default().build());
+
+    #[cfg(mobile)]
+    let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_haptics::init())
+        .plugin(mobile::init());
 
     let app = builder
         .manage(Mutex::new(Links {
@@ -511,6 +569,15 @@ pub fn run() {
                 }
             });
 
+            // A phone hands the link it was launched with to the deep-link
+            // plugin before the handler above exists.
+            #[cfg(mobile)]
+            if let Ok(Some(urls)) = app.deep_link().get_current() {
+                for url in urls {
+                    open_link(app.handle(), url.to_string());
+                }
+            }
+
             // An installed build registers the scheme at install time
             // (Info.plist, the installer); one run from source registers
             // nothing, so trying it never takes over this machine's links.
@@ -519,11 +586,12 @@ pub fn run() {
 
             #[cfg(target_os = "macos")]
             apple::start(app.handle());
-            #[cfg(not(target_os = "macos"))]
+            #[cfg(any(windows, target_os = "linux"))]
             alerts::setup(app.handle());
 
             let main = create_main(app.handle())?;
             enable_spell_checking(&main);
+            #[cfg(desktop)]
             install_close_behaviour(app.handle())?;
 
             #[cfg(debug_assertions)]
@@ -534,15 +602,15 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building the Seance shell");
 
-    app.run(|app, event| {
+    app.run(|_app, event| {
         // macOS: a click on the Dock icon brings the hidden window back.
         #[cfg(target_os = "macos")]
         if let tauri::RunEvent::Reopen { .. } = event {
-            show_main(app);
+            show_main(_app);
         }
 
         #[cfg(not(target_os = "macos"))]
-        let _ = (app, event);
+        let _ = event;
     });
 }
 

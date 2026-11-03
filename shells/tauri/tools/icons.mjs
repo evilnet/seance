@@ -1,4 +1,4 @@
-// `pnpm icons`: src-tauri/icons/ from the deploy's logo (public/img/icon-512.png),
+// `pnpm icons`: src-tauri/icons/ (and the phone projects' icons) from the deploy's logo (public/img/icon-512.png),
 // so a rebrand carries over. On a Mac the .icns is then made again from the
 // logo cut to the Mac's rounded square (macos-icon.swift); Windows and Linux
 // show the square as it is. A build elsewhere keeps the square .icns, which
@@ -14,7 +14,8 @@ const out = "src-tauri/icons";
 const tauri = (...args) =>
 	execFileSync("tauri", args, {stdio: "inherit", shell: process.platform === "win32"});
 
-tauri("icon", logo, "-o", out);
+// Without -o it also writes the phones' icons into gen/android and gen/apple.
+tauri("icon", logo);
 
 if (process.platform === "darwin") {
 	const dir = mkdtempSync(join(tmpdir(), "seance-icon-"));

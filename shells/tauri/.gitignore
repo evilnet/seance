@@ -3,4 +3,4 @@ src-tauri/target/
 # Generated from public/img by `pnpm icons` (the deploy's logo, so a rebrand
 # carries over); never edited by hand.
 src-tauri/icons/
-src-tauri/gen/
+src-tauri/gen/schemas/

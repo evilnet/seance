@@ -53,7 +53,8 @@
     "deep-link": {
       "desktop": {
         "schemes": ["web+irc"]
-      }
+      },
+      "mobile": [{"scheme": ["web+irc", "irc", "ircs"], "appLink": false}]
     }
   }
 }
