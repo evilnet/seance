@@ -13,6 +13,7 @@
 
 import type {Route} from "../../../shared/types/oper";
 import storage from "../localStorage";
+import {dict} from "../helpers/dict";
 
 export const OPER_PREFS_KEY = "thelounge.oper";
 
@@ -92,7 +93,7 @@ function readAll(): Record<string, OperPrefs> {
 		const parsed: unknown = JSON.parse(backend.get(OPER_PREFS_KEY) ?? "{}");
 
 		if (!isObject(parsed)) {
-			return {};
+			return dict<OperPrefs>();
 		}
 
 		// A restored settings file can carry anything here; a temporary route
@@ -125,9 +126,10 @@ function readAll(): Record<string, OperPrefs> {
 			);
 		}
 
-		return parsed as Record<string, OperPrefs>;
+		// Keyed by network uuid: a dictionary with no prototype (helpers/dict.ts)
+		return Object.assign(dict<OperPrefs>(), parsed as Record<string, OperPrefs>);
 	} catch {
-		return {};
+		return dict<OperPrefs>();
 	}
 }
 

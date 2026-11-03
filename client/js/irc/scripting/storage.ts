@@ -4,6 +4,7 @@
 
 import storage from "../../localStorage";
 import type {Script, ScriptStorageBackend} from "./types";
+import {dict} from "../../helpers/dict";
 
 export const STORAGE_KEY = "thelounge.scripts";
 export const STORAGE_PREFIX = "thelounge.script_storage.";
@@ -253,12 +254,12 @@ export function loadScriptData(scriptId: string): Record<string, string> {
 	const raw = backend.get(`${STORAGE_PREFIX}${scriptId}`);
 
 	if (!raw) {
-		return {};
+		return dict<string>();
 	}
 
 	try {
 		const parsed: unknown = JSON.parse(raw);
-		const data: Record<string, string> = {};
+		const data = dict<string>();
 
 		if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
 			// Only strings: a restored file could hold anything.
@@ -271,7 +272,7 @@ export function loadScriptData(scriptId: string): Record<string, string> {
 
 		return data;
 	} catch {
-		return {};
+		return dict<string>();
 	}
 }
 
