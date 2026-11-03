@@ -335,25 +335,25 @@ function inFlight(
 	reported: number
 ): number {
 	const from = reported - LATE_ACCEPT_MS;
-	const open = dials.filter((t) => t >= from && t <= at).sort((a, b) => a - b);
+	const open = dials.filter((t) => t <= at).sort((a, b) => a - b);
 	const own = open.lastIndexOf(at);
 
 	if (own !== -1) {
 		open.splice(own, 1);
 	}
 
-	// Each close ends the earliest dial still open before it.
-	for (const close of [...closes]
-		.filter((t) => t >= from && t <= reported)
-		.sort((a, b) => a - b)) {
-		const ended = open.findIndex((t) => t < close);
+	// Each close ends the earliest dial still open at it, over the whole
+	// record: an older connection's close must not end a dial in the window.
+	// Paired wrongly, a dial in the window stays open: it counts, never too little.
+	for (const close of closes.filter((t) => t <= reported).sort((a, b) => a - b)) {
+		const ended = open.findIndex((t) => t <= close);
 
 		if (ended !== -1) {
 			open.splice(ended, 1);
 		}
 	}
 
-	return open.length;
+	return open.filter((t) => t >= from).length;
 }
 
 /**

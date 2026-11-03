@@ -193,6 +193,21 @@ describe("dial ledger (irc/dialLedger.ts)", function () {
 				).to.equal(0);
 			});
 
+			it("does not let an older connection's close end a dial still in flight", function () {
+				// Codex: A dialled at -20 s, closes at 1.5 s; B recorded a dial at
+				// 0 that reaches the server at 3 s; C dials at 1, reports 2 at 2 s.
+				const syncs: Sync[] = [[1 * S, 2, 2 * S, 4]];
+				const wait = throttleWaitMs([-20 * S, 0, 1 * S], 4 * S, rule, [1.5 * S], [], syncs);
+				expect(wait).to.be.greaterThan(0);
+			});
+
+			it("ends a dial with a close in the same millisecond", function () {
+				// Codex: dial and close at 0; reconnect at 1 s reports 2 at 1.1 s,
+				// closes at 2 s. The server takes a third at 3 s.
+				const syncs: Sync[] = [[1 * S, 2, 1.1 * S, 4]];
+				expect(throttleWaitMs([0, 1 * S], 3 * S, rule, [0, 2 * S], [], syncs)).to.equal(0);
+			});
+
 			it("counts another tab's dial made in the same millisecond", function () {
 				// Codex: two tabs dial at 0; A reports 1 at 1 s; a third dial at 3 s.
 				const syncs: Sync[] = [[0, 1, 1 * S, 4]];
