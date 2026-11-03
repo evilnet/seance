@@ -251,9 +251,9 @@
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: 0.3rem 1rem;
-	padding: 0.45rem 0;
-	border-bottom: 1px solid color-mix(in srgb, var(--body-color-muted) 25%, transparent);
+	gap: 0.4rem 1rem;
+	padding: 0.7rem 0;
+	border-bottom: 1px solid var(--oper-line);
 }
 
 .oper-line-text {
@@ -315,15 +315,6 @@
 	margin-bottom: 0.75rem;
 }
 
-.oper-presets .btn {
-	margin: 0;
-}
-
-.oper-presets .btn.active {
-	border-color: var(--link-color);
-	color: var(--link-color);
-}
-
 .oper-bits {
 	list-style: none;
 	margin: 0;
@@ -368,20 +359,6 @@
 	margin-top: 0.25rem;
 }
 
-.oper-o3 .btn-small {
-	margin: 0;
-	padding: 0.3em 0.75em;
-	font-size: 0.875em;
-	line-height: 1.4;
-	border-width: 1px;
-	letter-spacing: 0;
-	text-transform: none;
-}
-
-.oper-o3 .btn-cancel {
-	border-color: transparent;
-}
-
 .oper-o3-note,
 .oper-o3-result {
 	margin: 0.4rem 0 0;
@@ -389,7 +366,7 @@
 }
 
 .oper-o3-result {
-	color: var(--link-color);
+	color: var(--body-color);
 }
 
 .oper-o3-confirm {

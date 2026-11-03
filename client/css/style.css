@@ -3839,18 +3839,21 @@ html[data-reduce-motion] #chat .media-veil-main:hover .media-veil-icon {
  *
  * A server notice or WALLOPS (MessageTypes/snotice.vue, wallops.vue) is a
  * small category badge and the notice in plain words; bans and kills take
- * the unread-marker colour, oper and network events the link colour, the
- * routine families stay muted. */
+ * the oper red, oper and network events the link colour, the routine
+ * families stay muted. The badge is a tag (the oper visual language): a
+ * soft wash of its family's colour, no border. */
 .snotice-badge {
 	display: inline-block;
-	border: 1px solid currentcolor;
-	border-radius: 0.6em;
+	border: 0;
+	border-radius: 999px;
 	font-size: 0.75em;
-	line-height: 1.3;
-	padding: 0 0.45em;
-	margin-right: 0.4em;
+	font-weight: 500;
+	line-height: 1.45;
+	padding: 0 0.55em;
+	margin-right: 0.45em;
 	vertical-align: 0.1em;
 	color: var(--body-color-muted);
+	background: color-mix(in oklab, currentcolor 13%, transparent);
 	white-space: nowrap;
 }
 
@@ -3859,13 +3862,18 @@ html[data-reduce-motion] #chat .media-veil-main:hover .media-veil-icon {
 button.snotice-badge {
 	font: inherit;
 	font-size: 0.75em;
-	background: none;
+	font-weight: 500;
+	background: color-mix(in oklab, currentcolor 13%, transparent);
 	cursor: pointer;
 }
 
 button.snotice-badge:hover,
 button.snotice-badge:focus-visible {
-	background: color-mix(in srgb, currentcolor 12%, transparent);
+	background: color-mix(in oklab, currentcolor 24%, transparent);
+}
+
+html[data-contrast="more"] .snotice-badge {
+	box-shadow: inset 0 0 0 1px currentcolor;
 }
 
 /* What a tooltip says, said where a finger cannot hover (`data-input` on
@@ -4012,7 +4020,7 @@ html[data-contrast="more"] .oper-seg button[aria-pressed="true"] {
 .snotice-kill .snotice-badge,
 .snotice-badge.snotice-ban,
 .snotice-badge.snotice-kill {
-	color: var(--unread-marker-color);
+	color: var(--oper-red);
 }
 
 .snotice-oper .snotice-badge,
@@ -4065,7 +4073,8 @@ html[data-contrast="more"] .oper-seg button[aria-pressed="true"] {
 .oper-chip:hover,
 .oper-chip:focus-visible,
 .oper-chip.active {
-	background: color-mix(in srgb, var(--link-color) 25%, transparent);
+	background: color-mix(in oklab, var(--oper-amber) 16%, transparent);
+	border-color: color-mix(in oklab, var(--oper-amber) 50%, transparent);
 }
 
 .oper-chips {
@@ -4085,6 +4094,19 @@ html[data-contrast="more"] .oper-seg button[aria-pressed="true"] {
 /* Table rows stay one line high: the flag chips do not wrap in a cell. */
 #chat table.oper-report-table .oper-chips {
 	flex-wrap: nowrap;
+}
+
+/* The panel's section headings: small uppercase labels, not the window's
+ * big underlined h2. */
+#oper .settings-modal-body > .container h2 {
+	margin: 1.75rem 0 0.5rem;
+	padding: 0;
+	border: 0;
+	color: var(--oper-faint);
+	font-size: 0.6875rem;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
 }
 
 /* The oper panel's tabs read wider than the Settings column: the Alerts
@@ -4121,13 +4143,29 @@ html[data-contrast="more"] .oper-seg button[aria-pressed="true"] {
 	color: var(--body-color-muted);
 }
 
+/* On / off in a report (a port active, a jupe off): a tag with a dot. */
 .oper-state {
-	font-size: 0.875em;
-	font-weight: 600;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35em;
+	padding: 0 0.55em;
+	border-radius: 999px;
+	background: var(--oper-raised);
+	font-size: 0.75rem;
+	font-weight: 500;
+	line-height: 1.5;
 }
 
-.oper-state.ok {
-	color: var(--link-color);
+.oper-state::before {
+	content: "";
+	width: 0.4em;
+	height: 0.4em;
+	border-radius: 50%;
+	background: var(--body-color-muted);
+}
+
+.oper-state.ok::before {
+	background: var(--button-color);
 }
 
 .oper-state.off,
@@ -4148,30 +4186,41 @@ html[data-contrast="more"] .oper-seg button[aria-pressed="true"] {
 	min-width: 0;
 }
 
+/* A report in the chat (/check, /stats, /privs): a card in the oper visual
+ * language — a panel with a header and its tools, sections under small
+ * uppercase titles, tables between hairlines. */
 .oper-report {
-	border-left: 2px solid color-mix(in srgb, var(--link-color) 45%, transparent);
-	padding: 0.1em 0 0.25em 0.75em;
-	max-width: 100%;
+	max-width: min(100%, 52rem);
+	margin: 0.2em 0 0.35em;
+	padding: 0.7em 0.95em 0.85em;
+	border: 1px solid var(--oper-line);
+	border-radius: 0.6rem;
+	background: var(--oper-panel);
 }
 
 .oper-report.has-error {
-	border-left-color: var(--unread-marker-color);
+	border-color: color-mix(in oklab, var(--oper-red) 50%, transparent);
 }
 
 .oper-report-head {
 	display: flex;
 	flex-wrap: wrap;
-	align-items: baseline;
+	align-items: center;
 	gap: 0.25em 0.6em;
 }
 
 .oper-report-title {
-	font-weight: 700;
+	font-weight: 600;
 }
 
 .oper-report-subtitle {
+	padding: 0 0.55em;
+	border-radius: 999px;
+	background: var(--oper-raised);
 	color: var(--body-color-muted);
-	font-size: 0.875em;
+	font-size: 0.75em;
+	font-weight: 500;
+	line-height: 1.5;
 }
 
 .oper-report-actions {
@@ -4181,9 +4230,9 @@ html[data-contrast="more"] .oper-seg button[aria-pressed="true"] {
 }
 
 #chat .oper-report-btn {
-	width: 1.75em;
-	height: 1.75em;
-	border-radius: 3px;
+	width: 1.9em;
+	height: 1.9em;
+	border-radius: 0.35rem;
 	color: var(--body-color-muted);
 	line-height: 1;
 }
@@ -4191,7 +4240,7 @@ html[data-contrast="more"] .oper-seg button[aria-pressed="true"] {
 #chat .oper-report-btn:hover,
 #chat .oper-report-btn.active {
 	color: var(--body-color);
-	background: color-mix(in srgb, var(--body-color-muted) 15%, transparent);
+	background: var(--oper-raised);
 }
 
 #chat .oper-report-btn::before {
@@ -4224,27 +4273,29 @@ html[data-contrast="more"] .oper-seg button[aria-pressed="true"] {
 }
 
 .oper-report-error {
-	color: var(--unread-marker-color);
-	margin: 0.25em 0 0;
+	color: var(--oper-red);
+	margin: 0.35em 0 0;
 }
 
 .oper-report-section {
-	margin-top: 0.4em;
+	margin-top: 0.6em;
+	padding-top: 0.55em;
+	box-shadow: inset 0 1px 0 var(--oper-line);
 }
 
 .oper-report-section-title {
-	color: var(--window-heading-color);
-	font-size: 0.8125em;
+	color: var(--oper-faint);
+	font-size: 0.6875rem;
 	font-weight: 600;
-	letter-spacing: 0.02em;
+	letter-spacing: 0.06em;
 	text-transform: uppercase;
-	margin: 0.5em 0 0.15em;
+	margin: 0.1em 0 0.4em;
 }
 
 .oper-report-entries {
 	display: grid;
 	grid-template-columns: minmax(6rem, max-content) minmax(0, 1fr);
-	gap: 0.1em 0.9em;
+	gap: 0.3em 1.1em;
 	margin: 0;
 }
 
@@ -4276,22 +4327,22 @@ html[data-contrast="more"] .oper-seg button[aria-pressed="true"] {
 
 #chat table.oper-report-table th,
 #chat table.oper-report-table td {
-	padding: 0.15em 0.9em 0.15em 0;
+	padding: 0.35em 1.1em 0.35em 0;
 	text-align: left;
 	vertical-align: baseline;
 	white-space: nowrap;
 	overflow-wrap: normal;
 	word-break: normal;
-	border-bottom: 1px solid color-mix(in srgb, var(--body-color-muted) 30%, transparent);
+	border-bottom: 1px solid var(--oper-line);
 }
 
 #chat table.oper-report-table th {
-	color: var(--window-heading-color);
-	font-size: 0.8125em;
+	color: var(--oper-faint);
+	font-size: 0.6875rem;
 	font-weight: 600;
-	letter-spacing: 0.02em;
+	letter-spacing: 0.06em;
 	text-transform: uppercase;
-	border-bottom-color: color-mix(in srgb, var(--body-color-muted) 55%, transparent);
+	border-bottom-color: var(--oper-line-2);
 }
 
 #chat table.oper-report-table .right {
@@ -4715,7 +4766,7 @@ html[data-contrast="more"] .oper-seg button[aria-pressed="true"] {
 	overflow: auto;
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
-	border-top: 1px solid color-mix(in srgb, var(--body-color-muted) 30%, transparent);
+	border-top: 1px solid var(--oper-line);
 	padding-top: 0.5rem;
 }
 
@@ -5301,23 +5352,23 @@ html[data-contrast="more"] .oper-tag {
 	box-shadow: none;
 }
 
-.oper-row-time {
+.oper-rows .oper-row-time {
 	min-width: 2.9rem;
 	color: var(--oper-faint);
 	font-variant-numeric: tabular-nums;
 }
 
-.oper-row-main {
+.oper-rows .oper-row-main {
 	min-width: 0;
 }
 
-.oper-row-fate {
+.oper-rows .oper-row-fate {
 	display: block;
 	margin-top: 0.2rem;
 	font-size: 0.8125rem;
 }
 
-.oper-row-tags {
+.oper-rows .oper-row-tags {
 	display: flex;
 	flex-wrap: wrap;
 	justify-content: flex-end;
@@ -5339,7 +5390,7 @@ html[data-contrast="more"] .oper-tag {
 	grid-template-columns: auto minmax(0, 1fr);
 }
 
-.oper-investigate-compare .oper-row-tags {
+.oper-investigate-compare .oper-rows .oper-row-tags {
 	grid-column: 2;
 	justify-content: flex-start;
 }
@@ -5350,7 +5401,7 @@ html[data-contrast="more"] .oper-tag {
 		grid-template-columns: auto minmax(0, 1fr);
 	}
 
-	.oper-row-tags {
+	.oper-rows .oper-row-tags {
 		grid-column: 2;
 		justify-content: flex-start;
 	}
@@ -5471,7 +5522,7 @@ html[data-contrast="more"] .oper-tag {
 	align-items: center;
 	gap: 0.3rem 0.6rem;
 	padding: 0.3rem 0;
-	border-bottom: 1px solid color-mix(in srgb, var(--body-color-muted) 25%, transparent);
+	border-bottom: 1px solid var(--oper-line);
 }
 
 .oper-alert-row.off .oper-alert-row-label {
@@ -5530,7 +5581,7 @@ html[data-contrast="more"] .oper-tag {
 .oper-alert-remove:hover,
 .oper-alert-remove:focus-visible {
 	color: var(--body-color);
-	background: color-mix(in srgb, var(--body-color-muted) 15%, transparent);
+	background: var(--oper-raised);
 }
 
 .oper-alert-add {
@@ -5554,7 +5605,8 @@ html[data-contrast="more"] .oper-tag {
 	margin: 0;
 	padding: 0.5rem 0.65rem;
 	border-radius: 0.3rem;
-	background: color-mix(in srgb, var(--body-color-muted) 12%, transparent);
+	background: var(--oper-sunk);
+	border: 1px solid var(--oper-line);
 	font-family: monospace;
 	font-size: 0.875em;
 	line-height: 1.5;
@@ -5609,7 +5661,7 @@ html[data-contrast="more"] .oper-tag {
 }
 
 .oper-alert-result {
-	color: var(--link-color);
+	color: var(--body-color);
 	font-size: 0.875em;
 }
 
