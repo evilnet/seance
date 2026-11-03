@@ -8,6 +8,8 @@
  * `test/helpers/pushStore.ts`.
  */
 
+import {dict} from "./dict";
+
 export interface PushKeys {
 	p256dh: string;
 	auth: string;
@@ -53,7 +55,7 @@ export function parseStoredSubscriptions(raw: string | null): {
 	entries: Record<string, PushEntry>;
 	legacy: LegacyEntry[];
 } {
-	const entries: Record<string, PushEntry> = {};
+	const entries = dict<PushEntry>();
 	const legacy: LegacyEntry[] = [];
 	let parsed: unknown;
 

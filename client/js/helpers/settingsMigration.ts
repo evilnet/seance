@@ -10,6 +10,33 @@ const OVERRIDES: Record<string, string> = {
 };
 
 /**
+ * The stored settings object as the store reads it. Only an object holds
+ * settings; anything else (`5`, `"x"`, `null`, a list) is a damaged entry and
+ * reads as nothing stored. Older The Lounge versions kept `highlights` as a
+ * list, which is joined back into the string the setting is — its strings
+ * only: a restored file can hold anything there, and `{}` (no `join`) or an
+ * element that cannot become a string threw here and kept the app from
+ * starting until its storage was cleared. Any other wrong type is left for
+ * the store, which keeps a stored value only when its type matches the
+ * default's.
+ */
+export function readStoredSettings(stored: unknown): Record<string, any> {
+	if (typeof stored !== "object" || stored === null || Array.isArray(stored)) {
+		return {};
+	}
+
+	const settings = stored as Record<string, any>;
+
+	if (Array.isArray(settings.highlights)) {
+		settings.highlights = settings.highlights
+			.filter((word: unknown) => typeof word === "string")
+			.join(", ");
+	}
+
+	return settings;
+}
+
+/**
  * Would switching `setting` on override a choice `settings` records? A
  * `fontSize` or `theme` that differs from its default is one the user
  * picked; matchSystemAppearance overrides only a theme that has a light/dark

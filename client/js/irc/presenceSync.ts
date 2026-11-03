@@ -25,6 +25,7 @@
 import storage from "../localStorage";
 // Type only: saved-networks.ts imports this module for its forget function.
 import type {StorageBackend} from "./saved-networks";
+import {dict} from "../helpers/dict";
 
 export const PRESENCE_SYNC_KEY = "thelounge.state.presenceSync";
 
@@ -51,14 +52,14 @@ function readAll(): Record<string, number> {
 	try {
 		parsed = JSON.parse(backend.get(PRESENCE_SYNC_KEY) ?? "{}");
 	} catch {
-		return {};
+		return dict<number>();
 	}
 
 	if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-		return {};
+		return dict<number>();
 	}
 
-	const out: Record<string, number> = {};
+	const out = dict<number>();
 
 	for (const [uuid, at] of Object.entries(parsed as Record<string, unknown>)) {
 		if (typeof at === "number" && Number.isFinite(at)) {

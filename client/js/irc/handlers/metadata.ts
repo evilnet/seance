@@ -27,11 +27,12 @@ export const PAYLOAD_KEY = "draft/webpush/payload";
 
 const OWN_KEYS = new Set([MUTE_KEY, PAYLOAD_KEY, PRESENCE_KEY, MODE_KEY, CLOSED_KEY]);
 
-/** The shared keys this client reads (irc/presenceShare.ts). */
-const SHARED: Record<string, (client: Parameters<Handler>[0], value: string) => void> = {
-	[PRESENCE_KEY]: onPresenceValue,
-	[MODE_KEY]: onGlobalModeValue,
-};
+/** The shared keys this client reads (irc/presenceShare.ts). A Map: the key
+ * is the server's, and a plain object answers `constructor` or `__proto__`. */
+const SHARED = new Map<string, (client: Parameters<Handler>[0], value: string) => void>([
+	[PRESENCE_KEY, onPresenceValue],
+	[MODE_KEY, onGlobalModeValue],
+]);
 
 const ownKey = (key: string | undefined) => key !== undefined && OWN_KEYS.has(key);
 
@@ -47,7 +48,7 @@ const metadata: Handler = (client, msg) => {
 		onMuteValue(client, msg.params[3] ?? "");
 	}
 
-	const onShared = SHARED[msg.params[1] ?? ""];
+	const onShared = SHARED.get(msg.params[1] ?? "");
 
 	if (onShared && ours(client, msg.params[0] ?? "", msg.params[2] ?? "")) {
 		onShared(client, msg.params[3] ?? "");
@@ -82,7 +83,7 @@ const keyValue: Handler = (client, msg) => {
 		client.send(`METADATA * SET ${PAYLOAD_KEY} private :${msg.params[4] ?? ""}`);
 	}
 
-	const onShared = SHARED[msg.params[2] ?? ""];
+	const onShared = SHARED.get(msg.params[2] ?? "");
 
 	if (onShared && client.isSelf(msg.params[1] ?? "")) {
 		onShared(client, msg.params[4] ?? "");
@@ -104,7 +105,7 @@ const keyNotSet: Handler = (client, msg) => {
 		onMuteValue(client, "");
 	}
 
-	const onShared = SHARED[msg.params[2] ?? ""];
+	const onShared = SHARED.get(msg.params[2] ?? "");
 
 	if (onShared && client.isSelf(msg.params[1] ?? "")) {
 		onShared(client, "");

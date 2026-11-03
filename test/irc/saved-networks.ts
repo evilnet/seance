@@ -347,6 +347,17 @@ describe("saved-networks", function () {
 		expect(saved.defaultPort(true)).to.equal(9998);
 	});
 
+	it("refuses a uuid every object already answers to", function () {
+		// A restored settings file can name any uuid, and the uuid keys a dozen
+		// per-network stores: these read Object.prototype (or a Vue proxy's
+		// own answers) back as the network's entry.
+		for (const uuid of ["__proto__", "constructor", "toString", "hasOwnProperty", "__v_raw"]) {
+			expect(saved.normalize({uuid, host: "irc.example.org"}), uuid).to.equal(undefined);
+		}
+
+		expect(saved.normalize({uuid: "net-a", host: "irc.example.org"})?.uuid).to.equal("net-a");
+	});
+
 	it("ignores corrupt or malformed storage", function () {
 		backend.set(saved.STORAGE_KEY, "{not json");
 		expect(saved.list()).to.deep.equal([]);
