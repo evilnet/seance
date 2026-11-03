@@ -130,9 +130,11 @@ function setup(): {client: IrcClient; transport: FakeTransport} {
 		":irc.test 422 opr :MOTD File is missing"
 	);
 	client.setServices(X3);
+
 	for (const bot of ["O3", "AuthServ", "ChanServ"]) {
 		trustBot(client, bot);
 	}
+
 	transport.sent = [];
 	dispatch.resetHistory();
 

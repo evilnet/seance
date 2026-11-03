@@ -14,7 +14,7 @@ import type {IrcClient} from "./client";
 import {formatLine} from "./message";
 import {fitsQuiet, sendQuiet} from "./quiet";
 import {canRequest, request} from "./request";
-import {botTrust} from "./bottrust";
+import {botSendable} from "./bottrust";
 import {collectServiceReply, readyBot, type ServiceAnswer} from "./services";
 import {servicesProfileFor} from "./services/index";
 import type {
@@ -60,7 +60,7 @@ async function ask<T>(client: IrcClient, lookup: ServiceLookup<T>): Promise<Look
 		return {kind: "toolong"};
 	}
 
-	const notReady = botTrust(client, bot) === "trusted" ? undefined : await readyBot(client, bot);
+	const notReady = botSendable(client, bot) ? undefined : await readyBot(client, bot);
 
 	if (notReady) {
 		return {kind: notReady.kind};

@@ -66,7 +66,7 @@ import {type LiveBan, parseBanRow} from "./profiles/nefarious/stats";
 import {isIp, parseCtime} from "./profiles/report";
 import {sendQuiet} from "./quiet";
 import {canRequest, request, type ReplyUnit} from "./request";
-import {botTrust} from "./bottrust";
+import {botSendable} from "./bottrust";
 import {collectServiceReply, readyBot, type ServiceAnswer, untrustedText} from "./services";
 import {servicesProfileFor} from "./services/index";
 import type {ServiceBan, ServiceLookup, ServicesLookups} from "./services/types";
@@ -517,11 +517,10 @@ export class Investigation {
 		this.enqueue({
 			lane: "services",
 			run: async () => {
-				// The real bot, or no question (bottrust.ts): one WHOIS a connection.
-				const answer =
-					botTrust(this.client, bot) === "trusted"
-						? await this.askBot(bot, lookup)
-						: (await readyBot(this.client, bot)) ?? (await this.askBot(bot, lookup));
+				// The real bot, or no question (bottrust.ts): WHOIS first unless lately checked.
+				const answer = botSendable(this.client, bot)
+					? await this.askBot(bot, lookup)
+					: (await readyBot(this.client, bot)) ?? (await this.askBot(bot, lookup));
 
 				if (generation !== this.generation) {
 					return;

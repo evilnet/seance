@@ -155,6 +155,7 @@ function setup(opts: {opered?: boolean; services?: boolean; labels?: boolean} = 
 
 	if (opts.services ?? true) {
 		client.setServices(X3);
+
 		for (const bot of ["O3", "AuthServ", "ChanServ"]) {
 			trustBot(client, bot);
 		}

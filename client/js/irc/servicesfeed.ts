@@ -34,39 +34,26 @@ import {fromTrustedBot, recheckBot} from "./bottrust";
 export const SERVICES_CATEGORY = "SERVICES";
 
 /**
- * Whether a line is one of the configured bots'. A live line must come from
- * the bot as WHOIS knows it (bottrust.ts) — anyone may hold the nick while
- * services are away, and a live line goes into the notice log; one from the
- * nick but not yet checked, or from elsewhere, has the bot asked about in
- * the background and is left as the ordinary message it is. A replayed
- * line (scrollback after a reload) only has its nicks marked, which is
- * harmless, so the nick is enough there.
+ * Which configured bot a line's nick names, if any. A live line must also
+ * come from the bot as WHOIS knows it (bottrust.ts, checked by the caller)
+ * — anyone may hold the nick while services are away, and a live line goes
+ * into the notice log. A replayed line (scrollback after a reload) only has
+ * its nicks marked, which is harmless, so the nick is enough there.
  */
-function fromConfiguredBot(
+function configuredBot(
 	client: IrcClient,
 	msg: IrcMessage,
 	bots: ServicesConfig["bots"]
-): boolean {
+): string | undefined {
 	const from = msg.source?.name;
 
 	if (!from || msg.source?.user === undefined) {
-		return false;
+		return undefined;
 	}
 
-	const bot = [bots.oper, bots.account, bots.channel]
+	return [bots.oper, bots.account, bots.channel]
 		.map((b) => b.trim())
 		.find((b) => b !== "" && client.namesEqual(b, from));
-
-	if (!bot) {
-		return false;
-	}
-
-	if (client.replaying || fromTrustedBot(client, msg, bot)) {
-		return true;
-	}
-
-	recheckBot(client, bot);
-	return false;
 }
 
 function inChannel(client: IrcClient, target: string, wanted: string): boolean {
@@ -206,12 +193,30 @@ export function noteServicesLine(client: IrcClient, msg: IrcMessage): LoggedNoti
 
 	const chan = client.findChannel(target);
 
-	if (!chan || chan.type !== ChanType.CHANNEL || !fromConfiguredBot(client, msg, services.bots)) {
+	const bot = configuredBot(client, msg, services.bots);
+
+	if (!chan || chan.type !== ChanType.CHANNEL || !bot) {
 		return undefined;
 	}
 
 	const text = stripFormatting(msg.params[msg.params.length - 1] ?? "");
 	const entry = servicesEntry(profile, where, text, client.timeOf(msg).getTime());
+
+	if (!client.replaying && !fromTrustedBot(client, msg, bot)) {
+		// Not (yet) the bot WHOIS knows. If that asks again — services back
+		// after an outage — the line is logged once the answer says it is.
+		const recheck = recheckBot(client, bot);
+
+		if (entry && recheck) {
+			void recheck.then(() => {
+				if (fromTrustedBot(client, msg, bot)) {
+					client.noticeLog.append(entry);
+				}
+			});
+		}
+
+		return undefined;
+	}
 
 	if (entry && !client.replaying) {
 		client.noticeLog.append(entry);

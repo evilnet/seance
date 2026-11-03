@@ -7,9 +7,10 @@
  * is trusted only once WHOIS calls it a network service (310, the `+k` user
  * mode, which only services and opers with the SERVICE privilege can set),
  * and from then on only lines from the `user@host` that WHOIS gave count as
- * the bot's. A new connection forgets everything; a line from the bot's nick
- * but another address asks again (at most once a minute), in case services
- * came back somewhere else.
+ * the bot's. A new connection forgets everything, and so does the bot's QUIT
+ * or NICK; a line from the bot's nick but another address asks again (at
+ * most once a minute), in case services came back somewhere else; a command
+ * to the bot asks again when the last check is five minutes old.
  *
  * Kept free of store/DOM imports (mocha, test/irc/bottrust.ts).
  */
@@ -33,6 +34,13 @@ export interface BotWhois {
 export const BOT_WHOIS_TIMEOUT_MS = 15_000;
 /** The least time between two checks of the same bot prompted by its lines. */
 export const BOT_RECHECK_MS = 60_000;
+/**
+ * How long a check stands before a command is sent to the bot: past this,
+ * WHOIS is asked again first, so a ban's mask and reason never go to
+ * whoever took the nick since (a QUIT or NICK we see forgets it sooner,
+ * but only in a channel we share).
+ */
+export const BOT_SEND_FRESH_MS = 5 * 60_000;
 
 /** Where a bot stands: asked and trusted (at this address), asked and not, or not asked. */
 export type BotTrust = "trusted" | "untrusted" | "unknown";
@@ -134,6 +142,20 @@ export function botTrust(client: IrcClient, nick: string): BotTrust {
 	return entry ? (entry.trusted ? "trusted" : "untrusted") : "unknown";
 }
 
+/** Whether a command may go to `nick` without asking WHOIS first. */
+export function botSendable(client: IrcClient, nick: string, now = Date.now()): boolean {
+	const entry = entryOf(client, nick);
+	return !!entry?.trusted && now - entry.checkedAt < BOT_SEND_FRESH_MS;
+}
+
+/**
+ * `nick` left or changed (QUIT, NICK, CHGHOST): whoever holds the nick next
+ * is asked about afresh.
+ */
+export function forgetBot(client: IrcClient, nick: string): void {
+	storeOf(client).entries.delete(client.casefold(nick));
+}
+
 /** Whether the last WHOIS on this connection found `nick` online, real or not. */
 export function botOnline(client: IrcClient, nick: string): boolean {
 	return entryOf(client, nick)?.userhost !== undefined;
@@ -157,16 +179,18 @@ export function fromTrustedBot(client: IrcClient, msg: IrcMessage, nick: string)
 /**
  * Make sure `nick` has been asked on this connection, and say where it
  * stands. One WHOIS per bot at a time; `background` waits its turn behind
- * the fake lag (`IrcClient.whenRoom`) — for checks nobody is waiting on.
+ * the fake lag (`IrcClient.whenRoom`) — for checks nobody is waiting on;
+ * `maxAge` asks again when the last check is older.
  */
 export function verifyBot(
 	client: IrcClient,
 	nick: string,
-	opts: {background?: boolean; force?: boolean} = {}
+	opts: {background?: boolean; force?: boolean; maxAge?: number} = {}
 ): Promise<BotTrust> {
 	const known = entryOf(client, nick);
+	const fresh = opts.maxAge === undefined || Date.now() - (known?.checkedAt ?? 0) < opts.maxAge;
 
-	if (known && !opts.force) {
+	if (known && fresh && !opts.force) {
 		return Promise.resolve(known.trusted ? "trusted" : "untrusted");
 	}
 
@@ -200,15 +224,21 @@ export function verifyBot(
 
 /**
  * A line from a bot's nick that `fromTrustedBot` turned down: ask WHOIS
- * again in the background, at most once a minute per bot, in case it is
- * the bot come back (or come back elsewhere) rather than someone else.
+ * again in the background, in case it is the bot come back (or come back
+ * elsewhere) rather than someone else. A bot last seen offline is asked at
+ * once — someone holds the nick now; one seen online at most once a minute.
+ * Returns the answer to come, or undefined when it was not asked.
  */
-export function recheckBot(client: IrcClient, nick: string, now = Date.now()): void {
+export function recheckBot(
+	client: IrcClient,
+	nick: string,
+	now = Date.now()
+): Promise<BotTrust> | undefined {
 	const entry = entryOf(client, nick);
 
-	if (entry && now - entry.checkedAt < BOT_RECHECK_MS) {
-		return;
+	if (entry?.userhost !== undefined && now - entry.checkedAt < BOT_RECHECK_MS) {
+		return undefined;
 	}
 
-	void verifyBot(client, nick, {background: true, force: entry !== undefined});
+	return verifyBot(client, nick, {background: true, force: entry !== undefined});
 }

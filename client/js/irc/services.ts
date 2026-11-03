@@ -12,7 +12,15 @@
 import type {ServicesConfig} from "../../../shared/types/network";
 import type {IrcClient} from "./client";
 import type {IrcMessage} from "./message";
-import {botOnline, botTrust, fromTrustedBot, recheckBot, verifyBot, whoisBot} from "./bottrust";
+import {
+	BOT_SEND_FRESH_MS,
+	botOnline,
+	botSendable,
+	fromTrustedBot,
+	recheckBot,
+	verifyBot,
+	whoisBot,
+} from "./bottrust";
 import {sendQuiet} from "./quiet";
 import {servicesProfileFor} from "./services/index";
 import {X3_REALNAMES} from "./services/x3";
@@ -199,18 +207,19 @@ export function verifyServiceBots(client: IrcClient): void {
 export type NotReady = {kind: "missing" | "untrusted" | "timeout" | "closed"};
 
 /**
- * Before a conversation with `bot`: check it is the real bot (bottrust.ts,
- * one WHOIS per connection). Callers skip the wait when `botTrust` already
- * says trusted, so a checked bot is asked in the same tick, as before. Undefined when it is; otherwise the answer to
- * give instead of asking — `missing`, `untrusted`, or `closed`/`timeout`
- * when the WHOIS itself could not be had.
+ * Before a conversation with `bot`: check it is the real bot (bottrust.ts;
+ * WHOIS again once the last check is five minutes old). Callers skip the
+ * wait when `botSendable` already says yes, so a checked bot is asked in
+ * the same tick. Undefined when it is the bot; otherwise the answer to give
+ * instead of asking — `missing`, `untrusted`, or `closed`/`timeout` when
+ * the WHOIS itself could not be had.
  */
 export async function readyBot(client: IrcClient, bot: string): Promise<NotReady | undefined> {
 	if (!client.isWelcomed) {
 		return {kind: "closed"};
 	}
 
-	const trust = await verifyBot(client, bot);
+	const trust = await verifyBot(client, bot, {maxAge: BOT_SEND_FRESH_MS});
 
 	if (trust === "trusted") {
 		return undefined;
@@ -359,7 +368,7 @@ export function noteServiceReply(client: IrcClient, msg: IrcMessage): boolean {
 		// The bot's nick from another address is not the bot (bottrust.ts):
 		// shown as the ordinary notice it is, and the bot asked about again.
 		if (!fromTrustedBot(client, msg, watcher.bot)) {
-			recheckBot(client, watcher.bot);
+			void recheckBot(client, watcher.bot);
 			continue;
 		}
 
@@ -503,7 +512,7 @@ export async function servicesBan(
 
 	// Trimmed as ActionDialog.vue trims it: the dialog measures this same line.
 	const bot = services.bots.oper.trim();
-	const notReady = botTrust(client, bot) === "trusted" ? undefined : await readyBot(client, bot);
+	const notReady = botSendable(client, bot) ? undefined : await readyBot(client, bot);
 
 	if (notReady) {
 		return banRefusal(bot, notReady);
