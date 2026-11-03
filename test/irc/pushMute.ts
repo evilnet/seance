@@ -913,6 +913,13 @@ describe("push mute across a reload or a reconnect (irc/muteMemory.ts)", functio
 		return h;
 	}
 
+	it("has no memory under a name every object has", function () {
+		expect(getMuteMemory("constructor")).to.deep.equal({
+			ownedUntil: null,
+			confirmedUntil: null,
+		});
+	});
+
 	it("remembers what it wrote and what the server confirmed, per network", function () {
 		const {h, value} = confirmed(NOW_MS + 8 * HOUR_MS);
 		expect(getMuteMemory("mute-net")).to.deep.equal({

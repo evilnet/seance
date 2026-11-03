@@ -17,6 +17,7 @@ import {
 import {
 	getNote,
 	getOperPrefs,
+	setWasOper,
 	OPER_PREFS_KEY,
 	resetRoutes,
 	routeFor,
@@ -670,6 +671,20 @@ describe("oper tools: temporary routes (irc/operprefs.ts)", function () {
 		setTemporaryRoute("n1", "oper.up", "off", now + HOUR);
 		resetRoutes("n1");
 		expect(getOperPrefs("n1")).to.deep.equal({});
+	});
+
+	it("a network's prefs never land on Object.prototype", function () {
+		const leaked = () => (Object.prototype as {wasOper?: unknown}).wasOper;
+
+		try {
+			expect(getOperPrefs("constructor")).to.deep.equal({});
+			setWasOper("__proto__", true);
+			expect(leaked()).to.equal(undefined);
+			expect(getOperPrefs("__proto__")).to.deep.equal({wasOper: true});
+			expect(getOperPrefs("n1")).to.deep.equal({});
+		} finally {
+			delete (Object.prototype as {wasOper?: unknown}).wasOper;
+		}
 	});
 
 	it("loads prefs written before temporary routes existed", function () {

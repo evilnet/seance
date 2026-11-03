@@ -16,6 +16,7 @@
 import storage from "../localStorage";
 // Type only: saved-networks.ts imports this module for its forget function.
 import type {StorageBackend} from "./saved-networks";
+import {dict} from "../helpers/dict";
 
 export const MUTE_MEMORY_KEY = "thelounge.state.dndMute";
 
@@ -40,14 +41,14 @@ function readAll(): Record<string, MuteMemory> {
 	try {
 		parsed = JSON.parse(backend.get(MUTE_MEMORY_KEY) ?? "{}");
 	} catch {
-		return {};
+		return dict<MuteMemory>();
 	}
 
 	if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-		return {};
+		return dict<MuteMemory>();
 	}
 
-	const out: Record<string, MuteMemory> = {};
+	const out = dict<MuteMemory>();
 
 	for (const [uuid, raw] of Object.entries(parsed as Record<string, unknown>)) {
 		if (raw && typeof raw === "object") {

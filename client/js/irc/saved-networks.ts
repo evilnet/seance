@@ -212,6 +212,19 @@ export function parseCommands(value: unknown): string[] {
 }
 
 /**
+ * A uuid no network may have. The uuid keys a dozen per-network stores, most
+ * of them plain objects — the push subscriptions are a Vue reactive one — and
+ * a restored settings file can name any string: `__proto__` or `constructor`
+ * there read Object.prototype's members back as the network's entry, and an
+ * oper-up wrote `wasOper` onto Object.prototype itself. So nothing every
+ * object already answers to, and nothing starting `__` (Vue's proxies answer
+ * `__v_raw` and the like). What `newUuid` makes is never either.
+ */
+function reservedUuid(uuid: string): boolean {
+	return uuid in Object.prototype || uuid.startsWith("__");
+}
+
+/**
  * Coerce anything shaped like a network (a stored entry, the connect form,
  * the edit form's FormData) into a well-typed {@link SavedNetwork}. Returns
  * `undefined` when there is no usable `uuid`.
@@ -219,7 +232,7 @@ export function parseCommands(value: unknown): string[] {
 export function normalize(raw: Record<string, unknown>): SavedNetwork | undefined {
 	const uuid = asString(raw.uuid);
 
-	if (!uuid) {
+	if (!uuid || reservedUuid(uuid)) {
 		return undefined;
 	}
 

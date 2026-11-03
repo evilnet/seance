@@ -17,6 +17,7 @@ import {
 	USER_AWAY_KEY,
 	getUserAway,
 	pruneUserAway,
+	setUserAway,
 	useStorageBackend,
 	type StorageBackend,
 } from "../../client/js/irc/userAwayStore";
@@ -104,6 +105,13 @@ describe("the away state across reloads and reconnects (draft/pre-away)", functi
 	afterEach(function () {
 		useStorageBackend(null);
 		saved.useStorageBackend(null);
+	});
+
+	it("keeps no away text under a name every object has", function () {
+		expect(getUserAway("constructor")).to.equal(null);
+		expect(getUserAway("__proto__")).to.equal(null);
+		setUserAway("__proto__", "brb");
+		expect(getUserAway("__proto__")).to.equal("brb");
 	});
 
 	it("requests draft/pre-away", function () {

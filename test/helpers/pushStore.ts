@@ -55,6 +55,15 @@ describe("pushStore — entryStale", () => {
 	});
 });
 
+describe("pushStore — keys from outside", () => {
+	it("has no entry for a name every object has", () => {
+		const {entries} = parseStoredSubscriptions(JSON.stringify({net1: entry}));
+
+		expect(entries.constructor).to.equal(undefined);
+		expect(anyStale(entries, new Map([["constructor", "K"]]))).to.equal(false);
+	});
+});
+
 describe("pushStore — anyStale", () => {
 	it("scans the connected networks against their entries", () => {
 		const entries = {net1: entry, net2: {...entry, vapid: "K2"}};

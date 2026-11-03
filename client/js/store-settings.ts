@@ -1,6 +1,6 @@
 import storage from "./localStorage";
 import {config, createState} from "./settings";
-import {migrateStoredSettings} from "./helpers/settingsMigration";
+import {migrateStoredSettings, readStoredSettings} from "./helpers/settingsMigration";
 import {Store} from "vuex";
 import {State} from "./store";
 
@@ -79,22 +79,7 @@ function loadFromLocalStorage() {
 		storage.remove("settings");
 	}
 
-	// Only an object holds settings; anything else (`5`, `"x"`, `null`, a
-	// list) is a damaged entry and reads as nothing stored.
-	if (
-		typeof storedSettings !== "object" ||
-		storedSettings === null ||
-		Array.isArray(storedSettings)
-	) {
-		return {};
-	}
-
-	// Older The Lounge versions converted highlights to an array, turn it back into a string
-	if (storedSettings.highlights !== null && typeof storedSettings.highlights === "object") {
-		storedSettings.highlights = storedSettings.highlights.join(", ");
-	}
-
-	return storedSettings;
+	return readStoredSettings(storedSettings);
 }
 
 /**
