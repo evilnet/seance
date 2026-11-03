@@ -1033,6 +1033,50 @@ describe("WsTransport: the server's throttle", function () {
 		expect(lastReconnecting(events)).to.include({delayMs: 0});
 	});
 
+	it("waits what the server named, not the backoff the schedule had reached", function () {
+		const {t, events} = make({reconnect: fastReconnect});
+		t.connect();
+
+		for (let i = 0; i < 6; i++) {
+			last().open();
+			last().closed(1006, "", false);
+			clock.tick((lastReconnecting(events) as {delayMs: number}).delayMs);
+		}
+
+		expect(lastReconnecting(events)).to.include({delayMs: 1000}); // at the cap
+		last().open();
+		t.throttled(0);
+		last().closed(1006, "", false);
+		expect(lastReconnecting(events)).to.include({delayMs: 1000, throttled: true});
+		clock.tick(1000);
+		last().open();
+		t.throttled(100);
+		last().closed(1006, "", false);
+		expect(lastReconnecting(events)).to.include({delayMs: 1100, throttled: true});
+	});
+
+	it("waits the fallback after a never-opened dial, whatever the backoff had reached", function () {
+		const {t, events} = make({reconnect: {...fastReconnect, maxDelayMs: 120_000}});
+		t.connect();
+
+		for (let i = 0; i < 12; i++) {
+			last().closed(1006, "", false);
+			expect(lastReconnecting(events)).to.include({delayMs: UNREACHED_RETRY_MS});
+			clock.tick(UNREACHED_RETRY_MS);
+		}
+	});
+
+	it("a dial that replaces an open socket and never opens waits the fallback", function () {
+		const {t, events} = make({reconnect: fastReconnect});
+		t.connect();
+		last().open();
+		clock.tick(STABLE_MS);
+		t.close();
+		t.connect(); // before the old socket's close event
+		last().closed(1006, "", false);
+		expect(lastReconnecting(events)).to.include({delayMs: UNREACHED_RETRY_MS});
+	});
+
 	it("a connect() (the user's Connect now) dials at once during the wait", function () {
 		const {t} = make({reconnect: fastReconnect});
 		t.connect();

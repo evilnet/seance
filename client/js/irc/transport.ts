@@ -152,6 +152,8 @@ export class WsTransport {
 		this.clearTimer();
 		this.closedByUs = false;
 		this.throttleMs = null;
+		// A superseded socket's open says nothing about this one.
+		this.openedAt = null;
 		const Impl = this.opts.WebSocketImpl ?? globalThis.WebSocket;
 
 		if (typeof Impl !== "function") {
@@ -404,13 +406,13 @@ export class WsTransport {
 				delayMs = 0;
 			}
 
-			// The server's own word first; else a dial that never opened
-			// waits past the window that may have refused it.
+			// The server's own word replaces the schedule; else a dial that
+			// never opened waits past the window that may have refused it.
 			if (serverWait !== null) {
-				delayMs = Math.max(delayMs, serverWait);
+				delayMs = serverWait;
 				throttled = true;
 			} else if (unreached) {
-				delayMs = Math.max(delayMs, UNREACHED_RETRY_MS);
+				delayMs = UNREACHED_RETRY_MS;
 			}
 		}
 
