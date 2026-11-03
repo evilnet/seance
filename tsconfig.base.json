@@ -14,9 +14,6 @@
     // TODO: Remove eventually
     "noImplicitAny": false,
     "forceConsistentCasingInFileNames": true,
-    "skipLibCheck": true,
-    // Vuex 4's `exports` has no `types` condition, so `bundler` cannot find
-    // its types and the store silently becomes `any`.
-    "paths": {"vuex": ["./node_modules/vuex/types/index.d.ts"]}
+    "skipLibCheck": true
   }
 }

@@ -3,6 +3,10 @@
   "include": ["**/*", "../client", "../shared"],
   "files": ["../package.json"],
   "compilerOptions": {
+    // Vuex 4's `exports` has no `types` condition, so `bundler` cannot find
+    // its types and the store silently becomes `any`. Not in the base: tsx
+    // reads the root tsconfig's `paths` and would load this .d.ts at runtime.
+    "paths": {"vuex": ["../node_modules/vuex/types/index.d.ts"]},
     "jsx": "preserve",
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "types": ["node", "mocha"]
