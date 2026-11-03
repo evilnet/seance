@@ -26,9 +26,7 @@ pnpm, at the version `package.json`'s `packageManager` names (`npm i -g pnpm@12.
 | Auto-format                                               | `pnpm format:prettier`                        |
 | Full test (lint + mocha)                                  | `pnpm test`                                   |
 | Mocha only (builds first)                                 | `pnpm test:mocha`                             |
-| Mocha without the spec glob                               | `pnpm test:nospec`                            |
 | Coverage                                                  | `pnpm coverage`                               |
-| Install git pre-commit hook                               | `pnpm githooks-install`                       |
 | Playwright e2e (builds first, needs `SEANCE_E2E_IRC_URL`) | `pnpm test:e2e`                               |
 
 There is no `pnpm dev`/`pnpm start`; build and serve `public/` statically.
@@ -149,7 +147,7 @@ Cross-cutting types and helpers. `shared/types/socket-events.ts` (`ServerToClien
 
 ## Conventions
 
-- Prettier is enforced (pre-commit hook via `pnpm githooks-install`). If `pnpm lint` fails, run `pnpm format:prettier` first.
+- Prettier is enforced (`pnpm lint`, and CI). If `pnpm lint` fails, run `pnpm format:prettier` first.
 - **UI sizing: rem, never px** — moved to `docs/resources/client-features.md` § UI sizing: rem, never px.
 - `client/` compiles with `strict: true`; `noImplicitAny: false` remains in the tsconfigs with a "TODO: Remove eventually" — write explicit types in new code. No Node built-ins in `client/` (it must bundle for the browser; `transport.ts` uses only the global `WebSocket`).
 - **Pipeline the registration exchange.** Lines are processed in order and pre-registration commands are not charged fake lag, so never wait for a reply whose outcome the server already knows: `CAP END` (or the SASL opener) goes out in the same flush as `CAP REQ`, and the active channel's history/marker in the same flush as the `JOIN` (`caps.ts` `pipelineEnd`, `catchup.ts` `prefetchCatchup`).
