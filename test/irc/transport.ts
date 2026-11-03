@@ -2,6 +2,7 @@ import {expect} from "chai";
 import sinon from "sinon";
 import {
 	CONNECT_TIMEOUT_MS,
+	UNREACHED_RETRY_MS,
 	WsTransport,
 	TransportEvent,
 	TransportOptions,
@@ -403,6 +404,7 @@ describe("WsTransport", function () {
 
 			expected.forEach((delayMs, i) => {
 				expect(FakeWebSocket.instances).to.have.length(i + 1);
+				last().open(); // one that never opened waits UNREACHED_RETRY_MS
 				last().closed(1006, "", false);
 				expect(t.state).to.equal("reconnect-wait");
 				const closeEv = events[events.length - 2];
@@ -438,6 +440,7 @@ describe("WsTransport", function () {
 
 					// Through the timer path, so the attempt counter keeps growing.
 					for (let i = 0; i < 8; i++) {
+						last().open();
 						last().closed(1006, "", false);
 						const ev = events[events.length - 1] as {
 							type: "reconnecting";
@@ -482,10 +485,13 @@ describe("WsTransport", function () {
 		it("resets the backoff after a connection that stayed open >= 30 s", function () {
 			const {t, events} = make({reconnect: fastReconnect});
 			t.connect();
+			last().open();
 			last().closed(1006, "", false); // attempt 1 → 100
 			clock.tick(100);
+			last().open();
 			last().closed(1006, "", false); // attempt 2 → 200
 			clock.tick(200);
+			last().open();
 			last().closed(1006, "", false); // attempt 3 → 400
 			clock.tick(400);
 
@@ -526,7 +532,8 @@ describe("WsTransport", function () {
 			expect(FakeWebSocket.instances).to.have.length(2);
 			expect(t.state).to.equal("connecting");
 
-			// That retry failing is a real outage: the usual backoff from here.
+			// That retry dropping again backs off as usual from here.
+			last().open();
 			last().closed(1006, "", false);
 			expect(events[events.length - 1]).to.deep.equal({
 				type: "reconnecting",
@@ -621,7 +628,7 @@ describe("WsTransport foreground recovery", function () {
 		expect(events.at(-1)).to.include({type: "close", code: 1006, reason: "no reply to PING"});
 	});
 
-	it("abandons a dial that never opens and retries with the usual backoff", function () {
+	it("abandons a dial that never opens and retries after the fallback wait", function () {
 		const {t, events} = make({reconnect: fastReconnect});
 		t.connect();
 		const stuck = last();
@@ -638,7 +645,7 @@ describe("WsTransport foreground recovery", function () {
 		stuck.open();
 		expect(t.state).to.equal("reconnect-wait");
 
-		clock.tick(fastReconnect.initialDelayMs);
+		clock.tick(UNREACHED_RETRY_MS);
 		expect(FakeWebSocket.instances).to.have.lengthOf(2);
 		expect(t.state).to.equal("connecting");
 	});
@@ -734,6 +741,7 @@ describe("WsTransport: a request to connect restarts the schedule", function () 
 		let delay = 0;
 
 		for (let i = 0; i < n; i++) {
+			last().open();
 			last().closed(1006, "", false);
 			delay = (events[events.length - 1] as {delayMs: number}).delayMs;
 
@@ -757,6 +765,7 @@ describe("WsTransport: a request to connect restarts the schedule", function () 
 		expect(t.state).to.equal("connecting");
 		expect(FakeWebSocket.instances).to.have.lengthOf(5);
 
+		last().open();
 		last().closed(1006, "", false);
 		expect(events[events.length - 1]).to.deep.equal({
 			type: "reconnecting",
@@ -773,6 +782,7 @@ describe("WsTransport: a request to connect restarts the schedule", function () 
 		clock.tick(5000);
 
 		t.redial();
+		last().open();
 		last().closed(1006, "", false);
 		expect(events[events.length - 1]).to.deep.equal({
 			type: "reconnecting",
@@ -800,6 +810,7 @@ describe("WsTransport: a request to connect restarts the schedule", function () 
 
 		// Only that first retry is immediate: the schedule then resumes from attempt 2.
 		clock.tick(0);
+		last().open();
 		last().closed(1006, "", false);
 		expect(events[events.length - 1]).to.deep.equal({
 			type: "reconnecting",
@@ -867,11 +878,10 @@ describe("WsTransport.abandon()", function () {
 		expect(t.state).to.equal("reconnect-wait");
 		expect(events[events.length - 2]).to.include({type: "close", reason: "giving up"});
 
-		clock.tick(100); // the retry dials
+		// It never opened: the fallback wait, past the abandoned dial's own
+		// timeout, which must not fire meanwhile.
+		clock.tick(UNREACHED_RETRY_MS); // the retry dials
 		expect(FakeWebSocket.instances).to.have.lengthOf(2);
-
-		// The abandoned dial's own timeout must not fire on the new socket.
-		clock.tick(CONNECT_TIMEOUT_MS - 2100);
 		expect(events.filter((e) => e.type === "close")).to.have.lengthOf(1);
 		expect(t.state).to.equal("connecting");
 	});
@@ -891,7 +901,7 @@ describe("WsTransport.abandon()", function () {
 	});
 });
 
-describe("WsTransport: the dial gate (irc/dialLedger.ts)", function () {
+describe("WsTransport: the server's throttle", function () {
 	let clock: sinon.SinonFakeTimers;
 
 	beforeEach(function () {
@@ -904,192 +914,134 @@ describe("WsTransport: the dial gate (irc/dialLedger.ts)", function () {
 		clock.restore();
 	});
 
-	/** A gate closed until `until` (fake-clock ms), recording every dial. */
-	function gate(until: number) {
-		const g = {
-			until,
-			record: sinon.spy(),
-			closed: sinon.spy(),
-			waitMs: (now: number) => Math.max(0, g.until - now),
-		};
-		return g;
+	function lastReconnecting(events: TransportEvent[]) {
+		return events.filter((e) => e.type === "reconnecting").pop();
 	}
 
-	it("defers a connect the server would refuse", function () {
-		const g = gate(30_000);
-		const {t, events} = make({reconnect: fastReconnect, gate: g});
+	it("waits the seconds the server named, and a second more, when it said it throttled us", function () {
+		const {t, events} = make({reconnect: fastReconnect});
 		t.connect();
-		expect(FakeWebSocket.instances).to.have.length(0);
-		expect(t.state).to.equal("reconnect-wait");
-		expect(events[events.length - 1]).to.deep.equal({
-			type: "reconnecting",
-			attempt: 0,
-			delayMs: 30_000,
-			throttled: true,
-		});
-		clock.tick(29_999);
-		expect(FakeWebSocket.instances).to.have.length(0);
-		clock.tick(1);
-		expect(FakeWebSocket.instances).to.have.length(1);
-	});
-
-	it("a connect() during the wait waits too", function () {
-		const g = gate(30_000);
-		const {t} = make({reconnect: fastReconnect, gate: g});
-		t.connect();
-		clock.tick(10_000);
-		t.connect();
-		expect(FakeWebSocket.instances).to.have.length(0);
-		clock.tick(20_000);
-		expect(FakeWebSocket.instances).to.have.length(1);
-	});
-
-	it("a forced connect() (the user's Connect now) dials during the wait", function () {
-		const g = gate(30_000);
-		const {t} = make({reconnect: fastReconnect, gate: g});
-		t.connect();
-		clock.tick(10_000);
-		t.connect({force: true});
-		expect(FakeWebSocket.instances).to.have.length(1);
-		expect(t.state).to.equal("connecting");
-	});
-
-	it("after a forced dial is refused, the retry waits for the gate again", function () {
-		const g = gate(30_000);
-		const {t, events} = make({reconnect: fastReconnect, gate: g});
-		t.connect({force: true});
+		last().open();
+		t.throttled(37_000);
 		last().closed(1006, "", false);
-		expect(FakeWebSocket.instances).to.have.length(1);
-		expect(events[events.length - 1]).to.include({type: "reconnecting", throttled: true});
-		clock.tick(29_999);
-		expect(FakeWebSocket.instances).to.have.length(1);
-	});
-
-	it("never retries earlier than the gate allows after a close", function () {
-		const g = gate(0);
-		const {t, events} = make({reconnect: fastReconnect, gate: g});
-		t.connect();
-		g.until = 20_000;
-		last().closed(1006, "", false);
-		expect(events[events.length - 2]).to.include({type: "close", delayMs: 20_000});
-		expect(events[events.length - 1]).to.deep.equal({
+		expect(lastReconnecting(events)).to.deep.equal({
 			type: "reconnecting",
 			attempt: 1,
-			delayMs: 20_000,
+			delayMs: 38_000,
 			throttled: true,
 		});
-		clock.tick(19_999);
+		clock.tick(37_999);
 		expect(FakeWebSocket.instances).to.have.length(1);
 		clock.tick(1);
 		expect(FakeWebSocket.instances).to.have.length(2);
 	});
 
-	it("keeps the backoff when it is longer than the gate", function () {
-		const g = gate(0);
-		const {t, events} = make({reconnect: fastReconnect, gate: g});
+	it("waits the fallback when the server named no wait, even after a stable connection", function () {
+		const {t, events} = make({reconnect: fastReconnect});
 		t.connect();
-		g.until = 50;
+		last().open();
+		clock.tick(STABLE_MS);
+		t.throttled();
 		last().closed(1006, "", false);
-		expect(events[events.length - 1]).to.deep.equal({
+		expect(lastReconnecting(events)).to.include({
+			delayMs: UNREACHED_RETRY_MS,
+			throttled: true,
+		});
+	});
+
+	it("forgets what the server said once the next dial goes out", function () {
+		const {t, events} = make({reconnect: fastReconnect});
+		t.connect();
+		last().open();
+		t.throttled(5_000);
+		last().closed(1006, "", false);
+		clock.tick(6_000);
+		last().open();
+		last().closed(1006, "", false);
+		expect(lastReconnecting(events)).to.deep.equal({
+			type: "reconnecting",
+			attempt: 2,
+			delayMs: 200,
+		});
+	});
+
+	it("ignores a throttle reported while nothing is connected", function () {
+		const {t, events} = make({reconnect: fastReconnect});
+		t.throttled(30_000);
+		t.connect();
+		last().open();
+		last().closed(1006, "", false);
+		expect(lastReconnecting(events)).to.deep.equal({
 			type: "reconnecting",
 			attempt: 1,
 			delayMs: 100,
 		});
 	});
 
-	it("records every dial it makes, refused ones included", function () {
-		const g = gate(0);
-		const {t} = make({reconnect: fastReconnect, gate: g});
+	it("waits the fallback after a dial that never opened, unflagged", function () {
+		const {t, events} = make({reconnect: fastReconnect});
 		t.connect();
 		last().closed(1006, "", false);
-		clock.tick(100);
-		expect(FakeWebSocket.instances).to.have.length(2);
-		expect(g.record.args).to.deep.equal([[0], [100]]);
+		expect(lastReconnecting(events)).to.deep.equal({
+			type: "reconnecting",
+			attempt: 1,
+			delayMs: UNREACHED_RETRY_MS,
+		});
+		clock.tick(UNREACHED_RETRY_MS);
+		last().closed(1006, "", false);
+		expect(lastReconnecting(events)).to.include({attempt: 2, delayMs: UNREACHED_RETRY_MS});
 	});
 
-	it("tells the gate when any dial ends: one that never opened counted at the accept", function () {
-		const g = gate(0);
-		const {t} = make({reconnect: fastReconnect, gate: g});
+	it("waits the fallback after a dial that timed out", function () {
+		const {t, events} = make({reconnect: fastReconnect});
 		t.connect();
-		last().closed(1006, "", false); // refused before it opened
-		expect(g.closed.args).to.deep.equal([[0]]);
+		clock.tick(CONNECT_TIMEOUT_MS);
+		expect(lastReconnecting(events)).to.include({delayMs: UNREACHED_RETRY_MS});
+	});
+
+	it("keeps the usual backoff for a dial made with the radio off", function () {
+		const nav = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+		Object.defineProperty(globalThis, "navigator", {
+			value: {onLine: false},
+			configurable: true,
+		});
+
+		try {
+			const {t, events} = make({reconnect: fastReconnect});
+			t.connect();
+			last().closed(1006, "", false);
+			expect(lastReconnecting(events)).to.include({delayMs: 100});
+		} finally {
+			if (nav) {
+				Object.defineProperty(globalThis, "navigator", nav);
+			} else {
+				delete (globalThis as {navigator?: unknown}).navigator;
+			}
+		}
+	});
+
+	it("keeps the usual schedule for a connection that opened and dropped", function () {
+		const {t, events} = make({reconnect: fastReconnect});
+		t.connect();
+		last().open();
+		last().closed(1006, "", false);
+		expect(lastReconnecting(events)).to.include({delayMs: 100});
 		clock.tick(100);
 		last().open();
-		clock.tick(5_000);
+		clock.tick(STABLE_MS);
 		last().closed(1006, "", false);
-		expect(g.closed.args).to.deep.equal([[0], [5_100]]);
+		expect(lastReconnecting(events)).to.include({delayMs: 0});
 	});
 
-	it("tells the gate when a dial times out or is given up for a fresh one", function () {
-		const g = gate(0);
-		const {t} = make({gate: g});
+	it("a connect() (the user's Connect now) dials at once during the wait", function () {
+		const {t} = make({reconnect: fastReconnect});
 		t.connect();
-		clock.tick(CONNECT_TIMEOUT_MS); // TLS or the upgrade stalled
-		expect(g.closed.args).to.deep.equal([[CONNECT_TIMEOUT_MS]]);
-		t.connect();
+		last().open();
+		t.throttled(37_000);
+		last().closed(1006, "", false);
 		clock.tick(1_000);
-		t.redial(); // the foreground poke drops the stuck dial
-		expect(g.closed.args).to.deep.equal([[CONNECT_TIMEOUT_MS], [CONNECT_TIMEOUT_MS + 1_000]]);
-	});
-
-	it("does not record a dial made offline", function () {
-		const nav = Object.getOwnPropertyDescriptor(globalThis, "navigator");
-		Object.defineProperty(globalThis, "navigator", {
-			value: {onLine: false},
-			configurable: true,
-		});
-
-		try {
-			const g = gate(0);
-			const {t} = make({gate: g});
-			t.connect();
-			expect(FakeWebSocket.instances).to.have.length(1);
-			expect(g.record.called).to.equal(false);
-			last().closed(1006, "", false);
-			expect(g.closed.called).to.equal(false);
-		} finally {
-			if (nav) {
-				Object.defineProperty(globalThis, "navigator", nav);
-			} else {
-				delete (globalThis as {navigator?: unknown}).navigator;
-			}
-		}
-	});
-
-	it("records a dial made 'offline' that opens anyway, once, and its end", function () {
-		// `onLine` can be wrong: a socket that opened reached the server.
-		const nav = Object.getOwnPropertyDescriptor(globalThis, "navigator");
-		Object.defineProperty(globalThis, "navigator", {
-			value: {onLine: false},
-			configurable: true,
-		});
-
-		try {
-			const g = gate(0);
-			const {t} = make({gate: g});
-			t.connect();
-			expect(g.record.called).to.equal(false);
-			clock.tick(300);
-			last().open();
-			expect(g.record.args).to.deep.equal([[300]]);
-			clock.tick(5_000);
-			last().closed(1006, "", false);
-			expect(g.closed.args).to.deep.equal([[5_300]]);
-		} finally {
-			if (nav) {
-				Object.defineProperty(globalThis, "navigator", nav);
-			} else {
-				delete (globalThis as {navigator?: unknown}).navigator;
-			}
-		}
-	});
-
-	it("records an online dial once, not again when it opens", function () {
-		const g = gate(0);
-		const {t} = make({gate: g});
 		t.connect();
-		clock.tick(300);
-		last().open();
-		expect(g.record.args).to.deep.equal([[0]]);
+		expect(FakeWebSocket.instances).to.have.length(2);
+		expect(t.state).to.equal("connecting");
 	});
 });

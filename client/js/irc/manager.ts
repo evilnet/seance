@@ -259,9 +259,6 @@ if (typeof window !== "undefined") {
 			if (client.isConnected) {
 				client.send("QUIT :page closed");
 			}
-
-			// Registering or still dialling, the server has counted it too.
-			client.noteUnload();
 		}
 	});
 }

@@ -16,9 +16,16 @@
  * IPcheck refuses the fourth connection from an address when each gap is
  * 40 s or less (IPCHECK_CLONE_LIMIT / _PERIOD) and a refusal renews the
  * window, so a cadence under 40 s could never get back in.
+ *
+ * The server's connection throttle is the server's to report, not ours to
+ * model (docs/projects/reconnect-throttle.md). A server that says it
+ * throttled us (`ERROR … throttled`, handlers/error.ts → {@link
+ * WsTransport.throttled}) gets the wait it names, or {@link
+ * UNREACHED_RETRY_MS}. One that refuses us before the WebSocket opens says
+ * nothing a page can read, so a dial that never opened waits
+ * {@link UNREACHED_RETRY_MS} before the next automatic one: past the 40 s
+ * window, so a refused dial cannot keep the server's window open.
  */
-
-import type {DialGate} from "./dialLedger";
 
 export interface ReconnectOptions {
 	enabled: boolean;
@@ -42,13 +49,6 @@ export interface TransportOptions {
 	maxLineBytes?: number;
 	/** WebSocket constructor to use instead of `globalThis.WebSocket`. */
 	WebSocketImpl?: typeof WebSocket;
-	/**
-	 * The server's connection throttle as this device has seen it
-	 * (irc/dialLedger.ts): no dial goes out while it says the server would
-	 * refuse it — a refusal renews the server's window — and every dial is
-	 * recorded in it.
-	 */
-	gate?: DialGate;
 }
 
 export type TransportEvent =
@@ -63,7 +63,7 @@ export type TransportEvent =
 			delayMs?: number;
 	  }
 	| {type: "error"; message: string}
-	// `throttled`: the wait is the server's connection throttle, not the backoff.
+	// `throttled`: the server said it throttled us; the wait is its, not the backoff.
 	| {type: "reconnecting"; attempt: number; delayMs: number; throttled?: boolean}
 	// The scheduled retry is starting now (its wait from "reconnecting" is over).
 	| {type: "retry"; attempt: number};
@@ -81,11 +81,17 @@ export const PROBE_TIMEOUT_MS = 10_000; // probe(): no inbound data for this lon
  * usual backoff: a phone whose radio was off can leave a WebSocket in
  * CONNECTING for a minute or more, during which connect() is a no-op. */
 export const CONNECT_TIMEOUT_MS = 15_000;
+/**
+ * The wait after a dial that never opened, and after a server's throttle
+ * that named no wait: nefarious2's IPcheck window (40 s) and a margin, so
+ * the next dial is past it whatever refused this one.
+ */
+export const UNREACHED_RETRY_MS = 42_000;
 const PING_RE = /^(?:@\S+ )?(?::\S+ )?PING(?: (.*))?$/i; // [tags] [prefix] PING [params]
 
 export class WsTransport {
-	private readonly opts: Required<Omit<TransportOptions, "WebSocketImpl" | "gate">> &
-		Pick<TransportOptions, "WebSocketImpl" | "gate">;
+	private readonly opts: Required<Omit<TransportOptions, "WebSocketImpl">> &
+		Pick<TransportOptions, "WebSocketImpl">;
 	private readonly listeners = new Set<(ev: TransportEvent) => void>();
 	private readonly decoder = new TextDecoder();
 	private ws: WebSocket | null = null;
@@ -94,8 +100,8 @@ export class WsTransport {
 	private timer: ReturnType<typeof setTimeout> | null = null;
 	private closedByUs = false;
 	private openedAt: number | null = null; // null = not open (0 is a real fake-clock time)
-	/** A dial the ledger recorded and has not yet seen end (irc/dialLedger.ts). */
-	private dialing = false;
+	/** The server said it throttled us: the retry after this socket waits this long. */
+	private throttleMs: number | null = null;
 	private connectingSince = 0;
 	private connectTimer: ReturnType<typeof setTimeout> | null = null;
 	private probeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -120,31 +126,32 @@ export class WsTransport {
 	 * this dial fails, the next wait is the first delay, not the one the
 	 * automatic retries had worked up to.
 	 */
-	connect(opts: {force?: boolean} = {}): void {
+	connect(): void {
 		if (this._state === "connecting" || this._state === "open") {
 			return;
 		}
 
 		this.attempt = 0;
-		this.dial(opts.force === true);
+		this.dial();
+	}
+
+	/**
+	 * The server said it throttled us (`ERROR … throttled`): the retry after
+	 * this socket closes waits `delayMs`, or {@link UNREACHED_RETRY_MS} when
+	 * it named no wait. No-op unless connecting or open.
+	 */
+	throttled(delayMs?: number): void {
+		if (this._state === "connecting" || this._state === "open") {
+			// The server counts whole seconds: a second more is past its mark.
+			this.throttleMs = delayMs === undefined ? UNREACHED_RETRY_MS : delayMs + 1000;
+		}
 	}
 
 	/** Open the socket now, on whatever attempt count the schedule is at. */
-	private dial(force = false): void {
+	private dial(): void {
 		this.clearTimer();
 		this.closedByUs = false;
-		const throttle = force ? 0 : this.opts.gate?.waitMs(Date.now()) ?? 0;
-
-		// The server would refuse this dial, and the refusal would renew its
-		// window: wait it out instead — unless the user asked for this dial
-		// (`force`, a "Connect now"): a button that does nothing is worse
-		// than a refusal, and a refused dial is recorded, so the retry
-		// after it waits the gap out.
-		if (throttle > 0) {
-			this.scheduleRetry(throttle, true);
-			return;
-		}
-
+		this.throttleMs = null;
 		const Impl = this.opts.WebSocketImpl ?? globalThis.WebSocket;
 
 		if (typeof Impl !== "function") {
@@ -163,12 +170,6 @@ export class WsTransport {
 			return;
 		}
 
-		// A dial made with the radio off never reached the server.
-		if ((globalThis.navigator as {onLine?: boolean} | undefined)?.onLine !== false) {
-			this.opts.gate?.record(Date.now());
-			this.dialing = true;
-		}
-
 		// Every handler checks `ws === this.ws` so a superseded socket stays silent.
 		this.ws = ws;
 		this.connectingSince = Date.now();
@@ -185,15 +186,6 @@ export class WsTransport {
 		ws.addEventListener("open", () => {
 			if (ws === this.ws) {
 				this.clearConnectTimer();
-
-				// A socket that opened reached the server, whatever `onLine` said
-				// at the dial (it can be wrong): the server counted it, and a
-				// refund at its registration needs the dial it gives back.
-				if (!this.dialing) {
-					this.opts.gate?.record(Date.now());
-					this.dialing = true;
-				}
-
 				this._state = "open";
 				this.openedAt = Date.now();
 				this.emit({type: "open", subprotocol: ws.protocol});
@@ -268,21 +260,6 @@ export class WsTransport {
 	}
 
 	/**
-	 * The server restarts its throttle's gap when a connection it accepted
-	 * goes (irc/dialLedger.ts). It counts one at the TCP accept, before TLS
-	 * and the WebSocket upgrade, so a dial that never opened — timed out,
-	 * refused its certificate, abandoned for a fresh one — may have counted
-	 * too: every dial that ends is a close. One that never reached the server
-	 * makes the ledger wait a little longer, never too little.
-	 */
-	private dialEnded(): void {
-		if (this.dialing) {
-			this.dialing = false;
-			this.opts.gate?.closed(Date.now());
-		}
-	}
-
-	/**
 	 * Abandon an in-flight dial and start a fresh one now. For the foreground
 	 * poke: a socket left CONNECTING while the OS had the radio off may never
 	 * open, and connect() alone would wait for it.
@@ -298,7 +275,6 @@ export class WsTransport {
 		this.clearConnectTimer();
 		this.ws = null; // the abandoned socket's events are ignored
 		this._state = "closed";
-		this.dialEnded();
 
 		try {
 			ws?.close();
@@ -401,10 +377,16 @@ export class WsTransport {
 		// staring at the screen. A retry that fails backs off from there.
 		const wasStable =
 			this.openedAt !== null && Date.now() - this.openedAt >= STABLE_CONNECTION_MS;
+		// A dial that never opened may have been the server refusing us
+		// (IPcheck, before the WebSocket upgrade, reads as any failure). One
+		// made with the radio off never reached it.
+		const unreached =
+			this.openedAt === null &&
+			(globalThis.navigator as {onLine?: boolean} | undefined)?.onLine !== false;
+		const serverWait = this.throttleMs;
+		this.throttleMs = null;
 
-		this.dialEnded();
-
-		const atOnce = wasStable || probing;
+		const atOnce = (wasStable || probing) && serverWait === null;
 
 		if (atOnce) {
 			this.attempt = 0;
@@ -422,12 +404,13 @@ export class WsTransport {
 				delayMs = 0;
 			}
 
-			// Never sooner than the server's throttle lets the dial in.
-			const gateMs = this.opts.gate?.waitMs(Date.now()) ?? 0;
-
-			if (gateMs > delayMs) {
-				delayMs = gateMs;
+			// The server's own word first; else a dial that never opened
+			// waits past the window that may have refused it.
+			if (serverWait !== null) {
+				delayMs = Math.max(delayMs, serverWait);
 				throttled = true;
+			} else if (unreached) {
+				delayMs = Math.max(delayMs, UNREACHED_RETRY_MS);
 			}
 		}
 
@@ -440,7 +423,7 @@ export class WsTransport {
 		}
 	}
 
-	/** Wait `delayMs`, then dial (which asks the gate again). */
+	/** Wait `delayMs`, then dial. */
 	private scheduleRetry(delayMs: number, throttled: boolean): void {
 		this._state = "reconnect-wait";
 		this.emit({

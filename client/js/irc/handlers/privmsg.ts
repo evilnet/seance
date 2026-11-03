@@ -8,7 +8,6 @@ import {MessageType, SharedMsg} from "../../../../shared/types/msg";
 import type {IrcClient} from "../client";
 import type {Channel} from "../channel";
 import type {IrcMessage} from "../message";
-import {parseIpcheckNotice} from "../dialLedger";
 import {settleEcho} from "../pending";
 import {inRestorationWindow, isRoutineReplayNotice} from "../persistence";
 import {privilegesModified} from "../oper";
@@ -411,15 +410,6 @@ const notice: Handler = (client, msg) => {
 	// (../snotice.ts), not shown as a NOTICE.
 	if (handleServerNotice(client, msg)) {
 		return;
-	}
-
-	// The server's IPcheck count at registration (../dialLedger.ts). Still shown.
-	if (msg.source?.user === undefined) {
-		const ipcheck = parseIpcheckNotice(msg.params[msg.params.length - 1] ?? "");
-
-		if (ipcheck) {
-			client.noteIpcheck(ipcheck);
-		}
 	}
 
 	// Services changed our privileges (X3 sends PRIVS on auto-oper): the

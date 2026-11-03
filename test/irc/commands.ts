@@ -18,7 +18,6 @@ class FakeTransport implements Transport {
 	state: TransportState = "closed";
 	sent: string[] = [];
 	connectCalls = 0;
-	connectOpts: ({force?: boolean} | undefined)[] = [];
 	closeCalls: {code: number; reason: string}[] = [];
 	private listeners: ((ev: TransportEvent) => void)[] = [];
 
@@ -30,9 +29,8 @@ class FakeTransport implements Transport {
 		};
 	}
 
-	connect(opts?: {force?: boolean}): void {
+	connect(): void {
 		this.connectCalls++;
-		this.connectOpts.push(opts);
 		this.state = "connecting";
 	}
 
@@ -984,18 +982,6 @@ describe("irc commands", function () {
 			h.client.input(1, "/connect");
 			expect(h.transport.connectCalls).to.equal(2);
 			expect(h.client.state).to.equal("connecting");
-			expect(h.transport.connectOpts[1], "typed: the user asked").to.deep.equal({
-				force: true,
-			});
-		});
-
-		it("a saved command's /connect does not force past the throttle gate", function () {
-			const h = setup();
-			const id = joined(h);
-			h.client.input(id, "/disconnect");
-			h.transport.closed(1000);
-			h.client.input(1, "/connect", {auto: true});
-			expect(h.transport.connectOpts[1]).to.deep.equal({force: false});
 		});
 
 		it("asks the manager for a new network via network:new", function () {

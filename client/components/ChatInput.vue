@@ -365,7 +365,7 @@ export default defineComponent({
 			return Math.max(0, Math.ceil((at - now.value) / 1000));
 		});
 
-		// The wait is the server's connection throttle (irc/dialLedger.ts).
+		// The server said the wait is its connection throttle (irc/handlers/error.ts).
 		const throttledWait = computed(
 			() => retryInSeconds.value > 0 && props.network.status.retryThrottled === true
 		);
@@ -378,7 +378,6 @@ export default defineComponent({
 			}
 
 			if (throttledWait.value) {
-				// irc/dialLedger.ts: dialling now would be refused and renew it.
 				return `Reconnecting to ${name} in ${retryInSeconds.value}s: the server limits quick reconnects.`;
 			}
 

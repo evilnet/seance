@@ -15,14 +15,7 @@
  */
 
 import socket, {EventBus} from "../socket";
-import {brandingFeatures, getBranding} from "../branding";
-import {
-	dialGateFor,
-	NEFARIOUS_RULE,
-	type DialLedger,
-	type IpcheckNotice,
-	type ThrottleRule,
-} from "./dialLedger";
+import {brandingFeatures} from "../branding";
 import {createHighlightTester} from "../highlight";
 import {ChanState, ChanType} from "../../../shared/types/chan";
 import {MessageType, SharedMsg, TypingState} from "../../../shared/types/msg";
@@ -284,26 +277,6 @@ export const UNKNOWN_HOST_BYTES = 75;
 /** A `+typing` TAGMSG: one command of fake lag. */
 const TYPING_COST_MS = 2000;
 
-/**
- * The throttle rule for `host` (irc/dialLedger.ts): nefarious2's, plus the
- * refund the deploy says its own server gives a SASL login
- * (`defaultNetwork.ipcheckRefund`, docs/resources/branding.md) — for that
- * host alone; any other server is taken to refund nothing.
- */
-function dialRuleFor(host: string): ThrottleRule {
-	const network = getBranding().defaultNetwork;
-	const refund = network?.ipcheckRefund;
-
-	if (!refund || network.host.toLowerCase() !== host.toLowerCase()) {
-		return NEFARIOUS_RULE;
-	}
-
-	return {
-		...NEFARIOUS_RULE,
-		refund: {limit: refund.limit, periodMs: refund.periodSeconds * 1000},
-	};
-}
-
 export class IrcClient {
 	readonly uuid: string;
 	/** Replaced (not mutated) when an STS upgrade changes port/tls, see {@link reconfigure}. */
@@ -457,16 +430,6 @@ export class IrcClient {
 	account = "";
 	/** The server holds our session across disconnects (`PERSISTENCE STATUS ON`, see persistence.ts). */
 	persistenceHold = false;
-	/** This network's host in the dial ledger (irc/dialLedger.ts). */
-	private dialLedger: DialLedger | null = null;
-	/** SASL succeeded on this connection: the server gives the dial back (irc/dialLedger.ts). */
-	private loggedIn = false;
-	/** The server reported its IPcheck count for this connection (irc/dialLedger.ts). */
-	private ipcheckSynced = false;
-	/** When the transport recorded this connection's dial: where the server's report goes. */
-	private dialedAt: number | undefined;
-	/** When the IPcheck notice came, if it came before 001 (the alias path). */
-	private ipcheckAt: number | undefined;
 	/** The user's setting from the last `PERSISTENCE STATUS` line (`ON`,
 	 * `OFF`, `DEFAULT`), undefined before one. An alias of another device's
 	 * session reads `ON OFF`: not held itself, though the session is. */
@@ -527,7 +490,7 @@ export class IrcClient {
 	private closeExplained = false;
 	/** When the transport's next automatic dial is due; only while waiting for a retry. */
 	private retryAt: number | undefined;
-	/** That wait is the server's connection throttle, not the backoff (irc/dialLedger.ts). */
+	/** The server said it throttled us, and that wait is its (handlers/error.ts). */
 	private retryThrottled = false;
 	private activeChanId = 0;
 	/** Set while a history batch is replayed through the handlers (see `collectReplay`). */
@@ -630,18 +593,6 @@ export class IrcClient {
 	/** The 001 handler: see {@link isWelcomed}. */
 	markWelcomed(): void {
 		this.welcomed = true;
-
-		// A server that refunds a login's connection attempt does it here, at
-		// registration (irc/dialLedger.ts; the ledger keeps it only when the
-		// deploy says this server does).
-		// A notice that came first (an alias) already counts it: the refund
-		// goes inside its window, where it spends the budget only.
-		if (this.loggedIn) {
-			this.dialLedger?.refunded(
-				this.ipcheckSynced ? this.ipcheckAt ?? Date.now() : Date.now()
-			);
-		}
-
 		this.fakeLag.start();
 		this.background.pump(); // anything queued before 001 can go now
 	}
@@ -764,9 +715,8 @@ export class IrcClient {
 
 	// ------------------------------------------------------------ lifecycle
 
-	/** Announce the network to the UI (first call only) and open the
-	 * transport; `force` (the user asked) dials even into the throttle. */
-	connect(opts: {force?: boolean} = {}): void {
+	/** Announce the network to the UI (first call only) and open the transport. */
+	connect(): void {
 		if (!this.announced) {
 			this.announced = true;
 			this.bus.dispatch("network", {network: this.network});
@@ -792,7 +742,7 @@ export class IrcClient {
 			{text: `Connecting to ${this.options.host}:${this.options.port}…`},
 			true
 		);
-		this.transport.connect(opts);
+		this.transport.connect();
 	}
 
 	/**
@@ -910,25 +860,6 @@ export class IrcClient {
 			transportOptions.reconnect = this.options.reconnect;
 		}
 
-		// Never dial into the server's connection throttle (irc/dialLedger.ts).
-		// A drop counts there only when the server lets the connection go: a
-		// session the bouncer holds stays counted (bounce_hold_client never
-		// calls IPcheck_disconnect), so its drop restarts nothing.
-		const ledger = dialGateFor(this.options.host, dialRuleFor(this.options.host));
-		this.dialLedger = ledger;
-		transportOptions.gate = {
-			waitMs: (now) => ledger.waitMs(now),
-			record: (at) => {
-				this.dialedAt = at;
-				ledger.record(at);
-			},
-			closed: (at) => {
-				if (!this.persistenceHold) {
-					ledger.closed(at);
-				}
-			},
-		};
-
 		return this.options.transportFactory
 			? this.options.transportFactory(transportOptions)
 			: new WsTransport(transportOptions);
@@ -1021,8 +952,8 @@ export class IrcClient {
 				this._state = "connecting";
 				this.bus.dispatch("connecting");
 
-				// The server's throttle, waited out (irc/dialLedger.ts): a
-				// connect() that never dialled has no close to carry its due time.
+				// The server's throttle, waited out (handlers/error.ts): the
+				// close before this event did not know it was one.
 				if (ev.throttled) {
 					this.retryAt = Date.now() + ev.delayMs;
 					this.retryThrottled = true;
@@ -1036,7 +967,7 @@ export class IrcClient {
 						text: ev.throttled
 							? `Waiting ${Math.round(
 									ev.delayMs / 1000
-							  )}s: the server limits how often a device can reconnect (attempt ${
+							  )}s: the server says it limits how often a device can reconnect (attempt ${
 									ev.attempt
 							  })…`
 							: ev.delayMs < 500
@@ -1074,9 +1005,6 @@ export class IrcClient {
 		this._state = "registering";
 		this.connected = false;
 		this.welcomed = false;
-		this.loggedIn = false;
-		this.ipcheckSynced = false;
-		this.ipcheckAt = undefined;
 		this.fakeLag.stop();
 		this.retryAt = undefined;
 		this.retryThrottled = false;
@@ -1325,14 +1253,12 @@ export class IrcClient {
 
 		if (!result.ok) {
 			this.saslOk = false;
-			this.loggedIn = false;
 
 			if (this.saslFailed(result.error ?? "unknown error", timedOut)) {
 				return;
 			}
 		} else {
 			this.saslOk = true;
-			this.loggedIn = true;
 
 			// The one window `PERSISTENCE ATTACH` fits in: the server refuses
 			// it without an account and again once we are registered. It goes
@@ -2958,28 +2884,11 @@ export class IrcClient {
 	}
 
 	/**
-	 * The page is going away (manager.ts sends a registered connection its
-	 * QUIT): an open or dialling socket drops without a close the transport
-	 * would see, so the drop goes into the dial ledger here — unless the
-	 * bouncer holds the session, which the server keeps counted.
+	 * The server said it throttled this connection (handlers/error.ts): the
+	 * retry after it waits `waitMs`, or the transport's fallback.
 	 */
-	noteUnload(): void {
-		const live = this.transport.state === "open" || this.transport.state === "connecting";
-
-		if (live && !this.persistenceHold) {
-			this.dialLedger?.closed(Date.now());
-		}
-	}
-
-	/**
-	 * The server's IPcheck notice at registration (irc/dialLedger.ts): the
-	 * ledger takes its count and limit from this connection's dial on.
-	 */
-	noteIpcheck(notice: IpcheckNotice): void {
-		const now = Date.now();
-		this.ipcheckSynced = true;
-		this.ipcheckAt = now;
-		this.dialLedger?.synced(this.dialedAt ?? now, now, notice.count, notice.limit);
+	noteThrottled(waitMs: number | undefined): void {
+		this.transport.throttled?.(waitMs);
 	}
 
 	/** The server's `max-value-bytes` (draft/metadata-2): a plain number, else nefarious2's 300. */

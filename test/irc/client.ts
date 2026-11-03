@@ -47,6 +47,12 @@ class FakeTransport implements Transport {
 		this.state = "closed";
 	}
 
+	throttleWaits: (number | undefined)[] = [];
+
+	throttled(delayMs?: number): void {
+		this.throttleWaits.push(delayMs);
+	}
+
 	// --- drivers ---
 	open(): void {
 		this.state = "open";
@@ -1419,5 +1425,34 @@ describe("IrcClient channel order", function () {
 			"#alpha",
 			"#beta",
 		]);
+	});
+});
+
+describe("IrcClient: the server's throttle (handlers/error.ts)", function () {
+	it("hands the transport the wait an ERROR names, and shows the ERROR", function () {
+		const h = setup();
+		h.client.connect();
+		h.transport.open();
+		h.transport.line(
+			"ERROR :Your host is trying to (re)connect too fast -- throttled (retry in 37 seconds)"
+		);
+		expect(h.transport.throttleWaits).to.deep.equal([37_000]);
+		expect(lastMessage(h.client.lobby.id).text).to.match(/too fast -- throttled/);
+	});
+
+	it("hands it no wait when the ERROR names none (stock nefarious2)", function () {
+		const h = setup();
+		h.client.connect();
+		h.transport.open();
+		h.transport.line("ERROR :Your host is trying to (re)connect too fast -- throttled");
+		expect(h.transport.throttleWaits).to.deep.equal([undefined]);
+	});
+
+	it("leaves any other ERROR alone", function () {
+		const h = setup();
+		h.client.connect();
+		h.transport.open();
+		h.transport.line("ERROR :Closing Link: alice[host] (Ping timeout: 240 seconds)");
+		expect(h.transport.throttleWaits).to.deep.equal([]);
 	});
 });

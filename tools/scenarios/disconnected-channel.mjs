@@ -95,20 +95,7 @@ export default async function run(page) {
 	}
 }
 
-// These claims are about the back-off schedule as such. Against a proxy that
-// refuses every dial, the dial ledger (irc/dialLedger.ts) would rightly turn
-// the third quick failure into the server-throttle wait, which has its own
-// scenario (reconnect-throttle.mjs); so the ledger is kept empty here.
-const NO_DIAL_LEDGER = `(() => {
-	const set = Storage.prototype.setItem;
-	Storage.prototype.setItem = function (key, value) {
-		if (key === "thelounge.state.dials") return;
-		return set.call(this, key, value);
-	};
-})()`;
-
 async function check(page, proxy) {
-	await page.addInitScript(NO_DIAL_LEDGER);
 	// 1. Connected through the proxy, in #seance. On a phone the form's
 	// submit is below the fold; a real click needs it on screen.
 	await page.goto(page.url, {waitForSelector: "#connect form"});
@@ -179,8 +166,8 @@ async function check(page, proxy) {
 			)}) || {textContent: ""}).textContent.trim()`
 		)) === "Connect now"
 	);
-	// A dial the proxy refuses fails within milliseconds, so what shows after
-	// the click is the restarted schedule (1 s), not the dial itself.
+	// A dial the proxy refuses never opens, so the wait after it is the
+	// fallback (transport.ts UNREACHED_RETRY_MS, 42 s).
 	await page.waitFor(barSays("/^Reconnecting to .+ in [3-9]\\d*s…$/"), {
 		timeout: 15000,
 		label: "a longer countdown",
@@ -190,8 +177,8 @@ async function check(page, proxy) {
 	await page.sleep(300);
 	const after = await barText(page);
 	page.check(
-		`2. Connect now dials at once and restarts the schedule (${after})`,
-		/^Connecting to /.test(after) || /in 1s…$/.test(after)
+		`2. Connect now dials at once (${after})`,
+		/^Connecting to /.test(after) || /in 4[12]s…$/.test(after)
 	);
 
 	// 3. Typing is allowed; Enter with plain text sends nothing and keeps the
@@ -226,11 +213,20 @@ async function check(page, proxy) {
 		/^Connecting to /.test(dialled) || /^Reconnecting to .+ in \d+s…$/.test(dialled)
 	);
 
-	// 5. The radio is back: the next retry registers and everything clears.
-	// (A dial refused just before the switch reports its error late, so the
-	// errors stay expected until the registration is in.)
+	// 5. The radio is back: Connect now registers and everything clears (the
+	// automatic retry after a refused dial is up to 42 s away). (A dial
+	// refused just before the switch reports its error late, so the errors
+	// stay expected until the registration is in.)
 	proxy.accept();
 	const frames = page.wsFrames.length;
+	await page.waitFor(
+		`document.querySelector(${JSON.stringify(`${BAR} .connection-bar-connect`)})`,
+		{
+			timeout: 5000,
+			label: "Connect now",
+		}
+	);
+	await page.click(`${BAR} .connection-bar-connect`);
 	await until(page, () => registered(page, frames), 15000, "the re-registration");
 	page.expectWsErrors = false;
 	await page.waitFor(`!document.querySelector(${JSON.stringify(BAR)})`, {
