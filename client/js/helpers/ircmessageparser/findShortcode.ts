@@ -8,18 +8,29 @@ export type ShortcodePart = Part & {
 	shortcode: string;
 };
 
+// The aliases as a Map, never the JSON object itself: the names come from
+// other people's messages, and indexing a plain object with `constructor` or
+// `__proto__` (both fit the pattern below) finds Object.prototype's members —
+// truthy, not strings — which crashed the render for everyone who saw the
+// line. A Map only knows the keys it was given.
+const aliases = new Map(Object.entries(shortcodes as Record<string, string>));
+
+/** The emoji a shortcode name (without its colons) stands for, if any. */
+export function emojiForShortcode(name: string): string | undefined {
+	return aliases.get(name);
+}
+
 // `:name:` for a name the map knows. Gating the match on the map is what
 // keeps `10:30:45` from turning into emoji: `30` is not an alias, so nothing
 // fires at all. Gemoji's aliases are lower-case words, digits, `_`, `-`, `+`.
 const shortcodeRx = /:([a-z0-9_+-]+):/g;
-const map = shortcodes as Record<string, string>;
 
 function findShortcode(text: string): ShortcodePart[] {
 	const result: ShortcodePart[] = [];
 	let match: RegExpExecArray | null;
 
 	while ((match = shortcodeRx.exec(text))) {
-		const emoji = map[match[1]];
+		const emoji = emojiForShortcode(match[1]);
 
 		if (emoji) {
 			result.push({

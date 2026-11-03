@@ -88,6 +88,9 @@ describe("emoji catalog and reaction text (helpers/emoji.ts)", function () {
 			expect(emojiForName("+1")).to.equal("👍");
 			expect(emojiForName("lol")).to.be.undefined;
 			expect(emojiForName("")).to.be.undefined;
+			// Inherited from Object.prototype, not aliases
+			expect(emojiForName("constructor")).to.be.undefined;
+			expect(emojiForName(":__proto__:")).to.be.undefined;
 			expect(first("lol")).to.equal("🍭");
 		});
 
@@ -107,6 +110,9 @@ describe("emoji catalog and reaction text (helpers/emoji.ts)", function () {
 			expect(expandShortcodes("look :tada: here")).to.equal("look 🎉 here");
 			expect(expandShortcodes(":not_an_emoji:")).to.equal(":not_an_emoji:");
 			expect(expandShortcodes("10:30:45")).to.equal("10:30:45");
+			expect(expandShortcodes(":constructor: :__proto__:")).to.equal(
+				":constructor: :__proto__:"
+			);
 		});
 
 		it("normalises what was typed", function () {

@@ -359,6 +359,22 @@ describe("layout — parts", () => {
 		// A timestamp is not an alias, so nothing fires at all
 		expect(layout("at 10:30:45", markdown)).to.deep.equal([text("at 10:30:45")]);
 	});
+
+	it("leaves a name the alias table only inherits as text", () => {
+		// Object.prototype's members fit the shortcode pattern; looked up on
+		// a plain object they came back as a function and an object, and the
+		// render threw "emoji.replace is not a function" for everyone
+		const hasEmoji = (nodes: LayoutNode[]): boolean =>
+			nodes.some(
+				(node) => node.kind === "emoji" || (node.kind !== "text" && hasEmoji(node.children))
+			);
+
+		for (const name of ["constructor", "__proto__", "hasownproperty", "tostring"]) {
+			expect(layout(`:${name}:`, {})).to.deep.equal([text(`:${name}:`)]);
+			// Markdown may underline `__proto__`; it must still not be an emoji
+			expect(hasEmoji(layout(`:${name}:`, markdown))).to.equal(false);
+		}
+	});
 });
 
 describe("layout — lists, tables and math", () => {
