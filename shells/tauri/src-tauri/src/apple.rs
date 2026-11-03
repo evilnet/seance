@@ -1,6 +1,6 @@
 // macOS's LocalNotifications: the Swift package under swift/ answers it with
-// the methods and shapes of Capacitor's plugin, which the iOS shell uses, so
-// the page has one code path. Two C entry points: `start`, once,
+// the methods and shapes the iOS shell's plugin answers too (the same Swift,
+// SeanceNotifications), so the page has one code path. Two C entry points: `start`, once,
 // with the callback their events come back through, and `call`, the plugin,
 // the method and its options as JSON in, and a callback, on any thread, with
 // `{"ok": …}` or `{"err": {code, message}}`.

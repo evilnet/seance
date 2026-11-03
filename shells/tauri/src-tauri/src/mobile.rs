@@ -1,6 +1,5 @@
 // The phones' plugins: one Kotlin (Android) or Swift (iOS) class, `Seance`,
-// answers every plugin the page calls by the name and shape the Capacitor
-// shells give it — `call` is `{plugin, method, options}` in, the method's
+// answers every plugin the page calls — `call` is `{plugin, method, options}` in, the method's
 // result or a rejection with its code out. Its events come back through one
 // channel handed to it at start, and go to the page through `emit()`, so no
 // Tauri plugin API is exposed to the page here either.
@@ -109,7 +108,7 @@ pub async fn call(
     })
 }
 
-/// Capacitor's `Haptics.impact({style: "LIGHT" | "MEDIUM" | "HEAVY"})`.
+/// `Haptics.impact({style: "LIGHT" | "MEDIUM" | "HEAVY"})`.
 fn haptics(app: &AppHandle, method: &str, options: &Value) -> Result<Value, (String, String)> {
     if method != "impact" {
         return Err((

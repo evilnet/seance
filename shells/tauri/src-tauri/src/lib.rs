@@ -1,5 +1,5 @@
-// Seance's Tauri shell (docs/projects/desktop-shells.md), on the desktop and,
-// as a prototype, on the phones. The window loads the built SPA from the
+// Seance's Tauri shell (docs/projects/desktop-shells.md), on the desktop and
+// on the phones. The window loads the built SPA from the
 // bundle — `public/`, compiled in by `frontendDist` — and the page speaks IRC
 // over WebSocket itself; the shell adds a window, links, the badge and the
 // platform's close behaviour.
@@ -7,8 +7,7 @@
 // The page reaches the shell through `window.seanceShell` (the init script
 // below), the contract client/js/helpers/shell.ts reads in every shell:
 // `call(plugin, method, options)` is one `seance_call` command answered by
-// `seance_call()` here with the plugin names and shapes the Capacitor shells
-// use, and `listen(plugin, event, cb)` hears what `emit()` evaluates in the
+// `seance_call()` here, and `listen(plugin, event, cb)` hears what `emit()` evaluates in the
 // page. No Tauri plugin API is exposed to the page (capabilities/default.json).
 
 #[cfg(any(windows, target_os = "linux"))]
@@ -41,8 +40,7 @@ const PLATFORM: &str = "ios";
 /// `window.seanceShell`, defined before any of the page's scripts run. The
 /// object is frozen and the emit hook is not writable, so a page script can
 /// neither swap the bridge nor fake an event through it. A retained event
-/// nobody listens to yet waits for its first listener, as Capacitor's
-/// `retainUntilConsumed` does.
+/// nobody listens to yet waits for its first listener.
 fn init_script(version: &str) -> String {
     format!(
         r#"(() => {{
@@ -317,8 +315,7 @@ async fn native(
         .map_err(|(code, message)| ShellError { message, code })
 }
 
-/// On a phone, the shell's own Kotlin or Swift (src/mobile.rs), with the
-/// plugin names and shapes the Capacitor shells answer.
+/// On a phone, the shell's own Kotlin or Swift (src/mobile.rs).
 #[cfg(mobile)]
 async fn native(
     app: &AppHandle,

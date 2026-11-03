@@ -43,8 +43,8 @@ SASL, `message-tags`,
   indicators, inline media previews, search, mentions, multiple networks.
 - **Installable.** Seance also supports use as a Chrome/Edge/Android PWA
   (Progressive Web App) ([`docs/resources/pwa.md`](docs/resources/pwa.md)),
-  and has app shells under [`shells/`](shells/): Capacitor for iOS and
-  Android, and Tauri for Windows, macOS and Linux
+  and has an app shell, Tauri, for iOS, Android, Windows, macOS and Linux
+  ([`shells/tauri/`](shells/tauri/))
   ([`docs/projects/desktop-shells.md`](docs/projects/desktop-shells.md)).
 
 Seance is built primarily and tested for **nefarious2** (`ircv3.2-upgrade` beta

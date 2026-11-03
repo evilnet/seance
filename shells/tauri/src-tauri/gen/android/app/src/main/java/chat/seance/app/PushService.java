@@ -302,8 +302,8 @@ public class PushService extends org.unifiedpush.android.connector.PushService {
 
         // One PendingIntent per conversation. Extras do not count in a
         // PendingIntent's identity, so the conversation rides in the action,
-        // which does (no data URI: Capacitor reads any intent's data as a
-        // launch link).
+        // which does (no data URI: SeancePlugin reads an intent's data as a
+        // link).
         Intent tap = new Intent(context, MainActivity.class)
             .setAction(ACTION_TAP + "\n" + key)
             .putExtra("network", network)

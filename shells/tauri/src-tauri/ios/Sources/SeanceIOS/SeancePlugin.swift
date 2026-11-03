@@ -170,7 +170,7 @@ enum StatusBar {
 /// iOS's form accessory bar (˄ ˅ Done) above the keyboard: the page has
 /// nothing for it to step between (client/js/helpers/viewport.ts). WebKit's
 /// content view answers `inputAccessoryView`; a subclass of it made at run
-/// time answers nil, as Capacitor's Keyboard plugin does.
+/// time answers nil.
 enum AccessoryBar {
     private static var noBarClass: AnyClass?
 

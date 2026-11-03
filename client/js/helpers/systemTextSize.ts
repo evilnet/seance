@@ -18,8 +18,8 @@
 // Android: the WebView would apply the font scale itself as its text zoom,
 // but that scales glyphs only, never rem lengths, so text outgrew the
 // buttons and fields drawn around it. The shell pins the text zoom at 100%
-// (MainActivity.java) and reports the font scale instead
-// (SystemAccessibilityPlugin.java), live, as body text (16sp, the browser's
+// (SeancePlugin.kt) and reports the font scale instead
+// (SystemAccessibility.kt), live, as body text (16sp, the browser's
 // 16px at the default scale) sees it: from Android 14 large text grows less
 // than `Configuration.fontScale` says.
 

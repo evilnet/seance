@@ -27,8 +27,8 @@ class EventHandlerArgs {
 }
 
 /**
- * Every plugin the page calls (client/js/helpers/shell.ts), by the names and
- * shapes the Capacitor shell answers: src/mobile.rs hands each call here as
+ * Every plugin the page calls on Android (client/js/helpers/shell.ts):
+ * src/mobile.rs hands each call here as
  * `{plugin, method, options}`, and events go back through the one channel it
  * set at start. A plugin is a [Handler] in [handlers].
  */

@@ -14,8 +14,7 @@ import org.unifiedpush.android.connector.UnifiedPush
 
 /**
  * `NativePush`, the page's Push API in the Android shell
- * (client/js/helpers/nativePush.ts), as the Capacitor shell's
- * NativePushPlugin answers it. The WebView has no PushManager, so a
+ * (client/js/helpers/nativePush.ts). The WebView has no PushManager, so a
  * subscription here is a UnifiedPush registration ([PushService]), one per
  * network, made with that network's VAPID key — and it hands the page the
  * same `{endpoint, keys}` a browser would, which webpush.ts REGISTERs with

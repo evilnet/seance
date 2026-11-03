@@ -2,9 +2,9 @@
 # directory; majors are left to a person (security updates still arrive for
 # any version). A release must be a week old first. CI (ci.yml) is the gate.
 #
-# Not covered on purpose: Swift (the Capacitor CLI writes Package.swift) and
-# Gradle (its versions come with each Capacitor release). shells/tauri and
-# its Cargo crate get entries when the desktop shell lands on develop.
+# The Tauri shell: its CLI (npm) and its crate (Cargo). Not covered on
+# purpose: the generated Gradle and Xcode projects (gen/), which follow the
+# Tauri CLI that writes them.
 version: 2
 
 updates:
@@ -22,7 +22,20 @@ updates:
         update-types: [version-update:semver-major]
 
   - package-ecosystem: npm
-    directory: /shells/capacitor
+    directory: /shells/tauri
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: "*"
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: cargo
+    directory: /shells/tauri/src-tauri
     schedule:
       interval: monthly
     cooldown:

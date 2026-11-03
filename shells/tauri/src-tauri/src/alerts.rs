@@ -1,6 +1,6 @@
 // LocalNotifications on Windows and Linux: the message alerts the page hands
-// the OS (client/js/helpers/nativeAlerts.ts), in the shapes of Capacitor's
-// plugin, which iOS uses. Linux speaks to the freedesktop notification server
+// the OS (client/js/helpers/nativeAlerts.ts), in the shapes the Apple systems'
+// Swift answers too. Linux speaks to the freedesktop notification server
 // over D-Bus; Windows shows toasts through notify-rust. macOS has its own
 // Swift (src/apple.rs).
 //

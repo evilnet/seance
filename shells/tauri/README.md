@@ -1,11 +1,12 @@
 # Seance Tauri shell
 
-The desktop app for Windows, macOS and Linux (`docs/projects/desktop-shells.md`).
-A Tauri v2 window around the built SPA: the page speaks IRC over WebSocket
-itself, and the shell adds the window, `web+irc:` links, the badge and the
-platform's close behaviour. Each OS's own web view draws it — WebView2 on
-Windows, WKWebView on macOS, WebKitGTK on Linux. A release `.app` is about
-10 MB.
+Seance's app on every platform: Windows, macOS and Linux
+(`docs/projects/desktop-shells.md`), and iOS and Android (§ Phones). A
+Tauri v2 window around the built SPA: the page speaks IRC over WebSocket
+itself, and the shell adds the window, links, the badge, alerts and the
+platform's behaviour. Each OS's own web view draws it — WebView2 on
+Windows, WKWebView on macOS and iOS, WebKitGTK on Linux, the system WebView
+on Android. A release `.app` is about 10 MB.
 
 This package is self-contained (`seance-tauri`, private): the Tauri CLI is its
 only npm dependency and nothing is added to the repository root.
@@ -114,6 +115,72 @@ compiled out of a release build.
 - **macOS titlebar**: the web view runs under the titlebar and WebKit lays
   the page out below it (a 32 pt obscured inset on macOS 27); the page sees
   the visible height and never scrolls under the bar.
+
+## Phones
+
+The same shell builds for Android and iOS as `chat.seance.app`
+(`tauri.android.conf.json`, `tauri.ios.conf.json`); the desktop is
+`chat.seance.desktop`. The page sees `window.seanceShell` with platform
+`android` or `ios`; `seance_call` hands what Rust does not answer to one
+native plugin, `SeancePlugin` (`src/mobile.rs`), and its events come back
+through one channel to `emit()`. Haptics is Tauri's own plugin, through its
+Rust API; its notification plugin is not used, as it injects a
+`window.Notification` shim into the page. `gen/android` and `gen/apple` are
+the Tauri CLI's projects, committed with the shell's own files in them.
+
+| Plugin                | Android (`gen/android/…/SeancePlugin.kt`)            | iOS (`ios/Sources/SeanceIOS/SeancePlugin.swift`)                   |
+| --------------------- | ---------------------------------------------------- | ------------------------------------------------------------------ |
+| `App`                 | `backButton`, `appStateChange`, `minimizeApp`, links | `appStateChange`, links                                            |
+| `KeepAlive`           | `ConnectionService`, a foreground service            | —                                                                  |
+| `NativePush`          | UnifiedPush with its embedded FCM distributor        | —                                                                  |
+| `SystemAccessibility` | contrast, animation scale, font scale, battery saver | —                                                                  |
+| `LocalNotifications`  | — (alerts go through `NativePush` `show`)            | `swift/` SeanceNotifications, the macOS shell's code               |
+| `Power`               | —                                                    | Low Power Mode                                                     |
+| `Keyboard`            | —                                                    | `keyboardWillShow`/`Hide`, accessory bar hidden                    |
+| `StatusBar`           | both bars' style                                     | style (wry's view controller's `preferredStatusBarStyle`, swapped) |
+| `Badge`               | answered, nothing to set                             | the app icon's count                                               |
+| `Haptics`             | `tauri-plugin-haptics`                               | `tauri-plugin-haptics`                                             |
+
+Links (`web+irc:`, `irc:`, `ircs:`) are declared to the deep-link plugin
+(`tauri.conf.json` `plugins.deep-link.mobile`), which writes the Android
+intent filter and the iOS URL types. The paperclip offers the camera on
+Android (`UploadChooserClient.kt`, in front of wry's chrome client); what a
+picker app answers is taken only as another app's `content:` URI. The app's
+data stays out of Android's backup and device transfers.
+
+**Android** (SDK, NDK 29, JDK 17+; the emulator or a phone over adb):
+
+```sh
+NODE_ENV=production pnpm build          # at the root: public/ is compiled in
+cd shells/tauri
+export JAVA_HOME=$(/usr/libexec/java_home) ANDROID_HOME=~/Library/Android/sdk
+export NDK_HOME=$ANDROID_HOME/ndk/29.0.14206865
+pnpm tauri android build --debug --apk --target aarch64
+adb install -r src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+```
+
+The push code's unit tests: `./gradlew :app:testUniversalDebugUnitTest` in
+`src-tauri/gen/android`. A debug build's WebView is debuggable
+(`adb forward tcp:9333 localabstract:webview_devtools_remote_<pid>`).
+
+**iOS** (Xcode, iOS 26): `tauri ios build` wants the Simulator runtime
+matching Xcode's SDK. Without it, keep `pnpm tauri ios dev "iPhone 17 Pro" --no-watch` running (it opens Xcode and serves the build options the Rust
+step reads), then build against any installed iOS 26 Simulator:
+
+```sh
+cd src-tauri/gen/apple
+xcodebuild -project seance-tauri.xcodeproj -scheme seance-tauri_iOS -configuration debug \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath build/dd \
+  CODE_SIGNING_ALLOWED=NO build
+xcrun simctl install booted build/dd/Build/Products/debug-iphonesimulator/Seance.app
+```
+
+For a phone over USB, the same with `-destination 'generic/platform=iOS' -allowProvisioningUpdates DEVELOPMENT_TEAM=<team>` and no
+`CODE_SIGNING_ALLOWED`, then `xcrun devicectl device install app --device <udid> build/dd/Build/Products/debug-iphoneos/Seance.app`.
+
+`build.rs` copies Tauri's Swift API into `ios/.tauri/` and links the
+package. A change to `Info.ios.plist` or the link schemes reaches the app at
+the next `tauri ios dev` or `build`.
 
 ## Rebranding
 
