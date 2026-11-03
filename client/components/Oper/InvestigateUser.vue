@@ -39,7 +39,7 @@
 		<dl class="oper-report-entries oper-facts oper-props">
 			<div :class="['wide', {same: sameAs('host')}]">
 				<dt>Host</dt>
-				<dd>
+				<dd class="oper-prop-flow">
 					<template v-if="user.host">
 						<span class="oper-mono">{{ user.ident ?? "?" }}@</span
 						><button
@@ -120,14 +120,15 @@
 					<span v-else class="oper-muted">{{ pending("check", "whois") }}</span>
 				</dd>
 			</div>
-			<div :class="{same: sameAs('version')}">
+			<div :class="[{wide: (user.version ?? '').length > 24}, {same: sameAs('version')}]">
 				<dt>Version</dt>
 				<dd>
 					<template v-if="user.version">{{ user.version }}</template>
 					<span v-else class="oper-muted">{{ pending("check", "lookups") }}</span>
 				</dd>
 			</div>
-			<div>
+			<!-- Across both columns with a long version, so no half row is left empty. -->
+			<div :class="{wide: (user.version ?? '').length > 24}">
 				<dt>Modes</dt>
 				<dd>
 					<code v-if="user.modes" class="oper-mono oper-value">{{ user.modes }}</code>

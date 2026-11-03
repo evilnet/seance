@@ -86,7 +86,11 @@
 		<section v-if="x3" class="oper-alerts-section oper-o3">
 			<div class="oper-o3-head">
 				<h2>{{ operBot }} alerts</h2>
-				<button type="button" class="btn btn-small oper-o3-new" @click="newAlert">
+				<button
+					type="button"
+					class="oper-btn oper-btn-secondary oper-o3-new"
+					@click="newAlert"
+				>
 					New {{ operBot }} alert…
 				</button>
 			</div>
@@ -131,7 +135,7 @@
 								<span class="oper-o3-confirm">Delete {{ a.name }}?</span>
 								<button
 									type="button"
-									class="btn btn-small btn-danger"
+									class="oper-btn oper-btn-danger"
 									:disabled="busy"
 									@click="confirmDelete(a)"
 								>
@@ -139,19 +143,23 @@
 								</button>
 								<button
 									type="button"
-									class="btn btn-small btn-cancel"
+									class="oper-btn oper-btn-ghost oper-cancel"
 									@click="deleting = ''"
 								>
 									Keep
 								</button>
 							</template>
 							<template v-else>
-								<button type="button" class="btn btn-small" @click="edit(a)">
+								<button
+									type="button"
+									class="oper-btn oper-btn-secondary"
+									@click="edit(a)"
+								>
 									Edit
 								</button>
 								<button
 									type="button"
-									class="btn btn-small"
+									class="oper-btn oper-btn-secondary"
 									@click="deleting = a.name"
 								>
 									Delete
@@ -182,13 +190,15 @@
 					v-for="p in presets"
 					:key="p.label"
 					type="button"
-					:class="['btn', 'btn-small', {active: p.mask === draft}]"
+					:class="['oper-btn', 'oper-btn-secondary', {active: p.mask === draft}]"
 					:title="`${p.mask} (0x${p.mask.toString(16)})`"
 					@click="apply(p.mask)"
 				>
 					{{ p.label }}
 				</button>
-				<button type="button" class="btn btn-small" @click="apply(0)">Off</button>
+				<button type="button" class="oper-btn oper-btn-secondary" @click="apply(0)">
+					Off
+				</button>
 			</div>
 			<ul class="oper-bits">
 				<li

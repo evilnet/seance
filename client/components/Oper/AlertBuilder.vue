@@ -198,15 +198,17 @@
 				<div class="oper-alert-actions">
 					<button
 						type="submit"
-						class="btn btn-small oper-alert-submit"
+						class="oper-btn oper-btn-primary oper-alert-submit"
 						:disabled="!canSubmit"
 					>
 						{{ busy ? "Sending…" : request.edit ? "Replace alert" : "Add alert" }}
 					</button>
-					<button type="button" class="btn btn-small" @click="copy">Copy command</button>
+					<button type="button" class="oper-btn oper-btn-secondary" @click="copy">
+						Copy command
+					</button>
 					<button
 						type="button"
-						class="btn btn-small btn-cancel"
+						class="oper-btn oper-btn-ghost oper-cancel"
 						:disabled="busy"
 						@click="dismiss"
 					>

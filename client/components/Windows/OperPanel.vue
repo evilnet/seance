@@ -51,7 +51,13 @@
 			</div>
 			<div class="settings-modal-footer">
 				<span class="settings-modal-note">Changes apply as you make them.</span>
-				<button class="btn settings-modal-done" type="button" @click="close">Done</button>
+				<button
+					class="oper-btn oper-btn-primary settings-modal-done"
+					type="button"
+					@click="close"
+				>
+					Done
+				</button>
 			</div>
 		</div>
 	</div>

@@ -124,7 +124,8 @@
 .window,
 .oper-investigate,
 .oper-alert-builder,
-#oper-action-overlay {
+#oper-action-overlay,
+#oper-note-overlay {
 	--oper-amber: var(--oper-amber-theme, color-mix(in oklab, #c7841a 65%, var(--body-color)));
 	--oper-red: var(--oper-red-theme, color-mix(in oklab, #e74c3c 75%, var(--body-color)));
 
@@ -3927,40 +3928,46 @@ button.snotice-badge:focus-visible {
  * radiogroup). */
 .oper-seg {
 	display: inline-flex;
-	border: 1px solid color-mix(in srgb, var(--body-color-muted) 50%, transparent);
-	border-radius: 0.4rem;
-	overflow: hidden;
+	gap: 0.125rem;
+	padding: 0.125rem;
+	border: 1px solid var(--oper-line);
+	border-radius: 0.45rem;
+	background: var(--oper-sunk);
 }
 
 .oper-seg button {
-	padding: 0.25rem 0.7rem;
-	color: var(--body-color);
-	font-size: 0.9375em;
-	line-height: 1.4;
+	padding: 0.35rem 0.75rem;
+	border-radius: 0.3rem;
+	color: var(--body-color-muted);
+	font-size: 0.875rem;
+	font-weight: 500;
+	line-height: 1.3;
 	white-space: nowrap;
-}
-
-.oper-seg button + button {
-	border-left: 1px solid color-mix(in srgb, var(--body-color-muted) 50%, transparent);
 }
 
 .oper-seg button:hover,
 .oper-seg button:focus-visible {
-	background: color-mix(in srgb, var(--body-color-muted) 12%, transparent);
+	color: var(--body-color);
 }
 
+/* The chosen one is raised, with a hairline; Here (and a temporary choice)
+ * in amber, the others in the text colour. */
 .oper-seg button[aria-pressed="true"],
 .oper-seg button[aria-checked="true"] {
-	background: var(--button-color);
-	color: var(--button-text-color-hover);
+	background: var(--oper-raised);
+	color: var(--body-color);
+	box-shadow:
+		0 1px 2px rgb(0 0 0 / 25%),
+		0 0 0 1px var(--oper-line-2);
 }
 
 .oper-seg button[aria-checked="true"].tmp {
-	background: var(--oper-amber);
+	color: var(--oper-amber);
+}
 
-	/* The amber is chosen against the window colour; the button text
-	 * colour does not hold against it. */
-	color: var(--window-bg-color);
+html[data-contrast="more"] .oper-seg button[aria-checked="true"],
+html[data-contrast="more"] .oper-seg button[aria-pressed="true"] {
+	box-shadow: 0 0 0 2px var(--body-color);
 }
 
 /* A folded row (`<details>`): a FontAwesome caret instead of the browser's
@@ -4034,18 +4041,25 @@ button.snotice-badge:focus-visible {
 	font-weight: 600;
 }
 
-/* An IP, host or mask: a chip that opens the oper actions for it. */
+/* A value chip: a literal (an IP, host or mask) whose menu it opens. The
+ * dashed underline says "this opens something"; a tag never has one. */
 .oper-chip {
 	display: inline;
 	font-family: monospace;
-	font-size: 0.9375em;
-	color: var(--link-color);
-	background: color-mix(in srgb, var(--link-color) 12%, transparent);
-	border: 1px solid color-mix(in srgb, var(--link-color) 35%, transparent);
+	font-size: 0.875em;
+	color: var(--body-color);
+	background: var(--oper-raised);
+	border: 1px solid var(--oper-line);
+	border-bottom: 1px dashed var(--oper-line-2);
 	border-radius: 0.3em;
-	padding: 0 0.3em;
+	padding: 0.05em 0.35em;
 	cursor: pointer;
 	overflow-wrap: anywhere;
+}
+
+.oper-chip:hover,
+.oper-chip:focus-visible {
+	border-color: var(--oper-line-2);
 }
 
 .oper-chip:hover,
@@ -4073,13 +4087,21 @@ button.snotice-badge:focus-visible {
 	flex-wrap: nowrap;
 }
 
+/* The oper panel's tabs read wider than the Settings column: the Alerts
+ * rows and the timelines need the room. */
+#oper .settings-modal-body > .container {
+	width: min(42rem, 100%);
+	padding: 0 1.5rem;
+}
+
 .oper-chip-static {
 	display: inline-block;
-	border: 1px solid color-mix(in srgb, var(--body-color-muted) 60%, transparent);
-	border-radius: 0.6em;
-	font-size: 0.8125em;
-	line-height: 1.35;
-	padding: 0 0.45em;
+	border-radius: 999px;
+	background: var(--oper-raised);
+	font-size: 0.75rem;
+	font-weight: 500;
+	line-height: 1.5;
+	padding: 0 0.55em;
 	color: var(--body-color);
 	white-space: nowrap;
 }
@@ -4387,10 +4409,10 @@ button.snotice-badge:focus-visible {
 	margin: 0.25em 0 0.15em;
 }
 
-/* The tint of a shared value: a wash of the link colour behind it. */
+/* The tint of a shared value: a wash of amber behind it. */
 .oper-investigate .same {
-	background: color-mix(in srgb, var(--link-color) 18%, transparent);
-	box-shadow: 0 0 0 0.15em color-mix(in srgb, var(--link-color) 18%, transparent);
+	background: color-mix(in oklab, var(--oper-amber) 14%, transparent);
+	box-shadow: 0 0 0 0.15em color-mix(in oklab, var(--oper-amber) 14%, transparent);
 	border-radius: 0.2em;
 }
 
@@ -4452,9 +4474,11 @@ button.snotice-badge:focus-visible {
 	max-height: calc(100% - 1.5rem);
 	margin: 0.75rem;
 	overflow: hidden;
-	border-radius: 5px;
+	border: 1px solid var(--oper-line-2);
+	border-radius: 0.75rem;
 	background: var(--window-bg-color);
 	color: var(--body-color);
+	box-shadow: 0 1.5rem 3rem -1rem rgb(0 0 0 / 50%);
 }
 
 .oper-note-dialog-body {
@@ -4464,13 +4488,13 @@ button.snotice-badge:focus-visible {
 	overscroll-behavior: contain;
 	display: flex;
 	flex-direction: column;
-	gap: 0.5rem;
-	padding: 1rem;
+	gap: 0.75rem;
+	padding: 1.25rem 1.5rem;
 }
 
 .oper-note-dialog-title {
-	font-size: 1.25rem;
-	font-weight: 700;
+	font-size: 1.125rem;
+	font-weight: 600;
 	overflow-wrap: anywhere;
 }
 
@@ -4484,65 +4508,33 @@ button.snotice-badge:focus-visible {
 	flex-shrink: 0;
 	display: flex;
 	justify-content: flex-end;
-	gap: 0.6rem;
-	padding: 0.8rem 1rem;
-	background: rgb(0 0 0 / 30%);
+	gap: 0.5rem;
+	padding: 0.9rem 1.5rem;
+	background: var(--oper-sunk);
+	box-shadow: inset 0 1px 0 var(--oper-line);
 }
 
-.oper-note-dialog-buttons .btn {
-	margin: 0;
-}
-
-.oper-note-dialog-buttons .btn-cancel {
-	border-color: transparent;
-}
-
-/* What most users have in common: the chips and the two buttons. */
-.oper-common-facts {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: 0.35em;
-	margin: 0;
-}
-
-.oper-common-lead {
-	font-weight: 600;
-	margin-right: 0.2em;
-}
-
-.oper-common-chip {
-	font-size: 0.9375em;
-	color: var(--body-color);
-	border-color: color-mix(in srgb, var(--link-color) 50%, transparent);
-	background: color-mix(in srgb, var(--link-color) 10%, transparent);
-}
-
+/* What most users have in common: a verdict with the facts as tags, and
+ * Alert on this… / Trace count under them. */
 .oper-common-actions {
+	grid-column: 2;
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
 	gap: 0.5rem;
-	margin-top: 0.5rem;
+	margin-top: 0.4rem;
 }
 
 .oper-trace-count {
 	color: var(--body-color-muted);
-	font-size: 0.9375em;
+	font-size: 0.875rem;
 }
 
-/* The users: three-line blocks, the ones sharing every common fact
- * tinted along their edge, the odd one out plain. */
-.oper-users-head {
-	display: flex;
-	align-items: baseline;
-	justify-content: space-between;
-	gap: 1rem;
-}
-
+/* The users: rows between hairlines; the ones sharing every common fact
+ * marked with an amber edge, the odd one out with a dashed one. */
 .oper-users-sort {
 	color: var(--body-color-muted);
-	font-size: 0.875em;
+	font-size: 0.875rem;
 	display: inline-flex;
 	align-items: center;
 	gap: 0.4em;
@@ -4551,9 +4543,10 @@ button.snotice-badge:focus-visible {
 .oper-users-sort .input {
 	width: auto;
 	margin: 0;
-	padding: 0.1em 1.6em 0.1em 0.5em;
+	padding: 0.2em 1.6em 0.2em 0.6em;
 	height: auto;
 	font-size: inherit;
+	border-radius: 0.4rem;
 }
 
 .oper-user-list {
@@ -4562,29 +4555,44 @@ button.snotice-badge:focus-visible {
 	padding: 0;
 	display: flex;
 	flex-direction: column;
-	gap: 0.45rem;
 }
 
 .oper-user-block {
-	border-left: 3px solid color-mix(in srgb, var(--body-color-muted) 35%, transparent);
-	padding: 0.15rem 0.6rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.3rem;
+	padding: 0.8rem 0 0.8rem 0.9rem;
+	box-shadow:
+		inset 0 1px 0 var(--oper-line),
+		inset 3px 0 0 transparent;
 	line-height: 1.5;
 }
 
+.oper-user-block:first-child {
+	box-shadow: inset 3px 0 0 transparent;
+}
+
 .oper-user-block.same-all {
-	border-left-color: var(--link-color);
-	background: color-mix(in srgb, var(--link-color) 6%, transparent);
+	box-shadow:
+		inset 0 1px 0 var(--oper-line),
+		inset 3px 0 0 color-mix(in oklab, var(--oper-amber) 70%, transparent);
+}
+
+.oper-user-block.same-all:first-child {
+	box-shadow: inset 3px 0 0 color-mix(in oklab, var(--oper-amber) 70%, transparent);
 }
 
 .oper-user-block.odd {
-	border-left-style: dashed;
+	box-shadow:
+		inset 0 1px 0 var(--oper-line),
+		inset 3px 0 0 var(--oper-line-2);
 }
 
 .oper-user-line {
 	display: flex;
 	flex-wrap: wrap;
-	align-items: baseline;
-	gap: 0.15em 0.4em;
+	align-items: center;
+	gap: 0.3em 0.45em;
 	min-width: 0;
 	overflow-wrap: anywhere;
 }
@@ -4615,8 +4623,11 @@ button.snotice-badge:focus-visible {
 	margin-left: auto;
 }
 
-#oper-investigate-overlay .btn-small.oper-lookup {
+#oper-investigate-overlay .oper-lookup {
+	height: 1.75rem;
 	margin-left: 0.4em;
+	padding: 0 0.6rem;
+	font-size: 0.8125rem;
 }
 
 /* Last hour here, bans near, seen before: plain lists. */
@@ -5027,7 +5038,6 @@ html[data-contrast="more"] .oper-tag {
 }
 
 /* A value chip: a literal you can act on (its menu) or copy. */
-.oper-investigate .oper-chip,
 .oper-investigate .oper-value {
 	display: inline;
 	font-family: monospace;
@@ -5040,16 +5050,6 @@ html[data-contrast="more"] .oper-tag {
 	overflow-wrap: anywhere;
 }
 
-.oper-investigate .oper-chip {
-	border-bottom: 1px dashed var(--oper-line-2);
-	cursor: pointer;
-}
-
-.oper-investigate .oper-chip:hover,
-.oper-investigate .oper-chip:focus-visible {
-	border-color: var(--oper-line-2);
-}
-
 .oper-investigate .oper-chip.same,
 .oper-investigate dl .same dd > .oper-chip,
 .oper-investigate dl .same dd > .oper-value {
@@ -5060,7 +5060,7 @@ html[data-contrast="more"] .oper-tag {
 /* The card's header: who, where, and the card's own tools. */
 .oper-card-head {
 	gap: 0.9rem;
-	padding: 1.15rem 1rem 1.1rem 1.5rem;
+	padding: 1.15rem 1rem 1.35rem 1.5rem;
 	box-shadow: inset 0 -1px 0 var(--oper-line);
 }
 
@@ -5099,7 +5099,8 @@ html[data-contrast="more"] .oper-tag {
 }
 
 .oper-ident-sub {
-	margin-top: 0.2rem;
+	margin-top: 0.3rem;
+	line-height: 1.4;
 	color: var(--body-color-muted);
 	font-size: 0.8125rem;
 	white-space: nowrap;
@@ -5211,8 +5212,9 @@ html[data-contrast="more"] .oper-tag {
 	min-width: 0;
 }
 
-.oper-investigate .oper-props dd > .oper-mono:first-child + .oper-chip {
-	margin-left: -0.4rem;
+/* user@host: one value, wrapping anywhere when the host is long. */
+.oper-investigate .oper-props dd.oper-prop-flow .oper-chip {
+	white-space: normal;
 }
 
 .oper-investigate dl.oper-props .same {
@@ -5322,8 +5324,7 @@ html[data-contrast="more"] .oper-tag {
 	gap: 0.25rem;
 }
 
-.oper-rows .oper-chip,
-.oper-investigate .oper-props .oper-chip {
+.oper-rows .oper-chip {
 	white-space: nowrap;
 }
 
@@ -5495,17 +5496,26 @@ html[data-contrast="more"] .oper-tag {
 }
 
 .oper-wide {
-	display: inline-block;
-	margin-left: 0.35em;
-	padding: 0 0.35em;
-	border: 1px solid var(--oper-amber);
-	border-radius: 0.3em;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35em;
+	margin-left: 0.4em;
+	padding: 0.1em 0.55em;
+	border-radius: 999px;
+	background: color-mix(in oklab, var(--oper-amber) 14%, transparent);
 	color: var(--oper-amber);
-	font-size: 0.75em;
-	line-height: 1.5;
+	font-size: 0.75rem;
+	font-weight: 500;
+	line-height: 1.4;
 	vertical-align: 0.1em;
-	text-transform: uppercase;
-	letter-spacing: 0.04em;
+}
+
+.oper-wide::before {
+	content: "";
+	width: 0.4em;
+	height: 0.4em;
+	border-radius: 50%;
+	background: var(--oper-amber);
 }
 
 .oper-alert-remove {
@@ -5592,18 +5602,10 @@ html[data-contrast="more"] .oper-tag {
 	gap: 0.4rem;
 }
 
-#oper-alert-overlay .btn-small {
-	margin: 0;
-	padding: 0.3em 0.75em;
-	font-size: 0.875em;
-	line-height: 1.4;
-	border-width: 1px;
-	letter-spacing: 0;
-	text-transform: none;
-}
-
-#oper-alert-overlay .btn-cancel {
-	border-color: transparent;
+.oper-btn.active {
+	background: var(--button-color);
+	border-color: var(--button-color);
+	color: var(--window-bg-color);
 }
 
 .oper-alert-result {

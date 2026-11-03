@@ -940,7 +940,7 @@ export default async function run(page) {
 	// and reason defaulted from the channel, the command assembled live; the
 	// count line and Add alert both report O3's absence (no X3 on the rig).
 	const builder = "#oper-alert-overlay";
-	await page.click(`${overlay} .oper-common-actions .btn`);
+	await page.click(`${overlay} .oper-common-actions .oper-btn`);
 	await page.waitFor(`!!document.querySelector("${builder}.opened .oper-alert-row")`, {
 		label: "the alert builder with its rows",
 	});
@@ -1016,7 +1016,7 @@ export default async function run(page) {
 		{label: "Add alert reporting O3's absence", timeout: 10000}
 	);
 	await page.screenshot("10c-alert-builder-result", {selector: `${builder} .oper-alert-builder`});
-	await page.click(`${builder} .btn-cancel`);
+	await page.click(`${builder} .oper-cancel`);
 	await page.waitFor(`!document.querySelector("${builder}.opened")`, {
 		label: "Cancel closes the builder",
 	});
@@ -1179,7 +1179,7 @@ export default async function run(page) {
 		{label: "O3's absence reported in the dialog", timeout: 10000}
 	);
 	await page.screenshot("7b-gline-via-o3", {selector: "#oper-action-dialog"});
-	await page.click("#oper-action-dialog .btn-cancel");
+	await page.click("#oper-action-dialog .oper-cancel");
 	await page.waitFor(`!document.querySelector("#oper-action-dialog")`, {
 		label: "the dialog closes",
 	});

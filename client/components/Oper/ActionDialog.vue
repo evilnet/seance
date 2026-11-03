@@ -143,10 +143,19 @@
 				<p v-if="result" class="oper-action-result">{{ result }}</p>
 			</div>
 			<div class="oper-action-buttons">
-				<button type="button" class="btn btn-cancel" :disabled="busy" @click="dismiss">
+				<button
+					type="button"
+					class="oper-btn oper-btn-ghost oper-cancel"
+					:disabled="busy"
+					@click="dismiss"
+				>
 					Cancel
 				</button>
-				<button type="submit" class="btn btn-danger" :disabled="!canSubmit || busy">
+				<button
+					type="submit"
+					class="oper-btn oper-btn-danger solid"
+					:disabled="!canSubmit || busy"
+				>
 					{{ busy ? "Sending…" : actionLabel }}
 				</button>
 			</div>
@@ -161,7 +170,9 @@
 	background: var(--window-bg-color);
 	color: var(--body-color);
 	margin: 0.75rem;
-	border-radius: 5px;
+	border: 1px solid var(--oper-line-2);
+	border-radius: 0.75rem;
+	box-shadow: 0 1.5rem 3rem -1rem rgb(0 0 0 / 50%);
 	width: min(32rem, calc(100vw - 1.5rem));
 	max-height: calc(100% - 1.5rem);
 
@@ -178,22 +189,25 @@
 	min-height: 0;
 	overflow-y: auto;
 	overscroll-behavior: contain;
-	padding: 1rem;
+	padding: 1.25rem 1.5rem 1.5rem;
 	display: flex;
 	flex-direction: column;
-	gap: 0.35rem;
+	gap: 0.45rem;
 }
 
 #oper-action-dialog .oper-action-title {
-	font-size: 1.25rem;
-	font-weight: 700;
+	font-size: 1.125rem;
+	font-weight: 600;
 	margin-bottom: 0.5rem;
 }
 
 #oper-action-dialog .oper-action-label {
 	color: var(--body-color-muted);
-	font-size: 0.875rem;
-	margin-top: 0.5rem;
+	font-size: 0.75rem;
+	font-weight: 600;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	margin-top: 0.75rem;
 }
 
 #oper-action-dialog .input {
@@ -241,17 +255,17 @@
 }
 
 #oper-action-dialog .oper-action-preview.wide {
-	color: var(--link-color);
+	color: var(--oper-amber);
 }
 
 #oper-action-dialog .oper-action-error {
-	color: var(--error-fg, color-mix(in oklab, #e74c3c 60%, var(--body-color)));
+	color: var(--oper-red);
 	font-size: 0.875rem;
 	margin: 0.25rem 0 0;
 }
 
 #oper-action-dialog .oper-action-result {
-	color: var(--link-color);
+	color: var(--body-color);
 	margin: 0.25rem 0 0;
 }
 
@@ -259,17 +273,10 @@
 	flex-shrink: 0;
 	display: flex;
 	justify-content: flex-end;
-	gap: 0.6rem;
-	padding: 0.8rem 1rem;
-	background: rgb(0 0 0 / 30%);
-}
-
-#oper-action-dialog .oper-action-buttons .btn {
-	margin: 0;
-}
-
-#oper-action-dialog .btn-cancel {
-	border-color: transparent;
+	gap: 0.5rem;
+	padding: 0.9rem 1.5rem;
+	background: var(--oper-sunk);
+	box-shadow: inset 0 1px 0 var(--oper-line);
 }
 </style>
 

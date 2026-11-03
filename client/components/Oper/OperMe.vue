@@ -11,7 +11,11 @@
 		<details class="oper-fold oper-me-privs" :open="privs.length <= 12">
 			<summary>
 				Privileges · {{ network.oper?.privsKnown ? privs.length : "?" }}
-				<button type="button" class="btn btn-small oper-refresh" @click.prevent="refresh">
+				<button
+					type="button"
+					class="oper-btn oper-btn-secondary oper-refresh"
+					@click.prevent="refresh"
+				>
 					Refresh
 				</button>
 			</summary>

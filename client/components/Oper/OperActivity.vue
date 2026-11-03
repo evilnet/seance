@@ -31,7 +31,7 @@
 			<span>Not in {{ missingReport }}: what services did for opers isn't counted.</span>
 			<button
 				type="button"
-				class="btn btn-small oper-join-channel"
+				class="oper-btn oper-btn-secondary oper-join-channel"
 				@click="join(missingReport)"
 			>
 				Join

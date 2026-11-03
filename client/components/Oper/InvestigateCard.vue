@@ -85,7 +85,7 @@
 
 					<!-- ------------------------------------------------ channel -->
 					<template v-if="model.kind === 'channel'">
-						<dl class="oper-report-entries oper-facts">
+						<dl class="oper-report-entries oper-facts oper-props">
 							<div>
 								<dt>Created</dt>
 								<dd>
@@ -113,9 +113,9 @@
 									}}</span>
 								</dd>
 							</div>
-							<div>
+							<div class="wide">
 								<dt>Topic</dt>
-								<dd>
+								<dd class="oper-prop-flow">
 									<template v-if="model.topic"
 										><ParsedMessage
 											:network="network"
@@ -162,73 +162,85 @@
 						</dl>
 
 						<section class="oper-common">
-							<h3 class="oper-report-section-title">
-								What most users have in common
-							</h3>
-							<p v-if="common && common.facts.length" class="oper-common-facts">
-								<span class="oper-common-lead"
-									>{{ commonCount }} of {{ common.total }} users:</span
-								>
-								<span
-									v-for="fact in common.facts"
-									:key="fact.key"
-									class="oper-chip-static oper-common-chip"
-									:title="`${fact.count} of ${common.total} users`"
-									>{{ fact.label
-									}}<span v-if="fact.count !== commonCount" class="oper-muted">
-										· {{ fact.count }}</span
-									></span
-								>
-							</p>
-							<p v-else class="oper-muted">
-								{{
-									model.users.length < 3
-										? "Too few users to compare."
-										: sources.who === "asking" || sources.check === "asking"
-										? "asking…"
-										: "Nothing that most of them share."
-								}}
-							</p>
-							<div class="oper-common-actions">
-								<button
-									type="button"
-									class="btn btn-small"
-									:disabled="!common || !common.facts.length"
-									@click="alertOnThis"
-								>
-									Alert on this…
-								</button>
-								<button
-									v-if="hasLookups"
-									type="button"
-									class="btn btn-small"
-									:disabled="
-										!common ||
-										!common.facts.length ||
-										model.traceCount?.state === 'asking'
-									"
-									@click="traceCount"
-								>
-									Trace count
-								</button>
-								<span v-if="model.traceCount" class="oper-trace-count">
-									<template v-if="model.traceCount.state === 'asking'"
-										>asking…</template
+							<div
+								:class="[
+									'oper-verdict',
+									common && common.facts.length ? 'tone-match' : 'tone-weak',
+								]"
+							>
+								<span class="oper-verdict-mark" aria-hidden="true"></span>
+								<p class="oper-verdict-head">
+									<span class="oper-verdict-kicker">What most share</span>
+									<span
+										v-if="common && common.facts.length"
+										class="oper-verdict-lead"
+										>{{ commonCount }} of {{ common.total }} users look
+										alike</span
 									>
-									<template v-else-if="model.traceCount.state === 'done'"
-										>{{ model.traceCount.count }} users match right
-										now</template
+									<span v-else class="oper-verdict-lead oper-muted">{{
+										model.users.length < 3
+											? "Too few users to compare."
+											: sources.who === "asking" || sources.check === "asking"
+											? "asking…"
+											: "Nothing that most of them share."
+									}}</span>
+								</p>
+								<p
+									v-if="common && common.facts.length"
+									class="oper-verdict-evidence oper-common-facts"
+								>
+									<span
+										v-for="fact in common.facts"
+										:key="fact.key"
+										class="oper-tag warn oper-common-chip"
+										:title="`${fact.count} of ${common.total} users`"
+										>{{ fact.label
+										}}<template v-if="fact.count !== commonCount">
+											· {{ fact.count }}</template
+										></span
 									>
-									<template v-else>O3 could not count them</template>
-								</span>
+								</p>
+								<div class="oper-common-actions">
+									<button
+										type="button"
+										class="oper-btn oper-btn-secondary oper-icon-alert"
+										:disabled="!common || !common.facts.length"
+										@click="alertOnThis"
+									>
+										Alert on this…
+									</button>
+									<button
+										v-if="hasLookups"
+										type="button"
+										class="oper-btn oper-btn-ghost"
+										:disabled="
+											!common ||
+											!common.facts.length ||
+											model.traceCount?.state === 'asking'
+										"
+										@click="traceCount"
+									>
+										Trace count
+									</button>
+									<span v-if="model.traceCount" class="oper-trace-count">
+										<template v-if="model.traceCount.state === 'asking'"
+											>asking…</template
+										>
+										<template v-else-if="model.traceCount.state === 'done'"
+											>{{ model.traceCount.count }} users match right
+											now</template
+										>
+										<template v-else>O3 could not count them</template>
+									</span>
+								</div>
 							</div>
 						</section>
 
-						<section class="oper-users">
-							<div class="oper-users-head">
-								<h3 class="oper-report-section-title">
-									Users · {{ model.users.length }}
-								</h3>
+						<section class="oper-users oper-card-section">
+							<div class="oper-users-head oper-section-head">
+								<h3 class="oper-report-section-title">Users</h3>
+								<span class="oper-count">{{ model.users.length }}</span>
+								<span class="oper-spacer"></span>
 								<label class="oper-users-sort">
 									sort
 									<select v-model="sortBy" class="input">
@@ -263,18 +275,19 @@
 										>
 											{{ u.nick }}
 										</button>
-										<span v-if="u.op" class="oper-chip-static">op</span>
-										<span v-if="u.voice" class="oper-chip-static">voice</span>
-										<span v-if="u.oper" class="oper-chip-static">oper</span>
+										<span v-if="u.op" class="oper-tag plain">op</span>
+										<span v-if="u.voice" class="oper-tag plain">voice</span>
+										<span v-if="u.oper" class="oper-tag plain">oper</span>
 										<span
 											v-if="u.authed"
 											:class="[
-												'oper-chip-static',
+												'oper-tag',
+												'plain',
 												{same: shares(u.nick, 'authed')},
 											]"
 											>authed</span
 										>
-										<span v-if="u.away" class="oper-chip-static">away</span>
+										<span v-if="u.away" class="oper-tag plain">away</span>
 										<span class="oper-muted oper-user-timing">
 											<template v-if="u.joinedAt !== undefined"
 												>joined {{ clock(u.joinedAt) }}</template
@@ -387,7 +400,7 @@
 											<span class="oper-muted">the lookup failed</span>
 											<button
 												type="button"
-												class="btn btn-small oper-lookup"
+												class="oper-btn oper-btn-ghost oper-lookup"
 												@click="lookup(u.nick)"
 											>
 												Try again
@@ -396,7 +409,7 @@
 										<button
 											v-else-if="u.lookup === 'pending'"
 											type="button"
-											class="btn btn-small oper-lookup"
+											class="oper-btn oper-btn-ghost oper-lookup"
 											@click="lookup(u.nick)"
 										>
 											Look up
@@ -406,17 +419,20 @@
 							</ul>
 						</section>
 
-						<section v-if="showRecent" class="oper-recent">
-							<h3 class="oper-report-section-title">Last hour here</h3>
+						<section v-if="showRecent" class="oper-recent oper-card-section">
+							<div class="oper-section-head">
+								<h3 class="oper-report-section-title">Last hour here</h3>
+							</div>
 							<p v-if="model.snoopMissing" class="oper-muted oper-activity-missing">
 								Not in {{ model.snoopMissing }}: joins and parts aren't kept.
 							</p>
-							<ul v-else-if="model.recent.length" class="oper-recent-list">
+							<ul v-else-if="model.recent.length" class="oper-recent-list oper-rows">
 								<li v-for="(e, i) in model.recent" :key="i">
-									<span class="oper-muted">{{ clock(e.time) }}</span> {{ e.text }}
+									<span class="oper-row-time">{{ clock(e.time) }}</span>
+									<span class="oper-row-main">{{ e.text }}</span>
 								</li>
 							</ul>
-							<p v-else class="oper-muted">Nothing in the last hour.</p>
+							<p v-else class="oper-empty oper-muted">Nothing in the last hour.</p>
 						</section>
 					</template>
 
@@ -461,11 +477,11 @@
 									<h2 class="oper-compare-title">{{ compareModel.target }}</h2>
 									<button
 										type="button"
-										class="btn btn-small btn-cancel"
+										class="oper-icon-btn oper-icon-close"
+										title="End the comparison"
+										aria-label="End the comparison"
 										@click="endCompare"
-									>
-										✕
-									</button>
+									></button>
 								</div>
 								<InvestigateUser
 									:model="compareModel"
@@ -488,14 +504,14 @@
 							/>
 							<button
 								type="submit"
-								class="btn btn-small"
+								class="oper-btn oper-btn-primary"
 								:disabled="!compareWith.trim()"
 							>
 								Compare
 							</button>
 							<button
 								type="button"
-								class="btn btn-small btn-cancel"
+								class="oper-btn oper-btn-ghost"
 								@click="asking = false"
 							>
 								Cancel
@@ -605,8 +621,10 @@
 				></textarea>
 			</div>
 			<div class="oper-note-dialog-buttons">
-				<button type="button" class="btn btn-cancel" @click="cancelNote">Cancel</button>
-				<button type="submit" class="btn">Save</button>
+				<button type="button" class="oper-btn oper-btn-ghost" @click="cancelNote">
+					Cancel
+				</button>
+				<button type="submit" class="oper-btn oper-btn-primary">Save</button>
 			</div>
 		</form>
 	</div>
