@@ -2,10 +2,8 @@
 // API, so the page hands its alert to the OS, which owns the banner and the
 // sound (an <audio> ping took the audio session and stopped Music).
 //
-// - iOS: Capacitor's LocalNotifications plugin, which presents them in front
-//   too.
-// - macOS, Windows, Linux: the Tauri shell's LocalNotifications (Swift on
-//   macOS, src/alerts.rs elsewhere) in the plugin's shapes; a click opens the
+// - iOS, macOS, Windows, Linux: the Tauri shell's LocalNotifications (Swift
+//   on iOS and macOS, src/alerts.rs elsewhere), shown in front too; a click opens the
 //   conversation, and reading it takes the alert back except on Windows,
 //   which cannot remove a shown toast.
 // - Android: the shell's push service (NativePush `show`), so a page alert

@@ -1,5 +1,5 @@
-// The Android shell's stand-in for the Push API (shells/capacitor:
-// NativePushPlugin.java, PushService.java). Its WebView has no PushManager,
+// The Android shell's stand-in for the Push API (shells/tauri:
+// NativePush.kt, PushService.java). Its WebView has no PushManager,
 // so a subscription there is a UnifiedPush registration made with the
 // network's VAPID key — through FCM on a phone with Google Play services,
 // or the user's own distributor — which hands back the same

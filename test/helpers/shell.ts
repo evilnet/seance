@@ -30,23 +30,7 @@ async function inWindow(win: object, fn: () => void | Promise<void>): Promise<vo
 	}
 }
 
-function capacitor(platform: string, calls: string[] = []) {
-	return {
-		Capacitor: {
-			isNativePlatform: () => true,
-			getPlatform: () => platform,
-			addListener(plugin: string, event: string) {
-				calls.push(`listen ${plugin}.${event}`);
-			},
-			nativePromise(plugin: string, method: string) {
-				calls.push(`${plugin}.${method}`);
-				return Promise.resolve({from: "capacitor"});
-			},
-		},
-	};
-}
-
-function desktop(platform: string, calls: string[] = []) {
+function shell(platform: string, calls: string[] = []) {
 	return {
 		seanceShell: {
 			platform,
@@ -88,36 +72,30 @@ describe("the shell bridge", function () {
 	});
 
 	for (const platform of ["ios", "android"]) {
-		it(`reads the Capacitor bridge on ${platform}`, async function () {
+		it(`reads the shell on ${platform} as a phone`, async function () {
 			const calls: string[] = [];
 
-			await inWindow(capacitor(platform, calls), async () => {
+			await inWindow(shell(platform, calls), async () => {
 				expect(nativePlatform()).to.equal(platform);
 				expect(isShell()).to.equal(true);
 				expect(isMobileShell()).to.equal(true);
 				expect(isDesktopShell()).to.equal(false);
 				expect(isIOSShell()).to.equal(platform === "ios");
 				expect(isAndroidShell()).to.equal(platform === "android");
-				expect(await nativeCall("Badge", "set", {count: 2})).to.deep.equal({
-					from: "capacitor",
+				expect(await nativeCall("App", "getLaunchUrl")).to.deep.equal({
+					url: "web+irc://irc.example/#seance",
 				});
 				nativeListen("App", "appUrlOpen", () => {});
-				expect(calls).to.deep.equal(["Badge.set", "listen App.appUrlOpen"]);
+				expect(calls).to.deep.equal(["App.getLaunchUrl", "listen App.appUrlOpen"]);
 			});
 		});
 	}
 
-	it("is no shell when Capacitor says it runs on the web", async function () {
-		await inWindow(capacitor("web"), () => {
-			expect(nativePlatform()).to.equal("web");
-		});
-	});
-
 	for (const platform of ["macos", "windows", "linux"]) {
-		it(`reads a desktop shell on ${platform}`, async function () {
+		it(`reads the shell on ${platform} as a desktop`, async function () {
 			const calls: string[] = [];
 
-			await inWindow(desktop(platform, calls), async () => {
+			await inWindow(shell(platform, calls), async () => {
 				expect(nativePlatform()).to.equal(platform);
 				expect(isShell()).to.equal(true);
 				expect(isDesktopShell()).to.equal(true);
@@ -132,8 +110,8 @@ describe("the shell bridge", function () {
 		});
 	}
 
-	it("answers null for a plugin the desktop shell does not have", async function () {
-		await inWindow(desktop("linux"), async () => {
+	it("answers null for a plugin the platform does not have", async function () {
+		await inWindow(shell("linux"), async () => {
 			expect(await nativeCall("Haptics", "impact")).to.equal(null);
 
 			const refused = await nativeInvoke<never>("Haptics", "impact").catch(
@@ -145,24 +123,17 @@ describe("the shell bridge", function () {
 		});
 	});
 
-	it("ignores a seanceShell that is not a desktop shell", async function () {
-		// A bare {platform, version} with no call or listen is no bridge; and a
-		// page script cannot claim to be a phone shell through this door.
-		for (const shell of [
+	it("ignores a seanceShell that is no shell's", async function () {
+		// A bare {platform, version} with no call or listen is no bridge, and
+		// a platform the shell does not run on is none.
+		for (const bridge of [
 			{platform: "darwin", version: "1"},
-			{...desktop("ios").seanceShell},
-			{...desktop("freebsd").seanceShell},
+			{...shell("freebsd").seanceShell},
 		]) {
-			await inWindow({seanceShell: shell}, () => {
+			await inWindow({seanceShell: bridge}, () => {
 				expect(nativePlatform()).to.equal("web");
 			});
 		}
-	});
-
-	it("prefers the Capacitor bridge when both are there", async function () {
-		await inWindow({...desktop("macos"), ...capacitor("ios")}, () => {
-			expect(nativePlatform()).to.equal("ios");
-		});
 	});
 });
 
@@ -170,11 +141,11 @@ describe("platform defaults", function () {
 	it("follows the system's appearance in every shell, its text size on the phones", async function () {
 		const cases: Array<[object, string, boolean, boolean]> = [
 			[{}, "web", false, false],
-			[capacitor("ios"), "ios", true, true],
-			[capacitor("android"), "android", true, true],
-			[desktop("macos"), "macos", true, false],
-			[desktop("windows"), "windows", true, false],
-			[desktop("linux"), "linux", true, false],
+			[shell("ios"), "ios", true, true],
+			[shell("android"), "android", true, true],
+			[shell("macos"), "macos", true, false],
+			[shell("windows"), "windows", true, false],
+			[shell("linux"), "linux", true, false],
 		];
 
 		for (const [win, platform, appearance, textSize] of cases) {

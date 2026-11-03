@@ -1,7 +1,7 @@
 // App-shell glue: everything the page does *because* it is running inside a
 // shell. Every shell, phone or desktop, hands the page links (the launch link
-// and those opened while it runs) and notification taps; the phone shells
-// (shells/capacitor) add the status bar, the splash, the system text size and
+// and those opened while it runs) and notification taps; on the phones it
+// adds the status bar, the splash, the system text size and
 // Android's back button. The bridge itself is `helpers/shell.ts`, which
 // imports nothing and is what the leaf helpers (haptics, keepAlive, appBadge,
 // viewport) talk to; this file is free to pull in the store and the router.
@@ -76,7 +76,7 @@ export function onNativeUrl(handler: (href: string) => void): void {
 	}
 }
 
-// The native launch image (capacitor.config.ts keeps it up until told) comes
+// The native launch image (where the shell keeps one up until told) comes
 // down as soon as the page can paint in the user's theme — the theme
 // stylesheet's load — so the page's own loading screen, the logo tile on
 // that theme, takes over from the launch image (the logo on its own tile;
@@ -238,7 +238,7 @@ export function installNativeHooks(): void {
 		});
 	}
 
-	// The WebView fills the screen (capacitor.config.ts), so the page draws
+	// The WebView fills the screen (edge to edge), so the page draws
 	// under the status bar: `viewport-fit=cover` makes env(safe-area-inset-top)
 	// real and style.css pads #viewport by it in the theme's canvas colour.
 	// The bar's text follows that colour's luminance, at boot and again
@@ -252,17 +252,6 @@ export function installNativeHooks(): void {
 	if (viewport && !content.includes("viewport-fit")) {
 		viewport.setAttribute("content", `${content}, viewport-fit=cover`);
 	}
-
-	// Android: Capacitor's SystemBars reads that meta once, at DOMContentLoaded
-	// — before this runs — and without `viewport-fit=cover` it insets the
-	// WebView natively (a band in the window's colour above the header, and
-	// the env() values 0) instead of handing the page the insets. Asking it
-	// to look again is the same call its own DOM-ready hook makes; it
-	// re-applies the window insets, and from there the page pads itself, in
-	// the theme's colour, as it does on iOS. A WebView older than Chromium
-	// 140 takes the native inset whatever the meta says (MainActivity paints
-	// the band in the deploy's colour for those).
-	window.CapacitorSystemBarsAndroidInterface?.onDOMReady();
 
 	let barStyle: string | undefined;
 

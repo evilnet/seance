@@ -1,16 +1,12 @@
 // The bridge to the app shell around the page, and nothing else. A shell is
-// whatever hosts the built SPA as an app: the Capacitor shells on the phones
-// (shells/capacitor) and the desktop shell (shells/tauri;
-// docs/projects/desktop-shells.md). Every shell answers the same contract —
-// call a plugin's method, listen to a plugin's event — and a plugin or method
-// a shell does not have answers null, so a caller never needs to know which
-// shell it is in unless it means one platform.
+// whatever hosts the built SPA as an app: the Tauri shell (shells/tauri), on
+// the phones and on the desktop (docs/projects/desktop-shells.md). It answers
+// one contract — call a plugin's method, listen to a plugin's event — and a
+// plugin or method a platform does not have answers null, so a caller never
+// needs to know which platform it is on unless it means one.
 //
-// The web build bundles no shell code. A desktop shell injects
-// `window.seanceShell` before our scripts run; the Capacitor shells inject
-// `window.Capacitor` (their "native bridge"), adapted here to the same
-// contract through its own `addListener` / `nativePromise` alone —
-// `Capacitor.Plugins` stays empty unless `@capacitor/core` is bundled.
+// The web build bundles no shell code: the shell injects `window.seanceShell`
+// before our scripts run.
 //
 // This module imports nothing. `settings.ts` and the helpers it pulls in reach
 // the shell through here rather than through `native.ts`, which carries the
@@ -19,7 +15,7 @@
 /** Where a shell runs. `web` is no shell: a browser tab or an installed PWA. */
 export type ShellPlatform = "ios" | "android" | "macos" | "windows" | "linux";
 
-/** What a desktop shell puts on `window.seanceShell`. */
+/** What the shell puts on `window.seanceShell`. */
 export interface SeanceShell {
 	platform: ShellPlatform;
 	/** The shell's own version, which is not the web build's. */
@@ -31,30 +27,22 @@ export interface SeanceShell {
 	listen(plugin: string, event: string, cb: (data: any) => void): void;
 }
 
-interface CapacitorBridge {
-	isNativePlatform?: () => boolean;
-	getPlatform?: () => string;
-	addListener?: (plugin: string, event: string, cb: (data: any) => void) => unknown;
-	nativePromise?: (plugin: string, method: string, options?: unknown) => Promise<unknown>;
-}
-
 declare global {
 	interface Window {
 		seanceShell?: SeanceShell;
-		Capacitor?: CapacitorBridge;
-		/** Capacitor Android's SystemBars plugin, a JavascriptInterface. */
-		CapacitorSystemBarsAndroidInterface?: {onDOMReady: () => void};
 	}
 }
 
 const DESKTOP: readonly string[] = ["macos", "windows", "linux"];
+const PLATFORMS: readonly string[] = [...DESKTOP, "ios", "android"];
 
-function desktopShell(): SeanceShell | null {
+/** The shell around this page, or null in a browser. */
+export function shellBridge(): SeanceShell | null {
 	const shell = window.seanceShell;
 
 	if (
 		!shell ||
-		!DESKTOP.includes(shell.platform) ||
+		!PLATFORMS.includes(shell.platform) ||
 		typeof shell.call !== "function" ||
 		typeof shell.listen !== "function"
 	) {
@@ -62,44 +50,6 @@ function desktopShell(): SeanceShell | null {
 	}
 
 	return shell;
-}
-
-// The adapter is made once per bridge object, so callers comparing shells
-// (or holding one) see the same object every time.
-let adapted: {from: CapacitorBridge; shell: SeanceShell} | null = null;
-
-function capacitorShell(): SeanceShell | null {
-	const cap = window.Capacitor;
-
-	if (!cap?.isNativePlatform?.() || !cap.addListener || !cap.nativePromise) {
-		return null;
-	}
-
-	const platform = cap.getPlatform?.();
-
-	if (platform !== "ios" && platform !== "android") {
-		return null;
-	}
-
-	if (adapted?.from !== cap) {
-		const {addListener, nativePromise} = cap;
-		adapted = {
-			from: cap,
-			shell: {
-				platform,
-				call: (plugin, method, options = {}) =>
-					nativePromise.call(cap, plugin, method, options),
-				listen: (plugin, event, cb) => void addListener.call(cap, plugin, event, cb),
-			},
-		};
-	}
-
-	return adapted.shell;
-}
-
-/** The shell around this page, or null in a browser. */
-export function shellBridge(): SeanceShell | null {
-	return capacitorShell() ?? desktopShell();
 }
 
 /** Which shell: one of {@link ShellPlatform}, or `"web"` in a browser. */
@@ -112,13 +62,13 @@ export function isShell(): boolean {
 	return shellBridge() !== null;
 }
 
-/** True inside the Capacitor shell (iOS / Android). */
+/** True inside the shell on a phone (iOS / Android). */
 export function isMobileShell(): boolean {
 	const platform = nativePlatform();
 	return platform === "ios" || platform === "android";
 }
 
-/** True inside a desktop shell (macOS / Windows / Linux). */
+/** True inside the shell on a desktop (macOS / Windows / Linux). */
 export function isDesktopShell(): boolean {
 	return DESKTOP.includes(nativePlatform());
 }

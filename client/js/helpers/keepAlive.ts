@@ -1,5 +1,5 @@
 // The Android shell's "stay connected" foreground service, from the page
-// (shells/capacitor: KeepAlivePlugin.java / ConnectionService.java). Only the
+// (shells/tauri: KeepAlive.kt / ConnectionService.java). Only the
 // bridge is touched (helpers/shell.ts imports nothing), so settings.ts can
 // import this without pulling the store or the router into a cycle; a browser,
 // and the iOS shell, have no such service and every call is a no-op.

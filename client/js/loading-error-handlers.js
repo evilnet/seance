@@ -112,8 +112,7 @@
 		// open on the chosen theme and swap to its partner a moment later:
 		// with matchSystemAppearance on, a paired theme is shown as whichever
 		// half matches the system's light or dark mode. The setting defaults
-		// to on in the native shell (Capacitor's bridge is injected before any
-		// script runs) and off on the web (helpers/platformDefaults.ts). Not
+		// to on in the shell (its bridge is injected before any script runs) and off on the web (helpers/platformDefaults.ts). Not
 		// stored yet (the first launch after the upgrade that brought it), it
 		// is what the migration will decide: off for a stored paired theme
 		// other than the default, which following the system would override
@@ -129,8 +128,7 @@
 		const matchSystem =
 			typeof userSettings.matchSystemAppearance === "boolean"
 				? userSettings.matchSystemAppearance
-				: (window.Capacitor?.isNativePlatform?.() === true ||
-						typeof window.seanceShell?.call === "function") &&
+				: typeof window.seanceShell?.call === "function" &&
 				  !(storedTheme && storedTheme !== defaultTheme && pairOf(storedTheme));
 		const theme = matchSystem ? pairedTheme(chosen) : chosen;
 

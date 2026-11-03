@@ -78,8 +78,8 @@ export function visibleHeight(): number {
 }
 
 /**
- * The keyboard's height as the native shell reports it (Capacitor's
- * keyboardWillShow/WillHide, subscribed below), or null where no shell says.
+ * The keyboard's height as the native shell reports it (the Keyboard
+ * plugin's keyboardWillShow/WillHide, subscribed below), or null where no shell says.
  * When set it outranks the visual-viewport guess: the number is the
  * keyboard's frame, form bar included, announced before the animation, so no
  * settle re-reads and no mid-animation height.
@@ -143,7 +143,7 @@ export function installViewportHooks(): void {
 	// that covered the composer in the PWA. The keyboard's own Done key does
 	// the job.
 	// iOS only, both: Android's WebView shrinks for the keyboard like a
-	// browser's (Capacitor pads its parent by the IME inset), so the visual
+	// browser's, so the visual
 	// viewport already says everything and the plugin's height on top of it
 	// took the keyboard off twice; and the accessory-bar call is not
 	// implemented there.

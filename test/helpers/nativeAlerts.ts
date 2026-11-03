@@ -39,11 +39,10 @@ describe("showNativeAlert", function () {
 	async function onAndroid(permission: string) {
 		const calls: string[] = [];
 		g.window = {
-			Capacitor: {
-				isNativePlatform: () => true,
-				getPlatform: () => "android",
-				addListener() {},
-				nativePromise(plugin: string, method: string) {
+			seanceShell: {
+				platform: "android",
+				listen() {},
+				call(plugin: string, method: string) {
 					calls.push(`${plugin}.${method}`);
 					return Promise.resolve(method === "askPermission" ? {permission} : {});
 				},
