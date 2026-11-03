@@ -265,7 +265,8 @@ export function operTargetItems(
 	network: ClientNetwork,
 	chan: number,
 	kind: "ip" | "host" | "mask",
-	value: string
+	value: string,
+	onSent?: (chan: number) => void
 ): ContextMenuItem[] {
 	const items: ContextMenuItem[] = [
 		{label: value, type: "item", class: "oper-target"},
@@ -279,7 +280,10 @@ export function operTargetItems(
 			label: kind === "ip" ? "Check this IP" : "Check matching users",
 			type: "item",
 			class: "oper-check",
-			action: () => input(chan, `/check ${kind === "mask" ? value : host}`),
+			action() {
+				input(chan, `/check ${kind === "mask" ? value : host}`);
+				onSent?.(chan);
+			},
 		});
 	}
 
@@ -288,7 +292,10 @@ export function operTargetItems(
 			label: "Who is on it",
 			type: "item",
 			class: "oper-who",
-			action: () => input(chan, `/who ${host} x${kind === "ip" ? "i" : "h"}`),
+			action() {
+				input(chan, `/who ${host} x${kind === "ip" ? "i" : "h"}`);
+				onSent?.(chan);
+			},
 		});
 	}
 
@@ -307,15 +314,23 @@ export function operTargetItems(
 	return items;
 }
 
-/** Open {@link operTargetItems} at `event` (a click on a chip). */
+/**
+ * Open {@link operTargetItems} at `event` (a click on a chip). `onSent`
+ * hears of a Check or Who sent to `chan`: their answers are chat lines, and
+ * a chip inside the investigate card would otherwise post them behind it.
+ */
 export function openOperTargetMenu(
 	event: MouseEvent,
 	network: ClientNetwork,
 	chan: number,
 	kind: "ip" | "host" | "mask",
-	value: string
+	value: string,
+	onSent?: (chan: number) => void
 ): void {
-	eventbus.emit("contextmenu:items", {event, items: operTargetItems(network, chan, kind, value)});
+	eventbus.emit("contextmenu:items", {
+		event,
+		items: operTargetItems(network, chan, kind, value, onSent),
+	});
 }
 
 // --- Where a kind of notice shows (the Alerts tab and the badge on a notice).

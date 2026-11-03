@@ -470,6 +470,7 @@
 									:notes="notes"
 									:network="network"
 									:other="compareModel"
+									@sent="sentTo"
 								/>
 							</div>
 							<div v-if="compareModel" class="oper-compare-col oper-compare-b">
@@ -489,6 +490,7 @@
 									:notes="compareNotes"
 									:network="network"
 									:other="model"
+									@sent="sentTo"
 								/>
 							</div>
 						</div>
@@ -584,7 +586,17 @@
 						<span class="oper-btn-label">Note…</span>
 					</button>
 				</div>
-				<span v-if="toast" class="oper-toast" role="status">{{ toast }}</span>
+				<span v-if="toast" class="oper-toast" role="status"
+					>{{ toast
+					}}<button
+						v-if="resultsIn !== undefined"
+						type="button"
+						class="oper-btn oper-btn-ghost oper-toast-go"
+						@click="showResults"
+					>
+						Show
+					</button></span
+				>
 			</div>
 		</div>
 	</div>
@@ -683,6 +695,8 @@ interface Card {
 }
 
 const TOAST_MS = 2500;
+/** Long enough to reach the toast's Show. */
+const RESULTS_TOAST_MS = 8000;
 
 /**
  * The investigation cards (docs/projects/oper-tools.md, "The channel
@@ -705,6 +719,8 @@ export default defineComponent({
 		const sortBy = ref<"joined" | "nick" | "host">("joined");
 		const showRaw = ref(false);
 		const toast = ref("");
+		/** The window a chip's Check or Who answers in, while the toast offers it. */
+		const resultsIn = ref<number | undefined>();
 		const note = ref("");
 		const editingNote = ref(false);
 		const noteDraft = ref("");
@@ -900,10 +916,36 @@ export default defineComponent({
 			bump();
 		};
 
-		const say = (text: string) => {
+		const say = (text: string, ms = TOAST_MS) => {
 			toast.value = text;
+			resultsIn.value = undefined;
 			clearTimeout(toastTimer);
-			toastTimer = setTimeout(() => (toast.value = ""), TOAST_MS);
+			toastTimer = setTimeout(() => {
+				toast.value = "";
+				resultsIn.value = undefined;
+			}, ms);
+		};
+
+		// A chip's Check or Who answers in chat, behind the card: say where,
+		// and offer to go there (the cards close, as Watch closes them).
+		const sentTo = (chan: number) => {
+			const name = store.getters.findChannel(chan)?.channel.name;
+			say(
+				name ? `Sent · the answer shows in ${name}` : "Sent · the answer shows in chat",
+				RESULTS_TOAST_MS
+			);
+			resultsIn.value = chan;
+		};
+
+		const showResults = () => {
+			const chan = resultsIn.value;
+
+			if (chan === undefined) {
+				return;
+			}
+
+			closeAll();
+			void navigate("RoutedChat", {id: chan});
 		};
 
 		const openUser = (nick: string) => {
@@ -1184,7 +1226,7 @@ export default defineComponent({
 
 		const openMenu = (event: MouseEvent, kind: "ip" | "host" | "mask", value: string) => {
 			if (network.value) {
-				openOperTargetMenu(event, network.value, activeChan(), kind, value);
+				openOperTargetMenu(event, network.value, activeChan(), kind, value, sentTo);
 			}
 		};
 
@@ -1324,6 +1366,9 @@ export default defineComponent({
 			sortedUsers,
 			showRaw,
 			toast,
+			resultsIn,
+			sentTo,
+			showResults,
 			note,
 			noteKey,
 			editingNote,

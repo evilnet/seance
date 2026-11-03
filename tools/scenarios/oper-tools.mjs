@@ -693,8 +693,20 @@ export default async function run(page) {
 	await page.sleep(400);
 	await closeCard();
 
-	const o3 = helper("O3", () => {}, "Oper Services", snoopChannel);
+	// A real network service (+k, local.conf's seanceservice block): Seance
+	// logs a snoop line only from a bot WHOIS calls a service (bottrust.ts).
+	const o3 = helper(
+		"O3",
+		(send) => {
+			send("OPER seanceservice seance");
+			// Only once opered: sent together, the server took no +k.
+			setTimeout(() => send("MODE O3 +k"), 3000);
+		},
+		"Oper Services",
+		snoopChannel
+	);
 	await o3.ready;
+	await page.sleep(6000); // the OPER, then the MODE, through the rig's fake lag
 	await type(page, `/join ${snoopChannel}`);
 	await page.waitFor(
 		`!!document.querySelector('.channel-list-item[data-name="${snoopChannel}"].active')`,
@@ -702,6 +714,15 @@ export default async function run(page) {
 	);
 	await page.sleep(800);
 	const B = "\x02";
+	// Services back: their first line has Seance ask WHOIS (bottrust.ts),
+	// queued behind the fake lag, and only lines after the answer have their
+	// nicks marked. A warm-up line until its nick is one: the bot is trusted.
+	const warm = `!!document.querySelector('#chat .msg .content .user[data-name="warmup1"]')`;
+	for (let i = 0; i < 12 && !(await page.evaluate(warm)); i++) {
+		o3.send(`PRIVMSG ${snoopChannel} :[17:06:00] ${B}JOIN${B} #warmup by warmup1`);
+		await page.sleep(4000);
+	}
+	page.check("O3 is trusted once WHOIS calls it a service", await page.evaluate(warm));
 	const snoopLines = [
 		`[17:07:07] ${B}UMODE${B} clonebot7 +xzCc AN-1A2B3C4D.example.net ABCDEF.123456.7890AB.CDEF01.IP`,
 		`[17:07:07] ${B}NICK${B} clonebot7 probe@host12.example.net () [192.0.2.10] on Hub.Example.Org`,
@@ -1073,7 +1094,7 @@ export default async function run(page) {
 			userCard.facts.some((f) => /^IP=172\.17\.0\.1\b/.test(f)) &&
 			userCard.facts.some((f) => /^Server=irc\.seance\.test$/.test(f)) &&
 			userCard.facts.some((f) => /^Realname=irc client$/.test(f)) &&
-			userCard.facts.some((f) => /^Connected=\d/.test(f)) &&
+			userCard.facts.some((f) => /^Connected=(\d|now)/.test(f)) &&
 			userCard.facts.some((f) => /^Channels=only #seance$/.test(f))
 	);
 	// Seen before: the other helper from the same address, never opbot3's

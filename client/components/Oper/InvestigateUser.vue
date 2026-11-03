@@ -330,7 +330,9 @@ export default defineComponent({
 		network: {type: Object as PropType<ClientNetwork>, required: true},
 		other: {type: Object as PropType<UserModel>, required: false},
 	},
-	setup(props) {
+	/** `sent`: a chip's Check or Who went to that window (operMenu.ts). */
+	emits: {sent: (chan: number) => typeof chan === "number"},
+	setup(props, {emit}) {
 		const store = useStore();
 		const now = useNow();
 		const user = computed<InvestigatedUser>(() => props.model.user);
@@ -396,7 +398,7 @@ export default defineComponent({
 
 		const openMenu = (event: MouseEvent, kind: "ip" | "host" | "mask", value: string) => {
 			const chan = operChanFor(props.network, store.state.activeChannel);
-			openOperTargetMenu(event, props.network, chan, kind, value);
+			openOperTargetMenu(event, props.network, chan, kind, value, (to) => emit("sent", to));
 		};
 
 		return {

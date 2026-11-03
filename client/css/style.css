@@ -4800,8 +4800,16 @@ html[data-contrast="more"] .oper-seg button[aria-pressed="true"] {
 }
 
 .oper-toast {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.6em;
 	color: var(--oper-amber);
 	font-size: 0.875em;
+}
+
+.oper-toast .oper-toast-go {
+	padding: 0.25em 0.7em;
+	font-size: 1em;
 }
 
 /* ------------------------------------------------ the oper visual language
