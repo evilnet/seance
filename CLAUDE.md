@@ -18,7 +18,7 @@ pnpm, at the version `package.json`'s `packageManager` names (`npm i -g pnpm@12.
 | Build the SPA (Vite → `public/`)                | `pnpm build` (`NODE_ENV=production` for prod) |
 | Rebuild on change                               | `pnpm watch`                                  |
 | Serve the built SPA                             | `python3 -m http.server -d public 8000`       |
-| Lint everything (eslint + prettier + stylelint) | `pnpm lint`                                   |
+| Lint everything (oxlint + prettier + stylelint) | `pnpm lint`                                   |
 | Type-check (TypeScript 7; not test/ or `.vue`)  | `pnpm typecheck`                              |
 | Auto-format                                     | `pnpm format:prettier`                        |
 | Full test (lint + typecheck + mocha)            | `pnpm test`                                   |

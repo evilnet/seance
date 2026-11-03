@@ -22,9 +22,10 @@ pnpm, at the version `package.json`'s `packageManager` names (`npm i -g pnpm@12.
 | Build the SPA (Vite → `public/`)                          | `pnpm build` (`NODE_ENV=production` for prod) |
 | Rebuild on change                                         | `pnpm watch`                                  |
 | Serve the built SPA                                       | `python3 -m http.server -d public 8000`       |
-| Lint everything (eslint + prettier + stylelint)           | `pnpm lint`                                   |
+| Lint everything (oxlint + prettier + stylelint)           | `pnpm lint`                                   |
+| Type-check (TypeScript 7; not test/ or `.vue`)            | `pnpm typecheck`                              |
 | Auto-format                                               | `pnpm format:prettier`                        |
-| Full test (lint + mocha)                                  | `pnpm test`                                   |
+| Full test (lint + typecheck + mocha)                      | `pnpm test`                                   |
 | Mocha only (builds first)                                 | `pnpm test:mocha`                             |
 | Coverage                                                  | `pnpm coverage`                               |
 | Playwright e2e (builds first, needs `SEANCE_E2E_IRC_URL`) | `pnpm test:e2e`                               |
@@ -138,7 +139,7 @@ Cross-cutting types and helpers. `shared/types/socket-events.ts` (`ServerToClien
 
 ### Everything else
 
-- **`attic/`** — TheLounge's old `server/`, CLI entry, defaults and server tests. **Reference only**: not built, linted, type-checked or tested; excluded from ESLint, Prettier and the TS references. Look there for "how did the old server do X"; never import from it. See `attic/README.md`.
+- **`attic/`** — TheLounge's old `server/`, CLI entry, defaults and server tests. **Reference only**: not built, linted, type-checked or tested; excluded from Oxlint, Prettier and the tsconfigs. Look there for "how did the old server do X"; never import from it. See `attic/README.md`.
 - **GitHub Pages** (`.github/workflows/pages.yml`) — `evilnet.github.io/seance/` is the latest release; `develop/` and `pr<N>/` beside it are the develop branch and every open non-draft PR by a collaborator (or labelled `preview`), listed at `previews/`. One deployment is the whole site, so every run assembles all of them (`tools/pages-site.mjs`, `test/tools/pages-site.ts`), each build cached by commit so a PR push rebuilds that PR alone; a failed build becomes a stub page. PR builds run the PR's code under `pull_request_target` with a read-only token — that gating is the security boundary, keep it. Version strings: the tag, `<tag>-<sha8>` for develop, `<tag>-pr<N>.<sha7>` for a PR; with them the build step passes `SEANCE_RELEASE` (the tag — the shallow checkout has none to find) and `SEANCE_TRACK` (`release`, `develop`, `pr<N>`), and Help's About opens with which build this is in words ("This is a preview of pull request #142.", `helpers/sourceLinks.ts` `buildTrackOf`, `test/helpers/sourceLinks.ts`); a build made anywhere else names its git branch.
 - **`tools/`** — `nefarious-dev/` (dev ircd), `irc-ws-probe.mjs`, `pwa-check.mjs`, `pages-site.mjs` (the Pages site), and `browser-drive.mjs` + `scenarios/` (drives a real Chromium over the DevTools protocol: WebSocket frames with byte sizes for the nefarious2 framing bugs, or a scenario that clicks/asserts/screenshots — nothing in `pnpm test` touches the DOM or a browser). See `docs/resources/browser-testing.md` and the `browser-check` skill.
 - **`docs/`** — PARA layout (`projects/`, `areas/`, `resources/`, `archives/`), see `docs/README.md`.

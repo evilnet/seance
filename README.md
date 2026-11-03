@@ -108,8 +108,8 @@ with a self-signed certificate, is described in
 
 ```sh
 pnpm watch      # rebuild public/ on change
-pnpm lint       # eslint + prettier + stylelint
-pnpm test       # lint + mocha
+pnpm lint       # oxlint + prettier + stylelint
+pnpm test       # lint + typecheck + mocha
 pnpm test:mocha # mocha only (builds first)
 ```
 

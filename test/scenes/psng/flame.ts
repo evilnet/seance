@@ -186,13 +186,13 @@ describe("psng flame: the sprite", function () {
 		}
 
 		expect(driver.spriteFrames).to.equal(5);
-		const old = new Uint32Array((spriteCalls.at(-1)?.[1] as ImageData).data.slice().buffer);
+		const old = new Uint32Array((spriteCalls.at(-1)![1] as ImageData).data.slice().buffer);
 		const calls = spriteCalls.length;
 		driver.setColours("#000000", "#ffffff");
 		expect(driver.spriteFrames).to.equal(1);
 		expect(spriteCalls.length).to.equal(calls + 1);
 		expect(spriteCalls.at(-1)?.slice(2)).to.deep.equal([0, 4 * FIRE_SIZE]);
-		const fresh = new Uint32Array((spriteCalls.at(-1)?.[1] as ImageData).data.buffer);
+		const fresh = new Uint32Array((spriteCalls.at(-1)![1] as ImageData).data.buffer);
 		expect(fresh).to.not.deep.equal(old);
 		expect(main.at(-1)?.[3]).to.equal(4 * FIRE_SIZE); // drawn after its cell was refilled
 		driver.destroy();

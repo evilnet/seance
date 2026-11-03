@@ -1,6 +1,5 @@
 // @ts-nocheck
 // Seance service worker (derived from The Lounge - https://github.com/thelounge/thelounge)
-/* global clients, importScripts */
 "use strict";
 
 // Seance is a static single-page app: everything under the registration scope
