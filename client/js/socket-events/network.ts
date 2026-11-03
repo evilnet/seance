@@ -164,6 +164,13 @@ socket.on("network:status", function (data) {
 		delete network.status.retryThrottled;
 	}
 
+	// Or the device's own lack of a network.
+	if (data.retryOffline) {
+		network.status.retryOffline = true;
+	} else {
+		delete network.status.retryOffline;
+	}
+
 	// A private conversation to reopen now that we are registered: the one
 	// a notification deep link names, or the one the last page had open.
 	// Channels arrive with the join burst, a query window only when opened —

@@ -42,6 +42,8 @@ export type SharedNetworkStatus = {
 	downSince?: number;
 	/** The server said that wait is its connection throttle (client/js/irc/handlers/error.ts). */
 	retryThrottled?: boolean;
+	/** The device has no network: the wait ends when it is back (client/js/irc/transport.ts). */
+	retryOffline?: boolean;
 };
 
 /** The services packages the client knows how to talk to (irc/services/). */

@@ -277,6 +277,11 @@ export const UNKNOWN_HOST_BYTES = 75;
 /** A `+typing` TAGMSG: one command of fake lag. */
 const TYPING_COST_MS = 2000;
 
+/** The device reports no network (`navigator.onLine`; only its false is trustworthy). */
+function isOffline(): boolean {
+	return (globalThis.navigator as {onLine?: boolean} | undefined)?.onLine === false;
+}
+
 export class IrcClient {
 	readonly uuid: string;
 	/** Replaced (not mutated) when an STS upgrade changes port/tls, see {@link reconfigure}. */
@@ -492,6 +497,10 @@ export class IrcClient {
 	private retryAt: number | undefined;
 	/** The server said it throttled us, and that wait is its (handlers/error.ts). */
 	private retryThrottled = false;
+	/** The device has no network: the wait ends when it is back (transport.ts). */
+	private retryOffline = false;
+	/** The lobby has said we are offline, since the last socket that opened. */
+	private offlineNoted = false;
 	private activeChanId = 0;
 	/** Set while a history batch is replayed through the handlers (see `collectReplay`). */
 	private replayContext: {target: Channel; collected: ReplayCollection} | null = null;
@@ -657,6 +666,7 @@ export class IrcClient {
 			secure: this.options.tls,
 			...(this.retryAt !== undefined ? {retryAt: this.retryAt} : {}),
 			...(this.retryThrottled ? {retryThrottled: true} : {}),
+			...(this.retryOffline ? {retryOffline: true} : {}),
 		};
 	}
 
@@ -734,6 +744,7 @@ export class IrcClient {
 		this.closeHintShown = false;
 		this.retryAt = undefined;
 		this.retryThrottled = false;
+		this.retryOffline = false;
 		this._state = "connecting";
 		this.bus.dispatch("connecting");
 		this.announceStatus();
@@ -764,6 +775,7 @@ export class IrcClient {
 		this.transport.close();
 		this.retryAt = undefined;
 		this.retryThrottled = false;
+		this.retryOffline = false;
 
 		if (state === "reconnect-wait") {
 			// The socket is already gone, so no close event follows: settle here.
@@ -960,6 +972,24 @@ export class IrcClient {
 					this.announceStatus();
 				}
 
+				// No network here: say so once, and wait for it (transport.ts).
+				if (ev.offline) {
+					this.retryAt = Date.now() + ev.delayMs;
+					this.retryOffline = true;
+					this.announceStatus();
+
+					if (!this.offlineNoted) {
+						this.offlineNoted = true;
+						this.pushMessage(
+							this.lobby,
+							{text: "You're offline. Will reconnect when the network is back."},
+							true
+						);
+					}
+
+					break;
+				}
+
 				this.pushMessage(
 					this.lobby,
 					{
@@ -984,6 +1014,7 @@ export class IrcClient {
 				this._state = "connecting";
 				this.retryAt = undefined;
 				this.retryThrottled = false;
+				this.retryOffline = false;
 				this.announceStatus();
 				this.pushMessage(
 					this.lobby,
@@ -1003,11 +1034,13 @@ export class IrcClient {
 	/** Transport open: fresh negotiation state, then CAP LS / NICK / USER. */
 	private onOpen(): void {
 		this._state = "registering";
+		this.offlineNoted = false;
 		this.connected = false;
 		this.welcomed = false;
 		this.fakeLag.stop();
 		this.retryAt = undefined;
 		this.retryThrottled = false;
+		this.retryOffline = false;
 		this.closeHintShown = false;
 		this.isupport.reset();
 		this.learnedNickLen = undefined;
@@ -1346,6 +1379,7 @@ export class IrcClient {
 		// an immediate retry has nothing worth counting. Whether it is the
 		// server's throttle comes with the `reconnecting` that follows.
 		this.retryThrottled = false;
+		this.retryOffline = false;
 		this.retryAt =
 			willReconnect && delayMs !== undefined && delayMs > 0
 				? Date.now() + delayMs
@@ -1409,9 +1443,13 @@ export class IrcClient {
 			secure: this.options.tls,
 			...(this.retryAt !== undefined ? {retryAt: this.retryAt} : {}),
 			...(this.retryThrottled ? {retryThrottled: true} : {}),
+			...(this.retryOffline ? {retryOffline: true} : {}),
 		});
 
-		if (wasUp) {
+		// Offline, and the lobby has said so: each failed try says nothing new.
+		const quiet = this.offlineNoted && isOffline();
+
+		if (wasUp && !quiet) {
 			if (this.quitting) {
 				this.pushMessage(this.lobby, {text: "Disconnected."}, true);
 			} else if (this.closeExplained) {
@@ -1430,7 +1468,8 @@ export class IrcClient {
 				});
 				this.pushMessage(this.lobby, {type: MessageType.ERROR, text: report.text}, true);
 
-				if (report.hint && !this.closeHintShown) {
+				// Offline, the hint's causes (server, port, certificate) are not it.
+				if (report.hint && !this.closeHintShown && !isOffline()) {
 					this.closeHintShown = true;
 					this.pushMessage(this.lobby, {text: report.hint}, true);
 				}

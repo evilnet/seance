@@ -68,7 +68,14 @@ export type TransportEvent =
 	  }
 	| {type: "error"; message: string}
 	// `throttled`: the server said it throttled us; the wait is its, not the backoff.
-	| {type: "reconnecting"; attempt: number; delayMs: number; throttled?: boolean}
+	// `offline`: the device has no network; the wait is a backstop for the `online` event.
+	| {
+			type: "reconnecting";
+			attempt: number;
+			delayMs: number;
+			throttled?: boolean;
+			offline?: boolean;
+	  }
 	// The scheduled retry is starting now (its wait from "reconnecting" is over).
 	| {type: "retry"; attempt: number};
 
@@ -93,6 +100,12 @@ export const CONNECT_TIMEOUT_MS = 15_000;
 export const UNREACHED_RETRY_MS = 42_000;
 /** Up to this much is added to {@link UNREACHED_RETRY_MS}: networks and tabs that failed together do not retry together. */
 export const UNREACHED_JITTER_MS = 5_000;
+/**
+ * The wait while the device reports no network (`navigator.onLine` false):
+ * the app's `online` event dials as soon as it is back (foreground.ts), so
+ * this only backs that up, in case the event never comes.
+ */
+export const OFFLINE_RETRY_MS = 30_000;
 /** The quick retries after dials that failed before opening, before the long wait. */
 export const QUICK_RETRY_MS = [1_000, 2_000, 4_000] as const;
 const PING_RE = /^(?:@\S+ )?(?::\S+ )?PING(?: (.*))?$/i; // [tags] [prefix] PING [params]
@@ -417,10 +430,8 @@ export class WsTransport {
 		// that hung until the timeout was the signal, and one made with the
 		// radio off never reached a server; both keep the usual backoff.
 		const opened = this.openedAt !== null;
-		const unreached =
-			!opened &&
-			cause !== "timeout" &&
-			(globalThis.navigator as {onLine?: boolean} | undefined)?.onLine !== false;
+		const offline = (globalThis.navigator as {onLine?: boolean} | undefined)?.onLine === false;
+		const unreached = !opened && cause !== "timeout" && !offline;
 
 		if (opened) {
 			this.quickFailures = 0;
@@ -439,6 +450,7 @@ export class WsTransport {
 		const retry = !this.closedByUs && this.opts.reconnect.enabled;
 		let delayMs: number | undefined;
 		let throttled = false;
+		let waitOffline = false;
 
 		if (retry) {
 			delayMs = this.nextDelay(); // counts the attempt either way
@@ -460,6 +472,11 @@ export class WsTransport {
 			} else if (unreached) {
 				delayMs = UNREACHED_RETRY_MS + Math.round(Math.random() * UNREACHED_JITTER_MS);
 				this.holdUntil = Date.now() + delayMs;
+			} else if (offline) {
+				// No network here: nothing to retry until it is back, which
+				// the `online` event's poke answers at once.
+				delayMs = OFFLINE_RETRY_MS;
+				waitOffline = true;
 			}
 		}
 
@@ -468,18 +485,19 @@ export class WsTransport {
 
 		// A close listener may have called close(): then no retry is wanted.
 		if (delayMs !== undefined && this._state === "reconnect-wait") {
-			this.scheduleRetry(delayMs, throttled);
+			this.scheduleRetry(delayMs, throttled, waitOffline);
 		}
 	}
 
 	/** Wait `delayMs`, then dial. */
-	private scheduleRetry(delayMs: number, throttled: boolean): void {
+	private scheduleRetry(delayMs: number, throttled: boolean, offline = false): void {
 		this._state = "reconnect-wait";
 		this.emit({
 			type: "reconnecting",
 			attempt: this.attempt,
 			delayMs,
 			...(throttled ? {throttled: true} : {}),
+			...(offline ? {offline: true} : {}),
 		});
 		this.timer = setTimeout(() => {
 			this.timer = null;

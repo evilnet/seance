@@ -377,6 +377,10 @@ export default defineComponent({
 				return `Disconnected from ${name}.`;
 			}
 
+			if (props.network.status.retryOffline === true && retryInSeconds.value > 0) {
+				return `You're offline. Will reconnect to ${name} when the network is back.`;
+			}
+
 			if (throttledWait.value) {
 				return `Reconnecting to ${name} in ${retryInSeconds.value}s: the server limits quick reconnects.`;
 			}

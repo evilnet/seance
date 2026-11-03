@@ -72,8 +72,16 @@ and the server says when it throttles:
   really was a refusal, the quick retries cost about 7 s more than waiting
   at once (each renews the window).
 - **Not a refusal:** a dial that hung until the 15 s connect timeout (a
-  refusal comes at once; that was the signal) and one made while
-  `navigator.onLine` is false keep the usual backoff.
+  refusal comes at once; that was the signal) keeps the usual backoff.
+- **Offline** (`navigator.onLine` false; only its false is trustworthy):
+  whatever the socket did, nothing is retried on a timer but a 30 s
+  backstop (`OFFLINE_RETRY_MS`), since the app's `online` event dials as
+  soon as the network is back (`foreground.ts` → `reconnectAll`). The
+  lobby says once "You're offline. Will reconnect when the network is
+  back." with no certificate hint, later failed tries say nothing, and the
+  strip says "You're offline. Will reconnect to <network> when the network
+  is back." (`status.retryOffline`). Browser check
+  `tools/scenarios/offline.mjs`.
 - **The long waits hold** (`WsTransport.holding`): the foreground poke
   (`manager.ts` `reconnectAll`, the app coming back, focus, `online`)
   leaves them be, since dialling would renew a refusal's window. Connect

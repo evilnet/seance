@@ -2,6 +2,7 @@ import {expect} from "chai";
 import sinon from "sinon";
 import {
 	CONNECT_TIMEOUT_MS,
+	OFFLINE_RETRY_MS,
 	QUICK_RETRY_MS,
 	UNREACHED_JITTER_MS,
 	UNREACHED_RETRY_MS,
@@ -1076,18 +1077,13 @@ describe("WsTransport: the server's throttle", function () {
 		expect(t.holding()).to.equal(false);
 	});
 
-	it("keeps the usual backoff for a dial made with the radio off", function () {
+	/** Run `fn` with `navigator.onLine` reporting `onLine`. */
+	function withOnLine(onLine: boolean, fn: () => void): void {
 		const nav = Object.getOwnPropertyDescriptor(globalThis, "navigator");
-		Object.defineProperty(globalThis, "navigator", {
-			value: {onLine: false},
-			configurable: true,
-		});
+		Object.defineProperty(globalThis, "navigator", {value: {onLine}, configurable: true});
 
 		try {
-			const {t, events} = make({reconnect: fastReconnect});
-			t.connect();
-			last().closed(1006, "", false);
-			expect(lastReconnecting(events)).to.include({delayMs: 100});
+			fn();
 		} finally {
 			if (nav) {
 				Object.defineProperty(globalThis, "navigator", nav);
@@ -1095,6 +1091,40 @@ describe("WsTransport: the server's throttle", function () {
 				delete (globalThis as {navigator?: unknown}).navigator;
 			}
 		}
+	}
+
+	it("offline, waits for the network instead of retrying, whatever the socket did", function () {
+		withOnLine(false, () => {
+			const {t, events} = make({reconnect: fastReconnect});
+			t.connect();
+			last().closed(1006, "", false);
+			expect(lastReconnecting(events)).to.include({delayMs: OFFLINE_RETRY_MS, offline: true});
+			expect(t.holding(), "the online poke dials at once").to.equal(false);
+
+			// A stable connection lost with the radio gone: no instant retry either.
+			t.connect();
+			last().open();
+			clock.tick(STABLE_MS);
+			last().closed(1006, "", false);
+			expect(lastReconnecting(events)).to.include({delayMs: OFFLINE_RETRY_MS, offline: true});
+		});
+	});
+
+	it("offline, spends none of the quick retries", function () {
+		const {t, events} = make({reconnect: fastReconnect});
+		withOnLine(false, () => {
+			t.connect();
+			last().closed(1006, "", false);
+			t.connect();
+			last().closed(1006, "", false);
+		});
+		t.connect();
+		last().closed(1006, "", false);
+		expect(lastReconnecting(events)).to.deep.equal({
+			type: "reconnecting",
+			attempt: 1,
+			delayMs: QUICK_RETRY_MS[0],
+		});
 	});
 
 	it("keeps the usual schedule for a connection that opened and dropped", function () {

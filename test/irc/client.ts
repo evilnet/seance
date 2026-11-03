@@ -88,6 +88,15 @@ class FakeTransport implements Transport {
 		this.emit({type: "retry", attempt});
 	}
 
+	/** Any event, as the transport would emit it. */
+	emitEvent(ev: TransportEvent): void {
+		if (ev.type === "reconnecting") {
+			this.state = "reconnect-wait";
+		}
+
+		this.emit(ev);
+	}
+
 	private emit(ev: TransportEvent): void {
 		for (const listener of [...this.listeners]) {
 			listener(ev);
@@ -1454,5 +1463,62 @@ describe("IrcClient: the server's throttle (handlers/error.ts)", function () {
 		h.transport.open();
 		h.transport.line("ERROR :Closing Link: alice[host] (Ping timeout: 240 seconds)");
 		expect(h.transport.throttleWaits).to.deep.equal([]);
+	});
+});
+
+describe("IrcClient: offline (transport.ts OFFLINE_RETRY_MS)", function () {
+	function withOnLine(onLine: boolean, fn: () => void): void {
+		const nav = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+		Object.defineProperty(globalThis, "navigator", {value: {onLine}, configurable: true});
+
+		try {
+			fn();
+		} finally {
+			if (nav) {
+				Object.defineProperty(globalThis, "navigator", nav);
+			} else {
+				delete (globalThis as {navigator?: unknown}).navigator;
+			}
+		}
+	}
+
+	/** The socket fails with no network, and the transport waits for it. */
+	function lostOffline(h: Harness): void {
+		h.transport.emitEvent({
+			type: "close",
+			code: 1006,
+			reason: "",
+			wasClean: false,
+			willReconnect: true,
+			delayMs: 30_000,
+		});
+		h.transport.emitEvent({type: "reconnecting", attempt: 1, delayMs: 30_000, offline: true});
+	}
+
+	it("says so once, flags the wait, and keeps the certificate hint out of it", function () {
+		const h = setup();
+		h.client.connect();
+		withOnLine(false, () => {
+			lostOffline(h);
+			h.transport.retry(1);
+			lostOffline(h);
+		});
+		const lobby = messages(h.client.lobby.id).map((m) => m.text);
+		expect(lobby.filter((t) => /You're offline/.test(t ?? ""))).to.have.length(1);
+		expect(lobby.filter((t) => /Could not connect/.test(t ?? ""))).to.have.length(1);
+		expect(lobby.some((t) => /does not reveal why/.test(t ?? ""))).to.equal(false);
+		const status = payloads<{retryOffline?: boolean}>("network:status").pop();
+		expect(status?.retryOffline).to.equal(true);
+	});
+
+	it("drops the flag when the next dial goes out", function () {
+		const h = setup();
+		h.client.connect();
+		withOnLine(false, () => {
+			lostOffline(h);
+		});
+		h.transport.retry(1);
+		const status = payloads<{retryOffline?: boolean}>("network:status").pop();
+		expect(status?.retryOffline).to.equal(undefined);
 	});
 });
