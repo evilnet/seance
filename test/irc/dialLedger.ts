@@ -181,6 +181,26 @@ describe("dial ledger (irc/dialLedger.ts)", function () {
 				expect(throttleWaitMs(dials, 14 * S, rule, [], [], syncs)).to.equal(41 * S);
 			});
 
+			it("does not count again a dial of ours that ended before the report (a quick reconnect)", function () {
+				// Codex: dial 0, report 1 at 1 s, drop 2 s; dial 10, report 2 at
+				// 11 s, drop 12 s. The server takes a third at 13 s.
+				const syncs: Sync[] = [
+					[0, 1, 1 * S, 4],
+					[10 * S, 2, 11 * S, 4],
+				];
+				expect(
+					throttleWaitMs([0, 10 * S], 13 * S, rule, [2 * S, 12 * S], [], syncs)
+				).to.equal(0);
+			});
+
+			it("counts another tab's dial made in the same millisecond", function () {
+				// Codex: two tabs dial at 0; A reports 1 at 1 s; a third dial at 3 s.
+				const syncs: Sync[] = [[0, 1, 1 * S, 4]];
+				expect(throttleWaitMs([0, 0, 3 * S], 4 * S, rule, [], [], syncs)).to.be.greaterThan(
+					0
+				);
+			});
+
 			it("counts the dials after the report on top of it", function () {
 				const syncs: Sync[] = [[0, 2, 1 * S, 4]];
 				expect(throttleWaitMs([0], 5 * S, rule, [], [], syncs)).to.equal(0);

@@ -52,9 +52,11 @@
  * for the rest of the chain. Every choice errs long: a dial another tab
  * recorded after ours counts on top even if the report has it already, and
  * the gap runs from the report, by when the server's last accept had been;
- * a dial recorded in the {@link LATE_ACCEPT_MS} before the report may reach
- * the server after it, so it counts on top too; an older report can only
- * raise the count a newer one set.
+ * a dial recorded in the {@link LATE_ACCEPT_MS} before the report and not
+ * ended by then may reach the server after it, so it counts on top too; an
+ * older report can only raise the count a newer one set. Not covered: a
+ * notice the socket delivers long after the server sent it (it reads as
+ * newer than it is).
  * A refund between a dial and its report is in the count: it spends the
  * refund budget and lowers nothing.
  *
@@ -242,14 +244,14 @@ function replay(
 		// accept came before it reported, so the gap runs from the report at
 		// the latest. A report the record holds nothing before starts a chain.
 		//
-		// A dial recorded before ours may still reach the server after the
-		// report (a slow accept, a dial recorded only at its open): the report
-		// may not have it, so it counts on top too. And a report older than
-		// one already applied knew less, so it can raise the count, never lower it.
+		// A dial recorded before ours that was still in flight at the report
+		// (a slow accept, a dial recorded only at its open) may reach the
+		// server after it: the report may not have it, so it counts on top
+		// too. And a report older than one already applied knew less, so it
+		// can raise the count, never lower it.
 		if (event.sync) {
 			const [, count, reported, serverLimit] = event.sync;
-			const unsure = dials.filter((t) => t >= reported - LATE_ACCEPT_MS && t < at).length;
-			let next = count + unsure;
+			let next = count + inFlight(dials, closes, at, reported);
 
 			if (reported < newestReport) {
 				next = Math.max(attempts, next);
@@ -318,6 +320,40 @@ function replay(
 	}
 
 	return {attempts, last, start, limit};
+}
+
+/**
+ * The dials recorded in the {@link LATE_ACCEPT_MS} before a report's own
+ * dial at `at` (one dial at `at` is the report's own) that no close before
+ * the report ended. A dial that ended before the report was accepted
+ * before it, if at all, so the report has it.
+ */
+function inFlight(
+	dials: readonly number[],
+	closes: readonly number[],
+	at: number,
+	reported: number
+): number {
+	const from = reported - LATE_ACCEPT_MS;
+	const open = dials.filter((t) => t >= from && t <= at).sort((a, b) => a - b);
+	const own = open.lastIndexOf(at);
+
+	if (own !== -1) {
+		open.splice(own, 1);
+	}
+
+	// Each close ends the earliest dial still open before it.
+	for (const close of [...closes]
+		.filter((t) => t >= from && t <= reported)
+		.sort((a, b) => a - b)) {
+		const ended = open.findIndex((t) => t < close);
+
+		if (ended !== -1) {
+			open.splice(ended, 1);
+		}
+	}
+
+	return open.length;
 }
 
 /**

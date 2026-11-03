@@ -115,8 +115,12 @@ the server's window:
 - the server's last accept came before it reported, so after a report the gap
   runs from the report;
 - a dial recorded in the 15 s before the report (the transport's connect
-  timeout) may reach the server after it, so it counts on top as well; and a
-  report older than one already applied can raise the count, never lower it;
+  timeout) and still in flight then may reach the server after it, so it
+  counts on top as well (one that ended before the report was accepted before
+  it, if at all, so a quick reconnect is not counted twice); and a report
+  older than one already applied can raise the count, never lower it. Not
+  covered: a notice the socket delivers long after the server sent it reads
+  as newer than it is;
 - the limit holds for the rest of the chain and goes with it: a new chain
   uses the default 4 until its own first registration reports again;
 - every drop is still recorded. Leaving out the drop of a connection that
@@ -129,7 +133,7 @@ the server's window:
   nothing (on the alias path, where the notice comes first, it is recorded at
   the notice).
 
-Three Codex reviews (2026-11-03) found the cases behind these rules; each has a
+Four Codex reviews (2026-11-03) found the cases behind these rules; each has a
 test. A dial that never opened still ends with a drop (a refusal moved the server's
 gap at the accept; one that timed out after the accept moves it again at its
 close), the conservative choice. What stays invisible: another device's dial
