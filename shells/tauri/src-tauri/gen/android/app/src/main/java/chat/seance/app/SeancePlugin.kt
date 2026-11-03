@@ -51,6 +51,13 @@ class SeancePlugin(val activity: Activity) : Plugin(activity) {
     private lateinit var accessibility: SystemAccessibility
     private lateinit var push: NativePush
     private var handlers: Map<String, Handler> = emptyMap()
+    private val backButton = object : OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() {
+            val data = JSObject()
+            data.put("canGoBack", false)
+            emit("App", "backButton", data)
+        }
+    }
 
     @Command
     fun setEventHandler(invoke: Invoke) {
@@ -130,18 +137,10 @@ class SeancePlugin(val activity: Activity) : Plugin(activity) {
         NativePush.onIntent(activity.intent)
 
         // The page closes what is open first, and minimizes the app when
-        // nothing is left (client/js/native.ts); Android's own back is never
-        // taken.
-        (activity as AppCompatActivity).onBackPressedDispatcher.addCallback(
-            activity,
-            object : OnBackPressedCallback(true) {
-                override fun handleOnBackPressed() {
-                    val data = JSObject()
-                    data.put("canGoBack", false)
-                    emit("App", "backButton", data)
-                }
-            },
-        )
+        // nothing is left (client/js/native.ts). Android's own back stands
+        // until the page says it listens (`App.handleBack`), so a page that
+        // never booted cannot trap the user.
+        (activity as AppCompatActivity).onBackPressedDispatcher.addCallback(activity, backButton)
     }
 
     /** A push notification tapped while the app was running (singleTask). */
@@ -214,6 +213,7 @@ class SeancePlugin(val activity: Activity) : Plugin(activity) {
         override fun call(method: String, options: JSObject, invoke: Invoke): Boolean {
             when (method) {
                 "minimizeApp" -> activity.moveTaskToBack(true)
+                "handleBack" -> activity.runOnUiThread { backButton.isEnabled = true }
                 else -> return false
             }
             invoke.resolve()

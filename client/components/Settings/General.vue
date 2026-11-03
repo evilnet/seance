@@ -196,6 +196,7 @@ import {
 } from "../../js/helpers/keepAlive";
 import eventbus from "../../js/eventbus";
 import {currentPlatform} from "../../js/helpers/platformDefaults";
+import {isShell} from "../../js/helpers/shell";
 import {createState} from "../../js/settings";
 import {
 	applyBackup,
@@ -232,9 +233,11 @@ export default defineComponent({
 				void fetchKeepAliveStatus();
 			}
 
-			// Enable protocol handler registration if supported,
-			// and the network configuration is not locked
+			// Enable protocol handler registration if supported, in a browser
+			// (the OS hands a shell its links), and the network configuration
+			// is not locked
 			canRegisterProtocol.value =
+				!isShell() &&
 				!!window.navigator.registerProtocolHandler &&
 				!store.state.serverConfiguration?.lockNetwork;
 		});

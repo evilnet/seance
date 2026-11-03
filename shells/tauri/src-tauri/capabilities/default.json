@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "The app's own page. It reaches the shell through the seance_call command alone (src/lib.rs); no Tauri plugin API is exposed to it.",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": []
 }

@@ -17,7 +17,6 @@ import {
 	nativePlatform,
 	isAndroidShell,
 	isDesktopShell,
-	isIOSShell,
 	isShell,
 } from "./helpers/shell";
 import {emitEscape, topEscapeLayer} from "./helpers/escapeLayer";
@@ -28,15 +27,13 @@ import {store} from "./store";
 // A link the OS handed the app — `irc:`, `ircs:` or `web+irc:`, the schemes
 // Info.plist claims (a desktop shell claims `web+irc:` alone). Cold, it is the launch URL (`getLaunchUrl`), which
 // boot.ts awaits before it routes, the way a browser page reads `?uri=`.
-// While running it comes through `appUrlOpen`; iOS reports the launch URL
-// that way too, so that one is delivered once (Android and the desktop
-// shells never do).
+// While running it comes through `appUrlOpen`, and so does a tap on such a
+// link in a message.
 //
-// The bridge outlives a reload (Settings' restore reloads the page): Android
-// keeps answering `getLaunchUrl` with the intent the activity started with,
-// iOS with the newest link it was handed. The links this page has acted on
-// are noted in sessionStorage, which a reload keeps and a cold start does
-// not, so the next boot does not act on them again.
+// The bridge outlives a reload (Settings' restore reloads the page) and keeps
+// answering `getLaunchUrl` with the newest link it was handed (src/lib.rs).
+// The last link this page acted on is noted in sessionStorage, which a reload
+// keeps and a cold start does not, so the next boot does not act on it again.
 const HANDLED_LINK_KEY = "thelounge.launchLink";
 
 function linkHandled(href: string): boolean {
@@ -56,7 +53,6 @@ function noteLinkHandled(href: string): void {
 }
 
 let launchUrl: Promise<string | null> = Promise.resolve(null);
-let launchHref: string | null = null;
 let urlHandler: ((href: string) => void) | null = null;
 let pendingHref: string | null = null;
 
@@ -102,8 +98,7 @@ function hideSplash(): void {
  * goes now if the theme's load did not take it down already.
  */
 export function nativeAppReady(): void {
-	// The desktop shells show their window when the page is ready; there is
-	// no launch image to take down.
+	// A desktop shell has no launch image to take down.
 	if (!isDesktopShell()) {
 		hideSplash();
 	}
@@ -172,9 +167,6 @@ export function installNativeHooks(): void {
 		}
 
 		noteLinkHandled(href);
-		// Only iOS echoes the launch link through `appUrlOpen`; kept
-		// elsewhere, the token would swallow a later opening of the same link.
-		launchHref = isIOSShell() ? href : null;
 		return href;
 	});
 
@@ -184,14 +176,8 @@ export function installNativeHooks(): void {
 		}
 
 		// After the launch URL is known, never before: the two bridge calls
-		// are in flight together, and a link compared against a launch URL
-		// that has not come back yet is acted on twice.
+		// are in flight together, and the link noted last must be the newest.
 		void launchUrl.then(() => {
-			if (url === launchHref) {
-				launchHref = null;
-				return;
-			}
-
 			noteLinkHandled(url);
 
 			if (urlHandler) {
@@ -313,6 +299,10 @@ export function installNativeHooks(): void {
 	// minimizes (overrides the default). Not `router.back()`: the history is
 	// kept one deep (router.ts). Without the middle steps a back press meant
 	// to close a menu backgrounded the app, menu and all.
+	if (isAndroidShell()) {
+		void nativeCall("App", "handleBack").catch(() => {});
+	}
+
 	nativeListen("App", "backButton", () => {
 		if (closeOpenImage()) {
 			return;

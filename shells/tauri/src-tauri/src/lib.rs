@@ -23,6 +23,7 @@ use std::sync::Mutex;
 use tauri::webview::{NewWindowResponse, PageLoadEvent};
 use tauri::{AppHandle, Manager, State, Url, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tauri_plugin_deep_link::DeepLinkExt;
+use tauri_plugin_opener::OpenerExt;
 
 const MAIN: &str = "main";
 
@@ -38,9 +39,11 @@ const PLATFORM: &str = "android";
 const PLATFORM: &str = "ios";
 
 /// `window.seanceShell`, defined before any of the page's scripts run. The
-/// object is frozen and the emit hook is not writable, so a page script can
-/// neither swap the bridge nor fake an event through it. A retained event
-/// nobody listens to yet waits for its first listener.
+/// object is frozen and neither it nor the emit hook can be replaced, so a
+/// page script cannot get between the page and the shell. It can still call
+/// the hook and fake an event, because `emit()` evaluates in the page's own
+/// world; events carry nothing the page could not do itself. A retained
+/// event nobody listens to yet waits for its first listener.
 fn init_script(version: &str) -> String {
     format!(
         r#"(() => {{
@@ -59,7 +62,8 @@ fn init_script(version: &str) -> String {
 			for (const cb of cbs) deliver(cb, data);
 		}},
 	}});
-	window.seanceShell = Object.freeze({{
+	Object.defineProperty(window, "seanceShell", {{
+		value: Object.freeze({{
 		platform: {platform},
 		version: {version},
 		call: (plugin, method, options) =>
@@ -71,6 +75,7 @@ fn init_script(version: &str) -> String {
 			held.delete(key);
 			for (const data of waiting) deliver(cb, data);
 		}},
+		}}),
 	}});
 }})();"#,
         platform = json!(PLATFORM),
@@ -88,18 +93,18 @@ struct ShellError {
 /// The `web+irc:` links the page has not been handed yet.
 #[derive(Default)]
 struct Links {
-    /// What `App.getLaunchUrl` answers: the link the app was opened with, or
-    /// one that came while the page was (re)loading. The page notes the links
-    /// it has acted on (client/js/native.ts), so answering a reload with the
-    /// same link again is harmless.
+    /// What `App.getLaunchUrl` answers: the newest link. The page notes the
+    /// last link it acted on (client/js/native.ts), so answering a reload
+    /// with that same link is harmless; an older one would look new.
     launch: Option<String>,
     /// The loaded page asked for its launch link — it subscribes to
     /// `App.appUrlOpen` in the same turn — and has not reloaded since.
     listening: bool,
 }
 
-/// `web+irc:` everywhere; the phones also open `irc:` and `ircs:`, which
-/// the page reads the same way (client/js/helpers/parseIrcUri.ts).
+/// The schemes the page reads (client/js/helpers/parseIrcUri.ts). The OS hands
+/// a desktop shell `web+irc:` alone (tauri.conf.json); a link in a message can
+/// be any of them.
 fn is_irc_link(value: &str) -> bool {
     // Bytes, not a str slice: a link from outside may put a multi-byte
     // character where a slice would cut it.
@@ -107,11 +112,11 @@ fn is_irc_link(value: &str) -> bool {
         value.len() > scheme.len()
             && value.as_bytes()[..scheme.len()].eq_ignore_ascii_case(scheme.as_bytes())
     };
-    has("web+irc:/") || (cfg!(mobile) && (has("irc:/") || has("ircs:/")))
+    has("web+irc:/") || has("irc:/") || has("ircs:/")
 }
 
-/// A link from the OS (a deep link, a second launch's argv): to the running
-/// page at once, else kept for its `App.getLaunchUrl`.
+/// A link from the OS (a deep link, a second launch's argv) or a message: to
+/// the running page at once, and kept for its `App.getLaunchUrl`.
 fn open_link(app: &AppHandle, link: String) {
     if !is_irc_link(&link) {
         return;
@@ -121,10 +126,7 @@ fn open_link(app: &AppHandle, link: String) {
         let links = app.state::<Mutex<Links>>();
         let mut links = links.lock().unwrap();
 
-        if !links.listening {
-            links.launch = Some(link.clone());
-        }
-
+        links.launch = Some(link.clone());
         links.listening
     };
 
@@ -350,16 +352,26 @@ fn is_app_url(url: &Url, dev_url: Option<&Url>) -> bool {
     }
 }
 
-/// Off-app links go to the user's browser; anything but http(s) nowhere.
-fn open_external(url: &Url) {
-    if matches!(url.scheme(), "http" | "https") {
-        let _ = tauri_plugin_opener::open_url(url.as_str(), None::<&str>);
+/// Off-app links: an IRC link is this app's own, http(s) and mailto go to the
+/// user's browser and mail app, anything else nowhere. This runs on the UI
+/// thread and a phone's opener answers from another, so wait off it.
+fn open_external(app: &AppHandle, url: &Url) {
+    if is_irc_link(url.as_str()) {
+        open_link(app, url.to_string());
+    } else if matches!(url.scheme(), "http" | "https" | "mailto") {
+        let (app, url) = (app.clone(), url.to_string());
+
+        tauri::async_runtime::spawn_blocking(move || {
+            let _ = app.opener().open_url(url, None::<&str>);
+        });
     }
 }
 
 fn create_main(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     let version = app.package_info().version.to_string();
     let handle = app.clone();
+    let navigating = app.clone();
+    let opening = app.clone();
     let dev_url = app.config().build.dev_url.clone();
 
     let builder = WebviewWindowBuilder::new(app, MAIN, WebviewUrl::App("index.html".into()));
@@ -377,13 +389,13 @@ fn create_main(app: &AppHandle) -> tauri::Result<WebviewWindow> {
             let inside = is_app_url(url, dev_url.as_ref());
 
             if !inside {
-                open_external(url);
+                open_external(&navigating, url);
             }
 
             inside
         })
-        .on_new_window(|url, _| {
-            open_external(&url);
+        .on_new_window(move |url, _| {
+            open_external(&opening, &url);
             NewWindowResponse::Deny
         })
         .on_page_load(move |webview, payload| {
@@ -549,6 +561,13 @@ pub fn run() {
         .plugin(mobile::init());
 
     let app = builder
+        // `open_external`'s way out. Its default script would rewire the page's
+        // links; the page gets none of its API (capabilities/default.json).
+        .plugin(
+            tauri_plugin_opener::Builder::new()
+                .open_js_links_on_click(false)
+                .build(),
+        )
         .manage(Mutex::new(Links {
             launch: launch_arg,
             listening: false,
