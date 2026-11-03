@@ -54,7 +54,8 @@ import {
 	type Identity,
 	seenBefore,
 	type SeenEntry,
-	verdict,
+	verdictView,
+	type VerdictView,
 } from "../helpers/verdict";
 import type {IrcClient} from "./client";
 import {formatLine, type IrcMessage} from "./message";
@@ -160,6 +161,8 @@ export interface UserModel {
 	serviceBans: ServiceBan[];
 	seen: SeenEntry[];
 	verdict: string;
+	/** The verdict as the card draws it; undefined until the first answer lands. */
+	verdictView?: VerdictView;
 	lastQuitHostmask?: string;
 	hostmasks?: string[];
 	/** The snoop channel "seen before" would draw on, when one is configured and not joined. */
@@ -1458,7 +1461,13 @@ export class Investigation {
 		model.liveBans = near.live;
 		model.recentBans = near.recent;
 		model.seen = seenBefore(feed, identity, (a, b) => this.client.namesEqual(a, b));
-		model.verdict = verdict({user: identity, liveBans: near.live, seen: model.seen, now});
+		model.verdictView = verdictView({
+			user: identity,
+			liveBans: near.live,
+			seen: model.seen,
+			now,
+		});
+		model.verdict = model.verdictView.sentence;
 
 		if (this.statsPending === 0 && !this.gtraceAsked) {
 			this.askGtrace(this.liveBans.length);

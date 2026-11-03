@@ -85,6 +85,10 @@
 	 * custom property's var() is resolved where it is declared. */
 	--oper-amber: var(--oper-amber-theme, color-mix(in oklab, #c7841a 65%, var(--body-color)));
 
+	/* Danger (Kill, G-line, a live ban): the app's error red pulled toward
+	 * the text colour the same way. --oper-red-theme overrides it. */
+	--oper-red: var(--oper-red-theme, color-mix(in oklab, #e74c3c 75%, var(--body-color)));
+
 	/* Color the sidebar channel icon pulses to while someone is typing there */
 	--channel-typing-color: #84ce88;
 
@@ -122,6 +126,17 @@
 .oper-alert-builder,
 #oper-action-overlay {
 	--oper-amber: var(--oper-amber-theme, color-mix(in oklab, #c7841a 65%, var(--body-color)));
+	--oper-red: var(--oper-red-theme, color-mix(in oklab, #e74c3c 75%, var(--body-color)));
+
+	/* The oper tools' surfaces, all from the theme's own two colours: a
+	 * panel and a raised control are the text colour washed into the window
+	 * background, lines are the text colour faded. */
+	--oper-panel: color-mix(in oklab, var(--body-color) 4%, var(--window-bg-color));
+	--oper-raised: color-mix(in oklab, var(--body-color) 9%, var(--window-bg-color));
+	--oper-sunk: color-mix(in oklab, var(--body-color) 3%, var(--window-bg-color));
+	--oper-line: color-mix(in oklab, var(--body-color) 11%, transparent);
+	--oper-line-2: color-mix(in oklab, var(--body-color) 20%, transparent);
+	--oper-faint: color-mix(in oklab, var(--body-color-muted) 80%, var(--window-bg-color));
 }
 
 /* The font-size setting's scale (client/js/helpers/fontSize.ts); "medium" is
@@ -4357,10 +4372,10 @@ button.snotice-badge:focus-visible {
 	container-name: investigate;
 	display: flex;
 	flex-direction: column;
-	gap: 0.75rem;
+	gap: 1.5rem;
 	width: 100%;
 	margin: 0;
-	padding: 0 1.25rem 1rem;
+	padding: 0.5rem 1.5rem 1.75rem;
 }
 
 .oper-investigate .oper-facts {
@@ -4379,11 +4394,6 @@ button.snotice-badge:focus-visible {
 	border-radius: 0.2em;
 }
 
-.oper-investigate dl .same dd > *:first-child {
-	background: color-mix(in srgb, var(--link-color) 18%, transparent);
-	border-radius: 0.2em;
-}
-
 .oper-investigate dl .same {
 	background: none;
 	box-shadow: none;
@@ -4392,10 +4402,10 @@ button.snotice-badge:focus-visible {
 /* The oper's own note: amber edge, the text, Edit. */
 .oper-note {
 	display: flex;
-	align-items: flex-start;
-	gap: 0.6rem;
+	gap: 0.75rem;
+	align-items: center;
 	border-left: 3px solid var(--oper-amber);
-	padding: 0.25rem 0.6rem;
+	padding: 0.65rem 0.75rem 0.65rem 1rem;
 	background: color-mix(in srgb, var(--oper-amber) 10%, transparent);
 	border-radius: 0 0.3rem 0.3rem 0;
 }
@@ -4623,15 +4633,6 @@ button.snotice-badge:focus-visible {
 	color: var(--body-color-muted);
 }
 
-.oper-verdict {
-	margin: 0.5rem 0 0;
-	padding: 0.5rem 0.75rem;
-	border-left: 3px solid var(--link-color);
-	background: color-mix(in srgb, var(--link-color) 8%, transparent);
-	border-radius: 0 0.3rem 0.3rem 0;
-	font-weight: 600;
-}
-
 /* Compare: two columns side by side, one with tabs when narrow. */
 .oper-compare {
 	display: grid;
@@ -4739,6 +4740,600 @@ button.snotice-badge:focus-visible {
 .oper-toast {
 	color: var(--oper-amber);
 	font-size: 0.875em;
+}
+
+/* ------------------------------------------------ the oper visual language
+ * (the "Seance oper kit" in Claude Design, theme-aware here): four buttons,
+ * an icon button, a tag, a value chip, the verdict, a property panel and
+ * rows. Icons are FontAwesome glyphs like the rest of the app. */
+.oper-btn,
+.oper-icon-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.45em;
+	height: 2.25rem;
+	padding: 0 0.85rem;
+	border: 1px solid transparent;
+	border-radius: 0.4rem;
+	font-size: 0.875rem;
+	font-weight: 500;
+	line-height: 1;
+	white-space: nowrap;
+	cursor: pointer;
+	transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+html[data-reduce-motion] .oper-btn,
+html[data-reduce-motion] .oper-icon-btn {
+	transition: none;
+}
+
+.oper-btn[disabled] {
+	opacity: 0.45;
+	cursor: default;
+}
+
+.oper-btn-primary {
+	background: var(--button-color);
+	border-color: var(--button-color);
+	color: var(--window-bg-color);
+}
+
+.oper-btn-secondary {
+	background: var(--oper-raised);
+	border-color: var(--oper-line-2);
+	color: var(--body-color);
+}
+
+.oper-btn-secondary:hover,
+.oper-btn-secondary:focus-visible {
+	border-color: color-mix(in oklab, var(--body-color) 35%, transparent);
+}
+
+.oper-btn-danger {
+	background: transparent;
+	border-color: color-mix(in oklab, var(--oper-red) 55%, transparent);
+	color: var(--oper-red);
+}
+
+.oper-btn-danger:hover,
+.oper-btn-danger:focus-visible {
+	background: color-mix(in oklab, var(--oper-red) 12%, transparent);
+}
+
+.oper-btn-danger.solid {
+	background: var(--oper-red);
+	border-color: var(--oper-red);
+	color: var(--window-bg-color);
+}
+
+.oper-btn-ghost {
+	background: transparent;
+	color: var(--body-color-muted);
+}
+
+.oper-btn-ghost:hover,
+.oper-btn-ghost:focus-visible {
+	background: var(--oper-raised);
+	color: var(--body-color);
+}
+
+.oper-icon-btn {
+	width: 2.25rem;
+	padding: 0;
+	background: transparent;
+	color: var(--body-color-muted);
+	font-size: 1rem;
+}
+
+.oper-icon-btn:hover,
+.oper-icon-btn:focus-visible,
+.oper-icon-btn[aria-pressed="true"] {
+	background: var(--oper-raised);
+	color: var(--body-color);
+}
+
+.oper-btn::before,
+.oper-icon-btn::before,
+.oper-verdict-mark::before,
+.oper-avatar-channel::before,
+.oper-empty-ok::before {
+	font: normal normal normal 14px/1 FontAwesome;
+	font-size: inherit;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+.oper-btn::before {
+	font-size: 0.9em;
+}
+
+.oper-icon-refresh::before { content: "\f021"; /* https://fontawesome.com/icons/sync?style=solid */ }
+.oper-icon-raw::before { content: "\f121"; /* https://fontawesome.com/icons/code?style=solid */ }
+.oper-icon-close::before { content: "\f00d"; /* https://fontawesome.com/icons/times?style=solid */ }
+.oper-icon-kill::before { content: "\f235"; /* https://fontawesome.com/icons/user-times?style=solid */ }
+.oper-icon-ban::before { content: "\f05e"; /* https://fontawesome.com/icons/ban?style=solid */ }
+.oper-icon-compare::before { content: "\f0db"; /* https://fontawesome.com/icons/columns?style=solid */ }
+.oper-icon-alert::before { content: "\f0f3"; /* https://fontawesome.com/icons/bell?style=solid */ }
+.oper-icon-note::before { content: "\f249"; /* https://fontawesome.com/icons/sticky-note?style=solid */ }
+.oper-icon-watch::before { content: "\f06e"; /* https://fontawesome.com/icons/eye?style=solid */ }
+
+/* A tag: a status, never a control. A dot says which kind. */
+.oper-tag {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35em;
+	padding: 0.1em 0.55em;
+	border-radius: 999px;
+	background: var(--oper-raised);
+	color: var(--body-color);
+	font-size: 0.75rem;
+	font-weight: 500;
+	line-height: 1.4;
+	white-space: nowrap;
+	vertical-align: 0.1em;
+}
+
+.oper-tag::before {
+	content: "";
+	width: 0.4em;
+	height: 0.4em;
+	border-radius: 50%;
+	background: var(--body-color-muted);
+}
+
+.oper-tag.plain::before {
+	display: none;
+}
+
+.oper-tag.ok::before {
+	background: var(--button-color);
+}
+
+.oper-tag.warn {
+	background: color-mix(in oklab, var(--oper-amber) 14%, transparent);
+	color: var(--oper-amber);
+}
+
+.oper-tag.warn::before {
+	background: var(--oper-amber);
+}
+
+.oper-tag.bad {
+	background: color-mix(in oklab, var(--oper-red) 14%, transparent);
+	color: var(--oper-red);
+}
+
+.oper-tag.bad::before {
+	background: var(--oper-red);
+}
+
+html[data-contrast="more"] .oper-tag {
+	box-shadow: inset 0 0 0 1px currentcolor;
+}
+
+/* The verdict: the card's headline. A mark, a kicker, one line, and what
+ * matched as tags. Amber for a likely match, red for a live ban. */
+.oper-verdict {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	gap: 0.5rem 0.9rem;
+	align-items: center;
+	padding: 1rem 1.15rem;
+	border: 1px solid var(--oper-line-2);
+	border-radius: 0.55rem;
+	background: var(--oper-panel);
+}
+
+.oper-verdict p {
+	margin: 0;
+}
+
+.oper-verdict-mark {
+	grid-row: span 2;
+	align-self: start;
+	display: grid;
+	place-items: center;
+	width: 2.1rem;
+	height: 2.1rem;
+	border-radius: 50%;
+	background: var(--oper-raised);
+	color: var(--body-color-muted);
+	font-size: 0.875rem;
+}
+
+.oper-verdict-mark::before { content: "\f00c"; /* https://fontawesome.com/icons/check?style=solid */ }
+
+/* https://fontawesome.com/icons/link?style=solid */
+.oper-verdict.tone-match .oper-verdict-mark::before {
+	content: "\f0c1";
+}
+
+/* https://fontawesome.com/icons/ban?style=solid */
+.oper-verdict.tone-ban .oper-verdict-mark::before {
+	content: "\f05e";
+}
+
+/* https://fontawesome.com/icons/question?style=solid */
+.oper-verdict.tone-weak .oper-verdict-mark::before {
+	content: "\f128";
+}
+
+/* https://fontawesome.com/icons/ellipsis-h?style=solid */
+.oper-verdict.tone-pending .oper-verdict-mark::before {
+	content: "\f141";
+}
+
+.oper-verdict-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.15rem 0.6rem;
+}
+
+.oper-verdict-kicker {
+	font-size: 0.6875rem;
+	font-weight: 700;
+	letter-spacing: 0.07em;
+	text-transform: uppercase;
+	color: var(--body-color-muted);
+}
+
+.oper-verdict-lead {
+	font-weight: 600;
+	font-size: 1rem;
+}
+
+.oper-verdict-evidence {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.45rem;
+	font-size: 0.8125rem;
+}
+
+.oper-verdict.tone-pending,
+.oper-verdict.tone-pending .oper-verdict-head {
+	grid-template-rows: auto;
+}
+
+.oper-verdict.tone-match {
+	border-color: color-mix(in oklab, var(--oper-amber) 45%, transparent);
+	background: color-mix(in oklab, var(--oper-amber) 9%, var(--window-bg-color));
+}
+
+.oper-verdict.tone-match .oper-verdict-mark {
+	background: var(--oper-amber);
+	color: var(--window-bg-color);
+}
+
+.oper-verdict.tone-match .oper-verdict-kicker {
+	color: var(--oper-amber);
+}
+
+.oper-verdict.tone-ban {
+	border-color: color-mix(in oklab, var(--oper-red) 50%, transparent);
+	background: color-mix(in oklab, var(--oper-red) 9%, var(--window-bg-color));
+}
+
+.oper-verdict.tone-ban .oper-verdict-mark {
+	background: var(--oper-red);
+	color: var(--window-bg-color);
+}
+
+.oper-verdict.tone-ban .oper-verdict-kicker {
+	color: var(--oper-red);
+}
+
+/* A value chip: a literal you can act on (its menu) or copy. */
+.oper-investigate .oper-chip,
+.oper-investigate .oper-value {
+	display: inline;
+	font-family: monospace;
+	font-size: 0.875em;
+	color: var(--body-color);
+	background: var(--oper-raised);
+	border: 1px solid var(--oper-line);
+	border-radius: 0.3em;
+	padding: 0.05em 0.35em;
+	overflow-wrap: anywhere;
+}
+
+.oper-investigate .oper-chip {
+	border-bottom: 1px dashed var(--oper-line-2);
+	cursor: pointer;
+}
+
+.oper-investigate .oper-chip:hover,
+.oper-investigate .oper-chip:focus-visible {
+	border-color: var(--oper-line-2);
+}
+
+.oper-investigate .oper-chip.same,
+.oper-investigate dl .same dd > .oper-chip,
+.oper-investigate dl .same dd > .oper-value {
+	background: color-mix(in oklab, var(--oper-amber) 14%, transparent);
+	border-color: color-mix(in oklab, var(--oper-amber) 45%, transparent);
+}
+
+/* The card's header: who, where, and the card's own tools. */
+.oper-card-head {
+	gap: 0.9rem;
+	padding: 1.15rem 1rem 1.1rem 1.5rem;
+	box-shadow: inset 0 -1px 0 var(--oper-line);
+}
+
+.oper-avatar {
+	flex: none;
+	display: grid;
+	place-items: center;
+	width: 2.4rem;
+	height: 2.4rem;
+	border-radius: 50%;
+	background: color-mix(in oklab, currentcolor 20%, transparent);
+	font-weight: 700;
+	font-size: 0.875rem;
+}
+
+.oper-avatar-channel {
+	border-radius: 0.5rem;
+	background: var(--oper-raised);
+	color: var(--body-color-muted);
+	font-size: 1rem;
+}
+
+.oper-avatar-channel::before { content: "\f292"; /* https://fontawesome.com/icons/hashtag?style=solid */ }
+
+.oper-ident {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.oper-investigate .oper-card-head h1 {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	font-size: 1.125rem;
+	letter-spacing: -0.01em;
+}
+
+.oper-ident-sub {
+	margin-top: 0.2rem;
+	color: var(--body-color-muted);
+	font-size: 0.8125rem;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.oper-card-tools {
+	display: flex;
+	gap: 0.125rem;
+}
+
+.oper-investigate .settings-modal-close.oper-icon-btn {
+	padding: 0;
+	font-size: 1rem;
+}
+
+/* The footer: actions on the user at the left in red, the rest at the
+ * right. Under 34rem the right-hand buttons drop their words. */
+.oper-investigate .oper-investigate-footer {
+	padding: 0.9rem 1.5rem;
+	background: var(--oper-sunk);
+	box-shadow: inset 0 1px 0 var(--oper-line);
+}
+
+.oper-investigate .oper-investigate-actions {
+	flex: 1 1 auto;
+	align-items: center;
+}
+
+.oper-spacer {
+	flex: 1 1 auto;
+}
+
+/* stylelint-disable-next-line at-rule-no-unknown */
+@container settings (max-width: 34rem) {
+	.oper-investigate-actions .oper-btn-secondary {
+		width: 2.5rem;
+		padding: 0;
+	}
+
+	.oper-investigate-actions .oper-btn-secondary .oper-btn-label {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+}
+
+/* The facts: a property panel, two columns, the long ones across both. */
+.oper-investigate .oper-props {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 0;
+	margin: 0;
+	border: 1px solid var(--oper-line);
+	border-radius: 0.55rem;
+	background: var(--oper-panel);
+	overflow: hidden;
+}
+
+.oper-investigate .oper-props > div {
+	display: block;
+	min-width: 0;
+	padding: 0.85rem 1.1rem;
+	box-shadow: inset 0 1px 0 var(--oper-line), inset -1px 0 0 var(--oper-line);
+}
+
+.oper-investigate .oper-props > div.wide {
+	grid-column: 1 / -1;
+}
+
+.oper-investigate .oper-props dt {
+	margin: 0 0 0.35rem;
+	font-size: 0.6875rem;
+	font-weight: 600;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	color: var(--oper-faint);
+}
+
+.oper-investigate .oper-props dd {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.3rem 0.4rem;
+	margin: 0;
+	min-width: 0;
+}
+
+.oper-investigate .oper-props dd > .oper-mono:first-child + .oper-chip {
+	margin-left: -0.4rem;
+}
+
+.oper-investigate dl.oper-props .same {
+	background: none;
+	box-shadow:
+		inset 0 1px 0 var(--oper-line),
+		inset -1px 0 0 var(--oper-line),
+		inset 3px 0 0 color-mix(in oklab, var(--oper-amber) 70%, transparent);
+}
+
+.oper-investigate-user {
+	display: flex;
+	flex-direction: column;
+	gap: 2rem;
+}
+
+.oper-note-edit.oper-btn {
+	height: 1.75rem;
+	padding: 0 0.6rem;
+	font-size: 0.8125rem;
+}
+
+/* Sections: a heading, a count, then rows or an empty line. */
+.oper-card-section {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.oper-section-head {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.oper-investigate .oper-section-head .oper-report-section-title {
+	margin: 0;
+	font-size: 0.875rem;
+	font-weight: 600;
+	letter-spacing: 0;
+	text-transform: none;
+	color: var(--body-color);
+}
+
+.oper-count {
+	padding: 0 0.45em;
+	border-radius: 999px;
+	background: var(--oper-raised);
+	color: var(--body-color-muted);
+	font-size: 0.75rem;
+	line-height: 1.5;
+}
+
+.oper-empty {
+	display: flex;
+	align-items: center;
+	gap: 0.65rem;
+	margin: 0;
+	padding: 0.9rem 1.1rem;
+	border: 1px dashed var(--oper-line-2);
+	border-radius: 0.55rem;
+	font-size: 0.875rem;
+}
+
+.oper-empty-ok {
+	color: var(--body-color-muted);
+}
+
+.oper-empty-ok::before {
+	content: "\f3ed"; /* https://fontawesome.com/icons/shield-alt?style=solid */
+	color: var(--button-color);
+}
+
+.oper-rows li {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 0.85rem;
+	padding: 0.75rem 0;
+	box-shadow: inset 0 1px 0 var(--oper-line);
+}
+
+.oper-rows li:first-child {
+	box-shadow: none;
+}
+
+.oper-row-time {
+	min-width: 2.9rem;
+	color: var(--oper-faint);
+	font-variant-numeric: tabular-nums;
+}
+
+.oper-row-main {
+	min-width: 0;
+}
+
+.oper-row-fate {
+	display: block;
+	margin-top: 0.2rem;
+	font-size: 0.8125rem;
+}
+
+.oper-row-tags {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	gap: 0.25rem;
+}
+
+.oper-rows .oper-chip,
+.oper-investigate .oper-props .oper-chip {
+	white-space: nowrap;
+}
+
+/* A server name is a word, not a literal to copy: no mid-name break. */
+.oper-investigate .oper-props .oper-server {
+	font-family: inherit;
+}
+
+/* Narrow (a phone, or a Compare column): the match tags go under the
+ * nick instead of squeezing it. */
+.oper-investigate-compare .oper-rows li {
+	grid-template-columns: auto minmax(0, 1fr);
+}
+
+.oper-investigate-compare .oper-row-tags {
+	grid-column: 2;
+	justify-content: flex-start;
+}
+
+/* stylelint-disable-next-line at-rule-no-unknown */
+@container investigate (max-width: 36rem) {
+	.oper-rows li {
+		grid-template-columns: auto minmax(0, 1fr);
+	}
+
+	.oper-row-tags {
+		grid-column: 2;
+		justify-content: flex-start;
+	}
 }
 
 /* On a phone the card is the page, like the settings modal. The phone

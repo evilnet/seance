@@ -16,29 +16,71 @@
 			aria-modal="true"
 			:aria-label="title"
 		>
-			<div class="settings-modal-header">
-				<h1>
-					<span v-if="stack.length > 1" class="oper-muted oper-investigate-back"
-						>{{ stack[stack.length - 2].request.target }} ›
-					</span>
-					{{ top.request.target
-					}}<span class="oper-modal-network"> · {{ network.name }}</span>
-				</h1>
-				<button
-					class="settings-modal-close"
-					type="button"
-					aria-label="Close the card"
-					@click="close"
+			<div class="settings-modal-header oper-card-head">
+				<span
+					:class="[
+						'oper-avatar',
+						model.kind === 'channel' ? 'oper-avatar-channel' : ['user', avatarColor],
+					]"
+					aria-hidden="true"
+					>{{ model.kind === "channel" ? "" : initials }}</span
 				>
-					✕
-				</button>
+				<div class="oper-ident">
+					<h1>
+						{{ top.request.target }}
+						<span
+							v-if="presence"
+							:class="['oper-tag', presence === 'online' ? 'ok' : 'warn']"
+							>{{ presence }}</span
+						>
+					</h1>
+					<div class="oper-ident-sub">
+						<span v-if="identLine" class="oper-mono">{{ identLine }}</span>
+						<span v-if="identLine"> · </span>{{ network.name
+						}}<template v-if="stack.length > 1">
+							· from {{ stack[stack.length - 2].request.target }}</template
+						>
+					</div>
+				</div>
+				<div class="oper-card-tools">
+					<button
+						type="button"
+						class="oper-icon-btn oper-icon-refresh"
+						title="Refresh"
+						aria-label="Refresh"
+						@click="refresh"
+					></button>
+					<button
+						type="button"
+						class="oper-icon-btn oper-icon-raw"
+						title="Raw replies"
+						aria-label="Raw replies"
+						:aria-pressed="showRaw"
+						@click="showRaw = !showRaw"
+					></button>
+					<button
+						class="settings-modal-close oper-icon-btn oper-icon-close"
+						type="button"
+						:aria-label="
+							stack.length > 1 ? 'Back to the card before' : 'Close the card'
+						"
+						:title="stack.length > 1 ? 'Back' : 'Close (Esc)'"
+						@click="close"
+					></button>
+				</div>
 			</div>
 
 			<div class="settings-modal-body">
 				<div class="container oper-investigate-body">
 					<div v-if="note && !editingNote" class="oper-note">
 						<span class="oper-note-text">{{ note }}</span>
-						<button type="button" class="btn btn-small" @click="editNote">Edit</button>
+						<button
+							type="button"
+							class="oper-btn oper-btn-ghost oper-note-edit"
+							@click="editNote"
+						>
+							Edit
+						</button>
 					</div>
 
 					<!-- ------------------------------------------------ channel -->
@@ -459,11 +501,6 @@
 								Cancel
 							</button>
 						</form>
-						<p v-else-if="!compareModel" class="oper-compare-offer">
-							<button type="button" class="btn btn-small" @click="askCompare">
-								Compare side by side…
-							</button>
-						</p>
 					</template>
 
 					<pre v-if="showRaw" class="oper-report-raw oper-investigate-raw">{{
@@ -475,35 +512,60 @@
 			<div class="settings-modal-footer oper-investigate-footer">
 				<div class="oper-investigate-actions">
 					<template v-if="model.kind === 'channel'">
-						<button type="button" class="btn btn-small" @click="joinAndWatch">
-							{{ inChannel ? "Watch" : "Join & watch" }}
+						<span class="oper-spacer"></span>
+						<button
+							type="button"
+							class="oper-btn oper-btn-secondary oper-icon-watch"
+							@click="joinAndWatch"
+						>
+							<span class="oper-btn-label">{{
+								inChannel ? "Watch" : "Join & watch"
+							}}</span>
 						</button>
 					</template>
 					<template v-else>
-						<button v-if="canBan" type="button" class="btn btn-small" @click="banUser">
-							G-line…
-						</button>
 						<button
 							v-if="canKill"
 							type="button"
-							class="btn btn-small"
+							class="oper-btn oper-btn-danger oper-icon-kill"
 							@click="killUser"
 						>
 							Kill…
 						</button>
-						<button type="button" class="btn btn-small" @click="alertOnThis">
-							Alert on this…
+						<button
+							v-if="canBan"
+							type="button"
+							class="oper-btn oper-btn-danger oper-icon-ban"
+							@click="banUser"
+						>
+							G-line…
+						</button>
+						<span class="oper-spacer"></span>
+						<button
+							v-if="!compareModel && !asking"
+							type="button"
+							class="oper-btn oper-btn-secondary oper-icon-compare oper-compare-offer"
+							title="Compare side by side"
+							@click="askCompare"
+						>
+							<span class="oper-btn-label">Compare</span>
+						</button>
+						<button
+							type="button"
+							class="oper-btn oper-btn-secondary oper-icon-alert"
+							title="Alert on this"
+							@click="alertOnThis"
+						>
+							<span class="oper-btn-label">Alert on this…</span>
 						</button>
 					</template>
-					<button type="button" class="btn btn-small" @click="editNote">Note…</button>
-					<button type="button" class="btn btn-small" @click="refresh">Refresh</button>
 					<button
 						type="button"
-						:class="['btn', 'btn-small', {active: showRaw}]"
-						:aria-pressed="showRaw"
-						@click="showRaw = !showRaw"
+						class="oper-btn oper-btn-secondary oper-icon-note"
+						title="Note"
+						@click="editNote"
 					>
-						Raw replies
+						<span class="oper-btn-label">Note…</span>
 					</button>
 				</div>
 				<span v-if="toast" class="oper-toast" role="status">{{ toast }}</span>
@@ -593,6 +655,7 @@ import useNow from "../../js/hooks/use-now";
 import {ChanState} from "../../../shared/types/chan";
 import ParsedMessage from "../ParsedMessage.vue";
 import InvestigateUser from "./InvestigateUser.vue";
+import colorClass from "../../js/helpers/colorClass";
 
 interface Card {
 	request: InvestigateRequest;
@@ -668,6 +731,30 @@ export default defineComponent({
 		const compareNotes = computed(() => {
 			void tick.value;
 			return {...(top.value?.compare?.notes ?? {})};
+		});
+
+		/** The user card's header: initials, a nick colour, `ident@host`, online. */
+		const userModel = computed(() => (model.value?.kind === "user" ? model.value : undefined));
+		const initials = computed(() =>
+			(top.value?.request.target ?? "")
+				.replace(/[^\p{L}\p{N}]/gu, "")
+				.slice(0, 2)
+				.toLowerCase()
+		);
+		const avatarColor = computed(() => colorClass(top.value?.request.target ?? ""));
+		const identLine = computed(() => {
+			const u = userModel.value?.user;
+			return u?.host ? `${u.ident ?? "?"}@${u.host}` : "";
+		});
+		/** Online once the server gave a connect time; away when they said so. */
+		const presence = computed(() => {
+			const u = userModel.value?.user;
+
+			if (u?.connectedAt === undefined) {
+				return undefined;
+			}
+
+			return u.away ? "away" : "online";
 		});
 
 		const title = computed(() =>
@@ -1206,6 +1293,10 @@ export default defineComponent({
 			compareSources,
 			compareNotes,
 			title,
+			initials,
+			avatarColor,
+			identLine,
+			presence,
 			common,
 			commonCount,
 			hasLookups,

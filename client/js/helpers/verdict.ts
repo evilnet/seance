@@ -538,12 +538,34 @@ export interface VerdictInput {
 }
 
 /**
- * One sentence from the bans and the sightings: a live ban covering them;
+ * The verdict as the card draws it: a tone, a kicker, a short headline
+ * (`lead`, then `nick` when it names someone), what matched as tags, and
+ * the rest as `detail`. `sentence` is the same verdict as one line of
+ * prose (`verdict()`), for the copy and anywhere a single string is wanted.
+ */
+export interface VerdictView {
+	/** `ban` red, `match` amber, `weak` and `clear` neutral. */
+	tone: "ban" | "match" | "weak" | "clear";
+	kicker: string;
+	lead: string;
+	nick?: string;
+	/** What matched, each a tag: `IP`, `host`, `realname`, `ident shape`. */
+	evidence: string[];
+	/** The live ban's mask, for a value chip. */
+	mask?: string;
+	detail?: string;
+	sentence: string;
+}
+
+const matchWord = (m: Matched) => (m === "ip" ? "IP" : m);
+
+/**
+ * One verdict from the bans and the sightings: a live ban covering them;
  * else a sighting under another nick sharing the IP, or the host and the
  * realname, with everything that matched named; else a weaker overlap
  * said as such; else that nothing in the kept feed shares anything.
  */
-export function verdict(input: VerdictInput): string {
+export function verdictView(input: VerdictInput): VerdictView {
 	const now = input.now ?? Date.now();
 	const {user} = input;
 	const live = input.liveBans[0];
@@ -552,7 +574,17 @@ export function verdict(input: VerdictInput): string {
 		const by = live.by ? live.by : undefined;
 		const when = live.setAt !== undefined ? ago(live.setAt, now) : undefined;
 		const detail = [by, when].filter(Boolean).join(", ");
-		return `Covered by a live ${live.type}: ${live.mask}${detail ? ` (${detail})` : ""}.`;
+		return {
+			tone: "ban",
+			kicker: "Banned",
+			lead: `Covered by a live ${live.type}`,
+			evidence: [],
+			mask: live.mask,
+			...(detail ? {detail: by ? `set by ${detail}` : `set ${detail}`} : {}),
+			sentence: `Covered by a live ${live.type}: ${live.mask}${
+				detail ? ` (${detail})` : ""
+			}.`,
+		};
 	}
 
 	const others = input.seen.filter((s) => s.nick.toLowerCase() !== user.nick.toLowerCase());
@@ -563,28 +595,46 @@ export function verdict(input: VerdictInput): string {
 	);
 
 	if (strong) {
-		const what = strong.matched.map((m) => `same ${m === "ip" ? "IP" : m}`);
+		const evidence: string[] = strong.matched.map(matchWord);
 
 		if (sameIdentShape(strong.ident, user.ident)) {
-			what.push("same ident shape");
+			evidence.push("ident shape");
 		}
 
+		const when = whenText(strong.time, now);
 		// `G-lined by rubin for 'x'` → `G-lined then by rubin for 'x'`.
 		const fate = strong.fate
 			? `; ${strong.fate.replace(/^(\S+(?: a \S+)?) /, "$1 then ")}`
 			: "";
-		return `Likely the same as ${strong.nick} (${whenText(strong.time, now)}): ${what.join(
-			", "
-		)}${fate}.`;
+		return {
+			tone: "match",
+			kicker: "Likely match",
+			lead: "Same as",
+			nick: strong.nick,
+			evidence,
+			detail: `seen ${when}${strong.fate ? `, then ${strong.fate}` : ""}`,
+			sentence: `Likely the same as ${strong.nick} (${when}): ${evidence
+				.map((e) => `same ${e}`)
+				.join(", ")}${fate}.`,
+		};
 	}
 
 	const weak = others[0];
 
 	if (weak) {
-		const what = weak.matched.map((m) => `the ${m === "ip" ? "IP" : m}`);
-		return `Nothing conclusive: ${weak.nick} (${whenText(weak.time, now)}) shares ${what.join(
-			" and "
-		)}${weak.fate ? `, and was ${weak.fate}` : ""}.`;
+		const when = whenText(weak.time, now);
+		const what = weak.matched.map((m) => `the ${matchWord(m)}`);
+		return {
+			tone: "weak",
+			kicker: "Nothing conclusive",
+			lead: "Something in common with",
+			nick: weak.nick,
+			evidence: weak.matched.map(matchWord),
+			detail: `seen ${when}${weak.fate ? `, then ${weak.fate}` : ""}`,
+			sentence: `Nothing conclusive: ${weak.nick} (${when}) shares ${what.join(" and ")}${
+				weak.fate ? `, and was ${weak.fate}` : ""
+			}.`,
+		};
 	}
 
 	// The nick itself, seen from somewhere else (seenBefore keeps that; the
@@ -593,11 +643,30 @@ export function verdict(input: VerdictInput): string {
 
 	if (elsewhere) {
 		const where = elsewhere.ip ?? elsewhere.host ?? "another address";
-		return `Nothing conclusive: the nick was seen from ${where} (${whenText(
-			elsewhere.time,
-			now
-		)})${elsewhere.fate ? `, and was ${elsewhere.fate}` : ""}.`;
+		const when = whenText(elsewhere.time, now);
+		return {
+			tone: "weak",
+			kicker: "Nothing conclusive",
+			lead: `The nick was seen from ${where}`,
+			evidence: [],
+			detail: `${when}${elsewhere.fate ? `, then ${elsewhere.fate}` : ""}`,
+			sentence: `Nothing conclusive: the nick was seen from ${where} (${when})${
+				elsewhere.fate ? `, and was ${elsewhere.fate}` : ""
+			}.`,
+		};
 	}
 
-	return "No bans cover them and nothing in the kept feed shares their IP, host or realname.";
+	return {
+		tone: "clear",
+		kicker: "Nothing found",
+		lead: "No bans, and no one like them in the kept feed",
+		evidence: [],
+		sentence:
+			"No bans cover them and nothing in the kept feed shares their IP, host or realname.",
+	};
+}
+
+/** The verdict as one sentence (`verdictView(...).sentence`). */
+export function verdict(input: VerdictInput): string {
+	return verdictView(input).sentence;
 }

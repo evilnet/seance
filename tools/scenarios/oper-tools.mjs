@@ -670,7 +670,7 @@ export default async function run(page) {
 		)) === "seen in a probe run"
 	);
 	await page.sleep(400); // the note overlay fades out and would take the click
-	await page.click(`${overlay} .oper-note .btn`); // Edit
+	await page.click(`${overlay} .oper-note-edit`);
 	await page.waitFor(`document.activeElement?.id === "oper-note-field"`, {
 		label: "Edit reopens the note dialog",
 	});
@@ -871,8 +871,10 @@ export default async function run(page) {
 				ip: b.querySelector(".oper-chip-ip")?.textContent.trim(),
 				sameAll: b.classList.contains("same-all"),
 			})),
-			seen: Array.from(root.querySelectorAll(".oper-seen li")).map((li) => li.textContent.replace(/\\s+/g, " ").trim()),
-			verdict: root.querySelector(".oper-verdict")?.textContent.replace(/\\s+/g, " ").trim(),
+			sub: root.querySelector(".oper-ident-sub")?.innerText.replace(/\\s+/g, " ").trim(),
+			seen: Array.from(root.querySelectorAll(".oper-seen li")).map((li) => li.innerText.replace(/\\s+/g, " ").trim()),
+			verdict: root.querySelector(".oper-verdict")?.innerText.replace(/\\s+/g, " ").trim(),
+			verdictTone: root.querySelector(".oper-verdict")?.className.match(/tone-(\\S+)/)?.[1],
 			bans: root.querySelector(".oper-bans")?.textContent.replace(/\\s+/g, " ").trim(),
 		};
 	})()`;
@@ -1041,8 +1043,8 @@ export default async function run(page) {
 	);
 	const stacked = await page.evaluate(cardFacts);
 	page.check(
-		`the stacked card is titled from the channel (${stacked.title})`,
-		/^#seance › opbot2/.test(stacked.title)
+		`the stacked card says it came from the channel (${stacked.title} · ${stacked.sub})`,
+		/^opbot2\b/.test(stacked.title) && /from #seance$/.test(stacked.sub ?? "")
 	);
 	await page.screenshot("11-user-card-stacked", {selector: `${overlay} .oper-investigate`});
 	await page.click(`${overlay} .settings-modal-close`);
@@ -1068,7 +1070,8 @@ export default async function run(page) {
 	page.check(
 		`the user card's facts (${userCard.facts.join(" | ")})`,
 		userCard.facts.some((f) => /^Host=opbot3@/.test(f)) &&
-			userCard.facts.some((f) => /^IP=172\.17\.0\.1 .*irc\.seance\.test/.test(f)) &&
+			userCard.facts.some((f) => /^IP=172\.17\.0\.1\b/.test(f)) &&
+			userCard.facts.some((f) => /^Server=irc\.seance\.test$/.test(f)) &&
 			userCard.facts.some((f) => /^Realname=irc client$/.test(f)) &&
 			userCard.facts.some((f) => /^Connected=\d/.test(f)) &&
 			userCard.facts.some((f) => /^Channels=only #seance$/.test(f))
@@ -1079,12 +1082,13 @@ export default async function run(page) {
 		`seen before finds opbot2 from the same IP and not opbot3 themself (${userCard.seen.join(
 			" | "
 		)})`,
-		userCard.seen.some((s) => /\bopbot2 from 172\.17\.0\.1 \(this IP\)/.test(s)) &&
+		userCard.seen.some((s) => /\bopbot2 from 172\.17\.0\.1 .*same IP/.test(s)) &&
 			!userCard.seen.some((s) => /\bopbot3 /.test(s))
 	);
 	page.check(
-		`the verdict names what matched (${userCard.verdict})`,
-		/^Likely the same as \S+ \(\d\d:\d\d\): same IP/.test(userCard.verdict ?? "")
+		`the verdict names what matched (${userCard.verdictTone}: ${userCard.verdict})`,
+		userCard.verdictTone === "match" &&
+			/^Likely match Same as \S+ IP\b.*seen \d\d:\d\d/i.test(userCard.verdict ?? "")
 	);
 	await page.screenshot("12-user-card", {selector: `${overlay} .oper-investigate`});
 
@@ -1104,13 +1108,13 @@ export default async function run(page) {
 				if (!b) return false;
 				b.scrollIntoView({block: "center"});
 				const r = b.getBoundingClientRect();
-				return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) === b;
+				return b.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
 			})()`,
 			{label: `${selector} in reach`}
 		);
 		await page.click(selector);
 	};
-	await reach(`${overlay} .oper-compare-offer .btn`);
+	await reach(`${overlay} .oper-compare-offer`);
 	await page.fill(`${overlay} .oper-compare-ask input`, "opbot2");
 	await reach(`${overlay} .oper-compare-ask button[type="submit"]`);
 	await page.waitFor(

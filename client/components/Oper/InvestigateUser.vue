@@ -1,7 +1,43 @@
 <template>
 	<div class="oper-investigate-user">
-		<dl class="oper-report-entries oper-facts">
-			<div :class="{same: sameAs('host')}">
+		<div v-if="view" :class="['oper-verdict', `tone-${view.tone}`]">
+			<span class="oper-verdict-mark" aria-hidden="true"></span>
+			<p class="oper-verdict-head">
+				<span class="oper-verdict-kicker">{{ view.kicker }}</span>
+				<span class="oper-verdict-lead"
+					>{{ view.lead }}{{ view.nick ? " " : ""
+					}}<template v-if="view.nick">
+						<Username
+							:user="{nick: view.nick, mode: ''}"
+							:network="network" /></template
+				></span>
+			</p>
+			<p
+				v-if="view.evidence.length || view.mask || view.detail"
+				class="oper-verdict-evidence"
+			>
+				<span v-for="e in view.evidence" :key="e" class="oper-tag warn">{{ e }}</span>
+				<button
+					v-if="view.mask"
+					type="button"
+					class="oper-chip oper-chip-mask"
+					title="Oper actions"
+					@click.stop="openMenu($event, 'mask', view.mask)"
+				>
+					{{ view.mask }}
+				</button>
+				<span v-if="view.detail" class="oper-muted">{{ view.detail }}</span>
+			</p>
+		</div>
+		<div v-else class="oper-verdict tone-pending">
+			<span class="oper-verdict-mark" aria-hidden="true"></span>
+			<p class="oper-verdict-head">
+				<span class="oper-verdict-lead oper-muted">Looking them up…</span>
+			</p>
+		</div>
+
+		<dl class="oper-report-entries oper-facts oper-props">
+			<div :class="['wide', {same: sameAs('host')}]">
 				<dt>Host</dt>
 				<dd>
 					<template v-if="user.host">
@@ -32,21 +68,25 @@
 						>
 							{{ user.ip }}
 						</button>
-						<span v-if="place" class="oper-muted"> · {{ place }}</span>
-						<span v-if="user.server" class="oper-muted">
-							· <span class="oper-server">{{ user.server }}</span></span
-						>
+						<span v-if="place" class="oper-muted">{{ place }}</span>
 					</template>
 					<span v-else class="oper-muted">{{
 						pending("check", "whois", "userip", "lookups")
 					}}</span>
 				</dd>
 			</div>
+			<div :class="{same: sameAs('server')}">
+				<dt>Server</dt>
+				<dd>
+					<span v-if="user.server" class="oper-server">{{ user.server }}</span>
+					<span v-else class="oper-muted">{{ pending("check", "whois") }}</span>
+				</dd>
+			</div>
 			<div :class="{same: sameAs('account')}">
 				<dt>Account</dt>
 				<dd>
 					<template v-if="user.account">{{ user.account }}</template>
-					<span v-else-if="user.authed === false" class="oper-muted">not authed</span>
+					<span v-else-if="user.authed === false" class="oper-tag">not authed</span>
 					<span v-else class="oper-muted">{{
 						pending("check", "whois", "lookups")
 					}}</span>
@@ -61,7 +101,7 @@
 					}}</span>
 				</dd>
 			</div>
-			<div>
+			<div class="wide">
 				<dt>Connected</dt>
 				<dd>
 					<template v-if="user.connectedAt !== undefined">
@@ -90,15 +130,15 @@
 			<div>
 				<dt>Modes</dt>
 				<dd>
-					<code v-if="user.modes" class="oper-mono">{{ user.modes }}</code>
-					<span v-if="user.oper" class="oper-chip-static">oper</span>
-					<span v-if="user.away" class="oper-chip-static">away</span>
+					<code v-if="user.modes" class="oper-mono oper-value">{{ user.modes }}</code>
+					<span v-if="user.oper" class="oper-tag plain">oper</span>
+					<span v-if="user.away" class="oper-tag warn">away</span>
 					<span v-if="!user.modes && !user.oper" class="oper-muted">{{
 						pending("check", "lookups")
 					}}</span>
 				</dd>
 			</div>
-			<div>
+			<div class="wide">
 				<dt>Channels</dt>
 				<dd>
 					<template v-if="user.channels && user.channels.length">
@@ -113,113 +153,146 @@
 					}}</span>
 				</dd>
 			</div>
-			<div v-if="user.marks && user.marks.length">
+			<div v-if="user.marks && user.marks.length" class="wide">
 				<dt>Marks</dt>
 				<dd>
-					<span class="oper-chips"
-						><span v-for="m in user.marks" :key="m" class="oper-chip-static">{{
-							m
-						}}</span></span
-					>
+					<span v-for="m in user.marks" :key="m" class="oper-tag plain">{{ m }}</span>
 				</dd>
 			</div>
-			<div v-if="model.lastQuitHostmask" :class="{same: sameAs('lastQuitHostmask')}">
+			<div
+				v-if="model.lastQuitHostmask"
+				:class="['wide', {same: sameAs('lastQuitHostmask')}]"
+			>
 				<dt>Last quit</dt>
 				<dd>
-					<code class="oper-mono">{{ model.lastQuitHostmask }}</code>
+					<code class="oper-mono oper-value">{{ model.lastQuitHostmask }}</code>
 				</dd>
 			</div>
-			<div v-if="model.hostmasks && model.hostmasks.length">
+			<div v-if="model.hostmasks && model.hostmasks.length" class="wide">
 				<dt>Hostmasks</dt>
 				<dd>
-					<span class="oper-chips"
-						><code v-for="m in model.hostmasks" :key="m" class="oper-mono">{{
-							m
-						}}</code></span
-					>
+					<code v-for="m in model.hostmasks" :key="m" class="oper-mono oper-value">{{
+						m
+					}}</code>
 				</dd>
 			</div>
 		</dl>
 
-		<h3 class="oper-report-section-title">Bans near this user</h3>
-		<ul v-if="bans.length" class="oper-bans">
-			<li v-for="ban in bans" :key="ban.mask + ban.live" :class="{expired: !ban.live}">
-				<button
-					type="button"
-					class="oper-chip oper-chip-mask"
-					title="Oper actions"
-					@click.stop="openMenu($event, 'mask', ban.mask)"
-				>
-					{{ ban.mask }}
-				</button>
-				<span class="oper-muted"> · {{ banText(ban) }}</span>
-				<span v-if="ban.reason"> · "{{ ban.reason }}"</span>
-			</li>
-		</ul>
-		<ul v-else-if="model.serviceBans.length" class="oper-bans">
-			<li v-for="ban in model.serviceBans" :key="ban.mask">
-				<button
-					type="button"
-					class="oper-chip oper-chip-mask"
-					title="Oper actions"
-					@click.stop="openMenu($event, 'mask', ban.mask)"
-				>
-					{{ ban.mask }}
-				</button>
-				<span class="oper-muted">
-					· by {{ ban.issuedBy }}, {{ ban.issuedAgo }} ago, expires
-					{{ ban.expiresIn === "never" ? "never" : "in " + ban.expiresIn }}</span
-				>
-				<span v-if="ban.reason"> · "{{ ban.reason }}"</span>
-			</li>
-		</ul>
-		<!-- The server's list read is an answer; a gtrace still out does not take it back. -->
-		<p
-			v-else-if="
-				sources.stats === 'asking' ||
-				(sources.stats !== 'done' && sources.gtrace === 'asking')
-			"
-			class="oper-muted"
-		>
-			asking…
-		</p>
-		<p v-else class="oper-muted">
-			<template v-if="sources.stats === 'done'">
-				No live G-line, shun or Z-line covers them{{
-					model.recentBans.length ? "" : ", and the kept feed saw none set"
-				}}.
-			</template>
-			<template v-else
-				>The ban list could not be read ({{ notes.stats ?? "not asked" }}).</template
+		<section class="oper-card-section">
+			<div class="oper-section-head">
+				<h3 class="oper-report-section-title">Bans near this user</h3>
+				<span v-if="bans.length || model.serviceBans.length" class="oper-count">{{
+					bans.length || model.serviceBans.length
+				}}</span>
+			</div>
+			<ul v-if="bans.length" class="oper-bans oper-rows">
+				<li v-for="ban in bans" :key="ban.mask + ban.live" :class="{expired: !ban.live}">
+					<button
+						type="button"
+						class="oper-chip oper-chip-mask"
+						title="Oper actions"
+						@click.stop="openMenu($event, 'mask', ban.mask)"
+					>
+						{{ ban.mask }}
+					</button>
+					<span class="oper-row-main">
+						<span class="oper-muted">{{ banText(ban) }}</span>
+						<span v-if="ban.reason"> · "{{ ban.reason }}"</span>
+					</span>
+					<span :class="['oper-tag', ban.live ? 'bad' : 'plain']">{{
+						ban.live ? "live" : "gone"
+					}}</span>
+				</li>
+			</ul>
+			<ul v-else-if="model.serviceBans.length" class="oper-bans oper-rows">
+				<li v-for="ban in model.serviceBans" :key="ban.mask">
+					<button
+						type="button"
+						class="oper-chip oper-chip-mask"
+						title="Oper actions"
+						@click.stop="openMenu($event, 'mask', ban.mask)"
+					>
+						{{ ban.mask }}
+					</button>
+					<span class="oper-row-main oper-muted">
+						by {{ ban.issuedBy }}, {{ ban.issuedAgo }} ago, expires
+						{{ ban.expiresIn === "never" ? "never" : "in " + ban.expiresIn
+						}}<span v-if="ban.reason" class="oper-ban-reason">
+							· "{{ ban.reason }}"</span
+						></span
+					>
+					<span class="oper-tag bad">services</span>
+				</li>
+			</ul>
+			<!-- The server's list read is an answer; a gtrace still out does not take it back. -->
+			<p
+				v-else-if="
+					sources.stats === 'asking' ||
+					(sources.stats !== 'done' && sources.gtrace === 'asking')
+				"
+				class="oper-empty oper-muted"
 			>
-		</p>
-
-		<h3 class="oper-report-section-title">Seen before</h3>
-		<p v-if="model.snoopMissing" class="oper-muted oper-activity-missing">
-			Not in {{ model.snoopMissing }}: earlier sessions aren't kept.
-		</p>
-		<ul v-if="model.seen.length" class="oper-seen">
-			<li v-for="s in model.seen" :key="s.nick">
-				<span class="oper-muted">{{ when(s.time) }} · </span>
-				<Username :user="{nick: s.nick, mode: ''}" :network="network" />
-				<span v-if="s.ip || s.host" class="oper-muted">
-					from <code class="oper-mono">{{ s.ip ?? s.host }}</code> ({{
-						s.matched.includes("ip")
-							? "this IP"
-							: s.matched.includes("host")
-							? "this host"
-							: matchedText(s)
-					}})</span
+				asking…
+			</p>
+			<p
+				v-else
+				:class="['oper-empty', sources.stats === 'done' ? 'oper-empty-ok' : 'oper-muted']"
+			>
+				<template v-if="sources.stats === 'done'">
+					No live G-line, shun or Z-line covers them{{
+						model.recentBans.length ? "" : ", and the kept feed saw none set"
+					}}.
+				</template>
+				<template v-else
+					>The ban list could not be read ({{ notes.stats ?? "not asked" }}).</template
 				>
-				<span v-else class="oper-muted"> ({{ matchedText(s) }})</span>
-				<span v-if="s.fate">, {{ s.fate }}</span>
-			</li>
-		</ul>
-		<p v-else class="oper-muted">
-			Nothing in the kept feed shares their IP, host, realname or account.
-		</p>
+			</p>
+		</section>
 
-		<p class="oper-verdict">{{ model.verdict || "…" }}</p>
+		<section class="oper-card-section">
+			<div class="oper-section-head">
+				<h3 class="oper-report-section-title">Seen before</h3>
+				<span v-if="model.seen.length" class="oper-count">{{ model.seen.length }}</span>
+			</div>
+			<p v-if="model.snoopMissing" class="oper-muted oper-activity-missing">
+				Not in {{ model.snoopMissing }}: earlier sessions aren't kept.
+			</p>
+			<ul v-if="model.seen.length" class="oper-seen oper-rows">
+				<li v-for="s in model.seen" :key="s.nick">
+					<span class="oper-row-time">{{ when(s.time) }}</span>
+					<span class="oper-row-main">
+						<Username :user="{nick: s.nick, mode: ''}" :network="network" />
+						<template v-if="s.ip || s.host">
+							<span class="oper-muted"> from </span>
+							<button
+								type="button"
+								:class="[
+									'oper-chip',
+									s.ip ? 'oper-chip-ip' : 'oper-chip-host',
+									{same: s.matched.includes(s.ip ? 'ip' : 'host')},
+								]"
+								title="Oper actions"
+								@click.stop="openMenu($event, s.ip ? 'ip' : 'host', (s.ip ?? s.host)!)"
+							>
+								{{ s.ip ?? s.host }}
+							</button>
+						</template>
+						<span v-if="s.fate" class="oper-row-fate oper-muted">{{ s.fate }}</span>
+					</span>
+					<span class="oper-row-tags">
+						<span
+							v-for="m in s.matched"
+							:key="m"
+							:class="['oper-tag', 'plain', {warn: m === 'ip'}]"
+							>same {{ m === "ip" ? "IP" : m }}</span
+						>
+					</span>
+				</li>
+			</ul>
+			<p v-else class="oper-empty oper-muted">
+				Nothing in the kept feed shares their IP, host, realname or account.
+			</p>
+		</section>
 	</div>
 </template>
 
@@ -227,7 +300,7 @@
 import {computed, defineComponent, PropType} from "vue";
 import type {ClientNetwork} from "../../js/types";
 import type {InvestigatedUser, SourceId, SourceState, UserModel} from "../../js/irc/investigate";
-import {type BanNear, type SeenEntry, whenText} from "../../js/helpers/verdict";
+import {type BanNear, whenText} from "../../js/helpers/verdict";
 import {formatDuration, relativeTime} from "../../js/helpers/operFormat";
 import {openOperTargetMenu, operChanFor} from "../../js/helpers/operMenu";
 import localetime from "../../js/helpers/localetime";
@@ -300,9 +373,6 @@ export default defineComponent({
 			return `${ban.type} ${parts.join(", ")}`;
 		};
 
-		const matchedText = (s: SeenEntry) =>
-			s.matched.map((m) => (m === "ip" ? "this IP" : `this ${m}`)).join(", ");
-
 		/** The compared user's value for a row, for the tint. */
 		const valueOf = (model: UserModel, key: string): string | undefined => {
 			if (key === "lastQuitHostmask") {
@@ -334,7 +404,7 @@ export default defineComponent({
 			pending,
 			bans,
 			banText,
-			matchedText,
+			view: computed(() => props.model.verdictView),
 			sameAs,
 			openMenu,
 			when: (ms: number) => whenText(ms, now.value),
