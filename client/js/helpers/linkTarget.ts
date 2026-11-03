@@ -61,7 +61,9 @@ function firstString(value: unknown): string {
 		value = value[0];
 	}
 
-	return value === undefined || value === null ? "" : String(value).trim();
+	return typeof value === "string" || typeof value === "number" || typeof value === "boolean"
+		? String(value).trim()
+		: "";
 }
 
 /**

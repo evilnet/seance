@@ -431,7 +431,9 @@ describe("PERSISTENCE ATTACH catch-up cursor (irc/persistence.ts)", function () 
 			expect(h.payloads("more")).to.deep.equal([]);
 			const messages: SharedMsg[] = h.messages(id);
 			expect(messages.map((m) => m.text)).to.deep.equal(["missed one", "missed two"]);
-			expect(messages.map((m) => m.id)).to.deep.equal(messages.map((m) => m.id).sort());
+			expect(messages.map((m) => m.id)).to.deep.equal(
+				messages.map((m) => m.id).sort((a, b) => a - b)
+			);
 			expect(messages.every((m) => m.id > 0)).to.equal(true);
 			expect(messages.every((m) => !m.highlight)).to.equal(true);
 			expect(h.client.findChannel("#seance")!.newestRef?.msgid).to.equal("r2");

@@ -572,9 +572,8 @@ async function pushSubscription(uuid: string, vapid: string): Promise<PushMateri
 function describeError(error: unknown): string {
 	if (error && typeof error === "object") {
 		const e = error as {name?: unknown; message?: unknown};
-		return `${typeof e.name === "string" ? e.name : "Error"}: ${
-			typeof e.message === "string" ? e.message : String(error)
-		}`;
+		const name = typeof e.name === "string" ? e.name : "Error";
+		return typeof e.message === "string" ? `${name}: ${e.message}` : name;
 	}
 
 	return String(error);

@@ -133,7 +133,6 @@ function connect(opts: {attended?: boolean; preAway?: boolean} = {}): Harness {
 		client,
 		dispatch,
 		transport,
-		dispatch,
 		sent() {
 			const result = transport.sent.slice(mark);
 			mark = transport.sent.length;

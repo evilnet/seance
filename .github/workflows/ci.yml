@@ -1,7 +1,7 @@
 # The gate every pull request and every push to develop goes through: the
-# lockfile installs as committed, the linters pass, the production build
-# succeeds, the Capacitor shell's committed files match its dependencies,
-# mocha passes, and the built app boots in a real Chromium.
+# lockfile installs as committed, the linters and the type check pass, the
+# production build succeeds, the Capacitor shell's committed files match its
+# dependencies, mocha passes, and the built app boots in a real Chromium.
 #
 # What it cannot see: anything rendered beyond "the app boots" (the suite has
 # no DOM; the browser scenarios in tools/scenarios/ stay author-side), live
@@ -46,6 +46,11 @@ jobs:
 
       - name: Lint
         run: pnpm lint
+
+      # The build configs, client/ (with shared/) and tools/; not test/ yet.
+      # .vue files are not type-checked.
+      - name: Type check
+        run: pnpm typecheck
 
       # Before mocha: test/tests/build.ts inspects public/.
       - name: Production build

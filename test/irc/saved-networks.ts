@@ -329,6 +329,7 @@ describe("saved-networks", function () {
 			port: "not a port",
 			tls: "false",
 			nick: 42,
+			join: ["#a", " #b ", {}],
 			sasl: "external",
 			commands: ["/a", "", " /b "],
 			lastUsed: "yesterday",
@@ -339,6 +340,7 @@ describe("saved-networks", function () {
 			port: 8067,
 			tls: false,
 			nick: "42",
+			join: "#a,#b",
 			sasl: "",
 		});
 		expect(net?.commands).to.deep.equal(["/a", "/b"]);

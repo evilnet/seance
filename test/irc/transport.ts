@@ -15,7 +15,6 @@ type Handler = (ev: unknown) => void;
 
 /** Minimal in-memory stand-in for the browser WebSocket, driven by the tests. */
 class FakeWebSocket {
-	// `object[]` because eslint's core no-use-before-define rejects a self-typed static.
 	static instances: object[] = [];
 	static throwOnConstruct = false;
 

@@ -22,7 +22,6 @@ yarn.lock
 .gitignore
 .prettierignore
 .editorconfig
-.eslintignore
 .gitattributes
 .node-version
 

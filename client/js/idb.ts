@@ -29,7 +29,7 @@ function open(): Promise<IDBDatabase> {
 			}
 		};
 
-		req.onerror = () => reject(req.error);
+		req.onerror = () => reject(req.error ?? new DOMException("Request failed", "UnknownError"));
 
 		req.onblocked = () => {
 			blocked = true;
@@ -52,12 +52,12 @@ export async function idbSet(key: string, value: unknown): Promise<void> {
 
 		tx.onerror = () => {
 			db.close();
-			reject(tx.error);
+			reject(tx.error ?? new DOMException("Transaction aborted", "AbortError"));
 		};
 
 		tx.onabort = () => {
 			db.close();
-			reject(tx.error);
+			reject(tx.error ?? new DOMException("Transaction aborted", "AbortError"));
 		};
 	});
 }
@@ -71,7 +71,7 @@ export async function idbGet<T>(key: string): Promise<T | undefined> {
 
 		tx.onabort = () => {
 			db.close();
-			reject(tx.error);
+			reject(tx.error ?? new DOMException("Transaction aborted", "AbortError"));
 		};
 
 		req.onsuccess = () => {
@@ -81,7 +81,7 @@ export async function idbGet<T>(key: string): Promise<T | undefined> {
 
 		req.onerror = () => {
 			db.close();
-			reject(req.error);
+			reject(req.error ?? new DOMException("Request failed", "UnknownError"));
 		};
 	});
 }

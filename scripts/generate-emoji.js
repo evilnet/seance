@@ -7,7 +7,8 @@ const fs = require("fs");
 // same regex as found in client/../parse.js
 const emojiModifiersRegex = /[\u{1f3fb}-\u{1f3ff}]|\u{fe0f}/gu;
 
-(async () => {
+// An unhandled rejection exits non-zero, which is what a failed fetch should do.
+void (async () => {
 	const response = await fetch(
 		"https://raw.githubusercontent.com/github/gemoji/master/db/emoji.json"
 	);

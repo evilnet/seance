@@ -747,7 +747,7 @@ export class LuaSandbox {
 	/** Compile `code` without running it: undefined when it is valid, else the syntax error. */
 	public check(code: string): string | undefined {
 		const res = this.call("check", [code]);
-		return res === true ? undefined : String(res ?? "Lua error");
+		return res === true ? undefined : typeof res === "string" ? res : "Lua error";
 	}
 
 	public dispatch(event: string, payload: unknown): void {

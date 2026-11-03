@@ -36,7 +36,7 @@ function audio(): HTMLAudioElement {
  * sound, mixing with Music and muted by the silent switch; the session type
  * is page-wide, so it goes back once the ping is over (a video preview the
  * user plays must stay playback). */
-export function playNotificationSound(): Promise<void> {
+export async function playNotificationSound(): Promise<void> {
 	try {
 		const session = (navigator as NavigatorWithAudioSession).audioSession;
 
@@ -53,7 +53,7 @@ export function playNotificationSound(): Promise<void> {
 		});
 	} catch (e) {
 		restoreSession();
-		return Promise.reject(e);
+		throw e;
 	}
 }
 

@@ -55,7 +55,7 @@ function openDb(): Promise<IDBDatabase> {
 		const req = indexedDB.open(DB_NAME, 1);
 		req.onupgradeneeded = () => req.result.createObjectStore(STORE);
 		req.onsuccess = () => resolve(req.result);
-		req.onerror = () => reject(req.error);
+		req.onerror = () => reject(req.error ?? new DOMException("Request failed", "UnknownError"));
 	});
 }
 
@@ -72,7 +72,7 @@ export function transactOn<T>(
 	return new Promise<T | undefined>((resolve, reject) => {
 		let settled = false;
 
-		const fail = (error: unknown) => {
+		const fail = (error: Error) => {
 			if (!settled) {
 				settled = true;
 				db.close();
@@ -92,11 +92,12 @@ export function transactOn<T>(
 				}
 			};
 
-			tx.onerror = () => fail(tx.error);
+			tx.onerror = () =>
+				fail(tx.error ?? new DOMException("Transaction aborted", "AbortError"));
 			tx.onabort = () =>
 				fail(tx.error ?? new DOMException("Transaction aborted", "AbortError"));
 		} catch (err: unknown) {
-			fail(err);
+			fail(err instanceof Error ? err : new Error(String(err)));
 		}
 	});
 }

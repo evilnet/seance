@@ -4,6 +4,7 @@ import {
 	ServicesConfig,
 	SharedNetwork,
 	SharedNetworkPresence,
+	SharedNetworkChan,
 	SharedNetworkMode,
 	SharedPresenceMode,
 	SharedServerOptions,
@@ -387,7 +388,3 @@ interface ClientToServerEvents {
 
 	search: EventHandler<SearchQuery>;
 }
-
-interface InterServerEvents {}
-
-interface SocketData {}

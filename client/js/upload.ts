@@ -1081,6 +1081,12 @@ export class Uploader {
 			fileReader.onerror = () => fileReader.abort();
 
 			fileReader.onload = () => {
+				// readAsDataURL gives a string; anything else sends the file as it is
+				if (typeof fileReader.result !== "string") {
+					resolve(file);
+					return;
+				}
+
 				const img = new Image();
 
 				img.onerror = () => resolve(file);
@@ -1109,7 +1115,7 @@ export class Uploader {
 					}, file.type);
 				};
 
-				img.src = String(fileReader.result);
+				img.src = fileReader.result;
 			};
 
 			fileReader.readAsDataURL(file);

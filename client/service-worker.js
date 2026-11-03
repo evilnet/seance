@@ -1,6 +1,5 @@
 // @ts-nocheck
 // Seance service worker (derived from The Lounge - https://github.com/thelounge/thelounge)
-/* global clients, importScripts */
 "use strict";
 
 // Seance is a static single-page app: everything under the registration scope
@@ -556,12 +555,13 @@ async function networkOf() {
 const IDB_NAME = "seance-push";
 const IDB_STORE = "kv";
 
+/** @returns {Promise<IDBDatabase>} */
 function idbOpen() {
 	return new Promise((resolve, reject) => {
 		const req = indexedDB.open(IDB_NAME, 1);
 		req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE);
 		req.onsuccess = () => resolve(req.result);
-		req.onerror = () => reject(req.error);
+		req.onerror = () => reject(req.error ?? new DOMException("Request failed", "UnknownError"));
 	});
 }
 
@@ -571,7 +571,7 @@ async function idbGet(key) {
 	return new Promise((resolve, reject) => {
 		const req = db.transaction(IDB_STORE).objectStore(IDB_STORE).get(key);
 		req.onsuccess = () => resolve(req.result);
-		req.onerror = () => reject(req.error);
+		req.onerror = () => reject(req.error ?? new DOMException("Request failed", "UnknownError"));
 	});
 }
 
@@ -582,7 +582,8 @@ async function idbSet(key, value) {
 		const tx = db.transaction(IDB_STORE, "readwrite");
 		tx.objectStore(IDB_STORE).put(value, key);
 		tx.oncomplete = () => resolve();
-		tx.onerror = () => reject(tx.error);
+		tx.onerror = () =>
+			reject(tx.error ?? new DOMException("Transaction aborted", "AbortError"));
 	});
 }
 
@@ -612,7 +613,8 @@ async function idbAppend(key, value, cap) {
 		};
 
 		tx.oncomplete = () => resolve();
-		tx.onerror = () => reject(tx.error);
+		tx.onerror = () =>
+			reject(tx.error ?? new DOMException("Transaction aborted", "AbortError"));
 	});
 }
 
@@ -1088,8 +1090,9 @@ function awayOnClose(uuids) {
 			closeRun.networks.add(uuid);
 		}
 
-		clearTimeout(closeRun.timer);
-		closeRun.timer = setTimeout(closeRun.fire, AWAY_ON_CLOSE_DELAY_MS);
+		const run = closeRun;
+		clearTimeout(run.timer);
+		run.timer = setTimeout(() => run.fire(), AWAY_ON_CLOSE_DELAY_MS);
 		return closeRun.promise;
 	}
 
@@ -1113,7 +1116,7 @@ function awayOnClose(uuids) {
 				});
 		};
 
-		run.timer = setTimeout(run.fire, AWAY_ON_CLOSE_DELAY_MS);
+		run.timer = setTimeout(() => run.fire(), AWAY_ON_CLOSE_DELAY_MS);
 	});
 	closeRun = run;
 	return run.promise;
@@ -1215,9 +1218,9 @@ async function updateBadge() {
 	}
 
 	if (total > 0 && self.navigator.setAppBadge) {
-		self.navigator.setAppBadge(total);
+		void self.navigator.setAppBadge(total);
 	} else if (self.navigator.clearAppBadge) {
-		self.navigator.clearAppBadge();
+		void self.navigator.clearAppBadge();
 	}
 }
 
@@ -1231,7 +1234,7 @@ self.addEventListener("push", function (event) {
 /** The generic notification: what a push shows when nothing better can be
  * made of it, and what a strict push event shows when its handler has not
  * shown anything in time. */
-function showGeneric(tag = "push-activity", target = undefined) {
+function showGeneric(tag = "push-activity", target) {
 	return showSafely(appName, {
 		tag,
 		icon: "img/icon-192.png",
@@ -1718,7 +1721,7 @@ const BRIEF_READ_STUB_MS = 4000;
  * for a taken message, which the page's own card under that tag replaces —
  * closed a few seconds later by a scheduled close (Chrome never refuses a
  * close). */
-async function keepChromeCount(target, quietTag = undefined) {
+async function keepChromeCount(target, quietTag) {
 	const windows = await appWindows();
 
 	if (windows.some((c) => c.visibilityState === "visible")) {

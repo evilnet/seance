@@ -12,7 +12,7 @@
 
 /** URL-safe base64 (no padding), as `vapid=` carries it → the bytes
  * `PushManager.subscribe()` expects. */
-export function decodeApplicationServerKey(b64: string): Uint8Array {
+export function decodeApplicationServerKey(b64: string): Uint8Array<ArrayBuffer> {
 	const padding = "=".repeat((4 - (b64.length % 4)) % 4);
 	const base64 = (b64 + padding).replace(/-/g, "+").replace(/_/g, "/");
 	const raw = atob(base64);

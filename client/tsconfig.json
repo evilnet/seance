@@ -1,29 +1,12 @@
 {
-  "extends": "../tsconfig.base.json" /* Path to base configuration file to inherit from. Requires TypeScript version 2.1 or later. */,
-  "include": [
-    "./**/*",
-    "../shared"
-  ] /* Specifies a list of glob patterns that match files to be included in compilation. If no 'files' or 'include' property is present in a tsconfig.json, the compiler defaults to including all files in the containing directory and subdirectories except those specified by 'exclude'. Requires TypeScript version 2.0 or later. */,
-  "files": [
-    "../package.json",
-    "./js/helpers/emoji-catalog.json",
-    "./js/helpers/fullnamemap.json",
-    "./js/helpers/simplemap.json",
-    "./js/helpers/themePairs.json",
-    "./js/helpers/ircmessageparser/shortcodes.json"
-  ] /* If no 'files' or 'include' property is present in a tsconfig.json, the compiler defaults to including all files in the containing directory and subdirectories except those specified by 'exclude'. When a 'files' property is specified, only those files and those specified by 'include' are included. */,
-  // "exclude": [],
+  "extends": "../tsconfig.base.json",
+  "include": ["./**/*", "../shared"],
   "compilerOptions": {
-    "sourceMap": false /*Create source map files for emitted JavaScript files. See more: https://www.typescriptlang.org/tsconfig#sourceMap */,
-    "jsx": "preserve" /* Specify what JSX code is generated. */,
-    "lib": ["DOM", "DOM.Iterable", "ESNext"],
-
-    // this enables stricter inference for data properties on `this`
-    "strict": true,
-    "module": "es2020",
-    "moduleResolution": "node",
-
-    // TODO: Remove eventually
-    "noImplicitAny": false /*Enable error reporting for expressions and declarations with an implied any type. See more: https://www.typescriptlang.org/tsconfig#noImplicitAny */
-  } /* Instructs the TypeScript compiler how to compile .ts files. */
+    // Vuex 4's `exports` has no `types` condition, so `bundler` cannot find
+    // its types and the store silently becomes `any`. Not in the base: tsx
+    // reads the root tsconfig's `paths` and would load this .d.ts at runtime.
+    "paths": {"vuex": ["../node_modules/vuex/types/index.d.ts"]},
+    // For Volar in editors; tsc checks no .vue files.
+    "jsx": "preserve"
+  }
 }
