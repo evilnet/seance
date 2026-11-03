@@ -6,8 +6,7 @@ import {readFileSync} from "fs";
 // off the config. Tauri sends it with HTML responses only, so the
 // translation worker (js/translate-worker.js), where the WebAssembly is
 // compiled and the blob: workers start, most likely runs under no policy of
-// its own and needs neither source below. They are kept as the Electron
-// shell had them — whose policy did reach the worker — in case a web view
+// its own and needs neither source below. They are kept in case a web view
 // applies the page's policy to it; neither is checked in a Tauri web view.
 describe("Tauri shell (shells/tauri/src-tauri/tauri.conf.json)", function () {
 	const config = JSON.parse(readFileSync("shells/tauri/src-tauri/tauri.conf.json", "utf8"));

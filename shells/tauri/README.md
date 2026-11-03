@@ -92,8 +92,8 @@ compiled out of a release build.
 | `LocalNotifications` | `checkPermissions`, `requestPermissions`, `schedule`, `removeDeliveredNotifications`; event `localNotificationActionPerformed` | Windows, Linux (`src/alerts.rs`); macOS answers from the Apple plugins. A click opens the conversation (on Windows only while the toast is on screen); reading it removes the alert on Linux only. Not yet run on Windows |
 
 - **CSP** (`tauri.conf.json`): `'self'` scripts only, plus
-  `'wasm-unsafe-eval'` and `blob:` workers as the Electron shell allowed
-  for the in-page translation engines (Tauri sends the policy with HTML
+  `'wasm-unsafe-eval'` and `blob:` workers for the in-page translation
+  engines (Tauri sends the policy with HTML
   only, so the worker most likely runs without it; see
   `test/tests/tauriShell.ts`), and the hash of every bundled script Tauri
   adds at build, inline styles (the
