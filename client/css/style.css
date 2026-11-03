@@ -4388,6 +4388,11 @@ html[data-contrast="more"] .oper-seg button[aria-pressed="true"] {
  * room, one with tabs under 40rem. A value shared with the compared user,
  * or with most of a channel's users, is tinted (`same`). */
 #oper-investigate-overlay {
+	/* Compare's head is outside the body's `investigate` container: the
+	 * overlay, the card's whole width on a phone, says when it is narrow. */
+	/* stylelint-disable-next-line property-no-unknown */
+	container: cmpcard / inline-size;
+
 	/* Absolute in #viewport, not fixed: fixed measures against the layout
 	 * viewport, which iOS does not shrink for the keyboard, so the footer
 	 * sat under it. #viewport is the visible band (see #sidebar-overlay). */
@@ -4419,6 +4424,8 @@ html[data-contrast="more"] .oper-seg button[aria-pressed="true"] {
 }
 
 .oper-investigate {
+	--oper-cmp-label: 7rem;
+
 	width: min(60rem, 100%);
 	height: min(50rem, 100%);
 	user-select: text;
@@ -4695,37 +4702,167 @@ html[data-contrast="more"] .oper-seg button[aria-pressed="true"] {
 	color: var(--body-color-muted);
 }
 
-/* Compare: two columns side by side, one with tabs when narrow. */
-.oper-compare {
+/* Compare: two users, one table (the oper kit's CompareCard). The card's
+ * head names the two value columns and stays put while the body scrolls;
+ * every fact is one row with both values in it, a matching row is marked
+ * in amber. Wide, the labels are a column of their own; narrow, a line
+ * over the two values, which stay side by side. The two columns have
+ * colours of their own, for the head's avatars and the dots: two nicks'
+ * hashed colours can be next to each other. */
+.oper-cmp-a {
+	color: #b48ae6;
+}
+
+.oper-cmp-b {
+	color: #6fa8dc;
+}
+
+.oper-investigate-compare .oper-card-head {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr);
-	gap: 1rem;
+	grid-template-columns: var(--oper-cmp-label) minmax(0, 1fr) minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 0 0.75rem;
+	padding-left: 2.375rem; /* the body's 1.5rem and the panel row's 0.875rem */
 }
 
-.oper-investigate-compare .oper-compare {
-	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+.oper-cmp-kicker {
+	font-size: 0.6875rem;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--oper-faint);
 }
 
-.oper-compare-tabs {
-	display: none;
-	grid-column: 1 / -1;
-	justify-self: start;
-}
-
-.oper-compare-head {
+.oper-cmp-who {
 	display: flex;
-	align-items: baseline;
-	justify-content: space-between;
-	gap: 0.5rem;
-}
-
-.oper-compare-title {
-	font-size: 1.125em;
-	margin: 0 0 0.25rem;
-}
-
-.oper-compare-col {
+	align-items: center;
+	gap: 0.6rem;
 	min-width: 0;
+}
+
+.oper-cmp-who .oper-avatar {
+	width: 2rem;
+	height: 2rem;
+	font-size: 0.75rem;
+}
+
+.oper-cmp-name {
+	min-width: 0;
+}
+
+.oper-investigate .oper-cmp-name h1 {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.oper-cmp-name .oper-ident-sub {
+	display: block;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.oper-investigate-compare .oper-card-tools {
+	justify-self: end;
+}
+
+.oper-compare {
+	display: flex;
+	flex-direction: column;
+	gap: 1.25rem;
+}
+
+.oper-cmp-sum {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem 0.75rem;
+}
+
+.oper-cmp-score {
+	font-weight: 600;
+}
+
+.oper-cmp-score em {
+	font-style: normal;
+	color: var(--oper-amber);
+}
+
+.oper-investigate .oper-props.oper-facts-pair > div {
+	display: grid;
+	grid-template-columns: var(--oper-cmp-label) minmax(0, 1fr) minmax(0, 1fr);
+	gap: 0.2rem 0.75rem;
+	padding: 0.7rem 0.875rem;
+}
+
+.oper-investigate .oper-props.oper-facts-pair dt {
+	margin: 0;
+	padding-top: 0.15rem;
+}
+
+.oper-investigate .oper-props.oper-facts-pair dd {
+	overflow-wrap: anywhere;
+}
+
+.oper-investigate .oper-props.oper-facts-pair dd .oper-chip,
+.oper-investigate .oper-props.oper-facts-pair dd .oper-value {
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+.oper-investigate dl.oper-props.oper-facts-pair .same {
+	background: linear-gradient(90deg, color-mix(in oklab, var(--oper-amber) 10%, transparent), transparent 70%);
+	box-shadow:
+		inset 0 1px 0 var(--oper-line),
+		inset 2px 0 0 var(--oper-amber);
+}
+
+.oper-investigate .oper-props.oper-facts-pair .same dt {
+	color: var(--oper-amber);
+}
+
+.oper-investigate .oper-props.oper-facts-pair .same dt::after {
+	content: " · same";
+	letter-spacing: 0;
+	text-transform: none;
+}
+
+.oper-investigate .oper-props.oper-facts-differences > div.same {
+	display: none;
+}
+
+/* Seen before, both users': a dot each for whose sighting it is. */
+.oper-cmp-legend {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	color: var(--body-color-muted);
+	font-size: 0.75rem;
+}
+
+.oper-cmp-legend .oper-cmp-dot + .oper-cmp-dot,
+.oper-cmp-legend .oper-cmp-dot:not(:first-child) {
+	margin-left: 0.5rem;
+}
+
+.oper-cmp-whose {
+	display: inline-flex;
+	gap: 0.25rem;
+	margin-left: auto;
+}
+
+.oper-cmp-dot {
+	display: inline-block;
+	width: 0.5rem;
+	height: 0.5rem;
+	border-radius: 50%;
+	background: currentcolor;
+}
+
+.oper-cmp-dot.off {
+	background: transparent;
+	box-shadow: inset 0 0 0 1px var(--oper-line-2);
 }
 
 .oper-compare-ask {
@@ -4746,18 +4883,31 @@ html[data-contrast="more"] .oper-seg button[aria-pressed="true"] {
 }
 
 /* stylelint-disable-next-line at-rule-no-unknown */
-@container investigate (max-width: 40rem) {
-	.oper-investigate-compare .oper-compare {
-		grid-template-columns: minmax(0, 1fr);
+@container cmpcard (max-width: 43rem) {
+	.oper-investigate-compare .oper-card-head {
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+		padding-left: 1.25rem;
 	}
 
-	.oper-investigate-compare .oper-compare-tabs {
-		display: inline-flex;
-	}
-
-	.oper-investigate-compare .oper-compare[data-tab="a"] .oper-compare-b,
-	.oper-investigate-compare .oper-compare[data-tab="b"] .oper-compare-a {
+	.oper-cmp-kicker {
 		display: none;
+	}
+}
+
+/* stylelint-disable-next-line at-rule-no-unknown */
+@container investigate (max-width: 40rem) {
+	.oper-investigate .oper-props.oper-facts-pair > div {
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		padding: 0.55rem 0.75rem;
+	}
+
+	.oper-investigate .oper-props.oper-facts-pair dt {
+		grid-column: 1 / -1;
+	}
+
+	.oper-investigate .oper-props.oper-facts-pair dd + dd {
+		padding-left: 0.75rem;
+		box-shadow: inset 1px 0 0 var(--oper-line);
 	}
 }
 
@@ -5215,6 +5365,12 @@ html[data-contrast="more"] .oper-tag {
 		padding: 0;
 	}
 
+	/* A label with no icon keeps its words. */
+	.oper-investigate-actions .oper-btn-secondary.oper-compare-end {
+		width: auto;
+		padding: 0 0.85rem;
+	}
+
 	.oper-investigate-actions .oper-btn-secondary .oper-btn-label {
 		position: absolute;
 		width: 1px;
@@ -5392,20 +5548,11 @@ html[data-contrast="more"] .oper-tag {
 	font-family: inherit;
 }
 
-/* Narrow (a phone, or a Compare column): the match tags go under the
- * nick instead of squeezing it. */
-.oper-investigate-compare .oper-rows li {
-	grid-template-columns: auto minmax(0, 1fr);
-}
-
-.oper-investigate-compare .oper-rows .oper-row-tags {
-	grid-column: 2;
-	justify-content: flex-start;
-}
-
 /* stylelint-disable-next-line at-rule-no-unknown */
 @container investigate (max-width: 36rem) {
-	.oper-rows li {
+	/* Narrow: the match tags go under the nick instead of squeezing it;
+	 * Compare's two dots are small enough to keep their column. */
+	.oper-rows li:not(.oper-cmp-seen) {
 		grid-template-columns: auto minmax(0, 1fr);
 	}
 

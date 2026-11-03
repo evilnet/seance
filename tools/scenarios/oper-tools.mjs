@@ -1159,23 +1159,59 @@ export default async function run(page) {
 	await page.fill(`${overlay} .oper-compare-ask input`, "opbot2");
 	await reach(`${overlay} .oper-compare-ask button[type="submit"]`);
 	await page.waitFor(
-		`!!document.querySelector("${overlay} .oper-compare-b .oper-facts .oper-chip-ip")`,
+		`document.querySelectorAll("${overlay} .oper-facts-pair .oper-chip-ip").length === 2`,
 		{label: "the compared user's IP", timeout: 20000}
 	);
 	const tinted = await page.evaluate(
-		`Array.from(document.querySelectorAll("${overlay} .oper-compare-b .oper-facts .same dt")).map((dt) => dt.textContent.trim())`
+		`Array.from(document.querySelectorAll("${overlay} .oper-facts-pair .same dt")).map((dt) => dt.textContent.trim())`
 	);
 	page.check(`the matching rows are tinted (${tinted.join(", ")})`, tinted.includes("IP"));
 	await page.screenshot("13-user-compare", {selector: `${overlay} .oper-investigate`});
+	// Every fact is one row with both values in it, side by side even on a
+	// phone; the card's head names the two columns and stays in view as the
+	// body scrolls; Differences leaves the matching rows out.
+	const rows = await page.evaluate(`(() => {
+		const rows = Array.from(document.querySelectorAll("${overlay} .oper-facts-pair > div"));
+		return rows.length > 0 && rows.every((r) => {
+			const dd = r.querySelectorAll(":scope > dd");
+			if (dd.length !== 2) return false;
+			const [a, b] = Array.from(dd).map((d) => d.getBoundingClientRect());
+			return Math.abs(a.top - b.top) < 1 && b.left >= a.right;
+		});
+	})()`);
+	page.check("each compared fact has both values side by side in its row", rows);
+	const headsStay = await page.evaluate(`(() => {
+		const body = document.querySelector("${overlay} .settings-modal-body");
+		const who = Array.from(document.querySelectorAll("${overlay} .oper-card-head .oper-cmp-who"));
+		if (!body || who.length !== 2) return false;
+		body.scrollTop = body.scrollHeight;
+		const b = body.getBoundingClientRect();
+		return body.scrollTop > 0 && who.every((w) => w.getBoundingClientRect().bottom <= b.top + 0.5);
+	})()`);
+	page.check("the compared nicks stay in view scrolled to the end", headsStay);
+	await page.screenshot("13c-user-compare-scrolled", {selector: `${overlay} .oper-investigate`});
+	await page.evaluate(
+		`document.querySelector("${overlay} .oper-facts-pair").scrollIntoView({block: "start"})`
+	);
+	await page.screenshot("13d-user-compare-facts", {selector: `${overlay} .oper-investigate`});
+	await reach(`${overlay} .oper-cmp-sum .oper-seg button:last-child`);
+	const onlyDiff = await page.evaluate(`(() => {
+		const rows = Array.from(document.querySelectorAll("${overlay} .oper-facts-pair > div"));
+		const shown = rows.filter((r) => r.getClientRects().length > 0);
+		return rows.some((r) => r.classList.contains("same")) &&
+			shown.length > 0 && shown.every((r) => !r.classList.contains("same"));
+	})()`);
+	page.check("Differences leaves the matching rows out", onlyDiff);
+	await page.screenshot("13e-user-compare-differences", {
+		selector: `${overlay} .oper-investigate`,
+	});
+	await reach(`${overlay} .oper-cmp-sum .oper-seg button:first-child`);
+	await page.evaluate(`document.querySelector("${overlay} .settings-modal-body").scrollTop = 0`);
 
 	// A chip's Who answers in chat, behind the card: the card says where,
 	// and Show closes the cards and goes there.
-	// The column on show: one at a time on a phone (Compare's tabs).
 	const chip = `${overlay} .oper-facts .oper-chip-ip`;
-	const shown = await page.evaluate(
-		`Array.from(document.querySelectorAll("${chip}")).findIndex((el) => el.getClientRects().length > 0)`
-	);
-	await page.click(chip, Math.max(0, shown));
+	await page.click(chip);
 	await page.waitFor(`!!document.querySelector("#context-menu .context-menu-oper-who")`, {
 		label: "Who is on it in the chip's menu",
 	});

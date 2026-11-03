@@ -17,31 +17,49 @@
 			:aria-label="title"
 		>
 			<div class="settings-modal-header oper-card-head">
-				<span
-					:class="[
-						'oper-avatar',
-						model.kind === 'channel' ? 'oper-avatar-channel' : ['user', avatarColor],
-					]"
-					aria-hidden="true"
-					>{{ model.kind === "channel" ? "" : initials }}</span
-				>
-				<div class="oper-ident">
-					<h1>
-						{{ top.request.target }}
-						<span
-							v-if="presence"
-							:class="['oper-tag', presence === 'online' ? 'ok' : 'warn']"
-							>{{ presence }}</span
-						>
-					</h1>
-					<div class="oper-ident-sub">
-						<span v-if="identLine" class="oper-mono">{{ identLine }}</span>
-						<span v-if="identLine"> · </span>{{ network.name
-						}}<template v-if="stack.length > 1">
-							· from {{ stack[stack.length - 2].request.target }}</template
-						>
+				<!-- Compare: the head names the two value columns, and stays put
+				     while the facts scroll under it. -->
+				<template v-if="compareModel">
+					<span class="oper-cmp-kicker">Compare</span>
+					<div v-for="p in comparePeople" :key="p.target" class="oper-cmp-who">
+						<span :class="['oper-avatar', p.side]" aria-hidden="true">{{
+							p.initials
+						}}</span>
+						<div class="oper-cmp-name">
+							<h1>{{ p.target }}</h1>
+							<span class="oper-ident-sub">{{ p.status }}</span>
+						</div>
 					</div>
-				</div>
+				</template>
+				<template v-else>
+					<span
+						:class="[
+							'oper-avatar',
+							model.kind === 'channel'
+								? 'oper-avatar-channel'
+								: ['user', avatarColor],
+						]"
+						aria-hidden="true"
+						>{{ model.kind === "channel" ? "" : initials }}</span
+					>
+					<div class="oper-ident">
+						<h1>
+							{{ top.request.target }}
+							<span
+								v-if="presence"
+								:class="['oper-tag', presence === 'online' ? 'ok' : 'warn']"
+								>{{ presence }}</span
+							>
+						</h1>
+						<div class="oper-ident-sub">
+							<span v-if="identLine" class="oper-mono">{{ identLine }}</span>
+							<span v-if="identLine"> · </span>{{ network.name
+							}}<template v-if="stack.length > 1">
+								· from {{ stack[stack.length - 2].request.target }}</template
+							>
+						</div>
+					</div>
+				</template>
 				<div class="oper-card-tools">
 					<button
 						type="button"
@@ -51,6 +69,7 @@
 						@click="refresh"
 					></button>
 					<button
+						v-if="!compareModel"
 						type="button"
 						class="oper-icon-btn oper-icon-raw"
 						title="Raw replies"
@@ -438,61 +457,109 @@
 
 					<!-- --------------------------------------------------- user -->
 					<template v-else>
-						<div class="oper-compare" :data-tab="compareTab">
-							<div
-								v-if="compareModel"
-								class="oper-compare-tabs oper-seg"
-								role="group"
-								aria-label="Show"
-							>
-								<button
-									type="button"
-									:aria-pressed="compareTab === 'a'"
-									@click="compareTab = 'a'"
+						<InvestigateUser
+							v-if="!compareModel"
+							:model="model"
+							:sources="sources"
+							:notes="notes"
+							:network="network"
+							@sent="sentTo"
+						/>
+						<!-- Compare: two users, one table (the kit's CompareCard). -->
+						<div v-else class="oper-compare">
+							<div class="oper-cmp-sum">
+								<span :class="['oper-tag', compareSum.tone]">{{
+									compareSum.lead
+								}}</span>
+								<span class="oper-cmp-score"
+									><em>{{ compareSum.same.length }}</em> of
+									{{ compareSum.known }} match</span
 								>
-									{{ model.target }}
-								</button>
-								<button
-									type="button"
-									:aria-pressed="compareTab === 'b'"
-									@click="compareTab = 'b'"
-								>
-									{{ compareModel.target }}
-								</button>
-							</div>
-							<div class="oper-compare-col oper-compare-a">
-								<h2 v-if="compareModel" class="oper-compare-title">
-									{{ model.target }}
-								</h2>
-								<InvestigateUser
-									:model="model"
-									:sources="sources"
-									:notes="notes"
-									:network="network"
-									:other="compareModel"
-									@sent="sentTo"
-								/>
-							</div>
-							<div v-if="compareModel" class="oper-compare-col oper-compare-b">
-								<div class="oper-compare-head">
-									<h2 class="oper-compare-title">{{ compareModel.target }}</h2>
+								<span v-if="compareSum.same.length" class="oper-muted">{{
+									compareSum.same.join(" · ")
+								}}</span>
+								<span class="oper-spacer"></span>
+								<div class="oper-seg" role="group" aria-label="Show">
 									<button
 										type="button"
-										class="oper-icon-btn oper-icon-close"
-										title="End the comparison"
-										aria-label="End the comparison"
-										@click="endCompare"
-									></button>
+										:aria-pressed="!differences"
+										@click="differences = false"
+									>
+										All
+									</button>
+									<button
+										type="button"
+										:aria-pressed="differences"
+										@click="differences = true"
+									>
+										Differences
+									</button>
 								</div>
-								<InvestigateUser
-									:model="compareModel"
-									:sources="compareSources"
-									:notes="compareNotes"
-									:network="network"
-									:other="model"
-									@sent="sentTo"
-								/>
 							</div>
+							<InvestigateFacts
+								:sides="[
+									{model, sources},
+									{model: compareModel, sources: compareSources},
+								]"
+								:network="network"
+								:differences="differences"
+								@sent="sentTo"
+							/>
+							<section class="oper-card-section">
+								<div class="oper-section-head">
+									<h3 class="oper-report-section-title">Seen before</h3>
+									<span v-if="compareSeen.length" class="oper-count">{{
+										compareSeen.length
+									}}</span>
+									<span class="oper-spacer"></span>
+									<span class="oper-cmp-legend">
+										<i :class="['oper-cmp-dot', 'oper-cmp-a']"></i
+										>{{ model.target }}
+										<i :class="['oper-cmp-dot', 'oper-cmp-b']"></i
+										>{{ compareModel.target }}
+									</span>
+								</div>
+								<ul v-if="compareSeen.length" class="oper-seen oper-rows">
+									<li
+										v-for="s in compareSeen"
+										:key="s.entry.nick"
+										class="oper-cmp-seen"
+									>
+										<span class="oper-row-time">{{ when(s.entry.time) }}</span>
+										<span class="oper-row-main">
+											<Username
+												:user="{nick: s.entry.nick, mode: ''}"
+												:network="network"
+											/>
+											<template v-if="s.entry.ip || s.entry.host">
+												<span class="oper-muted"> from </span>
+												<code class="oper-mono oper-value">{{
+													s.entry.ip ?? s.entry.host
+												}}</code>
+											</template>
+											<span
+												v-if="s.entry.fate"
+												class="oper-row-fate oper-muted"
+												>{{ s.entry.fate }}</span
+											>
+										</span>
+										<span
+											class="oper-cmp-whose"
+											:aria-label="whoseText(s)"
+											:title="whoseText(s)"
+											><i
+												:class="['oper-cmp-dot', 'oper-cmp-a', {off: !s.a}]"
+											></i
+											><i
+												:class="['oper-cmp-dot', 'oper-cmp-b', {off: !s.b}]"
+											></i
+										></span>
+									</li>
+								</ul>
+								<p v-else class="oper-empty oper-muted">
+									Nothing in the kept feed is like either of them.
+								</p>
+							</section>
 						</div>
 						<form v-if="asking" class="oper-compare-ask" @submit.prevent="startCompare">
 							<input
@@ -541,6 +608,15 @@
 							}}</span>
 						</button>
 					</template>
+					<template v-else-if="compareModel">
+						<button
+							type="button"
+							class="oper-btn oper-btn-secondary oper-compare-end"
+							@click="endCompare"
+						>
+							End compare
+						</button>
+					</template>
 					<template v-else>
 						<button
 							v-if="canKill"
@@ -578,6 +654,7 @@
 						</button>
 					</template>
 					<button
+						v-if="!compareModel"
 						type="button"
 						class="oper-btn oper-btn-secondary oper-icon-note"
 						title="Note"
@@ -684,8 +761,12 @@ import localetime from "../../js/helpers/localetime";
 import useNow from "../../js/hooks/use-now";
 import {ChanState} from "../../../shared/types/chan";
 import ParsedMessage from "../ParsedMessage.vue";
+import InvestigateFacts from "./InvestigateFacts.vue";
 import InvestigateUser from "./InvestigateUser.vue";
 import colorClass from "../../js/helpers/colorClass";
+import {compareSummary, mergeSeen, type SharedSighting} from "../../js/helpers/operCompare";
+import {whenText} from "../../js/helpers/verdict";
+import Username from "../Username.vue";
 
 interface Card {
 	request: InvestigateRequest;
@@ -710,7 +791,7 @@ const RESULTS_TOAST_MS = 8000;
  */
 export default defineComponent({
 	name: "InvestigateCard",
-	components: {InvestigateUser, ParsedMessage},
+	components: {InvestigateFacts, InvestigateUser, ParsedMessage, Username},
 	setup() {
 		const store = useStore();
 		const now = useNow();
@@ -728,7 +809,6 @@ export default defineComponent({
 		const asking = ref(false);
 		const compareWith = ref("");
 		const compareField = ref<HTMLInputElement | null>(null);
-		const compareTab = ref<"a" | "b">("a");
 		let toastTimer: ReturnType<typeof setTimeout> | undefined;
 
 		const top = computed(() => stack.value[stack.value.length - 1]);
@@ -766,6 +846,53 @@ export default defineComponent({
 			void tick.value;
 			return {...(top.value?.compare?.notes ?? {})};
 		});
+
+		/** Compare's Differences: only the rows whose values differ. */
+		const differences = ref(false);
+		const initialsOf = (nick: string) =>
+			nick
+				.replace(/[^\p{L}\p{N}]/gu, "")
+				.slice(0, 2)
+				.toLowerCase();
+		/** The two users the Compare head names, in column order. */
+		const comparePeople = computed(() => {
+			const b = compareModel.value;
+			const a = model.value;
+
+			if (!b || a?.kind !== "user") {
+				return [];
+			}
+
+			return [a, b].map((m, i) => {
+				const u = m.user;
+				const status =
+					u.connectedAt === undefined
+						? "asking…"
+						: `${u.away ? "away" : "online"} · ${sinceTime(u.connectedAt, now.value)}`;
+				return {
+					target: m.target,
+					initials: initialsOf(m.target),
+					side: i === 0 ? "oper-cmp-a" : "oper-cmp-b",
+					status,
+				};
+			});
+		});
+		const compareSum = computed(() => {
+			const a = model.value;
+			const b = compareModel.value;
+			return a?.kind === "user" && b
+				? compareSummary(a, b)
+				: {known: 0, same: [], tone: "plain" as const, lead: ""};
+		});
+		const compareSeen = computed<SharedSighting[]>(() => {
+			const a = model.value;
+			const b = compareModel.value;
+			return a?.kind === "user" && b ? mergeSeen(a, b) : [];
+		});
+		const whoseText = (s: SharedSighting) =>
+			s.a && s.b
+				? "like both"
+				: `like ${s.a ? model.value?.target ?? "" : compareModel.value?.target ?? ""}`;
 
 		/** The user card's header: initials, a nick colour, `ident@host`, online. */
 		const userModel = computed(() => (model.value?.kind === "user" ? model.value : undefined));
@@ -878,7 +1005,6 @@ export default defineComponent({
 			showRaw.value = false;
 			editingNote.value = false;
 			asking.value = false;
-			compareTab.value = "a";
 			investigation.start();
 			readNote();
 		};
@@ -1208,7 +1334,6 @@ export default defineComponent({
 			investigation.onChange = bump;
 			card.compare = investigation;
 			asking.value = false;
-			compareTab.value = "b";
 			investigation.start();
 			bump();
 		};
@@ -1219,7 +1344,7 @@ export default defineComponent({
 			if (card?.compare) {
 				card.compare.stop();
 				delete card.compare;
-				compareTab.value = "a";
+				differences.value = false;
 				bump();
 			}
 		};
@@ -1352,6 +1477,12 @@ export default defineComponent({
 			compareModel,
 			compareSources,
 			compareNotes,
+			comparePeople,
+			compareSum,
+			compareSeen,
+			differences,
+			whoseText,
+			when: (ms: number) => whenText(ms, now.value),
 			title,
 			initials,
 			avatarColor,
@@ -1377,7 +1508,6 @@ export default defineComponent({
 			asking,
 			compareWith,
 			compareField,
-			compareTab,
 			canBan,
 			canKill,
 			now,
