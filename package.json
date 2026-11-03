@@ -23,7 +23,7 @@
     "test:e2e": "pnpm build && playwright test",
     "test:mocha": "pnpm build && NODE_ENV=test mocha --config=test/.mocharc.yml 'test/**/*.ts'",
     "watch": "vite build --watch",
-    "typecheck": "tsc -p . && tsc -p client && tsc -p tools"
+    "typecheck": "tsc -p . && tsc -p client && tsc -p shared && tsc -p tools"
   },
   "keywords": [
     "irc",

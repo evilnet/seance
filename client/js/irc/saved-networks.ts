@@ -141,6 +141,11 @@ export function newUuid(): string {
 // ------------------------------------------------------------ normalising
 
 function asString(value: unknown): string {
+	// A hand-edited backup may list channels: `"join": ["#a", "#b"]`.
+	if (Array.isArray(value)) {
+		return value.map(asString).filter(Boolean).join(",");
+	}
+
 	return typeof value === "string" || typeof value === "number" || typeof value === "boolean"
 		? String(value).trim()
 		: "";

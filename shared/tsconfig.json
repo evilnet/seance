@@ -2,6 +2,8 @@
   "extends": "../tsconfig.base.json",
   "include": ["*"],
   "compilerOptions": {
-    "types": []
+    "types": [],
+    // Nothing here is untyped: keep it that way, unlike client/.
+    "noImplicitAny": true
   }
 }
