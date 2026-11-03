@@ -4,7 +4,8 @@
  * Seance dials a **WebSocket**, so a link's authority is a WebSocket endpoint,
  * not a TCP IRC one — see `docs/resources/irc-links.md`:
  *
- * - `web+irc://host[:port][/#chan]` is our own scheme (a web app may only
+ * - `web+irc://host[:port][/#chan]` is our own scheme, `web+ircs:` the same
+ *   thing for those who expect the `s` (a web app may only
  *   register handlers for `web+…` schemes, and `irc:`/`ircs:` would promise a
  *   TCP connection we cannot make). Always `wss://`; no port means the saved
  *   network's, else 443 (`linkTarget.ts`).
@@ -34,10 +35,10 @@ export default (stringUri: string): ParsedIrcUri | Record<string, never> => {
 	}
 
 	// Legacy IRC links (https://tools.ietf.org/html/draft-butcher-irc-url-04)
-	// keep their host and channels; only web+irc: carries a usable port.
+	// keep their host and channels; only web+irc(s): carries a usable port.
 	const legacy = uri.protocol === "irc:" || uri.protocol === "ircs:";
 
-	if (!legacy && uri.protocol !== "web+irc:") {
+	if (!legacy && uri.protocol !== "web+irc:" && uri.protocol !== "web+ircs:") {
 		return {};
 	}
 

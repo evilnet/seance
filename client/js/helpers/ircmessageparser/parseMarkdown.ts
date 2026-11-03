@@ -60,7 +60,7 @@ const MARKER_CHARS = "*_~|`>#[]()\\-$";
 const fenceOpenRx = /^(`{3,})(?:([\w+.#-]*)(?::([^:\n]+))?)?\n/;
 // The URL part allows one level of balanced parentheses, so Wikipedia-style
 // links survive; the scheme is matched case-insensitively.
-const linkRx = /^\[([^\]\n]+)\]\(((?:https?:\/\/|web\+irc:)(?:[^\s()]|\([^\s()]*\))+)\)/i;
+const linkRx = /^\[([^\]\n]+)\]\(((?:https?:\/\/|web\+ircs?:)(?:[^\s()]|\([^\s()]*\))+)\)/i;
 
 type ScanFlag = keyof Omit<
 	PieceFlags,

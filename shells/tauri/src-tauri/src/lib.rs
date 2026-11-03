@@ -103,8 +103,8 @@ struct Links {
 }
 
 /// The schemes the page reads (client/js/helpers/parseIrcUri.ts). The OS hands
-/// a desktop shell `web+irc:` alone (tauri.conf.json); a link in a message can
-/// be any of them.
+/// a desktop shell the `web+` two alone (tauri.conf.json); a link in a message
+/// can be any of them.
 fn is_irc_link(value: &str) -> bool {
     // Bytes, not a str slice: a link from outside may put a multi-byte
     // character where a slice would cut it.
@@ -112,7 +112,7 @@ fn is_irc_link(value: &str) -> bool {
         value.len() > scheme.len()
             && value.as_bytes()[..scheme.len()].eq_ignore_ascii_case(scheme.as_bytes())
     };
-    has("web+irc:/") || has("irc:/") || has("ircs:/")
+    has("web+irc:/") || has("web+ircs:/") || has("irc:/") || has("ircs:/")
 }
 
 /// A link from the OS (a deep link, a second launch's argv) or a message: to

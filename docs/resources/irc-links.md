@@ -8,6 +8,9 @@ define our own scheme instead.
 
     web+irc://host[:port][/#channel[,#channel…]]
 
+`web+ircs://` is the same scheme under the name people expect from `ircs:`, and
+means exactly the same thing: both always dial `wss://`.
+
 - Always `wss://`. A page served over https cannot open a plain `ws://` socket
   anyway, so a link never means cleartext; plain `ws://` stays a dev case you
   type into the connect form.
@@ -49,16 +52,16 @@ scheme is the whole cost, which is why nothing here depends on it.
 
 ## Where it is wired
 
-| Place                                    | What it does                                                                                         |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `client/manifest.webmanifest`            | `protocol_handlers`: the installed PWA claims `web+irc` → `./?uri=%s`                                |
-| `client/components/Settings/General.vue` | pre-install equivalent, `registerProtocolHandler("web+irc", …)`, in a tab                            |
-| `client/js/helpers/parseIrcUri.ts`       | `?uri=` → `{name, host, port, join, tls}`                                                            |
-| `client/js/helpers/linkTarget.ts`        | matches the link against saved networks / deploy policy; strips secrets                              |
-| `client/js/boot.ts`                      | `handleQueryParams()` pushes those onto the `Connect` route                                          |
-| `client/js/pwa.ts`                       | `launchQueue`: a link with the app already open does not reload it                                   |
-| `shells/tauri/src-tauri/src/lib.rs`      | deep-link plugin (`web+irc`; `irc`, `ircs` on the phones), a second launch's argv → `App.appUrlOpen` |
-| `test/tests/build.ts`                    | asserts the built manifest still carries the handler                                                 |
+| Place                                    | What it does                                                                                            |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `client/manifest.webmanifest`            | `protocol_handlers`: the installed PWA claims `web+irc`, `web+ircs` → `./?uri=%s`                       |
+| `client/components/Settings/General.vue` | pre-install equivalent, `registerProtocolHandler` for both, in a tab                                    |
+| `client/js/helpers/parseIrcUri.ts`       | `?uri=` → `{name, host, port, join, tls}`                                                               |
+| `client/js/helpers/linkTarget.ts`        | matches the link against saved networks / deploy policy; strips secrets                                 |
+| `client/js/boot.ts`                      | `handleQueryParams()` pushes those onto the `Connect` route                                             |
+| `client/js/pwa.ts`                       | `launchQueue`: a link with the app already open does not reload it                                      |
+| `shells/tauri/src-tauri/src/lib.rs`      | deep-link plugin (`web+irc(s)`; `irc`, `ircs` on the phones), a second launch's argv → `App.appUrlOpen` |
+| `test/tests/build.ts`                    | asserts the built manifest still carries the handler                                                    |
 
 Matching a link against saved networks
 landed 2026-09-05 — see `docs/projects/irc-link-new-server-dialog.md`.

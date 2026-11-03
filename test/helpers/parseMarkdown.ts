@@ -567,6 +567,12 @@ describe("markdown — masked links", () => {
 		]);
 	});
 
+	it("accepts web+ircs: links", () => {
+		expect(md("[c](web+ircs://irc.example.org/#chan)")).to.deep.equal([
+			{text: "c", href: "web+ircs://irc.example.org/#chan"},
+		]);
+	});
+
 	it("accepts web+irc: links", () => {
 		expect(md("[c](web+irc://irc.example.org/#chan)")).to.deep.equal([
 			{text: "c", href: "web+irc://irc.example.org/#chan"},

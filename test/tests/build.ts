@@ -162,7 +162,10 @@ describe("public folder", function () {
 		expect(manifest.launch_handler).to.deep.equal({client_mode: "focus-existing"});
 		// web+irc:// links open in the installed app via ?uri= (a web app can
 		// only claim web+… schemes; irc:/ircs: would promise TCP we cannot do)
-		expect(manifest.protocol_handlers.map((p) => p.protocol)).to.have.members(["web+irc"]);
+		expect(manifest.protocol_handlers.map((p) => p.protocol)).to.have.members([
+			"web+irc",
+			"web+ircs",
+		]);
 
 		for (const handler of manifest.protocol_handlers) {
 			expect(handler.url).to.equal("./?uri=%s");

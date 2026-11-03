@@ -24,8 +24,8 @@ import {onNativePushTap} from "./helpers/nativePush";
 import {onNativeAlertTap} from "./helpers/nativeAlerts";
 import {store} from "./store";
 
-// A link the OS handed the app — `irc:`, `ircs:` or `web+irc:`, the schemes
-// Info.plist claims (a desktop shell claims `web+irc:` alone). Cold, it is the launch URL (`getLaunchUrl`), which
+// A link the OS handed the app — `irc:`, `ircs:`, `web+irc:` or `web+ircs:`, the
+// schemes Info.plist claims (a desktop shell claims the `web+` two alone). Cold, it is the launch URL (`getLaunchUrl`), which
 // boot.ts awaits before it routes, the way a browser page reads `?uri=`.
 // While running it comes through `appUrlOpen`, and so does a tap on such a
 // link in a message.

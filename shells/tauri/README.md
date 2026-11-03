@@ -103,7 +103,7 @@ compiled out of a release build.
   unmodified by Tauri, whose nonces would void `'unsafe-inline'`.
 - **Navigation**: inside the app only; other http(s) links,
   `target="_blank"` and `window.open()` open in the user's browser.
-- **Links**: `deep-link` claims `web+irc:`; the launch link comes from
+- **Links**: `deep-link` claims `web+irc:` and `web+ircs:`; the launch link comes from
   `App.getLaunchUrl`, later ones as `App.appUrlOpen` — no reload, so no
   connection is dropped. A second launch hands its argv over
   (`single-instance`). A build run from source registers nothing with the
@@ -141,7 +141,7 @@ the Tauri CLI's projects, committed with the shell's own files in them.
 | `Badge`               | answered, nothing to set                             | the app icon's count                                               |
 | `Haptics`             | `tauri-plugin-haptics`                               | `tauri-plugin-haptics`                                             |
 
-Links (`web+irc:`, `irc:`, `ircs:`) are declared to the deep-link plugin
+Links (`web+irc:`, `web+ircs:`, `irc:`, `ircs:`) are declared to the deep-link plugin
 (`tauri.conf.json` `plugins.deep-link.mobile`), which writes the Android
 intent filter and the iOS URL types. The paperclip offers the camera on
 Android (`UploadChooserClient.kt`, in front of wry's chrome client); what a

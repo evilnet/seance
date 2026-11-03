@@ -54,6 +54,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>web+irc</string>
+				<string>web+ircs</string>
 				<string>irc</string>
 				<string>ircs</string>
 			</array>
