@@ -464,6 +464,10 @@ export default async function run(page) {
 	await page.evaluate(`document.querySelector(".oper-raw").open = true`);
 	await page.waitFor(`!!document.querySelector("#oper .oper-bits")`, {label: "the raw mask"});
 	const readMask = `Number(document.querySelector(".oper-mask-readout code")?.textContent)`;
+	// The server's answer (008) waits behind oper-up's other questions.
+	await page
+		.waitFor(`${readMask} > 0`, {label: "the server's mask", timeout: 15000})
+		.catch(() => undefined);
 	const maskBefore = await page.evaluate(readMask);
 	page.check(
 		`the panel shows the server's mask (${maskBefore})`,
@@ -717,9 +721,12 @@ export default async function run(page) {
 	// Services back: their first line has Seance ask WHOIS (bottrust.ts),
 	// queued behind the fake lag, and only lines after the answer have their
 	// nicks marked. A warm-up line until its nick is one: the bot is trusted.
-	const warm = `!!document.querySelector('#chat .msg .content .user[data-name="warmup1"]')`;
+	// A nick of this run's own: the channel's history replays earlier runs'
+	// warm-ups, whose nicks are marked by nick alone.
+	const warmNick = `warmup${Date.now() % 100000}`;
+	const warm = `!!document.querySelector('#chat .msg .content .user[data-name="${warmNick}"]')`;
 	for (let i = 0; i < 12 && !(await page.evaluate(warm)); i++) {
-		o3.send(`PRIVMSG ${snoopChannel} :[17:06:00] ${B}JOIN${B} #warmup by warmup1`);
+		o3.send(`PRIVMSG ${snoopChannel} :[17:06:00] ${B}JOIN${B} #warmup by ${warmNick}`);
 		await page.sleep(4000);
 	}
 	page.check("O3 is trusted once WHOIS calls it a service", await page.evaluate(warm));
@@ -1147,8 +1154,40 @@ export default async function run(page) {
 	);
 	page.check(`the matching rows are tinted (${tinted.join(", ")})`, tinted.includes("IP"));
 	await page.screenshot("13-user-compare", {selector: `${overlay} .oper-investigate`});
-	await page.click(`${overlay} .settings-modal-close`);
-	await page.waitFor(`!document.querySelector("${overlay}.opened")`, {label: "the card closed"});
+
+	// A chip's Who answers in chat, behind the card: the card says where,
+	// and Show closes the cards and goes there.
+	// The column on show: one at a time on a phone (Compare's tabs).
+	const chip = `${overlay} .oper-facts .oper-chip-ip`;
+	const shown = await page.evaluate(
+		`Array.from(document.querySelectorAll("${chip}")).findIndex((el) => el.getClientRects().length > 0)`
+	);
+	await page.click(chip, Math.max(0, shown));
+	await page.waitFor(`!!document.querySelector("#context-menu .context-menu-oper-who")`, {
+		label: "Who is on it in the chip's menu",
+	});
+	await page.click("#context-menu .context-menu-oper-who");
+	await page.waitFor(`!!document.querySelector("${overlay} .oper-toast .oper-toast-go")`, {
+		label: "the card says where the answer went",
+	});
+	const toast = await page.evaluate(
+		`document.querySelector("${overlay} .oper-toast").textContent.replace(/\\s+/g, " ").trim()`
+	);
+	page.check(
+		`the toast names the window (${toast})`,
+		/^Sent · the answer shows in #seance\b/.test(toast)
+	);
+	await page.screenshot("13b-chip-sent", {selector: `${overlay} .oper-investigate`});
+	await page.click(`${overlay} .oper-toast .oper-toast-go`);
+	await page.waitFor(`!document.querySelector("${overlay}.opened")`, {
+		label: "Show closes the cards",
+	});
+	page.check(
+		"Show lands in the channel the answer went to",
+		await page.evaluate(
+			`document.querySelector(".channel-list-item.active")?.dataset.name === "#seance"`
+		)
+	);
 	await page.sleep(400);
 	bot2.quit();
 	bot3.quit();
