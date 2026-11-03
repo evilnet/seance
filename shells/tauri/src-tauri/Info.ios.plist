@@ -10,6 +10,15 @@
 	<string>Record sound with a video you upload to the chat.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Pick a photo or video to upload to the chat.</string>
+	<!-- The scene lifecycle (tao supplies the delegate). Without it iOS still
+	     runs the app on a scene, but WKWebView never hears of a rotation:
+	     in landscape the page kept portrait's safe-area insets, 0 at the
+	     sides, and drew under the Dynamic Island. -->
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+	</dict>
 	<!-- TLS through the system's own stack alone. -->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
