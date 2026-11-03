@@ -54,9 +54,16 @@ on:
 permissions:
   contents: read
 
+# One run at a time, and a run that has started always finishes. Cancelling
+# a run during its deploy does not stop the deployment: on 2026-11-03 a
+# PR-closed run cancelled mid-deploy left v5.3.1 live at the root, over the
+# v5.4.0 release run that deployed after it and reported success. Every run
+# assembles the whole site from the current state (the latest release,
+# develop, the open PRs), so a newer run waits for the one in progress and
+# replaces any run still queued.
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   plan:
