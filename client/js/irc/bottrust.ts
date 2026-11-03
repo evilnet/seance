@@ -56,7 +56,10 @@ interface Entry {
 
 interface Store {
 	entries: Map<string, Entry>;
-	inflight: Map<string, Promise<BotTrust>>;
+	/** The check running per bot, and the connection it runs for. */
+	inflight: Map<string, {serial: number; promise: Promise<BotTrust>}>;
+	/** Bumped by every `forgetBot`: a WHOIS asked before it is not recorded. */
+	forgets: Map<string, number>;
 }
 
 const stores = new WeakMap<IrcClient, Store>();
@@ -65,7 +68,7 @@ function storeOf(client: IrcClient): Store {
 	let store = stores.get(client);
 
 	if (!store) {
-		store = {entries: new Map(), inflight: new Map()};
+		store = {entries: new Map(), inflight: new Map(), forgets: new Map()};
 		stores.set(client, store);
 	}
 
@@ -126,10 +129,17 @@ export async function whoisBot(
 	nick: string,
 	timeoutMs = BOT_WHOIS_TIMEOUT_MS
 ): Promise<{whois: BotWhois; outcome: ReplyUnit["outcome"]}> {
+	const store = storeOf(client);
+	const key = client.casefold(nick);
+	const serial = client.connectionSerial;
+	const forgets = store.forgets.get(key) ?? 0;
 	const reply = await request(client, `WHOIS ${nick}`, {end: ["318", "401"], timeoutMs});
 	const whois = parseBotWhois(reply.lines);
+	// A QUIT or NICK since the question, or a new connection: the answer is
+	// about someone who may hold the nick no more.
+	const stale = serial !== client.connectionSerial || forgets !== (store.forgets.get(key) ?? 0);
 
-	if (reply.outcome !== "timeout" && reply.outcome !== "closed") {
+	if (!stale && reply.outcome !== "timeout" && reply.outcome !== "closed") {
 		recordBotWhois(client, nick, whois);
 	}
 
@@ -145,7 +155,7 @@ export function botTrust(client: IrcClient, nick: string): BotTrust {
 /** Whether a command may go to `nick` without asking WHOIS first. */
 export function botSendable(client: IrcClient, nick: string, now = Date.now()): boolean {
 	const entry = entryOf(client, nick);
-	return !!entry?.trusted && now - entry.checkedAt < BOT_SEND_FRESH_MS;
+	return client.isWelcomed && !!entry?.trusted && now - entry.checkedAt < BOT_SEND_FRESH_MS;
 }
 
 /**
@@ -153,7 +163,10 @@ export function botSendable(client: IrcClient, nick: string, now = Date.now()): 
  * is asked about afresh.
  */
 export function forgetBot(client: IrcClient, nick: string): void {
-	storeOf(client).entries.delete(client.casefold(nick));
+	const store = storeOf(client);
+	const key = client.casefold(nick);
+	store.entries.delete(key);
+	store.forgets.set(key, (store.forgets.get(key) ?? 0) + 1);
 }
 
 /** Whether the last WHOIS on this connection found `nick` online, real or not. */
@@ -196,13 +209,14 @@ export function verifyBot(
 
 	const store = storeOf(client);
 	const key = client.casefold(nick);
+	const serial = client.connectionSerial;
 	const running = store.inflight.get(key);
 
-	if (running) {
-		return running;
+	// One from an earlier connection may wait forever on a queue cleared at
+	// the close: never reuse it.
+	if (running?.serial === serial) {
+		return running.promise;
 	}
-
-	const serial = client.connectionSerial;
 
 	const run = async (): Promise<BotTrust> => {
 		if (opts.background) {
@@ -217,17 +231,23 @@ export function verifyBot(
 		return outcome === "timeout" || outcome === "closed" ? "unknown" : botTrust(client, nick);
 	};
 
-	const promise = run().finally(() => store.inflight.delete(key));
-	store.inflight.set(key, promise);
+	const promise = run().finally(() => {
+		if (store.inflight.get(key)?.promise === promise) {
+			store.inflight.delete(key);
+		}
+	});
+	store.inflight.set(key, {serial, promise});
 	return promise;
 }
 
 /**
  * A line from a bot's nick that `fromTrustedBot` turned down: ask WHOIS
  * again in the background, in case it is the bot come back (or come back
- * elsewhere) rather than someone else. A bot last seen offline is asked at
- * once — someone holds the nick now; one seen online at most once a minute.
- * Returns the answer to come, or undefined when it was not asked.
+ * elsewhere) rather than someone else. A trusted bot's nick at another
+ * address means the bot holds it no more: its trust goes at once, so no
+ * command follows it. A bot last seen offline is asked at once — someone
+ * holds the nick now; one seen online at most once a minute. Returns the
+ * answer to come, or undefined when it was not asked.
  */
 export function recheckBot(
 	client: IrcClient,
@@ -235,6 +255,11 @@ export function recheckBot(
 	now = Date.now()
 ): Promise<BotTrust> | undefined {
 	const entry = entryOf(client, nick);
+
+	if (entry?.trusted) {
+		forgetBot(client, nick);
+		return verifyBot(client, nick, {background: true});
+	}
 
 	if (entry?.userhost !== undefined && now - entry.checkedAt < BOT_RECHECK_MS) {
 		return undefined;

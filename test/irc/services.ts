@@ -17,7 +17,9 @@ import {
 	BOT_SEND_FRESH_MS,
 	botSendable,
 	botTrust,
+	forgetBot,
 	recordBotWhois,
+	verifyBot,
 } from "../../client/js/irc/bottrust";
 import {snoopNicks} from "../../client/js/irc/servicesfeed";
 import {parseBanReply, X3_DEFAULTS} from "../../client/js/irc/services/x3";
@@ -839,9 +841,21 @@ describe("services support: only the real bot counts (irc/bottrust.ts)", functio
 				.filter((c) => c.args[0] === "msg")
 				.map((c) => (c.args[1] as {msg: SharedMsg}).msg.text);
 		expect(texts(), "shown, not consumed").to.include("G-line issued for *@1.2.3.4.");
-		// Checked a moment ago: no new WHOIS for every line an impostor sends.
-		expect(transport.sent).to.deep.equal([]);
+		// The nick at another address: the bot holds it no more, so no
+		// command may follow it until WHOIS says otherwise.
+		expect(botSendable(client, "O3"), "trust gone at once").to.equal(false);
+		await flush();
+		const whois = transport.sent.find((l) => l.includes("WHOIS O3"));
+		expect(whois, "asked again").to.not.equal(undefined);
 
+		// The real bot back at its address.
+		const label = labelOf(whois!);
+		transport.lines(
+			`@label=${label} :irc.test 311 opr O3 O3 services.test * :Oper Services`,
+			`@label=${label} :irc.test 310 opr O3 :is a Network Service`,
+			`@label=${label} :irc.test 318 opr O3 :End of /WHOIS list.`
+		);
+		await flush();
 		transport.line(":O3!O3@services.test NOTICE opr :G-line issued for *@1.2.3.4.");
 		expect((await reply).kind).to.equal("reply");
 	});
@@ -903,6 +917,50 @@ describe("services support: only the real bot counts (irc/bottrust.ts)", functio
 		expect(botTrust(client, "O3")).to.equal("trusted");
 		transport.line(":irc.test 001 opr :Welcome back");
 		expect(botTrust(client, "O3")).to.equal("unknown");
+	});
+
+	it("records no WHOIS answer that a QUIT overtook", async function () {
+		const {client, transport} = setup();
+		forgetBot(client, "O3");
+		const check = verifyBot(client, "O3");
+		await flush();
+		const label = labelOf(transport.sent.find((l) => l.includes("WHOIS O3"))!);
+		transport.lines(
+			`@label=${label} :irc.test 311 opr O3 O3 services.test * :Oper Services`,
+			`@label=${label} :irc.test 310 opr O3 :is a Network Service`
+		);
+		transport.line(":O3!O3@services.test QUIT :Killed");
+		transport.line(`@label=${label} :irc.test 318 opr O3 :End of /WHOIS list.`);
+		await check;
+		expect(botTrust(client, "O3")).to.equal("unknown");
+	});
+
+	it("never reuses a check from an earlier connection", async function () {
+		const {client, transport} = setup();
+		forgetBot(client, "O3");
+		void verifyBot(client, "O3");
+		await flush();
+		transport.line(":irc.test 001 opr :Welcome back");
+		transport.sent = [];
+		void verifyBot(client, "O3");
+		await flush();
+		expect(transport.sent.filter((l) => l.includes("WHOIS O3"))).to.have.length(1);
+	});
+
+	it("sends no command on old trust before 001", async function () {
+		const {client, transport} = setup();
+		client.setServices(X3);
+		transport.close();
+		expect(botSendable(client, "O3")).to.equal(false);
+		transport.sent = [];
+		const ban = await servicesBan(client, {
+			type: "gline",
+			mask: "*@h",
+			seconds: 60,
+			reason: "r",
+		});
+		expect(ban.outcome).to.not.equal("ok");
+		expect(transport.sent.filter((l) => l.includes("PRIVMSG"))).to.deep.equal([]);
 	});
 
 	it("forgets a bot that quits or changes nick, and the nick taken after it", function () {
