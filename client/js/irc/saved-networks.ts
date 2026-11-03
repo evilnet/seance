@@ -141,14 +141,14 @@ export function newUuid(): string {
 // ------------------------------------------------------------ normalising
 
 function asString(value: unknown): string {
-	// A hand-edited backup may list channels: `"join": ["#a", "#b"]`.
-	if (Array.isArray(value)) {
-		return value.map(asString).filter(Boolean).join(",");
-	}
-
 	return typeof value === "string" || typeof value === "number" || typeof value === "boolean"
 		? String(value).trim()
 		: "";
+}
+
+/** A hand-edited backup may list its channels: `"join": ["#a", "#b"]`. */
+function asJoin(value: unknown): string {
+	return Array.isArray(value) ? value.map(asString).filter(Boolean).join(",") : asString(value);
 }
 
 /** FormData gives `"on"` for checked boxes and omits unchecked ones. */
@@ -253,7 +253,7 @@ export function normalize(raw: Record<string, unknown>): SavedNetwork | undefine
 		port: asPort(raw.port, tls),
 		tls,
 		nick: asString(raw.nick),
-		join: asString(raw.join),
+		join: asJoin(raw.join),
 		sasl,
 		saslAccount: sasl ? asString(raw.saslAccount) : "",
 		saslPassword: sasl ? asString(raw.saslPassword) : "",
