@@ -166,7 +166,18 @@
 						(s.model.liveBans[0] ?? s.model.serviceBans[0]).mask
 					}}</code>
 				</template>
-				<span v-else-if="s.sources.stats === 'asking'" class="oper-muted">asking…</span>
+				<!-- As InvestigateUser's section: the list read is an answer, a
+				     gtrace still out does not take it back; a list never read
+				     is no answer at all. -->
+				<span
+					v-else-if="
+						s.sources.stats === 'asking' ||
+						(s.sources.stats !== 'done' && s.sources.gtrace === 'asking')
+					"
+					class="oper-muted"
+					>asking…</span
+				>
+				<span v-else-if="s.sources.stats !== 'done'" class="oper-muted">not read</span>
 				<span v-else class="oper-muted">none</span>
 			</dd>
 		</div>

@@ -543,10 +543,8 @@
 												>{{ s.entry.fate }}</span
 											>
 										</span>
-										<span
-											class="oper-cmp-whose"
-											:aria-label="whoseText(s)"
-											:title="whoseText(s)"
+										<span class="oper-cmp-whose" :title="whoseText(s)"
+											><span class="sr-only">{{ whoseText(s) }}</span
 											><i
 												:class="['oper-cmp-dot', 'oper-cmp-a', {off: !s.a}]"
 											></i
@@ -847,8 +845,15 @@ export default defineComponent({
 			return {...(top.value?.compare?.notes ?? {})};
 		});
 
-		/** Compare's Differences: only the rows whose values differ. */
+		/** Compare's Differences: only the rows whose values differ. Every
+		 * card and every comparison starts on All. */
 		const differences = ref(false);
+		watch(
+			() => [top.value, top.value?.compare],
+			() => {
+				differences.value = false;
+			}
+		);
 		const initialsOf = (nick: string) =>
 			nick
 				.replace(/[^\p{L}\p{N}]/gu, "")
@@ -1344,7 +1349,6 @@ export default defineComponent({
 			if (card?.compare) {
 				card.compare.stop();
 				delete card.compare;
-				differences.value = false;
 				bump();
 			}
 		};
