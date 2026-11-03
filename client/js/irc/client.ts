@@ -16,7 +16,13 @@
 
 import socket, {EventBus} from "../socket";
 import {brandingFeatures, getBranding} from "../branding";
-import {dialGateFor, NEFARIOUS_RULE, type DialLedger, type ThrottleRule} from "./dialLedger";
+import {
+	dialGateFor,
+	NEFARIOUS_RULE,
+	type DialLedger,
+	type IpcheckNotice,
+	type ThrottleRule,
+} from "./dialLedger";
 import {createHighlightTester} from "../highlight";
 import {ChanState, ChanType} from "../../../shared/types/chan";
 import {MessageType, SharedMsg, TypingState} from "../../../shared/types/msg";
@@ -455,6 +461,12 @@ export class IrcClient {
 	private dialLedger: DialLedger | null = null;
 	/** SASL succeeded on this connection: the server gives the dial back (irc/dialLedger.ts). */
 	private loggedIn = false;
+	/** The server reported its IPcheck count for this connection (irc/dialLedger.ts). */
+	private ipcheckSynced = false;
+	/** When the transport recorded this connection's dial: where the server's report goes. */
+	private dialedAt: number | undefined;
+	/** When the IPcheck notice came, if it came before 001 (the alias path). */
+	private ipcheckAt: number | undefined;
 	/** The user's setting from the last `PERSISTENCE STATUS` line (`ON`,
 	 * `OFF`, `DEFAULT`), undefined before one. An alias of another device's
 	 * session reads `ON OFF`: not held itself, though the session is. */
@@ -622,8 +634,12 @@ export class IrcClient {
 		// A server that refunds a login's connection attempt does it here, at
 		// registration (irc/dialLedger.ts; the ledger keeps it only when the
 		// deploy says this server does).
+		// A notice that came first (an alias) already counts it: the refund
+		// goes inside its window, where it spends the budget only.
 		if (this.loggedIn) {
-			this.dialLedger?.refunded(Date.now());
+			this.dialLedger?.refunded(
+				this.ipcheckSynced ? this.ipcheckAt ?? Date.now() : Date.now()
+			);
 		}
 
 		this.fakeLag.start();
@@ -902,7 +918,10 @@ export class IrcClient {
 		this.dialLedger = ledger;
 		transportOptions.gate = {
 			waitMs: (now) => ledger.waitMs(now),
-			record: (at) => ledger.record(at),
+			record: (at) => {
+				this.dialedAt = at;
+				ledger.record(at);
+			},
 			closed: (at) => {
 				if (!this.persistenceHold) {
 					ledger.closed(at);
@@ -1056,6 +1075,8 @@ export class IrcClient {
 		this.connected = false;
 		this.welcomed = false;
 		this.loggedIn = false;
+		this.ipcheckSynced = false;
+		this.ipcheckAt = undefined;
 		this.fakeLag.stop();
 		this.retryAt = undefined;
 		this.retryThrottled = false;
@@ -2948,6 +2969,17 @@ export class IrcClient {
 		if (live && !this.persistenceHold) {
 			this.dialLedger?.closed(Date.now());
 		}
+	}
+
+	/**
+	 * The server's IPcheck notice at registration (irc/dialLedger.ts): the
+	 * ledger takes its count and limit from this connection's dial on.
+	 */
+	noteIpcheck(notice: IpcheckNotice): void {
+		const now = Date.now();
+		this.ipcheckSynced = true;
+		this.ipcheckAt = now;
+		this.dialLedger?.synced(this.dialedAt ?? now, now, notice.count, notice.limit);
 	}
 
 	/** The server's `max-value-bytes` (draft/metadata-2): a plain number, else nefarious2's 300. */

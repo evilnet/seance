@@ -39,9 +39,31 @@
  * device's draw on the account's budget is not seen. Under a rule without
  * `refund` a refund is neither kept nor counted.
  *
+ * The server also says where it stands. When a connection registers,
+ * nefarious2 sends it `NOTICE nick :on <n> ca <attempts>(<limit>) ft …`
+ * (`ip_registry_connect_succeeded`, after any refund): the address's open
+ * connections, the chain's count with this connection in it, and the
+ * server's real `IPCHECK_CLONE_LIMIT` (AfterNET's is 6, not the default 4).
+ * The client records that as a sync (`DialLedger.synced`): from the
+ * connection's dial on, the replay takes the server's count (which also
+ * covers what this device cannot see: other devices behind the address,
+ * connections from it on other servers, drops the server did not count
+ * because another connection from the address was still open) and its limit
+ * for the rest of the chain. Every choice errs long: a dial another tab
+ * recorded after ours counts on top even if the report has it already, and
+ * the gap runs from the report, by when the server's last accept had been;
+ * a dial recorded in the {@link LATE_ACCEPT_MS} before the report and not
+ * ended by then may reach the server after it, so it counts on top too; an
+ * older report can only raise the count a newer one set. Not covered: a
+ * notice the socket delivers long after the server sent it (it reads as
+ * newer than it is).
+ * A refund between a dial and its report is in the count: it spends the
+ * refund budget and lowers nothing.
+ *
  * Kept in `thelounge.state.dials` (`{host: {d: [dial ms…], c: [drop ms…],
- * r: [refund ms…]}}`), so a reloaded or reopened app and another tab see the
- * same record. Vue-free and DOM-free; tests: test/irc/dialLedger.ts.
+ * r: [refund ms…], s?: [[dial ms, count, notice ms, limit]…]}}`), so a
+ * reloaded or reopened app and another tab see the same record. Vue-free and
+ * DOM-free; tests: test/irc/dialLedger.ts.
  */
 
 import storage from "../localStorage";
@@ -67,6 +89,12 @@ export interface ThrottleRule {
 	refund?: RefundRule;
 }
 
+/**
+ * How long after it is recorded a dial can still reach the server: the
+ * transport abandons one that has not opened by then (`CONNECT_TIMEOUT_MS`).
+ */
+export const LATE_ACCEPT_MS = 15_000;
+
 /** nefarious2's defaults (`ircd_features.c`); refunds are off there. */
 export const NEFARIOUS_RULE: ThrottleRule = {limit: 4, periodMs: 40_000, marginMs: 1_000};
 
@@ -86,6 +114,45 @@ export interface DialLedger extends DialGate {
 	 * the dial's attempt back. Kept only under a rule with `refund`.
 	 */
 	refunded(at: number): void;
+	/**
+	 * The server reported the chain's count and its connection limit at
+	 * `reported` (its registration notice, {@link parseIpcheckNotice}) for
+	 * the connection dialled at `dialed`.
+	 */
+	synced(dialed: number, reported: number, count: number, limit: number): void;
+}
+
+/** A server report: `[dialed, count, reported, limit]` ({@link DialLedger.synced}). */
+export type Sync = readonly [number, number, number, number];
+
+/** What the server's registration notice says (`on 2 ca 1(6) ft 10(10) tr`). */
+export interface IpcheckNotice {
+	/** Connections from the address open now, this one included. */
+	open: number;
+	/** The chain's count, this connection included (after any refund). */
+	count: number;
+	/** The server's `IPCHECK_CLONE_LIMIT`. */
+	limit: number;
+}
+
+const IPCHECK_NOTICE = /^on (\d+) ca (\d+)\((\d+)\) ft \d+\(\d+\)(?: tr)?$/;
+
+/** nefarious2's IPcheck notice at registration, or undefined for any other text. */
+export function parseIpcheckNotice(text: string): IpcheckNotice | undefined {
+	const match = IPCHECK_NOTICE.exec(text);
+
+	if (!match) {
+		return undefined;
+	}
+
+	const [open, count, limit] = [match[1], match[2], match[3]].map(Number);
+
+	// The server keeps the count in an unsigned char; a limit of 0 refuses nothing.
+	if (limit < 1 || limit > 255 || count > 255 || open < 1) {
+		return undefined;
+	}
+
+	return {open, count, limit};
 }
 
 export interface StorageBackend {
@@ -98,6 +165,7 @@ interface HostRecord {
 	d: number[];
 	c: number[];
 	r: number[];
+	s: Sync[];
 }
 
 const STORAGE_KEY = "thelounge.state.dials";
@@ -115,6 +183,8 @@ interface Replay {
 	last: number | undefined;
 	/** The dial or close at which the count last started over (the chain's first event). */
 	start: number | undefined;
+	/** The limit in force: the server's from its last report in the chain, else the rule's. */
+	limit: number;
 }
 
 /**
@@ -143,25 +213,75 @@ function replay(
 	now: number,
 	rule: ThrottleRule,
 	closes: readonly number[],
-	refunds: readonly number[]
+	refunds: readonly number[],
+	syncs: readonly Sync[] = []
 ): Replay {
 	const gap = rule.periodMs + 1000 + rule.marginMs;
-	const dropGap = rule.limit * rule.periodMs + 1000 + rule.marginMs;
-	// At one instant a close comes first, then the dial, then its refund.
-	const events = [
+	// At one instant a close comes first, then the dial, then its refund,
+	// then the server's report of the count.
+	const events: {at: number; kind: number; sync?: Sync}[] = [
 		...closes.filter((at) => at <= now).map((at) => ({at, kind: 0})),
 		...dials.filter((at) => at <= now).map((at) => ({at, kind: 1})),
 		...(rule.refund ? refunds.filter((at) => at <= now).map((at) => ({at, kind: 2})) : []),
+		...syncs
+			.filter(([dialed, , reported]) => dialed <= now && reported <= now)
+			.map((sync) => ({at: sync[0], kind: 3, sync})),
 	].sort((a, b) => a.at - b.at || a.kind - b.kind);
+	let limit = rule.limit;
 	let attempts = 0;
 	let last: number | undefined;
 	let start: number | undefined;
 	// The refunds that lowered the count or would have, newest last.
 	const spent: number[] = [];
+	// The newest report applied so far: an older one can only add.
+	let newestReport = -Infinity;
 
-	for (const {at, kind} of events) {
+	for (const event of events) {
+		const {at, kind} = event;
+
+		// The server's own count and limit, from our dial on (a dial recorded
+		// after ours counts on top, perhaps twice: never too little). Its last
+		// accept came before it reported, so the gap runs from the report at
+		// the latest. A report the record holds nothing before starts a chain.
+		//
+		// A dial recorded before ours that was still in flight at the report
+		// (a slow accept, a dial recorded only at its open) may reach the
+		// server after it: the report may not have it, so it counts on top
+		// too. And a report older than one already applied knew less, so it
+		// can raise the count, never lower it.
+		if (event.sync) {
+			const [, count, reported, serverLimit] = event.sync;
+			let next = count + inFlight(dials, closes, at, reported);
+
+			if (reported < newestReport) {
+				next = Math.max(attempts, next);
+			} else {
+				newestReport = reported;
+			}
+
+			if (last === undefined) {
+				start = at;
+			}
+
+			last = Math.max(last ?? reported, reported);
+			attempts = next;
+			limit = serverLimit;
+			continue;
+		}
+
 		if (kind === 2) {
 			const refund = rule.refund as RefundRule;
+
+			// A refund the server gave before a report is in its count: it
+			// spends the budget and lowers nothing.
+			if (
+				syncs.some(
+					([dialed, , reported]) => dialed <= at && at <= reported && reported <= now
+				)
+			) {
+				spent.push(at);
+				continue;
+			}
 
 			if (last === undefined) {
 				spent.push(at);
@@ -178,23 +298,62 @@ function replay(
 		}
 
 		const since = last === undefined ? Infinity : at - last;
+		const dropGap = limit * rule.periodMs + 1000 + rule.marginMs;
 
+		// A count that starts over is a new chain: the server's limit comes
+		// again with its report.
 		if (kind === 1) {
 			if (since >= gap) {
 				attempts = 0;
 				start = at;
+				limit = rule.limit;
 			}
 
 			attempts++;
 		} else if (since >= dropGap) {
 			attempts = 0;
 			start = at;
+			limit = rule.limit;
 		}
 
-		last = at;
+		last = Math.max(last ?? at, at);
 	}
 
-	return {attempts, last, start};
+	return {attempts, last, start, limit};
+}
+
+/**
+ * The dials recorded in the {@link LATE_ACCEPT_MS} before a report's own
+ * dial at `at` (one dial at `at` is the report's own) that no close before
+ * the report ended. A dial that ended before the report was accepted
+ * before it, if at all, so the report has it.
+ */
+function inFlight(
+	dials: readonly number[],
+	closes: readonly number[],
+	at: number,
+	reported: number
+): number {
+	const from = reported - LATE_ACCEPT_MS;
+	const open = dials.filter((t) => t <= at).sort((a, b) => a - b);
+	const own = open.lastIndexOf(at);
+
+	if (own !== -1) {
+		open.splice(own, 1);
+	}
+
+	// Each close ends the earliest dial still open at it, over the whole
+	// record: an older connection's close must not end a dial in the window.
+	// Paired wrongly, a dial in the window stays open: it counts, never too little.
+	for (const close of closes.filter((t) => t <= reported).sort((a, b) => a - b)) {
+		const ended = open.findIndex((t) => t <= close);
+
+		if (ended !== -1) {
+			open.splice(ended, 1);
+		}
+	}
+
+	return open.filter((t) => t >= from).length;
 }
 
 /**
@@ -207,12 +366,13 @@ export function throttleWaitMs(
 	now: number,
 	rule: ThrottleRule,
 	closes: readonly number[] = [],
-	refunds: readonly number[] = []
+	refunds: readonly number[] = [],
+	syncs: readonly Sync[] = []
 ): number {
 	const gap = rule.periodMs + 1000 + rule.marginMs;
-	const {attempts, last} = replay(dials, now, rule, closes, refunds);
+	const {attempts, last, limit} = replay(dials, now, rule, closes, refunds, syncs);
 
-	if (last === undefined || now - last >= gap || attempts + 1 < rule.limit) {
+	if (last === undefined || now - last >= gap || attempts + 1 < limit) {
 		return 0;
 	}
 
@@ -225,8 +385,17 @@ const MAX_EVENTS = 200;
 function hostRecord(value: unknown): HostRecord {
 	const numbers = (list: unknown): number[] =>
 		Array.isArray(list) ? list.filter((t): t is number => typeof t === "number") : [];
-	const record = value as Partial<HostRecord> | null;
-	return {d: numbers(record?.d), c: numbers(record?.c), r: numbers(record?.r)};
+	const record = value as Partial<Record<keyof HostRecord, unknown>> | null;
+	const syncs = Array.isArray(record?.s)
+		? record.s.filter(
+				(e): e is Sync =>
+					Array.isArray(e) &&
+					e.length === 4 &&
+					e.every((n) => typeof n === "number") &&
+					(e[3] as number) >= 1
+		  )
+		: [];
+	return {d: numbers(record?.d), c: numbers(record?.c), r: numbers(record?.r), s: syncs};
 }
 
 /** The ledger for one server host, over the shared record. */
@@ -234,32 +403,39 @@ export function dialGateFor(host: string, rule: ThrottleRule = NEFARIOUS_RULE): 
 	const key = host.toLowerCase();
 	const read = () => hostRecord(readRecord(backend.get(STORAGE_KEY))[key]);
 
-	const add = (at: number, field: keyof HostRecord) => {
-		const record = read();
-		record[field] = [...record[field], at];
+	const write = (record: HostRecord, at: number) => {
 		// What came before the chain's first event no longer counts — but a
 		// chain can run long (a drop restarts nothing within 162 s, a refund
 		// lets a dial in), so the horizon is where the replay last started
 		// over, not a fixed age; the refunds are kept a refund period further
 		// back, since a refund's honour depends on the ones before it.
-		const {start} = replay(record.d, Infinity, rule, record.c, record.r);
+		const {start} = replay(record.d, Infinity, rule, record.c, record.r, record.s);
 		const horizon = start ?? at;
 		const refundHorizon = horizon - (rule.refund?.periodMs ?? 0);
 		const keep = (list: number[], from: number) =>
 			list.filter((t) => t >= from).slice(-MAX_EVENTS);
+		// A report goes with its chain, the server's limit too.
+		const syncs = record.s.filter(([dialed]) => dialed >= horizon).slice(-MAX_EVENTS);
 		const all = {...readRecord(backend.get(STORAGE_KEY))};
 		all[key] = {
 			d: keep(record.d, horizon),
 			c: keep(record.c, horizon),
 			r: rule.refund ? keep(record.r, refundHorizon) : [],
+			...(syncs.length > 0 ? {s: syncs} : {}),
 		};
 		backend.set(STORAGE_KEY, JSON.stringify(all));
+	};
+
+	const add = (at: number, field: "d" | "c" | "r") => {
+		const record = read();
+		record[field] = [...record[field], at];
+		write(record, at);
 	};
 
 	return {
 		waitMs(now) {
 			const record = read();
-			return throttleWaitMs(record.d, now, rule, record.c, record.r);
+			return throttleWaitMs(record.d, now, rule, record.c, record.r, record.s);
 		},
 		record: (at) => add(at, "d"),
 		closed: (at) => add(at, "c"),
@@ -267,6 +443,11 @@ export function dialGateFor(host: string, rule: ThrottleRule = NEFARIOUS_RULE): 
 			if (rule.refund) {
 				add(at, "r");
 			}
+		},
+		synced(dialed, reported, count, limit) {
+			const record = read();
+			record.s = [...record.s, [dialed, count, reported, limit]];
+			write(record, dialed);
 		},
 	};
 }

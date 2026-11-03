@@ -12,8 +12,10 @@ import {FakeTransport, register, setup} from "./support";
 import {
 	NEFARIOUS_RULE,
 	dialGateFor,
+	parseIpcheckNotice,
 	throttleWaitMs,
 	useStorageBackend,
+	type Sync,
 } from "../../client/js/irc/dialLedger";
 
 const S = 1000;
@@ -79,6 +81,163 @@ describe("dial ledger (irc/dialLedger.ts)", function () {
 
 		it("does not care about the order dials were recorded in", function () {
 			expect(throttleWaitMs([20 * S, 0, 10 * S], 30 * S, NEFARIOUS_RULE)).to.equal(32 * S);
+		});
+
+		describe("with the server's count (its registration notice)", function () {
+			const rule = NEFARIOUS_RULE;
+
+			it("takes the server's count where the replay counted more", function () {
+				// The replay counts 3 (each drop within 42 s of the next dial),
+				// the server reported 1 each time: another connection from the
+				// address was open, so the drops moved nothing there.
+				const dials = [0, 50 * S, 100 * S];
+				const closes = [25 * S, 75 * S, 125 * S];
+				const syncs: Sync[] = [
+					[0, 1, 1 * S, 4],
+					[50 * S, 1, 51 * S, 4],
+					[100 * S, 1, 101 * S, 4],
+				];
+				expect(throttleWaitMs(dials, 150 * S, rule, closes)).to.equal(17 * S);
+				expect(throttleWaitMs(dials, 150 * S, rule, closes, [], syncs)).to.equal(0);
+			});
+
+			it("takes the server's count where the replay counted less (dials it never saw)", function () {
+				// Another device behind the address: the server is at 3 already,
+				// and saw its last connection after our dial, so the gap runs from the report.
+				expect(throttleWaitMs([0], 10 * S, rule, [], [], [[0, 3, 1 * S, 4]])).to.equal(
+					33 * S
+				);
+			});
+
+			it("runs the gap from the report when the server saw accepts we did not", function () {
+				// Codex: our accept at 0, two others at 20 s and 30 s, our notice at 31 s says 3.
+				const syncs: Sync[] = [[0, 3, 31 * S, 4]];
+				expect(throttleWaitMs([0], 43 * S, rule, [], [], syncs)).to.equal(30 * S);
+			});
+
+			it("keeps the dials another tab made after this connection's dial (a late notice)", function () {
+				// Codex: tab A dialled at 0, tab B dialled at 10 s and reported 2 at
+				// 10.5 s; A's notice, sent before B's accept, arrives at 11 s saying 1.
+				const dials = [0, 10 * S, 12 * S];
+				const syncs: Sync[] = [
+					[10 * S, 2, 10.5 * S, 4],
+					[0, 1, 11 * S, 4],
+				];
+				expect(throttleWaitMs(dials, 13 * S, rule, [], [], syncs)).to.equal(41 * S);
+			});
+
+			it("counts a dial recorded before the report but accepted after it (another tab)", function () {
+				// Codex: A dialled at 0, B recorded its dial at 5 but was accepted
+				// at 12; A's report at 13 says 2. B counts on top: 3, gap from 13.
+				const syncs: Sync[] = [[0, 2, 13 * S, 4]];
+				expect(throttleWaitMs([0, 5 * S], 14 * S, rule, [], [], syncs)).to.equal(41 * S);
+			});
+
+			it("runs the gap from the report even when its count matches the replay's", function () {
+				// Codex: a desktop stays on; our dials at 0, 50 and 100 (drops at
+				// 25, 75 recorded) count 3 here, 1 on the server; two other
+				// devices at 120 and 130; our report at 131 says 3.
+				const syncs: Sync[] = [[100 * S, 3, 131 * S, 4]];
+				const wait = throttleWaitMs(
+					[0, 50 * S, 100 * S],
+					143 * S,
+					rule,
+					[25 * S, 75 * S],
+					[],
+					syncs
+				);
+				expect(wait).to.equal(30 * S);
+			});
+
+			it("spends the refund budget on a refund the report already counts", function () {
+				// Codex: one refund per 600 s. The refund at 10.5 s is in the
+				// report at 11 s; the one at 20.5 s (no report) is past the cap.
+				const capped = {...rule, refund: {limit: 1, periodMs: 600 * S}};
+				const dials = [0, 10 * S, 20 * S, 22 * S];
+				const refunds = [10.5 * S, 20.5 * S];
+				const syncs: Sync[] = [[10 * S, 1, 11 * S, 4]];
+				expect(throttleWaitMs(dials, 23 * S, capped, [], refunds, syncs)).to.equal(41 * S);
+			});
+
+			it("lets an older report raise the count, never lower it", function () {
+				// Codex: A dials at 0, B at 5 and reports 2 at 6; another device
+				// at 10; A reports 3 at 21. B's older report must not undo A's.
+				const syncs: Sync[] = [
+					[0, 3, 21 * S, 4],
+					// Lower than it should be (it alone would let a dial in at 22 s).
+					[5 * S, 1, 6 * S, 4],
+				];
+				expect(throttleWaitMs([0, 5 * S], 22 * S, rule, [], [], syncs)).to.be.greaterThan(
+					0
+				);
+			});
+
+			it("counts a dial recorded shortly before the report's own on top (it may come later)", function () {
+				// Codex: A was offline at its dial, so its dial is recorded at the
+				// open, 10 s; B recorded a dial at 5 that reached the server at 12;
+				// A's report at 11 says 1; one more dial at 13.
+				const syncs: Sync[] = [[10 * S, 1, 11 * S, 4]];
+				const dials = [5 * S, 10 * S, 13 * S];
+				expect(throttleWaitMs(dials, 14 * S, rule, [], [], syncs)).to.equal(41 * S);
+			});
+
+			it("does not count again a dial of ours that ended before the report (a quick reconnect)", function () {
+				// Codex: dial 0, report 1 at 1 s, drop 2 s; dial 10, report 2 at
+				// 11 s, drop 12 s. The server takes a third at 13 s.
+				const syncs: Sync[] = [
+					[0, 1, 1 * S, 4],
+					[10 * S, 2, 11 * S, 4],
+				];
+				expect(
+					throttleWaitMs([0, 10 * S], 13 * S, rule, [2 * S, 12 * S], [], syncs)
+				).to.equal(0);
+			});
+
+			it("does not let an older connection's close end a dial still in flight", function () {
+				// Codex: A dialled at -20 s, closes at 1.5 s; B recorded a dial at
+				// 0 that reaches the server at 3 s; C dials at 1, reports 2 at 2 s.
+				const syncs: Sync[] = [[1 * S, 2, 2 * S, 4]];
+				const wait = throttleWaitMs([-20 * S, 0, 1 * S], 4 * S, rule, [1.5 * S], [], syncs);
+				expect(wait).to.be.greaterThan(0);
+			});
+
+			it("ends a dial with a close in the same millisecond", function () {
+				// Codex: dial and close at 0; reconnect at 1 s reports 2 at 1.1 s,
+				// closes at 2 s. The server takes a third at 3 s.
+				const syncs: Sync[] = [[1 * S, 2, 1.1 * S, 4]];
+				expect(throttleWaitMs([0, 1 * S], 3 * S, rule, [0, 2 * S], [], syncs)).to.equal(0);
+			});
+
+			it("counts another tab's dial made in the same millisecond", function () {
+				// Codex: two tabs dial at 0; A reports 1 at 1 s; a third dial at 3 s.
+				const syncs: Sync[] = [[0, 1, 1 * S, 4]];
+				expect(throttleWaitMs([0, 0, 3 * S], 4 * S, rule, [], [], syncs)).to.be.greaterThan(
+					0
+				);
+			});
+
+			it("counts the dials after the report on top of it", function () {
+				const syncs: Sync[] = [[0, 2, 1 * S, 4]];
+				expect(throttleWaitMs([0], 5 * S, rule, [], [], syncs)).to.equal(0);
+				expect(throttleWaitMs([0, 10 * S], 15 * S, rule, [], [], syncs)).to.equal(37 * S);
+			});
+
+			it("takes the server's limit for the rest of the chain", function () {
+				const dials = [0, 10 * S, 20 * S, 30 * S];
+				const syncs: Sync[] = [[0, 1, 1 * S, 6]];
+				expect(throttleWaitMs(dials, 35 * S, rule)).to.equal(37 * S);
+				expect(throttleWaitMs(dials, 35 * S, rule, [], [], syncs)).to.equal(0);
+				expect(throttleWaitMs([...dials, 40 * S], 45 * S, rule, [], [], syncs)).to.equal(
+					37 * S
+				);
+			});
+
+			it("forgets the server's limit when the chain starts over", function () {
+				// A new chain at 100 s: until its own report, the rule's limit.
+				const dials = [0, 100 * S, 110 * S, 120 * S];
+				const syncs: Sync[] = [[0, 1, 1 * S, 6]];
+				expect(throttleWaitMs(dials, 125 * S, rule, [], [], syncs)).to.equal(37 * S);
+			});
 		});
 
 		describe("on a server that gives a login its attempt back (rule.refund)", function () {
@@ -276,6 +435,164 @@ describe("dial ledger (irc/dialLedger.ts)", function () {
 		});
 	});
 
+	describe("parseIpcheckNotice", function () {
+		it("reads nefarious2's registration notice", function () {
+			expect(parseIpcheckNotice("on 2 ca 1(6) ft 10(10) tr")).to.deep.equal({
+				open: 2,
+				count: 1,
+				limit: 6,
+			});
+			expect(parseIpcheckNotice("on 1 ca 3(4) ft 7(10)")).to.deep.equal({
+				open: 1,
+				count: 3,
+				limit: 4,
+			});
+		});
+
+		it("ignores anything else", function () {
+			expect(parseIpcheckNotice("on 2 ca 1(6)")).to.equal(undefined);
+			expect(parseIpcheckNotice("you are on 2 ca 1(6) ft 10(10)")).to.equal(undefined);
+			expect(parseIpcheckNotice("on 0 ca 1(6) ft 10(10)")).to.equal(undefined);
+			expect(parseIpcheckNotice("on 1 ca 1(0) ft 10(10)")).to.equal(undefined);
+			expect(parseIpcheckNotice("")).to.equal(undefined);
+		});
+	});
+
+	describe("never says dial where the server would refuse (random histories, other connections)", function () {
+		// IPcheck.c as it is: a dial resets the count after a gap of more than
+		// the period since last_connect, then counts; the limit-th is refused
+		// (and counted: IPCHECK_COUNT_REFUSALS). A close moves last_connect only
+		// when it was the address's last connection, and resets the count
+		// when that is more than limit × period after it. Whole seconds.
+		class Server {
+			attempts = 0;
+			last = -Infinity;
+			connected = 0;
+			readonly limit: number;
+			constructor(limit: number) {
+				this.limit = limit;
+			}
+			dial(at: number): boolean {
+				if (at - this.last > 40 * S) {
+					this.attempts = 0;
+				}
+
+				this.last = at;
+				this.attempts++;
+
+				if (this.attempts >= this.limit) {
+					return false;
+				}
+
+				this.connected++;
+				return true;
+			}
+			close(at: number): void {
+				if (--this.connected === 0) {
+					if (at - this.last > this.limit * 40 * S) {
+						this.attempts = 0;
+					}
+
+					this.last = at;
+				}
+			}
+			wouldRefuse(at: number): boolean {
+				return at - this.last <= 40 * S && this.attempts + 1 >= this.limit;
+			}
+		}
+
+		let data: Map<string, string>;
+
+		beforeEach(function () {
+			data = new Map();
+			useStorageBackend({
+				get: (k) => data.get(k) ?? null,
+				set: (k, v) => void data.set(k, v),
+				remove: (k) => void data.delete(k),
+			});
+		});
+
+		afterEach(function () {
+			useStorageBackend(null);
+		});
+
+		it("with every drop recorded and the counts the server reports", function () {
+			let seed = 11;
+
+			const random = () => {
+				seed = (seed * 1103515245 + 12345) % 2147483648;
+				return seed / 2147483648;
+			};
+
+			for (let run = 0; run < 400; run++) {
+				data.clear();
+				const server = new Server(random() < 0.5 ? 4 : 6);
+				const gate = dialGateFor(`run${run}.example`);
+				// A desktop that stays connected from the same address the whole run.
+				const desktop = random() < 0.5;
+				// Another device dialled since the server last reported: no
+				// client can know of it, so the check waits for the next report.
+				let unseen = false;
+				let t = 0;
+
+				if (desktop) {
+					server.dial(t);
+				}
+
+				for (let step = 0; step < 40; step++) {
+					t += Math.floor(random() * 60) * S;
+
+					// Another device's quick connection, unseen, just before ours.
+					if (random() < 0.2) {
+						if (server.dial(t)) {
+							server.close(t + 1 * S);
+						}
+
+						unseen = true;
+						t += 2 * S;
+					}
+
+					if (gate.waitMs(t) > 0) {
+						continue;
+					}
+
+					if (!unseen) {
+						expect(server.wouldRefuse(t), `run ${run} step ${step} at ${t}`).to.equal(
+							false
+						);
+					}
+
+					if (!server.dial(t)) {
+						// Refused: no registration, no report; the transport records the end.
+						gate.record(t);
+						gate.closed(t);
+						continue;
+					}
+
+					unseen = false;
+					gate.record(t);
+					const dialed = t;
+
+					// Another device's connection accepted while ours registers:
+					// the report counts it, the client never sees it.
+					if (random() < 0.2) {
+						t += Math.floor(random() * 5) * S;
+
+						if (server.dial(t)) {
+							server.close(t + 1 * S);
+						}
+					}
+
+					t += 1 * S;
+					gate.synced(dialed, t, server.attempts, server.limit);
+					t += (1 + Math.floor(random() * 60)) * S;
+					server.close(t);
+					gate.closed(t);
+				}
+			}
+		});
+	});
+
 	describe("dialGateFor", function () {
 		let data: Map<string, string>;
 
@@ -413,6 +730,55 @@ describe("dial ledger (irc/dialLedger.ts)", function () {
 			expect(dialGateFor("irc.example").waitMs(180 * S)).to.equal(12 * S);
 		});
 
+		it("takes the server's limit from its report, and drops it with the chain", function () {
+			const gate = dialGateFor("irc.example");
+			gate.record(0);
+			gate.synced(0, 1 * S, 1, 6);
+			gate.record(10 * S);
+			gate.record(20 * S);
+			gate.record(30 * S);
+			// Four in the chain: the default limit would hold the fifth, AfterNET's 6 does not.
+			expect(gate.waitMs(35 * S)).to.equal(0);
+			gate.record(40 * S);
+			expect(gate.waitMs(45 * S)).to.equal(37 * S);
+			gate.record(1000 * S);
+			const stored = JSON.parse(data.get("thelounge.state.dials") ?? "{}");
+			expect(stored["irc.example"]).to.deep.equal({d: [1000 * S], c: [], r: []});
+		});
+
+		it("keeps a report that came after a later dial started the record (Codex)", function () {
+			const gate = dialGateFor("irc.example");
+			gate.record(0);
+			gate.record(50 * S);
+			gate.synced(0, 51 * S, 3, 4);
+			gate.closed(60 * S);
+			expect(gate.waitMs(61 * S)).to.be.greaterThan(0);
+		});
+
+		it("keeps the server's reports with the chain", function () {
+			const gate = dialGateFor("irc.example");
+			gate.record(0);
+			gate.synced(0, 1 * S, 1, 4);
+			gate.closed(20 * S);
+			gate.record(50 * S);
+			gate.synced(50 * S, 51 * S, 1, 4);
+			const stored = JSON.parse(data.get("thelounge.state.dials") ?? "{}");
+			expect(stored["irc.example"].s).to.deep.equal([
+				[0, 1, 1 * S, 4],
+				[50 * S, 1, 51 * S, 4],
+			]);
+		});
+
+		it("ignores a broken report", function () {
+			data.set(
+				"thelounge.state.dials",
+				JSON.stringify({
+					"irc.example": {d: [0, 10 * S, 20 * S], s: [[1, "x", 2, 6], 5, [0, 1, 1, 0]]},
+				})
+			);
+			expect(dialGateFor("irc.example").waitMs(30 * S)).to.equal(32 * S);
+		});
+
 		it("survives a broken record", function () {
 			data.set("thelounge.state.dials", "{not json");
 			expect(dialGateFor("irc.example").waitMs(0)).to.equal(0);
@@ -506,6 +872,55 @@ describe("dial ledger (irc/dialLedger.ts)", function () {
 			lastClient.noteUnload();
 			const record = JSON.parse(data.get("thelounge.state.dials") ?? "{}")["irc.test"];
 			expect(record?.c ?? []).to.deep.equal([]);
+			useStorageBackend(null);
+		});
+
+		it("takes the server's notice: its count from the connection's dial, and its limit", function () {
+			const data = new Map<string, string>();
+			useStorageBackend({
+				get: (k) => data.get(k) ?? null,
+				set: (k, v) => void data.set(k, v),
+				remove: (k) => void data.delete(k),
+			});
+			let captured: TransportOptions | undefined;
+			const fake = new FakeTransport();
+			const h = {
+				...setup({
+					transportFactory(opts) {
+						captured = opts;
+						return fake;
+					},
+				}),
+				transport: fake,
+			};
+			const dialed = Date.now();
+			captured!.gate!.record(dialed);
+			register(h);
+			clock.tick(2000);
+			h.transport.line(":irc.test NOTICE alice :on 2 ca 1(6) ft 10(10) tr");
+			const record = (
+				JSON.parse(data.get("thelounge.state.dials") ?? "{}") as Record<
+					string,
+					{s?: Sync[]}
+				>
+			)["irc.test"];
+			expect(record?.s).to.deep.equal([[dialed, 1, dialed + 2000, 6]]);
+			// Still shown.
+			expect(h.lastMessage(h.client.lobby.id).text).to.contain("on 2 ca 1(6)");
+			useStorageBackend(null);
+		});
+
+		it("takes no notice of a user who sends the same text", function () {
+			const data = new Map<string, string>();
+			useStorageBackend({
+				get: (k) => data.get(k) ?? null,
+				set: (k, v) => void data.set(k, v),
+				remove: (k) => void data.delete(k),
+			});
+			const h = setup();
+			register(h);
+			h.transport.line(":mallory!m@h NOTICE alice :on 2 ca 1(6) ft 10(10) tr");
+			expect(data.get("thelounge.state.dials") ?? "").to.not.contain('"s"');
 			useStorageBackend(null);
 		});
 
