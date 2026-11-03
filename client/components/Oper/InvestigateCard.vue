@@ -93,7 +93,7 @@
 										v-if="model.createdAt !== undefined"
 										:title="absolute(model.createdAt)"
 										:data-abs="absolute(model.createdAt)"
-										>{{ relative(model.createdAt) }}</time
+										>{{ since(model.createdAt) }}</time
 									>
 									<span v-else class="oper-muted">{{
 										pending("check", "chaninfo")
@@ -679,7 +679,7 @@ import {
 } from "../../js/helpers/operMenu";
 import type {FactKey} from "../../js/helpers/commonality";
 import type {AlertBuilderRequest} from "../../js/helpers/alertBuilder";
-import {formatDuration, relativeTime} from "../../js/helpers/operFormat";
+import {formatDuration, sinceTime} from "../../js/helpers/operFormat";
 import localetime from "../../js/helpers/localetime";
 import useNow from "../../js/hooks/use-now";
 import {ChanState} from "../../../shared/types/chan";
@@ -1405,7 +1405,7 @@ export default defineComponent({
 			openMenu,
 			clock,
 			absolute: (ms: number) => localetime(new Date(ms)),
-			relative: (ms: number) => relativeTime(ms, now.value),
+			since: (ms: number) => sinceTime(ms, now.value),
 			duration: (ms: number) => formatDuration(Math.max(0, ms) / 1000),
 		};
 	},

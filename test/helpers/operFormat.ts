@@ -5,6 +5,7 @@ import {
 	formatExpiry,
 	relativeTime,
 	reportText,
+	sinceTime,
 	valueText,
 	wallopsBadge,
 } from "../../client/js/helpers/operFormat";
@@ -19,6 +20,8 @@ describe("oper formatting (helpers/operFormat.ts)", function () {
 		expect(relativeTime(now + 3 * 3600_000 + 20 * 60_000, now)).to.equal("in 3h 20m");
 		expect(relativeTime(now - 5 * 60_000, now)).to.equal("5m ago");
 		expect(relativeTime(now + 1000, now)).to.equal("now");
+		expect(sinceTime(now + 6000, now)).to.equal("now");
+		expect(sinceTime(now - 5 * 60_000, now)).to.equal("5m ago");
 		expect(formatExpiry(0, now)).to.equal("never");
 		expect(formatExpiry(now - 1, now)).to.equal("expired");
 		expect(formatExpiry(now + 86400_000, now)).to.equal("in 1d");

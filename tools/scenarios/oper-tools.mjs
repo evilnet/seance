@@ -1120,9 +1120,10 @@ export default async function run(page) {
 	);
 	await page.screenshot("12-user-card", {selector: `${overlay} .oper-investigate`});
 
-	// Compare side by side: a second column, the shared IP tinted. The offer
-	// sits at the end of the scrolling body, under the footer on a phone, so
-	// let every "asking…" settle (the bots' 401s) before reaching for it.
+	// Compare side by side: a second column, the shared IP tinted. Compare
+	// sits in the pinned footer; the nick field it opens sits at the end of
+	// the scrolling body, so let every "asking…" settle (the bots' 401s)
+	// first, or the body grows under it.
 	await page.waitFor(
 		`!/asking…/.test(document.querySelector("${overlay} .oper-investigate-user")?.textContent ?? "")`,
 		{label: "every source answered", timeout: 30000}
@@ -1143,6 +1144,18 @@ export default async function run(page) {
 		await page.click(selector);
 	};
 	await reach(`${overlay} .oper-compare-offer`);
+	// The card scrolls the field into view itself: all of the form clear of
+	// the footer, with no help from `reach`.
+	await page.sleep(300);
+	const askClear = await page.evaluate(`(() => {
+		const form = document.querySelector("${overlay} .oper-compare-ask");
+		const foot = document.querySelector("${overlay} .oper-investigate-footer");
+		if (!form || !foot) return false;
+		const r = form.getBoundingClientRect();
+		return r.height > 0 && r.top >= 0 && r.bottom <= foot.getBoundingClientRect().top + 0.5;
+	})()`);
+	page.check("the nick field to compare with is clear of the footer", askClear);
+	await page.screenshot("12b-compare-ask", {selector: `${overlay} .oper-investigate`});
 	await page.fill(`${overlay} .oper-compare-ask input`, "opbot2");
 	await reach(`${overlay} .oper-compare-ask button[type="submit"]`);
 	await page.waitFor(

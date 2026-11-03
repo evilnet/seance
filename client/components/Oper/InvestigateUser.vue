@@ -108,7 +108,7 @@
 						<time
 							:title="absolute(user.connectedAt)"
 							:data-abs="absolute(user.connectedAt)"
-							>{{ relative(user.connectedAt) }}</time
+							>{{ since(user.connectedAt) }}</time
 						>
 						<span v-if="user.idle !== undefined" class="oper-muted">
 							· idle {{ duration(user.idle) }}</span
@@ -302,7 +302,7 @@ import {computed, defineComponent, PropType} from "vue";
 import type {ClientNetwork} from "../../js/types";
 import type {InvestigatedUser, SourceId, SourceState, UserModel} from "../../js/irc/investigate";
 import {type BanNear, whenText} from "../../js/helpers/verdict";
-import {formatDuration, relativeTime} from "../../js/helpers/operFormat";
+import {formatDuration, relativeTime, sinceTime} from "../../js/helpers/operFormat";
 import {openOperTargetMenu, operChanFor} from "../../js/helpers/operMenu";
 import localetime from "../../js/helpers/localetime";
 import useNow from "../../js/hooks/use-now";
@@ -358,7 +358,7 @@ export default defineComponent({
 			}
 
 			if (ban.setAt !== undefined) {
-				parts.push(`${relativeTime(ban.setAt, now.value)}`);
+				parts.push(sinceTime(ban.setAt, now.value));
 			}
 
 			if (!ban.live) {
@@ -412,7 +412,7 @@ export default defineComponent({
 			openMenu,
 			when: (ms: number) => whenText(ms, now.value),
 			absolute: (ms: number) => localetime(new Date(ms)),
-			relative: (ms: number) => relativeTime(ms, now.value),
+			since: (ms: number) => sinceTime(ms, now.value),
 			duration: formatDuration,
 		};
 	},
