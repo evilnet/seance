@@ -42,6 +42,8 @@ function shell(platform: string, calls: string[] = []) {
 					return Promise.resolve({url: "web+irc://irc.example/#seance"});
 				}
 
+				// What the shell rejects with (lib.rs): a plain {message, code}.
+				// eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
 				return Promise.reject({
 					message: `${plugin}.${method} is not implemented`,
 					code: "unimplemented",

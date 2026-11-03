@@ -5,7 +5,7 @@
 // (shots-macos.sh, linux/run.sh) collects it. __HOST__ and __OUT__ are
 // filled in by the harness. Needs the dev ircd on ws://__HOST__:8067 and the
 // guest (guest.mjs) in #seance.
-(async () => {
+void (async () => {
 	const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 	const until = async (fn, label, timeout = 30000) => {
