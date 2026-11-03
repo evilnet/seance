@@ -4,6 +4,8 @@
   "version": "0.1.0",
   "identifier": "chat.seance.desktop",
   "build": {
+    "beforeDevCommand": {"script": "pnpm prepare-app", "wait": true},
+    "beforeBuildCommand": "pnpm prepare-app",
     "frontendDist": "../../../public"
   },
   "app": {
@@ -41,6 +43,7 @@
       "icons/icon.ico"
     ],
     "macOS": {
+      "minimumSystemVersion": "11.0",
       "files": {
         "Resources/public/audio/pop.wav": "../../../public/audio/pop.wav"
       }

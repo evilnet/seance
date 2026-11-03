@@ -17,28 +17,43 @@ gate 4 of the plan.
 ## Run from source
 
 ```sh
-# 1. Build the SPA at the repository root (once, or after client changes)
-NODE_ENV=production pnpm build
-
-# 2. Install the CLI and run the shell
+# With the repository root's dependencies installed (pnpm install there):
 cd shells/tauri
 pnpm install
 pnpm start      # tauri dev: a debug build, public/ compiled in
+pnpm build      # tauri build: the release app and installers
 ```
 
-`public/` is compiled into the binary (`frontendDist`), so a client change
-needs a rebuild of both. Rust 1.80 or newer; on Linux, WebKitGTK 4.1 and its
-build dependencies (see `tools/linux/Dockerfile` for Debian's list).
+`public/` is compiled into the binary (`frontendDist`), so each of these
+first runs `pnpm prepare-app` (`tools/prepare.mjs`, Tauri's
+`beforeDevCommand`/`beforeBuildCommand`): the production SPA at the root, then
+the icons. A client change needs a fresh `start` or `build`, never a hand
+build. The screenshot scripts call cargo directly and take `public/` as it is.
+Rust 1.80 or newer; on Linux, WebKitGTK 4.1 and its build dependencies (see
+`tools/linux/Dockerfile` for Debian's list).
+
+There is no Vite dev server or hot reload, unlike Tauri's Vite guide: the
+SPA's `index.html`, service worker and static files are made by `vite build`
+only (`vite.config.mts`), and a dev server would move the page off
+`tauri://localhost`. One `public/` serves the web and every shell, so the
+build reads no `TAURI_ENV_*`.
 
 `pnpm icons` regenerates `src-tauri/icons/` from
-`public/img/icon-512.png` (the deploy's icon, so a rebrand carries over); the
-other scripts run it first. On a Mac the `.icns` is made from the logo cut to
+`public/img/icon-512.png` (the deploy's icon, so a rebrand carries over).
+On a Mac the `.icns` is made from the logo cut to
 the Mac's rounded square (`tools/macos-icon.swift`), since macOS draws an icon
 as it is and a square logo would show as a square in the Dock.
 
+**macOS 11 or newer** (`bundle.macOS.minimumSystemVersion`). WKWebView is the
+system's WebKit, and the bundle needs Safari 16.4's (Vite's default
+`build.target`). Big Sur is the oldest macOS that Safari 16.4 reaches
+(Catalina stops at 15.6), but only once updated: an unpatched Mac at the
+minimum still loads a blank page. The Swift package's 10.15 sits below this
+and needs no change.
+
 ## Checks
 
-- **Smoke**: `pnpm smoke` (a debug build with `--smoke`) loads the
+- **Smoke**: `pnpm smoke` (`prepare-app`, then a debug build with `--smoke`) loads the
   app, checks from inside the page that the bridge answers, that a plugin the
   shell does not have rejects `unimplemented`, that `<html data-shell>` is
   `desktop`, that no service worker is registered, then hands the running

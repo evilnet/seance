@@ -6,9 +6,10 @@
   "license": "MIT",
   "scripts": {
     "icons": "node tools/icons.mjs",
-    "start": "pnpm icons && tauri dev --no-watch",
-    "build": "pnpm icons && tauri build",
-    "smoke": "pnpm icons && cd src-tauri && cargo run -- --smoke"
+    "prepare-app": "node tools/prepare.mjs",
+    "start": "tauri dev --no-watch",
+    "build": "tauri build",
+    "smoke": "pnpm prepare-app && cd src-tauri && cargo run -- --smoke"
   },
   "devDependencies": {
     "@tauri-apps/cli": "2.12.4"
