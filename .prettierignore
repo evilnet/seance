@@ -15,17 +15,12 @@ docs/superpowers/
 *.wav
 *.woff2
 *.zip
-*.tpl
 *.sh
-*.opts
 *.txt
 pnpm-lock.yaml
 yarn.lock
 .gitignore
-.npmrc
-.npmignore
 .prettierignore
-.thelounge_home
 .editorconfig
 .eslintignore
 .gitattributes

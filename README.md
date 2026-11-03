@@ -113,8 +113,7 @@ pnpm test       # lint + mocha
 pnpm test:mocha # mocha only (builds first)
 ```
 
-Run `pnpm githooks-install` once to get the pre-commit lint hook. If
-linting fails, `pnpm format:prettier` usually fixes it.
+If linting fails, `pnpm format:prettier` usually fixes it.
 
 Live tests against a real ircd (`test/irc/*.live.ts`) run when
 `SEANCE_IRC_URL` points at one, e.g. `SEANCE_IRC_URL=wss://localhost:8443/`.

@@ -17,3 +17,6 @@ pmOnFail: ignore
 # Run scripts through pnpm's own shell, so `NODE_ENV=test mocha …` works on
 # Windows too (what cross-env used to do).
 shellEmulator: true
+
+# `pnpm add` pins the exact version, as every dependency already is.
+saveExact: true
