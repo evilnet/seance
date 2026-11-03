@@ -478,6 +478,12 @@ export class IrcClient {
 	private connected = false;
 	/** 001 seen on this connection: the server takes commands (`isWelcomed`). */
 	private welcomed = false;
+	/**
+	 * Counts registrations (001s): whatever was learned about the network on
+	 * one connection — which services bots are real (bottrust.ts) — is
+	 * stale on the next.
+	 */
+	connectionSerial = 0;
 	/** The server's fake-lag clock as we reckon it (fakelag.ts). */
 	readonly fakeLag: FakeLagClock;
 	/**
@@ -602,6 +608,8 @@ export class IrcClient {
 	/** The 001 handler: see {@link isWelcomed}. */
 	markWelcomed(): void {
 		this.welcomed = true;
+		this.connectionSerial++;
+
 		this.fakeLag.start();
 		this.background.pump(); // anything queued before 001 can go now
 	}

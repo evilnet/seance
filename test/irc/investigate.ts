@@ -17,6 +17,7 @@ import {X3_DEFAULTS} from "../../client/js/irc/services/x3";
 import type {Transport} from "../../client/js/irc/types";
 import type {TransportEvent, TransportState} from "../../client/js/irc/transport";
 import type {ServicesConfig} from "../../shared/types/network";
+import {trustBot} from "./support";
 
 class FakeTransport implements Transport {
 	state: TransportState = "closed";
@@ -154,6 +155,9 @@ function setup(opts: {opered?: boolean; services?: boolean; labels?: boolean} = 
 
 	if (opts.services ?? true) {
 		client.setServices(X3);
+		for (const bot of ["O3", "AuthServ", "ChanServ"]) {
+			trustBot(client, bot);
+		}
 	}
 
 	transport.sent = [];

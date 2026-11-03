@@ -21,6 +21,7 @@ import type {IrcClient} from "./client";
 import type {IrcMessage} from "./message";
 import {getOperPrefs, setSnomaskPref} from "./operprefs";
 import {canRequest, request} from "./request";
+import {verifyServiceBots} from "./services";
 
 export interface OperState {
 	umodes: Set<string>;
@@ -150,7 +151,12 @@ function operUp(client: IrcClient): void {
 	// Five or so commands nobody is waiting on, every one charged fake lag
 	// (opers too: PRIVS, GET and MODE are MFLG_SLOW): one at a time through
 	// the background queue, behind the user's own lines.
-	void refreshOper(client, {background: true}).then(() => restoreSnomask(client));
+	void refreshOper(client, {background: true}).then(() => {
+		restoreSnomask(client);
+		// Which services bots are real (bottrust.ts), before the first
+		// lookup or snoop line needs to know: behind everything else.
+		verifyServiceBots(client);
+	});
 }
 
 /** Ask again for everything {@link OperState} holds (the panel's Refresh, oper-up). */

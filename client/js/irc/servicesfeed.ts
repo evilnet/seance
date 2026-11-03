@@ -28,10 +28,20 @@ import type {LoggedNotice} from "./noticelog";
 import {servicesProfileFor} from "./services/index";
 import type {ServicesProfile} from "./services/types";
 import {cleanIrcMessage as stripFormatting} from "../../../shared/irc";
+import {fromTrustedBot, recheckBot} from "./bottrust";
 
 /** The category every services entry carries (its badge reads "services"). */
 export const SERVICES_CATEGORY = "SERVICES";
 
+/**
+ * Whether a line is one of the configured bots'. A live line must come from
+ * the bot as WHOIS knows it (bottrust.ts) — anyone may hold the nick while
+ * services are away, and a live line goes into the notice log; one from the
+ * nick but not yet checked, or from elsewhere, has the bot asked about in
+ * the background and is left as the ordinary message it is. A replayed
+ * line (scrollback after a reload) only has its nicks marked, which is
+ * harmless, so the nick is enough there.
+ */
 function fromConfiguredBot(
 	client: IrcClient,
 	msg: IrcMessage,
@@ -43,9 +53,20 @@ function fromConfiguredBot(
 		return false;
 	}
 
-	return [bots.oper, bots.account, bots.channel].some(
-		(bot) => bot !== "" && client.namesEqual(bot, from)
-	);
+	const bot = [bots.oper, bots.account, bots.channel]
+		.map((b) => b.trim())
+		.find((b) => b !== "" && client.namesEqual(b, from));
+
+	if (!bot) {
+		return false;
+	}
+
+	if (client.replaying || fromTrustedBot(client, msg, bot)) {
+		return true;
+	}
+
+	recheckBot(client, bot);
+	return false;
 }
 
 function inChannel(client: IrcClient, target: string, wanted: string): boolean {

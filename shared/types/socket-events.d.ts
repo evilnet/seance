@@ -182,7 +182,13 @@ interface ServerToClientEvents {
 	"services:checked": EventHandler<{
 		network: string;
 		id: string;
-		results: {role: string; bot: string; online: boolean; looksLikeX3: boolean}[];
+		results: {
+			role: string;
+			bot: string;
+			online: boolean;
+			looksLikeX3: boolean;
+			trusted: boolean;
+		}[];
 		failure?: "closed" | "timeout";
 	}>;
 	/**

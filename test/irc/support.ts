@@ -14,6 +14,8 @@ import {NO_FAKE_LAG} from "../../client/js/irc/fakelag";
 import type {Transport} from "../../client/js/irc/types";
 import type {TransportEvent, TransportState} from "../../client/js/irc/transport";
 import type {SharedMsg} from "../../shared/types/msg";
+import {parseBotWhois, recordBotWhois} from "../../client/js/irc/bottrust";
+import {parseLine} from "../../client/js/irc/message";
 
 /** In-memory transport driven by the tests (same shape as test/irc/client.ts). */
 export class FakeTransport implements Transport {
@@ -230,4 +232,23 @@ export function stubStorage(): void {
 	sinon.stub(storage, "get").callsFake((key: string) => data.get(key) ?? null);
 	sinon.stub(storage, "set").callsFake((key: string, value: string) => void data.set(key, value));
 	sinon.stub(storage, "remove").callsFake((key: string) => void data.delete(key));
+}
+
+/**
+ * Make `nick` a checked services bot on this connection (irc/bottrust.ts),
+ * from the WHOIS lines a real one answers with: online at `userhost`, and
+ * called a network service (310).
+ */
+export function trustBot(
+	client: IrcClient,
+	nick: string,
+	userhost = `${nick}@services.test`
+): void {
+	const [user, host] = userhost.split("@");
+	const lines = [
+		`:irc.test 311 ${client.nick} ${nick} ${user} ${host} * :Oper Services`,
+		`:irc.test 312 ${client.nick} ${nick} services.test :Services`,
+		`:irc.test 310 ${client.nick} ${nick} :is a Network Service`,
+	].map((line) => parseLine(line)!);
+	recordBotWhois(client, nick, parseBotWhois(lines));
 }

@@ -66,7 +66,8 @@ import {type LiveBan, parseBanRow} from "./profiles/nefarious/stats";
 import {isIp, parseCtime} from "./profiles/report";
 import {sendQuiet} from "./quiet";
 import {canRequest, request, type ReplyUnit} from "./request";
-import {collectServiceReply, type ServiceAnswer} from "./services";
+import {botTrust} from "./bottrust";
+import {collectServiceReply, readyBot, type ServiceAnswer, untrustedText} from "./services";
 import {servicesProfileFor} from "./services/index";
 import type {ServiceBan, ServiceLookup, ServicesLookups} from "./services/types";
 
@@ -516,17 +517,11 @@ export class Investigation {
 		this.enqueue({
 			lane: "services",
 			run: async () => {
-				const reply = collectServiceReply(this.client, bot, {
-					accept: (text) => lookup.accept(text),
-				});
-
-				// Quiet (quiet.ts): the PRIVMSG's echo opens no window for the bot.
-				if (!sendQuiet(this.client, lookup.command(bot))) {
-					apply(undefined, {kind: "closed"});
-					return;
-				}
-
-				const answer = await reply;
+				// The real bot, or no question (bottrust.ts): one WHOIS a connection.
+				const answer =
+					botTrust(this.client, bot) === "trusted"
+						? await this.askBot(bot, lookup)
+						: (await readyBot(this.client, bot)) ?? (await this.askBot(bot, lookup));
 
 				if (generation !== this.generation) {
 					return;
@@ -541,6 +536,8 @@ export class Investigation {
 					this.notes[source] =
 						answer.kind === "missing"
 							? `${bot} is not online`
+							: answer.kind === "untrusted"
+							? untrustedText(bot)
 							: answer.kind === "timeout"
 							? `${bot} did not answer`
 							: "the connection is down";
@@ -551,6 +548,20 @@ export class Investigation {
 			},
 		});
 		return true;
+	}
+
+	/** Send one lookup to a bot and collect its answer. */
+	private askBot<T>(bot: string, lookup: ServiceLookup<T>): Promise<ServiceAnswer<string[]>> {
+		const reply = collectServiceReply(this.client, bot, {
+			accept: (text) => lookup.accept(text),
+		});
+
+		// Quiet (quiet.ts): the PRIVMSG's echo opens no window for the bot.
+		if (!sendQuiet(this.client, lookup.command(bot))) {
+			return Promise.resolve({kind: "closed"});
+		}
+
+		return reply;
 	}
 
 	// ----------------------------------------------------------- channel

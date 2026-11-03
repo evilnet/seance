@@ -14,7 +14,8 @@ import type {IrcClient} from "./client";
 import {formatLine} from "./message";
 import {fitsQuiet, sendQuiet} from "./quiet";
 import {canRequest, request} from "./request";
-import {collectServiceReply, type ServiceAnswer} from "./services";
+import {botTrust} from "./bottrust";
+import {collectServiceReply, readyBot, type ServiceAnswer} from "./services";
 import {servicesProfileFor} from "./services/index";
 import type {
 	CommandReply,
@@ -27,7 +28,7 @@ import type {
 /** What a lookup came to: the parsed value (undefined when the bot said "no such thing") or why there is none. */
 export type LookupResult<T> =
 	| {kind: "reply"; value: T | undefined; lines: string[]}
-	| {kind: "missing" | "timeout" | "closed" | "toolong" | "unavailable"};
+	| {kind: "missing" | "untrusted" | "timeout" | "closed" | "toolong" | "unavailable"};
 
 /** The lookups and the oper bot of a network with a package set up, or undefined. */
 function lookupsOf(client: IrcClient): {lookups: ServicesLookups; bot: string} | undefined {
@@ -57,6 +58,12 @@ async function ask<T>(client: IrcClient, lookup: ServiceLookup<T>): Promise<Look
 
 	if (!fitsQuiet(line)) {
 		return {kind: "toolong"};
+	}
+
+	const notReady = botTrust(client, bot) === "trusted" ? undefined : await readyBot(client, bot);
+
+	if (notReady) {
+		return {kind: notReady.kind};
 	}
 
 	const reply = collectServiceReply(client, bot, {accept: (text) => lookup.accept(text)});
