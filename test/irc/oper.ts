@@ -17,7 +17,6 @@ import {
 import {
 	getNote,
 	getOperPrefs,
-	setWasOper,
 	OPER_PREFS_KEY,
 	resetRoutes,
 	routeFor,
@@ -674,16 +673,16 @@ describe("oper tools: temporary routes (irc/operprefs.ts)", function () {
 	});
 
 	it("a network's prefs never land on Object.prototype", function () {
-		const leaked = () => (Object.prototype as {wasOper?: unknown}).wasOper;
+		const leaked = () => (Object.prototype as {snomask?: unknown}).snomask;
 
 		try {
 			expect(getOperPrefs("constructor")).to.deep.equal({});
-			setWasOper("__proto__", true);
+			setSnomaskPref("__proto__", 5645);
 			expect(leaked()).to.equal(undefined);
-			expect(getOperPrefs("__proto__")).to.deep.equal({wasOper: true});
+			expect(getOperPrefs("__proto__")).to.deep.equal({snomask: 5645});
 			expect(getOperPrefs("n1")).to.deep.equal({});
 		} finally {
-			delete (Object.prototype as {wasOper?: unknown}).wasOper;
+			delete (Object.prototype as {snomask?: unknown}).snomask;
 		}
 	});
 
