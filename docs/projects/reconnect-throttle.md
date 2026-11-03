@@ -121,8 +121,12 @@ the server's window:
   older than one already applied can raise the count, never lower it. Not
   covered: a notice the socket delivers long after the server sent it reads
   as newer than it is;
-- the limit holds for the rest of the chain and goes with it: a new chain
-  uses the default 4 until its own first registration reports again;
+- the limit is the server's setting, so the newest report's stays with the
+  host (`l` in the record) and a new chain starts from it rather than the
+  default 4 (2026-11-03: a phone whose held session is revived on every
+  return gets no notice, since a revive sends none, and was held at the
+  fourth return in 40 s while AfterNET takes six). A limit lowered since
+  costs one refusal, which the record then waits out;
 - every drop is still recorded. Leaving out the drop of a connection that
   shared its address looked right but is not: if the other connection leaves
   first, ours is the address's last and the server does move its gap. With

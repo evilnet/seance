@@ -60,8 +60,16 @@
  * A refund between a dial and its report is in the count: it spends the
  * refund budget and lowers nothing.
  *
+ * The limit is the server's setting, not the chain's: the newest report's
+ * stays with the host (`l`) and stands in for the rule's when a chain starts
+ * over, until that chain's own report. A revive sends no notice, and a phone
+ * whose held session is revived on every return would otherwise never get
+ * past the rule's 4. A limit that has since gone down costs one refusal,
+ * which the record then waits out like any other.
+ *
  * Kept in `thelounge.state.dials` (`{host: {d: [dial ms…], c: [drop ms…],
- * r: [refund ms…], s?: [[dial ms, count, notice ms, limit]…]}}`), so a
+ * r: [refund ms…], s?: [[dial ms, count, notice ms, limit]…],
+ * l?: [notice ms, limit]}}`), so a
  * reloaded or reopened app and another tab see the same record. Vue-free and
  * DOM-free; tests: test/irc/dialLedger.ts.
  */
@@ -166,6 +174,8 @@ interface HostRecord {
 	c: number[];
 	r: number[];
 	s: Sync[];
+	/** The newest report's limit: `[notice ms, limit]`. */
+	l?: readonly [number, number];
 }
 
 const STORAGE_KEY = "thelounge.state.dials";
@@ -395,13 +405,30 @@ function hostRecord(value: unknown): HostRecord {
 					(e[3] as number) >= 1
 		  )
 		: [];
-	return {d: numbers(record?.d), c: numbers(record?.c), r: numbers(record?.r), s: syncs};
+	const known = record?.l;
+	const l =
+		Array.isArray(known) &&
+		known.length === 2 &&
+		known.every((n) => typeof n === "number") &&
+		(known[1] as number) >= 1
+			? ([known[0], known[1]] as const)
+			: undefined;
+	return {
+		d: numbers(record?.d),
+		c: numbers(record?.c),
+		r: numbers(record?.r),
+		s: syncs,
+		...(l ? {l} : {}),
+	};
 }
 
 /** The ledger for one server host, over the shared record. */
 export function dialGateFor(host: string, rule: ThrottleRule = NEFARIOUS_RULE): DialLedger {
 	const key = host.toLowerCase();
 	const read = () => hostRecord(readRecord(backend.get(STORAGE_KEY))[key]);
+	// The rule, with the server's last known limit in place of its default.
+	const ruleOf = (record: HostRecord): ThrottleRule =>
+		record.l ? {...rule, limit: record.l[1]} : rule;
 
 	const write = (record: HostRecord, at: number) => {
 		// What came before the chain's first event no longer counts — but a
@@ -409,7 +436,7 @@ export function dialGateFor(host: string, rule: ThrottleRule = NEFARIOUS_RULE): 
 		// lets a dial in), so the horizon is where the replay last started
 		// over, not a fixed age; the refunds are kept a refund period further
 		// back, since a refund's honour depends on the ones before it.
-		const {start} = replay(record.d, Infinity, rule, record.c, record.r, record.s);
+		const {start} = replay(record.d, Infinity, ruleOf(record), record.c, record.r, record.s);
 		const horizon = start ?? at;
 		const refundHorizon = horizon - (rule.refund?.periodMs ?? 0);
 		const keep = (list: number[], from: number) =>
@@ -422,6 +449,7 @@ export function dialGateFor(host: string, rule: ThrottleRule = NEFARIOUS_RULE): 
 			c: keep(record.c, horizon),
 			r: rule.refund ? keep(record.r, refundHorizon) : [],
 			...(syncs.length > 0 ? {s: syncs} : {}),
+			...(record.l ? {l: record.l} : {}),
 		};
 		backend.set(STORAGE_KEY, JSON.stringify(all));
 	};
@@ -435,7 +463,7 @@ export function dialGateFor(host: string, rule: ThrottleRule = NEFARIOUS_RULE): 
 	return {
 		waitMs(now) {
 			const record = read();
-			return throttleWaitMs(record.d, now, rule, record.c, record.r, record.s);
+			return throttleWaitMs(record.d, now, ruleOf(record), record.c, record.r, record.s);
 		},
 		record: (at) => add(at, "d"),
 		closed: (at) => add(at, "c"),
@@ -447,6 +475,11 @@ export function dialGateFor(host: string, rule: ThrottleRule = NEFARIOUS_RULE): 
 		synced(dialed, reported, count, limit) {
 			const record = read();
 			record.s = [...record.s, [dialed, count, reported, limit]];
+
+			if (!record.l || reported >= record.l[0]) {
+				record.l = [reported, limit];
+			}
+
 			write(record, dialed);
 		},
 	};

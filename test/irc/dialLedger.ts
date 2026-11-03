@@ -730,7 +730,7 @@ describe("dial ledger (irc/dialLedger.ts)", function () {
 			expect(dialGateFor("irc.example").waitMs(180 * S)).to.equal(12 * S);
 		});
 
-		it("takes the server's limit from its report, and drops it with the chain", function () {
+		it("takes the server's limit from its report, and keeps it past the chain", function () {
 			const gate = dialGateFor("irc.example");
 			gate.record(0);
 			gate.synced(0, 1 * S, 1, 6);
@@ -743,7 +743,38 @@ describe("dial ledger (irc/dialLedger.ts)", function () {
 			expect(gate.waitMs(45 * S)).to.equal(37 * S);
 			gate.record(1000 * S);
 			const stored = JSON.parse(data.get("thelounge.state.dials") ?? "{}");
-			expect(stored["irc.example"]).to.deep.equal({d: [1000 * S], c: [], r: []});
+			expect(stored["irc.example"]).to.deep.equal({
+				d: [1000 * S],
+				c: [],
+				r: [],
+				l: [1 * S, 6],
+			});
+			// A new chain with no report of its own (a revive sends none): still 6.
+			gate.record(1010 * S);
+			gate.record(1020 * S);
+			gate.record(1030 * S);
+			expect(gate.waitMs(1035 * S)).to.equal(0);
+			gate.record(1040 * S);
+			expect(gate.waitMs(1045 * S)).to.equal(37 * S);
+		});
+
+		it("keeps the newest report's limit, whatever order the reports arrive in", function () {
+			const gate = dialGateFor("irc.example");
+			gate.record(0);
+			gate.synced(0, 10 * S, 1, 4);
+			gate.synced(0, 5 * S, 1, 6);
+			gate.record(1000 * S);
+			gate.record(1010 * S);
+			gate.record(1020 * S);
+			expect(gate.waitMs(1025 * S)).to.equal(37 * S);
+		});
+
+		it("ignores a stored limit that is not a limit", function () {
+			data.set(
+				"thelounge.state.dials",
+				JSON.stringify({"irc.example": {d: [0, 10 * S, 20 * S], c: [], r: [], l: [0, 0]}})
+			);
+			expect(dialGateFor("irc.example").waitMs(25 * S)).to.equal(37 * S);
 		});
 
 		it("keeps a report that came after a later dial started the record (Codex)", function () {
