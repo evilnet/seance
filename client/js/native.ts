@@ -1,6 +1,8 @@
-// Native-shell glue (shells/capacitor): everything the page does *because* it
-// is running inside the shell — the launch link, the status bar, the splash,
-// Android's back button. The bridge itself is `helpers/capacitor.ts`, which
+// App-shell glue: everything the page does *because* it is running inside a
+// shell. Every shell, phone or desktop, hands the page links (the launch link
+// and those opened while it runs) and notification taps; on the phones it
+// adds the status bar, the splash, the system text size and
+// Android's back button. The bridge itself is `helpers/shell.ts`, which
 // imports nothing and is what the leaf helpers (haptics, keepAlive, appBadge,
 // viewport) talk to; this file is free to pull in the store and the router.
 
@@ -10,29 +12,28 @@ import {followSystemTextSize} from "./helpers/systemTextSize";
 import {reconnectAll} from "./irc/manager";
 import {isPhoneLayout} from "./helpers/device";
 import {
-	nativeBridge,
 	nativeCall,
 	nativeListen,
 	nativePlatform,
 	isAndroidShell,
-	isIOSShell,
-} from "./helpers/capacitor";
+	isDesktopShell,
+	isShell,
+} from "./helpers/shell";
 import {emitEscape, topEscapeLayer} from "./helpers/escapeLayer";
 import {onNativePushTap} from "./helpers/nativePush";
 import {onNativeAlertTap} from "./helpers/nativeAlerts";
 import {store} from "./store";
 
-// A link the OS handed the app — `irc:`, `ircs:` or `web+irc:`, the schemes
-// Info.plist claims. Cold, it is the launch URL (`getLaunchUrl`), which
+// A link the OS handed the app — `irc:`, `ircs:`, `web+irc:` or `web+ircs:`, the
+// schemes Info.plist claims (a desktop shell claims the `web+` two alone). Cold, it is the launch URL (`getLaunchUrl`), which
 // boot.ts awaits before it routes, the way a browser page reads `?uri=`.
-// While running it comes through `appUrlOpen`; iOS reports the launch URL
-// that way too, so that one is delivered once (Android never does).
+// While running it comes through `appUrlOpen`, and so does a tap on such a
+// link in a message.
 //
-// The bridge outlives a reload (Settings' restore reloads the page): Android
-// keeps answering `getLaunchUrl` with the intent the activity started with,
-// iOS with the newest link it was handed. The links this page has acted on
-// are noted in sessionStorage, which a reload keeps and a cold start does
-// not, so the next boot does not act on them again.
+// The bridge outlives a reload (Settings' restore reloads the page) and keeps
+// answering `getLaunchUrl` with the newest link it was handed (src/lib.rs).
+// The last link this page acted on is noted in sessionStorage, which a reload
+// keeps and a cold start does not, so the next boot does not act on it again.
 const HANDLED_LINK_KEY = "thelounge.launchLink";
 
 function linkHandled(href: string): boolean {
@@ -52,7 +53,6 @@ function noteLinkHandled(href: string): void {
 }
 
 let launchUrl: Promise<string | null> = Promise.resolve(null);
-let launchHref: string | null = null;
 let urlHandler: ((href: string) => void) | null = null;
 let pendingHref: string | null = null;
 
@@ -72,7 +72,7 @@ export function onNativeUrl(handler: (href: string) => void): void {
 	}
 }
 
-// The native launch image (capacitor.config.ts keeps it up until told) comes
+// The native launch image (where the shell keeps one up until told) comes
 // down as soon as the page can paint in the user's theme — the theme
 // stylesheet's load — so the page's own loading screen, the logo tile on
 // that theme, takes over from the launch image (the logo on its own tile;
@@ -98,33 +98,51 @@ function hideSplash(): void {
  * goes now if the theme's load did not take it down already.
  */
 export function nativeAppReady(): void {
-	hideSplash();
+	// A desktop shell has no launch image to take down.
+	if (!isDesktopShell()) {
+		hideSplash();
+	}
+}
+
+// Input types that hold no text to correct, cut or paste.
+const NON_TEXT_INPUTS = new Set([
+	"button",
+	"checkbox",
+	"color",
+	"file",
+	"image",
+	"radio",
+	"range",
+	"reset",
+	"submit",
+]);
+
+/**
+ * A desktop web view's own right-click menu belongs over text the user can
+ * act on: a text field (where it carries the spelling guesses) or a
+ * selection (Copy). Anywhere else it offers Reload, Back or Inspect, which
+ * an app has no use for; the page's own menus (nicks, channels, messages)
+ * cancel the event themselves and are unaffected.
+ */
+function wantsNativeMenu(target: EventTarget | null): boolean {
+	if (target instanceof HTMLTextAreaElement) {
+		return true;
+	}
+
+	if (target instanceof HTMLInputElement) {
+		return !NON_TEXT_INPUTS.has(target.type);
+	}
+
+	if (target instanceof HTMLElement && target.isContentEditable) {
+		return true;
+	}
+
+	return Boolean(window.getSelection()?.toString().trim());
 }
 
 export function installNativeHooks(): void {
-	if (!nativeBridge()) {
+	if (!isShell()) {
 		return;
-	}
-
-	// iOS/Android drop the WebSocket while backgrounded: retry on foreground.
-	// (No build check: a new build of the shell is a new app from the store.)
-	nativeListen("App", "appStateChange", ({isActive}: {isActive?: boolean}) => {
-		if (isActive) {
-			reconnectAll();
-		}
-	});
-
-	// The system's text size (iOS's Dynamic Type, Android's Font size)
-	// scales the whole interface (helpers/systemTextSize.ts).
-	followSystemTextSize();
-
-	// Android: the "stay connected" notification's Turn off button stops the
-	// service; the setting follows so Settings shows the truth and the next
-	// launch does not start it again (helpers/keepAlive.ts).
-	if (isAndroidShell()) {
-		nativeListen("KeepAlive", "stopped", () => {
-			void store.dispatch("settings/update", {name: "keepConnected", value: false});
-		});
 	}
 
 	// Android: a tapped push notification (PushService.java) opens its
@@ -149,9 +167,6 @@ export function installNativeHooks(): void {
 		}
 
 		noteLinkHandled(href);
-		// Only iOS echoes the launch link through `appUrlOpen`; kept on
-		// Android, the token would swallow a later opening of the same link.
-		launchHref = isIOSShell() ? href : null;
 		return href;
 	});
 
@@ -161,14 +176,8 @@ export function installNativeHooks(): void {
 		}
 
 		// After the launch URL is known, never before: the two bridge calls
-		// are in flight together, and a link compared against a launch URL
-		// that has not come back yet is acted on twice.
+		// are in flight together, and the link noted last must be the newest.
 		void launchUrl.then(() => {
-			if (url === launchHref) {
-				launchHref = null;
-				return;
-			}
-
 			noteLinkHandled(url);
 
 			if (urlHandler) {
@@ -179,7 +188,43 @@ export function installNativeHooks(): void {
 		});
 	});
 
-	// The WebView fills the screen (capacitor.config.ts), so the page draws
+	// A desktop window is a window like a browser's: the page's own
+	// visibility and focus events (foreground.ts) see it come back, it has
+	// no status bar, no splash and no back button, and its text size is the
+	// page's setting. It says which shell it is, and that is all.
+	if (isDesktopShell()) {
+		document.documentElement.dataset.shell = "desktop";
+		document.documentElement.dataset.platform = nativePlatform();
+		document.addEventListener("contextmenu", (event) => {
+			if (!wantsNativeMenu(event.target)) {
+				event.preventDefault();
+			}
+		});
+		return;
+	}
+
+	// iOS/Android drop the WebSocket while backgrounded: retry on foreground.
+	// (No build check: a new build of the shell is a new app from the store.)
+	nativeListen("App", "appStateChange", ({isActive}: {isActive?: boolean}) => {
+		if (isActive) {
+			reconnectAll();
+		}
+	});
+
+	// The system's text size (iOS's Dynamic Type, Android's Font size)
+	// scales the whole interface (helpers/systemTextSize.ts).
+	followSystemTextSize();
+
+	// Android: the "stay connected" notification's Turn off button stops the
+	// service; the setting follows so Settings shows the truth and the next
+	// launch does not start it again (helpers/keepAlive.ts).
+	if (isAndroidShell()) {
+		nativeListen("KeepAlive", "stopped", () => {
+			void store.dispatch("settings/update", {name: "keepConnected", value: false});
+		});
+	}
+
+	// The WebView fills the screen (edge to edge), so the page draws
 	// under the status bar: `viewport-fit=cover` makes env(safe-area-inset-top)
 	// real and style.css pads #viewport by it in the theme's canvas colour.
 	// The bar's text follows that colour's luminance, at boot and again
@@ -193,17 +238,6 @@ export function installNativeHooks(): void {
 	if (viewport && !content.includes("viewport-fit")) {
 		viewport.setAttribute("content", `${content}, viewport-fit=cover`);
 	}
-
-	// Android: Capacitor's SystemBars reads that meta once, at DOMContentLoaded
-	// — before this runs — and without `viewport-fit=cover` it insets the
-	// WebView natively (a band in the window's colour above the header, and
-	// the env() values 0) instead of handing the page the insets. Asking it
-	// to look again is the same call its own DOM-ready hook makes; it
-	// re-applies the window insets, and from there the page pads itself, in
-	// the theme's colour, as it does on iOS. A WebView older than Chromium
-	// 140 takes the native inset whatever the meta says (MainActivity paints
-	// the band in the deploy's colour for those).
-	window.CapacitorSystemBarsAndroidInterface?.onDOMReady();
 
 	let barStyle: string | undefined;
 
@@ -265,6 +299,10 @@ export function installNativeHooks(): void {
 	// minimizes (overrides the default). Not `router.back()`: the history is
 	// kept one deep (router.ts). Without the middle steps a back press meant
 	// to close a menu backgrounded the app, menu and all.
+	if (isAndroidShell()) {
+		void nativeCall("App", "handleBack").catch(() => {});
+	}
+
 	nativeListen("App", "backButton", () => {
 		if (closeOpenImage()) {
 			return;

@@ -1,7 +1,8 @@
 // The app icon's badge: the unread mention count (vue.ts watches the
 // store's `mentionCount`, the inbox's). In a browser that is the Badging API, which an
-// installed PWA honours; in the native shell (shells/capacitor) it is the
-// Badge plugin, because WKWebView has no `navigator.setAppBadge`.
+// installed PWA honours; in a shell (phone or desktop) it is the Badge
+// plugin, because WKWebView has no `navigator.setAppBadge`. A Windows taskbar
+// shows no number: the Tauri shell puts a dot over the icon instead.
 //
 // iOS shows a badge only with the notification permission's badge grant, so
 // the first highlight asks for it, through helpers/nativeAlerts.ts, together
@@ -10,7 +11,7 @@
 // (the app backgrounded under it) leaves the permission undecided, and the
 // next highlight asks again.
 
-import {isIOSShell, isNativeShell, nativeCall} from "./capacitor";
+import {isIOSShell, isShell, nativeCall} from "./shell";
 import {askNativeAlertPermission} from "./nativeAlerts";
 
 interface BadgePermission {
@@ -65,7 +66,7 @@ async function askBadgePermission(): Promise<boolean | null> {
 }
 
 export function setAppBadge(count: number): void {
-	if (isNativeShell()) {
+	if (isShell()) {
 		setNativeBadge(count);
 		return;
 	}

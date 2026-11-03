@@ -15,6 +15,10 @@
 		{
 			"protocol": "web+irc",
 			"url": "./?uri=%s"
+		},
+		{
+			"protocol": "web+ircs",
+			"url": "./?uri=%s"
 		}
 	],
 	"icons": [

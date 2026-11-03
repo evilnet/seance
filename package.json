@@ -14,9 +14,9 @@
   "scripts": {
     "build": "vite build",
     "coverage": "NODE_ENV=test nyc --nycrc-path=test/.nycrc-mocha.json mocha --config=test/.mocharc.yml 'test/**/*.ts' && nyc --nycrc-path=test/.nycrc-report.json report",
-    "format:prettier": "prettier --write \"**/*.*\"",
+    "format:prettier": "prettier --write --ignore-unknown \"**/*.*\"",
     "lint:oxlint": "oxlint",
-    "lint:prettier": "prettier --list-different \"**/*.*\"",
+    "lint:prettier": "prettier --list-different --ignore-unknown \"**/*.*\"",
     "lint:stylelint": "stylelint --color \"client/**/*.css\"",
     "lint": "run-p --aggregate-output --continue-on-error lint:*",
     "test": "run-p --aggregate-output --continue-on-error lint:* typecheck test:mocha",

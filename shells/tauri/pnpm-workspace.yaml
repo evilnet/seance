@@ -1,0 +1,9 @@
+# pnpm settings for the Tauri shell, a project of its own (its own lockfile);
+# this file also keeps pnpm from treating the repository root as its
+# workspace.
+
+# Use the pnpm already installed, without switching to packageManager's
+# version: the switch writes the lockfile as two YAML documents, and GitHub's
+# dependency graph reads only the first, so Dependabot alerts and security
+# updates would stop. Install the version packageManager names instead.
+pmOnFail: ignore

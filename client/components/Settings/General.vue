@@ -196,6 +196,7 @@ import {
 } from "../../js/helpers/keepAlive";
 import eventbus from "../../js/eventbus";
 import {currentPlatform} from "../../js/helpers/platformDefaults";
+import {isShell} from "../../js/helpers/shell";
 import {createState} from "../../js/settings";
 import {
 	applyBackup,
@@ -232,9 +233,11 @@ export default defineComponent({
 				void fetchKeepAliveStatus();
 			}
 
-			// Enable protocol handler registration if supported,
-			// and the network configuration is not locked
+			// Enable protocol handler registration if supported, in a browser
+			// (the OS hands a shell its links), and the network configuration
+			// is not locked
 			canRegisterProtocol.value =
+				!isShell() &&
 				!!window.navigator.registerProtocolHandler &&
 				!store.state.serverConfiguration?.lockNetwork;
 		});
@@ -260,14 +263,17 @@ export default defineComponent({
 			void promptInstall();
 		};
 
-		// `web+irc:`, not `irc:`/`ircs:`: those promise a TCP connection we
+		// `web+irc:` and `web+ircs:`, not `irc:`/`ircs:`: those promise a TCP connection we
 		// cannot make, and a web app may only claim `web+…` schemes anyway
 		// (docs/resources/irc-links.md).
 		const registerProtocol = () => {
 			const uri = document.location.origin + document.location.pathname + "?uri=%s";
-			// @ts-expect-error
-			// the third argument is deprecated but recommended for compatibility: https://developer.mozilla.org/en-US/docs/Web/API/Navigator/registerProtocolHandler
-			window.navigator.registerProtocolHandler("web+irc", uri, appName.value);
+
+			for (const scheme of ["web+irc", "web+ircs"]) {
+				// @ts-expect-error
+				// the third argument is deprecated but recommended for compatibility: https://developer.mozilla.org/en-US/docs/Web/API/Navigator/registerProtocolHandler
+				window.navigator.registerProtocolHandler(scheme, uri, appName.value);
+			}
 		};
 
 		// Settings backup (helpers/settingsBackup.ts). The download is a

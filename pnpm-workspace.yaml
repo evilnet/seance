@@ -1,5 +1,5 @@
-# pnpm settings for the root project. Not a workspace: shells/capacitor is a
-# separate project with its own lockfile and its own settings file.
+# pnpm settings for the root project. Not a workspace: shells/tauri is a
+# separate project with its own lockfile.
 
 # Dependency install scripts run only when listed here (pnpm refuses the
 # install otherwise). esbuild's checks its platform binary, which tsx uses;

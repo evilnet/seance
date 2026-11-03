@@ -11,7 +11,7 @@ import {attachMediaPreviews} from "../helpers/messagePreviews";
 import * as saved from "../irc/saved-networks";
 import {SAID_TYPES} from "../irc/channel";
 import {insertMessage} from "../helpers/messageUpdates";
-import {nativeAlertsAvailable, showNativeAlert} from "../helpers/nativeAlerts";
+import {nativeAlertsAvailable, requestAttention, showNativeAlert} from "../helpers/nativeAlerts";
 import {alertSound, playNotificationSound} from "../helpers/notificationSound";
 import {hasVirtualKeyboard} from "../helpers/device";
 
@@ -186,6 +186,7 @@ function notifyMessage(
 		(store.state.settings.notifyAllMessages && msg.type === MessageType.MESSAGE)
 	) {
 		if (!document.hasFocus() || !activeChannel || activeChannel.channel !== channel) {
+			requestAttention();
 			const native = nativeAlertsAvailable();
 			const ua = navigator.userAgent;
 			const notifying =

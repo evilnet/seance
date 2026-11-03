@@ -29,8 +29,6 @@ yarn.lock
 .gitkeep
 tmp/
 *.conf
-shells/capacitor/android/
-shells/capacitor/ios/
 .claude/
 .pi/
 .env
@@ -39,3 +37,9 @@ shells/capacitor/ios/
 .claude-config/
 .llama-stats.log
 testnet/
+shells/tauri/src-tauri/target/
+shells/tauri/src-tauri/icons/
+shells/tauri/src-tauri/gen/
+*.rs
+*.toml
+Cargo.lock

@@ -1,0 +1,66 @@
+[package]
+name = "seance-tauri"
+version = "0.1.0"
+description = "Tauri desktop shell for the Seance IRC client"
+license = "MIT"
+edition = "2021"
+rust-version = "1.80"
+
+[lib]
+name = "seance_tauri_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "=2.7.4", features = [] }
+
+[target.'cfg(target_os = "macos")'.build-dependencies]
+swift-rs = { version = "=1.0.9", features = ["build"] }
+
+[dependencies]
+tauri = { version = "=2.12.5", features = ["tray-icon"] }
+tauri-plugin-deep-link = "=2.6.3"
+tauri-plugin-opener = "=2.7.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-single-instance = "=2.5.5"
+tauri-plugin-window-state = "=2.5.0"
+
+# The phones (src/mobile.rs): haptics from Tauri's own plugin, through its
+# Rust API alone — it injects nothing into the page.
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+tauri-plugin-haptics = "=2.4.2"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true
+
+# `--features snapshot` (debug builds): the Smoke.snapshot call writes the web
+# view's own rendering to a file — screenshots that do not need the screen,
+# which a locked or headless machine does not give. Off in every real build.
+[features]
+snapshot = ["dep:objc2", "dep:objc2-web-kit", "dep:objc2-app-kit", "dep:objc2-foundation", "dep:objc2-core-foundation", "dep:block2"]
+
+# The OS's notifications (src/alerts.rs): toasts on Windows, the freedesktop
+# notification server over D-Bus on Linux. macOS has its own Swift
+# (src/apple.rs).
+[target.'cfg(windows)'.dependencies]
+notify-rust = "=4.18.2"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus = { version = "=5.19.0", default-features = false, features = ["blocking-api", "async-io"] }
+# Spell checking in the web view (lib.rs enable_spell_checking); the version
+# wry already pulls in.
+webkit2gtk = "=2.0.2"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { version = "0.6", optional = true }
+objc2-web-kit = { version = "0.3", optional = true, features = ["WKWebView", "WKSnapshotConfiguration", "block2", "objc2-app-kit", "objc2-core-foundation"] }
+objc2-app-kit = { version = "0.3", optional = true, features = ["NSImage", "NSResponder", "NSView"] }
+objc2-foundation = { version = "0.3", optional = true, features = ["NSData", "NSString", "NSError"] }
+block2 = { version = "0.6", optional = true }
+objc2-core-foundation = { version = "0.3", optional = true, features = ["CFCGTypes"] }

@@ -294,12 +294,11 @@ html[data-shell="native"] #status-bar-tint {
 	display: none;
 }
 
-/* The native shell (shells/capacitor, native.ts): its WebView runs under the
+/* The shell on a phone (shells/tauri, native.ts): its WebView runs under the
  * system bars, so the page keeps clear of them itself. The insets are named
- * once here and every rule below spends them — the inset is env() on iOS,
- * while Capacitor's Android SystemBars publishes the same numbers as
- * --safe-area-inset-* on the root (env() is 0 in a WebView older than
- * Chromium 140), so those win where they exist.
+ * once here and every rule below spends them: env(), or the same numbers as
+ * --safe-area-inset-* on the root where a shell publishes them, which win
+ * where they exist.
  *
  * Where the *bottom* inset goes is the one place the two platforms differ,
  * and it is a token rather than a fork: Android's navigation bar is a bar —
@@ -331,7 +330,7 @@ html[data-shell="native"][data-platform="android"] {
 /* The app starts below the status bar, in the same canvas colour the strip
  * above shows, so the header sits under the clock rather than in it. On
  * Android it stops above the navigation bar too; that inset goes to 0 while
- * the keyboard is up (Capacitor reports it so) and this padding with it. */
+ * the keyboard is up and this padding with it. */
 html[data-shell="native"] #viewport {
 	/* In landscape the top inset is 0 and the island is a side inset. */
 	padding: var(--inset-top) var(--inset-right) var(--inset-outer-bottom) var(--inset-left);
@@ -6066,6 +6065,22 @@ html[data-shell="native"][data-keyboard="up"] #form {
  * through the strip either way. */
 html[data-shell="native"] #footer {
 	margin-bottom: var(--inset-inner-bottom);
+}
+
+/* The pages that scroll (connect, a network's settings, …) end above the
+ * home indicator too, or their last button sits in the screen's rounded
+ * corners. A spacer, not padding: a column flexbox's scroll range can drop
+ * its bottom padding. A chat window's composer already keeps the strip, as
+ * a modal's footer does (below); an overlay centres its pane, so a spacer
+ * there would push the pane up by half its height. */
+html[data-shell="native"] .window::after {
+	content: "";
+	flex: none;
+	height: var(--inset-inner-bottom);
+}
+
+html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:has(#form))::after {
+	content: none;
 }
 
 /* A modal that is the whole page on a phone runs to the bottom edge too, so

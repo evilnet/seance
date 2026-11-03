@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- What the FileProvider may hand out, and nothing more: the camera shots
+     the paperclip's chooser asks for (UploadChooserClient.kt, cache/capture/)
+     and the ones wry's own chrome client takes for an input with `capture`
+     (generated/RustWebChromeClient.kt, the app's external Pictures). -->
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+  <cache-path name="capture" path="capture/" />
+  <external-files-path name="pictures" path="Pictures/" />
+</paths>
