@@ -1,8 +1,7 @@
 /**
  * KILL of our own connection (`:<killer> KILL <me> :<path> (<reason>)`):
  * nefarious2 never holds a killed session for the bouncer
- * (bounce_should_hold), so the drop that follows counts in the server's
- * connection throttle like any other (irc/dialLedger.ts) — whatever
+ * (bounce_should_hold), so the session is gone whatever
  * `PERSISTENCE STATUS` said before. Shown as it always was.
  */
 

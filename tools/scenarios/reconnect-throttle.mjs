@@ -1,33 +1,28 @@
-// Never dial into the server's connection throttle (irc/dialLedger.ts): with
-// this device's recent dials on record, a connect waits out the gap — and
-// says so — instead of dialling into a refusal that would renew the server's
-// window.
+// The server's connection throttle, said over the WebSocket
+// (docs/projects/reconnect-throttle.md): an `ERROR … throttled` makes the
+// retry wait what it names (a second more), or 42 s when it names nothing,
+// and the strip says the server limits quick reconnects, with a countdown
+// and Connect now.
 //
 //   pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d
 //   node tools/browser-drive.mjs tools/scenarios/reconnect-throttle.mjs
 //   (also --mobile --width=390 --height=844)
 //
-// The dev ircd's own throttle is relaxed (100 / 1 s / 1 s), so nothing here
-// is refused by the server: what is checked is the client's ledger. (The
-// ircd's registration notice reports that limit, `ca 1(100)`, and the ledger
-// takes it; the seed below replaces the record without one, so the default
-// limit of 4 applies again.) The
-// page's WebSocket constructor is wrapped to count dials. Three dials are
-// written into `thelounge.state.dials` as if the app had been reopened three
-// times in quick succession, and the socket is dropped under the client;
-// then:
-//  - the automatic retry waits, with the throttle wording and a countdown,
-//    and opens no socket;
-//  - "Connect now" during the wait dials at once (the user asked) and the
-//    network registers;
-//  - after /disconnect with the record cleared, Connect dials at once.
+// nefarious2 refuses a throttled connection before the WebSocket upgrade
+// today, so the page cannot read it; the server change this expects finishes
+// the handshake and sends the ERROR first. Until then the page's WebSocket
+// constructor is wrapped: a dial made while `window.__throttleNext` is set
+// gets a stand-in socket that opens, says the ERROR and closes. Then:
+//  - with a wait named (37 s), the retry waits it, says why, counts down and
+//    opens no socket; "Connect now" dials at once and registers;
+//  - with no wait named (stock nefarious2's text), the retry waits 42 s, and
+//    the sidebar's status icon dials at once.
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"; // dev ircd's self-signed cert
 
 const PORT = process.env.SEANCE_PORT ?? "8000";
 const RUN = Date.now().toString(36).slice(-5);
-const KEY = "thelounge.state.dials";
 
 export const url = `http://localhost:${PORT}/?host=localhost&port=8443&tls=true&nick=thr${RUN}&join=%23seance`;
 // The socket is dropped under the client on purpose (and /disconnect quits):
@@ -37,8 +32,34 @@ export const allowWsFrameErrors = /(Data frame|Close) received after close/;
 const COUNT_DIALS = `(() => {
 	const Real = window.WebSocket;
 	window.__dials = 0;
+	window.__throttleNext = null;
+	class Throttled extends EventTarget {
+		constructor(text) {
+			super();
+			this.readyState = 0;
+			this.protocol = "text.ircv3.net";
+			this.binaryType = "blob";
+			setTimeout(() => {
+				this.readyState = 1;
+				this.dispatchEvent(new Event("open"));
+				this.dispatchEvent(new MessageEvent("message", {data: text}));
+				this.readyState = 3;
+				this.dispatchEvent(new CloseEvent("close", {code: 1006, wasClean: false}));
+			}, 50);
+		}
+		send() {}
+		close() {}
+	}
+	for (const [k, v] of Object.entries({CONNECTING: 0, OPEN: 1, CLOSING: 2, CLOSED: 3})) {
+		Throttled.prototype[k] = v;
+	}
 	function Counted(...args) {
 		window.__dials++;
+		if (window.__throttleNext !== null) {
+			const text = window.__throttleNext;
+			window.__throttleNext = null;
+			return new Throttled(text);
+		}
 		window.__lastWs = new Real(...args);
 		return window.__lastWs;
 	}
@@ -47,21 +68,22 @@ const COUNT_DIALS = `(() => {
 	window.WebSocket = Counted;
 })()`;
 
-/** Three recent dials on record, as if the app had been reopened three times. */
-const SEED = `localStorage.setItem(${JSON.stringify(
-	KEY
-)}, JSON.stringify({localhost: {d: [Date.now() - 30000, Date.now() - 25000, Date.now() - 20000], c: []}}))`;
+const STOCK = "ERROR :Your host is trying to (re)connect too fast -- throttled";
+const NAMED = `${STOCK} (retry in 37 seconds)`;
 
 const LABEL = `document.querySelector(".connection-bar-label")?.textContent ?? ""`;
 const BAR_GONE = `!document.querySelector(".connection-bar")`;
 
-async function disconnect(page) {
-	await page.fill("#input", "/disconnect");
-	await page.evaluate(`document.querySelector("#form").requestSubmit()`);
-	await page.waitFor(`(${LABEL}).startsWith("Disconnected from")`, {
-		timeout: 10000,
-		label: "the network disconnected",
+/** Drop the socket under the client, with the retry's dial throttled by `text`. */
+async function throttle(page, text) {
+	await page.evaluate(`window.__throttleNext = ${JSON.stringify(text)}`);
+	await page.evaluate("window.__lastWs.close()");
+	await page.waitFor(`/the server limits/.test(${LABEL})`, {
+		timeout: 20000, // the strip shows after 10 s down (ChatInput.vue)
+		label: "the throttled wait",
 	});
+	await page.waitFor("window.__throttleNext === null", {label: "the throttled dial"});
+	return page.evaluate("window.__dials");
 }
 
 export default async function run(page) {
@@ -76,22 +98,18 @@ export default async function run(page) {
 	await page.waitFor(`document.querySelector("#input")`, {label: "the input"});
 	await page.sleep(1500);
 
-	await page.evaluate(SEED);
-	const before = await page.evaluate("window.__dials");
-	// Lost under the client: the transport's own retry asks the gate.
-	await page.evaluate("window.__lastWs.close()");
-	await page.waitFor(`/the server limits/.test(${LABEL})`, {
-		timeout: 20000, // the strip shows after 10 s down (ChatInput.vue)
-		label: "the retry waits",
-	});
-
+	const before = await throttle(page, NAMED);
 	const label = await page.evaluate(LABEL);
 	const seconds = Number((label.match(/ in (\d+)s/) ?? [])[1]);
 	await page.check(
 		`the retry waits, saying why ("${label}")`,
 		/the server limits quick reconnects/.test(label)
 	);
-	await page.check(`with a countdown (${seconds}s)`, seconds >= 15 && seconds <= 45);
+	// 38 s from the ERROR, of which the strip's 10 s have gone.
+	await page.check(
+		`with the server's wait counting down (${seconds}s)`,
+		seconds >= 20 && seconds <= 30
+	);
 	const cut = await page.evaluate(
 		`(() => { const el = document.querySelector(".connection-bar-label"); return el.scrollWidth > el.clientWidth + 1; })()`
 	);
@@ -111,16 +129,12 @@ export default async function run(page) {
 	);
 	await page.waitFor(BAR_GONE, {timeout: 15000, label: "registered after Connect now"});
 
-	// The same wait again, answered from the sidebar's status icon: during a
-	// retry's wait it dials (it cancels only a dial in flight).
+	// Stock nefarious2's ERROR names no wait: the fallback, answered from the
+	// sidebar's status icon (during a retry's wait it dials).
 	await page.sleep(1000);
-	await page.evaluate(SEED);
-	const beforeIcon = await page.evaluate("window.__dials");
-	await page.evaluate("window.__lastWs.close()");
-	await page.waitFor(`/the server limits/.test(${LABEL})`, {
-		timeout: 20000, // the strip shows after 10 s down (ChatInput.vue)
-		label: "the retry waits again",
-	});
+	const beforeIcon = await throttle(page, STOCK);
+	const stock = Number(((await page.evaluate(LABEL)).match(/ in (\d+)s/) ?? [])[1]);
+	await page.check(`no wait named: the fallback (${stock}s left)`, stock >= 25 && stock <= 34);
 	const iconLabel = await page.evaluate(
 		`document.querySelector(".connection-status-icon")?.getAttribute("aria-label") ?? ""`
 	);
@@ -137,19 +151,6 @@ export default async function run(page) {
 		(await page.evaluate("window.__dials")) === beforeIcon + 1
 	);
 	await page.waitFor(BAR_GONE, {timeout: 15000, label: "registered after the icon"});
-
-	await page.sleep(1000);
-	await disconnect(page);
-	await page.evaluate(`localStorage.removeItem(${JSON.stringify(KEY)})`);
-	const again = await page.evaluate("window.__dials");
-	await page.click(".connection-bar-connect");
-	await page.sleep(300);
-	await page.check(
-		"with no dials on record, Connect dials at once",
-		(await page.evaluate("window.__dials")) === again + 1 &&
-			!/the server limits/.test(await page.evaluate(LABEL))
-	);
-	await page.waitFor(BAR_GONE, {timeout: 15000, label: "registered at once"});
 
 	await page.check("no console errors", page.consoleErrors.length === 0);
 }

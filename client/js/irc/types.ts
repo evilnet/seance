@@ -14,8 +14,7 @@ import type {TransportEvent, TransportState} from "./transport";
 export interface Transport {
 	readonly state: TransportState;
 	on(listener: (ev: TransportEvent) => void): () => void;
-	/** `force`: the user asked, so dial even into the server's throttle. */
-	connect(opts?: {force?: boolean}): void;
+	connect(): void;
 	send(line: string): void;
 	close(code?: number, reason?: string): void;
 	/** Check that an open socket is alive (PING; silence closes it as lost). Optional. */
@@ -26,6 +25,10 @@ export interface Transport {
 	redial?(): void;
 	/** Drop the current socket as lost (close 1006, `reason`) and reconnect on the usual schedule. */
 	abandon?(reason: string): void;
+	/** The server said it throttled us: the next retry waits `delayMs`, or the fallback. Optional. */
+	throttled?(delayMs?: number): void;
+	/** A long wait is pending: the foreground poke leaves it be. Optional. */
+	holding?(): boolean;
 }
 
 /**

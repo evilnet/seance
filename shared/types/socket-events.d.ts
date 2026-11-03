@@ -89,7 +89,7 @@ interface ServerToClientEvents {
 		/** Epoch ms of the next automatic dial, only while waiting for a retry. */
 		retryAt?: number;
 		/** That wait is the server's connection throttle, not the backoff. */
-		retryThrottled?: boolean;
+		retryReason?: "throttled" | "offline";
 	}>;
 	/**
 	 * A connect was dropped before it registered, for a reason the user has

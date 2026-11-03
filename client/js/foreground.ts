@@ -17,8 +17,8 @@ import {UNFOCUSED_AWAY_MS} from "./irc/presence";
 import {checkForUpdate} from "./pwa";
 import {hasStashedLogin} from "./webpush";
 
-function wake(): void {
-	reconnectAll();
+function wake(opts: {networkBack?: boolean} = {}): void {
+	reconnectAll(opts);
 	checkForUpdate();
 }
 
@@ -102,7 +102,7 @@ export function installForegroundHooks(): void {
 	// the socket almost certainly died while it was frozen.
 	document.addEventListener("resume", () => wake());
 
-	window.addEventListener("online", () => wake());
+	window.addEventListener("online", () => wake({networkBack: true}));
 	window.addEventListener("focus", () => {
 		wake();
 		attend();

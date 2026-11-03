@@ -47,6 +47,12 @@ class FakeTransport implements Transport {
 		this.state = "closed";
 	}
 
+	throttleWaits: (number | undefined)[] = [];
+
+	throttled(delayMs?: number): void {
+		this.throttleWaits.push(delayMs);
+	}
+
 	// --- drivers ---
 	open(): void {
 		this.state = "open";
@@ -80,6 +86,15 @@ class FakeTransport implements Transport {
 	retry(attempt: number): void {
 		this.state = "connecting";
 		this.emit({type: "retry", attempt});
+	}
+
+	/** Any event, as the transport would emit it. */
+	emitEvent(ev: TransportEvent): void {
+		if (ev.type === "reconnecting") {
+			this.state = "reconnect-wait";
+		}
+
+		this.emit(ev);
 	}
 
 	private emit(ev: TransportEvent): void {
@@ -1419,5 +1434,96 @@ describe("IrcClient channel order", function () {
 			"#alpha",
 			"#beta",
 		]);
+	});
+});
+
+describe("IrcClient: the server's throttle (handlers/error.ts)", function () {
+	it("hands the transport the wait an ERROR names, and shows the ERROR", function () {
+		const h = setup();
+		h.client.connect();
+		h.transport.open();
+		h.transport.line(
+			"ERROR :Your host is trying to (re)connect too fast -- throttled (retry in 37 seconds)"
+		);
+		expect(h.transport.throttleWaits).to.deep.equal([38_000]);
+		expect(lastMessage(h.client.lobby.id).text).to.match(/too fast -- throttled/);
+	});
+
+	it("hands it no wait when the ERROR names none (stock nefarious2)", function () {
+		const h = setup();
+		h.client.connect();
+		h.transport.open();
+		h.transport.line("ERROR :Your host is trying to (re)connect too fast -- throttled");
+		expect(h.transport.throttleWaits).to.deep.equal([undefined]);
+	});
+
+	it("leaves any other ERROR alone", function () {
+		const h = setup();
+		h.client.connect();
+		h.transport.open();
+		h.transport.line("ERROR :Closing Link: alice[host] (Ping timeout: 240 seconds)");
+		expect(h.transport.throttleWaits).to.deep.equal([]);
+	});
+});
+
+describe("IrcClient: offline (transport.ts OFFLINE_RETRY_MS)", function () {
+	function withOnLine(onLine: boolean, fn: () => void): void {
+		const nav = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+		Object.defineProperty(globalThis, "navigator", {value: {onLine}, configurable: true});
+
+		try {
+			fn();
+		} finally {
+			if (nav) {
+				Object.defineProperty(globalThis, "navigator", nav);
+			} else {
+				delete (globalThis as {navigator?: unknown}).navigator;
+			}
+		}
+	}
+
+	/** The socket fails with no network, and the transport waits for it. */
+	function lostOffline(h: Harness): void {
+		h.transport.emitEvent({
+			type: "close",
+			code: 1006,
+			reason: "",
+			wasClean: false,
+			willReconnect: true,
+			delayMs: 30_000,
+		});
+		h.transport.emitEvent({
+			type: "reconnecting",
+			attempt: 1,
+			delayMs: 30_000,
+			reason: "offline",
+		});
+	}
+
+	it("says so once, flags the wait, and keeps the certificate hint out of it", function () {
+		const h = setup();
+		h.client.connect();
+		withOnLine(false, () => {
+			lostOffline(h);
+			h.transport.retry(1);
+			lostOffline(h);
+		});
+		const lobby = messages(h.client.lobby.id).map((m) => m.text);
+		expect(lobby.filter((t) => /You're offline/.test(t ?? ""))).to.have.length(1);
+		expect(lobby.filter((t) => /Could not connect/.test(t ?? ""))).to.have.length(1);
+		expect(lobby.some((t) => /does not reveal why/.test(t ?? ""))).to.equal(false);
+		const status = payloads<{retryReason?: string}>("network:status").pop();
+		expect(status?.retryReason).to.equal("offline");
+	});
+
+	it("drops the flag when the next dial goes out", function () {
+		const h = setup();
+		h.client.connect();
+		withOnLine(false, () => {
+			lostOffline(h);
+		});
+		h.transport.retry(1);
+		const status = payloads<{retryReason?: string}>("network:status").pop();
+		expect(status?.retryReason).to.equal(undefined);
 	});
 });

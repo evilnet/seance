@@ -259,9 +259,6 @@ if (typeof window !== "undefined") {
 			if (client.isConnected) {
 				client.send("QUIT :page closed");
 			}
-
-			// Registering or still dialling, the server has counted it too.
-			client.noteUnload();
 		}
 	});
 }
@@ -350,10 +347,12 @@ export function syncPresenceAll(): void {
  * to the foreground — browsers from foreground.ts, native shells from
  * native.ts; deliberately disconnected networks are left alone.
  */
-export function reconnectAll(): void {
+export function reconnectAll(opts: {networkBack?: boolean} = {}): void {
 	const now = Date.now();
 
-	if (now - lastPokeAt < POKE_INTERVAL_MS) {
+	// The network coming back is rare and the one signal an offline wait
+	// waits for: never folded into a focus poke a moment before it.
+	if (!opts.networkBack && now - lastPokeAt < POKE_INTERVAL_MS) {
 		return;
 	}
 
@@ -362,7 +361,8 @@ export function reconnectAll(): void {
 	for (const client of clients.values()) {
 		const transport = client.transport;
 
-		if (transport.state === "reconnect-wait") {
+		// A long wait is left to run (transport.ts holding).
+		if (transport.state === "reconnect-wait" && !transport.holding?.()) {
 			client.connect();
 		} else if (transport.state === "connecting") {
 			// A dial started while the OS had the radio off can sit in
