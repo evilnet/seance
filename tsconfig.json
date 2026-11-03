@@ -7,8 +7,5 @@
     "./vite.push.config.mts",
     "./scripts/build-info.mts",
     "./playwright.config.ts"
-  ],
-  "compilerOptions": {
-    "types": ["node"]
-  }
+  ]
 }

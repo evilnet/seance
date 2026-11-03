@@ -4,6 +4,7 @@ import {
 	ServicesConfig,
 	SharedNetwork,
 	SharedNetworkPresence,
+	SharedNetworkChan,
 	SharedNetworkMode,
 	SharedPresenceMode,
 	SharedServerOptions,

@@ -15,7 +15,7 @@
     "build": "vite build",
     "coverage": "NODE_ENV=test nyc --nycrc-path=test/.nycrc-mocha.json mocha --config=test/.mocharc.yml 'test/**/*.ts' && nyc --nycrc-path=test/.nycrc-report.json report",
     "format:prettier": "prettier --write \"**/*.*\"",
-    "lint:oxlint": "oxlint --type-aware --report-unused-disable-directives",
+    "lint:oxlint": "oxlint",
     "lint:prettier": "prettier --list-different \"**/*.*\"",
     "lint:stylelint": "stylelint --color \"client/**/*.css\"",
     "lint": "run-p --aggregate-output --continue-on-error lint:*",

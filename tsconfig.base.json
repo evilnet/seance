@@ -1,19 +1,19 @@
 {
   "compilerOptions": {
-    // Type checking only: Vite (esbuild) builds client/, tsx runs the tests
-    // and tools, and nothing reads tsc's output.
+    // Type checking only: Vite builds client/, tsx runs the tests and tools,
+    // and nothing reads tsc's output.
     "noEmit": true,
     "allowImportingTsExtensions": true,
+    // TS 7's defaults, spelled out for editors on an older bundled TypeScript.
     "target": "esnext",
     "module": "esnext",
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
+    "strict": true,
     "allowJs": true,
     "checkJs": true,
-    "strict": true,
     // TODO: Remove eventually
     "noImplicitAny": false,
-    "forceConsistentCasingInFileNames": true,
-    "skipLibCheck": true
+    "types": ["node"]
   }
 }

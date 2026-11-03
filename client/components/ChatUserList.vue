@@ -39,7 +39,6 @@
 						:user="user.original"
 						v-html="user.string"
 					/>
-					<!-- eslint-enable -->
 				</template>
 				<template v-else>
 					<Username

@@ -4,24 +4,16 @@
   "categories": {
     "correctness": "off"
   },
+  "options": {
+    "typeAware": true,
+    "denyWarnings": true,
+    "reportUnusedDisableDirectives": "error"
+  },
   "env": {
     "browser": true,
-    "node": true,
-    "mocha": true,
-    "es2022": true
+    "node": true
   },
-  "ignorePatterns": [
-    "public/**",
-    "coverage/**",
-    "dist/**",
-    "attic/**",
-    "tmp/**",
-    "shells/capacitor/**",
-    ".claude/**",
-    "testnet/**",
-    "**/*.mjs",
-    "**/*.cjs"
-  ],
+  "ignorePatterns": ["attic/**", "shells/capacitor/**", "**/*.mjs", "**/*.cjs"],
   "rules": {
     "block-scoped-var": "error",
     "curly": ["error", "all"],
@@ -55,7 +47,7 @@
     "no-nonoctal-decimal-escape": "error",
     "no-prototype-builtins": "error",
     "no-regex-spaces": "error",
-    "no-restricted-globals": ["error", "event", "fdescribe"],
+    "no-restricted-globals": ["error", "event"],
     "no-self-assign": "error",
     "no-shadow-restricted-names": "error",
     "no-sparse-arrays": "error",
