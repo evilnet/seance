@@ -1,10 +1,20 @@
 import Foundation
 import UserNotifications
 
-/// `LocalNotifications` on macOS: the page's message alerts
+/// A refused call: the page's `NativeCallError` reads both.
+public struct Failure: Error {
+    public let code: String
+    public let message: String
+
+    public init(code: String, message: String) {
+        self.code = code
+        self.message = message
+    }
+}
+
+/// `LocalNotifications` on iOS and macOS: the page's message alerts
 /// (client/js/helpers/nativeAlerts.ts), handed to the system, which owns the
-/// banner and the sound. Methods and shapes are those of Capacitor's plugin of
-/// the same name, which the iOS shell uses, so the page has one code path:
+/// banner and the sound. One code path for the page on both:
 ///
 /// - `checkPermissions()`, `requestPermissions()`: `{display}` — `granted`,
 ///   `denied` or `prompt`. The request asks for alerts, sounds and the badge
@@ -20,20 +30,20 @@ import UserNotifications
 /// Shown in the foreground too, as the plugin does. A process outside an app
 /// bundle (`cargo run`) has no notification center —
 /// asking for it aborts — so there every method answers `unsupported`.
-final class Notifications: NSObject, UNUserNotificationCenterDelegate {
-    static let methods = ["checkPermissions", "requestPermissions", "schedule", "removeDeliveredNotifications"]
+public final class Notifications: NSObject, UNUserNotificationCenterDelegate {
+    public static let methods = ["checkPermissions", "requestPermissions", "schedule", "removeDeliveredNotifications"]
 
     private let center: UNUserNotificationCenter?
     private let tapped: ([String: Any]) -> Void
 
-    init(tapped: @escaping ([String: Any]) -> Void) {
+    public init(tapped: @escaping ([String: Any]) -> Void) {
         center = Bundle.main.bundleURL.pathExtension == "app" ? .current() : nil
         self.tapped = tapped
         super.init()
         center?.delegate = self
     }
 
-    func call(_ method: String, _ options: [String: Any]) async throws -> [String: Any] {
+    public func call(_ method: String, _ options: [String: Any]) async throws -> [String: Any] {
         guard let center else {
             throw Failure(code: "unsupported", message: "no notifications outside an app bundle")
         }
@@ -42,11 +52,7 @@ final class Notifications: NSObject, UNUserNotificationCenterDelegate {
         case "checkPermissions":
             return ["display": await display(center)]
         case "requestPermissions":
-            _ = try await withCheckedThrowingContinuation { (done: CheckedContinuation<Bool, Error>) in
-                center.requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-                    if let error { done.resume(throwing: error) } else { done.resume(returning: granted) }
-                }
-            }
+            _ = try await center.requestAuthorization(options: [.alert, .sound, .badge])
             return ["display": await display(center)]
         case "schedule":
             for alert in options["notifications"] as? [[String: Any]] ?? [] {
@@ -61,10 +67,7 @@ final class Notifications: NSObject, UNUserNotificationCenterDelegate {
     }
 
     private func display(_ center: UNUserNotificationCenter) async -> String {
-        let settings = await withCheckedContinuation { done in
-            center.getNotificationSettings { done.resume(returning: $0) }
-        }
-        switch settings.authorizationStatus {
+        switch await center.notificationSettings().authorizationStatus {
         case .notDetermined: return "prompt"
         case .denied: return "denied"
         default: return "granted"
@@ -82,14 +85,21 @@ final class Notifications: NSObject, UNUserNotificationCenterDelegate {
             content.userInfo = ["extra": extra]
         }
         if let sound = alert["sound"] as? String, !sound.isEmpty {
-            content.sound = UNNotificationSound(named: UNNotificationSoundName(sound))
+            content.sound = UNNotificationSound(named: Self.bundled(sound))
         }
         let request = UNNotificationRequest(identifier: id, content: content, trigger: nil)
-        try await withCheckedThrowingContinuation { (done: CheckedContinuation<Void, Error>) in
-            center.add(request) { error in
-                if let error { done.resume(throwing: error) } else { done.resume() }
-            }
-        }
+        try await center.add(request)
+    }
+
+    /// The sound's path in the build (`public/audio/pop.wav`) as it sits in
+    /// the app: Tauri bundles it under `assets/` on iOS (tauri.ios.conf.json)
+    /// and under `Resources/` on macOS, which is the bundle's root for this.
+    private static func bundled(_ path: String) -> UNNotificationSoundName {
+        #if os(iOS)
+        UNNotificationSoundName("assets/" + path)
+        #else
+        UNNotificationSoundName(path)
+        #endif
     }
 
     /// The page's id (a number) as the request's identifier.
@@ -97,19 +107,15 @@ final class Notifications: NSObject, UNUserNotificationCenterDelegate {
         (alert["id"] as? NSNumber).map { $0.stringValue }
     }
 
-    func userNotificationCenter(
+    public func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler done: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        if #available(macOS 11.0, *) {
-            done([.banner, .list, .sound, .badge])
-        } else {
-            done([.alert, .sound, .badge])
-        }
+        done([.banner, .list, .sound, .badge])
     }
 
-    func userNotificationCenter(
+    public func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
         withCompletionHandler done: @escaping () -> Void

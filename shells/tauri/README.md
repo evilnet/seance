@@ -44,12 +44,10 @@ On a Mac the `.icns` is made from the logo cut to
 the Mac's rounded square (`tools/macos-icon.swift`), since macOS draws an icon
 as it is and a square logo would show as a square in the Dock.
 
-**macOS 11 or newer** (`bundle.macOS.minimumSystemVersion`). WKWebView is the
-system's WebKit, and the bundle needs Safari 16.4's (Vite's default
-`build.target`). Big Sur is the oldest macOS that Safari 16.4 reaches
-(Catalina stops at 15.6), but only once updated: an unpatched Mac at the
-minimum still loads a blank page. The Swift package's 10.15 sits below this
-and needs no change.
+**macOS 26 and iOS 26 or newer** (`bundle.macOS.minimumSystemVersion`,
+`tauri.ios.conf.json`, and the Swift packages' platforms): the current
+systems' APIs with no availability checks, and a WebKit far past the
+bundle's Safari 16.4 floor (Vite's default `build.target`).
 
 ## Checks
 

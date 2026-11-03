@@ -1,4 +1,5 @@
 import Foundation
+import SeanceNotifications
 
 // The macOS shell's Swift (Notifications.swift), reached from Rust
 // (src/apple.rs) through two C entry points:
@@ -12,12 +13,6 @@ import Foundation
 
 public typealias SeanceAppleDone = @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>) -> Void
 public typealias SeanceAppleEvent = @convention(c) (UnsafePointer<CChar>, UnsafePointer<CChar>, UnsafePointer<CChar>, Bool) -> Void
-
-/// A refused call: the page's `NativeCallError` reads both.
-struct Failure: Error {
-    let code: String
-    let message: String
-}
 
 @_cdecl("seance_apple_start")
 public func seanceAppleStart(_ event: SeanceAppleEvent) {

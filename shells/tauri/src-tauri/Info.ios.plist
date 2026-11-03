@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- The composer's paperclip: WebKit's picker offers the camera, the
+	     photo library and files. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Take a photo or video to upload to the chat.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Record sound with a video you upload to the chat.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Pick a photo or video to upload to the chat.</string>
+	<!-- TLS through the system's own stack alone. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+</dict>
+</plist>
