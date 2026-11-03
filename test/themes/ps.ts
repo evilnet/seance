@@ -309,7 +309,7 @@ function rgba(value: string): [number, number, number, number] {
 	const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(v)?.[1];
 
 	if (hex) {
-		const six = hex.length === 3 ? [...hex].map((c) => c + c).join("") : hex;
+		const six = hex.length === 3 ? hex.replace(/./g, "$&$&") : hex;
 		const [r, g, b] = [0, 2, 4].map((i) => parseInt(six.slice(i, i + 2), 16));
 		return [r, g, b, 1];
 	}

@@ -27,7 +27,7 @@ const PALETTE = (
 export const READABLE_CONTRAST = 2;
 
 function rgb(hex: string): [number, number, number] {
-	const full = hex.length === 3 ? [...hex].map((c) => c + c).join("") : hex;
+	const full = hex.length === 3 ? hex.replace(/./g, "$&$&") : hex;
 	return [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16)) as [number, number, number];
 }
 

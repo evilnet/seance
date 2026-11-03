@@ -141,7 +141,9 @@ export function newUuid(): string {
 // ------------------------------------------------------------ normalising
 
 function asString(value: unknown): string {
-	return value === undefined || value === null ? "" : String(value).trim();
+	return typeof value === "string" || typeof value === "number" || typeof value === "boolean"
+		? String(value).trim()
+		: "";
 }
 
 /** FormData gives `"on"` for checked boxes and omits unchecked ones. */

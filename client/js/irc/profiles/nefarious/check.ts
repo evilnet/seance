@@ -100,7 +100,13 @@ const CHANNEL_PREFIXES = "-<@+*!%~";
 function channelValue(token: string): ReportValue {
 	const at = token.search(/[#&]/);
 
-	if (at > 0 && [...token.slice(0, at)].every((c) => CHANNEL_PREFIXES.includes(c))) {
+	if (
+		at > 0 &&
+		token
+			.slice(0, at)
+			.split("")
+			.every((c) => CHANNEL_PREFIXES.includes(c))
+	) {
 		return channel(token.slice(at), token.slice(0, at));
 	}
 

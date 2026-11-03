@@ -37,7 +37,7 @@ function open(): Promise<IDBDatabase> {
 		};
 
 		req.onsuccess = () => resolve(req.result);
-		req.onerror = () => reject(req.error);
+		req.onerror = () => reject(req.error ?? new DOMException("Request failed", "UnknownError"));
 	});
 }
 
@@ -69,8 +69,10 @@ export function recordSeenMsgid(msgid: string | undefined | null): void {
 				};
 
 				tx.oncomplete = () => resolve();
-				tx.onerror = () => reject(tx.error);
-				tx.onabort = () => reject(tx.error);
+				tx.onerror = () =>
+					reject(tx.error ?? new DOMException("Transaction aborted", "AbortError"));
+				tx.onabort = () =>
+					reject(tx.error ?? new DOMException("Transaction aborted", "AbortError"));
 			});
 			db.close();
 		})

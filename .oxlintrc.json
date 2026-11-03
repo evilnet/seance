@@ -2,7 +2,7 @@
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["typescript", "vue", "node"],
   "categories": {
-    "correctness": "off"
+    "correctness": "error"
   },
   "options": {
     "typeAware": true,
@@ -84,7 +84,8 @@
     "typescript/dot-notation": "error",
     "use-isnan": "error",
     "valid-typeof": "error",
-    "yoda": "error"
+    "yoda": "error",
+    "no-control-regex": "off"
   },
   "overrides": [
     {
@@ -122,7 +123,9 @@
         "typescript/restrict-template-expressions": "error",
         "typescript/triple-slash-reference": "error",
         "typescript/unbound-method": "error",
-        "no-implicit-globals": "error"
+        "no-implicit-globals": "error",
+        "no-unused-vars": "off",
+        "typescript/prefer-promise-reject-errors": "error"
       }
     },
     {
@@ -153,7 +156,8 @@
           {
             "caughtErrors": "none"
           }
-        ]
+        ],
+        "typescript/prefer-promise-reject-errors": "error"
       }
     },
     {
