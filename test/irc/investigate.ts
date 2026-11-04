@@ -12,8 +12,10 @@ import {
 } from "../../client/js/irc/investigate";
 import {useNoticeLogBackend, type LoggedNotice} from "../../client/js/irc/noticelog";
 import {setNote, useOperPrefsBackend} from "../../client/js/irc/operprefs";
-import {SERVICE_QUIET_MS} from "../../client/js/irc/services";
+import {collectServiceReply, SERVICE_QUIET_MS} from "../../client/js/irc/services";
 import {X3_DEFAULTS} from "../../client/js/irc/services/x3";
+import {x3Lookups} from "../../client/js/irc/services/x3/lookups";
+import type {ServiceLookup} from "../../client/js/irc/services/types";
 import type {Transport} from "../../client/js/irc/types";
 import type {TransportEvent, TransportState} from "../../client/js/irc/transport";
 import type {ServicesConfig} from "../../shared/types/network";
@@ -279,7 +281,7 @@ const CHANINFO = [
 	"Topic (set by opr, Sat Oct 10 20:51:00 2026): bots welcome",
 	"Bans (1):",
 	"*!*@spam.example.org by opr (Sat Oct 10 20:55:00 2026)",
-	'4 users ("/msg O3 chaninfo #seance users" for the list)',
+	'60 users ("/msg O3 chaninfo #seance users" for the list)',
 ];
 
 // §9 ChanServ INFO.
@@ -833,7 +835,7 @@ describe("the user investigation (irc/investigate.ts)", function () {
 		clock.tick(PACE_MS);
 		await flush();
 		lane = transport.sent.map(commandOf).filter((l) => l.startsWith("PRIVMSG"));
-		expect(lane[2]).to.equal("PRIVMSG O3 :gtrace print host superset host.example.org");
+		expect(lane[2]).to.equal("PRIVMSG O3 :gtrace print host superset alice@host.example.org");
 		notice(transport, "O3", [
 			"The following glines were found:",
 			"*@*.example.org (issued 3 days by rubin, expires 4 days): the lot",
@@ -864,7 +866,7 @@ describe("the user investigation (irc/investigate.ts)", function () {
 		clock.tick(PACE_MS);
 		await flush();
 		expect(transport.sent.map(commandOf)).to.include(
-			"PRIVMSG O3 :gtrace print host superset c.example.net"
+			"PRIVMSG O3 :gtrace print host superset c@c.example.net"
 		);
 		inv.stop();
 	});
@@ -917,5 +919,157 @@ describe("the user investigation (irc/investigate.ts)", function () {
 			"alice's queue dropped, bob's goes on"
 		).to.deep.equal(["WHOIS bob bob", "USERIP bob"]);
 		b.stop();
+	});
+});
+
+describe("a bot's answer stays out of the windows (irc/services.ts, services/x3)", function () {
+	beforeEach(installSpy);
+	afterEach(removeSpy);
+
+	/** Everything that reached a window. */
+	function shown(): string[] {
+		return dispatch
+			.getCalls()
+			.filter((call) => call.args[0] === "msg")
+			.map((call) => (call.args[1] as {msg: {text: string}}).msg.text);
+	}
+
+	/** One lookup answered by `lines`; what it parsed to and how it ended. */
+	async function ask<T>(
+		lookup: ServiceLookup<T>,
+		bot: string,
+		lines: string[]
+	): Promise<{kind: string; value?: T}> {
+		const {client, transport} = setup();
+		const reply = collectServiceReply(client, bot, {accept: (text) => lookup.accept(text)});
+		notice(transport, bot, lines);
+		clock.tick(SERVICE_QUIET_MS);
+		const answer = await reply;
+		return answer.kind === "reply"
+			? {kind: "reply", value: lookup.parse(answer.value)}
+			: {kind: answer.kind};
+	}
+
+	it("takes every line of O3's whois, No_notices too", async function () {
+		const lines = o3Whois("bot1", "r1234", "h", "203.0.113.1", [
+			"Crypt Host   : abc.example",
+			"Country Code : NL",
+			"Region/State : NH",
+			"Cert f/print : aa:bb",
+			"Modes        : +i ",
+			"Channels     : @#a +#b ",
+		]);
+		const {value} = await ask(x3Lookups.user("bot1"), "O3", lines);
+
+		expect(shown()).to.deep.equal([]);
+		expect(value?.ip).to.equal("203.0.113.1");
+	});
+
+	it("takes the member rows after chaninfo's Users line, and they parse to no bans", async function () {
+		const {value} = await ask(x3Lookups.channel("#seance"), "O3", [
+			...CHANINFO.slice(0, 6),
+			"Users (3):",
+			" @opr:5 (opr@host)",
+			" %bot1 (r1234@h)",
+			"  bot2 (r1234@h)",
+		]);
+
+		expect(shown()).to.deep.equal([]);
+		expect(value?.bans).to.have.length(1);
+		expect(value?.modes).to.equal("+nt");
+	});
+
+	it("ends chaninfo at the count line of a channel of 50 or more", function () {
+		const lookup = x3Lookups.channel("#seance");
+		expect(lookup.accept('60 users ("/msg O3 chaninfo #seance users" for the list)')).to.equal(
+			"end"
+		);
+	});
+
+	const LOOKUPS: [string, string, ServiceLookup<unknown>][] = [
+		["whois", "O3", x3Lookups.user("bot1")],
+		["chaninfo", "O3", x3Lookups.channel("#seance")],
+		["gtrace", "O3", x3Lookups.bansCovering("u@h")],
+		["trace count", "O3", x3Lookups.traceCount("nick x")],
+		["stats alerts", "O3", x3Lookups.alerts()],
+		["info", "ChanServ", x3Lookups.registration("#seance")],
+		["accountinfo", "AuthServ", x3Lookups.account("acct")],
+	];
+	const REFUSALS = [
+		"O3 is a privileged service.",
+		"whois is a privileged command.",
+		"whois is a disabled command.",
+		"STATS ALERTS is a disabled command.",
+		"whois is an unknown command.",
+		"Your account has been suspended.",
+		"Access denied.",
+		"You must first authenticate with AuthServ.",
+		"Your O3 access has been suspended.",
+		"You lack access to #seance.",
+		"You lack sufficient access in #seance to use this command.",
+		"You must be in #seance (or on its userlist) to use this command.",
+		"You must have security override (helping mode) on to use this command.",
+	];
+
+	for (const [name, bot, lookup] of LOOKUPS) {
+		it(`${name}: a refusal ends the lookup at once, out of the windows, with no answer`, async function () {
+			for (const refusal of REFUSALS) {
+				const answer = await ask(lookup, bot, [refusal]);
+
+				expect(answer).to.deep.equal({kind: "reply", value: undefined}, refusal);
+				expect(shown()).to.deep.equal([], refusal);
+			}
+		});
+	}
+
+	it("a realname that reads like a refusal does not end a whois", async function () {
+		const lines = o3Whois("bot1", "r1234", "h", "203.0.113.1").map((line) =>
+			line.startsWith("Info") ? "Info         : whois is a disabled command." : line
+		);
+		const {value} = await ask(x3Lookups.user("bot1"), "O3", lines);
+
+		expect(shown()).to.deep.equal([]);
+		expect(value?.server).to.equal("leaf2.example.org");
+	});
+
+	it("gtrace: X3 takes the mask it is asked with, ident and all", function () {
+		expect(x3Lookups.bansCovering("u@h").command("O3")).to.equal(
+			"PRIVMSG O3 :gtrace print host superset u@h"
+		);
+	});
+
+	it("gtrace: X3's complaint about the mask is no answer, not 'no bans'", async function () {
+		const answer = await ask(x3Lookups.bansCovering("h"), "O3", ["Invalid G-line 'h'."]);
+
+		expect(answer).to.deep.equal({kind: "reply", value: undefined});
+		expect(shown()).to.deep.equal([]);
+	});
+
+	it("gtrace: a reason that reads like a complaint does not end the list", async function () {
+		const {value} = await ask(x3Lookups.bansCovering("u@h"), "O3", [
+			"The following glines were found:",
+			"*@1.2.3.4 (issued 2 days by opr, expires never): this is not a valid nick",
+			"*@5.6.7.8 (issued 1 day by opr, expires never): this is an invalid client",
+			"*@9.9.9.9 (issued 1 hour by opr, expires never): spam",
+			"-----------Found   3 Matches------------",
+		]);
+
+		expect(shown()).to.deep.equal([]);
+		expect(value).to.have.length(3);
+	});
+
+	it("gtrace: either wording of the footer ends the list at once", function () {
+		const lookup = x3Lookups.bansCovering("u@h");
+
+		expect(lookup.accept("-----------Found   3 Matches------------")).to.equal("end");
+		expect(lookup.accept("Found 3 matches.")).to.equal("end");
+	});
+
+	it("gtrace: no match is still an empty list", async function () {
+		const answer = await ask(x3Lookups.bansCovering("u@h"), "O3", [
+			"Nothing matched the criteria of your search.",
+		]);
+
+		expect(answer).to.deep.equal({kind: "reply", value: []});
 	});
 });

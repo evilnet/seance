@@ -577,17 +577,20 @@ export default defineComponent({
 			alerts.value = {...alerts.value, state: "asking"};
 			const answer = await listAlerts(client);
 
-			if (answer.kind !== "reply") {
+			if (answer.kind !== "reply" || !answer.value) {
 				alerts.value = {
 					...alerts.value,
 					state: "failed",
 					list: [],
-					note: describeFailure(client, answer),
+					note:
+						answer.kind === "reply"
+							? answer.lines[0] ?? ""
+							: describeFailure(client, answer),
 				};
 				return;
 			}
 
-			alerts.value = {...alerts.value, state: "done", list: answer.value ?? [], note: ""};
+			alerts.value = {...alerts.value, state: "done", list: answer.value, note: ""};
 		};
 
 		const onToggle = (event: Event) => {

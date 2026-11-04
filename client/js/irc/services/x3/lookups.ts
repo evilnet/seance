@@ -18,13 +18,23 @@ import type {
 } from "../types";
 import {parseCtime} from "../../profiles/report";
 import {x3Alerts} from "./alerts";
+import {REFUSED} from "./refusals";
 
-/** `Label      : value` (O3 pads labels to 13) or `Label: value`. */
-const LABELLED = /^([A-Za-z][A-Za-z/() ]*?)\s*:\s?(.*)$/;
+/** `Label      : value` (O3 pads labels to 13; `No_notices` has the underscore) or `Label: value`. */
+const LABELLED = /^([A-Za-z][A-Za-z_/() ]*?)\s*:\s?(.*)$/;
 
 function labelOf(line: string): [string, string] | undefined {
 	const m = LABELLED.exec(line);
 	return m ? [m[1].trim(), m[2].trim()] : undefined;
+}
+
+/** A refusal ends any lookup, and says nothing about what was asked. */
+function refusable<T>(lookup: ServiceLookup<T>): ServiceLookup<T> {
+	return {
+		...lookup,
+		accept: (text) => (REFUSED.test(text) ? "end" : lookup.accept(text)),
+		parse: (lines) => (REFUSED.test(lines[0] ?? "") ? undefined : lookup.parse(lines)),
+	};
 }
 
 function sameName(a: string, b: string): boolean {
@@ -59,8 +69,10 @@ function channel(chan: string): ServiceLookup<ServiceChannelInfo> {
 				return sameName(head[1], chan) ? "start" : "skip";
 			}
 
-			// The member list (with `users`) or its count line is the last thing.
-			if (/^Users \(\d+\):$/.test(text) || /^\d+ users \(/.test(text)) {
+			// The count line ends a channel of 50 or more. A smaller one lists
+			// its members after `Users (<n>):` with no footer, so those rows
+			// are taken too and the quiet closes the answer.
+			if (/^\d+ users \(/.test(text)) {
 				return "end";
 			}
 
@@ -403,11 +415,12 @@ function account(name: string): ServiceLookup<ServiceAccountInfo> {
 /** `<mask> (issued <interval> by <issuer>, expires <interval|never>): <reason>` */
 const BAN_LINE = /^(\S+) \(issued (.+?) by (\S+), expires (.+?)\): (.*)$/;
 
-function bansCovering(host: string): ServiceLookup<ServiceBan[]> {
+function bansCovering(mask: string): ServiceLookup<ServiceBan[]> {
 	return {
 		role: "oper",
-		// `superset`: every G-line whose mask takes this host in, not only the exact one.
-		command: (bot) => `PRIVMSG ${bot} :gtrace print host superset ${host}`,
+		// `superset`: every G-line whose mask takes this in, not only the exact
+		// one. X3 refuses a bare host (`is_gline` wants the `@`).
+		command: (bot) => `PRIVMSG ${bot} :gtrace print host superset ${mask}`,
 		accept(text) {
 			if (/^The following glines were found:$/.test(text)) {
 				return "start";
@@ -417,13 +430,28 @@ function bansCovering(host: string): ServiceLookup<ServiceBan[]> {
 				return "end";
 			}
 
-			if (/^-+Found\s+\d+ Matches?-+$/.test(text)) {
+			// The footer has two wordings in X3's message tables.
+			if (/^-+Found\s+\d+ Matches?-+$|^Found \d+ matches?\.$/.test(text)) {
 				return "end";
 			}
 
-			return BAN_LINE.test(text) ? "take" : "skip";
+			// First: a ban's reason is free text, and may read like the complaints below.
+			if (BAN_LINE.test(text)) {
+				return "take";
+			}
+
+			return /^Invalid G-line '.*'\.$|is an invalid search criteria\.|requires more parameters\./.test(
+				text
+			)
+				? "end"
+				: "skip";
 		},
 		parse(lines) {
+			// A complaint about the mask is no answer; "no bans" would be a claim.
+			if (!/^(?:The following glines were found:|Nothing matched)/.test(lines[0] ?? "")) {
+				return undefined;
+			}
+
 			const bans: ServiceBan[] = [];
 
 			for (const line of lines) {
@@ -511,12 +539,12 @@ function criterion(fact: {key: string; value: string}): string | undefined {
 }
 
 export const x3Lookups: ServicesLookups = {
-	channel,
-	registration,
-	user,
-	account,
-	bansCovering,
-	traceCount,
+	channel: (chan) => refusable(channel(chan)),
+	registration: (chan) => refusable(registration(chan)),
+	user: (nick) => refusable(user(nick)),
+	account: (name) => refusable(account(name)),
+	bansCovering: (mask) => refusable(bansCovering(mask)),
+	traceCount: (criteria) => refusable(traceCount(criteria)),
 	criterion,
 	...x3Alerts,
 };
