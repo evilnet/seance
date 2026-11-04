@@ -265,7 +265,14 @@ export const labeledBatch: BatchHandler = (client, batch) => {
 		return;
 	}
 
+	// Only the opener has the label, and a FAIL needs it to find its request.
+	const label = batch.tags.get("label");
+
 	for (const msg of batch.messages) {
+		if (label && msg.command === "FAIL" && !msg.tags.has("label")) {
+			msg.tags.set("label", label);
+		}
+
 		client.handleMessage(msg);
 	}
 };

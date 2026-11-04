@@ -47,6 +47,7 @@ import type {BatchHandler} from "./handlers/batch";
 import {countPageUnread, scheduleMarkRead} from "./handlers/markread";
 import {enqueueMarkerFetch} from "./catchup";
 import {formatLine, IrcMessage} from "./message";
+import {searchAck, searchContextBatch} from "./historysearch";
 import {settlePendingLabel} from "./pending";
 import {inBouncerReplay, inServerCatchup} from "./persistence";
 import type {Handler} from "./types";
@@ -655,6 +656,10 @@ function resolve(
 
 /** Closed `chathistory` batch: answer the request it belongs to. */
 export const chathistoryBatch: BatchHandler = (client, batch) => {
+	if (searchContextBatch(client, batch)) {
+		return; // the search window's, never a channel's
+	}
+
 	const target = batch.params[0] ?? "";
 
 	// The server's ATTACH-cursor catch-up: messages from *after* what we
@@ -744,7 +749,7 @@ const ack: Handler = (client, msg) => {
 
 	if (request) {
 		resolve(client, request, [], "ack");
-	} else if (label) {
+	} else if (label && !searchAck(client, label)) {
 		settlePendingLabel(client, label);
 	}
 };

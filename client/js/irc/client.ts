@@ -80,6 +80,7 @@ import {
 	syncPresence,
 } from "./presence";
 import {abortHistory, retryLostHistory} from "./history";
+import {resetSearches} from "./historysearch";
 import {globalUntil, MUTE_KEY, MUTE_READ_DELAY_MS, type PendingMute, releaseMute} from "./pushMute";
 import {MODE_KEY, PRESENCE_KEY, syncShared, type Stamped} from "./presenceShare";
 import {getMuteMemory, setMuteMemory, type MuteMemory} from "./muteMemory";
@@ -509,7 +510,11 @@ export class IrcClient {
 	private offlineNoted = false;
 	private activeChanId = 0;
 	/** Set while a history batch is replayed through the handlers (see `collectReplay`). */
-	private replayContext: {target: Channel; collected: ReplayCollection} | null = null;
+	private replayContext: {
+		target: Channel;
+		inert: boolean;
+		collected: ReplayCollection;
+	} | null = null;
 	/** Edits whose REDACT is in flight, by the msgid being replaced. */
 	private readonly pendingEdits = new Map<string, PendingEdit>();
 	/** Announced typing sessions by casefolded target (see {@link typing}). */
@@ -1398,6 +1403,7 @@ export class IrcClient {
 		resetPending(this, "connection lost");
 		resetMultiline(this);
 		abortHistory(this);
+		resetSearches(this);
 		cancelCatchup(this);
 		cancelRestoration(this);
 		this.saveCursor(); // the newest one must not die with the connection
@@ -2535,8 +2541,13 @@ export class IrcClient {
 	 * its command. Also the entry point for replaying buffered batch lines.
 	 */
 	handleMessage(msg: IrcMessage): void {
-		// Learn our own ident@host from anything the server attributes to us.
-		if (msg.source?.user !== undefined && this.isSelf(msg.source.name)) {
+		// Learn our own ident@host from anything the server attributes to us
+		// now: a batched line may be stored, with a host we no longer have.
+		if (
+			msg.source?.user !== undefined &&
+			this.isSelf(msg.source.name) &&
+			!msg.tags.has("batch")
+		) {
 			this.ident = msg.source.user;
 
 			if (msg.source.host) {
@@ -2659,6 +2670,10 @@ export class IrcClient {
 	// -------------------------------------------------------------- helpers
 
 	dispatch: EventBus["dispatch"] = (event, ...args) => {
+		if (this.replayContext?.inert) {
+			return false;
+		}
+
 		this.followInQueryLog(event, args[0]);
 		return this.bus.dispatch(event, ...args);
 	};
@@ -3187,11 +3202,13 @@ export class IrcClient {
 	/**
 	 * Run `fn` with every `pushMessage` collected instead of dispatched, and
 	 * handlers told (via {@link replaying}) to skip state side effects. Used
-	 * to turn a chathistory batch into messages (history.ts).
+	 * to turn a chathistory batch into messages (history.ts). `inert`: nothing
+	 * a handler dispatches gets out either, for rows that are only being looked
+	 * at (historysearch.ts), where history's `inbox:drop` for an edit would be wrong.
 	 */
-	collectReplay(target: Channel, fn: () => void): ReplayCollection {
+	collectReplay(target: Channel, fn: () => void, inert = false): ReplayCollection {
 		const previous = this.replayContext;
-		const context = {target, collected: {messages: [], after: []} as ReplayCollection};
+		const context = {target, inert, collected: {messages: [], after: []} as ReplayCollection};
 		this.replayContext = context;
 
 		try {

@@ -1,3 +1,4 @@
+import type {SearchAttrs, SearchContextDirection, SearchHit, SearchStatus} from "./search";
 import {InboxEntry} from "./mention";
 import {ChanState, SharedChan} from "./chan";
 import {
@@ -13,7 +14,6 @@ import {SharedMsg, LinkPreview, TypingState} from "./msg";
 import {SharedUser} from "./user";
 import {SharedChangelogData} from "./changelog";
 import {SharedConfiguration, LockedSharedConfiguration} from "./config";
-import {SearchResponse, SearchQuery} from "./storage";
 import {SharedOperState, SnoticeInfo} from "./oper";
 
 type Session = {
@@ -129,6 +129,23 @@ interface ServerToClientEvents {
 		moreAvailable?: boolean;
 	}>;
 
+	/** The answer to `search:request`: always one, whatever happened. */
+	"search:results": EventHandler<{
+		network: string;
+		requestId: number;
+		status: SearchStatus;
+		error?: string;
+		hits: SearchHit[];
+	}>;
+	/** The answer to the client's `search:context`: oldest first. */
+	"search:context": EventHandler<{
+		network: string;
+		requestId: number;
+		status: SearchStatus;
+		error?: string;
+		messages: SharedMsg[];
+	}>;
+
 	"msg:preview": EventHandler<{id: number; chan: number; preview: LinkPreview}>;
 	/** A `+draft/react` / `+draft/unreact` TAGMSG resolved to the message it targets. */
 	"msg:react": EventHandler<{
@@ -233,8 +250,6 @@ interface ServerToClientEvents {
 	"inbox:drop": EventHandler<{network: string; target: string; msgid: string; by?: string}>;
 
 	init: EventHandler<{active: number; networks: SharedNetwork[]; token?: string}>;
-
-	"search:results": (response: SearchResponse) => void;
 
 	quit: EventHandler<{network: string}>;
 
@@ -365,6 +380,15 @@ interface ClientToServerEvents {
 	}>;
 
 	more: EventHandler<{target: number; lastId: number; condensed: boolean}>;
+	"search:request": EventHandler<{network: string; requestId: number; attrs: SearchAttrs}>;
+	"search:context": EventHandler<{
+		network: string;
+		requestId: number;
+		target: string;
+		direction: SearchContextDirection;
+		msgid: string;
+		limit: number;
+	}>;
 	/** The UI dropped these messages from a channel's buffer (see bus-contract § 2). */
 	"history:trim": EventHandler<{target: number; ids: number[]}>;
 
@@ -385,6 +409,4 @@ interface ClientToServerEvents {
 	"sign-out": (token?: string) => void;
 
 	"history:clear": EventHandler<{target: number}>;
-
-	search: EventHandler<SearchQuery>;
 }
