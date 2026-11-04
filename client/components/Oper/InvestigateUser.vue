@@ -148,7 +148,9 @@
 										{same: s.matched.includes(s.ip ? 'ip' : 'host')},
 									]"
 									title="Oper actions"
-									@click.stop="openMenu($event, s.ip ? 'ip' : 'host', (s.ip ?? s.host)!)"
+									@click.stop="
+										openMenu($event, s.ip ? 'ip' : 'host', (s.ip ?? s.host)!)
+									"
 								>
 									{{ s.ip ?? s.host }}
 								</button>

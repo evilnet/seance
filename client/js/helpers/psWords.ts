@@ -10,7 +10,7 @@
 
 export const psWords = ["bubbles", "glass", "scrim", "outline", "rim", "glow"] as const;
 
-export type PsWords = typeof psWords[number];
+export type PsWords = (typeof psWords)[number];
 
 export const defaultPsWords: PsWords = "bubbles";
 

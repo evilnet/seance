@@ -289,8 +289,9 @@ describe("IrcClient", function () {
 			const h = setup();
 			register(h);
 
-			const options =
-				payloads<{serverOptions: SharedNetwork["serverOptions"]}>("network:options");
+			const options = payloads<{serverOptions: SharedNetwork["serverOptions"]}>(
+				"network:options"
+			);
 			expect(options).to.have.length(2);
 			expect(options[1].serverOptions.PREFIX.prefix).to.deep.equal([
 				{mode: "o", symbol: "@"},
@@ -453,8 +454,9 @@ describe("IrcClient", function () {
 			register(h);
 			h.transport.line(":alice!alice@host JOIN #new");
 
-			const [join] =
-				payloads<{index: number; chan: SharedNetworkChan; shouldOpen: boolean}>("join");
+			const [join] = payloads<{index: number; chan: SharedNetworkChan; shouldOpen: boolean}>(
+				"join"
+			);
 			expect(join.chan.name).to.equal("#new");
 			expect(join.chan.state).to.equal(ChanState.JOINED);
 			expect(join.chan.type).to.equal(ChanType.CHANNEL);
@@ -529,8 +531,9 @@ describe("IrcClient", function () {
 				"@time=2026-08-24T12:34:56.000Z;msgid=abc123 :bob!bob@host PRIVMSG #seance :hello world"
 			);
 
-			const [payload] =
-				payloads<{chan: number; msg: SharedMsg; unread: number}>("msg").slice(-1);
+			const [payload] = payloads<{chan: number; msg: SharedMsg; unread: number}>("msg").slice(
+				-1
+			);
 			expect(payload.chan).to.equal(id);
 			expect(payload.msg.type).to.equal(MessageType.MESSAGE);
 			expect(payload.msg.text).to.equal("hello world");
@@ -604,8 +607,9 @@ describe("IrcClient", function () {
 			joined(h);
 			h.transport.line(":eve!eve@host PRIVMSG alice :psst");
 
-			const [join] =
-				payloads<{chan: SharedNetworkChan; shouldOpen: boolean; index: number}>("join");
+			const [join] = payloads<{chan: SharedNetworkChan; shouldOpen: boolean; index: number}>(
+				"join"
+			);
 			expect(join.chan.type).to.equal(ChanType.QUERY);
 			expect(join.chan.name).to.equal("eve");
 			expect(join.shouldOpen).to.equal(false);
@@ -1318,8 +1322,9 @@ describe("IrcClient", function () {
 			expect(names.users[0]).to.include({mode: "@", away: "", lastMessage: 0});
 
 			socket.emit("more", {target: id, lastId: -1, condensed: false});
-			const [more] =
-				payloads<{chan: number; messages: unknown[]; totalMessages: number}>("more");
+			const [more] = payloads<{chan: number; messages: unknown[]; totalMessages: number}>(
+				"more"
+			);
 			expect(more.chan).to.equal(id);
 			expect(more.messages).to.deep.equal([]);
 			expect(more.totalMessages).to.equal(

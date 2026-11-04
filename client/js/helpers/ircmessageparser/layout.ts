@@ -69,7 +69,7 @@ const WRAP_KEYS = [
 	"math",
 	"href",
 ] as const;
-type WrapKey = typeof WRAP_KEYS[number];
+type WrapKey = (typeof WRAP_KEYS)[number];
 // `lang` is not a wrap of its own: it qualifies `codeBlock`, so that two
 // blocks in different languages never end up under one element. A header's
 // value is its level, so two levels never end up under one element either.
