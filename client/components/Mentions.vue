@@ -175,19 +175,6 @@
 				<span>{{ tCount("mentions.dismissedHere", undoableMentions.length) }}</span>
 				<button class="btn btn-sm" @click="undoDismiss">{{ t("mentions.undo") }}</button>
 			</div>
-
-			<div v-if="groups.length" class="mentions-keys" aria-hidden="true">
-				<span><kbd>↑</kbd><kbd>↓</kbd> {{ t("mentions.keys.move") }}</span>
-				<span><kbd>↵</kbd> {{ t("mentions.keys.open") }}</span>
-				<span
-					><kbd>{{ isApple ? "⌫" : t("mentions.keys.backspace") }}</kbd>
-					{{ t("mentions.keys.dismiss") }}</span
-				>
-				<span class="mentions-keys-close"
-					><kbd>{{ isApple ? "⌥" : "Alt" }}</kbd
-					><kbd>M</kbd> {{ t("mentions.keys.close") }}</span
-				>
-			</div>
 		</div>
 	</div>
 </template>
@@ -494,38 +481,6 @@ html[data-contrast="more"] .mentions-popup .mentions-entry-read > * {
 	margin: 0;
 }
 
-.mentions-keys {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.25rem 0.75rem;
-	padding: 0.4375rem 0.75rem;
-	border-top: 1px solid var(--oper-line);
-	color: var(--body-color-muted);
-	font-size: 0.75rem;
-}
-
-.mentions-keys-close {
-	margin-inline-start: auto;
-}
-
-.mentions-keys kbd {
-	min-width: 1.125rem;
-	margin: 0 0.125rem 0 0;
-	padding: 0 0.1875rem;
-	border-color: var(--oper-line-2);
-	background: none;
-	box-shadow: none;
-	color: inherit;
-	font-size: 0.6875rem;
-	line-height: 1.0625rem;
-	text-shadow: none;
-}
-
-/* A finger has no keys to be told about. */
-:where(html[data-input="touch"]) .mentions-keys {
-	display: none;
-}
-
 .mentions-empty {
 	padding: 1.5rem 1.5rem 1.25rem;
 	text-align: center;
@@ -601,7 +556,6 @@ import {
 import eventbus from "../js/eventbus";
 import {switchToChannel} from "../js/router";
 import {setReadHold} from "../js/helpers/readHold";
-import {isApplePlatform} from "../js/helpers/device";
 import {entryKey, groupByConversation} from "../js/helpers/inbox";
 import {formatDateTime} from "../js/i18n/dates";
 import {formatNumber} from "../js/i18n/numbers";
@@ -985,7 +939,6 @@ export default defineComponent({
 			totalLabel,
 			t,
 			undoableMentions,
-			isApple: isApplePlatform(),
 			messageTime,
 			dismissGroup,
 			dismissRow,

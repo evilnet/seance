@@ -1,7 +1,6 @@
 // The Mentions popup over a page with no active channel: a click on a sender or
 // a channel in a row opens that row's menu, for the row's network. They used to
-// throw (activeChannel undefined). The lobby comes first because the IRC layer
-// still counts the last chat shown as attended, and reads what arrives there.
+// throw (activeChannel undefined).
 //
 //   tools/nefarious-dev/run.sh -d
 //   pnpm build && python3 -m http.server -d public 8000 &
@@ -94,14 +93,10 @@ export default async function run(page) {
 		what: "joined",
 	});
 	await page.sleep(800);
-	// Not page.click: the middle of the lobby's row is its toolbar.
-	await page.evaluate(`document.querySelector('.channel-list-item[data-type="lobby"]').click()`);
-	await page.sleep(400);
-	await mention(`${NICK}: see ${CHANNEL} and #menus-elsewhere`);
-	await sleep(1500);
-
 	await page.evaluate(`location.hash = "#/connect"`);
 	await page.sleep(500);
+	await mention(`${NICK}: see ${CHANNEL} and #menus-elsewhere`);
+	await sleep(1500);
 	await openMentions(page);
 
 	const inline = "#mentions-popup-container .inline-channel";
