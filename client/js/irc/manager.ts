@@ -21,6 +21,7 @@ import {setMuteStatus} from "../mute";
 import {registerBusHandlers} from "./bus";
 import {IrcClient} from "./client";
 import {flushQueryLogs} from "./querylog";
+import {forgetLogin} from "./saslTrust";
 import {pruneUserAway} from "./userAwayStore";
 import {leavesAwayToWorker, syncPresence} from "./presence";
 import {claimMute, clearRemoteDnd} from "./pushMute";
@@ -394,6 +395,7 @@ registerBusHandlers(socket, {
 	remove(uuid) {
 		clients.get(uuid)?.queryLog.dispose();
 		clients.delete(uuid);
+		forgetLogin(uuid);
 	},
 });
 
