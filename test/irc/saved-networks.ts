@@ -232,6 +232,19 @@ describe("saved-networks", function () {
 		expect(() => saved.fromForm({name: "no uuid"})).to.throw(/uuid/);
 	});
 
+	it('fromForm: a posted "global" clears a stored presence mode, a missing or undefined one keeps it', () => {
+		const stored = saved.normalize({uuid: "u1", host: "h", presenceMode: "dnd"})!;
+
+		expect(saved.presenceModeOf(stored)).to.equal("dnd");
+		expect(
+			saved.presenceModeOf(saved.fromForm({uuid: "u1", presenceMode: "global"}, stored))
+		).to.equal("global");
+		expect(saved.presenceModeOf(saved.fromForm({uuid: "u1"}, stored))).to.equal("dnd");
+		expect(
+			saved.presenceModeOf(saved.fromForm({uuid: "u1", presenceMode: undefined}, stored))
+		).to.equal("dnd");
+	});
+
 	it("reads the push flag as enabled unless explicitly disabled", function () {
 		// Entries stored before the flag existed (and networks never saved)
 		// are push-enabled; only an explicit false opts out.
