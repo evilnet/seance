@@ -6854,8 +6854,18 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
 	white-space: normal;
 }
 
+/* Primer keeps a tooltip on one line (`white-space: pre`) unless it is
+ * `tooltipped-multiline`, so a long help text (Settings' ? buttons) ran out
+ * of its dialog, cropped, and gave the dialog a sideways scrollbar. Every
+ * tooltip wraps instead, at a reading width the screen can hold: a short
+ * one keeps its own width, a line break written into the text still breaks,
+ * and the source's indentation inside a wrapped attribute collapses. */
 .tooltipped::after {
 	font-size: 0.8125rem;
+	width: max-content;
+	max-width: min(20rem, calc(100vw - 2rem));
+	white-space: pre-line;
+	overflow-wrap: break-word;
 }
 
 /* The phone layout; the same list as PHONE_LAYOUT_QUERY in helpers/device.ts. */

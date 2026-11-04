@@ -231,8 +231,7 @@
 				Highlight messages that mention you
 				<span
 					class="tooltipped tooltipped-n tooltipped-no-delay"
-					aria-label="Messages that mention you or match a custom highlight get a
-colored background and border in the channel."
+					aria-label="Messages that mention you or match a custom highlight get a colored background and border in the channel."
 				>
 					<button class="extra-help" />
 				</span>
@@ -245,8 +244,7 @@ colored background and border in the channel."
 					Custom highlights
 					<span
 						class="tooltipped tooltipped-n tooltipped-no-delay"
-						aria-label="If a message contains any of these comma-separated
-expressions, it will trigger a highlight."
+						aria-label="If a message contains any of these comma-separated expressions, it will trigger a highlight."
 					>
 						<button class="extra-help" />
 					</span>
@@ -269,9 +267,7 @@ expressions, it will trigger a highlight."
 					Highlight exceptions
 					<span
 						class="tooltipped tooltipped-n tooltipped-no-delay"
-						aria-label="If a message contains any of these comma-separated
-expressions, it will not trigger a highlight even if it contains
-your nickname or expressions defined in custom highlights."
+						aria-label="If a message contains any of these comma-separated expressions, it will not trigger a highlight even if it contains your nickname or expressions defined in custom highlights."
 					>
 						<button class="extra-help" />
 					</span>

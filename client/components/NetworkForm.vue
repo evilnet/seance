@@ -138,9 +138,7 @@
 					Commands
 					<span
 						class="tooltipped tooltipped-ne tooltipped-no-delay"
-						aria-label="One /command per line.
-Each command will be executed in
-the server tab on new connection"
+						aria-label="One /command per line. Each command will be executed in the server tab on new connection"
 					>
 						<button class="extra-help" type="button" />
 					</span>
