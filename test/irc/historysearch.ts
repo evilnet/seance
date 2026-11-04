@@ -348,6 +348,34 @@ describe("historysearch", function () {
 			expect(client.findChannel("dave")).to.equal(undefined);
 		});
 
+		it("keeps our live host when a stored row of ours shows an old one", function () {
+			const {client, transport} = setup();
+			client.ident = "live";
+			client.host = "a.long.live.cloak.example";
+
+			requestSearch(client, 3, {text: "fake"});
+			batch(transport, "search", labelOf(transport.sent[0]), [
+				"@time=2026-10-20T10:00:00.000Z;msgid=o1 :alice!old@short PRIVMSG #seance :fake",
+			]);
+
+			expect(payloads<ResultsPayload>("search:results")[0].hits).to.have.length(1);
+			expect(client.ident).to.equal("live");
+			expect(client.host).to.equal("a.long.live.cloak.example");
+		});
+
+		it("answers the labeled search when its FAIL comes wrapped in a batch", function () {
+			const {client, transport} = setup();
+
+			requestSearch(client, 1, {text: "first"});
+			requestSearch(client, 2, {text: "second"});
+			batch(transport, "labeled-response", labelOf(transport.sent[1]), [
+				"@time=2026-10-20T10:00:00.000Z :irc.test FAIL SEARCH INTERNAL_ERROR :nope",
+			]);
+
+			const answers = payloads<ResultsPayload>("search:results");
+			expect(answers.map((a) => [a.requestId, a.status])).to.deep.equal([[2, "fail"]]);
+		});
+
 		it("takes an empty batch as no matches", function () {
 			const {client, transport} = setup();
 
@@ -489,6 +517,21 @@ describe("historysearch", function () {
 			expect(answer.messages.map((msg) => msg.msgid)).to.deep.equal(["m1", "m2"]);
 			expect(payloads("more")).to.have.length(0);
 			expect(payloads("msg")).to.have.length(0);
+		});
+
+		it("keeps a wrapped FAIL for its context request from a channel's page", function () {
+			const {client, transport} = setup();
+
+			requestSearchContext(client, 7, "#seance", "AROUND", "m1", 10);
+			batch(transport, "labeled-response", labelOf(transport.sent[0]), [
+				"@time=2026-10-20T10:00:00.000Z :irc.test FAIL CHATHISTORY MESSAGE_ERROR AROUND #seance :nope",
+			]);
+
+			expect(payloads<ContextPayload>("search:context")[0]).to.include({
+				requestId: 7,
+				status: "fail",
+			});
+			expect(pendingSearches(client)).to.have.length(0);
 		});
 
 		it("leaves a channel's own page to the channel", function () {

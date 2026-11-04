@@ -2541,8 +2541,13 @@ export class IrcClient {
 	 * its command. Also the entry point for replaying buffered batch lines.
 	 */
 	handleMessage(msg: IrcMessage): void {
-		// Learn our own ident@host from anything the server attributes to us.
-		if (msg.source?.user !== undefined && this.isSelf(msg.source.name)) {
+		// Learn our own ident@host from anything the server attributes to us
+		// now: a batched line may be stored, with a host we no longer have.
+		if (
+			msg.source?.user !== undefined &&
+			this.isSelf(msg.source.name) &&
+			!msg.tags.has("batch")
+		) {
 			this.ident = msg.source.user;
 
 			if (msg.source.host) {
