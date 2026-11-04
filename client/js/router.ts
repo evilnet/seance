@@ -56,13 +56,10 @@ const router = createRouter({
 					name: "General",
 					path: "",
 					component: GeneralSettings,
-					beforeEnter(to, from, next) {
+					beforeEnter() {
 						if (!shouldShowGeneralSettings()) {
-							next({name: "Appearance"});
-							return;
+							return {name: "Appearance"};
 						}
-
-						next();
 					},
 				},
 				{
@@ -90,13 +87,10 @@ const router = createRouter({
 							name: "ScriptEdit",
 							path: ":id",
 							component: ScriptEdit,
-							beforeEnter(to, from, next) {
+							beforeEnter() {
 								if (!store.state.settings.enableScripting) {
-									next({name: "Scripts"});
-									return;
+									return {name: "Scripts"};
 								}
-
-								next();
 							},
 						},
 					],
@@ -212,18 +206,16 @@ function openTarget(uuid: string, target: string): void {
 	setPendingTarget(uuid, target);
 }
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(() => {
 	// Wait for boot to finish before allowing any navigation
 	if (!store.state.appLoaded) {
-		store.watch(
-			(state) => state.appLoaded,
-			() => next()
-		);
-
-		return;
+		return new Promise<void>((resolve) => {
+			store.watch(
+				(state) => state.appLoaded,
+				() => resolve()
+			);
+		});
 	}
-
-	next();
 });
 
 router.beforeEach((to, from) => {
