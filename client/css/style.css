@@ -2665,11 +2665,25 @@ html[data-own-messages="band"] #chat .msg.self[data-type="action"]:not(.highligh
 	display: none !important;
 }
 
+/* The MOTD and the other monospace blocks. Never wider than the text
+ * column, which clips (the anti-Zalgo `overflow: hidden` on .content): a
+ * line that still cannot wrap scrolls inside the block instead of being cut
+ * off. */
 #chat .msg[data-type="monospace_block"] .text {
 	background: #f6f6f6;
-	display: inline-block;
+	box-sizing: border-box;
+	max-width: 100%;
+	overflow-x: auto;
+	vertical-align: top;
 	border-radius: 4px;
 	padding: 6px;
+}
+
+/* Its display alone, light (:where), so the narrow inline flow below can
+ * change it without outweighing the ps theme's stacked rows, which must
+ * win over every narrow rule for the row (test/themes/ps.ts). */
+#chat :where(.msg[data-type="monospace_block"]) .text {
+	display: inline-block;
 }
 
 #chat .msg[data-type="condensed"] .content,
@@ -7053,6 +7067,15 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
 		/* A space, since inline flow has no padding between the columns. */
 		content: " ";
 		white-space: pre;
+	}
+
+	/* A monospace block (the MOTD) is one box, and the space before it does
+	 * not break: inline it stayed on the time's line as wide as the whole
+	 * row, and its right side was cut off. It takes its own line under the
+	 * time, the row's full width, and wraps there. */
+	#chat :where(.msg[data-type="monospace_block"]) .text {
+		display: block;
+		margin-top: 2px;
 	}
 
 	/* A WHO table on a phone: the host may break at any point rather than
