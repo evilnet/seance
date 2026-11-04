@@ -516,11 +516,6 @@ export default defineComponent({
 					return;
 				}
 
-				if (!window.IntersectionObserver) {
-					quoteOnScreen.value = true;
-					return;
-				}
-
 				const observer = new window.IntersectionObserver((entries) => {
 					quoteOnScreen.value = entries[entries.length - 1].isIntersecting;
 				});
@@ -555,25 +550,20 @@ export default defineComponent({
 				: ""
 		);
 
-		// A fetched parent has no row to jump to.
-		const parentRowId = computed(() =>
-			quote.value && "id" in quote.value ? quote.value.id : undefined
-		);
-
 		const quoteLabel = computed(() =>
 			quote.value
 				? `Replying to ${quote.value.nick}: ${quotePlain.value}.${
-						parentRowId.value === undefined ? "" : " Jump to that message."
+						quote.value.id ? " Jump to that message." : ""
 				  }`
 				: "Replying to a message that is not loaded"
 		);
 
 		const jumpToParent = () => {
-			if (parentRowId.value === undefined) {
+			if (!quote.value) {
 				return;
 			}
 
-			const el = document.getElementById("msg-" + parentRowId.value);
+			const el = document.getElementById("msg-" + quote.value.id);
 
 			if (!el) {
 				return;
