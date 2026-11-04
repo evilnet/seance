@@ -40,7 +40,12 @@ function spoilerKeydown(event: KeyboardEvent) {
 	toggleSpoiler(event);
 }
 
-function wrapNode(node: WrapNode, children: Rendered[], message?: ClientMessage): VNode {
+function wrapNode(
+	node: WrapNode,
+	children: Rendered[],
+	message?: ClientMessage,
+	network?: ClientNetwork
+): VNode {
 	switch (node.wrap) {
 		case "quote":
 			return createElement("span", {class: ["md-quote"]}, children);
@@ -56,7 +61,9 @@ function wrapNode(node: WrapNode, children: Rendered[], message?: ClientMessage)
 			const ordered = node.list.startsWith("ol:");
 			const items = splitNodes(node.children, "\n")
 				.filter((item) => item.length > 0)
-				.map((item) => createElement("span", {class: ["md-li"]}, toVNodes(item, message)));
+				.map((item) =>
+					createElement("span", {class: ["md-li"]}, toVNodes(item, message, network))
+				);
 
 			return createElement(
 				"span",
@@ -81,7 +88,11 @@ function wrapNode(node: WrapNode, children: Rendered[], message?: ClientMessage)
 					? "right"
 					: undefined;
 			const cell = (tag: string, column: number, nodes: LayoutNode[]) =>
-				createElement(tag, {style: {textAlign: alignOf(column)}}, toVNodes(nodes, message));
+				createElement(
+					tag,
+					{style: {textAlign: alignOf(column)}},
+					toVNodes(nodes, message, network)
+				);
 			const [head, ...body] = splitNodes(node.children, "\n").filter((row) => row.length > 0);
 			const tableChildren: VNode[] = [];
 
@@ -214,22 +225,27 @@ function parse(
 			userModes: network?.serverOptions.PREFIX?.prefix?.map((pref) => pref.symbol),
 			users: message ? message.users || [] : [],
 		}),
-		message
+		message,
+		network
 	);
 }
 
 // The Vue adapter: one element per layout node.
-function toVNodes(nodes: LayoutNode[], message?: ClientMessage): Rendered[] {
+function toVNodes(
+	nodes: LayoutNode[],
+	message?: ClientMessage,
+	network?: ClientNetwork
+): Rendered[] {
 	return nodes.map((node) => {
 		if (node.kind === "text") {
 			return createFragment(node);
 		}
 
-		const children = toVNodes(node.children, message);
+		const children = toVNodes(node.children, message, network);
 
 		return node.kind === "wrap"
-			? wrapNode(node, children, message)
-			: renderPart(node, children, message);
+			? wrapNode(node, children, message, network)
+			: renderPart(node, children, message, network);
 	});
 }
 
@@ -289,7 +305,12 @@ function splitNodes(nodes: LayoutNode[], sep: string): LayoutNode[][] {
 }
 
 // Wrap potentially styled fragments with links, channel buttons, emoji, nicks
-function renderPart(node: PartNode, fragments: Rendered[], message?: ClientMessage): Rendered {
+function renderPart(
+	node: PartNode,
+	fragments: Rendered[],
+	message?: ClientMessage,
+	network?: ClientNetwork
+): Rendered {
 	switch (node.kind) {
 		case "link": {
 			const preview =
@@ -342,6 +363,7 @@ function renderPart(node: PartNode, fragments: Rendered[], message?: ClientMessa
 				InlineChannel,
 				{
 					channel: node.channel,
+					network,
 				},
 				{
 					default: () => fragments,
@@ -373,6 +395,7 @@ function renderPart(node: PartNode, fragments: Rendered[], message?: ClientMessa
 					user: {
 						nick: node.nick,
 					},
+					network,
 					dir: "auto",
 				},
 				{

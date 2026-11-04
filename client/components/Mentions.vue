@@ -91,7 +91,11 @@
 					>
 						<div class="mentions-info">
 							<span class="from" @click.stop>
-								<Username :user="(message.from as any)" />
+								<Username
+									:user="(message.from as any)"
+									:network="group.network"
+									:channel="group.conversation?.channel"
+								/>
 							</span>
 							<time
 								class="time"
@@ -109,7 +113,7 @@
 							></button>
 						</div>
 						<div class="content" dir="auto">
-							<ParsedMessage :message="(message as any)" />
+							<ParsedMessage :message="(message as any)" :network="group.network" />
 						</div>
 					</div>
 				</section>
@@ -446,7 +450,7 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import {computed, defineComponent, nextTick, ref, onMounted, onUnmounted, watch} from "vue";
 import {useStore} from "../js/store";
 import type {InboxEntry} from "../../shared/types/mention";
-import type {NetChan} from "../js/types";
+import type {ClientNetwork, NetChan} from "../js/types";
 import {ChanType} from "../../shared/types/chan";
 
 type MentionWithContext = InboxEntry & {
@@ -458,6 +462,8 @@ type GroupWithContext = {
 	key: string;
 	target: string;
 	networkName: string;
+	/** Where a nick or a channel in a row belongs, whatever the page underneath. */
+	network?: ClientNetwork;
 	label: string;
 	conversation: NetChan | null;
 	/** Why a group without a conversation cannot be opened. */
@@ -518,6 +524,7 @@ export default defineComponent({
 					key: group.key,
 					target,
 					networkName,
+					network: store.getters.findNetwork(group.network) ?? undefined,
 					label: networkName ? `${target} on ${networkName}` : target,
 					conversation,
 					missing,

@@ -223,14 +223,20 @@ export default defineComponent({
 			open(data.event, newItems);
 		};
 
-		const openInlineChannelContextMenu = (data: {channel: string; event: MouseEvent}) => {
-			const active = store.state.activeChannel;
+		const openInlineChannelContextMenu = (data: {
+			channel: string;
+			event: MouseEvent;
+			network?: ClientNetwork;
+		}) => {
+			// The network the text was shown for, as for a nick below: the page
+			// underneath may be on another network, or on none (Connect).
+			const network = data.network ?? store.state.activeChannel?.network;
 
-			if (!active) {
+			if (!network) {
 				return;
 			}
 
-			const newItems = generateInlineChannelContextMenu(store, data.channel, active.network);
+			const newItems = generateInlineChannelContextMenu(store, data.channel, network);
 
 			open(data.event, newItems);
 		};
