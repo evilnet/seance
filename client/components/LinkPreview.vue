@@ -94,7 +94,6 @@
 						preload="metadata"
 						controls
 						playsinline
-						referrerpolicy="no-referrer"
 						@loadedmetadata="onPreviewReady"
 						@error="onPreviewError"
 					>
@@ -106,7 +105,6 @@
 						v-show="link.sourceLoaded"
 						controls
 						preload="metadata"
-						referrerpolicy="no-referrer"
 						@loadedmetadata="onPreviewReady"
 						@error="onPreviewError"
 					>
