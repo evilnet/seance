@@ -47,8 +47,11 @@
 					<div class="search-chips" :inert="filtersOpen">
 						<button class="search-chip on" @click="filtersOpen = true">
 							<span class="search-icon search-icon-in" aria-hidden="true" />
-							{{ inParts[0] }}<b>{{ scopeLabel }}</b
-							>{{ inParts[1] }}
+							<I18nFrame :text="t('search.window.inScope', {scope: KEEP})"
+								><template #scope
+									><b>{{ scopeLabel }}</b></template
+								></I18nFrame
+							>
 						</button>
 						<span
 							v-for="chip in chips"
@@ -757,7 +760,8 @@ import {clearHighlight, paintHighlight, rangesIn} from "../../js/helpers/paintHi
 import {trapTab} from "../../js/helpers/trapTab";
 import {useStore} from "../../js/store";
 import {useI18n} from "../../js/i18n";
-import {frameSegments, KEEP} from "../../js/i18n/core";
+import {KEEP} from "../../js/i18n/core";
+import I18nFrame from "../I18nFrame.vue";
 import {hasLabel} from "../../js/helpers/searchLabels";
 import type {ClientChan, ClientMessage} from "../../js/types";
 import type {SharedMsg} from "../../../shared/types/msg";
@@ -787,16 +791,12 @@ interface Chip {
 
 export default defineComponent({
 	name: "SearchResults",
-	components: {ParsedMessage, SearchFilterSheet, Username},
+	components: {I18nFrame, ParsedMessage, SearchFilterSheet, Username},
 	setup() {
 		const store = useStore();
 		const route = useRoute();
 		const router = useRouter();
 		const {t, tCount, locale} = useI18n();
-		// The scope chip's "In {scope}", the scope bold inside the sentence.
-		const inParts = computed(() =>
-			frameSegments(t("search.window.inScope", {scope: KEEP}), ["scope"])
-		);
 
 		const queryField = ref<HTMLInputElement>();
 		const contextList = ref<HTMLElement>();
@@ -1469,7 +1469,7 @@ export default defineComponent({
 		return {
 			t,
 			tCount,
-			inParts,
+			KEEP,
 			ALL_CHANNELS,
 			HINTS,
 			applyFilters,

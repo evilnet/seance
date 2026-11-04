@@ -554,8 +554,11 @@
 									compareSum.lead
 								}}</span>
 								<span class="oper-cmp-score"
-									>{{ scoreParts[0] }}<em>{{ compareSum.same.length }}</em
-									>{{ scoreParts[1] }}</span
+									><I18nFrame :text="scoreFrame"
+										><template #same
+											><em>{{ compareSum.same.length }}</em></template
+										></I18nFrame
+									></span
 								>
 								<span v-if="compareSum.same.length" class="oper-muted">{{
 									compareSum.same.join(" · ")
@@ -867,6 +870,7 @@ import {commaList} from "../../js/helpers/operList";
 import {useI18n} from "../../js/i18n";
 import {frameSegments, KEEP} from "../../js/i18n/core";
 import Username from "../Username.vue";
+import I18nFrame from "../I18nFrame.vue";
 
 interface Card {
 	request: InvestigateRequest;
@@ -891,7 +895,7 @@ const RESULTS_TOAST_MS = 8000;
  */
 export default defineComponent({
 	name: "InvestigateCard",
-	components: {InvestigateFacts, InvestigateUser, ParsedMessage, Username},
+	components: {I18nFrame, InvestigateFacts, InvestigateUser, ParsedMessage, Username},
 	setup() {
 		const store = useStore();
 		const {t, tCount} = useI18n();
@@ -1046,13 +1050,10 @@ export default defineComponent({
 		});
 		/** The oper service's nick, for "O3 could not count them". */
 		const operBot = computed(() => network.value?.services?.bots.oper.trim() || "O3");
-		// Compare's score around its count, and a sighting's "from" around its
-		// address (the element inside the sentence).
-		const scoreParts = computed(() =>
-			frameSegments(
-				tCount("oper.investigate.card.compareScore", compareSum.value.known, {same: KEEP}),
-				["same"]
-			)
+		// Compare's score, a frame holding its emphasized count, and a
+		// sighting's "from" around its address.
+		const scoreFrame = computed(() =>
+			tCount("oper.investigate.card.compareScore", compareSum.value.known, {same: KEEP})
 		);
 		const fromParts = computed(() =>
 			frameSegments(t("oper.investigate.user.seenFromAddress", {address: KEEP}), ["address"])
@@ -1636,7 +1637,7 @@ export default defineComponent({
 			traceMatches,
 			fateText,
 			operBot,
-			scoreParts,
+			scoreFrame,
 			fromParts,
 			dialog,
 			stack,

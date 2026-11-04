@@ -5,8 +5,11 @@
 		<p class="oper-touch-hint oper-route-legend">
 			<template v-for="pos in positions" :key="pos.route">
 				<span class="oper-route-legend-item"
-					>{{ pos.legend[0] }}<strong>{{ pos.label }}</strong
-					>{{ pos.legend[1] }}</span
+					><I18nFrame :text="pos.legend"
+						><template #label
+							><strong>{{ pos.label }}</strong></template
+						></I18nFrame
+					></span
 				>
 				{{ " " }}
 			</template>
@@ -408,6 +411,7 @@ import type {AlertBuilderRequest} from "../../js/helpers/alertBuilder";
 import {bitLabel} from "../../js/irc/profiles/nefarious/snomask";
 import {useI18n} from "../../js/i18n";
 import {frameSegments, KEEP} from "../../js/i18n/core";
+import I18nFrame from "../I18nFrame.vue";
 
 interface AlertsState {
 	state: "idle" | "asking" | "done" | "failed";
@@ -430,7 +434,7 @@ type Line = AlertLine | RestLine;
  */
 export default defineComponent({
 	name: "OperAlerts",
-	components: {},
+	components: {I18nFrame},
 	props: {
 		network: {type: Object as PropType<ClientNetwork>, required: true},
 	},
@@ -444,28 +448,27 @@ export default defineComponent({
 			{id: "network", label: t("oper.alerts.section.network")},
 		]);
 
-		// `legend`: the touchscreen's sentence for the choice, split around
-		// its label (rendered bold).
-		const legendOf = (text: string) => frameSegments(text, ["label"]);
+		// `legend`: the touchscreen's sentence for the choice, a frame
+		// holding its label (rendered bold).
 		const positions = computed(
-			(): {route: Route; label: string; title: string; legend: string[]}[] => [
+			(): {route: Route; label: string; title: string; legend: string}[] => [
 				{
 					route: "active",
 					label: t("oper.alerts.position.here"),
 					title: t("oper.alerts.position.hereTitle"),
-					legend: legendOf(t("oper.alerts.position.hereLegend", {label: KEEP})),
+					legend: t("oper.alerts.position.hereLegend", {label: KEEP}),
 				},
 				{
 					route: "network",
 					label: t("oper.alerts.position.network"),
 					title: t("oper.alerts.position.networkTitle"),
-					legend: legendOf(t("oper.alerts.position.networkLegend", {label: KEEP})),
+					legend: t("oper.alerts.position.networkLegend", {label: KEEP}),
 				},
 				{
 					route: "off",
 					label: t("oper.alerts.position.off"),
 					title: t("oper.alerts.position.offTitle"),
-					legend: legendOf(t("oper.alerts.position.offLegend", {label: KEEP})),
+					legend: t("oper.alerts.position.offLegend", {label: KEEP}),
 				},
 			]
 		);

@@ -6,11 +6,12 @@
 				<p class="oper-verdict-head">
 					<span class="oper-verdict-kicker">{{ view.kicker }}</span>
 					<span v-if="view.nick" class="oper-verdict-lead"
-						>{{ leadParts[0]
-						}}<Username :user="{nick: view.nick, mode: ''}" :network="network" />{{
-							leadParts[1]
-						}}</span
-					>
+						><I18nFrame :text="view.lead"
+							><template #nick
+								><Username
+									:user="{nick: view.nick, mode: ''}"
+									:network="network" /></template></I18nFrame
+					></span>
 					<span v-else class="oper-verdict-lead">{{ view.lead }}</span>
 				</p>
 				<p
@@ -215,6 +216,7 @@ import useNow from "../../js/hooks/use-now";
 import {useStore} from "../../js/store";
 import InvestigateFacts from "./InvestigateFacts.vue";
 import Username from "../Username.vue";
+import I18nFrame from "../I18nFrame.vue";
 
 export type UserPart = "verdict" | "facts" | "sections";
 
@@ -227,7 +229,7 @@ export type UserPart = "verdict" | "facts" | "sections";
  */
 export default defineComponent({
 	name: "InvestigateUser",
-	components: {InvestigateFacts, Username},
+	components: {I18nFrame, InvestigateFacts, Username},
 	props: {
 		model: {type: Object as PropType<UserModel>, required: true},
 		sources: {
@@ -300,12 +302,8 @@ export default defineComponent({
 			}
 		};
 
-		// The verdict's headline around its nick (verdict.ts `lead` holds
-		// `{nick}` when it names someone), and a sighting's "from" around its
-		// address chip.
-		const leadParts = computed(() =>
-			frameSegments(props.model.verdictView?.lead ?? "", ["nick"])
-		);
+		// A sighting's "from" around its address chip (the verdict's headline,
+		// verdict.ts `lead`, is an I18nFrame holding `{nick}`).
 		const fromParts = computed(() =>
 			frameSegments(t("oper.investigate.user.seenFromAddress", {address: KEEP}), ["address"])
 		);
@@ -321,7 +319,6 @@ export default defineComponent({
 			banText,
 			sameTag,
 			fateText,
-			leadParts,
 			fromParts,
 			view: computed(() => props.model.verdictView),
 			openMenu,
