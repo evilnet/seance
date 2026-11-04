@@ -1,7 +1,6 @@
 // The Mentions popup over a page with no active channel: a click on a sender or
 // a channel in a row opens that row's menu, for the row's network. They used to
-// throw (activeChannel undefined). Connect is the page where the popup is on
-// top; Settings and Help cover it. The lobby comes first because the IRC layer
+// throw (activeChannel undefined). The lobby comes first because the IRC layer
 // still counts the last chat shown as attended, and reads what arrives there.
 //
 //   tools/nefarious-dev/run.sh -d

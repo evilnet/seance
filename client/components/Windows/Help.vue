@@ -985,6 +985,7 @@
 <script lang="ts">
 import {computed, defineComponent, ref} from "vue";
 import {useStore} from "../../js/store";
+import {isApplePlatform} from "../../js/helpers/device";
 import {
 	buildIdentityOf,
 	buildTrackOf,
@@ -997,7 +998,7 @@ export default defineComponent({
 	name: "Help",
 	setup() {
 		const store = useStore();
-		const isApple = navigator.platform.match(/(Mac|iPhone|iPod|iPad)/i) || false;
+		const isApple = isApplePlatform();
 		const isTouch = navigator.maxTouchPoints > 0;
 		const appName = computed(() => store.state.branding.appName);
 		const links = computed(() => store.state.branding.links ?? {});

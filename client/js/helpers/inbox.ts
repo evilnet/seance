@@ -166,6 +166,17 @@ export function dismissalOf(entry: InboxEntry): Dismissal {
 	return {key: entryKey(entry), network: entry.network, target: entry.target, time: entry.time};
 }
 
+/**
+ * `dismissed` without the dismissals of `entries` themselves. A dismissal of
+ * a later line under the same key (a private conversation's) stays, and goes
+ * on holding the older line back.
+ */
+export function withoutDismissalsOf(dismissed: Dismissal[], entries: InboxEntry[]): Dismissal[] {
+	const id = (d: Dismissal) => `${d.key} ${d.time}`;
+	const undone = new Set(entries.map((e) => id(dismissalOf(e))));
+	return dismissed.filter((d) => !undone.has(id(d)));
+}
+
 /** The entries of `target` on `network`. */
 export function conversationEntries(
 	list: InboxEntry[],

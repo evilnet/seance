@@ -239,6 +239,11 @@ document.addEventListener("keydown", (e) => {
 		return;
 	}
 
+	// An overlay up keeps its keys: Enter on its button is that button's.
+	if (topEscapeLayer() !== null) {
+		return;
+	}
+
 	// Redirect pagedown/pageup keys to messages container so it scrolls
 	if (e.which === 33 || e.which === 34) {
 		const chat = document.querySelector(".window .chat-content .chat");
