@@ -499,6 +499,12 @@ msgctxt "composer.notConnected"
 msgid "Not connected"
 msgstr "ไม่ได้เชื่อมต่อ"
 
+#. Text of the connection bar above the message input while the device has no network connection: the client waits and reconnects by itself once the device is online again. {network} is the display name of the chat network.
+#: client/components/ChatInput.vue
+msgctxt "composer.offlineWaiting"
+msgid "You're offline. Will reconnect to {network} when the network is back."
+msgstr "คุณออฟไลน์อยู่ จะเชื่อมต่อ {network} ใหม่เมื่อเครือข่ายกลับมา"
+
 #. Placeholder of the message input shown while it is empty. {name} is the name of the conversation being typed into: a channel's name, or the person's nick in a private one-on-one conversation.
 #: client/components/ChatInput.vue:293
 msgctxt "composer.placeholder"
@@ -772,6 +778,12 @@ msgctxt "connect.notNow"
 msgid "Not now"
 msgstr "ไว้ทีหลัง"
 
+#. Line in a chat network's window when the device has lost its network connection: the client waits and reconnects by itself once the device is online again (said once).
+#: client/js/irc/client.ts
+msgctxt "connect.offlineWaiting"
+msgid "You're offline. Will reconnect when the network is back."
+msgstr "คุณออฟไลน์อยู่ จะเชื่อมต่อใหม่เมื่อเครือข่ายกลับมา"
+
 #. Label of the account password field on the connect form, sign-in panel and network edit form; the field has a show/hide eye toggle.
 #: client/components/Windows/Connect.vue:46
 #: client/components/Windows/Connect.vue:228
@@ -803,11 +815,11 @@ msgctxt "connect.reconnectNow"
 msgid "Reconnecting now (attempt {attempt})…"
 msgstr "กำลังเชื่อมต่อใหม่ (ครั้งที่ {attempt})…"
 
-#. Lobby status line while the client waits out the chat server's connection throttle before an automatic retry (irc/dialLedger.ts): dialling sooner would be refused and prolong the wait. {seconds} is the whole number of seconds to wait; {attempt} counts the retries this connection has seen.
+#. Lobby line while the client waits before reconnecting because the server said its connection throttle refused it (dialling sooner would be refused and prolong the wait). {seconds} is the whole number of seconds; {attempt} the attempt count.
 #: client/js/irc/client.ts
 msgctxt "connect.reconnectWaitThrottled"
-msgid "Waiting {seconds}s: the server limits how often a device can reconnect (attempt {attempt})…"
-msgstr "รอ {seconds} วินาที: เซิร์ฟเวอร์จำกัดความถี่ที่อุปกรณ์จะเชื่อมต่อใหม่ได้ (ครั้งที่ {attempt})…"
+msgid "Waiting {seconds}s: the server says it limits how often a device can reconnect (attempt {attempt})…"
+msgstr "กำลังรอ {seconds} วินาที: เซิร์ฟเวอร์แจ้งว่าจำกัดความถี่ที่อุปกรณ์จะเชื่อมต่อใหม่ได้ (ครั้งที่ {attempt})…"
 
 #. Checkbox on the sign-in form: remember the account and reconnect on the next load.
 #: client/js/branding.ts
@@ -995,6 +1007,12 @@ msgstr "วันนี้"
 msgctxt "dates.yesterday"
 msgid "Yesterday"
 msgstr "เมื่อวาน"
+
+#. A message's time beside it where no date marker shows the day (the inbox, search results): the message is from yesterday. {time} is the clock time in the user's format (e.g. 21:58 or 9:58 PM).
+#: client/js/helpers/messageTime.ts
+msgctxt "dates.yesterdayAt"
+msgid "Yesterday {time}"
+msgstr "เมื่อวาน {time}"
 
 #. Name of WebSocket close code 1001 in a connection-failure report. Lowercase mid-sentence by position.
 #: client/js/irc/disconnect.ts
@@ -3259,6 +3277,13 @@ msgctxt "mentions.dismissOne"
 msgid "Dismiss on this device"
 msgstr "ล้างบนอุปกรณ์นี้"
 
+#. Strip at the bottom of the mentions (inbox) popup right after 'Dismiss all': how many mentions were dismissed, on this device only; an Undo button follows. {count} is a number.
+#: client/components/Mentions.vue
+msgctxt "mentions.dismissedHere"
+msgid "Dismissed {count} on this device"
+msgid_plural "Dismissed {count} on this device"
+msgstr[0] "ล้างแล้ว {count} รายการบนอุปกรณ์นี้"
+
 #. Title shown in the mentions popup when no unread message mentions you.
 #: client/components/Mentions.vue:21
 #: client/components/Mentions.vue:39
@@ -3271,6 +3296,36 @@ msgstr "คุณอ่านครบหมดแล้ว"
 msgctxt "mentions.emptyHint"
 msgid "A mention leaves this list once you read it, here or on any other device."
 msgstr "การกล่าวถึงจะออกจากรายการนี้เมื่อคุณอ่านแล้ว ไม่ว่าที่นี่หรือบนอุปกรณ์อื่น"
+
+#. Keyboard legend at the bottom of the mentions popup: the Backspace key's label as printed on keyboards in your language, abbreviated to a few letters (shown in a small key cap). Keep it as short as the English.
+#: client/components/Mentions.vue
+msgctxt "mentions.keys.backspace"
+msgid "Bksp"
+msgstr "ลบ"
+
+#. Keyboard legend at the bottom of the mentions popup, after Alt+M: it closes the popup. One short lower-case word.
+#: client/components/Mentions.vue
+msgctxt "mentions.keys.close"
+msgid "close"
+msgstr "ปิด"
+
+#. Keyboard legend at the bottom of the mentions popup, after the Backspace key: it dismisses the focused row. One short lower-case word.
+#: client/components/Mentions.vue
+msgctxt "mentions.keys.dismiss"
+msgid "dismiss"
+msgstr "ล้าง"
+
+#. Keyboard legend at the bottom of the mentions popup, after the ↑ ↓ keys: they move between the rows. One short lower-case word.
+#: client/components/Mentions.vue
+msgctxt "mentions.keys.move"
+msgid "move"
+msgstr "เลื่อน"
+
+#. Keyboard legend at the bottom of the mentions popup, after the ↵ (Enter) key: it opens the conversation of the focused row. One short lower-case word.
+#: client/components/Mentions.vue
+msgctxt "mentions.keys.open"
+msgid "open"
+msgstr "เปิด"
 
 #. Shown under a channel in the mentions popup that you are no longer in. {target} is the channel name, shown verbatim.
 #: client/components/Mentions.vue:509
@@ -3302,6 +3357,18 @@ msgctxt "mentions.missingQueryOn"
 msgid "No conversation with {target} on {network} open: open one to read these, or dismiss them."
 msgstr "ไม่มีบทสนทนากับ {target} บน {network} เปิดอยู่: เปิดบทสนทนาเพื่ออ่าน หรือล้างรายการเหล่านี้"
 
+#. Shown under a private conversation in the mentions (inbox) popup when its chat network is not connected: clicking it will work again once the connection is back.
+#: client/components/Mentions.vue
+msgctxt "mentions.notConnected"
+msgid "Not connected: this opens once you're back."
+msgstr "ไม่ได้เชื่อมต่อ: จะเปิดได้เมื่อคุณกลับมาเชื่อมต่อ"
+
+#. Shown under a channel's group in the mentions (inbox) popup when its chat network is not connected: clicking it will work again once the connection is back and the channel joined. {target} is the channel name, shown verbatim.
+#: client/components/Mentions.vue
+msgctxt "mentions.notConnectedIn"
+msgid "Not connected: this opens once you're back in {target}."
+msgstr "ไม่ได้เชื่อมต่อ: จะเปิดได้เมื่อคุณกลับมาอยู่ใน {target}"
+
 #. Tooltip of a conversation's header in the mentions popup; clicking opens that conversation. {target} is a channel name or a nick, shown verbatim.
 #: client/components/Mentions.vue:56
 msgctxt "mentions.open"
@@ -3320,6 +3387,12 @@ msgstr "{target} บน {network}"
 msgctxt "mentions.title"
 msgid "Mentions"
 msgstr "การกล่าวถึง"
+
+#. Button on the strip after 'Dismiss all' in the mentions popup: brings the dismissed mentions back (until the popup closes). One short word.
+#: client/components/Mentions.vue
+msgctxt "mentions.undo"
+msgid "Undo"
+msgstr "เลิกทำ"
 
 #. Count of unread messages: the accessible name of the total beside the mentions popup's heading, and the label on a private conversation's row when more than one of its lines is unread. {count} is the number. The singular form shows for one, the plural for any other number.
 #: client/components/Mentions.vue:522
@@ -3685,6 +3758,12 @@ msgctxt "message.replyingTo"
 msgid "Replying to {nick}: {text}. Jump to that message."
 msgstr "ตอบกลับ {nick}: {text} ไปยังข้อความนั้น"
 
+#. aria-label of the quoted-message button on a chat message that is a reply, when the message replied to was fetched from the server and is not in the scrollback, so there is nothing to jump to. {nick} is the name of the user who wrote the quoted message, {text} its content as plain text.
+#: client/components/Message.vue
+msgctxt "message.replyingToParent"
+msgid "Replying to {nick}: {text}."
+msgstr "ตอบกลับ {nick}: {text}"
+
 #. Tooltip of the small marker on a chat message that arrived while you had another channel open; the server delivered it to the active window only.
 #: client/components/Message.vue:118
 msgctxt "message.shownInActive"
@@ -3841,6 +3920,18 @@ msgctxt "oper.action.cancel"
 msgid "Cancel"
 msgstr "ยกเลิก"
 
+#. Oper tools, ban dialog: label of the switch that confirms a ban whose mask cannot be previewed (a realname, version or channel mask, which the server cannot check against who is online). Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/components/Oper/ActionDialog.vue
+msgctxt "oper.action.confirmUnchecked"
+msgid "Yes, ban everyone this matches (it can't be previewed)"
+msgstr "ใช่ แบนทุกคนที่ตรงกับนี้ (ดูตัวอย่างไม่ได้)"
+
+#. Oper tools, ban dialog: label of the switch that confirms a wide ban mask (one matching many users) when the ban goes through the oper service O3, which has no force flag of its own. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/components/Oper/ActionDialog.vue
+msgctxt "oper.action.confirmWideVia"
+msgid "Yes, set this wide mask"
+msgstr "ใช่ ตั้งมาสก์กว้างนี้"
+
 #. Oper tools, the kill/ban dialog (kill a user, or G-line, shun or Z-line a mask; IRC jargon, keep as is): label of the ban duration select. One word. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/ActionDialog.vue
 msgctxt "oper.action.duration"
@@ -3918,6 +4009,13 @@ msgstr "แสดงให้ผู้ใช้และทั้งเครื
 msgctxt "oper.action.killed"
 msgid "Killed {nick}."
 msgstr "คิล {nick} แล้ว"
+
+#. Oper tools, kill/ban dialog: error under the form when the command would be longer than an IRC line may be. {count} is how many bytes over; a byte is a unit of the line's length, and letters outside plain ASCII count as 2 to 4 bytes each. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/operLine.ts
+msgctxt "oper.action.lineTooLong"
+msgid "Too long to send: shorten the reason by {count} byte (accented letters, other scripts and emoji take 2–4 each)."
+msgid_plural "Too long to send: shorten the reason by {count} bytes (accented letters, other scripts and emoji take 2–4 each)."
+msgstr[0] "ยาวเกินกว่าจะส่ง: ย่อเหตุผลลง {count} ไบต์ (ตัวอักษรมีเครื่องหมาย อักษรอื่น และอีโมจิใช้ตัวละ 2–4 ไบต์)"
 
 #. Oper tools, the kill/ban dialog (kill a user, or G-line, shun or Z-line a mask; IRC jargon, keep as is): hint while the dialog asks the server for the user's real IP and host to suggest masks. {nick} is the user's nick (verbatim). Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/ActionDialog.vue
@@ -4076,6 +4174,12 @@ msgstr "{type} ผ่าน {bot}"
 msgctxt "oper.action.titleKill"
 msgid "Kill {nick}"
 msgstr "คิล {nick}"
+
+#. Oper tools, kill/ban dialog: a hint under the title saying who holds the nick at this moment, so a nick clicked in an old line is not taken for someone else. {nick} is the nick (verbatim); {who} its ident@host (verbatim, shown highlighted). Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/components/Oper/ActionDialog.vue
+msgctxt "oper.action.whoNow"
+msgid "{nick} is {who} right now."
+msgstr "ตอนนี้ {nick} คือ {who}"
 
 #. Oper panel, Opers tab (what the network's IRC operators have been doing, rolled up from the kept server notices): count on an oper's row: how many actions they took. {count} is the number. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/OperActivity.vue
@@ -4582,6 +4686,18 @@ msgctxt "oper.alertBuilder.form.reactionOptionNeeds"
 msgid "{label} · {keyword} · level {level} · needs {needs}"
 msgstr "{label} · {keyword} · ระดับ {level} · ต้องมี {needs}"
 
+#. Oper tools, alert builder (a form for the X3 oper service O3's 'addalert' command, shown as an overlay): one option of the Reaction select for a reaction the user's O3 access level is too low for (the option is disabled). {label} is the reaction in words, {keyword} O3's keyword (never translated), {level} the O3 access level it needs (a number). Keep the middle dots. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/components/Oper/AlertBuilder.vue
+msgctxt "oper.alertBuilder.form.reactionOptionTooLow"
+msgid "{label} · {keyword} · needs O3 level {level}"
+msgstr "{label} · {keyword} · ต้องใช้ระดับ O3 {level}"
+
+#. Oper tools, alert builder (a form for the X3 oper service O3's 'addalert' command, shown as an overlay): one option of the Reaction select for a reaction that needs a criterion and that the user's O3 access level is too low for (disabled). {label} is the reaction in words, {keyword} O3's keyword (never translated), {level} the O3 access level it needs (a number), {needs} the O3 criterion keyword it requires (never translated). Keep the middle dots. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/components/Oper/AlertBuilder.vue
+msgctxt "oper.alertBuilder.form.reactionOptionTooLowNeeds"
+msgid "{label} · {keyword} · needs O3 level {level} · needs {needs}"
+msgstr "{label} · {keyword} · ต้องใช้ระดับ O3 {level} · ต้องใช้ {needs}"
+
 #. Oper tools, alert builder (a form for the X3 oper service O3's 'addalert' command, shown as an overlay): label of the alert's reason field. One word. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/AlertBuilder.vue
 msgctxt "oper.alertBuilder.form.reason"
@@ -4683,6 +4799,13 @@ msgstr "{first} · {second}"
 msgctxt "oper.alertBuilder.matches.noOpers"
 msgid "none are opers"
 msgstr "ไม่มีใครเป็นโอเปอร์"
+
+#. Oper tools, alert builder: the count line under the form, how many users on the network the alert's criteria match right now (from O3's trace). Second clause, when only the first {count} matching users could be checked for IRC operators (oper is IRC jargon) and none of them is one. Lower case. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/alertBuilder.ts
+msgctxt "oper.alertBuilder.matches.noOpersAmongFirst"
+msgid "none of the first {count} is an oper"
+msgid_plural "none of the first {count} are opers"
+msgstr[0] "ใน {count} คนแรกไม่มีใครเป็นโอเปอร์"
 
 #. Oper tools, alert builder: the count line under the form, how many users on the network the alert's criteria match right now (from O3's trace).  Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/js/helpers/alertBuilder.ts
@@ -4895,6 +5018,12 @@ msgstr "ติดตาม"
 msgctxt "oper.alertBuilder.reaction.version"
 msgid "Ask for the version"
 msgstr "ขอเวอร์ชัน"
+
+#. Oper tools, alert builder (a form for the X3 oper service O3's 'addalert' command): why a criterion row is marked 'wide' (it would match many users): its value is only wildcards (* or ?), so it matches everyone. Lower case, no final period. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/alertBuilder.ts
+msgctxt "oper.alertBuilder.wide.anyValue"
+msgid "matches any value"
+msgstr "ตรงกับทุกค่า"
 
 #. Oper tools, alert builder: an amber tag on a criterion row that is 'wide' — on its own it would catch bystanders, so it arrives switched off. Lower case, a few words; read as 'wide: <this>'. Matching two or fewer connections from one IP, which most users have. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/js/helpers/alertBuilder.ts
@@ -5176,6 +5305,12 @@ msgctxt "oper.alerts.position.here"
 msgid "Here"
 msgstr "ที่นี่"
 
+#. Oper panel, Alerts tab, on a touchscreen (where the buttons' tooltips never show): one item of the legend above the Here / Network / Off controls, saying what 'Here' means. {label} is the segment's name (oper.alerts.position.here, shown bold).
+#: client/components/Oper/OperAlerts.vue
+msgctxt "oper.alerts.position.hereLegend"
+msgid "{label}: in the window you are looking at."
+msgstr "{label}: ในหน้าต่างที่คุณกำลังดูอยู่"
+
 #. Tooltip of the 'Here' segment (oper panel, Alerts tab).
 #: client/components/Oper/OperAlerts.vue
 msgctxt "oper.alerts.position.hereTitle"
@@ -5188,6 +5323,12 @@ msgctxt "oper.alerts.position.network"
 msgid "Network"
 msgstr "เครือข่าย"
 
+#. Oper panel, Alerts tab, on a touchscreen: one item of the legend above the Here / Network / Off controls, saying what 'Network' means: the notices show in the network's own window without raising its unread count. {label} is the segment's name (oper.alerts.position.network, shown bold).
+#: client/components/Oper/OperAlerts.vue
+msgctxt "oper.alerts.position.networkLegend"
+msgid "{label}: in the network window, no unread."
+msgstr "{label}: ในหน้าต่างเครือข่าย โดยไม่นับเป็นยังไม่ได้อ่าน"
+
 #. Tooltip of the 'Network' segment (oper panel, Alerts tab): shown in the network's window without raising its unread count.
 #: client/components/Oper/OperAlerts.vue
 msgctxt "oper.alerts.position.networkTitle"
@@ -5199,6 +5340,12 @@ msgstr "ในหน้าต่างเครือข่าย ไม่น�
 msgctxt "oper.alerts.position.off"
 msgid "Off"
 msgstr "ปิด"
+
+#. Oper panel, Alerts tab, on a touchscreen: one item of the legend above the Here / Network / Off controls, saying what 'Off' means: the notices are hidden, and the server is asked to stop sending them where its notice mask allows. {label} is the segment's name (oper.alerts.position.off, shown bold).
+#: client/components/Oper/OperAlerts.vue
+msgctxt "oper.alerts.position.offLegend"
+msgid "{label}: never shown; the server stops sending it when it can."
+msgstr "{label}: ไม่แสดงเลย และเซิร์ฟเวอร์จะหยุดส่งเมื่อทำได้"
 
 #. Tooltip of the 'Off' segment (oper panel, Alerts tab): the notices are hidden, and the server is asked to stop sending them where its notice mask allows.
 #: client/components/Oper/OperAlerts.vue
@@ -5482,6 +5629,12 @@ msgstr "กว้างกว่า /16: เซิร์ฟเวอร์ปฏ
 msgctxt "oper.ban.check.twoDots"
 msgid "A wildcard host needs at least two dots."
 msgstr "โฮสต์ที่มีไวลด์การ์ดต้องมีจุดอย่างน้อยสองจุด"
+
+#. Oper tools, ban dialog: error under the mask field when an IPv6 mask contains a wildcard (* or ?), which the server refuses; the oper must write a CIDR range instead (2001:db8::/32 is an example, keep it as is). Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/irc/profiles/nefarious/bans.ts
+msgctxt "oper.ban.check.v6Wildcard"
+msgid "IPv6 masks cannot use wildcards; use CIDR (e.g. 2001:db8::/32)."
+msgstr "มาสก์ IPv6 ใช้ไวลด์การ์ดไม่ได้ ให้ใช้ CIDR (เช่น 2001:db8::/32)"
 
 #. Error under the mask field of the oper's ban dialog: the server would refuse this ban mask. A $R/$V mask was given for a Z-line.
 #. Keep as is (IRC jargon): Z-line, IP.
@@ -6329,6 +6482,12 @@ msgctxt "oper.investigate.card.alertOnThis"
 msgid "Alert on this…"
 msgstr "แจ้งเตือนเรื่องนี้…"
 
+#. Tooltip of the card's 'Alert on this…' button: opens the alert builder with what the card found about the user. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/components/Oper/InvestigateCard.vue
+msgctxt "oper.investigate.card.alertOnThisTitle"
+msgid "Alert on this"
+msgstr "ตั้งการแจ้งเตือนจากข้อมูลนี้"
+
 #. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). Muted, on a user's line: the other channels they are in; {channels} is a comma list of channel names, verbatim. Lower case. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateCard.vue
 msgctxt "oper.investigate.card.alsoIn"
@@ -6340,6 +6499,18 @@ msgstr "อยู่ใน {channels} ด้วย"
 msgctxt "oper.investigate.card.asking"
 msgid "asking…"
 msgstr "กำลังถาม…"
+
+#. aria-label of the card's close button when cards are stacked (a user card opened from a channel card): closing goes back to the card before.
+#: client/components/Oper/InvestigateCard.vue
+msgctxt "oper.investigate.card.back"
+msgid "Back to the card before"
+msgstr "กลับไปการ์ดก่อนหน้า"
+
+#. Tooltip of the card's close button when cards are stacked: closing goes back to the card before. One short word.
+#: client/components/Oper/InvestigateCard.vue
+msgctxt "oper.investigate.card.backShort"
+msgid "Back"
+msgstr "กลับ"
 
 #. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). Row label in the channel card's facts: how many channel bans it has. One word. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateCard.vue
@@ -6365,6 +6536,12 @@ msgctxt "oper.investigate.card.chipAway"
 msgid "away"
 msgstr "ไม่อยู่"
 
+#. A small tag beside the nick in a user card's head: the user is connected now (and not away). Lower case, one word.
+#: client/components/Oper/InvestigateCard.vue
+msgctxt "oper.investigate.card.chipOnline"
+msgid "online"
+msgstr "ออนไลน์"
+
 #. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). Tiny chip on a user in the list: channel operator (@). Very short, IRC jargon. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateCard.vue
 msgctxt "oper.investigate.card.chipOp"
@@ -6389,6 +6566,12 @@ msgctxt "oper.investigate.card.close"
 msgid "Close the card"
 msgstr "ปิดการ์ด"
 
+#. Tooltip of the card's close button: it closes the card; the Escape key does too. Keep '(Esc)', the key's name.
+#: client/components/Oper/InvestigateCard.vue
+msgctxt "oper.investigate.card.closeEsc"
+msgid "Close (Esc)"
+msgstr "ปิด (Esc)"
+
 #. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). Tooltip on one shared-fact chip: {shared} of the channel's {count} users share it. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateCard.vue
 msgctxt "oper.investigate.card.commonCount"
@@ -6396,18 +6579,11 @@ msgid "{shared} of {count} user"
 msgid_plural "{shared} of {count} users"
 msgstr[0] "{shared} จาก {count} คน"
 
-#. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). Section heading in the channel card: facts most users in the channel share (signs of a bot group). Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). The small heading over the channel card's summary of the facts most users in the channel share (signs of a bot group). A few words. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateCard.vue
 msgctxt "oper.investigate.card.commonHeading"
-msgid "What most users have in common"
-msgstr "สิ่งที่ผู้ใช้ส่วนใหญ่มีเหมือนกัน"
-
-#. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). Lead-in before the chips of shared facts: {shared} users of the channel's {count} share every fact shown. Ends with a colon. Short. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
-#: client/components/Oper/InvestigateCard.vue
-msgctxt "oper.investigate.card.commonLead"
-msgid "{shared} of {count} user:"
-msgid_plural "{shared} of {count} users:"
-msgstr[0] "{shared} จาก {count} คน:"
+msgid "What most share"
+msgstr "สิ่งที่ส่วนใหญ่มีร่วมกัน"
 
 #. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). Button: start comparing with the nick typed. One word. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateCard.vue
@@ -6415,11 +6591,11 @@ msgctxt "oper.investigate.card.compare"
 msgid "Compare"
 msgstr "เปรียบเทียบ"
 
-#. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). Button under a user card: compare this user with another, in two columns. Keep the ellipsis. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#. Brief notice on the user card when the oper typed a channel name into Compare's field: only a user can be compared. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateCard.vue
-msgctxt "oper.investigate.card.compareOffer"
-msgid "Compare side by side…"
-msgstr "เปรียบเทียบเคียงข้างกัน…"
+msgctxt "oper.investigate.card.compareNotChannel"
+msgid "Compare takes a nick, not a channel."
+msgstr "การเปรียบเทียบใช้นิก ไม่ใช่ช่อง"
 
 #. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). Placeholder of the text field asking which other user to compare side by side. Lower case. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateCard.vue
@@ -6427,17 +6603,36 @@ msgctxt "oper.investigate.card.comparePlaceholder"
 msgid "nick to compare with"
 msgstr "นิคที่จะเปรียบเทียบ"
 
+#. Compare (two users side by side on the user card): how many of the facts both users have are the same. {same} is that number, shown emphasized; {count} is how many facts both have. The plural is chosen by {count}.
+#: client/components/Oper/InvestigateCard.vue
+msgctxt "oper.investigate.card.compareScore"
+msgid "{same} of {count} matches"
+msgid_plural "{same} of {count} match"
+msgstr[0] "ตรงกัน {same} จาก {count}"
+
+#. Brief notice on the user card when the oper typed the card's own nick into Compare's field. {nick} is that nick (verbatim). Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/components/Oper/InvestigateCard.vue
+msgctxt "oper.investigate.card.compareSelf"
+msgid "That is {nick}: compare with someone else."
+msgstr "นั่นคือ {nick}: ให้เปรียบเทียบกับคนอื่น"
+
+#. Tooltip of the user card's Compare button: shows this user beside another one, fact by fact.
+#: client/components/Oper/InvestigateCard.vue
+msgctxt "oper.investigate.card.compareTitle"
+msgid "Compare side by side"
+msgstr "เปรียบเทียบแบบเคียงข้างกัน"
+
 #. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). Row label in the channel card's facts: when the channel was created. One word. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateCard.vue
 msgctxt "oper.investigate.card.created"
 msgid "Created"
 msgstr "สร้างเมื่อ"
 
-#. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). Tooltip and accessible name of the ✕ button that closes the second column of a comparison. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). Button in the card's footer while two users are compared side by side: goes back to the one user's card. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateCard.vue
 msgctxt "oper.investigate.card.endCompare"
-msgid "Stop comparing"
-msgstr "หยุดเปรียบเทียบ"
+msgid "End compare"
+msgstr "จบการเปรียบเทียบ"
 
 #. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). A fact about the user handed to the alert builder (shown as a row label there). Lower case, short. Logged in to a services account. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateCard.vue
@@ -6475,6 +6670,12 @@ msgctxt "oper.investigate.card.factVersion"
 msgid "version '{version}'"
 msgstr "เวอร์ชัน '{version}'"
 
+#. In a stacked card's head, after the network's name: the card this one was opened from. {target} is that card's channel or nick (verbatim). Lower case.
+#: client/components/Oper/InvestigateCard.vue
+msgctxt "oper.investigate.card.fromCard"
+msgid "from {target}"
+msgstr "จาก {target}"
+
 #. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). Footer button on a user card: open the dialog to G-line (network-ban) the user. G-line is IRC jargon; keep the ellipsis. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateCard.vue
 msgctxt "oper.investigate.card.gline"
@@ -6499,12 +6700,6 @@ msgctxt "oper.investigate.card.joinedAt"
 msgid "joined {time}"
 msgstr "เข้าเมื่อ {time}"
 
-#. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). Short status toast after pressing Join & watch; {channel} is the channel name, verbatim. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
-#: client/components/Oper/InvestigateCard.vue
-msgctxt "oper.investigate.card.joining"
-msgid "Joining {channel}…"
-msgstr "กำลังเข้าร่วม {channel}…"
-
 #. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). Footer button on a user card: open the dialog to disconnect the user (IRC KILL). Keep the ellipsis. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateCard.vue
 msgctxt "oper.investigate.card.kill"
@@ -6523,11 +6718,42 @@ msgctxt "oper.investigate.card.lastHourHeading"
 msgid "Last hour here"
 msgstr "ชั่วโมงที่ผ่านมาที่นี่"
 
+#. Compare (two users side by side): a sighting from the kept notice feed that resembles both compared users (screen-reader text and tooltip of two coloured dots). Lower case.
+#: client/components/Oper/InvestigateCard.vue
+msgctxt "oper.investigate.card.likeBoth"
+msgid "like both"
+msgstr "คล้ายทั้งสองคน"
+
+#. Compare (two users side by side): a sighting from the kept notice feed that resembles one of the compared users. {nick} is that user's nick (verbatim). Lower case.
+#: client/components/Oper/InvestigateCard.vue
+msgctxt "oper.investigate.card.likeOne"
+msgid "like {nick}"
+msgstr "คล้าย {nick}"
+
+#. The channel card's 'What most share' headline: how many of the channel's users share the facts below. {shared} is that number, {count} the channel's users (the plural is chosen by {count}).
+#: client/components/Oper/InvestigateCard.vue
+msgctxt "oper.investigate.card.lookAlike"
+msgid "{shared} of {count} user looks alike"
+msgid_plural "{shared} of {count} users look alike"
+msgstr[0] "{shared} จาก {count} คนดูคล้ายกัน"
+
 #. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). Small button on a user's line: ask the services bots about this user now (beyond the automatic cap). Short. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateCard.vue
 msgctxt "oper.investigate.card.lookUp"
 msgid "Look up"
 msgstr "ค้นหา"
+
+#. On a channel card, in a user's row: the services lookup of this user (O3's whois) brought nothing; a Try again button follows. Lower case, no final period.
+#: client/components/Oper/InvestigateCard.vue
+msgctxt "oper.investigate.card.lookupFailed"
+msgid "the lookup failed"
+msgstr "การค้นหาล้มเหลว"
+
+#. On a channel card, in a user's row after 'the lookup failed': asks the services again for this user. A short button label.
+#: client/components/Oper/InvestigateCard.vue
+msgctxt "oper.investigate.card.lookupRetry"
+msgid "Try again"
+msgstr "ลองอีกครั้ง"
 
 #. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). Row label in the channel card's facts: the channel modes (e.g. +nt). One word. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateCard.vue
@@ -6577,17 +6803,35 @@ msgctxt "oper.investigate.card.noteEdit"
 msgid "Edit"
 msgstr "แก้ไข"
 
-#. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). Placeholder of the note text field. {key} is what the note is about: a channel, an IP address, an account or a nick (verbatim). Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#. Placeholder of the note field in the card's note dialog: the note is stored on this device and never sent anywhere.
 #: client/components/Oper/InvestigateCard.vue
-msgctxt "oper.investigate.card.notePlaceholder"
-msgid "A note about {key}, kept on this device"
-msgstr "บันทึกย่อเกี่ยวกับ {key} เก็บไว้บนอุปกรณ์นี้"
+msgctxt "oper.investigate.card.noteKeptHere"
+msgid "Kept on this device only"
+msgstr "เก็บไว้บนอุปกรณ์นี้เท่านั้น"
+
+#. Title of the small dialog where the oper writes a private note about a channel or a user, kept on this device only. {key} is what the note is filed under: a channel, an IP address, an account or a nick (verbatim).
+#: client/components/Oper/InvestigateCard.vue
+msgctxt "oper.investigate.card.noteOn"
+msgid "Note on {key}"
+msgstr "บันทึกเกี่ยวกับ {key}"
 
 #. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). Button: save the note. One word. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateCard.vue
 msgctxt "oper.investigate.card.noteSave"
 msgid "Save"
 msgstr "บันทึก"
+
+#. Tooltip of the card's 'Note…' button: write a private note about this channel or user. One short word.
+#: client/components/Oper/InvestigateCard.vue
+msgctxt "oper.investigate.card.noteTitle"
+msgid "Note"
+msgstr "บันทึก"
+
+#. Compare (two users side by side), under 'Seen before': nobody in the kept notice feed (the server notices this device keeps) shares anything with either user. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/components/Oper/InvestigateCard.vue
+msgctxt "oper.investigate.card.nothingLikeEither"
+msgid "Nothing in the kept feed is like either of them."
+msgstr "ไม่มีอะไรในฟีดที่เก็บไว้ที่คล้ายทั้งสองคน"
 
 #. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). Muted line in place of the shared facts: no fact is shared by most users. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateCard.vue
@@ -6649,11 +6893,47 @@ msgctxt "oper.investigate.card.registeredAgo"
 msgid "{since} ago"
 msgstr "{since} ที่แล้ว"
 
+#. Brief notice on a card after one of its chips sent a command (Check, Who): the server's answer appears in that chat window, behind the card; a Show button follows. {channel} is the window's name (verbatim). Keep the middle dot.
+#: client/components/Oper/InvestigateCard.vue
+msgctxt "oper.investigate.card.sentTo"
+msgid "Sent · the answer shows in {channel}"
+msgstr "ส่งแล้ว · คำตอบจะแสดงใน {channel}"
+
+#. Brief notice on a card after one of its chips sent a command (Check, Who): the server's answer appears in the chat, behind the card. Keep the middle dot.
+#: client/components/Oper/InvestigateCard.vue
+msgctxt "oper.investigate.card.sentToChat"
+msgid "Sent · the answer shows in chat"
+msgstr "ส่งแล้ว · คำตอบจะแสดงในแชท"
+
 #. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). After the topic, muted: who set it. {nick} is a nick or hostmask, verbatim. Lower case. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateCard.vue
 msgctxt "oper.investigate.card.setBy"
 msgid "set by {nick}"
 msgstr "ตั้งโดย {nick}"
+
+#. Compare (two users side by side): segmented control over the facts table: show every fact. One short word.
+#: client/components/Oper/InvestigateCard.vue
+msgctxt "oper.investigate.card.showAll"
+msgid "All"
+msgstr "ทั้งหมด"
+
+#. Compare (two users side by side): segmented control over the facts table: show only the facts where the two users differ. One word.
+#: client/components/Oper/InvestigateCard.vue
+msgctxt "oper.investigate.card.showDifferences"
+msgid "Differences"
+msgstr "ความต่าง"
+
+#. aria-label of the All / Differences control in Compare: what the facts table shows.
+#: client/components/Oper/InvestigateCard.vue
+msgctxt "oper.investigate.card.showGroup"
+msgid "Show"
+msgstr "แสดง"
+
+#. Button in the card's brief notice after a chip sent a command: closes the cards and goes to the window where the answer is. One short word.
+#: client/components/Oper/InvestigateCard.vue
+msgctxt "oper.investigate.card.showResults"
+msgid "Show"
+msgstr "แสดง"
 
 #. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). Muted line under 'Last hour here' when the user is not in the services snoop channel that reports joins and parts. {channel} is that channel's name, verbatim. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateCard.vue
@@ -6684,6 +6964,18 @@ msgstr "เวลาเข้า"
 msgctxt "oper.investigate.card.sortNick"
 msgid "nick"
 msgstr "นิค"
+
+#. Compare's head, under each user's nick: the user is away, and how long they have been connected. {since} is already worded ('5m ago'). Keep the middle dot.
+#: client/components/Oper/InvestigateCard.vue
+msgctxt "oper.investigate.card.statusAway"
+msgid "away · {since}"
+msgstr "ไม่อยู่ · {since}"
+
+#. Compare's head, under each user's nick: the user is connected, and since when. {since} is already worded ('5m ago'). Keep the middle dot.
+#: client/components/Oper/InvestigateCard.vue
+msgctxt "oper.investigate.card.statusOnline"
+msgid "online · {since}"
+msgstr "ออนไลน์ · {since}"
 
 #. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). Accessible name (aria-label) of the card dialog about a channel; {target} is the channel name, verbatim. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateCard.vue
@@ -6728,11 +7020,11 @@ msgid "{count} user matches right now"
 msgid_plural "{count} users match right now"
 msgstr[0] "ตอนนี้ตรงกับผู้ใช้ {count} คน"
 
-#. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). Section heading over the channel's user list, with the number of users. Keep the middle dot. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#. Heading of the channel card's list of the channel's users; the count is shown beside it. One word.
 #: client/components/Oper/InvestigateCard.vue
-msgctxt "oper.investigate.card.usersHeading"
-msgid "Users · {count}"
-msgstr "ผู้ใช้ · {count}"
+msgctxt "oper.investigate.card.users"
+msgid "Users"
+msgstr "ผู้ใช้"
 
 #. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). Footer button on a channel card when already in the channel: watch it. One word. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateCard.vue
@@ -6740,17 +7032,29 @@ msgctxt "oper.investigate.card.watch"
 msgid "Watch"
 msgstr "เฝ้าดู"
 
-#. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). Short status toast after pressing Watch; {channel} is the channel name, verbatim. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
-#: client/components/Oper/InvestigateCard.vue
-msgctxt "oper.investigate.card.watching"
-msgid "Watching {channel}"
-msgstr "กำลังเฝ้าดู {channel}"
-
 #. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). Value of the Registered row: the channel is registered with services. One word. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateCard.vue
 msgctxt "oper.investigate.card.yes"
 msgid "Yes"
 msgstr "ใช่"
+
+#. Compare (two users side by side on the user card): the summary tag when they share an address and at least two more facts. A few words. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/operCompare.ts
+msgctxt "oper.investigate.compare.likely"
+msgid "Likely same person"
+msgstr "น่าจะเป็นคนเดียวกัน"
+
+#. Compare (two users side by side on the user card): the summary tag when none of the facts both have is the same. A few words. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/operCompare.ts
+msgctxt "oper.investigate.compare.nothing"
+msgid "Nothing in common"
+msgstr "ไม่มีอะไรเหมือนกัน"
+
+#. Compare (two users side by side on the user card): the summary tag when some facts are the same, but not enough to call them one person. A few words. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/operCompare.ts
+msgctxt "oper.investigate.compare.some"
+msgid "Some in common"
+msgstr "มีบางอย่างเหมือนกัน"
 
 #. Oper tools, channel investigation card, 'What most users have in common': a chip naming one fact most users in the channel share. Lower case, very short (fits a small chip). They are logged in to a services account. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/js/helpers/commonality.ts
@@ -7135,6 +7439,54 @@ msgctxt "oper.investigate.shares.realname"
 msgid "the realname"
 msgstr "ชื่อจริง"
 
+#. Oper tools, investigation card: a small tag under the verdict naming one thing a user shares with someone seen before: the services account. Lower case, one or two words. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/verdict.ts
+msgctxt "oper.investigate.tag.account"
+msgid "account"
+msgstr "บัญชี"
+
+#. Oper tools, investigation card: a small tag under the verdict naming one thing a user shares with someone seen before: the host name. Lower case, one or two words. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/verdict.ts
+msgctxt "oper.investigate.tag.host"
+msgid "host"
+msgstr "โฮสต์"
+
+#. Oper tools, investigation card: a small tag under the verdict: the user's ident has the same shape (letters and digits in the same places) as that of someone seen before. Lower case, a few words. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/verdict.ts
+msgctxt "oper.investigate.tag.identShape"
+msgid "ident shape"
+msgstr "รูปแบบ ident"
+
+#. Oper tools, investigation card: a small tag under the verdict naming one thing a user shares with someone seen before: the IP address. Keep it as short as the English. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/verdict.ts
+msgctxt "oper.investigate.tag.ip"
+msgid "IP"
+msgstr "IP"
+
+#. Oper tools, Compare: one fact the two users share, in the summary line: the hostmask they last quit with. Lower case, a few words. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/operCompare.ts
+msgctxt "oper.investigate.tag.lastQuit"
+msgid "last quit"
+msgstr "การออกครั้งล่าสุด"
+
+#. Oper tools, investigation card: a small tag under the verdict naming one thing a user shares with someone seen before: the realname (IRC's free-text 'real name' field). Lower case, one or two words. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/verdict.ts
+msgctxt "oper.investigate.tag.realname"
+msgid "realname"
+msgstr "ชื่อจริง"
+
+#. Oper tools, Compare: one fact the two users share, in the summary line: the IRC server they are connected to. Lower case, one word. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/operCompare.ts
+msgctxt "oper.investigate.tag.server"
+msgid "server"
+msgstr "เซิร์ฟเวอร์"
+
+#. Oper tools, Compare: one fact the two users share, in the summary line: their client's version reply. Lower case, one word. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/operCompare.ts
+msgctxt "oper.investigate.tag.version"
+msgid "version"
+msgstr "เวอร์ชัน"
+
 #. Oper tools, user investigation card (also shown twice side by side by Compare). Row label in the user's facts grid: the services account they are logged in to. One or two words. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateUser.vue
 msgctxt "oper.investigate.user.account"
@@ -7165,6 +7517,12 @@ msgctxt "oper.investigate.user.banExpires"
 msgid "expires {when}"
 msgstr "หมดอายุ {when}"
 
+#. User card, 'Bans near this user': a small tag on a ban that no longer stands (expired or removed). Lower case, one word. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/components/Oper/InvestigateUser.vue
+msgctxt "oper.investigate.user.banGone"
+msgid "gone"
+msgstr "ถูกยกเลิก"
+
 #. Oper tools, user investigation card (also shown twice side by side by Compare). A ban row after its mask: {type} is the ban type (G-line, shun, Z-line, never translated), {details} a comma list such as 'by rubin, 3h ago, never expires'. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateUser.vue
 msgctxt "oper.investigate.user.banLine"
@@ -7176,6 +7534,12 @@ msgstr "{type} {details}"
 msgctxt "oper.investigate.user.banListUnread"
 msgid "The ban list could not be read ({why})."
 msgstr "อ่านรายการแบนไม่ได้ ({why})"
+
+#. User card, 'Bans near this user': a small tag on a ban that is in force now. Lower case, one word. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/components/Oper/InvestigateUser.vue
+msgctxt "oper.investigate.user.banLive"
+msgid "live"
+msgstr "มีผล"
 
 #. Oper tools, user investigation card (also shown twice side by side by Compare). One detail of a ban row: a permanent ban. Lower case. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateUser.vue
@@ -7194,6 +7558,18 @@ msgstr "ไม่มีผลแล้ว"
 msgctxt "oper.investigate.user.bansNear"
 msgid "Bans near this user"
 msgstr "แบนที่เกี่ยวข้องกับผู้ใช้นี้"
+
+#. Compare (two users side by side): label of the row with each user's bans near them. A few words. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/components/Oper/InvestigateFacts.vue
+msgctxt "oper.investigate.user.bansNearShort"
+msgid "Bans near"
+msgstr "การแบนที่เกี่ยวข้อง"
+
+#. User card, 'Bans near this user': a small tag on a ban the services (X3) hold, rather than the server. Lower case, one word. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/components/Oper/InvestigateUser.vue
+msgctxt "oper.investigate.user.byServices"
+msgid "services"
+msgstr "บริการ"
 
 #. Oper tools, user investigation card (also shown twice side by side by Compare). Row label in the user's facts grid: the channels they are in. One or two words. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateUser.vue
@@ -7249,6 +7625,19 @@ msgctxt "oper.investigate.user.lastQuit"
 msgid "Last quit"
 msgstr "ออกล่าสุด"
 
+#. Compare (two users side by side), row 'Bans near': a red tag with how many bans in force cover the user. {count} is a number. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/components/Oper/InvestigateFacts.vue
+msgctxt "oper.investigate.user.liveBanCount"
+msgid "{count} live"
+msgid_plural "{count} live"
+msgstr[0] "มีผล {count}"
+
+#. User card, in place of the verdict while the first answers are still out: the server and the services are being asked about the user.
+#: client/components/Oper/InvestigateUser.vue
+msgctxt "oper.investigate.user.lookingUp"
+msgid "Looking them up…"
+msgstr "กำลังค้นหา…"
+
 #. Oper tools, user investigation card (also shown twice side by side by Compare). Row label in the user's facts grid: marks the oper service has put on them. One or two words. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateUser.vue
 msgctxt "oper.investigate.user.marks"
@@ -7273,6 +7662,12 @@ msgctxt "oper.investigate.user.noBansAtAll"
 msgid "No live G-line, shun or Z-line covers them, and the kept feed saw none set."
 msgstr "ไม่มี G-line, shun หรือ Z-line ที่มีผลครอบคลุมผู้ใช้นี้ และฟีดที่เก็บไว้ก็ไม่เห็นการตั้งเลย"
 
+#. Compare (two users side by side), row 'Bans near': no ban covers this user. Lower case, one word.
+#: client/components/Oper/InvestigateFacts.vue
+msgctxt "oper.investigate.user.noBansNear"
+msgid "none"
+msgstr "ไม่มี"
+
 #. Oper tools, user investigation card (also shown twice side by side by Compare). Muted line when the server's ban lists hold nothing covering the user (recently changed bans are listed above it). G-line, shun, Z-line are IRC jargon. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateUser.vue
 msgctxt "oper.investigate.user.noLiveBans"
@@ -7290,6 +7685,12 @@ msgstr "ไม่ได้ถาม"
 msgctxt "oper.investigate.user.notAuthed"
 msgid "not authed"
 msgstr "ยังไม่เข้าสู่ระบบ"
+
+#. Compare (two users side by side), row 'Bans near': the server's ban list was never read for this user. Lower case, a few words.
+#: client/components/Oper/InvestigateFacts.vue
+msgctxt "oper.investigate.user.notRead"
+msgid "not read"
+msgstr "ยังไม่ได้อ่าน"
 
 #. Oper tools, user investigation card (also shown twice side by side by Compare). Muted line under 'Seen before' when nothing matched. 'The kept feed' is the server notices this app has stored. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateUser.vue
@@ -7321,17 +7722,30 @@ msgctxt "oper.investigate.user.seenBefore"
 msgid "Seen before"
 msgstr "เคยพบก่อนหน้านี้"
 
-#. Oper tools, user investigation card (also shown twice side by side by Compare). Muted, in a 'Seen before' row after the nick: the address they were seen from ({address}, an IP or host, verbatim, shown in monospace) and what matched ({matched}, e.g. 'this IP'). Lower case. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#. User card, 'Seen before': after a nick seen earlier, the address it was seen from. {address} is an IP address or a host, shown as a clickable chip (verbatim). Lower case.
 #: client/components/Oper/InvestigateUser.vue
-msgctxt "oper.investigate.user.seenFrom"
-msgid "from {address} ({matched})"
-msgstr "จาก {address} ({matched})"
+msgctxt "oper.investigate.user.seenFromAddress"
+msgid "from {address}"
+msgstr "จาก {address}"
+
+#. User card: label of the fact row with the IRC server the user is connected to. One word.
+#: client/components/Oper/InvestigateFacts.vue
+msgctxt "oper.investigate.user.server"
+msgid "Server"
+msgstr "เซิร์ฟเวอร์"
 
 #. Oper tools, user investigation card (also shown twice side by side by Compare). A ban row from the X3 oper service's list, after the mask: {by} who issued it (verbatim), {ago} and {expires} are the bot's own interval texts (e.g. '3d'), verbatim. Lower case. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateUser.vue
 msgctxt "oper.investigate.user.serviceBan"
 msgid "by {by}, {ago} ago, expires in {expires}"
 msgstr "โดย {by}, {ago} ที่แล้ว, หมดอายุในอีก {expires}"
+
+#. Compare (two users side by side), row 'Bans near': a red tag with how many bans the services (X3) hold that cover the user. {count} is a number. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/components/Oper/InvestigateFacts.vue
+msgctxt "oper.investigate.user.serviceBanCount"
+msgid "{count} by services"
+msgid_plural "{count} by services"
+msgstr[0] "จากบริการ {count}"
 
 #. Oper tools, user investigation card (also shown twice side by side by Compare). A ban row from the X3 oper service's list, after the mask, for a permanent ban: {by} who issued it (verbatim), {ago} the bot's own interval text, verbatim. Lower case. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateUser.vue
@@ -7345,35 +7759,47 @@ msgctxt "oper.investigate.user.snoopMissing"
 msgid "Not in {channel}: earlier sessions aren't kept."
 msgstr "ไม่ได้อยู่ใน {channel}: ไม่มีการเก็บเซสชันก่อนหน้า"
 
-#. Oper tools, user investigation card (also shown twice side by side by Compare). What a 'Seen before' sighting shares with the user (the services account). Lower case, two words. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
-#: client/components/Oper/InvestigateUser.vue
-msgctxt "oper.investigate.user.thisAccount"
-msgid "this account"
-msgstr "บัญชีนี้"
-
-#. Oper tools, user investigation card (also shown twice side by side by Compare). What a 'Seen before' sighting shares with the user. Lower case, two words. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
-#: client/components/Oper/InvestigateUser.vue
-msgctxt "oper.investigate.user.thisHost"
-msgid "this host"
-msgstr "โฮสต์นี้"
-
-#. Oper tools, user investigation card (also shown twice side by side by Compare). What a 'Seen before' sighting shares with the user. Lower case, two words. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
-#: client/components/Oper/InvestigateUser.vue
-msgctxt "oper.investigate.user.thisIp"
-msgid "this IP"
-msgstr "IP นี้"
-
-#. Oper tools, user investigation card (also shown twice side by side by Compare). What a 'Seen before' sighting shares with the user (the IRC realname). Lower case, two words. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
-#: client/components/Oper/InvestigateUser.vue
-msgctxt "oper.investigate.user.thisRealname"
-msgid "this realname"
-msgstr "ชื่อจริงนี้"
-
 #. Oper tools, user investigation card (also shown twice side by side by Compare). Row label in the user's facts grid: their IRC client's version reply. One or two words. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateUser.vue
 msgctxt "oper.investigate.user.version"
 msgid "Version"
 msgstr "เวอร์ชัน"
+
+#. Oper tools, investigation card: the muted detail beside a live ban that covers the user. {by} is the oper or server that set it (verbatim). Lower case. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/verdict.ts
+msgctxt "oper.investigate.verdict.detail.banBy"
+msgid "set by {by}"
+msgstr "ตั้งโดย {by}"
+
+#. Oper tools, investigation card: the muted detail beside a live ban that covers the user. {by} is the oper or server that set it (verbatim); {when} how long ago, already worded (oper.investigate.agoDays etc.: '3 d ago'). Lower case. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/verdict.ts
+msgctxt "oper.investigate.verdict.detail.banByWhen"
+msgid "set by {by}, {when}"
+msgstr "ตั้งโดย {by}, {when}"
+
+#. Oper tools, investigation card: the muted detail beside a live ban that covers the user, when who set it is unknown. {when} is how long ago, already worded (oper.investigate.agoDays etc.: '3 d ago'). Lower case. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/verdict.ts
+msgctxt "oper.investigate.verdict.detail.banWhen"
+msgid "set {when}"
+msgstr "ตั้งเมื่อ {when}"
+
+#. Oper tools, investigation card: the muted detail beside the verdict naming someone seen before: when they were seen. {when} is a clock time today (21:14), a weekday (Tue) or a date. Lower case. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/verdict.ts
+msgctxt "oper.investigate.verdict.detail.seen"
+msgid "seen {when}"
+msgstr "พบเมื่อ {when}"
+
+#. Oper tools, investigation card: the muted detail beside the verdict naming someone seen before: when they were seen and what happened to them afterwards. {when} is a clock time today (21:14), a weekday (Tue) or a date; {fate} is already worded (oper.investigate.fate.*: 'G-lined by rubin', 'killed by X'). Lower case. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/verdict.ts
+msgctxt "oper.investigate.verdict.detail.seenFate"
+msgid "seen {when}, then {fate}"
+msgstr "พบเมื่อ {when} จากนั้น {fate}"
+
+#. Oper tools, investigation card: the muted detail beside the verdict 'the nick was seen from another address': when, and what happened afterwards. {when} is a clock time today (21:14), a weekday (Tue) or a date; {fate} is already worded (oper.investigate.fate.*: 'G-lined by rubin', 'killed by X'). Lower case. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/verdict.ts
+msgctxt "oper.investigate.verdict.detail.whenFate"
+msgid "{when}, then {fate}"
+msgstr "{when} จากนั้น {fate}"
 
 #. Oper tools, user investigation card: the one-sentence verdict under the user's details. The same nick was seen before from a different address (someone else may have used it). {where} is that IP or host (verbatim), {when} when, {fate} what became of them ('G-lined by rubin'). Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/js/helpers/verdict.ts
@@ -7398,6 +7824,66 @@ msgstr "ไม่มีข้อสรุป: เคยพบนิคนี้�
 msgctxt "oper.investigate.verdict.elsewhereUnknownFate"
 msgid "Nothing conclusive: the nick was seen from another address ({when}); {fate}."
 msgstr "ไม่มีข้อสรุป: เคยพบนิคนี้จากที่อยู่อื่น ({when}); {fate}"
+
+#. Oper tools, investigation card: the small heading word over the verdict (shown in red) when a live ban already covers the user. One word. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/verdict.ts
+msgctxt "oper.investigate.verdict.kicker.ban"
+msgid "Banned"
+msgstr "ถูกแบน"
+
+#. Oper tools, investigation card: the small heading over the verdict when no ban covers the user and nobody like them is in the kept notice feed. A few words. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/verdict.ts
+msgctxt "oper.investigate.verdict.kicker.clear"
+msgid "Nothing found"
+msgstr "ไม่พบอะไร"
+
+#. Oper tools, investigation card: the small heading over the verdict (shown in amber) when someone seen before shares the user's IP, or their host and realname: probably the same person. A few words. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/verdict.ts
+msgctxt "oper.investigate.verdict.kicker.match"
+msgid "Likely match"
+msgstr "น่าจะตรงกัน"
+
+#. Oper tools, investigation card: the small heading over the verdict when someone seen before shares something with the user, but not enough to call them the same person. A few words. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/verdict.ts
+msgctxt "oper.investigate.verdict.kicker.weak"
+msgid "Nothing conclusive"
+msgstr "ยังสรุปไม่ได้"
+
+#. Oper tools, investigation card: the verdict's headline when a live ban covers the user; its mask follows as a chip. {type} is the ban type (G-line, Shun, Z-line — IRC jargon, verbatim). Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/verdict.ts
+msgctxt "oper.investigate.verdict.lead.ban"
+msgid "Covered by a live {type}"
+msgstr "อยู่ภายใต้ {type} ที่มีผลอยู่"
+
+#. Oper tools, investigation card: the verdict's headline when no ban covers the user and nothing in the kept notice feed shares their IP, host or realname. 'Kept feed' is the server notices this device keeps. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/verdict.ts
+msgctxt "oper.investigate.verdict.lead.clear"
+msgid "No bans, and no one like them in the kept feed"
+msgstr "ไม่มีการแบน และไม่มีใครคล้ายกันในฟีดที่เก็บไว้"
+
+#. Oper tools, investigation card: the verdict's headline when the user's own nick was seen before from another address. {where} is that IP address or host (verbatim). Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/verdict.ts
+msgctxt "oper.investigate.verdict.lead.elsewhere"
+msgid "The nick was seen from {where}"
+msgstr "นิกนี้เคยพบจาก {where}"
+
+#. Oper tools, investigation card: the verdict's headline when the user's own nick was seen before from another address, which the feed does not name. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/verdict.ts
+msgctxt "oper.investigate.verdict.lead.elsewhereUnknown"
+msgid "The nick was seen from another address"
+msgstr "นิกนี้เคยพบจากที่อยู่อื่น"
+
+#. Oper tools, investigation card: the verdict's headline when someone seen before is likely the same person as the user. {nick} is that person's nick, rendered as a clickable nick (verbatim); put it where your language needs it. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/verdict.ts
+msgctxt "oper.investigate.verdict.lead.match"
+msgid "Same as {nick}"
+msgstr "คนเดียวกับ {nick}"
+
+#. Oper tools, investigation card: the verdict's headline when someone seen before shares something with the user, not enough to call them the same person. {nick} is that person's nick, rendered as a clickable nick (verbatim); put it where your language needs it. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/helpers/verdict.ts
+msgctxt "oper.investigate.verdict.lead.weak"
+msgid "Something in common with {nick}"
+msgstr "มีบางอย่างเหมือน {nick}"
 
 #. Oper tools, user investigation card: the one-sentence verdict under the user's details. Someone seen before under another nick very likely is this same person. {nick} is that nick (verbatim), {when} when they were seen (a time, a short weekday or a date), {matches} a comma list of what matched ('same IP, same realname'), {fate} what became of them ('G-lined then by rubin for 'spam''). Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/js/helpers/verdict.ts
@@ -9253,6 +9739,13 @@ msgctxt "oper.services.check.timeout"
 msgid "Couldn't check: the server did not answer."
 msgstr "ตรวจสอบไม่ได้: เซิร์ฟเวอร์ไม่ตอบ"
 
+#. Network edit form, 'Services support': part of the status line after checking the configured services bots: these nicks are online but the server does not call them network services (someone else may hold the nick), so the app ignores what they say. {bots} is a list of nicks (verbatim, already joined). Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/irc/services.ts
+msgctxt "oper.services.check.untrusted"
+msgid "{bots} isn't a network service, so its replies won't be trusted."
+msgid_plural "{bots} aren't network services, so their replies won't be trusted."
+msgstr[0] "{bots} ไม่ใช่บริการของเครือข่าย จึงจะไม่เชื่อถือคำตอบ"
+
 #. Oper tools: error when a services lookup could not be sent because the network is disconnected. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/js/irc/alerts.ts
 msgctxt "oper.services.connectionDown"
@@ -9306,6 +9799,12 @@ msgstr "ยาวเกินกว่าจะส่งถึง {bot}: ย่�
 msgctxt "oper.services.tooLongOperService"
 msgid "That is too long to send to the oper service: shorten the reason or the criteria."
 msgstr "ยาวเกินกว่าจะส่งถึงบริการโอเปอร์: ย่อเหตุผลหรือเงื่อนไขให้สั้นลง"
+
+#. Oper tools: shown on an investigation card and in the ban dialog when the services bot's nick is online but the server does not call it a network service (someone else may hold the nick), so nothing is sent to it. {bot} is the bot's nick (O3, AuthServ…, verbatim). Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
+#: client/js/irc/services.ts
+msgctxt "oper.services.untrusted"
+msgid "{bot} is online but isn't a network service, so it won't be trusted."
+msgstr "{bot} ออนไลน์อยู่แต่ไม่ใช่บริการของเครือข่าย จึงจะไม่เชื่อถือ"
 
 #. Name of a server notice mask (snomask) bit, a family of IRC server notices the oper can switch on or off: a switch label in the oper panel's Alerts tab ('Raw mask and presets') and, in 'Stop receiving {name} notices', the family's name. Short, ≤ 30 characters.
 #. What it carries: Notices from the IAuth daemon.
@@ -11041,6 +11540,108 @@ msgctxt "scripting.template.slapFolder"
 msgid "Commands"
 msgstr "คำสั่ง"
 
+#. Search window, the filters sheet (narrows a history search): placeholder of the Account field: an account is one person whatever nick they use.
+#: client/components/SearchFilterSheet.vue
+msgctxt "search.filters.accountPlaceholder"
+msgid "One identity, across nicks"
+msgstr "ตัวตนเดียว ไม่ว่าจะใช้นิกใด"
+
+#. Search window, the filters sheet (narrows a history search): the first option of the 'In' select: search every channel and conversation on the network.
+#: client/components/SearchFilterSheet.vue
+msgctxt "search.filters.allChannels"
+msgid "All my channels"
+msgstr "ทุกช่องของฉัน"
+
+#. Search window, the filters sheet (narrows a history search): button that closes the sheet without applying it.
+#: client/components/SearchFilterSheet.vue
+msgctxt "search.filters.cancel"
+msgid "Cancel"
+msgstr "ยกเลิก"
+
+#. Search window, the filters sheet (narrows a history search): button that empties every filter.
+#: client/components/SearchFilterSheet.vue
+msgctxt "search.filters.clearAll"
+msgid "Clear all"
+msgstr "ล้างทั้งหมด"
+
+#. Search window, the filters sheet (narrows a history search): Date choice: no date limit. One short word.
+#: client/components/SearchFilterSheet.vue
+msgctxt "search.filters.dateAny"
+msgid "Any"
+msgstr "ทุกเวลา"
+
+#. Search window, the filters sheet (narrows a history search): Date choice: the last 30 days. Short.
+#: client/components/SearchFilterSheet.vue
+msgctxt "search.filters.dateMonth"
+msgid "30 days"
+msgstr "30 วัน"
+
+#. Search window, the filters sheet (narrows a history search): Date choice: pick the first and the last day. One short word; keep the ellipsis.
+#: client/components/SearchFilterSheet.vue
+msgctxt "search.filters.dateRange"
+msgid "Range…"
+msgstr "ช่วงวันที่…"
+
+#. Search window, the filters sheet (narrows a history search): Date choice: the last 7 days. Short.
+#: client/components/SearchFilterSheet.vue
+msgctxt "search.filters.dateWeek"
+msgid "7 days"
+msgstr "7 วัน"
+
+#. Search window, the filters sheet (narrows a history search): label of the first date field of a range.
+#: client/components/SearchFilterSheet.vue
+msgctxt "search.filters.fromDay"
+msgid "From this day"
+msgstr "ตั้งแต่วันนี้"
+
+#. Search window, the filters sheet (narrows a history search): placeholder of the From field: the nick the sender used when they wrote it.
+#: client/components/SearchFilterSheet.vue
+msgctxt "search.filters.fromPlaceholder"
+msgid "Nick at the time of the message"
+msgstr "นิกในตอนที่ส่งข้อความ"
+
+#. Search window, the filters sheet (narrows a history search): 'Has' choice (and the Has chip's value): messages with an image. One word.
+#: client/js/helpers/searchLabels.ts
+msgctxt "search.filters.hasImage"
+msgid "Image"
+msgstr "รูปภาพ"
+
+#. Search window, the filters sheet (narrows a history search): 'Has' choice (and the Has chip's value): messages with a link. One word.
+#: client/js/helpers/searchLabels.ts
+msgctxt "search.filters.hasLink"
+msgid "Link"
+msgstr "ลิงก์"
+
+#. Search window, the filters sheet (narrows a history search): label of the select that picks where to search (one channel, or all of them). One short word.
+#: client/components/SearchFilterSheet.vue
+msgctxt "search.filters.in"
+msgid "In"
+msgstr "ใน"
+
+#. Search window, the filters sheet (narrows a history search): error under a date range whose first day is after its last.
+#: client/components/SearchFilterSheet.vue
+msgctxt "search.filters.rangeError"
+msgid "The first day has to come before the last."
+msgstr "วันแรกต้องมาก่อนวันสุดท้าย"
+
+#. Search window, the filters sheet (narrows a history search): button that applies the filters and closes the sheet.
+#: client/components/SearchFilterSheet.vue
+msgctxt "search.filters.show"
+msgid "Show results"
+msgstr "แสดงผลลัพธ์"
+
+#. Search window, the filters sheet (narrows a history search): label of the second date field of a range (that day included).
+#: client/components/SearchFilterSheet.vue
+msgctxt "search.filters.toDay"
+msgid "Up to this day"
+msgstr "ถึงวันนี้"
+
+#. Search window, the filters sheet (narrows a history search): label of the field for words the messages must not contain.
+#: client/components/SearchFilterSheet.vue
+msgctxt "search.filters.without"
+msgid "Without these words"
+msgstr "ไม่มีคำเหล่านี้"
+
 #. aria-label of the magnifier button in a chat window's header; clicking it opens the message-search field for the conversation.
 #: client/components/MessageSearchForm.vue:19
 msgctxt "search.openForm"
@@ -11059,41 +11660,311 @@ msgctxt "search.results.aria"
 msgid "Search results"
 msgstr "ผลการค้นหา"
 
-#. Tooltip and aria-label of the ✕ button in the search-results header; clicking closes the search and returns to the conversation.
+#. Search window: the search scope when it covers every channel and conversation on the network, used inside sentences ('Search all my channels', 'No matches in all my channels'). Lower case.
 #: client/components/Windows/SearchResults.vue
-msgctxt "search.results.close"
-msgid "Close search window"
-msgstr "ปิดหน้าต่างค้นหา"
+msgctxt "search.window.allChannels"
+msgid "all my channels"
+msgstr "ทุกช่องของฉัน"
 
-#. Shown in the search-results view when the search matched no messages.
+#. Search window (searching the chat history of the server, or of what is loaded on this device): the server found matches, but the filters set in the sheet hide them all. {count} is a number.
 #: client/components/Windows/SearchResults.vue
-msgctxt "search.results.none"
-msgid "No results found."
-msgstr "ไม่พบผลการค้นหา"
+msgctxt "search.window.allHidden"
+msgid "{count} match, all hidden by your filters"
+msgid_plural "{count} matches, all hidden by your filters"
+msgstr[0] "พบ {count} รายการ แต่ถูกตัวกรองซ่อนทั้งหมด"
 
-#. Note under the search results, explaining that the search covers only the messages currently loaded in the app, not the full history on the server. Em dash is part of the copy.
+#. Search window (searching the chat history of the server, or of what is loaded on this device): under the 'all hidden by your filters' heading: how far back the search went. {when} is a day and a time, already formatted.
 #: client/components/Windows/SearchResults.vue
-msgctxt "search.results.scopeNote"
-msgid "Only messages loaded in this session are searched — older history is not searched."
-msgstr "ค้นหาเฉพาะข้อความที่โหลดในเซสชันนี้ — ประวัติที่เก่ากว่าจะไม่ถูกค้นหา"
+msgctxt "search.window.allHiddenNote"
+msgid "Older messages may still match. Searched back to {when}."
+msgstr "ข้อความที่เก่ากว่านี้อาจยังตรงกัน ค้นย้อนไปถึง {when}"
 
-#. Header of the search-results window. {channel} is the channel or conversation name (VERBATIM, a styled element); the search term itself is shown right after this text, in its own element, so the phrase ends where the term begins.
+#. Search window (searching the chat history of the server, or of what is loaded on this device): the head of the side pane showing the messages around a search hit: the hit's day and time. {day} is 'Today', 'Yesterday' or a date; {time} a clock time. Keep the middle dot.
 #: client/components/Windows/SearchResults.vue
-msgctxt "search.results.searchingIn"
-msgid "Searching in {channel} for"
-msgstr "กำลังค้นหาใน {channel}:"
+msgctxt "search.window.around"
+msgid "{day} · around {time}"
+msgstr "{day} · ราว {time}"
 
-#. Button at the top of the search results list that fetches more matches. {count} is how many further matches are available.
+#. Search window (searching the chat history of the server, or of what is loaded on this device): shown while the server runs the search.
 #: client/components/Windows/SearchResults.vue
-msgctxt "search.results.showOlder"
-msgid "Show older results ({count} more)"
-msgstr "แสดงผลลัพธ์ที่เก่ากว่า ({count} รายการเพิ่ม)"
+msgctxt "search.window.asking"
+msgid "Asking the server…"
+msgstr "กำลังถามเซิร์ฟเวอร์…"
 
-#. Shown in the search-results view when the search field is empty; invites typing a query.
+#. Search window (searching the chat history of the server, or of what is loaded on this device): label and tooltip of the back button at the top left: closes the search and returns to that chat. {channel} is the channel or conversation name (verbatim).
 #: client/components/Windows/SearchResults.vue
-msgctxt "search.results.typePrompt"
-msgid "Type something to search for."
-msgstr "พิมพ์สิ่งใดสิ่งหนึ่งเพื่อค้นหา"
+msgctxt "search.window.back"
+msgid "Back to {channel}"
+msgstr "กลับไปที่ {channel}"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): in the status line under the results, after the count: how far back the search went. {when} is a day and a time, already formatted. Lower case.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.backTo"
+msgid "back to {when}"
+msgstr "ย้อนไปถึง {when}"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): name of a filter: messages from one services account (the identity a user is logged in as, whatever their nick). Also the field's label in the filters sheet. One word.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.chip.account"
+msgid "Account"
+msgstr "บัญชี"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): name of a filter: messages from a range of days. Also the field's label in the filters sheet. One word.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.chip.date"
+msgid "Date"
+msgstr "วันที่"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): the value of the Date filter's chip: the first day searched. {day} is a short date ('4 Nov'). Lower case; the two parts are joined with a comma.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.chip.dateFrom"
+msgid "from {day}"
+msgstr "ตั้งแต่ {day}"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): the value of the Date filter's chip: the last day searched. {day} is a short date ('4 Nov'). Lower case; the two parts are joined with a comma.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.chip.dateTo"
+msgid "to {day}"
+msgstr "ถึง {day}"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): name of a filter: messages from one nick. Also the field's label in the filters sheet. One word.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.chip.from"
+msgid "From"
+msgstr "จาก"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): name of a filter: messages that contain a link or an image. Also the field's label in the filters sheet. One short word.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.chip.has"
+msgid "Has"
+msgstr "มี"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): name of a filter: messages without certain words. One word.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.chip.without"
+msgid "Without"
+msgstr "ไม่มี"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): label of the button that closes the side pane of messages around a hit.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.closeContext"
+msgid "Close context"
+msgstr "ปิดบริบท"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): aria-label of the side pane showing the messages before and after the chosen search hit.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.contextAria"
+msgid "Messages around this one"
+msgstr "ข้อความรอบข้อความนี้"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): in the side pane of messages around a hit, when the server's history could not be read.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.contextFailed"
+msgid "The lines around this one could not be loaded."
+msgstr "โหลดบรรทัดรอบบรรทัดนี้ไม่ได้"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): in the side pane of messages around a hit, while they load.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.contextLoading"
+msgid "Loading the lines around this one…"
+msgstr "กำลังโหลดบรรทัดรอบบรรทัดนี้…"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): a day and a time together (how far back the search went). {day} is a short date ('4 Nov'), {time} a clock time. Order and punctuation are your language's.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.dayAndTime"
+msgid "{day}, {time}"
+msgstr "{day} {time}"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): button in the side pane of messages around a hit: loads older messages. One word.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.earlier"
+msgid "Earlier"
+msgstr "ก่อนหน้า"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): button that opens the filters sheet. Two words.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.editFilters"
+msgid "Edit filters"
+msgstr "แก้ไขตัวกรอง"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): error when the server refused or failed the search and said nothing more.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.errorFailed"
+msgid "The server could not run this search."
+msgstr "เซิร์ฟเวอร์ค้นหานี้ไม่ได้"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): error when the query cannot be put into a command the server accepts (too long, or empty after the filters).
+#: client/components/Windows/SearchResults.vue
+#: client/js/irc/historysearch.ts
+msgctxt "search.window.errorInvalid"
+msgid "That search can't be sent."
+msgstr "ส่งการค้นหานี้ไม่ได้"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): error under the results when older results were asked for but the network is not connected.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.errorOffline"
+msgid "Not connected."
+msgstr "ไม่ได้เชื่อมต่อ"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): error when the server refused the search with its own explanation. {text} is the server's message, verbatim (never translated).
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.errorServer"
+msgid "The server says: {text}"
+msgstr "เซิร์ฟเวอร์แจ้งว่า: {text}"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): error when the server never answered the search.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.errorTimeout"
+msgid "The server did not answer."
+msgstr "เซิร์ฟเวอร์ไม่ตอบ"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): button under 'No matches': runs the same search over every channel and conversation on the network.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.everywhere"
+msgid "Search all my channels"
+msgstr "ค้นหาในทุกช่องของฉัน"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): heading over the error when the search went wrong. A few words.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.failed"
+msgid "Search failed"
+msgstr "การค้นหาล้มเหลว"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): aria-label of the search field at the top.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.field"
+msgid "Search messages"
+msgstr "ค้นหาข้อความ"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): button that opens the filters sheet, and the sheet's title. One word.
+#: client/components/Windows/SearchResults.vue
+#: client/components/SearchFilterSheet.vue
+msgctxt "search.window.filters"
+msgid "Filters"
+msgstr "ตัวกรอง"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): button in the side pane of a hit from a channel that is not open here: opens that channel. {channel} is its name (verbatim).
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.goTo"
+msgid "Go to {channel}"
+msgstr "ไปที่ {channel}"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): in the status line under the results: how many matches the filters hide. {count} is a number. Lower case.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.hiddenCount"
+msgid "{count} hidden by filters"
+msgid_plural "{count} hidden by filters"
+msgstr[0] "ตัวกรองซ่อนไว้ {count} รายการ"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): the first chip under the field: where the search looks; tapping it opens the filters. {scope} is a channel name or 'all my channels', shown bold.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.inScope"
+msgid "In {scope}"
+msgstr "ใน {scope}"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): button in the side pane of messages around a hit: loads newer messages. One word.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.later"
+msgid "Later"
+msgstr "ถัดไป"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): under a warning that the server cannot search (or is not connected): the search runs over what this device has loaded. {count} is a number.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.loadedInstead"
+msgid "Searching the {count} message loaded on this device instead. Filters still work."
+msgid_plural "Searching the {count} messages loaded on this device instead. Filters still work."
+msgstr[0] "ค้นหาในข้อความ {count} รายการที่โหลดไว้บนอุปกรณ์นี้แทน ตัวกรองยังใช้ได้"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): in the status line under the results: how many matches are shown. {count} is a number. Lower case.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.matchCount"
+msgid "{count} match"
+msgid_plural "{count} matches"
+msgstr[0] "พบ {count} รายการ"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): heading when nothing matched. {scope} is a channel name (verbatim) or 'all my channels' (search.window.allChannels).
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.noMatches"
+msgid "No matches in {scope}"
+msgstr "ไม่พบใน {scope}"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): under 'No matches': the server only searches what this account could see.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.noMatchesNote"
+msgid "You may not see messages from times you were not in the channel."
+msgstr "คุณอาจไม่เห็นข้อความจากช่วงที่คุณไม่ได้อยู่ในช่อง"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): in the status line under the results when the server has no older matches.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.nothingOlder"
+msgid "Nothing older found"
+msgstr "ไม่พบอะไรที่เก่ากว่านี้"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): warning heading when the network is not connected, so the server cannot be asked.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.offline"
+msgid "Not connected"
+msgstr "ไม่ได้เชื่อมต่อ"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): button that asks the server for older matches. Two words.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.older"
+msgid "Search older"
+msgstr "ค้นหาที่เก่ากว่า"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): button in the side pane of a hit: opens the chat at that message.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.openInChannel"
+msgid "Open in channel"
+msgstr "เปิดในช่อง"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): placeholder of the search field. {scope} is a channel name (verbatim) or 'all my channels' (search.window.allChannels).
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.placeholder"
+msgid "Search {scope}"
+msgstr "ค้นหาใน {scope}"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): aria-label of the × on a filter chip. {filter} is the filter's name (From, Account, Date, Has, Without).
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.removeFilter"
+msgid "Remove {filter} filter"
+msgstr "เอาตัวกรอง {filter} ออก"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): button that runs the search again after it failed or could not reach the server.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.retry"
+msgid "Try again"
+msgstr "ลองอีกครั้ง"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): the 'Search older' button's label while older matches are being asked for.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.searching"
+msgid "Searching…"
+msgstr "กำลังค้นหา…"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): note when the field was edited but not run yet: the results below are still those of the old query.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.stale"
+msgid "These are the results of the previous search. Press Search to update them."
+msgstr "นี่คือผลของการค้นหาครั้งก่อน กด ค้นหา เพื่ออัปเดต"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): before any search: an invitation, followed by example query words (from:nick, in:#channel, has:link…) that are not translated.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.start"
+msgid "Type something to search for, or use these in the field above:"
+msgstr "พิมพ์สิ่งที่ต้องการค้นหา หรือใช้รายการเหล่านี้ในช่องด้านบน:"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): button that runs the search. One word.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.submit"
+msgid "Search"
+msgstr "ค้นหา"
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): warning heading when the chat server offers no history search.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.unsupported"
+msgid "This server can't search its history"
+msgstr "เซิร์ฟเวอร์นี้ค้นหาประวัติของตัวเองไม่ได้"
 
 #. Lobby error when the server never answered the redaction an edit depends on.
 #: client/js/irc/client.ts
@@ -12251,6 +13122,12 @@ msgstr ""
 msgctxt "settings.notifications.copyDiagnostics"
 msgid "Copy"
 msgstr ""
+
+#. Settings → Notifications, in the desktop app (the native shell for Windows, macOS, Linux): why the push options are missing there.
+#: client/components/Settings/Notifications.vue
+msgctxt "settings.notifications.desktopShellNote"
+msgid "The desktop app shows notifications while it is running. Push notifications, which reach a closed app, are not available here."
+msgstr "แอปเดสก์ท็อปแสดงการแจ้งเตือนขณะที่ทำงานอยู่ การแจ้งเตือนแบบพุชซึ่งส่งถึงแอปที่ปิดอยู่ใช้ไม่ได้ที่นี่"
 
 #. Heading of the fold at the end of Settings → Notifications → Push that holds the push diagnostics report (what this device knows about push) and its buttons.
 #: client/components/Settings/Notifications.vue:130
