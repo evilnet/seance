@@ -1427,7 +1427,7 @@ html:has(.userlist-open .chat-view[data-type="channel"]) #theme-scene .ps-smoke 
 #theme-scene .ps-y-roof {
 	stroke: var(--ps-roof-stroke);
 	stroke-width: 0.9;
-	stroke-opacity: 60%;
+	stroke-opacity: 0.6;
 	stroke-linejoin: round;
 }
 

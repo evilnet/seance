@@ -384,7 +384,7 @@ img {
 	margin: -1px;
 	padding: 0;
 	overflow: hidden;
-	clip: rect(0, 0, 0, 0);
+	clip-path: inset(50%);
 	border: 0;
 }
 
@@ -489,7 +489,7 @@ pre {
 	line-height: 1.4286;
 	color: #333;
 	word-break: break-all;
-	word-wrap: break-word;
+	overflow-wrap: break-word;
 	background-color: #f5f5f5;
 	border-radius: 4px;
 }
@@ -2374,8 +2374,7 @@ html[data-reduce-motion] #chat .connecting-indicator {
 }
 
 #chat .msg {
-	word-wrap: break-word;
-	word-break: break-word; /* Webkit-specific */
+	overflow-wrap: anywhere;
 	display: flex;
 	align-items: flex-start;
 	position: relative;
@@ -7449,7 +7448,7 @@ html[data-shell="native"] #image-viewer .next-image-btn {
 }
 
 @keyframes reaction-pop {
-	from {
+	0% {
 		opacity: 0;
 		transform: scale(0.6);
 	}
@@ -7458,7 +7457,7 @@ html[data-shell="native"] #image-viewer .next-image-btn {
 		transform: scale(1.08);
 	}
 
-	to {
+	100% {
 		opacity: 1;
 		transform: scale(1);
 	}
