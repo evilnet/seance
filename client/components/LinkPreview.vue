@@ -253,14 +253,12 @@ export default defineComponent({
 		const store = useStore();
 		const imageViewer = inject(imageViewerKey);
 
-		onBeforeRouteUpdate((to, from, next) => {
+		onBeforeRouteUpdate(() => {
 			// cancel the navigation if the user is trying to close the image viewer
 			if (imageViewer?.value?.link) {
 				imageViewer.value.closeViewer();
-				return next(false);
+				return false;
 			}
-
-			next();
 		});
 
 		const content = ref<HTMLDivElement | null>(null);
