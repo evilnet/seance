@@ -93,13 +93,12 @@ import socket from "../js/socket";
 import {writeClipboard} from "../js/clipboard";
 import {codeBlocksOf, layout} from "../js/helpers/ircmessageparser/layout";
 import {useStore} from "../js/store";
-import {startEdit, startReply} from "../js/helpers/compose";
+import {isEditable, startEdit, startReply} from "../js/helpers/compose";
 import {myReactions} from "../js/helpers/messageUpdates";
 import {loadEmojiCatalog} from "../js/helpers/emoji";
 import {quickReactions, RECENTS_CHANGED, rememberReaction} from "../js/helpers/reactionRecents";
 import {isTouchInput, onInputKindChange} from "../js/helpers/inputModality";
 import {ChanType} from "../../shared/types/chan";
-import {MessageType} from "../../shared/types/msg";
 import type {ClientChan, ClientMessage, ClientNetwork} from "../js/types";
 import ReactionPicker from "./ReactionPicker.vue";
 
@@ -233,9 +232,9 @@ export default defineComponent({
 		const copyText = () => copy(props.message.text ?? "");
 
 		// Only plain text can be edited (the IRC layer resends it tagged).
-		const canEdit = computed(
-			() => !!props.message.self && props.message.type === MessageType.MESSAGE
-		);
+		// The same rule ArrowUp steps by (helpers/compose.ts): an own message
+		// or action, with a msgid, not yet deleted or replaced.
+		const canEdit = computed(() => isEditable(props.message));
 
 		// Own messages anywhere; others' only in channels, where the server
 		// decides (chanop / REDACT_WINDOW) and answers FAIL otherwise.

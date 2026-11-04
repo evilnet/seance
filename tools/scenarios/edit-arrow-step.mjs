@@ -82,10 +82,7 @@ export default async function run(page) {
 	// 1. ArrowUp steps the edit target: newest, then older — never history.
 	let v = await page.evaluate(press("ArrowUp", 38));
 	await page.check(`first ArrowUp edits the newest own message (${v})`, v === text("three"));
-	await page.check(
-		"…with the caret at the end of the text",
-		await page.evaluate(CARET_AT_END)
-	);
+	await page.check("…with the caret at the end of the text", await page.evaluate(CARET_AT_END));
 	let preview = await page.evaluate(COMPOSE);
 	await page.check("the compose bar says which message", preview === text("three"));
 
@@ -183,6 +180,38 @@ export default async function run(page) {
 	await page.check(`the toolbar's Edit fills the input (${v})`, v === text("three"));
 	await page.check("…with the caret at the end", await page.evaluate(CARET_AT_END));
 	await page.screenshot("4-toolbar-edit");
+
+	// 7. An action (/me) is editable too, and stays an action: the box
+	//    holds "/me …", and the replacement row is an action.
+	await page.evaluate(press("Escape", 27));
+	await page.fill("#input", `/me ${text("waves")}`);
+	await page.evaluate(`document.querySelector("#form").requestSubmit()`);
+	await page.waitFor(`!document.querySelector("#chat .msg.pending")`, {
+		label: "the action's echo",
+	});
+	await page.sleep(300);
+	v = await page.evaluate(press("ArrowUp", 38));
+	await page.check(`ArrowUp edits the action as /me … (${v})`, v === `/me ${text("waves")}`);
+	await page.check("…the caret at the end", await page.evaluate(CARET_AT_END));
+	await page.fill("#input", `/me ${text("waves")} (fixed)`);
+	await page.evaluate(`document.querySelector("#form").requestSubmit()`);
+	await page.waitFor(
+		`Array.from(document.querySelectorAll("#chat .msg[data-type='action']")).some((el) => el.textContent.includes("${RUN} waves (fixed)"))`,
+		{label: "the edited action"}
+	);
+	await page.waitFor(`!document.querySelector("#chat .msg.pending")`, {
+		label: "the edit settled",
+	});
+	const actions =
+		await page.evaluate(`Array.from(document.querySelectorAll("#chat .msg[data-type='action'] .content"))
+		.map((el) => el.textContent.trim()).filter((t) => t.includes("${RUN}"))`);
+	await page.check(
+		`the action was replaced by the edited action (${JSON.stringify(actions)})`,
+		actions.length === 1 &&
+			actions[0].includes("waves (fixed)") &&
+			actions[0].includes("(edited)")
+	);
+	await page.screenshot("5-edited-action");
 
 	await page.check("no console errors", page.consoleErrors.length === 0);
 }

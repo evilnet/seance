@@ -35,6 +35,18 @@ export function startReply(channel: ClientChan, message: ClientMessage) {
 	focusInput();
 }
 
+/**
+ * What the composer holds while `message` is being edited: its text, and
+ * for an action (`/me`) the command in front, so it is still an action when
+ * sent (the IRC layer reads `/me ` at the start of an edit as one: irc/
+ * commands/index.ts `dispatchInput`). Taking the `/me ` off turns it into a
+ * plain message; adding it to a plain one's edit, into an action.
+ */
+export function editText(message: ClientMessage): string {
+	const text = message.text ?? "";
+	return message.type === MessageType.ACTION ? `/me ${text}` : text;
+}
+
 export function startEdit(channel: ClientChan, message: ClientMessage) {
 	if (!message.msgid || !message.self) {
 		return;
@@ -42,7 +54,7 @@ export function startEdit(channel: ClientChan, message: ClientMessage) {
 
 	channel.replyTo = null;
 	channel.editing = message;
-	channel.pendingMessage = message.text ?? "";
+	channel.pendingMessage = editText(message);
 	channel.inputHistoryPosition = 0;
 	focusInput();
 }
@@ -56,12 +68,12 @@ export function cancelCompose(channel: ClientChan) {
 	channel.replyTo = null;
 }
 
-/** An own plain message with a msgid that can still be edited. */
-function isEditable(m: ClientMessage): boolean {
+/** An own message or action with a msgid that can still be edited. */
+export function isEditable(m: ClientMessage): boolean {
 	return Boolean(
 		m.self &&
 			m.msgid &&
-			m.type === MessageType.MESSAGE &&
+			(m.type === MessageType.MESSAGE || m.type === MessageType.ACTION) &&
 			!m.redacted &&
 			m.supersededBy === undefined
 	);

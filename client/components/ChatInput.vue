@@ -163,6 +163,7 @@ import {
 	findEditableAfter,
 	findEditableBefore,
 	findLastEditable,
+	editText,
 	startEdit,
 } from "../js/helpers/compose";
 import {hasVirtualKeyboard} from "../js/helpers/device";
@@ -509,7 +510,7 @@ export default defineComponent({
 			const replyTo = props.channel.replyTo;
 
 			// Editing to the identical text is a no-op: just leave edit mode.
-			if (editing && text === editing.text) {
+			if (editing && text === editText(editing)) {
 				cancelCompose(props.channel);
 				clearInput();
 				setInputSize();
@@ -570,7 +571,7 @@ export default defineComponent({
 			}
 
 			// An edit keeps the parent of the message it replaces; the IRC layer
-			// only honours `reply`/`edit` for plain text (and `reply` for /me).
+			// honours `reply`/`edit` for plain text and /me.
 			const reply = editing ? editing.replyTo : replyTo?.msgid;
 			const edit = editing?.msgid;
 
@@ -871,7 +872,7 @@ export default defineComponent({
 				// never thrown away by an arrow key. ArrowDown past the newest
 				// leaves edit mode, back to the empty input ArrowUp started from.
 				if (channel.editing) {
-					if (channel.pendingMessage !== (channel.editing.text ?? "")) {
+					if (channel.pendingMessage !== editText(channel.editing)) {
 						return; // a modified edit: the arrows just move the caret
 					}
 

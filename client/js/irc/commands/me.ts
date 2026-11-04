@@ -29,8 +29,15 @@ const me: Command = {
 				: textAfter(rest, 0);
 
 		if (text.length > 0) {
-			// An action can be a reply; it cannot be an edit (bus-contract §1.4).
+			// An action can be a reply, and the replacement in an edit
+			// (dispatchInput hands an edit whose body starts `/me ` here).
 			const reply = opts?.reply;
+
+			if (opts?.edit && cmd === "me") {
+				client.editMessage(chan, opts.edit, text, reply, true);
+				return;
+			}
+
 			client.sendMessage(chan.name, text, {
 				action: true,
 				...(reply ? {tags: {[REPLY_TAG]: reply}} : {}),

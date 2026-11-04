@@ -183,10 +183,70 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 			}
 		});
 
-		it("never parses the replacement text as a command", function () {
+		it("never parses the replacement text as a command, /me aside", function () {
 			const {h, id} = withOwnMessage();
-			h.client.input(id, "/me was here", {edit: "m1"});
+			h.client.input(id, "/join #elsewhere", {edit: "m1"});
 			expect(h.sent()).to.deep.equal(["REDACT #seance m1 :edited"]);
+			h.transport.line(":alice!alice@host.example REDACT #seance m1 :edited");
+			expect(h.sent()).to.deep.equal([
+				"@+seance/edit=m1;label=s1 PRIVMSG #seance :/join #elsewhere",
+			]);
+		});
+
+		it("an edit starting /me replaces the message with an action", function () {
+			const {h, id, oldId} = withOwnMessage();
+			h.client.input(id, "/me was here", {edit: "m1", reply: "p1"});
+			expect(h.sent()).to.deep.equal(["REDACT #seance m1 :edited"]);
+
+			h.transport.line(":alice!alice@host.example REDACT #seance m1 :edited");
+			expect(h.sent()).to.deep.equal([
+				"@+seance/edit=m1;+draft/reply=p1;label=s1 PRIVMSG #seance :\x01ACTION was here\x01",
+			]);
+			const copy = h.lastMessage(id);
+			expect(copy.type).to.equal(MessageType.ACTION);
+			expect(copy.editOf).to.equal("m1");
+
+			h.transport.line(
+				"@+seance/edit=m1;msgid=m2;time=2026-08-25T12:00:02.000Z :alice!alice@host.example PRIVMSG #seance :\x01ACTION was here\x01"
+			);
+			const msg = h.lastMessage(id);
+			expect(msg.type).to.equal(MessageType.ACTION);
+			expect(msg.text).to.equal("was here");
+			expect(msg.editOf).to.equal("m1");
+			expect(h.payloads<EditPayload>("msg:edit").at(-1)).to.deep.equal({
+				chan: id,
+				id: msg.id,
+				replaces: oldId,
+			});
+		});
+
+		it("edits an action: /me in the edit keeps it one, text without makes it plain", function () {
+			const h = setup();
+			const id = joined(h);
+			h.transport.line(
+				"@msgid=a1;time=2026-08-25T12:00:01.000Z :alice!alice@host.example PRIVMSG #seance :\x01ACTION waves\x01"
+			);
+			h.transport.line(
+				"@msgid=a2;time=2026-08-25T12:00:01.500Z :alice!alice@host.example PRIVMSG #seance :\x01ACTION nods\x01"
+			);
+			h.client.input(id, "/ME waves hello", {edit: "a1"});
+			h.transport.line(":alice!alice@host.example REDACT #seance a1 :edited");
+			h.client.input(id, "nods", {edit: "a2"});
+			h.transport.line(":alice!alice@host.example REDACT #seance a2 :edited");
+
+			expect(h.sent()).to.deep.equal([
+				"REDACT #seance a1 :edited",
+				"@+seance/edit=a1;label=s1 PRIVMSG #seance :\x01ACTION waves hello\x01",
+				"REDACT #seance a2 :edited",
+				"@+seance/edit=a2;label=s2 PRIVMSG #seance :nods",
+			]);
+		});
+
+		it("a /me edit with nothing after it sends nothing", function () {
+			const {h, id} = withOwnMessage();
+			h.client.input(id, "/me ", {edit: "m1"});
+			expect(h.sent()).to.deep.equal([]);
+			expect(h.client.hasPendingEdit("m1")).to.equal(false);
 		});
 
 		it("passes edit through the input bus emit", function () {
@@ -214,6 +274,17 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 				"@+seance/edit=q1;+draft/reply=p1;label=s1 PRIVMSG bob :the text",
 			]);
 			expect(h.client.hasPendingEdit("q1")).to.equal(false);
+		});
+
+		it("sends an action edit as the tagged resend in a query", function () {
+			const h = setup();
+			joined(h);
+			const query = h.client.announceChannel("bob", ChanType.QUERY);
+			h.client.input(query.id, "/me shrugs", {edit: "q1"});
+
+			expect(h.sent()).to.deep.equal([
+				"@+seance/edit=q1;label=s1 PRIVMSG bob :\x01ACTION shrugs\x01",
+			]);
 		});
 
 		it("only sends the tagged resend when the cap is missing", function () {
