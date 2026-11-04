@@ -71,9 +71,10 @@
 								>{{ group.entries.length }}</span
 							>
 						</button>
-						<!-- A conversation this page no longer has: reading cannot clear it. -->
+						<!-- A conversation this page no longer has: reading cannot clear it. While
+						     offline it is only not back yet, and a row's × is still there. -->
 						<button
-							v-if="!group.conversation"
+							v-if="!group.conversation && group.network?.status.connected !== false"
 							class="oper-btn oper-btn-ghost"
 							@click="dismissGroup(group)"
 						>
@@ -633,6 +634,10 @@ export default defineComponent({
 					const where = several && network ? ` on ${network.name}` : "";
 					missing = !network
 						? "Its network isn't on this page: dismiss these."
+						: !network.status.connected
+						? `Not connected: this opens once you're back${
+								query ? "" : ` in ${target}`
+						  }.`
 						: query
 						? `No conversation with ${target}${where} open: open one to read these, or dismiss them.`
 						: `Not in ${target}${where}: join it to read these, or dismiss them.`;
