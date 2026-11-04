@@ -13,6 +13,8 @@ export type JumpTarget = {
 	/** ISO 8601 server time: where to stop paging back, and the fallback. */
 	time?: string;
 	id?: number;
+	/** This message or none: no landing on the nearest line (a search hit). */
+	exact?: boolean;
 };
 
 /** Pages of history a jump may ask for: each costs ~2 s of the server's fake lag. */
@@ -62,7 +64,7 @@ export function jumpStep(
 		return {kind: "more"};
 	}
 
-	const after = messages.find((m) => timeOf(m) >= time);
+	const after = target.exact ? undefined : messages.find((m) => timeOf(m) >= time);
 	return after ? {kind: "nearest", id: after.id} : {kind: "none"};
 }
 

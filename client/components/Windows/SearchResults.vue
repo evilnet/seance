@@ -279,6 +279,7 @@
 										:key="msg.id"
 										class="search-context-line"
 										:class="{hit: isSelected(msg)}"
+										@click="openFromLine($event, msg)"
 									>
 										<span class="search-time">{{ timeOf(msg) }}</span>
 										<Username
@@ -580,6 +581,7 @@
 
 .search-hit.sel,
 .search-context-line.hit {
+	cursor: pointer;
 	background: var(--highlight-bg-color);
 	box-shadow: inset 0.125rem 0 0 var(--highlight-border-color);
 }
@@ -1260,11 +1262,35 @@ export default defineComponent({
 				return;
 			}
 
+			const hit = selected.value?.msg;
+
+			// Not loaded: pages back for it, and if it is too far, the channel
+			// opens as usual rather than at some other line.
 			if (twin) {
 				store.commit("jumpTarget", {chanId: chat.id, id: twin.id});
+			} else if (hit) {
+				store.commit("jumpTarget", {
+					chanId: chat.id,
+					...(hit.msgid ? {msgid: hit.msgid} : {}),
+					time: new Date(hit.time).toISOString(),
+					exact: true,
+				});
 			}
 
 			switchToChannel(chat);
+		};
+
+		// The hit's line is the button's other half; a link or a nick in it is its own.
+		const openFromLine = (event: MouseEvent, msg: SharedMsg) => {
+			const target = event.target as HTMLElement | null;
+
+			if (
+				isSelected(msg) &&
+				!target?.closest("a, button, .user, .inline-channel") &&
+				!window.getSelection()?.toString()
+			) {
+				openInChannel();
+			}
 		};
 
 		const closeSearch = () => {
@@ -1448,6 +1474,7 @@ export default defineComponent({
 			selected,
 			selectedChannel,
 			selectedLoaded,
+			openFromLine,
 			store,
 			submit,
 			suggestions,

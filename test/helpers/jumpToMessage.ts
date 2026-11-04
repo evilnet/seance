@@ -20,6 +20,17 @@ describe("helpers/jumpToMessage.ts", function () {
 		expect(jumpStep([], target, true, 0)).to.deep.equal({kind: "more"});
 	});
 
+	it("lands nowhere for an exact target out of reach, and on it when it is loaded", function () {
+		const target = {msgid: "old", time: at(5).toISOString(), exact: true};
+		expect(jumpStep(loaded, target, true, 0)).to.deep.equal({kind: "more"});
+		expect(jumpStep(loaded, target, true, MAX_JUMP_PAGES)).to.deep.equal({kind: "none"});
+		expect(jumpStep(loaded, target, false, 0)).to.deep.equal({kind: "none"});
+		expect(jumpStep(loaded, {...target, msgid: "b"}, true, 0)).to.deep.equal({
+			kind: "found",
+			id: 11,
+		});
+	});
+
 	it("stops asking after a few pages, or when there is nothing more", function () {
 		const target = {msgid: "old", time: at(5).toISOString()};
 		const nearest = {kind: "nearest", id: 10};
