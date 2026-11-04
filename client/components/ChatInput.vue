@@ -590,8 +590,16 @@ export default defineComponent({
 		 * cancelling it leaves iOS's shift key down, so every message after the
 		 * first starts lowercase. The newline is let through and taken back out
 		 * by setPendingMessage when it arrives.
+		 *
+		 * A held Return sends nothing: the press began elsewhere (on a row of the
+		 * Mentions pane, say) and only its repeat reached a saved draft here.
 		 */
 		const onEnterKey = (e: KeyboardEvent) => {
+			if (e.repeat) {
+				e.preventDefault();
+				return;
+			}
+
 			if (!hasVirtualKeyboard()) {
 				e.preventDefault();
 				onSubmit();

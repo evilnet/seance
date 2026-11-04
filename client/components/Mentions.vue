@@ -13,6 +13,7 @@
 			aria-labelledby="mentions-popup-heading"
 			tabindex="-1"
 			:style="placement"
+			@keydown.capture="onPaneKey"
 			@keydown.tab="onTab"
 			@keydown.down.exact.prevent="moveFocus($event, 1)"
 			@keydown.up.exact.prevent="moveFocus($event, -1)"
@@ -796,6 +797,17 @@ export default defineComponent({
 			refocus(() => rows()[0]);
 		};
 
+		// A key here is a keyboard, however the pane was opened. A held Enter
+		// presses once: each press moves the focus to what the next would press.
+		const onPaneKey = (event: KeyboardEvent) => {
+			keyboard = true;
+
+			if (event.key === "Enter" && event.repeat) {
+				event.preventDefault();
+				event.stopPropagation();
+			}
+		};
+
 		const onTab = (event: KeyboardEvent) => trapTab(event, popup.value as HTMLElement);
 
 		const moveFocus = (event: KeyboardEvent, by: 1 | -1) => {
@@ -848,6 +860,7 @@ export default defineComponent({
 			dismissRow,
 			dismissAllMentions,
 			undoDismiss,
+			onPaneKey,
 			onTab,
 			moveFocus,
 			openGroup,

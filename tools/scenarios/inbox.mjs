@@ -110,6 +110,27 @@ async function key(page, name, code, vk, modifiers = 0) {
 
 const arrowDown = (page) => key(page, "ArrowDown", "ArrowDown", 40);
 const altM = (page) => key(page, "µ", "KeyM", 77, 1);
+
+/** Enter held down: the press, and the auto-repeat a real key goes on to send. */
+async function holdEnter(page) {
+	const event = {
+		key: "Enter",
+		code: "Enter",
+		windowsVirtualKeyCode: 13,
+		nativeVirtualKeyCode: 13,
+		text: "\r",
+	};
+	await page.send("Input.dispatchKeyEvent", {type: "keyDown", ...event});
+
+	for (let i = 0; i < 4; i++) {
+		await page.sleep(60);
+		await page.send("Input.dispatchKeyEvent", {type: "keyDown", autoRepeat: true, ...event});
+	}
+
+	await page.send("Input.dispatchKeyEvent", {type: "keyUp", ...event});
+	await page.sleep(200);
+}
+
 const rowFocused = `document.activeElement.classList.contains("mentions-entry")`;
 
 const badgeText = `document.querySelector("${BADGE}")?.textContent.trim() ?? ""`;
@@ -468,6 +489,102 @@ export default async function run(page) {
 				`!document.querySelector("${POPUP}") && !!document.querySelector("#settings")`
 			)
 		);
+	}
+
+	// Sidebar rows by script: a narrow window and the phone have the drawer shut.
+	const openChat = async (name) => {
+		await page.evaluate(`document.querySelector(${JSON.stringify(ROW(name))}).click()`);
+		await page.sleep(500);
+	};
+	// A new user: the talker's filler lines are still queued at the server.
+	const second = speaker(`scd${RUN}`);
+	await second.joined;
+	const mentionsAway = async () => {
+		second.say(OTHER, `${NICK}: one more`);
+		await page.waitFor(`document.querySelector("${BADGE}")`, {label: "a new mention"});
+	};
+	const setDraft = (text) =>
+		page.evaluate(
+			`(() => { const i = document.querySelector("#input"); i.focus(); i.value = ${JSON.stringify(
+				text
+			)}; i.dispatchEvent(new Event("input")); })()`
+		);
+
+	if (touch) {
+		// A finger opened it, a keyboard dismisses (a tablet's): the focus stays in the pane.
+		await openChat(HOME);
+		await mentionsAway();
+		await press("#chat button.mentions");
+		await page.waitFor(`document.querySelector(".mentions-entry")`, {label: "a row"});
+		await page.evaluate(`document.querySelector(".mentions-entry").focus()`);
+		await key(page, "Backspace", "Backspace", 8);
+		await page.check(
+			"after a finger, a dismiss by key leaves the focus in the pane",
+			await page.evaluate(
+				`document.querySelector("${POPUP}").contains(document.activeElement)`
+			)
+		);
+		await key(page, "Escape", "Escape", 27);
+	} else {
+		// Held Enter on a row: it opens the conversation, and its repeats land in
+		// the composer with that conversation's saved draft.
+		const DRAFT = "not finished yet";
+		await openChat(OTHER);
+		await setDraft(DRAFT);
+		await page.sleep(100);
+		await openChat(HOME);
+		await mentionsAway();
+		await altM(page);
+		await page.waitFor(`document.querySelector("${POPUP}")`, {label: "the pane"});
+		await page.sleep(200);
+		await arrowDown(page);
+		await holdEnter(page);
+		await page.waitFor(`!document.querySelector("${POPUP}")`, {label: "the row opened"});
+		await page.check(
+			"a held Enter on a row does not send the draft waiting there",
+			(await page.evaluate(`document.querySelector("#input").value`)) === DRAFT
+		);
+		await setDraft("");
+
+		// Held Enter on Dismiss all: the focus moves to Undo, then to a row.
+		await openChat(HOME);
+		await mentionsAway();
+		await altM(page);
+		await page.waitFor(`document.querySelector(".mentions-entry")`, {label: "a row"});
+		await page.sleep(200);
+		await page.evaluate(`document.querySelector(".mentions-popup-title .oper-btn").focus()`);
+		await holdEnter(page);
+		await page.check(
+			"a held Enter on Dismiss all presses it once",
+			await page.evaluate(
+				`!!document.querySelector(".mentions-undo") && document.querySelectorAll(".mentions-entry").length === 0`
+			)
+		);
+		await key(page, "Escape", "Escape", 27);
+		await page.sleep(200);
+
+		// Alt+M under a dialog: the pane would take the keys, out of sight.
+		await mentionsAway();
+		await page.evaluate(
+			`document.querySelector(${JSON.stringify(
+				ROW(HOME)
+			)}).dispatchEvent(new MouseEvent("contextmenu", {bubbles: true, clientX: 50, clientY: 200}))`
+		);
+		await page.sleep(300);
+		await page.evaluate(
+			`[...document.querySelectorAll("#context-menu .context-menu-item")].find((e) => /clear history/i.test(e.textContent)).click()`
+		);
+		await page.waitFor(`document.querySelector('[data-escape-close="confirm"]')`, {
+			label: "the confirm dialog",
+		});
+		await page.sleep(600);
+		await altM(page);
+		await page.sleep(200);
+		await page.check(
+			"Alt+M under a dialog opens nothing",
+			await page.evaluate(`!document.querySelector("${POPUP}")`)
+		);
+		await key(page, "Escape", "Escape", 27);
 	}
 
 	talker.quit();
