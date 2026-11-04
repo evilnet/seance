@@ -322,7 +322,6 @@ function renderPart(node: PartNode, fragments: Rendered[], message?: ClientMessa
 			linkEls.push(
 				createElement(LinkPreviewToggle, {
 					link: preview,
-					message: message,
 				})
 			);
 

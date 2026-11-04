@@ -9,23 +9,20 @@
 
 <script lang="ts">
 import {computed, defineComponent, PropType} from "vue";
-import {ClientMessage, ClientLinkPreview} from "../js/types";
+import {ClientLinkPreview} from "../js/types";
 
 export default defineComponent({
 	name: "LinkPreviewToggle",
 	props: {
 		link: {type: Object as PropType<ClientLinkPreview>, required: true},
-		message: {type: Object as PropType<ClientMessage>, required: true},
 	},
-	emits: ["toggle-link-preview"],
-	setup(props, {emit}) {
+	setup(props) {
 		const ariaLabel = computed(() => {
 			return props.link.shown ? "Collapse preview" : "Expand preview";
 		});
 
 		const onClick = () => {
 			props.link.shown = !props.link.shown;
-			emit("toggle-link-preview", props.link, props.message);
 		};
 
 		return {

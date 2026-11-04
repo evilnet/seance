@@ -56,7 +56,6 @@
 					:keep-scroll-position="keepScrollPosition"
 					:is-previous-source="isPreviousSource(message, id)"
 					:focused="message.id === focused"
-					@toggle-link-preview="onLinkPreviewToggle"
 				/>
 			</template>
 		</div>
@@ -88,7 +87,7 @@ import {
 	watch,
 } from "vue";
 import {useStore} from "../js/store";
-import {ClientChan, ClientMessage, ClientNetwork, ClientLinkPreview} from "../js/types";
+import {ClientChan, ClientMessage, ClientNetwork} from "../js/types";
 
 /** A pressed pointer that travels this far is dragging out a selection. */
 const DRAG_SLOP_PX = 4;
@@ -458,12 +457,6 @@ export default defineComponent({
 			jumpToBottom();
 		};
 
-		const onLinkPreviewToggle = async (preview: ClientLinkPreview, message: ClientMessage) => {
-			// `preview.shown` has already been flipped by the toggle component;
-			// the state is local so there is nobody else to tell.
-			await keepScrollPosition();
-		};
-
 		/** A text selection is held; scrolling the list under it loses it. */
 		const hasSelection = () => {
 			const selection = window.getSelection();
@@ -713,7 +706,6 @@ export default defineComponent({
 			keepScrollPosition,
 			isPreviousSource,
 			jumpToBottom,
-			onLinkPreviewToggle,
 			selecting,
 			selectionActive,
 			onPointerDown,
