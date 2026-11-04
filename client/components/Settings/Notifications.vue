@@ -109,8 +109,7 @@
 				{{ t("settings.notifications.unsupported") }}
 			</div>
 			<div v-if="store.state.pushNotificationState === 'desktop-shell'" class="error">
-				The desktop app shows notifications while it is running. Push notifications, which
-				reach a closed app, are not available here.
+				{{ t("settings.notifications.desktopShellNote") }}
 			</div>
 			<div v-if="store.state.pushNotificationState === 'not-installed'" class="error">
 				<strong>{{ t("settings.notifications.warning") }}</strong

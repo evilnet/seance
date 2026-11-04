@@ -150,19 +150,20 @@
 
 			<!-- Dismiss all takes a lot at once, so it can be taken back until the pane closes. -->
 			<div v-if="undoableMentions.length" class="mentions-undo" role="status">
-				<span>Dismissed {{ undoableMentions.length }} on this device</span>
-				<button class="btn btn-sm" @click="undoDismiss">Undo</button>
+				<span>{{ tCount("mentions.dismissedHere", undoableMentions.length) }}</span>
+				<button class="btn btn-sm" @click="undoDismiss">{{ t("mentions.undo") }}</button>
 			</div>
 
 			<div v-if="groups.length" class="mentions-keys" aria-hidden="true">
-				<span><kbd>↑</kbd><kbd>↓</kbd> move</span>
-				<span><kbd>↵</kbd> open</span>
+				<span><kbd>↑</kbd><kbd>↓</kbd> {{ t("mentions.keys.move") }}</span>
+				<span><kbd>↵</kbd> {{ t("mentions.keys.open") }}</span>
 				<span
-					><kbd>{{ isApple ? "⌫" : "Bksp" }}</kbd> dismiss</span
+					><kbd>{{ isApple ? "⌫" : t("mentions.keys.backspace") }}</kbd>
+					{{ t("mentions.keys.dismiss") }}</span
 				>
 				<span class="mentions-keys-close"
 					><kbd>{{ isApple ? "⌥" : "Alt" }}</kbd
-					><kbd>M</kbd> close</span
+					><kbd>M</kbd> {{ t("mentions.keys.close") }}</span
 				>
 			</div>
 		</div>

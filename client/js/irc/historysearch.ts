@@ -29,6 +29,7 @@ import type {
 	SearchHit,
 	SearchStatus,
 } from "../../../shared/types/search";
+import {t} from "../i18n/core";
 import type {IrcClient} from "./client";
 import type {BatchHandler, OpenBatch} from "./handlers/batch";
 import {formatLine, MAX_LINE_BYTES, utf8ByteLength, type IrcMessage} from "./message";
@@ -208,7 +209,7 @@ function sendRequest(
 	const line = lineFor({tags, command, params});
 
 	if (!line) {
-		answer(client, request, "invalid", "That search can't be sent.");
+		answer(client, request, "invalid", t("search.window.errorInvalid"));
 		return;
 	}
 

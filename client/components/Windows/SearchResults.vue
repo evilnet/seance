@@ -10,15 +10,15 @@
 			<div
 				class="chat-view"
 				data-type="search-results"
-				aria-label="Search results"
+				:aria-label="t('search.results.aria')"
 				role="tabpanel"
 			>
 				<template v-if="network && channel">
 					<div class="search-head" :inert="filtersOpen">
 						<button
 							class="oper-icon-btn search-icon search-icon-back"
-							:aria-label="`Back to ${channel.name}`"
-							:title="`Back to ${channel.name}`"
+							:aria-label="t('search.window.back', {channel: channel.name})"
+							:title="t('search.window.back', {channel: channel.name})"
 							@click="closeSearch"
 						/>
 						<form class="search-query" role="search" @submit.prevent="submit">
@@ -31,15 +31,15 @@
 								autocapitalize="off"
 								autocomplete="off"
 								enterkeyhint="search"
-								aria-label="Search messages"
-								:placeholder="`Search ${scopeLabel}`"
+								:aria-label="t('search.window.field')"
+								:placeholder="t('search.window.placeholder', {scope: scopeLabel})"
 							/>
 							<button
 								type="submit"
 								class="oper-btn"
 								:class="stale ? 'oper-btn-primary' : 'oper-btn-secondary'"
 							>
-								Search
+								{{ t("search.window.submit") }}
 							</button>
 						</form>
 					</div>
@@ -47,7 +47,8 @@
 					<div class="search-chips" :inert="filtersOpen">
 						<button class="search-chip on" @click="filtersOpen = true">
 							<span class="search-icon search-icon-in" aria-hidden="true" />
-							In <b>{{ scopeLabel }}</b>
+							{{ inParts[0] }}<b>{{ scopeLabel }}</b
+							>{{ inParts[1] }}
 						</button>
 						<span
 							v-for="chip in chips"
@@ -60,13 +61,13 @@
 							</button>
 							<button
 								class="search-chip-remove search-icon search-icon-remove"
-								:aria-label="`Remove ${chip.label} filter`"
+								:aria-label="t('search.window.removeFilter', {filter: chip.label})"
 								@click="removeChip(chip.id)"
 							/>
 						</span>
 						<button class="search-chip" @click="filtersOpen = true">
 							<span class="search-icon search-icon-filter" aria-hidden="true" />
-							Filters
+							{{ t("search.window.filters") }}
 						</button>
 					</div>
 
@@ -75,8 +76,7 @@
 						<div>
 							<b>{{ banner }}</b>
 							<p>
-								Searching the {{ loadedCount }} messages loaded on this device
-								instead. Filters still work.
+								{{ tCount("search.window.loadedInstead", loadedCount) }}
 							</p>
 						</div>
 						<button
@@ -84,12 +84,12 @@
 							class="oper-btn oper-btn-secondary"
 							@click="run"
 						>
-							Try again
+							{{ t("search.window.retry") }}
 						</button>
 					</div>
 
 					<p v-if="stale && criteria" class="search-stale" role="status">
-						These are the results of the previous search. Press Search to update them.
+						{{ t("search.window.stale") }}
 					</p>
 
 					<div class="search-panes" :class="{'has-context': selected}">
@@ -100,7 +100,7 @@
 						>
 							<div v-if="!criteria" class="search-start">
 								<p>
-									Type something to search for, or use these in the field above:
+									{{ t("search.window.start") }}
 								</p>
 								<div class="search-suggest">
 									<button
@@ -115,43 +115,42 @@
 							</div>
 
 							<div v-else-if="loading" class="search-center" role="status">
-								<p>Asking the server…</p>
+								<p>{{ t("search.window.asking") }}</p>
 							</div>
 
 							<div v-else-if="error" class="search-center" role="alert">
-								<b>Search failed</b>
+								<b>{{ t("search.window.failed") }}</b>
 								<p>{{ error }}</p>
 								<button class="oper-btn oper-btn-secondary" @click="run">
-									Try again
+									{{ t("search.window.retry") }}
 								</button>
 							</div>
 
 							<div v-else-if="!rows.length" class="search-center" role="status">
-								<b>No matches in {{ scopeLabel }}</b>
+								<b>{{ t("search.window.noMatches", {scope: scopeLabel}) }}</b>
 								<p v-if="mode === 'server'">
-									You may not see messages from times you were not in the channel.
+									{{ t("search.window.noMatchesNote") }}
 								</p>
 								<button
 									v-if="chips.length"
 									class="oper-btn oper-btn-secondary"
 									@click="filtersOpen = true"
 								>
-									Edit filters
+									{{ t("search.window.editFilters") }}
 								</button>
 								<button
 									v-if="mode === 'server' && filters.in !== ALL_CHANNELS"
 									class="oper-btn oper-btn-secondary"
 									@click="searchEverywhere"
 								>
-									Search all my channels
+									{{ t("search.window.everywhere") }}
 								</button>
 							</div>
 
 							<div v-else-if="!visible.length" class="search-center">
-								<b>{{ rows.length }} matches, all hidden by your filters</b>
+								<b>{{ tCount("search.window.allHidden", rows.length) }}</b>
 								<p>
-									Older messages may still match. Searched back to
-									{{ oldestLabel }}.
+									{{ t("search.window.allHiddenNote", {when: oldestLabel}) }}
 								</p>
 								<button
 									v-if="canLoadOlder"
@@ -159,10 +158,10 @@
 									:disabled="loadingOlder"
 									@click="loadOlder()"
 								>
-									Search older
+									{{ t("search.window.older") }}
 								</button>
 								<button class="oper-btn oper-btn-ghost" @click="filtersOpen = true">
-									Edit filters
+									{{ t("search.window.editFilters") }}
 								</button>
 							</div>
 
@@ -206,14 +205,15 @@
 								v-if="criteria && !loading && !error && rows.length"
 								class="search-status"
 							>
-								<span role="status"
-									>{{ visible.length }}
-									{{ visible.length === 1 ? "match" : "matches" }}</span
-								>
+								<span role="status">{{
+									tCount("search.window.matchCount", visible.length)
+								}}</span>
 								<span v-if="hiddenCount" class="search-dim">
-									· {{ hiddenCount }} hidden by filters
+									· {{ tCount("search.window.hiddenCount", hiddenCount) }}
 								</span>
-								<span class="search-dim">· back to {{ oldestLabel }}</span>
+								<span class="search-dim"
+									>· {{ t("search.window.backTo", {when: oldestLabel}) }}</span
+								>
 								<span class="search-spacer" />
 								<span v-if="olderError" class="search-dim" role="alert">{{
 									olderError
@@ -224,10 +224,14 @@
 									:disabled="loadingOlder"
 									@click="loadOlder()"
 								>
-									{{ loadingOlder ? "Searching…" : "Search older" }}
+									{{
+										loadingOlder
+											? t("search.window.searching")
+											: t("search.window.older")
+									}}
 								</button>
 								<span v-else-if="mode === 'server'" class="search-dim">
-									Nothing older found
+									{{ t("search.window.nothingOlder") }}
 								</span>
 							</div>
 						</div>
@@ -243,7 +247,7 @@
 								ref="contextPane"
 								class="search-context"
 								tabindex="-1"
-								aria-label="Messages around this one"
+								:aria-label="t('search.window.contextAria')"
 								:role="isPhone ? 'dialog' : undefined"
 								:aria-modal="isPhone ? 'true' : undefined"
 								@keydown.tab="onContextTab"
@@ -251,15 +255,17 @@
 								<div class="search-context-head">
 									<div>
 										<b>{{ selected.target }}</b>
-										<small
-											>{{ dayOf(selected.msg) }} · around
-											{{ timeOf(selected.msg) }}</small
-										>
+										<small>{{
+											t("search.window.around", {
+												day: dayOf(selected.msg),
+												time: timeOf(selected.msg),
+											})
+										}}</small>
 									</div>
 									<button
 										class="oper-icon-btn search-icon search-icon-remove"
-										aria-label="Close context"
-										title="Close context"
+										:aria-label="t('search.window.closeContext')"
+										:title="t('search.window.closeContext')"
 										@click="closeContext"
 									/>
 								</div>
@@ -272,7 +278,7 @@
 										class="search-dim search-context-note"
 										role="status"
 									>
-										Loading the lines around this one…
+										{{ t("search.window.contextLoading") }}
 									</p>
 									<div
 										v-for="msg in contextShown"
@@ -302,14 +308,14 @@
 											:disabled="contextLoading || !canEarlier"
 											@click="contextPage('BEFORE')"
 										>
-											Earlier
+											{{ t("search.window.earlier") }}
 										</button>
 										<button
 											class="oper-btn oper-btn-ghost"
 											:disabled="contextLoading || !canLater"
 											@click="contextPage('AFTER')"
 										>
-											Later
+											{{ t("search.window.later") }}
 										</button>
 									</template>
 									<span class="search-spacer" />
@@ -320,8 +326,10 @@
 									>
 										{{
 											selectedLoaded
-												? "Open in channel"
-												: `Go to ${selected.target}`
+												? t("search.window.openInChannel")
+												: t("search.window.goTo", {
+														channel: selected.target,
+												  })
 										}}
 									</button>
 								</div>
@@ -748,6 +756,9 @@ import {clockTime, dayLabel, shortDay} from "../../js/helpers/messageTime";
 import {clearHighlight, paintHighlight, rangesIn} from "../../js/helpers/paintHighlight";
 import {trapTab} from "../../js/helpers/trapTab";
 import {useStore} from "../../js/store";
+import {useI18n} from "../../js/i18n";
+import {frameSegments, KEEP} from "../../js/i18n/core";
+import {hasLabel} from "../../js/helpers/searchLabels";
 import type {ClientChan, ClientMessage} from "../../js/types";
 import type {SharedMsg} from "../../../shared/types/msg";
 import type {SearchContextDirection, SearchHit, SearchStatus} from "../../../shared/types/search";
@@ -781,6 +792,11 @@ export default defineComponent({
 		const store = useStore();
 		const route = useRoute();
 		const router = useRouter();
+		const {t, tCount, locale} = useI18n();
+		// The scope chip's "In {scope}", the scope bold inside the sentence.
+		const inParts = computed(() =>
+			frameSegments(t("search.window.inScope", {scope: KEEP}), ["scope"])
+		);
 
 		const queryField = ref<HTMLInputElement>();
 		const contextList = ref<HTMLElement>();
@@ -844,7 +860,7 @@ export default defineComponent({
 		);
 		const scope = computed(() => filters.value.in ?? scopeDefault.value);
 		const scopeLabel = computed(() =>
-			scope.value === ALL_CHANNELS ? "all my channels" : scope.value
+			scope.value === ALL_CHANNELS ? t("search.window.allChannels") : scope.value
 		);
 
 		const suggestions = computed(() => {
@@ -857,28 +873,50 @@ export default defineComponent({
 			const result: Chip[] = [];
 
 			if (from) {
-				result.push({id: "from", label: "From", value: from});
+				result.push({id: "from", label: t("search.window.chip.from"), value: from});
 			}
 
 			if (account) {
-				result.push({id: "account", label: "Account", value: account});
+				result.push({
+					id: "account",
+					label: t("search.window.chip.account"),
+					value: account,
+				});
 			}
 
 			if (after || before) {
-				const parts = [after && `from ${shortDay(dayStart(after) as Date)}`];
+				const parts = [
+					after &&
+						t("search.window.chip.dateFrom", {day: shortDay(dayStart(after) as Date)}),
+				];
 				// `before:` stops at that day's start, so the last day searched is the one before.
 				parts.push(
-					before && `to ${shortDay(dayjs(dayStart(before)).subtract(1, "day").toDate())}`
+					before &&
+						t("search.window.chip.dateTo", {
+							day: shortDay(dayjs(dayStart(before)).subtract(1, "day").toDate()),
+						})
 				);
-				result.push({id: "date", label: "Date", value: parts.filter(Boolean).join(", ")});
+				result.push({
+					id: "date",
+					label: t("search.window.chip.date"),
+					value: parts.filter(Boolean).join(t("oper.list.separator")),
+				});
 			}
 
 			if (has.length) {
-				result.push({id: "has", label: "Has", value: has.join(", ")});
+				result.push({
+					id: "has",
+					label: t("search.window.chip.has"),
+					value: has.map(hasLabel).join(t("oper.list.separator")),
+				});
 			}
 
 			if (without.length) {
-				result.push({id: "without", label: "Without", value: without.join(", ")});
+				result.push({
+					id: "without",
+					label: t("search.window.chip.without"),
+					value: without.join(t("oper.list.separator")),
+				});
 			}
 
 			return result;
@@ -898,21 +936,29 @@ export default defineComponent({
 			}
 
 			if (mode.value === "unsupported") {
-				return "This server can't search its history";
+				return t("search.window.unsupported");
 			}
 
-			return mode.value === "offline" ? "Not connected" : "";
+			return mode.value === "offline" ? t("search.window.offline") : "";
 		});
 
 		const dayOf = (msg: SharedMsg) => dayLabel(msg.time);
 		const timeOf = (msg: SharedMsg) => clockTime(msg.time, store.state.settings);
 
 		const oldestLabel = computed(() => {
+			void locale.value;
 			const last = rows.value[rows.value.length - 1];
-			return last ? `${shortDay(last.msg.time)}, ${timeOf(last.msg)}` : "";
+			return last
+				? t("search.window.dayAndTime", {
+						day: shortDay(last.msg.time),
+						time: timeOf(last.msg),
+				  })
+				: "";
 		});
 
 		const groups = computed(() => {
+			// The day labels are Intl's, in the interface language.
+			void locale.value;
 			const result: {label: string; hits: SearchHit[]}[] = [];
 
 			for (const hit of visible.value) {
@@ -1033,10 +1079,10 @@ export default defineComponent({
 
 		const failureText = (status: SearchStatus, text?: string) => {
 			if (status === "timeout") {
-				return "The server did not answer.";
+				return t("search.window.errorTimeout");
 			}
 
-			return text ? `The server says: ${text}` : "The server could not run this search.";
+			return text ? t("search.window.errorServer", {text}) : t("search.window.errorFailed");
 		};
 
 		const onResults = (data: {
@@ -1056,7 +1102,7 @@ export default defineComponent({
 
 			if (data.status === "unsupported" || data.status === "offline") {
 				if (older) {
-					olderError.value = "Not connected.";
+					olderError.value = t("search.window.errorOffline");
 					return;
 				}
 
@@ -1066,7 +1112,7 @@ export default defineComponent({
 			}
 
 			if (data.status === "invalid") {
-				error.value = data.error ?? "That search can't be sent.";
+				error.value = data.error ?? t("search.window.errorInvalid");
 				return;
 			}
 
@@ -1211,7 +1257,7 @@ export default defineComponent({
 			contextLoading.value = false;
 
 			if (data.status !== "ok") {
-				contextNote.value = "The lines around this one could not be loaded.";
+				contextNote.value = t("search.window.contextFailed");
 
 				if (contextDirection === "AROUND") {
 					contextLive.value = false;
@@ -1421,6 +1467,9 @@ export default defineComponent({
 		});
 
 		return {
+			t,
+			tCount,
+			inParts,
 			ALL_CHANNELS,
 			HINTS,
 			applyFilters,

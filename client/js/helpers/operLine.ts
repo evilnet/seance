@@ -7,6 +7,7 @@
  * why, instead of blaming the connection. Vue-free for test/helpers/operLine.ts.
  */
 
+import {tCount} from "../i18n/core";
 import {MAX_LINE_BYTES, utf8ByteLength} from "../irc/message";
 import {tagPrefix} from "../irc/wire";
 
@@ -31,7 +32,5 @@ export function lineTooLongText(budget: LineBudget): string {
 		return "";
 	}
 
-	return `Too long to send: shorten the reason by ${budget.over} ${
-		budget.over === 1 ? "byte" : "bytes"
-	} (accented letters, other scripts and emoji take 2–4 each).`;
+	return tCount("oper.action.lineTooLong", budget.over);
 }

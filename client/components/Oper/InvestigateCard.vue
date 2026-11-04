@@ -20,7 +20,7 @@
 				<!-- Compare: the head names the two value columns, and stays put
 				     while the facts scroll under it. -->
 				<template v-if="compareModel">
-					<span class="oper-cmp-kicker">Compare</span>
+					<span class="oper-cmp-kicker">{{ t("oper.investigate.card.compare") }}</span>
 					<div v-for="p in comparePeople" :key="p.target" class="oper-cmp-who">
 						<span :class="['oper-avatar', p.side]" aria-hidden="true">{{
 							p.initials
@@ -48,14 +48,23 @@
 							<span
 								v-if="presence"
 								:class="['oper-tag', presence === 'online' ? 'ok' : 'warn']"
-								>{{ presence }}</span
+								>{{
+									presence === "online"
+										? t("oper.investigate.card.chipOnline")
+										: t("oper.investigate.card.chipAway")
+								}}</span
 							>
 						</h1>
 						<div class="oper-ident-sub">
 							<span v-if="identLine" class="oper-mono">{{ identLine }}</span>
 							<span v-if="identLine"> · </span>{{ network.name
 							}}<template v-if="stack.length > 1">
-								· from {{ stack[stack.length - 2].request.target }}</template
+								·
+								{{
+									t("oper.investigate.card.fromCard", {
+										target: stack[stack.length - 2].request.target,
+									})
+								}}</template
 							>
 						</div>
 					</div>
@@ -64,16 +73,16 @@
 					<button
 						type="button"
 						class="oper-icon-btn oper-icon-refresh"
-						title="Refresh"
-						aria-label="Refresh"
+						:title="t('oper.investigate.card.refresh')"
+						:aria-label="t('oper.investigate.card.refresh')"
 						@click="refresh"
 					></button>
 					<button
 						v-if="!compareModel"
 						type="button"
 						class="oper-icon-btn oper-icon-raw"
-						title="Raw replies"
-						aria-label="Raw replies"
+						:title="t('oper.investigate.card.raw')"
+						:aria-label="t('oper.investigate.card.raw')"
 						:aria-pressed="showRaw"
 						@click="showRaw = !showRaw"
 					></button>
@@ -81,9 +90,15 @@
 						class="settings-modal-close oper-icon-btn oper-icon-close"
 						type="button"
 						:aria-label="
-							stack.length > 1 ? 'Back to the card before' : 'Close the card'
+							stack.length > 1
+								? t('oper.investigate.card.back')
+								: t('oper.investigate.card.close')
 						"
-						:title="stack.length > 1 ? 'Back' : 'Close (Esc)'"
+						:title="
+							stack.length > 1
+								? t('oper.investigate.card.backShort')
+								: t('oper.investigate.card.closeEsc')
+						"
 						@click="close"
 					></button>
 				</div>
@@ -98,7 +113,7 @@
 							class="oper-btn oper-btn-ghost oper-note-edit"
 							@click="editNote"
 						>
-							Edit
+							{{ t("oper.investigate.card.noteEdit") }}
 						</button>
 					</div>
 
@@ -106,7 +121,7 @@
 					<template v-if="model.kind === 'channel'">
 						<dl class="oper-report-entries oper-facts oper-props">
 							<div>
-								<dt>Created</dt>
+								<dt>{{ t("oper.investigate.card.created") }}</dt>
 								<dd>
 									<time
 										v-if="model.createdAt !== undefined"
@@ -120,62 +135,84 @@
 								</dd>
 							</div>
 							<div>
-								<dt>Modes</dt>
+								<dt>{{ t("oper.investigate.card.modes") }}</dt>
 								<dd>
 									<code v-if="model.modes" class="oper-mono">{{
 										model.modes
 									}}</code>
 									<span v-else class="oper-muted">{{
 										sources.check === "asking" || sources.chaninfo === "asking"
-											? "asking…"
-											: "(none)"
+											? t("oper.investigate.card.asking")
+											: t("oper.investigate.card.none")
 									}}</span>
 								</dd>
 							</div>
 							<div class="wide">
-								<dt>Topic</dt>
+								<dt>{{ t("oper.investigate.card.topic") }}</dt>
 								<dd class="oper-prop-flow">
 									<template v-if="model.topic"
 										><ParsedMessage
 											:network="network"
 											:text="model.topic"
 										/><span v-if="model.topicBy" class="oper-muted">
-											· set by {{ model.topicBy }}</span
+											·
+											{{
+												t("oper.investigate.card.setBy", {
+													nick: model.topicBy,
+												})
+											}}</span
 										></template
 									>
 									<span v-else class="oper-muted">{{
 										sources.check === "asking" || sources.chaninfo === "asking"
-											? "asking…"
-											: "(none)"
+											? t("oper.investigate.card.asking")
+											: t("oper.investigate.card.none")
 									}}</span>
 								</dd>
 							</div>
 							<div>
-								<dt>Registered</dt>
+								<dt>{{ t("oper.investigate.card.registered") }}</dt>
 								<dd>
 									<template v-if="model.registered"
-										>Yes<span v-if="model.registeredSince" class="oper-muted">
-											· {{ model.registeredSince }} ago</span
+										>{{ t("oper.investigate.card.yes")
+										}}<span v-if="model.registeredSince" class="oper-muted">
+											·
+											{{
+												t("oper.investigate.card.registeredAgo", {
+													since: model.registeredSince,
+												})
+											}}</span
 										><span v-if="model.owner" class="oper-muted">
-											· owner {{ model.owner }}</span
+											·
+											{{
+												t("oper.investigate.card.owner", {
+													owner: model.owner,
+												})
+											}}</span
 										></template
 									>
-									<span v-else-if="model.registered === false" class="oper-muted"
-										>No</span
+									<span
+										v-else-if="model.registered === false"
+										class="oper-muted"
+										>{{ t("oper.investigate.card.no") }}</span
 									>
 									<span v-else class="oper-muted">{{
-										sources.registration === "asking" ? "asking…" : "—"
+										sources.registration === "asking"
+											? t("oper.investigate.card.asking")
+											: "—"
 									}}</span>
 								</dd>
 							</div>
 							<div>
-								<dt>Bans</dt>
+								<dt>{{ t("oper.investigate.card.bans") }}</dt>
 								<dd>
 									<template
 										v-if="sources.check !== 'asking' || model.bans.length"
 										>{{ model.bans.length }}</template
 									>
-									<span v-else class="oper-muted">asking…</span>
+									<span v-else class="oper-muted">{{
+										t("oper.investigate.card.asking")
+									}}</span>
 								</dd>
 							</div>
 						</dl>
@@ -189,19 +226,20 @@
 							>
 								<span class="oper-verdict-mark" aria-hidden="true"></span>
 								<p class="oper-verdict-head">
-									<span class="oper-verdict-kicker">What most share</span>
+									<span class="oper-verdict-kicker">{{
+										t("oper.investigate.card.commonHeading")
+									}}</span>
 									<span
 										v-if="common && common.facts.length"
 										class="oper-verdict-lead"
-										>{{ commonCount }} of {{ common.total }} users look
-										alike</span
+										>{{ lookAlike }}</span
 									>
 									<span v-else class="oper-verdict-lead oper-muted">{{
 										model.users.length < 3
-											? "Too few users to compare."
+											? t("oper.investigate.card.tooFew")
 											: sources.who === "asking" || sources.check === "asking"
-											? "asking…"
-											: "Nothing that most of them share."
+											? t("oper.investigate.card.asking")
+											: t("oper.investigate.card.nothingShared")
 									}}</span>
 								</p>
 								<p
@@ -212,7 +250,7 @@
 										v-for="fact in common.facts"
 										:key="fact.key"
 										class="oper-tag warn oper-common-chip"
-										:title="`${fact.count} of ${common.total} users`"
+										:title="commonTitle(fact.count)"
 										>{{ fact.label
 										}}<template v-if="fact.count !== commonCount">
 											· {{ fact.count }}</template
@@ -226,7 +264,7 @@
 										:disabled="!common || !common.facts.length"
 										@click="alertOnThis"
 									>
-										Alert on this…
+										{{ t("oper.investigate.card.alertOnThis") }}
 									</button>
 									<button
 										v-if="hasLookups"
@@ -239,17 +277,18 @@
 										"
 										@click="traceCount"
 									>
-										Trace count
+										{{ t("oper.investigate.card.traceCount") }}
 									</button>
 									<span v-if="model.traceCount" class="oper-trace-count">
-										<template v-if="model.traceCount.state === 'asking'"
-											>asking…</template
-										>
-										<template v-else-if="model.traceCount.state === 'done'"
-											>{{ model.traceCount.count }} users match right
-											now</template
-										>
-										<template v-else>O3 could not count them</template>
+										<template v-if="model.traceCount.state === 'asking'">{{
+											t("oper.investigate.card.asking")
+										}}</template>
+										<template v-else-if="model.traceCount.state === 'done'">{{
+											traceMatches(model.traceCount.count)
+										}}</template>
+										<template v-else>{{
+											t("oper.investigate.card.traceFailed", {bot: operBot})
+										}}</template>
 									</span>
 								</div>
 							</div>
@@ -257,23 +296,33 @@
 
 						<section class="oper-users oper-card-section">
 							<div class="oper-users-head oper-section-head">
-								<h3 class="oper-report-section-title">Users</h3>
+								<h3 class="oper-report-section-title">
+									{{ t("oper.investigate.card.users") }}
+								</h3>
 								<span class="oper-count">{{ model.users.length }}</span>
 								<span class="oper-spacer"></span>
 								<label class="oper-users-sort">
-									sort
+									{{ t("oper.investigate.card.sort") }}
 									<select v-model="sortBy" class="input">
-										<option value="joined">joined</option>
-										<option value="nick">nick</option>
-										<option value="host">host</option>
+										<option value="joined">
+											{{ t("oper.investigate.card.sortJoined") }}
+										</option>
+										<option value="nick">
+											{{ t("oper.investigate.card.sortNick") }}
+										</option>
+										<option value="host">
+											{{ t("oper.investigate.card.sortHost") }}
+										</option>
 									</select>
 								</label>
 							</div>
 							<p v-if="!model.users.length" class="oper-muted">
 								{{
 									sources.who === "asking" || sources.check === "asking"
-										? "asking…"
-										: notes.who ?? notes.check ?? "nobody"
+										? t("oper.investigate.card.asking")
+										: notes.who ??
+										  notes.check ??
+										  t("oper.investigate.card.nobody")
 								}}
 							</p>
 							<ul v-else class="oper-user-list">
@@ -289,14 +338,24 @@
 										<button
 											type="button"
 											class="oper-user-nick"
-											:title="`Investigate ${u.nick}`"
+											:title="
+												t('oper.investigate.card.investigateNick', {
+													nick: u.nick,
+												})
+											"
 											@click="openUser(u.nick)"
 										>
 											{{ u.nick }}
 										</button>
-										<span v-if="u.op" class="oper-tag plain">op</span>
-										<span v-if="u.voice" class="oper-tag plain">voice</span>
-										<span v-if="u.oper" class="oper-tag plain">oper</span>
+										<span v-if="u.op" class="oper-tag plain">{{
+											t("oper.investigate.card.chipOp")
+										}}</span>
+										<span v-if="u.voice" class="oper-tag plain">{{
+											t("oper.investigate.card.chipVoice")
+										}}</span>
+										<span v-if="u.oper" class="oper-tag plain">{{
+											t("oper.investigate.card.chipOper")
+										}}</span>
 										<span
 											v-if="u.authed"
 											:class="[
@@ -304,13 +363,17 @@
 												'plain',
 												{same: shares(u.nick, 'authed')},
 											]"
-											>authed</span
+											>{{ t("oper.investigate.card.chipAuthed") }}</span
 										>
-										<span v-if="u.away" class="oper-tag plain">away</span>
+										<span v-if="u.away" class="oper-tag plain">{{
+											t("oper.investigate.card.chipAway")
+										}}</span>
 										<span class="oper-muted oper-user-timing">
-											<template v-if="u.joinedAt !== undefined"
-												>joined {{ clock(u.joinedAt) }}</template
-											>
+											<template v-if="u.joinedAt !== undefined">{{
+												t("oper.investigate.card.joinedAt", {
+													time: clock(u.joinedAt),
+												})
+											}}</template>
 											<template
 												v-if="
 													u.joinedAt !== undefined &&
@@ -322,7 +385,11 @@
 											<span
 												v-if="u.connectedAt !== undefined"
 												:class="{same: shares(u.nick, 'connectAge')}"
-												>online {{ duration(now - u.connectedAt) }}</span
+												>{{
+													t("oper.investigate.card.onlineFor", {
+														duration: duration(now - u.connectedAt),
+													})
+												}}</span
 											>
 										</span>
 									</div>
@@ -334,7 +401,7 @@
 											v-if="u.host && u.host !== u.ip"
 											type="button"
 											class="oper-chip oper-chip-host"
-											title="Oper actions"
+											:title="t('oper.investigate.card.operActions')"
 											@click.stop="openMenu($event, 'host', u.host)"
 										>
 											{{ u.host }}</button
@@ -346,7 +413,7 @@
 												'oper-chip-ip',
 												{same: shares(u.nick, 'ipRange')},
 											]"
-											title="Oper actions"
+											:title="t('oper.investigate.card.operActions')"
 											@click.stop="openMenu($event, 'ip', u.ip)"
 										>
 											{{ u.ip }}</button
@@ -360,7 +427,7 @@
 													'oper-chip-ip',
 													{same: shares(u.nick, 'ipRange')},
 												]"
-												title="Oper actions"
+												:title="t('oper.investigate.card.operActions')"
 												@click.stop="openMenu($event, 'ip', u.ip)"
 											>
 												{{ u.ip }}
@@ -371,7 +438,9 @@
 										<span
 											v-if="u.realname !== undefined"
 											:class="{same: shares(u.nick, 'realname')}"
-											>{{ u.realname || "(no realname)" }}</span
+											>{{
+												u.realname || t("oper.investigate.card.noRealname")
+											}}</span
 										>
 										<span v-else class="oper-muted">{{
 											pending("check", "who")
@@ -389,7 +458,7 @@
 												{same: shares(u.nick, 'authed')},
 											]"
 										>
-											· not authed</span
+											· {{ t("oper.investigate.card.notAuthed") }}</span
 										>
 										<template v-if="u.server">
 											·
@@ -412,17 +481,22 @@
 											· <span class="oper-muted">{{ elsewhere(u) }}</span>
 										</template>
 										<template v-else-if="u.lookup === 'asking'">
-											· <span class="oper-muted">asking…</span></template
+											·
+											<span class="oper-muted">{{
+												t("oper.investigate.card.asking")
+											}}</span></template
 										>
 										<template v-else-if="u.lookup === 'failed'">
 											·
-											<span class="oper-muted">the lookup failed</span>
+											<span class="oper-muted">{{
+												t("oper.investigate.card.lookupFailed")
+											}}</span>
 											<button
 												type="button"
 												class="oper-btn oper-btn-ghost oper-lookup"
 												@click="lookup(u.nick)"
 											>
-												Try again
+												{{ t("oper.investigate.card.lookupRetry") }}
 											</button></template
 										>
 										<button
@@ -431,7 +505,7 @@
 											class="oper-btn oper-btn-ghost oper-lookup"
 											@click="lookup(u.nick)"
 										>
-											Look up
+											{{ t("oper.investigate.card.lookUp") }}
 										</button>
 									</div>
 								</li>
@@ -440,10 +514,16 @@
 
 						<section v-if="showRecent" class="oper-recent oper-card-section">
 							<div class="oper-section-head">
-								<h3 class="oper-report-section-title">Last hour here</h3>
+								<h3 class="oper-report-section-title">
+									{{ t("oper.investigate.card.lastHourHeading") }}
+								</h3>
 							</div>
 							<p v-if="model.snoopMissing" class="oper-muted oper-activity-missing">
-								Not in {{ model.snoopMissing }}: joins and parts aren't kept.
+								{{
+									t("oper.investigate.card.snoopMissing", {
+										channel: model.snoopMissing,
+									})
+								}}
 							</p>
 							<ul v-else-if="model.recent.length" class="oper-recent-list oper-rows">
 								<li v-for="(e, i) in model.recent" :key="i">
@@ -451,7 +531,9 @@
 									<span class="oper-row-main">{{ e.text }}</span>
 								</li>
 							</ul>
-							<p v-else class="oper-empty oper-muted">Nothing in the last hour.</p>
+							<p v-else class="oper-empty oper-muted">
+								{{ t("oper.investigate.card.lastHourEmpty") }}
+							</p>
 						</section>
 					</template>
 
@@ -472,27 +554,31 @@
 									compareSum.lead
 								}}</span>
 								<span class="oper-cmp-score"
-									><em>{{ compareSum.same.length }}</em> of
-									{{ compareSum.known }} match</span
+									>{{ scoreParts[0] }}<em>{{ compareSum.same.length }}</em
+									>{{ scoreParts[1] }}</span
 								>
 								<span v-if="compareSum.same.length" class="oper-muted">{{
 									compareSum.same.join(" · ")
 								}}</span>
 								<span class="oper-spacer"></span>
-								<div class="oper-seg" role="group" aria-label="Show">
+								<div
+									class="oper-seg"
+									role="group"
+									:aria-label="t('oper.investigate.card.showGroup')"
+								>
 									<button
 										type="button"
 										:aria-pressed="!differences"
 										@click="differences = false"
 									>
-										All
+										{{ t("oper.investigate.card.showAll") }}
 									</button>
 									<button
 										type="button"
 										:aria-pressed="differences"
 										@click="differences = true"
 									>
-										Differences
+										{{ t("oper.investigate.card.showDifferences") }}
 									</button>
 								</div>
 							</div>
@@ -507,7 +593,9 @@
 							/>
 							<section class="oper-card-section">
 								<div class="oper-section-head">
-									<h3 class="oper-report-section-title">Seen before</h3>
+									<h3 class="oper-report-section-title">
+										{{ t("oper.investigate.user.seenBefore") }}
+									</h3>
 									<span v-if="compareSeen.length" class="oper-count">{{
 										compareSeen.length
 									}}</span>
@@ -532,15 +620,18 @@
 												:network="network"
 											/>
 											<template v-if="s.entry.ip || s.entry.host">
-												<span class="oper-muted"> from </span>
+												<span class="oper-muted">{{ fromParts[0] }}</span>
 												<code class="oper-mono oper-value">{{
 													s.entry.ip ?? s.entry.host
 												}}</code>
+												<span v-if="fromParts[1]" class="oper-muted">{{
+													fromParts[1]
+												}}</span>
 											</template>
 											<span
 												v-if="s.entry.fate"
 												class="oper-row-fate oper-muted"
-												>{{ s.entry.fate }}</span
+												>{{ fateText(s.entry.fate) }}</span
 											>
 										</span>
 										<span class="oper-cmp-whose" :title="whoseText(s)"
@@ -555,7 +646,7 @@
 									</li>
 								</ul>
 								<p v-else class="oper-empty oper-muted">
-									Nothing in the kept feed is like either of them.
+									{{ t("oper.investigate.card.nothingLikeEither") }}
 								</p>
 							</section>
 						</div>
@@ -565,7 +656,7 @@
 								v-model="compareWith"
 								class="input"
 								type="text"
-								placeholder="nick to compare with"
+								:placeholder="t('oper.investigate.card.comparePlaceholder')"
 								spellcheck="false"
 								autocomplete="off"
 							/>
@@ -574,20 +665,20 @@
 								class="oper-btn oper-btn-primary"
 								:disabled="!compareWith.trim()"
 							>
-								Compare
+								{{ t("oper.investigate.card.compare") }}
 							</button>
 							<button
 								type="button"
 								class="oper-btn oper-btn-ghost"
 								@click="asking = false"
 							>
-								Cancel
+								{{ t("oper.investigate.card.cancel") }}
 							</button>
 						</form>
 					</template>
 
 					<pre v-if="showRaw" class="oper-report-raw oper-investigate-raw">{{
-						raw.join("\n") || "(nothing yet)"
+						raw.join("\n") || t("oper.investigate.card.rawEmpty")
 					}}</pre>
 				</div>
 			</div>
@@ -602,7 +693,9 @@
 							@click="joinAndWatch"
 						>
 							<span class="oper-btn-label">{{
-								inChannel ? "Watch" : "Join & watch"
+								inChannel
+									? t("oper.investigate.card.watch")
+									: t("oper.investigate.card.joinWatch")
 							}}</span>
 						</button>
 					</template>
@@ -612,7 +705,7 @@
 							class="oper-btn oper-btn-secondary oper-compare-end"
 							@click="endCompare"
 						>
-							End compare
+							{{ t("oper.investigate.card.endCompare") }}
 						</button>
 					</template>
 					<template v-else>
@@ -622,7 +715,7 @@
 							class="oper-btn oper-btn-danger oper-icon-kill"
 							@click="killUser"
 						>
-							Kill…
+							{{ t("oper.investigate.card.kill") }}
 						</button>
 						<button
 							v-if="canBan"
@@ -630,35 +723,39 @@
 							class="oper-btn oper-btn-danger oper-icon-ban"
 							@click="banUser"
 						>
-							G-line…
+							{{ t("oper.investigate.card.gline") }}
 						</button>
 						<span class="oper-spacer"></span>
 						<button
 							v-if="!compareModel && !asking"
 							type="button"
 							class="oper-btn oper-btn-secondary oper-icon-compare oper-compare-offer"
-							title="Compare side by side"
+							:title="t('oper.investigate.card.compareTitle')"
 							@click="askCompare"
 						>
-							<span class="oper-btn-label">Compare</span>
+							<span class="oper-btn-label">{{
+								t("oper.investigate.card.compare")
+							}}</span>
 						</button>
 						<button
 							type="button"
 							class="oper-btn oper-btn-secondary oper-icon-alert"
-							title="Alert on this"
+							:title="t('oper.investigate.card.alertOnThisTitle')"
 							@click="alertOnThis"
 						>
-							<span class="oper-btn-label">Alert on this…</span>
+							<span class="oper-btn-label">{{
+								t("oper.investigate.card.alertOnThis")
+							}}</span>
 						</button>
 					</template>
 					<button
 						v-if="!compareModel"
 						type="button"
 						class="oper-btn oper-btn-secondary oper-icon-note"
-						title="Note"
+						:title="t('oper.investigate.card.noteTitle')"
 						@click="editNote"
 					>
-						<span class="oper-btn-label">Note…</span>
+						<span class="oper-btn-label">{{ t("oper.investigate.card.note") }}</span>
 					</button>
 				</div>
 				<span v-if="toast" class="oper-toast" role="status"
@@ -669,7 +766,7 @@
 						class="oper-btn oper-btn-ghost oper-toast-go"
 						@click="showResults"
 					>
-						Show
+						{{ t("oper.investigate.card.showResults") }}
 					</button></span
 				>
 			</div>
@@ -690,28 +787,30 @@
 			id="oper-note-dialog"
 			role="dialog"
 			aria-modal="true"
-			:aria-label="`Note on ${noteKey}`"
+			:aria-label="t('oper.investigate.card.noteOn', {key: noteKey})"
 			@submit.prevent="saveNote"
 		>
 			<div class="oper-note-dialog-body">
-				<label class="oper-note-dialog-title" for="oper-note-field"
-					>Note on {{ noteKey }}</label
-				>
+				<label class="oper-note-dialog-title" for="oper-note-field">{{
+					t("oper.investigate.card.noteOn", {key: noteKey})
+				}}</label>
 				<textarea
 					id="oper-note-field"
 					ref="noteField"
 					v-model="noteDraft"
 					class="input"
 					rows="3"
-					placeholder="Kept on this device only"
+					:placeholder="t('oper.investigate.card.noteKeptHere')"
 					@keydown.esc.stop="closeNote"
 				></textarea>
 			</div>
 			<div class="oper-note-dialog-buttons">
 				<button type="button" class="oper-btn oper-btn-ghost" @click="cancelNote">
-					Cancel
+					{{ t("oper.investigate.card.cancel") }}
 				</button>
-				<button type="submit" class="oper-btn oper-btn-primary">Save</button>
+				<button type="submit" class="oper-btn oper-btn-primary">
+					{{ t("oper.investigate.card.noteSave") }}
+				</button>
 			</div>
 		</form>
 	</div>
@@ -763,7 +862,10 @@ import InvestigateFacts from "./InvestigateFacts.vue";
 import InvestigateUser from "./InvestigateUser.vue";
 import colorClass from "../../js/helpers/colorClass";
 import {compareSummary, mergeSeen, type SharedSighting} from "../../js/helpers/operCompare";
-import {whenText} from "../../js/helpers/verdict";
+import {fateText, whenText} from "../../js/helpers/verdict";
+import {commaList} from "../../js/helpers/operList";
+import {useI18n} from "../../js/i18n";
+import {frameSegments, KEEP} from "../../js/i18n/core";
 import Username from "../Username.vue";
 
 interface Card {
@@ -792,6 +894,7 @@ export default defineComponent({
 	components: {InvestigateFacts, InvestigateUser, ParsedMessage, Username},
 	setup() {
 		const store = useStore();
+		const {t, tCount} = useI18n();
 		const now = useNow();
 		const stack = shallowRef<Card[]>([]);
 		const tick = ref(0);
@@ -872,8 +975,14 @@ export default defineComponent({
 				const u = m.user;
 				const status =
 					u.connectedAt === undefined
-						? "asking…"
-						: `${u.away ? "away" : "online"} · ${sinceTime(u.connectedAt, now.value)}`;
+						? t("oper.investigate.card.asking")
+						: u.away
+						? t("oper.investigate.card.statusAway", {
+								since: sinceTime(u.connectedAt, now.value),
+						  })
+						: t("oper.investigate.card.statusOnline", {
+								since: sinceTime(u.connectedAt, now.value),
+						  });
 				return {
 					target: m.target,
 					initials: initialsOf(m.target),
@@ -896,8 +1005,10 @@ export default defineComponent({
 		});
 		const whoseText = (s: SharedSighting) =>
 			s.a && s.b
-				? "like both"
-				: `like ${s.a ? model.value?.target ?? "" : compareModel.value?.target ?? ""}`;
+				? t("oper.investigate.card.likeBoth")
+				: t("oper.investigate.card.likeOne", {
+						nick: s.a ? model.value?.target ?? "" : compareModel.value?.target ?? "",
+				  });
 
 		/** The user card's header: initials, a nick colour, `ident@host`, online. */
 		const userModel = computed(() => (model.value?.kind === "user" ? model.value : undefined));
@@ -923,12 +1034,28 @@ export default defineComponent({
 			return u.away ? "away" : "online";
 		});
 
-		const title = computed(() =>
-			top.value
-				? `${top.value.request.kind === "channel" ? "Channel" : "User"} ${
-						top.value.request.target
-				  }`
-				: ""
+		const title = computed(() => {
+			if (!top.value) {
+				return "";
+			}
+
+			const target = top.value.request.target;
+			return top.value.request.kind === "channel"
+				? t("oper.investigate.card.titleChannel", {target})
+				: t("oper.investigate.card.titleUser", {target});
+		});
+		/** The oper service's nick, for "O3 could not count them". */
+		const operBot = computed(() => network.value?.services?.bots.oper.trim() || "O3");
+		// Compare's score around its count, and a sighting's "from" around its
+		// address (the element inside the sentence).
+		const scoreParts = computed(() =>
+			frameSegments(
+				tCount("oper.investigate.card.compareScore", compareSum.value.known, {same: KEEP}),
+				["same"]
+			)
+		);
+		const fromParts = computed(() =>
+			frameSegments(t("oper.investigate.user.seenFromAddress", {address: KEEP}), ["address"])
 		);
 		const common = computed(() =>
 			model.value?.kind === "channel" ? model.value.commonality : undefined
@@ -937,6 +1064,14 @@ export default defineComponent({
 		const commonCount = computed(() =>
 			common.value?.facts.length ? Math.min(...common.value.facts.map((f) => f.count)) : 0
 		);
+		const total = () => common.value?.total ?? 0;
+		const lookAlike = computed(() =>
+			tCount("oper.investigate.card.lookAlike", total(), {shared: commonCount.value})
+		);
+		/** A common fact's tooltip: how many of the channel's users share it. */
+		const commonTitle = (shared: number) =>
+			tCount("oper.investigate.card.commonCount", total(), {shared});
+		const traceMatches = (count: number) => tCount("oper.investigate.card.traceMatches", count);
 		const hasLookups = computed(() => !!servicesProfileFor(network.value?.services)?.lookups);
 		const inChannel = computed(() => {
 			const client = top.value && clientForNetwork(top.value.request.network);
@@ -1062,7 +1197,9 @@ export default defineComponent({
 		const sentTo = (chan: number) => {
 			const name = store.getters.findChannel(chan)?.channel.name;
 			say(
-				name ? `Sent · the answer shows in ${name}` : "Sent · the answer shows in chat",
+				name
+					? t("oper.investigate.card.sentTo", {channel: name})
+					: t("oper.investigate.card.sentToChat"),
 				RESULTS_TOAST_MS
 			);
 			resultsIn.value = chan;
@@ -1103,12 +1240,16 @@ export default defineComponent({
 			const others = (u.channels ?? [])
 				.map((c) => c.replace(/^[@%+!<~]+/, ""))
 				.filter((c) => c.toLowerCase() !== here);
-			return others.length ? `also in ${others.join(", ")}` : "only here";
+			return others.length
+				? t("oper.investigate.card.alsoIn", {channels: commaList(others)})
+				: t("oper.investigate.card.onlyHere");
 		};
 
 		/** `asking…` while any of these sources is still out, else a dash. */
 		const pending = (...ids: SourceId[]) =>
-			ids.some((id) => sources.value[id] === "asking") ? "asking…" : "—";
+			ids.some((id) => sources.value[id] === "asking")
+				? t("oper.investigate.card.asking")
+				: "—";
 
 		const lobbyId = () => network.value?.channels[0]?.id;
 
@@ -1150,16 +1291,26 @@ export default defineComponent({
 				out.push({
 					key: "authed",
 					value: u.authed ? "yes" : "no",
-					label: u.authed ? "authed" : "not authed",
+					label: u.authed
+						? t("oper.investigate.card.factAuthed")
+						: t("oper.investigate.card.factNotAuthed"),
 				});
 			}
 
 			if (u.realname) {
-				out.push({key: "realname", value: u.realname, label: `realname '${u.realname}'`});
+				out.push({
+					key: "realname",
+					value: u.realname,
+					label: t("oper.investigate.card.factRealname", {realname: u.realname}),
+				});
 			}
 
 			if (u.ident) {
-				out.push({key: "identShape", value: u.ident, label: `ident ${u.ident}`});
+				out.push({
+					key: "identShape",
+					value: u.ident,
+					label: t("oper.investigate.card.factIdent", {ident: u.ident}),
+				});
 			}
 
 			if (u.ip) {
@@ -1167,11 +1318,19 @@ export default defineComponent({
 			}
 
 			if (u.server) {
-				out.push({key: "server", value: u.server, label: `server ${u.server}`});
+				out.push({
+					key: "server",
+					value: u.server,
+					label: t("oper.investigate.card.factServer", {server: u.server}),
+				});
 			}
 
 			if (u.version) {
-				out.push({key: "version", value: u.version, label: `version '${u.version}'`});
+				out.push({
+					key: "version",
+					value: u.version,
+					label: t("oper.investigate.card.factVersion", {version: u.version}),
+				});
 			}
 
 			return out;
@@ -1328,8 +1487,8 @@ export default defineComponent({
 			if (client.namesEqual(nick, card.request.target) || /^[#&]/.test(nick)) {
 				say(
 					/^[#&]/.test(nick)
-						? "Compare takes a nick, not a channel."
-						: `That is ${card.request.target}: compare with someone else.`
+						? t("oper.investigate.card.compareNotChannel")
+						: t("oper.investigate.card.compareSelf", {nick: card.request.target})
 				);
 				return;
 			}
@@ -1470,6 +1629,15 @@ export default defineComponent({
 		});
 
 		return {
+			t,
+			tCount,
+			lookAlike,
+			commonTitle,
+			traceMatches,
+			fateText,
+			operBot,
+			scoreParts,
+			fromParts,
 			dialog,
 			stack,
 			top,

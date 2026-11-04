@@ -551,7 +551,7 @@ export default defineComponent({
 			}
 
 			if (props.network.status.retryReason === "offline" && retryInSeconds.value > 0) {
-				return `You're offline. Will reconnect to ${name} when the network is back.`;
+				return t("composer.offlineWaiting", {network: name});
 			}
 
 			if (throttledWait.value) {

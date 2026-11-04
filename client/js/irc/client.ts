@@ -975,11 +975,7 @@ export class IrcClient {
 				if (ev.reason === "offline") {
 					if (!this.offlineNoted) {
 						this.offlineNoted = true;
-						this.pushMessage(
-							this.lobby,
-							{text: "You're offline. Will reconnect when the network is back."},
-							true
-						);
+						this.pushMessage(this.lobby, {text: t("connect.offlineWaiting")}, true);
 					}
 
 					break;

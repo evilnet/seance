@@ -177,7 +177,7 @@ function checkIp(host: string): MaskCheck | undefined {
 	// a wildcard ends at 0 bits: refused, and `!` cannot lift that.
 	if (v6 && wild) {
 		return {
-			error: "IPv6 masks cannot use wildcards; use CIDR (e.g. 2001:db8::/32).",
+			error: t("oper.ban.check.v6Wildcard"),
 			needsForce: false,
 		};
 	}

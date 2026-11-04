@@ -321,7 +321,9 @@ export function wideReason(row: CriterionRow, rows: CriterionRow[]): string | un
 		default:
 			// Wildcards and nothing else (`*`, `?*`, spaces made `?`) match
 			// every value: a realname or version of `*` catches everyone.
-			return value !== "" && /^[*?\s]+$/.test(value) ? "matches any value" : undefined;
+			return value !== "" && /^[*?\s]+$/.test(value)
+				? t("oper.alertBuilder.wide.anyValue")
+				: undefined;
 	}
 }
 

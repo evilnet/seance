@@ -101,7 +101,7 @@ describe("whole-sentence frames keep the English", () => {
 			{command: "/join", expansion: "/join #lobby $*"},
 			"A body line can invoke another alias, and an alias named after a built-in command replaces it — /join can become /join #lobby $* without looping.",
 		],
-		["search.results.searchingIn", {channel: "#seance"}, "Searching in #seance for"],
+		["search.window.inScope", {scope: "#seance"}, "In #seance"],
 		[
 			"settings.appearance.trustedHelp",
 			{button: "Always show"},

@@ -224,7 +224,7 @@ describe("services support: the liveness check (irc/services.ts checkServices)",
 		// O3's realname is X3's, but nothing says it is a service: anyone can
 		// pick a realname, so its replies would not count (bottrust.ts).
 		expect(describeServiceCheck(result)).to.equal(
-			"ChanServ isn't online (no such nick). O3 and AuthServ are online and look like X3. O3 isn't a network service, so Seance won't trust its replies."
+			"ChanServ isn't online (no such nick). O3 and AuthServ are online and look like X3. O3 isn't a network service, so its replies won't be trusted."
 		);
 		expect(messages(client.lobby.id), "the WHOIS replies are not shown").to.have.length(0);
 	});
@@ -246,7 +246,7 @@ describe("services support: the liveness check (irc/services.ts checkServices)",
 			{role: "oper", bot: "O3", online: true, looksLikeX3: false, trusted: false},
 		]);
 		expect(describeServiceCheck(result)).to.equal(
-			"O3 is online. O3 doesn't look like X3. O3 isn't a network service, so Seance won't trust its replies."
+			"O3 is online. O3 doesn't look like X3. O3 isn't a network service, so its replies won't be trusted."
 		);
 
 		const none = await checkServices(client, {
@@ -888,7 +888,7 @@ describe("services support: only the real bot counts (irc/bottrust.ts)", functio
 		);
 		expect(await fake).to.deep.equal({
 			outcome: "refused",
-			text: "OpBot is online but isn't a network service, so Seance won't trust it.",
+			text: "OpBot is online but isn't a network service, so it won't be trusted.",
 		});
 		expect(transport.sent, "no PRIVMSG to it").to.have.length(1);
 
