@@ -23,6 +23,14 @@ function lookup(chan: number, id: number) {
 	return findMessageById(target.channel.messages, id);
 }
 
+socket.on("reply:parent", function ({chan, msgid, nick, text}) {
+	const target = store.getters.findChannel(chan);
+
+	if (target) {
+		target.channel.replyParents = {...target.channel.replyParents, [msgid]: {nick, text}};
+	}
+});
+
 socket.on("msg:react", function (data) {
 	const message = lookup(data.chan, data.id);
 

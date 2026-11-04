@@ -14,7 +14,7 @@ import {
 } from "../../client/js/irc/historysearch";
 import {pendingHistory} from "../../client/js/irc/history";
 import {nefarious} from "../../client/js/irc/profiles/nefarious";
-import {NO_FAKE_LAG} from "../../client/js/irc/fakelag";
+import {IRCU_FAKE_LAG, NO_FAKE_LAG, type FakeLagModel} from "../../client/js/irc/fakelag";
 import type {Transport} from "../../client/js/irc/types";
 import type {TransportEvent, TransportState} from "../../client/js/irc/transport";
 import {MessageType, type SharedMsg} from "../../shared/types/msg";
@@ -93,6 +93,7 @@ function payloads<T>(event: string): T[] {
 interface Options {
 	caps?: string;
 	nefarious?: boolean;
+	fakeLag?: FakeLagModel;
 }
 
 const ALL_CAPS =
@@ -112,7 +113,7 @@ function setup(opts: Options = {}): {client: IrcClient; transport: FakeTransport
 		ids: new IdAllocator(),
 		transportFactory: () => transport,
 		highlights: () => ({keywords: [], exceptions: []}),
-		fakeLag: NO_FAKE_LAG,
+		fakeLag: opts.fakeLag ?? NO_FAKE_LAG,
 	});
 
 	client.connect();
@@ -599,6 +600,137 @@ describe("historysearch", function () {
 			requestSearchContext(client, 4, "#seance", "AROUND", "m1", 21);
 			expect(transport.sent).to.deep.equal([]);
 			expect(payloads<ContextPayload>("search:context")[0].status).to.equal("unsupported");
+		});
+	});
+
+	describe("reply parents", function () {
+		const AROUND = /^@label=q\d+ CHATHISTORY AROUND #seance msgid=m1 1$/;
+
+		function ask(client: IrcClient): void {
+			socket.emit("reply:parent", {chan: client.findChannel("#seance")!.id, msgid: "m1"});
+		}
+
+		it("asks for one row and gives it to the quote, not the channel", function () {
+			const {client, transport} = setup();
+			const cursor = client.cursor;
+
+			ask(client);
+			expect(transport.sent[0]).to.match(AROUND);
+			batch(transport, "chathistory #seance", labelOf(transport.sent[0]), [ROW1]);
+
+			expect(payloads("reply:parent")).to.deep.equal([
+				{
+					chan: client.findChannel("#seance")!.id,
+					msgid: "m1",
+					nick: "bob",
+					text: "the fake lag clock",
+				},
+			]);
+			expect(payloads("more")).to.have.length(0);
+			expect(payloads("msg")).to.have.length(0);
+			expect(client.cursor).to.equal(cursor);
+			expect(client.findChannel("#seance")!.idOf("m1")).to.equal(undefined);
+		});
+
+		it("goes ahead of the queued background work", function () {
+			const {client} = setup({fakeLag: IRCU_FAKE_LAG});
+
+			for (let i = 0; i < 10; i++) {
+				client.send("PING :busy");
+			}
+
+			client.background.add({key: "catchup", cost: 2000, run: () => undefined});
+			ask(client);
+			expect(client.background.keys()[0]).to.match(/^parent:/);
+		});
+
+		it("can ask again when a page brought the row first and it was trimmed", function () {
+			const {client, transport} = setup({fakeLag: IRCU_FAKE_LAG});
+			const chan = client.findChannel("#seance")!;
+
+			for (let i = 0; i < 10; i++) {
+				client.send("PING :busy");
+			}
+
+			ask(client);
+			const key = client.background.keys()[0];
+			transport.line(ROW1);
+			client.background.take(key)!.run();
+			chan.forget([chan.idOf("m1")!]);
+			ask(client);
+			expect(client.background.keys()).to.deep.equal([key]);
+		});
+
+		it("does not ask for a message the channel holds", function () {
+			const {client, transport} = setup();
+
+			transport.line(ROW1);
+			transport.sent.length = 0;
+			ask(client);
+			expect(transport.sent).to.deep.equal([]);
+		});
+
+		it("takes only the row it asked for", function () {
+			const {client, transport} = setup();
+
+			ask(client);
+			batch(transport, "chathistory #seance", labelOf(transport.sent[0]), [ROW2]);
+			expect(payloads("reply:parent")).to.have.length(0);
+		});
+
+		it("takes the server's no for this connection", function () {
+			const {client, transport} = setup();
+
+			ask(client);
+			transport.line(
+				`@label=${labelOf(
+					transport.sent[0]
+				)} :irc.test FAIL CHATHISTORY MESSAGE_ERROR AROUND #seance :Unknown message`
+			);
+			expect(payloads("search:context")).to.have.length(0);
+
+			transport.sent.length = 0;
+			ask(client);
+			expect(transport.sent).to.deep.equal([]);
+		});
+
+		it("asks once however many quotes want it", function () {
+			const {client, transport} = setup();
+
+			ask(client);
+			ask(client);
+			expect(transport.sent.filter((line) => AROUND.test(line))).to.have.length(1);
+		});
+
+		it("asks again after a timeout", function () {
+			const {client, transport} = setup();
+
+			ask(client);
+			clock.tick(SEARCH_TIMEOUT_MS);
+			transport.sent.length = 0;
+			ask(client);
+			expect(transport.sent[0]).to.match(AROUND);
+		});
+
+		it("needs labels, as context does", function () {
+			const {client, transport} = setup({
+				caps: "batch message-tags server-time draft/chathistory=100",
+			});
+
+			ask(client);
+			expect(transport.sent).to.deep.equal([]);
+		});
+
+		it("leaves the answer of a lost connection for the next one to ask", function () {
+			const {client, transport} = setup();
+
+			ask(client);
+			transport.closed();
+			expect(payloads("reply:parent")).to.have.length(0);
+			expect(pendingSearches(client)).to.have.length(0);
+
+			ask(client);
+			expect(client.background.keys()).to.have.length(1);
 		});
 	});
 
