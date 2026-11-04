@@ -33,7 +33,7 @@
 							@keyup.esc="channel.editTopic = false"
 						/>
 						<span aria-label="Save topic" class="save-topic" @click="saveTopic">
-							<span type="button" aria-label="Save topic"></span>
+							<span aria-label="Save topic"></span>
 						</span>
 					</div>
 					<span

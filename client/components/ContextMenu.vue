@@ -26,7 +26,7 @@
 			@keydown.enter.prevent="clickActiveItem"
 		>
 			<!-- TODO: type -->
-			<template v-for="(item, id) of (items as any)" :key="item.name">
+			<template v-for="(item, id) of (items as any)" :key="id">
 				<li
 					:id="`context-menu-item-${id}`"
 					:class="[
@@ -224,8 +224,13 @@ export default defineComponent({
 		};
 
 		const openInlineChannelContextMenu = (data: {channel: string; event: MouseEvent}) => {
-			const {network} = store.state.activeChannel;
-			const newItems = generateInlineChannelContextMenu(store, data.channel, network);
+			const active = store.state.activeChannel;
+
+			if (!active) {
+				return;
+			}
+
+			const newItems = generateInlineChannelContextMenu(store, data.channel, active.network);
 
 			open(data.event, newItems);
 		};
@@ -246,10 +251,15 @@ export default defineComponent({
 			// Kill… or Whois would act there. The active channel only when it
 			// is on that network; else that network's lobby.
 			const active = store.state.activeChannel;
-			const network = data.network ?? active.network;
+			const network = data.network ?? active?.network;
+
+			if (!network) {
+				return;
+			}
+
 			const channel =
 				data.channel ??
-				(active.network.uuid === network.uuid ? active.channel : network.channels[0]);
+				(active?.network.uuid === network.uuid ? active.channel : network.channels[0]);
 
 			const newItems = generateUserContextMenu(
 				store,

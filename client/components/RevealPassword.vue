@@ -3,7 +3,6 @@
 		<slot :is-visible="isVisible" />
 		<span
 			ref="revealButton"
-			type="button"
 			:class="[
 				'reveal-password tooltipped tooltipped-n tooltipped-no-delay',
 				{'reveal-password-visible': isVisible},

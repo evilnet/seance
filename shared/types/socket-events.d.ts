@@ -193,7 +193,13 @@ interface ServerToClientEvents {
 	/** The notice log of `network` (oldest first), for the oper panel's Notices tab. */
 	"oper:notices": EventHandler<{
 		network: string;
-		entries: {time: number; type: string; text: string; from?: string; snotice: SnoticeInfo}[];
+		entries: {
+			time: number;
+			type: "snotice" | "wallops" | "snoop" | "audit";
+			text: string;
+			from?: string;
+			snotice: SnoticeInfo;
+		}[];
 	}>;
 	/**
 	 * The answer to a `services:check` (irc/services.ts `checkServices`):
@@ -204,7 +210,7 @@ interface ServerToClientEvents {
 		network: string;
 		id: string;
 		results: {
-			role: string;
+			role: "oper" | "account" | "channel";
 			bot: string;
 			online: boolean;
 			looksLikeX3: boolean;
