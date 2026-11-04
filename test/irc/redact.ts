@@ -166,8 +166,9 @@ describe("Message deletion (REDACT, handlers/redact.ts)", function () {
 				{label}
 			);
 
-			const [more] =
-				h.payloads<{messages: {id: number; msgid?: string; text?: string}[]}>("more");
+			const [more] = h.payloads<{messages: {id: number; msgid?: string; text?: string}[]}>(
+				"more"
+			);
 			expect(more.messages.map((m) => m.msgid)).to.deep.equal(["h1"]);
 			const [payload, ...rest] = h.payloads<RedactPayload>("msg:redact");
 			expect(rest).to.have.length(0);

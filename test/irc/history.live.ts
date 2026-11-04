@@ -221,8 +221,9 @@ describeLive("CHATHISTORY (live nefarious2)", function () {
 		expect(latest).to.match(/CHATHISTORY LATEST #seance \* \d+$/);
 
 		await waitFor("chathistory batch answered", () => payloads("more").length > 0, 15_000);
-		const [more] =
-			payloads<{chan: number; messages: SharedMsg[]; totalMessages: number}>("more");
+		const [more] = payloads<{chan: number; messages: SharedMsg[]; totalMessages: number}>(
+			"more"
+		);
 		expect(more.chan).to.equal(chan.id);
 		const seeded = more.messages.filter((m) => texts.includes(m.text ?? ""));
 		expect(

@@ -427,16 +427,18 @@ describe("Query log (irc/querylog.ts)", function () {
 			// The page is reloaded: a new client for the same saved network.
 			dispatch.resetHistory();
 			const second = page();
-			const network =
-				payloads<{network: {channels: {name: string; type: ChanType}[]}}>("network")[0];
+			const network = payloads<{network: {channels: {name: string; type: ChanType}[]}}>(
+				"network"
+			)[0];
 			expect(network.network.channels.map((c) => [c.name, c.type])).to.deep.include([
 				"bob",
 				ChanType.QUERY,
 			]);
 
 			const query = second.client.findChannel("bob")!;
-			const more =
-				payloads<{chan: number; messages: SharedMsg[]; moreAvailable: boolean}>("more");
+			const more = payloads<{chan: number; messages: SharedMsg[]; moreAvailable: boolean}>(
+				"more"
+			);
 			expect(more).to.have.length(1);
 			expect(more[0].chan).to.equal(query.id);
 			expect(more[0].moreAvailable).to.equal(false);

@@ -10,7 +10,7 @@
 
 export const fontSizes = ["tiny", "small", "medium", "large", "xlarge", "huge"] as const;
 
-export type FontSize = typeof fontSizes[number];
+export type FontSize = (typeof fontSizes)[number];
 
 export const defaultFontSize: FontSize = "medium";
 

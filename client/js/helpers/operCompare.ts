@@ -12,7 +12,7 @@ export const COMPARED = [
 	["lastQuitHostmask", "last quit"],
 ] as const;
 
-export type ComparedKey = typeof COMPARED[number][0];
+export type ComparedKey = (typeof COMPARED)[number][0];
 
 /** A user's value for a compared fact, lower-cased; undefined when unknown. */
 export function factOf(model: UserModel, key: ComparedKey): string | undefined {

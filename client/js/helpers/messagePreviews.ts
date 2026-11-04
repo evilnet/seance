@@ -26,7 +26,7 @@ export function attachMediaPreviews(
 	// Where the links were posted, for "always show in #chan" / "from alice"
 	// (helpers/mediaTrust.ts). Queries and the lobby have no channel scope;
 	// senders without an `account-tag` have no account scope.
-	const scope: NonNullable<typeof previews[number]["scope"]> = {};
+	const scope: NonNullable<(typeof previews)[number]["scope"]> = {};
 
 	if (channel.type === ChanType.CHANNEL) {
 		scope.channel = channelKey(network.uuid, channel.name);

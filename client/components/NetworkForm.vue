@@ -512,7 +512,7 @@ const PRESENCE_HINTS: Record<NetworkMode, string> = {
 
 /** The services roles as the form shows them, in order. */
 const SERVICE_ROLE_FIELDS: {
-	id: typeof SERVICE_ROLES[number];
+	id: (typeof SERVICE_ROLES)[number];
 	label: string;
 	placeholder: string;
 }[] = [

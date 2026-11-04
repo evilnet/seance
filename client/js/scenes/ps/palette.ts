@@ -69,7 +69,7 @@ export const STOPS: readonly Stop[] = [
 
 /** The land's colours: the season moves these (and only these) away from midsummer green. */
 export const LAND = ["far", "hill2", "hill1", "grass", "blade", "mount"] as const;
-export type Land = typeof LAND[number];
+export type Land = (typeof LAND)[number];
 
 /** Midsummer noon: what every season is an offset from. */
 export const REF: Record<Land, string> = {

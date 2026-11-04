@@ -132,8 +132,9 @@ describeLive("WEBPUSH (live nefarious2)", function () {
 		await waitFor("registered", () => payloads("init").length > 0);
 		expect(client!.caps.hasCapability("draft/webpush"), "draft/webpush enabled").to.equal(true);
 
-		const available =
-			payloads<{network: string; vapid: string | undefined}>("webpush:available");
+		const available = payloads<{network: string; vapid: string | undefined}>(
+			"webpush:available"
+		);
 		expect(available).to.have.lengthOf(1);
 		expect(available[0].vapid, "a VAPID key is advertised").to.be.a("string").with.lengthOf(87); // urlb64 of the 65-byte uncompressed P-256 point
 
