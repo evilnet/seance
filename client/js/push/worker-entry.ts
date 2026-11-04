@@ -4,6 +4,7 @@
  * start-up and reaches everything through `self.seancePush`; keep this
  * object's shape in step with `push()` in client/service-worker.js.
  */
+import {ignoredSender} from "./ignore";
 import {CONCAT_TAG, lineIndexOf, parsePushLine} from "./line";
 import {addMessage, MERGE_KEEP, renderMergedBody} from "./merge";
 import {appUrlFromScope, networkFromScope} from "./scope";
@@ -20,6 +21,7 @@ export const seancePush = {
 	addMessage,
 	renderMergedBody,
 	MERGE_KEEP,
+	ignoredSender,
 };
 
 (self as unknown as {seancePush: typeof seancePush}).seancePush = seancePush;

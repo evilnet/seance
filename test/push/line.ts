@@ -37,6 +37,8 @@ describe("push/line", function () {
 			expect(line).to.deep.equal({
 				tags: {msgid: "abc123", time: "2026-09-04T10:20:30.123Z", account: "alice"},
 				nick: "alice",
+				user: "u",
+				host: "h.example",
 				command: "PRIVMSG",
 				target: "bob",
 				text: "hi there",
@@ -47,10 +49,23 @@ describe("push/line", function () {
 			expect(parsePushLine(":alice!u@h notice #chan :x")).to.deep.equal({
 				tags: {},
 				nick: "alice",
+				user: "u",
+				host: "h",
 				command: "NOTICE",
 				target: "#chan",
 				text: "x",
 			});
+		});
+
+		it("takes the user and host only where the prefix has them", function () {
+			expect(parsePushLine(":irc.example MARKREAD #c timestamp=x")).to.include({
+				nick: "irc.example",
+			});
+			expect(parsePushLine(":irc.example MARKREAD #c timestamp=x")).to.not.have.any.keys(
+				"user",
+				"host"
+			);
+			expect(parsePushLine(":bob@h PRIVMSG a :x")).to.include({nick: "bob", host: "h"});
 		});
 
 		it("keeps a trailing text that starts with a colon or is empty", function () {

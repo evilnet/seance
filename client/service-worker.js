@@ -1438,6 +1438,9 @@ function push() {
 				.map((m) => (isChannel && m.from ? m.from + ": " + render(m.text) : render(m.text)))
 				.join("\n"),
 		MERGE_KEEP: MERGE_KEEP_FALLBACK,
+		// Without the chunk the ignore list is not consulted: a push from an
+		// ignored sender shows as any other until js/push.js loads.
+		ignoredSender: () => false,
 	};
 }
 
@@ -1946,9 +1949,10 @@ async function showMessage(P, parsed, checkSeen, mustShow = false, silent = fals
 		return;
 	}
 
-	// The page mirrors the reader's markdown setting and its muted
-	// conversations here (client/js/push-prefs.ts); absent means the app
-	// default (markdown on, nothing muted).
+	// The page mirrors the reader's markdown setting, its muted
+	// conversations and each network's ignore list here
+	// (client/js/push-prefs.ts); absent means the app default (markdown on,
+	// nothing muted, nobody ignored).
 	const prefs = (await idbGet("prefs")) || {};
 	const markdown = prefs.markdown !== false;
 	const muteKey = typeof replyTo === "string" ? foldName(network + "/" + replyTo) : undefined;
@@ -1981,6 +1985,30 @@ async function showMessage(P, parsed, checkSeen, mustShow = false, silent = fals
 
 			return;
 		}
+	}
+
+	// Someone on the network's ignore list (push/ignore.ts) is dropped as
+	// the page drops them, and the same way as a push the page took: under
+	// WebKit a quiet notification still shows (it counts one that does
+	// not), on Chrome what keeps the visible count (keepChromeCount). Never
+	// the message's text.
+	const ignoredHere =
+		prefs.ignored && typeof prefs.ignored === "object" ? prefs.ignored[network] : undefined;
+
+	if (
+		checkSeen &&
+		typeof P.ignoredSender === "function" &&
+		P.ignoredSender(ignoredHere, parsed.nick, parsed.user, parsed.host)
+	) {
+		void logPush("dropped as ignored " + tag);
+
+		if (mustShow) {
+			await showQuiet(tag, replyTo, network);
+		} else {
+			await keepChromeCount(replyTo, tag);
+		}
+
+		return;
 	}
 
 	// A conversation muted on this device alerts nothing, here as on the

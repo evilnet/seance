@@ -4,9 +4,11 @@
 // PRIVMSG/NOTICE handler. Here each network's list lives under
 // `thelounge.ignore.<networkUuid>`; `/ignore`, `/unignore` and `/ignorelist`
 // (client/js/irc/commands/) edit it and `client/js/irc/handlers/privmsg.ts`
-// drops messages from anyone it matches.
+// drops messages from anyone it matches. Each list is mirrored for the
+// service worker (push-prefs.ts), which drops their pushes too.
 
 import storage from "./localStorage";
+import {mirrorIgnoreList} from "./push-prefs";
 import {compareHostmask, Hostmask, parseHostmask} from "./irc/hostmask";
 
 export interface IgnoreEntry extends Hostmask {
@@ -55,6 +57,7 @@ export class IgnoreList {
 	constructor(networkUuid: string) {
 		this.networkUuid = networkUuid;
 		this.entries = readEntries(ignoreStorageKey(networkUuid));
+		this.mirror();
 	}
 
 	/** Entries in insertion order (do not mutate; use `add`/`remove`). */
@@ -117,9 +120,21 @@ export class IgnoreList {
 	/** Reload from storage (tests, or another tab having written it). */
 	reload(): void {
 		this.entries = readEntries(ignoreStorageKey(this.networkUuid));
+		this.mirror();
+	}
+
+	/** Hand the list to the service worker, which cannot read localStorage:
+	 * a push from someone on it shows nothing new (push-prefs.ts). */
+	private mirror(): void {
+		void mirrorIgnoreList(
+			this.networkUuid,
+			this.entries.map(({nick, ident, hostname}) => ({nick, ident, hostname}))
+		);
 	}
 
 	private save(): void {
+		this.mirror();
+
 		const key = ignoreStorageKey(this.networkUuid);
 
 		if (this.entries.length === 0) {
