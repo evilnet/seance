@@ -1,7 +1,7 @@
 {
   "all": true,
   "include": ["client/**", "shared/**"],
-  "exclude": ["client/**/*.d.ts", "client/themes/**", "client/css/**", "client/locales/**"],
+  "exclude": ["**/*.d.ts", "client/themes/**", "client/css/**", "client/locales/**"],
   "extension": [".ts", ".mts", ".js", ".mjs"],
   "temp-directory": "./node_modules/.cache/c8",
   "reporter": ["lcov", "text-summary"]
