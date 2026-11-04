@@ -415,11 +415,12 @@ function account(name: string): ServiceLookup<ServiceAccountInfo> {
 /** `<mask> (issued <interval> by <issuer>, expires <interval|never>): <reason>` */
 const BAN_LINE = /^(\S+) \(issued (.+?) by (\S+), expires (.+?)\): (.*)$/;
 
-function bansCovering(host: string): ServiceLookup<ServiceBan[]> {
+function bansCovering(mask: string): ServiceLookup<ServiceBan[]> {
 	return {
 		role: "oper",
-		// `superset`: every G-line whose mask takes this host in, not only the exact one.
-		command: (bot) => `PRIVMSG ${bot} :gtrace print host superset ${host}`,
+		// `superset`: every G-line whose mask takes this in, not only the exact
+		// one. X3 refuses a bare host (`is_gline` wants the `@`).
+		command: (bot) => `PRIVMSG ${bot} :gtrace print host superset ${mask}`,
 		accept(text) {
 			if (/^The following glines were found:$/.test(text)) {
 				return "start";
@@ -429,18 +430,24 @@ function bansCovering(host: string): ServiceLookup<ServiceBan[]> {
 				return "end";
 			}
 
-			if (/^-+Found\s+\d+ Matches?-+$/.test(text)) {
+			// The footer has two wordings in X3's message tables.
+			if (/^-+Found\s+\d+ Matches?-+$|^Found \d+ matches?\.$/.test(text)) {
 				return "end";
 			}
 
-			if (/is an invalid|requires more parameters|is not a valid|Invalid regex/.test(text)) {
-				return "end";
+			// First: a ban's reason is free text, and may read like the complaints below.
+			if (BAN_LINE.test(text)) {
+				return "take";
 			}
 
-			return BAN_LINE.test(text) ? "take" : "skip";
+			return /^Invalid G-line '.*'\.$|is an invalid search criteria\.|requires more parameters\./.test(
+				text
+			)
+				? "end"
+				: "skip";
 		},
 		parse(lines) {
-			// A complaint about the host is no answer; "no bans" would be a claim.
+			// A complaint about the mask is no answer; "no bans" would be a claim.
 			if (!/^(?:The following glines were found:|Nothing matched)/.test(lines[0] ?? "")) {
 				return undefined;
 			}
@@ -536,7 +543,7 @@ export const x3Lookups: ServicesLookups = {
 	registration: (chan) => refusable(registration(chan)),
 	user: (nick) => refusable(user(nick)),
 	account: (name) => refusable(account(name)),
-	bansCovering: (host) => refusable(bansCovering(host)),
+	bansCovering: (mask) => refusable(bansCovering(mask)),
 	traceCount: (criteria) => refusable(traceCount(criteria)),
 	criterion,
 	...x3Alerts,

@@ -1337,14 +1337,14 @@ export class Investigation {
 			return;
 		}
 
-		const host = this.userModel.user.host;
+		const {host, ident} = this.userModel.user;
 
 		if (!host) {
 			return; // tried again from derive() once a host is known
 		}
 
 		this.gtraceAsked = true;
-		this.serviceTask("gtrace", lookups.bansCovering(host), (bans) => {
+		this.serviceTask("gtrace", lookups.bansCovering(`${ident || "*"}@${host}`), (bans) => {
 			if (bans) {
 				this.userModel.serviceBans = bans;
 			}

@@ -41,7 +41,7 @@ nothing.
   says `+[git:<describe>]`). `/msg <bot> VERSION`: `$bX3 2.0+[release]$b (Based on srvx 1.3.x), Built: …`. `/VERSION <services server>` gives 351
   `x3 2.0+[release] <server>`.
 - A non-oper messaging O3: `$bO3$b is a privileged service.`
-- Other refusals before a command runs (modcmd.c, main-common.c): `$b<cmd>$b is a privileged command.`, `$b<cmd>$b is a disabled command.`, `You must first authenticate with $b<bot>$b.`, `Your $b<O3>$b access has been suspended.`, `You lack access to <#chan>.`, `You lack sufficient access in <#chan> to use this command.`, `You must be in <#chan> (or on its userlist) to use this command.`, `You must have security override (helping mode) on to use this command.` Any lookup can get one as its whole answer (`irc/services/x3/refusals.ts`).
+- Other refusals before a command runs (modcmd.c, main-common.c): `$b<cmd>$b is a privileged command.`, `$b<cmd>$b is a disabled command.`, `You must first authenticate with $b<bot>$b.`, `$b<word>$b is an unknown command.`, `Your $b<O3>$b access has been suspended.`, `Your account has been suspended.`, `You lack access to <#chan>.`, `You lack sufficient access in <#chan> to use this command.`, `You must be in <#chan> (or on its userlist) to use this command.`, `You must have security override (helping mode) on to use this command.` A command's name can be two words (`STATS ALERTS`). Any lookup can get one as its whole answer (`irc/services/x3/refusals.ts`).
 
 ## 3. The snoop feed (mod-snoop)
 
@@ -213,7 +213,7 @@ No match: `Nothing matched the criteria of your search.` Default reasons:
 - `STATS GLINES [mask]`: `There are <n> glines active on the network.` or
   `<mask> (issued <interval> by <issuer>, expires <interval|never>): <reason>`
   or `$b<m>$b is not a known G-line.` `STATS SHUNS` likewise.
-- `GTRACE <print|count|ungline> <criteria>` with `mask|host [exact|subset| superset] <m>`, `limit`, `reason`, `issuer`, `after`, `before`: `The following glines were found:`, lines as STATS, footer `-----------Found $b%3u$b Matches------------`.
+- `GTRACE <print|count|ungline> <criteria>` with `mask|host [exact|subset| superset] <m>`, `limit`, `reason`, `issuer`, `after`, `before`: `The following glines were found:`, lines as STATS, footer `-----------Found $b%3u$b Matches------------`. `<m>` must be `user@host` or a channel (`is_gline`); a bare host gets `Invalid G-line '<m>'.`
 - Automatic clone G-lines: issuer O3, `*@<ip>`, `clone_gline_duration`,
   reason `Excessive connections from a single host.`, sent silent.
 

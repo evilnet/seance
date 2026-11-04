@@ -835,7 +835,7 @@ describe("the user investigation (irc/investigate.ts)", function () {
 		clock.tick(PACE_MS);
 		await flush();
 		lane = transport.sent.map(commandOf).filter((l) => l.startsWith("PRIVMSG"));
-		expect(lane[2]).to.equal("PRIVMSG O3 :gtrace print host superset host.example.org");
+		expect(lane[2]).to.equal("PRIVMSG O3 :gtrace print host superset alice@host.example.org");
 		notice(transport, "O3", [
 			"The following glines were found:",
 			"*@*.example.org (issued 3 days by rubin, expires 4 days): the lot",
@@ -866,7 +866,7 @@ describe("the user investigation (irc/investigate.ts)", function () {
 		clock.tick(PACE_MS);
 		await flush();
 		expect(transport.sent.map(commandOf)).to.include(
-			"PRIVMSG O3 :gtrace print host superset c.example.net"
+			"PRIVMSG O3 :gtrace print host superset c@c.example.net"
 		);
 		inv.stop();
 	});
@@ -989,7 +989,7 @@ describe("a bot's answer stays out of the windows (irc/services.ts, services/x3)
 	const LOOKUPS: [string, string, ServiceLookup<unknown>][] = [
 		["whois", "O3", x3Lookups.user("bot1")],
 		["chaninfo", "O3", x3Lookups.channel("#seance")],
-		["gtrace", "O3", x3Lookups.bansCovering("h")],
+		["gtrace", "O3", x3Lookups.bansCovering("u@h")],
 		["trace count", "O3", x3Lookups.traceCount("nick x")],
 		["stats alerts", "O3", x3Lookups.alerts()],
 		["info", "ChanServ", x3Lookups.registration("#seance")],
@@ -999,6 +999,9 @@ describe("a bot's answer stays out of the windows (irc/services.ts, services/x3)
 		"O3 is a privileged service.",
 		"whois is a privileged command.",
 		"whois is a disabled command.",
+		"STATS ALERTS is a disabled command.",
+		"whois is an unknown command.",
+		"Your account has been suspended.",
 		"Access denied.",
 		"You must first authenticate with AuthServ.",
 		"Your O3 access has been suspended.",
@@ -1019,17 +1022,51 @@ describe("a bot's answer stays out of the windows (irc/services.ts, services/x3)
 		});
 	}
 
-	it("gtrace: a complaint about the host is no answer, not 'no bans'", async function () {
-		const answer = await ask(x3Lookups.bansCovering("h h"), "O3", [
-			"h is an invalid IRC hostmask.",
-		]);
+	it("a realname that reads like a refusal does not end a whois", async function () {
+		const lines = o3Whois("bot1", "r1234", "h", "203.0.113.1").map((line) =>
+			line.startsWith("Info") ? "Info         : whois is a disabled command." : line
+		);
+		const {value} = await ask(x3Lookups.user("bot1"), "O3", lines);
+
+		expect(shown()).to.deep.equal([]);
+		expect(value?.server).to.equal("leaf2.example.org");
+	});
+
+	it("gtrace: X3 takes the mask it is asked with, ident and all", function () {
+		expect(x3Lookups.bansCovering("u@h").command("O3")).to.equal(
+			"PRIVMSG O3 :gtrace print host superset u@h"
+		);
+	});
+
+	it("gtrace: X3's complaint about the mask is no answer, not 'no bans'", async function () {
+		const answer = await ask(x3Lookups.bansCovering("h"), "O3", ["Invalid G-line 'h'."]);
 
 		expect(answer).to.deep.equal({kind: "reply", value: undefined});
 		expect(shown()).to.deep.equal([]);
 	});
 
+	it("gtrace: a reason that reads like a complaint does not end the list", async function () {
+		const {value} = await ask(x3Lookups.bansCovering("u@h"), "O3", [
+			"The following glines were found:",
+			"*@1.2.3.4 (issued 2 days by opr, expires never): this is not a valid nick",
+			"*@5.6.7.8 (issued 1 day by opr, expires never): this is an invalid client",
+			"*@9.9.9.9 (issued 1 hour by opr, expires never): spam",
+			"-----------Found   3 Matches------------",
+		]);
+
+		expect(shown()).to.deep.equal([]);
+		expect(value).to.have.length(3);
+	});
+
+	it("gtrace: either wording of the footer ends the list at once", function () {
+		const lookup = x3Lookups.bansCovering("u@h");
+
+		expect(lookup.accept("-----------Found   3 Matches------------")).to.equal("end");
+		expect(lookup.accept("Found 3 matches.")).to.equal("end");
+	});
+
 	it("gtrace: no match is still an empty list", async function () {
-		const answer = await ask(x3Lookups.bansCovering("h"), "O3", [
+		const answer = await ask(x3Lookups.bansCovering("u@h"), "O3", [
 			"Nothing matched the criteria of your search.",
 		]);
 

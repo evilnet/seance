@@ -180,7 +180,7 @@ export interface ServicesLookups {
 	user(nick: string): ServiceLookup<ServiceUserInfo>;
 	account(account: string): ServiceLookup<ServiceAccountInfo>;
 	/** The bans whose mask covers `host` (a `*@host` or `ident@host` subset search). */
-	bansCovering(host: string): ServiceLookup<ServiceBan[]>;
+	bansCovering(mask: string): ServiceLookup<ServiceBan[]>;
 	/** How many users match the alert criteria right now. */
 	traceCount(criteria: string): ServiceLookup<number>;
 	/** The `ADDALERT`/`TRACE` criterion for a shared fact, when the package has one. */

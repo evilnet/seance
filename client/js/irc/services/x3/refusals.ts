@@ -6,10 +6,14 @@
 export const REFUSED = new RegExp(
 	"^(?:" +
 		[
-			String.raw`\S+ is a (?:privileged service|privileged command|disabled command)\.`,
+			// A command's name can be two words (`STATS ALERTS`). No colon, or a
+			// realname or topic ending in these words would pass for a refusal.
+			String.raw`[^:]+ is a (?:privileged service|privileged command|disabled command)\.`,
+			String.raw`\S+ is an unknown command\.`,
 			String.raw`Access denied\.`,
 			String.raw`You must first authenticate with \S+\.`,
 			String.raw`Your \S+ access has been suspended\.`,
+			String.raw`Your account has been suspended\.`,
 			String.raw`You lack access to \S+\.`,
 			String.raw`You lack sufficient access in \S+ to use this command\.`,
 			String.raw`You must be in \S+ \(or on its userlist\) to use this command\.`,
