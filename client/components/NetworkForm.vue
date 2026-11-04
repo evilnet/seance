@@ -593,7 +593,9 @@ export default defineComponent({
 					: liveNetwork.value?.presence?.mode ?? presenceModeOf(props.defaults),
 			set(mode) {
 				presenceTouched.value = true;
-				props.defaults.presenceMode = mode === "global" ? undefined : mode;
+				// "global" itself, not undefined: fromForm skips undefined and keeps the
+				// stored mode, normalize drops "global".
+				props.defaults.presenceMode = mode as SavedNetwork["presenceMode"];
 			},
 		});
 		// Same as global names what the global mode is now.

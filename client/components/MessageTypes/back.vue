@@ -2,7 +2,7 @@
 	<span class="content">
 		<ParsedMessage v-if="message.self" :network="network" :message="message" />
 		<template v-else>
-			<Username :user="message.from" />
+			<Username :user="message.from!" />
 			is back
 		</template>
 	</span>
@@ -10,7 +10,7 @@
 
 <script lang="ts">
 import {defineComponent, PropType} from "vue";
-import {ClientNetwork, MessageFrom} from "../../js/types";
+import {ClientNetwork, ClientMessage} from "../../js/types";
 import ParsedMessage from "../ParsedMessage.vue";
 import Username from "../Username.vue";
 
@@ -26,7 +26,7 @@ export default defineComponent({
 			required: true,
 		},
 		message: {
-			type: Object as PropType<MessageFrom>,
+			type: Object as PropType<ClientMessage>,
 			required: true,
 		},
 	},
