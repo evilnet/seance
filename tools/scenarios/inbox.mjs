@@ -263,6 +263,13 @@ export default async function run(page) {
 		`the nick is marked in each row, nothing else (${marked})`,
 		marked.length === 3 && marked.every((text) => text === NICK)
 	);
+	// Chrome paints either way; WebKit paints nothing on text directly in a line clamp.
+	await page.check(
+		"no mark sits directly in the row's line clamp",
+		await page.evaluate(
+			`[...CSS.highlights.get("mention")].every((r) => getComputedStyle(r.startContainer.parentElement).display !== "-webkit-box")`
+		)
+	);
 	const senders = await page.evaluate(
 		`Array.from(document.querySelectorAll(".mentions-entry .from")).map((e) => e.textContent.trim()).join()`
 	);
@@ -524,6 +531,15 @@ export default async function run(page) {
 				`document.querySelector("${POPUP}").contains(document.activeElement)`
 			)
 		);
+		await page.evaluate(`document.documentElement.setAttribute("data-font-size", "huge")`);
+		await page.sleep(200);
+		await page.check(
+			"at the largest text the pane is no wider than the screen",
+			await page.evaluate(
+				`document.querySelector("${POPUP}").getBoundingClientRect().right <= innerWidth`
+			)
+		);
+		await page.evaluate(`document.documentElement.removeAttribute("data-font-size")`);
 		await key(page, "Escape", "Escape", 27);
 	} else {
 		// Held Enter on a row: it opens the conversation, and its repeats land in

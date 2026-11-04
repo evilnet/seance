@@ -129,14 +129,18 @@
 							></button>
 						</div>
 						<div class="content" dir="auto">
-							<template v-if="!group.network">{{
-								cleanIrcMessage(message.text)
-							}}</template>
-							<ParsedMessage
-								v-else
-								:message="(message as any)"
-								:network="group.network"
-							/>
+							<!-- In a box of its own: WebKit paints no ::highlight on text
+							     directly inside a line clamp. -->
+							<div>
+								<template v-if="!group.network">{{
+									cleanIrcMessage(message.text)
+								}}</template>
+								<ParsedMessage
+									v-else
+									:message="(message as any)"
+									:network="group.network"
+								/>
+							</div>
 						</div>
 					</div>
 				</section>
@@ -179,6 +183,7 @@
 	position: absolute;
 	box-sizing: border-box;
 	width: min(26rem, calc(100vw - 1rem));
+	min-width: min(12rem, 100vw);
 	/* Under the @ button (--mentions-right/-top, set on open), kept on screen. */
 	right: clamp(
 		0.5rem,
