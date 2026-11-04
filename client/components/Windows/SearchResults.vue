@@ -1252,7 +1252,7 @@ export default defineComponent({
 		});
 		const selectedLoaded = computed(() => loadedTwin.value !== undefined);
 
-		const openInChannel = async () => {
+		const openInChannel = () => {
 			const chat = selectedChannel.value;
 			const twin = loadedTwin.value;
 
@@ -1260,12 +1260,11 @@ export default defineComponent({
 				return;
 			}
 
-			switchToChannel(chat);
-
 			if (twin) {
-				await nextTick();
-				document.getElementById(`msg-${twin.id}`)?.scrollIntoView({block: "center"});
+				store.commit("jumpTarget", {chanId: chat.id, id: twin.id});
 			}
+
+			switchToChannel(chat);
 		};
 
 		const closeSearch = () => {

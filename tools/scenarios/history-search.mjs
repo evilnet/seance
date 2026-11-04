@@ -358,6 +358,12 @@ export default async function run(page) {
 	});
 	await page.sleep(400);
 	page.check(
+		"7. the channel opens at the hit",
+		await page.evaluate(
+			`Array.from(document.querySelectorAll("#chat .msg")).some((m) => m.getAnimations().length > 0)`
+		)
+	);
+	page.check(
 		"7. back in the channel with the same lines, no search row added",
 		(await count(page, "#chat .msg[data-type='message']")) === chatLines
 	);

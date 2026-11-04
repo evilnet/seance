@@ -94,8 +94,8 @@
 							{'mentions-entry-openable': group.conversation},
 						]"
 						tabindex="0"
-						@click="openFromRow($event, group)"
-						@keydown.enter.self.prevent="openGroup(group)"
+						@click="openFromRow($event, group, message)"
+						@keydown.enter.self.prevent="openGroup(group, message)"
 						@keydown.delete.prevent="dismissRow($event, group, message)"
 					>
 						<div class="mentions-info">
@@ -769,20 +769,32 @@ export default defineComponent({
 			refocus(() => next);
 		};
 
-		// Opening it reads it, and reading it clears its mentions (inbox:read).
+		// Opening it reads it, and reading it clears its mentions (inbox:read);
+		// it opens at the mention (MessageList.vue's jump): the one clicked,
+		// or the header's oldest.
 		// A group without a conversation says why in its head.
-		const openGroup = (group: GroupWithContext) => {
+		const openGroup = (group: GroupWithContext, entry = group.entries[0]) => {
 			if (!group.conversation) {
 				return;
 			}
 
+			const channel = group.conversation.channel;
+			store.commit("jumpTarget", {
+				chanId: channel.id,
+				...(entry?.msgid ? {msgid: entry.msgid} : {}),
+				...(entry ? {time: entry.time} : {}),
+			});
 			isOpen.value = false;
-			switchToChannel(group.conversation.channel);
+			switchToChannel(channel);
 		};
 
 		// A click on the row opens the conversation; one on a link, a nick
 		// or a channel in the text, or a selection being made, does not.
-		const openFromRow = (event: MouseEvent, group: GroupWithContext) => {
+		const openFromRow = (
+			event: MouseEvent,
+			group: GroupWithContext,
+			entry: MentionWithContext
+		) => {
 			const target = event.target as HTMLElement | null;
 
 			if (target?.closest("a, button, .user, .inline-channel")) {
@@ -793,7 +805,7 @@ export default defineComponent({
 				return;
 			}
 
-			openGroup(group);
+			openGroup(group, entry);
 		};
 
 		// What is shown: a muted conversation's entries stay out of it.

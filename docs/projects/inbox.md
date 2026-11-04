@@ -73,10 +73,21 @@ lobby (a notice, say) badges no icon, since no read point clears it. The
 service worker's badge for a closed page counts its notifications, as
 before.
 
-**Opening an entry** opens its conversation, which reads it, as opening
-it from the sidebar does; it does not scroll to the mention. A group whose
-conversation this page does not have (a channel left, a network not on
-this page) cannot be opened and says why under its name.
+**Opening an entry** takes the conversation to the mention: `Mentions.vue`
+sets `store.state.jumpTarget` (the clicked entry's msgid and time; the
+header's oldest entry), and
+`MessageList.vue` scrolls it to the middle with a flash, paging back with
+the ordinary `more` request when it is older than what is loaded, up to
+three pages (each costs the server's fake lag), then the first line at or
+after its time. Those pages are the list's own `more`, so a jump shares its
+one-page-per-channel rule with the scrollback and with the fill that opening
+a channel starts, and joins that fill rather than asking again. Not
+`CHATHISTORY AROUND`: the buffer is one unbroken run and a page around the
+message would leave a gap. The logic is
+`helpers/jumpToMessage.ts` (Vue-free, `test/helpers/jumpToMessage.ts`).
+Opening still reads the conversation, as opening it from the sidebar does.
+A group whose conversation this page does not have (a channel left, a
+network not on this page) cannot be opened and says why under its name.
 
 **Excerpt.** The pane clamps an entry to three lines. A line whose mention
 starts past 60 characters (three lines hold fewer than 80 on a phone at the large text steps) is kept from a word about 30 characters before
