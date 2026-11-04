@@ -299,6 +299,9 @@ router.afterEach((to) => {
 
 		if (to.name !== "RoutedChat") {
 			store.commit("activeChannel", undefined);
+			// Nobody is reading it now: what arrives is unread, and a mention
+			// reaches the inbox. Chat.vue says "open" again on the way back.
+			socket.emit("open", 0);
 		}
 
 		// When switching out of a channel, mark everything as read
