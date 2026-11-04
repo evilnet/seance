@@ -85,9 +85,7 @@
 							'msg',
 							'mentions-entry',
 							message.type,
-							{
-								'mentions-entry-openable': group.conversation,
-							},
+							{'mentions-entry-openable': group.conversation},
 						]"
 						@click="openFromRow($event, group)"
 					>
