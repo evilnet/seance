@@ -5,6 +5,11 @@ import {IrcClient, IrcClientOptions} from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";
 import {ClientRegistry, registerBusHandlers} from "../../client/js/irc/bus";
 import * as saved from "../../client/js/irc/saved-networks";
+import {
+	loginTrusted,
+	trustLogin,
+	useStorageBackend as useTrustBackend,
+} from "../../client/js/irc/saslTrust";
 import type {SavedNetwork, StorageBackend} from "../../client/js/irc/saved-networks";
 import type {Transport} from "../../client/js/irc/types";
 import type {TransportEvent, TransportState} from "../../client/js/irc/transport";
@@ -416,6 +421,42 @@ describe("multiple networks", function () {
 			const infos = payloads<Record<string, unknown>>("network:info");
 			expect(infos).to.have.length(1);
 			expect(infos[0]).to.include({uuid: "net-a", host: "net-a.test", connected: false});
+		});
+
+		it("editing the credentials of a network with no live client forgets its login", function () {
+			useTrustBackend(backend);
+
+			try {
+				stored({sasl: "plain", saslAccount: "alice", saslPassword: "hunter2"});
+				trustLogin("net-a", "alice");
+
+				// A blank password field keeps the remembered one: nothing changed.
+				socket.emit("network:edit", {
+					uuid: "net-a",
+					host: "net-a.test",
+					port: "8443",
+					nick: "alice",
+					sasl: "plain",
+					saslAccount: "alice",
+					saslPassword: "",
+					rememberPassword: "on",
+				});
+				expect(loginTrusted("net-a", "alice")).to.equal(true);
+
+				socket.emit("network:edit", {
+					uuid: "net-a",
+					host: "net-a.test",
+					port: "8443",
+					nick: "alice",
+					sasl: "plain",
+					saslAccount: "alice",
+					saslPassword: "hunter3",
+					rememberPassword: "on",
+				});
+				expect(loginTrusted("net-a", "alice")).to.equal(false);
+			} finally {
+				useTrustBackend(null);
+			}
 		});
 
 		it("network:edit saves, sends NICK when connected and renames live", function () {

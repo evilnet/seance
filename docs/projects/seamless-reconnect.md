@@ -572,3 +572,52 @@ background would be the Tauri shell's to give.
 
 Tests: `test/irc/client-sasl.ts` "the server could not check the
 login", `test/irc/sasl.ts` "isServerSideFailure".
+
+### The review's follow-ups (2026-11-04)
+
+rdrake checked the server claims against nefarious2 `ce441a0` (they
+hold) and simulated the client against a server modelled from it. What
+changed on his findings:
+
+- **A Keycloak outage could still end the network.** Keycloak down is a
+  bare 904 at every attempt, and nefarious2 withdraws `sasl` and offers
+  it again (its health timer reports success from a cached admin token
+  without contacting Keycloak), so the trusted retries ran out inside
+  the outage — at 155–177 s in his simulation — and the final refusal
+  forgot the login and turned autoconnect off: the very cold start the
+  round set out to fix. A trusted login that runs out of retries now
+  stays down for this connection but keeps the login and the
+  autoconnect, says so (`SASL_TRUSTED_GAVE_UP_HINT`), and the next
+  connect — the user's, or a page load's — gets the retries again. The
+  root fix is the server's: a `904 … service unavailable` for a
+  connectivity failure (which the client already retries) and a health
+  check that reaches Keycloak; on the roadmap, not soon.
+- **False "not connected" errors on a retry.** `saslFailed` abandons the
+  socket from inside the negotiator's `beforeEnd`; the negotiator then
+  handed `handlers/cap.ts` its `CAP END` flush, and every line of it was
+  reported as sent while disconnected (a third of the lobby lines in an
+  hour-long outage). `client.socketOpen` gates the flush, `finalLines`
+  and `registrationAwayLine`; `startSasl`'s missing-cap branch clears
+  `saslOk`; `expectRetried` pins the exact error list.
+- **Trust lived on where no client did.** `forgetLogin` ran only through
+  a live client's `applySettings` and the bus `remove`, so a password
+  edited in Settings for a network that was not connected, a password
+  typed on the connect form, a restored backup and the Networks page's
+  Delete all kept the trust. Now: the bus `network:edit` handler forgets
+  it when the credentials differ from the saved ones, `rememberNetwork`
+  when the connect form's differ (`typedCredentialsDiffer` — a password
+  the entry does not remember starts untrusted at each sign-in, the
+  choice he left open: the user is at the keyboard for that one, and the
+  retries are for the logins nobody watches), `saved-networks.ts`
+  `remove` beside the other forgets, and a restore clears the key
+  (`CLEARED_ON_RESTORE`).
+- Minor: `applyPendingOptions` forgets credentials edited while the old
+  login ran and succeeded; a user's disconnect during a retryable 904
+  ends with the report (no retry line, no `closeExplained` left behind
+  to swallow the next real drop's report); the comment on
+  `SASL_TRUSTED_RETRIES` says minutes, not seconds (nefarious2's IPcheck
+  spaces the connections about a minute apart).
+
+Still to do on a device and a live rig, which the review asked for
+before the PR leaves draft: Keycloak stopped, services stopped, and the
+original report on a phone.

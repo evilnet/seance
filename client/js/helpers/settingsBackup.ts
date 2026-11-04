@@ -52,6 +52,14 @@ export const BACKUP_PREFIXES: readonly string[] = [
 	"thelounge.script_storage.",
 ];
 
+/**
+ * Keys a restore clears although no file carries them: what this device
+ * learnt about the networks the file replaces. The SASL logins that worked
+ * (irc/saslTrust.ts) are keyed by network uuid, and a restored entry with
+ * the same uuid may carry other credentials.
+ */
+export const CLEARED_ON_RESTORE: readonly string[] = ["thelounge.state.saslOk"];
+
 export interface SettingsBackup {
 	format: typeof FORMAT;
 	version: number;
@@ -289,6 +297,10 @@ export function applyBackup(
 		if (!written.includes(key)) {
 			backend.remove(key);
 		}
+	}
+
+	for (const key of CLEARED_ON_RESTORE) {
+		backend.remove(key);
 	}
 }
 
