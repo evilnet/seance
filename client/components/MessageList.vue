@@ -764,6 +764,11 @@ export default defineComponent({
 		onUnmounted(() => {
 			unwatchSelection();
 
+			// Left for a page with no list (Settings, Search): not resumed on return.
+			if (store.state.jumpTarget?.chanId === props.channel.id) {
+				store.commit("jumpTarget", null);
+			}
+
 			if (verifyTimer !== null) {
 				clearTimeout(verifyTimer);
 			}
