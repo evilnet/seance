@@ -67,6 +67,17 @@ export class IgnoreList {
 		return this.entries.some((entry) => compareHostmask(entry, mask));
 	}
 
+	/**
+	 * Whether `/unignore <nick>` would take an entry off the list: one
+	 * naming this nick with any ident and host. A user caught only by a mask
+	 * on their host (`*!*@host`) is not, since removing that needs the mask.
+	 * The nick menus offer Unignore on this, so it runs exactly the command
+	 * that works.
+	 */
+	ignoresNick(nick: string): boolean {
+		return this.isIgnored(parseHostmask(nick));
+	}
+
 	/** Whether messages from `nick!user@host` should be dropped. */
 	matches(nick: string, user = "", host = ""): boolean {
 		return this.isIgnored({nick, ident: user, hostname: host});

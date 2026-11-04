@@ -8,6 +8,7 @@ import {TypedStore} from "../store";
 import useCloseChannel from "../hooks/use-close-channel";
 import {ChanType} from "../../../shared/types/chan";
 import {isOperOn, operChannelItems, operUserItems} from "./operMenu";
+import {ignoreListFor} from "../ignore";
 
 type BaseContextMenuItem = {
 	label: string;
@@ -181,17 +182,7 @@ export function generateChannelContextMenu(
 					});
 				},
 			},
-			{
-				label: "Ignore user",
-				type: "item",
-				class: "action-ignore",
-				action() {
-					socket.emit("input", {
-						target: channel.id,
-						text: "/ignore " + channel.name,
-					});
-				},
-			}
+			ignoreItem(network, channel, channel.name)
 		);
 	}
 
@@ -303,6 +294,24 @@ export function generateInlineChannelContextMenu(
 	];
 }
 
+/** Ignore, or Unignore for a nick already on the network's ignore list
+ * (`IgnoreList.ignoresNick`: the entries `/unignore <nick>` removes). */
+function ignoreItem(network: ClientNetwork, channel: ClientChan, nick: string): ContextMenuItem {
+	const ignored = ignoreListFor(network.uuid).ignoresNick(nick);
+
+	return {
+		label: ignored ? "Unignore user" : "Ignore user",
+		type: "item",
+		class: ignored ? "action-unignore" : "action-ignore",
+		action() {
+			socket.emit("input", {
+				target: channel.id,
+				text: (ignored ? "/unignore " : "/ignore ") + nick,
+			});
+		},
+	};
+}
+
 export function generateUserContextMenu(
 	store: TypedStore,
 	channel: ClientChan,
@@ -342,17 +351,7 @@ export function generateUserContextMenu(
 			class: "action-whois",
 			action: whois,
 		},
-		{
-			label: "Ignore user",
-			type: "item",
-			class: "action-ignore",
-			action() {
-				socket.emit("input", {
-					target: channel.id,
-					text: "/ignore " + user.nick,
-				});
-			},
-		},
+		ignoreItem(network, channel, user.nick),
 		{
 			label: "Direct messages",
 			type: "item",
