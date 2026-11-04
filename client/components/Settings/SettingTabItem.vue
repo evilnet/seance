@@ -6,7 +6,6 @@
 				:aria-label="name"
 				:title="name"
 				@click="navigate"
-				@keypress.enter="navigate"
 			>
 				<span class="tab-label">{{ name }}</span>
 			</button>

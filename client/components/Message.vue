@@ -212,10 +212,6 @@ import {isTouchInput} from "../js/helpers/inputModality";
 import {selectionActive} from "../js/helpers/touchSelection";
 import {nudge} from "../js/helpers/haptics";
 
-MessageTypes.ParsedMessage = ParsedMessage;
-MessageTypes.LinkPreview = LinkPreview;
-MessageTypes.Username = Username;
-
 /**
  * The id of the one message showing its long-press-opened action toolbar.
  * Shared by every Message so opening one closes the last; ids are unique
@@ -259,6 +255,9 @@ export default defineComponent({
 	name: "Message",
 	components: {
 		...MessageTypes,
+		ParsedMessage,
+		LinkPreview,
+		Username,
 		StatusmsgMarker,
 		MessageActions,
 		MessageReactions,
