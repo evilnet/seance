@@ -91,7 +91,15 @@
 					>
 						<div class="mentions-info">
 							<span class="from" @click.stop>
-								<Username :user="(message.from as any)" />
+								<!-- A stored entry whose network is gone: plain text, since
+								     its menus could only act on another network. -->
+								<span v-if="!group.network">{{ message.from.nick }}</span>
+								<Username
+									v-else
+									:user="(message.from as any)"
+									:network="group.network"
+									:channel="group.conversation?.channel"
+								/>
 							</span>
 							<time
 								class="time"
@@ -109,7 +117,14 @@
 							></button>
 						</div>
 						<div class="content" dir="auto">
-							<ParsedMessage :message="(message as any)" />
+							<template v-if="!group.network">{{
+								cleanIrcMessage(message.text)
+							}}</template>
+							<ParsedMessage
+								v-else
+								:message="(message as any)"
+								:network="group.network"
+							/>
 						</div>
 					</div>
 				</section>
@@ -435,6 +450,7 @@
 
 <script lang="ts">
 import Username from "./Username.vue";
+import {cleanIrcMessage} from "../../shared/irc";
 import ParsedMessage from "./ParsedMessage.vue";
 import {dismissMentions} from "../js/mentions";
 import eventbus from "../js/eventbus";
@@ -446,7 +462,7 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import {computed, defineComponent, nextTick, ref, onMounted, onUnmounted, watch} from "vue";
 import {useStore} from "../js/store";
 import type {InboxEntry} from "../../shared/types/mention";
-import type {NetChan} from "../js/types";
+import type {ClientNetwork, NetChan} from "../js/types";
 import {ChanType} from "../../shared/types/chan";
 
 type MentionWithContext = InboxEntry & {
@@ -458,6 +474,8 @@ type GroupWithContext = {
 	key: string;
 	target: string;
 	networkName: string;
+	/** Where a nick or a channel in a row belongs, whatever the page underneath. */
+	network?: ClientNetwork;
 	label: string;
 	conversation: NetChan | null;
 	/** Why a group without a conversation cannot be opened. */
@@ -518,6 +536,7 @@ export default defineComponent({
 					key: group.key,
 					target,
 					networkName,
+					network: store.getters.findNetwork(group.network) ?? undefined,
 					label: networkName ? `${target} on ${networkName}` : target,
 					conversation,
 					missing,
@@ -651,6 +670,7 @@ export default defineComponent({
 			popup,
 			placement,
 			groups,
+			cleanIrcMessage,
 			total,
 			messageTime,
 			dismissMention,

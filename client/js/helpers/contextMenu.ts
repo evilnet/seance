@@ -267,15 +267,15 @@ export function generateInlineChannelContextMenu(
 			switchToChannel(channel);
 		}
 
-		if (store.state.activeChannel) {
-			socket.emit("input", {
-				target: store.state.activeChannel.channel.id,
-				text: "/join " + chan,
-			});
-		} else {
-			// eslint-disable-next-line no-console
-			console.error("Unable to join channel: activeChannel is undefined");
-		}
+		// Sent on the network the channel was named on: the active channel
+		// when it is there, else that network's lobby.
+		const active = store.state.activeChannel;
+
+		socket.emit("input", {
+			target:
+				active?.network.uuid === network.uuid ? active.channel.id : network.channels[0].id,
+			text: "/join " + chan,
+		});
 	};
 
 	const channel = network.channels.find((c) => c.name === chan);
@@ -358,7 +358,10 @@ export function generateUserContextMenu(
 			type: "item",
 			class: "action-query",
 			action() {
-				const chan = store.getters.findChannelOnCurrentNetwork(user.nick);
+				// This menu's network: a Mentions row or an oper card can be
+				// another network's, with a query open on both.
+				const nick = user.nick.toLowerCase();
+				const chan = network.channels.find((c) => c.name.toLowerCase() === nick);
 
 				if (chan) {
 					switchToChannel(chan);
