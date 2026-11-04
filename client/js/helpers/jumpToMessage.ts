@@ -59,8 +59,10 @@ export function jumpStep(
 	}
 
 	const oldest = messages[0];
+	// A msgid not loaded can still share the oldest line's time; a time alone is reached.
+	const reached = oldest && (target.msgid ? timeOf(oldest) < time : timeOf(oldest) <= time);
 
-	if (canLoadMore && pagesAsked < MAX_JUMP_PAGES && (!oldest || timeOf(oldest) > time)) {
+	if (canLoadMore && pagesAsked < MAX_JUMP_PAGES && !reached) {
 		return {kind: "more"};
 	}
 

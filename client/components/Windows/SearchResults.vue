@@ -1280,13 +1280,13 @@ export default defineComponent({
 			switchToChannel(chat);
 		};
 
-		// The hit's line is the button's other half; a link or a nick in it is its own.
+		// The hit's line is the button's other half; a link, a nick or a spoiler in it is its own.
 		const openFromLine = (event: MouseEvent, msg: SharedMsg) => {
 			const target = event.target as HTMLElement | null;
 
 			if (
 				isSelected(msg) &&
-				!target?.closest("a, button, .user, .inline-channel") &&
+				!target?.closest("a, button, [role='button'], .user, .inline-channel") &&
 				!window.getSelection()?.toString()
 			) {
 				openInChannel();

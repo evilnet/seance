@@ -380,7 +380,7 @@ export default async function run(page) {
 	// A hit the channel has not loaded: older than a reload's first page. Its
 	// line in the pane pages back for it, as the button does.
 	const FAR = `faraway${RUN}`;
-	talker.say(OTHER, `${FAR} is the line to page back to`);
+	talker.say(OTHER, `${FAR} is the line to page back to ||spoiler||`);
 	for (let i = 0; i < 60; i++) {
 		talker.say(OTHER, `filler line ${i}`);
 	}
@@ -411,6 +411,18 @@ export default async function run(page) {
 	page.check(
 		"8. a hit not loaded offers to go to its channel",
 		(await text(page, ".search-context-foot .oper-btn-primary")) === `Go to ${OTHER}`
+	);
+	// The lines around it arrive after the hit, and replace the rows.
+	await page.waitFor(`document.querySelectorAll(".search-context-line").length > 1`, {
+		timeout: 10000,
+		label: "the lines around the far hit",
+	});
+	await page.click(".search-context-line.hit .md-spoiler");
+	await page.sleep(300);
+	page.check(
+		"8. revealing a spoiler in the hit's line stays in the results",
+		(await count(page, WINDOW)) === 1 &&
+			(await count(page, ".search-context-line.hit .md-spoiler-shown")) === 1
 	);
 	await page.click(".search-context-line.hit .search-time");
 	await page.waitFor(`!document.querySelector("${WINDOW}")`, {

@@ -20,6 +20,16 @@ describe("helpers/jumpToMessage.ts", function () {
 		expect(jumpStep([], target, true, 0)).to.deep.equal({kind: "more"});
 	});
 
+	it("keeps paging for a msgid that shares the oldest loaded message's time", function () {
+		const target = {msgid: "twin", time: at(10).toISOString()};
+		expect(jumpStep(loaded, target, true, 0)).to.deep.equal({kind: "more"});
+		expect(jumpStep(loaded, {...target, exact: true}, true, 0)).to.deep.equal({kind: "more"});
+		expect(jumpStep(loaded, {time: target.time}, true, 0)).to.deep.equal({
+			kind: "nearest",
+			id: 10,
+		});
+	});
+
 	it("lands nowhere for an exact target out of reach, and on it when it is loaded", function () {
 		const target = {msgid: "old", time: at(5).toISOString(), exact: true};
 		expect(jumpStep(loaded, target, true, 0)).to.deep.equal({kind: "more"});
