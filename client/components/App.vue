@@ -146,6 +146,9 @@ export default defineComponent({
 			if (store.state.networks.length !== 0) {
 				eventbus.emit("mentions:toggle");
 			}
+
+			// As below: without it ⌥M types µ on an Apple keyboard.
+			return false;
 		};
 
 		const toggleMarkdown = () => {
