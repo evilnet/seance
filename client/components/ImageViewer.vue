@@ -31,7 +31,6 @@
 			<img
 				ref="image"
 				:src="link.thumb"
-				referrerpolicy="no-referrer"
 				alt=""
 				:style="computeImageStyles"
 				@load="onImageLoad"

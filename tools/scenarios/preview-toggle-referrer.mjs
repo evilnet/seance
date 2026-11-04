@@ -6,12 +6,14 @@
 //
 // 1. Expanding a preview at the bottom of the channel keeps the channel at the
 //    bottom. A veil has nothing to load, so no load event does it.
-// 2. A media host never learns which site the client runs on: no Referer on
-//    video or audio, whose elements have no referrerPolicy of their own.
+// 2. A media host gets no Referer, from an image, its animation probe, video
+//    or audio. The probe is a CORS fetch, so when the HTTP cache cannot answer
+//    it, it sends Origin. The image is no-store here to put it on the wire.
 //
 // The scenario serves the media itself, which is how it sees the headers.
 
 import {execFile} from "node:child_process";
+import {readFileSync} from "node:fs";
 import {createServer} from "node:http";
 import {promisify} from "node:util";
 
@@ -24,14 +26,26 @@ const GAP = `(() => {
 	const el = ${SCROLLER};
 	return el.scrollHeight - el.scrollTop - el.clientHeight;
 })()`;
+const TYPES = {".mp4": "video/mp4", ".mp3": "audio/mpeg", ".png": "image/png"};
 
 export default async function run(page) {
-	const requests = new Map();
+	const seen = new Map();
+	const image = readFileSync("public/img/logo-art.png");
 	const media = createServer((req, res) => {
-		requests.set(req.url.split("?")[0], req.headers.referer ?? null);
-		// Empty on purpose: the request is the evidence, not the playback.
-		res.writeHead(200, {"Content-Type": req.url.includes(".mp3") ? "audio/mpeg" : "video/mp4"});
-		res.end();
+		const path = req.url.split("?")[0];
+		const entry = seen.get(path) ?? {requests: 0, referers: [], origins: []};
+		entry.requests++;
+		if (req.headers.referer) entry.referers.push(req.headers.referer);
+		if (req.headers.origin) entry.origins.push(req.headers.origin);
+		seen.set(path, entry);
+		// The video and audio stay empty: the request is the evidence. They fail
+		// to decode, which takes their elements back out.
+		res.writeHead(200, {
+			"Content-Type": TYPES[path.slice(path.lastIndexOf("."))],
+			"Access-Control-Allow-Origin": "*",
+			"Cache-Control": "no-store",
+		});
+		res.end(path.endsWith(".png") ? image : undefined);
 	});
 	await new Promise((resolve) => media.listen(MEDIA_PORT, "127.0.0.1", resolve));
 
@@ -45,16 +59,17 @@ export default async function run(page) {
 		await page.sleep(1500);
 
 		const veilsBefore = await page.count(".media-veil");
-		const run = Date.now().toString(36);
+		const stamp = Date.now().toString(36);
 		await promisify(execFile)(process.execPath, [
 			"tools/scenarios/seed-media.mjs",
 			"wss://localhost:8443/",
 			"#seance",
-			`http://127.0.0.1:${MEDIA_PORT}/clip.mp4?run=${run}`,
-			`http://127.0.0.1:${MEDIA_PORT}/song.mp3?run=${run}`,
+			`http://127.0.0.1:${MEDIA_PORT}/clip.mp4?run=${stamp}`,
+			`http://127.0.0.1:${MEDIA_PORT}/song.mp3?run=${stamp}`,
+			`http://127.0.0.1:${MEDIA_PORT}/pic.png?run=${stamp}`,
 		]);
 		await page.waitFor(
-			`document.querySelectorAll(".media-veil").length >= ${veilsBefore + 2}`,
+			`document.querySelectorAll(".media-veil").length >= ${veilsBefore + 3}`,
 			{
 				timeout: 15000,
 				label: "the seeded previews",
@@ -62,6 +77,9 @@ export default async function run(page) {
 		);
 		await page.sleep(500);
 
+		// Overflows with or without scrollback, at the viewport's real size:
+		// page.click centres its target, which in a short list leaves the bottom.
+		await page.evaluate(`${SCROLLER}.style.paddingTop = "100vh"`);
 		await page.evaluate(`${SCROLLER}.scrollTo(0, 1e9)`);
 		await page.sleep(300);
 		page.check("starts at the bottom", (await page.evaluate(GAP)) <= 1);
@@ -84,14 +102,19 @@ export default async function run(page) {
 		const veils = await page.count(".media-veil");
 		await page.click(".media-veil-main", veils - 1);
 		await page.click(".media-veil-main", veils - 2);
-		// The empty files fail to decode, which takes the elements back out.
-		await page.sleep(1500);
+		await page.click(".media-veil-main", veils - 3);
+		await page.sleep(2000);
+		await page.screenshot("2-revealed");
 
-		for (const path of ["/clip.mp4", "/song.mp3"]) {
-			page.check(`${path} was requested`, requests.has(path));
-			console.log(`  ${path} Referer: ${requests.get(path)}`);
-			page.check(`${path} sent no Referer`, requests.get(path) === null);
+		for (const path of ["/clip.mp4", "/song.mp3", "/pic.png"]) {
+			const entry = seen.get(path);
+			console.log(`  ${path}: ${JSON.stringify(entry)}`);
+			page.check(`${path} was requested`, entry?.requests > 0);
+			page.check(`${path} sent no Referer`, entry?.referers.length === 0);
 		}
+
+		page.check("the image was probed too", seen.get("/pic.png")?.requests >= 2);
+		page.check("no console errors", page.consoleErrors.length === 0);
 	} finally {
 		media.close();
 	}

@@ -50,7 +50,7 @@ describe("public folder", function () {
 		expect(manifest.short_name).to.be.a("string").that.is.not.empty;
 	});
 
-	it("index HTML sends no Referer to the hosts of chat media", function () {
+	it("index HTML carries the no-referrer meta tag", function () {
 		const html = fs.readFileSync(path.join(publicFolder, "index.html"), "utf8");
 
 		expect(html).to.include('<meta name="referrer" content="no-referrer"');
