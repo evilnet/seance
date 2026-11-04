@@ -10,8 +10,8 @@
 //
 // The page sits in #seance while a second user mentions it there and in a
 // second channel and writes to it in private; then, after a reload, the page
-// opens the channel from one of its mentions, and the private conversation
-// from its one row.
+// opens the channel at a mention that 60 later lines have pushed out of the
+// first history page, and the private conversation at its newest line.
 
 import {clickBackdrop} from "./lib/backdrop.mjs";
 
@@ -38,6 +38,7 @@ function speaker(nick) {
 	const ws = new WebSocket(IRCD, ["text.ircv3.net"]);
 	let joins = 0;
 	let onJoined = () => {};
+	let onDrained = () => {};
 
 	ws.onopen = () => {
 		ws.send(`NICK ${nick}`);
@@ -54,8 +55,10 @@ function speaker(nick) {
 
 		const params = (line.startsWith("@") ? line.slice(line.indexOf(" ") + 1) : line).split(" ");
 
-		if (params[1] === "001") {
-			ws.send("OPER seanceop seance"); // no fake lag for the filler lines
+		if (params[1] === "PONG" && line.endsWith(":drained")) {
+			onDrained();
+		} else if (params[1] === "001") {
+			ws.send("OPER seanceop seance");
 			ws.send(`JOIN ${HOME},${OTHER}`);
 		} else if (params[1] === "JOIN" && params[0].includes(nick) && ++joins === 2) {
 			onJoined();
@@ -68,6 +71,13 @@ function speaker(nick) {
 			setTimeout(() => reject(new Error(`${nick} never joined`)), 20000);
 		}),
 		say: (target, text) => ws.send(`PRIVMSG ${target} :${text}`),
+		// The server paces a sender, oper or not, and answers in order: the
+		// PONG means everything said so far has reached the channel.
+		drained: () =>
+			new Promise((resolve) => {
+				onDrained = resolve;
+				ws.send("PING :drained");
+			}),
 		quit: () => ws.send("QUIT :done"),
 	};
 }
@@ -374,7 +384,7 @@ export default async function run(page) {
 	);
 	await clickBackdrop(page, "#mentions-popup-container");
 
-	// Three private lines are one entry; then 70 lines push the mentions out
+	// Three private lines are one entry; then 60 lines push the mentions out
 	// of the first history page a reload fetches.
 	// Paced: the dev ircd drops a burst of private lines to one target.
 	for (const line of ["hey, got a minute?", "it's about the deploy", "ping me back"]) {
@@ -382,9 +392,11 @@ export default async function run(page) {
 		await page.sleep(1500);
 	}
 
-	for (let i = 1; i <= 70; i++) {
+	for (let i = 1; i <= 60; i++) {
 		talker.say(OTHER, `filler line ${i} ${RUN}`);
 	}
+
+	await talker.drained();
 
 	const inbox = String(left + 1);
 	await page.waitFor(`${badgeText} === "${inbox}"`, {
@@ -424,7 +436,14 @@ export default async function run(page) {
 	);
 	await page.screenshot("4-after-reload", {selector: POPUP, pad: 16});
 
-	// Opening an entry opens its channel.
+	// Opening an entry takes the channel to it: it is older than the first
+	// page, so the jump pages back for it.
+	const rowOf = (text) =>
+		`Array.from(document.querySelectorAll("#chat .msg")).find((m) => m.textContent.includes(${JSON.stringify(
+			text
+		)}))`;
+	const flashing = (text) => `(${rowOf(text)}?.getAnimations().length ?? 0) > 0`;
+	const mention = rowOf("what do you say");
 	await page.evaluate(
 		`Array.from(document.querySelectorAll(".mentions-entry")).find((e) => e.textContent.includes("what do you say"))?.setAttribute("data-scenario", "target")`
 	);
@@ -434,7 +453,27 @@ export default async function run(page) {
 		`document.querySelector("#chat .header .title")?.textContent.includes("${OTHER}")`,
 		{label: `${OTHER} open`}
 	);
-	await page.screenshot("5-opened", {selector: "#chat", pad: 0});
+	await page.waitFor(`!!${mention}`, {timeout: 20000, label: "the mention loaded"});
+	await page.check(
+		"it was older than the first page, so the jump asked for one",
+		page.wsFrames.some(
+			(f) => f.dir === "out" && f.payloadData?.includes(`CHATHISTORY BEFORE ${OTHER}`)
+		)
+	);
+	await page.waitFor(flashing("what do you say"), {
+		timeout: 5000,
+		label: "the mention flashing",
+	});
+	await page.check(
+		"only the mention opened flashes, not the others in the channel",
+		!(await page.evaluate(flashing("are you around?")))
+	);
+	await page.sleep(800);
+	const inView = await page.evaluate(
+		`(() => { const m = ${mention}.getBoundingClientRect(); const c = document.querySelector("#chat .chat").getBoundingClientRect(); return m.top >= c.top && m.bottom <= c.bottom; })()`
+	);
+	await page.check("the conversation opened at the mention", inView);
+	await page.screenshot("5-at-the-mention", {selector: "#chat", pad: 0});
 
 	await page.waitFor(`${badgeText} === "1"`, {timeout: 5000, label: "the badge at 1"});
 	await page.check(
@@ -453,9 +492,22 @@ export default async function run(page) {
 		await key(page, "Enter", "Enter", 13);
 		await page.waitFor(`!document.querySelector("${POPUP}")`, {label: "Enter opened the row"});
 	}
-
+	await page.waitFor(flashing("ping me back"), {
+		timeout: 5000,
+		label: "the private conversation at its newest line",
+	});
 	await page.waitFor(`${badgeText} === ""`, {timeout: 5000, label: "the badge gone"});
 	await page.check("reading everything cleared it", (await page.evaluate(badgeText)) === "");
+
+	// Its target was at the bottom already, so the list must still follow.
+	talker.say(NICK, `one more ${RUN}`);
+	await page.waitFor(`!!${rowOf("one more")}`, {timeout: 10000, label: "a new line"});
+	await page.sleep(300);
+	const list = `document.querySelector("#chat .chat")`;
+	await page.check(
+		"a jump to the newest line leaves the list following new ones",
+		await page.evaluate(`${list}.scrollHeight - ${list}.scrollTop - ${list}.offsetHeight <= 30`)
+	);
 	await page.screenshot("6-read", {selector: "#chat .header", pad: 8});
 
 	// Alt+M over Settings: on top, within reach, and Escape closes it alone.
