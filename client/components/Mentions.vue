@@ -85,7 +85,10 @@
 							'msg',
 							'mentions-entry',
 							message.type,
-							{'mentions-entry-openable': group.conversation},
+							{
+								'mentions-entry-openable': group.conversation,
+								'mentions-entry-no-network': !group.network,
+							},
 						]"
 						@click="openFromRow($event, group)"
 					>
@@ -125,6 +128,12 @@
 <style>
 #mentions-popup-container {
 	z-index: 8;
+}
+
+/* A stored entry whose network is gone: its menus would act on another one. */
+.mentions-entry-no-network .user,
+.mentions-entry-no-network .inline-channel {
+	pointer-events: none;
 }
 
 .mentions-popup {

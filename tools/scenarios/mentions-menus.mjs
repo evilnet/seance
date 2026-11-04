@@ -80,6 +80,15 @@ async function closeMenu(page) {
 
 export default async function run(page) {
 	await page.goto(page.url, {waitForSelector: "#connect form"});
+	await page.evaluate(`localStorage.setItem("thelounge.mentions", JSON.stringify([{
+		network: "00000000-0000-4000-8000-000000000000",
+		target: "#gone",
+		time: "2020-01-01T00:00:00.000Z",
+		type: "message",
+		text: "${NICK}: see #gone",
+		from: {nick: "ghost"},
+	}]))`);
+	await page.goto(page.url, {waitForSelector: "#connect form"});
 	await page.evaluate(`document.querySelector("#connect form button[type=submit]").click()`);
 	await page.waitFor(`document.querySelector('.channel-list-item[data-name="${CHANNEL}"]')`, {
 		timeout: 20000,
@@ -130,6 +139,23 @@ export default async function run(page) {
 	page.check(`the sender gets a user menu (${labels})`, labels.includes("User information"));
 	await page.screenshot("sender-menu");
 	await closeMenu(page);
+
+	// The stored entry for a network no longer on the page, with a chat open: no
+	// menu, which could only be the active network's.
+	await page.evaluate(
+		`document.querySelector('.channel-list-item[data-name="${CHANNEL}"]').click()`
+	);
+	await page.sleep(500);
+	await openMentions(page);
+
+	for (const sel of [".from .user", ".inline-channel"]) {
+		const full = `#mentions-popup-container .mentions-entry-no-network ${sel}`;
+		page.check(`the gone network's row shows ${sel}`, (await page.count(full)) === 1);
+		await page.click(full);
+		await page.sleep(300);
+		labels = await menuLabels(page);
+		page.check(`...and it opens no menu (${labels})`, labels.length === 0);
+	}
 
 	const errors = page.consoleErrors.map((e) => `${e.type}: ${e.text}`);
 	page.check(

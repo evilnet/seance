@@ -358,7 +358,10 @@ export function generateUserContextMenu(
 			type: "item",
 			class: "action-query",
 			action() {
-				const chan = store.getters.findChannelOnCurrentNetwork(user.nick);
+				// This menu's network: a Mentions row or an oper card can be
+				// another network's, with a query open on both.
+				const nick = user.nick.toLowerCase();
+				const chan = network.channels.find((c) => c.name.toLowerCase() === nick);
 
 				if (chan) {
 					switchToChannel(chan);
