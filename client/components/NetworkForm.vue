@@ -567,7 +567,6 @@ export default defineComponent({
 		/** Connect / cancel / disconnect from the status row. */
 		handleAction: {
 			type: Function as PropType<(action: ConnectionAction, network: SavedNetwork) => void>,
-			default: undefined,
 		},
 	},
 	setup(props) {
@@ -594,7 +593,7 @@ export default defineComponent({
 					: liveNetwork.value?.presence?.mode ?? presenceModeOf(props.defaults),
 			set(mode) {
 				presenceTouched.value = true;
-				props.defaults.presenceMode = mode;
+				props.defaults.presenceMode = mode === "global" ? undefined : mode;
 			},
 		});
 		// Same as global names what the global mode is now.

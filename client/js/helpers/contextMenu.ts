@@ -32,6 +32,10 @@ type ContextMenuItemWithLink = BaseContextMenuItem & {
 
 type ContextMenuDividerItem = {
 	type: "divider";
+	label?: undefined;
+	class?: undefined;
+	checked?: undefined;
+	toggle?: undefined;
 };
 
 export type ContextMenuItem =

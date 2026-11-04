@@ -83,7 +83,7 @@ export default defineComponent({
 							tls: network.status.secure,
 							nick: network.nick,
 							join: "",
-							sasl: "",
+							sasl: "" as const,
 							saslAccount: "",
 							saslPassword: "",
 							connected: network.status.connected,

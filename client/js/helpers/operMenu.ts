@@ -78,7 +78,7 @@ export function operChanFor(
 }
 
 /** Opered (local, global or admin) on this network. */
-export function isOperOn(network: Pick<ClientNetwork, "oper"> | undefined): boolean {
+export function isOperOn(network: Pick<ClientNetwork, "oper"> | null | undefined): boolean {
 	const level = network?.oper?.level;
 	return level === "local" || level === "global" || level === "admin";
 }

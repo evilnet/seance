@@ -34,7 +34,7 @@
 			<!-- One interpolation, single-space joined: the content is
 			     `white-space: pre-wrap` (server-formatted /map, /stats…), so
 			     any decorative space here would render. -->
-			<span class="content">{{ message.params.join(" ") }}</span>
+			<span class="content">{{ message.params?.join(" ") }}</span>
 		</template>
 		<template v-else-if="isAction()">
 			<span class="from"><span class="only-copy" aria-hidden="true">***&nbsp;</span></span>
@@ -62,7 +62,7 @@
 				</button>
 				<StatusmsgMarker :group="message.statusmsgGroup" />
 				<Username
-					:user="message.from"
+					:user="message.from!"
 					:network="network"
 					:channel="channel"
 					dir="auto"
@@ -90,9 +90,9 @@
 					<LinkPreview
 						v-for="preview in message.previews"
 						:key="preview.link"
-						:keep-scroll-position="keepScrollPosition"
+						:keep-scroll-position="keepScrollPosition!"
 						:link="preview"
-						:channel="channel"
+						:channel="channel!"
 					/>
 				</template>
 				<MessageReactions :message="message" :channel="channel" :network="network" />
@@ -169,9 +169,9 @@
 					<LinkPreview
 						v-for="preview in message.previews"
 						:key="preview.link"
-						:keep-scroll-position="keepScrollPosition"
+						:keep-scroll-position="keepScrollPosition!"
 						:link="preview"
-						:channel="channel"
+						:channel="channel!"
 					/>
 				</template>
 				<MessageReactions :message="message" :channel="channel" :network="network" />
@@ -211,10 +211,6 @@ import {useStore} from "../js/store";
 import {isTouchInput} from "../js/helpers/inputModality";
 import {selectionActive} from "../js/helpers/touchSelection";
 import {nudge} from "../js/helpers/haptics";
-
-MessageTypes.ParsedMessage = ParsedMessage;
-MessageTypes.LinkPreview = LinkPreview;
-MessageTypes.Username = Username;
 
 /**
  * The id of the one message showing its long-press-opened action toolbar.
@@ -259,6 +255,9 @@ export default defineComponent({
 	name: "Message",
 	components: {
 		...MessageTypes,
+		ParsedMessage,
+		LinkPreview,
+		Username,
 		StatusmsgMarker,
 		MessageActions,
 		MessageReactions,

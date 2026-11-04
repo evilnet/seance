@@ -4,7 +4,7 @@ import {SharedChan} from "../../shared/types/chan";
 import {SharedNetwork} from "../../shared/types/network";
 import {SharedUser} from "../../shared/types/user";
 import {SharedConfiguration, LockedSharedConfiguration} from "../../shared/types/config";
-import {LinkPreview, SharedMsg} from "../../shared/types/msg";
+import {LinkPreview, SharedMsg, UserInMessage} from "../../shared/types/msg";
 import {SharedOperState} from "../../shared/types/oper";
 import {TypingEntry} from "./helpers/typingState";
 
@@ -17,6 +17,8 @@ type ClientUser = SharedUser;
 // we will eventually need to put client specific fields here
 // which are not shared with the server
 export type ClientMessage = SharedMsg;
+/** A message type whose view shows who sent it: every handler that makes one sets `from`. */
+export type MessageFrom = ClientMessage & {from: UserInMessage};
 
 type ClientChan = Omit<SharedChan, "messages"> & {
 	moreHistoryAvailable: boolean;

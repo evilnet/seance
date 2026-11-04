@@ -23,20 +23,20 @@
 				<div class="container">
 					<p v-if="pastRelease">
 						This build is
-						<a :href="source.commit" target="_blank" rel="noopener"
+						<a :href="source.commit ?? undefined" target="_blank" rel="noopener"
 							>commit <code>{{ build.gitCommit }}</code></a
 						>, after v{{ build.release }}:
-						<a :href="source.sinceRelease" target="_blank" rel="noopener"
+						<a :href="source.sinceRelease ?? undefined" target="_blank" rel="noopener"
 							>what changed since the release</a
 						>.
 					</p>
 					<p>
 						Release notes are not bundled with the build.
-						<a :href="source.releaseNotes" target="_blank" rel="noopener"
+						<a :href="source.releaseNotes ?? undefined" target="_blank" rel="noopener"
 							>Read the notes for v{{ build.release }}</a
 						>
 						or
-						<a :href="source.releases" target="_blank" rel="noopener"
+						<a :href="source.releases ?? undefined" target="_blank" rel="noopener"
 							>see all releases</a
 						>.
 					</p>

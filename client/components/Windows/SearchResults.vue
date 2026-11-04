@@ -183,12 +183,12 @@
 										<span class="search-time">{{ timeOf(hit.msg) }}</span>
 										<div class="search-line">
 											<div class="search-meta">
-												<Username
-													v-if="hit.msg.from"
-													:user="hit.msg.from"
-													:network="network"
-													@click.stop
-												/>
+												<span v-if="hit.msg.from" @click.stop>
+													<Username
+														:user="hit.msg.from"
+														:network="network"
+													/>
+												</span>
 												<span class="search-chan">{{ hit.target }}</span>
 											</div>
 											<div class="search-text">
@@ -959,7 +959,7 @@ export default defineComponent({
 		// AROUND brings the channel's joins and parts too (event-playback): kept
 		// as paging edges, but this pane reads the conversation.
 		const contextShown = computed(() =>
-			contextRows.value.filter((msg) => SEARCHABLE_MESSAGE_TYPES.has(msg.type))
+			contextRows.value.filter((msg) => !!msg.type && SEARCHABLE_MESSAGE_TYPES.has(msg.type))
 		);
 
 		const resetContext = () => {

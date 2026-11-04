@@ -626,7 +626,7 @@ export default defineComponent({
 			themeChoices(
 				store.state.serverConfiguration?.themes ?? [],
 				store.state.settings.matchSystemAppearance,
-				store.state.settings.theme
+				store.state.settings.theme ?? ""
 			)
 		);
 
@@ -636,7 +636,7 @@ export default defineComponent({
 			const themes = store.state.serverConfiguration?.themes ?? [];
 			const label = (name: string) =>
 				themes.find((t) => t.name === name)?.displayName ?? name;
-			const chosen = store.state.settings.theme;
+			const chosen = store.state.settings.theme ?? "";
 			const partner = chosen ? themePartner(chosen) : null;
 
 			if (!store.state.settings.matchSystemAppearance) {

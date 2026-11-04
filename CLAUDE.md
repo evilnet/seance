@@ -19,7 +19,7 @@ pnpm, at the version `package.json`'s `packageManager` names (`npm i -g pnpm@12.
 | Rebuild on change                               | `pnpm watch`                                  |
 | Serve the built SPA                             | `python3 -m http.server -d public 8000`       |
 | Lint everything (oxlint + prettier + stylelint) | `pnpm lint`                                   |
-| Type-check (TypeScript 7; not test/ or `.vue`)  | `pnpm typecheck`                              |
+| Type-check (TS 7.1 beta; `.vue` yes, test/ no)  | `pnpm typecheck`                              |
 | Auto-format                                     | `pnpm format:prettier`                        |
 | Full test (lint + typecheck + mocha)            | `pnpm test`                                   |
 | Mocha only (builds first)                       | `pnpm test:mocha`                             |

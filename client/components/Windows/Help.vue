@@ -53,7 +53,10 @@
 						<p v-else-if="track.kind !== 'local' || pastRelease" class="build-track">
 							<template v-if="track.kind === 'pr'">
 								This is a preview of
-								<a :href="source.pullRequest" target="_blank" rel="noopener"
+								<a
+									:href="source.pullRequest ?? undefined"
+									target="_blank"
+									rel="noopener"
 									>pull request #{{ track.pr }}</a
 								>.
 							</template>
@@ -65,7 +68,7 @@
 							</template>
 							<template v-if="pastRelease">
 								{{ builtFrom }} built from
-								<a :href="source.commit" target="_blank" rel="noopener"
+								<a :href="source.commit ?? undefined" target="_blank" rel="noopener"
 									>commit <code>{{ build.gitCommit }}</code></a
 								>, after v{{ build.release }}.
 							</template>
@@ -75,7 +78,10 @@
 							<ul>
 								<li>
 									Compare
-									<a :href="source.sinceRelease" target="_blank" rel="noopener"
+									<a
+										:href="source.sinceRelease ?? undefined"
+										target="_blank"
+										rel="noopener"
 										>between <code>v{{ build.release }}</code> and
 										<code>{{ build.gitCommit }}</code></a
 									>
@@ -83,7 +89,10 @@
 								</li>
 								<li>
 									Compare
-									<a :href="source.behindDevelop" target="_blank" rel="noopener"
+									<a
+										:href="source.behindDevelop ?? undefined"
+										target="_blank"
+										rel="noopener"
 										>between <code>{{ build.gitCommit }}</code> and
 										<code>develop</code></a
 									>
@@ -121,7 +130,7 @@
 						</p>
 						<p>
 							<a
-								:href="source.newIssue"
+								:href="source.newIssue ?? undefined"
 								target="_blank"
 								rel="noopener"
 								class="report-issue-link"

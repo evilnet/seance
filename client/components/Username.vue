@@ -2,6 +2,7 @@
 	<span
 		:class="['user', {[nickColor]: store.state.settings.coloredNicks}, {active: active}]"
 		:data-name="user.nick"
+		:dir="dir"
 		role="button"
 		v-on="onHover ? {mouseenter: hover} : {}"
 		@click.prevent="openContextMenu"
@@ -26,6 +27,7 @@ type UsernameUser = Partial<UserInMessage> & {
 export default defineComponent({
 	name: "Username",
 	props: {
+		dir: {type: String as PropType<"auto" | "ltr" | "rtl">, required: false},
 		user: {
 			// TODO: UserInMessage shouldn't be necessary here.
 			type: Object as PropType<UsernameUser | UserInMessage>,

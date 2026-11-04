@@ -23,7 +23,7 @@
     "test:e2e": "pnpm build && playwright test",
     "test:mocha": "pnpm build && NODE_ENV=test mocha --config=test/.mocharc.yml 'test/**/*.ts'",
     "watch": "vite build --watch",
-    "typecheck": "tsc -p . && tsc -p client && tsc -p shared && tsc -p tools"
+    "typecheck": "tsc -p . && tsc -p client --runExternalCode && tsc -p shared && tsc -p tools"
   },
   "keywords": [
     "irc",
@@ -70,6 +70,7 @@
     "@types/sortablejs": "1.15.9",
     "@types/textarea-caret": "3.0.4",
     "@vitejs/plugin-vue": "6.0.10",
+    "@vue/content-mapper": "4.0.0-alpha.3",
     "chai": "6.3.0",
     "dayjs": "1.11.23",
     "emoji-regex": "10.6.0",
@@ -92,7 +93,7 @@
     "stylelint-config-standard": "24.0.0",
     "textarea-caret": "3.1.0",
     "tsx": "4.23.15",
-    "typescript": "7.0.2",
+    "typescript": "7.1.0-beta",
     "undate": "0.3.0",
     "vite": "8.3.5",
     "vue": "3.5.44",

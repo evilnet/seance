@@ -11,7 +11,7 @@
 export const RUN_GAP_MS = 10 * 60 * 1000;
 
 interface RunMessage {
-	type: string;
+	type?: string;
 	time: Date | string | number;
 	from?: {nick?: string} | null;
 }

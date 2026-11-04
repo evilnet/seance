@@ -386,6 +386,7 @@ import {mergeJoinLists} from "../../js/helpers/linkTarget";
 import {askNativeAlertPermission, nativeAlertsAvailable} from "../../js/helpers/nativeAlerts";
 import {router, switchToChannel} from "../../js/router";
 import type {ConnectOptions} from "../../js/irc/types";
+import type {ConfigNetDefaults} from "../../../shared/types/config";
 import RevealPassword from "../RevealPassword.vue";
 import SidebarToggle from "../SidebarToggle.vue";
 
@@ -413,7 +414,8 @@ export default defineComponent({
 		const branding = store.state.branding;
 		const features = brandingFeatures(branding);
 		const network = branding.defaultNetwork;
-		const defaults = store.state.serverConfiguration?.defaults;
+		const defaults: Partial<ConfigNetDefaults> | undefined =
+			store.state.serverConfiguration?.defaults;
 		const t = (key: string) => brandingString(key, branding);
 
 		const tls = network?.tls ?? defaults?.tls ?? true;

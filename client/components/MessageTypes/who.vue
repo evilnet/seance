@@ -53,7 +53,7 @@
 
 <script lang="ts">
 import {computed, defineComponent, PropType} from "vue";
-import type {WhoEntry} from "../../../shared/types/msg";
+import type {WhoEntry, WhoList} from "../../../shared/types/msg";
 import {ClientNetwork, ClientMessage} from "../../js/types";
 import ParsedMessage from "../ParsedMessage.vue";
 import Username from "../Username.vue";
@@ -75,7 +75,7 @@ export default defineComponent({
 			required: true,
 		},
 		message: {
-			type: Object as PropType<ClientMessage>,
+			type: Object as PropType<ClientMessage & {who: WhoList}>,
 			required: true,
 		},
 	},

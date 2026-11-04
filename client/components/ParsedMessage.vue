@@ -22,7 +22,7 @@ export default defineComponent({
 			parse(
 				typeof props.text !== "undefined"
 					? props.text
-					: (props.message as ClientMessage).text,
+					: (props.message as ClientMessage).text ?? "",
 				props.message as ClientMessage,
 				props.network,
 				// Optional: mounted without a store, no store means no Markdown.
