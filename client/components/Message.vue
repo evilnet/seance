@@ -189,9 +189,8 @@
 
 <script lang="ts">
 import {computed, defineComponent, onUnmounted, PropType, ref, watch} from "vue";
-import dayjs from "dayjs";
 
-import constants from "../js/constants";
+import {clockTime} from "../js/helpers/messageTime";
 import localetime from "../js/helpers/localetime";
 import Username from "./Username.vue";
 import LinkPreview from "./LinkPreview.vue";
@@ -450,21 +449,7 @@ export default defineComponent({
 			}
 		});
 
-		const timeFormat = computed(() => {
-			let format: keyof typeof constants.timeFormats;
-
-			if (store.state.settings.use12hClock) {
-				format = store.state.settings.showSeconds ? "msg12hWithSeconds" : "msg12h";
-			} else {
-				format = store.state.settings.showSeconds ? "msgWithSeconds" : "msgDefault";
-			}
-
-			return constants.timeFormats[format];
-		});
-
-		const messageTime = computed(() => {
-			return dayjs(props.message.time).format(timeFormat.value);
-		});
+		const messageTime = computed(() => clockTime(props.message.time, store.state.settings));
 
 		const messageTimeLocale = computed(() => {
 			return localetime(props.message.time);
@@ -616,7 +601,6 @@ export default defineComponent({
 			onTouchEnd,
 			onContextMenu,
 			onClick,
-			timeFormat,
 			messageTime,
 			messageTimeLocale,
 			editedTitle,

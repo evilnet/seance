@@ -726,7 +726,6 @@ import dayjs from "dayjs";
 import {computed, defineComponent, nextTick, onMounted, onUnmounted, ref, watch} from "vue";
 import {useRoute, useRouter} from "vue-router";
 
-import constants from "../../js/constants";
 import eventbus from "../../js/eventbus";
 import socket from "../../js/socket";
 import {navigate, switchToChannel} from "../../js/router";
@@ -743,6 +742,8 @@ import {
 	serverAttrs,
 	type SearchFilters,
 } from "../../js/searchQuery";
+import {clockTime, dayLabel, shortDay} from "../../js/helpers/messageTime";
+import {clearHighlight, paintHighlight, rangesIn} from "../../js/helpers/paintHighlight";
 import {trapTab} from "../../js/helpers/trapTab";
 import {useStore} from "../../js/store";
 import type {ClientChan, ClientMessage} from "../../js/types";
@@ -770,12 +771,6 @@ interface Chip {
 	label: string;
 	value: string;
 }
-
-/** The year only when it is not this one. */
-const shortDay = (value: string | Date) => {
-	const day = dayjs(value);
-	return day.format(day.isSame(dayjs(), "year") ? "D MMM" : "D MMM YYYY");
-};
 
 export default defineComponent({
 	name: "SearchResults",
@@ -907,29 +902,8 @@ export default defineComponent({
 			return mode.value === "offline" ? "Not connected" : "";
 		});
 
-		const dayOf = (msg: SharedMsg) => {
-			const day = dayjs(msg.time).startOf("day");
-			const today = dayjs().startOf("day");
-
-			if (day.isSame(today)) {
-				return "Today";
-			}
-
-			return day.isSame(today.subtract(1, "day")) ? "Yesterday" : shortDay(msg.time);
-		};
-
-		const timeOf = (msg: SharedMsg) => {
-			const {use12hClock, showSeconds} = store.state.settings;
-			const key = use12hClock
-				? showSeconds
-					? "msg12hWithSeconds"
-					: "msg12h"
-				: showSeconds
-				? "msgWithSeconds"
-				: "msgDefault";
-
-			return dayjs(msg.time).format(constants.timeFormats[key]);
-		};
+		const dayOf = (msg: SharedMsg) => dayLabel(msg.time);
+		const timeOf = (msg: SharedMsg) => clockTime(msg.time, store.state.settings);
 
 		const oldestLabel = computed(() => {
 			const last = rows.value[rows.value.length - 1];
@@ -1358,35 +1332,18 @@ export default defineComponent({
 			setQuery(formatSearchQuery({...draftFilters.value, in: ALL_CHANNELS}));
 		};
 
-		// Marks the words without touching what Vue rendered (a Range per match).
 		const paintMatches = () => {
-			const registry = (CSS as unknown as {highlights?: Map<string, unknown>}).highlights;
-
-			if (!registry || typeof Highlight === "undefined") {
-				return;
-			}
-
 			const words = filters.value.words;
-			const ranges: Range[] = [];
 
-			for (const root of document.querySelectorAll(
-				".chat-view[data-type='search-results'] .search-text"
-			)) {
-				const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-
-				while (walker.nextNode()) {
-					const node = walker.currentNode;
-
-					for (const [start, end] of matchSpans(node.textContent ?? "", words)) {
-						const range = new Range();
-						range.setStart(node, start);
-						range.setEnd(node, end);
-						ranges.push(range);
-					}
-				}
-			}
-
-			registry.set("search-hit", new Highlight(...ranges));
+			paintHighlight(
+				"search-hit",
+				rangesIn(
+					document.querySelectorAll(
+						".chat-view[data-type='search-results'] .search-text"
+					),
+					(text) => matchSpans(text, words)
+				)
+			);
 		};
 
 		watch([visible, contextRows], paintMatches, {flush: "post"});
@@ -1435,9 +1392,7 @@ export default defineComponent({
 			socket.off("search:results", onResults);
 			socket.off("search:context", onContext);
 			eventbus.off("escapekey", onEscape);
-			(CSS as unknown as {highlights?: Map<string, unknown>}).highlights?.delete(
-				"search-hit"
-			);
+			clearHighlight("search-hit");
 		});
 
 		return {
