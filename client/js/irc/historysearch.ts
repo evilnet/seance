@@ -46,17 +46,11 @@ export const SEARCH_TOMBSTONE_MS = 120_000;
 /** One `CHATHISTORY AROUND` for a reply's parent: a command. */
 const PARENT_COST_MS = 2000;
 
-/** What a `parent` request is after. */
-interface ParentAsk {
-	chan: Channel;
-	msgid: string;
-}
-
 interface PendingSearch {
-	kind: "results" | "context" | "parent";
+	kind: "results" | "context";
 	requestId: number;
-	/** Set on a `parent` request. */
-	parent?: ParentAsk;
+	/** Set on a context request for a reply's parent: its answer goes to the quote. */
+	parent?: {chan: Channel; msgid: string};
 	label?: string;
 	timer: ReturnType<typeof setTimeout>;
 	/**
@@ -158,7 +152,18 @@ function answer(
 	hits: SearchHit[] = []
 ): void {
 	if (request.parent) {
-		answerParent(client, request.parent, status, hits);
+		const {chan, msgid} = request.parent;
+		const row = hits.find((hit) => hit.msg.msgid === msgid)?.msg;
+
+		if (row) {
+			client.dispatchBus("reply:parent", {
+				chan: chan.id,
+				msgid,
+				nick: row.from?.nick ?? "",
+				text: row.text ?? "",
+			});
+		}
+
 		return;
 	}
 
@@ -168,30 +173,6 @@ function answer(
 		client.dispatchBus("search:results", {...base, hits});
 	} else {
 		client.dispatchBus("search:context", {...base, messages: hits.map((hit) => hit.msg)});
-	}
-}
-
-/**
- * Give the quote its parent. Nothing to give leaves it "(unknown message)": a
- * server's no stays no for this connection, and anything else can be asked again.
- */
-function answerParent(
-	client: IrcClient,
-	{chan, msgid}: ParentAsk,
-	status: SearchStatus,
-	hits: SearchHit[]
-): void {
-	const row = hits.find((hit) => hit.msg.msgid === msgid)?.msg;
-
-	if (row) {
-		client.dispatchBus("reply:parent", {
-			chan: chan.id,
-			msgid,
-			nick: row.from?.nick ?? "",
-			text: row.text ?? "",
-		});
-	} else if (status !== "ok" && status !== "fail") {
-		parentsAsked.get(client)?.delete(`${chan.id}:${msgid}`);
 	}
 }
 
@@ -276,11 +257,10 @@ export function requestSearchContext(
 }
 
 /**
- * Ask the server for the parent of a reply when it is not loaded, answered by
- * a `reply:parent` if the server still has it. Background work, so a screenful
+ * Ask the server for the parent of a reply that is not loaded, once a connection,
+ * answered by a `reply:parent` if the server has it. Background work, so a screenful
  * of replies cannot put the server's clock past its ceiling, but at the front:
- * someone is looking at this quote, and behind a reconnect's catch-up it waited
- * minutes. The job checks again at its turn, since a page may have brought the row.
+ * someone is looking at this quote, and behind a reconnect's catch-up it took minutes.
  */
 export function requestReplyParent(client: IrcClient, chan: Channel, msgid: string): void {
 	const key = `${chan.id}:${msgid}`;
@@ -291,7 +271,7 @@ export function requestReplyParent(client: IrcClient, chan: Channel, msgid: stri
 		parentsAsked.set(client, asked);
 	}
 
-	if (asked.has(key) || chan.idOf(msgid) !== undefined || !canAskContext(client)) {
+	if (asked.has(key)) {
 		return;
 	}
 
@@ -301,14 +281,9 @@ export function requestReplyParent(client: IrcClient, chan: Channel, msgid: stri
 			key: `parent:${key}`,
 			cost: PARENT_COST_MS,
 			run() {
-				if (chan.idOf(msgid) !== undefined) {
-					asked.delete(key); // never asked: if the row is trimmed, the quote can
-					return;
-				}
-
 				sendRequest(
 					client,
-					{kind: "parent", requestId: 0, parent: {chan, msgid}},
+					{kind: "context", requestId: 0, parent: {chan, msgid}},
 					canAskContext(client),
 					"CHATHISTORY",
 					["AROUND", chan.name, `msgid=${msgid}`, "1"]
@@ -365,7 +340,7 @@ function searchFor(client: IrcClient, label?: string): PendingSearch | undefined
 /** The context request a reply names: only a label tells it from a channel's own. */
 function contextFor(client: IrcClient, label?: string): PendingSearch | undefined {
 	return label
-		? pendingOf(client).find((request) => request.kind !== "results" && request.label === label)
+		? pendingOf(client).find((request) => request.kind === "context" && request.label === label)
 		: undefined;
 }
 

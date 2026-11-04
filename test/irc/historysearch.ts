@@ -644,32 +644,6 @@ describe("historysearch", function () {
 			expect(client.background.keys()[0]).to.match(/^parent:/);
 		});
 
-		it("can ask again when a page brought the row first and it was trimmed", function () {
-			const {client, transport} = setup({fakeLag: IRCU_FAKE_LAG});
-			const chan = client.findChannel("#seance")!;
-
-			for (let i = 0; i < 10; i++) {
-				client.send("PING :busy");
-			}
-
-			ask(client);
-			const key = client.background.keys()[0];
-			transport.line(ROW1);
-			client.background.take(key)!.run();
-			chan.forget([chan.idOf("m1")!]);
-			ask(client);
-			expect(client.background.keys()).to.deep.equal([key]);
-		});
-
-		it("does not ask for a message the channel holds", function () {
-			const {client, transport} = setup();
-
-			transport.line(ROW1);
-			transport.sent.length = 0;
-			ask(client);
-			expect(transport.sent).to.deep.equal([]);
-		});
-
 		it("takes only the row it asked for", function () {
 			const {client, transport} = setup();
 
@@ -700,16 +674,6 @@ describe("historysearch", function () {
 			ask(client);
 			ask(client);
 			expect(transport.sent.filter((line) => AROUND.test(line))).to.have.length(1);
-		});
-
-		it("asks again after a timeout", function () {
-			const {client, transport} = setup();
-
-			ask(client);
-			clock.tick(SEARCH_TIMEOUT_MS);
-			transport.sent.length = 0;
-			ask(client);
-			expect(transport.sent[0]).to.match(AROUND);
 		});
 
 		it("needs labels, as context does", function () {
