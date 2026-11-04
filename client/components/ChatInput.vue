@@ -808,12 +808,19 @@ export default defineComponent({
 				return rowOf(el.selectionStart) === rowOf(key === "up" ? 0 : el.value.length);
 			};
 
-			// Text the arrows bring in — a history entry, an own message to edit —
-			// gets the caret on the edge it was reached from: at the start after
-			// ArrowUp, at the end after ArrowDown, so holding either key keeps
-			// stepping instead of climbing through every row of a long entry.
-			const showStepped = (el: HTMLTextAreaElement, text: string, key: string) => {
-				const caret = key === "up" ? 0 : text.length;
+			// A history entry the arrows bring in gets the caret on the edge it
+			// was reached from: at the start after ArrowUp, at the end after
+			// ArrowDown, so holding either key keeps stepping instead of climbing
+			// through every row of a long entry. An own message to edit always
+			// gets it at the end (`edge: "end"`), where an edit is usually
+			// made; ArrowUp on a wrapped one climbs its rows before it steps on.
+			const showStepped = (
+				el: HTMLTextAreaElement,
+				text: string,
+				key: string,
+				edge: "stepped" | "end" = "stepped"
+			) => {
+				const caret = edge === "stepped" && key === "up" ? 0 : text.length;
 
 				el.value = text;
 				el.setSelectionRange(caret, caret);
@@ -851,7 +858,7 @@ export default defineComponent({
 
 					if (last) {
 						startEdit(props.channel, last);
-						showStepped(el, props.channel.pendingMessage, key);
+						showStepped(el, props.channel.pendingMessage, key, "end");
 						return false;
 					}
 				}
@@ -886,7 +893,12 @@ export default defineComponent({
 						return; // already at the oldest own message
 					}
 
-					showStepped(el, channel.pendingMessage, key);
+					showStepped(
+						el,
+						channel.pendingMessage,
+						key,
+						channel.editing ? "end" : "stepped"
+					);
 
 					return false;
 				}

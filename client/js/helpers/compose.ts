@@ -1,6 +1,7 @@
 // Per-channel reply/edit compose state (ClientChan.replyTo / .editing).
 // Shared by the message action bar, ChatInput and the `msg:edit` consumer.
 // Reply and edit are mutually exclusive: starting one clears the other.
+import {nextTick} from "vue";
 import {MessageType} from "../../../shared/types/msg";
 import type {ClientChan, ClientMessage} from "../types";
 
@@ -12,9 +13,16 @@ export function focusInput() {
 	}
 
 	input.focus();
-	// Put the caret at the end (edit pre-fills the text).
-	const end = input.value.length;
-	input.setSelectionRange(end, end);
+	// Put the caret at the end (edit pre-fills the text). The textarea's
+	// `:value` is patched on Vue's next tick, so the text an edit just put in
+	// `pendingMessage` is not in the element yet: place the caret after it.
+	const toEnd = () => {
+		const end = input.value.length;
+		input.setSelectionRange(end, end);
+	};
+
+	toEnd();
+	void nextTick(toEnd);
 }
 
 export function startReply(channel: ClientChan, message: ClientMessage) {

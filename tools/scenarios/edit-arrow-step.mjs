@@ -5,7 +5,8 @@
 //   node tools/browser-drive.mjs tools/scenarios/edit-arrow-step.mjs
 //
 // The claims under test: ArrowUp in an empty input edits your newest own
-// message; further ArrowUps step the edit to OLDER own messages (the old
+// message, with the caret at the end of its text (as the toolbar's Edit
+// puts it); further ArrowUps step the edit to OLDER own messages (the old
 // code swapped input-history text into the box while the edit stayed armed
 // on the newest message, so submitting replaced the wrong line); ArrowDown
 // steps back and, past the newest, leaves edit mode; a modified edit is
@@ -44,6 +45,10 @@ const press = (key, code) => `(() => {
 })()`;
 
 const INPUT = `document.querySelector("#input").value`;
+const CARET_AT_END = `(() => {
+	const el = document.querySelector("#input");
+	return el.selectionStart === el.value.length && el.selectionEnd === el.value.length;
+})()`;
 const COMPOSE = `document.querySelector(".compose-bar .compose-bar-preview")?.textContent.trim() ?? null`;
 const ROWS = `Array.from(document.querySelectorAll("#chat .msg[data-type='message'] .content"))
 	.map((el) => el.textContent.trim())
@@ -77,11 +82,16 @@ export default async function run(page) {
 	// 1. ArrowUp steps the edit target: newest, then older — never history.
 	let v = await page.evaluate(press("ArrowUp", 38));
 	await page.check(`first ArrowUp edits the newest own message (${v})`, v === text("three"));
+	await page.check(
+		"…with the caret at the end of the text",
+		await page.evaluate(CARET_AT_END)
+	);
 	let preview = await page.evaluate(COMPOSE);
 	await page.check("the compose bar says which message", preview === text("three"));
 
 	v = await page.evaluate(press("ArrowUp", 38));
 	await page.check(`second ArrowUp steps to the previous message (${v})`, v === text("two"));
+	await page.check("…the caret at its end too", await page.evaluate(CARET_AT_END));
 	preview = await page.evaluate(COMPOSE);
 	await page.check("…and the compose bar follows", preview === text("two"));
 
@@ -160,6 +170,19 @@ export default async function run(page) {
 	const barAfterEsc = await page.evaluate(`!!document.querySelector(".compose-bar")`);
 	await page.check("…with no compose bar", !barAfterEsc);
 	await page.screenshot("3-history-after-escape");
+
+	// 6. The toolbar's Edit button: the text in the box, the caret after it.
+	await page.evaluate(press("Escape", 27));
+	const ownRow = `Array.from(document.querySelectorAll("#chat .msg.self[data-type='message']"))
+		.filter((el) => el.textContent.includes("${RUN} three")).pop()`;
+	await page.evaluate(`(${ownRow}).setAttribute("data-edit-probe", "1")`);
+	await page.hover(`.msg[data-edit-probe="1"]`);
+	await page.click(`.msg[data-edit-probe="1"] .msg-action-edit`);
+	await page.sleep(200);
+	v = await page.evaluate(INPUT);
+	await page.check(`the toolbar's Edit fills the input (${v})`, v === text("three"));
+	await page.check("…with the caret at the end", await page.evaluate(CARET_AT_END));
+	await page.screenshot("4-toolbar-edit");
 
 	await page.check("no console errors", page.consoleErrors.length === 0);
 }
