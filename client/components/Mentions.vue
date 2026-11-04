@@ -891,6 +891,7 @@ export default defineComponent({
 		});
 
 		return {
+			tCount,
 			isOpen,
 			popup,
 			placement,
