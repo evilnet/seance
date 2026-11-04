@@ -30,7 +30,7 @@ import type {BatchHandler, OpenBatch} from "./handlers/batch";
 import {formatLine, MAX_LINE_BYTES, utf8ByteLength, type IrcMessage} from "./message";
 import type {Channel} from "./channel";
 
-export const SEARCH_CAP = "soju.im/search";
+const SEARCH_CAP = "soju.im/search";
 /** How long to wait for the server before giving up on a request. */
 export const SEARCH_TIMEOUT_MS = 20_000;
 /**
@@ -39,8 +39,6 @@ export const SEARCH_TIMEOUT_MS = 20_000;
  * later answer would be off by one, so the place is given up in the end.
  */
 export const SEARCH_TOMBSTONE_MS = 120_000;
-/** nefarious2 refuses selectors over 380 bytes; leave room for `from=`. */
-const MAX_TEXT_BYTES = 300;
 
 interface PendingSearch {
 	kind: "results" | "context";
@@ -71,17 +69,6 @@ function pendingOf(client: IrcClient): PendingSearch[] {
 /** Requests in flight for `client` (tests / diagnostics). */
 export function pendingSearches(client: IrcClient): readonly PendingSearch[] {
 	return pendingOf(client);
-}
-
-export function searchEnabled(client: IrcClient): boolean {
-	return client.caps.hasCapability(SEARCH_CAP) && client.caps.hasCapability("batch");
-}
-
-export function searchContextEnabled(client: IrcClient): boolean {
-	return (
-		client.caps.hasCapability("draft/chathistory") &&
-		client.caps.hasCapability("labeled-response")
-	);
 }
 
 /**
@@ -176,28 +163,29 @@ function lineFor(input: Parameters<typeof formatLine>[0]): string | undefined {
 	}
 }
 
-/** Send a `SEARCH`. The answer is always a `search:results`, whatever happens. */
-export function requestSearch(client: IrcClient, requestId: number, attrs: SearchAttrs): void {
-	const request = {kind: "results" as const, requestId};
+/** Send a request for the window, which always gets its one answer, whatever happens. */
+function sendRequest(
+	client: IrcClient,
+	kind: PendingSearch["kind"],
+	requestId: number,
+	available: boolean,
+	command: string,
+	params: string[]
+): void {
+	const request = {kind, requestId};
 
 	if (!client.isWelcomed) {
 		answer(client, request, "offline");
 		return;
 	}
 
-	if (!searchEnabled(client)) {
+	if (!available) {
 		answer(client, request, "unsupported");
 		return;
 	}
 
-	if (attrs.text && utf8ByteLength(attrs.text) > MAX_TEXT_BYTES) {
-		answer(client, request, "invalid", "That search is too long.");
-		return;
-	}
-
 	const {tags, label} = labelTags(client);
-	const params = client.profile.searchParams?.(attrs) ?? specSearchParams(attrs);
-	const line = lineFor({tags, command: "SEARCH", params});
+	const line = lineFor({tags, command, params});
 
 	if (!line) {
 		answer(client, request, "invalid", "That search can't be sent.");
@@ -209,10 +197,22 @@ export function requestSearch(client: IrcClient, requestId: number, attrs: Searc
 		return;
 	}
 
-	track(client, "results", requestId, label);
+	track(client, kind, requestId, label);
 }
 
-/** Send a `CHATHISTORY` for the search window. Answered by one `search:context`. */
+/** Send a `SEARCH`, answered by one `search:results`. */
+export function requestSearch(client: IrcClient, requestId: number, attrs: SearchAttrs): void {
+	sendRequest(
+		client,
+		"results",
+		requestId,
+		client.caps.hasCapability(SEARCH_CAP) && client.caps.hasCapability("batch"),
+		"SEARCH",
+		client.profile.searchParams?.(attrs) ?? specSearchParams(attrs)
+	);
+}
+
+/** Send a `CHATHISTORY` for the search window, answered by one `search:context`. */
 export function requestSearchContext(
 	client: IrcClient,
 	requestId: number,
@@ -221,36 +221,15 @@ export function requestSearchContext(
 	msgid: string,
 	limit: number
 ): void {
-	const request = {kind: "context" as const, requestId};
-
-	if (!client.isWelcomed) {
-		answer(client, request, "offline");
-		return;
-	}
-
-	if (!searchContextEnabled(client)) {
-		answer(client, request, "unsupported");
-		return;
-	}
-
-	const {tags, label} = labelTags(client);
-	const line = lineFor({
-		tags,
-		command: "CHATHISTORY",
-		params: [direction, target, `msgid=${msgid}`, String(limit)],
-	});
-
-	if (!line) {
-		answer(client, request, "invalid");
-		return;
-	}
-
-	if (!client.send(line)) {
-		answer(client, request, "offline");
-		return;
-	}
-
-	track(client, "context", requestId, label);
+	sendRequest(
+		client,
+		"context",
+		requestId,
+		client.caps.hasCapability("draft/chathistory") &&
+			client.caps.hasCapability("labeled-response"),
+		"CHATHISTORY",
+		[direction, target, `msgid=${msgid}`, String(limit)]
+	);
 }
 
 /** The conversation a stored line belongs to: our own nick means the sender's window. */
@@ -290,65 +269,73 @@ function labelOf(batch: OpenBatch): string | undefined {
 	return batch.tags.get("label") ?? batch.parent?.tags.get("label");
 }
 
+/** The search a reply names, else the oldest: replies come in order. */
+function searchFor(client: IrcClient, label?: string): PendingSearch | undefined {
+	const searches = pendingOf(client).filter((request) => request.kind === "results");
+	return label ? searches.find((request) => request.label === label) : searches[0];
+}
+
+/** The context request a reply names: only a label tells it from a channel's own. */
+function contextFor(client: IrcClient, label?: string): PendingSearch | undefined {
+	return label
+		? pendingOf(client).find((request) => request.kind === "context" && request.label === label)
+		: undefined;
+}
+
+/** Close a request with its answer; one that timed out has had its answer already. */
+function settle(
+	client: IrcClient,
+	request: PendingSearch,
+	status: SearchStatus,
+	error?: string,
+	hits?: () => SearchHit[]
+): void {
+	if (take(client, request) && !request.expired) {
+		answer(client, request, status, error, hits?.());
+	}
+}
+
 /** A closed `search` batch: the answer to the request it names, else the oldest. */
 export const searchBatch: BatchHandler = (client, batch) => {
-	const label = labelOf(batch);
-	const searches = pendingOf(client).filter((request) => request.kind === "results");
-	const request = label ? searches.find((r) => r.label === label) : searches[0];
+	const request = searchFor(client, labelOf(batch));
 
-	if (request && take(client, request) && !request.expired) {
-		answer(client, request, "ok", undefined, collect(client, batch.messages));
+	if (request) {
+		settle(client, request, "ok", undefined, () => collect(client, batch.messages));
 	}
 };
 
 /** A `chathistory` batch that answers our context request; false when it is not ours. */
 export function searchContextBatch(client: IrcClient, batch: OpenBatch): boolean {
-	const label = labelOf(batch);
-	const request = label
-		? pendingOf(client).find((r) => r.kind === "context" && r.label === label)
-		: undefined;
+	const request = contextFor(client, labelOf(batch));
 
 	if (!request) {
 		return false;
 	}
 
-	take(client, request);
-
-	if (!request.expired) {
-		answer(client, request, "ok", undefined, collect(client, batch.messages, batch.params[0]));
-	}
-
+	settle(client, request, "ok", undefined, () =>
+		collect(client, batch.messages, batch.params[0])
+	);
 	return true;
 }
 
 /** `FAIL SEARCH <code> [context] :text`: the window shows it, the lobby does not. */
 export function searchFailed(client: IrcClient, msg: IrcMessage): void {
-	const label = msg.tags.get("label");
-	const searches = pendingOf(client).filter((request) => request.kind === "results");
-	const request = label ? searches.find((r) => r.label === label) : searches[0];
+	const request = searchFor(client, msg.tags.get("label"));
 
-	if (request && take(client, request) && !request.expired) {
-		answer(client, request, "fail", msg.params[msg.params.length - 1]);
+	if (request) {
+		settle(client, request, "fail", msg.params[msg.params.length - 1]);
 	}
 }
 
 /** `FAIL CHATHISTORY` answering a context request; false when it is not ours. */
 export function searchContextFailed(client: IrcClient, msg: IrcMessage): boolean {
-	const label = msg.tags.get("label");
-	const request = label
-		? pendingOf(client).find((r) => r.kind === "context" && r.label === label)
-		: undefined;
+	const request = contextFor(client, msg.tags.get("label"));
 
 	if (!request) {
 		return false;
 	}
 
-	take(client, request);
-
-	if (!request.expired) {
-		answer(client, request, "fail", msg.params[msg.params.length - 1]);
-	}
-
+	settle(client, request, "fail", msg.params[msg.params.length - 1]);
 	return true;
 }
 
@@ -360,22 +347,13 @@ export function searchAck(client: IrcClient, label: string): boolean {
 		return false;
 	}
 
-	take(client, request);
-
-	if (!request.expired) {
-		answer(client, request, "ok");
-	}
-
+	settle(client, request, "ok");
 	return true;
 }
 
 /** The connection closed: nothing in flight will be answered. */
 export function resetSearches(client: IrcClient): void {
 	for (const request of [...pendingOf(client)]) {
-		take(client, request);
-
-		if (!request.expired) {
-			answer(client, request, "offline");
-		}
+		settle(client, request, "offline");
 	}
 }

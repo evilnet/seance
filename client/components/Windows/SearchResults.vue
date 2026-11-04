@@ -14,7 +14,7 @@
 				role="tabpanel"
 			>
 				<template v-if="network && channel">
-					<div class="search-head" :inert="backgroundInert">
+					<div class="search-head" :inert="filtersOpen">
 						<button
 							class="oper-icon-btn search-icon search-icon-back"
 							:aria-label="`Back to ${channel.name}`"
@@ -44,7 +44,7 @@
 						</form>
 					</div>
 
-					<div class="search-chips" :inert="backgroundInert">
+					<div class="search-chips" :inert="filtersOpen">
 						<button class="search-chip on" @click="filtersOpen = true">
 							<span class="search-icon search-icon-in" aria-hidden="true" />
 							In <b>{{ scopeLabel }}</b>
@@ -94,10 +94,9 @@
 
 					<div class="search-panes" :class="{'has-context': selected}">
 						<div
-							ref="list"
 							class="search-list"
 							:class="{stale: stale && criteria}"
-							:inert="backgroundInert || (isPhone && selected !== null)"
+							:inert="filtersOpen || (isPhone && selected !== null)"
 						>
 							<div v-if="!criteria" class="search-start">
 								<p>
@@ -748,6 +747,7 @@ import {useStore} from "../../js/store";
 import type {ClientChan, ClientMessage} from "../../js/types";
 import type {SharedMsg} from "../../../shared/types/msg";
 import type {SearchContextDirection, SearchHit, SearchStatus} from "../../../shared/types/search";
+import {PHONE_LAYOUT_QUERY} from "../../js/helpers/device";
 import ParsedMessage from "../ParsedMessage.vue";
 import SearchFilterSheet from "../SearchFilterSheet.vue";
 import Username from "../Username.vue";
@@ -774,9 +774,6 @@ const shortDay = (value: string | Date) => {
 	return day.format(day.isSame(dayjs(), "year") ? "D MMM" : "D MMM YYYY");
 };
 
-const PHONE_LAYOUT =
-	"(max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse)";
-
 export default defineComponent({
 	name: "SearchResults",
 	components: {ParsedMessage, SearchFilterSheet, Username},
@@ -786,13 +783,12 @@ export default defineComponent({
 		const router = useRouter();
 
 		const queryField = ref<HTMLInputElement>();
-		const list = ref<HTMLElement>();
 		const contextList = ref<HTMLElement>();
 
 		const draft = ref(String(route.query.q ?? ""));
 		const filtersOpen = ref(false);
 		const contextPane = ref<HTMLElement>();
-		const layout = window.matchMedia(PHONE_LAYOUT);
+		const layout = window.matchMedia(PHONE_LAYOUT_QUERY);
 		const isPhone = ref(layout.matches);
 		const onLayout = () => {
 			isPhone.value = layout.matches;
@@ -807,8 +803,6 @@ export default defineComponent({
 		const error = ref("");
 		const olderError = ref("");
 		let requestId = 0;
-		let pageKind: "first" | "older" = "first";
-		let steppedPast = false;
 
 		const selected = ref<SearchHit | null>(null);
 		const contextRows = ref<SharedMsg[]>([]);
@@ -827,7 +821,6 @@ export default defineComponent({
 		// A filter changed while the field is edited keeps the edit: the field is
 		// what the next search will be, whatever the results below came from.
 		const draftFilters = computed<SearchFilters>(() => parseSearchQuery(draft.value));
-		const backgroundInert = computed(() => filtersOpen.value);
 
 		const found = computed(() =>
 			store.getters.findChannel(parseInt(String(route.params.id ?? ""), 10))
@@ -1018,7 +1011,6 @@ export default defineComponent({
 			error.value = "";
 			olderError.value = "";
 			reachedEnd.value = false;
-			steppedPast = false;
 			loadingOlder.value = false;
 			mode.value = "server";
 			loading.value = false;
@@ -1028,7 +1020,6 @@ export default defineComponent({
 			}
 
 			loading.value = true;
-			pageKind = "first";
 			requestId = nextRequestId++;
 			socket.emit("search:request", {
 				network: network.value.uuid,
@@ -1037,7 +1028,7 @@ export default defineComponent({
 			});
 		};
 
-		const loadOlder = (stepBackMs = 0) => {
+		const loadOlder = () => {
 			const last = rows.value[rows.value.length - 1];
 
 			if (!network.value || !last || loadingOlder.value) {
@@ -1046,7 +1037,6 @@ export default defineComponent({
 
 			loadingOlder.value = true;
 			olderError.value = "";
-			pageKind = "older";
 			requestId = nextRequestId++;
 			socket.emit("search:request", {
 				network: network.value.uuid,
@@ -1054,7 +1044,7 @@ export default defineComponent({
 				attrs: serverAttrs(
 					filters.value,
 					scopeDefault.value,
-					new Date(new Date(last.msg.time).getTime() - stepBackMs),
+					new Date(last.msg.time),
 					PAGE_SIZE
 				),
 			});
@@ -1079,7 +1069,7 @@ export default defineComponent({
 				return;
 			}
 
-			const older = pageKind === "older";
+			const older = loadingOlder.value;
 			loading.value = false;
 			loadingOlder.value = false;
 
@@ -1114,19 +1104,9 @@ export default defineComponent({
 			const fresh = data.hits.filter((hit) => !seen.has(rowKey(hit.msg)));
 
 			if (older && fresh.length === 0) {
-				// Only the edge came back, which does not prove that is all: a
-				// page's worth can share one moment. Look once from just before it.
-				if (data.hits.length > 0 && !steppedPast) {
-					steppedPast = true;
-					loadOlder(1);
-					return;
-				}
-
 				reachedEnd.value = true;
 				return;
 			}
-
-			steppedPast = false;
 
 			// Oldest first on the wire: reversed, so a stable sort keeps same-moment
 			// rows newest first too.
@@ -1448,7 +1428,6 @@ export default defineComponent({
 			HINTS,
 			applyFilters,
 			asClient: (msg: SharedMsg) => msg as ClientMessage,
-			backgroundInert,
 			banner,
 			canEarlier,
 			canLater,
@@ -1478,7 +1457,6 @@ export default defineComponent({
 			groups,
 			hiddenCount,
 			isSelected,
-			list,
 			loadOlder,
 			loadedCount,
 			loading,

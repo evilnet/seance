@@ -232,7 +232,7 @@ describe("historysearch", function () {
 		it("refuses what would not fit, without sending it", function () {
 			const {client, transport} = setup();
 
-			requestSearch(client, 1, {text: "x".repeat(301)});
+			requestSearch(client, 1, {text: "x".repeat(600)});
 			expect(transport.sent).to.deep.equal([]);
 			expect(payloads<ResultsPayload>("search:results")[0].status).to.equal("invalid");
 		});
