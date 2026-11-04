@@ -307,7 +307,10 @@ export default async function run(page) {
 	// The lines around a hit, asked for and not landing in the channel.
 	await search(page, "autojoin");
 	const contextFrom = page.wsFrames.length;
-	await page.click(ROWS);
+	// Clicked through quickly: only the last one is asked about.
+	await page.evaluate(
+		`document.querySelectorAll(${JSON.stringify(ROWS)}).forEach((row) => row.click())`
+	);
 	await page.waitFor(`document.querySelectorAll(".search-context-line").length > 1`, {
 		timeout: 10000,
 		label: "context lines",

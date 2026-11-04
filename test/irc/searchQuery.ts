@@ -6,6 +6,7 @@ import {
 	formatSearchQuery,
 	hasCriteria,
 	matchesFilters,
+	matchSpans,
 	parseSearchQuery,
 	rowKey,
 	serverAttrs,
@@ -110,8 +111,9 @@ describe("searchQuery", function () {
 			);
 		});
 
-		it("asks for http when has: is all there is", function () {
+		it("asks for http only where the device needs http", function () {
 			expect(serverAttrs(parseSearchQuery("has:image"), "#here").text).to.equal("http");
+			expect(serverAttrs(parseSearchQuery("has:link"), "#here").text).to.equal(undefined);
 			expect(serverAttrs(parseSearchQuery("word has:link"), "#here").text).to.equal("word");
 		});
 
@@ -155,6 +157,8 @@ describe("searchQuery", function () {
 
 			expect(matchesFilters(row("see https://a.test/x"), link)).to.equal(true);
 			expect(matchesFilters(row("no url here"), link)).to.equal(false);
+			expect(matchesFilters(row("see example.com please"), link)).to.equal(true);
+			expect(matchesFilters(row("ircs://irc.test/#chan"), link)).to.equal(true);
 			expect(matchesFilters(row("see https://a.test/x"), image)).to.equal(false);
 			expect(matchesFilters(row("see https://a.test/x.PNG?w=1 ok"), image)).to.equal(true);
 		});
@@ -175,6 +179,21 @@ describe("searchQuery", function () {
 			const join = {...row("x"), type: MessageType.JOIN};
 
 			expect(matchesFilters(join, parseSearchQuery("x"))).to.equal(false);
+		});
+	});
+
+	describe("matchSpans", function () {
+		it("gives offsets into the text as written", function () {
+			expect(matchSpans("İx", ["x"])).to.deep.equal([[1, 2]]);
+			expect(matchSpans("Fake fake", ["FAKE"])).to.deep.equal([
+				[0, 4],
+				[5, 9],
+			]);
+		});
+
+		it("reads a word literally, and skips an empty one", function () {
+			expect(matchSpans("a.b axb", ["a.b"])).to.deep.equal([[0, 3]]);
+			expect(matchSpans("abc", [""])).to.deep.equal([]);
 		});
 	});
 });

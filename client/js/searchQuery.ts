@@ -8,6 +8,8 @@
 // The server can do one nick, one substring and a time window, newest first
 // (see `serverAttrs`). `matchesFilters` does the rest here, on what comes back.
 
+import {findLinks} from "../../shared/linkify";
+import {escapeRegExp} from "./highlight";
 import type {SearchAttrs} from "../../shared/types/search";
 import {MessageType, type SharedMsg} from "../../shared/types/msg";
 
@@ -43,7 +45,6 @@ const TOKEN = /(-)?(?:"([^"]*)"?|(\S+))/g;
 const KEYED = /^([a-z]+):(.+)$/i;
 const DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
-const LINK = /\bhttps?:\/\/\S/i;
 const IMAGE = /\bhttps?:\/\/\S+\.(?:png|jpe?g|gif|webp|avif|svg)(?:[?#]\S*)?(?:\s|$)/i;
 
 /** Local midnight of a `YYYY-MM-DD`, undefined when there is no such day. */
@@ -201,7 +202,7 @@ export function serverAttrs(
 
 	if (filters.words.length > 0) {
 		attrs.text = filters.words.reduce((a, b) => (b.length > a.length ? b : a));
-	} else if (filters.has.length > 0) {
+	} else if (filters.has.includes("image")) {
 		attrs.text = "http";
 	}
 
@@ -262,7 +263,7 @@ export function matchesFilters(msg: Searchable, filters: SearchFilters): boolean
 		return false;
 	}
 
-	if (filters.has.includes("link") && !LINK.test(text)) {
+	if (filters.has.includes("link") && findLinks(text).length === 0) {
 		return false;
 	}
 
@@ -275,4 +276,16 @@ export function matchesFilters(msg: Searchable, filters: SearchFilters): boolean
 	const before = filters.before ? dayStart(filters.before) : undefined;
 
 	return !(after && time < after.getTime()) && !(before && time >= before.getTime());
+}
+
+/** Where `words` occur in `text`, as [start, end] offsets into `text` itself. */
+export function matchSpans(text: string, words: string[]): [number, number][] {
+	return words
+		.filter((word) => word !== "")
+		.flatMap((word) =>
+			Array.from(
+				text.matchAll(new RegExp(escapeRegExp(word), "giu")),
+				(match): [number, number] => [match.index, match.index + match[0].length]
+			)
+		);
 }

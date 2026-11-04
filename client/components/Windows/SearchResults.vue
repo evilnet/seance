@@ -420,8 +420,8 @@
 .search-chip-open:focus-visible,
 .search-chip-remove:focus-visible,
 .search-hit:focus-visible {
-	outline: 2px solid var(--oper-amber);
-	outline-offset: -2px;
+	outline: 0.125rem solid var(--oper-amber);
+	outline-offset: -0.125rem;
 }
 
 .search-context:focus {
@@ -581,7 +581,7 @@
 .search-hit.sel,
 .search-context-line.hit {
 	background: var(--highlight-bg-color);
-	box-shadow: inset 2px 0 0 var(--highlight-border-color);
+	box-shadow: inset 0.125rem 0 0 var(--highlight-border-color);
 }
 
 .search-time {
@@ -736,6 +736,7 @@ import {
 	formatSearchQuery,
 	hasCriteria,
 	matchesFilters,
+	matchSpans,
 	parseSearchQuery,
 	rowKey,
 	SEARCHABLE_MESSAGE_TYPES,
@@ -754,6 +755,8 @@ import Username from "../Username.vue";
 
 const PAGE_SIZE = 100;
 const CONTEXT_SIZE = 21;
+/** Long enough that hits clicked through quickly ask only for the last. */
+const CONTEXT_DELAY_MS = 250;
 const CONTEXT_PAGE = 20;
 const HINTS = ["from:nick", "in:#channel", "has:link", "-word", "after:2026-10-01"];
 
@@ -807,6 +810,7 @@ export default defineComponent({
 		const selected = ref<SearchHit | null>(null);
 		const contextRows = ref<SharedMsg[]>([]);
 		const contextLoading = ref(false);
+		let contextTimer: ReturnType<typeof setTimeout> | undefined;
 		const contextLive = ref(false);
 		const contextNote = ref("");
 		const canEarlier = ref(true);
@@ -959,6 +963,7 @@ export default defineComponent({
 		);
 
 		const resetContext = () => {
+			clearTimeout(contextTimer);
 			contextRequest = 0;
 			selected.value = null;
 			contextRows.value = [];
@@ -1131,6 +1136,12 @@ export default defineComponent({
 		};
 
 		const openHit = (hit: SearchHit) => {
+			if (selected.value === hit && contextLoading.value) {
+				return; // already on its way
+			}
+
+			clearTimeout(contextTimer);
+
 			if (!selected.value) {
 				contextOpener = document.activeElement as HTMLElement | null;
 			}
@@ -1168,15 +1179,23 @@ export default defineComponent({
 			contextLive.value = true;
 			contextLoading.value = true;
 			contextDirection = "AROUND";
-			contextRequest = nextRequestId++;
-			socket.emit("search:context", {
-				network: network.value!.uuid,
-				requestId: contextRequest,
-				target: hit.target,
-				direction: "AROUND",
-				msgid: hit.msg.msgid,
-				limit: CONTEXT_SIZE,
-			});
+
+			// Every command costs fake lag, and one answered for a hit already
+			// left behind is only a delay for what the user types next.
+			const uuid = network.value!.uuid;
+			const msgid = hit.msg.msgid;
+
+			contextTimer = setTimeout(() => {
+				contextRequest = nextRequestId++;
+				socket.emit("search:context", {
+					network: uuid,
+					requestId: contextRequest,
+					target: hit.target,
+					direction: "AROUND",
+					msgid,
+					limit: CONTEXT_SIZE,
+				});
+			}, CONTEXT_DELAY_MS);
 		};
 
 		const contextPage = (direction: "BEFORE" | "AFTER") => {
@@ -1287,7 +1306,11 @@ export default defineComponent({
 			draft.value = q;
 
 			if (q.trim() === query.value) {
-				run();
+				// The same search again: its answer is already on the way.
+				if (!loading.value) {
+					run();
+				}
+
 				return;
 			}
 
@@ -1343,7 +1366,7 @@ export default defineComponent({
 				return;
 			}
 
-			const words = filters.value.words.map((word) => word.toLowerCase());
+			const words = filters.value.words;
 			const ranges: Range[] = [];
 
 			for (const root of document.querySelectorAll(
@@ -1353,19 +1376,12 @@ export default defineComponent({
 
 				while (walker.nextNode()) {
 					const node = walker.currentNode;
-					const text = (node.textContent ?? "").toLowerCase();
 
-					for (const word of words) {
-						for (
-							let at = text.indexOf(word);
-							at >= 0;
-							at = text.indexOf(word, at + word.length)
-						) {
-							const range = new Range();
-							range.setStart(node, at);
-							range.setEnd(node, at + word.length);
-							ranges.push(range);
-						}
+					for (const [start, end] of matchSpans(node.textContent ?? "", words)) {
+						const range = new Range();
+						range.setStart(node, start);
+						range.setEnd(node, end);
+						ranges.push(range);
 					}
 				}
 			}
@@ -1414,6 +1430,7 @@ export default defineComponent({
 		});
 
 		onUnmounted(() => {
+			clearTimeout(contextTimer);
 			layout.removeEventListener("change", onLayout);
 			socket.off("search:results", onResults);
 			socket.off("search:context", onContext);
