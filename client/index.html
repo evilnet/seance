@@ -6,6 +6,9 @@
 			name="viewport"
 			content="width=device-width, user-scalable=no, interactive-widget=resizes-content"
 		/>
+		<!-- Media hosts come from links in chat. Video and audio have no
+		     referrerPolicy of their own, so only the document's reaches them. -->
+		<meta name="referrer" content="no-referrer" />
 
 		<!-- The first paint, before style.css lands: no white flash on launch.
 		     Ahead of the stylesheet link so the themes win once it arrives. -->

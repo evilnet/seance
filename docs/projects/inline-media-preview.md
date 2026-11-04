@@ -75,8 +75,8 @@ want a chatty, media-rich feel — and cover the links people actually paste
    `thelounge.media.trusted`, managed in Settings → Appearance). Revealed
    media has a hover toolbar (hide again, change that trust, open); own messages skip the veil; a
    failed load falls back to the card; `ImageViewer` only steps through
-   revealed images; every media element carries
-   `referrerpolicy="no-referrer"`. Still open: `loading="lazy"`; a
+   revealed images; `client/index.html` sets a document-wide no-referrer
+   policy, the only one video and audio obey. Still open: `loading="lazy"`; a
    deploy-level default / allow-list in `config.json`; hide previews from
    ignored/muted users; blur-until-click as a middle ground. Note the
    existing `uploadCanvas` idea for strip-metadata uploads is unrelated to
