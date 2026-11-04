@@ -41,6 +41,7 @@ nothing.
   says `+[git:<describe>]`). `/msg <bot> VERSION`: `$bX3 2.0+[release]$b (Based on srvx 1.3.x), Built: …`. `/VERSION <services server>` gives 351
   `x3 2.0+[release] <server>`.
 - A non-oper messaging O3: `$bO3$b is a privileged service.`
+- Other refusals before a command runs (modcmd.c, main-common.c): `$b<cmd>$b is a privileged command.`, `$b<cmd>$b is a disabled command.`, `You must first authenticate with $b<bot>$b.`, `Your $b<O3>$b access has been suspended.`, `You lack access to <#chan>.`, `You lack sufficient access in <#chan> to use this command.`, `You must be in <#chan> (or on its userlist) to use this command.`, `You must have security override (helping mode) on to use this command.` Any lookup can get one as its whole answer (`irc/services/x3/refusals.ts`).
 
 ## 3. The snoop feed (mod-snoop)
 
