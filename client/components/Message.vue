@@ -82,7 +82,12 @@
 					><ParsedMessage :message="message" />
 					<span class="msg-redacted-note">{{ redactedLabel }}</span></span
 				><ParsedMessage v-else :message="message" />
-				<span v-if="message.editOf" class="msg-edited" :title="editedTitle">(edited)</span>
+				<span
+					v-if="message.editOf || message.editedAt"
+					class="msg-edited"
+					:title="editedTitle"
+					>(edited)</span
+				>
 				<!-- A deleted message hides its previews with its text: the
 				placeholder would otherwise sit above the very image it deleted.
 				Revealing the text brings them back. -->
@@ -161,7 +166,12 @@
 					><ParsedMessage :network="network" :message="message" />
 					<span class="msg-redacted-note">{{ redactedLabel }}</span></span
 				><ParsedMessage v-else :network="network" :message="message" />
-				<span v-if="message.editOf" class="msg-edited" :title="editedTitle">(edited)</span>
+				<span
+					v-if="message.editOf || message.editedAt"
+					class="msg-edited"
+					:title="editedTitle"
+					>(edited)</span
+				>
 				<!-- A deleted message hides its previews with its text: the
 				placeholder would otherwise sit above the very image it deleted.
 				Revealing the text brings them back. -->

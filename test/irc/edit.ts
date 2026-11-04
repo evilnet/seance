@@ -387,6 +387,54 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 			expect(events.indexOf("more")).to.be.lessThan(events.indexOf("msg:edit"));
 		});
 
+		it("puts an edit shown first in the place of an original an older page brings", function () {
+			const h = setup();
+			const id = joined(h);
+			registerBusHandlers(socket, {
+				clientForChannel: (chanId) => (h.client.channelById(chanId) ? h.client : undefined),
+				clientForNetwork: () => h.client,
+				allClients: () => [h.client],
+				createNetwork: () => h.client,
+				remove: () => undefined,
+			});
+			h.transport.line(
+				"@time=2026-08-25T12:00:05.000Z;msgid=e1;+seance/edit=o1 :bob!bob@host PRIVMSG #seance :the"
+			);
+			const edit = h.lastMessage(id);
+			expect(h.payloads("msg:edit")).to.have.length(0);
+
+			socket.emit("more", {target: id, lastId: edit.id, condensed: false});
+			batch(
+				h,
+				["@time=2026-08-25T11:00:00.000Z;msgid=o1 :bob!bob@host PRIVMSG #seance :teh"],
+				{label: labelOf(h.sent())}
+			);
+
+			const [more] = h.payloads<{messages: {id: number; msgid?: string}[]}>("more");
+			expect(more.messages.map((m) => m.msgid)).to.deep.equal(["o1"]);
+			expect(h.payloads<EditPayload>("msg:edit")).to.deep.equal([
+				{chan: id, id: edit.id, replaces: more.messages[0].id},
+			]);
+			const events = h.events();
+			expect(events.indexOf("more")).to.be.lessThan(events.indexOf("msg:edit"));
+		});
+
+		it("puts an edit shown first in the place of an original delivered after it", function () {
+			const h = setup();
+			const id = joined(h);
+			h.transport.line("@msgid=e1;+seance/edit=o1 :bob!bob@host PRIVMSG #seance :the");
+			const edit = h.lastMessage(id);
+			h.transport.line("@msgid=o1 :bob!bob@host PRIVMSG #seance :teh");
+			const original = h.lastMessage(id);
+
+			expect(h.payloads<EditPayload>("msg:edit")).to.deep.equal([
+				{chan: id, id: edit.id, replaces: original.id},
+			]);
+			// Once only: the original arriving again changes nothing more.
+			h.transport.line("@msgid=o1 :bob!bob@host PRIVMSG #seance :teh");
+			expect(h.payloads("msg:edit")).to.have.length(1);
+		});
+
 		it("resolves edits appended by a catch-up (AFTER) replay", function () {
 			const h = setup();
 			const id = joined(h);

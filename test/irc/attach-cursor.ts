@@ -11,6 +11,7 @@ import {CURSOR_SAVE_INTERVAL_MS} from "../../client/js/irc/client";
 import {requestHistory, requestMore} from "../../client/js/irc/history";
 import {MARKREAD_DEBOUNCE_MS} from "../../client/js/irc/handlers/markread";
 import * as saved from "../../client/js/irc/saved-networks";
+import {SAVE_DELAY_MS, useStorageBackend as useQueryLogBackend} from "../../client/js/irc/querylog";
 import type {StorageBackend} from "../../client/js/irc/saved-networks";
 import {MessageType, SharedMsg} from "../../shared/types/msg";
 import {ALL_CAPS, Harness, batch, joined, labelOf, register, setup} from "./support";
@@ -456,6 +457,71 @@ describe("PERSISTENCE ATTACH catch-up cursor (irc/persistence.ts)", function () 
 			const query = h.client.findChannel("bob")!;
 			expect(query, "query window opened").to.not.equal(undefined);
 			expect(h.messages(query.id).map((m) => m.text)).to.deep.equal(["you there?"]);
+		});
+
+		it("puts an edit in its original's place when a query's replay carries both", function () {
+			const h = resumed();
+			bouncerReplay(h, "bob", [
+				"@time=2026-08-28T11:30:00.000Z;msgid=o1 :bob!bob@host PRIVMSG alice :teh plan",
+				"@time=2026-08-28T11:30:05.000Z;msgid=e1;+seance/edit=o1 :bob!bob@host PRIVMSG alice :the plan",
+			]);
+			const query = h.client.findChannel("bob")!;
+			const [original, edit] = h.messages(query.id);
+
+			expect([original.msgid, edit.msgid]).to.deep.equal(["o1", "e1"]);
+			expect(h.payloads("msg:edit")).to.deep.equal([
+				{chan: query.id, id: edit.id, replaces: original.id},
+			]);
+		});
+
+		it("puts a replayed edit in the place of an original already shown", function () {
+			const h = resumed();
+			h.transport.line(
+				"@time=2026-08-28T11:30:00.000Z;msgid=o1 :bob!bob@host PRIVMSG alice :teh plan"
+			);
+			const query = h.client.findChannel("bob")!;
+			const original = h.lastMessage(query.id);
+			bouncerReplay(h, "bob", [
+				"@time=2026-08-28T11:30:00.000Z;msgid=o1 :bob!bob@host PRIVMSG alice :teh plan",
+				"@time=2026-08-28T11:30:05.000Z;msgid=e1;+seance/edit=o1 :bob!bob@host PRIVMSG alice :the plan",
+			]);
+			const edit = h.lastMessage(query.id);
+
+			// The original is not delivered a second time; the edit replaces it.
+			expect(h.messages(query.id).map((m) => m.msgid)).to.deep.equal(["o1", "e1"]);
+			expect(h.payloads("msg:edit")).to.deep.equal([
+				{chan: query.id, id: edit.id, replaces: original.id},
+			]);
+		});
+
+		it("adds nothing when the replay brings an edit already folded into a restored query line", function () {
+			const logBackend = new MemoryBackend();
+			useQueryLogBackend(logBackend);
+			const first = resumed();
+
+			try {
+				first.transport.lines(
+					"@time=2026-08-28T11:30:00.000Z;msgid=o1 :bob!bob@host PRIVMSG alice :teh plan",
+					"@time=2026-08-28T11:30:05.000Z;msgid=e1;+seance/edit=o1 :bob!bob@host PRIVMSG alice :the plan"
+				);
+				clock.tick(SAVE_DELAY_MS);
+				first.client.queryLog.dispose();
+
+				// The page is reloaded: the query comes back from the log as one line.
+				const h = resumed();
+				const query = h.client.findChannel("bob")!;
+				expect(query, "the query came back").to.not.equal(undefined);
+				bouncerReplay(h, "bob", [
+					"@time=2026-08-28T11:30:00.000Z;msgid=o1 :bob!bob@host PRIVMSG alice :teh plan",
+					"@time=2026-08-28T11:30:05.000Z;msgid=e1;+seance/edit=o1 :bob!bob@host PRIVMSG alice :the plan",
+				]);
+
+				expect(h.messages(query.id)).to.deep.equal([]);
+				expect(h.payloads("msg:edit")).to.deep.equal([]);
+				h.client.queryLog.dispose();
+			} finally {
+				useQueryLogBackend(null);
+			}
 		});
 
 		it("asks for a query's read marker once the replay leaves it unread", function () {

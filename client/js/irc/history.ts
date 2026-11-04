@@ -495,6 +495,10 @@ function deliverPrepend(
 	const totalMessages = chan.shared.totalMessages + (moreAvailable ? 1 : 0);
 	client.dispatch("more", {chan: chan.id, messages, totalMessages, moreAvailable});
 
+	for (const msg of messages) {
+		client.settleLateOriginal(chan, msg);
+	}
+
 	if (marker && !looking) {
 		countPageUnread(client, chan, page, marker);
 	}

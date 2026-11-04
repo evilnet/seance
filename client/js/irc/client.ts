@@ -2250,6 +2250,22 @@ export class IrcClient {
 		this.pendingEdits.set(oldMsgid, {chan, text, replyTo, action, timer});
 	}
 
+	/**
+	 * `msg` was just delivered, and an edit of it is already shown (it came
+	 * first: an older page brought the original in, or a catch-up). The edit
+	 * takes its place now (`msg:edit`), as it does when the original is
+	 * there first, so the two are never both on screen — nor both in a copy
+	 * of the conversation.
+	 */
+	settleLateOriginal(chan: Channel, msg: SharedMsg): void {
+		const editMsgid = msg.msgid ? chan.takeEditOf(msg.msgid) : undefined;
+		const id = editMsgid === undefined ? undefined : chan.idOf(editMsgid);
+
+		if (id !== undefined && id !== msg.id) {
+			this.dispatch("msg:edit", {chan: chan.id, id, replaces: msg.id});
+		}
+	}
+
 	/** The tagged resend that completes an edit. */
 	private sendEdit(
 		chan: Channel,
@@ -3200,6 +3216,7 @@ export class IrcClient {
 			highlight: shared.highlight,
 			...(replay ? {replay: true} : {}),
 		});
+		this.settleLateOriginal(chan, msg);
 
 		// An unread highlight in a conversation, live or caught up, is an
 		// inbox entry; one read already (looked at, or past another
