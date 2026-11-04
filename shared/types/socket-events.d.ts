@@ -146,6 +146,9 @@ interface ServerToClientEvents {
 		messages: SharedMsg[];
 	}>;
 
+	/** The parent of a reply that is not loaded, for its quote; never a row of the channel. */
+	"reply:parent": EventHandler<{chan: number; msgid: string; nick: string; text: string}>;
+
 	"msg:preview": EventHandler<{id: number; chan: number; preview: LinkPreview}>;
 	/** A `+draft/react` / `+draft/unreact` TAGMSG resolved to the message it targets. */
 	"msg:react": EventHandler<{
@@ -389,6 +392,8 @@ interface ClientToServerEvents {
 		msgid: string;
 		limit: number;
 	}>;
+	/** A quote on screen names a message that is not loaded (see bus-contract §1.4). */
+	"reply:parent": EventHandler<{chan: number; msgid: string}>;
 	/** The UI dropped these messages from a channel's buffer (see bus-contract § 2). */
 	"history:trim": EventHandler<{target: number; ids: number[]}>;
 

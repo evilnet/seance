@@ -46,6 +46,7 @@
 				<button
 					v-if="message.replyTo"
 					type="button"
+					ref="quoteButton"
 					class="msg-reply-quote"
 					:class="{unknown: !quote}"
 					:aria-label="quoteLabel"
@@ -129,6 +130,7 @@
 				<button
 					v-if="message.replyTo"
 					type="button"
+					ref="quoteButton"
 					class="msg-reply-quote"
 					:class="{unknown: !quote}"
 					:aria-label="quoteLabel"
@@ -200,6 +202,7 @@ import MessageActions from "./MessageActions.vue";
 import MessageReactions from "./MessageReactions.vue";
 import QuotePreview from "./QuotePreview.vue";
 import {replyQuote} from "../js/helpers/messageUpdates";
+import socket from "../js/socket";
 import {quoteLayout, toPlainText} from "../js/helpers/ircmessageparser/layout";
 import {MessageType} from "../../shared/types/msg";
 
@@ -495,8 +498,52 @@ export default defineComponent({
 				return undefined;
 			}
 
-			return replyQuote(props.channel.messages, props.message.replyTo);
+			return (
+				replyQuote(props.channel.messages, props.message.replyTo) ??
+				props.channel.replyParents?.[props.message.replyTo]
+			);
 		});
+
+		const quoteButton = ref<HTMLElement | null>(null);
+		const quoteOnScreen = ref(false);
+
+		// Only a quote with nothing to show needs watching, and only one on
+		// screen is worth a command: a buffer can hold dozens of them.
+		watch(
+			() => (quote.value ? null : quoteButton.value),
+			(button, _, onCleanup) => {
+				if (!button) {
+					return;
+				}
+
+				if (!window.IntersectionObserver) {
+					quoteOnScreen.value = true;
+					return;
+				}
+
+				const observer = new window.IntersectionObserver((entries) => {
+					quoteOnScreen.value = entries[entries.length - 1].isIntersecting;
+				});
+
+				observer.observe(button);
+				onCleanup(() => observer.disconnect());
+			},
+			{flush: "post", immediate: true}
+		);
+
+		// It asks the server for its parent; the IRC layer asks once a
+		// connection, so a new socket gets another try.
+		watch(
+			() => !quote.value && props.network.status.connected && quoteOnScreen.value,
+			(wanted) => {
+				if (wanted && props.message.replyTo && props.channel) {
+					socket.emit("reply:parent", {
+						chan: props.channel.id,
+						msgid: props.message.replyTo,
+					});
+				}
+			}
+		);
 
 		// The quote as plain text (tooltip, screen readers), cut like the
 		// rendered one
@@ -508,18 +555,25 @@ export default defineComponent({
 				: ""
 		);
 
+		// A fetched parent has no row to jump to.
+		const parentRowId = computed(() =>
+			quote.value && "id" in quote.value ? quote.value.id : undefined
+		);
+
 		const quoteLabel = computed(() =>
 			quote.value
-				? `Replying to ${quote.value.nick}: ${quotePlain.value}. Jump to that message.`
+				? `Replying to ${quote.value.nick}: ${quotePlain.value}.${
+						parentRowId.value === undefined ? "" : " Jump to that message."
+				  }`
 				: "Replying to a message that is not loaded"
 		);
 
 		const jumpToParent = () => {
-			if (!quote.value) {
+			if (parentRowId.value === undefined) {
 				return;
 			}
 
-			const el = document.getElementById("msg-" + quote.value.id);
+			const el = document.getElementById("msg-" + parentRowId.value);
 
 			if (!el) {
 				return;
@@ -563,6 +617,7 @@ export default defineComponent({
 		};
 
 		return {
+			quoteButton,
 			store,
 			actionsOpen,
 			onActionDone,

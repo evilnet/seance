@@ -17,6 +17,10 @@
  *
  * A context reply is an ordinary `chathistory` batch, told apart from the
  * channel's own pages by its label alone, so context needs `labeled-response`.
+ *
+ * The parent of a reply that is not loaded comes the same way
+ * ({@link requestReplyParent}): one `CHATHISTORY AROUND msgid=<id> 1`, its row
+ * handed to the quote (`reply:parent`) and never made a row of the channel.
  */
 
 import type {
@@ -39,10 +43,20 @@ export const SEARCH_TIMEOUT_MS = 20_000;
  * later answer would be off by one, so the place is given up in the end.
  */
 export const SEARCH_TOMBSTONE_MS = 120_000;
+/** One `CHATHISTORY AROUND` for a reply's parent: a command. */
+const PARENT_COST_MS = 2000;
+
+/** What a `parent` request is after. */
+interface ParentAsk {
+	chan: Channel;
+	msgid: string;
+}
 
 interface PendingSearch {
-	kind: "results" | "context";
+	kind: "results" | "context" | "parent";
 	requestId: number;
+	/** Set on a `parent` request. */
+	parent?: ParentAsk;
 	label?: string;
 	timer: ReturnType<typeof setTimeout>;
 	/**
@@ -52,7 +66,12 @@ interface PendingSearch {
 	expired?: boolean;
 }
 
+/** What a request is for: who gets its answer. */
+type Asked = Pick<PendingSearch, "kind" | "requestId" | "parent">;
+
 const pendingByClient = new WeakMap<IrcClient, PendingSearch[]>();
+/** Reply parents asked for on this connection, `<chan id>:<msgid>`: each is worth one command. */
+const parentsAsked = new WeakMap<IrcClient, Set<string>>();
 let labelCounter = 0;
 
 function pendingOf(client: IrcClient): PendingSearch[] {
@@ -101,15 +120,9 @@ function labelTags(client: IrcClient): {tags: Record<string, string>; label?: st
 	return {tags: {label}, label};
 }
 
-function track(
-	client: IrcClient,
-	kind: PendingSearch["kind"],
-	requestId: number,
-	label?: string
-): void {
+function track(client: IrcClient, asked: Asked, label?: string): void {
 	const request: PendingSearch = {
-		kind,
-		requestId,
+		...asked,
 		label,
 		timer: setTimeout(() => {
 			request.expired = true;
@@ -139,17 +152,46 @@ function take(client: IrcClient, request: PendingSearch): boolean {
 
 function answer(
 	client: IrcClient,
-	request: Pick<PendingSearch, "kind" | "requestId">,
+	request: Asked,
 	status: SearchStatus,
 	error?: string,
 	hits: SearchHit[] = []
 ): void {
+	if (request.parent) {
+		answerParent(client, request.parent, status, hits);
+		return;
+	}
+
 	const base = {network: client.uuid, requestId: request.requestId, status, error};
 
 	if (request.kind === "results") {
 		client.dispatchBus("search:results", {...base, hits});
 	} else {
 		client.dispatchBus("search:context", {...base, messages: hits.map((hit) => hit.msg)});
+	}
+}
+
+/**
+ * Give the quote its parent. Nothing to give leaves it "(unknown message)": a
+ * server's no stays no for this connection, and anything else can be asked again.
+ */
+function answerParent(
+	client: IrcClient,
+	{chan, msgid}: ParentAsk,
+	status: SearchStatus,
+	hits: SearchHit[]
+): void {
+	const row = hits.find((hit) => hit.msg.msgid === msgid)?.msg;
+
+	if (row) {
+		client.dispatchBus("reply:parent", {
+			chan: chan.id,
+			msgid,
+			nick: row.from?.nick ?? "",
+			text: row.text ?? "",
+		});
+	} else if (status !== "ok" && status !== "fail") {
+		parentsAsked.get(client)?.delete(`${chan.id}:${msgid}`);
 	}
 }
 
@@ -163,17 +205,14 @@ function lineFor(input: Parameters<typeof formatLine>[0]): string | undefined {
 	}
 }
 
-/** Send a request for the window, which always gets its one answer, whatever happens. */
+/** Send a request, which always gets its one answer, whatever happens. */
 function sendRequest(
 	client: IrcClient,
-	kind: PendingSearch["kind"],
-	requestId: number,
+	request: Asked,
 	available: boolean,
 	command: string,
 	params: string[]
 ): void {
-	const request = {kind, requestId};
-
 	if (!client.isWelcomed) {
 		answer(client, request, "offline");
 		return;
@@ -197,15 +236,22 @@ function sendRequest(
 		return;
 	}
 
-	track(client, kind, requestId, label);
+	track(client, request, label);
+}
+
+/** A context reply is told from a channel's own page by its label alone. */
+function canAskContext(client: IrcClient): boolean {
+	return (
+		client.caps.hasCapability("draft/chathistory") &&
+		client.caps.hasCapability("labeled-response")
+	);
 }
 
 /** Send a `SEARCH`, answered by one `search:results`. */
 export function requestSearch(client: IrcClient, requestId: number, attrs: SearchAttrs): void {
 	sendRequest(
 		client,
-		"results",
-		requestId,
+		{kind: "results", requestId},
 		client.caps.hasCapability(SEARCH_CAP) && client.caps.hasCapability("batch"),
 		"SEARCH",
 		client.profile.searchParams?.(attrs) ?? specSearchParams(attrs)
@@ -221,14 +267,55 @@ export function requestSearchContext(
 	msgid: string,
 	limit: number
 ): void {
-	sendRequest(
-		client,
-		"context",
-		requestId,
-		client.caps.hasCapability("draft/chathistory") &&
-			client.caps.hasCapability("labeled-response"),
-		"CHATHISTORY",
-		[direction, target, `msgid=${msgid}`, String(limit)]
+	sendRequest(client, {kind: "context", requestId}, canAskContext(client), "CHATHISTORY", [
+		direction,
+		target,
+		`msgid=${msgid}`,
+		String(limit),
+	]);
+}
+
+/**
+ * Ask the server for the parent of a reply when it is not loaded, answered by
+ * a `reply:parent` if the server still has it. Background work, so a screenful
+ * of replies cannot put the server's clock past its ceiling, but at the front:
+ * someone is looking at this quote, and behind a reconnect's catch-up it waited
+ * minutes. The job checks again at its turn, since a page may have brought the row.
+ */
+export function requestReplyParent(client: IrcClient, chan: Channel, msgid: string): void {
+	const key = `${chan.id}:${msgid}`;
+	let asked = parentsAsked.get(client);
+
+	if (!asked) {
+		asked = new Set();
+		parentsAsked.set(client, asked);
+	}
+
+	if (asked.has(key) || chan.idOf(msgid) !== undefined || !canAskContext(client)) {
+		return;
+	}
+
+	asked.add(key);
+	client.background.add(
+		{
+			key: `parent:${key}`,
+			cost: PARENT_COST_MS,
+			run() {
+				if (chan.idOf(msgid) !== undefined) {
+					asked.delete(key); // never asked: if the row is trimmed, the quote can
+					return;
+				}
+
+				sendRequest(
+					client,
+					{kind: "parent", requestId: 0, parent: {chan, msgid}},
+					canAskContext(client),
+					"CHATHISTORY",
+					["AROUND", chan.name, `msgid=${msgid}`, "1"]
+				);
+			},
+		},
+		{front: true}
 	);
 }
 
@@ -278,7 +365,7 @@ function searchFor(client: IrcClient, label?: string): PendingSearch | undefined
 /** The context request a reply names: only a label tells it from a channel's own. */
 function contextFor(client: IrcClient, label?: string): PendingSearch | undefined {
 	return label
-		? pendingOf(client).find((request) => request.kind === "context" && request.label === label)
+		? pendingOf(client).find((request) => request.kind !== "results" && request.label === label)
 		: undefined;
 }
 
@@ -356,4 +443,7 @@ export function resetSearches(client: IrcClient): void {
 	for (const request of [...pendingOf(client)]) {
 		settle(client, request, "offline");
 	}
+
+	// The queue they waited in is gone with the socket; a new one asks afresh.
+	parentsAsked.delete(client);
 }
