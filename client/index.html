@@ -6,6 +6,9 @@
 			name="viewport"
 			content="width=device-width, user-scalable=no, interactive-widget=resizes-content"
 		/>
+		<!-- Media hosts come from links in chat. Video and audio have no
+		     referrerPolicy of their own, so only the document's reaches them. -->
+		<meta name="referrer" content="no-referrer" />
 
 		<!-- The first paint, before style.css lands: no white flash on launch.
 		     Ahead of the stylesheet link so the themes win once it arrives. -->
@@ -21,8 +24,7 @@
 		<script src="js/prepaint.js?v=__HASH__"></script>
 
 		<link rel="preload" as="script" href="js/loading-error-handlers.js?v=__HASH__" />
-		<link rel="preload" as="script" href="js/bundle.vendor.js?v=__HASH__" />
-		<link rel="preload" as="script" href="js/bundle.js?v=__HASH__" />
+		<link rel="modulepreload" href="js/bundle.js?v=__HASH__" />
 
 		<link rel="stylesheet" href="css/style.css?v=__HASH__" />
 		<link id="theme" rel="stylesheet" href="themes/coffee.css" data-server-theme="coffee" />
@@ -94,7 +96,6 @@
 			</div>
 		</div>
 		<script src="js/loading-error-handlers.js?v=__HASH__"></script>
-		<script src="js/bundle.vendor.js?v=__HASH__"></script>
-		<script src="js/bundle.js?v=__HASH__"></script>
+		<script type="module" src="js/bundle.js?v=__HASH__"></script>
 	</body>
 </html>

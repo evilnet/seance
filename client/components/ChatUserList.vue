@@ -26,7 +26,6 @@
 				:data-label="modeLabel(String(mode))"
 			>
 				<template v-if="userSearchInput.length > 0">
-					<!-- eslint-disable vue/no-v-text-v-html-on-component -->
 					<Username
 						v-for="user in users"
 						:key="user.original.nick + '-search'"
@@ -35,7 +34,6 @@
 						:user="user.original"
 						v-html="user.string"
 					/>
-					<!-- eslint-enable -->
 				</template>
 				<template v-else>
 					<Username
@@ -91,7 +89,7 @@ export default defineComponent({
 		);
 		const filteredUsers = computed(() => {
 			if (!userSearchInput.value) {
-				return;
+				return undefined;
 			}
 
 			return fuzzyHtml(userSearchInput.value, props.channel.users, (u) => u.nick);

@@ -72,9 +72,7 @@ const DRAFT_ID = Number.MAX_SAFE_INTEGER;
  * Neither is defined in a production build.
  */
 declare global {
-	// eslint-disable-next-line no-var
 	var seanceTranslateLog: TranslateCapture[] | undefined;
-	// eslint-disable-next-line no-var
 	var seanceTranslateLast: TranslateCapture | undefined;
 }
 

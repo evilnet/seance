@@ -3,7 +3,7 @@
 // fails one that overflowed bare, and never counts it toward a pause.
 
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import {
 	CONTEXT_OVERFLOW,
 	emptyContext,
@@ -20,10 +20,15 @@ import {
 import {protect} from "../../client/js/translate/spans";
 import {TranslateError} from "../../client/js/translate/client";
 
+// sinon 15 and later fake queueMicrotask and process.nextTick as well, and the
+// in-memory port pair (protocol.ts createPortPair) delivers through
+// queueMicrotask: both stay real, as they were under the older sinon.
+const fakeTimers = () => sinon.useFakeTimers({toNotFake: ["nextTick", "queueMicrotask"]});
+
 type Request = Omit<TranslateRequest, "id" | "model">;
 
 function rig(answer: (req: Request) => string | Error) {
-	const clock = sinon.useFakeTimers();
+	const clock = fakeTimers();
 	const updates: [number, QueueUpdate][] = [];
 	const requests: Request[] = [];
 	const paused: string[] = [];

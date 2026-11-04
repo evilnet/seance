@@ -20,7 +20,7 @@
 // detection-skipped and one failed with "came back unchanged". The claims
 // are read off the real DOM as computed styles.
 //
-//   corepack yarn build    (dev build: window.socket is dev-build-only)
+//   NODE_ENV=development pnpm build    (window.socket is dev-build-only)
 //   node tools/browser-drive.mjs tools/scenarios/translation-chips.mjs
 //
 // The served origin is the dev stack's https://127.0.0.1:8000 (self-signed;

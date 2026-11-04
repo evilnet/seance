@@ -57,7 +57,7 @@ _Compiled 2026-10-09 from `ircv3.2-upgrade` at `346a1c0` by reading the source a
 
 - An Operator block may require an `sslfp` in addition to the password.
 - There is **no SASL, account or certfp auto-oper**.
-- The only grant without OPER is a bouncer session reviving or promoting an alias: the grant is reapplied silently, with no 381.
+- The only grant without OPER is a bouncer session reviving or promoting an alias: the grant is reapplied with no 381. Since `d759a1a` (PR #124, fixing #121) the connection is told its modes as a fresh registration is, after the end of the MOTD: `:<nick>!<user>@<host> MODE <nick> +<modes>` (never `+r` or the host-hiding flags), then 008 when +s is set with a mask other than the default (`s_user.c` `send_umode_signon`).
 
 **Success order** (`m_oper.c` `do_oper`):
 
@@ -646,8 +646,7 @@ A mask matching ≥ GLINEMAXUSERCOUNT (20) users → `519 <n> :Too many users af
 - **Filed:**
   - [#119](https://github.com/evilnet/nefarious2/issues/119): NOTICEs inside a labeled batch carry no `@batch`.
   - [#120](https://github.com/evilnet/nefarious2/issues/120): USERHOST, USERIP, ISON and PRIVS go out untagged and are followed by an ACK.
-  - [#121](https://github.com/evilnet/nefarious2/issues/121): a held bouncer session that is revived or attached never has its user modes sent, so a client cannot know it is +o until it asks (`/umode`; Seance asks by itself on a network it remembers as opered, `irc/oper.ts` `operRegistered`).
-- **Fixed upstream:** `ead82a8`, the non-oper STATS abort on the seven long-name entries.
+- **Fixed upstream:** `ead82a8`, the non-oper STATS abort on the seven long-name entries; `d759a1a` ([#121](https://github.com/evilnet/nefarious2/issues/121), merged in PR #124 as `b83c361`), a held bouncer session revived or attached never being sent its user modes — it now gets them after the MOTD on every path, so Seance's stopgap (one `MODE <me>` on a network it remembered as opered) is gone.
 - **Confirmed in the source at `8453087`, not filed:**
   - `STATS k <server> <mask>` passes 5 arguments to the 8-field 216 format (`s_stats.c:287`).
   - WATCH parses the sender's nick (`parv[0]`) as a token, so a nick starting with `C` clears the list on every WATCH.

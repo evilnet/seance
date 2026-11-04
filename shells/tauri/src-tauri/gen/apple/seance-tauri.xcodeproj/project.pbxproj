@@ -1,0 +1,466 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		022B869FC024AEDCD050C99F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 98AA36C63767BEEADF646E42 /* Assets.xcassets */; };
+		290F19074311EF5B964B149F /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 798FC1458444260FBBF516EF /* CoreGraphics.framework */; };
+		2D019AB5B69405A3E032B0E8 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5B4E248A5B34548703B06A5D /* UIKit.framework */; };
+		6192FE49E978C826D825516A /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 5201D3C1E86ECBF262F86266 /* LaunchScreen.storyboard */; };
+		645193991EA3755B36602E8D /* libapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 3D229981F7BF20A7DEA5C0CA /* libapp.a */; };
+		8CB31D3941AA640A7DE42A16 /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9E8C9A6827E96E7B8DC97D2A /* MetalKit.framework */; };
+		97E887649D5656B0C623EFED /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 5C502CA45096AB3FAF403298 /* assets */; };
+		BA97252CE8535F5C6B9AEEBA /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 958D42B8309787DD323CC90E /* Metal.framework */; };
+		BE19C8CAB92561C4CE3FEDDA /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = 52AC9D337551226ED7667767 /* main.mm */; };
+		C25A75F9D987EB6B895E3F58 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 95B1FE0A92CE3CA6C4C96807 /* QuartzCore.framework */; };
+		EF92C5821B3C5E6966A2C508 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 197304D623D8D4EF1966DFC5 /* Security.framework */; };
+		F860D30B5DC033B2DA84DAAB /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8EEA8FF5F3888FF0DA9396F4 /* WebKit.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		1604DAB86B91ADAECB0F695C /* seance-tauri_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "seance-tauri_iOS.entitlements"; sourceTree = "<group>"; };
+		197304D623D8D4EF1966DFC5 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		3D229981F7BF20A7DEA5C0CA /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
+		5201D3C1E86ECBF262F86266 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		52AC9D337551226ED7667767 /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
+		5B4E248A5B34548703B06A5D /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
+		5C502CA45096AB3FAF403298 /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
+		67B6A26495ED99CEA3CBCC36 /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
+		6E6AFC07688E95734EC9F8BE /* main.rs */ = {isa = PBXFileReference; path = main.rs; sourceTree = "<group>"; };
+		798FC1458444260FBBF516EF /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
+		834D7169E018CEC6BE60C6F7 /* mobile.rs */ = {isa = PBXFileReference; path = mobile.rs; sourceTree = "<group>"; };
+		8490D9DF72DA6F1642AA1D76 /* apple.rs */ = {isa = PBXFileReference; path = apple.rs; sourceTree = "<group>"; };
+		8EEA8FF5F3888FF0DA9396F4 /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
+		958D42B8309787DD323CC90E /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		95B1FE0A92CE3CA6C4C96807 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
+		98AA36C63767BEEADF646E42 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		9E8C9A6827E96E7B8DC97D2A /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
+		AACBE0FA9A549C6A22165D9A /* lib.rs */ = {isa = PBXFileReference; path = lib.rs; sourceTree = "<group>"; };
+		DB017663761BB9F91C220C29 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		DC791DAE35A3FABC7D9A1D5E /* seance-tauri_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "seance-tauri_iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		F00D8CA94434359C7070C0FF /* alerts.rs */ = {isa = PBXFileReference; path = alerts.rs; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		9709CD0C3B19A891D8ABB211 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				645193991EA3755B36602E8D /* libapp.a in Frameworks */,
+				290F19074311EF5B964B149F /* CoreGraphics.framework in Frameworks */,
+				BA97252CE8535F5C6B9AEEBA /* Metal.framework in Frameworks */,
+				8CB31D3941AA640A7DE42A16 /* MetalKit.framework in Frameworks */,
+				C25A75F9D987EB6B895E3F58 /* QuartzCore.framework in Frameworks */,
+				EF92C5821B3C5E6966A2C508 /* Security.framework in Frameworks */,
+				2D019AB5B69405A3E032B0E8 /* UIKit.framework in Frameworks */,
+				F860D30B5DC033B2DA84DAAB /* WebKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		31E6079BA9B2888F3561DE57 /* src */ = {
+			isa = PBXGroup;
+			children = (
+				F00D8CA94434359C7070C0FF /* alerts.rs */,
+				8490D9DF72DA6F1642AA1D76 /* apple.rs */,
+				AACBE0FA9A549C6A22165D9A /* lib.rs */,
+				6E6AFC07688E95734EC9F8BE /* main.rs */,
+				834D7169E018CEC6BE60C6F7 /* mobile.rs */,
+			);
+			name = src;
+			path = ../../src;
+			sourceTree = "<group>";
+		};
+		358D1FBF41CDE7F8E58B4E1E /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				37AA9774301B251811B7F001 /* seance-tauri */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		37AA9774301B251811B7F001 /* seance-tauri */ = {
+			isa = PBXGroup;
+			children = (
+				52AC9D337551226ED7667767 /* main.mm */,
+				BE37DCE6FCC177C371431956 /* bindings */,
+			);
+			path = "seance-tauri";
+			sourceTree = "<group>";
+		};
+		842438B2F21AF2E227C0658B = {
+			isa = PBXGroup;
+			children = (
+				5C502CA45096AB3FAF403298 /* assets */,
+				98AA36C63767BEEADF646E42 /* Assets.xcassets */,
+				5201D3C1E86ECBF262F86266 /* LaunchScreen.storyboard */,
+				B7B2A0AA6B1C83FC97736160 /* Externals */,
+				B39929C68FE261B88214C56E /* seance-tauri_iOS */,
+				358D1FBF41CDE7F8E58B4E1E /* Sources */,
+				31E6079BA9B2888F3561DE57 /* src */,
+				EC1E8E86ADF325DAFA2F27A9 /* Frameworks */,
+				8B57B6109311913FB82CB490 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		8B57B6109311913FB82CB490 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				DC791DAE35A3FABC7D9A1D5E /* seance-tauri_iOS.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		B39929C68FE261B88214C56E /* seance-tauri_iOS */ = {
+			isa = PBXGroup;
+			children = (
+				DB017663761BB9F91C220C29 /* Info.plist */,
+				1604DAB86B91ADAECB0F695C /* seance-tauri_iOS.entitlements */,
+			);
+			path = "seance-tauri_iOS";
+			sourceTree = "<group>";
+		};
+		B7B2A0AA6B1C83FC97736160 /* Externals */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Externals;
+			sourceTree = "<group>";
+		};
+		BE37DCE6FCC177C371431956 /* bindings */ = {
+			isa = PBXGroup;
+			children = (
+				67B6A26495ED99CEA3CBCC36 /* bindings.h */,
+			);
+			path = bindings;
+			sourceTree = "<group>";
+		};
+		EC1E8E86ADF325DAFA2F27A9 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				798FC1458444260FBBF516EF /* CoreGraphics.framework */,
+				3D229981F7BF20A7DEA5C0CA /* libapp.a */,
+				958D42B8309787DD323CC90E /* Metal.framework */,
+				9E8C9A6827E96E7B8DC97D2A /* MetalKit.framework */,
+				95B1FE0A92CE3CA6C4C96807 /* QuartzCore.framework */,
+				197304D623D8D4EF1966DFC5 /* Security.framework */,
+				5B4E248A5B34548703B06A5D /* UIKit.framework */,
+				8EEA8FF5F3888FF0DA9396F4 /* WebKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		CC6BD693BBF283DBF4409C93 /* seance-tauri_iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 896E8B891C1B9953AA483C1A /* Build configuration list for PBXNativeTarget "seance-tauri_iOS" */;
+			buildPhases = (
+				4BDAE4F8D71ED476E2A78FDD /* Build Rust Code */,
+				E7DC6DD213C066D34E106008 /* Sources */,
+				E59F4C5AAC9BB5493ED16C6D /* Resources */,
+				9709CD0C3B19A891D8ABB211 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "seance-tauri_iOS";
+			packageProductDependencies = (
+			);
+			productName = "seance-tauri_iOS";
+			productReference = DC791DAE35A3FABC7D9A1D5E /* seance-tauri_iOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		9A0BBE65D345DCDFE2D26E66 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = 5715F3083D4DD0F35C55A2D8 /* Build configuration list for PBXProject "seance-tauri" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 842438B2F21AF2E227C0658B;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 8B57B6109311913FB82CB490 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				CC6BD693BBF283DBF4409C93 /* seance-tauri_iOS */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		E59F4C5AAC9BB5493ED16C6D /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				022B869FC024AEDCD050C99F /* Assets.xcassets in Resources */,
+				6192FE49E978C826D825516A /* LaunchScreen.storyboard in Resources */,
+				97E887649D5656B0C623EFED /* assets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		4BDAE4F8D71ED476E2A78FDD /* Build Rust Code */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build Rust Code";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/Externals/x86_64/${CONFIGURATION}/libapp.a",
+				"$(SRCROOT)/Externals/arm64/${CONFIGURATION}/libapp.a",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "pnpm tauri ios xcode-script -v --platform \"${PLATFORM_DISPLAY_NAME:?}\" --sdk-root \"${SDKROOT:?}\" --framework-search-paths \"${FRAMEWORK_SEARCH_PATHS:?}\" --header-search-paths \"${HEADER_SEARCH_PATHS:?}\" --gcc-preprocessor-definitions \"${GCC_PREPROCESSOR_DEFINITIONS:-}\" --configuration \"${CONFIGURATION:?}\" ${FORCE_COLOR} ${ARCHS:?}\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		E7DC6DD213C066D34E106008 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BE19C8CAB92561C4CE3FEDDA /* main.mm in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		11AD00FC18690F6F08CCCBC2 /* debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ARCHS = (
+					arm64,
+				);
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "seance-tauri_iOS/seance-tauri_iOS.entitlements";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_BITCODE = NO;
+				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\".\"",
+				);
+				INFOPLIST_FILE = "seance-tauri_iOS/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = chat.seance.app;
+				PRODUCT_NAME = "Seance";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALID_ARCHS = arm64;
+			};
+			name = debug;
+		};
+		AB12A61771EF30EEE3F99CBB /* debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = debug;
+		};
+		ECC8C3D1FCF3C3F4C815B208 /* release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ARCHS = (
+					arm64,
+				);
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "seance-tauri_iOS/seance-tauri_iOS.entitlements";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_BITCODE = NO;
+				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\".\"",
+				);
+				INFOPLIST_FILE = "seance-tauri_iOS/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = chat.seance.app;
+				PRODUCT_NAME = "Seance";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALID_ARCHS = arm64;
+			};
+			name = release;
+		};
+		F5903FF8E6D94C07D54C45B3 /* release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		5715F3083D4DD0F35C55A2D8 /* Build configuration list for PBXProject "seance-tauri" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AB12A61771EF30EEE3F99CBB /* debug */,
+				F5903FF8E6D94C07D54C45B3 /* release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = debug;
+		};
+		896E8B891C1B9953AA483C1A /* Build configuration list for PBXNativeTarget "seance-tauri_iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				11AD00FC18690F6F08CCCBC2 /* debug */,
+				ECC8C3D1FCF3C3F4C815B208 /* release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 9A0BBE65D345DCDFE2D26E66 /* Project object */;
+}

@@ -29,7 +29,7 @@
  * minute step and the weathers of the two sweeps (eachChecked). A floor this
  * model holds is held at those samples; nothing here measures between them.
  */
-import {defaultFontSize, fontSizes, type FontSize} from "../../client/js/helpers/fontSize";
+import {fontSizes, type FontSize} from "../../client/js/helpers/fontSize";
 import {contrast, luminance, mix} from "../../client/js/scenes/ps/colour";
 import {momentFor, WEATHERS, type Moment, type Weather} from "../../client/js/scenes/ps/engine";
 import {
@@ -236,26 +236,25 @@ export function surfaceWash(ground: string, light: Light, alpha: number): string
  *   bodies;
  * - `sky`: solved and held over the sky and the plains, not the bodies;
  * - `names-large`: the 32 nick colours solved to 3.1 and held at 3 over the
- *   sky and the bodies (bold Newsreader 700 at the default step is WCAG large
+ *   sky and the bodies (bold Newsreader 700 at the large step is WCAG large
  *   text; at the medium step, 16px, it is not), everything else strict.
  * The generator and the floors test both read it.
  *
  * **The user chose `names-large`** (2026-09-24: "names-large is easiest to read").
- * **Its guard:** below the default font-size step the names are not large text, so there they take the `sky` set (smallStepSweep).
+ * **Its guard:** below the `large` font-size step the names are not large text, so there they take the `sky` set (smallStepSweep).
  */
 export type LightSweep = "strict" | "sky" | "names-large";
 export const LIGHT_SWEEP: LightSweep = "names-large";
 
 /**
- * The font-size steps at or above the default (client/js/helpers/fontSize.ts),
- * where bold Newsreader 700 nicks are WCAG large text: the default, `large`,
- * sets them at 20px, 15pt bold, over the 14pt bold line. Every step below it
- * (tiny, small, medium), and an <html> that carries no step yet (the root at
- * 100 %, medium's size), sets them smaller.
+ * The font-size steps (client/js/helpers/fontSize.ts) where bold Newsreader
+ * 700 nicks are WCAG large text: `large` sets them at 20px, 15pt bold, over
+ * the 14pt bold line. Every step below it (tiny, small, medium — the
+ * default), and an <html> that carries no step yet (the root at 100 %,
+ * medium's size), sets them smaller. A matter of size, not of which step is
+ * the default.
  */
-export const LARGE_TEXT_STEPS: readonly FontSize[] = fontSizes.slice(
-	fontSizes.indexOf(defaultFontSize)
-);
+export const LARGE_TEXT_STEPS: readonly FontSize[] = fontSizes.slice(fontSizes.indexOf("large"));
 
 /** The set light nicks take where they are not large text, or null when the sweep does not lean on large text. */
 export function smallStepSweep(sweep: LightSweep): LightSweep | null {

@@ -110,6 +110,7 @@
 </template>
 
 <script lang="ts">
+import {operChanFor} from "../../js/helpers/operMenu";
 import {computed, defineComponent, PropType, reactive, ref} from "vue";
 import type {OperReport, ReportTable} from "../../../shared/types/oper";
 import type {ClientNetwork} from "../../js/types";
@@ -150,8 +151,7 @@ export default defineComponent({
 			expanded[s] ? rows : rows.slice(0, ROW_LIMIT);
 
 		const refresh = () => {
-			const target =
-				props.chan ?? store.state.activeChannel?.channel.id ?? props.network.channels[0].id;
+			const target = props.chan ?? operChanFor(props.network, store.state.activeChannel);
 			const [command, ...rest] = props.report.command.split(" ");
 			socket.emit("input", {
 				target,

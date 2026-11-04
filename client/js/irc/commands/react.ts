@@ -27,11 +27,10 @@ const react: Command = {
 			return;
 		}
 
-		const words = args.filter((arg) => arg.length > 0);
-		const last = words[words.length - 1];
-		const explicit = words.length > 1 && chan.idOf(last) !== undefined ? last : undefined;
+		const last = args[args.length - 1];
+		const explicit = args.length > 1 && chan.idOf(last) !== undefined ? last : undefined;
 		const text = normalizeReaction(
-			(explicit === undefined ? words : words.slice(0, -1)).join(" ")
+			(explicit === undefined ? args : args.slice(0, -1)).join(" ")
 		);
 
 		if (text.length === 0) {

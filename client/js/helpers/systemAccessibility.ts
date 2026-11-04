@@ -7,13 +7,13 @@
 // behind WebViewObserveAccessibilityState, off by default for its startup
 // cost), and the "stay connected" service keeps that process for days — so
 // in the Android shell the settings come from the shell itself
-// (SystemAccessibilityPlugin.java), which watches them, and the media
+// (SystemAccessibility.kt), which watches them, and the media
 // queries are only the first guess until it answers.
 //
 // Imports nothing but the bridge, so boot.ts can call it before anything
 // mounts and a component can subscribe without pulling in the store.
 
-import {isAndroidShell, nativeCall, nativeListen} from "./capacitor";
+import {isAndroidShell, nativeCall, nativeListen} from "./shell";
 
 export interface SystemAccessibility {
 	reduceMotion: boolean;
@@ -43,7 +43,7 @@ export function fromAndroidSettings(s: AndroidAccessibilitySettings): SystemAcce
 	};
 }
 
-/** Everything SystemAccessibilityPlugin.java reports, `status` and
+/** Everything SystemAccessibility.kt reports, `status` and
  * `changed` alike: the accessibility settings, the font scale
  * (helpers/systemTextSize.ts) and battery saver (the ps scene's Auto,
  * themeScene.ts). A shell built before a field omits it. */

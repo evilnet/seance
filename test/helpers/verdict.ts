@@ -9,6 +9,7 @@ import {
 	maskCovers,
 	seenBefore,
 	verdict,
+	verdictView,
 	whenText,
 } from "../../client/js/helpers/verdict";
 
@@ -324,5 +325,94 @@ describe("the user card's verdict (helpers/verdict.ts)", function () {
 		expect(verdict({user: USER, liveBans: [], seen: [], now: NOW})).to.equal(
 			"No bans cover them and nothing in the kept feed shares their IP, host or realname."
 		);
+	});
+
+	it("draws the verdict: a tone, a headline, what matched as tags, the rest as detail", function () {
+		const ban = verdictView({
+			user: USER,
+			liveBans: [
+				{
+					type: "G-line",
+					mask: "*@203.0.113.*",
+					by: "rubin",
+					setAt: NOW - 3 * 24 * HOUR,
+					expiresAt: 0,
+					reason: "bot group",
+					live: true,
+				},
+			],
+			seen: [],
+			now: NOW,
+		});
+		expect(ban).to.deep.include({
+			tone: "ban",
+			lead: "Covered by a live G-line",
+			mask: "*@203.0.113.*",
+			detail: "set by rubin, 3 d ago",
+		});
+		expect(ban.evidence).to.deep.equal([]);
+
+		const match = verdictView({
+			user: USER,
+			liveBans: [],
+			seen: [
+				{
+					nick: "spamfan",
+					time: NOW - 3 * 24 * HOUR,
+					matched: ["ip", "realname"],
+					ident: "r1234",
+					fate: {kind: "ban", type: "G-line", by: "rubin"},
+				},
+			],
+			now: NOW,
+		});
+		expect(match).to.deep.include({
+			tone: "match",
+			kicker: "Likely match",
+			lead: "Same as {nick}",
+			nick: "spamfan",
+			detail: "seen Wed, then G-lined by rubin",
+		});
+		expect(match.evidence).to.deep.equal(["IP", "realname", "ident shape"]);
+		expect(match.sentence).to.equal(
+			verdict({
+				user: USER,
+				liveBans: [],
+				seen: [
+					{
+						nick: "spamfan",
+						time: NOW - 3 * 24 * HOUR,
+						matched: ["ip", "realname"],
+						ident: "r1234",
+						fate: {kind: "ban", type: "G-line", by: "rubin"},
+					},
+				],
+				now: NOW,
+			})
+		);
+
+		const weak = verdictView({
+			user: USER,
+			liveBans: [],
+			seen: [{nick: "lurker", time: NOW - 200 * MIN, matched: ["realname"]}],
+			now: NOW,
+		});
+		expect(weak).to.deep.include({tone: "weak", nick: "lurker", detail: "seen 17:40"});
+		expect(weak.evidence).to.deep.equal(["realname"]);
+
+		// The nick seen from elsewhere names nobody: no "same as", no nick.
+		const elsewhere = verdictView({
+			user: USER,
+			liveBans: [],
+			seen: [{nick: "spamfan2", time: NOW - MIN, matched: [], ip: "198.51.100.9"}],
+			now: NOW,
+		});
+		expect(elsewhere.tone).to.equal("weak");
+		expect(elsewhere.nick).to.equal(undefined);
+		expect(elsewhere.lead).to.equal("The nick was seen from 198.51.100.9");
+
+		const clear = verdictView({user: USER, liveBans: [], seen: [], now: NOW});
+		expect(clear.tone).to.equal("clear");
+		expect(clear.evidence).to.deep.equal([]);
 	});
 });

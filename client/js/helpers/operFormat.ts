@@ -41,6 +41,14 @@ export function relativeTime(epochMs: number, now = Date.now()): string {
 	return diff > 0 ? t("oper.time.in", {span}) : t("oper.time.ago", {span});
 }
 
+/**
+ * A moment already past (a connect, a ban set, a channel made): `5m ago`,
+ * `now`. A server clock running ahead never makes it `in 6s`.
+ */
+export function sinceTime(epochMs: number, now = Date.now()): string {
+	return relativeTime(Math.min(epochMs, now), now);
+}
+
 /** An expiry: `never`, `expired`, or `in 6h`. */
 export function formatExpiry(epochMs: number, now = Date.now()): string {
 	if (!epochMs) {

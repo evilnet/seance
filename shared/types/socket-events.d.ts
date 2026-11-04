@@ -1,9 +1,11 @@
+import type {SearchAttrs, SearchContextDirection, SearchHit, SearchStatus} from "./search";
 import {InboxEntry} from "./mention";
 import {ChanState, SharedChan} from "./chan";
 import {
 	ServicesConfig,
 	SharedNetwork,
 	SharedNetworkPresence,
+	SharedNetworkChan,
 	SharedNetworkMode,
 	SharedPresenceMode,
 	SharedServerOptions,
@@ -12,7 +14,6 @@ import {SharedMsg, LinkPreview, TypingState} from "./msg";
 import {SharedUser} from "./user";
 import {SharedChangelogData} from "./changelog";
 import {SharedConfiguration, LockedSharedConfiguration} from "./config";
-import {SearchResponse, SearchQuery} from "./storage";
 import {SharedOperState, SnoticeInfo} from "./oper";
 
 type Session = {
@@ -89,7 +90,7 @@ interface ServerToClientEvents {
 		/** Epoch ms of the next automatic dial, only while waiting for a retry. */
 		retryAt?: number;
 		/** That wait is the server's connection throttle, not the backoff. */
-		retryThrottled?: boolean;
+		retryReason?: "throttled" | "offline";
 	}>;
 	/**
 	 * A connect was dropped before it registered, for a reason the user has
@@ -127,6 +128,26 @@ interface ServerToClientEvents {
 		/** Whether older history remains (the server's end tag / page fullness). */
 		moreAvailable?: boolean;
 	}>;
+
+	/** The answer to `search:request`: always one, whatever happened. */
+	"search:results": EventHandler<{
+		network: string;
+		requestId: number;
+		status: SearchStatus;
+		error?: string;
+		hits: SearchHit[];
+	}>;
+	/** The answer to the client's `search:context`: oldest first. */
+	"search:context": EventHandler<{
+		network: string;
+		requestId: number;
+		status: SearchStatus;
+		error?: string;
+		messages: SharedMsg[];
+	}>;
+
+	/** The parent of a reply that is not loaded, for its quote; never a row of the channel. */
+	"reply:parent": EventHandler<{chan: number; msgid: string; nick: string; text: string}>;
 
 	"msg:preview": EventHandler<{id: number; chan: number; preview: LinkPreview}>;
 	/** A `+draft/react` / `+draft/unreact` TAGMSG resolved to the message it targets. */
@@ -172,7 +193,13 @@ interface ServerToClientEvents {
 	/** The notice log of `network` (oldest first), for the oper panel's Notices tab. */
 	"oper:notices": EventHandler<{
 		network: string;
-		entries: {time: number; type: string; text: string; from?: string; snotice: SnoticeInfo}[];
+		entries: {
+			time: number;
+			type: "snotice" | "wallops" | "snoop" | "audit";
+			text: string;
+			from?: string;
+			snotice: SnoticeInfo;
+		}[];
 	}>;
 	/**
 	 * The answer to a `services:check` (irc/services.ts `checkServices`):
@@ -182,7 +209,13 @@ interface ServerToClientEvents {
 	"services:checked": EventHandler<{
 		network: string;
 		id: string;
-		results: {role: string; bot: string; online: boolean; looksLikeX3: boolean}[];
+		results: {
+			role: "oper" | "account" | "channel";
+			bot: string;
+			online: boolean;
+			looksLikeX3: boolean;
+			trusted: boolean;
+		}[];
 		failure?: "closed" | "timeout";
 	}>;
 	/**
@@ -226,8 +259,6 @@ interface ServerToClientEvents {
 	"inbox:drop": EventHandler<{network: string; target: string; msgid: string; by?: string}>;
 
 	init: EventHandler<{active: number; networks: SharedNetwork[]; token?: string}>;
-
-	"search:results": (response: SearchResponse) => void;
 
 	quit: EventHandler<{network: string}>;
 
@@ -358,6 +389,17 @@ interface ClientToServerEvents {
 	}>;
 
 	more: EventHandler<{target: number; lastId: number; condensed: boolean}>;
+	"search:request": EventHandler<{network: string; requestId: number; attrs: SearchAttrs}>;
+	"search:context": EventHandler<{
+		network: string;
+		requestId: number;
+		target: string;
+		direction: SearchContextDirection;
+		msgid: string;
+		limit: number;
+	}>;
+	/** A quote on screen names a message that is not loaded (see bus-contract §1.4). */
+	"reply:parent": EventHandler<{chan: number; msgid: string}>;
 	/** The UI dropped these messages from a channel's buffer (see bus-contract § 2). */
 	"history:trim": EventHandler<{target: number; ids: number[]}>;
 
@@ -378,10 +420,4 @@ interface ClientToServerEvents {
 	"sign-out": (token?: string) => void;
 
 	"history:clear": EventHandler<{target: number}>;
-
-	search: EventHandler<SearchQuery>;
 }
-
-interface InterServerEvents {}
-
-interface SocketData {}

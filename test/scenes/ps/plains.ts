@@ -612,7 +612,7 @@ describe("ps plains: the land, the near grass, the yurt, its smoke and the firef
 				});
 
 				/** A billow's box in px on a window W × H: the deck is deckHeight % of the height. */
-				const boxOn = (b: typeof billows[number], W: number, H: number) => {
+				const boxOn = (b: (typeof billows)[number], W: number, H: number) => {
 					const deck = (deckHeight / 100) * H;
 					const width = (b.width / 100) * W;
 					const height = (b.height / 100) * W;

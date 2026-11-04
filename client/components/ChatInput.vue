@@ -538,9 +538,9 @@ export default defineComponent({
 			return Math.max(0, Math.ceil((at - now.value) / 1000));
 		});
 
-		// The wait is the server's connection throttle (irc/dialLedger.ts).
+		// The server said the wait is its connection throttle (irc/handlers/error.ts).
 		const throttledWait = computed(
-			() => retryInSeconds.value > 0 && props.network.status.retryThrottled === true
+			() => retryInSeconds.value > 0 && props.network.status.retryReason === "throttled"
 		);
 
 		const connectionLabel = computed(() => {
@@ -550,8 +550,11 @@ export default defineComponent({
 				return t("composer.disconnectedFrom", {network: name});
 			}
 
+			if (props.network.status.retryReason === "offline" && retryInSeconds.value > 0) {
+				return `You're offline. Will reconnect to ${name} when the network is back.`;
+			}
+
 			if (throttledWait.value) {
-				// irc/dialLedger.ts: dialling now would be refused and renew it.
 				return tCount("composer.reconnectInThrottled", retryInSeconds.value, {
 					network: name,
 					seconds: retryInSeconds.value,
@@ -1055,8 +1058,16 @@ export default defineComponent({
 		 * cancelling it leaves iOS's shift key down, so every message after the
 		 * first starts lowercase. The newline is let through and taken back out
 		 * by setPendingMessage when it arrives.
+		 *
+		 * A held Return sends nothing: the press began elsewhere (on a row of the
+		 * Mentions pane, say) and only its repeat reached a saved draft here.
 		 */
 		const onEnterKey = (e: KeyboardEvent) => {
+			if (e.repeat) {
+				e.preventDefault();
+				return;
+			}
+
 			if (!hasVirtualKeyboard()) {
 				e.preventDefault();
 				onSubmit();

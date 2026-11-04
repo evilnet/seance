@@ -3,8 +3,8 @@
  * branch, `CAP_draft_read_marker` on — tools/nefarious-dev/local.conf).
  * Skipped unless SEANCE_IRC_URL is set:
  *
- *   SEANCE_IRC_URL=wss://localhost:8443/ npx cross-env NODE_ENV=test \
- *     TS_NODE_PROJECT=./test/tsconfig.json npx mocha --config=test/.mocharc.yml \
+ *   SEANCE_IRC_URL=wss://localhost:8443/ NODE_ENV=test \
+ *     pnpm exec mocha --config=test/.mocharc.yml \
  *     test/irc/markread.live.ts
  *
  * An unauthenticated IrcClient joins #seance, sends `MARKREAD #seance
@@ -16,7 +16,7 @@
  * raw transcript.
  */
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import socket from "../../client/js/socket";
 import {IrcClient} from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";

@@ -24,7 +24,7 @@ let fengariPromise: Promise<typeof FengariType> | null = null;
 
 export function getFengari(): Promise<typeof FengariType> {
 	if (!fengariPromise) {
-		fengariPromise = import(/* webpackChunkName: "fengari" */ "fengari");
+		fengariPromise = import("fengari");
 	}
 
 	return fengariPromise;
@@ -773,7 +773,7 @@ export class LuaSandbox {
 	/** Compile `code` without running it: undefined when it is valid, else the syntax error. */
 	public check(code: string): string | undefined {
 		const res = this.call("check", [code]);
-		return res === true ? undefined : String(res ?? "Lua error");
+		return res === true ? undefined : typeof res === "string" ? res : "Lua error";
 	}
 
 	public dispatch(event: string, payload: unknown): void {

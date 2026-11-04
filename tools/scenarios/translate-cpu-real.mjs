@@ -16,7 +16,7 @@
 // **Opt-in**: it needs the network and downloads weights, so it is not part
 // of the fake-engine suite and skips unless SEANCE_REAL_MODELS is set.
 //
-//   corepack yarn build                     # NODE_ENV unset (see below)
+//   NODE_ENV=development pnpm build         # a development build (see below)
 //   python3 -c 'import http.server as h, mimetypes as m, functools; m.add_type("text/javascript", ".mjs"); m.add_type("application/wasm", ".wasm"); h.test(functools.partial(h.SimpleHTTPRequestHandler, directory="public"), h.ThreadingHTTPServer, port=8021)' &
 //   SEANCE_REAL_MODELS=1 CHROME_BIN=/seance/tmp/chrome-pw.sh \
 //     node tools/browser-drive.mjs tools/scenarios/translate-cpu-real.mjs

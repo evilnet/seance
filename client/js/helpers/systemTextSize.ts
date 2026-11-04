@@ -18,8 +18,8 @@
 // Android: the WebView would apply the font scale itself as its text zoom,
 // but that scales glyphs only, never rem lengths, so text outgrew the
 // buttons and fields drawn around it. The shell pins the text zoom at 100%
-// (MainActivity.java) and reports the font scale instead
-// (SystemAccessibilityPlugin.java), live, as body text (16sp, the browser's
+// (SeancePlugin.kt) and reports the font scale instead
+// (SystemAccessibility.kt), live, as body text (16sp, the browser's
 // 16px at the default scale) sees it: from Android 14 large text grows less
 // than `Configuration.fontScale` says.
 
@@ -107,8 +107,10 @@ export function followSystemTextSize(): void {
 	render();
 }
 
-/** True where there is a system text size to follow (the setting's toggle
- * is shown only there). */
+/** True where there is a system text size to follow, the phone shells (the
+ * setting's toggle is shown only there). A desktop has none: its windows take
+ * the page's own font-size step (platformDefaults.ts). */
 export function systemTextSizeAvailable(): boolean {
-	return currentPlatform() !== "web";
+	const platform = currentPlatform();
+	return platform === "ios" || platform === "android";
 }

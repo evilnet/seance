@@ -57,6 +57,7 @@
 }
 
 .network-settings-heading h2 {
+	margin-top: 0; /* the tab's first heading (Windows/Settings.vue) */
 	margin-bottom: 5px;
 }
 

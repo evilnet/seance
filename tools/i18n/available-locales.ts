@@ -4,12 +4,10 @@
 // build mode (F13): it lists every compiled catalog, the dev-only rig
 // included. Everything else filters the rig out at runtime through the
 // bundler's own NODE_ENV fold (`client/js/i18n/core.ts` DEV_I18N), but the
-// pre-paint script cannot — webpack substitutes the list into client/js/prepaint.js as
-// a literal — so the filter happens here, where webpack.config.ts reads the
-// file and test/tests/i18n-toolchain.ts pins what it does.
-//
-// This module is listed in the root tsconfig.json's `files` because
-// webpack.config.ts imports it (tools/ is otherwise outside that project).
+// pre-paint script cannot — the build substitutes the list into
+// client/js/prepaint.js as a literal — so the filter happens here, where
+// scripts/build-info.mts reads the file and test/tests/i18n-toolchain.ts
+// pins what it does.
 
 import {readFileSync} from "node:fs";
 
@@ -32,7 +30,7 @@ export function readAvailableLocales(path: string, production: boolean): string[
 		raw = readFileSync(path, "utf8");
 	} catch (e: any) {
 		throw new Error(
-			`${path} is missing or unreadable — run "yarn i18n:compile" first: ${e.message}`
+			`${path} is missing or unreadable — run "pnpm i18n:compile" first: ${e.message}`
 		);
 	}
 

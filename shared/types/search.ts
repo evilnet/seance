@@ -1,0 +1,33 @@
+import type {SharedMsg} from "./msg";
+
+/**
+ * What a `SEARCH` may ask (soju.im/search). `in` absent means every channel
+ * the user is in. The order here is not the order on the wire: that is the
+ * server profile's (`ServerProfile.searchParams`).
+ */
+export interface SearchAttrs {
+	in?: string;
+	from?: string;
+	text?: string;
+	/** ISO 8601. */
+	after?: string;
+	/** ISO 8601. */
+	before?: string;
+	limit?: number;
+}
+
+/**
+ * How a search or context request ended.
+ * - `unsupported`: the server has no such thing; search what is loaded instead.
+ * - `offline`: nothing was sent, there is no connection.
+ * - `invalid`: nothing was sent, the request cannot be put on the wire.
+ */
+export type SearchStatus = "ok" | "unsupported" | "offline" | "invalid" | "fail" | "timeout";
+
+export interface SearchHit {
+	/** The conversation: a channel, or the other side of a private one. */
+	target: string;
+	msg: SharedMsg;
+}
+
+export type SearchContextDirection = "AROUND" | "BEFORE" | "AFTER";

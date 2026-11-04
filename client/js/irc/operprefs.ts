@@ -2,9 +2,7 @@
  * Per-network oper preferences, in localStorage under `thelounge.oper`:
  * where each kind of server notice goes when the oper changed it from the
  * profile's default (for good, or for a while — "show here for 3 days"),
- * the snomask they chose (re-applied after every oper-up), and whether the
- * connection was opered last time — so a registration that brings no modes
- * (a held bouncer session attached, evilnet/nefarious2#121) asks for them.
+ * and the snomask they chose (re-applied after every oper-up).
  *
  * Preferences, not logs: the settings backup carries the key
  * (helpers/settingsBackup.ts). Kept free of store/DOM imports (mocha);
@@ -13,6 +11,7 @@
 
 import type {Route} from "../../../shared/types/oper";
 import storage from "../localStorage";
+import {dict} from "../helpers/dict";
 
 export const OPER_PREFS_KEY = "thelounge.oper";
 
@@ -30,8 +29,6 @@ export interface OperPrefs {
 	routes?: Record<string, Route>;
 	/** The snomask to apply after oper-up (decimal). */
 	snomask?: number;
-	/** Opered when the last connection ended. */
-	wasOper?: boolean;
 	/**
 	 * Kind → a route in force until a time, over `routes`. Absent in prefs
 	 * written before it existed, which load as if it were empty.
@@ -92,7 +89,7 @@ function readAll(): Record<string, OperPrefs> {
 		const parsed: unknown = JSON.parse(backend.get(OPER_PREFS_KEY) ?? "{}");
 
 		if (!isObject(parsed)) {
-			return {};
+			return dict<OperPrefs>();
 		}
 
 		// A restored settings file can carry anything here; a temporary route
@@ -108,9 +105,9 @@ function readAll(): Record<string, OperPrefs> {
 				delete prefs.snomask;
 			}
 
-			if (prefs.wasOper !== undefined && typeof prefs.wasOper !== "boolean") {
-				delete prefs.wasOper;
-			}
+			// Written by builds that asked for their modes after a bouncer
+			// attach (evilnet/nefarious2#121, fixed); nothing reads it now.
+			delete prefs.wasOper;
 
 			keepValid(prefs, "routes", (route) => isRoute(route));
 			keepValid(prefs, "notes", (note) => typeof note === "string");
@@ -125,9 +122,10 @@ function readAll(): Record<string, OperPrefs> {
 			);
 		}
 
-		return parsed as Record<string, OperPrefs>;
+		// Keyed by network uuid: a dictionary with no prototype (helpers/dict.ts)
+		return Object.assign(dict<OperPrefs>(), parsed as Record<string, OperPrefs>);
 	} catch {
-		return {};
+		return dict<OperPrefs>();
 	}
 }
 
@@ -278,20 +276,6 @@ export function setSnomaskPref(uuid: string, snomask: number | undefined): void 
 			delete prefs.snomask;
 		} else {
 			prefs.snomask = snomask;
-		}
-	});
-}
-
-export function setWasOper(uuid: string, wasOper: boolean): void {
-	if (Boolean(getOperPrefs(uuid).wasOper) === wasOper) {
-		return;
-	}
-
-	update(uuid, (prefs) => {
-		if (wasOper) {
-			prefs.wasOper = true;
-		} else {
-			delete prefs.wasOper;
 		}
 	});
 }

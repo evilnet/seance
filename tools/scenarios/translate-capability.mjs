@@ -60,7 +60,7 @@
 // Not on the fake engine: ?fakeTranslate replaces the probe with its own
 // answer. A production build is fine; no model is ever downloaded.
 //
-//   NODE_ENV=production corepack yarn build
+//   NODE_ENV=production pnpm build
 //   python3 -m http.server -d public 8041 &
 //   SEANCE_HTTP=http://localhost:8041/ CHROME_BIN=/seance/tmp/chrome-pw.sh \
 //     node tools/browser-drive.mjs tools/scenarios/translate-capability.mjs

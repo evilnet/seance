@@ -26,9 +26,8 @@ const mute: Command = {
 	allowDisconnected: true,
 	input({client, chan, cmd, args}) {
 		const muted = cmd === "mute";
-		const names = args.filter((arg) => arg.length > 0);
 
-		if (names.length === 0) {
+		if (args.length === 0) {
 			setMuted(client, chan, muted);
 			return;
 		}
@@ -36,7 +35,7 @@ const mute: Command = {
 		const targets: Channel[] = [];
 		const missing: string[] = [];
 
-		for (const name of names) {
+		for (const name of args) {
 			const target = client.findChannel(name);
 
 			if (target) {

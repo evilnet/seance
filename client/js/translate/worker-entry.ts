@@ -1,6 +1,6 @@
 /**
  * Entry of the translation worker (public/js/translate-worker.js, built by
- * the third webpack configuration). The page starts it with
+ * vite.translate.config.mts). The page starts it with
  * `new Worker("js/translate-worker.js?v=<build>")` (client/js/translate/
  * index.ts) and speaks the protocol in protocol.ts to it. This is the only
  * file that wires the real engines: everything else is injected.

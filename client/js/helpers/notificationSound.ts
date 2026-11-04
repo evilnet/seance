@@ -36,7 +36,7 @@ function audio(): HTMLAudioElement {
  * sound, mixing with Music and muted by the silent switch; the session type
  * is page-wide, so it goes back once the ping is over (a video preview the
  * user plays must stay playback). */
-export function playNotificationSound(): Promise<void> {
+export async function playNotificationSound(): Promise<void> {
 	try {
 		const session = (navigator as NavigatorWithAudioSession).audioSession;
 
@@ -53,7 +53,7 @@ export function playNotificationSound(): Promise<void> {
 		});
 	} catch (e) {
 		restoreSession();
-		return Promise.reject(e);
+		throw e;
 	}
 }
 
@@ -75,7 +75,7 @@ export interface AlertSoundCase {
 
 /**
  * The page plays the ping only when no notification will: there is none,
- * the platform's are silent, or it is iOS with the web app on screen, where
+ * the platform's are silent (in a shell too), or it is iOS with the web app on screen, where
  * iOS may not present the app's own notifications. The notification is then
  * silent, so the sound is never doubled.
  */
@@ -84,8 +84,14 @@ export function alertSound(c: AlertSoundCase): {inPage: boolean; silentNotificat
 		return {inPage: false, silentNotification: true};
 	}
 
-	if (c.native) {
+	// A shell's own alert, except where the platform's are silent (the
+	// Linux desktop shell): there the page pings, as a browser's would.
+	if (c.native && c.osSound) {
 		return {inPage: false, silentNotification: false};
+	}
+
+	if (c.native) {
+		return {inPage: true, silentNotification: true};
 	}
 
 	if (!c.notifying || !c.osSound || (c.ios && c.visible)) {

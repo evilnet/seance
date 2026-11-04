@@ -2,7 +2,7 @@
 // windows. `branding.links.source` names the repository (GitHub URL shapes;
 // the default is upstream, a fork points it at itself) and the build's
 // identity comes from `configuration.ts` — `version`, `release`, `gitCommit`,
-// `buildTrack`, `gitBranch`, filled in by webpack's `resolveBuild`. Vue-free:
+// `buildTrack`, `gitBranch`, filled in by the build's `resolveBuild`. Vue-free:
 // test/helpers/sourceLinks.ts.
 
 import {UPSTREAM_REPOSITORY} from "../branding";
@@ -23,7 +23,7 @@ export interface BuildIdentity {
 /**
  * Which build this is, for Help: one of the Pages site's — the release at
  * the root, `develop/`, a pull request's `pr<N>/` — or one made anywhere
- * else (`yarn build` on someone's machine, a native shell's), which names
+ * else (`pnpm build` on someone's machine, a native shell's), which names
  * its branch when it knows it.
  */
 export interface BuildTrack {

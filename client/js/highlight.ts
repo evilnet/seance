@@ -49,11 +49,14 @@ function stripIrcFormatting(text: string): string {
 const keywordLeading = "[ .,+!?|/:<>(){}'\"@&~-]";
 const keywordTrailing = "[ .,+!?|/:<>(){}'\"-]";
 
-/** Pattern matching any of `keywords` as a delimited token, or null if none. */
-function keywordPattern(keywords: string[]): string | null {
-	const tokens = keywords
+const keywordTokens = (keywords: string[]) =>
+	keywords
 		.map((keyword: string) => escapeRegExp(keyword.trim()))
 		.filter((keyword: string) => keyword.length > 0);
+
+/** Pattern matching any of `keywords` as a delimited token, or null if none. */
+function keywordPattern(keywords: string[]): string | null {
+	const tokens = keywordTokens(keywords);
 
 	if (tokens.length === 0) {
 		return null;
@@ -61,6 +64,8 @@ function keywordPattern(keywords: string[]): string | null {
 
 	return `(?:^|${keywordLeading})(?:${tokens.join("|")})(?:$|${keywordTrailing})`;
 }
+
+const nickEdge = "[^a-z0-9]";
 
 /** Pattern matching `nick` not embedded in a longer alphanumeric word, or null if empty. */
 function nickPattern(nick: string): string | null {
@@ -70,7 +75,32 @@ function nickPattern(nick: string): string | null {
 		return null;
 	}
 
-	return `(?:^|[^a-z0-9])${escapeRegExp(trimmed)}(?:[^a-z0-9]|$)`;
+	return `(?:^|${nickEdge})${escapeRegExp(trimmed)}(?:${nickEdge}|$)`;
+}
+
+/**
+ * Where `nick` and `keywords` stand in `text` by the rules above, without
+ * their delimiters: what to mark as the reason a line is a mention.
+ */
+export function mentionSpans(text: string, nick: string, keywords: string[]): [number, number][] {
+	const name = escapeRegExp(nick.trim());
+	// Longest first, and the nick last: "wren bird" is one mark, not "wren".
+	const tokens = keywordTokens(keywords).sort((a, b) => b.length - a.length);
+	const alternatives = [
+		...(tokens.length
+			? [`(?<=^|${keywordLeading})(?:${tokens.join("|")})(?=$|${keywordTrailing})`]
+			: []),
+		...(name ? [`(?<=^|${nickEdge})${name}(?=${nickEdge}|$)`] : []),
+	];
+
+	if (alternatives.length === 0) {
+		return [];
+	}
+
+	return Array.from(
+		text.matchAll(new RegExp(alternatives.join("|"), "giu")),
+		(match): [number, number] => [match.index, match.index + match[0].length]
+	);
 }
 
 /**

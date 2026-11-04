@@ -72,7 +72,7 @@ export class SplitManifestError extends Error {
 	}
 }
 
-function expected(split: EmbeddingSplit, leaf: typeof LEAVES[number]) {
+function expected(split: EmbeddingSplit, leaf: (typeof LEAVES)[number]) {
 	return leaf === "q_weight" ? split.weight : split.scale;
 }
 

@@ -6,7 +6,8 @@
 // renders (title, connect form defaults, help links, ...) reads from the
 // result via `getBranding()` or `store.state.branding`.
 //
-// The same file is also read by webpack at build time to fill in the parts of
+// The same file is also read at build time (scripts/build-info.mts) to fill in
+// the parts of
 // `index.html` that must exist before any JavaScript runs (`<title>`,
 // `theme-color`, the loading splash). See docs/resources/branding.md.
 

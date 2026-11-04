@@ -4,6 +4,7 @@
 // goes in (`inbox:add`) and what has been read (`inbox:read`); the rules are
 // in helpers/inbox.ts.
 
+import {shallowRef} from "vue";
 import storage from "./localStorage";
 import {store} from "./store";
 import type {InboxEntry} from "../../shared/types/mention";
@@ -11,17 +12,25 @@ import {
 	MAX_DISMISSED,
 	addEntries,
 	conversationEntries,
+	conversationKey,
 	dismissalOf,
 	dropMessage,
 	entryKey,
 	parseDismissed,
 	parseStored,
 	pruneRead,
+	withoutDismissalsOf,
 	type Dismissal,
 } from "./helpers/inbox";
 
 const KEY = "thelounge.mentions";
 const DISMISSED_KEY = "thelounge.mentions.dismissed";
+
+/**
+ * What Dismiss all took, while it can be undone. Whatever takes an entry off
+ * the list for good (read, deleted, the conversation left) takes it off here.
+ */
+export const undoableMentions = shallowRef<InboxEntry[]>([]);
 
 let watching = false;
 let dismissed: Dismissal[] = [];
@@ -62,6 +71,7 @@ export function addMentions(entries: InboxEntry[]): void {
 
 export function markMentionsRead(network: string, target: string, time: Date): void {
 	commitIfChanged(pruneRead(store.state.mentions, network, target, time));
+	undoableMentions.value = pruneRead(undoableMentions.value, network, target, time);
 
 	const left = pruneRead(dismissed, network, target, time);
 
@@ -73,6 +83,7 @@ export function markMentionsRead(network: string, target: string, time: Date): v
 /** Drop the entry of a message that is gone (deleted, or replaced by `by`'s edit). */
 export function dropMentionOf(network: string, target: string, msgid: string, by?: string): void {
 	commitIfChanged(dropMessage(store.state.mentions, network, target, msgid, by));
+	undoableMentions.value = dropMessage(undoableMentions.value, network, target, msgid, by);
 }
 
 /** On this device only, remembered until the conversation is read past them. */
@@ -82,7 +93,22 @@ export function dismissMentions(entries: InboxEntry[]): void {
 	commitIfChanged(store.state.mentions.filter((e) => !keys.has(entryKey(e))));
 }
 
+export function dismissAllMentions(entries: InboxEntry[]): void {
+	undoableMentions.value = [...undoableMentions.value, ...entries];
+	dismissMentions(entries);
+}
+
+export function undoDismissAll(): void {
+	setDismissed(withoutDismissalsOf(dismissed, undoableMentions.value));
+	addMentions(undoableMentions.value);
+	undoableMentions.value = [];
+}
+
 /** Every entry of a conversation left (a part, a closed query), dismissed. */
 export function dismissConversation(network: string, target: string): void {
 	dismissMentions(conversationEntries(store.state.mentions, network, target));
+	const key = conversationKey(network, target);
+	undoableMentions.value = undoableMentions.value.filter(
+		(e) => conversationKey(e.network, e.target) !== key
+	);
 }

@@ -114,15 +114,7 @@ function handleMessage(
 	}
 
 	if (!client.replaying) {
-		const rawTags: Record<string, string> = {};
-
-		if (msg.tags) {
-			for (const [k, v] of Object.entries(msg.tags)) {
-				if (typeof v === "string") {
-					rawTags[k] = v;
-				}
-			}
-		}
+		const rawTags: Record<string, string> = Object.fromEntries(msg.tags);
 
 		scriptManager.dispatchMessage({
 			network: client.name,

@@ -3,15 +3,15 @@
 // (client/service-worker.js announceBuild, client/js/pwa.ts, build.ts,
 // Windows/Help.vue).
 //
-//   NODE_ENV=production corepack yarn build
+//   NODE_ENV=production pnpm build
 //   node tools/browser-drive.mjs tools/scenarios/update-signal.mjs
 //
 // No ircd is involved: the connect form is all the page needs to show. The
 // scenario serves its own copy of public/ (so that what is deployed can
 // change under the running page) and stands in for a new build the way one
 // differs from the last as far as the browser is concerned: the build token
-// in service-worker.js (the cache name), index.html (`?v=`) and js/bundle.js
-// (process.env.SEANCE_BUILD) is replaced. A build without NODE_ENV=production
+// in service-worker.js (the cache name), index.html (`?v=`) and the entry,
+// js/bundle-<hash>.js (process.env.SEANCE_BUILD), is replaced. A build without NODE_ENV=production
 // carries the token `dev` everywhere, which by design is never an update, so
 // the scenario refuses one.
 //
@@ -24,6 +24,7 @@ import {
 	cpSync,
 	existsSync,
 	mkdtempSync,
+	readdirSync,
 	readFileSync,
 	rmSync,
 	statSync,
@@ -50,11 +51,16 @@ const MIME = {
 	".wav": "audio/wav",
 };
 
-/** The files a build token is stamped into (webpack.config.ts). */
-const TOKENED = ["service-worker.js", "index.html", "js/bundle.js"];
+/** The files a build token is stamped into (vite.config.mts). */
+function tokened(dir) {
+	const entry = readdirSync(join(dir, "js")).find((f) => /^bundle-[\w-]+\.js$/.test(f));
+	return ["service-worker.js", "index.html", `js/${entry}`];
+}
 
 const NOTIFIED = `document.querySelectorAll("#footer .help.notified").length`;
-const BUNDLE_SRC = `document.querySelector('script[src*="js/bundle.js"]').getAttribute("src")`;
+// The entry is loaded by its content-hashed name, without `?v=`; the
+// stylesheet link still carries the page's token.
+const PAGE_TOKEN = `document.querySelector('link[href*="css/style.css"]').getAttribute("href")`;
 
 /** A no-store static server for `dir`, on an ephemeral port. */
 function serve(dir) {
@@ -82,7 +88,7 @@ function serve(dir) {
 }
 
 function tokenOf(dir) {
-	const m = /const cacheName\s*=\s*"([^"]+)"/.exec(
+	const m = /const cacheName\s*=\s*["`]([^"`]+)["`]/.exec(
 		readFileSync(join(dir, "service-worker.js"), "utf8")
 	);
 
@@ -99,11 +105,11 @@ function bump(token) {
 	return digit.toString(16) + token.slice(1);
 }
 
-/** Deploy a "new build": the token replaced wherever webpack stamps it. */
+/** Deploy a "new build": the token replaced wherever the build stamps it. */
 function retoken(dir, from, to) {
 	const bare = new RegExp(`(?<![0-9a-f])${from}(?![0-9a-f])`, "g");
 
-	for (const name of TOKENED) {
+	for (const name of tokened(dir)) {
 		const file = join(dir, name);
 		const before = readFileSync(file, "utf8");
 		const after = before.replace(bare, to);
@@ -156,7 +162,7 @@ export default async function run(page) {
 	};
 
 	const runsBuild = async (token, label) => {
-		const src = await page.evaluate(BUNDLE_SRC);
+		const src = await page.evaluate(PAGE_TOKEN);
 		page.check(`${label} runs build ${token}`, src.includes(`v=${token}`));
 	};
 
@@ -165,7 +171,7 @@ export default async function run(page) {
 
 		if (tokenA === "dev") {
 			throw new Error(
-				"public/ is a development build (token `dev`, never an update): NODE_ENV=production corepack yarn build"
+				"public/ is a development build (token `dev`, never an update): NODE_ENV=production pnpm build"
 			);
 		}
 

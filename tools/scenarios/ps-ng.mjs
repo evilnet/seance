@@ -98,7 +98,7 @@
 // 100 ms (the fire's wake-ups), that counts a call whose stack names
 // `scene-ps.js` (NG's chunk), so Vue's never count.
 //
-//   NODE_ENV=production npx webpack && python3 -m http.server -d public 8041 &
+//   NODE_ENV=production pnpm build && python3 -m http.server -d public 8041 &
 //   SEANCE_HTTP_PORT=8041 node tools/browser-drive.mjs tools/scenarios/ps-ng.mjs \
 //     --out=tmp/ps-ng-shots/plan2
 //   (and again with --mobile --width=390 --height=844, and as a landscape
@@ -249,13 +249,13 @@ const NG_FRAME_COUNTER = `(() => {
 	const raf = window.requestAnimationFrame.bind(window);
 	window.__ngFrames = 0;
 	window.requestAnimationFrame = (fn) => {
-		if (/scene-ps\\.js/.test(new Error().stack || "")) window.__ngFrames++;
+		if (/scene-ps(\\.[\\w-]+)?\\.js/.test(new Error().stack || "")) window.__ngFrames++;
 		return raf(fn);
 	};
 	// The fire wakes on a timer (flame.ts), one per frame of its own: a short timer from NG's chunk counts too.
 	const after = window.setTimeout.bind(window);
 	window.setTimeout = (fn, ms, ...rest) => {
-		if (ms < 100 && /scene-ps\\.js/.test(new Error().stack || "")) window.__ngFrames++;
+		if (ms < 100 && /scene-ps(\\.[\\w-]+)?\\.js/.test(new Error().stack || "")) window.__ngFrames++;
 		return after(fn, ms, ...rest);
 	};
 })()`;
@@ -1176,9 +1176,9 @@ export default async function run(page) {
 	}
 
 	const chunks = await page.evaluate(
-		`performance.getEntriesByType("resource").map((e) => e.name).filter((n) => /\\/js\\/scene-ps(-ng)?\\.js(\\?|$)/.test(n))`
+		`performance.getEntriesByType("resource").map((e) => e.name).filter((n) => /\\/js\\/scene-ps(-ng)?(\\.[\\w-]+)?\\.js(\\?|$)/.test(n))`
 	);
-	const ngChunk = chunks.filter((n) => /\/js\/scene-ps\.js(\?|$)/.test(n));
+	const ngChunk = chunks.filter((n) => /\/js\/scene-ps(\.[\w-]+)?\.js(\?|$)/.test(n));
 	page.check(
 		`network: from the load to 10 s after the mount NG's chunk js/scene-ps.js is fetched once and no scene-ps-ng.js (${
 			chunks.map((n) => n.replace(/^.*\//, "")).join(", ") || "no scene chunk"

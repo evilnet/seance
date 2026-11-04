@@ -256,7 +256,7 @@ const defaultConfig = {
 	// values live in style.css, keyed off <html data-font-size="...">, so
 	// themes and the custom stylesheet can override them.
 	fontSize: {
-		default: "large",
+		default: "medium",
 		apply(store: TypedStore, value: string) {
 			document.documentElement.dataset.fontSize = normalizeFontSize(value);
 		},
@@ -377,7 +377,7 @@ const defaultConfig = {
 			}
 		},
 	},
-	// Search is local (client/js/search.ts) and always available.
+	// Always available: the server's history, or what is loaded when it has no search.
 	searchEnabled: {
 		default: true,
 	},
@@ -418,7 +418,7 @@ function normalizeConfig(obj: any) {
 
 // flatten to type of default
 export type SettingsState = {
-	[key in keyof typeof defaultConfig]: typeof defaultConfig[key]["default"];
+	[key in keyof typeof defaultConfig]: (typeof defaultConfig)[key]["default"];
 };
 
 /**

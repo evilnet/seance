@@ -13,7 +13,7 @@
 // pins `translateLlmDevice` to `cpu` in the stored settings. No ircd: the
 // dev build's `seanceTranslate` console aid drives the service.
 //
-//   corepack yarn build && python3 -m http.server -d public 8021 &
+//   NODE_ENV=development pnpm build && python3 -m http.server -d public 8021 &
 //   (or any port, with SEANCE_HTTP=http://localhost:<port>/)
 //   CHROME_BIN=/seance/tmp/chrome-pw.sh node tools/browser-drive.mjs tools/scenarios/translate-gpu-fallback.mjs
 //   … --mobile --width=390 --height=844

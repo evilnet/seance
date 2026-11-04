@@ -11,7 +11,12 @@
 			class="mentions-popup"
 			role="dialog"
 			aria-labelledby="mentions-popup-heading"
+			tabindex="-1"
 			:style="placement"
+			@keydown.capture="onPaneKey"
+			@keydown.tab="onTab"
+			@keydown.down.exact.prevent="moveFocus($event, 1)"
+			@keydown.up.exact.prevent="moveFocus($event, -1)"
 		>
 			<div class="mentions-popup-title">
 				<h2 id="mentions-popup-heading">
@@ -20,7 +25,7 @@
 						totalText
 					}}</span>
 				</h2>
-				<button v-if="total" class="btn dismiss-all-mentions" @click="dismissAllMentions()">
+				<button v-if="total" class="oper-btn oper-btn-ghost" @click="dismissAllMentions()">
 					{{ t("mentions.dismissAll") }}
 				</button>
 				<!-- On the phone the pane is the whole screen: nothing outside it to tap. -->
@@ -42,7 +47,7 @@
 				</p>
 			</div>
 
-			<template v-else>
+			<div v-else class="mentions-list">
 				<section
 					v-for="group in groups"
 					:key="group.key"
@@ -64,24 +69,25 @@
 							<span v-if="group.networkName" class="mentions-group-network">{{
 								group.networkName
 							}}</span>
-							<span v-if="group.unreadLabel" class="mentions-group-unread">{{
-								group.unreadLabel
-							}}</span>
-							<span v-else-if="groups.length > 1" class="mentions-group-count">{{
-								group.entries.length
-							}}</span>
+							<span
+								v-if="!group.query && groups.length > 1"
+								class="mentions-group-count"
+								>{{ group.entries.length }}</span
+							>
 						</button>
-						<!-- A conversation this page no longer has: reading cannot clear it. -->
+						<!-- A conversation this page no longer has: reading cannot clear it. While
+						     offline it is only not back yet, and a row's × is still there. -->
 						<button
-							v-if="!group.conversation"
-							class="btn dismiss-group-mentions"
+							v-if="!group.conversation && group.network?.status.connected !== false"
+							class="oper-btn oper-btn-ghost"
 							@click="dismissGroup(group)"
 						>
 							{{ t("mentions.dismissGroup") }}
 						</button>
 					</div>
 					<p v-if="group.missing" class="mentions-group-missing">{{ group.missing }}</p>
-					<!-- A click opens the conversation; the header is the keyboard's way. -->
+					<!-- A click opens the conversation; Enter on a focused row does too.
+					     Vue's .delete is Delete and Backspace both. -->
 					<div
 						v-for="message in group.shown"
 						:key="message.key"
@@ -91,30 +97,74 @@
 							message.type,
 							{'mentions-entry-openable': group.conversation},
 						]"
-						@click="openFromRow($event, group)"
+						tabindex="0"
+						@click="openFromRow($event, group, message)"
+						@keydown.enter.self.prevent="openGroup(group, message)"
+						@keydown.delete.prevent="dismissRow($event, group, message)"
 					>
 						<div class="mentions-info">
-							<span class="from" @click.stop>
-								<Username :user="(message.from as any)" />
+							<!-- A private conversation's name is its header. The nick alone:
+							     an op's @ would read like a mention. -->
+							<span v-if="!group.query" class="from" @click.stop>
+								<!-- A stored entry whose network is gone: plain text, since
+								     its menus could only act on another network. -->
+								<span v-if="!group.network">{{ message.from.nick }}</span>
+								<Username
+									v-else
+									:user="(message.from as any)"
+									:network="group.network"
+									:channel="group.conversation?.channel"
+									>{{ message.from.nick }}</Username
+								>
 							</span>
 							<time class="time" :datetime="message.time" :title="message.fullTime">{{
 								messageTime(message.time)
 							}}</time>
+							<span v-if="group.unreadLabel" class="mentions-group-unread">{{
+								group.unreadLabel
+							}}</span>
 							<button
 								class="msg-dismiss"
 								:title="t('mentions.dismissOne')"
 								:aria-label="t('mentions.dismissOne')"
-								@click.stop="
-									group.query ? dismissGroup(group) : dismissMention(message)
-								"
+								@click.stop="dismissRow($event, group, message)"
 							></button>
 						</div>
 						<div class="content" dir="auto">
-							<ParsedMessage :message="(message as any)" />
+							<!-- In a box of its own: WebKit paints no ::highlight on text
+							     directly inside a line clamp. -->
+							<div>
+								<template v-if="!group.network">{{
+									cleanIrcMessage(message.text)
+								}}</template>
+								<ParsedMessage
+									v-else
+									:message="(message as any)"
+									:network="group.network"
+								/>
+							</div>
 						</div>
 					</div>
 				</section>
-			</template>
+			</div>
+
+			<!-- Dismiss all takes a lot at once, so it can be taken back until the pane closes. -->
+			<div v-if="undoableMentions.length" class="mentions-undo" role="status">
+				<span>Dismissed {{ undoableMentions.length }} on this device</span>
+				<button class="btn btn-sm" @click="undoDismiss">Undo</button>
+			</div>
+
+			<div v-if="groups.length" class="mentions-keys" aria-hidden="true">
+				<span><kbd>↑</kbd><kbd>↓</kbd> move</span>
+				<span><kbd>↵</kbd> open</span>
+				<span
+					><kbd>{{ isApple ? "⌫" : "Bksp" }}</kbd> dismiss</span
+				>
+				<span class="mentions-keys-close"
+					><kbd>{{ isApple ? "⌥" : "Alt" }}</kbd
+					><kbd>M</kbd> close</span
+				>
+			</div>
 		</div>
 	</div>
 </template>
@@ -124,11 +174,18 @@
 	z-index: 8;
 }
 
+/* Over a modal window, or Alt+M would open it out of reach; under everything
+ * else, as the sidebar and what a nick's menu opens must be over it. */
+#viewport:has(> .window.screen-overlay) #mentions-popup-container {
+	z-index: 21;
+}
+
 .mentions-popup {
 	background-color: var(--window-bg-color);
 	position: absolute;
 	box-sizing: border-box;
 	width: min(26rem, calc(100vw - 1rem));
+	min-width: min(12rem, 100vw);
 	/* Under the @ button (--mentions-right/-top, set on open), kept on screen. */
 	right: clamp(
 		0.5rem,
@@ -137,21 +194,34 @@
 	);
 	top: var(--mentions-top, 3.4rem);
 	max-height: 25rem;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	z-index: 2;
+	padding: 0;
+}
+
+.mentions-list {
+	flex: 1 1 auto;
 	overflow-y: auto;
 	overscroll-behavior: contain;
-	z-index: 2;
-	padding: 0 0 0.5rem;
+	padding-bottom: 0.375rem;
+}
+
+/* Why this row is here. Keeki sets the colour; every theme has the fallback. */
+::highlight(mention) {
+	background-color: color-mix(
+		in oklab,
+		var(--mention-mark-color, var(--highlight-border-color)) 35%,
+		transparent
+	);
 }
 
 .mentions-popup > .mentions-popup-title {
-	position: sticky;
-	top: 0;
-	z-index: 1;
 	display: flex;
 	align-items: center;
-	gap: 0.75rem;
-	padding: 0.75rem 0.75rem 0.5rem;
-	background: inherit;
+	gap: 0.25rem;
+	padding: 0.625rem 0.75rem 0.375rem;
 }
 
 .mentions-popup-title h2 {
@@ -191,30 +261,23 @@
 	color: var(--body-color);
 }
 
-.mentions-popup .dismiss-all-mentions {
-	flex-shrink: 0;
-	white-space: nowrap;
-	margin: 0;
-	padding: 0.25rem 0.5rem;
+.mentions-popup .oper-btn {
+	height: 2rem;
+	padding: 0 0.5rem;
 	font-size: 0.8125rem;
 }
 
 /* One conversation: a header that opens it, then its mentions as it reads. */
 .mentions-group + .mentions-group {
 	margin-top: 0.25rem;
+	border-top: 1px solid var(--oper-line);
+	padding-top: 0.25rem;
 }
 
 .mentions-group-head {
 	display: flex;
 	align-items: center;
 	padding-inline-end: 0.75rem;
-}
-
-.mentions-group-head .dismiss-group-mentions {
-	flex-shrink: 0;
-	margin: 0;
-	padding: 0.125rem 0.375rem;
-	font-size: 0.75rem;
 }
 
 .mentions-group-header {
@@ -280,9 +343,8 @@
 }
 
 .mentions-group-unread {
-	margin-inline-start: auto;
 	flex-shrink: 0;
-	font-size: 0.8125rem;
+	font-size: 0.75rem;
 	color: var(--body-color-muted);
 }
 
@@ -297,8 +359,14 @@
 	cursor: pointer;
 }
 
-.mentions-popup .mentions-entry:hover {
+.mentions-popup .mentions-entry:hover,
+.mentions-popup .mentions-entry:focus-visible {
 	background: var(--highlight-bg-color);
+}
+
+.mentions-popup .mentions-entry:focus-visible {
+	outline: 0.125rem solid var(--link-color);
+	outline-offset: -0.125rem;
 }
 
 .mentions-popup .mentions-info {
@@ -373,6 +441,54 @@
 	background: var(--highlight-bg-color);
 }
 
+.mentions-undo {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75rem;
+	margin: 0.375rem;
+	padding: 0.25rem 0.25rem 0.25rem 0.625rem;
+	border-radius: 0.3125rem;
+	background: var(--highlight-bg-color);
+	font-size: 0.8125rem;
+}
+
+.mentions-undo .btn {
+	margin: 0;
+}
+
+.mentions-keys {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem 0.75rem;
+	padding: 0.4375rem 0.75rem;
+	border-top: 1px solid var(--oper-line);
+	color: var(--body-color-muted);
+	font-size: 0.75rem;
+}
+
+.mentions-keys-close {
+	margin-inline-start: auto;
+}
+
+.mentions-keys kbd {
+	min-width: 1.125rem;
+	margin: 0 0.125rem 0 0;
+	padding: 0 0.1875rem;
+	border-color: var(--oper-line-2);
+	background: none;
+	box-shadow: none;
+	color: inherit;
+	font-size: 0.6875rem;
+	line-height: 1.0625rem;
+	text-shadow: none;
+}
+
+/* A finger has no keys to be told about. */
+:where(html[data-input="touch"]) .mentions-keys {
+	display: none;
+}
+
 .mentions-empty {
 	padding: 1.5rem 1.5rem 1.25rem;
 	text-align: center;
@@ -436,18 +552,30 @@
 
 <script lang="ts">
 import Username from "./Username.vue";
+import {cleanIrcMessage} from "../../shared/irc";
 import ParsedMessage from "./ParsedMessage.vue";
-import {dismissMentions} from "../js/mentions";
+import {
+	dismissAllMentions as dismissAll,
+	dismissMentions,
+	undoDismissAll,
+	undoableMentions,
+} from "../js/mentions";
 import eventbus from "../js/eventbus";
 import {switchToChannel} from "../js/router";
+import {isApplePlatform} from "../js/helpers/device";
 import {entryKey, groupByConversation} from "../js/helpers/inbox";
-import {formatDateTime, formatRelativeTime} from "../js/i18n/dates";
+import {formatDateTime} from "../js/i18n/dates";
 import {formatNumber} from "../js/i18n/numbers";
+import {isTouchInput} from "../js/helpers/inputModality";
+import {recentTime} from "../js/helpers/messageTime";
+import {clearHighlight, paintHighlight, rangesIn} from "../js/helpers/paintHighlight";
+import {trapTab} from "../js/helpers/trapTab";
+import {mentionSpans, parseKeywordList} from "../js/highlight";
 import {computed, defineComponent, nextTick, ref, onMounted, onUnmounted, watch} from "vue";
 import {useStore} from "../js/store";
 import {useI18n} from "../js/i18n";
 import type {InboxEntry} from "../../shared/types/mention";
-import type {NetChan} from "../js/types";
+import type {ClientNetwork, NetChan} from "../js/types";
 import {ChanType} from "../../shared/types/chan";
 
 type MentionWithContext = InboxEntry & {
@@ -459,6 +587,8 @@ type GroupWithContext = {
 	key: string;
 	target: string;
 	networkName: string;
+	/** Where a nick or a channel in a row belongs, whatever the page underneath. */
+	network?: ClientNetwork;
 	label: string;
 	conversation: NetChan | null;
 	/** Why a group without a conversation cannot be opened. */
@@ -471,9 +601,6 @@ type GroupWithContext = {
 	shown: MentionWithContext[];
 };
 
-/** How often the relative times ("now", "5 minutes ago") are redone while the pane is open. */
-const CLOCK_TICK_MS = 30_000;
-
 export default defineComponent({
 	name: "Mentions",
 	components: {
@@ -484,6 +611,8 @@ export default defineComponent({
 		const store = useStore();
 		const {t, tCount, locale} = useI18n();
 		const isOpen = ref(false);
+		/** Moves the focus for a keyboard: left alone, a finger's raises none. */
+		let keyboard = false;
 
 		const groups = computed((): GroupWithContext[] => {
 			// locale.value is read so a language change redoes the
@@ -505,13 +634,17 @@ export default defineComponent({
 					fullTime: formatDateTime(new Date(entry.time)),
 				}));
 				const unread = query ? conversation?.channel.unread ?? 0 : 0;
+				const network = store.getters.findNetwork(group.network);
 				let missing = "";
 
 				if (!conversation) {
-					const network = store.getters.findNetwork(group.network);
 					const on = several && network ? network.name : "";
 					missing = !network
 						? t("mentions.missingNetwork")
+						: !network.status.connected
+						? query
+							? t("mentions.notConnected")
+							: t("mentions.notConnectedIn", {target})
 						: query
 						? on
 							? t("mentions.missingQueryOn", {target, network: on})
@@ -525,6 +658,7 @@ export default defineComponent({
 					key: group.key,
 					target,
 					networkName,
+					network: network ?? undefined,
 					label: networkName
 						? t("mentions.targetOn", {target, network: networkName})
 						: target,
@@ -545,14 +679,9 @@ export default defineComponent({
 			tCount("mentions.unread", total.value, {count: total.value})
 		);
 
-		// Read by messageTime, so the times are redone on each tick.
-		const now = ref(Date.now());
-		let clock: ReturnType<typeof setInterval> | null = null;
-
 		const messageTime = (time: string) => {
-			void now.value;
 			void locale.value;
-			return formatRelativeTime(new Date(time).getTime());
+			return recentTime(time, store.state.settings);
 		};
 
 		// Under the @ button, measured against the container the pane is
@@ -577,44 +706,116 @@ export default defineComponent({
 			};
 		};
 
-		watch(isOpen, (open) => {
-			if (clock !== null) {
-				clearInterval(clock);
-				clock = null;
-			}
+		/** Focus, for a keyboard, what `next` names once the list has changed, or the pane. */
+		const refocus = (next?: () => HTMLElement | null | undefined) => {
+			void nextTick(() => {
+				if (keyboard) {
+					(next?.() ?? popup.value)?.focus();
+				}
+			});
+		};
 
+		// Where a keyboard's focus goes when the pane closes.
+		let returnFocus: HTMLElement | null = null;
+
+		watch(isOpen, (open) => {
 			window.removeEventListener("resize", place);
 
 			if (open) {
-				now.value = Date.now();
-				clock = setInterval(() => (now.value = Date.now()), CLOCK_TICK_MS);
+				returnFocus = keyboard ? (document.activeElement as HTMLElement) : null;
 				window.addEventListener("resize", place);
 				void nextTick(place);
+				refocus();
+				return;
+			}
+
+			undoableMentions.value = [];
+
+			// Before the pane goes: only if focus has not gone elsewhere already.
+			const active = document.activeElement;
+
+			if (active === document.body || popup.value?.contains(active)) {
+				void nextTick(() => returnFocus?.focus());
 			}
 		});
 
-		const dismissMention = (message: MentionWithContext) => {
-			dismissMentions([message]);
+		const paintMentions = () => {
+			if (!isOpen.value) {
+				clearHighlight("mention");
+				return;
+			}
+
+			const keywords = parseKeywordList(store.state.settings.highlights);
+			const sections = popup.value?.querySelectorAll(".mentions-group") ?? [];
+
+			paintHighlight(
+				"mention",
+				groups.value.flatMap(({network}, i) =>
+					rangesIn(sections[i].querySelectorAll(".content"), (text) =>
+						mentionSpans(text, network?.nick ?? "", keywords)
+					)
+				)
+			);
+
+			// The row it was on is gone, by a dismiss or from elsewhere: the keys
+			// answer on the pane, so the focus stays in it.
+			if (keyboard && document.activeElement === document.body) {
+				popup.value?.focus();
+			}
 		};
+
+		// Not `groups` while closed: it would be worked out for nobody.
+		watch(() => isOpen.value && groups.value, paintMentions, {flush: "post"});
+
+		const rows = () => [
+			...(popup.value?.querySelectorAll<HTMLElement>(".mentions-entry") ?? []),
+		];
 
 		const dismissGroup = (group: GroupWithContext) => {
 			dismissMentions(group.entries);
 		};
 
-		// Opening it reads it, and reading it clears its mentions (inbox:read).
+		const dismissRow = (event: Event, group: GroupWithContext, message: MentionWithContext) => {
+			// A held key would go on down the list, with no Undo for a single row.
+			if ((event as KeyboardEvent).repeat) {
+				return;
+			}
+
+			const list = rows();
+			const at = list.indexOf(
+				(event.currentTarget as HTMLElement).closest(".mentions-entry") as HTMLElement
+			);
+			const next = list[at + 1] ?? list[at - 1];
+			dismissMentions(group.query ? group.entries : [message]);
+			refocus(() => next);
+		};
+
+		// Opening it reads it, and reading it clears its mentions (inbox:read);
+		// it opens at the mention (MessageList.vue's jump): the one clicked,
+		// or the header's oldest.
 		// A group without a conversation says why in its head.
-		const openGroup = (group: GroupWithContext) => {
+		const openGroup = (group: GroupWithContext, entry = group.entries[0]) => {
 			if (!group.conversation) {
 				return;
 			}
 
+			const channel = group.conversation.channel;
+			store.commit("jumpTarget", {
+				chanId: channel.id,
+				...(entry?.msgid ? {msgid: entry.msgid} : {}),
+				...(entry ? {time: entry.time} : {}),
+			});
 			isOpen.value = false;
-			switchToChannel(group.conversation.channel);
+			switchToChannel(channel);
 		};
 
 		// A click on the row opens the conversation; one on a link, a nick
 		// or a channel in the text, or a selection being made, does not.
-		const openFromRow = (event: MouseEvent, group: GroupWithContext) => {
+		const openFromRow = (
+			event: MouseEvent,
+			group: GroupWithContext,
+			entry: MentionWithContext
+		) => {
 			const target = event.target as HTMLElement | null;
 
 			if (target?.closest("a, button, .user, .inline-channel")) {
@@ -625,15 +826,44 @@ export default defineComponent({
 				return;
 			}
 
-			openGroup(group);
+			openGroup(group, entry);
 		};
 
 		// What is shown: a muted conversation's entries stay out of it.
 		const dismissAllMentions = () => {
-			dismissMentions(store.getters.visibleMentions);
+			dismissAll(store.getters.visibleMentions);
+			refocus(() => popup.value?.querySelector<HTMLElement>(".mentions-undo button"));
 		};
 
-		const togglePopup = () => {
+		const undoDismiss = () => {
+			undoDismissAll();
+			refocus(() => rows()[0]);
+		};
+
+		// A key here is a keyboard, however the pane was opened. A held Enter
+		// presses once: each press moves the focus to what the next would press.
+		const onPaneKey = (event: KeyboardEvent) => {
+			keyboard = true;
+
+			if (event.key === "Enter" && event.repeat) {
+				event.preventDefault();
+				event.stopPropagation();
+			}
+		};
+
+		const onTab = (event: KeyboardEvent) => trapTab(event, popup.value as HTMLElement);
+
+		const moveFocus = (event: KeyboardEvent, by: 1 | -1) => {
+			const list = rows();
+			const row = (event.target as HTMLElement).closest<HTMLElement>(".mentions-entry");
+			const at = row ? list.indexOf(row) : -1;
+			list[at < 0 && by < 0 ? list.length - 1 : at + by]?.focus();
+		};
+
+		// Alt+M comes with no event, and is a keyboard whatever last touched the
+		// screen; a press of the @ button is whatever pressed it.
+		const togglePopup = (press?: unknown) => {
+			keyboard = !press || !isTouchInput();
 			isOpen.value = !isOpen.value;
 		};
 
@@ -653,11 +883,8 @@ export default defineComponent({
 		});
 
 		onUnmounted(() => {
-			if (clock !== null) {
-				clearInterval(clock);
-			}
-
 			window.removeEventListener("resize", place);
+			clearHighlight("mention");
 			eventbus.off("mentions:toggle", togglePopup);
 			eventbus.off("escapekey", onEscape);
 		});
@@ -667,14 +894,21 @@ export default defineComponent({
 			popup,
 			placement,
 			groups,
+			cleanIrcMessage,
 			total,
 			totalText,
 			totalLabel,
 			t,
+			undoableMentions,
+			isApple: isApplePlatform(),
 			messageTime,
-			dismissMention,
 			dismissGroup,
+			dismissRow,
 			dismissAllMentions,
+			undoDismiss,
+			onPaneKey,
+			onTab,
+			moveFocus,
 			openGroup,
 			openFromRow,
 			closePopup,

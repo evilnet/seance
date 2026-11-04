@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import socket from "../../client/js/socket";
 import {registerBusHandlers} from "../../client/js/irc/bus";
 import {ignoreListFor} from "../../client/js/ignore";
@@ -299,8 +299,9 @@ describe("Replies and reactions (handlers/tagmsg.ts, +draft/reply)", function ()
 				{label}
 			);
 
-			const more =
-				h.payloads<{chan: number; messages: {id: number; msgid?: string}[]}>("more");
+			const more = h.payloads<{chan: number; messages: {id: number; msgid?: string}[]}>(
+				"more"
+			);
 			expect(more).to.have.length(1);
 			expect(more[0].messages.map((m) => m.msgid)).to.deep.equal(["h1"]);
 			const oldId = more[0].messages[0].id;

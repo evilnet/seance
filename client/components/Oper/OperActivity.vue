@@ -38,7 +38,7 @@
 			>
 			<button
 				type="button"
-				class="btn btn-small oper-join-channel"
+				class="oper-btn oper-btn-secondary oper-join-channel"
 				@click="join(missingReport)"
 			>
 				{{ t("oper.activity.join") }}
@@ -169,7 +169,7 @@
 	display: flex;
 	flex-wrap: wrap;
 	gap: 0.5rem 1rem;
-	margin-bottom: 0.75rem;
+	margin-bottom: 1.25rem;
 }
 
 .oper-activity-view {
@@ -180,16 +180,13 @@
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: 0.35rem 0.75rem;
-	margin: 0 0 0.6rem;
-	font-size: 0.9375em;
-}
-
-.oper-activity-missing .btn {
-	margin: 0;
-	width: auto;
-	padding: 0.25em 0.8em;
-	font-size: 0.8125em;
+	gap: 0.5rem 0.75rem;
+	margin: 0 0 1rem;
+	padding: 0.75rem 1rem;
+	border: 1px dashed var(--oper-line-2);
+	border-radius: 0.55rem;
+	color: var(--body-color-muted);
+	font-size: 0.875rem;
 }
 
 .oper-rollup {
@@ -199,7 +196,7 @@
 }
 
 .oper-rollup-row {
-	border-bottom: 1px solid color-mix(in srgb, var(--body-color-muted) 25%, transparent);
+	border-bottom: 1px solid var(--oper-line);
 }
 
 .oper-tier2 {
@@ -214,17 +211,17 @@
 .oper-row {
 	display: flex;
 	align-items: baseline;
-	gap: 0.6rem;
+	gap: 0.7rem;
 	width: 100%;
-	padding: 0.5rem 0.25rem;
+	padding: 0.75rem 0.5rem;
 	text-align: left;
 	color: var(--body-color);
-	border-radius: 0.25rem;
+	border-radius: 0.4rem;
 }
 
 .oper-row:hover,
 .oper-row:focus-visible {
-	background: color-mix(in srgb, var(--body-color-muted) 10%, transparent);
+	background: var(--oper-raised);
 }
 
 /* The fold mark: a FontAwesome caret (the font comes from style.css's
@@ -272,7 +269,7 @@
 
 .oper-timeline {
 	list-style: none;
-	margin: 0 0 0.5rem 1.25rem;
+	margin: 0 0 0.75rem 1.5rem;
 	padding: 0;
 	font-size: 0.9375em;
 }
@@ -281,8 +278,8 @@
 	display: flex;
 	flex-wrap: wrap;
 	align-items: baseline;
-	gap: 0.3rem 0.5rem;
-	padding: 0.15rem 0;
+	gap: 0.3rem 0.6rem;
+	padding: 0.35rem 0;
 }
 
 .oper-timeline-time {
@@ -304,8 +301,9 @@
 }
 
 .oper-activity-foot {
-	font-size: 0.875em;
-	margin-top: 0.75rem;
+	color: var(--body-color-muted);
+	font-size: 0.875rem;
+	margin-top: 1.25rem;
 }
 </style>
 

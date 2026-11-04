@@ -6,7 +6,7 @@
  */
 
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import {CURSOR_SAVE_INTERVAL_MS} from "../../client/js/irc/client";
 import {requestHistory, requestMore} from "../../client/js/irc/history";
 import {MARKREAD_DEBOUNCE_MS} from "../../client/js/irc/handlers/markread";
@@ -431,7 +431,9 @@ describe("PERSISTENCE ATTACH catch-up cursor (irc/persistence.ts)", function () 
 			expect(h.payloads("more")).to.deep.equal([]);
 			const messages: SharedMsg[] = h.messages(id);
 			expect(messages.map((m) => m.text)).to.deep.equal(["missed one", "missed two"]);
-			expect(messages.map((m) => m.id)).to.deep.equal(messages.map((m) => m.id).sort());
+			expect(messages.map((m) => m.id)).to.deep.equal(
+				messages.map((m) => m.id).sort((a, b) => a - b)
+			);
 			expect(messages.every((m) => m.id > 0)).to.equal(true);
 			expect(messages.every((m) => !m.highlight)).to.equal(true);
 			expect(h.client.findChannel("#seance")!.newestRef?.msgid).to.equal("r2");

@@ -6,15 +6,14 @@
 // the choices surviving a reload, and Run on: CPU for the language model
 // (from Automatic, which then runs the 1.7B) showing its CPU copy's
 // "Not downloaded · <size>" line with a Download button. Nothing in
-// `yarn test` renders the tab.
+// `pnpm test` renders the tab.
 //
-//   corepack yarn build && python3 -m http.server -d public 8021 &
+//   NODE_ENV=development pnpm build && python3 -m http.server -d public 8021 &
 //   node tools/browser-drive.mjs tools/scenarios/translate-settings.mjs
 //
-// NODE_ENV must be unset (`corepack yarn build`, not
-// `NODE_ENV=production corepack yarn build`): a production build's
-// BUILD !== "dev" folds useFake() to false at compile time and Terser
-// drops the fake worker as dead code.
+// A development build (Vite builds production when NODE_ENV is unset): a
+// production build's BUILD !== "dev" folds useFake() to false at compile
+// time and the minifier drops the fake worker as dead code.
 //
 // One reload only: on a busy box a later navigation has lost the DevTools
 // reply to a poll in flight and hung the driver (docs/resources/

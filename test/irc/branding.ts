@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import {
 	DEFAULT_BRANDING,
 	brandingFeatures,
@@ -144,6 +144,9 @@ describe("branding", function () {
 			expect(normalizeBranding({defaultNetwork: {port: 1}}).defaultNetwork).to.equal(
 				undefined
 			);
+		});
+
+		it("drops a bad port and keeps the channels", function () {
 			expect(
 				normalizeBranding({defaultNetwork: {host: "h", port: 70000, channels: "a, b"}})
 					.defaultNetwork

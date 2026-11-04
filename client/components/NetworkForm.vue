@@ -221,7 +221,8 @@
 						</label>
 					</div>
 				</div>
-				<div class="connect-row">
+				<!-- A desktop shell takes no push (webpush.ts pushBackend). -->
+				<div v-if="!desktopShell" class="connect-row">
 					<label></label>
 					<div class="input-wrap">
 						<label class="tls">
@@ -242,7 +243,7 @@
 					</div>
 				</div>
 				<div
-					v-if="defaults.pushEnabled && pushInfo.stale"
+					v-if="!desktopShell && defaults.pushEnabled && pushInfo.stale"
 					id="pushStaleRow"
 					class="connect-row"
 				>
@@ -498,13 +499,14 @@ import {describeServiceCheck} from "../js/irc/services";
 import {servicesCheck} from "../js/helpers/operRequest";
 import {isOperOn} from "../js/helpers/operMenu";
 import {askNativeAlertPermission, nativeAlertsAvailable} from "../js/helpers/nativeAlerts";
+import {isDesktopShell} from "../js/helpers/shell";
 import {useStore} from "../js/store";
 import webpush from "../js/webpush";
 import {useI18n} from "../js/i18n";
 import type {ServicesConfig, SharedNetworkStatus} from "../../shared/types/network";
 /** The services roles as the form shows them, in order. */
 type ServiceRoleField = {
-	id: typeof SERVICE_ROLES[number];
+	id: (typeof SERVICE_ROLES)[number];
 	label: string;
 	placeholder: string;
 };
@@ -882,6 +884,7 @@ export default defineComponent({
 			presenceMode,
 			presenceHint,
 			pushInfo,
+			desktopShell: isDesktopShell(),
 			renewPush,
 			onNotifyToggle,
 			SERVICES_PROFILES,

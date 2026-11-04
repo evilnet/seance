@@ -55,7 +55,8 @@ import {
 	type Identity,
 	seenBefore,
 	type SeenEntry,
-	verdict,
+	verdictView,
+	type VerdictView,
 } from "../helpers/verdict";
 import type {IrcClient} from "./client";
 import {formatLine, type IrcMessage} from "./message";
@@ -66,7 +67,8 @@ import {type LiveBan, parseBanRow} from "./profiles/nefarious/stats";
 import {isIp, parseCtime} from "./profiles/report";
 import {sendQuiet} from "./quiet";
 import {canRequest, request, type ReplyUnit} from "./request";
-import {collectServiceReply, type ServiceAnswer} from "./services";
+import {botSendable} from "./bottrust";
+import {collectServiceReply, readyBot, type ServiceAnswer, untrustedText} from "./services";
 import {servicesProfileFor} from "./services/index";
 import type {ServiceBan, ServiceLookup, ServicesLookups} from "./services/types";
 
@@ -161,6 +163,8 @@ export interface UserModel {
 	serviceBans: ServiceBan[];
 	seen: SeenEntry[];
 	verdict: string;
+	/** The verdict as the card draws it; undefined until the first answer lands. */
+	verdictView?: VerdictView;
 	lastQuitHostmask?: string;
 	hostmasks?: string[];
 	/** The snoop channel "seen before" would draw on, when one is configured and not joined. */
@@ -365,8 +369,28 @@ export class Investigation {
 		return this.model.user.ip ?? this.model.user.account ?? this.model.user.nick;
 	}
 
+	/**
+	 * Every key a note on this card may be under, best first: a user's IP,
+	 * account and nick (the IP comes later than the nick, so a note saved
+	 * before it arrived is under the nick).
+	 */
+	get noteKeys(): string[] {
+		if (this.model.kind === "channel") {
+			return [this.model.target];
+		}
+
+		const {ip, account, nick} = this.model.user;
+		return [ip, account, nick].filter((k): k is string => !!k);
+	}
+
+	/** The key the note shown is under: the first that holds one, else the best. */
+	get noteSource(): string {
+		const keys = this.noteKeys;
+		return keys.find((k) => getNote(this.client.uuid, k) !== "") ?? keys[0] ?? "";
+	}
+
 	get note(): string {
-		return getNote(this.client.uuid, this.noteKey);
+		return getNote(this.client.uuid, this.noteSource);
 	}
 
 	/** The services lookups this network's package offers, when it is set up. */
@@ -496,17 +520,10 @@ export class Investigation {
 		this.enqueue({
 			lane: "services",
 			run: async () => {
-				const reply = collectServiceReply(this.client, bot, {
-					accept: (text) => lookup.accept(text),
-				});
-
-				// Quiet (quiet.ts): the PRIVMSG's echo opens no window for the bot.
-				if (!sendQuiet(this.client, lookup.command(bot))) {
-					apply(undefined, {kind: "closed"});
-					return;
-				}
-
-				const answer = await reply;
+				// The real bot, or no question (bottrust.ts): WHOIS first unless lately checked.
+				const answer = botSendable(this.client, bot)
+					? await this.askBot(bot, lookup)
+					: (await readyBot(this.client, bot)) ?? (await this.askBot(bot, lookup));
 
 				if (generation !== this.generation) {
 					return;
@@ -521,6 +538,8 @@ export class Investigation {
 					this.notes[source] =
 						answer.kind === "missing"
 							? t("oper.investigate.note.botOffline", {bot})
+							: answer.kind === "untrusted"
+							? untrustedText(bot)
 							: answer.kind === "timeout"
 							? t("oper.investigate.note.botSilent", {bot})
 							: t("oper.investigate.note.closed");
@@ -531,6 +550,20 @@ export class Investigation {
 			},
 		});
 		return true;
+	}
+
+	/** Send one lookup to a bot and collect its answer. */
+	private askBot<T>(bot: string, lookup: ServiceLookup<T>): Promise<ServiceAnswer<string[]>> {
+		const reply = collectServiceReply(this.client, bot, {
+			accept: (text) => lookup.accept(text),
+		});
+
+		// Quiet (quiet.ts): the PRIVMSG's echo opens no window for the bot.
+		if (!sendQuiet(this.client, lookup.command(bot))) {
+			return Promise.resolve({kind: "closed"});
+		}
+
+		return reply;
 	}
 
 	// ----------------------------------------------------------- channel
@@ -831,10 +864,14 @@ export class Investigation {
 					continue;
 				}
 
+				// By the nick it names, on both cards: an untagged 340 the oper's
+				// own /userip drew can land in this request's answer (#120).
 				const user =
 					this.kind === "channel"
 						? this.channel.users.find((u) => this.client.namesEqual(u.nick, m[1]))
-						: this.userModel.user;
+						: this.client.namesEqual(this.userModel.user.nick, m[1])
+						? this.userModel.user
+						: undefined;
 				const ip = goodIp(m[3]);
 
 				if (user && ip) {
@@ -1305,14 +1342,14 @@ export class Investigation {
 			return;
 		}
 
-		const host = this.userModel.user.host;
+		const {host, ident} = this.userModel.user;
 
 		if (!host) {
 			return; // tried again from derive() once a host is known
 		}
 
 		this.gtraceAsked = true;
-		this.serviceTask("gtrace", lookups.bansCovering(host), (bans) => {
+		this.serviceTask("gtrace", lookups.bansCovering(`${ident || "*"}@${host}`), (bans) => {
 			if (bans) {
 				this.userModel.serviceBans = bans;
 			}
@@ -1439,7 +1476,13 @@ export class Investigation {
 		model.liveBans = near.live;
 		model.recentBans = near.recent;
 		model.seen = seenBefore(feed, identity, (a, b) => this.client.namesEqual(a, b));
-		model.verdict = verdict({user: identity, liveBans: near.live, seen: model.seen, now});
+		model.verdictView = verdictView({
+			user: identity,
+			liveBans: near.live,
+			seen: model.seen,
+			now,
+		});
+		model.verdict = model.verdictView.sentence;
 
 		if (this.statsPending === 0 && !this.gtraceAsked) {
 			this.askGtrace(this.liveBans.length);

@@ -75,6 +75,22 @@ export function formatDayHeading(ms: number): string {
 	).format(ms);
 }
 
+/** A day beside a message where no date marker shows it: "4 Nov", or
+ * "4 Nov 2025" when it is not this year's (the order and the month's
+ * spelling are the language's). */
+export function formatShortDay(ms: number, withYear: boolean): string {
+	const tag = activeLocale();
+	return formatter(
+		`shortday-${tag}-${String(withYear)}`,
+		() =>
+			new Intl.DateTimeFormat(tag, {
+				day: "numeric",
+				month: "short",
+				...(withYear ? {year: "numeric"} : {}),
+			})
+	).format(ms);
+}
+
 /** Date-marker tooltip: Today / Yesterday / the date (t = core t). */
 export function formatRelativeDay(ms: number, t: (key: string) => string): string {
 	const toDay = (d: Date) =>

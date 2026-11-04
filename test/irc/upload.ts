@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import {BrandingUploads, DEFAULT_UPLOAD_MAX_BYTES} from "../../client/js/branding";
 import {
 	UploadHost,
@@ -124,7 +124,6 @@ function fakeHost(config: BrandingUploads | undefined): FakeHost {
 /** A stand-in for the browser's XMLHttpRequest that the test drives by hand. */
 class FakeXhr {
 	/** Every instance constructed, oldest first; reset by the describes that use it. */
-	// eslint-disable-next-line no-use-before-define -- the class naming itself in a type
 	static instances: FakeXhr[] = [];
 
 	method = "";

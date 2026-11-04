@@ -1,15 +1,15 @@
-// What the native shell (shells/capacitor) changes about the page, checked in
+// What the shell on a phone (shells/tauri) changes about the page, checked in
 // a browser that is not one: the safe-area tokens on html[data-shell="native"]
 // and the `data-escape-close` marker the Android back button looks for.
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d
 //   node tools/browser-drive.mjs tools/scenarios/native-shell-chrome.mjs
 //
 // The shell is faked the way it really happens — native.ts sets `data-shell`
-// and `data-platform` on <html>, and Capacitor's Android SystemBars publishes
-// `--safe-area-inset-*` there — so every rule under those selectors is the
-// real one. One token pair carries the platform difference: --inset-outer-
+// and `data-platform` on <html> — and the insets come as `--safe-area-inset-*`
+// there, which style.css prefers to env() where a shell publishes them, so
+// every rule under those selectors is the real one. One token pair carries the platform difference: --inset-outer-
 // bottom is the strip the whole app stops above (Android's button bar) and
 // --inset-inner-bottom the strip only the composer and the sidebar's footer
 // reserve (iOS's home indicator). Exactly one is ever non-zero.

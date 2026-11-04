@@ -484,7 +484,6 @@ function makeSW(options: HarnessOptions = {}): SWHarness {
 					silent: opts.silent,
 					data: opts.data,
 					actions: opts.actions,
-					silent: opts.silent,
 					renotify: opts.renotify,
 					shownAt: now(),
 					closed: false,

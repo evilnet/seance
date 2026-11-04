@@ -17,7 +17,7 @@
 // browser's dialog, a scripted engine: translate-capability.mjs asks the
 // same of the real worker, which has nothing on the device to fall back to.
 //
-//   corepack yarn build && python3 -m http.server -d public 8021 &
+//   NODE_ENV=development pnpm build && python3 -m http.server -d public 8021 &
 //   (or any port, with SEANCE_HTTP=http://localhost:<port>/)
 //   CHROME_BIN=/seance/tmp/chrome-pw.sh node tools/browser-drive.mjs tools/scenarios/translate-consent.mjs
 //   … --mobile --width=390 --height=844

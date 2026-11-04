@@ -29,6 +29,9 @@ export type ParsedStyle = {
 	href?: string;
 	// The level of the header line this fragment sits on, when it is one
 	header?: HeaderLevel;
+	// Which fenced block a codeBlock fragment belongs to, so two blocks
+	// written back to back stay two
+	codeId?: number;
 	// The code fence's language tag, when it had one, and the file a
 	// `lang:file` tag named
 	lang?: string;
@@ -268,6 +271,7 @@ export const STYLE_KEYS: (keyof ParsedStyle)[] = [
 	"math",
 	"mathBlock",
 	"mathId",
+	"codeId",
 ];
 
 function prepare(text: string) {

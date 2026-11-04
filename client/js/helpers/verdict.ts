@@ -12,7 +12,7 @@ import type {LoggedNotice} from "../irc/noticelog";
 import {expandV6} from "./commonality";
 import {compareWithWildcard} from "../irc/hostmask";
 import type {LiveBan} from "../irc/profiles/nefarious/stats";
-import {activeLocale, t, tCount} from "../i18n/core";
+import {activeLocale, KEEP, t, tCount} from "../i18n/core";
 import {andList, commaList} from "./operList";
 
 /** Who the card is about, as far as it knows. */
@@ -665,12 +665,58 @@ export interface VerdictInput {
 }
 
 /**
- * One sentence from the bans and the sightings: a live ban covering them;
+ * The verdict as the card draws it: a tone, a kicker, a short headline
+ * (`lead`, then `nick` when it names someone), what matched as tags, and
+ * the rest as `detail`. `sentence` is the same verdict as one line of
+ * prose (`verdict()`), for the copy and anywhere a single string is wanted.
+ */
+export interface VerdictView {
+	/** `ban` red, `match` amber, `weak` and `clear` neutral. */
+	tone: "ban" | "match" | "weak" | "clear";
+	kicker: string;
+	/**
+	 * The headline. When it names someone it is a frame holding `{nick}`
+	 * where the nick goes (`Same as {nick}`), for the card to put the nick's
+	 * element in: a translation orders the words.
+	 */
+	lead: string;
+	nick?: string;
+	/** What matched, each a tag: `IP`, `host`, `realname`, `ident shape`. */
+	evidence: string[];
+	/** The live ban's mask, for a value chip. */
+	mask?: string;
+	detail?: string;
+	sentence: string;
+}
+
+/** `IP`, `realname`: what matched, as one of the card's tags. */
+function matchTag(m: Matched): string {
+	switch (m) {
+		case "ip":
+			return t("oper.investigate.tag.ip");
+		case "host":
+			return t("oper.investigate.tag.host");
+		case "realname":
+			return t("oper.investigate.tag.realname");
+		default:
+			return t("oper.investigate.tag.account");
+	}
+}
+
+/** `seen Wed`, `seen Wed, then G-lined by rubin`: a sighting's detail. */
+function seenDetail(when: string, fate: Fate | undefined): string {
+	return fate
+		? t("oper.investigate.verdict.detail.seenFate", {when, fate: fateText(fate)})
+		: t("oper.investigate.verdict.detail.seen", {when});
+}
+
+/**
+ * One verdict from the bans and the sightings: a live ban covering them;
  * else a sighting under another nick sharing the IP, or the host and the
  * realname, with everything that matched named; else a weaker overlap
  * said as such; else that nothing in the kept feed shares anything.
  */
-export function verdict(input: VerdictInput): string {
+export function verdictView(input: VerdictInput): VerdictView {
 	const now = input.now ?? Date.now();
 	const {user} = input;
 	const live = input.liveBans[0];
@@ -682,20 +728,31 @@ export function verdict(input: VerdictInput): string {
 			by: live.by ?? "",
 			when: live.setAt !== undefined ? agoText(live.setAt, now) : "",
 		};
+		let sentence: string;
+		let detail: string | undefined;
 
 		if (live.by && live.setAt !== undefined) {
-			return t("oper.investigate.verdict.liveBanByWhen", vars);
+			sentence = t("oper.investigate.verdict.liveBanByWhen", vars);
+			detail = t("oper.investigate.verdict.detail.banByWhen", vars);
+		} else if (live.by) {
+			sentence = t("oper.investigate.verdict.liveBanBy", vars);
+			detail = t("oper.investigate.verdict.detail.banBy", vars);
+		} else if (live.setAt !== undefined) {
+			sentence = t("oper.investigate.verdict.liveBanWhen", vars);
+			detail = t("oper.investigate.verdict.detail.banWhen", vars);
+		} else {
+			sentence = t("oper.investigate.verdict.liveBan", vars);
 		}
 
-		if (live.by) {
-			return t("oper.investigate.verdict.liveBanBy", vars);
-		}
-
-		if (live.setAt !== undefined) {
-			return t("oper.investigate.verdict.liveBanWhen", vars);
-		}
-
-		return t("oper.investigate.verdict.liveBan", vars);
+		return {
+			tone: "ban",
+			kicker: t("oper.investigate.verdict.kicker.ban"),
+			lead: t("oper.investigate.verdict.lead.ban", {type: live.type}),
+			evidence: [],
+			mask: live.mask,
+			...(detail ? {detail} : {}),
+			sentence,
+		};
 	}
 
 	const others = input.seen.filter((s) => s.nick.toLowerCase() !== user.nick.toLowerCase());
@@ -707,34 +764,54 @@ export function verdict(input: VerdictInput): string {
 
 	if (strong) {
 		const what = strong.matched.map(sameText);
+		const evidence = strong.matched.map(matchTag);
 
 		if (sameIdentShape(strong.ident, user.ident)) {
 			what.push(t("oper.investigate.same.identShape"));
+			evidence.push(t("oper.investigate.tag.identShape"));
 		}
 
+		const when = whenText(strong.time, now);
 		const vars = {
 			nick: strong.nick,
-			when: whenText(strong.time, now),
+			when,
 			matches: commaList(what),
 			fate: strong.fate ? fateText(strong.fate, true) : "",
 		};
-		return strong.fate
-			? t("oper.investigate.verdict.likelyFate", vars)
-			: t("oper.investigate.verdict.likely", vars);
+		return {
+			tone: "match",
+			kicker: t("oper.investigate.verdict.kicker.match"),
+			lead: t("oper.investigate.verdict.lead.match", {nick: KEEP}),
+			nick: strong.nick,
+			evidence,
+			detail: seenDetail(when, strong.fate),
+			sentence: strong.fate
+				? t("oper.investigate.verdict.likelyFate", vars)
+				: t("oper.investigate.verdict.likely", vars),
+		};
 	}
 
 	const weak = others[0];
 
 	if (weak) {
+		const when = whenText(weak.time, now);
 		const vars = {
 			nick: weak.nick,
-			when: whenText(weak.time, now),
+			when,
 			matches: andList(weak.matched.map(sharedText)),
 			fate: weak.fate ? fateText(weak.fate) : "",
 		};
-		return weak.fate
-			? t("oper.investigate.verdict.weakFate", vars)
-			: t("oper.investigate.verdict.weak", vars);
+		return {
+			tone: "weak",
+			kicker: t("oper.investigate.verdict.kicker.weak"),
+			lead: t("oper.investigate.verdict.lead.weak", {nick: KEEP}),
+			nick: weak.nick,
+			evidence: weak.matched.map(matchTag),
+			detail: seenDetail(when, weak.fate),
+			sentence: weak.fate
+				? t("oper.investigate.verdict.weakFate", vars)
+				: t("oper.investigate.verdict.weak", vars),
+		};
 	}
 
 	// The nick itself, seen from somewhere else (seenBefore keeps that; the
@@ -743,22 +820,41 @@ export function verdict(input: VerdictInput): string {
 
 	if (elsewhere) {
 		const where = elsewhere.ip ?? elsewhere.host;
+		const when = whenText(elsewhere.time, now);
 		const vars = {
 			where: where ?? "",
-			when: whenText(elsewhere.time, now),
+			when,
 			fate: elsewhere.fate ? fateText(elsewhere.fate) : "",
 		};
-
-		if (where) {
-			return elsewhere.fate
+		const sentence = where
+			? elsewhere.fate
 				? t("oper.investigate.verdict.elsewhereFate", vars)
-				: t("oper.investigate.verdict.elsewhere", vars);
-		}
-
-		return elsewhere.fate
+				: t("oper.investigate.verdict.elsewhere", vars)
+			: elsewhere.fate
 			? t("oper.investigate.verdict.elsewhereUnknownFate", vars)
 			: t("oper.investigate.verdict.elsewhereUnknown", vars);
+		return {
+			tone: "weak",
+			kicker: t("oper.investigate.verdict.kicker.weak"),
+			lead: where
+				? t("oper.investigate.verdict.lead.elsewhere", {where})
+				: t("oper.investigate.verdict.lead.elsewhereUnknown"),
+			evidence: [],
+			detail: elsewhere.fate ? t("oper.investigate.verdict.detail.whenFate", vars) : when,
+			sentence,
+		};
 	}
 
-	return t("oper.investigate.verdict.nothing");
+	return {
+		tone: "clear",
+		kicker: t("oper.investigate.verdict.kicker.clear"),
+		lead: t("oper.investigate.verdict.lead.clear"),
+		evidence: [],
+		sentence: t("oper.investigate.verdict.nothing"),
+	};
+}
+
+/** The verdict as one sentence (`verdictView(...).sentence`). */
+export function verdict(input: VerdictInput): string {
+	return verdictView(input).sentence;
 }

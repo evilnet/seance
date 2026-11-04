@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import {IrcClient} from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";
 import {
@@ -912,6 +912,13 @@ describe("push mute across a reload or a reconnect (irc/muteMemory.ts)", functio
 		h.sent();
 		return h;
 	}
+
+	it("has no memory under a name every object has", function () {
+		expect(getMuteMemory("constructor")).to.deep.equal({
+			ownedUntil: null,
+			confirmedUntil: null,
+		});
+	});
 
 	it("remembers what it wrote and what the server confirmed, per network", function () {
 		const {h, value} = confirmed(NOW_MS + 8 * HOUR_MS);

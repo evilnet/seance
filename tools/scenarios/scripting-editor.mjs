@@ -7,7 +7,7 @@
 // scripting icon in the sidebar footer, and the Fengari chunk is fetched
 // only once an enabled script exists.
 //
-//   corepack yarn build && python3 -m http.server -d public 8022 &
+//   pnpm build && python3 -m http.server -d public 8022 &
 //   node tools/browser-drive.mjs tools/scenarios/scripting-editor.mjs
 //   (also --mobile --width=390 --height=844)
 
@@ -148,7 +148,7 @@ export default async function run(page) {
 	page.check(
 		"the CodeMirror chunk loads on demand",
 		(await page.evaluate(
-			`performance.getEntriesByType("resource").some((e) => e.name.includes("js/code-editor.js"))`
+			`performance.getEntriesByType("resource").some((e) => /\\/js\\/code-editor\\.[\\w-]+\\.js$/.test(e.name))`
 		)) === true
 	);
 	const tokens = await page.evaluate(`(() => {

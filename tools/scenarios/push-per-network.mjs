@@ -3,7 +3,7 @@
 // accounts on the same server — the same key, which is the harder case for
 // telling the subscriptions apart).
 //
-//   npx webpack && python3 -m http.server -d public 8001 &
+//   pnpm build && python3 -m http.server -d public 8001 &
 //   node tools/browser-drive.mjs tools/scenarios/push-per-network.mjs [--chrome=…]
 //
 // The Push API is faked per service-worker registration (lib/fake-push.mjs);

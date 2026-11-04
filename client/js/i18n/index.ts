@@ -43,21 +43,43 @@ const overlayCache = new Map<string, Catalog>();
 /** How a locale's overlay catalog is fetched; swapped by tests. */
 export type OverlayLoader = (tag: string) => Promise<Catalog>;
 
-const importOverlay: OverlayLoader = async (tag) =>
-	// One lazy webpack chunk per locale JSON. Overlay catalogs omit
-	// untranslated entries (compile.ts), so missing keys fall to en. The
-	// directory holds two JSONs that are no catalog: the qqx rig, which a
-	// production build never activates, and the generated tag list the
-	// pre-paint script is given at build time — a production build emits no
-	// chunk for either. The condition is inline (not DEV_I18N) so webpack
-	// folds it at parse time and reads only one of the two imports.
-	process.env.NODE_ENV === "production"
-		? (
-				(await import(
-					/* webpackExclude: /(qqx|tags)\.json$/ */ `../../locales/${tag}.json`
-				)) as {default: Catalog}
-		  ).default
-		: ((await import(`../../locales/${tag}.json`)) as {default: Catalog}).default;
+// One lazy chunk per locale catalog. Overlay catalogs omit untranslated
+// entries (compile.ts), so missing keys fall to en, which core.ts imports
+// itself and is never an overlay. The directory holds two JSONs that are no
+// catalog: the qqx rig, which a production build never activates, and the
+// generated tag list the pre-paint script is given at build time — a
+// production build emits no chunk for either, a development build none for
+// the tag list. The condition is inline (not DEV_I18N) so the build's define
+// makes it a constant and the branch not taken, its glob's imports with it,
+// is dropped before chunking. Called only when an overlay is wanted: mocha
+// (tsx) has no import.meta.glob, and its tests swap the loader
+// (useOverlayLoader).
+function overlayImports(): Record<string, () => Promise<Catalog>> {
+	return process.env.NODE_ENV === "production"
+		? import.meta.glob<Catalog>(
+				[
+					"../../locales/*.json",
+					"!../../locales/en.json",
+					"!../../locales/qqx.json",
+					"!../../locales/tags.json",
+				],
+				{import: "default"}
+		  )
+		: import.meta.glob<Catalog>(
+				["../../locales/*.json", "!../../locales/en.json", "!../../locales/tags.json"],
+				{import: "default"}
+		  );
+}
+
+const importOverlay: OverlayLoader = async (tag) => {
+	const load = overlayImports()[`../../locales/${tag}.json`];
+
+	if (!load) {
+		throw new Error(`no catalog for ${tag}`);
+	}
+
+	return load();
+};
 
 let overlayLoader: OverlayLoader = importOverlay;
 

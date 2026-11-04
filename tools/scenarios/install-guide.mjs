@@ -3,7 +3,7 @@
 // platform's steps with an illustration each, and stays away after "don't
 // show this again".
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   pnpm build && python3 -m http.server -d public 8000 &
 //   node tools/browser-drive.mjs tools/scenarios/install-guide.mjs
 //   node tools/browser-drive.mjs tools/scenarios/install-guide.mjs --mobile --width=390 --height=844 --platform=android
 //   node tools/browser-drive.mjs tools/scenarios/install-guide.mjs --mobile --width=390 --height=844 --platform=ios

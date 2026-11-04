@@ -46,7 +46,6 @@
 					/>
 					<NetworkLobby
 						v-else
-						:channel="item.channel"
 						:network="item.network"
 						:active="item.channel === activeSearchItem"
 						:is-filtering="true"

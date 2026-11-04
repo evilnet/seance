@@ -1,4 +1,6 @@
-// Development-only webpack loader: the dynamic-LABEL instrument.
+// Development-only transform: the dynamic-LABEL instrument (vite.config.mts
+// i18nInstrument; written as a webpack loader, whose `this.resourcePath` it
+// still reads).
 //
 // Renames every t()/tCount() call whose key argument is NOT a string
 // literal to the runtime's dynamic-path globals (__tDyn/__tDynC, defined
@@ -15,14 +17,14 @@
 // client/js/i18n/** (the implementation itself: core defines t/tCount and
 // the wrappers receive keys as parameters by design) and
 // client/js/branding.ts (the override-aware wrapper, same reason). The
-// service worker's fallback resolver is plain JS outside webpack. Template
+// service worker's fallback resolver is plain JS outside the bundle. Template
 // expressions in .vue files that call t() with a non-literal are renamed
 // too — __tDyn is a global, but Vue compiles unknown template identifiers
 // to _ctx.*, so such a template call fails loudly in a dev build rather
 // than silently; write the call in the script block instead.
 //
-// Applied only when the build is a development one (webpack.config.ts
-// guards the rule), so production never transforms and never carries the
+// Applied only when the build is a development one (vite.config.mts guards
+// the plugin), so production never transforms and never carries the
 // globals.
 const TOKEN = /(?<![\w$.])(?<!function\s)\bt(?:Count)?\(/g;
 const EXCLUDED = /js[\\/]i18n([\\/]|$)|js[\\/]branding\.ts$/;
@@ -186,8 +188,13 @@ function nextSignificant(source, from) {
 	return i;
 }
 
+/**
+ * @this {{resourcePath?: string}} the file being built (a webpack loader's
+ *   context; vite.config.mts passes `{resourcePath: id}`)
+ * @param {string} source
+ * @returns {string}
+ */
 export default function instrument(source) {
-	// eslint-disable-next-line no-underscore-dangle
 	const file = this.resourcePath ?? "";
 
 	if (EXCLUDED.test(file.replace(/\\/g, "/"))) {

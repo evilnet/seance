@@ -31,7 +31,7 @@
 - Budgets (iPhone 16, Safari, WebContent + GPU + backboardd, % of a core): **full ≤ 30, calm ≤ 24, still ≤ 3** (spec §6). Ceilings, not targets.
 - Battery rule: **`!charging && level < 0.2`**.
 - Every signal is watched live: a change re-tiers a mounted scene without a reload.
-- `nativeCall` (`client/js/helpers/capacitor.ts:70`) **resolves `null`** for a browser, a shell without the plugin, or a failed call; it never rejects. Treat `null` as "no reading".
+- `nativeCall` (`client/js/helpers/shell.ts`, formerly `helpers/capacitor.ts:70`) **resolves `null`** for a browser, a shell without the plugin, or a failed call; it never rejects. Treat `null` as "no reading".
 - Modules mocha loads stay free of Vue, the store and the DOM (`power.ts`, `tiers.ts`); no Node built-ins in `client/`.
 - Size anything new in the UI in `rem`.
 - localStorage keys stay `thelounge.*`; stored `psAnimation` values are read, never rewritten.

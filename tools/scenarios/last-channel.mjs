@@ -2,7 +2,7 @@
 // conversation puts the caret in the input — end to end in a real browser
 // (helpers/lastChannel.ts, ChatInput.vue).
 //
-//   corepack yarn build && python3 -m http.server -d public 8001 &
+//   pnpm build && python3 -m http.server -d public 8001 &
 //   node tools/browser-drive.mjs tools/scenarios/last-channel.mjs
 //
 // The default target is a plain-WS ircd on 127.0.0.1:8067 (the testnet rig,
@@ -10,7 +10,7 @@
 //   node tools/browser-drive.mjs tools/scenarios/last-channel.mjs \
 //     --url='http://localhost:8000/?host=localhost&port=8443&tls=true&nick=slcwatch&join=%23seance,%23slc-other'
 //
-// The claims under test are what `yarn test` cannot see: that the channel
+// The claims under test are what `pnpm test` cannot see: that the channel
 // shown is what gets remembered (and the lobby is not), that a reload lands
 // on it *before* the JOIN comes back — the autojoin channels are placeholders
 // from the network's announce — and stays there through the join burst, that

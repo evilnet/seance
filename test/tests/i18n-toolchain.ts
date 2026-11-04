@@ -402,18 +402,18 @@ describe("i18n toolchain", () => {
 			// carries a build mode.
 			expect(text).to.not.contain("DEV");
 			// The pre-paint list carries the rig too — it is the generated
-			// file, mode-free like available.ts; webpack.config.ts drops the
-			// dev-only tags when it bakes the list into index.html.
+			// file, mode-free like available.ts; scripts/build-info.mts drops
+			// the dev-only tags when it bakes the list into js/prepaint.js.
 			expect(
 				JSON.parse(readFileSync(join(tmp, "compile-plural", "tags.json"), "utf8"))
 			).to.deep.equal(["en", "de", "qqx"]);
 		});
 
 		it("the pre-paint list drops the dev-only rig for a production build only", () => {
-			// webpack.config.ts bakes this list into index.html, so it is the
-			// one consumer that cannot fold on NODE_ENV at runtime. Asserted
-			// on the real generated file, through the very function
-			// webpack.config.ts calls.
+			// scripts/build-info.mts bakes this list into js/prepaint.js, so
+			// it is the one consumer that cannot fold on NODE_ENV at runtime.
+			// Asserted on the real generated file, through the very function
+			// scripts/build-info.mts calls.
 			const file = resolve("client/locales/tags.json");
 			const development = readAvailableLocales(file, false);
 			const production = readAvailableLocales(file, true);
@@ -429,26 +429,36 @@ describe("i18n toolchain", () => {
 
 			expect(production).to.deep.equal(all.filter((tag) => !DEV_ONLY_TAGS.includes(tag)));
 			expect(() => readAvailableLocales(resolve("client/locales/nope.json"), false)).to.throw(
-				'run "yarn i18n:compile" first'
+				'run "pnpm i18n:compile" first'
 			);
 		});
 
 		it("the lazy locale import excludes the rig and the tag list in production", () => {
-			// Nothing in this suite bundles, so the magic comment is what
-			// there is to pin: without it a production build emits a chunk
-			// for qqx.json and one for tags.json, neither of which it can
-			// ever load (F27).
+			// The source's two globs are pinned here; test/tests/build.ts
+			// checks the production build emits no chunk for either file.
+			// Without the exclusions a production build emits a chunk for
+			// qqx.json and one for tags.json, neither of which it can ever
+			// load (F27).
 			const source = readFileSync(resolve("client/js/i18n/index.ts"), "utf8");
+			const globs = [...source.matchAll(/import\.meta\.glob<Catalog>\(\s*(\[[^\]]*\])/g)].map(
+				(m) => JSON.parse(m[1].replace(/,\s*\]$/, "]")) as string[]
+			);
 
 			expect(source).to.contain('process.env.NODE_ENV === "production"');
-			expect(source).to.match(
-				/webpackExclude: \/\(qqx\|tags\)\\\.json\$\/[\s\S]{0,80}locales\/\$\{tag\}\.json/
-			);
+			expect(globs).to.deep.equal([
+				[
+					"../../locales/*.json",
+					"!../../locales/en.json",
+					"!../../locales/qqx.json",
+					"!../../locales/tags.json",
+				],
+				["../../locales/*.json", "!../../locales/en.json", "!../../locales/tags.json"],
+			]);
 		});
 
 		it("writes the same available.ts and tags.json whatever NODE_ENV says", () => {
-			// The generated files are tracked, and `yarn watch`, `yarn test:e2e`
-			// and a bare `webpack` skip the compile: a mode-dependent generator
+			// The generated files are tracked, and a bare `vite build` skips
+			// the compile: a mode-dependent generator
 			// meant those builds shipped whichever flavor was committed last,
 			// and that a production build dirtied the tree.
 			const read = () => ({
@@ -472,7 +482,7 @@ describe("i18n toolchain", () => {
 			expect(read()).to.deep.equal(development);
 			// qqx.json itself is generated either way (the rig's artifact);
 			// the production copy into public/ is what leaves it out
-			// (webpack.config.ts CopyPlugin).
+			// (vite.config.mts `copies`, test/tests/build.ts).
 			expect(existsSync(join(tmp, "compile-plural", "qqx.json"))).to.equal(true);
 		});
 	});

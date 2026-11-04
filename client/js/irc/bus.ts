@@ -8,6 +8,7 @@
 import type {EventBus} from "../socket";
 import type {IrcClient} from "./client";
 import {requestMore} from "./history";
+import {requestReplyParent, requestSearch, requestSearchContext} from "./historysearch";
 import {refreshOper, setSnomask} from "./oper";
 import {request} from "./request";
 import * as saved from "./saved-networks";
@@ -271,6 +272,35 @@ export function registerBusHandlers(bus: EventBus, registry: ClientRegistry): vo
 			messages: [],
 			totalMessages: chan?.shared.totalMessages ?? 0,
 		});
+	});
+
+	bus.handle("search:request", ({network, requestId, attrs}) => {
+		const client = registry.clientForNetwork(network);
+
+		if (client) {
+			requestSearch(client, requestId, attrs);
+		} else {
+			bus.dispatch("search:results", {network, requestId, status: "offline", hits: []});
+		}
+	});
+
+	bus.handle("search:context", ({network, requestId, target, direction, msgid, limit}) => {
+		const client = registry.clientForNetwork(network);
+
+		if (client) {
+			requestSearchContext(client, requestId, target, direction, msgid, limit);
+		} else {
+			bus.dispatch("search:context", {network, requestId, status: "offline", messages: []});
+		}
+	});
+
+	bus.handle("reply:parent", ({chan, msgid}) => {
+		const client = registry.clientForChannel(chan);
+		const channel = client?.channelById(chan);
+
+		if (client && channel) {
+			requestReplyParent(client, channel, msgid);
+		}
 	});
 
 	bus.handle("history:trim", ({target, ids}) => {

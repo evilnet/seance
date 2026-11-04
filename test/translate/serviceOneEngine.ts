@@ -6,7 +6,7 @@
 // the old one's heap (which never shrinks). A computer keeps both.
 
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import type {Capability} from "../../client/js/translate/capability";
 import {emptyContext} from "../../client/js/translate/engine";
 import {
@@ -21,6 +21,11 @@ import {TranslateClient} from "../../client/js/translate/client";
 import {TranslateService, type ServiceDeps} from "../../client/js/translate/service";
 import {serveEngines} from "../../client/js/translate/worker";
 import {FakeEngine} from "./fakeEngine";
+
+// sinon 15 and later fake queueMicrotask and process.nextTick as well, and the
+// in-memory port pair (protocol.ts createPortPair) delivers through
+// queueMicrotask: both stay real, as they were under the older sinon.
+const fakeTimers = () => sinon.useFakeTimers({toNotFake: ["nextTick", "queueMicrotask"]});
 
 const AUTO: DeviceChoices = {llm: "auto", opus: "auto", nllb: "auto"};
 
@@ -42,7 +47,7 @@ function capability(mobile: boolean): Capability {
 }
 
 function rig(mobile: boolean) {
-	const clock = sinon.useFakeTimers();
+	const clock = fakeTimers();
 	const workers: {terminated: boolean}[] = [];
 	const log: string[] = [];
 	const cache: CacheApi = {has: () => Promise.resolve(true), delete: () => Promise.resolve()};

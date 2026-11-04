@@ -1,7 +1,7 @@
 // Pending outgoing messages, end to end in a real browser
 // (docs/resources/bus-contract.md §1.9).
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d
 //   node tools/browser-drive.mjs tools/scenarios/pending-messages.mjs
 //
@@ -10,7 +10,7 @@
 //     tools/scenarios/pending-messages.mjs \
 //     --url='http://127.0.0.1:8001/?host=127.0.0.1&port=8067&tls=false&nick=pendwatch&join=%23seance'
 //
-// The claims under test are what `yarn test` cannot see: that a sent
+// The claims under test are what `pnpm test` cannot see: that a sent
 // message shows at once as a faded `.msg.pending` row, that the row stays
 // at the bottom while somebody else's message arrives above it, and that
 // the server's echo replaces it — same text, once, no longer faded.

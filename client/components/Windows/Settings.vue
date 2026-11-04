@@ -124,6 +124,13 @@
 	padding-top: 1rem;
 }
 
+/* A heading's top margin parts it from the section above; a tab's first
+ * heading has none, so it sits the body's padding below the tab strip. */
+.settings-modal-body > .container > :first-child > h2:first-child,
+.settings-modal-body > .container > :first-child > :first-child > h2:first-child {
+	margin-top: 0;
+}
+
 .settings-modal-footer {
 	display: flex;
 	align-items: center;

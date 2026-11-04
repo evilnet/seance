@@ -443,7 +443,7 @@ async function main(): Promise<void> {
 
 			console.log("fill: loading the converted 4B weights…");
 			let shown = -1;
-			await llmEngine.load(catalog.llm, (progress) => {
+			await llmEngine.load(catalog.llm, "gpu", (progress) => {
 				const percent = Math.floor(progress.fraction * 100);
 
 				if (percent >= shown + 10 || percent === 100) {
@@ -569,7 +569,7 @@ async function main(): Promise<void> {
 			}
 		}
 
-		const batches: typeof limited[] = [];
+		const batches: (typeof limited)[] = [];
 
 		for (let i = 0; i < limited.length; i += engine === "llm" ? options.batch : BATCH_NLLB) {
 			batches.push(limited.slice(i, i + (engine === "llm" ? options.batch : BATCH_NLLB)));

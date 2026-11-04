@@ -53,14 +53,13 @@ describe("systemAccessibility", function () {
 		// Set and removed inside the test: mocha's leak check runs between hooks.
 		function installShell() {
 			g.window = {
-				Capacitor: {
-					isNativePlatform: () => true,
-					getPlatform: () => "android",
-					addListener(plugin: string, event: string, cb: typeof changed) {
+				seanceShell: {
+					platform: "android",
+					listen(plugin: string, event: string, cb: typeof changed) {
 						listenCalls++;
 						changed = cb;
 					},
-					nativePromise() {
+					call() {
 						statusCalls++;
 						return Promise.resolve(report);
 					},

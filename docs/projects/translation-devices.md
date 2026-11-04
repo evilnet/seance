@@ -378,7 +378,7 @@ with a reason, and the rest of the design still stands.
 
 **The seq2seq GPU copies.** OPUS-MT and NLLB-200 ship with their CPU copy
 alone. The worker's ONNX Runtime is the wasm-only bundle:
-`webpack.config.ts` aliases `onnxruntime-web/webgpu` to
+`vite.translate.config.mts` aliases `onnxruntime-web/webgpu` to
 `onnxruntime-web/wasm`, whose `ort.wasm.bundle.min.mjs` registers only the
 cpu/wasm backends, and `js/ort/` ships no jsep wasm (`test/tests/build.ts`
 pins that). `seq2seq.real.ts`'s `device: "webgpu"` would find no backend,

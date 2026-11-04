@@ -11,7 +11,7 @@
 // text contrast is sampled from rendered pixels with the text hidden, since
 // the ps theme's glass makes a computed background meaningless.
 //
-//   corepack yarn build && python3 -m http.server -d public 8001 &
+//   pnpm build && python3 -m http.server -d public 8001 &
 //   node tools/browser-drive.mjs tools/scenarios/dnd-visual.mjs --no-ws \
 //     --out=/tmp/claude-1000/visual/raw-desktop
 //   node tools/browser-drive.mjs tools/scenarios/dnd-visual.mjs --no-ws \

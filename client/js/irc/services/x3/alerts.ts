@@ -8,13 +8,11 @@
  */
 
 import type {CommandReply, ServiceAlert, ServiceLookup, TraceResult, TraceUser} from "../types";
+import {REFUSED} from "./refusals";
 
 /** A criteria complaint (`$b<x>$b is an invalid search criteria.` and friends). */
 const CRITERIA_ERROR =
 	/is an invalid search criteria\.|requires more parameters\.|is an invalid IRC hostmask\.|is not a valid IP address|is an invalid binary value\.|^Invalid regex:/;
-
-/** `O3 is a privileged service.` — the asker is not an oper to it. */
-const PRIVILEGED = /^\S+ is a privileged service\.$/;
 
 // ----------------------------------------------------------- stats alerts
 
@@ -34,13 +32,17 @@ function alerts(): ServiceLookup<ServiceAlert[]> {
 				return "end";
 			}
 
-			if (PRIVILEGED.test(text)) {
+			if (REFUSED.test(text)) {
 				return "end";
 			}
 
 			return "take";
 		},
 		parse(lines) {
+			if (REFUSED.test(lines[0] ?? "")) {
+				return undefined;
+			}
+
 			const out: ServiceAlert[] = [];
 			let current: ServiceAlert | undefined;
 
@@ -117,8 +119,7 @@ function tracePrint(criteria: string): ServiceLookup<TraceResult> {
 			if (
 				/^Nothing matched the criteria of your search\.$/.test(text) ||
 				CRITERIA_ERROR.test(text) ||
-				PRIVILEGED.test(text) ||
-				/^Access denied\.$/.test(text)
+				REFUSED.test(text)
 			) {
 				return "end";
 			}
@@ -188,7 +189,7 @@ function verdict(
 		role: "oper",
 		command,
 		accept(text) {
-			if (ok.test(text) || last.test(text) || PRIVILEGED.test(text)) {
+			if (ok.test(text) || last.test(text) || REFUSED.test(text)) {
 				return "end";
 			}
 
@@ -210,7 +211,7 @@ function addAlert(command: string): ServiceLookup<CommandReply> {
 	return verdict(
 		(bot) => `PRIVMSG ${bot} :${command}`,
 		/^Added alert named \S+\.$/,
-		/^Unknown alert reaction \S+\.$|^Unable to add alert\.|^Access denied\.$/,
+		/^Unknown alert reaction \S+\.$|^Unable to add alert\./,
 		new RegExp(`^An alert named \\S+ already exists\\.$|${CRITERIA_ERROR.source}`)
 	);
 }
@@ -219,7 +220,7 @@ function delAlert(name: string): ServiceLookup<CommandReply> {
 	return verdict(
 		(bot) => `PRIVMSG ${bot} :delalert ${name}`,
 		/^Removed alert named \S+\.$/,
-		/^No alert named \S+ could be found\.$|^Access denied\.$/,
+		/^No alert named \S+ could be found\.$/,
 		/$^/
 	);
 }

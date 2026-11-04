@@ -35,8 +35,8 @@ import {
 	onNativeEndpointChange,
 	refreshNativePush,
 } from "./helpers/nativePush";
-import {isAndroidShell, isIOSShell} from "./helpers/capacitor";
-import {clearNativeAlert} from "./helpers/nativeAlerts";
+import {isAndroidShell, isDesktopShell} from "./helpers/shell";
+import {clearNativeAlert, nativeAlertsAvailable} from "./helpers/nativeAlerts";
 import {ChanType} from "../../shared/types/chan";
 import type {ClientChan} from "./types";
 
@@ -249,10 +249,16 @@ function setState(state: string): void {
 /** How this device takes pushes: through the Push API and a service worker
  * per network, as in a browser (`worker`), through the Android shell's
  * UnifiedPush registrations (`native`, helpers/nativePush.ts — its WebView
- * has no PushManager), or not at all. */
+ * has no PushManager), or not at all. A desktop shell takes none: it
+ * registers no service worker (pwa.ts), and while it runs it notifies
+ * through the shell itself (docs/projects/desktop-shells.md § 5.2). */
 type PushBackend = "worker" | "native" | "none";
 
 function pushBackend(): PushBackend {
+	if (isDesktopShell()) {
+		return "none";
+	}
+
 	if (nativePushAvailable()) {
 		return "native";
 	}
@@ -365,7 +371,9 @@ function stillWanted(uuid: string): boolean {
 /** Recompute the coarse state the Settings screen renders. */
 function refreshState(): void {
 	if (!browserSupported()) {
-		setState(needsInstall() ? "not-installed" : "unsupported");
+		setState(
+			isDesktopShell() ? "desktop-shell" : needsInstall() ? "not-installed" : "unsupported"
+		);
 		return;
 	}
 
@@ -572,9 +580,8 @@ async function pushSubscription(uuid: string, vapid: string): Promise<PushMateri
 function describeError(error: unknown): string {
 	if (error && typeof error === "object") {
 		const e = error as {name?: unknown; message?: unknown};
-		return `${typeof e.name === "string" ? e.name : "Error"}: ${
-			typeof e.message === "string" ? e.message : String(error)
-		}`;
+		const name = typeof e.name === "string" ? e.name : "Error";
+		return typeof e.message === "string" ? `${name}: ${e.message}` : name;
 	}
 
 	return String(error);
@@ -863,9 +870,11 @@ let synced: Promise<void> = Promise.resolve();
 
 /** Re-register a network's stored subscription with it on connect — the
  * draft's renewal mechanism. An entry made against another key (the server
- * rotated its VAPID key) is not touched here: {@link maybePrompt} decides. */
+ * rotated its VAPID key) is not touched here: {@link maybePrompt} decides.
+ * Where this device takes no push (a desktop shell), a stored entry is not
+ * renewed: nothing here could receive it. */
 function autoRegister(uuid: string, vapid: string | undefined): void {
-	if (vapid === undefined || !pushOn(uuid)) {
+	if (vapid === undefined || !pushOn(uuid) || !browserSupported()) {
 		return;
 	}
 
@@ -1083,7 +1092,9 @@ function maybePrompt(uuid: string): void {
 	if (!browserSupported() || needsInstall() || permissionDenied()) {
 		note(
 			`connect ${short(uuid)}: cannot subscribe here — ${
-				!browserSupported()
+				isDesktopShell()
+					? "desktop shell"
+					: !browserSupported()
 					? "no Push API"
 					: needsInstall()
 					? "iOS, not installed to the Home Screen"
@@ -1694,7 +1705,11 @@ function networkPushInfo(uuid: string): {
 	return {
 		enabled: pushOn(uuid),
 		vapid: vapid !== undefined,
-		subscribed: vapid !== undefined && entry !== undefined && entry.vapid === vapid,
+		subscribed:
+			browserSupported() &&
+			vapid !== undefined &&
+			entry !== undefined &&
+			entry.vapid === vapid,
 		stale: entryStale(entry, vapid),
 	};
 }
@@ -1829,7 +1844,8 @@ function readOnWorker(uuid: string, channel: ClientChan, echo = false): void {
 		return;
 	}
 
-	if (isIOSShell()) {
+	// iOS and the desktop shells: the page's own alert, the shell's.
+	if (nativeAlertsAvailable()) {
 		clearNativeAlert(uuid, target);
 		return;
 	}

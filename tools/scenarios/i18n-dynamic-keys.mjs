@@ -12,7 +12,7 @@
 //   4. an assembled key THAT RESOLVES (catalog-only key) warns too;
 //   5. a genuine static call site stays silent through the whole run.
 //
-//   NODE_ENV=development corepack yarn i18n:compile && corepack yarn build:client
+//   NODE_ENV=development pnpm build
 //   python3 -m http.server -d public 8000 &
 //   CHROME_BIN=$PWD/tmp/chrome-headless-wrapper.sh \
 //     node tools/browser-drive.mjs tools/scenarios/i18n-dynamic-keys.mjs

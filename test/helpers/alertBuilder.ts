@@ -59,6 +59,10 @@ describe("the alert builder's form (helpers/alertBuilder.ts)", function () {
 		expect(wideReason(newRow("ip", "203.0.113.*"), [])).to.equal("an IP range");
 		expect(wideReason(newRow("ip", "203.0.113.0/24"), [])).to.equal("an IP range");
 		expect(wideReason(newRow("ip", "203.0.113.7"), [])).to.equal(undefined);
+		// A realname or version of nothing but wildcards matches everyone.
+		expect(wideReason(newRow("info", "*"), [])).to.equal("matches any value");
+		expect(wideReason(newRow("version", "? *"), [])).to.equal("matches any value");
+		expect(wideReason(newRow("info", "irc*"), [])).to.equal(undefined);
 		expect(wideReason(newRow("nickage", "<300"), [])).to.equal("a nick age");
 		expect(wideReason(newRow("last", "1h"), [])).to.equal("a time window");
 		expect(wideReason(newRow("server", "leaf2"), [])).to.equal("a whole server");
@@ -79,6 +83,8 @@ describe("the alert builder's form (helpers/alertBuilder.ts)", function () {
 
 		expect(criterionWord("info", " irc client ")).to.equal("irc?client");
 		expect(criterionWord("ident", "r????")).to.equal("r????");
+		// One word each: a typed space cannot add a keyword to the command.
+		expect(criterionWord("host", "a.example reason x")).to.equal("a.examplereasonx");
 		expect(buildCriteria(rows)).to.equal(
 			"authed no info irc?client ident r???? version mIRC?v7.73"
 		);
@@ -233,6 +239,10 @@ describe("the alert builder's form (helpers/alertBuilder.ts)", function () {
 			warn: false,
 		});
 		expect(matchesText(3, undefined).text).to.equal("Matches 3 users right now");
+		// Only the first 20 were looked at: it says so, and does not certify the rest.
+		expect(matchesText(21, [], 20).text).to.equal(
+			"Matches 21 users right now · none of the first 20 are opers"
+		);
 		expect(matchesText(40, ["a", "b"])).to.deep.equal({
 			text: "Matches 40 users right now · 2 are opers: a, b — that's a lot; check the criteria",
 			warn: true,

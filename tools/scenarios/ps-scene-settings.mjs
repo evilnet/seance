@@ -4,7 +4,7 @@
 // plains (bubbles, glass, scrim, outline, rim, glow; docs/projects/ps-words.md)
 // and Combine messages from the same person.
 //
-//   NODE_ENV=production corepack yarn build && python3 -m http.server -d public 8006 &
+//   NODE_ENV=production pnpm build && python3 -m http.server -d public 8006 &
 //   node tools/browser-drive.mjs tools/scenarios/ps-scene-settings.mjs
 //
 // Needs the dev ircd (a second user says two lines). Pins a clear noon on

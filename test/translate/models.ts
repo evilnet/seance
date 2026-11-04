@@ -80,7 +80,7 @@ describe("translate/models", () => {
 	});
 
 	it("gives OPUS-MT and NLLB-200 no GPU copy unless asked", () => {
-		// This build has no WebGPU backend for them (webpack.config.ts's
+		// This build has no WebGPU backend for them (vite.translate.config.mts's
 		// onnxruntime-web alias): a GPU copy would download and fail to start.
 		const catalog = buildCatalog();
 

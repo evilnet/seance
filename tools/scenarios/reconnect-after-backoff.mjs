@@ -3,7 +3,7 @@
 // restarts the schedule (client/js/irc/transport.ts;
 // docs/projects/seamless-reconnect.md § Round seven).
 //
-//   NODE_ENV=production corepack yarn build && python3 -m http.server -d public 8001 &
+//   NODE_ENV=production pnpm build && python3 -m http.server -d public 8001 &
 //   node tools/browser-drive.mjs tools/scenarios/reconnect-after-backoff.mjs [--chrome=…]
 //
 // Needs an ircd speaking plain WebSocket on 127.0.0.1:8067 (the dev ircd or
@@ -13,13 +13,17 @@
 // the retries pile up), and then let through again. `SEANCE_URL` overrides
 // where the built tree is served from.
 //
+// A refused dial never opens, which a page cannot tell from a network not
+// ready yet: the transport retries quickly (1, 2, 4 s), then waits 42–47 s,
+// past the server's 40 s throttle window; the foreground poke leaves that
+// long wait be, Connect now cuts it (docs/projects/reconnect-throttle.md).
+//
 // Claims:
 //   1. the network registers through the proxy;
-//   2. after the cut, the retries back off while dials are refused;
-//   3. a foreground signal (window focus) dials at once;
-//   4. when that dial fails too, the next wait is the first delay again, not
-//      the one the retries had built up;
-//   5. once dials go through again the network registers on the next retry;
+//   2. during the quick retries a foreground signal (window focus) dials at once;
+//   3. after the quick retries the wait is the long one, 42–47 s;
+//   4. a foreground signal during the long wait does not dial;
+//   5. once dials go through again, a typed /connect registers at once;
 //   6. no console errors.
 
 import {startProxy} from "./lib/irc-proxy.mjs";
@@ -28,8 +32,8 @@ const HOST = process.env.SEANCE_URL ?? "http://127.0.0.1:8001";
 const IRC = {host: "127.0.0.1", port: 8067};
 const PROXY_PORT = 9874;
 const NICK = "rc" + Math.random().toString(36).slice(2, 7);
-/** Long enough for the schedule to reach a two-digit wait (1, 2, 4, 8, 16 → 32 s). */
-const AWAY_MS = 36_000;
+/** Inside the quick retries: the first retry (about 1 s) refused, the next not yet due. */
+const AWAY_MS = 2_500;
 
 export const url = `${HOST}/?host=127.0.0.1&port=${PROXY_PORT}&tls=false&nick=${NICK}&join=%23seance`;
 
@@ -66,20 +70,7 @@ async function until(page, fn, timeout, label) {
 	throw new Error(`timed out waiting for ${label}`);
 }
 
-// These claims are about the back-off schedule as such. Against a proxy that
-// refuses every dial, the dial ledger (irc/dialLedger.ts) would rightly turn
-// the third quick failure into the server-throttle wait, which has its own
-// scenario (reconnect-throttle.mjs); so the ledger is kept empty here.
-const NO_DIAL_LEDGER = `(() => {
-	const set = Storage.prototype.setItem;
-	Storage.prototype.setItem = function (key, value) {
-		if (key === "thelounge.state.dials") return;
-		return set.call(this, key, value);
-	};
-})()`;
-
 export default async function run(page) {
-	await page.addInitScript(NO_DIAL_LEDGER);
 	const proxy = startProxy({port: PROXY_PORT, target: IRC});
 	await proxy.listen();
 
@@ -101,7 +92,9 @@ async function check(page, proxy) {
 	});
 	await until(page, () => registered(page, 0), 20000, "registration through the proxy");
 	page.check("1. registered through the proxy", registered(page, 0));
-	await page.click(LOBBY); // the lobby is where the connection reports
+	// The lobby is where the connection reports. Synthetic: a real click at
+	// the row's centre can land on one of its buttons (join a channel).
+	await page.evaluate(`document.querySelector(${JSON.stringify(LOBBY)}).click()`);
 	await page.screenshot("1-registered");
 
 	// 2. The radio goes away: the socket is cut and every dial is refused
@@ -110,44 +103,53 @@ async function check(page, proxy) {
 	page.expectWsErrors = true;
 	proxy.cut();
 	await page.sleep(AWAY_MS);
-	let lines = await page.evaluate(LINES);
-	const before = lastWait(lines);
-	page.check(
-		`2. the retries backed off while dials were refused (last wait ${before?.seconds}s, attempt ${before?.attempt})`,
-		Boolean(before) && before.attempt >= 5 && before.seconds >= 10
-	);
-	await page.screenshot("2-away");
 
-	// 3. The app comes back — a focus signal — while dials are still refused.
-	const linesBefore = lines.length;
+	// 2. The app comes back during the quick retries: it dials at once.
+	let lines = await page.evaluate(LINES);
+	let mark = lines.length;
 	await page.evaluate(`window.dispatchEvent(new Event("focus"))`);
 	await page.waitFor(
-		`/Connecting to 127\\.0\\.0\\.1:${PROXY_PORT}/.test((${LINES}).slice(${linesBefore}).join("\\n"))`,
+		`/Connecting to 127\\.0\\.0\\.1:${PROXY_PORT}/.test((${LINES}).slice(${mark}).join("\\n"))`,
 		{timeout: 3000, label: "the foreground dial"}
 	);
-	page.check("3. the foreground signal dialled at once", true);
+	page.check("2. during the quick retries the foreground signal dialled at once", true);
+	await page.screenshot("2-quick");
 
-	// 4. Its failure schedules the next wait.
-	await page.waitFor(
-		`/Reconnecting in \\d+s/.test((${LINES}).slice(${linesBefore}).join("\\n"))`,
-		{timeout: 5000, label: "the wait after the failed foreground dial"}
-	);
+	// 3. The quick retries run out: the long wait.
+	await page.waitFor(`/Reconnecting in 4[2-7]s/.test((${LINES}).join("\\n"))`, {
+		timeout: 20000,
+		label: "the long wait",
+	});
 	lines = await page.evaluate(LINES);
-	const after = lastWait(lines);
+	const quick = lines.filter((l) => /Reconnecting in [124]s/.test(l)).length;
+	const long = lastWait(lines);
 	page.check(
-		`4. the wait after the failed foreground dial is the first delay again (${after?.seconds}s, attempt ${after?.attempt}; it was ${before?.seconds}s)`,
-		Boolean(after) && after.index >= linesBefore && after.seconds <= 2 && after.attempt === 1
+		`3. after quick retries (${quick} seen) the wait is the long one (${long?.seconds}s)`,
+		quick >= 2 && Boolean(long) && long.seconds >= 42 && long.seconds <= 47
 	);
-	await page.screenshot("3-poked");
+	await page.screenshot("3-long");
 
-	// 5. The radio is back: the next retry gets through. (A dial refused just
-	// before the switch reports its error late: errors stay expected until
-	// the registration is in.)
+	// 4. The app comes back during the long wait: it leaves it be.
+	mark = lines.length;
+	await page.sleep(1100); // past the foreground poke's once-a-second limit
+	await page.evaluate(`window.dispatchEvent(new Event("focus"))`);
+	await page.sleep(2000);
+	lines = await page.evaluate(LINES);
+	page.check(
+		"4. a foreground signal during the long wait does not dial",
+		!lines.slice(mark).some((l) => /Connecting to /.test(l))
+	);
+
+	// 5. The radio is back; the user asks: /connect dials at once and gets
+	// through. (A dial refused just before the switch reports its error
+	// late: errors stay expected until the registration is in.)
 	proxy.accept();
 	const frames = page.wsFrames.length;
+	await page.fill("#input", "/connect");
+	await page.evaluate(`document.querySelector("#form").requestSubmit()`);
 	await until(page, () => registered(page, frames), 10000, "the re-registration");
 	page.expectWsErrors = false;
-	page.check("5. registered again on the next retry", registered(page, frames));
+	page.check("5. a typed /connect registered at once", registered(page, frames));
 	await page.screenshot("4-back");
 
 	page.check("6. no console errors", page.consoleErrors.length === 0);

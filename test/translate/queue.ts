@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import {WORKER_DISPOSED} from "../../client/js/translate/client";
 import {
 	BATCH_REFUSED,
@@ -31,10 +31,15 @@ import {
 } from "../../client/js/translate/queue";
 import {placeholder, protect} from "../../client/js/translate/spans";
 
+// sinon 15 and later fake queueMicrotask and process.nextTick as well, and the
+// in-memory port pair (protocol.ts createPortPair) delivers through
+// queueMicrotask: both stay real, as they were under the older sinon.
+const fakeTimers = () => sinon.useFakeTimers({toNotFake: ["nextTick", "queueMicrotask"]});
+
 type Script = (req: Omit<TranslateRequest, "id" | "model">) => string[] | Error;
 
 function rig(script: Script = (req) => [`[en] ${req.lines ? req.lines.join(" | ") : req.text}`]) {
-	const clock = sinon.useFakeTimers();
+	const clock = fakeTimers();
 	const updates: [number, QueueUpdate][] = [];
 	const requests: Omit<TranslateRequest, "id" | "model">[] = [];
 	const paused: [string, string][] = [];

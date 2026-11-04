@@ -9,6 +9,7 @@
 import socket from "../socket";
 import {parseLine, type IrcMessage} from "../irc/message";
 import type {ServicesConfig} from "../../../shared/types/network";
+import type {ServicesCheckResult} from "../irc/services";
 
 export interface OperReply {
 	lines: IrcMessage[];
@@ -50,10 +51,7 @@ export function operRequest(
 // `services:check` / `services:checked` and `services:ban` / `services:banned`
 // pairs, for the edit form's liveness line and the ban dialog's O3 path.
 
-export interface ServicesCheckReply {
-	results: {role: string; bot: string; online: boolean; looksLikeX3: boolean}[];
-	failure?: "closed" | "timeout";
-}
+export type ServicesCheckReply = ServicesCheckResult;
 
 export interface ServicesBanReply {
 	outcome: "ok" | "refused" | "timeout" | "closed";

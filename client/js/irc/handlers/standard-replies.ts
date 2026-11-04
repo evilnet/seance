@@ -17,6 +17,7 @@ import {t} from "../../i18n/core";
 import {MessageType} from "../../../../shared/types/msg";
 import {targetsFailed} from "../catchup";
 import {chatHistoryFailed} from "../history";
+import {searchContextFailed, searchFailed} from "../historysearch";
 import {multilineCooldown, multilineRejected} from "../multiline";
 import {inRestorationWindow, noteRestorationActivity, persistenceFailed} from "../persistence";
 import {isOwnMetadataKey} from "./metadata";
@@ -42,7 +43,7 @@ function redactFailed(client: IrcClient, msg: IrcMessage): void {
 	const say = REDACT_ERRORS[code.toUpperCase()];
 	// A code we do not know is shown as the server's own description (or
 	// the raw code) — that part is verbatim, only the known codes are ours.
-	const why = say !== undefined ? say() : description ?? code;
+	const why = say !== undefined ? say() : description || code;
 	const edit = msgid ? client.rejectEdit(msgid) : undefined;
 	const chan = edit ?? (target ? client.findChannel(target) : undefined) ?? client.lobby;
 
@@ -156,7 +157,16 @@ function reply(kind: "FAIL" | "WARN" | "NOTE"): Handler {
 	return (client, msg) => {
 		const [command = "*", code = "", ...rest] = msg.params;
 
+		if (kind === "FAIL" && command.toUpperCase() === "SEARCH") {
+			searchFailed(client, msg); // the search window says so
+			return;
+		}
+
 		if (kind === "FAIL" && command.toUpperCase() === "CHATHISTORY") {
+			if (searchContextFailed(client, msg)) {
+				return; // the search window's
+			}
+
 			if (targetsFailed(client, msg)) {
 				return; // our TARGETS: the catch-up goes in JOIN order (catchup.ts)
 			}

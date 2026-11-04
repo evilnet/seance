@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import socket from "../../client/js/socket";
 import {IrcClient} from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";
@@ -13,12 +13,21 @@ import {
 	servicesBan,
 } from "../../client/js/irc/services";
 import {sendQuiet, takeQuietLabel} from "../../client/js/irc/quiet";
+import {
+	BOT_SEND_FRESH_MS,
+	botSendable,
+	botTrust,
+	forgetBot,
+	recordBotWhois,
+	verifyBot,
+} from "../../client/js/irc/bottrust";
 import {snoopNicks} from "../../client/js/irc/servicesfeed";
 import {parseBanReply, X3_DEFAULTS} from "../../client/js/irc/services/x3";
 import type {Transport} from "../../client/js/irc/types";
 import type {TransportEvent, TransportState} from "../../client/js/irc/transport";
 import type {ServicesConfig} from "../../shared/types/network";
 import type {SharedMsg} from "../../shared/types/msg";
+import {trustBot} from "./support";
 
 class FakeTransport implements Transport {
 	state: TransportState = "closed";
@@ -141,6 +150,11 @@ function setup(): {client: IrcClient; transport: FakeTransport} {
 	transport.sent = [];
 	dispatch.resetHistory();
 
+	// The bots these tests speak as, already checked (bottrust.ts).
+	for (const bot of ["O3", "AuthServ", "ChanServ"]) {
+		trustBot(client, bot);
+	}
+
 	return {client, transport};
 }
 
@@ -203,12 +217,14 @@ describe("services support: the liveness check (irc/services.ts checkServices)",
 		const result = await check;
 		expect(result.failure).to.equal(undefined);
 		expect(result.results).to.deep.equal([
-			{role: "oper", bot: "O3", online: true, looksLikeX3: true},
-			{role: "account", bot: "AuthServ", online: true, looksLikeX3: true},
-			{role: "channel", bot: "ChanServ", online: false, looksLikeX3: false},
+			{role: "oper", bot: "O3", online: true, looksLikeX3: true, trusted: false},
+			{role: "account", bot: "AuthServ", online: true, looksLikeX3: true, trusted: true},
+			{role: "channel", bot: "ChanServ", online: false, looksLikeX3: false, trusted: false},
 		]);
+		// O3's realname is X3's, but nothing says it is a service: anyone can
+		// pick a realname, so its replies would not count (bottrust.ts).
 		expect(describeServiceCheck(result)).to.equal(
-			"ChanServ isn't online (no such nick). O3 and AuthServ are online and look like X3."
+			"ChanServ isn't online (no such nick). O3 and AuthServ are online and look like X3. O3 isn't a network service, so Seance won't trust its replies."
 		);
 		expect(messages(client.lobby.id), "the WHOIS replies are not shown").to.have.length(0);
 	});
@@ -227,9 +243,11 @@ describe("services support: the liveness check (irc/services.ts checkServices)",
 		);
 		const result = await check;
 		expect(result.results).to.deep.equal([
-			{role: "oper", bot: "O3", online: true, looksLikeX3: false},
+			{role: "oper", bot: "O3", online: true, looksLikeX3: false, trusted: false},
 		]);
-		expect(describeServiceCheck(result)).to.equal("✓ O3 is online. O3 doesn't look like X3.");
+		expect(describeServiceCheck(result)).to.equal(
+			"O3 is online. O3 doesn't look like X3. O3 isn't a network service, so Seance won't trust its replies."
+		);
 
 		const none = await checkServices(client, {
 			package: "x3",
@@ -252,9 +270,27 @@ describe("services support: the liveness check (irc/services.ts checkServices)",
 	it("words the all-online case with a tick", function () {
 		const all = {
 			results: [
-				{role: "oper" as const, bot: "O3", online: true, looksLikeX3: true},
-				{role: "account" as const, bot: "AuthServ", online: true, looksLikeX3: true},
-				{role: "channel" as const, bot: "ChanServ", online: true, looksLikeX3: true},
+				{
+					role: "oper" as const,
+					bot: "O3",
+					online: true,
+					looksLikeX3: true,
+					trusted: true,
+				},
+				{
+					role: "account" as const,
+					bot: "AuthServ",
+					online: true,
+					looksLikeX3: true,
+					trusted: true,
+				},
+				{
+					role: "channel" as const,
+					bot: "ChanServ",
+					online: true,
+					looksLikeX3: true,
+					trusted: true,
+				},
 			],
 		};
 		expect(describeServiceCheck(all)).to.equal(
@@ -343,6 +379,32 @@ describe("services support: a bot's reply (irc/services.ts awaitServiceReply)", 
 		transport.line(":O3!O3@services.test NOTICE opr :Shun issued for *@h.");
 		expect(await ok).to.deep.equal({outcome: "ok", text: "Shun issued for *@h."});
 
+		// Two bans out at once (the first dialog closed while its ban was
+		// out): O3's answer for one mask confirms that one only.
+		const first = servicesBan(client, {
+			type: "gline",
+			mask: "*@a.example",
+			seconds: 60,
+			reason: "r",
+		});
+		const second = servicesBan(client, {
+			type: "gline",
+			mask: "*@b.example",
+			seconds: 60,
+			reason: "r",
+		});
+		let secondDone = false;
+		void second.then(() => (secondDone = true));
+		transport.line(":O3!O3@services.test NOTICE opr :G-line issued for *@a.example.");
+		expect(await first).to.deep.equal({outcome: "ok", text: "G-line issued for *@a.example."});
+		await Promise.resolve();
+		expect(secondDone, "the other ban is still waiting for its own answer").to.equal(false);
+		transport.line(":O3!O3@services.test NOTICE opr :Invalid G-line '*@b.example'.");
+		expect(await second).to.deep.equal({
+			outcome: "refused",
+			text: "Invalid G-line '*@b.example'.",
+		});
+
 		// The bot is not on the network: the server's 401 says so at once.
 		const gone = servicesBan(client, {type: "gline", mask: "*@h", seconds: 60, reason: "r"});
 		transport.line(":irc.test 401 opr O3 :No such nick");
@@ -355,7 +417,7 @@ describe("services support: a bot's reply (irc/services.ts awaitServiceReply)", 
 		expect(
 			await servicesBan(client, {type: "shun", mask: "x", seconds: 1, reason: "r"})
 		).to.deep.equal({outcome: "closed", text: "No oper service is set up for this network."});
-		expect(transport.sent).to.have.length(3);
+		expect(transport.sent).to.have.length(5);
 	});
 });
 
@@ -394,6 +456,15 @@ describe("services support: quiet lookups (irc/quiet.ts)", function () {
 		transport.line(":opr!opr@host PRIVMSG O3 :hello");
 		expect(windows()).to.deep.equal(["irc.test", "#seance", "O3"]);
 
+		const errorCount = () =>
+			dispatch
+				.getCalls()
+				.filter(
+					(c) =>
+						c.args[0] === "msg" &&
+						String((c.args[1] as {msg: SharedMsg}).msg.type) === "error"
+				).length;
+
 		// A label the server never echoes (a 401 instead) is forgotten and the
 		// numeric is shown: the oper should know the bot is not there.
 		sendQuiet(client, "PRIVMSG Nobody :whois x");
@@ -405,6 +476,38 @@ describe("services support: quiet lookups (irc/quiet.ts)", function () {
 				.map((c) => (c.args[1] as {msg: SharedMsg}).msg.type)
 		).to.include("error");
 		expect(takeQuietLabel(client, "svc4")).to.equal(false);
+
+		// The same bot missing again, for the card's next lookup: shown once
+		// is enough, the rest are dropped.
+		const errorsBefore = errorCount();
+		sendQuiet(client, "PRIVMSG Nobody :whois y");
+		transport.line("@label=svc5 :irc.test 401 opr Nobody :No such nick");
+		// …but a lookup waiting on the bot still learns it is missing.
+		const waiting = awaitServiceReply(client, "NOBODY", () => undefined);
+		sendQuiet(client, "PRIVMSG NOBODY :whois z");
+		transport.line("@label=svc6 :irc.test 401 opr NOBODY :No such nick");
+		expect(errorCount(), "a missing bot's 401 shows once").to.equal(errorsBefore);
+		expect((await waiting).kind).to.equal("missing");
+
+		// A 401 inside the quiet lookup's batch reaches the services layer too,
+		// and is shown once for a bot not seen missing before.
+		const batched = awaitServiceReply(client, "Gone", () => undefined);
+		sendQuiet(client, "PRIVMSG Gone :whois w");
+		transport.lines(
+			"@label=svc7 :irc.test BATCH +g labeled-response",
+			"@batch=g :irc.test 401 opr Gone :No such nick",
+			":irc.test BATCH -g"
+		);
+		expect((await batched).kind).to.equal("missing");
+		expect(errorCount(), "the batched 401 shows").to.equal(errorsBefore + 1);
+		sendQuiet(client, "PRIVMSG Gone :whois v");
+		transport.lines(
+			"@label=svc8 :irc.test BATCH +h labeled-response",
+			"@batch=h :irc.test 401 opr Gone :No such nick",
+			":irc.test BATCH -h"
+		);
+		await flush();
+		expect(errorCount(), "and only once").to.equal(errorsBefore + 1);
 
 		// Without labeled-response the line goes out plain (and its echo shows).
 		const plain = new FakeTransport();
@@ -716,5 +819,212 @@ describe("services support: the feed (irc/servicesfeed.ts)", function () {
 			"x3.snoop.oper",
 			"x3.audit.opers",
 		]);
+	});
+});
+
+describe("services support: only the real bot counts (irc/bottrust.ts)", function () {
+	beforeEach(installSpy);
+	afterEach(removeSpy);
+
+	it("takes no reply from the bot's nick at another address, and shows it as the notice it is", async function () {
+		const {client, transport} = setup();
+		const reply = awaitServiceReply(client, "O3", (text) => parseBanReply(text), {
+			quiet: true,
+		});
+
+		// Someone holding "O3" while services are away: not the address WHOIS gave.
+		transport.line(":O3!evil@198.51.100.7 NOTICE opr :G-line issued for *@1.2.3.4.");
+		await flush();
+		const texts = () =>
+			dispatch
+				.getCalls()
+				.filter((c) => c.args[0] === "msg")
+				.map((c) => (c.args[1] as {msg: SharedMsg}).msg.text);
+		expect(texts(), "shown, not consumed").to.include("G-line issued for *@1.2.3.4.");
+		// The nick at another address: the bot holds it no more, so no
+		// command may follow it until WHOIS says otherwise.
+		expect(botSendable(client, "O3"), "trust gone at once").to.equal(false);
+		await flush();
+		const whois = transport.sent.find((l) => l.includes("WHOIS O3"));
+		expect(whois, "asked again").to.not.equal(undefined);
+
+		// The real bot back at its address.
+		const label = labelOf(whois!);
+		transport.lines(
+			`@label=${label} :irc.test 311 opr O3 O3 services.test * :Oper Services`,
+			`@label=${label} :irc.test 310 opr O3 :is a Network Service`,
+			`@label=${label} :irc.test 318 opr O3 :End of /WHOIS list.`
+		);
+		await flush();
+		transport.line(":O3!O3@services.test NOTICE opr :G-line issued for *@1.2.3.4.");
+		expect((await reply).kind).to.equal("reply");
+	});
+
+	it("keeps no snoop line from an impostor in the notice log", async function () {
+		const {client, transport} = setup();
+		client.setServices(X3);
+		const snoopy = join(client, transport, "#MrSnoopy");
+
+		transport.line(
+			`:O3!evil@198.51.100.7 PRIVMSG #MrSnoopy :[21:14:03] ${B}JOIN${B} #seance by x`
+		);
+		await flush();
+
+		expect(client.noticeLog.all(), "nothing logged").to.deep.equal([]);
+		expect(messages(snoopy), "shown as the message it is").to.have.length(1);
+	});
+
+	it("asks WHOIS before the first ban, and sends none to a bot that is not a network service", async function () {
+		const {client, transport} = setup();
+		const strip = (l: string) => l.replace(/^@label=\S+ /, "");
+		client.setServices({package: "x3", bots: {...X3_DEFAULTS, oper: "OpBot"}});
+		const fake = servicesBan(client, {type: "gline", mask: "*@h", seconds: 60, reason: "r"});
+		await flush();
+		expect(transport.sent.map(strip)).to.deep.equal(["WHOIS OpBot"]);
+		const label = labelOf(transport.sent[0]);
+		transport.lines(
+			`@label=${label} :irc.test 311 opr OpBot OpBot elsewhere.example * :Oper Services`,
+			`@label=${label} :irc.test 318 opr OpBot :End of /WHOIS list.`
+		);
+		expect(await fake).to.deep.equal({
+			outcome: "refused",
+			text: "OpBot is online but isn't a network service, so Seance won't trust it.",
+		});
+		expect(transport.sent, "no PRIVMSG to it").to.have.length(1);
+
+		// The real one: WHOIS calls it a service, then the ban goes out.
+		transport.sent = [];
+		client.setServices({package: "x3", bots: {...X3_DEFAULTS, oper: "RealBot"}});
+		const real = servicesBan(client, {type: "gline", mask: "*@h", seconds: 60, reason: "r"});
+		await flush();
+		const whois = labelOf(transport.sent[0]);
+		transport.lines(
+			`@label=${whois} :irc.test 311 opr RealBot RealBot services.test * :Oper Services`,
+			`@label=${whois} :irc.test 310 opr RealBot :is a Network Service`,
+			`@label=${whois} :irc.test 318 opr RealBot :End of /WHOIS list.`
+		);
+		await flush();
+		expect(transport.sent.map(strip)).to.deep.equal([
+			"WHOIS RealBot",
+			"PRIVMSG RealBot :gline *@h 1m r",
+		]);
+		transport.line(":RealBot!RealBot@services.test NOTICE opr :G-line issued for *@h.");
+		expect(await real).to.deep.equal({outcome: "ok", text: "G-line issued for *@h."});
+	});
+
+	it("forgets which bots are real on a new connection", function () {
+		const {client, transport} = setup();
+		expect(botTrust(client, "O3")).to.equal("trusted");
+		transport.line(":irc.test 001 opr :Welcome back");
+		expect(botTrust(client, "O3")).to.equal("unknown");
+	});
+
+	it("records no WHOIS answer that a QUIT overtook", async function () {
+		const {client, transport} = setup();
+		forgetBot(client, "O3");
+		const check = verifyBot(client, "O3");
+		await flush();
+		const label = labelOf(transport.sent.find((l) => l.includes("WHOIS O3"))!);
+		transport.lines(
+			`@label=${label} :irc.test 311 opr O3 O3 services.test * :Oper Services`,
+			`@label=${label} :irc.test 310 opr O3 :is a Network Service`
+		);
+		transport.line(":O3!O3@services.test QUIT :Killed");
+		transport.line(`@label=${label} :irc.test 318 opr O3 :End of /WHOIS list.`);
+		await check;
+		expect(botTrust(client, "O3")).to.equal("unknown");
+	});
+
+	it("never reuses a check from an earlier connection", async function () {
+		const {client, transport} = setup();
+		forgetBot(client, "O3");
+		void verifyBot(client, "O3");
+		await flush();
+		transport.line(":irc.test 001 opr :Welcome back");
+		transport.sent = [];
+		void verifyBot(client, "O3");
+		await flush();
+		expect(transport.sent.filter((l) => l.includes("WHOIS O3"))).to.have.length(1);
+	});
+
+	it("sends no command on old trust before 001", async function () {
+		const {client, transport} = setup();
+		client.setServices(X3);
+		transport.close();
+		expect(botSendable(client, "O3")).to.equal(false);
+		transport.sent = [];
+		const ban = await servicesBan(client, {
+			type: "gline",
+			mask: "*@h",
+			seconds: 60,
+			reason: "r",
+		});
+		expect(ban.outcome).to.not.equal("ok");
+		expect(transport.sent.filter((l) => l.includes("PRIVMSG"))).to.deep.equal([]);
+	});
+
+	it("forgets a bot that quits or changes nick, and the nick taken after it", function () {
+		const {client, transport} = setup();
+		transport.line(":O3!O3@services.test QUIT :Killed (squit)");
+		expect(botTrust(client, "O3")).to.equal("unknown");
+		transport.line(":AuthServ!AuthServ@services.test NICK :Other");
+		expect(botTrust(client, "AuthServ")).to.equal("unknown");
+		transport.line(":someone!x@198.51.100.7 NICK :ChanServ");
+		expect(botTrust(client, "ChanServ")).to.equal("unknown");
+	});
+
+	it("asks WHOIS again before a ban once the last check is five minutes old", async function () {
+		const {client, transport} = setup();
+		const strip = (l: string) => l.replace(/^@label=\S+ /, "");
+		expect(botSendable(client, "O3")).to.equal(true);
+		expect(botSendable(client, "O3", Date.now() + BOT_SEND_FRESH_MS)).to.equal(false);
+		client.setServices(X3);
+
+		const clock = sinon.useFakeTimers({
+			now: Date.now() + BOT_SEND_FRESH_MS,
+			toFake: ["Date"],
+			shouldAdvanceTime: true,
+		});
+
+		try {
+			const ban = servicesBan(client, {type: "gline", mask: "*@h", seconds: 60, reason: "r"});
+			await flush();
+			expect(transport.sent.map(strip), "nothing to the nick before WHOIS").to.deep.equal([
+				"WHOIS O3",
+			]);
+			// Someone else holds "O3" by now.
+			const label = labelOf(transport.sent[0]);
+			transport.lines(
+				`@label=${label} :irc.test 311 opr O3 evil 198.51.100.7 * :Oper Services`,
+				`@label=${label} :irc.test 318 opr O3 :End of /WHOIS list.`
+			);
+			expect((await ban).outcome).to.equal("refused");
+			expect(transport.sent, "the ban never went out").to.have.length(1);
+		} finally {
+			clock.restore();
+		}
+	});
+
+	it("logs a snoop line once WHOIS finds the bot back from an outage", async function () {
+		const {client, transport} = setup();
+		client.setServices(X3);
+		join(client, transport, "#MrSnoopy");
+		recordBotWhois(client, "O3", {online: false, service: false, realname: ""});
+
+		transport.line(
+			`:O3!O3@services.test PRIVMSG #MrSnoopy :[21:14:03] ${B}JOIN${B} #seance by x`
+		);
+		await flush();
+		expect(client.noticeLog.all(), "not before the answer").to.deep.equal([]);
+		const whois = transport.sent.find((l) => l.includes("WHOIS O3"));
+		expect(whois, "asked at once, not a minute later").to.not.equal(undefined);
+		const label = labelOf(whois!);
+		transport.lines(
+			`@label=${label} :irc.test 311 opr O3 O3 services.test * :Oper Services`,
+			`@label=${label} :irc.test 310 opr O3 :is a Network Service`,
+			`@label=${label} :irc.test 318 opr O3 :End of /WHOIS list.`
+		);
+		await flush();
+		expect(client.noticeLog.all().map((e) => e.snotice.kind)).to.deep.equal(["x3.snoop.join"]);
 	});
 });

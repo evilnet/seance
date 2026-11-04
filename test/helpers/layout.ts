@@ -359,6 +359,22 @@ describe("layout — parts", () => {
 		// A timestamp is not an alias, so nothing fires at all
 		expect(layout("at 10:30:45", markdown)).to.deep.equal([text("at 10:30:45")]);
 	});
+
+	it("leaves a name the alias table only inherits as text", () => {
+		// Object.prototype's members fit the shortcode pattern; looked up on
+		// a plain object they came back as a function and an object, and the
+		// render threw "emoji.replace is not a function" for everyone
+		const hasEmoji = (nodes: LayoutNode[]): boolean =>
+			nodes.some(
+				(node) => node.kind === "emoji" || (node.kind !== "text" && hasEmoji(node.children))
+			);
+
+		for (const name of ["constructor", "__proto__", "hasownproperty", "tostring"]) {
+			expect(layout(`:${name}:`, {})).to.deep.equal([text(`:${name}:`)]);
+			// Markdown may underline `__proto__`; it must still not be an emoji
+			expect(hasEmoji(layout(`:${name}:`, markdown))).to.equal(false);
+		}
+	});
 });
 
 describe("layout — lists, tables and math", () => {
@@ -450,6 +466,26 @@ describe("layout — monospace blocks", () => {
 	});
 });
 
+describe("layout — code blocks side by side", () => {
+	it("keeps adjacent code blocks in different languages apart", () => {
+		expect(layout("```js\na\n```\n```py\nb\n```", markdown)).to.deep.equal([
+			codeBlock([text("a")], "js"),
+			codeBlock([text("b")], "py"),
+		]);
+	});
+
+	it("keeps two fences written back to back apart, in the same language or none", () => {
+		expect(layout("```\na\n```\n```\nb\n```", markdown)).to.deep.equal([
+			codeBlock([text("a")]),
+			codeBlock([text("b")]),
+		]);
+		expect(layout("```js\na\n```\n\n```js\nb\n```", markdown)).to.deep.equal([
+			codeBlock([text("a")], "js"),
+			codeBlock([text("b")], "js"),
+		]);
+	});
+});
+
 describe("toPlainText", () => {
 	it("concatenates the text of every node, markers gone", () => {
 		expect(toPlainText(layout("**a** `b` [c](https://example.com/)", markdown))).to.equal(
@@ -487,6 +523,13 @@ describe("codeBlocksOf", () => {
 	it("returns a block's characters, fence and tag gone", () => {
 		expect(codeBlocksOf(layout("```js\nlet x = 1;\n```", markdown))).to.deep.equal([
 			"let x = 1;",
+		]);
+	});
+
+	it("returns back-to-back fences as separate blocks", () => {
+		expect(codeBlocksOf(layout("```\na\n```\n```\nb\n```", markdown))).to.deep.equal([
+			"a",
+			"b",
 		]);
 	});
 

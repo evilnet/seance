@@ -11,3 +11,4 @@
 *.webp binary
 *.wav binary
 *.wasm binary
+*.jar binary

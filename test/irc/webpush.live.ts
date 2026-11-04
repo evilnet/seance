@@ -4,8 +4,8 @@
  * testnet or tools/nefarious-dev with the same features).
  * Skipped unless SEANCE_IRC_URL is set:
  *
- *   SEANCE_IRC_URL=ws://127.0.0.1:8067/ npx cross-env NODE_ENV=test \
- *     TS_NODE_PROJECT=./test/tsconfig.json npx mocha --config=test/.mocharc.yml \
+ *   SEANCE_IRC_URL=ws://127.0.0.1:8067/ NODE_ENV=test \
+ *     pnpm exec mocha --config=test/.mocharc.yml \
  *     test/irc/webpush.live.ts
  *
  * The ircd must run iauthd-ts with the static `SASLDB` users for the SASL
@@ -18,7 +18,7 @@
  * prints the raw transcript.
  */
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import socket from "../../client/js/socket";
 import {IrcClient} from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";
@@ -132,8 +132,9 @@ describeLive("WEBPUSH (live nefarious2)", function () {
 		await waitFor("registered", () => payloads("init").length > 0);
 		expect(client!.caps.hasCapability("draft/webpush"), "draft/webpush enabled").to.equal(true);
 
-		const available =
-			payloads<{network: string; vapid: string | undefined}>("webpush:available");
+		const available = payloads<{network: string; vapid: string | undefined}>(
+			"webpush:available"
+		);
 		expect(available).to.have.lengthOf(1);
 		expect(available[0].vapid, "a VAPID key is advertised").to.be.a("string").with.lengthOf(87); // urlb64 of the 65-byte uncompressed P-256 point
 

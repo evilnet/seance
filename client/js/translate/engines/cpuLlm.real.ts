@@ -23,7 +23,7 @@ import {CacheApi} from "../models";
 import {cpuThreads} from "../threads";
 import {CpuLlmBackend, cpuLlmCacheApi, cpuLlmUrl} from "./cpuLlm";
 
-/** The library's wasm, beside this worker (webpack.config.ts copies it). */
+/** The library's wasm, beside this worker (vite.translate.config.mts copies it). */
 const WASM_URL = new URL("wllama.wasm", self.location.href).href;
 
 /** The library's own chatter stays out of the console; its warnings and errors do not. */

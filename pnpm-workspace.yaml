@@ -1,0 +1,30 @@
+# pnpm settings for the root project. Not a workspace: shells/tauri is a
+# separate project with its own lockfile.
+
+# Dependency install scripts run only when listed here (pnpm refuses the
+# install otherwise). esbuild's checks its platform binary, which tsx uses;
+# Font Awesome's only prints an attribution line. transformers.js (the
+# translation worker) brings three more, none of which reaches the browser
+# (the worker runs onnxruntime-web): onnxruntime-node's fetches the ~300 MB
+# CUDA provider (the CPU binary the tools use ships in the package),
+# sharp's would build libvips when its prebuilt @img package is missing, and
+# protobufjs's only checks its version. Denied, not run.
+allowBuilds:
+    esbuild: true
+    "@fortawesome/fontawesome-free": false
+    onnxruntime-node: false
+    protobufjs: false
+    sharp: false
+
+# Use the pnpm already installed, without switching to packageManager's
+# version: the switch writes the lockfile as two YAML documents, and GitHub's
+# dependency graph reads only the first, so Dependabot alerts and security
+# updates would stop. Install the version packageManager names instead.
+pmOnFail: ignore
+
+# Run scripts through pnpm's own shell, so `NODE_ENV=test mocha …` works on
+# Windows too (what cross-env used to do).
+shellEmulator: true
+
+# `pnpm add` pins the exact version, as every dependency already is.
+saveExact: true

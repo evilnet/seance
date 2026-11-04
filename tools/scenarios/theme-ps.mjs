@@ -247,7 +247,7 @@
 // "nah i don't like the new input box. but the thin divider is good"), and
 // its eight checks with it; the divider's eight stay.
 //
-//   NODE_ENV=production corepack yarn build && python3 -m http.server -d public 8021 &
+//   NODE_ENV=production pnpm build && python3 -m http.server -d public 8021 &
 //   node tools/browser-drive.mjs tools/scenarios/theme-ps.mjs
 //
 // A development build works too: its i18n tripwire ("[seance i18n] …"
@@ -4535,7 +4535,7 @@ export default async function run(page) {
 	];
 	const setAside = complaints.filter((c) => NOT_THE_SCENE.some((re) => re.test(c)));
 	const blocked = complaints.filter((c) =>
-		/^error \[network\] .* \S*\/js\/scene-ps\.js$/.test(c)
+		/^error \[network\] .* \S*\/js\/scene-ps(\.[\w-]+)?\.js$/.test(c)
 	);
 	const warning = complaints.filter((c) => c.startsWith(`warning ${HOOK_WARNING}`));
 	const unexpected = complaints.filter(
@@ -4544,7 +4544,7 @@ export default async function run(page) {
 	const firstLine = (c) => c.split("\n")[0].slice(0, 110);
 	page.check(
 		`no chunk: the hook warned once, naming the blocked js/scene-ps.js (${warning.length})`,
-		warning.length === 1 && /\/js\/scene-ps\.js\b/.test(warning[0])
+		warning.length === 1 && /\/js\/scene-ps(\.[\w-]+)?\.js\b/.test(warning[0])
 	);
 	page.check(
 		`no chunk: the console says nothing else (${blocked.length} blocked-request line, ` +
@@ -4583,7 +4583,7 @@ export default async function run(page) {
 		return {
 			psng: document.getElementById("theme-scene").classList.contains("psng"),
 			stored: JSON.parse(localStorage.getItem("settings") || "{}").psRenderer ?? null,
-			chunk: names.filter((n) => /\\/js\\/scene-ps\\.js(\\?|$)/.test(n)).length,
+			chunk: names.filter((n) => /\\/js\\/scene-ps(\\.[\\w-]+)?\\.js(\\?|$)/.test(n)).length,
 			ng: names.filter((n) => /\\/js\\/scene-ps-ng\\.js(\\?|$)/.test(n)).length,
 			entries: names.length,
 		};

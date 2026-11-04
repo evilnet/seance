@@ -111,6 +111,19 @@
 	/* Color of the progress bar shown above the input while a file is being uploaded. Defaults to button color */
 	--upload-progressbar-color: var(--button-color);
 
+	/* The oper tools' one colour of their own (an outlying count, a route
+	 * chosen for a while, a "wide" criterion): amber pulled a third of the
+	 * way toward the text colour, so it darkens on a light theme and lightens
+	 * on a dark one and holds 4.5:1 as small text on both. A theme may set
+	 * its own in --oper-amber-theme. Mixed again on the oper surfaces below,
+	 * since a theme can change --body-color inside a window (Zelenzy) and a
+	 * custom property's var() is resolved where it is declared. */
+	--oper-amber: var(--oper-amber-theme, color-mix(in oklab, #c7841a 65%, var(--body-color)));
+
+	/* Danger (Kill, G-line, a live ban): the app's error red pulled toward
+	 * the text colour the same way. --oper-red-theme overrides it. */
+	--oper-red: var(--oper-red-theme, color-mix(in oklab, #e74c3c 75%, var(--body-color)));
+
 	/* Color the sidebar channel icon pulses to while someone is typing there */
 	--channel-typing-color: #84ce88;
 
@@ -123,9 +136,9 @@
 	 * interface together. The steps below are percentages of the browser's
 	 * default font size rather than pixels, so a user who raised that in
 	 * their browser gets a bigger client too. "medium" is 100%, the browser
-	 * default (16px unless changed); "large", the default, is a real step up
-	 * from it, and the scale runs from too small to read to too large to be
-	 * sensible on purpose: the ends exist for eyes that need them. In the
+	 * default (16px unless changed) and the default step, and the scale runs
+	 * from too small to read to too large to be sensible on purpose: the ends
+	 * exist for eyes that need them. In the
 	 * native shells the system's text size can stand in for the steps
 	 * (html[data-system-text] below). */
 	font-size: 100%;
@@ -169,6 +182,26 @@
 :root[dir="rtl"] :is(input, textarea)[dir="auto"] {
 	direction: rtl;
 	unicode-bidi: plaintext;
+}
+
+.window,
+.mentions-popup,
+.oper-investigate,
+.oper-alert-builder,
+#oper-action-overlay,
+#oper-note-overlay {
+	--oper-amber: var(--oper-amber-theme, color-mix(in oklab, #c7841a 65%, var(--body-color)));
+	--oper-red: var(--oper-red-theme, color-mix(in oklab, #e74c3c 75%, var(--body-color)));
+
+	/* The oper tools' surfaces, all from the theme's own two colours: a
+	 * panel and a raised control are the text colour washed into the window
+	 * background, lines are the text colour faded. */
+	--oper-panel: color-mix(in oklab, var(--body-color) 4%, var(--window-bg-color));
+	--oper-raised: color-mix(in oklab, var(--body-color) 9%, var(--window-bg-color));
+	--oper-sunk: color-mix(in oklab, var(--body-color) 3%, var(--window-bg-color));
+	--oper-line: color-mix(in oklab, var(--body-color) 11%, transparent);
+	--oper-line-2: color-mix(in oklab, var(--body-color) 20%, transparent);
+	--oper-faint: color-mix(in oklab, var(--body-color-muted) 80%, var(--window-bg-color));
 }
 
 /* The font-size setting's scale (client/js/helpers/fontSize.ts); "medium" is
@@ -325,12 +358,11 @@ html[data-shell="native"] #status-bar-tint {
 	display: none;
 }
 
-/* The native shell (shells/capacitor, native.ts): its WebView runs under the
+/* The shell on a phone (shells/tauri, native.ts): its WebView runs under the
  * system bars, so the page keeps clear of them itself. The insets are named
- * once here and every rule below spends them — the inset is env() on iOS,
- * while Capacitor's Android SystemBars publishes the same numbers as
- * --safe-area-inset-* on the root (env() is 0 in a WebView older than
- * Chromium 140), so those win where they exist.
+ * once here and every rule below spends them: env(), or the same numbers as
+ * --safe-area-inset-* on the root where a shell publishes them, which win
+ * where they exist.
  *
  * Where the *bottom* inset goes is the one place the two platforms differ,
  * and it is a token rather than a fork: Android's navigation bar is a bar —
@@ -362,7 +394,7 @@ html[data-shell="native"][data-platform="android"] {
 /* The app starts below the status bar, in the same canvas colour the strip
  * above shows, so the header sits under the clock rather than in it. On
  * Android it stops above the navigation bar too; that inset goes to 0 while
- * the keyboard is up (Capacitor reports it so) and this padding with it. */
+ * the keyboard is up and this padding with it. */
 html[data-shell="native"] #viewport {
 	/* In landscape the top inset is 0 and the island is a side inset. */
 	padding: var(--inset-top) var(--inset-right) var(--inset-outer-bottom) var(--inset-left);
@@ -416,7 +448,7 @@ img {
 	margin: -1px;
 	padding: 0;
 	overflow: hidden;
-	clip: rect(0, 0, 0, 0);
+	clip-path: inset(50%);
 	border: 0;
 }
 
@@ -485,6 +517,10 @@ button {
 	margin: 0;
 	outline: none;
 	padding: 0;
+
+	/* Written out: the minifier prefixes user-select for Safari, but not a
+	   CSS-wide keyword such as inherit. */
+	-webkit-user-select: inherit; /* stylelint-disable-line property-no-vendor-prefix */
 	user-select: inherit;
 	cursor: pointer;
 }
@@ -527,7 +563,7 @@ pre {
 	line-height: 1.4286;
 	color: #333;
 	word-break: break-all;
-	word-wrap: break-word;
+	overflow-wrap: break-word;
 	background-color: #f5f5f5;
 	border-radius: 4px;
 }
@@ -1315,25 +1351,24 @@ p {
 }
 
 /* The label always says the state, the end time included: up to two centred
- * lines, clamped only past that. It clips (the clamp needs overflow: hidden)
+ * lines, cut off only past that. A plain block, not -webkit-box with
+ * -webkit-line-clamp: WebKit leaves the floated dot and caret out of a
+ * -webkit-box's intrinsic width, so the shrink-to-fit pill was as narrow as
+ * "Auto" and the dot, the caret and the label took a line each. It clips
  * and the dot and the caret float at its edges, so its inline padding keeps
  * them clear of the clip: the dot's ring is a box-shadow drawn outside its
  * box, and a ring or a glyph flush against a clip loses its edge to rounding
  * at a fractional device pixel ratio. A word wider than the label (a long
  * translation) wraps inside it rather than running out of it. */
 #sidebar .presence-pill-text {
-	/* -webkit-line-clamp only works on this display. */
-	/* stylelint-disable-next-line value-no-vendor-prefix */
-	display: -webkit-box;
+	display: block;
+	max-block-size: 2.5rem; /* two of the pill's 1.25rem lines */
 	overflow: hidden;
 	padding-inline: var(--presence-clip-room);
 	white-space: normal;
 	overflow-wrap: anywhere;
 	hyphens: auto;
 	text-align: center;
-	-webkit-box-orient: vertical;
-	-webkit-line-clamp: 2;
-	line-clamp: 2;
 }
 
 /* The last part moves to the next line whole, and breaks inside only when it
@@ -1852,19 +1887,31 @@ the same box, glyph size and weight as the gear and the plus beside it. */
 first, and below ~11rem of status line the boxes and gaps tighten rather
 than letting the last tool clip. Only with the shield there — four tools
 keep their spacing. The sidebar is `7rem + 108px` wide, so this is the
-large font steps (docs/projects/oper-tools.md, "Room for it"). */
+large font steps (docs/projects/oper-tools.md, "Room for it"). A finger
+(`data-input="touch"`) keeps the full boxes and gaps: the nick gives way
+entirely first, then the tools wrap to a second line rather than shrink. */
 /* stylelint-disable-next-line at-rule-no-unknown */
 @container lobby-status (max-width: 11rem) {
-	.channel-list-item .lobby-tools:has(.oper-panel) {
+	:where(html:not([data-input="touch"])) .lobby-tools:has(.oper-panel) {
 		gap: 0.125rem;
 	}
 
-	.channel-list-item .lobby-tools:has(.oper-panel) .connection-status-icon,
-	.channel-list-item .lobby-tools:has(.oper-panel) .notify-status-icon,
-	.channel-list-item .lobby-tools:has(.oper-panel) .edit-network,
-	.channel-list-item .lobby-tools:has(.oper-panel) .add-channel,
-	.channel-list-item .lobby-tools:has(.oper-panel) .oper-panel {
+	:where(html:not([data-input="touch"])) .lobby-tools:has(.oper-panel) .connection-status-icon,
+	:where(html:not([data-input="touch"])) .lobby-tools:has(.oper-panel) .notify-status-icon,
+	:where(html:not([data-input="touch"])) .lobby-tools:has(.oper-panel) .edit-network,
+	:where(html:not([data-input="touch"])) .lobby-tools:has(.oper-panel) .add-channel,
+	:where(html:not([data-input="touch"])) .lobby-tools:has(.oper-panel) .oper-panel {
 		width: 1.25rem;
+	}
+
+	:where(html[data-input="touch"]) .lobby-tools:has(.oper-panel) {
+		flex-shrink: 1;
+		flex-wrap: wrap;
+		row-gap: 0.25rem;
+	}
+
+	:where(html[data-input="touch"]) .lobby-status:has(.oper-panel) .lobby-nick {
+		flex-shrink: 1000;
 	}
 }
 
@@ -2691,7 +2738,7 @@ textarea.input {
 /* The sheet: the same choice with room to press it. Above the sidebar and
    its overlay (10 and 9 inside #viewport), like the translation sheet. */
 .source-language-picker--sheet {
-	inset: auto 0 0 0;
+	inset: auto 0 0;
 	width: auto;
 	max-width: none;
 	z-index: 1000;
@@ -3105,8 +3152,7 @@ html[data-reduce-motion] #chat .connecting-indicator {
 }
 
 #chat .msg {
-	word-wrap: break-word;
-	word-break: break-word; /* Webkit-specific */
+	overflow-wrap: anywhere;
 	display: flex;
 	align-items: flex-start;
 	position: relative;
@@ -4567,18 +4613,21 @@ html[data-reduce-motion] #chat .media-veil-main:hover .media-veil-icon {
  *
  * A server notice or WALLOPS (MessageTypes/snotice.vue, wallops.vue) is a
  * small category badge and the notice in plain words; bans and kills take
- * the unread-marker colour, oper and network events the link colour, the
- * routine families stay muted. */
+ * the oper red, oper and network events the link colour, the routine
+ * families stay muted. The badge is a tag (the oper visual language): a
+ * soft wash of its family's colour, no border. */
 .snotice-badge {
 	display: inline-block;
-	border: 1px solid currentcolor;
-	border-radius: 0.6em;
+	border: 0;
+	border-radius: 999px;
 	font-size: 0.75em;
-	line-height: 1.3;
-	padding: 0 0.45em;
-	margin-right: 0.4em;
+	font-weight: 500;
+	line-height: 1.45;
+	padding: 0 0.55em;
+	margin-right: 0.45em;
 	vertical-align: 0.1em;
 	color: var(--body-color-muted);
+	background: color-mix(in oklab, currentcolor 13%, transparent);
 	white-space: nowrap;
 }
 
@@ -4587,20 +4636,73 @@ html[data-reduce-motion] #chat .media-veil-main:hover .media-veil-icon {
 button.snotice-badge {
 	font: inherit;
 	font-size: 0.75em;
-	background: none;
+	font-weight: 500;
+	background: color-mix(in oklab, currentcolor 13%, transparent);
 	cursor: pointer;
 }
 
 button.snotice-badge:hover,
 button.snotice-badge:focus-visible {
-	background: color-mix(in srgb, currentcolor 12%, transparent);
+	background: color-mix(in oklab, currentcolor 24%, transparent);
 }
 
-/* The oper panel's own bits (Oper/OperActivity.vue, OperAlerts.vue,
- * OperMe.vue). Amber is the one colour of its own: an outlying count, a
- * route chosen for a while. */
-#oper {
-	--oper-amber: #c7841a;
+html[data-contrast="more"] .snotice-badge {
+	box-shadow: inset 0 0 0 1px currentcolor;
+}
+
+/* What a tooltip says, said where a finger cannot hover (`data-input` on
+ * <html>, helpers/inputModality.ts — the last pointer, not the device): the
+ * routes' meanings, the privileges and user modes in words, a "wide"
+ * criterion's reason, and a relative time's absolute one. Hidden while the
+ * last pointer was a mouse, which has the tooltips. */
+.oper-touch-hint {
+	display: none;
+}
+
+.oper-priv {
+	display: contents;
+}
+
+:where(html[data-input="touch"]) .oper-touch-hint {
+	display: block;
+	color: var(--body-color-muted);
+	font-size: 0.8125em;
+	font-weight: normal;
+	line-height: 1.35;
+	overflow-wrap: anywhere;
+	white-space: normal;
+}
+
+:where(html[data-input="touch"]) .oper-route-legend {
+	margin: 0 0 0.75rem;
+}
+
+:where(html[data-input="touch"]) .oper-route-legend-item {
+	display: block;
+}
+
+:where(html[data-input="touch"]) .oper-privs {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: 0.5rem;
+}
+
+:where(html[data-input="touch"]) .oper-priv {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.15rem 0.5rem;
+}
+
+:where(html[data-input="touch"]) .oper-priv .oper-touch-hint {
+	flex: 1 1 12rem;
+}
+
+:where(html[data-input="touch"]) time[data-abs]::after {
+	content: " · " attr(data-abs);
+	color: var(--body-color-muted);
+	font-size: 0.875em;
 }
 
 /* A segmented control: a row of buttons sharing one border, the pressed
@@ -4608,36 +4710,46 @@ button.snotice-badge:focus-visible {
  * radiogroup). */
 .oper-seg {
 	display: inline-flex;
-	border: 1px solid color-mix(in srgb, var(--body-color-muted) 50%, transparent);
-	border-radius: 0.4rem;
-	overflow: hidden;
+	gap: 0.125rem;
+	padding: 0.125rem;
+	border: 1px solid var(--oper-line);
+	border-radius: 0.45rem;
+	background: var(--oper-sunk);
 }
 
 .oper-seg button {
-	padding: 0.25rem 0.7rem;
-	color: var(--body-color);
-	font-size: 0.9375em;
-	line-height: 1.4;
+	padding: 0.35rem 0.75rem;
+	border-radius: 0.3rem;
+	color: var(--body-color-muted);
+	font-size: 0.875rem;
+	font-weight: 500;
+	line-height: 1.3;
 	white-space: nowrap;
-}
-
-.oper-seg button + button {
-	border-left: 1px solid color-mix(in srgb, var(--body-color-muted) 50%, transparent);
 }
 
 .oper-seg button:hover,
 .oper-seg button:focus-visible {
-	background: color-mix(in srgb, var(--body-color-muted) 12%, transparent);
+	color: var(--body-color);
 }
 
+/* The chosen one is raised, with a hairline; Here (and a temporary choice)
+ * in amber, the others in the text colour. */
 .oper-seg button[aria-pressed="true"],
 .oper-seg button[aria-checked="true"] {
-	background: var(--button-color);
-	color: var(--button-text-color-hover);
+	background: var(--oper-raised);
+	color: var(--body-color);
+	box-shadow:
+		0 1px 2px rgb(0 0 0 / 25%),
+		0 0 0 1px var(--oper-line-2);
 }
 
 .oper-seg button[aria-checked="true"].tmp {
-	background: var(--oper-amber);
+	color: var(--oper-amber);
+}
+
+html[data-contrast="more"] .oper-seg button[aria-checked="true"],
+html[data-contrast="more"] .oper-seg button[aria-pressed="true"] {
+	box-shadow: 0 0 0 2px var(--body-color);
 }
 
 /* A folded row (`<details>`): a FontAwesome caret instead of the browser's
@@ -4682,7 +4794,7 @@ button.snotice-badge:focus-visible {
 .snotice-kill .snotice-badge,
 .snotice-badge.snotice-ban,
 .snotice-badge.snotice-kill {
-	color: var(--unread-marker-color);
+	color: var(--oper-red);
 }
 
 .snotice-oper .snotice-badge,
@@ -4709,24 +4821,32 @@ button.snotice-badge:focus-visible {
 	font-weight: 600;
 }
 
-/* An IP, host or mask: a chip that opens the oper actions for it. */
+/* A value chip: a literal (an IP, host or mask) whose menu it opens. The
+ * dashed underline says "this opens something"; a tag never has one. */
 .oper-chip {
 	display: inline;
 	font-family: monospace;
-	font-size: 0.9375em;
-	color: var(--link-color);
-	background: color-mix(in srgb, var(--link-color) 12%, transparent);
-	border: 1px solid color-mix(in srgb, var(--link-color) 35%, transparent);
+	font-size: 0.875em;
+	color: var(--body-color);
+	background: var(--oper-raised);
+	border: 1px solid var(--oper-line);
+	border-bottom: 1px dashed var(--oper-line-2);
 	border-radius: 0.3em;
-	padding: 0 0.3em;
+	padding: 0.05em 0.35em;
 	cursor: pointer;
 	overflow-wrap: anywhere;
 }
 
 .oper-chip:hover,
+.oper-chip:focus-visible {
+	border-color: var(--oper-line-2);
+}
+
+.oper-chip:hover,
 .oper-chip:focus-visible,
 .oper-chip.active {
-	background: color-mix(in srgb, var(--link-color) 25%, transparent);
+	background: color-mix(in oklab, var(--oper-amber) 16%, transparent);
+	border-color: color-mix(in oklab, var(--oper-amber) 50%, transparent);
 }
 
 .oper-chips {
@@ -4748,13 +4868,34 @@ button.snotice-badge:focus-visible {
 	flex-wrap: nowrap;
 }
 
+/* The panel's section headings: small uppercase labels, not the window's
+ * big underlined h2. */
+#oper .settings-modal-body > .container h2 {
+	margin: 1.75rem 0 0.5rem;
+	padding: 0;
+	border: 0;
+	color: var(--oper-faint);
+	font-size: 0.6875rem;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+/* The oper panel's tabs read wider than the Settings column: the Alerts
+ * rows and the timelines need the room. */
+#oper .settings-modal-body > .container {
+	width: min(42rem, 100%);
+	padding: 0 1.5rem;
+}
+
 .oper-chip-static {
 	display: inline-block;
-	border: 1px solid color-mix(in srgb, var(--body-color-muted) 60%, transparent);
-	border-radius: 0.6em;
-	font-size: 0.8125em;
-	line-height: 1.35;
-	padding: 0 0.45em;
+	border-radius: 999px;
+	background: var(--oper-raised);
+	font-size: 0.75rem;
+	font-weight: 500;
+	line-height: 1.5;
+	padding: 0 0.55em;
 	color: var(--body-color);
 	white-space: nowrap;
 }
@@ -4774,13 +4915,29 @@ button.snotice-badge:focus-visible {
 	color: var(--body-color-muted);
 }
 
+/* On / off in a report (a port active, a jupe off): a tag with a dot. */
 .oper-state {
-	font-size: 0.875em;
-	font-weight: 600;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35em;
+	padding: 0 0.55em;
+	border-radius: 999px;
+	background: var(--oper-raised);
+	font-size: 0.75rem;
+	font-weight: 500;
+	line-height: 1.5;
 }
 
-.oper-state.ok {
-	color: var(--link-color);
+.oper-state::before {
+	content: "";
+	width: 0.4em;
+	height: 0.4em;
+	border-radius: 50%;
+	background: var(--body-color-muted);
+}
+
+.oper-state.ok::before {
+	background: var(--button-color);
 }
 
 .oper-state.off,
@@ -4801,30 +4958,41 @@ button.snotice-badge:focus-visible {
 	min-width: 0;
 }
 
+/* A report in the chat (/check, /stats, /privs): a card in the oper visual
+ * language — a panel with a header and its tools, sections under small
+ * uppercase titles, tables between hairlines. */
 .oper-report {
-	border-left: 2px solid color-mix(in srgb, var(--link-color) 45%, transparent);
-	padding: 0.1em 0 0.25em 0.75em;
-	max-width: 100%;
+	max-width: min(100%, 52rem);
+	margin: 0.2em 0 0.35em;
+	padding: 0.7em 0.95em 0.85em;
+	border: 1px solid var(--oper-line);
+	border-radius: 0.6rem;
+	background: var(--oper-panel);
 }
 
 .oper-report.has-error {
-	border-left-color: var(--unread-marker-color);
+	border-color: color-mix(in oklab, var(--oper-red) 50%, transparent);
 }
 
 .oper-report-head {
 	display: flex;
 	flex-wrap: wrap;
-	align-items: baseline;
+	align-items: center;
 	gap: 0.25em 0.6em;
 }
 
 .oper-report-title {
-	font-weight: 700;
+	font-weight: 600;
 }
 
 .oper-report-subtitle {
+	padding: 0 0.55em;
+	border-radius: 999px;
+	background: var(--oper-raised);
 	color: var(--body-color-muted);
-	font-size: 0.875em;
+	font-size: 0.75em;
+	font-weight: 500;
+	line-height: 1.5;
 }
 
 .oper-report-actions {
@@ -4834,9 +5002,9 @@ button.snotice-badge:focus-visible {
 }
 
 #chat .oper-report-btn {
-	width: 1.75em;
-	height: 1.75em;
-	border-radius: 3px;
+	width: 1.9em;
+	height: 1.9em;
+	border-radius: 0.35rem;
 	color: var(--body-color-muted);
 	line-height: 1;
 }
@@ -4844,7 +5012,7 @@ button.snotice-badge:focus-visible {
 #chat .oper-report-btn:hover,
 #chat .oper-report-btn.active {
 	color: var(--body-color);
-	background: color-mix(in srgb, var(--body-color-muted) 15%, transparent);
+	background: var(--oper-raised);
 }
 
 #chat .oper-report-btn::before {
@@ -4877,27 +5045,29 @@ button.snotice-badge:focus-visible {
 }
 
 .oper-report-error {
-	color: var(--unread-marker-color);
-	margin: 0.25em 0 0;
+	color: var(--oper-red);
+	margin: 0.35em 0 0;
 }
 
 .oper-report-section {
-	margin-top: 0.4em;
+	margin-top: 0.6em;
+	padding-top: 0.55em;
+	box-shadow: inset 0 1px 0 var(--oper-line);
 }
 
 .oper-report-section-title {
-	color: var(--window-heading-color);
-	font-size: 0.8125em;
+	color: var(--oper-faint);
+	font-size: 0.6875rem;
 	font-weight: 600;
-	letter-spacing: 0.02em;
+	letter-spacing: 0.06em;
 	text-transform: uppercase;
-	margin: 0.5em 0 0.15em;
+	margin: 0.1em 0 0.4em;
 }
 
 .oper-report-entries {
 	display: grid;
 	grid-template-columns: minmax(6rem, max-content) minmax(0, 1fr);
-	gap: 0.1em 0.9em;
+	gap: 0.3em 1.1em;
 	margin: 0;
 }
 
@@ -4929,22 +5099,22 @@ button.snotice-badge:focus-visible {
 
 #chat table.oper-report-table th,
 #chat table.oper-report-table td {
-	padding: 0.15em 0.9em 0.15em 0;
+	padding: 0.35em 1.1em 0.35em 0;
 	text-align: left;
 	vertical-align: baseline;
 	white-space: nowrap;
 	overflow-wrap: normal;
 	word-break: normal;
-	border-bottom: 1px solid color-mix(in srgb, var(--body-color-muted) 30%, transparent);
+	border-bottom: 1px solid var(--oper-line);
 }
 
 #chat table.oper-report-table th {
-	color: var(--window-heading-color);
-	font-size: 0.8125em;
+	color: var(--oper-faint);
+	font-size: 0.6875rem;
 	font-weight: 600;
-	letter-spacing: 0.02em;
+	letter-spacing: 0.06em;
 	text-transform: uppercase;
-	border-bottom-color: color-mix(in srgb, var(--body-color-muted) 55%, transparent);
+	border-bottom-color: var(--oper-line-2);
 }
 
 #chat table.oper-report-table .right {
@@ -4990,7 +5160,15 @@ button.snotice-badge:focus-visible {
  * room, one with tabs under 40rem. A value shared with the compared user,
  * or with most of a channel's users, is tinted (`same`). */
 #oper-investigate-overlay {
-	position: fixed;
+	/* Compare's head is outside the body's `investigate` container: the
+	 * overlay, the card's whole width on a phone, says when it is narrow. */
+	/* stylelint-disable-next-line property-no-unknown */
+	container: cmpcard / inline-size;
+
+	/* Absolute in #viewport, not fixed: fixed measures against the layout
+	 * viewport, which iOS does not shrink for the keyboard, so the footer
+	 * sat under it. #viewport is the visible band (see #sidebar-overlay). */
+	position: absolute;
 	top: 0;
 	bottom: 0;
 	left: 0;
@@ -5011,8 +5189,14 @@ button.snotice-badge:focus-visible {
 	opacity: 1;
 }
 
+/* The card takes focus when it opens (InvestigateCard.vue) so Tab and a
+ * screen reader start inside it; the frame itself is not a control. */
+.oper-investigate:focus {
+	outline: none;
+}
+
 .oper-investigate {
-	--oper-amber: #c7841a;
+	--oper-cmp-label: 7rem;
 
 	width: min(60rem, 100%);
 	height: min(50rem, 100%);
@@ -5040,10 +5224,10 @@ button.snotice-badge:focus-visible {
 	container-name: investigate;
 	display: flex;
 	flex-direction: column;
-	gap: 0.75rem;
+	gap: 1.5rem;
 	width: 100%;
 	margin: 0;
-	padding: 0 1.25rem 1rem;
+	padding: 0.5rem 1.5rem 1.75rem;
 }
 
 .oper-investigate .oper-facts {
@@ -5055,15 +5239,10 @@ button.snotice-badge:focus-visible {
 	margin: 0.25em 0 0.15em;
 }
 
-/* The tint of a shared value: a wash of the link colour behind it. */
+/* The tint of a shared value: a wash of amber behind it. */
 .oper-investigate .same {
-	background: color-mix(in srgb, var(--link-color) 18%, transparent);
-	box-shadow: 0 0 0 0.15em color-mix(in srgb, var(--link-color) 18%, transparent);
-	border-radius: 0.2em;
-}
-
-.oper-investigate dl .same dd > *:first-child {
-	background: color-mix(in srgb, var(--link-color) 18%, transparent);
+	background: color-mix(in oklab, var(--oper-amber) 14%, transparent);
+	box-shadow: 0 0 0 0.15em color-mix(in oklab, var(--oper-amber) 14%, transparent);
 	border-radius: 0.2em;
 }
 
@@ -5075,10 +5254,10 @@ button.snotice-badge:focus-visible {
 /* The oper's own note: amber edge, the text, Edit. */
 .oper-note {
 	display: flex;
-	align-items: flex-start;
-	gap: 0.6rem;
+	gap: 0.75rem;
+	align-items: center;
 	border-left: 3px solid var(--oper-amber);
-	padding: 0.25rem 0.6rem;
+	padding: 0.65rem 0.75rem 0.65rem 1rem;
 	background: color-mix(in srgb, var(--oper-amber) 10%, transparent);
 	border-radius: 0 0.3rem 0.3rem 0;
 }
@@ -5089,67 +5268,103 @@ button.snotice-badge:focus-visible {
 	overflow-wrap: anywhere;
 }
 
-.oper-note-edit {
-	flex-direction: column;
+/* Writing the note (Note… or Edit): a small dialog over the card, laid out
+ * like the kill/ban dialog's (ActionDialog.vue). Absolute in #viewport, the
+ * visible band, and its body scrolls while Cancel and Save stay: with the
+ * keyboard up on a landscape phone the band is a few lines tall. */
+#oper-note-overlay {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var(--overlay-bg-color);
+	visibility: hidden;
+	opacity: 0;
+	transition: opacity 0.2s, visibility 0.2s;
+	z-index: 999;
 }
 
-.oper-note-edit .input {
+/* Visible at once on the way in (the fade out keeps its 0.2 s): a
+ * visibility transition starts at hidden, and the field's focus() on the
+ * same tick found nothing to focus. */
+#oper-note-overlay.opened {
+	visibility: visible;
+	opacity: 1;
+	transition: opacity 0.2s;
+}
+
+#oper-note-dialog {
+	display: flex;
+	flex-direction: column;
+	width: min(32rem, calc(100vw - 1.5rem));
+	max-height: calc(100% - 1.5rem);
+	margin: 0.75rem;
+	overflow: hidden;
+	border: 1px solid var(--oper-line-2);
+	border-radius: 0.75rem;
+	background: var(--window-bg-color);
+	color: var(--body-color);
+	box-shadow: 0 1.5rem 3rem -1rem rgb(0 0 0 / 50%);
+}
+
+.oper-note-dialog-body {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+	padding: 1.25rem 1.5rem;
+}
+
+.oper-note-dialog-title {
+	font-size: 1.125rem;
+	font-weight: 600;
+	overflow-wrap: anywhere;
+}
+
+.oper-note-dialog-body .input {
 	width: 100%;
 	margin: 0;
 	resize: vertical;
 }
 
-.oper-note-buttons {
+.oper-note-dialog-buttons {
+	flex-shrink: 0;
 	display: flex;
-	gap: 0.4rem;
+	justify-content: flex-end;
+	gap: 0.5rem;
+	padding: 0.9rem 1.5rem;
+	background: var(--oper-sunk);
+	box-shadow: inset 0 1px 0 var(--oper-line);
 }
 
-/* What most users have in common: the chips and the two buttons. */
-.oper-common-facts {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: 0.35em;
-	margin: 0;
-}
-
-.oper-common-lead {
-	font-weight: 600;
-	margin-right: 0.2em;
-}
-
-.oper-common-chip {
-	font-size: 0.9375em;
-	color: var(--body-color);
-	border-color: color-mix(in srgb, var(--link-color) 50%, transparent);
-	background: color-mix(in srgb, var(--link-color) 10%, transparent);
-}
-
+/* What most users have in common: a verdict with the facts as tags, and
+ * Alert on this… / Trace count under them. */
 .oper-common-actions {
+	grid-column: 2;
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
 	gap: 0.5rem;
-	margin-top: 0.5rem;
+	margin-top: 0.4rem;
 }
 
 .oper-trace-count {
 	color: var(--body-color-muted);
-	font-size: 0.9375em;
+	font-size: 0.875rem;
 }
 
-/* The users: three-line blocks, the ones sharing every common fact
- * tinted along their edge, the odd one out plain. */
-.oper-users-head {
-	display: flex;
-	align-items: baseline;
-	justify-content: space-between;
-	gap: 1rem;
-}
-
+/* The users: rows between hairlines; the ones sharing every common fact
+ * marked with an amber edge, the odd one out with a dashed one. */
 .oper-users-sort {
 	color: var(--body-color-muted);
-	font-size: 0.875em;
+	font-size: 0.875rem;
 	display: inline-flex;
 	align-items: center;
 	gap: 0.4em;
@@ -5158,9 +5373,10 @@ button.snotice-badge:focus-visible {
 .oper-users-sort .input {
 	width: auto;
 	margin: 0;
-	padding: 0.1em 1.6em 0.1em 0.5em;
+	padding: 0.2em 1.6em 0.2em 0.6em;
 	height: auto;
 	font-size: inherit;
+	border-radius: 0.4rem;
 }
 
 .oper-user-list {
@@ -5169,29 +5385,44 @@ button.snotice-badge:focus-visible {
 	padding: 0;
 	display: flex;
 	flex-direction: column;
-	gap: 0.45rem;
 }
 
 .oper-user-block {
-	border-left: 3px solid color-mix(in srgb, var(--body-color-muted) 35%, transparent);
-	padding: 0.15rem 0.6rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.3rem;
+	padding: 0.8rem 0 0.8rem 0.9rem;
+	box-shadow:
+		inset 0 1px 0 var(--oper-line),
+		inset 3px 0 0 transparent;
 	line-height: 1.5;
 }
 
+.oper-user-block:first-child {
+	box-shadow: inset 3px 0 0 transparent;
+}
+
 .oper-user-block.same-all {
-	border-left-color: var(--link-color);
-	background: color-mix(in srgb, var(--link-color) 6%, transparent);
+	box-shadow:
+		inset 0 1px 0 var(--oper-line),
+		inset 3px 0 0 color-mix(in oklab, var(--oper-amber) 70%, transparent);
+}
+
+.oper-user-block.same-all:first-child {
+	box-shadow: inset 3px 0 0 color-mix(in oklab, var(--oper-amber) 70%, transparent);
 }
 
 .oper-user-block.odd {
-	border-left-style: dashed;
+	box-shadow:
+		inset 0 1px 0 var(--oper-line),
+		inset 3px 0 0 var(--oper-line-2);
 }
 
 .oper-user-line {
 	display: flex;
 	flex-wrap: wrap;
-	align-items: baseline;
-	gap: 0.15em 0.4em;
+	align-items: center;
+	gap: 0.3em 0.45em;
 	min-width: 0;
 	overflow-wrap: anywhere;
 }
@@ -5222,8 +5453,11 @@ button.snotice-badge:focus-visible {
 	margin-left: auto;
 }
 
-#oper-investigate-overlay .btn-small.oper-lookup {
+#oper-investigate-overlay .oper-lookup {
+	height: 1.75rem;
 	margin-left: 0.4em;
+	padding: 0 0.6rem;
+	font-size: 0.8125rem;
 }
 
 /* Last hour here, bans near, seen before: plain lists. */
@@ -5240,46 +5474,167 @@ button.snotice-badge:focus-visible {
 	color: var(--body-color-muted);
 }
 
-.oper-verdict {
-	margin: 0.5rem 0 0;
-	padding: 0.5rem 0.75rem;
-	border-left: 3px solid var(--link-color);
-	background: color-mix(in srgb, var(--link-color) 8%, transparent);
-	border-radius: 0 0.3rem 0.3rem 0;
+/* Compare: two users, one table (the oper kit's CompareCard). The card's
+ * head names the two value columns and stays put while the body scrolls;
+ * every fact is one row with both values in it, a matching row is marked
+ * in amber. Wide, the labels are a column of their own; narrow, a line
+ * over the two values, which stay side by side. The two columns have
+ * colours of their own, for the head's avatars and the dots: two nicks'
+ * hashed colours can be next to each other. */
+.oper-cmp-a {
+	color: #b48ae6;
+}
+
+.oper-cmp-b {
+	color: #6fa8dc;
+}
+
+.oper-investigate-compare .oper-card-head {
+	display: grid;
+	grid-template-columns: var(--oper-cmp-label) minmax(0, 1fr) minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 0 0.75rem;
+	padding-left: 2.375rem; /* the body's 1.5rem and the panel row's 0.875rem */
+}
+
+.oper-cmp-kicker {
+	font-size: 0.6875rem;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--oper-faint);
+}
+
+.oper-cmp-who {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	min-width: 0;
+}
+
+.oper-cmp-who .oper-avatar {
+	width: 2rem;
+	height: 2rem;
+	font-size: 0.75rem;
+}
+
+.oper-cmp-name {
+	min-width: 0;
+}
+
+.oper-investigate .oper-cmp-name h1 {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.oper-cmp-name .oper-ident-sub {
+	display: block;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.oper-investigate-compare .oper-card-tools {
+	justify-self: end;
+}
+
+.oper-compare {
+	display: flex;
+	flex-direction: column;
+	gap: 1.25rem;
+}
+
+.oper-cmp-sum {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem 0.75rem;
+}
+
+.oper-cmp-score {
 	font-weight: 600;
 }
 
-/* Compare: two columns side by side, one with tabs when narrow. */
-.oper-compare {
+.oper-cmp-score em {
+	font-style: normal;
+	color: var(--oper-amber);
+}
+
+.oper-investigate .oper-props.oper-facts-pair > div {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr);
-	gap: 1rem;
+	grid-template-columns: var(--oper-cmp-label) minmax(0, 1fr) minmax(0, 1fr);
+	gap: 0.2rem 0.75rem;
+	padding: 0.7rem 0.875rem;
 }
 
-.oper-investigate-compare .oper-compare {
-	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+.oper-investigate .oper-props.oper-facts-pair dt {
+	margin: 0;
+	padding-top: 0.15rem;
 }
 
-.oper-compare-tabs {
+.oper-investigate .oper-props.oper-facts-pair dd {
+	overflow-wrap: anywhere;
+}
+
+.oper-investigate .oper-props.oper-facts-pair dd .oper-chip,
+.oper-investigate .oper-props.oper-facts-pair dd .oper-value {
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+
+.oper-investigate dl.oper-props.oper-facts-pair .same {
+	background: linear-gradient(90deg, color-mix(in oklab, var(--oper-amber) 10%, transparent), transparent 70%);
+	box-shadow:
+		inset 0 1px 0 var(--oper-line),
+		inset 2px 0 0 var(--oper-amber);
+}
+
+.oper-investigate .oper-props.oper-facts-pair .same dt {
+	color: var(--oper-amber);
+}
+
+.oper-investigate .oper-props.oper-facts-pair .same dt::after {
+	content: " · same";
+	letter-spacing: 0;
+	text-transform: none;
+}
+
+.oper-investigate .oper-props.oper-facts-differences > div.same {
 	display: none;
-	grid-column: 1 / -1;
-	justify-self: start;
 }
 
-.oper-compare-head {
-	display: flex;
-	align-items: baseline;
-	justify-content: space-between;
-	gap: 0.5rem;
+/* Seen before, both users': a dot each for whose sighting it is. */
+.oper-cmp-legend {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	color: var(--body-color-muted);
+	font-size: 0.75rem;
 }
 
-.oper-compare-title {
-	font-size: 1.125em;
-	margin: 0 0 0.25rem;
+.oper-cmp-legend .oper-cmp-dot + .oper-cmp-dot,
+.oper-cmp-legend .oper-cmp-dot:not(:first-child) {
+	margin-left: 0.5rem;
 }
 
-.oper-compare-col {
-	min-width: 0;
+.oper-cmp-whose {
+	display: inline-flex;
+	gap: 0.25rem;
+	margin-left: auto;
+}
+
+.oper-cmp-dot {
+	display: inline-block;
+	width: 0.5rem;
+	height: 0.5rem;
+	border-radius: 50%;
+	background: currentcolor;
+}
+
+.oper-cmp-dot.off {
+	background: transparent;
+	box-shadow: inset 0 0 0 1px var(--oper-line-2);
 }
 
 .oper-compare-ask {
@@ -5300,18 +5655,31 @@ button.snotice-badge:focus-visible {
 }
 
 /* stylelint-disable-next-line at-rule-no-unknown */
-@container investigate (max-width: 40rem) {
-	.oper-investigate-compare .oper-compare {
-		grid-template-columns: minmax(0, 1fr);
+@container cmpcard (max-width: 43rem) {
+	.oper-investigate-compare .oper-card-head {
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+		padding-left: 1.25rem;
 	}
 
-	.oper-investigate-compare .oper-compare-tabs {
-		display: inline-flex;
-	}
-
-	.oper-investigate-compare .oper-compare[data-tab="a"] .oper-compare-b,
-	.oper-investigate-compare .oper-compare[data-tab="b"] .oper-compare-a {
+	.oper-cmp-kicker {
 		display: none;
+	}
+}
+
+/* stylelint-disable-next-line at-rule-no-unknown */
+@container investigate (max-width: 40rem) {
+	.oper-investigate .oper-props.oper-facts-pair > div {
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		padding: 0.55rem 0.75rem;
+	}
+
+	.oper-investigate .oper-props.oper-facts-pair dt {
+		grid-column: 1 / -1;
+	}
+
+	.oper-investigate .oper-props.oper-facts-pair dd + dd {
+		padding-left: 0.75rem;
+		box-shadow: inset 1px 0 0 var(--oper-line);
 	}
 }
 
@@ -5320,7 +5688,7 @@ button.snotice-badge:focus-visible {
 	overflow: auto;
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
-	border-top: 1px solid color-mix(in srgb, var(--body-color-muted) 30%, transparent);
+	border-top: 1px solid var(--oper-line);
 	padding-top: 0.5rem;
 }
 
@@ -5354,12 +5722,621 @@ button.snotice-badge:focus-visible {
 }
 
 .oper-toast {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.6em;
 	color: var(--oper-amber);
 	font-size: 0.875em;
 }
 
-/* On a phone the card is the page, like the settings modal. */
-@media (max-width: 768px) {
+.oper-toast .oper-toast-go {
+	padding: 0.25em 0.7em;
+	font-size: 1em;
+}
+
+/* ------------------------------------------------ the oper visual language
+ * (the "Seance oper kit" in Claude Design, theme-aware here): four buttons,
+ * an icon button, a tag, a value chip, the verdict, a property panel and
+ * rows. Icons are FontAwesome glyphs like the rest of the app. */
+.oper-btn,
+.oper-icon-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.45em;
+	height: 2.25rem;
+	padding: 0 0.85rem;
+	border: 1px solid transparent;
+	border-radius: 0.4rem;
+	font-size: 0.875rem;
+	font-weight: 500;
+	line-height: 1;
+	white-space: nowrap;
+	cursor: pointer;
+	transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+html[data-reduce-motion] .oper-btn,
+html[data-reduce-motion] .oper-icon-btn {
+	transition: none;
+}
+
+.oper-btn[disabled] {
+	opacity: 0.45;
+	cursor: default;
+}
+
+.oper-btn-primary {
+	background: var(--button-color);
+	border-color: var(--button-color);
+	color: var(--window-bg-color);
+}
+
+.oper-btn-secondary {
+	background: var(--oper-raised);
+	border-color: var(--oper-line-2);
+	color: var(--body-color);
+}
+
+.oper-btn-secondary:hover,
+.oper-btn-secondary:focus-visible {
+	border-color: color-mix(in oklab, var(--body-color) 35%, transparent);
+}
+
+.oper-btn-danger {
+	background: transparent;
+	border-color: color-mix(in oklab, var(--oper-red) 55%, transparent);
+	color: var(--oper-red);
+}
+
+.oper-btn-danger:hover,
+.oper-btn-danger:focus-visible {
+	background: color-mix(in oklab, var(--oper-red) 12%, transparent);
+}
+
+.oper-btn-danger.solid {
+	background: var(--oper-red);
+	border-color: var(--oper-red);
+	color: var(--window-bg-color);
+}
+
+.oper-btn-ghost {
+	background: transparent;
+	color: var(--body-color-muted);
+}
+
+.oper-btn-ghost:hover,
+.oper-btn-ghost:focus-visible {
+	background: var(--oper-raised);
+	color: var(--body-color);
+}
+
+.oper-icon-btn {
+	width: 2.25rem;
+	padding: 0;
+	background: transparent;
+	color: var(--body-color-muted);
+	font-size: 1rem;
+}
+
+.oper-icon-btn:hover,
+.oper-icon-btn:focus-visible,
+.oper-icon-btn[aria-pressed="true"] {
+	background: var(--oper-raised);
+	color: var(--body-color);
+}
+
+.oper-btn::before,
+.oper-icon-btn::before,
+.oper-verdict-mark::before,
+.oper-avatar-channel::before,
+.oper-empty-ok::before {
+	font: normal normal normal 14px/1 FontAwesome;
+	font-size: inherit;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+.oper-btn::before {
+	font-size: 0.9em;
+}
+
+.oper-icon-refresh::before { content: "\f021"; /* https://fontawesome.com/icons/sync?style=solid */ }
+.oper-icon-raw::before { content: "\f121"; /* https://fontawesome.com/icons/code?style=solid */ }
+.oper-icon-close::before { content: "\f00d"; /* https://fontawesome.com/icons/times?style=solid */ }
+.oper-icon-kill::before { content: "\f235"; /* https://fontawesome.com/icons/user-times?style=solid */ }
+.oper-icon-ban::before { content: "\f05e"; /* https://fontawesome.com/icons/ban?style=solid */ }
+.oper-icon-compare::before { content: "\f0db"; /* https://fontawesome.com/icons/columns?style=solid */ }
+.oper-icon-alert::before { content: "\f0f3"; /* https://fontawesome.com/icons/bell?style=solid */ }
+.oper-icon-note::before { content: "\f249"; /* https://fontawesome.com/icons/sticky-note?style=solid */ }
+.oper-icon-watch::before { content: "\f06e"; /* https://fontawesome.com/icons/eye?style=solid */ }
+
+/* A tag: a status, never a control. A dot says which kind. */
+.oper-tag {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35em;
+	padding: 0.1em 0.55em;
+	border-radius: 999px;
+	background: var(--oper-raised);
+	color: var(--body-color);
+	font-size: 0.75rem;
+	font-weight: 500;
+	line-height: 1.4;
+	white-space: nowrap;
+	vertical-align: 0.1em;
+}
+
+.oper-tag::before {
+	content: "";
+	width: 0.4em;
+	height: 0.4em;
+	border-radius: 50%;
+	background: var(--body-color-muted);
+}
+
+.oper-tag.plain::before {
+	display: none;
+}
+
+.oper-tag.ok::before {
+	background: var(--button-color);
+}
+
+.oper-tag.warn {
+	background: color-mix(in oklab, var(--oper-amber) 14%, transparent);
+	color: var(--oper-amber);
+}
+
+.oper-tag.warn::before {
+	background: var(--oper-amber);
+}
+
+.oper-tag.bad {
+	background: color-mix(in oklab, var(--oper-red) 14%, transparent);
+	color: var(--oper-red);
+}
+
+.oper-tag.bad::before {
+	background: var(--oper-red);
+}
+
+html[data-contrast="more"] .oper-tag {
+	box-shadow: inset 0 0 0 1px currentcolor;
+}
+
+/* The verdict: the card's headline. A mark, a kicker, one line, and what
+ * matched as tags. Amber for a likely match, red for a live ban. */
+.oper-verdict {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr);
+	gap: 0.5rem 0.9rem;
+	align-items: center;
+	padding: 1rem 1.15rem;
+	border: 1px solid var(--oper-line-2);
+	border-radius: 0.55rem;
+	background: var(--oper-panel);
+}
+
+.oper-verdict p {
+	margin: 0;
+}
+
+.oper-verdict-mark {
+	grid-row: span 2;
+	align-self: start;
+	display: grid;
+	place-items: center;
+	width: 2.1rem;
+	height: 2.1rem;
+	border-radius: 50%;
+	background: var(--oper-raised);
+	color: var(--body-color-muted);
+	font-size: 0.875rem;
+}
+
+.oper-verdict-mark::before { content: "\f00c"; /* https://fontawesome.com/icons/check?style=solid */ }
+
+/* https://fontawesome.com/icons/link?style=solid */
+.oper-verdict.tone-match .oper-verdict-mark::before {
+	content: "\f0c1";
+}
+
+/* https://fontawesome.com/icons/ban?style=solid */
+.oper-verdict.tone-ban .oper-verdict-mark::before {
+	content: "\f05e";
+}
+
+/* https://fontawesome.com/icons/question?style=solid */
+.oper-verdict.tone-weak .oper-verdict-mark::before {
+	content: "\f128";
+}
+
+/* https://fontawesome.com/icons/ellipsis-h?style=solid */
+.oper-verdict.tone-pending .oper-verdict-mark::before {
+	content: "\f141";
+}
+
+.oper-verdict-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 0.15rem 0.6rem;
+}
+
+.oper-verdict-kicker {
+	font-size: 0.6875rem;
+	font-weight: 700;
+	letter-spacing: 0.07em;
+	text-transform: uppercase;
+	color: var(--body-color-muted);
+}
+
+.oper-verdict-lead {
+	font-weight: 600;
+	font-size: 1rem;
+}
+
+.oper-verdict-evidence {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.45rem;
+	font-size: 0.8125rem;
+}
+
+.oper-verdict.tone-pending,
+.oper-verdict.tone-pending .oper-verdict-head {
+	grid-template-rows: auto;
+}
+
+.oper-verdict.tone-match {
+	border-color: color-mix(in oklab, var(--oper-amber) 45%, transparent);
+	background: color-mix(in oklab, var(--oper-amber) 9%, var(--window-bg-color));
+}
+
+.oper-verdict.tone-match .oper-verdict-mark {
+	background: var(--oper-amber);
+	color: var(--window-bg-color);
+}
+
+.oper-verdict.tone-match .oper-verdict-kicker {
+	color: var(--oper-amber);
+}
+
+.oper-verdict.tone-ban {
+	border-color: color-mix(in oklab, var(--oper-red) 50%, transparent);
+	background: color-mix(in oklab, var(--oper-red) 9%, var(--window-bg-color));
+}
+
+.oper-verdict.tone-ban .oper-verdict-mark {
+	background: var(--oper-red);
+	color: var(--window-bg-color);
+}
+
+.oper-verdict.tone-ban .oper-verdict-kicker {
+	color: var(--oper-red);
+}
+
+/* A value chip: a literal you can act on (its menu) or copy. */
+.oper-investigate .oper-value {
+	display: inline;
+	font-family: monospace;
+	font-size: 0.875em;
+	color: var(--body-color);
+	background: var(--oper-raised);
+	border: 1px solid var(--oper-line);
+	border-radius: 0.3em;
+	padding: 0.05em 0.35em;
+	overflow-wrap: anywhere;
+}
+
+.oper-investigate .oper-chip.same,
+.oper-investigate dl .same dd > .oper-chip,
+.oper-investigate dl .same dd > .oper-value {
+	background: color-mix(in oklab, var(--oper-amber) 14%, transparent);
+	border-color: color-mix(in oklab, var(--oper-amber) 45%, transparent);
+}
+
+/* The card's header: who, where, and the card's own tools. */
+.oper-card-head {
+	gap: 0.9rem;
+	padding: 1.15rem 1rem 1.35rem 1.5rem;
+	box-shadow: inset 0 -1px 0 var(--oper-line);
+}
+
+.oper-avatar {
+	flex: none;
+	display: grid;
+	place-items: center;
+	width: 2.4rem;
+	height: 2.4rem;
+	border-radius: 50%;
+	background: color-mix(in oklab, currentcolor 20%, transparent);
+	font-weight: 700;
+	font-size: 0.875rem;
+}
+
+.oper-avatar-channel {
+	border-radius: 0.5rem;
+	background: var(--oper-raised);
+	color: var(--body-color-muted);
+	font-size: 1rem;
+}
+
+.oper-avatar-channel::before { content: "\f292"; /* https://fontawesome.com/icons/hashtag?style=solid */ }
+
+.oper-ident {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.oper-investigate .oper-card-head h1 {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	font-size: 1.125rem;
+	letter-spacing: -0.01em;
+}
+
+.oper-ident-sub {
+	margin-top: 0.3rem;
+	line-height: 1.4;
+	color: var(--body-color-muted);
+	font-size: 0.8125rem;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.oper-card-tools {
+	display: flex;
+	gap: 0.125rem;
+}
+
+.oper-investigate .settings-modal-close.oper-icon-btn {
+	padding: 0;
+	font-size: 1rem;
+}
+
+/* The footer: actions on the user at the left in red, the rest at the
+ * right. Under 34rem the right-hand buttons drop their words. */
+.oper-investigate .oper-investigate-footer {
+	padding: 0.9rem 1.5rem;
+	background: var(--oper-sunk);
+	box-shadow: inset 0 1px 0 var(--oper-line);
+}
+
+.oper-investigate .oper-investigate-actions {
+	flex: 1 1 auto;
+	flex-wrap: nowrap;
+	align-items: center;
+	min-width: 0;
+}
+
+.oper-spacer {
+	flex: 1 1 auto;
+}
+
+/* stylelint-disable-next-line at-rule-no-unknown */
+@container settings (max-width: 34rem) {
+	.oper-investigate .oper-investigate-footer {
+		padding: 0.75rem 1rem;
+	}
+
+	.oper-investigate .oper-investigate-actions {
+		gap: 0.35rem;
+	}
+
+	.oper-investigate-actions .oper-btn-danger {
+		padding: 0 0.6rem;
+	}
+
+	.oper-investigate-actions .oper-btn-secondary {
+		width: 2.4rem;
+		padding: 0;
+	}
+
+	/* A label with no icon keeps its words. */
+	.oper-investigate-actions .oper-btn-secondary.oper-compare-end {
+		width: auto;
+		padding: 0 0.85rem;
+	}
+
+	.oper-investigate-actions .oper-btn-secondary .oper-btn-label {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+}
+
+/* The facts: a property panel, two columns, the long ones across both. */
+.oper-investigate .oper-props {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 0;
+	margin: 0;
+	border: 1px solid var(--oper-line);
+	border-radius: 0.55rem;
+	background: var(--oper-panel);
+	overflow: hidden;
+}
+
+.oper-investigate .oper-props > div {
+	display: block;
+	min-width: 0;
+	padding: 0.85rem 1.1rem;
+	box-shadow: inset 0 1px 0 var(--oper-line), inset -1px 0 0 var(--oper-line);
+}
+
+/* Running text (a list of channels with its commas): no flex gaps. */
+.oper-investigate .oper-props dd.oper-prop-flow {
+	display: block;
+}
+
+.oper-investigate .oper-props > div.wide {
+	grid-column: 1 / -1;
+}
+
+.oper-investigate .oper-props dt {
+	margin: 0 0 0.35rem;
+	font-size: 0.6875rem;
+	font-weight: 600;
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	color: var(--oper-faint);
+}
+
+.oper-investigate .oper-props dd {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.3rem 0.4rem;
+	margin: 0;
+	min-width: 0;
+}
+
+/* user@host: one value, wrapping anywhere when the host is long. */
+.oper-investigate .oper-props dd.oper-prop-flow .oper-chip {
+	white-space: normal;
+}
+
+.oper-investigate dl.oper-props .same {
+	background: none;
+	box-shadow:
+		inset 0 1px 0 var(--oper-line),
+		inset -1px 0 0 var(--oper-line),
+		inset 3px 0 0 color-mix(in oklab, var(--oper-amber) 70%, transparent);
+}
+
+.oper-investigate-user {
+	display: flex;
+	flex-direction: column;
+	gap: 2rem;
+}
+
+.oper-note-edit.oper-btn {
+	height: 1.75rem;
+	padding: 0 0.6rem;
+	font-size: 0.8125rem;
+}
+
+/* Sections: a heading, a count, then rows or an empty line. */
+.oper-card-section {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+}
+
+.oper-section-head {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.oper-investigate .oper-section-head .oper-report-section-title {
+	margin: 0;
+	font-size: 0.875rem;
+	font-weight: 600;
+	letter-spacing: 0;
+	text-transform: none;
+	color: var(--body-color);
+}
+
+.oper-count {
+	padding: 0 0.45em;
+	border-radius: 999px;
+	background: var(--oper-raised);
+	color: var(--body-color-muted);
+	font-size: 0.75rem;
+	line-height: 1.5;
+}
+
+.oper-empty {
+	display: flex;
+	align-items: center;
+	gap: 0.65rem;
+	margin: 0;
+	padding: 0.9rem 1.1rem;
+	border: 1px dashed var(--oper-line-2);
+	border-radius: 0.55rem;
+	font-size: 0.875rem;
+}
+
+.oper-empty-ok {
+	color: var(--body-color-muted);
+}
+
+.oper-empty-ok::before {
+	content: "\f3ed"; /* https://fontawesome.com/icons/shield-alt?style=solid */
+	color: var(--button-color);
+}
+
+.oper-rows li {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 0.85rem;
+	padding: 0.75rem 0;
+	box-shadow: inset 0 1px 0 var(--oper-line);
+}
+
+.oper-rows li:first-child {
+	box-shadow: none;
+}
+
+.oper-rows .oper-row-time {
+	min-width: 2.9rem;
+	color: var(--oper-faint);
+	font-variant-numeric: tabular-nums;
+}
+
+.oper-rows .oper-row-main {
+	min-width: 0;
+}
+
+.oper-rows .oper-row-fate {
+	display: block;
+	margin-top: 0.2rem;
+	font-size: 0.8125rem;
+}
+
+.oper-rows .oper-row-tags {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	gap: 0.25rem;
+}
+
+.oper-rows .oper-chip {
+	white-space: nowrap;
+}
+
+/* A server name is a word, not a literal to copy: no mid-name break. */
+.oper-investigate .oper-props .oper-server {
+	font-family: inherit;
+}
+
+/* stylelint-disable-next-line at-rule-no-unknown */
+@container investigate (max-width: 36rem) {
+	/* Narrow: the match tags go under the nick instead of squeezing it;
+	 * Compare's two dots are small enough to keep their column. */
+	.oper-rows li:not(.oper-cmp-seen) {
+		grid-template-columns: auto minmax(0, 1fr);
+	}
+
+	.oper-rows .oper-row-tags {
+		grid-column: 2;
+		justify-content: flex-start;
+	}
+}
+
+/* On a phone the card is the page, like the settings modal. The phone
+ * layout's own list (PHONE_LAYOUT_QUERY), so a landscape phone counts. */
+@media (max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse) {
 	#oper-investigate-overlay {
 		padding: 0;
 	}
@@ -5380,7 +6357,7 @@ button.snotice-badge:focus-visible {
  * phone. The criteria are rows: a switch, the criterion in words, its
  * value in monospace, a "wide" tag in amber, ✕. */
 #oper-alert-overlay {
-	position: fixed;
+	position: absolute; /* in #viewport, above the keyboard; see #oper-investigate-overlay */
 	top: 0;
 	bottom: 0;
 	left: 0;
@@ -5402,8 +6379,6 @@ button.snotice-badge:focus-visible {
 }
 
 .oper-alert-builder {
-	--oper-amber: #c7841a;
-
 	width: min(46rem, 100%);
 	height: min(44rem, 100%);
 	user-select: text;
@@ -5474,7 +6449,7 @@ button.snotice-badge:focus-visible {
 	align-items: center;
 	gap: 0.3rem 0.6rem;
 	padding: 0.3rem 0;
-	border-bottom: 1px solid color-mix(in srgb, var(--body-color-muted) 25%, transparent);
+	border-bottom: 1px solid var(--oper-line);
 }
 
 .oper-alert-row.off .oper-alert-row-label {
@@ -5495,20 +6470,30 @@ button.snotice-badge:focus-visible {
 .oper-alert-row-label {
 	min-width: 0;
 	overflow-wrap: anywhere;
+	cursor: pointer;
 }
 
 .oper-wide {
-	display: inline-block;
-	margin-left: 0.35em;
-	padding: 0 0.35em;
-	border: 1px solid var(--oper-amber);
-	border-radius: 0.3em;
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35em;
+	margin-left: 0.4em;
+	padding: 0.1em 0.55em;
+	border-radius: 999px;
+	background: color-mix(in oklab, var(--oper-amber) 14%, transparent);
 	color: var(--oper-amber);
-	font-size: 0.75em;
-	line-height: 1.5;
+	font-size: 0.75rem;
+	font-weight: 500;
+	line-height: 1.4;
 	vertical-align: 0.1em;
-	text-transform: uppercase;
-	letter-spacing: 0.04em;
+}
+
+.oper-wide::before {
+	content: "";
+	width: 0.4em;
+	height: 0.4em;
+	border-radius: 50%;
+	background: var(--oper-amber);
 }
 
 .oper-alert-remove {
@@ -5523,7 +6508,7 @@ button.snotice-badge:focus-visible {
 .oper-alert-remove:hover,
 .oper-alert-remove:focus-visible {
 	color: var(--body-color);
-	background: color-mix(in srgb, var(--body-color-muted) 15%, transparent);
+	background: var(--oper-raised);
 }
 
 .oper-alert-add {
@@ -5547,7 +6532,8 @@ button.snotice-badge:focus-visible {
 	margin: 0;
 	padding: 0.5rem 0.65rem;
 	border-radius: 0.3rem;
-	background: color-mix(in srgb, var(--body-color-muted) 12%, transparent);
+	background: var(--oper-sunk);
+	border: 1px solid var(--oper-line);
 	font-family: monospace;
 	font-size: 0.875em;
 	line-height: 1.5;
@@ -5595,32 +6581,25 @@ button.snotice-badge:focus-visible {
 	gap: 0.4rem;
 }
 
-#oper-alert-overlay .btn-small {
-	margin: 0;
-	padding: 0.3em 0.75em;
-	font-size: 0.875em;
-	line-height: 1.4;
-	border-width: 1px;
-	letter-spacing: 0;
-	text-transform: none;
-}
-
-#oper-alert-overlay .btn-cancel {
-	border-color: transparent;
+.oper-btn.active {
+	background: var(--button-color);
+	border-color: var(--button-color);
+	color: var(--window-bg-color);
 }
 
 .oper-alert-result {
-	color: var(--link-color);
+	color: var(--body-color);
 	font-size: 0.875em;
 }
 
 .oper-alert-error {
-	color: #e74c3c;
+	color: var(--error-fg, color-mix(in oklab, #e74c3c 60%, var(--body-color)));
 	font-size: 0.875em;
 }
 
-/* On a phone the builder is the page, and a row wraps its value under the label. */
-@media (max-width: 768px) {
+/* On a phone the builder is the page, and a row wraps its value under the
+ * label: the phone layout's list, so a landscape phone gets one column too. */
+@media (max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse) {
 	#oper-alert-overlay {
 		padding: 0;
 	}
@@ -5647,6 +6626,67 @@ button.snotice-badge:focus-visible {
 		grid-column: 2 / -1;
 		grid-row: 2;
 	}
+}
+
+/* Touch targets in the oper tools, while the last pointer was a finger
+ * (`data-input`, helpers/inputModality.ts): 2.75rem, 44pt at the medium
+ * step, for every small button, with real gaps between neighbours. The
+ * badge on a notice keeps its size in the line and grows its hit area
+ * instead, a transparent ::after around it. Same specificity as the rules
+ * they follow, so they win by coming later; the mouse keeps the compact
+ * sizes. */
+:where(html[data-input="touch"]) button.snotice-badge {
+	position: relative;
+}
+
+/* The hit area grows sideways only: the text column clips (the Zalgo
+ * guard), and reaching into the rows around would take taps meant for
+ * their nicks and links. */
+:where(html[data-input="touch"]) button.snotice-badge::after {
+	content: "";
+	position: absolute;
+	inset: 0 -0.5em;
+}
+
+:where(html[data-input="touch"]) .oper-report-actions {
+	gap: 0.5rem;
+}
+
+:where(html[data-input="touch"]) #chat .oper-report-btn {
+	width: 2.75rem;
+	height: 2.75rem;
+}
+
+/* Refresh sits apart from the toggles beside it: a missed tap re-runs
+ * the command. */
+:where(html[data-input="touch"]) #chat .oper-report-refresh {
+	margin-right: 0.5rem;
+}
+
+:where(html[data-input="touch"]) .oper-users-sort .input,
+:where(html[data-input="touch"]) .oper-seg button,
+:where(html[data-input="touch"]) .oper-alert-remove,
+:where(html[data-input="touch"]) #oper .btn-small,
+:where(html[data-input="touch"]) #oper-investigate-overlay .btn-small,
+:where(html[data-input="touch"]) #oper-alert-overlay .btn-small,
+:where(html[data-input="touch"]) #oper-action-dialog .btn,
+:where(html[data-input="touch"]) #oper-action-dialog .oper-chip {
+	min-height: 2.75rem;
+	min-width: 2.75rem;
+}
+
+:where(html[data-input="touch"]) .oper-alert-remove {
+	width: 2.75rem;
+	height: 2.75rem;
+}
+
+:where(html[data-input="touch"]) .oper-alert-row {
+	column-gap: 0.75rem;
+}
+
+:where(html[data-input="touch"]) .oper-investigate-actions,
+:where(html[data-input="touch"]) .oper-alert-actions {
+	gap: 0.5rem;
 }
 
 .changelog-text {
@@ -5800,6 +6840,22 @@ html[data-shell="native"] #footer {
 	margin-bottom: var(--inset-inner-bottom);
 }
 
+/* The pages that scroll (connect, a network's settings, …) end above the
+ * home indicator too, or their last button sits in the screen's rounded
+ * corners. A spacer, not padding: a column flexbox's scroll range can drop
+ * its bottom padding. A chat window's composer already keeps the strip, as
+ * a modal's footer does (below); an overlay centres its pane, so a spacer
+ * there would push the pane up by half its height. */
+html[data-shell="native"] .window::after {
+	content: "";
+	flex: none;
+	height: var(--inset-inner-bottom);
+}
+
+html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:has(#form))::after {
+	content: none;
+}
+
 /* A modal that is the whole page on a phone runs to the bottom edge too, so
  * its footer is raised out of the home indicator's strip the way the
  * composer is, or the Done button's border meets the screen's rounded
@@ -5941,11 +6997,17 @@ html[data-shell="native"] #footer {
 }
 
 /* No wider than the window: past that an item wraps instead of running off
- * the screen (ContextMenu.vue measures the menu at the left edge). */
+ * the screen (ContextMenu.vue measures the menu at the left edge). A long
+ * menu (a nick's oper actions at a large font step) on a short screen
+ * scrolls rather than running off the top; ContextMenu.vue clamps its top
+ * to the band. */
 #context-menu {
 	box-sizing: border-box;
 	min-inline-size: min(12rem, 100vw);
 	max-inline-size: 100vw;
+	max-height: 100%;
+	overflow-y: auto;
+	overscroll-behavior: contain;
 }
 
 #context-menu .context-menu-item {
@@ -6700,6 +7762,19 @@ html[data-shell="native"] #footer {
 	}
 }
 
+/* A mid-width pane — the widest time column (10.5ch), the full nick column
+ * (12ch) and 50 characters of text no longer fit — gives the text the
+ * nick column's last 3ch: most nicks are under 9 characters, and right
+ * aligned in a 12ch column they stand off from their time across a band of
+ * nothing. A longer nick takes the ellipsis sooner. The floor stays 9ch,
+ * so the thresholds below are unchanged. */
+/* stylelint-disable-next-line at-rule-no-unknown */
+@container chat (max-width: calc(72.5ch + 2.5rem)) {
+	#chat .from {
+		flex-basis: 9ch;
+	}
+}
+
 /* The user list is a side panel only while the messages keep their 30
  * characters beside it: the widest time column (10.5ch), the nick column
  * at its floor (9ch), the text (30ch), their paddings (2.5rem) and the
@@ -6908,6 +7983,13 @@ html[data-shell="native"] #footer {
 	pointer-events: none;
 }
 
+/* The oper dialog holds text fields: absolute in #viewport, the visible
+ * band, so iOS's keyboard does not cover its buttons (fixed measures
+ * against the layout viewport, which iOS never shrinks). */
+#oper-action-overlay {
+	position: absolute;
+}
+
 #confirm-dialog-overlay.opened,
 #push-prompt-overlay.opened,
 #install-guide-overlay.opened,
@@ -7039,13 +8121,6 @@ html[data-shell="native"] #image-viewer .next-image-btn {
 #chat table.channel-list .topic,
 .header .topic {
 	white-space: nowrap;
-}
-
-.chat-view[data-type="search-results"] .search-status {
-	display: flex;
-	height: 100%;
-	justify-content: center;
-	align-items: center;
 }
 
 /* Replies, reactions, deletion and edits (bus-contract §1.4) */
@@ -7360,7 +8435,7 @@ html[data-reduce-motion] #chat .msg-translation-caret {
 }
 
 @keyframes reaction-pop {
-	from {
+	0% {
 		opacity: 0;
 		transform: scale(0.6);
 	}
@@ -7369,7 +8444,7 @@ html[data-reduce-motion] #chat .msg-translation-caret {
 		transform: scale(1.08);
 	}
 
-	to {
+	100% {
 		opacity: 1;
 		transform: scale(1);
 	}

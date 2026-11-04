@@ -11,7 +11,7 @@
 // component with name="locale") in the production run. The connect form
 // carried a third until the reading language became the interface's.
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   NODE_ENV=development pnpm build && python3 -m http.server -d public 8000 &
 //   node tools/browser-drive.mjs tools/scenarios/i18n-language-switch.mjs
 //
 // Two builds, one scenario — the qqx pick needs a development build, the
@@ -20,17 +20,15 @@
 // resolvable set and out of the baked pre-paint list too, so not even a
 // stored pick brings it back — which is what the reload half proves):
 //
-//   NODE_ENV=production corepack yarn build   # DEV=false: qqx not offered
+//   NODE_ENV=production pnpm build   # DEV=false: qqx not offered
 //   node tools/browser-drive.mjs tools/scenarios/i18n-language-switch.mjs
 //                                             # → the (e) assertions
-//   NODE_ENV=development corepack yarn build  # DEV=true: qqx in the dropdown
+//   NODE_ENV=development pnpm build  # DEV=true: qqx in the dropdown
 //   node tools/browser-drive.mjs tools/scenarios/i18n-language-switch.mjs --dev
 //                                             # → the (a)–(d) assertions
 //
-// (`webpack --mode development` is NOT the development build here: that is
-// the mocha test build, whose output lands in test/public. The servable dev
-// build is the plain `webpack` of `yarn build` run with NODE_ENV=development
-// — the config's own mode and the compile step's baked DEV both follow it.)
+// (Vite builds production when NODE_ENV is unset, so a bare `pnpm build` —
+// the one `pnpm test:mocha` runs — is the production half.)
 //
 // No system chromium on the box this was verified on, and unprivileged user
 // namespaces are disabled, so the driver runs playwright's headless-shell

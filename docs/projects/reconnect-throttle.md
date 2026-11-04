@@ -34,88 +34,120 @@ The client made it worse. After a refusal its reconnect schedule retried at
 once, then after 1, 2, 4, 8, 16 and 32 s, and each retry renewed the window: a
 lockout of a minute and a half where 42 s of quiet would have done.
 
-## What the client does now
+## What the client does now (2026-11-03)
 
-`client/js/irc/dialLedger.ts` keeps this device's dials, and when each ended,
-per server host in `thelounge.state.dials`, so a reloaded or reopened app and
-its other tabs share the record. IPcheck counts a connection at the TCP
-accept, before TLS and the WebSocket upgrade, so a dial that timed out or was
-given up before it opened ends with a drop too (one that never reached the
-server only makes the ledger wait a little longer). A drop is kept only for a
-session the bouncer does not hold (a held one stays counted on the server,
-which then restarts nothing; a KILL ends the hold, since nefarious2 never
-holds a killed session), and the drop a page unload makes, which the
-transport never sees, is kept at the unload for any connection still open or
-dialling (`noteUnload`). One case it cannot see: a QUIT that hands the
-session to another of the account's sessions on the same server is a real
-disconnect there (`m_quit.c`), which matters only when that other session is
-on another address. The
-replay is conservative about the server's whole seconds and the clocks' small
-difference: a gap restarts the count only at 42 s (162 s after a drop), and a
-dial waits for the same. Before a dial nobody asked for (a scheduled retry,
-the foreground poke) the transport asks it whether the server would refuse,
-and if so waits out the gap. The strip says "Reconnecting to <network> in Ns:
-the server limits quick reconnects."
-Connect now, the sidebar's status icon during a retry's wait, or a typed
-`/connect` dials at once whatever the ledger says (2026-10-26: a button that
-did nothing was the worse failure); a network's saved commands, which run
-after every registration, never do. If the server refuses the dial, the
-refusal is recorded and the retry after it waits. Once nobody presses
-anything, the worst case is one wait of at most 42 s, never a spiral; each
-press during a refusal renews the server's window, which is the user's call.
-It cannot see dials or drops from other devices behind the same
-address, nor tell whether another network on the same server still holds a
-connection (then the server would not reset at our drop, and the ledger waits
-when it need not).
+The client does not model the server's throttle. From 2026-10-22 to
+2026-11-03 it did: a dial ledger kept this device's dials and drops, replayed
+IPcheck's chain rule and synced the count from the server's registration
+notice (`on N ca M(limit)`, #170, #171 closed). It could not see the
+other devices behind the address, revives send no notice, and a server with
+`IPCHECK_SASL_REFUND` hardly throttles a logged-in client at all (a dozen
+relaunches of the phone in two minutes, 2026-11-03, none refused). What it
+saved was at most one refused dial before the same 42 s wait. So it is gone,
+and the server says when it throttles:
 
-The cost: a dial that fails looks the same whether IPcheck refused it or the
-server is simply down (connection refused, DNS failure, both close with 1006),
-and only a radio that is off is told apart (`navigator.onLine`). So after three
-quick failures against a server that is down, the next try waits up to 42 s
-instead of the schedule's next step. The wait is never longer than one window,
-whatever the record says: a clock that ran ahead and was put back cannot hold
-a network. The service worker's own short connections (away on close, mark
-read, a reply) count on the server but are not in the record.
+- **The server says so.** An `ERROR` line whose text has the word
+  `throttled` is the server's connection throttle
+  (`handlers/error.ts` `parseThrottleError` → `IrcClient.noteThrottled` →
+  `WsTransport.throttled`). If it says `retry in N` (optionally `s`, `sec`,
+  `seconds`), the retry after the close waits N seconds and one more (the
+  server counts whole seconds), at most five minutes; any other number in
+  the text (a kill reason's) is not a wait. With no `retry in`, as in stock
+  nefarious2's `Your host is trying to (re)connect too fast -- throttled`,
+  it waits 42 s. The wait is flagged (`status.retryReason` = `"throttled"`): the strip
+  says "Reconnecting to <network> in Ns: the server limits quick
+  reconnects."
+- **A dial that fails before it opens.** Today nefarious2 refuses before the
+  WebSocket upgrade, which a page reads as any failed dial (1006), and so is
+  a network that is not ready yet (the radio waking as the app comes back, a
+  Wi-Fi handoff), which is far more common. So such a dial is retried
+  quickly, after 1, 2 and 4 s (`QUICK_RETRY_MS`); once those are spent the
+  next automatic dial waits 42 s and up to 5 s of jitter
+  (`UNREACHED_RETRY_MS`, `UNREACHED_JITTER_MS`), past IPcheck's 40 s
+  window, and every one after it too, until a socket opens, which earns the
+  quick retries again. Connect now does not: a user pressing it during a
+  refusal would otherwise get a fresh burst each time. A server's throttle
+  spends them as well. The strip counts the long wait down ("Reconnecting
+  to <network> in Ns…") without claiming the server said anything. When it
+  really was a refusal, the quick retries cost about 7 s more than waiting
+  at once (each renews the window).
+- **Not a refusal:** a dial that hung until the 15 s connect timeout (a
+  refusal comes at once; that was the signal) keeps the usual backoff.
+- **Offline** (`navigator.onLine` false; only its false is trustworthy):
+  whatever the socket did, nothing is retried on a timer but a 30 s
+  backstop (`OFFLINE_RETRY_MS`), since the app's `online` event dials as
+  soon as the network is back (`foreground.ts` → `reconnectAll`, which never folds that event into a focus poke a moment before it). The
+  lobby says once "You're offline. Will reconnect when the network is
+  back." with no certificate hint, later failed tries say nothing, and the
+  strip says "You're offline. Will reconnect to <network> when the network
+  is back." (`status.retryReason` = `"offline"`). Browser check
+  `tools/scenarios/offline.mjs`.
+- **The long waits hold** (`WsTransport.holding`): the foreground poke
+  (`manager.ts` `reconnectAll`, the app coming back, focus, `online`)
+  leaves them be, since dialling would renew a refusal's window. Connect
+  now, the sidebar's status icon and a typed `/connect` dial at once
+  whatever the wait. Every other wait the poke still cuts.
+- **Unchanged:** a connection that opened and dropped retries on the usual
+  schedule (at once after a stable one or after a probe, else the backoff).
 
-That is as far as a client can go. It cannot keep a socket alive while the OS
-has suspended the page, and it cannot see dials from other devices behind the
-same address. Carrier NAT puts many phones behind one address, so the
-per-address count reaches its limit faster for exactly the users this hurts.
+The cost: when the server is simply down or unreachable, automatic retries
+come every 42–47 s once the quick ones are spent. Connect now still dials
+at once.
 
-## What the server could do
+### What the server is asked for
 
-Ordered by recommendation.
+nefarious2 to finish the WebSocket handshake on a throttled connection and
+send the reason as a text frame before closing, for example:
 
-1. **Refund the attempt once the connection logs in.** Call
-   `IPcheck_connect_fail(cptr, 0)` when SASL succeeds, before registration
-   completes. It is the hook nefarious2 already uses for a connection that is
-   "not penalized for the failure" (`s_auth.c:906`, `m_nick.c:315`, both with
-   `disconnect = 0`, which lowers `attempts` and leaves the clone count alone;
-   `m_webirc.c:153` uses it with `1` to undo a transplanted address).
-   The success points are `sasl_complete_login()` in `ircd/sasl_auth.c` (local
-   Keycloak and the P10 relay) and `iauth_cmd_sasl_done()` in `ircd/s_auth.c`
-   (IAuth). Guard it with `IsIPChecked(cptr)` and do it once per connection.
+```text
+ERROR :Your host is trying to (re)connect too fast -- throttled (retry in 37 seconds)
+```
 
-   Unauthenticated floods stay throttled exactly as now. An attacker gains
-   nothing without a valid account, and an account holder still meets the
-   clone limit and the connection class limits. If a per-account cap is
-   wanted, a small counter keyed by account would bound how often one account
-   can reconnect.
+Any text with `throttled` works; the seconds are optional but make the wait
+exact. Once that ships, the 42 s fallback only covers servers that do not
+send it.
 
-   A narrower form refunds only a connection that resumes or attaches to a
-   held bouncer session (`bounce_revive`, `bounce_setup_local_alias`). It
-   covers Seance with SASL and persistence, which is the phone case, and
-   changes nothing for other clients.
+## What the server does now
 
-2. **Stop a refused connection from renewing the window.** Set
-   `entry->last_connect` after the refusal check instead of before. A client
-   in a retry loop then gets back 40 s after its last accepted connection or
-   drop.
-   This is weaker, and it changes ircu's deliberate penalty for clients that
-   hammer the server.
+Implemented 2026-10-27 on the testnet's nefarious2 (branch
+`ipcheck-sasl-refund`, from the proposal that stood here: refund on SASL
+success, capped per account, refusals not counted). Three features, all off
+by default so a stock server behaves as before:
 
-3. **A separate limit for WebSocket ports.** Not recommended: it relaxes the
+1. **`IPCHECK_SASL_REFUND`** (integer, 0 = off). When a connection that
+   logged in with SASL registers — the fresh path in `register_user`, a
+   bouncer revive (`bounce_revive`, the phone's case) and a local alias attach
+   (`bounce_setup_local_alias`) — `IPcheck_login_refund` gives back the
+   attempt the accept charged its address: `ip_registry_connect_fail(…, 0)`,
+   the hook WEBIRC and the nick-collision paths already use, which lowers
+   `attempts` by one, never below one, and moves neither `last_connect` nor
+   `connected`. The window stays; the chain just does not grow. It runs
+   before `IPcheck_connect_succeeded`, so the `on N ca A(L) …` notice
+   reports the refunded count. At registration rather than at the 903: a
+   login that never registers earns nothing.
+
+   The value is the cap: that many refunds per account every
+   **`IPCHECK_SASL_REFUND_PERIOD`** (integer, 600) seconds, counted in memory
+   by `ircd/ipcheck_refund.c` — a pure module shaped like
+   `register_throttle.c` (a fixed table, the oldest window evicted, lazy
+   expiry, nothing saved; `ircd/test/ipcheck_refund_cmocka.c`). A failed or
+   missing login earns nothing, and the check at the accept is unchanged: a
+   client without credentials still gets four connections and a refusal
+   before any TLS, and an account holder in a loop still pays a handshake and
+   a login per connection, up to the cap.
+
+2. **`IPCHECK_COUNT_REFUSALS`** (boolean, TRUE). FALSE makes a refused
+   connection leave no trace — the decision is taken before the counting, so
+   neither `attempts` nor `last_connect` moves — and a client in a retry loop
+   gets back 40 s after its last accepted connection, as `register_throttle.c`
+   already does for REGISTER. TRUE keeps ircu's penalty.
+
+3. **A separate limit for WebSocket ports.** Not done: it relaxes the
    throttle for everything on those ports, logged in or not.
+
+The client no longer models any of this (§ What the client does now): with
+the refund on, a logged-in client is rarely throttled, and when it is, the
+server's word or the 42 s fallback covers it.
 
 The alternative that needs no server change is a native shell (E.4), which
 can hold its socket in the background for longer than a page can.
@@ -127,6 +159,7 @@ The dev ircd relaxes the throttle (`tools/nefarious-dev/local.conf`: 100 /
 run a private copy of the conf with the `IPCHECK_CLONE_*` features removed,
 and wait out `IPCHECK_CLONE_DELAY`: the throttle is off for 600 s after the
 ircd boots. Then dial four times within 40 s gaps
-(`node tools/irc-ws-probe.mjs ws://127.0.0.1:8067/ x`); the fourth gets no 101. The client's side is covered by `test/irc/dialLedger.ts`,
-`test/irc/transport.ts` "the dial gate" and
-`tools/scenarios/reconnect-throttle.mjs`.
+(`node tools/irc-ws-probe.mjs ws://127.0.0.1:8067/ x`); the fourth gets no 101. The client's side is covered by `test/irc/transport.ts`
+"the server's throttle", `test/irc/throttleError.ts`, `test/irc/client.ts`
+"the server's throttle" and `tools/scenarios/reconnect-throttle.mjs` (which
+stands in for the server's ERROR, since the dev ircd does not send it yet).

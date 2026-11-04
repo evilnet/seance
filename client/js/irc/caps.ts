@@ -94,6 +94,7 @@ export const SEANCE_CAPS: CapNegotiatorOptions = {
 		"draft/metadata-2",
 		"draft/persistence",
 		"draft/pre-away",
+		"soju.im/search",
 	],
 };
 

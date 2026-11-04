@@ -1,7 +1,7 @@
 import {store} from "../store";
 import {router} from "../router";
 
-// `/search <query>` — open the in-memory search window for the active channel.
+// `/search <query>` — open the search window for the active channel.
 export function input(args: string[]): boolean {
 	const channel = store.state.activeChannel?.channel;
 

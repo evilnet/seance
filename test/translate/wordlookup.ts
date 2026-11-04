@@ -26,7 +26,7 @@ const prior = (...langs: string[]) => {
 describe("translate/wordlookup", () => {
 	// The committed table is the table: the lookup is only as good as what
 	// the generator put in it, so the tests read the real thing rather than a
-	// fixture. The dynamic import is webpack's concern (its own chunk); mocha
+	// fixture. The dynamic import is the bundler's concern (its own chunk); mocha
 	// injects.
 	before(() => setWordlist(table));
 	after(() => setWordlist(null));

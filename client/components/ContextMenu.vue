@@ -26,7 +26,7 @@
 			@keydown.enter.prevent="clickActiveItem"
 		>
 			<!-- TODO: type -->
-			<template v-for="(item, id) of (items as any)" :key="item.name">
+			<template v-for="(item, id) of (items as any)" :key="id">
 				<li
 					:id="`context-menu-item-${id}`"
 					:class="[
@@ -120,36 +120,40 @@ export default defineComponent({
 			const menuWidth = contextMenu.value?.offsetWidth;
 			const menuHeight = contextMenu.value?.offsetHeight;
 
+			// The container is the visible band (#viewport, sized to the visual
+			// viewport on touch devices): `innerHeight` still counts the part
+			// under iOS's keyboard. The menu is capped to the band's height in
+			// style.css and scrolls, so clamping its top to 0 keeps it whole.
+			// In the native shell the container starts below the status bar
+			// (style.css), so viewport coordinates are taken into its own —
+			// `clientX/Y`, which match `getBoundingClientRect()`; `pageX/Y` are
+			// off by the scroll while iOS scrolls the page for the keyboard.
+			const container = contextMenu.value.parentElement;
+			const band = container?.getBoundingClientRect();
+			const bandWidth = container?.clientWidth || window.innerWidth;
+			const bandHeight = container?.clientHeight || window.innerHeight;
+			const fit = (offset: {left: number; top: number}) => ({
+				left: Math.max(0, Math.min(offset.left - (band?.left ?? 0), bandWidth - menuWidth)),
+				top: Math.max(0, Math.min(offset.top - (band?.top ?? 0), bandHeight - menuHeight)),
+			});
+
 			if (element && element.classList.contains("menu")) {
 				// Dropdown anchored under the header button. LTR right-aligns it
 				// to the button (it opens toward the content); RTL mirrors the
 				// button onto the opposite screen edge, so the menu anchors to
-				// the button's other edge and opens the mirrored way. Clamp both
-				// inside the viewport: whichever edge the mirrored layout parks
-				// the button against, the menu stays on screen.
+				// the button's other edge and opens the mirrored way. fit()
+				// keeps either inside the band, whichever edge the mirrored
+				// layout parks the button against.
 				const rect = element.getBoundingClientRect();
 				const rtl = window.getComputedStyle(element).direction === "rtl";
-				const left = rtl ? rect.left : rect.right - menuWidth;
 
-				return {
-					left: Math.min(Math.max(left, 0), window.innerWidth - menuWidth),
+				return fit({
+					left: rtl ? rect.left : rect.right - menuWidth,
 					top: rect.top + element.offsetHeight,
-				};
+				});
 			}
 
-			const offset = {left: event.pageX, top: event.pageY};
-
-			// Never off the left or top edge: a menu as wide as a phone's
-			// screen (the presence pill's at the large step) began 2px off it.
-			if (window.innerWidth - offset.left < menuWidth) {
-				offset.left = Math.max(0, window.innerWidth - menuWidth);
-			}
-
-			if (window.innerHeight - offset.top < menuHeight) {
-				offset.top = Math.max(0, window.innerHeight - menuHeight);
-			}
-
-			return offset;
+			return fit({left: event.clientX, top: event.clientY});
 		};
 
 		const hoverItem = (id: number) => {
@@ -228,8 +232,19 @@ export default defineComponent({
 			open(data.event, newItems);
 		};
 
-		const openInlineChannelContextMenu = (data: {channel: string; event: MouseEvent}) => {
-			const {network} = store.state.activeChannel;
+		const openInlineChannelContextMenu = (data: {
+			channel: string;
+			event: MouseEvent;
+			network?: ClientNetwork;
+		}) => {
+			// The network the text was shown for, as for a nick below: the page
+			// underneath may be on another network, or on none (Connect).
+			const network = data.network ?? store.state.activeChannel?.network;
+
+			if (!network) {
+				return;
+			}
+
 			const newItems = generateInlineChannelContextMenu(store, data.channel, network);
 
 			open(data.event, newItems);
@@ -243,8 +258,23 @@ export default defineComponent({
 		const openUserContextMenu = (data: {
 			user: Pick<ClientUser, "nick" | "modes">;
 			event: MouseEvent;
+			network?: ClientNetwork;
+			channel?: ClientChan;
 		}) => {
-			const {network, channel} = store.state.activeChannel;
+			// The network the nick was shown for (an oper card, a notice), not
+			// the active one: a card can be open for another network, and its
+			// Kill… or Whois would act there. The active channel only when it
+			// is on that network; else that network's lobby.
+			const active = store.state.activeChannel;
+			const network = data.network ?? active?.network;
+
+			if (!network) {
+				return;
+			}
+
+			const channel =
+				data.channel ??
+				(active?.network.uuid === network.uuid ? active.channel : network.channels[0]);
 
 			const newItems = generateUserContextMenu(
 				store,

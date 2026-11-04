@@ -1,8 +1,8 @@
 /**
  * The push worker's i18n: the same Vue-free resolver the app uses
  * (client/js/i18n/core.ts, en bundled with it), with the overlay fetched
- * per tag instead of webpack-imported. A classic service worker may only
- * importScripts while it installs, so a lazy webpack chunk reached from
+ * per tag instead of imported. A classic service worker may only
+ * importScripts while it installs, so a lazy chunk reached from
  * the push handler could never load — the compiled catalogs are copied to
  * public/locales/ by the build instead, and the overlay is fetched
  * same-origin from the app root (the worker's script URL is the app root,

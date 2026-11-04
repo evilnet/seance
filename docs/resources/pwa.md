@@ -2,7 +2,7 @@
 
 What makes a Seance deploy installable from Chrome/Edge (desktop, Android,
 ChromeOS), how the installed app behaves, and how to check a deploy. The
-Electron and Capacitor shells (`shells/`) are separate; this is the
+app shell (`shells/tauri`) is separate; this is the
 zero-install path where the network just hosts `public/`.
 
 ## Deploy requirements
@@ -23,10 +23,10 @@ No server-side piece is needed. The static host must serve
 or `application/json`) — most do by extension; nginx needs
 `types { application/manifest+json webmanifest; }` if it doesn't already.
 
-`yarn build` without `NODE_ENV=production` is a **dev** build: the service
+`pnpm build` without `NODE_ENV=production` is a **dev** build: the service
 worker's cache name is `dev`, it caches nothing and never precaches, so the
 app is installable but not offline-capable and no update is ever detected.
-Ship `NODE_ENV=production corepack yarn build`.
+Ship `NODE_ENV=production pnpm build`.
 
 ## What the installed app does
 
@@ -51,18 +51,23 @@ Ship `NODE_ENV=production corepack yarn build`.
   "Install _App_ as an app". The button disappears once the prompt is shown
   or the app is installed (`appinstalled`).
 - **Offline cold start.** On install the service worker precaches the shell:
-  `index.html`, the manifest, `config.json`, the three JS bundles, `style.css`,
-  the default theme, the FontAwesome woff2 and the splash logos. So an installed
+  `index.html`, the manifest, `config.json`, the JS entry and what it imports
+  statically (Rolldown's runtime chunk), the loading-error handlers, the push
+  module, `style.css`, the default theme, the FontAwesome woff2 and the splash
+  logos. So an installed
   app launched with no connectivity still opens to the UI (saved networks show
   as disconnected and reconnect with backoff when the host comes back) instead
   of Chrome's error page. Runtime fetches are network-first with a cache
   fallback for everything else under the scope; WebSocket traffic never touches
   the worker.
 - **Updates.** Every build carries a _build token_ (`resolveBuild` in
-  `webpack.config.ts`: a hash of the version and the commit, so two builds of
+  `scripts/build-info.mts`: a hash of the version and the commit, so two builds of
   different commits never share one; a dirty tree or a checkout without git
   makes every build distinct): `?v=` on the asset URLs, the worker's cache
   name, and `process.env.SEANCE_BUILD` in the bundle (`client/js/build.ts`).
+  The one exception is the entry, `js/bundle-<hash>.js`: it is named by its
+  content instead, because lazy chunks import it by its plain name and a
+  page that had loaded `bundle.js?v=…` would run a second copy of the app.
   A deploy is a byte-different `service-worker.js`, which the browser
   installs when it next looks: on a page load, or when the app asks —
   `pwa.ts` `checkForUpdate()`, from the foreground hooks (throttled to one
@@ -128,7 +133,7 @@ and `maxTouchPoints` (an iPad asking for the desktop site says it is a Mac):
 When Chrome or Edge has already fired `beforeinstallprompt`, the introduction
 carries the real Install button (`promptInstall`) and the manual steps stay
 as the fallback; `appinstalled` closes the guide and dismisses it for good.
-The guide never opens in an installed window, in a Capacitor/Electron shell,
+The guide never opens in an installed window, in the app shell,
 or on a page that arrived with `?uri=`/connect parameters (that path has its
 own approval flow to show).
 
@@ -148,7 +153,7 @@ and `--platform=ios` override the user agent to walk the phone routes).
 ## Verifying a deploy
 
 ```sh
-NODE_ENV=production corepack yarn build
+NODE_ENV=production pnpm build
 python3 -m http.server -d public 8000 &
 node tools/pwa-check.mjs http://localhost:8000/
 ```

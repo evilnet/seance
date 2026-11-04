@@ -16,6 +16,7 @@
 import storage from "../localStorage";
 // Type only: saved-networks.ts imports this module for its forget function.
 import type {StorageBackend} from "./saved-networks";
+import {dict} from "../helpers/dict";
 
 export const USER_AWAY_KEY = "thelounge.state.away";
 
@@ -32,14 +33,14 @@ function readAll(): Record<string, string> {
 	try {
 		parsed = JSON.parse(backend.get(USER_AWAY_KEY) ?? "{}");
 	} catch {
-		return {};
+		return dict<string>();
 	}
 
 	if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-		return {};
+		return dict<string>();
 	}
 
-	const out: Record<string, string> = {};
+	const out = dict<string>();
 
 	for (const [uuid, text] of Object.entries(parsed as Record<string, unknown>)) {
 		if (typeof text === "string" && text !== "") {

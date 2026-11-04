@@ -1,14 +1,14 @@
-// The Android shell's stand-in for the Push API (shells/capacitor:
-// NativePushPlugin.java, PushService.java). Its WebView has no PushManager,
+// The Android shell's stand-in for the Push API (shells/tauri:
+// NativePush.kt, PushService.java). Its WebView has no PushManager,
 // so a subscription there is a UnifiedPush registration made with the
 // network's VAPID key — through FCM on a phone with Google Play services,
 // or the user's own distributor — which hands back the same
 // `{endpoint, keys}` a browser gives webpush.ts, and is registered with the
 // ircd exactly as a browser's would be. Only the bridge is touched
-// (helpers/capacitor.ts imports nothing); everywhere else every call is a
+// (helpers/shell.ts imports nothing); everywhere else every call is a
 // no-op.
 
-import {NativeCallError, isAndroidShell, nativeCall, nativeInvoke, nativeListen} from "./capacitor";
+import {NativeCallError, isAndroidShell, nativeCall, nativeInvoke, nativeListen} from "./shell";
 
 export interface NativePushMaterial {
 	endpoint: string;

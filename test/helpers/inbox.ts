@@ -15,6 +15,7 @@ import {
 	parseDismissed,
 	parseStored,
 	pruneRead,
+	withoutDismissalsOf,
 	type Dismissal,
 } from "../../client/js/helpers/inbox";
 import type {InboxEntry} from "../../shared/types/mention";
@@ -280,6 +281,31 @@ describe("helpers/inbox.ts", function () {
 			expect(parseStored(JSON.stringify({}))).to.deep.equal([]);
 			expect(parseStored(null)).to.deep.equal([]);
 			expect(parseDismissed(JSON.stringify([{key: 1}]))).to.deep.equal([]);
+		});
+	});
+
+	describe("withoutDismissalsOf", function () {
+		const one: InboxEntry = {
+			network: "n",
+			target: "#a",
+			msgid: "m1",
+			time: "2026-11-04T10:00:00.000Z",
+			type: MessageType.MESSAGE,
+			text: "wren",
+			from: {nick: "kitten"},
+		};
+
+		it("forgets the dismissals of the entries, and no others", function () {
+			const other = dismissalOf({...one, msgid: "m2"});
+			expect(withoutDismissalsOf([dismissalOf(one), other], [one])).to.deep.equal([other]);
+		});
+
+		it("keeps a later line's dismissal, which still holds the older line back", function () {
+			const query = {...one, target: "juniper", query: true as const};
+			const later = dismissalOf({...query, time: "2026-11-04T11:00:00.000Z"});
+			const left = withoutDismissalsOf([dismissalOf(query), later], [query]);
+			expect(left).to.deep.equal([later]);
+			expect(addEntries([], [query], left)).to.deep.equal([]);
 		});
 	});
 });

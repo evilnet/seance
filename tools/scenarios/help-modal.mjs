@@ -3,7 +3,7 @@
 // with a header (title + ✕), a body that scrolls by itself and a footer
 // with Done; the release notes are reached from Help and lead back to it.
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   pnpm build && python3 -m http.server -d public 8000 &
 //   node tools/browser-drive.mjs tools/scenarios/help-modal.mjs
 //   node tools/browser-drive.mjs tools/scenarios/help-modal.mjs --width=390 --height=844
 //

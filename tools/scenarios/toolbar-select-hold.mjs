@@ -6,7 +6,7 @@
 // selectable, so the handles can cross messages; a tap collapses the
 // selection and puts everything back.
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d
 //   node tools/browser-drive.mjs tools/scenarios/toolbar-select-hold.mjs --mobile
 //

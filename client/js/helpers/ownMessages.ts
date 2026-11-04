@@ -11,7 +11,7 @@
 
 export const ownMessageStyles = ["muted", "band", "plain"] as const;
 
-export type OwnMessageStyle = typeof ownMessageStyles[number];
+export type OwnMessageStyle = (typeof ownMessageStyles)[number];
 
 export const defaultOwnMessageStyle: OwnMessageStyle = "muted";
 

@@ -3,7 +3,7 @@
 // touched for two minutes, stays visible to the browser and would otherwise
 // animate — and repaint the glass over the scene — all day.
 //
-//   NODE_ENV=production corepack yarn build && python3 -m http.server -d public 8001 &
+//   NODE_ENV=production pnpm build && python3 -m http.server -d public 8001 &
 //   node tools/browser-drive.mjs tools/scenarios/scene-rest.mjs
 //
 // No ircd: the connect form has the scene behind it. The run exports

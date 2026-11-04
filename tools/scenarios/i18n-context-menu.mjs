@@ -11,8 +11,7 @@
 // network.mjs dispatches the registration `init` event; no ircd is dialed),
 // so this needs the servable development build (window.socket is dev-only):
 //
-//   NODE_ENV=development npx tsx tools/i18n/compile.ts \
-//     && NODE_ENV=development npx webpack        # the servable dev build
+//   NODE_ENV=development pnpm build             # the servable dev build
 //   python3 -m http.server -d public 8000 &
 //   CHROME_BIN=$PWD/tmp/chrome-headless-wrapper.sh \
 //     node tools/browser-drive.mjs tools/scenarios/i18n-context-menu.mjs

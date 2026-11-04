@@ -11,6 +11,12 @@ describe("parseIrcUri helper", function () {
 		});
 	});
 
+	it("should read web+ircs:// exactly as web+irc://", function () {
+		expect(parseIrcUri("web+ircs://example.com:1337/#chan")).to.deep.equal(
+			parseIrcUri("web+irc://example.com:1337/#chan")
+		);
+	});
+
 	it("should parse web+irc:// with port", function () {
 		expect(parseIrcUri("web+irc://example.com:1337")).to.deep.equal({
 			tls: true,

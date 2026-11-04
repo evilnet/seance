@@ -6,10 +6,11 @@
  *
  * A file of its own, loaded synchronously from <head> ahead of the
  * stylesheet, rather than inline: a deploy's Content-Security-Policy (the
- * Electron shell's `script-src 'self'`, shells/electron/main.js) refuses
+ * Tauri shell's `script-src`, shells/tauri/src-tauri/tauri.conf.json) refuses
  * inline scripts, and a hash would change with every locale list. Copied
- * rather than bundled (it runs before the bundle loads); webpack.config.ts
- * writes the locale list from client/locales/tags.json over the quoted
+ * rather than bundled (it runs before the bundle loads); the build
+ * (scripts/build-info.mts withAvailableLocales, through vite.config.mts's
+ * copies) writes the locale list from client/locales/tags.json over the quoted
  * marker below as it copies, dropping the dev-only tags from a production
  * build.
  *

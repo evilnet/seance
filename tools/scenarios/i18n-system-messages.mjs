@@ -6,7 +6,7 @@
 // and the interpolated names sit inside <bdi> so the RTL pseudo text cannot
 // bleed into them.
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   NODE_ENV=development pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d
 //   CHROME_BIN=$PWD/tmp/chrome-headless-wrapper.sh \
 //     node tools/browser-drive.mjs tools/scenarios/i18n-system-messages.mjs

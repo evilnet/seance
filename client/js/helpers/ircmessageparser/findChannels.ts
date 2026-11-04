@@ -1,7 +1,3 @@
-// Escapes the RegExp special characters "^", "$", "", ".", "*", "+", "?", "(",
-// ")", "[", "]", "{", "}", and "|" in string.
-// See https://lodash.com/docs/#escapeRegExp
-import escapeRegExp from "lodash/escapeRegExp";
 import {Part} from "./merge";
 
 export type ChannelPart = Part & {
@@ -11,8 +7,7 @@ export type ChannelPart = Part & {
 // escapes a regex in a way that's compatible to shove it in
 // a regex char set (meaning it also escapes -)
 function escapeRegExpCharSet(raw: string): string {
-	const escaped: string = escapeRegExp(raw);
-	return escaped.replace("-", "\\-");
+	return raw.replace(/[\\^$.*+?()[\]{}|-]/g, "\\$&");
 }
 
 // Given an array of channel prefixes (such as "#" and "&") and an array of user

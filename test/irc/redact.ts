@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import socket from "../../client/js/socket";
 import {registerBusHandlers} from "../../client/js/irc/bus";
 import {ChanType} from "../../shared/types/chan";
@@ -37,6 +37,14 @@ describe("Message deletion (REDACT, handlers/redact.ts)", function () {
 				"REDACT #seance m1 :oops, wrong channel",
 				"REDACT #seance m2",
 			]);
+		});
+
+		it("keeps the reason's spacing as typed", function () {
+			const h = setup();
+			const id = joined(h);
+
+			h.client.input(id, "/redact  m1  oops,  wrong   channel");
+			expect(h.sent()).to.deep.equal(["REDACT #seance m1 :oops,  wrong   channel"]);
 		});
 
 		it("routes the msg:redact bus emit to the owning client", function () {
@@ -158,8 +166,9 @@ describe("Message deletion (REDACT, handlers/redact.ts)", function () {
 				{label}
 			);
 
-			const [more] =
-				h.payloads<{messages: {id: number; msgid?: string; text?: string}[]}>("more");
+			const [more] = h.payloads<{messages: {id: number; msgid?: string; text?: string}[]}>(
+				"more"
+			);
 			expect(more.messages.map((m) => m.msgid)).to.deep.equal(["h1"]);
 			const [payload, ...rest] = h.payloads<RedactPayload>("msg:redact");
 			expect(rest).to.have.length(0);
@@ -208,6 +217,12 @@ describe("Message deletion (REDACT, handlers/redact.ts)", function () {
 
 			h.transport.line("FAIL REDACT SOMETHING_NEW #seance m1 :Server says no");
 			expect(h.lastMessage().text).to.equal("Could not delete message: Server says no");
+
+			// A code it does not know, and no words from the server: say the code
+			h.transport.line("FAIL REDACT SOMETHING_NEW");
+			expect(h.lastMessage().text).to.equal("Could not delete message: SOMETHING_NEW");
+			h.transport.line("FAIL REDACT SOMETHING_NEW bob m1 :");
+			expect(h.lastMessage().text).to.equal("Could not delete message: SOMETHING_NEW");
 		});
 	});
 });

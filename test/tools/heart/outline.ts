@@ -88,7 +88,7 @@ describe("tools/heart outlines", function () {
 		]);
 		const frame = outlineFrame(blob, {ty: 0, leg: 0}, null);
 		expect(frame.failed).to.be.false;
-		expect(frame.layers.map((l) => l.cls)).to.deep.equal(["far", "near"]);
+		expect(frame.layers.map((l: {cls: string}) => l.cls)).to.deep.equal(["far", "near"]);
 		expect(frame.layers[0].pts).to.have.length(48);
 		expect(frame.layers[1].pts).to.have.length(128);
 		const next = outlineFrame(blob, {ty: -2, leg: 10}, frame.layers);

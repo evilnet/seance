@@ -40,7 +40,7 @@ function emptyNote(lines: IrcMessage[], outcome: string): string | undefined {
 /** `STATS <selector> [server]` → the profile's table for that selector. */
 export async function runStats(client: IrcClient, chan: Channel, args: string[]): Promise<void> {
 	const selector = args[0] ?? "";
-	const line = formatLine({command: "STATS", params: args.filter(Boolean)});
+	const line = formatLine({command: "STATS", params: args});
 	const reply = await request(client, line, {end: ["219"]});
 	const report = client.profile.statsReport(selector || "*", reply.lines, line);
 	const note = emptyNote(reply.lines, reply.outcome);
@@ -50,7 +50,7 @@ export async function runStats(client: IrcClient, chan: Channel, args: string[])
 
 /** `CHECK …` → the profile's card, else the raw lines. */
 export async function runCheck(client: IrcClient, chan: Channel, args: string[]): Promise<void> {
-	const line = formatLine({command: "CHECK", params: args.filter(Boolean)});
+	const line = formatLine({command: "CHECK", params: args});
 	const reply = await request(client, line, {end: ["291", "292"]});
 	const note = emptyNote(reply.lines, reply.outcome);
 	const report =
@@ -62,7 +62,7 @@ export async function runCheck(client: IrcClient, chan: Channel, args: string[])
 
 /** `PRIVS [nick]` → the privileges as chips (270 arrives untagged, #120). */
 export async function runPrivs(client: IrcClient, chan: Channel, args: string[]): Promise<void> {
-	const line = formatLine({command: "PRIVS", params: args.filter(Boolean)});
+	const line = formatLine({command: "PRIVS", params: args});
 	const reply = await request(client, line, {untagged: ["270"]});
 	const replies = reply.lines.filter((msg) => msg.command === "270");
 	const error = errorOf(reply.lines) ?? emptyNote(reply.lines, reply.outcome);
@@ -102,26 +102,24 @@ function usage(client: IrcClient, chan: Channel, text: string): void {
 
 /** Send plainly (no labels on this server): the replies render raw. */
 function sendPlain(client: IrcClient, command: string, args: string[]): void {
-	client.send(formatLine({command, params: args.filter(Boolean)}));
+	client.send(formatLine({command, params: args}));
 }
 
 const oper: Command = {
 	commands: ["stats", "check", "privs"],
 	input({client, chan, cmd, args}) {
-		const params = args.filter((arg) => arg.length > 0);
-
-		if (cmd === "check" && params.length === 0) {
+		if (cmd === "check" && args.length === 0) {
 			usage(client, chan, t("oper.usage.check"));
 			return;
 		}
 
 		if (!canRequest(client)) {
-			sendPlain(client, cmd.toUpperCase(), params);
+			sendPlain(client, cmd.toUpperCase(), args);
 			return;
 		}
 
 		const run = cmd === "stats" ? runStats : cmd === "check" ? runCheck : runPrivs;
-		void run(client, chan, params);
+		void run(client, chan, args);
 	},
 };
 

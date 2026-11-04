@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import {migrateStoredSettings} from "../../client/js/helpers/settingsMigration";
+import {migrateStoredSettings, readStoredSettings} from "../../client/js/helpers/settingsMigration";
 
 describe("settingsMigration", function () {
 	const shell = {
@@ -100,5 +100,27 @@ describe("settingsMigration", function () {
 	it("does nothing where the new setting defaults to off", function () {
 		const stored = {fontSize: "huge", theme: "creama"};
 		expect(migrateStoredSettings(stored, web)).to.deep.equal(stored);
+	});
+});
+
+describe("readStoredSettings", function () {
+	it("reads a damaged entry as nothing stored", function () {
+		for (const stored of [5, "x", null, [], undefined]) {
+			expect(readStoredSettings(stored)).to.deep.equal({});
+		}
+	});
+
+	it("joins an old highlights list back into a string, its strings only", function () {
+		expect(readStoredSettings({highlights: ["a", "b"]})).to.deep.equal({highlights: "a, b"});
+		// An element that cannot become a string threw inside join
+		expect(readStoredSettings({highlights: ["a", {toString: 1}, 2, "b"]})).to.deep.equal({
+			highlights: "a, b",
+		});
+	});
+
+	it("leaves any other highlights to the store's type check", function () {
+		// `{}` has no join: it threw here and the app did not start
+		expect(readStoredSettings({highlights: {}})).to.deep.equal({highlights: {}});
+		expect(readStoredSettings({highlights: "a, b"})).to.deep.equal({highlights: "a, b"});
 	});
 });

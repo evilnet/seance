@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">"Seance"</string>
+    <string name="main_activity_title">"Seance"</string>
+    <string name="keepalive_channel_name">Background connection</string>
+    <string name="keepalive_channel_description">Shown while the app keeps its chat connections open in the background.</string>
+    <string name="keepalive_notification_title">%1$s is connected</string>
+    <string name="keepalive_notification_text">Staying connected in the background.</string>
+    <string name="keepalive_notification_stop">Turn off</string>
+</resources>

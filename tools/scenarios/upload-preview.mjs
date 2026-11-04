@@ -4,7 +4,7 @@
 // Needs the app served with an `uploads.endpoint` that points at a CORS-
 // enabled uploader you control, and an ircd to connect to:
 //
-//   corepack yarn build
+//   pnpm build
 //   # public/config.json → {"appName":"Seance","uploads":{"endpoint":"https://127.0.0.1:8099/upload"}}
 //   python3 -m http.server -d public 8001 &
 //   node <fake uploader on 8099: multipart POST /upload → {"url": …}; GET /__stats → {uploads:[{name,size,sha256,hasExif}], aborted}>
@@ -12,7 +12,7 @@
 //
 //   SEANCE_UPLOADER=https://127.0.0.1:8099 overrides where /__stats is read.
 //
-// What `yarn test` cannot see and this does: that a paste or a drop opens
+// What `pnpm test` cannot see and this does: that a paste or a drop opens
 // the dialog instead of uploading, that the dialog decodes and shows the
 // images (an animated WebP included), that removing and cancelling work,
 // that confirming shows the strip above the input with the file's name,

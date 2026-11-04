@@ -1,22 +1,26 @@
-// The native shells' message alerts. Neither WebView has the Notification
+// The native shells' message alerts. No shell's WebView has the Notification
 // API, so the page hands its alert to the OS, which owns the banner and the
 // sound (an <audio> ping took the audio session and stopped Music).
 //
-// - iOS: the LocalNotifications plugin, which presents them in front too.
+// - iOS, macOS, Windows, Linux: the Tauri shell's LocalNotifications (Swift
+//   on iOS and macOS, src/alerts.rs elsewhere), shown in front too; a click opens the
+//   conversation, and reading it takes the alert back except on Windows,
+//   which cannot remove a shown toast.
 // - Android: the shell's push service (NativePush `show`), so a page alert
 //   and a push are the same notification: merged per conversation, cleared
 //   on read (webpush.ts readOnWorker), tapped through helpers/nativePush.ts.
 
-import {isAndroidShell, isIOSShell, nativeCall, nativeListen} from "./capacitor";
+import {isAndroidShell, isDesktopShell, nativeCall, nativeListen, nativePlatform} from "./shell";
 
-/** The ping, from the app bundle's copy of the web build (`App/public/`).
- * iOS only: the plugin looks a bare name up in `public/`'s top level alone,
- * so the path is bundle-relative and goes to `UNNotificationSound` as is.
- * Android's alert takes its channel's sound (PushService `messages`). */
-const IOS_SOUND = "public/audio/pop.wav";
+/** The ping, as a path in the app bundle, which goes to `UNNotificationSound`
+ * as is: the iOS bundle's copy of the web build (`App/public/`), and on macOS
+ * the one file the Tauri shell puts there (tauri.conf.json `bundle.macOS`).
+ * Android's alert takes its channel's sound (PushService `messages`), and
+ * Windows and Linux the platform's own ping. */
+const APPLE_SOUND = "public/audio/pop.wav";
 
 export function nativeAlertsAvailable(): boolean {
-	return isIOSShell() || isAndroidShell();
+	return ["ios", "android", "macos", "windows", "linux"].includes(nativePlatform());
 }
 
 let asking: Promise<boolean | null> | null = null;
@@ -37,7 +41,10 @@ export function askNativeAlertPermission(): Promise<boolean | null> {
 async function ask(): Promise<boolean | null> {
 	let answer: string | undefined;
 
-	if (isIOSShell()) {
+	if (isAndroidShell()) {
+		answer = (await nativeCall<{permission?: string}>("NativePush", "askPermission"))
+			?.permission;
+	} else {
 		type Display = {display?: string};
 		answer = (await nativeCall<Display>("LocalNotifications", "checkPermissions"))?.display;
 
@@ -45,9 +52,6 @@ async function ask(): Promise<boolean | null> {
 			answer = (await nativeCall<Display>("LocalNotifications", "requestPermissions"))
 				?.display;
 		}
-	} else if (isAndroidShell()) {
-		answer = (await nativeCall<{permission?: string}>("NativePush", "askPermission"))
-			?.permission;
 	}
 
 	return answer === "granted" ? true : answer === "denied" ? false : null;
@@ -72,11 +76,11 @@ export interface NativeAlert {
 	};
 }
 
-/** The id iOS keeps an alert under: one per conversation and the same across
+/** The id an alert is kept under: one per conversation and the same across
  * reloads (the page's channel ids are not), so a new alert replaces the
  * conversation's last and reading it clears it. Positive, as the plugin
  * takes an Int32. */
-export function iosAlertId(network: string, target: string): number {
+export function alertId(network: string, target: string): number {
 	const key = `${network}\n${target.toLowerCase()}`;
 	let hash = 0x811c9dc5;
 
@@ -106,10 +110,10 @@ export async function showNativeAlert(alert: NativeAlert): Promise<boolean> {
 	await nativeCall("LocalNotifications", "schedule", {
 		notifications: [
 			{
-				id: iosAlertId(alert.network, alert.target),
+				id: alertId(alert.network, alert.target),
 				title: alert.title,
 				body: alert.body,
-				...(alert.sound ? {sound: IOS_SOUND} : {}),
+				...(alert.sound ? {sound: APPLE_SOUND} : {}),
 				extra: {network: alert.network, target: alert.target},
 			},
 		],
@@ -117,16 +121,18 @@ export async function showNativeAlert(alert: NativeAlert): Promise<boolean> {
 	return true;
 }
 
-/** The conversation was read: its iOS alert goes. */
+/** The conversation was read: its alert goes (iOS, macOS, Linux; Windows
+ * cannot take a toast back). */
 export function clearNativeAlert(network: string, target: string): void {
 	void nativeCall("LocalNotifications", "removeDeliveredNotifications", {
-		notifications: [{id: iosAlertId(network, target)}],
+		notifications: [{id: alertId(network, target)}],
 	});
 }
 
-/** A tapped iOS alert: the conversation it was about. */
+/** A tapped alert (iOS, macOS, Windows, Linux): the conversation it was about. Android's
+ * taps come through helpers/nativePush.ts. */
 export function onNativeAlertTap(handler: (network: string, target: string) => void): void {
-	if (!isIOSShell()) {
+	if (!nativeAlertsAvailable() || isAndroidShell()) {
 		return;
 	}
 
@@ -141,4 +147,14 @@ export function onNativeAlertTap(handler: (network: string, target: string) => v
 			}
 		}
 	);
+}
+
+/** An alert came while the window was not in front: the desktop shells bounce
+ * the Dock icon (macOS), flash the taskbar button (Windows) or mark the
+ * window urgent (Linux). The shell does nothing while the window has the
+ * focus, and the platform stops it once the window comes forward. */
+export function requestAttention(): void {
+	if (isDesktopShell()) {
+		void nativeCall("App", "requestAttention");
+	}
 }

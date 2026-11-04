@@ -6,7 +6,7 @@ import type {Highlighted} from "../js/helpers/ircmessageparser/highlighter";
 
 // One row per line, so the gutter can count them in CSS and a copy of the
 // block yields only the code. Highlighting arrives late or not at all: the
-// highlighter, the grammar and the language guesser are all webpack chunks, and
+// highlighter, the grammar and the language guesser are all lazy chunks, and
 // an installed app offline has none of them (the service worker precaches the
 // shell, not these). Until then — and forever, for a language nobody named and
 // nothing recognised — the block is plain monospace text.
@@ -117,9 +117,7 @@ export default defineComponent({
 			const code = props.code;
 
 			try {
-				const highlighter = await import(
-					/* webpackChunkName: "highlighter" */ "../js/helpers/ircmessageparser/highlighter"
-				);
+				const highlighter = await import("../js/helpers/ircmessageparser/highlighter");
 
 				// A tag is taken at its word; only an untagged block is guessed
 				const lang = props.lang

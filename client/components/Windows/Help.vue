@@ -1110,6 +1110,7 @@ import {computed, defineComponent} from "vue";
 import {useStore} from "../../js/store";
 import {useI18n} from "../../js/i18n";
 import {KEEP} from "../../js/i18n/core";
+import {isApplePlatform} from "../../js/helpers/device";
 import {
 	buildIdentityOf,
 	buildTrackOf,
@@ -1129,12 +1130,12 @@ export default defineComponent({
 		const {t} = useI18n();
 		const title = computed(() => t("help.title"));
 		const ctcpTitle = computed(() => t("help.commands.ctcpTitle"));
-		const isApple = navigator.platform.match(/(Mac|iPhone|iPod|iPad)/i) || false;
+		const isApple = isApplePlatform();
 		const isTouch = navigator.maxTouchPoints > 0;
 		const appName = computed(() => store.state.branding.appName);
 		const links = computed(() => store.state.branding.links ?? {});
 
-		// What this build is (configuration.ts, filled in by webpack), which
+		// What this build is (configuration.ts, filled in by the build), which
 		// of the Pages site's builds it is, and where it comes from
 		// (branding.links.source).
 		const build = computed(() => buildIdentityOf(store.state.serverConfiguration));

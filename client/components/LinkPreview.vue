@@ -58,7 +58,7 @@
 						:href="link.link"
 						class="toggle-thumbnail"
 						target="_blank"
-						rel="noopener noreferrer"
+						rel="noopener"
 						@click="onThumbnailClick"
 					>
 						<!-- An animation plays once, then this still of it stands in
@@ -79,7 +79,6 @@
 							ref="image"
 							:src="link.thumb"
 							decoding="async"
-							referrerpolicy="no-referrer"
 							alt=""
 							@load="onPreviewReady"
 							@error="onPreviewError"
@@ -98,7 +97,6 @@
 						preload="metadata"
 						controls
 						playsinline
-						referrerpolicy="no-referrer"
 						@loadedmetadata="onPreviewReady"
 						@error="onPreviewError"
 					>
@@ -110,7 +108,6 @@
 						v-show="link.sourceLoaded"
 						controls
 						preload="metadata"
-						referrerpolicy="no-referrer"
 						@loadedmetadata="onPreviewReady"
 						@error="onPreviewError"
 					>
@@ -142,7 +139,7 @@
 						class="media-tool media-tool-open"
 						:href="link.link"
 						target="_blank"
-						rel="noopener noreferrer"
+						rel="noopener"
 						:title="openAria"
 						:aria-label="openAria"
 					></a>
@@ -200,7 +197,6 @@ async function probePlay(url: string): Promise<number | null | undefined> {
 		const response = await fetch(url, {
 			mode: "cors",
 			credentials: "omit",
-			referrerPolicy: "no-referrer",
 			cache: "force-cache",
 		});
 		const length = Number(response.headers.get("content-length") ?? 0);
@@ -257,14 +253,12 @@ export default defineComponent({
 		const openAria = computed(() => t("link.openNewTab"));
 		const imageViewer = inject(imageViewerKey);
 
-		onBeforeRouteUpdate((to, from, next) => {
+		onBeforeRouteUpdate(() => {
 			// cancel the navigation if the user is trying to close the image viewer
 			if (imageViewer?.value?.link) {
 				imageViewer.value.closeViewer();
-				return next(false);
+				return false;
 			}
-
-			next();
 		});
 
 		const content = ref<HTMLDivElement | null>(null);

@@ -5,7 +5,7 @@
 // slack than at the default. Measures the text against its column and
 // screenshots the chat at each step for the eye.
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   pnpm build && python3 -m http.server -d public 8000 &
 //   node tools/browser-drive.mjs tools/scenarios/message-gutter.mjs
 
 const RUN = Date.now().toString(36);

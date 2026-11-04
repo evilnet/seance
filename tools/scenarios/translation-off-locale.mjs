@@ -8,7 +8,7 @@
 // No ircd: an init script rewrites config.json's `translation` block on the
 // way in (window.fetch), so one served build covers both deploys.
 //
-//   NODE_ENV=production corepack yarn build
+//   NODE_ENV=production pnpm build
 //   python3 -m http.server -d public 8041 &
 //   SEANCE_HTTP=http://localhost:8041/ CHROME_BIN=/seance/tmp/chrome-pw.sh \
 //     node tools/browser-drive.mjs tools/scenarios/translation-off-locale.mjs

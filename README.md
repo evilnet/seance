@@ -43,8 +43,9 @@ SASL, `message-tags`,
   indicators, inline media previews, search, mentions, multiple networks.
 - **Installable.** Seance also supports use as a Chrome/Edge/Android PWA
   (Progressive Web App) ([`docs/resources/pwa.md`](docs/resources/pwa.md)),
-  and has a framework for being built as an Electron and
-  Capacitor app for desktop and mobile stores (ios/apple/etc) under [`shells/`](shells/).
+  and has an app shell, Tauri, for iOS, Android, Windows, macOS and Linux
+  ([`shells/tauri/`](shells/tauri/))
+  ([`docs/projects/desktop-shells.md`](docs/projects/desktop-shells.md)).
 
 Seance is built primarily and tested for **nefarious2** (`ircv3.2-upgrade` beta
 branch), EvilNet's ircd, but any ircd that offers IRC over WebSocket and the
@@ -77,14 +78,15 @@ CAPs or modify the implementation to suit us.
 
 ## Building and serving
 
-Requires [Node.js](https://nodejs.org/) 22 or newer and Yarn 1 (classic), which
-ships with Node's `corepack`.
+Requires [Node.js](https://nodejs.org/) 22 or newer and [pnpm](https://pnpm.io/)
+at the version `package.json`'s `packageManager` names
+(`npm i -g pnpm@12.16.1`).
 
 ```sh
 git clone https://github.com/evilnet/seance.git
 cd seance
-corepack yarn install
-NODE_ENV=production corepack yarn build
+pnpm install
+NODE_ENV=production pnpm build
 ```
 
 That produces `public/`. Serve it from any static host:
@@ -106,14 +108,13 @@ with a self-signed certificate, is described in
 ## Development
 
 ```sh
-corepack yarn watch      # rebuild public/ on change
-corepack yarn lint       # eslint + prettier + stylelint
-corepack yarn test       # lint + mocha
-corepack yarn test:mocha # mocha only (builds first)
+pnpm watch      # rebuild public/ on change
+pnpm lint       # oxlint + prettier + stylelint
+pnpm test       # lint + typecheck + mocha
+pnpm test:mocha # mocha only (builds first)
 ```
 
-Run `corepack yarn githooks-install` once to get the pre-commit lint hook. If
-linting fails, `corepack yarn format:prettier` usually fixes it.
+If linting fails, `pnpm format:prettier` usually fixes it.
 
 Live tests against a real ircd (`test/irc/*.live.ts`) run when
 `SEANCE_IRC_URL` points at one, e.g. `SEANCE_IRC_URL=wss://localhost:8443/`.
@@ -137,8 +138,8 @@ conventions.
 
 ## Status
 
-Usable as a daily client against nefarious2; branding, PWA, and Electron
-packaging are in place, mobile shells are scaffolded. Push notifications
+Usable as a daily client against nefarious2; branding and the PWA are
+in place, the mobile shells ship, and the desktop shell (Tauri) is a spike. Push notifications
 work on chrome/PWA but not yet in the app frameworks (it needs the
 ircd's `draft/webpush` to send). The original plan and its checklist are in
 [`docs/projects/initial_conversion.md`](docs/projects/initial_conversion.md).

@@ -4,15 +4,15 @@
 // as a `data-font-size` attribute on <html> (settings.ts) and the sizes live
 // entirely in style.css (`html[data-font-size=...] { font-size: N% }`, of the
 // browser's default font size), so a theme or the custom stylesheet can
-// override them. "large" is the browser default (16px unless the user changed
-// it); "medium" is the 14px the client shipped with before the scale applied
-// to the chrome too. Vue-free: test/helpers/fontSize.ts.
+// override them. "medium", the default, is the browser's default font size
+// (16px unless the user changed it), so a browser's own text size setting
+// carries through. Vue-free: test/helpers/fontSize.ts.
 
 export const fontSizes = ["tiny", "small", "medium", "large", "xlarge", "huge"] as const;
 
-export type FontSize = typeof fontSizes[number];
+export type FontSize = (typeof fontSizes)[number];
 
-export const defaultFontSize: FontSize = "large";
+export const defaultFontSize: FontSize = "medium";
 
 // The steps' reader-facing labels ("Tiny"…"Huge") live in the pot and are
 // translated at the render site (Settings/Appearance.vue): this module is

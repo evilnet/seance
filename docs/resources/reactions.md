@@ -173,7 +173,7 @@ generator fails loudly if gemoji grows a category the tab bar has no group for,
 or a name `findShortcode` would not recognise.
 
 `emoji.ts` reaches it through `loadEmojiCatalog()`, an `import()` — the data is
-its own ~88 kB chunk (`public/js/emoji-catalog.js`) that nobody downloads until
+its own ~88 kB chunk (`public/js/emoji-catalog.<hash>.js`) that nobody downloads until
 they open the picker. `searchEmoji()` scores every token against the name, then
 the description and keywords, and requires all of them to match, so `red heart`
 finds ❤️ rather than everything red; ties keep Unicode order.
@@ -219,7 +219,7 @@ navigation, the round trip through the ircd and the phone-sized sheet — are a
 scenario instead:
 
 ```sh
-corepack yarn build && python3 -m http.server -d public 8000 &
+pnpm build && python3 -m http.server -d public 8000 &
 tools/nefarious-dev/run.sh -d
 node tools/browser-drive.mjs tools/scenarios/reaction-picker.mjs
 ```

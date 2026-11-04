@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import socket from "../../client/js/socket";
 import {
 	loadScripts,
@@ -669,6 +669,25 @@ describe("Lua scripting subsystem", function () {
 			expect(res2.result).to.equal("nil");
 		});
 
+		it("keeps keys named after Object.prototype's members like any other", function () {
+			// A script keying its storage by nick or message text: `constructor`
+			// came back as a function and threw inside the VM, and a set of
+			// `__proto__` was dropped.
+			const res = sandbox.eval(
+				`
+				local before = tostring(seance.storage.get("constructor")) .. ","
+					.. tostring(seance.storage.get("toString"))
+				seance.storage.set("__proto__", "a")
+				seance.storage.set("constructor", "b")
+				return before .. "," .. seance.storage.get("__proto__") .. ","
+					.. seance.storage.get("constructor")
+			`,
+				"script_proto"
+			);
+			expect(res.success).to.be.true;
+			expect(res.result).to.equal("nil,nil,a,b");
+		});
+
 		it("persists storage across sandbox reloads and isolates scripts", async function () {
 			sandbox.eval(`seance.storage.set("shared_key", "value_for_s1")`, "script_1");
 			sandbox.eval(`seance.storage.set("shared_key", "value_for_s2")`, "script_2");
@@ -822,6 +841,25 @@ describe("Lua scripting subsystem", function () {
 			});
 			return h;
 		}
+
+		it("hands a message handler the line's tags", function () {
+			const h = connected();
+			const seen = sinon.spy(scriptManager, "dispatchMessage");
+
+			try {
+				h.transport.line(
+					"@time=2026-10-27T12:00:00.000Z;msgid=abc;account=bobacct :bob!b@host PRIVMSG #seance :hi"
+				);
+				expect(seen.calledOnce).to.equal(true);
+				expect(seen.firstCall.args[0].tags).to.deep.equal({
+					time: "2026-10-27T12:00:00.000Z",
+					msgid: "abc",
+					account: "bobacct",
+				});
+			} finally {
+				seen.restore();
+			}
+		});
 
 		it("sends a handler's reply through the fake-lag queue and ignores its own echo", function () {
 			const h = connected();

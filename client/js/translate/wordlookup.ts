@@ -19,7 +19,7 @@
 // Nothing is noted into the channel's prior from here: one word is no
 // evidence about what a channel speaks.
 //
-// Vue-free, store-free; the table is a separate webpack chunk, fetched on the
+// Vue-free, store-free; the table is a lazy chunk of its own, fetched on the
 // first short line that reaches the lookup.
 
 import type {Detection, LanguagePrior} from "./detect";
@@ -97,7 +97,7 @@ export function loadWordlist(): Promise<Wordlist> {
 		const fetchTable =
 			loader ??
 			(() =>
-				import(/* webpackChunkName: "wordlist" */ "./wordlist.json").then(
+				import("./wordlist.json").then(
 					(module) => (module.default ?? module) as unknown as Wordlist
 				));
 

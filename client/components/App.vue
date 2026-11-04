@@ -8,7 +8,17 @@
 			aria-hidden="true"
 			@click="store.commit('sidebarOpen', false)"
 		/>
-		<router-view ref="loungeWindow"></router-view>
+		<!-- Connect reads its query once, as it is set up: a link handed to
+		     the running app (a shell's appUrlOpen, a PWA launch) while it is
+		     open, or Cancel on a link back to the plain form, has to mount a
+		     new one. Every other route keeps its component. -->
+		<router-view v-slot:default="{Component, route}">
+			<component
+				:is="Component"
+				ref="loungeWindow"
+				:key="route.name === 'Connect' ? route.fullPath : undefined"
+			/>
+		</router-view>
 		<Mentions />
 		<ImageViewer ref="imageViewer" />
 		<ContextMenu ref="contextMenu" />
@@ -28,7 +38,7 @@ import {isPhoneLayout} from "../js/helpers/device";
 import {emitEscape, topEscapeLayer} from "../js/helpers/escapeLayer";
 import eventbus from "../js/eventbus";
 import Mousetrap, {ExtendedKeyboardEvent} from "mousetrap";
-import throttle from "lodash/throttle";
+import {throttle} from "../js/helpers/throttle";
 import storage from "../js/localStorage";
 import isIgnoredKeybind from "../js/helpers/isIgnoredKeybind";
 
@@ -57,7 +67,6 @@ import {
 import {useStore} from "../js/store";
 import {themeScene} from "../js/themeScene";
 import {ChanType} from "../../shared/types/chan";
-import type {DebouncedFunc} from "lodash";
 
 export const imageViewerKey = Symbol() as InjectionKey<Ref<typeof ImageViewer | null>>;
 const contextMenuKey = Symbol() as InjectionKey<Ref<typeof ContextMenu | null>>;
@@ -99,7 +108,7 @@ export default defineComponent({
 			};
 		});
 
-		const debouncedResize = ref<DebouncedFunc<() => void>>();
+		const debouncedResize = ref<() => void>();
 		const dayChangeTimeout = ref<any>();
 
 		const escapeKey = (e: ExtendedKeyboardEvent) => {
@@ -134,9 +143,15 @@ export default defineComponent({
 		};
 
 		const toggleMentions = () => {
-			if (store.state.networks.length !== 0) {
+			const layer = topEscapeLayer();
+
+			// Under a dialog the pane would take the keys, out of sight.
+			if (store.state.networks.length !== 0 && (layer === null || layer === "mentions")) {
 				eventbus.emit("mentions:toggle");
 			}
+
+			// As below: without it ⌥M types µ on an Apple keyboard.
+			return false;
 		};
 
 		const toggleMarkdown = () => {

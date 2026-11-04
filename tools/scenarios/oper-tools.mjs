@@ -22,7 +22,7 @@
 // reports O3's absence, Cancel closes it; the Alerts tab offers "New O3
 // alert…" and the folded list says O3 is not online.
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d      # local.conf grants the ban privileges
 //   node tools/browser-drive.mjs tools/scenarios/oper-tools.mjs
 //   node tools/browser-drive.mjs tools/scenarios/oper-tools.mjs --mobile --width=390 --height=844
@@ -156,6 +156,15 @@ async function openUserList(page) {
 const msgs = (type) => `Array.from(document.querySelectorAll("#chat .msg[data-type='${type}']"))`;
 
 export default async function run(page) {
+	// SEANCE_THEME=<name> runs it in another theme (the design survey).
+	if (process.env.SEANCE_THEME) {
+		await page.addInitScript(`(() => {
+			const s = JSON.parse(localStorage.getItem("settings") || "{}");
+			s.theme = ${JSON.stringify(process.env.SEANCE_THEME)};
+			localStorage.setItem("settings", JSON.stringify(s));
+		})()`);
+	}
+
 	await cleanup();
 	await page.goto(page.url, {waitForSelector: "#connect form"});
 	await page.evaluate(`document.querySelector("#connect form").requestSubmit()`);
@@ -455,6 +464,10 @@ export default async function run(page) {
 	await page.evaluate(`document.querySelector(".oper-raw").open = true`);
 	await page.waitFor(`!!document.querySelector("#oper .oper-bits")`, {label: "the raw mask"});
 	const readMask = `Number(document.querySelector(".oper-mask-readout code")?.textContent)`;
+	// The server's answer (008) waits behind oper-up's other questions.
+	await page
+		.waitFor(`${readMask} > 0`, {label: "the server's mask", timeout: 15000})
+		.catch(() => undefined);
 	const maskBefore = await page.evaluate(readMask);
 	page.check(
 		`the panel shows the server's mask (${maskBefore})`,
@@ -479,8 +492,17 @@ export default async function run(page) {
 
 	// Me: the status line, the privileges (folded when many), the modes grid.
 	await page.click(`.settings-menu button.oper-me`);
+	await page.sleep(1500);
+	// A 270 that arrived without the privileges showing (seen 2026-11-02,
+	// not yet explained): the check says so, then Refresh asks again.
+	const privsShown = await page.evaluate(`!!document.querySelector(".oper-me .oper-privs")`);
+	page.check("the privileges show without a Refresh", privsShown);
+	if (!privsShown) {
+		await page.click(".oper-me-privs .oper-refresh");
+	}
 	await page.waitFor(`!!document.querySelector(".oper-me .oper-privs")`, {
 		label: "the privileges",
+		timeout: 30000,
 	});
 	const privs = await page.evaluate(
 		`Array.from(document.querySelectorAll(".oper-privs .oper-chip-static")).map((c) => c.textContent.trim())`
@@ -613,10 +635,82 @@ export default async function run(page) {
 		`the user card says the snoop channel is missing ("${seenNote}")`,
 		seenNote === `Not in ${snoopChannel}: earlier sessions aren't kept.`
 	);
+
+	// Note… opens its own dialog over the card: the field, then Cancel and
+	// Save, whole inside the window; Save keeps it on the card, and Escape
+	// closes the note before the card.
+	const noteButton = `Array.from(document.querySelectorAll("${overlay} .oper-investigate-actions button")).find((b) => b.textContent.trim() === "Note…")`;
+	// The lookups settled first: a footer that re-renders between press and
+	// release (G-line… appearing as the privileges land) eats the click.
+	await page.waitFor(
+		`!/asking…/.test(document.querySelector("${overlay} .oper-investigate")?.textContent ?? "")`,
+		{label: "the user card's lookups done", timeout: 20000}
+	);
+	await page.sleep(300);
+	await page.evaluate(`${noteButton}.setAttribute("data-probe", "note")`);
+	await page.click(`${overlay} button[data-probe="note"]`);
+	await page.waitFor(`document.activeElement?.id === "oper-note-field"`, {
+		label: "the note dialog, its field focused",
+	});
+	await page.sleep(400); // the overlay fades in
+	const noteDialog = await page.evaluate(`(() => {
+		const r = document.querySelector("#oper-note-dialog").getBoundingClientRect();
+		const save = document.querySelector('#oper-note-dialog button[type="submit"]').getBoundingClientRect();
+		return {inside: r.top >= 0 && r.bottom <= innerHeight && r.left >= 0 && r.right <= innerWidth,
+			saveInside: save.bottom <= r.bottom && save.top >= r.top};
+	})()`);
+	page.check("the note dialog is inside the window", noteDialog.inside);
+	page.check("the note dialog's Save is in view", noteDialog.saveInside);
+	await page.screenshot("note-dialog", {selector: "#oper-note-dialog", pad: 8});
+	await page.fill("#oper-note-field", "seen in a probe run");
+	await page.click('#oper-note-dialog button[type="submit"]');
+	await page.waitFor(`!document.querySelector("#oper-note-overlay.opened")`, {
+		label: "the note dialog closed on Save",
+	});
+	page.check(
+		"Save puts the note on the card",
+		(await page.evaluate(
+			`document.querySelector("${overlay} .oper-note-text")?.textContent.trim() ?? ""`
+		)) === "seen in a probe run"
+	);
+	await page.sleep(400); // the note overlay fades out and would take the click
+	await page.click(`${overlay} .oper-note-edit`);
+	await page.waitFor(`document.activeElement?.id === "oper-note-field"`, {
+		label: "Edit reopens the note dialog",
+	});
+	await page.send("Input.dispatchKeyEvent", {
+		type: "keyDown",
+		key: "Escape",
+		code: "Escape",
+		windowsVirtualKeyCode: 27,
+	});
+	await page.send("Input.dispatchKeyEvent", {
+		type: "keyUp",
+		key: "Escape",
+		code: "Escape",
+		windowsVirtualKeyCode: 27,
+	});
+	await page.waitFor(`!document.querySelector("#oper-note-overlay.opened")`, {
+		label: "Escape closes the note dialog",
+	});
+	page.check("Escape leaves the card open", (await page.count(`${overlay}.opened`)) === 1);
+	await page.sleep(400);
 	await closeCard();
 
-	const o3 = helper("O3", () => {}, "Oper Services", snoopChannel);
+	// A real network service (+k, local.conf's seanceservice block): Seance
+	// logs a snoop line only from a bot WHOIS calls a service (bottrust.ts).
+	const o3 = helper(
+		"O3",
+		(send) => {
+			send("OPER seanceservice seance");
+			// Only once opered: sent together, the server took no +k.
+			setTimeout(() => send("MODE O3 +k"), 3000);
+		},
+		"Oper Services",
+		snoopChannel
+	);
 	await o3.ready;
+	await page.sleep(6000); // the OPER, then the MODE, through the rig's fake lag
 	await type(page, `/join ${snoopChannel}`);
 	await page.waitFor(
 		`!!document.querySelector('.channel-list-item[data-name="${snoopChannel}"].active')`,
@@ -624,6 +718,18 @@ export default async function run(page) {
 	);
 	await page.sleep(800);
 	const B = "\x02";
+	// Services back: their first line has Seance ask WHOIS (bottrust.ts),
+	// queued behind the fake lag, and only lines after the answer have their
+	// nicks marked. A warm-up line until its nick is one: the bot is trusted.
+	// A nick of this run's own: the channel's history replays earlier runs'
+	// warm-ups, whose nicks are marked by nick alone.
+	const warmNick = `warmup${Date.now() % 100000}`;
+	const warm = `!!document.querySelector('#chat .msg .content .user[data-name="${warmNick}"]')`;
+	for (let i = 0; i < 12 && !(await page.evaluate(warm)); i++) {
+		o3.send(`PRIVMSG ${snoopChannel} :[17:06:00] ${B}JOIN${B} #warmup by ${warmNick}`);
+		await page.sleep(4000);
+	}
+	page.check("O3 is trusted once WHOIS calls it a service", await page.evaluate(warm));
 	const snoopLines = [
 		`[17:07:07] ${B}UMODE${B} clonebot7 +xzCc AN-1A2B3C4D.example.net ABCDEF.123456.7890AB.CDEF01.IP`,
 		`[17:07:07] ${B}NICK${B} clonebot7 probe@host12.example.net () [192.0.2.10] on Hub.Example.Org`,
@@ -641,7 +747,9 @@ export default async function run(page) {
 		label: "the snoop lines in the channel",
 		timeout: 20000,
 	});
-	const rendered = await page.evaluate(`${snoopMsgs}.map((m) => ({
+	// This run's lines only: the rig keeps the channel's history, so earlier
+	// runs' identical lines come back above them.
+	const rendered = await page.evaluate(`${snoopMsgs}.slice(-${snoopLines.length}).map((m) => ({
 		nicks: Array.from(m.querySelectorAll(".content .user")).map((u) => u.dataset.name),
 		channels: Array.from(m.querySelectorAll(".content .inline-channel")).map((c) => c.textContent.trim()),
 		highlight: m.classList.contains("highlight"),
@@ -676,7 +784,9 @@ export default async function run(page) {
 	// The nick menu from the connect line (a tap on a nick opens it), and
 	// Investigate on it: the user card for a nick that is in no channel of
 	// ours, its lookups failing gracefully against the rig.
-	await page.click(`#chat .msg .content .user[data-name="clonebot7"]`, 1);
+	// The last one: this run's connect line (earlier runs' are above it).
+	const clonebotLast = (await page.count(`#chat .msg .content .user[data-name="clonebot7"]`)) - 1;
+	await page.click(`#chat .msg .content .user[data-name="clonebot7"]`, clonebotLast);
 	await page.waitFor(`!!document.querySelector("#context-menu .context-menu-oper-investigate")`, {
 		label: "Investigate in the snoop nick's menu",
 	});
@@ -713,7 +823,7 @@ export default async function run(page) {
 
 	// The channel menu from the JOIN line's #chan, and Investigate on it.
 	const exampleIndex = await page.evaluate(
-		`Array.from(document.querySelectorAll("#chat .msg .content .inline-channel")).findIndex((c) => c.textContent.trim() === "#example")`
+		`Array.from(document.querySelectorAll("#chat .msg .content .inline-channel")).findLastIndex((c) => c.textContent.trim() === "#example")`
 	);
 	page.check("the #chan in the JOIN line is found", exampleIndex >= 0);
 	await rightClick(page, `#chat .msg .content .inline-channel`, exampleIndex);
@@ -789,8 +899,10 @@ export default async function run(page) {
 				ip: b.querySelector(".oper-chip-ip")?.textContent.trim(),
 				sameAll: b.classList.contains("same-all"),
 			})),
-			seen: Array.from(root.querySelectorAll(".oper-seen li")).map((li) => li.textContent.replace(/\\s+/g, " ").trim()),
-			verdict: root.querySelector(".oper-verdict")?.textContent.replace(/\\s+/g, " ").trim(),
+			sub: root.querySelector(".oper-ident-sub")?.innerText.replace(/\\s+/g, " ").trim(),
+			seen: Array.from(root.querySelectorAll(".oper-seen li")).map((li) => li.innerText.replace(/\\s+/g, " ").trim()),
+			verdict: root.querySelector(".oper-verdict")?.innerText.replace(/\\s+/g, " ").trim(),
+			verdictTone: root.querySelector(".oper-verdict")?.className.match(/tone-(\\S+)/)?.[1],
 			bans: root.querySelector(".oper-bans")?.textContent.replace(/\\s+/g, " ").trim(),
 		};
 	})()`;
@@ -856,7 +968,7 @@ export default async function run(page) {
 	// and reason defaulted from the channel, the command assembled live; the
 	// count line and Add alert both report O3's absence (no X3 on the rig).
 	const builder = "#oper-alert-overlay";
-	await page.click(`${overlay} .oper-common-actions .btn`);
+	await page.click(`${overlay} .oper-common-actions .oper-btn`);
 	await page.waitFor(`!!document.querySelector("${builder}.opened .oper-alert-row")`, {
 		label: "the alert builder with its rows",
 	});
@@ -932,7 +1044,7 @@ export default async function run(page) {
 		{label: "Add alert reporting O3's absence", timeout: 10000}
 	);
 	await page.screenshot("10c-alert-builder-result", {selector: `${builder} .oper-alert-builder`});
-	await page.click(`${builder} .btn-cancel`);
+	await page.click(`${builder} .oper-cancel`);
 	await page.waitFor(`!document.querySelector("${builder}.opened")`, {
 		label: "Cancel closes the builder",
 	});
@@ -959,8 +1071,8 @@ export default async function run(page) {
 	);
 	const stacked = await page.evaluate(cardFacts);
 	page.check(
-		`the stacked card is titled from the channel (${stacked.title})`,
-		/^#seance › opbot2/.test(stacked.title)
+		`the stacked card says it came from the channel (${stacked.title} · ${stacked.sub})`,
+		/^opbot2\b/.test(stacked.title) && /from #seance$/.test(stacked.sub ?? "")
 	);
 	await page.screenshot("11-user-card-stacked", {selector: `${overlay} .oper-investigate`});
 	await page.click(`${overlay} .settings-modal-close`);
@@ -986,9 +1098,10 @@ export default async function run(page) {
 	page.check(
 		`the user card's facts (${userCard.facts.join(" | ")})`,
 		userCard.facts.some((f) => /^Host=opbot3@/.test(f)) &&
-			userCard.facts.some((f) => /^IP=172\.17\.0\.1 .*irc\.seance\.test/.test(f)) &&
+			userCard.facts.some((f) => /^IP=172\.17\.0\.1\b/.test(f)) &&
+			userCard.facts.some((f) => /^Server=irc\.seance\.test$/.test(f)) &&
 			userCard.facts.some((f) => /^Realname=irc client$/.test(f)) &&
-			userCard.facts.some((f) => /^Connected=\d/.test(f)) &&
+			userCard.facts.some((f) => /^Connected=(\d|now)/.test(f)) &&
 			userCard.facts.some((f) => /^Channels=only #seance$/.test(f))
 	);
 	// Seen before: the other helper from the same address, never opbot3's
@@ -997,18 +1110,20 @@ export default async function run(page) {
 		`seen before finds opbot2 from the same IP and not opbot3 themself (${userCard.seen.join(
 			" | "
 		)})`,
-		userCard.seen.some((s) => /\bopbot2 from 172\.17\.0\.1 \(this IP\)/.test(s)) &&
+		userCard.seen.some((s) => /\bopbot2 from 172\.17\.0\.1 .*same IP/.test(s)) &&
 			!userCard.seen.some((s) => /\bopbot3 /.test(s))
 	);
 	page.check(
-		`the verdict names what matched (${userCard.verdict})`,
-		/^Likely the same as \S+ \(\d\d:\d\d\): same IP/.test(userCard.verdict ?? "")
+		`the verdict names what matched (${userCard.verdictTone}: ${userCard.verdict})`,
+		userCard.verdictTone === "match" &&
+			/^Likely match Same as \S+ IP\b.*seen \d\d:\d\d/i.test(userCard.verdict ?? "")
 	);
 	await page.screenshot("12-user-card", {selector: `${overlay} .oper-investigate`});
 
-	// Compare side by side: a second column, the shared IP tinted. The offer
-	// sits at the end of the scrolling body, under the footer on a phone, so
-	// let every "asking…" settle (the bots' 401s) before reaching for it.
+	// Compare side by side: a second column, the shared IP tinted. Compare
+	// sits in the pinned footer; the nick field it opens sits at the end of
+	// the scrolling body, so let every "asking…" settle (the bots' 401s)
+	// first, or the body grows under it.
 	await page.waitFor(
 		`!/asking…/.test(document.querySelector("${overlay} .oper-investigate-user")?.textContent ?? "")`,
 		{label: "every source answered", timeout: 30000}
@@ -1022,26 +1137,106 @@ export default async function run(page) {
 				if (!b) return false;
 				b.scrollIntoView({block: "center"});
 				const r = b.getBoundingClientRect();
-				return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) === b;
+				return b.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
 			})()`,
 			{label: `${selector} in reach`}
 		);
 		await page.click(selector);
 	};
-	await reach(`${overlay} .oper-compare-offer .btn`);
+	await reach(`${overlay} .oper-compare-offer`);
+	// The card scrolls the field into view itself: all of the form clear of
+	// the footer, with no help from `reach`.
+	await page.sleep(300);
+	const askClear = await page.evaluate(`(() => {
+		const form = document.querySelector("${overlay} .oper-compare-ask");
+		const foot = document.querySelector("${overlay} .oper-investigate-footer");
+		if (!form || !foot) return false;
+		const r = form.getBoundingClientRect();
+		return r.height > 0 && r.top >= 0 && r.bottom <= foot.getBoundingClientRect().top + 0.5;
+	})()`);
+	page.check("the nick field to compare with is clear of the footer", askClear);
+	await page.screenshot("12b-compare-ask", {selector: `${overlay} .oper-investigate`});
 	await page.fill(`${overlay} .oper-compare-ask input`, "opbot2");
 	await reach(`${overlay} .oper-compare-ask button[type="submit"]`);
 	await page.waitFor(
-		`!!document.querySelector("${overlay} .oper-compare-b .oper-facts .oper-chip-ip")`,
+		`document.querySelectorAll("${overlay} .oper-facts-pair .oper-chip-ip").length === 2`,
 		{label: "the compared user's IP", timeout: 20000}
 	);
 	const tinted = await page.evaluate(
-		`Array.from(document.querySelectorAll("${overlay} .oper-compare-b .oper-facts .same dt")).map((dt) => dt.textContent.trim())`
+		`Array.from(document.querySelectorAll("${overlay} .oper-facts-pair .same dt")).map((dt) => dt.textContent.trim())`
 	);
 	page.check(`the matching rows are tinted (${tinted.join(", ")})`, tinted.includes("IP"));
 	await page.screenshot("13-user-compare", {selector: `${overlay} .oper-investigate`});
-	await page.click(`${overlay} .settings-modal-close`);
-	await page.waitFor(`!document.querySelector("${overlay}.opened")`, {label: "the card closed"});
+	// Every fact is one row with both values in it, side by side even on a
+	// phone; the card's head names the two columns and stays in view as the
+	// body scrolls; Differences leaves the matching rows out.
+	const rows = await page.evaluate(`(() => {
+		const rows = Array.from(document.querySelectorAll("${overlay} .oper-facts-pair > div"));
+		return rows.length > 0 && rows.every((r) => {
+			const dd = r.querySelectorAll(":scope > dd");
+			if (dd.length !== 2) return false;
+			const [a, b] = Array.from(dd).map((d) => d.getBoundingClientRect());
+			return Math.abs(a.top - b.top) < 1 && b.left >= a.right;
+		});
+	})()`);
+	page.check("each compared fact has both values side by side in its row", rows);
+	const headsStay = await page.evaluate(`(() => {
+		const body = document.querySelector("${overlay} .settings-modal-body");
+		const who = Array.from(document.querySelectorAll("${overlay} .oper-card-head .oper-cmp-who"));
+		if (!body || who.length !== 2) return false;
+		body.scrollTop = body.scrollHeight;
+		const b = body.getBoundingClientRect();
+		return body.scrollTop > 0 && who.every((w) => w.getBoundingClientRect().bottom <= b.top + 0.5);
+	})()`);
+	page.check("the compared nicks stay in view scrolled to the end", headsStay);
+	await page.screenshot("13c-user-compare-scrolled", {selector: `${overlay} .oper-investigate`});
+	await page.evaluate(
+		`document.querySelector("${overlay} .oper-facts-pair").scrollIntoView({block: "start"})`
+	);
+	await page.screenshot("13d-user-compare-facts", {selector: `${overlay} .oper-investigate`});
+	await reach(`${overlay} .oper-cmp-sum .oper-seg button:last-child`);
+	const onlyDiff = await page.evaluate(`(() => {
+		const rows = Array.from(document.querySelectorAll("${overlay} .oper-facts-pair > div"));
+		const shown = rows.filter((r) => r.getClientRects().length > 0);
+		return rows.some((r) => r.classList.contains("same")) &&
+			shown.length > 0 && shown.every((r) => !r.classList.contains("same"));
+	})()`);
+	page.check("Differences leaves the matching rows out", onlyDiff);
+	await page.screenshot("13e-user-compare-differences", {
+		selector: `${overlay} .oper-investigate`,
+	});
+	await reach(`${overlay} .oper-cmp-sum .oper-seg button:first-child`);
+	await page.evaluate(`document.querySelector("${overlay} .settings-modal-body").scrollTop = 0`);
+
+	// A chip's Who answers in chat, behind the card: the card says where,
+	// and Show closes the cards and goes there.
+	const chip = `${overlay} .oper-facts .oper-chip-ip`;
+	await page.click(chip);
+	await page.waitFor(`!!document.querySelector("#context-menu .context-menu-oper-who")`, {
+		label: "Who is on it in the chip's menu",
+	});
+	await page.click("#context-menu .context-menu-oper-who");
+	await page.waitFor(`!!document.querySelector("${overlay} .oper-toast .oper-toast-go")`, {
+		label: "the card says where the answer went",
+	});
+	const toast = await page.evaluate(
+		`document.querySelector("${overlay} .oper-toast").textContent.replace(/\\s+/g, " ").trim()`
+	);
+	page.check(
+		`the toast names the window (${toast})`,
+		/^Sent · the answer shows in #seance\b/.test(toast)
+	);
+	await page.screenshot("13b-chip-sent", {selector: `${overlay} .oper-investigate`});
+	await page.click(`${overlay} .oper-toast .oper-toast-go`);
+	await page.waitFor(`!document.querySelector("${overlay}.opened")`, {
+		label: "Show closes the cards",
+	});
+	page.check(
+		"Show lands in the channel the answer went to",
+		await page.evaluate(
+			`document.querySelector(".channel-list-item.active")?.dataset.name === "#seance"`
+		)
+	);
 	await page.sleep(400);
 	bot2.quit();
 	bot3.quit();
@@ -1093,7 +1288,7 @@ export default async function run(page) {
 		{label: "O3's absence reported in the dialog", timeout: 10000}
 	);
 	await page.screenshot("7b-gline-via-o3", {selector: "#oper-action-dialog"});
-	await page.click("#oper-action-dialog .btn-cancel");
+	await page.click("#oper-action-dialog .oper-cancel");
 	await page.waitFor(`!document.querySelector("#oper-action-dialog")`, {
 		label: "the dialog closes",
 	});

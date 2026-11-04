@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import storage from "../../client/js/localStorage";
 import {IgnoreList, ignoreListFor, ignoreStorageKey} from "../../client/js/ignore";
 

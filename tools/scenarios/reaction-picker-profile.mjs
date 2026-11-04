@@ -3,7 +3,7 @@
 // mid-range Android; 6 for a cheap one). Prints numbers, asserts nothing but
 // the console: it is for comparing before and after a change, not for CI.
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d
 //   node tools/browser-drive.mjs tools/scenarios/reaction-picker-profile.mjs
 //   SEANCE_CPU=6 node tools/browser-drive.mjs tools/scenarios/reaction-picker-profile.mjs

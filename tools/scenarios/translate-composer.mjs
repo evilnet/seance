@@ -45,7 +45,7 @@
 // Shift+Enter, an edit of the draft, and it drops the strip.
 // Detection is real (franc); only the engine is scripted.
 //
-//   corepack yarn build && python3 -m http.server -d public 8021 &
+//   NODE_ENV=development pnpm build && python3 -m http.server -d public 8021 &
 //   CHROME_BIN=/seance/tmp/chrome-pw.sh node tools/browser-drive.mjs tools/scenarios/translate-composer.mjs
 //   … --mobile --width=390 --height=844
 //

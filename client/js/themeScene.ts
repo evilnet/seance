@@ -10,7 +10,7 @@
  */
 
 import {PHONE_LAYOUT_QUERY} from "./helpers/device";
-import {isIOSShell, nativeCall, nativeListen} from "./helpers/capacitor";
+import {isIOSShell, nativeCall, nativeListen} from "./helpers/shell";
 import {createPowerMerge, framesSayLowPower} from "./helpers/power";
 import {onAndroidSystemStatus} from "./helpers/systemAccessibility";
 
@@ -73,7 +73,7 @@ export type SceneLoader = () => Promise<SceneModule>;
 
 /** The themes that have a scene, by theme name: each is its own chunk, loaded only for that theme. */
 export const SCENES: Readonly<Record<string, SceneLoader>> = {
-	ps: () => import(/* webpackChunkName: "scene-ps" */ "./scenes/psng/scene"),
+	ps: () => import("./scenes/psng/scene"),
 };
 
 export interface SceneHost {

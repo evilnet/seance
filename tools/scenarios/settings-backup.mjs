@@ -4,7 +4,7 @@
 // file replaces those entries and reloads with them applied
 // (client/js/helpers/settingsBackup.ts, Settings/General.vue).
 //
-//   corepack yarn build && python3 -m http.server -d public 8031 &
+//   pnpm build && python3 -m http.server -d public 8031 &
 //   node tools/browser-drive.mjs tools/scenarios/settings-backup.mjs
 //
 // The default target is a plain-WS ircd on 127.0.0.1:8067 (the dev ircd's

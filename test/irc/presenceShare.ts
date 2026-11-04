@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 // First: support loads client.ts, which pushMute.ts needs initialised (the
 // pushMute ↔ presence ↔ client import cycle).
 import {register, setup, type Harness} from "./support";
@@ -14,6 +14,7 @@ import {MUTE_READ_DELAY_MS} from "../../client/js/irc/pushMute";
 import {MUTE_READ_FALLBACK_MS} from "../../client/js/irc/presence";
 import {
 	SYNC_WINDOW_MS,
+	lastInSync,
 	useStorageBackend as useSyncBackend,
 } from "../../client/js/irc/presenceSync";
 import type {StorageBackend} from "../../client/js/irc/saved-networks";
@@ -120,6 +121,20 @@ describe("shared presence on the wire (irc/presenceShare.ts)", function () {
 		);
 	const live = (h: Harness, key: string, value: string) =>
 		h.transport.line(`:irc.test METADATA alice ${key} private :${value}`);
+
+	it("a key named after Object.prototype's members is nobody's", function () {
+		const h = connected();
+		const error = sinon.stub(console, "error");
+
+		try {
+			live(h, "__proto__", "x");
+			live(h, "constructor", "x");
+		} finally {
+			error.restore();
+		}
+
+		expect(error.called).to.equal(false);
+	});
 
 	it("the login read subscribes to and gets the mute and both shared keys", function () {
 		const h = registered();
@@ -487,6 +502,10 @@ describe("away until the shared state is read (presence.ts shareUnread)", functi
 
 	const NEF =
 		"server-time message-tags batch sasl=PLAIN draft/pre-away draft/metadata-2=before-connect";
+
+	it("has no sync time under a name every object has", function () {
+		expect(lastInSync("constructor")).to.equal(null);
+	});
 
 	function login(
 		caps = NEF,

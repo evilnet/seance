@@ -4,10 +4,10 @@ import Module from "module";
 import path from "path";
 import * as fengari from "fengari";
 
-// The loader webpack applies to fengari/src/lstrlib.js (scripts/), run here
+// The patch the build applies to fengari/src/lstrlib.js (scripts/), run here
 // on the installed Fengari: mocha loads Fengari unpatched, so the patched
 // string library is compiled beside it and opened into a state of its own.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const budget = require("../../scripts/fengari-match-budget.js") as {
 	patch(source: string): string;
 	MAX_STEPS: number;

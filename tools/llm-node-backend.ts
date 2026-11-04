@@ -40,7 +40,7 @@ export const DTYPE = "q4f16";
 /** The ONNX exports transformers.js can load by name (`--dtype`). */
 export const DTYPES = ["q4f16", "fp16", "fp32", "int8", "uint8", "q4", "q8", "bnb4"] as const;
 
-export type Dtype = typeof DTYPES[number];
+export type Dtype = (typeof DTYPES)[number];
 /** What WebLLM pushes into the output when thinking is off; see `create()`. */
 export const THINK_BLOCK = "<think>\n\n</think>\n\n";
 /** The same block as the chat template renders it, wherever it put it. */

@@ -18,7 +18,6 @@ import socket, {EventBus} from "../socket";
 import {t} from "../i18n/core";
 import {collator} from "../i18n/collation";
 import {brandingFeatures} from "../branding";
-import {dialGateFor, type DialGate} from "./dialLedger";
 import {createHighlightTester} from "../highlight";
 import {ChanState, ChanType} from "../../../shared/types/chan";
 import {MessageType, SharedMsg, TypingState} from "../../../shared/types/msg";
@@ -47,6 +46,8 @@ import {
 	MULTILINE_CAP,
 	MultilineLimits,
 	MultilinePlan,
+	batchesWaiting,
+	holdBehindBatches,
 	parseMultilineValue,
 	planMultiline,
 	resetMultiline,
@@ -81,6 +82,7 @@ import {
 	syncPresence,
 } from "./presence";
 import {abortHistory, retryLostHistory} from "./history";
+import {resetSearches} from "./historysearch";
 import {globalUntil, MUTE_KEY, MUTE_READ_DELAY_MS, type PendingMute, releaseMute} from "./pushMute";
 import {MODE_KEY, PRESENCE_KEY, syncShared, type Stamped} from "./presenceShare";
 import {getMuteMemory, setMuteMemory, type MuteMemory} from "./muteMemory";
@@ -122,7 +124,14 @@ import {
 	splitMessage,
 	utf8ByteLength,
 } from "./message";
-import {LABEL_TAG_BYTES, pendingLabel, resetPending, showPending} from "./pending";
+import {
+	armPending,
+	LABEL_TAG_BYTES,
+	PendingMessage,
+	pendingLabel,
+	resetPending,
+	showPending,
+} from "./pending";
 import {splitStatusTarget} from "./handlers/privmsg";
 import {mechanismOffered, SASL_TIMEOUT_MS, SaslAuth, SaslMechanism, SaslResult} from "./sasl";
 import {
@@ -136,9 +145,16 @@ import {
 } from "./sts";
 import {channelOrder, get as getSavedNetwork, NetworkCursor, setCursor} from "./saved-networks";
 import {noteServiceReply, resetServiceReplies} from "./services";
-import {dropQuietLine} from "./quiet";
+import {dropQuietLine, isRepeatedMissingBot} from "./quiet";
 import {BackgroundQueue, FakeLagClock, type FakeLagModel} from "./fakelag";
-import {ReconnectOptions, TransportEvent, TransportOptions, WsTransport} from "./transport";
+import {
+	isOffline,
+	ReconnectOptions,
+	RetryReason,
+	TransportEvent,
+	TransportOptions,
+	WsTransport,
+} from "./transport";
 import type {ConnectOptions, InputOptions, IrcClientState, Transport} from "./types";
 import {
 	ClientTags,
@@ -261,6 +277,9 @@ export function saslRequiredHint(): string {
 
 /** Prefix characters a channel name may start with when the user omits one. */
 const CHANNEL_PREFIXES = "#&!+";
+
+/** Bytes to allow for our host before the server has told us it: nefarious2's HOSTLEN. */
+export const UNKNOWN_HOST_BYTES = 75;
 
 /** A `+typing` TAGMSG: one command of fake lag. */
 const TYPING_COST_MS = 2000;
@@ -418,8 +437,6 @@ export class IrcClient {
 	account = "";
 	/** The server holds our session across disconnects (`PERSISTENCE STATUS ON`, see persistence.ts). */
 	persistenceHold = false;
-	/** This network's host in the dial ledger (irc/dialLedger.ts). */
-	private dialLedger: DialGate | null = null;
 	/** The user's setting from the last `PERSISTENCE STATUS` line (`ON`,
 	 * `OFF`, `DEFAULT`), undefined before one. An alias of another device's
 	 * session reads `ON OFF`: not held itself, though the session is. */
@@ -461,6 +478,12 @@ export class IrcClient {
 	private connected = false;
 	/** 001 seen on this connection: the server takes commands (`isWelcomed`). */
 	private welcomed = false;
+	/**
+	 * Counts registrations (001s): whatever was learned about the network on
+	 * one connection — which services bots are real (bottrust.ts) — is
+	 * stale on the next.
+	 */
+	connectionSerial = 0;
 	/** The server's fake-lag clock as we reckon it (fakelag.ts). */
 	readonly fakeLag: FakeLagClock;
 	/**
@@ -480,11 +503,17 @@ export class IrcClient {
 	private closeExplained = false;
 	/** When the transport's next automatic dial is due; only while waiting for a retry. */
 	private retryAt: number | undefined;
-	/** That wait is the server's connection throttle, not the backoff (irc/dialLedger.ts). */
-	private retryThrottled = false;
+	/** Why that wait: the server's throttle, or no network here (transport.ts). */
+	private retryReason: RetryReason | undefined;
+	/** The lobby has said we are offline, since the last socket that opened. */
+	private offlineNoted = false;
 	private activeChanId = 0;
 	/** Set while a history batch is replayed through the handlers (see `collectReplay`). */
-	private replayContext: {target: Channel; collected: ReplayCollection} | null = null;
+	private replayContext: {
+		target: Channel;
+		inert: boolean;
+		collected: ReplayCollection;
+	} | null = null;
 	/** Edits whose REDACT is in flight, by the msgid being replaced. */
 	private readonly pendingEdits = new Map<string, PendingEdit>();
 	/** Announced typing sessions by casefolded target (see {@link typing}). */
@@ -583,6 +612,8 @@ export class IrcClient {
 	/** The 001 handler: see {@link isWelcomed}. */
 	markWelcomed(): void {
 		this.welcomed = true;
+		this.connectionSerial++;
+
 		this.fakeLag.start();
 		this.background.pump(); // anything queued before 001 can go now
 	}
@@ -646,7 +677,7 @@ export class IrcClient {
 			connecting: this._state === "connecting" || this._state === "registering",
 			secure: this.options.tls,
 			...(this.retryAt !== undefined ? {retryAt: this.retryAt} : {}),
-			...(this.retryThrottled ? {retryThrottled: true} : {}),
+			...(this.retryReason ? {retryReason: this.retryReason} : {}),
 		};
 	}
 
@@ -705,9 +736,8 @@ export class IrcClient {
 
 	// ------------------------------------------------------------ lifecycle
 
-	/** Announce the network to the UI (first call only) and open the
-	 * transport; `force` (the user asked) dials even into the throttle. */
-	connect(opts: {force?: boolean} = {}): void {
+	/** Announce the network to the UI (first call only) and open the transport. */
+	connect(): void {
 		if (!this.announced) {
 			this.announced = true;
 			this.bus.dispatch("network", {network: this.network});
@@ -724,7 +754,7 @@ export class IrcClient {
 		this.quitting = false;
 		this.closeHintShown = false;
 		this.retryAt = undefined;
-		this.retryThrottled = false;
+		this.retryReason = undefined;
 		this._state = "connecting";
 		this.bus.dispatch("connecting");
 		this.announceStatus();
@@ -733,7 +763,7 @@ export class IrcClient {
 			{text: t("connect.connectingTo", {host: this.options.host, port: this.options.port})},
 			true
 		);
-		this.transport.connect(opts);
+		this.transport.connect();
 	}
 
 	/**
@@ -754,7 +784,7 @@ export class IrcClient {
 
 		this.transport.close();
 		this.retryAt = undefined;
-		this.retryThrottled = false;
+		this.retryReason = undefined;
 
 		if (state === "reconnect-wait") {
 			// The socket is already gone, so no close event follows: settle here.
@@ -851,22 +881,6 @@ export class IrcClient {
 			transportOptions.reconnect = this.options.reconnect;
 		}
 
-		// Never dial into the server's connection throttle (irc/dialLedger.ts).
-		// A drop counts there only when the server lets the connection go: a
-		// session the bouncer holds stays counted (bounce_hold_client never
-		// calls IPcheck_disconnect), so its drop restarts nothing.
-		const ledger = dialGateFor(this.options.host);
-		this.dialLedger = ledger;
-		transportOptions.gate = {
-			waitMs: (now) => ledger.waitMs(now),
-			record: (at) => ledger.record(at),
-			closed: (at) => {
-				if (!this.persistenceHold) {
-					ledger.closed(at);
-				}
-			},
-		};
-
 		return this.options.transportFactory
 			? this.options.transportFactory(transportOptions)
 			: new WsTransport(transportOptions);
@@ -949,29 +963,44 @@ export class IrcClient {
 				this._state = "connecting";
 				this.bus.dispatch("connecting");
 
-				// The server's throttle, waited out (irc/dialLedger.ts): a
-				// connect() that never dialled has no close to carry its due time.
-				if (ev.throttled) {
+				// The server's throttle or no network here: the close before
+				// this event did not know why it would wait.
+				if (ev.reason) {
 					this.retryAt = Date.now() + ev.delayMs;
-					this.retryThrottled = true;
+					this.retryReason = ev.reason;
 					this.announceStatus();
+				}
+
+				// No network: say so once, and wait for it.
+				if (ev.reason === "offline") {
+					if (!this.offlineNoted) {
+						this.offlineNoted = true;
+						this.pushMessage(
+							this.lobby,
+							{text: "You're offline. Will reconnect when the network is back."},
+							true
+						);
+					}
+
+					break;
 				}
 
 				this.pushMessage(
 					this.lobby,
 					{
 						// A stable connection's loss retries at once (transport.ts).
-						text: ev.throttled
-							? t("connect.reconnectWaitThrottled", {
-									seconds: Math.round(ev.delayMs / 1000),
-									attempt: ev.attempt,
-							  })
-							: ev.delayMs < 500
-							? t("connect.reconnectNow", {attempt: ev.attempt})
-							: t("connect.reconnectIn", {
-									seconds: Math.round(ev.delayMs / 1000),
-									attempt: ev.attempt,
-							  }),
+						text:
+							ev.reason === "throttled"
+								? t("connect.reconnectWaitThrottled", {
+										seconds: Math.round(ev.delayMs / 1000),
+										attempt: ev.attempt,
+								  })
+								: ev.delayMs < 500
+								? t("connect.reconnectNow", {attempt: ev.attempt})
+								: t("connect.reconnectIn", {
+										seconds: Math.round(ev.delayMs / 1000),
+										attempt: ev.attempt,
+								  }),
 					},
 					true
 				);
@@ -980,7 +1009,7 @@ export class IrcClient {
 				// The scheduled retry is dialling now: no due time any more.
 				this._state = "connecting";
 				this.retryAt = undefined;
-				this.retryThrottled = false;
+				this.retryReason = undefined;
 				this.announceStatus();
 				this.pushMessage(
 					this.lobby,
@@ -1004,11 +1033,12 @@ export class IrcClient {
 	/** Transport open: fresh negotiation state, then CAP LS / NICK / USER. */
 	private onOpen(): void {
 		this._state = "registering";
+		this.offlineNoted = false;
 		this.connected = false;
 		this.welcomed = false;
 		this.fakeLag.stop();
 		this.retryAt = undefined;
-		this.retryThrottled = false;
+		this.retryReason = undefined;
 		this.closeHintShown = false;
 		this.isupport.reset();
 		this.learnedNickLen = undefined;
@@ -1346,7 +1376,7 @@ export class IrcClient {
 		// The wait before the transport's retry, for the UI to count down;
 		// an immediate retry has nothing worth counting. Whether it is the
 		// server's throttle comes with the `reconnecting` that follows.
-		this.retryThrottled = false;
+		this.retryReason = undefined;
 		this.retryAt =
 			willReconnect && delayMs !== undefined && delayMs > 0
 				? Date.now() + delayMs
@@ -1360,8 +1390,13 @@ export class IrcClient {
 		}
 
 		resetBatches(this);
+		// Before resetMultiline, which takes the copies of what it had queued
+		// down without a word: every copy still waiting is reported here, with
+		// the reason, where it was typed.
+		resetPending(this, t("pending.connectionLost"));
 		resetMultiline(this);
 		abortHistory(this);
+		resetSearches(this);
 		cancelCatchup(this);
 		cancelRestoration(this);
 		this.saveCursor(); // the newest one must not die with the connection
@@ -1372,9 +1407,6 @@ export class IrcClient {
 		resetOper(this);
 		this.serverReplay = false;
 		this.clearPendingEdits();
-		// Before resetMultiline: a queued batch's copy is reported here, with
-		// the reason, rather than dropped without a word there.
-		resetPending(this, t("pending.connectionLost"));
 		this.clearTyping();
 
 		for (const chan of this.channels) {
@@ -1408,10 +1440,13 @@ export class IrcClient {
 			connecting: willReconnect,
 			secure: this.options.tls,
 			...(this.retryAt !== undefined ? {retryAt: this.retryAt} : {}),
-			...(this.retryThrottled ? {retryThrottled: true} : {}),
+			...(this.retryReason ? {retryReason: this.retryReason} : {}),
 		});
 
-		if (wasUp) {
+		// Offline, and the lobby has said so: each failed try says nothing new.
+		const quiet = this.offlineNoted && isOffline();
+
+		if (wasUp && !quiet) {
 			if (this.quitting) {
 				this.pushMessage(this.lobby, {text: t("connect.disconnected")}, true);
 			} else if (this.closeExplained) {
@@ -1430,7 +1465,8 @@ export class IrcClient {
 				});
 				this.pushMessage(this.lobby, {type: MessageType.ERROR, text: report.text}, true);
 
-				if (report.hint && !this.closeHintShown) {
+				// Offline, the hint's causes (server, port, certificate) are not it.
+				if (report.hint && !this.closeHintShown && !isOffline()) {
 					this.closeHintShown = true;
 					this.pushMessage(this.lobby, {text: report.hint}, true);
 				}
@@ -1723,17 +1759,37 @@ export class IrcClient {
 		const firstTags: ClientTags | undefined =
 			opts.tags || opts.firstTags ? {...opts.firstTags, ...opts.tags} : undefined;
 		// The server prepends our full source to the echo; budget for it even
-		// when the host is still unknown (63 is the usual hostname limit).
-		const hostLen = this.host.length || 63;
+		// when the host is still unknown. nefarious2's HOSTLEN is 75 (a cloak
+		// can run that long), past the usual 63, and an untagged line it
+		// delivers is cut at 510 bytes, source included.
+		const hostLen = this.host.length || UNKNOWN_HOST_BYTES;
 		const sourceBytes =
 			utf8ByteLength(`:${this.nick}!${this.ident}@`) +
 			hostLen +
 			utf8ByteLength(` ${command} ${target} :`);
 		const actionBytes = opts.action ? "\x01ACTION \x01".length : 0;
+		// With `echo-message` each line is labelled so its echo can be told
+		// apart (pending.ts); without it there is no echo to label.
+		const echo = this.caps.hasCapability("echo-message");
+		const labelled = echo && this.caps.hasCapability("labeled-response");
+		// The frame cap applies to the whole line; the first chunk carries the
+		// most tags, so every chunk is budgeted as if it did.
+		const prefixBytes =
+			sourceBytes +
+			actionBytes +
+			utf8ByteLength(tagPrefix(firstTags)) +
+			(labelled ? LABEL_TAG_BYTES : 0);
+		const fitsOneLine = (line: string) =>
+			utf8ByteLength(line.replace(/[\r\n\0]/g, " ")) <= MAX_LINE_BYTES - prefixBytes;
 		const limits = this.multilineLimits();
 		let plain = text;
 
-		if (limits && text.includes("\n")) {
+		// More than one line goes out as a batch, and so does one line too
+		// long for a single message: with `draft/multiline-concat` the
+		// receiver joins the pieces back into the one line that was typed (a
+		// URL, a hash, a paste) and the server keeps it as one message.
+		// Without the cap it is split into separate messages below.
+		if (limits && (text.includes("\n") || !fitsOneLine(text))) {
 			let plan: MultilinePlan;
 
 			try {
@@ -1760,7 +1816,7 @@ export class IrcClient {
 				return; // nothing but blank lines
 			}
 
-			if (count > 1) {
+			if (count > 1 || !fitsOneLine(plan[0][0].text)) {
 				// `opts.tags` (a reply) belongs on every batch, `opts.firstTags`
 				// (an edit) only on the first — one edit replaces one message.
 				sendMultiline(
@@ -1779,17 +1835,6 @@ export class IrcClient {
 			plain = plan[0][0].text;
 		}
 
-		// With `echo-message` each line is labelled so its echo can be told
-		// apart (pending.ts); without it there is no echo to label.
-		const echo = this.caps.hasCapability("echo-message");
-		const labelled = echo && this.caps.hasCapability("labeled-response");
-		// The frame cap applies to the whole line; the first chunk carries the
-		// most tags, so every chunk is budgeted as if it did.
-		const prefixBytes =
-			sourceBytes +
-			actionBytes +
-			utf8ByteLength(tagPrefix(firstTags)) +
-			(labelled ? LABEL_TAG_BYTES : 0);
 		let chunks: string[];
 
 		try {
@@ -1814,34 +1859,69 @@ export class IrcClient {
 			? MessageType.ACTION
 			: MessageType.MESSAGE;
 
-		for (let i = 0; i < chunks.length; i++) {
-			const chunk = chunks[i];
-			const body = opts.action ? `\x01ACTION ${chunk}\x01` : chunk;
+		const lines = chunks.map((chunk, i) => {
 			const base = i === 0 ? firstTags : opts.tags;
 			const label = echo ? pendingLabel(this) : undefined;
-			const tags = label ? {...base, label} : base;
+			return {
+				chunk,
+				base,
+				label,
+				body: opts.action ? `\x01ACTION ${chunk}\x01` : chunk,
+				tags: label ? {...base, label} : base,
+			};
+		});
+		// Behind a batch still waiting for its turn or its answer, the message
+		// waits too, so it does not reach the channel before what was typed
+		// ahead of it. Its copy shows now, in place; its timeout starts when it
+		// goes out.
+		const held = batchesWaiting(this);
+		const pending: PendingMessage[] = [];
 
-			if (!this.send(trailingLine(command, [target, body], tags))) {
-				return;
+		const pendingFields = (chunk: string, label: string | undefined, i: number) => ({
+			type,
+			text: chunk,
+			label,
+			replyTo: opts.tags?.[REPLY_TAG],
+			editOf: i === 0 ? opts.firstTags?.[EDIT_TAG] : undefined,
+			statusmsgGroup: group,
+		});
+
+		const deliver = (): boolean => {
+			for (const [i, line] of lines.entries()) {
+				if (!this.send(trailingLine(command, [target, line.body], line.tags))) {
+					return false;
+				}
+
+				if (!echo) {
+					this.handleLine(
+						`${tagPrefix(line.base)}:${this.nick}!${this.ident}@${
+							this.host || "localhost"
+						} ${command} ${target} :${line.body}`
+					);
+				} else if (chan && !held) {
+					showPending(this, chan, pendingFields(line.chunk, line.label, i));
+				} else if (pending[i]) {
+					armPending(this, pending[i]);
+				}
 			}
 
-			if (!echo) {
-				this.handleLine(
-					`${tagPrefix(base)}:${this.nick}!${this.ident}@${
-						this.host || "localhost"
-					} ${command} ${target} :${body}`
+			return true;
+		};
+
+		if (!held) {
+			deliver();
+			return;
+		}
+
+		if (chan) {
+			for (const [i, line] of lines.entries()) {
+				pending.push(
+					showPending(this, chan, pendingFields(line.chunk, line.label, i), {arm: false})
 				);
-			} else if (chan) {
-				showPending(this, chan, {
-					type,
-					text: chunk,
-					label,
-					replyTo: opts.tags?.[REPLY_TAG],
-					editOf: i === 0 ? opts.firstTags?.[EDIT_TAG] : undefined,
-					statusmsgGroup: group,
-				});
 			}
 		}
+
+		holdBehindBatches(this, deliver, pending);
 	}
 
 	/**
@@ -2460,8 +2540,13 @@ export class IrcClient {
 	 * its command. Also the entry point for replaying buffered batch lines.
 	 */
 	handleMessage(msg: IrcMessage): void {
-		// Learn our own ident@host from anything the server attributes to us.
-		if (msg.source?.user !== undefined && this.isSelf(msg.source.name)) {
+		// Learn our own ident@host from anything the server attributes to us
+		// now: a batched line may be stored, with a host we no longer have.
+		if (
+			msg.source?.user !== undefined &&
+			this.isSelf(msg.source.name) &&
+			!msg.tags.has("batch")
+		) {
 			this.ident = msg.source.user;
 
 			if (msg.source.host) {
@@ -2489,6 +2574,11 @@ export class IrcClient {
 		// saying there is no such bot (services.ts). A line a quiet watcher
 		// consumed is shown in no window — the asker renders the answer.
 		if (noteServiceReply(this, msg)) {
+			return;
+		}
+
+		// That bot's 401 was shown a moment ago: the services layer has it.
+		if (isRepeatedMissingBot(msg)) {
 			return;
 		}
 
@@ -2579,6 +2669,10 @@ export class IrcClient {
 	// -------------------------------------------------------------- helpers
 
 	dispatch: EventBus["dispatch"] = (event, ...args) => {
+		if (this.replayContext?.inert) {
+			return false;
+		}
+
 		this.followInQueryLog(event, args[0]);
 		return this.bus.dispatch(event, ...args);
 	};
@@ -2846,17 +2940,11 @@ export class IrcClient {
 	}
 
 	/**
-	 * The page is going away (manager.ts sends a registered connection its
-	 * QUIT): an open or dialling socket drops without a close the transport
-	 * would see, so the drop goes into the dial ledger here — unless the
-	 * bouncer holds the session, which the server keeps counted.
+	 * The server said it throttled this connection (handlers/error.ts): the
+	 * retry after it waits `waitMs`, or the transport's fallback.
 	 */
-	noteUnload(): void {
-		const live = this.transport.state === "open" || this.transport.state === "connecting";
-
-		if (live && !this.persistenceHold) {
-			this.dialLedger?.closed(Date.now());
-		}
+	noteThrottled(waitMs: number | undefined): void {
+		this.transport.throttled?.(waitMs);
 	}
 
 	/** The server's `max-value-bytes` (draft/metadata-2): a plain number, else nefarious2's 300. */
@@ -3113,11 +3201,13 @@ export class IrcClient {
 	/**
 	 * Run `fn` with every `pushMessage` collected instead of dispatched, and
 	 * handlers told (via {@link replaying}) to skip state side effects. Used
-	 * to turn a chathistory batch into messages (history.ts).
+	 * to turn a chathistory batch into messages (history.ts). `inert`: nothing
+	 * a handler dispatches gets out either, for rows that are only being looked
+	 * at (historysearch.ts), where history's `inbox:drop` for an edit would be wrong.
 	 */
-	collectReplay(target: Channel, fn: () => void): ReplayCollection {
+	collectReplay(target: Channel, fn: () => void, inert = false): ReplayCollection {
 		const previous = this.replayContext;
-		const context = {target, collected: {messages: [], after: []} as ReplayCollection};
+		const context = {target, inert, collected: {messages: [], after: []} as ReplayCollection};
 		this.replayContext = context;
 
 		try {

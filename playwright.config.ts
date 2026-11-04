@@ -2,7 +2,7 @@ import {defineConfig} from "@playwright/test";
 
 // End-to-end cover for the built SPA. The suite in `test/e2e` drives `public/`
 // in a real browser against a real ircd (the web server below serves the tree
-// as it finds it, so `yarn test:e2e` runs `webpack` first) and the tests skip
+// as it finds it, so `pnpm test:e2e` runs the build first) and the tests skip
 // themselves unless SEANCE_E2E_IRC_URL names a server — see
 // `test/e2e/markdown.spec.ts`.
 export default defineConfig({

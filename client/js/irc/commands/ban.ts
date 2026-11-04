@@ -11,10 +11,11 @@ import {formatLine} from "../message";
 import {trailingLine} from "../wire";
 import {t} from "../../i18n/core";
 import type {Command} from "../types";
+import {textAfter} from "./words";
 
 const ban: Command = {
 	commands: ["ban", "unban", "banlist", "kickban", "exceptlist"],
-	input({client, chan, cmd, args}) {
+	input({client, chan, cmd, args, rest}) {
 		if (chan.type !== ChanType.CHANNEL) {
 			client.pushMessage(chan, {
 				type: MessageType.ERROR,
@@ -23,11 +24,7 @@ const ban: Command = {
 			return;
 		}
 
-		if (
-			cmd !== "banlist" &&
-			cmd !== "exceptlist" &&
-			(args.length === 0 || args[0].length === 0)
-		) {
+		if (cmd !== "banlist" && cmd !== "exceptlist" && args.length === 0) {
 			client.pushMessage(chan, {
 				type: MessageType.ERROR,
 				text: t("cmd.usageNick", {cmd}),
@@ -37,7 +34,7 @@ const ban: Command = {
 
 		switch (cmd) {
 			case "kickban": {
-				const reason = args.slice(1).join(" ");
+				const reason = textAfter(rest, 1);
 				client.send(
 					reason
 						? trailingLine("KICK", [chan.name, args[0], reason])

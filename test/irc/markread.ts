@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import socket from "../../client/js/socket";
 import {IrcClient} from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";
@@ -627,6 +627,23 @@ describe("The inbox's events (docs/projects/inbox.md)", function () {
 		socket.emit("open", chanId);
 		live(h, 1, "alice: ping");
 		expect(added()).to.have.length(0);
+	});
+
+	it("adds a highlight, and sends no MARKREAD, once the conversation is left", function () {
+		const h = setup();
+		const chanId = joined(h);
+		socket.emit("open", chanId);
+		clock.tick(MARKREAD_DEBOUNCE_MS);
+		h.sent();
+		socket.emit("open", 0);
+		live(h, 1, "alice: ping");
+		clock.tick(MARKREAD_DEBOUNCE_MS);
+		expect(added().map((e) => e.msgid)).to.deep.equal(["m1"]);
+		expect(h.sent()).to.deep.equal([]);
+
+		socket.emit("open", chanId);
+		clock.tick(MARKREAD_DEBOUNCE_MS);
+		expect(h.sent()).to.deep.equal(["MARKREAD #seance timestamp=2026-08-25T12:01:00.000Z"]);
 	});
 
 	it("adds no highlight already read on another session", function () {

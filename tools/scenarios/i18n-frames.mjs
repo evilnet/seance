@@ -6,7 +6,7 @@
 // {placeholder} left over; under en the text must be upstream's English,
 // spaces included. Screenshots of each locale's Help are the visual check.
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   NODE_ENV=development pnpm build && python3 -m http.server -d public 8000 &
 //   CHROME_BIN=$PWD/tmp/chrome-headless-wrapper.sh \
 //     node tools/browser-drive.mjs tools/scenarios/i18n-frames.mjs
 //

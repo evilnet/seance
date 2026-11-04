@@ -6,7 +6,7 @@
 // account of its own (do not share one with a live session: the bouncer
 // attaches to that session, and the clean-up below parts channels):
 //
-//   corepack yarn build && python3 -m http.server -d public 8001 &
+//   pnpm build && python3 -m http.server -d public 8001 &
 //   SEANCE_SASL_ACCOUNT=… SEANCE_SASL_PASSWORD=… \
 //     node tools/browser-drive.mjs tools/scenarios/last-channel-bouncer.mjs
 //

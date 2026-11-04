@@ -18,10 +18,8 @@ function defaultPort(tls: boolean): number {
 const connect: Command = {
 	commands: ["connect", "server"],
 	allowDisconnected: true,
-	input({client, chan, args, opts}) {
-		const params = args.filter((arg) => arg.length > 0);
-
-		if (params.length === 0) {
+	input({client, chan, args}) {
+		if (args.length === 0) {
 			if (client.isConnected) {
 				client.pushMessage(chan, {
 					type: MessageType.ERROR,
@@ -30,14 +28,11 @@ const connect: Command = {
 				return;
 			}
 
-			// Typed or clicked ("Connect now"): the user asked, so it dials
-			// even while the server's throttle would refuse it. A saved
-			// command runs after every registration and asked nothing.
-			client.connect({force: opts?.auto !== true});
+			client.connect();
 			return;
 		}
 
-		let portArg = params[1] ?? "";
+		let portArg = args[1] ?? "";
 		const tls = portArg.startsWith("+");
 
 		if (tls) {
@@ -46,7 +41,7 @@ const connect: Command = {
 
 		const port = /^\d+$/.test(portArg) ? parseInt(portArg, 10) : defaultPort(tls);
 		const options: ConnectOptions = {
-			host: params[0],
+			host: args[0],
 			port,
 			tls,
 			nick: client.nick,

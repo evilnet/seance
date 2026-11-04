@@ -15,6 +15,7 @@ import type {Capability} from "./translate/capability";
 import type {ModelView} from "./translate/service";
 import type {ChannelTranslation} from "./translate/channelStore";
 import type {Device, EngineName} from "./translate/engine";
+import type {JumpTarget} from "./helpers/jumpToMessage";
 import {conversationKey} from "./helpers/inbox";
 
 enum DesktopNotificationState {
@@ -27,7 +28,7 @@ enum DesktopNotificationState {
 function detectDesktopNotificationState(): DesktopNotificationState {
 	if (!("Notification" in window)) {
 		return DesktopNotificationState.Unsupported;
-	} else if (Notification.permission === DesktopNotificationState.Granted) {
+	} else if (Notification.permission === "granted") {
 		return DesktopNotificationState.Granted;
 	} else if (!window.isSecureContext) {
 		return DesktopNotificationState.NoHttps;
@@ -156,6 +157,8 @@ export type State = {
 	outgoingTranslations: Record<number, OutgoingTranslation>;
 	/** Per-channel switch state, keyed `<network uuid>/<channel name>` (translate/channelStore.ts). */
 	translateChannels: Record<string, ChannelTranslation>;
+	/** A message the open conversation is to be taken to (helpers/jumpToMessage.ts). */
+	jumpTarget: JumpTarget | null;
 };
 
 const state = (): State => ({
@@ -181,6 +184,7 @@ const state = (): State => ({
 	translations: {},
 	outgoingTranslations: {},
 	translateChannels: {},
+	jumpTarget: null,
 });
 
 type Getters = {
@@ -328,6 +332,7 @@ type Mutations = {
 	translateChannelSet(state: State, payload: {key: string; value: ChannelTranslation}): void;
 	translateChannelRemove(state: State, key: string): void;
 	translateChannelsLoaded(state: State, all: Record<string, ChannelTranslation>): void;
+	jumpTarget(state: State, target: State["jumpTarget"]): void;
 };
 
 const mutations: Mutations = {
@@ -460,6 +465,9 @@ const mutations: Mutations = {
 	},
 	translateChannelsLoaded(state, all) {
 		state.translateChannels = all;
+	},
+	jumpTarget(state, target) {
+		state.jumpTarget = target;
 	},
 };
 

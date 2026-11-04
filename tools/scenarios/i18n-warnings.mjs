@@ -6,7 +6,7 @@
 // misses — and the proof that a quiet console during normal use means a
 // clean tree, not a broken detector:
 //
-//   NODE_ENV=development corepack yarn i18n:compile && corepack yarn build:client
+//   NODE_ENV=development pnpm build
 //   python3 -m http.server -d public 8000 &
 //   CHROME_BIN=$PWD/tmp/chrome-headless-wrapper.sh \
 //     node tools/browser-drive.mjs tools/scenarios/i18n-warnings.mjs

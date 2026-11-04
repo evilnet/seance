@@ -101,7 +101,13 @@ const CHANNEL_PREFIXES = "-<@+*!%~";
 function channelValue(token: string): ReportValue {
 	const at = token.search(/[#&]/);
 
-	if (at > 0 && [...token.slice(0, at)].every((c) => CHANNEL_PREFIXES.includes(c))) {
+	if (
+		at > 0 &&
+		token
+			.slice(0, at)
+			.split("")
+			.every((c) => CHANNEL_PREFIXES.includes(c))
+	) {
 		return channel(token.slice(at), token.slice(0, at));
 	}
 
@@ -249,7 +255,12 @@ function userCard(card: Card, command: string, lines: IrcMessage[]): OperReport 
 			const seen = merged.get(label);
 
 			if (seen) {
-				seen.value = `${seen.value} ${value}`.trim();
+				// Marks is a comma list wrapped at ~70 characters with no
+				// trailing comma (client_check_marks): rejoin it as a list.
+				seen.value =
+					label === "Marks"
+						? [seen.value.replace(/,\s*$/, ""), value].filter(Boolean).join(", ")
+						: `${seen.value} ${value}`.trim();
 				continue;
 			}
 

@@ -17,7 +17,7 @@ export interface CatalogOptions {
 	/**
 	 * Give OPUS-MT and NLLB-200 their GPU copies. Off in the shipped app,
 	 * and never read from a deploy's `config.json`: this build has no WebGPU
-	 * backend for them (webpack.config.ts aliases `onnxruntime-web/webgpu`
+	 * backend for them (vite.translate.config.mts aliases `onnxruntime-web/webgpu`
 	 * to the wasm bundle, which registers only the CPU), so a GPU copy would
 	 * download its weights and then fail to start (translation-devices.md
 	 * § Not in this build). Tests turn it on to keep the GPU logic covered.
@@ -163,7 +163,7 @@ export const QWEN3_1_7B_PINNED_MODEL =
 
 /**
  * The split library the app ships (client/models/, copied to public/models/
- * by webpack; built by tools/translate-split/). The file name carries the
+ * by the build; built by tools/translate-split/). The file name carries the
  * first eight hex digits of its SHA-256: WebLLM caches a library by URL, so
  * a rebuilt library must have a new one. Relative to the app's root, which
  * the worker resolves against its own location (a deploy may live under a

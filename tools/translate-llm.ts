@@ -569,7 +569,7 @@ async function main(): Promise<void> {
 	const loadStarted = Date.now();
 	let shown = -1;
 
-	await engine.load(catalog.llm, (progress) => {
+	await engine.load(catalog.llm, "gpu", (progress) => {
 		const percent = Math.floor(progress.fraction * 100);
 
 		if (percent >= shown + 10 || percent === 100) {

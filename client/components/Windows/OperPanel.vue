@@ -54,7 +54,11 @@
 			</div>
 			<div class="settings-modal-footer">
 				<span class="settings-modal-note">{{ t("oper.panel.note") }}</span>
-				<button class="btn settings-modal-done" type="button" @click="close">
+				<button
+					class="oper-btn oper-btn-primary settings-modal-done"
+					type="button"
+					@click="close"
+				>
 					{{ t("oper.panel.done") }}
 				</button>
 			</div>
@@ -86,9 +90,10 @@
 </style>
 
 <script lang="ts">
-import {computed, defineComponent} from "vue";
+import {computed, defineComponent, watch} from "vue";
 import {useRoute, useRouter} from "vue-router";
 import {useStore} from "../../js/store";
+import socket from "../../js/socket";
 import {leavePage} from "../../js/router";
 import {isOperOn} from "../../js/helpers/operMenu";
 import {useI18n} from "../../js/i18n";
@@ -152,6 +157,18 @@ export default defineComponent({
 			const wanted = OLD_TABS[String(route.params.tab)] ?? String(route.params.tab);
 			return TAB_IDS.includes(wanted) ? wanted : "opers";
 		});
+
+		// The oper-up queries wait their turn behind fake lag (nobody was
+		// waiting on them); an open panel is someone waiting, so it asks now.
+		watch(
+			() => network.value?.uuid,
+			(uuid) => {
+				if (uuid && opered.value && !network.value?.oper?.privsKnown) {
+					socket.emit("oper:refresh", {network: uuid});
+				}
+			},
+			{immediate: true}
+		);
 
 		const go = (id: string) => {
 			void router.push(`/oper/${String(route.params.uuid)}/${id}`);

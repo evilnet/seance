@@ -9,7 +9,7 @@
  */
 
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import socket from "../../client/js/socket";
 import {SEANCE_CAPS, webpushVapidOf} from "../../client/js/irc/caps";
 import {registerBusHandlers} from "../../client/js/irc/bus";
@@ -71,10 +71,11 @@ describe("Web Push subscription (draft/webpush)", function () {
 			const h = setup();
 			register(h, `${ALL_CAPS} draft/webpush=vapid=${VAPID}`);
 
-			const payloads =
-				h.payloads<{network: string; vapid: string | undefined; sasl: boolean}>(
-					"webpush:available"
-				);
+			const payloads = h.payloads<{
+				network: string;
+				vapid: string | undefined;
+				sasl: boolean;
+			}>("webpush:available");
 			expect(payloads).to.have.lengthOf(1);
 			expect(payloads[0].network).to.equal(h.client.uuid);
 			expect(payloads[0].vapid).to.equal(VAPID);
@@ -84,10 +85,11 @@ describe("Web Push subscription (draft/webpush)", function () {
 			const h = setup();
 			register(h, ALL_CAPS);
 
-			const payloads =
-				h.payloads<{network: string; vapid: string | undefined; sasl: boolean}>(
-					"webpush:available"
-				);
+			const payloads = h.payloads<{
+				network: string;
+				vapid: string | undefined;
+				sasl: boolean;
+			}>("webpush:available");
 			expect(payloads).to.have.lengthOf(1);
 			expect(payloads[0].vapid).to.be.undefined;
 		});

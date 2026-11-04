@@ -133,13 +133,16 @@ let lastLoss: DeviceLoss | null = null;
 export function noteDeviceLoss(
 	info: {reason?: unknown; message?: unknown} | null | undefined
 ): void {
-	const reason = String(info?.reason ?? "unknown");
+	// The browser's GPUDeviceLostInfo gives strings; a shim or a test may not.
+	const text = (value: unknown, fallback: string) =>
+		typeof value === "string" ? value : fallback;
+	const reason = text(info?.reason, "unknown");
 
 	if (reason === "destroyed") {
 		return;
 	}
 
-	lastLoss = {reason, message: String(info?.message ?? "").trim()};
+	lastLoss = {reason, message: text(info?.message, "").trim()};
 }
 
 /** The last loss recorded, once: the next failure does not inherit it. */

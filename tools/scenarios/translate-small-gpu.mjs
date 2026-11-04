@@ -26,7 +26,7 @@
 // (127.0.0.1, not localhost: WebLLM never caches a library whose URL says
 // "localhost"):
 //
-//   NODE_ENV=production corepack yarn build
+//   NODE_ENV=production pnpm build
 //   mkdir -p $SITE/seance && ln -s $PWD/public $SITE/seance/develop
 //   python3 -m http.server -d $SITE -b 127.0.0.1 8063 2> $SITE/requests.log &
 //   SEANCE_HTTP=http://127.0.0.1:8063/seance/develop/ SEANCE_SERVER_LOG=$SITE/requests.log \

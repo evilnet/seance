@@ -409,9 +409,11 @@ export function formatLine(msg: IrcMessageInput): string {
  * never exceeds `maxBytes`. `prefixBytes` is the encoded size of everything
  * else on the line (e.g. `@tags :nick!u@h PRIVMSG #chan :`).
  *
- * Breaks preferentially at spaces/tabs (which are consumed), never inside a
- * UTF-8 multi-byte sequence or a UTF-16 surrogate pair. Returns [] for empty
- * text. Throws RangeError if not even one character fits.
+ * Breaks preferentially at spaces/tabs (which are consumed). A run with no
+ * space in reach (a URL, a hash, a long word) is cut between two visible
+ * characters ({@link graphemeCut}), and never inside a UTF-8 multi-byte
+ * sequence or a UTF-16 surrogate pair. Returns [] for empty text. Throws
+ * RangeError if not even one character fits.
  */
 export function splitMessage(
 	prefixBytes: number,
@@ -464,8 +466,8 @@ export function splitMessage(
 			throw new RangeError(`Character at ${pos} does not fit in ${budget} bytes`);
 		}
 
-		let end = pos;
-		let next = pos;
+		let end = graphemeCut(text, start, pos);
+		let next = end;
 
 		if (lastSpace > start) {
 			end = lastSpace;
@@ -486,6 +488,39 @@ export function splitMessage(
 	}
 
 	return chunks;
+}
+
+const graphemes =
+	typeof Intl !== "undefined" && "Segmenter" in Intl
+		? new Intl.Segmenter(undefined, {granularity: "grapheme"})
+		: undefined;
+
+/**
+ * Where to cut `text` at or before `limit` when no space is in reach: the
+ * last boundary between two visible characters after `start`, so an emoji
+ * sequence, a flag or a letter with its accents never ends up on two lines.
+ * A single character bigger than the whole piece (a long run of combining
+ * marks) is cut at `limit` after all, as is everything where the browser has
+ * no `Intl.Segmenter`. `limit` is a code point boundary.
+ */
+export function graphemeCut(text: string, start: number, limit: number): number {
+	if (!graphemes || limit >= text.length) {
+		return limit;
+	}
+
+	let cut = start;
+
+	for (const {index} of graphemes.segment(text.slice(start))) {
+		const at = start + index;
+
+		if (at > limit) {
+			break;
+		}
+
+		cut = at;
+	}
+
+	return cut > start ? cut : limit;
 }
 
 function codePointBytes(cp: number): number {

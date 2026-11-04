@@ -2,8 +2,8 @@
  * Live CHATHISTORY test against a real nefarious2 (ircv3.2-upgrade branch,
  * `CHATHISTORY_REQUIRE_AUTH` off). Skipped unless SEANCE_IRC_URL is set:
  *
- *   SEANCE_IRC_URL=wss://localhost:8443/ npx cross-env NODE_ENV=test \
- *     TS_NODE_PROJECT=./test/tsconfig.json npx mocha --config=test/.mocharc.yml \
+ *   SEANCE_IRC_URL=wss://localhost:8443/ NODE_ENV=test \
+ *     pnpm exec mocha --config=test/.mocharc.yml \
  *     test/irc/history.live.ts
  *
  * A TCP participant (SEANCE_IRC_TCP_PORT, default 6667) seeds #seance with
@@ -14,7 +14,7 @@
  */
 import {expect} from "chai";
 import net from "node:net";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import socket from "../../client/js/socket";
 import {IrcClient} from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";
@@ -221,8 +221,9 @@ describeLive("CHATHISTORY (live nefarious2)", function () {
 		expect(latest).to.match(/CHATHISTORY LATEST #seance \* \d+$/);
 
 		await waitFor("chathistory batch answered", () => payloads("more").length > 0, 15_000);
-		const [more] =
-			payloads<{chan: number; messages: SharedMsg[]; totalMessages: number}>("more");
+		const [more] = payloads<{chan: number; messages: SharedMsg[]; totalMessages: number}>(
+			"more"
+		);
 		expect(more.chan).to.equal(chan.id);
 		const seeded = more.messages.filter((m) => texts.includes(m.text ?? ""));
 		expect(

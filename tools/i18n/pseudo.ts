@@ -57,7 +57,7 @@ export function pseudo(input: string): string {
 		.map((part, index) =>
 			index % 2 === 1
 				? part
-				: [...part].map((c) => MIRROR[c] ?? LOOKALIKE[c.toLowerCase()] ?? c).join("")
+				: Array.from(part, (c) => MIRROR[c] ?? LOOKALIKE[c.toLowerCase()] ?? c).join("")
 		)
 		.join("");
 	return RLE + body + body + PDF; // doubled: see truncation, brackets flipped

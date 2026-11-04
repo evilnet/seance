@@ -13,7 +13,7 @@ import * as saved from "../irc/saved-networks";
 import {SAID_TYPES} from "../irc/channel";
 import {insertMessage} from "../helpers/messageUpdates";
 import {forgetTranslations} from "../translate/reader";
-import {nativeAlertsAvailable, showNativeAlert} from "../helpers/nativeAlerts";
+import {nativeAlertsAvailable, requestAttention, showNativeAlert} from "../helpers/nativeAlerts";
 import {alertSound, playNotificationSound} from "../helpers/notificationSound";
 import {hasVirtualKeyboard} from "../helpers/device";
 
@@ -99,16 +99,27 @@ socket.on("msg", function (data) {
 	// The subset is what the server pushes: PMs and channel mentions. The
 	// Android shell's push service keeps its own ring, fed only for a network
 	// it is subscribed on, and not for a message the page alerted about: that
-	// alert went through the service, which records it as it shows it.
+	// alert went through the service, which records it as it shows it. A
+	// replayed message is taken by neither unless the user is looking at
+	// its conversation: nothing here notifies a replay, so dropping its push
+	// would leave it unannounced (a silent push on Chrome), and a mention
+	// replayed into another channel is still unread.
 	if (
 		!data.msg.self &&
 		data.msg.msgid &&
 		(data.msg.highlight || channel.type === ChanType.QUERY)
 	) {
-		recordSeenMsgid(data.msg.msgid);
+		const lookingAtIt =
+			document.visibilityState === "visible" &&
+			document.hasFocus() &&
+			store.state.activeChannel?.channel === receivingChannel.channel;
 
-		if (!shellAlerted) {
-			webpush.recordSeenOnShell(receivingChannel.network.uuid, data.msg.msgid);
+		if (!data.replay || lookingAtIt) {
+			recordSeenMsgid(data.msg.msgid);
+
+			if (!shellAlerted) {
+				webpush.recordSeenOnShell(receivingChannel.network.uuid, data.msg.msgid);
+			}
 		}
 
 		// Its push still shows under WebKit, quietly, beside what is up.
@@ -185,6 +196,7 @@ function notifyMessage(
 		(store.state.settings.notifyAllMessages && msg.type === MessageType.MESSAGE)
 	) {
 		if (!document.hasFocus() || !activeChannel || activeChannel.channel !== channel) {
+			requestAttention();
 			const native = nativeAlertsAvailable();
 			const ua = navigator.userAgent;
 			const notifying =

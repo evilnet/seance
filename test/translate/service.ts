@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import type {Capability} from "../../client/js/translate/capability";
 import {
 	BATCH_REFUSED,
@@ -48,6 +48,11 @@ import {
 } from "../../client/js/translate/consent";
 import {FakeEngine} from "./fakeEngine";
 
+// sinon 15 and later fake queueMicrotask and process.nextTick as well, and the
+// in-memory port pair (protocol.ts createPortPair) delivers through
+// queueMicrotask: both stay real, as they were under the older sinon.
+const fakeTimers = () => sinon.useFakeTimers({toNotFake: ["nextTick", "queueMicrotask"]});
+
 const AUTO: DeviceChoices = {llm: "auto", opus: "auto", nllb: "auto"};
 
 // OPUS-MT and NLLB-200 with their GPU copies (off in the shipped catalog,
@@ -61,7 +66,7 @@ const catalog = buildCatalog({seq2seqGpu: true});
  * Workers from `healthyFrom` on (counting from 0) are served and answer.
  */
 function deadWorkerRig(dies: boolean, healthyFrom = Infinity) {
-	const clock = sinon.useFakeTimers();
+	const clock = fakeTimers();
 	const created: {client: TranslateClient; terminated: boolean}[] = [];
 	const errors: (string | null)[] = [];
 	const service = new TranslateService(
@@ -140,7 +145,7 @@ function rig(
 		selectedLlm?: string | null;
 	} = {}
 ) {
-	const clock = sinon.useFakeTimers();
+	const clock = fakeTimers();
 	const workers: {terminated: boolean}[] = [];
 	const cached = new Set<string>();
 	let failDelete: Error | null = null;
@@ -973,7 +978,7 @@ describe("translate/service", () => {
 
 	it("builds its table from the selected model's routes with the deploy's merged over them", async () => {
 		const asked: string[] = [];
-		clock = sinon.useFakeTimers();
+		clock = fakeTimers();
 		const service = new TranslateService(
 			{
 				// No worker: the cache question fails and every model counts as absent.

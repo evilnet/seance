@@ -1,7 +1,6 @@
 node_modules
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+pnpm-debug.log*
 package-lock.json
 
 coverage/
@@ -24,20 +23,7 @@ docs/superpowers/
 .claude/*
 !.claude/skills/
 
-# shells/capacitor: generated / synced native build artifacts
-shells/capacitor/node_modules/
-shells/capacitor/android/app/src/main/assets/public/
-shells/capacitor/android/.gradle/
-shells/capacitor/android/build/
-shells/capacitor/android/app/build/
-shells/capacitor/ios/App/App/public/
-shells/capacitor/ios/App/Pods/
-shells/capacitor/ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
-shells/capacitor/ios/App/App.xcodeproj/xcuserdata/
-shells/capacitor/ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
 .DS_Store
-shells/electron/node_modules/
-shells/electron/dist/
 
 # agent scratch (local session state)
 .claude-config/

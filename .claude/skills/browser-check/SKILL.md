@@ -5,10 +5,10 @@ description: Verify a Seance change in a real browser, or debug the IRC WebSocke
 
 # Checking Seance in a real browser
 
-The mocha suite (`corepack yarn test`) never mounts a Vue component, never
+The mocha suite (`pnpm test`) never mounts a Vue component, never
 opens a socket from a browser and never touches the DOM — by design, since
 modules under mocha must stay free of store/DOM imports. So nothing in CI or
-in `yarn test` can tell you whether a component renders, whether a click does
+in `pnpm test` can tell you whether a component renders, whether a click does
 what you meant, or what Chrome puts on the wire. `tools/browser-drive.mjs`
 is that missing half. Read `docs/resources/browser-testing.md` for the full
 API; this is the working procedure.
@@ -26,7 +26,7 @@ API; this is the working procedure.
 ## Always do this first
 
 ```sh
-corepack yarn build                              # public/ is what gets served
+pnpm build                              # public/ is what gets served
 python3 -m http.server -d public 8000 &          # or use a running container
 tools/nefarious-dev/run.sh -d                    # dev ircd, if IRC is involved
 ```

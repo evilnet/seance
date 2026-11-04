@@ -1,6 +1,6 @@
 /**
  * Entry of the service worker's push chunk (public/js/push.js, built by
- * the second webpack configuration). The worker `importScripts` it at
+ * vite.push.config.mts). The worker `importScripts` it at
  * start-up and reaches everything through `self.seancePush`; keep this
  * object's shape in step with `push()` in client/service-worker.js.
  */
@@ -28,7 +28,7 @@ export const seancePush = {
 	// t/interpolate resolve the labels through the same catalog the app
 	// uses. The overlay's transport is the worker's global fetch, bound
 	// here (client/js/push/i18n.ts explains why it is fetched, not
-	// webpack-imported).
+	// imported).
 	applyLocale: (appUrl: string, tag?: string | null) => applyLocale(fetch, appUrl, tag),
 	t,
 	interpolate,

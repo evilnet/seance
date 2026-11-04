@@ -137,7 +137,7 @@ describe("i18n core", () => {
 
 	/** Execute the pre-paint script as the build would ship it:
 	 * client/js/prepaint.js, with `__AVAILABLE_LOCALES__` substituted from
-	 * client/locales/tags.json (webpack bakes a comma-joined tag list at the
+	 * client/locales/tags.json (the build bakes a comma-joined tag list at the
 	 * same spot as it copies the file). The sandbox stubs the three globals
 	 * the script touches; lang/dir start empty, so "still empty" means the
 	 * script left them untouched. */

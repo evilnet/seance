@@ -2,7 +2,7 @@
 // and leaves the page where it was — end to end in a real browser
 // (client/js/boot.ts, socket-events/network.ts, socket-events/init.ts).
 //
-//   corepack yarn build && python3 -m http.server -d public 8001 &
+//   pnpm build && python3 -m http.server -d public 8001 &
 //   node tools/browser-drive.mjs tools/scenarios/reload-on-settings.mjs
 //
 // The default target is a plain-WS ircd on 127.0.0.1:8067 (the testnet rig,
@@ -10,7 +10,7 @@
 //   node tools/browser-drive.mjs tools/scenarios/reload-on-settings.mjs \
 //     --url='http://localhost:8000/?host=localhost&port=8443&tls=true&nick=roswatch&join=%23seance'
 //
-// The claims under test are what `yarn test` cannot see: that the saved
+// The claims under test are what `pnpm test` cannot see: that the saved
 // networks flagged autoconnect are dialed at boot whatever page the URL
 // opened on (they used to be dialed by the connect form when it mounted, so
 // a reload on settings showed an empty sidebar until "Add network" was

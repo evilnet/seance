@@ -11,7 +11,7 @@ import type {Command} from "../types";
 const whois: Command = {
 	commands: ["whois"],
 	input({client, args}) {
-		const params = args.filter((arg) => arg.length > 0);
+		const params = [...args];
 
 		if (params.length === 1) {
 			params.push(params[0]);

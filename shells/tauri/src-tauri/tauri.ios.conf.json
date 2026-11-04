@@ -1,0 +1,11 @@
+{
+  "identifier": "chat.seance.app",
+  "bundle": {
+    "iOS": {
+      "minimumSystemVersion": "26.0"
+    },
+    "resources": {
+      "../../../public/audio/pop.wav": "public/audio/pop.wav"
+    }
+  }
+}

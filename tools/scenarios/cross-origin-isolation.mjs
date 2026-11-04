@@ -6,7 +6,7 @@
 // still gets multithreaded WebAssembly for the CPU translation models, from
 // the load after the worker took control.
 //
-//   NODE_ENV=production corepack yarn build
+//   NODE_ENV=production pnpm build
 //   python3 -c 'import http.server as h, mimetypes as m, functools; m.add_type("text/javascript", ".mjs"); m.add_type("application/wasm", ".wasm"); h.test(functools.partial(h.SimpleHTTPRequestHandler, directory="public"), h.ThreadingHTTPServer, port=8021)' &
 //   tools/nefarious-dev/run.sh -d
 //   SEANCE_PORT=8021 node tools/browser-drive.mjs tools/scenarios/cross-origin-isolation.mjs

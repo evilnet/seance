@@ -6,7 +6,7 @@
 // visible again, the network comes back or the page is restored from the
 // back/forward cache, every connection is poked (`reconnectAll`): the ones
 // waiting to reconnect dial now, open ones probe their socket and treat
-// silence as a dead connection. The Capacitor shells do the same from
+// silence as a dead connection. The phone shells do the same from
 // `appStateChange` (native.ts); reconnectAll de-bounces the overlap.
 //
 // The same moments are when a window that stayed open should look for a
@@ -17,8 +17,8 @@ import {UNFOCUSED_AWAY_MS} from "./irc/presence";
 import {checkForUpdate} from "./pwa";
 import {hasStashedLogin} from "./webpush";
 
-function wake(): void {
-	reconnectAll();
+function wake(opts: {networkBack?: boolean} = {}): void {
+	reconnectAll(opts);
 	checkForUpdate();
 }
 
@@ -102,7 +102,7 @@ export function installForegroundHooks(): void {
 	// the socket almost certainly died while it was frozen.
 	document.addEventListener("resume", () => wake());
 
-	window.addEventListener("online", () => wake());
+	window.addEventListener("online", () => wake({networkBack: true}));
 	window.addEventListener("focus", () => {
 		wake();
 		attend();

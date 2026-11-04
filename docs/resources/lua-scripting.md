@@ -18,7 +18,7 @@ manager subscribes to it.
 
 While it is off:
 
-- Fengari is packaged into an asynchronous chunk (`js/fengari.js`) and is
+- Fengari is packaged into an asynchronous chunk (`js/fengari.<hash>.js`) and is
   **never downloaded** — the manager never creates its sandbox (not at boot,
   not for `/lua`, not for a syntax check), so there is 0 byte impact.
 - No script handler fires, no script command is known, `/lua` answers that
@@ -95,7 +95,7 @@ password, bouncer token or query log), only the `seance.*` table. How
   `pattern too complex (step limit)`. Fengari's matcher counted only its
   recursion depth and runs as one native call the instruction hook cannot
   interrupt, so the budget is patched into `fengari/src/lstrlib.js` at build
-  time by a webpack loader, `scripts/fengari-match-budget.js`; each patch
+  time by `scripts/fengari-match-budget.js` (a transform in `vite.config.mts`); each patch
   must find its anchor exactly once, so a Fengari upgrade that moves the code
   fails the build instead of shipping an unbounded matcher. Mocha loads
   Fengari unpatched: `test/scripts/fengari-match-budget.ts` compiles the
@@ -315,8 +315,8 @@ seance.storage.set("last_seen", seance.current_channel)
      standard library's globals as `tok-function`), so every theme's
      `--tok-*` palette colours both alike. Tab indents (four spaces at the
      caret, or the selected lines); Shift+Tab is left to the browser, so it
-     leaves the field. It is its own lazily loaded chunk, `js/code-editor.js`
-     (about 300 KB, 96 KB gzipped, licence banner in `webpack.config.ts`),
+     leaves the field. It is its own lazily loaded chunk, `js/code-editor.<hash>.js`
+     (about 300 KB, 96 KB gzipped, licence banner in `scripts/build-info.mts`),
      imported when an editor opens; until it arrives, or if it cannot, a
      plain textarea stands in. A name the library would drop on its next load — invalid, or
      another script's — is shown as an error and not saved

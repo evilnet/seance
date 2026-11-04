@@ -7,7 +7,7 @@
 // No ircd and no GPU: the device probe runs on whatever this browser has,
 // and the line reads only the switch.
 //
-//   corepack yarn build && python3 -m http.server -d public 8021 &
+//   NODE_ENV=development pnpm build && python3 -m http.server -d public 8021 &
 //   (or any port, with SEANCE_HTTP=http://localhost:<port>/)
 //   CHROME_BIN=/seance/tmp/chrome-pw.sh node tools/browser-drive.mjs tools/scenarios/translate-test-switches.mjs
 

@@ -21,7 +21,7 @@ paths or showing up in lint/type-check/test runs.
 | `scripts/generate-config-doc.js` | Generated website docs from `defaults/config.js`. |
 | `test/` | Server-only tests and fixtures (models, plugins, inputs, helper functions, config merging). |
 
-Nothing in here is on the build path. `attic/` is excluded from ESLint,
-Prettier, and the TypeScript project references. Do not add imports to it.
+Nothing in here is on the build path. `attic/` is excluded from Oxlint,
+Prettier, and the tsconfigs. Do not add imports to it.
 Once the migration is complete and nothing needs to be looked up any more, this
 directory can be deleted.

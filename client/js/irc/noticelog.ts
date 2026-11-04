@@ -55,7 +55,50 @@ function openDb(): Promise<IDBDatabase> {
 		const req = indexedDB.open(DB_NAME, 1);
 		req.onupgradeneeded = () => req.result.createObjectStore(STORE);
 		req.onsuccess = () => resolve(req.result);
-		req.onerror = () => reject(req.error);
+		req.onerror = () => reject(req.error ?? new DOMException("Request failed", "UnknownError"));
+	});
+}
+
+/**
+ * Run one transaction on an open `db` and close it however the transaction
+ * ends: complete, error, abort (a `QuotaExceededError` on `put`, or the
+ * browser's own) or a throw while starting it. Exported for the tests.
+ */
+export function transactOn<T>(
+	db: IDBDatabase,
+	mode: IDBTransactionMode,
+	run: (store: IDBObjectStore) => IDBRequest<T> | void
+): Promise<T | undefined> {
+	return new Promise<T | undefined>((resolve, reject) => {
+		let settled = false;
+
+		const fail = (error: Error) => {
+			if (!settled) {
+				settled = true;
+				db.close();
+				reject(error);
+			}
+		};
+
+		try {
+			const tx = db.transaction(STORE, mode);
+			const req = run(tx.objectStore(STORE));
+
+			tx.oncomplete = () => {
+				if (!settled) {
+					settled = true;
+					db.close();
+					resolve(req ? req.result : undefined);
+				}
+			};
+
+			tx.onerror = () =>
+				fail(tx.error ?? new DOMException("Transaction aborted", "AbortError"));
+			tx.onabort = () =>
+				fail(tx.error ?? new DOMException("Transaction aborted", "AbortError"));
+		} catch (err: unknown) {
+			fail(err instanceof Error ? err : new Error(String(err)));
+		}
 	});
 }
 
@@ -63,23 +106,7 @@ function transact<T>(
 	mode: IDBTransactionMode,
 	run: (store: IDBObjectStore) => IDBRequest<T> | void
 ): Promise<T | undefined> {
-	return openDb().then(
-		(db) =>
-			new Promise<T | undefined>((resolve, reject) => {
-				const tx = db.transaction(STORE, mode);
-				const req = run(tx.objectStore(STORE));
-
-				tx.oncomplete = () => {
-					db.close();
-					resolve(req ? req.result : undefined);
-				};
-
-				tx.onerror = () => {
-					db.close();
-					reject(tx.error);
-				};
-			})
-	);
+	return openDb().then((db) => transactOn(db, mode, run));
 }
 
 const indexedDbBackend: NoticeLogBackend = {

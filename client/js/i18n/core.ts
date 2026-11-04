@@ -52,7 +52,7 @@ function rulesFor(locale: string): Intl.PluralRules {
 // construction a dynamically composed one — `t(\`mode.${m}\`)`, a name built
 // from data — or a key a refactor left behind. Development builds warn once
 // per key (per locale) on the console; production compiles the check away:
-// webpack replaces process.env.NODE_ENV, the branch folds, nothing warns or
+// the build defines process.env.NODE_ENV, the branch folds, nothing warns or
 // throws. setWarnMissing() exists for tests, which run under NODE_ENV=test.
 
 /** Number vars format through the active locale's digits and decimal
@@ -260,10 +260,10 @@ const INDIRECT_KEYS = new Set(["loading.requiresJs", "loading.slow", "loading.re
  * The generated call-site table, loaded for development builds only: it is
  * ~1000 keys of diagnostics data with nothing to do in a production bundle.
  * The import sits in a branch the bundler's NODE_ENV fold removes whole —
- * written inline rather than through DEV_I18N so webpack evaluates the
- * condition at parse time and never records the dependency — and `eager`
- * keeps it in the same chunk, so it is there from the first microtask.
- * Until it is, a dynamic key simply does not warn.
+ * written inline rather than through DEV_I18N so the build's define makes
+ * the condition a constant and the import, with its chunk, is dropped. A
+ * development build loads it as a chunk of its own straight after the
+ * bundle; until it is in, a dynamic key simply does not warn.
  */
 let staticCallSites: ReadonlySet<string> | null = null;
 
@@ -273,7 +273,7 @@ let staticCallSites: ReadonlySet<string> | null = null;
 export let callSitesReady: Promise<void> = Promise.resolve();
 
 if (process.env.NODE_ENV !== "production") {
-	callSitesReady = import(/* webpackMode: "eager" */ "./call-sites").then((module) => {
+	callSitesReady = import("./call-sites").then((module) => {
 		staticCallSites = module.STATIC_CALL_SITES;
 	});
 }

@@ -64,7 +64,7 @@
 // REDACT answers FAIL DISABLED and the page never offers the cap) and
 // back off at the end.
 //
-//   corepack yarn build && python3 -m http.server -d public 8021 &
+//   NODE_ENV=development pnpm build && python3 -m http.server -d public 8021 &
 //   (or any port, with SEANCE_HTTP=http://localhost:<port>/)
 //   CHROME_BIN=/seance/tmp/chrome-pw.sh node tools/browser-drive.mjs tools/scenarios/translate-reading.mjs
 //   … --mobile --width=390 --height=844

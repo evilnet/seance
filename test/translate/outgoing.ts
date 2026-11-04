@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import {
 	emptyContext,
 	type TranslateChunk,
@@ -42,11 +42,16 @@ import {
 } from "../../client/js/translate/outgoing";
 import {protect} from "../../client/js/translate/spans";
 
+// sinon 15 and later fake queueMicrotask and process.nextTick as well, and the
+// in-memory port pair (protocol.ts createPortPair) delivers through
+// queueMicrotask: both stay real, as they were under the older sinon.
+const fakeTimers = () => sinon.useFakeTimers({toNotFake: ["nextTick", "queueMicrotask"]});
+
 type Req = Omit<TranslateRequest, "id" | "model">;
 type Script = (req: Req) => string[] | Error;
 
 function rig(script: Script) {
-	const clock = sinon.useFakeTimers();
+	const clock = fakeTimers();
 	const requests: Req[] = [];
 	const signals: AbortSignal[] = [];
 	const deps: OutgoingDeps = {
@@ -793,6 +798,8 @@ describe("translate/outgoing", () => {
 
 			expect(r.requests.map((q) => q.lines?.length ?? 0)).to.deep.equal([2, 0, 0]);
 			expect(text).to.equal("[de] one\n[de] two");
+			// One fake clock at a time: the second rig installs its own.
+			r.clock.restore();
 
 			const single = rig((req) => [`[de] ${req.text}`]);
 			const plain = await translateDraft(

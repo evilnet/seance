@@ -2,46 +2,50 @@
 	<div>
 		<h2>{{ t("settings.notifications.pushHeading") }}</h2>
 		<div>
-			<div class="push-networks-hint">
-				{{ t("settings.notifications.pushPerNetwork") }}
-			</div>
-			<div
-				id="label-push-key-change"
-				class="push-networks-hint"
-				role="heading"
-				aria-level="3"
-			>
-				{{ t("settings.notifications.keyChangeIntro") }}
-			</div>
-			<div role="group" aria-labelledby="label-push-key-change">
-				<label class="opt">
-					<input
-						:checked="store.state.settings.pushKeyChange === 'ask'"
-						type="radio"
-						name="pushKeyChange"
-						value="ask"
-					/>
-					{{ t("settings.notifications.keyChangeAsk") }}
-				</label>
-				<label class="opt">
-					<input
-						:checked="store.state.settings.pushKeyChange === 'trust'"
-						type="radio"
-						name="pushKeyChange"
-						value="trust"
-					/>
-					{{ t("settings.notifications.keyChangeTrust") }}
-				</label>
-				<label class="opt">
-					<input
-						:checked="store.state.settings.pushKeyChange === 'ignore'"
-						type="radio"
-						name="pushKeyChange"
-						value="ignore"
-					/>
-					{{ t("settings.notifications.keyChangeIgnore") }}
-				</label>
-			</div>
+			<!-- A desktop shell takes no push (webpush.ts pushBackend): only the
+			     do-not-disturb schedule and the desktop-shell note apply. -->
+			<template v-if="!desktopShell">
+				<div class="push-networks-hint">
+					{{ t("settings.notifications.pushPerNetwork") }}
+				</div>
+				<div
+					id="label-push-key-change"
+					class="push-networks-hint"
+					role="heading"
+					aria-level="3"
+				>
+					{{ t("settings.notifications.keyChangeIntro") }}
+				</div>
+				<div role="group" aria-labelledby="label-push-key-change">
+					<label class="opt">
+						<input
+							:checked="store.state.settings.pushKeyChange === 'ask'"
+							type="radio"
+							name="pushKeyChange"
+							value="ask"
+						/>
+						{{ t("settings.notifications.keyChangeAsk") }}
+					</label>
+					<label class="opt">
+						<input
+							:checked="store.state.settings.pushKeyChange === 'trust'"
+							type="radio"
+							name="pushKeyChange"
+							value="trust"
+						/>
+						{{ t("settings.notifications.keyChangeTrust") }}
+					</label>
+					<label class="opt">
+						<input
+							:checked="store.state.settings.pushKeyChange === 'ignore'"
+							type="radio"
+							name="pushKeyChange"
+							value="ignore"
+						/>
+						{{ t("settings.notifications.keyChangeIgnore") }}
+					</label>
+				</div>
+			</template>
 			<div class="dnd-schedule">
 				<label class="opt">
 					<input
@@ -104,6 +108,10 @@
 			<div v-if="store.state.pushNotificationState === 'unsupported'" class="error">
 				{{ t("settings.notifications.unsupported") }}
 			</div>
+			<div v-if="store.state.pushNotificationState === 'desktop-shell'" class="error">
+				The desktop app shows notifications while it is running. Push notifications, which
+				reach a closed app, are not available here.
+			</div>
 			<div v-if="store.state.pushNotificationState === 'not-installed'" class="error">
 				<strong>{{ t("settings.notifications.warning") }}</strong
 				>:
@@ -126,7 +134,7 @@
 				>:
 				{{ t("settings.notifications.pushBlocked") }}
 			</div>
-			<details class="push-diagnostics" @toggle="onDiagnosticsToggle">
+			<details v-if="!desktopShell" class="push-diagnostics" @toggle="onDiagnosticsToggle">
 				<summary>{{ t("settings.notifications.diagnosticsHeading") }}</summary>
 				<p class="push-networks-hint">{{ t("settings.notifications.diagnosticsHelp") }}</p>
 				<div class="opt push-diagnostics-actions">
@@ -288,7 +296,7 @@ import webpush from "../../js/webpush";
 import dnd from "../../js/dnd";
 import {DAYS, HHMM, weekdayName, type DndSchedule} from "../../js/helpers/dnd";
 import {frameSegments, KEEP} from "../../js/i18n/core";
-import {isAndroidShell} from "../../js/helpers/capacitor";
+import {isAndroidShell, isDesktopShell} from "../../js/helpers/shell";
 import {nativeAlertsAvailable} from "../../js/helpers/nativeAlerts";
 import {playNotificationSound} from "../../js/helpers/notificationSound";
 
@@ -405,6 +413,7 @@ export default defineComponent({
 			highlightExceptionsHelp,
 			commaListPlaceholder,
 			androidShell: isAndroidShell(),
+			desktopShell: isDesktopShell(),
 			nativeShell: nativeAlertsAvailable(),
 			playNotification,
 			diagnosticsText,

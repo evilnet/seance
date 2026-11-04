@@ -1,5 +1,16 @@
 <template>
 	<div class="oper-alerts">
+		<!-- What the three choices mean, said on a touchscreen where the
+		     buttons' tooltips never show. -->
+		<p class="oper-touch-hint oper-route-legend">
+			<template v-for="pos in positions" :key="pos.route">
+				<span class="oper-route-legend-item"
+					>{{ pos.legend[0] }}<strong>{{ pos.label }}</strong
+					>{{ pos.legend[1] }}</span
+				>
+				{{ " " }}
+			</template>
+		</p>
 		<section v-for="section in sections" :key="section.id" class="oper-alerts-section">
 			<h2>{{ section.label }}</h2>
 			<ul class="oper-lines">
@@ -75,7 +86,11 @@
 		<section v-if="x3" class="oper-alerts-section oper-o3">
 			<div class="oper-o3-head">
 				<h2>{{ t("oper.alerts.o3.heading", {bot: operBot}) }}</h2>
-				<button type="button" class="btn btn-small oper-o3-new" @click="newAlert">
+				<button
+					type="button"
+					class="oper-btn oper-btn-secondary oper-o3-new"
+					@click="newAlert"
+				>
 					{{ t("oper.alerts.o3.new", {bot: operBot}) }}
 				</button>
 			</div>
@@ -127,7 +142,7 @@
 								>
 								<button
 									type="button"
-									class="btn btn-small btn-danger"
+									class="oper-btn oper-btn-danger"
 									:disabled="busy"
 									@click="confirmDelete(a)"
 								>
@@ -135,19 +150,23 @@
 								</button>
 								<button
 									type="button"
-									class="btn btn-small btn-cancel"
+									class="oper-btn oper-btn-ghost oper-cancel"
 									@click="deleting = ''"
 								>
 									{{ t("oper.alerts.o3.keep") }}
 								</button>
 							</template>
 							<template v-else>
-								<button type="button" class="btn btn-small" @click="edit(a)">
+								<button
+									type="button"
+									class="oper-btn oper-btn-secondary"
+									@click="edit(a)"
+								>
 									{{ t("oper.alerts.o3.edit") }}
 								</button>
 								<button
 									type="button"
-									class="btn btn-small"
+									class="oper-btn oper-btn-secondary"
 									@click="deleting = a.name"
 								>
 									{{ t("oper.alerts.o3.delete") }}
@@ -177,13 +196,13 @@
 					v-for="p in presets"
 					:key="p.label"
 					type="button"
-					:class="['btn', 'btn-small', {active: p.mask === draft}]"
+					:class="['oper-btn', 'oper-btn-secondary', {active: p.mask === draft}]"
 					:title="`${p.mask} (0x${p.mask.toString(16)})`"
 					@click="apply(p.mask)"
 				>
 					{{ p.label }}
 				</button>
-				<button type="button" class="btn btn-small" @click="apply(0)">
+				<button type="button" class="oper-btn oper-btn-secondary" @click="apply(0)">
 					{{ t("oper.alerts.raw.off") }}
 				</button>
 			</div>
@@ -240,9 +259,9 @@
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: 0.3rem 1rem;
-	padding: 0.45rem 0;
-	border-bottom: 1px solid color-mix(in srgb, var(--body-color-muted) 25%, transparent);
+	gap: 0.4rem 1rem;
+	padding: 0.7rem 0;
+	border-bottom: 1px solid var(--oper-line);
 }
 
 .oper-line-text {
@@ -304,15 +323,6 @@
 	margin-bottom: 0.75rem;
 }
 
-.oper-presets .btn {
-	margin: 0;
-}
-
-.oper-presets .btn.active {
-	border-color: var(--link-color);
-	color: var(--link-color);
-}
-
 .oper-bits {
 	list-style: none;
 	margin: 0;
@@ -357,20 +367,6 @@
 	margin-top: 0.25rem;
 }
 
-.oper-o3 .btn-small {
-	margin: 0;
-	padding: 0.3em 0.75em;
-	font-size: 0.875em;
-	line-height: 1.4;
-	border-width: 1px;
-	letter-spacing: 0;
-	text-transform: none;
-}
-
-.oper-o3 .btn-cancel {
-	border-color: transparent;
-}
-
 .oper-o3-note,
 .oper-o3-result {
 	margin: 0.4rem 0 0;
@@ -378,7 +374,7 @@
 }
 
 .oper-o3-result {
-	color: var(--link-color);
+	color: var(--body-color);
 }
 
 .oper-o3-confirm {
@@ -396,6 +392,7 @@ import {computed, defineComponent, onMounted, onUnmounted, PropType, ref, watch}
 import type {Route} from "../../../shared/types/oper";
 import type {ClientNetwork} from "../../js/types";
 import socket from "../../js/socket";
+import {settleDebounce} from "../../js/helpers/settleDebounce";
 import eventbus from "../../js/eventbus";
 import {profileById} from "../../js/irc/profiles";
 import type {AlertLine, NoticeKind, SnomaskBit} from "../../js/irc/profiles/types";
@@ -447,23 +444,31 @@ export default defineComponent({
 			{id: "network", label: t("oper.alerts.section.network")},
 		]);
 
-		const positions = computed((): {route: Route; label: string; title: string}[] => [
-			{
-				route: "active",
-				label: t("oper.alerts.position.here"),
-				title: t("oper.alerts.position.hereTitle"),
-			},
-			{
-				route: "network",
-				label: t("oper.alerts.position.network"),
-				title: t("oper.alerts.position.networkTitle"),
-			},
-			{
-				route: "off",
-				label: t("oper.alerts.position.off"),
-				title: t("oper.alerts.position.offTitle"),
-			},
-		]);
+		// `legend`: the touchscreen's sentence for the choice, split around
+		// its label (rendered bold).
+		const legendOf = (text: string) => frameSegments(text, ["label"]);
+		const positions = computed(
+			(): {route: Route; label: string; title: string; legend: string[]}[] => [
+				{
+					route: "active",
+					label: t("oper.alerts.position.here"),
+					title: t("oper.alerts.position.hereTitle"),
+					legend: legendOf(t("oper.alerts.position.hereLegend", {label: KEEP})),
+				},
+				{
+					route: "network",
+					label: t("oper.alerts.position.network"),
+					title: t("oper.alerts.position.networkTitle"),
+					legend: legendOf(t("oper.alerts.position.networkLegend", {label: KEEP})),
+				},
+				{
+					route: "off",
+					label: t("oper.alerts.position.off"),
+					title: t("oper.alerts.position.offTitle"),
+					legend: legendOf(t("oper.alerts.position.offLegend", {label: KEEP})),
+				},
+			]
+		);
 
 		// The alert row's "by {owner}" and the inline "Delete {name}?",
 		// split around the user's own words (rendered in <bdi>).
@@ -537,7 +542,6 @@ export default defineComponent({
 		const hasS = computed(() => (props.network.oper?.umodes ?? "").includes("s"));
 		const draft = ref(props.network.oper?.snomask ?? 0);
 		const pending = ref(false);
-		let timer: ReturnType<typeof setTimeout> | undefined;
 
 		watch(
 			() => props.network.oper?.snomask,
@@ -548,21 +552,23 @@ export default defineComponent({
 			}
 		);
 
-		const send = () => {
-			timer = undefined;
-			socket.emit("oper:snomask", {network: props.network.uuid, mask: draft.value});
-			// The 008 answer moves `snomask`; until then the switches hold.
-			setTimeout(() => {
+		// The 008 answer moves `snomask`; until the settle the switches hold.
+		// An edit calls off a settle still due, so it is never put back.
+		const sender = settleDebounce({
+			delayMs: 400,
+			settleMs: 1500,
+			send: () =>
+				socket.emit("oper:snomask", {network: props.network.uuid, mask: draft.value}),
+			settle() {
 				pending.value = false;
 				draft.value = props.network.oper?.snomask ?? draft.value;
-			}, 1500);
-		};
+			},
+		});
 
 		const apply = (mask: number) => {
 			draft.value = mask;
 			pending.value = true;
-			clearTimeout(timer);
-			timer = setTimeout(send, 400);
+			sender.schedule();
 		};
 
 		const toggle = (bit: number) => apply(draft.value ^ bit);
@@ -619,17 +625,20 @@ export default defineComponent({
 			alerts.value = {...alerts.value, state: "asking"};
 			const answer = await listAlerts(client);
 
-			if (answer.kind !== "reply") {
+			if (answer.kind !== "reply" || !answer.value) {
 				alerts.value = {
 					...alerts.value,
 					state: "failed",
 					list: [],
-					note: describeFailure(client, answer),
+					note:
+						answer.kind === "reply"
+							? answer.lines[0] ?? ""
+							: describeFailure(client, answer),
 				};
 				return;
 			}
 
-			alerts.value = {...alerts.value, state: "done", list: answer.value ?? [], note: ""};
+			alerts.value = {...alerts.value, state: "done", list: answer.value, note: ""};
 		};
 
 		const onToggle = (event: Event) => {
@@ -719,10 +728,7 @@ export default defineComponent({
 			eventbus.off("oper:routes", onRoutes);
 			eventbus.off("oper:alerts-changed", onAlertsChanged);
 
-			if (timer !== undefined) {
-				clearTimeout(timer);
-				send();
-			}
+			sender.flush();
 		});
 
 		return {

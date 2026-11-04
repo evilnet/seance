@@ -17,7 +17,7 @@ const investigate: Command = {
 	commands: ["investigate"],
 	allowDisconnected: true,
 	input({client, chan, args}) {
-		let target = args.find((arg) => arg.length > 0) ?? "";
+		let target = args[0] ?? "";
 
 		if (!target) {
 			if (chan.type === ChanType.CHANNEL || chan.type === ChanType.QUERY) {

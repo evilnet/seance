@@ -40,8 +40,8 @@ export type SharedNetworkStatus = {
 	 * strip waits on it, so a quick reconnect says nothing.
 	 */
 	downSince?: number;
-	/** That wait is the server's connection throttle (client/js/irc/dialLedger.ts). */
-	retryThrottled?: boolean;
+	/** Why that wait: the server's throttle, or no network here (client/js/irc/transport.ts). */
+	retryReason?: "throttled" | "offline";
 };
 
 /** The services packages the client knows how to talk to (irc/services/). */

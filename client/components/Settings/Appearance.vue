@@ -490,7 +490,7 @@ import {
 	themeChoices,
 	themePartner,
 } from "../../js/helpers/themeAppearance";
-import {isIOSShell} from "../../js/helpers/capacitor";
+import {isIOSShell} from "../../js/helpers/shell";
 import {systemTextSizeAvailable} from "../../js/helpers/systemTextSize";
 import {
 	fontSizeScale,

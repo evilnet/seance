@@ -5,8 +5,8 @@
 // text behind the target language's name, word by word. Vue-free so a
 // mocha test can pin its shape.
 //
-// index.ts reaches this module behind `BUILD === "dev"`, and webpack
-// folds it out of a production build: `NODE_ENV=production yarn build`
+// index.ts reaches this module behind `BUILD === "dev"`, and the build
+// folds it out of a production build: `NODE_ENV=production pnpm build`
 // ships neither the scripted engines nor the request log (grep
 // `public/js/*.js` for `__seanceTranslateFake` to check).
 
@@ -114,7 +114,6 @@ function publishLoaded(engine: EngineName, ids: string[]): void {
 }
 
 declare global {
-	// eslint-disable-next-line no-var
 	var __seanceTranslateFake: TranslateFakeGlobal | undefined;
 }
 

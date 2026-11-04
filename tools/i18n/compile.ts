@@ -7,7 +7,7 @@
 // is generated from en on every run (Task 10's direction/length/plural test
 // rig). Also regenerates client/js/i18n/available.ts and
 // client/locales/tags.json, so the build never ships a stale catalog —
-// package.json runs this before webpack.
+// package.json runs this before Vite (`pnpm build`).
 //
 // Fuzzy entries are skipped with a stderr warning (the runtime falls back to
 // en per key); a translation that lost a {placeholder} the msgid has fails
@@ -177,7 +177,7 @@ function pseudoCatalogFromEn(en: Catalog): Catalog {
 
 function renderAvailable(available: AvailableLocale[]): string {
 	// Nothing here is baked from NODE_ENV: the generated files are tracked,
-	// and `yarn watch`, `yarn test:e2e` and a bare `webpack` skip the compile
+	// and a bare `vite build` skips the compile
 	// altogether — whichever mode wrote them last would be the one those
 	// builds shipped, and a production build would dirty the tree. The
 	// dev-only entries are listed like any other and filtered at runtime by
@@ -295,9 +295,9 @@ export function compileLocales(options: CompileOptions = {}): CompileResult {
 		...localeTags.map((tag) => ({tag})),
 		...DEV_ONLY_TAGS.map((tag) => ({tag, devOnly: true} as AvailableLocale)),
 	];
-	// The pre-paint script's list (webpack bakes it into js/prepaint.js) carries
+	// The pre-paint script's list (the build bakes it into js/prepaint.js) carries
 	// the dev-only tags too, so a stored qqx pick gets its lang/dir from the
-	// first paint like any other; webpack.config.ts drops them for a
+	// first paint like any other; scripts/build-info.mts drops them for a
 	// production build, which is the one consumer that cannot check at
 	// runtime.
 	const tags = available.map((entry) => entry.tag);
@@ -328,7 +328,7 @@ export function compileLocales(options: CompileOptions = {}): CompileResult {
 	mkdirSync(dirname(availablePath), {recursive: true});
 	writeFileSync(availablePath, renderAvailable(available));
 	mkdirSync(dirname(tagsPath), {recursive: true});
-	// Bare list for the pre-paint script; webpack.config.ts substitutes it
+	// Bare list for the pre-paint script; scripts/build-info.mts substitutes it
 	// into client/js/prepaint.js as it copies it (Task 3). Both
 	// generated files are excluded from prettier — the generator owns their
 	// formatting — so regeneration is byte-stable.

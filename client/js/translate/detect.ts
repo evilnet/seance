@@ -348,7 +348,7 @@ export function loadDetector(): Promise<Detector> {
 	}
 
 	if (!loading) {
-		loading = import(/* webpackChunkName: "franc" */ "franc")
+		loading = import("franc")
 			.then((module) => {
 				const fn: Detector = (text, options) => module.francAll(text, options) as Scores;
 

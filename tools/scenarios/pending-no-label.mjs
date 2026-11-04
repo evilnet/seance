@@ -5,7 +5,7 @@
 // `label=h<n>` alone). Before the fix the faded copy stayed until the 60 s
 // timeout; now it settles by exact text.
 //
-//   corepack yarn build && python3 -m http.server -d public 8001 &
+//   pnpm build && python3 -m http.server -d public 8001 &
 //   tools/nefarious-dev/run.sh -d   (or the native testnet on 8067)
 //   CHROME_BIN=… SEANCE_IRC_WS=ws://127.0.0.1:8067/ \
 //     node tools/browser-drive.mjs tools/scenarios/pending-no-label.mjs \

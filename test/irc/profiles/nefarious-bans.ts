@@ -64,6 +64,11 @@ describe("nefarious2 bans (profiles/nefarious/bans.ts)", function () {
 		expect(checkMask("zline", "1.2.3.4")).to.deep.equal({needsForce: false});
 		expect(checkMask("zline", "*@1.2.3.4").error).to.match(/IP/);
 		expect(checkMask("zline", "2001:db8::/48")).to.deep.equal({needsForce: true});
+		// gline_checkmask counts v6 width at dots only: a wildcard is refused,
+		// forced or not, so force is never offered for one.
+		expect(checkMask("gline", "*@2001:db8::*").error).to.match(/IPv6.*CIDR/);
+		expect(checkMask("gline", "*@2001:db8::*").needsForce).to.equal(false);
+		expect(checkMask("zline", "2001:db8:*").error).to.match(/IPv6.*CIDR/);
 		expect(checkMask("gline", "").error).to.equal("Enter a mask.");
 	});
 

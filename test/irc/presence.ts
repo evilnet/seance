@@ -9,7 +9,7 @@
  */
 
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import socket from "../../client/js/socket";
 import {IrcClient} from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";
@@ -133,7 +133,6 @@ function connect(opts: {attended?: boolean; preAway?: boolean} = {}): Harness {
 		client,
 		dispatch,
 		transport,
-		dispatch,
 		sent() {
 			const result = transport.sent.slice(mark);
 			mark = transport.sent.length;

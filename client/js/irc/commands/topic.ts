@@ -32,7 +32,8 @@ const topic: Command = {
 		}
 
 		const targetName = named ? first : chan.name;
-		const text = named ? rest.slice(first.length + 1) : rest;
+		// One separator after the channel goes; any further spaces are the topic's.
+		const text = named ? rest.slice(rest.indexOf(first) + first.length + 1) : rest;
 		const textArgs = named ? args.slice(1) : args;
 
 		if (textArgs.every((arg) => arg.trim() === "")) {

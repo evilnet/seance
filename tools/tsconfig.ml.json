@@ -1,0 +1,18 @@
+{
+  // The tools that run transformers.js in Node (the translation evaluation,
+  // the catalog fill), checked with skipLibCheck: its published
+  // declarations do not check (client/tsconfig.worker.json says which).
+  // Every other tool is checked by tsconfig.json with it off.
+  "extends": "./tsconfig.json",
+  "include": [],
+  "exclude": [],
+  "files": [
+    "./llm-node-backend.ts",
+    "./translate-llm.ts",
+    "./i18n/fill.ts",
+    "./translate-eval/overlap.ts",
+    "./translate-eval/per-language.ts",
+    "./translate-eval/roundtrip.ts"
+  ],
+  "compilerOptions": {"skipLibCheck": true}
+}

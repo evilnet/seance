@@ -232,6 +232,19 @@ describe("saved-networks", function () {
 		expect(() => saved.fromForm({name: "no uuid"})).to.throw(/uuid/);
 	});
 
+	it('fromForm: a posted "global" clears a stored presence mode, a missing or undefined one keeps it', () => {
+		const stored = saved.normalize({uuid: "u1", host: "h", presenceMode: "dnd"})!;
+
+		expect(saved.presenceModeOf(stored)).to.equal("dnd");
+		expect(
+			saved.presenceModeOf(saved.fromForm({uuid: "u1", presenceMode: "global"}, stored))
+		).to.equal("global");
+		expect(saved.presenceModeOf(saved.fromForm({uuid: "u1"}, stored))).to.equal("dnd");
+		expect(
+			saved.presenceModeOf(saved.fromForm({uuid: "u1", presenceMode: undefined}, stored))
+		).to.equal("dnd");
+	});
+
 	it("reads the push flag as enabled unless explicitly disabled", function () {
 		// Entries stored before the flag existed (and networks never saved)
 		// are push-enabled; only an explicit false opts out.
@@ -329,6 +342,7 @@ describe("saved-networks", function () {
 			port: "not a port",
 			tls: "false",
 			nick: 42,
+			join: ["#a", " #b ", {}],
 			sasl: "external",
 			commands: ["/a", "", " /b "],
 			lastUsed: "yesterday",
@@ -339,12 +353,24 @@ describe("saved-networks", function () {
 			port: 8067,
 			tls: false,
 			nick: "42",
+			join: "#a,#b",
 			sasl: "",
 		});
 		expect(net?.commands).to.deep.equal(["/a", "/b"]);
 		expect(net?.lastUsed).to.equal(undefined);
 		expect(saved.normalize({host: "irc.example.org"})).to.equal(undefined);
 		expect(saved.defaultPort(true)).to.equal(9998);
+	});
+
+	it("refuses a uuid every object already answers to", function () {
+		// A restored settings file can name any uuid, and the uuid keys a dozen
+		// per-network stores: these read Object.prototype (or a Vue proxy's
+		// own answers) back as the network's entry.
+		for (const uuid of ["__proto__", "constructor", "toString", "hasOwnProperty", "__v_raw"]) {
+			expect(saved.normalize({uuid, host: "irc.example.org"}), uuid).to.equal(undefined);
+		}
+
+		expect(saved.normalize({uuid: "net-a", host: "irc.example.org"})?.uuid).to.equal("net-a");
 	});
 
 	it("ignores corrupt or malformed storage", function () {

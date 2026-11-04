@@ -6,7 +6,7 @@
  */
 
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import socket from "../../client/js/socket";
 import enCatalog from "../../client/locales/en.json";
 import {IrcClient} from "../../client/js/irc/client";

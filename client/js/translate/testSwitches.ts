@@ -15,7 +15,7 @@ interface UrlSwitch {
 	param: string;
 	key: string;
 	/** A value worth storing (the stored text is the value trimmed). */
-	valid(value: string): boolean;
+	valid: (value: string) => boolean;
 }
 
 const SWITCHES: readonly UrlSwitch[] = [

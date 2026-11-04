@@ -23,7 +23,7 @@ describe("helpers/psWords (the ps theme's Words over the plains setting)", funct
 		}
 
 		for (const bad of [undefined, null, "", "halo", 3, {}, "Bubbles"]) {
-			expect(normalizePsWords(bad), String(bad)).to.equal("bubbles");
+			expect(normalizePsWords(bad), JSON.stringify(bad)).to.equal("bubbles");
 		}
 	});
 

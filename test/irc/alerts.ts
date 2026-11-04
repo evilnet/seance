@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import socket from "../../client/js/socket";
 import {IrcClient} from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";
@@ -19,6 +19,7 @@ import type {Transport} from "../../client/js/irc/types";
 import type {TransportEvent, TransportState} from "../../client/js/irc/transport";
 import type {ServicesConfig} from "../../shared/types/network";
 import type {SharedMsg} from "../../shared/types/msg";
+import {trustBot} from "./support";
 
 class FakeTransport implements Transport {
 	state: TransportState = "closed";
@@ -129,6 +130,11 @@ function setup(): {client: IrcClient; transport: FakeTransport} {
 		":irc.test 422 opr :MOTD File is missing"
 	);
 	client.setServices(X3);
+
+	for (const bot of ["O3", "AuthServ", "ChanServ"]) {
+		trustBot(client, bot);
+	}
+
 	transport.sent = [];
 	dispatch.resetHistory();
 
@@ -464,5 +470,10 @@ describe("the alert builder's wire side (irc/alerts.ts, services/x3/alerts.ts)",
 		expect(await level).to.equal(900);
 		expect(await operLevel(client)).to.equal(900);
 		expect(transport.sent).to.have.length(1);
+
+		// Logged in as someone else now: their level, not rubin's.
+		transport.line(":irc.test 900 opr opr!opr@host other :You are now logged in as other");
+		void operLevel(client);
+		expect(transport.sent.at(-1)).to.equal("@label=svc2 PRIVMSG AuthServ :accountinfo other");
 	});
 });

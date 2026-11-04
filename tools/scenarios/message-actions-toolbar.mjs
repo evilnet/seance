@@ -2,13 +2,13 @@
 // belongs to, it stands down while a selection is dragged out, it keeps clear
 // of the jump-to-recent arrow, and the delete button is a trash can, not a ✕.
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d
 //   node tools/browser-drive.mjs tools/scenarios/message-actions-toolbar.mjs
 //
 // `SEANCE_IRC_URL` and `SEANCE_IRC_CHANNEL` point it at another network; it
 // joins the channel twice (the app and a second user), says forty lines and
-// quits, so pick a channel where that is welcome. Nothing in `yarn test`
+// quits, so pick a channel where that is welcome. Nothing in `pnpm test`
 // mounts a component, which is why this exists; the touch behaviour (a long
 // press) is tools/scenarios/message-actions-single.mjs --mobile.
 

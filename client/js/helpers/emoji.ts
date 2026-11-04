@@ -13,8 +13,7 @@
  */
 
 import emojiRegExp from "emoji-regex";
-import findShortcode from "./ircmessageparser/findShortcode";
-import shortcodes from "./ircmessageparser/shortcodes.json";
+import findShortcode, {emojiForShortcode} from "./ircmessageparser/findShortcode";
 import type {EmojiEntry, EmojiGroup} from "./emoji-catalog";
 
 export type {EmojiEntry, EmojiGroup};
@@ -37,7 +36,7 @@ let pending: Promise<EmojiGroup[]> | undefined;
  */
 export function loadEmojiCatalog(): Promise<EmojiGroup[]> {
 	if (!pending) {
-		pending = import(/* webpackChunkName: "emoji-catalog" */ "./emoji-catalog")
+		pending = import("./emoji-catalog")
 			.then((module) => module.default)
 			.catch((error) => {
 				pending = undefined;
@@ -74,8 +73,6 @@ export function prefetchEmojiCatalog(): void {
 	}
 }
 
-const aliases = shortcodes as Record<string, string>;
-
 /**
  * The emoji `name` is an alias for, if there is one: `tada`, `:tada:` and
  * `TADA` all give 🎉. This is what decides whether somebody typing in the
@@ -83,12 +80,12 @@ const aliases = shortcodes as Record<string, string>;
  * emoji, anything else is text until they pick otherwise.
  */
 export function emojiForName(name: string): string | undefined {
-	return aliases[
+	return emojiForShortcode(
 		name
 			.trim()
 			.toLowerCase()
 			.replace(/^:+|:+$/g, "")
-	];
+	);
 }
 
 /** Every entry of every group, in the order the picker lists them. */

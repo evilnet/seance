@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import socket from "../../client/js/socket";
 import {registerBusHandlers} from "../../client/js/irc/bus";
 import {EDIT_TIMEOUT_MS} from "../../client/js/irc/client";

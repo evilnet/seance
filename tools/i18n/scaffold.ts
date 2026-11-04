@@ -8,7 +8,7 @@
 //
 //   npx tsx tools/i18n/scaffold.ts [--force]
 //
-// After scaffolding, run `yarn i18n:merge` so the new files are marked for
+// After scaffolding, run `pnpm i18n:merge` so the new files are marked for
 // translators (entries without a msgstr would compile as the English copy
 // anyway), then fill them (tools/i18n/fill.ts).
 //

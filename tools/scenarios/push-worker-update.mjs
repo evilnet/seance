@@ -8,7 +8,7 @@
 // network's registration to `update()` as it comes up (webpush.ts
 // syncStoredWithBrowser), and again when a subscribe reuses a registration.
 //
-//   NODE_ENV=production corepack yarn build && python3 -m http.server -d public 8001 &
+//   NODE_ENV=production pnpm build && python3 -m http.server -d public 8001 &
 //   node tools/browser-drive.mjs tools/scenarios/push-worker-update.mjs [--chrome=…]
 //
 // Needs the testnet ircd on ws://127.0.0.1:8067 with the SASL account below.

@@ -319,7 +319,9 @@ export function wideReason(row: CriterionRow, rows: CriterionRow[]): string | un
 		}
 
 		default:
-			return undefined;
+			// Wildcards and nothing else (`*`, `?*`, spaces made `?`) match
+			// every value: a realname or version of `*` catches everyone.
+			return value !== "" && /^[*?\s]+$/.test(value) ? "matches any value" : undefined;
 	}
 }
 
@@ -418,8 +420,11 @@ export function defaultReason(from: {channel?: string; me: string}): string {
  * `criterion` uses); every other value goes as typed.
  */
 export function criterionWord(key: string, value: string): string {
+	// Every criterion is one word to O3: a space would start the next
+	// keyword (`host a.example reason x`). A space matches one character
+	// in a realname or version; nothing else holds one, so it goes.
 	const v = value.trim();
-	return key === "info" || key === "version" ? v.replace(/\s+/g, "?") : v;
+	return key === "info" || key === "version" ? v.replace(/\s+/g, "?") : v.replace(/\s+/g, "");
 }
 
 /** The criteria text: every row that is on and has a value, `key value` each (`log`, which takes no value, alone). */
@@ -522,7 +527,9 @@ export const MANY_MATCHES = 25;
  */
 export function matchesText(
 	count: number,
-	opers: string[] | undefined
+	opers: string[] | undefined,
+	/** How many of the matches were checked for opers (the WHO asks 20 at most). */
+	checked: number = count
 ): {text: string; warn: boolean} {
 	if (count === 0) {
 		return {text: t("oper.alertBuilder.matches.none"), warn: false};
@@ -533,7 +540,9 @@ export function matchesText(
 	if (opers !== undefined) {
 		const who =
 			opers.length === 0
-				? t("oper.alertBuilder.matches.noOpers")
+				? checked < count
+					? tCount("oper.alertBuilder.matches.noOpersAmongFirst", checked)
+					: t("oper.alertBuilder.matches.noOpers")
 				: opers.length === 1
 				? t("oper.alertBuilder.matches.oneOper", {opers: opers[0]})
 				: tCount("oper.alertBuilder.matches.opers", opers.length, {

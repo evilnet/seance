@@ -4,7 +4,7 @@
 // landed, and a download's consent is kept per build.
 
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import type {Capability} from "../../client/js/translate/capability";
 import type {ModelRef} from "../../client/js/translate/engine";
 import {
@@ -22,6 +22,11 @@ import {serveEngines} from "../../client/js/translate/worker";
 import {memoryConsent} from "../../client/js/translate/consent";
 import {DEFAULT_ROUTES} from "../../client/js/translate/routes.default";
 import {FakeEngine} from "./fakeEngine";
+
+// sinon 15 and later fake queueMicrotask and process.nextTick as well, and the
+// in-memory port pair (protocol.ts createPortPair) delivers through
+// queueMicrotask: both stay real, as they were under the older sinon.
+const fakeTimers = () => sinon.useFakeTimers({toNotFake: ["nextTick", "queueMicrotask"]});
 
 const AUTO: DeviceChoices = {llm: "auto", opus: "auto", nllb: "auto"};
 
@@ -108,7 +113,7 @@ describe("translate/service and the small-buffer build", () => {
 	let clock: sinon.SinonFakeTimers;
 
 	beforeEach(() => {
-		clock = sinon.useFakeTimers();
+		clock = fakeTimers();
 	});
 
 	afterEach(() => {

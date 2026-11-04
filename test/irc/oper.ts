@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import sinon from "ts-sinon";
+import sinon from "sinon";
 import socket from "../../client/js/socket";
 import {IrcClient} from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";
@@ -7,6 +7,7 @@ import {dispatchInput} from "../../client/js/irc/commands";
 import {
 	LoggedNotice,
 	NoticeLog,
+	transactOn,
 	trim,
 	MAX_AGE_MS,
 	MAX_ENTRIES,
@@ -245,6 +246,26 @@ describe("oper tools: labeled requests (irc/request.ts)", function () {
 		expect(messages(client.lobby.id)).to.have.length(0);
 	});
 
+	it("leaves a real server notice (a +W whois notice) inside our open batch to be routed", async function () {
+		const {client, transport} = setup();
+		const reply = request(client, "STATS u");
+		const label = lastLabel(transport);
+
+		transport.lines(
+			`@label=${label} :irc.test BATCH +AD labeled-response`,
+			":irc.test NOTICE opr :*** Notice -- bob (b@h) did a /whois on you.",
+			"@batch=AD :irc.test 219 opr u :End of /STATS report",
+			":irc.test BATCH -AD"
+		);
+
+		const unit = await reply;
+		expect(unit.lines.map((m) => m.command)).to.deep.equal(["219"]);
+		expect(
+			messages(client.lobby.id).map((m) => m.text),
+			"routed, not swallowed"
+		).to.satisfy((texts: string[]) => texts.some((t) => t.includes("bob")));
+	});
+
 	it("collects an untagged reply it named and resolves on the ACK (evilnet/nefarious2#120)", async function () {
 		const {client, transport} = setup();
 		const reply = request(client, "PRIVS", {untagged: ["270"]});
@@ -399,11 +420,29 @@ describe("oper tools: oper state (irc/oper.ts)", function () {
 			SNOMASK_OPERDEFAULT: "5645",
 		});
 		expect(client.oper.level).to.equal("global");
-		expect(getOperPrefs(client.uuid).wasOper).to.equal(true);
 		expect(
 			messages(client.lobby.id).filter((m) => m.type !== MessageType.MODE),
 			"replies not shown raw"
 		).to.have.length(0);
+	});
+
+	it("announces each oper-up answer as it lands, not after the last one", async function () {
+		const {transport} = setup();
+
+		transport.line(":opr!opr@host MODE opr +owsg");
+		await flush();
+
+		const privs = transport.sent.find((l) => l.endsWith("PRIVS"))!;
+		transport.lines(
+			":irc.test 270 opr opr :CHAN_LIMIT KILL CHECK",
+			`${/^(@label=\S+) /.exec(privs)![1]} :irc.test ACK`
+		);
+		await flush();
+
+		// The snomask and the features are still out: the panel shows the
+		// privileges anyway.
+		expect(operStates().at(-1)).to.include({privsKnown: true});
+		expect(operStates().at(-1)!.privs).to.deep.equal(["CHAN_LIMIT", "KILL", "CHECK"]);
 	});
 
 	it("puts back the snomask chosen last time after oper-up", async function () {
@@ -424,6 +463,39 @@ describe("oper tools: oper state (irc/oper.ts)", function () {
 		expect(transport.sent.at(-1)).to.match(/^@label=\S+ MODE opr \+s 983039$/);
 	});
 
+	it("a restore that waited its turn reads the chosen mask again when it runs", async function () {
+		const {client, transport} = setup();
+		setSnomaskPref(client.uuid, 983039);
+		// The clock is full: everything waits its turn behind fake lag.
+		const waiting: (() => void)[] = [];
+		const room = () => waiting.splice(0).forEach((go) => go());
+		sinon.stub(client.background, "fits").returns(false);
+		sinon
+			.stub(client, "whenRoom")
+			.callsFake(() => new Promise<void>((resolve) => waiting.push(resolve)));
+
+		transport.line(":opr!opr@host MODE opr +ow");
+		await flush();
+		room(); // the oper-up queries' turn
+		await flush();
+
+		for (const line of transport.sent.filter((l) => /PRIVS|GET /.test(l))) {
+			transport.line(`${/^(@label=\S+) /.exec(line)![1]} :irc.test ACK`);
+		}
+
+		await flush();
+		expect(waiting, "the restore is queued").to.have.length(1);
+		// The oper picks another mask in the panel while the restore waits.
+		setSnomaskPref(client.uuid, 5645);
+		room();
+		await flush();
+
+		expect(
+			transport.sent.some((l) => / MODE opr \+s 983039$/.test(l)),
+			"the old mask"
+		).to.equal(false);
+	});
+
 	it("-o drops the level and the privileges; the snomask goes with -s", function () {
 		const {client, transport} = setup();
 		transport.line(":opr!opr@host MODE opr +ows");
@@ -437,7 +509,6 @@ describe("oper tools: oper state (irc/oper.ts)", function () {
 
 		transport.line(":opr!opr@host MODE opr -s");
 		expect(client.oper.snomask).to.equal(undefined);
-		expect(getOperPrefs(client.uuid).wasOper).to.equal(undefined);
 	});
 
 	/** Register `transport` again, as a reconnect does (setup() cleared `sent`). */
@@ -453,34 +524,39 @@ describe("oper tools: oper state (irc/oper.ts)", function () {
 		);
 	}
 
-	it("a network that was opered asks for its modes on a registration that brought none", async function () {
-		// A held bouncer session attached gets its modes in silence
-		// (evilnet/nefarious2#121); the client remembers it was opered and asks.
+	it("a bouncer revive or attach takes its oper state from the MODE line after the MOTD", async function () {
+		// nefarious2 d759a1a: the revived or attached connection is told its
+		// modes (and a non-default snomask) after the end of the MOTD, as a
+		// fresh registration is. A field an older build stored asks nothing.
 		prefsStore.set(OPER_PREFS_KEY, JSON.stringify({u1: {wasOper: true}}));
 		const {client, transport} = setup({uuid: "u1"});
-		expect(client.oper.level, "nothing before registration ends").to.equal("none");
 
 		reregister(transport);
+		expect(client.oper.level, "nothing before the mode line").to.equal("none");
+		expect(
+			transport.sent.some((l) => / MODE opr$/.test(l)),
+			"no MODE <me>"
+		).to.equal(false);
 
-		const query = transport.sent.find((l) => / MODE opr$/.test(l));
-		expect(query).to.match(/^@label=\S+ MODE opr$/);
-		transport.line(`${/^(@label=\S+) /.exec(query!)![1]} :irc.test 221 opr +owsgx`);
+		transport.lines(
+			":opr!opr@host MODE opr +owsg",
+			":irc.test 008 opr 983039 :: Server notice mask (0xeffff)"
+		);
 		await flush();
+
 		expect(client.oper.level).to.equal("global");
+		expect(client.oper.snomask).to.equal(983039);
 		expect(
 			transport.sent.some((l) => l.endsWith(" PRIVS")),
 			"then the oper-up queries"
 		).to.equal(true);
-	});
-
-	it("a network that was never opered asks nothing on registration", function () {
-		const {transport} = setup({uuid: "u2"});
-		reregister(transport);
-		expect(transport.sent.some((l) => / MODE opr$/.test(l))).to.equal(false);
+		expect(
+			transport.sent.some((l) => / MODE opr$/.test(l)),
+			"still no MODE <me>"
+		).to.equal(false);
 	});
 
 	it("a network opered before registration ended asks nothing more", function () {
-		prefsStore.set(OPER_PREFS_KEY, JSON.stringify({u3: {wasOper: true}}));
 		const {transport} = setup({uuid: "u3"});
 		reregister(transport, [":opr!opr@host MODE opr +o"]);
 		expect(transport.sent.some((l) => / MODE opr$/.test(l))).to.equal(false);
@@ -596,6 +672,20 @@ describe("oper tools: temporary routes (irc/operprefs.ts)", function () {
 		expect(getOperPrefs("n1")).to.deep.equal({});
 	});
 
+	it("a network's prefs never land on Object.prototype", function () {
+		const leaked = () => (Object.prototype as {snomask?: unknown}).snomask;
+
+		try {
+			expect(getOperPrefs("constructor")).to.deep.equal({});
+			setSnomaskPref("__proto__", 5645);
+			expect(leaked()).to.equal(undefined);
+			expect(getOperPrefs("__proto__")).to.deep.equal({snomask: 5645});
+			expect(getOperPrefs("n1")).to.deep.equal({});
+		} finally {
+			delete (Object.prototype as {snomask?: unknown}).snomask;
+		}
+	});
+
 	it("loads prefs written before temporary routes existed", function () {
 		prefsStore.set(
 			OPER_PREFS_KEY,
@@ -634,7 +724,7 @@ describe("oper tools: temporary routes (irc/operprefs.ts)", function () {
 			JSON.stringify({
 				n1: {
 					snomask: "1 x",
-					wasOper: "yes",
+					wasOper: true,
 					routes: {"oper.up": "loud", "client.connect": "off"},
 					temporary: {"ban.add": {route: "off", until: now + HOUR, revert: "loud"}},
 					notes: {alice: "seen before", bob: 3},
@@ -871,6 +961,55 @@ describe("oper tools: the notice log (irc/noticelog.ts)", function () {
 		type: "snotice",
 		text: `t${time}`,
 		snotice: {kind, category: "OLDSNO", fields: {}, route: "network"},
+	});
+
+	/** A stand-in IDBDatabase whose one transaction the test ends by hand. */
+	function fakeDb(opts: {throwOnTransaction?: boolean} = {}) {
+		const tx: Record<string, unknown> = {
+			error: null,
+			objectStore: () => ({put: () => ({})}),
+		};
+		const db = {
+			closed: 0,
+			close() {
+				db.closed++;
+			},
+			transaction() {
+				if (opts.throwOnTransaction) {
+					throw new DOMException("closing", "InvalidStateError");
+				}
+
+				return tx;
+			},
+		};
+		return {db: db as unknown as IDBDatabase & {closed: number}, tx};
+	}
+
+	it("an aborted transaction rejects and closes the database", async function () {
+		const {db, tx} = fakeDb();
+		const done = transactOn(db, "readwrite", (store) => {
+			store.put([], "u1");
+		});
+
+		tx.error = new DOMException("quota", "QuotaExceededError");
+		(tx.onabort as () => void)();
+
+		const error = await done.then(
+			() => undefined,
+			(err: unknown) => err
+		);
+		expect((error as DOMException).name).to.equal("QuotaExceededError");
+		expect(db.closed).to.equal(1);
+	});
+
+	it("a transaction that cannot start rejects and closes the database", async function () {
+		const {db} = fakeDb({throwOnTransaction: true});
+		const error = await transactOn(db, "readonly", () => undefined).then(
+			() => undefined,
+			(err: unknown) => err
+		);
+		expect((error as DOMException).name).to.equal("InvalidStateError");
+		expect(db.closed).to.equal(1);
 	});
 
 	it("keeps the newest entries within a day", function () {
