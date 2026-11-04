@@ -8,11 +8,33 @@
 // next to it into js/ort/ so a deploy needs no CDN; seq2seq.real.ts points
 // the library there. Background: docs/resources/translation.md § The worker.
 import * as path from "path";
-import {globSync, readFileSync} from "fs";
+import {existsSync, globSync, readFileSync, realpathSync} from "fs";
+import {createRequire} from "module";
 import {defineConfig, type Plugin} from "vite";
 import {chunkNotices, defines} from "./scripts/build-info.mts";
 
 const root = import.meta.dirname;
+
+/**
+ * A package's directory, looked up from `from` as Node would (real paths,
+ * so a package pnpm links in from its store finds its own dependencies).
+ * pnpm links only direct dependencies into node_modules/: onnxruntime-web
+ * is transformers.js's, so it is found from there, the version the worker
+ * actually bundles.
+ */
+function packageDir(name: string, from = root): string {
+	for (const dir of createRequire(path.join(from, "package.json")).resolve.paths(name) ?? []) {
+		if (existsSync(path.join(dir, name, "package.json"))) {
+			return realpathSync(path.join(dir, name));
+		}
+	}
+
+	throw new Error(`translation worker: no package directory for ${name} from ${from}`);
+}
+
+const transformersDir = packageDir("@huggingface/transformers");
+const ortDir = packageDir("onnxruntime-web", transformersDir);
+const wllamaDir = packageDir("@wllama/wllama");
 
 // transformers.js and onnxruntime-web use `import.meta` for module identity
 // and to resolve their wasm files. An IIFE has no `import.meta` (the bundler
@@ -44,13 +66,15 @@ function importMetaStub(): Plugin {
 	};
 }
 
-type Asset = {from: string; to: (file: string) => string};
+/** `from` is a glob under `cwd` (the repository root unless named). */
+type Asset = {from: string; cwd?: string; to: (file: string) => string};
 
 const assets: Asset[] = [
 	// Only the pair the aliased wasm-only ORT bundle references (grepped from
 	// node_modules/onnxruntime-web/dist/ort.wasm.bundle.min.mjs).
 	{
-		from: "node_modules/onnxruntime-web/dist/ort-wasm-simd-threaded.{mjs,wasm}",
+		from: "dist/ort-wasm-simd-threaded.{mjs,wasm}",
+		cwd: ortDir,
 		to: (f) => `js/ort/${path.basename(f)}`,
 	},
 	// The CPU language model's library (engines/cpuLlm.real.ts): wllama's
@@ -60,7 +84,8 @@ const assets: Asset[] = [
 	// isolated and asked for more than one thread), so there is no
 	// multi-thread file to copy.
 	{
-		from: "node_modules/@wllama/wllama/esm/wasm/wllama.wasm",
+		from: "esm/wasm/wllama.wasm",
+		cwd: wllamaDir,
 		to: () => "js/wllama.wasm",
 	},
 	// The GPU models' libraries of our own (tools/translate-split/): the
@@ -77,17 +102,18 @@ function workerAssets(): Plugin {
 		name: "seance:translate-assets",
 		generateBundle() {
 			for (const asset of assets) {
-				const files = globSync(asset.from, {cwd: root});
+				const cwd = asset.cwd ?? root;
+				const files = globSync(asset.from, {cwd});
 
 				if (files.length === 0) {
-					throw new Error(`translation worker: nothing matches ${asset.from}`);
+					throw new Error(`translation worker: nothing matches ${asset.from} in ${cwd}`);
 				}
 
 				for (const file of files) {
 					this.emitFile({
 						type: "asset",
 						fileName: asset.to(file),
-						source: readFileSync(path.join(root, file)),
+						source: readFileSync(path.join(cwd, file)),
 					});
 				}
 			}
