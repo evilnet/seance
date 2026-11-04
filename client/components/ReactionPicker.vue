@@ -8,7 +8,7 @@
 			:class="{sheet, flipped}"
 			:style="style"
 			role="dialog"
-			aria-label="Add a reaction"
+			:aria-label="insert ? 'Insert an emoji' : 'Add a reaction'"
 			@keydown.esc.stop.prevent="$emit('close')"
 		>
 			<div class="reaction-picker-search">
@@ -18,8 +18,8 @@
 					type="text"
 					class="reaction-picker-input"
 					:maxlength="MAX_REACTION_LENGTH * 2"
-					placeholder="Search emoji, or type any reaction"
-					aria-label="Search emoji, or type any reaction"
+					:placeholder="searchLabel"
+					:aria-label="searchLabel"
 					role="combobox"
 					aria-expanded="true"
 					aria-autocomplete="list"
@@ -148,9 +148,12 @@
 						@mousedown.prevent
 						@click="pickTyped"
 					>
-						Send
+						{{ insert ? "Insert" : "Send" }}
 					</button>
 				</template>
+				<span v-else-if="insert" class="reaction-picker-preview-hint"
+					>Pick an emoji, or shift-click to combine several.</span
+				>
 				<span v-else class="reaction-picker-preview-hint"
 					>Pick an emoji, type a word, or shift-click to combine several.</span
 				>
@@ -245,6 +248,20 @@ export default defineComponent({
 		anchor: {type: Object as PropType<HTMLElement | null>, default: null},
 		/** Reactions the user already has on this message: shown ticked, picking removes. */
 		selected: {type: Array as PropType<string[]>, default: () => []},
+		/**
+		 * The composer's picker (ChatInput.vue, typing `:name`): what is
+		 * picked goes into the draft, so the picker offers emoji only — no
+		 * "React with …" row, and Enter on words with nothing matching
+		 * inserts nothing.
+		 */
+		insert: {type: Boolean, default: false},
+		/**
+		 * What the search starts with, followed while it changes: the `:name`
+		 * typed in the composer, which keeps the keyboard and goes on being
+		 * typed into (with `insert` the field is never focused; the composer
+		 * hands its arrows, Enter and Escape to `navigate`).
+		 */
+		search: {type: String, default: ""},
 	},
 	emits: ["pick", "close"],
 	setup(props, {emit}) {
@@ -253,7 +270,17 @@ export default defineComponent({
 		const input = ref<HTMLInputElement | null>(null);
 		const list = ref<HTMLDivElement | null>(null);
 
-		const query = ref("");
+		const query = ref(props.search);
+		const searchLabel = computed(() =>
+			props.insert ? "Search emoji" : "Search emoji, or type any reaction"
+		);
+
+		watch(
+			() => props.search,
+			(next) => {
+				query.value = next;
+			}
+		);
 		const catalog = ref<EmojiGroup[] | null>(null);
 		const failed = ref(false);
 		const recent = ref<string[]>(recentReactions());
@@ -385,7 +412,7 @@ export default defineComponent({
 				// is the one highlighted: an exact alias is an emoji somebody
 				// is naming (`tada` → 🎉), anything else is words until they
 				// say otherwise, or `lol` would react with 🍭 lollipop.
-				if (free && !hits.some((hit) => hit.emoji === free)) {
+				if (free && !props.insert && !hits.some((hit) => hit.emoji === free)) {
 					const row = freeOption(free);
 
 					if (emojiForName(typed)) {
@@ -646,6 +673,63 @@ export default defineComponent({
 			return best ? best.index : activeIndex.value;
 		};
 
+		/** Enter: the highlighted option, or what was typed; false when neither. */
+		const enter = (shift: boolean): boolean => {
+			if (active.value && shift) {
+				append(active.value);
+			} else if (active.value) {
+				pick(active.value.text);
+			} else if (query.value.trim() && (!props.insert || composing.value)) {
+				// Inserting, only emoji typed into the field go in as they are.
+				pick(query.value);
+			} else {
+				return false;
+			}
+
+			return true;
+		};
+
+		/**
+		 * A key pressed in the composer while this is its emoji picker
+		 * (`insert`): the composer keeps the keyboard, so the keys that work
+		 * the picker come here. True when the key was the picker's; Enter
+		 * with nothing to insert is not, so it sends the message as typed.
+		 */
+		const navigate = (key: string, shift = false): boolean => {
+			switch (key) {
+				case "ArrowDown": {
+					if (activeIndex.value < 0) {
+						setActive(0);
+						return true;
+					}
+
+					const below = rowNeighbour(true);
+					const here = sectionOf(activeIndex.value);
+					setActive(
+						below === activeIndex.value && here ? here.start + here.count : below
+					);
+					return true;
+				}
+
+				case "ArrowUp":
+					if (activeIndex.value >= 0) {
+						setActive(rowNeighbour(false));
+					}
+
+					return true;
+
+				case "Enter":
+					return enter(shift);
+
+				case "Escape":
+					emit("close");
+					return true;
+
+				default:
+					return false;
+			}
+		};
+
 		const onKeydown = (e: KeyboardEvent) => {
 			const el = e.target as HTMLInputElement;
 			const caret = el.selectionStart ?? 0;
@@ -704,15 +788,7 @@ export default defineComponent({
 
 				case "Enter":
 					e.preventDefault();
-
-					if (active.value && e.shiftKey) {
-						append(active.value);
-					} else if (active.value) {
-						pick(active.value.text);
-					} else if (query.value.trim()) {
-						pick(query.value);
-					}
-
+					enter(e.shiftKey);
 					break;
 
 				default:
@@ -957,8 +1033,9 @@ export default defineComponent({
 			void nextTick(layoutChanged);
 
 			// Focusing the field on a touch screen throws up the keyboard over
-			// the emoji the user came here to tap.
-			if (!window.matchMedia("(pointer: coarse)").matches) {
+			// the emoji the user came here to tap; the composer's picker leaves
+			// the keyboard in the composer everywhere (`navigate`).
+			if (!props.insert && !window.matchMedia("(pointer: coarse)").matches) {
 				input.value?.focus();
 			}
 		});
@@ -982,6 +1059,8 @@ export default defineComponent({
 		return {
 			MAX_REACTION_LENGTH,
 			uid,
+			searchLabel,
+			navigate,
 			root,
 			input,
 			list,

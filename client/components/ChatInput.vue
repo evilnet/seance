@@ -89,8 +89,20 @@
 			:value="channel.pendingMessage"
 			:placeholder="getInputPlaceholder(channel)"
 			@input="setPendingMessage"
+			@keydown="onComposerKeydown"
 			@keypress.enter.exact="onEnterKey"
 			@blur="onBlur"
+		/>
+		<!-- Typing `:name` opens the message toolbar's emoji picker over the
+		     composer (helpers/emojiTrigger.ts); the emoji picked replaces it. -->
+		<ReactionPicker
+			v-if="emojiPick"
+			ref="emojiPicker"
+			:anchor="input ?? null"
+			insert
+			:search="emojiPick.term"
+			@pick="insertEmoji"
+			@close="closeEmojiPick"
 		/>
 		<span
 			v-if="store.state.serverConfiguration?.fileUpload || networkFilehost"
@@ -173,6 +185,8 @@ const ENTER_NEWLINE_WINDOW_MS = 500;
 import {TypingReporter} from "../js/helpers/typingReporter";
 import TypingIndicator from "./TypingIndicator.vue";
 import QuotePreview from "./QuotePreview.vue";
+import ReactionPicker from "./ReactionPicker.vue";
+import {emojiToken, replaceToken, type EmojiToken} from "../js/helpers/emojiTrigger";
 
 // How long a conversation's network has to be down before the strip above
 // the composer says so.
@@ -205,7 +219,7 @@ const bracketWraps = {
 
 export default defineComponent({
 	name: "ChatInput",
-	components: {TypingIndicator, QuotePreview},
+	components: {TypingIndicator, QuotePreview, ReactionPicker},
 	props: {
 		network: {type: Object as PropType<ClientNetwork>, required: true},
 		channel: {type: Object as PropType<ClientChan>, required: true},
@@ -281,6 +295,99 @@ export default defineComponent({
 			}
 		};
 
+		// ---- The emoji picker over the composer ------------------------
+		// Typing `:` and two letters of a name opens the message toolbar's
+		// picker with its search seeded (helpers/emojiTrigger.ts). The
+		// composer keeps the keyboard, so typing on is never lost to the
+		// picker (`:wq then` stays text): each keystroke follows into the
+		// picker's search, and ArrowUp/Down, Enter and Escape are handed to it
+		// (`onComposerKeydown`); Enter with nothing to insert sends as typed. A
+		// space, or the colon gone, closes it; so do sending and another
+		// channel. Escape or a click away leaves the `:name` as typed, and that
+		// same token does not open it again; the emoji picked replaces it.
+		// Only typing opens it: a paste that ends in `:name` does not.
+		const emojiPick = ref<EmojiToken | null>(null);
+		const emojiPicker = ref<{navigate(key: string, shift?: boolean): boolean} | null>(null);
+		let emojiDismissedAt = -1;
+		let emojiPicked = false;
+
+		const followEmojiToken = (el: HTMLTextAreaElement, typed: boolean) => {
+			const token =
+				el.selectionStart === el.selectionEnd
+					? emojiToken(el.value, el.selectionStart)
+					: null;
+
+			if (!token) {
+				emojiDismissedAt = -1;
+				emojiPick.value = null;
+				return;
+			}
+
+			if (token.start === emojiDismissedAt || (!typed && !emojiPick.value)) {
+				emojiPick.value = null;
+				return;
+			}
+
+			emojiPick.value = token;
+		};
+
+		const onComposerKeydown = (e: KeyboardEvent) => {
+			const picker = emojiPicker.value;
+
+			if (
+				!emojiPick.value ||
+				!picker ||
+				e.isComposing ||
+				e.altKey ||
+				e.ctrlKey ||
+				e.metaKey
+			) {
+				return;
+			}
+
+			if (!["ArrowUp", "ArrowDown", "Enter", "Escape"].includes(e.key)) {
+				return;
+			}
+
+			if (picker.navigate(e.key, e.shiftKey)) {
+				// Not Mousetrap's arrows (input history), not the Return that
+				// sends, not the Escape that blurs the composer.
+				e.preventDefault();
+				e.stopImmediatePropagation();
+			}
+		};
+
+		const insertEmoji = (emoji: string) => {
+			const token = emojiPick.value;
+			const el = input.value;
+
+			if (!token || !el) {
+				return;
+			}
+
+			const next = replaceToken(props.channel.pendingMessage, token, emoji);
+
+			emojiPicked = true;
+			props.channel.pendingMessage = next.text;
+			el.value = next.text;
+			setInputSize();
+
+			// After the picker has gone and handed the focus back.
+			void nextTick(() => {
+				el.focus();
+				el.setSelectionRange(next.caret, next.caret);
+			});
+		};
+
+		const closeEmojiPick = () => {
+			if (!emojiPicked && emojiPick.value) {
+				emojiDismissedAt = emojiPick.value.start;
+			}
+
+			emojiPicked = false;
+			emojiPick.value = null;
+		};
+
 		const setPendingMessage = (e: Event) => {
 			const el = e.target as HTMLTextAreaElement;
 
@@ -300,6 +407,8 @@ export default defineComponent({
 			props.channel.editDismissed = false; // typing re-arms ArrowUp-to-edit
 			setInputSize();
 			reportTyping();
+			const kind = (e as InputEvent).inputType ?? "";
+			followEmojiToken(el, kind === "insertText" || kind === "insertCompositionText");
 		};
 
 		const getInputPlaceholder = (channel: ClientChan) => {
@@ -429,6 +538,9 @@ export default defineComponent({
 			() => props.channel.id,
 			() => {
 				sendRefused.value = false;
+				// The picker's token is a place in the other channel's draft.
+				emojiPick.value = null;
+				emojiDismissedAt = -1;
 			}
 		);
 
@@ -469,6 +581,11 @@ export default defineComponent({
 			if (!input.value) {
 				return;
 			}
+
+			// Sending ends a `:name` being picked for (a phone's Return, the
+			// send button): it goes as typed.
+			emojiPick.value = null;
+			emojiDismissedAt = -1;
 
 			// Triggering click event opens the virtual keyboard on mobile
 			// This can only be called from another interactive event (e.g. button click)
@@ -979,6 +1096,11 @@ export default defineComponent({
 			composeTarget,
 			showConnectionBar,
 			canSend,
+			emojiPick,
+			emojiPicker,
+			insertEmoji,
+			closeEmojiPick,
+			onComposerKeydown,
 			connectionLabel,
 			throttledWait,
 			retryInSeconds,
