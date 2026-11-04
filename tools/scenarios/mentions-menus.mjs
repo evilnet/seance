@@ -148,14 +148,20 @@ export default async function run(page) {
 	await page.sleep(500);
 	await openMentions(page);
 
-	for (const sel of [".from .user", ".inline-channel"]) {
-		const full = `#mentions-popup-container .mentions-entry-no-network ${sel}`;
-		page.check(`the gone network's row shows ${sel}`, (await page.count(full)) === 1);
-		await page.click(full);
-		await page.sleep(300);
-		labels = await menuLabels(page);
-		page.check(`...and it opens no menu (${labels})`, labels.length === 0);
-	}
+	// By any input: nothing in it to click, tab to or activate.
+	const ghost = await page.evaluate(`(() => {
+		const row = [...document.querySelectorAll("#mentions-popup-container .mentions-entry")]
+			.find((e) => e.textContent.includes("ghost"));
+		return row && {
+			text: row.querySelector(".content").textContent.trim(),
+			active: row.querySelectorAll(".inline-channel, .from [role=button], .content [role=button], [tabindex]").length,
+		};
+	})()`);
+	page.check(
+		`the gone network's row is shown (${ghost?.text})`,
+		ghost?.text === `${NICK}: see #gone`
+	);
+	page.check("...with no nick or channel to activate", ghost?.active === 0);
 
 	const errors = page.consoleErrors.map((e) => `${e.type}: ${e.text}`);
 	page.check(

@@ -87,14 +87,17 @@
 							message.type,
 							{
 								'mentions-entry-openable': group.conversation,
-								'mentions-entry-no-network': !group.network,
 							},
 						]"
 						@click="openFromRow($event, group)"
 					>
 						<div class="mentions-info">
 							<span class="from" @click.stop>
+								<!-- A stored entry whose network is gone: plain text, since
+								     its menus could only act on another network. -->
+								<span v-if="!group.network">{{ message.from.nick }}</span>
 								<Username
+									v-else
 									:user="(message.from as any)"
 									:network="group.network"
 									:channel="group.conversation?.channel"
@@ -116,7 +119,14 @@
 							></button>
 						</div>
 						<div class="content" dir="auto">
-							<ParsedMessage :message="(message as any)" :network="group.network" />
+							<template v-if="!group.network">{{
+								cleanIrcMessage(message.text)
+							}}</template>
+							<ParsedMessage
+								v-else
+								:message="(message as any)"
+								:network="group.network"
+							/>
 						</div>
 					</div>
 				</section>
@@ -128,12 +138,6 @@
 <style>
 #mentions-popup-container {
 	z-index: 8;
-}
-
-/* A stored entry whose network is gone: its menus would act on another one. */
-.mentions-entry-no-network .user,
-.mentions-entry-no-network .inline-channel {
-	pointer-events: none;
 }
 
 .mentions-popup {
@@ -448,6 +452,7 @@
 
 <script lang="ts">
 import Username from "./Username.vue";
+import {cleanIrcMessage} from "../../shared/irc";
 import ParsedMessage from "./ParsedMessage.vue";
 import {dismissMentions} from "../js/mentions";
 import eventbus from "../js/eventbus";
@@ -667,6 +672,7 @@ export default defineComponent({
 			popup,
 			placement,
 			groups,
+			cleanIrcMessage,
 			total,
 			messageTime,
 			dismissMention,
