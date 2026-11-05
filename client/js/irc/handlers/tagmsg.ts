@@ -79,11 +79,14 @@ const tagmsg: Handler = (client, msg) => {
 		return;
 	}
 
-	client.dispatch("msg:changed", {
-		chan: target.id,
-		msgid: reaction.parent,
-		react: {text: reaction.text, nick, remove: reaction.remove},
-	});
+	// Not from a replay: pages come newest first, so an old removal would undo a later add.
+	if (!client.replaying) {
+		client.dispatch("msg:changed", {
+			chan: target.id,
+			msgid: reaction.parent,
+			react: {text: reaction.text, nick, remove: reaction.remove},
+		});
+	}
 
 	client.afterReplay(() => {
 		const id = target.idOf(reaction.parent);

@@ -372,18 +372,26 @@ export default defineComponent({
 					!firstPageAsked
 			);
 
-			// Not joined yet (a reload's placeholder): wait for the channel, but not
-			// for one that will not come back (kicked), which would hold the read.
+			// Not joined yet (a reload's placeholder): wait for the channel. Connected
+			// and still not joined after a while, it is not coming back (kicked), and
+			// the jump would hold the read. Offline, a reconnect runs this again.
 			if (step.kind !== "found" && !ready) {
-				setTimeout(() => {
-					if (store.state.jumpTarget === target && !canLoadMore()) {
-						store.commit("jumpTarget", null);
-						store.commit(
-							"currentUserVisibleError",
-							"That message could not be loaded."
-						);
-					}
-				}, JUMP_WAIT_MS);
+				if (props.network.status.connected) {
+					setTimeout(() => {
+						if (
+							store.state.jumpTarget === target &&
+							props.network.status.connected &&
+							!canLoadMore()
+						) {
+							store.commit("jumpTarget", null);
+							store.commit(
+								"currentUserVisibleError",
+								"That message could not be loaded."
+							);
+						}
+					}, JUMP_WAIT_MS);
+				}
+
 				return;
 			}
 
