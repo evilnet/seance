@@ -384,6 +384,10 @@ export default async function run(page) {
 	);
 	await clickBackdrop(page, "#mentions-popup-container");
 
+	// A second mention in the channel, for opening one to leave behind.
+	talker.say(OTHER, `${NICK}: and another thing ${RUN}`);
+	await page.sleep(1500);
+
 	// Three private lines are one entry; then 60 lines push the mentions out
 	// of the first history page a reload fetches.
 	// Paced: the dev ircd drops a burst of private lines to one target.
@@ -398,7 +402,7 @@ export default async function run(page) {
 
 	await talker.drained();
 
-	const inbox = String(left + 1);
+	const inbox = String(left + 2);
 	await page.waitFor(`${badgeText} === "${inbox}"`, {
 		timeout: 20000,
 		label: `the badge at ${inbox}`,
@@ -475,9 +479,18 @@ export default async function run(page) {
 	await page.check("the conversation opened at the mention", inView);
 	await page.screenshot("5-at-the-mention", {selector: "#chat", pad: 0});
 
+	// Only the mention opened has left the list: the channel is not read yet.
+	await page.sleep(1500);
+	await page.check(
+		`opening a mention takes only that one from the list (${await page.evaluate(badgeText)})`,
+		(await page.evaluate(badgeText)) === String(left + 1)
+	);
+
+	// The bottom is where it is read.
+	await press("#chat .scroll-down");
 	await page.waitFor(`${badgeText} === "1"`, {timeout: 5000, label: "the badge at 1"});
 	await page.check(
-		"reading the channel cleared its mentions, not the private one",
+		"reaching the bottom cleared the channel's mentions, not the private one",
 		(await page.evaluate(badgeText)) === "1"
 	);
 

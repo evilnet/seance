@@ -28,6 +28,8 @@ type ClientChan = Omit<SharedChan, "messages"> & {
 	inputHistoryPosition: number;
 	inputHistory: string[];
 	historyLoading: boolean;
+	/** Taken to an older message: not read until the list reaches the bottom. */
+	readHeld: boolean;
 	scrolledToBottom: boolean;
 	usersOutdated: boolean;
 	/** Reply parents fetched for their quotes because no loaded row has them, by msgid. */

@@ -85,7 +85,7 @@ a channel starts, and joins that fill rather than asking again. Not
 `CHATHISTORY AROUND`: the buffer is one unbroken run and a page around the
 message would leave a gap. The logic is
 `helpers/jumpToMessage.ts` (Vue-free, `test/helpers/jumpToMessage.ts`).
-Opening still reads the conversation, as opening it from the sidebar does.
+That mention leaves the list. The conversation is not read yet: `helpers/readHold.ts` holds it until the list reaches the bottom, so the other mentions stay and lines arriving meanwhile count as unread. Leaving before the bottom ends the hold with nothing read; opening it again reads it, as opening it from the sidebar does. What the user says there, and a read from another session, still read it.
 A group whose conversation this page does not have (a channel left, a
 network not on this page) cannot be opened and says why under its name.
 

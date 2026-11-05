@@ -71,6 +71,7 @@ import {continuesRun} from "../js/helpers/messageRuns";
 import {noteScroll, noteTouch} from "../js/helpers/scrollSettle";
 import {selectionActive, unwatchSelection, watchSelection} from "../js/helpers/touchSelection";
 import socket from "../js/socket";
+import {setReadHold} from "../js/helpers/readHold";
 import {jumpStep, revealMessage, type JumpTarget} from "../js/helpers/jumpToMessage";
 import Message from "./Message.vue";
 import MessageCondensed from "./MessageCondensed.vue";
@@ -672,6 +673,25 @@ export default defineComponent({
 			});
 		});
 
+		// The bottom is where a reader taken to an older message has read it all.
+		watch(
+			() =>
+				props.channel.readHeld && !store.state.jumpTarget && props.channel.scrolledToBottom,
+			(atBottom) => {
+				if (atBottom) {
+					setReadHold(props.channel, false);
+					socket.emit("open", props.channel.id);
+				}
+			},
+			{flush: "post"}
+		);
+
+		// Left before the bottom: unread as it was, and opening it again reads it.
+		watch(
+			() => props.channel,
+			(_, previous) => setReadHold(previous, false)
+		);
+
 		watch(
 			() => props.channel.id,
 			(id, previous) => {
@@ -765,6 +785,7 @@ export default defineComponent({
 
 		onUnmounted(() => {
 			unwatchSelection();
+			setReadHold(props.channel, false);
 
 			// Left for a page with no list (Settings, Search): not resumed on return.
 			if (store.state.jumpTarget?.chanId === props.channel.id) {

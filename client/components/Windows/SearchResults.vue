@@ -757,6 +757,7 @@ import {
 } from "../../js/searchQuery";
 import {clockTime, dayLabel, shortDay} from "../../js/helpers/messageTime";
 import {clearHighlight, paintHighlight, rangesIn} from "../../js/helpers/paintHighlight";
+import {setReadHold} from "../../js/helpers/readHold";
 import {trapTab} from "../../js/helpers/trapTab";
 import {useStore} from "../../js/store";
 import {useI18n} from "../../js/i18n";
@@ -1312,6 +1313,8 @@ export default defineComponent({
 
 			// Not loaded: pages back for it, and if it is too far, the channel
 			// opens as usual rather than at some other line.
+			setReadHold(chat, true);
+
 			if (twin) {
 				store.commit("jumpTarget", {chanId: chat.id, id: twin.id});
 			} else if (hit) {

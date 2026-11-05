@@ -268,7 +268,7 @@ export function setAttended(client: IrcClient, attended: boolean): void {
 	if (attended) {
 		const chan = client.activeChannel();
 
-		if (chan) {
+		if (chan && client.isReading(chan)) {
 			// Looking at it reads it, as opening it does (IrcClient.open):
 			// what counted while nobody looked must not resurface as a badge
 			// once the user moves to another channel.

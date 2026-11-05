@@ -134,6 +134,12 @@ export class Channel {
 	 * never taken for one that finished (catchup.ts).
 	 */
 	historyFilled = false;
+	/**
+	 * Open, but its reader was taken to an older message: nothing is read until
+	 * they reach the bottom ({@link IrcClient.isReading}). What we say still reads it,
+	 * and so do reads from other sessions.
+	 */
+	readHeld = false;
 	/** A `more` page the connection died on; asked again once we are back (history.ts). */
 	lostMore: HistorySpec | undefined = undefined;
 	/**

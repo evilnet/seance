@@ -458,7 +458,7 @@ function deliverPrepend(
 	// no cursor to replay from, and the read marker (sent right after the
 	// JOIN) is known by then: what someone else said past it is unread.
 	const marker = chan.readMarker;
-	const looking = chan.id === client.activeChannelId && client.presence.attended;
+	const looking = client.isReading(chan);
 	const page: Array<[SharedMsg, MsgRef]> = [];
 
 	messages.forEach((msg, i) => {

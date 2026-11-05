@@ -1892,6 +1892,7 @@ function readActive(): void {
 		!active ||
 		active.channel.type === ChanType.LOBBY ||
 		active.channel.type === ChanType.SPECIAL ||
+		active.channel.readHeld ||
 		document.visibilityState !== "visible" ||
 		!document.hasFocus()
 	) {

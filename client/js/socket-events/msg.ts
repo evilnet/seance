@@ -112,7 +112,8 @@ socket.on("msg", function (data) {
 		const lookingAtIt =
 			document.visibilityState === "visible" &&
 			document.hasFocus() &&
-			store.state.activeChannel?.channel === receivingChannel.channel;
+			store.state.activeChannel?.channel === receivingChannel.channel &&
+			!receivingChannel.channel.readHeld;
 
 		if (!data.replay || lookingAtIt) {
 			recordSeenMsgid(data.msg.msgid);
@@ -195,7 +196,12 @@ function notifyMessage(
 		msg.highlight ||
 		(store.state.settings.notifyAllMessages && msg.type === MessageType.MESSAGE)
 	) {
-		if (!document.hasFocus() || !activeChannel || activeChannel.channel !== channel) {
+		if (
+			!document.hasFocus() ||
+			!activeChannel ||
+			activeChannel.channel !== channel ||
+			channel.readHeld
+		) {
 			requestAttention();
 			const native = nativeAlertsAvailable();
 			const ua = navigator.userAgent;

@@ -244,6 +244,14 @@ export function registerBusHandlers(bus: EventBus, registry: ClientRegistry): vo
 		}
 	});
 
+	bus.handle("read:hold", ({chan, held}) => {
+		const channel = registry.clientForChannel(chan)?.channelById(chan);
+
+		if (channel) {
+			channel.readHeld = held;
+		}
+	});
+
 	bus.handle("names", ({target}) => {
 		const client = registry.clientForChannel(target);
 		const chan = client?.channelById(target);

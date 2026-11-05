@@ -563,6 +563,7 @@ import {
 } from "../js/mentions";
 import eventbus from "../js/eventbus";
 import {switchToChannel} from "../js/router";
+import {setReadHold} from "../js/helpers/readHold";
 import {isApplePlatform} from "../js/helpers/device";
 import {entryKey, groupByConversation} from "../js/helpers/inbox";
 import {formatDateTime} from "../js/i18n/dates";
@@ -791,9 +792,9 @@ export default defineComponent({
 			refocus(() => next);
 		};
 
-		// Opening it reads it, and reading it clears its mentions (inbox:read);
-		// it opens at the mention (MessageList.vue's jump): the one clicked,
-		// or the header's oldest.
+		// It opens at the mention (MessageList.vue's jump): the one clicked, or
+		// the header's oldest. That mention leaves the list. The conversation is
+		// not read until the list reaches its bottom, so the others stay.
 		// A group without a conversation says why in its head.
 		const openGroup = (group: GroupWithContext, entry = group.entries[0]) => {
 			if (!group.conversation) {
@@ -801,6 +802,8 @@ export default defineComponent({
 			}
 
 			const channel = group.conversation.channel;
+			setReadHold(channel, true);
+			dismissMentions(group.query || !entry ? group.entries : [entry]);
 			store.commit("jumpTarget", {
 				chanId: channel.id,
 				...(entry?.msgid ? {msgid: entry.msgid} : {}),
