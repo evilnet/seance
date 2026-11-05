@@ -3137,6 +3137,17 @@ describe("service worker cross-origin isolation headers", function () {
 			expect(await response?.text()).to.equal("<!doctype html><title>app</title>");
 		});
 
+		it("takes a message that came while IndexedDB hung", async function () {
+			const sw = makeSW({hangIndexedDB: true});
+			const served = serveFetch(sw, navigation, page());
+
+			await fireMessage(sw, {type: "isolation", on: true});
+
+			const {response} = await served;
+
+			expect(response?.headers.get(COEP)).to.equal("credentialless");
+		});
+
 		it("still serves a navigation, unisolated, when IndexedDB fails", async function () {
 			const {response} = await serveFetch(makeSW({failIndexedDB: true}), navigation, page());
 

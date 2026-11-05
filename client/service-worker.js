@@ -264,7 +264,8 @@ function isolationWanted() {
 	}
 
 	return new Promise((resolve) => {
-		const timer = setTimeout(() => resolve(false), ISOLATION_READ_TIMEOUT_MS);
+		// Out of time: what a message said meanwhile, else unisolated.
+		const timer = setTimeout(() => resolve(isolationFlag === true), ISOLATION_READ_TIMEOUT_MS);
 		const settle = (value) => {
 			clearTimeout(timer);
 			resolve(value);
