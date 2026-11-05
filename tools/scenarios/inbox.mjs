@@ -512,6 +512,55 @@ export default async function run(page) {
 	await page.waitFor(`${badgeText} === ""`, {timeout: 5000, label: "the badge gone"});
 	await page.check("reading everything cleared it", (await page.evaluate(badgeText)) === "");
 
+	// Read mentions stay, dimmed; a channel with many shows some and offers the rest.
+	await press("#chat button.mentions");
+	await page.waitFor(`document.querySelector(".mentions-entry")`, {label: "the kept rows"});
+	await page.check(
+		"read mentions are still in the list, dimmed, with no badge",
+		(await page.evaluate(`document.querySelectorAll(".mentions-entry-read").length`)) >= 3 &&
+			(await page.evaluate(
+				`getComputedStyle(document.querySelector(".mentions-entry-read .content")).opacity`
+			)) < 1 &&
+			(await page.evaluate(badgeText)) === ""
+	);
+	await page.screenshot("6a-kept-and-dimmed", {selector: POPUP, pad: 16});
+	await clickBackdrop(page, "#mentions-popup-container");
+	await page.waitFor(`!document.querySelector("${POPUP}")`, {label: "the pane closed"});
+	await page.evaluate(
+		`document.querySelector('.channel-list-item[data-name="${HOME}"]').click()`
+	);
+	await page.sleep(500);
+
+	for (let i = 1; i <= 4; i++) {
+		talker.say(OTHER, `${NICK}: one more thing, number ${i} ${RUN}`);
+	}
+
+	await talker.drained();
+	await page.waitFor(`${badgeText} === "4"`, {timeout: 15000, label: "four new mentions"});
+	await press("#chat button.mentions");
+	const moreButton = ".mentions-more";
+	await page.waitFor(`document.querySelector("${moreButton}")`, {label: "Show more"});
+	const shownInGroup = `document.querySelector("${moreButton}").closest(".mentions-group").querySelectorAll(".mentions-entry").length`;
+	await page.check(
+		`a channel shows three rows and offers the rest (${await page.evaluate(
+			`document.querySelector("${moreButton}").textContent.trim()`
+		)})`,
+		(await page.evaluate(shownInGroup)) === 3
+	);
+	await page.screenshot("6b-show-more", {selector: POPUP, pad: 16});
+	await press(moreButton);
+	await page.waitFor(`!document.querySelector("${moreButton}")`, {label: "the rest shown"});
+	await page.check(
+		"Show more brings the rest",
+		(await page.evaluate(
+			`[...document.querySelectorAll(".mentions-group")].some((g) => g.querySelectorAll(".mentions-entry").length > 3)`
+		)) === true
+	);
+	await clickBackdrop(page, "#mentions-popup-container");
+	await page.waitFor(`!document.querySelector("${POPUP}")`, {label: "the pane closed again"});
+	await page.evaluate(`document.querySelector('${ROW(TALKER)}').click()`);
+	await page.sleep(500);
+
 	// Its target was at the bottom already, so the list must still follow.
 	talker.say(NICK, `one more ${RUN}`);
 	await page.waitFor(`!!${rowOf("one more")}`, {timeout: 10000, label: "a new line"});

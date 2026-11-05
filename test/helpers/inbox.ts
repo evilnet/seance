@@ -3,15 +3,18 @@ import {
 	MAX_ENTRIES,
 	MAX_PER_CONVERSATION,
 	EXCERPT_FROM,
+	READ_KEEP_MS,
 	addEntries,
 	conversationEntries,
 	conversationKey,
 	dismissalOf,
+	dropExpired,
 	dropMessage,
 	entryFor,
 	excerptText,
 	entryKey,
 	groupByConversation,
+	markRead,
 	parseDismissed,
 	parseStored,
 	pruneRead,
@@ -235,8 +238,13 @@ describe("helpers/inbox.ts", function () {
 				entry({msgid: "other", target: "#other", time: "2026-10-23T11:00:00.000Z"}),
 				entry({msgid: "elsewhere", network: "net-2", time: "2026-10-23T11:00:00.000Z"}),
 			];
-			const left = pruneRead(list, "net-1", "#SEANCE", new Date("2026-10-23T12:01:00.000Z"));
-			expect(left.map((e) => e.msgid)).to.deep.equal(["new", "other", "elsewhere"]);
+			const left = pruneRead(
+				list.map(dismissalOf),
+				"net-1",
+				"#SEANCE",
+				new Date("2026-10-23T12:01:00.000Z")
+			);
+			expect(left.map((d) => d.key)).to.deep.equal([list[2], list[3], list[4]].map(entryKey));
 		});
 
 		it("forgets a dismissal the read point has passed", function () {
@@ -258,6 +266,67 @@ describe("helpers/inbox.ts", function () {
 		const groups = groupByConversation(list);
 		expect(groups.map((g) => g.key)).to.deep.equal(["net-1/#a", "net-2/#a", "net-1/#b"]);
 		expect(groups[0].entries.map((e) => e.msgid)).to.deep.equal(["a0", "a1", "a2"]);
+	});
+
+	describe("read mentions stay", function () {
+		const at = (min: number, msgid: string, read = false) =>
+			({
+				network: "n",
+				target: "#a",
+				msgid,
+				time: new Date(Date.UTC(2026, 10, 4, 12, min)).toISOString(),
+				type: "message",
+				text: msgid,
+				from: {nick: "bob", mode: ""},
+				...(read ? {read: true} : {}),
+			} as InboxEntry);
+
+		it("marks what the read point covers, in that conversation only", function () {
+			const other = {...at(1, "o"), target: "#b"};
+			const list = markRead(
+				[at(1, "a"), at(5, "b"), other],
+				"n",
+				"#a",
+				new Date(Date.UTC(2026, 10, 4, 12, 2))
+			);
+			expect(list.map((e) => !!e.read)).to.deep.equal([true, false, false]);
+		});
+
+		it("a read line coming again in a catch-up stays read", function () {
+			const [kept] = addEntries([at(1, "a", true)], [at(1, "a")]);
+			expect(kept.read).to.equal(true);
+		});
+
+		it("a private conversation's next line is unread", function () {
+			const query = (min: number, read = false) =>
+				({...at(min, `q${min}`, read), query: true} as InboxEntry);
+			const [next] = addEntries([query(1, true)], [query(2)]);
+			expect(next.msgid).to.equal("q2");
+			expect(next.read).to.equal(undefined);
+		});
+
+		it("read ones give way to unread ones when a conversation is full", function () {
+			const read = Array.from({length: MAX_PER_CONVERSATION}, (_, i) =>
+				at(i + 10, `r${i}`, true)
+			);
+			const list = addEntries(read, [at(1, "old-unread")]);
+			expect(list).to.have.length(MAX_PER_CONVERSATION);
+			expect(list.some((e) => e.msgid === "old-unread")).to.equal(true);
+			expect(list.some((e) => e.msgid === "r0")).to.equal(false);
+		});
+
+		it("all unread and over the cap keeps the newest", function () {
+			const many = Array.from({length: MAX_PER_CONVERSATION + 2}, (_, i) => at(i, `u${i}`));
+			const list = addEntries([], many);
+			expect(list).to.have.length(MAX_PER_CONVERSATION);
+			expect(list[0].msgid).to.equal("u2");
+		});
+
+		it("a read mention expires after 7 days, an unread one does not", function () {
+			const now = new Date(Date.UTC(2026, 10, 4, 12, 0)).getTime() + READ_KEEP_MS + 60_000;
+			const list = dropExpired([at(0, "read", true), at(0, "unread")], now);
+			expect(list.map((e) => e.msgid)).to.deep.equal(["unread"]);
+		});
 	});
 
 	describe("parsing what was stored", function () {

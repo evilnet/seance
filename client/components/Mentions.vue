@@ -25,7 +25,11 @@
 						totalText
 					}}</span>
 				</h2>
-				<button v-if="total" class="oper-btn oper-btn-ghost" @click="dismissAllMentions()">
+				<button
+					v-if="groups.length"
+					class="oper-btn oper-btn-ghost"
+					@click="dismissAllMentions()"
+				>
 					{{ t("mentions.dismissAll") }}
 				</button>
 				<!-- On the phone the pane is the whole screen: nothing outside it to tap. -->
@@ -70,9 +74,9 @@
 								group.networkName
 							}}</span>
 							<span
-								v-if="!group.query && groups.length > 1"
+								v-if="!group.query && groups.length > 1 && group.unread"
 								class="mentions-group-count"
-								>{{ group.entries.length }}</span
+								>{{ group.unread }}</span
 							>
 						</button>
 						<!-- A conversation this page no longer has: reading cannot clear it. While
@@ -86,6 +90,17 @@
 						</button>
 					</div>
 					<p v-if="group.missing" class="mentions-group-missing">{{ group.missing }}</p>
+					<!-- Above the rows: what it brings is older, and a group reads oldest first. -->
+					<button
+						v-if="group.hidden"
+						class="oper-btn oper-btn-ghost mentions-more"
+						@click="showAll(group)"
+					>
+						Show {{ group.hidden }} more
+						<template v-if="group.hiddenUnread">
+							· {{ group.hiddenUnread }} unread</template
+						>
+					</button>
 					<!-- A click opens the conversation; Enter on a focused row does too.
 					     Vue's .delete is Delete and Backspace both. -->
 					<div
@@ -95,7 +110,10 @@
 							'msg',
 							'mentions-entry',
 							message.type,
-							{'mentions-entry-openable': group.conversation},
+							{
+								'mentions-entry-openable': group.conversation,
+								'mentions-entry-read': message.read,
+							},
 						]"
 						tabindex="0"
 						@click="openFromRow($event, group, message)"
@@ -370,6 +388,20 @@
 	outline-offset: -0.125rem;
 }
 
+/* Read: still here to go back to, no longer asking for anything. */
+.mentions-popup .mentions-entry-read:not(:hover, :focus-visible) > * {
+	opacity: 0.55;
+}
+
+html[data-contrast="more"] .mentions-popup .mentions-entry-read > * {
+	opacity: 1;
+}
+
+.mentions-popup .mentions-more {
+	display: block;
+	margin: 0 0.375rem;
+}
+
 .mentions-popup .mentions-info {
 	display: flex;
 	align-items: baseline;
@@ -558,6 +590,7 @@ import ParsedMessage from "./ParsedMessage.vue";
 import {
 	dismissAllMentions as dismissAll,
 	dismissMentions,
+	markMentionOpened,
 	undoDismissAll,
 	undoableMentions,
 } from "../js/mentions";
@@ -580,6 +613,9 @@ import type {InboxEntry} from "../../shared/types/mention";
 import type {ClientNetwork, NetChan} from "../js/types";
 import {ChanType} from "../../shared/types/chan";
 
+/** Rows a conversation shows before "Show more", so one cannot fill the pane. */
+const ROWS_PER_GROUP = 3;
+
 type MentionWithContext = InboxEntry & {
 	key: string;
 	fullTime: string;
@@ -599,8 +635,13 @@ type GroupWithContext = {
 	query: boolean;
 	unreadLabel: string;
 	entries: MentionWithContext[];
-	/** The rows: every mention, or a private conversation's newest line. */
+	/** The rows: its newest mentions, or a private conversation's newest line. */
 	shown: MentionWithContext[];
+	/** Not read yet, of `entries`. */
+	unread: number;
+	/** Behind "Show more", and how many of those are not read yet. */
+	hidden: number;
+	hiddenUnread: number;
 };
 
 export default defineComponent({
@@ -613,8 +654,25 @@ export default defineComponent({
 		const store = useStore();
 		const {t, tCount, locale} = useI18n();
 		const isOpen = ref(false);
+		/** Conversations showing every row, until the pane closes. */
+		const expanded = ref(new Set<string>());
 		/** Moves the focus for a keyboard: left alone, a finger's raises none. */
 		let keyboard = false;
+
+		const rowsOf = (key: string, query: boolean, entries: MentionWithContext[]) => {
+			const shown = query
+				? entries.slice(-1)
+				: expanded.value.has(key)
+				? entries
+				: entries.slice(-ROWS_PER_GROUP);
+			const behind = query ? [] : entries.slice(0, entries.length - shown.length);
+			return {
+				shown,
+				unread: entries.filter((e) => !e.read).length,
+				hidden: behind.length,
+				hiddenUnread: behind.filter((e) => !e.read).length,
+			};
+		};
 
 		const groups = computed((): GroupWithContext[] => {
 			// locale.value is read so a language change redoes the
@@ -670,7 +728,7 @@ export default defineComponent({
 					unreadLabel:
 						unread > 1 ? tCount("mentions.unread", unread, {count: unread}) : "",
 					entries,
-					shown: query ? entries.slice(-1) : entries,
+					...rowsOf(group.key, query, entries),
 				};
 			});
 		});
@@ -732,6 +790,7 @@ export default defineComponent({
 			}
 
 			undoableMentions.value = [];
+			expanded.value = new Set();
 
 			// Before the pane goes: only if focus has not gone elsewhere already.
 			const active = document.activeElement;
@@ -793,17 +852,24 @@ export default defineComponent({
 		};
 
 		// It opens at the mention (MessageList.vue's jump): the one clicked, or
-		// the header's oldest. That mention leaves the list. The conversation is
-		// not read until the list reaches its bottom, so the others stay.
+		// the header's oldest unread. That mention dims; the conversation is not
+		// read until the list reaches its bottom, so the others stay as they are.
 		// A group without a conversation says why in its head.
-		const openGroup = (group: GroupWithContext, entry = group.entries[0]) => {
+		const openGroup = (
+			group: GroupWithContext,
+			entry = group.entries.find((e) => !e.read) ?? group.entries[0]
+		) => {
 			if (!group.conversation) {
 				return;
 			}
 
 			const channel = group.conversation.channel;
 			setReadHold(channel, true);
-			dismissMentions(group.query || !entry ? group.entries : [entry]);
+
+			if (entry) {
+				markMentionOpened(entry);
+			}
+
 			store.commit("jumpTarget", {
 				chanId: channel.id,
 				...(entry?.msgid ? {msgid: entry.msgid} : {}),
@@ -811,6 +877,15 @@ export default defineComponent({
 			});
 			isOpen.value = false;
 			switchToChannel(channel);
+		};
+
+		const showAll = (group: GroupWithContext) => {
+			const section = (document.activeElement as HTMLElement | null)?.closest(
+				".mentions-group"
+			);
+			expanded.value = new Set([...expanded.value, group.key]);
+			// The button is gone: on to the first row it brought.
+			refocus(() => section?.querySelector<HTMLElement>(".mentions-entry"));
 		};
 
 		// A click on the row opens the conversation; one on a link, a nick
@@ -916,6 +991,7 @@ export default defineComponent({
 			moveFocus,
 			openGroup,
 			openFromRow,
+			showAll,
 			closePopup,
 		};
 	},

@@ -32,8 +32,12 @@ highlight, so one entry per line filled the list with what the sidebar's
 unread badge already says. The newest line replaces the one before, and
 the pane shows it with the conversation's unread count ("7 unread").
 
-**Read rule:** an entry is read, and removed, once its target's read point
-passes its `time`. The read point is the one `handlers/markread.ts`
+**Read rule:** an entry is read, and stays in the list dimmed and out of every
+count (`read`), once its target's read point passes its `time`, or once it is
+opened. It leaves when closed with its ×, by Dismiss all, or 7 days after it was
+said if read. A conversation shows its newest three rows, with "Show N more" for
+the rest (`ROWS_PER_GROUP`). Discord's mentions are the model. What is unread is
+kept ahead of what is read when the caps fill. The read point is the one `handlers/markread.ts`
 `moveReadMarker` keeps: our own reading (opening the conversation, or the
 window coming back to it), a `MARKREAD` from another session of the account,
 and our own message in a history page. Dismissing an entry by hand removes it
@@ -49,7 +53,7 @@ Every device builds the same list from what the server already gives it:
   (`countPageUnread`), all as the `inbox:add` bus event. Only what counted as
   unread, only in a channel or a query (the lobby has no read point), never
   a muted conversation's. Older scrollback is never added.
-- **Pruned** by the `inbox:read {network, target, time}` bus event that
+- **Marked read** by the `inbox:read {network, target, time}` bus event that
   `moveReadMarker` dispatches whenever the read point moves, and by
   `inbox:drop {network, target, msgid, by?}` when the message is deleted
   (`REDACT`) or replaced by its author's edit, whether or not the page has
@@ -85,7 +89,7 @@ a channel starts, and joins that fill rather than asking again. Not
 `CHATHISTORY AROUND`: the buffer is one unbroken run and a page around the
 message would leave a gap. The logic is
 `helpers/jumpToMessage.ts` (Vue-free, `test/helpers/jumpToMessage.ts`).
-That mention leaves the list. The conversation is not read yet: `helpers/readHold.ts` holds it until the list reaches the bottom, so the other mentions stay and lines arriving meanwhile count as unread. Leaving before the bottom ends the hold with nothing read; opening it again reads it, as opening it from the sidebar does. What the user says there, and a read from another session, still read it.
+That mention dims. The conversation is not read yet: `helpers/readHold.ts` holds it until the list reaches the bottom, so the other mentions stay unread and lines arriving meanwhile count as unread. Leaving before the bottom ends the hold with nothing read; opening it again reads it, as opening it from the sidebar does. What the user says there, and a read from another session, still read it.
 A group whose conversation this page does not have (a channel left, a
 network not on this page) cannot be opened and says why under its name.
 
