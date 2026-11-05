@@ -34,6 +34,11 @@ import type {IrcClient} from "./client";
 import type {BatchHandler, OpenBatch} from "./handlers/batch";
 import {formatLine, MAX_LINE_BYTES, utf8ByteLength, type IrcMessage} from "./message";
 import type {Channel} from "./channel";
+import {historyLimit} from "./history";
+import {applyEdit, applyReaction, applyRedaction} from "../helpers/messageUpdates";
+import {ignoreListFor} from "../ignore";
+import {replyTagOf} from "./handlers/privmsg";
+import {REACT_TAG, UNREACT_TAG} from "./wire";
 
 const SEARCH_CAP = "soju.im/search";
 /** How long to wait for the server before giving up on a request. */
@@ -150,7 +155,8 @@ function answer(
 	request: Asked,
 	status: SearchStatus,
 	error?: string,
-	hits: SearchHit[] = []
+	hits: SearchHit[] = [],
+	end = false
 ): void {
 	if (request.parent) {
 		const {chan, msgid} = request.parent;
@@ -173,7 +179,7 @@ function answer(
 	if (request.kind === "results") {
 		client.dispatchBus("search:results", {...base, hits});
 	} else {
-		client.dispatchBus("search:context", {...base, messages: hits.map((hit) => hit.msg)});
+		client.dispatchBus("search:context", {...base, end, messages: hits.map((hit) => hit.msg)});
 	}
 }
 
@@ -253,7 +259,7 @@ export function requestSearchContext(
 		direction,
 		target,
 		`msgid=${msgid}`,
-		String(limit),
+		String(historyLimit(client, limit)),
 	]);
 }
 
@@ -328,6 +334,54 @@ function collect(client: IrcClient, lines: IrcMessage[], fallback?: string): Sea
 	return hits;
 }
 
+/**
+ * What the page's own lines say of its rows: reactions, deletions and edits. A
+ * channel's page does this through ids the channel holds (`afterReplay`); these
+ * rows are not the channel's, so nothing here may reach it.
+ */
+function withUpdates(client: IrcClient, hits: SearchHit[], lines: IrcMessage[]): SearchHit[] {
+	const rows = hits.map((hit) => hit.msg);
+	const byMsgid = new Map(rows.filter((m) => m.msgid).map((m) => [m.msgid, m]));
+
+	for (const line of lines) {
+		const nick = line.source?.name;
+
+		if (!nick) {
+			continue;
+		}
+
+		if (line.command === "TAGMSG") {
+			const react = line.tags.get(REACT_TAG);
+			const text = react || line.tags.get(UNREACT_TAG);
+			const row = byMsgid.get(replyTagOf(line));
+			const ignored =
+				!client.isSelf(nick) &&
+				ignoreListFor(client.uuid).matches(nick, line.source?.user, line.source?.host);
+
+			if (text && row && !ignored) {
+				applyReaction(row, text, nick, !react);
+			}
+		} else if (line.command === "REDACT") {
+			const row = byMsgid.get(line.params[1]);
+
+			if (row) {
+				applyRedaction(row, {by: nick, reason: line.params[2], time: client.timeOf(line)});
+			}
+		}
+	}
+
+	for (const row of [...rows]) {
+		const original = row.editOf ? byMsgid.get(row.editOf) : undefined;
+
+		if (original && original.from?.nick === row.from?.nick) {
+			applyEdit(rows, original.id, row.id);
+		}
+	}
+
+	const target = hits[0]?.target ?? "";
+	return rows.map((msg) => ({target, msg}));
+}
+
 function labelOf(batch: OpenBatch): string | undefined {
 	return batch.tags.get("label") ?? batch.parent?.tags.get("label");
 }
@@ -351,10 +405,11 @@ function settle(
 	request: PendingSearch,
 	status: SearchStatus,
 	error?: string,
-	hits?: () => SearchHit[]
+	hits?: () => SearchHit[],
+	end = false
 ): void {
 	if (take(client, request) && !request.expired) {
-		answer(client, request, status, error, hits?.());
+		answer(client, request, status, error, hits?.(), end);
 	}
 }
 
@@ -375,8 +430,13 @@ export function searchContextBatch(client: IrcClient, batch: OpenBatch): boolean
 		return false;
 	}
 
-	settle(client, request, "ok", undefined, () =>
-		collect(client, batch.messages, batch.params[0])
+	settle(
+		client,
+		request,
+		"ok",
+		undefined,
+		() => withUpdates(client, collect(client, batch.messages, batch.params[0]), batch.messages),
+		batch.tags.has("draft/chathistory-end")
 	);
 	return true;
 }

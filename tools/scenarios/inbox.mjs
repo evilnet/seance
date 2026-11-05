@@ -10,8 +10,8 @@
 //
 // The page sits in #seance while a second user mentions it there and in a
 // second channel and writes to it in private; then, after a reload, the page
-// opens the channel at a mention that 60 later lines have pushed out of the
-// first history page, and the private conversation at its newest line.
+// opens a mention that 60 later lines have pushed out of the first history
+// page in the main window at that line, and the private conversation at its newest line.
 
 import {clickBackdrop} from "./lib/backdrop.mjs";
 
@@ -41,6 +41,8 @@ function speaker(nick) {
 	let onDrained = () => {};
 
 	ws.onopen = () => {
+		ws.send("CAP REQ :message-tags");
+		ws.send("CAP END");
 		ws.send(`NICK ${nick}`);
 		ws.send(`USER ${nick} 0 * :seance inbox`);
 	};
@@ -71,6 +73,7 @@ function speaker(nick) {
 			setTimeout(() => reject(new Error(`${nick} never joined`)), 20000);
 		}),
 		say: (target, text) => ws.send(`PRIVMSG ${target} :${text}`),
+		raw: (line) => ws.send(line),
 		// The server paces a sender, oper or not, and answers in order: the
 		// PONG means everything said so far has reached the channel.
 		drained: () =>
@@ -216,6 +219,12 @@ export default async function run(page) {
 
 	// Mentions: two in the other channel, one in a channel being looked at
 	// (read at once: never in the inbox), one plain line.
+	// Older lines than one command brings: the lines around a mention page both ways.
+	for (let i = 1; i <= 60; i++) {
+		talker.say(OTHER, `old line ${i} ${RUN}`);
+	}
+
+	await talker.drained();
 	talker.say(OTHER, `${NICK}: are you around? the deploy is stuck on step 3 ${RUN}`);
 	talker.say(OTHER, `just a line nobody is named in ${RUN}`);
 	talker.say(
@@ -227,6 +236,7 @@ export default async function run(page) {
 		`So here is the long story of what happened with the build last night, from the very start, and then: what do you say, ${NICK}? ${RUN}`
 	);
 	talker.say(HOME, `${NICK}: hi in the open channel ${RUN}`);
+	await talker.drained();
 	await page.waitFor(`${badgeText} === "3"`, {timeout: 10000, label: "the badge at 3"});
 	await page.sleep(1500);
 	await page.check(
@@ -440,54 +450,193 @@ export default async function run(page) {
 	);
 	await page.screenshot("4-after-reload", {selector: POPUP, pad: 16});
 
-	// Opening an entry takes the channel to it: it is older than the first
-	// page, so the jump pages back for it.
+	// Opening an entry takes the channel to it. This one is older than the first
+	// page, so the main window shows the lines around it and nothing pages back for it.
 	const rowOf = (text) =>
-		`Array.from(document.querySelectorAll("#chat .msg")).find((m) => m.textContent.includes(${JSON.stringify(
+		`Array.from(document.querySelectorAll("#chat .messages .msg")).find((m) => m.textContent.includes(${JSON.stringify(
 			text
 		)}))`;
 	const flashing = (text) => `(${rowOf(text)}?.getAnimations().length ?? 0) > 0`;
-	const mention = rowOf("what do you say");
+	const sent = (pattern) =>
+		page.wsFrames.filter((f) => f.dir === "out" && pattern.test(f.payloadData ?? "")).length;
+	const ROWS = `#chat .messages .msg`;
+	const BAR = ".past-bar";
+	const rowCount = () => page.evaluate(`document.querySelectorAll("${ROWS}").length`);
+	const leavePast = async () => {
+		await press(".past-bar-present");
+		await page.waitFor(`!document.querySelector("${BAR}")`, {label: "the present again"});
+	};
+	const beforeJump = sent(/CHATHISTORY BEFORE /);
 	await page.evaluate(
-		`Array.from(document.querySelectorAll(".mentions-entry")).find((e) => e.textContent.includes("what do you say"))?.setAttribute("data-scenario", "target")`
+		`Array.from(document.querySelectorAll(".mentions-entry")).find((e) => e.textContent.includes("what do you say")).setAttribute("data-scenario", "target")`
 	);
 	await press(`.mentions-entry[data-scenario="target"] .content`);
 	await page.waitFor(`!document.querySelector("${POPUP}")`, {label: "the popover closed"});
-	await page.waitFor(
-		`document.querySelector("#chat .header .title")?.textContent.includes("${OTHER}")`,
-		{label: `${OTHER} open`}
-	);
-	await page.waitFor(`!!${mention}`, {timeout: 20000, label: "the mention loaded"});
-	await page.check(
-		"it was older than the first page, so the jump asked for one",
-		page.wsFrames.some(
-			(f) => f.dir === "out" && f.payloadData?.includes(`CHATHISTORY BEFORE ${OTHER}`)
-		)
-	);
 	await page.waitFor(flashing("what do you say"), {
-		timeout: 5000,
-		label: "the mention flashing",
+		timeout: 20000,
+		label: "the mention flashing in the main window",
 	});
 	await page.check(
-		"only the mention opened flashes, not the others in the channel",
-		!(await page.evaluate(flashing("are you around?")))
+		"an old mention opens in the main window, with a way back",
+		(
+			await page.evaluate(`document.querySelector("${BAR}")?.textContent`)
+		).includes("viewing older messages")
 	);
-	await page.sleep(800);
-	const inView = await page.evaluate(
-		`(() => { const m = ${mention}.getBoundingClientRect(); const c = document.querySelector("#chat .chat").getBoundingClientRect(); return m.top >= c.top && m.bottom <= c.bottom; })()`
-	);
-	await page.check("the conversation opened at the mention", inView);
-	await page.screenshot("5-at-the-mention", {selector: "#chat", pad: 0});
-
-	// Only the mention opened has left the list: the channel is not read yet.
-	await page.sleep(1500);
 	await page.check(
-		`opening a mention takes only that one from the list (${await page.evaluate(badgeText)})`,
-		(await page.evaluate(badgeText)) === String(left + 1)
+		"nothing paged back for it, and one command asked for it",
+		sent(/CHATHISTORY BEFORE /) === beforeJump &&
+			sent(/CHATHISTORY AROUND #\S+ msgid=\S+ 100/) === 1
+	);
+	await page.check(
+		"the mention sits in view",
+		await page.evaluate(
+			`(() => { const m = ${rowOf(
+				"what do you say"
+			)}.getBoundingClientRect(); const c = document.querySelector("#chat .chat-view.active .chat, #chat .chat").getBoundingClientRect(); return m.top >= c.top && m.bottom <= c.bottom; })()`
+		)
+	);
+	await page.check(
+		"no unread marker and no arrow in the past",
+		await page.evaluate(
+			`!document.querySelector("#chat .unread-marker") && !document.querySelector(".scroll-down-shown")`
+		)
+	);
+	await page.screenshot("5-at-the-mention");
+	await page.check(
+		`opening a mention dims only that one (${await page.evaluate(badgeText)})`,
+		(await page.evaluate(badgeText)) !== ""
 	);
 
-	// The bottom is where it is read.
-	await press("#chat .scroll-down");
+	// A live line goes to the channel underneath, unread.
+	const targetMsgid = page.wsFrames
+		.filter((f) => f.dir === "out")
+		.map((f) => /CHATHISTORY AROUND #\S+ msgid=(\S+) 100/.exec(f.payloadData ?? "")?.[1])
+		.find(Boolean);
+	talker.say(OTHER, `said since it opened ${RUN}`);
+	await talker.drained();
+	await page.sleep(500);
+	const scroller = `document.querySelector("#chat .chat")`;
+
+	// Reaching an end of what came asks for the next page, and the place holds.
+	const count = await rowCount();
+	await page.evaluate(`${scroller}.scrollTop = ${scroller}.scrollHeight`);
+	await page.waitFor(`!!${rowOf("said since it opened")}`, {
+		timeout: 15000,
+		label: "later lines on scroll",
+	});
+	await page.check(
+		"scrolling down asked for what comes after",
+		sent(/CHATHISTORY AFTER #\S+ msgid=/) >= 1 && (await rowCount()) > count
+	);
+	await page.sleep(700);
+
+	// Reopen near the top, and scroll up.
+	if (await page.evaluate(`!document.querySelector("${BAR}")`)) {
+		await press("#chat button.mentions");
+		await page.waitFor(`document.querySelector(".mentions-entry")`, {label: "rows again"});
+		await page.evaluate(
+			`Array.from(document.querySelectorAll(".mentions-entry")).find((e) => e.textContent.includes("what do you say")).setAttribute("data-scenario", "target")`
+		);
+		await press(`.mentions-entry[data-scenario="target"] .content`);
+		await page.waitFor(`document.querySelector("${BAR}")`, {
+			timeout: 15000,
+			label: "the past view again",
+		});
+		await page.sleep(700);
+	}
+
+	const beforePrepend = await rowCount();
+	const firstTop = `document.querySelector("${ROWS}[data-scenario='first']").getBoundingClientRect().top`;
+	await page.evaluate(`(() => {
+		${scroller}.querySelector(".msg").setAttribute("data-scenario", "first");
+		${scroller}.scrollTop = 0;
+	})()`);
+	const firstId = await page.evaluate(`document.querySelector("${ROWS}").id`);
+	await page.waitFor(`document.querySelectorAll("${ROWS}").length > ${beforePrepend}`, {
+		timeout: 15000,
+		label: "earlier lines on scroll",
+	});
+	await page.sleep(400);
+	const rowTop = `document.getElementById(${JSON.stringify(
+		firstId
+	)}).getBoundingClientRect().top`;
+	await page.check(
+		`lines coming in above keep the place (${await page.evaluate(rowTop)})`,
+		(await page.evaluate(rowTop)) > -5
+	);
+
+	// Send from the past: back to the present, where the line lands.
+	if (!touch) {
+		await page.evaluate(`(() => {
+			const input = document.querySelector("#input");
+			input.value = ${JSON.stringify(`sent from the past ${RUN}`)};
+			input.dispatchEvent(new Event("input", {bubbles: true}));
+			document.querySelector("#form").requestSubmit();
+		})()`);
+		await page.waitFor(`!document.querySelector("${BAR}")`, {label: "sending left the past"});
+		await page.waitFor(`!!${rowOf("sent from the past")}`, {
+			timeout: 10000,
+			label: "the sent line in the channel",
+		});
+		await page.check(
+			"what was sent is in view at the bottom",
+			await page.evaluate(
+				`${scroller}.scrollHeight - ${scroller}.scrollTop - ${scroller}.clientHeight < 40`
+			)
+		);
+	}
+
+	if (touch) {
+		await leavePast();
+	}
+
+	// A quote of the same line, whose parent is not loaded either.
+	talker.raw(`@+draft/reply=${targetMsgid} PRIVMSG ${OTHER} :a reply to that ${RUN}`);
+	// Background work: it waits for room on the fake-lag clock this walk has used up.
+	await page.waitFor(`document.querySelector(".msg-reply-quote .msg-reply-nick")`, {
+		timeout: 40000,
+		label: "the quote and its parent's text",
+	});
+	await page.sleep(300);
+	await press(".msg-reply-quote");
+	await page.waitFor(flashing("what do you say"), {
+		timeout: 15000,
+		label: "the quote's parent in the main window",
+	});
+	await page.check(
+		"a quote's unloaded parent opens the same way",
+		await page.evaluate(`!!document.querySelector("${BAR}")`)
+	);
+	await page.screenshot("5b-at-the-quote");
+	await leavePast();
+	await page.check(
+		"Jump to present is the bottom of the channel",
+		await page.evaluate(
+			`${scroller}.scrollHeight - ${scroller}.scrollTop - ${scroller}.clientHeight < 40 && !!${rowOf(
+				"a reply to that"
+			)}`
+		)
+	);
+
+	// A parent the server does not know: it says so and nothing moves.
+	talker.raw(`@+draft/reply=nosuchmessage PRIVMSG ${OTHER} :a reply to nothing ${RUN}`);
+	await page.waitFor(`document.querySelector(".msg-reply-quote.unknown")`, {
+		timeout: 15000,
+		label: "a quote with no parent",
+	});
+	await page.sleep(300);
+	await press(".msg-reply-quote.unknown");
+	await page.waitFor(`document.querySelector("#user-visible-error")`, {
+		timeout: 15000,
+		label: "the error saying why",
+	});
+	await page.check(
+		"an unknown parent stays in the present",
+		await page.evaluate(`!document.querySelector("${BAR}")`)
+	);
+	await page.evaluate(`document.querySelector("#user-visible-error").click()`);
+
+	// Closed at the bottom, the channel has been read.
 	await page.waitFor(`${badgeText} === "1"`, {timeout: 5000, label: "the badge at 1"});
 	await page.check(
 		"reaching the bottom cleared the channel's mentions, not the private one",
@@ -565,10 +714,11 @@ export default async function run(page) {
 	talker.say(NICK, `one more ${RUN}`);
 	await page.waitFor(`!!${rowOf("one more")}`, {timeout: 10000, label: "a new line"});
 	await page.sleep(300);
-	const list = `document.querySelector("#chat .chat")`;
 	await page.check(
 		"a jump to the newest line leaves the list following new ones",
-		await page.evaluate(`${list}.scrollHeight - ${list}.scrollTop - ${list}.offsetHeight <= 30`)
+		await page.evaluate(
+			`${scroller}.scrollHeight - ${scroller}.scrollTop - ${scroller}.offsetHeight <= 30`
+		)
 	);
 	await page.screenshot("6-read", {selector: "#chat .header", pad: 8});
 

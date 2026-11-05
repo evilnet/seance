@@ -24,4 +24,6 @@ export function clearHistory(target: number): void {
 	channel.highlight = 0;
 	channel.firstUnread = 0;
 	channel.moreHistoryAvailable = false;
+	channel.historyPageLanded = false;
+	channel.past = null;
 }

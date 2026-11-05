@@ -260,6 +260,7 @@
 </template>
 
 <script lang="ts">
+import {closePast} from "../js/pastView";
 import Mousetrap from "mousetrap";
 import getCaretCoordinates from "textarea-caret";
 import {wrapCursor} from "undate";
@@ -864,6 +865,10 @@ export default defineComponent({
 			if (autocompletionRef.value) {
 				autocompletionRef.value.hide();
 			}
+
+			// Sending goes back to the present, where what is sent will appear.
+			closePast(props.channel);
+			store.commit("searchReturn", null);
 
 			props.channel.inputHistoryPosition = 0;
 			props.channel.pendingMessage = "";

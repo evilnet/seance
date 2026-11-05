@@ -877,7 +877,6 @@ export default defineComponent({
 			store.commit("jumpTarget", {
 				chanId: channel.id,
 				...(entry?.msgid ? {msgid: entry.msgid} : {}),
-				...(entry ? {time: entry.time} : {}),
 			});
 			isOpen.value = false;
 			switchToChannel(channel);

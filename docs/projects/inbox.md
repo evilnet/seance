@@ -79,17 +79,19 @@ service worker's badge for a closed page counts its notifications, as
 before.
 
 **Opening an entry** takes the conversation to the mention: `Mentions.vue`
-sets `store.state.jumpTarget` (the clicked entry's msgid and time; the
-header's oldest entry), and
-`MessageList.vue` scrolls it to the middle with a flash, paging back with
-the ordinary `more` request when it is older than what is loaded, up to
-three pages (each costs the server's fake lag), then the first line at or
-after its time. Those pages are the list's own `more`, so a jump shares its
-one-page-per-channel rule with the scrollback and with the fill that opening
-a channel starts, and joins that fill rather than asking again. Not
-`CHATHISTORY AROUND`: the buffer is one unbroken run and a page around the
-message would leave a gap. The logic is
-`helpers/jumpToMessage.ts` (Vue-free, `test/helpers/jumpToMessage.ts`).
+sets `store.state.jumpTarget`, and `MessageList.vue` scrolls it to the middle
+with a flash. A quote's parent and a search hit go the same way. A line older
+than what is loaded opens a **past view** (`client/js/pastView.ts`): one
+`CHATHISTORY AROUND` of up to 100 lines, kept in `channel.past` and shown in
+place of `channel.messages`, which stays one unbroken run and goes on taking
+live lines, the unread count with them. Scrolling to either end asks for the
+next page. The bar over the composer says the reader is among older messages,
+with Jump to present; scrolling off the newest end, or sending, gets there too.
+A past row offers no Edit: an edit's place is the recent lines. Reactions and
+deletions reach it (`msg:changed`). Nothing of a past view is kept: leaving the
+channel closes it. A line the server does not have says so and stays put. The
+logic is `helpers/jumpToMessage.ts` and `helpers/pastRows.ts` (Vue-free,
+`test/helpers/`).
 That mention dims. The conversation is not read yet: `helpers/readHold.ts` holds it until the list reaches the bottom, so the other mentions stay unread and lines arriving meanwhile count as unread. Leaving before the bottom ends the hold with nothing read; opening it again reads it, as opening it from the sidebar does. What the user says there, and a read from another session, still read it.
 A group whose conversation this page does not have (a channel left, a
 network not on this page) cannot be opened and says why under its name.

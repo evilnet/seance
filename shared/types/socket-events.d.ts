@@ -144,6 +144,16 @@ interface ServerToClientEvents {
 		status: SearchStatus;
 		error?: string;
 		messages: SharedMsg[];
+		/** The server says this side of history has ended (`draft/chathistory-end`). */
+		end?: boolean;
+	}>;
+
+	/** A line changed, loaded or not: all a past view hears (see bus-contract §1.4). */
+	"msg:changed": EventHandler<{
+		chan: number;
+		msgid: string;
+		react?: {text: string; nick: string; remove: boolean};
+		redact?: {by: string; reason?: string; time: Date};
 	}>;
 
 	/** The parent of a reply that is not loaded, for its quote; never a row of the channel. */

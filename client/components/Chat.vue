@@ -128,7 +128,7 @@
 					<button
 						:class="[
 							'scroll-down tooltipped tooltipped-w tooltipped-no-touch',
-							{'scroll-down-shown': !channel.scrolledToBottom},
+							{'scroll-down-shown': !channel.scrolledToBottom && !channel.past},
 						]"
 						:aria-label="jumpToRecentLabel"
 						@click="messageList?.jumpToBottom()"
@@ -142,6 +142,24 @@
 						:channel="channel"
 						:focused="focused"
 					/>
+				</div>
+				<div v-if="channel.past || searchBack" class="past-bar" role="status">
+					<span v-if="channel.past" class="past-bar-text">{{
+						channel.past.failed
+							? "Could not load more. Scroll to try again."
+							: "You're viewing older messages"
+					}}</span>
+					<span class="past-bar-spacer" />
+					<button v-if="searchBack" class="btn btn-sm" @click="backToResults">
+						Back to results
+					</button>
+					<button
+						v-if="channel.past"
+						class="btn btn-sm past-bar-present"
+						@click="closePast(channel)"
+					>
+						Jump to present
+					</button>
 				</div>
 			</div>
 		</div>
@@ -161,6 +179,7 @@ import socket from "../js/socket";
 import eventbus from "../js/eventbus";
 import ParsedMessage from "./ParsedMessage.vue";
 import MessageList from "./MessageList.vue";
+import {closePast} from "../js/pastView";
 import ChatInput from "./ChatInput.vue";
 import ChatUserList from "./ChatUserList.vue";
 import SidebarToggle from "./SidebarToggle.vue";
@@ -171,10 +190,21 @@ import ListExcepts from "./Special/ListExcepts.vue";
 import ListChannels from "./Special/ListChannels.vue";
 import ListIgnored from "./Special/ListIgnored.vue";
 import TranslationPanel from "./TranslationPanel.vue";
-import {defineComponent, PropType, ref, computed, watch, nextTick, onMounted, Component} from "vue";
+import {
+	defineComponent,
+	PropType,
+	ref,
+	computed,
+	watch,
+	nextTick,
+	onMounted,
+	onUnmounted,
+	Component,
+} from "vue";
 import {channelOpened} from "../js/helpers/lastChannel";
 import {prefetchEmojiCatalog} from "../js/helpers/emoji";
 import type {ClientNetwork, ClientChan} from "../js/types";
+import {useRouter} from "vue-router";
 import {useStore} from "../js/store";
 import {SpecialChanType, ChanType} from "../../shared/types/chan";
 import {layout, toPlainText} from "../js/helpers/ircmessageparser/layout";
@@ -212,9 +242,27 @@ export default defineComponent({
 	setup(props) {
 		const store = useStore();
 		const {t, tCount} = useI18n();
+		const router = useRouter();
 
 		const messageList = ref<typeof MessageList>();
 		const topicInput = ref<HTMLInputElement | null>(null);
+
+		const searchBack = computed(() =>
+			store.state.searchReturn?.chanId === props.channel.id ? store.state.searchReturn : null
+		);
+		onUnmounted(() => store.commit("searchReturn", null));
+		const backToResults = () => {
+			const back = searchBack.value;
+
+			if (back) {
+				store.commit("searchReturn", null);
+				void router.replace({
+					name: "SearchResults",
+					params: {id: back.windowId},
+					query: {q: back.q},
+				});
+			}
+		};
 
 		const plainTopic = computed(() => {
 			const topic = props.channel.topic;
@@ -520,6 +568,7 @@ export default defineComponent({
 		watch(
 			() => props.channel,
 			() => {
+				store.commit("searchReturn", null);
 				channelChanged();
 			}
 		);
@@ -547,6 +596,9 @@ export default defineComponent({
 		});
 
 		return {
+			backToResults,
+			closePast,
+			searchBack,
 			store,
 			t,
 			messageList,

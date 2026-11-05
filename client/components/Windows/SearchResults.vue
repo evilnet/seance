@@ -95,11 +95,11 @@
 						{{ t("search.window.stale") }}
 					</p>
 
-					<div class="search-panes" :class="{'has-context': selected}">
+					<div class="search-panes">
 						<div
 							class="search-list"
 							:class="{stale: stale && criteria}"
-							:inert="filtersOpen || (isPhone && selected !== null)"
+							:inert="filtersOpen"
 						>
 							<div v-if="!criteria" class="search-start">
 								<p>
@@ -175,10 +175,9 @@
 										v-for="hit in group.hits"
 										:key="hit.msg.id"
 										class="search-hit"
-										:class="{sel: selected === hit}"
 										role="button"
 										tabindex="0"
-										@click="openHit(hit)"
+										@click="clickHit($event, hit)"
 										@keydown.enter.self="openHit(hit)"
 										@keydown.space.self.prevent="openHit(hit)"
 									>
@@ -237,106 +236,6 @@
 									{{ t("search.window.nothingOlder") }}
 								</span>
 							</div>
-						</div>
-
-						<div
-							v-if="selected"
-							id="search-context-overlay"
-							v-backdrop="closeContext"
-							class="screen-overlay"
-							data-escape-close="search-context"
-						>
-							<aside
-								ref="contextPane"
-								class="search-context"
-								tabindex="-1"
-								:aria-label="t('search.window.contextAria')"
-								:role="isPhone ? 'dialog' : undefined"
-								:aria-modal="isPhone ? 'true' : undefined"
-								@keydown.tab="onContextTab"
-							>
-								<div class="search-context-head">
-									<div>
-										<b>{{ selected.target }}</b>
-										<small>{{
-											t("search.window.around", {
-												day: dayOf(selected.msg),
-												time: timeOf(selected.msg),
-											})
-										}}</small>
-									</div>
-									<button
-										class="oper-icon-btn search-icon search-icon-remove"
-										:aria-label="t('search.window.closeContext')"
-										:title="t('search.window.closeContext')"
-										@click="closeContext"
-									/>
-								</div>
-								<div ref="contextList" class="search-context-lines">
-									<p v-if="contextNote" class="search-dim search-context-note">
-										{{ contextNote }}
-									</p>
-									<p
-										v-if="contextLoading"
-										class="search-dim search-context-note"
-										role="status"
-									>
-										{{ t("search.window.contextLoading") }}
-									</p>
-									<div
-										v-for="msg in contextShown"
-										:key="msg.id"
-										class="search-context-line"
-										:class="{hit: isSelected(msg)}"
-										@click="openFromLine($event, msg)"
-									>
-										<span class="search-time">{{ timeOf(msg) }}</span>
-										<Username
-											v-if="msg.from"
-											:user="msg.from"
-											:network="network"
-										/>
-										<span class="search-text">
-											<ParsedMessage
-												:network="network"
-												:message="asClient(msg)"
-											/>
-										</span>
-									</div>
-								</div>
-								<div class="search-context-foot">
-									<template v-if="contextLive">
-										<button
-											class="oper-btn oper-btn-ghost"
-											:disabled="contextLoading || !canEarlier"
-											@click="contextPage('BEFORE')"
-										>
-											{{ t("search.window.earlier") }}
-										</button>
-										<button
-											class="oper-btn oper-btn-ghost"
-											:disabled="contextLoading || !canLater"
-											@click="contextPage('AFTER')"
-										>
-											{{ t("search.window.later") }}
-										</button>
-									</template>
-									<span class="search-spacer" />
-									<button
-										v-if="selectedChannel"
-										class="oper-btn oper-btn-primary"
-										@click="openInChannel"
-									>
-										{{
-											selectedLoaded
-												? t("search.window.openInChannel")
-												: t("search.window.goTo", {
-														channel: selected.target,
-												  })
-										}}
-									</button>
-								</div>
-							</aside>
 						</div>
 					</div>
 
@@ -436,10 +335,6 @@
 	outline-offset: -0.125rem;
 }
 
-.search-context:focus {
-	outline: none;
-}
-
 .search-stale {
 	margin: 0;
 	padding: 0.5rem 0.75rem;
@@ -534,10 +429,6 @@
 	min-height: 0;
 }
 
-.search-panes.has-context {
-	grid-template-columns: minmax(0, 1fr) minmax(0, 24rem);
-}
-
 .search-list {
 	min-width: 0;
 	overflow-y: auto;
@@ -590,13 +481,6 @@
 	background: var(--oper-panel);
 }
 
-.search-hit.sel,
-.search-context-line.hit {
-	cursor: pointer;
-	background: var(--highlight-bg-color);
-	box-shadow: inset 0.125rem 0 0 var(--highlight-border-color);
-}
-
 .search-time {
 	color: var(--body-color-muted);
 	font-size: 0.8125rem;
@@ -640,103 +524,18 @@
 	flex: 1;
 }
 
-#search-context-overlay {
-	display: flex;
-	min-width: 0;
-	min-height: 0;
-	border-left: 1px solid var(--oper-line);
-}
-
-.search-context {
-	flex: 1;
-	display: flex;
-	flex-direction: column;
-	min-width: 0;
-	min-height: 0;
-	background: var(--oper-panel);
-}
-
-.search-context-head {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 0.5rem;
-	padding: 0.5rem 0.5rem 0.5rem 1rem;
-	border-bottom: 1px solid var(--oper-line);
-}
-
-.search-context-head small {
-	display: block;
-	color: var(--body-color-muted);
-	font-size: 0.75rem;
-}
-
-.search-context-lines {
-	flex: 1;
-	min-height: 0;
-	overflow-y: auto;
-	overscroll-behavior: contain;
-	padding: 0.5rem 0;
-}
-
-.search-context-note {
-	margin: 0;
-	padding: 0.375rem 1rem;
-}
-
-.search-context-line {
-	padding: 0.375rem 1rem;
-	overflow-wrap: anywhere;
-}
-
-.search-context-line .search-time,
-.search-context-line .user {
-	margin-right: 0.375rem;
-}
-
-.search-context-foot {
-	display: flex;
-	align-items: center;
-	gap: 0.25rem;
-	padding: 0.5rem 0.75rem calc(0.5rem + var(--inset-inner-bottom, 0px));
-	border-top: 1px solid var(--oper-line);
-	background: var(--oper-sunk);
-}
-
 @media (max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse) {
 	.search-chips {
 		flex-wrap: nowrap;
 		overflow-x: auto;
 		scrollbar-width: none;
 	}
-
-	.search-panes.has-context {
-		grid-template-columns: minmax(0, 1fr);
-	}
-
-	#search-context-overlay {
-		position: fixed;
-		inset: 0;
-		z-index: 110;
-		align-items: flex-end;
-		padding-top: 2rem;
-		border: 0;
-		background: var(--overlay-bg-color);
-	}
-
-	.search-context {
-		max-height: 75%;
-		border-top: 1px solid var(--oper-line-2);
-		border-radius: 1.25rem 1.25rem 0 0;
-		background: var(--window-bg-color);
-		overflow: hidden;
-	}
 }
 </style>
 
 <script lang="ts">
 import dayjs from "dayjs";
-import {computed, defineComponent, nextTick, onMounted, onUnmounted, ref, watch} from "vue";
+import {computed, defineComponent, onMounted, onUnmounted, ref, watch} from "vue";
 import {useRoute, useRouter} from "vue-router";
 
 import eventbus from "../../js/eventbus";
@@ -758,7 +557,6 @@ import {
 import {clockTime, dayLabel, shortDay} from "../../js/helpers/messageTime";
 import {clearHighlight, paintHighlight, rangesIn} from "../../js/helpers/paintHighlight";
 import {setReadHold} from "../../js/helpers/readHold";
-import {trapTab} from "../../js/helpers/trapTab";
 import {useStore} from "../../js/store";
 import {useI18n} from "../../js/i18n";
 import {KEEP} from "../../js/i18n/core";
@@ -766,17 +564,12 @@ import I18nFrame from "../I18nFrame.vue";
 import {hasLabel} from "../../js/helpers/searchLabels";
 import type {ClientChan, ClientMessage} from "../../js/types";
 import type {SharedMsg} from "../../../shared/types/msg";
-import type {SearchContextDirection, SearchHit, SearchStatus} from "../../../shared/types/search";
-import {PHONE_LAYOUT_QUERY} from "../../js/helpers/device";
+import type {SearchHit, SearchStatus} from "../../../shared/types/search";
 import ParsedMessage from "../ParsedMessage.vue";
 import SearchFilterSheet from "../SearchFilterSheet.vue";
 import Username from "../Username.vue";
 
 const PAGE_SIZE = 100;
-const CONTEXT_SIZE = 21;
-/** Long enough that hits clicked through quickly ask only for the last. */
-const CONTEXT_DELAY_MS = 250;
-const CONTEXT_PAGE = 20;
 const HINTS = ["from:nick", "in:#channel", "has:link", "-word", "after:2026-10-01"];
 
 let nextRequestId = 1;
@@ -800,18 +593,9 @@ export default defineComponent({
 		const {t, tCount, locale} = useI18n();
 
 		const queryField = ref<HTMLInputElement>();
-		const contextList = ref<HTMLElement>();
 
 		const draft = ref(String(route.query.q ?? ""));
 		const filtersOpen = ref(false);
-		const contextPane = ref<HTMLElement>();
-		const layout = window.matchMedia(PHONE_LAYOUT_QUERY);
-		const isPhone = ref(layout.matches);
-		const onLayout = () => {
-			isPhone.value = layout.matches;
-		};
-		let contextOpener: HTMLElement | null = null;
-
 		const rows = ref<SearchHit[]>([]);
 		const mode = ref<Mode>("server");
 		const loading = ref(false);
@@ -820,17 +604,6 @@ export default defineComponent({
 		const error = ref("");
 		const olderError = ref("");
 		let requestId = 0;
-
-		const selected = ref<SearchHit | null>(null);
-		const contextRows = ref<SharedMsg[]>([]);
-		const contextLoading = ref(false);
-		let contextTimer: ReturnType<typeof setTimeout> | undefined;
-		const contextLive = ref(false);
-		const contextNote = ref("");
-		const canEarlier = ref(true);
-		const canLater = ref(true);
-		let contextRequest = 0;
-		let contextDirection: SearchContextDirection = "AROUND";
 
 		const query = computed(() => String(route.query.q ?? "").trim());
 		const filters = computed<SearchFilters>(() => parseSearchQuery(query.value));
@@ -979,40 +752,6 @@ export default defineComponent({
 		const newestFirst = (a: SearchHit, b: SearchHit) =>
 			new Date(b.msg.time).getTime() - new Date(a.msg.time).getTime();
 
-		// AROUND brings the channel's joins and parts too (event-playback): kept
-		// as paging edges, but this pane reads the conversation.
-		const contextShown = computed(() =>
-			contextRows.value.filter((msg) => SEARCHABLE_MESSAGE_TYPES.has(msg.type))
-		);
-
-		const resetContext = () => {
-			clearTimeout(contextTimer);
-			contextRequest = 0;
-			selected.value = null;
-			contextRows.value = [];
-			contextLoading.value = false;
-		};
-
-		const closeContext = async () => {
-			const opener = contextOpener;
-
-			contextOpener = null;
-			resetContext();
-
-			// After the render: on a phone the list is inert until the sheet is gone.
-			await nextTick();
-
-			if (opener?.isConnected) {
-				opener.focus({preventScroll: true});
-			}
-		};
-
-		const onContextTab = (event: KeyboardEvent) => {
-			if (isPhone.value && contextPane.value) {
-				trapTab(event, contextPane.value);
-			}
-		};
-
 		const searchLoaded = () => {
 			const hits: SearchHit[] = [];
 
@@ -1032,8 +771,6 @@ export default defineComponent({
 		};
 
 		const run = () => {
-			contextOpener = null;
-			resetContext();
 			requestId = 0;
 			rows.value = [];
 			error.value = "";
@@ -1141,204 +878,37 @@ export default defineComponent({
 			rows.value = [...rows.value, ...fresh.reverse()].sort(newestFirst);
 		};
 
-		const isSelected = (msg: SharedMsg) => {
-			const hit = selected.value?.msg;
-
-			if (!hit) {
-				return false;
-			}
-
-			return hit.msgid ? hit.msgid === msg.msgid : hit.id === msg.id;
-		};
-
-		const showHitInContext = async () => {
-			await nextTick();
-			contextList.value?.querySelector(".search-context-line.hit")?.scrollIntoView({
-				block: "center",
-			});
-		};
-
+		// To the message itself. The results come back with the bar's Back to results.
 		const openHit = (hit: SearchHit) => {
-			if (selected.value === hit && contextLoading.value) {
-				return; // already on its way
-			}
-
-			clearTimeout(contextTimer);
-
-			if (!selected.value) {
-				contextOpener = document.activeElement as HTMLElement | null;
-			}
-
-			selected.value = hit;
-			void nextTick(() => contextPane.value?.focus({preventScroll: true}));
-			contextRows.value = [hit.msg];
-			contextNote.value = "";
-			canEarlier.value = true;
-			canLater.value = true;
-			contextRequest = 0;
-
 			const chat = findChat(hit.target);
 
-			// Nothing to ask for: the neighbours are the ones already loaded.
-			if (mode.value !== "server" || !hit.msg.msgid) {
-				contextLive.value = false;
-				contextLoading.value = false;
-
-				if (chat) {
-					const index = chat.messages.findIndex((msg) => msg.id === hit.msg.id);
-
-					if (index >= 0) {
-						contextRows.value = chat.messages.slice(
-							Math.max(0, index - 10),
-							index + 11
-						);
-					}
-				}
-
-				void showHitInContext();
-				return;
-			}
-
-			contextLive.value = true;
-			contextLoading.value = true;
-			contextDirection = "AROUND";
-
-			// Every command costs fake lag, and one answered for a hit already
-			// left behind is only a delay for what the user types next.
-			const uuid = network.value!.uuid;
-			const msgid = hit.msg.msgid;
-
-			contextTimer = setTimeout(() => {
-				contextRequest = nextRequestId++;
-				socket.emit("search:context", {
-					network: uuid,
-					requestId: contextRequest,
-					target: hit.target,
-					direction: "AROUND",
-					msgid,
-					limit: CONTEXT_SIZE,
-				});
-			}, CONTEXT_DELAY_MS);
-		};
-
-		const contextPage = (direction: "BEFORE" | "AFTER") => {
-			const edge =
-				direction === "BEFORE"
-					? contextRows.value[0]
-					: contextRows.value[contextRows.value.length - 1];
-
-			if (!selected.value || !edge?.msgid || contextLoading.value) {
-				return;
-			}
-
-			contextLoading.value = true;
-			contextDirection = direction;
-			contextRequest = nextRequestId++;
-			socket.emit("search:context", {
-				network: network.value!.uuid,
-				requestId: contextRequest,
-				target: selected.value.target,
-				direction,
-				msgid: edge.msgid,
-				limit: CONTEXT_PAGE,
-			});
-		};
-
-		const onContext = (data: {
-			network: string;
-			requestId: number;
-			status: SearchStatus;
-			error?: string;
-			messages: SharedMsg[];
-		}) => {
-			if (data.network !== network.value?.uuid || data.requestId !== contextRequest) {
-				return;
-			}
-
-			contextLoading.value = false;
-
-			if (data.status !== "ok") {
-				contextNote.value = t("search.window.contextFailed");
-
-				if (contextDirection === "AROUND") {
-					contextLive.value = false;
-				}
-
-				return;
-			}
-
-			const seen = new Set(contextRows.value.map((msg) => msg.msgid));
-			const fresh = data.messages.filter((msg) => !seen.has(msg.msgid));
-
-			if (contextDirection === "BEFORE") {
-				canEarlier.value = fresh.length > 0;
-				contextRows.value = [...fresh, ...contextRows.value];
-			} else if (contextDirection === "AFTER") {
-				canLater.value = fresh.length > 0;
-				contextRows.value = [...contextRows.value, ...fresh];
-			} else {
-				// The answer holds the hit itself, unless the server's window does not.
-				contextRows.value = data.messages.some(isSelected)
-					? data.messages
-					: [selected.value!.msg];
-				void showHitInContext();
-			}
-		};
-
-		const selectedChannel = computed(() =>
-			selected.value ? findChat(selected.value.target) : undefined
-		);
-		const loadedTwin = computed(() => {
-			const hit = selected.value?.msg;
-
-			if (!hit || !selectedChannel.value) {
-				return undefined;
-			}
-
-			return selectedChannel.value.messages.find((msg) =>
-				hit.msgid ? msg.msgid === hit.msgid : msg.id === hit.id
-			);
-		});
-		const selectedLoaded = computed(() => loadedTwin.value !== undefined);
-
-		const openInChannel = () => {
-			const chat = selectedChannel.value;
-			const twin = loadedTwin.value;
-
 			if (!chat) {
+				store.commit("currentUserVisibleError", `Join ${hit.target} to read this message.`);
 				return;
 			}
 
-			const hit = selected.value?.msg;
+			const twin = hit.msg.msgid
+				? chat.messages.find((msg) => msg.msgid === hit.msg.msgid)
+				: chat.messages.find((msg) => msg.id === hit.msg.id);
 
-			// Not loaded: pages back for it, and if it is too far, the channel
-			// opens as usual rather than at some other line.
 			setReadHold(chat, true);
-
-			if (twin) {
-				store.commit("jumpTarget", {chanId: chat.id, id: twin.id});
-			} else if (hit) {
-				store.commit("jumpTarget", {
-					chanId: chat.id,
-					...(hit.msgid ? {msgid: hit.msgid} : {}),
-					time: new Date(hit.time).toISOString(),
-					exact: true,
-				});
-			}
-
+			store.commit("jumpTarget", {
+				chanId: chat.id,
+				...(twin ? {id: twin.id} : {}),
+				...(hit.msg.msgid ? {msgid: hit.msg.msgid} : {}),
+			});
+			store.commit("searchReturn", {
+				chanId: chat.id,
+				windowId: parseInt(String(route.params.id), 10),
+				q: query.value,
+			});
 			switchToChannel(chat);
 		};
 
-		// The hit's line is the button's other half; a link, a nick or a spoiler in it is its own.
-		const openFromLine = (event: MouseEvent, msg: SharedMsg) => {
-			const target = event.target as HTMLElement | null;
-
-			if (
-				isSelected(msg) &&
-				!target?.closest("a, button, [role='button'], .user, .inline-channel") &&
-				!window.getSelection()?.toString()
-			) {
-				openInChannel();
+		// A link or a spoiler in the line does its own thing.
+		const clickHit = (event: MouseEvent, hit: SearchHit) => {
+			if (!(event.target as Element).closest("a, button, .md-spoiler")) {
+				openHit(hit);
 			}
 		};
 
@@ -1420,7 +990,7 @@ export default defineComponent({
 			);
 		};
 
-		watch([visible, contextRows], paintMatches, {flush: "post"});
+		watch(visible, paintMatches, {flush: "post"});
 
 		watch(
 			() => [route.params.id, route.query.q],
@@ -1437,9 +1007,7 @@ export default defineComponent({
 
 		// Only with no overlay up: Escape over a context menu closes the menu.
 		const onEscape = (layer: string | null) => {
-			if (layer === "search-context") {
-				void closeContext();
-			} else if (layer === null) {
+			if (layer === null) {
 				closeSearch();
 			}
 		};
@@ -1449,9 +1017,7 @@ export default defineComponent({
 				store.commit("activeChannel", found.value);
 			}
 
-			layout.addEventListener("change", onLayout);
 			socket.on("search:results", onResults);
-			socket.on("search:context", onContext);
 			eventbus.on("escapekey", onEscape);
 			run();
 
@@ -1461,10 +1027,7 @@ export default defineComponent({
 		});
 
 		onUnmounted(() => {
-			clearTimeout(contextTimer);
-			layout.removeEventListener("change", onLayout);
 			socket.off("search:results", onResults);
-			socket.off("search:context", onContext);
 			eventbus.off("escapekey", onEscape);
 			clearHighlight("search-hit");
 		});
@@ -1478,34 +1041,20 @@ export default defineComponent({
 			applyFilters,
 			asClient: (msg: SharedMsg) => msg as ClientMessage,
 			banner,
-			canEarlier,
-			canLater,
 			canLoadOlder,
 			channel,
 			chips,
-			closeContext,
 			closeSearch,
-			contextList,
-			contextPane,
-			isPhone,
-			onContextTab,
 			draftFilters,
 			stale,
-			contextLive,
-			contextLoading,
-			contextNote,
-			contextPage,
-			contextShown,
 			conversations,
 			criteria,
-			dayOf,
 			draft,
 			error,
 			filters,
 			filtersOpen,
 			groups,
 			hiddenCount,
-			isSelected,
 			loadOlder,
 			loadedCount,
 			loading,
@@ -1514,8 +1063,8 @@ export default defineComponent({
 			network,
 			oldestLabel,
 			olderError,
+			clickHit,
 			openHit,
-			openInChannel,
 			queryField,
 			removeChip,
 			rows,
@@ -1523,10 +1072,6 @@ export default defineComponent({
 			scopeDefault,
 			scopeLabel,
 			searchEverywhere,
-			selected,
-			selectedChannel,
-			selectedLoaded,
-			openFromLine,
 			store,
 			submit,
 			suggestions,

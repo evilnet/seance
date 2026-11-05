@@ -18,6 +18,17 @@ type ClientUser = SharedUser;
 // which are not shared with the server
 export type ClientMessage = SharedMsg;
 
+type PastView = {
+	rows: ClientMessage[];
+	/** The msgid to go to once the rows have rendered. */
+	reveal: string | null;
+	loading: "BEFORE" | "AFTER" | null;
+	canEarlier: boolean;
+	canLater: boolean;
+	failed: boolean;
+	retryAt: number;
+};
+
 type ClientChan = Omit<SharedChan, "messages"> & {
 	moreHistoryAvailable: boolean;
 	editTopic: boolean;
@@ -28,6 +39,10 @@ type ClientChan = Omit<SharedChan, "messages"> & {
 	inputHistoryPosition: number;
 	inputHistory: string[];
 	historyLoading: boolean;
+	/** Older lines shown in place of `messages` (client/js/pastView.ts). */
+	past: PastView | null;
+	/** A history page has been answered, so what is loaded is what the server gave. */
+	historyPageLanded: boolean;
 	/** Taken to an older message: not read until the list reaches the bottom. */
 	readHeld: boolean;
 	scrolledToBottom: boolean;
