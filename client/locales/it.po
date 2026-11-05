@@ -13722,6 +13722,12 @@ msgctxt "settings.tabs.general"
 msgid "General"
 msgstr "Generale"
 
+#. Name of the Translation tab in the Settings tab strip while translation is switched off: the tab then holds only the interface-language picker (and the switch that turns translation on). As short as the other tab labels.
+#: client/components/Settings/Navigation.vue
+msgctxt "settings.tabs.language"
+msgid "Language"
+msgstr "Lingua"
+
 #. Label of the Settings modal's Networks tab (tab strip); switching tabs navigates to the Networks settings pane.
 #: client/components/Settings/Navigation.vue
 #: client/components/Settings/SettingTabItem.vue
@@ -14994,6 +15000,18 @@ msgctxt "translate.settings.disabled"
 msgid "Translation is turned off in this deployment."
 msgstr "La traduzione è disattivata in questa distribuzione."
 
+#. Label of the switch in Settings → Translation that turns on-device translation on for the whole app (off by default). While it is off, every translation button and control is hidden; nothing is sent to a translation service either way.
+#: client/components/Settings/Translation.vue
+msgctxt "translate.settings.enable"
+msgid "Translate messages on this device"
+msgstr "Traduci i messaggi su questo dispositivo"
+
+#. Note under the switch that turns translation on (Settings → Translation): what it does, and that turning it on means large downloads (the translation models) the first time they are used. MB and GB are megabytes and gigabytes; write them as your language usually does.
+#: client/components/Settings/Translation.vue
+msgctxt "translate.settings.enableHint"
+msgid "Translates channels and your messages on this device. Its models are downloaded when first used: a few hundred MB to over 1 GB each."
+msgstr "Traduce i canali e i tuoi messaggi su questo dispositivo. I modelli vengono scaricati al primo utilizzo: da qualche centinaio di MB a oltre 1 GB ciascuno."
+
 #. The first option of the language model picker in Settings → Translation: the client picks the largest model the device can run.
 #: client/components/Settings/Translation.vue
 msgctxt "translate.settings.gpuAutomatic"
@@ -15023,6 +15041,12 @@ msgstr "{model} non può funzionare su questo dispositivo."
 msgctxt "translate.settings.heading"
 msgid "Translation"
 msgstr "Traduzione"
+
+#. Heading of the Settings pane that holds the interface-language picker, shown while translation is switched off (the same pane is headed "Translation" while it is on). The interface language: the language the app itself is written in.
+#: client/components/Settings/Translation.vue
+msgctxt "translate.settings.headingLanguage"
+msgid "Language"
+msgstr "Lingua"
 
 #. Badge next to the model row in Settings → Translation that the language model picker currently selects.
 #: client/components/Settings/Translation.vue

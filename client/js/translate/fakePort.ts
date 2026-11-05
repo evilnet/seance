@@ -147,6 +147,8 @@ class ScriptedEngine implements Engine {
 	private failedOnce = new Set<string>();
 	/** Texts this engine has already echoed once, so a retry translates. */
 	private echoedOnce = new Set<string>();
+	/** The worker was terminated: a load still under way finishes into nothing. */
+	private stopped = false;
 
 	constructor(name: "llm" | "seq2seq", stepMs: number) {
 		this.name = name;
@@ -167,6 +169,12 @@ class ScriptedEngine implements Engine {
 
 		for (let i = 1; i <= 10; i++) {
 			await wait(this.stepMs);
+
+			// A real worker's thread dies with it; this one's timers do not.
+			if (this.stopped) {
+				return;
+			}
+
 			onProgress({fraction: i / 10, text: `shard ${i} of 10`});
 		}
 
@@ -182,6 +190,12 @@ class ScriptedEngine implements Engine {
 		publishLoaded(this.name, this.loaded);
 
 		return Promise.resolve();
+	}
+
+	/** The worker is terminated: what it held goes, and a load in flight with it. */
+	stop(): void {
+		this.stopped = true;
+		void this.unload();
 	}
 
 	status(): EngineStatus {
@@ -357,8 +371,8 @@ export function fakePort(options: {stepMs?: number} = {}): {port: MainPort; term
 		// A terminated worker frees what its engines held.
 		terminate() {
 			stop();
-			void llm.unload();
-			void seq2seq.unload();
+			llm.stop();
+			seq2seq.stop();
 		},
 	};
 }

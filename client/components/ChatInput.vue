@@ -294,7 +294,13 @@ import {
 import {hasVirtualKeyboard} from "../js/helpers/device";
 import {useI18n} from "../js/i18n";
 import {SUPPORTED_LANGUAGES, languageName} from "../js/translate/languages";
-import {draftGate, onceTargetDefault, sendableTranslation} from "../js/translate/outgoing";
+import {
+	draftGate,
+	firstEnterTranslates,
+	onceTargetDefault,
+	sendableTranslation,
+} from "../js/translate/outgoing";
+import {translationOn} from "../js/translate";
 import {
 	channelTranslation,
 	liveLlmName,
@@ -1025,10 +1031,14 @@ export default defineComponent({
 			}
 
 			// The first Enter (spec § Composer 1-3): translate, and send only
-			// when the draft turns out to need none.
+			// when the draft turns out to need none. Translation switched off,
+			// every draft goes as typed (outgoing.ts firstEnterTranslates).
 			if (
-				writeTarget(props.network, props.channel) &&
-				(gate.kind === "ok" || gate.kind === "action")
+				firstEnterTranslates(
+					gate,
+					writeTarget(props.network, props.channel),
+					translationOn()
+				)
 			) {
 				// The verdict can be seconds late (a cold engine, a slow
 				// device), so it is checked against the composer it started

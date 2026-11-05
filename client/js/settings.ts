@@ -211,6 +211,18 @@ const defaultConfig = {
 	 * this). "auto" resolves from the browser. reader.ts
 	 * `readingLanguage()` reads it through `userLanguageRef`.
 	 */
+	/**
+	 * Translate messages on this device (Settings → Translation). Off by
+	 * default, for new and existing users alike: translation runs only where
+	 * the deploy allows it (config.json `translation.enabled`) and this is on
+	 * (translate/switch.ts `translationAllowed`). While off nothing of it
+	 * exists — no service, no device probe, no worker, no button — and the
+	 * per-channel choices, downloaded models and consents are kept for when
+	 * it comes back on. translate/index.ts watches it; nothing to apply here.
+	 */
+	translationEnabled: {
+		default: false,
+	},
 	/** auto | formal | casual, one line of the prompt. */
 	translateFormality: {
 		default: "auto",

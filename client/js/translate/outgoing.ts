@@ -139,6 +139,17 @@ export function draftGate(text: string, editing: boolean): DraftGate {
 }
 
 /**
+ * Whether the composer's first Enter translates the draft (into `to`, the
+ * channel's write target) rather than sending it as typed: prose and a
+ * `/me`'s text, with a write target, while translation is on. Switched off
+ * (translate/switch.ts) every draft goes as typed -- a write target the
+ * channel kept and a `/me` included -- and no strip comes up.
+ */
+export function firstEnterTranslates(gate: DraftGate, to: string | null, on: boolean): boolean {
+	return on && !!to && (gate.kind === "ok" || gate.kind === "action");
+}
+
+/**
  * The composer's line for a translation the second Enter sends. A
  * translation is text, never a command: the model wrote it, from a prompt
  * that quotes the channel's topic and other people's lines, so a line of it

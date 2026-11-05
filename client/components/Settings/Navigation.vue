@@ -154,6 +154,7 @@ import {useI18n} from "../../js/i18n";
 import {useStore} from "../../js/store";
 import {brandingFeatures} from "../../js/branding";
 import {shouldShowGeneralSettings} from "../../js/helpers/settingsTabs";
+import {translationOn} from "../../js/translate";
 
 export default defineComponent({
 	name: "SettingsTabs",
@@ -172,7 +173,13 @@ export default defineComponent({
 		const tabGeneral = computed(() => t("settings.tabs.general"));
 		const tabAppearance = computed(() => t("settings.tabs.appearance"));
 		const tabNotifications = computed(() => t("settings.tabs.notifications"));
-		const tabTranslation = computed(() => t("settings.tabs.translation"));
+		// The tab holds the interface language alone (and, where the deploy
+		// allows translation, its switch) while translation is off: it is
+		// named for what it holds then. Route, path and class stay
+		// "translation", so a link or a scenario finds it either way.
+		const tabTranslation = computed(() =>
+			translationOn() ? t("settings.tabs.translation") : t("settings.tabs.language")
+		);
 		const tabAliases = computed(() => t("settings.tabs.aliases"));
 		const tabScripts = computed(() => t("settings.tabs.scripts"));
 

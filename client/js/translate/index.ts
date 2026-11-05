@@ -4,8 +4,11 @@
 // Created on first use, so a page that never translates starts no worker
 // and loads no model. The device probe does run once a channel shows,
 // since it decides whether the translate button is offered at all -- but
-// never on a deploy that switched translation off (service.ts
-// `capabilities`).
+// only while translation is on: switched off (the user's
+// `translationEnabled`, off by default, or the deploy's
+// `translation.enabled`; switch.ts `translationAllowed`) there is no
+// service at all, and switching it off takes an existing one down at once
+// (switch.ts `TranslationSwitch`).
 
 import {getBranding} from "../branding";
 import {BUILD} from "../build";
@@ -25,6 +28,7 @@ import {
 	TranslateService,
 } from "./service";
 import {storedConsent} from "./consent";
+import {TranslationSwitch, translationAllowed} from "./switch";
 import eventbus from "../eventbus";
 import storage from "../localStorage";
 import {KEEP, t} from "../i18n/core";
@@ -40,8 +44,42 @@ import {modelDisplayName} from "../helpers/translateWhy";
 // before it is initialized.
 const initialSearch = window.location.search;
 
-let service: TranslateService | null = null;
 let usage: (() => boolean) | null = null;
+
+/** What `translateService()` throws while translation is off: a call no gate stopped. */
+export const TRANSLATION_OFF = "translation is switched off";
+
+/**
+ * Whether translation is on: the deploy allows it and the user switched it
+ * on (switch.ts `translationAllowed`). Reactive -- both are store state --
+ * so a component's computed and a store watch follow it; every surface asks
+ * this before it renders anything of translation, and every path of the
+ * pipeline before it does any work.
+ */
+export function translationOn(): boolean {
+	return translationAllowed(
+		store.state.branding.translation,
+		store.state.settings.translationEnabled
+	);
+}
+
+/** A made service and what `create()` registered for it, undone together. */
+interface Made {
+	service: TranslateService;
+	undo: (() => void)[];
+}
+
+const gate = new TranslationSwitch<Made>({
+	on: translationOn,
+	create,
+	destroy(made) {
+		for (const undo of made.undo) {
+			undo();
+		}
+
+		made.service.dispose();
+	},
+});
 
 /**
  * What says translation is in use (reader.ts `translationInUse`): once it
@@ -51,16 +89,43 @@ let usage: (() => boolean) | null = null;
  */
 export function setTranslationUsage(inUse: () => boolean): void {
 	usage = inUse;
-	service?.setInUse(inUse);
+	gate.current()?.service.setInUse(inUse);
 }
 
+/**
+ * The service, made on the first call while translation is on. Off, it
+ * throws (TRANSLATION_OFF): every caller is behind `translationOn()`, and a
+ * call that is not is a bug that would otherwise probe the GPU or start
+ * the worker of a feature the user switched off.
+ */
 export function translateService(): TranslateService {
-	if (!service) {
-		service = create();
+	const made = gate.service();
+
+	if (!made) {
+		throw new Error(TRANSLATION_OFF);
 	}
 
-	return service;
+	return made.service;
 }
+
+/** The service if one is running; never makes one (a queue's update, the usage check). */
+export function activeService(): TranslateService | null {
+	return gate.current()?.service ?? null;
+}
+
+/**
+ * Hear translation being switched on or off. Off is heard before the
+ * service is disposed (switch.ts): the reader and the composer stop their
+ * work on it while it still stands.
+ */
+export function onTranslationSwitch(listener: (on: boolean) => void): () => void {
+	return gate.onChange(listener);
+}
+
+// The setting (or, at boot, the branding) moved: act on it now rather than
+// at the next ask, so a switch-off takes the worker and the GPU down at
+// once even on a page where nothing asks again.
+store.watch(translationOn, () => gate.sync());
 
 /**
  * The store's engine switches and device settings, as the service and the
@@ -135,6 +200,12 @@ function consentText(model: string, device: Device, usual: Device, size: string)
  * answered no would be a session's "Not now" to downloads.
  */
 function askDownload(ref: ModelRef, device: Device): Promise<boolean> {
+	// Switched off since the request was routed: nobody is asked (the
+	// disposed service routes nothing after the answer either).
+	if (!translationOn()) {
+		return Promise.resolve(false);
+	}
+
 	const model = modelDisplayName(ref);
 	const sizeBytes = ref.copies[device]?.sizeBytes ?? listedSize(ref);
 	const usual = nativeDevice(ref);
@@ -163,6 +234,10 @@ function askDownload(ref: ModelRef, device: Device): Promise<boolean> {
  * one, quoted verbatim under it.
  */
 function askCpuFallback(ref: ModelRef, info: CpuFallbackInfo): Promise<CpuFallbackAnswer> {
+	if (!translationOn()) {
+		return Promise.resolve("no");
+	}
+
 	const model = modelDisplayName(ref);
 
 	return new Promise((resolve) => {
@@ -193,8 +268,9 @@ function askCpuFallback(ref: ModelRef, info: CpuFallbackInfo): Promise<CpuFallba
 	});
 }
 
-function create(): TranslateService {
+function create(): Made {
 	const branding = getBranding().translation ?? {};
+	const undo: (() => void)[] = [];
 	const fake = useFake();
 	const deps: ServiceDeps = {
 		createClient() {
@@ -264,26 +340,32 @@ function create(): TranslateService {
 	);
 
 	// A switch or a device setting changed: the service gets the whole set.
-	store.watch(
-		() => {
-			const {switches, devices} = serviceSettings();
+	// Every watch and listener registered here is undone with the service
+	// (the gate's `destroy`), so a switched-off translation leaves none.
+	undo.push(
+		store.watch(
+			() => {
+				const {switches, devices} = serviceSettings();
 
-			return [
-				switches.llm,
-				switches.opus,
-				switches.nllb,
-				devices.llm,
-				devices.opus,
-				devices.nllb,
-			];
-		},
-		() => created.setSettings(serviceSettings())
+				return [
+					switches.llm,
+					switches.opus,
+					switches.nllb,
+					devices.llm,
+					devices.opus,
+					devices.nllb,
+				];
+			},
+			() => created.setSettings(serviceSettings())
+		)
 	);
 	// A switch takes effect at once (service.ts `setLlmModel`): the old model
 	// unloads once its running requests are done, later requests route anew.
-	store.watch(
-		() => store.state.settings.translateLlmModel,
-		(id: string) => created.setLlmModel(id)
+	undo.push(
+		store.watch(
+			() => store.state.settings.translateLlmModel,
+			(id: string) => created.setLlmModel(id)
+		)
 	);
 
 	if (usage) {
@@ -293,13 +375,15 @@ function create(): TranslateService {
 	// A channel switched off, a composer strip closed: the store state the
 	// usage reads is reactive, so a change asks again (a queue draining asks
 	// through reader.ts).
-	store.watch(
-		() => (usage ? usage() : true),
-		(inUse: boolean) => {
-			if (!inUse) {
-				created.usageChanged();
+	undo.push(
+		store.watch(
+			() => (usage ? usage() : true),
+			(inUse: boolean) => {
+				if (!inUse) {
+					created.usageChanged();
+				}
 			}
-		}
+		)
 	);
 	created.onModels((models) => store.commit("translationModels", models));
 	created.onWorkerError((message) => store.commit("translationWorkerError", message));
@@ -309,9 +393,13 @@ function create(): TranslateService {
 	void created.capabilities().then((capability) => {
 		store.commit("translationCapability", capability);
 	});
-	window.addEventListener("pagehide", () => created.pagehide());
 
-	return created;
+	const onPagehide = () => created.pagehide();
+
+	window.addEventListener("pagehide", onPagehide);
+	undo.push(() => window.removeEventListener("pagehide", onPagehide));
+
+	return {service: created, undo};
 }
 
 // Development aid until plan 2 wires the channel switch: from the console,

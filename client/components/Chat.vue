@@ -106,7 +106,7 @@
 					</span>
 				</div>
 				<TranslationPanel
-					v-if="translationPanelOpen"
+					v-if="translationPanelOpen && translationAvailable"
 					:channel="channel"
 					:network="network"
 					@close="translationPanelOpen = false"
@@ -494,6 +494,14 @@ export default defineComponent({
 				translationPanelOpen.value = false;
 			}
 		);
+
+		// Translation switched off (or nothing here can run it any more):
+		// the panel goes with the button, and does not come back with it.
+		watch(translationAvailable, (available) => {
+			if (!available) {
+				translationPanelOpen.value = false;
+			}
+		});
 
 		// The channel menu's "Translation…" switches to the channel and
 		// leaves its id in the store, so the ask survives the switch: open

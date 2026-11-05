@@ -731,14 +731,27 @@ export class TranslateService {
 		to: string,
 		hint: string | null = null
 	): Promise<RouteResolution> {
-		if (!this.options.enabled) {
-			return {route: null, refused: null, refusedDevice: null};
+		const none: RouteResolution = {route: null, refused: null, refusedDevice: null};
+
+		// A disposed service (translation switched off, translate/switch.ts)
+		// routes nothing: no probe, no cache question, no download question
+		// -- here, and after every wait below, which a switch-off may land in.
+		if (!this.options.enabled || this.disposed) {
+			return none;
 		}
 
 		const capability = await this.capabilities();
 
+		if (this.disposed) {
+			return none;
+		}
+
 		if (capability.tier !== "none") {
 			await this.cacheOrDeadline();
+
+			if (this.disposed) {
+				return none;
+			}
 		}
 
 		const consent = this.consent;
@@ -771,6 +784,10 @@ export class TranslateService {
 				await this.cpuQuestion;
 			}
 
+			if (this.disposed) {
+				return none;
+			}
+
 			const route = explainRoute(this.table, this.options.catalog, input(cachedOnly)).route;
 
 			if (!route) {
@@ -798,6 +815,10 @@ export class TranslateService {
 				route.device,
 				() => this.needsConsent(route.ref, route.device)
 			);
+
+			if (this.disposed) {
+				return none;
+			}
 
 			// Yes: route again, the model now agreed to (the selection or the
 			// cache may have moved meanwhile). Not now: again, taking only
@@ -882,6 +903,12 @@ export class TranslateService {
 	 * takes it.
 	 */
 	private carryOnOnCpu(ref: ModelRef, error: string): Promise<boolean> {
+		// Switched off meanwhile (translate/switch.ts): nothing carries on,
+		// and nobody is asked.
+		if (this.disposed) {
+			return Promise.resolve(false);
+		}
+
 		if (!this.cpuQuestion) {
 			if (!this.cpuFallbackDue(ref)) {
 				return Promise.resolve(this.cpuFallback === "yes");

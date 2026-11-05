@@ -4,7 +4,10 @@
 // ChatInput.vue renders as the strip), the round trip, and what a sent
 // pair leaves behind (the user's voice for later prompts, a term for the
 // channel's memory). The reading queue cannot serve a write and is held
-// while one runs; the request goes to the service directly.
+// while one runs; the request goes to the service directly. Switched off
+// (index.ts `translationOn`), the composer has no write target, every
+// draft goes as typed, and switching off takes every strip and its
+// requests down at once (`stopWriting`).
 
 import {getBranding} from "../branding";
 import {BUILD} from "../build";
@@ -25,7 +28,7 @@ import {type Detection, detectLanguage} from "./detect";
 import {plainTextOf} from "./eligibility";
 import {namesFor} from "./names";
 import {type EngineName, type PromptContext, emptyContext} from "./engine";
-import {translateService} from "./index";
+import {activeService, onTranslationSwitch, translateService, translationOn} from "./index";
 import {
 	ABORTED,
 	BARE_RETRY_ERRORS,
@@ -141,7 +144,9 @@ const deps: OutgoingDeps = {
 	translate: (req, signal) => translateService().translate(req, signal),
 	setTimeout: (fn, ms) => window.setTimeout(fn, ms),
 	clearTimeout: (handle) => window.clearTimeout(handle as number),
-	loadTicks: () => translateService().loadTicks(),
+	// A deadline's timer may outlive a switch-off by a beat: it reads the
+	// running service, never makes one.
+	loadTicks: () => activeService()?.loadTicks() ?? 0,
 };
 
 /** The channel's register, or the global one where it says "auto" (channelStore.ts). */
@@ -158,7 +163,9 @@ function formalityOf(channel: Formality): Formality {
  * judges availability there.
  */
 export function writeTarget(network: ClientNetwork, channel: ClientChan): string | null {
-	return translateService().enabled ? channelTranslation(network, channel).write : null;
+	// The placeholder asks on every render: switched off, the channel's kept
+	// write target says nothing, and no service is made to ask.
+	return translationOn() ? channelTranslation(network, channel).write : null;
 }
 
 /**
@@ -176,6 +183,11 @@ export function translateOnce(
 	to: string,
 	from: string | null = null
 ): Promise<"strip" | "plain"> {
+	// Switched off, the button is gone; nothing is kept for it either.
+	if (!translationOn()) {
+		return Promise.resolve("plain");
+	}
+
 	if (channelTranslation(network, channel).once !== to) {
 		setChannelOptions(network, channel, {once: to});
 	}
@@ -230,6 +242,12 @@ export async function translateOutgoing(
 	draft: string,
 	once?: OnceRequest
 ): Promise<"strip" | "plain"> {
+	// Switched off: as typed (ChatInput.vue never asks then; this is the
+	// one-off's way in too).
+	if (!translationOn()) {
+		return "plain";
+	}
+
 	// A one-off (the composer's translate button, `once`) names its own
 	// target and needs no write target on the channel; the panel's target
 	// moving mid-flight cannot invalidate it either.
@@ -240,6 +258,11 @@ export async function translateOutgoing(
 	}
 
 	cancelOutgoing(channel);
+
+	// The service this run is on, held for its awaits: switched off
+	// meanwhile, the strip is gone (`stopWriting`) and every check below
+	// that the strip is still current stops the run.
+	const service = translateService();
 
 	const controller = new AbortController();
 
@@ -269,13 +292,13 @@ export async function translateOutgoing(
 		// out of the store would depend on index.ts chaining its commit onto
 		// this same promise first. The probe is memoised, so this is free
 		// once it has answered.
-		const capability = await translateService().capabilities();
+		const capability = await service.capabilities();
 
 		if (!current(channel, draft, controller)) {
 			return "strip";
 		}
 
-		if (!translateService().enabled || capability.tier === "none") {
+		if (!service.enabled || capability.tier === "none") {
 			cancelOutgoing(channel);
 			return "plain";
 		}
@@ -343,7 +366,7 @@ export async function translateOutgoing(
 		// not the prompt's `sourceHint`: the LLM is not told a guess the
 		// code judged too weak to trust.
 		const hint = sourceHintFor(detection, from, to);
-		const route = await translateService().route(from, to, hint);
+		const route = await service.route(from, to, hint);
 		// Nothing of the channel travels with a polish (the prompt profiles
 		// say why): the register is all it keeps.
 		const polishContext = emptyContext();
@@ -592,9 +615,11 @@ export function cancelOutgoing(channel: ClientChan): void {
 export async function checkOutgoing(network: ClientNetwork, channel: ClientChan): Promise<void> {
 	const entry = store.state.outgoingTranslations[channel.id];
 
-	if (!entry || entry.status !== "done" || entry.check.status === "pending") {
+	if (!translationOn() || !entry || entry.status !== "done" || entry.check.status === "pending") {
 		return;
 	}
+
+	const service = translateService();
 
 	const target = reverseTarget(readingLanguage(), entry.to);
 
@@ -614,7 +639,7 @@ export async function checkOutgoing(network: ClientNetwork, channel: ClientChan)
 	});
 
 	try {
-		const route = await translateService().route(entry.to, target, entry.to);
+		const route = await service.route(entry.to, target, entry.to);
 		const settings = channelTranslation(network, channel);
 		const nicks = namesFor({
 			users: channel.users,
@@ -846,7 +871,38 @@ export function noteOutgoingSent(
 	}
 }
 
+/**
+ * Translation switched off: every strip goes, with its translation and
+ * its round trip in flight (aborted, which fails nothing), and the
+ * read-backs waiting for their posted line. Called by the switch before
+ * the service is disposed (switch.ts). The drafts stay in their inputs.
+ */
+function stopWriting(): void {
+	for (const controller of sessions.values()) {
+		controller.abort();
+	}
+
+	for (const controller of checks.values()) {
+		controller.abort();
+	}
+
+	sessions.clear();
+	checks.clear();
+
+	for (const id of Object.keys(store.state.outgoingTranslations)) {
+		store.commit("outgoingTranslationRemove", Number(id));
+	}
+
+	sentReadBacks.clear();
+}
+
 export function initWriter(): void {
+	onTranslationSwitch((on) => {
+		if (!on) {
+			stopWriting();
+		}
+	});
+
 	// After socket-events/msg.ts put the line in the store (import order in
 	// socket-events/index.ts), so `data.msg.id` is the store id. An own line
 	// the composer recorded a read-back for takes it as its translation:
@@ -855,7 +911,12 @@ export function initWriter(): void {
 	// No request is made: the reader leaves such a line alone whichever
 	// listener runs first (sentReadBack.ts `takesReadBack`).
 	socket.on("msg", (data) => {
-		if (!data.msg.self || data.replay || typeof data.msg.text !== "string") {
+		if (
+			!translationOn() ||
+			!data.msg.self ||
+			data.replay ||
+			typeof data.msg.text !== "string"
+		) {
 			return;
 		}
 

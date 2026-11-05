@@ -1,5 +1,9 @@
 // The reading pipeline's glue (spec § Reading pipeline): one of the three
-// modules — with index.ts and writer.ts — that import the store. A second
+// modules — with index.ts and writer.ts — that import the store. Nothing
+// here runs while translation is off (index.ts `translationOn`, switch.ts):
+// every entry asks first, switching off stops every queue and clears what
+// the store shows (`stopReading`), and switching back on starts the
+// channels that read over (`resumeReading`). A second
 // `socket.on("msg")` listener (registered by
 // socket-events/translate.ts after socket-events/msg.ts pushed the
 // message) runs eligibility → detection → context → queue, and a second
@@ -49,7 +53,15 @@ import {type IsolationEnv, cpuThreads, isolationState} from "./threads";
 import {threadsText} from "../helpers/translateWhy";
 import {serviceWorkerCanServe} from "../pwa";
 import {type RouteVerdict, explainRoute, routeInput, translationBlock} from "./router";
-import {serviceSettings, setTranslationUsage, translateService} from "./index";
+import {
+	activeService,
+	onTranslationSwitch,
+	serviceSettings,
+	setTranslationUsage,
+	translateService,
+	translationOn,
+} from "./index";
+import {considersLine, readingChannels} from "./switch";
 import {NO_ROUTE, type QueueItem, type QueueUpdate, TranslateQueue} from "./queue";
 import {sentReadBacks, takesReadBack} from "./sentReadBack";
 import {protect, stripCopiedNickPrefix} from "./spans";
@@ -174,7 +186,19 @@ export function translationInUse(): boolean {
 	);
 }
 
+/**
+ * Whether translation is offered here at all: switched on (the deploy and
+ * the user, `translationOn`), and the device probe found something to run
+ * it on. Every surface that offers translation asks this first -- the
+ * header's button, the composer's, the toolbar's Translate, the channel
+ * menu -- so with translation off none of them renders, and none of them
+ * makes the service (whose creation starts the probe) just to ask.
+ */
 export function translationAvailable(): boolean {
+	if (!translationOn()) {
+		return false;
+	}
+
 	const tier = store.state.translation.capability?.tier;
 
 	return translateService().enabled && tier !== undefined && tier !== "none";
@@ -278,6 +302,12 @@ export function cpuThreadsLine(): string {
  * a component's computed follows the switches and the probe.
  */
 export function currentTranslationBlock(): ModelBlock | null {
+	// Switched off, nothing is offered and nothing reads this; answered
+	// without making the service.
+	if (!translationOn()) {
+		return {kind: "disabled"};
+	}
+
 	const {switches, devices} = serviceSettings();
 
 	return translationBlock(
@@ -296,6 +326,10 @@ export function currentTranslationBlock(): ModelBlock | null {
  * `from` equal to `to` is the cleanup pass (`polish` in the verdict).
  */
 export function pairVerdict(from: string | null, to: string): RouteVerdict {
+	if (!translationOn()) {
+		return {route: null, why: {kind: "disabled"}, polish: from !== null && from === to};
+	}
+
 	const service = translateService();
 	const capability = store.state.translation.capability;
 	const {switches, devices} = serviceSettings();
@@ -473,8 +507,11 @@ function applyUpdate(id: number, update: QueueUpdate): void {
 
 	// A line leaving the queue may be the last thing translation was wanted
 	// for (queue sizes are not store state, so the watch in index.ts cannot see it).
+	// The running service only: the lines a switch-off drops are reported
+	// with the service already out of reach (switch.ts), and asking for one
+	// would make it again.
 	if (update.status !== "pending") {
-		translateService().usageChanged();
+		activeService()?.usageChanged();
 	}
 
 	// The queue is finished with the item, so the context it carries (up
@@ -611,6 +648,12 @@ export function setReading(network: ClientNetwork, channel: ClientChan, on: bool
  * requeue then leaves alone rather than translating it a second time.
  */
 export function requeueReading(network: ClientNetwork, channel: ClientChan): void {
+	// Switched off: the channel's setting is kept and nothing is queued;
+	// switching back on starts it over from here (`resumeReading`).
+	if (!translationOn()) {
+		return;
+	}
+
 	generations.set(channel.id, generationOf(channel.id) + 1);
 	replayBatches.drop(channel.id);
 	queues.get(network.uuid)?.cancelChannel(channel.id);
@@ -664,6 +707,11 @@ export function forgetTopic(chanId: number): void {
  * the line the reader is looking at.
  */
 export async function readTopic(network: ClientNetwork, channel: ClientChan): Promise<void> {
+	// Chat.vue asks on every channel opened: switched off, it is nothing.
+	if (!translationOn()) {
+		return;
+	}
+
 	const id = topicEntryId(channel.id);
 	const topic = channel.topic;
 	const initial = channelTranslation(network, channel);
@@ -690,6 +738,7 @@ export async function readTopic(network: ClientNetwork, channel: ClientChan): Pr
 		await translateService().capabilities();
 	}
 
+	// Switched off during the probe: translationAvailable answers no.
 	if (!translationAvailable()) {
 		return;
 	}
@@ -717,6 +766,7 @@ export async function readTopic(network: ClientNetwork, channel: ClientChan): Pr
 	const settings = channelTranslation(network, channel);
 
 	if (
+		!translationOn() ||
 		!store.getters.findChannel(channel.id) ||
 		!settings.read ||
 		generationOf(channel.id) !== generation ||
@@ -783,7 +833,9 @@ export async function readTopic(network: ClientNetwork, channel: ClientChan): Pr
  * state rather than an event: the view may not exist yet when it is asked.
  */
 export function requestTranslationPanel(channel: ClientChan): void {
-	store.commit("translationPanelFor", channel.id);
+	if (translationOn()) {
+		store.commit("translationPanelFor", channel.id);
+	}
 }
 
 export function setChannelOptions(
@@ -864,7 +916,12 @@ export async function translateMessage(
 	replay = false,
 	from?: string
 ): Promise<void> {
-	if (!message.text) {
+	// Switched off, nothing is looked at, a forced line included; and a line
+	// of a channel that does not read is not worth the probe below.
+	if (
+		!message.text ||
+		!considersLine(translationOn(), channelTranslation(network, channel).read, force)
+	) {
 		return;
 	}
 
@@ -935,7 +992,9 @@ export async function translateMessage(
 	// meanwhile keeps its setting but has nothing to show a translation in.
 	const settings = channelTranslation(network, channel);
 
-	if (!store.getters.findChannel(channel.id)) {
+	// Switched off meanwhile: a forced line too (the generation test below
+	// is not a forced line's).
+	if (!translationOn() || !store.getters.findChannel(channel.id)) {
 		return;
 	}
 
@@ -1050,7 +1109,7 @@ export function retranslate(
 	from?: string
 ): void {
 	// Toolbar hides the action while a line is pending, but no caller may double-queue a line
-	if (store.state.translations[message.id]?.status === "pending") {
+	if (!translationOn() || store.state.translations[message.id]?.status === "pending") {
 		return;
 	}
 
@@ -1076,6 +1135,10 @@ export function retryTranslation(
 	channel: ClientChan,
 	message: ClientMessage
 ): void {
+	if (!translationOn()) {
+		return;
+	}
+
 	resumePausedEngines();
 	// Someone asked for this line: a "not now" to a download is a question
 	// again (consent.ts), asked once however many lines are retried.
@@ -1094,9 +1157,64 @@ export function retryTranslation(
 	}
 }
 
+/**
+ * Translation switched off: every queue is cancelled -- its lines dropped,
+ * never failed, so nothing counts toward a pause -- and forgotten (each
+ * one routes through the service that is about to go), every history run
+ * and detection under way stops at its next check, and what the store
+ * shows of translation goes: the translations under the messages and in
+ * the topic (Message.vue restyles an original from them), the paused
+ * banner, an ask for the panel. Called by the switch before the service is
+ * disposed (switch.ts), so a line in flight leaves through its own queue's
+ * abort. The per-channel settings (`state.translateChannels`,
+ * `thelounge.translate`) are kept.
+ */
+function stopReading(): void {
+	for (const queue of queues.values()) {
+		queue.cancelAll();
+	}
+
+	queues.clear();
+
+	for (const network of store.state.networks) {
+		for (const channel of network.channels) {
+			generations.set(channel.id, generationOf(channel.id) + 1);
+			replayBatches.drop(channel.id);
+		}
+	}
+
+	items.clear();
+	topicSources.clear();
+	priors.clear();
+	store.commit("translationRemoveMany", Object.keys(store.state.translations).map(Number));
+
+	if (store.state.translation.paused) {
+		store.commit("translationPaused", null);
+	}
+
+	if (store.state.translation.panelFor !== null) {
+		store.commit("translationPanelFor", null);
+	}
+}
+
+/**
+ * Translation switched back on: every channel whose kept setting reads
+ * starts over on what it shows (`requeueReading`, topic included), the way
+ * switching its reading on does. No reload, and nothing for the others.
+ */
+function resumeReading(): void {
+	for (const {network, channel} of readingChannels(
+		store.state.networks,
+		(n: ClientNetwork, c: ClientChan) => channelTranslation(n, c).read
+	)) {
+		requeueReading(network, channel);
+	}
+}
+
 export function initReader(): void {
 	store.commit("translateChannelsLoaded", loadAll());
 	setTranslationUsage(translationInUse);
+	onTranslationSwitch((on) => (on ? resumeReading() : stopReading()));
 	// The language reading starts in: the first change after boot is measured
 	// against this, so it counts like any other.
 	lastReadingLanguage = readingLanguage();
@@ -1107,7 +1225,8 @@ export function initReader(): void {
 	socket.on("msg", (data) => {
 		const target = store.getters.findChannel(data.chan);
 
-		if (!target) {
+		// Switched off, the pipeline does nothing at all, not even count.
+		if (!target || !translationOn()) {
 			return;
 		}
 
@@ -1162,7 +1281,11 @@ export function initReader(): void {
 	socket.on("more", (data) => {
 		const target = store.getters.findChannel(data.chan);
 
-		if (!target || !channelTranslation(target.network, target.channel).read) {
+		if (
+			!target ||
+			!translationOn() ||
+			!channelTranslation(target.network, target.channel).read
+		) {
 			return;
 		}
 

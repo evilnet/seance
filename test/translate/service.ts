@@ -46,6 +46,7 @@ import {
 	needsDownloadError,
 	parseNeedsDownload,
 } from "../../client/js/translate/consent";
+import {TranslationSwitch} from "../../client/js/translate/switch";
 import {FakeEngine} from "./fakeEngine";
 
 // sinon 15 and later fake queueMicrotask and process.nextTick as well, and the
@@ -3008,6 +3009,161 @@ describe("translate/service", () => {
 			r.service.setSettings({switches: {llm: true, opus: true, nllb: true}, devices: AUTO});
 			expect((await r.service.route("sw", "en"))?.candidate).to.equal("nllb");
 			r.service.dispose();
+		});
+	});
+
+	describe("switched off by the user (translate/switch.ts)", () => {
+		function line(i: number) {
+			const p = protect(`Zeile ${i}`);
+
+			return {
+				id: i,
+				chanId: 1,
+				text: p.text,
+				spans: p.spans,
+				meta: p.meta,
+				from: "de",
+				to: "en",
+				context: emptyContext(),
+				arrivalsAtEnqueue: 0,
+				single: true,
+			};
+		}
+
+		/**
+		 * The app's wiring (translate/index.ts and reader.ts) over a rig's
+		 * service: the switch hands it out while `on` says so, the reader's
+		 * stop cancels its queue when it goes off, and the switch then
+		 * disposes it.
+		 */
+		function switched(r: ReturnType<typeof rig>) {
+			const state = {on: true};
+			const updates: [number, QueueUpdate][] = [];
+			const paused: string[] = [];
+			let queue: TranslateQueue | null = null;
+			const sw = new TranslationSwitch<TranslateService>({
+				on: () => state.on,
+				create: () => r.service,
+				destroy: (service) => service.dispose(),
+			});
+
+			sw.onChange((on) => {
+				if (!on) {
+					queue?.cancelAll();
+					queue = null;
+				}
+			});
+
+			const queueFor = () => {
+				const service = sw.service();
+
+				if (!service) {
+					return null;
+				}
+
+				queue ??= new TranslateQueue({
+					route: (from, to, hint) =>
+						service
+							.route(from, to, hint)
+							.then((route) =>
+								route ? {engine: route.ref.engine, device: route.device} : null
+							),
+					translate: (req, signal) => service.translate(req, signal),
+					priority: () => 0,
+					arrivals: () => 0,
+					onUpdate: (id, update) => updates.push([id, update]),
+					onPause: (engine) => paused.push(engine),
+				});
+
+				return queue;
+			};
+
+			return {state, sw, updates, paused, queueFor};
+		}
+
+		it("off drops every line the queue holds, in flight or waiting, counts no failure, and terminates the worker", async () => {
+			const r = rig("gpu");
+			clock = r.clock;
+			const release = gateLlm(r);
+			const s = switched(r);
+
+			for (let i = 1; i <= 4; i++) {
+				s.queueFor()!.enqueue(line(i));
+			}
+
+			await r.clock.tickAsync(50);
+			// The first line is with the engine (its model loaded, its request
+			// held at the gate); the others wait behind it.
+			expect(r.llm.calls.load).to.have.length(1);
+			expect(r.workers.some((w) => !w.terminated)).to.equal(true);
+
+			s.state.on = false;
+			s.sw.sync();
+			release();
+			await r.clock.tickAsync(REQUEST_TIMEOUT_MS * 2);
+
+			// Each line's last word is "dropped", and none was ever failed or done.
+			const last = new Map<number, string>();
+
+			for (const [id, update] of s.updates) {
+				last.set(id, update.status);
+			}
+
+			expect([...last.entries()].sort(([a], [b]) => a - b)).to.deep.equal([
+				[1, "dropped"],
+				[2, "dropped"],
+				[3, "dropped"],
+				[4, "dropped"],
+			]);
+			expect(
+				s.updates.filter(([, u]) => u.status === "failed" || u.status === "done")
+			).to.deep.equal([]);
+			expect(s.paused).to.deep.equal([]);
+			// Nothing waiting was handed to the engine after the stop.
+			expect(r.llm.calls.translate.length).to.be.at.most(1);
+			expect(r.workers.every((w) => w.terminated)).to.equal(true);
+			// Nothing is handed out while off, so nothing can be queued.
+			expect(s.queueFor()).to.equal(null);
+		});
+
+		it("a disposed service routes nothing, probes nothing and asks no question", async () => {
+			const asked: string[] = [];
+			const r = rig("gpu", true, DEFAULT_ROUTES, {
+				askDownload(ref) {
+					asked.push(ref.id);
+					return Promise.resolve(true);
+				},
+				consent: memoryConsent(),
+			});
+			clock = r.clock;
+			r.service.dispose();
+
+			const resolution = await r.service.resolve("de", "en");
+
+			expect(resolution.route).to.equal(null);
+			expect(asked).to.deep.equal([]);
+			expect(r.probes).to.equal(0);
+			expect(r.workers).to.have.length(0);
+		});
+
+		it("a service disposed while its route waits asks no question once the wait is over", async () => {
+			const asked: string[] = [];
+			const r = rig("gpu", true, DEFAULT_ROUTES, {
+				askDownload(ref) {
+					asked.push(ref.id);
+					return Promise.resolve(true);
+				},
+				consent: memoryConsent(),
+			});
+			clock = r.clock;
+
+			const resolving = r.service.resolve("de", "en");
+
+			r.service.dispose();
+			await r.clock.tickAsync(CACHE_WAIT_MS + 10);
+
+			expect((await resolving).route).to.equal(null);
+			expect(asked).to.deep.equal([]);
 		});
 	});
 });

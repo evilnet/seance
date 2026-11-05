@@ -137,6 +137,11 @@ export class SentReadBacks {
 		this.records = this.records.filter((r) => r.chanId !== chanId);
 	}
 
+	/** Translation was switched off: every record goes. */
+	clear(): void {
+		this.records = [];
+	}
+
 	get size(): number {
 		return this.records.length;
 	}
