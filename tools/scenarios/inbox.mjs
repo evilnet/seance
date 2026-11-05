@@ -718,6 +718,40 @@ export default async function run(page) {
 	);
 	await clickBackdrop(page, "#mentions-popup-container");
 	await page.waitFor(`!document.querySelector("${POPUP}")`, {label: "the pane closed again"});
+
+	// From another channel, a mention already loaded but well above the bottom:
+	// the list stays on it and nothing is read.
+	for (let i = 1; i <= 40; i++) {
+		talker.say(OTHER, `line after the mentions ${i} ${RUN}`);
+	}
+
+	await talker.drained();
+	await page.sleep(500);
+	await press("#chat button.mentions");
+	await page.waitFor(`document.querySelector(".mentions-entry")`, {label: "the rows"});
+	await page.evaluate(
+		`Array.from(document.querySelectorAll(".mentions-entry")).find((e) => e.textContent.includes("number 2")).setAttribute("data-scenario", "loaded")`
+	);
+	await press(`.mentions-entry[data-scenario="loaded"] .content`);
+	await page.waitFor(flashing("number 2"), {
+		timeout: 10000,
+		label: "the loaded mention flashing",
+	});
+	await page.sleep(800);
+	await page.check(
+		`a loaded mention from another channel stays in view, nothing read (badge ${await page.evaluate(
+			badgeText
+		)})`,
+		(await page.evaluate(
+			`(() => { const m = ${rowOf(
+				"number 2"
+			)}.getBoundingClientRect(); const c = ${scroller}.getBoundingClientRect(); return m.top >= c.top && m.bottom <= c.bottom; })()`
+		)) && Number(await page.evaluate(badgeText)) >= 2
+	);
+	await page.evaluate(
+		`document.querySelector('.channel-list-item[data-name="${HOME}"]').click()`
+	);
+	await page.sleep(500);
 	await page.evaluate(`document.querySelector('${ROW(TALKER)}').click()`);
 	await page.sleep(500);
 

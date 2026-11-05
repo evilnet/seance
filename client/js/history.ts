@@ -4,6 +4,7 @@
 // waited for the echo. Messages now only live in the client, so this acts on
 // the store directly.
 
+import {closePast} from "./pastView";
 import {store} from "./store";
 import {forgetTranslations} from "./translate/reader";
 
@@ -25,5 +26,5 @@ export function clearHistory(target: number): void {
 	channel.firstUnread = 0;
 	channel.moreHistoryAvailable = false;
 	channel.historyPageLanded = false;
-	channel.past = null;
+	closePast(channel);
 }

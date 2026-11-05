@@ -74,6 +74,8 @@ interface ResultsPayload {
 }
 
 interface ContextPayload {
+	end?: boolean;
+	changes?: {msgid: string; redact?: {by: string}}[];
 	requestId: number;
 	status: SearchStatus;
 	messages: SharedMsg[];
@@ -565,6 +567,21 @@ describe("historysearch", function () {
 			expect(second.redacted).to.not.equal(undefined);
 			expect(payloads("msg:react")).to.have.length(0);
 			expect(payloads("msg:redact")).to.have.length(0);
+		});
+
+		it("passes on what a page says of a line outside it", function () {
+			const {client, transport} = setup();
+
+			requestSearchContext(client, 4, "#seance", "AFTER", "m0", 100);
+			batch(transport, "chathistory #seance", labelOf(transport.sent[0]), [
+				ROW1,
+				"@msgid=r2 :bob!b@h REDACT #seance m0",
+			]);
+
+			const [answer] = payloads<ContextPayload>("search:context");
+
+			expect(answer.changes?.map((change) => change.msgid)).to.deep.equal(["m0"]);
+			expect(answer.changes?.[0].redact?.by).to.equal("bob");
 		});
 
 		it("keeps a wrapped FAIL for its context request from a channel's page", function () {

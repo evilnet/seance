@@ -24,6 +24,7 @@
  */
 
 import type {
+	LineChange,
 	SearchAttrs,
 	SearchContextDirection,
 	SearchHit,
@@ -150,13 +151,21 @@ function take(client: IrcClient, request: PendingSearch): boolean {
 	return true;
 }
 
+/** What a context page says beyond its rows. */
+type ContextPage = {
+	/** The server marked it the last on that side. */
+	end?: boolean;
+	/** Reactions and deletions of lines not in this page: an earlier page's, perhaps. */
+	changes?: LineChange[];
+};
+
 function answer(
 	client: IrcClient,
 	request: Asked,
 	status: SearchStatus,
 	error?: string,
 	hits: SearchHit[] = [],
-	end = false
+	page: ContextPage = {}
 ): void {
 	if (request.parent) {
 		const {chan, msgid} = request.parent;
@@ -179,7 +188,11 @@ function answer(
 	if (request.kind === "results") {
 		client.dispatchBus("search:results", {...base, hits});
 	} else {
-		client.dispatchBus("search:context", {...base, end, messages: hits.map((hit) => hit.msg)});
+		client.dispatchBus("search:context", {
+			...base,
+			...page,
+			messages: hits.map((hit) => hit.msg),
+		});
 	}
 }
 
@@ -339,7 +352,12 @@ function collect(client: IrcClient, lines: IrcMessage[], fallback?: string): Sea
  * channel's page does this through ids the channel holds (`afterReplay`); these
  * rows are not the channel's, so nothing here may reach it.
  */
-function withUpdates(client: IrcClient, hits: SearchHit[], lines: IrcMessage[]): SearchHit[] {
+function withUpdates(
+	client: IrcClient,
+	hits: SearchHit[],
+	lines: IrcMessage[],
+	changes: LineChange[]
+): SearchHit[] {
 	const rows = hits.map((hit) => hit.msg);
 	const byMsgid = new Map(rows.filter((m) => m.msgid).map((m) => [m.msgid, m]));
 
@@ -358,14 +376,23 @@ function withUpdates(client: IrcClient, hits: SearchHit[], lines: IrcMessage[]):
 				!client.isSelf(nick) &&
 				ignoreListFor(client.uuid).matches(nick, line.source?.user, line.source?.host);
 
-			if (text && row && !ignored) {
-				applyReaction(row, text, nick, !react);
+			if (text && !ignored) {
+				const parent = replyTagOf(line);
+
+				if (row) {
+					applyReaction(row, text, nick, !react);
+				} else if (parent) {
+					changes.push({msgid: parent, react: {text, nick, remove: !react}});
+				}
 			}
 		} else if (line.command === "REDACT") {
 			const row = byMsgid.get(line.params[1]);
+			const redact = {by: nick, reason: line.params[2], time: client.timeOf(line)};
 
 			if (row) {
-				applyRedaction(row, {by: nick, reason: line.params[2], time: client.timeOf(line)});
+				applyRedaction(row, redact);
+			} else if (line.params[1]) {
+				changes.push({msgid: line.params[1], redact});
 			}
 		}
 	}
@@ -406,10 +433,11 @@ function settle(
 	status: SearchStatus,
 	error?: string,
 	hits?: () => SearchHit[],
-	end = false
+	page?: () => ContextPage
 ): void {
 	if (take(client, request) && !request.expired) {
-		answer(client, request, status, error, hits?.(), end);
+		const rows = hits?.();
+		answer(client, request, status, error, rows, page?.());
 	}
 }
 
@@ -430,13 +458,20 @@ export function searchContextBatch(client: IrcClient, batch: OpenBatch): boolean
 		return false;
 	}
 
+	const changes: LineChange[] = [];
 	settle(
 		client,
 		request,
 		"ok",
 		undefined,
-		() => withUpdates(client, collect(client, batch.messages, batch.params[0]), batch.messages),
-		batch.tags.has("draft/chathistory-end")
+		() =>
+			withUpdates(
+				client,
+				collect(client, batch.messages, batch.params[0]),
+				batch.messages,
+				changes
+			),
+		() => ({end: batch.tags.has("draft/chathistory-end"), changes})
 	);
 	return true;
 }

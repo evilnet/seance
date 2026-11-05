@@ -8,9 +8,23 @@ import {applyReaction, applyRedaction} from "../helpers/messageUpdates";
 import {mergePage} from "../helpers/pastRows";
 import {settled} from "../helpers/scrollSettle";
 import {takePending} from "../pastView";
+import type {LineChange} from "../../../shared/types/search";
+import type {SharedMsg} from "../../../shared/types/msg";
 
 /** How long after a failed page a scroll may ask for it again. */
 const RETRY_AFTER_MS = 5000;
+
+function applyChange(rows: SharedMsg[], change: LineChange): void {
+	const row = rows.find((m) => m.msgid === change.msgid);
+
+	if (row && change.react) {
+		applyReaction(row, change.react.text, change.react.nick, change.react.remove);
+	}
+
+	if (row && change.redact) {
+		applyRedaction(row, change.redact);
+	}
+}
 
 socket.on("search:context", async (data) => {
 	const request = takePending(data.requestId);
@@ -82,6 +96,7 @@ socket.on("search:context", async (data) => {
 
 	past.failed = false;
 	const {rows, added} = mergePage(past.rows, data.messages, request.direction);
+	data.changes?.forEach((change) => applyChange(rows, change));
 	past.rows = rows;
 
 	// Nothing new, or the server says so: that side has ended.
@@ -95,19 +110,9 @@ socket.on("search:context", async (data) => {
 });
 
 socket.on("msg:changed", (data) => {
-	const row = store.getters
-		.findChannel(data.chan)
-		?.channel.past?.rows.find((m) => m.msgid === data.msgid);
+	const past = store.getters.findChannel(data.chan)?.channel.past;
 
-	if (!row) {
-		return;
-	}
-
-	if (data.react) {
-		applyReaction(row, data.react.text, data.react.nick, data.react.remove);
-	}
-
-	if (data.redact) {
-		applyRedaction(row, data.redact);
+	if (past) {
+		applyChange(past.rows, data);
 	}
 });

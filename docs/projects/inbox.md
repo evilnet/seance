@@ -52,8 +52,8 @@ Every device builds the same list from what the server already gives it:
   bouncer replay appended after a reconnect (`history.ts` `deliverAppend`) and
   the first history page of a cold load past the read marker
   (`countPageUnread`), all as the `inbox:add` bus event. Only what counted as
-  unread, only in a channel or a query (the lobby has no read point), never
-  a muted conversation's. Older scrollback is never added.
+  unread, only in a channel or a query (the lobby has no read point). A muted
+  conversation's are kept but not shown or counted. Older scrollback is never added.
 - **Marked read** by the `inbox:read {network, target, time}` bus event that
   `moveReadMarker` dispatches whenever the read point moves, and by
   `inbox:drop {network, target, msgid, by?}` when the message is deleted
@@ -90,7 +90,8 @@ with Jump to present; scrolling off the newest end, Escape, or sending gets
 there too. While the lines are on their way the bar says that. A past row offers
 no Edit, since an edit's place is the recent lines, but others' edits, reactions
 and deletions reach it (`msg:changed`). An edit in a later page of a line in an
-earlier one shows as a second row. Nothing of a past view is kept: leaving the
+earlier one shows as a second row, and a deletion in a later page does not
+reach a line loaded after it. Nothing of a past view is kept: leaving the
 channel closes it. A line the server does not have says so and stays put. The
 logic is `helpers/jumpToMessage.ts` and `helpers/pastRows.ts` (Vue-free,
 `test/helpers/`).

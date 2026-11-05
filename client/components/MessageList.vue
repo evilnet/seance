@@ -156,6 +156,8 @@ export default defineComponent({
 		const REARM_AFTER_MS = 400;
 		/** Pages a past view too short to scroll asks for on its own. */
 		const MAX_AUTO_FILLS = 3;
+		/** How long a jump waits for its channel to be joined. */
+		const JUMP_WAIT_MS = 20000;
 		/** How long a compensation is re-checked against a momentum scroll. */
 		const VERIFY_FOR_MS = 600;
 		const ANCHOR_TOLERANCE = 4;
@@ -370,8 +372,18 @@ export default defineComponent({
 					!firstPageAsked
 			);
 
-			// Not joined yet (a reload's placeholder): wait for the channel.
+			// Not joined yet (a reload's placeholder): wait for the channel, but not
+			// for one that will not come back (kicked), which would hold the read.
 			if (step.kind !== "found" && !ready) {
+				setTimeout(() => {
+					if (store.state.jumpTarget === target && !canLoadMore()) {
+						store.commit("jumpTarget", null);
+						store.commit(
+							"currentUserVisibleError",
+							"That message could not be loaded."
+						);
+					}
+				}, JUMP_WAIT_MS);
 				return;
 			}
 
@@ -665,7 +677,7 @@ export default defineComponent({
 			if (!props.channel.scrolledToBottom) {
 				// Rows inserted at the head must always be compensated, whether
 				// or not this component set historyLoading for them.
-				if (props.channel.historyLoading || prepended) {
+				if ((props.channel.historyLoading && !props.channel.past) || prepended) {
 					const heightOld = el.scrollHeight - el.scrollTop;
 
 					isWaitingForNextTick.value = true;
@@ -693,7 +705,10 @@ export default defineComponent({
 			await nextTick();
 			isWaitingForNextTick.value = false;
 
-			jumpToBottom();
+			// A jump that ran in the same tick has taken the list elsewhere.
+			if (props.channel.scrolledToBottom) {
+				jumpToBottom();
+			}
 		};
 
 		/** A text selection is held; scrolling the list under it loses it. */
@@ -927,6 +942,7 @@ export default defineComponent({
 					!!previous &&
 					messages !== previous &&
 					delta > 0 &&
+					previous.length > 0 &&
 					messages[delta] === previous[0];
 				await keepScrollPosition(prepended);
 				void runJump();

@@ -79,13 +79,11 @@ const tagmsg: Handler = (client, msg) => {
 		return;
 	}
 
-	if (!client.replaying) {
-		client.dispatch("msg:changed", {
-			chan: target.id,
-			msgid: reaction.parent,
-			react: {text: reaction.text, nick, remove: reaction.remove},
-		});
-	}
+	client.dispatch("msg:changed", {
+		chan: target.id,
+		msgid: reaction.parent,
+		react: {text: reaction.text, nick, remove: reaction.remove},
+	});
 
 	client.afterReplay(() => {
 		const id = target.idOf(reaction.parent);

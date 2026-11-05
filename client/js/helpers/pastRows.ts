@@ -30,7 +30,11 @@ export function pageEdge<T extends SharedMsg>(
 export function editRow<T extends SharedMsg>(rows: T[], edit: T): boolean {
 	const original = rows.find((row) => row.msgid === edit.editOf);
 
-	if (!original || original.from?.nick?.toLowerCase() !== edit.from?.nick?.toLowerCase()) {
+	if (
+		!original ||
+		original.from?.nick?.toLowerCase() !== edit.from?.nick?.toLowerCase() ||
+		rows.some((row) => row.msgid === edit.msgid) // an AFTER page brought it, a catch-up again
+	) {
 		return false;
 	}
 
