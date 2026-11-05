@@ -181,6 +181,47 @@ export default async function run(page) {
 	page.check("1. selectable, or WebKit paints no mark", longHit.selectable === "text");
 	page.check("1. the time stays out of the text", longHit.timeClear);
 	await page.screenshot("1-long-line");
+
+	// Typing searches once it pauses, one search for the whole burst, under the field.
+	const typing = (value) =>
+		page.evaluate(`(() => {
+			const field = document.querySelector("${WINDOW} .search-query input");
+			field.value = ${JSON.stringify(value)};
+			field.dispatchEvent(new Event("input", {bubbles: true}));
+		})()`);
+	await page.sleep(2500); // past the gap since the search above
+	const typedFrom = page.wsFrames.length;
+	await typing("ri");
+	await page.sleep(1500);
+	page.check(
+		"1. two letters ask nothing",
+		sentCommands(page, typedFrom, /^(@\S+ )?SEARCH /).length === 0
+	);
+
+	for (const value of ["rig", "righ", "right"]) {
+		await typing(value);
+		await page.sleep(150);
+	}
+
+	await page.sleep(400);
+	page.check(
+		"1. nothing yet while it is typed",
+		sentCommands(page, typedFrom, /^(@\S+ )?SEARCH /).length === 0
+	);
+	await page.waitFor(
+		`[...document.querySelectorAll("${ROWS}")].some((row) => row.textContent.includes("right"))`,
+		{timeout: 5000, label: "the typed search's hit"}
+	);
+	page.check(
+		"1. then one search, for what the field says",
+		sentCommands(page, typedFrom, /^(@\S+ )?SEARCH /).length === 1 &&
+			sentCommands(page, typedFrom, /text=right/).length === 1
+	);
+	page.check(
+		"1. and the field keeps what was typed",
+		(await page.evaluate(`document.querySelector("${WINDOW} .search-query input").value`)) ===
+			"right"
+	);
 	await search(page, "fake lag");
 
 	// A phrase is one substring, and only the last selector may hold a space.
@@ -307,10 +348,10 @@ export default async function run(page) {
 	);
 	await page.sleep(200);
 
-	// Editing the field says the results are for the last search.
+	// An edit too short to search by itself says the results are for the last search.
 	await page.evaluate(`(() => {
 		const input = document.querySelector("${WINDOW} .search-query input");
-		input.value = "something else";
+		input.value = "so";
 		input.dispatchEvent(new Event("input", {bubbles: true}));
 	})()`);
 	await page.sleep(100);
@@ -329,7 +370,7 @@ export default async function run(page) {
 	await page.sleep(700);
 	page.check(
 		"4f. applying a filter keeps the edited words",
-		/^something else\b/.test(
+		/^so\b/.test(
 			await page.evaluate(`document.querySelector("${WINDOW} .search-query input").value`)
 		)
 	);

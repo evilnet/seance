@@ -39,6 +39,8 @@ export interface SearchFilters {
 }
 
 export const ALL_CHANNELS = "*";
+/** The shortest word typing alone searches for; Enter takes any. */
+export const LIVE_MIN_CHARS = 3;
 
 const VALUE_KEYS = new Set(["from", "account", "in", "has", "after", "before"]);
 const TOKEN = /(-)?(?:"([^"]*)"?|(\S+))/g;
@@ -92,6 +94,21 @@ export function parseSearchQuery(raw: string): SearchFilters {
 	}
 
 	return filters;
+}
+
+/**
+ * Whether a query being typed is worth asking the server about: a word of a
+ * few letters, and no quote or `key:value` still being written.
+ */
+export function readyToSearch(raw: string, filters: SearchFilters): boolean {
+	const lastToken = /\S+$/.exec(raw)?.[0] ?? "";
+	const key = KEYED.exec(lastToken)?.[1].toLowerCase() ?? lastToken.slice(0, -1).toLowerCase();
+
+	return (
+		(raw.match(/"/g)?.length ?? 0) % 2 === 0 &&
+		!VALUE_KEYS.has(key) &&
+		filters.words.some((word) => Array.from(word).length >= LIVE_MIN_CHARS)
+	);
 }
 
 /** `in:linux` is `#linux` when that is a conversation and `linux` is not. */
