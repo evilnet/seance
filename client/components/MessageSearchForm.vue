@@ -18,7 +18,8 @@
 			class="search"
 			type="button"
 			:aria-label="openLabel"
-			@mousedown.prevent="toggleSearch"
+			@mousedown.prevent
+			@click="toggleSearch"
 		/>
 	</form>
 </template>

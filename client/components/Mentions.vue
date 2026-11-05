@@ -2,7 +2,7 @@
 	<div
 		v-if="isOpen"
 		id="mentions-popup-container"
-		v-backdrop="closePopup"
+		v-backdrop="closeFromOutside"
 		data-escape-close="mentions"
 		@contextmenu.self="closePopup"
 	>
@@ -908,6 +908,20 @@ export default defineComponent({
 			isOpen.value = false;
 		};
 
+		// A press on a control beside the pane closes it and does what the control
+		// says, or the header's buttons would each need a second press. The @ button
+		// is the exception: it toggles, so it would only open the pane again.
+		const closeFromOutside = (event: MouseEvent) => {
+			returnFocus = null; // the press decides where the focus goes
+			closePopup();
+			void nextTick(() => {
+				document
+					.elementFromPoint(event.clientX, event.clientY)
+					?.closest<HTMLElement>("button:not(.mentions), a[href], [role='button']")
+					?.click();
+			});
+		};
+
 		const onEscape = (layer: string | null) => {
 			if (layer === "mentions") {
 				closePopup();
@@ -951,6 +965,7 @@ export default defineComponent({
 			openFromRow,
 			showAll,
 			closePopup,
+			closeFromOutside,
 		};
 	},
 });
