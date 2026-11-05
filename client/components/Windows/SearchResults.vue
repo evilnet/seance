@@ -545,6 +545,7 @@ import {useRoute, useRouter} from "vue-router";
 import eventbus from "../../js/eventbus";
 import socket from "../../js/socket";
 import {navigate, switchToChannel} from "../../js/router";
+import {keepResults, takeResults, type KeptResults} from "../../js/searchReturn";
 import {
 	ALL_CHANNELS,
 	dayStart,
@@ -585,17 +586,6 @@ interface Chip {
 	label: string;
 	value: string;
 }
-
-/** Left for a hit: what Back to results restores. */
-type KeptResults = {
-	q: string;
-	rows: SearchHit[];
-	mode: Mode;
-	reachedEnd: boolean;
-	scrollTop: number;
-	hit: number;
-};
-let kept: KeptResults | null = null;
 
 export default defineComponent({
 	name: "SearchResults",
@@ -936,14 +926,15 @@ export default defineComponent({
 				windowId: parseInt(String(route.params.id), 10),
 				q: query.value,
 			});
-			kept = {
+			keepResults({
+				windowId: parseInt(String(route.params.id), 10),
 				q: query.value,
 				rows: rows.value,
 				mode: mode.value,
 				reachedEnd: reachedEnd.value,
 				scrollTop: list.value?.scrollTop ?? 0,
 				hit: hit.msg.id,
-			};
+			});
 			switchToChannel(chat);
 		};
 
@@ -1067,13 +1058,13 @@ export default defineComponent({
 			socket.on("search:results", onResults);
 			eventbus.on("escapekey", onEscape);
 
-			if (route.query.back && kept?.q === query.value) {
-				restoreResults(kept);
+			const kept = takeResults(parseInt(String(route.params.id), 10), query.value);
+
+			if (kept) {
+				void restoreResults(kept);
 			} else {
 				run();
 			}
-
-			kept = null;
 
 			if (!query.value) {
 				queryField.value?.focus();

@@ -4,6 +4,8 @@
 		class="chat"
 		:class="{selecting, 'selection-live': selectionActive}"
 		tabindex="-1"
+		@wheel.passive="onShortGesture"
+		@touchmove.passive="onShortGesture"
 	>
 		<div
 			v-show="channel.past ? channel.past.canEarlier : channel.moreHistoryAvailable"
@@ -414,6 +416,16 @@ export default defineComponent({
 			) {
 				autoFills++;
 				pastPage(props.network, props.channel, past.canEarlier ? "BEFORE" : "AFTER");
+			}
+		};
+
+		// A list that cannot scroll says nothing with scroll events: one page a gesture.
+		const onShortGesture = () => {
+			const el = chat.value;
+
+			if (el && props.channel.past && el.scrollHeight <= el.clientHeight) {
+				autoFills = Math.min(autoFills, MAX_AUTO_FILLS - 1);
+				askIfShort();
 			}
 		};
 
@@ -979,6 +991,7 @@ export default defineComponent({
 			store,
 			t,
 			loadingOlder,
+			onShortGesture,
 			onShowMoreClick,
 			loadMoreButton,
 			onCopy,

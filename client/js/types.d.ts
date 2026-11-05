@@ -23,6 +23,8 @@ type PastView = {
 	/** The msgid to go to once the rows have rendered. */
 	reveal: string | null;
 	loading: "BEFORE" | "AFTER" | null;
+	/** The page on its way: an answer to any other has been cancelled. */
+	requestId: number;
 	canEarlier: boolean;
 	canLater: boolean;
 	failed: boolean;

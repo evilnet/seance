@@ -1179,9 +1179,16 @@ export default defineComponent({
 			upload.abort();
 		};
 
-		// Out of older messages first, as Discord's Escape does; then out of the field.
+		// Out of older messages first, as Discord's Escape does, unless a field has
+		// this press: another one, or a composer with text (its completion menu).
 		const blurInput = (layer: string | null) => {
-			if (layer === null && props.channel.past) {
+			const focused = document.activeElement;
+			const fieldHasIt =
+				focused === input.value
+					? !!props.channel.pendingMessage
+					: focused?.matches("input, textarea, [contenteditable]");
+
+			if (layer === null && props.channel.past && !fieldHasIt) {
 				closePast(props.channel);
 				return;
 			}

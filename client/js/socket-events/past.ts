@@ -37,6 +37,7 @@ socket.on("search:context", async (data) => {
 				rows: data.messages,
 				reveal: request.msgid,
 				loading: null,
+				requestId: 0,
 				canEarlier: true,
 				canLater: true,
 				failed: false,
@@ -66,11 +67,12 @@ socket.on("search:context", async (data) => {
 		await settled();
 	}
 
-	if (channel.past !== past || past.loading !== request.direction) {
+	if (channel.past !== past || past.requestId !== data.requestId) {
 		return; // closed or moved on meanwhile
 	}
 
 	past.loading = null;
+	past.requestId = 0;
 
 	if (data.status !== "ok") {
 		past.failed = true;

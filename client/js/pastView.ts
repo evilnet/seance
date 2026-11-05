@@ -35,6 +35,7 @@ function ask(
 		msgid: request.msgid,
 		limit: PAGE_SIZE,
 	});
+	return requestId;
 }
 
 /** What was asked by this answer's request, once: a closed view's answer finds nothing. */
@@ -57,6 +58,7 @@ export function cancelPastRequests(channel: ClientChan): boolean {
 
 	if (channel.past) {
 		channel.past.loading = null;
+		channel.past.requestId = 0;
 	}
 
 	channel.pastOpening = false;
@@ -85,7 +87,7 @@ export function pastPage(
 	}
 
 	past.loading = where;
-	ask(network, channel, {direction: where, msgid});
+	past.requestId = ask(network, channel, {direction: where, msgid});
 }
 
 /** Back to the channel's own lines. A jump still waiting for its view ends here too. */

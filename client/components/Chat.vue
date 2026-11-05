@@ -180,6 +180,7 @@ import eventbus from "../js/eventbus";
 import ParsedMessage from "./ParsedMessage.vue";
 import MessageList from "./MessageList.vue";
 import {closePast} from "../js/pastView";
+import {returnToResults} from "../js/searchReturn";
 import ChatInput from "./ChatInput.vue";
 import ChatUserList from "./ChatUserList.vue";
 import SidebarToggle from "./SidebarToggle.vue";
@@ -273,10 +274,11 @@ export default defineComponent({
 			const back = searchBack.value;
 
 			if (back) {
+				returnToResults();
 				void router.replace({
 					name: "SearchResults",
 					params: {id: back.windowId},
-					query: {q: back.q, back: "1"},
+					query: {q: back.q},
 				});
 			}
 		};
