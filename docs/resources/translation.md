@@ -1944,11 +1944,25 @@ queue's drain ask `service.usageChanged()`, which checks on the next tick)
 it, as `pagehide` does; the next request loads again, with its download
 note. `index.ts` is the singleton wired to the
 store; on a development build `?fakeTranslate` swaps in `fakePort.ts`, an
-in-page scripted worker the scenarios use. Plan 2 (reading) starts from the
+in-page scripted worker the scenarios use, loaded with `import()` behind an
+inline `process.env.NODE_ENV !== "production"` so a production build carries
+neither it nor `worker.ts` (`test/tests/build.ts` checks the page scripts and
+their sourcemaps); the service makes its client synchronously and a deferred
+port holds what it posts until the fake has loaded. Plan 2 (reading) starts from the
 page-side surface `client.ts` already exposes: `TranslateClient.translate(req, ref, onProgress?)` for the streamed chunks, `WORKER_DISPOSED` as the
 rejection every in-flight call gets on teardown, `GPU_IDLE_UNLOAD_MS` and
 `CPU_IDLE_UNLOAD_MS` for how long an unused model survives, and `translateService().translate()` as the
 one call a new caller (the header switch) needs on the page.
+
+**A production build's worker with real models**: `tools/scenarios/translate-real-prod.mjs`
+(opt-in, `SEANCE_REAL_MODELS=1`; a production build, no ircd) downloads the
+OPUS-MT en-de pair through Settings on the cross-origin-isolated load, then
+drives workers of its own over this protocol with the catalog `buildCatalog`
+makes: the pair translates a line through ONNX Runtime (the dynamic `import()`
+of `js/ort/*.mjs`, the `wasmPaths` override, its thread workers), then the
+1.7B's CPU copy through wllama (its `blob:` worker), from a mirror when
+`SEANCE_MODEL_MIRROR` names one. It bypasses the page-side service and router,
+which every other scenario runs.
 
 **The caller's half of the contract:** a stream from
 `translateService().translate()` must be consumed to the end, or left with
