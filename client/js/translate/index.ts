@@ -16,7 +16,13 @@ import {store} from "../store";
 import {type Capability, probeOnce} from "./capability";
 import {emptyContext, type Device, type ModelRef} from "./engine";
 import {TranslateClient} from "./client";
-import {buildCatalog, listedSize, nativeDevice, normalizeDeviceChoice} from "./models";
+import {
+	type ModelCatalog,
+	buildCatalog,
+	listedSize,
+	nativeDevice,
+	normalizeDeviceChoice,
+} from "./models";
 import type {MainPort, MainToWorker} from "./protocol";
 import {RouteTable} from "./router";
 import {
@@ -330,6 +336,32 @@ function askCpuFallback(ref: ModelRef, info: CpuFallbackInfo): Promise<CpuFallba
 	});
 }
 
+/**
+ * The GPU model the user picked, or null. An unset one ("") is no choice: it
+ * resolves every time it is read — the deploy's model, else what the device
+ * probe fits, else the shipped default (models.ts `llmChoice`) — so a later
+ * deploy default, and a device the probe has since measured, both reach
+ * everyone who never picked one. Nothing writes a resolved id back to the
+ * settings.
+ */
+function selectedLlmSetting(): string | null {
+	return store.state.settings.translateLlmModel || null;
+}
+
+/**
+ * The catalog this deploy and the settings make, as the service is created
+ * with it; also what a reason's words read while there is no service
+ * (reader.ts `liveCatalog`), so naming a model never makes one. Reactive
+ * through the store reads. `seq2seqGpu` stays off whatever the deploy says
+ * (models.ts CatalogOptions): this build cannot run OPUS-MT or NLLB-200 on
+ * the GPU.
+ */
+export function configuredCatalog(): ModelCatalog {
+	const branding = getBranding().translation ?? {};
+
+	return buildCatalog({...branding, seq2seqGpu: false}, selectedLlmSetting());
+}
+
 function create(): Made {
 	const branding = getBranding().translation ?? {};
 	const undo: (() => void)[] = [];
@@ -381,15 +413,8 @@ function create(): Made {
 		});
 	};
 
-	// An unset GPU model ("") is no choice: it resolves every time it is read
-	// — the deploy's model, else what the device probe fits, else the shipped
-	// default (models.ts `llmChoice`) — so a later deploy default, and a
-	// device the probe has since measured, both reach everyone who never
-	// picked one. Nothing writes a resolved id back to the settings.
-	const selectedLlm = store.state.settings.translateLlmModel || null;
-	// `seq2seqGpu` stays off whatever the deploy says (models.ts
-	// CatalogOptions): this build cannot run OPUS-MT or NLLB-200 on the GPU.
-	const catalog = buildCatalog({...branding, seq2seqGpu: false}, selectedLlm);
+	const selectedLlm = selectedLlmSetting();
+	const catalog = configuredCatalog();
 	const created = new TranslateService(
 		deps,
 		{

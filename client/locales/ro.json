@@ -2706,6 +2706,7 @@
   "translate.why.phoneMemory": "Are nevoie de mai multă memorie decât îi permite un telefon sau o tabletă unei pagini web.",
   "translate.why.probeFailed": "Verificarea a ceea ce poate rula acest dispozitiv a eșuat, așa că traducerea este oprită.",
   "translate.why.probing": "Se verifică încă ce poate rula acest dispozitiv…",
+  "translate.why.switchedOff": "Traducerea este dezactivată pe acest dispozitiv.",
   "translate.why.unserved": "Niciun model de pe acest dispozitiv nu acoperă această pereche de limbi.",
   "translation.panel.languages": "Limbi: {channel}",
   "translation.panel.remove": "Șterge {language}",

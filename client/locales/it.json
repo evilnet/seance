@@ -2587,6 +2587,7 @@
   "translate.why.phoneMemory": "Richiede più memoria di quanta un telefono o un tablet ne conceda a una pagina web.",
   "translate.why.probeFailed": "Il controllo di ciò che questo dispositivo può eseguire non è riuscito, quindi la traduzione è disattivata.",
   "translate.why.probing": "Sto ancora controllando cosa può eseguire questo dispositivo…",
+  "translate.why.switchedOff": "La traduzione è disattivata su questo dispositivo.",
   "translate.why.unserved": "Nessun modello su questo dispositivo copre questa coppia di lingue.",
   "translation.panel.languages": "Lingue: {channel}",
   "translation.panel.remove": "Rimuovi {language}",

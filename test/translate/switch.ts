@@ -5,6 +5,7 @@ import {
 	considersLine,
 	readingChannels,
 	translationAllowed,
+	translationOffBlock,
 } from "../../client/js/translate/switch";
 import {
 	getChannelTranslation,
@@ -76,6 +77,40 @@ describe("translate/switch", () => {
 			expect(translationAllowed(undefined, null)).to.equal(false);
 			expect(translationAllowed(undefined, "true")).to.equal(false);
 			expect(translationAllowed(undefined, 1)).to.equal(false);
+		});
+	});
+
+	describe("translationOffBlock", () => {
+		it("is null while translation is on", () => {
+			expect(translationOffBlock(undefined, true)).to.equal(null);
+			expect(translationOffBlock({enabled: true}, true)).to.equal(null);
+		});
+
+		it("says the user switched it off where the deploy allows it", () => {
+			expect(translationOffBlock(undefined, false)).to.deep.equal({
+				kind: "disabled",
+				by: "user",
+			});
+			expect(translationOffBlock({}, undefined)).to.deep.equal({
+				kind: "disabled",
+				by: "user",
+			});
+		});
+
+		it("says the deploy switched it off whatever the setting says", () => {
+			// The deploy's reason is models.ts modelBlock's own `disabled`, by nobody named.
+			expect(translationOffBlock({enabled: false}, true)).to.deep.equal({kind: "disabled"});
+			expect(translationOffBlock({enabled: false}, false)).to.deep.equal({kind: "disabled"});
+		});
+
+		it("agrees with translationAllowed everywhere", () => {
+			for (const deploy of [undefined, {}, {enabled: true}, {enabled: false}]) {
+				for (const setting of [true, false, undefined, "true"]) {
+					expect(translationOffBlock(deploy, setting) === null).to.equal(
+						translationAllowed(deploy, setting)
+					);
+				}
+			}
 		});
 	});
 

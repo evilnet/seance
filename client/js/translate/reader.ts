@@ -55,13 +55,14 @@ import {serviceWorkerCanServe} from "../pwa";
 import {type RouteVerdict, explainRoute, routeInput, translationBlock} from "./router";
 import {
 	activeService,
+	configuredCatalog,
 	onTranslationSwitch,
 	serviceSettings,
 	setTranslationUsage,
 	translateService,
 	translationOn,
 } from "./index";
-import {considersLine, readingChannels} from "./switch";
+import {considersLine, readingChannels, translationOffBlock} from "./switch";
 import {NO_ROUTE, type QueueItem, type QueueUpdate, TranslateQueue} from "./queue";
 import {sentReadBacks, takesReadBack} from "./sentReadBack";
 import {protect, stripCopiedNickPrefix} from "./spans";
@@ -206,11 +207,14 @@ export function translationAvailable(): boolean {
 
 /**
  * The catalog as the service runs it: the language model the setting, the
- * probe and its device setting resolve to.
+ * probe and its device setting resolve to. Read from the running service
+ * when there is one and from the configuration otherwise, so naming a model
+ * in a reason never makes the service -- nor throws while translation is
+ * off, when there is none to make.
  */
 function liveCatalog() {
 	return selectLlm(
-		translateService().catalog,
+		activeService()?.catalog ?? configuredCatalog(),
 		store.state.settings.translateLlmModel,
 		store.state.translation.capability,
 		serviceSettings().devices.llm
@@ -295,6 +299,14 @@ export function cpuThreadsLine(): string {
 	);
 }
 
+/** Why translation is off, or null while it is on (switch.ts `translationOffBlock`). */
+function offBlock(): ModelBlock | null {
+	return translationOffBlock(
+		store.state.branding.translation,
+		store.state.settings.translationEnabled
+	);
+}
+
 /**
  * Whether anything can translate here right now, and if not why (router.ts
  * `translationBlock`): the deploy, the probe, the device, the user's two
@@ -302,10 +314,13 @@ export function cpuThreadsLine(): string {
  * a component's computed follows the switches and the probe.
  */
 export function currentTranslationBlock(): ModelBlock | null {
-	// Switched off, nothing is offered and nothing reads this; answered
-	// without making the service.
-	if (!translationOn()) {
-		return {kind: "disabled"};
+	// Switched off -- by the user or by the deploy, which say different
+	// things -- nothing is offered and nothing reads this; answered without
+	// making the service.
+	const off = offBlock();
+
+	if (off) {
+		return off;
 	}
 
 	const {switches, devices} = serviceSettings();
@@ -326,8 +341,10 @@ export function currentTranslationBlock(): ModelBlock | null {
  * `from` equal to `to` is the cleanup pass (`polish` in the verdict).
  */
 export function pairVerdict(from: string | null, to: string): RouteVerdict {
-	if (!translationOn()) {
-		return {route: null, why: {kind: "disabled"}, polish: from !== null && from === to};
+	const off = offBlock();
+
+	if (off) {
+		return {route: null, why: off, polish: from !== null && from === to};
 	}
 
 	const service = translateService();

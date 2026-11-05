@@ -2684,6 +2684,7 @@
   "translate.why.phoneMemory": "Bir telefonun ya da tabletin bir web sayfasına izin verdiğinden daha fazla bellek gerektiriyor.",
   "translate.why.probeFailed": "Bu cihazın neleri çalıştırabileceği denetlenemedi, bu yüzden çeviri kapalı.",
   "translate.why.probing": "Bu cihazın neleri çalıştırabileceği hâlâ denetleniyor…",
+  "translate.why.switchedOff": "Bu cihazda çeviri kapalı.",
   "translate.why.unserved": "Bu cihazdaki hiçbir model bu dil çiftini kapsamıyor.",
   "translation.panel.languages": "Diller: {channel}",
   "translation.panel.remove": "Kaldır: {language}",

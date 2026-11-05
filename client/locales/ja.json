@@ -2618,6 +2618,7 @@
   "translate.why.phoneMemory": "スマートフォンやタブレットがウェブページに使わせるより多くのメモリが必要です。",
   "translate.why.probeFailed": "このデバイスで実行できるものの確認に失敗したため、翻訳はオフです。",
   "translate.why.probing": "このデバイスで実行できるものを確認しています…",
+  "translate.why.switchedOff": "このデバイスでは翻訳がオフになっています。",
   "translate.why.unserved": "このデバイスのどのモデルもこの言語の組み合わせに対応していません。",
   "translation.panel.languages": "言語: {channel}",
   "translation.panel.remove": "{language} を削除",

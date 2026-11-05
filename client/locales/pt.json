@@ -2643,6 +2643,7 @@
   "translate.why.phoneMemory": "Precisa de mais memória do que um celular ou tablet deixa uma página web usar.",
   "translate.why.probeFailed": "A verificação do que este dispositivo consegue executar falhou, por isso a tradução está desligada.",
   "translate.why.probing": "Ainda verificando o que este dispositivo consegue executar…",
+  "translate.why.switchedOff": "A tradução está desativada neste dispositivo.",
   "translate.why.unserved": "Nenhum modelo neste dispositivo cobre este par de idiomas.",
   "translation.panel.languages": "Idiomas: {channel}",
   "translation.panel.remove": "Remover {language}",

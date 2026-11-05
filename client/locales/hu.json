@@ -2682,6 +2682,7 @@
   "translate.why.phoneMemory": "Több memóriát igényel, mint amennyit egy telefon vagy táblagép egy weboldalnak enged.",
   "translate.why.probeFailed": "Nem sikerült megállapítani, mit tud futtatni ez az eszköz, ezért a fordítás ki van kapcsolva.",
   "translate.why.probing": "Még folyik annak ellenőrzése, mit tud futtatni ez az eszköz…",
+  "translate.why.switchedOff": "A fordítás ki van kapcsolva ezen az eszközön.",
   "translate.why.unserved": "Ezen az eszközön egyetlen modell sem fedi le ezt a nyelvpárt.",
   "translation.panel.languages": "Nyelvek: {channel}",
   "translation.panel.remove": "Eltávolítás: {language}",

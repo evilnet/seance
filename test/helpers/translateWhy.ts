@@ -27,6 +27,7 @@ describe("translateWhyText", () => {
 
 	const cases: Array<[RouteBlock, string]> = [
 		[{kind: "disabled"}, "translate.settings.disabled"],
+		[{kind: "disabled", by: "user"}, "translate.why.switchedOff"],
 		[{kind: "probing"}, "translate.why.probing"],
 		[{kind: "off", engine: "opus"}, "translate.why.cpuOff"],
 		[{kind: "off", engine: "all"}, "translate.why.allOff"],

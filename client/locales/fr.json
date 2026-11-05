@@ -2576,6 +2576,7 @@
   "translate.why.phoneMemory": "Il lui faut plus de mémoire qu'un téléphone ou une tablette n'en accorde à une page web.",
   "translate.why.probeFailed": "La vérification de ce que cet appareil peut exécuter a échoué : la traduction est donc désactivée.",
   "translate.why.probing": "Vérification de ce que cet appareil peut exécuter…",
+  "translate.why.switchedOff": "La traduction est désactivée sur cet appareil.",
   "translate.why.unserved": "Aucun modèle sur cet appareil ne couvre cette paire de langues.",
   "translation.panel.languages": "Langues : {channel}",
   "translation.panel.remove": "Retirer {language}",

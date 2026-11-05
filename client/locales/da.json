@@ -2624,6 +2624,7 @@
   "translate.why.phoneMemory": "Den kræver mere hukommelse, end en telefon eller tablet giver en webside.",
   "translate.why.probeFailed": "Kontrollen af, hvad denne enhed kan køre, mislykkedes, så oversættelse er slået fra.",
   "translate.why.probing": "Kontrollerer stadig, hvad denne enhed kan køre…",
+  "translate.why.switchedOff": "Oversættelse er slået fra på denne enhed.",
   "translate.why.unserved": "Ingen model på denne enhed dækker dette sprogpar.",
   "translation.panel.languages": "Sprog: {channel}",
   "translation.panel.remove": "Fjern {language}",

@@ -2615,6 +2615,7 @@
   "translate.why.phoneMemory": "ต้องใช้หน่วยความจำมากกว่าที่โทรศัพท์หรือแท็บเล็ตยอมให้หน้าเว็บใช้",
   "translate.why.probeFailed": "ตรวจสอบไม่สำเร็จว่าอุปกรณ์นี้รันอะไรได้บ้าง การแปลจึงปิดอยู่",
   "translate.why.probing": "กำลังตรวจสอบว่าอุปกรณ์นี้รันอะไรได้บ้าง…",
+  "translate.why.switchedOff": "การแปลถูกปิดอยู่บนอุปกรณ์นี้",
   "translate.why.unserved": "ไม่มีโมเดลบนอุปกรณ์นี้ที่รองรับคู่ภาษานี้",
   "translation.panel.languages": "ภาษา: {channel}",
   "translation.panel.remove": "ลบ {language}",

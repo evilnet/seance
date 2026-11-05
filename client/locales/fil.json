@@ -2596,6 +2596,7 @@
   "translate.why.phoneMemory": "Kailangan nito ng mas maraming memory kaysa sa ipinapagamit ng phone o tablet sa isang web page.",
   "translate.why.probeFailed": "Nabigo ang pagsuri kung ano ang kayang patakbuhin ng device na ito, kaya naka-off ang pagsasalin.",
   "translate.why.probing": "Sinusuri pa kung ano ang kayang patakbuhin ng device na ito…",
+  "translate.why.switchedOff": "Naka-off ang pagsasalin sa device na ito.",
   "translate.why.unserved": "Walang modelo sa device na ito na sumasaklaw sa pares ng wikang ito.",
   "translation.panel.languages": "Mga wika: {channel}",
   "translation.panel.remove": "Alisin ang {language}",

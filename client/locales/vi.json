@@ -2614,6 +2614,7 @@
   "translate.why.phoneMemory": "Cần nhiều bộ nhớ hơn mức điện thoại hoặc máy tính bảng cho phép một trang web sử dụng.",
   "translate.why.probeFailed": "Không kiểm tra được thiết bị này có thể chạy những gì, nên tính năng dịch đang tắt.",
   "translate.why.probing": "Vẫn đang kiểm tra thiết bị này có thể chạy những gì…",
+  "translate.why.switchedOff": "Tính năng dịch đang tắt trên thiết bị này.",
   "translate.why.unserved": "Không có mô hình nào trên thiết bị này hỗ trợ cặp ngôn ngữ này.",
   "translation.panel.languages": "Ngôn ngữ: {channel}",
   "translation.panel.remove": "Xóa {language}",

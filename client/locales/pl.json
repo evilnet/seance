@@ -2823,6 +2823,7 @@
   "translate.why.phoneMemory": "Potrzebuje więcej pamięci, niż telefon lub tablet pozwala użyć stronie internetowej.",
   "translate.why.probeFailed": "Sprawdzenie, co to urządzenie może uruchomić, nie powiodło się, więc tłumaczenie jest wyłączone.",
   "translate.why.probing": "Wciąż sprawdzam, co to urządzenie może uruchomić…",
+  "translate.why.switchedOff": "Tłumaczenie jest wyłączone na tym urządzeniu.",
   "translate.why.unserved": "Żaden model na tym urządzeniu nie obsługuje tej pary języków.",
   "translation.panel.languages": "Języki: {channel}",
   "translation.panel.remove": "Usuń: {language}",

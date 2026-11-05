@@ -2749,6 +2749,7 @@
   "translate.why.phoneMemory": "Potřebuje víc paměti, než telefon nebo tablet dovolí jedné webové stránce.",
   "translate.why.probeFailed": "Zjištění, co toto zařízení dokáže spustit, selhalo, takže překlad je vypnutý.",
   "translate.why.probing": "Stále se zjišťuje, co toto zařízení dokáže spustit…",
+  "translate.why.switchedOff": "Překlad je na tomto zařízení vypnutý.",
   "translate.why.unserved": "Žádný model na tomto zařízení nepokrývá tuto dvojici jazyků.",
   "translation.panel.languages": "Jazyky: {channel}",
   "translation.panel.remove": "Odebrat: {language}",

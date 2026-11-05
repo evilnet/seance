@@ -419,7 +419,12 @@ export type DeviceReason = Exclude<CapabilityReason, "SMALL_BUFFER">;
  * turning the setting on would change nothing.
  */
 export type ModelBlock =
-	| {kind: "disabled"}
+	/**
+	 * Translation is off: the deploy switched it off (`by` absent, the only
+	 * one `modelBlock` knows), or the user did (`by: "user"`, Settings'
+	 * `translationEnabled`; translate/switch.ts `translationOffBlock`).
+	 */
+	| {kind: "disabled"; by?: "user"}
 	| {kind: "probing"}
 	| {kind: "device"; reason: DeviceReason}
 	| {kind: "buffer"; needed: number; limit: number}

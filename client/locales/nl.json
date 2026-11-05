@@ -2579,6 +2579,7 @@
   "translate.why.phoneMemory": "Het heeft meer geheugen nodig dan een telefoon of tablet een webpagina laat gebruiken.",
   "translate.why.probeFailed": "Controleren wat dit apparaat kan draaien is mislukt, dus vertaling staat uit.",
   "translate.why.probing": "Bezig met controleren wat dit apparaat kan draaien…",
+  "translate.why.switchedOff": "Vertaling is uitgeschakeld op dit apparaat.",
   "translate.why.unserved": "Geen model op dit apparaat dekt dit taalpaar.",
   "translation.panel.languages": "Talen: {channel}",
   "translation.panel.remove": "{language} verwijderen",

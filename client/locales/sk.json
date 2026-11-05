@@ -2750,6 +2750,7 @@
   "translate.why.phoneMemory": "Potrebuje viac pamäte, než telefón alebo tablet dovolí jednej webovej stránke.",
   "translate.why.probeFailed": "Zisťovanie, čo toto zariadenie dokáže spustiť, zlyhalo, preto je preklad vypnutý.",
   "translate.why.probing": "Ešte sa zisťuje, čo toto zariadenie dokáže spustiť…",
+  "translate.why.switchedOff": "Preklad je na tomto zariadení vypnutý.",
   "translate.why.unserved": "Žiadny model na tomto zariadení nepokrýva túto dvojicu jazykov.",
   "translation.panel.languages": "Jazyky: {channel}",
   "translation.panel.remove": "Odstrániť: {language}",

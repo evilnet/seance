@@ -2618,6 +2618,7 @@
   "translate.why.phoneMemory": "它需要的内存超过手机或平板电脑允许单个网页使用的量。",
   "translate.why.probeFailed": "检查此设备能运行什么时失败，因此翻译已关闭。",
   "translate.why.probing": "仍在检查此设备能运行什么…",
+  "translate.why.switchedOff": "此设备上的翻译已关闭。",
   "translate.why.unserved": "此设备上没有模型支持这对语言。",
   "translation.panel.languages": "语言：{channel}",
   "translation.panel.remove": "移除{language}",

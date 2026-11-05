@@ -2599,6 +2599,7 @@
   "translate.why.phoneMemory": "Es benötigt mehr Arbeitsspeicher, als ein Smartphone oder Tablet einer Webseite gewährt.",
   "translate.why.probeFailed": "Die Prüfung, was dieses Gerät ausführen kann, ist fehlgeschlagen; die Übersetzung ist daher aus.",
   "translate.why.probing": "Es wird noch geprüft, was dieses Gerät ausführen kann…",
+  "translate.why.switchedOff": "Die Übersetzung ist auf diesem Gerät ausgeschaltet.",
   "translate.why.unserved": "Kein Modell auf diesem Gerät deckt dieses Sprachpaar ab.",
   "translation.panel.languages": "Sprachen: {channel}",
   "translation.panel.remove": "{language} entfernen",

@@ -2477,6 +2477,7 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"translate.why.phoneMemory",
 	"translate.why.probeFailed",
 	"translate.why.probing",
+	"translate.why.switchedOff",
 	"translate.why.unserved",
 	"translation.panel.languages",
 	"translation.panel.remove",

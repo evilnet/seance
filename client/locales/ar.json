@@ -3008,6 +3008,7 @@
   "translate.why.phoneMemory": "يحتاج إلى ذاكرة أكثر مما يتيحه الهاتف أو الجهاز اللوحي لصفحة ويب.",
   "translate.why.probeFailed": "فشل التحقق مما يستطيع هذا الجهاز تشغيله، لذا الترجمة متوقفة.",
   "translate.why.probing": "ما زال التحقق جاريًا مما يستطيع هذا الجهاز تشغيله…",
+  "translate.why.switchedOff": "الترجمة متوقفة على هذا الجهاز.",
   "translate.why.unserved": "لا يغطي أي نموذج على هذا الجهاز هذا الزوج من اللغات.",
   "translation.panel.languages": "اللغات: {channel}",
   "translation.panel.remove": "إزالة {language}",

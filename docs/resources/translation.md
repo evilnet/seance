@@ -32,7 +32,15 @@ Nothing of the machinery exists either. `index.ts` holds a
 so no device probe, no worker, no download or "The GPU stopped" question --
 and `translateService()` throws if anything asks it then (every caller is
 behind `translationOn()`; `activeService()` reads the running one without
-making it). Every entry of the reading pipeline (`reader.ts`: a line, a
+making it). Nor does a reason's wording make one: the model a reason names
+comes from the running service, or without one from the configuration
+(`index.ts` `configuredCatalog`, `reader.ts` `liveCatalog`), and while off
+`currentTranslationBlock` and `pairVerdict` answer `{kind: "disabled"}`
+with `by: "user"` when the user switched it off ("Translation is turned off
+on this device.") and without when the deploy did ("Translation is turned
+off in this deployment."; switch.ts `translationOffBlock`). Nothing shows
+either today, since every surface that would is absent while off. Every
+entry of the reading pipeline (`reader.ts`: a line, a
 history page, a replay, the topic, a language change, a retry) and of the
 composer (`writer.ts`) asks first. Switching off acts at once (a store watch
 syncs the switch): the switch puts the service out of reach, then its
@@ -64,11 +72,13 @@ manager and its copies, the device and threads lines, the test-switch lines,
 the NLLB-200 licence line -- is `Settings/TranslationOptions.vue`, mounted
 only while translation is on, since its setup makes the service.
 
-Tests: `test/translate/switch.ts` (the rule, the switch's life and the order
-of its stop, the channels resumed) and `test/translate/service.ts`
-"switched off by the user" (the stop over a real service and queue: every
-line dropped, none failed, no pause, the worker terminated; a disposed
-service routing nothing and asking no question), `test/translate/outgoing.ts`
+Tests: `test/translate/switch.ts` (the rule and who switched it off, the
+switch's life and the order of its stop -- a listener that throws stops
+neither the others nor the destroy -- the channels resumed) and
+`test/translate/service.ts` "switched off by the user" (the stop over a
+real service and queue: every line dropped, none failed, no pause, the
+worker terminated; a disposed service routing nothing and asking no
+question), `test/translate/outgoing.ts`
 `firstEnterTranslates`; browser check `tools/scenarios/translate-off.mjs`
 (also `--mobile`: no surface, no worker fetched, no Worker made, no GPU asked
 for on a cold load or a language change; on and off again without a

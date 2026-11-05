@@ -91,8 +91,11 @@ export function threadsText(isolation: Isolation, count: number): string {
  */
 export function translateWhyText(block: RouteBlock, llm: string = defaultLlmName()): string {
 	switch (block.kind) {
+		// Off by the deploy, or by the user's own switch: two sentences.
 		case "disabled":
-			return t("translate.settings.disabled");
+			return block.by === "user"
+				? t("translate.why.switchedOff")
+				: t("translate.settings.disabled");
 		case "probing":
 			return t("translate.why.probing");
 

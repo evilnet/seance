@@ -2629,6 +2629,7 @@
   "translate.why.phoneMemory": "Den behöver mer minne än en telefon eller surfplatta låter en webbsida använda.",
   "translate.why.probeFailed": "Kontrollen av vad den här enheten kan köra misslyckades, så översättning är avstängd.",
   "translate.why.probing": "Kontrollerar fortfarande vad den här enheten kan köra…",
+  "translate.why.switchedOff": "Översättning är avstängd på den här enheten.",
   "translate.why.unserved": "Ingen modell på den här enheten täcker det här språkparet.",
   "translation.panel.languages": "Språk: {channel}",
   "translation.panel.remove": "Ta bort {language}",

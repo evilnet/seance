@@ -2613,6 +2613,7 @@
   "translate.why.phoneMemory": "휴대폰이나 태블릿이 웹 페이지에 허용하는 것보다 많은 메모리가 필요합니다.",
   "translate.why.probeFailed": "이 기기에서 실행할 수 있는 것을 확인하지 못해 번역이 꺼져 있습니다.",
   "translate.why.probing": "이 기기에서 실행할 수 있는 것을 아직 확인하는 중입니다…",
+  "translate.why.switchedOff": "이 기기에서는 번역이 꺼져 있습니다.",
   "translate.why.unserved": "이 기기의 어떤 모델도 이 언어 쌍을 지원하지 않습니다.",
   "translation.panel.languages": "언어: {channel}",
   "translation.panel.remove": "{language} 제거",

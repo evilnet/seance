@@ -2847,6 +2847,7 @@
   "translate.why.phoneMemory": "Ему нужно больше памяти, чем телефон или планшет выделяет веб-странице.",
   "translate.why.probeFailed": "Не удалось проверить, что может запускать это устройство, поэтому перевод выключен.",
   "translate.why.probing": "Ещё проверяем, что может запускать это устройство…",
+  "translate.why.switchedOff": "Перевод выключен на этом устройстве.",
   "translate.why.unserved": "Ни одна модель на этом устройстве не охватывает эту пару языков.",
   "translation.panel.languages": "Языки: {channel}",
   "translation.panel.remove": "Удалить: {language}",

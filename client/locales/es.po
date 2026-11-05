@@ -15394,6 +15394,12 @@ msgctxt "translate.why.probing"
 msgid "Still checking what this device can run…"
 msgstr "Comprobando todavía lo que este dispositivo puede ejecutar…"
 
+#. Why a translation action or control is unavailable: the user switched translation off on this device, with the switch “Translate messages on this device” in Settings. (When the site's operator switched it off instead, translate.settings.disabled says so.) A whole sentence.
+#: client/js/helpers/translateWhy.ts
+msgctxt "translate.why.switchedOff"
+msgid "Translation is turned off on this device."
+msgstr "La traducción está desactivada en este dispositivo."
+
 #. Reason a translation cannot run: no installed translation model translates between the two languages asked for. Shown wherever a translation action is unavailable (Settings → Translation's model rows, the composer's translate dialog, the per-channel translation panel, the message toolbar's tooltip), as a sentence of its own under a lead sentence such as 'Correcting a message needs the language model.'.
 #: client/js/helpers/translateWhy.ts
 msgctxt "translate.why.unserved"

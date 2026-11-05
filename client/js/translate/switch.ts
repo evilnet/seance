@@ -31,6 +31,23 @@ export function translationAllowed(
 }
 
 /**
+ * Why translation is off, as the block the rule reports (models.ts
+ * `ModelBlock`), or null while it is on: the deploy's `disabled` when the
+ * deploy switched it off, whatever the setting says; the user's
+ * (`by: "user"`) otherwise. Null exactly where `translationAllowed` is true.
+ */
+export function translationOffBlock(
+	deploy: DeployTranslation | null | undefined,
+	setting: unknown
+): {kind: "disabled"; by?: "user"} | null {
+	if (deploy?.enabled === false) {
+		return {kind: "disabled"};
+	}
+
+	return setting === true ? null : {kind: "disabled", by: "user"};
+}
+
+/**
  * Whether the reading pipeline looks at a line at all: never while
  * translation is off, not even one someone asked for (`force`, the
  * toolbar's Translate and the chip's Retranslate, which are not offered
