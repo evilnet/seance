@@ -618,9 +618,6 @@ const LIVE_GAP_MS = 2000;
 /** How soon to look again while an answer is on its way. */
 const LIVE_RETRY_MS = 500;
 
-/** Where the rows come from: the server, or what is loaded and why. */
-type Mode = "server" | "unsupported" | "offline" | "partial";
-
 interface Chip {
 	id: "from" | "account" | "date" | "has" | "without";
 	label: string;
