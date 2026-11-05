@@ -1233,6 +1233,39 @@ describe("Chat history (history.ts)", function () {
 			expect(pendingHistory(h.client)).to.have.length(0);
 		});
 
+		it("stops on an empty page with no end tag, but does not vouch for the gap", function () {
+			const h = setup({isupport: "CHATHISTORY=3 MSGREFTYPES=timestamp,msgid"});
+			const id = joined(h);
+			h.transport.line(
+				"@msgid=seen;time=2026-08-25T12:10:00.000Z :bob!bob@host PRIVMSG #seance :x"
+			);
+
+			const sent = reconnect(h, "CHATHISTORY=3 MSGREFTYPES=timestamp,msgid");
+			reply(h, sent, [
+				"@time=2026-08-25T12:17:00.000Z;msgid=g3 :bob!bob@host PRIVMSG #seance :three",
+			]);
+			// The server's scan cap cut this page to nothing: no end tag.
+			reply(h, h.sent(), []);
+
+			expect(h.sent()).to.deep.equal([]);
+			expect(msgs(id).map((p) => p.msg.text)).to.include("three");
+			expect(h.client.findChannel("#seance")!.historyFilled).to.equal(false);
+			expect(pendingHistory(h.client)).to.have.length(0);
+		});
+
+		it("vouches for the gap on an empty page that carries the end tag", function () {
+			const h = setup({isupport: "CHATHISTORY=3 MSGREFTYPES=timestamp,msgid"});
+			joined(h);
+			h.transport.line(
+				"@msgid=seen;time=2026-08-25T12:10:00.000Z :bob!bob@host PRIVMSG #seance :x"
+			);
+
+			const sent = reconnect(h, "CHATHISTORY=3 MSGREFTYPES=timestamp,msgid");
+			reply(h, sent, [], undefined, true);
+
+			expect(h.client.findChannel("#seance")!.historyFilled).to.equal(true);
+		});
+
 		it("stops on draft/chathistory-end even when the page is full", function () {
 			const h = setup({isupport: "CHATHISTORY=2 MSGREFTYPES=timestamp,msgid"});
 			const id = joined(h);

@@ -549,10 +549,12 @@ function resolve(
 		// minus the skew allowance. An empty page, the end tag, the page cap,
 		// or a page without timestamps also stop it. A short page does not:
 		// nefarious2 filters pages and caps its scan, so it can leave a hole.
+		// For the same reason an empty page without the end tag stops the walk
+		// (nothing to page back from) but does not vouch for the gap.
 		const page = lines ?? [];
 		const known = new Set(chan.msgids);
 		const floorMs = request.floor ? request.floor.time.getTime() - CATCHUP_FUZZ_MS : undefined;
-		let reached = page.length === 0;
+		let reached = false;
 		let oldest: MsgRef | undefined;
 
 		for (const line of page) {
