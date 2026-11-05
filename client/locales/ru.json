@@ -608,7 +608,6 @@
     "other": "Убрано на этом устройстве: {count}"
   },
   "mentions.empty": "Всё прочитано",
-  "mentions.emptyHint": "Упоминание исчезает из списка, как только вы его прочтёте — здесь или на любом другом устройстве.",
   "mentions.keys.close": "закрыть",
   "mentions.keys.dismiss": "убрать",
   "mentions.keys.move": "перейти",

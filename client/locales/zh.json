@@ -566,7 +566,6 @@
     "other": "已在此设备上移除 {count} 条"
   },
   "mentions.empty": "全部看完了",
-  "mentions.emptyHint": "提及在你阅读后（无论在这里还是其他设备上）就会从此列表中消失。",
   "mentions.keys.backspace": "退格",
   "mentions.keys.close": "关闭",
   "mentions.keys.dismiss": "移除",

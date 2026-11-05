@@ -553,6 +553,8 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"mentions.notConnected",
 	"mentions.notConnectedIn",
 	"mentions.open",
+	"mentions.showMore",
+	"mentions.showMoreUnread",
 	"mentions.targetOn",
 	"mentions.title",
 	"mentions.undo",

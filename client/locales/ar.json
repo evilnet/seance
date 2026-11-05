@@ -636,7 +636,6 @@
     "other": "تم تجاهل {count} على هذا الجهاز"
   },
   "mentions.empty": "لا جديد لديك",
-  "mentions.emptyHint": "تختفي الإشارة من هذه القائمة بمجرد قراءتها، هنا أو على أي جهاز آخر.",
   "mentions.keys.backspace": "مسح",
   "mentions.keys.close": "إغلاق",
   "mentions.keys.dismiss": "تجاهل",

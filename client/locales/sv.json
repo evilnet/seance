@@ -573,7 +573,6 @@
     "other": "{count} avfärdade på den här enheten"
   },
   "mentions.empty": "Du är ikapp",
-  "mentions.emptyHint": "Ett omnämnande försvinner från listan när du har läst det, här eller på någon annan enhet.",
   "mentions.keys.backspace": "Backsteg",
   "mentions.keys.close": "stäng",
   "mentions.keys.dismiss": "avfärda",

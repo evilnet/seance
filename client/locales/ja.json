@@ -566,7 +566,6 @@
     "other": "この端末で {count} 件を消去しました"
   },
   "mentions.empty": "すべて確認済みです",
-  "mentions.emptyHint": "メンションは、ここでも他の端末でも、読むとこの一覧から消えます。",
   "mentions.keys.backspace": "BS",
   "mentions.keys.close": "閉じる",
   "mentions.keys.dismiss": "消去",

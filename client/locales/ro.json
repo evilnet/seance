@@ -586,7 +586,6 @@
     "other": "{count} de respinse pe acest dispozitiv"
   },
   "mentions.empty": "Ești la zi",
-  "mentions.emptyHint": "O mențiune dispare din această listă după ce o citești, aici sau pe orice alt dispozitiv.",
   "mentions.keys.backspace": "Backspace",
   "mentions.keys.close": "închide",
   "mentions.keys.dismiss": "respinge",

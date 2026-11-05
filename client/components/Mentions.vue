@@ -76,7 +76,7 @@
 							<span
 								v-if="!group.query && groups.length > 1 && group.unread"
 								class="mentions-group-count"
-								>{{ group.unread }}</span
+								>{{ formatNumber(group.unread) }}</span
 							>
 						</button>
 						<!-- A conversation this page no longer has: reading cannot mark it. While
@@ -96,10 +96,14 @@
 						class="oper-btn oper-btn-ghost mentions-more"
 						@click="showAll(group)"
 					>
-						Show {{ group.hidden }} more
-						<template v-if="group.hiddenUnread">
-							· {{ group.hiddenUnread }} unread</template
-						>
+						{{
+							group.hiddenUnread
+								? tCount("mentions.showMoreUnread", group.hidden, {
+										count: group.hidden,
+										unread: group.hiddenUnread,
+								  })
+								: tCount("mentions.showMore", group.hidden, {count: group.hidden})
+						}}
 					</button>
 					<!-- A click opens the conversation; Enter on a focused row does too.
 					     Vue's .delete is Delete and Backspace both. -->
@@ -975,6 +979,7 @@ export default defineComponent({
 
 		return {
 			tCount,
+			formatNumber,
 			isOpen,
 			popup,
 			placement,

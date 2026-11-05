@@ -567,7 +567,6 @@
     "other": "이 기기에서 {count}개를 지웠습니다"
   },
   "mentions.empty": "모두 확인했습니다",
-  "mentions.emptyHint": "언급은 여기서든 다른 기기에서든 읽으면 이 목록에서 사라집니다.",
   "mentions.keys.backspace": "백스페이스",
   "mentions.keys.close": "닫기",
   "mentions.keys.dismiss": "지우기",

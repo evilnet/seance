@@ -571,7 +571,6 @@
     "other": "{count} auf diesem Gerät verworfen"
   },
   "mentions.empty": "Alles gelesen",
-  "mentions.emptyHint": "Eine Erwähnung verschwindet aus dieser Liste, sobald Sie sie lesen – hier oder auf einem anderen Gerät.",
   "mentions.keys.backspace": "Rück",
   "mentions.keys.close": "schließen",
   "mentions.keys.dismiss": "verwerfen",
