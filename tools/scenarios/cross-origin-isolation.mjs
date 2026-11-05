@@ -172,8 +172,10 @@ const isolation = `JSON.stringify({
  * inside it, which only a cross-origin-isolated worker has.
  */
 const workerThreads = `new Promise((resolve) => {
-	const bundle = document.querySelector('script[src*="js/bundle.js"]');
-	const v = new URL(bundle.src).searchParams.get("v") ?? "";
+	// The build token rides on the classic scripts' ?v= (the Vite bundle's
+	// own name is hashed instead).
+	const tagged = document.querySelector('script[src*="js/prepaint.js"]');
+	const v = tagged ? new URL(tagged.src).searchParams.get("v") ?? "" : "";
 	const w = new Worker("js/translate-worker.js?v=" + encodeURIComponent(v));
 	const done = (value) => { w.terminate(); resolve(JSON.stringify(value)); };
 	w.onmessage = (e) => {
@@ -257,9 +259,12 @@ async function threadsLine(page) {
 		label: "the CPU threads line",
 	});
 
-	return page.evaluate(
-		`document.querySelector("#settings .translate-device-threads").textContent.trim()`
-	);
+	// In view for the screenshot that follows.
+	return page.evaluate(`(() => {
+		const line = document.querySelector("#settings .translate-device-threads");
+		line.scrollIntoView({block: "center"});
+		return line.textContent.trim();
+	})()`);
 }
 
 /**
@@ -295,14 +300,14 @@ async function switchTranslation(page, on) {
 
 /**
  * A fresh load of the scenario's URL (the connect form keeps its query),
- * through the worker: waits for the old document to be gone first.
+ * through the worker: waits for the old document to be gone, then `ready`.
  */
-async function load(page) {
+async function load(page, ready = "#connect form") {
 	await page.evaluate(`(() => { window.__coiOld = true; })()`);
 	await page.goto(page.url);
-	await page.waitFor(`!window.__coiOld && !!document.querySelector("#connect form")`, {
+	await page.waitFor(`!window.__coiOld && !!document.querySelector(${JSON.stringify(ready)})`, {
 		timeout: 20000,
-		label: "the connect form on a fresh load",
+		label: `${ready} on a fresh load`,
 	});
 }
 
@@ -390,10 +395,10 @@ export default async function run(page) {
 		);
 		await page.evaluate(`document.getElementById("coi-raw")?.remove()`);
 
-		// 7. A link preview's image from that host renders.
-		await page.waitFor(`!!document.querySelector("#connect form")`, {
-			label: "the connect form",
-		});
+		// 7. A link preview's image from that host renders. A fresh load
+		//    first: the connect form takes its prefill from the URL, which a
+		//    trip through Settings left behind.
+		await load(page);
 		await page.evaluate(`document.querySelector("#connect form").requestSubmit()`);
 		await page.waitFor(`document.querySelector('.channel-list-item[data-name="${CHANNEL}"]')`, {
 			timeout: 30000,
@@ -439,7 +444,8 @@ export default async function run(page) {
 			`switched off: the page in front stays as it was loaded (${JSON.stringify(inFront)})`,
 			inFront.isolated
 		);
-		await load(page);
+		// The saved network reopens its channel now, in place of the form.
+		await load(page, "#viewport");
 		const offAgain = await json(page, isolation);
 		await page.check(
 			`switched off again: the next load is not isolated (${JSON.stringify(offAgain)})`,
