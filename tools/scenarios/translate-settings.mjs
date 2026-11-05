@@ -21,6 +21,7 @@
 // reload is made before the one there is.
 
 import {readFileSync} from "node:fs";
+import {TRANSLATION_ON} from "./lib/translation.mjs";
 
 const BASE = process.env.SEANCE_HTTP || "http://localhost:8021/";
 
@@ -118,6 +119,8 @@ async function openSettings(page) {
 }
 
 export default async function run(page) {
+	// Translation ships switched off (settings.ts translationEnabled).
+	await page.addInitScript(TRANSLATION_ON);
 	await page.goto(page.url, {waitForSelector: "#connect form"});
 	await openSettings(page);
 	await page.waitFor(`!!document.querySelector(".settings-menu button.translation")`, {

@@ -37,6 +37,7 @@
 // Needs the network: the manifest and the config come from huggingface.co.
 
 import {readFileSync} from "node:fs";
+import {TRANSLATION_ON} from "./lib/translation.mjs";
 
 const BASE = process.env.SEANCE_HTTP || "http://127.0.0.1:8063/seance/develop/";
 const LOG = process.env.SEANCE_SERVER_LOG || null;
@@ -154,6 +155,8 @@ function requestLog() {
 }
 
 export default async function run(page) {
+	// Translation ships switched off (settings.ts translationEnabled).
+	await page.addInitScript(TRANSLATION_ON);
 	await page.addInitScript(GPU_STUB);
 	await page.goto(BASE, {waitForSelector: "#app"});
 

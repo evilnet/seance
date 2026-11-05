@@ -81,6 +81,7 @@
 // the switch-off click must leave it closed.
 
 import {rigFeature} from "./lib/rig-feature.mjs";
+import {TRANSLATION_ON} from "./lib/translation.mjs";
 
 const RUN = Date.now().toString(36);
 const NICK = `tr${RUN}`;
@@ -338,6 +339,8 @@ function speaker(nick) {
 }
 
 export default async function run(page) {
+	// Translation ships switched off (settings.ts translationEnabled).
+	await page.addInitScript(TRANSLATION_ON);
 	// The rig leaves message redaction off: without the feature REDACT
 	// answers FAIL DISABLED and the page is never offered the cap that
 	// makes it show one.

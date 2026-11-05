@@ -12,6 +12,7 @@
 //   CHROME_BIN=/seance/tmp/chrome-pw.sh node tools/browser-drive.mjs tools/scenarios/translate-test-switches.mjs
 
 import {readFileSync} from "node:fs";
+import {TRANSLATION_ON} from "./lib/translation.mjs";
 
 const BASE = process.env.SEANCE_HTTP ?? "http://localhost:8021/";
 const EN = JSON.parse(readFileSync("client/locales/en.json", "utf8"));
@@ -21,6 +22,8 @@ const LINE = `document.querySelector(".translate-device-test-chunk")?.textConten
 export const url = `${BASE}?gpuPrefillChunk=32#/settings/translation`;
 
 export default async function run(page) {
+	// Translation ships switched off (settings.ts translationEnabled).
+	await page.addInitScript(TRANSLATION_ON);
 	await page.goto(page.url, {waitForSelector: "#app"});
 	await page.waitFor(`!!document.querySelector(".translate-device")`, {
 		timeout: 20000,

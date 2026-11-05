@@ -26,6 +26,7 @@
 // unset for the build: a production build compiles the fake out.
 
 import {readFileSync} from "node:fs";
+import {TRANSLATION_ON} from "./lib/translation.mjs";
 
 const RUN = Date.now().toString(36);
 const NICK = `cn${RUN}`;
@@ -83,6 +84,8 @@ const rowOf = (text) =>
 const SAVE_DATA = `Object.defineProperty(Navigator.prototype, "connection", {configurable: true, get: () => ({saveData: true, type: "wifi"})});`;
 
 export default async function run(page) {
+	// Translation ships switched off (settings.ts translationEnabled).
+	await page.addInitScript(TRANSLATION_ON);
 	await page.addInitScript(SAVE_DATA);
 	await page.goto(page.url, {waitForSelector: "#connect form"});
 	await page.click('#connect button[type="submit"]');

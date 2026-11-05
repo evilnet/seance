@@ -54,6 +54,8 @@
 // the panel opens from the channel menu's "Translation…" entry; the
 // synthetic contextmenu below is the harness's shortcut to the same panel.
 
+import {TRANSLATION_ON} from "./lib/translation.mjs";
+
 const RUN = Date.now().toString(36);
 const NICK = `tw${RUN}`;
 const LISTENER = `hr${RUN}`;
@@ -372,6 +374,8 @@ async function hardwareNewlineIsAnEdit(page) {
 }
 
 export default async function run(page) {
+	// Translation ships switched off (settings.ts translationEnabled).
+	await page.addInitScript(TRANSLATION_ON);
 	const other = listener(LISTENER);
 
 	// The strip's Copy button goes through navigator.clipboard, which a

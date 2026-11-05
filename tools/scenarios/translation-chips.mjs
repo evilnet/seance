@@ -27,6 +27,7 @@
 // browser-drive passes --ignore-certificate-errors). Override with SEANCE_BASE.
 
 import {fakeNetworkSnippet} from "./lib/fake-network.mjs";
+import {TRANSLATION_ON} from "./lib/translation.mjs";
 
 export const url = `${process.env.SEANCE_BASE || "https://127.0.0.1:8000/"}`;
 
@@ -197,6 +198,8 @@ const ICONS = `(() => {
 })()`;
 
 export default async function run(page) {
+	// Translation ships switched off (settings.ts translationEnabled).
+	await page.addInitScript(TRANSLATION_ON);
 	await page.goto(page.url, {waitForSelector: "#connect form"});
 	page.check("the app booted to the connect form", (await page.count("#connect form")) === 1);
 

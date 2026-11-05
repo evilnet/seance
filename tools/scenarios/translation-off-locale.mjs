@@ -1,8 +1,10 @@
 // A deploy with translation turned off still lets the reader choose the
 // interface's language (client/components/Settings/Translation.vue): the
 // language select stands outside the tab's translation.enabled branch, is
-// labelled "Interface language" there, and switching it to German puts the
-// interface into German. With translation on, the same select keeps its
+// labelled "Interface language" there, the tab and its heading read
+// "Language", the user's own switch is not offered, and switching the
+// language to German puts the interface into German. With translation on
+// (the deploy's and the user's switch, seeded on), the same select keeps its
 // "Interface and reading language" label.
 //
 // No ircd: an init script rewrites config.json's `translation` block on the
@@ -14,6 +16,7 @@
 //     node tools/browser-drive.mjs tools/scenarios/translation-off-locale.mjs
 
 import {readFileSync} from "node:fs";
+import {TRANSLATION_ON} from "./lib/translation.mjs";
 
 const BASE = process.env.SEANCE_HTTP ?? "http://localhost:8041/";
 const EN = JSON.parse(readFileSync("client/locales/en.json", "utf8"));
@@ -45,10 +48,14 @@ const LABEL = `(() => {
 		label: label ? label.querySelector("span").textContent.trim() : "",
 		disabledHint: [...document.querySelectorAll(".translate-hint")].map((el) => el.textContent.trim()),
 		models: !!document.querySelector(".translate-models"),
+		userSwitch: !!document.querySelector('input[name="translationEnabled"]'),
+		tab: document.querySelector(".settings-menu button.translation .tab-label")?.textContent.trim() ?? "",
 	};
 })()`;
 
 export default async function run(page) {
+	// Translation ships switched off (settings.ts translationEnabled).
+	await page.addInitScript(TRANSLATION_ON);
 	await page.addInitScript(CONFIG_PATCH);
 
 	// Translation off.
@@ -69,6 +76,14 @@ export default async function run(page) {
 	page.check(
 		"translation off: the tab says so and shows no model manager",
 		off.disabledHint.includes(EN["translate.settings.disabled"]) && !off.models
+	);
+	page.check(
+		"translation off by the deploy: the user's switch is not offered",
+		off.userSwitch === false
+	);
+	page.check(
+		`translation off: the tab is "${EN["settings.tabs.language"]}" (${off.tab})`,
+		off.tab === EN["settings.tabs.language"]
 	);
 	await page.screenshot("off-en");
 
@@ -91,7 +106,7 @@ export default async function run(page) {
 
 	page.check(
 		`translation off: choosing German puts the interface into German (${german.lang}, ${german.heading})`,
-		german.lang.startsWith("de") && german.heading === DE["translate.settings.heading"]
+		german.lang.startsWith("de") && german.heading === DE["translate.settings.headingLanguage"]
 	);
 	await page.screenshot("off-de");
 

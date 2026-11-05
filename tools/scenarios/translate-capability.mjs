@@ -71,6 +71,7 @@
 // the listener that posts the line the toolbar is checked on).
 
 import {readFileSync} from "node:fs";
+import {TRANSLATION_ON} from "./lib/translation.mjs";
 
 const RUN = Date.now().toString(36);
 const BASE = process.env.SEANCE_HTTP || "http://localhost:8041/";
@@ -245,6 +246,8 @@ function speaker(nick, line) {
 }
 
 export default async function run(page) {
+	// Translation ships switched off (settings.ts translationEnabled).
+	await page.addInitScript(TRANSLATION_ON);
 	await page.addInitScript(GPU_STUB);
 
 	const only = page.opt("device", null);

@@ -264,7 +264,11 @@ export default async function run(page) {
 
 	const SELECT = devBuild ? DEV_SELECT : SETTINGS_SELECT;
 	const LABEL_TEXT = devBuild ? GLOBE_LABEL : SETTINGS_LABEL_TEXT;
-	const EN_LABEL = devBuild ? EN["sidebar.language"] : EN["translate.settings.languageLabel"];
+	// Settings' picker is the interface language alone while translation is
+	// off, which it is by default (settings.ts translationEnabled).
+	const EN_LABEL = devBuild
+		? EN["sidebar.language"]
+		: EN["translate.settings.interfaceLanguageLabel"];
 	const select = await page.rect(SELECT);
 	page.check("language select is present and visible", !!select && select.width > 0);
 	page.check(

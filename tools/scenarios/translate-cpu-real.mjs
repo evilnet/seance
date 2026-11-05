@@ -38,6 +38,8 @@
 // throwaway profile, so the weights are fetched fresh on every run (OPUS
 // en-de is ~5 s on a good link; NLLB is the reason "all" is separate).
 
+import {TRANSLATION_ON} from "./lib/translation.mjs";
+
 const RUN = Date.now().toString(36);
 const BASE = process.env.SEANCE_BASE || "http://localhost:8021/";
 const OPUS = "Xenova/opus-mt-en-de";
@@ -123,6 +125,8 @@ async function translate(page, text, to, from, {timeout, label}) {
 }
 
 export default async function run(page) {
+	// Translation ships switched off (settings.ts translationEnabled).
+	await page.addInitScript(TRANSLATION_ON);
 	const level = process.env.SEANCE_REAL_MODELS ?? "";
 
 	if (level !== "1" && level !== "all") {

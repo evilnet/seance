@@ -22,6 +22,7 @@
 // fake out.
 
 import {readFileSync} from "node:fs";
+import {TRANSLATION_ON} from "./lib/translation.mjs";
 
 const BASE = process.env.SEANCE_HTTP ?? "http://localhost:8021/";
 const EN = JSON.parse(readFileSync("client/locales/en.json", "utf8"));
@@ -63,6 +64,8 @@ async function clickButton(page, label) {
 }
 
 export default async function run(page) {
+	// Translation ships switched off (settings.ts translationEnabled).
+	await page.addInitScript(TRANSLATION_ON);
 	await page.addInitScript(CHOOSE_SMALL);
 	await page.goto(page.url, {waitForSelector: "#connect form"});
 	await page.evaluate(START);
