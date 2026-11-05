@@ -156,7 +156,10 @@ const defaultConfig = {
 	// client/js/i18n/available.ts (generated). apply() resolves, lazy-loads
 	// the catalog, sets <html lang>/<html dir> and mirrors the tag to the
 	// push worker. Nothing renders before boot's applyAll, and the pre-paint
-	// script in index.html covers the direction before that.
+	// script in index.html covers the direction before that. It is also
+	// translation's reading target: one language everywhere (the Settings →
+	// Translation select and the dev sidebar globe both write this), which
+	// reader.ts `readingLanguage()` reads through `userLanguageRef`.
 	locale: {
 		default: "auto",
 		apply(store: TypedStore, value: string) {
@@ -204,13 +207,6 @@ const defaultConfig = {
 	pushKeyChange: {
 		default: "ask",
 	},
-	/**
-	 * Translation (client/js/translate): one language everywhere — the
-	 * interface's and the reading target's (the unified control; the
-	 * Settings → Translation select and the dev sidebar globe both write
-	 * this). "auto" resolves from the browser. reader.ts
-	 * `readingLanguage()` reads it through `userLanguageRef`.
-	 */
 	/**
 	 * Translate messages on this device (Settings → Translation). Off by
 	 * default, for new and existing users alike: translation runs only where

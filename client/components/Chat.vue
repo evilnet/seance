@@ -79,9 +79,9 @@
 					>
 						<button
 							class="translate"
-							:class="{on: translationOn, unavailable: translationBlocked}"
+							:class="{on: channelReads, unavailable: translationBlocked}"
 							:aria-label="translateLabel"
-							:aria-pressed="touch ? undefined : translationOn"
+							:aria-pressed="touch ? undefined : channelReads"
 							:aria-expanded="translationPanelOpen"
 							@click="onTranslateClick"
 							@contextmenu.prevent="openTranslationPanel"
@@ -406,7 +406,7 @@ export default defineComponent({
 				translationAvailableNow()
 		);
 		// The light means reading; a write target shows in the tooltip.
-		const translationOn = computed(() => translationState.value.read);
+		const channelReads = computed(() => translationState.value.read);
 		// A touch device has no right-click, so the tap is what opens the
 		// panel there and the button says so; the click keeps toggling
 		// reading where there is a pointer.
@@ -574,7 +574,7 @@ export default defineComponent({
 			openMentions,
 			translationPanelOpen,
 			translationAvailable,
-			translationOn,
+			channelReads,
 			translationBlocked,
 			translateLabel,
 			touch,
