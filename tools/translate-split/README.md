@@ -42,7 +42,8 @@ not load, and says why.
   manifest (or a local one) and prints the four embedding records and the
   largest tensor, failing when that is not what `models.ts` says.
 - The library itself: `client/models/qwen3-1.7b-q4f16_1-split-<sha256-8>.wasm`,
-  copied to `public/models/` by webpack; `models.ts` `QWEN3_1_7B_SPLIT_LIB`
+  copied to `public/models/` by the translation worker's build
+  (`vite.translate.config.mts` `workerAssets`); `models.ts` `QWEN3_1_7B_SPLIT_LIB`
   names it. WebLLM caches a library by URL, so a rebuilt one needs a new name.
 
 ## Versions

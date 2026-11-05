@@ -1,6 +1,7 @@
-// What vite.config.mts and vite.push.config.mts share: the build's identity
-// and its `process.env.*` defines, the deploy's branding, and the text
-// transforms applied to the files copied into public/.
+// What vite.config.mts, vite.push.config.mts and vite.translate.config.mts
+// share: the build's identity and its `process.env.*` defines, the deploy's
+// branding, the text transforms applied to the files copied into public/,
+// and the licence banners of the lazy chunks and the translation worker.
 import * as path from "path";
 import {execFileSync} from "child_process";
 import {createHash} from "crypto";
