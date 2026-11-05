@@ -79,7 +79,7 @@
 								>{{ group.unread }}</span
 							>
 						</button>
-						<!-- A conversation this page no longer has: reading cannot clear it. While
+						<!-- A conversation this page no longer has: reading cannot mark it. While
 						     offline it is only not back yet, and a row's × is still there. -->
 						<button
 							v-if="!group.conversation && group.network?.status.connected !== false"

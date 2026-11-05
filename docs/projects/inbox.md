@@ -5,8 +5,9 @@ Status: step 1 (client-only) built; step 2 (server) to be proposed on the issue.
 
 ## Goal
 
-One list of the messages that mentioned you and that you have not read, the
-same on every device, cleared by reading them anywhere. The server stores
+One list of the messages that mentioned you, the same on every device, those
+you have not read counted and the rest dimmed, with reading them anywhere
+clearing the count. The server stores
 little and cleans up after itself.
 
 ## Shape

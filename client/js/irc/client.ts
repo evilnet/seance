@@ -2353,11 +2353,6 @@ export class IrcClient {
 		return this.activeChanId;
 	}
 
-	/**
-	 * The UI opened `chanId` (or 0 for none): unread counters restart there,
-	 * a pending catch-up is served now, and the channel modes are asked for
-	 * the first time round.
-	 */
 	/** Someone is reading `chan`: it is open, they are looking, and no jump holds it. */
 	isReading(chan: Channel): boolean {
 		return chan.id === this.activeChanId && this.presence.attended && !chan.readHeld;
@@ -2498,6 +2493,11 @@ export class IrcClient {
 		this.bus.dispatch(event, ...args);
 	}
 
+	/**
+	 * The UI opened `chanId` (or 0 for none): unread counters restart there,
+	 * a pending catch-up is served now, and the channel modes are asked for
+	 * the first time round.
+	 */
 	open(chanId: number): void {
 		this.activeChanId = chanId;
 		const chan = this.channelById(chanId);
