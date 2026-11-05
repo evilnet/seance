@@ -917,7 +917,7 @@ export default defineComponent({
 			void nextTick(() => {
 				document
 					.elementFromPoint(event.clientX, event.clientY)
-					?.closest<HTMLElement>("button:not(.mentions), a[href], [role='button']")
+					?.closest<HTMLElement>("button:not(.mentions)")
 					?.click();
 			});
 		};

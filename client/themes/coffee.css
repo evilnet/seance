@@ -274,7 +274,10 @@ alike); only a subscribed bell is green. */
 	border-color: var(--composer-border);
 }
 
-#chat .userlist .count,
+#chat .userlist .count {
+	background-color: var(--composer-bg);
+}
+
 #chat .count::before {
 	color: var(--chat-fg-faint);
 }

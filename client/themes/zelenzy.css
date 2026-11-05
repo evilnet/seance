@@ -216,8 +216,6 @@ html[data-contrast="more"] :is(.window:not(#chat), .mentions-popup) {
 	color: #fff;
 }
 
-
-
 #chat .userlist .user.active {
 	background: var(--win-select);
 	color: #fff;
