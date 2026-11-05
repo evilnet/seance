@@ -567,6 +567,12 @@ export default async function run(page) {
 
 	// Send from the past: back to the present, where the line lands.
 	if (!touch) {
+		await page.evaluate(`document.querySelector("#form").requestSubmit()`);
+		await page.sleep(200);
+		await page.check(
+			"an empty composer stays in the past",
+			await page.evaluate(`!!document.querySelector("${BAR}")`)
+		);
 		await page.evaluate(`(() => {
 			const input = document.querySelector("#input");
 			input.value = ${JSON.stringify(`sent from the past ${RUN}`)};
@@ -608,7 +614,12 @@ export default async function run(page) {
 		await page.evaluate(`!!document.querySelector("${BAR}")`)
 	);
 	await page.screenshot("5b-at-the-quote");
-	await leavePast();
+	if (touch) {
+		await leavePast();
+	} else {
+		await key(page, "Escape", "Escape", 27);
+		await page.waitFor(`!document.querySelector("${BAR}")`, {label: "Escape left the past"});
+	}
 	await page.check(
 		"Jump to present is the bottom of the channel",
 		await page.evaluate(

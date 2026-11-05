@@ -379,12 +379,18 @@ export default async function run(page) {
 			(await text(page, ".past-bar-text")).includes("older messages")
 	);
 	await page.screenshot("8-far-hit");
-	await page.click(".past-bar .btn");
+	const backFrom = page.wsFrames.length;
+	await page.click(".past-bar-back");
 	await page.waitFor(`document.querySelector("${ROWS}")`, {
 		timeout: 10000,
 		label: "back to the results",
 	});
-	page.check("8. Back to results gets them again", (await count(page, ROWS)) > 0);
+	page.check(
+		"8. Back to results restores them, focused on the hit, with no new search",
+		(await count(page, ROWS)) > 0 &&
+			sentCommands(page, backFrom, /SEARCH /).length === 0 &&
+			(await page.evaluate(`document.activeElement?.matches("${ROWS}")`))
+	);
 
 	talker.quit();
 }
