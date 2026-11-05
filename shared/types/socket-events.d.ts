@@ -148,7 +148,7 @@ interface ServerToClientEvents {
 		end?: boolean;
 	}>;
 
-	/** A line changed, loaded or not: all a past view hears (see bus-contract §1.4). */
+	/** A line changed, loaded or not: all a past view hears (see bus-contract §1.2). */
 	"msg:changed": EventHandler<{
 		chan: number;
 		msgid: string;

@@ -866,7 +866,7 @@ export default defineComponent({
 				autocompletionRef.value.hide();
 			}
 
-			// Sending goes back to the present, where what is sent will appear.
+			// What this brings lands in the present, so that is where to be.
 			closePast(props.channel);
 			store.commit("searchReturn", null);
 
@@ -1179,7 +1179,13 @@ export default defineComponent({
 			upload.abort();
 		};
 
-		const blurInput = () => {
+		// Out of older messages first, as Discord's Escape does; then out of the field.
+		const blurInput = (layer: string | null) => {
+			if (layer === null && props.channel.past) {
+				closePast(props.channel);
+				return;
+			}
+
 			input.value?.blur();
 		};
 

@@ -14,7 +14,7 @@ import type {SearchAttrs} from "../../shared/types/search";
 import {MessageType, type SharedMsg} from "../../shared/types/msg";
 
 /** Message types whose `text` is user chat rather than protocol noise. */
-export const SEARCHABLE_MESSAGE_TYPES: ReadonlySet<MessageType> = new Set<MessageType>([
+const SEARCHABLE_MESSAGE_TYPES: ReadonlySet<MessageType> = new Set<MessageType>([
 	MessageType.MESSAGE,
 	MessageType.ACTION,
 	MessageType.NOTICE,

@@ -34,6 +34,15 @@ describe("helpers/pastRows.ts", function () {
 		expect(rows.map((r) => r.id)).to.deep.equal([1, 9, 2]);
 	});
 
+	it("leaves the caller's edit as it came, for the channel's buffer", function () {
+		const rows = [row(1, "a")];
+		const edit = {...row(9, "e"), editOf: "a", time: new Date(9000)} as SharedMsg;
+
+		expect(editRow(rows, edit)).to.equal(true);
+		expect(edit.time).to.deep.equal(new Date(9000));
+		expect(rows.find((r) => r.id === 9)).to.not.equal(edit);
+	});
+
 	it("ignores an edit by anyone but the author, or of a line not here", function () {
 		const rows = [row(1, "a")];
 		expect(editRow(rows, {...row(9, "e", "eve"), editOf: "a"})).to.equal(false);

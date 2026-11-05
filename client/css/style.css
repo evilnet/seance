@@ -3113,13 +3113,19 @@ html[data-reduce-motion] #chat .connecting-indicator {
 	color: var(--body-color-muted);
 }
 
-.past-bar-spacer {
-	flex: 1;
-}
-
 .past-bar .btn {
 	flex: none;
 	margin: 0;
+}
+
+.past-bar .btn:first-of-type {
+	margin-inline-start: auto;
+}
+
+@media (max-width: 768px) {
+	.past-bar .btn {
+		min-height: 2.75rem;
+	}
 }
 
 .scroll-down:focus:not(:focus-visible)::before,

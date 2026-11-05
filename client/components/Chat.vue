@@ -143,20 +143,20 @@
 						:focused="focused"
 					/>
 				</div>
-				<div v-if="channel.past || searchBack" class="past-bar" role="status">
-					<span v-if="channel.past" class="past-bar-text">{{
-						channel.past.failed
-							? "Could not load more. Scroll to try again."
-							: "You're viewing older messages"
-					}}</span>
-					<span class="past-bar-spacer" />
-					<button v-if="searchBack" class="btn btn-sm" @click="backToResults">
+				<p class="sr-only" role="status">{{ pastStatus }}</p>
+				<div v-if="channel.past || channel.pastOpening || searchBack" class="past-bar">
+					<span v-if="pastStatus" class="past-bar-text">{{ pastStatus }}</span>
+					<button
+						v-if="searchBack"
+						class="btn btn-sm past-bar-back"
+						@click="backToResults"
+					>
 						Back to results
 					</button>
 					<button
 						v-if="channel.past"
 						class="btn btn-sm past-bar-present"
-						@click="closePast(channel)"
+						@click="leavePast"
 					>
 						Jump to present
 					</button>
@@ -250,16 +250,33 @@ export default defineComponent({
 		const searchBack = computed(() =>
 			store.state.searchReturn?.chanId === props.channel.id ? store.state.searchReturn : null
 		);
+		const pastStatus = computed(() => {
+			if (props.channel.pastOpening) {
+				return "Loading that message…";
+			}
+
+			if (!props.channel.past) {
+				return "";
+			}
+
+			return props.channel.past.failed
+				? "Could not load more. Scroll to try again."
+				: "You're viewing older messages";
+		});
+		// The button goes with the view: the focus goes where the reader types.
+		const leavePast = () => {
+			closePast(props.channel);
+			eventbus.emit("input:focus");
+		};
 		onUnmounted(() => store.commit("searchReturn", null));
 		const backToResults = () => {
 			const back = searchBack.value;
 
 			if (back) {
-				store.commit("searchReturn", null);
 				void router.replace({
 					name: "SearchResults",
 					params: {id: back.windowId},
-					query: {q: back.q},
+					query: {q: back.q, back: "1"},
 				});
 			}
 		};
@@ -597,7 +614,8 @@ export default defineComponent({
 
 		return {
 			backToResults,
-			closePast,
+			leavePast,
+			pastStatus,
 			searchBack,
 			store,
 			t,

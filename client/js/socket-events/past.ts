@@ -6,12 +6,13 @@ import {store} from "../store";
 import {attachMediaPreviews} from "../helpers/messagePreviews";
 import {applyReaction, applyRedaction} from "../helpers/messageUpdates";
 import {mergePage} from "../helpers/pastRows";
+import {settled} from "../helpers/scrollSettle";
 import {takePending} from "../pastView";
 
 /** How long after a failed page a scroll may ask for it again. */
 const RETRY_AFTER_MS = 5000;
 
-socket.on("search:context", (data) => {
+socket.on("search:context", async (data) => {
 	const request = takePending(data.requestId);
 	const found = request && store.getters.findChannel(request.channel.id);
 
@@ -26,6 +27,7 @@ socket.on("search:context", (data) => {
 	if (request.direction === "AROUND") {
 		// Lands or not, the jump that asked is over.
 		store.commit("jumpTarget", null);
+		channel.pastOpening = false;
 
 		// The server need not hold the line, and a server without
 		// labeled-response cannot be asked: the conversation just stays open.
@@ -40,11 +42,13 @@ socket.on("search:context", (data) => {
 				failed: false,
 				retryAt: 0,
 			};
-		} else if (data.status !== "unsupported") {
+		} else {
 			store.commit(
 				"currentUserVisibleError",
 				data.status === "ok"
 					? "That message is no longer available."
+					: data.status === "unsupported"
+					? "This server cannot fetch older messages."
 					: "That message could not be loaded."
 			);
 		}
@@ -54,6 +58,16 @@ socket.on("search:context", (data) => {
 
 	if (!past) {
 		return;
+	}
+
+	// As a channel's page does (socket-events/more.ts): one landing on a list
+	// still moving cannot be placed.
+	if (store.state.activeChannel?.channel === channel) {
+		await settled();
+	}
+
+	if (channel.past !== past || past.loading !== request.direction) {
+		return; // closed or moved on meanwhile
 	}
 
 	past.loading = null;

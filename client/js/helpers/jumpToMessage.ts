@@ -9,7 +9,7 @@ export type JumpTarget = {
 	id?: number;
 };
 
-export type JumpStep =
+type JumpStep =
 	| {kind: "found"; id: number}
 	/** Nothing can be told until the channel's first page has landed. */
 	| {kind: "first-page"}

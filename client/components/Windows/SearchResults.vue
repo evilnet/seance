@@ -95,8 +95,11 @@
 						{{ t("search.window.stale") }}
 					</p>
 
+					<p v-if="hitError" class="search-stale" role="status">{{ hitError }}</p>
+
 					<div class="search-panes">
 						<div
+							ref="list"
 							class="search-list"
 							:class="{stale: stale && criteria}"
 							:inert="filtersOpen"
@@ -175,6 +178,7 @@
 										v-for="hit in group.hits"
 										:key="hit.msg.id"
 										class="search-hit"
+										:data-hit="hit.msg.id"
 										role="button"
 										tabindex="0"
 										@click="clickHit($event, hit)"
@@ -535,7 +539,7 @@
 
 <script lang="ts">
 import dayjs from "dayjs";
-import {computed, defineComponent, onMounted, onUnmounted, ref, watch} from "vue";
+import {computed, defineComponent, nextTick, onMounted, onUnmounted, ref, watch} from "vue";
 import {useRoute, useRouter} from "vue-router";
 
 import eventbus from "../../js/eventbus";
@@ -550,7 +554,6 @@ import {
 	matchSpans,
 	parseSearchQuery,
 	rowKey,
-	SEARCHABLE_MESSAGE_TYPES,
 	serverAttrs,
 	type SearchFilters,
 } from "../../js/searchQuery";
@@ -583,6 +586,17 @@ interface Chip {
 	value: string;
 }
 
+/** Left for a hit: what Back to results restores. */
+type KeptResults = {
+	q: string;
+	rows: SearchHit[];
+	mode: Mode;
+	reachedEnd: boolean;
+	scrollTop: number;
+	hit: number;
+};
+let kept: KeptResults | null = null;
+
 export default defineComponent({
 	name: "SearchResults",
 	components: {I18nFrame, ParsedMessage, SearchFilterSheet, Username},
@@ -603,6 +617,8 @@ export default defineComponent({
 		const reachedEnd = ref(false);
 		const error = ref("");
 		const olderError = ref("");
+		const hitError = ref("");
+		const list = ref<HTMLElement>();
 		let requestId = 0;
 
 		const query = computed(() => String(route.query.q ?? "").trim());
@@ -773,6 +789,7 @@ export default defineComponent({
 		const run = () => {
 			requestId = 0;
 			rows.value = [];
+			hitError.value = "";
 			error.value = "";
 			olderError.value = "";
 			reachedEnd.value = false;
@@ -791,6 +808,20 @@ export default defineComponent({
 				requestId,
 				attrs: serverAttrs(filters.value, scopeDefault.value, undefined, PAGE_SIZE),
 			});
+		};
+
+		const restoreResults = async (from: KeptResults) => {
+			rows.value = from.rows;
+			mode.value = from.mode;
+			reachedEnd.value = from.reachedEnd;
+			await nextTick();
+
+			if (list.value) {
+				list.value.scrollTop = from.scrollTop;
+				list.value
+					.querySelector<HTMLElement>(`[data-hit="${from.hit}"]`)
+					?.focus({preventScroll: true});
+			}
 		};
 
 		const loadOlder = () => {
@@ -878,17 +909,20 @@ export default defineComponent({
 			rows.value = [...rows.value, ...fresh.reverse()].sort(newestFirst);
 		};
 
-		// To the message itself. The results come back with the bar's Back to results.
+		// To the message itself. The results come back with the bar's Back to
+		// results, as they were: asking again costs a command and the older pages.
 		const openHit = (hit: SearchHit) => {
 			const chat = findChat(hit.target);
 
 			if (!chat) {
-				store.commit("currentUserVisibleError", `Join ${hit.target} to read this message.`);
+				hitError.value = hit.target.startsWith("#")
+					? `Join ${hit.target} to read this message.`
+					: `Open a conversation with ${hit.target} to read this message.`;
 				return;
 			}
 
 			const twin = hit.msg.msgid
-				? chat.messages.find((msg) => msg.msgid === hit.msg.msgid)
+				? undefined
 				: chat.messages.find((msg) => msg.id === hit.msg.id);
 
 			setReadHold(chat, true);
@@ -902,12 +936,25 @@ export default defineComponent({
 				windowId: parseInt(String(route.params.id), 10),
 				q: query.value,
 			});
+			kept = {
+				q: query.value,
+				rows: rows.value,
+				mode: mode.value,
+				reachedEnd: reachedEnd.value,
+				scrollTop: list.value?.scrollTop ?? 0,
+				hit: hit.msg.id,
+			};
 			switchToChannel(chat);
 		};
 
 		// A link or a spoiler in the line does its own thing.
 		const clickHit = (event: MouseEvent, hit: SearchHit) => {
-			if (!(event.target as Element).closest("a, button, .md-spoiler")) {
+			if (
+				!(event.target as Element).closest(
+					"a, button, .user, .inline-channel, .md-spoiler"
+				) &&
+				!window.getSelection()?.toString()
+			) {
 				openHit(hit);
 			}
 		};
@@ -1019,7 +1066,14 @@ export default defineComponent({
 
 			socket.on("search:results", onResults);
 			eventbus.on("escapekey", onEscape);
-			run();
+
+			if (route.query.back && kept?.q === query.value) {
+				restoreResults(kept);
+			} else {
+				run();
+			}
+
+			kept = null;
 
 			if (!query.value) {
 				queryField.value?.focus();
@@ -1064,6 +1118,8 @@ export default defineComponent({
 			oldestLabel,
 			olderError,
 			clickHit,
+			hitError,
+			list,
 			openHit,
 			queryField,
 			removeChip,

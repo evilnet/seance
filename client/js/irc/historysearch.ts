@@ -1,13 +1,13 @@
 /**
  * Searching the server's history (`soju.im/search`), and reading the lines
- * around a hit (`CHATHISTORY AROUND|BEFORE|AFTER`) for the search window.
+ * around a message (`CHATHISTORY AROUND|BEFORE|AFTER`) for a past view.
  *
- * The replies feed the window and nothing else. They go through the normal
+ * The replies feed those and nothing else. They go through the normal
  * handlers in collect mode so a row looks like any other message (ACTION,
  * multi-line, formatting), but unlike `history.ts` they never reach a channel:
  * no unread counts, no catch-up cursor, no query opened or logged, and a row
- * the channel already shows is still a hit, so there is no msgid dedupe. The
- * work collect mode queues for after delivery (reactions, edits) is dropped,
+ * the channel already shows is still a hit, so there is no msgid dedupe. A
+ * page's reactions, deletions and edits apply to its own rows ({@link withUpdates}),
  * and no handler reaches the bus while a row is collected.
  *
  * Without a registered batch handler a `search` batch would be unwrapped and

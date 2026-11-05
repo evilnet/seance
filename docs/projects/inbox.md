@@ -86,9 +86,11 @@ than what is loaded opens a **past view** (`client/js/pastView.ts`): one
 place of `channel.messages`, which stays one unbroken run and goes on taking
 live lines, the unread count with them. Scrolling to either end asks for the
 next page. The bar over the composer says the reader is among older messages,
-with Jump to present; scrolling off the newest end, or sending, gets there too.
-A past row offers no Edit: an edit's place is the recent lines. Reactions and
-deletions reach it (`msg:changed`). Nothing of a past view is kept: leaving the
+with Jump to present; scrolling off the newest end, Escape, or sending gets
+there too. While the lines are on their way the bar says that. A past row offers
+no Edit, since an edit's place is the recent lines, but others' edits, reactions
+and deletions reach it (`msg:changed`). An edit in a later page of a line in an
+earlier one shows as a second row. Nothing of a past view is kept: leaving the
 channel closes it. A line the server does not have says so and stays put. The
 logic is `helpers/jumpToMessage.ts` and `helpers/pastRows.ts` (Vue-free,
 `test/helpers/`).

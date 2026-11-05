@@ -75,7 +75,7 @@ import {noteScroll, noteTouch} from "../js/helpers/scrollSettle";
 import {selectionActive, unwatchSelection, watchSelection} from "../js/helpers/touchSelection";
 import socket from "../js/socket";
 import {setReadHold} from "../js/helpers/readHold";
-import {closePast, openPast, pastPage} from "../js/pastView";
+import {cancelPastRequests, closePast, openPast, pastPage} from "../js/pastView";
 import {jumpStep, revealMessage, type JumpTarget} from "../js/helpers/jumpToMessage";
 import Message from "./Message.vue";
 import MessageCondensed from "./MessageCondensed.vue";
@@ -152,6 +152,8 @@ export default defineComponent({
 
 		/** Re-arm on a scroll that is not the tail of the last prepend. */
 		const REARM_AFTER_MS = 400;
+		/** Pages a past view too short to scroll asks for on its own. */
+		const MAX_AUTO_FILLS = 3;
 		/** How long a compensation is re-checked against a momentum scroll. */
 		const VERIFY_FOR_MS = 600;
 		const ANCHOR_TOLERANCE = 4;
@@ -328,10 +330,12 @@ export default defineComponent({
 				return;
 			}
 
+			// A new jump replaces whatever an earlier one still waits for.
 			if (jumping !== target) {
 				jumping = target;
 				firstPageAsked = false;
 				pastAsked = false;
+				cancelPastRequests(props.channel);
 			}
 
 			if (props.channel.historyLoading || pastAsked) {
@@ -391,12 +395,24 @@ export default defineComponent({
 			}
 		};
 
-		// Too few lines to scroll, so nothing a scroll could ask for more with.
+		// Too few lines to scroll, so nothing a scroll could ask for more with. Each
+		// is a command on the server's clock, so only a few without a gesture.
+		let autoFills = 0;
+
 		const askIfShort = () => {
 			const el = chat.value;
 			const past = props.channel.past;
 
-			if (el && past && el.scrollHeight <= el.clientHeight && !past.loading) {
+			if (
+				el &&
+				past &&
+				!past.loading &&
+				Date.now() >= past.retryAt &&
+				autoFills < MAX_AUTO_FILLS &&
+				el.scrollHeight <= el.clientHeight &&
+				(past.canEarlier || past.canLater)
+			) {
+				autoFills++;
 				pastPage(props.network, props.channel, past.canEarlier ? "BEFORE" : "AFTER");
 			}
 		};
@@ -408,6 +424,7 @@ export default defineComponent({
 				const past = props.channel.past;
 
 				if (past && msgid) {
+					autoFills = 0;
 					past.reveal = null;
 					const row = past.rows.find((m) => m.msgid === msgid);
 
@@ -435,10 +452,19 @@ export default defineComponent({
 
 			if (!past.canLater && fromBottom <= 30) {
 				closePast(props.channel);
-			} else if (past.canLater && fromBottom < margin && autoLoadArmed) {
-				pastPage(props.network, props.channel, "AFTER");
-			} else if (past.canEarlier && el.scrollTop < margin && autoLoadArmed) {
-				pastPage(props.network, props.channel, "BEFORE");
+			} else if (autoLoadArmed && Date.now() >= past.retryAt) {
+				const where =
+					past.canLater && fromBottom < margin
+						? "AFTER"
+						: past.canEarlier && el.scrollTop < margin
+						? "BEFORE"
+						: null;
+
+				if (where) {
+					// One page a gesture, whatever the list does when it lands.
+					autoLoadArmed = false;
+					pastPage(props.network, props.channel, where);
+				}
 			}
 		};
 
@@ -453,10 +479,20 @@ export default defineComponent({
 			{flush: "post"}
 		);
 
-		// A page landed: the place holds (keepScrollPosition), and it may not fill the list.
+		// A page landed. The place holds (keepScrollPosition), it may not fill the
+		// list, and an empty one at the newest end scrolls nothing to say so.
 		watch(
-			() => props.channel.past?.rows,
-			() => askIfShort(),
+			() => [props.channel.past?.rows, props.channel.past?.canLater],
+			() => {
+				const el = chat.value;
+				const past = props.channel.past;
+
+				if (el && past && !past.canLater && !past.loading && isAtBottom()) {
+					closePast(props.channel);
+				} else {
+					askIfShort();
+				}
+			},
 			{flush: "post"}
 		);
 

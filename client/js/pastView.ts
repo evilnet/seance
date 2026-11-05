@@ -3,6 +3,7 @@
 // stays what it was and goes on taking live lines. Nothing here is kept: leaving
 // the channel closes it.
 import socket from "./socket";
+import {store} from "./store";
 import {pageEdge} from "./helpers/pastRows";
 import type {ClientChan, ClientNetwork} from "./types";
 
@@ -43,9 +44,29 @@ export function takePending(requestId: number): Pending | undefined {
 	return request;
 }
 
+/** Forget what was asked, so no answer can land. A page's view stops waiting for it. */
+export function cancelPastRequests(channel: ClientChan): boolean {
+	let opening = false;
+
+	for (const request of pending.values()) {
+		if (request.channel === channel) {
+			opening ||= request.direction === "AROUND";
+			pending.delete(request.requestId);
+		}
+	}
+
+	if (channel.past) {
+		channel.past.loading = null;
+	}
+
+	channel.pastOpening = false;
+	return opening;
+}
+
 /** Ask for the lines around `msgid`; the view opens when they land (socket-events/past.ts). */
 export function openPast(network: ClientNetwork, channel: ClientChan, msgid: string): void {
-	cancelPending(channel);
+	cancelPastRequests(channel);
+	channel.pastOpening = true;
 	ask(network, channel, {direction: "AROUND", msgid});
 }
 
@@ -59,7 +80,7 @@ export function pastPage(
 	const more = where === "BEFORE" ? past?.canEarlier : past?.canLater;
 	const msgid = past && pageEdge(past.rows, where);
 
-	if (!past || !more || past.loading || !msgid || Date.now() < past.retryAt) {
+	if (!past || !more || past.loading || !msgid) {
 		return;
 	}
 
@@ -67,16 +88,11 @@ export function pastPage(
 	ask(network, channel, {direction: where, msgid});
 }
 
-function cancelPending(channel: ClientChan): void {
-	for (const request of pending.values()) {
-		if (request.channel === channel) {
-			pending.delete(request.requestId);
-		}
-	}
-}
-
-/** Back to the channel's own lines. */
+/** Back to the channel's own lines. A jump still waiting for its view ends here too. */
 export function closePast(channel: ClientChan): void {
-	cancelPending(channel);
+	if (cancelPastRequests(channel) && store.state.jumpTarget?.chanId === channel.id) {
+		store.commit("jumpTarget", null);
+	}
+
 	channel.past = null;
 }

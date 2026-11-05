@@ -34,7 +34,8 @@ export function editRow<T extends SharedMsg>(rows: T[], edit: T): boolean {
 		return false;
 	}
 
-	rows.push(edit);
+	// Its own copy: placing an edit dates it as its original, and the buffer has this one too.
+	rows.push({...edit});
 	applyEdit(rows, original.id, edit.id);
 	return true;
 }
