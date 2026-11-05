@@ -116,18 +116,6 @@ msgid_plural "Open your mentions, {count} unread"
 msgstr[0] "Ihre Erwähnungen öffnen, {count} ungelesen"
 msgstr[1] "Ihre Erwähnungen öffnen, {count} ungelesen"
 
-#. Button on the bar shown while reading older messages in the main window: returns to the search results this message was opened from.
-#: client/components/Chat.vue
-msgctxt "chat.past.backToResults"
-msgid "Back to results"
-msgstr ""
-
-#. Past view bar: the button beside Back to results that forgets those results
-#: client/components/Chat.vue
-msgctxt "chat.past.dismissResults"
-msgid "Dismiss the search results"
-msgstr ""
-
 #. Error toast: the server answered, but no longer has the older message the reader asked to go to.
 #: client/js/socket-events/past.ts
 msgctxt "chat.past.gone"
@@ -11784,12 +11772,6 @@ msgctxt "search.openForm"
 msgid "Search messages in this channel"
 msgstr "Nachrichten in diesem Kanal durchsuchen"
 
-#. Placeholder of the message-search field that opens from the magnifier in a chat window's header; it filters this conversation's history.
-#: client/components/MessageSearchForm.vue:10
-msgctxt "search.placeholder"
-msgid "Search messages…"
-msgstr "Nachrichten durchsuchen…"
-
 #. aria-label of the search-results view of the chat window, which lists the messages matching a search.
 #: client/components/Windows/SearchResults.vue
 msgctxt "search.results.aria"
@@ -11822,17 +11804,17 @@ msgctxt "search.window.asking"
 msgid "Asking the server…"
 msgstr "Der Server wird gefragt…"
 
-#. Search window (searching the chat history of the server, or of what is loaded on this device): label and tooltip of the back button at the top left: closes the search and returns to that chat. {channel} is the channel or conversation name (verbatim).
-#: client/components/Windows/SearchResults.vue
-msgctxt "search.window.back"
-msgid "Back to {channel}"
-msgstr "Zurück zu {channel}"
-
 #. Search window (searching the chat history of the server, or of what is loaded on this device): in the status line under the results, after the count: how far back the search went. {when} is a day and a time, already formatted. Lower case.
 #: client/components/Windows/SearchResults.vue
 msgctxt "search.window.backTo"
 msgid "back to {when}"
 msgstr "bis {when}"
+
+#. Search panel (searching the chat history of the server, or of what is loaded on this device), beside the chat on a wide screen and over it on a phone: on a phone, the text button beside the search field that closes the search and returns to the chat.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.cancel"
+msgid "Cancel"
+msgstr ""
 
 #. Search window (searching the chat history of the server, or of what is loaded on this device): name of a filter: messages from one services account (the identity a user is logged in as, whatever their nick). Also the field's label in the filters sheet. One word.
 #: client/components/Windows/SearchResults.vue
@@ -11875,6 +11857,19 @@ msgstr "Enthält"
 msgctxt "search.window.chip.without"
 msgid "Without"
 msgstr "Ohne"
+
+#. Search panel (searching the chat history of the server, or of what is loaded on this device), beside the chat on a wide screen and over it on a phone: button beside the Recent searches heading that forgets that list on this device.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.clearRecent"
+msgid "Clear"
+msgstr ""
+
+#. Search panel (searching the chat history of the server, or of what is loaded on this device), beside the chat on a wide screen and over it on a phone: label and tooltip of the ✕ button that closes the panel; also the label of the header's magnifier while the panel is open.
+#: client/components/Windows/SearchResults.vue
+#: client/components/MessageSearchForm.vue
+msgctxt "search.window.close"
+msgid "Close search"
+msgstr ""
 
 #. Search window (searching the chat history of the server, or of what is loaded on this device): a day and a time together (how far back the search went). {day} is a short date ('4 Nov'), {time} a clock time. Order and punctuation are your language's.
 #: client/components/Windows/SearchResults.vue
@@ -12027,6 +12022,18 @@ msgstr ""
 msgctxt "search.window.placeholder"
 msgid "Search {scope}"
 msgstr "{scope} durchsuchen"
+
+#. Search panel (searching the chat history of the server, or of what is loaded on this device), beside the chat on a wide screen and over it on a phone: placeholder of the search field where there is a keyboard; says the Escape key closes the panel. {scope} is a channel name (verbatim) or 'all my channels' (search.window.allChannels). Esc is the key's name as printed on keyboards.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.placeholderEsc"
+msgid "Search {scope} (Esc to close)"
+msgstr ""
+
+#. Search panel (searching the chat history of the server, or of what is loaded on this device), beside the chat on a wide screen and over it on a phone: heading of the list of searches run lately on this device, shown under the empty field.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.recent"
+msgid "Recent searches"
+msgstr ""
 
 #. Search window (searching the chat history of the server, or of what is loaded on this device): aria-label of the × on a filter chip. {filter} is the filter's name (From, Account, Date, Has, Without).
 #: client/components/Windows/SearchResults.vue

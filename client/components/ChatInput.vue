@@ -868,7 +868,6 @@ export default defineComponent({
 
 			// What this brings lands in the present, so that is where to be.
 			closePast(props.channel);
-			store.commit("searchReturn", null);
 
 			props.channel.inputHistoryPosition = 0;
 			props.channel.pendingMessage = "";

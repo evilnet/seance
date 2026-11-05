@@ -2042,7 +2042,6 @@
   "search.filters.toDay": "Până la această zi",
   "search.filters.without": "Fără aceste cuvinte",
   "search.openForm": "Caută mesaje în acest canal",
-  "search.placeholder": "Caută mesaje…",
   "search.results.aria": "Rezultatele căutării",
   "search.window.allChannels": "toate canalele mele",
   "search.window.allHidden": {
@@ -2052,7 +2051,6 @@
   },
   "search.window.allHiddenNote": "Mesaje mai vechi s-ar putea potrivi în continuare. S-a căutat până la {when}.",
   "search.window.asking": "Se întreabă serverul…",
-  "search.window.back": "Înapoi la {channel}",
   "search.window.backTo": "până la {when}",
   "search.window.chip.account": "Cont",
   "search.window.chip.date": "Dată",

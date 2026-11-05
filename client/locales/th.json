@@ -1982,7 +1982,6 @@
   "search.filters.toDay": "ถึงวันนี้",
   "search.filters.without": "ไม่มีคำเหล่านี้",
   "search.openForm": "ค้นหาข้อความในช่องนี้",
-  "search.placeholder": "ค้นหาข้อความ…",
   "search.results.aria": "ผลการค้นหา",
   "search.window.allChannels": "ทุกช่องของฉัน",
   "search.window.allHidden": {
@@ -1990,7 +1989,6 @@
   },
   "search.window.allHiddenNote": "ข้อความที่เก่ากว่านี้อาจยังตรงกัน ค้นย้อนไปถึง {when}",
   "search.window.asking": "กำลังถามเซิร์ฟเวอร์…",
-  "search.window.back": "กลับไปที่ {channel}",
   "search.window.backTo": "ย้อนไปถึง {when}",
   "search.window.chip.account": "บัญชี",
   "search.window.chip.date": "วันที่",

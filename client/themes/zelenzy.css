@@ -216,15 +216,6 @@ html[data-contrast="more"] .window:not(#chat) {
 	color: #fff;
 }
 
-form.message-search input {
-	background-color: #fff;
-	color: #000;
-}
-
-form.message-search input::placeholder {
-	color: var(--rail-fg-muted);
-}
-
 #chat .userlist .user.active {
 	background: var(--win-select);
 	color: #fff;

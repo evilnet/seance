@@ -123,10 +123,6 @@ body {
 }
 
 /* Search Form */
-form.message-search input {
-	background-color: #28333d;
-}
-
 #chat form.message-search button {
 	color: #b7c5d1;
 }

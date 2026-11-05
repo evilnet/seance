@@ -2033,7 +2033,6 @@
   "search.filters.toDay": "Eddig a napig",
   "search.filters.without": "Ezek a szavak nélkül",
   "search.openForm": "Üzenetek keresése ebben a csatornában",
-  "search.placeholder": "Üzenetek keresése…",
   "search.results.aria": "Keresési eredmények",
   "search.window.allChannels": "összes csatornám",
   "search.window.allHidden": {
@@ -2042,7 +2041,6 @@
   },
   "search.window.allHiddenNote": "Régebbi üzenetek még illeszkedhetnek. A keresés eddig ment vissza: {when}.",
   "search.window.asking": "A szerver kérdezése…",
-  "search.window.back": "Vissza ide: {channel}",
   "search.window.backTo": "eddig: {when}",
   "search.window.chip.account": "Fiók",
   "search.window.chip.date": "Dátum",

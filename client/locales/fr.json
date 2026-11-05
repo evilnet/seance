@@ -1936,7 +1936,6 @@
   "search.filters.toDay": "Jusqu'à ce jour",
   "search.filters.without": "Sans ces mots",
   "search.openForm": "Chercher des messages dans ce canal",
-  "search.placeholder": "Chercher des messages…",
   "search.results.aria": "Résultats de la recherche",
   "search.window.allChannels": "tous mes salons",
   "search.window.allHidden": {
@@ -1945,7 +1944,6 @@
   },
   "search.window.allHiddenNote": "Des messages plus anciens peuvent encore correspondre. Recherche jusqu'au {when}.",
   "search.window.asking": "Interrogation du serveur…",
-  "search.window.back": "Retour à {channel}",
   "search.window.backTo": "jusqu'au {when}",
   "search.window.chip.account": "Compte",
   "search.window.chip.dateFrom": "du {day}",

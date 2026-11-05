@@ -2085,7 +2085,6 @@
   "search.filters.toDay": "Do tohto dňa",
   "search.filters.without": "Bez týchto slov",
   "search.openForm": "Hľadať správy v tomto kanáli",
-  "search.placeholder": "Hľadať správy…",
   "search.results.aria": "Výsledky hľadania",
   "search.window.allChannels": "všetky moje kanály",
   "search.window.allHidden": {
@@ -2095,7 +2094,6 @@
   },
   "search.window.allHiddenNote": "Staršie správy sa môžu stále zhodovať. Prehľadané späť do {when}.",
   "search.window.asking": "Pýtam sa servera…",
-  "search.window.back": "Späť do {channel}",
   "search.window.backTo": "späť do {when}",
   "search.window.chip.account": "Účet",
   "search.window.chip.date": "Dátum",

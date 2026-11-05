@@ -1939,7 +1939,6 @@
   "search.filters.toDay": "Tot en met deze dag",
   "search.filters.without": "Zonder deze woorden",
   "search.openForm": "Berichten in dit kanaal doorzoeken",
-  "search.placeholder": "Berichten zoeken…",
   "search.results.aria": "Zoekresultaten",
   "search.window.allChannels": "al mijn kanalen",
   "search.window.allHidden": {
@@ -1948,7 +1947,6 @@
   },
   "search.window.allHiddenNote": "Oudere berichten kunnen nog overeenkomen. Doorzocht tot {when}.",
   "search.window.asking": "De server wordt gevraagd…",
-  "search.window.back": "Terug naar {channel}",
   "search.window.backTo": "tot {when}",
   "search.window.chip.date": "Datum",
   "search.window.chip.dateFrom": "vanaf {day}",

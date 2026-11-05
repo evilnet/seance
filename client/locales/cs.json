@@ -2084,7 +2084,6 @@
   "search.filters.toDay": "Do tohoto dne",
   "search.filters.without": "Bez těchto slov",
   "search.openForm": "Hledat zprávy v tomto kanálu",
-  "search.placeholder": "Hledat zprávy…",
   "search.results.aria": "Výsledky hledání",
   "search.window.allChannels": "všechny mé kanály",
   "search.window.allHidden": {
@@ -2094,7 +2093,6 @@
   },
   "search.window.allHiddenNote": "Starší zprávy se mohou stále shodovat. Prohledáno zpět do {when}.",
   "search.window.asking": "Dotaz na server…",
-  "search.window.back": "Zpět do {channel}",
   "search.window.backTo": "zpět do {when}",
   "search.window.chip.account": "Účet",
   "search.window.chip.date": "Datum",

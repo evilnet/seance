@@ -2166,7 +2166,6 @@
   "search.filters.toDay": "По цей день",
   "search.filters.without": "Без цих слів",
   "search.openForm": "Пошук повідомлень у цьому каналі",
-  "search.placeholder": "Пошук повідомлень…",
   "search.results.aria": "Результати пошуку",
   "search.window.allChannels": "усі мої канали",
   "search.window.allHidden": {
@@ -2177,7 +2176,6 @@
   },
   "search.window.allHiddenNote": "Старіші повідомлення ще можуть підійти. Пошук дійшов до {when}.",
   "search.window.asking": "Запит до сервера…",
-  "search.window.back": "Назад до {channel}",
   "search.window.backTo": "до {when}",
   "search.window.chip.account": "Обліковий запис",
   "search.window.chip.date": "Дата",

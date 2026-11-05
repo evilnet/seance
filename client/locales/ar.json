@@ -2295,7 +2295,6 @@
   "search.filters.toDay": "حتى هذا اليوم",
   "search.filters.without": "دون هذه الكلمات",
   "search.openForm": "البحث عن رسائل في هذه القناة",
-  "search.placeholder": "البحث في الرسائل…",
   "search.results.aria": "نتائج البحث",
   "search.window.allChannels": "كل قنواتي",
   "search.window.allHidden": {
@@ -2308,7 +2307,6 @@
   },
   "search.window.allHiddenNote": "قد تطابق رسائل أقدم. جرى البحث حتى {when}.",
   "search.window.asking": "جارٍ سؤال الخادم…",
-  "search.window.back": "العودة إلى {channel}",
   "search.window.backTo": "حتى {when}",
   "search.window.chip.account": "الحساب",
   "search.window.chip.date": "التاريخ",

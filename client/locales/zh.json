@@ -1984,7 +1984,6 @@
   "search.filters.toDay": "截至这一天",
   "search.filters.without": "不含这些词",
   "search.openForm": "在此频道中搜索消息",
-  "search.placeholder": "搜索消息…",
   "search.results.aria": "搜索结果",
   "search.window.allChannels": "我的所有频道",
   "search.window.allHidden": {
@@ -1992,7 +1991,6 @@
   },
   "search.window.allHiddenNote": "更早的消息仍可能匹配。已搜索至 {when}。",
   "search.window.asking": "正在询问服务器…",
-  "search.window.back": "返回 {channel}",
   "search.window.backTo": "截至 {when}",
   "search.window.chip.account": "账号",
   "search.window.chip.date": "日期",

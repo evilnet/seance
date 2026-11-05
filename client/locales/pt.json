@@ -1996,7 +1996,6 @@
   "search.filters.toDay": "Até este dia",
   "search.filters.without": "Sem estas palavras",
   "search.openForm": "Buscar mensagens neste canal",
-  "search.placeholder": "Buscar mensagens…",
   "search.results.aria": "Resultados de busca",
   "search.window.allChannels": "todos os meus canais",
   "search.window.allHidden": {
@@ -2005,7 +2004,6 @@
   },
   "search.window.allHiddenNote": "Mensagens mais antigas ainda podem corresponder. Busca feita até {when}.",
   "search.window.asking": "Consultando o servidor…",
-  "search.window.back": "Voltar para {channel}",
   "search.window.backTo": "até {when}",
   "search.window.chip.account": "Conta",
   "search.window.chip.date": "Data",

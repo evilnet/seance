@@ -1956,7 +1956,6 @@
   "search.filters.toDay": "Hasta este día",
   "search.filters.without": "Sin estas palabras",
   "search.openForm": "Buscar mensajes en este canal",
-  "search.placeholder": "Buscar mensajes…",
   "search.results.aria": "Resultados de búsqueda",
   "search.window.allChannels": "todos mis canales",
   "search.window.allHidden": {
@@ -1965,7 +1964,6 @@
   },
   "search.window.allHiddenNote": "Puede que mensajes más antiguos coincidan. Se buscó hasta {when}.",
   "search.window.asking": "Preguntando al servidor…",
-  "search.window.back": "Volver a {channel}",
   "search.window.backTo": "hasta {when}",
   "search.window.chip.account": "Cuenta",
   "search.window.chip.date": "Fecha",

@@ -1941,7 +1941,6 @@
   "search.filters.toDay": "Fino a questo giorno",
   "search.filters.without": "Senza queste parole",
   "search.openForm": "Cerca messaggi in questo canale",
-  "search.placeholder": "Cerca messaggi…",
   "search.results.aria": "Risultati della ricerca",
   "search.window.allChannels": "tutti i miei canali",
   "search.window.allHidden": {
@@ -1950,7 +1949,6 @@
   },
   "search.window.allHiddenNote": "Messaggi più vecchi potrebbero ancora corrispondere. Cercato fino a {when}.",
   "search.window.asking": "Richiesta al server…",
-  "search.window.back": "Torna a {channel}",
   "search.window.backTo": "fino a {when}",
   "search.window.chip.date": "Data",
   "search.window.chip.dateFrom": "dal {day}",

@@ -2143,7 +2143,6 @@
   "search.filters.toDay": "Do tego dnia",
   "search.filters.without": "Bez tych słów",
   "search.openForm": "Wyszukaj wiadomości w tym kanale",
-  "search.placeholder": "Wyszukaj wiadomości…",
   "search.results.aria": "Wyniki wyszukiwania",
   "search.window.allChannels": "wszystkie moje kanały",
   "search.window.allHidden": {
@@ -2154,7 +2153,6 @@
   },
   "search.window.allHiddenNote": "Starsze wiadomości mogą nadal pasować. Przeszukano do {when}.",
   "search.window.asking": "Pytam serwer…",
-  "search.window.back": "Wróć do {channel}",
   "search.window.backTo": "do {when}",
   "search.window.chip.account": "Konto",
   "search.window.chip.date": "Data",

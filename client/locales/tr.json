@@ -2035,7 +2035,6 @@
   "search.filters.toDay": "Bu güne kadar",
   "search.filters.without": "Bu kelimeler olmadan",
   "search.openForm": "Bu kanalda mesajları ara",
-  "search.placeholder": "Mesajları ara…",
   "search.results.aria": "Arama sonuçları",
   "search.window.allChannels": "tüm kanallarım",
   "search.window.allHidden": {
@@ -2044,7 +2043,6 @@
   },
   "search.window.allHiddenNote": "Daha eski mesajlar hâlâ eşleşebilir. {when} tarihine kadar arandı.",
   "search.window.asking": "Sunucuya soruluyor…",
-  "search.window.back": "{channel} kanalına dön",
   "search.window.backTo": "{when} tarihine kadar",
   "search.window.chip.account": "Hesap",
   "search.window.chip.date": "Tarih",
