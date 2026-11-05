@@ -636,11 +636,6 @@
     "other": "تم تجاهل {count} على هذا الجهاز"
   },
   "mentions.empty": "لا جديد لديك",
-  "mentions.keys.backspace": "مسح",
-  "mentions.keys.close": "إغلاق",
-  "mentions.keys.dismiss": "تجاهل",
-  "mentions.keys.move": "تنقّل",
-  "mentions.keys.open": "فتح",
   "mentions.missingChannel": "لست في {target}: انضم إليها لقراءة هذه الإشارات، أو تجاهلها.",
   "mentions.missingChannelOn": "لست في {target} على {network}: انضم إليها لقراءة هذه الإشارات، أو تجاهلها.",
   "mentions.missingNetwork": "شبكة هذه المحادثة ليست على هذه الصفحة: تجاهل هذه الإشارات.",

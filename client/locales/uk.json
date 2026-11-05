@@ -608,10 +608,6 @@
     "other": "Прибрано на цьому пристрої: {count}"
   },
   "mentions.empty": "Усе прочитано",
-  "mentions.keys.close": "закрити",
-  "mentions.keys.dismiss": "прибрати",
-  "mentions.keys.move": "перейти",
-  "mentions.keys.open": "відкрити",
   "mentions.missingChannel": "Вас немає в {target}: увійдіть у канал, щоб прочитати їх, або приберіть їх.",
   "mentions.missingChannelOn": "Вас немає в {target} у мережі {network}: увійдіть у канал, щоб прочитати їх, або приберіть їх.",
   "mentions.missingNetwork": "Мережі цієї розмови немає на цій сторінці: приберіть ці згадки.",

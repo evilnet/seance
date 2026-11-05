@@ -357,7 +357,7 @@
 							<span><kbd>↑</kbd> <kbd>↓</kbd></span>
 						</div>
 						<div class="description">
-							<p>In the mentions popup: move between mentions.</p>
+							<p>{{ t("help.shortcuts.mentionsMove") }}</p>
 						</div>
 					</div>
 
@@ -366,7 +366,7 @@
 							<span><kbd>Enter</kbd></span>
 						</div>
 						<div class="description">
-							<p>In the mentions popup: open the mention.</p>
+							<p>{{ t("help.shortcuts.mentionsOpen") }}</p>
 						</div>
 					</div>
 
@@ -376,7 +376,7 @@
 							<span v-else><kbd>⌫</kbd></span>
 						</div>
 						<div class="description">
-							<p>In the mentions popup: dismiss the mention.</p>
+							<p>{{ t("help.shortcuts.mentionsDismiss") }}</p>
 						</div>
 					</div>
 

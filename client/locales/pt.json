@@ -578,11 +578,6 @@
     "other": "{count} descartadas neste dispositivo"
   },
   "mentions.empty": "Você está em dia",
-  "mentions.keys.backspace": "Backspace",
-  "mentions.keys.close": "fechar",
-  "mentions.keys.dismiss": "descartar",
-  "mentions.keys.move": "mover",
-  "mentions.keys.open": "abrir",
   "mentions.missingChannel": "Você não está em {target}: entre nele para ler estas menções ou descarte-as.",
   "mentions.missingChannelOn": "Você não está em {target} na rede {network}: entre nele para ler estas menções ou descarte-as.",
   "mentions.missingNetwork": "A rede desta conversa não está nesta página: descarte estas menções.",

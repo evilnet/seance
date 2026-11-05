@@ -586,11 +586,6 @@
     "other": "{count} de respinse pe acest dispozitiv"
   },
   "mentions.empty": "Ești la zi",
-  "mentions.keys.backspace": "Backspace",
-  "mentions.keys.close": "închide",
-  "mentions.keys.dismiss": "respinge",
-  "mentions.keys.move": "mută",
-  "mentions.keys.open": "deschide",
   "mentions.missingChannel": "Nu ești în {target}: intră pentru a le citi sau respinge-le.",
   "mentions.missingChannelOn": "Nu ești în {target} pe {network}: intră pentru a le citi sau respinge-le.",
   "mentions.missingNetwork": "Rețeaua lor nu este pe această pagină: respinge-le.",

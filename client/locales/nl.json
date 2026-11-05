@@ -570,11 +570,6 @@
     "other": "{count} verwijderd op dit apparaat"
   },
   "mentions.empty": "U bent helemaal bij",
-  "mentions.keys.backspace": "Backspace",
-  "mentions.keys.close": "sluiten",
-  "mentions.keys.dismiss": "verwijderen",
-  "mentions.keys.move": "verplaatsen",
-  "mentions.keys.open": "openen",
   "mentions.missingChannel": "Niet in {target}: betreed het kanaal om deze te lezen, of verwijder ze.",
   "mentions.missingChannelOn": "Niet in {target} op {network}: betreed het kanaal om deze te lezen, of verwijder ze.",
   "mentions.missingNetwork": "Het netwerk staat niet op deze pagina: verwijder deze.",

@@ -2265,6 +2265,24 @@ msgctxt "help.shortcuts.helpMenu"
 msgid "Switch to the help menu."
 msgstr "Přepne na nápovědu."
 
+#. Help page, keyboard shortcuts table: what the Backspace key does while the popup listing the messages that mention you is open.
+#: client/components/Windows/Help.vue
+msgctxt "help.shortcuts.mentionsDismiss"
+msgid "In the mentions popup: dismiss the mention."
+msgstr ""
+
+#. Help page, keyboard shortcuts table: what the up and down arrow keys do while the popup listing the messages that mention you is open.
+#: client/components/Windows/Help.vue
+msgctxt "help.shortcuts.mentionsMove"
+msgid "In the mentions popup: move between mentions."
+msgstr ""
+
+#. Help page, keyboard shortcuts table: what the Enter key does while the popup listing the messages that mention you is open.
+#: client/components/Windows/Help.vue
+msgctxt "help.shortcuts.mentionsOpen"
+msgid "In the mentions popup: open the mention."
+msgstr ""
+
 #. Description of the Alt+Shift+Down keyboard shortcut in the help window; it moves to the next network's home view in the sidebar.
 #: client/components/Windows/Help.vue
 msgctxt "help.shortcuts.nextLobby"
@@ -3325,36 +3343,6 @@ msgstr "Vše máte přečteno"
 msgctxt "mentions.emptyHint"
 msgid "Mentions stay here, dimmed once read, until you close them or for 7 days."
 msgstr "Zmínka z tohoto seznamu zmizí, jakmile ji přečtete, tady nebo na jakémkoli jiném zařízení."
-
-#. Keyboard legend at the bottom of the mentions popup: the Backspace key's label as printed on keyboards in your language, abbreviated to a few letters (shown in a small key cap). Keep it as short as the English.
-#: client/components/Mentions.vue
-msgctxt "mentions.keys.backspace"
-msgid "Bksp"
-msgstr "Backspace"
-
-#. Keyboard legend at the bottom of the mentions popup, after Alt+M: it closes the popup. One short lower-case word.
-#: client/components/Mentions.vue
-msgctxt "mentions.keys.close"
-msgid "close"
-msgstr "zavřít"
-
-#. Keyboard legend at the bottom of the mentions popup, after the Backspace key: it dismisses the focused row. One short lower-case word.
-#: client/components/Mentions.vue
-msgctxt "mentions.keys.dismiss"
-msgid "dismiss"
-msgstr "zahodit"
-
-#. Keyboard legend at the bottom of the mentions popup, after the ↑ ↓ keys: they move between the rows. One short lower-case word.
-#: client/components/Mentions.vue
-msgctxt "mentions.keys.move"
-msgid "move"
-msgstr "přesun"
-
-#. Keyboard legend at the bottom of the mentions popup, after the ↵ (Enter) key: it opens the conversation of the focused row. One short lower-case word.
-#: client/components/Mentions.vue
-msgctxt "mentions.keys.open"
-msgid "open"
-msgstr "otevřít"
 
 #. Shown under a channel in the mentions popup that you are no longer in. {target} is the channel name, shown verbatim.
 #: client/components/Mentions.vue:509
