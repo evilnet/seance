@@ -80,14 +80,13 @@ const text = (page, selector) =>
 const sentCommands = (page, since, re) =>
 	page.wsFrames.slice(since).filter((f) => f.dir === "out" && re.test(f.payloadData ?? ""));
 
-/** Type a query in the window's own field and submit it. */
+/** Search for exactly this query, whatever chips are up: the route is the search's state. */
 async function search(page, q) {
-	await page.evaluate(`(() => {
-		const input = document.querySelector("${WINDOW} .search-query input");
-		input.value = ${JSON.stringify(q)};
-		input.dispatchEvent(new Event("input", {bubbles: true}));
-		input.form.requestSubmit();
-	})()`);
+	await page.evaluate(
+		`location.hash = location.hash.split("?")[0] + "?q=" + ${JSON.stringify(
+			encodeURIComponent(q)
+		)}`
+	);
 	await page.sleep(700);
 }
 
@@ -189,6 +188,38 @@ export default async function run(page) {
 			field.value = ${JSON.stringify(value)};
 			field.dispatchEvent(new Event("input", {bubbles: true}));
 		})()`);
+
+	// Words in the field, filters in chips: a finished filter moves over.
+	await typing("right in:*");
+	page.check(
+		"1. a filter still being typed stays in the field",
+		(await page.evaluate(`document.querySelector("${WINDOW} .search-query input").value`)) ===
+			"right in:*"
+	);
+	await typing("right in:* ");
+	await page.sleep(100);
+	page.check(
+		"1. then moves to its chip",
+		(await page.evaluate(`document.querySelector("${WINDOW} .search-query input").value`)) ===
+			"right " &&
+			(await text(page, `${WINDOW} .search-chip.on`))
+				.toLowerCase()
+				.includes("all my channels")
+	);
+	await page.evaluate(`(() => {
+		const field = document.querySelector("${WINDOW} .search-query input");
+		field.value = "fake from:${TALKER}";
+		field.dispatchEvent(new Event("input", {bubbles: true}));
+		field.form.requestSubmit();
+	})()`);
+	await page.sleep(300);
+	page.check(
+		"1. Enter does the same to the last one",
+		(await page.evaluate(`document.querySelector("${WINDOW} .search-query input").value`)) ===
+			"fake" && (await text(page, `${WINDOW} .search-chip[data-filter]`)).includes(TALKER)
+	);
+	await search(page, "tailword");
+
 	await page.sleep(2500); // past the gap since the search above
 	const typedFrom = page.wsFrames.length;
 	await typing("ri");
@@ -249,7 +280,7 @@ export default async function run(page) {
 	await page.sleep(700);
 	page.check("2. removing the chip brings it back", (await count(page, ROWS)) === 4);
 	page.check(
-		"2. and takes it out of the field",
+		"2. and the field still holds the words",
 		(await page.evaluate(`document.querySelector("${WINDOW} .search-query input").value`)) ===
 			"fake lag"
 	);
@@ -257,6 +288,25 @@ export default async function run(page) {
 	// Every channel.
 	await search(page, "fake lag in:*");
 	page.check("3. in:* finds the other channel", (await count(page, ROWS)) === 5);
+	await search(page, "right");
+	await search(page, "fake lag *");
+	page.check("3. so does a bare *", (await count(page, ROWS)) === 5);
+
+	// Every-channel search leaves out private messages, and may come back empty
+	// for other reasons of the server's: what is loaded still counts.
+	talker.say(NICK, "whispered onlyinprivate");
+	await page.sleep(500);
+	await search(page, "onlyinprivate in:*");
+	page.check(
+		"3. an empty every-channel answer falls back to loaded lines, and says so",
+		(await count(page, ROWS)) === 1 && (await count(page, `${WINDOW} .search-banner`)) === 1
+	);
+	await search(page, "nowhereatall in:*");
+	page.check(
+		"3. nothing loaded either is just no matches",
+		(await count(page, ROWS)) === 0 && (await count(page, `${WINDOW} .search-banner`)) === 0
+	);
+	await search(page, "fake lag in:*");
 	page.check(
 		"3. and names it on the row",
 		await page.evaluate(
@@ -469,6 +519,31 @@ export default async function run(page) {
 		(await count(page, ROWS)) > 0 &&
 			sentCommands(page, backFrom, /SEARCH /).length === 0 &&
 			(await page.evaluate(`document.activeElement?.matches("${ROWS}")`))
+	);
+
+	// The ✕ ends it: no way back, and search opens empty.
+	await page.click(ROWS);
+	await page.waitFor(`document.querySelector(".past-bar-dismiss")`, {
+		timeout: 10000,
+		label: "the bar's dismiss button",
+	});
+	await page.click(".past-bar-dismiss");
+	await page.sleep(100);
+	page.check(
+		"8. ✕ takes Back to results away, and stays in the past view",
+		(await count(page, ".past-bar-back")) === 0 && (await count(page, ".past-bar")) === 1
+	);
+	await page.evaluate(`location.hash = location.hash.split("?")[0] + "/search"`);
+	await page.waitFor(`document.querySelector("${WINDOW}")`, {
+		timeout: 5000,
+		label: "search opened after dismissing",
+	});
+	page.check(
+		"8. search then opens empty",
+		(await count(page, ROWS)) === 0 &&
+			(await page.evaluate(
+				`document.querySelector("${WINDOW} .search-query input").value`
+			)) === ""
 	);
 
 	talker.quit();

@@ -21,6 +21,7 @@
     "other": "Open your mentions, {count} unread"
   },
   "chat.past.backToResults": "Back to results",
+  "chat.past.dismissResults": "Dismiss the search results",
   "chat.past.gone": "That message is no longer available.",
   "chat.past.jumpToPresent": "Jump to present",
   "chat.past.loadFailed": "Could not load more. Scroll to try again.",
@@ -2081,6 +2082,7 @@
   "search.placeholder": "Search messages…",
   "search.results.aria": "Search results",
   "search.window.allChannels": "all my channels",
+  "search.window.allChannelsEmpty": "The server found nothing across your channels.",
   "search.window.allHidden": {
     "one": "{count} match, all hidden by your filters",
     "other": "{count} matches, all hidden by your filters"

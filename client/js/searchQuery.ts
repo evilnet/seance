@@ -96,6 +96,51 @@ export function parseSearchQuery(raw: string): SearchFilters {
 	return filters;
 }
 
+/** The filters of `filters`, without its words. */
+export function filtersOnly(filters: SearchFilters): SearchFilters {
+	return {...filters, words: []};
+}
+
+/** The words of `filters`, as the field shows them. */
+export function wordsOnly(filters: SearchFilters): string {
+	return formatSearchQuery({words: filters.words, without: [], has: []});
+}
+
+/** `extra` on top of `base`: its words and lists added, its other filters winning. */
+export function addFilters(base: SearchFilters, extra: SearchFilters): SearchFilters {
+	const union = <T>(a: T[], b: T[]) => [...new Set([...a, ...b])];
+
+	return {
+		...base,
+		...extra,
+		words: [...base.words, ...extra.words],
+		without: union(base.without, extra.without),
+		has: union(base.has, extra.has),
+	};
+}
+
+/**
+ * The filters finished in what is being typed, and the text left without them.
+ * The last token is finished once a space follows it; null when there are none.
+ */
+export function takeFinishedFilters(raw: string): {text: string; filters: SearchFilters} | null {
+	if ((raw.match(/"/g)?.length ?? 0) % 2 !== 0) {
+		return null;
+	}
+
+	const last = /\S*$/.exec(raw)?.[0] ?? "";
+	const parsed = parseSearchQuery(raw.slice(0, raw.length - last.length));
+	const filters = filtersOnly(parsed);
+
+	if (!formatSearchQuery(filters)) {
+		return null;
+	}
+
+	const words = wordsOnly(parsed);
+	const text = last ? [words, last].filter(Boolean).join(" ") : words && `${words} `;
+	return {text, filters};
+}
+
 /**
  * Whether a query being typed is worth asking the server about: a word of a
  * few letters, and no quote or `key:value` still being written.

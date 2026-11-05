@@ -1,8 +1,10 @@
 import {expect} from "chai";
 import {MessageType} from "../../shared/types/msg";
 import {
+	addFilters,
 	ALL_CHANNELS,
 	dayStart,
+	filtersOnly,
 	formatSearchQuery,
 	hasCriteria,
 	matchesFilters,
@@ -12,6 +14,8 @@ import {
 	resolveScope,
 	rowKey,
 	serverAttrs,
+	takeFinishedFilters,
+	wordsOnly,
 } from "../../client/js/searchQuery";
 
 function row(text: string, extra: {nick?: string; account?: string; time?: Date} = {}) {
@@ -25,6 +29,40 @@ function row(text: string, extra: {nick?: string; account?: string; time?: Date}
 }
 
 describe("searchQuery", function () {
+	describe("words in the field, filters in chips", function () {
+		it("takes a filter once a space follows it", function () {
+			expect(takeFinishedFilters("foo in:#linux")).to.equal(null);
+			const taken = takeFinishedFilters("foo in:#linux ");
+			expect(taken?.text).to.equal("foo ");
+			expect(taken?.filters.in).to.equal("#linux");
+		});
+
+		it("keeps what is still being typed", function () {
+			const taken = takeFinishedFilters("from:kit fo");
+			expect(taken?.text).to.equal("fo");
+			expect(taken?.filters.from).to.equal("kit");
+		});
+
+		it("takes a bare * and an exclusion", function () {
+			const taken = takeFinishedFilters("foo * -bar ");
+			expect(taken?.text).to.equal("foo ");
+			expect(taken?.filters.in).to.equal(ALL_CHANNELS);
+			expect(taken?.filters.without).to.deep.equal(["bar"]);
+		});
+
+		it("leaves plain words and an open quote alone", function () {
+			expect(takeFinishedFilters("foo bar ")).to.equal(null);
+			expect(takeFinishedFilters('"foo in:#x ')).to.equal(null);
+		});
+
+		it("splits a query and puts it back together", function () {
+			const q = '"fake lag" from:kit in:#linux -docker';
+			const parsed = parseSearchQuery(q);
+			const back = addFilters(filtersOnly(parsed), parseSearchQuery(wordsOnly(parsed)));
+			expect(formatSearchQuery(back)).to.equal(formatSearchQuery(parsed));
+		});
+	});
+
 	describe("readyToSearch", function () {
 		const ready = (raw: string) => readyToSearch(raw, parseSearchQuery(raw));
 

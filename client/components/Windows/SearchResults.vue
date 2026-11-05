@@ -49,7 +49,7 @@
 							<span class="search-icon search-icon-in" aria-hidden="true" />
 							<I18nFrame :text="t('search.window.inScope', {scope: KEEP})"
 								><template #scope
-									><b>{{ scopeLabel }}</b></template
+									><b>{{ heldScopeLabel }}</b></template
 								></I18nFrame
 							>
 						</button>
@@ -580,8 +580,12 @@ import {
 	hasCriteria,
 	matchesFilters,
 	matchSpans,
+	addFilters,
+	filtersOnly,
 	parseSearchQuery,
 	readyToSearch,
+	takeFinishedFilters,
+	wordsOnly,
 	resolveScope,
 	rowKey,
 	serverAttrs,
@@ -615,7 +619,7 @@ const LIVE_GAP_MS = 2000;
 const LIVE_RETRY_MS = 500;
 
 /** Where the rows come from: the server, or what is loaded and why. */
-type Mode = "server" | "unsupported" | "offline";
+type Mode = "server" | "unsupported" | "offline" | "partial";
 
 interface Chip {
 	id: "from" | "account" | "date" | "has" | "without";
@@ -634,14 +638,17 @@ export default defineComponent({
 
 		const queryField = ref<HTMLInputElement>();
 
-		const draft = ref(String(route.query.q ?? ""));
+		// The field holds the words; every filter is a chip. The route's q has both.
+		const opened = parseSearchQuery(String(route.query.q ?? ""));
+		const draft = ref(wordsOnly(opened));
+		const held = ref(filtersOnly(opened));
 		let liveTimer: ReturnType<typeof setTimeout> | undefined;
 		let lastAskedAt = 0;
 		/** The route change coming is a search typing started. */
 		let liveRoute = false;
 		const filtersOpen = ref(false);
 		const rows = ref<SearchHit[]>([]);
-		const mode = ref<Mode>("server");
+		const mode = ref<KeptResults["mode"]>("server");
 		const loading = ref(false);
 		const loadingOlder = ref(false);
 		const reachedEnd = ref(false);
@@ -671,20 +678,27 @@ export default defineComponent({
 			resolveScope(parseSearchQuery(query.value), (name) => !!findChat(name))
 		);
 		const criteria = computed(() => hasCriteria(filters.value));
-		const stale = computed(() => draft.value.trim() !== query.value);
 		// A filter changed while the field is edited keeps the edit: the field is
 		// what the next search will be, whatever the results below came from.
 		const draftFilters = computed<SearchFilters>(() =>
-			resolveScope(parseSearchQuery(draft.value), (name) => !!findChat(name))
+			resolveScope(
+				addFilters(held.value, parseSearchQuery(draft.value)),
+				(name) => !!findChat(name)
+			)
 		);
+		const fullDraft = computed(() => formatSearchQuery(draftFilters.value));
+		const stale = computed(() => fullDraft.value !== formatSearchQuery(filters.value));
 
 		// The network window has no history of its own: it searches everything.
 		const scopeDefault = computed(() =>
 			channel.value && findChat(channel.value.name) ? channel.value.name : ALL_CHANNELS
 		);
 		const scope = computed(() => filters.value.in ?? scopeDefault.value);
-		const scopeLabel = computed(() =>
-			scope.value === ALL_CHANNELS ? t("search.window.allChannels") : scope.value
+		const scopeName = (target: string) =>
+			target === ALL_CHANNELS ? t("search.window.allChannels") : target;
+		const scopeLabel = computed(() => scopeName(scope.value));
+		const heldScopeLabel = computed(() =>
+			scopeName(resolveScope(held.value, (name) => !!findChat(name)).in ?? scopeDefault.value)
 		);
 
 		const suggestions = computed(() => {
@@ -693,7 +707,7 @@ export default defineComponent({
 		});
 
 		const chips = computed<Chip[]>(() => {
-			const {from, account, after, before, has, without} = filters.value;
+			const {from, account, after, before, has, without} = held.value;
 			const result: Chip[] = [];
 
 			if (from) {
@@ -761,6 +775,10 @@ export default defineComponent({
 
 			if (mode.value === "unsupported") {
 				return t("search.window.unsupported");
+			}
+
+			if (mode.value === "partial") {
+				return t("search.window.allChannelsEmpty");
 			}
 
 			return mode.value === "offline" ? t("search.window.offline") : "";
@@ -945,6 +963,18 @@ export default defineComponent({
 				}
 			}
 
+			// An empty answer for every channel may only be the server's (a second
+			// connection is skipped, a scan can run out), so loaded lines still count.
+			if (!older && !data.hits.length && scope.value === ALL_CHANNELS) {
+				searchLoaded();
+
+				if (rows.value.length) {
+					mode.value = "partial";
+				}
+
+				return;
+			}
+
 			// `before` includes that very moment, so a page repeats its edge.
 			const seen = new Set(rows.value.map((hit) => rowKey(hit.msg)));
 			const fresh = data.hits.filter((hit) => !seen.has(rowKey(hit.msg)));
@@ -1018,9 +1048,15 @@ export default defineComponent({
 			}
 		};
 
+		const showQuery = (q: string) => {
+			const parsed = parseSearchQuery(q);
+			held.value = filtersOnly(parsed);
+			draft.value = wordsOnly(parsed);
+		};
+
 		const setQuery = (q: string) => {
 			clearTimeout(liveTimer);
-			draft.value = q;
+			showQuery(q);
 
 			if (q.trim() === query.value) {
 				// The same search again: its answer is already on the way.
@@ -1038,7 +1074,7 @@ export default defineComponent({
 			});
 		};
 
-		const submit = () => setQuery(draft.value.trim());
+		const submit = () => setQuery(fullDraft.value);
 
 		const useHint = (hint: string) => {
 			draft.value = draft.value ? `${draft.value.trimEnd()} ${hint}` : hint;
@@ -1084,9 +1120,7 @@ export default defineComponent({
 		const staleNote = computed(() => stale.value && !liveReady.value);
 
 		const searchLive = () => {
-			const q = draft.value.trim();
-
-			if (q === query.value) {
+			if (!stale.value) {
 				return;
 			}
 
@@ -1104,15 +1138,19 @@ export default defineComponent({
 			void router.replace({
 				name: "SearchResults",
 				params: {id: route.params.id},
-				query: {q},
+				query: {q: fullDraft.value},
 			});
 		};
 
 		watch(draft, (value) => {
 			clearTimeout(liveTimer);
+			const finished = takeFinishedFilters(value);
 
-			if (!value.trim() && query.value) {
-				setQuery("");
+			if (finished) {
+				held.value = addFilters(held.value, finished.filters);
+				draft.value = finished.text; // here again, with the rest
+			} else if (hasCriteria(filters.value) && !hasCriteria(draftFilters.value)) {
+				setQuery(fullDraft.value);
 			} else if (liveReady.value) {
 				liveTimer = setTimeout(searchLive, LIVE_DELAY_MS);
 			}
@@ -1176,7 +1214,7 @@ export default defineComponent({
 					return;
 				}
 
-				draft.value = String(route.query.q ?? "");
+				showQuery(String(route.query.q ?? ""));
 
 				if (found.value) {
 					store.commit("activeChannel", found.value);
@@ -1239,6 +1277,7 @@ export default defineComponent({
 			draftFilters,
 			stale,
 			staleNote,
+			heldScopeLabel,
 			conversations,
 			criteria,
 			draft,
