@@ -13,6 +13,7 @@ import {
 	removePending,
 } from "../helpers/messageUpdates";
 import {forgetTranslations} from "../translate/reader";
+import {afterHeldPage} from "../helpers/heldPages";
 
 function lookup(chan: number, id: number) {
 	const target = store.getters.findChannel(chan);
@@ -32,61 +33,69 @@ socket.on("reply:parent", function ({chan, msgid, nick, text}) {
 	}
 });
 
+// An update to a message of a page the store is still holding back waits
+// for that page (helpers/heldPages.ts).
 socket.on("msg:react", function (data) {
-	const message = lookup(data.chan, data.id);
+	afterHeldPage(data.chan, () => {
+		const message = lookup(data.chan, data.id);
 
-	if (message) {
-		applyReaction(message, data.text, data.nick, data.remove);
-	}
+		if (message) {
+			applyReaction(message, data.text, data.nick, data.remove);
+		}
+	});
 });
 
 socket.on("msg:redact", function (data) {
-	const message = lookup(data.chan, data.id);
+	afterHeldPage(data.chan, () => {
+		const message = lookup(data.chan, data.id);
 
-	if (message) {
-		applyRedaction(message, {by: data.by, reason: data.reason, time: data.time});
-	}
+		if (message) {
+			applyRedaction(message, {by: data.by, reason: data.reason, time: data.time});
+		}
 
-	// A deleted message keeps its text for click-to-reveal, but its
-	// translation is a second, unhidden copy of that text: drop it, so a
-	// reveal shows the original alone (Message.vue gates the line too).
-	store.commit("translationRemove", data.id);
-	forgetTranslations([data.id]);
+		// A deleted message keeps its text for click-to-reveal, but its
+		// translation is a second, unhidden copy of that text: drop it, so a
+		// reveal shows the original alone (Message.vue gates the line too).
+		store.commit("translationRemove", data.id);
+		forgetTranslations([data.id]);
+	});
 });
 
 socket.on("msg:edit", function (data) {
-	const target = store.getters.findChannel(data.chan);
+	afterHeldPage(data.chan, () => {
+		const target = store.getters.findChannel(data.chan);
 
-	if (!target) {
-		return;
-	}
+		if (!target) {
+			return;
+		}
 
-	// The edit takes the original's place in the list; the original is hidden.
-	const placed = applyEdit(target.channel.messages, data.replaces, data.id);
+		// The edit takes the original's place in the list; the original is hidden.
+		const placed = applyEdit(target.channel.messages, data.replaces, data.id);
 
-	// The original's translation (if any) belongs to text that no longer
-	// exists; the edit arrives as its own `msg` and is read/translated on
-	// its own terms.
-	store.commit("translationRemove", data.replaces);
-	forgetTranslations([data.replaces]);
+		// The original's translation (if any) belongs to text that no longer
+		// exists; the edit arrives as its own `msg` and is read/translated on
+		// its own terms.
+		store.commit("translationRemove", data.replaces);
+		forgetTranslations([data.replaces]);
 
-	// A pending copy only stands in until its echo does (`msg:settled` shows
-	// the original again), so the compose bar follows the real replacement
-	// alone. Replying to or editing the replaced message follows the edit,
-	// so the bar does not point at a hidden message.
-	if (!placed || placed.replacement?.pending) {
-		return;
-	}
+		// A pending copy only stands in until its echo does (`msg:settled` shows
+		// the original again), so the compose bar follows the real replacement
+		// alone. Replying to or editing the replaced message follows the edit,
+		// so the bar does not point at a hidden message.
+		if (!placed || placed.replacement?.pending) {
+			return;
+		}
 
-	const {original, replacement} = placed;
+		const {original, replacement} = placed;
 
-	if (target.channel.replyTo === original) {
-		target.channel.replyTo = replacement ?? null;
-	}
+		if (target.channel.replyTo === original) {
+			target.channel.replyTo = replacement ?? null;
+		}
 
-	if (target.channel.editing === original) {
-		target.channel.editing = replacement ?? null;
-	}
+		if (target.channel.editing === original) {
+			target.channel.editing = replacement ?? null;
+		}
+	});
 });
 
 socket.on("msg:settled", function (data) {
