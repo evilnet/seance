@@ -384,6 +384,9 @@ interface HarnessOptions {
 	/** Hold every `indexedDB.open` until this settles: storage that is slow,
 	 * not stalled (or, if it rejects, that fails once it answers). */
 	idbGate?: Promise<void>;
+	/** The page's isolation flag in seance-push/kv (`isolate`: translation is
+	 * on, client/js/isolationFlag.ts); absent unless given. */
+	isolation?: boolean;
 }
 
 const SCOPE = "https://app.test/";
@@ -394,6 +397,10 @@ function makeSW(options: HarnessOptions = {}): SWHarness {
 	const shown: Rec[] = [];
 	const opened: string[] = [];
 	const kv = new Map<string, unknown>([["stash", options.stash ?? STASH]]);
+
+	if (options.isolation !== undefined) {
+		kv.set("isolate", options.isolation);
+	}
 	const socketsBefore = wsInstances.length;
 	let offset = 0;
 	const now = (): number => Date.now() + offset;
@@ -2968,7 +2975,9 @@ describe("service worker cross-origin isolation headers", function () {
 	// docs/projects/translation-devices.md § Multithreading: the root worker
 	// makes the app's documents and its own worker scripts cross-origin
 	// isolated (multithreaded WebAssembly for the CPU models), from the
-	// network and from the shell cache alike.
+	// network and from the shell cache alike -- the documents only while
+	// translation is on, which the page says through the `isolate` flag in
+	// seance-push/kv and an `isolation` message (client/js/isolationFlag.ts).
 	const COOP = "cross-origin-opener-policy";
 	const COEP = "cross-origin-embedder-policy";
 
@@ -3036,9 +3045,10 @@ describe("service worker cross-origin isolation headers", function () {
 			headers: {"content-type": "text/javascript"},
 		});
 	const navigation = {url: SCOPE, mode: "navigate", destination: "document"};
+	const on = {isolation: true};
 
 	it("isolates a navigation served from the network", async function () {
-		const {response, put} = await serveFetch(makeSW(), navigation, page());
+		const {response, put} = await serveFetch(makeSW(on), navigation, page());
 
 		expect(response?.status).to.equal(200);
 		expect(response?.headers.get(COOP)).to.equal("same-origin");
@@ -3051,11 +3061,124 @@ describe("service worker cross-origin isolation headers", function () {
 
 	it("isolates a navigation served from the shell cache", async function () {
 		// A copy stored by an older worker carries no headers of its own.
-		const {response} = await serveFetch(makeSW(), navigation, "offline", page());
+		const {response} = await serveFetch(makeSW(on), navigation, "offline", page());
 
 		expect(response?.headers.get(COOP)).to.equal("same-origin");
 		expect(response?.headers.get(COEP)).to.equal("credentialless");
 		expect(await response?.text()).to.equal("<!doctype html><title>app</title>");
+	});
+
+	describe("only while translation is on", function () {
+		it("adds nothing to a navigation when the page never said (translation off)", async function () {
+			const {response, put} = await serveFetch(makeSW(), navigation, page());
+
+			expect(response?.status).to.equal(200);
+			expect(response?.headers.get(COOP)).to.equal(null);
+			expect(response?.headers.get(COEP)).to.equal(null);
+			expect(await response?.text()).to.equal("<!doctype html><title>app</title>");
+			expect(put).to.have.length(1);
+		});
+
+		it("adds nothing to a navigation while the flag says off", async function () {
+			const sw = makeSW({isolation: false});
+			const network = await serveFetch(sw, navigation, page());
+			const offline = await serveFetch(sw, navigation, "offline", page());
+
+			expect(network.response?.headers.get(COEP)).to.equal(null);
+			expect(offline.response?.headers.get(COEP)).to.equal(null);
+			expect(offline.response?.headers.get(COOP)).to.equal(null);
+		});
+
+		it("follows the page's message, both ways, from the next navigation", async function () {
+			const sw = makeSW({isolation: false});
+
+			await serveFetch(sw, navigation, page());
+			await fireMessage(sw, {type: "isolation", on: true});
+
+			const switchedOn = await serveFetch(sw, navigation, page());
+
+			expect(switchedOn.response?.headers.get(COOP)).to.equal("same-origin");
+			expect(switchedOn.response?.headers.get(COEP)).to.equal("credentialless");
+
+			await fireMessage(sw, {type: "isolation", on: false});
+
+			const switchedOff = await serveFetch(sw, navigation, page());
+
+			expect(switchedOff.response?.headers.get(COOP)).to.equal(null);
+			expect(switchedOff.response?.headers.get(COEP)).to.equal(null);
+		});
+
+		it("lets a message win over a read of the flag still in flight", async function () {
+			let release!: () => void;
+			const sw = makeSW({
+				isolation: false,
+				idbGate: new Promise<void>((resolve) => {
+					release = resolve;
+				}),
+			});
+			const first = serveFetch(sw, navigation, page());
+
+			// The page switched translation on while the stored "off" was
+			// still being read: the stale read must not undo it.
+			await fireMessage(sw, {type: "isolation", on: true});
+			release();
+			await first;
+
+			const next = await serveFetch(sw, navigation, page());
+
+			expect(next.response?.headers.get(COEP)).to.equal("credentialless");
+		});
+
+		it("still serves a navigation, unisolated, when IndexedDB never answers", async function () {
+			const {response} = await serveFetch(makeSW({hangIndexedDB: true}), navigation, page());
+
+			expect(response?.status).to.equal(200);
+			expect(response?.headers.get(COEP)).to.equal(null);
+			expect(await response?.text()).to.equal("<!doctype html><title>app</title>");
+		});
+
+		it("still serves a navigation, unisolated, when IndexedDB fails", async function () {
+			const {response} = await serveFetch(makeSW({failIndexedDB: true}), navigation, page());
+
+			expect(response?.status).to.equal(200);
+			expect(response?.headers.get(COEP)).to.equal(null);
+		});
+
+		it("never adds the headers under WebKit, whatever the page says", async function () {
+			const sw = makeSW({
+				isolation: true,
+				userAgent:
+					"Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15",
+			});
+
+			await fireMessage(sw, {type: "isolation", on: true});
+
+			const {response} = await serveFetch(sw, navigation, page());
+
+			expect(response?.headers.get(COEP)).to.equal(null);
+		});
+
+		it("isolates the app's own worker script whatever the flag says", async function () {
+			// Only translation starts a worker here, and Chromium refuses a
+			// dedicated worker without COEP on an isolated page: a page loaded
+			// with translation on, switched off and on again, starts its
+			// worker before the page's message can reach this worker.
+			for (const options of [{}, {isolation: false}]) {
+				const {response} = await serveFetch(
+					makeSW(options),
+					{
+						url: `${SCOPE}js/translate-worker.js?v=abc`,
+						mode: "same-origin",
+						destination: "worker",
+					},
+					script()
+				);
+
+				expect(response?.headers.get(COEP), JSON.stringify(options)).to.equal(
+					"credentialless"
+				);
+			}
+		});
 	});
 
 	it("isolates the app's own worker script", async function () {
@@ -3103,7 +3226,7 @@ describe("service worker cross-origin isolation headers", function () {
 	it("keeps the deploy's own policy where it sent one", async function () {
 		// branding.md § Threads: a deploy may choose `require-corp`.
 		const {response} = await serveFetch(
-			makeSW(),
+			makeSW(on),
 			navigation,
 			page({"Cross-Origin-Embedder-Policy": "require-corp"})
 		);
@@ -3114,6 +3237,7 @@ describe("service worker cross-origin isolation headers", function () {
 
 	it("isolates under Chromium's user agent", async function () {
 		const sw = makeSW({
+			...on,
 			userAgent:
 				"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
 		});
@@ -3130,7 +3254,7 @@ describe("service worker cross-origin isolation headers", function () {
 			"Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/129.0.6668.69 Mobile/15E148 Safari/604.1",
 			"Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15",
 		]) {
-			const {response} = await serveFetch(makeSW({userAgent}), navigation, page());
+			const {response} = await serveFetch(makeSW({...on, userAgent}), navigation, page());
 
 			expect(response?.status, userAgent).to.equal(200);
 			expect(response?.headers.get(COOP), userAgent).to.equal(null);
@@ -3149,7 +3273,7 @@ describe("service worker cross-origin isolation headers", function () {
 	});
 
 	it("adds nothing on a push-only worker", async function () {
-		const sw = makeSW({scope: `${SCOPE}push/net-1/`});
+		const sw = makeSW({...on, scope: `${SCOPE}push/net-1/`});
 		const {response} = await serveFetch(
 			sw,
 			{url: `${SCOPE}push/net-1/`, mode: "navigate", destination: "document"},

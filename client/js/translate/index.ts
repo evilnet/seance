@@ -10,9 +10,12 @@
 // service at all, and switching it off takes an existing one down at once
 // (switch.ts `TranslationSwitch`).
 
+import {shallowRef} from "vue";
 import {getBranding} from "../branding";
 import {BUILD} from "../build";
 import {store} from "../store";
+import {IsolationMirror, type IsolationMessage} from "../isolationFlag";
+import {serviceWorkerCanServe} from "../pwa";
 import {type Capability, probeOnce} from "./capability";
 import {emptyContext, type Device, type ModelRef} from "./engine";
 import {TranslateClient} from "./client";
@@ -131,6 +134,62 @@ export function onTranslationSwitch(listener: (on: boolean) => void): () => void
 // at the next ask, so a switch-off takes the worker and the GPU down at
 // once even on a page where nothing asks again.
 store.watch(translationOn, () => gate.sync());
+
+/**
+ * Whether the root service worker meant to isolate this document when it
+ * served it (isolationFlag.ts `IsolationMirror.served`): the CPU threads
+ * line says "Reload" when it did not and translation is on now
+ * (threads.ts `isolationState`). Until the flag is read, the setting this
+ * page loaded with, which is what the flag mirrors.
+ */
+const servedIsolation = shallowRef(false);
+
+let isolationMirror: IsolationMirror | null = null;
+
+/** reader.ts `isolationEnv`'s `servedIsolating`; reactive. */
+export function servedIsolating(): boolean {
+	return servedIsolation.value;
+}
+
+/** Tell the worker, whichever of it is there: the page's controller, or the
+ * active worker once registered (a first load has no controller yet). */
+function postToWorker(message: IsolationMessage): void {
+	const controller = navigator.serviceWorker.controller;
+
+	controller?.postMessage(message);
+	navigator.serviceWorker.ready.then(
+		(registration) => {
+			if (registration.active && registration.active !== controller) {
+				registration.active.postMessage(message);
+			}
+		},
+		() => undefined
+	);
+}
+
+/**
+ * Keep the worker's isolation flag on translation (isolationFlag.ts): the
+ * app's documents are cross-origin isolated only while translation is on,
+ * from the load after it was switched on. Called once from boot, after the
+ * branding and the stored settings; nothing where no worker ever serves the
+ * page (plain http, the native shells).
+ */
+export function startIsolationMirror(): void {
+	if (isolationMirror || !serviceWorkerCanServe()) {
+		return;
+	}
+
+	const mirror = new IsolationMirror(postToWorker);
+
+	isolationMirror = mirror;
+	servedIsolation.value = translationOn();
+	void mirror.served.then((served) => {
+		if (served !== null) {
+			servedIsolation.value = served;
+		}
+	});
+	store.watch(translationOn, (on: boolean) => void mirror.set(on), {immediate: true});
+}
 
 /**
  * The store's engine switches and device settings, as the service and the

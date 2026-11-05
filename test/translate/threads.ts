@@ -28,20 +28,33 @@ describe("translate threads", function () {
 	});
 
 	describe("isolationState", function () {
+		// Translation on (the worker isolates the next load), on a page the
+		// worker has not served yet.
 		const env = {
 			crossOriginIsolated: false,
 			controlled: false,
+			servedIsolating: false,
+			workerIsolates: true,
 			webkit: false,
 			workerCanServe: true,
 		};
 
 		it("is isolated when the page is cross-origin isolated", function () {
-			expect(isolationState({...env, crossOriginIsolated: true, controlled: true})).to.equal(
-				"isolated"
-			);
+			expect(
+				isolationState({
+					...env,
+					crossOriginIsolated: true,
+					controlled: true,
+					servedIsolating: true,
+				})
+			).to.equal("isolated");
 			// However it got there: a deploy's own headers isolate a page the worker never serves.
 			expect(
 				isolationState({...env, crossOriginIsolated: true, workerCanServe: false})
+			).to.equal("isolated");
+			// ... and with translation off at the worker, too.
+			expect(
+				isolationState({...env, crossOriginIsolated: true, workerIsolates: false})
 			).to.equal("isolated");
 		});
 
@@ -49,15 +62,36 @@ describe("translate threads", function () {
 			expect(isolationState(env)).to.equal("reload");
 		});
 
+		it("asks for a reload on a page the worker served while translation was off", function () {
+			// Switched on since this load: the worker isolates the next one.
+			expect(isolationState({...env, controlled: true, servedIsolating: false})).to.equal(
+				"reload"
+			);
+		});
+
+		it("is unsupported when the worker served the page isolating and it is still not isolated", function () {
+			// A browser without `credentialless`, or a deploy's own conflicting
+			// policy: a reload would change nothing.
+			expect(isolationState({...env, controlled: true, servedIsolating: true})).to.equal(
+				"unsupported"
+			);
+		});
+
+		it("is unsupported while the worker does not isolate (translation off)", function () {
+			expect(isolationState({...env, workerIsolates: false})).to.equal("unsupported");
+			expect(isolationState({...env, controlled: true, workerIsolates: false})).to.equal(
+				"unsupported"
+			);
+		});
+
 		it("is unsupported under WebKit, which has no credentialless", function () {
 			expect(isolationState({...env, webkit: true})).to.equal("unsupported");
+			expect(isolationState({...env, webkit: true, controlled: true})).to.equal(
+				"unsupported"
+			);
 		});
 
-		it("is unsupported when the worker served the page and it is still not isolated", function () {
-			expect(isolationState({...env, controlled: true})).to.equal("unsupported");
-		});
-
-		it("is unsupported where the worker is never registered (plain http, the Capacitor shell)", function () {
+		it("is unsupported where the worker is never registered (plain http, the native shells)", function () {
 			expect(isolationState({...env, workerCanServe: false})).to.equal("unsupported");
 		});
 	});

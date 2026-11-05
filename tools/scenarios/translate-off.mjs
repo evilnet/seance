@@ -8,7 +8,9 @@
 // for -- not on a cold load, not when the interface language changes with a
 // channel whose kept per-channel reading is on. Switched on, all of it comes
 // back without a reload, and the kept channel starts reading again;
-// switched off, it goes again at once.
+// switched off, it goes again at once. Nor does it cost the rest of the app
+// anything: a load the service worker serves while it is off is not
+// cross-origin isolated.
 //
 // Two halves, one served development build and no ircd (the network is
 // fabricated in-page, lib/fake-network.mjs, so window.socket must exist):
@@ -425,6 +427,20 @@ export default async function run(page) {
 
 	// --- 2. The surfaces, on the in-page fake. -------------------------
 	await page.goto(`${BASE}?fakeTranslate`, {waitForSelector: "#connect form"});
+
+	// A load the service worker served with translation off is not
+	// cross-origin isolated: the worker isolates only while it is on
+	// (client/service-worker.js `isolationWanted`, isolationFlag.ts).
+	const isolation = await page.evaluate(`({
+		isolated: self.crossOriginIsolated === true,
+		servedByWorker: (performance.getEntriesByType("navigation")[0]?.workerStart ?? 0) > 0,
+	})`);
+
+	console.log("isolation (second load, off)", JSON.stringify(isolation));
+	page.check(
+		"off: a load the service worker served is not cross-origin isolated",
+		isolation.servedByWorker && !isolation.isolated
+	);
 	await fabricate(page);
 	await checkOff(page, phone, "fake, off");
 	page.check(

@@ -27,7 +27,9 @@ included), no Translate in the message toolbar, no `TranslationLine` under a
 message and no topic translation or flipper. There are no keyboard shortcuts
 or commands for translation to switch off.
 
-Nothing of the machinery exists either. `index.ts` holds a
+Nothing of the machinery exists either, nor its cost to the rest of the
+app: the root service worker isolates no document while translation is off
+(§ Devices, Threads and isolation). `index.ts` holds a
 `TranslationSwitch` (switch.ts), which hands out no service while off --
 so no device probe, no worker, no download or "The GPU stopped" question --
 and `translateService()` throws if anything asks it then (every caller is
@@ -752,15 +754,42 @@ import is only in `cpuLlm.real.ts`). A deploy can mirror the file at
 **Threads and isolation.** Multithreaded WebAssembly needs a cross-origin
 isolated page. The root service worker (`client/service-worker.js`, `isolate`)
 adds `Cross-Origin-Opener-Policy: same-origin` and
-`Cross-Origin-Embedder-Policy: credentialless` to the app's navigations and
-its own worker scripts, from the network and the shell cache alike, so a page
-is isolated from the load after the worker served it (always, in an installed
-app). `credentialless` rather than `require-corp` so link previews, media, the
-uploader and a model mirror load without headers of their own. WebKit has no
-`credentialless`: Safari and every iOS browser stay single-threaded. The app
-never reloads itself for it; `threads.ts` `isolationState` answers `isolated`,
-`reload` (the worker did not serve this load) or `unsupported`, and Settings
-says when a reload would bring threads. The CPU language model takes
+`Cross-Origin-Embedder-Policy: credentialless` to the app's navigations **while
+translation is on**, and to its own worker scripts always, from the network
+and the shell cache alike, so a page is isolated from the load after the
+worker served it with translation on. `credentialless` rather than
+`require-corp` so link previews, media, the uploader and a model mirror load
+without headers of their own. WebKit has no `credentialless`: Safari and
+every iOS browser stay single-threaded.
+
+Isolation is translation's alone, and it costs the whole app something
+(cross-origin no-cors requests go without cookies, COOP severs
+`window.opener`), so with translation off -- its default -- no document is
+isolated. The worker has no localStorage: the page mirrors `translationOn()`
+into the flag `isolate` in the IndexedDB store the worker already uses
+(`seance-push`/`kv`), at boot and on every change, and posts an `isolation`
+message so a running worker need not read it again
+(`client/js/isolationFlag.ts` `IsolationMirror`, driven by `index.ts`
+`startIsolationMirror` from `boot.ts`; nothing where no worker serves the
+page). The worker reads the flag on its first navigation, in parallel with
+the fetch and for at most 250 ms -- a stalled IndexedDB serves the document
+unisolated rather than late -- and a message always wins over a read still in
+flight. No flag is off. Switched off, the page in front stays as it was
+loaded (isolated, if it was) until it reloads. The worker scripts get the
+headers whatever the flag: only translation starts a worker, and on a page
+loaded isolated Chromium refuses a dedicated worker whose script has no COEP,
+so a worker started the moment translation is switched back on would
+otherwise race the page's message; on a page that is not isolated they change
+nothing. A deploy that sends the headers itself is isolated either way.
+
+The app never reloads itself for it; `threads.ts` `isolationState` answers
+`isolated`, `reload` or `unsupported`, and Settings says when a reload would
+bring threads ("Reload the app to use 4 CPU threads."): when the worker did
+not serve this load, or served it while translation was off
+(`servedIsolating`, the flag as the page found it before its first write --
+`IsolationMirror.served`) and translation is on now. Served isolating and
+still not isolated (a browser without `credentialless`, a deploy's own
+conflicting policy) is `unsupported`, since a reload would change nothing. The CPU language model takes
 `cpuThreads(hardwareConcurrency, mobile)`: one core left to the page, at most 4
 on a phone (`PHONE_THREAD_CAP`) and 8 on a computer (`DESKTOP_THREAD_CAP`; the
 measured series was 186.0 s, 95.2 s, 48.4 s and 31.4 s for 1, 2, 4 and 8

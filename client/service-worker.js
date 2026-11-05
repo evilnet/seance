@@ -225,13 +225,80 @@ function isNavigation(request) {
 // origins' included, but the fetch handler returns early for any URL that
 // does not start with `shellUrl`, so only requests inside the scope reach
 // this, and a worker script here is always the app's own.
+//
+// The documents only while translation is on. Isolation is translation's
+// alone and costs the whole app something (cross-origin no-cors requests
+// go without cookies; COOP severs `window.opener`), and translation ships
+// switched off. The page says whether it is on (it has localStorage, this
+// worker does not): `isolate` in seance-push/kv, written at boot and on
+// every change, and an `isolation` message so a running worker need not
+// read it again (client/js/isolationFlag.ts). No flag is off. Switched on,
+// the next load is isolated; switched off, the page in front stays as it
+// was loaded until it reloads. The app's worker scripts get the headers
+// whatever the flag: only translation starts a worker here, and on a page
+// loaded isolated Chromium refuses a dedicated worker whose script has no
+// COEP -- one started the moment translation is switched back on would
+// otherwise race the page's message to this worker. On a page that is not
+// isolated they change nothing (the worker cannot be isolated either).
 const ISOLATION_HEADERS = [
 	["Cross-Origin-Opener-Policy", "same-origin"],
 	["Cross-Origin-Embedder-Policy", "credentialless"],
 ];
 
+/** The page's flag (client/js/isolationFlag.ts ISOLATION_KEY). */
+const ISOLATION_KEY = "isolate";
+
+/** How long a navigation waits for the flag before it is served unisolated:
+ * a stalled IndexedDB must never keep the app from loading. */
+const ISOLATION_READ_TIMEOUT_MS = 250;
+
+/** The flag as last read or told (`isolation` message); undefined until
+ * the first navigation reads it. A message always wins over a read still
+ * in flight. */
+let isolationFlag;
+
+/** Whether the page's documents get the headers now: translation is on. */
+function isolationWanted() {
+	if (isolationFlag !== undefined) {
+		return Promise.resolve(isolationFlag);
+	}
+
+	return new Promise((resolve) => {
+		const timer = setTimeout(() => resolve(false), ISOLATION_READ_TIMEOUT_MS);
+		const settle = (value) => {
+			clearTimeout(timer);
+			resolve(value);
+		};
+
+		// An open that throws (no IndexedDB) is caught here as well.
+		Promise.resolve()
+			.then(() => idbGet(ISOLATION_KEY))
+			.then(
+				(stored) => {
+					if (isolationFlag === undefined) {
+						isolationFlag = stored === true;
+					}
+
+					settle(isolationFlag);
+				},
+				// Unreadable: unisolated this time, and asked again next time.
+				() => settle(isolationFlag === true)
+			);
+	});
+}
+
+/** Whether `request`'s response gets the headers: a document while the page
+ * wants it, an app worker script always, nothing under WebKit. */
 function wantsIsolation(request) {
-	return (isNavigation(request) || request.destination === "worker") && !strictUserVisible();
+	if (strictUserVisible()) {
+		return Promise.resolve(false);
+	}
+
+	if (request.destination === "worker") {
+		return Promise.resolve(true);
+	}
+
+	return isNavigation(request) ? isolationWanted() : Promise.resolve(false);
 }
 
 function isolate(response) {
@@ -298,9 +365,12 @@ async function cleanRedirect(response) {
 }
 
 async function networkOrCache(event) {
+	// Read alongside the fetch, not before it: the flag costs a navigation
+	// no time of its own.
+	const wanted = wantsIsolation(event.request);
 	const response = await fromNetworkOrCache(event);
 
-	return wantsIsolation(event.request) ? isolate(response) : response;
+	return (await wanted) ? isolate(response) : response;
 }
 
 async function fromNetworkOrCache(event) {
@@ -378,6 +448,13 @@ async function fromNetworkOrCache(event) {
 // worker shows for it. The server's read push only follows a message it
 // pushed, so a notification the page put here is closed by the page.
 self.addEventListener("message", function (event) {
+	// The page switched translation on or off: its documents are isolated,
+	// or not, from the next navigation (`isolationWanted`).
+	if (event.data && event.data.type === "isolation") {
+		isolationFlag = event.data.on === true;
+		return;
+	}
+
 	if (event.data && event.data.type === "away-on-close" && Array.isArray(event.data.networks)) {
 		const networks = event.data.networks.filter((uuid) => typeof uuid === "string");
 		event.waitUntil(awayOnClose(networks));

@@ -1,10 +1,13 @@
 // The root service worker makes the app cross-origin isolated
-// (docs/projects/translation-devices.md § Multithreading): it adds
-// `Cross-Origin-Opener-Policy: same-origin` and
-// `Cross-Origin-Embedder-Policy: credentialless` to the documents and the
-// app's own worker scripts it serves, so a static host that sends no headers
-// still gets multithreaded WebAssembly for the CPU translation models, from
-// the load after the worker took control.
+// (docs/projects/translation-devices.md § Multithreading) while translation
+// is on: it adds `Cross-Origin-Opener-Policy: same-origin` and
+// `Cross-Origin-Embedder-Policy: credentialless` to the documents it serves
+// while the page's flag says translation is on (client/js/isolationFlag.ts:
+// IndexedDB seance-push/kv `isolate`, and an `isolation` message), and to
+// the app's own worker scripts always, so a static host that sends no
+// headers still gets multithreaded WebAssembly for the CPU translation
+// models, from the load after the worker served the page with translation
+// on. Translation ships switched off, and so does the isolation.
 //
 //   NODE_ENV=production pnpm build
 //   python3 -c 'import http.server as h, mimetypes as m, functools; m.add_type("text/javascript", ".mjs"); m.add_type("application/wasm", ".wasm"); h.test(functools.partial(h.SimpleHTTPRequestHandler, directory="public"), h.ThreadingHTTPServer, port=8021)' &
@@ -19,18 +22,27 @@
 // (an `<img>` the scenario adds), `/preview.png` with
 // `Access-Control-Allow-Origin: *` only, because a link preview of a PNG
 // also reads the file through CORS to learn whether it animates. Needs a
-// fresh profile (the default): a reused one already has the worker.
+// fresh profile (the default): a reused one already has the worker. It does
+// NOT seed translation on (lib/translation.mjs): the default, off, is the
+// first thing it checks, and it switches translation on with the switch.
 //
 // Claims under test:
 //   1. the first load is not isolated, and the worker takes control of it;
-//   2. after a reload the page is isolated, served by the worker;
-//   3. the translation worker's script is isolated too (SharedArrayBuffer
+//   2. translation off (the default): a reload served by the worker is still
+//      not isolated, and the flag the page stored says off;
+//   3. switched on in Settings → Translation: the flag says on at once, and
+//      the CPU threads line says a reload brings threads;
+//   4. after a reload the page is isolated, served by the worker, and the
+//      threads line says how many it uses;
+//   5. the translation worker's script is isolated too (SharedArrayBuffer
 //      exists inside it: its status reply's `threads`);
-//   4. a cross-origin image without CORP still loads (credentialless);
-//   5. a link preview's image from that host renders;
-//   6. no console errors.
+//   6. a cross-origin image without CORP still loads (credentialless);
+//   7. a link preview's image from that host renders;
+//   8. switched off again, the next load is not isolated;
+//   9. no console errors.
 
 import http from "node:http";
+import {readFileSync} from "node:fs";
 import {crc32, deflateSync} from "node:zlib";
 
 const IRCD = process.env.SEANCE_IRC_URL ?? "ws://127.0.0.1:8067/";
@@ -199,6 +211,101 @@ const previewState = `(() => {
 
 const json = async (page, expression) => JSON.parse((await page.evaluate(expression)) ?? "null");
 
+const EN = JSON.parse(readFileSync("client/locales/en.json", "utf8"));
+
+/** A plural catalog entry as a pattern for any count. */
+const pluralPattern = (entry) =>
+	new RegExp(
+		"^(?:" +
+			[entry.one, entry.other]
+				.map((form) =>
+					form.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace("\\{count\\}", "\\d+")
+				)
+				.join("|") +
+			")$"
+	);
+const THREADS_RELOAD = pluralPattern(EN["translate.threads.reload"]);
+const THREADS_USING = pluralPattern(EN["translate.threads.using"]);
+
+/** The flag the page mirrored for the worker (isolationFlag.ts), as JSON. */
+const storedFlag = `new Promise((resolve) => {
+	const req = indexedDB.open("seance-push", 1);
+	req.onupgradeneeded = () => req.result.createObjectStore("kv");
+	req.onerror = () => resolve(JSON.stringify("unreadable"));
+	req.onsuccess = () => {
+		const get = req.result.transaction("kv").objectStore("kv").get("isolate");
+		get.onsuccess = () => {
+			req.result.close();
+			resolve(JSON.stringify(get.result ?? null));
+		};
+	};
+})`;
+
+/** Settings → Translation (the tab keeps its route whatever it is named). */
+async function openTranslationTab(page) {
+	await page.evaluate(`(() => { location.hash = "#/settings/translation"; })()`);
+	await page.waitFor(`!!document.querySelector('#settings input[name="translationEnabled"]')`, {
+		timeout: 20000,
+		label: "Settings → Translation, with its switch",
+	});
+}
+
+/** The CPU threads line, once the device probe has answered. */
+async function threadsLine(page) {
+	await page.waitFor(`!!document.querySelector("#settings .translate-device-threads")`, {
+		timeout: 30000,
+		label: "the CPU threads line",
+	});
+
+	return page.evaluate(
+		`document.querySelector("#settings .translate-device-threads").textContent.trim()`
+	);
+}
+
+/**
+ * Whether the stored flag comes to say `value` within 5 s (waitFor coerces
+ * its expression, so the promise is polled here).
+ */
+async function flagBecomes(page, value) {
+	const started = Date.now();
+
+	while ((await json(page, storedFlag)) !== value) {
+		if (Date.now() - started > 5000) {
+			return false;
+		}
+
+		await page.sleep(150);
+	}
+
+	return true;
+}
+
+/** Flip the switch and wait for the setting and the flag to follow. */
+async function switchTranslation(page, on) {
+	await page.click('#settings input[name="translationEnabled"]');
+	await page.waitFor(
+		`JSON.parse(localStorage.getItem("settings") || "{}").translationEnabled === ${on}`,
+		{label: `the switch stored ${on}`}
+	);
+	await page.check(
+		`switched ${on ? "on" : "off"}: the isolation flag follows`,
+		await flagBecomes(page, on)
+	);
+}
+
+/**
+ * A fresh load of the scenario's URL (the connect form keeps its query),
+ * through the worker: waits for the old document to be gone first.
+ */
+async function load(page) {
+	await page.evaluate(`(() => { window.__coiOld = true; })()`);
+	await page.goto(page.url);
+	await page.waitFor(`!window.__coiOld && !!document.querySelector("#connect form")`, {
+		timeout: 20000,
+		label: "the connect form on a fresh load",
+	});
+}
+
 export default async function run(page) {
 	const server = await serveMedia();
 	const media = (path) => `http://127.0.0.1:${MEDIA_PORT}${path}?run=${RUN}`;
@@ -216,20 +323,57 @@ export default async function run(page) {
 			label: "the service worker controls the page",
 		});
 
-		// 2. A reload: the worker serves the document, with the headers.
+		// 2. Translation is off by default: a reload the worker serves is
+		//    still not isolated, and the page told it so.
 		await page.send("Page.reload");
 		await page.sleep(500);
 		await page.waitFor(`!!document.querySelector("#connect form")`, {
 			timeout: 20000,
 			label: "the connect form after the reload",
 		});
+		const off = await json(page, isolation);
+		await page.check(
+			`translation off: a reload served by the worker is not isolated (${JSON.stringify(
+				off
+			)})`,
+			!off.isolated && !off.sab && off.servedByWorker
+		);
+		await page.check(
+			"translation off: the flag the page stored says off",
+			await flagBecomes(page, false)
+		);
+
+		// 3. Switched on with the switch: the flag follows at once, and the
+		//    threads line says a reload brings threads.
+		await openTranslationTab(page);
+		await switchTranslation(page, true);
+		const before = await threadsLine(page);
+		await page.check(
+			`switched on: the threads line asks for a reload (${JSON.stringify(before)})`,
+			THREADS_RELOAD.test(before)
+		);
+		await page.screenshot("1-threads-reload", {selector: "#settings"});
+
+		// 4. A reload: the worker serves the document, with the headers.
+		await load(page);
 		const second = await json(page, isolation);
 		await page.check(
 			`after a reload the page is isolated, served by the worker (${JSON.stringify(second)})`,
 			second.isolated && second.sab && second.servedByWorker
 		);
+		await openTranslationTab(page);
+		const after = await threadsLine(page);
+		await page.check(
+			`isolated: the threads line says how many it uses (${JSON.stringify(after)})`,
+			THREADS_USING.test(after)
+		);
+		await page.screenshot("2-threads-using", {selector: "#settings"});
+		await page.click(".settings-modal-done");
+		await page.waitFor(`!document.querySelector(".settings-modal")`, {
+			label: "settings closed",
+		});
 
-		// 3. The translation worker's script came through the worker too.
+		// 5. The translation worker's script came through the worker too.
 		const worker = await json(page, workerThreads);
 		await page.check(
 			`the translation worker is isolated (SharedArrayBuffer inside it: ${JSON.stringify(
@@ -238,7 +382,7 @@ export default async function run(page) {
 			worker.threads === true
 		);
 
-		// 4. A cross-origin image without CORP or CORS headers still loads.
+		// 6. A cross-origin image without CORP or CORS headers still loads.
 		const raw = await json(page, rawImage(media("/raw.png")));
 		await page.check(
 			`a cross-origin <img> without CORP loads (${JSON.stringify(raw)})`,
@@ -246,7 +390,10 @@ export default async function run(page) {
 		);
 		await page.evaluate(`document.getElementById("coi-raw")?.remove()`);
 
-		// 5. A link preview's image from that host renders.
+		// 7. A link preview's image from that host renders.
+		await page.waitFor(`!!document.querySelector("#connect form")`, {
+			label: "the connect form",
+		});
 		await page.evaluate(`document.querySelector("#connect form").requestSubmit()`);
 		await page.waitFor(`document.querySelector('.channel-list-item[data-name="${CHANNEL}"]')`, {
 			timeout: 30000,
@@ -271,8 +418,8 @@ export default async function run(page) {
 			`the link preview's image renders (${JSON.stringify(preview)})`,
 			preview.loaded && preview.shown
 		);
-		await page.screenshot("1-preview-isolated", {selector: "#chat .chat-content"});
-		await page.screenshot("2-page-isolated");
+		await page.screenshot("3-preview-isolated", {selector: "#chat .chat-content"});
+		await page.screenshot("4-page-isolated");
 
 		const still = await json(page, isolation);
 		await page.check(
@@ -282,6 +429,23 @@ export default async function run(page) {
 
 		bob.quit();
 		await page.sleep(300);
+
+		// 8. Switched off again: the page in front stays as it was loaded,
+		//    and the next load is not isolated.
+		await openTranslationTab(page);
+		await switchTranslation(page, false);
+		const inFront = await json(page, isolation);
+		await page.check(
+			`switched off: the page in front stays as it was loaded (${JSON.stringify(inFront)})`,
+			inFront.isolated
+		);
+		await load(page);
+		const offAgain = await json(page, isolation);
+		await page.check(
+			`switched off again: the next load is not isolated (${JSON.stringify(offAgain)})`,
+			!offAgain.isolated && !offAgain.sab && offAgain.servedByWorker
+		);
+
 		await page.check(
 			`no console errors (${page.consoleErrors.map((e) => e.text).join(" | ")})`,
 			page.consoleErrors.length === 0

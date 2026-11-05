@@ -42,6 +42,7 @@ import dnd from "./dnd";
 import {setContextProvider, scriptManager} from "./irc/scripting/manager";
 import {MessageType} from "../../shared/types/msg";
 import {takeTestSwitches} from "./translate/testSwitches";
+import {startIsolationMirror} from "./translate";
 // Also registers the IRC layer's bus handlers (input, names, more, network:*).
 import {allClients, autoconnectSavedNetworks, clientForNetwork, createNetwork} from "./irc/manager";
 
@@ -100,6 +101,11 @@ export async function boot(): Promise<void> {
 	// 'theme' setting depends on serverConfiguration.themes so
 	// settings cannot be applied before this point
 	void store.dispatch("settings/applyAll");
+
+	// The root service worker isolates the app's documents only while
+	// translation is on (translate/index.ts startIsolationMirror): told now,
+	// with the branding and the stored settings in, and on every change.
+	startIsolationMirror();
 
 	// The branded default theme applies until the user picks one themselves.
 	if (configuration.defaultTheme !== store.state.settings.theme && !hasStoredSetting("theme")) {

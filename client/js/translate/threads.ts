@@ -2,9 +2,10 @@
  * Threads for the CPU models (docs/projects/translation-devices.md
  * § Multithreading). Multithreaded WebAssembly needs a cross-origin-isolated
  * page; the app's root service worker supplies the headers
- * (client/service-worker.js `isolate`), so a page is isolated from the load
- * after the worker took control of it. Vue-free, DOM-free: the worker and
- * the page each pass in what they read.
+ * (client/service-worker.js `isolate`) while translation is on (the page's
+ * flag, client/js/isolationFlag.ts), so a page is isolated from the load
+ * after the worker took control of it with translation on. Vue-free,
+ * DOM-free: the worker and the page each pass in what they read.
  */
 
 /**
@@ -35,10 +36,11 @@ export function cpuThreads(hardwareConcurrency: number, mobile: boolean): number
 
 /**
  * Whether this page can run the CPU models multithreaded: "isolated" it
- * does; "reload" the next load will (the worker did not serve this page);
- * "unsupported" it never will here (WebKit has no `credentialless`, the
- * worker is never registered here, or it served the page and the page is
- * still not isolated).
+ * does; "reload" the next load will (the worker did not serve this page, or
+ * served it while translation was off); "unsupported" it never will here
+ * (WebKit has no `credentialless`, the worker is never registered here, or
+ * it served the page isolating and the page is still not isolated), or not
+ * while the worker does not isolate (translation off).
  */
 export type Isolation = "isolated" | "reload" | "unsupported";
 
@@ -55,6 +57,15 @@ export interface IsolationEnv {
 	 * before the worker could claim the page.
 	 */
 	controlled: boolean;
+	/**
+	 * Whether the worker meant to isolate this document when it served it:
+	 * the page's flag as it stood at this load (isolationFlag.ts
+	 * `IsolationMirror.served`), i.e. translation was on. A page served
+	 * while it was off is not isolated, and a reload with it on will be.
+	 */
+	servedIsolating: boolean;
+	/** Whether the worker isolates the next load: translation is on now. */
+	workerIsolates: boolean;
 	/** WebKit (Safari, every iOS browser): no COEP `credentialless`. */
 	webkit: boolean;
 	/**
@@ -71,5 +82,10 @@ export function isolationState(env: IsolationEnv): Isolation {
 		return "isolated";
 	}
 
-	return env.workerCanServe && !env.controlled && !env.webkit ? "reload" : "unsupported";
+	if (!env.workerCanServe || env.webkit || !env.workerIsolates) {
+		return "unsupported";
+	}
+
+	// Served isolating and still not isolated: no reload would change that.
+	return !env.controlled || !env.servedIsolating ? "reload" : "unsupported";
 }

@@ -57,6 +57,7 @@ import {
 	activeService,
 	configuredCatalog,
 	onTranslationSwitch,
+	servedIsolating,
 	serviceSettings,
 	setTranslationUsage,
 	translateService,
@@ -272,7 +273,9 @@ export function modelDevices(ref: ModelRef, exact = false): ModelDevices {
  * What decides whether the CPU models can run multithreaded on this page
  * (threads.ts `isolationState`): whether it is isolated, whether the
  * service worker served this document (its navigation timing's
- * `workerStart`), WebKit by the same rule the worker uses
+ * `workerStart`) and meant to isolate it (the flag it served it by,
+ * index.ts `servedIsolating`), whether it isolates the next load
+ * (translation is on), WebKit by the same rule the worker uses
  * (service-worker.js), and whether a worker is ever registered here.
  */
 export function isolationEnv(): IsolationEnv {
@@ -284,6 +287,8 @@ export function isolationEnv(): IsolationEnv {
 	return {
 		crossOriginIsolated: !!self.crossOriginIsolated,
 		controlled: (nav?.workerStart ?? 0) > 0,
+		servedIsolating: servedIsolating(),
+		workerIsolates: translationOn(),
 		webkit: /AppleWebKit\//.test(ua) && !/Chrome\//.test(ua),
 		workerCanServe: serviceWorkerCanServe(),
 	};

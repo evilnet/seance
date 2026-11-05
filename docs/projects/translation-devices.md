@@ -318,6 +318,15 @@ GitHub Pages cannot. So the app's own service worker supplies the headers.
   controls it — from the second load on, and always in an installed app.
   The app never reloads itself for it; Settings says when a reload would
   bring threads ("Reload the app to use 4 CPU threads").
+- **Only while translation is on (amended 2026-11-05, the review of the
+  switched-off default):** translation ships switched off, and the headers
+  cost the whole app something (cross-origin no-cors requests without
+  cookies, no `window.opener`), so the worker adds them to the documents
+  only while the page's flag says translation is on (IndexedDB
+  `seance-push`/`kv` `isolate` plus an `isolation` message,
+  `client/js/isolationFlag.ts`); the worker scripts keep them always. Switched
+  on, the next load is isolated and Settings says "Reload…" until then
+  (`threads.ts` `isolationState`, `servedIsolating`).
 - **Threads:** the CPU language model runs wllama's multithreaded build
   when the worker is isolated, with `cpuThreads(hardwareConcurrency, mobile)` threads: on a phone at most 4 (its little cores hold the big
   ones back), on a computer a cap measured on this host (1, 2, 4, 8
