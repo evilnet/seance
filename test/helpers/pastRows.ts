@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import {editRow, mergePage, pageEdge} from "../../client/js/helpers/pastRows";
+import {editRow, linkEdits, mergePage, pageEdge} from "../../client/js/helpers/pastRows";
 import type {SharedMsg} from "../../shared/types/msg";
 
 const row = (id: number, msgid?: string, nick = "bob") =>
@@ -17,6 +17,26 @@ describe("helpers/pastRows.ts", function () {
 
 	it("keeps rows that have no msgid", function () {
 		expect(mergePage([row(1)], [row(2)], "AFTER").added).to.equal(1);
+	});
+
+	it("places an edit and its original that came on different pages", function () {
+		const edit = {...row(5, "e", "BOB"), editOf: "a"} as SharedMsg;
+		// AFTER: the edit lands behind its original's page.
+		const after = mergePage([row(1, "a"), row(2, "b")], [edit], "AFTER").rows;
+		linkEdits(after);
+		expect(after.map((r) => r.id)).to.deep.equal([1, 5, 2]);
+		expect(after[0].supersededBy).to.equal(5);
+
+		// BEFORE: the original lands in front of its edit's page.
+		const before = mergePage([row(2, "b"), {...edit}], [row(1, "a")], "BEFORE").rows;
+		linkEdits(before);
+		expect(before[0].supersededBy).to.equal(5);
+	});
+
+	it("leaves another author's line with the same editOf alone", function () {
+		const rows = [row(1, "a"), {...row(5, "e", "mallory"), editOf: "a"} as SharedMsg];
+		linkEdits(rows);
+		expect(rows[0].supersededBy).to.equal(undefined);
 	});
 
 	it("pages from the outermost row with a msgid", function () {

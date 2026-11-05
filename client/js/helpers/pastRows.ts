@@ -26,13 +26,33 @@ export function pageEdge<T extends SharedMsg>(
 	return (where === "BEFORE" ? anchored[0] : anchored[anchored.length - 1])?.msgid;
 }
 
+/** An edit is its original author's: case folded, as a nick is. */
+export function sameAuthor(a: SharedMsg, b: SharedMsg): boolean {
+	return a.from?.nick?.toLowerCase() === b.from?.nick?.toLowerCase();
+}
+
+/**
+ * Edits whose original is in `rows` but on another page: placed as on one
+ * page. An AFTER page can bring the edit of a line already shown, and a
+ * BEFORE page the original of an edit already shown.
+ */
+export function linkEdits<T extends SharedMsg>(rows: T[]): void {
+	for (const row of [...rows]) {
+		const original = row.editOf ? rows.find((m) => m.msgid === row.editOf) : undefined;
+
+		if (original && original.supersededBy === undefined && sameAuthor(original, row)) {
+			applyEdit(rows, original.id, row.id);
+		}
+	}
+}
+
 /** A live edit of a line in `rows`, from its author, takes the line's place. */
 export function editRow<T extends SharedMsg>(rows: T[], edit: T): boolean {
 	const original = rows.find((row) => row.msgid === edit.editOf);
 
 	if (
 		!original ||
-		original.from?.nick?.toLowerCase() !== edit.from?.nick?.toLowerCase() ||
+		!sameAuthor(original, edit) ||
 		rows.some((row) => row.msgid === edit.msgid) // an AFTER page brought it, a catch-up again
 	) {
 		return false;

@@ -584,6 +584,21 @@ describe("historysearch", function () {
 			expect(answer.changes?.[0].redact?.by).to.equal("bob");
 		});
 
+		it("says where a page of reactions alone ends, for the next page to start from", function () {
+			const {client, transport} = setup();
+
+			requestSearchContext(client, 5, "#seance", "BEFORE", "m9", 100);
+			batch(transport, "chathistory #seance", labelOf(transport.sent[0]), [
+				"@msgid=r1;+draft/react=👍;+draft/reply=m0 :bob!b@h TAGMSG #seance",
+				"@msgid=r2;+draft/react=🎉;+draft/reply=m0 :bob!b@h TAGMSG #seance",
+			]);
+
+			const [answer] = payloads<ContextPayload>("search:context");
+
+			expect(answer.messages).to.have.length(0);
+			expect(answer.edges).to.deep.equal({first: "r1", last: "r2"});
+		});
+
 		it("keeps a wrapped FAIL for its context request from a channel's page", function () {
 			const {client, transport} = setup();
 

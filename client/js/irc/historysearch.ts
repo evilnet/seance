@@ -37,6 +37,7 @@ import {formatLine, MAX_LINE_BYTES, utf8ByteLength, type IrcMessage} from "./mes
 import type {Channel} from "./channel";
 import {historyLimit} from "./history";
 import {applyEdit, applyReaction, applyRedaction} from "../helpers/messageUpdates";
+import {sameAuthor} from "../helpers/pastRows";
 import {ignoreListFor} from "../ignore";
 import {replyTagOf} from "./handlers/privmsg";
 import {REACT_TAG, UNREACT_TAG} from "./wire";
@@ -157,6 +158,11 @@ type ContextPage = {
 	end?: boolean;
 	/** Reactions and deletions of lines not in this page: an earlier page's, perhaps. */
 	changes?: LineChange[];
+	/**
+	 * The msgids of the page's first and last lines, whatever they are: a page
+	 * of reactions alone has no rows to take the next page's anchor from.
+	 */
+	edges?: {first?: string; last?: string};
 };
 
 function answer(
@@ -400,7 +406,7 @@ function withUpdates(
 	for (const row of [...rows]) {
 		const original = row.editOf ? byMsgid.get(row.editOf) : undefined;
 
-		if (original && original.from?.nick === row.from?.nick) {
+		if (original && sameAuthor(original, row)) {
 			applyEdit(rows, original.id, row.id);
 		}
 	}
@@ -471,7 +477,14 @@ export function searchContextBatch(client: IrcClient, batch: OpenBatch): boolean
 				batch.messages,
 				changes
 			),
-		() => ({end: batch.tags.has("draft/chathistory-end"), changes})
+		() => ({
+			end: batch.tags.has("draft/chathistory-end"),
+			changes,
+			edges: {
+				first: batch.messages.find((m) => m.tags.get("msgid"))?.tags.get("msgid"),
+				last: batch.messages.findLast((m) => m.tags.get("msgid"))?.tags.get("msgid"),
+			},
+		})
 	);
 	return true;
 }

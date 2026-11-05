@@ -27,6 +27,8 @@ type PastView = {
 	requestId: number;
 	canEarlier: boolean;
 	canLater: boolean;
+	/** Where the next page on each side starts, once a page has said (its edges). */
+	from: {BEFORE?: string; AFTER?: string};
 	failed: boolean;
 	retryAt: number;
 };
@@ -45,8 +47,6 @@ type ClientChan = Omit<SharedChan, "messages"> & {
 	past: PastView | null;
 	/** One is on its way: the bar says so. */
 	pastOpening: boolean;
-	/** A history page has been answered, so what is loaded is what the server gave. */
-	historyPageLanded: boolean;
 	/** Taken to an older message: not read until the list reaches the bottom. */
 	readHeld: boolean;
 	scrolledToBottom: boolean;

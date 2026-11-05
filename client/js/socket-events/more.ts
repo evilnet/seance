@@ -40,7 +40,6 @@ socket.on("more", async (data) => {
 	channel.moreHistoryAvailable =
 		data.moreAvailable ?? data.totalMessages > channel.messages.length + data.messages.length;
 	channel.messages = data.messages.concat(channel.messages);
-	channel.historyPageLanded = true;
 
 	await nextTick();
 	channel.historyLoading = false;

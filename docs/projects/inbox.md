@@ -89,9 +89,11 @@ next page. The bar over the composer says the reader is among older messages,
 with Jump to present; scrolling off the newest end, Escape, or sending gets
 there too. While the lines are on their way the bar says that. A past row offers
 no Edit, since an edit's place is the recent lines, but others' edits, reactions
-and deletions reach it (`msg:changed`). An edit in a later page of a line in an
-earlier one shows as a second row, and a deletion in a later page does not
-reach a line loaded after it. Nothing of a past view is kept: leaving the
+and deletions reach it (`msg:changed`). An edit and its original that come on
+different pages are placed as on one page (`linkEdits`). A deletion in a later
+page does not reach a line loaded after it. A page is asked from the previous
+page's outermost line, rows or not (`edges`), so a page of reactions alone moves
+on rather than ending that side; only an empty page or the end tag ends it. Nothing of a past view is kept: leaving the
 channel closes it. A line the server does not have says so and stays put. The
 logic is `helpers/jumpToMessage.ts` and `helpers/pastRows.ts` (Vue-free,
 `test/helpers/`).

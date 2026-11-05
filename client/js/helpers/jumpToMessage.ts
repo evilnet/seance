@@ -9,22 +9,14 @@ export type JumpTarget = {
 	id?: number;
 };
 
-type JumpStep =
-	| {kind: "found"; id: number}
-	/** Nothing can be told until the channel's first page has landed. */
-	| {kind: "first-page"}
-	| {kind: "missing"};
+type JumpStep = {kind: "found"; id: number} | {kind: "missing"};
 
 type Loaded = {id: number; msgid?: string; supersededBy?: number};
 
-/**
- * What to do next for `target` given the loaded `messages`, and whether the
- * channel's first page may still be to come.
- */
+/** Where `target` is in the loaded `messages`, if it is. */
 export function jumpStep(
 	messages: readonly Loaded[],
-	target: Omit<JumpTarget, "chanId">,
-	firstPageDue: boolean
+	target: Omit<JumpTarget, "chanId">
 ): JumpStep {
 	const hit = messages.find(
 		(m) =>
@@ -36,7 +28,7 @@ export function jumpStep(
 		return {kind: "found", id: hit.supersededBy ?? hit.id};
 	}
 
-	return firstPageDue ? {kind: "first-page"} : {kind: "missing"};
+	return {kind: "missing"};
 }
 
 /** Scroll `el` (a message row) to the middle of its list and flash it once. */

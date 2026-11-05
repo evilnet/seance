@@ -153,6 +153,8 @@ interface ServerToClientEvents {
 		/** The server says this side of history has ended (`draft/chathistory-end`). */
 		end?: boolean;
 		changes?: LineChange[];
+		/** The msgids of the page's first and last lines, rows or not: where the next page starts. */
+		edges?: {first?: string; last?: string};
 	}>;
 
 	/** A line changed, loaded or not: all a past view hears (see bus-contract §1.2). */

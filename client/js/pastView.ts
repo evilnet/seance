@@ -80,7 +80,7 @@ export function pastPage(
 ): void {
 	const past = channel.past;
 	const more = where === "BEFORE" ? past?.canEarlier : past?.canLater;
-	const msgid = past && pageEdge(past.rows, where);
+	const msgid = past && (past.from[where] ?? pageEdge(past.rows, where));
 
 	if (!past || !more || past.loading || !msgid) {
 		return;

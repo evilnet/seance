@@ -16,7 +16,6 @@ export function toClientChan(shared: SharedNetworkChan): ClientChan {
 		historyLoading: false,
 		past: null,
 		pastOpening: false,
-		historyPageLanded: false,
 		readHeld: false,
 		scrolledToBottom: true,
 		replyTo: null,

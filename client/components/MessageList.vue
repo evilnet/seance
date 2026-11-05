@@ -4,8 +4,6 @@
 		class="chat"
 		:class="{selecting, 'selection-live': selectionActive}"
 		tabindex="-1"
-		@wheel.passive="onShortGesture"
-		@touchmove.passive="onShortGesture"
 	>
 		<div
 			v-show="channel.past ? channel.past.canEarlier : channel.moreHistoryAvailable"
@@ -158,8 +156,6 @@ export default defineComponent({
 
 		/** Re-arm on a scroll that is not the tail of the last prepend. */
 		const REARM_AFTER_MS = 400;
-		/** Pages a past view too short to scroll asks for on its own. */
-		const MAX_AUTO_FILLS = 3;
 		/** How long a jump waits for its channel to be joined. */
 		const JUMP_WAIT_MS = 20000;
 		/** How long a compensation is re-checked against a momentum scroll. */
@@ -310,12 +306,18 @@ export default defineComponent({
 			(props.channel.type !== ChanType.CHANNEL || props.channel.state === ChanState.JOINED);
 
 		// A jump to a message (helpers/jumpToMessage.ts): runs once this list
-		// shows the target's channel, after the mount's own jump to the bottom,
-		// and again as the first page lands. Not loaded, it opens a past view,
-		// which clears the target when it lands (socket-events/past.ts).
+		// shows the target's channel, after the mount's own jump to the bottom.
+		// Not loaded, it opens a past view, which clears the target when it
+		// lands (socket-events/past.ts).
 		let jumping: JumpTarget | null = null;
-		let firstPageAsked = false;
 		let pastAsked = false;
+		/** Gives up on a channel that is not joined back; one per jump. */
+		let joinWait: ReturnType<typeof setTimeout> | undefined;
+
+		const stopJoinWait = () => {
+			clearTimeout(joinWait);
+			joinWait = undefined;
+		};
 
 		const reveal = (id: number) => {
 			const el = document.getElementById(`msg-${id}`);
@@ -341,8 +343,8 @@ export default defineComponent({
 			// A new jump replaces whatever an earlier one still waits for.
 			if (jumping !== target) {
 				jumping = target;
-				firstPageAsked = false;
 				pastAsked = false;
+				stopJoinWait();
 				cancelPastRequests(props.channel);
 			}
 
@@ -357,7 +359,7 @@ export default defineComponent({
 			}
 
 			const past = props.channel.past;
-			const inPast = past ? jumpStep(past.rows, target, false) : null;
+			const inPast = past ? jumpStep(past.rows, target) : null;
 
 			if (inPast?.kind === "found") {
 				reveal(inPast.id);
@@ -365,23 +367,17 @@ export default defineComponent({
 				return;
 			}
 
-			// A `more` joins a page already on its way. A trimmed buffer has had one
-			// too, though no answer may have come since this page opened.
 			const ready = canLoadMore();
-			const step = jumpStep(
-				props.channel.messages,
-				target,
-				!props.channel.historyPageLanded &&
-					!props.channel.moreHistoryAvailable &&
-					!firstPageAsked
-			);
+			const step = jumpStep(props.channel.messages, target);
 
 			// Not joined yet (a reload's placeholder): wait for the channel. Connected
 			// and still not joined after a while, it is not coming back (kicked), and
 			// the jump would hold the read. Offline, a reconnect runs this again.
 			if (step.kind !== "found" && !ready) {
-				if (props.network.status.connected) {
-					setTimeout(() => {
+				if (props.network.status.connected && !joinWait) {
+					joinWait = setTimeout(() => {
+						joinWait = undefined;
+
 						if (
 							store.state.jumpTarget === target &&
 							props.network.status.connected &&
@@ -393,12 +389,6 @@ export default defineComponent({
 					}, JUMP_WAIT_MS);
 				}
 
-				return;
-			}
-
-			if (step.kind === "first-page") {
-				firstPageAsked = true;
-				onShowMoreClick();
 				return;
 			}
 
@@ -418,38 +408,6 @@ export default defineComponent({
 			}
 		};
 
-		// Too few lines to scroll, so nothing a scroll could ask for more with. Each
-		// is a command on the server's clock, so only a few without a gesture.
-		let autoFills = 0;
-
-		const askIfShort = () => {
-			const el = chat.value;
-			const past = props.channel.past;
-
-			if (
-				el &&
-				past &&
-				!past.loading &&
-				Date.now() >= past.retryAt &&
-				autoFills < MAX_AUTO_FILLS &&
-				el.scrollHeight <= el.clientHeight &&
-				(past.canEarlier || past.canLater)
-			) {
-				autoFills++;
-				pastPage(props.network, props.channel, past.canEarlier ? "BEFORE" : "AFTER");
-			}
-		};
-
-		// A list that cannot scroll says nothing with scroll events: one page a gesture.
-		const onShortGesture = () => {
-			const el = chat.value;
-
-			if (el && props.channel.past && el.scrollHeight <= el.clientHeight) {
-				autoFills = Math.min(autoFills, MAX_AUTO_FILLS - 1);
-				askIfShort();
-			}
-		};
-
 		// The rows of a past view have rendered: on to the line it opened for.
 		watch(
 			() => props.channel.past?.reveal,
@@ -457,15 +415,12 @@ export default defineComponent({
 				const past = props.channel.past;
 
 				if (past && msgid) {
-					autoFills = 0;
 					past.reveal = null;
 					const row = past.rows.find((m) => m.msgid === msgid);
 
 					if (row) {
 						reveal(row.supersededBy ?? row.id);
 					}
-
-					askIfShort();
 				}
 			},
 			{flush: "post"}
@@ -512,18 +467,15 @@ export default defineComponent({
 			{flush: "post"}
 		);
 
-		// A page landed. The place holds (keepScrollPosition), it may not fill the
-		// list, and an empty one at the newest end scrolls nothing to say so.
+		// A page landed. The place holds (keepScrollPosition), and an empty one at
+		// the newest end scrolls nothing to say so.
 		watch(
 			() => [props.channel.past?.rows, props.channel.past?.canLater],
 			() => {
-				const el = chat.value;
 				const past = props.channel.past;
 
-				if (el && past && !past.canLater && !past.loading && isAtBottom()) {
+				if (past && !past.canLater && !past.loading && isAtBottom()) {
 					closePast(props.channel);
-				} else {
-					askIfShort();
 				}
 			},
 			{flush: "post"}
@@ -988,6 +940,7 @@ export default defineComponent({
 
 		onUnmounted(() => {
 			unwatchSelection();
+			stopJoinWait();
 			closePast(props.channel);
 			setReadHold(props.channel, false);
 
@@ -1016,7 +969,6 @@ export default defineComponent({
 			store,
 			t,
 			loadingOlder,
-			onShortGesture,
 			onShowMoreClick,
 			loadMoreButton,
 			onCopy,

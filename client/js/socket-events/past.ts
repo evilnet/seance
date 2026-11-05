@@ -6,7 +6,7 @@ import socket from "../socket";
 import {store} from "../store";
 import {attachMediaPreviews} from "../helpers/messagePreviews";
 import {applyReaction, applyRedaction} from "../helpers/messageUpdates";
-import {mergePage} from "../helpers/pastRows";
+import {linkEdits, mergePage} from "../helpers/pastRows";
 import {settled} from "../helpers/scrollSettle";
 import {takePending} from "../pastView";
 import type {LineChange} from "../../../shared/types/search";
@@ -55,6 +55,7 @@ socket.on("search:context", async (data) => {
 				requestId: 0,
 				canEarlier: true,
 				canLater: true,
+				from: {BEFORE: data.edges?.first, AFTER: data.edges?.last},
 				failed: false,
 				retryAt: 0,
 			};
@@ -96,12 +97,17 @@ socket.on("search:context", async (data) => {
 	}
 
 	past.failed = false;
-	const {rows, added} = mergePage(past.rows, data.messages, request.direction);
+	const {rows} = mergePage(past.rows, data.messages, request.direction);
+	linkEdits(rows);
 	data.changes?.forEach((change) => applyChange(rows, change));
 	past.rows = rows;
 
-	// Nothing new, or the server says so: that side has ended.
-	if (added === 0 || data.end) {
+	// A page of reactions alone adds no rows but still moves on: only an empty
+	// page, or the server's word, ends that side.
+	const edge = request.direction === "BEFORE" ? data.edges?.first : data.edges?.last;
+	past.from[request.direction] = edge;
+
+	if (!edge || data.end) {
 		if (request.direction === "BEFORE") {
 			past.canEarlier = false;
 		} else {
