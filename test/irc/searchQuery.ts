@@ -8,6 +8,7 @@ import {
 	matchesFilters,
 	matchSpans,
 	parseSearchQuery,
+	readyToSearch,
 	resolveScope,
 	rowKey,
 	serverAttrs,
@@ -24,6 +25,30 @@ function row(text: string, extra: {nick?: string; account?: string; time?: Date}
 }
 
 describe("searchQuery", function () {
+	describe("readyToSearch", function () {
+		const ready = (raw: string) => readyToSearch(raw, parseSearchQuery(raw));
+
+		it("waits for a word of three letters", function () {
+			expect(ready("")).to.equal(false);
+			expect(ready("ol")).to.equal(false);
+			expect(ready("old")).to.equal(true);
+			expect(ready("in:#linux ol")).to.equal(false);
+			expect(ready("-older")).to.equal(false);
+		});
+
+		it("waits for a filter or a quote still being typed", function () {
+			expect(ready("old from:kit")).to.equal(false);
+			expect(ready("old in:")).to.equal(false);
+			expect(ready("old from:kitten ")).to.equal(true);
+			expect(ready('"fake la')).to.equal(false);
+			expect(ready('"fake lag"')).to.equal(true);
+		});
+
+		it("takes a word that only looks like a filter", function () {
+			expect(ready("https://example.test")).to.equal(true);
+		});
+	});
+
 	describe("what scope a query asks for", function () {
 		it("reads a bare * as every channel, wherever it stands", function () {
 			for (const q of ["* fake lag", "fake * lag", "fake lag *"]) {

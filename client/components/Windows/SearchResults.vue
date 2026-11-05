@@ -91,7 +91,7 @@
 						</button>
 					</div>
 
-					<p v-if="stale && criteria" class="search-stale" role="status">
+					<p v-if="staleNote && criteria" class="search-stale" role="status">
 						{{ t("search.window.stale") }}
 					</p>
 
@@ -101,7 +101,7 @@
 						<div
 							ref="list"
 							class="search-list"
-							:class="{stale: stale && criteria}"
+							:class="{stale: staleNote && criteria}"
 							:inert="filtersOpen"
 						>
 							<div v-if="!criteria" class="search-start">
@@ -120,7 +120,11 @@
 								</div>
 							</div>
 
-							<div v-else-if="loading" class="search-center" role="status">
+							<div
+								v-else-if="loading && !rows.length"
+								class="search-center"
+								role="status"
+							>
 								<p>{{ t("search.window.asking") }}</p>
 							</div>
 
@@ -577,6 +581,7 @@ import {
 	matchesFilters,
 	matchSpans,
 	parseSearchQuery,
+	readyToSearch,
 	resolveScope,
 	rowKey,
 	serverAttrs,
@@ -602,6 +607,13 @@ const HINTS = ["from:nick", "in:#channel", "has:link", "-word", "after:2026-10-0
 
 let nextRequestId = 1;
 
+/** The pause in typing that starts a search. */
+const LIVE_DELAY_MS = 800;
+/** Between searches typing starts: one command's fake lag, so the clock never climbs. */
+const LIVE_GAP_MS = 2000;
+/** How soon to look again while an answer is on its way. */
+const LIVE_RETRY_MS = 500;
+
 /** Where the rows come from: the server, or what is loaded and why. */
 type Mode = "server" | "unsupported" | "offline";
 
@@ -623,6 +635,10 @@ export default defineComponent({
 		const queryField = ref<HTMLInputElement>();
 
 		const draft = ref(String(route.query.q ?? ""));
+		let liveTimer: ReturnType<typeof setTimeout> | undefined;
+		let lastAskedAt = 0;
+		/** The route change coming is a search typing started. */
+		let liveRoute = false;
 		const filtersOpen = ref(false);
 		const rows = ref<SearchHit[]>([]);
 		const mode = ref<Mode>("server");
@@ -804,9 +820,14 @@ export default defineComponent({
 			rows.value = hits.reverse().sort(newestFirst);
 		};
 
-		const run = () => {
+		// keepRows: typing on, what is showing stays until the answer replaces it.
+		const ask = (keepRows: boolean) => {
 			requestId = 0;
-			rows.value = [];
+
+			if (!keepRows) {
+				rows.value = [];
+			}
+
 			hitError.value = "";
 			error.value = "";
 			olderError.value = "";
@@ -820,6 +841,7 @@ export default defineComponent({
 			}
 
 			loading.value = true;
+			lastAskedAt = Date.now();
 			requestId = nextRequestId++;
 			socket.emit("search:request", {
 				network: network.value.uuid,
@@ -827,6 +849,8 @@ export default defineComponent({
 				attrs: serverAttrs(filters.value, scopeDefault.value, undefined, PAGE_SIZE),
 			});
 		};
+
+		const run = () => ask(false);
 
 		const restoreResults = async (from: KeptResults) => {
 			rows.value = from.rows;
@@ -913,6 +937,14 @@ export default defineComponent({
 				return;
 			}
 
+			if (!older) {
+				rows.value = [];
+
+				if (list.value) {
+					list.value.scrollTop = 0;
+				}
+			}
+
 			// `before` includes that very moment, so a page repeats its edge.
 			const seen = new Set(rows.value.map((hit) => rowKey(hit.msg)));
 			const fresh = data.hits.filter((hit) => !seen.has(rowKey(hit.msg)));
@@ -987,6 +1019,7 @@ export default defineComponent({
 		};
 
 		const setQuery = (q: string) => {
+			clearTimeout(liveTimer);
 			draft.value = q;
 
 			if (q.trim() === query.value) {
@@ -1037,6 +1070,53 @@ export default defineComponent({
 
 			setQuery(formatSearchQuery(next));
 		};
+
+		// Typing searches once it pauses. A search costs the server a scan and about
+		// 2 s of fake lag, so one at a time, and never faster than that lag drains.
+		const liveReady = computed(() => {
+			const target = draftFilters.value.in;
+
+			return (
+				readyToSearch(draft.value, draftFilters.value) &&
+				(!target || target === ALL_CHANNELS || !!findChat(target))
+			);
+		});
+		const staleNote = computed(() => stale.value && !liveReady.value);
+
+		const searchLive = () => {
+			const q = draft.value.trim();
+
+			if (q === query.value) {
+				return;
+			}
+
+			const wait = Math.max(
+				lastAskedAt + LIVE_GAP_MS - Date.now(),
+				loading.value || loadingOlder.value ? LIVE_RETRY_MS : 0
+			);
+
+			if (wait > 0) {
+				liveTimer = setTimeout(searchLive, wait);
+				return;
+			}
+
+			liveRoute = true;
+			void router.replace({
+				name: "SearchResults",
+				params: {id: route.params.id},
+				query: {q},
+			});
+		};
+
+		watch(draft, (value) => {
+			clearTimeout(liveTimer);
+
+			if (!value.trim() && query.value) {
+				setQuery("");
+			} else if (liveReady.value) {
+				liveTimer = setTimeout(searchLive, LIVE_DELAY_MS);
+			}
+		});
 
 		const searchEverywhere = () => {
 			setQuery(formatSearchQuery({...draftFilters.value, in: ALL_CHANNELS}));
@@ -1089,6 +1169,13 @@ export default defineComponent({
 		watch(
 			() => [route.params.id, route.query.q],
 			() => {
+				// What the field holds by now is newer than the search this was for.
+				if (liveRoute) {
+					liveRoute = false;
+					ask(true);
+					return;
+				}
+
 				draft.value = String(route.query.q ?? "");
 
 				if (found.value) {
@@ -1132,6 +1219,7 @@ export default defineComponent({
 			socket.off("search:results", onResults);
 			eventbus.off("escapekey", onEscape);
 			window.removeEventListener("resize", showMatches);
+			clearTimeout(liveTimer);
 			clearHighlight("search-hit");
 		});
 
@@ -1150,6 +1238,7 @@ export default defineComponent({
 			closeSearch,
 			draftFilters,
 			stale,
+			staleNote,
 			conversations,
 			criteria,
 			draft,
