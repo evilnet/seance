@@ -352,15 +352,16 @@ export function presenceClosed(client: IrcClient): void {
  * ACKed; the server reads the REQ first, so being requested is enough.
  * Either way {@link presenceRegistered} says it again after registration.
  *
- * Nothing when the client is quitting: handlers/cap.ts then drops the
- * `CAP END` flush (a required SASL login failed inside `beforeEnd`, which
- * runs first), so the state is only changed for a line that goes out.
+ * Nothing when the client is quitting or its socket is gone: handlers/cap.ts
+ * then drops the `CAP END` flush (a required SASL login failed inside
+ * `beforeEnd`, which runs first — QUIT, or the socket abandoned for a
+ * retry), so the state is only changed for a line that goes out.
  */
 export function registrationAwayLine(client: IrcClient): string | null {
 	const p = client.presence;
 	const caps = client.caps;
 
-	if (client.isQuitting) {
+	if (client.isQuitting || !client.socketOpen) {
 		return null;
 	}
 

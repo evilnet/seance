@@ -21,6 +21,7 @@ import {setMuteStatus} from "../mute";
 import {registerBusHandlers} from "./bus";
 import {IrcClient} from "./client";
 import {flushQueryLogs} from "./querylog";
+import {forgetLogin, typedCredentialsDiffer} from "./saslTrust";
 import {pruneUserAway} from "./userAwayStore";
 import {leavesAwayToWorker, syncPresence} from "./presence";
 import {claimMute, clearRemoteDnd} from "./pushMute";
@@ -86,6 +87,12 @@ function rememberNetwork(options: CreateNetworkOptions): SavedNetwork {
 
 	if (!entry) {
 		throw new Error("createNetwork: missing uuid");
+	}
+
+	// Credentials from the connect form are unproven: a mistyped password on
+	// a network whose login has worked gets no retries (saslTrust.ts).
+	if (typedCredentialsDiffer(existing, options)) {
+		forgetLogin(uuid);
 	}
 
 	saved.save(entry);
@@ -394,6 +401,7 @@ registerBusHandlers(socket, {
 	remove(uuid) {
 		clients.get(uuid)?.queryLog.dispose();
 		clients.delete(uuid);
+		forgetLogin(uuid);
 	},
 });
 
