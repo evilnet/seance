@@ -5,14 +5,17 @@
 		:class="{selecting, 'selection-live': selectionActive}"
 		tabindex="-1"
 	>
-		<div v-show="channel.moreHistoryAvailable" class="show-more">
+		<div
+			v-show="channel.past ? channel.past.canEarlier : channel.moreHistoryAvailable"
+			class="show-more"
+		>
 			<button
 				ref="loadMoreButton"
-				:disabled="channel.historyLoading || !network.status.connected"
+				:disabled="loadingOlder || !network.status.connected"
 				class="btn"
 				@click="onShowMoreClick"
 			>
-				<span v-if="channel.historyLoading">{{ t("chat.historyLoading") }}</span>
+				<span v-if="loadingOlder">{{ t("chat.historyLoading") }}</span>
 				<span v-else>{{ t("chat.showOlder") }}</span>
 			</button>
 		</div>
@@ -24,7 +27,11 @@
 			@copy="onCopy"
 			@pointerdown="onPointerDown"
 		>
-			<template v-for="(message, id) in condensedMessages">
+			<!-- Keyed here, or a page landing in front replaces every row below it. -->
+			<template
+				v-for="(message, id) in condensedMessages"
+				:key="message.type === 'condensed' ? message.messages[0].id : message.id"
+			>
 				<DateMarker
 					v-if="shouldDisplayDateMarker(message, id)"
 					:key="message.id + '-date'"
@@ -72,6 +79,7 @@ import {noteScroll, noteTouch} from "../js/helpers/scrollSettle";
 import {selectionActive, unwatchSelection, watchSelection} from "../js/helpers/touchSelection";
 import socket from "../js/socket";
 import {setReadHold} from "../js/helpers/readHold";
+import {cancelPastRequests, closePast, openPast, pastPage} from "../js/pastView";
 import {jumpStep, revealMessage, type JumpTarget} from "../js/helpers/jumpToMessage";
 import Message from "./Message.vue";
 import MessageCondensed from "./MessageCondensed.vue";
@@ -148,6 +156,8 @@ export default defineComponent({
 
 		/** Re-arm on a scroll that is not the tail of the last prepend. */
 		const REARM_AFTER_MS = 400;
+		/** How long a jump waits for its channel to be joined. */
+		const JUMP_WAIT_MS = 20000;
 		/** How long a compensation is re-checked against a momentum scroll. */
 		const VERIFY_FOR_MS = 600;
 		const ANCHOR_TOLERANCE = 4;
@@ -216,8 +226,21 @@ export default defineComponent({
 			}
 		};
 
+		/** What the list shows: the channel's lines, or a past view's. */
+		const shownMessages = computed(() => props.channel.past?.rows ?? props.channel.messages);
+		const loadingOlder = computed(() =>
+			props.channel.past
+				? props.channel.past.loading === "BEFORE"
+				: props.channel.historyLoading
+		);
+
 		const onShowMoreClick = () => {
 			if (!props.network.status.connected) {
+				return;
+			}
+
+			if (props.channel.past) {
+				pastPage(props.network, props.channel, "BEFORE");
 				return;
 			}
 
@@ -282,11 +305,33 @@ export default defineComponent({
 			props.network.status.connected &&
 			(props.channel.type !== ChanType.CHANNEL || props.channel.state === ChanState.JOINED);
 
-		// The inbox's jump to a mention (helpers/jumpToMessage.ts): runs once
-		// this list shows the target's channel, after the mount's own jump to
-		// the bottom, and again as each page it asked for lands.
+		// A jump to a message (helpers/jumpToMessage.ts): runs once this list
+		// shows the target's channel, after the mount's own jump to the bottom.
+		// Not loaded, it opens a past view, which clears the target when it
+		// lands (socket-events/past.ts).
 		let jumping: JumpTarget | null = null;
-		let jumpPages = 0;
+		let pastAsked = false;
+		/** Gives up on a channel that is not joined back; one per jump. */
+		let joinWait: ReturnType<typeof setTimeout> | undefined;
+
+		const stopJoinWait = () => {
+			clearTimeout(joinWait);
+			joinWait = undefined;
+		};
+
+		const reveal = (id: number) => {
+			const el = document.getElementById(`msg-${id}`);
+
+			if (el) {
+				pendingAnchor = null; // a jump supersedes any anchor being verified
+				revealMessage(el);
+				// Our own scroll: the next page waits for the reader's.
+				lastPrependAt = Date.now();
+				autoLoadArmed = false;
+				// A target already in place scrolls nothing, so no scroll event says.
+				props.channel.scrolledToBottom = !props.channel.past && isAtBottom();
+			}
+		};
 
 		const runJump = async () => {
 			const target = store.state.jumpTarget;
@@ -295,52 +340,146 @@ export default defineComponent({
 				return;
 			}
 
+			// A new jump replaces whatever an earlier one still waits for.
 			if (jumping !== target) {
 				jumping = target;
-				jumpPages = 0;
+				pastAsked = false;
+				stopJoinWait();
+				cancelPastRequests(props.channel);
 			}
 
-			if (props.channel.historyLoading) {
-				return; // the page's arrival runs this again
+			if (props.channel.historyLoading || pastAsked) {
+				return; // the answer runs this again, or clears the target
 			}
 
 			await nextTick();
 
-			if (store.state.jumpTarget !== target || props.channel.historyLoading) {
+			if (store.state.jumpTarget !== target || props.channel.historyLoading || pastAsked) {
 				return;
 			}
 
-			// The first ask whatever the flag says: it is false until a channel's
-			// first page lands, and a `more` joins a page already on its way.
+			const past = props.channel.past;
+			const inPast = past ? jumpStep(past.rows, target) : null;
+
+			if (inPast?.kind === "found") {
+				reveal(inPast.id);
+				store.commit("jumpTarget", null);
+				return;
+			}
+
 			const ready = canLoadMore();
-			const step = jumpStep(
-				props.channel.messages,
-				target,
-				ready && (props.channel.moreHistoryAvailable || jumpPages === 0),
-				jumpPages
-			);
+			const step = jumpStep(props.channel.messages, target);
 
-			if (step.kind === "more") {
-				jumpPages++;
-				onShowMoreClick();
-				return;
-			}
-
-			// Not joined yet (a reload's placeholder): wait for the channel.
+			// Not joined yet (a reload's placeholder): wait for the channel. Connected
+			// and still not joined after a while, it is not coming back (kicked), and
+			// the jump would hold the read. Offline, a reconnect runs this again.
 			if (step.kind !== "found" && !ready) {
+				if (props.network.status.connected && !joinWait) {
+					joinWait = setTimeout(() => {
+						joinWait = undefined;
+
+						if (
+							store.state.jumpTarget === target &&
+							props.network.status.connected &&
+							!canLoadMore()
+						) {
+							store.commit("jumpTarget", null);
+							store.commit("currentUserVisibleError", t("chat.past.notLoaded"));
+						}
+					}, JUMP_WAIT_MS);
+				}
+
 				return;
 			}
 
-			store.commit("jumpTarget", null);
-			const el = step.kind === "none" ? null : document.getElementById(`msg-${step.id}`);
+			if (step.kind === "found") {
+				if (past) {
+					closePast(props.channel);
+					await nextTick();
+				}
 
-			if (el) {
-				pendingAnchor = null; // a jump supersedes any anchor being verified
-				revealMessage(el);
-				// A target already in place scrolls nothing, so no scroll event says.
-				props.channel.scrolledToBottom = isAtBottom();
+				reveal(step.id);
+				store.commit("jumpTarget", null);
+			} else if (target.msgid) {
+				pastAsked = true;
+				openPast(props.network, props.channel, target.msgid);
+			} else {
+				store.commit("jumpTarget", null);
 			}
 		};
+
+		// The rows of a past view have rendered: on to the line it opened for.
+		watch(
+			() => props.channel.past?.reveal,
+			(msgid) => {
+				const past = props.channel.past;
+
+				if (past && msgid) {
+					past.reveal = null;
+					const row = past.rows.find((m) => m.msgid === msgid);
+
+					if (row) {
+						reveal(row.supersededBy ?? row.id);
+					}
+				}
+			},
+			{flush: "post"}
+		);
+
+		// A past view at its newest end, with nothing newer to ask for, is the present.
+		const pastAtEdge = () => {
+			const el = chat.value;
+			const past = props.channel.past;
+
+			if (!el || !past || past.loading) {
+				return;
+			}
+
+			const margin = el.clientHeight / 4;
+			const fromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+
+			if (!past.canLater && fromBottom <= 30) {
+				closePast(props.channel);
+			} else if (autoLoadArmed && Date.now() >= past.retryAt) {
+				const where =
+					past.canLater && fromBottom < margin
+						? "AFTER"
+						: past.canEarlier && el.scrollTop < margin
+						? "BEFORE"
+						: null;
+
+				if (where) {
+					// One page a gesture, whatever the list does when it lands.
+					autoLoadArmed = false;
+					pastPage(props.network, props.channel, where);
+				}
+			}
+		};
+
+		// Back from a past view: the channel's own lines, at their newest.
+		watch(
+			() => !!props.channel.past,
+			(open) => {
+				if (!open) {
+					jumpToBottom();
+				}
+			},
+			{flush: "post"}
+		);
+
+		// A page landed. The place holds (keepScrollPosition), and an empty one at
+		// the newest end scrolls nothing to say so.
+		watch(
+			() => [props.channel.past?.rows, props.channel.past?.canLater],
+			() => {
+				const past = props.channel.past;
+
+				if (past && !past.canLater && !past.loading && isAtBottom()) {
+					closePast(props.channel);
+				}
+			},
+			{flush: "post"}
+		);
 
 		nextTick(() => {
 			if (!chat.value) {
@@ -364,7 +503,7 @@ export default defineComponent({
 		// stands right behind each of them, in its place. Filtering here rather
 		// than in Message.vue keeps date and unread markers in step.
 		const visibleMessages = computed(() =>
-			props.channel.messages.filter((message) => message.supersededBy === undefined)
+			shownMessages.value.filter((message) => message.supersededBy === undefined)
 		);
 
 		const condensedMessages = computed(() => {
@@ -453,7 +592,11 @@ export default defineComponent({
 		};
 
 		const shouldDisplayUnreadMarker = (message: ClientMessage | CondensedMessageContainer) => {
-			if (unreadMarkerShown || !(Number(message.id) > props.channel.firstUnread)) {
+			if (
+				props.channel.past ||
+				unreadMarkerShown ||
+				!(Number(message.id) > props.channel.firstUnread)
+			) {
 				return false;
 			}
 
@@ -495,7 +638,7 @@ export default defineComponent({
 			if (!props.channel.scrolledToBottom) {
 				// Rows inserted at the head must always be compensated, whether
 				// or not this component set historyLoading for them.
-				if (props.channel.historyLoading || prepended) {
+				if ((props.channel.historyLoading && !props.channel.past) || prepended) {
 					const heightOld = el.scrollHeight - el.scrollTop;
 
 					isWaitingForNextTick.value = true;
@@ -523,7 +666,10 @@ export default defineComponent({
 			await nextTick();
 			isWaitingForNextTick.value = false;
 
-			jumpToBottom();
+			// A jump that ran in the same tick has taken the list elsewhere.
+			if (props.channel.scrolledToBottom) {
+				jumpToBottom();
+			}
 		};
 
 		/** A text selection is held; scrolling the list under it loses it. */
@@ -630,13 +776,15 @@ export default defineComponent({
 				return;
 			}
 
-			props.channel.scrolledToBottom = isAtBottom();
+			props.channel.scrolledToBottom = !props.channel.past && isAtBottom();
 
 			// A scroll of the user's own, not the tail of the last prepend's
 			// gesture: the next auto-load may fire.
 			if (!pendingAnchor && Date.now() - lastPrependAt > REARM_AFTER_MS) {
 				autoLoadArmed = true;
 			}
+
+			pastAtEdge();
 
 			if (pendingAnchor) {
 				verifyAnchor();
@@ -676,7 +824,10 @@ export default defineComponent({
 		// The bottom is where a reader taken to an older message has read it all.
 		watch(
 			() =>
-				props.channel.readHeld && !store.state.jumpTarget && props.channel.scrolledToBottom,
+				props.channel.readHeld &&
+				!store.state.jumpTarget &&
+				!props.channel.past &&
+				props.channel.scrolledToBottom,
 			(atBottom) => {
 				if (atBottom) {
 					setReadHold(props.channel, false);
@@ -689,7 +840,10 @@ export default defineComponent({
 		// Left before the bottom: unread as it was, and opening it again reads it.
 		watch(
 			() => props.channel,
-			(_, previous) => setReadHold(previous, false)
+			(_, previous) => {
+				closePast(previous);
+				setReadHold(previous, false);
+			}
 		);
 
 		watch(
@@ -725,7 +879,7 @@ export default defineComponent({
 		});
 
 		// Not only on a page's rows (below): one that failed brings none, and
-		// its end runs the jump on, to the next page or the nearest.
+		// its end runs the jump on, to the next step.
 		watch(
 			() => [
 				store.state.jumpTarget,
@@ -738,7 +892,7 @@ export default defineComponent({
 		);
 
 		watch(
-			() => props.channel.messages,
+			shownMessages,
 			async (messages, previous) => {
 				// A history page replaces the array with older rows in front
 				// (socket-events/more.ts); a live message mutates it in place.
@@ -749,6 +903,7 @@ export default defineComponent({
 					!!previous &&
 					messages !== previous &&
 					delta > 0 &&
+					previous.length > 0 &&
 					messages[delta] === previous[0];
 				await keepScrollPosition(prepended);
 				void runJump();
@@ -785,6 +940,8 @@ export default defineComponent({
 
 		onUnmounted(() => {
 			unwatchSelection();
+			stopJoinWait();
+			closePast(props.channel);
 			setReadHold(props.channel, false);
 
 			// Left for a page with no list (Settings, Search): not resumed on return.
@@ -811,6 +968,7 @@ export default defineComponent({
 			chat,
 			store,
 			t,
+			loadingOlder,
 			onShowMoreClick,
 			loadMoreButton,
 			onCopy,

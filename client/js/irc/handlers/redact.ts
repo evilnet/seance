@@ -32,6 +32,12 @@ const redact: Handler = (client, msg) => {
 	client.dispatch("inbox:drop", {network: client.uuid, target: conversation, msgid});
 
 	if (chan) {
+		client.dispatch("msg:changed", {
+			chan: chan.id,
+			msgid,
+			redact: {by: nick, reason, time},
+		});
+
 		client.afterReplay(() => {
 			const id = chan.idOf(msgid);
 

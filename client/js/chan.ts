@@ -14,6 +14,8 @@ export function toClientChan(shared: SharedNetworkChan): ClientChan {
 		pendingMessage: "",
 		inputHistoryPosition: 0,
 		historyLoading: false,
+		past: null,
+		pastOpening: false,
 		readHeld: false,
 		scrolledToBottom: true,
 		replyTo: null,

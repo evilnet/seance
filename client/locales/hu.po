@@ -116,6 +116,54 @@ msgid_plural "Open your mentions, {count} unread"
 msgstr[0] "Említések megnyitása, {count} olvasatlan"
 msgstr[1] "Említések megnyitása, {count} olvasatlan"
 
+#. Button on the bar shown while reading older messages in the main window: returns to the search results this message was opened from.
+#: client/components/Chat.vue
+msgctxt "chat.past.backToResults"
+msgid "Back to results"
+msgstr ""
+
+#. Error toast: the server answered, but no longer has the older message the reader asked to go to.
+#: client/js/socket-events/past.ts
+msgctxt "chat.past.gone"
+msgid "That message is no longer available."
+msgstr ""
+
+#. Button on the bar shown while reading older messages in the main window: leaves them for the newest messages.
+#: client/components/Chat.vue
+msgctxt "chat.past.jumpToPresent"
+msgid "Jump to present"
+msgstr ""
+
+#. Status on the bar over the message list: another page of older messages failed to load; scrolling tries again.
+#: client/components/Chat.vue
+msgctxt "chat.past.loadFailed"
+msgid "Could not load more. Scroll to try again."
+msgstr ""
+
+#. Status on the bar over the message list while an older message the reader asked for is being fetched from the server.
+#: client/components/Chat.vue
+msgctxt "chat.past.loading"
+msgid "Loading that message…"
+msgstr ""
+
+#. Error toast: an older message the reader asked to go to could not be fetched from the server.
+#: client/js/socket-events/past.ts
+msgctxt "chat.past.notLoaded"
+msgid "That message could not be loaded."
+msgstr ""
+
+#. Error toast: the reader asked to go to an older message, but the IRC server offers no message history.
+#: client/js/socket-events/past.ts
+msgctxt "chat.past.unsupported"
+msgid "This server cannot fetch older messages."
+msgstr ""
+
+#. Status on the bar over the message list: the main window is showing older messages, not the newest ones.
+#: client/components/Chat.vue
+msgctxt "chat.past.viewing"
+msgid "You're viewing older messages"
+msgstr ""
+
 #. aria-label of the save control at the right end of the topic editor, shown while the channel topic is being edited; clicking saves the new topic.
 #: client/components/Chat.vue:35
 msgctxt "chat.saveTopic"
@@ -3643,6 +3691,12 @@ msgctxt "message.actionsToolbar"
 msgid "Message actions"
 msgstr "Üzenetműveletek"
 
+#. Error toast: the reader activated a quoted reply whose original message is not loaded while the network is disconnected.
+#: client/components/Message.vue
+msgctxt "message.connectToLoad"
+msgid "Connect to load that message."
+msgstr ""
+
 #. Short label shown for a moment over a chat message after its text or code was copied to the clipboard from the message toolbar.
 #: client/components/MessageActions.vue:34
 #: client/components/MessageActions.vue
@@ -3772,10 +3826,12 @@ msgctxt "message.reply"
 msgid "Reply"
 msgstr "Válasz"
 
-#. aria-label of the quoted-message button on a chat message when the message being replied to is not in the loaded scrollback, so it cannot be jumped to.
+#. Accessible name of a reply's quote when the original message is not loaded: activating it goes to that message.
 #: client/components/Message.vue:294
+#: client/components/Message.vue
+#, fuzzy
 msgctxt "message.replyMissing"
-msgid "Replying to a message that is not loaded"
+msgid "Replying to a message that is not loaded. Jump to it."
 msgstr "Válasz egy nem betöltött üzenetre"
 
 #. Visible text of the quoted-message button on a chat message when the message being replied to is not in the loaded scrollback; it stands in for the quoted text. Parenthesized.
@@ -3789,12 +3845,6 @@ msgstr "(ismeretlen üzenet)"
 msgctxt "message.replyingTo"
 msgid "Replying to {nick}: {text}. Jump to that message."
 msgstr "Válasz {nick} üzenetére: {text}. Ugrás az üzenethez."
-
-#. aria-label of the quoted-message button on a chat message that is a reply, when the message replied to was fetched from the server and is not in the scrollback, so there is nothing to jump to. {nick} is the name of the user who wrote the quoted message, {text} its content as plain text.
-#: client/components/Message.vue
-msgctxt "message.replyingToParent"
-msgid "Replying to {nick}: {text}."
-msgstr "Válasz {nick} üzenetére: {text}."
 
 #. Tooltip of the small marker on a chat message that arrived while you had another channel open; the server delivered it to the active window only.
 #: client/components/Message.vue:118
@@ -11760,12 +11810,6 @@ msgctxt "search.window.allHiddenNote"
 msgid "Older messages may still match. Searched back to {when}."
 msgstr "Régebbi üzenetek még illeszkedhetnek. A keresés eddig ment vissza: {when}."
 
-#. Search window (searching the chat history of the server, or of what is loaded on this device): the head of the side pane showing the messages around a search hit: the hit's day and time. {day} is 'Today', 'Yesterday' or a date; {time} a clock time. Keep the middle dot.
-#: client/components/Windows/SearchResults.vue
-msgctxt "search.window.around"
-msgid "{day} · around {time}"
-msgstr "{day} · {time} körül"
-
 #. Search window (searching the chat history of the server, or of what is loaded on this device): shown while the server runs the search.
 #: client/components/Windows/SearchResults.vue
 msgctxt "search.window.asking"
@@ -11826,41 +11870,11 @@ msgctxt "search.window.chip.without"
 msgid "Without"
 msgstr "Nélkül"
 
-#. Search window (searching the chat history of the server, or of what is loaded on this device): label of the button that closes the side pane of messages around a hit.
-#: client/components/Windows/SearchResults.vue
-msgctxt "search.window.closeContext"
-msgid "Close context"
-msgstr "Környezet bezárása"
-
-#. Search window (searching the chat history of the server, or of what is loaded on this device): aria-label of the side pane showing the messages before and after the chosen search hit.
-#: client/components/Windows/SearchResults.vue
-msgctxt "search.window.contextAria"
-msgid "Messages around this one"
-msgstr "Üzenetek e körül"
-
-#. Search window (searching the chat history of the server, or of what is loaded on this device): in the side pane of messages around a hit, when the server's history could not be read.
-#: client/components/Windows/SearchResults.vue
-msgctxt "search.window.contextFailed"
-msgid "The lines around this one could not be loaded."
-msgstr "Nem sikerült betölteni az e körüli sorokat."
-
-#. Search window (searching the chat history of the server, or of what is loaded on this device): in the side pane of messages around a hit, while they load.
-#: client/components/Windows/SearchResults.vue
-msgctxt "search.window.contextLoading"
-msgid "Loading the lines around this one…"
-msgstr "Az e körüli sorok betöltése…"
-
 #. Search window (searching the chat history of the server, or of what is loaded on this device): a day and a time together (how far back the search went). {day} is a short date ('4 Nov'), {time} a clock time. Order and punctuation are your language's.
 #: client/components/Windows/SearchResults.vue
 msgctxt "search.window.dayAndTime"
 msgid "{day}, {time}"
 msgstr "{day}, {time}"
-
-#. Search window (searching the chat history of the server, or of what is loaded on this device): button in the side pane of messages around a hit: loads older messages. One word.
-#: client/components/Windows/SearchResults.vue
-msgctxt "search.window.earlier"
-msgid "Earlier"
-msgstr "Korábban"
 
 #. Search window (searching the chat history of the server, or of what is loaded on this device): button that opens the filters sheet. Two words.
 #: client/components/Windows/SearchResults.vue
@@ -11924,12 +11938,6 @@ msgctxt "search.window.filters"
 msgid "Filters"
 msgstr "Szűrők"
 
-#. Search window (searching the chat history of the server, or of what is loaded on this device): button in the side pane of a hit from a channel that is not open here: opens that channel. {channel} is its name (verbatim).
-#: client/components/Windows/SearchResults.vue
-msgctxt "search.window.goTo"
-msgid "Go to {channel}"
-msgstr "Ugrás ide: {channel}"
-
 #. Search window (searching the chat history of the server, or of what is loaded on this device): in the status line under the results: how many matches the filters hide. {count} is a number. Lower case.
 #: client/components/Windows/SearchResults.vue
 msgctxt "search.window.hiddenCount"
@@ -11944,11 +11952,11 @@ msgctxt "search.window.inScope"
 msgid "In {scope}"
 msgstr "Hely: {scope}"
 
-#. Search window (searching the chat history of the server, or of what is loaded on this device): button in the side pane of messages around a hit: loads newer messages. One word.
+#. Note on the search results when a hit's channel is not joined. {target} is the channel name, verbatim.
 #: client/components/Windows/SearchResults.vue
-msgctxt "search.window.later"
-msgid "Later"
-msgstr "Később"
+msgctxt "search.window.joinToRead"
+msgid "Join {target} to read this message."
+msgstr ""
 
 #. Search window (searching the chat history of the server, or of what is loaded on this device): under a warning that the server cannot search (or is not connected): the search runs over what this device has loaded. {count} is a number.
 #: client/components/Windows/SearchResults.vue
@@ -11996,11 +12004,11 @@ msgctxt "search.window.older"
 msgid "Search older"
 msgstr "Régebbiek keresése"
 
-#. Search window (searching the chat history of the server, or of what is loaded on this device): button in the side pane of a hit: opens the chat at that message.
+#. Note on the search results when a hit's private conversation is not open. {target} is the person's nick, verbatim.
 #: client/components/Windows/SearchResults.vue
-msgctxt "search.window.openInChannel"
-msgid "Open in channel"
-msgstr "Megnyitás a csatornában"
+msgctxt "search.window.openToRead"
+msgid "Open a conversation with {target} to read this message."
+msgstr ""
 
 #. Search window (searching the chat history of the server, or of what is loaded on this device): placeholder of the search field. {scope} is a channel name (verbatim) or 'all my channels' (search.window.allChannels).
 #: client/components/Windows/SearchResults.vue

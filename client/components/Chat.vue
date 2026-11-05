@@ -128,7 +128,7 @@
 					<button
 						:class="[
 							'scroll-down tooltipped tooltipped-w tooltipped-no-touch',
-							{'scroll-down-shown': !channel.scrolledToBottom},
+							{'scroll-down-shown': !channel.scrolledToBottom && !channel.past},
 						]"
 						:aria-label="jumpToRecentLabel"
 						@click="messageList?.jumpToBottom()"
@@ -142,6 +142,24 @@
 						:channel="channel"
 						:focused="focused"
 					/>
+				</div>
+				<p class="sr-only" role="status">{{ pastStatus }}</p>
+				<div v-if="channel.past || channel.pastOpening || searchBack" class="past-bar">
+					<span v-if="pastStatus" class="past-bar-text">{{ pastStatus }}</span>
+					<button
+						v-if="searchBack"
+						class="btn btn-sm past-bar-back"
+						@click="backToResults"
+					>
+						{{ t("chat.past.backToResults") }}
+					</button>
+					<button
+						v-if="channel.past"
+						class="btn btn-sm past-bar-present"
+						@click="leavePast"
+					>
+						{{ t("chat.past.jumpToPresent") }}
+					</button>
 				</div>
 			</div>
 		</div>
@@ -161,6 +179,8 @@ import socket from "../js/socket";
 import eventbus from "../js/eventbus";
 import ParsedMessage from "./ParsedMessage.vue";
 import MessageList from "./MessageList.vue";
+import {closePast} from "../js/pastView";
+import {returnToResults} from "../js/searchReturn";
 import ChatInput from "./ChatInput.vue";
 import ChatUserList from "./ChatUserList.vue";
 import SidebarToggle from "./SidebarToggle.vue";
@@ -171,10 +191,21 @@ import ListExcepts from "./Special/ListExcepts.vue";
 import ListChannels from "./Special/ListChannels.vue";
 import ListIgnored from "./Special/ListIgnored.vue";
 import TranslationPanel from "./TranslationPanel.vue";
-import {defineComponent, PropType, ref, computed, watch, nextTick, onMounted, Component} from "vue";
+import {
+	defineComponent,
+	PropType,
+	ref,
+	computed,
+	watch,
+	nextTick,
+	onMounted,
+	onUnmounted,
+	Component,
+} from "vue";
 import {channelOpened} from "../js/helpers/lastChannel";
 import {prefetchEmojiCatalog} from "../js/helpers/emoji";
 import type {ClientNetwork, ClientChan} from "../js/types";
+import {useRouter} from "vue-router";
 import {useStore} from "../js/store";
 import {SpecialChanType, ChanType} from "../../shared/types/chan";
 import {layout, toPlainText} from "../js/helpers/ircmessageparser/layout";
@@ -212,9 +243,43 @@ export default defineComponent({
 	setup(props) {
 		const store = useStore();
 		const {t, tCount} = useI18n();
+		const router = useRouter();
 
 		const messageList = ref<typeof MessageList>();
 		const topicInput = ref<HTMLInputElement | null>(null);
+
+		const searchBack = computed(() =>
+			store.state.searchReturn?.chanId === props.channel.id ? store.state.searchReturn : null
+		);
+		const pastStatus = computed(() => {
+			if (props.channel.pastOpening) {
+				return t("chat.past.loading");
+			}
+
+			if (!props.channel.past) {
+				return "";
+			}
+
+			return props.channel.past.failed ? t("chat.past.loadFailed") : t("chat.past.viewing");
+		});
+		// The button goes with the view: the focus goes where the reader types.
+		const leavePast = () => {
+			closePast(props.channel);
+			eventbus.emit("input:focus");
+		};
+		onUnmounted(() => store.commit("searchReturn", null));
+		const backToResults = () => {
+			const back = searchBack.value;
+
+			if (back) {
+				returnToResults();
+				void router.replace({
+					name: "SearchResults",
+					params: {id: back.windowId},
+					query: {q: back.q},
+				});
+			}
+		};
 
 		const plainTopic = computed(() => {
 			const topic = props.channel.topic;
@@ -520,6 +585,7 @@ export default defineComponent({
 		watch(
 			() => props.channel,
 			() => {
+				store.commit("searchReturn", null);
 				channelChanged();
 			}
 		);
@@ -547,6 +613,10 @@ export default defineComponent({
 		});
 
 		return {
+			backToResults,
+			leavePast,
+			pastStatus,
+			searchBack,
 			store,
 			t,
 			messageList,

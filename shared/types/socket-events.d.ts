@@ -1,4 +1,10 @@
-import type {SearchAttrs, SearchContextDirection, SearchHit, SearchStatus} from "./search";
+import type {
+	LineChange,
+	SearchAttrs,
+	SearchContextDirection,
+	SearchHit,
+	SearchStatus,
+} from "./search";
 import {InboxEntry} from "./mention";
 import {ChanState, SharedChan} from "./chan";
 import {
@@ -144,7 +150,15 @@ interface ServerToClientEvents {
 		status: SearchStatus;
 		error?: string;
 		messages: SharedMsg[];
+		/** The server says this side of history has ended (`draft/chathistory-end`). */
+		end?: boolean;
+		changes?: LineChange[];
+		/** The msgids of the page's first and last lines, rows or not: where the next page starts. */
+		edges?: {first?: string; last?: string};
 	}>;
+
+	/** A line changed, loaded or not: all a past view hears (see bus-contract §1.2). */
+	"msg:changed": EventHandler<{chan: number} & LineChange>;
 
 	/** The parent of a reply that is not loaded, for its quote; never a row of the channel. */
 	"reply:parent": EventHandler<{chan: number; msgid: string; nick: string; text: string}>;

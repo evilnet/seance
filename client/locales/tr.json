@@ -655,10 +655,8 @@
   "message.redactedHide": "Yeniden gizlemek için tıkla",
   "message.redactedReveal": "Silinmiş mesaj, göstermek için tıkla",
   "message.reply": "Yanıtla",
-  "message.replyMissing": "Yüklenmemiş bir mesaja yanıt veriliyor",
   "message.replyUnknown": "(bilinmeyen mesaj)",
   "message.replyingTo": "{nick} kullanıcısına yanıt: {text}. O mesaja git.",
-  "message.replyingToParent": "{nick} kullanıcısına yanıt: {text}.",
   "message.shownInActive": "Bu mesaj aktif kanalında gösterildi",
   "message.statusmsg": "Bu mesaj sadece {mode} moduna sahip kullanıcılar için gösterildi",
   "msg.ctcpTitle": "İstemciden istemciye protokolü",
@@ -2045,7 +2043,6 @@
     "other": "{count} eşleşme, hepsi filtrelerinle gizlendi"
   },
   "search.window.allHiddenNote": "Daha eski mesajlar hâlâ eşleşebilir. {when} tarihine kadar arandı.",
-  "search.window.around": "{day} · {time} civarı",
   "search.window.asking": "Sunucuya soruluyor…",
   "search.window.back": "{channel} kanalına dön",
   "search.window.backTo": "{when} tarihine kadar",
@@ -2056,12 +2053,7 @@
   "search.window.chip.from": "Gönderen",
   "search.window.chip.has": "İçerir",
   "search.window.chip.without": "Hariç",
-  "search.window.closeContext": "Bağlamı kapat",
-  "search.window.contextAria": "Bunun çevresindeki mesajlar",
-  "search.window.contextFailed": "Bunun çevresindeki satırlar yüklenemedi.",
-  "search.window.contextLoading": "Bunun çevresindeki satırlar yükleniyor…",
   "search.window.dayAndTime": "{day}, {time}",
-  "search.window.earlier": "Önce",
   "search.window.editFilters": "Filtreleri düzenle",
   "search.window.errorFailed": "Sunucu bu aramayı yapamadı.",
   "search.window.errorInvalid": "Bu arama gönderilemiyor.",
@@ -2072,13 +2064,11 @@
   "search.window.failed": "Arama başarısız",
   "search.window.field": "Mesajlarda ara",
   "search.window.filters": "Filtreler",
-  "search.window.goTo": "{channel} kanalına git",
   "search.window.hiddenCount": {
     "one": "filtrelerle {count} gizlendi",
     "other": "filtrelerle {count} gizlendi"
   },
   "search.window.inScope": "Yer: {scope}",
-  "search.window.later": "Sonra",
   "search.window.loadedInstead": {
     "one": "Bunun yerine bu cihazda yüklü {count} mesajda aranıyor. Filtreler çalışmaya devam ediyor.",
     "other": "Bunun yerine bu cihazda yüklü {count} mesajda aranıyor. Filtreler çalışmaya devam ediyor."
@@ -2092,7 +2082,6 @@
   "search.window.nothingOlder": "Daha eski bir şey bulunamadı",
   "search.window.offline": "Bağlı değil",
   "search.window.older": "Daha eskileri ara",
-  "search.window.openInChannel": "Kanalda aç",
   "search.window.placeholder": "{scope} içinde ara",
   "search.window.removeFilter": "{filter} filtresini kaldır",
   "search.window.retry": "Tekrar dene",

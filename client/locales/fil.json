@@ -636,10 +636,8 @@
   "message.redactedHide": "I-click para itago ulit",
   "message.redactedReveal": "Binurang mensahe, i-click para ipakita",
   "message.reply": "Sumagot",
-  "message.replyMissing": "Sumasagot sa mensaheng hindi naka-load",
   "message.replyUnknown": "(hindi kilalang mensahe)",
   "message.replyingTo": "Sumasagot kay {nick}: {text}. Pumunta sa mensaheng iyon.",
-  "message.replyingToParent": "Sumasagot kay {nick}: {text}.",
   "message.shownInActive": "Ipinakita ang mensaheng ito sa aktibo mong channel",
   "message.statusmsg": "Ipinakita lang ang mensaheng ito sa mga user na may mode na {mode}",
   "msg.ctcpTitle": "Protocol na client-to-client",
@@ -1961,7 +1959,6 @@
     "other": "{count} tugma, lahat nakatago dahil sa iyong mga filter"
   },
   "search.window.allHiddenNote": "Maaaring may tumugma pang mas lumang mensahe. Hinanap pabalik hanggang {when}.",
-  "search.window.around": "{day} · bandang {time}",
   "search.window.asking": "Tinatanong ang server…",
   "search.window.back": "Bumalik sa {channel}",
   "search.window.backTo": "pabalik hanggang {when}",
@@ -1971,12 +1968,7 @@
   "search.window.chip.from": "Mula kay",
   "search.window.chip.has": "May",
   "search.window.chip.without": "Wala",
-  "search.window.closeContext": "Isara ang konteksto",
-  "search.window.contextAria": "Mga mensahe sa paligid nito",
-  "search.window.contextFailed": "Hindi ma-load ang mga linya sa paligid nito.",
-  "search.window.contextLoading": "Nilo-load ang mga linya sa paligid nito…",
   "search.window.dayAndTime": "{day}, {time}",
-  "search.window.earlier": "Mas maaga",
   "search.window.editFilters": "I-edit ang mga filter",
   "search.window.errorFailed": "Hindi magawa ng server ang paghahanap na ito.",
   "search.window.errorInvalid": "Hindi maipapadala ang paghahanap na iyan.",
@@ -1987,13 +1979,11 @@
   "search.window.failed": "Nabigo ang paghahanap",
   "search.window.field": "Maghanap ng mga mensahe",
   "search.window.filters": "Mga filter",
-  "search.window.goTo": "Pumunta sa {channel}",
   "search.window.hiddenCount": {
     "one": "{count} nakatago dahil sa filter",
     "other": "{count} nakatago dahil sa filter"
   },
   "search.window.inScope": "Sa {scope}",
-  "search.window.later": "Mas huli",
   "search.window.loadedInstead": {
     "one": "Sa halip, hinahanap ang {count} mensaheng naka-load sa device na ito. Gumagana pa rin ang mga filter.",
     "other": "Sa halip, hinahanap ang {count} mensaheng naka-load sa device na ito. Gumagana pa rin ang mga filter."
@@ -2007,7 +1997,6 @@
   "search.window.nothingOlder": "Walang nahanap na mas luma",
   "search.window.offline": "Hindi nakakonekta",
   "search.window.older": "Maghanap ng mas luma",
-  "search.window.openInChannel": "Buksan sa channel",
   "search.window.placeholder": "Maghanap sa {scope}",
   "search.window.removeFilter": "Alisin ang filter na {filter}",
   "search.window.retry": "Subukan ulit",

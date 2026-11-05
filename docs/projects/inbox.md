@@ -52,8 +52,8 @@ Every device builds the same list from what the server already gives it:
   bouncer replay appended after a reconnect (`history.ts` `deliverAppend`) and
   the first history page of a cold load past the read marker
   (`countPageUnread`), all as the `inbox:add` bus event. Only what counted as
-  unread, only in a channel or a query (the lobby has no read point), never
-  a muted conversation's. Older scrollback is never added.
+  unread, only in a channel or a query (the lobby has no read point). A muted
+  conversation's are kept but not shown or counted. Older scrollback is never added.
 - **Marked read** by the `inbox:read {network, target, time}` bus event that
   `moveReadMarker` dispatches whenever the read point moves, and by
   `inbox:drop {network, target, msgid, by?}` when the message is deleted
@@ -79,17 +79,24 @@ service worker's badge for a closed page counts its notifications, as
 before.
 
 **Opening an entry** takes the conversation to the mention: `Mentions.vue`
-sets `store.state.jumpTarget` (the clicked entry's msgid and time; the
-header's oldest entry), and
-`MessageList.vue` scrolls it to the middle with a flash, paging back with
-the ordinary `more` request when it is older than what is loaded, up to
-three pages (each costs the server's fake lag), then the first line at or
-after its time. Those pages are the list's own `more`, so a jump shares its
-one-page-per-channel rule with the scrollback and with the fill that opening
-a channel starts, and joins that fill rather than asking again. Not
-`CHATHISTORY AROUND`: the buffer is one unbroken run and a page around the
-message would leave a gap. The logic is
-`helpers/jumpToMessage.ts` (Vue-free, `test/helpers/jumpToMessage.ts`).
+sets `store.state.jumpTarget`, and `MessageList.vue` scrolls it to the middle
+with a flash. A quote's parent and a search hit go the same way. A line older
+than what is loaded opens a **past view** (`client/js/pastView.ts`): one
+`CHATHISTORY AROUND` of up to 100 lines, kept in `channel.past` and shown in
+place of `channel.messages`, which stays one unbroken run and goes on taking
+live lines, the unread count with them. Scrolling to either end asks for the
+next page. The bar over the composer says the reader is among older messages,
+with Jump to present; scrolling off the newest end, Escape, or sending gets
+there too. While the lines are on their way the bar says that. A past row offers
+no Edit, since an edit's place is the recent lines, but others' edits, reactions
+and deletions reach it (`msg:changed`). An edit and its original that come on
+different pages are placed as on one page (`linkEdits`). A deletion in a later
+page does not reach a line loaded after it. A page is asked from the previous
+page's outermost line, rows or not (`edges`), so a page of reactions alone moves
+on rather than ending that side; only an empty page or the end tag ends it. Nothing of a past view is kept: leaving the
+channel closes it. A line the server does not have says so and stays put. The
+logic is `helpers/jumpToMessage.ts` and `helpers/pastRows.ts` (Vue-free,
+`test/helpers/`).
 That mention dims. The conversation is not read yet: `helpers/readHold.ts` holds it until the list reaches the bottom, so the other mentions stay unread and lines arriving meanwhile count as unread. Leaving before the bottom ends the hold with nothing read; opening it again reads it, as opening it from the sidebar does. What the user says there, and a read from another session, still read it.
 A group whose conversation this page does not have (a channel left, a
 network not on this page) cannot be opened and says why under its name.

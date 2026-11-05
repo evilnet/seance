@@ -1,6 +1,6 @@
 // Searching the server's history (soju.im/search, issue #169): the query goes
 // to the server and comes back as rows in the search window, never into the
-// channel; filters, the lines around a hit and Open in channel all work.
+// channel; filters work, and a hit goes straight to its message in the main window.
 //
 //   pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d        # an image with soju.im/search
@@ -313,54 +313,9 @@ export default async function run(page) {
 	);
 	await page.screenshot("5-empty");
 
-	// The lines around a hit, asked for and not landing in the channel.
+	// A hit goes straight to the message, and the results are one tap away.
 	await search(page, "autojoin");
-	const contextFrom = page.wsFrames.length;
-	// Clicked through quickly: only the last one is asked about.
-	await page.evaluate(
-		`document.querySelectorAll(${JSON.stringify(ROWS)}).forEach((row) => row.click())`
-	);
-	await page.waitFor(`document.querySelectorAll(".search-context-line").length > 1`, {
-		timeout: 10000,
-		label: "context lines",
-	});
-	page.check(
-		"6. a hit asks for the lines around it",
-		sentCommands(page, contextFrom, /CHATHISTORY AROUND .* msgid=/).length === 1
-	);
-	page.check("6. the hit is marked", (await count(page, ".search-context-line.hit")) === 1);
-	await page.screenshot("6-context");
-
-	// Closing gives the focus back to the row, phone sheet included.
-	await page.evaluate(`document.querySelector(".search-context-head button").click()`);
-	await page.sleep(200);
-	await page.evaluate(`(() => {
-		const row = document.querySelector("${ROWS}");
-		row.focus();
-		row.click();
-	})()`);
-	await page.waitFor(`document.querySelectorAll(".search-context-line").length > 1`, {
-		timeout: 10000,
-		label: "context lines again",
-	});
-	await page.evaluate(`document.querySelector(".search-context-head button").click()`);
-	await page.sleep(200);
-	page.check(
-		"6b. focus returns to the row",
-		await page.evaluate(`document.activeElement === document.querySelector("${ROWS}")`)
-	);
 	await page.click(ROWS);
-	await page.waitFor(`document.querySelectorAll(".search-context-line").length > 1`, {
-		timeout: 10000,
-		label: "context lines once more",
-	});
-
-	// Open in channel, and the channel untouched by all of the above.
-	page.check(
-		"7. a loaded hit offers Open in channel",
-		(await text(page, ".search-context-foot .oper-btn-primary")) === "Open in channel"
-	);
-	await page.click(".search-context-foot .oper-btn-primary");
 	await page.waitFor(`!document.querySelector("${WINDOW}")`, {
 		timeout: 5000,
 		label: "the window closed",
@@ -377,8 +332,8 @@ export default async function run(page) {
 		(await count(page, "#chat .msg[data-type='message']")) === chatLines
 	);
 
-	// A hit the channel has not loaded: older than a reload's first page. Its
-	// line in the pane pages back for it, as the button does.
+	// A hit the channel has not loaded: older than a reload's first page. It opens
+	// in the main window, among the lines around it.
 	const FAR = `faraway${RUN}`;
 	talker.say(OTHER, `${FAR} is the line to page back to ||spoiler||`);
 	for (let i = 0; i < 60; i++) {
@@ -403,31 +358,11 @@ export default async function run(page) {
 		timeout: 10000,
 		label: "the far hit",
 	});
+	const farFrom = page.wsFrames.length;
 	await page.click(ROWS);
-	await page.waitFor(`document.querySelector(".search-context-line.hit")`, {
-		timeout: 10000,
-		label: "the far hit in the pane",
-	});
-	page.check(
-		"8. a hit not loaded offers to go to its channel",
-		(await text(page, ".search-context-foot .oper-btn-primary")) === `Go to ${OTHER}`
-	);
-	// The lines around it arrive after the hit, and replace the rows.
-	await page.waitFor(`document.querySelectorAll(".search-context-line").length > 1`, {
-		timeout: 10000,
-		label: "the lines around the far hit",
-	});
-	await page.click(".search-context-line.hit .md-spoiler");
-	await page.sleep(300);
-	page.check(
-		"8. revealing a spoiler in the hit's line stays in the results",
-		(await count(page, WINDOW)) === 1 &&
-			(await count(page, ".search-context-line.hit .md-spoiler-shown")) === 1
-	);
-	await page.click(".search-context-line.hit .search-time");
 	await page.waitFor(`!document.querySelector("${WINDOW}")`, {
 		timeout: 5000,
-		label: "the window closed by the hit's line",
+		label: "the window closed by the far hit",
 	});
 	const far = `Array.from(document.querySelectorAll("#chat .msg")).find((m) => m.textContent.includes(${JSON.stringify(
 		FAR
@@ -437,7 +372,25 @@ export default async function run(page) {
 		timeout: 5000,
 		label: "the far hit flashing",
 	});
-	page.check("8. the channel pages back and lands on the hit", true);
+	page.check(
+		"8. the main window opens at the far hit, without paging back",
+		sentCommands(page, farFrom, /CHATHISTORY AROUND .* msgid=/).length === 1 &&
+			sentCommands(page, farFrom, /CHATHISTORY BEFORE /).length === 0 &&
+			(await text(page, ".past-bar-text")).includes("older messages")
+	);
+	await page.screenshot("8-far-hit");
+	const backFrom = page.wsFrames.length;
+	await page.click(".past-bar-back");
+	await page.waitFor(`document.querySelector("${ROWS}")`, {
+		timeout: 10000,
+		label: "back to the results",
+	});
+	page.check(
+		"8. Back to results restores them, focused on the hit, with no new search",
+		(await count(page, ROWS)) > 0 &&
+			sentCommands(page, backFrom, /SEARCH /).length === 0 &&
+			(await page.evaluate(`document.activeElement?.matches("${ROWS}")`))
+	);
 
 	talker.quit();
 }

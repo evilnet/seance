@@ -237,6 +237,7 @@ import {useI18n} from "../js/i18n";
 import {selectionActive} from "../js/helpers/touchSelection";
 import {nudge} from "../js/helpers/haptics";
 import {revealMessage} from "../js/helpers/jumpToMessage";
+import {setReadHold} from "../js/helpers/readHold";
 
 /**
  * The id of the one message showing its long-press-opened action toolbar.
@@ -556,6 +557,7 @@ export default defineComponent({
 			}
 
 			return (
+				replyQuote(props.channel.past?.rows ?? [], props.message.replyTo) ??
 				replyQuote(props.channel.messages, props.message.replyTo) ??
 				props.channel.replyParents?.[props.message.replyTo]
 			);
@@ -609,27 +611,23 @@ export default defineComponent({
 
 		const quoteLabel = computed(() =>
 			quote.value
-				? quote.value.id
-					? t("message.replyingTo", {nick: quote.value.nick, text: quotePlain.value})
-					: t("message.replyingToParent", {
-							nick: quote.value.nick,
-							text: quotePlain.value,
-					  })
+				? t("message.replyingTo", {nick: quote.value.nick, text: quotePlain.value})
 				: t("message.replyMissing")
 		);
 
+		// Loaded, the list goes to it; otherwise a past view opens around it.
 		const jumpToParent = () => {
-			if (!quote.value) {
-				return;
+			const msgid = props.message.replyTo;
+			const el = quote.value?.id ? document.getElementById("msg-" + quote.value.id) : null;
+
+			if (el) {
+				revealMessage(el);
+			} else if (msgid && props.channel && !props.network.status.connected) {
+				store.commit("currentUserVisibleError", t("message.connectToLoad"));
+			} else if (msgid && props.channel) {
+				setReadHold(props.channel, true);
+				store.commit("jumpTarget", {chanId: props.channel.id, msgid});
 			}
-
-			const el = document.getElementById("msg-" + quote.value.id);
-
-			if (!el) {
-				return;
-			}
-
-			revealMessage(el);
 		};
 
 		// Deleted messages keep their text; the placeholder toggles it.

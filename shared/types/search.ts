@@ -31,3 +31,10 @@ export interface SearchHit {
 }
 
 export type SearchContextDirection = "AROUND" | "BEFORE" | "AFTER";
+
+/** A reaction or deletion of one line, for rows no id of the channel's can name. */
+export type LineChange = {
+	msgid: string;
+	react?: {text: string; nick: string; remove: boolean};
+	redact?: {by: string; reason?: string; time: Date};
+};

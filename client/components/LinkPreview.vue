@@ -351,7 +351,8 @@ export default defineComponent({
 		});
 
 		const isNewest = computed(() => {
-			const last = props.channel.messages[props.channel.messages.length - 1];
+			const rows = props.channel.past?.rows ?? props.channel.messages;
+			const last = rows[rows.length - 1];
 			return last?.previews?.some((p) => p.link === props.link.link) ?? false;
 		});
 		const shouldPlay = computed(

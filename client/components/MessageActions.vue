@@ -291,8 +291,12 @@ export default defineComponent({
 		const copyText = () => copy(props.message.text ?? "");
 
 		// Only plain text can be edited (the IRC layer resends it tagged).
+		// Not on a past view's row: an edit's own place is among the recent lines.
 		const canEdit = computed(
-			() => !!props.message.self && props.message.type === MessageType.MESSAGE
+			() =>
+				!props.channel.past &&
+				!!props.message.self &&
+				props.message.type === MessageType.MESSAGE
 		);
 
 		// Own messages anywhere; others' only in channels, where the server

@@ -74,6 +74,8 @@ interface ResultsPayload {
 }
 
 interface ContextPayload {
+	end?: boolean;
+	changes?: {msgid: string; redact?: {by: string}}[];
 	requestId: number;
 	status: SearchStatus;
 	messages: SharedMsg[];
@@ -518,6 +520,83 @@ describe("historysearch", function () {
 			expect(answer.messages.map((msg) => msg.msgid)).to.deep.equal(["m1", "m2"]);
 			expect(payloads("more")).to.have.length(0);
 			expect(payloads("msg")).to.have.length(0);
+		});
+
+		it("never asks past what the server allows in one command", function () {
+			const {client, transport} = setup();
+
+			transport.line(":irc.test 005 alice CHATHISTORY=50 :are supported by this server");
+			requestSearchContext(client, 4, "#seance", "AROUND", "m1", 100);
+
+			expect(transport.sent[0]).to.match(/ CHATHISTORY AROUND #seance msgid=m1 50$/);
+		});
+
+		it("says when the server marks the page as the end", function () {
+			const {client, transport} = setup();
+
+			requestSearchContext(client, 4, "#seance", "BEFORE", "m1", 100);
+			transport.line(
+				`@draft/chathistory-end;label=${labelOf(
+					transport.sent[0]
+				)} :irc.test BATCH +h chathistory #seance`
+			);
+			transport.line(":irc.test BATCH -h");
+
+			expect(payloads<ContextPayload>("search:context")[0]).to.include({
+				status: "ok",
+				end: true,
+			});
+		});
+
+		it("applies a page's own reactions and deletions to its rows, and nowhere else", function () {
+			const {client, transport} = setup();
+
+			requestSearchContext(client, 4, "#seance", "AROUND", "m1", 21);
+			batch(transport, "chathistory #seance", labelOf(transport.sent[0]), [
+				ROW1,
+				ROW2,
+				"@msgid=r1;+draft/react=👍;+draft/reply=m1 :bob!b@h TAGMSG #seance",
+				"@msgid=r2 :bob!b@h REDACT #seance m2",
+			]);
+
+			const [answer] = payloads<ContextPayload>("search:context");
+			const [first, second] = answer.messages;
+
+			expect(answer.end).to.equal(false);
+			expect(first.reactions).to.have.length(1);
+			expect(second.redacted).to.not.equal(undefined);
+			expect(payloads("msg:react")).to.have.length(0);
+			expect(payloads("msg:redact")).to.have.length(0);
+		});
+
+		it("passes on what a page says of a line outside it", function () {
+			const {client, transport} = setup();
+
+			requestSearchContext(client, 4, "#seance", "AFTER", "m0", 100);
+			batch(transport, "chathistory #seance", labelOf(transport.sent[0]), [
+				ROW1,
+				"@msgid=r2 :bob!b@h REDACT #seance m0",
+			]);
+
+			const [answer] = payloads<ContextPayload>("search:context");
+
+			expect(answer.changes?.map((change) => change.msgid)).to.deep.equal(["m0"]);
+			expect(answer.changes?.[0].redact?.by).to.equal("bob");
+		});
+
+		it("says where a page of reactions alone ends, for the next page to start from", function () {
+			const {client, transport} = setup();
+
+			requestSearchContext(client, 5, "#seance", "BEFORE", "m9", 100);
+			batch(transport, "chathistory #seance", labelOf(transport.sent[0]), [
+				"@msgid=r1;+draft/react=👍;+draft/reply=m0 :bob!b@h TAGMSG #seance",
+				"@msgid=r2;+draft/react=🎉;+draft/reply=m0 :bob!b@h TAGMSG #seance",
+			]);
+
+			const [answer] = payloads<ContextPayload>("search:context");
+
+			expect(answer.messages).to.have.length(0);
+			expect(answer.edges).to.deep.equal({first: "r1", last: "r2"});
 		});
 
 		it("keeps a wrapped FAIL for its context request from a channel's page", function () {

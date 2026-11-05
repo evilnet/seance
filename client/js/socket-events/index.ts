@@ -25,6 +25,7 @@ import "./activity";
 import "./translate";
 import "./msg_special";
 import "./msg_updates";
+import "./past";
 import "./names";
 import "./network";
 import "./nick";

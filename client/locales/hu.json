@@ -656,10 +656,8 @@
   "message.redactedHide": "Kattints az újbóli elrejtéshez",
   "message.redactedReveal": "Törölt üzenet, kattints a megjelenítéshez",
   "message.reply": "Válasz",
-  "message.replyMissing": "Válasz egy nem betöltött üzenetre",
   "message.replyUnknown": "(ismeretlen üzenet)",
   "message.replyingTo": "Válasz {nick} üzenetére: {text}. Ugrás az üzenethez.",
-  "message.replyingToParent": "Válasz {nick} üzenetére: {text}.",
   "message.shownInActive": "Ez az üzenet az aktív csatornádon jelent meg",
   "message.statusmsg": "Ez az üzenet csak {mode} módú felhasználóknak jelenik meg",
   "msg.ctcpTitle": "Kliens–kliens protokoll",
@@ -2043,7 +2041,6 @@
     "other": "{count} találat, mindet elrejtik a szűrőid"
   },
   "search.window.allHiddenNote": "Régebbi üzenetek még illeszkedhetnek. A keresés eddig ment vissza: {when}.",
-  "search.window.around": "{day} · {time} körül",
   "search.window.asking": "A szerver kérdezése…",
   "search.window.back": "Vissza ide: {channel}",
   "search.window.backTo": "eddig: {when}",
@@ -2054,12 +2051,7 @@
   "search.window.chip.from": "Feladó",
   "search.window.chip.has": "Tartalmaz",
   "search.window.chip.without": "Nélkül",
-  "search.window.closeContext": "Környezet bezárása",
-  "search.window.contextAria": "Üzenetek e körül",
-  "search.window.contextFailed": "Nem sikerült betölteni az e körüli sorokat.",
-  "search.window.contextLoading": "Az e körüli sorok betöltése…",
   "search.window.dayAndTime": "{day}, {time}",
-  "search.window.earlier": "Korábban",
   "search.window.editFilters": "Szűrők szerkesztése",
   "search.window.errorFailed": "A szerver nem tudta lefuttatni ezt a keresést.",
   "search.window.errorInvalid": "Ez a keresés nem küldhető el.",
@@ -2070,13 +2062,11 @@
   "search.window.failed": "A keresés nem sikerült",
   "search.window.field": "Üzenetek keresése",
   "search.window.filters": "Szűrők",
-  "search.window.goTo": "Ugrás ide: {channel}",
   "search.window.hiddenCount": {
     "one": "{count} elrejtve a szűrők által",
     "other": "{count} elrejtve a szűrők által"
   },
   "search.window.inScope": "Hely: {scope}",
-  "search.window.later": "Később",
   "search.window.loadedInstead": {
     "one": "Helyette az ezen az eszközön betöltött {count} üzenetben keres. A szűrők továbbra is működnek.",
     "other": "Helyette az ezen az eszközön betöltött {count} üzenetben keres. A szűrők továbbra is működnek."
@@ -2090,7 +2080,6 @@
   "search.window.nothingOlder": "Nincs régebbi találat",
   "search.window.offline": "Nincs kapcsolat",
   "search.window.older": "Régebbiek keresése",
-  "search.window.openInChannel": "Megnyitás a csatornában",
   "search.window.placeholder": "Keresés itt: {scope}",
   "search.window.removeFilter": "{filter} szűrő eltávolítása",
   "search.window.retry": "Újra",
