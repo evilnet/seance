@@ -580,7 +580,6 @@
     "other": "{count} elvetve ezen az eszközön"
   },
   "mentions.empty": "Mindent elolvastál",
-  "mentions.emptyHint": "Egy említés lekerül erről a listáról, amint elolvasod, itt vagy bármelyik másik eszközödön.",
   "mentions.keys.backspace": "Backspace",
   "mentions.keys.close": "bezárás",
   "mentions.keys.dismiss": "elvetés",

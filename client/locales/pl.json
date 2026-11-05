@@ -606,7 +606,6 @@
     "other": "Odrzucono {count} na tym urządzeniu"
   },
   "mentions.empty": "Wszystko przeczytane",
-  "mentions.emptyHint": "Wzmianka znika z tej listy, gdy ją przeczytasz, tutaj lub na dowolnym innym urządzeniu.",
   "mentions.keys.backspace": "Backspace",
   "mentions.keys.close": "zamknij",
   "mentions.keys.dismiss": "odrzuć",

@@ -398,6 +398,8 @@ interface ClientToServerEvents {
 		msgid: string;
 		limit: number;
 	}>;
+	/** Taken to an older message: `chan` is not read until released (see bus-contract § 2). */
+	"read:hold": EventHandler<{chan: number; held: boolean}>;
 	/** A quote on screen names a message that is not loaded (see bus-contract §1.4). */
 	"reply:parent": EventHandler<{chan: number; msgid: string}>;
 	/** The UI dropped these messages from a channel's buffer (see bus-contract § 2). */

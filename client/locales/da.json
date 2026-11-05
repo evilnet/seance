@@ -574,7 +574,6 @@
     "other": "{count} afvist på denne enhed"
   },
   "mentions.empty": "Du er helt opdateret",
-  "mentions.emptyHint": "En omtale forsvinder fra listen, når du har læst den, her eller på en anden enhed.",
   "mentions.keys.backspace": "Tilbage",
   "mentions.keys.close": "luk",
   "mentions.keys.dismiss": "afvis",

@@ -1,4 +1,4 @@
-// The inbox's store glue (docs/projects/inbox.md): unread mentions kept in
+// The inbox's store glue (docs/projects/inbox.md): mentions kept in
 // the Vuex store and persisted in localStorage, and the dismissals that keep
 // the catch-up from bringing a dismissed one back. The IRC layer says what
 // goes in (`inbox:add`) and what has been read (`inbox:read`); the rules are
@@ -14,8 +14,10 @@ import {
 	conversationEntries,
 	conversationKey,
 	dismissalOf,
+	dropExpired,
 	dropMessage,
 	entryKey,
+	markRead,
 	parseDismissed,
 	parseStored,
 	pruneRead,
@@ -55,7 +57,7 @@ function commitIfChanged(next: InboxEntry[]): void {
 /** Load stored mentions into the store and start mirroring changes back. */
 export function loadMentions(): void {
 	dismissed = parseDismissed(storage.get(DISMISSED_KEY));
-	store.commit("mentions", parseStored(storage.get(KEY)));
+	store.commit("mentions", dropExpired(parseStored(storage.get(KEY)), Date.now()));
 
 	if (!watching) {
 		watching = true;
@@ -70,14 +72,24 @@ export function addMentions(entries: InboxEntry[]): void {
 }
 
 export function markMentionsRead(network: string, target: string, time: Date): void {
-	commitIfChanged(pruneRead(store.state.mentions, network, target, time));
-	undoableMentions.value = pruneRead(undoableMentions.value, network, target, time);
+	commitIfChanged(markRead(store.state.mentions, network, target, time));
+	undoableMentions.value = markRead(undoableMentions.value, network, target, time);
 
 	const left = pruneRead(dismissed, network, target, time);
 
 	if (left.length !== dismissed.length) {
 		setDismissed(left);
 	}
+}
+
+/** This one was opened: dimmed, while the conversation stays unread. */
+export function markMentionOpened(entry: InboxEntry): void {
+	const key = entryKey(entry);
+	commitIfChanged(
+		store.state.mentions.map((e) =>
+			!e.read && entryKey(e) === key ? {...e, read: true as const} : e
+		)
+	);
 }
 
 /** Drop the entry of a message that is gone (deleted, or replaced by `by`'s edit). */

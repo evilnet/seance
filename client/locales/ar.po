@@ -3360,10 +3360,12 @@ msgctxt "mentions.empty"
 msgid "You're all caught up"
 msgstr "لا جديد لديك"
 
-#. Hint under the empty mentions popup's title, explaining what clears the list.
+#. Hint under the empty mentions popup's title, explaining what clears the list: a mention stays, dimmed after it is read, until it is closed or 7 days pass.
 #: client/components/Mentions.vue:41
+#: client/components/Mentions.vue
+#, fuzzy
 msgctxt "mentions.emptyHint"
-msgid "A mention leaves this list once you read it, here or on any other device."
+msgid "Mentions stay here, dimmed once read, until you close them or for 7 days."
 msgstr "تختفي الإشارة من هذه القائمة بمجرد قراءتها، هنا أو على أي جهاز آخر."
 
 #. Keyboard legend at the bottom of the mentions popup: the Backspace key's label as printed on keyboards in your language, abbreviated to a few letters (shown in a small key cap). Keep it as short as the English.
@@ -3443,6 +3445,30 @@ msgstr "غير متصل: سيُفتح هذا عند عودتك إلى {target}."
 msgctxt "mentions.open"
 msgid "Open {target}"
 msgstr "فتح {target}"
+
+#. Button above a conversation's rows in the mentions popup: shows the older mentions held back so one conversation cannot fill the pane. {count} is how many. The singular form shows for one, the plural for any other number.
+#: client/components/Mentions.vue
+msgctxt "mentions.showMore"
+msgid "Show {count} more"
+msgid_plural "Show {count} more"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
+
+#. The same button in the mentions popup when some of the held-back mentions are not read yet. {count} is how many are held back, {unread} how many of those are unread. The singular form shows for a {count} of one, the plural for any other number.
+#: client/components/Mentions.vue
+msgctxt "mentions.showMoreUnread"
+msgid "Show {count} more · {unread} unread"
+msgid_plural "Show {count} more · {unread} unread"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
 
 #. Accessible name of a conversation's section in the mentions popup when several chat networks are set up. {target} is a channel name or nick, {network} the chat network's display name.
 #: client/components/Mentions.vue:517
@@ -14949,6 +14975,12 @@ msgctxt "translate.model.announce"
 msgid "{model} ({device}): {state}"
 msgstr ""
 
+#. The name of a translation engine in Settings → Translation: the device's own translator (Apple's Translation framework on iPhone, iPad and Mac), which uses the language packs downloaded in the system settings. "Apple Translation" is the feature's name; keep it recognisable.
+#: client/js/helpers/modelLabel.ts
+msgctxt "translate.model.apple"
+msgid "Apple Translation (built into the system)"
+msgstr ""
+
 #. Settings → Translation, one copy of a translation model (the GPU one or the CPU one, named before it): its files are on this device. {size} is its download size with its unit, already formatted, e.g. "938.4 MiB". Keep the middle dot as a separator.
 #: client/components/Settings/Translation.vue
 msgctxt "translate.model.copyDownloaded"
@@ -15009,72 +15041,6 @@ msgstr "يحتاج إلى مخزن مؤقت لوحدة GPU بحجم {needed}؛ �
 msgctxt "translate.model.nllb"
 msgid "NLLB-200 600M (200 languages)"
 msgstr "NLLB-200 600M (200 لغة)"
-
-#. The name of a translation engine in Settings → Translation: the device's own translator (Apple's Translation framework on iPhone, iPad and Mac), which uses the language packs downloaded in the system settings. "Apple Translation" is the feature's name; keep it recognisable.
-#: client/js/helpers/modelLabel.ts
-msgctxt "translate.model.apple"
-msgid "Apple Translation (built into the system)"
-msgstr ""
-
-#. Heading of the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable.
-#: client/components/Settings/TranslationOptions.vue
-msgctxt "translate.system.heading"
-msgid "Apple Translation"
-msgstr ""
-
-#. Switch in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. On: a language whose pack is downloaded on the device is translated by the system instead of the models below.
-#: client/components/Settings/TranslationOptions.vue
-msgctxt "translate.system.switch"
-msgid "Translate with Apple Translation when the language is downloaded"
-msgstr ""
-
-#. Explanation under the switch in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. "Language packs" are the system's downloadable languages.
-#: client/components/Settings/TranslationOptions.vue
-msgctxt "translate.system.hint"
-msgid "It runs on this device with language packs from the system, and is fast. Other languages use the models below."
-msgstr ""
-
-#. Label (for screen readers) of the language picker in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. The user picks a language to translate from, to check or download its pack.
-#: client/components/Settings/TranslationOptions.vue
-msgctxt "translate.system.sourceLabel"
-msgid "Language to download"
-msgstr ""
-
-#. Button in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. Opens the system's own sheet that downloads the picked language's pack.
-#: client/components/Settings/TranslationOptions.vue
-msgctxt "translate.system.download"
-msgid "Download"
-msgstr ""
-
-#. Status line in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. {from} and {to} are language names. Shown while the system's download sheet is open.
-#: client/components/Settings/TranslationOptions.vue
-msgctxt "translate.system.asking"
-msgid "{from} → {to}: waiting for the download…"
-msgstr ""
-
-#. Status line in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. {from} and {to} are language names.
-#: client/components/Settings/TranslationOptions.vue
-msgctxt "translate.system.installed"
-msgid "{from} → {to}: downloaded. Apple Translation translates it."
-msgstr ""
-
-#. Status line in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. {from} and {to} are language names. The pack can be downloaded with the button.
-#: client/components/Settings/TranslationOptions.vue
-msgctxt "translate.system.supported"
-msgid "{from} → {to}: not downloaded yet."
-msgstr ""
-
-#. Status line in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. {from} and {to} are language names. The models below may still translate it.
-#: client/components/Settings/TranslationOptions.vue
-msgctxt "translate.system.unsupported"
-msgid "{from} → {to}: Apple Translation does not offer this pair on this device."
-msgstr ""
-
-#. Status line in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. {from} and {to} are language names. Shown when the download sheet closed without the pack. "Settings → Apps → Translate" is the path in the iPhone's Settings app; use the system's own names for it.
-#: client/components/Settings/TranslationOptions.vue
-msgctxt "translate.system.notDownloaded"
-msgid "{from} → {to}: not downloaded. You can also download languages in Settings → Apps → Translate."
-msgstr ""
 
 #. The name of a translation model in Settings → Translation: an OPUS-MT pair. {from} and {to} are language names. OPUS-MT is a product name.
 #: client/js/helpers/modelLabel.ts
@@ -15611,6 +15577,66 @@ msgstr "إرسال الترجمة"
 msgctxt "translate.strip.sourceAuto"
 msgid "auto"
 msgstr "تلقائي"
+
+#. Status line in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. {from} and {to} are language names. Shown while the system's download sheet is open.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.system.asking"
+msgid "{from} → {to}: waiting for the download…"
+msgstr ""
+
+#. Button in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. Opens the system's own sheet that downloads the picked language's pack.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.system.download"
+msgid "Download"
+msgstr ""
+
+#. Heading of the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.system.heading"
+msgid "Apple Translation"
+msgstr ""
+
+#. Explanation under the switch in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. "Language packs" are the system's downloadable languages.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.system.hint"
+msgid "It runs on this device with language packs from the system, and is fast. Other languages use the models below."
+msgstr ""
+
+#. Status line in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. {from} and {to} are language names.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.system.installed"
+msgid "{from} → {to}: downloaded. Apple Translation translates it."
+msgstr ""
+
+#. Status line in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. {from} and {to} are language names. Shown when the download sheet closed without the pack. "Settings → Apps → Translate" is the path in the iPhone's Settings app; use the system's own names for it.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.system.notDownloaded"
+msgid "{from} → {to}: not downloaded. You can also download languages in Settings → Apps → Translate."
+msgstr ""
+
+#. Label (for screen readers) of the language picker in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. The user picks a language to translate from, to check or download its pack.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.system.sourceLabel"
+msgid "Language to download"
+msgstr ""
+
+#. Status line in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. {from} and {to} are language names. The pack can be downloaded with the button.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.system.supported"
+msgid "{from} → {to}: not downloaded yet."
+msgstr ""
+
+#. Switch in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. On: a language whose pack is downloaded on the device is translated by the system instead of the models below.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.system.switch"
+msgid "Translate with Apple Translation when the language is downloaded"
+msgstr ""
+
+#. Status line in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. {from} and {to} are language names. The models below may still translate it.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.system.unsupported"
+msgid "{from} → {to}: Apple Translation does not offer this pair on this device."
+msgstr ""
 
 #. Line under the CPU models in Settings → Translation: the language model would run on {count} processor threads (CPU) after the app is reloaded; this page cannot use more than one yet. {count} is that number, 2 or more in practice. A thread is a parallel strand of computation.
 #: client/js/helpers/translateWhy.ts

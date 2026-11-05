@@ -562,7 +562,6 @@
     "other": "Inalis ang {count} sa device na ito"
   },
   "mentions.empty": "Nabasa mo na ang lahat",
-  "mentions.emptyHint": "Mawawala ang isang pagbanggit sa listahang ito kapag nabasa mo na, dito man o sa ibang device.",
   "mentions.keys.backspace": "Backspace",
   "mentions.keys.close": "isara",
   "mentions.keys.dismiss": "alisin",

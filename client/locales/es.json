@@ -576,7 +576,6 @@
     "other": "{count} descartadas en este dispositivo"
   },
   "mentions.empty": "Estás al día",
-  "mentions.emptyHint": "Una mención sale de esta lista en cuanto la lees, aquí o en cualquier otro dispositivo.",
   "mentions.keys.backspace": "Retroceso",
   "mentions.keys.close": "cerrar",
   "mentions.keys.dismiss": "descartar",

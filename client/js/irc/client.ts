@@ -2353,11 +2353,11 @@ export class IrcClient {
 		return this.activeChanId;
 	}
 
-	/**
-	 * The UI opened `chanId` (or 0 for none): unread counters restart there,
-	 * a pending catch-up is served now, and the channel modes are asked for
-	 * the first time round.
-	 */
+	/** Someone is reading `chan`: it is open, they are looking, and no jump holds it. */
+	isReading(chan: Channel): boolean {
+		return chan.id === this.activeChanId && this.presence.attended && !chan.readHeld;
+	}
+
 	/** The channel the UI shows for this network, if any. */
 	activeChannel(): Channel | undefined {
 		return this.activeChanId ? this.channelById(this.activeChanId) : undefined;
@@ -2493,6 +2493,11 @@ export class IrcClient {
 		this.bus.dispatch(event, ...args);
 	}
 
+	/**
+	 * The UI opened `chanId` (or 0 for none): unread counters restart there,
+	 * a pending catch-up is served now, and the channel modes are asked for
+	 * the first time round.
+	 */
 	open(chanId: number): void {
 		this.activeChanId = chanId;
 		const chan = this.channelById(chanId);
@@ -2503,7 +2508,7 @@ export class IrcClient {
 			// Only a person looking reads it: a page that lands here hidden
 			// (a cold start, a deep link) leaves that to attention returning
 			// (presence.ts).
-			if (this.presence.attended) {
+			if (this.isReading(chan)) {
 				readNow(this, chan);
 			}
 
@@ -3152,7 +3157,7 @@ export class IrcClient {
 				shared.highlight = 0;
 				scheduleMarkRead(this, chan);
 			}
-		} else if (chan.id === this.activeChanId && this.presence.attended) {
+		} else if (this.isReading(chan)) {
 			// Only a person looking reads it; a hidden page marks nothing
 			// (presence.ts marks the open channel when attention returns).
 			scheduleMarkRead(this, chan);

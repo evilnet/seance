@@ -570,7 +570,6 @@
     "other": "{count} verwijderd op dit apparaat"
   },
   "mentions.empty": "U bent helemaal bij",
-  "mentions.emptyHint": "Een vermelding verdwijnt uit deze lijst zodra u hem leest, hier of op een ander apparaat.",
   "mentions.keys.backspace": "Backspace",
   "mentions.keys.close": "sluiten",
   "mentions.keys.dismiss": "verwijderen",

@@ -593,7 +593,6 @@
     "other": "{count} zahozeno na tomto zařízení"
   },
   "mentions.empty": "Vše máte přečteno",
-  "mentions.emptyHint": "Zmínka z tohoto seznamu zmizí, jakmile ji přečtete, tady nebo na jakémkoli jiném zařízení.",
   "mentions.keys.backspace": "Backspace",
   "mentions.keys.close": "zavřít",
   "mentions.keys.dismiss": "zahodit",

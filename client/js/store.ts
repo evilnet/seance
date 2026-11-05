@@ -268,7 +268,7 @@ const getters: Getters = {
 	},
 	// The one count of unread mentions: the @ button, the title, the
 	// favicon and the app icon all read it.
-	mentionCount: (state, getters) => getters.visibleMentions.length,
+	mentionCount: (state, getters) => getters.visibleMentions.filter((e) => !e.read).length,
 	title(state, getters) {
 		const alertEventCount = getters.mentionCount ? `(${getters.mentionCount.toString()}) ` : "";
 		const channelname = state.activeChannel ? `${state.activeChannel.channel.name} — ` : "";

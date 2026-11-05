@@ -574,7 +574,6 @@
     "other": "{count} ignorées sur cet appareil"
   },
   "mentions.empty": "Vous êtes à jour",
-  "mentions.emptyHint": "Une mention quitte cette liste dès que vous la lisez, ici ou sur un autre appareil.",
   "mentions.keys.backspace": "Retour",
   "mentions.keys.close": "fermer",
   "mentions.keys.dismiss": "ignorer",

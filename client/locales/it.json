@@ -569,7 +569,6 @@
     "other": "{count} ignorate su questo dispositivo"
   },
   "mentions.empty": "Sei in pari",
-  "mentions.emptyHint": "Una menzione esce da questo elenco appena la leggi, qui o su qualsiasi altro dispositivo.",
   "mentions.keys.backspace": "Backspace",
   "mentions.keys.close": "chiudi",
   "mentions.keys.dismiss": "ignora",

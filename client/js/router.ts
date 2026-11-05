@@ -312,7 +312,7 @@ router.afterEach((to) => {
 		}
 
 		// When switching out of a channel, mark everything as read
-		if (channel.messages?.length > 0) {
+		if (channel.messages?.length > 0 && !channel.readHeld) {
 			channel.firstUnread = channel.messages[channel.messages.length - 1].id;
 		}
 

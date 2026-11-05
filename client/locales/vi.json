@@ -567,7 +567,6 @@
     "other": "Đã loại bỏ {count} trên thiết bị này"
   },
   "mentions.empty": "Bạn đã xem hết rồi",
-  "mentions.emptyHint": "Lượt nhắc đến sẽ rời khỏi danh sách khi bạn đọc nó, ở đây hay trên bất kỳ thiết bị nào khác.",
   "mentions.keys.backspace": "Xóa lùi",
   "mentions.keys.close": "đóng",
   "mentions.keys.dismiss": "loại bỏ",

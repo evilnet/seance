@@ -579,7 +579,6 @@
     "other": "Bu cihazda {count} kapatıldı"
   },
   "mentions.empty": "Hepsini okudun",
-  "mentions.emptyHint": "Bir bahsedilme, onu burada veya başka bir cihazda okuduğunda bu listeden çıkar.",
   "mentions.keys.backspace": "Geri",
   "mentions.keys.close": "çık",
   "mentions.keys.dismiss": "kapat",

@@ -567,7 +567,6 @@
     "other": "ล้างแล้ว {count} รายการบนอุปกรณ์นี้"
   },
   "mentions.empty": "คุณอ่านครบหมดแล้ว",
-  "mentions.emptyHint": "การกล่าวถึงจะออกจากรายการนี้เมื่อคุณอ่านแล้ว ไม่ว่าที่นี่หรือบนอุปกรณ์อื่น",
   "mentions.keys.backspace": "ลบ",
   "mentions.keys.close": "ปิด",
   "mentions.keys.dismiss": "ล้าง",

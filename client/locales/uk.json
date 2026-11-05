@@ -608,7 +608,6 @@
     "other": "Прибрано на цьому пристрої: {count}"
   },
   "mentions.empty": "Усе прочитано",
-  "mentions.emptyHint": "Згадка зникає зі списку, щойно ви її прочитаєте — тут або на будь-якому іншому пристрої.",
   "mentions.keys.close": "закрити",
   "mentions.keys.dismiss": "прибрати",
   "mentions.keys.move": "перейти",
