@@ -111,7 +111,8 @@ export default async function run(page) {
 	talker.say(HOME, "the picture https://example.test/fake-lag.png explains it");
 	talker.say(HOME, "right");
 	talker.say(OTHER, "fake lag over here too");
-	await page.sleep(1500);
+	talker.say(HOME, `${"padding words go by ".repeat(20)}until the tailword at its end`);
+	await page.sleep(8000); // the dev ircd paces a burst
 
 	const opened = await page.evaluate(`(() => {
 		const item = document.querySelector(${JSON.stringify(ROW(HOME))});
@@ -153,6 +154,34 @@ export default async function run(page) {
 		(await count(page, ROWS)) === 4
 	);
 	await page.screenshot("1-results");
+
+	// A long line: four lines at most, the ones with the match; the match is painted.
+	await search(page, "tailword");
+	const longHit = await page.evaluate(`(() => {
+		const box = document.querySelector("${WINDOW} .search-text");
+		const mark = CSS.highlights.get("search-hit");
+		const range = mark && [...mark][0];
+		const at = range?.getBoundingClientRect();
+		const lines = box.clientHeight / at.height;
+		const row = box.getBoundingClientRect();
+		const meta = box.closest(".search-hit").querySelector(".search-meta").getBoundingClientRect();
+		return {
+			lines,
+			shown: !!at && at.top >= row.top - 1 && at.bottom <= row.bottom + 1,
+			word: range?.toString(),
+			selectable: getComputedStyle(box).userSelect,
+			timeClear: meta.bottom <= row.top + 1,
+		};
+	})()`);
+	page.check(
+		`1. a long line stops at four lines (${longHit.lines})`,
+		longHit.lines > 0 && longHit.lines < 4.5
+	);
+	page.check("1. and shows the match, late in it", longHit.shown && longHit.word === "tailword");
+	page.check("1. selectable, or WebKit paints no mark", longHit.selectable === "text");
+	page.check("1. the time stays out of the text", longHit.timeClear);
+	await page.screenshot("1-long-line");
+	await search(page, "fake lag");
 
 	// A phrase is one substring, and only the last selector may hold a space.
 	const phraseFrom = page.wsFrames.length;
@@ -380,6 +409,15 @@ export default async function run(page) {
 	);
 	await page.screenshot("8-far-hit");
 	const backFrom = page.wsFrames.length;
+	await page.screenshot("8-past-bar");
+	page.check(
+		"8. the bar's text is not squeezed beside its buttons",
+		await page.evaluate(`(() => {
+			const range = new Range();
+			range.selectNodeContents(document.querySelector(".past-bar-text"));
+			return new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size === 1;
+		})()`)
+	);
 	await page.click(".past-bar-back");
 	await page.waitFor(`document.querySelector("${ROWS}")`, {
 		timeout: 10000,

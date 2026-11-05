@@ -185,7 +185,6 @@
 										@keydown.enter.self="openHit(hit)"
 										@keydown.space.self.prevent="openHit(hit)"
 									>
-										<span class="search-time">{{ timeOf(hit.msg) }}</span>
 										<div class="search-line">
 											<div class="search-meta">
 												<Username
@@ -195,6 +194,9 @@
 													@click.stop
 												/>
 												<span class="search-chan">{{ hit.target }}</span>
+												<span class="search-time">{{
+													timeOf(hit.msg)
+												}}</span>
 											</div>
 											<div class="search-text">
 												<ParsedMessage
@@ -473,9 +475,6 @@
 }
 
 .search-hit {
-	display: grid;
-	grid-template-columns: 4rem minmax(0, 1fr);
-	gap: 0.5rem;
 	padding: 0.5rem 0.75rem;
 	cursor: pointer;
 }
@@ -494,8 +493,9 @@
 
 .search-meta {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: baseline;
-	gap: 0.5rem;
+	gap: 0 0.5rem;
 	min-width: 0;
 }
 
@@ -505,8 +505,31 @@
 	font-size: 0.8125rem;
 }
 
+/* Selectable: WebKit paints no ::highlight on text with user-select: none. A long
+   line shows four lines, the ones with the match (showMatches), faded where it is cut. */
 .search-text {
+	max-height: 4lh;
+	overflow: hidden;
 	overflow-wrap: anywhere;
+	user-select: text;
+}
+
+.search-text[data-cut="end"] {
+	mask-image: linear-gradient(to bottom, #000 calc(100% - 1lh), transparent);
+}
+
+.search-text[data-cut="start"] {
+	mask-image: linear-gradient(to top, #000 calc(100% - 1lh), transparent);
+}
+
+.search-text[data-cut="both"] {
+	mask-image: linear-gradient(
+		to bottom,
+		transparent,
+		#000 1lh,
+		#000 calc(100% - 1lh),
+		transparent
+	);
 }
 
 ::highlight(search-hit) {
@@ -554,6 +577,7 @@ import {
 	matchesFilters,
 	matchSpans,
 	parseSearchQuery,
+	resolveScope,
 	rowKey,
 	serverAttrs,
 	type SearchFilters,
@@ -611,14 +635,6 @@ export default defineComponent({
 		const list = ref<HTMLElement>();
 		let requestId = 0;
 
-		const query = computed(() => String(route.query.q ?? "").trim());
-		const filters = computed<SearchFilters>(() => parseSearchQuery(query.value));
-		const criteria = computed(() => hasCriteria(filters.value));
-		const stale = computed(() => draft.value.trim() !== query.value);
-		// A filter changed while the field is edited keeps the edit: the field is
-		// what the next search will be, whatever the results below came from.
-		const draftFilters = computed<SearchFilters>(() => parseSearchQuery(draft.value));
-
 		const found = computed(() =>
 			store.getters.findChannel(parseInt(String(route.params.id ?? ""), 10))
 		);
@@ -633,6 +649,18 @@ export default defineComponent({
 		const conversations = computed(() => chats.value.map((c) => c.name));
 		const findChat = (name: string) =>
 			chats.value.find((c) => c.name.toLowerCase() === name.toLowerCase());
+
+		const query = computed(() => String(route.query.q ?? "").trim());
+		const filters = computed<SearchFilters>(() =>
+			resolveScope(parseSearchQuery(query.value), (name) => !!findChat(name))
+		);
+		const criteria = computed(() => hasCriteria(filters.value));
+		const stale = computed(() => draft.value.trim() !== query.value);
+		// A filter changed while the field is edited keeps the edit: the field is
+		// what the next search will be, whatever the results below came from.
+		const draftFilters = computed<SearchFilters>(() =>
+			resolveScope(parseSearchQuery(draft.value), (name) => !!findChat(name))
+		);
 
 		// The network window has no history of its own: it searches everything.
 		const scopeDefault = computed(() =>
@@ -1014,18 +1042,46 @@ export default defineComponent({
 			setQuery(formatSearchQuery({...draftFilters.value, in: ALL_CHANNELS}));
 		};
 
+		const textBoxes = () =>
+			document.querySelectorAll<HTMLElement>(
+				".chat-view[data-type='search-results'] .search-text"
+			);
+
+		// A line cut to its box shows its first match, on whole lines.
+		const showMatch = (box: HTMLElement, words: string[]) => {
+			box.scrollTop = 0;
+
+			if (box.scrollHeight <= box.clientHeight) {
+				delete box.dataset.cut;
+				return;
+			}
+
+			const match = rangesIn([box], (text) => matchSpans(text, words))[0];
+			const lineHeight = box.clientHeight / 4;
+			const below = match
+				? match.getBoundingClientRect().bottom - box.getBoundingClientRect().top
+				: 0;
+
+			if (below > box.clientHeight) {
+				box.scrollTop = Math.ceil((below - box.clientHeight) / lineHeight) * lineHeight;
+			}
+
+			const atEnd = box.scrollTop + box.clientHeight >= box.scrollHeight - 1;
+			box.dataset.cut = box.scrollTop === 0 ? "end" : atEnd ? "start" : "both";
+		};
+
+		const showMatches = () => {
+			textBoxes().forEach((box) => showMatch(box, filters.value.words));
+		};
+
 		const paintMatches = () => {
 			const words = filters.value.words;
 
 			paintHighlight(
 				"search-hit",
-				rangesIn(
-					document.querySelectorAll(
-						".chat-view[data-type='search-results'] .search-text"
-					),
-					(text) => matchSpans(text, words)
-				)
+				rangesIn(textBoxes(), (text) => matchSpans(text, words))
 			);
+			showMatches();
 		};
 
 		watch(visible, paintMatches, {flush: "post"});
@@ -1057,6 +1113,7 @@ export default defineComponent({
 
 			socket.on("search:results", onResults);
 			eventbus.on("escapekey", onEscape);
+			window.addEventListener("resize", showMatches);
 
 			const kept = takeResults(parseInt(String(route.params.id), 10), query.value);
 
@@ -1074,6 +1131,7 @@ export default defineComponent({
 		onUnmounted(() => {
 			socket.off("search:results", onResults);
 			eventbus.off("escapekey", onEscape);
+			window.removeEventListener("resize", showMatches);
 			clearHighlight("search-hit");
 		});
 
