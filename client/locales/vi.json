@@ -567,11 +567,6 @@
     "other": "Đã loại bỏ {count} trên thiết bị này"
   },
   "mentions.empty": "Bạn đã xem hết rồi",
-  "mentions.keys.backspace": "Xóa lùi",
-  "mentions.keys.close": "đóng",
-  "mentions.keys.dismiss": "loại bỏ",
-  "mentions.keys.move": "di chuyển",
-  "mentions.keys.open": "mở",
   "mentions.missingChannel": "Không ở trong {target}: tham gia để đọc, hoặc loại bỏ chúng.",
   "mentions.missingChannelOn": "Không ở trong {target} trên {network}: tham gia để đọc, hoặc loại bỏ chúng.",
   "mentions.missingNetwork": "Mạng của mục này không có trên trang này: hãy loại bỏ chúng.",
@@ -1981,7 +1976,6 @@
   "search.filters.toDay": "Đến ngày này",
   "search.filters.without": "Không có các từ này",
   "search.openForm": "Tìm tin nhắn trong kênh này",
-  "search.placeholder": "Tìm tin nhắn…",
   "search.results.aria": "Kết quả tìm kiếm",
   "search.window.allChannels": "tất cả kênh của tôi",
   "search.window.allHidden": {

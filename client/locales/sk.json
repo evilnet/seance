@@ -593,11 +593,6 @@
     "other": "{count} zahodených na tomto zariadení"
   },
   "mentions.empty": "Všetko máte prečítané",
-  "mentions.keys.backspace": "Backspace",
-  "mentions.keys.close": "zavrieť",
-  "mentions.keys.dismiss": "zahodiť",
-  "mentions.keys.move": "presun",
-  "mentions.keys.open": "otvoriť",
   "mentions.missingChannel": "Nie ste v {target}: vstúpte doň, aby ste si ich mohli prečítať, alebo ich zahoďte.",
   "mentions.missingChannelOn": "Nie ste v {target} v sieti {network}: vstúpte doň, aby ste si ich mohli prečítať, alebo ich zahoďte.",
   "mentions.missingNetwork": "Jej sieť na tejto stránke nie je: zahoďte ich.",
@@ -2085,7 +2080,6 @@
   "search.filters.toDay": "Do tohto dňa",
   "search.filters.without": "Bez týchto slov",
   "search.openForm": "Hľadať správy v tomto kanáli",
-  "search.placeholder": "Hľadať správy…",
   "search.results.aria": "Výsledky hľadania",
   "search.window.allChannels": "všetky moje kanály",
   "search.window.allHidden": {

@@ -579,11 +579,6 @@
     "other": "Bu cihazda {count} kapatıldı"
   },
   "mentions.empty": "Hepsini okudun",
-  "mentions.keys.backspace": "Geri",
-  "mentions.keys.close": "çık",
-  "mentions.keys.dismiss": "kapat",
-  "mentions.keys.move": "gezin",
-  "mentions.keys.open": "aç",
   "mentions.missingChannel": "{target} kanalında değilsin: okumak için katıl ya da bunları kapat.",
   "mentions.missingChannelOn": "{network} ağındaki {target} kanalında değilsin: okumak için katıl ya da bunları kapat.",
   "mentions.missingNetwork": "Ağı bu sayfada yok: bunları kapat.",
@@ -2035,7 +2030,6 @@
   "search.filters.toDay": "Bu güne kadar",
   "search.filters.without": "Bu kelimeler olmadan",
   "search.openForm": "Bu kanalda mesajları ara",
-  "search.placeholder": "Mesajları ara…",
   "search.results.aria": "Arama sonuçları",
   "search.window.allChannels": "tüm kanallarım",
   "search.window.allHidden": {

@@ -576,11 +576,6 @@
     "other": "{count} descartadas en este dispositivo"
   },
   "mentions.empty": "Estás al día",
-  "mentions.keys.backspace": "Retroceso",
-  "mentions.keys.close": "cerrar",
-  "mentions.keys.dismiss": "descartar",
-  "mentions.keys.move": "mover",
-  "mentions.keys.open": "abrir",
   "mentions.missingChannel": "No estás en {target}: únete para leerlas, o descártalas.",
   "mentions.missingChannelOn": "No estás en {target} en {network}: únete para leerlas, o descártalas.",
   "mentions.missingNetwork": "Su red no está en esta página: descártalas.",
@@ -1956,7 +1951,6 @@
   "search.filters.toDay": "Hasta este día",
   "search.filters.without": "Sin estas palabras",
   "search.openForm": "Buscar mensajes en este canal",
-  "search.placeholder": "Buscar mensajes…",
   "search.results.aria": "Resultados de búsqueda",
   "search.window.allChannels": "todos mis canales",
   "search.window.allHidden": {

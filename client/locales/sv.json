@@ -573,11 +573,6 @@
     "other": "{count} avfärdade på den här enheten"
   },
   "mentions.empty": "Du är ikapp",
-  "mentions.keys.backspace": "Backsteg",
-  "mentions.keys.close": "stäng",
-  "mentions.keys.dismiss": "avfärda",
-  "mentions.keys.move": "flytta",
-  "mentions.keys.open": "öppna",
   "mentions.missingChannel": "Inte i {target}: gå in i kanalen för att läsa dem, eller avfärda dem.",
   "mentions.missingChannelOn": "Inte i {target} på {network}: gå in i kanalen för att läsa dem, eller avfärda dem.",
   "mentions.missingNetwork": "Nätverket finns inte på den här sidan: avfärda dem.",
@@ -1983,7 +1978,6 @@
   "search.filters.toDay": "Till och med den här dagen",
   "search.filters.without": "Utan de här orden",
   "search.openForm": "Sök meddelanden i den här kanalen",
-  "search.placeholder": "Sök meddelanden…",
   "search.results.aria": "Sökresultat",
   "search.window.allChannels": "alla mina kanaler",
   "search.window.allHidden": {

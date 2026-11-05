@@ -571,11 +571,6 @@
     "other": "{count} auf diesem Gerät verworfen"
   },
   "mentions.empty": "Alles gelesen",
-  "mentions.keys.backspace": "Rück",
-  "mentions.keys.close": "schließen",
-  "mentions.keys.dismiss": "verwerfen",
-  "mentions.keys.move": "bewegen",
-  "mentions.keys.open": "öffnen",
   "mentions.missingChannel": "Nicht in {target}: Betreten Sie den Kanal, um sie zu lesen, oder verwerfen Sie sie.",
   "mentions.missingChannelOn": "Nicht in {target} auf {network}: Betreten Sie den Kanal, um sie zu lesen, oder verwerfen Sie sie.",
   "mentions.missingNetwork": "Das Netzwerk ist auf dieser Seite nicht vorhanden: Verwerfen Sie sie.",
@@ -1957,7 +1952,6 @@
   "search.filters.toDay": "Bis zu diesem Tag",
   "search.filters.without": "Ohne diese Wörter",
   "search.openForm": "Nachrichten in diesem Kanal durchsuchen",
-  "search.placeholder": "Nachrichten durchsuchen…",
   "search.results.aria": "Suchergebnisse",
   "search.window.allChannels": "alle meine Kanäle",
   "search.window.allHidden": {

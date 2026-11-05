@@ -2,7 +2,7 @@
 	<div
 		v-if="isOpen"
 		id="mentions-popup-container"
-		v-backdrop="closePopup"
+		v-backdrop="closeFromOutside"
 		data-escape-close="mentions"
 		@contextmenu.self="closePopup"
 	>
@@ -174,19 +174,6 @@
 			<div v-if="undoableMentions.length" class="mentions-undo" role="status">
 				<span>{{ tCount("mentions.dismissedHere", undoableMentions.length) }}</span>
 				<button class="btn btn-sm" @click="undoDismiss">{{ t("mentions.undo") }}</button>
-			</div>
-
-			<div v-if="groups.length" class="mentions-keys" aria-hidden="true">
-				<span><kbd>↑</kbd><kbd>↓</kbd> {{ t("mentions.keys.move") }}</span>
-				<span><kbd>↵</kbd> {{ t("mentions.keys.open") }}</span>
-				<span
-					><kbd>{{ isApple ? "⌫" : t("mentions.keys.backspace") }}</kbd>
-					{{ t("mentions.keys.dismiss") }}</span
-				>
-				<span class="mentions-keys-close"
-					><kbd>{{ isApple ? "⌥" : "Alt" }}</kbd
-					><kbd>M</kbd> {{ t("mentions.keys.close") }}</span
-				>
 			</div>
 		</div>
 	</div>
@@ -494,38 +481,6 @@ html[data-contrast="more"] .mentions-popup .mentions-entry-read > * {
 	margin: 0;
 }
 
-.mentions-keys {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 0.25rem 0.75rem;
-	padding: 0.4375rem 0.75rem;
-	border-top: 1px solid var(--oper-line);
-	color: var(--body-color-muted);
-	font-size: 0.75rem;
-}
-
-.mentions-keys-close {
-	margin-inline-start: auto;
-}
-
-.mentions-keys kbd {
-	min-width: 1.125rem;
-	margin: 0 0.125rem 0 0;
-	padding: 0 0.1875rem;
-	border-color: var(--oper-line-2);
-	background: none;
-	box-shadow: none;
-	color: inherit;
-	font-size: 0.6875rem;
-	line-height: 1.0625rem;
-	text-shadow: none;
-}
-
-/* A finger has no keys to be told about. */
-:where(html[data-input="touch"]) .mentions-keys {
-	display: none;
-}
-
 .mentions-empty {
 	padding: 1.5rem 1.5rem 1.25rem;
 	text-align: center;
@@ -601,7 +556,6 @@ import {
 import eventbus from "../js/eventbus";
 import {switchToChannel} from "../js/router";
 import {setReadHold} from "../js/helpers/readHold";
-import {isApplePlatform} from "../js/helpers/device";
 import {entryKey, groupByConversation} from "../js/helpers/inbox";
 import {formatDateTime} from "../js/i18n/dates";
 import {formatNumber} from "../js/i18n/numbers";
@@ -953,6 +907,20 @@ export default defineComponent({
 			isOpen.value = false;
 		};
 
+		// A press on a control beside the pane closes it and does what the control
+		// says, or the header's buttons would each need a second press. The @ button
+		// is the exception: it toggles, so it would only open the pane again.
+		const closeFromOutside = (event: MouseEvent) => {
+			returnFocus = null; // the press decides where the focus goes
+			closePopup();
+			void nextTick(() => {
+				document
+					.elementFromPoint(event.clientX, event.clientY)
+					?.closest<HTMLElement>("button:not(.mentions)")
+					?.click();
+			});
+		};
+
 		const onEscape = (layer: string | null) => {
 			if (layer === "mentions") {
 				closePopup();
@@ -984,7 +952,6 @@ export default defineComponent({
 			totalLabel,
 			t,
 			undoableMentions,
-			isApple: isApplePlatform(),
 			messageTime,
 			dismissGroup,
 			dismissRow,
@@ -997,6 +964,7 @@ export default defineComponent({
 			openFromRow,
 			showAll,
 			closePopup,
+			closeFromOutside,
 		};
 	},
 });

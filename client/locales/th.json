@@ -567,11 +567,6 @@
     "other": "ล้างแล้ว {count} รายการบนอุปกรณ์นี้"
   },
   "mentions.empty": "คุณอ่านครบหมดแล้ว",
-  "mentions.keys.backspace": "ลบ",
-  "mentions.keys.close": "ปิด",
-  "mentions.keys.dismiss": "ล้าง",
-  "mentions.keys.move": "เลื่อน",
-  "mentions.keys.open": "เปิด",
   "mentions.missingChannel": "ไม่ได้อยู่ใน {target}: เข้าร่วมเพื่ออ่าน หรือล้างรายการเหล่านี้",
   "mentions.missingChannelOn": "ไม่ได้อยู่ใน {target} บน {network}: เข้าร่วมเพื่ออ่าน หรือล้างรายการเหล่านี้",
   "mentions.missingNetwork": "เครือข่ายของรายการนี้ไม่ได้อยู่ในหน้านี้: ล้างรายการเหล่านี้",
@@ -1982,7 +1977,6 @@
   "search.filters.toDay": "ถึงวันนี้",
   "search.filters.without": "ไม่มีคำเหล่านี้",
   "search.openForm": "ค้นหาข้อความในช่องนี้",
-  "search.placeholder": "ค้นหาข้อความ…",
   "search.results.aria": "ผลการค้นหา",
   "search.window.allChannels": "ทุกช่องของฉัน",
   "search.window.allHidden": {

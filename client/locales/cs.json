@@ -593,11 +593,6 @@
     "other": "{count} zahozeno na tomto zařízení"
   },
   "mentions.empty": "Vše máte přečteno",
-  "mentions.keys.backspace": "Backspace",
-  "mentions.keys.close": "zavřít",
-  "mentions.keys.dismiss": "zahodit",
-  "mentions.keys.move": "přesun",
-  "mentions.keys.open": "otevřít",
   "mentions.missingChannel": "Nejste v {target}: vstupte do něj, abyste je mohli přečíst, nebo je zahoďte.",
   "mentions.missingChannelOn": "Nejste v {target} v síti {network}: vstupte do něj, abyste je mohli přečíst, nebo je zahoďte.",
   "mentions.missingNetwork": "Její síť na této stránce není: zahoďte je.",
@@ -2084,7 +2079,6 @@
   "search.filters.toDay": "Do tohoto dne",
   "search.filters.without": "Bez těchto slov",
   "search.openForm": "Hledat zprávy v tomto kanálu",
-  "search.placeholder": "Hledat zprávy…",
   "search.results.aria": "Výsledky hledání",
   "search.window.allChannels": "všechny mé kanály",
   "search.window.allHidden": {

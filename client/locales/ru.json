@@ -608,10 +608,6 @@
     "other": "Убрано на этом устройстве: {count}"
   },
   "mentions.empty": "Всё прочитано",
-  "mentions.keys.close": "закрыть",
-  "mentions.keys.dismiss": "убрать",
-  "mentions.keys.move": "перейти",
-  "mentions.keys.open": "открыть",
   "mentions.missingChannel": "Вас нет в {target}: войдите в канал, чтобы прочитать их, или уберите их.",
   "mentions.missingChannelOn": "Вас нет в {target} в сети {network}: войдите в канал, чтобы прочитать их, или уберите их.",
   "mentions.missingNetwork": "Сети этой беседы нет на этой странице: уберите эти упоминания.",
@@ -2166,7 +2162,6 @@
   "search.filters.toDay": "По этот день",
   "search.filters.without": "Без этих слов",
   "search.openForm": "Поиск сообщений в этом канале",
-  "search.placeholder": "Поиск сообщений…",
   "search.results.aria": "Результаты поиска",
   "search.window.allChannels": "все мои каналы",
   "search.window.allHidden": {

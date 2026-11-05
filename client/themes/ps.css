@@ -3241,7 +3241,6 @@ select option {
  * (the jump-to search, the message search, the join form). */
 ::placeholder,
 .jump-to-input .input::placeholder,
-form.message-search input::placeholder,
 .reaction-picker-input::placeholder {
 	color: var(--ps-g-placeholder);
 }

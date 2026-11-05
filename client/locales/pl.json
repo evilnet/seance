@@ -606,11 +606,6 @@
     "other": "Odrzucono {count} na tym urządzeniu"
   },
   "mentions.empty": "Wszystko przeczytane",
-  "mentions.keys.backspace": "Backspace",
-  "mentions.keys.close": "zamknij",
-  "mentions.keys.dismiss": "odrzuć",
-  "mentions.keys.move": "przesuń",
-  "mentions.keys.open": "otwórz",
   "mentions.missingChannel": "Nie jesteś na {target}: dołącz, aby je przeczytać, albo je odrzuć.",
   "mentions.missingChannelOn": "Nie jesteś na {target} w sieci {network}: dołącz, aby je przeczytać, albo je odrzuć.",
   "mentions.missingNetwork": "Jej sieci nie ma na tej stronie: odrzuć je.",
@@ -2143,7 +2138,6 @@
   "search.filters.toDay": "Do tego dnia",
   "search.filters.without": "Bez tych słów",
   "search.openForm": "Wyszukaj wiadomości w tym kanale",
-  "search.placeholder": "Wyszukaj wiadomości…",
   "search.results.aria": "Wyniki wyszukiwania",
   "search.window.allChannels": "wszystkie moje kanały",
   "search.window.allHidden": {
