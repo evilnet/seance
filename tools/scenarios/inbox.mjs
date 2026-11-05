@@ -564,6 +564,12 @@ export default async function run(page) {
 		`lines coming in above keep the place (${await page.evaluate(rowTop)})`,
 		(await page.evaluate(rowTop)) > -5
 	);
+	await page.check(
+		"the rows already there stay the same elements",
+		await page.evaluate(
+			`document.getElementById(${JSON.stringify(firstId)}).dataset.scenario === "first"`
+		)
+	);
 
 	// Send from the past: back to the present, where the line lands.
 	if (!touch) {

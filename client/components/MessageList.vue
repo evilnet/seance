@@ -29,7 +29,11 @@
 			@copy="onCopy"
 			@pointerdown="onPointerDown"
 		>
-			<template v-for="(message, id) in condensedMessages">
+			<!-- Keyed here, or a page landing in front replaces every row below it. -->
+			<template
+				v-for="(message, id) in condensedMessages"
+				:key="message.type === 'condensed' ? message.messages[0].id : message.id"
+			>
 				<DateMarker
 					v-if="shouldDisplayDateMarker(message, id)"
 					:key="message.id + '-date'"
