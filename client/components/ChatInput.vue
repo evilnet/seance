@@ -1209,6 +1209,13 @@ export default defineComponent({
 				translationAvailable() &&
 				(props.channel.type === ChanType.CHANNEL || props.channel.type === ChanType.QUERY)
 		);
+		// Translation switched off (or no longer able to run here): the
+		// picker goes with its button, and does not come back open with it.
+		watch(translateOnceAvailable, (available) => {
+			if (!available) {
+				translateOncePickerOpen.value = false;
+			}
+		});
 		const canTranslateOnce = computed(() => {
 			const gate = draftGate(props.channel.pendingMessage ?? "", !!props.channel.editing);
 

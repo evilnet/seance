@@ -519,4 +519,48 @@ export default async function run(page) {
 		(await page.evaluate(KEPT))?.read === true && (await page.evaluate(KEPT))?.write === "de"
 	);
 	await page.screenshot("5-off-again-channel");
+
+	// The first Enter, with the channel's write target still kept: no strip,
+	// the draft goes as typed (out of the input; the fabricated network has
+	// no connection to carry it, which is not this check's business).
+	await page.evaluate(
+		`document.querySelector("#form #input").dispatchEvent(new KeyboardEvent("keypress", {key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true, cancelable: true}))`
+	);
+	await page.sleep(600);
+	page.check(
+		"fake, switched off: Enter sends the draft as typed, with no strip",
+		!(await page.evaluate(`!!document.querySelector(".translate-bar")`)) &&
+			(await page.evaluate(`document.querySelector("#form #input").value`)) === ""
+	);
+
+	// The composer's language picker open when translation goes off does not
+	// come back open with it.
+	await openTab(page);
+	await flipSwitch(page, true);
+	await closeSettings(page);
+	await page.waitFor(`!!document.querySelector("#translate-once")`, {
+		label: "the composer's translate button is back",
+	});
+	await page.fill("#form #input", "one more");
+	// Lit for the kept write target, the button's first click turns it off;
+	// the next opens the picker.
+	await page.click("#translate-once");
+	await page.waitFor(`!document.querySelector("#translate-once.on")`, {
+		label: "the write target off",
+	});
+	await page.click("#translate-once");
+	await page.waitFor(`!!document.querySelector(".source-language-picker")`, {
+		label: "the composer's language picker",
+	});
+	await openTab(page);
+	await flipSwitch(page, false);
+	await flipSwitch(page, true);
+	await closeSettings(page);
+	await page.waitFor(`!!document.querySelector("#translate-once")`, {
+		label: "the composer's translate button, once more",
+	});
+	page.check(
+		"on again: the picker left open at the switch-off stays closed",
+		!(await page.evaluate(`!!document.querySelector(".source-language-picker")`))
+	);
 }
