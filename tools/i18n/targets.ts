@@ -9,8 +9,9 @@
 // the txt without adding it here fails the compile with the name that has
 // no tag; a tag that leaves the txt fails the live-tree test the same way.
 
-import {readFileSync, writeFileSync} from "node:fs";
+import {readFileSync} from "node:fs";
 import {resolve} from "node:path";
+import {writeIfChanged} from "./write";
 
 /** translation-languages.txt, at the repository root. */
 export const TARGETS_SOURCE = resolve("translation-languages.txt");
@@ -123,6 +124,7 @@ export function generateTargets(
 	outPath: string = TARGETS_PATH
 ): TranslationTarget[] {
 	const targets = parseTargets(readFileSync(resolve(sourcePath), "utf8"));
-	writeFileSync(resolve(outPath), renderTargets(targets));
+	// Only when it changed (write.ts): the build regenerates it on every run.
+	writeIfChanged(resolve(outPath), renderTargets(targets));
 	return targets;
 }

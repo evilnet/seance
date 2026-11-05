@@ -9,6 +9,8 @@ import {
 	readdirSync,
 	readFileSync,
 	rmSync,
+	statSync,
+	utimesSync,
 	writeFileSync,
 } from "node:fs";
 import {tmpdir} from "node:os";
@@ -26,7 +28,8 @@ import {
 import {POT_PATH} from "../../tools/i18n/paths";
 import {DEV_ONLY_TAGS, readAvailableLocales} from "../../tools/i18n/available-locales";
 import {categoryIndexMap, compileLocales, Catalog, CompileResult} from "../../tools/i18n/compile";
-import {parseTargets, TARGETS_SOURCE} from "../../tools/i18n/targets";
+import {generateTargets, parseTargets, TARGETS_SOURCE} from "../../tools/i18n/targets";
+import {writeIfChanged} from "../../tools/i18n/write";
 import {
 	countsReadingSlot,
 	PLURAL_RULES,
@@ -220,6 +223,59 @@ describe("i18n toolchain", () => {
 			expect(existsSync(join(outDir, "de.json"))).to.equal(true);
 			expect(existsSync(join(outDir, "en.json"))).to.equal(true);
 			expect(existsSync(join(outDir, "tags.json"))).to.equal(true);
+		});
+
+		// `pnpm test` runs the build (which compiles) beside lint and
+		// typecheck, which read these very files: an unchanged run must
+		// touch nothing, and a changed one replace each file whole.
+		it("a second compile of an unchanged tree rewrites nothing", () => {
+			const outDir = join(tmp, "unchanged");
+			const options = {
+				localesDir: join(FIXTURES, "compile/plural"),
+				outDir,
+				availablePath: join(outDir, "available.ts"),
+				tagsPath: join(outDir, "tags.json"),
+			};
+			const targetsOut = join(outDir, "targets.ts");
+
+			compileLocales(options);
+			generateTargets(TARGETS_SOURCE, targetsOut);
+
+			const outputs = readdirSync(outDir);
+			const then = new Date("2001-02-03T04:05:06Z");
+
+			for (const file of outputs) {
+				utimesSync(join(outDir, file), then, then);
+			}
+
+			compileLocales(options);
+			generateTargets(TARGETS_SOURCE, targetsOut);
+
+			expect(readdirSync(outDir).sort(), "no temp file left behind").to.deep.equal(
+				outputs.sort()
+			);
+
+			for (const file of outputs) {
+				expect(statSync(join(outDir, file)).mtimeMs, file).to.equal(then.getTime());
+			}
+		});
+
+		it("writeIfChanged writes a new or changed file whole, and leaves an equal one alone", () => {
+			const dir = join(tmp, "write-if-changed");
+			const file = join(dir, "out.json");
+			const then = new Date("2001-02-03T04:05:06Z");
+
+			mkdirSync(dir, {recursive: true});
+			expect(writeIfChanged(file, "one\n")).to.equal(true);
+			expect(readFileSync(file, "utf8")).to.equal("one\n");
+
+			utimesSync(file, then, then);
+			expect(writeIfChanged(file, "one\n")).to.equal(false);
+			expect(statSync(file).mtimeMs).to.equal(then.getTime());
+
+			expect(writeIfChanged(file, "two\n")).to.equal(true);
+			expect(readFileSync(file, "utf8")).to.equal("two\n");
+			expect(readdirSync(dir)).to.deep.equal(["out.json"]);
 		});
 
 		it("compiles en from the pot itself: the msgids are the English copy", () => {
