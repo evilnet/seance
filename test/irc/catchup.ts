@@ -725,7 +725,7 @@ describe("Connect burst: batched JOIN, catch-up paced by fake lag, lazy MODE (ir
 			expect(fetched(next)).to.deep.equal(["#three"]);
 		});
 
-		it("does not vouch for a gap a short page stopped the walk in", function () {
+		it("leaves a gap to the next connection when one closes mid-walk", function () {
 			const h = heldThenDropped(HELD);
 			const [targets] = collect(h, 1, isTargets).map((s) => s.line);
 			answerTargets(h, targets, [["#three", "2026-08-27T12:59:00.000Z"]]);
@@ -741,14 +741,14 @@ describe("Connect burst: batched JOIN, catch-up paced by fake lag, lazy MODE (ir
 			}
 
 			h.transport.line(":irc.test BATCH -q");
-			expect(h.client.findChannel("#three")!.idByMsgid.has("q2")).to.equal(true);
 			h.transport.closed();
+			// The walk is dropped whole: delivering part of it would hide what is older.
+			expect(h.client.findChannel("#three")!.idByMsgid.has("q2")).to.equal(false);
 			register(h, CAPS);
 			h.sent();
 			joinAll(h);
 			const [again] = collect(h, 1, isTargets).map((s) => s.line);
-			// Its newest is the one we hold now; what came before may not be.
-			answerTargets(h, again, [["#three", "2026-08-27T12:52:00.000Z"]]);
+			answerTargets(h, again, [["#three", "2026-08-27T12:59:00.000Z"]]);
 			expect(fetched(collect(h, 20).map((s) => s.line))).to.include("#three");
 		});
 
