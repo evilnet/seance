@@ -8992,6 +8992,26 @@ html[data-reduce-motion] #chat .msg.actions-open .msg-actions {
 	cursor: pointer;
 }
 
+/* Close (ReactionPicker.vue): a word, not a second ✕ beside the search's. */
+.reaction-picker-close {
+	flex: 0 0 auto;
+	padding: 0.25rem 0.5rem;
+	border: 0;
+	border-radius: 6px;
+	background: transparent;
+	color: var(--link-color);
+	font: inherit;
+	font-size: 0.875rem;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.reaction-picker-close:hover,
+.reaction-picker-close:focus-visible {
+	background: rgb(128 128 128 / 22%);
+	outline: 0;
+}
+
 .reaction-picker-clear:hover,
 .reaction-picker-clear:focus-visible {
 	background: rgb(128 128 128 / 22%);

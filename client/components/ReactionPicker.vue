@@ -31,8 +31,10 @@
 					spellcheck="false"
 					@keydown="onKeydown"
 				/>
+				<!-- Inserting, the search follows the composer: clearing it there
+				     would only part the two. -->
 				<button
-					v-if="query"
+					v-if="query && !insert"
 					type="button"
 					class="reaction-picker-clear"
 					:aria-label="clearSearch"
@@ -41,6 +43,17 @@
 					@click="clear"
 				>
 					✕
+				</button>
+				<!-- Always a way out: a phone has no Escape key, and a sheet over
+				     the composer leaves little to tap away on. -->
+				<button
+					v-if="sheet || insert"
+					type="button"
+					class="reaction-picker-close"
+					@mousedown.prevent
+					@click="close"
+				>
+					{{ t("reactions.close") }}
 				</button>
 			</div>
 
@@ -1037,7 +1050,34 @@ export default defineComponent({
 			}
 		};
 
+		// Back closes the picker, not the page: a CloseWatcher where the
+		// browser has one (Chromium: Android's back gesture and button, in a
+		// browser tab or an installed web app), taken while the picker is up
+		// and never a history entry (router.ts keeps the history one deep;
+		// helpers/imageViewer.ts does the same for an open image). The
+		// Android shell's back button reaches it as Escape (native.ts, the
+		// `data-escape-close` layer).
+		let backWatcher: {onclose: (() => void) | null; destroy(): void} | null = null;
+
 		onMounted(() => {
+			const Watcher = (
+				globalThis as {
+					CloseWatcher?: new () => {onclose: (() => void) | null; destroy(): void};
+				}
+			).CloseWatcher;
+
+			if (Watcher) {
+				try {
+					backWatcher = new Watcher();
+					backWatcher.onclose = () => {
+						backWatcher = null;
+						close();
+					};
+				} catch {
+					backWatcher = null; // refused (no activation to spare): Escape and Close remain
+				}
+			}
+
 			eventbus.emit(PICKER_OPENED, uid);
 			eventbus.on(PICKER_OPENED, onOtherOpened);
 			document.addEventListener("mousedown", onDocumentMouseDown);
@@ -1058,6 +1098,8 @@ export default defineComponent({
 		});
 
 		onBeforeUnmount(() => {
+			backWatcher?.destroy();
+			backWatcher = null;
 			eventbus.off(PICKER_OPENED, onOtherOpened);
 			document.removeEventListener("mousedown", onDocumentMouseDown);
 			window.removeEventListener("scroll", reposition, true);
@@ -1077,6 +1119,7 @@ export default defineComponent({
 			t,
 			dialogAria,
 			searchPlaceholder,
+			close,
 			clearSearch,
 			tabsAria,
 			listAria,

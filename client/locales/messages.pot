@@ -11385,6 +11385,12 @@ msgctxt "reactions.clickToRemoveSuffix"
 msgid "(click to remove yours)"
 msgstr ""
 
+#. Button in the emoji picker's search row that closes the picker without picking anything; shown on phones, where there is no Escape key, and when the picker was opened by typing a colon in the message composer.
+#: client/components/ReactionPicker.vue
+msgctxt "reactions.close"
+msgid "Close"
+msgstr ""
+
 #. aria-label of the emoji picker popup that opens from a chat message to add a reaction to it.
 #: client/components/ReactionPicker.vue
 msgctxt "reactions.dialogAria"

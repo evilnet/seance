@@ -2005,6 +2005,7 @@
   "reactions.by": "{reaction} by {users}",
   "reactions.clearSearch": "Clear search",
   "reactions.clickToRemoveSuffix": "(click to remove yours)",
+  "reactions.close": "Close",
   "reactions.dialogAria": "Add a reaction",
   "reactions.emptyHint": "Pick an emoji, type a word, or shift-click to combine several.",
   "reactions.freePrefix": "React with",

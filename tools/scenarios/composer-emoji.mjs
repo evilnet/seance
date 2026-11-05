@@ -14,7 +14,9 @@
 // Enter (a tap, on a phone) puts the emoji where `:tad` was, caret after it,
 // and sends nothing; Escape closes the picker, leaves the text and the focus,
 // and the same `:name` typed on does not reopen it; `:wq then` typed key by
-// key stays text; a paste ending in `:tad` opens nothing; no "React with …"
+// key stays text; Backspace narrows the search and past two letters closes
+// it; back (a CloseWatcher's close) and the Close button close it, the
+// draft kept; a paste ending in `:tad` opens nothing; no "React with …"
 // row, and Enter with nothing matching sends the message as typed; a time
 // (10:30) never opens it. `SEANCE_PORT` serves the app from another port.
 
@@ -65,6 +67,16 @@ export default async function run(page) {
 	const open = () => page.evaluate(`!!${PICKER}`);
 
 	await page.grantPermissions(["clipboardReadWrite", "clipboardSanitizedWrite"]);
+	// Every CloseWatcher the page makes, so the back gesture can be played:
+	// requestClose() is what Android's back does to the newest one.
+	await page.addInitScript(`(() => {
+		const Real = window.CloseWatcher;
+		if (!Real) return;
+		window.__watchers = [];
+		window.CloseWatcher = class extends Real {
+			constructor(...args) { super(...args); window.__watchers.push(this); }
+		};
+	})()`);
 	await page.goto(page.url, {waitForSelector: "#connect form"});
 	await page.evaluate(`document.querySelector("#connect form").requestSubmit()`);
 	await page.waitFor(`document.querySelector('.channel-list-item[data-name="#seance"]')`, {
@@ -101,6 +113,7 @@ export default async function run(page) {
 		"the composer keeps the keyboard",
 		await page.evaluate(`document.activeElement === ${INPUT}`)
 	);
+	await page.sleep(400); // past the picker's pop-in
 	await page.screenshot("1-picker-open");
 
 	await type(page, "a");
@@ -197,7 +210,50 @@ export default async function run(page) {
 	await page.check(`the paste landed (${JSON.stringify(text)})`, text.endsWith(" pasted :tad"));
 	await page.check("…and opened no picker", !(await open()));
 
-	// 5. Emoji only; Enter with nothing matching sends as typed.
+	// 5. Backspace narrows the search, and past two letters closes it;
+	//    typing the name again opens it again.
+	for (const ch of " :smil") {
+		await type(page, ch);
+	}
+
+	await page.waitFor(`!!${PICKER}`, {label: "the picker for :smil"});
+	await key(page, "Backspace", 8);
+	const narrowed = await page.evaluate(`${SEARCH}.value`);
+	await page.check(`Backspace narrows the search (${narrowed})`, narrowed === "smi");
+	await key(page, "Backspace", 8);
+	await key(page, "Backspace", 8);
+	await page.check("…and closes the picker at one letter", !(await open()));
+	await type(page, "m");
+	await page.waitFor(`!!${PICKER}`, {label: "the picker again for :sm"});
+	await page.check(
+		"typing the name again opens it again",
+		(await page.evaluate(`${SEARCH}.value`)) === "sm"
+	);
+
+	// 6. Back (a CloseWatcher's close, as Android's back gesture does it)
+	//    closes it and keeps the draft.
+	text = await value();
+	const watched = await page.evaluate(`!!window.__watchers?.length`);
+
+	if (watched) {
+		await page.evaluate(`window.__watchers.at(-1).requestClose()`);
+		await page.sleep(300);
+		await page.check("back closes the picker", !(await open()));
+		await page.check("…and keeps the draft", (await value()) === text);
+	} else {
+		await page.check("this Chromium has CloseWatcher", false);
+	}
+
+	// 7. The Close button, on a phone and in the composer's picker alike.
+	await key(page, "Backspace", 8);
+	await type(page, "m");
+	await page.waitFor(`!!${PICKER}`, {label: "the picker for the Close button"});
+	await page.click(".reaction-picker .reaction-picker-close");
+	await page.sleep(300);
+	await page.check("Close closes the picker", !(await open()));
+	await page.check("…and keeps the draft", (await value()) === text);
+
+	// 8. Emoji only; Enter with nothing matching sends as typed.
 	for (const ch of " :zzqxw") {
 		await type(page, ch);
 	}

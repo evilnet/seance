@@ -1818,6 +1818,7 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"reactions.by",
 	"reactions.clearSearch",
 	"reactions.clickToRemoveSuffix",
+	"reactions.close",
 	"reactions.dialogAria",
 	"reactions.emptyHint",
 	"reactions.freePrefix",
