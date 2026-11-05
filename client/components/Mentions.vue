@@ -594,7 +594,6 @@ import ParsedMessage from "./ParsedMessage.vue";
 import {
 	dismissAllMentions as dismissAll,
 	dismissMentions,
-	dropExpiredMentions,
 	markMentionOpened,
 	undoDismissAll,
 	undoableMentions,
@@ -949,10 +948,6 @@ export default defineComponent({
 		const togglePopup = (press?: unknown) => {
 			keyboard = !press || !isTouchInput();
 			isOpen.value = !isOpen.value;
-
-			if (isOpen.value) {
-				dropExpiredMentions();
-			}
 		};
 
 		const closePopup = () => {

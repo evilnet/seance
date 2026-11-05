@@ -270,24 +270,15 @@ describe("helpers/inbox.ts", function () {
 
 	describe("read mentions stay", function () {
 		const at = (min: number, msgid: string, read = false) =>
-			({
-				network: "n",
-				target: "#a",
-				msgid,
-				time: new Date(Date.UTC(2026, 10, 4, 12, min)).toISOString(),
-				type: "message",
-				text: msgid,
-				from: {nick: "bob", mode: ""},
-				...(read ? {read: true} : {}),
-			} as InboxEntry);
+			entry({msgid, time: minute(min), ...(read ? {read: true} : {})});
 
 		it("marks what the read point covers, in that conversation only", function () {
-			const other = {...at(1, "o"), target: "#b"};
+			const other = {...at(1, "o"), target: "#other"};
 			const list = markRead(
 				[at(1, "a"), at(5, "b"), other],
-				"n",
-				"#a",
-				new Date(Date.UTC(2026, 10, 4, 12, 2))
+				"net-1",
+				"#seance",
+				new Date(minute(2))
 			);
 			expect(list.map((e) => !!e.read)).to.deep.equal([true, false, false]);
 		});
@@ -323,7 +314,7 @@ describe("helpers/inbox.ts", function () {
 		});
 
 		it("a read mention expires after 7 days, an unread one does not", function () {
-			const now = new Date(Date.UTC(2026, 10, 4, 12, 0)).getTime() + READ_KEEP_MS + 60_000;
+			const now = Date.parse(minute(0)) + READ_KEEP_MS + 60_000;
 			const list = dropExpired([at(0, "read", true), at(0, "unread")], now);
 			expect(list.map((e) => e.msgid)).to.deep.equal(["unread"]);
 		});

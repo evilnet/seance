@@ -65,11 +65,6 @@ export function loadMentions(): void {
 	}
 }
 
-/** Read mentions past their keep leave when the pane opens, on a page left running for days. */
-export function dropExpiredMentions(): void {
-	commitIfChanged(dropExpired(store.state.mentions, Date.now()));
-}
-
 export function addMentions(entries: InboxEntry[]): void {
 	if (entries.length > 0) {
 		commitIfChanged(addEntries(store.state.mentions, entries, dismissed));
