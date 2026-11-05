@@ -142,7 +142,7 @@ export default async function run(page) {
 			.find((el) => el.querySelector(".content").textContent.includes("${RUN} two (fixed)"))
 			?.querySelector(".msg-edited")?.getAttribute("title") ?? null`
 	);
-	await page.check(`…and says when it was edited (${edited})`, /^Edited \d/.test(edited ?? ""));
+	await page.check(`…and says when it was edited (${edited})`, /^Edited .*\d/.test(edited ?? ""));
 	const barAfterEdit = await page.evaluate(`!!document.querySelector(".compose-bar")`);
 	await page.check("the edit closed the compose bar", !barAfterEdit);
 	await page.screenshot("2-after-edit");

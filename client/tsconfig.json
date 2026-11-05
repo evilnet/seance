@@ -1,6 +1,9 @@
 {
   "extends": "../tsconfig.base.json",
   "include": ["./**/*", "../shared"],
+  // The translation worker's entry and the three modules that wire its
+  // libraries are checked by tsconfig.worker.json instead.
+  "exclude": ["./js/translate/worker-entry.ts", "./js/translate/engines/*.real.ts"],
   "compilerOptions": {
     // Vuex 4's `exports` has no `types` condition, so `bundler` cannot find
     // its types and the store silently becomes `any`. Not in the base: tsx

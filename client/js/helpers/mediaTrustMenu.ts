@@ -3,6 +3,7 @@
 // account), each either adding or removing that scope's trust. Shared by the
 // veil's pill and the revealed toolbar's shield button (LinkPreview.vue).
 
+import {t} from "../i18n/core";
 import type {ContextMenuItem} from "./contextMenu";
 import {
 	isTrusted,
@@ -21,14 +22,14 @@ export function mediaScopesOf(preview: RevealablePreview): ScopeEntry[] {
 	const host = mediaHost(preview.link);
 
 	if (host) {
-		entries.push({kind: "host", key: host, label: `from ${host}`});
+		entries.push({kind: "host", key: host, label: t("link.trustFromHost", {name: host})});
 	}
 
 	if (preview.scope?.account && preview.scope.accountName) {
 		entries.push({
 			kind: "account",
 			key: preview.scope.account,
-			label: `from ${preview.scope.accountName}`,
+			label: t("link.trustFromHost", {name: preview.scope.accountName}),
 		});
 	}
 
@@ -36,7 +37,7 @@ export function mediaScopesOf(preview: RevealablePreview): ScopeEntry[] {
 		entries.push({
 			kind: "channel",
 			key: preview.scope.channel,
-			label: `in ${preview.scope.channelName}`,
+			label: t("link.trustInChannel", {name: preview.scope.channelName}),
 		});
 	}
 
@@ -59,7 +60,7 @@ export function mediaTrustMenu(
 
 	for (const scope of add) {
 		items.push({
-			label: `Always show ${scope.label}`,
+			label: t("link.trustAdd", {scope: scope.label}),
 			type: "item",
 			class: `media-${scope.kind}`,
 			action() {
@@ -75,7 +76,7 @@ export function mediaTrustMenu(
 
 	for (const scope of remove) {
 		items.push({
-			label: `Stop always showing ${scope.label}`,
+			label: t("link.trustRemove", {scope: scope.label}),
 			type: "item",
 			class: `media-${scope.kind}-off`,
 			action() {

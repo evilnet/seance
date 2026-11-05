@@ -16,18 +16,20 @@
 			@keydown.tab="onTab"
 		>
 			<div class="search-filters-head">
-				<h3 id="search-filters-title">Filters</h3>
+				<h3 id="search-filters-title">{{ t("search.window.filters") }}</h3>
 				<span class="search-spacer" />
 				<button type="button" class="oper-btn oper-btn-ghost" @click="clearAll">
-					Clear all
+					{{ t("search.filters.clearAll") }}
 				</button>
-				<button type="button" class="oper-btn oper-btn-ghost" @click="close">Cancel</button>
+				<button type="button" class="oper-btn oper-btn-ghost" @click="close">
+					{{ t("search.filters.cancel") }}
+				</button>
 			</div>
 
 			<label class="search-field">
-				<span>In</span>
+				<span>{{ t("search.filters.in") }}</span>
 				<select v-model="scope" class="input">
-					<option :value="ALL_CHANNELS">All my channels</option>
+					<option :value="ALL_CHANNELS">{{ t("search.filters.allChannels") }}</option>
 					<option v-for="name in conversations" :key="name" :value="name">
 						{{ name }}
 					</option>
@@ -35,14 +37,14 @@
 			</label>
 
 			<label class="search-field">
-				<span>From</span>
+				<span>{{ t("search.window.chip.from") }}</span>
 				<input
 					v-model.trim="from"
 					class="input"
 					type="text"
 					autocapitalize="off"
 					autocomplete="off"
-					placeholder="Nick at the time of the message"
+					:placeholder="t('search.filters.fromPlaceholder')"
 				/>
 			</label>
 			<div v-if="suggestions.length" class="search-suggest">
@@ -58,20 +60,24 @@
 			</div>
 
 			<label class="search-field">
-				<span>Account</span>
+				<span>{{ t("search.window.chip.account") }}</span>
 				<input
 					v-model.trim="account"
 					class="input"
 					type="text"
 					autocapitalize="off"
 					autocomplete="off"
-					placeholder="One identity, across nicks"
+					:placeholder="t('search.filters.accountPlaceholder')"
 				/>
 			</label>
 
 			<div class="search-field">
-				<span>Date</span>
-				<div class="oper-seg search-seg" role="group" aria-label="Date">
+				<span>{{ t("search.window.chip.date") }}</span>
+				<div
+					class="oper-seg search-seg"
+					role="group"
+					:aria-label="t('search.window.chip.date')"
+				>
 					<button
 						v-for="option in DATE_OPTIONS"
 						:key="option.id"
@@ -79,27 +85,31 @@
 						:aria-pressed="dateChoice === option.id"
 						@click="chooseDate(option.id)"
 					>
-						{{ option.label }}
+						{{ dateLabel(option.id) }}
 					</button>
 				</div>
 			</div>
 			<div v-if="dateChoice === 'range'" class="search-range">
 				<label class="search-field">
-					<span>From this day</span>
+					<span>{{ t("search.filters.fromDay") }}</span>
 					<input v-model="after" class="input" type="date" />
 				</label>
 				<label class="search-field">
-					<span>Up to this day</span>
+					<span>{{ t("search.filters.toDay") }}</span>
 					<input v-model="before" class="input" type="date" />
 				</label>
 				<p v-if="rangeError" class="search-range-error" role="alert">
-					The first day has to come before the last.
+					{{ t("search.filters.rangeError") }}
 				</p>
 			</div>
 
 			<div class="search-field">
-				<span>Has</span>
-				<div class="oper-seg search-seg" role="group" aria-label="Has">
+				<span>{{ t("search.window.chip.has") }}</span>
+				<div
+					class="oper-seg search-seg"
+					role="group"
+					:aria-label="t('search.window.chip.has')"
+				>
 					<button
 						v-for="kind in HAS_OPTIONS"
 						:key="kind.id"
@@ -107,13 +117,13 @@
 						:aria-pressed="has.includes(kind.id)"
 						@click="toggleHas(kind.id)"
 					>
-						{{ kind.label }}
+						{{ hasLabel(kind.id) }}
 					</button>
 				</div>
 			</div>
 
 			<label class="search-field">
-				<span>Without these words</span>
+				<span>{{ t("search.filters.without") }}</span>
 				<input
 					v-model="without"
 					class="input"
@@ -125,7 +135,9 @@
 			</label>
 
 			<div class="search-filters-foot">
-				<button type="submit" class="oper-btn oper-btn-primary">Show results</button>
+				<button type="submit" class="oper-btn oper-btn-primary">
+					{{ t("search.filters.show") }}
+				</button>
 			</div>
 		</form>
 	</div>
@@ -248,20 +260,14 @@ import {defineComponent, onMounted, onUnmounted, PropType, ref} from "vue";
 import eventbus from "../js/eventbus";
 import {trapTab} from "../js/helpers/trapTab";
 import {ALL_CHANNELS, type SearchFilters, type SearchHas} from "../js/searchQuery";
+import {useI18n} from "../js/i18n";
+import {hasLabel as searchHasLabel} from "../js/helpers/searchLabels";
 
 type DateChoice = "any" | "week" | "month" | "range";
 
-const DATE_OPTIONS: {id: DateChoice; label: string}[] = [
-	{id: "any", label: "Any"},
-	{id: "week", label: "7 days"},
-	{id: "month", label: "30 days"},
-	{id: "range", label: "Range…"},
-];
+const DATE_OPTIONS: {id: DateChoice}[] = [{id: "any"}, {id: "week"}, {id: "month"}, {id: "range"}];
 
-const HAS_OPTIONS: {id: SearchHas; label: string}[] = [
-	{id: "link", label: "Link"},
-	{id: "image", label: "Image"},
-];
+const HAS_OPTIONS: {id: SearchHas}[] = [{id: "link"}, {id: "image"}];
 
 const daysAgo = (days: number) => dayjs().subtract(days, "day").format("YYYY-MM-DD");
 
@@ -283,6 +289,19 @@ export default defineComponent({
 	},
 	emits: ["apply", "close"],
 	setup(props, {emit}) {
+		const {t} = useI18n();
+		const dateLabel = (id: DateChoice) => {
+			switch (id) {
+				case "any":
+					return t("search.filters.dateAny");
+				case "week":
+					return t("search.filters.dateWeek");
+				case "month":
+					return t("search.filters.dateMonth");
+				default:
+					return t("search.filters.dateRange");
+			}
+		};
 		const sheet = ref<HTMLFormElement>();
 		const rangeError = ref(false);
 		const scope = ref(props.filters.in ?? props.scopeDefault);
@@ -410,6 +429,9 @@ export default defineComponent({
 		});
 
 		return {
+			t,
+			dateLabel,
+			hasLabel: searchHasLabel,
 			ALL_CHANNELS,
 			DATE_OPTIONS,
 			HAS_OPTIONS,

@@ -3,8 +3,8 @@
 		v-if="routable"
 		type="button"
 		:class="['snotice-badge', 'snotice-' + badge.family]"
-		title="Where these show…"
-		:aria-label="`${badge.label} — where these show`"
+		:title="t('oper.badge.whereTitle')"
+		:aria-label="t('oper.badge.whereLabel', {badge: badge.label})"
 		@click.stop="open"
 	>
 		{{ badge.label }}
@@ -12,7 +12,7 @@
 	<span
 		v-else
 		:class="['snotice-badge', 'snotice-' + badge.family]"
-		:title="type === 'snoop' ? 'From the snoop channel' : 'From the services report channel'"
+		:title="type === 'snoop' ? t('oper.badge.fromSnoop') : t('oper.badge.fromReport')"
 		>{{ badge.label }}</span
 	>
 </template>
@@ -23,6 +23,7 @@ import type {SnoticeInfo} from "../../../shared/types/oper";
 import type {ClientNetwork} from "../../js/types";
 import type {LoggedNotice} from "../../js/irc/noticelog";
 import {noticeBadge, openNoticeRouteMenu} from "../../js/helpers/operMenu";
+import {useI18n} from "../../js/i18n";
 
 /**
  * The small category badge on a server notice or WALLOPS — in the chat,
@@ -39,11 +40,15 @@ export default defineComponent({
 		network: {type: Object as PropType<ClientNetwork>, required: true},
 	},
 	setup(props) {
-		const badge = computed(() => noticeBadge(props.info, props.type));
+		const {t, locale} = useI18n();
+		const badge = computed(() => {
+			void locale.value; // the badge's word is translated: follow the language
+			return noticeBadge(props.info, props.type);
+		});
 		const routable = computed(() => props.type === "snotice" || props.type === "wallops");
 		const open = (event: MouseEvent) => openNoticeRouteMenu(event, props.network, props.info);
 
-		return {badge, routable, open};
+		return {t, badge, routable, open};
 	},
 });
 </script>

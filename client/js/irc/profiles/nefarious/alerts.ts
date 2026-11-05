@@ -9,6 +9,7 @@
  * else" row, one line per kind.
  */
 
+import {t} from "../../../i18n/core";
 import type {AlertLine} from "../types";
 
 export const ALERT_LINES: AlertLine[] = [
@@ -102,3 +103,49 @@ export const ALERT_LINES: AlertLine[] = [
 		kinds: ["client.connect", "client.exit", "nick.change"],
 	},
 ];
+
+/** A line's label in the reader's language; one this profile does not list keeps its own. */
+export function alertLineLabel(line: Pick<AlertLine, "id" | "label">): string {
+	switch (line.id) {
+		case "bans":
+			return t("oper.alerts.line.bans");
+		case "ban-hits":
+			return t("oper.alerts.line.banHits");
+		case "kills":
+			return t("oper.alerts.line.kills");
+		case "services":
+			return t("oper.alerts.line.services");
+		case "oper-up":
+			return t("oper.alerts.line.operUp");
+		case "oper-fail":
+			return t("oper.alerts.line.operFail");
+		case "jupes":
+			return t("oper.alerts.line.jupes");
+		case "links":
+			return t("oper.alerts.line.links");
+		case "rehash":
+			return t("oper.alerts.line.rehash");
+		case "refused":
+			return t("oper.alerts.line.refused");
+		case "connexit":
+			return t("oper.alerts.line.connexit");
+		default:
+			return line.label;
+	}
+}
+
+/** A line's hint in the reader's language, when it has one. */
+export function alertLineHint(line: Pick<AlertLine, "id" | "hint">): string | undefined {
+	switch (line.id) {
+		case "ban-hits":
+			return t("oper.alerts.line.banHits.hint");
+		case "services":
+			return t("oper.alerts.line.services.hint");
+		case "refused":
+			return t("oper.alerts.line.refused.hint");
+		case "connexit":
+			return t("oper.alerts.line.connexit.hint");
+		default:
+			return line.hint;
+	}
+}

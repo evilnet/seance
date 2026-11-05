@@ -1,10 +1,7 @@
 <template>
-	<div class="settings-scripts" role="group" aria-label="Scripts">
-		<h2>Scripts</h2>
-		<p class="scripts-intro">
-			Lua scripts that run in this browser: auto-responders, slash commands of your own, small
-			helpers. They are kept on this device only.
-		</p>
+	<div class="settings-scripts" role="group" :aria-label="t('settings.scripts.heading')">
+		<h2>{{ t("settings.scripts.heading") }}</h2>
+		<p class="scripts-intro">{{ t("settings.scripts.intro") }}</p>
 		<label class="opt">
 			<input
 				v-switch
@@ -12,35 +9,38 @@
 				type="checkbox"
 				name="enableScripting"
 			/>
-			Enable scripting
+			{{ t("settings.scripts.enable") }}
 		</label>
 		<p v-if="!store.state.settings.enableScripting" class="scripts-intro">
-			While this is off the Lua interpreter is not loaded, no script runs and
-			<code>/lua</code> is disabled. Your scripts are kept.
+			<I18nFrame :text="t('settings.scripts.offNote', {command: KEEP})"
+				><template v-slot:command><code>/lua</code></template></I18nFrame
+			>
 		</p>
 
 		<template v-else>
 			<div class="scripts-actions">
-				<button class="btn btn-small" type="button" @click="addNew">New script</button>
+				<button class="btn btn-small" type="button" @click="addNew">
+					{{ t("settings.scripts.new") }}
+				</button>
 				<button class="btn btn-small" type="button" @click="pickImport">
-					Import .lua…
+					{{ t("settings.scripts.import") }}
 				</button>
 				<input
 					ref="importInput"
 					type="file"
 					class="sr-only"
 					accept=".lua,text/plain"
-					aria-label="Lua file to import"
+					:aria-label="t('settings.scripts.importAria')"
 					@change="onImportChosen"
 				/>
 			</div>
 			<p class="scripts-examples">
-				Or try an example:
+				{{ t("settings.scripts.examples") }}
 				<button class="btn btn-sm" type="button" @click="addTemplate('responder')">
-					Auto-responder
+					{{ t("settings.scripts.exampleResponder") }}
 				</button>
 				<button class="btn btn-sm" type="button" @click="addTemplate('slap')">
-					/slap command
+					{{ t("settings.scripts.exampleSlap") }}
 				</button>
 			</p>
 			<p v-if="importError" class="scripts-error" role="alert">{{ importError }}</p>
@@ -49,16 +49,21 @@
 				v-if="scripts.length > SEARCH_FROM"
 				v-model="query"
 				class="input scripts-search"
+				dir="auto"
 				type="search"
-				placeholder="Search name, folder, text…"
-				aria-label="Search scripts"
+				:placeholder="t('settings.scripts.searchPlaceholder')"
+				:aria-label="t('settings.scripts.searchAria')"
 				spellcheck="false"
 			/>
 
-			<p v-if="scripts.length === 0" class="scripts-empty">No scripts yet.</p>
-			<p v-else-if="grouped.length === 0" class="scripts-empty">No script matches.</p>
+			<p v-if="scripts.length === 0" class="scripts-empty">
+				{{ t("settings.scripts.empty") }}
+			</p>
+			<p v-else-if="grouped.length === 0" class="scripts-empty">
+				{{ t("settings.scripts.noMatch") }}
+			</p>
 			<template v-for="group in grouped" :key="group.folder">
-				<h3 class="scripts-folder">{{ group.folder }}</h3>
+				<h3 class="scripts-folder">{{ folderLabel(group.folder) }}</h3>
 				<ul class="scripts-list">
 					<li
 						v-for="script in group.scripts"
@@ -77,8 +82,12 @@
 							v-switch
 							:checked="script.enabled"
 							type="checkbox"
-							:aria-label="'Run ' + script.name"
-							:title="script.enabled ? 'Running' : 'Off'"
+							:aria-label="t('settings.scripts.runAria', {name: script.name})"
+							:title="
+								script.enabled
+									? t('settings.scripts.stateRunning')
+									: t('settings.scripts.stateOff')
+							"
 							@change="toggle(script, $event)"
 						/>
 					</li>
@@ -191,6 +200,10 @@ import {computed, defineComponent, ref, watch} from "vue";
 import {useRoute} from "vue-router";
 import {useStore} from "../../js/store";
 import {navigate} from "../../js/router";
+import {useI18n} from "../../js/i18n";
+import {KEEP} from "../../js/i18n/core";
+import {formatNumber} from "../../js/i18n/numbers";
+import I18nFrame from "../I18nFrame.vue";
 import {
 	compareScripts,
 	loadScripts,
@@ -215,8 +228,12 @@ const SEARCH_FROM = 6;
 
 export default defineComponent({
 	name: "ScriptSettings",
+	components: {
+		I18nFrame,
+	},
 	setup() {
 		const store = useStore();
+		const {t} = useI18n();
 		const route = useRoute();
 		const scripts = ref<Script[]>(loadScripts().sort(compareScripts));
 
@@ -254,7 +271,18 @@ export default defineComponent({
 		});
 
 		const stateLabel = (script: Script) =>
-			script.lastError ? "Error" : script.enabled ? "Running" : "Off";
+			script.lastError
+				? t("settings.scripts.stateError")
+				: script.enabled
+				? t("settings.scripts.stateRunning")
+				: t("settings.scripts.stateOff");
+
+		// The default folder is stored under its English name, which stays
+		// the library's identity for it; it is shown in the reader's words.
+		const folderLabel = (folder: string) =>
+			folder.toLowerCase() === DEFAULT_FOLDER.toLowerCase()
+				? t("settings.scripts.defaultFolder")
+				: folder;
 
 		// A new script opens in the editor: that is where it gets written.
 		const create = (script: Script) => {
@@ -323,9 +351,10 @@ export default defineComponent({
 			const code = file.size > MAX_CODE_LENGTH * 4 ? undefined : await file.text();
 
 			if (code === undefined || code.length > MAX_CODE_LENGTH) {
-				importError.value = `${file.name} is over ${MAX_CODE_LENGTH.toLocaleString(
-					"en"
-				)} characters.`;
+				importError.value = t("settings.scripts.importTooLong", {
+					file: file.name,
+					max: formatNumber(MAX_CODE_LENGTH),
+				});
 				return;
 			}
 
@@ -350,6 +379,9 @@ export default defineComponent({
 			importInput,
 			SEARCH_FROM,
 			stateLabel,
+			folderLabel,
+			t,
+			KEEP,
 			addNew,
 			addTemplate,
 			toggle,

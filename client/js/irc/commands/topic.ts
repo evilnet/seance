@@ -7,6 +7,7 @@ import {ChanType} from "../../../../shared/types/chan";
 import {MessageType} from "../../../../shared/types/msg";
 import {formatLine} from "../message";
 import {trailingLine} from "../wire";
+import {t} from "../../i18n/core";
 import type {Command} from "../types";
 
 const topic: Command = {
@@ -20,7 +21,7 @@ const topic: Command = {
 		if (!named && chan.type !== ChanType.CHANNEL) {
 			client.pushMessage(chan, {
 				type: MessageType.ERROR,
-				text: `${cmd} command can only be used in channels.`,
+				text: t("cmd.channelsOnly", {cmd}),
 			});
 			return;
 		}

@@ -14,7 +14,7 @@ to a friend who wants the same setup. Code: `client/js/helpers/settingsBackup.ts
 ```json
 {
   "format": "seance-settings",
-  "version": 1,
+  "version": 2,
   "exportedAt": "2026-09-09T10:00:00.000Z",
   "app": "Seance",
   "platform": "web",
@@ -29,24 +29,32 @@ to a friend who wants the same setup. Code: `client/js/helpers/settingsBackup.ts
 `entries` maps localStorage keys to their parsed values. Compression is the
 browser's own `CompressionStream("gzip")`, so there is no dependency; a
 browser without it writes plain JSON, and the loader accepts either (it sniffs
-the gzip magic). `version` is bumped when a restore would need a migration; a
-file from a newer version is refused with a message.
+the gzip magic). `version` is bumped when the covered keys change or a restore
+would need a migration; a file from a newer version is refused with a message.
+An **older** file is applied as far as it goes: a key added after its version
+(`KEY_SINCE` in `settingsBackup.ts` — `thelounge.translate` arrived in
+version 2) is left as it is on the device rather than cleared, since that file
+could never have carried it. `thelounge.oper` was added upstream without a
+bump and counts from version 1, as it does there; so does `thelounge.dnd`,
+which came from the do-not-disturb branch.
 
 ## What is in it
 
-| Key                            | What                                       |
-| ------------------------------ | ------------------------------------------ |
-| `settings`                     | the settings object (the store's live one) |
-| `thelounge.networks`           | saved networks                             |
-| `thelounge.networks.collapsed` | collapsed networks in the sidebar          |
-| `thelounge.sort.networks`      | network order                              |
-| `thelounge.sort.channels`      | channel order per network                  |
-| `thelounge.muted`              | muted channels                             |
-| `thelounge.media.trusted`      | trusted media hosts / channels / accounts  |
-| `thelounge.reactions.recent`   | the reaction picker's recents              |
-| `thelounge.aliases`            | command aliases (Settings → Aliases)       |
-| `thelounge.dnd`                | do not disturb: the switch and its window  |
-| `thelounge.ignore.<uuid>`      | ignore list per network                    |
+| Key                            | What                                                                                                                                          |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `settings`                     | the settings object (the store's live one)                                                                                                    |
+| `thelounge.networks`           | saved networks                                                                                                                                |
+| `thelounge.networks.collapsed` | collapsed networks in the sidebar                                                                                                             |
+| `thelounge.sort.networks`      | network order                                                                                                                                 |
+| `thelounge.sort.channels`      | channel order per network                                                                                                                     |
+| `thelounge.muted`              | muted channels                                                                                                                                |
+| `thelounge.media.trusted`      | trusted media hosts / channels / accounts                                                                                                     |
+| `thelounge.reactions.recent`   | the reaction picker's recents                                                                                                                 |
+| `thelounge.aliases`            | command aliases (Settings → Aliases)                                                                                                          |
+| `thelounge.translate`          | per-channel translation state (what each channel reads and writes, its formality, variant, languages and terms; a query's terms are left out) |
+| `thelounge.oper`               | oper notice routing and snomask                                                                                                               |
+| `thelounge.dnd`                | do not disturb: the switch and its window                                                                                                     |
+| `thelounge.ignore.<uuid>`      | ignore list per network                                                                                                                       |
 
 Left out on purpose: `thelounge.sts` (a cache), `thelounge.push*` (this
 device's push subscriptions, bound to its service worker registration),

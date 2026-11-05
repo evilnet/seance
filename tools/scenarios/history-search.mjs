@@ -31,6 +31,7 @@ function speaker(nick) {
 	const ws = new WebSocket(`ws://${HOST}:${PORT}/`, ["text.ircv3.net"]);
 	let joins = 0;
 	let onJoined = () => {};
+	let onDrained = () => {};
 
 	ws.onopen = () => {
 		ws.send(`NICK ${nick}`);
@@ -47,7 +48,9 @@ function speaker(nick) {
 
 		const params = (line.startsWith("@") ? line.slice(line.indexOf(" ") + 1) : line).split(" ");
 
-		if (params[1] === "001") {
+		if (params[1] === "PONG" && line.endsWith(":drained")) {
+			onDrained();
+		} else if (params[1] === "001") {
 			ws.send("OPER seanceop seance"); // no fake lag for the filler lines
 			ws.send(`JOIN ${HOME},${OTHER}`);
 		} else if (params[1] === "JOIN" && params[0].includes(nick) && ++joins === 2) {
@@ -61,6 +64,11 @@ function speaker(nick) {
 			setTimeout(() => reject(new Error(`${nick} never joined`)), 20000);
 		}),
 		say: (target, text) => ws.send(`PRIVMSG ${target} :${text}`),
+		drained: () =>
+			new Promise((resolve) => {
+				onDrained = resolve;
+				ws.send("PING :drained");
+			}),
 		quit: () => ws.send("QUIT :done"),
 	};
 }
@@ -88,6 +96,7 @@ export default async function run(page) {
 	await talker.joined;
 
 	await page.goto(page.url, {waitForSelector: "#connect form"});
+	await page.click('#connect input[name="autoconnect"]'); // dialled again on step 8's reload
 	await page.evaluate(`document.querySelector("#connect form").requestSubmit()`);
 	await page.waitFor(`document.querySelector(${JSON.stringify(ROW(OTHER))})`, {
 		timeout: 30000,
@@ -358,9 +367,77 @@ export default async function run(page) {
 	});
 	await page.sleep(400);
 	page.check(
+		"7. the channel opens at the hit",
+		await page.evaluate(
+			`Array.from(document.querySelectorAll("#chat .msg")).some((m) => m.getAnimations().length > 0)`
+		)
+	);
+	page.check(
 		"7. back in the channel with the same lines, no search row added",
 		(await count(page, "#chat .msg[data-type='message']")) === chatLines
 	);
+
+	// A hit the channel has not loaded: older than a reload's first page. Its
+	// line in the pane pages back for it, as the button does.
+	const FAR = `faraway${RUN}`;
+	talker.say(OTHER, `${FAR} is the line to page back to ||spoiler||`);
+	for (let i = 0; i < 60; i++) {
+		talker.say(OTHER, `filler line ${i}`);
+	}
+	await talker.drained();
+	await page.sleep(1000);
+	await page.goto(BASE, {waitForSelector: "#chat, #connect"});
+	await page.waitFor(`document.querySelector(${JSON.stringify(ROW(OTHER))})`, {
+		timeout: 30000,
+		label: `${OTHER} after the reload`,
+	});
+	await page.evaluate(`document.querySelector(${JSON.stringify(ROW(HOME))}).click()`);
+	await page.sleep(3000);
+	await page.evaluate(`(() => {
+		const input = document.querySelector("#input");
+		input.value = ${JSON.stringify(`/search ${FAR} in:${OTHER}`)};
+		input.dispatchEvent(new Event("input", {bubbles: true}));
+		document.querySelector("#form").requestSubmit();
+	})()`);
+	await page.waitFor(`document.querySelector("${ROWS}")`, {
+		timeout: 10000,
+		label: "the far hit",
+	});
+	await page.click(ROWS);
+	await page.waitFor(`document.querySelector(".search-context-line.hit")`, {
+		timeout: 10000,
+		label: "the far hit in the pane",
+	});
+	page.check(
+		"8. a hit not loaded offers to go to its channel",
+		(await text(page, ".search-context-foot .oper-btn-primary")) === `Go to ${OTHER}`
+	);
+	// The lines around it arrive after the hit, and replace the rows.
+	await page.waitFor(`document.querySelectorAll(".search-context-line").length > 1`, {
+		timeout: 10000,
+		label: "the lines around the far hit",
+	});
+	await page.click(".search-context-line.hit .md-spoiler");
+	await page.sleep(300);
+	page.check(
+		"8. revealing a spoiler in the hit's line stays in the results",
+		(await count(page, WINDOW)) === 1 &&
+			(await count(page, ".search-context-line.hit .md-spoiler-shown")) === 1
+	);
+	await page.click(".search-context-line.hit .search-time");
+	await page.waitFor(`!document.querySelector("${WINDOW}")`, {
+		timeout: 5000,
+		label: "the window closed by the hit's line",
+	});
+	const far = `Array.from(document.querySelectorAll("#chat .msg")).find((m) => m.textContent.includes(${JSON.stringify(
+		FAR
+	)}))`;
+	await page.waitFor(`!!${far}`, {timeout: 20000, label: "the far hit loaded"});
+	await page.waitFor(`(${far}?.getAnimations().length ?? 0) > 0`, {
+		timeout: 5000,
+		label: "the far hit flashing",
+	});
+	page.check("8. the channel pages back and lands on the hit", true);
 
 	talker.quit();
 }

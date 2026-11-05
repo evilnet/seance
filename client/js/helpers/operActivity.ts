@@ -19,6 +19,7 @@
  */
 
 import type {LoggedNotice} from "../irc/noticelog";
+import {t, tCount} from "../i18n/core";
 
 export type Period = "today" | "24h" | "reload";
 
@@ -54,48 +55,70 @@ export type CoarseKind =
 	| "wallops"
 	| "other";
 
-/**
- * The coarse kinds in display order: what an oper cares about most first.
- * `label` heads the by-kind row; `one`/`many` count under an oper's row
- * ("1 G-line", "12 G-lines").
- */
-export const COARSE_KINDS: {id: CoarseKind; label: string; one: string; many: string}[] = [
-	{id: "glines", label: "G-lines", one: "G-line", many: "G-lines"},
-	{id: "kills", label: "Kills", one: "kill", many: "kills"},
-	{
-		id: "modes",
-		label: "Channel modes via OPMODE and services",
-		one: "channel mode",
-		many: "channel modes",
-	},
-	{id: "opers", label: "Opers coming up", one: "oper-up", many: "oper-ups"},
-	{id: "alerts", label: "Alerts in services", one: "alert change", many: "alert changes"},
-	{id: "jupes", label: "Jupes", one: "jupe", many: "jupes"},
-	{
-		id: "links",
-		label: "Server links and splits",
-		one: "server link or split",
-		many: "server links and splits",
-	},
-	{
-		id: "rehash",
-		label: "Rehashes and restarts",
-		one: "rehash or restart",
-		many: "rehashes and restarts",
-	},
-	{id: "wallops", label: "WALLOPS", one: "WALLOPS", many: "WALLOPS"},
-	{id: "other", label: "Everything else", one: "other action", many: "other actions"},
+/** The coarse kinds in display order: what an oper cares about most first. */
+export const COARSE_KINDS: {id: CoarseKind}[] = [
+	{id: "glines"},
+	{id: "kills"},
+	{id: "modes"},
+	{id: "opers"},
+	{id: "alerts"},
+	{id: "jupes"},
+	{id: "links"},
+	{id: "rehash"},
+	{id: "wallops"},
+	{id: "other"},
 ];
+
+/** The heading of a by-kind row (`G-lines`, `Everything else`). */
+export function coarseLabel(coarse: CoarseKind): string {
+	switch (coarse) {
+		case "glines":
+			return t("oper.activity.kind.glines");
+		case "kills":
+			return t("oper.activity.kind.kills");
+		case "modes":
+			return t("oper.activity.kind.modes");
+		case "opers":
+			return t("oper.activity.kind.opers");
+		case "alerts":
+			return t("oper.activity.kind.alerts");
+		case "jupes":
+			return t("oper.activity.kind.jupes");
+		case "links":
+			return t("oper.activity.kind.links");
+		case "rehash":
+			return t("oper.activity.kind.rehash");
+		case "wallops":
+			return t("oper.activity.kind.wallops");
+		default:
+			return t("oper.activity.kind.other");
+	}
+}
 
 /** `1 G-line`, `12 G-lines`: a count with its kind, singular where it is one. */
 export function countLabel(coarse: CoarseKind, count: number): string {
-	const kind = COARSE_KINDS.find((k) => k.id === coarse);
-
-	if (!kind) {
-		return `${count} ${coarse}`;
+	switch (coarse) {
+		case "glines":
+			return tCount("oper.activity.count.glines", count);
+		case "kills":
+			return tCount("oper.activity.count.kills", count);
+		case "modes":
+			return tCount("oper.activity.count.modes", count);
+		case "opers":
+			return tCount("oper.activity.count.opers", count);
+		case "alerts":
+			return tCount("oper.activity.count.alerts", count);
+		case "jupes":
+			return tCount("oper.activity.count.jupes", count);
+		case "links":
+			return tCount("oper.activity.count.links", count);
+		case "rehash":
+			return tCount("oper.activity.count.rehash", count);
+		case "wallops":
+			return tCount("oper.activity.count.wallops", count);
+		default:
+			return tCount("oper.activity.count.other", count);
 	}
-
-	return `${count} ${count === 1 ? kind.one : kind.many}`;
 }
 
 /**
@@ -245,7 +268,7 @@ export function actorOf(entry: LoggedNotice, opts: ActivityOptions = NONE): Acto
 		const kind = entry.snotice.kind;
 
 		if (!from || kind === "wallops.server" || kind === "desynch" || from.includes(".")) {
-			return {type: "server", name: from || "server"};
+			return {type: "server", name: from || t("oper.activity.unknownServer")};
 		}
 
 		return named(from, opts.serviceNicks);
@@ -275,7 +298,8 @@ export function actorOf(entry: LoggedNotice, opts: ActivityOptions = NONE): Acto
 		}
 	}
 
-	const server = entry.snotice.fields.server ?? entry.snotice.origin ?? "server";
+	const server =
+		entry.snotice.fields.server ?? entry.snotice.origin ?? t("oper.activity.unknownServer");
 	return {type: "server", name: server};
 }
 
@@ -310,7 +334,6 @@ export function inPeriod(entries: LoggedNotice[], since: number): LoggedNotice[]
 }
 
 const ORDER = new Map(COARSE_KINDS.map((k, i) => [k.id, i]));
-const LABEL = new Map(COARSE_KINDS.map((k) => [k.id, k.label]));
 
 /** Group entries (any order) by coarse kind, in the display order, newest first inside. */
 function groupByKind(entries: LoggedNotice[]): KindGroup[] {
@@ -323,7 +346,7 @@ function groupByKind(entries: LoggedNotice[]): KindGroup[] {
 		if (!group) {
 			group = {
 				coarse,
-				label: LABEL.get(coarse) ?? coarse,
+				label: coarseLabel(coarse),
 				count: 0,
 				first: entry.time,
 				last: entry.time,

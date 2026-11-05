@@ -5,6 +5,7 @@ import {
 	createHighlightTester,
 	isHighlight,
 	isHighlightException,
+	mentionSpans,
 	parseKeywordList,
 } from "../../client/js/highlight";
 
@@ -225,6 +226,43 @@ describe("highlight", function () {
 			expect(tester.isHighlightException("at lunch", ["lunch"])).to.equal(true);
 			expect(tester.isHighlightException("at lunch", ["dinner"])).to.equal(false);
 			expect(tester.isHighlightException("at lunch", [])).to.equal(false);
+		});
+	});
+
+	describe("mentionSpans", function () {
+		it("finds the nick in any case, without what surrounds it", function () {
+			expect(mentionSpans("Wren: thanks (wren)", "wren", [])).to.deep.equal([
+				[0, 4],
+				[14, 18],
+			]);
+		});
+
+		it("does not find the nick inside a longer word", function () {
+			expect(mentionSpans("really al also", "al", [])).to.deep.equal([[7, 9]]);
+		});
+
+		it("holds a keyword to the delimiters that make it a highlight", function () {
+			expect(mentionSpans("foo #foo foo_bar, foo.", "", ["foo"])).to.deep.equal([
+				[0, 3],
+				[18, 21],
+			]);
+			expect(isHighlight("#foo", "", ["foo"])).to.equal(false);
+		});
+
+		it("finds both, and treats them as literal text", function () {
+			expect(mentionSpans("wren [a.b] axb", "wren", ["[a.b]"])).to.deep.equal([
+				[0, 4],
+				[5, 10],
+			]);
+		});
+
+		it("marks the whole of a longer keyword", function () {
+			expect(mentionSpans("wren bird says", "wren", ["wren bird"])).to.deep.equal([[0, 9]]);
+			expect(mentionSpans("foo bar", "", ["foo", "foo bar"])).to.deep.equal([[0, 7]]);
+		});
+
+		it("finds nothing with nothing to look for", function () {
+			expect(mentionSpans("wren", "", [])).to.deep.equal([]);
 		});
 	});
 });

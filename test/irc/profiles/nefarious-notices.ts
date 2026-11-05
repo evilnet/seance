@@ -5,6 +5,9 @@ import {
 	RULE_KINDS,
 } from "../../../client/js/irc/profiles/nefarious/notices";
 import {NEFARIOUS_SNOMASK} from "../../../client/js/irc/profiles/nefarious/snomask";
+import {fillTemplate} from "../../../client/js/irc/profiles/fields";
+import {kindLabel, kindTemplate} from "../../../client/js/irc/profiles/noticeText";
+import {UNKNOWN_KIND, WALLOPS_KINDS} from "../../../client/js/irc/snotice";
 
 type Case = [text: string, kind: string, category: string, fields?: Record<string, string>];
 
@@ -838,5 +841,33 @@ describe("nefarious2 server notice classifier", function () {
 		]) {
 			expect(route(kind), kind).to.equal("network");
 		}
+	});
+	it("names every kind in English through the translated accessor (noticeText.ts)", function () {
+		for (const k of [...WALLOPS_KINDS, ...NOTICE_KINDS, UNKNOWN_KIND]) {
+			expect(kindLabel(k), k.kind).to.equal(k.label);
+		}
+	});
+
+	it("renders every sample the same through the translated templates (noticeText.ts)", function () {
+		for (const [text] of CASES) {
+			const event = classifyNotice(text)!;
+			const kind = NOTICE_KINDS.find((k) => k.kind === event.kind)!;
+			const english = fillTemplate(kind.template!, event.fields);
+			const translated = kindTemplate(kind, event.fields);
+			expect(translated, event.kind).to.be.a("string");
+			expect(fillTemplate(translated!, event.fields), text).to.equal(english);
+		}
+	});
+
+	it("keeps a template's placeholders for the renderer to fill", function () {
+		const kind = NOTICE_KINDS.find((k) => k.kind === "ban.add")!;
+		expect(
+			kindTemplate(kind, {oper: "opr", scope: "global", type: "G-line", mask: "*@x"})
+		).to.equal("{oper}{server} added a global {type} on {mask}, expiring {expires}: {reason}");
+		expect(
+			kindTemplate(kind, {oper: "opr", scope: "local", type: "channel ban", mask: "#x"})
+		).to.equal(
+			"{oper}{server} added a local channel ban on {mask}, expiring {expires}: {reason}"
+		);
 	});
 });

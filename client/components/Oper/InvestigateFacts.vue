@@ -8,14 +8,14 @@
 		]"
 	>
 		<div :class="['wide', {same: sameAs('host')}]">
-			<dt>Host</dt>
+			<dt>{{ t("oper.investigate.user.host") }}</dt>
 			<dd v-for="s in sides" :key="s.model.target" class="oper-prop-flow">
 				<template v-if="s.model.user.host">
 					<span class="oper-mono">{{ s.model.user.ident ?? "?" }}@</span
 					><button
 						type="button"
 						class="oper-chip oper-chip-host"
-						title="Oper actions"
+						:title="t('oper.investigate.user.operActions')"
 						@click.stop="openMenu($event, 'host', s.model.user.host)"
 					>
 						{{ s.model.user.host }}
@@ -25,13 +25,13 @@
 			</dd>
 		</div>
 		<div :class="{wide: pair, same: sameAs('ip')}">
-			<dt>IP</dt>
+			<dt>{{ t("oper.investigate.user.ip") }}</dt>
 			<dd v-for="s in sides" :key="s.model.target">
 				<template v-if="s.model.user.ip">
 					<button
 						type="button"
 						class="oper-chip oper-chip-ip"
-						title="Oper actions"
+						:title="t('oper.investigate.user.operActions')"
 						@click.stop="openMenu($event, 'ip', s.model.user.ip)"
 					>
 						{{ s.model.user.ip }}
@@ -44,7 +44,7 @@
 			</dd>
 		</div>
 		<div :class="{wide: pair, same: sameAs('server')}">
-			<dt>Server</dt>
+			<dt>{{ t("oper.investigate.user.server") }}</dt>
 			<dd v-for="s in sides" :key="s.model.target">
 				<span v-if="s.model.user.server" class="oper-server">{{
 					s.model.user.server
@@ -53,15 +53,17 @@
 			</dd>
 		</div>
 		<div :class="{wide: pair, same: sameAs('account')}">
-			<dt>Account</dt>
+			<dt>{{ t("oper.investigate.user.account") }}</dt>
 			<dd v-for="s in sides" :key="s.model.target">
 				<template v-if="s.model.user.account">{{ s.model.user.account }}</template>
-				<span v-else-if="s.model.user.authed === false" class="oper-tag">not authed</span>
+				<span v-else-if="s.model.user.authed === false" class="oper-tag">{{
+					t("oper.investigate.user.notAuthed")
+				}}</span>
 				<span v-else class="oper-muted">{{ pending(s, "check", "whois", "lookups") }}</span>
 			</dd>
 		</div>
 		<div :class="{wide: pair, same: sameAs('realname')}">
-			<dt>Realname</dt>
+			<dt>{{ t("oper.investigate.user.realname") }}</dt>
 			<dd v-for="s in sides" :key="s.model.target">
 				<template v-if="s.model.user.realname !== undefined">{{
 					s.model.user.realname
@@ -70,7 +72,7 @@
 			</dd>
 		</div>
 		<div class="wide">
-			<dt>Connected</dt>
+			<dt>{{ t("oper.investigate.user.connected") }}</dt>
 			<dd v-for="s in sides" :key="s.model.target">
 				<template v-if="s.model.user.connectedAt !== undefined">
 					<time
@@ -79,10 +81,14 @@
 						>{{ since(s.model.user.connectedAt) }}</time
 					>
 					<span v-if="s.model.user.idle !== undefined" class="oper-muted">
-						· idle {{ duration(s.model.user.idle) }}</span
+						·
+						{{
+							t("oper.investigate.user.idle", {duration: duration(s.model.user.idle)})
+						}}</span
 					>
 					<span v-if="s.model.user.nickAge" class="oper-muted">
-						· nick age {{ s.model.user.nickAge }}</span
+						·
+						{{ t("oper.investigate.user.nickAge", {age: s.model.user.nickAge}) }}</span
 					>
 				</template>
 				<span v-else class="oper-muted">{{ pending(s, "check", "whois") }}</span>
@@ -91,32 +97,42 @@
 		<!-- One user, two facts a row: a long version takes the row, and Modes
 		     with it, so no half row is left empty. -->
 		<div :class="{wide: pair || longVersion, same: sameAs('version')}">
-			<dt>Version</dt>
+			<dt>{{ t("oper.investigate.user.version") }}</dt>
 			<dd v-for="s in sides" :key="s.model.target">
 				<template v-if="s.model.user.version">{{ s.model.user.version }}</template>
 				<span v-else class="oper-muted">{{ pending(s, "check", "lookups") }}</span>
 			</dd>
 		</div>
 		<div :class="{wide: pair || longVersion}">
-			<dt>Modes</dt>
+			<dt>{{ t("oper.investigate.user.modes") }}</dt>
 			<dd v-for="s in sides" :key="s.model.target">
 				<code v-if="s.model.user.modes" class="oper-mono oper-value">{{
 					s.model.user.modes
 				}}</code>
-				<span v-if="s.model.user.oper" class="oper-tag plain">oper</span>
-				<span v-if="s.model.user.away" class="oper-tag warn">away</span>
+				<span v-if="s.model.user.oper" class="oper-tag plain">{{
+					t("oper.investigate.user.chipOper")
+				}}</span>
+				<span v-if="s.model.user.away" class="oper-tag warn">{{
+					t("oper.investigate.user.chipAway")
+				}}</span>
 				<span v-if="!s.model.user.modes && !s.model.user.oper" class="oper-muted">{{
 					pending(s, "check", "lookups")
 				}}</span>
 			</dd>
 		</div>
 		<div class="wide">
-			<dt>Channels</dt>
+			<dt>{{ t("oper.investigate.user.channels") }}</dt>
 			<dd v-for="s in sides" :key="s.model.target" class="oper-prop-flow">
-				<template v-if="s.model.user.channels && s.model.user.channels.length">
-					<span v-if="s.model.user.channels.length === 1" class="oper-muted">only </span
-					><span v-for="(c, i) in s.model.user.channels" :key="c"
-						><template v-if="i > 0">, </template
+				<template v-if="s.model.user.channels && s.model.user.channels.length === 1">
+					<span class="oper-muted">{{ onlyParts[0] }}</span
+					><ParsedMessage :network="network" :text="s.model.user.channels[0]" /><span
+						class="oper-muted"
+						>{{ onlyParts[1] }}</span
+					>
+				</template>
+				<template v-else-if="s.model.user.channels && s.model.user.channels.length">
+					<span v-for="(c, i) in s.model.user.channels" :key="c"
+						><template v-if="i > 0">{{ separator }}</template
 						><ParsedMessage :network="network" :text="c"
 					/></span>
 				</template>
@@ -124,7 +140,7 @@
 			</dd>
 		</div>
 		<div v-if="sides.some((s) => s.model.user.marks?.length)" class="wide">
-			<dt>Marks</dt>
+			<dt>{{ t("oper.investigate.user.marks") }}</dt>
 			<dd v-for="s in sides" :key="s.model.target">
 				<span v-for="m in s.model.user.marks ?? []" :key="m" class="oper-tag plain">{{
 					m
@@ -136,7 +152,7 @@
 			v-if="sides.some((s) => s.model.lastQuitHostmask)"
 			:class="['wide', {same: sameAs('lastQuitHostmask')}]"
 		>
-			<dt>Last quit</dt>
+			<dt>{{ t("oper.investigate.user.lastQuit") }}</dt>
 			<dd v-for="s in sides" :key="s.model.target">
 				<code v-if="s.model.lastQuitHostmask" class="oper-mono oper-value">{{
 					s.model.lastQuitHostmask
@@ -145,7 +161,7 @@
 			</dd>
 		</div>
 		<div v-if="sides.some((s) => s.model.hostmasks?.length)" class="wide">
-			<dt>Hostmasks</dt>
+			<dt>{{ t("oper.investigate.user.hostmasks") }}</dt>
 			<dd v-for="s in sides" :key="s.model.target">
 				<code v-for="m in s.model.hostmasks ?? []" :key="m" class="oper-mono oper-value">{{
 					m
@@ -154,14 +170,10 @@
 			</dd>
 		</div>
 		<div v-if="pair" class="wide">
-			<dt>Bans near</dt>
+			<dt>{{ t("oper.investigate.user.bansNearShort") }}</dt>
 			<dd v-for="s in sides" :key="s.model.target">
 				<template v-if="s.model.liveBans.length || s.model.serviceBans.length">
-					<span class="oper-tag bad">{{
-						s.model.liveBans.length
-							? `${s.model.liveBans.length} live`
-							: `${s.model.serviceBans.length} by services`
-					}}</span>
+					<span class="oper-tag bad">{{ bansNearTag(s) }}</span>
 					<code class="oper-mono oper-value">{{
 						(s.model.liveBans[0] ?? s.model.serviceBans[0]).mask
 					}}</code>
@@ -175,10 +187,12 @@
 						(s.sources.stats !== 'done' && s.sources.gtrace === 'asking')
 					"
 					class="oper-muted"
-					>asking…</span
+					>{{ t("oper.investigate.user.asking") }}</span
 				>
-				<span v-else-if="s.sources.stats !== 'done'" class="oper-muted">not read</span>
-				<span v-else class="oper-muted">none</span>
+				<span v-else-if="s.sources.stats !== 'done'" class="oper-muted">{{
+					t("oper.investigate.user.notRead")
+				}}</span>
+				<span v-else class="oper-muted">{{ t("oper.investigate.user.noBansNear") }}</span>
 			</dd>
 		</div>
 	</dl>
@@ -190,7 +204,10 @@ import type {ClientNetwork} from "../../js/types";
 import type {SourceId, SourceState, UserModel} from "../../js/irc/investigate";
 import {formatDuration, sinceTime} from "../../js/helpers/operFormat";
 import {openOperTargetMenu, operChanFor} from "../../js/helpers/operMenu";
-import localetime from "../../js/helpers/localetime";
+import {formatDateTime} from "../../js/i18n/dates";
+import {useI18n} from "../../js/i18n";
+import {frameSegments, KEEP} from "../../js/i18n/core";
+import {commaList} from "../../js/helpers/operList";
 import useNow from "../../js/hooks/use-now";
 import {useStore} from "../../js/store";
 import {type ComparedKey, sameFact} from "../../js/helpers/operCompare";
@@ -223,12 +240,22 @@ export default defineComponent({
 	setup(props, {emit}) {
 		const store = useStore();
 		const now = useNow();
+		const {t, tCount} = useI18n();
 		const pair = computed(() => props.sides.length > 1);
 		const place = (s: FactSide) =>
-			[s.model.user.country, s.model.user.city].filter(Boolean).join(", ");
+			commaList([s.model.user.country, s.model.user.city].filter((p): p is string => !!p));
 		/** `asking…` while any of these sources is still out, else a dash. */
 		const pending = (s: FactSide, ...ids: SourceId[]) =>
-			ids.some((id) => s.sources[id] === "asking") ? "asking…" : "—";
+			ids.some((id) => s.sources[id] === "asking") ? t("oper.investigate.user.asking") : "—";
+		/** Compare's "Bans near" tag: the live ones, else the services' count. */
+		const bansNearTag = (s: FactSide) =>
+			s.model.liveBans.length
+				? tCount("oper.investigate.user.liveBanCount", s.model.liveBans.length)
+				: tCount("oper.investigate.user.serviceBanCount", s.model.serviceBans.length);
+		// "only #chan": a user in one channel, the channel's element inside the sentence.
+		const onlyParts = computed(() =>
+			frameSegments(t("oper.investigate.user.onlyChannel", {channel: KEEP}), ["channel"])
+		);
 
 		/** Both users have this fact, and it is the same (helpers/operCompare.ts). */
 		const sameAs = (key: ComparedKey) => {
@@ -242,13 +269,17 @@ export default defineComponent({
 		};
 
 		return {
+			t,
+			bansNearTag,
+			onlyParts,
+			separator: computed(() => t("oper.list.separator")),
 			pair,
 			longVersion: computed(() => (props.sides[0]?.model.user.version ?? "").length > 24),
 			place,
 			pending,
 			sameAs,
 			openMenu,
-			absolute: (ms: number) => localetime(new Date(ms)),
+			absolute: (ms: number) => formatDateTime(ms),
 			since: (ms: number) => sinceTime(ms, now.value),
 			duration: formatDuration,
 		};

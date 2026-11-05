@@ -7,6 +7,7 @@
 import {ChanType} from "../../../../shared/types/chan";
 import {MessageType} from "../../../../shared/types/msg";
 import {trailingLine} from "../wire";
+import {t} from "../../i18n/core";
 import type {Command} from "../types";
 
 const rejoin: Command = {
@@ -15,7 +16,7 @@ const rejoin: Command = {
 		if (chan.type !== ChanType.CHANNEL) {
 			client.pushMessage(chan, {
 				type: MessageType.ERROR,
-				text: "You can only rejoin channels.",
+				text: t("cmd.rejoinChannels"),
 			});
 			return;
 		}

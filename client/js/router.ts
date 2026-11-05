@@ -15,12 +15,14 @@ import socket from "./socket";
 import AppearanceSettings from "../components/Settings/Appearance.vue";
 import GeneralSettings from "../components/Settings/General.vue";
 import NotificationSettings from "../components/Settings/Notifications.vue";
+import TranslationSettings from "../components/Settings/Translation.vue";
 import AliasSettings from "../components/Settings/Aliases.vue";
 import ScriptSettings from "../components/Settings/Scripts.vue";
 import ScriptEdit from "../components/Settings/ScriptEdit.vue";
 import NetworkSettings from "../components/Settings/Networks.vue";
 import {ClientChan} from "./types";
 import {shouldShowGeneralSettings} from "./helpers/settingsTabs";
+import {forgetTranslations} from "./translate/reader";
 import * as saved from "./irc/saved-networks";
 import {clearPendingTarget, setPendingTarget} from "./helpers/pendingTarget";
 
@@ -56,13 +58,10 @@ const router = createRouter({
 					name: "General",
 					path: "",
 					component: GeneralSettings,
-					beforeEnter(to, from, next) {
+					beforeEnter() {
 						if (!shouldShowGeneralSettings()) {
-							next({name: "Appearance"});
-							return;
+							return {name: "Appearance"};
 						}
-
-						next();
 					},
 				},
 				{
@@ -74,6 +73,11 @@ const router = createRouter({
 					name: "Notifications",
 					path: "notifications",
 					component: NotificationSettings,
+				},
+				{
+					name: "Translation",
+					path: "translation",
+					component: TranslationSettings,
 				},
 				{
 					name: "Aliases",
@@ -90,13 +94,10 @@ const router = createRouter({
 							name: "ScriptEdit",
 							path: ":id",
 							component: ScriptEdit,
-							beforeEnter(to, from, next) {
+							beforeEnter() {
 								if (!store.state.settings.enableScripting) {
-									next({name: "Scripts"});
-									return;
+									return {name: "Scripts"};
 								}
-
-								next();
 							},
 						},
 					],
@@ -212,18 +213,16 @@ function openTarget(uuid: string, target: string): void {
 	setPendingTarget(uuid, target);
 }
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(() => {
 	// Wait for boot to finish before allowing any navigation
 	if (!store.state.appLoaded) {
-		store.watch(
-			(state) => state.appLoaded,
-			() => next()
-		);
-
-		return;
+		return new Promise<void>((resolve) => {
+			store.watch(
+				(state) => state.appLoaded,
+				() => resolve()
+			);
+		});
 	}
-
-	next();
 });
 
 router.beforeEach((to, from) => {
@@ -307,6 +306,9 @@ router.afterEach((to) => {
 
 		if (to.name !== "RoutedChat") {
 			store.commit("activeChannel", undefined);
+			// Nobody is reading it now: what arrives is unread, and a mention
+			// reaches the inbox. Chat.vue says "open" again on the way back.
+			socket.emit("open", 0);
 		}
 
 		// When switching out of a channel, mark everything as read
@@ -317,8 +319,15 @@ router.afterEach((to) => {
 		if (channel.messages?.length > 100) {
 			const dropped = channel.messages.splice(0, channel.messages.length - 100);
 			channel.moreHistoryAvailable = true;
-			// The IRC layer must stop counting them as shown (bus-contract § 2).
-			socket.emit("history:trim", {target: channel.id, ids: dropped.map((m) => m.id)});
+
+			if (dropped.length > 0) {
+				const droppedIds = dropped.map((m) => m.id);
+
+				store.commit("translationRemoveMany", droppedIds);
+				forgetTranslations(droppedIds);
+				// The IRC layer must stop counting them as shown (bus-contract § 2).
+				socket.emit("history:trim", {target: channel.id, ids: droppedIds});
+			}
 		}
 	}
 });

@@ -85,3 +85,73 @@ _Avoid_: optimistic message, unsent message, ghost message, placeholder, pending
 **Settled**:
 What happens to a pending copy when the server has answered for it, whichever way: replaced by the echo, taken down with an error line, or taken down silently after an `ACK`.
 _Avoid_: confirmed, acknowledged, resolved
+
+## Translation
+
+**engine**:
+One of the two translators behind `Engine`: the **LLM** (WebLLM, GPU) or **seq2seq** (transformers.js, CPU: **NLLB** or an **OPUS-MT pair model**).
+_Avoid_: model backend, translation provider
+
+**candidate**:
+An entry of the route table: `llm`, `nllb` or `opus:<from>-<to>`; the **router** resolves a pair to the first candidate the **tier** (`gpu`/`cpu`/`none`, from the **probe**), the engine settings and the session's **down-marks** allow.
+_Avoid_: route entry, option
+
+**catalog**:
+The models a deploy knows (`models.ts`), the shipped defaults plus `config.json`'s `translation` block; a **mirror** is `translation.modelBase`.
+_Avoid_: model list, registry
+
+**span protection**:
+Placeholders (`⟦1⟧`) standing in for URLs, code, shortcodes and formatting codes while an engine works.
+_Avoid_: masking, tokenization (that is the engine's own, internal, tokenizer)
+
+**model view**:
+A Settings row: cached, downloading (with a fraction), ready or failed.
+_Avoid_: model state, download entry
+
+**switch**:
+A channel's reading on/off. The language is not a per-channel choice: it is the interface's (the unified setting), with the Settings override as the exception; the header globe and the panel set the switch.
+_Avoid_: toggle state, read flag, read language
+
+**chip**:
+The "from German" button on a translated line (`TranslationLine.vue`), full language name; opens the retranslate/hide menu.
+_Avoid_: badge, label
+
+**prior**:
+A channel's dominant detected language so far (`LanguagePrior`), used to settle a near-tie in detection and as the sourceHint the prompt carries.
+_Avoid_: bias, running average
+
+**drop**:
+A queued line the queue gave up on because too many messages arrived in its channel before an engine got to it (`DROP_AFTER_LINES`); shown as no translation at all, not a failure.
+_Avoid_: skip, expire
+
+**pause**:
+An engine set aside after `PAUSE_AFTER_FAILURES` consecutive failures, until a retry resumes it; global to the engine, not per channel.
+_Avoid_: disable, blacklist
+
+**write target**:
+A channel's outgoing language, set from the panel and persisted alongside the reading **switch** (`thelounge.translate` `write`); `writeTarget()` returns it whenever translation is enabled, without waiting on the device probe.
+_Avoid_: send language, outgoing switch
+
+**the strip**:
+The `.translate-bar` above the input (`ChatInput.vue`) that shows a draft's outgoing translation: the chip, the streaming text, Check/Send/Edit, and the read-back row underneath. A different draft, a channel switch, Escape or the strip's own Edit takes it down.
+_Avoid_: translation bar, preview box
+
+**the first Enter / the second Enter**:
+The first Enter on a draft with a write target starts its translation (`translateOutgoing`) instead of sending; the second Enter, once the strip shows a result (or a failure), sends what the strip holds.
+_Avoid_: initial submit, confirm submit
+
+**read back**:
+The round trip: a done translation translated once more, back toward the user's reading language, shown under the strip so a failed or a subtly wrong translation can be caught before sending. `"auto"` runs it as soon as the translation ends; `"button"` waits for Check.
+_Avoid_: back-translation, verification pass
+
+**voice lines**:
+The user's own last few sent translations to one target, session-only, quoted in the next prompt to that target (`VOICE_LINES` = 5 of up to `VOICE_KEEP` kept).
+_Avoid_: style examples, tone memory
+
+**term pair**:
+A term-sized draft and its translation (`termPair`: at most `TERM_MAX_WORDS` words and `TERM_MAX_CHARS` characters, one line, translation short and different) that a sent message leaves in the channel's term memory; a sentence never qualifies.
+_Avoid_: glossary entry, learned term
+
+**hold**:
+`holdReading()`/`releaseReading()`: the reading queues pause new runs while a draft translates (a run already in flight finishes), so a write is never starved behind reading traffic; nested holds count.
+_Avoid_: pause, lock

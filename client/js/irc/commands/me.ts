@@ -5,6 +5,7 @@
 import {ChanType} from "../../../../shared/types/chan";
 import {MessageType} from "../../../../shared/types/msg";
 import {REPLY_TAG} from "../wire";
+import {t} from "../../i18n/core";
 import type {Command} from "../types";
 import {textAfter} from "./words";
 
@@ -14,7 +15,7 @@ const me: Command = {
 		if (chan.type !== ChanType.CHANNEL && chan.type !== ChanType.QUERY) {
 			client.pushMessage(chan, {
 				type: MessageType.ERROR,
-				text: `${cmd} command can only be used in channels and queries.`,
+				text: t("cmd.channelsAndQueriesOnly", {cmd}),
 			});
 			return;
 		}

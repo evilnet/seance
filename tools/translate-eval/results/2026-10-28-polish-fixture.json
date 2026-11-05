@@ -1,0 +1,22 @@
+[
+ {"text": "your going to love this", "want": ["you're going"]},
+ {"text": "i think their coming tonight", "want": ["they're coming"]},
+ {"text": "is this you're car?", "want": ["your car"]},
+ {"text": "its to late to fix it now", "want": ["it's", "too late"]},
+ {"text": "were going to the store, wanna come?", "want": ["we're going"]},
+ {"text": "your welcome, anytime", "want": ["you're welcome"]},
+ {"text": "hes taller then me", "want": ["than me"]},
+ {"text": "dont loose your keys again", "want": ["lose your"]},
+ {"text": "that dosnt effect the build", "want": ["doesn't", "affect"]},
+ {"text": "the dog wagged it's tail", "want": ["its tail"]},
+ {"text": "i left it over their by the door", "want": ["over there"]},
+ {"text": "the update had a big affect on performance", "want": ["effect"]},
+ {"text": "i recieved the package yesterday", "want": ["received"]},
+ {"text": "definately going to the meeting tommorow", "want": ["definitely", "tomorrow"]},
+ {"text": "brb gotta restart the server", "keep": true},
+ {"text": "yeah that works for me", "keep": true},
+ {"text": "sup u around? i'll ping you in 5", "keep": true},
+ {"text": "they're coming over at 8, it's going to be fun", "keep": true},
+ {"text": "your build is fine, it's the cache that's broken", "keep": true},
+ {"text": "then we'll know if it's faster than before", "keep": true}
+]

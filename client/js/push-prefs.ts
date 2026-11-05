@@ -3,10 +3,11 @@
  * localStorage), mirrored into the IndexedDB store it already uses
  * (seance-push/kv, key "prefs"): whether Markdown renders, so a push
  * notification strips markers exactly when the page does (settings.ts
- * `markdown.apply`, at boot and on every change), and the conversations
- * muted on this device (mute.ts, at load and on every change), which a push
- * shows quietly, and each network's ignore list (ignore.ts, as a list loads
- * and on every change), from which a push shows nothing new.
+ * `markdown.apply`, at boot and on every change), the UI language tag
+ * (client/js/i18n) for the worker's own copy, the conversations muted on
+ * this device (mute.ts, at load and on every change), which a push shows
+ * quietly, and each network's ignore list (ignore.ts, as a list loads and
+ * on every change), from which a push shows nothing new.
  */
 import {idbGet, idbSet} from "./idb";
 
@@ -15,6 +16,7 @@ import {idbGet, idbSet} from "./idb";
  * case folding). */
 export type PushPrefs = {
 	markdown: boolean;
+	locale?: string;
 	muted: string[];
 	/** Each network's ignore list (client/js/ignore.ts), by network uuid;
 	 * the worker matches a push's sender against it (push/ignore.ts). */

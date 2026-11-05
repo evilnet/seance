@@ -26,7 +26,7 @@
 			@keydown.enter.prevent="clickActiveItem"
 		>
 			<!-- TODO: type -->
-			<template v-for="(item, id) of (items as any)" :key="item.name">
+			<template v-for="(item, id) of (items as any)" :key="id">
 				<li
 					:id="`context-menu-item-${id}`"
 					:class="[
@@ -138,9 +138,18 @@ export default defineComponent({
 			});
 
 			if (element && element.classList.contains("menu")) {
+				// Dropdown anchored under the header button. LTR right-aligns it
+				// to the button (it opens toward the content); RTL mirrors the
+				// button onto the opposite screen edge, so the menu anchors to
+				// the button's other edge and opens the mirrored way. fit()
+				// keeps either inside the band, whichever edge the mirrored
+				// layout parks the button against.
+				const rect = element.getBoundingClientRect();
+				const rtl = window.getComputedStyle(element).direction === "rtl";
+
 				return fit({
-					left: element.getBoundingClientRect().left - (menuWidth - element.offsetWidth),
-					top: element.getBoundingClientRect().top + element.offsetHeight,
+					left: rtl ? rect.left : rect.right - menuWidth,
+					top: rect.top + element.offsetHeight,
 				});
 			}
 
@@ -223,8 +232,19 @@ export default defineComponent({
 			open(data.event, newItems);
 		};
 
-		const openInlineChannelContextMenu = (data: {channel: string; event: MouseEvent}) => {
-			const {network} = store.state.activeChannel;
+		const openInlineChannelContextMenu = (data: {
+			channel: string;
+			event: MouseEvent;
+			network?: ClientNetwork;
+		}) => {
+			// The network the text was shown for, as for a nick below: the page
+			// underneath may be on another network, or on none (Connect).
+			const network = data.network ?? store.state.activeChannel?.network;
+
+			if (!network) {
+				return;
+			}
+
 			const newItems = generateInlineChannelContextMenu(store, data.channel, network);
 
 			open(data.event, newItems);
@@ -246,10 +266,15 @@ export default defineComponent({
 			// Kill… or Whois would act there. The active channel only when it
 			// is on that network; else that network's lobby.
 			const active = store.state.activeChannel;
-			const network = data.network ?? active.network;
+			const network = data.network ?? active?.network;
+
+			if (!network) {
+				return;
+			}
+
 			const channel =
 				data.channel ??
-				(active.network.uuid === network.uuid ? active.channel : network.channels[0]);
+				(active?.network.uuid === network.uuid ? active.channel : network.channels[0]);
 
 			const newItems = generateUserContextMenu(
 				store,

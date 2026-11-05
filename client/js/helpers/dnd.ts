@@ -10,6 +10,7 @@
  */
 
 import type {SharedNetworkMode, SharedPresenceMode} from "../../../shared/types/network";
+import {activeLocale, t as coreT} from "../i18n/core";
 
 export type PresenceMode = SharedPresenceMode;
 export const PRESENCE_MODES: readonly PresenceMode[] = ["online", "auto", "away", "dnd"];
@@ -307,18 +308,48 @@ export function reconcileRemote(state: DndState, now: Date): DndState {
 	return dndAt(state, now).active ? turnOff(state, now) : state;
 }
 
-/** Short weekday names, Sunday = 0 (DndSchedule.days). */
-export const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-/** Full weekday names, Sunday = 0, for accessible names. */
-export const DAY_FULL_NAMES = [
-	"Sunday",
-	"Monday",
-	"Tuesday",
-	"Wednesday",
-	"Thursday",
-	"Friday",
-	"Saturday",
-];
+/** The days of a schedule, Sunday = 0 (DndSchedule.days). */
+export const DAYS = [0, 1, 2, 3, 4, 5, 6] as const;
+
+const weekdayFormats = new Map<string, Intl.DateTimeFormat>();
+
+/**
+ * A weekday's name in the active language, Sunday = 0: `short` ("Sat") for
+ * the day checkboxes and the pill, `long` ("Saturday") for accessible names.
+ * Intl's, not the catalog's (i18n/dates.ts): 2023-01-01 was a Sunday.
+ */
+export function weekdayName(day: number, width: "short" | "long" = "short"): string {
+	const tag = activeLocale();
+	const key = `${tag}-${width}`;
+	let format = weekdayFormats.get(key);
+
+	if (!format) {
+		format = new Intl.DateTimeFormat(tag, {weekday: width, timeZone: "UTC"});
+		weekdayFormats.set(key, format);
+	}
+
+	return format.format(Date.UTC(2023, 0, 1 + day));
+}
+
+/**
+ * A presence mode's name, as the lobby dot's menu, the network form and the
+ * pill say it. `t` is the caller's (a component passes its own, so a locale
+ * change re-renders); the core resolver by default.
+ */
+export function modeLabel(mode: NetworkMode, t: (key: string) => string = coreT): string {
+	switch (mode) {
+		case "global":
+			return t("presence.mode.global");
+		case "online":
+			return t("presence.mode.online");
+		case "auto":
+			return t("presence.mode.auto");
+		case "away":
+			return t("presence.mode.away");
+		case "dnd":
+			return t("presence.mode.dnd");
+	}
+}
 
 /** A wall-clock time as the clock setting writes it: "07:05" or "7:05 AM". */
 export function clockText(h: number, m: number, hour12: boolean): string {
@@ -334,16 +365,34 @@ export function scheduleTimeText(hhmm: string, hour12: boolean): string {
 	return match ? clockText(Number(match[1]), Number(match[2]), hour12) : hhmm;
 }
 
-/** The pill's words while DND is on, from the verdict. */
-export function describeDnd(verdict: DndVerdict, now: Date, hour12: boolean): string {
+/**
+ * The pill's words while DND is on, from the verdict: "Do not disturb", and
+ * its end as a second part ("until 23:00", "until Sat 07:00"). The parts are
+ * separate phrases; the pill shows them joined by " · " and may break the
+ * line between them.
+ */
+export function describeDndParts(verdict: DndVerdict, now: Date, hour12: boolean): string[] {
+	const t = coreT;
+	const label = t("dnd.label");
+
 	if (verdict.until === null) {
-		return "Do not disturb";
+		return [label];
 	}
 
 	const end = new Date(verdict.until);
 	const time = clockText(end.getHours(), end.getMinutes(), hour12);
 	const sameDay = end.toDateString() === now.toDateString();
-	return `Do not disturb · until ${sameDay ? "" : `${DAYS[end.getDay()]} `}${time}`;
+	return [
+		label,
+		sameDay
+			? t("dnd.until", {time})
+			: t("dnd.untilDay", {day: weekdayName(end.getDay()), time}),
+	];
+}
+
+/** describeDndParts as one line, its parts joined by " · ". */
+export function describeDnd(verdict: DndVerdict, now: Date, hour12: boolean): string {
+	return describeDndParts(verdict, now, hour12).join(" · ");
 }
 
 /**

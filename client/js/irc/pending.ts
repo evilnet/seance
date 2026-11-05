@@ -26,6 +26,7 @@
  * total, or hold an id the catch-up cursor could refer to.
  */
 
+import {t} from "../i18n/core";
 import {MessageType, SharedMsg} from "../../../shared/types/msg";
 import type {Channel} from "./channel";
 import type {IrcClient} from "./client";
@@ -146,7 +147,7 @@ export function armPending(client: IrcClient, entry: PendingMessage): void {
 
 	entry.timer = setTimeout(() => {
 		entry.timer = undefined;
-		failPending(client, entry, "no acknowledgement from the server");
+		failPending(client, entry, t("pending.noAcknowledgement"));
 	}, PENDING_TIMEOUT_MS);
 }
 
@@ -175,7 +176,7 @@ export function failPending(client: IrcClient, entry: PendingMessage, reason: st
 	if (settlePending(client, entry)) {
 		client.pushMessage(entry.chan, {
 			type: MessageType.ERROR,
-			text: `Not sent (${reason}): ${entry.text}`,
+			text: t("pending.notSent", {reason, text: entry.text}),
 		});
 	}
 }

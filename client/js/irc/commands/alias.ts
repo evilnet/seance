@@ -11,6 +11,7 @@
  * `alias` shadows this command on purpose, exactly like any other shadow.
  */
 
+import {t} from "../../i18n/core";
 import {MessageType} from "../../../../shared/types/msg";
 import {
 	MAX_ALIASES,
@@ -47,7 +48,7 @@ const alias: Command = {
 			if (list.length === 0) {
 				client.pushMessage(chan, {
 					type: MessageType.ERROR,
-					text: "No aliases defined. /alias <name> <commands> creates one.",
+					text: t("cmd.alias.none"),
 				});
 				return;
 			}
@@ -67,7 +68,7 @@ const alias: Command = {
 		if (!isValidAliasName(name)) {
 			client.pushMessage(chan, {
 				type: MessageType.ERROR,
-				text: `Alias names are letters, digits, _ and - (up to ${MAX_NAME_LENGTH} characters).`,
+				text: t("cmd.alias.badName", {max: MAX_NAME_LENGTH}),
 			});
 			return;
 		}
@@ -79,7 +80,7 @@ const alias: Command = {
 			if (at === -1) {
 				client.pushMessage(chan, {
 					type: MessageType.ERROR,
-					text: `No alias /${name}. /alias ${name} <commands> creates it.`,
+					text: t("cmd.alias.missing", {name}),
 				});
 				return;
 			}
@@ -94,7 +95,7 @@ const alias: Command = {
 		if (body.length > MAX_BODY_LENGTH) {
 			client.pushMessage(chan, {
 				type: MessageType.ERROR,
-				text: `That alias is too long (${body.length} of at most ${MAX_BODY_LENGTH} characters).`,
+				text: t("cmd.alias.tooLong", {length: body.length, max: MAX_BODY_LENGTH}),
 			});
 			return;
 		}
@@ -102,7 +103,7 @@ const alias: Command = {
 		if (at === -1 && list.length >= MAX_ALIASES) {
 			client.pushMessage(chan, {
 				type: MessageType.ERROR,
-				text: `You already have ${MAX_ALIASES} aliases; delete one in Settings → Aliases first.`,
+				text: t("cmd.alias.tooMany", {max: MAX_ALIASES}),
 			});
 			return;
 		}
@@ -115,7 +116,7 @@ const alias: Command = {
 
 		saveAliases(list);
 		client.pushMessage(chan, {
-			text: `Alias /${name} ${at === -1 ? "added" : "updated"}.`,
+			text: at === -1 ? t("cmd.alias.added", {name}) : t("cmd.alias.updated", {name}),
 		});
 	},
 };

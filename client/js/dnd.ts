@@ -14,7 +14,7 @@ import socket from "./socket";
 import storage from "./localStorage";
 import {store} from "./store";
 import {
-	describeDnd,
+	describeDndParts,
 	dndAt,
 	editSchedule,
 	nextChangeAt,
@@ -27,7 +27,9 @@ import {
 	type DndSchedule,
 	type DndState,
 	type GlobalMode,
+	modeLabel,
 } from "./helpers/dnd";
+import {localeRef} from "./i18n";
 import {
 	claimMuteAll,
 	clearRemoteDndAll,
@@ -101,16 +103,22 @@ const remoteOnly = computed(
 		connected.value.every((n) => n.presence?.dnd && n.presence.mode !== "dnd")
 );
 
-const MODE_WORDS: Record<GlobalMode, string> = {online: "Online", auto: "Auto", away: "Away"};
+/**
+ * The pill's words, as parts the pill joins with " · ": its own DND (with
+ * its end), one shared from another device, else the global mode.
+ */
+const pillParts = computed((): string[] => {
+	void localeRef.value; // the words are the core resolver's: follow the language
 
-/** The pill's words: its own DND (with its end), one shared from another device, else the global mode. */
-const pillLabel = computed(() => {
 	if (verdict.value.active) {
-		return describeDnd(verdict.value, now.value, !!store.state.settings.use12hClock);
+		return describeDndParts(verdict.value, now.value, !!store.state.settings.use12hClock);
 	}
 
-	return remoteOnly.value ? "Do not disturb" : MODE_WORDS[state.mode.value];
+	return [modeLabel(remoteOnly.value ? "dnd" : state.mode.value)];
 });
+
+/** The pill's words on one line. */
+const pillLabel = computed(() => pillParts.value.join(" · "));
 
 /** The pill dot's colour: `dnd`, `away` or `online`. */
 const pillState = computed(() => {
@@ -175,6 +183,7 @@ export default {
 	verdict,
 	remoteOnly,
 	pillLabel,
+	pillParts,
 	pillState,
 	status,
 	start,

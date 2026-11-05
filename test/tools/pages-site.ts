@@ -2,7 +2,14 @@ import {expect} from "chai";
 import {mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync} from "node:fs";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
-import {assemble, kindOf, linkTo, renderIndex, renderStub} from "../../tools/pages-site.mjs";
+import {
+	assemble,
+	keepOnSite,
+	kindOf,
+	linkTo,
+	renderIndex,
+	renderStub,
+} from "../../tools/pages-site.mjs";
 
 /** The Pages site assembled from the workflow's builds (tools/pages-site.mjs). */
 describe("Pages site assembly (tools/pages-site.mjs)", function () {
@@ -60,6 +67,57 @@ describe("Pages site assembly (tools/pages-site.mjs)", function () {
 			"absolute links on Pages"
 		).to.include('href="/seance/pr103/"');
 		expect(html).to.include("github.com/evilnet/seance/pulls");
+	});
+
+	it("leaves every build's source maps out of the site", function () {
+		const dir = mkdtempSync(join(tmpdir(), "pages-site-"));
+
+		try {
+			const artifacts = join(dir, "artifacts");
+			const out = join(dir, "out");
+			const files = [
+				"index.html",
+				"js/bundle.js",
+				"js/bundle.js.map",
+				"js/translate-worker.js.map",
+				"js/ort/ort-wasm-simd-threaded.jsep.mjs",
+				"js/ort/ort-wasm-simd-threaded.jsep.mjs.map",
+				"css/style.css",
+				"css/style.css.map",
+				// Names that merely contain "map" are no source maps.
+				"js/sourcemap.js",
+				"img/map.png",
+				"js/emoji-map.json",
+			];
+
+			for (const e of [release, develop, pr]) {
+				for (const file of files) {
+					mkdirSync(join(artifacts, e.name, file, ".."), {recursive: true});
+					writeFileSync(join(artifacts, e.name, file), file);
+				}
+			}
+
+			assemble([release, develop, pr], artifacts, out, {
+				now: new Date("2026-10-13T12:00:00Z"),
+			});
+
+			for (const e of [release, develop, pr]) {
+				for (const file of files) {
+					expect(existsSync(join(out, e.path, file)), `${e.name}: ${file}`).to.equal(
+						!file.endsWith(".map")
+					);
+				}
+
+				// The local build keeps its maps: only the site goes without.
+				expect(existsSync(join(artifacts, e.name, "js", "bundle.js.map"))).to.equal(true);
+			}
+
+			expect(keepOnSite("/x/js/bundle.js.map")).to.equal(false);
+			expect(keepOnSite("/x/js/bundle.js")).to.equal(true);
+			expect(keepOnSite("/x/js"), "a directory is walked into").to.equal(true);
+		} finally {
+			rmSync(dir, {recursive: true, force: true});
+		}
 	});
 
 	it("copies each build into its directory and stands in for a failed one", function () {

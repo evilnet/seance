@@ -177,7 +177,7 @@ body,
 
 /* The user list's count is a status bar too. */
 #chat .userlist {
-	border-left-color: var(--ansi-blue);
+	border-inline-start-color: var(--ansi-blue);
 }
 
 #chat .userlist .count {
@@ -219,6 +219,13 @@ body,
 /* The current channel is white with a cyan mark; unread ones cyan. */
 .channel-list-item.active {
 	box-shadow: inset 0.25rem 0 0 var(--ansi-cyan);
+}
+
+/* The mark rides the row's inline-start edge; RTL rows mirror. Without
+ * this restate coffee's RTL marker override — a higher-specificity
+ * selector in the imported file — would paint the active row amber. */
+[dir="rtl"] .channel-list-item.active {
+	box-shadow: inset -0.25rem 0 0 var(--ansi-cyan);
 }
 
 .channel-list-item.has-unread .name {

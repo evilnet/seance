@@ -1,17 +1,23 @@
 <template>
-	<div class="settings-aliases" role="group" aria-label="Command aliases">
-		<h2>Command aliases</h2>
+	<div class="settings-aliases" role="group" :aria-label="paneAria">
+		<h2>{{ t("settings.aliases.titleHeading") }}</h2>
 		<p class="alias-intro">
-			An alias is a slash command of your own. Typing
-			<code>/{{ rows[0]?.name || "wave" }}</code> runs what you define here — one command per
-			line, with the arguments filled in where the body says <code>$1</code>,
-			<code>$2-</code> or <code>$*</code>.
+			<I18nFrame
+				:text="
+					t('settings.aliases.intro', {example: KEEP, first: KEEP, rest: KEEP, all: KEEP})
+				"
+				><template v-slot:example
+					><code>/{{ rows[0]?.name || "wave" }}</code></template
+				><template v-slot:first><code>$1</code></template
+				><template v-slot:rest><code>$2-</code></template
+				><template v-slot:all><code>$*</code></template></I18nFrame
+			>
 		</p>
 
 		<div v-if="rows.length" class="alias-table">
 			<div class="alias-head" aria-hidden="true">
-				<span class="alias-head-name">Alias</span>
-				<span class="alias-head-body">Runs</span>
+				<span class="alias-head-name">{{ t("settings.aliases.headName") }}</span>
+				<span class="alias-head-body">{{ t("settings.aliases.headRuns") }}</span>
 			</div>
 			<div
 				v-for="(row, index) in rows"
@@ -23,10 +29,11 @@
 					<span class="alias-slash" aria-hidden="true">/</span>
 					<input
 						v-model.trim="row.name"
-						:aria-label="'Alias name ' + (index + 1)"
+						dir="auto"
+						:aria-label="nameAria(index)"
 						class="input alias-name"
 						type="text"
-						placeholder="name"
+						:placeholder="namePlaceholder"
 						:maxlength="maxNameLength"
 						spellcheck="false"
 						autocapitalize="off"
@@ -35,10 +42,11 @@
 				</label>
 				<textarea
 					v-model="row.body"
-					:aria-label="'Commands for alias ' + (row.name || index + 1)"
+					dir="auto"
+					:aria-label="bodyAria(row, index)"
 					class="input alias-body"
 					:rows="bodyRows(row)"
-					placeholder="/me waves at $1"
+					:placeholder="bodyPlaceholder"
 					spellcheck="false"
 					autocapitalize="off"
 					autocomplete="off"
@@ -46,7 +54,7 @@
 				<button
 					class="alias-remove"
 					type="button"
-					:aria-label="'Remove alias ' + (row.name || index + 1)"
+					:aria-label="removeAria(row, index)"
 					@click="remove(index)"
 				/>
 				<div v-if="rowError(index)" class="alias-error" role="alert">
@@ -54,38 +62,44 @@
 				</div>
 			</div>
 		</div>
-		<p v-else class="alias-empty">No aliases yet.</p>
+		<p v-else class="alias-empty">{{ t("settings.aliases.empty") }}</p>
 
 		<div class="alias-actions">
-			<button class="btn" type="button" @click="add">Add alias</button>
+			<button class="btn" type="button" @click="add">{{ t("settings.aliases.add") }}</button>
 			<span class="alias-status" role="status">{{ statusText }}</span>
 		</div>
 
-		<h2>Variables</h2>
+		<h2>{{ t("settings.aliases.variablesHeading") }}</h2>
 		<dl class="alias-vars">
 			<dt><code>$1</code> … <code>$9</code></dt>
-			<dd>one argument (empty when not given)</dd>
+			<dd>{{ t("settings.aliases.varOne") }}</dd>
 			<dt><code>$2-</code></dt>
-			<dd>arguments from the 2nd to the last</dd>
+			<dd>{{ t("settings.aliases.varRest") }}</dd>
 			<dt><code>$*</code></dt>
-			<dd>everything after the alias name</dd>
+			<dd>{{ t("settings.aliases.varStar") }}</dd>
 			<dt><code>$chan</code></dt>
-			<dd>the current channel or query</dd>
+			<dd>{{ t("settings.aliases.varChan") }}</dd>
 			<dt><code>$me</code></dt>
-			<dd>your nick on that network</dd>
+			<dd>{{ t("settings.aliases.varMe") }}</dd>
 			<dt><code>$$</code></dt>
-			<dd>a literal <code>$</code></dd>
+			<dd>
+				<I18nFrame :text="t('settings.aliases.varLiteral', {character: KEEP})"
+					><template v-slot:character><code>$</code></template></I18nFrame
+				>
+			</dd>
 		</dl>
 		<p class="alias-intro">
-			A body line can invoke another alias, and an alias named after a built-in command
-			replaces it — <code>/join</code> can become <code>/join #lobby $*</code> without
-			looping.
+			<I18nFrame :text="t('settings.aliases.nested', {command: KEEP, expansion: KEEP})"
+				><template v-slot:command><code>/join</code></template
+				><template v-slot:expansion><code>/join #lobby $*</code></template></I18nFrame
+			>
 		</p>
 
-		<h2>Try it</h2>
+		<h2>{{ t("settings.aliases.tryHeading") }}</h2>
 		<input
 			v-model="tryText"
-			aria-label="Try an alias"
+			dir="auto"
+			:aria-label="tryAria"
 			class="input alias-try"
 			type="text"
 			:placeholder="tryPlaceholder"
@@ -100,7 +114,7 @@
 				}}</code>
 			</template>
 			<span v-else class="alias-preview-miss">
-				Not an alias — this would be sent as typed.
+				{{ t("settings.aliases.previewMiss") }}
 			</span>
 		</div>
 	</div>
@@ -141,7 +155,7 @@
 
 .settings-aliases .alias-slash {
 	position: absolute;
-	left: 0.55em;
+	inset-inline-start: 0.55em;
 	top: 50%;
 	transform: translateY(-50%);
 	color: var(--body-color-muted);
@@ -151,7 +165,7 @@
 }
 
 .settings-aliases .alias-name {
-	padding-left: 1.4em;
+	padding-inline-start: 1.4em;
 	font-family: Consolas, Menlo, Monaco, "Lucida Console", "DejaVu Sans Mono", "Courier New",
 		monospace;
 }
@@ -251,6 +265,9 @@
 
 <script lang="ts">
 import {computed, defineComponent, reactive, ref, watch} from "vue";
+import {useI18n} from "../../js/i18n";
+import {KEEP} from "../../js/i18n/core";
+import I18nFrame from "../I18nFrame.vue";
 import {
 	expandAlias,
 	isValidAliasName,
@@ -269,7 +286,11 @@ interface AliasRow extends Alias {
 
 export default defineComponent({
 	name: "AliasSettings",
+	components: {
+		I18nFrame,
+	},
 	setup() {
+		const {t, tCount} = useI18n();
 		let nextId = 1;
 		const rows = reactive<AliasRow[]>(loadAliases().map((alias) => ({...alias, id: nextId++})));
 
@@ -311,25 +332,25 @@ export default defineComponent({
 			}
 
 			if (row.name.length === 0) {
-				return "Give the alias a name.";
+				return t("settings.aliases.errorName");
 			}
 
 			if (!isValidAliasName(row.name)) {
-				return "Names are letters, digits, - and _ — no spaces or slashes.";
+				return t("settings.aliases.errorNameChars");
 			}
 
 			for (let i = 0; i < index; i++) {
 				if (rows[i].name.toLowerCase() === row.name.toLowerCase()) {
-					return `There is already a /${rows[i].name}.`;
+					return t("settings.aliases.errorDuplicate", {name: rows[i].name});
 				}
 			}
 
 			if (row.body.trim().length === 0) {
-				return "Say what the alias runs.";
+				return t("settings.aliases.errorBody");
 			}
 
 			if (row.body.length > MAX_BODY_LENGTH) {
-				return `The body is too long (over ${MAX_BODY_LENGTH} characters).`;
+				return t("settings.aliases.errorTooLong", {limit: MAX_BODY_LENGTH});
 			}
 
 			return null;
@@ -338,13 +359,14 @@ export default defineComponent({
 		const statusText = computed(() => {
 			const saved = validRows.value.length;
 			const broken = rows.filter((_, index) => rowError(index) !== null).length;
-			const count = saved === 1 ? "1 alias" : `${saved} aliases`;
+
+			if (rows.length === 0) {
+				return "";
+			}
 
 			return broken > 0
-				? `${count} saved — rows with errors are not saved.`
-				: rows.length > 0
-				? `${count} saved.`
-				: "";
+				? tCount("settings.aliases.statusBroken", saved)
+				: tCount("settings.aliases.statusSaved", saved);
 		});
 
 		const add = () => {
@@ -362,14 +384,34 @@ export default defineComponent({
 		const bodyRows = (row: AliasRow) => Math.min(8, row.body.split("\n").length);
 
 		const tryPlaceholder = computed(() =>
-			validRows.value.length > 0 ? `/${validRows.value[0].name} some arguments` : "/wave bob"
+			validRows.value.length > 0
+				? t("settings.aliases.tryExample", {name: validRows.value[0].name})
+				: "/wave bob"
 		);
+
+		const paneAria = computed(() => t("settings.aliases.paneAria"));
+		const tryAria = computed(() => t("settings.aliases.tryAria"));
+		const namePlaceholder = computed(() => t("settings.aliases.namePlaceholder"));
+		const bodyPlaceholder = computed(() => t("settings.aliases.bodyPlaceholder"));
+
+		// Per-row labels: the wave-A pattern keeps t() out of template
+		// attribute bindings; {name} carries the alias's name (or the row
+		// number while the name is empty) verbatim.
+		const nameAria = (index: number): string =>
+			t("settings.aliases.nameAria", {number: index + 1});
+		const bodyAria = (row: AliasRow, index: number): string =>
+			t("settings.aliases.bodyAria", {name: row.name || index + 1});
+		const removeAria = (row: AliasRow, index: number): string =>
+			t("settings.aliases.removeAria", {name: row.name || index + 1});
 
 		const preview = computed(() =>
 			expandAlias(tryText.value, {chan: "#channel", me: "yournick"}, validRows.value)
 		);
 
 		return {
+			t,
+			tCount,
+			KEEP,
 			rows,
 			rowError,
 			statusText,
@@ -378,6 +420,13 @@ export default defineComponent({
 			bodyRows,
 			tryText,
 			tryPlaceholder,
+			namePlaceholder,
+			bodyPlaceholder,
+			nameAria,
+			bodyAria,
+			removeAria,
+			paneAria,
+			tryAria,
 			preview,
 			maxNameLength: MAX_NAME_LENGTH,
 		};

@@ -7,6 +7,7 @@
 import {MessageType} from "../../../../shared/types/msg";
 import {ignoreListFor} from "../../ignore";
 import {formatHostmask, parseHostmask} from "../hostmask";
+import {t} from "../../i18n/core";
 import type {Command} from "../types";
 
 const ignore: Command = {
@@ -18,7 +19,7 @@ const ignore: Command = {
 		if (target.length === 0) {
 			client.pushMessage(chan, {
 				type: MessageType.ERROR,
-				text: `Usage: /${cmd} <nick>[!ident][@host]`,
+				text: t("cmd.usageIgnore", {cmd}),
 			});
 			return;
 		}
@@ -32,7 +33,7 @@ const ignore: Command = {
 			if (client.isSelf(hostmask.nick)) {
 				client.pushMessage(chan, {
 					type: MessageType.ERROR,
-					text: "You can't ignore yourself",
+					text: t("cmd.ignore.self"),
 				});
 				return;
 			}
@@ -40,7 +41,7 @@ const ignore: Command = {
 			if (!list.add(target)) {
 				client.pushMessage(chan, {
 					type: MessageType.ERROR,
-					text: "The specified user/hostmask is already ignored",
+					text: t("cmd.ignore.already"),
 				});
 				return;
 			}
@@ -48,7 +49,7 @@ const ignore: Command = {
 			// The old server reported success as an ERROR-type message too.
 			client.pushMessage(chan, {
 				type: MessageType.ERROR,
-				text: `${pretty} added to ignorelist`,
+				text: t("cmd.ignore.added", {mask: pretty}),
 			});
 			return;
 		}
@@ -56,14 +57,14 @@ const ignore: Command = {
 		if (!list.remove(target)) {
 			client.pushMessage(chan, {
 				type: MessageType.ERROR,
-				text: "The specified user/hostmask is not ignored",
+				text: t("cmd.ignore.notIgnored"),
 			});
 			return;
 		}
 
 		client.pushMessage(chan, {
 			type: MessageType.ERROR,
-			text: `Successfully removed ${pretty} from ignorelist`,
+			text: t("cmd.ignore.removed", {mask: pretty}),
 		});
 	},
 };

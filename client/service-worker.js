@@ -27,6 +27,12 @@ const STAMPED_APP_NAME = "__APP_NAME__";
 const appName = STAMPED_APP_NAME.startsWith("__") ? "Seance" : STAMPED_APP_NAME;
 const isDevBuild = cacheName === "dev";
 
+// Cache Storage the translation engines own (client/js/translate/): the
+// model weights a user downloaded once. transformers.js keeps
+// "transformers-cache", WebLLM keeps "webllm/model", "webllm/wasm" and
+// "webllm/config". A shell update must never evict them.
+const isModelCache = (name) => name === "transformers-cache" || name.startsWith("webllm/");
+
 // The push module (client/js/push/*, built to js/push.js): the line parser,
 // the strippers and the merged-body renderer, shared with the page so the
 // two agree. Loaded at start-up — a service worker may only importScripts
@@ -78,6 +84,7 @@ const shellPaths = [
 	"manifest.webmanifest",
 	"config.json",
 	"favicon.ico",
+	`js/prepaint.js?v=${cacheName}`,
 	`js/loading-error-handlers.js?v=${cacheName}`,
 	`js/bundle.js?v=${cacheName}`,
 	`js/push.js?v=${cacheName}`,
@@ -88,8 +95,12 @@ const shellPaths = [
 	"img/logo-tile.png",
 ];
 
-// Paths that must never be served from cache (Cloudflare challenge endpoints).
-const excludedPathsFromCache = /^cdn-cgi\//;
+// Paths that must never be served from cache: Cloudflare challenge
+// endpoints, and `models/`, where a deploy that mirrors the translation
+// weights next to the app puts them (config.json `translation.modelBase`);
+// a gigabyte of weights has no place in the shell cache, and the ML
+// libraries keep their own Cache Storage entries.
+const excludedPathsFromCache = /^(cdn-cgi|models)\//;
 
 self.addEventListener("install", function (event) {
 	// A push-only worker has no shell to cache (nothing lives under its
@@ -116,7 +127,9 @@ self.addEventListener("activate", function (event) {
 			.keys()
 			.then((names) =>
 				Promise.all(
-					names.filter((name) => name !== cacheName).map((name) => caches.delete(name))
+					names
+						.filter((name) => name !== cacheName && !isModelCache(name))
+						.map((name) => caches.delete(name))
 				)
 			)
 	);
@@ -196,7 +209,143 @@ function isNavigation(request) {
 	return request.mode === "navigate" || request.destination === "document";
 }
 
+// Cross-origin isolation (docs/projects/translation-devices.md
+// § Multithreading): multithreaded WebAssembly for the CPU translation
+// models needs a cross-origin-isolated page and worker, which needs these
+// two headers on the document and on the worker's script, and a static
+// host (GitHub Pages) sends neither. So the worker adds them to the app's
+// documents and its own worker scripts, from the network and from the
+// shell cache alike. `credentialless`, not `require-corp`: a cross-origin
+// image, video or upload host keeps loading without a header of its own,
+// fetched without cookies. A deploy that sends its own policy keeps it.
+// The page is isolated from the load after the worker took control of it.
+// WebKit (Safari, every iOS browser: `strictUserVisible` below) has no
+// `credentialless`, so it gets neither header and stays exactly as it was.
+// The fetch event sees every request a controlled page makes, other
+// origins' included, but the fetch handler returns early for any URL that
+// does not start with `shellUrl`, so only requests inside the scope reach
+// this, and a worker script here is always the app's own.
+//
+// The documents only while translation is on. Isolation is translation's
+// alone and costs the whole app something (cross-origin no-cors requests
+// go without cookies; COOP severs `window.opener`), and translation ships
+// switched off. The page says whether it is on (it has localStorage, this
+// worker does not): `isolate` in seance-push/kv, written at boot and on
+// every change, and an `isolation` message so a running worker need not
+// read it again (client/js/isolationFlag.ts). No flag is off. Switched on,
+// the next load is isolated; switched off, the page in front stays as it
+// was loaded until it reloads. The app's worker scripts get the headers
+// whatever the flag: only translation starts a worker here, and on a page
+// loaded isolated Chromium refuses a dedicated worker whose script has no
+// COEP -- one started the moment translation is switched back on would
+// otherwise race the page's message to this worker. On a page that is not
+// isolated they change nothing (the worker cannot be isolated either).
+const ISOLATION_HEADERS = [
+	["Cross-Origin-Opener-Policy", "same-origin"],
+	["Cross-Origin-Embedder-Policy", "credentialless"],
+];
+
+/** The page's flag (client/js/isolationFlag.ts ISOLATION_KEY). */
+const ISOLATION_KEY = "isolate";
+
+/** How long a navigation waits for the flag before it is served unisolated:
+ * a stalled IndexedDB must never keep the app from loading. */
+const ISOLATION_READ_TIMEOUT_MS = 250;
+
+/** The flag as last read or told (`isolation` message); undefined until
+ * the first navigation reads it. A message always wins over a read still
+ * in flight. */
+let isolationFlag;
+
+/** Whether the page's documents get the headers now: translation is on. */
+function isolationWanted() {
+	if (isolationFlag !== undefined) {
+		return Promise.resolve(isolationFlag);
+	}
+
+	return new Promise((resolve) => {
+		// Out of time: what a message said meanwhile, else unisolated.
+		const timer = setTimeout(() => resolve(isolationFlag === true), ISOLATION_READ_TIMEOUT_MS);
+		const settle = (value) => {
+			clearTimeout(timer);
+			resolve(value);
+		};
+
+		// An open that throws (no IndexedDB) is caught here as well.
+		Promise.resolve()
+			.then(() => idbGet(ISOLATION_KEY))
+			.then(
+				(stored) => {
+					if (isolationFlag === undefined) {
+						isolationFlag = stored === true;
+					}
+
+					settle(isolationFlag);
+				},
+				// Unreadable: unisolated this time, and asked again next time.
+				() => settle(isolationFlag === true)
+			);
+	});
+}
+
+/** Whether `request`'s response gets the headers: a document while the page
+ * wants it, an app worker script always, nothing under WebKit. */
+function wantsIsolation(request) {
+	if (strictUserVisible()) {
+		return Promise.resolve(false);
+	}
+
+	if (request.destination === "worker") {
+		return Promise.resolve(true);
+	}
+
+	return isNavigation(request) ? isolationWanted() : Promise.resolve(false);
+}
+
+function isolate(response) {
+	// An error or opaque response has nothing to add to (and status 0
+	// cannot be constructed).
+	if (!response || response.status === 0 || response.type === "opaque") {
+		return response;
+	}
+
+	const headers = new Headers(response.headers);
+
+	for (const [name, value] of ISOLATION_HEADERS) {
+		if (!headers.has(name)) {
+			headers.set(name, value);
+		}
+	}
+
+	return new Response(response.body, {
+		headers,
+		status: response.status,
+		statusText: response.statusText,
+	});
+}
+
+// The shell cache exists so an installed app opens offline; it is not a
+// general-purpose cache, and a browser that runs out of quota evicts the
+// whole origin at once. A large same-origin response — a mirrored model
+// shard, a video, an archive a deploy serves next to the app — is served
+// and forgotten. (Weights under `models/` never reach the fetch handler at
+// all, `excludedPathsFromCache` above; this is the catch-all.)
+const MAX_SHELL_CACHE_BYTES = 8 * 1024 * 1024;
+
+function tooBigToCache(response) {
+	const length = Number(response.headers.get("content-length"));
+
+	// No `content-length` (a streamed or compressed response) means "cache
+	// it": the shell's own files all have one, and guessing is worse than
+	// the status quo.
+	return Number.isFinite(length) && length > MAX_SHELL_CACHE_BYTES;
+}
+
 async function putInCache(request, response) {
+	if (tooBigToCache(response)) {
+		return;
+	}
+
 	const cache = await caches.open(cacheName);
 	await cache.put(request, response);
 }
@@ -217,6 +366,15 @@ async function cleanRedirect(response) {
 }
 
 async function networkOrCache(event) {
+	// Read alongside the fetch, not before it: the flag costs a navigation
+	// no time of its own.
+	const wanted = wantsIsolation(event.request);
+	const response = await fromNetworkOrCache(event);
+
+	return (await wanted) ? isolate(response) : response;
+}
+
+async function fromNetworkOrCache(event) {
 	const request = event.request;
 	const navigation = isNavigation(request);
 
@@ -291,6 +449,13 @@ async function networkOrCache(event) {
 // worker shows for it. The server's read push only follows a message it
 // pushed, so a notification the page put here is closed by the page.
 self.addEventListener("message", function (event) {
+	// The page switched translation on or off: its documents are isolated,
+	// or not, from the next navigation (`isolationWanted`).
+	if (event.data && event.data.type === "isolation") {
+		isolationFlag = event.data.on === true;
+		return;
+	}
+
 	if (event.data && event.data.type === "away-on-close" && Array.isArray(event.data.networks)) {
 		const networks = event.data.networks.filter((uuid) => typeof uuid === "string");
 		event.waitUntil(awayOnClose(networks));
@@ -540,7 +705,7 @@ function tidyLater() {
 }
 
 /** This worker's network: its scope's, or (the root worker) the first one
- * the page stashed, remembered for the push whose storage has stalled. */
+ * the page stashed, remembered for the push whose store has stalled. */
 let knownNetwork = scopeNetwork;
 
 async function networkOf() {
@@ -1238,7 +1403,7 @@ function showGeneric(tag = "push-activity", target) {
 	return showSafely(appName, {
 		tag,
 		icon: "img/icon-192.png",
-		body: "New activity while you were away.",
+		body: t("sw.newActivity"),
 		data: target ? {kind: "generic", target} : undefined,
 	});
 }
@@ -1355,7 +1520,7 @@ function conversationOf(parsed) {
 }
 
 /**
- * A strict push whose handler has not finished by the deadline (storage
+ * A strict push whose handler has not finished by the deadline (the store
  * stalled): show something now, silently, under a tag of its own
  * (`push-<network>/fallback/<conversation>`) — never the conversation's, so
  * it cannot overwrite the real notification should that land meanwhile.
@@ -1383,7 +1548,7 @@ async function showFallback(raw) {
 		tag,
 		silent: true,
 		icon: "img/icon-192.png",
-		body: "New activity while you were away.",
+		body: t("sw.newActivity"),
 		data: {kind: "generic", target: about.target, fallback: true},
 	});
 }
@@ -1444,6 +1609,49 @@ function push() {
 	};
 }
 
+// --- the worker's own copy ----------------------------------------------------
+// The strings the worker itself composes — notification actions, the title
+// fragments, the fallback activity body — resolve through the same i18n
+// catalog the app uses: the push module installs applyLocale/t/interpolate
+// (client/js/push/i18n.ts), and handlePushNow applies the prefs' locale per
+// push, before composing anything. t() below prefers that surface; the
+// literals here are what it falls back to when js/push.js did not load and
+// no catalog exists anywhere. They must stay equal to the pot's sw.* msgids
+// (client/locales/messages.pot) — pinned by test/tests/service-worker.ts
+// against the compiled en.json.
+
+const SW_COPY_FALLBACK = {
+	"sw.markRead": "Mark read",
+	"sw.reply": "Reply",
+	"sw.replyPlaceholder": "Reply…",
+	"sw.newActivity": "New activity while you were away.",
+	"sw.markedRead": "Marked as read",
+	"sw.newMessage": "New message",
+	"sw.titleChannel": "{nick} in {target}",
+	"sw.titleChannelCount": "{nick} in {target} ({count})",
+	"sw.titleNickCount": "{nick} ({count})",
+};
+
+/** {name} interpolation over the fallback copy (core.ts's interpolate). */
+function swInterpolate(template, vars) {
+	return template.replace(/\{(\w+)\}/g, (match, name) =>
+		vars && Object.prototype.hasOwnProperty.call(vars, name) ? String(vars[name]) : match
+	);
+}
+
+/** A label the worker itself composes: the push module's catalog when its
+ * chunk loaded, the English literals above when it did not. Call sites are
+ * written t("key") so tools/i18n/check.ts's call-site scan sees them. */
+function t(key, vars) {
+	const pushModule = self.seancePush;
+
+	if (pushModule && typeof pushModule.t === "function") {
+		return pushModule.t(key, vars);
+	}
+
+	return swInterpolate(SW_COPY_FALLBACK[key] || key, vars || {});
+}
+
 /** shared/irc.ts's matchFormatting, inline for the fallback. */
 function stripFormattingInline(text) {
 	return text
@@ -1468,7 +1676,7 @@ function fromJson(json) {
 		nick: json.from,
 		command: json.t === "notice" ? "NOTICE" : "PRIVMSG",
 		target: json.target,
-		text: typeof json.text === "string" ? json.text : "New message",
+		text: typeof json.text === "string" ? json.text : t("sw.newMessage"),
 	};
 }
 
@@ -1506,6 +1714,25 @@ async function handlePushNow(raw, state = {fellBack: false}) {
 		}
 
 		const P = push();
+
+		// The page mirrors the reader's preferences here (client/js/
+		// push-prefs.ts): whether Markdown renders, and the UI language tag
+		// the worker's own copy resolves through. Applied here, per push and
+		// before anything reader-visible is composed — the locale can change
+		// between pushes and no page may be open to apply it for us. A stale
+		// js/push.js (a mid-deploy worker) carries no surface: t() falls
+		// back to the English literals instead. The catalog the installs
+		// land in is one shared module state: a second push (or this
+		// handler's own catch, below) applying a locale while an earlier
+		// push is still composing wins last-writer-wins, so notifications
+		// from one flurry can mix locales. Tolerated — one reader, and the
+		// next push re-applies the prefs' choice.
+		const prefs = (await idbGet("prefs")) || {};
+
+		if (typeof P.applyLocale === "function") {
+			await P.applyLocale(appUrl, prefs.locale);
+		}
+
 		const parsed = json ? fromJson(json) : P.parsePushLine(clean);
 
 		// The same relay as a MARKREAD line (the full tier).
@@ -1532,6 +1759,16 @@ async function handlePushNow(raw, state = {fellBack: false}) {
 		await updateBadge();
 	} catch (e) {
 		outcome = "error " + ((e && e.name) || "Error") + ": " + ((e && e.message) || e);
+
+		// Whatever failed above, the prefs' locale may or may not have been
+		// applied — a push that dies before it leaves a locale a previous
+		// push installed, which must not leak into the fallback copy.
+		// Resolve from the default instead.
+		const surface = push();
+
+		if (typeof surface.applyLocale === "function") {
+			await surface.applyLocale(appUrl, undefined);
+		}
 
 		// The deadline's fallback already stands for this push: a second
 		// generic would be a second alert for it.
@@ -1673,7 +1910,7 @@ async function closeOrConvert(target, ts) {
 		return 0;
 	}
 
-	const keep = matched.length === all.length ? newest(matched) : null;
+	const keep = matched.length === all.length && (await closesRunLater()) ? newest(matched) : null;
 
 	for (const n of matched) {
 		if (n !== keep) {
@@ -1688,7 +1925,7 @@ async function closeOrConvert(target, ts) {
 				silent: true,
 				renotify: false,
 				icon: "img/icon-192.png",
-				body: "Marked as read",
+				body: t("sw.markedRead"),
 				data: {...keep.data, kind: "read", count: 0, messages: undefined},
 			});
 		}
@@ -1731,6 +1968,13 @@ async function keepChromeCount(target, quietTag) {
 		return;
 	}
 
+	// A stub nothing can close later would stand until the next push: a
+	// silent push is the lesser cost there (closesRunLater).
+	if (!(await closesRunLater(windows))) {
+		void logPush("no runner for a later close: no stub for " + (target || "all"));
+		return;
+	}
+
 	const up = (await self.registration.getNotifications()).filter(
 		(n) => n.tag && n.tag.startsWith("push-")
 	);
@@ -1753,7 +1997,7 @@ async function keepChromeCount(target, quietTag) {
 		tag,
 		silent: true,
 		icon: "img/icon-192.png",
-		body: "Marked as read",
+		body: t("sw.markedRead"),
 		data: {kind: "read", target, network: network || undefined},
 	});
 
@@ -1786,7 +2030,10 @@ async function markedReadHere(data) {
 		(n) => n.tag && n.tag.startsWith("push-")
 	);
 	const mine = all.filter((n) => n.data && sameName(n.data.target, data.target));
-	const keep = mine.length > 0 && mine.length === all.length ? newest(mine) : null;
+	const keep =
+		mine.length > 0 && mine.length === all.length && (await closesRunLater())
+			? newest(mine)
+			: null;
 
 	for (const n of mine) {
 		if (n !== keep) {
@@ -1801,7 +2048,7 @@ async function markedReadHere(data) {
 				silent: true,
 				renotify: false,
 				icon: "img/icon-192.png",
-				body: "Marked as read",
+				body: t("sw.markedRead"),
 				data: {...keep.data, kind: "read", count: 0, messages: undefined},
 			});
 		}
@@ -1844,7 +2091,7 @@ async function showStub(tag, kind, target, network, fallback = false) {
 		tag,
 		silent: true,
 		icon: "img/icon-192.png",
-		body: kind === "read" ? "Marked as read" : "New message",
+		body: kind === "read" ? t("sw.markedRead") : t("sw.newMessage"),
 		data: {kind, target, network: network || undefined, fallback: fallback || undefined},
 	});
 
@@ -2020,8 +2267,8 @@ async function showMessage(P, parsed, checkSeen, mustShow = false, silent = fals
 	}
 
 	// Merge per target: the message list rides on the notification's
-	// data so it survives the worker being killed between pushes, and a
-	// multiline message grows in place, one line per push.
+	// data so it survives the worker being killed between pushes, and
+	// a multiline message grows in place, one line per push.
 	const existing = await self.registration.getNotifications({tag});
 	// An older worker showed it under the tag without the network: carry
 	// its messages and count over, and close it once this one is up.
@@ -2057,9 +2304,22 @@ async function showMessage(P, parsed, checkSeen, mustShow = false, silent = fals
 		P.notificationText(text, {markdown})
 	);
 
+	// Titles resolve as whole sentences — the unread count is inside
+	// the phrase, never glued on: a translation is free to reorder
+	// (or drop) the count. The worker has no plural rules, so the
+	// count > 1 shape is its own key; a query title below two
+	// messages is the nick alone: nothing to translate.
 	const title = isChannel
-		? parsed.nick + " in " + parsed.target + (count > 1 ? " (" + count + ")" : "")
-		: parsed.nick + (count > 1 ? " (" + count + ")" : "");
+		? count > 1
+			? t("sw.titleChannelCount", {
+					nick: parsed.nick,
+					target: parsed.target,
+					count,
+			  })
+			: t("sw.titleChannel", {nick: parsed.nick, target: parsed.target})
+		: count > 1
+		? t("sw.titleNickCount", {nick: parsed.nick, count})
+		: parsed.nick;
 
 	// Inline reply renders as a text field where the browser supports
 	// it (desktop Chrome) and degrades to a button that deep-links the
@@ -2070,8 +2330,13 @@ async function showMessage(P, parsed, checkSeen, mustShow = false, silent = fals
 	// Mark read is "seen, no answer needed": the account's read marker
 	// at this notification's newest message, on every device.
 	const actions = [
-		{action: "markread", title: "Mark read"},
-		{action: "reply", type: "text", title: "Reply", placeholder: "Reply…"},
+		{action: "markread", title: t("sw.markRead")},
+		{
+			action: "reply",
+			type: "text",
+			title: t("sw.reply"),
+			placeholder: t("sw.replyPlaceholder"),
+		},
 	];
 
 	await showSafely(title, {
@@ -2157,8 +2422,16 @@ async function handlePageMessageNow(payload) {
 		return;
 	}
 
+	// The reader's language, as handlePushNow applies it for a push.
+	const P = push();
+	const prefs = (await idbGet("prefs")) || {};
+
+	if (typeof P.applyLocale === "function") {
+		await P.applyLocale(appUrl, prefs.locale);
+	}
+
 	await showMessage(
-		push(),
+		P,
 		{
 			tags: {
 				msgid: typeof m.msgid === "string" ? m.msgid : undefined,
@@ -2324,6 +2597,23 @@ async function scheduleStubClose(tag, delayMs) {
 
 	// Fire and forget: nothing the caller does should wait on it.
 	registerClosesSync();
+}
+
+/** Whether a close left for after this event can be expected to run: the
+ * timer where the worker lives on, or the Background Sync Chrome fires —
+ * which needs a window of the app open. On Android with no window the
+ * process ends with the event (GCMNativeBackgroundTask.java) and nothing
+ * runs: there a relay closes the last card inside its event too, and shows
+ * no stub — a silent push Chrome counts against the origin's budget, and
+ * past it shows its generic — rather than leave "Marked as read" standing
+ * until the next push (the user, 2026-11-01: it has to go by itself). A
+ * backgrounded phone has a window, so its sync is registered and fires. */
+async function closesRunLater(windows) {
+	if (!/Android/.test(self.navigator.userAgent)) {
+		return true;
+	}
+
+	return (windows || (await appWindows())).length > 0;
 }
 
 /** Whether this worker has learnt that Background Sync is refused here,

@@ -16,19 +16,22 @@ Upstream is still `github.com/thelounge/thelounge`; divergence only grows. local
 
 pnpm, at the version `package.json`'s `packageManager` names (`npm i -g pnpm@12.16.1`; pnpm does not switch itself, because that writes a two-document lockfile GitHub's dependency graph cannot read). Node 25+ ships no corepack, and pnpm advises against it anyway. Dependency install scripts run only when `pnpm-workspace.yaml`'s `allowBuilds` names them.
 
-| Task                                                      | Command                                       |
-| --------------------------------------------------------- | --------------------------------------------- |
-| Install deps                                              | `pnpm install`                                |
-| Build the SPA (Vite → `public/`)                          | `pnpm build` (`NODE_ENV=production` for prod) |
-| Rebuild on change                                         | `pnpm watch`                                  |
-| Serve the built SPA                                       | `python3 -m http.server -d public 8000`       |
-| Lint everything (oxlint + prettier + stylelint)           | `pnpm lint`                                   |
-| Type-check (TypeScript 7; not test/ or `.vue`)            | `pnpm typecheck`                              |
-| Auto-format                                               | `pnpm format:prettier`                        |
-| Full test (lint + typecheck + mocha)                      | `pnpm test`                                   |
-| Mocha only (builds first)                                 | `pnpm test:mocha`                             |
-| Coverage                                                  | `pnpm coverage`                               |
-| Playwright e2e (builds first, needs `SEANCE_E2E_IRC_URL`) | `pnpm test:e2e`                               |
+| Task                                                      | Command                                           |
+| --------------------------------------------------------- | ------------------------------------------------- |
+| Install deps                                              | `pnpm install`                                    |
+| Build the SPA (Vite → `public/`)                          | `pnpm build` (`NODE_ENV=production` for prod)     |
+| Compile the locale catalogs (`pnpm build` runs it)        | `pnpm i18n:compile`                               |
+| Check the pot against the `t()` call sites                | `pnpm i18n:check`                                 |
+| Rebuild on change                                         | `pnpm watch`                                      |
+| Serve the built SPA                                       | `python3 -m http.server -d public 8000`           |
+| Serve the SPA and an ircd WS proxy on one HTTPS port      | `python3 tools/serve.py` (`--http`, `--upstream`) |
+| Lint everything (oxlint + prettier + stylelint)           | `pnpm lint`                                       |
+| Type-check (TypeScript 7; not test/ or `.vue`)            | `pnpm typecheck`                                  |
+| Auto-format                                               | `pnpm format:prettier`                            |
+| Full test (lint + typecheck + mocha)                      | `pnpm test`                                       |
+| Mocha only (builds first)                                 | `pnpm test:mocha`                                 |
+| Coverage                                                  | `pnpm coverage`                                   |
+| Playwright e2e (builds first, needs `SEANCE_E2E_IRC_URL`) | `pnpm test:e2e`                                   |
 
 There is no `pnpm dev`/`pnpm start`; build and serve `public/` statically.
 
@@ -70,7 +73,7 @@ Two TypeScript trees (`client/`, `shared/`) share `tsconfig.base.json`; `tsconfi
 
 ### `client/` — the app
 
-Vue 3 + Vuex + Vue Router SPA built by Vite (`vite.config.mts`, helpers in `scripts/build-info.mts`; the push worker is `vite.push.config.mts`) into `public/`. Components in `client/components/` (`.vue` SFCs); app logic in `client/js/` (`store.ts`, `router.ts`, `store-settings.ts`, `commands/` for UI-only slash commands, `helpers/`); themes in `client/themes/` (one CSS file each, `coffee` is the default; `docs/resources/themes.md`); service worker `client/service-worker.js` (offline shell, web push: one raw IRC line per push, parsed/stripped/merged by `client/js/push/*`, bundled as `js/push.js` and loaded with `importScripts`; see `docs/projects/push-payload-multiline.md`).
+Vue 3 + Vuex + Vue Router SPA built by Vite (`vite.config.mts`, helpers in `scripts/build-info.mts`; the push worker is `vite.push.config.mts` and the translation worker `vite.translate.config.mts`, both built after every app build) into `public/`. Components in `client/components/` (`.vue` SFCs); app logic in `client/js/` (`store.ts`, `router.ts`, `store-settings.ts`, `commands/` for UI-only slash commands, `helpers/`); themes in `client/themes/` (one CSS file each, `coffee` is the default; `docs/resources/themes.md`); service worker `client/service-worker.js` (offline shell, web push: one raw IRC line per push, parsed/stripped/merged by `client/js/push/*`, bundled as `js/push.js` and loaded with `importScripts`; see `docs/projects/push-payload-multiline.md`).
 
 - **`client/js/boot.ts`** — boot sequence: `loadBranding()` (`config.json`) → commit static `configuration.ts` → apply stored settings → `appLoaded` → drop splash → handle `?uri=`/query params → route to the last channel or `Connect` → `autoconnectSavedNetworks()`, last, once the page has its route: the saved networks flagged autoconnect are dialed whatever page the URL opened on (a reload on Settings or Help brings them back too; the connect form no longer does this on mount). Importing `./irc/manager` registers the IRC bus handlers.
 - **Attention** — moved to `docs/resources/client-features.md` § Attention.
@@ -102,6 +105,8 @@ Vue 3 + Vuex + Vue Router SPA built by Vite (`vite.config.mts`, helpers in `scri
 - **Web push** — moved to `docs/resources/web-push-map.md` § Web push.
 - **Oper tools** — moved to `docs/resources/oper-tools-map.md` § Oper tools.
 - **Lua scripting** — moved to `docs/resources/client-features.md` § Lua scripting.
+- **Translation** (`client/js/translate/`) — `docs/resources/client-features.md` § Translation; long form `docs/resources/translation.md`.
+- **Interface languages** (`client/js/i18n/`, `client/locales/`, `tools/i18n/`) — `docs/resources/client-features.md` § Interface languages (i18n); long form `docs/resources/i18n.md`.
 - **`client/js/socket.ts`** — `EventBus`, an in-process replacement for socket.io-client. `on/once/off` subscribe to server→client events, `dispatch(event, payload)` fires them; `emit(event, payload)` is routed to the single `handle(event, fn)` registered for it (unhandled emits `console.warn`). The `socket.on/emit` call-site shape across `socket-events/*` and components is kept **on purpose** so the IRC layer plugs in without touching ~50 call sites. No networking lives here.
 - **`client/js/socket-events/*`** — the bus consumers that mutate the store (`init`, `msg`, `join`, `names`, `network`, `more`, ...). `index.ts` lists them.
 - **`client/js/branding.ts`** + **`client/config.json`** — deploy branding schema/loader; `config.json` is copied to `public/` and fetched at runtime, and read by the build for `index.html`/manifest.
@@ -140,7 +145,7 @@ Cross-cutting types and helpers. `shared/types/socket-events.ts` (`ServerToClien
 ### Everything else
 
 - **`attic/`** — TheLounge's old `server/`, CLI entry, defaults and server tests. **Reference only**: not built, linted, type-checked or tested; excluded from Oxlint, Prettier and the tsconfigs. Look there for "how did the old server do X"; never import from it. See `attic/README.md`.
-- **GitHub Pages** (`.github/workflows/pages.yml`) — `evilnet.github.io/seance/` is the latest release; `develop/` and `pr<N>/` beside it are the develop branch and every open non-draft PR by a collaborator (or labelled `preview`), listed at `previews/`. One deployment is the whole site, so every run assembles all of them (`tools/pages-site.mjs`, `test/tools/pages-site.ts`), each build cached by commit so a PR push rebuilds that PR alone; a failed build becomes a stub page. PR builds run the PR's code under `pull_request_target` with a read-only token — that gating is the security boundary, keep it. Version strings: the tag, `<tag>-<sha8>` for develop, `<tag>-pr<N>.<sha7>` for a PR; with them the build step passes `SEANCE_RELEASE` (the tag — the shallow checkout has none to find) and `SEANCE_TRACK` (`release`, `develop`, `pr<N>`), and Help's About opens with which build this is in words ("This is a preview of pull request #142.", `helpers/sourceLinks.ts` `buildTrackOf`, `test/helpers/sourceLinks.ts`); a build made anywhere else names its git branch.
+- **GitHub Pages** (`.github/workflows/pages.yml`) — `evilnet.github.io/seance/` is the latest release; `develop/` and `pr<N>/` beside it are the develop branch and every open non-draft PR by a collaborator (or labelled `preview`), listed at `previews/`. One deployment is the whole site, so every run assembles all of them (`tools/pages-site.mjs`, `test/tools/pages-site.ts`), each build cached by commit so a PR push rebuilds that PR alone; a failed build becomes a stub page; no build's `*.map` files are published (local builds keep them). PR builds run the PR's code under `pull_request_target` with a read-only token — that gating is the security boundary, keep it. Version strings: the tag, `<tag>-<sha8>` for develop, `<tag>-pr<N>.<sha7>` for a PR; with them the build step passes `SEANCE_RELEASE` (the tag — the shallow checkout has none to find) and `SEANCE_TRACK` (`release`, `develop`, `pr<N>`), and Help's About opens with which build this is in words ("This is a preview of pull request #142.", `helpers/sourceLinks.ts` `buildTrackOf`, `test/helpers/sourceLinks.ts`); a build made anywhere else names its git branch.
 - **`tools/`** — `nefarious-dev/` (dev ircd), `irc-ws-probe.mjs`, `pwa-check.mjs`, `pages-site.mjs` (the Pages site), and `browser-drive.mjs` + `scenarios/` (drives a real Chromium over the DevTools protocol: WebSocket frames with byte sizes for the nefarious2 framing bugs, or a scenario that clicks/asserts/screenshots — nothing in `pnpm test` touches the DOM or a browser). See `docs/resources/browser-testing.md` and the `browser-check` skill.
 - **`docs/`** — PARA layout (`projects/`, `areas/`, `resources/`, `archives/`), see `docs/README.md`.
 - **`tmp/`** — gitignored scratch: the nefarious2 checkout, the fix patch, dev-server state.
@@ -162,7 +167,8 @@ Cross-cutting types and helpers. `shared/types/socket-events.ts` (`ServerToClien
 - IRC unit tests use a `FakeTransport` injected through `transportFactory` and drive lines with `transport.line(...)`, asserting on a `sinon.spy(socket, "dispatch")`. **Gotcha:** `test/irc/client.ts` installs that spy in a root-level `beforeEach`, which mocha applies to every file in the run; other files (`multi-network.ts`, `history.ts`, ...) check `socket.dispatch.isSinonProxy` and only `restore()` a spy they own. Follow that pattern in new test files or the suite fails when run together.
 - Modules that must run under mocha (`irc/*`, `saved-networks.ts`, `sts.ts`) stay free of store/DOM imports; tests swap storage via `useStorageBackend`.
 - Live tests are gated on `SEANCE_IRC_URL` (and `SEANCE_IRC_CHANNEL`, default `#seance`) and need the dev ircd running.
-- localStorage keys are still `thelounge.*` (`thelounge.networks`, `thelounge.sts`, `thelounge.mentions`, `thelounge.muted`, `thelounge.media.trusted`, `thelounge.sort.*`, `thelounge.state.lastChannel`, ...). Do not rename without a migration.
+- **Every UI string goes through `t()`/`tCount()`** — `docs/resources/client-features.md` § Interface languages (i18n).
+- localStorage keys are still `thelounge.*` (`thelounge.networks`, `thelounge.sts`, `thelounge.mentions`, `thelounge.muted`, `thelounge.media.trusted`, `thelounge.sort.*`, `thelounge.state.lastChannel`, `thelounge.translate`, ...). Do not rename without a migration.
 
 ## Documentation
 
@@ -183,6 +189,8 @@ Cross-cutting types and helpers. `shared/types/socket-events.ts` (`ServerToClien
 - `docs/resources/reactions.md` — reactions as free text: the emoji picker, the recents list, `/react`'s argument rules and where the catalog comes from.
 - `docs/resources/settings-backup.md` — the `.seance-settings` file: what it carries, what it never does, how a restore applies.
 - `docs/resources/aliases.md` — command aliases: the expansion rules, where they hook into input, the settings editor.
+- `docs/resources/translation.md` — the on-device translation engines, router, worker and weights; `docs/projects/translation-devices.md` the per-model GPU/CPU choice. Summary: `docs/resources/client-features.md` § Translation.
+- `docs/resources/i18n.md` — the interface's languages: the pot and the catalogs, the tools (add, merge, sync, fill, sweep, check), RTL and the `qqx` rig. Summary: `docs/resources/client-features.md` § Interface languages (i18n).
 - `docs/areas/scripting/` — the user's guide to Lua scripts: getting started, the `seance` API, a cookbook, limits and pitfalls. `docs/resources/lua-scripting.md` is how the sandbox is built.
 - `docs/resources/themes.md` — how a theme file works, the themes (`coffee` the default, `ps` the one with a live scene), the Ink & Amber tokens and where they deviate from the handoff in `docs/resources/themes/`. Browser check: `tools/scenarios/themes.mjs`.
 - `docs/projects/ps-theme.md` — the `ps` theme's five-plan spec; plan 1 (the seam) landed 2026-09-24 — the hook, the engine and palette, the live scene, the daylight fallback and the message column's palette; plan 2 (the chrome) 2026-09-25 — the glass and solid chrome with its two palettes, Mulish and Fraunces (Source Sans 3 and Newsreader since plan 4), the calibrated legibility model and its generator; plan 3 (the plains) 2026-09-26 — the land and river, the yurt, the birds, the day's weather, the luminous day glass, the measured budget and the frosted private view; plan 4 (the rest) 2026-09-26 — the embers, reduced motion's full stand-down, the select by the hour, cloudier rain and storms with no birds, the user's new faces, the in-message nick, the gutter, and the full browser check with its glyph samples; plan 5 (right-to-left) still ahead.

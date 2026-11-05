@@ -38,6 +38,21 @@ export default async function run(page) {
 
 	// Let the join burst settle and pin the newest message to the viewport.
 	await page.sleep(800);
+
+	// The veil's caption is ONE catalog phrase with the file name inside it
+	// (link.clickToShowFile), not a translated tail glued to the name: the
+	// separator's place is the language's business.
+	const hint = await page.evaluate(
+		`(() => {
+			const veils = document.querySelectorAll(".media-veil");
+			const veil = veils[veils.length - 1];
+			return veil?.querySelector(".media-veil-hint")?.textContent ?? "";
+		})()`
+	);
+	page.check(
+		`the veil's caption carries the file name and the hint as one phrase (${hint})`,
+		/\.png/.test(hint) && /click to show/i.test(hint) && !/\.png\S*click/i.test(hint)
+	);
 	await page.evaluate(`document.querySelector("#chat .messages")?.scrollTo(0, 1e9)`);
 	await page.sleep(300);
 

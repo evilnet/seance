@@ -1,18 +1,39 @@
 import type {UserModel} from "../irc/investigate";
+import {t} from "../i18n/core";
 import type {SeenEntry} from "./verdict";
 
 /** The facts Compare can call the same, in the order the card shows them. */
 export const COMPARED = [
-	["host", "host"],
-	["ip", "IP"],
-	["server", "server"],
-	["account", "account"],
-	["realname", "realname"],
-	["version", "version"],
-	["lastQuitHostmask", "last quit"],
+	"host",
+	"ip",
+	"server",
+	"account",
+	"realname",
+	"version",
+	"lastQuitHostmask",
 ] as const;
 
-export type ComparedKey = (typeof COMPARED)[number][0];
+export type ComparedKey = (typeof COMPARED)[number];
+
+/** A compared fact as one of the summary's tags: `host`, `IP`, `last quit`. */
+function factLabel(key: ComparedKey): string {
+	switch (key) {
+		case "host":
+			return t("oper.investigate.tag.host");
+		case "ip":
+			return t("oper.investigate.tag.ip");
+		case "server":
+			return t("oper.investigate.tag.server");
+		case "account":
+			return t("oper.investigate.tag.account");
+		case "realname":
+			return t("oper.investigate.tag.realname");
+		case "version":
+			return t("oper.investigate.tag.version");
+		default:
+			return t("oper.investigate.tag.lastQuit");
+	}
+}
 
 /** A user's value for a compared fact, lower-cased; undefined when unknown. */
 export function factOf(model: UserModel, key: ComparedKey): string | undefined {
@@ -42,16 +63,20 @@ export interface CompareSummary {
  */
 export function compareSummary(a: UserModel, b: UserModel): CompareSummary {
 	const known = COMPARED.filter(
-		([key]) => factOf(a, key) !== undefined && factOf(b, key) !== undefined
+		(key) => factOf(a, key) !== undefined && factOf(b, key) !== undefined
 	);
-	const same = known.filter(([key]) => sameFact(a, b, key));
-	const address = same.some(([key]) => key === "ip" || key === "host");
+	const same = known.filter((key) => sameFact(a, b, key));
+	const address = same.some((key) => key === "ip" || key === "host");
 	const likely = address && same.length >= 3;
 	return {
 		known: known.length,
-		same: same.map(([, label]) => label),
+		same: same.map(factLabel),
 		tone: likely ? "warn" : "plain",
-		lead: likely ? "Likely same person" : same.length ? "Some in common" : "Nothing in common",
+		lead: likely
+			? t("oper.investigate.compare.likely")
+			: same.length
+			? t("oper.investigate.compare.some")
+			: t("oper.investigate.compare.nothing"),
 	};
 }
 

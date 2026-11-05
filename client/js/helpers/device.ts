@@ -37,3 +37,8 @@ export function isPhoneLayout(): boolean {
 
 	return window.matchMedia(PHONE_LAYOUT_QUERY).matches;
 }
+
+/** Whether the keyboard is an Apple one, whose keys are named ⌥ and ⌫. */
+export function isApplePlatform(): boolean {
+	return /Mac|iPhone|iPod|iPad/i.test(navigator.platform);
+}

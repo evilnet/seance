@@ -19,6 +19,7 @@
  * a browser WebSocket cannot present, so it is unusable in Seance for now.
  */
 
+import {t} from "../i18n/core";
 import type {IrcMessage} from "./message";
 
 export type SaslMechanism = "PLAIN" | "EXTERNAL";
@@ -147,7 +148,7 @@ export class SaslAuth {
 	}
 
 	/** Give up (timeout): tell the server and finish as a failure. */
-	abort(reason = "timed out"): SaslResult {
+	abort(reason = t("connect.saslReason.timeout")): SaslResult {
 		if (this.phase === "done") {
 			return this.result([], false);
 		}
@@ -177,7 +178,7 @@ export class SaslAuth {
 					send: [],
 					done: false,
 					ok: false,
-					info: `Available SASL mechanisms: ${msg.params[1] ?? ""}`,
+					info: t("connect.saslMechanisms", {mechanisms: msg.params[1] ?? ""}),
 				};
 			case RPL_SASLSUCCESS:
 				this.phase = "done";
@@ -188,7 +189,12 @@ export class SaslAuth {
 
 		if (FAILURE_NUMERICS.has(msg.command)) {
 			this.phase = "done";
-			return {send: [], done: true, ok: false, error: text || `numeric ${msg.command}`};
+			return {
+				send: [],
+				done: true,
+				ok: false,
+				error: text || t("connect.saslReason.numeric", {code: msg.command}),
+			};
 		}
 
 		return this.result([], false);
@@ -208,7 +214,7 @@ export class SaslAuth {
 				send: ["AUTHENTICATE *"],
 				done: true,
 				ok: false,
-				error: `unexpected challenge for ${this.mechanism}`,
+				error: t("connect.saslReason.badChallenge", {mechanism: this.mechanism}),
 			};
 		}
 

@@ -11,8 +11,9 @@
 		<span
 			v-if="message.snotice?.origin"
 			class="snotice-origin"
-			:title="`Relayed from ${message.snotice.origin}`"
-			>{{ message.snotice.origin }}</span
+			:title="t('oper.snotice.relayedFrom', {server: message.snotice.origin})"
+			>{{ via[0] }}<bdi class="snotice-origin-server">{{ message.snotice.origin }}</bdi
+			>{{ via[1] }}</span
 		>
 	</span>
 </template>
@@ -23,6 +24,8 @@ import type {ClientMessage, ClientNetwork} from "../../js/types";
 import {categoryBadge} from "../../js/helpers/operFormat";
 import NoticeBadge from "../Oper/NoticeBadge.vue";
 import SnoticeText from "../Oper/SnoticeText.vue";
+import {useI18n} from "../../js/i18n";
+import {frameSegments, KEEP} from "../../js/i18n/core";
 
 /**
  * A server notice, classified and routed (irc/snotice.ts): a category badge
@@ -38,9 +41,18 @@ export default defineComponent({
 		message: {type: Object as PropType<ClientMessage>, required: true},
 	},
 	setup(props) {
-		const badge = computed(() => categoryBadge(props.message.snotice?.category ?? "OTHER"));
+		const {t, locale} = useI18n();
+		const badge = computed(() => {
+			void locale.value; // the badge's word is translated: follow the language
+			return categoryBadge(props.message.snotice?.category ?? "OTHER");
+		});
 
-		return {badge};
+		// "via {server}" as one phrase; the server name keeps its own style.
+		const via = computed(() =>
+			frameSegments(t("oper.snotice.via", {server: KEEP}), ["server"])
+		);
+
+		return {t, badge, via};
 	},
 });
 </script>

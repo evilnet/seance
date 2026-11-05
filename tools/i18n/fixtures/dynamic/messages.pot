@@ -1,0 +1,10 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"language: en\n"
+
+#: client/js/clean.ts
+#. A properly referenced key for the dynamic fixture's static call.
+msgctxt "clean.key"
+msgid "Clean"
+msgstr ""

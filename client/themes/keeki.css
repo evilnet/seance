@@ -63,6 +63,7 @@
 	--nick-default: #e9b6a6;
 	--notice-color: #f0c98a;
 	--action-color: #ff7bc8;
+	--mention-mark-color: var(--action-color);
 
 	/* Notice boxes */
 	--note-bg: #241530;
@@ -282,7 +283,7 @@
 }
 
 #chat .unread-marker-text::before {
-	content: "❀ New messages ❀";
+	content: "❀ " attr(data-label) " ❀";
 }
 
 /* The yurt stands on the footer at the rail's right, clear of the channel

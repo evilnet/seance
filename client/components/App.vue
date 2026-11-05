@@ -143,9 +143,15 @@ export default defineComponent({
 		};
 
 		const toggleMentions = () => {
-			if (store.state.networks.length !== 0) {
+			const layer = topEscapeLayer();
+
+			// Under a dialog the pane would take the keys, out of sight.
+			if (store.state.networks.length !== 0 && (layer === null || layer === "mentions")) {
 				eventbus.emit("mentions:toggle");
 			}
+
+			// As below: without it ⌥M types µ on an Apple keyboard.
+			return false;
 		};
 
 		const toggleMarkdown = () => {

@@ -5,6 +5,7 @@
   "files": [
     "./vite.config.mts",
     "./vite.push.config.mts",
+    "./vite.translate.config.mts",
     "./scripts/build-info.mts",
     "./playwright.config.ts"
   ]
