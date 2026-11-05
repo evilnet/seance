@@ -12250,6 +12250,12 @@ msgstr[3] "يجري البحث بدلًا من ذلك في الرسائل الم
 msgstr[4] "يجري البحث بدلًا من ذلك في الرسائل المحمّلة على هذا الجهاز ({count}). لا تزال عوامل التصفية تعمل."
 msgstr[5] "يجري البحث بدلًا من ذلك في الرسائل المحمّلة على هذا الجهاز ({count}). لا تزال عوامل التصفية تعمل."
 
+#. Beside a search result that comes from messages loaded on this device, not from the server.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.loadedRow"
+msgid "on this device"
+msgstr ""
+
 #. Search window (searching the chat history of the server, or of what is loaded on this device): in the status line under the results: how many matches are shown. {count} is a number. Lower case.
 #: client/components/Windows/SearchResults.vue
 msgctxt "search.window.matchCount"
@@ -12315,6 +12321,12 @@ msgstr "إزالة عامل التصفية {filter}"
 msgctxt "search.window.retry"
 msgid "Try again"
 msgstr "أعد المحاولة"
+
+#. Banner above loaded messages when a search of one conversation came back empty. {scope} is its name.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.scopeEmpty"
+msgid "The server found nothing in {scope}."
+msgstr ""
 
 #. Search window (searching the chat history of the server, or of what is loaded on this device): the 'Search older' button's label while older matches are being asked for.
 #: client/components/Windows/SearchResults.vue

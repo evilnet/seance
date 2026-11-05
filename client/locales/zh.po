@@ -11911,6 +11911,12 @@ msgid "Searching the {count} message loaded on this device instead. Filters stil
 msgid_plural "Searching the {count} messages loaded on this device instead. Filters still work."
 msgstr[0] "改为在此设备已加载的 {count} 条消息中搜索。筛选条件依然有效。"
 
+#. Beside a search result that comes from messages loaded on this device, not from the server.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.loadedRow"
+msgid "on this device"
+msgstr ""
+
 #. Search window (searching the chat history of the server, or of what is loaded on this device): in the status line under the results: how many matches are shown. {count} is a number. Lower case.
 #: client/components/Windows/SearchResults.vue
 msgctxt "search.window.matchCount"
@@ -11971,6 +11977,12 @@ msgstr "移除“{filter}”筛选"
 msgctxt "search.window.retry"
 msgid "Try again"
 msgstr "重试"
+
+#. Banner above loaded messages when a search of one conversation came back empty. {scope} is its name.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.scopeEmpty"
+msgid "The server found nothing in {scope}."
+msgstr ""
 
 #. Search window (searching the chat history of the server, or of what is loaded on this device): the 'Search older' button's label while older matches are being asked for.
 #: client/components/Windows/SearchResults.vue
