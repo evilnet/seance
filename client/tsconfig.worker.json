@@ -1,0 +1,15 @@
+{
+  // The translation worker (js/translate/worker-entry.ts, built by
+  // vite.translate.config.mts) and the *.real.ts modules that are its only
+  // imports of transformers.js, WebLLM and wllama. Checked on their own, with
+  // skipLibCheck: transformers.js and WebLLM publish declarations that do
+  // not check (path aliases that resolve nowhere, packages they ship no
+  // types for, the chrome namespace). Everything else in client/ is checked
+  // by tsconfig.json with it off; what the worker imports from there is
+  // checked twice.
+  "extends": "./tsconfig.json",
+  "include": [],
+  "exclude": [],
+  "files": ["./js/translate/worker-entry.ts", "./vite-env.d.ts"],
+  "compilerOptions": {"skipLibCheck": true}
+}

@@ -8,6 +8,15 @@
 const DB_NAME = "seance-push";
 const STORE = "kv";
 
+/** The IndexedDB factory in use. Tests swap it (the useStorageBackend
+ * pattern) so they never patch a global — mocha runs with check-leaks. */
+let factory: IDBFactory | null = null;
+
+/** Swap the IndexedDB factory; null restores the browser's. */
+export function useIDBFactory(next: IDBFactory | null): void {
+	factory = next;
+}
+
 // Every helper settles, whatever IndexedDB does: a caller awaits it on the
 // way to subscribing (webpush.ts), and a promise that never settles there
 // holds that network's subscribe — and with a Yes, the push prompt — for
@@ -16,7 +25,7 @@ const STORE = "kv";
 
 function open(): Promise<IDBDatabase> {
 	return new Promise((resolve, reject) => {
-		const req = indexedDB.open(DB_NAME, 1);
+		const req = (factory ?? indexedDB).open(DB_NAME, 1);
 		let blocked = false;
 
 		req.onupgradeneeded = () => req.result.createObjectStore(STORE);

@@ -23,8 +23,12 @@ describe("helpers/messageTime.ts", function () {
 	});
 
 	it("gives the year only when it is not this one", function () {
+		// Intl's, in the interface language (i18n/dates.ts): en here.
 		const lastYear = dayjs().subtract(1, "year").month(10).date(2).toDate();
-		expect(shortDay(lastYear)).to.equal(`2 Nov ${lastYear.getFullYear()}`);
+		expect(shortDay(lastYear)).to.equal(`Nov 2, ${lastYear.getFullYear()}`);
+
+		const thisYear = dayjs().month(10).date(2).toDate();
+		expect(shortDay(thisYear)).to.equal("Nov 2");
 	});
 
 	it("follows the clock settings", function () {
@@ -34,7 +38,8 @@ describe("helpers/messageTime.ts", function () {
 
 		expect(clock(false, false)).to.equal("21:58");
 		expect(clock(false, true)).to.equal("21:58:07");
-		expect(clock(true, false)).to.equal("9:58pm");
-		expect(clock(true, true)).to.equal("9:58:07pm");
+		// Intl's 12-hour clock, which writes a (narrow) space before the PM.
+		expect(clock(true, false)).to.match(/^9:58\sPM$/);
+		expect(clock(true, true)).to.match(/^9:58:07\sPM$/);
 	});
 });

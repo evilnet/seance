@@ -85,8 +85,13 @@ function reorderJoinList(networkUuid: string, names: string[]): void {
 	}
 }
 
-/** Re-apply a previously stored ordering to the networks currently in the store. */
-export function applyStoredNetworkOrder(): void {
+/**
+ * Re-apply a previously stored ordering to the networks currently in the
+ * store. `collator` is optional: where given, networks the stored order
+ * does not know (joined since the order was saved) sort among themselves
+ * by the active locale's collation instead of keeping their arrival order.
+ */
+export function applyStoredNetworkOrder(collator?: Intl.Collator): void {
 	const order = readJson<string[]>(NETWORKS_KEY, []);
 
 	if (order.length === 0) {
@@ -97,9 +102,10 @@ export function applyStoredNetworkOrder(): void {
 		const ia = order.indexOf(a.uuid);
 		const ib = order.indexOf(b.uuid);
 
-		// Unknown networks keep their relative position after known ones
+		// Unknown networks keep their relative position after known ones —
+		// collated by name when the caller passed a collator
 		if (ia === -1 && ib === -1) {
-			return 0;
+			return collator ? collator.compare(a.name, b.name) : 0;
 		} else if (ia === -1) {
 			return 1;
 		} else if (ib === -1) {
@@ -110,8 +116,13 @@ export function applyStoredNetworkOrder(): void {
 	});
 }
 
-/** Re-apply a previously stored channel ordering to a network. */
-export function applyStoredChannelOrder(network: ClientNetwork): void {
+/**
+ * Re-apply a previously stored channel ordering to a network. `collator`
+ * is optional: where given, channels the stored order does not know
+ * (joined since the order was saved) sort among themselves by the active
+ * locale's collation instead of keeping their arrival order.
+ */
+export function applyStoredChannelOrder(network: ClientNetwork, collator?: Intl.Collator): void {
 	const order = saved.channelOrder(network.uuid);
 
 	if (order.length === 0) {
@@ -129,7 +140,7 @@ export function applyStoredChannelOrder(network: ClientNetwork): void {
 		const ib = order.indexOf(b.name);
 
 		if (ia === -1 && ib === -1) {
-			return 0;
+			return collator ? collator.compare(a.name, b.name) : 0;
 		} else if (ia === -1) {
 			return 1;
 		} else if (ib === -1) {

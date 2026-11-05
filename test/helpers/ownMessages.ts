@@ -1,8 +1,8 @@
 import {expect} from "chai";
+import en from "../../client/locales/en.json";
 import {
 	defaultOwnMessageStyle,
 	normalizeOwnMessageStyle,
-	ownMessageStyleLabels,
 	ownMessageStyles,
 } from "../../client/js/helpers/ownMessages";
 
@@ -13,12 +13,6 @@ describe("ownMessages", () => {
 	it("offers greyed text, a band and nothing, greyed being the default", () => {
 		expect(ownMessageStyles).to.deep.equal(["muted", "band", "plain"]);
 		expect(defaultOwnMessageStyle).to.equal("muted");
-	});
-
-	it("labels every style", () => {
-		for (const style of ownMessageStyles) {
-			expect(ownMessageStyleLabels[style]).to.be.a("string").and.not.equal("");
-		}
 	});
 
 	it("passes the three names through", () => {
@@ -32,5 +26,17 @@ describe("ownMessages", () => {
 		expect(normalizeOwnMessageStyle("")).to.equal("muted");
 		expect(normalizeOwnMessageStyle("grey")).to.equal("muted");
 		expect(normalizeOwnMessageStyle(2)).to.equal("muted");
+	});
+
+	it("has an English label and hint for every style (Appearance.vue's keys)", function () {
+		const catalog = en as Record<string, unknown>;
+
+		for (const style of ownMessageStyles) {
+			const key = `settings.appearance.ownMessages${style
+				.charAt(0)
+				.toUpperCase()}${style.slice(1)}`;
+			expect(catalog[key], style).to.be.a("string").and.not.equal("");
+			expect(catalog[`${key}Hint`], style).to.be.a("string").and.not.equal("");
+		}
 	});
 });

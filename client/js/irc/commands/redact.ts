@@ -5,6 +5,7 @@
  */
 
 import {MessageType} from "../../../../shared/types/msg";
+import {t} from "../../i18n/core";
 import type {Command} from "../types";
 import {textAfter} from "./words";
 
@@ -16,7 +17,7 @@ const redact: Command = {
 		if (msgid.length === 0) {
 			client.pushMessage(chan, {
 				type: MessageType.ERROR,
-				text: `Usage: /${cmd} <msgid> [reason]`,
+				text: t("cmd.usageRedact", {cmd}),
 			});
 			return;
 		}

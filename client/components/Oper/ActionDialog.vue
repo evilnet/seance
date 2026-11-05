@@ -19,13 +19,21 @@
 
 				<template v-if="request.action === 'kill'">
 					<p v-if="who" class="oper-action-hint">
-						{{ request.nick }} is <span class="oper-action-who">{{ who }}</span> right
-						now.
+						<I18nFrame :text="t('oper.action.whoNow', {nick: KEEP, who: KEEP})">
+							<template #nick
+								><bdi>{{ request.nick }}</bdi></template
+							>
+							<template #who
+								><span class="oper-action-who">{{ who }}</span></template
+							>
+						</I18nFrame>
 					</p>
 					<p v-else-if="looking" class="oper-action-hint">
-						Looking up {{ request.nick }}…
+						{{ t("oper.action.lookingUp", {nick: request.nick ?? ""}) }}
 					</p>
-					<label class="oper-action-label" for="oper-action-reason">Reason</label>
+					<label class="oper-action-label" for="oper-action-reason">{{
+						t("oper.action.reason")
+					}}</label>
 					<input
 						id="oper-action-reason"
 						ref="firstField"
@@ -33,13 +41,15 @@
 						class="input"
 						type="text"
 						maxlength="250"
-						placeholder="Shown to the user and on the network"
+						:placeholder="t('oper.action.killReasonPlaceholder')"
 						required
 					/>
 				</template>
 
 				<template v-else>
-					<label class="oper-action-label" for="oper-action-mask">Mask</label>
+					<label class="oper-action-label" for="oper-action-mask">{{
+						t("oper.action.mask")
+					}}</label>
 					<input
 						id="oper-action-mask"
 						ref="firstField"
@@ -50,9 +60,9 @@
 						autocomplete="off"
 						:placeholder="
 							banType === 'zline'
-								? '203.0.113.7 or 203.0.113.0/24'
+								? t('oper.action.maskPlaceholderZline')
 								: viaServices
-								? 'user@host or *@ip (no CIDR)'
+								? t('oper.action.maskPlaceholderServices')
 								: 'user@host, *@ip, $Rrealname'
 						"
 					/>
@@ -69,7 +79,7 @@
 						</button>
 					</div>
 					<p v-else-if="looking" class="oper-action-hint">
-						Looking up {{ request.nick }}…
+						{{ t("oper.action.lookingUp", {nick: request.nick ?? ""}) }}
 					</p>
 					<p v-if="maskCheck.error" class="oper-action-error">{{ maskCheck.error }}</p>
 					<p
@@ -87,38 +97,40 @@
 							:disabled="forceFlag && !viaServices && !canForce"
 						/>
 						{{ confirmLabel }}
-						<span v-if="forceFlag && !viaServices && !canForce" class="oper-muted"
-							>(needs the WIDE_{{ banType.toUpperCase() }} privilege)</span
-						>
+						<span v-if="forceFlag && !viaServices && !canForce" class="oper-muted">{{
+							t("oper.action.forceNeeds", {priv: `WIDE_${banType.toUpperCase()}`})
+						}}</span>
 					</label>
 
 					<div class="oper-action-row">
 						<div class="oper-action-field">
-							<label class="oper-action-label" for="oper-action-duration"
-								>Duration</label
-							>
+							<label class="oper-action-label" for="oper-action-duration">{{
+								t("oper.action.duration")
+							}}</label>
 							<select
 								id="oper-action-duration"
 								v-model="durationChoice"
 								class="input"
 							>
-								<option v-for="d in DURATIONS" :key="d.value" :value="d.value">
+								<option v-for="d in durations" :key="d.value" :value="d.value">
 									{{ d.label }}
 								</option>
-								<option value="custom">Custom…</option>
+								<option value="custom">
+									{{ t("oper.action.durationCustom") }}
+								</option>
 							</select>
 							<input
 								v-if="durationChoice === 'custom'"
 								v-model="customDuration"
 								class="input"
 								type="text"
-								placeholder="e.g. 2d12h (7d at most)"
+								:placeholder="t('oper.action.durationPlaceholder')"
 							/>
 						</div>
 						<div v-if="scopes.length > 1 && !viaServices" class="oper-action-field">
-							<label class="oper-action-label" for="oper-action-scope"
-								>Applies to</label
-							>
+							<label class="oper-action-label" for="oper-action-scope">{{
+								t("oper.action.scope")
+							}}</label>
 							<select id="oper-action-scope" v-model="scope" class="input">
 								<option v-for="s in scopes" :key="s.value" :value="s.value">
 									{{ s.label }}
@@ -127,14 +139,16 @@
 						</div>
 					</div>
 
-					<label class="oper-action-label" for="oper-action-reason">Reason</label>
+					<label class="oper-action-label" for="oper-action-reason">{{
+						t("oper.action.reason")
+					}}</label>
 					<input
 						id="oper-action-reason"
 						v-model="reason"
 						class="input"
 						type="text"
 						maxlength="250"
-						placeholder="Shown to the user"
+						:placeholder="t('oper.action.banReasonPlaceholder')"
 						required
 					/>
 				</template>
@@ -149,14 +163,14 @@
 					:disabled="busy"
 					@click="dismiss"
 				>
-					Cancel
+					{{ t("oper.action.cancel") }}
 				</button>
 				<button
 					type="submit"
 					class="oper-btn oper-btn-danger solid"
 					:disabled="!canSubmit || busy"
 				>
-					{{ busy ? "Sending…" : actionLabel }}
+					{{ busy ? t("oper.action.sending") : actionLabel }}
 				</button>
 			</div>
 		</form>
@@ -283,6 +297,9 @@
 <script lang="ts">
 import {computed, defineComponent, nextTick, onMounted, onUnmounted, ref, watch} from "vue";
 import eventbus from "../../js/eventbus";
+import {useI18n} from "../../js/i18n";
+import {KEEP} from "../../js/i18n/core";
+import I18nFrame from "../I18nFrame.vue";
 import {useStore} from "../../js/store";
 import {operRequest, servicesBan} from "../../js/helpers/operRequest";
 import {clientForNetwork} from "../../js/irc/manager";
@@ -304,14 +321,6 @@ import {hasVirtualKeyboard} from "../../js/helpers/device";
 import {lineBudget, lineTooLongText} from "../../js/helpers/operLine";
 import {errorOf} from "../../js/irc/profiles/report";
 import type {IrcMessage} from "../../js/irc/message";
-
-const DURATIONS = [
-	{value: "3600", label: "1 hour"},
-	{value: "21600", label: "6 hours"},
-	{value: "86400", label: "1 day"},
-	{value: "259200", label: "3 days"},
-	{value: String(BAN_MAX_SECONDS), label: "7 days (the most)"},
-];
 
 /** The numerics a single-mask list query ends with: found, not found. */
 const LIST_END: Record<BanType, string[]> = {
@@ -337,8 +346,10 @@ const NAMES: Record<BanType, string> = {gline: "G-line", shun: "Shun", zline: "Z
  */
 export default defineComponent({
 	name: "OperActionDialog",
+	components: {I18nFrame},
 	setup() {
 		const store = useStore();
+		const {t, tCount} = useI18n();
 		const request = ref<OperActionRequest | null>(null);
 		const firstField = ref<HTMLInputElement | null>(null);
 		const mask = ref("");
@@ -391,17 +402,35 @@ export default defineComponent({
 				return "";
 			}
 
-			const what = r.action === "kill" ? "Kill" : NAMES[r.action];
-			const via = viaServices.value ? ` via ${serviceBot.value}` : "";
-			return r.nick ? `${what} ${r.nick}${via}` : `${what}${via}`;
+			if (r.action === "kill") {
+				return r.nick ? t("oper.action.titleKill", {nick: r.nick}) : t("oper.action.kill");
+			}
+
+			const vars = {type: NAMES[r.action], nick: r.nick ?? "", bot: serviceBot.value};
+
+			if (viaServices.value) {
+				return r.nick
+					? t("oper.action.titleBanVia", vars)
+					: t("oper.action.titleBanViaNoNick", vars);
+			}
+
+			return r.nick ? t("oper.action.titleBan", vars) : NAMES[r.action];
 		});
-		const actionLabel = computed(() =>
-			request.value?.action === "kill"
-				? "Kill"
-				: `Set ${NAMES[banType.value]}${
-						viaServices.value ? ` via ${serviceBot.value}` : ""
-				  }`
-		);
+		const actionLabel = computed(() => {
+			if (request.value?.action === "kill") {
+				return t("oper.action.kill");
+			}
+
+			const vars = {type: NAMES[banType.value], bot: serviceBot.value};
+			return viaServices.value ? t("oper.action.setVia", vars) : t("oper.action.set", vars);
+		});
+		const durations = computed(() => [
+			{value: "3600", label: t("oper.action.duration1h")},
+			{value: "21600", label: t("oper.action.duration6h")},
+			{value: "86400", label: t("oper.action.duration1d")},
+			{value: "259200", label: t("oper.action.duration3d")},
+			{value: String(BAN_MAX_SECONDS), label: t("oper.action.duration7d")},
+		]);
 		// O3 rejects CIDR masks: only `*@ip`, `ident@ip` and `*@host` are offered there.
 		const suggestions = computed(() =>
 			viaServices.value
@@ -424,14 +453,14 @@ export default defineComponent({
 			const out: {value: string; label: string}[] = [];
 
 			if (!n || hasPriv(n, type)) {
-				out.push({value: "*", label: "The whole network"});
+				out.push({value: "*", label: t("oper.action.scopeNetwork")});
 			}
 
 			if (!n || hasPriv(n, `LOCAL_${type}`)) {
-				out.push({value: "", label: "This server only"});
+				out.push({value: "", label: t("oper.action.scopeServer")});
 			}
 
-			return out.length ? out : [{value: "*", label: "The whole network"}];
+			return out.length ? out : [{value: "*", label: t("oper.action.scopeNetwork")}];
 		});
 
 		/** The server's force (`!`): a mask wide by its shape, or by the 20+ it matches now. */
@@ -450,10 +479,10 @@ export default defineComponent({
 		);
 		const confirmLabel = computed(() =>
 			unchecked.value && !forceFlag.value
-				? "Yes, ban everyone this matches (it can't be previewed)"
+				? t("oper.action.confirmUnchecked")
 				: viaServices.value
-				? "Yes, set this wide mask"
-				: "Force this wide mask"
+				? t("oper.action.confirmWideVia")
+				: t("oper.action.force")
 		);
 
 		/** The exact line Submit sends (without the label the IRC layer adds). */
@@ -691,7 +720,7 @@ export default defineComponent({
 			}
 
 			if (reply.lines.some((msg) => msg.command === "292")) {
-				preview.value = {count: 0, text: "Matches nobody connected right now."};
+				preview.value = {count: 0, text: t("oper.action.previewNobody")};
 				return;
 			}
 
@@ -700,18 +729,20 @@ export default defineComponent({
 			const nicks = rows
 				.map((row) => (row.nick && "v" in row.nick ? String(row.nick.v) : ""))
 				.filter(Boolean);
-			const shown = nicks.slice(0, 8).join(", ");
-			const more = nicks.length > 8 ? ` and ${nicks.length - 8} more` : "";
-			const wide =
-				nicks.length >= 20 ? " — the server refuses 20 or more without force." : "";
+			const shown = nicks.slice(0, 8).join(t("oper.list.separator"));
+			const vars = {nicks: shown, more: nicks.length - 8};
 			preview.value = report?.error
 				? null
 				: {
 						count: nicks.length,
 						text:
 							nicks.length === 1
-								? `Matches 1 user: ${shown}.`
-								: `Matches ${nicks.length} users: ${shown}${more}.${wide}`,
+								? t("oper.action.previewOne", {nicks: shown})
+								: nicks.length >= 20
+								? tCount("oper.action.previewWide", nicks.length, vars)
+								: nicks.length > 8
+								? tCount("oper.action.previewMore", nicks.length, vars)
+								: tCount("oper.action.previewMany", nicks.length, vars),
 				  };
 		};
 
@@ -734,11 +765,11 @@ export default defineComponent({
 			}
 
 			if (outcome === "timeout") {
-				return "The server did not answer.";
+				return t("oper.action.serverSilent");
 			}
 
 			if (outcome === "closed") {
-				return "Not sent: the connection is down.";
+				return t("oper.action.notSentDown");
 			}
 
 			return undefined;
@@ -771,7 +802,7 @@ export default defineComponent({
 					return;
 				}
 
-				result.value = `Killed ${r.nick}.`;
+				result.value = t("oper.action.killed", {nick: r.nick ?? ""});
 				drafts.delete(keyOf(r));
 				eventbus.emit("oper:acted", {network: r.network, nick: r.nick});
 				closeSoon(900);
@@ -797,20 +828,24 @@ export default defineComponent({
 
 				switch (reply.outcome) {
 					case "ok":
-						result.value = `${NAMES[type]} set via ${bot}: ${reply.text ?? ""}`;
+						result.value = t("oper.action.setViaDone", {
+							type: NAMES[type],
+							bot,
+							reply: reply.text ?? "",
+						});
 						drafts.delete(keyOf(r));
 						eventbus.emit("oper:acted", {network: r.network, nick: r.nick});
 						closeSoon(1500);
 						return;
 					case "refused":
 						// O3's own words; the title already says who answered.
-						sendProblem.value = reply.text ?? `${bot} refused it.`;
+						sendProblem.value = reply.text ?? t("oper.action.botRefused", {bot});
 						return;
 					case "closed":
-						sendProblem.value = "Not sent: the connection is down.";
+						sendProblem.value = t("oper.action.notSentDown");
 						return;
 					default:
-						sendProblem.value = `${bot} did not answer.`;
+						sendProblem.value = t("oper.services.botSilent", {bot});
 						return;
 				}
 			}
@@ -844,8 +879,11 @@ export default defineComponent({
 				(msg) => msg.command === (type === "zline" ? "548" : "280")
 			);
 			result.value = found
-				? `${NAMES[type]} set for ${formatDuration(seconds.value ?? 0)}.`
-				: `${NAMES[type]} sent; the server does not list it yet.`;
+				? t("oper.action.setFor", {
+						type: NAMES[type],
+						duration: formatDuration(seconds.value ?? 0),
+				  })
+				: t("oper.action.sentUnlisted", {type: NAMES[type]});
 			closeSoon(found ? 1200 : 2500);
 		};
 
@@ -868,7 +906,9 @@ export default defineComponent({
 		});
 
 		return {
-			DURATIONS,
+			t,
+			KEEP,
+			durations,
 			request,
 			network,
 			firstField,

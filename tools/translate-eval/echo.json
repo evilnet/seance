@@ -1,0 +1,74 @@
+[
+  {
+    "note": "tr paragraph — echoed whole with the source named (translated with the source left to the model)",
+    "expect": "four Turkish sentences",
+    "text": "We moved the deploy to Thursday because the build bot was flaky again. Please keep the timestamps in the log this time. If anyone still sees the login loop, paste the console output in here. Thanks for the patience, it has been a long week.",
+    "from": "en",
+    "to": "tr",
+    "purpose": "write"
+  },
+  {
+    "note": "ko paragraph — echoed whole with the source named",
+    "expect": "four Korean sentences",
+    "text": "We moved the deploy to Thursday because the build bot was flaky again. Please keep the timestamps in the log this time. If anyone still sees the login loop, paste the console output in here. Thanks for the patience, it has been a long week.",
+    "from": "en",
+    "to": "ko",
+    "purpose": "write"
+  },
+  {
+    "note": "ja paragraph — Thursday, deploy, build bot left in English",
+    "expect": "four Japanese sentences, 木曜日 for Thursday",
+    "text": "We moved the deploy to Thursday because the build bot was flaky again. Please keep the timestamps in the log this time. If anyone still sees the login loop, paste the console output in here. Thanks for the patience, it has been a long week.",
+    "from": "en",
+    "to": "ja",
+    "purpose": "write"
+  },
+  {
+    "note": "es lines — the second line came back in English",
+    "expect": "three Spanish lines",
+    "text": "the build is green\nI'll merge it after lunch\ncan someone restart the bot?",
+    "from": "en",
+    "to": "es",
+    "purpose": "write"
+  },
+  {
+    "note": "ru markdown — 'se' and *urgent* left in English",
+    "expect": "Russian around the URL and the command, *срочно* inside the marks",
+    "text": "see https://example.org/x?y=1 and run `tail -f irc.log` first, it's *urgent*",
+    "from": "en",
+    "to": "ru",
+    "purpose": "write"
+  },
+  {
+    "note": "de markdown — *urgent* left in English inside its marks",
+    "expect": "*dringend* inside the marks",
+    "text": "see https://example.org/x?y=1 and run `tail -f irc.log` first, it's *urgent*",
+    "from": "en",
+    "to": "de",
+    "purpose": "write"
+  },
+  {
+    "note": "fr paragraph — 'week', 'paste', 'flake' left in English",
+    "expect": "four French sentences, semaine for week",
+    "text": "We moved the deploy to Thursday because the build bot was flaky again. Please keep the timestamps in the log this time. If anyone still sees the login loop, paste the console output in here. Thanks for the patience, it has been a long week.",
+    "from": "en",
+    "to": "fr",
+    "purpose": "write"
+  },
+  {
+    "note": "reading shape: a Turkish line into English with the source named",
+    "expect": "one English sentence",
+    "text": "Dağıtımı perşembeye aldık çünkü build botu yine sorun çıkardı, lütfen bu sefer logdaki zaman damgalarını koruyun.",
+    "from": "tr",
+    "to": "en",
+    "purpose": "read"
+  },
+  {
+    "note": "reading shape: a Korean line into English with the source named",
+    "expect": "one English sentence",
+    "text": "빌드 봇이 또 불안정해서 배포를 목요일로 옮겼어요. 이번에는 로그의 타임스탬프를 유지해 주세요.",
+    "from": "ko",
+    "to": "en",
+    "purpose": "read"
+  }
+]

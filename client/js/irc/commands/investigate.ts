@@ -10,6 +10,7 @@
 import {ChanType} from "../../../../shared/types/chan";
 import {MessageType} from "../../../../shared/types/msg";
 import eventbus from "../../eventbus";
+import {t} from "../../i18n/core";
 import type {Command} from "../types";
 
 const investigate: Command = {
@@ -24,7 +25,7 @@ const investigate: Command = {
 			} else {
 				client.pushMessage(chan, {
 					type: MessageType.ERROR,
-					text: "Usage: /investigate <nick|#channel>",
+					text: t("oper.usage.investigate"),
 				});
 				return;
 			}

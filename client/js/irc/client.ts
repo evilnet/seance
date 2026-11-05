@@ -15,6 +15,8 @@
  */
 
 import socket, {EventBus} from "../socket";
+import {t} from "../i18n/core";
+import {collator} from "../i18n/collation";
 import {brandingFeatures} from "../branding";
 import {createHighlightTester} from "../highlight";
 import {ChanState, ChanType} from "../../../shared/types/chan";
@@ -268,13 +270,10 @@ export interface IrcClientOptions extends ConnectOptions {
 	onSaslRejected?: () => void;
 }
 
-export const NOT_CONNECTED_TEXT =
-	"You are not connected to the IRC network, unable to send your command.";
-
 /** What to try after a SASL login the deploy insists on did not happen. */
-export const SASL_REQUIRED_HINT =
-	"Check the account name and password in this network's settings, or pick " +
-	'"No authentication" there to connect without logging in.';
+export function saslRequiredHint(): string {
+	return t("connect.saslRequiredHint");
+}
 
 /** Prefix characters a channel name may start with when the user omits one. */
 const CHANNEL_PREFIXES = "#&!+";
@@ -761,7 +760,7 @@ export class IrcClient {
 		this.announceStatus();
 		this.pushMessage(
 			this.lobby,
-			{text: `Connecting to ${this.options.host}:${this.options.port}…`},
+			{text: t("connect.connectingTo", {host: this.options.host, port: this.options.port})},
 			true
 		);
 		this.transport.connect();
@@ -791,7 +790,7 @@ export class IrcClient {
 			// The socket is already gone, so no close event follows: settle here.
 			this._state = "disconnected";
 			this.announceStatus();
-			this.pushMessage(this.lobby, {text: "Reconnect cancelled."}, true);
+			this.pushMessage(this.lobby, {text: t("connect.reconnectCancelled")}, true);
 		}
 	}
 
@@ -906,11 +905,7 @@ export class IrcClient {
 		}
 
 		this.reconfigure(upgraded);
-		this.pushMessage(
-			this.lobby,
-			{text: `Upgrading to TLS on port ${upgraded.port} (STS policy)`},
-			true
-		);
+		this.pushMessage(this.lobby, {text: t("connect.stsUpgrade", {port: upgraded.port})}, true);
 		this.options.onStsUpgrade?.({port: upgraded.port, tls: true});
 	}
 
@@ -946,13 +941,7 @@ export class IrcClient {
 		}
 
 		this.stsUpgradeTried = true;
-		this.pushMessage(
-			this.lobby,
-			{
-				text: `Server requires a secure connection (STS): reconnecting on port ${value.port}…`,
-			},
-			true
-		);
+		this.pushMessage(this.lobby, {text: t("connect.stsReconnect", {port: value.port})}, true);
 		this.disconnect("STS upgrade");
 		this.reconfigure({...this.options, tls: true, port: value.port});
 		this.connect();
@@ -986,11 +975,7 @@ export class IrcClient {
 				if (ev.reason === "offline") {
 					if (!this.offlineNoted) {
 						this.offlineNoted = true;
-						this.pushMessage(
-							this.lobby,
-							{text: "You're offline. Will reconnect when the network is back."},
-							true
-						);
+						this.pushMessage(this.lobby, {text: t("connect.offlineWaiting")}, true);
 					}
 
 					break;
@@ -1002,16 +987,16 @@ export class IrcClient {
 						// A stable connection's loss retries at once (transport.ts).
 						text:
 							ev.reason === "throttled"
-								? `Waiting ${Math.round(
-										ev.delayMs / 1000
-								  )}s: the server says it limits how often a device can reconnect (attempt ${
-										ev.attempt
-								  })…`
+								? t("connect.reconnectWaitThrottled", {
+										seconds: Math.round(ev.delayMs / 1000),
+										attempt: ev.attempt,
+								  })
 								: ev.delayMs < 500
-								? `Reconnecting now (attempt ${ev.attempt})…`
-								: `Reconnecting in ${Math.round(ev.delayMs / 1000)}s (attempt ${
-										ev.attempt
-								  })…`,
+								? t("connect.reconnectNow", {attempt: ev.attempt})
+								: t("connect.reconnectIn", {
+										seconds: Math.round(ev.delayMs / 1000),
+										attempt: ev.attempt,
+								  }),
 					},
 					true
 				);
@@ -1025,7 +1010,11 @@ export class IrcClient {
 				this.pushMessage(
 					this.lobby,
 					{
-						text: `Connecting to ${this.options.host}:${this.options.port}… (attempt ${ev.attempt})`,
+						text: t("connect.connectingToAttempt", {
+							host: this.options.host,
+							port: this.options.port,
+							attempt: ev.attempt,
+						}),
 					},
 					true
 				);
@@ -1065,7 +1054,7 @@ export class IrcClient {
 		if (
 			this.options.sasl &&
 			!this.saslMechanism &&
-			this.saslFailed("no account name or password is configured")
+			this.saslFailed(t("connect.saslReason.noCredentials"))
 		) {
 			return;
 		}
@@ -1126,7 +1115,7 @@ export class IrcClient {
 	private saslFailed(reason: string, timedOut = false): boolean {
 		this.pushMessage(
 			this.lobby,
-			{type: MessageType.ERROR, text: `SASL authentication failed: ${reason}`},
+			{type: MessageType.ERROR, text: t("connect.saslFailed", {reason})},
 			true
 		);
 
@@ -1139,7 +1128,7 @@ export class IrcClient {
 				this.lobby,
 				{
 					type: MessageType.ERROR,
-					text: `Not connecting to ${this.options.host} without the login you asked for; trying again.`,
+					text: t("connect.saslQuitHintRetry", {host: this.options.host}),
 				},
 				true
 			);
@@ -1157,11 +1146,11 @@ export class IrcClient {
 			this.lobby,
 			{
 				type: MessageType.ERROR,
-				text: `Not connecting to ${this.options.host} without the login you asked for.`,
+				text: t("connect.saslQuitHint", {host: this.options.host}),
 			},
 			true
 		);
-		this.pushMessage(this.lobby, {text: SASL_REQUIRED_HINT}, true);
+		this.pushMessage(this.lobby, {text: saslRequiredHint()}, true);
 		// The connect flow has already opened an autojoin channel; the reason
 		// this network is empty is in the lobby, so the view goes there.
 		this.bus.dispatch("network:aborted", {network: this.uuid, reason});
@@ -1175,10 +1164,10 @@ export class IrcClient {
 		const offered = this.caps.value("sasl");
 
 		if (offered === undefined || offered === "") {
-			return "the server does not offer SASL";
+			return t("connect.saslReason.unavailable");
 		}
 
-		return `the server offers SASL ${offered}, not ${mechanism}`;
+		return t("connect.saslReason.wrongMechanism", {offered, mechanism});
 	}
 
 	/**
@@ -1292,7 +1281,7 @@ export class IrcClient {
 		if (!result.ok) {
 			this.saslOk = false;
 
-			if (this.saslFailed(result.error ?? "unknown error", timedOut)) {
+			if (this.saslFailed(result.error ?? t("connect.saslReason.unknown"), timedOut)) {
 				return;
 			}
 		} else {
@@ -1337,7 +1326,7 @@ export class IrcClient {
 			this.saslTimer = null;
 
 			if (this.sasl && !this.sasl.done) {
-				this.saslProgress(this.sasl.abort("timed out waiting for the server"), true);
+				this.saslProgress(this.sasl.abort(t("connect.saslReason.timeout")), true);
 			}
 		}, SASL_TIMEOUT_MS);
 	}
@@ -1400,7 +1389,7 @@ export class IrcClient {
 		// Before resetMultiline, which takes the copies of what it had queued
 		// down without a word: every copy still waiting is reported here, with
 		// the reason, where it was typed.
-		resetPending(this, "connection lost");
+		resetPending(this, t("pending.connectionLost"));
 		resetMultiline(this);
 		abortHistory(this);
 		resetSearches(this);
@@ -1455,7 +1444,7 @@ export class IrcClient {
 
 		if (wasUp && !quiet) {
 			if (this.quitting) {
-				this.pushMessage(this.lobby, {text: "Disconnected."}, true);
+				this.pushMessage(this.lobby, {text: t("connect.disconnected")}, true);
 			} else if (this.closeExplained) {
 				// We dropped the socket ourselves and said why just before.
 				this.closeExplained = false;
@@ -1523,7 +1512,7 @@ export class IrcClient {
 		if (this.caps.enabled.size > 0) {
 			this.pushMessage(
 				this.lobby,
-				{text: `Enabled capabilities: ${Array.from(this.caps.enabled).join(", ")}`},
+				{text: t("connect.enabledCaps", {caps: Array.from(this.caps.enabled).join(", ")})},
 				true
 			);
 		}
@@ -1668,7 +1657,7 @@ export class IrcClient {
 		if (utf8ByteLength(line) > MAX_LINE_BYTES) {
 			this.pushMessage(this.lobby, {
 				type: MessageType.ERROR,
-				text: "Not sent: the push subscription does not fit on one line",
+				text: t("send.pushTooLong"),
 			});
 			return false;
 		}
@@ -1727,7 +1716,7 @@ export class IrcClient {
 	/** Send one raw line. Reports an ERROR message in the lobby instead of throwing. */
 	send(line: string): boolean {
 		if (this.transport.state !== "open") {
-			this.pushMessage(this.lobby, {type: MessageType.ERROR, text: NOT_CONNECTED_TEXT});
+			this.pushMessage(this.lobby, {type: MessageType.ERROR, text: t("send.notConnected")});
 			return false;
 		}
 
@@ -1737,7 +1726,10 @@ export class IrcClient {
 			return true;
 		} catch (err: unknown) {
 			const message = err instanceof Error ? err.message : String(err);
-			this.pushMessage(this.lobby, {type: MessageType.ERROR, text: `Not sent: ${message}`});
+			this.pushMessage(this.lobby, {
+				type: MessageType.ERROR,
+				text: t("send.notSent", {message}),
+			});
 			return false;
 		}
 	}
@@ -1809,7 +1801,7 @@ export class IrcClient {
 				const message = err instanceof Error ? err.message : String(err);
 				this.pushMessage(this.lobby, {
 					type: MessageType.ERROR,
-					text: `Not sent: ${message}`,
+					text: t("send.notSent", {message}),
 				});
 				return;
 			}
@@ -1845,7 +1837,10 @@ export class IrcClient {
 			chunks = splitMessage(prefixBytes, plain.replace(/[\r\n\0]/g, " "));
 		} catch (err: unknown) {
 			const message = err instanceof Error ? err.message : String(err);
-			this.pushMessage(this.lobby, {type: MessageType.ERROR, text: `Not sent: ${message}`});
+			this.pushMessage(this.lobby, {
+				type: MessageType.ERROR,
+				text: t("send.notSent", {message}),
+			});
 			return;
 		}
 
@@ -1935,7 +1930,7 @@ export class IrcClient {
 		if (utf8ByteLength(line) > MAX_LINE_BYTES) {
 			this.pushMessage(this.lobby, {
 				type: MessageType.ERROR,
-				text: "Not sent: the tags do not fit on one line",
+				text: t("send.tagsTooLong"),
 			});
 			return false;
 		}
@@ -1963,7 +1958,7 @@ export class IrcClient {
 		if (!this.caps.hasCapability("message-tags")) {
 			this.pushMessage(chan, {
 				type: MessageType.ERROR,
-				text: "Reactions need the message-tags capability, which this server did not enable.",
+				text: t("send.reactNeedsTags"),
 			});
 			return false;
 		}
@@ -1971,7 +1966,7 @@ export class IrcClient {
 		if (chan.type !== ChanType.CHANNEL && chan.type !== ChanType.QUERY) {
 			this.pushMessage(chan, {
 				type: MessageType.ERROR,
-				text: "Reactions can only be sent in channels and queries.",
+				text: t("send.reactTargets"),
 			});
 			return false;
 		}
@@ -2167,7 +2162,7 @@ export class IrcClient {
 		if (!this.canRedact) {
 			this.pushMessage(chan, {
 				type: MessageType.ERROR,
-				text: "Deleting messages is not available: the server did not enable draft/message-redaction.",
+				text: t("send.redactUnavailable"),
 			});
 			return false;
 		}
@@ -2175,7 +2170,7 @@ export class IrcClient {
 		if (chan.type !== ChanType.CHANNEL) {
 			this.pushMessage(chan, {
 				type: MessageType.ERROR,
-				text: "Messages can only be deleted in channels.",
+				text: t("send.redactChannels"),
 			});
 			return false;
 		}
@@ -2221,7 +2216,7 @@ export class IrcClient {
 		if (this.pendingEdits.has(oldMsgid)) {
 			this.pushMessage(chan, {
 				type: MessageType.ERROR,
-				text: "Edit not sent: an edit of that message is already waiting for the server.",
+				text: t("send.editWaiting"),
 			});
 			return;
 		}
@@ -2234,7 +2229,7 @@ export class IrcClient {
 			if (this.pendingEdits.delete(oldMsgid)) {
 				this.pushMessage(chan, {
 					type: MessageType.ERROR,
-					text: "Edit not sent: no reply from the server.",
+					text: t("send.editNoReply"),
 				});
 			}
 		}, EDIT_TIMEOUT_MS);
@@ -2952,7 +2947,7 @@ export class IrcClient {
 	private metadataMaxValueBytes(): number {
 		const token = (this.caps.value("draft/metadata-2") ?? "")
 			.split(",")
-			.find((t) => t.startsWith("max-value-bytes="));
+			.find((entry) => entry.startsWith("max-value-bytes="));
 		const value = token?.slice("max-value-bytes=".length) ?? "";
 		return /^[1-9]\d*$/.test(value) ? Number(value) : 300;
 	}
@@ -3301,8 +3296,11 @@ export class IrcClient {
 
 // ----------------------------------------------------------------- utilities
 
+/** Where a newly created channel/query lands in the sidebar: the active
+ * locale's collation, case-insensitively as before (sensitivity "base"
+ * matches the old localeCompare options). */
 function compareNames(a: string, b: string): number {
-	return a.localeCompare(b, undefined, {sensitivity: "base"});
+	return collator({sensitivity: "base"}).compare(a, b);
 }
 
 function sanitizeIdent(nick: string): string {

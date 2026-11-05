@@ -1,0 +1,73 @@
+diff --git a/python/mlc_llm/model/qwen3/qwen3_model.py b/python/mlc_llm/model/qwen3/qwen3_model.py
+index f3bdfec1..38e011dd 100644
+--- a/python/mlc_llm/model/qwen3/qwen3_model.py
++++ b/python/mlc_llm/model/qwen3/qwen3_model.py
+@@ -3,6 +3,7 @@ Implementation for QWEN2 architecture.
+ """
+ 
+ import dataclasses
++import os
+ from functools import partial
+ from typing import Any, Dict, Optional, Tuple  # noqa: UP035
+ 
+@@ -170,6 +171,43 @@ class Qwen3Embedding(nn.Embedding):
+         return nn.op.matmul(x, weight, out_dtype="float32")
+ 
+ 
++class Qwen3SplitEmbedding(nn.Module):
++    """The vocabulary table as two halves by rows (Seance): every weight a
++    model binds on the GPU is one storage buffer, and a phone's WebGPU
++    may bind no more than 128 MiB at once while Qwen3's quantized table is
++    148 MiB (1.7B) or 186 MiB (4B). `part0` holds rows [0, split) and
++    `part1` rows [split, vocab): the published weights split at that row
++    are these two parameters byte for byte, so the runtime can read each
++    as a byte range of the published shard."""
++
++    def __init__(self, vocab_size: int, hidden_size: int, split: int):
++        self.split = split
++        self.hidden_size = hidden_size
++        self.part0 = Qwen3Embedding(split, hidden_size)
++        self.part1 = Qwen3Embedding(vocab_size - split, hidden_size)
++
++    def forward(self, x: Tensor):
++        # Integer arithmetic only: a boolean mask is stored as i8, which
++        # WGSL rejects without an experimental extension.
++        bound = op.full(x.shape, self.split, x.dtype)
++        zero = op.zeros(x.shape, x.dtype)
++        one = op.full(x.shape, 1, x.dtype)
++        idx0 = op.minimum(x, op.full(x.shape, self.split - 1, x.dtype))
++        idx1 = op.maximum(op.subtract(x, bound), zero)
++        # 1 for a row of part0, 0 for a row of part1.
++        first = op.minimum(op.maximum(op.subtract(bound, x), zero), one)
++        e0 = self.part0(idx0)
++        e1 = self.part1(idx1)
++        w0 = op.reshape(op.astype(first, e0.dtype), shape=[*x.shape, 1])
++        return op.add(op.multiply(e0, w0), op.multiply(e1, op.subtract(op.ones([1], e0.dtype), w0)))
++
++    def lm_head_forward(self, x: Tensor):
++        """The tied lm_head: each half's logits, joined in vocabulary order."""
++        return op.concat(
++            [self.part0.lm_head_forward(x), self.part1.lm_head_forward(x)], dim=-1
++        )
++
++
+ class Qwen3MLP(nn.Module):
+     def __init__(self, config: Qwen3Config):
+         if config.intermediate_size % config.tensor_parallel_shards != 0:
+@@ -242,7 +280,15 @@ class Qwen3DecoderLayer(nn.Module):
+ 
+ class Qwen3Model(nn.Module):
+     def __init__(self, config: Qwen3Config):
+-        self.embed_tokens = Qwen3Embedding(config.vocab_size, config.hidden_size)
++        # Seance build switch: the compiler drops unknown model_config keys,
++        # so the split row comes from the environment of the build.
++        split = int(os.environ.get("SEANCE_EMBEDDING_SPLIT", "0"))
++        if 0 < split < config.vocab_size:
++            if not config.tie_word_embeddings:
++                raise ValueError("seance_embedding_split needs tied word embeddings")
++            self.embed_tokens = Qwen3SplitEmbedding(config.vocab_size, config.hidden_size, split)
++        else:
++            self.embed_tokens = Qwen3Embedding(config.vocab_size, config.hidden_size)
+         self.layers = nn.ModuleList(
+             [Qwen3DecoderLayer(config) for _ in range(config.num_hidden_layers)]
+         )

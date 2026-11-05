@@ -2,6 +2,13 @@
   "extends": "../tsconfig.base.json",
   "include": ["./**/*.ts"] /* The .ts tools; the client modules they import come along. */,
   "exclude": [
-    "./i18n/fixtures/**" /* Deliberately broken inputs for tools/i18n/check.ts's own tests. */
+    "./i18n/fixtures/**" /* Deliberately broken inputs for tools/i18n/check.ts's own tests. */,
+    /* The tools that run transformers.js in Node: tsconfig.ml.json. */
+    "./llm-node-backend.ts",
+    "./translate-llm.ts",
+    "./i18n/fill.ts",
+    "./translate-eval/overlap.ts",
+    "./translate-eval/per-language.ts",
+    "./translate-eval/roundtrip.ts"
   ]
 }

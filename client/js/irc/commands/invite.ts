@@ -6,6 +6,7 @@
 import {ChanType} from "../../../../shared/types/chan";
 import {MessageType} from "../../../../shared/types/msg";
 import {formatLine} from "../message";
+import {t} from "../../i18n/core";
 import type {Command} from "../types";
 
 const invite: Command = {
@@ -15,7 +16,7 @@ const invite: Command = {
 			if (chan.type !== ChanType.CHANNEL) {
 				client.pushMessage(chan, {
 					type: MessageType.ERROR,
-					text: `${cmd} command can only be used in channels.`,
+					text: t("cmd.channelsOnly", {cmd}),
 				});
 				return;
 			}
@@ -32,7 +33,7 @@ const invite: Command = {
 		} else {
 			client.pushMessage(chan, {
 				type: MessageType.ERROR,
-				text: `${cmd} command can only be used in channels or by specifying a target.`,
+				text: t("cmd.channelsOrTargetOnly", {cmd}),
 			});
 		}
 	},

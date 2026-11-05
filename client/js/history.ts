@@ -5,6 +5,7 @@
 // the store directly.
 
 import {store} from "./store";
+import {forgetTranslations} from "./translate/reader";
 
 export function clearHistory(target: number): void {
 	const netChan = store.getters.findChannel(target);
@@ -14,6 +15,10 @@ export function clearHistory(target: number): void {
 	}
 
 	const channel = netChan.channel;
+	const ids = channel.messages.map((m) => m.id);
+
+	store.commit("translationRemoveMany", ids);
+	forgetTranslations(ids);
 	channel.messages = [];
 	channel.unread = 0;
 	channel.highlight = 0;

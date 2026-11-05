@@ -16,7 +16,9 @@
 					<span class="collapse-network-icon" />
 				</button>
 				<span v-else class="collapse-network" />
-				<span :title="channel.name" class="name">{{ channel.name }}</span>
+				<span :title="channel.name" class="name"
+					><bdi>{{ channel.name }}</bdi></span
+				>
 				<span v-if="channel.unread" :class="{highlight: channel.highlight}" class="badge">{{
 					unreadCount
 				}}</span>
@@ -41,12 +43,12 @@
 						<span :class="['notify-status-icon', notifyState.cls]" />
 					</span>
 					<span
-						aria-label="Edit this network…"
+						:aria-label="editLabel"
 						class="edit-network-tooltip tooltipped tooltipped-e tooltipped-no-touch"
 					>
 						<button
 							class="edit-network"
-							aria-label="Edit this network…"
+							:aria-label="editLabel"
 							@click.stop="editNetwork"
 						/>
 					</span>
@@ -63,12 +65,12 @@
 					</span>
 					<span
 						v-if="opered"
-						aria-label="Oper panel…"
+						:aria-label="operPanelLabel"
 						class="oper-panel-tooltip tooltipped tooltipped-e tooltipped-no-touch"
 					>
 						<button
 							class="oper-panel"
-							aria-label="Oper panel…"
+							:aria-label="operPanelLabel"
 							@click.stop="openOperPanel"
 						/>
 					</span>
@@ -79,7 +81,7 @@
 					><button
 						type="button"
 						:class="['presence-dot', presenceClass]"
-						:aria-label="`Presence on ${network.name}: ${presenceText}`"
+						:aria-label="presenceAria"
 						:title="presenceText"
 						aria-haspopup="menu"
 						:aria-expanded="presenceMenuOpen ? 'true' : 'false'"
@@ -89,7 +91,8 @@
 						@mousedown.stop
 						@touchstart.stop
 					/><span v-if="network.nick" :title="nickLabel" class="lobby-nick"
-						><span class="sr-only">Nickname: </span>{{ network.nick }}</span
+						><span class="sr-only">{{ t("lobby.nickname") }}</span
+						><bdi>{{ network.nick }}</bdi></span
 					></span
 				>
 			</div>
@@ -107,20 +110,13 @@ import eventbus from "../js/eventbus";
 import useMenuTrigger from "../js/hooks/use-menu-trigger";
 import {isOperOn} from "../js/helpers/operMenu";
 import webpush from "../js/webpush";
+import {useI18n} from "../js/i18n";
 import ChannelWrapper from "./ChannelWrapper.vue";
 
 import type {ClientChan, ClientNetwork} from "../js/types";
-import {NETWORK_MODES, type NetworkMode} from "../js/helpers/dnd";
+import {modeLabel, NETWORK_MODES} from "../js/helpers/dnd";
 import dnd from "../js/dnd";
 import type {ContextMenuItem} from "../js/helpers/contextMenu";
-
-const MODE_LABELS: Record<NetworkMode, string> = {
-	global: "Same as global",
-	online: "Online",
-	auto: "Auto",
-	away: "Away",
-	dnd: "Do not disturb",
-};
 
 export default defineComponent({
 	name: "Channel",
@@ -139,6 +135,7 @@ export default defineComponent({
 	emits: ["toggle-join-channel"],
 	setup(props) {
 		const router = useRouter();
+		const {t} = useI18n();
 
 		const channel = computed(() => {
 			return props.network.channels[0];
@@ -163,14 +160,14 @@ export default defineComponent({
 			const enabled = webpush.notifyOn(props.network.uuid);
 
 			if (!enabled) {
-				return {cls: "off", label: "Notifications off for this network"};
+				return {cls: "off", label: t("lobby.notificationsOff")};
 			}
 
 			if (info.enabled && info.subscribed) {
-				return {cls: "on", label: "Notifications: subscribed to push"};
+				return {cls: "on", label: t("lobby.notificationsSubscribed")};
 			}
 
-			return {cls: "enabled", label: "Notifications on"};
+			return {cls: "enabled", label: t("lobby.notificationsOn")};
 		});
 
 		// Waiting for a retry (the backoff or the server's throttle), not
@@ -191,12 +188,12 @@ export default defineComponent({
 
 		const statusLabel = computed(() =>
 			props.network.status.connected
-				? "Connected"
+				? t("lobby.connected")
 				: retryPending.value
-				? "Reconnecting soon (click to connect now)"
+				? t("lobby.reconnectingSoon")
 				: props.network.status.connecting
-				? "Connecting… (click to cancel)"
-				: "Disconnected (click to connect)"
+				? t("lobby.connectingCancel")
+				: t("lobby.disconnectedConnect")
 		);
 
 		const onStatusClick = () => {
@@ -216,15 +213,15 @@ export default defineComponent({
 		};
 
 		const joinChannelLabel = computed(() => {
-			return props.isJoinChannelShown ? "Cancel" : "Join a channel…";
+			return props.isJoinChannelShown ? t("lobby.cancel") : t("lobby.joinChannel");
 		});
 
 		// The nick under the network name is the one this connection uses;
 		// before the first connect it is the configured one.
 		const nickLabel = computed(() =>
 			props.network.status.connected
-				? `Your nickname on ${props.network.name}`
-				: `Your nickname for ${props.network.name} (not connected)`
+				? t("lobby.nickOn", {network: props.network.name})
+				: t("lobby.nickOffline", {network: props.network.name})
 		);
 
 		// The presence dot before the nick: what this network shows now, and
@@ -245,29 +242,39 @@ export default defineComponent({
 		);
 		const presenceText = computed(() => {
 			const p = presence.value;
-			const effective = MODE_LABELS[p?.effective ?? "auto"];
+			const mode = modeLabel(p?.effective ?? "auto", t);
 			// A network following the pill says so; one set on its own does not.
-			const mode = p?.mode === "global" ? `${effective} · global` : effective;
+			const global = p?.mode === "global";
 
 			if (offline.value) {
-				return `${mode} · not connected`;
+				return global ? t("presence.globalOffline", {mode}) : t("presence.offline", {mode});
 			}
 
 			if (p?.dnd) {
-				return "Do not disturb";
+				return modeLabel("dnd", t);
 			}
 
 			// Away mode is away already: "Away", never "Away · away".
-			return p?.away && p.effective !== "away" ? `${mode} · away` : mode;
+			if (p?.away && p.effective !== "away") {
+				return global ? t("presence.globalAway", {mode}) : t("presence.away", {mode});
+			}
+
+			return global ? t("presence.global", {mode}) : mode;
 		});
+		const presenceAria = computed(() =>
+			t("presence.networkAria", {network: props.network.name, state: presenceText.value})
+		);
+		const operPanelLabel = computed(() => t("lobby.operPanel"));
 
 		const openPresenceMenu = (event: MouseEvent) => {
 			const current = presence.value?.mode ?? "global";
 			// "Same as global (Away)": what following the pill means right now.
-			const globalLabel = `Same as global (${MODE_LABELS[dnd.state.mode.value]})`;
+			const globalLabel = t("presence.sameAsGlobalNow", {
+				mode: modeLabel(dnd.state.mode.value, t),
+			});
 			const items: ContextMenuItem[] = NETWORK_MODES.flatMap((mode): ContextMenuItem[] => {
 				const item: ContextMenuItem = {
-					label: mode === "global" ? globalLabel : MODE_LABELS[mode],
+					label: mode === "global" ? globalLabel : modeLabel(mode, t),
 					type: "item",
 					class: `presence-${mode}`,
 					checked: mode === current,
@@ -293,17 +300,23 @@ export default defineComponent({
 		};
 
 		const getExpandLabel = (network: ClientNetwork) => {
-			return network.isCollapsed ? "Expand" : "Collapse";
+			return network.isCollapsed ? t("lobby.expand") : t("lobby.collapse");
 		};
 
+		const editLabel = computed(() => t("lobby.edit"));
+
 		return {
+			t,
 			presenceMenuOpen,
 			presenceClass,
 			presenceText,
+			presenceAria,
+			operPanelLabel,
 			openPresenceMenu,
 			notifyState,
 			channel,
 			editNetwork,
+			editLabel,
 			opered,
 			openOperPanel,
 			statusClass,

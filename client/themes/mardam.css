@@ -185,7 +185,7 @@ body,
 /* The nick list: a sunken white list beside the scrollback, its search box
  * on the grey. */
 #chat .userlist {
-	border-left: 0;
+	border-inline-start: 0;
 	box-shadow: var(--bevel-sunken);
 }
 
@@ -221,6 +221,18 @@ body,
 .channel-list-item.active {
 	background: var(--rail-item-active-bg);
 	box-shadow: var(--bevel-sunken);
+}
+
+/* The bevel is corner lighting, not direction — it restates itself under
+ * RTL so coffee's RTL marker override (higher specificity, imported file)
+ * does not paint the active row amber instead. */
+[dir="rtl"] .channel-list-item.active {
+	box-shadow: var(--bevel-sunken);
+}
+
+/* The restate above out-specifies the lobby rule: keep LTR's bare lobby row. */
+[dir="rtl"] .channel-list-item[data-type="lobby"] {
+	box-shadow: none;
 }
 
 .channel-list-item[data-type="lobby"] {
@@ -323,7 +335,7 @@ body,
 }
 
 #chat .msg.highlight {
-	border-left-color: #c00;
+	border-inline-start-color: #c00;
 }
 
 /* Timestamps in the scrollback's own black, the way mIRC prints them. */

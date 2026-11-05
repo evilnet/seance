@@ -8,18 +8,19 @@
 			:class="{sheet, flipped}"
 			:style="style"
 			role="dialog"
-			aria-label="Add a reaction"
+			:aria-label="dialogAria"
 			@keydown.esc.stop.prevent="$emit('close')"
 		>
 			<div class="reaction-picker-search">
 				<input
 					ref="input"
 					v-model="query"
+					dir="auto"
 					type="text"
 					class="reaction-picker-input"
 					:maxlength="MAX_REACTION_LENGTH * 2"
-					placeholder="Search emoji, or type any reaction"
-					aria-label="Search emoji, or type any reaction"
+					:placeholder="searchPlaceholder"
+					:aria-label="searchPlaceholder"
 					role="combobox"
 					aria-expanded="true"
 					aria-autocomplete="list"
@@ -34,8 +35,8 @@
 					v-if="query"
 					type="button"
 					class="reaction-picker-clear"
-					aria-label="Clear search"
-					title="Clear search"
+					:aria-label="clearSearch"
+					:title="clearSearch"
 					@mousedown.prevent
 					@click="clear"
 				>
@@ -43,7 +44,7 @@
 				</button>
 			</div>
 
-			<div class="reaction-picker-tabs" role="tablist" aria-label="Emoji groups">
+			<div class="reaction-picker-tabs" role="tablist" :aria-label="tabsAria">
 				<button
 					v-for="tab in tabs"
 					:key="tab.key"
@@ -66,7 +67,7 @@
 				ref="list"
 				class="reaction-picker-list"
 				role="listbox"
-				aria-label="Emoji"
+				:aria-label="listAria"
 				@scroll.passive="onScroll"
 				@mousedown.prevent
 				@click="onListClick"
@@ -74,7 +75,7 @@
 				@mouseleave="onListLeave"
 			>
 				<p v-if="failed" class="reaction-picker-note">
-					The emoji list could not be loaded. You can still type a reaction above.
+					{{ t("reactions.loadFailed") }}
 				</p>
 				<section
 					v-for="section in sections"
@@ -110,13 +111,16 @@
 							:aria-label="option.spoken"
 							:data-index="option.index"
 						>
-							<span v-if="option.free" class="reaction-picker-free-label"
-								>React with</span
+							<span v-if="option.free" class="reaction-picker-free-label">{{
+								t("reactions.freePrefix")
+							}}</span
 							>{{ option.label }}
 						</button>
 					</div>
 				</section>
-				<p v-if="!failed && !catalog" class="reaction-picker-note">Loading emoji…</p>
+				<p v-if="!failed && !catalog" class="reaction-picker-note">
+					{{ t("reactions.loading") }}
+				</p>
 			</div>
 
 			<div class="reaction-picker-preview">
@@ -137,10 +141,12 @@
 				<template v-else-if="building">
 					<span class="reaction-picker-preview-emoji">{{ building }}</span>
 					<span class="reaction-picker-preview-text">
-						<span class="reaction-picker-preview-name">Building a reaction</span>
-						<span class="reaction-picker-preview-desc"
-							>Shift-click to add more emoji</span
-						>
+						<span class="reaction-picker-preview-name">{{
+							t("reactions.buildingName")
+						}}</span>
+						<span class="reaction-picker-preview-desc">{{
+							t("reactions.buildingHint")
+						}}</span>
 					</span>
 					<button
 						type="button"
@@ -148,12 +154,12 @@
 						@mousedown.prevent
 						@click="pickTyped"
 					>
-						Send
+						{{ t("reactions.send") }}
 					</button>
 				</template>
-				<span v-else class="reaction-picker-preview-hint"
-					>Pick an emoji, type a word, or shift-click to combine several.</span
-				>
+				<span v-else class="reaction-picker-preview-hint">{{
+					t("reactions.emptyHint")
+				}}</span>
 			</div>
 		</div>
 	</Teleport>
@@ -172,6 +178,7 @@ import {
 	watch,
 } from "vue";
 import eventbus from "../js/eventbus";
+import {useI18n} from "../js/i18n";
 import {
 	appendReaction,
 	EmojiEntry,
@@ -248,6 +255,12 @@ export default defineComponent({
 	},
 	emits: ["pick", "close"],
 	setup(props, {emit}) {
+		const {t} = useI18n();
+		const dialogAria = computed(() => t("reactions.dialogAria"));
+		const searchPlaceholder = computed(() => t("reactions.searchPlaceholder"));
+		const clearSearch = computed(() => t("reactions.clearSearch"));
+		const tabsAria = computed(() => t("reactions.tabsAria"));
+		const listAria = computed(() => t("reactions.listAria"));
 		const uid = `reaction-picker-${++instances}`;
 		const root = ref<HTMLDivElement | null>(null);
 		const input = ref<HTMLInputElement | null>(null);
@@ -307,7 +320,7 @@ export default defineComponent({
 				label: text,
 				title: text,
 				name: text,
-				description: emoji ? "" : "sent as text",
+				description: emoji ? "" : t("reactions.sentAsText"),
 				spoken: text,
 				emoji,
 			};
@@ -317,10 +330,10 @@ export default defineComponent({
 		const freeOption = (text: string): Omit<Option, "index"> => ({
 			text,
 			label: text,
-			title: `React with ${text}`,
+			title: t("reactions.titleTemplate", {reaction: text}),
 			name: text,
-			description: "sent as text",
-			spoken: `React with ${text}`,
+			description: t("reactions.sentAsText"),
+			spoken: t("reactions.titleTemplate", {reaction: text}),
 			emoji: isEmojiOnly(text),
 			free: true,
 		});
@@ -398,7 +411,7 @@ export default defineComponent({
 				return [
 					section(
 						"results",
-						hits.length > 0 ? "Search results" : "No emoji match",
+						hits.length > 0 ? t("reactions.searchResults") : t("reactions.noMatch"),
 						options.length,
 						() => options
 					),
@@ -409,7 +422,9 @@ export default defineComponent({
 			const out: Section[] = [
 				section(
 					"recent",
-					recent.value.length > 0 ? "Recently used" : "Quick reactions",
+					recent.value.length > 0
+						? t("reactions.recentlyUsed")
+						: t("reactions.quickReactions"),
 					known.length,
 					() => known.map(textOption)
 				),
@@ -429,7 +444,10 @@ export default defineComponent({
 		const tabs = computed(() => [
 			{
 				key: "recent",
-				label: recent.value.length > 0 ? "Recently used" : "Quick reactions",
+				label:
+					recent.value.length > 0
+						? t("reactions.recentlyUsed")
+						: t("reactions.quickReactions"),
 				icon: "🕘",
 			},
 			...(catalog.value ?? []).map((group) => ({
@@ -518,10 +536,10 @@ export default defineComponent({
 			}
 
 			if (isSelected(active.value)) {
-				return "Remove";
+				return t("reactions.hintRemove");
 			}
 
-			return active.value.free ? "Enter to send" : "⇧ to combine";
+			return active.value.free ? t("reactions.hintSend") : t("reactions.hintCombine");
 		});
 
 		const pick = (text: string) => {
@@ -980,6 +998,12 @@ export default defineComponent({
 		});
 
 		return {
+			t,
+			dialogAria,
+			searchPlaceholder,
+			clearSearch,
+			tabsAria,
+			listAria,
 			MAX_REACTION_LENGTH,
 			uid,
 			root,

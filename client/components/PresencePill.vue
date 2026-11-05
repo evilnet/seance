@@ -5,13 +5,15 @@
 			:class="['presence-pill', {'is-dnd': isDnd}]"
 			aria-haspopup="menu"
 			:aria-expanded="expanded ? 'true' : 'false'"
-			:aria-label="`Presence: ${label}`"
+			:aria-label="ariaLabel"
 			:title="label"
 			@click="openMenu"
 		>
 			<!-- The dot and the caret float on the first line, so a second line
 			     gets the pill's whole width; a long label breaks after its
-			     separator only ("Do not disturb ·" over "until 10:36 AM"). -->
+			     separator ("Do not disturb ·" over "until 10:36 AM"), and inside
+			     the last part only when it alone is wider than the label (a long
+			     translation). -->
 			<span class="presence-pill-text"
 				><span :class="['presence-dot', `is-${dotState}`]" aria-hidden="true" /><span
 					class="presence-pill-caret"
@@ -30,7 +32,8 @@
 import {computed, defineComponent} from "vue";
 import {useRouter} from "vue-router";
 import dnd from "../js/dnd";
-import {clockText, scheduleTimeText} from "../js/helpers/dnd";
+import {clockText, modeLabel, scheduleTimeText} from "../js/helpers/dnd";
+import {useI18n} from "../js/i18n";
 import {store} from "../js/store";
 import eventbus from "../js/eventbus";
 import useMenuTrigger from "../js/hooks/use-menu-trigger";
@@ -48,8 +51,10 @@ export default defineComponent({
 		const {expanded, opened} = useMenuTrigger();
 		const isDnd = computed(() => dnd.pillState.value === "dnd");
 		const dotState = computed(() => dnd.pillState.value);
+		const {t} = useI18n();
 		const label = computed(() => dnd.pillLabel.value);
-		const parts = computed(() => label.value.split(" · "));
+		const parts = computed(() => dnd.pillParts.value);
+		const ariaLabel = computed(() => t("presence.pillAria", {state: label.value}));
 
 		const openMenu = (event: MouseEvent) => {
 			const manual = dnd.state.manual;
@@ -67,13 +72,18 @@ export default defineComponent({
 				return clockText(end.getHours(), end.getMinutes(), hour12).replace(/ /g, "\u00a0");
 			};
 
-			const forSpan = (span: number, text: string, cls: string): ContextMenuItem => {
+			const forSpan = (
+				span: number,
+				text: string,
+				runningText: (until: string) => string,
+				cls: string
+			): ContextMenuItem => {
 				// Picked with this span, and no further off than it (an end
 				// moved by hand is no longer "for 1 hour").
 				const running =
 					timed !== null && timed.span === span && timed.until - Date.now() <= span;
 				return {
-					label: running ? `${text} (until\u00a0${endText()})` : text,
+					label: running ? runningText(endText()) : text,
 					type: "item",
 					class: cls,
 					checked: running,
@@ -88,7 +98,7 @@ export default defineComponent({
 				// Do not disturb and a ticked mode would not.
 				...(["online", "auto", "away"] as const).map(
 					(mode): ContextMenuItem => ({
-						label: {online: "Online", auto: "Auto", away: "Away"}[mode],
+						label: modeLabel(mode, t),
 						type: "item",
 						class: `status-${mode}`,
 						checked: dnd.pillState.value !== "dnd" && dnd.status.value === mode,
@@ -96,10 +106,15 @@ export default defineComponent({
 					})
 				),
 				{type: "divider"},
-				forSpan(HOUR, "Do not disturb for 1 hour", "dnd-1h"),
-				forSpan(8 * HOUR, "Do not disturb for 8 hours", "dnd-8h"),
+				forSpan(HOUR, t("dnd.for1h"), (until) => t("dnd.for1hUntil", {until}), "dnd-1h"),
+				forSpan(
+					8 * HOUR,
+					t("dnd.for8h"),
+					(until) => t("dnd.for8hUntil", {until}),
+					"dnd-8h"
+				),
 				{
-					label: "Do not disturb until I turn it off",
+					label: t("dnd.indefinite"),
 					type: "item",
 					class: "dnd-indefinite",
 					checked: manual.kind === "indefinite",
@@ -107,7 +122,7 @@ export default defineComponent({
 				},
 				{type: "divider"},
 				{
-					label: `Follow schedule (${range})`,
+					label: t("dnd.followSchedule", {range}),
 					type: "item",
 					class: "dnd-schedule",
 					checked: following,
@@ -117,7 +132,7 @@ export default defineComponent({
 					action: () => dnd.followSchedule(!following),
 				},
 				{
-					label: "Edit schedule…",
+					label: t("dnd.editSchedule"),
 					type: "item",
 					class: "dnd-edit-schedule",
 					action: () => void router.push({name: "Notifications"}),
@@ -128,7 +143,7 @@ export default defineComponent({
 			opened();
 		};
 
-		return {expanded, isDnd, dotState, label, parts, openMenu};
+		return {expanded, isDnd, dotState, label, ariaLabel, parts, openMenu};
 	},
 });
 </script>

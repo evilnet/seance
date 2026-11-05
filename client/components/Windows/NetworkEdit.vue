@@ -1,6 +1,8 @@
 <template>
 	<div>
-		<router-link class="network-settings-back" to="/settings/networks">← Networks</router-link>
+		<router-link class="network-settings-back" to="/settings/networks">
+			{{ t("windows.networkEdit.back") }}
+		</router-link>
 		<NetworkForm
 			v-if="networkData"
 			:handle-submit="handleSubmit"
@@ -25,6 +27,7 @@ import {computed, defineComponent, onMounted, reactive, ref, watch} from "vue";
 import {useRoute} from "vue-router";
 import {navigate} from "../../js/router";
 import socket from "../../js/socket";
+import {useI18n} from "../../js/i18n";
 import {useStore} from "../../js/store";
 import * as saved from "../../js/irc/saved-networks";
 import type {SavedNetwork} from "../../js/irc/saved-networks";
@@ -48,6 +51,7 @@ export default defineComponent({
 	setup() {
 		const route = useRoute();
 		const store = useStore();
+		const {t} = useI18n();
 
 		const disabled = ref(false);
 		const networkData = ref<NetworkFormDefaults | null>(null);
@@ -136,6 +140,7 @@ export default defineComponent({
 		});
 
 		return {
+			t,
 			disabled,
 			networkData,
 			status,

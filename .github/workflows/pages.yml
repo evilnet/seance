@@ -12,7 +12,8 @@
 # restored from the cache when that commit was built before, so a push to
 # one PR rebuilds that PR alone), `assemble` puts them in their directories
 # (tools/pages-site.mjs; a failed build becomes a stub page that links to
-# the log) and `deploy` publishes. A merged or closed PR drops out of the
+# the log, and no build's source maps are copied: each build's own `public/`
+# and its cache keep them) and `deploy` publishes. A merged or closed PR drops out of the
 # plan and so off the site.
 #
 # PR builds run code from the PR (`pnpm install`, `pnpm build`) under
@@ -184,6 +185,13 @@ jobs:
             yarn --frozen-lockfile --non-interactive
             echo "PM=yarn" >> "$GITHUB_ENV"
           fi
+        env:
+          # transformers.js depends on onnxruntime-node, whose install script
+          # fetches its ~300 MB CUDA provider from NuGet on Linux x64. pnpm
+          # never runs it (pnpm-workspace.yaml's allowBuilds does not name
+          # it); a yarn tree from before the move would, so skip it there.
+          # The site never runs it (the browser build is onnxruntime-web).
+          ONNXRUNTIME_NODE_INSTALL: skip
 
       - name: Build
         if: steps.cached.outputs.cache-hit != 'true'

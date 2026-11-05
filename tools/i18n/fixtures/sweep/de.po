@@ -1,0 +1,37 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: seance\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. The shape the shipped machine catalogs are full of: a word the model
+#. could not leave. Judged before the other two rules.
+msgctxt "channel.close"
+msgid "Close"
+msgstr "Sluit - - - - Κοντά Κοντά Κοντά Κοντά Κοντά"
+
+#. Six times the English, in the right script: the model answered with an
+#. explanation instead of a label.
+msgctxt "connect.username"
+msgid "Username"
+msgstr "Benutzername, also der Name, unter dem du dich hier anmeldest und der dann oben steht"
+
+#. Right length, wrong writing system.
+msgctxt "connect.password"
+msgid "Password"
+msgstr "पासवर्ड"
+
+#. Nothing wrong with this one.
+msgctxt "connect.submit"
+msgid "Connect"
+msgstr "Verbinden"
+
+#. Per slot: the singular is German, the plural slot is not.
+msgctxt "condensed.away"
+msgid "marked away once"
+msgid_plural "marked away {count} times"
+msgstr[0] "einmal abwesend gemeldet"
+msgstr[1] "{count} раз abgemeldet"

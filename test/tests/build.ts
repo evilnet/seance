@@ -13,10 +13,65 @@ describe("public folder", function () {
 	// string with backticks rather than double quotes.
 	const hasString = (code: string, text: string) =>
 		code.includes(`"${text}"`) || code.includes(`\`${text}\``);
+	// A lazy chunk by its name (vite.config.mts chunkFileNames: `<name>.<hash>.js`).
+	const chunk = (name: string) =>
+		fs
+			.readdirSync(path.join(publicFolder, "js"))
+			.find((f) => new RegExp(`^${name}\\.[\\w-]{8}\\.js$`).test(f));
+	const read = (...parts: string[]) => fs.readFileSync(path.join(publicFolder, ...parts), "utf8");
+	// The build token the service worker carries: `dev` for a development
+	// build (scripts/build-info.mts buildToken), a hash for a production one.
+	const productionBuild = () =>
+		read("service-worker.js").match(/const cacheName\s*=\s*["`]([^"`]+)["`]/)?.[1] !== "dev";
+	/** Every file under `dir` (relative to public/), recursively, as /-separated paths. */
+	const walk = (dir = ""): string[] =>
+		fs.readdirSync(path.join(publicFolder, dir), {withFileTypes: true}).flatMap((dirent) => {
+			const rel = dir ? `${dir}/${dirent.name}` : dirent.name;
+
+			return dirent.isDirectory() ? walk(rel) : [rel];
+		});
 
 	it("font awesome files are copied", function () {
 		expect(fs.existsSync(path.join(publicFolder, "fonts", "fa-solid-900.woff"))).to.be.true;
 		expect(fs.existsSync(path.join(publicFolder, "fonts", "fa-solid-900.woff2"))).to.be.true;
+	});
+
+	it("no TypeScript config is copied into the deploy", function () {
+		// client/'s root files are copied (vite.config.mts staticFiles) except
+		// the ones rootIgnore names: tsconfig.json and every tsconfig.*.json
+		// beside it (tsconfig.worker.json) are the build's, not the site's.
+		expect(walk().filter((file) => /(^|\/)tsconfig[^/]*\.json$/.test(file))).to.deep.equal([]);
+	});
+
+	it("a production build carries no in-page fake translation engine", function () {
+		// fakePort.ts (and worker.ts, which only the fake and the real worker
+		// import) is reached behind `?fakeTranslate` on a development build
+		// only (translate/index.ts): a production build neither bundles it
+		// into a page script nor emits a chunk for it. The string survives
+		// minification; the module names in a page script's sourcemap are
+		// what minification cannot hide.
+		if (!productionBuild()) {
+			this.skip();
+		}
+
+		const js = fs.readdirSync(path.join(publicFolder, "js"));
+
+		for (const file of js.filter((f) => f.endsWith(".js"))) {
+			expect(read("js", file).includes("__seanceTranslateFake"), file).to.be.false;
+		}
+
+		expect(js.filter((f) => /^fakePort\b/.test(f))).to.deep.equal([]);
+
+		for (const map of js.filter(
+			(f) => f.endsWith(".js.map") && f !== "translate-worker.js.map"
+		)) {
+			const sources = (JSON.parse(read("js", map)) as {sources: string[]}).sources;
+
+			expect(
+				sources.filter((src) => /translate\/(fakePort|worker)\.ts$/.test(src)),
+				map
+			).to.deep.equal([]);
+		}
 	});
 
 	it("files in root folder are copied", function () {
@@ -44,6 +99,18 @@ describe("public folder", function () {
 
 		expect(html.includes("__APP_NAME__")).to.be.false;
 		expect(html.includes("__THEME_COLOR__")).to.be.false;
+		// No inline script: a Content-Security-Policy refuses those (the
+		// Tauri shell's does, shells/tauri/src-tauri/tauri.conf.json), so
+		// everything that runs before the bundle is a file — the pre-paint
+		// language script is js/prepaint.js.
+		expect(/<script(?![^>]*\ssrc=)[^>]*>/i.test(html), "an inline <script>").to.be.false;
+		expect(html).to.match(/<script src="js\/prepaint\.js\?v=[^"]+"><\/script>/);
+		// Substituted at build from client/locales/tags.json for the pre-paint
+		// script; a leftover token would break the language resolution.
+		const prepaint = fs.readFileSync(path.join(publicFolder, "js", "prepaint.js"), "utf8");
+		expect(prepaint.includes("__AVAILABLE_LOCALES__")).to.be.false;
+		// The minifier may write the strings with backticks.
+		expect(prepaint).to.match(/["`]en(,[a-zA-Z-]+)*["`]\.split\(["`],["`]\)/);
 		expect(html.includes(`<title>${config.appName}</title>`)).to.be.true;
 		expect(html.includes("The Lounge")).to.be.false;
 		expect(manifest.name).to.equal(config.appName);
@@ -76,6 +143,168 @@ describe("public folder", function () {
 	it("javascript files are built", function () {
 		expect(entry(), "js/bundle-<hash>.js").to.be.a("string");
 		expect(fs.existsSync(path.join(publicFolder, "js", "push.js"))).to.be.true;
+		expect(fs.existsSync(path.join(publicFolder, "js", "translate-worker.js"))).to.be.true;
+	});
+
+	it("the short-line word list is its own chunk, not part of the bundle", function () {
+		// client/js/translate/wordlist.json is ~390 KB of frequency data the
+		// lookup (wordlookup.ts) fetches on the first short line it has to
+		// place. It rides in its own chunk, like franc's: in the bundle it
+		// would be paid for by every page load.
+		const wordlist = chunk("wordlist");
+
+		expect(wordlist, "js/wordlist.<hash>.js").to.be.a("string");
+		expect(read("js", wordlist!)).to.include("gracias");
+		expect(read("js", entry()!).includes("gracias")).to.be.false;
+	});
+
+	it("franc is its own chunk and carries its licence notice", function () {
+		// detect.ts imports it on the first line it has to guess; the notice
+		// is scripts/build-info.mts chunkNotices, keyed by the chunk's name
+		// (vite.config.mts chunkNames gives franc's chunk its name).
+		const franc = chunk("franc");
+
+		expect(franc, "js/franc.<hash>.js").to.be.a("string");
+		expect(read("js", franc!)).to.match(/^\/\*! franc 6\.2\.0, .* \| MIT \|/);
+		// n-gram's own error message: the library's code, not a call into it.
+		const ngram = "is not a valid argument for `n-gram`";
+		expect(read("js", franc!)).to.include(ngram);
+		expect(read("js", entry()!).includes(ngram)).to.be.false;
+	});
+
+	it("the locale catalogs are copied for the push worker, and the lazy ones are chunks", function () {
+		// The push worker fetches <app>/locales/<tag>.json (client/js/push/
+		// i18n.ts); the page imports each overlay as a chunk of its own
+		// (client/js/i18n/index.ts). tags.json is the build's own input and
+		// never ships; the qqx rig only in a development build.
+		const tags = JSON.parse(
+			fs.readFileSync(path.join(process.cwd(), "client", "locales", "tags.json"), "utf8")
+		) as string[];
+		const copied = fs.readdirSync(path.join(publicFolder, "locales"));
+		const token = read("service-worker.js").match(
+			/const cacheName\s*=\s*["`]([^"`]+)["`]/
+		)?.[1];
+		const production = token !== "dev";
+		const shipped = tags.filter((tag) => !(production && tag === "qqx"));
+
+		expect(copied.sort()).to.deep.equal(shipped.map((tag) => `${tag}.json`).sort());
+		expect(copied).to.not.include("tags.json");
+
+		for (const tag of shipped.filter((t) => t !== "en")) {
+			expect(chunk(tag), `js/${tag}.<hash>.js`).to.be.a("string");
+		}
+
+		expect(chunk("tags")).to.equal(undefined);
+		expect(chunk("en")).to.equal(undefined);
+
+		if (production) {
+			expect(chunk("qqx"), "no qqx chunk in a production build").to.equal(undefined);
+		}
+	});
+
+	it("the translation worker is self-contained and the ORT wasm files are copied", function () {
+		const worker = fs.readFileSync(
+			path.join(publicFolder, "js", "translate-worker.js"),
+			"utf8"
+		);
+
+		// A classic script with nothing of the app's in it: no import of the
+		// entry, of Rolldown's runtime or of any other chunk.
+		expect(worker).to.not.match(/\bimport\s*[{*\w][^;]*\bfrom\s*["`']/);
+		expect(worker).to.not.include("rolldown-runtime");
+		expect(worker).to.not.match(/bundle-[\w-]+\.js/);
+
+		const ort = fs.readdirSync(path.join(publicFolder, "js", "ort"));
+
+		expect(ort.some((name) => name.endsWith(".wasm"))).to.be.true;
+		expect(ort.some((name) => name.endsWith(".mjs"))).to.be.true;
+
+		// The worker bundles only the wasm ORT backend (device: "wasm"); the
+		// WebGPU backend transformers.js otherwise imports unconditionally
+		// is aliased away, and js/ort/ holds only the pair its bundle names.
+		expect(ort.sort()).to.deep.equal([
+			"ort-wasm-simd-threaded.mjs",
+			"ort-wasm-simd-threaded.wasm",
+		]);
+
+		// Nothing the bundler's `new URL(…, import.meta.url)` asset detection
+		// would otherwise emit (the ORT wasm binary and its loader, hashed)
+		// leaks into the deploy tree, where nothing serves or cleans it up:
+		// vite.translate.config.mts stubs those expressions out.
+		const stray = (dir: string) =>
+			fs
+				.readdirSync(path.join(publicFolder, dir))
+				.filter((name) => /\.(wasm|mjs)$/.test(name) && name !== "wllama.wasm");
+
+		expect(stray(".")).to.deep.equal([]);
+		expect(stray("js")).to.deep.equal([]);
+		expect(worker).to.not.match(/import\.meta/);
+
+		// And nowhere else: a wasm or an ES module outside the places that
+		// hold them on purpose (js/ort/, js/wllama.wasm, models/) is one the
+		// bundler emitted on its own -- under the worker build's
+		// assetFileNames (js/), or Vite's default assets/ if that ever went.
+		expect(fs.existsSync(path.join(publicFolder, "assets")), "public/assets/").to.be.false;
+		expect(
+			walk().filter(
+				(file) =>
+					/\.(wasm|mjs)$/.test(file) &&
+					!file.startsWith("js/ort/") &&
+					!file.startsWith("models/") &&
+					file !== "js/wllama.wasm"
+			)
+		).to.deep.equal([]);
+	});
+
+	it("the translation worker carries its libraries' licence notices", function () {
+		// Two `/*!` blocks, one per licence (scripts/build-info.mts
+		// chunkNotices): transformers.js and WebLLM ship no notice of their
+		// own and Apache-2.0 § 4 asks for one; wllama, llama.cpp/ggml (in
+		// js/wllama.wasm, which can carry no comment) and ONNX Runtime Web,
+		// whose own notice the minifier drops, are MIT.
+		const head = read("js", "translate-worker.js").slice(0, 2000);
+
+		expect(head).to.match(/^\/\*!\n \* @huggingface\/transformers 4\.2\.0 /);
+		expect(head).to.include("@mlc-ai/web-llm 0.2.85");
+		expect(head).to.include("Apache License, Version 2.0");
+		expect(head).to.include("@wllama/wllama 3.8.1");
+		expect(head).to.include("llama.cpp and ggml");
+		expect(head).to.include("onnxruntime-web");
+		expect(head).to.include("MIT License");
+	});
+
+	it("the 1.7B's small-buffer model library is copied under models/", function () {
+		// tools/translate-split/'s build, which WebLLM fetches by URL
+		// (models.ts QWEN3_1_7B_SPLIT_LIB); under models/, which the service
+		// worker neither caches nor precaches.
+		const ours = fs.readdirSync(path.join(process.cwd(), "client", "models"));
+
+		expect(fs.readdirSync(path.join(publicFolder, "models")).sort()).to.deep.equal(
+			ours.filter((name) => name.endsWith(".wasm")).sort()
+		);
+	});
+
+	it("the CPU language model's library is in the worker once, and its wasm beside it", function () {
+		const worker = fs.readFileSync(
+			path.join(publicFolder, "js", "translate-worker.js"),
+			"utf8"
+		);
+		// wllama's own worker, which it carries as one string literal.
+		// A development build also carries the library's source once more,
+		// unminified and indented, so only the string literal is counted
+		// (a quote right before the code).
+		const marker = "var Module=typeof Module";
+		const literal = /['"`]var Module=typeof Module/g;
+
+		expect(worker.match(literal)?.length).to.equal(1);
+		expect(fs.existsSync(path.join(publicFolder, "js", "wllama.wasm"))).to.be.true;
+
+		// Only the worker loads it: no chunk of the page carries it.
+		for (const file of fs.readdirSync(path.join(publicFolder, "js"))) {
+			if (file.endsWith(".js") && file !== "translate-worker.js") {
+				expect(read("js", file).includes(marker), file).to.be.false;
+			}
+		}
 	});
 
 	it("lazy chunks carry a content hash in their names", function () {
@@ -85,7 +314,15 @@ describe("public folder", function () {
 		const unhashed = fs
 			.readdirSync(path.join(publicFolder, "js"))
 			.filter((f) => f.endsWith(".js"))
-			.filter((f) => !["loading-error-handlers.js", "push.js"].includes(f))
+			.filter(
+				(f) =>
+					![
+						"loading-error-handlers.js",
+						"prepaint.js",
+						"push.js",
+						"translate-worker.js",
+					].includes(f)
+			)
 			.filter((f) => !/^bundle-[\w-]+\.js$/.test(f) && !/^[\w-]+\.[\w-]{8}\.js$/.test(f));
 		expect(unhashed).to.deep.equal([]);
 	});
@@ -261,11 +498,11 @@ describe("public folder", function () {
 
 	it("the Lua chunk carries the pattern step budget", function () {
 		const js = path.join(publicFolder, "js");
-		const chunk = fs
+		const luaChunk = fs
 			.readdirSync(js)
 			.find((f) => /^fengari.*\.js$/.test(f) && !f.endsWith(".map"));
-		expect(chunk, "a fengari chunk is built").to.be.a("string");
-		const source = fs.readFileSync(path.join(js, chunk as string), "utf8");
+		expect(luaChunk, "a fengari chunk is built").to.be.a("string");
+		const source = fs.readFileSync(path.join(js, luaChunk as string), "utf8");
 		// scripts/fengari-match-budget.js; the message survives minification.
 		expect(source).to.include("pattern too complex (step limit)");
 	});

@@ -25,14 +25,22 @@ import {sendQuiet} from "./quiet";
 import {servicesProfileFor} from "./services/index";
 import {X3_REALNAMES} from "./services/x3";
 import {cleanIrcMessage as stripFormatting} from "../../../shared/irc";
+import {t, tCount} from "../i18n/core";
+import {andList} from "../helpers/operList";
 
 export type ServiceRole = "oper" | "account" | "channel";
 
-export const SERVICE_ROLE_LABELS: Record<ServiceRole, string> = {
-	oper: "Oper service",
-	account: "Account service",
-	channel: "Channel service",
-};
+/** A bot's role in words (`Oper service`). */
+export function serviceRoleLabel(role: ServiceRole): string {
+	switch (role) {
+		case "oper":
+			return t("oper.services.role.oper");
+		case "account":
+			return t("oper.services.role.account");
+		default:
+			return t("oper.services.role.channel");
+	}
+}
 
 /** One bot's answer to the liveness check. */
 export interface ServiceCheck {
@@ -104,29 +112,20 @@ export async function checkServices(
 	return result;
 }
 
-/** `a`, `a and b`, `a, b and c`. */
-function listOf(names: string[]): string {
-	if (names.length <= 1) {
-		return names.join("");
-	}
-
-	return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
-}
-
 /** The check in plain words for the form's status line. */
 export function describeServiceCheck(check: ServicesCheckResult, packageName = "X3"): string {
 	if (check.failure === "closed") {
-		return "Couldn't check: the network is not connected.";
+		return t("oper.services.check.closed");
 	}
 
 	if (check.failure === "timeout") {
-		return "Couldn't check: the server did not answer.";
+		return t("oper.services.check.timeout");
 	}
 
 	const {results} = check;
 
 	if (results.length === 0) {
-		return "No bots to check: name at least one.";
+		return t("oper.services.check.noBots");
 	}
 
 	const offline = results.filter((r) => !r.online).map((r) => r.bot);
@@ -134,39 +133,48 @@ export function describeServiceCheck(check: ServicesCheckResult, packageName = "
 	const parts: string[] = [];
 
 	if (offline.length > 0) {
-		parts.push(
-			`${listOf(offline)} ${offline.length === 1 ? "isn't" : "aren't"} online (no such nick).`
-		);
+		parts.push(tCount("oper.services.check.offline", offline.length, {bots: andList(offline)}));
 	}
 
 	if (online.length > 0) {
-		const names = listOf(online.map((r) => r.bot));
-		const verb = online.length === 1 ? "is" : "are";
+		const bots = andList(online.map((r) => r.bot));
 		const odd = online.filter((r) => !r.looksLikeX3).map((r) => r.bot);
 		const fake = online.filter((r) => !r.trusted).map((r) => r.bot);
-		const look =
+		const vars = {bots, package: packageName};
+		let sentence =
 			odd.length === 0
-				? ` and ${online.length === 1 ? "looks" : "look"} like ${packageName}`
-				: "";
-		const tick = offline.length === 0 && fake.length === 0 ? "✓ " : "";
-		let sentence = `${tick}${names} ${verb} online${look}.`;
+				? tCount("oper.services.check.onlineLooks", online.length, vars)
+				: tCount("oper.services.check.online", online.length, vars);
+
+		if (offline.length === 0 && fake.length === 0) {
+			sentence = t("oper.services.check.allGood", {sentence});
+		}
 
 		if (odd.length > 0) {
-			sentence += ` ${listOf(odd)} ${
-				odd.length === 1 ? "doesn't" : "don't"
-			} look like ${packageName}.`;
+			sentence = t("oper.services.check.sentences", {
+				first: sentence,
+				second: tCount("oper.services.check.notLike", odd.length, {
+					bots: andList(odd),
+					package: packageName,
+				}),
+			});
 		}
 
 		if (fake.length > 0) {
-			sentence += ` ${listOf(fake)} ${
-				fake.length === 1 ? "isn't a network service" : "aren't network services"
-			}, so Seance won't trust ${fake.length === 1 ? "its" : "their"} replies.`;
+			sentence = t("oper.services.check.sentences", {
+				first: sentence,
+				second: tCount("oper.services.check.untrusted", fake.length, {
+					bots: andList(fake),
+				}),
+			});
 		}
 
 		parts.push(sentence);
 	}
 
-	return parts.join(" ");
+	return parts.length === 2
+		? t("oper.services.check.sentences", {first: parts[0], second: parts[1]})
+		: parts.join("");
 }
 
 // ------------------------------------------------ a bot's NOTICE in answer
@@ -507,7 +515,7 @@ export async function servicesBan(
 	const profile = servicesProfileFor(services);
 
 	if (!services || !profile || !services.bots.oper.trim()) {
-		return {outcome: "closed", text: "No oper service is set up for this network."};
+		return {outcome: "closed", text: t("oper.services.noOperService")};
 	}
 
 	// Trimmed as ActionDialog.vue trims it: the dialog measures this same line.
@@ -543,7 +551,7 @@ export async function servicesBan(
 function banRefusal(bot: string, answer: NotReady): ServicesBanOutcome {
 	switch (answer.kind) {
 		case "missing":
-			return {outcome: "refused", text: `${bot} is not online (no such nick).`};
+			return {outcome: "refused", text: t("oper.services.botOffline", {bot})};
 		case "untrusted":
 			return {outcome: "refused", text: untrustedText(bot)};
 		case "timeout":
@@ -555,5 +563,5 @@ function banRefusal(bot: string, answer: NotReady): ServicesBanOutcome {
 
 /** What a card or form says when the bot's nick is held by someone else. */
 export function untrustedText(bot: string): string {
-	return `${bot} is online but isn't a network service, so Seance won't trust it.`;
+	return t("oper.services.untrusted", {bot});
 }

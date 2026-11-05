@@ -34,10 +34,17 @@ const READ_DOWNLOAD = `(async () => {
 })()`;
 
 async function openGeneral(page) {
-	await page.click(`#footer button.settings`);
-	await page.waitFor(`!!document.querySelector(${JSON.stringify(SECTION)})`, {
-		label: "general tab with the backup section",
-	});
+	// Settings is a modal and a restore's reload stays on /settings (router.ts
+	// onStandalonePage), so the tab may already be open — and the footer button
+	// is behind the backdrop there, where a click lands on #settings itself
+	// (Windows/Settings.vue @click.self) and CLOSES the window instead.
+	if (!(await page.evaluate(`!!document.querySelector(${JSON.stringify(SECTION)})`))) {
+		await page.click(`#footer button.settings`);
+		await page.waitFor(`!!document.querySelector(${JSON.stringify(SECTION)})`, {
+			label: "general tab with the backup section",
+		});
+	}
+
 	await page.evaluate(
 		`document.querySelector(${JSON.stringify(SECTION)}).scrollIntoView({block: "end"})`
 	);
@@ -99,7 +106,9 @@ export default async function run(page) {
 	console.log(`  download: ${dl.name}, ${dl.size} bytes, gzip=${dl.gz}`);
 	page.check("file is gzipped", dl.gz);
 	page.check("file extension", dl.name.endsWith(".seance-settings"));
-	page.check("envelope", dl.backup.format === "seance-settings" && dl.backup.version === 1);
+	// Version 2 since the per-channel translation state joined the covered
+	// keys (settingsBackup.ts KEY_SINCE).
+	page.check("envelope", dl.backup.format === "seance-settings" && dl.backup.version === 2);
 	const keys = Object.keys(dl.backup.entries).sort();
 	console.log(`  keys: ${keys.join(", ")}`);
 	page.check("settings carried", keys.includes("settings"));

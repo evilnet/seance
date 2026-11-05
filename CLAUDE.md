@@ -16,6 +16,7 @@ pnpm, at the version `package.json`'s `packageManager` names (`npm i -g pnpm@12.
 | ----------------------------------------------- | --------------------------------------------- |
 | Install deps                                    | `pnpm install`                                |
 | Build the SPA (Vite → `public/`)                | `pnpm build` (`NODE_ENV=production` for prod) |
+| Check the pot against the `t()` call sites      | `pnpm i18n:check`                             |
 | Rebuild on change                               | `pnpm watch`                                  |
 | Serve the built SPA                             | `python3 -m http.server -d public 8000`       |
 | Lint everything (oxlint + prettier + stylelint) | `pnpm lint`                                   |
@@ -42,6 +43,8 @@ Live tests (`test/irc/*.live.ts`) are skipped unless `SEANCE_IRC_URL` is set; ru
 - **`client/js/irc/`** — the IRC layer: `transport.ts` (WebSocket) → `message.ts` (parser) → `caps.ts`/`sasl.ts`/`isupport.ts` → `client.ts` (`IrcClient`, one per network) → `handlers/` → `socket.dispatch(...)`. Input comes back through `bus.ts` → `commands/`. Module notes and protocol rules (unread counts, reconnects, SASL, retries, the server's throttle, pending messages, …): `docs/resources/irc-layer.md`.
   - **To add a handler**: a file in `handlers/` exporting `{COMMAND: handler}` and one entry in `handlers/index.ts` `modules`. Handlers mutate the client's model through `client.*` (`pushMessage`, `findChannel`, `timeOf`, …), never the transport or the store. Model: `handlers/away.ts`.
   - **To add a command**: a file in `commands/` exporting a `Command` and one entry in `commands/index.ts`. Build lines with `formatLine` / `trailingLine`. Model: `commands/away.ts`. Unknown commands are sent raw.
+- **`client/js/translate/`** — on-device translation in its own worker (`js/translate-worker.js`, built by `vite.translate.config.mts` after every app build; WebLLM, transformers.js/ONNX Runtime, wllama), off by default: it runs only where the deploy allows it and the user's `translationEnabled` is on (`translate/switch.ts`), and while off nothing of it renders or runs. Summary: `docs/resources/client-features.md` § Translation; long form `docs/resources/translation.md`.
+- **`client/js/i18n/`**, **`client/locales/`**, **`tools/i18n/`** — the interface's 24 languages: `messages.pot`, the `.po` catalogs compiled to JSON by `pnpm i18n:compile` (`pnpm build` runs it). `docs/resources/i18n.md`.
 - **`shells/`** — the app shell around `public/`: `tauri/` (iOS, Android, Windows, macOS, Linux). The page reaches it through one bridge, `client/js/helpers/shell.ts`. Plan: `docs/projects/desktop-shells.md`; the shell has a README.
 - **`shared/`** — cross-cutting types and helpers.
 - **`attic/`** — TheLounge's old server. Reference only; never import from it.
@@ -60,6 +63,8 @@ Live tests (`test/irc/*.live.ts`) are skipped unless `SEANCE_IRC_URL` is set; ru
 - **The connect path is expensive**: each command costs ~2 s of server fake lag and the socket is ignored past 10 s. Pipeline registration (`CAP END` in the same flush as `CAP REQ`), autojoin is one `JOIN a,b,c`, per-channel work goes through `catchup.ts`, and anything automatic nobody is waiting for goes through `IrcClient.background`, not `send`. Nothing but registration before 001 (`client.isWelcomed`). Details: `docs/resources/irc-layer.md`.
 - **`MAX_LINE_BYTES = 500`** caps every outbound line, tags included. Do not raise it.
 - **localStorage keys are still `thelounge.*`.** Do not rename without a migration.
+- **Every UI string goes through `t()`/`tCount()`.** `client/locales/messages.pot` is the only English copy; a key is a whole phrase with `{var}` placeholders, never translated fragments concatenated; user content and server text never pass through `t()`. New keys via `tools/i18n/add.ts`; `pnpm i18n:check` (inside `pnpm test:mocha` too) fails a call site the pot disagrees with. `docs/resources/i18n.md`.
+- **New CSS uses logical properties** (`margin-inline-start`, `inset-inline-start`, `text-align: start`): right to left ships (`ar`); check it with the development build's `qqx` pseudo-locale (`NODE_ENV=development pnpm build`).
 - **Prettier is enforced**; if `pnpm lint` fails, run `pnpm format:prettier` first.
 
 ## Tests

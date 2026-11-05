@@ -13,13 +13,15 @@ class EventHandlerArgs: Decodable {
 /// src/mobile.rs hands each call here as `{plugin, method, options}`, and
 /// events go back through the one channel it set at start. LocalNotifications
 /// is the one the macOS shell answers too (../swift, SeanceNotifications);
-/// App, Keyboard, StatusBar, SplashScreen, Badge and Power are answered here.
+/// App, Keyboard, StatusBar, SplashScreen, Badge and Power are answered here,
+/// and AppleTranslate (Apple's Translation framework) in AppleTranslate.swift.
 final class SeancePlugin: Plugin {
     private var channel: Channel?
     private var held: [JsonObject] = []
     private lazy var notifications = Notifications { [weak self] tap in
         self?.emit("LocalNotifications", "localNotificationActionPerformed", tap, retain: true)
     }
+    private let appleTranslate = AppleTranslate()
     private weak var webview: WKWebView?
     private var observers: [NSObjectProtocol] = []
 
@@ -114,9 +116,24 @@ final class SeancePlugin: Plugin {
             return ["lowPower": ProcessInfo.processInfo.isLowPowerModeEnabled]
         case ("LocalNotifications", _) where Notifications.methods.contains(method):
             return try await notifications.call(method, options)
+        case ("AppleTranslate", _) where AppleTranslate.methods.contains(method):
+            return try await appleTranslate.call(method, options, presentingFrom: presenter)
         default:
             throw Failure(code: "unimplemented", message: "\(plugin).\(method) is not implemented")
         }
+    }
+
+    /// The web view's own view controller, for a sheet the system shows over
+    /// the page (AppleTranslate's `prepare`).
+    private var presenter: UIViewController? {
+        var responder: UIResponder? = webview
+        while let next = responder {
+            if let controller = next as? UIViewController {
+                return controller
+            }
+            responder = next.next
+        }
+        return webview?.window?.rootViewController
     }
 
     private func badgePermission() async -> String {

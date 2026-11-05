@@ -12,6 +12,7 @@ import {ChanType} from "../../../../shared/types/chan";
 import {MessageType} from "../../../../shared/types/msg";
 import {beginWho, WHOX_FIELDS} from "../handlers/who";
 import {formatLine} from "../message";
+import {t} from "../../i18n/core";
 import type {Command} from "../types";
 
 const tokens = new WeakMap<object, number>();
@@ -32,7 +33,7 @@ const who: Command = {
 			if (chan.type !== ChanType.CHANNEL) {
 				client.pushMessage(chan, {
 					type: MessageType.ERROR,
-					text: "Usage: /who [mask] [flags] (the current channel when no mask is given)",
+					text: t("cmd.usageWho"),
 				});
 				return;
 			}

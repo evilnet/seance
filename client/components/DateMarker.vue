@@ -7,13 +7,11 @@
 </template>
 
 <script lang="ts">
-import dayjs from "dayjs";
-import calendar from "dayjs/plugin/calendar";
 import {computed, defineComponent, onBeforeUnmount, onMounted, PropType} from "vue";
 import eventbus from "../js/eventbus";
+import {formatDayHeading, formatRelativeDay} from "../js/i18n/dates";
+import {useI18n} from "../js/i18n";
 import type {ClientMessage} from "../js/types";
-
-dayjs.extend(calendar);
 
 export default defineComponent({
 	name: "DateMarker",
@@ -25,10 +23,19 @@ export default defineComponent({
 		focused: Boolean,
 	},
 	setup(props) {
-		const localeDate = computed(() => dayjs(props.message.time).format("D MMMM YYYY"));
+		const {t, locale} = useI18n();
+
+		const ms = () => props.message.time.getTime();
+
+		// Reading locale.value ties the computed to the active language, so a
+		// locale change re-renders the heading (Intl itself is not reactive).
+		const localeDate = computed(() => {
+			void locale.value;
+			return formatDayHeading(ms());
+		});
 
 		const hoursPassed = () => {
-			return (Date.now() - Date.parse(props.message.time.toString())) / 3600000;
+			return (Date.now() - ms()) / 3600000;
 		};
 
 		const dayChange = () => {
@@ -37,15 +44,9 @@ export default defineComponent({
 			}
 		};
 
-		const friendlyDate = () => {
-			// See http://momentjs.com/docs/#/displaying/calendar-time/
-			return dayjs(props.message.time).calendar(null, {
-				sameDay: "[Today]",
-				lastDay: "[Yesterday]",
-				lastWeek: "D MMMM YYYY",
-				sameElse: "D MMMM YYYY",
-			});
-		};
+		// Today / Yesterday / the date. The labels resolve through the
+		// catalog keys dates.today / dates.yesterday, owned by this component.
+		const friendlyDate = () => formatRelativeDay(ms(), t);
 
 		onMounted(() => {
 			if (hoursPassed() < 48) {

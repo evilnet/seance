@@ -1,17 +1,20 @@
 import eventbus from "../eventbus";
+import {useI18n} from "../i18n";
 import socket from "../socket";
 import {ClientChan} from "../types";
 import {ChanType} from "../../../shared/types/chan";
 
 export default function useCloseChannel(channel: ClientChan) {
+	const {t} = useI18n();
+
 	return () => {
 		if (channel.type === ChanType.LOBBY) {
 			eventbus.emit(
 				"confirm-dialog",
 				{
-					title: "Remove network",
-					text: `Are you sure you want to quit and remove ${channel.name}? This cannot be undone.`,
-					button: "Remove network",
+					title: t("lobby.removeTitle"),
+					text: t("lobby.removeText", {name: channel.name}),
+					button: t("lobby.removeButton"),
 				},
 				(result: boolean) => {
 					if (!result) {

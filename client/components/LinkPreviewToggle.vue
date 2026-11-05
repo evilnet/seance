@@ -9,6 +9,7 @@
 
 <script lang="ts">
 import {computed, defineComponent, PropType} from "vue";
+import {useI18n} from "../js/i18n";
 import {ClientLinkPreview} from "../js/types";
 
 export default defineComponent({
@@ -17,8 +18,9 @@ export default defineComponent({
 		link: {type: Object as PropType<ClientLinkPreview>, required: true},
 	},
 	setup(props) {
+		const {t} = useI18n();
 		const ariaLabel = computed(() => {
-			return props.link.shown ? "Collapse preview" : "Expand preview";
+			return props.link.shown ? t("link.collapse") : t("link.expand");
 		});
 
 		const onClick = () => {

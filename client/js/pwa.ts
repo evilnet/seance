@@ -84,12 +84,21 @@ function isSecureContext(): boolean {
 	);
 }
 
+/**
+ * Whether the app's service worker is registered here at all. An app shell,
+ * phone or desktop, loads the bundle from the app itself: nothing to cache
+ * for offline, and a new build is a new app (from the store, or the desktop
+ * shell's updater), not a worker update. WKWebView would refuse the worker
+ * on the app's custom scheme anyway. Also what translate/threads.ts
+ * `isolationState` is told as `workerCanServe`: where no worker serves the
+ * page, no reload brings the isolation headers.
+ */
+export function serviceWorkerCanServe(): boolean {
+	return "serviceWorker" in navigator && isSecureContext() && !isShell();
+}
+
 function registerServiceWorker(): void {
-	// An app shell, phone or desktop, loads the bundle from the app itself:
-	// nothing to cache for offline, and a new build is a new app (from the
-	// store, or the desktop shell's updater), not a worker update. WKWebView
-	// would refuse the worker on the app's custom scheme anyway.
-	if (!("serviceWorker" in navigator) || !isSecureContext() || isShell()) {
+	if (!serviceWorkerCanServe()) {
 		return;
 	}
 

@@ -20,19 +20,19 @@
 		>
 			<div class="mentions-popup-title">
 				<h2 id="mentions-popup-heading">
-					Mentions
-					<span v-if="total" class="mentions-total" :aria-label="`${total} unread`">{{
-						total
+					{{ t("mentions.title") }}
+					<span v-if="total" class="mentions-total" :aria-label="totalLabel">{{
+						totalText
 					}}</span>
 				</h2>
 				<button v-if="total" class="oper-btn oper-btn-ghost" @click="dismissAllMentions()">
-					Dismiss all
+					{{ t("mentions.dismissAll") }}
 				</button>
 				<!-- On the phone the pane is the whole screen: nothing outside it to tap. -->
 				<button
 					class="mentions-close"
 					type="button"
-					aria-label="Close mentions"
+					:aria-label="t('mentions.close')"
 					@click="closePopup"
 				>
 					✕
@@ -41,9 +41,9 @@
 
 			<div v-if="groups.length === 0" class="mentions-empty">
 				<span class="mentions-empty-icon" aria-hidden="true"></span>
-				<p class="mentions-empty-title">You're all caught up</p>
+				<p class="mentions-empty-title">{{ t("mentions.empty") }}</p>
 				<p class="mentions-empty-hint">
-					A mention leaves this list once you read it, here or on any other device.
+					{{ t("mentions.emptyHint") }}
 				</p>
 			</div>
 
@@ -58,7 +58,11 @@
 						<button
 							class="mentions-group-header"
 							:disabled="!group.conversation"
-							:title="group.conversation ? `Open ${group.target}` : group.missing"
+							:title="
+								group.conversation
+									? t('mentions.open', {target: group.target})
+									: group.missing
+							"
 							@click="openGroup(group)"
 						>
 							<span class="mentions-group-name">{{ group.target }}</span>
@@ -78,7 +82,7 @@
 							class="oper-btn oper-btn-ghost"
 							@click="dismissGroup(group)"
 						>
-							Dismiss
+							{{ t("mentions.dismissGroup") }}
 						</button>
 					</div>
 					<p v-if="group.missing" class="mentions-group-missing">{{ group.missing }}</p>
@@ -113,19 +117,16 @@
 									>{{ message.from.nick }}</Username
 								>
 							</span>
-							<time
-								class="time"
-								:datetime="message.time"
-								:title="message.localetime"
-								>{{ messageTime(message.time) }}</time
-							>
+							<time class="time" :datetime="message.time" :title="message.fullTime">{{
+								messageTime(message.time)
+							}}</time>
 							<span v-if="group.unreadLabel" class="mentions-group-unread">{{
 								group.unreadLabel
 							}}</span>
 							<button
 								class="msg-dismiss"
-								title="Dismiss on this device"
-								aria-label="Dismiss on this device"
+								:title="t('mentions.dismissOne')"
+								:aria-label="t('mentions.dismissOne')"
 								@click.stop="dismissRow($event, group, message)"
 							></button>
 						</div>
@@ -149,19 +150,20 @@
 
 			<!-- Dismiss all takes a lot at once, so it can be taken back until the pane closes. -->
 			<div v-if="undoableMentions.length" class="mentions-undo" role="status">
-				<span>Dismissed {{ undoableMentions.length }} on this device</span>
-				<button class="btn btn-sm" @click="undoDismiss">Undo</button>
+				<span>{{ tCount("mentions.dismissedHere", undoableMentions.length) }}</span>
+				<button class="btn btn-sm" @click="undoDismiss">{{ t("mentions.undo") }}</button>
 			</div>
 
 			<div v-if="groups.length" class="mentions-keys" aria-hidden="true">
-				<span><kbd>↑</kbd><kbd>↓</kbd> move</span>
-				<span><kbd>↵</kbd> open</span>
+				<span><kbd>↑</kbd><kbd>↓</kbd> {{ t("mentions.keys.move") }}</span>
+				<span><kbd>↵</kbd> {{ t("mentions.keys.open") }}</span>
 				<span
-					><kbd>{{ isApple ? "⌫" : "Bksp" }}</kbd> dismiss</span
+					><kbd>{{ isApple ? "⌫" : t("mentions.keys.backspace") }}</kbd>
+					{{ t("mentions.keys.dismiss") }}</span
 				>
 				<span class="mentions-keys-close"
 					><kbd>{{ isApple ? "⌥" : "Alt" }}</kbd
-					><kbd>M</kbd> close</span
+					><kbd>M</kbd> {{ t("mentions.keys.close") }}</span
 				>
 			</div>
 		</div>
@@ -563,21 +565,23 @@ import eventbus from "../js/eventbus";
 import {switchToChannel} from "../js/router";
 import {isApplePlatform} from "../js/helpers/device";
 import {entryKey, groupByConversation} from "../js/helpers/inbox";
+import {formatDateTime} from "../js/i18n/dates";
+import {formatNumber} from "../js/i18n/numbers";
 import {isTouchInput} from "../js/helpers/inputModality";
-import localetime from "../js/helpers/localetime";
 import {recentTime} from "../js/helpers/messageTime";
 import {clearHighlight, paintHighlight, rangesIn} from "../js/helpers/paintHighlight";
 import {trapTab} from "../js/helpers/trapTab";
 import {mentionSpans, parseKeywordList} from "../js/highlight";
 import {computed, defineComponent, nextTick, ref, onMounted, onUnmounted, watch} from "vue";
 import {useStore} from "../js/store";
+import {useI18n} from "../js/i18n";
 import type {InboxEntry} from "../../shared/types/mention";
 import type {ClientNetwork, NetChan} from "../js/types";
 import {ChanType} from "../../shared/types/chan";
 
 type MentionWithContext = InboxEntry & {
 	key: string;
-	localetime: string;
+	fullTime: string;
 };
 
 type GroupWithContext = {
@@ -606,11 +610,15 @@ export default defineComponent({
 	},
 	setup() {
 		const store = useStore();
+		const {t, tCount, locale} = useI18n();
 		const isOpen = ref(false);
 		/** Moves the focus for a keyboard: left alone, a finger's raises none. */
 		let keyboard = false;
 
 		const groups = computed((): GroupWithContext[] => {
+			// locale.value is read so a language change redoes the
+			// Intl-formatted times (Intl itself is not reactive).
+			void locale.value;
 			const several = store.state.networks.length > 1;
 
 			return groupByConversation(store.getters.visibleMentions).map((group) => {
@@ -624,23 +632,27 @@ export default defineComponent({
 				const entries = group.entries.map((entry) => ({
 					...entry,
 					key: entryKey(entry),
-					localetime: localetime(new Date(entry.time)),
+					fullTime: formatDateTime(new Date(entry.time)),
 				}));
 				const unread = query ? conversation?.channel.unread ?? 0 : 0;
 				const network = store.getters.findNetwork(group.network);
 				let missing = "";
 
 				if (!conversation) {
-					const where = several && network ? ` on ${network.name}` : "";
+					const on = several && network ? network.name : "";
 					missing = !network
-						? "Its network isn't on this page: dismiss these."
+						? t("mentions.missingNetwork")
 						: !network.status.connected
-						? `Not connected: this opens once you're back${
-								query ? "" : ` in ${target}`
-						  }.`
+						? query
+							? t("mentions.notConnected")
+							: t("mentions.notConnectedIn", {target})
 						: query
-						? `No conversation with ${target}${where} open: open one to read these, or dismiss them.`
-						: `Not in ${target}${where}: join it to read these, or dismiss them.`;
+						? on
+							? t("mentions.missingQueryOn", {target, network: on})
+							: t("mentions.missingQuery", {target})
+						: on
+						? t("mentions.missingChannelOn", {target, network: on})
+						: t("mentions.missingChannel", {target});
 				}
 
 				return {
@@ -648,11 +660,14 @@ export default defineComponent({
 					target,
 					networkName,
 					network: network ?? undefined,
-					label: networkName ? `${target} on ${networkName}` : target,
+					label: networkName
+						? t("mentions.targetOn", {target, network: networkName})
+						: target,
 					conversation,
 					missing,
 					query,
-					unreadLabel: unread > 1 ? `${unread} unread` : "",
+					unreadLabel:
+						unread > 1 ? tCount("mentions.unread", unread, {count: unread}) : "",
 					entries,
 					shown: query ? entries.slice(-1) : entries,
 				};
@@ -660,8 +675,15 @@ export default defineComponent({
 		});
 
 		const total = computed(() => store.getters.mentionCount);
+		const totalText = computed(() => formatNumber(total.value));
+		const totalLabel = computed(() =>
+			tCount("mentions.unread", total.value, {count: total.value})
+		);
 
-		const messageTime = (time: string) => recentTime(time, store.state.settings);
+		const messageTime = (time: string) => {
+			void locale.value;
+			return recentTime(time, store.state.settings);
+		};
 
 		// Under the @ button, measured against the container the pane is
 		// placed in; the phone layout's rule ignores both.
@@ -869,12 +891,16 @@ export default defineComponent({
 		});
 
 		return {
+			tCount,
 			isOpen,
 			popup,
 			placement,
 			groups,
 			cleanIrcMessage,
 			total,
+			totalText,
+			totalLabel,
+			t,
 			undoableMentions,
 			isApple: isApplePlatform(),
 			messageTime,

@@ -12,6 +12,7 @@ import {brandingFeatures, DEFAULT_UPLOAD_MAX_BYTES, loadBranding} from "./brandi
 import {router, navigate, switchToChannel} from "./router";
 import type {LocationQueryRaw} from "vue-router";
 import {store} from "./store";
+import {migrateReadingToLocale} from "./settings";
 import parseIrcUri from "./helpers/parseIrcUri";
 import {
 	decideLinkTarget,
@@ -36,9 +37,12 @@ import {hasVirtualKeyboard} from "./helpers/device";
 import {followSystemAccessibility} from "./helpers/systemAccessibility";
 import {lowerStatusBarTintAfterLaunch} from "./helpers/statusBarTint";
 import {onLaunch, openInstallGuideAtStart} from "./pwa";
+import {DEV_I18N} from "./i18n/core";
 import dnd from "./dnd";
 import {setContextProvider, scriptManager} from "./irc/scripting/manager";
 import {MessageType} from "../../shared/types/msg";
+import {takeTestSwitches} from "./translate/testSwitches";
+import {startIsolationMirror} from "./translate";
 // Also registers the IRC layer's bus handlers (input, names, more, network:*).
 import {allClients, autoconnectSavedNetworks, clientForNetwork, createNetwork} from "./irc/manager";
 
@@ -54,6 +58,12 @@ declare global {
 const initialHref = document.location.href;
 
 export async function boot(): Promise<void> {
+	// The GPU test switches given as URL parameters (?gpuPrefillChunk=,
+	// ?gpuTestLimitMiB=; translate/testSwitches.ts): stored before
+	// translation ever probes the device, and taken out of the address bar
+	// before the link handling below reads it.
+	applyTestSwitches();
+
 	// Reduce Motion and Increase Contrast before anything renders: the
 	// stylesheet reads them as attributes on <html>.
 	followSystemAccessibility();
@@ -77,8 +87,11 @@ export async function boot(): Promise<void> {
 	store.commit("serverConfiguration", configuration);
 
 	// Before the settings store's first write (which would drop the old key):
-	// the removed global "Enable browser notifications" checkbox, when it was
-	// off, stamps notifyEnabled: false onto every saved network.
+	// the removed "Read messages in" override stamps itself onto the interface
+	// language (one control now), and the removed global "Enable browser
+	// notifications" checkbox, when it was off, stamps notifyEnabled: false
+	// onto every saved network.
+	migrateReadingToLocale();
 	saved.migrateGlobalNotify();
 
 	// Needs the deploy's default theme, which a stored theme is measured
@@ -88,6 +101,11 @@ export async function boot(): Promise<void> {
 	// 'theme' setting depends on serverConfiguration.themes so
 	// settings cannot be applied before this point
 	void store.dispatch("settings/applyAll");
+
+	// The root service worker isolates the app's documents only while
+	// translation is on (translate/index.ts startIsolationMirror): told now,
+	// with the branding and the stored settings in, and on every change.
+	startIsolationMirror();
 
 	// The branded default theme applies until the user picks one themselves.
 	if (configuration.defaultTheme !== store.state.settings.theme && !hasStoredSetting("theme")) {
@@ -114,6 +132,17 @@ export async function boot(): Promise<void> {
 	installThemeSceneHooks();
 	installInputModality(document.documentElement, hasVirtualKeyboard() ? "touch" : "pointer");
 	installViewportHooks();
+
+	// Development only: the bundler folds DEV_I18N (core.ts), so a
+	// production bundle never ships the diagnostics.
+	if (DEV_I18N) {
+		/* eslint-disable no-console -- the dev console must say the
+		 * diagnostics exist, not sit silent while they watch. */
+		console.warn(
+			"[seance i18n] developer diagnostics armed — dynamic-label and coverage warnings active (window.seanceI18n)"
+		);
+		/* eslint-enable no-console */
+	}
 
 	// After the stored settings, before any network dials: the first AWAY *
 	// decision already knows about do-not-disturb.
@@ -410,6 +439,22 @@ function hasStoredSetting(name: string): boolean {
 		return typeof stored === "object" && stored !== null && name in stored;
 	} catch (e) {
 		return false;
+	}
+}
+
+function applyTestSwitches(): void {
+	let localStore: Storage | null = null;
+
+	try {
+		localStore = window.localStorage;
+	} catch {
+		// A private window: the switches cannot be kept.
+	}
+
+	const clean = takeTestSwitches(window.location.href, localStore);
+
+	if (clean !== null) {
+		window.history.replaceState(window.history.state, "", clean);
 	}
 }
 

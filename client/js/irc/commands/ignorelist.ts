@@ -8,9 +8,8 @@ import {MessageType} from "../../../../shared/types/msg";
 import {ignoreListFor} from "../../ignore";
 import {showSpecial} from "../handlers/list";
 import {formatHostmask} from "../hostmask";
+import {t} from "../../i18n/core";
 import type {Command} from "../types";
-
-export const IGNORELIST_CHAN = "Ignored users";
 
 const ignorelist: Command = {
 	commands: ["ignorelist"],
@@ -19,7 +18,7 @@ const ignorelist: Command = {
 		const list = ignoreListFor(client.uuid);
 
 		if (list.list.length === 0) {
-			client.pushMessage(chan, {type: MessageType.ERROR, text: "Ignorelist is empty"});
+			client.pushMessage(chan, {type: MessageType.ERROR, text: t("cmd.ignorelistEmpty")});
 			return;
 		}
 
@@ -28,7 +27,7 @@ const ignorelist: Command = {
 			when: entry.when,
 		}));
 
-		showSpecial(client, IGNORELIST_CHAN, SpecialChanType.IGNORELIST, data);
+		showSpecial(client, t("cmd.ignorelistTitle"), SpecialChanType.IGNORELIST, data);
 	},
 };
 

@@ -11,35 +11,38 @@
 		<input
 			v-model="inputChannel"
 			v-focus
+			dir="auto"
 			type="text"
 			class="input"
 			name="channel"
-			placeholder="Channel"
+			:placeholder="channelPlaceholder"
 			pattern="[^\s]+"
 			maxlength="200"
-			title="The channel name may not contain spaces"
+			:title="channelHint"
 			required
 		/>
 		<input
 			v-model="inputPassword"
+			dir="auto"
 			type="password"
 			class="input"
 			name="key"
-			placeholder="Password (optional)"
+			:placeholder="passwordPlaceholder"
 			pattern="[^\s]+"
 			maxlength="200"
-			title="The channel password may not contain spaces"
+			:title="passwordHint"
 			autocomplete="new-password"
 		/>
-		<button type="submit" class="btn btn-small">Join</button>
+		<button type="submit" class="btn btn-small">{{ t("join.submit") }}</button>
 	</form>
 </template>
 
 <script lang="ts">
-import {defineComponent, PropType, ref} from "vue";
+import {computed, defineComponent, PropType, ref} from "vue";
 import {switchToChannel} from "../js/router";
 import socket from "../js/socket";
 import {useStore} from "../js/store";
+import {useI18n} from "../js/i18n";
 import {ClientNetwork, ClientChan} from "../js/types";
 
 export default defineComponent({
@@ -56,6 +59,12 @@ export default defineComponent({
 	emits: ["toggle-join-channel"],
 	setup(props, {emit}) {
 		const store = useStore();
+		const {t} = useI18n();
+		// Bound attribute labels: computeds, so a locale change re-renders.
+		const channelPlaceholder = computed(() => t("join.channelPlaceholder"));
+		const channelHint = computed(() => t("join.channelHint"));
+		const passwordPlaceholder = computed(() => t("join.passwordPlaceholder"));
+		const passwordHint = computed(() => t("join.passwordHint"));
 		const inputChannel = ref("");
 		const inputPassword = ref("");
 
@@ -84,6 +93,11 @@ export default defineComponent({
 		};
 
 		return {
+			t,
+			channelPlaceholder,
+			channelHint,
+			passwordPlaceholder,
+			passwordHint,
 			inputChannel,
 			inputPassword,
 			onSubmit,

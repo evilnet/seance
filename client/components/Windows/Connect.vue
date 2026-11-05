@@ -4,7 +4,7 @@
 		:class="['window', {'link-approval': fromLink}]"
 		:role="fromLink ? 'dialog' : 'tabpanel'"
 		:aria-modal="fromLink ? 'true' : undefined"
-		aria-label="Connect"
+		:aria-label="ariaLabel"
 	>
 		<div v-if="!fromLink" class="header">
 			<SidebarToggle />
@@ -25,16 +25,17 @@
 			<p v-if="signInIntro" class="sign-in-intro">{{ signInIntro }}</p>
 
 			<div class="connect-row connect-network">
-				<label>Network</label>
+				<label>{{ t("connect.network") }}</label>
 				<div class="input-wrap">
 					<strong>{{ networkLabel }}</strong>
 				</div>
 			</div>
 			<div class="connect-row">
-				<label for="connect:saslAccount">Account</label>
+				<label for="connect:saslAccount">{{ t("connect.account") }}</label>
 				<input
 					id="connect:saslAccount"
 					v-model.trim="form.saslAccount"
+					dir="auto"
 					class="input"
 					name="saslAccount"
 					maxlength="100"
@@ -43,12 +44,13 @@
 				/>
 			</div>
 			<div class="connect-row">
-				<label for="connect:saslPassword">Password</label>
+				<label for="connect:saslPassword">{{ t("connect.password") }}</label>
 				<RevealPassword v-slot:default="slotProps" class="input-wrap password-container">
 					<input
 						id="connect:saslPassword"
 						ref="passwordInput"
 						v-model="form.saslPassword"
+						dir="auto"
 						class="input"
 						:type="slotProps.isVisible ? 'text' : 'password'"
 						name="saslPassword"
@@ -70,14 +72,17 @@
 
 			<div v-if="notice" class="connect-notice">{{ notice }}</div>
 			<div v-if="submitted" class="connect-notice">
-				Connecting as <strong>{{ submitted.nick }}</strong> to
-				<strong>{{ networkLabel }}</strong
-				>…
+				{{
+					t("connect.connectingAs", {
+						nick: submitted.nick,
+						network: networkLabel,
+					})
+				}}
 			</div>
 
 			<div :class="{'link-approval-buttons': fromLink}">
 				<button v-if="fromLink" type="button" class="btn btn-cancel" @click="cancelLink">
-					Not now
+					{{ t("connect.notNow") }}
 				</button>
 				<button type="submit" class="btn btn-signin">
 					{{ t("connect.signInSubmit") }}
@@ -87,10 +92,11 @@
 			<template v-if="guestAccess">
 				<h2 class="sign-in-guest">{{ t("connect.guestTitle") }}</h2>
 				<div class="connect-row">
-					<label for="connect:guestNick">Nick</label>
+					<label for="connect:guestNick">{{ t("connect.nick") }}</label>
 					<input
 						id="connect:guestNick"
 						v-model.trim="guestNick"
+						dir="auto"
 						class="input nick"
 						name="guestNick"
 						pattern="[^\s:!@]+"
@@ -104,28 +110,31 @@
 			</template>
 		</form>
 		<form v-else class="container" method="post" action="" @submit.prevent="onSubmit">
-			<h1 class="title">{{ fromLink ? "Connect to a new server?" : t("connect.title") }}</h1>
+			<h1 class="title">
+				{{ fromLink ? t("connect.newServerTitle") : t("connect.title") }}
+			</h1>
 
 			<div v-if="linkNotice" class="connect-notice connect-link-notice">
 				{{ linkNotice }}
 			</div>
 
-			<h2 v-if="!hostLocked">Server</h2>
+			<h2 v-if="!hostLocked">{{ t("connect.server") }}</h2>
 			<div v-if="hostLocked" class="connect-row connect-network">
-				<label>Network</label>
+				<label>{{ t("connect.network") }}</label>
 				<div class="input-wrap">
 					<strong>{{ networkLabel }}</strong>
 				</div>
 			</div>
 			<div v-if="!hostLocked" class="connect-row">
-				<label for="connect:host">Server</label>
+				<label for="connect:host">{{ t("connect.server") }}</label>
 				<div class="input-wrap">
 					<input
 						id="connect:host"
 						v-model.trim="form.host"
+						dir="auto"
 						class="input"
 						name="host"
-						aria-label="Server address"
+						:aria-label="serverAddressLabel"
 						placeholder="irc.example.org"
 						autocapitalize="off"
 						:autocorrect.attr="'off'"
@@ -137,12 +146,13 @@
 					<input
 						id="connect:port"
 						v-model.number="form.port"
+						dir="auto"
 						class="input"
 						type="number"
 						min="1"
 						max="65535"
 						name="port"
-						aria-label="Server port"
+						:aria-label="serverPortLabel"
 						required
 					/>
 				</div>
@@ -152,17 +162,18 @@
 				<div class="input-wrap">
 					<label class="tls">
 						<input v-model="form.tls" v-switch type="checkbox" name="tls" />
-						Use secure connection (TLS)
+						{{ t("connect.useTls") }}
 					</label>
 				</div>
 			</div>
 
-			<h2>User</h2>
+			<h2>{{ t("connect.user") }}</h2>
 			<div class="connect-row">
-				<label for="connect:nick">Nick</label>
+				<label for="connect:nick">{{ t("connect.nick") }}</label>
 				<input
 					id="connect:nick"
 					v-model.trim="form.nick"
+					dir="auto"
 					class="input nick"
 					name="nick"
 					pattern="[^\s:!@]+"
@@ -174,35 +185,37 @@
 				/>
 			</div>
 			<div class="connect-row">
-				<label for="connect:channels">Channels</label>
+				<label for="connect:channels">{{ t("connect.channels") }}</label>
 				<input
 					id="connect:channels"
 					v-model.trim="form.join"
+					dir="auto"
 					class="input"
 					name="join"
-					placeholder="#channel, #another (optional)"
+					:placeholder="channelsPlaceholder"
 					autocapitalize="off"
 					:autocorrect.attr="'off'"
 					spellcheck="false"
 				/>
 			</div>
 
-			<h2 id="label-auth">Authentication</h2>
+			<h2 id="label-auth">{{ t("connect.authentication") }}</h2>
 			<div class="connect-row">
 				<label></label>
 				<div class="input-wrap">
 					<label class="tls">
 						<input v-model="showSasl" v-switch type="checkbox" name="sasl" />
-						I have a services account (SASL)
+						{{ t("connect.saslToggle") }}
 					</label>
 				</div>
 			</div>
 			<template v-if="showSasl">
 				<div class="connect-row">
-					<label for="connect:saslAccount">Account</label>
+					<label for="connect:saslAccount">{{ t("connect.account") }}</label>
 					<input
 						id="connect:saslAccount"
 						v-model.trim="form.saslAccount"
+						dir="auto"
 						class="input"
 						name="saslAccount"
 						maxlength="100"
@@ -214,7 +227,7 @@
 					/>
 				</div>
 				<div class="connect-row">
-					<label for="connect:saslPassword">Password</label>
+					<label for="connect:saslPassword">{{ t("connect.password") }}</label>
 					<RevealPassword
 						v-slot:default="slotProps"
 						class="input-wrap password-container"
@@ -223,6 +236,7 @@
 							id="connect:saslPassword"
 							ref="passwordInput"
 							v-model="form.saslPassword"
+							dir="auto"
 							class="input"
 							:type="slotProps.isVisible ? 'text' : 'password'"
 							name="saslPassword"
@@ -242,7 +256,7 @@
 								type="checkbox"
 								name="pushEnabled"
 							/>
-							Push notifications (registers when the server supports them)
+							{{ t("connect.pushNotifications") }}
 						</label>
 					</div>
 				</div>
@@ -256,7 +270,7 @@
 								type="checkbox"
 								name="rememberPassword"
 							/>
-							Remember password on this device
+							{{ t("connect.rememberPassword") }}
 						</label>
 					</div>
 				</div>
@@ -273,7 +287,7 @@
 							name="notifyEnabled"
 							@change="onNotifyToggle"
 						/>
-						Browser notifications for this network
+						{{ t("connect.browserNotifications") }}
 					</label>
 				</div>
 			</div>
@@ -283,21 +297,24 @@
 				<div class="input-wrap">
 					<label class="tls">
 						<input v-model="autoconnect" v-switch type="checkbox" name="autoconnect" />
-						Connect automatically when the app starts
+						{{ t("connect.autoconnect") }}
 					</label>
 				</div>
 			</div>
 
 			<div v-if="notice" class="connect-notice">{{ notice }}</div>
 			<div v-if="submitted" class="connect-notice">
-				Connecting as <strong>{{ submitted.nick }}</strong> to
-				<strong>{{ submitted.host }}:{{ submitted.port }}</strong
-				>…
+				{{
+					t("connect.connectingAs", {
+						nick: submitted.nick,
+						network: `${submitted.host}:${submitted.port}`,
+					})
+				}}
 			</div>
 
 			<div :class="{'link-approval-buttons': fromLink}">
 				<button v-if="fromLink" type="button" class="btn btn-cancel" @click="cancelLink">
-					Not now
+					{{ t("connect.notNow") }}
 				</button>
 				<button type="submit" class="btn">{{ t("connect.submit") }}</button>
 			</div>
@@ -306,8 +323,7 @@
 </template>
 
 <style>
-#connect .connect-notice,
-#connect .saved-networks-empty {
+#connect .connect-notice {
 	padding: 10px;
 	margin-bottom: 10px;
 	border-radius: 2px;
@@ -365,6 +381,21 @@
 	margin-top: 2rem;
 }
 
+/* The language row: a quiet utility at the bottom of the form, not one of
+ * the connect fields. Its copy is long (the label carries a gloss), so it
+ * takes the full row width instead of the 25% field-label column, muted. */
+#connect .connect-locale {
+	display: block;
+	margin-top: 0.625rem;
+}
+
+#connect .connect-locale label {
+	width: 100%;
+	margin-top: 0;
+	margin-bottom: 0.375rem;
+	color: var(--body-color-muted, inherit);
+}
+
 /* The stock `.btn` is already an outline, so the two ways in would look
  * alike; the account form is the primary one, and fills. `.btn-guest` keeps
  * the outline (and its class, which the browser scenario clicks). */
@@ -375,16 +406,17 @@
 </style>
 
 <script lang="ts">
-import {defineComponent, onMounted, reactive, ref, watch} from "vue";
+import {computed, defineComponent, onMounted, reactive, ref, watch} from "vue";
 
 import {useStore} from "../../js/store";
-import {brandingFeatures, brandingString, expandNick, nickFromAccount} from "../../js/branding";
+import {brandingFeatures, expandNick, nickFromAccount} from "../../js/branding";
 import {autoconnectSavedNetworks, createNetwork} from "../../js/irc/manager";
 import * as saved from "../../js/irc/saved-networks";
 import {defaultPort, SavedNetwork} from "../../js/irc/saved-networks";
 import {mergeJoinLists} from "../../js/helpers/linkTarget";
 import {askNativeAlertPermission, nativeAlertsAvailable} from "../../js/helpers/nativeAlerts";
 import {router, switchToChannel} from "../../js/router";
+import {useI18n} from "../../js/i18n";
 import type {ConnectOptions} from "../../js/irc/types";
 import RevealPassword from "../RevealPassword.vue";
 import SidebarToggle from "../SidebarToggle.vue";
@@ -414,8 +446,17 @@ export default defineComponent({
 		const features = brandingFeatures(branding);
 		const network = branding.defaultNetwork;
 		const defaults = store.state.serverConfiguration?.defaults;
-		const t = (key: string) => brandingString(key, branding);
-
+		// Every label here — including the branding-catalog keys — speaks
+		// through useI18n's t: reactive on a locale change, and the deploy's
+		// `strings` overrides still win there (useI18n applies them ahead of
+		// the catalog lookup, the same rule brandingString applied).
+		const {t} = useI18n();
+		// Bound attributes read computeds, not inline calls, so the key stays
+		// double-quoted for the pot↔call-site check.
+		const ariaLabel = computed(() => t("connect.ariaLabel"));
+		const serverAddressLabel = computed(() => t("connect.serverAddress"));
+		const serverPortLabel = computed(() => t("connect.serverPort"));
+		const channelsPlaceholder = computed(() => t("connect.channelsPlaceholder"));
 		const tls = network?.tls ?? defaults?.tls ?? true;
 		// The server the deploy points at. Pinned when the host is locked.
 		const server = {
@@ -453,7 +494,8 @@ export default defineComponent({
 		// the server when it does.
 		const signInMode = features.signIn;
 		const guestAccess = features.guestAccess;
-		const signInIntro = t("connect.signInIntro");
+		// A computed, not a snapshot: the intro must follow a locale change.
+		const signInIntro = computed(() => t("connect.signInIntro"));
 		/** The guest half's own field, so prefilling an account leaves it be. */
 		const guestNick = ref(network?.nick ? expandNick(network.nick) : "");
 		/** "Stay signed in": remember the password *and* connect on next load,
@@ -536,7 +578,7 @@ export default defineComponent({
 			}
 
 			if (savedLink.sasl === "plain" && !savedLink.saslPassword) {
-				notice.value = `Enter the password for ${savedLink.saslAccount} to connect.`;
+				notice.value = t("connect.enterPassword", {account: savedLink.saslAccount});
 				focusPassword = true;
 			}
 		} else if (hasConnectParams) {
@@ -571,13 +613,24 @@ export default defineComponent({
 		}
 
 		// What the link asked for, said out loud — the approval step's context.
-		const linkNotice = linkIgnored
-			? `This app only connects to ${networkLabel}. The link to ${linkIgnored} was ignored.`
-			: fromLink && !savedLink && form.host
-			? `This link suggests connecting to ${form.host}:${form.port}` +
-			  (form.join ? ` and joining ${form.join}` : "") +
-			  ". Nothing is saved until you choose to connect."
-			: "";
+		// A computed so a locale change re-renders it while the dialog is up.
+		const linkNotice = computed(() => {
+			if (linkIgnored) {
+				return t("connect.linkIgnored", {network: networkLabel, host: linkIgnored});
+			}
+
+			if (fromLink && !savedLink && form.host) {
+				return form.join
+					? t("connect.linkSuggestJoin", {
+							host: form.host,
+							port: form.port,
+							channels: form.join,
+					  })
+					: t("connect.linkSuggest", {host: form.host, port: form.port});
+			}
+
+			return "";
+		});
 
 		// Follow the TLS checkbox while the port is still one of the defaults.
 		watch(
@@ -636,7 +689,7 @@ export default defineComponent({
 			const nick = guestNick.value.trim();
 
 			if (!/^[^\s:!@]+$/.test(nick)) {
-				notice.value = "Choose a nick to connect as a guest.";
+				notice.value = t("connect.guestNickRequired");
 				return;
 			}
 
@@ -695,7 +748,12 @@ export default defineComponent({
 
 		return {
 			form,
+			store,
 			t,
+			ariaLabel,
+			serverAddressLabel,
+			serverPortLabel,
+			channelsPlaceholder,
 			signInMode,
 			guestAccess,
 			signInIntro,

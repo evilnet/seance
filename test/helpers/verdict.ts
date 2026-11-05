@@ -3,6 +3,7 @@ import type {LoggedNotice} from "../../client/js/irc/noticelog";
 import type {LiveBan} from "../../client/js/irc/profiles/nefarious/stats";
 import {
 	bansNear,
+	fateText,
 	type Identity,
 	ipInCidr,
 	maskCovers,
@@ -205,7 +206,13 @@ describe("the user card's verdict (helpers/verdict.ts)", function () {
 		expect(seen[0].time).to.equal(NOW - 200 * MIN);
 		expect(seen[0].matched).to.deep.equal(["realname"]);
 		expect(seen[1].matched).to.deep.equal(["ip", "host", "realname"]);
-		expect(seen[1].fate).to.equal("G-lined by rubin for 'bot group'");
+		expect(seen[1].fate).to.deep.equal({
+			kind: "ban",
+			type: "G-line",
+			by: "rubin",
+			reason: "bot group",
+		});
+		expect(fateText(seen[1].fate!)).to.equal("G-lined by rubin for 'bot group'");
 	});
 
 	it("leaves the user's own lines out, but keeps their nick's earlier session from elsewhere", function () {
@@ -297,7 +304,7 @@ describe("the user card's verdict (helpers/verdict.ts)", function () {
 						time: NOW - 3 * 24 * HOUR,
 						matched: ["ip", "realname"],
 						ident: "r1234",
-						fate: "G-lined by rubin for 'bot group'",
+						fate: {kind: "ban", type: "G-line", by: "rubin", reason: "bot group"},
 					},
 				],
 				now: NOW,
@@ -354,7 +361,7 @@ describe("the user card's verdict (helpers/verdict.ts)", function () {
 					time: NOW - 3 * 24 * HOUR,
 					matched: ["ip", "realname"],
 					ident: "r1234",
-					fate: "G-lined by rubin",
+					fate: {kind: "ban", type: "G-line", by: "rubin"},
 				},
 			],
 			now: NOW,
@@ -362,7 +369,7 @@ describe("the user card's verdict (helpers/verdict.ts)", function () {
 		expect(match).to.deep.include({
 			tone: "match",
 			kicker: "Likely match",
-			lead: "Same as",
+			lead: "Same as {nick}",
 			nick: "spamfan",
 			detail: "seen Wed, then G-lined by rubin",
 		});
@@ -377,7 +384,7 @@ describe("the user card's verdict (helpers/verdict.ts)", function () {
 						time: NOW - 3 * 24 * HOUR,
 						matched: ["ip", "realname"],
 						ident: "r1234",
-						fate: "G-lined by rubin",
+						fate: {kind: "ban", type: "G-line", by: "rubin"},
 					},
 				],
 				now: NOW,
