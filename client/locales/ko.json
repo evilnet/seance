@@ -642,10 +642,8 @@
   "message.redactedHide": "클릭하여 다시 숨기기",
   "message.redactedReveal": "삭제된 메시지, 클릭하여 보기",
   "message.reply": "답장",
-  "message.replyMissing": "로드되지 않은 메시지에 대한 답장",
   "message.replyUnknown": "(알 수 없는 메시지)",
   "message.replyingTo": "{nick}의 메시지에 대한 답장: {text}. 해당 메시지로 이동합니다.",
-  "message.replyingToParent": "{nick}의 메시지에 대한 답장: {text}.",
   "message.shownInActive": "이 메시지는 활성 채널에서 표시되었습니다",
   "message.statusmsg": "이 메시지는 {mode} 모드를 가진 사용자에게만 표시되었습니다",
   "msg.ctcpTitle": "클라이언트 간 프로토콜",
@@ -1989,7 +1987,6 @@
     "other": "{count}개 일치, 모두 필터로 숨겨짐"
   },
   "search.window.allHiddenNote": "더 오래된 메시지가 일치할 수도 있습니다. {when}까지 검색했습니다.",
-  "search.window.around": "{day} · {time}경",
   "search.window.asking": "서버에 묻는 중…",
   "search.window.back": "{channel}(으)로 돌아가기",
   "search.window.backTo": "{when}까지",
@@ -2000,12 +1997,7 @@
   "search.window.chip.from": "보낸 사람",
   "search.window.chip.has": "포함",
   "search.window.chip.without": "제외",
-  "search.window.closeContext": "앞뒤 맥락 닫기",
-  "search.window.contextAria": "이 메시지 앞뒤의 메시지",
-  "search.window.contextFailed": "이 줄 앞뒤를 불러오지 못했습니다.",
-  "search.window.contextLoading": "이 줄 앞뒤를 불러오는 중…",
   "search.window.dayAndTime": "{day} {time}",
-  "search.window.earlier": "이전",
   "search.window.editFilters": "필터 편집",
   "search.window.errorFailed": "서버가 이 검색을 실행하지 못했습니다.",
   "search.window.errorInvalid": "이 검색은 보낼 수 없습니다.",
@@ -2016,12 +2008,10 @@
   "search.window.failed": "검색 실패",
   "search.window.field": "메시지 검색",
   "search.window.filters": "필터",
-  "search.window.goTo": "{channel}(으)로 이동",
   "search.window.hiddenCount": {
     "other": "{count}개가 필터로 숨겨짐"
   },
   "search.window.inScope": "범위: {scope}",
-  "search.window.later": "다음",
   "search.window.loadedInstead": {
     "other": "대신 이 기기에 불러온 메시지 {count}개에서 검색합니다. 필터는 계속 작동합니다."
   },
@@ -2033,7 +2023,6 @@
   "search.window.nothingOlder": "더 오래된 항목 없음",
   "search.window.offline": "연결되지 않음",
   "search.window.older": "더 오래된 항목 검색",
-  "search.window.openInChannel": "채널에서 열기",
   "search.window.placeholder": "{scope}에서 검색",
   "search.window.removeFilter": "{filter} 필터 제거",
   "search.window.retry": "다시 시도",

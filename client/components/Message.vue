@@ -623,7 +623,7 @@ export default defineComponent({
 			if (el) {
 				revealMessage(el);
 			} else if (msgid && props.channel && !props.network.status.connected) {
-				store.commit("currentUserVisibleError", "Connect to load that message.");
+				store.commit("currentUserVisibleError", t("message.connectToLoad"));
 			} else if (msgid && props.channel) {
 				setReadHold(props.channel, true);
 				store.commit("jumpTarget", {chanId: props.channel.id, msgid});

@@ -151,14 +151,14 @@
 						class="btn btn-sm past-bar-back"
 						@click="backToResults"
 					>
-						Back to results
+						{{ t("chat.past.backToResults") }}
 					</button>
 					<button
 						v-if="channel.past"
 						class="btn btn-sm past-bar-present"
 						@click="leavePast"
 					>
-						Jump to present
+						{{ t("chat.past.jumpToPresent") }}
 					</button>
 				</div>
 			</div>
@@ -253,16 +253,14 @@ export default defineComponent({
 		);
 		const pastStatus = computed(() => {
 			if (props.channel.pastOpening) {
-				return "Loading that message…";
+				return t("chat.past.loading");
 			}
 
 			if (!props.channel.past) {
 				return "";
 			}
 
-			return props.channel.past.failed
-				? "Could not load more. Scroll to try again."
-				: "You're viewing older messages";
+			return props.channel.past.failed ? t("chat.past.loadFailed") : t("chat.past.viewing");
 		});
 		// The button goes with the view: the focus goes where the reader types.
 		const leavePast = () => {

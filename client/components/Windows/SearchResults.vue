@@ -906,8 +906,8 @@ export default defineComponent({
 
 			if (!chat) {
 				hitError.value = hit.target.startsWith("#")
-					? `Join ${hit.target} to read this message.`
-					: `Open a conversation with ${hit.target} to read this message.`;
+					? t("search.window.joinToRead", {target: hit.target})
+					: t("search.window.openToRead", {target: hit.target});
 				return;
 			}
 

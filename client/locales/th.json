@@ -642,10 +642,8 @@
   "message.redactedHide": "คลิกเพื่อซ่อนอีกครั้ง",
   "message.redactedReveal": "ข้อความที่ถูกลบ คลิกเพื่อแสดง",
   "message.reply": "ตอบกลับ",
-  "message.replyMissing": "ตอบกลับข้อความที่ยังไม่ได้โหลด",
   "message.replyUnknown": "(ไม่ทราบข้อความ)",
   "message.replyingTo": "ตอบกลับ {nick}: {text} ไปยังข้อความนั้น",
-  "message.replyingToParent": "ตอบกลับ {nick}: {text}",
   "message.shownInActive": "ข้อความนี้แสดงในช่องที่คุณเปิดอยู่",
   "message.statusmsg": "ข้อความนี้แสดงเฉพาะผู้ใช้ที่มีโหมด {mode}",
   "msg.ctcpTitle": "โปรโตคอลไคลเอนต์ถึงไคลเอนต์",
@@ -1991,7 +1989,6 @@
     "other": "พบ {count} รายการ แต่ถูกตัวกรองซ่อนทั้งหมด"
   },
   "search.window.allHiddenNote": "ข้อความที่เก่ากว่านี้อาจยังตรงกัน ค้นย้อนไปถึง {when}",
-  "search.window.around": "{day} · ราว {time}",
   "search.window.asking": "กำลังถามเซิร์ฟเวอร์…",
   "search.window.back": "กลับไปที่ {channel}",
   "search.window.backTo": "ย้อนไปถึง {when}",
@@ -2002,12 +1999,7 @@
   "search.window.chip.from": "จาก",
   "search.window.chip.has": "มี",
   "search.window.chip.without": "ไม่มี",
-  "search.window.closeContext": "ปิดบริบท",
-  "search.window.contextAria": "ข้อความรอบข้อความนี้",
-  "search.window.contextFailed": "โหลดบรรทัดรอบบรรทัดนี้ไม่ได้",
-  "search.window.contextLoading": "กำลังโหลดบรรทัดรอบบรรทัดนี้…",
   "search.window.dayAndTime": "{day} {time}",
-  "search.window.earlier": "ก่อนหน้า",
   "search.window.editFilters": "แก้ไขตัวกรอง",
   "search.window.errorFailed": "เซิร์ฟเวอร์ค้นหานี้ไม่ได้",
   "search.window.errorInvalid": "ส่งการค้นหานี้ไม่ได้",
@@ -2018,12 +2010,10 @@
   "search.window.failed": "การค้นหาล้มเหลว",
   "search.window.field": "ค้นหาข้อความ",
   "search.window.filters": "ตัวกรอง",
-  "search.window.goTo": "ไปที่ {channel}",
   "search.window.hiddenCount": {
     "other": "ตัวกรองซ่อนไว้ {count} รายการ"
   },
   "search.window.inScope": "ใน {scope}",
-  "search.window.later": "ถัดไป",
   "search.window.loadedInstead": {
     "other": "ค้นหาในข้อความ {count} รายการที่โหลดไว้บนอุปกรณ์นี้แทน ตัวกรองยังใช้ได้"
   },
@@ -2035,7 +2025,6 @@
   "search.window.nothingOlder": "ไม่พบอะไรที่เก่ากว่านี้",
   "search.window.offline": "ไม่ได้เชื่อมต่อ",
   "search.window.older": "ค้นหาที่เก่ากว่า",
-  "search.window.openInChannel": "เปิดในช่อง",
   "search.window.placeholder": "ค้นหาใน {scope}",
   "search.window.removeFilter": "เอาตัวกรอง {filter} ออก",
   "search.window.retry": "ลองอีกครั้ง",

@@ -641,10 +641,8 @@
   "message.redactedHide": "点击再次隐藏",
   "message.redactedReveal": "已删除的消息，点击显示",
   "message.reply": "回复",
-  "message.replyMissing": "回复未加载的消息",
   "message.replyUnknown": "(未知消息)",
   "message.replyingTo": "回复 {nick}：{text}。跳转至该消息。",
-  "message.replyingToParent": "回复 {nick}：{text}。",
   "message.shownInActive": "该消息显示在你的活动频道中",
   "message.statusmsg": "该消息仅显示给具有 {mode} 模式的用户",
   "msg.ctcpTitle": "客户端到客户端协议",
@@ -1993,7 +1991,6 @@
     "other": "{count} 条结果，全部被你的筛选条件隐藏"
   },
   "search.window.allHiddenNote": "更早的消息仍可能匹配。已搜索至 {when}。",
-  "search.window.around": "{day} · 约 {time}",
   "search.window.asking": "正在询问服务器…",
   "search.window.back": "返回 {channel}",
   "search.window.backTo": "截至 {when}",
@@ -2004,12 +2001,7 @@
   "search.window.chip.from": "发送者",
   "search.window.chip.has": "包含",
   "search.window.chip.without": "不含",
-  "search.window.closeContext": "关闭上下文",
-  "search.window.contextAria": "这条消息前后的消息",
-  "search.window.contextFailed": "无法加载这一行前后的内容。",
-  "search.window.contextLoading": "正在加载这一行前后的内容…",
   "search.window.dayAndTime": "{day} {time}",
-  "search.window.earlier": "更早",
   "search.window.editFilters": "编辑筛选条件",
   "search.window.errorFailed": "服务器无法执行此搜索。",
   "search.window.errorInvalid": "无法发送该搜索。",
@@ -2020,12 +2012,10 @@
   "search.window.failed": "搜索失败",
   "search.window.field": "搜索消息",
   "search.window.filters": "筛选",
-  "search.window.goTo": "前往 {channel}",
   "search.window.hiddenCount": {
     "other": "{count} 条被筛选条件隐藏"
   },
   "search.window.inScope": "范围：{scope}",
-  "search.window.later": "更晚",
   "search.window.loadedInstead": {
     "other": "改为在此设备已加载的 {count} 条消息中搜索。筛选条件依然有效。"
   },
@@ -2037,7 +2027,6 @@
   "search.window.nothingOlder": "没有找到更早的内容",
   "search.window.offline": "未连接",
   "search.window.older": "搜索更早的",
-  "search.window.openInChannel": "在频道中打开",
   "search.window.placeholder": "在 {scope} 中搜索",
   "search.window.removeFilter": "移除“{filter}”筛选",
   "search.window.retry": "重试",

@@ -384,10 +384,7 @@ export default defineComponent({
 							!canLoadMore()
 						) {
 							store.commit("jumpTarget", null);
-							store.commit(
-								"currentUserVisibleError",
-								"That message could not be loaded."
-							);
+							store.commit("currentUserVisibleError", t("chat.past.notLoaded"));
 						}
 					}, JUMP_WAIT_MS);
 				}

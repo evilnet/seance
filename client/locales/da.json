@@ -650,10 +650,8 @@
   "message.redactedHide": "Klik for at skjule igen",
   "message.redactedReveal": "Slettet besked, klik for at vise",
   "message.reply": "Svar",
-  "message.replyMissing": "Svarer på en besked, der ikke er indlæst",
   "message.replyUnknown": "(ukendt besked)",
   "message.replyingTo": "Svarer {nick}: {text}. Spring til den besked.",
-  "message.replyingToParent": "Svar til {nick}: {text}.",
   "message.shownInActive": "Denne besked blev vist i din aktive kanal",
   "message.statusmsg": "Denne besked blev kun vist til brugere med tilstanden {mode}",
   "msg.ctcpTitle": "Klient-til-klient-protokol",
@@ -1987,7 +1985,6 @@
     "other": "{count} match, alle skjult af dine filtre"
   },
   "search.window.allHiddenNote": "Ældre beskeder kan stadig matche. Søgte tilbage til {when}.",
-  "search.window.around": "{day} · omkring {time}",
   "search.window.asking": "Spørger serveren…",
   "search.window.back": "Tilbage til {channel}",
   "search.window.backTo": "tilbage til {when}",
@@ -1998,12 +1995,7 @@
   "search.window.chip.from": "Fra",
   "search.window.chip.has": "Har",
   "search.window.chip.without": "Uden",
-  "search.window.closeContext": "Luk kontekst",
-  "search.window.contextAria": "Beskeder omkring denne",
-  "search.window.contextFailed": "Linjerne omkring denne kunne ikke indlæses.",
-  "search.window.contextLoading": "Indlæser linjerne omkring denne…",
   "search.window.dayAndTime": "{day}, {time}",
-  "search.window.earlier": "Tidligere",
   "search.window.editFilters": "Rediger filtre",
   "search.window.errorFailed": "Serveren kunne ikke udføre denne søgning.",
   "search.window.errorInvalid": "Den søgning kan ikke sendes.",
@@ -2014,13 +2006,11 @@
   "search.window.failed": "Søgningen mislykkedes",
   "search.window.field": "Søg i beskeder",
   "search.window.filters": "Filtre",
-  "search.window.goTo": "Gå til {channel}",
   "search.window.hiddenCount": {
     "one": "{count} skjult af filtre",
     "other": "{count} skjult af filtre"
   },
   "search.window.inScope": "I {scope}",
-  "search.window.later": "Senere",
   "search.window.loadedInstead": {
     "one": "Søger i stedet i den {count} besked, der er indlæst på denne enhed. Filtre virker stadig.",
     "other": "Søger i stedet i de {count} beskeder, der er indlæst på denne enhed. Filtre virker stadig."
@@ -2034,7 +2024,6 @@
   "search.window.nothingOlder": "Intet ældre fundet",
   "search.window.offline": "Ikke forbundet",
   "search.window.older": "Søg ældre",
-  "search.window.openInChannel": "Åbn i kanalen",
   "search.window.placeholder": "Søg i {scope}",
   "search.window.removeFilter": "Fjern filteret {filter}",
   "search.window.retry": "Prøv igen",

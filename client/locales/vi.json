@@ -642,10 +642,8 @@
   "message.redactedHide": "Nhấp để ẩn lại",
   "message.redactedReveal": "Tin nhắn đã xóa, nhấp để hiện",
   "message.reply": "Trả lời",
-  "message.replyMissing": "Đang trả lời một tin nhắn chưa được tải",
   "message.replyUnknown": "(tin nhắn không xác định)",
   "message.replyingTo": "Trả lời {nick}: {text}. Chuyển đến tin nhắn đó.",
-  "message.replyingToParent": "Trả lời {nick}: {text}.",
   "message.shownInActive": "Tin nhắn này được hiển thị trong kênh hoạt động của bạn",
   "message.statusmsg": "Tin nhắn này chỉ hiển thị cho người dùng có chế độ {mode}",
   "msg.ctcpTitle": "Giao thức client đến client",
@@ -1990,7 +1988,6 @@
     "other": "{count} kết quả, đều bị bộ lọc của bạn ẩn"
   },
   "search.window.allHiddenNote": "Tin nhắn cũ hơn vẫn có thể khớp. Đã tìm đến {when}.",
-  "search.window.around": "{day} · khoảng {time}",
   "search.window.asking": "Đang hỏi máy chủ…",
   "search.window.back": "Quay lại {channel}",
   "search.window.backTo": "đến {when}",
@@ -2001,12 +1998,7 @@
   "search.window.chip.from": "Từ",
   "search.window.chip.has": "Có",
   "search.window.chip.without": "Không có",
-  "search.window.closeContext": "Đóng ngữ cảnh",
-  "search.window.contextAria": "Tin nhắn quanh tin này",
-  "search.window.contextFailed": "Không tải được các dòng quanh dòng này.",
-  "search.window.contextLoading": "Đang tải các dòng quanh dòng này…",
   "search.window.dayAndTime": "{day}, {time}",
-  "search.window.earlier": "Trước đó",
   "search.window.editFilters": "Sửa bộ lọc",
   "search.window.errorFailed": "Máy chủ không thực hiện được tìm kiếm này.",
   "search.window.errorInvalid": "Không gửi được tìm kiếm đó.",
@@ -2017,12 +2009,10 @@
   "search.window.failed": "Tìm kiếm thất bại",
   "search.window.field": "Tìm tin nhắn",
   "search.window.filters": "Bộ lọc",
-  "search.window.goTo": "Đến {channel}",
   "search.window.hiddenCount": {
     "other": "{count} bị bộ lọc ẩn"
   },
   "search.window.inScope": "Trong {scope}",
-  "search.window.later": "Sau đó",
   "search.window.loadedInstead": {
     "other": "Thay vào đó đang tìm trong {count} tin nhắn đã tải trên thiết bị này. Bộ lọc vẫn hoạt động."
   },
@@ -2034,7 +2024,6 @@
   "search.window.nothingOlder": "Không tìm thấy gì cũ hơn",
   "search.window.offline": "Chưa kết nối",
   "search.window.older": "Tìm cũ hơn",
-  "search.window.openInChannel": "Mở trong kênh",
   "search.window.placeholder": "Tìm trong {scope}",
   "search.window.removeFilter": "Bỏ bộ lọc {filter}",
   "search.window.retry": "Thử lại",

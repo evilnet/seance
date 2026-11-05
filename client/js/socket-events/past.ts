@@ -1,6 +1,7 @@
 // Answers for a past view (client/js/pastView.ts), and what changes in its rows
 // while it is open: they are no rows of the channel, so `msg:redact` and
 // `msg:react` cannot name them.
+import {t} from "../i18n/core";
 import socket from "../socket";
 import {store} from "../store";
 import {attachMediaPreviews} from "../helpers/messagePreviews";
@@ -61,10 +62,10 @@ socket.on("search:context", async (data) => {
 			store.commit(
 				"currentUserVisibleError",
 				data.status === "ok"
-					? "That message is no longer available."
+					? t("chat.past.gone")
 					: data.status === "unsupported"
-					? "This server cannot fetch older messages."
-					: "That message could not be loaded."
+					? t("chat.past.unsupported")
+					: t("chat.past.notLoaded")
 			);
 		}
 

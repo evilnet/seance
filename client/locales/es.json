@@ -652,10 +652,8 @@
   "message.redactedHide": "Haz clic para ocultarlo de nuevo",
   "message.redactedReveal": "Mensaje eliminado, haz clic para mostrarlo",
   "message.reply": "Responder",
-  "message.replyMissing": "Respondiendo a un mensaje no cargado",
   "message.replyUnknown": "(mensaje desconocido)",
   "message.replyingTo": "Respondiendo a {nick}: {text}. Ir a ese mensaje.",
-  "message.replyingToParent": "Respuesta a {nick}: {text}.",
   "message.shownInActive": "Este mensaje se mostró en tu canal activo",
   "message.statusmsg": "Este mensaje solo se mostró a los usuarios con el modo {mode}",
   "msg.ctcpTitle": "Protocolo cliente a cliente",
@@ -1966,7 +1964,6 @@
     "other": "{count} coincidencias, todas ocultas por tus filtros"
   },
   "search.window.allHiddenNote": "Puede que mensajes más antiguos coincidan. Se buscó hasta {when}.",
-  "search.window.around": "{day} · hacia las {time}",
   "search.window.asking": "Preguntando al servidor…",
   "search.window.back": "Volver a {channel}",
   "search.window.backTo": "hasta {when}",
@@ -1977,12 +1974,7 @@
   "search.window.chip.from": "De",
   "search.window.chip.has": "Contiene",
   "search.window.chip.without": "Sin",
-  "search.window.closeContext": "Cerrar contexto",
-  "search.window.contextAria": "Mensajes alrededor de este",
-  "search.window.contextFailed": "No se pudieron cargar las líneas alrededor de esta.",
-  "search.window.contextLoading": "Cargando las líneas alrededor de esta…",
   "search.window.dayAndTime": "{day}, {time}",
-  "search.window.earlier": "Antes",
   "search.window.editFilters": "Editar filtros",
   "search.window.errorFailed": "El servidor no pudo hacer esta búsqueda.",
   "search.window.errorInvalid": "Esa búsqueda no se puede enviar.",
@@ -1993,13 +1985,11 @@
   "search.window.failed": "La búsqueda falló",
   "search.window.field": "Buscar mensajes",
   "search.window.filters": "Filtros",
-  "search.window.goTo": "Ir a {channel}",
   "search.window.hiddenCount": {
     "one": "{count} oculta por los filtros",
     "other": "{count} ocultas por los filtros"
   },
   "search.window.inScope": "En {scope}",
-  "search.window.later": "Después",
   "search.window.loadedInstead": {
     "one": "En su lugar se busca en el {count} mensaje cargado en este dispositivo. Los filtros siguen funcionando.",
     "other": "En su lugar se busca en los {count} mensajes cargados en este dispositivo. Los filtros siguen funcionando."
@@ -2013,7 +2003,6 @@
   "search.window.nothingOlder": "No hay nada más antiguo",
   "search.window.offline": "Sin conexión",
   "search.window.older": "Buscar más antiguos",
-  "search.window.openInChannel": "Abrir en el canal",
   "search.window.placeholder": "Buscar en {scope}",
   "search.window.removeFilter": "Quitar el filtro {filter}",
   "search.window.retry": "Reintentar",

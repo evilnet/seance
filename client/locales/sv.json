@@ -649,10 +649,8 @@
   "message.redactedHide": "Klicka för att dölja igen",
   "message.redactedReveal": "Borttaget meddelande, klicka för att visa",
   "message.reply": "Svara",
-  "message.replyMissing": "Svarar på ett meddelande som inte är inläst",
   "message.replyUnknown": "(okänt meddelande)",
   "message.replyingTo": "Svarar på {nick}: {text}. Hoppa till meddelandet.",
-  "message.replyingToParent": "Svar till {nick}: {text}.",
   "message.shownInActive": "Det här meddelandet visades i din aktiva kanal",
   "message.statusmsg": "Det här meddelandet visades bara för användare med läget {mode}",
   "msg.ctcpTitle": "Klient-till-klient-protokoll",
@@ -1993,7 +1991,6 @@
     "other": "{count} träffar, alla dolda av dina filter"
   },
   "search.window.allHiddenNote": "Äldre meddelanden kan fortfarande matcha. Sökte tillbaka till {when}.",
-  "search.window.around": "{day} · runt {time}",
   "search.window.asking": "Frågar servern…",
   "search.window.back": "Tillbaka till {channel}",
   "search.window.backTo": "tillbaka till {when}",
@@ -2004,12 +2001,7 @@
   "search.window.chip.from": "Från",
   "search.window.chip.has": "Har",
   "search.window.chip.without": "Utan",
-  "search.window.closeContext": "Stäng sammanhang",
-  "search.window.contextAria": "Meddelanden runt det här",
-  "search.window.contextFailed": "Raderna runt den här kunde inte läsas in.",
-  "search.window.contextLoading": "Läser in raderna runt den här…",
   "search.window.dayAndTime": "{day}, {time}",
-  "search.window.earlier": "Tidigare",
   "search.window.editFilters": "Redigera filter",
   "search.window.errorFailed": "Servern kunde inte köra den här sökningen.",
   "search.window.errorInvalid": "Den sökningen går inte att skicka.",
@@ -2020,13 +2012,11 @@
   "search.window.failed": "Sökningen misslyckades",
   "search.window.field": "Sök meddelanden",
   "search.window.filters": "Filter",
-  "search.window.goTo": "Gå till {channel}",
   "search.window.hiddenCount": {
     "one": "{count} dold av filter",
     "other": "{count} dolda av filter"
   },
   "search.window.inScope": "I {scope}",
-  "search.window.later": "Senare",
   "search.window.loadedInstead": {
     "one": "Söker i stället i det {count} meddelande som lästs in på den här enheten. Filtren fungerar fortfarande.",
     "other": "Söker i stället i de {count} meddelanden som lästs in på den här enheten. Filtren fungerar fortfarande."
@@ -2040,7 +2030,6 @@
   "search.window.nothingOlder": "Inget äldre hittades",
   "search.window.offline": "Inte ansluten",
   "search.window.older": "Sök äldre",
-  "search.window.openInChannel": "Öppna i kanalen",
   "search.window.placeholder": "Sök i {scope}",
   "search.window.removeFilter": "Ta bort filtret {filter}",
   "search.window.retry": "Försök igen",
