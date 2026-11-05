@@ -3134,9 +3134,13 @@ html[data-reduce-motion] #chat .connecting-indicator {
 		flex-basis: 100%;
 	}
 
-	.past-bar:has(.past-bar-back) .btn {
+	.past-bar:has(.past-bar-back) .btn:not(.past-bar-dismiss) {
 		flex: 1 1 auto;
 		margin-inline-start: 0;
+	}
+
+	.past-bar-dismiss {
+		min-width: 2.75rem;
 	}
 }
 

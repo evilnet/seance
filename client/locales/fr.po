@@ -122,6 +122,12 @@ msgctxt "chat.past.backToResults"
 msgid "Back to results"
 msgstr ""
 
+#. Past view bar: the button beside Back to results that forgets those results
+#: client/components/Chat.vue
+msgctxt "chat.past.dismissResults"
+msgid "Dismiss the search results"
+msgstr ""
+
 #. Error toast: the server answered, but no longer has the older message the reader asked to go to.
 #: client/js/socket-events/past.ts
 msgctxt "chat.past.gone"
@@ -11795,6 +11801,12 @@ msgstr "Résultats de la recherche"
 msgctxt "search.window.allChannels"
 msgid "all my channels"
 msgstr "tous mes salons"
+
+#. Search window banner: a search of every channel came back empty, loaded messages are shown instead
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.allChannelsEmpty"
+msgid "The server found nothing across your channels."
+msgstr ""
 
 #. Search window (searching the chat history of the server, or of what is loaded on this device): the server found matches, but the filters set in the sheet hide them all. {count} is a number.
 #: client/components/Windows/SearchResults.vue
