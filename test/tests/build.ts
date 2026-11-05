@@ -19,10 +19,59 @@ describe("public folder", function () {
 			.readdirSync(path.join(publicFolder, "js"))
 			.find((f) => new RegExp(`^${name}\\.[\\w-]{8}\\.js$`).test(f));
 	const read = (...parts: string[]) => fs.readFileSync(path.join(publicFolder, ...parts), "utf8");
+	// The build token the service worker carries: `dev` for a development
+	// build (scripts/build-info.mts buildToken), a hash for a production one.
+	const productionBuild = () =>
+		read("service-worker.js").match(/const cacheName\s*=\s*["`]([^"`]+)["`]/)?.[1] !== "dev";
+	/** Every file under `dir` (relative to public/), recursively, as /-separated paths. */
+	const walk = (dir = ""): string[] =>
+		fs.readdirSync(path.join(publicFolder, dir), {withFileTypes: true}).flatMap((dirent) => {
+			const rel = dir ? `${dir}/${dirent.name}` : dirent.name;
+
+			return dirent.isDirectory() ? walk(rel) : [rel];
+		});
 
 	it("font awesome files are copied", function () {
 		expect(fs.existsSync(path.join(publicFolder, "fonts", "fa-solid-900.woff"))).to.be.true;
 		expect(fs.existsSync(path.join(publicFolder, "fonts", "fa-solid-900.woff2"))).to.be.true;
+	});
+
+	it("no TypeScript config is copied into the deploy", function () {
+		// client/'s root files are copied (vite.config.mts staticFiles) except
+		// the ones rootIgnore names: tsconfig.json and every tsconfig.*.json
+		// beside it (tsconfig.worker.json) are the build's, not the site's.
+		expect(walk().filter((file) => /(^|\/)tsconfig[^/]*\.json$/.test(file))).to.deep.equal([]);
+	});
+
+	it("a production build carries no in-page fake translation engine", function () {
+		// fakePort.ts (and worker.ts, which only the fake and the real worker
+		// import) is reached behind `?fakeTranslate` on a development build
+		// only (translate/index.ts): a production build neither bundles it
+		// into a page script nor emits a chunk for it. The string survives
+		// minification; the module names in a page script's sourcemap are
+		// what minification cannot hide.
+		if (!productionBuild()) {
+			this.skip();
+		}
+
+		const js = fs.readdirSync(path.join(publicFolder, "js"));
+
+		for (const file of js.filter((f) => f.endsWith(".js"))) {
+			expect(read("js", file).includes("__seanceTranslateFake"), file).to.be.false;
+		}
+
+		expect(js.filter((f) => /^fakePort\b/.test(f))).to.deep.equal([]);
+
+		for (const map of js.filter(
+			(f) => f.endsWith(".js.map") && f !== "translate-worker.js.map"
+		)) {
+			const sources = (JSON.parse(read("js", map)) as {sources: string[]}).sources;
+
+			expect(
+				sources.filter((src) => /translate\/(fakePort|worker)\.ts$/.test(src)),
+				map
+			).to.deep.equal([]);
+		}
 	});
 
 	it("files in root folder are copied", function () {
@@ -190,6 +239,21 @@ describe("public folder", function () {
 		expect(stray(".")).to.deep.equal([]);
 		expect(stray("js")).to.deep.equal([]);
 		expect(worker).to.not.match(/import\.meta/);
+
+		// And nowhere else: a wasm or an ES module outside the places that
+		// hold them on purpose (js/ort/, js/wllama.wasm, models/) is one the
+		// bundler emitted on its own -- under the worker build's
+		// assetFileNames (js/), or Vite's default assets/ if that ever went.
+		expect(fs.existsSync(path.join(publicFolder, "assets")), "public/assets/").to.be.false;
+		expect(
+			walk().filter(
+				(file) =>
+					/\.(wasm|mjs)$/.test(file) &&
+					!file.startsWith("js/ort/") &&
+					!file.startsWith("models/") &&
+					file !== "js/wllama.wasm"
+			)
+		).to.deep.equal([]);
 	});
 
 	it("the translation worker carries its libraries' licence notices", function () {

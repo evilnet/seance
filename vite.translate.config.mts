@@ -150,6 +150,12 @@ export default defineConfig({
 			output: {
 				format: "iife",
 				entryFileNames: "js/translate-worker.js",
+				// Every file the worker needs is emitted by name (workerAssets
+				// above). One the bundler emits by itself -- the ORT pair, were
+				// importMetaStub ever to stop catching their `new URL(…,
+				// import.meta.url)` -- lands in js/, where test/tests/build.ts
+				// looks for strays, never in a public/assets/ nothing checks.
+				assetFileNames: "js/[name]-[hash][extname]",
 				postBanner: chunkNotices["js/translate-worker.js"],
 			},
 		},

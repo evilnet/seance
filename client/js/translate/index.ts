@@ -13,12 +13,11 @@
 import {getBranding} from "../branding";
 import {BUILD} from "../build";
 import {store} from "../store";
-import {probeOnce} from "./capability";
+import {type Capability, probeOnce} from "./capability";
 import {emptyContext, type Device, type ModelRef} from "./engine";
 import {TranslateClient} from "./client";
-import {FAKE_CAPABILITY, fakePort} from "./fakePort";
 import {buildCatalog, listedSize, nativeDevice, normalizeDeviceChoice} from "./models";
-import {MainPort} from "./protocol";
+import type {MainPort, MainToWorker} from "./protocol";
 import {RouteTable} from "./router";
 import {
 	CpuFallbackAnswer,
@@ -153,6 +152,69 @@ function useFake(): boolean {
 	return BUILD === "dev" && new URLSearchParams(initialSearch).has("fakeTranslate");
 }
 
+/**
+ * The in-page fake (fakePort.ts), loaded with import() inside a branch the
+ * build's NODE_ENV define folds away: a production build has neither the
+ * module nor a chunk for it (test/tests/build.ts). Asked only when
+ * `useFake()` said yes, on a development build.
+ */
+function loadFake(): Promise<typeof import("./fakePort")> {
+	if (process.env.NODE_ENV !== "production") {
+		return import("./fakePort");
+	}
+
+	return Promise.reject(new Error("the fake translation engine is a development build's"));
+}
+
+/**
+ * The fake's port before the fake has loaded: the service makes its client
+ * synchronously, so what the client posts meanwhile waits here and is
+ * handed over, in order, once the module is in; a terminate that comes
+ * first stops the fake as soon as it arrives.
+ */
+function deferredFakePort(): {port: MainPort; terminate: () => void} {
+	const waiting: MainToWorker[] = [];
+	let real: MainPort | null = null;
+	let stopReal: (() => void) | null = null;
+	let terminated = false;
+	const port: MainPort = {
+		onmessage: null,
+		postMessage(message) {
+			if (real) {
+				real.postMessage(message);
+			} else if (!terminated) {
+				waiting.push(message);
+			}
+		},
+	};
+
+	void loadFake().then(({fakePort}) => {
+		const fake = fakePort();
+
+		if (terminated) {
+			fake.terminate();
+			return;
+		}
+
+		real = fake.port;
+		stopReal = fake.terminate;
+		real.onmessage = (event) => port.onmessage?.(event);
+
+		for (const message of waiting.splice(0)) {
+			real.postMessage(message);
+		}
+	});
+
+	return {
+		port,
+		terminate() {
+			terminated = true;
+			waiting.length = 0;
+			stopReal?.();
+		},
+	};
+}
+
 function workerUrl(): string {
 	return new URL(`js/translate-worker.js?v=${BUILD}`, document.baseURI).href;
 }
@@ -275,7 +337,7 @@ function create(): Made {
 	const deps: ServiceDeps = {
 		createClient() {
 			if (fake) {
-				const {port, terminate} = fakePort();
+				const {port, terminate} = deferredFakePort();
 
 				return {client: new TranslateClient(port), terminate};
 			}
@@ -292,7 +354,8 @@ function create(): Made {
 
 			return {client, terminate: () => worker.terminate()};
 		},
-		probe: () => (fake ? Promise.resolve(FAKE_CAPABILITY) : probeOnce()),
+		probe: (): Promise<Capability> =>
+			fake ? loadFake().then(({FAKE_CAPABILITY}) => FAKE_CAPABILITY) : probeOnce(),
 		setTimeout: (fn, ms) => window.setTimeout(fn, ms),
 		clearTimeout: (handle) => window.clearTimeout(handle as number),
 	};

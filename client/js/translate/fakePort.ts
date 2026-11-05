@@ -5,10 +5,12 @@
 // text behind the target language's name, word by word. Vue-free so a
 // mocha test can pin its shape.
 //
-// index.ts reaches this module behind `BUILD === "dev"`, and the build
-// folds it out of a production build: `NODE_ENV=production pnpm build`
-// ships neither the scripted engines nor the request log (grep
-// `public/js/*.js` for `__seanceTranslateFake` to check).
+// index.ts loads this module with import() behind an inline
+// `process.env.NODE_ENV !== "production"`, which the build's define folds:
+// a production build ships neither the scripted engines nor the request
+// log, in the bundle or as a chunk of their own (test/tests/build.ts checks
+// every page script for `__seanceTranslateFake` and every page sourcemap
+// for this file and worker.ts).
 
 import {
 	Device,

@@ -133,8 +133,11 @@ const copies: Copy[] = [
 	},
 ];
 
+// client/'s own root files that are not the site's: the three stamped by
+// `copies`, the type declarations and every TypeScript config
+// (tsconfig.json, tsconfig.worker.json, …).
 const rootIgnore =
-	/(^index\.html|^service-worker\.js|^manifest\.webmanifest|\.d\.ts|^tsconfig\.json)$/;
+	/(^index\.html|^service-worker\.js|^manifest\.webmanifest|\.d\.ts|^tsconfig(\.[\w-]+)?\.json)$/;
 
 // The copied scripts (the service worker, the loading-error handlers) run
 // as they are, outside the bundle; a production build minifies them like
