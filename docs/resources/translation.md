@@ -5,6 +5,76 @@ file is the reference for the engine layer (`client/js/translate/`); the
 design is `docs/projects/client-translation.md` and the deploy knobs are
 `docs/resources/branding.md` § Translation.
 
+## Switched off by default
+
+Translation ships switched off. It runs only where the deploy allows it
+(config.json `translation.enabled`, default true; `docs/resources/branding.md`
+§ Translation) **and** the user switched it on: Settings → Translation →
+"Translate messages on this device" (`settings.ts` `translationEnabled`,
+default false, for new and existing users alike; carried by the settings
+backup with the rest of `settings`). That one rule is
+`translate/switch.ts` `translationAllowed`, which every surface asks through
+`index.ts` `translationOn()` (reactive: the deploy and the setting are store
+state).
+
+Off, translation is absent, not disabled -- nothing renders, nothing is
+dimmed: no translate button in the channel header and no panel (neither the
+column nor the phone's sheet, and the channel menu's "Translation…" is gone,
+so nothing asks for one through `state.translation.panelFor`), no composer
+button, strip or round-trip row, and the first Enter sends every draft as
+typed (`outgoing.ts` `firstEnterTranslates`; a kept write target and `/me`
+included), no Translate in the message toolbar, no `TranslationLine` under a
+message and no topic translation or flipper. There are no keyboard shortcuts
+or commands for translation to switch off.
+
+Nothing of the machinery exists either. `index.ts` holds a
+`TranslationSwitch` (switch.ts), which hands out no service while off --
+so no device probe, no worker, no download or "The GPU stopped" question --
+and `translateService()` throws if anything asks it then (every caller is
+behind `translationOn()`; `activeService()` reads the running one without
+making it). Every entry of the reading pipeline (`reader.ts`: a line, a
+history page, a replay, the topic, a language change, a retry) and of the
+composer (`writer.ts`) asks first. Switching off acts at once (a store watch
+syncs the switch): the switch puts the service out of reach, then its
+listeners stop their work while it still stands -- the reader cancels every
+queue (its lines dropped, never failed, so nothing counts toward a pause),
+forgets them and clears `state.translations` (Message.vue restyles an
+original from it), the paused banner and a pending panel ask; the composer
+aborts every strip and round trip, clears `state.outgoingTranslations` and
+the waiting read-backs, the drafts staying in their inputs -- and only then
+is the service disposed: its worker terminated, every store watch and
+listener `create()` registered undone. A disposed service routes nothing and
+asks nothing, however late a request reaches it (`service.ts` `resolve`).
+
+Kept while off: the per-channel choices (`thelounge.translate`: reading,
+write target, languages, terms), the downloaded models and the download
+consents. Switching back on needs no reload: the first thing that needs the
+service makes a fresh one, and every channel whose kept setting reads
+starts over on what it shows (`reader.ts` `resumeReading`, switch.ts
+`readingChannels`), as switching its reading on does.
+
+Settings → Translation (`Settings/Translation.vue`) keeps the interface
+language picker whatever the switch and the deploy say: it is a production
+build's only language picker. Off (either way), the tab and its heading
+read "Language" and the picker "Interface language"; the switch itself is
+offered only where the deploy allows translation, with a hint that it
+downloads models (a few hundred MB to over 1 GB each) when first used.
+Everything else -- formality, the per-model switches and Run on, the model
+manager and its copies, the device and threads lines, the test-switch lines,
+the NLLB-200 licence line -- is `Settings/TranslationOptions.vue`, mounted
+only while translation is on, since its setup makes the service.
+
+Tests: `test/translate/switch.ts` (the rule, the switch's life and the order
+of its stop, the channels resumed) and `test/translate/service.ts`
+"switched off by the user" (the stop over a real service and queue: every
+line dropped, none failed, no pause, the worker terminated; a disposed
+service routing nothing and asking no question), `test/translate/outgoing.ts`
+`firstEnterTranslates`; browser check `tools/scenarios/translate-off.mjs`
+(also `--mobile`: no surface, no worker fetched, no Worker made, no GPU asked
+for on a cold load or a language change; on and off again without a
+reload). Every other translation scenario switches translation on first
+(`tools/scenarios/lib/translation.mjs`).
+
 ## Two engines, one router
 
 > Since 2026-10-29 the engine is no longer the device: every model runs on the
