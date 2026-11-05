@@ -780,9 +780,7 @@ export default defineComponent({
 			}
 
 			if (mode.value === "partial") {
-				return scope.value === ALL_CHANNELS
-					? t("search.window.allChannelsEmpty")
-					: t("search.window.scopeEmpty", {scope: scopeLabel.value});
+				return t("search.window.scopeEmpty", {scope: scopeLabel.value});
 			}
 
 			return mode.value === "offline" ? t("search.window.offline") : "";
@@ -833,7 +831,12 @@ export default defineComponent({
 
 			for (const chat of from) {
 				for (const msg of chat.messages) {
-					if (matchesFilters(msg, filters.value)) {
+					// An edit's old text and a deleted line stay out, as in the channel.
+					if (
+						msg.supersededBy === undefined &&
+						!msg.redacted &&
+						matchesFilters(msg, filters.value)
+					) {
 						hits.push({target: chat.name, msg});
 					}
 				}
@@ -843,11 +846,11 @@ export default defineComponent({
 		};
 
 		const searchLoaded = () => {
-			const from =
-				scope.value === ALL_CHANNELS
-					? chats.value
-					: chats.value.filter((chat) => chat === findChat(scope.value));
-			rows.value = loadedHits(from).sort(newestFirst);
+			rows.value = loadedHits(
+				chats.value.filter(
+					(chat) => scope.value === ALL_CHANNELS || chat === findChat(scope.value)
+				)
+			).sort(newestFirst);
 		};
 
 		// keepRows: typing on, what is showing stays until the answer replaces it.

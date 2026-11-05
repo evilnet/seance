@@ -11867,12 +11867,6 @@ msgctxt "search.window.allChannels"
 msgid "all my channels"
 msgstr "toate canalele mele"
 
-#. Search window banner: a search of every channel came back empty, loaded messages are shown instead
-#: client/components/Windows/SearchResults.vue
-msgctxt "search.window.allChannelsEmpty"
-msgid "The server found nothing across your channels."
-msgstr ""
-
 #. Search window (searching the chat history of the server, or of what is loaded on this device): the server found matches, but the filters set in the sheet hide them all. {count} is a number.
 #: client/components/Windows/SearchResults.vue
 msgctxt "search.window.allHidden"
@@ -12115,7 +12109,7 @@ msgctxt "search.window.retry"
 msgid "Try again"
 msgstr "Încearcă din nou"
 
-#. Banner above loaded messages when a search of one conversation came back empty. {scope} is its name.
+#. Banner above loaded messages when a search came back empty. {scope} is a conversation's name, or the label for all channels.
 #: client/components/Windows/SearchResults.vue
 msgctxt "search.window.scopeEmpty"
 msgid "The server found nothing in {scope}."

@@ -1886,7 +1886,6 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"search.placeholder",
 	"search.results.aria",
 	"search.window.allChannels",
-	"search.window.allChannelsEmpty",
 	"search.window.allHidden",
 	"search.window.allHiddenNote",
 	"search.window.asking",
