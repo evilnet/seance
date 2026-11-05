@@ -385,6 +385,8 @@ export class QueryLog {
 		}
 
 		original.text = edit.text;
+		// An edit can turn a message into an action (`/me`) and back.
+		original.type = edit.type;
 		original.editedAt = edit.time;
 		original.aka = [...(original.aka ?? []), editMsgid];
 		query.messages.splice(query.messages.indexOf(edit), 1);

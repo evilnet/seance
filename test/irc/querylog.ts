@@ -271,6 +271,35 @@ describe("Query log (irc/querylog.ts)", function () {
 			log.dispose();
 		});
 
+		it("keeps the type an edit gives the line: a message made an action, and back", function () {
+			const log = new QueryLog(UUID, fold);
+			const [a, b] = lines(2);
+			log.append("bob", a);
+			log.append("bob", {...b, type: MessageType.ACTION});
+			log.append(
+				"bob",
+				line({
+					msgid: "e1",
+					type: MessageType.ACTION,
+					time: new Date(Date.UTC(2026, 8, 26, 11)),
+					text: "waves",
+				})
+			);
+			log.append(
+				"bob",
+				line({msgid: "e2", time: new Date(Date.UTC(2026, 8, 26, 11, 1)), text: "plain now"})
+			);
+
+			log.edit("bob", "m0", "e1");
+			log.edit("bob", "m1", "e2");
+
+			expect(log.messages("bob").map((m) => [m.type, m.text])).to.deep.equal([
+				[MessageType.ACTION, "waves"],
+				[MessageType.MESSAGE, "plain now"],
+			]);
+			log.dispose();
+		});
+
 		it("forgets a closed query, and a removed network's whole log", function () {
 			const log = new QueryLog(UUID, fold);
 			log.append("bob", line({msgid: "a"}));
