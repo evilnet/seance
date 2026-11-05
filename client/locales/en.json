@@ -2068,7 +2068,6 @@
   "search.filters.toDay": "Up to this day",
   "search.filters.without": "Without these words",
   "search.openForm": "Search messages in this channel",
-  "search.placeholder": "Search messages…",
   "search.results.aria": "Search results",
   "search.window.allChannels": "all my channels",
   "search.window.allHidden": {

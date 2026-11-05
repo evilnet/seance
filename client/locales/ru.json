@@ -2164,7 +2164,6 @@
   "search.filters.toDay": "По этот день",
   "search.filters.without": "Без этих слов",
   "search.openForm": "Поиск сообщений в этом канале",
-  "search.placeholder": "Поиск сообщений…",
   "search.results.aria": "Результаты поиска",
   "search.window.allChannels": "все мои каналы",
   "search.window.allHidden": {

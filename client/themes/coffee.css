@@ -255,8 +255,7 @@ alike); only a subscribed bell is green. */
 #chat button.search,
 #chat button.menu,
 #chat button.close,
-.topic-container .save-topic span,
-#chat form.message-search button {
+.topic-container .save-topic span {
 	color: var(--chat-fg-muted);
 }
 
@@ -276,14 +275,6 @@ alike); only a subscribed bell is green. */
 }
 
 #chat .userlist .count,
-form.message-search input {
-	background-color: var(--composer-bg);
-}
-
-form.message-search input::placeholder {
-	color: var(--chat-fg-faint);
-}
-
 #chat .count::before {
 	color: var(--chat-fg-faint);
 }

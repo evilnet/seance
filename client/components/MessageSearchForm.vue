@@ -1,186 +1,28 @@
 <template>
-	<form :class="['message-search', {opened: searchOpened}]" @submit.prevent="searchMessages">
-		<div class="input-wrapper">
-			<input
-				ref="searchInputField"
-				v-model="searchInput"
-				dir="auto"
-				type="search"
-				name="search"
-				class="input"
-				:placeholder="placeholderText"
-				@blur="closeSearch"
-				@keyup.esc="closeSearch"
-			/>
-		</div>
-		<button
-			v-if="!onSearchPage"
-			class="search"
-			type="button"
-			:aria-label="openLabel"
-			@mousedown.prevent
-			@click="toggleSearch"
-		/>
-	</form>
+	<!-- The search page has the field, and typing there searches as it pauses. -->
+	<button class="search" type="button" :aria-label="t('search.openForm')" @click="openSearch" />
 </template>
 
-<style>
-form.message-search {
-	display: flex;
-}
-
-form.message-search .input-wrapper {
-	display: flex;
-}
-
-form.message-search input {
-	width: 100%;
-	height: auto !important;
-	margin: 7px 0;
-	border: 0;
-	color: inherit;
-	background-color: #fafafa;
-	appearance: none;
-}
-
-form.message-search input::placeholder {
-	color: rgba(0, 0, 0, 0.35);
-}
-
-@media (min-width: 480px) {
-	form.message-search input {
-		min-width: 8.75rem;
-	}
-
-	form.message-search input:focus {
-		min-width: 15rem;
-	}
-}
-
-form.message-search .input-wrapper {
-	position: absolute;
-	top: 3rem;
-	left: 0;
-	right: 0;
-	z-index: 1;
-	height: 0;
-	overflow: hidden;
-	background: var(--window-bg-color);
-}
-
-form.message-search .input-wrapper input {
-	margin: 7px;
-}
-
-form.message-search.opened .input-wrapper {
-	height: 50px;
-}
-
-#chat form.message-search button {
-	display: flex;
-	color: #607992;
-}
-</style>
-
 <script lang="ts">
-import {computed, defineComponent, onMounted, PropType, ref, watch} from "vue";
-import {useRoute, useRouter} from "vue-router";
-import eventbus from "../js/eventbus";
-import {ClientNetwork, ClientChan} from "../js/types";
+import {defineComponent, PropType} from "vue";
+import {useRouter} from "vue-router";
+import {ClientChan} from "../js/types";
 import {useI18n} from "../js/i18n";
 
 export default defineComponent({
 	name: "MessageSearchForm",
 	props: {
-		network: {type: Object as PropType<ClientNetwork>, required: true},
 		channel: {type: Object as PropType<ClientChan>, required: true},
 	},
 	setup(props) {
 		const {t} = useI18n();
-		const searchOpened = ref(false);
-
-		// Search field placeholder and the magnifier's label.
-		const placeholderText = computed(() => t("search.placeholder"));
-		const openLabel = computed(() => t("search.openForm"));
-
-		const searchInput = ref("");
 		const router = useRouter();
-		const route = useRoute();
 
-		const searchInputField = ref<HTMLInputElement | null>(null);
-
-		const onSearchPage = computed(() => {
-			return route.name === "SearchResults";
-		});
-
-		watch(route, (newValue) => {
-			if (newValue.query.q) {
-				searchInput.value = String(newValue.query.q);
-			}
-		});
-
-		onMounted(() => {
-			searchInput.value = String(route.query.q || "");
-			searchOpened.value = onSearchPage.value;
-
-			if (searchInputField.value && !searchInput.value && searchOpened.value) {
-				searchInputField.value.focus();
-			}
-		});
-
-		const closeSearch = () => {
-			if (!onSearchPage.value) {
-				searchInput.value = "";
-				searchOpened.value = false;
-			}
+		const openSearch = () => {
+			void router.push({name: "SearchResults", params: {id: props.channel.id}});
 		};
 
-		const toggleSearch = () => {
-			if (searchOpened.value) {
-				searchInputField.value?.blur();
-				return;
-			}
-
-			searchOpened.value = true;
-			searchInputField.value?.focus();
-		};
-
-		const searchMessages = (event: Event) => {
-			event.preventDefault();
-
-			if (!searchInput.value) {
-				return;
-			}
-
-			router
-				.push({
-					name: "SearchResults",
-					params: {
-						id: props.channel.id,
-					},
-					query: {
-						q: searchInput.value,
-					},
-				})
-				.catch((err) => {
-					if (err.name === "NavigationDuplicated") {
-						// Search for the same query again
-						eventbus.emit("re-search");
-					}
-				});
-		};
-
-		return {
-			searchOpened,
-			searchInput,
-			searchInputField,
-			placeholderText,
-			openLabel,
-			closeSearch,
-			toggleSearch,
-			searchMessages,
-			onSearchPage,
-		};
+		return {t, openSearch};
 	},
 });
 </script>

@@ -1933,7 +1933,6 @@
   "search.filters.toDay": "Jusqu'à ce jour",
   "search.filters.without": "Sans ces mots",
   "search.openForm": "Chercher des messages dans ce canal",
-  "search.placeholder": "Chercher des messages…",
   "search.results.aria": "Résultats de la recherche",
   "search.window.allChannels": "tous mes salons",
   "search.window.allHidden": {

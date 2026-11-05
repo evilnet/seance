@@ -1981,7 +1981,6 @@
   "search.filters.toDay": "この日まで",
   "search.filters.without": "これらの語を除外",
   "search.openForm": "このチャンネル内のメッセージを検索",
-  "search.placeholder": "メッセージを検索…",
   "search.results.aria": "検索結果",
   "search.window.allChannels": "自分のすべてのチャンネル",
   "search.window.allHidden": {

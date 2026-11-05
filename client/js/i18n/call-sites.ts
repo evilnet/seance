@@ -1872,7 +1872,6 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"search.filters.toDay",
 	"search.filters.without",
 	"search.openForm",
-	"search.placeholder",
 	"search.results.aria",
 	"search.window.allChannels",
 	"search.window.allHidden",

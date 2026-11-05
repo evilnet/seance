@@ -58,7 +58,6 @@
 					/></span>
 					<MessageSearchForm
 						v-if="['channel', 'query'].includes(channel.type)"
-						:network="network"
 						:channel="channel"
 					/>
 					<span

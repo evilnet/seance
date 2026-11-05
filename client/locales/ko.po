@@ -11651,12 +11651,6 @@ msgctxt "search.openForm"
 msgid "Search messages in this channel"
 msgstr "이 채널의 메시지 검색"
 
-#. Placeholder of the message-search field that opens from the magnifier in a chat window's header; it filters this conversation's history.
-#: client/components/MessageSearchForm.vue:10
-msgctxt "search.placeholder"
-msgid "Search messages…"
-msgstr "메시지 검색…"
-
 #. aria-label of the search-results view of the chat window, which lists the messages matching a search.
 #: client/components/Windows/SearchResults.vue
 msgctxt "search.results.aria"

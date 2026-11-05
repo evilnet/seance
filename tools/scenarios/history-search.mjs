@@ -136,7 +136,7 @@ export default async function run(page) {
 	await page.sleep(300);
 	const searchButton = JSON.parse(
 		await page.evaluate(`(() => {
-			const box = document.querySelector("#chat .message-search .search").getBoundingClientRect();
+			const box = document.querySelector("#chat button.search").getBoundingClientRect();
 			const point = {x: box.x + box.width / 2, y: box.y + box.height / 2};
 			const under = document.elementFromPoint(point.x, point.y);
 			return JSON.stringify(under?.id === "mentions-popup-container" ? point : null);
@@ -149,12 +149,12 @@ export default async function run(page) {
 		await mouse(page, "mouseReleased", searchButton.x, searchButton.y, 0);
 		await page.sleep(300);
 		page.check(
-			"the search button over the mentions pane closes it and opens the field",
+			"the search button over the mentions pane closes it and opens search, ready to type",
 			await page.evaluate(`!document.querySelector("#mentions-popup-container") &&
-				!!document.querySelector("#chat .message-search.opened")`)
+				document.activeElement === document.querySelector("${WINDOW} .search-query input")`)
 		);
-		await page.evaluate(`document.querySelector("#chat .message-search .search").click()`);
-		await page.sleep(200);
+		await page.evaluate(`document.querySelector("${WINDOW} .search-icon-back").click()`);
+		await page.sleep(300);
 	} else {
 		await page.evaluate(
 			`document.querySelector("#mentions-popup-container .mentions-close").click()`

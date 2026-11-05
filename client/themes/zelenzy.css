@@ -212,18 +212,11 @@ html[data-contrast="more"] :is(.window:not(#chat), .mentions-popup) {
 	color: var(--rail-fg-muted);
 }
 
-#chat form.message-search button {
+#chat button.search {
 	color: #fff;
 }
 
-form.message-search input {
-	background-color: #fff;
-	color: #000;
-}
 
-form.message-search input::placeholder {
-	color: var(--rail-fg-muted);
-}
 
 #chat .userlist .user.active {
 	background: var(--win-select);
