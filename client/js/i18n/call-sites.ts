@@ -390,6 +390,7 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"help.shortcuts.prevLobby",
 	"help.shortcuts.prevUnread",
 	"help.shortcuts.prevWindow",
+	"help.shortcuts.search",
 	"help.shortcuts.toggleJump",
 	"help.shortcuts.toggleMarkdown",
 	"help.shortcuts.toggleMentions",

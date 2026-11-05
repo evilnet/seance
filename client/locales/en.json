@@ -420,6 +420,7 @@
   "help.shortcuts.prevLobby": "Switch to the previous lobby in the channel list.",
   "help.shortcuts.prevUnread": "Switch to the previous window with unread messages in the channel list.",
   "help.shortcuts.prevWindow": "Switch to the previous window in the channel list.",
+  "help.shortcuts.search": "Search the open conversation.",
   "help.shortcuts.toggleJump": "Toggle jump to channel switcher.",
   "help.shortcuts.toggleMarkdown": "Toggle Markdown rendering.",
   "help.shortcuts.toggleMentions": "Toggle unread mentions popup.",

@@ -154,6 +154,25 @@ Mousetrap.bind(["alt+/"], function (e) {
 	return false;
 });
 
+// Search the open conversation: its search page, or that page's field. Works
+// from the composer too (it carries the mousetrap class). Anywhere else, the
+// browser's own find.
+Mousetrap.bind(["mod+f"], function () {
+	const channel = store.state.activeChannel?.channel;
+
+	if (!channel || (channel.type !== ChanType.CHANNEL && channel.type !== ChanType.QUERY)) {
+		return true;
+	}
+
+	if (router.currentRoute.value.name === "SearchResults") {
+		document.querySelector<HTMLInputElement>(".search-query input")?.focus();
+	} else {
+		void navigate("SearchResults", {id: channel.id});
+	}
+
+	return false;
+});
+
 function jumpToChannel(targetChannel: ClientChan) {
 	switchToChannel(targetChannel);
 
