@@ -186,12 +186,16 @@ export function labelOf(lines: string[]): string | undefined {
 export function batch(
 	h: Harness,
 	lines: string[],
-	opts: {ref?: string; target?: string; label?: string} = {}
+	opts: {ref?: string; target?: string; label?: string; end?: boolean} = {}
 ): void {
 	const ref = opts.ref ?? "hist1";
 	const target = opts.target ?? "#seance";
+	const tags = [
+		...(opts.end ? ["draft/chathistory-end"] : []),
+		...(opts.label ? [`label=${opts.label}`] : []),
+	];
 	h.transport.line(
-		`${opts.label ? `@label=${opts.label} ` : ""}:irc.test BATCH +${ref} chathistory ${target}`
+		`${tags.length ? `@${tags.join(";")} ` : ""}:irc.test BATCH +${ref} chathistory ${target}`
 	);
 
 	for (const line of lines) {

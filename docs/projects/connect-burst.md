@@ -286,8 +286,9 @@ opening a channel runs its queued page (both under that ceiling); and a
 walk the socket cuts short between pages is dropped whole, undelivered, so
 the next connection walks the same gap from the same floor (landing its
 newest pages would have moved the floor past the older part). A walk that
-stops at the page cap or on a short page without the end tag does not
-vouch for the gap.
+stops at the page cap does not vouch for the gap; a short page without the
+end tag does not stop it (the server may have filtered it). An empty page
+stops it, and without the end tag it does not vouch for the gap either.
 
 ## Follow-ups
 

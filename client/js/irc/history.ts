@@ -20,7 +20,7 @@
  *   `BEFORE <oldest of the page>` back until a page overlaps what we already
  *   show (a msgid we hold, or a line older than the newest we had seen
  *   minus {@link CATCHUP_FUZZ_MS} of clock skew), carries
- *   `draft/chathistory-end`, comes back short, or the page cap is hit.
+ *   `draft/chathistory-end`, comes back empty, or the page cap is hit.
  *   Walking back from the present rather than forward from our newest line
  *   means the newest messages arrive first and the fill cannot be defeated
  *   by an anchor the server can no longer see (a presence gap, retention,
@@ -546,12 +546,15 @@ function resolve(
 		// The spec's loop: this page reached what we already hold when it
 		// carries a msgid we show (replay dropped that line, so look at the
 		// raw page) or a line older than the previous session's newest
-		// minus the skew allowance. An empty page, the end tag, a short
-		// page, the page cap, or a page without timestamps also stop it.
+		// minus the skew allowance. An empty page, the end tag, the page cap,
+		// or a page without timestamps also stop it. A short page does not:
+		// nefarious2 filters pages and caps its scan, so it can leave a hole.
+		// For the same reason an empty page without the end tag stops the walk
+		// (nothing to page back from) but does not vouch for the gap.
 		const page = lines ?? [];
 		const known = new Set(chan.msgids);
 		const floorMs = request.floor ? request.floor.time.getTime() - CATCHUP_FUZZ_MS : undefined;
-		let reached = page.length === 0;
+		let reached = false;
 		let oldest: MsgRef | undefined;
 
 		for (const line of page) {
@@ -578,7 +581,7 @@ function resolve(
 		request.gap.unshift(...messages);
 		request.gapAfter.unshift(...after);
 
-		if (!reached && !end && fullPage && request.pagesLeft > 0 && oldest) {
+		if (!reached && !end && request.pagesLeft > 0 && oldest) {
 			// The next page back is background work like the rest of the
 			// catch-up (fakelag.ts): asked for as soon as each reply landed,
 			// a busy channel's walk alone put the server's clock 10 s ahead.
@@ -626,7 +629,7 @@ function resolve(
 		// gathered, in order. A FAIL or timeout mid-walk still lands the
 		// newer pages already received. Only a walk that met what we hold, or
 		// that the server said is the end, vouches for the whole gap: the page
-		// cap and a short page (nefarious2 filters pages) stop it short.
+		// cap stops it short.
 		if (answered && (reached || end)) {
 			chan.historyFilled = true;
 		}

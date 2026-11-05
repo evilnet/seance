@@ -1158,10 +1158,16 @@ describe("Chat history (history.ts)", function () {
 			h.transport.line(":irc.test MARKREAD #seance timestamp=2026-08-25T12:15:00.000Z");
 			const sent = reconnect(h);
 
-			reply(h, sent, [
-				"@time=2026-08-25T12:10:00.000Z;msgid=a :bob!bob@host PRIVMSG #seance :read elsewhere",
-				"@time=2026-08-25T12:20:00.000Z;msgid=b :bob!bob@host PRIVMSG #seance :not yet",
-			]);
+			reply(
+				h,
+				sent,
+				[
+					"@time=2026-08-25T12:10:00.000Z;msgid=a :bob!bob@host PRIVMSG #seance :read elsewhere",
+					"@time=2026-08-25T12:20:00.000Z;msgid=b :bob!bob@host PRIVMSG #seance :not yet",
+				],
+				undefined,
+				true
+			);
 			expect(chan.shared.unread).to.equal(1);
 		});
 
@@ -1196,6 +1202,68 @@ describe("Chat history (history.ts)", function () {
 			// The line we already held is not replayed.
 			expect(msgs(id).filter((p) => p.msg.msgid === "seen")).to.have.length(0);
 			expect(pendingHistory(h.client)).to.have.length(0);
+		});
+
+		it("walks on past a short page with no end tag: the server may have cut it short", function () {
+			const h = setup({isupport: "CHATHISTORY=3 MSGREFTYPES=timestamp,msgid"});
+			const id = joined(h);
+			h.transport.line(
+				"@msgid=seen;time=2026-08-25T12:10:00.000Z :bob!bob@host PRIVMSG #seance :x"
+			);
+
+			const sent = reconnect(h, "CHATHISTORY=3 MSGREFTYPES=timestamp,msgid");
+			// Short, no end tag, nothing we hold: the hole is still open.
+			reply(h, sent, [
+				"@time=2026-08-25T12:17:00.000Z;msgid=g3 :bob!bob@host PRIVMSG #seance :three",
+			]);
+
+			const next = h.sent();
+			expect(next[0]).to.match(/CHATHISTORY BEFORE #seance msgid=g3 3$/);
+			reply(h, next, [
+				"@time=2026-08-25T12:10:00.000Z;msgid=seen :bob!bob@host PRIVMSG #seance :x",
+				"@time=2026-08-25T12:15:00.000Z;msgid=g1 :bob!bob@host PRIVMSG #seance :one",
+			]);
+
+			expect(h.sent()).to.deep.equal([]);
+			expect(
+				msgs(id)
+					.map((p) => p.msg.text)
+					.slice(-2)
+			).to.deep.equal(["one", "three"]);
+			expect(pendingHistory(h.client)).to.have.length(0);
+		});
+
+		it("stops on an empty page with no end tag, but does not vouch for the gap", function () {
+			const h = setup({isupport: "CHATHISTORY=3 MSGREFTYPES=timestamp,msgid"});
+			const id = joined(h);
+			h.transport.line(
+				"@msgid=seen;time=2026-08-25T12:10:00.000Z :bob!bob@host PRIVMSG #seance :x"
+			);
+
+			const sent = reconnect(h, "CHATHISTORY=3 MSGREFTYPES=timestamp,msgid");
+			reply(h, sent, [
+				"@time=2026-08-25T12:17:00.000Z;msgid=g3 :bob!bob@host PRIVMSG #seance :three",
+			]);
+			// The server's scan cap cut this page to nothing: no end tag.
+			reply(h, h.sent(), []);
+
+			expect(h.sent()).to.deep.equal([]);
+			expect(msgs(id).map((p) => p.msg.text)).to.include("three");
+			expect(h.client.findChannel("#seance")!.historyFilled).to.equal(false);
+			expect(pendingHistory(h.client)).to.have.length(0);
+		});
+
+		it("vouches for the gap on an empty page that carries the end tag", function () {
+			const h = setup({isupport: "CHATHISTORY=3 MSGREFTYPES=timestamp,msgid"});
+			joined(h);
+			h.transport.line(
+				"@msgid=seen;time=2026-08-25T12:10:00.000Z :bob!bob@host PRIVMSG #seance :x"
+			);
+
+			const sent = reconnect(h, "CHATHISTORY=3 MSGREFTYPES=timestamp,msgid");
+			reply(h, sent, [], undefined, true);
+
+			expect(h.client.findChannel("#seance")!.historyFilled).to.equal(true);
 		});
 
 		it("stops on draft/chathistory-end even when the page is full", function () {
