@@ -578,6 +578,10 @@ export default defineComponent({
 				return t("reactions.hintRemove");
 			}
 
+			if (props.insert) {
+				return t("reactions.hintInsert");
+			}
+
 			return active.value.free ? t("reactions.hintSend") : t("reactions.hintCombine");
 		});
 
@@ -703,9 +707,14 @@ export default defineComponent({
 			return best ? best.index : activeIndex.value;
 		};
 
-		/** Enter: the highlighted option, or what was typed; false when neither. */
+		/**
+		 * Enter: the highlighted option, or what was typed; false when
+		 * neither. Shift adds the option to a reaction being built instead —
+		 * but not inserting: what the composer's picker gives goes into the
+		 * message at once, so there is nothing to build.
+		 */
 		const enter = (shift: boolean): boolean => {
-			if (active.value && shift) {
+			if (active.value && shift && !props.insert) {
 				append(active.value);
 			} else if (active.value) {
 				pick(active.value.text);
@@ -720,10 +729,12 @@ export default defineComponent({
 		};
 
 		/**
-		 * A key pressed in the composer while this is its emoji picker
-		 * (`insert`): the composer keeps the keyboard, so the keys that work
-		 * the picker come here. True when the key was the picker's; Enter
-		 * with nothing to insert is not, so it sends the message as typed.
+		 * The picker's keys, from its own field (`onKeydown`) or, inserting,
+		 * from the composer, which keeps the keyboard (ChatInput.vue
+		 * `onComposerKeydown`). True when the key was the picker's. Enter
+		 * with nothing to insert is not, so the composer sends the message as
+		 * typed; Tab accepts the highlighted emoji in the composer's picker,
+		 * as the old `:name` completion did.
 		 */
 		const navigate = (key: string, shift = false): boolean => {
 			switch (key) {
@@ -733,6 +744,9 @@ export default defineComponent({
 						return true;
 					}
 
+					// Nothing rendered below: the next group's first cell, which
+					// is where the eye goes anyway (indices run on across groups;
+					// past the last one, setActive declines).
 					const below = rowNeighbour(true);
 					const here = sectionOf(activeIndex.value);
 					setActive(
@@ -751,6 +765,14 @@ export default defineComponent({
 				case "Enter":
 					return enter(shift);
 
+				case "Tab":
+					if (!props.insert || !active.value) {
+						return false;
+					}
+
+					pick(active.value.text);
+					return true;
+
 				case "Escape":
 					emit("close");
 					return true;
@@ -766,32 +788,11 @@ export default defineComponent({
 			const collapsed = caret === (el.selectionEnd ?? 0);
 
 			switch (e.key) {
-				case "ArrowDown": {
-					e.preventDefault();
-
-					if (activeIndex.value < 0) {
-						setActive(0);
-						break;
-					}
-
-					// Nothing rendered below: the next group's first cell, which
-					// is where the eye goes anyway (indices run on across groups;
-					// past the last one, setActive declines).
-					const below = rowNeighbour(true);
-					const here = sectionOf(activeIndex.value);
-					setActive(
-						below === activeIndex.value && here ? here.start + here.count : below
-					);
-					break;
-				}
-
+				case "ArrowDown":
 				case "ArrowUp":
+				case "Enter":
 					e.preventDefault();
-
-					if (activeIndex.value >= 0) {
-						setActive(rowNeighbour(false));
-					}
-
+					navigate(e.key, e.shiftKey);
 					break;
 
 				// Left and right walk the grid, but only once the caret has
@@ -816,11 +817,6 @@ export default defineComponent({
 
 					break;
 
-				case "Enter":
-					e.preventDefault();
-					enter(e.shiftKey);
-					break;
-
 				default:
 					break;
 			}
@@ -834,7 +830,8 @@ export default defineComponent({
 				return;
 			}
 
-			if (e.shiftKey) {
+			// Inserting, a shift-click is a plain pick (see `enter`).
+			if (e.shiftKey && !props.insert) {
 				append(option);
 			} else {
 				pick(option.text);

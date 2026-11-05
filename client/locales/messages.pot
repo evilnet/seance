@@ -11421,6 +11421,12 @@ msgctxt "reactions.hintCombine"
 msgid "⇧ to combine"
 msgstr ""
 
+#. Hint at the end of the emoji picker's preview bar, beside the highlighted emoji: pressing Enter (or Tab) puts it into the message being written. Emoji picker opened from the message composer by typing a colon and a name; what is picked goes into the message being written, not onto a message as a reaction.
+#: client/components/ReactionPicker.vue
+msgctxt "reactions.hintInsert"
+msgid "Enter to insert"
+msgstr ""
+
 #. Preview-bar hint in the emoji picker when the highlighted emoji is already on the message; clicking it takes the reaction back off.
 #: client/components/ReactionPicker.vue
 msgctxt "reactions.hintRemove"
@@ -11448,7 +11454,7 @@ msgstr ""
 #. Hint at the bottom of the emoji picker when nothing is highlighted and it inserts into the message being written. Emoji picker opened from the message composer by typing a colon and a name; what is picked goes into the message being written, not onto a message as a reaction.
 #: client/components/ReactionPicker.vue
 msgctxt "reactions.insertEmptyHint"
-msgid "Pick an emoji, or shift-click to combine several."
+msgid "Pick an emoji to put it in your message."
 msgstr ""
 
 #. Placeholder and accessible name of the emoji picker's search field when it inserts into the message being written. Emoji picker opened from the message composer by typing a colon and a name; what is picked goes into the message being written, not onto a message as a reaction.

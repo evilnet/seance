@@ -10,6 +10,8 @@ export type EmojiToken = {start: number; end: number; term: string};
 // up to the caret: `:smi`, `:+1`, `:thumbs_up`. A time (10:30), a URL
 // (https:) or a lone smiley (:-) or :)) never opens it.
 const TOKEN = /(?:^|\s):([-+\w]{2,})$/;
+// The same name with its closing colon just typed: `:tada:`.
+const CLOSED = /(?:^|\s):([-+\w]{2,}):$/;
 
 /** The token ending at `caret` in `text`, if one is being typed there. */
 export function emojiToken(text: string, caret: number): EmojiToken | null {
@@ -32,4 +34,20 @@ export function replaceToken(
 		text: text.slice(0, token.start) + emoji + text.slice(token.end),
 		caret: token.start + emoji.length,
 	};
+}
+
+/**
+ * A `:name:` whose closing colon ends at `caret`: the whole of it, both
+ * colons, with the name as `term`. The composer turns it into its emoji
+ * when the name is a shortcode (emoji.ts `emojiForName`), as typing
+ * `:tada:` does in most chat apps.
+ */
+export function closedShortcode(text: string, caret: number): EmojiToken | null {
+	const match = CLOSED.exec(text.slice(0, caret));
+
+	if (!match) {
+		return null;
+	}
+
+	return {start: caret - match[1].length - 2, end: caret, term: match[1]};
 }

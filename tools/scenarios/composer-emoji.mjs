@@ -16,7 +16,9 @@
 // and the same `:name` typed on does not reopen it; `:wq then` typed key by
 // key stays text; Backspace narrows the search and past two letters closes
 // it; back (a CloseWatcher's close) and the Close button close it, the
-// draft kept; a paste ending in `:tad` opens nothing; no "React with …"
+// draft kept; Tab takes the highlighted emoji; `:tada:` becomes 🎉 on its
+// closing colon and an unknown `:name:` stays text; Shift+Enter breaks the
+// line and closes the picker; a paste ending in `:tad` opens nothing; no "React with …"
 // row, and Enter with nothing matching sends the message as typed; a time
 // (10:30) never opens it. `SEANCE_PORT` serves the app from another port.
 
@@ -253,7 +255,86 @@ export default async function run(page) {
 	await page.check("Close closes the picker", !(await open()));
 	await page.check("…and keeps the draft", (await value()) === text);
 
-	// 8. Emoji only; Enter with nothing matching sends as typed.
+	// 8. Tab takes the highlighted emoji, as the old completion did.
+	await page.evaluate(
+		`${INPUT}.focus(); ${INPUT}.setSelectionRange(${INPUT}.value.length, ${INPUT}.value.length)`
+	);
+	for (const ch of " :tad") {
+		await type(page, ch);
+	}
+
+	await page.waitFor(`${PICKER} && ${PICKER}.querySelector(".reaction-picker-option")`, {
+		label: "the picker for Tab",
+	});
+	await key(page, "Tab", 9);
+	text = await value();
+	await page.check(
+		`Tab inserts the highlighted emoji (${JSON.stringify(text)})`,
+		text.endsWith(" 🎉")
+	);
+	await page.check("…and closes the picker", !(await open()));
+
+	// 9. A closing colon on a shortcode is the emoji at once.
+	for (const ch of " :tada:") {
+		await type(page, ch);
+	}
+
+	await page.sleep(200);
+	text = await value();
+	await page.check(
+		`":tada:" becomes 🎉 on its closing colon (${JSON.stringify(text)})`,
+		text.endsWith(" 🎉 🎉")
+	);
+	await page.check("…with no picker left open", !(await open()));
+	for (const ch of " :notashortcode:") {
+		await type(page, ch);
+	}
+
+	await page.sleep(200);
+	await page.check(
+		"an unknown :name: stays text",
+		(await value()).endsWith(" :notashortcode:") && !(await open())
+	);
+
+	// 10. Shift+Enter is the composer's line break, not a pick.
+	for (const ch of " :tad") {
+		await type(page, ch);
+	}
+
+	await page.waitFor(`!!${PICKER}`, {label: "the picker for Shift+Enter"});
+	await page.send("Input.dispatchKeyEvent", {
+		type: "rawKeyDown",
+		key: "Enter",
+		code: "Enter",
+		windowsVirtualKeyCode: 13,
+		modifiers: 8,
+	});
+	await page.send("Input.dispatchKeyEvent", {
+		type: "char",
+		key: "Enter",
+		text: "\r",
+		modifiers: 8,
+	});
+	await page.send("Input.dispatchKeyEvent", {
+		type: "keyUp",
+		key: "Enter",
+		code: "Enter",
+		windowsVirtualKeyCode: 13,
+		modifiers: 8,
+	});
+	await page.sleep(300);
+	text = await value();
+	await page.check(
+		`Shift+Enter breaks the line, the :name kept (${JSON.stringify(text.slice(-8))})`,
+		text.endsWith(" :tad\n")
+	);
+	await page.check("…and the picker closed", !(await open()));
+	await page.check(
+		"…with the composer still focused",
+		await page.evaluate(`document.activeElement === ${INPUT}`)
+	);
+
+	// 11. Emoji only; Enter with nothing matching sends as typed.
 	for (const ch of " :zzqxw") {
 		await type(page, ch);
 	}

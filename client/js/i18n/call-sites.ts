@@ -1824,6 +1824,7 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"reactions.freePrefix",
 	"reactions.groupAria",
 	"reactions.hintCombine",
+	"reactions.hintInsert",
 	"reactions.hintRemove",
 	"reactions.hintSend",
 	"reactions.insert",

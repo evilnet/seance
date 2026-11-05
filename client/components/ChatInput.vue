@@ -349,7 +349,13 @@ import {TypingReporter} from "../js/helpers/typingReporter";
 import TypingIndicator from "./TypingIndicator.vue";
 import QuotePreview from "./QuotePreview.vue";
 import ReactionPicker from "./ReactionPicker.vue";
-import {emojiToken, replaceToken, type EmojiToken} from "../js/helpers/emojiTrigger";
+import {
+	closedShortcode,
+	emojiToken,
+	replaceToken,
+	type EmojiToken,
+} from "../js/helpers/emojiTrigger";
+import {emojiForName} from "../js/helpers/emoji";
 
 // How long a conversation's network has to be down before the strip above
 // the composer says so.
@@ -464,18 +470,38 @@ export default defineComponent({
 		// picker with its search seeded (helpers/emojiTrigger.ts). The
 		// composer keeps the keyboard, so typing on is never lost to the
 		// picker (`:wq then` stays text): each keystroke follows into the
-		// picker's search, and ArrowUp/Down, Enter and Escape are handed to it
-		// (`onComposerKeydown`); Enter with nothing to insert sends as typed. A
-		// space, or the colon gone, closes it; so do sending and another
-		// channel. Escape or a click away leaves the `:name` as typed, and that
-		// same token does not open it again; the emoji picked replaces it.
-		// Only typing opens it: a paste that ends in `:name` does not.
+		// picker's search, and ArrowUp/Down, Enter, Tab and Escape are handed
+		// to it (`onComposerKeydown`); Enter with nothing to insert sends as
+		// typed, and Shift+Enter stays the composer's line break. A space, or
+		// the colon gone, closes it; so do sending and another channel. Escape
+		// or a click away leaves the `:name` as typed, and that same token does
+		// not open it again; the emoji picked replaces it. Typing the closing
+		// colon of a shortcode (`:tada:`) puts its emoji there at once. Only
+		// typing opens it: a paste that ends in `:name` does not.
 		const emojiPick = ref<EmojiToken | null>(null);
 		const emojiPicker = ref<{navigate(key: string, shift?: boolean): boolean} | null>(null);
 		let emojiDismissedAt = -1;
 		let emojiPicked = false;
 
 		const followEmojiToken = (el: HTMLTextAreaElement, typed: boolean) => {
+			const closed =
+				typed && el.selectionStart === el.selectionEnd
+					? closedShortcode(el.value, el.selectionStart)
+					: null;
+			const emoji = closed ? emojiForName(closed.term) : undefined;
+
+			if (closed && emoji) {
+				const next = replaceToken(el.value, closed, emoji);
+
+				el.value = next.text;
+				el.setSelectionRange(next.caret, next.caret);
+				props.channel.pendingMessage = next.text;
+				setInputSize();
+				emojiDismissedAt = -1;
+				emojiPick.value = null;
+				return;
+			}
+
 			const token =
 				el.selectionStart === el.selectionEnd
 					? emojiToken(el.value, el.selectionStart)
@@ -509,11 +535,16 @@ export default defineComponent({
 				return;
 			}
 
-			if (!["ArrowUp", "ArrowDown", "Enter", "Escape"].includes(e.key)) {
+			if (!["ArrowUp", "ArrowDown", "Enter", "Escape", "Tab"].includes(e.key)) {
 				return;
 			}
 
-			if (picker.navigate(e.key, e.shiftKey)) {
+			// Shift+Enter is the composer's line break, never a pick.
+			if (e.shiftKey) {
+				return;
+			}
+
+			if (picker.navigate(e.key)) {
 				// Not Mousetrap's arrows (input history), not the Return that
 				// sends, not the Escape that blurs the composer.
 				e.preventDefault();

@@ -1,5 +1,5 @@
 import {expect} from "chai";
-import {emojiToken, replaceToken} from "../../client/js/helpers/emojiTrigger";
+import {closedShortcode, emojiToken, replaceToken} from "../../client/js/helpers/emojiTrigger";
 
 describe("composer emoji trigger (helpers/emojiTrigger.ts)", function () {
 	it("finds a :name being typed at the start or after a space", function () {
@@ -31,5 +31,18 @@ describe("composer emoji trigger (helpers/emojiTrigger.ts)", function () {
 
 		expect(token).to.not.equal(null);
 		expect(replaceToken(text, token!, "🎉")).to.deep.equal({text: "so 🎉 cool", caret: 5});
+	});
+
+	it("finds a :name: whose closing colon was just typed", function () {
+		const text = "so :tada: ";
+		expect(closedShortcode(text, 9)).to.deep.equal({start: 3, end: 9, term: "tada"});
+		expect(replaceToken(text, closedShortcode(text, 9)!, "🎉")).to.deep.equal({
+			text: "so 🎉 ",
+			caret: 5,
+		});
+		expect(closedShortcode(":+1:", 4)?.term).to.equal("+1");
+		expect(closedShortcode("at 10:30:", 9)).to.equal(null);
+		expect(closedShortcode(":a:", 3)).to.equal(null);
+		expect(closedShortcode(":tada", 5)).to.equal(null);
 	});
 });
