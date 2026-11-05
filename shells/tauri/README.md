@@ -140,6 +140,7 @@ the Tauri CLI's projects, committed with the shell's own files in them.
 | `StatusBar`           | both bars' style                                     | style (wry's view controller's `preferredStatusBarStyle`, swapped) |
 | `Badge`               | answered, nothing to set                             | the app icon's count                                               |
 | `Haptics`             | `tauri-plugin-haptics`                               | `tauri-plugin-haptics`                                             |
+| `AppleTranslate`      | —                                                    | `AppleTranslate.swift`: Apple's Translation framework, unbuilt     |
 
 Links (`web+irc:`, `web+ircs:`, `irc:`, `ircs:`) are declared to the deep-link plugin
 (`tauri.conf.json` `plugins.deep-link.mobile`), which writes the Android

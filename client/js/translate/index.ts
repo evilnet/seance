@@ -26,6 +26,8 @@ import {
 	nativeDevice,
 	normalizeDeviceChoice,
 } from "./models";
+import {APPLE_PLUGIN, AppleTranslator} from "./engines/apple";
+import {isIOSShell, nativeInvoke} from "../helpers/shell";
 import type {MainPort, MainToWorker} from "./protocol";
 import {RouteTable} from "./router";
 import {
@@ -75,6 +77,8 @@ export function translationOn(): boolean {
 interface Made {
 	service: TranslateService;
 	undo: (() => void)[];
+	/** The system translator the service routes to first (the iOS shell's); null everywhere else. */
+	apple: AppleTranslator | null;
 }
 
 const gate = new TranslationSwitch<Made>({
@@ -114,6 +118,20 @@ export function translateService(): TranslateService {
 	}
 
 	return made.service;
+}
+
+/**
+ * The system translator the service routes to first (the iOS shell's), for
+ * Settings to ask about its packs: made with the service, so it is null
+ * while translation is off -- never a reason to make one -- and everywhere
+ * but the iOS shell.
+ */
+export function systemTranslator(): AppleTranslator | null {
+	if (!translationOn()) {
+		return null;
+	}
+
+	return gate.service()?.apple ?? null;
 }
 
 /** The service if one is running; never makes one (a queue's update, the usage check). */
@@ -210,6 +228,7 @@ export function serviceSettings(): ServiceSettings {
 			opus: normalizeDeviceChoice(settings.translateOpusDevice),
 			nllb: normalizeDeviceChoice(settings.translateNllbDevice),
 		},
+		system: settings.translateSystem !== false,
 	};
 }
 
@@ -472,6 +491,20 @@ function create(): Made {
 		});
 	};
 
+	// The system translator: the iOS shell's AppleTranslate plugin
+	// (shells/tauri/src-tauri/ios/Sources/SeanceIOS/AppleTranslate.swift),
+	// on this thread, since the worker has no bridge. Nowhere else.
+	const apple =
+		!fake && isIOSShell()
+			? new AppleTranslator({
+					invoke: (method, options) => nativeInvoke(APPLE_PLUGIN, method, options),
+			  })
+			: null;
+
+	if (apple) {
+		deps.apple = apple;
+	}
+
 	const selectedLlm = selectedLlmSetting();
 	const catalog = configuredCatalog();
 	const created = new TranslateService(
@@ -501,6 +534,7 @@ function create(): Made {
 					devices.llm,
 					devices.opus,
 					devices.nllb,
+					store.state.settings.translateSystem !== false,
 				];
 			},
 			() => created.setSettings(serviceSettings())
@@ -546,7 +580,7 @@ function create(): Made {
 	window.addEventListener("pagehide", onPagehide);
 	undo.push(() => window.removeEventListener("pagehide", onPagehide));
 
-	return {service: created, undo};
+	return {service: created, undo, apple};
 }
 
 // Development aid until plan 2 wires the channel switch: from the console,

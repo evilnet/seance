@@ -5,7 +5,7 @@
 
 import {
 	Device,
-	EngineName,
+	WorkerEngineName,
 	EngineStatus,
 	LoadProgress,
 	ModelRef,
@@ -23,7 +23,7 @@ export type MainToWorker =
 	| {type: "configure"; catalog: ModelCatalog; ortBase: string; gpu?: GpuBudget}
 	/** Load `ref`'s copy for `device` (the slot unloads the other device's first). */
 	| {type: "load"; ref: ModelRef; device: Device}
-	| {type: "unload"; engine: EngineName}
+	| {type: "unload"; engine: WorkerEngineName}
 	/**
 	 * `req.device` is the copy to run on (the service sets it on every
 	 * request); without one the request runs where the model is loaded.
@@ -44,7 +44,7 @@ export interface EngineSnapshot {
 export type WorkerToMain =
 	| {type: "progress"; ref: ModelRef; device: Device; progress: LoadProgress}
 	| {type: "loaded"; ref: ModelRef; device: Device}
-	| {type: "unloaded"; engine: EngineName}
+	| {type: "unloaded"; engine: WorkerEngineName}
 	| {type: "chunk"; chunk: TranslateChunk}
 	| {type: "done"; id: number}
 	| {
@@ -57,10 +57,10 @@ export type WorkerToMain =
 			ref?: ModelRef;
 			/** With `ref` on a `load` or `delete` error: which copy failed. */
 			device?: Device;
-			engine?: EngineName;
+			engine?: WorkerEngineName;
 			message: string;
 	  }
-	| {type: "status"; engines: Record<EngineName, EngineSnapshot>}
+	| {type: "status"; engines: Record<WorkerEngineName, EngineSnapshot>}
 	| {type: "models"; models: ModelCacheState[]}
 	| {type: "deleted"; ref: ModelRef; device: Device};
 

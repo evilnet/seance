@@ -9,16 +9,22 @@ import type {MarkerForm} from "./spans";
 import type {EmbeddingSplit} from "./engines/splitManifest";
 
 /**
- * The service's slot for a model: `llm` is the language model's, `seq2seq`
+ * The worker's slot for a model: `llm` is the language model's, `seq2seq`
  * is OPUS-MT's and NLLB-200's. It names a slot, not a device: every model
  * can run on either device its `copies` list (models.ts).
  */
-export type EngineName = "llm" | "seq2seq";
+export type WorkerEngineName = "llm" | "seq2seq";
+/**
+ * Every engine a route can name: the worker's two slots, and `apple`, the
+ * iOS shell's system translator (engines/apple.ts), which runs outside the
+ * page and is called from the main thread, never in the worker.
+ */
+export type EngineName = WorkerEngineName | "apple";
 /** Where a model runs: WebGPU, or the CPU (WASM). */
 export type Device = "gpu" | "cpu";
 /** A device setting: let the router pick, or pin one. */
 export type DeviceChoice = "auto" | Device;
-export type ModelFamily = "llm" | "nllb" | "opus";
+export type ModelFamily = "llm" | "nllb" | "opus" | "apple";
 export type EngineStatus = "cold" | "loading" | "ready" | "failed";
 
 /**
@@ -29,7 +35,8 @@ export type EngineStatus = "cold" | "loading" | "ready" | "failed";
 export type ModelLabel =
 	| {kind: "opus"; from: string; to: string}
 	| {kind: "nllb"}
-	| {kind: "llm"; name: string};
+	| {kind: "llm"; name: string}
+	| {kind: "apple"};
 
 /**
  * A GPU model built for small buffers (tools/translate-split/): its own

@@ -6,7 +6,7 @@
 import {AsyncQueue} from "./asyncQueue";
 import {
 	Device,
-	EngineName,
+	WorkerEngineName,
 	LoadProgress,
 	ModelRef,
 	TranslateChunk,
@@ -82,11 +82,11 @@ export class TranslateError extends Error {
 export class TranslateClient {
 	/** By copy (`copyKey`): the two devices' copies of a model are two loads. */
 	private loads = new Map<string, LoadEntry>();
-	private unloads = new Map<EngineName, DedupEntry<void>>();
+	private unloads = new Map<WorkerEngineName, DedupEntry<void>>();
 	/** By copy (`copyKey`). */
 	private deletes = new Map<string, DedupEntry<void>>();
 	private streams = new Map<number, StreamEntry>();
-	private statusWaiters: Deferred<Record<EngineName, EngineSnapshot>>[] = [];
+	private statusWaiters: Deferred<Record<WorkerEngineName, EngineSnapshot>>[] = [];
 	private modelsWaiters: Deferred<ModelCacheState[]>[] = [];
 	private disposed = false;
 	/** Whether the worker has said anything yet: it started, at least. */
@@ -137,7 +137,7 @@ export class TranslateClient {
 		return entry.promise;
 	}
 
-	unload(engine: EngineName): Promise<void> {
+	unload(engine: WorkerEngineName): Promise<void> {
 		const existing = this.unloads.get(engine);
 
 		if (existing) {
@@ -180,7 +180,7 @@ export class TranslateClient {
 		}
 	}
 
-	status(): Promise<Record<EngineName, EngineSnapshot>> {
+	status(): Promise<Record<WorkerEngineName, EngineSnapshot>> {
 		return new Promise((resolve, reject) => {
 			this.statusWaiters.push({resolve, reject});
 			this.port.postMessage({type: "status"});

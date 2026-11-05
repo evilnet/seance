@@ -115,9 +115,9 @@ function markersFor(candidate: string | undefined): MarkerForm {
 }
 
 /**
- * Which of the two engines a route runs on (`models.ts` `Candidate` names
- * the model, `engine.ts` `EngineName` the engine behind it): the strip's
- * title says GPU or CPU off this, so a user looking at a translation can
+ * Which engine a route runs on (`models.ts` `Candidate` names the model,
+ * `engine.ts` `EngineName` the engine behind it): the strip's title says
+ * which off this (with the route's device), so a user looking at a translation can
  * see which one they got.
  */
 function engineFor(route: Route | null): EngineName | null {
@@ -125,7 +125,7 @@ function engineFor(route: Route | null): EngineName | null {
 		return null;
 	}
 
-	return route.candidate === "llm" ? "llm" : "seq2seq";
+	return route.ref.engine;
 }
 
 /** In-flight translation and check per channel id. */

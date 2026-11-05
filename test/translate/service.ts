@@ -9,6 +9,7 @@ import {
 	type ModelRef,
 } from "../../client/js/translate/engine";
 import {
+	APPLE_REF,
 	QWEN3_1_7B_ID,
 	QWEN3_4B_ID,
 	buildCatalog,
@@ -48,6 +49,8 @@ import {
 } from "../../client/js/translate/consent";
 import {TranslationSwitch} from "../../client/js/translate/switch";
 import {FakeEngine} from "./fakeEngine";
+import {fakeBridge} from "./apple";
+import {AppleTranslator} from "../../client/js/translate/engines/apple";
 
 // sinon 15 and later fake queueMicrotask and process.nextTick as well, and the
 // in-memory port pair (protocol.ts createPortPair) delivers through
@@ -136,7 +139,10 @@ function rig(
 	tier: Capability["tier"] = "gpu",
 	enabled = true,
 	routes: RouteTable = DEFAULT_ROUTES,
-	consent: Pick<ServiceDeps, "askDownload" | "consent" | "askCpuFallback" | "saveLlmDevice"> = {},
+	consent: Pick<
+		ServiceDeps,
+		"askDownload" | "consent" | "askCpuFallback" | "saveLlmDevice" | "apple"
+	> = {},
 	shape: {
 		catalog?: ModelCatalog;
 		maxBufferBytes?: number;
@@ -3164,6 +3170,103 @@ describe("translate/service", () => {
 
 			expect((await resolving).route).to.equal(null);
 			expect(asked).to.deep.equal([]);
+		});
+	});
+
+	describe("system translator", () => {
+		function appleRig(status: Record<string, "installed" | "supported" | "unsupported">) {
+			const bridge = fakeBridge(status);
+			const r = rig("gpu", true, DEFAULT_ROUTES, {apple: new AppleTranslator(bridge.deps)});
+
+			clock = r.clock;
+
+			return {...r, bridge};
+		}
+
+		it("takes a pair whose pack is installed ahead of the route table, loading no model", async () => {
+			const r = appleRig({"de>en": "installed"});
+
+			expect((await r.service.route("de", "en"))?.candidate).to.equal("apple");
+			expect(await text(r.service.translate(base))).to.equal("[Hallo]");
+			expect(r.llm.calls.load).to.deep.equal([]);
+			expect(r.workers).to.have.length(0);
+			r.service.dispose();
+		});
+
+		it("offers a missing pack once: downloaded, the pair is Apple's", async () => {
+			const r = appleRig({"de>en": "supported"});
+
+			expect(await text(r.service.translate(base))).to.equal("[Hallo]");
+			expect(r.bridge.calls.filter((c) => c.method === "prepare")).to.have.length(1);
+			r.service.dispose();
+		});
+
+		it("leaves a declined pack, and a polish, to the table", async () => {
+			const r = appleRig({"de>en": "supported", "en>en": "installed"});
+
+			r.bridge.sheet = "decline";
+			expect(await text(r.service.translate(base))).to.equal("llm:Hallo");
+			expect(await text(r.service.translate(base))).to.equal("llm:Hallo");
+			expect(r.bridge.calls.filter((c) => c.method === "prepare")).to.have.length(1);
+			expect((await r.service.route("en", "en"))?.candidate).to.equal("llm");
+			r.service.dispose();
+		});
+
+		it("takes the source hint as the source, and leaves a request with neither to the table", async () => {
+			const r = appleRig({"de>en": "installed"});
+			const hinted = {...base, from: null, context: {...emptyContext(), sourceHint: "de"}};
+
+			expect(await text(r.service.translate(hinted))).to.equal("[Hallo]");
+			expect(r.bridge.calls.at(-1)?.options.from).to.equal("de");
+			expect((await r.service.route(null, "en"))?.candidate).to.equal("llm");
+			r.service.dispose();
+		});
+
+		it("a failed translation falls through to the table and takes the engine out for the session", async () => {
+			const r = appleRig({"de>en": "installed"});
+
+			r.bridge.reject = "failed";
+			expect(await text(r.service.translate(base))).to.equal("llm:Hallo");
+			expect((await r.service.route("de", "en"))?.candidate).to.equal("llm");
+			r.service.dispose();
+		});
+
+		it("a pack gone since its status was asked routes elsewhere, without taking the engine out", async () => {
+			const r = appleRig({"de>en": "installed", "fr>en": "installed"});
+
+			await r.service.route("de", "en");
+			r.bridge.status["de>en"] = "supported";
+			r.bridge.reject = "notInstalled";
+			// Offered again, and declined this time.
+			r.bridge.sheet = "decline";
+			expect(await text(r.service.translate(base))).to.equal("llm:Hallo");
+			expect((await r.service.route("fr", "en"))?.candidate).to.equal("apple");
+			r.service.dispose();
+		});
+
+		it("switched off, the table routes every request", async () => {
+			const r = appleRig({"de>en": "installed"});
+
+			r.service.setSettings({
+				switches: {llm: true, opus: true, nllb: true},
+				devices: AUTO,
+				system: false,
+			});
+			expect(await text(r.service.translate(base))).to.equal("llm:Hallo");
+			expect(r.bridge.calls).to.deep.equal([]);
+			r.service.dispose();
+		});
+
+		it("is never downloaded or deleted through the worker", async () => {
+			const r = appleRig({});
+
+			expect(
+				await r.service.download(APPLE_REF, "cpu").catch((e: Error) => e.message)
+			).to.match(/system/);
+			expect(
+				await r.service.remove(APPLE_REF, "cpu").catch((e: Error) => e.message)
+			).to.match(/system/);
+			r.service.dispose();
 		});
 	});
 });

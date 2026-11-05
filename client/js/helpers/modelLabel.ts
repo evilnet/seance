@@ -25,6 +25,8 @@ export function modelLabel(ref: ModelRef): string {
 			});
 		case "nllb":
 			return t("translate.model.nllb");
+		case "apple":
+			return t("translate.model.apple");
 		default:
 			return t("translate.model.llm", {name: ref.label.name});
 	}

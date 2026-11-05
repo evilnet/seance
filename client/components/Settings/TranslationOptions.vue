@@ -35,6 +35,58 @@
 				{{ t("translate.formality.casual") }}
 			</label>
 		</div>
+		<!-- The iOS shell's system translator (translate/engines/apple.ts):
+		     taken first for a pair whose language pack is downloaded, and
+		     its packs downloaded through the system's own sheet. -->
+		<section v-if="system" class="translate-system">
+			<h3>{{ t("translate.system.heading") }}</h3>
+			<label class="opt">
+				<input
+					v-switch
+					:checked="store.state.settings.translateSystem !== false"
+					type="checkbox"
+					name="translateSystem"
+				/>
+				{{ t("translate.system.switch") }}
+			</label>
+			<div class="translate-hint">{{ t("translate.system.hint") }}</div>
+			<!-- No `name`: the language picked here is a question for the
+			     system, not a setting. -->
+			<div v-if="systemLanguages.length" class="translate-system-pack">
+				<label class="sr-only" for="translate-system-source">{{
+					t("translate.system.sourceLabel")
+				}}</label>
+				<select
+					id="translate-system-source"
+					v-model="systemSource"
+					class="input"
+					@change="askSystemStatus"
+				>
+					<option v-for="code in systemLanguages" :key="code" :value="code">
+						{{ languageLabel(code) }}
+					</option>
+				</select>
+				<button
+					id="translate-system-download"
+					type="button"
+					class="btn btn-small"
+					:disabled="
+						systemBusy || systemStatus === 'installed' || systemStatus === 'unsupported'
+					"
+					@click.prevent="downloadSystemPack"
+				>
+					{{ t("translate.system.download") }}
+				</button>
+			</div>
+			<div
+				v-if="systemStatusText"
+				class="translate-hint translate-system-status"
+				role="status"
+				aria-live="polite"
+			>
+				{{ systemStatusText }}
+			</div>
+		</section>
 		<h3>{{ t("translate.settings.models") }}</h3>
 		<div v-if="problem" class="translate-hint translate-error">
 			{{ t("translate.settings.workerError", {error: problem}) }}
@@ -360,6 +412,18 @@
 </template>
 
 <style>
+.translate-system-pack {
+	display: flex;
+	gap: 0.5rem;
+	align-items: center;
+	margin-bottom: 0.5rem;
+}
+
+.translate-system-pack select {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
 .translate-llm-model select {
 	margin-inline-start: 0.5rem;
 	max-width: calc(100% - 0.5rem);
@@ -590,7 +654,9 @@ import {useI18n} from "../../js/i18n";
 import friendlysize from "../../js/helpers/friendlysize";
 import {modelLabel} from "../../js/helpers/modelLabel";
 import {useStore} from "../../js/store";
-import {translateService} from "../../js/translate";
+import {systemTranslator, translateService} from "../../js/translate";
+import type {AppleStatus} from "../../js/translate/engines/apple";
+import {languageName} from "../../js/translate/languages";
 import type {Device, DeviceChoice, ModelRef} from "../../js/translate/engine";
 import {
 	LLM_MIN_BUFFER_BYTES,
@@ -605,7 +671,12 @@ import {GPU_TEST_LIMIT_KEY} from "../../js/translate/gpuTestLimit";
 import {GPU_PREFILL_CHUNK_KEY} from "../../js/translate/gpuPrefillChunk";
 import {translateErrorText} from "../../js/helpers/translateErrors";
 import {translateWhyText} from "../../js/helpers/translateWhy";
-import {type ModelDevices, cpuThreadsLine, modelDevices} from "../../js/translate/reader";
+import {
+	type ModelDevices,
+	cpuThreadsLine,
+	modelDevices,
+	readingLanguage,
+} from "../../js/translate/reader";
 import type {CapabilityReason} from "../../js/translate/capability";
 import type {ModelView} from "../../js/translate/service";
 
@@ -643,6 +714,102 @@ export default defineComponent({
 		// the service, and the deploy allows it.
 		const service = translateService();
 		const capability = computed(() => store.state.translation.capability);
+		// The reading language as it stands: the interface's (one control —
+		// reactivity rides on the store read and the i18n ref the helper reads).
+		const effectiveReading = computed(() => readingLanguage());
+		// The system translator, in the iOS shell only: its languages, the
+		// one picked to ask about, and that pair's pack into the reading
+		// language. `systemFailed`: the sheet closed and the pack is still
+		// not there, so the system Settings path is the way left.
+		const system = systemTranslator();
+		const systemLanguages = ref<string[]>([]);
+		const systemSource = ref("");
+		const systemStatus = ref<AppleStatus | null>(null);
+		const systemBusy = ref(false);
+		const systemFailed = ref(false);
+		const languageLabel = (code: string) => languageName(code, effectiveReading.value || "en");
+
+		const askSystemStatus = async () => {
+			const target = effectiveReading.value;
+
+			systemFailed.value = false;
+			systemStatus.value = null;
+
+			if (!system || !systemSource.value || !target) {
+				return;
+			}
+
+			const source = systemSource.value;
+			const status = await system.status(source, target);
+
+			// Only the answer for what is still picked.
+			if (source === systemSource.value && target === effectiveReading.value) {
+				systemStatus.value = status;
+			}
+		};
+
+		const downloadSystemPack = async () => {
+			const target = effectiveReading.value;
+
+			if (!system || !systemSource.value || !target) {
+				return;
+			}
+
+			systemBusy.value = true;
+			systemFailed.value = false;
+
+			try {
+				systemStatus.value = (await system.prepare(systemSource.value, target)).status;
+				systemFailed.value = systemStatus.value !== "installed";
+			} catch {
+				systemFailed.value = true;
+			} finally {
+				systemBusy.value = false;
+			}
+		};
+
+		const systemStatusText = computed(() => {
+			const target = effectiveReading.value;
+
+			if (!systemSource.value || !target) {
+				return "";
+			}
+
+			const vars = {from: languageLabel(systemSource.value), to: languageLabel(target)};
+
+			if (systemBusy.value) {
+				return t("translate.system.asking", vars);
+			}
+
+			if (systemFailed.value) {
+				return t("translate.system.notDownloaded", vars);
+			}
+
+			switch (systemStatus.value) {
+				case "installed":
+					return t("translate.system.installed", vars);
+				case "supported":
+					return t("translate.system.supported", vars);
+				case "unsupported":
+					return t("translate.system.unsupported", vars);
+				default:
+					return "";
+			}
+		});
+
+		if (system) {
+			onMounted(async () => {
+				const languages = await system.languages();
+				const target = effectiveReading.value;
+
+				systemLanguages.value = languages;
+				systemSource.value = languages.find((code) => code !== target) ?? "";
+				await askSystemStatus();
+			});
+
+			watch(effectiveReading, () => void askSystemStatus());
+		}
+
 		const loadError = ref<string | null>(null);
 		// Two ways the worker can disappoint this tab: a call it made rejected
 		// (loadError), or the worker reported a problem of its own that no call
@@ -1078,6 +1245,15 @@ export default defineComponent({
 		);
 
 		return {
+			system,
+			systemLanguages,
+			systemSource,
+			systemStatus,
+			systemBusy,
+			systemStatusText,
+			languageLabel,
+			askSystemStatus,
+			downloadSystemPack,
 			t,
 			tCount,
 			modelLabel,

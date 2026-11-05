@@ -238,6 +238,12 @@ const defaultConfig = {
 	translateNllb: {
 		default: false,
 	},
+	/** The device's own translator first where there is one: Apple's
+	 * Translation framework in the iOS shell (translate/engines/apple.ts),
+	 * for a pair whose language pack is installed. */
+	translateSystem: {
+		default: true,
+	},
 	/** Which device each model runs on: auto | gpu | cpu (translate/models.ts `DeviceChoices`). */
 	translateLlmDevice: {
 		default: "auto",

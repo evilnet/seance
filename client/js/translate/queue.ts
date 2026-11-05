@@ -478,7 +478,7 @@ export class TranslateQueue {
 				a.seq - b.seq
 		);
 
-		for (const engine of ["llm", "seq2seq"] as EngineName[]) {
+		for (const engine of ["llm", "seq2seq", "apple"] as EngineName[]) {
 			if (
 				this.inFlight.has(engine) ||
 				this.pausedEngines.has(engine) ||

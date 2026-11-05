@@ -15,6 +15,7 @@ import {realWebLlmDeps, webllmCache} from "./engines/webllm.real";
 import {createCpuMlc} from "./engines/cpuLlm";
 import {cpuLlmCache, wllamaBackend} from "./engines/cpuLlm.real";
 import {OnDevice} from "./engines/onDevice";
+import type {EngineName} from "./engine";
 import {Seq2seqEngine} from "./engines/seq2seq";
 import {configureTransformers, realSeq2seqDeps, seq2seqCache} from "./engines/seq2seq.real";
 import {languageName} from "./languages";
@@ -53,7 +54,8 @@ const llmGpuCache = webllmCache(
 const llmCpuCache = cpuLlmCache(modelBase);
 const seqCache = seq2seqCache();
 
-const cacheFor = (engine: "llm" | "seq2seq", device: "gpu" | "cpu"): CacheApi =>
+// `apple` never reaches the worker (engine.ts `EngineName`).
+const cacheFor = (engine: EngineName, device: "gpu" | "cpu"): CacheApi =>
 	engine === "seq2seq" ? seqCache : device === "gpu" ? llmGpuCache : llmCpuCache;
 
 const cache: CacheApi = {

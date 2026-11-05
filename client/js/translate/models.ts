@@ -7,7 +7,7 @@ import {Device, DeviceChoice, DeviceCopy, EngineName, ModelRef, SmallBufferBuild
 import type {Capability, CapabilityReason, Tier} from "./capability";
 
 /** What the route table lists: the LLM, NLLB, or an OPUS-MT pair. */
-export type Candidate = "llm" | "nllb" | `opus:${string}`;
+export type Candidate = "llm" | "nllb" | `opus:${string}` | "apple";
 
 /** The shape `BrandingTranslation` (branding.ts) is assignable to. */
 export interface CatalogOptions {
@@ -63,6 +63,20 @@ export const QWEN3_1_7B_ID = "Qwen3-1.7B-q4f16_1-MLC";
 export const QWEN3_4B_ID = "Qwen3-4B-q4f16_1-MLC";
 export const DEFAULT_LLM_ID = QWEN3_1_7B_ID;
 export const DEFAULT_NLLB_ID = "Xenova/nllb-200-distilled-600M";
+
+/**
+ * The iOS shell's system translator (engines/apple.ts). Not in the catalog
+ * or any route table, and no copy on any device of the page's: service.ts
+ * `resolve` takes it ahead of the table whenever the pair's language pack
+ * is installed.
+ */
+export const APPLE_REF: ModelRef = {
+	engine: "apple",
+	family: "apple",
+	id: "apple-translation",
+	label: {kind: "apple"},
+	copies: {},
+};
 export const DEFAULT_OPUS_PAIRS: Record<string, string> = {
 	"de-en": "Xenova/opus-mt-de-en",
 	"en-de": "Xenova/opus-mt-en-de",
@@ -933,6 +947,10 @@ export function candidateOf(ref: ModelRef): Candidate {
 		return "nllb";
 	}
 
+	if (ref.family === "apple") {
+		return "apple";
+	}
+
 	const [from, to] = ref.pair ?? ["", ""];
 
 	return `opus:${from}-${to}`;
@@ -996,7 +1014,8 @@ export interface DeviceChoices {
 
 /** The device setting that governs `ref`'s family. */
 export function choiceFor(ref: ModelRef, choices: DeviceChoices): DeviceChoice {
-	return choices[ref.family];
+	// The system translator runs on no device of the page's.
+	return ref.family === "apple" ? "auto" : choices[ref.family];
 }
 
 /**
