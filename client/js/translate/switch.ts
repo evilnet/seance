@@ -85,6 +85,9 @@ export interface SwitchDeps<S> {
  *   destroyed.
  * - **On**: the listeners hear it (the reader starts its reading channels
  *   over); the service itself is made by the first thing that needs it.
+ *
+ * A listener that throws is logged and passed over: the others still hear
+ * the change and an off still destroys the service.
  */
 export class TranslationSwitch<S> {
 	private made: S | null = null;
@@ -138,12 +141,28 @@ export class TranslationSwitch<S> {
 			this.made = null;
 		}
 
-		for (const listener of [...this.listeners]) {
-			listener(now);
-		}
-
-		if (going) {
-			this.deps.destroy(going);
+		// One listener that throws must not stop the others, nor leave the
+		// worker running: each is heard on its own, and the destroy comes
+		// whatever they did. sync() runs inside every ask and the store's
+		// watch, so a failure is logged here rather than thrown into them.
+		try {
+			for (const listener of [...this.listeners]) {
+				try {
+					listener(now);
+				} catch (error) {
+					// eslint-disable-next-line no-console
+					console.error("translation switch: a listener failed", error);
+				}
+			}
+		} finally {
+			if (going) {
+				try {
+					this.deps.destroy(going);
+				} catch (error) {
+					// eslint-disable-next-line no-console
+					console.error("translation switch: taking the service down failed", error);
+				}
+			}
 		}
 	}
 

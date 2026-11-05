@@ -1,4 +1,5 @@
 import {expect} from "chai";
+import sinon from "sinon";
 import {
 	TranslationSwitch,
 	considersLine,
@@ -202,6 +203,61 @@ describe("translate/switch", () => {
 			h.sw.sync();
 
 			expect(h.log).to.deep.equal(["create 1"]);
+		});
+
+		it("a listener that throws stops neither the others nor the destroy", () => {
+			const h = harness(true);
+			const boom = new Error("a listener broke");
+			const logged = sinon.stub(console, "error");
+
+			try {
+				h.sw.service();
+				h.sw.onChange(() => {
+					throw boom;
+				});
+				h.sw.onChange((value) => h.log.push(`after ${value ? "on" : "off"}`));
+				h.set(false);
+				h.sw.sync();
+
+				// The worker is not left running behind a broken listener.
+				expect(h.log).to.deep.equal(["create 1", "off", "after off", "destroy 1"]);
+				expect(h.made[0].destroyed).to.equal(true);
+				expect(h.sw.service()).to.equal(null);
+				expect(logged.callCount).to.equal(1);
+				expect(logged.firstCall.args).to.include(boom);
+
+				// Switched on again: the same listener throws, the rest still hear it.
+				h.set(true);
+				h.sw.sync();
+
+				expect(h.log.slice(-2)).to.deep.equal(["on", "after on"]);
+				expect(logged.callCount).to.equal(2);
+			} finally {
+				logged.restore();
+			}
+		});
+
+		it("a destroy that throws leaves the switch off and says so", () => {
+			const logged = sinon.stub(console, "error");
+			let on = true;
+			const sw = new TranslationSwitch({
+				on: () => on,
+				create: () => ({}),
+				destroy() {
+					throw new Error("dispose failed");
+				},
+			});
+
+			try {
+				sw.service();
+				on = false;
+
+				expect(() => sw.sync()).to.not.throw();
+				expect(sw.service()).to.equal(null);
+				expect(logged.callCount).to.equal(1);
+			} finally {
+				logged.restore();
+			}
 		});
 
 		it("a listener taken off hears nothing more", () => {
