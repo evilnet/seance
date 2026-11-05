@@ -3100,6 +3100,7 @@ html[data-reduce-motion] #chat .connecting-indicator {
 .past-bar {
 	display: flex;
 	flex: none;
+	flex-wrap: wrap;
 	align-items: center;
 	gap: 0.5rem;
 	padding: 0.375rem 0.75rem;
@@ -3108,7 +3109,9 @@ html[data-reduce-motion] #chat .connecting-indicator {
 	font-size: 0.8125rem;
 }
 
+/* A row of its own when it does not fit whole beside the buttons. */
 .past-bar-text {
+	flex: 1 1 max-content;
 	min-width: 0;
 	color: var(--body-color-muted);
 }
@@ -3125,6 +3128,15 @@ html[data-reduce-motion] #chat .connecting-indicator {
 @media (max-width: 768px) {
 	.past-bar .btn {
 		min-height: 2.75rem;
+	}
+
+	.past-bar:has(.past-bar-back) .past-bar-text {
+		flex-basis: 100%;
+	}
+
+	.past-bar:has(.past-bar-back) .btn {
+		flex: 1 1 auto;
+		margin-inline-start: 0;
 	}
 }
 

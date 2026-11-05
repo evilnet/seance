@@ -63,8 +63,13 @@ export function dayStart(value: string): Date | undefined {
 
 export function parseSearchQuery(raw: string): SearchFilters {
 	const filters: SearchFilters = {words: [], without: [], has: []};
+	/** `in:` with a space after it: the next token is what it means. */
+	let inNext = false;
 
 	for (const [, minus, quoted, bare] of raw.matchAll(TOKEN)) {
+		const takesIn = inNext && !minus && quoted === undefined && !bare.includes(":");
+		inNext = false;
+
 		if (quoted !== undefined) {
 			if (quoted) {
 				(minus ? filters.without : filters.words).push(quoted);
@@ -75,15 +80,30 @@ export function parseSearchQuery(raw: string): SearchFilters {
 
 		if (minus) {
 			filters.without.push(bare);
-			continue;
-		}
-
-		if (!applyKeyed(filters, bare)) {
+		} else if (takesIn) {
+			filters.in = bare;
+		} else if (bare === ALL_CHANNELS) {
+			filters.in = ALL_CHANNELS; // to look for a literal *, quote it
+		} else if (bare.toLowerCase() === "in:") {
+			inNext = true;
+		} else if (!applyKeyed(filters, bare)) {
 			filters.words.push(bare);
 		}
 	}
 
 	return filters;
+}
+
+/** `in:linux` is `#linux` when that is a conversation and `linux` is not. */
+export function resolveScope(
+	filters: SearchFilters,
+	exists: (name: string) => boolean
+): SearchFilters {
+	const target = filters.in;
+
+	return target && target !== ALL_CHANNELS && !exists(target) && exists(`#${target}`)
+		? {...filters, in: `#${target}`}
+		: filters;
 }
 
 /** A recognised `key:value`; anything else (`http://x`, `after:soon`) is a word. */

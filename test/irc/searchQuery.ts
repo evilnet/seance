@@ -8,6 +8,7 @@ import {
 	matchesFilters,
 	matchSpans,
 	parseSearchQuery,
+	resolveScope,
 	rowKey,
 	serverAttrs,
 } from "../../client/js/searchQuery";
@@ -23,6 +24,46 @@ function row(text: string, extra: {nick?: string; account?: string; time?: Date}
 }
 
 describe("searchQuery", function () {
+	describe("what scope a query asks for", function () {
+		it("reads a bare * as every channel, wherever it stands", function () {
+			for (const q of ["* fake lag", "fake * lag", "fake lag *"]) {
+				const filters = parseSearchQuery(q);
+				expect(filters.in, q).to.equal(ALL_CHANNELS);
+				expect(filters.words, q).to.deep.equal(["fake", "lag"]);
+				expect(serverAttrs(filters, "#here").in, q).to.equal(undefined);
+			}
+		});
+
+		it("still finds a literal * when quoted", function () {
+			const filters = parseSearchQuery('"*" lag');
+			expect(filters.in).to.equal(undefined);
+			expect(filters.words).to.deep.equal(["*", "lag"]);
+		});
+
+		it("takes what follows a spaced in:", function () {
+			expect(parseSearchQuery("in: #linux lag")).to.include({in: "#linux"});
+			expect(parseSearchQuery("in: * lag")).to.include({in: ALL_CHANNELS});
+			expect(parseSearchQuery("lag in:").words).to.deep.equal(["lag"]);
+			expect(hasCriteria(parseSearchQuery("in:"))).to.equal(false);
+		});
+
+		it("does not let a spaced in: swallow another filter", function () {
+			const filters = parseSearchQuery("in: from:kitten lag");
+			expect(filters.in).to.equal(undefined);
+			expect(filters.from).to.equal("kitten");
+		});
+
+		it("finds a channel named without its #", function () {
+			const known = new Set(["#linux", "linuxfan"]);
+			const exists = (name: string) => known.has(name);
+			const scoped = (q: string) => resolveScope(parseSearchQuery(q), exists).in;
+			expect(scoped("in:linux lag")).to.equal("#linux");
+			expect(scoped("in:linuxfan lag")).to.equal("linuxfan");
+			expect(scoped("in:nobody lag")).to.equal("nobody");
+			expect(scoped("in:* lag")).to.equal(ALL_CHANNELS);
+		});
+	});
+
 	describe("parseSearchQuery", function () {
 		it("reads words, phrases, exclusions and filters", function () {
 			expect(
