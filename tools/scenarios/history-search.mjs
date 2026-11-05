@@ -316,6 +316,45 @@ export default async function run(page) {
 		)
 	);
 
+	// Loaded lines beside the server's rows: private lines are marked, and paging
+	// goes on from the server's oldest, not from theirs.
+	talker.say(NICK, "whispered inbothplaces");
+	await page.sleep(500);
+	const afterPrivate = Date.now();
+	await page.sleep(100);
+	talker.say(OTHER, "said inbothplaces");
+	await page.sleep(500);
+	await search(page, "inbothplaces in:*");
+	page.check(
+		"3. every channel adds loaded private lines, marked",
+		(await count(page, ROWS)) === 2 &&
+			(await count(page, `${WINDOW} .search-loaded`)) === 1 &&
+			(await count(page, `${WINDOW} .search-banner`)) === 0
+	);
+	await page.screenshot("3-loaded-private");
+	const olderFrom = page.wsFrames.length;
+	await page.evaluate(
+		`[...document.querySelectorAll("${WINDOW} .search-status button")].find((b) => b.textContent.trim() === "Search older").click()`
+	);
+	await page.sleep(500);
+	const older = sentCommands(page, olderFrom, /^(@\S+ )?SEARCH /)[0]?.payloadData ?? "";
+	page.check(
+		"3. and Search older pages from the server's row",
+		new Date(/before=(\S+)/.exec(older)?.[1]).getTime() > afterPrivate
+	);
+
+	// One conversation, same fallback: nothing stored for a private conversation
+	// without accounts, and a server's case folding can miss what the device finds.
+	await search(page, `onlyinprivate in:${TALKER}`);
+	page.check(
+		"3. an empty answer for one conversation falls back too, and says so",
+		(await count(page, ROWS)) === 1 && (await count(page, `${WINDOW} .search-banner`)) === 1
+	);
+	talker.say(OTHER, "Привет folded");
+	await page.sleep(500);
+	await search(page, `привет in:${OTHER}`);
+	page.check("3. other-case Cyrillic finds a loaded line", (await count(page, ROWS)) === 1);
+
 	// has:image, through the sheet.
 	await search(page, "fake lag");
 	await page.click(`${WINDOW} .search-chips > button:last-child`);

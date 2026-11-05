@@ -201,6 +201,11 @@
 												<span class="search-time">{{
 													timeOf(hit.msg)
 												}}</span>
+												<span
+													v-if="hit.loaded"
+													class="search-dim search-loaded"
+													>{{ t("search.window.loadedRow") }}</span
+												>
 											</div>
 											<div class="search-text">
 												<ParsedMessage
@@ -775,7 +780,9 @@ export default defineComponent({
 			}
 
 			if (mode.value === "partial") {
-				return t("search.window.allChannelsEmpty");
+				return scope.value === ALL_CHANNELS
+					? t("search.window.allChannelsEmpty")
+					: t("search.window.scopeEmpty", {scope: scopeLabel.value});
 			}
 
 			return mode.value === "offline" ? t("search.window.offline") : "";
@@ -784,9 +791,13 @@ export default defineComponent({
 		const dayOf = (msg: SharedMsg) => dayLabel(msg.time);
 		const timeOf = (msg: SharedMsg) => clockTime(msg.time, store.state.settings);
 
+		// How far the server has answered. A loaded row says nothing about that, and
+		// paging from one would skip the server's rows between the two.
+		const oldestAnswered = () => rows.value.findLast((hit) => !hit.loaded);
+
 		const oldestLabel = computed(() => {
 			void locale.value;
-			const last = rows.value[rows.value.length - 1];
+			const last = oldestAnswered();
 			return last
 				? t("search.window.dayAndTime", {
 						day: shortDay(last.msg.time),
@@ -817,14 +828,10 @@ export default defineComponent({
 		const newestFirst = (a: SearchHit, b: SearchHit) =>
 			new Date(b.msg.time).getTime() - new Date(a.msg.time).getTime();
 
-		const searchLoaded = () => {
+		const loadedHits = (from: ClientChan[]) => {
 			const hits: SearchHit[] = [];
 
-			for (const chat of chats.value) {
-				if (scope.value !== ALL_CHANNELS && chat !== findChat(scope.value)) {
-					continue;
-				}
-
+			for (const chat of from) {
 				for (const msg of chat.messages) {
 					if (matchesFilters(msg, filters.value)) {
 						hits.push({target: chat.name, msg});
@@ -832,7 +839,15 @@ export default defineComponent({
 				}
 			}
 
-			rows.value = hits.reverse().sort(newestFirst);
+			return hits.reverse();
+		};
+
+		const searchLoaded = () => {
+			const from =
+				scope.value === ALL_CHANNELS
+					? chats.value
+					: chats.value.filter((chat) => chat === findChat(scope.value));
+			rows.value = loadedHits(from).sort(newestFirst);
 		};
 
 		// keepRows: typing on, what is showing stays until the answer replaces it.
@@ -882,7 +897,7 @@ export default defineComponent({
 		};
 
 		const loadOlder = () => {
-			const last = rows.value[rows.value.length - 1];
+			const last = oldestAnswered();
 
 			if (!network.value || !last || loadingOlder.value) {
 				return;
@@ -960,9 +975,10 @@ export default defineComponent({
 				}
 			}
 
-			// An empty answer for every channel may only be the server's (a second
-			// connection is skipped, a scan can run out), so loaded lines still count.
-			if (!older && !data.hits.length && scope.value === ALL_CHANNELS) {
+			// An empty answer may only be the server's: a scan can run out, a private
+			// conversation may not be stored, case folds in ASCII alone. Loaded lines
+			// still count.
+			if (!older && !data.hits.length) {
 				searchLoaded();
 
 				if (rows.value.length) {
@@ -984,6 +1000,16 @@ export default defineComponent({
 			// Oldest first on the wire: reversed, so a stable sort keeps same-moment
 			// rows newest first too.
 			rows.value = [...rows.value, ...fresh.reverse()].sort(newestFirst);
+
+			// Every channel leaves out private conversations on the server; what is
+			// loaded of them still counts, marked as such.
+			if (!older && scope.value === ALL_CHANNELS) {
+				const known = new Set(rows.value.map((hit) => rowKey(hit.msg)));
+				const loaded = loadedHits(chats.value.filter((chat) => chat.type === "query"))
+					.filter((hit) => !known.has(rowKey(hit.msg)))
+					.map((hit) => ({...hit, loaded: true}));
+				rows.value = [...rows.value, ...loaded].sort(newestFirst);
+			}
 		};
 
 		// To the message itself. The results come back with the bar's Back to
