@@ -262,7 +262,10 @@ describe("translate/capability", () => {
 		expect(seen).to.deep.equal([{address: "i64", initial: BigInt(1)}]);
 		expect(hasMemory64({Memory: Memory32})).to.equal(false);
 		expect(hasMemory64({})).to.equal(false);
-		expect(hasMemory64(undefined)).to.equal(false);
+		// `null`, not `undefined`: a default parameter takes `undefined` as
+		// "not passed" and asks the running engine, which on Node 26 has
+		// Memory64.
+		expect(hasMemory64(null)).to.equal(false);
 	});
 
 	it("survives a throwing adapter request and missing optional APIs", async () => {

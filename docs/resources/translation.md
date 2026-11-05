@@ -9,8 +9,9 @@ design is `docs/projects/client-translation.md` and the deploy knobs are
 
 Translation ships switched off. It runs only where the deploy allows it
 (config.json `translation.enabled`, default true; `docs/resources/branding.md`
-§ Translation) **and** the user switched it on: Settings → Translation →
-"Translate messages on this device" (`settings.ts` `translationEnabled`,
+§ Translation) **and** the user switched it on: Settings → Language (the
+tab is named Translation once it is on) → "Translate messages on this
+device" (`settings.ts` `translationEnabled`,
 default false, for new and existing users alike; carried by the settings
 backup with the rest of `settings`). That one rule is
 `translate/switch.ts` `translationAllowed`, which every surface asks through

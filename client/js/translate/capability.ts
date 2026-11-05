@@ -241,12 +241,14 @@ export function browserEnv(): ProbeEnv {
  * Whether a 64-bit WebAssembly memory can be made: an engine without
  * Memory64 throws on the `address` descriptor's BigInt `initial` (it reads
  * the field as a number), one with it returns a memory of one page.
- * `WebAssembly` missing, or a constructor that throws, is no.
+ * `WebAssembly` missing, or a constructor that throws, is no. Called with
+ * nothing (or `undefined`, which a default parameter treats the same) it
+ * asks this engine; `null` is an engine with no WebAssembly at all.
  */
 export function hasMemory64(
-	wasm: {Memory?: unknown} | undefined = typeof WebAssembly !== "undefined"
+	wasm: {Memory?: unknown} | null | undefined = typeof WebAssembly !== "undefined"
 		? WebAssembly
-		: undefined
+		: null
 ): boolean {
 	const Memory = wasm?.Memory as (new (descriptor: unknown) => unknown) | undefined;
 
