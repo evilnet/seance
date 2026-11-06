@@ -143,15 +143,8 @@
 					/>
 				</div>
 				<p class="sr-only" role="status">{{ pastStatus }}</p>
-				<div v-if="channel.past || channel.pastOpening || searchBack" class="past-bar">
+				<div v-if="channel.past || channel.pastOpening" class="past-bar">
 					<span v-if="pastStatus" class="past-bar-text">{{ pastStatus }}</span>
-					<button
-						v-if="searchBack"
-						class="btn btn-sm past-bar-back"
-						@click="backToResults"
-					>
-						{{ t("chat.past.backToResults") }}
-					</button>
 					<button
 						v-if="channel.past"
 						class="btn btn-sm past-bar-present"
@@ -179,7 +172,6 @@ import eventbus from "../js/eventbus";
 import ParsedMessage from "./ParsedMessage.vue";
 import MessageList from "./MessageList.vue";
 import {closePast} from "../js/pastView";
-import {returnToResults} from "../js/searchReturn";
 import ChatInput from "./ChatInput.vue";
 import ChatUserList from "./ChatUserList.vue";
 import SidebarToggle from "./SidebarToggle.vue";
@@ -189,21 +181,10 @@ import ListInvites from "./Special/ListInvites.vue";
 import ListExcepts from "./Special/ListExcepts.vue";
 import ListIgnored from "./Special/ListIgnored.vue";
 import TranslationPanel from "./TranslationPanel.vue";
-import {
-	defineComponent,
-	PropType,
-	ref,
-	computed,
-	watch,
-	nextTick,
-	onMounted,
-	onUnmounted,
-	Component,
-} from "vue";
+import {defineComponent, PropType, ref, computed, watch, nextTick, onMounted, Component} from "vue";
 import {channelOpened} from "../js/helpers/lastChannel";
 import {prefetchEmojiCatalog} from "../js/helpers/emoji";
 import type {ClientNetwork, ClientChan} from "../js/types";
-import {useRouter} from "vue-router";
 import {useStore} from "../js/store";
 import {SpecialChanType, ChanType} from "../../shared/types/chan";
 import {layout, toPlainText} from "../js/helpers/ircmessageparser/layout";
@@ -241,14 +222,10 @@ export default defineComponent({
 	setup(props) {
 		const store = useStore();
 		const {t, tCount} = useI18n();
-		const router = useRouter();
 
 		const messageList = ref<typeof MessageList>();
 		const topicInput = ref<HTMLInputElement | null>(null);
 
-		const searchBack = computed(() =>
-			store.state.searchReturn?.chanId === props.channel.id ? store.state.searchReturn : null
-		);
 		const pastStatus = computed(() => {
 			if (props.channel.pastOpening) {
 				return t("chat.past.loading");
@@ -264,19 +241,6 @@ export default defineComponent({
 		const leavePast = () => {
 			closePast(props.channel);
 			eventbus.emit("input:focus");
-		};
-		onUnmounted(() => store.commit("searchReturn", null));
-		const backToResults = () => {
-			const back = searchBack.value;
-
-			if (back) {
-				returnToResults();
-				void router.replace({
-					name: "SearchResults",
-					params: {id: back.windowId},
-					query: {q: back.q},
-				});
-			}
 		};
 
 		const plainTopic = computed(() => {
@@ -581,7 +545,6 @@ export default defineComponent({
 		watch(
 			() => props.channel,
 			() => {
-				store.commit("searchReturn", null);
 				channelChanged();
 			}
 		);
@@ -609,10 +572,8 @@ export default defineComponent({
 		});
 
 		return {
-			backToResults,
 			leavePast,
 			pastStatus,
-			searchBack,
 			store,
 			t,
 			messageList,

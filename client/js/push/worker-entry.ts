@@ -6,6 +6,7 @@
  */
 import {interpolate, t} from "../i18n/core";
 import {applyLocale} from "./i18n";
+import {ignoredSender} from "./ignore";
 import {CONCAT_TAG, lineIndexOf, parsePushLine} from "./line";
 import {addMessage, MERGE_KEEP, renderMergedBody} from "./merge";
 import {appUrlFromScope, networkFromScope} from "./scope";
@@ -32,6 +33,7 @@ export const seancePush = {
 	applyLocale: (appUrl: string, tag?: string | null) => applyLocale(fetch, appUrl, tag),
 	t,
 	interpolate,
+	ignoredSender,
 };
 
 (self as unknown as {seancePush: typeof seancePush}).seancePush = seancePush;

@@ -126,6 +126,23 @@ describe("message updates (msg:react / msg:redact / msg:edit)", function () {
 			expect(list[2].editedAt).to.deep.equal(new Date(1004));
 		});
 
+		it("puts the newest of a chain in the place of an original that arrives last", function () {
+			// E3 replaced an original not yet loaded, E4 replaced E3; then
+			// an older page brings the original (1) in.
+			const list = [msg(2), msg(3, {editOf: "m1"}), msg(4, {editOf: "m3"})];
+			applyEdit(list, 3, 4);
+			list.unshift(msg(1));
+			const placed = applyEdit(list, 1, 3);
+
+			expect(ids(list)).to.deep.equal([1, 3, 4, 2]);
+			expect(placed?.replacement?.id).to.equal(4);
+			// The one shown (4) stands where 1 was, with 1's time.
+			expect(list[2].time).to.deep.equal(new Date(1001));
+			expect(list[2].editedAt).to.deep.equal(new Date(1004));
+			expect(list[0].supersededBy).to.equal(3);
+			expect(list[1].supersededBy).to.equal(4);
+		});
+
 		it("changes nothing on a repeated dispatch", function () {
 			const list = [msg(1), msg(2), msg(3, {editOf: "m1"})];
 			applyEdit(list, 1, 3);

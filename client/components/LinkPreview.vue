@@ -44,8 +44,9 @@
 					<span class="media-veil-caret" aria-hidden="true"></span>
 				</button>
 			</div>
-			<!-- Hover is the frame's, not the image's: the preview's tools float
-			over the image, and pointing at them must not stop it. -->
+			<!-- Hover is the whole message row's (`rowHovered`), and the
+			frame's as well, not the image's: the preview's tools float over
+			the image, and pointing at them must not stop it. -->
 			<div
 				v-if="revealed"
 				v-show="link.sourceLoaded"
@@ -332,13 +333,45 @@ export default defineComponent({
 		});
 
 		// ---- An animation plays once, then holds still ----------------
-		// It plays on while the pointer is over it, and keeps looping while
-		// its message is the newest in the conversation; the image viewer
-		// always animates. With reduced motion asked for, it only ever
-		// plays under the pointer.
+		// It plays on while the pointer is over its message — anywhere on
+		// the row, the text and the nick included, not only the image — and
+		// keeps looping while its message is the newest in the conversation;
+		// the image viewer always animates. With reduced motion asked for, it
+		// only ever plays under the pointer.
 		const image = ref<HTMLImageElement | null>(null);
 		const still = ref<HTMLCanvasElement | null>(null);
 		const hovered = ref(false);
+		// The row is Message.vue's; listening on it here keeps a hover from
+		// re-rendering the row. The preview's root comes and goes with
+		// `link.shown`, so the listeners follow the element.
+		const rowHovered = ref(false);
+		let row: HTMLElement | null = null;
+		const onRowEnter = () => {
+			rowHovered.value = true;
+		};
+		const onRowLeave = () => {
+			rowHovered.value = false;
+		};
+		const unbindRow = () => {
+			row?.removeEventListener("mouseenter", onRowEnter);
+			row?.removeEventListener("mouseleave", onRowLeave);
+			row = null;
+			rowHovered.value = false;
+		};
+		watch(
+			container,
+			(el) => {
+				unbindRow();
+				row = el?.closest<HTMLElement>(".msg") ?? null;
+
+				if (row) {
+					row.addEventListener("mouseenter", onRowEnter);
+					row.addEventListener("mouseleave", onRowLeave);
+					rowHovered.value = row.matches(":hover");
+				}
+			},
+			{flush: "post"}
+		);
 		/** The file animates (or is presumed to): it has a still to hold. */
 		const animates = ref(false);
 		const playedOnce = ref(false);
@@ -359,6 +392,7 @@ export default defineComponent({
 			() =>
 				!animates.value ||
 				hovered.value ||
+				rowHovered.value ||
 				(!reducedMotion.value && (isNewest.value || !playedOnce.value))
 		);
 
@@ -556,6 +590,7 @@ export default defineComponent({
 		onUnmounted(() => {
 			stopFollowingMotion();
 			clearPlay();
+			unbindRow();
 			// Let this preview go through load/loadedmetadata events again,
 			// Otherwise the browser can cause a resize on video elements
 			props.link.sourceLoaded = false;

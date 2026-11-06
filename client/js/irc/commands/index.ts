@@ -117,15 +117,19 @@ export function commandNames(): string[] {
  */
 const multilineCommands = new Set(["alias", "lua", "me", "notice", "msg", "query", "say"]);
 
+/** An edit's body that is an action: `/me` and its text (commands/me.ts). */
+const EDIT_AS_ACTION = /^\/me(?:[ \n]|$)/i;
+
 /**
  * Handle everything the user typed into `chan` (may span several lines).
  *
  * `opts.reply` applies to every line. `opts.edit` replaces one message, so
- * the whole text is one logical message: it is always said (never parsed
- * as a command — it is the replacement body of a message, and the message
- * being edited is plain text by construction), and `sendMessage` may still
- * chunk it, putting the edit tag on the first chunk only and the reply tag
- * on all of them.
+ * the whole text is one logical message: it is said, never parsed as a
+ * command — it is the replacement body of a message — except that a leading
+ * `/me ` makes the replacement an action (an edited `/me`, or a message
+ * turned into one; helpers/compose.ts `editText` puts it there). `sendMessage`
+ * may still chunk it, putting the edit tag on the first chunk only and the
+ * reply tag on all of them.
  *
  * With `draft/multiline` negotiated, multi-line input is one message
  * whenever it can be: plain text, and the commands in
@@ -153,8 +157,8 @@ export function dispatchInput(
 	const input = multiline ? text.replace(/\r\n?/g, "\n") : text;
 
 	if (opts.edit) {
-		const body = multiline ? input : input.replace(/\r?\n/g, " ");
-		inputLine(client, chan, body.trim(), opts, true);
+		const body = (multiline ? input : input.replace(/\r?\n/g, " ")).trim();
+		inputLine(client, chan, body, opts, !EDIT_AS_ACTION.test(body));
 		return;
 	}
 

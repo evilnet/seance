@@ -1,15 +1,21 @@
 import {expect} from "chai";
 import {MessageType} from "../../shared/types/msg";
 import {
+	addFilters,
 	ALL_CHANNELS,
 	dayStart,
+	filtersOnly,
 	formatSearchQuery,
 	hasCriteria,
 	matchesFilters,
 	matchSpans,
 	parseSearchQuery,
+	readyToSearch,
+	resolveScope,
 	rowKey,
 	serverAttrs,
+	takeFinishedFilters,
+	wordsOnly,
 } from "../../client/js/searchQuery";
 
 function row(text: string, extra: {nick?: string; account?: string; time?: Date} = {}) {
@@ -23,6 +29,104 @@ function row(text: string, extra: {nick?: string; account?: string; time?: Date}
 }
 
 describe("searchQuery", function () {
+	describe("words in the field, filters in chips", function () {
+		it("takes a filter once a space follows it", function () {
+			expect(takeFinishedFilters("foo in:#linux")).to.equal(null);
+			const taken = takeFinishedFilters("foo in:#linux ");
+			expect(taken?.text).to.equal("foo ");
+			expect(taken?.filters.in).to.equal("#linux");
+		});
+
+		it("keeps what is still being typed", function () {
+			const taken = takeFinishedFilters("from:kit fo");
+			expect(taken?.text).to.equal("fo");
+			expect(taken?.filters.from).to.equal("kit");
+		});
+
+		it("takes a bare * and an exclusion", function () {
+			const taken = takeFinishedFilters("foo * -bar ");
+			expect(taken?.text).to.equal("foo ");
+			expect(taken?.filters.in).to.equal(ALL_CHANNELS);
+			expect(taken?.filters.without).to.deep.equal(["bar"]);
+		});
+
+		it("leaves plain words and an open quote alone", function () {
+			expect(takeFinishedFilters("foo bar ")).to.equal(null);
+			expect(takeFinishedFilters('"foo in:#x ')).to.equal(null);
+		});
+
+		it("splits a query and puts it back together", function () {
+			const q = '"fake lag" from:kit in:#linux -docker';
+			const parsed = parseSearchQuery(q);
+			const back = addFilters(filtersOnly(parsed), parseSearchQuery(wordsOnly(parsed)));
+			expect(formatSearchQuery(back)).to.equal(formatSearchQuery(parsed));
+		});
+	});
+
+	describe("readyToSearch", function () {
+		const ready = (raw: string) => readyToSearch(raw, parseSearchQuery(raw));
+
+		it("waits for a word of three letters", function () {
+			expect(ready("")).to.equal(false);
+			expect(ready("ol")).to.equal(false);
+			expect(ready("old")).to.equal(true);
+			expect(ready("in:#linux ol")).to.equal(false);
+			expect(ready("-older")).to.equal(false);
+		});
+
+		it("waits for a filter or a quote still being typed", function () {
+			expect(ready("old from:kit")).to.equal(false);
+			expect(ready("old in:")).to.equal(false);
+			expect(ready("old from:kitten ")).to.equal(true);
+			expect(ready('"fake la')).to.equal(false);
+			expect(ready('"fake lag"')).to.equal(true);
+		});
+
+		it("takes a word that only looks like a filter", function () {
+			expect(ready("https://example.test")).to.equal(true);
+		});
+	});
+
+	describe("what scope a query asks for", function () {
+		it("reads a bare * as every channel, wherever it stands", function () {
+			for (const q of ["* fake lag", "fake * lag", "fake lag *"]) {
+				const filters = parseSearchQuery(q);
+				expect(filters.in, q).to.equal(ALL_CHANNELS);
+				expect(filters.words, q).to.deep.equal(["fake", "lag"]);
+				expect(serverAttrs(filters, "#here").in, q).to.equal(undefined);
+			}
+		});
+
+		it("still finds a literal * when quoted", function () {
+			const filters = parseSearchQuery('"*" lag');
+			expect(filters.in).to.equal(undefined);
+			expect(filters.words).to.deep.equal(["*", "lag"]);
+		});
+
+		it("takes what follows a spaced in:", function () {
+			expect(parseSearchQuery("in: #linux lag")).to.include({in: "#linux"});
+			expect(parseSearchQuery("in: * lag")).to.include({in: ALL_CHANNELS});
+			expect(parseSearchQuery("lag in:").words).to.deep.equal(["lag"]);
+			expect(hasCriteria(parseSearchQuery("in:"))).to.equal(false);
+		});
+
+		it("does not let a spaced in: swallow another filter", function () {
+			const filters = parseSearchQuery("in: from:kitten lag");
+			expect(filters.in).to.equal(undefined);
+			expect(filters.from).to.equal("kitten");
+		});
+
+		it("finds a channel named without its #", function () {
+			const known = new Set(["#linux", "linuxfan"]);
+			const exists = (name: string) => known.has(name);
+			const scoped = (q: string) => resolveScope(parseSearchQuery(q), exists).in;
+			expect(scoped("in:linux lag")).to.equal("#linux");
+			expect(scoped("in:linuxfan lag")).to.equal("linuxfan");
+			expect(scoped("in:nobody lag")).to.equal("nobody");
+			expect(scoped("in:* lag")).to.equal(ALL_CHANNELS);
+		});
+	});
+
 	describe("parseSearchQuery", function () {
 		it("reads words, phrases, exclusions and filters", function () {
 			expect(

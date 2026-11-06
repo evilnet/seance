@@ -89,7 +89,9 @@ jobs:
 
           tag="$RELEASE_TAG"
           if [ -z "$tag" ]; then
-            tag="$(gh api "repos/$REPO/releases/latest" --jq .tag_name 2>/dev/null || true)"
+            # gh prints the 404 body on stdout, so a repo with no release would
+            # otherwise get it as its tag.
+            tag="$(gh api "repos/$REPO/releases/latest" --jq .tag_name 2>/dev/null)" || tag=""
           fi
           base="${tag#v}"
 

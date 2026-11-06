@@ -376,12 +376,6 @@ msgid_plural "Open your mentions, {count} unread"
 msgstr[0] "Buksan ang mga pagbanggit sa iyo, {count} hindi pa nababasa"
 msgstr[1] "Buksan ang mga pagbanggit sa iyo, {count} hindi pa nababasa"
 
-#. Button on the bar shown while reading older messages in the main window: returns to the search results this message was opened from.
-#: client/components/Chat.vue
-msgctxt "chat.past.backToResults"
-msgid "Back to results"
-msgstr ""
-
 #. Error toast: the server answered, but no longer has the older message the reader asked to go to.
 #: client/js/socket-events/past.ts
 msgctxt "chat.past.gone"
@@ -2615,6 +2609,12 @@ msgctxt "help.shortcuts.prevWindow"
 msgid "Switch to the previous window in the channel list."
 msgstr "Lumipat sa nakaraang window sa listahan ng channel."
 
+#. Description of the Ctrl+F (Cmd+F on Apple) keyboard shortcut in the help window; it opens the search page for the current channel or private conversation.
+#: client/components/Windows/Help.vue
+msgctxt "help.shortcuts.search"
+msgid "Search the open conversation."
+msgstr ""
+
 #. Description of the Alt+J keyboard shortcut in the help window; it opens or closes the search field for jumping to a conversation.
 #: client/components/Windows/Help.vue
 msgctxt "help.shortcuts.toggleJump"
@@ -3900,6 +3900,12 @@ msgstr "Bawiin ang {name} (-{mode})"
 msgctxt "menu.revokeModeUnknown"
 msgid "Mode -{mode}"
 msgstr "Mode na -{mode}"
+
+#. Context-menu item on a user who is on the ignore list; shows their messages again (runs /unignore <nick>).
+#: client/js/helpers/contextMenu.ts
+msgctxt "menu.unignore"
+msgid "Unignore user"
+msgstr "Huwag nang i-ignore ang user"
 
 #. Context-menu item on a conversation whose messages are muted (not highlighted, not notified); clicking unmutes it. {type} names the kind of conversation in lowercase: 'network', 'channel' or 'conversation'.
 #: client/js/helpers/contextMenu.ts
@@ -11674,6 +11680,12 @@ msgctxt "reactions.clickToRemoveSuffix"
 msgid "(click to remove yours)"
 msgstr "(i-click para alisin ang sa iyo)"
 
+#. Button in the emoji picker's search row that closes the picker without picking anything; shown on phones, where there is no Escape key, and when the picker was opened by typing a colon in the message composer.
+#: client/components/ReactionPicker.vue
+msgctxt "reactions.close"
+msgid "Close"
+msgstr "Isara"
+
 #. aria-label of the emoji picker popup that opens from a chat message to add a reaction to it.
 #: client/components/ReactionPicker.vue
 msgctxt "reactions.dialogAria"
@@ -11704,6 +11716,12 @@ msgctxt "reactions.hintCombine"
 msgid "⇧ to combine"
 msgstr "⇧ para pagsamahin"
 
+#. Hint at the end of the emoji picker's preview bar, beside the highlighted emoji: pressing Enter (or Tab) puts it into the message being written. Emoji picker opened from the message composer by typing a colon and a name; what is picked goes into the message being written, not onto a message as a reaction.
+#: client/components/ReactionPicker.vue
+msgctxt "reactions.hintInsert"
+msgid "Enter to insert"
+msgstr "Enter para ilagay"
+
 #. Preview-bar hint in the emoji picker when the highlighted emoji is already on the message; clicking it takes the reaction back off.
 #: client/components/ReactionPicker.vue
 msgctxt "reactions.hintRemove"
@@ -11715,6 +11733,30 @@ msgstr "Alisin"
 msgctxt "reactions.hintSend"
 msgid "Enter to send"
 msgstr "Enter para ipadala"
+
+#. Button in the emoji picker that puts the emoji built so far into the message being written. Emoji picker opened from the message composer by typing a colon and a name; what is picked goes into the message being written, not onto a message as a reaction.
+#: client/components/ReactionPicker.vue
+msgctxt "reactions.insert"
+msgid "Insert"
+msgstr "Ilagay"
+
+#. Accessible name of the emoji picker dialog when it inserts into the message being written. Emoji picker opened from the message composer by typing a colon and a name; what is picked goes into the message being written, not onto a message as a reaction.
+#: client/components/ReactionPicker.vue
+msgctxt "reactions.insertDialogAria"
+msgid "Insert an emoji"
+msgstr "Maglagay ng emoji"
+
+#. Hint at the bottom of the emoji picker when nothing is highlighted and it inserts into the message being written. Emoji picker opened from the message composer by typing a colon and a name; what is picked goes into the message being written, not onto a message as a reaction.
+#: client/components/ReactionPicker.vue
+msgctxt "reactions.insertEmptyHint"
+msgid "Pick an emoji to put it in your message."
+msgstr "Pumili ng emoji para ilagay ito sa mensahe mo."
+
+#. Placeholder and accessible name of the emoji picker's search field when it inserts into the message being written. Emoji picker opened from the message composer by typing a colon and a name; what is picked goes into the message being written, not onto a message as a reaction.
+#: client/components/ReactionPicker.vue
+msgctxt "reactions.insertSearchPlaceholder"
+msgid "Search emoji"
+msgstr "Maghanap ng emoji"
 
 #. aria-label of the emoji picker's scrollable grid of emoji to pick from.
 #: client/components/ReactionPicker.vue
@@ -12038,17 +12080,17 @@ msgctxt "search.window.asking"
 msgid "Asking the server…"
 msgstr "Tinatanong ang server…"
 
-#. Search window (searching the chat history of the server, or of what is loaded on this device): label and tooltip of the back button at the top left: closes the search and returns to that chat. {channel} is the channel or conversation name (verbatim).
-#: client/components/Windows/SearchResults.vue
-msgctxt "search.window.back"
-msgid "Back to {channel}"
-msgstr "Bumalik sa {channel}"
-
 #. Search window (searching the chat history of the server, or of what is loaded on this device): in the status line under the results, after the count: how far back the search went. {when} is a day and a time, already formatted. Lower case.
 #: client/components/Windows/SearchResults.vue
 msgctxt "search.window.backTo"
 msgid "back to {when}"
 msgstr "pabalik hanggang {when}"
+
+#. Search panel (searching the chat history of the server, or of what is loaded on this device), beside the chat on a wide screen and over it on a phone: on a phone, the text button beside the search field that closes the search and returns to the chat.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.cancel"
+msgid "Cancel"
+msgstr ""
 
 #. Search window (searching the chat history of the server, or of what is loaded on this device): name of a filter: messages from one services account (the identity a user is logged in as, whatever their nick). Also the field's label in the filters sheet. One word.
 #: client/components/Windows/SearchResults.vue
@@ -12091,6 +12133,19 @@ msgstr "May"
 msgctxt "search.window.chip.without"
 msgid "Without"
 msgstr "Wala"
+
+#. Search panel (searching the chat history of the server, or of what is loaded on this device), beside the chat on a wide screen and over it on a phone: button beside the Recent searches heading that forgets that list on this device.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.clearRecent"
+msgid "Clear"
+msgstr ""
+
+#. Search panel (searching the chat history of the server, or of what is loaded on this device), beside the chat on a wide screen and over it on a phone: label and tooltip of the ✕ button that closes the panel; also the label of the header's magnifier while the panel is open.
+#: client/components/Windows/SearchResults.vue
+#: client/components/MessageSearchForm.vue
+msgctxt "search.window.close"
+msgid "Close search"
+msgstr ""
 
 #. Search window (searching the chat history of the server, or of what is loaded on this device): a day and a time together (how far back the search went). {day} is a short date ('4 Nov'), {time} a clock time. Order and punctuation are your language's.
 #: client/components/Windows/SearchResults.vue
@@ -12188,6 +12243,12 @@ msgid_plural "Searching the {count} messages loaded on this device instead. Filt
 msgstr[0] "Sa halip, hinahanap ang {count} mensaheng naka-load sa device na ito. Gumagana pa rin ang mga filter."
 msgstr[1] "Sa halip, hinahanap ang {count} mensaheng naka-load sa device na ito. Gumagana pa rin ang mga filter."
 
+#. Beside a search result that comes from messages loaded on this device, not from the server.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.loadedRow"
+msgid "on this device"
+msgstr ""
+
 #. Search window (searching the chat history of the server, or of what is loaded on this device): in the status line under the results: how many matches are shown. {count} is a number. Lower case.
 #: client/components/Windows/SearchResults.vue
 msgctxt "search.window.matchCount"
@@ -12238,6 +12299,18 @@ msgctxt "search.window.placeholder"
 msgid "Search {scope}"
 msgstr "Maghanap sa {scope}"
 
+#. Search panel (searching the chat history of the server, or of what is loaded on this device), beside the chat on a wide screen and over it on a phone: placeholder of the search field where there is a keyboard; says the Escape key closes the panel. {scope} is a channel name (verbatim) or 'all my channels' (search.window.allChannels). Esc is the key's name as printed on keyboards.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.placeholderEsc"
+msgid "Search {scope} (Esc to close)"
+msgstr ""
+
+#. Search panel (searching the chat history of the server, or of what is loaded on this device), beside the chat on a wide screen and over it on a phone: heading of the list of searches run lately on this device, shown under the empty field.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.recent"
+msgid "Recent searches"
+msgstr ""
+
 #. Search window (searching the chat history of the server, or of what is loaded on this device): aria-label of the × on a filter chip. {filter} is the filter's name (From, Account, Date, Has, Without).
 #: client/components/Windows/SearchResults.vue
 msgctxt "search.window.removeFilter"
@@ -12249,6 +12322,12 @@ msgstr "Alisin ang filter na {filter}"
 msgctxt "search.window.retry"
 msgid "Try again"
 msgstr "Subukan ulit"
+
+#. Banner above loaded messages when a search came back empty. {scope} is a conversation's name, or the label for all channels.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.scopeEmpty"
+msgid "The server found nothing in {scope}."
+msgstr ""
 
 #. Search window (searching the chat history of the server, or of what is loaded on this device): the 'Search older' button's label while older matches are being asked for.
 #: client/components/Windows/SearchResults.vue

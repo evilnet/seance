@@ -162,8 +162,6 @@ export type State = {
 	jumpTarget: JumpTarget | null;
 	/** Each network's channel list, by uuid (irc/channelList.ts, for the channel browser). */
 	channelLists: Record<string, SharedChannelList>;
-	/** Taken from search to a hit in this channel: the way back to the results. */
-	searchReturn: {chanId: number; windowId: number; q: string} | null;
 };
 
 const state = (): State => ({
@@ -191,7 +189,6 @@ const state = (): State => ({
 	translateChannels: {},
 	jumpTarget: null,
 	channelLists: {},
-	searchReturn: null,
 });
 
 type Getters = {
@@ -341,7 +338,6 @@ type Mutations = {
 	translateChannelsLoaded(state: State, all: Record<string, ChannelTranslation>): void;
 	jumpTarget(state: State, target: State["jumpTarget"]): void;
 	channelList(state: State, data: {network: string; list: SharedChannelList}): void;
-	searchReturn(state: State, back: State["searchReturn"]): void;
 };
 
 const mutations: Mutations = {
@@ -480,9 +476,6 @@ const mutations: Mutations = {
 	},
 	channelList(state, {network, list}) {
 		state.channelLists[network] = list;
-	},
-	searchReturn(state, back) {
-		state.searchReturn = back;
 	},
 };
 
