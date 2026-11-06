@@ -1,6 +1,12 @@
 import {expect} from "chai";
 
-import {ChannelList, listDelayOf, parseFeaturedChannels} from "../../client/js/irc/channelList";
+import {
+	ChannelList,
+	listDelayOf,
+	mergeFeatured,
+	parseFeaturedChannels,
+	parseFeaturedToken,
+} from "../../client/js/irc/channelList";
 
 describe("irc/channelList", function () {
 	describe("parseFeaturedChannels", function () {
@@ -29,6 +35,40 @@ describe("irc/channelList", function () {
 			expect(parseFeaturedChannels(["  &local  here", "  #none"], "&")).to.deep.equal([
 				{name: "&local", blurb: "here"},
 			]);
+		});
+	});
+
+	describe("parseFeaturedToken", function () {
+		it("takes the names of the ISUPPORT value, once each, in the server's order", function () {
+			expect(
+				parseFeaturedToken("#help,#lounge, #Help ,nope,#,&local,#two words", "#&")
+			).to.deep.equal([
+				{name: "#help", blurb: ""},
+				{name: "#lounge", blurb: ""},
+				{name: "&local", blurb: ""},
+			]);
+			expect(parseFeaturedToken("", "#")).to.deep.equal([]);
+		});
+	});
+
+	describe("mergeFeatured", function () {
+		it("orders by the token, takes the MOTD's blurbs and adds its other channels", function () {
+			const token = parseFeaturedToken("#Lounge,#help", "#");
+			const motd = parseFeaturedChannels(
+				[
+					"  #help  Questions about the network",
+					"  #lounge - Hang out",
+					"  #art  Share it",
+				],
+				"#"
+			);
+			expect(mergeFeatured(token, motd)).to.deep.equal([
+				{name: "#Lounge", blurb: "Hang out"},
+				{name: "#help", blurb: "Questions about the network"},
+				{name: "#art", blurb: "Share it"},
+			]);
+			expect(mergeFeatured([], motd)).to.deep.equal(motd);
+			expect(mergeFeatured(token, [])).to.deep.equal(token);
 		});
 	});
 

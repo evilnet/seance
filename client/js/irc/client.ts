@@ -1740,7 +1740,9 @@ export class IrcClient {
 		this.dispatchChannelList();
 
 		// A server that gave its short MOTD on connect kept the featured
-		// lines: one MOTD per connection, the first time the browser asks.
+		// lines: one MOTD per connection, the first time the browser asks —
+		// unless the ISUPPORT token already named the channels, in which case
+		// the command is saved and the cards take the list's topics.
 		if (this.channelList.featured.length === 0 && this.motdForFeatured === "unsent") {
 			this.motdForFeatured = "sent";
 			this.send("MOTD");

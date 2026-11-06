@@ -668,6 +668,42 @@ describe("irc commands", function () {
 			expect(h.sentAfter()).to.deep.equal(["LIST"]);
 		});
 
+		it("takes the featured channels from the ISUPPORT token and skips the MOTD", function () {
+			const h = setup();
+			const id = joined(h);
+			h.transport.line(
+				":irc.test 005 alice nefarious/FEATURED=#help,#lounge NETWORK=Test :are supported by this server"
+			);
+			const lists = () => payloads<{list: SharedChannelList}>("channel:list");
+			expect(lists().pop()?.list.featured).to.deep.equal([
+				{name: "#help", blurb: ""},
+				{name: "#lounge", blurb: ""},
+			]);
+
+			h.client.input(id, "/list");
+			expect(h.sentAfter()).to.deep.equal(["LIST"]);
+
+			// A MOTD that comes later (a /motd by hand) adds its blurbs.
+			h.transport.lines(
+				":irc.test 375 alice :- irc.test Message of the Day -",
+				":irc.test 372 alice :-   #lounge  Hang out",
+				":irc.test 372 alice :-   #art  Share what you made",
+				":irc.test 376 alice :End of /MOTD command."
+			);
+			expect(lists().pop()?.list.featured).to.deep.equal([
+				{name: "#help", blurb: ""},
+				{name: "#lounge", blurb: "Hang out"},
+				{name: "#art", blurb: "Share what you made"},
+			]);
+
+			// The same token again is not news.
+			const n = lists().length;
+			h.transport.line(
+				":irc.test 005 alice nefarious/FEATURED=#help,#lounge :are supported by this server"
+			);
+			expect(lists().length).to.equal(n);
+		});
+
 		it("refuses a second LIST while one is under way", function () {
 			const h = setup();
 			const id = joined(h);

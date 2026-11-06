@@ -5,9 +5,13 @@
  * bus event. One LIST is the whole answer, so the rows are kept and filtered
  * on the device; the UI asks again only when they are stale.
  *
- * Also the MOTD's featured channels: a line of exactly two spaces, a channel
- * name and, after a gap, a blurb — `  #help  Questions about the network` —
- * which a network writes to put a channel forward to newcomers.
+ * Also the featured channels, which a network puts forward to newcomers by
+ * either or both of two routes: an ISUPPORT token, `FEATURED=#help,#lounge`
+ * (names only; it arrives with 005, before the MOTD and at no cost), and the
+ * MOTD, where a line of exactly two spaces, a channel name and, after a gap,
+ * a blurb — `  #help  Questions about the network` — names one and says why.
+ * The token orders the cards; the MOTD adds its blurbs and any channel the
+ * token left out.
  */
 
 import type {
@@ -76,6 +80,56 @@ export function parseFeaturedChannels(lines: string[], chantypes: string): Featu
 	return out;
 }
 
+/**
+ * The featured channels of the ISUPPORT token: channel names (a CHANTYPES
+ * prefix, no space) separated by commas, in the server's order, each kept
+ * once. Anything else in the list is skipped. No blurbs: a 005 line has no
+ * room for them, and the list's topic or the MOTD's line supplies one.
+ */
+export function parseFeaturedToken(value: string, chantypes: string): FeaturedChannel[] {
+	const seen = new Set<string>();
+	const out: FeaturedChannel[] = [];
+
+	for (const raw of value.split(",")) {
+		const name = raw.trim();
+		const key = name.toLowerCase();
+
+		if (name.length < 2 || !chantypes.includes(name[0]) || /\s/.test(name) || seen.has(key)) {
+			continue;
+		}
+
+		seen.add(key);
+		out.push({name, blurb: ""});
+	}
+
+	return out;
+}
+
+/**
+ * The two routes as one list: the token's channels first, in its order, each
+ * with the MOTD's blurb when the MOTD names it too, then the MOTD's other
+ * channels. A name is matched case-insensitively and keeps the token's spelling.
+ */
+export function mergeFeatured(
+	fromToken: FeaturedChannel[],
+	fromMotd: FeaturedChannel[]
+): FeaturedChannel[] {
+	const blurbs = new Map(fromMotd.map((f) => [f.name.toLowerCase(), f]));
+	const out = fromToken.map((f) => ({
+		name: f.name,
+		blurb: blurbs.get(f.name.toLowerCase())?.blurb ?? f.blurb,
+	}));
+	const named = new Set(fromToken.map((f) => f.name.toLowerCase()));
+
+	for (const f of fromMotd) {
+		if (!named.has(f.name.toLowerCase())) {
+			out.push({...f});
+		}
+	}
+
+	return out;
+}
+
 export class ChannelList {
 	status: ChannelListStatus = "idle";
 	rows: ChannelListEntry[] = [];
@@ -84,8 +138,16 @@ export class ChannelList {
 	/** When the delay the server named is over (ms since the epoch). */
 	delayedUntil = 0;
 	note = "";
-	featured: FeaturedChannel[] = [];
+	/** From the ISUPPORT token (005). */
+	featuredFromToken: FeaturedChannel[] = [];
+	/** From the MOTD's marker lines. */
+	featuredFromMotd: FeaturedChannel[] = [];
 	private incoming: ChannelListEntry[] = [];
+
+	/** Both routes merged ({@link mergeFeatured}): what the browser shows. */
+	get featured(): FeaturedChannel[] {
+		return mergeFeatured(this.featuredFromToken, this.featuredFromMotd);
+	}
 
 	get loaded(): number {
 		return this.incoming.length;
