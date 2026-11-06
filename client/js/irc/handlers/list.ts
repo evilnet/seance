@@ -19,9 +19,11 @@ export type SpecialData = Record<string, any>;
 
 /**
  * Create the special window for `special` (and, for a per-channel list,
- * `target`), announcing it with `join` and not opening it — or, when it
- * already exists, replace its data and dispatch `msg:special` (which the UI
- * answers by navigating to it).
+ * `target`), announcing it with `join` and opening it — the user asked for
+ * it, unlike a channel a restore burst brings — or, when it already exists,
+ * replace its data and dispatch `msg:special` (which the UI answers by
+ * navigating to it). Either way the first showing opens the window; it used
+ * to open only the second time, which read as the menu item doing nothing.
  *
  * The window is found by what it shows, never by `name`: the title is
  * translated, so the same list run again in another locale would otherwise
@@ -56,7 +58,7 @@ export function showSpecial(
 		network: client.uuid,
 		chan: channel.snapshot(),
 		index,
-		shouldOpen: false,
+		shouldOpen: true,
 	});
 	return channel;
 }

@@ -196,6 +196,49 @@ export default async function run(page) {
 	await page.screenshot("6-joined");
 	page.check("the join was sent", sentCommands(page, before, /^JOIN #help/).length === 1);
 
+	// 6. The header's ⋯ menu: "List all channels" on the network window opens
+	// the browser; "List banned users" on a channel opens its ban list the
+	// first time (it used to appear in the sidebar only, and open on the second).
+	const menuItem = async (label) => {
+		await page.click("#chat button.menu");
+		await page.waitFor(`document.querySelector("#context-menu-container")`, {
+			label: "the menu",
+		});
+		await page.sleep(200);
+		await page.evaluate(`[...document.querySelectorAll("#context-menu .context-menu-item")]
+			.find((e) => e.textContent.trim() === ${JSON.stringify(label)}).click()`);
+	};
+
+	await page.click('#sidebar .channel-list-item[data-type="lobby"]');
+	await page.sleep(400);
+	await menuItem("List all channels");
+	await page.waitFor(`document.querySelector("#channel-browser")`, {
+		label: "the browser from the menu",
+	});
+	page.check("the menu's channel list opens the browser", true);
+	await page.sleep(300);
+	await page.screenshot("7-from-menu");
+
+	await page.click(`#sidebar .channel-list-item[data-name="${HOME}"]`);
+	await page.sleep(400);
+	await page.evaluate(`(() => {
+		const input = document.querySelector("#input");
+		input.value = "/ban *!*@evil.example";
+		input.dispatchEvent(new Event("input", {bubbles: true}));
+		document.querySelector("#form").requestSubmit();
+	})()`);
+	await page.sleep(1200);
+	await menuItem("List banned users");
+	await page.waitFor(
+		`/^Ban list for/.test(document.querySelector("#chat .header .title")?.textContent.trim() ?? "")`,
+		{
+			timeout: 10000,
+			label: "the ban list window opens at once",
+		}
+	);
+	await page.sleep(300);
+	await page.screenshot("8-ban-list");
+
 	page.check("no console errors", page.consoleErrors.length === 0);
 
 	for (const b of bots) {
