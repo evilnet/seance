@@ -83,8 +83,9 @@ Ship `NODE_ENV=production pnpm build`.
   `#/help` hash, so the fresh page opens on the conversation, not on Help
   again). A page that has just loaded already runs the new bundle (runtime
   fetches are network-first) and its token matches, so it stays quiet —
-  `controllerchange` alone could not tell the two apart. Installed windows have no reload button, hence the in-app
-  one (Ctrl/Cmd+R also works). Browser check:
+  `controllerchange` alone could not tell the two apart. Installed windows
+  have no reload button, hence the in-app one (Ctrl/Cmd+R also works).
+  Browser check:
   `tools/scenarios/update-signal.mjs` (needs a production build). The
   per-network **push-only workers** (`push/<uuid>/`, see
   `client/js/webpush.ts`) get none of that for free: no navigation ever lands
