@@ -580,11 +580,6 @@
     "other": "{count} elvetve ezen az eszközön"
   },
   "mentions.empty": "Mindent elolvastál",
-  "mentions.keys.backspace": "Backspace",
-  "mentions.keys.close": "bezárás",
-  "mentions.keys.dismiss": "elvetés",
-  "mentions.keys.move": "mozgatás",
-  "mentions.keys.open": "megnyitás",
   "mentions.missingChannel": "Nem vagy itt: {target}. Lépj be, hogy elolvasd őket, vagy vesd el őket.",
   "mentions.missingChannelOn": "Nem vagy itt: {target} ({network}). Lépj be, hogy elolvasd őket, vagy vesd el őket.",
   "mentions.missingNetwork": "A hálózata nincs ezen az oldalon: vesd el ezeket.",

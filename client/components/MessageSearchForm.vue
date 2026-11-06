@@ -1,34 +1,20 @@
 <template>
-	<!-- The header's magnifier: opens the search panel beside the chat, and
-	     closes it again (on a phone, where the panel covers the chat, it
-	     brings back a panel a hit tucked away). -->
-	<form class="message-search" @submit.prevent>
-		<button
-			class="search"
-			type="button"
-			:aria-label="label"
-			:title="label"
-			:aria-expanded="shown"
-			@click="toggleSearch"
-		/>
-	</form>
+	<!-- Opens the search panel beside the chat, and closes it again; on a phone,
+	     where the panel covers the chat, it brings back a panel a hit tucked away. -->
+	<button
+		class="search"
+		type="button"
+		:aria-label="label"
+		:title="label"
+		:aria-expanded="shown"
+		@click="toggleSearch"
+	/>
 </template>
-
-<style>
-form.message-search {
-	display: flex;
-}
-
-#chat form.message-search button {
-	display: flex;
-	color: #607992;
-}
-</style>
 
 <script lang="ts">
 import {computed, defineComponent, nextTick, PropType} from "vue";
 import {useRoute} from "vue-router";
-import {ClientNetwork, ClientChan} from "../js/types";
+import {ClientChan} from "../js/types";
 import {useI18n} from "../js/i18n";
 import {navigate, switchToChannel} from "../js/router";
 import {searchTucked} from "../js/searchPanel";
@@ -36,7 +22,6 @@ import {searchTucked} from "../js/searchPanel";
 export default defineComponent({
 	name: "MessageSearchForm",
 	props: {
-		network: {type: Object as PropType<ClientNetwork>, required: true},
 		channel: {type: Object as PropType<ClientChan>, required: true},
 	},
 	setup(props) {

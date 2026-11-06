@@ -569,11 +569,6 @@
     "other": "{count} ignorate su questo dispositivo"
   },
   "mentions.empty": "Sei in pari",
-  "mentions.keys.backspace": "Backspace",
-  "mentions.keys.close": "chiudi",
-  "mentions.keys.dismiss": "ignora",
-  "mentions.keys.move": "sposta",
-  "mentions.keys.open": "apri",
   "mentions.missingChannel": "Non sei in {target}: entra per leggerle, oppure ignorale.",
   "mentions.missingChannelOn": "Non sei in {target} su {network}: entra per leggerle, oppure ignorale.",
   "mentions.missingNetwork": "La sua rete non è in questa pagina: ignorale.",

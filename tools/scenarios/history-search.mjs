@@ -10,6 +10,8 @@
 // SEANCE_IRC_HOST / SEANCE_IRC_PORT (plain ws://) point it at another ircd;
 // SEANCE_URL at another copy of public/.
 
+import {mouse} from "./lib/backdrop.mjs";
+
 const HOST = process.env.SEANCE_IRC_HOST ?? "127.0.0.1";
 const PORT = process.env.SEANCE_IRC_PORT ?? "8067";
 const RUN = Date.now().toString(36).slice(-5);
@@ -128,6 +130,37 @@ export default async function run(page) {
 	})()`);
 	await page.sleep(1000);
 	const chatLines = await count(page, "#chat .msg[data-type='message']");
+
+	// Pressing a header button over the open mentions pane closes it and does the job.
+	await page.evaluate(`document.querySelector("#chat button.mentions").click()`);
+	await page.sleep(300);
+	const searchButton = JSON.parse(
+		await page.evaluate(`(() => {
+			const box = document.querySelector("#chat button.search").getBoundingClientRect();
+			const point = {x: box.x + box.width / 2, y: box.y + box.height / 2};
+			const under = document.elementFromPoint(point.x, point.y);
+			return JSON.stringify(under?.id === "mentions-popup-container" ? point : null);
+		})()`)
+	);
+
+	// On the phone layout the pane is the whole screen: nothing beside it to press.
+	if (searchButton) {
+		await mouse(page, "mousePressed", searchButton.x, searchButton.y, 1);
+		await mouse(page, "mouseReleased", searchButton.x, searchButton.y, 0);
+		await page.sleep(300);
+		page.check(
+			"the search button over the mentions pane closes it and opens search, ready to type",
+			await page.evaluate(`!document.querySelector("#mentions-popup-container") &&
+				document.activeElement === document.querySelector("${WINDOW} .search-query input")`)
+		);
+		await page.evaluate(`document.querySelector("${WINDOW} .search-close").click()`);
+		await page.sleep(300);
+	} else {
+		await page.evaluate(
+			`document.querySelector("#mentions-popup-container .mentions-close").click()`
+		);
+		await page.sleep(200);
+	}
 
 	// /search opens the window; the field, not the lobby, owns the query.
 	const start = page.wsFrames.length;

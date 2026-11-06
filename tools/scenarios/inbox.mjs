@@ -301,10 +301,6 @@ export default async function run(page) {
 		`document.querySelector(".mentions-entry .time").textContent`
 	);
 	await page.check(`a clock time (${shownTime})`, /^\d{1,2}:\d{2}/.test(shownTime));
-	await page.check(
-		"the key hints are for a keyboard",
-		(await page.evaluate(`!!document.querySelector(".mentions-keys")?.offsetParent`)) === !touch
-	);
 
 	if (!touch) {
 		await page.check(

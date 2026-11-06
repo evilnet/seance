@@ -566,11 +566,6 @@
     "other": "已在此设备上移除 {count} 条"
   },
   "mentions.empty": "全部看完了",
-  "mentions.keys.backspace": "退格",
-  "mentions.keys.close": "关闭",
-  "mentions.keys.dismiss": "移除",
-  "mentions.keys.move": "移动",
-  "mentions.keys.open": "打开",
   "mentions.missingChannel": "你不在 {target} 中：加入该频道即可阅读，或将其移除。",
   "mentions.missingChannelOn": "你不在 {network} 上的 {target} 中：加入该频道即可阅读，或将其移除。",
   "mentions.missingNetwork": "其所属网络不在此页面上：请将其移除。",

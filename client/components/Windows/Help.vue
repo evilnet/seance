@@ -354,6 +354,34 @@
 
 					<div class="help-item">
 						<div class="subject">
+							<span><kbd>↑</kbd> <kbd>↓</kbd></span>
+						</div>
+						<div class="description">
+							<p>{{ t("help.shortcuts.mentionsMove") }}</p>
+						</div>
+					</div>
+
+					<div class="help-item">
+						<div class="subject">
+							<span><kbd>Enter</kbd></span>
+						</div>
+						<div class="description">
+							<p>{{ t("help.shortcuts.mentionsOpen") }}</p>
+						</div>
+					</div>
+
+					<div class="help-item">
+						<div class="subject">
+							<span v-if="!isApple"><kbd>Backspace</kbd></span>
+							<span v-else><kbd>⌫</kbd></span>
+						</div>
+						<div class="description">
+							<p>{{ t("help.shortcuts.mentionsDismiss") }}</p>
+						</div>
+					</div>
+
+					<div class="help-item">
+						<div class="subject">
 							<span v-if="!isApple"><kbd>Alt</kbd> <kbd>K</kbd></span>
 							<span v-else><kbd>⌥</kbd> <kbd>K</kbd></span>
 						</div>

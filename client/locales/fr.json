@@ -574,11 +574,6 @@
     "other": "{count} ignorées sur cet appareil"
   },
   "mentions.empty": "Vous êtes à jour",
-  "mentions.keys.backspace": "Retour",
-  "mentions.keys.close": "fermer",
-  "mentions.keys.dismiss": "ignorer",
-  "mentions.keys.move": "déplacer",
-  "mentions.keys.open": "ouvrir",
   "mentions.missingChannel": "Pas dans {target} : rejoignez-le pour les lire, ou ignorez-les.",
   "mentions.missingChannelOn": "Pas dans {target} sur {network} : rejoignez-le pour les lire, ou ignorez-les.",
   "mentions.missingNetwork": "Son réseau n'est pas sur cette page : ignorez-les.",

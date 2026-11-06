@@ -576,11 +576,6 @@
     "other": "{count} descartadas en este dispositivo"
   },
   "mentions.empty": "Estás al día",
-  "mentions.keys.backspace": "Retroceso",
-  "mentions.keys.close": "cerrar",
-  "mentions.keys.dismiss": "descartar",
-  "mentions.keys.move": "mover",
-  "mentions.keys.open": "abrir",
   "mentions.missingChannel": "No estás en {target}: únete para leerlas, o descártalas.",
   "mentions.missingChannelOn": "No estás en {target} en {network}: únete para leerlas, o descártalas.",
   "mentions.missingNetwork": "Su red no está en esta página: descártalas.",

@@ -567,11 +567,6 @@
     "other": "이 기기에서 {count}개를 지웠습니다"
   },
   "mentions.empty": "모두 확인했습니다",
-  "mentions.keys.backspace": "백스페이스",
-  "mentions.keys.close": "닫기",
-  "mentions.keys.dismiss": "지우기",
-  "mentions.keys.move": "이동",
-  "mentions.keys.open": "열기",
   "mentions.missingChannel": "{target}에 참여하고 있지 않습니다: 참여해서 읽거나 지우세요.",
   "mentions.missingChannelOn": "{network}의 {target}에 참여하고 있지 않습니다: 참여해서 읽거나 지우세요.",
   "mentions.missingNetwork": "이 네트워크가 이 페이지에 없습니다: 지우세요.",

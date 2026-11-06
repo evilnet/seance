@@ -562,11 +562,6 @@
     "other": "Inalis ang {count} sa device na ito"
   },
   "mentions.empty": "Nabasa mo na ang lahat",
-  "mentions.keys.backspace": "Backspace",
-  "mentions.keys.close": "isara",
-  "mentions.keys.dismiss": "alisin",
-  "mentions.keys.move": "lumipat",
-  "mentions.keys.open": "buksan",
   "mentions.missingChannel": "Wala ka sa {target}: sumali para mabasa ang mga ito, o alisin ang mga ito.",
   "mentions.missingChannelOn": "Wala ka sa {target} sa {network}: sumali para mabasa ang mga ito, o alisin ang mga ito.",
   "mentions.missingNetwork": "Wala sa page na ito ang network nito: alisin ang mga ito.",
