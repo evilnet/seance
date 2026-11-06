@@ -7,7 +7,7 @@ export type KeptResults = {
 	windowId: number;
 	q: string;
 	rows: SearchHit[];
-	mode: "server" | "unsupported" | "offline";
+	mode: "server" | "unsupported" | "offline" | "partial";
 	reachedEnd: boolean;
 	scrollTop: number;
 	hit: number;
@@ -18,6 +18,12 @@ let returning = false;
 
 export function keepResults(results: KeptResults): void {
 	kept = results;
+	returning = false;
+}
+
+/** The bar's ✕: the search is over, and opening search again starts afresh. */
+export function forgetResults(): void {
+	kept = null;
 	returning = false;
 }
 

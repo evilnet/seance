@@ -82,14 +82,13 @@ const text = (page, selector) =>
 const sentCommands = (page, since, re) =>
 	page.wsFrames.slice(since).filter((f) => f.dir === "out" && re.test(f.payloadData ?? ""));
 
-/** Type a query in the window's own field and submit it. */
+/** Search for exactly this query, whatever chips are up: the route is the search's state. */
 async function search(page, q) {
-	await page.evaluate(`(() => {
-		const input = document.querySelector("${WINDOW} .search-query input");
-		input.value = ${JSON.stringify(q)};
-		input.dispatchEvent(new Event("input", {bubbles: true}));
-		input.form.requestSubmit();
-	})()`);
+	await page.evaluate(
+		`location.hash = location.hash.split("?")[0] + "?q=" + ${JSON.stringify(
+			encodeURIComponent(q)
+		)}`
+	);
 	await page.sleep(700);
 }
 
@@ -113,7 +112,8 @@ export default async function run(page) {
 	talker.say(HOME, "the picture https://example.test/fake-lag.png explains it");
 	talker.say(HOME, "right");
 	talker.say(OTHER, "fake lag over here too");
-	await page.sleep(1500);
+	talker.say(HOME, `${"padding words go by ".repeat(20)}until the tailword at its end`);
+	await page.sleep(8000); // the dev ircd paces a burst
 
 	const opened = await page.evaluate(`(() => {
 		const item = document.querySelector(${JSON.stringify(ROW(HOME))});
@@ -187,6 +187,107 @@ export default async function run(page) {
 	);
 	await page.screenshot("1-results");
 
+	// A long line: four lines at most, the ones with the match; the match is painted.
+	await search(page, "tailword");
+	const longHit = await page.evaluate(`(() => {
+		const box = document.querySelector("${WINDOW} .search-text");
+		const mark = CSS.highlights.get("search-hit");
+		const range = mark && [...mark][0];
+		const at = range?.getBoundingClientRect();
+		const lines = box.clientHeight / at.height;
+		const row = box.getBoundingClientRect();
+		const meta = box.closest(".search-hit").querySelector(".search-meta").getBoundingClientRect();
+		return {
+			lines,
+			shown: !!at && at.top >= row.top - 1 && at.bottom <= row.bottom + 1,
+			word: range?.toString(),
+			selectable: getComputedStyle(box).userSelect,
+			timeClear: meta.bottom <= row.top + 1,
+		};
+	})()`);
+	page.check(
+		`1. a long line stops at four lines (${longHit.lines})`,
+		longHit.lines > 0 && longHit.lines < 4.5
+	);
+	page.check("1. and shows the match, late in it", longHit.shown && longHit.word === "tailword");
+	page.check("1. selectable, or WebKit paints no mark", longHit.selectable === "text");
+	page.check("1. the time stays out of the text", longHit.timeClear);
+	await page.screenshot("1-long-line");
+
+	// Typing searches once it pauses, one search for the whole burst, under the field.
+	const typing = (value) =>
+		page.evaluate(`(() => {
+			const field = document.querySelector("${WINDOW} .search-query input");
+			field.value = ${JSON.stringify(value)};
+			field.dispatchEvent(new Event("input", {bubbles: true}));
+		})()`);
+
+	// Words in the field, filters in chips: a finished filter moves over.
+	await typing("right in:*");
+	page.check(
+		"1. a filter still being typed stays in the field",
+		(await page.evaluate(`document.querySelector("${WINDOW} .search-query input").value`)) ===
+			"right in:*"
+	);
+	await typing("right in:* ");
+	await page.sleep(100);
+	page.check(
+		"1. then moves to its chip",
+		(await page.evaluate(`document.querySelector("${WINDOW} .search-query input").value`)) ===
+			"right " &&
+			(await text(page, `${WINDOW} .search-chip.on`))
+				.toLowerCase()
+				.includes("all my channels")
+	);
+	await page.evaluate(`(() => {
+		const field = document.querySelector("${WINDOW} .search-query input");
+		field.value = "fake from:${TALKER}";
+		field.dispatchEvent(new Event("input", {bubbles: true}));
+		field.form.requestSubmit();
+	})()`);
+	await page.sleep(300);
+	page.check(
+		"1. Enter does the same to the last one",
+		(await page.evaluate(`document.querySelector("${WINDOW} .search-query input").value`)) ===
+			"fake" && (await text(page, `${WINDOW} .search-chip[data-filter]`)).includes(TALKER)
+	);
+	await search(page, "tailword");
+
+	await page.sleep(2500); // past the gap since the search above
+	const typedFrom = page.wsFrames.length;
+	await typing("ri");
+	await page.sleep(1500);
+	page.check(
+		"1. two letters ask nothing",
+		sentCommands(page, typedFrom, /^(@\S+ )?SEARCH /).length === 0
+	);
+
+	for (const value of ["rig", "righ", "right"]) {
+		await typing(value);
+		await page.sleep(150);
+	}
+
+	await page.sleep(400);
+	page.check(
+		"1. nothing yet while it is typed",
+		sentCommands(page, typedFrom, /^(@\S+ )?SEARCH /).length === 0
+	);
+	await page.waitFor(
+		`[...document.querySelectorAll("${ROWS}")].some((row) => row.textContent.includes("right"))`,
+		{timeout: 5000, label: "the typed search's hit"}
+	);
+	page.check(
+		"1. then one search, for what the field says",
+		sentCommands(page, typedFrom, /^(@\S+ )?SEARCH /).length === 1 &&
+			sentCommands(page, typedFrom, /text=right/).length === 1
+	);
+	page.check(
+		"1. and the field keeps what was typed",
+		(await page.evaluate(`document.querySelector("${WINDOW} .search-query input").value`)) ===
+			"right"
+	);
+	await search(page, "fake lag");
+
 	// A phrase is one substring, and only the last selector may hold a space.
 	const phraseFrom = page.wsFrames.length;
 	await search(page, '"fake lag"');
@@ -212,7 +313,7 @@ export default async function run(page) {
 	await page.sleep(700);
 	page.check("2. removing the chip brings it back", (await count(page, ROWS)) === 4);
 	page.check(
-		"2. and takes it out of the field",
+		"2. and the field still holds the words",
 		(await page.evaluate(`document.querySelector("${WINDOW} .search-query input").value`)) ===
 			"fake lag"
 	);
@@ -220,6 +321,25 @@ export default async function run(page) {
 	// Every channel.
 	await search(page, "fake lag in:*");
 	page.check("3. in:* finds the other channel", (await count(page, ROWS)) === 5);
+	await search(page, "right");
+	await search(page, "fake lag *");
+	page.check("3. so does a bare *", (await count(page, ROWS)) === 5);
+
+	// Every-channel search leaves out private messages, and may come back empty
+	// for other reasons of the server's: what is loaded still counts.
+	talker.say(NICK, "whispered onlyinprivate");
+	await page.sleep(500);
+	await search(page, "onlyinprivate in:*");
+	page.check(
+		"3. an empty every-channel answer falls back to loaded lines, and says so",
+		(await count(page, ROWS)) === 1 && (await count(page, `${WINDOW} .search-banner`)) === 1
+	);
+	await search(page, "nowhereatall in:*");
+	page.check(
+		"3. nothing loaded either is just no matches",
+		(await count(page, ROWS)) === 0 && (await count(page, `${WINDOW} .search-banner`)) === 0
+	);
+	await search(page, "fake lag in:*");
 	page.check(
 		"3. and names it on the row",
 		await page.evaluate(
@@ -229,6 +349,40 @@ export default async function run(page) {
 		)
 	);
 
+	// Loaded lines beside the server's rows: private lines are marked, and paging
+	// goes on from the server's oldest, not from theirs.
+	talker.say(NICK, "whispered inbothplaces");
+	await page.sleep(500);
+	const afterPrivate = Date.now();
+	await page.sleep(100);
+	talker.say(OTHER, "said inbothplaces");
+	await page.sleep(500);
+	await search(page, "inbothplaces in:*");
+	page.check(
+		"3. every channel adds loaded private lines, marked",
+		(await count(page, ROWS)) === 2 &&
+			(await count(page, `${WINDOW} .search-loaded`)) === 1 &&
+			(await count(page, `${WINDOW} .search-banner`)) === 0
+	);
+	await page.screenshot("3-loaded-private");
+	const olderFrom = page.wsFrames.length;
+	await page.evaluate(
+		`[...document.querySelectorAll("${WINDOW} .search-status button")].find((b) => b.textContent.trim() === "Search older").click()`
+	);
+	await page.sleep(500);
+	const older = sentCommands(page, olderFrom, /^(@\S+ )?SEARCH /)[0]?.payloadData ?? "";
+	page.check(
+		"3. and Search older pages from the server's row",
+		new Date(/before=(\S+)/.exec(older)?.[1]).getTime() > afterPrivate
+	);
+
+	// One conversation, same fallback: nothing is stored for a private conversation
+	// without accounts.
+	await search(page, `onlyinprivate in:${TALKER}`);
+	page.check(
+		"3. an empty answer for one conversation falls back too, and says so",
+		(await count(page, ROWS)) === 1 && (await count(page, `${WINDOW} .search-banner`)) === 1
+	);
 	// has:image, through the sheet.
 	await search(page, "fake lag");
 	await page.click(`${WINDOW} .search-chips > button:last-child`);
@@ -311,10 +465,10 @@ export default async function run(page) {
 	);
 	await page.sleep(200);
 
-	// Editing the field says the results are for the last search.
+	// An edit too short to search by itself says the results are for the last search.
 	await page.evaluate(`(() => {
 		const input = document.querySelector("${WINDOW} .search-query input");
-		input.value = "something else";
+		input.value = "so";
 		input.dispatchEvent(new Event("input", {bubbles: true}));
 	})()`);
 	await page.sleep(100);
@@ -333,7 +487,7 @@ export default async function run(page) {
 	await page.sleep(700);
 	page.check(
 		"4f. applying a filter keeps the edited words",
-		/^something else\b/.test(
+		/^so\b/.test(
 			await page.evaluate(`document.querySelector("${WINDOW} .search-query input").value`)
 		)
 	);
@@ -413,6 +567,15 @@ export default async function run(page) {
 	);
 	await page.screenshot("8-far-hit");
 	const backFrom = page.wsFrames.length;
+	await page.screenshot("8-past-bar");
+	page.check(
+		"8. the bar's text is not squeezed beside its buttons",
+		await page.evaluate(`(() => {
+			const range = new Range();
+			range.selectNodeContents(document.querySelector(".past-bar-text"));
+			return new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size === 1;
+		})()`)
+	);
 	await page.click(".past-bar-back");
 	await page.waitFor(`document.querySelector("${ROWS}")`, {
 		timeout: 10000,
@@ -423,6 +586,31 @@ export default async function run(page) {
 		(await count(page, ROWS)) > 0 &&
 			sentCommands(page, backFrom, /SEARCH /).length === 0 &&
 			(await page.evaluate(`document.activeElement?.matches("${ROWS}")`))
+	);
+
+	// The ✕ ends it: no way back, and search opens empty.
+	await page.click(ROWS);
+	await page.waitFor(`document.querySelector(".past-bar-dismiss")`, {
+		timeout: 10000,
+		label: "the bar's dismiss button",
+	});
+	await page.click(".past-bar-dismiss");
+	await page.sleep(100);
+	page.check(
+		"8. ✕ takes Back to results away, and stays in the past view",
+		(await count(page, ".past-bar-back")) === 0 && (await count(page, ".past-bar")) === 1
+	);
+	await page.evaluate(`location.hash = location.hash.split("?")[0] + "/search"`);
+	await page.waitFor(`document.querySelector("${WINDOW}")`, {
+		timeout: 5000,
+		label: "search opened after dismissing",
+	});
+	page.check(
+		"8. search then opens empty",
+		(await count(page, ROWS)) === 0 &&
+			(await page.evaluate(
+				`document.querySelector("${WINDOW} .search-query input").value`
+			)) === ""
 	);
 
 	talker.quit();

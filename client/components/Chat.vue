@@ -153,6 +153,15 @@
 						{{ t("chat.past.backToResults") }}
 					</button>
 					<button
+						v-if="searchBack"
+						class="btn btn-sm past-bar-dismiss"
+						:aria-label="t('chat.past.dismissResults')"
+						:title="t('chat.past.dismissResults')"
+						@click="dismissResults"
+					>
+						✕
+					</button>
+					<button
 						v-if="channel.past"
 						class="btn btn-sm past-bar-present"
 						@click="leavePast"
@@ -179,7 +188,7 @@ import eventbus from "../js/eventbus";
 import ParsedMessage from "./ParsedMessage.vue";
 import MessageList from "./MessageList.vue";
 import {closePast} from "../js/pastView";
-import {returnToResults} from "../js/searchReturn";
+import {forgetResults, returnToResults} from "../js/searchReturn";
 import ChatInput from "./ChatInput.vue";
 import ChatUserList from "./ChatUserList.vue";
 import SidebarToggle from "./SidebarToggle.vue";
@@ -267,6 +276,10 @@ export default defineComponent({
 			eventbus.emit("input:focus");
 		};
 		onUnmounted(() => store.commit("searchReturn", null));
+		const dismissResults = () => {
+			forgetResults();
+			store.commit("searchReturn", null);
+		};
 		const backToResults = () => {
 			const back = searchBack.value;
 
@@ -616,6 +629,7 @@ export default defineComponent({
 			leavePast,
 			pastStatus,
 			searchBack,
+			dismissResults,
 			store,
 			t,
 			messageList,

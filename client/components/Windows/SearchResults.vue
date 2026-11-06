@@ -49,7 +49,7 @@
 							<span class="search-icon search-icon-in" aria-hidden="true" />
 							<I18nFrame :text="t('search.window.inScope', {scope: KEEP})"
 								><template #scope
-									><b>{{ scopeLabel }}</b></template
+									><b>{{ heldScopeLabel }}</b></template
 								></I18nFrame
 							>
 						</button>
@@ -91,7 +91,7 @@
 						</button>
 					</div>
 
-					<p v-if="stale && criteria" class="search-stale" role="status">
+					<p v-if="staleNote && criteria" class="search-stale" role="status">
 						{{ t("search.window.stale") }}
 					</p>
 
@@ -101,7 +101,7 @@
 						<div
 							ref="list"
 							class="search-list"
-							:class="{stale: stale && criteria}"
+							:class="{stale: staleNote && criteria}"
 							:inert="filtersOpen"
 						>
 							<div v-if="!criteria" class="search-start">
@@ -120,7 +120,11 @@
 								</div>
 							</div>
 
-							<div v-else-if="loading" class="search-center" role="status">
+							<div
+								v-else-if="loading && !rows.length"
+								class="search-center"
+								role="status"
+							>
 								<p>{{ t("search.window.asking") }}</p>
 							</div>
 
@@ -185,7 +189,6 @@
 										@keydown.enter.self="openHit(hit)"
 										@keydown.space.self.prevent="openHit(hit)"
 									>
-										<span class="search-time">{{ timeOf(hit.msg) }}</span>
 										<div class="search-line">
 											<div class="search-meta">
 												<Username
@@ -195,6 +198,14 @@
 													@click.stop
 												/>
 												<span class="search-chan">{{ hit.target }}</span>
+												<span class="search-time">{{
+													timeOf(hit.msg)
+												}}</span>
+												<span
+													v-if="hit.loaded"
+													class="search-dim search-loaded"
+													>{{ t("search.window.loadedRow") }}</span
+												>
 											</div>
 											<div class="search-text">
 												<ParsedMessage
@@ -473,9 +484,6 @@
 }
 
 .search-hit {
-	display: grid;
-	grid-template-columns: 4rem minmax(0, 1fr);
-	gap: 0.5rem;
 	padding: 0.5rem 0.75rem;
 	cursor: pointer;
 }
@@ -494,8 +502,9 @@
 
 .search-meta {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: baseline;
-	gap: 0.5rem;
+	gap: 0 0.5rem;
 	min-width: 0;
 }
 
@@ -505,8 +514,31 @@
 	font-size: 0.8125rem;
 }
 
+/* Selectable: WebKit paints no ::highlight on text with user-select: none. A long
+   line shows four lines, the ones with the match (showMatches), faded where it is cut. */
 .search-text {
+	max-height: 4lh;
+	overflow: hidden;
 	overflow-wrap: anywhere;
+	user-select: text;
+}
+
+.search-text[data-cut="end"] {
+	mask-image: linear-gradient(to bottom, #000 calc(100% - 1lh), transparent);
+}
+
+.search-text[data-cut="start"] {
+	mask-image: linear-gradient(to top, #000 calc(100% - 1lh), transparent);
+}
+
+.search-text[data-cut="both"] {
+	mask-image: linear-gradient(
+		to bottom,
+		transparent,
+		#000 1lh,
+		#000 calc(100% - 1lh),
+		transparent
+	);
 }
 
 ::highlight(search-hit) {
@@ -553,7 +585,13 @@ import {
 	hasCriteria,
 	matchesFilters,
 	matchSpans,
+	addFilters,
+	filtersOnly,
 	parseSearchQuery,
+	readyToSearch,
+	takeFinishedFilters,
+	wordsOnly,
+	resolveScope,
 	rowKey,
 	serverAttrs,
 	type SearchFilters,
@@ -578,8 +616,12 @@ const HINTS = ["from:nick", "in:#channel", "has:link", "-word", "after:2026-10-0
 
 let nextRequestId = 1;
 
-/** Where the rows come from: the server, or what is loaded and why. */
-type Mode = "server" | "unsupported" | "offline";
+/** The pause in typing that starts a search. */
+const LIVE_DELAY_MS = 800;
+/** Between searches typing starts: one command's fake lag, so the clock never climbs. */
+const LIVE_GAP_MS = 2000;
+/** How soon to look again while an answer is on its way. */
+const LIVE_RETRY_MS = 500;
 
 interface Chip {
 	id: "from" | "account" | "date" | "has" | "without";
@@ -598,10 +640,17 @@ export default defineComponent({
 
 		const queryField = ref<HTMLInputElement>();
 
-		const draft = ref(String(route.query.q ?? ""));
+		// The field holds the words; every filter is a chip. The route's q has both.
+		const opened = parseSearchQuery(String(route.query.q ?? ""));
+		const draft = ref(wordsOnly(opened));
+		const held = ref(filtersOnly(opened));
+		let liveTimer: ReturnType<typeof setTimeout> | undefined;
+		let lastAskedAt = 0;
+		/** The route change coming is a search typing started. */
+		let liveRoute = false;
 		const filtersOpen = ref(false);
 		const rows = ref<SearchHit[]>([]);
-		const mode = ref<Mode>("server");
+		const mode = ref<KeptResults["mode"]>("server");
 		const loading = ref(false);
 		const loadingOlder = ref(false);
 		const reachedEnd = ref(false);
@@ -610,14 +659,6 @@ export default defineComponent({
 		const hitError = ref("");
 		const list = ref<HTMLElement>();
 		let requestId = 0;
-
-		const query = computed(() => String(route.query.q ?? "").trim());
-		const filters = computed<SearchFilters>(() => parseSearchQuery(query.value));
-		const criteria = computed(() => hasCriteria(filters.value));
-		const stale = computed(() => draft.value.trim() !== query.value);
-		// A filter changed while the field is edited keeps the edit: the field is
-		// what the next search will be, whatever the results below came from.
-		const draftFilters = computed<SearchFilters>(() => parseSearchQuery(draft.value));
 
 		const found = computed(() =>
 			store.getters.findChannel(parseInt(String(route.params.id ?? ""), 10))
@@ -634,13 +675,32 @@ export default defineComponent({
 		const findChat = (name: string) =>
 			chats.value.find((c) => c.name.toLowerCase() === name.toLowerCase());
 
+		const query = computed(() => String(route.query.q ?? "").trim());
+		const filters = computed<SearchFilters>(() =>
+			resolveScope(parseSearchQuery(query.value), (name) => !!findChat(name))
+		);
+		const criteria = computed(() => hasCriteria(filters.value));
+		// A filter changed while the field is edited keeps the edit: the field is
+		// what the next search will be, whatever the results below came from.
+		const draftFilters = computed<SearchFilters>(() =>
+			resolveScope(
+				addFilters(held.value, parseSearchQuery(draft.value)),
+				(name) => !!findChat(name)
+			)
+		);
+		const fullDraft = computed(() => formatSearchQuery(draftFilters.value));
+		const stale = computed(() => fullDraft.value !== formatSearchQuery(filters.value));
+
 		// The network window has no history of its own: it searches everything.
 		const scopeDefault = computed(() =>
 			channel.value && findChat(channel.value.name) ? channel.value.name : ALL_CHANNELS
 		);
 		const scope = computed(() => filters.value.in ?? scopeDefault.value);
-		const scopeLabel = computed(() =>
-			scope.value === ALL_CHANNELS ? t("search.window.allChannels") : scope.value
+		const scopeName = (target: string) =>
+			target === ALL_CHANNELS ? t("search.window.allChannels") : target;
+		const scopeLabel = computed(() => scopeName(scope.value));
+		const heldScopeLabel = computed(() =>
+			scopeName(resolveScope(held.value, (name) => !!findChat(name)).in ?? scopeDefault.value)
 		);
 
 		const suggestions = computed(() => {
@@ -649,7 +709,7 @@ export default defineComponent({
 		});
 
 		const chips = computed<Chip[]>(() => {
-			const {from, account, after, before, has, without} = filters.value;
+			const {from, account, after, before, has, without} = held.value;
 			const result: Chip[] = [];
 
 			if (from) {
@@ -719,15 +779,23 @@ export default defineComponent({
 				return t("search.window.unsupported");
 			}
 
+			if (mode.value === "partial") {
+				return t("search.window.scopeEmpty", {scope: scopeLabel.value});
+			}
+
 			return mode.value === "offline" ? t("search.window.offline") : "";
 		});
 
 		const dayOf = (msg: SharedMsg) => dayLabel(msg.time);
 		const timeOf = (msg: SharedMsg) => clockTime(msg.time, store.state.settings);
 
+		// How far the server has answered. A loaded row says nothing about that, and
+		// paging from one would skip the server's rows between the two.
+		const oldestAnswered = () => rows.value.findLast((hit) => !hit.loaded);
+
 		const oldestLabel = computed(() => {
 			void locale.value;
-			const last = rows.value[rows.value.length - 1];
+			const last = oldestAnswered();
 			return last
 				? t("search.window.dayAndTime", {
 						day: shortDay(last.msg.time),
@@ -758,27 +826,41 @@ export default defineComponent({
 		const newestFirst = (a: SearchHit, b: SearchHit) =>
 			new Date(b.msg.time).getTime() - new Date(a.msg.time).getTime();
 
-		const searchLoaded = () => {
+		const loadedHits = (from: ClientChan[]) => {
 			const hits: SearchHit[] = [];
 
-			for (const chat of chats.value) {
-				if (scope.value !== ALL_CHANNELS && chat !== findChat(scope.value)) {
-					continue;
-				}
-
+			for (const chat of from) {
 				for (const msg of chat.messages) {
-					if (matchesFilters(msg, filters.value)) {
+					// An edit's old text and a deleted line stay out, as in the channel.
+					if (
+						msg.supersededBy === undefined &&
+						!msg.redacted &&
+						matchesFilters(msg, filters.value)
+					) {
 						hits.push({target: chat.name, msg});
 					}
 				}
 			}
 
-			rows.value = hits.reverse().sort(newestFirst);
+			return hits.reverse();
 		};
 
-		const run = () => {
+		const searchLoaded = () => {
+			rows.value = loadedHits(
+				chats.value.filter(
+					(chat) => scope.value === ALL_CHANNELS || chat === findChat(scope.value)
+				)
+			).sort(newestFirst);
+		};
+
+		// keepRows: typing on, what is showing stays until the answer replaces it.
+		const ask = (keepRows: boolean) => {
 			requestId = 0;
-			rows.value = [];
+
+			if (!keepRows) {
+				rows.value = [];
+			}
+
 			hitError.value = "";
 			error.value = "";
 			olderError.value = "";
@@ -792,6 +874,7 @@ export default defineComponent({
 			}
 
 			loading.value = true;
+			lastAskedAt = Date.now();
 			requestId = nextRequestId++;
 			socket.emit("search:request", {
 				network: network.value.uuid,
@@ -799,6 +882,8 @@ export default defineComponent({
 				attrs: serverAttrs(filters.value, scopeDefault.value, undefined, PAGE_SIZE),
 			});
 		};
+
+		const run = () => ask(false);
 
 		const restoreResults = async (from: KeptResults) => {
 			rows.value = from.rows;
@@ -815,7 +900,7 @@ export default defineComponent({
 		};
 
 		const loadOlder = () => {
-			const last = rows.value[rows.value.length - 1];
+			const last = oldestAnswered();
 
 			if (!network.value || !last || loadingOlder.value) {
 				return;
@@ -885,6 +970,27 @@ export default defineComponent({
 				return;
 			}
 
+			if (!older) {
+				rows.value = [];
+
+				if (list.value) {
+					list.value.scrollTop = 0;
+				}
+			}
+
+			// An empty answer may only be the server's: a scan can run out, a private
+			// conversation may not be stored, case folds in ASCII alone. Loaded lines
+			// still count.
+			if (!older && !data.hits.length) {
+				searchLoaded();
+
+				if (rows.value.length) {
+					mode.value = "partial";
+				}
+
+				return;
+			}
+
 			// `before` includes that very moment, so a page repeats its edge.
 			const seen = new Set(rows.value.map((hit) => rowKey(hit.msg)));
 			const fresh = data.hits.filter((hit) => !seen.has(rowKey(hit.msg)));
@@ -897,6 +1003,16 @@ export default defineComponent({
 			// Oldest first on the wire: reversed, so a stable sort keeps same-moment
 			// rows newest first too.
 			rows.value = [...rows.value, ...fresh.reverse()].sort(newestFirst);
+
+			// Every channel leaves out private conversations on the server; what is
+			// loaded of them still counts, marked as such.
+			if (!older && scope.value === ALL_CHANNELS) {
+				const known = new Set(rows.value.map((hit) => rowKey(hit.msg)));
+				const loaded = loadedHits(chats.value.filter((chat) => chat.type === "query"))
+					.filter((hit) => !known.has(rowKey(hit.msg)))
+					.map((hit) => ({...hit, loaded: true}));
+				rows.value = [...rows.value, ...loaded].sort(newestFirst);
+			}
 		};
 
 		// To the message itself. The results come back with the bar's Back to
@@ -958,8 +1074,15 @@ export default defineComponent({
 			}
 		};
 
+		const showQuery = (q: string) => {
+			const parsed = parseSearchQuery(q);
+			held.value = filtersOnly(parsed);
+			draft.value = wordsOnly(parsed);
+		};
+
 		const setQuery = (q: string) => {
-			draft.value = q;
+			clearTimeout(liveTimer);
+			showQuery(q);
 
 			if (q.trim() === query.value) {
 				// The same search again: its answer is already on the way.
@@ -977,7 +1100,7 @@ export default defineComponent({
 			});
 		};
 
-		const submit = () => setQuery(draft.value.trim());
+		const submit = () => setQuery(fullDraft.value);
 
 		const useHint = (hint: string) => {
 			draft.value = draft.value ? `${draft.value.trimEnd()} ${hint}` : hint;
@@ -1010,8 +1133,89 @@ export default defineComponent({
 			setQuery(formatSearchQuery(next));
 		};
 
+		// Typing searches once it pauses. A search costs the server a scan and about
+		// 2 s of fake lag, so one at a time, and never faster than that lag drains.
+		const liveReady = computed(() => {
+			const target = draftFilters.value.in;
+
+			return (
+				readyToSearch(draft.value, draftFilters.value) &&
+				(!target || target === ALL_CHANNELS || !!findChat(target))
+			);
+		});
+		const staleNote = computed(() => stale.value && !liveReady.value);
+
+		const searchLive = () => {
+			if (!stale.value) {
+				return;
+			}
+
+			const wait = Math.max(
+				lastAskedAt + LIVE_GAP_MS - Date.now(),
+				loading.value || loadingOlder.value ? LIVE_RETRY_MS : 0
+			);
+
+			if (wait > 0) {
+				liveTimer = setTimeout(searchLive, wait);
+				return;
+			}
+
+			liveRoute = true;
+			void router.replace({
+				name: "SearchResults",
+				params: {id: route.params.id},
+				query: {q: fullDraft.value},
+			});
+		};
+
+		watch(draft, (value) => {
+			clearTimeout(liveTimer);
+			const finished = takeFinishedFilters(value);
+
+			if (finished) {
+				held.value = addFilters(held.value, finished.filters);
+				draft.value = finished.text; // here again, with the rest
+			} else if (hasCriteria(filters.value) && !hasCriteria(draftFilters.value)) {
+				setQuery(fullDraft.value);
+			} else if (liveReady.value) {
+				liveTimer = setTimeout(searchLive, LIVE_DELAY_MS);
+			}
+		});
+
 		const searchEverywhere = () => {
 			setQuery(formatSearchQuery({...draftFilters.value, in: ALL_CHANNELS}));
+		};
+
+		const textBoxes = () =>
+			document.querySelectorAll<HTMLElement>(
+				".chat-view[data-type='search-results'] .search-text"
+			);
+
+		// A line cut to its box shows its first match, on whole lines.
+		const showMatch = (box: HTMLElement, words: string[]) => {
+			box.scrollTop = 0;
+
+			if (box.scrollHeight <= box.clientHeight) {
+				delete box.dataset.cut;
+				return;
+			}
+
+			const match = rangesIn([box], (text) => matchSpans(text, words))[0];
+			const lineHeight = box.clientHeight / 4;
+			const below = match
+				? match.getBoundingClientRect().bottom - box.getBoundingClientRect().top
+				: 0;
+
+			if (below > box.clientHeight) {
+				box.scrollTop = Math.ceil((below - box.clientHeight) / lineHeight) * lineHeight;
+			}
+
+			const atEnd = box.scrollTop + box.clientHeight >= box.scrollHeight - 1;
+			box.dataset.cut = box.scrollTop === 0 ? "end" : atEnd ? "start" : "both";
+		};
+
+		const showMatches = () => {
+			textBoxes().forEach((box) => showMatch(box, filters.value.words));
 		};
 
 		const paintMatches = () => {
@@ -1019,13 +1223,9 @@ export default defineComponent({
 
 			paintHighlight(
 				"search-hit",
-				rangesIn(
-					document.querySelectorAll(
-						".chat-view[data-type='search-results'] .search-text"
-					),
-					(text) => matchSpans(text, words)
-				)
+				rangesIn(textBoxes(), (text) => matchSpans(text, words))
 			);
+			showMatches();
 		};
 
 		watch(visible, paintMatches, {flush: "post"});
@@ -1033,7 +1233,14 @@ export default defineComponent({
 		watch(
 			() => [route.params.id, route.query.q],
 			() => {
-				draft.value = String(route.query.q ?? "");
+				// What the field holds by now is newer than the search this was for.
+				if (liveRoute) {
+					liveRoute = false;
+					ask(true);
+					return;
+				}
+
+				showQuery(String(route.query.q ?? ""));
 
 				if (found.value) {
 					store.commit("activeChannel", found.value);
@@ -1057,6 +1264,7 @@ export default defineComponent({
 
 			socket.on("search:results", onResults);
 			eventbus.on("escapekey", onEscape);
+			window.addEventListener("resize", showMatches);
 
 			const kept = takeResults(parseInt(String(route.params.id), 10), query.value);
 
@@ -1074,6 +1282,8 @@ export default defineComponent({
 		onUnmounted(() => {
 			socket.off("search:results", onResults);
 			eventbus.off("escapekey", onEscape);
+			window.removeEventListener("resize", showMatches);
+			clearTimeout(liveTimer);
 			clearHighlight("search-hit");
 		});
 
@@ -1092,6 +1302,8 @@ export default defineComponent({
 			closeSearch,
 			draftFilters,
 			stale,
+			staleNote,
+			heldScopeLabel,
 			conversations,
 			criteria,
 			draft,

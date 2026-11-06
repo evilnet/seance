@@ -121,6 +121,12 @@ msgctxt "chat.past.backToResults"
 msgid "Back to results"
 msgstr ""
 
+#. Past view bar: the button beside Back to results that forgets those results
+#: client/components/Chat.vue
+msgctxt "chat.past.dismissResults"
+msgid "Dismiss the search results"
+msgstr ""
+
 #. Error toast: the server answered, but no longer has the older message the reader asked to go to.
 #: client/js/socket-events/past.ts
 msgctxt "chat.past.gone"
@@ -11880,6 +11886,12 @@ msgid "Searching the {count} message loaded on this device instead. Filters stil
 msgid_plural "Searching the {count} messages loaded on this device instead. Filters still work."
 msgstr[0] "대신 이 기기에 불러온 메시지 {count}개에서 검색합니다. 필터는 계속 작동합니다."
 
+#. Beside a search result that comes from messages loaded on this device, not from the server.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.loadedRow"
+msgid "on this device"
+msgstr ""
+
 #. Search window (searching the chat history of the server, or of what is loaded on this device): in the status line under the results: how many matches are shown. {count} is a number. Lower case.
 #: client/components/Windows/SearchResults.vue
 msgctxt "search.window.matchCount"
@@ -11940,6 +11952,12 @@ msgstr "{filter} 필터 제거"
 msgctxt "search.window.retry"
 msgid "Try again"
 msgstr "다시 시도"
+
+#. Banner above loaded messages when a search came back empty. {scope} is a conversation's name, or the label for all channels.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.scopeEmpty"
+msgid "The server found nothing in {scope}."
+msgstr ""
 
 #. Search window (searching the chat history of the server, or of what is loaded on this device): the 'Search older' button's label while older matches are being asked for.
 #: client/components/Windows/SearchResults.vue

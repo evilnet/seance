@@ -123,6 +123,12 @@ msgctxt "chat.past.backToResults"
 msgid "Back to results"
 msgstr ""
 
+#. Past view bar: the button beside Back to results that forgets those results
+#: client/components/Chat.vue
+msgctxt "chat.past.dismissResults"
+msgid "Dismiss the search results"
+msgstr ""
+
 #. Error toast: the server answered, but no longer has the older message the reader asked to go to.
 #: client/js/socket-events/past.ts
 msgctxt "chat.past.gone"
@@ -12016,6 +12022,12 @@ msgstr[0] "Se caută în schimb în {count} mesaj încărcat pe acest dispozitiv
 msgstr[1] "Se caută în schimb în cele {count} mesaje încărcate pe acest dispozitiv. Filtrele funcționează în continuare."
 msgstr[2] "Se caută în schimb în cele {count} de mesaje încărcate pe acest dispozitiv. Filtrele funcționează în continuare."
 
+#. Beside a search result that comes from messages loaded on this device, not from the server.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.loadedRow"
+msgid "on this device"
+msgstr ""
+
 #. Search window (searching the chat history of the server, or of what is loaded on this device): in the status line under the results: how many matches are shown. {count} is a number. Lower case.
 #: client/components/Windows/SearchResults.vue
 msgctxt "search.window.matchCount"
@@ -12078,6 +12090,12 @@ msgstr "Elimină filtrul {filter}"
 msgctxt "search.window.retry"
 msgid "Try again"
 msgstr "Încearcă din nou"
+
+#. Banner above loaded messages when a search came back empty. {scope} is a conversation's name, or the label for all channels.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.scopeEmpty"
+msgid "The server found nothing in {scope}."
+msgstr ""
 
 #. Search window (searching the chat history of the server, or of what is loaded on this device): the 'Search older' button's label while older matches are being asked for.
 #: client/components/Windows/SearchResults.vue

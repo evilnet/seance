@@ -28,6 +28,8 @@ export interface SearchHit {
 	/** The conversation: a channel, or the other side of a private one. */
 	target: string;
 	msg: SharedMsg;
+	/** From this device's loaded lines, beside a server's answer. */
+	loaded?: boolean;
 }
 
 export type SearchContextDirection = "AROUND" | "BEFORE" | "AFTER";
