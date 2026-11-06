@@ -1966,7 +1966,6 @@
   },
   "search.window.allHiddenNote": "Puede que mensajes más antiguos coincidan. Se buscó hasta {when}.",
   "search.window.asking": "Preguntando al servidor…",
-  "search.window.back": "Volver a {channel}",
   "search.window.backTo": "hasta {when}",
   "search.window.chip.account": "Cuenta",
   "search.window.chip.date": "Fecha",

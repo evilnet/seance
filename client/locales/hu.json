@@ -2043,7 +2043,6 @@
   },
   "search.window.allHiddenNote": "Régebbi üzenetek még illeszkedhetnek. A keresés eddig ment vissza: {when}.",
   "search.window.asking": "A szerver kérdezése…",
-  "search.window.back": "Vissza ide: {channel}",
   "search.window.backTo": "eddig: {when}",
   "search.window.chip.account": "Fiók",
   "search.window.chip.date": "Dátum",

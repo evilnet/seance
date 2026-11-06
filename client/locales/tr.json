@@ -2045,7 +2045,6 @@
   },
   "search.window.allHiddenNote": "Daha eski mesajlar hâlâ eşleşebilir. {when} tarihine kadar arandı.",
   "search.window.asking": "Sunucuya soruluyor…",
-  "search.window.back": "{channel} kanalına dön",
   "search.window.backTo": "{when} tarihine kadar",
   "search.window.chip.account": "Hesap",
   "search.window.chip.date": "Tarih",

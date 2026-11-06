@@ -2095,7 +2095,6 @@
   },
   "search.window.allHiddenNote": "Starší zprávy se mohou stále shodovat. Prohledáno zpět do {when}.",
   "search.window.asking": "Dotaz na server…",
-  "search.window.back": "Zpět do {channel}",
   "search.window.backTo": "zpět do {when}",
   "search.window.chip.account": "Účet",
   "search.window.chip.date": "Datum",

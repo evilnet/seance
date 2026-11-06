@@ -1951,7 +1951,6 @@
   },
   "search.window.allHiddenNote": "Messaggi più vecchi potrebbero ancora corrispondere. Cercato fino a {when}.",
   "search.window.asking": "Richiesta al server…",
-  "search.window.back": "Torna a {channel}",
   "search.window.backTo": "fino a {when}",
   "search.window.chip.date": "Data",
   "search.window.chip.dateFrom": "dal {day}",

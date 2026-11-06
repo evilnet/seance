@@ -1967,7 +1967,6 @@
   },
   "search.window.allHiddenNote": "Ältere Nachrichten könnten noch passen. Durchsucht bis {when}.",
   "search.window.asking": "Der Server wird gefragt…",
-  "search.window.back": "Zurück zu {channel}",
   "search.window.backTo": "bis {when}",
   "search.window.chip.account": "Konto",
   "search.window.chip.date": "Datum",

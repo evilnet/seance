@@ -2155,7 +2155,6 @@
   },
   "search.window.allHiddenNote": "Starsze wiadomości mogą nadal pasować. Przeszukano do {when}.",
   "search.window.asking": "Pytam serwer…",
-  "search.window.back": "Wróć do {channel}",
   "search.window.backTo": "do {when}",
   "search.window.chip.account": "Konto",
   "search.window.chip.date": "Data",

@@ -2096,7 +2096,6 @@
   },
   "search.window.allHiddenNote": "Staršie správy sa môžu stále zhodovať. Prehľadané späť do {when}.",
   "search.window.asking": "Pýtam sa servera…",
-  "search.window.back": "Späť do {channel}",
   "search.window.backTo": "späť do {when}",
   "search.window.chip.account": "Účet",
   "search.window.chip.date": "Dátum",

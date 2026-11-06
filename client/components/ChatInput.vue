@@ -1012,7 +1012,6 @@ export default defineComponent({
 
 			// What this brings lands in the present, so that is where to be.
 			closePast(props.channel);
-			store.commit("searchReturn", null);
 
 			props.channel.inputHistoryPosition = 0;
 			props.channel.pendingMessage = "";
@@ -1337,7 +1336,10 @@ export default defineComponent({
 					? !!props.channel.pendingMessage
 					: focused?.matches("input, textarea, [contenteditable]");
 
-			if (layer === null && props.channel.past && !fieldHasIt) {
+			// With search open, Escape is search's (Windows/SearchResults.vue).
+			const searchHasIt = !!document.querySelector("#search-panel:not(.tucked)");
+
+			if (layer === null && props.channel.past && !fieldHasIt && !searchHasIt) {
 				closePast(props.channel);
 				return;
 			}

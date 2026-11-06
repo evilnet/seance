@@ -1946,7 +1946,6 @@
   },
   "search.window.allHiddenNote": "Des messages plus anciens peuvent encore correspondre. Recherche jusqu'au {when}.",
   "search.window.asking": "Interrogation du serveur…",
-  "search.window.back": "Retour à {channel}",
   "search.window.backTo": "jusqu'au {when}",
   "search.window.chip.account": "Compte",
   "search.window.chip.dateFrom": "du {day}",

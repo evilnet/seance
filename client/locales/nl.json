@@ -1949,7 +1949,6 @@
   },
   "search.window.allHiddenNote": "Oudere berichten kunnen nog overeenkomen. Doorzocht tot {when}.",
   "search.window.asking": "De server wordt gevraagd…",
-  "search.window.back": "Terug naar {channel}",
   "search.window.backTo": "tot {when}",
   "search.window.chip.date": "Datum",
   "search.window.chip.dateFrom": "vanaf {day}",

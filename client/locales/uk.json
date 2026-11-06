@@ -2179,7 +2179,6 @@
   },
   "search.window.allHiddenNote": "Старіші повідомлення ще можуть підійти. Пошук дійшов до {when}.",
   "search.window.asking": "Запит до сервера…",
-  "search.window.back": "Назад до {channel}",
   "search.window.backTo": "до {when}",
   "search.window.chip.account": "Обліковий запис",
   "search.window.chip.date": "Дата",

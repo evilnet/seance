@@ -2309,7 +2309,6 @@
   },
   "search.window.allHiddenNote": "قد تطابق رسائل أقدم. جرى البحث حتى {when}.",
   "search.window.asking": "جارٍ سؤال الخادم…",
-  "search.window.back": "العودة إلى {channel}",
   "search.window.backTo": "حتى {when}",
   "search.window.chip.account": "الحساب",
   "search.window.chip.date": "التاريخ",

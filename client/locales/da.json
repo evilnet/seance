@@ -1987,7 +1987,6 @@
   },
   "search.window.allHiddenNote": "Ældre beskeder kan stadig matche. Søgte tilbage til {when}.",
   "search.window.asking": "Spørger serveren…",
-  "search.window.back": "Tilbage til {channel}",
   "search.window.backTo": "tilbage til {when}",
   "search.window.chip.account": "Konto",
   "search.window.chip.date": "Dato",

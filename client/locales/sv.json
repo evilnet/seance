@@ -1993,7 +1993,6 @@
   },
   "search.window.allHiddenNote": "Äldre meddelanden kan fortfarande matcha. Sökte tillbaka till {when}.",
   "search.window.asking": "Frågar servern…",
-  "search.window.back": "Tillbaka till {channel}",
   "search.window.backTo": "tillbaka till {when}",
   "search.window.chip.account": "Konto",
   "search.window.chip.date": "Datum",

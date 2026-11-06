@@ -153,7 +153,9 @@ export default async function run(page) {
 			await page.evaluate(`!document.querySelector("#mentions-popup-container") &&
 				document.activeElement === document.querySelector("${WINDOW} .search-query input")`)
 		);
-		await page.evaluate(`document.querySelector("${WINDOW} .search-icon-back").click()`);
+		await page.evaluate(
+			`document.querySelector("${WINDOW} :is(.search-close, .search-cancel)").click()`
+		);
 		await page.sleep(300);
 	} else {
 		await page.evaluate(
@@ -500,14 +502,19 @@ export default async function run(page) {
 	);
 	await page.screenshot("5-empty");
 
-	// A hit goes straight to the message, and the results are one tap away.
+	// A hit takes the chat beside to the message, and the results stay; on a
+	// phone the panel tucks away until the header's magnifier.
 	await search(page, "autojoin");
 	await page.click(ROWS);
-	await page.waitFor(`!document.querySelector("${WINDOW}")`, {
-		timeout: 5000,
-		label: "the window closed",
-	});
 	await page.sleep(400);
+	page.check(
+		"7. the results stay: beside the chat, or tucked away on a phone",
+		await page.evaluate(`(() => {
+			const panel = document.querySelector("${WINDOW}")?.closest("#search-panel");
+			const phone = matchMedia("(max-width: 768px)").matches;
+			return !!panel && (getComputedStyle(panel).display === "none") === phone;
+		})()`)
+	);
 	page.check(
 		"7. the channel opens at the hit",
 		await page.evaluate(
@@ -547,10 +554,6 @@ export default async function run(page) {
 	});
 	const farFrom = page.wsFrames.length;
 	await page.click(ROWS);
-	await page.waitFor(`!document.querySelector("${WINDOW}")`, {
-		timeout: 5000,
-		label: "the window closed by the far hit",
-	});
 	const far = `Array.from(document.querySelectorAll("#chat .msg")).find((m) => m.textContent.includes(${JSON.stringify(
 		FAR
 	)}))`;
@@ -566,51 +569,38 @@ export default async function run(page) {
 			(await text(page, ".past-bar-text")).includes("older messages")
 	);
 	await page.screenshot("8-far-hit");
-	const backFrom = page.wsFrames.length;
-	await page.screenshot("8-past-bar");
 	page.check(
-		"8. the bar's text is not squeezed beside its buttons",
-		await page.evaluate(`(() => {
-			const range = new Range();
-			range.selectNodeContents(document.querySelector(".past-bar-text"));
-			return new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size === 1;
-		})()`)
-	);
-	await page.click(".past-bar-back");
-	await page.waitFor(`document.querySelector("${ROWS}")`, {
-		timeout: 10000,
-		label: "back to the results",
-	});
-	page.check(
-		"8. Back to results restores them, focused on the hit, with no new search",
+		"8. the panel stays, now beside the hit's channel",
 		(await count(page, ROWS)) > 0 &&
-			sentCommands(page, backFrom, /SEARCH /).length === 0 &&
-			(await page.evaluate(`document.activeElement?.matches("${ROWS}")`))
+			/#\/chan-\d+\/search/.test(await page.evaluate("location.hash"))
 	);
 
-	// The ✕ ends it: no way back, and search opens empty.
-	await page.click(ROWS);
-	await page.waitFor(`document.querySelector(".past-bar-dismiss")`, {
-		timeout: 10000,
-		label: "the bar's dismiss button",
-	});
-	await page.click(".past-bar-dismiss");
-	await page.sleep(100);
+	// Closed by the magnifier beside the chat, or by Cancel on a phone, where the
+	// panel covers the header; then open again with the searches remembered.
+	const panelShown = `getComputedStyle(document.querySelector("#search-panel")).display !== "none"`;
+	if (!(await page.evaluate(panelShown))) {
+		await page.click("#chat .header button.search"); // a phone tucked it away
+		await page.sleep(200);
+	}
+	const phone = (await count(page, `${WINDOW} .search-cancel`)) === 1;
+	await page.click(phone ? `${WINDOW} .search-cancel` : "#chat .header button.search");
+	await page.sleep(200);
 	page.check(
-		"8. ✕ takes Back to results away, and stays in the past view",
-		(await count(page, ".past-bar-back")) === 0 && (await count(page, ".past-bar")) === 1
+		phone ? "9. Cancel closes search" : "9. the magnifier closes search",
+		(await count(page, WINDOW)) === 0
 	);
-	await page.evaluate(`location.hash = location.hash.split("?")[0] + "/search"`);
+	await page.click("#chat .header button.search");
 	await page.waitFor(`document.querySelector("${WINDOW}")`, {
 		timeout: 5000,
-		label: "search opened after dismissing",
+		label: "search opened again",
 	});
 	page.check(
-		"8. search then opens empty",
+		"9. it opens empty, with the searches kept on this device",
 		(await count(page, ROWS)) === 0 &&
 			(await page.evaluate(
 				`document.querySelector("${WINDOW} .search-query input").value`
-			)) === ""
+			)) === "" &&
+			(await count(page, `${WINDOW} .search-recent-item`)) > 0
 	);
 
 	talker.quit();

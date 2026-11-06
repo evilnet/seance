@@ -159,8 +159,6 @@ export type State = {
 	translateChannels: Record<string, ChannelTranslation>;
 	/** A message the open conversation is to be taken to (helpers/jumpToMessage.ts). */
 	jumpTarget: JumpTarget | null;
-	/** Taken from search to a hit in this channel: the way back to the results. */
-	searchReturn: {chanId: number; windowId: number; q: string} | null;
 };
 
 const state = (): State => ({
@@ -187,7 +185,6 @@ const state = (): State => ({
 	outgoingTranslations: {},
 	translateChannels: {},
 	jumpTarget: null,
-	searchReturn: null,
 });
 
 type Getters = {
@@ -336,7 +333,6 @@ type Mutations = {
 	translateChannelRemove(state: State, key: string): void;
 	translateChannelsLoaded(state: State, all: Record<string, ChannelTranslation>): void;
 	jumpTarget(state: State, target: State["jumpTarget"]): void;
-	searchReturn(state: State, back: State["searchReturn"]): void;
 };
 
 const mutations: Mutations = {
@@ -472,9 +468,6 @@ const mutations: Mutations = {
 	},
 	jumpTarget(state, target) {
 		state.jumpTarget = target;
-	},
-	searchReturn(state, back) {
-		state.searchReturn = back;
 	},
 };
 

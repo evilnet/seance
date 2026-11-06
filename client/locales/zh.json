@@ -1993,7 +1993,6 @@
   },
   "search.window.allHiddenNote": "更早的消息仍可能匹配。已搜索至 {when}。",
   "search.window.asking": "正在询问服务器…",
-  "search.window.back": "返回 {channel}",
   "search.window.backTo": "截至 {when}",
   "search.window.chip.account": "账号",
   "search.window.chip.date": "日期",
