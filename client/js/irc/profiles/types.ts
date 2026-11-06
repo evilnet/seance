@@ -10,7 +10,6 @@
  */
 
 import type {OperReport, Route} from "../../../../shared/types/oper";
-import type {SearchAttrs} from "../../../../shared/types/search";
 import type {IrcMessage} from "../message";
 
 /** One bit of a numeric server notice mask (ircu family). */
@@ -110,8 +109,6 @@ export interface ServerProfile {
 	name: string;
 	/** The server's extended ban syntax read back; undefined for a plain mask. */
 	describeBan?: (mask: string) => BanMeaning | undefined;
-	/** `SEARCH`'s parameters where they differ from the spec's single one. */
-	searchParams?: (attrs: SearchAttrs) => string[];
 	snomask?: SnomaskModel;
 	/** Every notice kind the classifier can produce, with its default route. */
 	noticeKinds: NoticeKind[];
