@@ -1292,6 +1292,17 @@ export default defineComponent({
 			}
 		});
 
+		// Asked before the network was up (a reload on a search): ask again once it
+		// is, rather than leave the loaded lines, few or none, standing in for it.
+		watch(
+			() => network.value?.status.connected,
+			(connected) => {
+				if (connected && mode.value === "offline" && criteria.value && !loading.value) {
+					run();
+				}
+			}
+		);
+
 		const searchEverywhere = () => {
 			setQuery(formatSearchQuery({...draftFilters.value, in: ALL_CHANNELS}));
 		};
