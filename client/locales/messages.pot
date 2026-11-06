@@ -1311,10 +1311,22 @@ msgctxt "connection.error"
 msgid "Connection error: {message}"
 msgstr ""
 
+#. A message's time beside it where a day header may be out of sight (search results), for a message older than yesterday. {day} is a short weekday ('Tue') within the last week, otherwise a short date ('4 Nov', or '4 Nov 2025' in another year); {time} is the clock time in the user's format. Order and punctuation are your language's.
+#: client/js/helpers/messageTime.ts
+msgctxt "dates.dayAt"
+msgid "{day}, {time}"
+msgstr ""
+
 #. Label of a date marker between message groups in the scrollback: tooltip of the divider between the messages sent today.
 #: client/components/DateMarker.vue:4
 msgctxt "dates.today"
 msgid "Today"
+msgstr ""
+
+#. A message's time beside it where a day header may be out of sight (search results): the message is from today. {time} is the clock time in the user's format (e.g. 21:58 or 9:58 PM).
+#: client/js/helpers/messageTime.ts
+msgctxt "dates.todayAt"
+msgid "Today {time}"
 msgstr ""
 
 #. Label of a date marker between message groups in the scrollback: tooltip of the divider between the messages sent the day before; older groups show the date itself.

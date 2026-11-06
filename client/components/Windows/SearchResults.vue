@@ -225,7 +225,7 @@
 												@click.stop
 											/>
 											<span class="search-chan">{{ hit.target }}</span>
-											<span class="search-time">{{ timeOf(hit.msg) }}</span>
+											<span class="search-time">{{ hitTime(hit.msg) }}</span>
 											<span
 												v-if="hit.loaded"
 												class="search-dim search-loaded"
@@ -687,7 +687,7 @@ import {
 	serverAttrs,
 	type SearchFilters,
 } from "../../js/searchQuery";
-import {clockTime, dayLabel, shortDay} from "../../js/helpers/messageTime";
+import {clockTime, dayLabel, datedTime, shortDay} from "../../js/helpers/messageTime";
 import {clearHighlight, paintHighlight, rangesIn} from "../../js/helpers/paintHighlight";
 import {setReadHold} from "../../js/helpers/readHold";
 import {useStore} from "../../js/store";
@@ -884,6 +884,8 @@ export default defineComponent({
 
 		const dayOf = (msg: SharedMsg) => dayLabel(msg.time);
 		const timeOf = (msg: SharedMsg) => clockTime(msg.time, store.state.settings);
+		// Each hit carries its day too, though the day's header is above it.
+		const hitTime = (msg: SharedMsg) => datedTime(msg.time, store.state.settings);
 
 		// How far the server has answered. A loaded row says nothing about that, and
 		// paging from one would skip the server's rows between the two.
@@ -1449,6 +1451,7 @@ export default defineComponent({
 			submit,
 			suggestions,
 			timeOf,
+			hitTime,
 			useHint,
 			visible,
 		};

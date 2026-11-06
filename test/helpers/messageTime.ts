@@ -1,6 +1,12 @@
 import {expect} from "chai";
 import dayjs from "dayjs";
-import {clockTime, dayLabel, recentTime, shortDay} from "../../client/js/helpers/messageTime";
+import {
+	clockTime,
+	dayLabel,
+	datedTime,
+	recentTime,
+	shortDay,
+} from "../../client/js/helpers/messageTime";
 
 describe("helpers/messageTime.ts", function () {
 	it("names today and yesterday, and the date before that", function () {
@@ -41,5 +47,30 @@ describe("helpers/messageTime.ts", function () {
 		// Intl's 12-hour clock, which writes a (narrow) space before the PM.
 		expect(clock(true, false)).to.match(/^9:58\sPM$/);
 		expect(clock(true, true)).to.match(/^9:58:07\sPM$/);
+	});
+
+	it("gives a search hit its day beside its clock", function () {
+		const settings = {use12hClock: false, showSeconds: false};
+		const noon = dayjs().startOf("day").add(12, "hour");
+		const at = (days: number) => datedTime(noon.subtract(days, "day").toDate(), settings);
+
+		expect(at(0)).to.equal("Today 12:00");
+		expect(at(1)).to.equal("Yesterday 12:00");
+
+		const weekday = noon
+			.subtract(3, "day")
+			.toDate()
+			.toLocaleDateString("en", {weekday: "short"});
+		expect(at(3)).to.equal(`${weekday}, 12:00`);
+
+		const older = noon.subtract(9, "day").toDate();
+		expect(at(9)).to.equal(`${shortDay(older)}, 12:00`);
+	});
+
+	it("keeps the clock settings beside the day", function () {
+		const noon = dayjs().startOf("day").add(12, "hour").add(5, "second").toDate();
+		expect(datedTime(noon, {use12hClock: true, showSeconds: true})).to.match(
+			/^Today 12:00:05\sPM$/
+		);
 	});
 });
