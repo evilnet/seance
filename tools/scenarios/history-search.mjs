@@ -178,8 +178,8 @@ export default async function run(page) {
 	const asked = sentCommands(page, start, /\bSEARCH\b/);
 	page.check("1. SEARCH goes to the server", asked.length === 1);
 	page.check(
-		"1. in nefarious2's spelling, scoped to the channel",
-		asked[0] && new RegExp(`SEARCH in=${HOME} limit=\\d+ text=fake`).test(asked[0].payloadData)
+		"1. in the spec's one parameter, scoped to the channel",
+		asked[0] && new RegExp(`SEARCH in=${HOME};text=fake;limit=\\d+$`).test(asked[0].payloadData)
 	);
 	page.check(
 		"1. four hits, ours among them, no other channel's",
@@ -187,12 +187,12 @@ export default async function run(page) {
 	);
 	await page.screenshot("1-results");
 
-	// A phrase is one substring, and only the last selector may hold a space.
+	// A phrase is one substring, its space escaped.
 	const phraseFrom = page.wsFrames.length;
 	await search(page, '"fake lag"');
 	page.check(
-		"1. a quoted phrase goes as one trailing parameter",
-		sentCommands(page, phraseFrom, /limit=\d+ :text=fake lag/).length === 1
+		"1. a quoted phrase goes as one escaped value",
+		sentCommands(page, phraseFrom, /;text=fake\\slag;/).length === 1
 	);
 	// The picture says fake-lag.png: both words, not the phrase.
 	page.check("1. and leaves out what only has the words", (await count(page, ROWS)) === 3);
