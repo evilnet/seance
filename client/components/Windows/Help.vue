@@ -314,6 +314,16 @@
 
 					<div class="help-item">
 						<div class="subject">
+							<span v-if="!isApple"><kbd>Ctrl</kbd> <kbd>F</kbd></span>
+							<span v-else><kbd>⌘</kbd> <kbd>F</kbd></span>
+						</div>
+						<div class="description">
+							<p>{{ t("help.shortcuts.search") }}</p>
+						</div>
+					</div>
+
+					<div class="help-item">
+						<div class="subject">
 							<span v-if="!isApple"><kbd>Alt</kbd> <kbd>S</kbd></span>
 							<span v-else><kbd>⌥</kbd> <kbd>S</kbd></span>
 						</div>
