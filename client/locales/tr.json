@@ -196,6 +196,7 @@
   "connect.user": "Kullanıcı",
   "connection.error": "Bağlantı hatası: {message}",
   "dates.today": "Bugün",
+  "dates.todayAt": "Bugün {time}",
   "dates.yesterday": "Dün",
   "dates.yesterdayAt": "Dün {time}",
   "disconnect.code1001": "sunucu kapanıyor",

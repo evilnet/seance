@@ -243,6 +243,7 @@
   "connect.user": "المستخدم",
   "connection.error": "خطأ في الاتصال: {message}",
   "dates.today": "اليوم",
+  "dates.todayAt": "اليوم {time}",
   "dates.yesterday": "أمس",
   "dates.yesterdayAt": "أمس {time}",
   "disconnect.code1001": "الخادم يتوقف عن العمل",

@@ -56,6 +56,8 @@ describe("helpers/messageTime.ts", function () {
 
 		expect(at(0)).to.equal("Today 12:00");
 		expect(at(1)).to.equal("Yesterday 12:00");
+		// A server clock ahead of this device's still reads as today.
+		expect(at(-1)).to.equal("Today 12:00");
 
 		const weekday = noon
 			.subtract(3, "day")

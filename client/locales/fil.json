@@ -190,6 +190,7 @@
   "connect.user": "Gumagamit",
   "connection.error": "Error sa koneksyon: {message}",
   "dates.today": "Ngayon",
+  "dates.todayAt": "Ngayon {time}",
   "dates.yesterday": "Kahapon",
   "dates.yesterdayAt": "Kahapon {time}",
   "disconnect.code1001": "umaalis ang server",

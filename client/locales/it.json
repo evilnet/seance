@@ -193,6 +193,7 @@
   "connect.user": "Utente",
   "connection.error": "Errore di connessione: {message}",
   "dates.today": "Oggi",
+  "dates.todayAt": "Oggi {time}",
   "dates.yesterday": "Ieri",
   "dates.yesterdayAt": "Ieri {time}",
   "disconnect.code1001": "il server si sta spegnendo",

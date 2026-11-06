@@ -194,6 +194,7 @@
   "connect.user": "Benutzer",
   "connection.error": "Verbindungsfehler: {message}",
   "dates.today": "Heute",
+  "dates.todayAt": "Heute {time}",
   "dates.yesterday": "Gestern",
   "dates.yesterdayAt": "Gestern {time}",
   "disconnect.code1001": "Server wird beendet",

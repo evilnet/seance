@@ -183,6 +183,7 @@
   "connect.user": "ユーザー",
   "connection.error": "接続エラー: {message}",
   "dates.today": "今日",
+  "dates.todayAt": "今日 {time}",
   "dates.yesterday": "昨日",
   "dates.yesterdayAt": "昨日 {time}",
   "disconnect.code1001": "サーバーが停止します",

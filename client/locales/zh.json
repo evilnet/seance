@@ -183,6 +183,7 @@
   "connect.user": "用户",
   "connection.error": "连接错误：{message}",
   "dates.today": "今天",
+  "dates.todayAt": "今天 {time}",
   "dates.yesterday": "昨天",
   "dates.yesterdayAt": "昨天 {time}",
   "disconnect.code1001": "服务器正在关闭",

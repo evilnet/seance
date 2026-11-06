@@ -47,12 +47,13 @@ export function recentTime(time: string | Date, settings: ClockSettings): string
 
 /** A search hit's day and clock together: "Today 14:47", "Yesterday 22:08",
  * the weekday within the last week ("Tue, 09:41"), then the date ("Oct 19,
- * 18:02", with the year when it is not this one). */
+ * 18:02", with the year when it is not this one). A time past this device's
+ * midnight (a server clock that runs ahead) is still today. */
 export function datedTime(time: string | Date, settings: ClockSettings): string {
 	const days = daysAgo(time);
 	const clock = clockTime(time, settings);
 
-	if (days === 0) {
+	if (days <= 0) {
 		return t("dates.todayAt", {time: clock});
 	}
 
@@ -60,6 +61,6 @@ export function datedTime(time: string | Date, settings: ClockSettings): string 
 		return t("dates.yesterdayAt", {time: clock});
 	}
 
-	const day = days > 1 && days < 7 ? formatWeekday(ms(time)) : shortDay(time);
-	return t("dates.dayAt", {day, time: clock});
+	const day = days < 7 ? formatWeekday(ms(time)) : shortDay(time);
+	return t("search.window.dayAndTime", {day, time: clock});
 }

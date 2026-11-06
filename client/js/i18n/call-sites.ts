@@ -215,7 +215,6 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"connect.useTls",
 	"connect.user",
 	"connection.error",
-	"dates.dayAt",
 	"dates.today",
 	"dates.todayAt",
 	"dates.yesterday",

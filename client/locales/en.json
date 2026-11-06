@@ -257,7 +257,6 @@
   "connect.useTls": "Use secure connection (TLS)",
   "connect.user": "User",
   "connection.error": "Connection error: {message}",
-  "dates.dayAt": "{day}, {time}",
   "dates.today": "Today",
   "dates.todayAt": "Today {time}",
   "dates.yesterday": "Yesterday",

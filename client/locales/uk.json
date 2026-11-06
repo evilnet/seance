@@ -219,6 +219,7 @@
   "connect.user": "Користувач",
   "connection.error": "Помилка підключення: {message}",
   "dates.today": "Сьогодні",
+  "dates.todayAt": "Сьогодні {time}",
   "dates.yesterday": "Учора",
   "dates.yesterdayAt": "Учора {time}",
   "disconnect.code1001": "сервер завершує роботу",

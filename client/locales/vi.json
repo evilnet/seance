@@ -184,6 +184,7 @@
   "connect.user": "Người dùng",
   "connection.error": "Lỗi kết nối: {message}",
   "dates.today": "Hôm nay",
+  "dates.todayAt": "Hôm nay {time}",
   "dates.yesterday": "Hôm qua",
   "dates.yesterdayAt": "Hôm qua {time}",
   "disconnect.code1001": "máy chủ đang tắt",

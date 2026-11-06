@@ -196,6 +196,7 @@
   "connect.user": "Felhasználó",
   "connection.error": "Kapcsolati hiba: {message}",
   "dates.today": "Ma",
+  "dates.todayAt": "Ma {time}",
   "dates.yesterday": "Tegnap",
   "dates.yesterdayAt": "Tegnap {time}",
   "disconnect.code1001": "a szerver leáll",

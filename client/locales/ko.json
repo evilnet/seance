@@ -184,6 +184,7 @@
   "connect.user": "사용자",
   "connection.error": "연결 오류: {message}",
   "dates.today": "오늘",
+  "dates.todayAt": "오늘 {time}",
   "dates.yesterday": "어제",
   "dates.yesterdayAt": "어제 {time}",
   "disconnect.code1001": "서버가 종료되는 중",
