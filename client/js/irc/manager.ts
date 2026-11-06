@@ -18,6 +18,7 @@ import socket from "../socket";
 import {store} from "../store";
 import {parseKeywordList} from "../highlight";
 import {setMuteStatus} from "../mute";
+import {ignoreListFor} from "../ignore";
 import {registerBusHandlers} from "./bus";
 import {IrcClient} from "./client";
 import {flushQueryLogs} from "./querylog";
@@ -126,6 +127,10 @@ export function createNetwork(options: CreateNetworkOptions): IrcClient {
 			},
 		});
 		clients.set(entry.uuid, client);
+		// Load the network's ignore list now, which mirrors it for the push
+		// worker (ignore.ts): a list restored, or kept from before the
+		// mirror existed, filters pushes from the first connect on.
+		ignoreListFor(entry.uuid);
 		// A mode never chosen has no time, which leaves the client's alone.
 		client.setPresenceMode(saved.presenceModeOf(entry), entry.presenceAt);
 		client.setGlobalMode(globalMode);

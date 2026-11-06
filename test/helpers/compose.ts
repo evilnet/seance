@@ -1,6 +1,7 @@
 import {expect} from "chai";
 import {MessageType} from "../../shared/types/msg";
 import {
+	editText,
 	findEditableAfter,
 	findEditableBefore,
 	findLastEditable,
@@ -35,17 +36,22 @@ describe("edit stepping (helpers/compose.ts)", function () {
 			expect(findLastEditable(channel)).to.equal(b);
 		});
 
-		it("skips redacted, superseded, msgid-less and non-plain messages", function () {
+		it("skips redacted, superseded, msgid-less and other kinds of messages", function () {
 			const editable = msg();
 			const channel = chan([
 				editable,
 				msg({redacted: {by: "op", time: new Date()}}),
 				msg({supersededBy: 99}),
 				msg({msgid: undefined}),
-				msg({type: MessageType.ACTION}),
+				msg({type: MessageType.NOTICE}),
 			]);
 
 			expect(findLastEditable(channel)).to.equal(editable);
+		});
+
+		it("takes an own action (/me)", function () {
+			const action = msg({type: MessageType.ACTION});
+			expect(findLastEditable(chan([msg(), action]))).to.equal(action);
 		});
 
 		it("is undefined when the channel has no own editable message", function () {
@@ -106,5 +112,12 @@ describe("edit stepping (helpers/compose.ts)", function () {
 
 		expect(findEditableBefore(channel, copyOfB)).to.equal(a);
 		expect(findEditableAfter(channel, copyOfB)).to.equal(c);
+	});
+
+	describe("editText", function () {
+		it("is a message's text, and an action's with /me in front", function () {
+			expect(editText(msg({text: "hello"}))).to.equal("hello");
+			expect(editText(msg({type: MessageType.ACTION, text: "waves"}))).to.equal("/me waves");
+		});
 	});
 });

@@ -3673,6 +3673,12 @@ msgctxt "menu.revokeModeUnknown"
 msgid "Mode -{mode}"
 msgstr "Modo -{mode}"
 
+#. Context-menu item on a user who is on the ignore list; shows their messages again (runs /unignore <nick>).
+#: client/js/helpers/contextMenu.ts
+msgctxt "menu.unignore"
+msgid "Unignore user"
+msgstr "Dejar de ignorar al usuario"
+
 #. Context-menu item on a conversation whose messages are muted (not highlighted, not notified); clicking unmutes it. {type} names the kind of conversation in lowercase: 'network', 'channel' or 'conversation'.
 #: client/js/helpers/contextMenu.ts
 msgctxt "menu.unmuteType"
@@ -11446,6 +11452,12 @@ msgctxt "reactions.clickToRemoveSuffix"
 msgid "(click to remove yours)"
 msgstr "(haz clic para eliminar la tuya)"
 
+#. Button in the emoji picker's search row that closes the picker without picking anything; shown on phones, where there is no Escape key, and when the picker was opened by typing a colon in the message composer.
+#: client/components/ReactionPicker.vue
+msgctxt "reactions.close"
+msgid "Close"
+msgstr "Cerrar"
+
 #. aria-label of the emoji picker popup that opens from a chat message to add a reaction to it.
 #: client/components/ReactionPicker.vue
 msgctxt "reactions.dialogAria"
@@ -11476,6 +11488,12 @@ msgctxt "reactions.hintCombine"
 msgid "⇧ to combine"
 msgstr "⇧ para combinar"
 
+#. Hint at the end of the emoji picker's preview bar, beside the highlighted emoji: pressing Enter (or Tab) puts it into the message being written. Emoji picker opened from the message composer by typing a colon and a name; what is picked goes into the message being written, not onto a message as a reaction.
+#: client/components/ReactionPicker.vue
+msgctxt "reactions.hintInsert"
+msgid "Enter to insert"
+msgstr "Intro para insertar"
+
 #. Preview-bar hint in the emoji picker when the highlighted emoji is already on the message; clicking it takes the reaction back off.
 #: client/components/ReactionPicker.vue
 msgctxt "reactions.hintRemove"
@@ -11487,6 +11505,30 @@ msgstr "Eliminar"
 msgctxt "reactions.hintSend"
 msgid "Enter to send"
 msgstr "Intro para enviar"
+
+#. Button in the emoji picker that puts the emoji built so far into the message being written. Emoji picker opened from the message composer by typing a colon and a name; what is picked goes into the message being written, not onto a message as a reaction.
+#: client/components/ReactionPicker.vue
+msgctxt "reactions.insert"
+msgid "Insert"
+msgstr "Insertar"
+
+#. Accessible name of the emoji picker dialog when it inserts into the message being written. Emoji picker opened from the message composer by typing a colon and a name; what is picked goes into the message being written, not onto a message as a reaction.
+#: client/components/ReactionPicker.vue
+msgctxt "reactions.insertDialogAria"
+msgid "Insert an emoji"
+msgstr "Insertar un emoji"
+
+#. Hint at the bottom of the emoji picker when nothing is highlighted and it inserts into the message being written. Emoji picker opened from the message composer by typing a colon and a name; what is picked goes into the message being written, not onto a message as a reaction.
+#: client/components/ReactionPicker.vue
+msgctxt "reactions.insertEmptyHint"
+msgid "Pick an emoji to put it in your message."
+msgstr "Elige un emoji para añadirlo a tu mensaje."
+
+#. Placeholder and accessible name of the emoji picker's search field when it inserts into the message being written. Emoji picker opened from the message composer by typing a colon and a name; what is picked goes into the message being written, not onto a message as a reaction.
+#: client/components/ReactionPicker.vue
+msgctxt "reactions.insertSearchPlaceholder"
+msgid "Search emoji"
+msgstr "Buscar emoji"
 
 #. aria-label of the emoji picker's scrollable grid of emoji to pick from.
 #: client/components/ReactionPicker.vue

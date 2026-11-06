@@ -31,8 +31,10 @@
 					spellcheck="false"
 					@keydown="onKeydown"
 				/>
+				<!-- Inserting, the search follows the composer: clearing it there
+				     would only part the two. -->
 				<button
-					v-if="query"
+					v-if="query && !insert"
 					type="button"
 					class="reaction-picker-clear"
 					:aria-label="clearSearch"
@@ -41,6 +43,17 @@
 					@click="clear"
 				>
 					✕
+				</button>
+				<!-- Always a way out: a phone has no Escape key, and a sheet over
+				     the composer leaves little to tap away on. -->
+				<button
+					v-if="sheet || insert"
+					type="button"
+					class="reaction-picker-close"
+					@mousedown.prevent
+					@click="close"
+				>
+					{{ t("reactions.close") }}
 				</button>
 			</div>
 
@@ -154,11 +167,11 @@
 						@mousedown.prevent
 						@click="pickTyped"
 					>
-						{{ t("reactions.send") }}
+						{{ insert ? t("reactions.insert") : t("reactions.send") }}
 					</button>
 				</template>
 				<span v-else class="reaction-picker-preview-hint">{{
-					t("reactions.emptyHint")
+					insert ? t("reactions.insertEmptyHint") : t("reactions.emptyHint")
 				}}</span>
 			</div>
 		</div>
@@ -252,12 +265,31 @@ export default defineComponent({
 		anchor: {type: Object as PropType<HTMLElement | null>, default: null},
 		/** Reactions the user already has on this message: shown ticked, picking removes. */
 		selected: {type: Array as PropType<string[]>, default: () => []},
+		/**
+		 * The composer's picker (ChatInput.vue, typing `:name`): what is
+		 * picked goes into the draft, so the picker offers emoji only — no
+		 * "React with …" row, and Enter on words with nothing matching
+		 * inserts nothing.
+		 */
+		insert: {type: Boolean, default: false},
+		/**
+		 * What the search starts with, followed while it changes: the `:name`
+		 * typed in the composer, which keeps the keyboard and goes on being
+		 * typed into (with `insert` the field is never focused; the composer
+		 * hands its arrows, Enter and Escape to `navigate`).
+		 */
+		search: {type: String, default: ""},
 	},
 	emits: ["pick", "close"],
 	setup(props, {emit}) {
 		const {t} = useI18n();
-		const dialogAria = computed(() => t("reactions.dialogAria"));
-		const searchPlaceholder = computed(() => t("reactions.searchPlaceholder"));
+		// The composer's picker (`insert`) says what it does: it inserts.
+		const dialogAria = computed(() =>
+			props.insert ? t("reactions.insertDialogAria") : t("reactions.dialogAria")
+		);
+		const searchPlaceholder = computed(() =>
+			props.insert ? t("reactions.insertSearchPlaceholder") : t("reactions.searchPlaceholder")
+		);
 		const clearSearch = computed(() => t("reactions.clearSearch"));
 		const tabsAria = computed(() => t("reactions.tabsAria"));
 		const listAria = computed(() => t("reactions.listAria"));
@@ -266,7 +298,14 @@ export default defineComponent({
 		const input = ref<HTMLInputElement | null>(null);
 		const list = ref<HTMLDivElement | null>(null);
 
-		const query = ref("");
+		const query = ref(props.search);
+
+		watch(
+			() => props.search,
+			(next) => {
+				query.value = next;
+			}
+		);
 		const catalog = ref<EmojiGroup[] | null>(null);
 		const failed = ref(false);
 		const recent = ref<string[]>(recentReactions());
@@ -398,7 +437,7 @@ export default defineComponent({
 				// is the one highlighted: an exact alias is an emoji somebody
 				// is naming (`tada` → 🎉), anything else is words until they
 				// say otherwise, or `lol` would react with 🍭 lollipop.
-				if (free && !hits.some((hit) => hit.emoji === free)) {
+				if (free && !props.insert && !hits.some((hit) => hit.emoji === free)) {
 					const row = freeOption(free);
 
 					if (emojiForName(typed)) {
@@ -539,6 +578,10 @@ export default defineComponent({
 				return t("reactions.hintRemove");
 			}
 
+			if (props.insert) {
+				return t("reactions.hintInsert");
+			}
+
 			return active.value.free ? t("reactions.hintSend") : t("reactions.hintCombine");
 		});
 
@@ -664,18 +707,41 @@ export default defineComponent({
 			return best ? best.index : activeIndex.value;
 		};
 
-		const onKeydown = (e: KeyboardEvent) => {
-			const el = e.target as HTMLInputElement;
-			const caret = el.selectionStart ?? 0;
-			const collapsed = caret === (el.selectionEnd ?? 0);
+		/**
+		 * Enter: the highlighted option, or what was typed; false when
+		 * neither. Shift adds the option to a reaction being built instead —
+		 * but not inserting: what the composer's picker gives goes into the
+		 * message at once, so there is nothing to build.
+		 */
+		const enter = (shift: boolean): boolean => {
+			if (active.value && shift && !props.insert) {
+				append(active.value);
+			} else if (active.value) {
+				pick(active.value.text);
+			} else if (query.value.trim() && (!props.insert || composing.value)) {
+				// Inserting, only emoji typed into the field go in as they are.
+				pick(query.value);
+			} else {
+				return false;
+			}
 
-			switch (e.key) {
+			return true;
+		};
+
+		/**
+		 * The picker's keys, from its own field (`onKeydown`) or, inserting,
+		 * from the composer, which keeps the keyboard (ChatInput.vue
+		 * `onComposerKeydown`). True when the key was the picker's. Enter
+		 * with nothing to insert is not, so the composer sends the message as
+		 * typed; Tab accepts the highlighted emoji in the composer's picker,
+		 * as the old `:name` completion did.
+		 */
+		const navigate = (key: string, shift = false): boolean => {
+			switch (key) {
 				case "ArrowDown": {
-					e.preventDefault();
-
 					if (activeIndex.value < 0) {
 						setActive(0);
-						break;
+						return true;
 					}
 
 					// Nothing rendered below: the next group's first cell, which
@@ -686,16 +752,47 @@ export default defineComponent({
 					setActive(
 						below === activeIndex.value && here ? here.start + here.count : below
 					);
-					break;
+					return true;
 				}
 
 				case "ArrowUp":
-					e.preventDefault();
-
 					if (activeIndex.value >= 0) {
 						setActive(rowNeighbour(false));
 					}
 
+					return true;
+
+				case "Enter":
+					return enter(shift);
+
+				case "Tab":
+					if (!props.insert || !active.value) {
+						return false;
+					}
+
+					pick(active.value.text);
+					return true;
+
+				case "Escape":
+					emit("close");
+					return true;
+
+				default:
+					return false;
+			}
+		};
+
+		const onKeydown = (e: KeyboardEvent) => {
+			const el = e.target as HTMLInputElement;
+			const caret = el.selectionStart ?? 0;
+			const collapsed = caret === (el.selectionEnd ?? 0);
+
+			switch (e.key) {
+				case "ArrowDown":
+				case "ArrowUp":
+				case "Enter":
+					e.preventDefault();
+					navigate(e.key, e.shiftKey);
 					break;
 
 				// Left and right walk the grid, but only once the caret has
@@ -720,19 +817,6 @@ export default defineComponent({
 
 					break;
 
-				case "Enter":
-					e.preventDefault();
-
-					if (active.value && e.shiftKey) {
-						append(active.value);
-					} else if (active.value) {
-						pick(active.value.text);
-					} else if (query.value.trim()) {
-						pick(query.value);
-					}
-
-					break;
-
 				default:
 					break;
 			}
@@ -746,7 +830,8 @@ export default defineComponent({
 				return;
 			}
 
-			if (e.shiftKey) {
+			// Inserting, a shift-click is a plain pick (see `enter`).
+			if (e.shiftKey && !props.insert) {
 				append(option);
 			} else {
 				pick(option.text);
@@ -962,7 +1047,34 @@ export default defineComponent({
 			}
 		};
 
+		// Back closes the picker, not the page: a CloseWatcher where the
+		// browser has one (Chromium: Android's back gesture and button, in a
+		// browser tab or an installed web app), taken while the picker is up
+		// and never a history entry (router.ts keeps the history one deep;
+		// helpers/imageViewer.ts does the same for an open image). The
+		// Android shell's back button reaches it as Escape (native.ts, the
+		// `data-escape-close` layer).
+		let backWatcher: {onclose: (() => void) | null; destroy(): void} | null = null;
+
 		onMounted(() => {
+			const Watcher = (
+				globalThis as {
+					CloseWatcher?: new () => {onclose: (() => void) | null; destroy(): void};
+				}
+			).CloseWatcher;
+
+			if (Watcher) {
+				try {
+					backWatcher = new Watcher();
+					backWatcher.onclose = () => {
+						backWatcher = null;
+						close();
+					};
+				} catch {
+					backWatcher = null; // refused (no activation to spare): Escape and Close remain
+				}
+			}
+
 			eventbus.emit(PICKER_OPENED, uid);
 			eventbus.on(PICKER_OPENED, onOtherOpened);
 			document.addEventListener("mousedown", onDocumentMouseDown);
@@ -975,13 +1087,16 @@ export default defineComponent({
 			void nextTick(layoutChanged);
 
 			// Focusing the field on a touch screen throws up the keyboard over
-			// the emoji the user came here to tap.
-			if (!window.matchMedia("(pointer: coarse)").matches) {
+			// the emoji the user came here to tap; the composer's picker leaves
+			// the keyboard in the composer everywhere (`navigate`).
+			if (!props.insert && !window.matchMedia("(pointer: coarse)").matches) {
 				input.value?.focus();
 			}
 		});
 
 		onBeforeUnmount(() => {
+			backWatcher?.destroy();
+			backWatcher = null;
 			eventbus.off(PICKER_OPENED, onOtherOpened);
 			document.removeEventListener("mousedown", onDocumentMouseDown);
 			window.removeEventListener("scroll", reposition, true);
@@ -1001,11 +1116,13 @@ export default defineComponent({
 			t,
 			dialogAria,
 			searchPlaceholder,
+			close,
 			clearSearch,
 			tabsAria,
 			listAria,
 			MAX_REACTION_LENGTH,
 			uid,
+			navigate,
 			root,
 			input,
 			list,

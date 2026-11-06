@@ -1,5 +1,5 @@
 // An animated image preview plays once, then holds a still; it plays again
-// under the pointer, and keeps looping while its message is the newest one
+// under the pointer, anywhere on its message, and keeps looping while its message is the newest one
 // (LinkPreview.vue `shouldPlay`, helpers/animatedImage.ts `animationInfo`).
 //
 //   pnpm build && python3 -m http.server -d public 8000 &
@@ -246,6 +246,26 @@ export default async function run(page) {
 		await page.check(
 			`left, it holds again (${JSON.stringify(left)})`,
 			left.still && !left.live
+		);
+
+		// 3b. The pointer anywhere on its message plays it: the nick, far
+		//     from the image, is enough.
+		await page.evaluate(`Array.from(document.querySelectorAll("#chat .msg"))
+			.find((m) => m.querySelector('.toggle-thumbnail[href*="cors.gif"]'))
+			.setAttribute("data-anim-row", "1")`);
+		await page.hover(`#chat .msg[data-anim-row="1"] .from`);
+		await page.sleep(300);
+		const onRow = await state("cors.gif");
+		await page.check(
+			`the pointer on the message's nick plays it (${JSON.stringify(onRow)})`,
+			onRow.live && !onRow.still
+		);
+		await page.hover("#input");
+		await page.sleep(300);
+		const offRow = await state("cors.gif");
+		await page.check(
+			`off the row, it holds again (${JSON.stringify(offRow)})`,
+			offRow.still && !offRow.live
 		);
 
 		// 4. A host without CORS: the file cannot be read, one play is 6 s.

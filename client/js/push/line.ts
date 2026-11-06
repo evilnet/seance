@@ -11,6 +11,9 @@ export type PushLine = {
 	tags: PushTags;
 	/** The prefix's nick (`nick!user@host`) or, for a server line, the server name. */
 	nick: string;
+	/** The prefix's user and host, when it has them (the ignore list matches them). */
+	user?: string;
+	host?: string;
 	/** Upper-cased. */
 	command: string;
 	/** First parameter: the message target, or MARKREAD's target. */
@@ -99,7 +102,11 @@ export function parsePushLine(line: string): PushLine | null {
 		return null;
 	}
 
-	const nick = rest.slice(1, first).split("!")[0];
+	const prefix = rest.slice(1, first);
+	const at = prefix.indexOf("@");
+	const userhost = at === -1 ? prefix : prefix.slice(0, at);
+	const bang = userhost.indexOf("!");
+	const nick = bang === -1 ? userhost : userhost.slice(0, bang);
 	const tail = rest.slice(first + 1).trimStart();
 	const second = tail.indexOf(" ");
 	const command = (second === -1 ? tail : tail.slice(0, second)).toUpperCase();
@@ -126,6 +133,14 @@ export function parsePushLine(line: string): PushLine | null {
 
 	const words = middle.split(" ").filter(Boolean);
 	const result: PushLine = {tags, nick, command, target: words[0] ?? "", text};
+
+	if (bang !== -1) {
+		result.user = userhost.slice(bang + 1);
+	}
+
+	if (at !== -1) {
+		result.host = prefix.slice(at + 1);
+	}
 
 	if (command === "MARKREAD") {
 		const ts = words.find((word) => word.startsWith("timestamp="));

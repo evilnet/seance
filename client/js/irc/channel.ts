@@ -110,6 +110,12 @@ export class Channel {
 	 * edit references (bus-contract §1.4: the IRC layer owns this map).
 	 */
 	readonly idByMsgid = new Map<string, number>();
+	/**
+	 * Edits shown before their original was (the original arrives later in
+	 * an older page): the original's msgid → the edit's. When the original is delivered, `IrcClient.settleLateOriginal`
+	 * puts the edit in its place, so the two never stand side by side.
+	 */
+	private readonly editsBeforeOriginal = new Map<string, string>();
 	/** The newest message we have seen; a reconnect asks for history AFTER it. */
 	newestRef: MsgRef | undefined = undefined;
 	/**
@@ -250,6 +256,22 @@ export class Channel {
 				this.shared.totalMessages--;
 			}
 		}
+	}
+
+	/** The edit `editMsgid` is shown, its original `originalMsgid` not yet. */
+	awaitOriginal(originalMsgid: string, editMsgid: string): void {
+		this.editsBeforeOriginal.set(originalMsgid, editMsgid);
+	}
+
+	/** The msgid of the shown edit waiting for `msgid`, taken off the list. */
+	takeEditOf(msgid: string): string | undefined {
+		const edit = this.editsBeforeOriginal.get(msgid);
+
+		if (edit !== undefined) {
+			this.editsBeforeOriginal.delete(msgid);
+		}
+
+		return edit;
 	}
 
 	/** Id of the loaded message with `msgid`, if we have shown it. */

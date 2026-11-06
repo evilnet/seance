@@ -6,7 +6,6 @@ import {TextareaEditor} from "@textcomplete/textarea";
 
 import fuzzy from "fuzzy";
 
-import emojiMap from "./helpers/simplemap.json";
 import {matchColorCodes} from "./helpers/colorMatch";
 import {fuzzyHtml} from "./helpers/fuzzyHtml";
 import {aliasNames} from "./helpers/aliases";
@@ -58,25 +57,6 @@ const colorName = (code: string, en: string): string => {
 		default:
 			return en;
 	}
-};
-
-const emojiSearchTerms = Object.keys(emojiMap);
-const emojiStrategy: StrategyProps = {
-	id: "emoji",
-	match: /(^|\s):([-+\w:?]{2,}):?$/,
-	search(term: string, callback: (matches) => void) {
-		// Trim colon from the matched term,
-		// as we are unable to get a clean string from match regex
-		term = term.replace(/:$/, "");
-		callback(fuzzyGrep(term, emojiSearchTerms));
-	},
-	template([string, original]: [string, string]) {
-		return `<span class="emoji">${String(emojiMap[original])}</span> ${string}`;
-	},
-	replace([, original]: [string, string]) {
-		return "$1" + String(emojiMap[original]);
-	},
-	index: 2,
 };
 
 const nicksStrategy: StrategyProps = {
@@ -234,8 +214,9 @@ function enableAutocomplete(input: HTMLTextAreaElement) {
 		"keydown"
 	);
 
+	// No emoji strategy: `:name` opens the full emoji picker instead
+	// (ChatInput.vue, helpers/emojiTrigger.ts).
 	const strategies = [
-		emojiStrategy,
 		nicksStrategy,
 		chanStrategy,
 		commandStrategy,

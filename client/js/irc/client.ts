@@ -222,6 +222,8 @@ interface PendingEdit {
 	chan: Channel;
 	text: string;
 	replyTo?: string;
+	/** The replacement is an action (`/me`). */
+	action: boolean;
 	timer: ReturnType<typeof setTimeout>;
 }
 
@@ -2183,7 +2185,8 @@ export class IrcClient {
 	}
 
 	/**
-	 * Replace our own message `oldMsgid` with `text` (bus-contract §1.4).
+	 * Replace our own message `oldMsgid` with `text`, an action when
+	 * `action` (bus-contract §1.4).
 	 * There is no edit on the wire, so in a channel where REDACT works the
 	 * old message is redacted (`:edited`) first and the resend, tagged
 	 * `+seance/edit=<old>`, goes out once our own REDACT is echoed back
@@ -2194,9 +2197,15 @@ export class IrcClient {
 	 * nothing to wait for: the REDACT is applied locally and the resend
 	 * follows at once (a late `FAIL REDACT` then only shows as an error).
 	 */
-	editMessage(chan: Channel, oldMsgid: string, text: string, replyTo?: string): void {
+	editMessage(
+		chan: Channel,
+		oldMsgid: string,
+		text: string,
+		replyTo?: string,
+		action = false
+	): void {
 		if (chan.type !== ChanType.CHANNEL || !this.canRedact) {
-			this.sendEdit(chan, oldMsgid, text, replyTo);
+			this.sendEdit(chan, oldMsgid, text, replyTo, action);
 			return;
 		}
 
@@ -2207,7 +2216,7 @@ export class IrcClient {
 						chan.name
 					} ${oldMsgid} :edited`
 				);
-				this.sendEdit(chan, oldMsgid, text, replyTo);
+				this.sendEdit(chan, oldMsgid, text, replyTo, action);
 			}
 
 			return;
@@ -2233,12 +2242,34 @@ export class IrcClient {
 				});
 			}
 		}, EDIT_TIMEOUT_MS);
-		this.pendingEdits.set(oldMsgid, {chan, text, replyTo, timer});
+		this.pendingEdits.set(oldMsgid, {chan, text, replyTo, action, timer});
+	}
+
+	/**
+	 * `msg` was just delivered, and an edit of it is already shown (it came
+	 * first: an older page brought the original in, or a catch-up). The edit
+	 * takes its place now (`msg:edit`), as it does when the original is
+	 * there first, so the two are never both on screen — nor both in a copy
+	 * of the conversation.
+	 */
+	settleLateOriginal(chan: Channel, msg: SharedMsg): void {
+		const editMsgid = msg.msgid ? chan.takeEditOf(msg.msgid) : undefined;
+		const id = editMsgid === undefined ? undefined : chan.idOf(editMsgid);
+
+		if (id !== undefined && id !== msg.id) {
+			this.dispatch("msg:edit", {chan: chan.id, id, replaces: msg.id});
+		}
 	}
 
 	/** The tagged resend that completes an edit. */
-	private sendEdit(chan: Channel, oldMsgid: string, text: string, replyTo?: string): void {
-		const opts: SendMessageOptions = {firstTags: {[EDIT_TAG]: oldMsgid}};
+	private sendEdit(
+		chan: Channel,
+		oldMsgid: string,
+		text: string,
+		replyTo?: string,
+		action = false
+	): void {
+		const opts: SendMessageOptions = {firstTags: {[EDIT_TAG]: oldMsgid}, action};
 
 		if (replyTo) {
 			opts.tags = {[REPLY_TAG]: replyTo};
@@ -2252,7 +2283,7 @@ export class IrcClient {
 		const pending = this.takePendingEdit(msgid);
 
 		if (pending) {
-			this.sendEdit(pending.chan, msgid, pending.text, pending.replyTo);
+			this.sendEdit(pending.chan, msgid, pending.text, pending.replyTo, pending.action);
 		}
 	}
 
@@ -3185,6 +3216,7 @@ export class IrcClient {
 			highlight: shared.highlight,
 			...(replay ? {replay: true} : {}),
 		});
+		this.settleLateOriginal(chan, msg);
 
 		// An unread highlight in a conversation, live or caught up, is an
 		// inbox entry; one read already (looked at, or past another
