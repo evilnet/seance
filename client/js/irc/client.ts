@@ -116,6 +116,7 @@ import {detectProfile, type ServerProfile} from "./profiles";
 import {interceptRequestLine, resetRequests} from "./request";
 import {noticeMessage} from "./snotice";
 import {ISupport} from "./isupport";
+import {ChannelList} from "./channelList";
 import {
 	formatLine,
 	IrcMessage,
@@ -291,6 +292,8 @@ export class IrcClient {
 	/** Swapped for a new one on an STS upgrade; always subscribed via {@link reconfigure}. */
 	transport: Transport;
 	readonly isupport = new ISupport();
+	/** The channel browser's rows and the MOTD's featured channels (channelList.ts). */
+	readonly channelList = new ChannelList();
 	/** NICKLEN as registration learned it before 005 (`handlers/numerics.ts`);
 	 * cleared with ISUPPORT, since the next connection may be another server. */
 	learnedNickLen: number | undefined;
@@ -426,6 +429,13 @@ export class IrcClient {
 	host = "";
 	/** MOTD lines being collected between 375 and 376. */
 	motdBuffer: string[] | null = null;
+	/**
+	 * A `MOTD` the channel browser sent for the featured channels, once per
+	 * connection: the answer is parsed and not shown (handlers/numerics.ts).
+	 * Set when a server gives only its short MOTD on connect (ircu's
+	 * NODEFAULTMOTD), which carries no featured lines.
+	 */
+	motdForFeatured: "unsent" | "sent" | "answered" = "unsent";
 	/** Counter behind {@link nextBatchRef}. */
 	private batchRefs = 0;
 	/** The SASL exchange in progress during registration, if any. */
@@ -1040,6 +1050,8 @@ export class IrcClient {
 		this.learnedNickLen = undefined;
 		this.authtoken.clear("Reconnecting");
 		this.motdBuffer = null;
+		this.motdForFeatured = "unsent";
+		this.channelList.reset();
 		this.host = "";
 		this.account = "";
 		this.persistenceHold = false;
@@ -1711,6 +1723,35 @@ export class IrcClient {
 				{ahead: (k) => /^(catchup|mode|page|targets):/.test(k)}
 			);
 		});
+	}
+
+	/**
+	 * Ask the server for its channel list (`channel:list:ask`, `/list`). One
+	 * LIST is the whole answer and costs one command of fake lag, so a list
+	 * under way, or the delay the server named, refuses a second ask. `args`
+	 * are passed to the server as they are (`>10`, `#a*`).
+	 */
+	requestChannelList(args: string[] = []): boolean {
+		if (!this.isWelcomed || this.channelList.busy) {
+			return false;
+		}
+
+		this.channelList.start();
+		this.dispatchChannelList();
+
+		// A server that gave its short MOTD on connect kept the featured
+		// lines: one MOTD per connection, the first time the browser asks.
+		if (this.channelList.featured.length === 0 && this.motdForFeatured === "unsent") {
+			this.motdForFeatured = "sent";
+			this.send("MOTD");
+		}
+
+		return this.send(formatLine({command: "LIST", params: args}));
+	}
+
+	/** The browser's copy of {@link channelList}. */
+	dispatchChannelList(): void {
+		this.bus.dispatch("channel:list", {network: this.uuid, list: this.channelList.snapshot()});
 	}
 
 	/** Send one raw line. Reports an ERROR message in the lobby instead of throwing. */

@@ -13,6 +13,7 @@ import type {TransportEvent, TransportState} from "../../client/js/irc/transport
 import {ChanType, SpecialChanType} from "../../shared/types/chan";
 import {MessageType, SharedMsg} from "../../shared/types/msg";
 import type {SharedNetworkChan} from "../../shared/types/network";
+import type {SharedChannelList} from "../../shared/types/channel-list";
 
 /** In-memory transport driven by the tests (same shape as test/irc/client.ts). */
 class FakeTransport implements Transport {
@@ -613,42 +614,104 @@ describe("irc commands", function () {
 	});
 
 	describe("/list", function () {
-		it("sends LIST and builds the Channel List special window", function () {
+		it("sends LIST and reports the answer as channel:list", function () {
 			const h = setup();
 			const id = joined(h);
 			h.client.input(id, "/list >10");
-			expect(h.sentAfter()).to.deep.equal(["LIST >10"]);
+			expect(h.sentAfter()).to.deep.equal(["MOTD", "LIST >10"]);
 
-			h.transport.line(":irc.test 321 alice Channel :Users  Name");
-			const [join] = payloads<{chan: SharedNetworkChan; shouldOpen: boolean}>("join");
-			expect(join.chan.type).to.equal(ChanType.SPECIAL);
-			expect(join.chan.special).to.equal(SpecialChanType.CHANNELLIST);
-			expect(join.chan.name).to.equal("Channel List");
-			expect(join.chan.data).to.deep.equal({
-				text: "Loading channel list, this can take a moment...",
-			});
-			expect(join.shouldOpen).to.equal(false);
+			const lists = () =>
+				payloads<{network: string; list: SharedChannelList}>("channel:list");
+			expect(lists().pop()?.list.status).to.equal("loading");
 
 			h.transport.lines(
+				":irc.test 321 alice Channel :Users  Name",
 				":irc.test 322 alice #small 3 :tiny",
 				":irc.test 322 alice #big 42 :",
 				":irc.test 322 alice #mid 10"
 			);
-			const specials = payloads<{chan: number; data: any}>("msg:special");
-			expect(specials).to.have.length(3);
-			expect(specials[2]).to.deep.equal({
-				chan: join.chan.id,
-				data: {text: "Loaded 3 channels..."},
-			});
+			// No report per row: the count comes every PROGRESS_EVERY rows.
+			expect(lists().pop()?.list.status).to.equal("loading");
 
 			h.transport.line(":irc.test 323 alice :End of /LIST");
-			const final = payloads<{chan: number; data: any}>("msg:special").pop();
-			expect(final?.data).to.deep.equal([
-				{channel: "#big", num_users: 42, topic: ""},
-				{channel: "#mid", num_users: 10, topic: ""},
-				{channel: "#small", num_users: 3, topic: "tiny"},
+			const final = lists().pop()?.list;
+			expect(final?.status).to.equal("done");
+			expect(final?.rows).to.deep.equal([
+				{name: "#big", users: 42, topic: ""},
+				{name: "#mid", users: 10, topic: ""},
+				{name: "#small", users: 3, topic: "tiny"},
 			]);
-			expect(h.client.findChannel("Channel List")!.shared.data).to.deep.equal(final?.data);
+			expect(final?.at).to.be.greaterThan(0);
+			expect(h.client.findChannel("Channel List")).to.equal(undefined);
+		});
+
+		it("asks for the full MOTD once when the connect's had no featured lines, and shows it nowhere", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.input(id, "/list");
+			expect(h.sentAfter()).to.deep.equal(["MOTD", "LIST"]);
+			const before = messages(1).length;
+			h.transport.lines(
+				":irc.test 375 alice :- irc.test Message of the Day -",
+				":irc.test 372 alice :- Channels worth a look:",
+				":irc.test 372 alice :-   #help  Questions about the network",
+				":irc.test 376 alice :End of /MOTD command.",
+				":irc.test 321 alice Channel :Users  Name",
+				":irc.test 323 alice :End of /LIST"
+			);
+			expect(messages(1).length).to.equal(before);
+			const final = payloads<{list: SharedChannelList}>("channel:list").pop()?.list;
+			expect(final?.featured).to.deep.equal([
+				{name: "#help", blurb: "Questions about the network"},
+			]);
+			h.client.input(id, "/list");
+			expect(h.sentAfter()).to.deep.equal(["LIST"]);
+		});
+
+		it("refuses a second LIST while one is under way", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.input(id, "/list");
+			h.client.input(id, "/list");
+			expect(h.sentAfter()).to.deep.equal(["MOTD", "LIST"]);
+			h.transport.lines(
+				":irc.test 321 alice Channel :Users  Name",
+				":irc.test 323 alice :End of /LIST"
+			);
+			h.client.input(id, "/list");
+			expect(h.sentAfter()).to.deep.equal(["LIST"]);
+		});
+
+		it("shows the server's wait instead of the notice and the empty answer", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.input(id, "/list");
+			expect(h.sentAfter()).to.deep.equal(["MOTD", "LIST"]);
+			const before = messages(1).length;
+			h.transport.lines(
+				":irc.test NOTICE alice :*** You have not been connected long enough to use /list. You must wait 42 seconds before trying again.",
+				":irc.test 321 alice Channel :Users  Name",
+				":irc.test 323 alice :End of /LIST"
+			);
+			const final = payloads<{list: SharedChannelList}>("channel:list").pop()?.list;
+			expect(final?.status).to.equal("delayed");
+			expect(final?.waitSeconds).to.equal(42);
+			expect(messages(1).length).to.equal(before);
+			h.client.input(id, "/list");
+			expect(h.sentAfter()).to.deep.equal([]);
+		});
+
+		it("keeps the server's usage lines when it refuses the arguments", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.input(id, "/list bogus");
+			h.transport.lines(
+				":irc.test 334 alice :Usage: LIST <args>",
+				":irc.test 334 alice :  >n  more than n users"
+			);
+			const final = payloads<{list: SharedChannelList}>("channel:list").pop()?.list;
+			expect(final?.status).to.equal("error");
+			expect(final?.note).to.equal("Usage: LIST <args>\n  >n  more than n users");
 		});
 	});
 

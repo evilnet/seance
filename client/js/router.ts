@@ -4,6 +4,7 @@ import {createRouter, createWebHashHistory, type RouteLocationRaw} from "vue-rou
 import Connect from "../components/Windows/Connect.vue";
 import Settings from "../components/Windows/Settings.vue";
 import Help from "../components/Windows/Help.vue";
+import ChannelBrowser from "../components/Windows/ChannelBrowser.vue";
 import Changelog from "../components/Windows/Changelog.vue";
 import NetworkEdit from "../components/Windows/NetworkEdit.vue";
 import SearchResults from "../components/Windows/SearchResults.vue";
@@ -108,6 +109,13 @@ const router = createRouter({
 			name: "Help",
 			path: "/help",
 			component: Help,
+		},
+		{
+			// The channel browser (docs/resources/client-features.md § Channel
+			// browser): a network's LIST, searched on the device.
+			name: "ChannelBrowser",
+			path: "/browse/:uuid",
+			component: ChannelBrowser,
 		},
 		{
 			// The oper panel (docs/projects/oper-tools.md): a modal like

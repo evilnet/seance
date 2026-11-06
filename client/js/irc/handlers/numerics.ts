@@ -7,6 +7,7 @@
 
 import {MessageType, SharedMsg} from "../../../../shared/types/msg";
 import type {IrcClient} from "../client";
+import {parseFeaturedChannels} from "../channelList";
 import {errorSpec} from "../errors";
 import {formatLine} from "../message";
 import {t} from "../../i18n/core";
@@ -92,6 +93,20 @@ const motdLine: Handler = (client, msg) => {
 };
 
 const motdEnd: Handler = (client, msg) => {
+	// The channels the network puts forward, for the channel browser.
+	client.channelList.featured = parseFeaturedChannels(
+		client.motdBuffer ?? [],
+		client.isupport.chantypes
+	);
+	client.dispatchChannelList();
+
+	// The browser's own MOTD: read for the featured lines, shown nowhere.
+	if (client.motdForFeatured === "sent" && client.isWelcomed) {
+		client.motdForFeatured = "answered";
+		client.motdBuffer = null;
+		return;
+	}
+
 	if (client.motdBuffer && client.motdBuffer.length > 0) {
 		// MONOSPACE_BLOCK renders verbatim (no Markdown) — MOTD banners are
 		// ASCII art. See client/components/MessageTypes/monospace_block.vue.

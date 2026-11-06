@@ -1,17 +1,16 @@
 /**
- * `/list [args]`: request the channel list; `handlers/list.ts` collects
- * 321/322/323 into the "Channel List" special window.
+ * `/list [args]`: ask the server for its channel list, for the channel
+ * browser (`client/js/commands/list.ts` opens it; `handlers/list.ts` fills
+ * it). The arguments are the server's own (`>10`, `#a*`, nefarious2's
+ * `C<10`, `T>0`), passed as they are.
  */
 
-import {resetChannelList} from "../handlers/list";
-import {formatLine} from "../message";
 import type {Command} from "../types";
 
 const list: Command = {
 	commands: ["list"],
 	input({client, args}) {
-		resetChannelList(client);
-		client.send(formatLine({command: "LIST", params: args}));
+		client.requestChannelList(args);
 	},
 };
 

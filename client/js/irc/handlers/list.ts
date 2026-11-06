@@ -1,49 +1,21 @@
 /**
- * LIST replies (321/322/323) → the "Channel List" special window, as
- * attic/server/plugins/irc-events/list.ts did: a status line while loading,
- * then the channels sorted by user count (capped at {@link MAX_CHANS}).
+ * LIST replies (321/322/323, and 334 when the arguments are refused) →
+ * `IrcClient.channelList` (channelList.ts), reported to the channel browser
+ * as `channel:list`. nefarious2's "wait N seconds" notice is caught in
+ * privmsg.ts (`noteListDelay`) before the empty 321/323 pair that follows it.
  *
  * Also home to {@link showSpecial}, the create-or-update helper every
- * `ChanType.SPECIAL` window (channel list, ignore list) goes through.
+ * `ChanType.SPECIAL` window (ban list, ignore list, …) goes through.
  */
 
-import {t, tCount} from "../../i18n/core";
 import {ChanType, SpecialChanType} from "../../../../shared/types/chan";
 import type {Channel} from "../channel";
+import {listDelayOf} from "../channelList";
 import type {IrcClient} from "../client";
 import type {Handler} from "../types";
 
-export const MAX_CHANS = 500;
-
-export interface ChannelListEntry {
-	channel: string;
-	num_users: number;
-	topic: string;
-}
-
-/** What `Special/ListChannels.vue` renders: a status line or the rows. */
-export type ChannelListData = {text: string} | ChannelListEntry[];
-
 /** Payload shape of `msg:special` / `SharedChan.data`. */
 export type SpecialData = Record<string, any>;
-
-const caches = new WeakMap<IrcClient, ChannelListEntry[]>();
-
-function cacheFor(client: IrcClient): ChannelListEntry[] {
-	let cache = caches.get(client);
-
-	if (!cache) {
-		cache = [];
-		caches.set(client, cache);
-	}
-
-	return cache;
-}
-
-/** Forget any partially received list (called by `/list`). */
-export function resetChannelList(client: IrcClient): void {
-	caches.delete(client);
-}
 
 /**
  * Create the special window for `special` (and, for a per-channel list,
@@ -89,36 +61,61 @@ export function showSpecial(
 	return channel;
 }
 
-function updateListStatus(client: IrcClient, data: ChannelListData): void {
-	showSpecial(client, t("list.channelList"), SpecialChanType.CHANNELLIST, data);
+/**
+ * A server notice that is nefarious2's LISTDELAY refusal: the browser shows
+ * the wait instead. Returns true when the notice was that.
+ */
+export function noteListDelay(client: IrcClient, text: string): boolean {
+	const seconds = listDelayOf(text);
+
+	if (seconds === undefined) {
+		return false;
+	}
+
+	client.channelList.delay(seconds);
+	client.dispatchChannelList();
+	return true;
 }
 
 // RPL_LISTSTART: <me> Channel :Users  Name
 const listStart: Handler = (client) => {
-	resetChannelList(client);
-	updateListStatus(client, {text: t("list.loading")});
+	const before = client.channelList.status;
+	client.channelList.begin();
+
+	if (before !== "loading") {
+		client.dispatchChannelList();
+	}
 };
 
 // RPL_LIST: <me> <channel> <# visible> :<topic>
 const listEntry: Handler = (client, msg) => {
-	const [, channel, count, topic = ""] = msg.params;
+	const [, name, count, topic = ""] = msg.params;
 
-	if (!channel) {
+	if (!name) {
 		return;
 	}
 
-	const cache = cacheFor(client);
-	cache.push({channel, num_users: parseInt(count ?? "0", 10) || 0, topic});
-	updateListStatus(client, {text: tCount("list.loaded", cache.length)});
+	const users = parseInt(count ?? "0", 10) || 0;
+
+	if (client.channelList.add({name, users, topic})) {
+		client.dispatchChannelList();
+	}
 };
 
 // RPL_LISTEND: <me> :End of /LIST
 const listEnd: Handler = (client) => {
-	const channels = cacheFor(client)
-		.sort((a, b) => b.num_users - a.num_users)
-		.slice(0, MAX_CHANS);
-	resetChannelList(client);
-	updateListStatus(client, channels);
+	const before = client.channelList.status;
+	client.channelList.end();
+
+	if (before === "loading") {
+		client.dispatchChannelList();
+	}
 };
 
-export default {"321": listStart, "322": listEntry, "323": listEnd};
+// RPL_LISTUSAGE: <me> :<usage line> — the arguments were refused.
+const listUsage: Handler = (client, msg) => {
+	client.channelList.fail(msg.params[msg.params.length - 1] ?? "");
+	client.dispatchChannelList();
+};
+
+export default {"321": listStart, "322": listEntry, "323": listEnd, "334": listUsage};

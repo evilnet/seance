@@ -2861,6 +2861,7 @@ html[data-reduce-motion] #chat .connecting-indicator {
 .header .topic {
 	color: var(--body-color-muted);
 	margin-inline-start: 8px;
+	white-space: nowrap;
 	word-break: break-all;
 	flex-grow: 1;
 	overflow: hidden;
@@ -3070,6 +3071,10 @@ html[data-reduce-motion] #chat .connecting-indicator {
 	display: block;
 	width: 100%;
 	margin: auto;
+}
+
+#sidebar .join-form .join-browse {
+	margin-top: 0.375rem;
 }
 
 #chat .show-more {
@@ -3440,7 +3445,6 @@ html[data-own-messages="band"] #chat .msg.self[data-type="action"]:not(.highligh
 	padding-inline-start: 20px;
 }
 
-#chat table.channel-list,
 #chat table.ban-list,
 #chat table.invite-list,
 #chat table.ignore-list {
@@ -3448,11 +3452,9 @@ html[data-own-messages="band"] #chat .msg.self[data-type="action"]:not(.highligh
 	width: calc(100% - 30px);
 }
 
-#chat table.channel-list th,
 #chat table.ban-list th,
 #chat table.invite-list th,
 #chat table.ignore-list th,
-#chat table.channel-list td,
 #chat table.ban-list td,
 #chat table.invite-list td {
 	padding: 5px;
@@ -3460,23 +3462,12 @@ html[data-own-messages="band"] #chat .msg.self[data-type="action"]:not(.highligh
 	border-bottom: #eee 1px solid;
 }
 
-#chat table.channel-list .channel {
-	width: 80px;
-}
-
-#chat table.channel-list .channel,
-#chat table.channel-list .topic,
 #chat table.ban-list .hostmask,
 #chat table.ban-list .banned_by,
 #chat table.ban-list .banned_at,
 #chat table.ignore-list .hostmask,
 #chat table.ignore-list .when {
 	text-align: start;
-}
-
-#chat table.channel-list .users {
-	text-align: center;
-	width: 50px;
 }
 
 #chat.hide-motd .msg[data-command="motd"] {
@@ -8148,11 +8139,6 @@ html[data-shell="native"] #image-viewer .next-image-btn {
 #chat .quit-reason,
 #chat .new-topic {
 	white-space: pre-wrap;
-}
-
-#chat table.channel-list .topic,
-.header .topic {
-	white-space: nowrap;
 }
 
 /* Replies, reactions, deletion and edits (bus-contract §1.4) */

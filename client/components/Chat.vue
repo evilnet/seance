@@ -187,7 +187,6 @@ import MessageSearchForm from "./MessageSearchForm.vue";
 import ListBans from "./Special/ListBans.vue";
 import ListInvites from "./Special/ListInvites.vue";
 import ListExcepts from "./Special/ListExcepts.vue";
-import ListChannels from "./Special/ListChannels.vue";
 import ListIgnored from "./Special/ListIgnored.vue";
 import TranslationPanel from "./TranslationPanel.vue";
 import {
@@ -374,8 +373,6 @@ export default defineComponent({
 					return ListInvites as Component;
 				case SpecialChanType.EXCEPTLIST:
 					return ListExcepts as Component;
-				case SpecialChanType.CHANNELLIST:
-					return ListChannels as Component;
 				case SpecialChanType.IGNORELIST:
 					return ListIgnored as Component;
 			}
