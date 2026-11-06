@@ -2337,6 +2337,12 @@ msgctxt "help.shortcuts.prevWindow"
 msgid "Switch to the previous window in the channel list."
 msgstr "채널 목록에서 이전 창으로 전환"
 
+#. Description of the Ctrl+F (Cmd+F on Apple) keyboard shortcut in the help window; it opens the search page for the current channel or private conversation.
+#: client/components/Windows/Help.vue
+msgctxt "help.shortcuts.search"
+msgid "Search the open conversation."
+msgstr ""
+
 #. Description of the Alt+J keyboard shortcut in the help window; it opens or closes the search field for jumping to a conversation.
 #: client/components/Windows/Help.vue
 msgctxt "help.shortcuts.toggleJump"

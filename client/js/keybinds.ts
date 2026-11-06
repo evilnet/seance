@@ -1,5 +1,7 @@
 import Mousetrap from "mousetrap";
 
+import {nextTick} from "vue";
+import {searchTucked} from "./searchPanel";
 import {store} from "./store";
 import {switchToChannel, router, navigate, leavePage} from "./router";
 import {topEscapeLayer} from "./helpers/escapeLayer";
@@ -151,6 +153,28 @@ Mousetrap.bind(["alt+/"], function (e) {
 
 	/* eslint-disable no-console */
 	navigate("Help").catch((err) => console.log(err));
+	return false;
+});
+
+// Search the open conversation: its search page, or that page's field. Works
+// from the composer too (it carries the mousetrap class). Anywhere else, the
+// browser's own find.
+Mousetrap.bind(["mod+f"], function () {
+	const channel = store.state.activeChannel?.channel;
+
+	if (!channel || (channel.type !== ChanType.CHANNEL && channel.type !== ChanType.QUERY)) {
+		return true;
+	}
+
+	if (router.currentRoute.value.name === "SearchResults") {
+		searchTucked.value = false; // a phone's panel a hit tucked away comes back
+		void nextTick(() =>
+			document.querySelector<HTMLInputElement>(".search-query input")?.focus()
+		);
+	} else {
+		void navigate("SearchResults", {id: channel.id});
+	}
+
 	return false;
 });
 
