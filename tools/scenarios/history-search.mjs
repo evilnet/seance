@@ -536,15 +536,20 @@ export default async function run(page) {
 			/#\/chan-\d+\/search/.test(await page.evaluate("location.hash"))
 	);
 
-	// The magnifier toggles it: closed, then open again with the search remembered.
+	// Closed by the magnifier beside the chat, or by Cancel on a phone, where the
+	// panel covers the header; then open again with the searches remembered.
 	const panelShown = `getComputedStyle(document.querySelector("#search-panel")).display !== "none"`;
 	if (!(await page.evaluate(panelShown))) {
 		await page.click("#chat .header button.search"); // a phone tucked it away
 		await page.sleep(200);
 	}
-	await page.click("#chat .header button.search");
+	const phone = (await count(page, `${WINDOW} .search-cancel`)) === 1;
+	await page.click(phone ? `${WINDOW} .search-cancel` : "#chat .header button.search");
 	await page.sleep(200);
-	page.check("9. the magnifier closes search", (await count(page, WINDOW)) === 0);
+	page.check(
+		phone ? "9. Cancel closes search" : "9. the magnifier closes search",
+		(await count(page, WINDOW)) === 0
+	);
 	await page.click("#chat .header button.search");
 	await page.waitFor(`document.querySelector("${WINDOW}")`, {
 		timeout: 5000,
