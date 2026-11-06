@@ -386,6 +386,15 @@ html[data-reduce-motion] .browse-icon-refresh.spinning::before {
 	appearance: none;
 }
 
+/* The field sits on the window surface, not the chat's, so its placeholder
+ * takes the window's muted ink: the app-wide rule is black at 35%, and a dark
+ * theme that restyles placeholders only inside #chat-container (morning) left
+ * this one near-invisible. */
+.browse-query input::placeholder {
+	color: var(--body-color-muted);
+	opacity: 1;
+}
+
 .browse-query input::-webkit-search-cancel-button {
 	display: none;
 }
