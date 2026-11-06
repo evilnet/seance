@@ -1,4 +1,4 @@
-// The inbox: the messages that mentioned you and are not read yet, kept per
+// The inbox: the messages that mentioned you, until you close them, kept per
 // device but built from what the server gives every device (live lines, the
 // catch-up, read markers), so every device arrives at the same list. See
 // docs/projects/inbox.md.
@@ -14,6 +14,8 @@ import {cleanIrcMessage} from "../../../shared/irc";
 export const MAX_ENTRIES = 100;
 /** How many of those one conversation may hold, so a busy channel cannot push the rest out (a query is one entry). */
 export const MAX_PER_CONVERSATION = 20;
+/** How long a read mention stays. An unread one stays until it is read. */
+export const READ_KEEP_MS = 7 * 24 * 60 * 60 * 1000;
 /** How many dismissals a device remembers. */
 export const MAX_DISMISSED = 200;
 /** A mention starting further in than this is shown from just before it. */
@@ -108,10 +110,27 @@ export function entryFor(
 const timeOf = (e: {time: string}) => new Date(e.time).getTime();
 
 /**
+ * At most `cap` of `list` (oldest first), in order: the newest, with what is
+ * unread kept ahead of what is read, so a read mention never pushes one out.
+ */
+function keepNewest(list: InboxEntry[], cap: number): InboxEntry[] {
+	if (list.length <= cap) {
+		return list;
+	}
+
+	const unread = list.filter((e) => !e.read).slice(-cap);
+	const room = cap - unread.length;
+	const read = room > 0 ? list.filter((e) => e.read).slice(-room) : [];
+	const kept = new Set([...unread, ...read]);
+	return list.filter((e) => kept.has(e));
+}
+
+/**
  * Add `added`, deduplicated by key (the newer line wins, which for a
  * private conversation is the line it shows) and without the dismissed
  * ones, ordered by time; the newest {@link MAX_PER_CONVERSATION} of each
- * conversation and the newest {@link MAX_ENTRIES} overall are kept. A
+ * conversation and the newest {@link MAX_ENTRIES} overall are kept, what is
+ * unread ahead of what is read. A
  * dismissal holds back what it covered, not a later line under the same key
  * (a private conversation's next message).
  */
@@ -137,28 +156,31 @@ export function addEntries(
 			continue;
 		}
 
-		if (!kept || timeOf(entry) >= timeOf(kept)) {
+		if (!kept || timeOf(entry) > timeOf(kept)) {
 			byKey.set(key, entry);
+		} else if (timeOf(entry) === timeOf(kept)) {
+			// The same line again (a catch-up): one that has been read stays so.
+			byKey.set(key, kept.read ? {...entry, read: true} : entry);
 		}
 	}
 
 	// Oldest first, lines of the same instant in the order they came (a
-	// stable sort); counted from the newest end.
+	// stable sort).
 	const ordered = [...byKey.values()].sort((a, b) => timeOf(a) - timeOf(b));
-	const perConversation = new Map<string, number>();
-	const dropped = new Set<InboxEntry>();
+	const byConversation = new Map<string, InboxEntry[]>();
 
-	for (let i = ordered.length - 1; i >= 0; i--) {
-		const key = conversationKey(ordered[i].network, ordered[i].target);
-		const count = (perConversation.get(key) ?? 0) + 1;
-		perConversation.set(key, count);
-
-		if (count > MAX_PER_CONVERSATION) {
-			dropped.add(ordered[i]);
-		}
+	for (const entry of ordered) {
+		const key = conversationKey(entry.network, entry.target);
+		byConversation.set(key, [...(byConversation.get(key) ?? []), entry]);
 	}
 
-	return ordered.filter((e) => !dropped.has(e)).slice(-MAX_ENTRIES);
+	const kept = new Set(
+		[...byConversation.values()].flatMap((entries) => keepNewest(entries, MAX_PER_CONVERSATION))
+	);
+	return keepNewest(
+		ordered.filter((e) => kept.has(e)),
+		MAX_ENTRIES
+	);
 }
 
 /** What dismissing `entry` remembers. */
@@ -188,20 +210,39 @@ export function conversationEntries(
 }
 
 /**
- * `target` on `network` was read up to `time`: drop what it covers. Works
- * for entries and dismissals alike (a dismissal past the read point has
- * nothing left to hold back).
+ * `target` on `network` was read up to `time`: a dismissal it covers has
+ * nothing left to hold back.
  */
-export function pruneRead<T extends {network: string; target: string; time: string}>(
-	list: T[],
+export function pruneRead(
+	list: Dismissal[],
 	network: string,
 	target: string,
 	time: Date
-): T[] {
+): Dismissal[] {
 	const key = conversationKey(network, target);
 	return list.filter(
 		(e) => conversationKey(e.network, e.target) !== key || timeOf(e) > time.getTime()
 	);
+}
+
+/** `target` on `network` was read up to `time`: what that covers is read, and stays. */
+export function markRead(
+	list: InboxEntry[],
+	network: string,
+	target: string,
+	time: Date
+): InboxEntry[] {
+	const key = conversationKey(network, target);
+	return list.map((e) =>
+		e.read || conversationKey(e.network, e.target) !== key || timeOf(e) > time.getTime()
+			? e
+			: {...e, read: true as const}
+	);
+}
+
+/** Without the read entries older than {@link READ_KEEP_MS}. */
+export function dropExpired(list: InboxEntry[], now: number): InboxEntry[] {
+	return list.filter((e) => !e.read || now - timeOf(e) <= READ_KEEP_MS);
 }
 
 /**

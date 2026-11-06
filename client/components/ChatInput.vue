@@ -272,6 +272,7 @@
 </template>
 
 <script lang="ts">
+import {closePast} from "../js/pastView";
 import Mousetrap from "mousetrap";
 import getCaretCoordinates from "textarea-caret";
 import {wrapCursor} from "undate";
@@ -1009,6 +1010,10 @@ export default defineComponent({
 				autocompletionRef.value.hide();
 			}
 
+			// What this brings lands in the present, so that is where to be.
+			closePast(props.channel);
+			store.commit("searchReturn", null);
+
 			props.channel.inputHistoryPosition = 0;
 			props.channel.pendingMessage = "";
 			clearInput();
@@ -1323,7 +1328,20 @@ export default defineComponent({
 			upload.abort();
 		};
 
-		const blurInput = () => {
+		// Out of older messages first, as Discord's Escape does, unless a field has
+		// this press: another one, or a composer with text (its completion menu).
+		const blurInput = (layer: string | null) => {
+			const focused = document.activeElement;
+			const fieldHasIt =
+				focused === input.value
+					? !!props.channel.pendingMessage
+					: focused?.matches("input, textarea, [contenteditable]");
+
+			if (layer === null && props.channel.past && !fieldHasIt) {
+				closePast(props.channel);
+				return;
+			}
+
 			input.value?.blur();
 		};
 

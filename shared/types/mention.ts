@@ -1,7 +1,7 @@
 import {MessageType, UserInMessage} from "./msg";
 
 /**
- * One unread mention (docs/projects/inbox.md): a reference to a message by
+ * One mention (docs/projects/inbox.md): a reference to a message by
  * what survives a page load, never by session-local ids.
  */
 export type InboxEntry = {
@@ -19,4 +19,6 @@ export type InboxEntry = {
 	/** Kept to display the entry only; a long line's is cut to its mention. */
 	text: string;
 	from: UserInMessage;
+	/** Read or opened: stays in the list, dimmed, and leaves every count. */
+	read?: true;
 };

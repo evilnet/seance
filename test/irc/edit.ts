@@ -464,7 +464,7 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 				[
 					"@time=2026-08-25T12:00:05.000Z;msgid=b2;+seance/edit=b1 :bob!bob@host PRIVMSG #seance :the",
 				],
-				{label: labelOf(sent)}
+				{label: labelOf(sent), end: true}
 			);
 
 			const msg = h.lastMessage(id);

@@ -159,6 +159,8 @@ export type State = {
 	translateChannels: Record<string, ChannelTranslation>;
 	/** A message the open conversation is to be taken to (helpers/jumpToMessage.ts). */
 	jumpTarget: JumpTarget | null;
+	/** Taken from search to a hit in this channel: the way back to the results. */
+	searchReturn: {chanId: number; windowId: number; q: string} | null;
 };
 
 const state = (): State => ({
@@ -185,6 +187,7 @@ const state = (): State => ({
 	outgoingTranslations: {},
 	translateChannels: {},
 	jumpTarget: null,
+	searchReturn: null,
 });
 
 type Getters = {
@@ -268,7 +271,7 @@ const getters: Getters = {
 	},
 	// The one count of unread mentions: the @ button, the title, the
 	// favicon and the app icon all read it.
-	mentionCount: (state, getters) => getters.visibleMentions.length,
+	mentionCount: (state, getters) => getters.visibleMentions.filter((e) => !e.read).length,
 	title(state, getters) {
 		const alertEventCount = getters.mentionCount ? `(${getters.mentionCount.toString()}) ` : "";
 		const channelname = state.activeChannel ? `${state.activeChannel.channel.name} — ` : "";
@@ -333,6 +336,7 @@ type Mutations = {
 	translateChannelRemove(state: State, key: string): void;
 	translateChannelsLoaded(state: State, all: Record<string, ChannelTranslation>): void;
 	jumpTarget(state: State, target: State["jumpTarget"]): void;
+	searchReturn(state: State, back: State["searchReturn"]): void;
 };
 
 const mutations: Mutations = {
@@ -468,6 +472,9 @@ const mutations: Mutations = {
 	},
 	jumpTarget(state, target) {
 		state.jumpTarget = target;
+	},
+	searchReturn(state, back) {
+		state.searchReturn = back;
 	},
 };
 

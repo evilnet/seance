@@ -370,6 +370,75 @@ describe("Read markers (handlers/markread.ts)", function () {
 		expect(h.sent()).to.deep.equal(["MARKREAD #seance timestamp=2026-08-25T12:12:00.000Z"]);
 	});
 
+	describe("held by a jump to an older message (read:hold)", function () {
+		const marks = (h: Harness) => h.sent().filter((l) => l.startsWith("MARKREAD"));
+
+		function heldOpen(h: Harness): number {
+			const chanId = joined(h);
+			live(h, 1, "alice: one");
+			live(h, 2, "alice: two");
+			socket.emit("read:hold", {chan: chanId, held: true});
+			socket.emit("open", chanId);
+			clock.tick(MARKREAD_DEBOUNCE_MS);
+			return chanId;
+		}
+
+		it("opening a held conversation reads nothing", function () {
+			const h = setup();
+			heldOpen(h);
+			const chan = h.client.findChannel("#seance")!;
+
+			expect(chan.shared.unread).to.equal(2);
+			expect(chan.shared.highlight).to.equal(2);
+			expect(payloads("inbox:read")).to.deep.equal([]);
+			expect(marks(h)).to.deep.equal([]);
+		});
+
+		it("a line arriving meanwhile counts and reaches the inbox", function () {
+			const h = setup();
+			heldOpen(h);
+			dispatch.resetHistory();
+			live(h, 3, "alice: three");
+			clock.tick(MARKREAD_DEBOUNCE_MS);
+
+			expect(h.client.findChannel("#seance")!.shared.unread).to.equal(3);
+			expect(payloads("inbox:add")).to.have.length(1);
+			expect(marks(h)).to.deep.equal([]);
+		});
+
+		it("attention returning reads nothing", function () {
+			const h = setup();
+			heldOpen(h);
+			h.client.setAttended(false);
+			h.client.setAttended(true);
+			clock.tick(MARKREAD_DEBOUNCE_MS);
+
+			expect(h.client.findChannel("#seance")!.shared.unread).to.equal(2);
+			expect(payloads("inbox:read")).to.deep.equal([]);
+		});
+
+		it("released and opened again, it is read", function () {
+			const h = setup();
+			const chanId = heldOpen(h);
+			socket.emit("read:hold", {chan: chanId, held: false});
+			socket.emit("open", chanId);
+			clock.tick(MARKREAD_DEBOUNCE_MS);
+
+			expect(h.client.findChannel("#seance")!.shared.unread).to.equal(0);
+			expect(payloads("inbox:read")).to.have.length(1);
+			expect(marks(h)).to.have.length(1);
+		});
+
+		it("a read from another session still counts", function () {
+			const h = setup();
+			heldOpen(h);
+			marker(h, "timestamp=2026-08-25T12:02:00.000Z");
+
+			expect(h.client.findChannel("#seance")!.shared.unread).to.equal(0);
+			expect(payloads("inbox:read")).to.have.length(1);
+		});
+	});
+
 	describe("across a reconnect (nothing before 001: the server answers `451 Register first.`)", function () {
 		/** Redial and negotiate caps, stopping short of 001. */
 		function reopen(h: Harness): void {

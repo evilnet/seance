@@ -292,8 +292,9 @@ export default defineComponent({
 
 		// Only plain text can be edited (the IRC layer resends it tagged).
 		// The same rule ArrowUp steps by (helpers/compose.ts): an own message
-		// or action, with a msgid, not yet deleted or replaced.
-		const canEdit = computed(() => isEditable(props.message));
+		// or action, with a msgid, not yet deleted or replaced. Not on a past
+		// view's row: an edit's own place is among the recent lines.
+		const canEdit = computed(() => !props.channel.past && isEditable(props.message));
 
 		// Own messages anywhere; others' only in channels, where the server
 		// decides (chanop / REDACT_WINDOW) and answers FAIL otherwise.

@@ -1,13 +1,13 @@
 /**
  * Searching the server's history (`soju.im/search`), and reading the lines
- * around a hit (`CHATHISTORY AROUND|BEFORE|AFTER`) for the search window.
+ * around a message (`CHATHISTORY AROUND|BEFORE|AFTER`) for a past view.
  *
- * The replies feed the window and nothing else. They go through the normal
+ * The replies feed those and nothing else. They go through the normal
  * handlers in collect mode so a row looks like any other message (ACTION,
  * multi-line, formatting), but unlike `history.ts` they never reach a channel:
  * no unread counts, no catch-up cursor, no query opened or logged, and a row
- * the channel already shows is still a hit, so there is no msgid dedupe. The
- * work collect mode queues for after delivery (reactions, edits) is dropped,
+ * the channel already shows is still a hit, so there is no msgid dedupe. A
+ * page's reactions, deletions and edits apply to its own rows ({@link withUpdates}),
  * and no handler reaches the bus while a row is collected.
  *
  * Without a registered batch handler a `search` batch would be unwrapped and
@@ -24,6 +24,7 @@
  */
 
 import type {
+	LineChange,
 	SearchAttrs,
 	SearchContextDirection,
 	SearchHit,
@@ -34,6 +35,12 @@ import type {IrcClient} from "./client";
 import type {BatchHandler, OpenBatch} from "./handlers/batch";
 import {formatLine, MAX_LINE_BYTES, utf8ByteLength, type IrcMessage} from "./message";
 import type {Channel} from "./channel";
+import {historyLimit} from "./history";
+import {applyEdit, applyReaction, applyRedaction} from "../helpers/messageUpdates";
+import {sameAuthor} from "../helpers/pastRows";
+import {ignoreListFor} from "../ignore";
+import {replyTagOf} from "./handlers/privmsg";
+import {REACT_TAG, UNREACT_TAG} from "./wire";
 
 const SEARCH_CAP = "soju.im/search";
 /** How long to wait for the server before giving up on a request. */
@@ -145,12 +152,26 @@ function take(client: IrcClient, request: PendingSearch): boolean {
 	return true;
 }
 
+/** What a context page says beyond its rows. */
+type ContextPage = {
+	/** The server marked it the last on that side. */
+	end?: boolean;
+	/** Reactions and deletions of lines not in this page: an earlier page's, perhaps. */
+	changes?: LineChange[];
+	/**
+	 * The msgids of the page's first and last lines, whatever they are: a page
+	 * of reactions alone has no rows to take the next page's anchor from.
+	 */
+	edges?: {first?: string; last?: string};
+};
+
 function answer(
 	client: IrcClient,
 	request: Asked,
 	status: SearchStatus,
 	error?: string,
-	hits: SearchHit[] = []
+	hits: SearchHit[] = [],
+	page: ContextPage = {}
 ): void {
 	if (request.parent) {
 		const {chan, msgid} = request.parent;
@@ -173,7 +194,11 @@ function answer(
 	if (request.kind === "results") {
 		client.dispatchBus("search:results", {...base, hits});
 	} else {
-		client.dispatchBus("search:context", {...base, messages: hits.map((hit) => hit.msg)});
+		client.dispatchBus("search:context", {
+			...base,
+			...page,
+			messages: hits.map((hit) => hit.msg),
+		});
 	}
 }
 
@@ -253,7 +278,7 @@ export function requestSearchContext(
 		direction,
 		target,
 		`msgid=${msgid}`,
-		String(limit),
+		String(historyLimit(client, limit)),
 	]);
 }
 
@@ -328,6 +353,68 @@ function collect(client: IrcClient, lines: IrcMessage[], fallback?: string): Sea
 	return hits;
 }
 
+/**
+ * What the page's own lines say of its rows: reactions, deletions and edits. A
+ * channel's page does this through ids the channel holds (`afterReplay`); these
+ * rows are not the channel's, so nothing here may reach it.
+ */
+function withUpdates(
+	client: IrcClient,
+	hits: SearchHit[],
+	lines: IrcMessage[],
+	changes: LineChange[]
+): SearchHit[] {
+	const rows = hits.map((hit) => hit.msg);
+	const byMsgid = new Map(rows.filter((m) => m.msgid).map((m) => [m.msgid, m]));
+
+	for (const line of lines) {
+		const nick = line.source?.name;
+
+		if (!nick) {
+			continue;
+		}
+
+		if (line.command === "TAGMSG") {
+			const react = line.tags.get(REACT_TAG);
+			const text = react || line.tags.get(UNREACT_TAG);
+			const row = byMsgid.get(replyTagOf(line));
+			const ignored =
+				!client.isSelf(nick) &&
+				ignoreListFor(client.uuid).matches(nick, line.source?.user, line.source?.host);
+
+			if (text && !ignored) {
+				const parent = replyTagOf(line);
+
+				if (row) {
+					applyReaction(row, text, nick, !react);
+				} else if (parent) {
+					changes.push({msgid: parent, react: {text, nick, remove: !react}});
+				}
+			}
+		} else if (line.command === "REDACT") {
+			const row = byMsgid.get(line.params[1]);
+			const redact = {by: nick, reason: line.params[2], time: client.timeOf(line)};
+
+			if (row) {
+				applyRedaction(row, redact);
+			} else if (line.params[1]) {
+				changes.push({msgid: line.params[1], redact});
+			}
+		}
+	}
+
+	for (const row of [...rows]) {
+		const original = row.editOf ? byMsgid.get(row.editOf) : undefined;
+
+		if (original && sameAuthor(original, row)) {
+			applyEdit(rows, original.id, row.id);
+		}
+	}
+
+	const target = hits[0]?.target ?? "";
+	return rows.map((msg) => ({target, msg}));
+}
+
 function labelOf(batch: OpenBatch): string | undefined {
 	return batch.tags.get("label") ?? batch.parent?.tags.get("label");
 }
@@ -351,10 +438,12 @@ function settle(
 	request: PendingSearch,
 	status: SearchStatus,
 	error?: string,
-	hits?: () => SearchHit[]
+	hits?: () => SearchHit[],
+	page?: () => ContextPage
 ): void {
 	if (take(client, request) && !request.expired) {
-		answer(client, request, status, error, hits?.());
+		const rows = hits?.();
+		answer(client, request, status, error, rows, page?.());
 	}
 }
 
@@ -375,8 +464,27 @@ export function searchContextBatch(client: IrcClient, batch: OpenBatch): boolean
 		return false;
 	}
 
-	settle(client, request, "ok", undefined, () =>
-		collect(client, batch.messages, batch.params[0])
+	const changes: LineChange[] = [];
+	settle(
+		client,
+		request,
+		"ok",
+		undefined,
+		() =>
+			withUpdates(
+				client,
+				collect(client, batch.messages, batch.params[0]),
+				batch.messages,
+				changes
+			),
+		() => ({
+			end: batch.tags.has("draft/chathistory-end"),
+			changes,
+			edges: {
+				first: batch.messages.find((m) => m.tags.get("msgid"))?.tags.get("msgid"),
+				last: batch.messages.findLast((m) => m.tags.get("msgid"))?.tags.get("msgid"),
+			},
+		})
 	);
 	return true;
 }

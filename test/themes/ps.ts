@@ -1725,7 +1725,6 @@ describe("the ps theme's placeholders (the user's 'fix the night placeholder con
 		expect(theirs, "the app's placeholder rules").to.include.members([
 			"::placeholder",
 			".jump-to-input .input::placeholder",
-			"form.message-search input::placeholder",
 			".reaction-picker-input::placeholder",
 		]);
 

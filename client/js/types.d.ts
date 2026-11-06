@@ -18,6 +18,21 @@ type ClientUser = SharedUser;
 // which are not shared with the server
 export type ClientMessage = SharedMsg;
 
+type PastView = {
+	rows: ClientMessage[];
+	/** The msgid to go to once the rows have rendered. */
+	reveal: string | null;
+	loading: "BEFORE" | "AFTER" | null;
+	/** The page on its way: an answer to any other has been cancelled. */
+	requestId: number;
+	canEarlier: boolean;
+	canLater: boolean;
+	/** Where the next page on each side starts, once a page has said (its edges). */
+	from: {BEFORE?: string; AFTER?: string};
+	failed: boolean;
+	retryAt: number;
+};
+
 type ClientChan = Omit<SharedChan, "messages"> & {
 	moreHistoryAvailable: boolean;
 	editTopic: boolean;
@@ -28,6 +43,12 @@ type ClientChan = Omit<SharedChan, "messages"> & {
 	inputHistoryPosition: number;
 	inputHistory: string[];
 	historyLoading: boolean;
+	/** Older lines shown in place of `messages` (client/js/pastView.ts). */
+	past: PastView | null;
+	/** One is on its way: the bar says so. */
+	pastOpening: boolean;
+	/** Taken to an older message: not read until the list reaches the bottom. */
+	readHeld: boolean;
 	scrolledToBottom: boolean;
 	usersOutdated: boolean;
 	/** Reply parents fetched for their quotes because no loaded row has them, by msgid. */

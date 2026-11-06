@@ -569,12 +569,6 @@
     "other": "{count} ignorate su questo dispositivo"
   },
   "mentions.empty": "Sei in pari",
-  "mentions.emptyHint": "Una menzione esce da questo elenco appena la leggi, qui o su qualsiasi altro dispositivo.",
-  "mentions.keys.backspace": "Backspace",
-  "mentions.keys.close": "chiudi",
-  "mentions.keys.dismiss": "ignora",
-  "mentions.keys.move": "sposta",
-  "mentions.keys.open": "apri",
   "mentions.missingChannel": "Non sei in {target}: entra per leggerle, oppure ignorale.",
   "mentions.missingChannelOn": "Non sei in {target} su {network}: entra per leggerle, oppure ignorale.",
   "mentions.missingNetwork": "La sua rete non è in questa pagina: ignorale.",
@@ -646,10 +640,8 @@
   "message.redactedHide": "Clicca per nasconderlo di nuovo",
   "message.redactedReveal": "Messaggio eliminato, clicca per mostrarlo",
   "message.reply": "Rispondi",
-  "message.replyMissing": "Risposta a un messaggio non caricato",
   "message.replyUnknown": "(messaggio sconosciuto)",
   "message.replyingTo": "Risposta a {nick}: {text}. Vai a quel messaggio.",
-  "message.replyingToParent": "Risposta a {nick}: {text}.",
   "message.shownInActive": "Questo messaggio è stato visualizzato nel tuo canale attivo",
   "message.statusmsg": "Questo messaggio è stato mostrato solo agli utenti con la modalità {mode}",
   "msg.ctcpTitle": "Protocollo client a client",
@@ -1944,7 +1936,6 @@
   "search.filters.toDay": "Fino a questo giorno",
   "search.filters.without": "Senza queste parole",
   "search.openForm": "Cerca messaggi in questo canale",
-  "search.placeholder": "Cerca messaggi…",
   "search.results.aria": "Risultati della ricerca",
   "search.window.allChannels": "tutti i miei canali",
   "search.window.allHidden": {
@@ -1952,7 +1943,6 @@
     "other": "{count} risultati, tutti nascosti dai tuoi filtri"
   },
   "search.window.allHiddenNote": "Messaggi più vecchi potrebbero ancora corrispondere. Cercato fino a {when}.",
-  "search.window.around": "{day} · verso le {time}",
   "search.window.asking": "Richiesta al server…",
   "search.window.back": "Torna a {channel}",
   "search.window.backTo": "fino a {when}",
@@ -1962,12 +1952,7 @@
   "search.window.chip.from": "Da",
   "search.window.chip.has": "Contiene",
   "search.window.chip.without": "Senza",
-  "search.window.closeContext": "Chiudi il contesto",
-  "search.window.contextAria": "Messaggi attorno a questo",
-  "search.window.contextFailed": "Non è stato possibile caricare le righe attorno a questa.",
-  "search.window.contextLoading": "Caricamento delle righe attorno a questa…",
   "search.window.dayAndTime": "{day}, {time}",
-  "search.window.earlier": "Prima",
   "search.window.editFilters": "Modifica filtri",
   "search.window.errorFailed": "Il server non è riuscito a eseguire questa ricerca.",
   "search.window.errorInvalid": "Questa ricerca non può essere inviata.",
@@ -1978,12 +1963,10 @@
   "search.window.failed": "Ricerca non riuscita",
   "search.window.field": "Cerca messaggi",
   "search.window.filters": "Filtri",
-  "search.window.goTo": "Vai a {channel}",
   "search.window.hiddenCount": {
     "one": "{count} nascosto dai filtri",
     "other": "{count} nascosti dai filtri"
   },
-  "search.window.later": "Dopo",
   "search.window.loadedInstead": {
     "one": "Si cerca invece nel {count} messaggio caricato su questo dispositivo. I filtri funzionano comunque.",
     "other": "Si cerca invece nei {count} messaggi caricati su questo dispositivo. I filtri funzionano comunque."
@@ -1997,7 +1980,6 @@
   "search.window.nothingOlder": "Niente di più vecchio",
   "search.window.offline": "Non connesso",
   "search.window.older": "Cerca più vecchi",
-  "search.window.openInChannel": "Apri nel canale",
   "search.window.placeholder": "Cerca in {scope}",
   "search.window.removeFilter": "Rimuovi il filtro {filter}",
   "search.window.retry": "Riprova",

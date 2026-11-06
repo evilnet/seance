@@ -571,12 +571,6 @@
     "other": "{count} auf diesem Gerät verworfen"
   },
   "mentions.empty": "Alles gelesen",
-  "mentions.emptyHint": "Eine Erwähnung verschwindet aus dieser Liste, sobald Sie sie lesen – hier oder auf einem anderen Gerät.",
-  "mentions.keys.backspace": "Rück",
-  "mentions.keys.close": "schließen",
-  "mentions.keys.dismiss": "verwerfen",
-  "mentions.keys.move": "bewegen",
-  "mentions.keys.open": "öffnen",
   "mentions.missingChannel": "Nicht in {target}: Betreten Sie den Kanal, um sie zu lesen, oder verwerfen Sie sie.",
   "mentions.missingChannelOn": "Nicht in {target} auf {network}: Betreten Sie den Kanal, um sie zu lesen, oder verwerfen Sie sie.",
   "mentions.missingNetwork": "Das Netzwerk ist auf dieser Seite nicht vorhanden: Verwerfen Sie sie.",
@@ -648,10 +642,8 @@
   "message.redactedHide": "Zum Ausblenden klicken",
   "message.redactedReveal": "Gelöschte Nachricht, zum Anzeigen klicken",
   "message.reply": "Antwort",
-  "message.replyMissing": "Antwort auf eine Nachricht, die nicht geladen ist",
   "message.replyUnknown": "(unbekannte Nachricht)",
   "message.replyingTo": "Antwort an {nick}: {text}. Zu dieser Nachricht springen.",
-  "message.replyingToParent": "Antwort an {nick}: {text}.",
   "message.shownInActive": "Diese Nachricht wurde in Ihrem aktiven Kanal angezeigt",
   "message.statusmsg": "Diese Nachricht wurde nur Benutzern mit Modus {mode} angezeigt",
   "msg.ctcpTitle": "Client-zu-Client-Protokoll",
@@ -1960,7 +1952,6 @@
   "search.filters.toDay": "Bis zu diesem Tag",
   "search.filters.without": "Ohne diese Wörter",
   "search.openForm": "Nachrichten in diesem Kanal durchsuchen",
-  "search.placeholder": "Nachrichten durchsuchen…",
   "search.results.aria": "Suchergebnisse",
   "search.window.allChannels": "alle meine Kanäle",
   "search.window.allHidden": {
@@ -1968,7 +1959,6 @@
     "other": "{count} Treffer, alle von Ihren Filtern ausgeblendet"
   },
   "search.window.allHiddenNote": "Ältere Nachrichten könnten noch passen. Durchsucht bis {when}.",
-  "search.window.around": "{day} · um {time}",
   "search.window.asking": "Der Server wird gefragt…",
   "search.window.back": "Zurück zu {channel}",
   "search.window.backTo": "bis {when}",
@@ -1979,12 +1969,7 @@
   "search.window.chip.from": "Von",
   "search.window.chip.has": "Enthält",
   "search.window.chip.without": "Ohne",
-  "search.window.closeContext": "Kontext schließen",
-  "search.window.contextAria": "Nachrichten um diese herum",
-  "search.window.contextFailed": "Die Zeilen um diese herum konnten nicht geladen werden.",
-  "search.window.contextLoading": "Die Zeilen um diese herum werden geladen…",
   "search.window.dayAndTime": "{day}, {time}",
-  "search.window.earlier": "Früher",
   "search.window.editFilters": "Filter bearbeiten",
   "search.window.errorFailed": "Der Server konnte diese Suche nicht ausführen.",
   "search.window.errorInvalid": "Diese Suche lässt sich nicht senden.",
@@ -1995,12 +1980,10 @@
   "search.window.failed": "Suche fehlgeschlagen",
   "search.window.field": "Nachrichten durchsuchen",
   "search.window.filters": "Filter",
-  "search.window.goTo": "Zu {channel}",
   "search.window.hiddenCount": {
     "one": "{count} von Filtern ausgeblendet",
     "other": "{count} von Filtern ausgeblendet"
   },
-  "search.window.later": "Später",
   "search.window.loadedInstead": {
     "one": "Stattdessen wird die {count} auf diesem Gerät geladene Nachricht durchsucht. Filter funktionieren weiterhin.",
     "other": "Stattdessen werden die {count} auf diesem Gerät geladenen Nachrichten durchsucht. Filter funktionieren weiterhin."
@@ -2014,7 +1997,6 @@
   "search.window.nothingOlder": "Nichts Älteres gefunden",
   "search.window.offline": "Nicht verbunden",
   "search.window.older": "Ältere suchen",
-  "search.window.openInChannel": "Im Kanal öffnen",
   "search.window.placeholder": "{scope} durchsuchen",
   "search.window.removeFilter": "Filter {filter} entfernen",
   "search.window.retry": "Erneut versuchen",

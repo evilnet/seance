@@ -3097,6 +3097,38 @@ html[data-reduce-motion] #chat .connecting-indicator {
 	cursor: pointer;
 }
 
+/* Above the composer: the way back from older messages, or to search's results. */
+.past-bar {
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: 0.5rem;
+	padding: 0.375rem 0.75rem;
+	border-top: 1px solid var(--oper-line);
+	background: var(--window-bg-color);
+	font-size: 0.8125rem;
+}
+
+.past-bar-text {
+	min-width: 0;
+	color: var(--body-color-muted);
+}
+
+.past-bar .btn {
+	flex: none;
+	margin: 0;
+}
+
+.past-bar .btn:first-of-type {
+	margin-inline-start: auto;
+}
+
+@media (max-width: 768px) {
+	.past-bar .btn {
+		min-height: 2.75rem;
+	}
+}
+
 .scroll-down:focus:not(:focus-visible)::before,
 .scroll-down:focus:not(:focus-visible)::after {
 	display: none;
@@ -8186,7 +8218,6 @@ html[data-shell="native"] #image-viewer .next-image-btn {
 }
 
 #chat .msg-reply-quote.unknown {
-	cursor: default;
 	font-style: italic;
 }
 

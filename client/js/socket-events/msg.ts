@@ -1,4 +1,5 @@
 import {t} from "../i18n/core";
+import {editRow} from "../helpers/pastRows";
 import socket from "../socket";
 import {notificationText} from "../push/strip";
 import {store} from "../store";
@@ -80,6 +81,11 @@ socket.on("msg", function (data) {
 	// ahead of them.
 	insertMessage(channel.messages, data.msg);
 
+	// The edit of a line in a past view; a pending copy waits for its echo.
+	if (channel.past && data.msg.editOf && !data.msg.pending) {
+		editRow(channel.past.rows, data.msg);
+	}
+
 	let shellAlerted = false;
 
 	if (data.msg.self) {
@@ -112,7 +118,8 @@ socket.on("msg", function (data) {
 		const lookingAtIt =
 			document.visibilityState === "visible" &&
 			document.hasFocus() &&
-			store.state.activeChannel?.channel === receivingChannel.channel;
+			store.state.activeChannel?.channel === receivingChannel.channel &&
+			!receivingChannel.channel.readHeld;
 
 		if (!data.replay || lookingAtIt) {
 			recordSeenMsgid(data.msg.msgid);
@@ -131,8 +138,9 @@ socket.on("msg", function (data) {
 	if (!isActiveChannel) {
 		// If message arrives in non active channel, keep only 100 messages
 		messageLimit = 100;
-	} else if (channel.scrolledToBottom) {
-		// If message arrives in active channel, keep 1500 messages if scroll is currently at the bottom
+	} else if (channel.scrolledToBottom || channel.past) {
+		// If message arrives in active channel, keep 1500 messages if scroll is currently at the bottom,
+		// or if the buffer is out of sight behind a past view
 		// One history load may load up to 1000 messages at once if condendesed or hidden events are enabled
 		messageLimit = 1500;
 	}
@@ -195,7 +203,12 @@ function notifyMessage(
 		msg.highlight ||
 		(store.state.settings.notifyAllMessages && msg.type === MessageType.MESSAGE)
 	) {
-		if (!document.hasFocus() || !activeChannel || activeChannel.channel !== channel) {
+		if (
+			!document.hasFocus() ||
+			!activeChannel ||
+			activeChannel.channel !== channel ||
+			channel.readHeld
+		) {
 			requestAttention();
 			const native = nativeAlertsAvailable();
 			const ua = navigator.userAgent;

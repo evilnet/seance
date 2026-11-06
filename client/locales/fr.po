@@ -116,6 +116,54 @@ msgid_plural "Open your mentions, {count} unread"
 msgstr[0] "Ouvrir vos mentions, {count} non lue"
 msgstr[1] "Ouvrir vos mentions, {count} non lues"
 
+#. Button on the bar shown while reading older messages in the main window: returns to the search results this message was opened from.
+#: client/components/Chat.vue
+msgctxt "chat.past.backToResults"
+msgid "Back to results"
+msgstr ""
+
+#. Error toast: the server answered, but no longer has the older message the reader asked to go to.
+#: client/js/socket-events/past.ts
+msgctxt "chat.past.gone"
+msgid "That message is no longer available."
+msgstr ""
+
+#. Button on the bar shown while reading older messages in the main window: leaves them for the newest messages.
+#: client/components/Chat.vue
+msgctxt "chat.past.jumpToPresent"
+msgid "Jump to present"
+msgstr ""
+
+#. Status on the bar over the message list: another page of older messages failed to load; scrolling tries again.
+#: client/components/Chat.vue
+msgctxt "chat.past.loadFailed"
+msgid "Could not load more. Scroll to try again."
+msgstr ""
+
+#. Status on the bar over the message list while an older message the reader asked for is being fetched from the server.
+#: client/components/Chat.vue
+msgctxt "chat.past.loading"
+msgid "Loading that message…"
+msgstr ""
+
+#. Error toast: an older message the reader asked to go to could not be fetched from the server.
+#: client/js/socket-events/past.ts
+msgctxt "chat.past.notLoaded"
+msgid "That message could not be loaded."
+msgstr ""
+
+#. Error toast: the reader asked to go to an older message, but the IRC server offers no message history.
+#: client/js/socket-events/past.ts
+msgctxt "chat.past.unsupported"
+msgid "This server cannot fetch older messages."
+msgstr ""
+
+#. Status on the bar over the message list: the main window is showing older messages, not the newest ones.
+#: client/components/Chat.vue
+msgctxt "chat.past.viewing"
+msgid "You're viewing older messages"
+msgstr ""
+
 #. aria-label of the save control at the right end of the topic editor, shown while the channel topic is being edited; clicking saves the new topic.
 #: client/components/Chat.vue:35
 msgctxt "chat.saveTopic"
@@ -2253,6 +2301,24 @@ msgctxt "help.shortcuts.helpMenu"
 msgid "Switch to the help menu."
 msgstr "Passer au menu d'aide."
 
+#. Help page, keyboard shortcuts table: what the Backspace key does while the popup listing the messages that mention you is open.
+#: client/components/Windows/Help.vue
+msgctxt "help.shortcuts.mentionsDismiss"
+msgid "In the mentions popup: dismiss the mention."
+msgstr ""
+
+#. Help page, keyboard shortcuts table: what the up and down arrow keys do while the popup listing the messages that mention you is open.
+#: client/components/Windows/Help.vue
+msgctxt "help.shortcuts.mentionsMove"
+msgid "In the mentions popup: move between mentions."
+msgstr ""
+
+#. Help page, keyboard shortcuts table: what the Enter key does while the popup listing the messages that mention you is open.
+#: client/components/Windows/Help.vue
+msgctxt "help.shortcuts.mentionsOpen"
+msgid "In the mentions popup: open the mention."
+msgstr ""
+
 #. Description of the Alt+Shift+Down keyboard shortcut in the help window; it moves to the next network's home view in the sidebar.
 #: client/components/Windows/Help.vue
 msgctxt "help.shortcuts.nextLobby"
@@ -3304,41 +3370,13 @@ msgctxt "mentions.empty"
 msgid "You're all caught up"
 msgstr "Vous êtes à jour"
 
-#. Hint under the empty mentions popup's title, explaining what clears the list.
+#. Hint under the empty mentions popup's title, explaining what clears the list: a mention stays, dimmed after it is read, until it is closed or 7 days pass.
 #: client/components/Mentions.vue:41
+#: client/components/Mentions.vue
+#, fuzzy
 msgctxt "mentions.emptyHint"
-msgid "A mention leaves this list once you read it, here or on any other device."
+msgid "Mentions stay here, dimmed once read, until you close them or for 7 days."
 msgstr "Une mention quitte cette liste dès que vous la lisez, ici ou sur un autre appareil."
-
-#. Keyboard legend at the bottom of the mentions popup: the Backspace key's label as printed on keyboards in your language, abbreviated to a few letters (shown in a small key cap). Keep it as short as the English.
-#: client/components/Mentions.vue
-msgctxt "mentions.keys.backspace"
-msgid "Bksp"
-msgstr "Retour"
-
-#. Keyboard legend at the bottom of the mentions popup, after Alt+M: it closes the popup. One short lower-case word.
-#: client/components/Mentions.vue
-msgctxt "mentions.keys.close"
-msgid "close"
-msgstr "fermer"
-
-#. Keyboard legend at the bottom of the mentions popup, after the Backspace key: it dismisses the focused row. One short lower-case word.
-#: client/components/Mentions.vue
-msgctxt "mentions.keys.dismiss"
-msgid "dismiss"
-msgstr "ignorer"
-
-#. Keyboard legend at the bottom of the mentions popup, after the ↑ ↓ keys: they move between the rows. One short lower-case word.
-#: client/components/Mentions.vue
-msgctxt "mentions.keys.move"
-msgid "move"
-msgstr "déplacer"
-
-#. Keyboard legend at the bottom of the mentions popup, after the ↵ (Enter) key: it opens the conversation of the focused row. One short lower-case word.
-#: client/components/Mentions.vue
-msgctxt "mentions.keys.open"
-msgid "open"
-msgstr "ouvrir"
 
 #. Shown under a channel in the mentions popup that you are no longer in. {target} is the channel name, shown verbatim.
 #: client/components/Mentions.vue:509
@@ -3387,6 +3425,22 @@ msgstr "Non connecté : cela s'ouvrira une fois de retour dans {target}."
 msgctxt "mentions.open"
 msgid "Open {target}"
 msgstr "Ouvrir {target}"
+
+#. Button above a conversation's rows in the mentions popup: shows the older mentions held back so one conversation cannot fill the pane. {count} is how many. The singular form shows for one, the plural for any other number.
+#: client/components/Mentions.vue
+msgctxt "mentions.showMore"
+msgid "Show {count} more"
+msgid_plural "Show {count} more"
+msgstr[0] ""
+msgstr[1] ""
+
+#. The same button in the mentions popup when some of the held-back mentions are not read yet. {count} is how many are held back, {unread} how many of those are unread. The singular form shows for a {count} of one, the plural for any other number.
+#: client/components/Mentions.vue
+msgctxt "mentions.showMoreUnread"
+msgid "Show {count} more · {unread} unread"
+msgid_plural "Show {count} more · {unread} unread"
+msgstr[0] ""
+msgstr[1] ""
 
 #. Accessible name of a conversation's section in the mentions popup when several chat networks are set up. {target} is a channel name or nick, {network} the chat network's display name.
 #: client/components/Mentions.vue:517
@@ -3625,6 +3679,12 @@ msgctxt "message.actionsToolbar"
 msgid "Message actions"
 msgstr "Actions du message"
 
+#. Error toast: the reader activated a quoted reply whose original message is not loaded while the network is disconnected.
+#: client/components/Message.vue
+msgctxt "message.connectToLoad"
+msgid "Connect to load that message."
+msgstr ""
+
 #. Short label shown for a moment over a chat message after its text or code was copied to the clipboard from the message toolbar.
 #: client/components/MessageActions.vue:34
 #: client/components/MessageActions.vue
@@ -3754,10 +3814,12 @@ msgctxt "message.reply"
 msgid "Reply"
 msgstr "Répondre"
 
-#. aria-label of the quoted-message button on a chat message when the message being replied to is not in the loaded scrollback, so it cannot be jumped to.
+#. Accessible name of a reply's quote when the original message is not loaded: activating it goes to that message.
 #: client/components/Message.vue:294
+#: client/components/Message.vue
+#, fuzzy
 msgctxt "message.replyMissing"
-msgid "Replying to a message that is not loaded"
+msgid "Replying to a message that is not loaded. Jump to it."
 msgstr "Réponse à un message non chargé"
 
 #. Visible text of the quoted-message button on a chat message when the message being replied to is not in the loaded scrollback; it stands in for the quoted text. Parenthesized.
@@ -3771,12 +3833,6 @@ msgstr "(message inconnu)"
 msgctxt "message.replyingTo"
 msgid "Replying to {nick}: {text}. Jump to that message."
 msgstr "Réponse à {nick} : {text}. Aller à ce message."
-
-#. aria-label of the quoted-message button on a chat message that is a reply, when the message replied to was fetched from the server and is not in the scrollback, so there is nothing to jump to. {nick} is the name of the user who wrote the quoted message, {text} its content as plain text.
-#: client/components/Message.vue
-msgctxt "message.replyingToParent"
-msgid "Replying to {nick}: {text}."
-msgstr "Réponse à {nick} : {text}."
 
 #. Tooltip of the small marker on a chat message that arrived while you had another channel open; the server delivered it to the active window only.
 #: client/components/Message.vue:118
@@ -11710,12 +11766,6 @@ msgctxt "search.openForm"
 msgid "Search messages in this channel"
 msgstr "Chercher des messages dans ce canal"
 
-#. Placeholder of the message-search field that opens from the magnifier in a chat window's header; it filters this conversation's history.
-#: client/components/MessageSearchForm.vue:10
-msgctxt "search.placeholder"
-msgid "Search messages…"
-msgstr "Chercher des messages…"
-
 #. aria-label of the search-results view of the chat window, which lists the messages matching a search.
 #: client/components/Windows/SearchResults.vue
 msgctxt "search.results.aria"
@@ -11741,12 +11791,6 @@ msgstr[1] "{count} résultats, tous masqués par vos filtres"
 msgctxt "search.window.allHiddenNote"
 msgid "Older messages may still match. Searched back to {when}."
 msgstr "Des messages plus anciens peuvent encore correspondre. Recherche jusqu'au {when}."
-
-#. Search window (searching the chat history of the server, or of what is loaded on this device): the head of the side pane showing the messages around a search hit: the hit's day and time. {day} is 'Today', 'Yesterday' or a date; {time} a clock time. Keep the middle dot.
-#: client/components/Windows/SearchResults.vue
-msgctxt "search.window.around"
-msgid "{day} · around {time}"
-msgstr "{day} · vers {time}"
 
 #. Search window (searching the chat history of the server, or of what is loaded on this device): shown while the server runs the search.
 #: client/components/Windows/SearchResults.vue
@@ -11808,41 +11852,11 @@ msgctxt "search.window.chip.without"
 msgid "Without"
 msgstr "Sans"
 
-#. Search window (searching the chat history of the server, or of what is loaded on this device): label of the button that closes the side pane of messages around a hit.
-#: client/components/Windows/SearchResults.vue
-msgctxt "search.window.closeContext"
-msgid "Close context"
-msgstr "Fermer le contexte"
-
-#. Search window (searching the chat history of the server, or of what is loaded on this device): aria-label of the side pane showing the messages before and after the chosen search hit.
-#: client/components/Windows/SearchResults.vue
-msgctxt "search.window.contextAria"
-msgid "Messages around this one"
-msgstr "Messages autour de celui-ci"
-
-#. Search window (searching the chat history of the server, or of what is loaded on this device): in the side pane of messages around a hit, when the server's history could not be read.
-#: client/components/Windows/SearchResults.vue
-msgctxt "search.window.contextFailed"
-msgid "The lines around this one could not be loaded."
-msgstr "Les lignes autour de celle-ci n'ont pas pu être chargées."
-
-#. Search window (searching the chat history of the server, or of what is loaded on this device): in the side pane of messages around a hit, while they load.
-#: client/components/Windows/SearchResults.vue
-msgctxt "search.window.contextLoading"
-msgid "Loading the lines around this one…"
-msgstr "Chargement des lignes autour de celle-ci…"
-
 #. Search window (searching the chat history of the server, or of what is loaded on this device): a day and a time together (how far back the search went). {day} is a short date ('4 Nov'), {time} a clock time. Order and punctuation are your language's.
 #: client/components/Windows/SearchResults.vue
 msgctxt "search.window.dayAndTime"
 msgid "{day}, {time}"
 msgstr "{day}, {time}"
-
-#. Search window (searching the chat history of the server, or of what is loaded on this device): button in the side pane of messages around a hit: loads older messages. One word.
-#: client/components/Windows/SearchResults.vue
-msgctxt "search.window.earlier"
-msgid "Earlier"
-msgstr "Plus tôt"
 
 #. Search window (searching the chat history of the server, or of what is loaded on this device): button that opens the filters sheet. Two words.
 #: client/components/Windows/SearchResults.vue
@@ -11906,12 +11920,6 @@ msgctxt "search.window.filters"
 msgid "Filters"
 msgstr "Filtres"
 
-#. Search window (searching the chat history of the server, or of what is loaded on this device): button in the side pane of a hit from a channel that is not open here: opens that channel. {channel} is its name (verbatim).
-#: client/components/Windows/SearchResults.vue
-msgctxt "search.window.goTo"
-msgid "Go to {channel}"
-msgstr "Aller à {channel}"
-
 #. Search window (searching the chat history of the server, or of what is loaded on this device): in the status line under the results: how many matches the filters hide. {count} is a number. Lower case.
 #: client/components/Windows/SearchResults.vue
 msgctxt "search.window.hiddenCount"
@@ -11926,11 +11934,11 @@ msgctxt "search.window.inScope"
 msgid "In {scope}"
 msgstr "Dans {scope}"
 
-#. Search window (searching the chat history of the server, or of what is loaded on this device): button in the side pane of messages around a hit: loads newer messages. One word.
+#. Note on the search results when a hit's channel is not joined. {target} is the channel name, verbatim.
 #: client/components/Windows/SearchResults.vue
-msgctxt "search.window.later"
-msgid "Later"
-msgstr "Plus tard"
+msgctxt "search.window.joinToRead"
+msgid "Join {target} to read this message."
+msgstr ""
 
 #. Search window (searching the chat history of the server, or of what is loaded on this device): under a warning that the server cannot search (or is not connected): the search runs over what this device has loaded. {count} is a number.
 #: client/components/Windows/SearchResults.vue
@@ -11978,11 +11986,11 @@ msgctxt "search.window.older"
 msgid "Search older"
 msgstr "Chercher plus ancien"
 
-#. Search window (searching the chat history of the server, or of what is loaded on this device): button in the side pane of a hit: opens the chat at that message.
+#. Note on the search results when a hit's private conversation is not open. {target} is the person's nick, verbatim.
 #: client/components/Windows/SearchResults.vue
-msgctxt "search.window.openInChannel"
-msgid "Open in channel"
-msgstr "Ouvrir dans le salon"
+msgctxt "search.window.openToRead"
+msgid "Open a conversation with {target} to read this message."
+msgstr ""
 
 #. Search window (searching the chat history of the server, or of what is loaded on this device): placeholder of the search field. {scope} is a channel name (verbatim) or 'all my channels' (search.window.allChannels).
 #: client/components/Windows/SearchResults.vue
@@ -14649,6 +14657,12 @@ msgctxt "translate.model.announce"
 msgid "{model} ({device}): {state}"
 msgstr "{model} ({device}) : {state}"
 
+#. The name of a translation engine in Settings → Translation: the device's own translator (Apple's Translation framework on iPhone, iPad and Mac), which uses the language packs downloaded in the system settings. "Apple Translation" is the feature's name; keep it recognisable.
+#: client/js/helpers/modelLabel.ts
+msgctxt "translate.model.apple"
+msgid "Apple Translation (built into the system)"
+msgstr ""
+
 #. Settings → Translation, one copy of a translation model (the GPU one or the CPU one, named before it): its files are on this device. {size} is its download size with its unit, already formatted, e.g. "938.4 MiB". Keep the middle dot as a separator.
 #: client/components/Settings/Translation.vue
 msgctxt "translate.model.copyDownloaded"
@@ -14709,72 +14723,6 @@ msgstr "Nécessite un tampon GPU de {needed} ; cet appareil lie au plus {limit}"
 msgctxt "translate.model.nllb"
 msgid "NLLB-200 600M (200 languages)"
 msgstr "NLLB-200 600M (200 langues)"
-
-#. The name of a translation engine in Settings → Translation: the device's own translator (Apple's Translation framework on iPhone, iPad and Mac), which uses the language packs downloaded in the system settings. "Apple Translation" is the feature's name; keep it recognisable.
-#: client/js/helpers/modelLabel.ts
-msgctxt "translate.model.apple"
-msgid "Apple Translation (built into the system)"
-msgstr ""
-
-#. Heading of the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable.
-#: client/components/Settings/TranslationOptions.vue
-msgctxt "translate.system.heading"
-msgid "Apple Translation"
-msgstr ""
-
-#. Switch in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. On: a language whose pack is downloaded on the device is translated by the system instead of the models below.
-#: client/components/Settings/TranslationOptions.vue
-msgctxt "translate.system.switch"
-msgid "Translate with Apple Translation when the language is downloaded"
-msgstr ""
-
-#. Explanation under the switch in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. "Language packs" are the system's downloadable languages.
-#: client/components/Settings/TranslationOptions.vue
-msgctxt "translate.system.hint"
-msgid "It runs on this device with language packs from the system, and is fast. Other languages use the models below."
-msgstr ""
-
-#. Label (for screen readers) of the language picker in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. The user picks a language to translate from, to check or download its pack.
-#: client/components/Settings/TranslationOptions.vue
-msgctxt "translate.system.sourceLabel"
-msgid "Language to download"
-msgstr ""
-
-#. Button in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. Opens the system's own sheet that downloads the picked language's pack.
-#: client/components/Settings/TranslationOptions.vue
-msgctxt "translate.system.download"
-msgid "Download"
-msgstr ""
-
-#. Status line in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. {from} and {to} are language names. Shown while the system's download sheet is open.
-#: client/components/Settings/TranslationOptions.vue
-msgctxt "translate.system.asking"
-msgid "{from} → {to}: waiting for the download…"
-msgstr ""
-
-#. Status line in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. {from} and {to} are language names.
-#: client/components/Settings/TranslationOptions.vue
-msgctxt "translate.system.installed"
-msgid "{from} → {to}: downloaded. Apple Translation translates it."
-msgstr ""
-
-#. Status line in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. {from} and {to} are language names. The pack can be downloaded with the button.
-#: client/components/Settings/TranslationOptions.vue
-msgctxt "translate.system.supported"
-msgid "{from} → {to}: not downloaded yet."
-msgstr ""
-
-#. Status line in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. {from} and {to} are language names. The models below may still translate it.
-#: client/components/Settings/TranslationOptions.vue
-msgctxt "translate.system.unsupported"
-msgid "{from} → {to}: Apple Translation does not offer this pair on this device."
-msgstr ""
-
-#. Status line in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. {from} and {to} are language names. Shown when the download sheet closed without the pack. "Settings → Apps → Translate" is the path in the iPhone's Settings app; use the system's own names for it.
-#: client/components/Settings/TranslationOptions.vue
-msgctxt "translate.system.notDownloaded"
-msgid "{from} → {to}: not downloaded. You can also download languages in Settings → Apps → Translate."
-msgstr ""
 
 #. The name of a translation model in Settings → Translation: an OPUS-MT pair. {from} and {to} are language names. OPUS-MT is a product name.
 #: client/js/helpers/modelLabel.ts
@@ -15303,6 +15251,66 @@ msgstr "Envoyer la traduction"
 msgctxt "translate.strip.sourceAuto"
 msgid "auto"
 msgstr "automatique"
+
+#. Status line in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. {from} and {to} are language names. Shown while the system's download sheet is open.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.system.asking"
+msgid "{from} → {to}: waiting for the download…"
+msgstr ""
+
+#. Button in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. Opens the system's own sheet that downloads the picked language's pack.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.system.download"
+msgid "Download"
+msgstr ""
+
+#. Heading of the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.system.heading"
+msgid "Apple Translation"
+msgstr ""
+
+#. Explanation under the switch in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. "Language packs" are the system's downloadable languages.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.system.hint"
+msgid "It runs on this device with language packs from the system, and is fast. Other languages use the models below."
+msgstr ""
+
+#. Status line in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. {from} and {to} are language names.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.system.installed"
+msgid "{from} → {to}: downloaded. Apple Translation translates it."
+msgstr ""
+
+#. Status line in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. {from} and {to} are language names. Shown when the download sheet closed without the pack. "Settings → Apps → Translate" is the path in the iPhone's Settings app; use the system's own names for it.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.system.notDownloaded"
+msgid "{from} → {to}: not downloaded. You can also download languages in Settings → Apps → Translate."
+msgstr ""
+
+#. Label (for screen readers) of the language picker in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. The user picks a language to translate from, to check or download its pack.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.system.sourceLabel"
+msgid "Language to download"
+msgstr ""
+
+#. Status line in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. {from} and {to} are language names. The pack can be downloaded with the button.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.system.supported"
+msgid "{from} → {to}: not downloaded yet."
+msgstr ""
+
+#. Switch in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. On: a language whose pack is downloaded on the device is translated by the system instead of the models below.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.system.switch"
+msgid "Translate with Apple Translation when the language is downloaded"
+msgstr ""
+
+#. Status line in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. {from} and {to} are language names. The models below may still translate it.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.system.unsupported"
+msgid "{from} → {to}: Apple Translation does not offer this pair on this device."
+msgstr ""
 
 #. Line under the CPU models in Settings → Translation: the language model would run on {count} processor threads (CPU) after the app is reloaded; this page cannot use more than one yet. {count} is that number, 2 or more in practice. A thread is a parallel strand of computation.
 #: client/js/helpers/translateWhy.ts
