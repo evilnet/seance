@@ -14,6 +14,7 @@ import {privilegesModified} from "../oper";
 import {noteServicesLine, snoopNicks} from "../servicesfeed";
 import {handleServerNotice, handleWallops} from "../snotice";
 import {EDIT_TAG, REPLY_TAG, trailingLine} from "../wire";
+import {noteListDelay} from "./list";
 import type {Handler} from "../types";
 import {ignoreListFor} from "../../ignore";
 import {scriptManager} from "../scripting/manager";
@@ -144,6 +145,11 @@ function handleMessage(
 			return;
 		}
 	} else if (fromServer) {
+		// nefarious2's "wait N seconds before /list": the channel browser shows it.
+		if (type === MessageType.NOTICE && noteListDelay(client, text)) {
+			return;
+		}
+
 		nick = nick || client.options.host;
 		chan = client.findChannel(target);
 

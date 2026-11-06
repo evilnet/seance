@@ -34,12 +34,15 @@
 			autocomplete="new-password"
 		/>
 		<button type="submit" class="btn btn-small">{{ t("join.submit") }}</button>
+		<button type="button" class="btn btn-small join-browse" @click="browse">
+			{{ t("browse.sidebarButton") }}
+		</button>
 	</form>
 </template>
 
 <script lang="ts">
 import {computed, defineComponent, PropType, ref} from "vue";
-import {switchToChannel} from "../js/router";
+import {navigate, switchToChannel} from "../js/router";
 import socket from "../js/socket";
 import {useStore} from "../js/store";
 import {useI18n} from "../js/i18n";
@@ -92,8 +95,14 @@ export default defineComponent({
 			emit("toggle-join-channel");
 		};
 
+		const browse = () => {
+			emit("toggle-join-channel");
+			void navigate("ChannelBrowser", {uuid: props.network.uuid});
+		};
+
 		return {
 			t,
+			browse,
 			channelPlaceholder,
 			channelHint,
 			passwordPlaceholder,

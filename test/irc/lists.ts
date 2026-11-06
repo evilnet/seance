@@ -165,7 +165,7 @@ describe("IRC channel list numerics (lists.ts)", function () {
 			expect(joins).to.have.length(1);
 			const {chan, index, shouldOpen, network} = joins[0];
 			expect(network).to.equal(client.uuid);
-			expect(shouldOpen).to.equal(false);
+			expect(shouldOpen, "the window the user asked for opens").to.equal(true);
 			expect(index).to.be.at.least(1);
 			expect(chan.name).to.equal("Ban list for #seance");
 			expect(chan.type).to.equal(ChanType.SPECIAL);

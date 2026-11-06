@@ -3238,10 +3238,12 @@ select option {
  * wins (style.css's and the components' black and white smudges, coffee's
  * faint and muted tokens): --ps-g-placeholder, the soft ink by day and a
  * lighter one at night, where the soft ink read 3.74 on the glass's field
- * (the jump-to search, the message search, the join form). */
+ * (the jump-to search, the message search, the join form, the channel
+ * browser's search). */
 ::placeholder,
 .jump-to-input .input::placeholder,
-.reaction-picker-input::placeholder {
+.reaction-picker-input::placeholder,
+.browse-query input::placeholder {
 	color: var(--ps-g-placeholder);
 }
 

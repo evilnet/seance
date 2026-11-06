@@ -104,11 +104,8 @@ export function generateChannelContextMenu(
 				label: t("menu.listChannels"),
 				type: "item",
 				class: "list",
-				action: () =>
-					socket.emit("input", {
-						target: channel.id,
-						text: "/list",
-					}),
+				// The channel browser asks the server itself when it opens.
+				link: `/browse/${network.uuid}`,
 			},
 			{
 				label: t("menu.listIgnored"),
