@@ -195,6 +195,7 @@
   "connect.user": "Usuario",
   "connection.error": "Error de conexión: {message}",
   "dates.today": "Hoy",
+  "dates.todayAt": "Hoy {time}",
   "dates.yesterday": "Ayer",
   "dates.yesterdayAt": "Ayer {time}",
   "disconnect.code1001": "el servidor se está cerrando",

@@ -194,6 +194,7 @@
   "connect.user": "Användare",
   "connection.error": "Anslutningsfel: {message}",
   "dates.today": "I dag",
+  "dates.todayAt": "I dag {time}",
   "dates.yesterday": "I går",
   "dates.yesterdayAt": "I går {time}",
   "disconnect.code1001": "servern stängs ned",

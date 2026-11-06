@@ -205,6 +205,7 @@
   "connect.user": "Utilizator",
   "connection.error": "Eroare de conexiune: {message}",
   "dates.today": "Astăzi",
+  "dates.todayAt": "Astăzi {time}",
   "dates.yesterday": "Ieri",
   "dates.yesterdayAt": "Ieri {time}",
   "disconnect.code1001": "serverul se oprește",

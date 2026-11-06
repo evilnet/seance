@@ -216,6 +216,7 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"connect.user",
 	"connection.error",
 	"dates.today",
+	"dates.todayAt",
 	"dates.yesterday",
 	"dates.yesterdayAt",
 	"disconnect.code1001",

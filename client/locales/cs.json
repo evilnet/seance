@@ -207,6 +207,7 @@
   "connect.user": "Uživatel",
   "connection.error": "Chyba připojení: {message}",
   "dates.today": "Dnes",
+  "dates.todayAt": "Dnes {time}",
   "dates.yesterday": "Včera",
   "dates.yesterdayAt": "Včera {time}",
   "disconnect.code1001": "server končí",

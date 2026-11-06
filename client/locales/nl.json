@@ -194,6 +194,7 @@
   "connect.user": "Gebruiker",
   "connection.error": "Verbindingsfout: {message}",
   "dates.today": "Vandaag",
+  "dates.todayAt": "Vandaag {time}",
   "dates.yesterday": "Gisteren",
   "dates.yesterdayAt": "Gisteren {time}",
   "disconnect.code1001": "server wordt afgesloten",

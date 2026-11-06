@@ -1301,6 +1301,12 @@ msgctxt "dates.today"
 msgid "Today"
 msgstr "今天"
 
+#. A message's time beside it where a day header may be out of sight (search results): the message is from today. {time} is the clock time in the user's format (e.g. 21:58 or 9:58 PM).
+#: client/js/helpers/messageTime.ts
+msgctxt "dates.todayAt"
+msgid "Today {time}"
+msgstr "今天 {time}"
+
 #. Label of a date marker between message groups in the scrollback: tooltip of the divider between the messages sent the day before; older groups show the date itself.
 #: client/components/DateMarker.vue:4
 msgctxt "dates.yesterday"
@@ -12079,8 +12085,9 @@ msgctxt "search.window.close"
 msgid "Close search"
 msgstr ""
 
-#. Search window (searching the chat history of the server, or of what is loaded on this device): a day and a time together (how far back the search went). {day} is a short date ('4 Nov'), {time} a clock time. Order and punctuation are your language's.
+#. Search window (searching the chat history of the server, or of what is loaded on this device): a day and a time together, in the status line (how far back the search went) and beside each result older than yesterday. {day} is a short date ('Nov 4' in English, 'Nov 4, 2025' in another year) or, for a result from the last week, a short weekday ('Tue'); {time} a clock time. Order and punctuation are your language's.
 #: client/components/Windows/SearchResults.vue
+#: client/js/helpers/messageTime.ts
 msgctxt "search.window.dayAndTime"
 msgid "{day}, {time}"
 msgstr "{day} {time}"

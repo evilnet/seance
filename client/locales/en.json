@@ -258,6 +258,7 @@
   "connect.user": "User",
   "connection.error": "Connection error: {message}",
   "dates.today": "Today",
+  "dates.todayAt": "Today {time}",
   "dates.yesterday": "Yesterday",
   "dates.yesterdayAt": "Yesterday {time}",
   "disconnect.code1001": "server going away",

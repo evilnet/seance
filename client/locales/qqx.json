@@ -257,6 +257,7 @@
   "connect.user": "‫üśéŕüśéŕ‬",
   "connection.error": "‫ċöññéċţïöñ éŕŕöŕ: {message}ċöññéċţïöñ éŕŕöŕ: {message}‬",
   "dates.today": "‫ţöḋàýţöḋàý‬",
+  "dates.todayAt": "‫ţöḋàý {time}ţöḋàý {time}‬",
   "dates.yesterday": "‫ýéśţéŕḋàýýéśţéŕḋàý‬",
   "dates.yesterdayAt": "‫ýéśţéŕḋàý {time}ýéśţéŕḋàý {time}‬",
   "disconnect.code1001": "‫śéŕṽéŕ ġöïñġ àẃàýśéŕṽéŕ ġöïñġ àẃàý‬",

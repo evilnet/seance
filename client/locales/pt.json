@@ -195,6 +195,7 @@
   "connect.user": "Usuário",
   "connection.error": "Erro de conexão: {message}",
   "dates.today": "Hoje",
+  "dates.todayAt": "Hoje {time}",
   "dates.yesterday": "Ontem",
   "dates.yesterdayAt": "Ontem {time}",
   "disconnect.code1001": "servidor encerrando",

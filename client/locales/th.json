@@ -184,6 +184,7 @@
   "connect.user": "ผู้ใช้",
   "connection.error": "ข้อผิดพลาดในการเชื่อมต่อ: {message}",
   "dates.today": "วันนี้",
+  "dates.todayAt": "วันนี้ {time}",
   "dates.yesterday": "เมื่อวาน",
   "dates.yesterdayAt": "เมื่อวาน {time}",
   "disconnect.code1001": "เซิร์ฟเวอร์กำลังปิดตัว",

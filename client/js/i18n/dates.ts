@@ -91,6 +91,15 @@ export function formatShortDay(ms: number, withYear: boolean): string {
 	).format(ms);
 }
 
+/** A weekday's short name, "Tue", in the active language. */
+export function formatWeekday(ms: number): string {
+	const tag = activeLocale();
+	return formatter(
+		`weekday-${tag}`,
+		() => new Intl.DateTimeFormat(tag, {weekday: "short"})
+	).format(ms);
+}
+
 /** Date-marker tooltip: Today / Yesterday / the date (t = core t). */
 export function formatRelativeDay(ms: number, t: (key: string) => string): string {
 	const toDay = (d: Date) =>
