@@ -30,15 +30,16 @@ export function useStorageBackend(next: StorageBackend | null): void {
 	backend = next ?? storage;
 }
 
-/** `query` in front of `list`, once, and the tail cut to `limit`. Blank is ignored. */
-export function mergeRecent(list: string[], query: string, limit = MAX_RECENT): string[] {
-	const q = query.trim().replace(/\s+/g, " ");
+/** `query` in front of `list`, once, and the tail cut to {@link MAX_RECENT}. Blank is ignored. */
+export function mergeRecent(list: string[], query: string): string[] {
+	// Only the ends: spaces inside a quoted phrase are part of what it finds.
+	const q = query.trim();
 
 	if (!q) {
-		return list.slice(0, limit);
+		return list.slice(0, MAX_RECENT);
 	}
 
-	return [q, ...list.filter((entry) => entry !== q)].slice(0, limit);
+	return [q, ...list.filter((entry) => entry !== q)].slice(0, MAX_RECENT);
 }
 
 /** The stored list, newest first. Anything unreadable is treated as empty. */

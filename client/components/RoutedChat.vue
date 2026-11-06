@@ -14,7 +14,8 @@
 import {watch, computed, defineComponent, onMounted} from "vue";
 import {useRoute} from "vue-router";
 import {useStore} from "../js/store";
-import {searchTucked} from "../js/searchPanel";
+import socket from "../js/socket";
+import {phoneLayout, searchTucked} from "../js/searchPanel";
 
 // Temporary component for routing channels and lobbies
 import Chat from "./Chat.vue";
@@ -46,6 +47,20 @@ export default defineComponent({
 			setActiveChannel();
 		});
 
+		// On a phone the panel covers the chat: nobody reads it meanwhile, so what
+		// arrives is unread and a mention reaches the inbox, as on any other page.
+		// Chat.vue says "open" when it mounts; this follows the panel after that.
+		const chatCovered = computed(
+			() => route.name === "SearchResults" && phoneLayout.value && !searchTucked.value
+		);
+
+		watch(chatCovered, (covered) => {
+			socket.emit(
+				"open",
+				covered || !activeChannel.value ? 0 : activeChannel.value.channel.id
+			);
+		});
+
 		// Any way out of search ends the tucked state with it.
 		watch(
 			() => route.name,
@@ -58,6 +73,10 @@ export default defineComponent({
 
 		onMounted(() => {
 			setActiveChannel();
+
+			if (chatCovered.value) {
+				socket.emit("open", 0);
+			}
 		});
 
 		return {

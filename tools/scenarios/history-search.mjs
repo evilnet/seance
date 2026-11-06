@@ -153,7 +153,9 @@ export default async function run(page) {
 			await page.evaluate(`!document.querySelector("#mentions-popup-container") &&
 				document.activeElement === document.querySelector("${WINDOW} .search-query input")`)
 		);
-		await page.evaluate(`document.querySelector("${WINDOW} .search-close").click()`);
+		await page.evaluate(
+			`document.querySelector("${WINDOW} :is(.search-close, .search-cancel)").click()`
+		);
 		await page.sleep(300);
 	} else {
 		await page.evaluate(
@@ -506,8 +508,12 @@ export default async function run(page) {
 	await page.click(ROWS);
 	await page.sleep(400);
 	page.check(
-		"7. the results stay open beside the chat (tucked on a phone)",
-		(await count(page, WINDOW)) === 1
+		"7. the results stay: beside the chat, or tucked away on a phone",
+		await page.evaluate(`(() => {
+			const panel = document.querySelector("${WINDOW}")?.closest("#search-panel");
+			const phone = matchMedia("(max-width: 768px)").matches;
+			return !!panel && (getComputedStyle(panel).display === "none") === phone;
+		})()`)
 	);
 	page.check(
 		"7. the channel opens at the hit",

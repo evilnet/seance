@@ -3,6 +3,7 @@
 		id="search-panel"
 		class="window"
 		:class="{
+			'screen-overlay': phone,
 			tucked: searchTucked,
 			'time-seconds': store.state.settings.showSeconds,
 			'time-12h': store.state.settings.use12hClock,
@@ -666,8 +667,7 @@ import {useRoute, useRouter} from "vue-router";
 import eventbus from "../../js/eventbus";
 import socket from "../../js/socket";
 import {navigate, switchToChannel} from "../../js/router";
-import {searchTucked} from "../../js/searchPanel";
-import {isPhoneLayout} from "../../js/helpers/device";
+import {phoneLayout as phone, searchTucked} from "../../js/searchPanel";
 import {forgetSearches, recentSearches, rememberSearch} from "../../js/helpers/searchRecents";
 import {
 	ALL_CHANNELS,
@@ -754,7 +754,6 @@ export default defineComponent({
 		let requestId = 0;
 		/** What the last ask was for, its scope spelt out: a hit's chat beside asks nothing new. */
 		let askedFor = "";
-		const phone = ref(isPhoneLayout());
 		const recent = ref(recentSearches());
 
 		const found = computed(() =>
@@ -1367,16 +1366,10 @@ export default defineComponent({
 			}
 		};
 
-		const onResize = () => {
-			phone.value = isPhoneLayout();
-			showMatches();
-		};
-
 		onMounted(() => {
-			searchTucked.value = false;
 			socket.on("search:results", onResults);
 			eventbus.on("escapekey", onEscape);
-			window.addEventListener("resize", onResize);
+			window.addEventListener("resize", showMatches);
 			run();
 
 			if (!query.value) {
@@ -1387,7 +1380,7 @@ export default defineComponent({
 		onUnmounted(() => {
 			socket.off("search:results", onResults);
 			eventbus.off("escapekey", onEscape);
-			window.removeEventListener("resize", onResize);
+			window.removeEventListener("resize", showMatches);
 			clearTimeout(liveTimer);
 			clearHighlight("search-hit");
 		});

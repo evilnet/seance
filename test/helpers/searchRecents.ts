@@ -31,7 +31,7 @@ describe("recent searches (helpers/searchRecents.ts)", function () {
 
 	it("puts the newest first, once", function () {
 		expect(mergeRecent(["a", "b"], "b")).to.deep.equal(["b", "a"]);
-		expect(mergeRecent([], "  fake   lag ")).to.deep.equal(["fake lag"]);
+		expect(mergeRecent([], ' "fake   lag" ')).to.deep.equal(['"fake   lag"']);
 		expect(mergeRecent(["a"], "   ")).to.deep.equal(["a"]);
 	});
 

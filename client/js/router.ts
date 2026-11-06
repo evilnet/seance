@@ -235,8 +235,9 @@ router.beforeEach((to, from) => {
 		return false;
 	}
 
-	// Disallow navigating to invalid channels
-	if (showsChat(to.name) && !store.getters.findChannel(Number(to.params.id))) {
+	// Disallow navigating to invalid channels. Not search: a reload lands there
+	// before the channels are back, and the panel waits for its channel.
+	if (to.name === "RoutedChat" && !store.getters.findChannel(Number(to.params.id))) {
 		return false;
 	}
 
