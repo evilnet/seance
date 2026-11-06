@@ -1193,8 +1193,13 @@ export default defineComponent({
 		const source = computed(() => sourceLinks(links.value.source, build.value));
 
 		// Installed PWAs have no reload button; a newer build's worker flags
-		// itself in the store (see pwa.ts) and this picks it up.
-		const reloadForUpdate = () => window.location.reload();
+		// itself in the store (see pwa.ts) and this picks it up. The route is
+		// the URL's hash, so a plain reload would come back to Help; loading
+		// the page without it lands on the conversation instead (boot.ts picks
+		// the route when there is none).
+		const reloadForUpdate = () => {
+			window.location.replace(window.location.pathname + window.location.search);
+		};
 
 		const close = () => {
 			leavePage();

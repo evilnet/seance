@@ -79,10 +79,11 @@ Ship `NODE_ENV=production pnpm build`.
   § Weights), claims every window and announces
   `{type: "build", build}` to them; a page whose own token differs commits
   `updateAvailable`, which lights the Help icon ("update available") and
-  shows "Reload to update" at the top of Help. A page that has just loaded
-  already runs the new bundle (runtime fetches are network-first) and its
-  token matches, so it stays quiet — `controllerchange` alone could not tell
-  the two apart. Installed windows have no reload button, hence the in-app
+  shows "Reload to update" at the top of Help (it loads the page without the
+  `#/help` hash, so the fresh page opens on the conversation, not on Help
+  again). A page that has just loaded already runs the new bundle (runtime
+  fetches are network-first) and its token matches, so it stays quiet —
+  `controllerchange` alone could not tell the two apart. Installed windows have no reload button, hence the in-app
   one (Ctrl/Cmd+R also works). Browser check:
   `tools/scenarios/update-signal.mjs` (needs a production build). The
   per-network **push-only workers** (`push/<uuid>/`, see
