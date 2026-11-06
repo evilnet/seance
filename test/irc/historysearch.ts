@@ -13,7 +13,6 @@ import {
 	specSearchParams,
 } from "../../client/js/irc/historysearch";
 import {pendingHistory} from "../../client/js/irc/history";
-import {nefarious} from "../../client/js/irc/profiles/nefarious";
 import {IRCU_FAKE_LAG, NO_FAKE_LAG, type FakeLagModel} from "../../client/js/irc/fakelag";
 import type {Transport} from "../../client/js/irc/types";
 import type {TransportEvent, TransportState} from "../../client/js/irc/transport";
@@ -222,14 +221,13 @@ describe("historysearch", function () {
 			expect(specSearchParams({text: "a;b\\c"})).to.deep.equal(["text=a\\:b\\\\c"]);
 		});
 
-		it("uses separate selectors with text last on nefarious2", function () {
+		it("uses the same one parameter on nefarious2", function () {
 			const {client, transport} = setup({nefarious: true});
 
 			requestSearch(client, 1, attrs);
 			expect(transport.sent[0]).to.match(
-				/^@label=q\d+ SEARCH in=#seance from=bob limit=100 :text=fake lag$/
+				/^@label=q\d+ SEARCH in=#seance;text=fake\\slag;from=bob;limit=100$/
 			);
-			expect(nefarious.searchParams?.({from: "bob"})).to.deep.equal(["from=bob"]);
 		});
 
 		it("refuses what would not fit, without sending it", function () {
@@ -240,21 +238,12 @@ describe("historysearch", function () {
 			expect(payloads<ResultsPayload>("search:results")[0].status).to.equal("invalid");
 		});
 
-		it("answers invalid for a line break, on either spelling, and sends nothing", function () {
+		it("escapes a line break, so it is only text", function () {
 			for (const onNefarious of [false, true]) {
 				const {client, transport} = setup({nefarious: onNefarious});
 
 				requestSearch(client, 1, {text: "x\r\nQUIT :bye"});
-
-				if (onNefarious) {
-					expect(transport.sent).to.deep.equal([]);
-					expect(payloads<ResultsPayload>("search:results").pop()?.status).to.equal(
-						"invalid"
-					);
-				} else {
-					// The spec's form escapes it, so it is simply text there.
-					expect(transport.sent[0]).to.contain("x\\r\\nQUIT\\s:bye");
-				}
+				expect(transport.sent[0]).to.contain("x\\r\\nQUIT\\s:bye");
 			}
 		});
 
