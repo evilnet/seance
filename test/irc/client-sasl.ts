@@ -7,9 +7,15 @@
 import {expect} from "chai";
 import sinon from "sinon";
 import socket from "../../client/js/socket";
-import {IrcClient, IrcClientOptions, saslRequiredHint} from "../../client/js/irc/client";
+import {
+	IrcClient,
+	IrcClientOptions,
+	saslRequiredHint,
+	SASL_TRUSTED_RETRIES,
+} from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";
 import {encodePlain, SASL_TIMEOUT_MS} from "../../client/js/irc/sasl";
+import {loginTrusted, trustLogin, useStorageBackend} from "../../client/js/irc/saslTrust";
 import {DEFAULT_BRANDING, resetBranding, setBranding} from "../../client/js/branding";
 import type {Transport} from "../../client/js/irc/types";
 import type {TransportEvent, TransportState} from "../../client/js/irc/transport";
@@ -521,7 +527,7 @@ describe("IrcClient SASL", function () {
 			expect(transport.sent[transport.sent.length - 1]).to.equal(
 				"QUIT :SASL authentication failed"
 			);
-			expect(transport.abandonCalls).to.deep.equal(["SASL timed out"]);
+			expect(transport.abandonCalls).to.deep.equal(["SASL failed (server)"]);
 			expect(transport.closeCalls).to.equal(0);
 			expect(client.isQuitting).to.equal(false);
 			expect(client.isConnected).to.equal(false);
@@ -681,5 +687,206 @@ describe("IrcClient SASL", function () {
 		expect(rejected).to.equal(1);
 		expect(transport.abandonCalls).to.deep.equal([]);
 		expect(client.isQuitting).to.equal(true);
+	});
+});
+
+describe("IrcClient SASL: the server could not check the login", function () {
+	let store: Map<string, string>;
+
+	beforeEach(function () {
+		installSpy();
+		store = new Map();
+		useStorageBackend({
+			get: (key) => store.get(key) ?? null,
+			set: (key, value) => void store.set(key, value),
+			remove: (key) => void store.delete(key),
+		});
+	});
+
+	afterEach(function () {
+		useStorageBackend(null);
+		removeSpy();
+		resetBranding();
+	});
+
+	/** What a retry looks like: QUIT, the socket given up as lost, no rejection. */
+	function expectRetried(transport: FakeTransport, client: IrcClient, rejected: number): void {
+		expect(transport.sent).to.not.include("CAP END");
+		expect(transport.sent[transport.sent.length - 1]).to.equal(
+			"QUIT :SASL authentication failed"
+		);
+		expect(transport.abandonCalls).to.have.length.greaterThan(0);
+		expect(transport.closeCalls).to.equal(0);
+		expect(client.isQuitting).to.equal(false);
+		expect(rejected).to.equal(0);
+		expect(errors(client.lobby.id)).to.include(
+			"Not connecting to irc.test without the login you asked for; trying again."
+		);
+		expect(texts(client.lobby.id)).to.not.include(saslRequiredHint());
+	}
+
+	/** A fresh connection on the same client, up to the server's answer to our PLAIN. */
+	function again(transport: FakeTransport, offered = `${OFFERED_CAPS} sasl=PLAIN`): void {
+		transport.sent = [];
+		transport.open();
+		offer(transport, offered);
+		transport.line("AUTHENTICATE +");
+	}
+
+	for (const [what, line] of [
+		[
+			"its own timeout (it gives up at 10 s, before ours)",
+			":irc.test 904 alice :SASL authentication failed: request timed out",
+		],
+		[
+			"its services being unreachable",
+			":irc.test 904 alice :SASL authentication failed: service unavailable",
+		],
+		["its services splitting mid-exchange", ":irc.test 906 alice :SASL authentication aborted"],
+	]) {
+		it(`retries after ${what}, even for a login never seen to work`, function () {
+			let rejected = 0;
+			const {client, transport} = setup({onSaslRejected: () => rejected++});
+			offer(transport, `${OFFERED_CAPS} sasl=PLAIN`);
+			transport.line("AUTHENTICATE +");
+			transport.line(line);
+
+			expectRetried(transport, client, rejected);
+		});
+	}
+
+	it("remembers a login that worked, and forgets it when the credentials change", function () {
+		const {client, transport} = setup();
+		offer(transport, `${OFFERED_CAPS} sasl=PLAIN`);
+		transport.line("AUTHENTICATE +");
+		transport.line(":irc.test 903 alice :SASL authentication successful");
+		expect(loginTrusted(client.uuid, "alice")).to.equal(true);
+		expect(loginTrusted(client.uuid, "bob")).to.equal(false);
+
+		client.applySettings({
+			host: "irc.test",
+			port: 8443,
+			tls: true,
+			join: "",
+			sasl: "plain",
+			saslAccount: "alice",
+			saslPassword: "changed",
+		} as Parameters<IrcClient["applySettings"]>[0]);
+		expect(loginTrusted(client.uuid, "alice")).to.equal(false);
+	});
+
+	it("still takes a bare 904 for a refusal when the login never worked here", function () {
+		let rejected = 0;
+		const {client, transport} = setup({onSaslRejected: () => rejected++});
+		offer(transport, `${OFFERED_CAPS} sasl=PLAIN`);
+		transport.line("AUTHENTICATE +");
+		transport.line(":irc.test 904 alice :SASL authentication failed");
+
+		expect(rejected).to.equal(1);
+		expectAborted(transport, client);
+	});
+
+	it(`gives a login that worked ${SASL_TRUSTED_RETRIES} more tries on a bare 904, then calls it refused`, function () {
+		// nefarious2 answers a Keycloak it cannot reach with the same bare 904
+		// as a wrong password.
+		let rejected = 0;
+		const {client, transport} = setup({onSaslRejected: () => rejected++});
+		trustLogin(client.uuid, "alice");
+
+		offer(transport, `${OFFERED_CAPS} sasl=PLAIN`);
+		transport.line("AUTHENTICATE +");
+
+		for (let i = 0; i < SASL_TRUSTED_RETRIES; i++) {
+			transport.line(":irc.test 904 alice :SASL authentication failed");
+			expect(transport.abandonCalls, `retry ${i + 1}`).to.have.length(i + 1);
+			expect(rejected).to.equal(0);
+			again(transport);
+		}
+
+		transport.line(":irc.test 904 alice :SASL authentication failed");
+		expect(transport.abandonCalls).to.have.length(SASL_TRUSTED_RETRIES);
+		expect(rejected).to.equal(1);
+		expect(transport.closeCalls).to.equal(1);
+		expect(client.isQuitting).to.equal(true);
+		// A refusal the client accepted is not a login that works any more.
+		expect(loginTrusted(client.uuid, "alice")).to.equal(false);
+	});
+
+	it("starts the count again after a login succeeds", function () {
+		let rejected = 0;
+		const {client, transport} = setup({onSaslRejected: () => rejected++});
+		trustLogin(client.uuid, "alice");
+		offer(transport, `${OFFERED_CAPS} sasl=PLAIN`);
+		transport.line("AUTHENTICATE +");
+
+		for (let i = 0; i < SASL_TRUSTED_RETRIES; i++) {
+			transport.line(":irc.test 904 alice :SASL authentication failed");
+			again(transport);
+		}
+
+		transport.line(":irc.test 903 alice :SASL authentication successful");
+		again(transport);
+		transport.line(":irc.test 904 alice :SASL authentication failed");
+
+		expect(rejected).to.equal(0);
+		expect(transport.abandonCalls).to.have.length(SASL_TRUSTED_RETRIES + 1);
+	});
+
+	it("retries when the sasl cap is gone on a network where the login worked (services split)", function () {
+		// nefarious2 leaves sasl out of CAP LS while its services are not linked.
+		let rejected = 0;
+		const {client, transport} = setup({onSaslRejected: () => rejected++});
+		trustLogin(client.uuid, "alice");
+		transport.line(`:irc.test CAP * LS :${OFFERED_CAPS}`);
+
+		expect(errors(client.lobby.id)[0]).to.equal(
+			"SASL authentication failed: the server does not offer SASL"
+		);
+		expectRetried(transport, client, rejected);
+	});
+
+	it("retries when the server NAKs sasl on a network where the login worked", function () {
+		let rejected = 0;
+		const {client, transport} = setup({onSaslRejected: () => rejected++});
+		trustLogin(client.uuid, "alice");
+		transport.line(`:irc.test CAP * LS :${OFFERED_CAPS} sasl=PLAIN`);
+		const req = transport.sent.find((l) => l.startsWith("CAP REQ :")) as string;
+		const names = req.slice("CAP REQ :".length).split(" ");
+		transport.line(`:irc.test CAP alice NAK :${names.join(" ")}`);
+
+		for (const name of names.filter((n) => n !== "sasl")) {
+			transport.line(`:irc.test CAP alice ACK :${name}`);
+		}
+
+		transport.line(":irc.test CAP alice NAK :sasl");
+
+		// Nothing was opened: the opener waits for the ACK.
+		expect(transport.sent).to.not.include("AUTHENTICATE PLAIN");
+		expectRetried(transport, client, rejected);
+	});
+
+	it("never retries without credentials, trusted or not", function () {
+		let rejected = 0;
+		const transport = new FakeTransport();
+		const client = new IrcClient({
+			host: "irc.test",
+			port: 8443,
+			tls: true,
+			nick: "alice",
+			join: "",
+			sasl: "plain",
+			saslAccount: "alice",
+			saslPassword: "",
+			ids: new IdAllocator(),
+			transportFactory: () => transport,
+			highlights: () => ({keywords: [], exceptions: []}),
+			onSaslRejected: () => rejected++,
+		});
+		trustLogin(client.uuid, "alice");
+		client.connect();
+		transport.open();
+
+		expect(transport.abandonCalls).to.deep.equal([]);
+		expect(rejected).to.equal(1);
 	});
 });
