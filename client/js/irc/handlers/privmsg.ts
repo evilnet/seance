@@ -14,6 +14,7 @@ import {privilegesModified} from "../oper";
 import {noteServicesLine, snoopNicks} from "../servicesfeed";
 import {handleServerNotice, handleWallops} from "../snotice";
 import {DRAFT_REPLY_TAG, EDIT_TAG, REPLY_TAG, trailingLine} from "../wire";
+import {noteListDelay} from "./list";
 import type {Handler} from "../types";
 import {ignoreListFor} from "../../ignore";
 import {scriptManager} from "../scripting/manager";
@@ -144,6 +145,11 @@ function handleMessage(
 			return;
 		}
 	} else if (fromServer) {
+		// nefarious2's "wait N seconds before /list": the channel browser shows it.
+		if (type === MessageType.NOTICE && noteListDelay(client, text)) {
+			return;
+		}
+
 		nick = nick || client.options.host;
 		chan = client.findChannel(target);
 
@@ -300,6 +306,10 @@ function handleMessage(
 
 			if (id && replaces !== undefined && replaces !== id) {
 				client.dispatch("msg:edit", {chan: into.id, id, replaces});
+			} else if (id && replaces === undefined && pushed.msgid) {
+				// The original may still arrive (an older page): it is put
+				// behind this edit then, not shown beside it.
+				into.awaitOriginal(editOf, pushed.msgid);
 			}
 		});
 	}

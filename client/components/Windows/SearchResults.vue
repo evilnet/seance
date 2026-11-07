@@ -1,287 +1,332 @@
 <template>
-	<div id="chat-container" class="window">
-		<div
-			id="chat"
-			:class="{
-				'time-seconds': store.state.settings.showSeconds,
-				'time-12h': store.state.settings.use12hClock,
-			}"
-		>
-			<div
-				class="chat-view"
-				data-type="search-results"
-				:aria-label="t('search.results.aria')"
-				role="tabpanel"
-			>
-				<template v-if="network && channel">
-					<div class="search-head" :inert="filtersOpen">
-						<button
-							class="oper-icon-btn search-icon search-icon-back"
-							:aria-label="t('search.window.back', {channel: channel.name})"
-							:title="t('search.window.back', {channel: channel.name})"
-							@click="closeSearch"
+	<aside
+		id="search-panel"
+		class="window"
+		:class="{
+			'screen-overlay': phone,
+			tucked: searchTucked,
+			'time-seconds': store.state.settings.showSeconds,
+			'time-12h': store.state.settings.use12hClock,
+		}"
+		:aria-label="t('search.results.aria')"
+	>
+		<div class="chat-view" data-type="search-results">
+			<template v-if="network && channel">
+				<div class="search-head" :inert="filtersOpen">
+					<form class="search-query" role="search" @submit.prevent="submit">
+						<span class="search-icon search-icon-find" aria-hidden="true" />
+						<!-- mousetrap: Escape closes the panel from the field too (App.vue). -->
+						<input
+							ref="queryField"
+							v-model="draft"
+							class="mousetrap"
+							type="search"
+							name="search"
+							autocapitalize="off"
+							autocomplete="off"
+							enterkeyhint="search"
+							:aria-label="t('search.window.field')"
+							:placeholder="
+								phone
+									? t('search.window.placeholder', {scope: scopeLabel})
+									: t('search.window.placeholderEsc', {scope: scopeLabel})
+							"
 						/>
-						<form class="search-query" role="search" @submit.prevent="submit">
-							<span class="search-icon search-icon-find" aria-hidden="true" />
-							<input
-								ref="queryField"
-								v-model="draft"
-								type="search"
-								name="search"
-								autocapitalize="off"
-								autocomplete="off"
-								enterkeyhint="search"
-								:aria-label="t('search.window.field')"
-								:placeholder="t('search.window.placeholder', {scope: scopeLabel})"
-							/>
-							<button
-								type="submit"
-								class="oper-btn"
-								:class="stale ? 'oper-btn-primary' : 'oper-btn-secondary'"
-							>
-								{{ t("search.window.submit") }}
-							</button>
-						</form>
-					</div>
-
-					<div class="search-chips" :inert="filtersOpen">
-						<button class="search-chip on" @click="filtersOpen = true">
-							<span class="search-icon search-icon-in" aria-hidden="true" />
-							<I18nFrame :text="t('search.window.inScope', {scope: KEEP})"
-								><template #scope
-									><b>{{ heldScopeLabel }}</b></template
-								></I18nFrame
-							>
-						</button>
-						<span
-							v-for="chip in chips"
-							:key="chip.id"
-							class="search-chip on"
-							data-filter
-						>
-							<button class="search-chip-open" @click="filtersOpen = true">
-								{{ chip.label }} <b>{{ chip.value }}</b>
-							</button>
-							<button
-								class="search-chip-remove search-icon search-icon-remove"
-								:aria-label="t('search.window.removeFilter', {filter: chip.label})"
-								@click="removeChip(chip.id)"
-							/>
-						</span>
-						<button class="search-chip" @click="filtersOpen = true">
-							<span class="search-icon search-icon-filter" aria-hidden="true" />
-							{{ t("search.window.filters") }}
-						</button>
-					</div>
-
-					<div v-if="banner" class="search-banner" role="status">
-						<span class="search-icon search-icon-warn" aria-hidden="true" />
-						<div>
-							<b>{{ banner }}</b>
-							<p>
-								{{ tCount("search.window.loadedInstead", loadedCount) }}
-							</p>
-						</div>
 						<button
-							v-if="mode === 'offline'"
-							class="oper-btn oper-btn-secondary"
-							@click="run"
+							type="submit"
+							class="oper-btn"
+							:class="stale ? 'oper-btn-primary' : 'oper-btn-secondary'"
 						>
-							{{ t("search.window.retry") }}
+							{{ t("search.window.submit") }}
 						</button>
-					</div>
+					</form>
+					<button
+						v-if="phone"
+						class="oper-btn oper-btn-ghost search-cancel"
+						@click="closeSearch"
+					>
+						{{ t("search.window.cancel") }}
+					</button>
+					<button
+						v-else
+						class="oper-icon-btn search-icon search-icon-remove search-close"
+						:aria-label="t('search.window.close')"
+						:title="t('search.window.close')"
+						@click="closeSearch"
+					/>
+				</div>
 
-					<p v-if="staleNote && criteria" class="search-stale" role="status">
-						{{ t("search.window.stale") }}
-					</p>
-
-					<p v-if="hitError" class="search-stale" role="status">{{ hitError }}</p>
-
-					<div class="search-panes">
-						<div
-							ref="list"
-							class="search-list"
-							:class="{stale: staleNote && criteria}"
-							:inert="filtersOpen"
+				<div class="search-chips" :inert="filtersOpen">
+					<button class="search-chip on" @click="filtersOpen = true">
+						<span class="search-icon search-icon-in" aria-hidden="true" />
+						<I18nFrame :text="t('search.window.inScope', {scope: KEEP})"
+							><template #scope
+								><b>{{ heldScopeLabel }}</b></template
+							></I18nFrame
 						>
-							<div v-if="!criteria" class="search-start">
-								<p>
-									{{ t("search.window.start") }}
-								</p>
-								<div class="search-suggest">
-									<button
-										v-for="hint in HINTS"
-										:key="hint"
-										class="oper-chip"
-										@click="useHint(hint)"
-									>
-										{{ hint }}
+					</button>
+					<span v-for="chip in chips" :key="chip.id" class="search-chip on" data-filter>
+						<button class="search-chip-open" @click="filtersOpen = true">
+							{{ chip.label }} <b>{{ chip.value }}</b>
+						</button>
+						<button
+							class="search-chip-remove search-icon search-icon-remove"
+							:aria-label="t('search.window.removeFilter', {filter: chip.label})"
+							@click="removeChip(chip.id)"
+						/>
+					</span>
+					<button class="search-chip" @click="filtersOpen = true">
+						<span class="search-icon search-icon-filter" aria-hidden="true" />
+						{{ t("search.window.filters") }}
+					</button>
+				</div>
+
+				<div v-if="banner" class="search-banner" role="status">
+					<span class="search-icon search-icon-warn" aria-hidden="true" />
+					<div>
+						<b>{{ banner }}</b>
+						<p>
+							{{ tCount("search.window.loadedInstead", loadedCount) }}
+						</p>
+					</div>
+					<button
+						v-if="mode === 'offline'"
+						class="oper-btn oper-btn-secondary"
+						@click="run"
+					>
+						{{ t("search.window.retry") }}
+					</button>
+				</div>
+
+				<p v-if="staleNote && criteria" class="search-stale" role="status">
+					{{ t("search.window.stale") }}
+				</p>
+
+				<p v-if="hitError" class="search-stale" role="status">{{ hitError }}</p>
+
+				<div class="search-panes">
+					<div
+						ref="list"
+						class="search-list"
+						:class="{stale: staleNote && criteria}"
+						:inert="filtersOpen"
+					>
+						<div v-if="!criteria" class="search-start">
+							<div v-if="recent.length" class="search-recent">
+								<div class="search-recent-head">
+									<b>{{ t("search.window.recent") }}</b>
+									<button class="oper-btn oper-btn-ghost" @click="clearRecent">
+										{{ t("search.window.clearRecent") }}
 									</button>
 								</div>
-							</div>
-
-							<div
-								v-else-if="loading && !rows.length"
-								class="search-center"
-								role="status"
-							>
-								<p>{{ t("search.window.asking") }}</p>
-							</div>
-
-							<div v-else-if="error" class="search-center" role="alert">
-								<b>{{ t("search.window.failed") }}</b>
-								<p>{{ error }}</p>
-								<button class="oper-btn oper-btn-secondary" @click="run">
-									{{ t("search.window.retry") }}
-								</button>
-							</div>
-
-							<div v-else-if="!rows.length" class="search-center" role="status">
-								<b>{{ t("search.window.noMatches", {scope: scopeLabel}) }}</b>
-								<p v-if="mode === 'server'">
-									{{ t("search.window.noMatchesNote") }}
-								</p>
 								<button
-									v-if="chips.length"
-									class="oper-btn oper-btn-secondary"
-									@click="filtersOpen = true"
+									v-for="q in recent"
+									:key="q"
+									class="search-recent-item"
+									@click="useRecent(q)"
 								>
-									{{ t("search.window.editFilters") }}
-								</button>
-								<button
-									v-if="mode === 'server' && filters.in !== ALL_CHANNELS"
-									class="oper-btn oper-btn-secondary"
-									@click="searchEverywhere"
-								>
-									{{ t("search.window.everywhere") }}
+									<span
+										class="search-icon search-icon-recent"
+										aria-hidden="true"
+									/>
+									<bdi>{{ q }}</bdi>
 								</button>
 							</div>
-
-							<div v-else-if="!visible.length" class="search-center">
-								<b>{{ tCount("search.window.allHidden", rows.length) }}</b>
-								<p>
-									{{ t("search.window.allHiddenNote", {when: oldestLabel}) }}
-								</p>
+							<p>
+								{{ t("search.window.start") }}
+							</p>
+							<div class="search-suggest">
 								<button
-									v-if="canLoadOlder"
-									class="oper-btn oper-btn-secondary"
-									:disabled="loadingOlder"
-									@click="loadOlder()"
+									v-for="hint in HINTS"
+									:key="hint"
+									class="oper-chip"
+									@click="useHint(hint)"
 								>
-									{{ t("search.window.older") }}
+									{{ hint }}
 								</button>
-								<button class="oper-btn oper-btn-ghost" @click="filtersOpen = true">
-									{{ t("search.window.editFilters") }}
-								</button>
-							</div>
-
-							<template v-else>
-								<template v-for="group in groups" :key="group.label">
-									<div class="search-day">{{ group.label }}</div>
-									<div
-										v-for="hit in group.hits"
-										:key="hit.msg.id"
-										class="search-hit"
-										:data-hit="hit.msg.id"
-										role="button"
-										tabindex="0"
-										@click="clickHit($event, hit)"
-										@keydown.enter.self="openHit(hit)"
-										@keydown.space.self.prevent="openHit(hit)"
-									>
-										<div class="search-line">
-											<div class="search-meta">
-												<Username
-													v-if="hit.msg.from"
-													:user="hit.msg.from"
-													:network="network"
-													@click.stop
-												/>
-												<span class="search-chan">{{ hit.target }}</span>
-												<span class="search-time">{{
-													timeOf(hit.msg)
-												}}</span>
-												<span
-													v-if="hit.loaded"
-													class="search-dim search-loaded"
-													>{{ t("search.window.loadedRow") }}</span
-												>
-											</div>
-											<div class="search-text">
-												<ParsedMessage
-													:network="network"
-													:message="asClient(hit.msg)"
-												/>
-											</div>
-										</div>
-									</div>
-								</template>
-							</template>
-
-							<div
-								v-if="criteria && !loading && !error && rows.length"
-								class="search-status"
-							>
-								<span role="status">{{
-									tCount("search.window.matchCount", visible.length)
-								}}</span>
-								<span v-if="hiddenCount" class="search-dim">
-									· {{ tCount("search.window.hiddenCount", hiddenCount) }}
-								</span>
-								<span class="search-dim"
-									>· {{ t("search.window.backTo", {when: oldestLabel}) }}</span
-								>
-								<span class="search-spacer" />
-								<span v-if="olderError" class="search-dim" role="alert">{{
-									olderError
-								}}</span>
-								<button
-									v-if="canLoadOlder"
-									class="oper-btn oper-btn-secondary"
-									:disabled="loadingOlder"
-									@click="loadOlder()"
-								>
-									{{
-										loadingOlder
-											? t("search.window.searching")
-											: t("search.window.older")
-									}}
-								</button>
-								<span v-else-if="mode === 'server'" class="search-dim">
-									{{ t("search.window.nothingOlder") }}
-								</span>
 							</div>
 						</div>
-					</div>
 
-					<SearchFilterSheet
-						v-if="filtersOpen"
-						:filters="draftFilters"
-						:scope-default="scopeDefault"
-						:conversations="conversations"
-						:suggestions="suggestions"
-						@apply="applyFilters"
-						@close="filtersOpen = false"
-					/>
-				</template>
-			</div>
+						<div
+							v-else-if="loading && !rows.length"
+							class="search-center"
+							role="status"
+						>
+							<p>{{ t("search.window.asking") }}</p>
+						</div>
+
+						<div v-else-if="error" class="search-center" role="alert">
+							<b>{{ t("search.window.failed") }}</b>
+							<p>{{ error }}</p>
+							<button class="oper-btn oper-btn-secondary" @click="run">
+								{{ t("search.window.retry") }}
+							</button>
+						</div>
+
+						<div v-else-if="!rows.length" class="search-center" role="status">
+							<b>{{ t("search.window.noMatches", {scope: scopeLabel}) }}</b>
+							<p v-if="mode === 'server'">
+								{{ t("search.window.noMatchesNote") }}
+							</p>
+							<button
+								v-if="chips.length"
+								class="oper-btn oper-btn-secondary"
+								@click="filtersOpen = true"
+							>
+								{{ t("search.window.editFilters") }}
+							</button>
+							<button
+								v-if="mode === 'server' && filters.in !== ALL_CHANNELS"
+								class="oper-btn oper-btn-secondary"
+								@click="searchEverywhere"
+							>
+								{{ t("search.window.everywhere") }}
+							</button>
+						</div>
+
+						<div v-else-if="!visible.length" class="search-center">
+							<b>{{ tCount("search.window.allHidden", rows.length) }}</b>
+							<p>
+								{{ t("search.window.allHiddenNote", {when: oldestLabel}) }}
+							</p>
+							<button
+								v-if="canLoadOlder"
+								class="oper-btn oper-btn-secondary"
+								:disabled="loadingOlder"
+								@click="loadOlder()"
+							>
+								{{ t("search.window.older") }}
+							</button>
+							<button class="oper-btn oper-btn-ghost" @click="filtersOpen = true">
+								{{ t("search.window.editFilters") }}
+							</button>
+						</div>
+
+						<template v-else>
+							<template v-for="group in groups" :key="group.label">
+								<div class="search-day">{{ group.label }}</div>
+								<div
+									v-for="hit in group.hits"
+									:key="hit.msg.id"
+									class="search-hit"
+									:data-hit="hit.msg.id"
+									role="button"
+									tabindex="0"
+									@click="clickHit($event, hit)"
+									@keydown.enter.self="openHit(hit)"
+									@keydown.space.self.prevent="openHit(hit)"
+								>
+									<div class="search-line">
+										<div class="search-meta">
+											<Username
+												v-if="hit.msg.from"
+												:user="hit.msg.from"
+												:network="network"
+												@click.stop
+											/>
+											<span class="search-chan">{{ hit.target }}</span>
+											<span class="search-time">{{ hitTime(hit.msg) }}</span>
+											<span
+												v-if="hit.loaded"
+												class="search-dim search-loaded"
+												>{{ t("search.window.loadedRow") }}</span
+											>
+										</div>
+										<div class="search-text">
+											<ParsedMessage
+												:network="network"
+												:message="asClient(hit.msg)"
+											/>
+										</div>
+									</div>
+								</div>
+							</template>
+						</template>
+
+						<div
+							v-if="criteria && !loading && !error && rows.length"
+							class="search-status"
+						>
+							<span role="status">{{
+								tCount("search.window.matchCount", visible.length)
+							}}</span>
+							<span v-if="hiddenCount" class="search-dim">
+								· {{ tCount("search.window.hiddenCount", hiddenCount) }}
+							</span>
+							<span class="search-dim"
+								>· {{ t("search.window.backTo", {when: oldestLabel}) }}</span
+							>
+							<span class="search-spacer" />
+							<span v-if="olderError" class="search-dim" role="alert">{{
+								olderError
+							}}</span>
+							<button
+								v-if="canLoadOlder"
+								class="oper-btn oper-btn-secondary"
+								:disabled="loadingOlder"
+								@click="loadOlder()"
+							>
+								{{
+									loadingOlder
+										? t("search.window.searching")
+										: t("search.window.older")
+								}}
+							</button>
+							<span v-else-if="mode === 'server'" class="search-dim">
+								{{ t("search.window.nothingOlder") }}
+							</span>
+						</div>
+					</div>
+				</div>
+
+				<SearchFilterSheet
+					v-if="filtersOpen"
+					:filters="draftFilters"
+					:scope-default="scopeDefault"
+					:conversations="conversations"
+					:suggestions="suggestions"
+					@apply="applyFilters"
+					@close="filtersOpen = false"
+				/>
+			</template>
 		</div>
-	</div>
+	</aside>
 </template>
 
 <style>
+/* Beside the chat, whose lines a hit scrolls to; over it on a phone. */
+#search-panel {
+	flex: 0 0 clamp(20rem, 34%, 30rem);
+	overflow: hidden;
+	border-inline-start: 1px solid var(--oper-line);
+}
+
 .chat-view[data-type="search-results"] {
 	display: flex;
 	flex-direction: column;
+	flex: 1;
 	min-height: 0;
+}
+
+@media (max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse) {
+	#search-panel {
+		position: absolute;
+		inset: 0;
+		z-index: 2;
+		border: 0;
+	}
+
+	#search-panel.tucked {
+		display: none;
+	}
 }
 
 .search-icon::before {
 	font: normal normal normal 1em/1 FontAwesome;
 }
 
-.search-icon-back::before {
-	content: "\f053";
+.search-icon-recent::before {
+	content: "\f1da";
 }
 .search-icon-find::before {
 	content: "\f002";
@@ -339,7 +384,52 @@
 .search-query .oper-btn {
 	flex: none;
 	height: 2rem;
-	margin-right: -0.5rem;
+	margin-inline-end: -0.5rem;
+}
+
+.search-close,
+.search-cancel {
+	flex: none;
+}
+
+.search-close {
+	width: 2.5rem;
+	height: 2.5rem;
+}
+
+.search-recent {
+	display: grid;
+	gap: 0.125rem;
+	margin-bottom: 1rem;
+}
+
+.search-recent-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	color: var(--body-color);
+}
+
+.search-recent-item {
+	display: flex;
+	align-items: center;
+	gap: 0.625rem;
+	min-height: 2.5rem;
+	padding: 0 0.5rem;
+	border-radius: 0.375rem;
+	color: var(--body-color);
+	font: inherit;
+	text-align: start;
+	overflow-wrap: anywhere;
+}
+
+.search-recent-item:hover,
+.search-recent-item:focus-visible {
+	background: var(--oper-panel);
+}
+
+.search-recent-item .search-icon {
+	color: var(--body-color-muted);
 }
 
 .search-chip:focus-visible,
@@ -571,13 +661,14 @@
 
 <script lang="ts">
 import dayjs from "dayjs";
-import {computed, defineComponent, nextTick, onMounted, onUnmounted, ref, watch} from "vue";
+import {computed, defineComponent, onMounted, onUnmounted, ref, watch} from "vue";
 import {useRoute, useRouter} from "vue-router";
 
 import eventbus from "../../js/eventbus";
 import socket from "../../js/socket";
 import {navigate, switchToChannel} from "../../js/router";
-import {keepResults, takeResults, type KeptResults} from "../../js/searchReturn";
+import {phoneLayout as phone, searchTucked} from "../../js/searchPanel";
+import {forgetSearches, recentSearches, rememberSearch} from "../../js/helpers/searchRecents";
 import {
 	ALL_CHANNELS,
 	dayStart,
@@ -596,7 +687,7 @@ import {
 	serverAttrs,
 	type SearchFilters,
 } from "../../js/searchQuery";
-import {clockTime, dayLabel, shortDay} from "../../js/helpers/messageTime";
+import {clockTime, dayLabel, datedTime, shortDay} from "../../js/helpers/messageTime";
 import {clearHighlight, paintHighlight, rangesIn} from "../../js/helpers/paintHighlight";
 import {setReadHold} from "../../js/helpers/readHold";
 import {useStore} from "../../js/store";
@@ -622,6 +713,8 @@ const LIVE_DELAY_MS = 800;
 const LIVE_GAP_MS = 2000;
 /** How soon to look again while an answer is on its way. */
 const LIVE_RETRY_MS = 500;
+
+type Mode = "server" | "unsupported" | "offline" | "partial";
 
 interface Chip {
 	id: "from" | "account" | "date" | "has" | "without";
@@ -650,7 +743,7 @@ export default defineComponent({
 		let liveRoute = false;
 		const filtersOpen = ref(false);
 		const rows = ref<SearchHit[]>([]);
-		const mode = ref<KeptResults["mode"]>("server");
+		const mode = ref<Mode>("server");
 		const loading = ref(false);
 		const loadingOlder = ref(false);
 		const reachedEnd = ref(false);
@@ -659,6 +752,9 @@ export default defineComponent({
 		const hitError = ref("");
 		const list = ref<HTMLElement>();
 		let requestId = 0;
+		/** What the last ask was for, its scope spelt out: a hit's chat beside asks nothing new. */
+		let askedFor = "";
+		const recent = ref(recentSearches());
 
 		const found = computed(() =>
 			store.getters.findChannel(parseInt(String(route.params.id ?? ""), 10))
@@ -788,6 +884,8 @@ export default defineComponent({
 
 		const dayOf = (msg: SharedMsg) => dayLabel(msg.time);
 		const timeOf = (msg: SharedMsg) => clockTime(msg.time, store.state.settings);
+		// Each hit carries its day too, though the day's header is above it.
+		const hitTime = (msg: SharedMsg) => datedTime(msg.time, store.state.settings);
 
 		// How far the server has answered. A loaded row says nothing about that, and
 		// paging from one would skip the server's rows between the two.
@@ -853,9 +951,16 @@ export default defineComponent({
 			).sort(newestFirst);
 		};
 
+		const searchKey = () =>
+			`${network.value?.uuid ?? ""} ${formatSearchQuery({
+				...filters.value,
+				in: scope.value,
+			})}`;
+
 		// keepRows: typing on, what is showing stays until the answer replaces it.
 		const ask = (keepRows: boolean) => {
 			requestId = 0;
+			askedFor = searchKey();
 
 			if (!keepRows) {
 				rows.value = [];
@@ -884,20 +989,6 @@ export default defineComponent({
 		};
 
 		const run = () => ask(false);
-
-		const restoreResults = async (from: KeptResults) => {
-			rows.value = from.rows;
-			mode.value = from.mode;
-			reachedEnd.value = from.reachedEnd;
-			await nextTick();
-
-			if (list.value) {
-				list.value.scrollTop = from.scrollTop;
-				list.value
-					.querySelector<HTMLElement>(`[data-hit="${from.hit}"]`)
-					?.focus({preventScroll: true});
-			}
-		};
 
 		const loadOlder = () => {
 			const last = oldestAnswered();
@@ -1015,8 +1106,15 @@ export default defineComponent({
 			}
 		};
 
-		// To the message itself. The results come back with the bar's Back to
-		// results, as they were: asking again costs a command and the older pages.
+		const remember = (q: string) => {
+			if (hasCriteria(parseSearchQuery(q))) {
+				recent.value = rememberSearch(q);
+			}
+		};
+
+		// The chat beside goes to the message; the results stay. A hit in another
+		// conversation moves the route there, its scope spelt out so the search is
+		// the same one. On a phone the panel tucks away until the magnifier.
 		const openHit = (hit: SearchHit) => {
 			const chat = findChat(hit.target);
 
@@ -1037,21 +1135,20 @@ export default defineComponent({
 				...(twin ? {id: twin.id} : {}),
 				...(hit.msg.msgid ? {msgid: hit.msg.msgid} : {}),
 			});
-			store.commit("searchReturn", {
-				chanId: chat.id,
-				windowId: parseInt(String(route.params.id), 10),
-				q: query.value,
-			});
-			keepResults({
-				windowId: parseInt(String(route.params.id), 10),
-				q: query.value,
-				rows: rows.value,
-				mode: mode.value,
-				reachedEnd: reachedEnd.value,
-				scrollTop: list.value?.scrollTop ?? 0,
-				hit: hit.msg.id,
-			});
-			switchToChannel(chat);
+			remember(query.value);
+
+			if (chat !== channel.value) {
+				clearTimeout(liveTimer);
+				void router.replace({
+					name: "SearchResults",
+					params: {id: chat.id},
+					query: {q: formatSearchQuery({...filters.value, in: scope.value})},
+				});
+			}
+
+			if (phone.value) {
+				searchTucked.value = true;
+			}
 		};
 
 		// A link or a spoiler in the line does its own thing.
@@ -1069,6 +1166,7 @@ export default defineComponent({
 		const closeSearch = () => {
 			if (channel.value) {
 				switchToChannel(channel.value);
+				eventbus.emit("input:focus");
 			} else {
 				void navigate("Connect");
 			}
@@ -1100,7 +1198,21 @@ export default defineComponent({
 			});
 		};
 
-		const submit = () => setQuery(fullDraft.value);
+		const submit = () => {
+			remember(fullDraft.value);
+			setQuery(fullDraft.value);
+		};
+
+		const useRecent = (q: string) => {
+			remember(q);
+			setQuery(q);
+		};
+
+		const clearRecent = () => {
+			forgetSearches();
+			recent.value = [];
+			queryField.value?.focus();
+		};
 
 		const useHint = (hint: string) => {
 			draft.value = draft.value ? `${draft.value.trimEnd()} ${hint}` : hint;
@@ -1182,6 +1294,17 @@ export default defineComponent({
 			}
 		});
 
+		// Asked before the network was up (a reload on a search): ask again once it
+		// is, rather than leave the loaded lines, few or none, standing in for it.
+		watch(
+			() => network.value?.status.connected,
+			(connected) => {
+				if (connected && mode.value === "offline" && criteria.value && !loading.value) {
+					run();
+				}
+			}
+		);
+
 		const searchEverywhere = () => {
 			setQuery(formatSearchQuery({...draftFilters.value, in: ALL_CHANNELS}));
 		};
@@ -1242,11 +1365,10 @@ export default defineComponent({
 
 				showQuery(String(route.query.q ?? ""));
 
-				if (found.value) {
-					store.commit("activeChannel", found.value);
+				// Only the chat beside changed (a hit elsewhere): the results stand.
+				if (searchKey() !== askedFor || !criteria.value) {
+					run();
 				}
-
-				run();
 			}
 		);
 
@@ -1258,21 +1380,10 @@ export default defineComponent({
 		};
 
 		onMounted(() => {
-			if (found.value) {
-				store.commit("activeChannel", found.value);
-			}
-
 			socket.on("search:results", onResults);
 			eventbus.on("escapekey", onEscape);
 			window.addEventListener("resize", showMatches);
-
-			const kept = takeResults(parseInt(String(route.params.id), 10), query.value);
-
-			if (kept) {
-				void restoreResults(kept);
-			} else {
-				run();
-			}
+			run();
 
 			if (!query.value) {
 				queryField.value?.focus();
@@ -1321,7 +1432,12 @@ export default defineComponent({
 			oldestLabel,
 			olderError,
 			clickHit,
+			clearRecent,
 			hitError,
+			phone,
+			recent,
+			searchTucked,
+			useRecent,
 			list,
 			openHit,
 			queryField,
@@ -1335,6 +1451,7 @@ export default defineComponent({
 			submit,
 			suggestions,
 			timeOf,
+			hitTime,
 			useHint,
 			visible,
 		};

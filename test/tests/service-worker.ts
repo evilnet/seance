@@ -15,6 +15,7 @@ import vm from "node:vm";
 import {interpolate, setCatalog, t} from "../../client/js/i18n/core";
 import enCatalog from "../../client/locales/en.json";
 import {applyLocale} from "../../client/js/push/i18n";
+import {ignoredSender} from "../../client/js/push/ignore";
 import {CONCAT_TAG, lineIndexOf, parsePushLine} from "../../client/js/push/line";
 import {addMessage, MERGE_KEEP, renderMergedBody} from "../../client/js/push/merge";
 import {appUrlFromScope, networkFromScope} from "../../client/js/push/scope";
@@ -644,6 +645,7 @@ function makeSW(options: HarnessOptions = {}): SWHarness {
 				),
 			t,
 			interpolate,
+			ignoredSender,
 		};
 	}
 
@@ -1705,6 +1707,41 @@ describe("service worker push notifications under WebKit (every push shows)", fu
 		expect(live.map((n) => n.tag)).to.deep.equal(["push-net-1/alice"]);
 		expect(live[0].data.count).to.equal(2);
 		expect(live[0].body).to.include("earlier");
+	});
+
+	it("a push from someone on the network's ignore list shows quietly under WebKit, without its text", async function () {
+		const sw = makeSW({userAgent: IOS_UA, scope: SCOPE + "push/net-1/"});
+
+		sw.kv.set("prefs", {ignored: {"net-1": [{nick: "troll", ident: "*", hostname: "*"}]}});
+		await firePush(sw, msgPayload("Troll", "pushtest", "secret insult", "m-ign"));
+
+		expect(sw.shown).to.have.lengthOf(1);
+		expect(sw.shown[0].silent).to.equal(true);
+		expect(sw.shown[0].body).to.not.include("secret");
+		expect(
+			((sw.kv.get("pushlog") as string[]) ?? []).some((l) => l.includes("dropped as ignored"))
+		).to.equal(true);
+	});
+
+	it("drops a raw-line push from an ignored host on Chrome as one the page took, every line of a batch", async function () {
+		const sw = makeSW({fastTimers: true, scope: SCOPE + "push/net-1/"});
+
+		sw.kv.set("prefs", {
+			ignored: {
+				"net-1": [{nick: "*", ident: "*", hostname: "h"}],
+				"net-2": [{nick: "alice", ident: "*", hostname: "*"}],
+			},
+		});
+		await firePush(sw, batchLine("m-bat", 1, 2, 2, "first secret", {from: "bob"}));
+		await firePush(sw, batchLine("m-bat", 2, 2, 2, "second secret", {from: "bob"}));
+
+		expect(sw.shown.filter((n) => !n.silent)).to.deep.equal([]);
+		expect(sw.shown.every((n) => !n.body.includes("secret"))).to.equal(true);
+
+		// Another network's list does not reach this one.
+		await firePush(sw, msgPayload("alice", "pushtest", "hello", "m-other"));
+		const loud = sw.shown.filter((n) => !n.silent);
+		expect(loud.map((n) => n.body)).to.deep.equal(["hello"]);
 	});
 
 	it("matches a muted conversation under IRC's case folding", async function () {

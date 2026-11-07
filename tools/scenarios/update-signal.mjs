@@ -220,6 +220,13 @@ export default async function run(page) {
 		await page.sleep(1000);
 		await runsBuild(tokenB, "after Reload to update the page");
 		page.check("the updated page shows no update", (await page.evaluate(NOTIFIED)) === 0);
+		// Help is the URL's hash; the button drops it so the fresh page lands
+		// where the app would open, not on Help again.
+		page.check(
+			"Reload to update leaves Help",
+			!(await page.evaluate(`document.querySelector("#help") !== null`)) &&
+				!(await page.evaluate(`location.hash.startsWith("#/help")`))
+		);
 
 		// The false positive of old: a deploy followed by a plain reload. The
 		// page loads as the new build through the previous worker (network

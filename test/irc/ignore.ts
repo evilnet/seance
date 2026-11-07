@@ -57,6 +57,21 @@ describe("ignore list", function () {
 		expect(data.has(ignoreStorageKey("net-1"))).to.equal(false);
 	});
 
+	it("ignoresNick: true exactly where /unignore <nick> removes an entry", function () {
+		const list = new IgnoreList("net-1");
+		list.add("Troll");
+		list.add("*!*@evil.example");
+
+		expect(list.ignoresNick("troll")).to.equal(true);
+		expect(list.ignoresNick("TROLL")).to.equal(true);
+		// Caught only by a host mask: unignoring by nick would not remove it.
+		expect(list.ignoresNick("someone")).to.equal(false);
+		expect(list.matches("someone", "x", "evil.example")).to.equal(true);
+
+		list.remove("troll");
+		expect(list.ignoresNick("troll")).to.equal(false);
+	});
+
 	it("matches senders with wildcards, case-insensitively", function () {
 		const list = new IgnoreList("net-1");
 		list.add("*!*@*.evil.example");

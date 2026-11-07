@@ -5,6 +5,7 @@ import {createSettingsStore} from "./store-settings";
 import storage from "./localStorage";
 import type {ClientChan, ClientNetwork, NetChan} from "./types";
 import type {InboxEntry} from "../../shared/types/mention";
+import type {SharedChannelList} from "../../shared/types/channel-list";
 import type {InjectionKey} from "vue";
 
 import {SettingsState} from "./settings";
@@ -159,8 +160,8 @@ export type State = {
 	translateChannels: Record<string, ChannelTranslation>;
 	/** A message the open conversation is to be taken to (helpers/jumpToMessage.ts). */
 	jumpTarget: JumpTarget | null;
-	/** Taken from search to a hit in this channel: the way back to the results. */
-	searchReturn: {chanId: number; windowId: number; q: string} | null;
+	/** Each network's channel list, by uuid (irc/channelList.ts, for the channel browser). */
+	channelLists: Record<string, SharedChannelList>;
 };
 
 const state = (): State => ({
@@ -187,7 +188,7 @@ const state = (): State => ({
 	outgoingTranslations: {},
 	translateChannels: {},
 	jumpTarget: null,
-	searchReturn: null,
+	channelLists: {},
 });
 
 type Getters = {
@@ -336,7 +337,7 @@ type Mutations = {
 	translateChannelRemove(state: State, key: string): void;
 	translateChannelsLoaded(state: State, all: Record<string, ChannelTranslation>): void;
 	jumpTarget(state: State, target: State["jumpTarget"]): void;
-	searchReturn(state: State, back: State["searchReturn"]): void;
+	channelList(state: State, data: {network: string; list: SharedChannelList}): void;
 };
 
 const mutations: Mutations = {
@@ -473,8 +474,8 @@ const mutations: Mutations = {
 	jumpTarget(state, target) {
 		state.jumpTarget = target;
 	},
-	searchReturn(state, back) {
-		state.searchReturn = back;
+	channelList(state, {network, list}) {
+		state.channelLists[network] = list;
 	},
 };
 

@@ -118,7 +118,7 @@ import socket from "../js/socket";
 import {writeClipboard} from "../js/clipboard";
 import {codeBlocksOf, layout} from "../js/helpers/ircmessageparser/layout";
 import {useStore} from "../js/store";
-import {startEdit, startReply} from "../js/helpers/compose";
+import {isEditable, startEdit, startReply} from "../js/helpers/compose";
 import {myReactions} from "../js/helpers/messageUpdates";
 import {loadEmojiCatalog} from "../js/helpers/emoji";
 import {
@@ -291,13 +291,10 @@ export default defineComponent({
 		const copyText = () => copy(props.message.text ?? "");
 
 		// Only plain text can be edited (the IRC layer resends it tagged).
-		// Not on a past view's row: an edit's own place is among the recent lines.
-		const canEdit = computed(
-			() =>
-				!props.channel.past &&
-				!!props.message.self &&
-				props.message.type === MessageType.MESSAGE
-		);
+		// The same rule ArrowUp steps by (helpers/compose.ts): an own message
+		// or action, with a msgid, not yet deleted or replaced. Not on a past
+		// view's row: an edit's own place is among the recent lines.
+		const canEdit = computed(() => !props.channel.past && isEditable(props.message));
 
 		// Own messages anywhere; others' only in channels, where the server
 		// decides (chanop / REDACT_WINDOW) and answers FAIL otherwise.

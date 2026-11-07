@@ -187,6 +187,22 @@ export class ISupport {
 		return value === undefined || value === "" ? undefined : value;
 	}
 
+	/**
+	 * The channels the network puts forward (`FEATURED=#help,#lounge`), with
+	 * or without a vendor prefix (`nefarious/FEATURED`), the token's spelling
+	 * not being settled; the value as sent, or nothing. Read by the channel
+	 * browser (irc/channelList.ts).
+	 */
+	get featured(): string | undefined {
+		for (const [token, value] of this.map) {
+			if (token === "FEATURED" || token.endsWith("/FEATURED")) {
+				return value;
+			}
+		}
+
+		return undefined;
+	}
+
 	/** `CHANMODES=A,B,C,D`; defaults to the ircu set. */
 	get chanmodes(): ChanModes {
 		const value = this.get("CHANMODES");

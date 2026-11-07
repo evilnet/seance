@@ -163,6 +163,12 @@ export function registerBusHandlers(bus: EventBus, registry: ClientRegistry): vo
 		persistenceClient(params)?.send("PERSISTENCE LIST");
 	});
 
+	// The channel browser (Windows/ChannelBrowser.vue): one LIST per ask,
+	// answered as `channel:list` (handlers/list.ts).
+	bus.handle("channel:list:ask", ({network, args}) => {
+		registry.clientForNetwork(network)?.requestChannelList(args);
+	});
+
 	bus.handle("persistence:sessions:logout", (params) => {
 		persistenceClient(params)?.send("PERSISTENCE DETACH");
 	});

@@ -562,7 +562,9 @@ export default defineComponent({
 		const serverAddressLabel = computed(() => t("form.serverAddress"));
 		const serverPortLabel = computed(() => t("form.serverPort"));
 		const channelsPlaceholder = computed(() => t("form.channelsPlaceholder"));
-		const commandsHelp = computed(() => t("form.commandsHelp"));
+		// The catalog's text breaks its lines by hand, for a tooltip that
+		// never wrapped; tooltips wrap now (style.css), so the breaks go.
+		const commandsHelp = computed(() => t("form.commandsHelp").replace(/\s*\n\s*/g, " "));
 		const passwordPlaceholder = computed(() => t("form.passwordPlaceholder"));
 		const pushHelp = computed(() => t("form.pushHelp"));
 		const browserNotificationsHelp = computed(() => t("form.browserNotificationsHelp"));

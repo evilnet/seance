@@ -1,5 +1,7 @@
 import Mousetrap from "mousetrap";
 
+import {nextTick} from "vue";
+import {searchTucked} from "./searchPanel";
 import {store} from "./store";
 import {switchToChannel, router, navigate, leavePage} from "./router";
 import {topEscapeLayer} from "./helpers/escapeLayer";
@@ -165,7 +167,10 @@ Mousetrap.bind(["mod+f"], function () {
 	}
 
 	if (router.currentRoute.value.name === "SearchResults") {
-		document.querySelector<HTMLInputElement>(".search-query input")?.focus();
+		searchTucked.value = false; // a phone's panel a hit tucked away comes back
+		void nextTick(() =>
+			document.querySelector<HTMLInputElement>(".search-query input")?.focus()
+		);
 	} else {
 		void navigate("SearchResults", {id: channel.id});
 	}

@@ -99,7 +99,7 @@ export function applyEdit<T extends SharedMsg>(
 	replaces: number,
 	id: number
 ): {original: T; replacement?: T} | undefined {
-	let originalAt = indexOfId(messages, replaces);
+	const originalAt = indexOfId(messages, replaces);
 
 	if (originalAt === -1) {
 		return undefined;
@@ -114,26 +114,45 @@ export function applyEdit<T extends SharedMsg>(
 		return {original};
 	}
 
-	const replacement = messages[at];
+	// The edit may have been edited in turn before its original arrived (an
+	// older page brought it): then the whole chain goes behind the
+	// original, and the newest edit, the one shown, is the replacement.
+	const chain: T[] = [messages[at]];
+	const seen = new Set<number>([id]);
 
-	// Once per message: an edit of an edit inherits the first original's
-	// time through its predecessor, and a repeated dispatch changes nothing.
-	if (replacement.editedAt === undefined) {
-		replacement.editedAt = replacement.time;
-		replacement.time = original.time;
-	}
+	for (let next = chain[0].supersededBy; next !== undefined && !seen.has(next); ) {
+		const nextAt = indexOfId(messages, next);
 
-	if (at !== originalAt + 1) {
-		messages.splice(at, 1);
-
-		if (at < originalAt) {
-			originalAt--;
+		if (nextAt === -1) {
+			break;
 		}
 
-		messages.splice(originalAt + 1, 0, replacement);
+		seen.add(next);
+		chain.push(messages[nextAt]);
+		next = messages[nextAt].supersededBy;
 	}
 
-	return {original, replacement};
+	// Each takes the original's time; when it was made is kept once, as
+	// `editedAt`, so a repeated dispatch changes nothing.
+	for (const message of chain) {
+		if (message.editedAt === undefined) {
+			message.editedAt = message.time;
+		}
+
+		message.time = original.time;
+	}
+
+	const inPlace = chain.every((message, k) => messages[originalAt + 1 + k] === message);
+
+	if (!inPlace) {
+		for (const message of chain) {
+			messages.splice(messages.indexOf(message), 1);
+		}
+
+		messages.splice(messages.indexOf(original) + 1, 0, ...chain);
+	}
+
+	return {original, replacement: chain[chain.length - 1]};
 }
 
 /**

@@ -116,6 +116,7 @@ import {detectProfile, type ServerProfile} from "./profiles";
 import {interceptRequestLine, resetRequests} from "./request";
 import {noticeMessage} from "./snotice";
 import {ISupport} from "./isupport";
+import {ChannelList} from "./channelList";
 import {
 	formatLine,
 	IrcMessage,
@@ -223,6 +224,8 @@ interface PendingEdit {
 	chan: Channel;
 	text: string;
 	replyTo?: string;
+	/** The replacement is an action (`/me`). */
+	action: boolean;
 	timer: ReturnType<typeof setTimeout>;
 }
 
@@ -292,6 +295,8 @@ export class IrcClient {
 	/** Swapped for a new one on an STS upgrade; always subscribed via {@link reconfigure}. */
 	transport: Transport;
 	readonly isupport = new ISupport();
+	/** The channel browser's rows and the MOTD's featured channels (channelList.ts). */
+	readonly channelList = new ChannelList();
 	/** NICKLEN as registration learned it before 005 (`handlers/numerics.ts`);
 	 * cleared with ISUPPORT, since the next connection may be another server. */
 	learnedNickLen: number | undefined;
@@ -427,6 +432,13 @@ export class IrcClient {
 	host = "";
 	/** MOTD lines being collected between 375 and 376. */
 	motdBuffer: string[] | null = null;
+	/**
+	 * A `MOTD` the channel browser sent for the featured channels, once per
+	 * connection: the answer is parsed and not shown (handlers/numerics.ts).
+	 * Set when a server gives only its short MOTD on connect (ircu's
+	 * NODEFAULTMOTD), which carries no featured lines.
+	 */
+	motdForFeatured: "unsent" | "sent" | "answered" = "unsent";
 	/** Counter behind {@link nextBatchRef}. */
 	private batchRefs = 0;
 	/** The SASL exchange in progress during registration, if any. */
@@ -1041,6 +1053,8 @@ export class IrcClient {
 		this.learnedNickLen = undefined;
 		this.authtoken.clear("Reconnecting");
 		this.motdBuffer = null;
+		this.motdForFeatured = "unsent";
+		this.channelList.reset();
 		this.host = "";
 		this.account = "";
 		this.persistenceHold = false;
@@ -1714,6 +1728,37 @@ export class IrcClient {
 		});
 	}
 
+	/**
+	 * Ask the server for its channel list (`channel:list:ask`, `/list`). One
+	 * LIST is the whole answer and costs one command of fake lag, so a list
+	 * under way, or the delay the server named, refuses a second ask. `args`
+	 * are passed to the server as they are (`>10`, `#a*`).
+	 */
+	requestChannelList(args: string[] = []): boolean {
+		if (!this.isWelcomed || this.channelList.busy) {
+			return false;
+		}
+
+		this.channelList.start();
+		this.dispatchChannelList();
+
+		// A server that gave its short MOTD on connect kept the featured
+		// lines: one MOTD per connection, the first time the browser asks —
+		// unless the ISUPPORT token already named the channels, in which case
+		// the command is saved and the cards take the list's topics.
+		if (this.channelList.featured.length === 0 && this.motdForFeatured === "unsent") {
+			this.motdForFeatured = "sent";
+			this.send("MOTD");
+		}
+
+		return this.send(formatLine({command: "LIST", params: args}));
+	}
+
+	/** The browser's copy of {@link channelList}. */
+	dispatchChannelList(): void {
+		this.bus.dispatch("channel:list", {network: this.uuid, list: this.channelList.snapshot()});
+	}
+
 	/** Send one raw line. Reports an ERROR message in the lobby instead of throwing. */
 	send(line: string): boolean {
 		if (this.transport.state !== "open") {
@@ -2192,7 +2237,8 @@ export class IrcClient {
 	}
 
 	/**
-	 * Replace our own message `oldMsgid` with `text` (bus-contract §1.4).
+	 * Replace our own message `oldMsgid` with `text`, an action when
+	 * `action` (bus-contract §1.4).
 	 * There is no edit on the wire, so in a channel where REDACT works the
 	 * old message is redacted (`:edited`) first and the resend, tagged
 	 * `+seance/edit=<old>`, goes out once our own REDACT is echoed back
@@ -2203,9 +2249,15 @@ export class IrcClient {
 	 * nothing to wait for: the REDACT is applied locally and the resend
 	 * follows at once (a late `FAIL REDACT` then only shows as an error).
 	 */
-	editMessage(chan: Channel, oldMsgid: string, text: string, replyTo?: string): void {
+	editMessage(
+		chan: Channel,
+		oldMsgid: string,
+		text: string,
+		replyTo?: string,
+		action = false
+	): void {
 		if (chan.type !== ChanType.CHANNEL || !this.canRedact) {
-			this.sendEdit(chan, oldMsgid, text, replyTo);
+			this.sendEdit(chan, oldMsgid, text, replyTo, action);
 			return;
 		}
 
@@ -2216,7 +2268,7 @@ export class IrcClient {
 						chan.name
 					} ${oldMsgid} :edited`
 				);
-				this.sendEdit(chan, oldMsgid, text, replyTo);
+				this.sendEdit(chan, oldMsgid, text, replyTo, action);
 			}
 
 			return;
@@ -2242,12 +2294,34 @@ export class IrcClient {
 				});
 			}
 		}, EDIT_TIMEOUT_MS);
-		this.pendingEdits.set(oldMsgid, {chan, text, replyTo, timer});
+		this.pendingEdits.set(oldMsgid, {chan, text, replyTo, action, timer});
+	}
+
+	/**
+	 * `msg` was just delivered, and an edit of it is already shown (it came
+	 * first: an older page brought the original in, or a catch-up). The edit
+	 * takes its place now (`msg:edit`), as it does when the original is
+	 * there first, so the two are never both on screen — nor both in a copy
+	 * of the conversation.
+	 */
+	settleLateOriginal(chan: Channel, msg: SharedMsg): void {
+		const editMsgid = msg.msgid ? chan.takeEditOf(msg.msgid) : undefined;
+		const id = editMsgid === undefined ? undefined : chan.idOf(editMsgid);
+
+		if (id !== undefined && id !== msg.id) {
+			this.dispatch("msg:edit", {chan: chan.id, id, replaces: msg.id});
+		}
 	}
 
 	/** The tagged resend that completes an edit. */
-	private sendEdit(chan: Channel, oldMsgid: string, text: string, replyTo?: string): void {
-		const opts: SendMessageOptions = {firstTags: {[EDIT_TAG]: oldMsgid}};
+	private sendEdit(
+		chan: Channel,
+		oldMsgid: string,
+		text: string,
+		replyTo?: string,
+		action = false
+	): void {
+		const opts: SendMessageOptions = {firstTags: {[EDIT_TAG]: oldMsgid}, action};
 
 		if (replyTo) {
 			opts.tags = replyTags(replyTo);
@@ -2261,7 +2335,7 @@ export class IrcClient {
 		const pending = this.takePendingEdit(msgid);
 
 		if (pending) {
-			this.sendEdit(pending.chan, msgid, pending.text, pending.replyTo);
+			this.sendEdit(pending.chan, msgid, pending.text, pending.replyTo, pending.action);
 		}
 	}
 
@@ -3194,6 +3268,7 @@ export class IrcClient {
 			highlight: shared.highlight,
 			...(replay ? {replay: true} : {}),
 		});
+		this.settleLateOriginal(chan, msg);
 
 		// An unread highlight in a conversation, live or caught up, is an
 		// inbox entry; one read already (looked at, or past another

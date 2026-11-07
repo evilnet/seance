@@ -6,6 +6,282 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=6; plural=(n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 ? 4 : 5);\n"
 
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): heading of the full list.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.all"
+msgid "All channels"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): accessible name of the window. {network} is the network's name, verbatim.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.aria"
+msgid "Channel browser for {network}"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): button that asks the server for the list for the first time.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.ask"
+msgid "Load channels"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): label of the button that empties the search field.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.clear"
+msgid "Clear search"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): the close button's label.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.close"
+msgid "Close"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): how many channels the list shows after filtering.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.count"
+msgid "{count} channel"
+msgid_plural "{count} channels"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): button offering to join a channel that does not exist yet, which creates it; {name} is the channel name, verbatim.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.create"
+msgid "Start {name}"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): heading when the server refuses the list because the connection is too new.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.delayed"
+msgid "The server is making you wait"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): countdown under 'The server is making you wait'; {count} is the seconds left.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.delayedNote"
+msgid "New connections can list channels in {count} second."
+msgid_plural "New connections can list channels in {count} seconds."
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): shown when the server's list came back empty.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.empty"
+msgid "The server listed no channels"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): heading of the section of channels the network itself puts forward (marked in its MOTD).
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.featured"
+msgid "Featured"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): note beside the Featured heading saying who chose these channels.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.featuredNote"
+msgid "Picked by the network"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): filter chip showing every channel.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.filter.all"
+msgid "All"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): filter chip showing channels with at least {count} users; {count} is a number.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.filter.busy"
+msgid "{count}+ people"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): filter chip showing only the channels the network puts forward.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.filter.featured"
+msgid "Featured"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): filter chip showing channels that have a topic set.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.filter.topic"
+msgid "With a topic"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): accessible name of the row of filter chips.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.filters"
+msgid "Filters"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): shown before the list was ever asked for on this connection.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.idle"
+msgid "No list yet"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): action on a channel row the user is not in. One word.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.join"
+msgid "Join"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): status while the list is requested and no row has arrived yet.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.loading"
+msgid "Asking the server…"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): status while the list arrives; {count} is the rows received so far.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.loadingCount"
+msgid "{count} channel so far…"
+msgid_plural "{count} channels so far…"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): shown when the search finds no channel; {query} is what was typed, verbatim.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.noMatches"
+msgid "Nothing matches {query}"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): shown when the network the window was opened for no longer exists.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.noNetwork"
+msgid "This network is gone"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): shown in place of a channel's topic when it has none.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.noTopic"
+msgid "No topic"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): heading when the network is disconnected.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.offline"
+msgid "Not connected"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): note under 'Not connected'.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.offlineNote"
+msgid "The list comes from the server; it loads once the network is back."
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): action on a channel row the user is already in. One word.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.open"
+msgid "Open"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): number of users in a channel, shown on every row and card.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.people"
+msgid "{count} person"
+msgid_plural "{count} people"
+msgstr[0] ""
+msgstr[1] ""
+msgstr[2] ""
+msgstr[3] ""
+msgstr[4] ""
+msgstr[5] ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): button that asks the server for the list again.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.refresh"
+msgid "Refresh"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): tooltip on the Refresh button while it is disabled right after an update.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.refreshSoon"
+msgid "The list was just updated"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): heading when the server rejected the LIST arguments; the server's own text follows.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.refused"
+msgid "The server refused the list"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): button that asks the server again after a refusal.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.retry"
+msgid "Try again"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): accessible name of the search field.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.search"
+msgid "Search channels"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): placeholder of the search field, which matches channel names and topics.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.searchPlaceholder"
+msgid "Search by name or topic"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): button that reveals the next page of the list.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.showMore"
+msgid "Show more"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): footer under a long list; {shown} and {total} are numbers of channels.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.showing"
+msgid "Showing {shown} of {total}"
+msgstr ""
+
+#. Sidebar join form: button under the channel name field that opens the channel browser window.
+#: client/components/JoinChannel.vue
+msgctxt "browse.sidebarButton"
+msgid "Browse channels"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): accessible name of the sort order select.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.sort"
+msgid "Sort"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): sort option: by channel name.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.sort.name"
+msgid "A to Z"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): sort option: by number of users, largest first.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.sort.people"
+msgid "Most people"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): the window's heading. Two words.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.title"
+msgid "Browse channels"
+msgstr ""
+
+#. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): when the list was last fetched; {when} is a relative time like '5 minutes ago', verbatim.
+#: client/components/Windows/ChannelBrowser.vue
+msgctxt "browse.updated"
+msgid "Updated {when}"
+msgstr ""
+
 #. Tooltip and aria-label of the ✕ button on a private-conversation or list-window row in the sidebar network list; clicking closes that window (nothing is left on the server).
 #: client/components/Channel.vue
 msgctxt "channel.close"
@@ -119,18 +395,6 @@ msgstr[2] "فتح الإشارات إليك، غير المقروءة: {count}"
 msgstr[3] "فتح الإشارات إليك، غير المقروءة: {count}"
 msgstr[4] "فتح الإشارات إليك، غير المقروءة: {count}"
 msgstr[5] "فتح الإشارات إليك، غير المقروءة: {count}"
-
-#. Button on the bar shown while reading older messages in the main window: returns to the search results this message was opened from.
-#: client/components/Chat.vue
-msgctxt "chat.past.backToResults"
-msgid "Back to results"
-msgstr ""
-
-#. Past view bar: the button beside Back to results that forgets those results
-#: client/components/Chat.vue
-msgctxt "chat.past.dismissResults"
-msgid "Dismiss the search results"
-msgstr ""
 
 #. Error toast: the server answered, but no longer has the older message the reader asked to go to.
 #: client/js/socket-events/past.ts
@@ -1115,6 +1379,12 @@ msgstr "خطأ في الاتصال: {message}"
 msgctxt "dates.today"
 msgid "Today"
 msgstr "اليوم"
+
+#. A message's time beside it where a day header may be out of sight (search results): the message is from today. {time} is the clock time in the user's format (e.g. 21:58 or 9:58 PM).
+#: client/js/helpers/messageTime.ts
+msgctxt "dates.todayAt"
+msgid "Today {time}"
+msgstr "اليوم {time}"
 
 #. Label of a date marker between message groups in the scrollback: tooltip of the divider between the messages sent the day before; older groups show the date itself.
 #: client/components/DateMarker.vue:4
@@ -3174,12 +3444,6 @@ msgctxt "link.tryAgain"
 msgid "Click to try again"
 msgstr "انقر لإعادة المحاولة"
 
-#. Title of the special window the /list command fills with the server's channels. The name doubles as the window's lookup name, so it stays byte-stable per locale while the session lives.
-#: client/js/irc/handlers/list.ts
-msgctxt "list.channelList"
-msgid "Channel List"
-msgstr "قائمة القنوات"
-
 #. Status message when a mode list (bans, invites, exceptions) the user asked for came back with no entries. {kind} is the list's name as an English word inserted by the app ('Ban list', 'Invite list', 'Exception list'); the matching kind keys are list.kindBans/list.kindInvites/list.kindExcepts.
 #: client/js/irc/handlers/lists.ts
 msgctxt "list.isEmpty"
@@ -3203,24 +3467,6 @@ msgstr "قائمة الاستثناءات"
 msgctxt "list.kindInvites"
 msgid "Invite list"
 msgstr "قائمة الدعوات"
-
-#. Status line in the 'Channel List' window updated as each channel arrives; {count} is the number received so far.
-#: client/js/irc/handlers/list.ts
-msgctxt "list.loaded"
-msgid "Loaded {count} channel..."
-msgid_plural "Loaded {count} channels..."
-msgstr[0] "تم تحميل {count} قناة..."
-msgstr[1] "تم تحميل {count} قناة..."
-msgstr[2] "تم تحميل {count} قناتين..."
-msgstr[3] "تم تحميل {count} قنوات..."
-msgstr[4] "تم تحميل {count} قناة..."
-msgstr[5] "تم تحميل {count} قناة..."
-
-#. Status line in the 'Channel List' window while the server sends its channels.
-#: client/js/irc/handlers/list.ts
-msgctxt "list.loading"
-msgid "Loading channel list, this can take a moment..."
-msgstr "جارٍ تحميل قائمة القنوات، قد يستغرق هذا بعض الوقت..."
 
 #. Title of a special window showing one channel's mode list. {kind} is the list's name ('Ban list' etc.), {channel} the channel name. Byte-stable per locale while the session lives: the title doubles as the window's lookup name.
 #: client/js/irc/handlers/lists.ts
@@ -3740,6 +3986,12 @@ msgstr "سحب صلاحية {name} (-{mode})"
 msgctxt "menu.revokeModeUnknown"
 msgid "Mode -{mode}"
 msgstr "الوضع -{mode}"
+
+#. Context-menu item on a user who is on the ignore list; shows their messages again (runs /unignore <nick>).
+#: client/js/helpers/contextMenu.ts
+msgctxt "menu.unignore"
+msgid "Unignore user"
+msgstr "إلغاء تجاهل المستخدم"
 
 #. Context-menu item on a conversation whose messages are muted (not highlighted, not notified); clicking unmutes it. {type} names the kind of conversation in lowercase: 'network', 'channel' or 'conversation'.
 #: client/js/helpers/contextMenu.ts
@@ -11702,6 +11954,12 @@ msgctxt "reactions.clickToRemoveSuffix"
 msgid "(click to remove yours)"
 msgstr "(انقر لإزالة تفاعلك)"
 
+#. Button in the emoji picker's search row that closes the picker without picking anything; shown on phones, where there is no Escape key, and when the picker was opened by typing a colon in the message composer.
+#: client/components/ReactionPicker.vue
+msgctxt "reactions.close"
+msgid "Close"
+msgstr "إغلاق"
+
 #. aria-label of the emoji picker popup that opens from a chat message to add a reaction to it.
 #: client/components/ReactionPicker.vue
 msgctxt "reactions.dialogAria"
@@ -11732,6 +11990,12 @@ msgctxt "reactions.hintCombine"
 msgid "⇧ to combine"
 msgstr "⇧ للدمج"
 
+#. Hint at the end of the emoji picker's preview bar, beside the highlighted emoji: pressing Enter (or Tab) puts it into the message being written. Emoji picker opened from the message composer by typing a colon and a name; what is picked goes into the message being written, not onto a message as a reaction.
+#: client/components/ReactionPicker.vue
+msgctxt "reactions.hintInsert"
+msgid "Enter to insert"
+msgstr "Enter للإدراج"
+
 #. Preview-bar hint in the emoji picker when the highlighted emoji is already on the message; clicking it takes the reaction back off.
 #: client/components/ReactionPicker.vue
 msgctxt "reactions.hintRemove"
@@ -11743,6 +12007,30 @@ msgstr "إزالة"
 msgctxt "reactions.hintSend"
 msgid "Enter to send"
 msgstr "Enter للإرسال"
+
+#. Button in the emoji picker that puts the emoji built so far into the message being written. Emoji picker opened from the message composer by typing a colon and a name; what is picked goes into the message being written, not onto a message as a reaction.
+#: client/components/ReactionPicker.vue
+msgctxt "reactions.insert"
+msgid "Insert"
+msgstr "إدراج"
+
+#. Accessible name of the emoji picker dialog when it inserts into the message being written. Emoji picker opened from the message composer by typing a colon and a name; what is picked goes into the message being written, not onto a message as a reaction.
+#: client/components/ReactionPicker.vue
+msgctxt "reactions.insertDialogAria"
+msgid "Insert an emoji"
+msgstr "إدراج رمز تعبيري"
+
+#. Hint at the bottom of the emoji picker when nothing is highlighted and it inserts into the message being written. Emoji picker opened from the message composer by typing a colon and a name; what is picked goes into the message being written, not onto a message as a reaction.
+#: client/components/ReactionPicker.vue
+msgctxt "reactions.insertEmptyHint"
+msgid "Pick an emoji to put it in your message."
+msgstr "اختر رمزًا تعبيريًا لإضافته إلى رسالتك."
+
+#. Placeholder and accessible name of the emoji picker's search field when it inserts into the message being written. Emoji picker opened from the message composer by typing a colon and a name; what is picked goes into the message being written, not onto a message as a reaction.
+#: client/components/ReactionPicker.vue
+msgctxt "reactions.insertSearchPlaceholder"
+msgid "Search emoji"
+msgstr "ابحث عن رمز تعبيري"
 
 #. aria-label of the emoji picker's scrollable grid of emoji to pick from.
 #: client/components/ReactionPicker.vue
@@ -12074,17 +12362,17 @@ msgctxt "search.window.asking"
 msgid "Asking the server…"
 msgstr "جارٍ سؤال الخادم…"
 
-#. Search window (searching the chat history of the server, or of what is loaded on this device): label and tooltip of the back button at the top left: closes the search and returns to that chat. {channel} is the channel or conversation name (verbatim).
-#: client/components/Windows/SearchResults.vue
-msgctxt "search.window.back"
-msgid "Back to {channel}"
-msgstr "العودة إلى {channel}"
-
 #. Search window (searching the chat history of the server, or of what is loaded on this device): in the status line under the results, after the count: how far back the search went. {when} is a day and a time, already formatted. Lower case.
 #: client/components/Windows/SearchResults.vue
 msgctxt "search.window.backTo"
 msgid "back to {when}"
 msgstr "حتى {when}"
+
+#. Search panel (searching the chat history of the server, or of what is loaded on this device), beside the chat on a wide screen and over it on a phone: on a phone, the text button beside the search field that closes the search and returns to the chat.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.cancel"
+msgid "Cancel"
+msgstr ""
 
 #. Search window (searching the chat history of the server, or of what is loaded on this device): name of a filter: messages from one services account (the identity a user is logged in as, whatever their nick). Also the field's label in the filters sheet. One word.
 #: client/components/Windows/SearchResults.vue
@@ -12128,8 +12416,22 @@ msgctxt "search.window.chip.without"
 msgid "Without"
 msgstr "دون"
 
-#. Search window (searching the chat history of the server, or of what is loaded on this device): a day and a time together (how far back the search went). {day} is a short date ('4 Nov'), {time} a clock time. Order and punctuation are your language's.
+#. Search panel (searching the chat history of the server, or of what is loaded on this device), beside the chat on a wide screen and over it on a phone: button beside the Recent searches heading that forgets that list on this device.
 #: client/components/Windows/SearchResults.vue
+msgctxt "search.window.clearRecent"
+msgid "Clear"
+msgstr ""
+
+#. Search panel (searching the chat history of the server, or of what is loaded on this device), beside the chat on a wide screen and over it on a phone: label and tooltip of the ✕ button that closes the panel; also the label of the header's magnifier while the panel is open.
+#: client/components/Windows/SearchResults.vue
+#: client/components/MessageSearchForm.vue
+msgctxt "search.window.close"
+msgid "Close search"
+msgstr ""
+
+#. Search window (searching the chat history of the server, or of what is loaded on this device): a day and a time together, in the status line (how far back the search went) and beside each result older than yesterday. {day} is a short date ('Nov 4' in English, 'Nov 4, 2025' in another year) or, for a result from the last week, a short weekday ('Tue'); {time} a clock time. Order and punctuation are your language's.
+#: client/components/Windows/SearchResults.vue
+#: client/js/helpers/messageTime.ts
 msgctxt "search.window.dayAndTime"
 msgid "{day}, {time}"
 msgstr "{day}، {time}"
@@ -12291,6 +12593,18 @@ msgstr ""
 msgctxt "search.window.placeholder"
 msgid "Search {scope}"
 msgstr "البحث في {scope}"
+
+#. Search panel (searching the chat history of the server, or of what is loaded on this device), beside the chat on a wide screen and over it on a phone: placeholder of the search field where there is a keyboard; says the Escape key closes the panel. {scope} is a channel name (verbatim) or 'all my channels' (search.window.allChannels). Esc is the key's name as printed on keyboards.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.placeholderEsc"
+msgid "Search {scope} (Esc to close)"
+msgstr ""
+
+#. Search panel (searching the chat history of the server, or of what is loaded on this device), beside the chat on a wide screen and over it on a phone: heading of the list of searches run lately on this device, shown under the empty field.
+#: client/components/Windows/SearchResults.vue
+msgctxt "search.window.recent"
+msgid "Recent searches"
+msgstr ""
 
 #. Search window (searching the chat history of the server, or of what is loaded on this device): aria-label of the × on a filter chip. {filter} is the filter's name (From, Account, Date, Has, Without).
 #: client/components/Windows/SearchResults.vue
@@ -14202,24 +14516,6 @@ msgstr "وقت الحظر"
 msgctxt "special.bans.bannedBy"
 msgid "Banned By"
 msgstr "حظره"
-
-#. Column header of the channel list: the channel name, verbatim server data.
-#: client/components/Special/ListChannels.vue
-msgctxt "special.channels.channel"
-msgid "Channel"
-msgstr "القناة"
-
-#. Column header of the channel list: the channel's topic, verbatim server data.
-#: client/components/Special/ListChannels.vue
-msgctxt "special.channels.topic"
-msgid "Topic"
-msgstr "الموضوع"
-
-#. Column header of the channel list: how many visible users the channel has.
-#: client/components/Special/ListChannels.vue
-msgctxt "special.channels.users"
-msgid "Users"
-msgstr "المستخدمون"
 
 #. Column header of the ban-exception list: the exempted hostmask, verbatim server data.
 #: client/components/Special/ListExcepts.vue

@@ -1,12 +1,17 @@
 import {isPhoneLayout} from "./helpers/device";
 
-import {createRouter, createWebHashHistory, type RouteLocationRaw} from "vue-router";
+import {
+	createRouter,
+	createWebHashHistory,
+	type RouteLocationRaw,
+	type RouteRecordName,
+} from "vue-router";
 import Connect from "../components/Windows/Connect.vue";
 import Settings from "../components/Windows/Settings.vue";
 import Help from "../components/Windows/Help.vue";
+import ChannelBrowser from "../components/Windows/ChannelBrowser.vue";
 import Changelog from "../components/Windows/Changelog.vue";
 import NetworkEdit from "../components/Windows/NetworkEdit.vue";
-import SearchResults from "../components/Windows/SearchResults.vue";
 import OperPanel from "../components/Windows/OperPanel.vue";
 import RoutedChat from "../components/RoutedChat.vue";
 import {store} from "./store";
@@ -110,6 +115,13 @@ const router = createRouter({
 			component: Help,
 		},
 		{
+			// The channel browser (docs/resources/client-features.md § Channel
+			// browser): a network's LIST, searched on the device.
+			name: "ChannelBrowser",
+			path: "/browse/:uuid",
+			component: ChannelBrowser,
+		},
+		{
 			// The oper panel (docs/projects/oper-tools.md): a modal like
 			// Settings, opened from the network header's shield.
 			name: "OperPanel",
@@ -133,7 +145,7 @@ const router = createRouter({
 		{
 			name: "SearchResults",
 			path: "/chan-:id/search",
-			component: SearchResults,
+			component: RoutedChat,
 		},
 		{
 			// A conversation by network uuid + channel/nick: the deep link a
@@ -231,7 +243,8 @@ router.beforeEach((to, from) => {
 		return false;
 	}
 
-	// Disallow navigating to invalid channels
+	// Disallow navigating to invalid channels. Not search: a reload lands there
+	// before the channels are back, and the panel waits for its channel.
 	if (to.name === "RoutedChat" && !store.getters.findChannel(Number(to.params.id))) {
 		return false;
 	}
@@ -290,8 +303,8 @@ function leavePage(): boolean {
 	return false;
 }
 
-router.afterEach((to) => {
-	if (to.name === "RoutedChat") {
+router.afterEach((to, from) => {
+	if (showsChat(to.name)) {
 		lastConversationId = Number(to.params.id);
 	}
 
@@ -301,10 +314,13 @@ router.afterEach((to) => {
 		}
 	}
 
-	if (store.state.activeChannel) {
+	// Search opening, closing or asking again beside the same chat leaves it as it is.
+	const stays = showsChat(to.name) && showsChat(from.name) && to.params.id === from.params.id;
+
+	if (store.state.activeChannel && !stays) {
 		const channel = store.state.activeChannel.channel;
 
-		if (to.name !== "RoutedChat") {
+		if (!showsChat(to.name)) {
 			store.commit("activeChannel", undefined);
 			// Nobody is reading it now: what arrives is unread, and a mention
 			// reaches the inbox. Chat.vue says "open" again on the way back.
@@ -331,6 +347,11 @@ router.afterEach((to) => {
 		}
 	}
 });
+
+/** The routes that show a conversation: the search panel opens beside it. */
+function showsChat(name: RouteRecordName | null | undefined): boolean {
+	return name === "RoutedChat" || name === "SearchResults";
+}
 
 async function navigate(routeName: string, params: any = {}) {
 	// Always a replace (see the `router.push` override); a guard refusing the

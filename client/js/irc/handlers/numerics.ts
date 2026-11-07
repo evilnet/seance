@@ -7,6 +7,7 @@
 
 import {MessageType, SharedMsg} from "../../../../shared/types/msg";
 import type {IrcClient} from "../client";
+import {parseFeaturedChannels, parseFeaturedToken} from "../channelList";
 import {errorSpec} from "../errors";
 import {formatLine} from "../message";
 import {t} from "../../i18n/core";
@@ -75,6 +76,16 @@ const isupport: Handler = (client, msg) => {
 	if (name) {
 		client.setNetworkName(name);
 	}
+
+	// The featured channels the token names, for the channel browser. 005
+	// may come before 001 (draft/extended-isupport) and again on a rehash,
+	// so it is re-read every time and reported when it changed.
+	const featured = parseFeaturedToken(client.isupport.featured ?? "", client.isupport.chantypes);
+
+	if (JSON.stringify(featured) !== JSON.stringify(client.channelList.featuredFromToken)) {
+		client.channelList.featuredFromToken = featured;
+		client.dispatchChannelList();
+	}
 };
 
 const motdStart: Handler = (client, msg) => {
@@ -92,6 +103,21 @@ const motdLine: Handler = (client, msg) => {
 };
 
 const motdEnd: Handler = (client, msg) => {
+	// The channels the MOTD puts forward, for the channel browser (merged
+	// with the ISUPPORT token's in channelList.ts).
+	client.channelList.featuredFromMotd = parseFeaturedChannels(
+		client.motdBuffer ?? [],
+		client.isupport.chantypes
+	);
+	client.dispatchChannelList();
+
+	// The browser's own MOTD: read for the featured lines, shown nowhere.
+	if (client.motdForFeatured === "sent" && client.isWelcomed) {
+		client.motdForFeatured = "answered";
+		client.motdBuffer = null;
+		return;
+	}
+
 	if (client.motdBuffer && client.motdBuffer.length > 0) {
 		// MONOSPACE_BLOCK renders verbatim (no Markdown) — MOTD banners are
 		// ASCII art. See client/components/MessageTypes/monospace_block.vue.
