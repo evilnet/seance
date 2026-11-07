@@ -96,7 +96,7 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 
 			expect(h.sent()).to.deep.equal([
 				"REDACT #seance m1 :edited",
-				"@+seance/edit=m1;+draft/reply=p1;label=s1 PRIVMSG #seance :the text",
+				"@+seance/edit=m1;+reply=p1;+draft/reply=p1;label=s1 PRIVMSG #seance :the text",
 			]);
 		});
 
@@ -169,11 +169,13 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 			expect(redact).to.equal("REDACT #seance m1 :edited");
 			expect(sent.length).to.be.greaterThan(1);
 			expect(sent[0]).to.match(
-				/^@\+seance\/edit=m1;\+draft\/reply=p1;label=s1 PRIVMSG #seance :first line second /
+				/^@\+seance\/edit=m1;\+reply=p1;\+draft\/reply=p1;label=s1 PRIVMSG #seance :first line second /
 			);
 
 			for (const line of sent.slice(1)) {
-				expect(line).to.match(/^@\+draft\/reply=p1;label=s\d+ PRIVMSG #seance :/);
+				expect(line).to.match(
+					/^@\+reply=p1;\+draft\/reply=p1;label=s\d+ PRIVMSG #seance :/
+				);
 			}
 
 			for (const line of sent) {
@@ -211,7 +213,7 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 			h.client.input(query.id, "the text", {edit: "q1", reply: "p1"});
 
 			expect(h.sent()).to.deep.equal([
-				"@+seance/edit=q1;+draft/reply=p1;label=s1 PRIVMSG bob :the text",
+				"@+seance/edit=q1;+reply=p1;+draft/reply=p1;label=s1 PRIVMSG bob :the text",
 			]);
 			expect(h.client.hasPendingEdit("q1")).to.equal(false);
 		});

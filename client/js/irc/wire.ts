@@ -8,8 +8,10 @@ import {formatLine, formatTags} from "./message";
 /** Client tags (`+name` keys) to put on an outbound line; values unescaped. */
 export type ClientTags = Record<string, string>;
 
-/** Tag a reply carries on the wire (what poxchat reads; nefarious2 also takes `+reply`). */
-export const REPLY_TAG = "+draft/reply";
+/** The reply tag (https://ircv3.net/specs/client-tags/reply), which reactions need too. */
+export const REPLY_TAG = "+reply";
+/** The draft form of {@link REPLY_TAG}: what poxchat reads, sent alongside it until it reads `+reply`. */
+export const DRAFT_REPLY_TAG = "+draft/reply";
 /** Tag marking a resend that replaces one of our own messages (Seance-only). */
 export const EDIT_TAG = "+seance/edit";
 /** Reaction / reaction removal tags (poxchat / nefarious2 convention). */
@@ -17,6 +19,11 @@ export const REACT_TAG = "+draft/react";
 export const UNREACT_TAG = "+draft/unreact";
 /** The cap that gates REDACT in both directions. */
 export const REDACTION_CAP = "draft/message-redaction";
+/** The tags that mark a message as a reply to `msgid`: both forms, so every client sees it. */
+export function replyTags(msgid: string): ClientTags {
+	return {[REPLY_TAG]: msgid, [DRAFT_REPLY_TAG]: msgid};
+}
+
 /** Typing notification tag (https://ircv3.net/specs/client-tags/typing), on TAGMSG. */
 export const TYPING_TAG = "+typing";
 /** Minimum spacing between two `+typing` TAGMSGs to one target (the spec's 3 s). */
@@ -47,7 +54,7 @@ export function tagPrefix(tags: ClientTags | undefined): string {
  * text needs it; for free-text parameters (realname, reasons, message
  * bodies) the explicit form is what every other client sends and what
  * humans reading a transcript expect. `tags` (client tags such as
- * `+draft/reply`) are escaped and prepended as `@a=b;c=d `.
+ * `+reply`) are escaped and prepended as `@a=b;c=d `.
  */
 export function trailingLine(command: string, params: string[], tags?: ClientTags): string {
 	if (params.length === 0) {

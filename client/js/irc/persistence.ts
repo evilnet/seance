@@ -286,7 +286,7 @@ export function persistenceFailed(client: IrcClient, msg: IrcMessage): boolean {
 /** True when `batch` is, or is nested in, the server's bouncer-replay wrapper. */
 export function inBouncerReplay(batch: OpenBatch): boolean {
 	for (let b: OpenBatch | undefined = batch; b; b = b.parent) {
-		if (b.type.toLowerCase() === BOUNCER_REPLAY_BATCH) {
+		if (b.type === BOUNCER_REPLAY_BATCH) {
 			return true;
 		}
 	}

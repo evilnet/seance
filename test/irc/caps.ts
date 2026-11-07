@@ -269,6 +269,29 @@ describe("irc/caps", function () {
 			expect(Array.from(neg.enabled)).to.deep.equal(["a"]);
 		});
 
+		it("keeps every line of a CAP LIST spread over lines, then starts afresh", function () {
+			const neg = new CapNegotiator({required: [], wanted: ["a", "b", "c"]});
+			feed(neg, ":s CAP * LS :a b c");
+			feed(neg, ":s CAP * ACK :a b c");
+			feed(neg, ":s CAP nick LIST * :a");
+			feed(neg, ":s CAP nick LIST :b");
+			expect(Array.from(neg.enabled)).to.deep.equal(["a", "b"]);
+			feed(neg, ":s CAP nick LIST :c");
+			expect(Array.from(neg.enabled)).to.deep.equal(["c"]);
+		});
+
+		it("changes nothing until the last line of an ACK spread over lines", function () {
+			const neg = new CapNegotiator({required: [], wanted: ["a", "b"]});
+			const ls = feed(neg, ":s CAP * LS :a b");
+			expect(ls.send).to.deep.equal(["CAP REQ :a b", "CAP END"]);
+			feed(neg, ":s CAP * ACK * :a");
+			expect(neg.hasCapability("a")).to.equal(false);
+			expect(neg.isRequesting("a")).to.equal(true);
+			feed(neg, ":s CAP * ACK :b");
+			expect(Array.from(neg.enabled)).to.deep.equal(["a", "b"]);
+			expect(neg.isRequesting("a")).to.equal(false);
+		});
+
 		it("splits a REQ that would exceed MAX_LINE_BYTES", function () {
 			const wanted: string[] = [];
 

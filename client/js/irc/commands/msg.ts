@@ -5,7 +5,7 @@
 
 import {ChanType} from "../../../../shared/types/chan";
 import {MessageType} from "../../../../shared/types/msg";
-import {REPLY_TAG} from "../wire";
+import {replyTags} from "../wire";
 import {t} from "../../i18n/core";
 import type {Command, CommandContext} from "../types";
 import {splitTarget} from "./target";
@@ -88,7 +88,7 @@ const msg: Command = {
 			return;
 		}
 
-		client.sendMessage(targetName, body, opts.reply ? {tags: {[REPLY_TAG]: opts.reply}} : {});
+		client.sendMessage(targetName, body, opts.reply ? {tags: replyTags(opts.reply)} : {});
 	},
 };
 

@@ -4,7 +4,7 @@
 
 import {ChanType} from "../../../../shared/types/chan";
 import {MessageType} from "../../../../shared/types/msg";
-import {REPLY_TAG} from "../wire";
+import {replyTags} from "../wire";
 import {t} from "../../i18n/core";
 import type {Command} from "../types";
 import {textAfter} from "./words";
@@ -34,7 +34,7 @@ const me: Command = {
 			const reply = opts?.reply;
 			client.sendMessage(chan.name, text, {
 				action: true,
-				...(reply ? {tags: {[REPLY_TAG]: reply}} : {}),
+				...(reply ? {tags: replyTags(reply)} : {}),
 			});
 		}
 	},

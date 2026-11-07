@@ -39,11 +39,11 @@ const batchHandlers = new Map<string, BatchHandler>();
 
 /** Register (or replace) the handler that receives closed batches of `type`. */
 export function registerBatchHandler(type: string, handler: BatchHandler): void {
-	batchHandlers.set(type.toLowerCase(), handler);
+	batchHandlers.set(type, handler);
 }
 
 export function unregisterBatchHandler(type: string): void {
-	batchHandlers.delete(type.toLowerCase());
+	batchHandlers.delete(type);
 }
 
 /** Open batches per client (a client never outlives its batches). */
@@ -101,7 +101,7 @@ export function resetBatches(client: IrcClient): void {
 }
 
 function deliver(client: IrcClient, batch: OpenBatch): void {
-	const handler = batchHandlers.get(batch.type.toLowerCase());
+	const handler = batchHandlers.get(batch.type);
 
 	if (handler) {
 		handler(client, batch);

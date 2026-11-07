@@ -2124,7 +2124,9 @@ describe("service worker reply pipeline", function () {
 
 		const sent = sw.lastSent();
 		expect(sent).to.include("CAP REQ :sasl message-tags");
-		expect(sent).to.include("@+draft/reply=BjAAAaBjrep2 PRIVMSG #seance :yes");
+		expect(sent).to.include(
+			"@+reply=BjAAAaBjrep2;+draft/reply=BjAAAaBjrep2 PRIVMSG #seance :yes"
+		);
 	});
 
 	it("answers a multiline message by its msgid even when its first line arrived last", async function () {
@@ -2137,7 +2139,9 @@ describe("service worker reply pipeline", function () {
 		const rec = sw.records.filter((n) => !n.closed)[0];
 		await fireClick(sw, rec, "reply", {reply: "yes"});
 
-		expect(sw.lastSent()).to.include("@+draft/reply=BjAAAaBjml1 PRIVMSG #seance :yes");
+		expect(sw.lastSent()).to.include(
+			"@+reply=BjAAAaBjml1;+draft/reply=BjAAAaBjml1 PRIVMSG #seance :yes"
+		);
 	});
 
 	it("sends a plain PRIVMSG when the server offers no message-tags", async function () {

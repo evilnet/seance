@@ -15,7 +15,7 @@ import * as saved from "./saved-networks";
 import {checkServices, servicesBan} from "./services";
 import type {ConnectOptions} from "./types";
 import type {NetworkMode} from "../helpers/dnd";
-import {REPLY_TAG} from "./wire";
+import {replyTags} from "./wire";
 
 export interface ClientRegistry {
 	clientForChannel(chanId: number): IrcClient | undefined;
@@ -73,7 +73,7 @@ export function registerBusHandlers(bus: EventBus, registry: ClientRegistry): vo
 
 		if (client && client.isConnected) {
 			// A notification's reply answers the message it was shown for.
-			client.sendMessage(target, text, replyTo ? {tags: {[REPLY_TAG]: replyTo}} : {});
+			client.sendMessage(target, text, replyTo ? {tags: replyTags(replyTo)} : {});
 		} else {
 			// eslint-disable-next-line no-console
 			console.warn("[irc] send to a network that is not connected", network, target);
