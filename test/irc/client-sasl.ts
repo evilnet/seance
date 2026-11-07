@@ -11,6 +11,7 @@ import {
 	IrcClient,
 	IrcClientOptions,
 	saslRequiredHint,
+	saslTrustedGaveUpHint,
 	SASL_TRUSTED_RETRIES,
 } from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";
@@ -709,7 +710,13 @@ describe("IrcClient SASL: the server could not check the login", function () {
 		resetBranding();
 	});
 
-	/** What a retry looks like: QUIT, the socket given up as lost, no rejection. */
+	/**
+	 * What a retry looks like: QUIT, the socket given up as lost, no
+	 * rejection, and exactly two error lines — the failure and the retry.
+	 * The negotiator's `CAP END` flush runs after `beforeEnd` abandoned the
+	 * socket; a third line would be that flush reported as sent while
+	 * disconnected.
+	 */
 	function expectRetried(transport: FakeTransport, client: IrcClient, rejected: number): void {
 		expect(transport.sent).to.not.include("CAP END");
 		expect(transport.sent[transport.sent.length - 1]).to.equal(
@@ -719,7 +726,10 @@ describe("IrcClient SASL: the server could not check the login", function () {
 		expect(transport.closeCalls).to.equal(0);
 		expect(client.isQuitting).to.equal(false);
 		expect(rejected).to.equal(0);
-		expect(errors(client.lobby.id)).to.include(
+		const reported = errors(client.lobby.id);
+		expect(reported).to.have.length(2);
+		expect(reported[0]).to.match(/^SASL authentication failed: /);
+		expect(reported[1]).to.equal(
 			"Not connecting to irc.test without the login you asked for; trying again."
 		);
 		expect(texts(client.lobby.id)).to.not.include(saslRequiredHint());
@@ -786,9 +796,11 @@ describe("IrcClient SASL: the server could not check the login", function () {
 		expectAborted(transport, client);
 	});
 
-	it(`gives a login that worked ${SASL_TRUSTED_RETRIES} more tries on a bare 904, then calls it refused`, function () {
+	it(`gives a login that worked ${SASL_TRUSTED_RETRIES} more tries on a bare 904, then stays down and keeps the login`, function () {
 		// nefarious2 answers a Keycloak it cannot reach with the same bare 904
-		// as a wrong password.
+		// as a wrong password, for the whole of the outage: giving the login
+		// up would turn autoconnect off, and the cold start after the outage
+		// would never dial.
 		let rejected = 0;
 		const {client, transport} = setup({onSaslRejected: () => rejected++});
 		trustLogin(client.uuid, "alice");
@@ -805,11 +817,61 @@ describe("IrcClient SASL: the server could not check the login", function () {
 
 		transport.line(":irc.test 904 alice :SASL authentication failed");
 		expect(transport.abandonCalls).to.have.length(SASL_TRUSTED_RETRIES);
-		expect(rejected).to.equal(1);
 		expect(transport.closeCalls).to.equal(1);
 		expect(client.isQuitting).to.equal(true);
-		// A refusal the client accepted is not a login that works any more.
+		expect(client.isConnected).to.equal(false);
+		// Down, but not given up: no rejection (autoconnect stays), the login kept.
+		expect(rejected).to.equal(0);
+		expect(loginTrusted(client.uuid, "alice")).to.equal(true);
+		expect(texts(client.lobby.id)).to.include(saslTrustedGaveUpHint());
+		expect(texts(client.lobby.id)).to.not.include(saslRequiredHint());
+
+		// The next connect the user or a page load asks for gets the tries again.
+		client.connect();
+		again(transport);
+		transport.line(":irc.test 904 alice :SASL authentication failed");
+		expect(transport.abandonCalls).to.have.length(SASL_TRUSTED_RETRIES + 1);
+		expect(rejected).to.equal(0);
+	});
+
+	it("forgets a login edited while the exchange ran, even when the old one then succeeds", function () {
+		const {client, transport} = setup();
+		offer(transport, `${OFFERED_CAPS} sasl=PLAIN`);
+		transport.line("AUTHENTICATE +");
+
+		client.applySettings({
+			host: "irc.test",
+			port: 8443,
+			tls: true,
+			join: "",
+			sasl: "plain",
+			saslAccount: "alice",
+			saslPassword: "changed",
+		} as Parameters<IrcClient["applySettings"]>[0]);
+		transport.line(":irc.test 903 alice :SASL authentication successful");
+		// The old password proved itself; the edited one has not.
+		expect(loginTrusted(client.uuid, "alice")).to.equal(true);
+
+		transport.abandon("lost");
+		transport.open(); // the edited settings are taken here
 		expect(loginTrusted(client.uuid, "alice")).to.equal(false);
+	});
+
+	it("ends with the report once the user has disconnected, even for a failure it would retry", function () {
+		const {client, transport} = setup();
+		offer(transport, `${OFFERED_CAPS} sasl=PLAIN`);
+		transport.line("AUTHENTICATE +");
+		client.disconnect();
+		expect(transport.closeCalls).to.equal(1);
+
+		transport.line(":irc.test 904 alice :SASL authentication failed: request timed out");
+
+		// The server's line, quoted whole, and nothing after it.
+		expect(errors(client.lobby.id)).to.deep.equal([
+			"SASL authentication failed: SASL authentication failed: request timed out",
+		]);
+		expect(transport.abandonCalls).to.have.length(0);
+		expect(client.isQuitting).to.equal(true);
 	});
 
 	it("starts the count again after a login succeeds", function () {

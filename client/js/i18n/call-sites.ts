@@ -202,6 +202,7 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"connect.saslReason.wrongMechanism",
 	"connect.saslRequiredHint",
 	"connect.saslToggle",
+	"connect.saslTrustedGaveUpHint",
 	"connect.server",
 	"connect.serverAddress",
 	"connect.serverPort",

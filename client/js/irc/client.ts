@@ -238,10 +238,14 @@ export const EDIT_TIMEOUT_MS = 5000;
 export type SaslFailureCause = "server" | "unavailable" | "unexplained" | "refused";
 
 /**
- * Unexplained 904s in a row a login that has worked on the network gets
- * retried through before it counts as refused: enough to ride out a login
- * backend that is briefly unreachable, few enough that a password changed
- * elsewhere is reported within seconds.
+ * Unexplained 904s a login that has worked on the network gets retried
+ * through before it is given up for this connection: enough to ride out a
+ * login backend that is briefly unreachable, few enough that a password
+ * changed elsewhere is reported within minutes (nefarious2's default
+ * IPcheck spaces the connections about a minute apart, which also rides
+ * out a blip). The count is of this connection's attempts, missing-cap
+ * retries between them included, and starts over at each connect the user
+ * or a page load asks for.
  */
 export const SASL_TRUSTED_RETRIES = 3;
 
@@ -295,6 +299,11 @@ export interface IrcClientOptions extends ConnectOptions {
 /** What to try after a SASL login the deploy insists on did not happen. */
 export function saslRequiredHint(): string {
 	return t("connect.saslRequiredHint");
+}
+
+/** The trusted retries ran out: the login is kept, the next connect tries again. */
+export function saslTrustedGaveUpHint(): string {
+	return t("connect.saslTrustedGaveUpHint");
 }
 
 /** Prefix characters a channel name may start with when the user omits one. */
@@ -698,6 +707,16 @@ export class IrcClient {
 	}
 
 	/**
+	 * Whether a line sent now would go out: the socket is open. False
+	 * after `transport.abandon()` has dropped it from inside a handler, when
+	 * the handler's remaining lines must be dropped rather than reported as
+	 * sent to a dead socket (handlers/cap.ts, `finalLines`).
+	 */
+	get socketOpen(): boolean {
+		return this.transport.state === "open";
+	}
+
+	/**
 	 * The upload host the network advertises (`draft/FILEHOST` ISUPPORT,
 	 * or soju's `soju.im/FILEHOST`), usable from this connection; undefined
 	 * when there is none. Read at 005 and after a reconnect.
@@ -937,6 +956,16 @@ export class IrcClient {
 		}
 
 		this.pendingOptions = null;
+
+		// Credentials edited while a login ran: that login may have succeeded
+		// since and trusted the account again; the edited ones are unproven.
+		if (
+			next.saslAccount !== this.options.saslAccount ||
+			next.saslPassword !== this.options.saslPassword
+		) {
+			forgetLogin(this.uuid);
+			this.saslUnexplainedRun = 0;
+		}
 
 		if (this.endpointChanged(next)) {
 			this.transport.close();
@@ -1223,12 +1252,22 @@ export class IrcClient {
 	 *   not do SASL, and final.
 	 * - `unexplained`: a plain 904, which nefarious2 sends for a wrong
 	 *   password and for a Keycloak it cannot reach alike. A login that has
-	 *   worked here is given `SASL_TRUSTED_RETRIES` more connections in a
-	 *   row; then, and for any other login, it is a refusal.
+	 *   worked here is given `SASL_TRUSTED_RETRIES` more connections; then,
+	 *   and for any other login, it is a refusal.
 	 * - `refused` (the default): final. Missing credentials, 902/905/907.
 	 *
-	 * A final failure stays down, forgets the login and turns autoconnect
-	 * off (manager.ts `onSaslRejected`).
+	 * A final failure stays down. One that follows the trusted retries keeps
+	 * the trust and the autoconnect: a Keycloak outage reads as a bare 904
+	 * for its whole length (and nefarious2 withdraws and re-offers `sasl`
+	 * meanwhile, so the retries are rarely the uninterrupted run the name
+	 * suggests), and a cold start after it must still dial. Any other final
+	 * failure forgets the login and turns autoconnect off (manager.ts
+	 * `onSaslRejected`): the same credentials would be refused at every
+	 * page load.
+	 *
+	 * Nothing beyond the report once the user has disconnected: the socket
+	 * is theirs to close, and a close report held back for a retry that
+	 * never comes would swallow the next real drop's.
 	 *
 	 * Returns true when it dropped the connection, so callers stop there.
 	 */
@@ -1243,7 +1282,13 @@ export class IrcClient {
 			return false;
 		}
 
-		if (this.saslRetries(cause) && this.transport.abandon) {
+		if (this.isQuitting) {
+			return true;
+		}
+
+		const trusted = loginTrusted(this.uuid, this.options.saslAccount ?? "");
+
+		if (this.saslRetries(cause, trusted) && this.transport.abandon) {
 			this.pushMessage(
 				this.lobby,
 				{
@@ -1262,7 +1307,15 @@ export class IrcClient {
 			return true;
 		}
 
-		forgetLogin(this.uuid);
+		// The trusted retries ran out: this connection gives up, the login
+		// and its autoconnect stay (see above), and the next connect gets
+		// the retries again.
+		const keepsLogin = cause === "unexplained" && trusted;
+		this.saslUnexplainedRun = 0;
+
+		if (!keepsLogin) {
+			forgetLogin(this.uuid);
+		}
 
 		this.pushMessage(
 			this.lobby,
@@ -1272,19 +1325,25 @@ export class IrcClient {
 			},
 			true
 		);
-		this.pushMessage(this.lobby, {text: saslRequiredHint()}, true);
+		this.pushMessage(
+			this.lobby,
+			{text: keepsLogin ? saslTrustedGaveUpHint() : saslRequiredHint()},
+			true
+		);
 		// The connect flow has already opened an autojoin channel; the reason
 		// this network is empty is in the lobby, so the view goes there.
 		this.bus.dispatch("network:aborted", {network: this.uuid, reason});
-		this.options.onSaslRejected?.();
+
+		if (!keepsLogin) {
+			this.options.onSaslRejected?.();
+		}
+
 		this.disconnect("SASL authentication failed");
 		return true;
 	}
 
 	/** Whether a SASL failure of this kind is worth another connection (see saslFailed). */
-	private saslRetries(cause: SaslFailureCause): boolean {
-		const trusted = loginTrusted(this.uuid, this.options.saslAccount ?? "");
-
+	private saslRetries(cause: SaslFailureCause, trusted: boolean): boolean {
 		switch (cause) {
 			case "server":
 				return true;
@@ -1355,6 +1414,7 @@ export class IrcClient {
 
 			if (
 				!this.isQuitting &&
+				this.socketOpen &&
 				this.saslOk &&
 				metadata !== undefined &&
 				metadata.split(",").includes("before-connect") &&
@@ -1385,6 +1445,7 @@ export class IrcClient {
 	private startSasl(mechanism: SaslMechanism): string[] {
 		if (!this.caps.hasCapability("sasl")) {
 			// Offered with our mechanism, so we asked for it: the server NAKed it.
+			this.saslOk = false;
 			const refused = mechanismOffered(mechanism, this.caps.value("sasl"));
 			this.saslFailed(
 				refused ? t("connect.saslReason.capRefused") : this.saslUnavailable(mechanism),

@@ -244,6 +244,7 @@
   "connect.saslReason.wrongMechanism": "the server offers SASL {offered}, not {mechanism}",
   "connect.saslRequiredHint": "Check the account name and password in this network's settings, or pick \"No authentication\" there to connect without logging in.",
   "connect.saslToggle": "I have a services account (SASL)",
+  "connect.saslTrustedGaveUpHint": "This login has worked here before, so it is kept: connecting again tries it once more. If the password has changed, update it in this network's settings.",
   "connect.server": "Server",
   "connect.serverAddress": "Server address",
   "connect.serverPort": "Server port",

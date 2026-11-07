@@ -1,6 +1,11 @@
 import {expect} from "chai";
 import * as saved from "../../client/js/irc/saved-networks";
 import type {SavedNetwork, StorageBackend} from "../../client/js/irc/saved-networks";
+import {
+	loginTrusted,
+	trustLogin,
+	useStorageBackend as useTrustBackend,
+} from "../../client/js/irc/saslTrust";
 
 /** In-memory stand-in for the localStorage wrapper. */
 class MemoryBackend implements StorageBackend {
@@ -153,6 +158,21 @@ describe("saved-networks", function () {
 		expect(saved.list().map((n) => n.host)).to.deep.equal(["other.example"]);
 		saved.remove("unknown"); // no throw
 		expect(saved.list()).to.have.length(1);
+	});
+
+	it("removing an entry forgets the SASL login that worked on it", function () {
+		useTrustBackend(backend);
+
+		try {
+			saved.save(entry());
+			trustLogin(entry().uuid, "alice");
+			// The Networks page removes a network with no live client here,
+			// where no bus handler runs.
+			saved.remove(entry().uuid);
+			expect(loginTrusted(entry().uuid, "alice")).to.equal(false);
+		} finally {
+			useTrustBackend(null);
+		}
 	});
 
 	it("orders the list by recency and reports the last-used entry", function () {
