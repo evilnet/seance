@@ -202,7 +202,7 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 
 			h.transport.line(":alice!alice@host.example REDACT #seance m1 :edited");
 			expect(h.sent()).to.deep.equal([
-				"@+seance/edit=m1;+draft/reply=p1;label=s1 PRIVMSG #seance :\x01ACTION was here\x01",
+				"@+seance/edit=m1;+reply=p1;+draft/reply=p1;label=s1 PRIVMSG #seance :\x01ACTION was here\x01",
 			]);
 			const copy = h.lastMessage(id);
 			expect(copy.type).to.equal(MessageType.ACTION);
