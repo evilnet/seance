@@ -627,6 +627,44 @@ describe("IrcClient SASL", function () {
 		}
 	});
 
+	it("keeps a NAK of sasl as the answer when another cap's reply never comes", function () {
+		const clock = sinon.useFakeTimers();
+
+		try {
+			let rejected = 0;
+			const {transport} = setup({onSaslRejected: () => rejected++});
+			transport.line(":irc.test CAP * LS :multi-prefix sasl=PLAIN");
+			transport.line(":irc.test CAP alice NAK :multi-prefix sasl");
+			transport.line(":irc.test CAP alice NAK :sasl");
+			// multi-prefix's own reply never comes.
+
+			clock.tick(SASL_TIMEOUT_MS + 1);
+
+			expect(rejected).to.equal(1);
+			expect(transport.abandonCalls).to.deep.equal([]);
+		} finally {
+			clock.restore();
+		}
+	});
+
+	it("stops the ACK deadline on disconnect", function () {
+		const clock = sinon.useFakeTimers();
+
+		try {
+			const {client, transport} = setup(CARRY_ON);
+			transport.line(`:irc.test CAP * LS :${OFFERED_CAPS} sasl=PLAIN`);
+			client.disconnect();
+			const sent = transport.sent.length;
+
+			clock.tick(SASL_TIMEOUT_MS + 1);
+
+			expect(transport.sent).to.have.length(sent);
+			expect(errors(client.lobby.id)).to.deep.equal([]);
+		} finally {
+			clock.restore();
+		}
+	});
+
 	it("does not fire the timeout once the exchange completed", function () {
 		const clock = sinon.useFakeTimers();
 

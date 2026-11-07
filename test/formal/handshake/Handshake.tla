@@ -280,7 +280,11 @@ ClientRecv ==
 ClientSaslTimer ==
     /\ timer /\ ~cQuit /\ (sasl # "none" \/ ~cEnded)
     /\ ~env.timely \/ (Quiet /\ cookie = 0)
-    /\ SaslFinish(FALSE, IF sasl # "none" THEN << Msg("AUTHABORT") >> ELSE << >>, TRUE)
+    \* sasl already NAKed while another reply is missing: that NAK is the
+    \* answer (cause unavailable), not a slow server
+    /\ LET settled == sasl = "none" /\ "sasl" \notin cOut /\ "sasl" \notin cEnabled IN
+       SaslFinish(FALSE, IF sasl # "none" THEN << Msg("AUTHABORT") >> ELSE << >>,
+                  ~settled \/ env.trusted)
     /\ got' = Append(got, [m |-> Msg("TIMER"), at |-> Len(sent)])
     /\ UNCHANGED <<s2c, env, svcIn, svcOut, cAvail, cEnabled, cOut, cLs, cRetried, welcomed, svcNo>>
     /\ UNCHANGED svars
@@ -510,6 +514,9 @@ LoggedInWhenPossible == (registered /\ GoodWorld) => account
 AccountAgreesTimely == env.timely => AccountAgrees
 
 \* A login that has worked here never turns the network's autoconnect off.
+\* Only the first connection of a trusted login is modelled (trust and the
+\* retry count never change here), and 902/905, which forget trust on
+\* purpose, are never sent; test/irc/client-sasl.ts covers the lifecycle.
 TrustedKeepsNetwork == env.trusted => outcome # "rejected"
 
 \* S7: Seance sends the SASL opener at most once per connection.

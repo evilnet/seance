@@ -871,6 +871,7 @@ export class IrcClient {
 			this.closeUnreported = true; // a second call must not clear it: the event is still due
 		}
 
+		this.clearSaslTimer();
 		this.transport.close();
 		this.retryAt = undefined;
 		this.retryReason = undefined;
@@ -1444,13 +1445,7 @@ export class IrcClient {
 	 */
 	private startSasl(mechanism: SaslMechanism): string[] {
 		if (!this.caps.hasCapability("sasl")) {
-			// Offered with our mechanism, so we asked for it: the server NAKed it.
-			this.saslOk = false;
-			const refused = mechanismOffered(mechanism, this.caps.value("sasl"));
-			this.saslFailed(
-				refused ? t("connect.saslReason.capRefused") : this.saslUnavailable(mechanism),
-				"unavailable"
-			);
+			this.saslCapLost(mechanism);
 			return [];
 		}
 
@@ -1460,6 +1455,19 @@ export class IrcClient {
 		});
 		this.armSaslTimer();
 		return this.sasl.start();
+	}
+
+	/** `sasl` did not end up enabled (not offered usably, NAKed or DELed): fail as `unavailable`. */
+	private saslCapLost(mechanism: SaslMechanism): boolean {
+		// The ACK wait's deadline has nothing left to wait for.
+		this.clearSaslTimer();
+		this.saslOk = false;
+		// Offered with our mechanism, so we asked for it: the server NAKed it.
+		const refused = mechanismOffered(mechanism, this.caps.value("sasl"));
+		return this.saslFailed(
+			refused ? t("connect.saslReason.capRefused") : this.saslUnavailable(mechanism),
+			"unavailable"
+		);
 	}
 
 	/**
@@ -1538,10 +1546,17 @@ export class IrcClient {
 
 			if (this.sasl && !this.sasl.done) {
 				this.saslProgress(this.sasl.abort(t("connect.saslReason.timeout")), "server");
-			} else if (!this.sasl && !this.caps.done) {
-				// No reply to the REQ holding `sasl`: nothing was opened, so
-				// there is nothing to abort; fail as a timeout and end CAP.
-				if (!this.saslFailed(t("connect.saslReason.timeout"), "server")) {
+			} else if (!this.sasl && !this.caps.done && this.saslMechanism) {
+				// Still waiting on the REQ replies: nothing was opened, so there
+				// is nothing to abort. If `sasl` itself is already settled as
+				// unusable (NAKed, DELed), that is the answer, whatever reply
+				// is still missing; otherwise the server is slow.
+				const settled = !this.caps.hasCapability("sasl") && !this.caps.isRequesting("sasl");
+				const dropped = settled
+					? this.saslCapLost(this.saslMechanism)
+					: this.saslFailed(t("connect.saslReason.timeout"), "server");
+
+				if (!dropped) {
 					for (const line of this.caps.end()) {
 						this.send(line);
 					}
