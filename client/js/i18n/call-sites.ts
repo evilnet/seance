@@ -674,6 +674,8 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"msg.nickInUse",
 	"msg.nickInvalid",
 	"msg.noSuchNick",
+	"msg.redactedUnloaded",
+	"msg.redactedUnloadedReason",
 	"msg.snomask",
 	"msg.topicChanged",
 	"msg.topicFor",

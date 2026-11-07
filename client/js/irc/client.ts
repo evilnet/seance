@@ -140,6 +140,7 @@ import {
 	clearExpired,
 	getPolicy,
 	parseStsValue,
+	policyHost,
 	refreshPolicy,
 	StsUpgrade,
 	upgradeOptions,
@@ -937,17 +938,27 @@ export class IrcClient {
 	}
 
 	/**
-	 * After the final `CAP LS`: over `ws://` an `sts` with `port=` means drop
-	 * the connection and come back over `wss://` on that port (once); over
-	 * `wss://` a `duration=` caches / refreshes / removes the host's policy.
+	 * After the final `CAP LS`, or a `CAP NEW` that names `sts` (the spec has
+	 * the client store or update a policy it learns that way too): over
+	 * `ws://` an `sts` with `port=` means drop the connection and come back
+	 * over `wss://` on that port (once); over `wss://` a `duration=` caches /
+	 * refreshes / removes the host's policy.
 	 */
 	private checkSts(msg: IrcMessage): void {
-		if (msg.command !== "CAP" || (msg.params[1] ?? "").toUpperCase() !== "LS") {
+		if (msg.command !== "CAP") {
 			return;
 		}
 
-		if (msg.params[2] === "*" && msg.params.length > 3) {
-			return; // more LS lines follow
+		const subcommand = (msg.params[1] ?? "").toUpperCase();
+
+		if (subcommand === "NEW") {
+			const names = (msg.params[msg.params.length - 1] ?? "").split(" ");
+
+			if (!names.some((token) => token === "sts" || token.startsWith("sts="))) {
+				return;
+			}
+		} else if (subcommand !== "LS" || (msg.params[2] === "*" && msg.params.length > 3)) {
+			return; // not LS, or more LS lines follow
 		}
 
 		const raw = this.caps.value("sts");
@@ -969,9 +980,22 @@ export class IrcClient {
 
 		this.stsUpgradeTried = true;
 		this.pushMessage(this.lobby, {text: t("connect.stsReconnect", {port: value.port})}, true);
+		const secure = {tls: true, port: value.port};
+
+		// Settings edited during this connection for this host keep the
+		// secure endpoint; an edit to another host is left alone.
+		const pending = this.pendingOptions;
+
+		if (pending && policyHost(pending.host) === policyHost(this.options.host)) {
+			this.pendingOptions = {...pending, ...secure};
+		}
+
 		this.closeExplained = true; // the line above says why
 		this.disconnect("STS upgrade");
-		this.reconfigure({...this.options, tls: true, port: value.port});
+		// Not the user's quit: channels joined so far (a `CAP NEW` after
+		// registration) are rejoined quietly, as after a lost connection.
+		this.quitting = false;
+		this.reconfigure({...this.options, ...secure}); // tears the old session down
 		this.connect();
 	}
 
@@ -2232,7 +2256,8 @@ export class IrcClient {
 
 	/** Whether the server lets us send REDACT. */
 	get canRedact(): boolean {
-		return this.caps.hasCapability(REDACTION_CAP);
+		// The draft has redaction depend on `message-tags` (a msgid is a tag).
+		return this.caps.hasCapability(REDACTION_CAP) && this.caps.hasCapability("message-tags");
 	}
 
 	/**

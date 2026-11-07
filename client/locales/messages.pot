@@ -4133,6 +4133,18 @@ msgctxt "msg.noSuchNick"
 msgid "No such nick: {nick}"
 msgstr ""
 
+#. Line in a conversation when someone deletes (redacts) a message that this device never loaded, so there is nothing to hide. {nick} is the user who deleted it, verbatim.
+#: client/js/irc/handlers/redact.ts
+msgctxt "msg.redactedUnloaded"
+msgid "{nick} deleted a message"
+msgstr ""
+
+#. Line in a conversation when someone deletes (redacts) a message that this device never loaded, with the reason they gave. {nick} is the user who deleted it and {reason} their reason, both verbatim — never translate their content.
+#: client/js/irc/handlers/redact.ts
+msgctxt "msg.redactedUnloadedReason"
+msgid "{nick} deleted a message ({reason})"
+msgstr ""
+
 #. Line in the server window after the server reports the IRC operator's server notice mask (snomask): {value} is the number, {hex} the same in hexadecimal. 'snomask' jargon.
 #: client/js/irc/handlers/numerics.ts
 msgctxt "msg.snomask"

@@ -735,6 +735,8 @@
   "msg.nickInUse": "Nickname is already in use.",
   "msg.nickInvalid": "Nickname is invalid.",
   "msg.noSuchNick": "No such nick: {nick}",
+  "msg.redactedUnloaded": "{nick} deleted a message",
+  "msg.redactedUnloadedReason": "{nick} deleted a message ({reason})",
   "msg.snomask": "Server notice mask: {value} (0x{hex})",
   "msg.topicChanged": "has changed the topic to:",
   "msg.topicFor": "Topic for {channel}: {topic}",
