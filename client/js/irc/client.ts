@@ -163,6 +163,7 @@ import {
 	REACT_TAG,
 	REDACTION_CAP,
 	REPLY_TAG,
+	replyTags,
 	tagPrefix,
 	trailingLine,
 	TYPING_INTERVAL_MS,
@@ -1786,6 +1787,13 @@ export class IrcClient {
 	 * echoed them.
 	 */
 	sendMessage(target: string, text: string, opts: SendMessageOptions = {}) {
+		if (!this.caps.hasCapability("message-tags") && (opts.tags || opts.firstTags)) {
+			// Client tags (a reply, an edit) need `message-tags`: a server
+			// without it would read `@+reply=…` as the command and the
+			// message would be lost. It goes out plain instead.
+			opts = {...opts, tags: undefined, firstTags: undefined};
+		}
+
 		scriptManager.dispatchSend(text, target);
 		// The message itself ends the typing session on the receiver's side:
 		// forget ours (no `done`), and let the next `active` go out at once.
@@ -1997,7 +2005,8 @@ export class IrcClient {
 
 	/**
 	 * React to (or, with `remove`, take a reaction off) the message `msgid`
-	 * in `chan`: `@+draft/react=<text>;+draft/reply=<msgid> TAGMSG` (bus-contract §1.4).
+	 * in `chan`: `@+draft/react=<text>;+reply=<msgid>;+draft/reply=<msgid> TAGMSG`
+	 * (bus-contract §1.4).
 	 */
 	react(chan: Channel, msgid: string, text: string, remove = false): boolean {
 		if (!this.caps.hasCapability("message-tags")) {
@@ -2018,7 +2027,7 @@ export class IrcClient {
 
 		return this.sendTagmsg(chan.name, {
 			[remove ? UNREACT_TAG : REACT_TAG]: text,
-			[REPLY_TAG]: msgid,
+			...replyTags(msgid),
 		});
 	}
 
@@ -2315,7 +2324,7 @@ export class IrcClient {
 		const opts: SendMessageOptions = {firstTags: {[EDIT_TAG]: oldMsgid}, action};
 
 		if (replyTo) {
-			opts.tags = {[REPLY_TAG]: replyTo};
+			opts.tags = replyTags(replyTo);
 		}
 
 		this.sendMessage(chan.name, text, opts);

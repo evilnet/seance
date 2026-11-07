@@ -684,7 +684,7 @@ describe("multiline sending", function () {
 			client.input(chanId, "one\ntwo", {reply: "parent"});
 
 			expect(transport.sent).to.deep.equal([
-				"@+draft/reply=parent BATCH +m1 draft/multiline #seance",
+				"@+reply=parent;+draft/reply=parent BATCH +m1 draft/multiline #seance",
 				"@batch=m1 PRIVMSG #seance :one",
 				"@batch=m1 PRIVMSG #seance :two",
 				"BATCH -m1",
@@ -1186,7 +1186,7 @@ describe("multiline sending", function () {
 				client.input(chanId, "one\ntwo\nthree", {edit: "old", reply: "parent"});
 
 				expect(transport.sent[0]).to.equal(
-					"@+seance/edit=old;+draft/reply=parent BATCH +m1 draft/multiline #seance"
+					"@+seance/edit=old;+reply=parent;+draft/reply=parent BATCH +m1 draft/multiline #seance"
 				);
 
 				transport.sent.length = 0;
@@ -1202,7 +1202,7 @@ describe("multiline sending", function () {
 				);
 
 				expect(transport.sent[0]).to.equal(
-					"@+draft/reply=parent BATCH +m2 draft/multiline #seance"
+					"@+reply=parent;+draft/reply=parent BATCH +m2 draft/multiline #seance"
 				);
 			} finally {
 				clock.restore();

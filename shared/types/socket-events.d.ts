@@ -320,7 +320,7 @@ interface ClientToServerEvents {
 	input: EventHandler<{
 		target: number;
 		text: string;
-		/** msgid to reply to: plain text / `/me` get `+draft/reply`. */
+		/** msgid to reply to: plain text / `/me` get `+reply` (and `+draft/reply`). */
 		reply?: string;
 		/** msgid of our own message to replace: REDACT (channels) + resend with `+seance/edit`. */
 		edit?: string;

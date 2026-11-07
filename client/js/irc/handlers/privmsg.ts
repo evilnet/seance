@@ -13,7 +13,7 @@ import {inRestorationWindow, isRoutineReplayNotice} from "../persistence";
 import {privilegesModified} from "../oper";
 import {noteServicesLine, snoopNicks} from "../servicesfeed";
 import {handleServerNotice, handleWallops} from "../snotice";
-import {EDIT_TAG, REPLY_TAG, trailingLine} from "../wire";
+import {DRAFT_REPLY_TAG, EDIT_TAG, REPLY_TAG, trailingLine} from "../wire";
 import {noteListDelay} from "./list";
 import type {Handler} from "../types";
 import {ignoreListFor} from "../../ignore";
@@ -259,7 +259,7 @@ function handleMessage(
 		message.statusmsgGroup = group;
 	}
 
-	// Replies (`+reply` ratified, `+draft/reply` what poxchat sends) and our
+	// Replies (`+reply`, or the `+draft/reply` poxchat sends) and our
 	// own edit marker, bus-contract §1.4. The parent may not be loaded; the
 	// UI resolves it when rendering.
 	const replyTo = replyTagOf(msg);
@@ -315,9 +315,9 @@ function handleMessage(
 	}
 }
 
-/** The msgid a PRIVMSG / TAGMSG refers to (`+draft/reply` preferred, `+reply` accepted). */
+/** The msgid a PRIVMSG / TAGMSG refers to (`+reply` preferred, `+draft/reply` accepted). */
 export function replyTagOf(msg: IrcMessage): string | undefined {
-	return msg.tags.get(REPLY_TAG) || msg.tags.get("+reply") || undefined;
+	return msg.tags.get(REPLY_TAG) || msg.tags.get(DRAFT_REPLY_TAG) || undefined;
 }
 
 function handleCtcpResponse(client: IrcClient, nick: string, ctcp: Ctcp, time: Date): void {

@@ -77,6 +77,16 @@ describe("irc/isupport", function () {
 			expect(isupport.get("FOO")).to.equal("=\\bar");
 		});
 
+		it("decodes a run of \\xHH escapes as UTF-8", function () {
+			const isupport = make("NETWORK=Caf\\xC3\\xA9\\x20\\xE2\\x98\\x95", "FOO=\\x5Cx41");
+			expect(isupport.get("NETWORK")).to.equal("Café ☕");
+			expect(isupport.get("FOO"), "an escaped backslash is not re-read").to.equal("\\x41");
+		});
+
+		it("reads a run that is not UTF-8 one byte per character", function () {
+			expect(make("NETWORK=Caf\\xE9").get("NETWORK")).to.equal("Café");
+		});
+
 		it("leaves malformed escapes alone", function () {
 			expect(make("FOO=a\\xZZb\\x2").get("FOO")).to.equal("a\\xZZb\\x2");
 		});

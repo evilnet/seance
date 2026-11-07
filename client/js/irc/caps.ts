@@ -185,6 +185,13 @@ export class CapNegotiator {
 	private failed = false;
 	/** Caps re-requested one at a time after a multi-cap REQ was NAKed (once each). */
 	private readonly nakRetried = new Set<string>();
+	/** A `CAP LIST` reply spread over lines is in progress (its first line cleared `enabled`). */
+	private listInProgress = false;
+	/**
+	 * Tokens of an ACK spread over lines (`CAP * ACK * :…`), held until the
+	 * last line: the spec forbids changing capabilities before then.
+	 */
+	private ackBuffer: [string, string][] = [];
 
 	constructor(options: CapNegotiatorOptions) {
 		this.required = [...options.required];
@@ -249,7 +256,12 @@ export class CapNegotiator {
 				this.onLs(parseCapList(list), more, result);
 				break;
 			case "LIST":
-				this.enabled.clear();
+				// A 302 reply may span lines: only its first line starts afresh.
+				if (!this.listInProgress) {
+					this.enabled.clear();
+				}
+
+				this.listInProgress = more;
 
 				for (const [name] of parseCapList(list)) {
 					this.enabled.add(name);
@@ -257,7 +269,14 @@ export class CapNegotiator {
 
 				break;
 			case "ACK":
-				this.onAck(parseCapList(list));
+				this.ackBuffer.push(...parseCapList(list));
+
+				if (!more) {
+					const acked = this.ackBuffer;
+					this.ackBuffer = [];
+					this.onAck(acked);
+				}
+
 				break;
 			case "NAK":
 				this.onNak(parseCapList(list), result);
