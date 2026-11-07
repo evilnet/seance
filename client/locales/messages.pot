@@ -15020,6 +15020,7 @@ msgstr ""
 
 #. The name of a translation model in Settings → Translation: a language-pair model the network supplies in place of an OPUS-MT pair. {name} is the network's own name for the model, never translated; {from} and {to} are language names.
 #: client/js/helpers/modelLabel.ts
+#: client/js/helpers/translateWhy.ts
 msgctxt "translate.model.namedPair"
 msgid "{name} {from} → {to}"
 msgstr ""

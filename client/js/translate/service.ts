@@ -194,6 +194,22 @@ export function loadNote(view: ModelView): LoadNote {
 }
 
 /** What a copy's view is kept under. */
+/** A copy's files arrived or went: its view says so, as the worker's answer would. */
+function applyCached(view: ModelView, cached: boolean): void {
+	view.cached = cached;
+
+	if (cached && (view.status === "idle" || view.status === "failed")) {
+		view.status = "ready";
+		view.fraction = 1;
+		view.error = null;
+	}
+
+	if (!cached && view.status === "ready") {
+		view.status = "idle";
+		view.fraction = 0;
+	}
+}
+
 function copyKey(ref: Pick<ModelRef, "id">, device: Device): string {
 	return `${ref.id}@${device}`;
 }
@@ -894,13 +910,17 @@ export class TranslateService {
 			return false;
 		}
 
-		const view = this.views.get(copyKey(ref, device));
+		// A pair that shares its repo is covered by the repo's download:
+		// another pair's copy on the device, downloading, or agreed to.
+		return [ref, ...this.sharers(ref, device)].every((each) => {
+			const view = this.views.get(copyKey(each, device));
 
-		return (
-			!view?.cached &&
-			view?.status !== "downloading" &&
-			!this.consent.granted(this.consentId(ref, device))
-		);
+			return (
+				!view?.cached &&
+				view?.status !== "downloading" &&
+				!this.consent?.granted(this.consentId(each, device))
+			);
+		});
 	}
 
 	/**
@@ -1475,18 +1495,7 @@ export class TranslateService {
 				const view = this.views.get(copyKey(state.ref, state.device));
 
 				if (view) {
-					view.cached = state.cached;
-
-					if (state.cached && (view.status === "idle" || view.status === "failed")) {
-						view.status = "ready";
-						view.fraction = 1;
-						view.error = null;
-					}
-
-					if (!state.cached && view.status === "ready") {
-						view.status = "idle";
-						view.fraction = 0;
-					}
+					applyCached(view, state.cached);
 				}
 			}
 
@@ -2117,21 +2126,10 @@ export class TranslateService {
 	 */
 	private shareCached(ref: ModelRef, device: Device, cached: boolean): void {
 		for (const other of this.sharers(ref, device)) {
-			const view = this.view(other, device);
-
-			view.cached = cached;
+			applyCached(this.view(other, device), cached);
 
 			if (cached) {
 				this.forgetDown(candidateOf(other), device);
-
-				if (view.status === "idle" || view.status === "failed") {
-					view.status = "ready";
-					view.fraction = 1;
-					view.error = null;
-				}
-			} else if (view.status === "ready") {
-				view.status = "idle";
-				view.fraction = 0;
 			}
 		}
 	}

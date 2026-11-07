@@ -331,7 +331,11 @@ class ScriptedEngine implements Engine {
 export function fakePort(options: {stepMs?: number} = {}): {port: MainPort; terminate: () => void} {
 	const stepMs = options.stepMs ?? 120;
 	const [mainPort, workerPort] = createPortPair();
-	// One entry per copy: `<id>@<device>`.
+	// One entry per download: `<source>@<device>`, the copy's repo, which
+	// pairs on one repo share (models.ts `sharedPairId`).
+	// The language model's CPU copy names another repo (a GGUF): it keeps its id.
+	const sourceOf = (ref: ModelRef, device: Device) =>
+		ref.engine === "seq2seq" ? ref.copies[device]?.source ?? ref.id : ref.id;
 	const cached = new Set<string>();
 	const llm = new ScriptedEngine("llm", stepMs);
 	const seq2seq = new ScriptedEngine("seq2seq", stepMs);
@@ -342,10 +346,10 @@ export function fakePort(options: {stepMs?: number} = {}): {port: MainPort; term
 			configure() {},
 			cache: {
 				has(ref, device) {
-					return Promise.resolve(cached.has(`${ref.id}@${device}`));
+					return Promise.resolve(cached.has(`${sourceOf(ref, device)}@${device}`));
 				},
 				delete(ref, device) {
-					cached.delete(`${ref.id}@${device}`);
+					cached.delete(`${sourceOf(ref, device)}@${device}`);
 
 					return Promise.resolve();
 				},
@@ -360,9 +364,11 @@ export function fakePort(options: {stepMs?: number} = {}): {port: MainPort; term
 		const message = event.data;
 
 		if (message.type === "load") {
-			cached.add(`${message.ref.id}@${message.device}`);
+			cached.add(`${sourceOf(message.ref, message.device)}@${message.device}`);
 		} else if (message.type === "translate") {
-			cached.add(`${message.ref.id}@${message.req.device ?? "gpu"}`);
+			const device = message.req.device ?? "gpu";
+
+			cached.add(`${sourceOf(message.ref, device)}@${device}`);
 		}
 
 		originalOnMessage?.(event);

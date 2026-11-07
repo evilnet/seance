@@ -68,7 +68,7 @@ describe("translate/models", () => {
 		});
 
 		expect(catalog.opus["en-pt"]).to.deep.include({
-			id: "mirror/mt-en-pt",
+			id: sharedPairId("mirror/mt-en-pt", "en-pt"),
 			family: "opus",
 			pair: ["en", "pt"],
 			token: ">>por<<",
@@ -80,8 +80,10 @@ describe("translate/models", () => {
 		expect(catalog.opus["pt-en"].token).to.equal(">>eng<<");
 		expect(catalog.opus["pt-en"].copies.cpu?.sizeBytes).to.equal(113_000_000);
 		expect(catalog.opus["de-en"]).to.not.have.property("token");
-		// A repo of its own keeps the repo as its id.
-		expect(catalog.opus["en-pt"].id).to.equal("mirror/mt-en-pt");
+		// A pair given as an object is the repo and the pair, whether or not
+		// another pair names its repo; a bare repo is its own id.
+		expect(catalog.opus["en-pt"].id).to.equal(sharedPairId("mirror/mt-en-pt", "en-pt"));
+		expect(catalog.opus["de-en"].id).to.equal("Xenova/opus-mt-de-en");
 	});
 
 	it("pairs on one repo get an id each, the repo their copies' source, and a name", () => {
