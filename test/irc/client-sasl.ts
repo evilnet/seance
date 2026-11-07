@@ -500,6 +500,45 @@ describe("IrcClient SASL", function () {
 		}
 	});
 
+	for (const [when, lines] of [
+		[
+			"the server gives up waiting for services",
+			[
+				"AUTHENTICATE +",
+				":irc.test 904 alice :SASL authentication failed: request timed out",
+			],
+		],
+		[
+			"the server fails it before the credentials went out",
+			[":irc.test 904 alice :SASL authentication failed"],
+		],
+	] as const) {
+		it(`QUITs and retries, without turning autoconnect off, when ${when}`, function () {
+			// nefarious2's own SASL timeout (10s) beats ours (12s); taking its
+			// 904 for a refusal left a network with slow services off for good.
+			const clock = sinon.useFakeTimers();
+
+			try {
+				let rejected = 0;
+				const {client, transport} = setup({onSaslRejected: () => rejected++});
+				offer(transport, `${OFFERED_CAPS} sasl=PLAIN`);
+				transport.lines(...lines);
+
+				expect(rejected).to.equal(0);
+				expect(transport.sent).to.not.include("CAP END");
+				expect(transport.sent[transport.sent.length - 1]).to.equal(
+					"QUIT :SASL authentication failed"
+				);
+				expect(transport.abandonCalls).to.have.length(1);
+				expect(transport.closeCalls).to.equal(0);
+				expect(client.isQuitting).to.equal(false);
+				expect(texts(client.lobby.id)).to.not.include(saslRequiredHint());
+			} finally {
+				clock.restore();
+			}
+		});
+	}
+
 	it("does not fire the timeout once the exchange completed", function () {
 		const clock = sinon.useFakeTimers();
 

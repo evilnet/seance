@@ -40,6 +40,14 @@ export interface SaslResult {
 	error?: string;
 	/** Informational text worth showing (900, 908). */
 	info?: string;
+	/**
+	 * Set on a failure that says nothing about the credentials, so a retry
+	 * may well succeed: a 904 before they were sent (the server or its
+	 * services never answered the opener), or one whose text says the
+	 * server gave up waiting (nefarious2's `904 :SASL authentication
+	 * failed: request timed out`, sent when services or Keycloak are slow).
+	 */
+	transient?: boolean;
 }
 
 /** Maximum payload per `AUTHENTICATE` line, per the IRCv3 SASL spec. */
@@ -64,6 +72,9 @@ export const ERR_SASLALREADY = "907";
 export const RPL_SASLMECHS = "908";
 
 /** Numerics that end the exchange unsuccessfully. */
+/** A 904 text that reports the server's own timeout, not a refusal. */
+const TIMED_OUT = /\btimed out\b/i;
+
 const FAILURE_NUMERICS: ReadonlySet<string> = new Set([
 	ERR_NICKLOCKED,
 	ERR_SASLFAIL,
@@ -188,12 +199,16 @@ export class SaslAuth {
 		}
 
 		if (FAILURE_NUMERICS.has(msg.command)) {
+			const transient =
+				msg.command === ERR_SASLFAIL &&
+				(this.phase === "challenge" || TIMED_OUT.test(text));
 			this.phase = "done";
 			return {
 				send: [],
 				done: true,
 				ok: false,
 				error: text || t("connect.saslReason.numeric", {code: msg.command}),
+				...(transient ? {transient} : {}),
 			};
 		}
 

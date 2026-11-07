@@ -1186,7 +1186,8 @@ export class IrcClient {
 	 *
 	 * What comes after the QUIT depends on what failed. A rejection (904, a
 	 * server without the cap, a NAK, missing credentials) will not change
-	 * on a retry, so the network stays down. A `timedOut` exchange is the
+	 * on a retry, so the network stays down. A `timedOut` exchange (our
+	 * timer, or a 904 the state machine marks `transient`) is the
 	 * server or its services being slow — the phone coming back to a poor
 	 * link, a lagging services link — and retrying is exactly right: the
 	 * socket is dropped as lost (`transport.abandon`) and the usual
@@ -1359,7 +1360,9 @@ export class IrcClient {
 		if (!result.ok) {
 			this.saslOk = false;
 
-			if (this.saslFailed(result.error ?? t("connect.saslReason.unknown"), timedOut)) {
+			const transient = timedOut || result.transient === true;
+
+			if (this.saslFailed(result.error ?? t("connect.saslReason.unknown"), transient)) {
 				return;
 			}
 		} else {

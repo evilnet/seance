@@ -192,6 +192,37 @@ describe("irc/sasl", function () {
 			});
 		}
 
+		it("marks a 904 for the server's own timeout as transient", function () {
+			// nefarious2 sends this when services or Keycloak do not answer in
+			// FEAT_SASL_TIMEOUT; it says nothing about the password.
+			const auth = new SaslAuth("PLAIN", {account: "alice", password: "pw"});
+			auth.start();
+			feed(auth, "AUTHENTICATE +");
+
+			const res = feed(
+				auth,
+				":irc.test 904 alice :SASL authentication failed: request timed out"
+			);
+			expect(res).to.include({done: true, ok: false, transient: true});
+		});
+
+		it("marks a 904 before the credentials went out as transient", function () {
+			const auth = new SaslAuth("PLAIN", {account: "alice", password: "pw"});
+			auth.start();
+
+			const res = feed(auth, ":irc.test 904 alice :SASL authentication failed");
+			expect(res).to.include({done: true, ok: false, transient: true});
+		});
+
+		it("does not mark a refusal of the credentials as transient", function () {
+			const auth = new SaslAuth("PLAIN", {account: "alice", password: "pw"});
+			auth.start();
+			feed(auth, "AUTHENTICATE +");
+
+			const res = feed(auth, ":irc.test 904 alice :SASL authentication failed");
+			expect(res.transient).to.equal(undefined);
+		});
+
 		it("surfaces 908 as info", function () {
 			const auth = new SaslAuth("PLAIN", {account: "alice", password: "pw"});
 			auth.start();
