@@ -524,7 +524,6 @@
   "link.trustTitleShown": "แสดงเสมอ {scopes} — เปลี่ยน",
   "link.tryAgain": "คลิกเพื่อลองใหม่",
   "list.isEmpty": "{kind} ว่างเปล่า",
-  "list.kindBans": "รายการแบน",
   "list.kindExcepts": "รายการยกเว้น",
   "list.kindInvites": "รายการเชิญ",
   "list.windowTitle": "{kind} สำหรับ {channel}",
@@ -2336,9 +2335,6 @@
   "sidebar.unread": {
     "other": "ข้อความที่ยังไม่อ่าน {count} ข้อความ"
   },
-  "special.bans.banned": "ถูกแบน",
-  "special.bans.bannedAt": "ถูกแบนเมื่อ",
-  "special.bans.bannedBy": "ถูกแบนโดย",
   "special.excepts.exempted": "ถูกยกเว้น",
   "special.excepts.exemptedAt": "ถูกยกเว้นเมื่อ",
   "special.excepts.exemptedBy": "ถูกยกเว้นโดย",

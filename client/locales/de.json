@@ -526,7 +526,6 @@
   "link.trustTitleShown": "Immer {scopes} angezeigt — ändern",
   "link.tryAgain": "Klicken, um es erneut zu versuchen",
   "list.isEmpty": "{kind} ist leer",
-  "list.kindBans": "Sperrliste",
   "list.kindExcepts": "Ausnahmeliste",
   "list.kindInvites": "Einladungsliste",
   "list.windowTitle": "{kind} für {channel}",
@@ -2317,9 +2316,6 @@
     "one": "{count} ungelesene Nachricht",
     "other": "{count} ungelesene Nachrichten"
   },
-  "special.bans.banned": "Gesperrt",
-  "special.bans.bannedAt": "Gesperrt am",
-  "special.bans.bannedBy": "Gesperrt von",
   "special.excepts.exempted": "Ausgenommen",
   "special.excepts.exemptedAt": "Ausgenommen am",
   "special.excepts.exemptedBy": "Ausgenommen von",

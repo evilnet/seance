@@ -38,6 +38,8 @@ export default defineComponent({
 		},
 		channel: {type: Object as PropType<ClientChan>, required: false},
 		network: {type: Object as PropType<ClientNetwork>, required: false},
+		/** `ident@host` where the line shows it, for the menu's Ban…. */
+		address: {type: String, required: false},
 	},
 	setup(props) {
 		const mode = computed(() => {
@@ -66,6 +68,7 @@ export default defineComponent({
 				user: props.user,
 				network: props.network,
 				channel: props.channel,
+				address: props.address,
 			});
 		};
 

@@ -141,8 +141,19 @@ const mode: Handler = (client, msg) => {
 		return; // history: current modes came from 324 / NAMES
 	}
 
-	if (applyChanges(client, chan, parseChannelModes(client, modes, params))) {
+	const changes = parseChannelModes(client, modes, params);
+
+	if (applyChanges(client, chan, changes)) {
 		client.usersChanged(chan);
+	}
+
+	const bans = changes.flatMap(({add, mode: letter, param}) =>
+		letter === "b" && param ? [{add, mask: param}] : []
+	);
+
+	if (bans.length > 0) {
+		client.bans.applyChanges(chan.name, bans, nick, client.timeOf(msg).getTime());
+		client.dispatchBans(chan.name);
 	}
 };
 

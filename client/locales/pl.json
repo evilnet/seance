@@ -557,7 +557,6 @@
   "link.trustTitleShown": "Zawsze pokazywane {scopes} — zmień",
   "link.tryAgain": "Kliknij, aby spróbować ponownie",
   "list.isEmpty": "{kind} jest pusta",
-  "list.kindBans": "Lista banów",
   "list.kindExcepts": "Lista wyjątków",
   "list.kindInvites": "Lista zaproszeń",
   "list.windowTitle": "{kind} dla {channel}",
@@ -2526,9 +2525,6 @@
     "many": "{count} nieprzeczytanych wiadomości",
     "other": "{count} nieprzeczytanych wiadomości"
   },
-  "special.bans.banned": "Zbanowany",
-  "special.bans.bannedAt": "Data bana",
-  "special.bans.bannedBy": "Zbanował",
   "special.excepts.exempted": "Wyjątek",
   "special.excepts.exemptedAt": "Data dodania",
   "special.excepts.exemptedBy": "Dodał",

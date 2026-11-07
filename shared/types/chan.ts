@@ -10,7 +10,6 @@ export enum ChanType {
 }
 
 export enum SpecialChanType {
-	BANLIST = "list_bans",
 	INVITELIST = "list_invites",
 	EXCEPTLIST = "list_excepts",
 	IGNORELIST = "list_ignored",

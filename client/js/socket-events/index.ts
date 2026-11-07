@@ -8,6 +8,7 @@
 // search, msg_preview (previews are built client-side, see
 // helpers/mediaPreview.ts).
 import "./connection";
+import "./channel_bans";
 import "./channel_list";
 import "./commands";
 import "./inbox";

@@ -7,6 +7,7 @@ import type {SearchAttrs} from "../../../../../shared/types/search";
 import type {ServerProfile} from "../types";
 import {ALERT_LINES} from "./alerts";
 import {checkReport} from "./check";
+import {describeBan} from "./extbans";
 import {classifyNotice, NOTICE_KINDS} from "./notices";
 import {NEFARIOUS_SNOMASK} from "./snomask";
 import {STATS_ENTRIES, statsReport} from "./stats";
@@ -28,6 +29,7 @@ function searchParams(attrs: SearchAttrs): string[] {
 export const nefarious: ServerProfile = {
 	id: "nefarious2",
 	name: "nefarious2",
+	describeBan,
 	searchParams,
 	snomask: NEFARIOUS_SNOMASK,
 	noticeKinds: NOTICE_KINDS,

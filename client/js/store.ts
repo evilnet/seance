@@ -5,6 +5,7 @@ import {createSettingsStore} from "./store-settings";
 import storage from "./localStorage";
 import type {ClientChan, ClientNetwork, NetChan} from "./types";
 import type {InboxEntry} from "../../shared/types/mention";
+import type {SharedBanList} from "../../shared/types/ban-list";
 import type {SharedChannelList} from "../../shared/types/channel-list";
 import type {InjectionKey} from "vue";
 
@@ -162,6 +163,8 @@ export type State = {
 	jumpTarget: JumpTarget | null;
 	/** Each network's channel list, by uuid (irc/channelList.ts, for the channel browser). */
 	channelLists: Record<string, SharedChannelList>;
+	/** Channels' bans, by {@link banListKey} (irc/banList.ts, for the Bans window). */
+	banLists: Record<string, SharedBanList>;
 };
 
 const state = (): State => ({
@@ -189,6 +192,7 @@ const state = (): State => ({
 	translateChannels: {},
 	jumpTarget: null,
 	channelLists: {},
+	banLists: {},
 });
 
 type Getters = {
@@ -338,6 +342,7 @@ type Mutations = {
 	translateChannelsLoaded(state: State, all: Record<string, ChannelTranslation>): void;
 	jumpTarget(state: State, target: State["jumpTarget"]): void;
 	channelList(state: State, data: {network: string; list: SharedChannelList}): void;
+	banList(state: State, data: {network: string; list: SharedBanList}): void;
 };
 
 const mutations: Mutations = {
@@ -474,6 +479,9 @@ const mutations: Mutations = {
 	jumpTarget(state, target) {
 		state.jumpTarget = target;
 	},
+	banList(state, {network, list}) {
+		state.banLists[banListKey(network, list.channel)] = list;
+	},
 	channelList(state, {network, list}) {
 		state.channelLists[network] = list;
 	},
@@ -484,6 +492,11 @@ export type TypedCommit = <T extends keyof Mutations>(
 	payload?: Parameters<Mutations[T]>[1] | null,
 	options?: {root?: boolean}
 ) => ReturnType<Mutations[T]>;
+
+/** Where a channel's bans live in {@link State.banLists}. */
+export function banListKey(network: string, channel: string): string {
+	return `${network} ${channel.toLowerCase()}`;
+}
 
 const storePattern = {
 	state,

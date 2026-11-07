@@ -151,179 +151,6 @@ describe("IRC channel list numerics (lists.ts)", function () {
 	beforeEach(installSpy);
 	afterEach(removeSpy);
 
-	describe("ban list (367/368)", function () {
-		it("accumulates 367 entries and opens a special channel on 368", function () {
-			const {client, transport} = setup();
-
-			transport.line(":irc.test 367 alice #seance *!*@spam.example bob 1700000000");
-			transport.line(":irc.test 367 alice #seance troll!*@* alice 1700000100");
-			expect(specialJoins(), "no join before end numeric").to.have.length(0);
-
-			transport.line(":irc.test 368 alice #seance :End of Channel Ban List");
-
-			const joins = specialJoins();
-			expect(joins).to.have.length(1);
-			const {chan, index, shouldOpen, network} = joins[0];
-			expect(network).to.equal(client.uuid);
-			expect(shouldOpen, "the window the user asked for opens").to.equal(true);
-			expect(index).to.be.at.least(1);
-			expect(chan.name).to.equal("Ban list for #seance");
-			expect(chan.type).to.equal(ChanType.SPECIAL);
-			expect(chan.special).to.equal(SpecialChanType.BANLIST);
-			expect(chan.data).to.deep.equal([
-				{
-					hostmask: "*!*@spam.example",
-					banned_by: "bob",
-					banned_at: new Date(1700000000 * 1000),
-				},
-				{hostmask: "troll!*@*", banned_by: "alice", banned_at: new Date(1700000100 * 1000)},
-			]);
-			expect(client.findChannel("Ban list for #seance")).to.equal(
-				client.channelById(chan.id)
-			);
-			expect(client.channels.indexOf(client.channelById(chan.id)!)).to.equal(index);
-		});
-
-		it("refreshes an existing list window with msg:special instead of a second join", function () {
-			const {client, transport} = setup();
-
-			transport.lines(
-				":irc.test 367 alice #seance *!*@spam.example bob 1700000000",
-				":irc.test 368 alice #seance :End of Channel Ban List"
-			);
-			const chanId = specialJoins()[0].chan.id;
-
-			transport.lines(
-				":irc.test 367 alice #seance *!*@spam.example bob 1700000000",
-				":irc.test 367 alice #seance *!*@evil.example bob 1700000200",
-				":irc.test 368 alice #seance :End of Channel Ban List"
-			);
-
-			expect(specialJoins()).to.have.length(1);
-			const specials = payloads<SpecialPayload>("msg:special");
-			expect(specials).to.have.length(1);
-			expect(specials[0].chan).to.equal(chanId);
-			expect(specials[0].data.map((row) => row.hostmask)).to.deep.equal([
-				"*!*@spam.example",
-				"*!*@evil.example",
-			]);
-			expect(client.channelById(chanId)!.shared.data).to.equal(specials[0].data);
-		});
-
-		it("reports an empty list as an error in the channel", function () {
-			const {client, transport} = setup();
-			const chanId = client.findChannel("#seance")!.id;
-
-			transport.line(":irc.test 368 alice #seance :End of Channel Ban List");
-
-			expect(specialJoins()).to.have.length(0);
-			expect(payloads("msg:special")).to.have.length(0);
-			const msgs = messages(chanId);
-			expect(msgs).to.have.length(1);
-			expect(msgs[0].type).to.equal(MessageType.ERROR);
-			expect(msgs[0].text).to.equal("Ban list is empty");
-			expect(msgs[0].showInActive).to.equal(false);
-		});
-
-		it("sends an empty list for a channel we are not in to the lobby", function () {
-			const {client, transport} = setup();
-
-			transport.line(":irc.test 368 alice #elsewhere :End of Channel Ban List");
-
-			const msgs = messages(client.lobby.id);
-			expect(msgs).to.have.length(1);
-			expect(msgs[0].type).to.equal(MessageType.ERROR);
-			expect(msgs[0].text).to.equal("Ban list is empty");
-			expect(msgs[0].showInActive).to.equal(true);
-		});
-
-		it("still shows a non-empty list for a channel we are not in (MODE from outside)", function () {
-			const {transport} = setup();
-
-			transport.lines(
-				":irc.test 367 alice #elsewhere *!*@x.example oper 1700000000",
-				":irc.test 368 alice #elsewhere :End of Channel Ban List"
-			);
-
-			const joins = specialJoins();
-			expect(joins).to.have.length(1);
-			expect(joins[0].chan.name).to.equal("Ban list for #elsewhere");
-			expect(joins[0].chan.data).to.have.length(1);
-		});
-
-		it("passes extban masks through untouched", function () {
-			const {transport} = setup();
-
-			transport.lines(
-				":irc.test 367 alice #seance ~a:baduser alice 1700000000",
-				":irc.test 367 alice #seance ~q:~r:*Spam* alice 1700000001",
-				":irc.test 367 alice #seance ~c:#badchan alice 1700000002",
-				":irc.test 368 alice #seance :End of Channel Ban List"
-			);
-
-			const rows = specialJoins()[0].chan.data as {hostmask: string}[];
-			expect(rows.map((r) => r.hostmask)).to.deep.equal([
-				"~a:baduser",
-				"~q:~r:*Spam*",
-				"~c:#badchan",
-			]);
-		});
-
-		it("keeps interleaved lists for two channels apart (casefolded)", function () {
-			const {transport} = setup();
-
-			transport.lines(
-				":irc.test 367 alice #seance a!*@* bob 1700000000",
-				":irc.test 367 alice #other x!*@* bob 1700000001",
-				":irc.test 367 alice #SEANCE b!*@* bob 1700000002",
-				":irc.test 368 alice #other :End of Channel Ban List",
-				":irc.test 368 alice #seance :End of Channel Ban List"
-			);
-
-			const joins = specialJoins();
-			expect(joins.map((j) => j.chan.name)).to.deep.equal([
-				"Ban list for #other",
-				"Ban list for #seance",
-			]);
-			expect(
-				(joins[0].chan.data as {hostmask: string}[]).map((r) => r.hostmask)
-			).to.deep.equal(["x!*@*"]);
-			expect(
-				(joins[1].chan.data as {hostmask: string}[]).map((r) => r.hostmask)
-			).to.deep.equal(["a!*@*", "b!*@*"]);
-		});
-
-		it("clears the buffer after the end numeric", function () {
-			const {client, transport} = setup();
-			const chanId = client.findChannel("#seance")!.id;
-
-			transport.lines(
-				":irc.test 367 alice #seance a!*@* bob 1700000000",
-				":irc.test 368 alice #seance :End of Channel Ban List",
-				":irc.test 368 alice #seance :End of Channel Ban List"
-			);
-
-			expect(specialJoins()).to.have.length(1);
-			expect(payloads("msg:special")).to.have.length(0);
-			expect(messages(chanId).map((m) => m.text)).to.deep.equal(["Ban list is empty"]);
-		});
-
-		it("tolerates entries without setter or timestamp", function () {
-			const {transport} = setup();
-
-			transport.lines(
-				":irc.test 367 alice #seance bare!*@*",
-				":irc.test 367 alice #seance withby!*@* bob",
-				":irc.test 368 alice #seance :End of Channel Ban List"
-			);
-
-			expect(specialJoins()[0].chan.data).to.deep.equal([
-				{hostmask: "bare!*@*", banned_by: "", banned_at: undefined},
-				{hostmask: "withby!*@*", banned_by: "bob", banned_at: undefined},
-			]);
-		});
-	});
-
 	describe("invite exception list (346/347)", function () {
 		it("opens an invite-list window with invited_by / invited_at rows", function () {
 			const {transport} = setup();
@@ -378,7 +205,7 @@ describe("IRC channel list numerics (lists.ts)", function () {
 		});
 
 		it("keeps ban, exception and invite buffers for the same channel separate", function () {
-			const {transport} = setup();
+			const {client, transport} = setup();
 
 			transport.lines(
 				":irc.test 367 alice #seance ban!*@* alice 1",
@@ -393,12 +220,13 @@ describe("IRC channel list numerics (lists.ts)", function () {
 			expect(joins.map((j) => j.chan.name)).to.deep.equal([
 				"Exception list for #seance",
 				"Invite list for #seance",
-				"Ban list for #seance",
 			]);
 			expect(
 				joins.map((j) => (j.chan.data as {hostmask: string}[]).map((r) => r.hostmask))
-			).to.deep.equal([["except!*@*"], ["invex!*@*"], ["ban!*@*"]]);
-			expect(new Set(joins.map((j) => j.chan.id)).size).to.equal(3);
+			).to.deep.equal([["except!*@*"], ["invex!*@*"]]);
+			expect(client.bans.snapshot("#seance").rows.map((row) => row.mask)).to.deep.equal([
+				"ban!*@*",
+			]);
 		});
 	});
 

@@ -1,7 +1,13 @@
 <template>
 	<span class="content">
-		{{ parts[0] }}<bdi><Username :user="message.from" /></bdi>
-		<i class="hostmask">&#32;(<ParsedMessage :network="network" :text="message.hostmask" />)</i>
+		{{ parts[0] }}<bdi><Username :user="message.from" :address="message.hostmask" /></bdi>
+		<i class="hostmask"
+			>&#32;(<HostAddress
+				:network="network"
+				:address="message.hostmask"
+				:nick="message.from?.nick"
+			/>)</i
+		>
 		<template v-if="message.account">
 			<i class="account">&#32;[{{ message.account }}]</i>
 		</template>
@@ -15,7 +21,7 @@
 <script lang="ts">
 import {computed, defineComponent, PropType} from "vue";
 import {ClientNetwork, ClientMessage} from "../../js/types";
-import ParsedMessage from "../ParsedMessage.vue";
+import HostAddress from "../HostAddress.vue";
 import Username from "../Username.vue";
 import {useI18n} from "../../js/i18n";
 import {frameSegments, KEEP} from "../../js/i18n/core";
@@ -23,7 +29,7 @@ import {frameSegments, KEEP} from "../../js/i18n/core";
 export default defineComponent({
 	name: "MessageTypeJoin",
 	components: {
-		ParsedMessage,
+		HostAddress,
 		Username,
 	},
 	props: {

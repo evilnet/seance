@@ -546,7 +546,6 @@
   "link.trustTitleShown": "Vždy zobrazované {scopes} — zmeniť",
   "link.tryAgain": "Kliknutím to skúsite znova",
   "list.isEmpty": "{kind} je prázdny",
-  "list.kindBans": "Zoznam banov",
   "list.kindExcepts": "Zoznam výnimiek",
   "list.kindInvites": "Zoznam pozvánok",
   "list.windowTitle": "{kind} pre {channel}",
@@ -2459,9 +2458,6 @@
     "few": "{count} neprečítané správy",
     "other": "{count} neprečítaných správ"
   },
-  "special.bans.banned": "Zabanované",
-  "special.bans.bannedAt": "Dátum banu",
-  "special.bans.bannedBy": "Zabanoval",
   "special.excepts.exempted": "Výnimka",
   "special.excepts.exemptedAt": "Dátum výnimky",
   "special.excepts.exemptedBy": "Výnimku udelil",
