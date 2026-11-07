@@ -27,6 +27,7 @@ type Trace = {
 	required: boolean;
 	got: {m: ModelMsg; at: number}[];
 	sent: ModelMsg[];
+	outcome: "none" | "rejected" | "retry";
 };
 
 /** The model's abstract caps, as real cap names Seance wants. Order = Seance's REQ order. */
@@ -37,6 +38,7 @@ const MODEL_CAP = Object.fromEntries(Object.entries(CAP_NAME).map(([k, v]) => [v
 class FakeTransport implements Transport {
 	state: TransportState = "closed";
 	sent: string[] = [];
+	abandonCalls: string[] = [];
 	private listeners: ((ev: TransportEvent) => void)[] = [];
 
 	on(listener: (ev: TransportEvent) => void): () => void {
@@ -63,6 +65,7 @@ class FakeTransport implements Transport {
 	}
 
 	abandon(reason: string): void {
+		this.abandonCalls.push(reason);
 		this.state = "reconnect-wait";
 		this.emit({
 			type: "close",
@@ -198,9 +201,23 @@ function canonical(lines: string[]): string[] {
 	return out;
 }
 
-function replay(trace: Trace): {expected: string[]; actual: string[]; at: number} | null {
+type Mismatch =
+	| {expected: string[]; actual: string[]; at: number}
+	| {outcome: string; seance: string};
+
+/** How Seance left the connection, in the model's terms. */
+function outcomeOf(rejected: number, transport: FakeTransport): string {
+	if (rejected > 0) {
+		return "rejected";
+	}
+
+	return transport.abandonCalls.length > 0 ? "retry" : "none";
+}
+
+function replay(trace: Trace): Mismatch | null {
 	const clock = sinon.useFakeTimers();
 	const transport = new FakeTransport();
+	let rejected = 0;
 
 	try {
 		const client = new IrcClient({
@@ -216,6 +233,7 @@ function replay(trace: Trace): {expected: string[]; actual: string[]; at: number
 			ids: new IdAllocator(),
 			transportFactory: () => transport,
 			highlights: () => ({keywords: [], exceptions: []}),
+			onSaslRejected: () => rejected++,
 		});
 		client.connect();
 		transport.open();
@@ -244,7 +262,15 @@ function replay(trace: Trace): {expected: string[]; actual: string[]; at: number
 			}
 		}
 
-		return check(trace.sent.length);
+		const bad = check(trace.sent.length);
+
+		if (bad) {
+			return bad;
+		}
+
+		// A refusal and a retry send the same QUIT; only this tells them apart.
+		const seance = outcomeOf(rejected, transport);
+		return seance === trace.outcome ? null : {outcome: trace.outcome, seance};
 	} finally {
 		clock.restore();
 		socket.removeAllListeners();
@@ -263,6 +289,7 @@ function load(file: string): Trace[] {
 describe("formal: handshake model replayed into IrcClient", function () {
 	it("Seance sends what the model's Seance sends, in every behaviour", function () {
 		const traces = load("handshake.traces.json");
+		expect(traces.length, "no traces: run gen.sh").to.be.greaterThan(100);
 		const failures = traces.map((t) => ({t, bad: replay(t)})).filter((r) => r.bad !== null);
 
 		expect(

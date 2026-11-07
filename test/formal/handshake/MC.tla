@@ -8,5 +8,5 @@ MCOrder3 == <<"x", "y", "sasl">>
 \* only live_server.py compares.
 Settled == Done /\ c2s = << >> /\ svcIn = << >> /\ svcOut = << >> /\ cookie = 0
            /\ (cQuit \/ s2c = << >>)
-Dump == Settled => PrintT(ToJson([env |-> env, sent |-> sent, got |-> got, rest |-> s2c]))
+Dump == Settled => PrintT(ToJson([env |-> env, sent |-> sent, got |-> got, rest |-> s2c, outcome |-> outcome]))
 ====

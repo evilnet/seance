@@ -238,6 +238,12 @@ def main():
         # sleeps cannot place; the timely ones cover every server path
         if not t["env"]["timely"]:
             continue
+        # a services split mid-exchange (ServerAgentLost) cannot be staged
+        # with one fake services link; its 906 is the only one not answering
+        # our own AUTHENTICATE *
+        if (any(g["m"]["t"] == "906" for g in t["got"])
+                and not any(m["t"] == "AUTHABORT" for m in t["sent"])):
+            continue
         # the real ircd always offers x and y; behaviours without them add nothing
         if not {"x", "y"} <= set(t["env"]["offered"]):
             continue

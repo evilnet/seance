@@ -509,8 +509,8 @@ describe("IrcClient SASL", function () {
 			],
 		],
 		[
-			"the server fails it before the credentials went out",
-			[":irc.test 904 alice :SASL authentication failed"],
+			"the services link splits mid-exchange",
+			["AUTHENTICATE +", ":irc.test 906 alice :SASL authentication aborted"],
 		],
 	] as const) {
 		it(`QUITs and retries, without turning autoconnect off, when ${when}`, function () {
@@ -582,5 +582,23 @@ describe("IrcClient SASL", function () {
 		expect(transport.sent[transport.sent.length - 1]).to.equal("AUTHENTICATE EXTERNAL");
 		transport.line("AUTHENTICATE +");
 		expect(transport.sent[transport.sent.length - 1]).to.equal("AUTHENTICATE +");
+	});
+
+	it("takes EXTERNAL refused before any challenge as a refusal, not an outage", function () {
+		// Atheme and Anope fail EXTERNAL without a client certificate before
+		// `AUTHENTICATE +`, and a browser has none: retrying would loop.
+		let rejected = 0;
+		const {client, transport} = setup({
+			sasl: "external",
+			saslAccount: "",
+			saslPassword: "",
+			onSaslRejected: () => rejected++,
+		});
+		offer(transport, `${OFFERED_CAPS} sasl=PLAIN,EXTERNAL`);
+		transport.line(":irc.test 904 alice :SASL authentication failed");
+
+		expect(rejected).to.equal(1);
+		expect(transport.abandonCalls).to.deep.equal([]);
+		expect(client.isQuitting).to.equal(true);
 	});
 });

@@ -41,11 +41,17 @@ export interface SaslResult {
 	/** Informational text worth showing (900, 908). */
 	info?: string;
 	/**
-	 * Set on a failure that says nothing about the credentials, so a retry
-	 * may well succeed: a 904 before they were sent (the server or its
-	 * services never answered the opener), or one whose text says the
-	 * server gave up waiting (nefarious2's `904 :SASL authentication
-	 * failed: request timed out`, sent when services or Keycloak are slow).
+	 * Set on a failure that says the server or its services were not
+	 * there to judge the credentials, so a retry may well succeed:
+	 *  - a 904 whose text names it: nefarious2's `request timed out` (slow
+	 *    services or Keycloak) and `service unavailable` (services gone
+	 *    between CAP LS and AUTHENTICATE);
+	 *  - a 906 we did not ask for: the server dropped the exchange itself
+	 *    (nefarious2 when the services link splits mid-exchange, Solanum
+	 *    with no services, UnrealIRCd's timeout).
+	 * Anything else is a refusal. A failure before the credentials went out
+	 * is not enough on its own: Atheme and Anope refuse EXTERNAL without a
+	 * client certificate that way, and that never gets better.
 	 */
 	transient?: boolean;
 }
@@ -72,8 +78,8 @@ export const ERR_SASLALREADY = "907";
 export const RPL_SASLMECHS = "908";
 
 /** Numerics that end the exchange unsuccessfully. */
-/** A 904 text that reports the server's own timeout, not a refusal. */
-const TIMED_OUT = /\btimed out\b/i;
+/** 904 texts that report an outage, not a verdict on the credentials. */
+const OUTAGE = /\b(?:timed out|service unavailable)\b/i;
 
 const FAILURE_NUMERICS: ReadonlySet<string> = new Set([
 	ERR_NICKLOCKED,
@@ -138,7 +144,6 @@ export class SaslAuth {
 	readonly mechanism: SaslMechanism;
 	private readonly payload: string;
 	private phase: Phase = "idle";
-	private mechanismRefused = false;
 
 	constructor(
 		mechanism: SaslMechanism,
@@ -186,9 +191,6 @@ export class SaslAuth {
 			case RPL_LOGGEDIN:
 				return {send: [], done: false, ok: false, info: text};
 			case RPL_SASLMECHS:
-				// The server does not take our mechanism: the 904 that follows
-				// is a refusal however early it comes.
-				this.mechanismRefused = true;
 				return {
 					send: [],
 					done: false,
@@ -203,10 +205,11 @@ export class SaslAuth {
 		}
 
 		if (FAILURE_NUMERICS.has(msg.command)) {
+			// Our own abort (`AUTHENTICATE *`) has already finished the
+			// exchange, so a 906 that gets here is the server's.
 			const transient =
-				msg.command === ERR_SASLFAIL &&
-				!this.mechanismRefused &&
-				(this.phase === "challenge" || TIMED_OUT.test(text));
+				msg.command === ERR_SASLABORTED ||
+				(msg.command === ERR_SASLFAIL && OUTAGE.test(text));
 			this.phase = "done";
 			return {
 				send: [],

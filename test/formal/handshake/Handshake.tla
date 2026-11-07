@@ -231,8 +231,8 @@ CRecvAuthPlus ==
     ELSE UNCHANGED <<c2s, cEndSent, cSaslStarts, sent>> /\ UNCHANGED cvars
 
 \* 903 / 904 / 906 / 907: fed to the exchange if one is running, else lobby text.
-\* `transient` (SaslResult.transient): a 904 that says the server timed out,
-\* or any 904 before the credentials went out, reconnects instead of
+\* `transient` (SaslResult.transient): a 904 whose text names an outage
+\* ("904T") or a 906 the server sent on its own reconnects instead of
 \* counting as a refusal.
 CRecvResult(ok, transient) ==
     IF sasl # "none"
@@ -251,8 +251,9 @@ ClientRecv ==
             [] m.t = "AUTH+" -> CRecvAuthPlus
             [] m.t = "903"  -> CRecvResult(TRUE, FALSE)
             [] m.t = "904T" -> CRecvResult(FALSE, TRUE)
-            [] m.t = "904"  -> CRecvResult(FALSE, sasl = "challenge")
-            [] m.t \in {"906", "907"} -> CRecvResult(FALSE, FALSE)
+            [] m.t = "904"  -> CRecvResult(FALSE, FALSE)
+            [] m.t = "906"  -> CRecvResult(FALSE, TRUE)
+            [] m.t = "907"  -> CRecvResult(FALSE, FALSE)
             [] m.t = "001"  -> welcomed' = TRUE
                                /\ UNCHANGED <<c2s, cEndSent, cSaslStarts, sent>>
                                /\ UNCHANGED <<cAvail, cEnabled, cOut, cLs, cEnded, cPendEnd, cRetried, sasl, saslOk, timer, cQuit, outcome>>
@@ -397,6 +398,19 @@ ServerSvc ==
     /\ UNCHANGED cvars
     /\ UNCHANGED hist
 
+\* The services link splits with an exchange open (list.c exit path):
+\* abort_sasl(cptr, 0) sends 906 and the registration hold is dropped.
+ServerAgentLost ==
+    /\ cookie # 0 /\ ~sClosed /\ ~env.svcUp /\ (~env.timely \/ Quiet)
+    /\ LET c == CanReg(nickSet, userSet, capPending, FALSE) IN
+       /\ cookie' = 0 /\ saslPending' = FALSE
+       /\ UNCHANGED <<nextCookie, saslComplete>>
+       /\ s2c' = s2c \o << Msg("906") >> \o RegOut(c)
+       /\ RegVars(c, saslComplete, 0)
+    /\ UNCHANGED <<env, c2s, svcIn, svcOut, sActive, capPending, nickSet, userSet, sClosed>>
+    /\ UNCHANGED cvars
+    /\ UNCHANGED hist
+
 \* sasl_timeout_callback: abort_sasl(cptr, 1) then auth_sasl_done.  The 904
 \* says ": request timed out" (m_sasl.c, sasl_auth.c); "904T" stands for it.
 ServerSaslTimeout ==
@@ -436,7 +450,7 @@ Done == (welcomed /\ Quiet) \/ cQuit \/ sClosed
 
 Next ==
     \/ ClientRecv \/ ClientSaslTimer \/ EagerCapEnd
-    \/ ServerRecv \/ ServerSvc \/ ServerSaslTimeout \/ ServerRegTimeout
+    \/ ServerRecv \/ ServerSvc \/ ServerSaslTimeout \/ ServerAgentLost \/ ServerRegTimeout
     \/ Services
     \/ (Done /\ UNCHANGED vars)
 

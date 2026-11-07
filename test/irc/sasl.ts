@@ -206,18 +206,31 @@ describe("irc/sasl", function () {
 			expect(res).to.include({done: true, ok: false, transient: true});
 		});
 
-		it("marks a 904 before the credentials went out as transient", function () {
+		it("marks a 904 for services gone missing as transient", function () {
 			const auth = new SaslAuth("PLAIN", {account: "alice", password: "pw"});
 			auth.start();
 
-			const res = feed(auth, ":irc.test 904 alice :SASL authentication failed");
+			const res = feed(
+				auth,
+				":irc.test 904 alice :SASL authentication failed: service unavailable"
+			);
 			expect(res).to.include({done: true, ok: false, transient: true});
 		});
 
-		it("does not mark a 904 after 908 as transient: the mechanism is refused", function () {
+		it("marks a 906 the server sent on its own as transient", function () {
+			// nefarious2 when the services link splits mid-exchange.
 			const auth = new SaslAuth("PLAIN", {account: "alice", password: "pw"});
 			auth.start();
-			feed(auth, ":irc.test 908 alice EXTERNAL :are available SASL mechanisms");
+			feed(auth, "AUTHENTICATE +");
+
+			const res = feed(auth, ":irc.test 906 alice :SASL authentication aborted");
+			expect(res).to.include({done: true, ok: false, transient: true});
+		});
+
+		it("does not mark a 904 before the credentials went out as transient", function () {
+			// Atheme and Anope refuse EXTERNAL without a certificate this way.
+			const auth = new SaslAuth("EXTERNAL");
+			auth.start();
 
 			const res = feed(auth, ":irc.test 904 alice :SASL authentication failed");
 			expect(res.transient).to.equal(undefined);
