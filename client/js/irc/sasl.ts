@@ -138,6 +138,7 @@ export class SaslAuth {
 	readonly mechanism: SaslMechanism;
 	private readonly payload: string;
 	private phase: Phase = "idle";
+	private mechanismRefused = false;
 
 	constructor(
 		mechanism: SaslMechanism,
@@ -185,6 +186,9 @@ export class SaslAuth {
 			case RPL_LOGGEDIN:
 				return {send: [], done: false, ok: false, info: text};
 			case RPL_SASLMECHS:
+				// The server does not take our mechanism: the 904 that follows
+				// is a refusal however early it comes.
+				this.mechanismRefused = true;
 				return {
 					send: [],
 					done: false,
@@ -201,6 +205,7 @@ export class SaslAuth {
 		if (FAILURE_NUMERICS.has(msg.command)) {
 			const transient =
 				msg.command === ERR_SASLFAIL &&
+				!this.mechanismRefused &&
 				(this.phase === "challenge" || TIMED_OUT.test(text));
 			this.phase = "done";
 			return {

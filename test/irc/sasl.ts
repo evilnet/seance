@@ -214,6 +214,15 @@ describe("irc/sasl", function () {
 			expect(res).to.include({done: true, ok: false, transient: true});
 		});
 
+		it("does not mark a 904 after 908 as transient: the mechanism is refused", function () {
+			const auth = new SaslAuth("PLAIN", {account: "alice", password: "pw"});
+			auth.start();
+			feed(auth, ":irc.test 908 alice EXTERNAL :are available SASL mechanisms");
+
+			const res = feed(auth, ":irc.test 904 alice :SASL authentication failed");
+			expect(res.transient).to.equal(undefined);
+		});
+
 		it("does not mark a refusal of the credentials as transient", function () {
 			const auth = new SaslAuth("PLAIN", {account: "alice", password: "pw"});
 			auth.start();
