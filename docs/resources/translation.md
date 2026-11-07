@@ -246,7 +246,13 @@ reload). Every other translation scenario switches translation on first
   A deploy's pair may be a multilingual Marian model that reads a
   target-language token in front of the source (`>>por<<`): the service
   sets the route's `token` on the request and the engine prepends it
-  (branding.md § Translation).
+  (branding.md § Translation). Pairs that name one repo get a catalog id
+  each (`models.ts` `sharedPairId`, the repo and the pair) and keep the repo
+  as their copies' `source`: the cache answers and deletes by the source
+  (`seq2seqCache.ts`), the service marks every sharing pair's row when the
+  download arrives or goes (`service.ts` `shareCached`), and Settings counts
+  and removes it once. Each pair still loads its own pipeline, so reading
+  and writing in one language holds both of the engine's two slots.
 - **The router** (`router.ts`, `routes.default.ts`) picks per pair from a
   table entry of **quality classes**, best first, narrowed by the device
   tier, the two engine settings, the catalog and the session's down-marks

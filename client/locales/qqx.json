@@ -2654,6 +2654,7 @@
   "translate.model.failedUnknown": "‫ḟàïľéḋ: üñķñöẃñ éŕŕöŕḟàïľéḋ: üñķñöẃñ éŕŕöŕ‬",
   "translate.model.llm": "‫{name} )àľľ ľàñġüàġéś({name} )àľľ ľàñġüàġéś(‬",
   "translate.model.loadingPercent": "‫ľöàḋïñġ… {percent}%ľöàḋïñġ… {percent}%‬",
+  "translate.model.namedPair": "‫{name} {from} → {to}{name} {from} → {to}‬",
   "translate.model.needsBuffer": "‫ñééḋś à ġṗü ḃüḟḟéŕ öḟ {needed}; ţḣïś ḋéṽïċé ḃïñḋś àţ ṁöśţ {limit}ñééḋś à ġṗü ḃüḟḟéŕ öḟ {needed}; ţḣïś ḋéṽïċé ḃïñḋś àţ ṁöśţ {limit}‬",
   "translate.model.nllb": "‫ñľľḃ-200 600ṁ )200 ľàñġüàġéś(ñľľḃ-200 600ṁ )200 ľàñġüàġéś(‬",
   "translate.model.opus": "‫öṗüś-ṁţ {from} → {to}öṗüś-ṁţ {from} → {to}‬",

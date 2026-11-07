@@ -1359,6 +1359,7 @@ export class TranslateService {
 						view.status = "ready";
 						view.fraction = 1;
 						view.cached = true;
+						this.shareCached(route.ref, route.device, true);
 						this.publish();
 					}
 
@@ -1653,6 +1654,7 @@ export class TranslateService {
 			// download that failed, a device that was lost) is over. The
 			// other device's copy keeps its own mark.
 			this.forgetDown(candidateOf(ref), device);
+			this.shareCached(ref, device, true);
 		} catch (e) {
 			const message = e instanceof Error ? e.message : String(e);
 
@@ -1726,6 +1728,12 @@ export class TranslateService {
 			view.status = "idle";
 			view.fraction = 0;
 			view.error = null;
+
+			for (const other of this.sharers(ref, device)) {
+				this.consent?.revoke(this.consentId(other, device));
+			}
+
+			this.shareCached(ref, device, false);
 		} catch (e) {
 			const message = e instanceof Error ? e.message : String(e);
 
@@ -2080,6 +2088,51 @@ export class TranslateService {
 		if (this.idleTimer !== null) {
 			this.deps.clearTimeout(this.idleTimer);
 			this.idleTimer = null;
+		}
+	}
+
+	/**
+	 * The other pairs whose copy for `device` is `ref`'s download: a deploy's
+	 * repo that serves several pairs (models.ts `sharedPairId`).
+	 */
+	private sharers(ref: ModelRef, device: Device): ModelRef[] {
+		const source = ref.copies[device]?.source;
+
+		if (ref.engine !== "seq2seq" || !source) {
+			return [];
+		}
+
+		return catalogModels(this.options.catalog).filter(
+			(other) =>
+				other.id !== ref.id &&
+				other.engine === "seq2seq" &&
+				other.copies[device]?.source === source
+		);
+	}
+
+	/**
+	 * A shared download arrived or went: the pairs that read it say so too,
+	 * as the worker's own answer would (`models`), and one that arrived
+	 * lifts their down-marks as it lifts its own.
+	 */
+	private shareCached(ref: ModelRef, device: Device, cached: boolean): void {
+		for (const other of this.sharers(ref, device)) {
+			const view = this.view(other, device);
+
+			view.cached = cached;
+
+			if (cached) {
+				this.forgetDown(candidateOf(other), device);
+
+				if (view.status === "idle" || view.status === "failed") {
+					view.status = "ready";
+					view.fraction = 1;
+					view.error = null;
+				}
+			} else if (view.status === "ready") {
+				view.status = "idle";
+				view.fraction = 0;
+			}
 		}
 	}
 

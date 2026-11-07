@@ -33,7 +33,7 @@ export type EngineStatus = "cold" | "loading" | "ready" | "failed";
  * itself, a GPU model carries its own product name.
  */
 export type ModelLabel =
-	| {kind: "opus"; from: string; to: string}
+	| {kind: "opus"; from: string; to: string; name?: string}
 	| {kind: "nllb"}
 	| {kind: "llm"; name: string}
 	| {kind: "apple"};

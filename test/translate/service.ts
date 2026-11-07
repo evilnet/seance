@@ -31,6 +31,7 @@ import {
 	loadNote,
 	type CpuFallbackAnswer,
 	type CpuFallbackInfo,
+	type ModelView,
 	type ServiceDeps,
 } from "../../client/js/translate/service";
 import {serveEngines} from "../../client/js/translate/worker";
@@ -1274,6 +1275,38 @@ describe("translate/service", () => {
 		const gone = (await r.service.models()).find((v) => v.ref.id === catalog.nllb.id);
 
 		expect(gone).to.include({cached: false, status: "idle"});
+		r.service.dispose();
+	});
+
+	it("two pairs on one repo: one download serves both rows, one removal clears both", async () => {
+		const shared = buildCatalog({
+			cpu: {
+				opus: {
+					"en-pt": {model: "net/mt-pt", token: ">>por<<"},
+					"pt-en": {model: "net/mt-pt", token: ">>eng<<"},
+				},
+			},
+		});
+		const r = rig("cpu", true, DEFAULT_ROUTES, {}, {catalog: shared});
+		clock = r.clock;
+		let latest: ModelView[] = [];
+
+		r.service.onModels((views) => (latest = views));
+		const row = (pair: string) =>
+			latest.find((v) => v.ref.id === shared.opus[pair].id && v.device === "cpu");
+
+		// Its own row each, by pair: one id per pair, one repo underneath.
+		expect(shared.opus["en-pt"].id).to.not.equal(shared.opus["pt-en"].id);
+		expect(shared.opus["pt-en"].copies.cpu?.source).to.equal("net/mt-pt");
+
+		await r.service.download(shared.opus["en-pt"], "cpu");
+		expect(row("en-pt")).to.include({cached: true, status: "ready"});
+		expect(row("pt-en")).to.include({cached: true, status: "ready"});
+		expect(row("pt-en")?.ref.label).to.include({from: "pt", to: "en"});
+
+		await r.service.remove(shared.opus["pt-en"], "cpu");
+		expect(row("en-pt")).to.include({cached: false, status: "idle"});
+		expect(row("pt-en")).to.include({cached: false, status: "idle"});
 		r.service.dispose();
 	});
 
