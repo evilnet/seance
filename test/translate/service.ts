@@ -425,6 +425,22 @@ describe("translate/service", () => {
 		plain.service.dispose();
 	});
 
+	it("a fallback from a token pair to NLLB sends NLLB no token", async () => {
+		const withToken = buildCatalog({
+			seq2seqGpu: true,
+			cpu: {opus: {"de-en": {model: "net/mt-de", token: ">>eng<<"}}},
+		});
+		const r = rig("cpu", true, DEFAULT_ROUTES, {}, {catalog: withToken});
+		clock = r.clock;
+		r.seq2seq.failLoad = new Error("quota exceeded");
+
+		expect(await text(r.service.translate(base))).to.equal("seq:Hallo");
+		const sent = r.seq2seq.calls.translate;
+		expect(sent.map((req) => req.model)).to.deep.equal([withToken.nllb.id]);
+		expect(sent[0]).to.not.have.property("token");
+		r.service.dispose();
+	});
+
 	it("the request's routing hint wins over the context's and never changes the prompt context", async () => {
 		const r = rig("cpu");
 		clock = r.clock;

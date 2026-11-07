@@ -629,20 +629,26 @@ describe("branding", function () {
 							"en-pt": {model: " net/mt-en-pt ", token: ">>por<<", sizeBytes: 26e6},
 							"pt-en": {model: "net/mt-pt-en", sizeBytes: 0.5},
 							"en-sv": {model: "net/mt-en-sv", token: 3},
-							"sv-en": {token: ">>eng<<"},
+							"en-fr": {model: "net/mt-en-fr", token: null},
+							"en-de": {model: "net/mt-en-de", token: " "},
+							"fr-en": {model: "net/mt-fr-en", sizeBytes: Number.MAX_VALUE},
 							"de-en": "net/opus-de-en",
+							"sv-en": {token: ">>eng<<"},
+							"es-en": ["net/mt-es-en"],
 						},
 					},
 				},
 			});
 
-			// A token that is not one drops the pair: run without it, the
-			// model answers in the wrong language.
+			// A token that is not one (a number, null, blank) drops the
+			// pair: run without it, the model answers in the wrong language.
+			// A size that is not a positive safe integer is dropped alone.
 			expect(config.translation).to.deep.equal({
 				cpu: {
 					opus: {
 						"en-pt": {model: "net/mt-en-pt", token: ">>por<<", sizeBytes: 26e6},
 						"pt-en": {model: "net/mt-pt-en"},
+						"fr-en": {model: "net/mt-fr-en"},
 						"de-en": "net/opus-de-en",
 					},
 				},
