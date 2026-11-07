@@ -478,6 +478,10 @@ TypeOK ==
 NoRegisterDuringSasl == ~regDuringSasl
 
 \* S3: CAP END at most once.
+\* Not a spec rule: a REQ sent after CAP END but before 001 suspends
+\* registration again until another END (capability-negotiation, and
+\* nefarious2's cap_req).  It holds here because nothing makes Seance REQ
+\* in that window: nefarious2 sends CAP NEW only to registered clients.
 CapEndOnce == cEndSent <= 1
 
 \* S4: once settled, both sides agree on the enabled caps ...

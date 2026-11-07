@@ -14,7 +14,7 @@ unrestricted, which fails on the open gap below.
 | Property               | Meaning                                                                       |
 | ---------------------- | ----------------------------------------------------------------------------- |
 | `NoRegisterDuringSasl` | the server never sends 001 with a SASL exchange open                          |
-| `CapEndOnce`           | Seance sends CAP END at most once                                             |
+| `CapEndOnce`           | Seance sends CAP END at most once (see its comment: not a spec rule)          |
 | `CapsAgree`            | once settled, Seance's enabled caps equal the server's                        |
 | `OneOpener`            | Seance sends `AUTHENTICATE PLAIN` at most once per connection                 |
 | `NoFalseRejection`     | Seance turns autoconnect off only when the login really cannot succeed        |
