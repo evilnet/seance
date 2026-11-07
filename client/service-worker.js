@@ -2832,9 +2832,10 @@ async function handleResubscribe(oldSub, newSub) {
 		post.push("WEBPUSH UNREGISTER " + oldEndpoint);
 	}
 
-	post.push(
-		"WEBPUSH REGISTER " + sub.endpoint + " p256dh=" + sub.keys.p256dh + ";auth=" + sub.keys.auth
-	);
+	// A PushSubscription has no `keys` of its own: they are in its JSON form
+	// (base64url, as WEBPUSH REGISTER wants them).
+	const keys = sub.toJSON().keys;
+	post.push("WEBPUSH REGISTER " + sub.endpoint + " p256dh=" + keys.p256dh + ";auth=" + keys.auth);
 
 	// After 001: nefarious2 silently drops a WEBPUSH REGISTER sent between
 	// SASL and CAP END (docs/projects/push-subscription.md).

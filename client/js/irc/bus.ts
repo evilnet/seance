@@ -145,9 +145,11 @@ export function registerBusHandlers(bus: EventBus, registry: ClientRegistry): vo
 		const client = registry.clientForNetwork(network);
 
 		if (client) {
-			client.send(
-				value ? `METADATA * SET ${key} private :${value}` : `METADATA * SET ${key}`
-			);
+			const line = client.metadataSetLine(key, value);
+
+			if (line) {
+				client.send(line);
+			}
 		}
 	});
 

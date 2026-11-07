@@ -1292,8 +1292,13 @@ socket.on("webpush:state", ({network, action, endpoint, ok, code, reason}) => {
 
 	// The server refused the subscription. ACCOUNT_REQUIRED is nefarious2's
 	// non-spec code for "log in first"; MAX_REGISTRATIONS is spec but not yet
-	// sent by the server. The state text is the user-facing report.
-	store.commit("pushNotificationState", "blocked");
+	// sent by the server. The state text is the user-facing report. A refused
+	// UNREGISTER (an endpoint this device already dropped) leaves the
+	// subscription as it is.
+	if (action !== "UNREGISTER") {
+		store.commit("pushNotificationState", "blocked");
+	}
+
 	// eslint-disable-next-line no-console
 	console.warn(
 		`[webpush] ${action} of ${endpoint} on ${network} failed (${code}): ${

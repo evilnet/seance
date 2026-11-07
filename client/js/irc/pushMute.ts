@@ -140,9 +140,11 @@ function writeMute(client: IrcClient, value: string): void {
 	// Private: only the account's own sessions may read it (the server's
 	// push gate reads it whatever its visibility). A delete takes no
 	// visibility (m_metadata.c: `SET target key` deletes).
-	client.send(
-		value ? `METADATA * SET ${MUTE_KEY} private :${value}` : `METADATA * SET ${MUTE_KEY}`
-	);
+	const line = client.metadataSetLine(MUTE_KEY, value);
+
+	if (line) {
+		client.send(line);
+	}
 }
 
 /**

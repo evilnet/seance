@@ -522,6 +522,18 @@ describe("historysearch", function () {
 			expect(payloads("msg")).to.have.length(0);
 		});
 
+		it("does not ask by msgid a server whose MSGREFTYPES leaves it out", function () {
+			const {client, transport} = setup();
+			transport.line(
+				":irc.test 005 alice MSGREFTYPES=timestamp :are supported by this server"
+			);
+
+			requestSearchContext(client, 4, "#seance", "AROUND", "m1", 21);
+
+			expect(transport.sent).to.deep.equal([]);
+			expect(payloads<ContextPayload>("search:context")[0].status).to.equal("unsupported");
+		});
+
 		it("never asks past what the server allows in one command", function () {
 			const {client, transport} = setup();
 
