@@ -336,14 +336,20 @@ export class CapNegotiator {
 	/**
 	 * Pipelining: the server answers a REQ before it reads our next line, so
 	 * waiting for the ACK before sending what follows only costs a round
-	 * trip. Right after the REQ we send the SASL opener when `beforeEnd`
-	 * wants one (by the time AUTHENTICATE is read, the ACK has been
-	 * processed; a NAK of `sasl` is handled by the caller aborting SASL),
-	 * otherwise `CAP END` itself. ACK/NAK replies are still processed as
+	 * trip. Right after the REQ we send `CAP END` (or the SASL failure
+	 * `beforeEnd` reports when the server offers no `sasl`). The SASL opener
+	 * is the exception: sasl-3.1 says the client MUST enable `sasl` before
+	 * using AUTHENTICATE, and a NAKed REQ makes the server drop an opener
+	 * pipelined behind it, so while `sasl` is being requested `beforeEnd`
+	 * waits for the replies (maybeEnd). ACK/NAK replies are processed as
 	 * they arrive; a NAK re-requests caps one at a time (see onNak).
 	 */
 	private pipelineEnd(result: CapResult): void {
 		if (this.ended || this.pendingEnd || this.failed) {
+			return;
+		}
+
+		if (this.beforeEnd && this.outstanding.has("sasl")) {
 			return;
 		}
 

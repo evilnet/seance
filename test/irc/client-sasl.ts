@@ -402,38 +402,75 @@ describe("IrcClient SASL", function () {
 		expect(transport.sent[transport.sent.length - 1]).to.equal("CAP END");
 	});
 
-	it("pipelines AUTHENTICATE behind the REQ, and aborts to CAP END when the server NAKs sasl", function () {
+	it("waits for the sasl ACK before AUTHENTICATE, and ends with CAP END when sasl is NAKed", function () {
+		// sasl-3.1: the client MUST enable sasl before using AUTHENTICATE.
 		const {client, transport} = setup(CARRY_ON);
 		transport.line(`:irc.test CAP * LS :${OFFERED_CAPS} sasl=PLAIN`);
 		const req = transport.sent.find((l) => l.startsWith("CAP REQ :")) as string;
 		const names = req.slice("CAP REQ :".length).split(" ");
-		// The opener goes out with the REQ: no round trip waiting for the ACK.
-		expect(transport.sent[transport.sent.indexOf(req) + 1]).to.equal("AUTHENTICATE PLAIN");
-		expect(client.sasl).to.not.equal(null);
+		expect(transport.sent[transport.sent.length - 1]).to.equal(req);
+		expect(client.sasl).to.equal(null);
 
 		// A NAKed multi-cap REQ is retried one cap at a time...
 		transport.line(`:irc.test CAP alice NAK :${names.join(" ")}`);
 		expect(transport.sent.filter((l) => l === "CAP REQ :sasl")).to.have.length(1);
-		expect(transport.sent).to.not.include("CAP END");
 
-		// ...and a NAK of `sasl` itself ends the exchange.
+		for (const name of names.filter((n) => n !== "sasl")) {
+			transport.line(`:irc.test CAP alice ACK :${name}`);
+		}
+
+		expect(transport.sent).to.not.include("CAP END");
+		expect(transport.sent).to.not.include("AUTHENTICATE PLAIN");
+
+		// ...and a NAK of `sasl` itself ends negotiation with nothing opened.
 		transport.line(":irc.test CAP alice NAK :sasl");
-		expect(transport.sent.slice(-2)).to.deep.equal(["AUTHENTICATE *", "CAP END"]);
-		expect(client.sasl).to.equal(null);
+		expect(transport.sent[transport.sent.length - 1]).to.equal("CAP END");
+		expect(transport.sent).to.not.include("AUTHENTICATE PLAIN");
+		expect(errors(client.lobby.id)[0]).to.equal(
+			"SASL authentication failed: the server refused the sasl capability"
+		);
+	});
+
+	it("opens SASL after a NAKed multi-cap REQ once sasl alone is ACKed", function () {
+		// A pipelined opener would have been dropped with the NAKed REQ, and
+		// the retry never sent it again: a 12 s wait and a reconnect.
+		const {client, transport} = setup();
+		transport.line(`:irc.test CAP * LS :${OFFERED_CAPS} sasl=PLAIN`);
+		const req = transport.sent.find((l) => l.startsWith("CAP REQ :")) as string;
+		const names = req.slice("CAP REQ :".length).split(" ");
+		transport.line(`:irc.test CAP alice NAK :${names.join(" ")}`);
+
+		for (const name of names) {
+			transport.line(`:irc.test CAP alice ACK :${name}`);
+		}
+
+		expect(transport.sent[transport.sent.length - 1]).to.equal("AUTHENTICATE PLAIN");
+		transport.line("AUTHENTICATE +");
+		transport.lines(
+			":irc.test 900 alice alice!alice@host alice :You are now logged in as alice",
+			":irc.test 903 alice :SASL authentication successful"
+		);
+		expect(transport.sent[transport.sent.length - 1]).to.equal("CAP END");
+		expect(client.account).to.equal("alice");
 	});
 
 	it("aborts the connection when the server NAKs sasl", function () {
 		const {client, transport} = setup();
 		transport.line(`:irc.test CAP * LS :${OFFERED_CAPS} sasl=PLAIN`);
 		const req = transport.sent.find((l) => l.startsWith("CAP REQ :")) as string;
-		transport.line(`:irc.test CAP alice NAK :${req.slice("CAP REQ :".length)}`);
+		const names = req.slice("CAP REQ :".length).split(" ");
+		transport.line(`:irc.test CAP alice NAK :${names.join(" ")}`);
+
+		for (const name of names.filter((n) => n !== "sasl")) {
+			transport.line(`:irc.test CAP alice ACK :${name}`);
+		}
+
 		transport.line(":irc.test CAP alice NAK :sasl");
 
 		expect(errors(client.lobby.id)[0]).to.equal(
 			"SASL authentication failed: the server refused the sasl capability"
 		);
-		// The abort still goes out: the server is told before we quit.
-		expect(transport.sent).to.include("AUTHENTICATE *");
+		expect(transport.sent).to.not.include("AUTHENTICATE PLAIN");
 		expectAborted(transport, client);
 	});
 

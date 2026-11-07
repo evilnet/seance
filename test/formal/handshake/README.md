@@ -8,8 +8,8 @@ which functions each action follows and what is left out.
 
 ## What it checks
 
-`MC.cfg` holds what passes today; `Findings.cfg` holds the stronger
-properties that fail, each for a known gap below.
+`MC.cfg` holds what passes today; `Findings.cfg` holds `AccountAgrees`
+unrestricted, which fails on the open gap below.
 
 | Property               | Meaning                                                                       |
 | ---------------------- | ----------------------------------------------------------------------------- |
@@ -22,9 +22,6 @@ properties that fail, each for a known gap below.
 | `LoggedInWhenPossible` | sasl offered and accepted, services up, right password: logged in at 001      |
 | `Terminates`           | every handshake ends in 001 or a closed connection                            |
 | `WelcomedWhenPossible` | in that same world it ends in 001                                             |
-
-`LoggedInWhenNoNak` and `WelcomedWhenNoNak` are the last two restricted to
-servers that never NAK a cap they offered, which is nefarious2's world.
 
 The environment (caps offered, caps the server refuses, services up or
 down, password right or wrong, credentials, whether SASL is required, a
@@ -51,14 +48,16 @@ the spec shared by Seance and nefarious2 would not show here.
   stands for the first with `904T` and the second with `ServerAgentLost`.
   A 904 before the credentials went out is still a refusal: Atheme and
   Anope refuse EXTERNAL without a certificate that way.
-- **Open: a NAKed REQ loses the SASL opener.** A `CAP REQ` that holds
-  `sasl` and is NAKed makes the server drop the `AUTHENTICATE PLAIN`
-  pipelined behind it, and Seance re-requests the caps one at a time
-  without sending the opener again: it waits 12 s and reconnects into the
-  same NAK. nefarious2 never NAKs a REQ built from its own LS, so this
-  needs another ircd, or a cap removed between LS and REQ. Sending the
-  opener again risks a second exchange on servers that read AUTHENTICATE
-  without the cap, so it is left as it is.
+- **Fixed: a NAKed REQ lost the SASL opener.** Seance sent
+  `AUTHENTICATE PLAIN` in the same flush as the `CAP REQ` that asked for
+  `sasl`. A NAK of that REQ makes the server drop the opener, and Seance
+  re-requested the caps one at a time without sending it again: it waited
+  12 s and reconnected into the same NAK (`LoggedInWhenPossible`,
+  `WelcomedWhenPossible`). sasl-3.1 also says the client MUST enable `sasl`
+  before using AUTHENTICATE. The opener now waits for the ACK; it costs one
+  round trip and no extra command. nefarious2 today never NAKs a REQ built
+  from its own LS, but sasl-3.2 says a server MUST NAK `sasl` when the
+  authentication layer is gone, so a server that follows it reaches this.
 - **Open, minor: Seance's timer can beat services.** In an untimely world
   Seance aborts while services still hold the credentials, and the server
   logs in anyway (900, 903). `client.account` is still set from 900, but
@@ -69,8 +68,8 @@ the spec shared by Seance and nefarious2 would not show here.
 ```sh
 # check the properties (tla2tools.jar 1.8+ from github.com/tlaplus/tlaplus)
 java -cp tla2tools.jar tlc2.TLC -config MC.cfg MC.tla
-# the stronger properties, which fail on the open findings
-java -cp tla2tools.jar tlc2.TLC -continue -config Findings.cfg MC.tla
+# the unrestricted AccountAgrees, which fails on the open finding
+java -cp tla2tools.jar tlc2.TLC -config Findings.cfg MC.tla
 # regenerate the traces the tests replay
 TLA2TOOLS=/path/to/tla2tools.jar ./gen.sh
 # print a counterexample (-dumpTrace json cex.json) as wire lines
@@ -94,5 +93,5 @@ python3 trace.py cex.json
   `--svc-down`, and `--no-sasl` (services not linked, so `sasl` is not
   offered). Behaviours from untimely worlds are skipped, since wall-clock
   sleeps cannot place a timer mid-exchange. Behaviours with a services split mid-exchange are skipped too: one fake
-  services link cannot stage it. On 2026-11-07 all 990
-  behaviours (402, 396 and 192) matched `ircv3.2-upgrade`.
+  services link cannot stage it. On 2026-11-07 all 864
+  behaviours (348, 324 and 192) matched `ircv3.2-upgrade`.

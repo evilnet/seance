@@ -116,9 +116,10 @@ FailDrops == env.required
 EndLines(ended) == IF ended THEN << >> ELSE << Msg("CAPEND") >>
 
 \* startSasl() as the beforeEnd hook; returns [lines, phase, pendEnd, quit]
-\* given the enabled/outstanding sets at the time.
+\* given the enabled/outstanding sets at the time.  It opens only once sasl
+\* is ACKed: pipelineEnd holds it back while sasl is outstanding.
 StartSasl(en, out) ==
-    IF "sasl" \in en \/ "sasl" \in out
+    IF "sasl" \in en
     THEN [lines |-> << Msg("AUTH") >>, phase |-> "challenge", pend |-> TRUE, quit |-> FALSE]
     ELSE [lines |-> << >>, phase |-> "none", pend |-> FALSE, quit |-> FailDrops]
 
@@ -167,7 +168,11 @@ CRecvLS(m) ==
         desired == {c \in Wanted \cap avail : c \notin cEnabled /\ c \notin cOut}
         req == IF desired = {} THEN << >> ELSE << MsgS("REQ", desired) >>
         out == cOut \cup desired
-        e == EndOrSasl(cEnabled, out)
+        \* pipelineEnd: with sasl in the REQ, wait for the replies (maybeEnd)
+        e == IF env.creds /\ "sasl" \in out
+             THEN [lines |-> << >>, ended |-> cEnded, pend |-> cPendEnd,
+                   phase |-> sasl, timer |-> timer, quit |-> FALSE]
+             ELSE EndOrSasl(cEnabled, out)
     IN /\ cAvail' = avail /\ cLs' = TRUE /\ cOut' = out
        \* handlers/cap.ts stops sending result.send once saslFailed() quit
        \* (cEnded here only for the eager client: it already sent CAP END)
@@ -484,17 +489,11 @@ AccountAgrees == (welcomed /\ Quiet /\ ~env.eager) => (saslOk = account)
 \* S6: in a world where login can succeed, the client is logged in at 001.
 LoggedInWhenPossible == (registered /\ GoodWorld) => account
 
-\* The two above as they hold today.  Neither is met in every world, and both
-\* gaps are known and left open (README, "Findings"):
-\*  - LoggedInWhenPossible fails when the server NAKs a multi-cap REQ that
-\*    carries sasl: the server drops the pipelined AUTHENTICATE PLAIN and
-\*    Seance's one-at-a-time retry never sends it again.  nefarious2 never
-\*    NAKs a REQ built from its own LS, so `refuse = {}` is its world.
-\*  - AccountAgrees fails when Seance's own timer runs out while services
-\*    still hold the credentials: the server logs in (900/903 after our
-\*    AUTHENTICATE *) and Seance has given up.  Only an untimely world lets
-\*    Seance's 12 s timer beat the server's 10 s one.
-LoggedInWhenNoNak == env.refuse = {} => LoggedInWhenPossible
+\* AccountAgrees as it holds today.  It fails when Seance's own timer runs
+\* out while services still hold the credentials: the server logs in
+\* (900/903 after our AUTHENTICATE *) and Seance has given up.  Only an
+\* untimely world lets Seance's 12 s timer beat the server's 10 s one.
+\* (README, "Findings".)
 AccountAgreesTimely == env.timely => AccountAgrees
 
 \* S7: Seance sends the SASL opener at most once per connection.
@@ -511,7 +510,4 @@ Terminates == <>(welcomed \/ cQuit \/ sClosed)
 
 \* L2: in a good world it ends in 001 (no needless reconnect).
 WelcomedWhenPossible == GoodWorld ~> welcomed
-\* As it holds today: the NAK gap above ends in Seance's timer and a
-\* reconnect instead of 001.
-WelcomedWhenNoNak == (GoodWorld /\ env.refuse = {}) ~> welcomed
 =============================================================================

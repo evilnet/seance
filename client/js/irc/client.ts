@@ -1317,15 +1317,18 @@ export class IrcClient {
 	}
 
 	/**
-	 * `beforeEnd` hook: open the exchange if the server enabled `sasl` — or is
-	 * about to (the opener is pipelined right behind the `CAP REQ`, which the
-	 * server has answered by the time it reads AUTHENTICATE). A server that
+	 * `beforeEnd` hook: open the exchange once the server has ACKed `sasl`
+	 * (caps.ts holds it back until every REQ is answered). A server that
 	 * offers no usable `sasl` is a SASL failure like any other: the user
 	 * asked to log in and will not be logged in.
 	 */
 	private startSasl(mechanism: SaslMechanism): string[] {
-		if (!this.caps.hasCapability("sasl") && !this.caps.isRequesting("sasl")) {
-			this.saslFailed(this.saslUnavailable(mechanism));
+		if (!this.caps.hasCapability("sasl")) {
+			// Offered with our mechanism, so we asked for it: the server NAKed it.
+			const refused = mechanismOffered(mechanism, this.caps.value("sasl"));
+			this.saslFailed(
+				refused ? t("connect.saslReason.capRefused") : this.saslUnavailable(mechanism)
+			);
 			return [];
 		}
 

@@ -44,8 +44,9 @@ export interface SaslResult {
 	 * Set on a failure that says the server or its services were not
 	 * there to judge the credentials, so a retry may well succeed:
 	 *  - a 904 whose text names it: nefarious2's `request timed out` (slow
-	 *    services or Keycloak) and `service unavailable` (services gone
-	 *    between CAP LS and AUTHENTICATE);
+	 *    services or Keycloak), `service unavailable` (services gone
+	 *    between CAP LS and AUTHENTICATE) and `introspection unavailable`
+	 *    (Keycloak down);
 	 *  - a 906 we did not ask for: the server dropped the exchange itself
 	 *    (nefarious2 when the services link splits mid-exchange, Solanum
 	 *    with no services, UnrealIRCd's timeout).
@@ -79,7 +80,7 @@ export const RPL_SASLMECHS = "908";
 
 /** Numerics that end the exchange unsuccessfully. */
 /** 904 texts that report an outage, not a verdict on the credentials. */
-const OUTAGE = /\b(?:timed out|service unavailable)\b/i;
+const OUTAGE = /\b(?:timed out|unavailable)\b/i;
 
 const FAILURE_NUMERICS: ReadonlySet<string> = new Set([
 	ERR_NICKLOCKED,
