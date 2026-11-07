@@ -229,13 +229,10 @@ export default async function run(page) {
 	})()`);
 	await page.sleep(1200);
 	await menuItem("List banned users");
-	await page.waitFor(
-		`/^Ban list for/.test(document.querySelector("#chat .header .title")?.textContent.trim() ?? "")`,
-		{
-			timeout: 10000,
-			label: "the ban list window opens at once",
-		}
-	);
+	await page.waitFor(`document.querySelector("#ban-browser .ban-row")`, {
+		timeout: 10000,
+		label: "the Bans window opens at once",
+	});
 	await page.sleep(300);
 	await page.screenshot("8-ban-list");
 

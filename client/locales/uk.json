@@ -559,7 +559,6 @@
   "link.trustTitleShown": "Завжди показуються медіа {scopes} — змінити",
   "link.tryAgain": "Натисніть, щоб спробувати ще раз",
   "list.isEmpty": "{kind} порожній",
-  "list.kindBans": "Список банів",
   "list.kindExcepts": "Список винятків",
   "list.kindInvites": "Список запрошень",
   "list.windowTitle": "{kind} для {channel}",
@@ -2551,9 +2550,6 @@
     "many": "{count} непрочитаних повідомлень",
     "other": "{count} непрочитаних повідомлень"
   },
-  "special.bans.banned": "Забанено",
-  "special.bans.bannedAt": "Коли забанено",
-  "special.bans.bannedBy": "Ким забанено",
   "special.excepts.exempted": "Виняток",
   "special.excepts.exemptedAt": "Коли додано",
   "special.excepts.exemptedBy": "Ким додано",

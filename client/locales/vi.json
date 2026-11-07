@@ -524,7 +524,6 @@
   "link.trustTitleShown": "{scopes} luôn được hiển thị — thay đổi",
   "link.tryAgain": "Nhấp để thử lại",
   "list.isEmpty": "{kind} trống",
-  "list.kindBans": "Danh sách cấm",
   "list.kindExcepts": "Danh sách ngoại lệ",
   "list.kindInvites": "Danh sách mời",
   "list.windowTitle": "{kind} cho {channel}",
@@ -2335,9 +2334,6 @@
   "sidebar.unread": {
     "other": "{count} tin nhắn chưa đọc"
   },
-  "special.bans.banned": "Bị cấm",
-  "special.bans.bannedAt": "Cấm lúc",
-  "special.bans.bannedBy": "Cấm bởi",
   "special.excepts.exempted": "Được miễn trừ",
   "special.excepts.exemptedAt": "Miễn trừ lúc",
   "special.excepts.exemptedBy": "Miễn trừ bởi",

@@ -559,7 +559,6 @@
   "link.trustTitleShown": "Всегда показываются медиафайлы {scopes} — изменить",
   "link.tryAgain": "Нажмите, чтобы повторить",
   "list.isEmpty": "{kind} пуст",
-  "list.kindBans": "Список банов",
   "list.kindExcepts": "Список исключений",
   "list.kindInvites": "Список приглашений",
   "list.windowTitle": "{kind} для {channel}",
@@ -2551,9 +2550,6 @@
     "many": "{count} непрочитанных сообщений",
     "other": "{count} непрочитанных сообщений"
   },
-  "special.bans.banned": "Забанен",
-  "special.bans.bannedAt": "Когда забанен",
-  "special.bans.bannedBy": "Кем забанен",
   "special.excepts.exempted": "Исключение",
   "special.excepts.exemptedAt": "Когда добавлено",
   "special.excepts.exemptedBy": "Кем добавлено",

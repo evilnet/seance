@@ -260,6 +260,7 @@ export default defineComponent({
 			event: MouseEvent;
 			network?: ClientNetwork;
 			channel?: ClientChan;
+			address?: string;
 		}) => {
 			// The network the nick was shown for (an oper card, a notice), not
 			// the active one: a card can be open for another network, and its
@@ -283,7 +284,8 @@ export default defineComponent({
 				channel.users.find((u) => u.nick === data.user.nick) || {
 					nick: data.user.nick,
 					modes: [],
-				}
+				},
+				data.address
 			);
 			open(data.event, newItems);
 		};

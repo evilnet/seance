@@ -523,7 +523,6 @@
   "link.trustTitleShown": "始终显示{scopes}的媒体 — 更改",
   "link.tryAgain": "点击重试",
   "list.isEmpty": "{kind}为空",
-  "list.kindBans": "封禁列表",
   "list.kindExcepts": "例外列表",
   "list.kindInvites": "邀请列表",
   "list.windowTitle": "{channel} 的{kind}",
@@ -2338,9 +2337,6 @@
   "sidebar.unread": {
     "other": "{count} 条未读消息"
   },
-  "special.bans.banned": "封禁对象",
-  "special.bans.bannedAt": "封禁时间",
-  "special.bans.bannedBy": "封禁者",
   "special.excepts.exempted": "例外对象",
   "special.excepts.exemptedAt": "设为例外的时间",
   "special.excepts.exemptedBy": "设置者",
