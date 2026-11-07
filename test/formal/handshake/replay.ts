@@ -18,6 +18,7 @@ import socket from "../../../client/js/socket";
 import {IrcClient} from "../../../client/js/irc/client";
 import {IdAllocator} from "../../../client/js/irc/ids";
 import {SASL_TIMEOUT_MS} from "../../../client/js/irc/sasl";
+import {trustLogin, useStorageBackend} from "../../../client/js/irc/saslTrust";
 import type {Transport} from "../../../client/js/irc/types";
 import type {TransportEvent, TransportState} from "../../../client/js/irc/transport";
 
@@ -25,6 +26,8 @@ type ModelMsg = {t: string; caps?: string[]};
 type Trace = {
 	creds: boolean;
 	required: boolean;
+	/** The login has worked on this network before (saslTrust.ts). */
+	trusted: boolean;
 	got: {m: ModelMsg; at: number}[];
 	sent: ModelMsg[];
 	outcome: "none" | "rejected" | "retry";
@@ -218,6 +221,13 @@ function replay(trace: Trace): Mismatch | null {
 	const clock = sinon.useFakeTimers();
 	const transport = new FakeTransport();
 	let rejected = 0;
+	// Each behaviour starts from its own trust state: a success trusts the login.
+	const store = new Map<string, string>();
+	useStorageBackend({
+		get: (key) => store.get(key) ?? null,
+		set: (key, value) => void store.set(key, value),
+		remove: (key) => void store.delete(key),
+	});
 
 	try {
 		const client = new IrcClient({
@@ -235,6 +245,10 @@ function replay(trace: Trace): Mismatch | null {
 			highlights: () => ({keywords: [], exceptions: []}),
 			onSaslRejected: () => rejected++,
 		});
+		if (trace.trusted) {
+			trustLogin(client.uuid, "alice");
+		}
+
 		client.connect();
 		transport.open();
 
@@ -287,6 +301,10 @@ function load(file: string): Trace[] {
 }
 
 describe("formal: handshake model replayed into IrcClient", function () {
+	afterEach(function () {
+		useStorageBackend(null);
+	});
+
 	it("Seance sends what the model's Seance sends, in every behaviour", function () {
 		const traces = load("handshake.traces.json");
 		expect(traces.length, "no traces: run gen.sh").to.be.greaterThan(100);

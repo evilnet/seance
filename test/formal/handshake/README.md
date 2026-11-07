@@ -18,6 +18,7 @@ unrestricted, which fails on the open gap below.
 | `CapsAgree`            | once settled, Seance's enabled caps equal the server's                        |
 | `OneOpener`            | Seance sends `AUTHENTICATE PLAIN` at most once per connection                 |
 | `NoFalseRejection`     | Seance turns autoconnect off only when the login really cannot succeed        |
+| `TrustedKeepsNetwork`  | a login that has worked on this network never turns autoconnect off           |
 | `AccountAgrees`        | once settled, both agree on whether Seance is logged in (`…Timely` in MC.cfg) |
 | `LoggedInWhenPossible` | sasl offered and accepted, services up, right password: logged in at 001      |
 | `Terminates`           | every handshake ends in 001 or a closed connection                            |
@@ -25,8 +26,9 @@ unrestricted, which fails on the open gap below.
 
 The environment (caps offered, caps the server refuses, services up or
 down, password right or wrong, credentials, whether SASL is required, a
-non-Seance client that sends CAP END early, and whether the network and
-services answer well inside every timeout) is chosen in `Init`, so one run
+non-Seance client that sends CAP END early, whether the network and
+services answer well inside every timeout, and whether the login has
+worked on this network before) is chosen in `Init`, so one run
 covers every combination. In an untimely world both SASL timers may fire at
 any moment.
 
@@ -44,10 +46,14 @@ the spec shared by Seance and nefarious2 would not show here.
   it quit and called `onSaslRejected`, so the network stopped connecting
   by itself. `NoFalseRejection` found it. A 904 whose text names an outage
   (`timed out`, `service unavailable`) or a 906 Seance did not ask for now
-  reconnects like Seance's own timeout (`SaslResult.transient`); the model
-  stands for the first with `904T` and the second with `ServerAgentLost`.
-  A 904 before the credentials went out is still a refusal: Atheme and
-  Anope refuse EXTERNAL without a certificate that way.
+  reconnects like Seance's own timeout (cause `server`, from upstream
+  #180, which reached the same rule); the model stands for the first with
+  `904T` and the second with `ServerAgentLost`. A login that has worked
+  on the network before (`saslTrust.ts`) also retries a NAK or a missing
+  `sasl` (cause `unavailable`) and, a few times, a bare 904 (`unexplained`);
+  `env.trusted` covers it. A 904 before the credentials went out counts no
+  differently: Atheme and Anope refuse EXTERNAL without a certificate that
+  way.
 - **Fixed: a NAKed REQ lost the SASL opener.** Seance sent
   `AUTHENTICATE PLAIN` in the same flush as the `CAP REQ` that asked for
   `sasl`. A NAK of that REQ makes the server drop the opener, and Seance
@@ -58,14 +64,15 @@ the spec shared by Seance and nefarious2 would not show here.
   round trip and no extra command. nefarious2 today never NAKs a REQ built
   from its own LS, but sasl-3.2 says a server MUST NAK `sasl` when the
   authentication layer is gone, so a server that follows it reaches this.
-- **Limits of the outage rule.** "Transient" is a retry policy, not
+- **Limits of the outage rule.** Retrying is a policy, not
   proof that the next try will work: a misconfigured server that sends
   `906` (Solanum with no `sasl_service`) or times out every time is
   retried every 45 to 60 s for as long as the page is open. And some real
-  outages still look like a wrong password on the wire, so they still turn
-  autoconnect off: nefarious2's local PLAIN path when it cannot reach
-  Keycloak, and Ergo's failed auth scripts, both send the bare 904.
-  Telling those apart needs the server to say so.
+  outages look like a wrong password on the wire: nefarious2's local PLAIN
+  path when it cannot reach Keycloak, and Ergo's failed auth scripts, both
+  send the bare 904. Only a trusted login rides those out, and only for
+  `SASL_TRUSTED_RETRIES` connections; telling them apart needs the server
+  to say so.
 - **Open, minor: Seance's timer can beat services.** In an untimely world
   Seance aborts while services still hold the credentials, and the server
   logs in anyway (900, 903). `client.account` is still set from 900, but
@@ -101,5 +108,5 @@ python3 trace.py cex.json
   `--svc-down`, and `--no-sasl` (services not linked, so `sasl` is not
   offered). Behaviours from untimely worlds are skipped, since wall-clock
   sleeps cannot place a timer mid-exchange. Behaviours with a services split mid-exchange are skipped too: one fake
-  services link cannot stage it. On 2026-11-07 all 864
-  behaviours (348, 324 and 192) matched `ircv3.2-upgrade`.
+  services link cannot stage it. On 2026-11-07 all 1728
+  behaviours (696, 648 and 384) matched `ircv3.2-upgrade`.

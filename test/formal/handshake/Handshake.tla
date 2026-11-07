@@ -75,9 +75,10 @@ Envs == [ offered   : SUBSET Caps,     \* CAP LS
           pwOk      : BOOLEAN,
           creds     : BOOLEAN,         \* Seance has a mechanism + credentials
           required  : BOOLEAN,         \* saslRequired
-          eager     : BOOLEAN,
-          timely    : BOOLEAN ]        \* network and services answer well inside every timeout        \* not Seance: a client that may send CAP END
+          eager     : BOOLEAN,         \* not Seance: a client that may send CAP END
                                        \* at any moment (tests the server's gate)
+          timely    : BOOLEAN,         \* network and services answer well inside every timeout
+          trusted   : BOOLEAN ]        \* this login has worked on this network (saslTrust.ts)
 
 Wanted == IF env.creds THEN Caps ELSE Caps \ {"sasl"}
 
@@ -122,6 +123,10 @@ StartSasl(en, out) ==
     IF "sasl" \in en
     THEN [lines |-> << Msg("AUTH") >>, phase |-> "challenge", pend |-> TRUE, quit |-> FALSE]
     ELSE [lines |-> << >>, phase |-> "none", pend |-> FALSE, quit |-> FailDrops]
+
+\* How a cause-"unavailable" failure leaves (no usable sasl, a NAK): retried
+\* for a trusted login, final otherwise (client.ts saslRetries).
+Unavail == IF env.trusted THEN "retry" ELSE "rejected"
 
 \* Shared tail of onLs's pipelineEnd and maybeEnd.
 \* Returns [lines, ended, pend, phase, timer, quit].
@@ -181,7 +186,7 @@ CRecvLS(m) ==
                                   ELSE e.lines))
        /\ cEnded' = (cEnded \/ e.ended) /\ cPendEnd' = e.pend /\ sasl' = e.phase
        /\ timer' = e.timer /\ cQuit' = (cQuit \/ e.quit)
-       /\ outcome' = IF e.quit THEN "rejected" ELSE outcome
+       /\ outcome' = IF e.quit THEN Unavail ELSE outcome
        /\ UNCHANGED <<cEnabled, cRetried, saslOk, welcomed>>
 
 \* maybeEnd(): only once LS is complete, nothing outstanding, not ended/pending.
@@ -199,7 +204,7 @@ CRecvACK(m) ==
        /\ ClientSend(e.lines)
        /\ cEnded' = e.ended /\ cPendEnd' = e.pend /\ sasl' = e.phase
        /\ timer' = e.timer /\ cQuit' = (cQuit \/ e.quit)
-       /\ outcome' = IF e.quit THEN "rejected" ELSE outcome
+       /\ outcome' = IF e.quit THEN Unavail ELSE outcome
        /\ UNCHANGED <<cAvail, cLs, cRetried, saslOk, welcomed>>
 
 \* onNak + maybeEnd + handlers/cap.ts (abortSasl when "sasl" is in naked).
@@ -226,7 +231,7 @@ CRecvNAK(m) ==
        /\ timer' = IF abort THEN FALSE ELSE e.timer
        /\ saslOk' = IF abort THEN FALSE ELSE saslOk
        /\ cQuit' = (cQuit \/ e.quit \/ quit)
-       /\ outcome' = IF e.quit \/ quit THEN "rejected" ELSE outcome
+       /\ outcome' = IF e.quit \/ quit THEN Unavail ELSE outcome
        /\ UNCHANGED <<cAvail, cEnabled, cLs, welcomed>>
 
 CRecvAuthPlus ==
@@ -236,9 +241,9 @@ CRecvAuthPlus ==
     ELSE UNCHANGED <<c2s, cEndSent, cSaslStarts, sent>> /\ UNCHANGED cvars
 
 \* 903 / 904 / 906 / 907: fed to the exchange if one is running, else lobby text.
-\* `transient` (SaslResult.transient): a 904 whose text names an outage
-\* ("904T") or a 906 the server sent on its own reconnects instead of
-\* counting as a refusal.
+\* `transient`: whether saslFailed retries (cause "server": a 904 whose text
+\* names an outage, "904T", or a 906 the server sent on its own; or a
+\* trusted login's "unexplained" bare 904) instead of counting a refusal.
 CRecvResult(ok, transient) ==
     IF sasl # "none"
     THEN /\ SaslFinish(ok, << >>, transient)
@@ -256,7 +261,9 @@ ClientRecv ==
             [] m.t = "AUTH+" -> CRecvAuthPlus
             [] m.t = "903"  -> CRecvResult(TRUE, FALSE)
             [] m.t = "904T" -> CRecvResult(FALSE, TRUE)
-            [] m.t = "904"  -> CRecvResult(FALSE, FALSE)
+            \* a bare 904 is "unexplained": a trusted login retries it (the first
+            \* of SASL_TRUSTED_RETRIES; one connection here)
+            [] m.t = "904"  -> CRecvResult(FALSE, env.trusted)
             [] m.t = "906"  -> CRecvResult(FALSE, TRUE)
             [] m.t = "907"  -> CRecvResult(FALSE, FALSE)
             [] m.t = "001"  -> welcomed' = TRUE
@@ -501,6 +508,9 @@ LoggedInWhenPossible == (registered /\ GoodWorld) => account
 \* untimely world lets Seance's 12 s timer beat the server's 10 s one.
 \* (README, "Findings".)
 AccountAgreesTimely == env.timely => AccountAgrees
+
+\* A login that has worked here never turns the network's autoconnect off.
+TrustedKeepsNetwork == env.trusted => outcome # "rejected"
 
 \* S7: Seance sends the SASL opener at most once per connection.
 OneOpener == cSaslStarts <= 1

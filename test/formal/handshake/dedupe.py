@@ -11,6 +11,7 @@ for line in open(sys.argv[1]):
     if t["env"]["eager"]:
         continue            # not Seance: only the live server pass replays these
     v = {"creds": t["env"]["creds"], "required": t["env"]["required"],
+         "trusted": t["env"]["trusted"],
          "got": t["got"], "sent": t["sent"], "outcome": t["outcome"]}
     k = json.dumps(v, sort_keys=True)
     if k not in seen:
