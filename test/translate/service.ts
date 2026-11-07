@@ -414,10 +414,13 @@ describe("translate/service", () => {
 		cpu.service.dispose();
 		cpu.clock.restore();
 
+		// A caller's token never reaches a route whose model has none.
 		const plain = rig("cpu");
 		clock = plain.clock;
 
-		expect(await text(plain.service.translate(base))).to.equal("seq:Hallo");
+		expect(await text(plain.service.translate({...base, token: ">>eng<<"}))).to.equal(
+			"seq:Hallo"
+		);
 		expect(plain.seq2seq.calls.translate[0]).to.not.have.property("token");
 		plain.service.dispose();
 	});

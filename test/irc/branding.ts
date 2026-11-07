@@ -621,35 +621,28 @@ describe("branding", function () {
 			expect(normalizeBranding({translation: "off"}).translation).to.equal(undefined);
 		});
 
-		it("takes a pair as a repo or as a model with a token, a name and a size", function () {
+		it("takes a pair as a repo or as a model with a token and a size", function () {
 			const config = normalizeBranding({
 				translation: {
 					cpu: {
 						opus: {
-							"en-pt": {
-								model: " net/mt-pt ",
-								token: ">>por<<",
-								name: "Net MT",
-								sizeBytes: 26e6,
-							},
-							"pt-en": {model: "net/mt-pt", token: 3, name: "", sizeBytes: -1},
-							"en-sv": {token: ">>swe<<"},
+							"en-pt": {model: " net/mt-en-pt ", token: ">>por<<", sizeBytes: 26e6},
+							"pt-en": {model: "net/mt-pt-en", sizeBytes: 0.5},
+							"en-sv": {model: "net/mt-en-sv", token: 3},
+							"sv-en": {token: ">>eng<<"},
 							"de-en": "net/opus-de-en",
 						},
 					},
 				},
 			});
 
+			// A token that is not one drops the pair: run without it, the
+			// model answers in the wrong language.
 			expect(config.translation).to.deep.equal({
 				cpu: {
 					opus: {
-						"en-pt": {
-							model: "net/mt-pt",
-							token: ">>por<<",
-							name: "Net MT",
-							sizeBytes: 26e6,
-						},
-						"pt-en": {model: "net/mt-pt"},
+						"en-pt": {model: "net/mt-en-pt", token: ">>por<<", sizeBytes: 26e6},
+						"pt-en": {model: "net/mt-pt-en"},
 						"de-en": "net/opus-de-en",
 					},
 				},

@@ -2414,7 +2414,6 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"translate.model.failedUnknown",
 	"translate.model.llm",
 	"translate.model.loadingPercent",
-	"translate.model.namedPair",
 	"translate.model.needsBuffer",
 	"translate.model.nllb",
 	"translate.model.opus",

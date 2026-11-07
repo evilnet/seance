@@ -1266,8 +1266,9 @@ export class TranslateService {
 				// A seq2seq model has no prompt to detect a source in: it takes
 				// the hint as its source. The LLM keeps `from: null`.
 				const from = request.from ?? (route.ref.engine === "seq2seq" ? hint : null);
+				const {token: _callerToken, ...asked} = request;
 				const req: TranslateRequest = {
-					...request,
+					...asked,
 					from,
 					id,
 					model: route.ref.id,

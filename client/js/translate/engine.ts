@@ -33,7 +33,7 @@ export type EngineStatus = "cold" | "loading" | "ready" | "failed";
  * itself, a GPU model carries its own product name.
  */
 export type ModelLabel =
-	| {kind: "opus"; from: string; to: string; name?: string}
+	| {kind: "opus"; from: string; to: string}
 	| {kind: "nllb"}
 	| {kind: "llm"; name: string}
 	| {kind: "apple"};
@@ -116,9 +116,9 @@ export interface ModelRef {
 	pair?: [string, string];
 	/**
 	 * The target-language token a multilingual Marian model reads in front
-	 * of its source (`>>por<<`): a deploy's pair model that serves several
-	 * targets (`translation.cpu.opus`, branding.md). The service hands it
-	 * to the engine on each request (`TranslateRequest.token`).
+	 * of its source (`>>por<<`): a deploy's pair model that can translate
+	 * into several languages (`translation.cpu.opus`, branding.md). The
+	 * service sets it on each request (`TranslateRequest.token`).
 	 */
 	token?: string;
 	/**
@@ -211,7 +211,11 @@ export interface TranslateRequest {
 	 */
 	hint?: string | null;
 	to: string;
-	/** The model's target-language token (`ModelRef.token`), put in front of the text by a seq2seq engine. */
+	/**
+	 * The route's target-language token (`ModelRef.token`), put in front of
+	 * the text by a seq2seq engine. The service's to set: a caller's is
+	 * replaced by the route's, or dropped.
+	 */
 	token?: string;
 	/**
 	 * `read` a line someone else wrote, `write` the user's draft, or

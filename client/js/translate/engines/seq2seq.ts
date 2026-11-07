@@ -9,9 +9,7 @@
 // sentence at a time (`splitSentences`): handed a two-sentence line whole it
 // translates the first sentence and stops. OPUS-MT keeps every sentence of
 // a whole line and scores the same or better whole, so its requests stay
-// whole (docs/resources/translation.md § Two engines, one router). A
-// deploy's multilingual Marian model reads a target-language token in front
-// of every source (`TranslateRequest.token`, e.g. `>>por<<`).
+// whole (docs/resources/translation.md § Two engines, one router).
 
 import {
 	BATCH_REFUSED,

@@ -56,39 +56,29 @@ describe("translate/models", () => {
 		expect(catalog.opus["de-en"].id).to.equal("Xenova/opus-mt-de-en");
 	});
 
-	it("a deploy's multilingual pair model: one repo for two pairs, a token and a name each", () => {
-		const repo = "mirror/afternet-mt-pt";
+	it("a deploy's pair can carry a target token and its own size", () => {
 		const catalog = buildCatalog({
 			cpu: {
 				opus: {
-					"en-pt": {
-						model: repo,
-						token: ">>por<<",
-						name: "AfterNET MT",
-						sizeBytes: 26_000_000,
-					},
-					"pt-en": {model: repo, token: ">>eng<<"},
+					"en-pt": {model: "mirror/mt-en-pt", token: ">>por<<", sizeBytes: 26_000_000},
+					"pt-en": {model: "mirror/mt-pt-en", token: ">>eng<<"},
 				},
 			},
 		});
 
 		expect(catalog.opus["en-pt"]).to.deep.include({
-			id: repo,
+			id: "mirror/mt-en-pt",
 			family: "opus",
 			pair: ["en", "pt"],
 			token: ">>por<<",
 		});
-		expect(catalog.opus["en-pt"].label).to.deep.equal({
-			kind: "opus",
-			from: "en",
-			to: "pt",
-			name: "AfterNET MT",
+		expect(catalog.opus["en-pt"].copies.cpu).to.include({
+			source: "mirror/mt-en-pt",
+			sizeBytes: 26_000_000,
 		});
-		expect(catalog.opus["en-pt"].copies.cpu).to.include({source: repo, sizeBytes: 26_000_000});
-		expect(catalog.opus["pt-en"]).to.deep.include({id: repo, token: ">>eng<<"});
+		expect(catalog.opus["pt-en"].token).to.equal(">>eng<<");
 		expect(catalog.opus["pt-en"].copies.cpu?.sizeBytes).to.equal(113_000_000);
 		expect(catalog.opus["de-en"]).to.not.have.property("token");
-		expect(catalog.opus["de-en"].label).to.not.have.property("name");
 	});
 
 	it("lists each model's copies by device", () => {

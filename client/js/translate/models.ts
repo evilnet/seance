@@ -27,15 +27,13 @@ export interface CatalogOptions {
 
 /**
  * A deploy's pair model given as more than its repo: a multilingual Marian
- * model that serves several pairs from one repo needs the target's token
- * (`>>por<<`), and a model that is not OPUS-MT names itself and its size.
+ * model needs the target's token (`>>por<<`), and one smaller than an
+ * OPUS-MT pair says its size.
  */
 export interface OpusPairOption {
 	model: string;
 	/** The target-language token put in front of every source (`ModelRef.token`). */
 	token?: string;
-	/** What Settings calls the model in place of "OPUS-MT": deploy text, never translated. */
-	name?: string;
 	/** Its CPU download, for Settings and the download question; else an OPUS-MT pair's. */
 	sizeBytes?: number;
 }
@@ -157,18 +155,13 @@ export const CPU_CONTEXT_WINDOW = 1024;
 
 function opusRef(pairKey: string, option: string | OpusPairOption, gpu: boolean): ModelRef {
 	const [from, to] = pairKey.split("-");
-	const {
-		model: id,
-		token,
-		name,
-		sizeBytes,
-	} = typeof option === "string" ? {model: option} : option;
+	const {model: id, token, sizeBytes} = typeof option === "string" ? {model: option} : option;
 
 	return {
 		engine: "seq2seq",
 		family: "opus",
 		id,
-		label: {kind: "opus", from, to, ...(name && {name})},
+		label: {kind: "opus", from, to},
 		copies: {
 			cpu: {sizeBytes: sizeBytes ?? OPUS_SIZE_BYTES, source: id, dtype: "q8"},
 			...(gpu && {
