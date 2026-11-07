@@ -243,6 +243,12 @@ reload). Every other translation scenario switches translation on first
   translates the first sentence and stops (35% of content words back whole,
   51% split, over 27 languages). OPUS-MT keeps every sentence of a whole
   line and scores the same or better whole, so its requests stay whole.
+  A deploy's pair may be a multilingual Marian model instead
+  (`translation.cpu.opus` `{model, token, name, sizeBytes}`, branding.md
+  § Translation, models.ts `OpusPairOption`): the service hands the pair's
+  `token` (`>>por<<`) on each request and the engine puts it in front of the
+  text; pairs that share the repo share its download and its pipeline, and
+  Settings counts that download once.
 - **The router** (`router.ts`, `routes.default.ts`) picks per pair from a
   table entry of **quality classes**, best first, narrowed by the device
   tier, the two engine settings, the catalog and the session's down-marks

@@ -13,6 +13,7 @@
 
 import enCatalog from "../locales/en.json";
 import {interpolate, t as coreT, tCount as coreTCount, type Vars} from "./i18n/core";
+import type {OpusPairOption} from "./translate/models";
 
 export interface BrandingNetwork {
 	/** Display name for the network (defaults to the host name). */
@@ -221,8 +222,11 @@ export interface BrandingTranslation {
 	modelBase?: string;
 	/** The WebLLM model id, and its compiled library URL when it is not a prebuilt one. */
 	llm?: {model?: string; lib?: string};
-	/** The NLLB repo and OPUS-MT repos keyed "from-to". */
-	cpu?: {nllb?: string; opus?: Record<string, string>};
+	/**
+	 * The NLLB repo and OPUS-MT repos keyed "from-to"; a pair may also be
+	 * `{model, token?, name?, sizeBytes?}` (models.ts `OpusPairOption`).
+	 */
+	cpu?: {nllb?: string; opus?: Record<string, string | OpusPairOption>};
 	/**
 	 * Route overrides: target → source (or "*") → quality classes, best
 	 * first. A string is a class of one (so a flat list is a strict order);
@@ -539,6 +543,65 @@ function normalizeStringMap(value: unknown): Record<string, string> | undefined 
 	return Object.keys(map).length > 0 ? map : undefined;
 }
 
+/**
+ * `translation.cpu.opus`: each pair a repo, or `{model, token?, name?,
+ * sizeBytes?}`; an entry without a usable `model` is dropped, as are its
+ * malformed optional fields.
+ */
+function normalizeOpusPairs(value: unknown): Record<string, string | OpusPairOption> | undefined {
+	if (!isRecord(value)) {
+		return undefined;
+	}
+
+	const map: Record<string, string | OpusPairOption> = {};
+
+	for (const [rawKey, entry] of Object.entries(value)) {
+		const key = rawKey.trim();
+
+		if (key.length === 0) {
+			continue;
+		}
+
+		const repo = optionalString(entry);
+
+		if (repo !== undefined) {
+			map[key] = repo;
+			continue;
+		}
+
+		if (!isRecord(entry)) {
+			continue;
+		}
+
+		const model = optionalString(entry.model);
+
+		if (model === undefined) {
+			continue;
+		}
+
+		const option: OpusPairOption = {model};
+		const token = optionalString(entry.token);
+		const name = optionalString(entry.name);
+		const sizeBytes = entry.sizeBytes;
+
+		if (token !== undefined) {
+			option.token = token;
+		}
+
+		if (name !== undefined) {
+			option.name = name;
+		}
+
+		if (typeof sizeBytes === "number" && Number.isFinite(sizeBytes) && sizeBytes > 0) {
+			option.sizeBytes = Math.floor(sizeBytes);
+		}
+
+		map[key] = option;
+	}
+
+	return Object.keys(map).length > 0 ? map : undefined;
+}
+
 /** A list of non-empty strings, e.g. MIME types; `undefined` when empty. */
 function normalizeStringList(value: unknown): string[] | undefined {
 	if (!Array.isArray(value)) {
@@ -790,9 +853,9 @@ export function normalizeTranslation(
 	}
 
 	if (isRecord(value.cpu)) {
-		const cpu: {nllb?: string; opus?: Record<string, string>} = {};
+		const cpu: NonNullable<BrandingTranslation["cpu"]> = {};
 		const nllb = optionalString(value.cpu.nllb);
-		const opus = normalizeStringMap(value.cpu.opus);
+		const opus = normalizeOpusPairs(value.cpu.opus);
 
 		if (nllb !== undefined) {
 			cpu.nllb = nllb;

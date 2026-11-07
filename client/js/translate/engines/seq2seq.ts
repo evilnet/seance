@@ -9,7 +9,9 @@
 // sentence at a time (`splitSentences`): handed a two-sentence line whole it
 // translates the first sentence and stops. OPUS-MT keeps every sentence of
 // a whole line and scores the same or better whole, so its requests stay
-// whole (docs/resources/translation.md § Two engines, one router).
+// whole (docs/resources/translation.md § Two engines, one router). A
+// deploy's multilingual Marian model reads a target-language token in front
+// of every source (`TranslateRequest.token`, e.g. `>>por<<`).
 
 import {
 	BATCH_REFUSED,
@@ -297,7 +299,8 @@ export class Seq2seqEngine implements Engine {
 				if (parts.length > 1 && !/\p{L}/u.test(parts[n])) {
 					done.push(parts[n].trim());
 				} else {
-					const result = await this.run(pipe, parts[n], options, req.model);
+					const source = req.token ? `${req.token} ${parts[n]}` : parts[n];
+					const result = await this.run(pipe, source, options, req.model);
 
 					done.push((result[0]?.translation_text ?? "").trim());
 				}

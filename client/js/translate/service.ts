@@ -1272,6 +1272,7 @@ export class TranslateService {
 					id,
 					model: route.ref.id,
 					device: route.device,
+					...(route.ref.token && {token: route.ref.token}),
 				};
 				const view = this.view(route.ref, route.device);
 				let yielded = false;

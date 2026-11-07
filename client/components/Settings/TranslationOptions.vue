@@ -1166,10 +1166,12 @@ export default defineComponent({
 				});
 			}
 
-			const bytes = cached.reduce(
-				(sum, view) => sum + (view.ref.copies[device]?.sizeBytes ?? 0),
-				0
+			// A deploy's multilingual pair model serves several pairs from one
+			// download (models.ts `OpusPairOption`): counted once.
+			const downloads = new Map(
+				cached.map((view) => [view.ref.id, view.ref.copies[device]?.sizeBytes ?? 0])
 			);
+			const bytes = [...downloads.values()].reduce((sum, n) => sum + n, 0);
 
 			return tCount("translate.settings.opusDownloaded", cached.length, {size: size(bytes)});
 		};

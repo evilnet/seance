@@ -56,6 +56,41 @@ describe("translate/models", () => {
 		expect(catalog.opus["de-en"].id).to.equal("Xenova/opus-mt-de-en");
 	});
 
+	it("a deploy's multilingual pair model: one repo for two pairs, a token and a name each", () => {
+		const repo = "mirror/afternet-mt-pt";
+		const catalog = buildCatalog({
+			cpu: {
+				opus: {
+					"en-pt": {
+						model: repo,
+						token: ">>por<<",
+						name: "AfterNET MT",
+						sizeBytes: 26_000_000,
+					},
+					"pt-en": {model: repo, token: ">>eng<<"},
+				},
+			},
+		});
+
+		expect(catalog.opus["en-pt"]).to.deep.include({
+			id: repo,
+			family: "opus",
+			pair: ["en", "pt"],
+			token: ">>por<<",
+		});
+		expect(catalog.opus["en-pt"].label).to.deep.equal({
+			kind: "opus",
+			from: "en",
+			to: "pt",
+			name: "AfterNET MT",
+		});
+		expect(catalog.opus["en-pt"].copies.cpu).to.include({source: repo, sizeBytes: 26_000_000});
+		expect(catalog.opus["pt-en"]).to.deep.include({id: repo, token: ">>eng<<"});
+		expect(catalog.opus["pt-en"].copies.cpu?.sizeBytes).to.equal(113_000_000);
+		expect(catalog.opus["de-en"]).to.not.have.property("token");
+		expect(catalog.opus["de-en"].label).to.not.have.property("name");
+	});
+
 	it("lists each model's copies by device", () => {
 		const catalog = buildCatalog({seq2seqGpu: true});
 		const [small, large] = catalog.llmChoices;

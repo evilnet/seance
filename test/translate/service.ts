@@ -402,6 +402,26 @@ describe("translate/service", () => {
 		gpu.service.dispose();
 	});
 
+	it("a pair model's target token travels on the request; a plain pair sends none", async () => {
+		const withToken = buildCatalog({
+			cpu: {opus: {"de-en": {model: "net/mt-de", token: ">>eng<<"}}},
+		});
+		const cpu = rig("cpu", true, DEFAULT_ROUTES, {}, {catalog: withToken});
+		clock = cpu.clock;
+
+		expect(await text(cpu.service.translate(base))).to.equal("seq:Hallo");
+		expect(cpu.seq2seq.calls.translate[0]).to.include({model: "net/mt-de", token: ">>eng<<"});
+		cpu.service.dispose();
+		cpu.clock.restore();
+
+		const plain = rig("cpu");
+		clock = plain.clock;
+
+		expect(await text(plain.service.translate(base))).to.equal("seq:Hallo");
+		expect(plain.seq2seq.calls.translate[0]).to.not.have.property("token");
+		plain.service.dispose();
+	});
+
 	it("the request's routing hint wins over the context's and never changes the prompt context", async () => {
 		const r = rig("cpu");
 		clock = r.clock;
