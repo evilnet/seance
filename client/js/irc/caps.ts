@@ -184,6 +184,12 @@ export class CapNegotiator {
 	private readonly outstanding = new Set<string>();
 	private lsComplete = false;
 	private ended = false;
+	/**
+	 * Called when `CAP END` is held back for the `sasl` ACK (pipelineEnd):
+	 * the caller's deadline for a server that never answers.
+	 */
+	onHold?: () => void;
+
 	/** `beforeEnd` took over; waiting for `end()`. */
 	private pendingEnd = false;
 	/** Set when a required cap is missing at LS time; negotiation halts. */
@@ -350,6 +356,7 @@ export class CapNegotiator {
 		}
 
 		if (this.beforeEnd && this.outstanding.has("sasl")) {
+			this.onHold?.();
 			return;
 		}
 

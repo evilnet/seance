@@ -1284,6 +1284,8 @@ export class IrcClient {
 
 		if (mechanism) {
 			caps.beforeEnd = () => this.startSasl(mechanism);
+			// The same deadline covers the wait for the sasl ACK.
+			caps.onHold = () => this.armSaslTimer();
 		}
 
 		// The shared metadata, subscribed before registration where the server
@@ -1411,6 +1413,14 @@ export class IrcClient {
 
 			if (this.sasl && !this.sasl.done) {
 				this.saslProgress(this.sasl.abort(t("connect.saslReason.timeout")), true);
+			} else if (!this.sasl && !this.caps.done) {
+				// No reply to the REQ holding `sasl`: nothing was opened, so
+				// there is nothing to abort; fail as a timeout and end CAP.
+				if (!this.saslFailed(t("connect.saslReason.timeout"), true)) {
+					for (const line of this.caps.end()) {
+						this.send(line);
+					}
+				}
 			}
 		}, SASL_TIMEOUT_MS);
 	}

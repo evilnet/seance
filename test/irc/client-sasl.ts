@@ -576,6 +576,50 @@ describe("IrcClient SASL", function () {
 		});
 	}
 
+	it("gives up waiting for the sasl ACK after the timeout, and retries", function () {
+		const clock = sinon.useFakeTimers();
+
+		try {
+			let rejected = 0;
+			const {client, transport} = setup({onSaslRejected: () => rejected++});
+			transport.line(`:irc.test CAP * LS :${OFFERED_CAPS} sasl=PLAIN`);
+
+			clock.tick(SASL_TIMEOUT_MS + 1);
+
+			expect(transport.sent).to.not.include("AUTHENTICATE PLAIN");
+			expect(transport.sent).to.not.include("CAP END");
+			expect(transport.sent[transport.sent.length - 1]).to.equal(
+				"QUIT :SASL authentication failed"
+			);
+			expect(transport.abandonCalls).to.have.length(1);
+			expect(rejected).to.equal(0);
+			expect(client.isQuitting).to.equal(false);
+		} finally {
+			clock.restore();
+		}
+	});
+
+	it("ends CAP when the sasl ACK never comes and the deploy connects anyway", function () {
+		const clock = sinon.useFakeTimers();
+
+		try {
+			const {client, transport} = setup(CARRY_ON);
+			transport.line(`:irc.test CAP * LS :${OFFERED_CAPS} sasl=PLAIN`);
+
+			clock.tick(SASL_TIMEOUT_MS + 1);
+			expect(transport.sent[transport.sent.length - 1]).to.equal("CAP END");
+
+			// The late ACK opens nothing and does not end CAP twice.
+			const req = transport.sent.find((l) => l.startsWith("CAP REQ :")) as string;
+			transport.line(`:irc.test CAP alice ACK :${req.slice("CAP REQ :".length)}`);
+			expect(transport.sent).to.not.include("AUTHENTICATE PLAIN");
+			expect(transport.sent.filter((l) => l === "CAP END")).to.have.length(1);
+			expect(client.sasl).to.equal(null);
+		} finally {
+			clock.restore();
+		}
+	});
+
 	it("does not fire the timeout once the exchange completed", function () {
 		const clock = sinon.useFakeTimers();
 

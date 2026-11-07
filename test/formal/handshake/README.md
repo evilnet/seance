@@ -58,6 +58,14 @@ the spec shared by Seance and nefarious2 would not show here.
   round trip and no extra command. nefarious2 today never NAKs a REQ built
   from its own LS, but sasl-3.2 says a server MUST NAK `sasl` when the
   authentication layer is gone, so a server that follows it reaches this.
+- **Limits of the outage rule.** "Transient" is a retry policy, not
+  proof that the next try will work: a misconfigured server that sends
+  `906` (Solanum with no `sasl_service`) or times out every time is
+  retried every 45 to 60 s for as long as the page is open. And some real
+  outages still look like a wrong password on the wire, so they still turn
+  autoconnect off: nefarious2's local PLAIN path when it cannot reach
+  Keycloak, and Ergo's failed auth scripts, both send the bare 904.
+  Telling those apart needs the server to say so.
 - **Open, minor: Seance's timer can beat services.** In an untimely world
   Seance aborts while services still hold the credentials, and the server
   logs in anyway (900, 903). `client.account` is still set from 900, but

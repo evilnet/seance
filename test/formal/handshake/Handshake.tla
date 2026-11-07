@@ -171,7 +171,7 @@ CRecvLS(m) ==
         \* pipelineEnd: with sasl in the REQ, wait for the replies (maybeEnd)
         e == IF env.creds /\ "sasl" \in out
              THEN [lines |-> << >>, ended |-> cEnded, pend |-> cPendEnd,
-                   phase |-> sasl, timer |-> timer, quit |-> FALSE]
+                   phase |-> sasl, timer |-> TRUE, quit |-> FALSE]   \* onHold
              ELSE EndOrSasl(cEnabled, out)
     IN /\ cAvail' = avail /\ cLs' = TRUE /\ cOut' = out
        \* handlers/cap.ts stops sending result.send once saslFailed() quit
@@ -268,10 +268,12 @@ ClientRecv ==
 \* Seance's 12 s timer (armSaslTimer).  In a timely world it fires only when
 \* the protocol is stuck, and after the server's 10 s one (which starts a
 \* round trip later); otherwise at any moment.
+\* With nothing opened yet (waiting for the sasl ACK) there is nothing to
+\* abort: it fails as a timeout and ends CAP.
 ClientSaslTimer ==
-    /\ timer /\ sasl # "none" /\ ~cQuit
+    /\ timer /\ ~cQuit /\ (sasl # "none" \/ ~cEnded)
     /\ ~env.timely \/ (Quiet /\ cookie = 0)
-    /\ SaslFinish(FALSE, << Msg("AUTHABORT") >>, TRUE)
+    /\ SaslFinish(FALSE, IF sasl # "none" THEN << Msg("AUTHABORT") >> ELSE << >>, TRUE)
     /\ got' = Append(got, [m |-> Msg("TIMER"), at |-> Len(sent)])
     /\ UNCHANGED <<s2c, env, svcIn, svcOut, cAvail, cEnabled, cOut, cLs, cRetried, welcomed, svcNo>>
     /\ UNCHANGED svars
