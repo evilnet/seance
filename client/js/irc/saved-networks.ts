@@ -432,8 +432,29 @@ function read(): SavedNetwork[] {
 	return result;
 }
 
-function write(entries: SavedNetwork[]): void {
+const changeListeners = new Set<() => void>();
+
+/**
+ * Hear every write of the list in this page (another tab's arrive as a
+ * `storage` event) but the history cursor's, which moves on every message
+ * and is shown nowhere. The sidebar's saved-but-not-connected rows follow
+ * it. Returns the unsubscribe.
+ */
+export function onSavedNetworksChange(listener: () => void): () => void {
+	changeListeners.add(listener);
+	return () => changeListeners.delete(listener);
+}
+
+function write(entries: SavedNetwork[], notify = true): void {
 	backend.set(STORAGE_KEY, JSON.stringify(entries));
+
+	if (!notify) {
+		return;
+	}
+
+	for (const listener of changeListeners) {
+		listener();
+	}
 }
 
 /** Never let a password reach disk unless the user asked for it. */
@@ -523,7 +544,7 @@ export function setCursor(uuid: string, cursor: NetworkCursor): void {
 
 	if (net) {
 		net.cursor = cursor;
-		write(all);
+		write(all, false);
 	}
 }
 

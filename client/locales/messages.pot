@@ -14168,6 +14168,24 @@ msgctxt "sidebar.noResults"
 msgid "No results found."
 msgstr ""
 
+#. Tooltip and aria-label of a greyed sidebar row for a saved network that is not connected (it did not connect by itself at startup, or was quit); clicking it connects. {name} is the network's name.
+#: client/components/DormantNetwork.vue:122
+msgctxt "sidebar.savedNetworkConnect"
+msgid "Connect to {name}"
+msgstr ""
+
+#. Second line of a greyed sidebar row for a saved network that is not connected; clicking the row connects it.
+#: client/components/DormantNetwork.vue:124
+msgctxt "sidebar.savedNetworkOff"
+msgid "Not connected"
+msgstr ""
+
+#. Second line of a greyed sidebar row for a saved network whose login password was not remembered; clicking the row opens the connect form to type it.
+#: client/components/DormantNetwork.vue:124
+msgctxt "sidebar.savedNetworkPassword"
+msgid "Needs password"
+msgstr ""
+
 #. Screen-reader-only label of the sidebar's jump-to search input (visually hidden).
 #: client/components/NetworkList.vue:12
 msgctxt "sidebar.searchLabel"
