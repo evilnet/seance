@@ -321,6 +321,17 @@ describe("Bouncers: which listed networks to add (networksToAdd)", function () {
 		expect(networksToAdd(many, new Set(), () => false)).to.have.length(BOUNCER_NETWORKS_MAX);
 	});
 
+	it("counts what the entry offered before, so -notify lines one by one stop at the cap too", function () {
+		const seen = new Set<string>();
+
+		for (let i = 0; i < BOUNCER_NETWORKS_MAX + 5; i++) {
+			networksToAdd([net(`n${i}`)], seen, () => false).forEach((n) => seen.add(n.id));
+		}
+
+		expect(seen.size).to.equal(BOUNCER_NETWORKS_MAX);
+		expect(networksToAdd([net("late")], seen, () => false)).to.deep.equal([]);
+	});
+
 	it("takes only ids that are safe to send back in BOUNCER BIND", function () {
 		expect(isNetworkId("42")).to.equal(true);
 		expect(isNetworkId("a.b_c~d-e")).to.equal(true);

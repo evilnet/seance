@@ -25,7 +25,11 @@ export const BOUNCER_NETWORKS_CAP = "soju.im/bouncer-networks";
 export const BOUNCER_NOTIFY_CAP = "soju.im/bouncer-networks-notify";
 export const BOUNCER_NETWORKS_BATCH = "soju.im/bouncer-networks";
 
-/** The most networks one list adds: a runaway list must not open hundreds of sockets. */
+/**
+ * The most networks one bouncer entry ever adds, across every list and
+ * `-notify` line: a bouncer that keeps announcing new ids must not open
+ * hundreds of sockets. It also bounds `SavedNetwork.bouncerSeen`.
+ */
 export const BOUNCER_NETWORKS_MAX = 20;
 
 /**
@@ -95,8 +99,9 @@ export function parseNetwork(msg: IrcMessage): BouncerNetwork | undefined {
 
 /**
  * Which of the listed networks to add: each one not offered before
- * (`seen`) and not already a saved network (`have`), at most
- * {@link BOUNCER_NETWORKS_MAX}. Pure, so the manager's rule is tested here.
+ * (`seen`) and not already a saved network (`have`), while the entry has
+ * offered fewer than {@link BOUNCER_NETWORKS_MAX} in all. Pure, so the
+ * manager's rule is tested here.
  */
 export function networksToAdd(
 	listed: BouncerNetwork[],
@@ -105,18 +110,19 @@ export function networksToAdd(
 ): BouncerNetwork[] {
 	const fresh: BouncerNetwork[] = [];
 	const ids = new Set<string>();
+	const room = BOUNCER_NETWORKS_MAX - seen.size;
 
 	for (const net of listed) {
+		if (fresh.length >= room) {
+			break;
+		}
+
 		if (seen.has(net.id) || ids.has(net.id) || have(net)) {
 			continue;
 		}
 
 		ids.add(net.id);
 		fresh.push(net);
-
-		if (fresh.length >= BOUNCER_NETWORKS_MAX) {
-			break;
-		}
 	}
 
 	return fresh;
