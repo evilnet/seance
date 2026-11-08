@@ -183,6 +183,12 @@ export function takesMsgidRefs(client: IrcClient): boolean {
 	return types === undefined || types.split(",").includes("msgid");
 }
 
+/** Whether the server takes `timestamp=` references (MSGREFTYPES; unlisted means any). */
+export function takesTimestampRefs(client: IrcClient): boolean {
+	const types = client.isupport.tokens.get("MSGREFTYPES");
+	return types === undefined || types.split(",").includes("timestamp");
+}
+
 /** `msgid=…` when we have one and the server takes it, else `timestamp=<ISO 8601>`. */
 export function formatRef(client: IrcClient, ref: MsgRef): string {
 	if (ref.msgid && takesMsgidRefs(client)) {
@@ -915,6 +921,110 @@ export const chathistoryBatch: BatchHandler = (client, batch) => {
 		const {messages, after} = replay(client, chan, batch.messages);
 		deliverPrepend(client, chan, messages, false);
 		runAfter(after);
+	}
+};
+
+/** ZNC's buffer replay on attach: `BATCH +x znc.in/playback <target>`. */
+export const ZNC_PLAYBACK_BATCH = "znc.in/playback";
+
+/**
+ * What ZNC has shown each conversation on this page, by identity: its own
+ * `time` tag, the sender, the command and the text, with how many times each
+ * came. ZNC has no msgids, and a buffer it does not clear
+ * (`AutoClearChanBuffer` off, or the `*playback` module) comes back on every
+ * attach, along with lines we already saw live. Bounded per conversation.
+ */
+const zncSeen = new WeakMap<IrcClient, Map<string, Map<string, number>>>();
+const ZNC_SEEN_MAX = 2000;
+
+/** A line's identity, from the bouncer's own time tag; none without one. */
+function zncKey(line: IrcMessage): string | undefined {
+	const time = line.tags.get("time");
+	return time
+		? [time, line.source?.name ?? "", line.command, ...line.params.slice(1)].join("\0")
+		: undefined;
+}
+
+function zncSeenFor(client: IrcClient, target: string): Map<string, number> {
+	let byTarget = zncSeen.get(client);
+
+	if (!byTarget) {
+		byTarget = new Map();
+		zncSeen.set(client, byTarget);
+	}
+
+	const key = client.casefold(target);
+	let seen = byTarget.get(key);
+
+	if (!seen) {
+		seen = new Map();
+		byTarget.set(key, seen);
+	}
+
+	return seen;
+}
+
+function trimSeen(seen: Map<string, number>): void {
+	for (const key of seen.keys()) {
+		if (seen.size <= ZNC_SEEN_MAX) {
+			break;
+		}
+
+		seen.delete(key);
+	}
+}
+
+/** A live PRIVMSG or NOTICE behind ZNC: remembered, so its replay is known. */
+export function noteZncLine(client: IrcClient, line: IrcMessage): void {
+	const key = zncKey(line);
+	const target = line.params[0];
+
+	if (!key || !target) {
+		return;
+	}
+
+	const conversation = client.isSelf(target) ? line.source?.name ?? target : target;
+	const seen = zncSeenFor(client, conversation);
+	seen.set(key, (seen.get(key) ?? 0) + 1);
+	trimSeen(seen);
+}
+
+/**
+ * ZNC's buffer replay (`BATCH +x znc.in/playback <target>`, sent on every
+ * attach). The lines are stored ones, so they go the catch-up's way:
+ * appended, counted as unread but silent, a closed query reopened only by
+ * what was said since. A line this page has already shown, as often as it
+ * showed it, is dropped ({@link zncSeen}); a line without a time tag is kept.
+ */
+export const zncPlaybackBatch: BatchHandler = (client, batch) => {
+	const target = batch.params[0] ?? "";
+
+	if (!target) {
+		return;
+	}
+
+	const seen = zncSeenFor(client, target);
+	const inBatch = new Map<string, number>();
+	const lines = batch.messages.filter((line) => {
+		const key = zncKey(line);
+
+		if (!key) {
+			return true;
+		}
+
+		const count = (inBatch.get(key) ?? 0) + 1;
+		inBatch.set(key, count);
+		return count > (seen.get(key) ?? 0);
+	});
+
+	for (const [key, count] of inBatch) {
+		seen.set(key, Math.max(count, seen.get(key) ?? 0));
+	}
+
+	trimSeen(seen);
+
+	if (lines.length > 0) {
+		deliverCatchup(client, target, lines);
 	}
 };
 

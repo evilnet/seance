@@ -29,6 +29,7 @@ import {leavesAwayToWorker, syncPresence} from "./presence";
 import {claimMute, clearRemoteDnd} from "./pushMute";
 import * as saved from "./saved-networks";
 import type {SavedNetwork} from "./saved-networks";
+import {networksToAdd, type BouncerNetwork} from "./bouncer";
 import type {ConnectOptions} from "./types";
 import type {GlobalModeState} from "../helpers/dnd";
 import {shellBridge} from "../helpers/shell";
@@ -201,6 +202,7 @@ export function createNetwork(options: CreateNetworkOptions): IrcClient {
 				void untrustedCertificate(entry.uuid, certificate),
 			// A custom name from the edit form beats ISUPPORT NETWORK.
 			savedName: () => saved.get(entry.uuid)?.name || undefined,
+			onBouncerNetworks: (networks) => addBouncerNetworks(entry.uuid, networks),
 		});
 		clients.set(entry.uuid, client);
 		// Load the network's ignore list now, which mirrors it for the push
@@ -248,6 +250,63 @@ export function createNetwork(options: CreateNetworkOptions): IrcClient {
 
 	client.connect();
 	return client;
+}
+
+/**
+ * A bouncer's control connection listed its networks (irc/bouncer.ts): add
+ * each one this entry has not offered before as a network of its own, with
+ * the same server and login, bound to it. Offered once: a network the user
+ * removes here is not added back at the next connect. Returns the names added.
+ */
+function addBouncerNetworks(controlUuid: string, networks: BouncerNetwork[]): string[] {
+	const control = saved.get(controlUuid);
+	const live = clients.get(controlUuid);
+
+	if (!control || !live) {
+		return [];
+	}
+
+	const sameBouncer = (other: SavedNetwork): boolean =>
+		other.host === control.host && other.port === control.port && other.tls === control.tls;
+	// Bound here before, or added by hand the soju way (`alice/libera`).
+	const have = (net: BouncerNetwork): boolean =>
+		saved
+			.list()
+			.some(
+				(other) =>
+					sameBouncer(other) &&
+					((other.bouncerNetId === net.id && other.saslAccount === control.saslAccount) ||
+						other.saslAccount === `${control.saslAccount}/${net.name}`)
+			);
+	const fresh = networksToAdd(networks, new Set(control.bouncerSeen ?? []), have);
+
+	if (fresh.length === 0) {
+		return [];
+	}
+
+	// Offered once: a network the user removes here is not added back.
+	saved.save({
+		...control,
+		bouncerSeen: [...(control.bouncerSeen ?? []), ...fresh.map((net) => net.id)],
+	});
+
+	for (const net of fresh) {
+		createNetwork({
+			...saved.toConnectOptions(control),
+			// Kept in memory only, unless the bouncer's entry remembers it.
+			saslPassword: live.options.saslPassword,
+			uuid: saved.newUuid(),
+			name: net.name,
+			join: "",
+			bouncerNetId: net.id,
+			autoconnect: control.autoconnect,
+			rememberPassword: control.rememberPassword,
+			pushEnabled: control.pushEnabled,
+			notifyEnabled: control.notifyEnabled,
+		});
+	}
+
+	return fresh.map((net) => net.name);
 }
 
 /**

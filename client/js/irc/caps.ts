@@ -63,7 +63,8 @@ export interface CapResult {
  * disturb)), and
  * `draft/pre-away` lets the away state be declared before `CAP END`, so a
  * resumed bouncer session is never announced as back (presence.ts
- * `registrationAwayLine`). Deliberately
+ * `registrationAwayLine`). `soju.im/bouncer-networks` lists a bouncer's
+ * networks and binds a connection to one (bouncer.ts). Deliberately
  * absent: `draft/bouncer`, `no-implicit-names`.
  */
 export const SEANCE_CAPS: CapNegotiatorOptions = {
@@ -91,11 +92,14 @@ export const SEANCE_CAPS: CapNegotiatorOptions = {
 		"draft/read-marker",
 		"draft/message-redaction",
 		"draft/webpush",
+		"soju.im/webpush",
 		"draft/authtoken",
 		"draft/metadata-2",
 		"draft/persistence",
 		"draft/pre-away",
 		"soju.im/search",
+		"soju.im/bouncer-networks",
+		"soju.im/bouncer-networks-notify",
 	],
 };
 
@@ -128,6 +132,13 @@ const DEPENDS_ON: ReadonlyMap<string, string> = new Map([
 
 /** The cap name for the Web Push draft (draft/webpush). */
 export const WEBPUSH_CAP = "draft/webpush";
+
+/**
+ * soju's name for the same extension, from before the draft was named: the
+ * same `WEBPUSH` command, the `VAPID` 005 token and a one-line payload. A
+ * server offering both is used through {@link WEBPUSH_CAP}.
+ */
+export const SOJU_WEBPUSH_CAP = "soju.im/webpush";
 
 /**
  * The VAPID public key a `draft/webpush` CAP 302 value advertises

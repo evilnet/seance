@@ -525,6 +525,10 @@ msgstr ""
 #: client/components/Windows/BanList.vue
 msgctxt "bans.undo"
 msgid "Undo"
+#. Lobby line on a bouncer's control connection (soju) after Seance added the networks the bouncer listed, each as a network of its own. {names} is a comma-separated list of network names.
+#: client/js/irc/bouncer.ts:90
+msgctxt "bouncer.networksAdded"
+msgid "Added this bouncer's networks: {names}"
 msgstr ""
 
 #. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): heading of the full list.

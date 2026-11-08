@@ -35,7 +35,8 @@ import type {IrcClient} from "./client";
 import type {BatchHandler, OpenBatch} from "./handlers/batch";
 import {formatLine, MAX_LINE_BYTES, utf8ByteLength, type IrcMessage} from "./message";
 import type {Channel} from "./channel";
-import {historyLimit, takesMsgidRefs} from "./history";
+import {formatRef, historyLimit, takesMsgidRefs, takesTimestampRefs} from "./history";
+import {ChanState, ChanType} from "../../../shared/types/chan";
 import {applyEdit, applyReaction, applyRedaction} from "../helpers/messageUpdates";
 import {sameAuthor} from "../helpers/pastRows";
 import {ignoreListFor} from "../ignore";
@@ -59,6 +60,10 @@ interface PendingSearch {
 	requestId: number;
 	/** Set on a context request for a reply's parent: its answer goes to the quote. */
 	parent?: {chan: Channel; msgid: string};
+	/** A search's attributes, kept so one the server refuses for want of `in=` can be sent again. */
+	attrs?: SearchAttrs;
+	/** One channel's part of a search over every channel ({@link fanOut}). */
+	group?: SearchGroup;
 	label?: string;
 	timer: ReturnType<typeof setTimeout>;
 	/**
@@ -69,7 +74,85 @@ interface PendingSearch {
 }
 
 /** What a request is for: who gets its answer. */
-type Asked = Pick<PendingSearch, "kind" | "requestId" | "parent">;
+type Asked = Pick<PendingSearch, "kind" | "requestId" | "parent" | "attrs" | "group">;
+
+/**
+ * A search over every channel, sent as one `SEARCH in=<channel>` each to a
+ * server that wants `in=` (soju: `FAIL SEARCH INVALID_PARAMS in`). One part at
+ * a time, so an unlabeled answer is always the part's; answered once, when the
+ * last part has: the newest `limit` hits, oldest first, as one server would
+ * have sent them. A part that fails fails the whole: results that leave
+ * channels out are not every channel's.
+ */
+interface SearchGroup {
+	requestId: number;
+	/** Every attribute but `in`. */
+	attrs: SearchAttrs;
+	/** Channels not asked about yet. */
+	queue: string[];
+	hits: SearchHit[];
+}
+/**
+ * Servers that answered a search without `in=` with `FAIL SEARCH INVALID_PARAMS in`:
+ * every later search over every channel on that connection goes out per channel.
+ */
+const needsIn = new WeakSet<IrcClient>();
+
+/**
+ * When each msgid seen in a search or context page on this connection was
+ * said, for a server that takes `timestamp=` references and not `msgid=` ones
+ * (soju: `MSGREFTYPES=timestamp`). Bounded: the oldest are let go.
+ */
+const timesByClient = new WeakMap<IrcClient, Map<string, Date>>();
+const TIMES_MAX = 5000;
+
+function noteTimes(client: IrcClient, lines: IrcMessage[]): void {
+	if (takesMsgidRefs(client)) {
+		return; // asked by msgid: nothing to look up
+	}
+
+	let times = timesByClient.get(client);
+
+	if (!times) {
+		times = new Map();
+		timesByClient.set(client, times);
+	}
+
+	for (const line of lines) {
+		const msgid = line.tags.get("msgid");
+
+		if (msgid) {
+			times.delete(msgid);
+			times.set(msgid, client.timeOf(line));
+		}
+	}
+
+	for (const key of times.keys()) {
+		if (times.size <= TIMES_MAX) {
+			break;
+		}
+
+		times.delete(key);
+	}
+}
+
+/**
+ * How to name `msgid` in `target` to this server: by msgid where it takes
+ * those, else by when it was said, if this connection knows (a search or
+ * context page brought it, or the channel shows it). Undefined when neither.
+ */
+function contextRef(client: IrcClient, target: string, msgid: string): string | undefined {
+	if (takesMsgidRefs(client)) {
+		return formatRef(client, {msgid, time: new Date(0)});
+	}
+
+	const chan = client.findChannel(target);
+	const id = chan?.idOf(msgid);
+	const time =
+		(id === undefined ? undefined : chan?.msgRefs.get(id)?.time) ??
+		timesByClient.get(client)?.get(msgid);
+	return time ? formatRef(client, {time}) : undefined;
+}
 
 const pendingByClient = new WeakMap<IrcClient, PendingSearch[]>();
 /** Reply parents asked for on this connection, `<chan id>:<msgid>`: each is worth one command. */
@@ -173,6 +256,11 @@ function answer(
 	hits: SearchHit[] = [],
 	page: ContextPage = {}
 ): void {
+	if (request.group) {
+		answerPart(client, request.group, status, error, hits);
+		return;
+	}
+
 	if (request.parent) {
 		const {chan, msgid} = request.parent;
 		const row = hits.find((hit) => hit.msg.msgid === msgid)?.msg;
@@ -212,13 +300,80 @@ function lineFor(input: Parameters<typeof formatLine>[0]): string | undefined {
 	}
 }
 
+/** One channel's part of a search over every channel is in: ask the next, or answer the whole. */
+function answerPart(
+	client: IrcClient,
+	group: SearchGroup,
+	status: SearchStatus,
+	error: string | undefined,
+	hits: SearchHit[]
+): void {
+	const base = {network: client.uuid, requestId: group.requestId};
+
+	if (status !== "ok") {
+		client.dispatchBus("search:results", {...base, status, error, hits: []});
+		return;
+	}
+
+	group.hits.push(...hits);
+
+	if (group.queue.length > 0) {
+		askNext(client, group);
+		return;
+	}
+
+	const time = (hit: SearchHit) => new Date(hit.msg.time).getTime();
+	const sorted = group.hits.toSorted((a, b) => time(a) - time(b));
+	const kept = group.attrs.limit ? sorted.slice(-group.attrs.limit) : sorted;
+	client.dispatchBus("search:results", {...base, status: "ok", hits: kept});
+}
+
+function askNext(client: IrcClient, group: SearchGroup): void {
+	const part: SearchAttrs = {in: group.queue.shift(), ...group.attrs};
+	sendRequest(
+		client,
+		{kind: "results", requestId: group.requestId, attrs: part, group},
+		true,
+		"SEARCH",
+		client.profile.searchParams?.(part) ?? specSearchParams(part),
+		// A bouncer answers SEARCH from its own store: no ircd charges for it.
+		!client.behindBouncer
+	);
+}
+
+/**
+ * Search every channel by asking about each (a server that wants `in=`). The
+ * channels are those joined; private conversations are left out, as a server's
+ * own search over every channel leaves them out. None joined (soju's control
+ * connection): searched on the device instead.
+ */
+function fanOut(client: IrcClient, requestId: number, attrs: SearchAttrs): void {
+	const queue = client.channels
+		.filter((chan) => chan.type === ChanType.CHANNEL && chan.state === ChanState.JOINED)
+		.map((chan) => chan.name);
+
+	if (queue.length === 0) {
+		client.dispatchBus("search:results", {
+			network: client.uuid,
+			requestId,
+			status: "unsupported",
+			hits: [],
+		});
+		return;
+	}
+
+	const {in: _all, ...rest} = attrs;
+	askNext(client, {requestId, attrs: rest, queue, hits: []});
+}
+
 /** Send a request, which always gets its one answer, whatever happens. */
 function sendRequest(
 	client: IrcClient,
 	request: Asked,
 	available: boolean,
 	command: string,
-	params: string[]
+	params: string[],
+	charge = true
 ): void {
 	if (!client.isWelcomed) {
 		answer(client, request, "offline");
@@ -238,7 +393,7 @@ function sendRequest(
 		return;
 	}
 
-	if (!client.send(line)) {
+	if (!client.send(line, charge)) {
 		answer(client, request, "offline");
 		return;
 	}
@@ -251,16 +406,29 @@ function canAskContext(client: IrcClient): boolean {
 	return (
 		client.caps.hasCapability("draft/chathistory") &&
 		client.caps.hasCapability("labeled-response") &&
-		takesMsgidRefs(client) // the window and the parent are asked for by msgid
+		// The window is asked for by msgid, or by when it was said (soju).
+		(takesMsgidRefs(client) || takesTimestampRefs(client))
 	);
+}
+
+/** A reply's parent is known by its msgid alone. */
+function canAskParent(client: IrcClient): boolean {
+	return canAskContext(client) && takesMsgidRefs(client);
 }
 
 /** Send a `SEARCH`, answered by one `search:results`. */
 export function requestSearch(client: IrcClient, requestId: number, attrs: SearchAttrs): void {
+	const available = client.caps.hasCapability(SEARCH_CAP) && client.caps.hasCapability("batch");
+
+	if (available && client.isWelcomed && !attrs.in && needsIn.has(client)) {
+		fanOut(client, requestId, attrs);
+		return;
+	}
+
 	sendRequest(
 		client,
-		{kind: "results", requestId},
-		client.caps.hasCapability(SEARCH_CAP) && client.caps.hasCapability("batch"),
+		{kind: "results", requestId, attrs},
+		available,
 		"SEARCH",
 		client.profile.searchParams?.(attrs) ?? specSearchParams(attrs)
 	);
@@ -275,12 +443,15 @@ export function requestSearchContext(
 	msgid: string,
 	limit: number
 ): void {
-	sendRequest(client, {kind: "context", requestId}, canAskContext(client), "CHATHISTORY", [
-		direction,
-		target,
-		`msgid=${msgid}`,
-		String(historyLimit(client, limit)),
-	]);
+	const ref = contextRef(client, target, msgid);
+
+	sendRequest(
+		client,
+		{kind: "context", requestId},
+		canAskContext(client) && ref !== undefined,
+		"CHATHISTORY",
+		[direction, target, ref ?? "", String(historyLimit(client, limit))]
+	);
 }
 
 /**
@@ -311,7 +482,7 @@ export function requestReplyParent(client: IrcClient, chan: Channel, msgid: stri
 				sendRequest(
 					client,
 					{kind: "context", requestId: 0, parent: {chan, msgid}},
-					canAskContext(client),
+					canAskParent(client),
 					"CHATHISTORY",
 					["AROUND", chan.name, `msgid=${msgid}`, "1"]
 				);
@@ -450,6 +621,7 @@ function settle(
 
 /** A closed `search` batch: the answer to the request it names, else the oldest. */
 export const searchBatch: BatchHandler = (client, batch) => {
+	noteTimes(client, batch.messages);
 	const request = searchFor(client, labelOf(batch));
 
 	if (request) {
@@ -465,6 +637,7 @@ export function searchContextBatch(client: IrcClient, batch: OpenBatch): boolean
 		return false;
 	}
 
+	noteTimes(client, batch.messages);
 	const changes: LineChange[] = [];
 	settle(
 		client,
@@ -493,6 +666,25 @@ export function searchContextBatch(client: IrcClient, batch: OpenBatch): boolean
 /** `FAIL SEARCH <code> [context] :text`: the window shows it, the lobby does not. */
 export function searchFailed(client: IrcClient, msg: IrcMessage): void {
 	const request = searchFor(client, msg.tags.get("label"));
+
+	// `FAIL SEARCH INVALID_PARAMS in`: this server searches one channel at a
+	// time (soju). Ask about each instead, now and for the rest of the connection.
+	if (
+		request &&
+		!request.group &&
+		request.attrs &&
+		!request.attrs.in &&
+		msg.params[1] === "INVALID_PARAMS" &&
+		msg.params[2]?.toLowerCase() === "in"
+	) {
+		needsIn.add(client);
+
+		if (take(client, request) && !request.expired) {
+			fanOut(client, request.requestId, request.attrs);
+		}
+
+		return;
+	}
 
 	if (request) {
 		settle(client, request, "fail", msg.params[msg.params.length - 1]);
@@ -529,6 +721,9 @@ export function resetSearches(client: IrcClient): void {
 		settle(client, request, "offline");
 	}
 
-	// The queue they waited in is gone with the socket; a new one asks afresh.
+	// The queue they waited in is gone with the socket; a new one asks afresh,
+	// and the next server may be another (an edited network).
 	parentsAsked.delete(client);
+	needsIn.delete(client);
+	timesByClient.delete(client);
 }

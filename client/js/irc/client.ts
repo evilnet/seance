@@ -29,7 +29,21 @@ import type {
 	SharedServerOptions,
 } from "../../../shared/types/network";
 import type {PushSession, ServerToClientEvents} from "../../../shared/types/socket-events";
-import {CapNegotiator, parseCapList, SEANCE_CAPS, webpushVapidOf, WEBPUSH_CAP} from "./caps";
+import {
+	BOUNCER_NETWORKS_CAP,
+	bindLine,
+	isBouncerControl,
+	listNetworks,
+	type BouncerNetwork,
+} from "./bouncer";
+import {
+	CapNegotiator,
+	parseCapList,
+	SEANCE_CAPS,
+	SOJU_WEBPUSH_CAP,
+	webpushVapidOf,
+	WEBPUSH_CAP,
+} from "./caps";
 import {casefold, namesEqual} from "./casemap";
 import {
 	Author,
@@ -89,7 +103,7 @@ import {
 	setAttended,
 	syncPresence,
 } from "./presence";
-import {abortHistory, GAP_IDS, retryLostHistory} from "./history";
+import {abortHistory, GAP_IDS, noteZncLine, retryLostHistory} from "./history";
 import {resetSearches} from "./historysearch";
 import {globalUntil, MUTE_KEY, MUTE_READ_DELAY_MS, type PendingMute, releaseMute} from "./pushMute";
 import {MODE_KEY, PRESENCE_KEY, syncShared, type Stamped} from "./presenceShare";
@@ -337,6 +351,12 @@ export interface IrcClientOptions extends ConnectOptions {
 	 * entry): it beats ISUPPORT NETWORK ({@link IrcClient.serverNamed}).
 	 */
 	savedName?: () => string | undefined;
+	/**
+	 * A bouncer's control connection listed its networks (bouncer.ts). The
+	 * manager adds the new ones as networks of their own and returns their
+	 * names, for the lobby to say so.
+	 */
+	onBouncerNetworks?: (networks: BouncerNetwork[]) => string[];
 }
 
 /**
@@ -570,6 +590,8 @@ export class IrcClient {
 	serverReplay = false;
 	/** Ids for the cursor's replay, every target's, set aside when the server took the cursor. */
 	replayIds: IdBlock | undefined = undefined;
+	/** This connection goes through ZNC (its `znc.in/*` caps): see history.ts `noteZncLine`. */
+	behindZnc = false;
 
 	private saslTimer: ReturnType<typeof setTimeout> | null = null;
 	private readonly bus: Pick<EventBus, "dispatch">;
@@ -1774,6 +1796,13 @@ export class IrcClient {
 				lines.push(`METADATA * SUB ${MUTE_KEY} ${PRESENCE_KEY} ${MODE_KEY} ${CLOSED_KEY}`);
 			}
 
+			// Bound to one of a bouncer's networks (bouncer.ts): said before CAP END.
+			const bind = bindLine(this);
+
+			if (bind) {
+				lines.unshift(bind);
+			}
+
 			const line = registrationAwayLine(this);
 			return line ? [...lines, line] : lines;
 		};
@@ -2095,6 +2124,7 @@ export class IrcClient {
 		}
 
 		this.connected = true;
+		this.behindZnc = [...this.caps.available.keys()].some((name) => name.startsWith("znc.in/"));
 		this._state = "registered";
 
 		const first = this.channels.find((chan) => chan.type === ChanType.CHANNEL);
@@ -2146,6 +2176,9 @@ export class IrcClient {
 		// subscription and the Settings UI can tell the two cases apart. The
 		// WEBPUSH REGISTER itself is emitted later through the bus — a
 		// REGISTER sent before CAP END is silently dropped by nefarious2.
+		// A bouncer's control connection: what networks it has (bouncer.ts).
+		listNetworks(this);
+
 		this.dispatch("webpush:available", {
 			network: this.uuid,
 			vapid: this.webpushVapid(),
@@ -2169,6 +2202,19 @@ export class IrcClient {
 		} else {
 			this.restorationSettled();
 		}
+	}
+
+	/**
+	 * This connection goes through a bouncer that keeps its own channel list:
+	 * soju (`BOUNCER_NETID`, `soju.im/bouncer-networks`) or ZNC (its `znc.in/*`
+	 * caps). What it holds is what the user is in, on every device.
+	 */
+	get behindBouncer(): boolean {
+		return (
+			this.behindZnc ||
+			this.isupport.tokens.has("BOUNCER_NETID") ||
+			this.caps.available.has(BOUNCER_NETWORKS_CAP)
+		);
 	}
 
 	/**
@@ -2202,16 +2248,26 @@ export class IrcClient {
 	}
 
 	/**
-	 * JOIN every autojoin channel we are not in, the active one's catch-up
+	 * JOIN every autojoin channel we are not in (behind a bouncer that holds
+	 * channels, none: see {@link behindBouncer}), the active one's catch-up
 	 * pipelined behind it: the server processes lines in order, so by the
 	 * time it reads the history request we are a member. Saves a round trip
 	 * on the channel the user is looking at.
 	 */
 	autojoin(): void {
-		const joining = this.channels.filter(
-			(chan) =>
-				chan.type === ChanType.CHANNEL && chan.autoJoin && chan.state === ChanState.PARTED
-		);
+		// A bouncer owns the channel list: it JOINs us to what it holds right
+		// after the MOTD, leaves out what was parted or detached from another
+		// client, and sends nothing while it is off the network. Saved channels
+		// it did not give back stay parted here until the user joins them (as
+		// gamja does). A soju control connection has no channels at all.
+		const joining = this.behindBouncer
+			? []
+			: this.channels.filter(
+					(chan) =>
+						chan.type === ChanType.CHANNEL &&
+						chan.autoJoin &&
+						chan.state === ChanState.PARTED
+			  );
 
 		if (joining.length > 0) {
 			this.joinChannels(joining.map((chan) => ({name: chan.name, key: chan.shared.key})));
@@ -2235,19 +2291,24 @@ export class IrcClient {
 
 	/**
 	 * The VAPID public key this server advertises for Web Push, when the
-	 * `draft/webpush` capability is enabled: the `VAPID` ISUPPORT token the
+	 * `draft/webpush` capability (or soju's `soju.im/webpush`) is enabled: the `VAPID` ISUPPORT token the
 	 * spec has the server send once the cap is on, or nefarious2's cap 302
 	 * value (`vapid=<key>`). The cap is requested bare too, as the spec has
 	 * it offered; undefined when the network cannot push (cap missing or no
 	 * key), and nothing subscribes then.
 	 */
 	webpushVapid(): string | undefined {
-		if (!this.caps.hasCapability(WEBPUSH_CAP)) {
+		// soju offers only its own name for it (caps.ts SOJU_WEBPUSH_CAP).
+		const cap = [WEBPUSH_CAP, SOJU_WEBPUSH_CAP].find((name) => this.caps.hasCapability(name));
+
+		// A bouncer's control connection carries no conversations; its bound
+		// networks subscribe for theirs (bouncer.ts).
+		if (!cap || isBouncerControl(this)) {
 			return undefined;
 		}
 
 		return (
-			webpushVapidOf(this.caps.value(WEBPUSH_CAP) ?? "") ??
+			webpushVapidOf(this.caps.value(cap) ?? "") ??
 			// The same checks and normal form for the 005 token.
 			webpushVapidOf(`vapid=${this.isupport.vapid ?? ""}`)
 		);
@@ -2394,7 +2455,7 @@ export class IrcClient {
 	}
 
 	/** Send one raw line. Reports an ERROR message in the lobby instead of throwing. */
-	send(line: string): boolean {
+	send(line: string, charge = true): boolean {
 		if (this.transport.state !== "open") {
 			this.pushMessage(this.lobby, {type: MessageType.ERROR, text: t("send.notConnected")});
 			return false;
@@ -2402,7 +2463,11 @@ export class IrcClient {
 
 		try {
 			this.transport.send(line);
-			this.fakeLag.charge(line);
+
+			if (charge) {
+				this.fakeLag.charge(line);
+			}
+
 			return true;
 		} catch (err: unknown) {
 			const message = err instanceof Error ? err.message : String(err);
@@ -3474,6 +3539,15 @@ export class IrcClient {
 
 		if (interceptBatchLine(this, msg)) {
 			return;
+		}
+
+		// Behind ZNC, what we saw live is what its next buffer replay repeats.
+		if (
+			this.behindZnc &&
+			!this.replaying &&
+			(msg.command === "PRIVMSG" || msg.command === "NOTICE")
+		) {
+			noteZncLine(this, msg);
 		}
 
 		// An answer to one of our labeled requests (request.ts): its asker

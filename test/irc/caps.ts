@@ -60,7 +60,15 @@ describe("irc/caps", function () {
 			expect(neg.available.has("tls")).to.equal(true);
 
 			const requested = reqCaps(second.send[0]);
-			expect(requested).to.deep.equal(SEANCE_CAPS.wanted);
+			// Everything wanted that nefarious2 offers: all but soju's own names.
+			const sojuOnly = [
+				"soju.im/webpush",
+				"soju.im/bouncer-networks",
+				"soju.im/bouncer-networks-notify",
+			];
+			expect(requested).to.deep.equal(
+				SEANCE_CAPS.wanted.filter((cap) => !sojuOnly.includes(cap))
+			);
 			expect(requested).to.not.include("tls");
 			expect(requested).to.include("draft/multiline");
 			expect(requested).to.not.include("draft/bouncer");

@@ -74,6 +74,12 @@ export type ConnectOptions = {
 	 * true (see `client/js/branding.ts` and client.ts `saslRequired`).
 	 */
 	saslDisconnectOnFail?: boolean;
+	/**
+	 * The bouncer network this connection binds to (`soju.im/bouncer-networks`:
+	 * `BOUNCER BIND <id>` before `CAP END`). Set on the networks Seance added
+	 * from a bouncer's list (irc/bouncer.ts); absent everywhere else.
+	 */
+	bouncerNetId?: string;
 };
 
 /** Connection state as seen by the rest of the app. */
