@@ -22,11 +22,16 @@ import type {RouteBlock} from "../translate/router";
  */
 export function modelDisplayName(ref: Pick<ModelRef, "label">): string {
 	switch (ref.label.kind) {
-		case "opus":
-			return t("translate.model.opus", {
+		case "opus": {
+			const pair = {
 				from: languageName(ref.label.from, activeLocale()),
 				to: languageName(ref.label.to, activeLocale()),
-			});
+			};
+
+			return ref.label.name
+				? t("translate.model.namedPair", {name: ref.label.name, ...pair})
+				: t("translate.model.opus", pair);
+		}
 		case "nllb":
 			return t("translate.model.nllb");
 		case "apple":

@@ -2657,6 +2657,7 @@
   "translate.model.failedUnknown": "Failed: unknown error",
   "translate.model.llm": "{name} (all languages)",
   "translate.model.loadingPercent": "Loading… {percent}%",
+  "translate.model.namedPair": "{name} {from} → {to}",
   "translate.model.needsBuffer": "Needs a GPU buffer of {needed}; this device binds at most {limit}",
   "translate.model.nllb": "NLLB-200 600M (200 languages)",
   "translate.model.opus": "OPUS-MT {from} → {to}",

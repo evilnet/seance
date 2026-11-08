@@ -27,13 +27,15 @@ export interface CatalogOptions {
 
 /**
  * A deploy's pair model given as more than its repo: a multilingual Marian
- * model needs the target's token (`>>por<<`), and one smaller than an
- * OPUS-MT pair says its size.
+ * model needs the target's token (`>>por<<`), one smaller than an OPUS-MT
+ * pair says its size, and one that is not OPUS-MT names itself.
  */
 export interface OpusPairOption {
 	model: string;
 	/** The target-language token put in front of every source (`ModelRef.token`). */
 	token?: string;
+	/** What Settings calls the model in place of "OPUS-MT": the deploy's text, never translated. */
+	name?: string;
 	/** Its CPU download, for Settings and the download question; else an OPUS-MT pair's. */
 	sizeBytes?: number;
 }
@@ -153,21 +155,38 @@ export const CPU_LLM_REVISION = "d7f544eead698dbd1f15126ef60b45a1e1933222";
  */
 export const CPU_CONTEXT_WINDOW = 1024;
 
+/**
+ * The catalog id of a pair the deploy gave as an object (`OpusPairOption`):
+ * the repo and the pair, so pairs that name one repo keep a row, a load
+ * state and a down-mark each while they read one download
+ * (`DeviceCopy.source`, the repo). Always, not only once a second pair
+ * names the repo, so adding one never moves the first's id (and its stored
+ * download consent). A pair given as a bare repo keeps the repo as its id.
+ */
+export function sharedPairId(repo: string, pairKey: string): string {
+	return `${repo}#${pairKey}`;
+}
+
 function opusRef(pairKey: string, option: string | OpusPairOption, gpu: boolean): ModelRef {
 	const [from, to] = pairKey.split("-");
-	const {model: id, token, sizeBytes} = typeof option === "string" ? {model: option} : option;
+	const {
+		model: repo,
+		token,
+		name,
+		sizeBytes,
+	} = typeof option === "string" ? {model: option} : option;
 
 	return {
 		engine: "seq2seq",
 		family: "opus",
-		id,
-		label: {kind: "opus", from, to},
+		id: typeof option === "string" ? repo : sharedPairId(repo, pairKey),
+		label: {kind: "opus", from, to, ...(name && {name})},
 		copies: {
-			cpu: {sizeBytes: sizeBytes ?? OPUS_SIZE_BYTES, source: id, dtype: "q8"},
+			cpu: {sizeBytes: sizeBytes ?? OPUS_SIZE_BYTES, source: repo, dtype: "q8"},
 			...(gpu && {
 				gpu: {
 					sizeBytes: OPUS_GPU_SIZE_BYTES,
-					source: id,
+					source: repo,
 					dtype: "fp16",
 					largestBufferBytes: OPUS_GPU_LARGEST_BYTES,
 				},

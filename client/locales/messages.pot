@@ -15030,6 +15030,13 @@ msgctxt "translate.model.loadingPercent"
 msgid "Loading… {percent}%"
 msgstr ""
 
+#. The name of a translation model in Settings → Translation: a language-pair model the network supplies in place of an OPUS-MT pair. {name} is the network's own name for the model, never translated; {from} and {to} are language names.
+#: client/js/helpers/modelLabel.ts
+#: client/js/helpers/translateWhy.ts
+msgctxt "translate.model.namedPair"
+msgid "{name} {from} → {to}"
+msgstr ""
+
 #. Reason a GPU translation model cannot load here: {needed} is the model's largest piece, {limit} what this device's graphics processor can bind in one buffer; both are sizes such as "186 MiB" (binary units, kept as they are). Shown under the model's row in Settings → Translation (its Download button greyed out) and, after a lead sentence such as 'Correcting a message needs the language model.', wherever an action needing that model is unavailable.
 #: client/components/Settings/Translation.vue
 #: client/js/helpers/translateWhy.ts

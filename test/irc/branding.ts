@@ -626,8 +626,13 @@ describe("branding", function () {
 				translation: {
 					cpu: {
 						opus: {
-							"en-pt": {model: " net/mt-en-pt ", token: ">>por<<", sizeBytes: 26e6},
-							"pt-en": {model: "net/mt-pt-en", sizeBytes: 0.5},
+							"en-pt": {
+								model: " net/mt-en-pt ",
+								token: ">>por<<",
+								name: "Net MT",
+								sizeBytes: 26e6,
+							},
+							"pt-en": {model: "net/mt-pt-en", name: 7, sizeBytes: 0.5},
 							"en-sv": {model: "net/mt-en-sv", token: 3},
 							"en-fr": {model: "net/mt-en-fr", token: null},
 							"en-de": {model: "net/mt-en-de", token: " "},
@@ -646,7 +651,12 @@ describe("branding", function () {
 			expect(config.translation).to.deep.equal({
 				cpu: {
 					opus: {
-						"en-pt": {model: "net/mt-en-pt", token: ">>por<<", sizeBytes: 26e6},
+						"en-pt": {
+							model: "net/mt-en-pt",
+							token: ">>por<<",
+							name: "Net MT",
+							sizeBytes: 26e6,
+						},
 						"pt-en": {model: "net/mt-pt-en"},
 						"fr-en": {model: "net/mt-fr-en"},
 						"de-en": "net/opus-de-en",

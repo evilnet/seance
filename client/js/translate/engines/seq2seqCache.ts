@@ -7,7 +7,7 @@
 // transformers 4.2.0 utils/dtypes.js). Vue-free and library-free: the store
 // arrives from seq2seq.real.ts.
 
-import {Device} from "../engine";
+import {Device, ModelRef} from "../engine";
 import {CacheApi} from "../models";
 
 /** The cached URLs, and a way to drop one. */
@@ -45,6 +45,15 @@ export function onnxDtype(url: string): string | null {
 	return SUFFIXES.find(([suffix]) => stem.endsWith(suffix))?.[1] ?? "fp32";
 }
 
+/**
+ * The repo a copy's files are cached under: its `source`, which a pair that
+ * shares its repo with another has apart from its catalog id
+ * (models.ts `sharedPairId`).
+ */
+function sourceOf(ref: ModelRef, device: Device): string {
+	return ref.copies[device]?.source ?? ref.id;
+}
+
 export function seq2seqCacheApi(store: UrlStore): CacheApi {
 	const urlsOf = async (id: string) =>
 		(await store.keys()).filter((url) => url.includes(`/${id}/`));
@@ -57,7 +66,7 @@ export function seq2seqCacheApi(store: UrlStore): CacheApi {
 				return false;
 			}
 
-			return (await urlsOf(ref.id)).some((url) => onnxDtype(url) === dtype);
+			return (await urlsOf(sourceOf(ref, device))).some((url) => onnxDtype(url) === dtype);
 		},
 		// The copy's own weights go; the shared files go with the last copy,
 		// so deleting one device's copy leaves the other's loadable.
@@ -68,7 +77,7 @@ export function seq2seqCacheApi(store: UrlStore): CacheApi {
 				return;
 			}
 
-			const urls = await urlsOf(ref.id);
+			const urls = await urlsOf(sourceOf(ref, device));
 			const own = urls.filter((url) => onnxDtype(url) === dtype);
 			const othersRemain = urls.some((url) => {
 				const kind = onnxDtype(url);

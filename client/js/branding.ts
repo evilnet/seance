@@ -224,7 +224,7 @@ export interface BrandingTranslation {
 	llm?: {model?: string; lib?: string};
 	/**
 	 * The NLLB repo and OPUS-MT repos keyed "from-to"; a pair may also be
-	 * `{model, token?, sizeBytes?}` (models.ts `OpusPairOption`).
+	 * `{model, token?, name?, sizeBytes?}` (models.ts `OpusPairOption`).
 	 */
 	cpu?: {nllb?: string; opus?: Record<string, string | OpusPairOption>};
 	/**
@@ -544,10 +544,11 @@ function normalizeStringMap(value: unknown): Record<string, string> | undefined 
 }
 
 /**
- * `translation.cpu.opus`: each pair a repo, or `{model, token?, sizeBytes?}`.
- * An entry without a usable `model`, or with a `token` that is not one, is
- * dropped whole: a multilingual model run without its token answers in the
- * wrong language. A malformed `sizeBytes` is dropped alone.
+ * `translation.cpu.opus`: each pair a repo, or `{model, token?, name?,
+ * sizeBytes?}`. An entry without a usable `model`, or with a `token` that is
+ * not one, is dropped whole: a multilingual model run without its token
+ * answers in the wrong language. A malformed `name` or `sizeBytes` is
+ * dropped alone.
  */
 function normalizeOpusPairs(value: unknown): Record<string, string | OpusPairOption> | undefined {
 	if (!isRecord(value)) {
@@ -582,6 +583,7 @@ function normalizeOpusPairs(value: unknown): Record<string, string | OpusPairOpt
 
 		const option: OpusPairOption = {model};
 		const token = optionalString(entry.token);
+		const name = optionalString(entry.name);
 		const sizeBytes = entry.sizeBytes;
 
 		if (entry.token !== undefined && token === undefined) {
@@ -590,6 +592,10 @@ function normalizeOpusPairs(value: unknown): Record<string, string | OpusPairOpt
 
 		if (token !== undefined) {
 			option.token = token;
+		}
+
+		if (name !== undefined) {
+			option.name = name;
 		}
 
 		if (typeof sizeBytes === "number" && Number.isSafeInteger(sizeBytes) && sizeBytes > 0) {
