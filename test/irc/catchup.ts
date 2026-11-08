@@ -189,11 +189,12 @@ describe("Connect burst: batched JOIN, catch-up paced by fake lag, lazy MODE (ir
 			"#four",
 		]);
 
-		// One TARGETS, first in the queue, from the start of time (nothing is
-		// held yet) to a day past now.
+		// One TARGETS, first in the queue, from a day past now back to the
+		// start of time (nothing is held yet): newer bound first, so a server
+		// following the spec counts the limit from the newest (issue #216).
 		const [targets] = collect(h, 1).map((s) => s.line);
 		expect(targets).to.match(
-			/^@label=tg\d+ CHATHISTORY TARGETS timestamp=1970-01-01T00:00:00\.000Z timestamp=2026-08-28T12:00:\d\d\.\d{3}Z 100$/
+			/^@label=tg\d+ CHATHISTORY TARGETS timestamp=2026-08-28T12:00:\d\d\.\d{3}Z timestamp=1970-01-01T00:00:00\.000Z 100$/
 		);
 		answerTargets(h, targets, [
 			["#three", "2026-08-27T11:59:00.000Z"],
@@ -604,7 +605,9 @@ describe("Connect burst: batched JOIN, catch-up paced by fake lag, lazy MODE (ir
 			const h = heldThenDropped(HELD);
 			const [targets] = collect(h, 1, isTargets).map((s) => s.line);
 			// From the start: events move what we hold, not the server's index.
-			expect(targets).to.include("TARGETS timestamp=1970-01-01T00:00:00.000Z ");
+			expect(targets).to.match(
+				/ TARGETS timestamp=\S+ timestamp=1970-01-01T00:00:00\.000Z \d+$/
+			);
 			answerTargets(h, targets, [
 				["#three", "2026-08-27T12:05:00.000Z"], // written to since
 				["#seance", "2026-08-27T12:04:00.000Z"], // the active one: served already
@@ -664,7 +667,9 @@ describe("Connect burst: batched JOIN, catch-up paced by fake lag, lazy MODE (ir
 			h.sent();
 			joinAll(h);
 			const [targets] = collect(h, 1, isTargets).map((s) => s.line);
-			expect(targets).to.include("TARGETS timestamp=1970-01-01T00:00:00.000Z ");
+			expect(targets).to.match(
+				/ TARGETS timestamp=\S+ timestamp=1970-01-01T00:00:00\.000Z \d+$/
+			);
 			answerTargets(h, targets, []);
 			expect(fetched(collect(h, 20).map((s) => s.line))).to.deep.equal([
 				"#two",
