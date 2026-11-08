@@ -1232,6 +1232,12 @@ msgctxt "connect.saslToggle"
 msgid "I have a services account (SASL)"
 msgstr ""
 
+#. Follow-up to a failed SASL login that has worked on this network before: the login is kept and the next connect tries it again.
+#: client/js/irc/client.ts
+msgctxt "connect.saslTrustedGaveUpHint"
+msgid "This login has worked here before, so it is kept: connecting again tries it once more. If the password has changed, update it in this network's settings."
+msgstr ""
+
 #. The IRC server section of the connect form: heading above the server fields, and the label of the server host field.
 #: client/components/Windows/Connect.vue:124
 #: client/components/Windows/Connect.vue:132

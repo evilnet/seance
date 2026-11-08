@@ -12,6 +12,7 @@ import {requestReplyParent, requestSearch, requestSearchContext} from "./history
 import {refreshOper, setSnomask} from "./oper";
 import {request} from "./request";
 import * as saved from "./saved-networks";
+import {forgetLogin} from "./saslTrust";
 import {checkServices, servicesBan} from "./services";
 import type {ConnectOptions} from "./types";
 import type {NetworkMode} from "../helpers/dnd";
@@ -361,6 +362,12 @@ export function registerBusHandlers(bus: EventBus, registry: ClientRegistry): vo
 		next.presenceAt = modeChosen ? Date.now() : kept;
 
 		saved.save(next);
+
+		// Edited credentials have not proved themselves (saslTrust.ts); the
+		// client, when there is one, forgets them again in applySettings.
+		if (next.saslAccount !== base?.saslAccount || next.saslPassword !== base?.saslPassword) {
+			forgetLogin(uuid);
+		}
 
 		if (client) {
 			// Host, port, TLS, channels and SASL: applied on the next connect,

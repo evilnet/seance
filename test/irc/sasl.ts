@@ -3,6 +3,7 @@ import {
 	base64Encode,
 	chunkAuthenticate,
 	encodePlain,
+	isServerSideFailure,
 	mechanismOffered,
 	SASL_CHUNK_BYTES,
 	SaslAuth,
@@ -251,5 +252,43 @@ describe("irc/sasl", function () {
 			expect(auth.start()).to.deep.equal(["AUTHENTICATE EXTERNAL"]);
 			expect(feed(auth, "AUTHENTICATE +").send).to.deep.equal(["AUTHENTICATE +"]);
 		});
+	});
+});
+
+describe("isServerSideFailure (a failure another connection may fix)", function () {
+	it("is the server's timeout, its unreachable services and an abort it sent", function () {
+		expect(
+			isServerSideFailure("904", "SASL authentication failed: request timed out")
+		).to.equal(true);
+		expect(
+			isServerSideFailure("904", "SASL authentication failed: service unavailable")
+		).to.equal(true);
+		expect(isServerSideFailure("906", "SASL authentication aborted")).to.equal(true);
+	});
+
+	it("is not a refusal, a bare 904 or the other failure numerics", function () {
+		expect(isServerSideFailure("904", "SASL authentication failed")).to.equal(false);
+		expect(
+			isServerSideFailure("904", "SASL authentication failed: invalid credentials")
+		).to.equal(false);
+		expect(isServerSideFailure("902", "You must use a nick assigned to you")).to.equal(false);
+		expect(isServerSideFailure("905", "SASL message too long")).to.equal(false);
+		expect(isServerSideFailure("907", "You have already authenticated")).to.equal(false);
+	});
+
+	it("marks the result: retryable, or a bare 904 as unexplained", function () {
+		const run = (line: string) => {
+			const auth = new SaslAuth("PLAIN", {account: "a", password: "b"});
+			auth.start();
+			return auth.handle(msg(line));
+		};
+
+		expect(run(":s 904 n :SASL authentication failed: request timed out")).to.include({
+			retryable: true,
+		});
+		expect(run(":s 904 n :SASL authentication failed")).to.include({unexplained: true});
+		const tooLong = run(":s 905 n :SASL message too long");
+		expect(tooLong.retryable).to.equal(undefined);
+		expect(tooLong.unexplained).to.equal(undefined);
 	});
 });

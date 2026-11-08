@@ -523,3 +523,101 @@ Run it on the phone layout as well:
 node tools/browser-drive.mjs tools/scenarios/disconnected-channel.mjs --chrome=…
 node tools/browser-drive.mjs tools/scenarios/disconnected-channel.mjs --chrome=… --mobile --width=390 --height=844
 ```
+
+## Round nine: the server's SASL timeout read as a wrong password (2026-10-27, re-cut 2026-11-04)
+
+Reported again: on a phone, after a long time away, bringing the app
+back does not reconnect. Found by reading nefarious2's source, not on a
+device; pinned by unit tests.
+
+Round seven made our 12 s SASL timeout retry instead of giving up. But
+nefarious2 gives up first, at 10 s (`SASL_TIMEOUT`, `m_sasl.c`
+`abort_sasl`), and says so with `904 :SASL authentication failed:
+request timed out`, and the client took every 904 as a refusal: QUIT,
+the network down for good, and autoconnect turned off — so a later cold
+start (iOS discards a home-screen app after a long time in the
+background) did not even dial. Services unreachable (`904 :… service
+unavailable`), services splitting mid-exchange (906) and services not
+linked at all (nefarious2 then leaves `sasl` out of `CAP LS`) ended the
+same way. A phone coming back after a long time meets exactly the slow
+path: a cold Keycloak, a lagging services link. Now (`SaslFailureCause`
+in `client.ts`, `isServerSideFailure` in `sasl.ts`):
+
+- the server's own timeout, `unavailable`, and a 906 it sent
+  mid-exchange are the server's problem: QUIT, `transport.abandon()`,
+  the usual schedule;
+- a missing cap or a NAK is the server's problem on a network where this
+  account has logged in before (`irc/saslTrust.ts`,
+  `thelounge.state.saslOk`, uuid → account, forgotten when the
+  credentials are edited, the refusal is final or the network is
+  removed; never in the backup), a server without SASL anywhere else;
+- a bare 904 — nefarious2 sends it for a wrong password and for a
+  Keycloak it cannot reach alike — gets `SASL_TRUSTED_RETRIES` (3) more
+  connections in a row for a login that has worked here, then counts as
+  a refusal;
+- missing credentials, 902, 905, 907 stay final.
+
+What this does not undo: a network whose autoconnect a past 904 already
+turned off stays off. Switch it back on in the network's settings.
+
+The round's first cut also restarted the retry schedule when the
+foreground poke found the thawing page's own overdue retry in flight,
+forgot a dial that failed while the device said it was offline, and
+held a 25 s background task in the Capacitor iOS shell. Those went with
+the reworks that landed meanwhile: the dial ledger is gone and the
+server names its throttle (#170, #172: `online` dials at once, an
+offline wait has no timed retries, the long waits hold against the
+poke), and the Capacitor shells with them (#155). A grace period in the
+background would be the Tauri shell's to give.
+
+Tests: `test/irc/client-sasl.ts` "the server could not check the
+login", `test/irc/sasl.ts` "isServerSideFailure".
+
+### The review's follow-ups (2026-11-04)
+
+rdrake checked the server claims against nefarious2 `ce441a0` (they
+hold) and simulated the client against a server modelled from it. What
+changed on his findings:
+
+- **A Keycloak outage could still end the network.** Keycloak down is a
+  bare 904 at every attempt, and nefarious2 withdraws `sasl` and offers
+  it again (its health timer reports success from a cached admin token
+  without contacting Keycloak), so the trusted retries ran out inside
+  the outage — at 155–177 s in his simulation — and the final refusal
+  forgot the login and turned autoconnect off: the very cold start the
+  round set out to fix. A trusted login that runs out of retries now
+  stays down for this connection but keeps the login and the
+  autoconnect, says so (`SASL_TRUSTED_GAVE_UP_HINT`), and the next
+  connect — the user's, or a page load's — gets the retries again. The
+  root fix is the server's: a `904 … service unavailable` for a
+  connectivity failure (which the client already retries) and a health
+  check that reaches Keycloak; on the roadmap, not soon.
+- **False "not connected" errors on a retry.** `saslFailed` abandons the
+  socket from inside the negotiator's `beforeEnd`; the negotiator then
+  handed `handlers/cap.ts` its `CAP END` flush, and every line of it was
+  reported as sent while disconnected (a third of the lobby lines in an
+  hour-long outage). `client.socketOpen` gates the flush, `finalLines`
+  and `registrationAwayLine`; `startSasl`'s missing-cap branch clears
+  `saslOk`; `expectRetried` pins the exact error list.
+- **Trust lived on where no client did.** `forgetLogin` ran only through
+  a live client's `applySettings` and the bus `remove`, so a password
+  edited in Settings for a network that was not connected, a password
+  typed on the connect form, a restored backup and the Networks page's
+  Delete all kept the trust. Now: the bus `network:edit` handler forgets
+  it when the credentials differ from the saved ones, `rememberNetwork`
+  when the connect form's differ (`typedCredentialsDiffer` — a password
+  the entry does not remember starts untrusted at each sign-in, the
+  choice he left open: the user is at the keyboard for that one, and the
+  retries are for the logins nobody watches), `saved-networks.ts`
+  `remove` beside the other forgets, and a restore clears the key
+  (`CLEARED_ON_RESTORE`).
+- Minor: `applyPendingOptions` forgets credentials edited while the old
+  login ran and succeeded; a user's disconnect during a retryable 904
+  ends with the report (no retry line, no `closeExplained` left behind
+  to swallow the next real drop's report); the comment on
+  `SASL_TRUSTED_RETRIES` says minutes, not seconds (nefarious2's IPcheck
+  spaces the connections about a minute apart).
+
+Still to do on a device and a live rig, which the review asked for
+before the PR leaves draft: Keycloak stopped, services stopped, and the
+original report on a phone.

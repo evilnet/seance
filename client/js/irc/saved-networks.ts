@@ -23,6 +23,7 @@ import {forgetOperPrefs} from "./operprefs";
 import {forgetMuteMemory} from "./muteMemory";
 import {forgetPresenceSync} from "./presenceSync";
 import {forgetUserAway} from "./userAwayStore";
+import {forgetLogin} from "./saslTrust";
 import type {ConnectOptions} from "./types";
 import {PRESENCE_MODES, type NetworkMode, type PresenceMode} from "../helpers/dnd";
 import type {ServicesConfig} from "../../../shared/types/network";
@@ -497,6 +498,7 @@ export function remove(uuid: string): void {
 	forgetMuteMemory(uuid); // and what this device wrote to its push mute list
 	forgetPresenceSync(uuid); // and when it was last in sync with the shared presence
 	forgetUserAway(uuid); // and the /away it would declare at the next registration
+	forgetLogin(uuid); // and the SASL login that worked on it
 }
 
 /** Mark an entry as the most recently used one. */
