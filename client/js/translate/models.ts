@@ -13,7 +13,7 @@ export type Candidate = "llm" | "nllb" | `opus:${string}` | "apple";
 export interface CatalogOptions {
 	modelBase?: string;
 	llm?: {model?: string; lib?: string};
-	cpu?: {nllb?: string; opus?: Record<string, string>};
+	cpu?: {nllb?: string; opus?: Record<string, string | OpusPairOption>};
 	/**
 	 * Give OPUS-MT and NLLB-200 their GPU copies. Off in the shipped app,
 	 * and never read from a deploy's `config.json`: this build has no WebGPU
@@ -23,6 +23,21 @@ export interface CatalogOptions {
 	 * § Not in this build). Tests turn it on to keep the GPU logic covered.
 	 */
 	seq2seqGpu?: boolean;
+}
+
+/**
+ * A deploy's pair model given as more than its repo: a multilingual Marian
+ * model needs the target's token (`>>por<<`), one smaller than an OPUS-MT
+ * pair says its size, and one that is not OPUS-MT names itself.
+ */
+export interface OpusPairOption {
+	model: string;
+	/** The target-language token put in front of every source (`ModelRef.token`). */
+	token?: string;
+	/** What Settings calls the model in place of "OPUS-MT": the deploy's text, never translated. */
+	name?: string;
+	/** Its CPU download, for Settings and the download question; else an OPUS-MT pair's. */
+	sizeBytes?: number;
 }
 
 export interface ModelCatalog {
@@ -140,26 +155,45 @@ export const CPU_LLM_REVISION = "d7f544eead698dbd1f15126ef60b45a1e1933222";
  */
 export const CPU_CONTEXT_WINDOW = 1024;
 
-function opusRef(pairKey: string, id: string, gpu: boolean): ModelRef {
+/**
+ * The catalog id of a pair the deploy gave as an object (`OpusPairOption`):
+ * the repo and the pair, so pairs that name one repo keep a row, a load
+ * state and a down-mark each while they read one download
+ * (`DeviceCopy.source`, the repo). Always, not only once a second pair
+ * names the repo, so adding one never moves the first's id (and its stored
+ * download consent). A pair given as a bare repo keeps the repo as its id.
+ */
+export function sharedPairId(repo: string, pairKey: string): string {
+	return `${repo}#${pairKey}`;
+}
+
+function opusRef(pairKey: string, option: string | OpusPairOption, gpu: boolean): ModelRef {
 	const [from, to] = pairKey.split("-");
+	const {
+		model: repo,
+		token,
+		name,
+		sizeBytes,
+	} = typeof option === "string" ? {model: option} : option;
 
 	return {
 		engine: "seq2seq",
 		family: "opus",
-		id,
-		label: {kind: "opus", from, to},
+		id: typeof option === "string" ? repo : sharedPairId(repo, pairKey),
+		label: {kind: "opus", from, to, ...(name && {name})},
 		copies: {
-			cpu: {sizeBytes: OPUS_SIZE_BYTES, source: id, dtype: "q8"},
+			cpu: {sizeBytes: sizeBytes ?? OPUS_SIZE_BYTES, source: repo, dtype: "q8"},
 			...(gpu && {
 				gpu: {
 					sizeBytes: OPUS_GPU_SIZE_BYTES,
-					source: id,
+					source: repo,
 					dtype: "fp16",
 					largestBufferBytes: OPUS_GPU_LARGEST_BYTES,
 				},
 			}),
 		},
 		pair: [from, to],
+		...(token && {token}),
 	};
 }
 
@@ -875,9 +909,9 @@ export function buildCatalog(
 	const pairs = {...DEFAULT_OPUS_PAIRS, ...(options.cpu?.opus ?? {})};
 	const opus: Record<string, ModelRef> = {};
 
-	for (const [pairKey, id] of Object.entries(pairs)) {
+	for (const [pairKey, option] of Object.entries(pairs)) {
 		if (/^[a-z]{2,3}-[a-z]{2,3}$/.test(pairKey)) {
-			opus[pairKey] = opusRef(pairKey, id, seq2seqGpu);
+			opus[pairKey] = opusRef(pairKey, option, seq2seqGpu);
 		}
 	}
 

@@ -263,6 +263,25 @@ describe("settings backup (helpers/settingsBackup.ts)", function () {
 		expect(store.get("thelounge.mentions")).to.equal("[]");
 	});
 
+	it("restoring forgets the SASL logins this device trusted", function () {
+		// A restored entry with the same uuid may carry other credentials, and
+		// the key is never in a file: the first login after a restore proves itself.
+		seed();
+		store.set("thelounge.state.saslOk", JSON.stringify({a: "alice"}));
+		applyBackup(
+			{
+				format: FORMAT,
+				version: VERSION,
+				exportedAt: "",
+				entries: {settings: {theme: "day"}},
+			},
+			"web",
+			{}
+		);
+
+		expect(store.has("thelounge.state.saslOk")).to.equal(false);
+	});
+
 	it("an older file leaves a key its version never carried alone", function () {
 		// thelounge.translate joined the format in version 2: a v1 file says
 		// nothing about it, so a restore must not read its absence as "this

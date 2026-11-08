@@ -76,11 +76,15 @@ const keyValue: Handler = (client, msg) => {
 	// Our own payload tier, still public from before it was written private:
 	// a public key is in everyone's WHOIS of us. Same value, private.
 	if (
+		client.profile.privateMetadata &&
 		msg.params[2] === PAYLOAD_KEY &&
 		client.isSelf(msg.params[1] ?? "") &&
-		msg.params[3] !== "private"
+		msg.params[3] !== "private" &&
+		msg.params[4]
 	) {
-		client.send(`METADATA * SET ${PAYLOAD_KEY} private :${msg.params[4] ?? ""}`);
+		// Only where the server can say private: elsewhere the reply would
+		// never say so, and this would write again on every read.
+		client.send(`METADATA * SET ${PAYLOAD_KEY} private :${msg.params[4]}`);
 	}
 
 	const onShared = SHARED.get(msg.params[2] ?? "");

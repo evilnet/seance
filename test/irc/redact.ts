@@ -84,6 +84,13 @@ describe("Message deletion (REDACT, handlers/redact.ts)", function () {
 			expect(h.sent()).to.deep.equal([]);
 		});
 
+		it("needs message-tags as well, which the draft depends on", function () {
+			const h = setup();
+			joined(h, ALL_CAPS.replace("message-tags ", ""));
+
+			expect(h.client.canRedact).to.equal(false);
+		});
+
 		it("refuses outside channels", function () {
 			const h = setup();
 			joined(h);
@@ -133,6 +140,18 @@ describe("Message deletion (REDACT, handlers/redact.ts)", function () {
 
 			h.transport.line(":bob!bob@host REDACT #seance unknown2");
 			expect(h.lastMessage(id).text).to.equal("bob deleted a message");
+		});
+
+		it("applies a private REDACT to the query with its sender", function () {
+			const h = setup();
+			joined(h);
+			h.transport.line("@msgid=q1 :bob!bob@host PRIVMSG alice :oops");
+			const query = h.client.findChannel("bob")!;
+			const target = h.lastMessage(query.id).id;
+			h.transport.line(":bob!bob@host REDACT alice q1");
+
+			const [payload] = h.payloads<RedactPayload>("msg:redact");
+			expect(payload).to.include({chan: query.id, id: target, by: "bob"});
 		});
 
 		it("ignores REDACTs for channels we are not in", function () {

@@ -194,6 +194,22 @@ export function loadNote(view: ModelView): LoadNote {
 }
 
 /** What a copy's view is kept under. */
+/** A copy's files arrived or went: its view says so, as the worker's answer would. */
+function applyCached(view: ModelView, cached: boolean): void {
+	view.cached = cached;
+
+	if (cached && (view.status === "idle" || view.status === "failed")) {
+		view.status = "ready";
+		view.fraction = 1;
+		view.error = null;
+	}
+
+	if (!cached && view.status === "ready") {
+		view.status = "idle";
+		view.fraction = 0;
+	}
+}
+
 function copyKey(ref: Pick<ModelRef, "id">, device: Device): string {
 	return `${ref.id}@${device}`;
 }
@@ -894,13 +910,17 @@ export class TranslateService {
 			return false;
 		}
 
-		const view = this.views.get(copyKey(ref, device));
+		// A pair that shares its repo is covered by the repo's download:
+		// another pair's copy on the device, downloading, or agreed to.
+		return [ref, ...this.sharers(ref, device)].every((each) => {
+			const view = this.views.get(copyKey(each, device));
 
-		return (
-			!view?.cached &&
-			view?.status !== "downloading" &&
-			!this.consent.granted(this.consentId(ref, device))
-		);
+			return (
+				!view?.cached &&
+				view?.status !== "downloading" &&
+				!this.consent?.granted(this.consentId(each, device))
+			);
+		});
 	}
 
 	/**
@@ -1266,12 +1286,14 @@ export class TranslateService {
 				// A seq2seq model has no prompt to detect a source in: it takes
 				// the hint as its source. The LLM keeps `from: null`.
 				const from = request.from ?? (route.ref.engine === "seq2seq" ? hint : null);
+				const {token: _callerToken, ...asked} = request;
 				const req: TranslateRequest = {
-					...request,
+					...asked,
 					from,
 					id,
 					model: route.ref.id,
 					device: route.device,
+					...(route.ref.token && {token: route.ref.token}),
 				};
 				const view = this.view(route.ref, route.device);
 				let yielded = false;
@@ -1357,6 +1379,7 @@ export class TranslateService {
 						view.status = "ready";
 						view.fraction = 1;
 						view.cached = true;
+						this.shareCached(route.ref, route.device, true);
 						this.publish();
 					}
 
@@ -1472,18 +1495,7 @@ export class TranslateService {
 				const view = this.views.get(copyKey(state.ref, state.device));
 
 				if (view) {
-					view.cached = state.cached;
-
-					if (state.cached && (view.status === "idle" || view.status === "failed")) {
-						view.status = "ready";
-						view.fraction = 1;
-						view.error = null;
-					}
-
-					if (!state.cached && view.status === "ready") {
-						view.status = "idle";
-						view.fraction = 0;
-					}
+					applyCached(view, state.cached);
 				}
 			}
 
@@ -1651,6 +1663,7 @@ export class TranslateService {
 			// download that failed, a device that was lost) is over. The
 			// other device's copy keeps its own mark.
 			this.forgetDown(candidateOf(ref), device);
+			this.shareCached(ref, device, true);
 		} catch (e) {
 			const message = e instanceof Error ? e.message : String(e);
 
@@ -1724,6 +1737,12 @@ export class TranslateService {
 			view.status = "idle";
 			view.fraction = 0;
 			view.error = null;
+
+			for (const other of this.sharers(ref, device)) {
+				this.consent?.revoke(this.consentId(other, device));
+			}
+
+			this.shareCached(ref, device, false);
 		} catch (e) {
 			const message = e instanceof Error ? e.message : String(e);
 
@@ -2078,6 +2097,40 @@ export class TranslateService {
 		if (this.idleTimer !== null) {
 			this.deps.clearTimeout(this.idleTimer);
 			this.idleTimer = null;
+		}
+	}
+
+	/**
+	 * The other pairs whose copy for `device` is `ref`'s download: a deploy's
+	 * repo that serves several pairs (models.ts `sharedPairId`).
+	 */
+	private sharers(ref: ModelRef, device: Device): ModelRef[] {
+		const source = ref.copies[device]?.source;
+
+		if (ref.engine !== "seq2seq" || !source) {
+			return [];
+		}
+
+		return catalogModels(this.options.catalog).filter(
+			(other) =>
+				other.id !== ref.id &&
+				other.engine === "seq2seq" &&
+				other.copies[device]?.source === source
+		);
+	}
+
+	/**
+	 * A shared download arrived or went: the pairs that read it say so too,
+	 * as the worker's own answer would (`models`), and one that arrived
+	 * lifts their down-marks as it lifts its own.
+	 */
+	private shareCached(ref: ModelRef, device: Device, cached: boolean): void {
+		for (const other of this.sharers(ref, device)) {
+			applyCached(this.view(other, device), cached);
+
+			if (cached) {
+				this.forgetDown(candidateOf(other), device);
+			}
 		}
 	}
 

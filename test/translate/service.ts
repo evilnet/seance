@@ -31,6 +31,7 @@ import {
 	loadNote,
 	type CpuFallbackAnswer,
 	type CpuFallbackInfo,
+	type ModelView,
 	type ServiceDeps,
 } from "../../client/js/translate/service";
 import {serveEngines} from "../../client/js/translate/worker";
@@ -165,7 +166,11 @@ function rig(
 	// or `<id>@<device>` (that copy alone).
 	const cache: CacheApi = {
 		has(ref, device) {
-			return Promise.resolve(cached.has(ref.id) || cached.has(`${ref.id}@${device}`));
+			// By download, as the real cache answers (seq2seqCache.ts): pairs
+			// on one repo share it.
+			const id = ref.engine === "seq2seq" ? ref.copies[device]?.source ?? ref.id : ref.id;
+
+			return Promise.resolve(cached.has(id) || cached.has(`${id}@${device}`));
 		},
 		delete(ref, device) {
 			deleted.push(`${ref.id}@${device}`);
@@ -400,6 +405,48 @@ describe("translate/service", () => {
 		expect(await text(gpu.service.translate(hinted))).to.equal("llm:Hallo");
 		expect(gpu.llm.calls.translate[0].from).to.equal(null);
 		gpu.service.dispose();
+	});
+
+	it("a pair model's target token travels on the request; a plain pair sends none", async () => {
+		const withToken = buildCatalog({
+			cpu: {opus: {"de-en": {model: "net/mt-de", token: ">>eng<<"}}},
+		});
+		const cpu = rig("cpu", true, DEFAULT_ROUTES, {}, {catalog: withToken});
+		clock = cpu.clock;
+
+		expect(await text(cpu.service.translate(base))).to.equal("seq:Hallo");
+		expect(cpu.seq2seq.calls.translate[0]).to.include({
+			model: withToken.opus["de-en"].id,
+			token: ">>eng<<",
+		});
+		cpu.service.dispose();
+		cpu.clock.restore();
+
+		// A caller's token never reaches a route whose model has none.
+		const plain = rig("cpu");
+		clock = plain.clock;
+
+		expect(await text(plain.service.translate({...base, token: ">>eng<<"}))).to.equal(
+			"seq:Hallo"
+		);
+		expect(plain.seq2seq.calls.translate[0]).to.not.have.property("token");
+		plain.service.dispose();
+	});
+
+	it("a fallback from a token pair to NLLB sends NLLB no token", async () => {
+		const withToken = buildCatalog({
+			seq2seqGpu: true,
+			cpu: {opus: {"de-en": {model: "net/mt-de", token: ">>eng<<"}}},
+		});
+		const r = rig("cpu", true, DEFAULT_ROUTES, {}, {catalog: withToken});
+		clock = r.clock;
+		r.seq2seq.failLoad = new Error("quota exceeded");
+
+		expect(await text(r.service.translate(base))).to.equal("seq:Hallo");
+		const sent = r.seq2seq.calls.translate;
+		expect(sent.map((req) => req.model)).to.deep.equal([withToken.nllb.id]);
+		expect(sent[0]).to.not.have.property("token");
+		r.service.dispose();
 	});
 
 	it("the request's routing hint wins over the context's and never changes the prompt context", async () => {
@@ -1238,6 +1285,44 @@ describe("translate/service", () => {
 		r.service.dispose();
 	});
 
+	it("two pairs on one repo: one download serves both rows, one removal clears both", async () => {
+		const shared = buildCatalog({
+			cpu: {
+				opus: {
+					"en-pt": {model: "net/mt-pt", token: ">>por<<"},
+					"pt-en": {model: "net/mt-pt", token: ">>eng<<"},
+				},
+			},
+		});
+		const r = rig("cpu", true, DEFAULT_ROUTES, {}, {catalog: shared});
+		clock = r.clock;
+		let latest: ModelView[] = [];
+
+		r.service.onModels((views) => (latest = views));
+		const row = (pair: string) =>
+			latest.find((v) => v.ref.id === shared.opus[pair].id && v.device === "cpu");
+
+		// Its own row each, by pair: one id per pair, one repo underneath.
+		expect(shared.opus["en-pt"].id).to.not.equal(shared.opus["pt-en"].id);
+		expect(shared.opus["pt-en"].copies.cpu?.source).to.equal("net/mt-pt");
+
+		await r.service.download(shared.opus["en-pt"], "cpu");
+		expect(row("en-pt")).to.include({cached: true, status: "ready"});
+		expect(row("pt-en")).to.include({cached: true, status: "ready"});
+		expect(row("pt-en")?.ref.label).to.include({from: "pt", to: "en"});
+
+		// The worker's own answer agrees: it asks by the repo.
+		r.cached.add("net/mt-pt@cpu");
+		await r.service.models();
+		expect(row("pt-en")).to.include({cached: true, status: "ready"});
+
+		await r.service.remove(shared.opus["pt-en"], "cpu");
+		r.cached.delete("net/mt-pt@cpu");
+		expect(row("en-pt")).to.include({cached: false, status: "idle"});
+		expect(row("pt-en")).to.include({cached: false, status: "idle"});
+		r.service.dispose();
+	});
+
 	it("a failed download is reported on the view", async () => {
 		const r = rig("gpu");
 		clock = r.clock;
@@ -1866,6 +1951,43 @@ describe("translate/service", () => {
 			// Agreed to: the next request is not asked about it.
 			expect((await r.service.route("de", "en"))?.candidate).to.equal("llm");
 			expect(await text(r.service.translate(base))).to.equal("llm:Hallo");
+			expect(ask.asked).to.have.length(1);
+			r.service.dispose();
+		});
+
+		it("a pair on a repo already agreed to for its other pair is not asked about", async () => {
+			const shared = buildCatalog({
+				cpu: {
+					opus: {
+						"en-pt": {model: "net/mt-pt", token: ">>por<<"},
+						"pt-en": {model: "net/mt-pt", token: ">>eng<<"},
+					},
+				},
+			});
+			const routes: RouteTable = {
+				...DEFAULT_ROUTES,
+				en: {...DEFAULT_ROUTES.en, pt: ["opus:pt-en"]},
+				pt: {en: ["opus:en-pt"]},
+			};
+			const ask = dialog();
+			const store = memoryConsent();
+			const r = rig(
+				"cpu",
+				true,
+				routes,
+				{askDownload: ask.askDownload, consent: store},
+				{catalog: shared}
+			);
+			clock = r.clock;
+			const first = r.service.route("en", "pt");
+
+			await r.clock.tickAsync(10);
+			expect(ask.asked).to.deep.equal([shared.opus["en-pt"].id]);
+			ask.answer(true);
+			expect((await first)?.candidate).to.equal("opus:en-pt");
+
+			// The other direction reads the same download: no second question.
+			expect((await r.service.route("pt", "en"))?.candidate).to.equal("opus:pt-en");
 			expect(ask.asked).to.have.length(1);
 			r.service.dispose();
 		});

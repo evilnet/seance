@@ -1,0 +1,5 @@
+states/
+*.raw.jsonl
+*_TTrace_*.tla
+*.cex.json
+tla2tools.jar

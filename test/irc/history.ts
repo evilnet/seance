@@ -487,6 +487,30 @@ describe("Chat history (history.ts)", function () {
 			expect(chan.msgRefs.get(ids[0])).to.deep.include({msgid: "m1"});
 		});
 
+		it("a full page carrying draft/chathistory-end is the end too", function () {
+			const h = setup();
+			const id = joined(h);
+			h.transport.line(
+				"@msgid=live-1;time=2026-08-25T12:01:00.000Z :bob!bob@host PRIVMSG #seance :live"
+			);
+			const live = msgs(id)[0].msg;
+			const chan = h.client.findChannel("#seance")!;
+
+			socket.emit("more", {target: id, lastId: live.id, condensed: false});
+			const sent = h.sent();
+			const limit = Number(
+				sent
+					.find((l) => l.includes("CHATHISTORY"))!
+					.split(" ")
+					.pop()
+			);
+			const page = Array.from({length: limit}, (_, i) => hist(i + 1));
+			reply(h, sent, page, undefined, true);
+			const [more] = mores(id);
+			expect(more.messages).to.have.length(limit);
+			expect(more.totalMessages).to.equal(chan.shared.totalMessages);
+		});
+
 		it("a short page carrying draft/chathistory-end is the end; an empty page always is", function () {
 			const h = setup();
 			const id = joined(h);

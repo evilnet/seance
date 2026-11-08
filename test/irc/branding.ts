@@ -621,6 +621,50 @@ describe("branding", function () {
 			expect(normalizeBranding({translation: "off"}).translation).to.equal(undefined);
 		});
 
+		it("takes a pair as a repo or as a model with a token and a size", function () {
+			const config = normalizeBranding({
+				translation: {
+					cpu: {
+						opus: {
+							"en-pt": {
+								model: " net/mt-en-pt ",
+								token: ">>por<<",
+								name: "Net MT",
+								sizeBytes: 26e6,
+							},
+							"pt-en": {model: "net/mt-pt-en", name: 7, sizeBytes: 0.5},
+							"en-sv": {model: "net/mt-en-sv", token: 3},
+							"en-fr": {model: "net/mt-en-fr", token: null},
+							"en-de": {model: "net/mt-en-de", token: " "},
+							"fr-en": {model: "net/mt-fr-en", sizeBytes: Number.MAX_VALUE},
+							"de-en": "net/opus-de-en",
+							"sv-en": {token: ">>eng<<"},
+							"es-en": ["net/mt-es-en"],
+						},
+					},
+				},
+			});
+
+			// A token that is not one (a number, null, blank) drops the
+			// pair: run without it, the model answers in the wrong language.
+			// A size that is not a positive safe integer is dropped alone.
+			expect(config.translation).to.deep.equal({
+				cpu: {
+					opus: {
+						"en-pt": {
+							model: "net/mt-en-pt",
+							token: ">>por<<",
+							name: "Net MT",
+							sizeBytes: 26e6,
+						},
+						"pt-en": {model: "net/mt-pt-en"},
+						"fr-en": {model: "net/mt-fr-en"},
+						"de-en": "net/opus-de-en",
+					},
+				},
+			});
+		});
+
 		it("resolves a relative mirror against the page", function () {
 			// The in-tree mirror branding.md describes: `models/` next to the
 			// app, whatever path the deploy is served from.

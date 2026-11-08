@@ -326,6 +326,24 @@ describe("translate/engines/seq2seq", () => {
 		expect(chunks).to.deep.equal([{text: `[${opus.id}] Wir sind da. Bis bald`, done: true}]);
 	});
 
+	it("a request's target token goes in front of the text", async () => {
+		const d = deps();
+		const engine = new Seq2seqEngine(d.deps);
+		const opus = catalog.opus["de-en"];
+		await engine.load(opus, "cpu", () => {});
+		const chunks: string[] = [];
+
+		for await (const chunk of engine.translate(
+			request({model: opus.id, text: "Wir sind da", token: ">>eng<<"}),
+			new AbortController().signal
+		)) {
+			chunks.push(chunk.text);
+		}
+
+		expect(d.calls.run.map(([, text]) => text)).to.deep.equal([">>eng<< Wir sind da"]);
+		expect(chunks).to.deep.equal([`[${opus.id}] >>eng<< Wir sind da`]);
+	});
+
 	it("a cancel between two sentences stops before the next one", async () => {
 		const d = deps();
 		const engine = new Seq2seqEngine(d.deps);

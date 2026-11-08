@@ -38,6 +38,18 @@ export interface SaslResult {
 	ok: boolean;
 	/** The server's text on failure / abort (without the "SASL ... failed:" prefix). */
 	error?: string;
+	/**
+	 * A failure the server put down to itself, not to the credentials: its
+	 * own timeout, its services unreachable or split mid-exchange
+	 * ({@link isServerSideFailure}). Another connection may well succeed.
+	 */
+	retryable?: boolean;
+	/**
+	 * A plain 904 that is not {@link retryable}: the server may have refused
+	 * the credentials or failed to reach its login backend; the wire does not
+	 * say which.
+	 */
+	unexplained?: boolean;
 	/** Informational text worth showing (900, 908). */
 	info?: string;
 }
@@ -71,6 +83,27 @@ const FAILURE_NUMERICS: ReadonlySet<string> = new Set([
 	ERR_SASLABORTED,
 	ERR_SASLALREADY,
 ]);
+
+/**
+ * Whether a failure numeric says the server could not check the login,
+ * rather than that it checked and refused it. nefarious2 (`m_sasl.c`
+ * `abort_sasl`, `m_authenticate.c`) answers its own 10 s timeout with
+ * `904 :SASL authentication failed: request timed out` — it runs out before
+ * our {@link SASL_TIMEOUT_MS}, so this is the timeout a client actually sees
+ * — services that are not linked with `904 :… service unavailable`, and
+ * services that split during the exchange with a bare 906. A 906 we caused
+ * (our own `AUTHENTICATE *`) arrives after the exchange is over and never
+ * reaches here. A bare 904 says nothing either way (nefarious2 sends one for
+ * a wrong password and for a Keycloak it cannot reach alike): not retryable
+ * by itself.
+ */
+export function isServerSideFailure(command: string, text: string): boolean {
+	if (command === ERR_SASLABORTED) {
+		return true;
+	}
+
+	return command === ERR_SASLFAIL && /timed out|unavailable/i.test(text);
+}
 
 /** Base64 of the UTF-8 encoding of `str`, using only browser globals. */
 export function base64Encode(str: string): string {
@@ -194,6 +227,11 @@ export class SaslAuth {
 				done: true,
 				ok: false,
 				error: text || t("connect.saslReason.numeric", {code: msg.command}),
+				...(isServerSideFailure(msg.command, text)
+					? {retryable: true}
+					: msg.command === ERR_SASLFAIL
+					? {unexplained: true}
+					: {}),
 			};
 		}
 

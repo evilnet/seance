@@ -12,6 +12,7 @@
  * (`inbox:drop`), which keeps mentions across reloads.
  */
 
+import {t} from "../../i18n/core";
 import type {Channel} from "../channel";
 import type {Handler} from "../types";
 
@@ -20,7 +21,10 @@ const redact: Handler = (client, msg) => {
 	const [target = "", msgid = "", reason] = msg.params;
 	const time = client.timeOf(msg);
 	const replaying = client.replaying;
-	const chan: Channel | undefined = replaying ? client.replayTarget : client.findChannel(target);
+	// A private REDACT names us as its target; the conversation is the sender's.
+	const chan: Channel | undefined = replaying
+		? client.replayTarget
+		: client.findChannel(client.isSelf(target) ? nick : target);
 
 	if (!msgid) {
 		return;
@@ -53,7 +57,10 @@ const redact: Handler = (client, msg) => {
 			} else if (!replaying) {
 				client.pushMessage(chan, {
 					time,
-					text: `${nick} deleted a message${reason ? ` (${reason})` : ""}`,
+					// The nick and the reason are the server's words, verbatim.
+					text: reason
+						? t("msg.redactedUnloadedReason", {nick, reason})
+						: t("msg.redactedUnloaded", {nick}),
 				});
 			}
 		});

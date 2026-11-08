@@ -178,6 +178,9 @@ function connect(opts: {account?: boolean; metadata?: boolean} = {}) {
 	const req = transport.sent.find((l) => l.startsWith("CAP REQ :")) as string;
 	transport.line(`:irc.test CAP alice ACK :${req.slice("CAP REQ :".length)}`);
 	transport.line(":irc.test 001 alice :Welcome");
+	transport.line(
+		":irc.test 004 alice irc.test u2.10.12.14+Nefarious(2.0.0) iow bklmnopstv bklov"
+	);
 
 	if (opts.account !== false) {
 		transport.line(":irc.test 900 alice alice!a@h alice :You are now logged in as alice");
@@ -207,6 +210,9 @@ function reconnect(h: ReturnType<typeof connect>): void {
 	const req = h.transport.sent.slice(from).find((l) => l.startsWith("CAP REQ :")) as string;
 	h.transport.line(`:irc.test CAP alice ACK :${req.slice("CAP REQ :".length)}`);
 	h.transport.line(":irc.test 001 alice :Welcome");
+	h.transport.line(
+		":irc.test 004 alice irc.test u2.10.12.14+Nefarious(2.0.0) iow bklmnopstv bklov"
+	);
 	h.transport.line(":irc.test 900 alice alice!a@h alice :You are now logged in as alice");
 	h.transport.line(":irc.test 422 alice :MOTD File is missing");
 }

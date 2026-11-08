@@ -1166,10 +1166,15 @@ export default defineComponent({
 				});
 			}
 
-			const bytes = cached.reduce(
-				(sum, view) => sum + (view.ref.copies[device]?.sizeBytes ?? 0),
-				0
+			// Pairs that share a repo share its download (models.ts
+			// `sharedPairId`): counted once.
+			const downloads = new Map(
+				cached.map((view) => [
+					view.ref.copies[device]?.source ?? view.ref.id,
+					view.ref.copies[device]?.sizeBytes ?? 0,
+				])
 			);
+			const bytes = [...downloads.values()].reduce((sum, n) => sum + n, 0);
 
 			return tCount("translate.settings.opusDownloaded", cached.length, {size: size(bytes)});
 		};
@@ -1212,9 +1217,18 @@ export default defineComponent({
 			});
 		};
 
+		// Once per download: removing one pair of a shared repo removes the
+		// files every pair on it reads.
 		const removeOpus = (device: Device) => {
+			const sources = new Set<string>();
+
 			for (const view of opusCached(device)) {
-				remove(view);
+				const source = view.ref.copies[device]?.source ?? view.ref.id;
+
+				if (!sources.has(source)) {
+					sources.add(source);
+					remove(view);
+				}
 			}
 		};
 

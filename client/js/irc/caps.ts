@@ -55,8 +55,9 @@ export interface CapResult {
  * still registers. `draft/persistence` only buys the `PERSISTENCE STATUS`
  * line at registration (see persistence.ts). `draft/multiline` is only
  * requested when its CAP 302 value parses (the `accept` hook in client.ts,
- * see multiline.ts), `draft/webpush` likewise needs a `vapid=` value — a
- * server without its VAPID key cannot send pushes (see webpush.ts and
+ * see multiline.ts); `draft/webpush` is requested bare too, its key read
+ * from the `vapid=` value (nefarious2) or the `VAPID` 005 token (the spec),
+ * and without either nothing subscribes (see webpush.ts and
  * docs/projects/push-subscription.md) — and `draft/metadata-2` carries the
  * account settings push needs (payload tier, the push mute list (do not
  * disturb)), and
@@ -113,16 +114,20 @@ export const WEBPUSH_CAP = "draft/webpush";
 
 /**
  * The VAPID public key a `draft/webpush` CAP 302 value advertises
- * (`vapid=<url-safe base64>`), undefined when the value does not carry one —
- * nefarious2 lists the cap bare until its key is available, and without a
- * key it could never send a push, so the client must not subscribe.
+ * (`vapid=<url-safe base64>`, nefarious2's), undefined when the value does
+ * not carry one: then the key can only come from the `VAPID` 005 token, and
+ * without a key the server could never send a push, so nothing subscribes.
  */
 export function webpushVapidOf(value: string): string | undefined {
-	if (!value.startsWith("vapid=")) {
+	// Comma-separated `key=value` tokens, as other cap values; RFC 4648 §5
+	// allows `=` padding, which is dropped so one key always reads the same.
+	const token = value.split(",").find((part) => part.startsWith("vapid="));
+
+	if (token === undefined) {
 		return undefined;
 	}
 
-	const key = value.slice("vapid=".length);
+	const key = token.slice("vapid=".length).replace(/=+$/, "");
 
 	// URL-safe base64 of a 65-byte uncompressed P-256 point is 86-88 chars;
 	// accept anything non-empty over 32 so a key-format change upstream does
@@ -179,6 +184,12 @@ export class CapNegotiator {
 	private readonly outstanding = new Set<string>();
 	private lsComplete = false;
 	private ended = false;
+	/**
+	 * Called when `CAP END` is held back for the `sasl` ACK (pipelineEnd):
+	 * the caller's deadline for a server that never answers.
+	 */
+	onHold?: () => void;
+
 	/** `beforeEnd` took over; waiting for `end()`. */
 	private pendingEnd = false;
 	/** Set when a required cap is missing at LS time; negotiation halts. */
@@ -331,14 +342,21 @@ export class CapNegotiator {
 	/**
 	 * Pipelining: the server answers a REQ before it reads our next line, so
 	 * waiting for the ACK before sending what follows only costs a round
-	 * trip. Right after the REQ we send the SASL opener when `beforeEnd`
-	 * wants one (by the time AUTHENTICATE is read, the ACK has been
-	 * processed; a NAK of `sasl` is handled by the caller aborting SASL),
-	 * otherwise `CAP END` itself. ACK/NAK replies are still processed as
+	 * trip. Right after the REQ we send `CAP END` (or the SASL failure
+	 * `beforeEnd` reports when the server offers no `sasl`). The SASL opener
+	 * is the exception: sasl-3.1 says the client MUST enable `sasl` before
+	 * using AUTHENTICATE, and a NAKed REQ makes the server drop an opener
+	 * pipelined behind it, so while `sasl` is being requested `beforeEnd`
+	 * waits for the replies (maybeEnd). ACK/NAK replies are processed as
 	 * they arrive; a NAK re-requests caps one at a time (see onNak).
 	 */
 	private pipelineEnd(result: CapResult): void {
 		if (this.ended || this.pendingEnd || this.failed) {
+			return;
+		}
+
+		if (this.beforeEnd && this.outstanding.has("sasl")) {
+			this.onHold?.();
 			return;
 		}
 

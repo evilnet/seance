@@ -1175,6 +1175,94 @@ describe("IrcClient", function () {
 			expect(h.client.state).to.equal("disconnected");
 		});
 
+		it("tears down at once on a connect right after disconnect()", function () {
+			// The close event of the socket disconnect() closed comes later,
+			// and a redial makes the real transport ignore it: the teardown
+			// must not wait for it.
+			const h = setup();
+			joined(h);
+			h.transport.line(":alice!alice@host JOIN #kept");
+			h.client.disconnect("bye");
+			h.client.connect();
+
+			expect(h.transport.connectCalls).to.equal(2);
+			expect(h.client.state).to.equal("connecting");
+			expect(h.client.findChannel("#seance")!.state).to.equal(ChanState.PARTED);
+			expect(h.client.findChannel("#seance")!.users.size).to.equal(0);
+			expect(messages(1).filter((m) => m.text === "Disconnected.")).to.have.length(1);
+
+			h.transport.open();
+			h.transport.line(`:irc.test CAP * LS :${OFFERED_CAPS}`);
+			const req = h.transport.sent.filter((l) => l.startsWith("CAP REQ :")).pop() as string;
+			h.transport.line(`:irc.test CAP alice ACK :${req.slice("CAP REQ :".length)}`);
+			h.sentAfter();
+			h.transport.lines(":irc.test 001 alice :Welcome back", ":irc.test 422 alice :No MOTD");
+
+			const joins = h.sentAfter().filter((l) => l.startsWith("JOIN "));
+			expect(joins).to.have.length(1);
+			expect(joins[0].split(" ")[1].split(",")).to.have.members(["#seance", "#kept"]);
+			expect(payloads("init")).to.have.length(2);
+		});
+
+		it("tears down at once when new settings swap the transport right after disconnect()", function () {
+			const made: FakeTransport[] = [];
+			const h = setup({
+				transportFactory() {
+					const t = new FakeTransport();
+					made.push(t);
+					return t;
+				},
+			});
+			h.transport = made[0];
+			joined(h);
+			h.client.disconnect();
+			h.client.applySettings({
+				host: "irc.test",
+				port: 7000,
+				tls: true,
+				nick: "alice",
+				join: "#seance",
+				sasl: "",
+				saslAccount: "",
+				saslPassword: "",
+			});
+
+			expect(made).to.have.length(2);
+			expect(h.client.state).to.equal("disconnected");
+			expect(h.client.findChannel("#seance")!.state).to.equal(ChanState.PARTED);
+			expect(messages(1).filter((m) => m.text === "Disconnected.")).to.have.length(1);
+			expect(payloads("network:status").slice(-1)[0]).to.include({
+				connected: false,
+				connecting: false,
+			});
+
+			// The old transport's late close is not ours any more.
+			made[0].closed(1000);
+			expect(messages(1).filter((m) => m.text === "Disconnected.")).to.have.length(1);
+		});
+
+		it("still tears down on connect after disconnect() was called twice", function () {
+			const h = setup();
+			joined(h);
+			h.client.disconnect();
+			h.client.disconnect();
+			h.client.connect();
+
+			expect(h.client.findChannel("#seance")!.state).to.equal(ChanState.PARTED);
+			expect(messages(1).filter((m) => m.text === "Disconnected.")).to.have.length(1);
+		});
+
+		it("does not tear down twice when the close event came before the connect", function () {
+			const h = setup();
+			joined(h);
+			h.client.disconnect();
+			h.transport.closed(1000);
+			h.client.connect();
+
+			expect(messages(1).filter((m) => m.text === "Disconnected.")).to.have.length(1);
+			expect(h.transport.connectCalls).to.equal(2);
+		});
+
 		it("dispatches `quit` for /quit", function () {
 			const h = setup();
 			joined(h);

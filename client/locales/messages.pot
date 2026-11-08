@@ -1232,6 +1232,12 @@ msgctxt "connect.saslToggle"
 msgid "I have a services account (SASL)"
 msgstr ""
 
+#. Follow-up to a failed SASL login that has worked on this network before: the login is kept and the next connect tries it again.
+#: client/js/irc/client.ts
+msgctxt "connect.saslTrustedGaveUpHint"
+msgid "This login has worked here before, so it is kept: connecting again tries it once more. If the password has changed, update it in this network's settings."
+msgstr ""
+
 #. The IRC server section of the connect form: heading above the server fields, and the label of the server host field.
 #: client/components/Windows/Connect.vue:124
 #: client/components/Windows/Connect.vue:132
@@ -4131,6 +4137,18 @@ msgstr ""
 #: client/js/irc/handlers/whois.ts
 msgctxt "msg.noSuchNick"
 msgid "No such nick: {nick}"
+msgstr ""
+
+#. Line in a conversation when someone deletes (redacts) a message that this device never loaded, so there is nothing to hide. {nick} is the user who deleted it, verbatim.
+#: client/js/irc/handlers/redact.ts
+msgctxt "msg.redactedUnloaded"
+msgid "{nick} deleted a message"
+msgstr ""
+
+#. Line in a conversation when someone deletes (redacts) a message that this device never loaded, with the reason they gave. {nick} is the user who deleted it and {reason} their reason, both verbatim — never translate their content.
+#: client/js/irc/handlers/redact.ts
+msgctxt "msg.redactedUnloadedReason"
+msgid "{nick} deleted a message ({reason})"
 msgstr ""
 
 #. Line in the server window after the server reports the IRC operator's server notice mask (snomask): {value} is the number, {hex} the same in hexadecimal. 'snomask' jargon.
@@ -15016,6 +15034,13 @@ msgstr ""
 #: client/components/Settings/Translation.vue
 msgctxt "translate.model.loadingPercent"
 msgid "Loading… {percent}%"
+msgstr ""
+
+#. The name of a translation model in Settings → Translation: a language-pair model the network supplies in place of an OPUS-MT pair. {name} is the network's own name for the model, never translated; {from} and {to} are language names.
+#: client/js/helpers/modelLabel.ts
+#: client/js/helpers/translateWhy.ts
+msgctxt "translate.model.namedPair"
+msgid "{name} {from} → {to}"
 msgstr ""
 
 #. Reason a GPU translation model cannot load here: {needed} is the model's largest piece, {limit} what this device's graphics processor can bind in one buffer; both are sizes such as "186 MiB" (binary units, kept as they are). Shown under the model's row in Settings → Translation (its Download button greyed out) and, after a lead sentence such as 'Correcting a message needs the language model.', wherever an action needing that model is unavailable.

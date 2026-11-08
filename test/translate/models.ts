@@ -8,6 +8,7 @@ import {
 	QWEN3_1_7B_ID,
 	QWEN3_4B_ID,
 	buildCatalog,
+	sharedPairId,
 	defaultLlmForAdapter,
 	cacheStates,
 	candidateOf,
@@ -54,6 +55,59 @@ describe("translate/models", () => {
 		expect(catalog.opus["fi-en"].id).to.equal("mirror/opus-fi-en");
 		expect(catalog.opus["fi-en"].pair).to.deep.equal(["fi", "en"]);
 		expect(catalog.opus["de-en"].id).to.equal("Xenova/opus-mt-de-en");
+	});
+
+	it("a deploy's pair can carry a target token and its own size", () => {
+		const catalog = buildCatalog({
+			cpu: {
+				opus: {
+					"en-pt": {model: "mirror/mt-en-pt", token: ">>por<<", sizeBytes: 26_000_000},
+					"pt-en": {model: "mirror/mt-pt-en", token: ">>eng<<"},
+				},
+			},
+		});
+
+		expect(catalog.opus["en-pt"]).to.deep.include({
+			id: sharedPairId("mirror/mt-en-pt", "en-pt"),
+			family: "opus",
+			pair: ["en", "pt"],
+			token: ">>por<<",
+		});
+		expect(catalog.opus["en-pt"].copies.cpu).to.include({
+			source: "mirror/mt-en-pt",
+			sizeBytes: 26_000_000,
+		});
+		expect(catalog.opus["pt-en"].token).to.equal(">>eng<<");
+		expect(catalog.opus["pt-en"].copies.cpu?.sizeBytes).to.equal(113_000_000);
+		expect(catalog.opus["de-en"]).to.not.have.property("token");
+		// A pair given as an object is the repo and the pair, whether or not
+		// another pair names its repo; a bare repo is its own id.
+		expect(catalog.opus["en-pt"].id).to.equal(sharedPairId("mirror/mt-en-pt", "en-pt"));
+		expect(catalog.opus["de-en"].id).to.equal("Xenova/opus-mt-de-en");
+	});
+
+	it("pairs on one repo get an id each, the repo their copies' source, and a name", () => {
+		const catalog = buildCatalog({
+			cpu: {
+				opus: {
+					"en-pt": {model: "mirror/mt-pt", token: ">>por<<", name: "AfterNET MT"},
+					"pt-en": {model: "mirror/mt-pt", token: ">>eng<<", name: "AfterNET MT"},
+				},
+			},
+		});
+		const [there, back] = [catalog.opus["en-pt"], catalog.opus["pt-en"]];
+
+		expect(there.id).to.equal(sharedPairId("mirror/mt-pt", "en-pt"));
+		expect(back.id).to.equal(sharedPairId("mirror/mt-pt", "pt-en"));
+		expect(there.copies.cpu?.source).to.equal("mirror/mt-pt");
+		expect(back.copies.cpu?.source).to.equal("mirror/mt-pt");
+		expect(there.label).to.deep.equal({
+			kind: "opus",
+			from: "en",
+			to: "pt",
+			name: "AfterNET MT",
+		});
+		expect(catalog.opus["de-en"].label).to.not.have.property("name");
 	});
 
 	it("lists each model's copies by device", () => {

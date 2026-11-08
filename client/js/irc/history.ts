@@ -153,12 +153,15 @@ function canRequest(client: IrcClient, chan: Channel): boolean {
 	);
 }
 
+/** Whether the server takes `msgid=` references (MSGREFTYPES; unlisted means any). */
+export function takesMsgidRefs(client: IrcClient): boolean {
+	const types = client.isupport.tokens.get("MSGREFTYPES");
+	return types === undefined || types.split(",").includes("msgid");
+}
+
 /** `msgid=…` when we have one and the server takes it, else `timestamp=<ISO 8601>`. */
 export function formatRef(client: IrcClient, ref: MsgRef): string {
-	const types = client.isupport.tokens.get("MSGREFTYPES");
-	const msgidOk = types === undefined || types.split(",").includes("msgid");
-
-	if (ref.msgid && msgidOk) {
+	if (ref.msgid && takesMsgidRefs(client)) {
 		return `msgid=${ref.msgid}`;
 	}
 
@@ -544,7 +547,6 @@ function resolve(
 
 	const {messages, after} =
 		lines && lines.length > 0 ? replay(client, chan, lines) : {messages: [], after: []};
-	const fullPage = lines !== null && lines.length >= request.limit;
 
 	if (request.mode === "append") {
 		// The spec's loop: this page reached what we already hold when it
@@ -656,7 +658,8 @@ function resolve(
 		chan.historyFilled = true;
 	}
 
-	const more = outcome === "timeout" || (lines !== null && lines.length > 0 && !end) || fullPage;
+	// The end tag closes it even after a full page (draft/chathistory-end).
+	const more = outcome === "timeout" || (lines !== null && lines.length > 0 && !end);
 	deliverPrepend(client, chan, messages, more);
 	runAfter(after);
 }
