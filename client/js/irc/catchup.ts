@@ -544,7 +544,8 @@ function sendTargets(client: IrcClient, state: TargetsState): void {
 	// From the start: the server's index moves on messages only (not joins,
 	// parts, topics, redactions), so the newest line we hold can be well past
 	// a quiet channel's newest message, and a window starting there would
-	// leave it out. Newest first, so a long history costs nothing extra.
+	// leave it out. The limit counts from the first bound, so the newer one
+	// goes first: the newest `limit` targets, as in the spec's example.
 	const since = new Date(0);
 	const until = new Date(Date.now() + TARGETS_AHEAD_MS);
 	const tags: Record<string, string> = {};
@@ -559,8 +560,8 @@ function sendTargets(client: IrcClient, state: TargetsState): void {
 		command: "CHATHISTORY",
 		params: [
 			"TARGETS",
-			`timestamp=${since.toISOString()}`,
 			`timestamp=${until.toISOString()}`,
+			`timestamp=${since.toISOString()}`,
 			String(historyLimit(client, TARGETS_LIMIT)),
 		],
 	});

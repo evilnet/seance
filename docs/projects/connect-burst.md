@@ -200,7 +200,7 @@ The background catch-up used to go in JOIN order, so the channel that had
 been written to waited behind every quiet one, and a reconnect fetched every
 channel whether anything had happened in it or not. Now the first channel
 to need the background queue on a connection asks one
-`CHATHISTORY TARGETS timestamp=<from> timestamp=<a day past now> <limit>`
+`CHATHISTORY TARGETS timestamp=<a day past now> timestamp=<from> <limit>`
 (at the front of the queue) and the catch-up of every other channel is
 parked until it answers (`catchup.ts`):
 
@@ -210,8 +210,10 @@ parked until it answers (`catchup.ts`):
   now because nefarious2 drops a target whose newest message is later than
   it (`filter_targets_window`), and a server clock ahead of ours would lose
   exactly the channel just written to. The limit is 100 (capped by ISUPPORT
-  `CHATHISTORY`). nefarious2 lists the channels we may read history of:
-  those we are a member of, and `+H` (public history) channels without
+  `CHATHISTORY`). The newer bound goes first: TARGETS takes BETWEEN's
+  semantics, the limit counting from the first argument, so oldest first
+  would get the oldest `limit` from a server that follows the spec (#216).
+  nefarious2 lists the channels we may read history of: those we are a member of, and `+H` (public history) channels without
   membership (`check_history_access`). So it is asked once the JOINs are
   in, newest first; a listed `+H` channel we are not in is simply not
   among the parked ones.
