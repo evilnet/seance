@@ -37,4 +37,5 @@ export const nefarious: ServerProfile = {
 	statsReport,
 	checkReport,
 	operFeatures: ["CONNEXIT_NOTICES", "SNOMASK_OPERDEFAULT"],
+	privateMetadata: true,
 };

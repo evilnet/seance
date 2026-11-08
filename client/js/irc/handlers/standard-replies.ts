@@ -238,11 +238,18 @@ function reply(kind: "FAIL" | "WARN" | "NOTE"): Handler {
 			return; // a refused / unknown catch-up cursor: nothing for the user
 		}
 
-		if (kind === "FAIL" && command.toUpperCase() === "METADATA" && isOwnMetadataKey(rest[0])) {
+		if (
+			kind === "FAIL" &&
+			command.toUpperCase() === "METADATA" &&
+			rest.slice(0, -1).some((param) => isOwnMetadataKey(param))
+		) {
 			// A key this client keeps by itself (the push mute, the shared
 			// presence): a server with draft/metadata-2 that does not take the
 			// name refuses every SUB and GET on each connect. Nothing the user
-			// asked for, and nothing written follows a read that failed.
+			// asked for, and nothing written follows a read that failed. The
+			// key is the first context parameter (KEY_INVALID, TOO_MANY_SUBS)
+			// or follows the target (KEY_NO_PERMISSION, KEY_NOT_SET,
+			// RATE_LIMITED); the last parameter is the description.
 			return;
 		}
 

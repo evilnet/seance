@@ -34,6 +34,10 @@ describe("Web Push subscription (draft/webpush)", function () {
 			expect(webpushVapidOf(`vapid=${VAPID}`)).to.equal(VAPID);
 		});
 
+		it("finds the key among other tokens and drops its = padding", function () {
+			expect(webpushVapidOf(`foo=1,vapid=${VAPID}==`)).to.equal(VAPID);
+		});
+
 		it("rejects values without a usable vapid key", function () {
 			expect(webpushVapidOf("")).to.be.undefined;
 			expect(webpushVapidOf("bogus=1")).to.be.undefined;
@@ -57,12 +61,12 @@ describe("Web Push subscription (draft/webpush)", function () {
 			expect(sent).to.include("draft/webpush");
 		});
 
-		it("does not request draft/webpush without a VAPID value", function () {
+		it("requests a bare draft/webpush too: the spec sends the key in 005 once it is on", function () {
 			const h = setup();
 			register(h, `${ALL_CAPS} draft/webpush`);
 
 			const sent = h.transport.sent.find((l) => l.startsWith("CAP REQ :"));
-			expect(sent).to.not.include("draft/webpush");
+			expect(sent).to.include("draft/webpush");
 		});
 	});
 
@@ -94,18 +98,14 @@ describe("Web Push subscription (draft/webpush)", function () {
 			expect(payloads[0].vapid).to.be.undefined;
 		});
 
-		it("falls back to the VAPID ISUPPORT token when the cap carries no value", function () {
-			// The cap cannot be enabled without its value, so this network has
-			// push "unavailable" from the negotiator's point of view — but a
-			// later 005 VAPID token (CAP NEW after services hand the key out)
-			// must still surface through isupport.
+		it("announces the VAPID ISUPPORT key of a server that lists the cap bare (the spec)", function () {
 			const h = setup();
-			register(h, ALL_CAPS);
-			h.transport.line(
-				":irc.test 005 alice VAPID=BLB6-4OioBPa__W4w93qeXLpdHYwSr8xONZjy_ :are supported by this server"
-			);
+			register(h, `${ALL_CAPS} draft/webpush`, [
+				`:irc.test 005 alice VAPID=${VAPID}= :are supported by this server`,
+			]);
 
-			expect(h.client.isupport.vapid).to.equal("BLB6-4OioBPa__W4w93qeXLpdHYwSr8xONZjy_");
+			const payloads = h.payloads<{vapid: string | undefined}>("webpush:available");
+			expect(payloads.map((p) => p.vapid)).to.deep.equal([VAPID]);
 		});
 	});
 
@@ -129,6 +129,35 @@ describe("Web Push subscription (draft/webpush)", function () {
 			});
 
 			expect(h.sent()).to.deep.equal(["METADATA * SET draft/webpush/payload private :full"]);
+		});
+	});
+
+	describe("our metadata keys on a server without private keys (the spec)", function () {
+		it("writes none of our private keys to a server that cannot keep them private", function () {
+			const h = setup();
+			register(h, `${ALL_CAPS} draft/webpush`, [], "someircd-1");
+			expect(h.client.metadataSetLine("draft/webpush/payload", "full")).to.equal(undefined);
+			expect(h.client.metadataSetLine("draft/webpush/payload", "")).to.equal(
+				"METADATA * SET draft/webpush/payload"
+			);
+		});
+
+		it("writes private until this connection's 004 has named the server", function () {
+			const h = setup();
+			register(h, `${ALL_CAPS} draft/webpush`, [], "someircd-1");
+			h.transport.closed();
+			h.client.connect();
+			h.transport.open(); // a new connection: no 004 yet
+			expect(h.client.metadataSetLine("seance/mode", "away 1")).to.equal(
+				"METADATA * SET seance/mode private :away 1"
+			);
+		});
+
+		it("does not rewrite a payload tier the server reports with its own visibility", function () {
+			const h = setup();
+			register(h, `${ALL_CAPS} draft/metadata-2`, [], "someircd-1");
+			h.transport.line(":irc.test 761 alice alice draft/webpush/payload * :full");
+			expect(h.sent()).to.deep.equal([]);
 		});
 	});
 

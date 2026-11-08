@@ -236,6 +236,11 @@ export const EDIT_TIMEOUT_MS = 5000;
 /** Trailing throttle on writing the catch-up cursor to localStorage. */
 export const CURSOR_SAVE_INTERVAL_MS = 1000;
 
+/** `METADATA * SET <key> private :` (nefarious2's private write), the value follows. */
+function metadataSetPrefix(key: string): string {
+	return `METADATA * SET ${key} private :`;
+}
+
 export interface IrcClientOptions extends ConnectOptions {
 	/** Stable network id; derived from host/port/nick when omitted. */
 	uuid?: string;
@@ -647,6 +652,30 @@ export class IrcClient {
 	/** The ircd family this server belongs to (profiles/): what the oper tools speak. */
 	get profile(): ServerProfile {
 		return detectProfile(this.serverVersion, this.isupport);
+	}
+
+	/**
+	 * The line that writes one of our own metadata keys (`value` empty
+	 * deletes it), or undefined when it must not be written. Every key we
+	 * keep (closed queries, presence, the push mute and payload tier) is
+	 * for the account's own sessions only, and only nefarious2 lets a
+	 * client say so ({@link ServerProfile.privateMetadata}): draft/metadata-2
+	 * leaves visibility to the server, and a public key is listed in
+	 * everyone's WHOIS of us. So on any other server they are not written.
+	 * Until this connection's 004 has named the server family (a write right
+	 * behind 001), the write is private: on a server without the parameter
+	 * that stores a junk value, which leaks nothing.
+	 */
+	metadataSetLine(key: string, value: string): string | undefined {
+		if (!value) {
+			return `METADATA * SET ${key}`;
+		}
+
+		if (this.serverVersion !== undefined && !this.profile.privateMetadata) {
+			return undefined;
+		}
+
+		return `${metadataSetPrefix(key)}${value}`;
 	}
 
 	/** True between our own QUIT/disconnect and the transport closing. */
@@ -1084,6 +1113,7 @@ export class IrcClient {
 		this.offlineNoted = false;
 		this.connected = false;
 		this.welcomed = false;
+		this.serverVersion = undefined; // this connection's 004 says again
 		this.fakeLag.stop();
 		this.retryAt = undefined;
 		this.retryReason = undefined;
@@ -1236,12 +1266,6 @@ export class IrcClient {
 		const accept = (name: string, value: string): boolean => {
 			if (name === MULTILINE_CAP) {
 				return parseMultilineValue(value) !== undefined;
-			}
-
-			if (name === WEBPUSH_CAP) {
-				// Without a VAPID key the server could never send a push, so
-				// subscribing would be pointless (webpush.ts).
-				return webpushVapidOf(value) !== undefined;
 			}
 
 			if (name === "sasl") {
@@ -1689,16 +1713,22 @@ export class IrcClient {
 
 	/**
 	 * The VAPID public key this server advertises for Web Push, when the
-	 * `draft/webpush` capability is enabled: the cap 302 value is the primary
-	 * source, the `VAPID` ISUPPORT token the fallback. Undefined when the
-	 * network cannot push (cap missing or no key).
+	 * `draft/webpush` capability is enabled: the `VAPID` ISUPPORT token the
+	 * spec has the server send once the cap is on, or nefarious2's cap 302
+	 * value (`vapid=<key>`). The cap is requested bare too, as the spec has
+	 * it offered; undefined when the network cannot push (cap missing or no
+	 * key), and nothing subscribes then.
 	 */
 	webpushVapid(): string | undefined {
 		if (!this.caps.hasCapability(WEBPUSH_CAP)) {
 			return undefined;
 		}
 
-		return webpushVapidOf(this.caps.value(WEBPUSH_CAP) ?? "") ?? this.isupport.vapid;
+		return (
+			webpushVapidOf(this.caps.value(WEBPUSH_CAP) ?? "") ??
+			// The same checks and normal form for the 005 token.
+			webpushVapidOf(`vapid=${this.isupport.vapid ?? ""}`)
+		);
 	}
 
 	/**
@@ -3043,14 +3073,18 @@ export class IrcClient {
 
 		// What the server keeps, and what fits one line after the command
 		// (MAX_LINE_BYTES): a server allowing more must not get an unsendable line.
-		const prefix = `METADATA * SET ${CLOSED_KEY} private :`;
+		const prefix = metadataSetPrefix(CLOSED_KEY);
 		const room = MAX_LINE_BYTES - new TextEncoder().encode(prefix).length;
 		const value = encodeClosed(
 			this.closed.entries(),
 			Math.min(this.metadataMaxValueBytes(), room),
 			Date.now()
 		);
-		this.send(value ? `${prefix}${value}` : `METADATA * SET ${CLOSED_KEY}`);
+		const line = this.metadataSetLine(CLOSED_KEY, value);
+
+		if (line) {
+			this.send(line);
+		}
 	}
 
 	/**

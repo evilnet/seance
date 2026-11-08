@@ -304,6 +304,11 @@ describe("shared presence on the wire (irc/presenceShare.ts)", function () {
 				h.transport.line(`:irc.test FAIL METADATA KEY_INVALID ${key} :Invalid key`);
 			}
 
+			// The spec's shapes with the target first.
+			h.transport.line(`:irc.test FAIL METADATA KEY_NO_PERMISSION * ${PRESENCE_KEY} :Denied`);
+			h.transport.line(`:irc.test FAIL METADATA KEY_NOT_SET * ${MODE_KEY} :Not set`);
+			h.transport.line(`:irc.test FAIL METADATA RATE_LIMITED * ${MODE_KEY} 5 :Slow down`);
+
 			expect(h.messages().filter((m) => /METADATA/.test(m.text ?? ""))).to.deep.equal([]);
 			h.transport.line(":irc.test FAIL METADATA KEY_INVALID user/avatar :Invalid key");
 			expect(h.messages().filter((m) => /METADATA/.test(m.text ?? ""))).to.have.length(1);
