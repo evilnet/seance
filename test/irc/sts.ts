@@ -278,6 +278,9 @@ describe("STS", function () {
 			expect(h.lobbyTexts()).to.include(
 				"Server requires a secure connection (STS): reconnecting on port 8443…"
 			);
+			// The insecure socket is torn down now (its close event is not ours
+			// any more) and quietly: the line above said why.
+			expect(h.lobbyTexts()).to.not.include("Disconnected.");
 			// Nothing is cached from an insecure connection.
 			expect(sts.getPolicy("irc.example.org")).to.equal(undefined);
 

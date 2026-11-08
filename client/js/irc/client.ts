@@ -481,6 +481,14 @@ export class IrcClient {
 	private readonly ids: IdAllocator;
 	private url: string;
 	private unsubscribeTransport: () => void = () => undefined;
+	/**
+	 * {@link disconnect} closed a live socket and its close event, which the
+	 * transport delivers later, has not come yet. A connect or a transport
+	 * swap before then would lose that event (a redial makes the transport
+	 * ignore the old socket; a swap unsubscribes from it), and the teardown
+	 * in {@link onClose} with it: see {@link settleClose}.
+	 */
+	private closeUnreported = false;
 	/** One insecure → secure reconnect per connection; reset when the transport closes. */
 	private stsUpgradeTried = false;
 	/** Settings edited while connected (`network:edit`); applied on the next connect. */
@@ -761,6 +769,7 @@ export class IrcClient {
 			return;
 		}
 
+		this.settleClose(); // before quitting is reset: it was our QUIT
 		this.applyPendingOptions();
 		this.applyStsPolicy();
 		this.quitting = false;
@@ -792,6 +801,10 @@ export class IrcClient {
 			const text = (reason ?? "Seance").replace(/[\r\n\0]+/g, " ");
 			const [fits = ""] = splitMessage(utf8ByteLength("QUIT :"), text);
 			this.send(trailingLine("QUIT", [fits]));
+		}
+
+		if (state === "open" || state === "connecting") {
+			this.closeUnreported = true; // a second call must not clear it: the event is still due
 		}
 
 		this.transport.close();
@@ -900,6 +913,7 @@ export class IrcClient {
 
 	/** Switch to `next` (port/tls) with a fresh transport; the old one is left to close. */
 	private reconfigure(next: IrcClientOptions): void {
+		this.settleClose(); // the old transport's close event will not reach us
 		this.unsubscribeTransport();
 		this.options = {...next};
 		this.url = buildUrl(next.host, next.port, next.tls);
@@ -954,6 +968,7 @@ export class IrcClient {
 
 		this.stsUpgradeTried = true;
 		this.pushMessage(this.lobby, {text: t("connect.stsReconnect", {port: value.port})}, true);
+		this.closeExplained = true; // the line above says why
 		this.disconnect("STS upgrade");
 		this.reconfigure({...this.options, tls: true, port: value.port});
 		this.connect();
@@ -1357,7 +1372,19 @@ export class IrcClient {
 		this.sasl = null;
 	}
 
+	/**
+	 * Run the teardown of a socket {@link disconnect} closed now, instead of
+	 * when its close event comes: the caller is about to redial or swap the
+	 * transport, after which that event never arrives.
+	 */
+	private settleClose(): void {
+		if (this.closeUnreported) {
+			this.onClose(1000, "", false);
+		}
+	}
+
 	private onClose(code: number, reason: string, willReconnect: boolean, delayMs?: number): void {
+		this.closeUnreported = false;
 		const phase = this._state;
 		const wasUp = phase !== "disconnected";
 		this._state = "disconnected";
@@ -1457,11 +1484,11 @@ export class IrcClient {
 		const quiet = this.offlineNoted && isOffline();
 
 		if (wasUp && !quiet) {
-			if (this.quitting) {
-				this.pushMessage(this.lobby, {text: t("connect.disconnected")}, true);
-			} else if (this.closeExplained) {
+			if (this.closeExplained) {
 				// We dropped the socket ourselves and said why just before.
 				this.closeExplained = false;
+			} else if (this.quitting) {
+				this.pushMessage(this.lobby, {text: t("connect.disconnected")}, true);
 			} else {
 				const report = describeClose({
 					url: this.url,
