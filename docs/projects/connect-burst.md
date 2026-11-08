@@ -213,10 +213,11 @@ parked until it answers (`catchup.ts`):
   `CHATHISTORY`). The newer bound goes first: TARGETS takes BETWEEN's
   semantics, the limit counting from the first argument, so oldest first
   would get the oldest `limit` from a server that follows the spec (#216).
-  nefarious2 lists the channels we may read history of: those we are a member of, and `+H` (public history) channels without
-  membership (`check_history_access`). So it is asked once the JOINs are
-  in, newest first; a listed `+H` channel we are not in is simply not
-  among the parked ones.
+  nefarious2 lists the channels we may read history of: those we are a
+  member of, and `+H` (public history) channels without membership
+  (`check_history_access`). So it is asked once the JOINs are in, newest
+  first; a listed `+H` channel we are not in is simply not among the
+  parked ones.
 - The answer (`draft/chathistory-targets` batch, labelled; a batch without
   our label is somebody's typed query and is left alone) orders the parked
   channels: written to since what we hold, newest first; then the ones the
