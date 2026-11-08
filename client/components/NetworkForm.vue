@@ -17,7 +17,7 @@
 			<!--
 				Only what `ConnectOptions` (client/js/irc/types.ts) and the saved
 				network store support is offered. Dropped from TheLounge's form:
-				server password, "only allow trusted certificates", SOCKS proxy,
+				"only allow trusted certificates", SOCKS proxy,
 				username / real name / leave message, SASL EXTERNAL (client
 				certificates) and the STS lock — none of them apply to a browser
 				WebSocket connection, or they wait on later phases (STS: D.6).
@@ -221,20 +221,60 @@
 						/>
 					</RevealPassword>
 				</div>
-				<div class="connect-row">
-					<label></label>
-					<div class="input-wrap">
-						<label class="tls">
-							<input
-								v-model="defaults.rememberPassword"
-								v-switch
-								type="checkbox"
-								name="rememberPassword"
-							/>
-							{{ t("form.rememberPassword") }}
-						</label>
-					</div>
+			</template>
+
+			<!-- PASS before registration: bouncers without client SASL (ZNC). -->
+			<div class="connect-row">
+				<label></label>
+				<div class="input-wrap">
+					<label class="tls">
+						<input
+							v-model="defaults.hasServerPassword"
+							v-switch
+							type="checkbox"
+							name="hasServerPassword"
+						/>
+						{{ t("form.serverPasswordToggle") }}
+						<span
+							class="tooltipped tooltipped-n tooltipped-no-delay"
+							:aria-label="serverPasswordHelp"
+						>
+							<button class="extra-help" type="button" />
+						</span>
+					</label>
 				</div>
+			</div>
+			<div v-if="defaults.hasServerPassword" class="connect-row">
+				<label for="connect:serverPassword">{{ t("form.serverPassword") }}</label>
+				<RevealPassword v-slot:default="slotProps" class="input-wrap password-container">
+					<input
+						id="connect:serverPassword"
+						v-model="defaults.serverPassword"
+						dir="auto"
+						class="input"
+						:type="slotProps.isVisible ? 'text' : 'password'"
+						name="serverPassword"
+						maxlength="300"
+						autocomplete="off"
+						:placeholder="serverPasswordWasSet ? passwordPlaceholder : undefined"
+					/>
+				</RevealPassword>
+			</div>
+			<div v-if="defaults.sasl === 'plain' || defaults.hasServerPassword" class="connect-row">
+				<label></label>
+				<div class="input-wrap">
+					<label class="tls">
+						<input
+							v-model="defaults.rememberPassword"
+							v-switch
+							type="checkbox"
+							name="rememberPassword"
+						/>
+						{{ t("form.rememberPassword") }}
+					</label>
+				</div>
+			</div>
+			<template v-if="defaults.sasl === 'plain'">
 				<!-- A desktop shell takes no push (webpush.ts pushBackend). -->
 				<div v-if="!desktopShell" class="connect-row">
 					<label></label>
@@ -582,6 +622,9 @@ export default defineComponent({
 		const commandsHelp = computed(() => t("form.commandsHelp").replace(/\s*\n\s*/g, " "));
 		const passwordPlaceholder = computed(() => t("form.passwordPlaceholder"));
 		const pushHelp = computed(() => t("form.pushHelp"));
+		const serverPasswordHelp = computed(() => t("form.serverPasswordHelp"));
+		// The form opened on a configured one: blank keeps it (saved-networks fromForm).
+		const serverPasswordWasSet = !!props.defaults.hasServerPassword;
 		const browserNotificationsHelp = computed(() => t("form.browserNotificationsHelp"));
 		const store = useStore();
 		const commandsInput = ref<HTMLTextAreaElement | null>(null);
@@ -922,6 +965,8 @@ export default defineComponent({
 			commandsHelp,
 			passwordPlaceholder,
 			pushHelp,
+			serverPasswordHelp,
+			serverPasswordWasSet,
 			browserNotificationsHelp,
 			presenceMode,
 			presenceHint,

@@ -55,6 +55,12 @@ export type ConnectOptions = {
 	saslAccount: string;
 	saslPassword: string;
 	/**
+	 * Server password, sent as `PASS` before `NICK`/`USER` when non-empty.
+	 * Bouncers that predate client SASL want it (ZNC: `user/network:password`);
+	 * independent of SASL, and both are sent when both are set.
+	 */
+	serverPassword?: string;
+	/**
 	 * Drop the connection when a configured SASL login does not succeed,
 	 * instead of carrying on unauthenticated. Unset means "ask the deploy":
 	 * `config.json`'s `features.saslDisconnectOnFail`, which defaults to

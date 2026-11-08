@@ -16,7 +16,8 @@
  *    names some other host → refuse it, with a message;
  *  - anything else → the connect form, pre-filled, for the user to approve.
  *
- * Secrets never ride along: a URL cannot supply `saslPassword`, and
+ * Secrets never ride along: a URL cannot supply `saslPassword` or
+ * `serverPassword` (the allow-list below), and
  * `autoconnect` is not honoured from URLs at all — the user must click.
  *
  * Kept free of Vue/store/DOM imports so mocha covers it

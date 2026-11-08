@@ -302,6 +302,8 @@ export interface IrcClientOptions extends ConnectOptions {
 	 * way back to the connect screen to fix them.
 	 */
 	onSaslRejected?: () => void;
+	/** The server password was missing or refused (464 before 001): same effect. */
+	onServerPasswordRejected?: () => void;
 }
 
 /** What to try after a SASL login the deploy insists on did not happen. */
@@ -932,6 +934,8 @@ export class IrcClient {
 			sasl: next.sasl,
 			saslAccount: next.saslAccount,
 			saslPassword: next.saslPassword,
+			// Undefined: configured but not kept on disk, so keep the one in memory.
+			serverPassword: next.serverPassword ?? this.options.serverPassword,
 		};
 		const state = this.transport.state;
 
@@ -1240,6 +1244,11 @@ export class IrcClient {
 			this.send(line);
 		}
 
+		// Before NICK/USER, as registration requires; trailing, so spaces survive.
+		if (this.options.serverPassword) {
+			this.send(trailingLine("PASS", [this.options.serverPassword]));
+		}
+
 		this.send(formatLine({command: "NICK", params: [this.nick]}));
 		this.send(trailingLine("USER", [this.ident, "0", "*", this.options.realname || this.nick]));
 	}
@@ -1379,6 +1388,40 @@ export class IrcClient {
 
 		this.disconnect("SASL authentication failed");
 		return true;
+	}
+
+	/**
+	 * 464 before 001: the server (often a bouncer: ZNC answers a client with
+	 * no PASS this way, then waits) wants a server password, or refused the
+	 * one sent. Every connection would get the same answer, so this one
+	 * stops, says why, and the entry stops connecting by itself. After 001 a
+	 * 464 is an ordinary error (OPER with the wrong password).
+	 */
+	serverPasswordFailed(): void {
+		if (this.welcomed || this.isQuitting) {
+			return;
+		}
+
+		const host = this.options.host;
+		const sent = !!this.options.serverPassword;
+		this.pushMessage(
+			this.lobby,
+			{
+				type: MessageType.ERROR,
+				text: sent
+					? t("connect.serverPasswordRefused", {host})
+					: t("connect.serverPasswordNeeded", {host}),
+			},
+			true
+		);
+		this.pushMessage(this.lobby, {text: t("connect.serverPasswordHint")}, true);
+		this.closeExplained = true;
+		this.bus.dispatch("network:aborted", {
+			network: this.uuid,
+			reason: sent ? "server password refused" : "server password required",
+		});
+		this.options.onServerPasswordRejected?.();
+		this.disconnect(sent ? "Server password refused" : "Server password required");
 	}
 
 	/** Whether a SASL failure of this kind is worth another connection (see saslFailed). */
