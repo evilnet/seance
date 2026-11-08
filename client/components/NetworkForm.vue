@@ -81,6 +81,20 @@
 					/>
 				</div>
 			</div>
+			<div v-if="canUseTcp" class="connect-row">
+				<label for="connect:transport">{{ t("connect.connection") }}</label>
+				<div class="input-wrap">
+					<select
+						id="connect:transport"
+						v-model="connection"
+						class="input"
+						name="transport"
+					>
+						<option value="websocket">{{ t("connect.connection.websocket") }}</option>
+						<option value="tcp">{{ t("connect.connection.tcp") }}</option>
+					</select>
+				</div>
+			</div>
 			<div class="connect-row">
 				<label></label>
 				<div class="input-wrap">
@@ -486,6 +500,7 @@ import {
 	watch,
 } from "vue";
 import {
+	defaultPort,
 	displayName,
 	parseCommands,
 	presenceModeOf,
@@ -499,7 +514,7 @@ import {describeServiceCheck} from "../js/irc/services";
 import {servicesCheck} from "../js/helpers/operRequest";
 import {isOperOn} from "../js/helpers/operMenu";
 import {askNativeAlertPermission, nativeAlertsAvailable} from "../js/helpers/nativeAlerts";
-import {isDesktopShell} from "../js/helpers/shell";
+import {isDesktopShell, isShell} from "../js/helpers/shell";
 import {useStore} from "../js/store";
 import webpush from "../js/webpush";
 import {useI18n} from "../js/i18n";
@@ -806,6 +821,14 @@ export default defineComponent({
 		watch(
 			() => props.defaults.tls,
 			(isSecureChecked) => {
+				if (props.defaults.transport === "tcp") {
+					if (props.defaults.port === defaultPort(!isSecureChecked, "tcp")) {
+						props.defaults.port = defaultPort(isSecureChecked, "tcp");
+					}
+
+					return;
+				}
+
 				const ports = [8067, 8443];
 				const newPort = isSecureChecked ? 1 : 0;
 
@@ -814,6 +837,23 @@ export default defineComponent({
 				}
 			}
 		);
+
+		// IRC over TCP: only the app shell can open a raw socket.
+		const canUseTcp = isShell();
+		const connection = computed({
+			get: () => (props.defaults.transport === "tcp" ? "tcp" : "websocket"),
+			set(value: string) {
+				const tcp = value === "tcp";
+				const tls = props.defaults.tls;
+				const from = tcp ? (tls ? 8443 : 8067) : defaultPort(tls, "tcp");
+
+				if (props.defaults.port === from) {
+					props.defaults.port = tcp ? defaultPort(tls, "tcp") : tls ? 8443 : 8067;
+				}
+
+				props.defaults.transport = tcp ? "tcp" : "websocket";
+			},
+		});
 
 		const formData = (): SavedNetwork => {
 			const data: SavedNetwork = {
@@ -887,6 +927,8 @@ export default defineComponent({
 			presenceHint,
 			pushInfo,
 			desktopShell: isDesktopShell(),
+			canUseTcp,
+			connection,
 			renewPush,
 			onNotifyToggle,
 			SERVICES_PROFILES,

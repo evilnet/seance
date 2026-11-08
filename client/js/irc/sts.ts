@@ -50,6 +50,16 @@ export function policyHost(host: string): string {
 	return hostnameOf(host).toLowerCase();
 }
 
+/**
+ * The host name STS policies are stored under for a connection: the host for
+ * WebSocket, `tcp:host` for IRC over TCP — the two reach one server on
+ * different secure ports, so a policy learned on one says nothing about the
+ * other's port.
+ */
+export function stsHost(opts: Pick<ConnectOptions, "host" | "transport">): string {
+	return opts.transport === "tcp" ? `tcp:${hostnameOf(opts.host)}` : opts.host;
+}
+
 /** Parse `port=6697,duration=300,preload`; unknown keys ignored, bad numbers dropped. */
 export function parseStsValue(value: string): StsValue {
 	const result: StsValue = {preload: false};
@@ -250,7 +260,7 @@ export function upgradeOptions<T extends ConnectOptions>(opts: T, now: number = 
 		return opts;
 	}
 
-	const policy = getPolicy(opts.host, now);
+	const policy = getPolicy(stsHost(opts), now);
 
 	if (!policy) {
 		return opts;

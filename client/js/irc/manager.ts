@@ -30,6 +30,7 @@ import * as saved from "./saved-networks";
 import type {SavedNetwork} from "./saved-networks";
 import type {ConnectOptions} from "./types";
 import type {GlobalModeState} from "../helpers/dnd";
+import {shellBridge} from "../helpers/shell";
 
 /** The global do-not-disturb as client/js/dnd.ts last set it; new clients start with it. */
 const globalDnd: {active: boolean; until: number | null} = {active: false, until: null};
@@ -73,18 +74,10 @@ function allNetworks() {
 function rememberNetwork(options: CreateNetworkOptions): SavedNetwork {
 	const uuid =
 		options.uuid ||
-		saved.findMatching(options.host, options.port, options.nick)?.uuid ||
+		saved.findMatching(options.host, options.port, options.nick, options.transport)?.uuid ||
 		saved.newUuid();
 	const existing = saved.get(uuid);
-	const merged: Record<string, unknown> = {...(existing ?? {}), uuid};
-
-	for (const [key, value] of Object.entries(options)) {
-		if (value !== undefined) {
-			merged[key] = value;
-		}
-	}
-
-	const entry = saved.normalize(merged);
+	const entry = saved.normalize(saved.mergeOptions(existing, uuid, options));
 
 	if (!entry) {
 		throw new Error("createNetwork: missing uuid");
@@ -110,6 +103,8 @@ export function createNetwork(options: CreateNetworkOptions): IrcClient {
 		client = new IrcClient({
 			...saved.toConnectOptions(entry),
 			uuid: entry.uuid,
+			// The app shell's raw sockets, for a network set to IRC over TCP.
+			socketBridge: shellBridge() ?? undefined,
 			highlights: highlightKeywords,
 			networksForInit: allNetworks,
 			setMuteStatus,

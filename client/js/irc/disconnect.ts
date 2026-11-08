@@ -83,6 +83,16 @@ export function describeClose(ctx: CloseContext): CloseReport {
 		const text = retrying
 			? t("disconnect.couldNotConnect", vars)
 			: t("disconnect.couldNotConnectNotReconnecting", vars);
+		// IRC over TCP (the app shell): no browser rules apply, and an
+		// untrusted certificate is not the user's to accept in a tab.
+		if (ctx.url.startsWith("ircs:")) {
+			return {text, hint: t("disconnect.hint.tcpTlsCauses")};
+		}
+
+		if (ctx.url.startsWith("irc:")) {
+			return {text, hint: t("disconnect.hint.tcpPlainCauses")};
+		}
+
 		const secure = ctx.url.startsWith("wss:");
 
 		if (!secure && ctx.pageProtocol === "https:") {

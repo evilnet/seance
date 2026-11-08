@@ -39,7 +39,14 @@ fn main() {
         println!("cargo:rerun-if-changed=swift/");
     }
 
-    tauri_build::build()
+    // The page may call `seance_call` alone, and only from the windows
+    // capabilities/default.json names: without a list, Tauri lets every
+    // window call every registered command.
+    tauri_build::try_build(
+        tauri_build::Attributes::new()
+            .app_manifest(tauri_build::AppManifest::new().commands(&["seance_call"])),
+    )
+    .expect("tauri build")
 }
 
 /// Tauri's Swift API without its build products and tests.

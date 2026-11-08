@@ -1012,6 +1012,25 @@ msgctxt "connect.connectingToAttempt"
 msgid "Connecting to {host}:{port}… (attempt {attempt})"
 msgstr ""
 
+#. Label of the select choosing how the app reaches the IRC server: over WebSocket or over a raw TCP connection. Shown only in the app.
+#: client/components/Windows/Connect.vue
+#: client/components/NetworkForm.vue
+msgctxt "connect.connection"
+msgid "Connection"
+msgstr ""
+
+#. Option of the Connection select: a classic IRC connection over raw TCP, ports 6667 or 6697. Only the app can make it.
+#: client/components/Windows/Connect.vue
+msgctxt "connect.connection.tcp"
+msgid "IRC over TCP"
+msgstr ""
+
+#. Option of the Connection select: IRC carried over a WebSocket, what browsers use.
+#: client/components/Windows/Connect.vue
+msgctxt "connect.connection.websocket"
+msgid "WebSocket"
+msgstr ""
+
 #. Lobby status line when the user's own /quit closed the connection on purpose.
 #: client/js/irc/client.ts
 msgctxt "connect.disconnected"
@@ -1293,6 +1312,12 @@ msgctxt "connect.submit"
 msgid "Connect"
 msgstr ""
 
+#. Lobby error when a network set to IRC over TCP is opened in a web browser, which cannot open raw TCP connections.
+#: client/js/irc/client.ts
+msgctxt "connect.tcpNeedsApp"
+msgid "IRC over TCP works only in the app. A browser can connect over WebSocket only."
+msgstr ""
+
 #. Heading of the connect form (features.signIn off).
 #: client/js/branding.ts
 msgctxt "connect.title"
@@ -1447,6 +1472,18 @@ msgstr ""
 #: client/js/irc/disconnect.ts
 msgctxt "disconnect.hint.sessionConflict"
 msgid "This account is already connected on this network - another tab, window or device is using it. Close that client; this tab then connects on its next retry (a dead connection is reclaimed within about a minute)."
+msgstr ""
+
+#. Hint after a plain (no TLS) raw TCP connection failed to open, in the app.
+#: client/js/irc/disconnect.ts
+msgctxt "disconnect.hint.tcpPlainCauses"
+msgid "Likely causes: the server is down, the port is wrong, or something on the network blocks the connection."
+msgstr ""
+
+#. Hint after a TLS connection over raw TCP (not WebSocket) failed to open, in the app.
+#: client/js/irc/disconnect.ts
+msgctxt "disconnect.hint.tcpTlsCauses"
+msgid "Likely causes: the server is down, the port is wrong, or its certificate is not trusted. A server with a self-signed certificate can only be reached without TLS for now."
 msgstr ""
 
 #. Follow-up hint under a failed secure (wss://) dial. {url} is the network's address with https: in place of wss:, for accepting a self-signed certificate once.
