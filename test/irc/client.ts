@@ -181,10 +181,18 @@ function lastMessage(chanId?: number): SharedMsg {
 }
 
 /** Drive the fake server through CAP / 001 / 005 / MOTD end. */
-function register(h: Harness, {echo = true, motd = "422"}: {echo?: boolean; motd?: string} = {}) {
+function register(
+	h: Harness,
+	{echo = true, motd = "422", tags = true}: {echo?: boolean; motd?: string; tags?: boolean} = {}
+) {
 	h.client.connect();
 	h.transport.open();
-	const offered = echo ? OFFERED_CAPS : OFFERED_CAPS.replace("echo-message ", "");
+	let offered = echo ? OFFERED_CAPS : OFFERED_CAPS.replace("echo-message ", "");
+
+	if (!tags) {
+		offered = offered.replace(" message-tags", "");
+	}
+
 	h.transport.line(`:irc.test CAP * LS :${offered}`);
 	const req = h.transport.sent.find((l) => l.startsWith("CAP REQ :"));
 	expect(req, "CAP REQ sent").to.be.a("string");
@@ -1376,6 +1384,16 @@ describe("IrcClient", function () {
 			expect(payloads("part")).to.deep.equal([{chan: query.id}, {chan: id}]);
 		});
 
+		it("sends a reply plainly when the server has no message-tags", function () {
+			const h = setup();
+			register(h, {tags: false});
+			h.client.sendMessage("#seance", "hi", {
+				tags: {"+draft/reply": "BjAAAaBjrep9"},
+				firstTags: {"+seance/edit": "BjAAAaBjold1"},
+			});
+			expect(h.sentAfter()).to.deep.equal(["@label=s1 PRIVMSG #seance :hi"]);
+		});
+
 		it("opens a query window with /query", function () {
 			const h = setup();
 			const id = joined(h);
@@ -1443,7 +1461,7 @@ describe("IrcClient", function () {
 				replyTo: "BjAAAaBjrep9",
 			});
 			expect(h.transport.sent[h.transport.sent.length - 1]).to.equal(
-				"@+draft/reply=BjAAAaBjrep9;label=s2 PRIVMSG #seance :from a notification"
+				"@+reply=BjAAAaBjrep9;+draft/reply=BjAAAaBjrep9;label=s2 PRIVMSG #seance :from a notification"
 			);
 
 			socket.emit("network:get", h.client.uuid);

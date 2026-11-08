@@ -200,7 +200,7 @@ function passOn(client: IrcClient, batch: OpenBatch, lines: IrcMessage[]): void 
 
 /**
  * A closed `draft/multiline` batch: one synthetic `PRIVMSG`/`NOTICE` with the
- * joined text, carrying the opener's tags (msgid, time, `+draft/reply`,
+ * joined text, carrying the opener's tags (msgid, time, `+reply`,
  * `+seance/edit`, …) and the first line's source, run through the ordinary
  * handlers so CTCP, highlights, replies and edits all see the whole message.
  * A malformed batch falls back to its lines, one by one, as an unhandled

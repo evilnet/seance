@@ -10,6 +10,7 @@ import sinon from "sinon";
 import socket from "../../client/js/socket";
 import {PENDING_TIMEOUT_MS} from "../../client/js/irc/pending";
 import {batchCooldownMs} from "../../client/js/irc/multiline";
+import {replyTags} from "../../client/js/irc/wire";
 import {MessageType, SharedMsg} from "../../shared/types/msg";
 import {ALL_CAPS, Harness, joined, setup, stubStorage} from "./support";
 
@@ -168,10 +169,10 @@ describe("Pending outgoing messages (irc/pending.ts)", function () {
 		it("carries the reply reference and the action type", function () {
 			const h = setup();
 			const id = joined(h);
-			h.client.sendMessage("#seance", "waves", {action: true, tags: {"+draft/reply": "m0"}});
+			h.client.sendMessage("#seance", "waves", {action: true, tags: replyTags("m0")});
 
 			expect(h.sent()).to.deep.equal([
-				"@+draft/reply=m0;label=s1 PRIVMSG #seance :\x01ACTION waves\x01",
+				"@+reply=m0;+draft/reply=m0;label=s1 PRIVMSG #seance :\x01ACTION waves\x01",
 			]);
 			const copy = h.lastMessage(id);
 			expect(copy.pending).to.equal(true);

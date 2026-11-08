@@ -161,10 +161,7 @@ function openLabeledBatch(client: IrcClient): OpenBatch | undefined {
 	let found: OpenBatch | undefined;
 
 	for (const batch of openBatchesOf(client).values()) {
-		if (
-			batch.type.toLowerCase() === "labeled-response" &&
-			byLabel(client, batch.tags.get("label"))
-		) {
+		if (batch.type === "labeled-response" && byLabel(client, batch.tags.get("label"))) {
 			found = batch;
 		}
 	}
