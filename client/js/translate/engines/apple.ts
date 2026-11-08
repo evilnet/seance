@@ -16,9 +16,14 @@
 // A pair is taken when its pack is installed (`status`). A pair whose pack
 // can be downloaded is offered once (`offer`): the system's own sheet, the
 // first time a translation needs it, as the page asks before downloading a
-// model of its own (consent.ts). Declined, or the pair unsupported, the
-// router falls through to the route table, so a missing pack never blocks a
-// translation. Settings asks about a pack directly (`prepare`).
+// model of its own (consent.ts). One sheet at a time: a channel opened with
+// lines in several languages queues one offer per pair, and every one the
+// shell is handed is a sheet the user has to close, so they wait their turn
+// and are dropped once the switch goes off or a sheet is declined, which
+// holds every other offer back for the page load as consent.ts's "not now"
+// does. Declined, or the pair unsupported, the router falls through to the
+// route table, so a missing pack never blocks a translation. Settings asks
+// about a pack directly (`prepare`).
 //
 // Vue-free and DOM-free behind `AppleDeps`, so mocha drives it with a fake
 // bridge (test/translate/apple.ts).
@@ -63,6 +68,10 @@ export class AppleTranslator {
 	private offered = new Set<string>();
 	/** Accepted and still downloading: their status is asked afresh until it is `installed`. */
 	private pending = new Set<string>();
+	/** The sheet up now, or the last one: the next offer waits for it. */
+	private sheet: Promise<unknown> = Promise.resolve();
+	/** A sheet was declined: no other is offered on this page load. */
+	private declined = false;
 	private deps: AppleDeps;
 	private options: AppleOptions;
 
@@ -175,11 +184,14 @@ export class AppleTranslator {
 	/**
 	 * The pair's pack offered in the system's sheet, once per page load:
 	 * true when it is installed afterwards. Every request for the pair while
-	 * the sheet is up waits on the one answer. Declined (closed, or failed),
-	 * the pair is not offered again until the next load; accepted, its
-	 * status is asked afresh until the background download lands.
+	 * the sheet is up waits on the one answer, and another pair's offer
+	 * waits for the sheet to close. `allowed` is asked just before the sheet
+	 * would open (the user's switch, which may have gone off while the offer
+	 * waited). Declined (closed, or failed), no pair is offered again until
+	 * the next load; accepted, the pair's status is asked afresh until the
+	 * background download lands.
 	 */
-	offer(from: string, to: string): Promise<boolean> {
+	offer(from: string, to: string, allowed: () => boolean = () => true): Promise<boolean> {
 		const key = this.key(from, to);
 		const open = this.offers.get(key);
 
@@ -187,30 +199,46 @@ export class AppleTranslator {
 			return open;
 		}
 
-		if (this.offered.has(key)) {
+		if (this.declined || this.offered.has(key)) {
 			return Promise.resolve(false);
 		}
 
 		this.offered.add(key);
 
-		const answer = this.prepare(from, to)
-			.then(
-				(result) => {
-					if (result.status === "installed") {
-						return true;
-					}
-
-					if (!result.error) {
-						this.pending.add(key);
-					}
+		const answer = this.sheet
+			.then(() => {
+				if (this.declined || !allowed()) {
+					// Not shown, so not asked: a later request may offer it.
+					this.offered.delete(key);
 
 					return false;
-				},
-				() => false
-			)
+				}
+
+				return this.prepare(from, to).then(
+					(result) => {
+						if (result.status === "installed") {
+							return true;
+						}
+
+						if (result.error) {
+							this.declined = true;
+						} else {
+							this.pending.add(key);
+						}
+
+						return false;
+					},
+					() => {
+						this.declined = true;
+
+						return false;
+					}
+				);
+			})
 			.finally(() => this.offers.delete(key));
 
 		this.offers.set(key, answer);
+		this.sheet = answer;
 
 		return answer;
 	}
