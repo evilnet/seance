@@ -127,8 +127,8 @@ export interface QueueItem {
 	/**
 	 * Routing only (`TranslateRequest.hint`, never the prompt): a seq2seq
 	 * route takes it as its source when `from` is null, so a line whose
-	 * source the prompt must not name -- a weak verdict (detect.ts
-	 * `sourceFor`) -- can still be routed on a CPU-only device. Left out, the
+	 * source the prompt does not name -- a forced line in the reading language,
+	 * routed by the channel's prior (detect.ts `sourceFor`) -- can still be routed on a CPU-only device. Left out, the
 	 * item's `context.sourceHint` is the hint, as it was before the two were
 	 * told apart.
 	 */

@@ -8,7 +8,11 @@
     // Vuex 4's `exports` has no `types` condition, so `bundler` cannot find
     // its types and the store silently becomes `any`. Not in the base: tsx
     // reads the root tsconfig's `paths` and would load this .d.ts at runtime.
-    "paths": {"vuex": ["../node_modules/vuex/types/index.d.ts"]},
+    // fasttext.wasm.js ships a .d.ts tsc rejects; fasttext.d.ts is its stand-in.
+    "paths": {
+      "vuex": ["../node_modules/vuex/types/index.d.ts"],
+      "fasttext.wasm.js/common": ["./fasttext.d.ts"]
+    },
     // For Volar in editors; tsc checks no .vue files.
     "jsx": "preserve"
   }

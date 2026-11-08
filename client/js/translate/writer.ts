@@ -315,6 +315,10 @@ export async function translateOutgoing(
 		// No channel prior and no declared languages: both describe what
 		// others write here, and this is the user's own line.
 		// A source the one-off dialog named is the verdict, no detection run.
+		// The one picked with the channel's target (`writeFrom`) is the
+		// source too, but detection still runs, so a reply typed straight in
+		// the target language is sent as typed.
+		const namedFrom = once ? once.from : channelTranslation(network, channel).writeFrom;
 		const detection: Detection = once?.from
 			? {lang: once.from, confidence: 1, candidates: []}
 			: await detectLanguage(plainTextOf(draft, nicks), null, []);
@@ -356,17 +360,44 @@ export async function translateOutgoing(
 		// the engine to guess at; a one-off with "detect" and no verdict is
 		// left to the engine, since the line may well be a foreign one
 		// pasted in to be translated.
-		const guessed = once?.from ?? writeSource(detection, readingLanguage(), to);
-		const polish =
-			inTarget || (ownLanguage && !once && guessed === null) || (!!once && once.from === to);
-		const from = polish ? to : guessed;
+		const guessed = namedFrom ?? writeSource(detection, readingLanguage(), to);
+		const polish = inTarget || (ownLanguage && !once && guessed === null) || namedFrom === to;
+		let from = polish ? to : guessed;
 		// The detector's verdict, however weak, rides along as the routing
 		// hint: a seq2seq route takes it as its source, so a draft whose
 		// source is left to the LLM can still reach NLLB (router.ts). It is
 		// not the prompt's `sourceHint`: the LLM is not told a guess the
 		// code judged too weak to trust.
+		let route = await service.route(from, to, sourceHintFor(detection, from, to));
+
+		// A detected source nothing here can translate from ("Heck yeah it
+		// is" placed as Afrikaans, with only English pairs on the device)
+		// is far likelier a short draft misplaced than a language the user
+		// writes in: the reading language, when it has a route, wins over
+		// a failure. A source the user named is never second-guessed.
+		const reading = readingLanguage();
+
+		if (
+			!route &&
+			!polish &&
+			!namedFrom &&
+			from !== null &&
+			from !== reading &&
+			reading !== to
+		) {
+			const fallback = await service.route(reading, to, reading);
+
+			if (fallback) {
+				from = reading;
+				route = fallback;
+			}
+		}
+
+		if (!current(channel, draft, controller)) {
+			return "strip";
+		}
+
 		const hint = sourceHintFor(detection, from, to);
-		const route = await service.route(from, to, hint);
 		// Nothing of the channel travels with a polish (the prompt profiles
 		// say why): the register is all it keeps.
 		const polishContext = emptyContext();

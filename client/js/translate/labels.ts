@@ -38,3 +38,28 @@ export function directionText(
 
 	return `${guesses.map(nameOf).join(" / ")} → ${target}`;
 }
+
+/**
+ * The source half of `directionText`, for the line's quiet "from French"
+ * chip: the target is always the reading language, so naming it on every
+ * line says nothing. The same contenders stand in for an unplaced source;
+ * none at all is "?".
+ */
+export function sourceText(
+	from: string,
+	to: string,
+	candidates: readonly string[],
+	nameOf: (code: string) => string
+): string {
+	if (from) {
+		return nameOf(from);
+	}
+
+	const guesses = candidates.filter((code) => code !== to).slice(0, GUESS_NAMES);
+
+	if (guesses.length === 0) {
+		return "?";
+	}
+
+	return guesses.length === 1 ? `${nameOf(guesses[0])}?` : guesses.map(nameOf).join(" / ");
+}

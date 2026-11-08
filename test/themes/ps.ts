@@ -413,7 +413,7 @@ const SOLID_SURFACES = [
 	".settings-modal",
 	"#connect",
 	"#context-menu",
-	".mentions-popup",
+	".header-popover",
 	".textcomplete-menu",
 	".reaction-picker",
 	".reaction-picker-heading",

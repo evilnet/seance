@@ -30,11 +30,11 @@ export const CPU_WRITE_TIMEOUT_MS = 6 * 60 * 1000;
 export const TERM_MAX_WORDS = 3;
 export const TERM_MAX_CHARS = 40;
 /**
- * How sure the detector must be (its best guess's lead over the runner-up,
+ * How sure the detector must be (fastText's probability for the verdict,
  * `detect.ts` `Detection.confidence`) before the composer trusts it over the
- * user's reading language: three times the reading side's `DETECT_MIN_GAP`
- * (0.1), because a wrong source here sends the draft to the LLM in the
- * wrong language rather than just skipping a translation.
+ * user's reading language: the reading side's `AGREE_MIN`, because a wrong
+ * source here sends the draft to the LLM in the wrong language rather than
+ * just skipping a translation.
  */
 export const WRITE_DETECT_MIN_GAP = 0.3;
 export const TIMED_OUT = "timed out";
