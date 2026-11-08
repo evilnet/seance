@@ -297,7 +297,8 @@ export class Seq2seqEngine implements Engine {
 				if (parts.length > 1 && !/\p{L}/u.test(parts[n])) {
 					done.push(parts[n].trim());
 				} else {
-					const result = await this.run(pipe, parts[n], options, req.model);
+					const source = req.token ? `${req.token} ${parts[n]}` : parts[n];
+					const result = await this.run(pipe, source, options, req.model);
 
 					done.push((result[0]?.translation_text ?? "").trim());
 				}

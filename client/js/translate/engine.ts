@@ -115,6 +115,13 @@ export interface ModelRef {
 	/** OPUS-MT pair models: [from, to] in ISO 639-1. */
 	pair?: [string, string];
 	/**
+	 * The target-language token a multilingual Marian model reads in front
+	 * of its source (`>>por<<`): a deploy's pair model that can translate
+	 * into several languages (`translation.cpu.opus`, branding.md). The
+	 * service sets it on each request (`TranslateRequest.token`).
+	 */
+	token?: string;
+	/**
 	 * A GPU model's compiled WebLLM library, when the deploy named one
 	 * (`translation.llm.lib`): it belongs to that model alone, never to the
 	 * other GPU choices.
@@ -204,6 +211,12 @@ export interface TranslateRequest {
 	 */
 	hint?: string | null;
 	to: string;
+	/**
+	 * The route's target-language token (`ModelRef.token`), put in front of
+	 * the text by a seq2seq engine. The service's to set: a caller's is
+	 * replaced by the route's, or dropped.
+	 */
+	token?: string;
 	/**
 	 * `read` a line someone else wrote, `write` the user's draft, or
 	 * `polish` the user's draft in its own language: spelling, punctuation

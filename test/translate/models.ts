@@ -56,6 +56,31 @@ describe("translate/models", () => {
 		expect(catalog.opus["de-en"].id).to.equal("Xenova/opus-mt-de-en");
 	});
 
+	it("a deploy's pair can carry a target token and its own size", () => {
+		const catalog = buildCatalog({
+			cpu: {
+				opus: {
+					"en-pt": {model: "mirror/mt-en-pt", token: ">>por<<", sizeBytes: 26_000_000},
+					"pt-en": {model: "mirror/mt-pt-en", token: ">>eng<<"},
+				},
+			},
+		});
+
+		expect(catalog.opus["en-pt"]).to.deep.include({
+			id: "mirror/mt-en-pt",
+			family: "opus",
+			pair: ["en", "pt"],
+			token: ">>por<<",
+		});
+		expect(catalog.opus["en-pt"].copies.cpu).to.include({
+			source: "mirror/mt-en-pt",
+			sizeBytes: 26_000_000,
+		});
+		expect(catalog.opus["pt-en"].token).to.equal(">>eng<<");
+		expect(catalog.opus["pt-en"].copies.cpu?.sizeBytes).to.equal(113_000_000);
+		expect(catalog.opus["de-en"]).to.not.have.property("token");
+	});
+
 	it("lists each model's copies by device", () => {
 		const catalog = buildCatalog({seq2seqGpu: true});
 		const [small, large] = catalog.llmChoices;
