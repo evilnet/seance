@@ -734,6 +734,8 @@
   "msg.nickInUse": "‫ñïċķñàṁé ïś àľŕéàḋý ïñ üśé.ñïċķñàṁé ïś àľŕéàḋý ïñ üśé.‬",
   "msg.nickInvalid": "‫ñïċķñàṁé ïś ïñṽàľïḋ.ñïċķñàṁé ïś ïñṽàľïḋ.‬",
   "msg.noSuchNick": "‫ñö śüċḣ ñïċķ: {nick}ñö śüċḣ ñïċķ: {nick}‬",
+  "msg.redactedUnloaded": "‫{nick} ḋéľéţéḋ à ṁéśśàġé{nick} ḋéľéţéḋ à ṁéśśàġé‬",
+  "msg.redactedUnloadedReason": "‫{nick} ḋéľéţéḋ à ṁéśśàġé ){reason}({nick} ḋéľéţéḋ à ṁéśśàġé ){reason}(‬",
   "msg.snomask": "‫śéŕṽéŕ ñöţïċé ṁàśķ: {value} )0x́{hex}(śéŕṽéŕ ñöţïċé ṁàśķ: {value} )0x́{hex}(‬",
   "msg.topicChanged": "‫ḣàś ċḣàñġéḋ ţḣé ţöṗïċ ţö:ḣàś ċḣàñġéḋ ţḣé ţöṗïċ ţö:‬",
   "msg.topicFor": "‫ţöṗïċ ḟöŕ {channel}: {topic}ţöṗïċ ḟöŕ {channel}: {topic}‬",
