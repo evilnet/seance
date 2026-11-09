@@ -44,7 +44,13 @@ import {MessageType} from "../../shared/types/msg";
 import {takeTestSwitches} from "./translate/testSwitches";
 import {startIsolationMirror} from "./translate";
 // Also registers the IRC layer's bus handlers (input, names, more, network:*).
-import {allClients, autoconnectSavedNetworks, clientForNetwork, createNetwork} from "./irc/manager";
+import {
+	allClients,
+	autoconnectSavedNetworks,
+	clientForNetwork,
+	createNetwork,
+	endAutoconnectWait,
+} from "./irc/manager";
 
 declare global {
 	interface Window {
@@ -228,7 +234,9 @@ export async function boot(): Promise<void> {
 	if (handled) {
 		// The URL's web+irc:// link or connect parameters have been acted on:
 		// a saved network is connecting, or the connect form is pre-filled
-		// waiting for the user's approval.
+		// waiting for the user's approval. Until then the autoconnect
+		// networks are not connected, and the sidebar says so.
+		endAutoconnectWait();
 		return;
 	}
 

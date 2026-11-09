@@ -1,6 +1,6 @@
 <template>
 	<div
-		v-if="store.state.networks.length === 0"
+		v-if="store.state.networks.length === 0 && dormantNetworks.length === 0"
 		class="empty"
 		role="navigation"
 		:aria-label="listLabel"
@@ -139,6 +139,13 @@
 				</div>
 			</template>
 		</Draggable>
+		<div v-if="!searchText && dormantNetworks.length" class="dormant-networks">
+			<DormantNetwork
+				v-for="network in dormantNetworks"
+				:key="network.uuid"
+				:network="network"
+			/>
+		</div>
 	</div>
 </template>
 
@@ -212,6 +219,9 @@ import {filter as fuzzyFilter} from "fuzzy";
 import NetworkLobby from "./NetworkLobby.vue";
 import Channel from "./Channel.vue";
 import JoinChannel from "./JoinChannel.vue";
+import DormantNetwork from "./DormantNetwork.vue";
+import useSavedNetworks from "../js/hooks/use-saved-networks";
+import {autoconnectPending} from "../js/irc/manager";
 
 import {sortNetworks, sortChannels} from "../js/sort";
 import collapseNetworkHelper from "../js/helpers/collapseNetwork";
@@ -228,6 +238,7 @@ export default defineComponent({
 	name: "NetworkList",
 	components: {
 		JoinChannel,
+		DormantNetwork,
 		NetworkLobby,
 		Channel,
 		Draggable,
@@ -239,6 +250,17 @@ export default defineComponent({
 		const listLabel = computed(() => t("sidebar.networkList"));
 		const jumpToPlaceholder = computed(() => t("sidebar.jumpTo"));
 		const searchText = ref("");
+		// Saved networks this page has no client for (autoconnect off, a
+		// password to type, a /quit): greyed under the live ones, one tap
+		// to connect, so a network that did not dial by itself is still here.
+		// One boot is about to dial is not shown: its live row comes at once
+		// (the dials announce it in the same pass that ends the wait).
+		const savedNetworks = useSavedNetworks();
+		const dormantNetworks = computed(() =>
+			savedNetworks.value.filter(
+				(net) => !store.getters.findNetwork(net.uuid) && !autoconnectPending(net)
+			)
+		);
 		const activeSearchItem = ref<ClientChan | null>();
 		// Number of milliseconds a touch has to last to be considered long
 		const LONG_TOUCH_DURATION = 500;
@@ -554,6 +576,7 @@ export default defineComponent({
 			t,
 			listLabel,
 			jumpToPlaceholder,
+			dormantNetworks,
 			networklist,
 			searchInput,
 			searchText,

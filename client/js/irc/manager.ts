@@ -14,6 +14,7 @@
  */
 
 import {CLOSED_STORAGE_KEY, closedStorageChanged, onClosedSharingStopped} from "./closedQueries";
+import {ref} from "vue";
 import socket from "../socket";
 import {store} from "../store";
 import {parseKeywordList} from "../highlight";
@@ -178,6 +179,28 @@ export function createNetwork(options: CreateNetworkOptions): IrcClient {
  */
 let autoconnectDone = false;
 
+/**
+ * Until boot reaches autoconnect, an entry it is about to dial is not shown
+ * as a not-connected network in the sidebar (NetworkList.vue): its live row
+ * comes a moment later. Reactive, so the rows appear if boot stops short —
+ * a link waiting on the user's answer (`endAutoconnectWait`).
+ */
+const bootDialing = ref(true);
+
+/** Whether boot's autoconnect, not run yet, will dial this entry by itself. */
+export function autoconnectPending(entry: SavedNetwork): boolean {
+	return bootDialing.value && willAutoconnect(entry);
+}
+
+/** Boot will not autoconnect for now (it waits on the user). */
+export function endAutoconnectWait(): void {
+	bootDialing.value = false;
+}
+
+function willAutoconnect(entry: SavedNetwork): boolean {
+	return !!entry.autoconnect && !(entry.sasl === "plain" && !entry.saslPassword);
+}
+
 export function autoconnectSavedNetworks(): IrcClient[] {
 	if (autoconnectDone) {
 		return [];
@@ -189,17 +212,15 @@ export function autoconnectSavedNetworks(): IrcClient[] {
 	pruneUserAway([...saved.list().map((entry) => entry.uuid), ...clients.keys()]);
 
 	for (const entry of saved.list()) {
-		if (!entry.autoconnect || clients.has(entry.uuid)) {
-			continue;
-		}
-
-		if (entry.sasl === "plain" && !entry.saslPassword) {
+		if (!willAutoconnect(entry) || clients.has(entry.uuid)) {
 			continue;
 		}
 
 		started.push(createNetwork(entry));
 	}
 
+	// After the dials: their live rows are in the store by now.
+	endAutoconnectWait();
 	return started;
 }
 

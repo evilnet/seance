@@ -534,4 +534,35 @@ describe("saved-networks", function () {
 		expect(saved.get(net.uuid)?.presenceMode).to.equal(undefined);
 		expect(saved.presenceModeOf(saved.get(net.uuid))).to.equal("global");
 	});
+
+	it("tells change listeners about every write until they unsubscribe", function () {
+		let calls = 0;
+		const off = saved.onSavedNetworksChange(() => calls++);
+		const net = entry();
+
+		saved.save(net);
+		saved.touchLastUsed(net.uuid);
+		saved.remove(net.uuid);
+		expect(calls).to.equal(3);
+
+		saved.remove(net.uuid); // nothing to remove, nothing written
+		expect(calls).to.equal(3);
+
+		off();
+		saved.save(net);
+		expect(calls).to.equal(3);
+	});
+
+	it("does not tell change listeners about a cursor write", function () {
+		const net = entry();
+		saved.save(net);
+		let calls = 0;
+		const off = saved.onSavedNetworksChange(() => calls++);
+
+		saved.setCursor(net.uuid, {msgid: "a", time: 1});
+		off();
+
+		expect(calls).to.equal(0);
+		expect(saved.get(net.uuid)?.cursor).to.deep.equal({msgid: "a", time: 1});
+	});
 });
