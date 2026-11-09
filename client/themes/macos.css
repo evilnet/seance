@@ -154,12 +154,93 @@ html[data-platform="macos"] #sidebar {
 	min-height: 0.75rem;
 }
 
+/* In the Mac app the sidebar's top strip is a toolbar: the traffic lights on
+ * the left (style.css keeps the strip's height and the header beside them
+ * in step with them), the presence control on the right, nothing under
+ * either. The lights are AppKit's and stay on the left in a right-to-left
+ * page, hence the physical sides. */
+html[data-platform="macos"] #sidebar .logo-container {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	box-sizing: border-box;
+	height: var(--mac-titlebar-height);
+	padding: 0 10px 0 var(--mac-traffic-lights-end);
+}
+
+html[data-platform="macos"] #sidebar .presence-pill-row {
+	flex: 1 1 auto;
+	justify-content: flex-end;
+	min-width: 0;
+	margin: 0;
+}
+
+html[data-platform="macos"] #sidebar .presence-pill {
+	white-space: nowrap;
+}
+
+/* A search field: short, rounded, the glass on the leading side. */
+.jump-to-input {
+	margin: 0.25rem 0.625rem 0.75rem;
+}
+
+.jump-to-input .input {
+	height: 1.75rem;
+	padding-block: 0;
+	padding-inline: 1.75rem 0.5rem;
+	border-radius: 0.4375rem;
+	font-size: 0.8125rem;
+	box-shadow: none;
+}
+
+.jump-to-input::before {
+	inset-inline: 0.5625rem auto;
+	font-size: 0.75rem;
+	line-height: 1.75rem !important;
+}
+
+/* Row icons in the accent, as Mail's and Finder's sidebar symbols are. */
+.channel-list-item:not([data-type="lobby"])::before {
+	color: var(--mac-accent);
+}
+
+/* A network's tools are quiet until the pointer is on the network, as a
+ * source list's row actions are; the connection state keeps its colour
+ * while it says something is wrong. */
+.channel-list-item[data-type="lobby"] .lobby-tools > * {
+	opacity: 0.45;
+	transition: opacity 0.15s;
+}
+
+.channel-list-item[data-type="lobby"]
+	.lobby-tools
+	> :has(.connection-status-icon:not(.is-connected)),
+.channel-list-item[data-type="lobby"]:is(:hover, :focus-within, .active) .lobby-tools > * {
+	opacity: 1;
+}
+
+html[data-reduce-motion] .channel-list-item[data-type="lobby"] .lobby-tools > * {
+	transition: none;
+}
+
 .channel-list-item {
 	font-size: 0.8125rem;
 	padding-block: 0.3125rem;
 	padding-inline: 0.5rem;
 	margin-inline: 0.625rem;
 	border-radius: 0.375rem;
+}
+
+/* The close button fits the row rather than setting its height. */
+.channel-list-item .close {
+	width: 1rem;
+	height: 1rem;
+	margin-block: -0.125rem;
+}
+
+.channel-list-item .close::before {
+	font-size: 1rem;
+	line-height: 1rem;
 }
 
 .channel-list-item.active,
@@ -218,11 +299,6 @@ html[data-platform="macos"] #sidebar {
 	font-weight: 600;
 }
 
-.jump-to-input .input {
-	font-size: 0.8125rem;
-	border-radius: 0.375rem;
-}
-
 #footer {
 	font-size: 0.9375rem;
 }
@@ -242,6 +318,7 @@ html[data-platform="macos"] #sidebar {
 
 #form {
 	background: var(--chat-bg);
+	padding: 0.5rem 0.75rem;
 }
 
 #form:focus-within {
@@ -249,8 +326,18 @@ html[data-platform="macos"] #sidebar {
 	box-shadow: none;
 }
 
+/* The draft in a capsule, as Messages draws it: an outline set off from the
+ * text, so the field's height (ChatInput.vue measures it) is untouched. */
 #form #input {
 	caret-color: auto;
+	margin-inline: 0.75rem;
+	border-radius: 0.875rem;
+	outline: 1px solid var(--composer-border);
+	outline-offset: 0.3125rem;
+}
+
+#form #input:focus {
+	outline-color: color-mix(in srgb, var(--mac-accent) 60%, var(--composer-border));
 }
 
 .btn {
