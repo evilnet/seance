@@ -500,6 +500,7 @@
   "help.shortcuts.nextLobby": "Switch to the next lobby in the channel list.",
   "help.shortcuts.nextUnread": "Switch to the next window with unread messages in the channel list.",
   "help.shortcuts.nextWindow": "Switch to the next window in the channel list.",
+  "help.shortcuts.nthWindow": "Switch to that channel in the channel list: 1 is the first channel, 9 the ninth. Networks are not counted.",
   "help.shortcuts.prevLobby": "Switch to the previous lobby in the channel list.",
   "help.shortcuts.prevUnread": "Switch to the previous window with unread messages in the channel list.",
   "help.shortcuts.prevWindow": "Switch to the previous window in the channel list.",

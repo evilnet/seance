@@ -458,6 +458,7 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"help.shortcuts.nextLobby",
 	"help.shortcuts.nextUnread",
 	"help.shortcuts.nextWindow",
+	"help.shortcuts.nthWindow",
 	"help.shortcuts.prevLobby",
 	"help.shortcuts.prevUnread",
 	"help.shortcuts.prevWindow",
