@@ -124,6 +124,11 @@ export default async function run(page) {
 	await page.evaluate(`localStorage.setItem("thelounge.state.userlist", "true")`);
 	s = await page.evaluate(STATE);
 	page.check(`1100, medium: user list beside (${s.userlist})`, s.userlist === "beside");
+	// The channel list closed, so the step cannot move the pane: only the
+	// threshold moves, which the probe has to see.
+	await page.click("#chat .header .lt");
+	await page.sleep(400);
+	const paneBefore = (await page.evaluate(STATE)).chatWidth;
 	await page.evaluate(`document.documentElement.dataset.fontSize = "huge"`);
 	await page.sleep(400);
 	s = await page.evaluate(STATE);
@@ -132,16 +137,21 @@ export default async function run(page) {
 		s.userlist === "closed"
 	);
 	page.check(
+		`the pane kept its width (${paneBefore} → ${s.chatWidth})`,
+		Math.abs(s.chatWidth - paneBefore) <= 1
+	);
+	page.check(
 		"the probe adds no scroll",
 		await page.evaluate(`document.documentElement.scrollWidth <= innerWidth`)
 	);
 	await page.evaluate(`document.documentElement.dataset.fontSize = "medium"`);
+	await page.click("#chat .header .lt");
 	await page.sleep(400);
 
 	// A two-finger swipe on a trackpad (pixel wheel deltas): fingers to the
 	// left (Chrome reports no inversion) hide the channel list, to the right
 	// show it; a vertical scroll does neither.
-	const swipe = async (dx, dy = 0) => {
+	const swipe = async (dx, dy = 0, modifiers = 0) => {
 		const chat = await page.rect("#chat .messages");
 		const x = chat.x + chat.width / 2;
 		const y = chat.y + chat.height / 2;
@@ -152,6 +162,7 @@ export default async function run(page) {
 				y,
 				deltaX: dx,
 				deltaY: dy,
+				modifiers,
 			});
 		}
 		await page.sleep(500);
@@ -170,6 +181,11 @@ export default async function run(page) {
 	await swipe(3, 60);
 	page.check(
 		"a vertical scroll leaves it",
+		await page.evaluate(`document.querySelector("#viewport").classList.contains("menu-open")`)
+	);
+	await swipe(30, 0, 8);
+	page.check(
+		"a mouse wheel turned sideways with Shift leaves it",
 		await page.evaluate(`document.querySelector("#viewport").classList.contains("menu-open")`)
 	);
 	page.check("no console errors", page.consoleErrors.length === 0);

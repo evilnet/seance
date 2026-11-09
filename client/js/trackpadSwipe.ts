@@ -56,14 +56,20 @@ export function listenForTrackpadSwipes(): void {
 				total = 0;
 			}, QUIET_MS);
 
-			// A pinch (ctrl, at any point), line or page deltas (a mouse
-			// wheel, not a trackpad), a mostly vertical start, or a swipe an
-			// overlay or a sideways pane takes: not ours, for the rest of
-			// this gesture.
-			if (e.ctrlKey || e.deltaMode !== WheelEvent.DOM_DELTA_PIXEL) {
+			// A pinch (ctrl, at any point), a mouse wheel turned sideways
+			// with Shift or reporting lines or pages (Chromium and WebKit
+			// report a plain wheel in pixels too, so a tilt wheel still
+			// counts), a mostly vertical start, or a swipe an overlay or a
+			// sideways pane takes: not ours, for the rest of this gesture.
+			if (e.ctrlKey || e.shiftKey || e.deltaMode !== WheelEvent.DOM_DELTA_PIXEL) {
 				state = "ignored";
 			}
 
+			// A sideways pane keeps the swipe by the way its content would
+			// scroll, which deltaX gives as is (scrollerTakesSwipe reads it as a
+			// touch drag: content moving right is fingers moving right), not
+			// by the fingers, which natural scrolling may turn around. A
+			// window laid over the page (Settings, Help) keeps it too.
 			if (state === "idle") {
 				const target = e.target instanceof Element ? e.target : null;
 				state =
@@ -71,7 +77,8 @@ export function listenForTrackpadSwipes(): void {
 					Math.abs(e.deltaX) <= Math.abs(e.deltaY) * 2 ||
 					(target !== null &&
 						(inOpenOverlay(target) ||
-							scrollerTakesSwipe(target, opens(fingersLeft(e, e.deltaX)))))
+							target.closest(".window.screen-overlay") !== null ||
+							scrollerTakesSwipe(target, opens(e.deltaX > 0))))
 						? "ignored"
 						: "swipe";
 			}
