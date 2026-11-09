@@ -576,6 +576,8 @@ export class IrcClient {
 	 * the server it was shown for: `host`, `port` and SHA-256, a line each.
 	 */
 	private readonly trustedOnce = new Set<string>();
+	/** The certificate trusted last, kept within the shell's cap (certificatesToTrust). */
+	private newestTrust?: string;
 	/** The close report's hint is shown once per attempt series, not per retry. */
 	private closeHintShown = false;
 	/** The close about to arrive is ours and the lobby already says why (transport.abandon). */
@@ -939,14 +941,36 @@ export class IrcClient {
 	 */
 	trustCertificateOnce(sha256: string, host: string, port: number): void {
 		this.trustedOnce.add(`${host}\n${port}\n${sha256}`);
+		this.newestTrust = sha256;
 		this.connect();
+	}
+
+	/**
+	 * Accept `sha256` for this network from now on ("Always"; the caller
+	 * saves it with the network), then dial. Only the trusted list changes:
+	 * the live address (an STS upgrade's port) and the live credentials (a
+	 * password not kept on disk) stay as they are.
+	 */
+	trustCertificate(sha256: string): void {
+		const kept = (this.options.trustedCertificates ?? []).filter((fp) => fp !== sha256);
+		this.options = {
+			...this.options,
+			trustedCertificates: [...kept, sha256].slice(-MAX_TRUSTED_CERTIFICATES),
+		};
+		this.newestTrust = sha256;
+		this.connect();
+	}
+
+	/** Whether the next dial already offers the shell `sha256`. */
+	trusts(sha256: string): boolean {
+		return this.certificatesToTrust().includes(sha256);
 	}
 
 	/**
 	 * The certificates the shell is to accept for the server dialled now:
 	 * the saved ones and those trusted once for this host and port, without
-	 * repeats. The shell takes at most MAX_TRUSTED_CERTIFICATES, and one
-	 * trusted just now outranks the oldest saved one.
+	 * repeats. The shell takes at most MAX_TRUSTED_CERTIFICATES; the one
+	 * trusted last is always among them, whichever way it was trusted.
 	 */
 	private certificatesToTrust(): string[] {
 		const here = `${this.options.host}\n${this.options.port}\n`;
@@ -954,6 +978,13 @@ export class IrcClient {
 			.filter((key) => key.startsWith(here))
 			.map((key) => key.slice(here.length));
 		const all = [...new Set([...(this.options.trustedCertificates ?? []), ...once])];
+		const newest = this.newestTrust;
+
+		if (newest && all.includes(newest)) {
+			all.splice(all.indexOf(newest), 1);
+			all.push(newest);
+		}
+
 		return all.slice(-MAX_TRUSTED_CERTIFICATES);
 	}
 

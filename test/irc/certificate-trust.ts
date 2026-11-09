@@ -101,3 +101,33 @@ describe("untrusted certificate: what the shell is sent", function () {
 		expect(sent(h)).to.deep.equal([...saved.slice(1), fp(9)]);
 	});
 });
+
+describe("untrusted certificate: trusting it always", function () {
+	const fp = (n: number) => n.toString(16).padStart(64, "0");
+	const sent = (h: ReturnType<typeof setup>) =>
+		(h.client as unknown as {certificatesToTrust(): string[]}).certificatesToTrust();
+
+	it("changes only the trusted list: the live port and password stay", function () {
+		const h = setup({port: 6697, saslPassword: "in memory only"});
+		refuse(h);
+		h.client.trustCertificate(certificate.sha256);
+		expect(h.client.options.trustedCertificates).to.deep.equal([certificate.sha256]);
+		expect(h.client.options.port).to.equal(6697);
+		expect(h.client.options.saslPassword).to.equal("in memory only");
+		expect(h.transport.state).to.equal("connecting");
+		expect(h.client.trusts(certificate.sha256)).to.equal(true);
+	});
+
+	it("keeps the one trusted last among the shell's eight, however it was trusted", function () {
+		const h = setup({});
+		const {host, port} = h.client.options;
+
+		for (let n = 1; n <= 8; n++) {
+			h.client.trustCertificateOnce(fp(n), host, port);
+		}
+
+		h.client.trustCertificate(fp(9));
+		expect(sent(h)).to.have.length(8);
+		expect(sent(h)).to.include(fp(9));
+	});
+});

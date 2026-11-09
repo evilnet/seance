@@ -566,6 +566,8 @@ fn tls_failure(e: std::io::Error) -> (u16, String) {
                     ": it is for a different name"
                 }
                 C::UnknownIssuer => ": it is signed by an unknown authority",
+                C::Revoked => ": it has been revoked",
+                C::BadSignature => ": its signature does not verify",
                 // The device's clock may be what is wrong: worth retrying.
                 C::NotValidYet | C::NotValidYetContext { .. } => {
                     return (
@@ -1119,9 +1121,11 @@ mod tests {
         assert_eq!(other["problem"], "other");
     }
 
-    /// A self-signed certificate (tests/self-signed.der, for irc.example):
-    /// refused and kept for the prompt, unless its SHA-256 is trusted; and a
-    /// trusted one is still refused for a revoked certificate.
+    /// A self-signed certificate (tests/self-signed.der, for irc.example,
+    /// made by `openssl req -x509`, so it calls itself a CA): refused and
+    /// kept for the prompt, unless its SHA-256 is trusted. Which failures a
+    /// pin may override at all is `overridable`'s (a revoked certificate
+    /// never), checked at the end.
     #[test]
     fn trusts_exactly_the_pinned_certificate() {
         use rustls::client::danger::ServerCertVerifier;

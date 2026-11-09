@@ -123,6 +123,13 @@ async function untrustedCertificate(uuid: string, certificate: UntrustedCertific
 		return;
 	}
 
+	// Refused although the dial offered it: trust cannot override what is
+	// wrong with it (the shell never lets a revoked one through), so asking
+	// again would only loop.
+	if (client.trusts(certificate.sha256)) {
+		return;
+	}
+
 	const {host, port} = client.options;
 	asking.add(uuid);
 	let answer: Awaited<ReturnType<typeof askCertificateTrust>>;
@@ -155,10 +162,8 @@ async function untrustedCertificate(uuid: string, certificate: UntrustedCertific
 	const current = answer === "always" ? saved.get(uuid) : undefined;
 
 	if (current && saved.sameHost(current.host, host)) {
-		const next = saved.withTrustedCertificate(current, certificate.sha256);
-		saved.save(next);
-		client.applySettings(saved.toConnectOptions(next));
-		client.connect();
+		saved.save(saved.withTrustedCertificate(current, certificate.sha256));
+		client.trustCertificate(certificate.sha256);
 	} else {
 		client.trustCertificateOnce(certificate.sha256, host, port);
 	}
