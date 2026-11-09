@@ -273,22 +273,22 @@ msgctxt "certificate.prompt.always"
 msgid "Always trust this certificate"
 msgstr ""
 
-#. {subject} and {issuer} are names read from the certificate, shown verbatim. {from} and {until} are dates. {fingerprint} is hex digits separated by colons.
-#: client/js/certificatePrompt.ts
-msgctxt "certificate.prompt.details"
-msgid "Issued to {subject} by {issuer}, valid from {from} to {until}. SHA-256 fingerprint: {fingerprint}"
-msgstr ""
-
 #. {host} is the IRC server's host name.
 #: client/js/certificatePrompt.ts
 msgctxt "certificate.prompt.expired"
 msgid "{host}'s certificate has expired. Trust it only if you know why: someone may be pretending to be the server."
 msgstr ""
 
-#. {fingerprint} is hex digits separated by colons.
+#. Label above the certificate's fingerprint, which is hex digits separated by colons.
 #: client/js/certificatePrompt.ts
-msgctxt "certificate.prompt.fingerprintOnly"
-msgid "SHA-256 fingerprint: {fingerprint}"
+msgctxt "certificate.prompt.fingerprint"
+msgid "SHA-256 fingerprint:"
+msgstr ""
+
+#. {subject} and {issuer} are names read from the certificate, shown verbatim. {from} and {until} are dates.
+#: client/js/certificatePrompt.ts
+msgctxt "certificate.prompt.issued"
+msgid "Issued to {subject} by {issuer}, valid from {from} to {until}."
 msgstr ""
 
 #. {host} is the IRC server's host name.

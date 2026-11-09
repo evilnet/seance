@@ -8341,6 +8341,9 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
    follows (translate/consent.ts) must not open behind it. */
 #confirm-dialog-overlay {
 	z-index: 1010;
+
+	/* A question, not a takeover: the app stays in sight under it. */
+	background: rgb(0 0 0 / 25%);
 }
 
 /* Above everything, it must take no click while it fades out (its

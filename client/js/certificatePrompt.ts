@@ -15,6 +15,12 @@ export function formatFingerprint(sha256: string): string {
 	return (sha256.toUpperCase().match(/../g) ?? []).join(":");
 }
 
+/** The same in two lines of 16 bytes, so it fits a narrow dialog. */
+function fingerprintLines(sha256: string): string {
+	const pairs = sha256.toUpperCase().match(/../g) ?? [];
+	return [pairs.slice(0, 16).join(":"), pairs.slice(16).join(":")].join("\n");
+}
+
 /** Why the certificate failed, as one sentence with the warning. */
 function problemText(host: string, cert: UntrustedCertificate): string {
 	if (cert.problem === "expired") {
@@ -36,27 +42,24 @@ function problemText(host: string, cert: UntrustedCertificate): string {
 	return t("certificate.prompt.other", {host});
 }
 
-/** Who it names and who signed it, when, and its fingerprint. */
-function detailsText(cert: UntrustedCertificate): string {
-	const fingerprint = formatFingerprint(cert.sha256);
-
+/** Who it names and who signed it, and when it is valid; nothing when the shell could not read it. */
+function issuedText(cert: UntrustedCertificate): string | undefined {
 	if (
 		cert.subject === undefined ||
 		cert.issuer === undefined ||
 		cert.notBefore === undefined ||
 		cert.notAfter === undefined
 	) {
-		return t("certificate.prompt.fingerprintOnly", {fingerprint});
+		return undefined;
 	}
 
 	const subject = cert.names && cert.names.length > 0 ? cert.names.join(", ") : cert.subject;
 
-	return t("certificate.prompt.details", {
+	return t("certificate.prompt.issued", {
 		subject,
 		issuer: cert.issuer,
 		from: formatShortDay(cert.notBefore * 1000, true),
 		until: formatShortDay(cert.notAfter * 1000, true),
-		fingerprint,
 	});
 }
 
@@ -71,11 +74,16 @@ export function askCertificateTrust(
 			{
 				title: t("certificate.prompt.title"),
 				text: problemText(host, cert),
-				note: detailsText(cert),
+				note: issuedText(cert),
+				code: {
+					label: t("certificate.prompt.fingerprint"),
+					value: fingerprintLines(cert.sha256),
+				},
 				button: t("certificate.prompt.always"),
 				alt: t("certificate.prompt.once"),
 				cancel: t("certificate.prompt.no"),
-				primary: true,
+				// Not primary: the focus goes to "Don't connect", so an Enter
+				// meant for the composer never trusts a certificate.
 				wait: true,
 			},
 			(yes: boolean, alt?: boolean) => resolve(!yes ? "no" : alt ? "once" : "always")

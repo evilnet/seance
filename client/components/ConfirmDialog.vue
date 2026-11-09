@@ -21,6 +21,10 @@
 				<div id="confirm-dialog-title" class="confirm-text-title">{{ data.title }}</div>
 				<p>{{ data.text }}</p>
 				<p v-if="data.note" class="confirm-note">{{ data.note }}</p>
+				<p v-if="data.code" class="confirm-code">
+					{{ data.code.label }}
+					<code dir="ltr">{{ data.code.value }}</code>
+				</p>
 				<p v-if="data.quote" class="confirm-quote">
 					<I18nFrame :text="data.quote.frame"
 						><template v-slot:reason
@@ -66,7 +70,8 @@
 	color: #fff;
 	margin: 10px;
 	border-radius: 5px;
-	max-width: 500px;
+	max-width: min(28rem, calc(100% - 20px));
+	box-shadow: 0 0.5rem 2rem rgb(0 0 0 / 50%);
 }
 
 #confirm-dialog:focus {
@@ -123,6 +128,21 @@
 	font-weight: 700;
 }
 
+#confirm-dialog .confirm-code {
+	margin-top: 0.5rem;
+	margin-bottom: 0;
+	font-size: 0.875rem;
+}
+
+#confirm-dialog .confirm-code code {
+	display: block;
+	margin-top: 0.25rem;
+	font-size: 0.8125rem;
+	white-space: pre-line;
+	overflow-wrap: anywhere;
+	user-select: all;
+}
+
 #confirm-dialog .confirm-quote {
 	margin-top: 0.5rem;
 	margin-bottom: 0;
@@ -152,6 +172,11 @@ type ConfirmDialogData = {
 	button: string;
 	/** A second paragraph, said apart (the download question's metered connection). */
 	note?: string;
+	/**
+	 * A machine value shown as is, in monospace under a label (a certificate's
+	 * fingerprint): `value` keeps its line breaks and wraps anywhere.
+	 */
+	code?: {label: string; value: string};
 	/** The answer that is not the button's ("Not now"); "Cancel" when absent. */
 	cancel?: string;
 	/** The button is an ordinary action, not a destructive one: no danger colour. */
