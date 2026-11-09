@@ -54,33 +54,50 @@ export const DETECT_MIN_LENGTH = 10;
 export const ELD_MISSING: readonly string[] = ["id", "gl", "ga", "cy", "sw", "af"];
 
 /**
- * Scripts only one supported language writes: a line in one of them is
- * placed by its letters, which no short-line statistics can beat ("谢谢",
- * "고마워"). Han without kana is Chinese; kana is Japanese.
+ * Scripts only one supported language writes: a line mostly in one of them
+ * is placed by its letters, which no short-line statistics can beat
+ * ("谢谢", "고마워"). Han without kana is Chinese; kana is Japanese, and a
+ * Japanese line's Han counts toward it. A few such letters in a line of
+ * another script ("the variable λ is unset") settle nothing: the line goes
+ * to the identifiers.
  */
 const SCRIPTS: [RegExp, string][] = [
-	[/[぀-ヿ]/u, "ja"],
-	[/[가-힯ᄀ-ᇿ]/u, "ko"],
-	[/\p{Script=Han}/u, "zh"],
-	[/\p{Script=Thai}/u, "th"],
-	[/\p{Script=Hebrew}/u, "he"],
-	[/\p{Script=Greek}/u, "el"],
-	[/\p{Script=Bengali}/u, "bn"],
-	[/\p{Script=Tamil}/u, "ta"],
+	[/[぀-ヿ]/gu, "ja"],
+	[/[가-힯ᄀ-ᇿ]/gu, "ko"],
+	[/\p{Script=Han}/gu, "zh"],
+	[/\p{Script=Thai}/gu, "th"],
+	[/\p{Script=Hebrew}/gu, "he"],
+	[/\p{Script=Greek}/gu, "el"],
+	[/\p{Script=Bengali}/gu, "bn"],
+	[/\p{Script=Tamil}/gu, "ta"],
 ];
 
-const LETTER = /\p{L}/u;
+const LETTERS = /\p{L}/gu;
+const HAN = /\p{Script=Han}/gu;
+
+const countOf = (text: string, re: RegExp): number => text.match(re)?.length ?? 0;
 
 /** The language a line's script alone settles, or null. */
 export function scriptLanguage(text: string): string | null {
-	if (!LETTER.test(text)) {
+	const letters = countOf(text, LETTERS);
+
+	if (letters === 0) {
 		return null;
 	}
 
 	for (const [script, lang] of SCRIPTS) {
-		if (script.test(text)) {
-			return lang;
+		let own = countOf(text, script);
+
+		if (own === 0) {
+			continue;
 		}
+
+		if (lang === "ja") {
+			own += countOf(text, HAN);
+		}
+
+		// The first script found decides, and only for a line mostly in it.
+		return own * 2 >= letters ? lang : null;
 	}
 
 	return null;

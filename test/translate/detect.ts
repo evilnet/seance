@@ -209,6 +209,13 @@ describe("translate/detect", () => {
 			expect(scriptLanguage("شكرا")).to.equal(null);
 			expect(scriptLanguage("1234 :)")).to.equal(null);
 		});
+
+		it("settles a line only when most of its letters are in the script", () => {
+			expect(scriptLanguage("the variable λ is unset")).to.equal(null);
+			expect(scriptLanguage("see 東京 on the map")).to.equal(null);
+			expect(scriptLanguage("ok ありがとう")).to.equal("ja");
+			expect(scriptLanguage("Seanceのバグを直した")).to.equal("ja");
+		});
 	});
 
 	it("keeps the declared languages the build can route, once each", () => {
