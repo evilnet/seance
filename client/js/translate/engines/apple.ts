@@ -158,11 +158,9 @@ export class AppleTranslator {
 		}
 	}
 
-	/** `listener` runs when a status arrives or the statuses are forgotten; returns its removal. */
-	onKnown(listener: () => void): () => void {
+	/** `listener` runs when a status arrives or the statuses are forgotten. */
+	onKnown(listener: () => void): void {
 		this.listeners.add(listener);
-
-		return () => this.listeners.delete(listener);
 	}
 
 	/** Every pair's status asked again on next use. */
@@ -307,6 +305,10 @@ export class AppleTranslator {
 			.catch((e: unknown) => {
 				throw asAppleError(e);
 			});
+
+		// Anything asked while the sheet was up (a row's `lookup`) was
+		// answered with the status before the download: asked again.
+		this.forget();
 
 		return {status: answer.status, ...(answer.error ? {error: answer.error} : {})};
 	}

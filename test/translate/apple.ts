@@ -206,16 +206,14 @@ describe("translate/engines/apple", () => {
 			expect(apple.knownStatus("es", "en")).to.equal(undefined);
 		});
 
-		it("a listener removed hears nothing more", async () => {
-			const bridge = fakeBridge({"es>en": "installed"});
+		it("asks again after the sheet what was asked while it was up", async () => {
+			const bridge = fakeBridge({"pl>en": "supported"});
 			const apple = new AppleTranslator(bridge.deps);
-			let heard = 0;
-			const off = apple.onKnown(() => heard++);
 
-			off();
-			await apple.status("es", "en");
-
-			expect(heard).to.equal(0);
+			// A row asks while the sheet is up, and hears "supported".
+			apple.onKnown(() => apple.lookup("pl", "en"));
+			expect(await apple.prepare("pl", "en")).to.deep.equal({status: "installed"});
+			expect(await apple.installed("pl", "en")).to.equal(true);
 		});
 	});
 
