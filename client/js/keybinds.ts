@@ -8,6 +8,7 @@ import {topEscapeLayer} from "./helpers/escapeLayer";
 import isChannelCollapsed from "./helpers/isChannelCollapsed";
 import isIgnoredKeybind from "./helpers/isIgnoredKeybind";
 import listenForTwoFingerSwipes from "./helpers/listenForTwoFingerSwipes";
+import {numberShortcutModifier} from "./helpers/numberShortcut";
 import {ClientChan} from "./types";
 import {ChanType} from "../../shared/types/chan";
 
@@ -28,27 +29,51 @@ listenForTwoFingerSwipes(function (cardinalDirection: string) {
 	}
 });
 
-function navigateWindow(direction: number) {
-	if (store.state.networks.length === 0) {
-		return;
-	}
-
-	const flatChannels: ClientChan[] = [];
-	let index = -1;
+/** The conversations in sidebar order, the collapsed networks' left out (lobbies stay). */
+function visibleWindows(): ClientChan[] {
+	const flat: ClientChan[] = [];
 
 	for (const network of store.state.networks) {
 		for (const channel of network.channels) {
-			if (isChannelCollapsed(network, channel)) {
-				continue;
+			if (!isChannelCollapsed(network, channel)) {
+				flat.push(channel);
 			}
-
-			if (index === -1 && store.state.activeChannel?.channel === channel) {
-				index = flatChannels.length;
-			}
-
-			flatChannels.push(channel);
 		}
 	}
+
+	return flat;
+}
+
+// Jump to the Nth conversation in the sidebar with a digit: ⌘1–9 in the app
+// on Apple systems, Ctrl+1–9 in the app elsewhere, Alt+1–9 in a browser on
+// Windows, and nothing where every chord is taken (helpers/numberShortcut.ts).
+// From the composer too: no layout types a character with these chords.
+const numberModifier = numberShortcutModifier();
+
+if (numberModifier) {
+	Mousetrap.bind(
+		["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((n) => `${numberModifier}+${n}`),
+		function (_e, keys) {
+			const target = visibleWindows()[Number(keys.split("+").pop()) - 1];
+
+			if (target) {
+				jumpToChannel(target);
+			}
+
+			return false;
+		}
+	);
+}
+
+function navigateWindow(direction: number) {
+	const flatChannels = visibleWindows();
+
+	if (flatChannels.length === 0) {
+		return;
+	}
+
+	const active = store.state.activeChannel?.channel;
+	let index = active ? flatChannels.indexOf(active) : -1;
 
 	// Circular array, and a modulo bug workaround because in JS it stays negative
 	const length = flatChannels.length;
