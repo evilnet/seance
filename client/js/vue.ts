@@ -1,4 +1,5 @@
 import {isPhoneLayout, PHONE_LAYOUT_QUERY} from "./helpers/device";
+import {listenForTrackpadSwipes} from "./trackpadSwipe";
 
 import "../css/style.css";
 import {createApp} from "vue";
@@ -33,6 +34,7 @@ VueApp.directive("backdrop", backdropDirective);
 VueApp.mount("#app");
 
 void boot();
+listenForTrackpadSwipes();
 
 store.watch(
 	(state) => state.sidebarOpen,
