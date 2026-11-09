@@ -3409,6 +3409,30 @@ describe("translate/service", () => {
 			r.service.dispose();
 		});
 
+		it("disposed while a sheet waits its turn, the sheet is never shown", async () => {
+			const r = appleRig({"de>en": "supported", "fr>en": "supported"});
+			let close = () => {};
+			const invoke = r.bridge.deps.invoke.bind(r.bridge.deps);
+
+			r.bridge.deps.invoke = <T>(method: string, options: Record<string, unknown>) =>
+				method === "prepare" && options.from === "de"
+					? new Promise<void>((resolve) => (close = resolve)).then(() =>
+							invoke<T>(method, options)
+					  )
+					: invoke<T>(method, options);
+
+			const de = r.service.route("de", "en");
+			const fr = r.service.route("fr", "en");
+
+			for (let i = 0; i < 20; i++) {
+				await Promise.resolve();
+			}
+			r.service.dispose();
+			close();
+			await Promise.allSettled([de, fr]);
+			expect(r.bridge.calls.filter((c) => c.method === "prepare")).to.have.length(1);
+		});
+
 		it("is never downloaded or deleted through the worker", async () => {
 			const r = appleRig({});
 

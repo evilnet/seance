@@ -890,9 +890,10 @@ export class TranslateService {
 		}
 
 		const status = await apple.status(source, to);
-		// Asked again after every wait: the switch may have gone off since,
-		// and a sheet the shell is handed cannot be taken back.
-		const allowed = () => this.settings.system !== false;
+		// Asked again after every wait: the switch, or translation as a
+		// whole, may have gone off since, and a sheet the shell is handed
+		// cannot be taken back.
+		const allowed = () => !this.disposed && this.settings.system !== false;
 
 		// A pack that can be downloaded is offered once (engines/apple.ts
 		// `offer`): the system's sheet, then the table if it is declined.
