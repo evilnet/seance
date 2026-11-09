@@ -178,6 +178,7 @@ import {
 	get as getSavedNetwork,
 	MAX_TRUSTED_CERTIFICATES,
 	NetworkCursor,
+	setBouncerSettled,
 	setCursor,
 } from "./saved-networks";
 import {noteServiceReply, resetServiceReplies} from "./services";
@@ -353,10 +354,11 @@ export interface IrcClientOptions extends ConnectOptions {
 	savedName?: () => string | undefined;
 	/**
 	 * A bouncer's control connection listed its networks (bouncer.ts). The
-	 * manager adds the new ones as networks of their own and returns their
-	 * names, for the lobby to say so.
+	 * manager adds the new ones as networks of their own and returns the
+	 * names of those it added and of those it left out for want of room,
+	 * for the lobby to say so.
 	 */
-	onBouncerNetworks?: (networks: BouncerNetwork[]) => string[];
+	onBouncerNetworks?: (networks: BouncerNetwork[]) => {added: string[]; over: string[]};
 }
 
 /**
@@ -592,6 +594,11 @@ export class IrcClient {
 	replayIds: IdBlock | undefined = undefined;
 	/** This connection goes through ZNC (its `znc.in/*` caps): see history.ts `noteZncLine`. */
 	behindZnc = false;
+	/**
+	 * Registered behind a bouncer on this page already ({@link autojoin}); the
+	 * saved entry's `bouncerSettled` keeps it across page loads.
+	 */
+	private bouncerSettled = false;
 
 	private saslTimer: ReturnType<typeof setTimeout> | null = null;
 	private readonly bus: Pick<EventBus, "dispatch">;
@@ -2258,9 +2265,23 @@ export class IrcClient {
 		// A bouncer owns the channel list: it JOINs us to what it holds right
 		// after the MOTD, leaves out what was parted or detached from another
 		// client, and sends nothing while it is off the network. Saved channels
-		// it did not give back stay parted here until the user joins them (as
-		// gamja does). A soju control connection has no channels at all.
-		const joining = this.behindBouncer
+		// it did not give back stay parted here until the user joins them. The
+		// exception is this entry's first registration behind it: the channels
+		// typed into the connect form are JOINed once, and the bouncer keeps
+		// them from then on (a JOIN for one it holds already is ignored
+		// upstream). A soju control connection has no channels at all.
+		const bouncerOwns =
+			this.behindBouncer &&
+			(isBouncerControl(this) ||
+				this.bouncerSettled ||
+				getSavedNetwork(this.uuid)?.bouncerSettled === true);
+
+		if (this.behindBouncer && !isBouncerControl(this)) {
+			this.bouncerSettled = true;
+			setBouncerSettled(this.uuid);
+		}
+
+		const joining = bouncerOwns
 			? []
 			: this.channels.filter(
 					(chan) =>

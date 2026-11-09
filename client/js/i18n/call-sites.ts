@@ -90,6 +90,7 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"bans.unbanMask",
 	"bans.undo",
 	"bouncer.networksAdded",
+	"bouncer.networksOver",
 	"browse.all",
 	"browse.aria",
 	"browse.ask",

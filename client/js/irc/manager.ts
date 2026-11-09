@@ -29,7 +29,7 @@ import {leavesAwayToWorker, syncPresence} from "./presence";
 import {claimMute, clearRemoteDnd} from "./pushMute";
 import * as saved from "./saved-networks";
 import type {SavedNetwork} from "./saved-networks";
-import {networksToAdd, type BouncerNetwork} from "./bouncer";
+import {BOUNCER_SEEN_MAX, networksToAdd, type BouncerNetwork} from "./bouncer";
 import type {ConnectOptions} from "./types";
 import type {GlobalModeState} from "../helpers/dnd";
 import {shellBridge} from "../helpers/shell";
@@ -255,46 +255,62 @@ export function createNetwork(options: CreateNetworkOptions): IrcClient {
 /**
  * A bouncer's control connection listed its networks (irc/bouncer.ts): add
  * each one this entry has not offered before as a network of its own, with
- * the same server and login, bound to it. Offered once: a network the user
- * removes here is not added back at the next connect. Returns the names added.
+ * the same server and login, bound to it, while fewer than
+ * BOUNCER_NETWORKS_MAX of the account's networks are saved. Offered once: a
+ * network the user removes here is not added back at the next connect.
+ * Returns the names added, and those left out for want of room.
  */
-function addBouncerNetworks(controlUuid: string, networks: BouncerNetwork[]): string[] {
+function addBouncerNetworks(
+	controlUuid: string,
+	networks: BouncerNetwork[]
+): {added: string[]; over: string[]} {
 	const control = saved.get(controlUuid);
 	const live = clients.get(controlUuid);
 
 	if (!control || !live) {
-		return [];
+		return {added: [], over: []};
 	}
 
 	const sameBouncer = (other: SavedNetwork): boolean =>
 		other.host === control.host && other.port === control.port && other.tls === control.tls;
+	const bound = saved
+		.list()
+		.filter(
+			(other) =>
+				sameBouncer(other) &&
+				other.bouncerNetId !== undefined &&
+				other.saslAccount === control.saslAccount
+		);
 	// Bound here before, or added by hand the soju way (`alice/libera`).
 	const have = (net: BouncerNetwork): boolean =>
+		bound.some((other) => other.bouncerNetId === net.id) ||
 		saved
 			.list()
 			.some(
 				(other) =>
-					sameBouncer(other) &&
-					((other.bouncerNetId === net.id && other.saslAccount === control.saslAccount) ||
-						other.saslAccount === `${control.saslAccount}/${net.name}`)
+					sameBouncer(other) && other.saslAccount === `${control.saslAccount}/${net.name}`
 			);
-	const fresh = networksToAdd(networks, new Set(control.bouncerSeen ?? []), have);
+	const seen = control.bouncerSeen ?? [];
+	const plan = networksToAdd(networks, new Set(seen), have, bound.length);
+	const over = plan.over.map((net) => net.name);
 
-	if (fresh.length === 0) {
-		return [];
+	if (plan.seen.length === 0) {
+		return {added: [], over};
 	}
 
 	// Offered once: a network the user removes here is not added back.
 	saved.save({
 		...control,
-		bouncerSeen: [...(control.bouncerSeen ?? []), ...fresh.map((net) => net.id)],
+		bouncerSeen: [...seen, ...plan.seen].slice(-BOUNCER_SEEN_MAX),
 	});
+	const fresh = plan.add;
 
 	for (const net of fresh) {
 		createNetwork({
 			...saved.toConnectOptions(control),
-			// Kept in memory only, unless the bouncer's entry remembers it.
+			// Kept in memory only, unless the bouncer's entry remembers them.
 			saslPassword: live.options.saslPassword,
+			serverPassword: live.options.serverPassword,
 			uuid: saved.newUuid(),
 			name: net.name,
 			join: "",
@@ -306,7 +322,7 @@ function addBouncerNetworks(controlUuid: string, networks: BouncerNetwork[]): st
 		});
 	}
 
-	return fresh.map((net) => net.name);
+	return {added: fresh.map((net) => net.name), over};
 }
 
 /**

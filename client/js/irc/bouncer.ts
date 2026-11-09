@@ -16,7 +16,8 @@
  * Kept free of store and DOM imports: it runs under mocha.
  */
 
-import {t} from "../i18n/core";
+import {t, tCount} from "../i18n/core";
+import {commaList} from "../helpers/operList";
 import type {IrcClient} from "./client";
 import type {BatchHandler} from "./handlers/batch";
 import {parseTags, type IrcMessage} from "./message";
@@ -26,11 +27,14 @@ export const BOUNCER_NOTIFY_CAP = "soju.im/bouncer-networks-notify";
 export const BOUNCER_NETWORKS_BATCH = "soju.im/bouncer-networks";
 
 /**
- * The most networks one bouncer entry ever adds, across every list and
- * `-notify` line: a bouncer that keeps announcing new ids must not open
- * hundreds of sockets. It also bounds `SavedNetwork.bouncerSeen`.
+ * The most networks of one bouncer account saved here at once, each its own
+ * socket: a bouncer that lists hundreds must not open hundreds. A network
+ * the user removes frees its place; one left out for want of room is not
+ * marked seen, so a later list adds it once there is room.
  */
 export const BOUNCER_NETWORKS_MAX = 20;
+/** How many offered ids `SavedNetwork.bouncerSeen` remembers (the newest). */
+export const BOUNCER_SEEN_MAX = 200;
 
 /**
  * A network id Seance will store and send back in `BOUNCER BIND`. soju's
@@ -97,35 +101,50 @@ export function parseNetwork(msg: IrcMessage): BouncerNetwork | undefined {
 	return {id, name: tags.get("name") || tags.get("host") || id};
 }
 
+/** What to do with a bouncer's list ({@link networksToAdd}). */
+export interface NetworksPlan {
+	/** Networks to add as networks of their own. */
+	add: BouncerNetwork[];
+	/** Ids to remember as offered: the ones added and the ones already saved here. */
+	seen: string[];
+	/** Networks left out because {@link BOUNCER_NETWORKS_MAX} are saved already. */
+	over: BouncerNetwork[];
+}
+
 /**
  * Which of the listed networks to add: each one not offered before
- * (`seen`) and not already a saved network (`have`), while the entry has
- * offered fewer than {@link BOUNCER_NETWORKS_MAX} in all. Pure, so the
- * manager's rule is tested here.
+ * (`seen`) and not already a saved network (`have`), while fewer than
+ * {@link BOUNCER_NETWORKS_MAX} of the account's networks are saved
+ * (`saved`). Pure, so the manager's rule is tested here.
  */
 export function networksToAdd(
 	listed: BouncerNetwork[],
 	seen: ReadonlySet<string>,
-	have: (net: BouncerNetwork) => boolean
-): BouncerNetwork[] {
-	const fresh: BouncerNetwork[] = [];
+	have: (net: BouncerNetwork) => boolean,
+	saved: number
+): NetworksPlan {
+	const plan: NetworksPlan = {add: [], seen: [], over: []};
 	const ids = new Set<string>();
-	const room = BOUNCER_NETWORKS_MAX - seen.size;
 
 	for (const net of listed) {
-		if (fresh.length >= room) {
-			break;
-		}
-
-		if (seen.has(net.id) || ids.has(net.id) || have(net)) {
+		if (seen.has(net.id) || ids.has(net.id)) {
 			continue;
 		}
 
 		ids.add(net.id);
-		fresh.push(net);
+
+		if (have(net)) {
+			// Saved by hand already: offered, so removing it later is final.
+			plan.seen.push(net.id);
+		} else if (saved + plan.add.length < BOUNCER_NETWORKS_MAX) {
+			plan.add.push(net);
+			plan.seen.push(net.id);
+		} else {
+			plan.over.push(net);
+		}
 	}
 
-	return fresh;
+	return plan;
 }
 
 /** Give the manager what the bouncer listed, and say in the lobby what was added. */
@@ -137,12 +156,24 @@ function offer(client: IrcClient, networks: BouncerNetwork[]): void {
 		return;
 	}
 
-	const added = client.options.onBouncerNetworks?.(networks) ?? [];
+	const {added, over} = client.options.onBouncerNetworks?.(networks) ?? {added: [], over: []};
 
 	if (added.length > 0) {
 		client.pushMessage(
 			client.lobby,
-			{text: t("bouncer.networksAdded", {names: added.join(", ")})},
+			{text: t("bouncer.networksAdded", {names: commaList(added)})},
+			true
+		);
+	}
+
+	if (over.length > 0) {
+		client.pushMessage(
+			client.lobby,
+			{
+				text: tCount("bouncer.networksOver", BOUNCER_NETWORKS_MAX, {
+					names: commaList(over),
+				}),
+			},
 			true
 		);
 	}

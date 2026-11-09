@@ -108,6 +108,10 @@
   "bans.unbanMask": "Unban {mask}",
   "bans.undo": "Undo",
   "bouncer.networksAdded": "Added this bouncer's networks: {names}",
+  "bouncer.networksOver": {
+    "one": "Not added: {names}. This bouncer already has {count} network saved here, the most Seance adds; remove one to make room.",
+    "other": "Not added: {names}. This bouncer already has {count} networks saved here, the most Seance adds; remove one to make room."
+  },
   "browse.all": "All channels",
   "browse.aria": "Channel browser for {network}",
   "browse.ask": "Load channels",

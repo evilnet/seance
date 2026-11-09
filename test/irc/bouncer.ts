@@ -9,6 +9,25 @@ import {
 	type BouncerNetwork,
 } from "../../client/js/irc/bouncer";
 import {setup, register, Harness} from "./support";
+import * as saved from "../../client/js/irc/saved-networks";
+import type {StorageBackend} from "../../client/js/irc/saved-networks";
+
+/** In-memory stand-in for the localStorage wrapper. */
+class MemoryStorage implements StorageBackend {
+	data = new Map<string, string>();
+
+	get(key: string): string | null {
+		return this.data.get(key) ?? null;
+	}
+
+	set(key: string, value: string): void {
+		this.data.set(key, value);
+	}
+
+	remove(key: string): void {
+		this.data.delete(key);
+	}
+}
 import type {SharedMsg} from "../../shared/types/msg";
 
 /** What ZNC 1.9 offers a client (its own caps plus the legacy `znc.in/*` names). */
@@ -117,8 +136,34 @@ describe("Bouncers: the bouncer's channel list", function () {
 
 	const joins = (h: Harness) => h.transport.sent.filter((line) => /^JOIN /.test(line));
 
+	/** This entry has been behind the bouncer before (`SavedNetwork.bouncerSettled`). */
+	function settled(h: Harness): void {
+		saved.save({
+			uuid: h.client.uuid,
+			name: "",
+			host: "irc.test",
+			port: 6697,
+			tls: true,
+			nick: "alice",
+			join: "#seance,#gone",
+			sasl: "",
+			saslAccount: "",
+			saslPassword: "",
+			bouncerSettled: true,
+		});
+	}
+
+	beforeEach(function () {
+		saved.useStorageBackend(new MemoryStorage());
+	});
+
+	afterEach(function () {
+		saved.useStorageBackend(null);
+	});
+
 	it("does not JOIN again a channel the bouncer no longer holds", function () {
 		const h = setup({join: "#seance,#gone"});
+		settled(h);
 		register(h, ZNC_CAPS);
 		h.transport.lines(
 			":alice!alice@znc.host JOIN #seance",
@@ -131,16 +176,34 @@ describe("Bouncers: the bouncer's channel list", function () {
 		expect(h.client.findChannel("#seance")?.state).to.not.equal(undefined);
 	});
 
-	it("never JOINs the saved channels behind a bouncer, even one that holds none", function () {
+	it("JOINs the typed channels on the first connect behind a bouncer, and only then", function () {
 		const h = setup({join: "#seance,#new"});
 		register(h, ZNC_CAPS);
 		clock.tick(RESTORE_MAX_WAIT_MS);
 
+		expect(joins(h)).to.deep.equal(["JOIN #new,#seance"]); // by name
+		expect(saved.get(h.client.uuid)).to.equal(undefined); // unsaved: kept for this page
+
+		// Parted from another client meanwhile; the next registration leaves it so.
+		h.transport.sent = [];
+		h.client.autojoin();
 		expect(joins(h)).to.deep.equal([]);
+	});
+
+	it("remembers the first connect in the saved entry", function () {
+		const h = setup({join: "#seance"});
+		settled(h);
+		saved.save({...saved.get(h.client.uuid)!, bouncerSettled: undefined});
+		register(h, ZNC_CAPS);
+		clock.tick(RESTORE_MAX_WAIT_MS);
+
+		expect(joins(h)).to.have.length(1);
+		expect(saved.get(h.client.uuid)?.bouncerSettled).to.equal(true);
 	});
 
 	it("knows soju by its BOUNCER_NETID", function () {
 		const h = setup({join: "#seance,#gone"});
+		settled(h);
 		register(h, "batch server-time message-tags echo-message", [
 			":irc.test 005 alice BOUNCER_NETID=3 :are supported by this server",
 		]);
@@ -186,7 +249,7 @@ describe("Bouncers: soju's networks (soju.im/bouncer-networks)", function () {
 			join: "#seance",
 			onBouncerNetworks(networks) {
 				offered.push(networks);
-				return networks.map((net) => net.name);
+				return {added: networks.map((net) => net.name), over: []};
 			},
 		});
 		control(h, "batch server-time message-tags echo-message soju.im/bouncer-networks", [
@@ -217,8 +280,17 @@ describe("Bouncers: soju's networks (soju.im/bouncer-networks)", function () {
 		);
 	});
 
+	it("says in the lobby which networks were left out for want of room", function () {
+		const h = setup({onBouncerNetworks: () => ({added: [], over: ["EFnet", "IRCnet"]})});
+		control(h);
+		h.transport.line(":irc.test BOUNCER NETWORK 7 name=EFnet");
+
+		const lobby = h.messages(h.client.lobby.id).map((m) => m.text ?? "");
+		expect(lobby.some((text) => text.startsWith("Not added: EFnet, IRCnet."))).to.equal(true);
+	});
+
 	it("does not ask again when -notify sends the list by itself", function () {
-		const h = setup({onBouncerNetworks: () => []});
+		const h = setup({onBouncerNetworks: () => ({added: [], over: []})});
 		control(h);
 		clock.tick(RESTORE_MAX_WAIT_MS);
 
@@ -230,7 +302,7 @@ describe("Bouncers: soju's networks (soju.im/bouncer-networks)", function () {
 		const h = setup({
 			onBouncerNetworks(networks) {
 				offered.push(...networks);
-				return [];
+				return {added: [], over: []};
 			},
 		});
 		control(h);
@@ -247,7 +319,7 @@ describe("Bouncers: soju's networks (soju.im/bouncer-networks)", function () {
 		const h = setup({
 			onBouncerNetworks(networks) {
 				offered.push(...networks);
-				return [];
+				return {added: [], over: []};
 			},
 		});
 		register(h, SOJU_CAPS);
@@ -278,7 +350,7 @@ describe("Bouncers: soju's networks (soju.im/bouncer-networks)", function () {
 	});
 
 	it("is not a control connection once bound (BOUNCER_NETID)", function () {
-		const h = setup({onBouncerNetworks: () => []});
+		const h = setup({onBouncerNetworks: () => ({added: [], over: []})});
 		control(h, "batch server-time soju.im/bouncer-networks", [
 			":irc.test 005 alice BOUNCER_NETID=1 :are supported by this server",
 		]);
@@ -293,7 +365,7 @@ describe("Bouncers: soju's networks (soju.im/bouncer-networks)", function () {
 			bouncerNetId: "42",
 			onBouncerNetworks(networks) {
 				offered.push(...networks);
-				return [];
+				return {added: [], over: []};
 			},
 		});
 		control(h);
@@ -307,29 +379,44 @@ describe("Bouncers: soju's networks (soju.im/bouncer-networks)", function () {
 describe("Bouncers: which listed networks to add (networksToAdd)", function () {
 	const net = (id: string, name = `net${id}`): BouncerNetwork => ({id, name});
 
-	it("skips the ones offered before, the ones saved already, and repeats", function () {
-		const picked = networksToAdd(
+	const ids = (list: BouncerNetwork[]) => list.map((n) => n.id);
+
+	it("skips the ones offered before and repeats; one saved already is only marked seen", function () {
+		const plan = networksToAdd(
 			[net("1"), net("2"), net("3"), net("3")],
 			new Set(["1"]),
-			(n) => n.id === "2"
+			(n) => n.id === "2",
+			0
 		);
-		expect(picked.map((n) => n.id)).to.deep.equal(["3"]);
+		expect(ids(plan.add)).to.deep.equal(["3"]);
+		// The one saved by hand is offered too: removing it later is final.
+		expect(plan.seen).to.deep.equal(["2", "3"]);
+		expect(plan.over).to.deep.equal([]);
 	});
 
-	it("adds at most BOUNCER_NETWORKS_MAX from one list", function () {
+	it("adds while fewer than BOUNCER_NETWORKS_MAX of the account's networks are saved", function () {
 		const many = Array.from({length: BOUNCER_NETWORKS_MAX + 5}, (_, i) => net(String(i)));
-		expect(networksToAdd(many, new Set(), () => false)).to.have.length(BOUNCER_NETWORKS_MAX);
+		const plan = networksToAdd(many, new Set(), () => false, 3);
+		expect(plan.add).to.have.length(BOUNCER_NETWORKS_MAX - 3);
+		expect(plan.over).to.have.length(8);
+		// Left out for want of room: not seen, so a later list can add them.
+		expect(plan.seen).to.deep.equal(ids(plan.add));
 	});
 
-	it("counts what the entry offered before, so -notify lines one by one stop at the cap too", function () {
-		const seen = new Set<string>();
+	it("a network removed here makes room for one left out before", function () {
+		const many = Array.from({length: BOUNCER_NETWORKS_MAX + 1}, (_, i) => net(String(i)));
+		const first = networksToAdd(many, new Set(), () => false, 0);
+		expect(ids(first.over)).to.deep.equal([String(BOUNCER_NETWORKS_MAX)]);
 
-		for (let i = 0; i < BOUNCER_NETWORKS_MAX + 5; i++) {
-			networksToAdd([net(`n${i}`)], seen, () => false).forEach((n) => seen.add(n.id));
-		}
-
-		expect(seen.size).to.equal(BOUNCER_NETWORKS_MAX);
-		expect(networksToAdd([net("late")], seen, () => false)).to.deep.equal([]);
+		// One removed: BOUNCER_NETWORKS_MAX - 1 saved, the same list again.
+		const again = networksToAdd(
+			many,
+			new Set(first.seen),
+			() => false,
+			BOUNCER_NETWORKS_MAX - 1
+		);
+		expect(ids(again.add)).to.deep.equal([String(BOUNCER_NETWORKS_MAX)]);
+		expect(again.over).to.deep.equal([]);
 	});
 
 	it("takes only ids that are safe to send back in BOUNCER BIND", function () {

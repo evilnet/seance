@@ -526,10 +526,18 @@ msgstr ""
 msgctxt "bans.undo"
 msgid "Undo"
 #. Lobby line on a bouncer's control connection (soju) after Seance added the networks the bouncer listed, each as a network of its own. {names} is a comma-separated list of network names.
-#: client/js/irc/bouncer.ts:90
+#: client/js/irc/bouncer.ts:164
 msgctxt "bouncer.networksAdded"
 msgid "Added this bouncer's networks: {names}"
 msgstr ""
+
+#. Lobby line on a bouncer's control connection (soju) when it lists more networks than Seance adds for one bouncer account. {names} is a comma-separated list of the network names left out; {count} is the limit (20 today).
+#: client/js/irc/bouncer.ts:173
+msgctxt "bouncer.networksOver"
+msgid "Not added: {names}. This bouncer already has {count} network saved here, the most Seance adds; remove one to make room."
+msgid_plural "Not added: {names}. This bouncer already has {count} networks saved here, the most Seance adds; remove one to make room."
+msgstr[0] ""
+msgstr[1] ""
 
 #. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): heading of the full list.
 #: client/components/Windows/ChannelBrowser.vue

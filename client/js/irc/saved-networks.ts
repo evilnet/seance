@@ -76,6 +76,12 @@ export type SavedNetwork = ConnectOptions & {
 	 * user removes is not added again.
 	 */
 	bouncerSeen?: string[];
+	/**
+	 * This entry has registered behind a bouncer that keeps its own channel
+	 * list (IrcClient.behindBouncer) before: from then on the bouncer, not
+	 * the saved channels, says what is joined.
+	 */
+	bouncerSettled?: boolean;
 	/** Epoch ms of the last connect; the picker lists most recent first. */
 	lastUsed?: number;
 	/** Newest message seen on this network (see {@link NetworkCursor}). */
@@ -313,6 +319,10 @@ export function normalize(raw: Record<string, unknown>): SavedNetwork | undefine
 
 	if (Array.isArray(raw.bouncerSeen)) {
 		net.bouncerSeen = raw.bouncerSeen.filter(isNetworkId);
+	}
+
+	if (raw.bouncerSettled === true) {
+		net.bouncerSettled = true;
 	}
 
 	const cursor = asCursor(raw.cursor);
@@ -685,6 +695,17 @@ export function setCursor(uuid: string, cursor: NetworkCursor): void {
 
 	if (net) {
 		net.cursor = cursor;
+		write(all, false);
+	}
+}
+
+/** The network has registered behind a bouncer: see {@link SavedNetwork.bouncerSettled}. */
+export function setBouncerSettled(uuid: string): void {
+	const all = read();
+	const net = all.find((n) => n.uuid === uuid);
+
+	if (net && !net.bouncerSettled) {
+		net.bouncerSettled = true;
 		write(all, false);
 	}
 }
