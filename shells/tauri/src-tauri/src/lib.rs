@@ -525,6 +525,128 @@ fn locale_languages() -> Vec<String> {
 #[cfg(not(target_os = "linux"))]
 fn enable_spell_checking(_: &WebviewWindow) {}
 
+/// The Mac app's menu bar: Tauri's default menu with what a Mac app is
+/// expected to have besides, each with its usual shortcut: Settings… (⌘,) in
+/// the app menu, Toggle Sidebar (⌃⌘S) in View and the app's help (⌘?) in
+/// Help. Those three are the page's to carry out; the shell hands it the
+/// item's id as `App.menuAction` (client/js/native.ts). The rest are
+/// AppKit's own items.
+#[cfg(target_os = "macos")]
+fn install_mac_menu(app: &AppHandle) -> tauri::Result<()> {
+    use tauri::menu::{AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu};
+
+    let name = app.package_info().name.clone();
+    let about = AboutMetadata {
+        name: Some(name.clone()),
+        version: Some(app.package_info().version.to_string()),
+        ..Default::default()
+    };
+    let sep = || PredefinedMenuItem::separator(app);
+
+    let app_menu = Submenu::with_items(
+        app,
+        &name,
+        true,
+        &[
+            &PredefinedMenuItem::about(app, None, Some(about))?,
+            &sep()?,
+            &MenuItem::with_id(app, "settings", "Settings…", true, Some("CmdOrCtrl+,"))?,
+            &sep()?,
+            &PredefinedMenuItem::services(app, None)?,
+            &sep()?,
+            &PredefinedMenuItem::hide(app, None)?,
+            &PredefinedMenuItem::hide_others(app, None)?,
+            &PredefinedMenuItem::show_all(app, None)?,
+            &sep()?,
+            &PredefinedMenuItem::quit(app, None)?,
+        ],
+    )?;
+    let file_menu = Submenu::with_items(
+        app,
+        "File",
+        true,
+        &[&PredefinedMenuItem::close_window(app, None)?],
+    )?;
+    let edit_menu = Submenu::with_items(
+        app,
+        "Edit",
+        true,
+        &[
+            &PredefinedMenuItem::undo(app, None)?,
+            &PredefinedMenuItem::redo(app, None)?,
+            &sep()?,
+            &PredefinedMenuItem::cut(app, None)?,
+            &PredefinedMenuItem::copy(app, None)?,
+            &PredefinedMenuItem::paste(app, None)?,
+            &PredefinedMenuItem::select_all(app, None)?,
+        ],
+    )?;
+    let view_menu = Submenu::with_items(
+        app,
+        "View",
+        true,
+        &[
+            &MenuItem::with_id(
+                app,
+                "toggleSidebar",
+                "Toggle Sidebar",
+                true,
+                Some("Ctrl+Cmd+S"),
+            )?,
+            &sep()?,
+            &PredefinedMenuItem::fullscreen(app, None)?,
+        ],
+    )?;
+    let window_menu = Submenu::with_items(
+        app,
+        "Window",
+        true,
+        &[
+            &PredefinedMenuItem::minimize(app, None)?,
+            &PredefinedMenuItem::maximize(app, None)?,
+            &sep()?,
+            &PredefinedMenuItem::bring_all_to_front(app, None)?,
+        ],
+    )?;
+    let help_menu = Submenu::with_items(
+        app,
+        "Help",
+        true,
+        &[&MenuItem::with_id(
+            app,
+            "help",
+            format!("{name} Help"),
+            true,
+            Some("CmdOrCtrl+Shift+Slash"),
+        )?],
+    )?;
+
+    let menu = Menu::with_items(
+        app,
+        &[
+            &app_menu,
+            &file_menu,
+            &edit_menu,
+            &view_menu,
+            &window_menu,
+            &help_menu,
+        ],
+    )?;
+    app.set_menu(menu)?;
+    window_menu.set_as_windows_menu_for_nsapp()?;
+    help_menu.set_as_help_menu_for_nsapp()?;
+    app.on_menu_event(|app, event| {
+        let action = event.id().as_ref();
+
+        if matches!(action, "settings" | "toggleSidebar" | "help") {
+            show_main(app);
+            emit(app, "App", "menuAction", json!({ "action": action }), false);
+        }
+    });
+
+    Ok(())
+}
+
 /// Close follows the platform (desktop-shells.md § 5.2): a Mac app keeps
 /// running in the Dock and the window comes back from its icon; on Windows
 /// the window goes to the notification area; on Linux, where a tray may not
@@ -653,6 +775,8 @@ pub fn run() {
 
             #[cfg(target_os = "macos")]
             apple::start(app.handle());
+            #[cfg(target_os = "macos")]
+            install_mac_menu(app.handle())?;
             #[cfg(any(windows, target_os = "linux"))]
             alerts::setup(app.handle());
 
