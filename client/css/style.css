@@ -8167,9 +8167,12 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
  * row becomes inline flow: time, nick and text run on like a line of a
  * log and wrap. This used to be the phone's layout, chosen at 479px of
  * screen; chosen by the pane's width it also covers a big font step in a
- * modest window. */
+ * modest window. A pane of 480px or less is inline too, whatever the font:
+ * that is the window at which the sidebar gives way (PHONE_LAYOUT_QUERY),
+ * and a window narrowing past it went from inline beside the sidebar to
+ * columns once it hid, then back to inline some 50px later. */
 /* stylelint-disable-next-line at-rule-no-unknown */
-@container chat (max-width: calc(50ch + 2.5rem)) {
+@container chat (max-width: calc(50ch + 2.5rem)) or (max-width: 480px) {
 	#chat .messages {
 		display: block;
 		padding: 5px 0;
