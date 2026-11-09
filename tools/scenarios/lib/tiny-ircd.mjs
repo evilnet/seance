@@ -65,7 +65,10 @@ function readFrames(buf) {
 }
 
 export function startTinyIrcd({port, host = "127.0.0.1", name = "tiny.test"}) {
+	const sockets = new Set();
 	const server = net.createServer((socket) => {
+		sockets.add(socket);
+		socket.on("close", () => sockets.delete(socket));
 		let buf = Buffer.alloc(0);
 		let upgraded = false;
 		let nick = "";
@@ -151,5 +154,16 @@ export function startTinyIrcd({port, host = "127.0.0.1", name = "tiny.test"}) {
 	});
 
 	server.listen(port, host);
-	return {close: () => new Promise((resolve) => server.close(resolve))};
+	// Open sockets are cut first: server.close() waits for them, and a
+	// scenario that fails before its page goes away would never end.
+	return {
+		close: () =>
+			new Promise((resolve) => {
+				server.close(resolve);
+
+				for (const socket of sockets) {
+					socket.destroy();
+				}
+			}),
+	};
 }
