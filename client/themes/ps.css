@@ -3365,7 +3365,7 @@ select option {
  * drawer lies over the undimmed plains, whose grounds the tint is held over.
  * The strip beside it still takes the tap that closes the drawer, and still
  * fades. */
-@media (max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse) {
+@media (max-width: 480px), (max-width: 768px) and (pointer: coarse), (max-height: 500px) and (hover: none) and (pointer: coarse) {
 	/* Physical, as style.css places the drawer (right: 100% and a translate). */
 	#sidebar-overlay {
 		left: var(--sidebar-width);

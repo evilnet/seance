@@ -434,7 +434,7 @@ const GLASS_FILTER = `blur(0.625rem) var(--ps-g-lift,) saturate(${SATURATE})`;
 /** Where the scene is running and it is day: the one place the backdrop is brightened. */
 const DAY_SCENE = ':root[data-ps-light="day"]';
 const PHONE =
-	"@media (max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse)";
+	"@media (max-width: 480px), (max-width: 768px) and (pointer: coarse), (max-height: 500px) and (hover: none) and (pointer: coarse)";
 /** style.css's user list laid over a narrow chat pane, the condition verbatim. */
 const OVERLAID = "@container chat (max-width: calc(50ch + 8.5rem + 84px))";
 /**
