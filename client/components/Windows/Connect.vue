@@ -276,8 +276,9 @@
 				</div>
 			</template>
 
-			<!-- PASS before registration: bouncers without client SASL (ZNC). -->
-			<template v-if="!hostLocked">
+			<!-- PASS before registration: bouncers without client SASL (ZNC).
+			     A locked host still shows it for a saved entry that has one. -->
+			<template v-if="!hostLocked || showServerPassword">
 				<div class="connect-row">
 					<label></label>
 					<div class="input-wrap">
