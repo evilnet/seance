@@ -440,6 +440,13 @@ html[data-platform="macos"][dir="rtl"] #sidebar .logo-container {
 	padding-left: 10px;
 }
 
+/* A pane laid over the window (Settings, Help, the oper panel, the
+ * changelog; Settings.vue) starts below the lights' strip, so the lights
+ * never sit on top of its corner. */
+html[data-platform="macos"] :is(#settings, #oper, #help, #changelog).window {
+	padding-block-start: var(--mac-titlebar-height);
+}
+
 /* The shell on a phone (shells/tauri, native.ts): its WebView runs under the
  * system bars, so the page keeps clear of them itself. The insets are named
  * once here and every rule below spends them: env(), or the same numbers as
