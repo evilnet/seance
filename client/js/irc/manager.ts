@@ -23,6 +23,7 @@ import {ignoreListFor} from "../ignore";
 import {registerBusHandlers} from "./bus";
 import {IrcClient} from "./client";
 import {flushQueryLogs} from "./querylog";
+import {flushHistoryCaches} from "./historycache";
 import {forgetLogin, typedCredentialsDiffer} from "./saslTrust";
 import {pruneUserAway} from "./userAwayStore";
 import {leavesAwayToWorker, syncPresence} from "./presence";
@@ -329,6 +330,7 @@ if (typeof window !== "undefined") {
 	// it out whenever the page may not come back — a phone kills a hidden
 	// page without a pagehide.
 	window.addEventListener("pagehide", flushQueryLogs);
+	window.addEventListener("pagehide", flushHistoryCaches);
 	// Private conversations no longer kept: every connected network deletes
 	// the account's list of closed ones (a network down meanwhile does so at
 	// its next login read).
@@ -347,6 +349,7 @@ if (typeof window !== "undefined") {
 	document.addEventListener("visibilitychange", () => {
 		if (document.visibilityState === "hidden") {
 			flushQueryLogs();
+			flushHistoryCaches();
 		}
 	});
 
@@ -493,6 +496,7 @@ registerBusHandlers(socket, {
 	createNetwork,
 	remove(uuid) {
 		clients.get(uuid)?.queryLog.dispose();
+		clients.get(uuid)?.historyCache.dispose();
 		clients.delete(uuid);
 		forgetLogin(uuid);
 	},

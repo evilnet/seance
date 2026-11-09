@@ -33,6 +33,7 @@ import {CapNegotiator, SEANCE_CAPS, webpushVapidOf, WEBPUSH_CAP} from "./caps";
 import {casefold, namesEqual} from "./casemap";
 import {Channel, MsgRef, SAID_TYPES, countsAsUnread} from "./channel";
 import {QueryLog} from "./querylog";
+import {HistoryCache} from "./historycache";
 import {commandNames, dispatchInput} from "./commands";
 import {describeClose} from "./disconnect";
 import {handlers, unhandled} from "./handlers";
@@ -446,6 +447,8 @@ export class IrcClient {
 	readonly lobby: Channel;
 	/** Private conversations kept on this device (querylog.ts). */
 	readonly queryLog: QueryLog;
+	/** Recent channel lines kept on this device, restored as a display cache (historycache.ts). */
+	readonly historyCache: HistoryCache;
 	/** The queries the user closed: a line from before the close never reopens one. */
 	readonly closed: ClosedQueries;
 	/** This connection's GET of the shared closes answered (irc/closedQueries.ts). */
@@ -647,6 +650,11 @@ export class IrcClient {
 			() => getSavedNetwork(this.uuid) !== undefined
 		);
 
+		this.historyCache = new HistoryCache(
+			this.uuid,
+			(s) => this.casefold(s),
+			() => getSavedNetwork(this.uuid) !== undefined
+		);
 		this.noticeLog = new NoticeLog(this.uuid, () => getSavedNetwork(this.uuid) !== undefined);
 		this.closed = new ClosedQueries(this.uuid, (s) => this.casefold(s));
 
@@ -860,6 +868,7 @@ export class IrcClient {
 			this.bus.dispatch("network", {network: this.network});
 			this.restoreQueryLines();
 			void this.restoreNotices();
+			void this.restoreChannelCache();
 		}
 
 		if (this.transport.state === "open" || this.transport.state === "connecting") {
@@ -1817,6 +1826,7 @@ export class IrcClient {
 		cancelRestoration(this);
 		this.saveCursor(); // the newest one must not die with the connection
 		this.queryLog.flush();
+		this.historyCache.flush();
 		this.noticeLog.flush();
 		resetRequests(this);
 		resetServiceReplies(this);
@@ -3197,21 +3207,23 @@ export class IrcClient {
 		const chan = this.channelById(data.chan);
 		const msgid = chan?.msgRefs.get(data.id)?.msgid;
 
-		if (!chan || chan.type !== ChanType.QUERY || !msgid) {
+		if (!chan || (chan.type !== ChanType.QUERY && chan.type !== ChanType.CHANNEL) || !msgid) {
 			return;
 		}
+
+		const log = chan.type === ChanType.QUERY ? this.queryLog : this.historyCache;
 
 		if (event === "msg:edit") {
 			const original = chan.msgRefs.get((payload as {replaces: number}).replaces)?.msgid;
 
 			if (original) {
-				this.queryLog.edit(chan.name, original, msgid);
+				log.edit(chan.name, original, msgid);
 			}
 		} else if (event === "msg:redact") {
-			this.queryLog.redact(chan.name, msgid);
+			log.redact(chan.name, msgid);
 		} else {
 			const {text, nick, remove} = payload as {text: string; nick: string; remove: boolean};
-			this.queryLog.react(chan.name, msgid, text, nick, remove);
+			log.react(chan.name, msgid, text, nick, remove);
 		}
 	}
 
@@ -3544,6 +3556,63 @@ export class IrcClient {
 	}
 
 	/**
+	 * Show each joined channel what the device's cache kept of it
+	 * (historycache.ts), as one history page above anything already there.
+	 * Display only: the rows are marked `cached` and nothing that decides
+	 * what the server still has to send reads them; the JOIN's first page
+	 * confirms or drops them (history.ts `reconcileCached`). A channel whose
+	 * first page has already been answered is left alone: the cache would
+	 * land above the server's lines without anything tying the two together.
+	 */
+	private async restoreChannelCache(): Promise<void> {
+		const kept = await this.historyCache.load();
+
+		for (const chan of this.channels) {
+			if (chan.type !== ChanType.CHANNEL || chan.firstFillAnswered) {
+				continue;
+			}
+
+			// Above every chat line the server has sent here already (a live
+			// line, an ATTACH replay): only what is older can go on top.
+			let below = Infinity;
+
+			for (const [id, ref] of chan.msgRefs) {
+				if (!chan.cachedIds.has(id) && ref.msgid && ref.reactable) {
+					below = Math.min(below, ref.time.getTime());
+				}
+			}
+
+			const messages = (kept.get(this.casefold(chan.name)) ?? []).filter(
+				(msg) =>
+					msg.msgid !== undefined &&
+					chan.idOf(msg.msgid) === undefined &&
+					(msg.time as Date).getTime() < below
+			);
+
+			if (messages.length === 0) {
+				continue;
+			}
+
+			const ids = this.historyIds(messages.length);
+
+			messages.forEach((msg, i) => {
+				msg.id = ids[i];
+				chan.remember(msg).cached = true;
+				chan.cachedIds.add(msg.id);
+				chan.cachedMsgs.set(msg.id, {...msg});
+			});
+
+			chan.shared.totalMessages += messages.length;
+			this.bus.dispatch("more", {
+				chan: chan.id,
+				messages,
+				totalMessages: chan.shared.totalMessages + 1,
+				moreAvailable: true,
+			});
+		}
+	}
+
+	/**
 	 * Put the server notices and WALLOPS the last page kept back into the
 	 * lobby, as one history page (noticelog.ts): the server never replays
 	 * them, and a discarded PWA would otherwise come back without them.
@@ -3585,6 +3654,8 @@ export class IrcClient {
 	removeChannel(chan: Channel): void {
 		if (chan.type === ChanType.QUERY) {
 			this.queryLog.forget(chan.name); // closed: not brought back
+		} else if (chan.type === ChanType.CHANNEL) {
+			this.historyCache.forget(chan.name); // left: a later JOIN starts afresh
 		}
 
 		const idx = this.channels.indexOf(chan);
@@ -3637,6 +3708,8 @@ export class IrcClient {
 		if (chan.type === ChanType.QUERY) {
 			// Before the counting below, which may move the read point it keeps.
 			this.queryLog.append(chan.name, msg);
+		} else if (chan.type === ChanType.CHANNEL) {
+			this.historyCache.append(chan.name, msg);
 		}
 
 		const shared = chan.shared;

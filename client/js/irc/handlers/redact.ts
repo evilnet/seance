@@ -12,6 +12,7 @@
  * (`inbox:drop`), which keeps mentions across reloads.
  */
 
+import {ChanType} from "../../../../shared/types/chan";
 import {t} from "../../i18n/core";
 import type {Channel} from "../channel";
 import type {Handler} from "../types";
@@ -36,6 +37,22 @@ const redact: Handler = (client, msg) => {
 	client.dispatch("inbox:drop", {network: client.uuid, target: conversation, msgid});
 
 	if (chan) {
+		// Off the device too, whether or not the line is still loaded: a line
+		// scrolled out of memory must not come back from disk on the next load.
+		if (chan.type === ChanType.QUERY) {
+			client.queryLog.redact(chan.name, msgid);
+		} else if (chan.type === ChanType.CHANNEL) {
+			client.historyCache.redact(chan.name, msgid);
+
+			// A row restored from the cache and not yet confirmed: its
+			// snapshot must not bring the line back (history.ts reconcileCached).
+			const restored = chan.idOf(msgid);
+
+			if (restored !== undefined) {
+				chan.cachedMsgs.delete(restored);
+			}
+		}
+
 		client.dispatch("msg:changed", {
 			chan: chan.id,
 			msgid,

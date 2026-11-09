@@ -21,6 +21,7 @@ import {collator} from "../i18n/collation";
 import {forgetNetworkLog} from "./querylog";
 import {forgetClosedQueries} from "./closedQueries";
 import {forgetNoticeLog} from "./noticelog";
+import {forgetNetworkHistory} from "./historycache";
 import {forgetOperPrefs} from "./operprefs";
 import {forgetMuteMemory} from "./muteMemory";
 import {forgetPresenceSync} from "./presenceSync";
@@ -630,6 +631,7 @@ export function remove(uuid: string): void {
 	forgetNetworkLog(uuid); // its private conversations go with it
 	forgetClosedQueries(uuid); // and the ones it closed
 	forgetNoticeLog(uuid); // and its server notices
+	forgetNetworkHistory(uuid); // and its channels' recent lines
 	forgetOperPrefs(uuid);
 	forgetMuteMemory(uuid); // and what this device wrote to its push mute list
 	forgetPresenceSync(uuid); // and when it was last in sync with the shared presence

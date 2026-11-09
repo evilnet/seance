@@ -394,8 +394,13 @@ interface Replayed {
  * `+seance/edit` resends) is returned separately: it needs the messages'
  * ids, which only exist after delivery.
  */
-function replay(client: IrcClient, chan: Channel, lines: IrcMessage[]): Replayed {
-	const known = new Set(chan.msgids);
+function replay(
+	client: IrcClient,
+	chan: Channel,
+	lines: IrcMessage[],
+	keepCached = false
+): Replayed {
+	const known = new Set(keepCached ? chan.confirmedMsgids() : chan.msgids);
 	const collected: ReplayCollection = {messages: [], after: []};
 
 	for (const line of lines) {
@@ -475,6 +480,8 @@ function deliverPrepend(
 
 		if (chan.type === ChanType.QUERY) {
 			client.queryLog.append(chan.name, msg); // by time, deduplicated
+		} else if (chan.type === ChanType.CHANNEL) {
+			client.historyCache.append(chan.name, msg);
 		}
 	});
 
@@ -544,9 +551,20 @@ function resolve(
 
 	const {chan} = request;
 	const answered = outcome === "batch" || outcome === "ack";
+	// The JOIN's first page meeting rows restored from the device's cache:
+	// replayed without counting those rows as shown, so it can tell whether
+	// the page reaches them (reconcileCached).
+	const firstFill = request.mode === "prepend" && request.subcommand === "LATEST";
+	const reconciling = firstFill && chan.cachedIds.size > 0;
+
+	if (firstFill) {
+		chan.firstFillAnswered = true;
+	}
 
 	const {messages, after} =
-		lines && lines.length > 0 ? replay(client, chan, lines) : {messages: [], after: []};
+		lines && lines.length > 0
+			? replay(client, chan, lines, reconciling)
+			: {messages: [], after: []};
 
 	if (request.mode === "append") {
 		// The spec's loop: this page reached what we already hold when it
@@ -558,7 +576,9 @@ function resolve(
 		// For the same reason an empty page without the end tag stops the walk
 		// (nothing to page back from) but does not vouch for the gap.
 		const page = lines ?? [];
-		const known = new Set(chan.msgids);
+		// Only what the server sent this page: a row restored from the
+		// device's cache proves nothing about what lies between it and now.
+		const known = new Set(chan.confirmedMsgids());
 		const floorMs = request.floor ? request.floor.time.getTime() - CATCHUP_FUZZ_MS : undefined;
 		let reached = false;
 		let oldest: MsgRef | undefined;
@@ -638,6 +658,10 @@ function resolve(
 		// cap stops it short.
 		if (answered && (reached || end)) {
 			chan.historyFilled = true;
+		} else if (chan.type === ChanType.CHANNEL && request.gap.length > 0) {
+			// Stopped short: what the device kept from before this gap is no
+			// longer followed by what it keeps after it.
+			client.historyCache.dropOlderThan(chan.name, toDate(request.gap[0].time));
 		}
 
 		deliverAppend(client, chan, request.gap);
@@ -660,8 +684,131 @@ function resolve(
 
 	// The end tag closes it even after a full page (draft/chathistory-end).
 	const more = outcome === "timeout" || (lines !== null && lines.length > 0 && !end);
-	deliverPrepend(client, chan, messages, more);
+
+	if (reconciling) {
+		reconcileCached(client, chan, lines ?? [], messages, more);
+	} else {
+		deliverPrepend(client, chan, messages, more);
+	}
+
 	runAfter(after);
+}
+
+function toDate(value: Date | string): Date {
+	return value instanceof Date ? value : new Date(value);
+}
+
+/**
+ * The JOIN's first page (`LATEST`) against the rows the device's cache put
+ * above it (historycache.ts). The rows join the channel's history only when
+ * the page proves they meet it: it carries one of their msgids, nothing it
+ * holds falls inside their span without being one of them, and what it
+ * holds past them is older than every chat line already shown below them
+ * (an ATTACH replay, a live line) — appended, it would land after those.
+ * Then the older part goes on top and the newer part is appended, as a
+ * reconnect's gap is. Otherwise the cached rows leave the buffer
+ * (`msg:drop`) and the page is delivered as if they had never been there:
+ * shown side by side, they would hide a gap. An empty or timed-out answer
+ * leaves them as they are, still unconfirmed.
+ */
+function reconcileCached(
+	client: IrcClient,
+	chan: Channel,
+	page: IrcMessage[],
+	messages: SharedMsg[],
+	more: boolean
+): void {
+	const cachedMsgids = new Set<string>();
+	let oldest = Infinity;
+	let newest = -Infinity;
+
+	for (const id of chan.cachedIds) {
+		const ref = chan.msgRefs.get(id);
+
+		if (ref?.msgid) {
+			cachedMsgids.add(ref.msgid);
+			oldest = Math.min(oldest, ref.time.getTime());
+			newest = Math.max(newest, ref.time.getTime());
+		}
+	}
+
+	if (page.length === 0 || cachedMsgids.size === 0) {
+		deliverPrepend(client, chan, [], more);
+		return;
+	}
+
+	const overlap = page.some((line) => cachedMsgids.has(line.tags.get("msgid") ?? ""));
+	const fresh = messages.filter((m) => !m.msgid || !cachedMsgids.has(m.msgid));
+	const older: SharedMsg[] = [];
+	const newer: SharedMsg[] = [];
+	let inside = false;
+
+	for (const msg of fresh) {
+		const t = toDate(msg.time).getTime();
+
+		if (t < oldest) {
+			older.push(msg);
+		} else if (t > newest) {
+			newer.push(msg);
+		} else {
+			inside = true;
+		}
+	}
+
+	// The oldest chat line shown below the cached rows that the server sent.
+	let below = Infinity;
+
+	for (const [id, ref] of chan.msgRefs) {
+		if (!chan.cachedIds.has(id) && ref.msgid && ref.reactable) {
+			below = Math.min(below, ref.time.getTime());
+		}
+	}
+
+	const newestNewer = newer.reduce((t, m) => Math.max(t, toDate(m.time).getTime()), -Infinity);
+
+	if (overlap && !inside && newestNewer <= below) {
+		if (newer.length === 0) {
+			// Nothing new since: the rows stay where they are, confirmed.
+			for (const id of chan.cachedIds) {
+				const ref = chan.msgRefs.get(id);
+
+				if (ref) {
+					ref.cached = false;
+				}
+			}
+
+			chan.cachedIds.clear();
+			chan.cachedMsgs.clear();
+			deliverPrepend(client, chan, older, more);
+			return;
+		}
+
+		// The new lines belong between the cached rows and what is already
+		// below them (our JOIN, at the least), where neither an append nor a
+		// prepend can put them: take the rows out and deliver all three as
+		// one page, in order.
+		const kept = [...chan.cachedMsgs.values()].map((m) => ({...m}));
+		dropCached(client, chan);
+		deliverPrepend(client, chan, [...older, ...kept, ...newer], more);
+		return;
+	}
+
+	dropCached(client, chan);
+
+	if (chan.type === ChanType.CHANNEL && messages.length > 0) {
+		client.historyCache.dropOlderThan(chan.name, toDate(messages[0].time));
+	}
+
+	deliverPrepend(client, chan, messages, more);
+}
+
+/** Take the rows restored from the device's cache out of the channel and the buffer. */
+function dropCached(client: IrcClient, chan: Channel): void {
+	const ids = [...chan.cachedIds];
+	chan.forget(ids);
+	chan.cachedIds.clear();
+	chan.cachedMsgs.clear();
+	client.dispatch("msg:drop", {chan: chan.id, ids});
 }
 
 /** Closed `chathistory` batch: answer the request it belongs to. */

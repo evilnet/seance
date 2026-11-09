@@ -44,6 +44,12 @@ export interface MsgRef {
 	unread?: boolean;
 	/** Bumped the channel's `highlight` counter when pushed. */
 	highlight?: boolean;
+	/**
+	 * Restored from the device's cache (historycache.ts) and not yet
+	 * matched with the server's history: shown, deduplicated against, but
+	 * never evidence of what the server holds.
+	 */
+	cached?: boolean;
 }
 
 /** A fresh user record; `mode` mirrors `modes[0]` and must be kept in sync. */
@@ -140,6 +146,16 @@ export class Channel {
 	 * never taken for one that finished (catchup.ts).
 	 */
 	historyFilled = false;
+	/**
+	 * The ids of the rows restored from the device's cache that the server's
+	 * history has not yet confirmed (history.ts `reconcileCached`); empty
+	 * once it has, or when nothing was restored.
+	 */
+	cachedIds = new Set<number>();
+	/** Those rows as restored, by id: delivered again when the first page has to go between them and what is below. */
+	cachedMsgs = new Map<number, SharedMsg>();
+	/** The JOIN's first history page has been answered: too late to restore the cache above it. */
+	firstFillAnswered = false;
 	/**
 	 * Open, but its reader was taken to an older message: nothing is read until
 	 * they reach the bottom ({@link IrcClient.isReading}). What we say still reads it,
@@ -284,6 +300,19 @@ export class Channel {
 		return this.idByMsgid.keys();
 	}
 
+	/** msgids shown that came from the server this page, not from the device's cache. */
+	confirmedMsgids(): string[] {
+		const out: string[] = [];
+
+		for (const [msgid, id] of this.idByMsgid) {
+			if (!this.cachedIds.has(id)) {
+				out.push(msgid);
+			}
+		}
+
+		return out;
+	}
+
 	/**
 	 * The newest message the server stamped — one with a msgid, whose time is
 	 * the server's. `newestRef` can be a local line on our own clock (an
@@ -298,7 +327,7 @@ export class Channel {
 		let best: MsgRef | undefined;
 
 		for (const ref of this.msgRefs.values()) {
-			if (ref.msgid && (!best || ref.time.getTime() > best.time.getTime())) {
+			if (ref.msgid && !ref.cached && (!best || ref.time.getTime() > best.time.getTime())) {
 				best = ref;
 			}
 		}

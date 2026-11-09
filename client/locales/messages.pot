@@ -13445,6 +13445,12 @@ msgctxt "settings.general.fileAria"
 msgid "Settings file to restore"
 msgstr ""
 
+#. Heading of a section in Settings > General holding the option to keep each channel's recent messages stored in this browser.
+#: client/components/Settings/General.vue
+msgctxt "settings.general.historyHeading"
+msgid "Channel history"
+msgstr ""
+
 #. Button in Settings > General; opens a file picker to restore a previously exported settings backup file. Ellipsis is part of the copy.
 #: client/components/Settings/General.vue
 msgctxt "settings.general.import"
@@ -13551,6 +13557,18 @@ msgstr ""
 #: client/components/Settings/General.vue
 msgctxt "settings.general.keepAliveNotificationsOff"
 msgid "Notifications are off for {appName} in Android's settings, so the connection notification is hidden. Android may still stop the app."
+msgstr ""
+
+#. Checkbox in Settings > General, under the private-conversations heading. Turned on, each channel's recent messages are stored in this browser and shown at once after a reload.
+#: client/components/Settings/General.vue
+msgctxt "settings.general.keepChannelHistory"
+msgid "Keep recent channel history on this device"
+msgstr ""
+
+#. Tooltip on the keep-channel-history checkbox in Settings > General. {lines} and {days} are numbers (200 and 7 today). Make clear that turning the setting off deletes what is stored.
+#: client/components/Settings/General.vue
+msgctxt "settings.general.keepChannelHistoryHelp"
+msgid "Channels show their newest {lines} messages straight away after a reload, from a copy stored in this browser for up to {days} days, until the server's history arrives. Turning this off deletes them from this device."
 msgstr ""
 
 #. Checkbox in Settings > General; when ticked, the recent lines of private (one-to-one) conversations are stored in this browser so they come back after the page is reloaded.
