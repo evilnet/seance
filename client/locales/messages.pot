@@ -531,7 +531,7 @@ msgctxt "bouncer.networksAdded"
 msgid "Added this bouncer's networks: {names}"
 msgstr ""
 
-#. Lobby line on a bouncer's control connection (soju) when it lists more networks than Seance adds for one bouncer account. {names} is a comma-separated list of the network names left out; {count} is the limit (20 today).
+#. Lobby line on a bouncer's control connection (soju) when it lists more networks than Seance adds for one bouncer account. {names} is a comma-separated list of the network names left out; {count} is the limit (50 today).
 #: client/js/irc/bouncer.ts:173
 msgctxt "bouncer.networksOver"
 msgid "Not added: {names}. This bouncer already has {count} network saved here, the most Seance adds; remove one to make room."

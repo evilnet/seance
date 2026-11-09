@@ -32,7 +32,7 @@ export const BOUNCER_NETWORKS_BATCH = "soju.im/bouncer-networks";
  * the user removes frees its place; one left out for want of room is not
  * marked seen, so a later list adds it once there is room.
  */
-export const BOUNCER_NETWORKS_MAX = 20;
+export const BOUNCER_NETWORKS_MAX = 50;
 /** How many offered ids `SavedNetwork.bouncerSeen` remembers (the newest). */
 export const BOUNCER_SEEN_MAX = 200;
 
