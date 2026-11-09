@@ -335,7 +335,10 @@ document.addEventListener("keydown", (e) => {
 });
 
 function scrollIntoViewNicely(el) {
+	// "nearest": a row already in sight stays where it is, as after a click;
+	// one out of sight is brought to the nearer edge. "center" moved the list
+	// on every keyboard switch, visible or not.
 	// Ideally this would use behavior: "smooth", but that does not consistently work in e.g. Chrome
 	// https://github.com/iamdustan/smoothscroll/issues/28#issuecomment-364061459
-	el.scrollIntoView({block: "center", inline: "nearest"});
+	el.scrollIntoView({block: "nearest", inline: "nearest"});
 }
