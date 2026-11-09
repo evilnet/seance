@@ -111,6 +111,11 @@ export default async function run(page) {
 	await resize(page, 460);
 	s = await page.evaluate(STATE);
 	console.log("460", JSON.stringify(s));
-	page.check("460: the phone layout (channel list is a drawer)", s.sidebar.startsWith("drawer"));
+	page.check("460: the phone layout, its drawer closed over the chat", s.sidebar === "drawer");
+	page.check("460: the user list closed too", s.userlist === "closed");
+
+	await resize(page, 640);
+	s = await page.evaluate(STATE);
+	page.check("back to 640: the channel list beside the chat again", s.sidebar === "panel");
 	page.check("no console errors", page.consoleErrors.length === 0);
 }

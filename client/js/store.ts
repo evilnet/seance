@@ -143,7 +143,7 @@ export type State = {
 	/**
 	 * The chat pane is too narrow for the user list to sit beside the
 	 * messages, so it lies over them instead (userlistOverlay.ts). Never on
-	 * the phone layout, which keeps its own behaviour.
+	 * a touch device, which keeps its own behaviour.
 	 */
 	userlistOverlays: boolean;
 	/** The user list lying over the messages is open. Never saved: it starts closed. */

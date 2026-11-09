@@ -3,8 +3,8 @@
 // narrow desktop window the list starts closed there, whatever the wide
 // window left saved: open, it would cover the messages the window is for.
 // The toggle then opens and closes it for the moment only (store.ts
-// `toggleUserlist`). The phone layout keeps its own behaviour.
-import {isPhoneLayout} from "./helpers/device";
+// `toggleUserlist`). A touch device keeps its own behaviour.
+import {hasVirtualKeyboard, isPhoneLayout} from "./helpers/device";
 import {store} from "./store";
 
 /**
@@ -13,7 +13,9 @@ import {store} from "./store";
  * back whenever the chat pane changes width.
  */
 function overlays(chat: HTMLElement): boolean {
-	if (isPhoneLayout()) {
+	// A phone or tablet keeps its own behaviour; a desktop window narrow
+	// enough for the phone layout gets this one.
+	if (isPhoneLayout() && hasVirtualKeyboard()) {
 		return false;
 	}
 
