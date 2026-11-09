@@ -1731,6 +1731,61 @@ request carrying it and translates every later one, which is the bare
 second try succeeding. Browser check:
 `tools/scenarios/translate-composer.mjs` (also `--mobile`).
 
+## Language tags
+
+A composer translation tells other clients what it is, through two client
+tags (`irc/langtag.ts`; the research and the reasons are in the project's
+proposal):
+
+- `+draft/language=<BCP 47>` names the language the text is in. It is the
+  name IRCv3 PR #424 used (a closed draft), so another client may already
+  read it. Seance's `zh` goes out as `zh-Hans` and its `tl` as `fil`.
+- `+evilnet.github.io/machine-translated` (no value) says the sender's
+  client machine-translated the user's own words. It means nothing without
+  a language, and a reader drops it when the language is missing or
+  unusable.
+
+**What sends them.** Only a finished composer translation into a language
+the user picked (`ChatInput.vue` `deliver`, through the `input` event's
+`language` / `machineTranslated` to `wire.ts` `inputTags`): both tags for a
+translation, the language alone for a correction in the same language (a
+polish). A line sent as written, one already in the target language, an
+edit, `/msg`, `/notice` and everything automatic go out untagged: Seance
+never guesses a language for the wire. Settings → Translation → "Mark my translated
+messages with their language" (`translateTagSend`, on by default) turns
+both off. The tags ride every chunk of a split line and a `draft/multiline`
+batch's opener, and the pending copy carries the fields at once.
+`IrcClient.sendMessage` drops any client tag the server's `CLIENTTAGDENY`
+names (`isupport.ts` `clientTagAllowed`, the spec's `*` and `-name` forms
+included), and nothing goes without `message-tags`.
+
+**What reading does with them.** `handlers/privmsg.ts` puts `language` and
+`machineTranslated` on the message (live, echo and history alike);
+`codeOfLanguageTag` takes the primary subtag (`es-MX` is `es`), maps
+`fil`/`iw`/`in`/`no` to Seance's codes, and ignores `und`, `mul`, `zxx`,
+`mis`, private use, Traditional Chinese (Seance's `zh` is Simplified) and
+any language the engines lack. The reader (`reader.ts` `translateMessage`
+through `detect.ts` `withSenderLanguage`) takes the sender's language as a
+strong prior, never an order: it places a line the detector could not, and
+decides one it was unsure of, but a detection of another language at
+`SENDER_OVERRULE_MIN` (0.9) or above wins, with the sender's language kept
+as a runner-up on the chip's menu. A line tagged in the reader's own
+language is therefore not translated, and a forced Translate or a
+Retranslate from a picked source ignores the tag. `Message.vue` shows
+"(machine translated)" after the text when the flag came in, its title
+naming the language.
+
+**Two Seance instances.** A's translation goes out tagged; A's echo and B's
+copy both carry the fields; B reads it from the tagged source, or skips it
+when that is B's reading language; B's reply into A's language comes back
+tagged and A skips it. Nothing is translated or sent on anyone's behalf, so
+the two never answer each other. nefarious2 before it lets
+`+evilnet.github.io/` client tags through drops the flag (on the echo
+too) and keeps the language: the note is then missing everywhere, and the
+reading prior still works. Browser check, two browsers in one channel plus
+a raw speaker: `tools/scenarios/translate-language-tags.mjs` (it says
+whether the server relayed the flag and asserts accordingly).
+
 ## Span protection
 
 Fidelity is the code's job, not the model's. `spans.ts` swaps everything

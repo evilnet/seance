@@ -13,7 +13,9 @@ import {
 	detectionSkip,
 	scriptLanguage,
 	setIdentifier,
+	SENDER_OVERRULE_MIN,
 	sourceFor,
+	withSenderLanguage,
 } from "../../client/js/translate/detect";
 import {isSupported} from "../../client/js/translate/languages";
 
@@ -233,6 +235,64 @@ describe("translate/detect", () => {
 			expect(detectionSkip({lang: "fr", confidence: 0.9, candidates: []}, "en")).to.equal(
 				null
 			);
+		});
+	});
+
+	describe("withSenderLanguage (+draft/language)", () => {
+		it("places a line the detector could not, as the sender's language", () => {
+			const unplaced = {lang: null, confidence: 0, candidates: ["nl", "en"]};
+
+			expect(withSenderLanguage(unplaced, "en")).to.deep.equal({
+				lang: "en",
+				confidence: AGREE_MIN,
+				candidates: ["en", "nl"],
+			});
+		});
+
+		it("takes a weak verdict for another language as the sender's", () => {
+			const weak = {lang: "nl", confidence: 0.5, candidates: ["nl", "de", "en"]};
+
+			expect(withSenderLanguage(weak, "en")).to.deep.equal({
+				lang: "en",
+				confidence: AGREE_MIN,
+				candidates: ["en", "nl", "de"],
+			});
+		});
+
+		it("keeps an agreeing verdict as it is", () => {
+			const agrees = {lang: "es", confidence: 0.8, candidates: ["es", "pt"]};
+
+			expect(withSenderLanguage(agrees, "es")).to.deep.equal(agrees);
+		});
+
+		it("loses to a verdict close to certain, and stays on the menu", () => {
+			const sure = {
+				lang: "ru",
+				confidence: SENDER_OVERRULE_MIN,
+				candidates: ["ru", "uk", "bg"],
+			};
+			const script = {lang: "zh", confidence: 1, candidates: ["zh"]};
+
+			expect(withSenderLanguage(sure, "en")).to.deep.equal({
+				lang: "ru",
+				confidence: SENDER_OVERRULE_MIN,
+				candidates: ["ru", "en", "uk"],
+			});
+			expect(withSenderLanguage(script, "en").lang).to.equal("zh");
+		});
+
+		it("changes nothing without a supported sender language", () => {
+			const any = {lang: "fr", confidence: 0.4, candidates: ["fr"]};
+
+			expect(withSenderLanguage(any, undefined)).to.equal(any);
+			expect(withSenderLanguage(any, "tlh")).to.equal(any);
+		});
+
+		it("makes a tagged line in the reader's language a skip, not a polish", () => {
+			const tagged = withSenderLanguage({lang: null, confidence: 0, candidates: []}, "en");
+
+			expect(detectionSkip(tagged, "en")).to.equal("same");
+			expect(detectionSkip(tagged, "de")).to.equal(null);
 		});
 	});
 

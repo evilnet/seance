@@ -88,8 +88,9 @@ export type Handler = (client: IrcClient, msg: IrcMessage) => void;
 
 /**
  * What the UI attached to a line of input (`input` emit, bus-contract §1.4):
- * msgids to reply to and/or replace. Only plain text honours both; `/me`
- * honours `reply`; every other command ignores them.
+ * msgids to reply to and/or replace, and the language tags' fields. Plain
+ * text and `/me` honour them (an edit goes out with its reply tags only:
+ * the composer never translates an edit); every other command ignores them.
  */
 export interface InputOptions {
 	reply?: string;
@@ -97,6 +98,14 @@ export interface InputOptions {
 	/** Run by the client, not typed or clicked (a network's saved commands
 	 * after every registration): never counts as the user asking. */
 	auto?: boolean;
+	/**
+	 * The language the text is in, when Seance knows it from something
+	 * other than the text: the composer's translation into a language the
+	 * user picked. Sent as `+draft/language` on plain text and `/me`.
+	 */
+	language?: string;
+	/** The composer machine-translated the text (`+evilnet.github.io/machine-translated`). */
+	machineTranslated?: boolean;
 }
 
 /** The channel (or lobby/query) an input line was typed into. */

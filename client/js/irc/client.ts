@@ -116,6 +116,7 @@ import {detectProfile, type ServerProfile} from "./profiles";
 import {interceptRequestLine, resetRequests} from "./request";
 import {noticeMessage} from "./snotice";
 import {ISupport} from "./isupport";
+import {languageFieldsOf} from "./langtag";
 import {ChannelList} from "./channelList";
 import {
 	formatLine,
@@ -2200,6 +2201,15 @@ export class IrcClient {
 			// without it would read `@+reply=…` as the command and the
 			// message would be lost. It goes out plain instead.
 			opts = {...opts, tags: undefined, firstTags: undefined};
+		} else if (opts.tags || opts.firstTags) {
+			// A tag the server blocks (`CLIENTTAGDENY`) would be dropped
+			// there anyway; it is left off so the line is budgeted, shown
+			// and matched as it will arrive.
+			opts = {
+				...opts,
+				tags: this.allowedClientTags(opts.tags),
+				firstTags: this.allowedClientTags(opts.firstTags),
+			};
 		}
 
 		scriptManager.dispatchSend(text, target);
@@ -2341,6 +2351,7 @@ export class IrcClient {
 			replyTo: opts.tags?.[REPLY_TAG],
 			editOf: i === 0 ? opts.firstTags?.[EDIT_TAG] : undefined,
 			statusmsgGroup: group,
+			...languageFieldsOf((name) => opts.tags?.[name]),
 		});
 
 		const deliver = (): boolean => {
@@ -2720,6 +2731,19 @@ export class IrcClient {
 		if (id !== undefined && id !== msg.id) {
 			this.dispatch("msg:edit", {chan: chan.id, id, replaces: msg.id});
 		}
+	}
+
+	/** `tags` without the client-only ones `CLIENTTAGDENY` blocks; undefined when none is left. */
+	private allowedClientTags(tags: ClientTags | undefined): ClientTags | undefined {
+		if (!tags) {
+			return undefined;
+		}
+
+		const kept = Object.entries(tags).filter(
+			([name]) => !name.startsWith("+") || this.isupport.clientTagAllowed(name)
+		);
+
+		return kept.length > 0 ? Object.fromEntries(kept) : undefined;
 	}
 
 	/** The tagged resend that completes an edit. */

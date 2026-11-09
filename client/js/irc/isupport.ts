@@ -306,4 +306,28 @@ export class ISupport {
 
 		return result;
 	}
+
+	/**
+	 * Whether the server lets the client-only tag `tag` (`+name`) through,
+	 * per `CLIENTTAGDENY` (message-tags § Client-only tags): a comma list of
+	 * blocked names without their `+`, where a leading `*` blocks every one
+	 * and `-name` then exempts one. A blocked tag is dropped by the server
+	 * and the message still delivered, so senders leave it off instead.
+	 */
+	clientTagAllowed(tag: string): boolean {
+		const value = this.get("CLIENTTAGDENY");
+
+		if (!value) {
+			return true;
+		}
+
+		const name = tag.startsWith("+") ? tag.slice(1) : tag;
+		const entries = value.split(",").filter((entry) => entry.length > 0);
+
+		if (entries[0] === "*") {
+			return entries.includes(`-${name}`);
+		}
+
+		return !entries.includes(name);
+	}
 }

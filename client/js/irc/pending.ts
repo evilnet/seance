@@ -58,6 +58,9 @@ export interface PendingFields {
 	replyTo?: string;
 	editOf?: string;
 	statusmsgGroup?: string;
+	/** The language tags' fields (`langtag.ts`), so the copy shows its note too. */
+	language?: string;
+	machineTranslated?: true;
 }
 
 interface Registry {
@@ -112,6 +115,8 @@ export function showPending(
 		...(fields.replyTo ? {replyTo: fields.replyTo} : {}),
 		...(fields.editOf ? {editOf: fields.editOf} : {}),
 		...(fields.statusmsgGroup ? {statusmsgGroup: fields.statusmsgGroup} : {}),
+		...(fields.language ? {language: fields.language} : {}),
+		...(fields.machineTranslated ? {machineTranslated: true} : {}),
 	};
 	const entry: PendingMessage = {
 		id: msg.id,

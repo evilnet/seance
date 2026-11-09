@@ -219,6 +219,14 @@ const defaultConfig = {
 	translationEnabled: {
 		default: false,
 	},
+	/**
+	 * Tag the composer's translations with their language (`+draft/language`)
+	 * and as machine output (`+evilnet.github.io/machine-translated`), so
+	 * other clients need not guess (irc/langtag.ts).
+	 */
+	translateTagSend: {
+		default: true,
+	},
 	/** auto | formal | casual, one line of the prompt. */
 	translateFormality: {
 		default: "auto",

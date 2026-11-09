@@ -8668,6 +8668,15 @@ html[data-shell="native"] #image-viewer .next-image-btn {
 	user-select: none;
 }
 
+/* The sender's client machine-translated the line (irc/langtag.ts): a note
+ * beside "(edited)", as quiet, so the original reads first. */
+#chat .msg-machine-translated {
+	margin-inline-start: 0.25rem;
+	color: var(--body-color-muted);
+	font-size: 0.85em;
+	user-select: none;
+}
+
 /* The translated line under a message (client/components/TranslationLine.vue,
  * docs/resources/translation.md): muted like the timestamps so the original
  * reads first, the language chip in the accent, a caret while it streams.

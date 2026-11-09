@@ -98,6 +98,12 @@
 					:title="editedTitle"
 					>{{ t("message.editedBadge") }}</span
 				>
+				<span
+					v-if="message.machineTranslated && !message.redacted"
+					class="msg-machine-translated"
+					:title="machineTranslatedTitle"
+					>{{ t("message.machineTranslatedBadge") }}</span
+				>
 				<TranslationLine
 					v-if="hasTranslationEntry && channel && (!message.redacted || revealed)"
 					:message="message"
@@ -205,6 +211,12 @@
 					:title="editedTitle"
 					>{{ t("message.editedBadge") }}</span
 				>
+				<span
+					v-if="message.machineTranslated && !message.redacted"
+					class="msg-machine-translated"
+					:title="machineTranslatedTitle"
+					>{{ t("message.machineTranslatedBadge") }}</span
+				>
 				<TranslationLine
 					v-if="hasTranslationEntry && channel && (!message.redacted || revealed)"
 					:message="message"
@@ -250,7 +262,8 @@ import TranslationFlip from "./TranslationFlip.vue";
 import TranslationLine from "./TranslationLine.vue";
 import QuotePreview from "./QuotePreview.vue";
 import {replyQuote} from "../js/helpers/messageUpdates";
-import {showOriginal} from "../js/translate/reader";
+import {readingLanguage, showOriginal} from "../js/translate/reader";
+import {languageName} from "../js/translate/languages";
 import socket from "../js/socket";
 import {quoteLayout, toPlainText} from "../js/helpers/ircmessageparser/layout";
 import {MessageType} from "../../shared/types/msg";
@@ -524,6 +537,17 @@ export default defineComponent({
 			return formatDateTime(props.message.time, store.state.settings.use12hClock);
 		});
 
+		// The sender's client machine-translated the line (irc/langtag.ts):
+		// said on the line itself, so nobody takes the engine's phrasing for
+		// the sender's own. Named in the reader's language.
+		const machineTranslatedTitle = computed(() =>
+			props.message.language
+				? t("message.machineTranslated", {
+						language: languageName(props.message.language, readingLanguage()),
+				  })
+				: ""
+		);
+
 		// An edit keeps its original's time (msg:edit); when it was made is editedAt.
 		const editedTitle = computed(() => {
 			return props.message.editedAt
@@ -722,6 +746,7 @@ export default defineComponent({
 			messageTime,
 			messageTimeLocale,
 			editedTitle,
+			machineTranslatedTitle,
 			messageComponent,
 			isAction,
 			quote,
