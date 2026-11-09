@@ -2987,6 +2987,11 @@ html[data-contrast="more"]:root[data-ps-light="night"]:is(:not([data-ps-words]),
 	#chat .userlist {
 		--ps-g-tint: var(--ps-g-tint-float, var(--ps-g-tint-a));
 	}
+
+	/* On the Mac the pane keeps its bottom inset (below) laid over the chat. */
+	html[data-platform="macos"] #chat .userlist {
+		height: calc(100% - 8px);
+	}
 }
 
 /* The phone's sliding sidebar and user list keep style.css's slide
@@ -3697,6 +3702,50 @@ html[data-reduce-motion]:root {
 
 	html[data-platform="macos"] #form:focus-within {
 		border-color: var(--ps-g-edge);
+	}
+
+	/* The member list is a pane like the sidebar, an inspector's: inset from
+	 * window's trailing edge and the composer, under the toolbar, its corners
+	 * rounded as the sidebar's are, so the plains run
+	 * around it rather than a slab of glass meeting the edge. Laid over a
+	 * narrow chat it keeps the inset. Its group headings are the sidebar's
+	 * section labels, in the flow: a sticky heading's veil, glass over glass,
+	 * was a darker band across the pane. Its rows are rounded washes inset
+	 * from the pane's sides, as the sidebar's are. */
+	html[data-platform="macos"] #chat .userlist {
+		margin-inline-end: 8px;
+		margin-block-end: 8px;
+		border: 0.0625rem solid var(--ps-g-edge);
+		border-radius: 8px;
+		overflow: hidden;
+		box-shadow: 0 0.5rem 1.875rem rgb(0 0 0 / 18%);
+	}
+
+	/* A pane hovering over the plains leaves them where they are: the yurt
+	 * keeps its place when the list opens (the scene section moves it to stay
+	 * clear of a docked slab), and the pane's glass passes over it. */
+	html[data-platform="macos"]:has(.userlist-open .chat-view[data-type="channel"]) #theme-scene .ps-yurt,
+	html[data-platform="macos"]:has(.userlist-open .chat-view[data-type="channel"]) #theme-scene .ps-smoke {
+		--ps-yurt-in: 0px;
+	}
+
+	html[data-platform="macos"] #chat .userlist .user-mode[data-label]::before {
+		position: static;
+		background-color: transparent;
+		color: var(--rail-fg-muted, var(--body-color-muted));
+		font-size: 0.75rem;
+		font-weight: 600;
+		padding-inline: 0.875rem;
+	}
+
+	html[data-platform="macos"] #chat .userlist .names .user {
+		margin-inline: 0.375rem;
+		padding-inline: 0.5rem;
+		border-radius: 0.375rem;
+	}
+
+	html[data-platform="macos"] #chat .userlist .user.active {
+		background-color: var(--ps-g-wash-strong);
 	}
 }
 
