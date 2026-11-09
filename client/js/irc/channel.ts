@@ -147,13 +147,11 @@ export class Channel {
 	 */
 	historyFilled = false;
 	/**
-	 * The ids of the rows restored from the device's cache that the server's
-	 * history has not yet confirmed (history.ts `reconcileCached`); empty
-	 * once it has, or when nothing was restored.
+	 * The ids of the rows restored from the device's cache, shown until the
+	 * JOIN's first history page replaces them (history.ts `dropCached`);
+	 * empty once it has, or when nothing was restored.
 	 */
 	cachedIds = new Set<number>();
-	/** Those rows as restored, by id: delivered again when the first page has to go between them and what is below. */
-	cachedMsgs = new Map<number, SharedMsg>();
 	/** The JOIN's first history page has been answered: too late to restore the cache above it. */
 	firstFillAnswered = false;
 	/**

@@ -2381,7 +2381,7 @@
   "settings.general.export": "Export settings…",
   "settings.general.exportFailed": "Couldn't create the file.",
   "settings.general.fileAria": "Settings file to restore",
-  "settings.general.historyHeading": "Channel history",
+  "settings.general.experimentalHeading": "Experimental",
   "settings.general.import": "Import settings…",
   "settings.general.importButton": "Import and reload",
   "settings.general.importDamaged": "This file is damaged.",

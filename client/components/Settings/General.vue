@@ -136,7 +136,7 @@
 			</div>
 		</div>
 		<div>
-			<h2>{{ t("settings.general.historyHeading") }}</h2>
+			<h2>{{ t("settings.general.experimentalHeading") }}</h2>
 			<div>
 				<label class="opt">
 					<input

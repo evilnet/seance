@@ -18,6 +18,7 @@ import {
 	useHistoryCacheBackend,
 } from "../../client/js/irc/historycache";
 import type {LoggedMsg} from "../../client/js/irc/querylog";
+import {HISTORY_TIMEOUT_MS, JOIN_PAGE_SIZE} from "../../client/js/irc/history";
 import type {Transport} from "../../client/js/irc/types";
 import type {TransportEvent, TransportState} from "../../client/js/irc/transport";
 import {MessageType, type SharedMsg} from "../../shared/types/msg";
@@ -113,12 +114,13 @@ describe("History cache (irc/historycache.ts)", function () {
 	beforeEach(function () {
 		backend = new MemoryBackend();
 		useHistoryCacheBackend(backend);
+		setHistoryCacheEnabled(true); // experimental: off by default
 		clock = sinon.useFakeTimers({now: NOW, toFake: ["setTimeout", "clearTimeout", "Date"]});
 	});
 
 	afterEach(function () {
 		clock.restore();
-		setHistoryCacheEnabled(true);
+		setHistoryCacheEnabled(false);
 		useHistoryCacheBackend(null);
 	});
 
@@ -213,6 +215,35 @@ describe("History cache (irc/historycache.ts)", function () {
 			cache.dispose();
 		});
 
+		it("is off unless switched on", function () {
+			setHistoryCacheEnabled(false);
+			const cache = new HistoryCache(UUID, fold);
+			cache.append("#seance", shared(1));
+			expect(cache.lines("#seance")).to.deep.equal([]);
+			cache.dispose();
+		});
+
+		it("switched off while the store is being read: what the read finds is not shown", async function () {
+			backend.put("#seance", [logged(1)]);
+			const cache = new HistoryCache(UUID, fold);
+			const loading = cache.load();
+			setHistoryCacheEnabled(false);
+			expect((await loading).size).to.equal(0);
+			expect(cache.lines("#seance")).to.deep.equal([]);
+			cache.dispose();
+		});
+
+		it("a channel left while the store is being read does not come back", async function () {
+			backend.put("#seance", [logged(1)]);
+			backend.put("#other", [logged(2)]);
+			const cache = new HistoryCache(UUID, fold);
+			const loading = cache.load();
+			cache.forget("#seance");
+			expect([...(await loading).keys()]).to.deep.equal(["#other"]);
+			expect(cache.lines("#seance")).to.deep.equal([]);
+			cache.dispose();
+		});
+
 		it("switched off: deletes everything kept and keeps nothing more", async function () {
 			backend.put("#seance", [logged(1)]);
 			const cache = new HistoryCache(UUID, fold);
@@ -290,7 +321,7 @@ function hist(n: number): string {
 	return `@time=2026-08-25T11:${minute}:00.000Z;msgid=m${n} :bob!bob@host PRIVMSG #seance :message ${n}`;
 }
 
-describe("History cache in a client (irc/history.ts reconcileCached)", function () {
+describe("History cache in a client (irc/history.ts dropCached)", function () {
 	let backend: MemoryBackend;
 	let clock: sinon.SinonFakeTimers;
 	let dispatch: sinon.SinonSpy;
@@ -301,6 +332,7 @@ describe("History cache in a client (irc/history.ts reconcileCached)", function 
 	beforeEach(function () {
 		backend = new MemoryBackend();
 		useHistoryCacheBackend(backend);
+		setHistoryCacheEnabled(true);
 		saved.useStorageBackend(new SavedBackend());
 		saved.save({
 			uuid: UUID,
@@ -335,6 +367,7 @@ describe("History cache in a client (irc/history.ts reconcileCached)", function 
 		}
 
 		socket.removeAllListeners();
+		setHistoryCacheEnabled(false);
 		useHistoryCacheBackend(null);
 		saved.useStorageBackend(null);
 	});
@@ -347,7 +380,7 @@ describe("History cache in a client (irc/history.ts reconcileCached)", function 
 	}
 
 	/** Connect and register; the cache's restore runs alongside. */
-	async function start(): Promise<void> {
+	async function start(caps = CAPS): Promise<void> {
 		transport = new FakeTransport();
 		client = new IrcClient({
 			uuid: UUID,
@@ -373,7 +406,7 @@ describe("History cache in a client (irc/history.ts reconcileCached)", function 
 		});
 		client.connect();
 		transport.open();
-		transport.line(`:irc.test CAP * LS :${CAPS}`);
+		transport.line(`:irc.test CAP * LS :${caps}`);
 		const req = transport.sent.find((l) => l.startsWith("CAP REQ :")) ?? "";
 		transport.line(`:irc.test CAP alice ACK :${req.slice("CAP REQ :".length)}`);
 		transport.line(":irc.test 001 alice :Welcome");
@@ -418,86 +451,83 @@ describe("History cache in a client (irc/history.ts reconcileCached)", function 
 		]);
 	});
 
-	it("a first page with nothing new confirms them where they are", async function () {
-		backend.put("#seance", [logged(1), logged(2), logged(3)]);
-		await start();
-		const label = join();
-		dispatch.resetHistory();
-		answer(label, [hist(2), hist(3)]);
-
-		expect(payloads("msg:drop")).to.deep.equal([]);
-		expect(mores().flatMap((p) => p.messages)).to.deep.equal([]);
+	/** The cached rows left the buffer, and the page alone shows, as it would have without them. */
+	function replacedBy(cachedIds: number[], msgids: string[]): void {
+		expect(payloads("msg:drop")).to.deep.equal([{chan: chanId(), ids: cachedIds}]);
+		expect(mores().flatMap((p) => p.messages.map((m) => m.msgid))).to.deep.equal(msgids);
 		expect(client.findChannel("#seance")!.cachedIds.size).to.equal(0);
+	}
+
+	it("keeps no more than the first page holds", function () {
+		expect(MAX_LINES).to.equal(JOIN_PAGE_SIZE);
 	});
 
-	it("a first page that meets them and has more puts it all in order above our JOIN", async function () {
+	it("the first page replaces them, the lines they share included", async function () {
 		backend.put("#seance", [logged(1), logged(2), logged(3)]);
 		await start();
 		const cachedIds = mores()[0].messages.map((m) => m.id);
 		const label = join();
 		dispatch.resetHistory();
 		answer(label, [hist(2), hist(3), hist(4), hist(5)]);
-
-		expect(payloads("msg:drop")).to.deep.equal([{chan: chanId(), ids: cachedIds}]);
-		expect(mores().flatMap((p) => p.messages.map((m) => m.msgid))).to.deep.equal([
-			"m1",
-			"m2",
-			"m3",
-			"m4",
-			"m5",
-		]);
-		expect(client.findChannel("#seance")!.cachedIds.size).to.equal(0);
+		replacedBy(cachedIds, ["m2", "m3", "m4", "m5"]);
+		// Each shared line once in the channel, now as the server's.
+		const chan = client.findChannel("#seance")!;
+		expect(chan.confirmedMsgids()).to.include.members(["m2", "m3", "m4", "m5"]);
+		expect(chan.idOf("m1")).to.equal(undefined);
 	});
 
-	it("a first page that does not meet them takes them out and shows itself", async function () {
+	it("a line deleted on the server while away does not survive the first page", async function () {
 		backend.put("#seance", [logged(1), logged(2), logged(3)]);
 		await start();
 		const cachedIds = mores()[0].messages.map((m) => m.id);
 		const label = join();
 		dispatch.resetHistory();
-		answer(label, [hist(30), hist(31)]);
+		answer(label, [hist(1), hist(3)]);
+		replacedBy(cachedIds, ["m1", "m3"]);
+	});
 
+	it("an empty first page takes them out", async function () {
+		backend.put("#seance", [logged(1), logged(2)]);
+		await start();
+		const cachedIds = mores()[0].messages.map((m) => m.id);
+		const label = join();
+		dispatch.resetHistory();
+		answer(label, []);
+		replacedBy(cachedIds, []);
+	});
+
+	it("a first page that never comes takes them out", async function () {
+		backend.put("#seance", [logged(1), logged(2)]);
+		await start();
+		const cachedIds = mores()[0].messages.map((m) => m.id);
+		join();
+		dispatch.resetHistory();
+		clock.tick(HISTORY_TIMEOUT_MS);
+		replacedBy(cachedIds, []);
+	});
+
+	it("a refused first page takes them out", async function () {
+		backend.put("#seance", [logged(1), logged(2)]);
+		await start();
+		const cachedIds = mores()[0].messages.map((m) => m.id);
+		const label = join();
+		dispatch.resetHistory();
+		transport.line(
+			`@label=${label} :irc.test FAIL CHATHISTORY MESSAGE_ERROR LATEST :Messages could not be retrieved`
+		);
+		replacedBy(cachedIds, []);
+	});
+
+	it("without chathistory they go as soon as we are in the channel", async function () {
+		backend.put("#seance", [logged(1), logged(2)]);
+		await start(CAPS.replace(" draft/chathistory=100", ""));
+		const cachedIds = mores()[0].messages.map((m) => m.id);
+		dispatch.resetHistory();
+		transport.line(
+			"@time=2026-08-25T12:00:00.000Z;msgid=join-1 :alice!alice@host JOIN #seance"
+		);
+		transport.line(":irc.test 366 alice #seance :End of /NAMES list.");
 		expect(payloads("msg:drop")).to.deep.equal([{chan: chanId(), ids: cachedIds}]);
-		expect(mores().flatMap((p) => p.messages.map((m) => m.msgid))).to.deep.equal([
-			"m30",
-			"m31",
-		]);
-		// And the device forgets what it can no longer join up.
-		expect(client.historyCache.lines("#seance").map((l) => l.msgid)).to.deep.equal([
-			"m30",
-			"m31",
-		]);
-	});
-
-	it("a page with a line the cache lacks inside its span is not trusted", async function () {
-		backend.put("#seance", [logged(1), logged(3)]);
-		await start();
-		const label = join();
-		dispatch.resetHistory();
-		answer(label, [hist(1), hist(2), hist(3)]);
-		expect(payloads("msg:drop")).to.have.length(1);
-	});
-
-	it("a JOIN or QUIT inside their span, which the cache never keeps, does not undo them", async function () {
-		backend.put("#seance", [logged(1), logged(3)]);
-		await start();
-		const label = join();
-		dispatch.resetHistory();
-		answer(label, [
-			hist(1),
-			"@time=2026-08-25T11:02:00.000Z;msgid=e2 :carol!c@host JOIN #seance",
-			hist(3),
-			"@time=2026-08-25T11:04:00.000Z;msgid=e4 :carol!c@host QUIT :bye",
-		]);
-
-		// The events land in order among the kept lines, not on top of them.
-		expect(mores().flatMap((p) => p.messages.map((m) => m.msgid))).to.deep.equal([
-			"m1",
-			"e2",
-			"m3",
-			"e4",
-		]);
-		expect(client.findChannel("#seance")!.cachedIds.size).to.equal(0);
 	});
 
 	it("a redaction takes a kept line off the device though it is not loaded", async function () {

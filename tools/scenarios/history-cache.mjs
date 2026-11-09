@@ -1,7 +1,7 @@
-// A channel's recent lines survive a reload: they show before the server
-// answers (irc/historycache.ts), join up with its history when its first
-// page meets them, and leave the buffer when it does not
-// (irc/history.ts reconcileCached).
+// With the experimental setting on, a channel's recent lines survive a
+// reload: they show before the server answers (irc/historycache.ts), and the
+// server's first page replaces them (irc/history.ts dropCached), so nothing
+// shows twice and nothing kept sits above a gap.
 //
 //   pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d
@@ -128,6 +128,16 @@ export default async function run(page) {
 	};
 
 	await page.goto(page.url, {waitForSelector: "#connect form"});
+	// Experimental, off by default: switched on before anything is kept.
+	await page.evaluate(
+		`localStorage.setItem("settings", JSON.stringify({keepChannelHistory: true}))`
+	);
+	await page.evaluate(`(() => { window.__preReload = true; })()`);
+	await page.send("Page.reload");
+	await page.waitFor(`!window.__preReload && !!document.querySelector("#connect form")`, {
+		timeout: 30000,
+		label: "the connect form after switching the setting on",
+	});
 	await page.click('#connect input[name="autoconnect"]');
 	await page.click('#connect button[type="submit"]');
 	await page.waitFor(`document.querySelector('${item(CHAN)}')`, {
@@ -166,8 +176,8 @@ export default async function run(page) {
 	);
 	await page.screenshot("1-offline-restore");
 
-	// 2. Two lines while away; back online, the first page meets the kept
-	//    lines: they stay, the two new ones follow, nothing twice.
+	// 2. Two lines while away; back online, the first page replaces the kept
+	//    lines: everything in order, the two new ones last, nothing twice.
 	bob.say("while away 1");
 	bob.say("while away 2");
 	await reconnect();
@@ -178,7 +188,7 @@ export default async function run(page) {
 	await page.sleep(1000);
 	const joined = (await texts()).filter((t) => /^(cache line|while away)/.test(t));
 	await page.check(
-		`kept and missed lines join up, in order, once each (${JSON.stringify(joined)})`,
+		`kept and missed lines in order, once each (${JSON.stringify(joined)})`,
 		JSON.stringify(joined) ===
 			JSON.stringify([
 				"cache line 1",
@@ -190,8 +200,9 @@ export default async function run(page) {
 	);
 	await page.screenshot("2-joined-up");
 
-	// 3. More missed than the first page holds: it cannot meet the kept
-	//    lines, so they leave rather than sit above a gap.
+	// 3. More missed than the first page holds: the page replaces the kept
+	//    lines, which are older than all of it, so none of them stays above
+	//    the gap.
 	await page.sleep(2500);
 	await coldLoadOffline();
 	await page.waitFor(`${TEXTS}.includes("while away 2")`, {

@@ -3560,7 +3560,7 @@ export class IrcClient {
 	 * (historycache.ts), as one history page above anything already there.
 	 * Display only: the rows are marked `cached` and nothing that decides
 	 * what the server still has to send reads them; the JOIN's first page
-	 * confirms or drops them (history.ts `reconcileCached`). A channel whose
+	 * replaces them (history.ts `dropCached`). A channel whose
 	 * first page has already been answered is left alone: the cache would
 	 * land above the server's lines without anything tying the two together.
 	 */
@@ -3599,7 +3599,6 @@ export class IrcClient {
 				msg.id = ids[i];
 				chan.remember(msg).cached = true;
 				chan.cachedIds.add(msg.id);
-				chan.cachedMsgs.set(msg.id, {...msg});
 			});
 
 			chan.shared.totalMessages += messages.length;

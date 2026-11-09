@@ -387,12 +387,13 @@ const defaultConfig = {
 	sendTypingNotifications: {
 		default: true,
 	},
-	// Keep the recent lines of every channel in this browser (IndexedDB) and
-	// show them straight away after a reload, before the server's history
-	// answers (irc/historycache.ts). Off deletes what is kept; applyAll runs
-	// this at boot, before any network is created.
+	// Experimental, off by default: keep the recent lines of every channel in
+	// this browser (IndexedDB) and show them straight away after a reload,
+	// until the server's history replaces them (irc/historycache.ts). Off
+	// deletes what is kept; applyAll runs this at boot, before any network
+	// is created.
 	keepChannelHistory: {
-		default: true,
+		default: false,
 		apply(_store: TypedStore, value: boolean) {
 			setHistoryCacheEnabled(value);
 		},

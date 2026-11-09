@@ -2,31 +2,31 @@
  * Recent channel lines kept on this device, so a page load (a reload, an
  * Android PWA brought back after a discard, an app launch) shows each
  * channel's scrollback at once instead of an empty buffer until the
- * server's history answers.
+ * server's history answers. Off unless the user turns it on
+ * (`keepChannelHistory`, Settings -> General, under Experimental).
  *
- * A display cache, never evidence: what it restores is shown as a history
- * page and marked `cached` on the channel's refs (Channel.cachedIds), and
- * nothing that decides what the server still has to send — the catch-up
- * walk's floor, `newestServerRef`, the ATTACH cursor, TARGETS — reads it.
- * The connect-time fill runs exactly as without it. When that fill's
- * answer arrives it is reconciled with the cached rows (history.ts
- * `reconcileCached`): sharing a message with them, the two join; not, the
- * cached rows are dropped from the buffer rather than shown across a gap
- * nothing has proven filled.
+ * A placeholder, never evidence: what it restores is shown as a history
+ * page and marked `cached` (Channel.cachedIds, MsgRef.cached), nothing that
+ * decides what the server still has to send reads it (the catch-up walk's
+ * known set and floor, `newestServerRef`, the ATTACH cursor, TARGETS), and
+ * the JOIN's first history page replaces it whatever that page holds
+ * (history.ts `dropCached`): the cached rows leave the buffer and the page
+ * is delivered as it would have been without them. So a line deleted
+ * while this device was away shows only until that page lands. When no
+ * page can be asked for (no `draft/chathistory`), the rows go at once.
  *
- * {@link MAX_LINES} newest messages, actions and notices per channel, none
- * older than {@link MAX_AGE_MS}; lines without a msgid are not kept (they
- * cannot be matched against the server's). One IndexedDB record per
- * channel. Each write merges with what is stored inside one transaction
- * (another tab may have written since we read), and a redaction leaves a
- * content-free tombstone that every merge honours, so a tab still holding
- * the line cannot write it back. Redactions are taken by msgid whether or
- * not the line is still loaded (handlers/redact.ts): a line scrolled out of
- * memory must not survive on disk.
+ * {@link MAX_LINES} newest messages, actions and notices per channel (one
+ * first page's worth, so the page that replaces them shows as much), none
+ * older than {@link MAX_AGE_MS}; lines without a msgid are not kept. One
+ * IndexedDB record per channel. Each write merges with what is stored
+ * inside one transaction (another tab may have written since we read), and
+ * a redaction leaves a content-free tombstone that every merge honours.
+ * Redactions are taken by msgid whether or not the line is still loaded
+ * (handlers/redact.ts).
  *
- * Off (`keepChannelHistory`) deletes everything kept; removing the network
- * deletes its channels; parting a channel forgets it. Queries are not here:
- * querylog.ts keeps them, with their own lifecycle.
+ * Off deletes everything kept; removing the network deletes its channels;
+ * parting a channel forgets it. Queries are not here: querylog.ts keeps
+ * them, with their own lifecycle.
  *
  * Store-free and DOM-free (mocha): the IndexedDB backend is used only where
  * `indexedDB` exists, tests swap in {@link useHistoryCacheBackend}.
@@ -35,8 +35,8 @@
 import type {SharedMsg} from "../../../shared/types/msg";
 import {applyLoggedReaction, fromLogged, type LoggedMsg, toLogged} from "./querylog";
 
-/** Newest lines kept per channel. */
-export const MAX_LINES = 200;
+/** Newest lines kept per channel: history.ts `JOIN_PAGE_SIZE`, the page that replaces them. */
+export const MAX_LINES = 50;
 /** Oldest line kept, and how long a tombstone outlives its line. */
 export const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 /** Trailing write throttle. */
@@ -160,14 +160,10 @@ function openDb(): Promise<IDBDatabase> {
 }
 
 /** One transaction; settles and closes the database however it ends. */
-function transact<T>(
-	mode: IDBTransactionMode,
-	run: (store: IDBObjectStore, done: (value: T) => void) => void
-): Promise<T | undefined> {
+function transact(mode: IDBTransactionMode, run: (store: IDBObjectStore) => void): Promise<void> {
 	return openDb().then(
 		(db) =>
-			new Promise<T | undefined>((resolve, reject) => {
-				let value: T | undefined;
+			new Promise<void>((resolve, reject) => {
 				let settled = false;
 
 				const finish = (error?: Error) => {
@@ -181,7 +177,7 @@ function transact<T>(
 					if (error) {
 						reject(error);
 					} else {
-						resolve(value);
+						resolve();
 					}
 				};
 
@@ -192,9 +188,7 @@ function transact<T>(
 						finish(tx.error ?? new DOMException("Transaction aborted", "AbortError"));
 					tx.onabort = () =>
 						finish(tx.error ?? new DOMException("Transaction aborted", "AbortError"));
-					run(tx.objectStore(STORE), (v) => {
-						value = v;
-					});
+					run(tx.objectStore(STORE));
 				} catch (err: unknown) {
 					finish(err instanceof Error ? err : new Error(String(err)));
 				}
@@ -205,7 +199,7 @@ function transact<T>(
 const indexedDbBackend: HistoryCacheBackend = {
 	async load(uuid) {
 		const out = new Map<string, CachedChannel>();
-		await transact<void>("readonly", (store) => {
+		await transact("readonly", (store) => {
 			const req = store.openCursor(rangeOf(uuid));
 			req.onsuccess = () => {
 				const cursor = req.result;
@@ -226,7 +220,7 @@ const indexedDbBackend: HistoryCacheBackend = {
 		return out;
 	},
 	async merge(uuid, target, mine) {
-		await transact<void>("readwrite", (store) => {
+		await transact("readwrite", (store) => {
 			const key = keyOf(uuid, target);
 			const req = store.get(key);
 			req.onsuccess = () => {
@@ -242,12 +236,12 @@ const indexedDbBackend: HistoryCacheBackend = {
 		});
 	},
 	async remove(uuid, target) {
-		await transact<void>("readwrite", (store) => {
+		await transact("readwrite", (store) => {
 			store.delete(target === undefined ? rangeOf(uuid) : keyOf(uuid, target));
 		});
 	},
 	async clear() {
-		await transact<void>("readwrite", (store) => {
+		await transact("readwrite", (store) => {
 			store.clear();
 		});
 	},
@@ -274,7 +268,7 @@ export function useHistoryCacheBackend(next: HistoryCacheBackend | null): void {
 
 // ------------------------------------------------------------------ state
 
-let enabled = true;
+let enabled = false;
 const live = new Set<HistoryCache>();
 
 /**
@@ -291,10 +285,6 @@ export function setHistoryCacheEnabled(on: boolean): void {
 
 		void backend.clear().catch(() => undefined);
 	}
-}
-
-export function historyCacheEnabled(): boolean {
-	return enabled;
 }
 
 /** Write every pending cache now (the page is being hidden or unloaded). */
@@ -325,6 +315,10 @@ export class HistoryCache {
 	private dirty = new Set<string>();
 	private timer: ReturnType<typeof setTimeout> | null = null;
 	private loaded = false;
+	/** Bumped by {@link reset}: a read begun before it is thrown away. */
+	private generation = 0;
+	/** Channels forgotten while a read was running: what it finds of them is stale. */
+	private forgotten = new Set<string>();
 
 	constructor(
 		readonly uuid: string,
@@ -346,6 +340,8 @@ export class HistoryCache {
 	 */
 	async load(): Promise<Map<string, SharedMsg[]>> {
 		let stored = new Map<string, CachedChannel>();
+		const generation = this.generation;
+		this.forgotten.clear();
 
 		if (enabled && this.persist()) {
 			try {
@@ -353,6 +349,16 @@ export class HistoryCache {
 			} catch {
 				stored = new Map();
 			}
+		}
+
+		// Switched off, or the network removed, while the read ran: what it
+		// read was deleted meanwhile and must not come back.
+		if (generation !== this.generation || !enabled) {
+			return new Map();
+		}
+
+		for (const target of this.forgotten) {
+			stored.delete(target);
 		}
 
 		const out = new Map<string, SharedMsg[]>();
@@ -463,33 +469,18 @@ export class HistoryCache {
 		}
 	}
 
-	/**
-	 * Lines older than `time` are no longer known to be followed by what we
-	 * kept after them (a catch-up stopped short): forget them.
-	 */
-	dropOlderThan(name: string, time: Date): void {
-		const channel = this.find(name);
-		const t = time.getTime();
-
-		if (!channel || channel.lines.length === 0 || timeOf(channel.lines[0]) >= t) {
-			return;
-		}
-
-		channel.lines = channel.lines.filter((l) => timeOf(l) >= t);
-		// A merge would bring them back from disk: write what is left whole.
-		void this.replace(name);
-	}
-
 	/** The channel was left: forget it. */
 	forget(name: string): void {
 		const target = this.fold(name);
 		this.channels.delete(target);
 		this.dirty.delete(target);
+		this.forgotten.add(target);
 		void backend.remove(this.uuid, target).catch(() => undefined);
 	}
 
 	/** Drop everything in memory (the disk is the caller's). */
 	reset(): void {
+		this.generation++;
 		this.cancel();
 		this.channels.clear();
 		this.dirty.clear();
@@ -505,24 +496,6 @@ export class HistoryCache {
 	/** The lines kept for `name` (tests and diagnostics). */
 	lines(name: string): readonly LoggedMsg[] {
 		return this.find(name)?.lines ?? [];
-	}
-
-	private async replace(name: string): Promise<void> {
-		const target = this.fold(name);
-		const channel = this.channels.get(target);
-
-		if (!channel || !enabled || !this.persist()) {
-			return;
-		}
-
-		this.dirty.delete(target);
-
-		try {
-			await backend.remove(this.uuid, target);
-			await backend.merge(this.uuid, target, channel);
-		} catch {
-			// best effort: a cache
-		}
 	}
 
 	private find(name: string): CachedChannel | undefined {

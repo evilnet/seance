@@ -43,14 +43,6 @@ const redact: Handler = (client, msg) => {
 			client.queryLog.redact(chan.name, msgid);
 		} else if (chan.type === ChanType.CHANNEL) {
 			client.historyCache.redact(chan.name, msgid);
-
-			// A row restored from the cache and not yet confirmed: its
-			// snapshot must not bring the line back (history.ts reconcileCached).
-			const restored = chan.idOf(msgid);
-
-			if (restored !== undefined) {
-				chan.cachedMsgs.delete(restored);
-			}
 		}
 
 		client.dispatch("msg:changed", {

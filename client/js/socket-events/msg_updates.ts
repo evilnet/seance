@@ -61,9 +61,8 @@ socket.on("msg:redact", function (data) {
 	});
 });
 
-// Rows restored from the device's cache that the server's first history
-// page did not meet (irc/history.ts reconcileCached): shown side by side
-// with it they would hide a gap, so they leave the buffer.
+// Rows restored from the device's cache, replaced by the server's first
+// history page (irc/history.ts dropCached).
 socket.on("msg:drop", function (data) {
 	afterHeldPage(data.chan, () => {
 		const target = store.getters.findChannel(data.chan);
