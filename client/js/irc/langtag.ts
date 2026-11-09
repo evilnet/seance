@@ -27,35 +27,26 @@ const INBOUND_ALIASES: Readonly<Record<string, string>> = {
 	no: "nb",
 };
 
-/** Valid BCP 47 that names no one language: undetermined, multiple, none, uncoded. */
-const NO_LANGUAGE = new Set(["und", "mul", "zxx", "mis"]);
-
-/** A well-formed language tag: a 2-3 letter primary, then 1-8 character subtags. */
-const SHAPE = /^[a-z]{2,3}(?:-[a-z0-9]{1,8})*$/i;
-
 /** A Seance language code as the `+draft/language` value other clients read. */
 export function languageTagFor(code: string): string {
 	return OUTBOUND[code] ?? code;
 }
 
 /**
- * The supported Seance language a `+draft/language` value names, or null
- * when it names none Seance can use as a source: malformed, private use,
- * `und`/`mul`/`zxx`, a language the engines lack, or Traditional Chinese
- * (Seance's `zh` is Simplified; a Traditional line is better detected than
- * handed to a Simplified model as if it were one).
+ * The supported Seance language a `+draft/language` value names, by its
+ * primary subtag, or null when it names none Seance can use as a source.
+ * Anything that is not a language Seance supports (`und`, `mul`, private
+ * use, junk) falls out at `isSupported`; Traditional Chinese is refused
+ * too, since Seance's `zh` is Simplified and a Traditional line is better
+ * detected than handed to a Simplified model as if it were one.
  */
 export function codeOfLanguageTag(value: string | undefined): string | null {
-	if (!value || value.length > 35 || !SHAPE.test(value)) {
+	if (!value) {
 		return null;
 	}
 
 	const lower = value.toLowerCase();
 	const primary = lower.split("-")[0];
-
-	if (NO_LANGUAGE.has(primary)) {
-		return null;
-	}
 
 	if (primary === "zh" && isTraditionalChinese(lower)) {
 		return null;

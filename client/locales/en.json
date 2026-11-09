@@ -2812,8 +2812,6 @@
   "translate.system.supported": "{from} → {to}: not downloaded yet.",
   "translate.system.switch": "Translate with Apple Translation when the language is downloaded",
   "translate.system.unsupported": "{from} → {to}: Apple Translation does not offer this pair on this device.",
-  "translate.tagSend.hint": "Other apps can then translate them without guessing, and show that a machine translated them. Messages you send as typed are never marked.",
-  "translate.tagSend.switch": "Mark my translated messages with their language",
   "translate.threads.reload": {
     "one": "Reload the app to use {count} CPU thread.",
     "other": "Reload the app to use {count} CPU threads."

@@ -1751,20 +1751,19 @@ the user picked (`ChatInput.vue` `deliver`, through the `input` event's
 translation, the language alone for a correction in the same language (a
 polish). A line sent as written, one already in the target language, an
 edit, `/msg`, `/notice` and everything automatic go out untagged: Seance
-never guesses a language for the wire. Settings → Translation → "Mark my translated
-messages with their language" (`translateTagSend`, on by default) turns
-both off. The tags ride every chunk of a split line and a `draft/multiline`
-batch's opener, and the pending copy carries the fields at once.
-`IrcClient.sendMessage` drops any client tag the server's `CLIENTTAGDENY`
-names (`isupport.ts` `clientTagAllowed`, the spec's `*` and `-name` forms
-included), and nothing goes without `message-tags`.
+never guesses a language for the wire, and sending as written is the
+way to send a line unmarked. The tags ride every chunk of a split line and
+a `draft/multiline` batch's opener, the pending copy carries the fields at
+once, and nothing goes without `message-tags`. A server whose
+`CLIENTTAGDENY` blocks either tag drops it and still delivers the line
+(message-tags § Client-only tags), so Seance sends them regardless.
 
 **What reading does with them.** `handlers/privmsg.ts` puts `language` and
 `machineTranslated` on the message (live, echo and history alike);
 `codeOfLanguageTag` takes the primary subtag (`es-MX` is `es`), maps
-`fil`/`iw`/`in`/`no` to Seance's codes, and ignores `und`, `mul`, `zxx`,
-`mis`, private use, Traditional Chinese (Seance's `zh` is Simplified) and
-any language the engines lack. The reader (`reader.ts` `translateMessage`
+`fil`/`iw`/`in`/`no` to Seance's codes, and ignores whatever names no
+language Seance supports (`und`, `mul`, private use, junk) and
+Traditional Chinese (Seance's `zh` is Simplified). The reader (`reader.ts` `translateMessage`
 through `detect.ts` `withSenderLanguage`) takes the sender's language as a
 strong prior, never an order: it places a line the detector could not, and
 decides one it was unsure of, but a detection of another language at

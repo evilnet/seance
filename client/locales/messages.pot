@@ -15937,18 +15937,6 @@ msgctxt "translate.system.unsupported"
 msgid "{from} → {to}: Apple Translation does not offer this pair on this device."
 msgstr ""
 
-#. Explanation under the switch "Mark my translated messages with their language" in Settings → Translation.
-#: client/components/Settings/TranslationOptions.vue
-msgctxt "translate.tagSend.hint"
-msgid "Other apps can then translate them without guessing, and show that a machine translated them. Messages you send as typed are never marked."
-msgstr ""
-
-#. Switch in Settings → Translation. When on, messages the app translated before sending carry a hidden label naming their language and saying they were machine translated.
-#: client/components/Settings/TranslationOptions.vue
-msgctxt "translate.tagSend.switch"
-msgid "Mark my translated messages with their language"
-msgstr ""
-
 #. Line under the CPU models in Settings → Translation: the language model would run on {count} processor threads (CPU) after the app is reloaded; this page cannot use more than one yet. {count} is that number, 2 or more in practice. A thread is a parallel strand of computation.
 #: client/js/helpers/translateWhy.ts
 msgctxt "translate.threads.reload"

@@ -1260,7 +1260,7 @@ export default defineComponent({
 				// language is known, not guessed. A corrected line is in
 				// the user's own words, so it is not marked machine-made.
 				const tagged =
-					translated !== null && store.state.settings.translateTagSend !== false
+					translated !== null
 						? {language: entry.to, machineTranslated: !polished}
 						: undefined;
 

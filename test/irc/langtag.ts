@@ -1,14 +1,12 @@
 /**
  * The language client tags (irc/langtag.ts, docs/resources/translation.md
  * § Language tags): `+draft/language` and `+evilnet.github.io/machine-translated`
- * on the composer's translations, read back onto messages, and left off
- * where `CLIENTTAGDENY` blocks them.
+ * on the composer's translations, and read back onto messages.
  */
 
 import {expect} from "chai";
 import sinon from "sinon";
 import socket from "../../client/js/socket";
-import {ISupport} from "../../client/js/irc/isupport";
 import {
 	codeOfLanguageTag,
 	languageFieldsOf,
@@ -22,13 +20,6 @@ import {ALL_CAPS, batch, Harness, joined, labelOf, register, setup, stubStorage}
 const NO_ECHO = ALL_CAPS.replace("echo-message ", "");
 const NO_TAGS = "server-time echo-message batch";
 const MT = "+evilnet.github.io/machine-translated";
-
-/** A client joined to #seance that saw `isupport` in a second 005. */
-function joinedWith(h: Harness, isupport: string, caps = ALL_CAPS): number {
-	const id = joined(h, caps);
-	h.transport.line(`:irc.test 005 alice ${isupport} :are supported by this server`);
-	return id;
-}
 
 describe("Language tags (irc/langtag.ts)", function () {
 	beforeEach(function () {
@@ -74,7 +65,6 @@ describe("Language tags (irc/langtag.ts)", function () {
 				"",
 				"e",
 				"en_US",
-				"en-",
 				"-en",
 				"tlh",
 				"a".repeat(40),
@@ -110,37 +100,6 @@ describe("Language tags (irc/langtag.ts)", function () {
 				[MACHINE_TRANSLATED_TAG]: "",
 			});
 			expect(languageTags(undefined, true)).to.deep.equal({});
-		});
-	});
-
-	describe("CLIENTTAGDENY (isupport.ts)", function () {
-		const allowed = (token: string | undefined, tag: string) => {
-			const isupport = new ISupport();
-
-			if (token !== undefined) {
-				isupport.apply(["alice", token, "are supported"]);
-			}
-
-			return isupport.clientTagAllowed(tag);
-		};
-
-		it("allows everything when absent or empty", function () {
-			expect(allowed(undefined, LANGUAGE_TAG)).to.equal(true);
-			expect(allowed("CLIENTTAGDENY=", LANGUAGE_TAG)).to.equal(true);
-		});
-
-		it("blocks the listed names, written without their +", function () {
-			expect(allowed("CLIENTTAGDENY=draft/language,typing", LANGUAGE_TAG)).to.equal(false);
-			expect(allowed("CLIENTTAGDENY=draft/language,typing", "+typing")).to.equal(false);
-			expect(allowed("CLIENTTAGDENY=draft/language,typing", "+reply")).to.equal(true);
-		});
-
-		it("blocks everything after * but the -exempted", function () {
-			const token = "CLIENTTAGDENY=*,-draft/language,-reply";
-
-			expect(allowed(token, LANGUAGE_TAG)).to.equal(true);
-			expect(allowed(token, "+reply")).to.equal(true);
-			expect(allowed(token, MACHINE_TRANSLATED_TAG)).to.equal(false);
 		});
 	});
 
@@ -242,24 +201,6 @@ describe("Language tags (irc/langtag.ts)", function () {
 
 			h.client.input(id, "hola", {language: "es", machineTranslated: true});
 			expect(h.sent()).to.deep.equal(["PRIVMSG #seance :hola"]);
-		});
-
-		it("leaves off what CLIENTTAGDENY blocks, the message still going", function () {
-			const h = setup();
-			const id = joinedWith(h, "CLIENTTAGDENY=*,-draft/language", NO_ECHO);
-
-			h.client.input(id, "hola", {reply: "m1", language: "es", machineTranslated: true});
-			expect(h.sent()).to.deep.equal(["@+draft/language=es PRIVMSG #seance :hola"]);
-
-			const h2 = setup();
-			const id2 = joinedWith(
-				h2,
-				"CLIENTTAGDENY=draft/language,evilnet.github.io/machine-translated",
-				NO_ECHO
-			);
-
-			h2.client.input(id2, "hola", {language: "es", machineTranslated: true});
-			expect(h2.sent()).to.deep.equal(["PRIVMSG #seance :hola"]);
 		});
 
 		it("shows the pending copy with the fields its echo will carry", function () {

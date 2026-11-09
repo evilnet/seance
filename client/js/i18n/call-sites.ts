@@ -2565,8 +2565,6 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"translate.system.supported",
 	"translate.system.switch",
 	"translate.system.unsupported",
-	"translate.tagSend.hint",
-	"translate.tagSend.switch",
 	"translate.threads.reload",
 	"translate.threads.using",
 	"translate.topic.showOriginal",

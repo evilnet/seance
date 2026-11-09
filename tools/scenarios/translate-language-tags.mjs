@@ -22,9 +22,7 @@
 //     detector could not place alone: A, reading in English, sees the tag
 //     name its own language and asks for no translation; there is no
 //     ping-pong, since nothing is translated or sent on anyone's behalf.
-//  5. With "Mark my translated messages" off, B's next composer translation
-//     goes out untagged and A's copy of it carries no language.
-//  6. Sent as written (no write target), A's line is untagged.
+//  5. Sent as written (no write target), A's line is untagged.
 //
 //   NODE_ENV=development pnpm build && python3 -m http.server -d public 8021 &
 //   CHROME_BIN=<chromium> node tools/browser-drive.mjs tools/scenarios/translate-language-tags.mjs --no-ws
@@ -315,33 +313,7 @@ export default async function run(page) {
 				b.wsFrames.filter((f) => f.dir === "out" && / PRIVMSG /.test(f.line)).length === 1
 		);
 
-		// 5. B switches marking off and sends again.
-		await b.evaluate(
-			`${STORE}.dispatch("settings/update", {name: "translateTagSend", value: false, sync: true})`
-		);
-		const plainDraft = `bueno ${RUN}`;
-
-		await setWriteTarget(b, "es");
-		await sendTranslated(b, plainDraft);
-		await sleep(1500);
-
-		const bPlain = b.wsFrames
-			.filter((f) => f.dir === "out" && f.line.includes(plainDraft))
-			.pop()?.line;
-		console.log(`  B sent (marking off): ${bPlain}`);
-		page.check(
-			"5. with marking off the translation goes out untagged",
-			!!bPlain &&
-				!bPlain.includes("+draft/language") &&
-				!bPlain.includes("machine-translated")
-		);
-		await page.waitFor(`!!(${messageOf(plainDraft)})`, {timeout: 10000, label: "A hears it"});
-		page.check(
-			"5. A's copy carries no language",
-			(await page.evaluate(messageOf(plainDraft)))?.language === null
-		);
-
-		// 6. As written: A clears its target and sends plainly.
+		// 5. As written: A clears its target and sends plainly.
 		await setWriteTarget(page, "");
 		const asWritten = `sent as written ${RUN}`;
 
@@ -351,7 +323,7 @@ export default async function run(page) {
 		const aPlain = await sentByA(asWritten);
 
 		page.check(
-			`6. a line sent as written is untagged (${aPlain})`,
+			`5. a line sent as written is untagged (${aPlain})`,
 			!!aPlain && !aPlain.includes("+draft/language")
 		);
 	} finally {

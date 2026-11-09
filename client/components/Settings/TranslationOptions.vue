@@ -35,18 +35,6 @@
 				{{ t("translate.formality.casual") }}
 			</label>
 		</div>
-		<!-- The language tags on the composer's translations
-		     (irc/langtag.ts): what another client reads instead of guessing. -->
-		<label class="opt">
-			<input
-				v-switch
-				:checked="store.state.settings.translateTagSend !== false"
-				type="checkbox"
-				name="translateTagSend"
-			/>
-			{{ t("translate.tagSend.switch") }}
-		</label>
-		<div class="translate-hint">{{ t("translate.tagSend.hint") }}</div>
 		<!-- The iOS shell's system translator (translate/engines/apple.ts):
 		     taken first for a pair whose language pack is downloaded, and
 		     its packs downloaded through the system's own sheet. -->
