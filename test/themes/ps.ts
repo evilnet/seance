@@ -3425,15 +3425,27 @@ describe("the ps theme's yurt and its smoke (plan 3, spec §5.3)", function () {
 	});
 
 	it("steps in by the user list's width while a channel shows the list, and by nothing else", function () {
+		const MAC_LIST_OPEN = LIST_OPEN.replace("html:", 'html[data-platform="macos"]:');
+
 		for (const sel of [YURT, SMOKE]) {
 			expect(valueOf(`${LIST_OPEN} ${sel}`, "--ps-yurt-in"), sel).to.equal(
 				"var(--userlist-width)"
 			);
+			// On the Mac the list is a pane hovering over the plains: no step.
+			expect(
+				valueOf(`${MAC_LIST_OPEN} ${sel}`, "--ps-yurt-in", "@media (min-width: 769px)"),
+				sel
+			).to.equal("0px");
 		}
 
 		const setters = rules.filter((r) => r.decls.some(([p]) => p === "--ps-yurt-in"));
 		expect(setters.flatMap((r) => r.selectors).sort()).to.deep.equal(
-			[`${LIST_OPEN} ${YURT}`, `${LIST_OPEN} ${SMOKE}`].sort()
+			[
+				`${LIST_OPEN} ${YURT}`,
+				`${LIST_OPEN} ${SMOKE}`,
+				`${MAC_LIST_OPEN} ${YURT}`,
+				`${MAC_LIST_OPEN} ${SMOKE}`,
+			].sort()
 		);
 		expect(css, "no script writes the place any more").to.not.include("--ps-yurt-left");
 	});

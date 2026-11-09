@@ -3721,6 +3721,14 @@ html[data-reduce-motion]:root {
 		box-shadow: 0 0.5rem 1.875rem rgb(0 0 0 / 18%);
 	}
 
+	/* A pane hovering over the plains leaves them where they are: the yurt
+	 * keeps its place when the list opens (the scene section moves it to stay
+	 * clear of a docked slab), and the pane's glass passes over it. */
+	html[data-platform="macos"]:has(.userlist-open .chat-view[data-type="channel"]) #theme-scene .ps-yurt,
+	html[data-platform="macos"]:has(.userlist-open .chat-view[data-type="channel"]) #theme-scene .ps-smoke {
+		--ps-yurt-in: 0px;
+	}
+
 	html[data-platform="macos"] #chat .userlist .user-mode[data-label]::before {
 		position: static;
 		background-color: transparent;
