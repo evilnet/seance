@@ -565,7 +565,10 @@ export class IrcClient {
 	private lastTransportError?: string;
 	/** The certificate the last failed dial was refused for, if that was why. */
 	private lastCertificate?: UntrustedCertificate;
-	/** Certificates trusted for this session only ("Just this once"), by SHA-256. */
+	/**
+	 * Certificates trusted for this session only ("Just this once"), each for
+	 * the server it was shown for: `host`, `port` and SHA-256, a line each.
+	 */
 	private readonly trustedOnce = new Set<string>();
 	/** The close report's hint is shown once per attempt series, not per retry. */
 	private closeHintShown = false;
@@ -933,9 +936,12 @@ export class IrcClient {
 	 * the port or TLS box does not keep it hammering the wrong address.
 	 * The nick is not touched here: `/nick` owns it.
 	 */
-	/** Accept `sha256` for this session only ("Just this once"), then dial. */
-	trustCertificateOnce(sha256: string): void {
-		this.trustedOnce.add(sha256);
+	/**
+	 * Accept `sha256` from `host`:`port` for this session only ("Just this
+	 * once"), then dial. A network moved elsewhere does not take it along.
+	 */
+	trustCertificateOnce(sha256: string, host: string, port: number): void {
+		this.trustedOnce.add(`${host}\n${port}\n${sha256}`);
 		this.connect();
 	}
 
@@ -955,11 +961,6 @@ export class IrcClient {
 			serverPassword: next.serverPassword ?? this.options.serverPassword,
 		};
 		const state = this.transport.state;
-
-		// A certificate trusted once was trusted for that server, not this one.
-		if (next.host !== this.options.host || next.port !== this.options.port) {
-			this.trustedOnce.clear();
-		}
 
 		// New credentials have not proved themselves here yet.
 		if (
@@ -1041,10 +1042,13 @@ export class IrcClient {
 		if (this.options.transport === "tcp" && this.options.socketBridge) {
 			// The trusted certificates are read at each dial, not now: a
 			// certificate trusted after this transport was made counts.
-			const trusted = () => [
-				...(this.options.trustedCertificates ?? []),
-				...this.trustedOnce,
-			];
+			const trusted = () => {
+				const here = `${this.options.host}\n${this.options.port}\n`;
+				const once = [...this.trustedOnce]
+					.filter((key) => key.startsWith(here))
+					.map((key) => key.slice(here.length));
+				return [...(this.options.trustedCertificates ?? []), ...once];
+			};
 			transportOptions.WebSocketImpl = shellSocketCtor(this.options.socketBridge, {
 				host: tcpHostOf(this.options.host),
 				port: this.options.port,

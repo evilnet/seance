@@ -134,7 +134,7 @@ async function untrustedCertificate(uuid: string, certificate: UntrustedCertific
 	if (answer === "always") {
 		const current = saved.get(uuid);
 
-		if (current) {
+		if (current && current.host === host && current.port === port) {
 			const next = saved.withTrustedCertificate(current, certificate.sha256);
 			saved.save(next);
 			client.applySettings(saved.toConnectOptions(next));
@@ -142,7 +142,7 @@ async function untrustedCertificate(uuid: string, certificate: UntrustedCertific
 
 		client.connect();
 	} else if (answer === "once") {
-		client.trustCertificateOnce(certificate.sha256);
+		client.trustCertificateOnce(certificate.sha256, host, port);
 	}
 }
 

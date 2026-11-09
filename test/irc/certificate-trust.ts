@@ -46,7 +46,11 @@ describe("untrusted certificate", function () {
 	it("trusting it once dials again", function () {
 		const h = setup({});
 		refuse(h);
-		h.client.trustCertificateOnce(certificate.sha256);
+		h.client.trustCertificateOnce(
+			certificate.sha256,
+			h.client.options.host,
+			h.client.options.port
+		);
 		expect(h.transport.state).to.equal("connecting");
 	});
 
@@ -67,21 +71,10 @@ describe("untrusted certificate", function () {
 });
 
 describe("untrusted certificate: bound to the server", function () {
-	it("forgets a certificate trusted once when the network moves", function () {
+	it("offers a certificate trusted once only to the server it was trusted for", function () {
 		const h = setup({});
-		refuse(h);
-		h.client.trustCertificateOnce(certificate.sha256);
-		h.transport.state = "closed";
-		h.client.applySettings({
-			host: "elsewhere.test",
-			port: 6697,
-			tls: true,
-			nick: "alice",
-			join: "",
-			sasl: "",
-			saslAccount: "",
-			saslPassword: "",
-		});
-		expect((h.client as unknown as {trustedOnce: Set<string>}).trustedOnce.size).to.equal(0);
+		const c = h.client as unknown as {trustedOnce: Set<string>};
+		h.client.trustCertificateOnce(certificate.sha256, "elsewhere.test", 6697);
+		expect([...c.trustedOnce]).to.deep.equal([`elsewhere.test\n6697\n${certificate.sha256}`]);
 	});
 });
