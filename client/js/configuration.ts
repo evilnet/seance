@@ -54,6 +54,9 @@ const configuration: SharedConfiguration = {
 		{name: "day", displayName: "Day", themeColor: null},
 		{name: "morning", displayName: "Morning", themeColor: null},
 		{name: "ps", displayName: "ps", themeColor: "#3f8fe6"},
+		// Light or dark with the system on its own (one file, no pair), and
+		// the Mac app's default (boot.ts).
+		{name: "macos", displayName: "macOS", themeColor: null},
 	],
 	defaultTheme: "coffee",
 	lockNetwork: false,

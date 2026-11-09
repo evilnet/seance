@@ -6,7 +6,7 @@
 		:aria-modal="fromLink ? 'true' : undefined"
 		:aria-label="ariaLabel"
 	>
-		<div v-if="!fromLink" class="header">
+		<div v-if="!fromLink" class="header" :data-tauri-drag-region="dragRegion">
 			<SidebarToggle />
 		</div>
 		<form
@@ -472,7 +472,7 @@ import {brandingFeatures, expandNick, nickFromAccount} from "../../js/branding";
 import {autoconnectSavedNetworks, createNetwork} from "../../js/irc/manager";
 import * as saved from "../../js/irc/saved-networks";
 import {defaultPort, SavedNetwork} from "../../js/irc/saved-networks";
-import {isShell} from "../../js/helpers/shell";
+import {isShell, macDragRegion} from "../../js/helpers/shell";
 import {mergeJoinLists} from "../../js/helpers/linkTarget";
 import {askNativeAlertPermission, nativeAlertsAvailable} from "../../js/helpers/nativeAlerts";
 import {router, switchToChannel} from "../../js/router";
@@ -843,6 +843,7 @@ export default defineComponent({
 		});
 
 		return {
+			dragRegion: macDragRegion(),
 			form,
 			store,
 			t,

@@ -5,7 +5,7 @@
 		:role="embedded ? undefined : 'tabpanel'"
 		:aria-label="ariaEditLabel"
 	>
-		<div v-if="!embedded" class="header">
+		<div v-if="!embedded" class="header" :data-tauri-drag-region="dragRegion">
 			<SidebarToggle />
 		</div>
 		<form :class="{container: !embedded}" method="post" action="" @submit.prevent="onSubmit">
@@ -599,7 +599,7 @@ import {describeServiceCheck} from "../js/irc/services";
 import {servicesCheck} from "../js/helpers/operRequest";
 import {isOperOn} from "../js/helpers/operMenu";
 import {askNativeAlertPermission, nativeAlertsAvailable} from "../js/helpers/nativeAlerts";
-import {isDesktopShell, isShell} from "../js/helpers/shell";
+import {isDesktopShell, isShell, macDragRegion} from "../js/helpers/shell";
 import {useStore} from "../js/store";
 import webpush from "../js/webpush";
 import {useI18n} from "../js/i18n";
@@ -1011,6 +1011,7 @@ export default defineComponent({
 		return {
 			formatFingerprint,
 			forgetCertificate,
+			dragRegion: macDragRegion(),
 			t,
 			ariaEditLabel,
 			namePlaceholder,

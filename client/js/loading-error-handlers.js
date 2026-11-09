@@ -166,7 +166,22 @@
 		// is the build's (data-server-theme): config.json has not loaded, so a
 		// deploy with a branded paired default may load the wrong half once,
 		// until the migration stores its answer.
-		const defaultTheme = themeEl.dataset.serverTheme;
+		// The Mac app's default is the macos theme (boot.ts). Its sidebar is
+		// clear over the window's material inside the app, which reads
+		// data-platform, so that is set here too rather than at boot
+		// (native.ts), or the first frame paints the web's solid sidebar.
+		const macApp = window.seanceShell?.platform === "macos";
+
+		if (macApp) {
+			document.documentElement.dataset.shell = "desktop";
+			document.documentElement.dataset.platform = "macos";
+		}
+
+		// A deploy's own theme (config.json) is known only at boot, which
+		// lets it win (boot.ts): until then a branded Mac app paints macos,
+		// as any branded deploy paints the build's default.
+		const serverTheme = themeEl.dataset.serverTheme;
+		const defaultTheme = macApp ? "macos" : serverTheme;
 		const storedTheme = typeof userSettings.theme === "string" ? userSettings.theme : undefined;
 		const chosen = storedTheme ?? defaultTheme;
 		// The shell test is platformDefaults.ts currentPlatform's, inlined:
@@ -175,7 +190,7 @@
 			typeof userSettings.matchSystemAppearance === "boolean"
 				? userSettings.matchSystemAppearance
 				: typeof window.seanceShell?.call === "function" &&
-				  !(storedTheme && storedTheme !== defaultTheme && pairOf(storedTheme));
+				  !(storedTheme && storedTheme !== serverTheme && pairOf(storedTheme));
 		const theme = matchSystem ? pairedTheme(chosen) : chosen;
 
 		if (theme && themeEl.getAttribute("href") !== `themes/${theme}.css`) {

@@ -57,6 +57,18 @@ export function nativePlatform(): ShellPlatform | "web" {
 	return shellBridge()?.platform ?? "web";
 }
 
+/**
+ * The value for `data-tauri-drag-region` on the Mac app's drag surfaces (the
+ * strip over the sidebar, a window's header): "deep", so a press anywhere in
+ * it that is not a control moves the window and a double-click zooms it, as
+ * a titlebar does (Tauri's own drag region; capabilities/mac-window-drag.json).
+ * Undefined, so no attribute, everywhere else: other shells keep their own
+ * titlebar.
+ */
+export function macDragRegion(): "deep" | undefined {
+	return nativePlatform() === "macos" ? "deep" : undefined;
+}
+
 /** True inside any shell, phone or desktop. */
 export function isShell(): boolean {
 	return shellBridge() !== null;

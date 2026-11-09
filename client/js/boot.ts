@@ -43,6 +43,7 @@ import {setContextProvider, scriptManager} from "./irc/scripting/manager";
 import {MessageType} from "../../shared/types/msg";
 import {takeTestSwitches} from "./translate/testSwitches";
 import {startIsolationMirror} from "./translate";
+import {nativePlatform} from "./helpers/shell";
 // Also registers the IRC layer's bus handlers (input, names, more, network:*).
 import {
 	allClients,
@@ -81,8 +82,25 @@ export async function boot(): Promise<void> {
 	store.commit("branding", branding);
 	document.title = branding.appName;
 
-	if (branding.theme && configuration.themes.some((t) => t.name === branding.theme)) {
-		configuration.defaultTheme = branding.theme;
+	const deployTheme =
+		branding.theme && configuration.themes.some((t) => t.name === branding.theme)
+			? branding.theme
+			: undefined;
+
+	if (deployTheme) {
+		configuration.defaultTheme = deployTheme;
+	}
+
+	// The default a stored theme was chosen against, for the migration below:
+	// the deploy's, as before the Mac app had a default of its own. Measured
+	// against "macos", a Mac user's stored coffee would count as a choice and
+	// lose following the system's light or dark mode.
+	const migrationDefault = configuration.defaultTheme;
+
+	// The Mac app looks like a Mac app unless the deploy names a theme of
+	// its own; loading-error-handlers.js makes the same choice before boot.
+	if (nativePlatform() === "macos" && !deployTheme) {
+		configuration.defaultTheme = "macos";
 	}
 
 	// Uploads exist only when the deploy names an uploader endpoint.
@@ -102,7 +120,7 @@ export async function boot(): Promise<void> {
 
 	// Needs the deploy's default theme, which a stored theme is measured
 	// against, and has to come before the settings are applied.
-	void store.dispatch("settings/migrate", {defaultTheme: configuration.defaultTheme});
+	void store.dispatch("settings/migrate", {defaultTheme: migrationDefault});
 
 	// 'theme' setting depends on serverConfiguration.themes so
 	// settings cannot be applied before this point
