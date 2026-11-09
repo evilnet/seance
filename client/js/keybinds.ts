@@ -9,6 +9,7 @@ import isChannelCollapsed from "./helpers/isChannelCollapsed";
 import isIgnoredKeybind from "./helpers/isIgnoredKeybind";
 import listenForTwoFingerSwipes from "./helpers/listenForTwoFingerSwipes";
 import {numberShortcutModifier} from "./helpers/numberShortcut";
+import {nativeListen, nativePlatform} from "./helpers/shell";
 import {ClientChan} from "./types";
 import {ChanType} from "../../shared/types/chan";
 
@@ -44,28 +45,45 @@ function visibleWindows(): ClientChan[] {
 	return flat;
 }
 
-// Jump to the Nth channel or query in the sidebar with a digit (lobbies not counted): ⌘1–9 in the app
-// on Apple systems, Ctrl+1–9 in the app elsewhere, Alt+1–9 in a browser on
-// Windows, and nothing where every chord is taken (helpers/numberShortcut.ts).
+/** The Nth channel or query (1-based) in sidebar order; a network's lobby is not counted, as in other clients' ⌘1–9. */
+function jumpToNthChannel(n: number) {
+	const conversations = visibleWindows().filter((chan) => chan.type !== ChanType.LOBBY);
+	const target = conversations[n - 1];
+
+	if (target) {
+		jumpToChannel(target);
+	}
+}
+
+// Jump to the Nth channel or query with a digit: in the macOS app through
+// the menu bar's Go menu (⌘1–9, the shell's install_mac_menu sends
+// `go.channel.N`), so the shortcut is a real menu item and fires once;
+// elsewhere through the keyboard, with the modifier each platform leaves
+// free (Ctrl+1–9 in the app on Windows and Linux, Alt+1–9 in a browser on
+// Windows, nothing where every chord is taken: helpers/numberShortcut.ts).
 // From the composer too: no layout types a character with these chords.
-const numberModifier = numberShortcutModifier();
+if (nativePlatform() === "macos") {
+	nativeListen("App", "menuAction", (data: {action?: unknown}) => {
+		const match = /^go\.channel\.([1-9])$/.exec(
+			typeof data?.action === "string" ? data.action : ""
+		);
 
-if (numberModifier) {
-	Mousetrap.bind(
-		["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((n) => `${numberModifier}+${n}`),
-		function (_e, keys) {
-			// Channels and queries only: a network's lobby is not a channel,
-			// as in other clients' ⌘1–9.
-			const conversations = visibleWindows().filter((chan) => chan.type !== ChanType.LOBBY);
-			const target = conversations[Number(keys.split("+").pop()) - 1];
-
-			if (target) {
-				jumpToChannel(target);
-			}
-
-			return false;
+		if (match) {
+			jumpToNthChannel(Number(match[1]));
 		}
-	);
+	});
+} else {
+	const numberModifier = numberShortcutModifier();
+
+	if (numberModifier) {
+		Mousetrap.bind(
+			["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((n) => `${numberModifier}+${n}`),
+			function (_e, keys) {
+				jumpToNthChannel(Number(keys.split("+").pop()));
+				return false;
+			}
+		);
+	}
 }
 
 function navigateWindow(direction: number) {
