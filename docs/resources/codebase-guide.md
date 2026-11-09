@@ -41,7 +41,7 @@ Run a single mocha file:
 NODE_ENV=test pnpm exec mocha --config=test/.mocharc.yml test/irc/client.ts
 ```
 
-CI (`.github/workflows/ci.yml`) runs on every pull request and push to `develop`: a frozen-lockfile install, `pnpm lint`, the production build, `pnpm test:mocha`, and `tools/scenarios/smoke.mjs` (the built app boots in Chromium with no console error).
+CI (`.github/workflows/ci.yml`) runs on every pull request and push to `develop`, in two parallel jobs after a frozen-lockfile install: `lint` (`pnpm lint`, `pnpm typecheck`) and `check` (the production build, mocha against it with `pnpm test:mocha:built`, which is `pnpm test:mocha` without its build, and `tools/scenarios/smoke.mjs`: the built app boots in Chromium with no console error).
 
 `pnpm test:mocha` runs the production-shaped `pnpm build` first because `test/tests/build.ts` inspects `public/`. Live tests (`test/irc/*.live.ts`) are `describe.skip` unless `SEANCE_IRC_URL` is set:
 

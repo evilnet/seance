@@ -62,12 +62,35 @@ permissions:
 # assembles the whole site from the current state (the latest release,
 # develop, the open PRs), so a newer run waits for the one in progress and
 # replaces any run still queued.
+#
+# A pull_request_target event that cannot change the site skips the whole
+# run (`plan`'s `if`, the same test as below): a push to a draft, a push to a
+# PR by someone outside the repository with no `preview` label, a label other
+# than `preview`. Such a run takes a group of its own, or it would replace a
+# real run still queued in `pages` and then deploy nothing.
 concurrency:
-  group: pages
+  group: >-
+    ${{ (github.event_name == 'pull_request_target' && (
+      (github.event.pull_request.draft && github.event.action != 'closed' && github.event.action != 'converted_to_draft')
+      || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'preview')
+      || (github.event.action != 'closed' && github.event.action != 'labeled' && github.event.action != 'unlabeled'
+          && !contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
+          && !contains(github.event.pull_request.labels.*.name, 'preview'))
+    )) && format('pages-noop-{0}', github.run_id) || 'pages' }}
   cancel-in-progress: false
 
 jobs:
   plan:
+    # Not a run that cannot change the site (see `concurrency` above; keep
+    # the two tests the same).
+    if: >-
+      !(github.event_name == 'pull_request_target' && (
+        (github.event.pull_request.draft && github.event.action != 'closed' && github.event.action != 'converted_to_draft')
+        || ((github.event.action == 'labeled' || github.event.action == 'unlabeled') && github.event.label.name != 'preview')
+        || (github.event.action != 'closed' && github.event.action != 'labeled' && github.event.action != 'unlabeled'
+            && !contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
+            && !contains(github.event.pull_request.labels.*.name, 'preview'))
+      ))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -225,7 +248,7 @@ jobs:
   assemble:
     needs: [plan, build]
     # Every build that could be made, even when one of them failed.
-    if: always() && needs.plan.outputs.count != '0'
+    if: always() && needs.plan.result == 'success' && needs.plan.outputs.count != '0'
     runs-on: ubuntu-latest
     permissions:
       contents: read

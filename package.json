@@ -25,7 +25,8 @@
     "lint": "run-p --aggregate-output --continue-on-error lint:*",
     "test": "run-p --aggregate-output --continue-on-error lint:* typecheck test:mocha",
     "test:e2e": "pnpm build && playwright test",
-    "test:mocha": "pnpm build && NODE_ENV=test mocha --config=test/.mocharc.yml 'test/**/*.ts'",
+    "test:mocha": "pnpm build && pnpm test:mocha:built",
+    "test:mocha:built": "NODE_ENV=test mocha --config=test/.mocharc.yml 'test/**/*.ts'",
     "watch": "pnpm i18n:compile && vite build --watch",
     "typecheck": "tsc -p . && tsc -p client && tsc -p client/tsconfig.worker.json && tsc -p shared && tsc -p tools && tsc -p tools/tsconfig.ml.json"
   },
