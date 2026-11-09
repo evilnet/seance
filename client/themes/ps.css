@@ -3648,32 +3648,30 @@ html[data-reduce-motion]:root {
 		line-height: calc(2rem - 2px);
 	}
 
-	/* The name and the topic read as one capsule: the name its rounded start,
-	 * the topic the rest; with no topic the name closes it. */
+	/* The name and the topic are a capsule each. The topic's own fade would
+	 * fade its glass too, so it ends in an ellipsis instead. */
 	html[data-platform="macos"] #chat .header .title {
-		padding-inline: 0.875rem 0.625rem;
-		border-start-start-radius: 1rem;
-		border-end-start-radius: 1rem;
-		border-inline-end: 0;
+		padding-inline: 0.875rem;
+		border-radius: 1rem;
 	}
 
 	html[data-platform="macos"] #chat .header .topic {
 		margin-inline-start: 0;
-		padding-inline-end: 0.875rem;
-		border-inline-start: 0;
-		border-start-end-radius: 1rem;
-		border-end-end-radius: 1rem;
-	}
-
-	html[data-platform="macos"] #chat .header .title:has(+ .topic.empty),
-	html[data-platform="macos"] #chat .header .title:last-of-type {
-		border-inline-end: 0.0625rem solid var(--ps-g-edge);
-		border-start-end-radius: 1rem;
-		border-end-end-radius: 1rem;
+		padding-inline: 0.875rem;
+		border-radius: 1rem;
+		mask-image: none;
+		text-overflow: ellipsis;
 	}
 
 	html[data-platform="macos"] #chat .header .topic.empty {
 		visibility: hidden;
+	}
+
+	/* With no band under the toolbar, the messages fade out as they scroll up
+	 * to it, as a macOS 26 window's content does at its scroll edge, rather
+	 * than being cut off at a line. */
+	html[data-platform="macos"] #chat .chat {
+		mask-image: linear-gradient(to bottom, transparent, black 1.25rem);
 	}
 
 	html[data-platform="macos"] #form {
