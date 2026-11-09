@@ -2537,6 +2537,8 @@
   },
   "sidebar.networkList": "Network and Channel list",
   "sidebar.noResults": "No results found.",
+  "sidebar.resize": "Resize sidebar",
+  "sidebar.resizeHint": "Drag to resize the sidebar; double-click for its usual width",
   "sidebar.savedNetworkConnect": "Connect to {name}",
   "sidebar.savedNetworkOff": "Not connected",
   "sidebar.savedNetworkPassword": "Needs password",

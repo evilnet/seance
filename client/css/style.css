@@ -145,8 +145,10 @@
 
 	/* The sidebar scales at half rate — 220px at medium, 248px at large; a
 	 * full 14rem of a 34px root would not fit a phone — and never past the
-	 * screen. */
-	--sidebar-width: min(calc(7rem + 108px), 85vw);
+	 * screen. Beside the chat, the width the user dragged it to
+	 * (--sidebar-user-width, sidebarWidth.ts) replaces that; the phone's
+	 * drawer keeps the default (the phone block below). */
+	--sidebar-width: min(var(--sidebar-user-width, calc(7rem + 108px)), 85vw);
 
 	/* The user list likewise: 180px at medium, 204px at large. */
 	--userlist-width: min(calc(6rem + 84px), 85vw);
@@ -1225,6 +1227,7 @@ p {
 
 #sidebar {
 	display: none;
+	position: relative; /* the resizer's containing block */
 	flex-direction: column;
 	width: var(--sidebar-width);
 	max-height: 100%;
@@ -1234,6 +1237,39 @@ p {
 
 #viewport.menu-open #sidebar {
 	display: flex;
+}
+
+/* The sidebar's edge beside the chat (SidebarResizer.vue): a strip to drag,
+ * which shows itself on hover and focus. */
+.sidebar-resizer {
+	position: absolute;
+	inset-block: 0;
+	inset-inline-end: 0;
+	width: 0.375rem;
+	cursor: col-resize;
+	touch-action: none;
+	z-index: 2;
+}
+
+/* A finger needs more to land on (an iPad's sidebar beside the chat). */
+@media (pointer: coarse) {
+	.sidebar-resizer {
+		width: 0.875rem;
+	}
+}
+
+.sidebar-resizer:hover,
+.sidebar-resizer:focus-visible,
+html.sidebar-resizing .sidebar-resizer {
+	background: var(--button-color);
+	opacity: 0.6;
+	outline: 0;
+}
+
+html.sidebar-resizing,
+html.sidebar-resizing * {
+	cursor: col-resize !important;
+	user-select: none !important;
 }
 
 #sidebar .scrollable-area {
@@ -8020,6 +8056,14 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
 	.tooltipped-no-touch:hover::after {
 		visibility: hidden;
 		opacity: 0;
+	}
+
+	:root {
+		--sidebar-width: min(calc(7rem + 108px), 85vw);
+	}
+
+	.sidebar-resizer {
+		display: none;
 	}
 
 	#sidebar .logo-container {
