@@ -32,6 +32,8 @@ import type {SavedNetwork} from "./saved-networks";
 import type {ConnectOptions} from "./types";
 import type {GlobalModeState} from "../helpers/dnd";
 import {shellBridge} from "../helpers/shell";
+import {askCertificateTrust} from "../certificatePrompt";
+import type {UntrustedCertificate} from "./shellSocket";
 
 /** The global do-not-disturb as client/js/dnd.ts last set it; new clients start with it. */
 const globalDnd: {active: boolean; until: number | null} = {active: false, until: null};
@@ -105,6 +107,68 @@ function stopAutoconnect(uuid: string): void {
 	}
 }
 
+/** Networks whose certificate question is up (untrustedCertificate). */
+const asking = new Set<string>();
+
+/**
+ * The shell refused a network's certificate: ask the user, then trust it for
+ * good (saved with the network), for this session, or not at all.
+ */
+async function untrustedCertificate(uuid: string, certificate: UntrustedCertificate) {
+	const client = clients.get(uuid);
+
+	// One question per network at a time: a refusal while it is up (another
+	// Connect) would queue the same question behind it.
+	if (!client || asking.has(uuid)) {
+		return;
+	}
+
+	// Refused although the dial offered it: trust cannot override what is
+	// wrong with it (the shell never lets a revoked one through), so asking
+	// again would only loop.
+	if (client.trusts(certificate.sha256)) {
+		return;
+	}
+
+	const {host, port} = client.options;
+	asking.add(uuid);
+	let answer: Awaited<ReturnType<typeof askCertificateTrust>>;
+
+	try {
+		answer = await askCertificateTrust(host, certificate);
+	} finally {
+		asking.delete(uuid);
+	}
+
+	// The network may have gone, or its address changed, while the question
+	// was up: the answer was about that server's certificate, not this one's.
+	if (
+		clients.get(uuid) !== client ||
+		client.options.host !== host ||
+		client.options.port !== port
+	) {
+		return;
+	}
+
+	if (answer === "no") {
+		return;
+	}
+
+	// "Always" is kept with the saved network. A network that is not saved,
+	// or whose saved entry names another server, has nowhere to keep it, so
+	// it counts for this session, rather than dialling into the same
+	// question. The port may differ: an STS upgrade moves the live client to
+	// the secure port and leaves the saved one as typed.
+	const current = answer === "always" ? saved.get(uuid) : undefined;
+
+	if (current && saved.sameHost(current.host, host)) {
+		saved.save(saved.withTrustedCertificate(current, certificate.sha256));
+		client.trustCertificate(certificate.sha256);
+	} else {
+		client.trustCertificateOnce(certificate.sha256, host, port);
+	}
+}
+
 /** Create (or reuse) the client for these options, save the config and connect. */
 export function createNetwork(options: CreateNetworkOptions): IrcClient {
 	const entry = rememberNetwork(options);
@@ -133,6 +197,8 @@ export function createNetwork(options: CreateNetworkOptions): IrcClient {
 			// to the connect screen from.
 			onSaslRejected: () => stopAutoconnect(entry.uuid),
 			onServerPasswordRejected: () => stopAutoconnect(entry.uuid),
+			onUntrustedCertificate: (certificate) =>
+				void untrustedCertificate(entry.uuid, certificate),
 		});
 		clients.set(entry.uuid, client);
 		// Load the network's ignore list now, which mirrors it for the push

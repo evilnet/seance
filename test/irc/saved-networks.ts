@@ -477,6 +477,7 @@ describe("saved-networks", function () {
 			"saslPassword",
 			"serverPassword",
 			"tls",
+			"trustedCertificates",
 		]);
 		expect(saved.displayName(entry())).to.equal("irc.example.org");
 		expect(saved.displayName(entry({name: "Home"}))).to.equal("Home");
@@ -683,5 +684,72 @@ describe("saved-networks", function () {
 			expect(cleared).to.not.have.property("serverPassword");
 			expect(cleared).to.not.have.property("hasServerPassword");
 		});
+	});
+});
+
+describe("saved networks: trusted certificates", function () {
+	const a = "aa".repeat(32);
+	const b = "BB:".repeat(31) + "BB";
+
+	it("keeps well-formed SHA-256 fingerprints, lowercased and deduplicated", function () {
+		const net = saved.normalize({
+			uuid: "u1",
+			host: "h",
+			trustedCertificates: [a, b, a, "nope", 5],
+		});
+		expect(net?.trustedCertificates).to.deep.equal([a, "bb".repeat(32)]);
+		expect(saved.toConnectOptions(net!).trustedCertificates).to.deep.equal([
+			a,
+			"bb".repeat(32),
+		]);
+		expect(saved.normalize({uuid: "u2", host: "h"})).to.not.have.property(
+			"trustedCertificates"
+		);
+	});
+
+	it("adds one at the end and drops the oldest past the cap", function () {
+		let net = saved.normalize({uuid: "u3", host: "h"})!;
+
+		for (let i = 0; i <= saved.MAX_TRUSTED_CERTIFICATES; i++) {
+			net = saved.withTrustedCertificate(net, i.toString(16).padStart(64, "0"));
+		}
+
+		expect(net.trustedCertificates).to.have.length(saved.MAX_TRUSTED_CERTIFICATES);
+		expect(net.trustedCertificates?.[0]).to.equal("1".padStart(64, "0"));
+	});
+
+	it("drops them when the form moves the network to another server", function () {
+		const existing = saved.normalize({
+			uuid: "u4",
+			host: "h",
+			port: 6697,
+			trustedCertificates: [a],
+		})!;
+		expect(saved.fromForm({uuid: "u4", host: "h"}, existing).trustedCertificates).to.deep.equal(
+			[a]
+		);
+		expect(saved.fromForm({uuid: "u4", host: "other"}, existing)).to.not.have.property(
+			"trustedCertificates"
+		);
+	});
+
+	it("drops them when the connect screen points the network at another server", function () {
+		const existing = saved.normalize({
+			uuid: "u5",
+			host: "irc.example",
+			port: 6697,
+			trustedCertificates: [a],
+		})!;
+		const same = saved.mergeOptions(existing, "u5", {host: "IRC.example ", port: 6697});
+		expect(same.trustedCertificates).to.deep.equal([a]);
+		expect(saved.mergeOptions(existing, "u5", {nick: "bob"}).trustedCertificates).to.deep.equal(
+			[a]
+		);
+		expect(saved.mergeOptions(existing, "u5", {host: "evil.example"})).to.not.have.property(
+			"trustedCertificates"
+		);
+		expect(saved.mergeOptions(existing, "u5", {port: 7000})).to.not.have.property(
+			"trustedCertificates"
+		);
 	});
 });

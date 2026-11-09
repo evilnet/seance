@@ -289,6 +289,12 @@ export function normalize(raw: Record<string, unknown>): SavedNetwork | undefine
 		net.hasServerPassword = true;
 	}
 
+	const trusted = asFingerprints(raw.trustedCertificates);
+
+	if (trusted.length > 0) {
+		net.trustedCertificates = trusted;
+	}
+
 	if (typeof raw.lastUsed === "number" && Number.isFinite(raw.lastUsed)) {
 		net.lastUsed = raw.lastUsed;
 	}
@@ -409,6 +415,10 @@ export function fromForm(data: Record<string, unknown>, existing?: SavedNetwork)
 		base.serverPassword = existing.serverPassword;
 	}
 
+	if (existing && moved(existing, base.host, base.port)) {
+		delete base.trustedCertificates;
+	}
+
 	// The services block travels whole: the key present with nothing in it
 	// is "None" (the loop above keeps the stored one for a missing key).
 	if ("services" in data) {
@@ -439,7 +449,53 @@ export function toConnectOptions(net: SavedNetwork): ConnectOptions {
 		// Configured but not on disk: undefined, so a live client keeps the
 		// one it was given (IrcClient.applySettings).
 		serverPassword: net.serverPassword ?? (net.hasServerPassword ? undefined : ""),
+		trustedCertificates: net.trustedCertificates ?? [],
 	};
+}
+
+/** Whether two host names are the same server's, as typed or not. */
+export function sameHost(a: string, b: string): boolean {
+	return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
+/**
+ * Whether `host` and `port` (either may be absent: unchanged) take `existing`
+ * to another server. Certificates were trusted for the server they came
+ * from, so a network that moved starts with none (fromForm, mergeOptions).
+ */
+function moved(existing: SavedNetwork, host: unknown, port: unknown): boolean {
+	return (
+		(host !== undefined && !sameHost(asString(host), existing.host)) ||
+		(port !== undefined && Number(port) !== existing.port)
+	);
+}
+
+/** How many certificates one network may trust (the shell refuses more). */
+export const MAX_TRUSTED_CERTIFICATES = 8;
+
+/** SHA-256 fingerprints, lowercase hex, deduplicated, the newest last; anything else dropped. */
+function asFingerprints(value: unknown): string[] {
+	if (!Array.isArray(value)) {
+		return [];
+	}
+
+	const out: string[] = [];
+
+	for (const item of value) {
+		const hex = asString(item).replace(/:/g, "").toLowerCase();
+
+		if (/^[0-9a-f]{64}$/.test(hex) && !out.includes(hex)) {
+			out.push(hex);
+		}
+	}
+
+	return out.slice(-MAX_TRUSTED_CERTIFICATES);
+}
+
+/** `net` trusting `sha256` too; the oldest one goes past the cap. */
+export function withTrustedCertificate(net: SavedNetwork, sha256: string): SavedNetwork {
+	const trusted = asFingerprints([...(net.trustedCertificates ?? []), sha256]);
+	return {...net, trustedCertificates: trusted};
 }
 
 /**
@@ -672,6 +728,11 @@ export function mergeOptions(
 		if (value !== undefined) {
 			merged[key] = value;
 		}
+	}
+
+	// The connect screen can point a saved network at another server too.
+	if (existing && moved(existing, options.host, options.port)) {
+		delete merged.trustedCertificates;
 	}
 
 	return merged;

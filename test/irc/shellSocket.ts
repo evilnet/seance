@@ -2,6 +2,7 @@ import {expect} from "chai";
 import {
 	FINAL_CLOSE,
 	ShellSocket,
+	parseCertificate,
 	SocketBridge,
 	shellSocketCtor,
 } from "../../client/js/irc/shellSocket";
@@ -345,6 +346,44 @@ describe("ShellSocket", function () {
 			}
 		});
 
+		it("hands the refused certificate to the error event, and reads the trust list at each dial", async function () {
+			const bridge = new FakeBridge();
+			const trust: string[] = [];
+			const transport = new WsTransport({
+				url: "ircs://irc.example.org:6697",
+				WebSocketImpl: shellSocketCtor(bridge, {
+					...endpoint,
+					get trust() {
+						return trust;
+					},
+				}),
+			});
+			const events: TransportEvent[] = [];
+			transport.on((ev) => events.push(ev));
+			transport.connect();
+			await tick();
+			expect(bridge.calls[0].options).to.not.have.property("trust");
+			const sha256 = "ab".repeat(32);
+			bridge.emit("close", {
+				id: bridge.calls[0].options.id,
+				code: FINAL_CLOSE,
+				reason: "the server's certificate is not trusted: it has expired",
+				certificate: {sha256, problem: "expired", notAfter: 1},
+			});
+			const error = events.find((e) => e.type === "error") as {certificate?: unknown};
+			expect(error.certificate).to.deep.equal({
+				sha256,
+				problem: "expired",
+				notAfter: 1,
+			});
+
+			trust.push(sha256);
+			transport.connect();
+			await tick();
+			expect(bridge.calls.at(-1)?.options.trust).to.deep.equal([sha256]);
+			transport.close();
+		});
+
 		it("abandons a dial: the old socket is closed in the shell, its late open ignored", async function () {
 			const bridge = new FakeBridge();
 			const transport = new WsTransport({
@@ -374,6 +413,28 @@ describe("ShellSocket", function () {
 			expect(transport.state).to.equal("open");
 			transport.close();
 			await tick();
+		});
+	});
+});
+
+describe("parseCertificate", function () {
+	it("keeps what is well formed and drops the rest", function () {
+		const sha256 = "0f".repeat(32);
+		expect(parseCertificate(null)).to.equal(undefined);
+		expect(parseCertificate({sha256: "short"})).to.equal(undefined);
+		expect(parseCertificate({sha256: sha256.toUpperCase()})).to.equal(undefined);
+		expect(
+			parseCertificate({
+				sha256,
+				problem: "weird",
+				notAfter: "x",
+				names: ["a", 3, "b"],
+			})
+		).to.deep.equal({sha256, problem: "other", names: ["a", "b"]});
+		expect(parseCertificate({sha256, problem: "selfSigned", notAfter: 100})).to.deep.equal({
+			sha256,
+			problem: "selfSigned",
+			notAfter: 100,
 		});
 	});
 });

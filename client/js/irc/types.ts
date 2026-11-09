@@ -61,6 +61,13 @@ export type ConnectOptions = {
 	 */
 	serverPassword?: string;
 	/**
+	 * Certificates the user chose to trust for this network although they
+	 * fail the usual checks (an expired or self-signed one), by SHA-256 in
+	 * lowercase hex. Only the app shell's raw TCP connections honour them
+	 * (shells/tauri socket.rs); a browser's WebSocket checks for itself.
+	 */
+	trustedCertificates?: string[];
+	/**
 	 * Drop the connection when a configured SASL login does not succeed,
 	 * instead of carrying on unauthenticated. Unset means "ask the deploy":
 	 * `config.json`'s `features.saslDisconnectOnFail`, which defaults to

@@ -267,6 +267,78 @@ msgctxt "browse.updated"
 msgid "Updated {when}"
 msgstr ""
 
+#. Button: saves this exact certificate as trusted for this network. A different certificate is asked about again.
+#: client/js/certificatePrompt.ts
+msgctxt "certificate.prompt.always"
+msgid "Always trust this certificate"
+msgstr ""
+
+#. {host} is the IRC server's host name.
+#: client/js/certificatePrompt.ts
+msgctxt "certificate.prompt.expired"
+msgid "{host}'s certificate has expired. Trust it only if you know why: someone may be pretending to be the server."
+msgstr ""
+
+#. Second line of the certificate question, under the warning. {date} is the day the server's certificate expired.
+#: client/js/certificatePrompt.ts
+msgctxt "certificate.prompt.expiredOn"
+msgid "It expired on {date}."
+msgstr ""
+
+#. Label above the certificate's fingerprint, which is hex digits separated by colons.
+#: client/js/certificatePrompt.ts
+msgctxt "certificate.prompt.fingerprint"
+msgid "SHA-256 fingerprint:"
+msgstr ""
+
+#. {host} is the IRC server's host name.
+#: client/js/certificatePrompt.ts
+msgctxt "certificate.prompt.issuer"
+msgid "{host}'s certificate is signed by an authority this app does not know. Trust it only if you know why: someone may be pretending to be the server."
+msgstr ""
+
+#. {host} is the IRC server's host name.
+#: client/js/certificatePrompt.ts
+msgctxt "certificate.prompt.name"
+msgid "{host}'s certificate was issued for a different name. Trust it only if you know why: someone may be pretending to be the server."
+msgstr ""
+
+#. Second line of the certificate question, under the warning. {names} is a comma-separated list of host names read from the certificate, shown verbatim.
+#: client/js/certificatePrompt.ts
+msgctxt "certificate.prompt.names"
+msgid "It was issued for {names}."
+msgstr ""
+
+#. Button: refuses the certificate; the network stays disconnected.
+#: client/js/certificatePrompt.ts
+msgctxt "certificate.prompt.no"
+msgid "Don't connect"
+msgstr ""
+
+#. Button: trusts the certificate until the app is closed.
+#: client/js/certificatePrompt.ts
+msgctxt "certificate.prompt.once"
+msgid "Just this once"
+msgstr ""
+
+#. {host} is the IRC server's host name.
+#: client/js/certificatePrompt.ts
+msgctxt "certificate.prompt.other"
+msgid "{host}'s certificate could not be verified. Trust it only if you know why: someone may be pretending to be the server."
+msgstr ""
+
+#. {host} is the IRC server's host name.
+#: client/js/certificatePrompt.ts
+msgctxt "certificate.prompt.selfSigned"
+msgid "{host}'s certificate is self-signed, so nobody vouches for it. Trust it only if you know why: someone may be pretending to be the server."
+msgstr ""
+
+#. Title of the dialog asked when the app's raw TCP connection refuses an IRC server's TLS certificate.
+#: client/js/certificatePrompt.ts
+msgctxt "certificate.prompt.title"
+msgid "Trust this server's certificate?"
+msgstr ""
+
 #. Tooltip and aria-label of the ✕ button on a private-conversation or list-window row in the sidebar network list; clicking closes that window (nothing is left on the server).
 #: client/components/Channel.vue
 msgctxt "channel.close"
@@ -2093,6 +2165,24 @@ msgstr ""
 #: client/components/NetworkForm.vue:26
 msgctxt "form.status"
 msgid "Status"
+msgstr ""
+
+#. Label in a network's settings: TLS certificates the user chose to trust for this network although they failed the usual checks.
+#: client/components/NetworkForm.vue
+msgctxt "form.trustedCertificates"
+msgid "Trusted certificates"
+msgstr ""
+
+#. Help text under the list of trusted certificates.
+#: client/components/NetworkForm.vue
+msgctxt "form.trustedCertificates.help"
+msgid "These certificates are accepted for this network although they did not pass the usual checks. Removing one makes the app ask again."
+msgstr ""
+
+#. Button next to one trusted certificate: stops trusting it (takes effect on Save).
+#: client/components/NetworkForm.vue
+msgctxt "form.trustedCertificates.remove"
+msgid "Remove"
 msgstr ""
 
 #. Checkbox on the network edit form: connect to this network over TLS instead of a plain connection.
