@@ -97,7 +97,11 @@ export function useStorageBackend(next: StorageBackend | null): void {
 }
 
 /** The WebSocket ports we suggest: 9998 for wss://, 8067 for ws://. */
-export function defaultPort(tls: boolean): number {
+export function defaultPort(tls: boolean, transport?: ConnectOptions["transport"]): number {
+	if (transport === "tcp") {
+		return tls ? 6697 : 6667;
+	}
+
 	return tls ? 9998 : 8067;
 }
 
@@ -163,9 +167,9 @@ function asBoolean(value: unknown): boolean {
 	return s !== "" && s !== "0" && s !== "false" && s !== "off";
 }
 
-function asPort(value: unknown, tls: boolean): number {
+function asPort(value: unknown, tls: boolean, transport?: ConnectOptions["transport"]): number {
 	const port = typeof value === "number" ? value : parseInt(asString(value), 10);
-	return Number.isInteger(port) && port > 0 && port <= 65535 ? port : defaultPort(tls);
+	return Number.isInteger(port) && port > 0 && port <= 65535 ? port : defaultPort(tls, transport);
 }
 
 /** A stored / incoming cursor, or undefined when there is nothing usable in it. */
@@ -248,12 +252,15 @@ export function normalize(raw: Record<string, unknown>): SavedNetwork | undefine
 	const tls = raw.tls === undefined ? true : asBoolean(raw.tls);
 	const sasl = asString(raw.sasl) === "plain" ? "plain" : "";
 	const rememberPassword = asBoolean(raw.rememberPassword);
+	// Only `tcp` is stored; anything else (the form's `websocket`) is the default.
+	const transport = raw.transport === "tcp" ? "tcp" : undefined;
 	const net: SavedNetwork = {
 		uuid,
 		name: asString(raw.name),
 		host: asString(raw.host),
-		port: asPort(raw.port, tls),
+		port: asPort(raw.port, tls, transport),
 		tls,
+		...(transport ? {transport} : {}),
 		nick: asString(raw.nick),
 		join: asJoin(raw.join),
 		sasl,
@@ -392,6 +399,7 @@ export function toConnectOptions(net: SavedNetwork): ConnectOptions {
 		host: net.host,
 		port: net.port,
 		tls: net.tls,
+		...(net.transport ? {transport: net.transport} : {}),
 		nick: net.nick,
 		join: net.join,
 		sasl: net.sasl,
@@ -583,7 +591,12 @@ export function lastUsed(): SavedNetwork | undefined {
  * An existing entry for the same server and nick, so re-typing a network
  * into the connect form keeps its uuid (and the preferences keyed by it).
  */
-export function findMatching(host: string, port: number, nick: string): SavedNetwork | undefined {
+export function findMatching(
+	host: string,
+	port: number,
+	nick: string,
+	transport?: ConnectOptions["transport"]
+): SavedNetwork | undefined {
 	const h = hostnameOf(host).toLowerCase();
 	const n = nick.trim().toLowerCase();
 
@@ -591,6 +604,24 @@ export function findMatching(host: string, port: number, nick: string): SavedNet
 		(net) =>
 			hostnameOf(net.host).toLowerCase() === h &&
 			net.port === port &&
-			net.nick.toLowerCase() === n
+			net.nick.toLowerCase() === n &&
+			(net.transport === "tcp") === (transport === "tcp")
 	);
+}
+
+/** The stored entry with the connect options laid over it (undefined options keep the stored value). */
+export function mergeOptions(
+	existing: SavedNetwork | undefined,
+	uuid: string,
+	options: Partial<ConnectOptions> & Record<string, unknown>
+): Record<string, unknown> {
+	const merged: Record<string, unknown> = {...(existing ?? {}), uuid};
+
+	for (const [key, value] of Object.entries(options)) {
+		if (value !== undefined) {
+			merged[key] = value;
+		}
+	}
+
+	return merged;
 }

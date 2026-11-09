@@ -2,7 +2,8 @@
 // on the phones. The window loads the built SPA from the
 // bundle — `public/`, compiled in by `frontendDist` — and the page speaks IRC
 // over WebSocket itself; the shell adds a window, links, the badge and the
-// platform's close behaviour.
+// platform's close behaviour, and raw TCP/TLS sockets for networks with no
+// WebSocket listener (src/socket.rs).
 //
 // The page reaches the shell through `window.seanceShell` (the init script
 // below), the contract client/js/helpers/shell.ts reads in every shell:
@@ -16,6 +17,7 @@ mod alerts;
 mod apple;
 #[cfg(mobile)]
 mod mobile;
+mod socket;
 
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -42,7 +44,9 @@ const PLATFORM: &str = "ios";
 /// object is frozen and neither it nor the emit hook can be replaced, so a
 /// page script cannot get between the page and the shell. It can still call
 /// the hook and fake an event, because `emit()` evaluates in the page's own
-/// world; events carry nothing the page could not do itself. A retained
+/// world; events carry nothing the page could not do itself. Calls are
+/// another matter: `Socket` opens raw connections, which no web page can,
+/// and so enforces its own limits (src/socket.rs). A retained
 /// event nobody listens to yet waits for its first listener.
 fn init_script(version: &str) -> String {
     format!(
@@ -251,6 +255,7 @@ async fn seance_call(
             smoke::report(window.app_handle(), &options);
             Ok(json!({}))
         }
+        ("Socket", _) => socket::call(window.app_handle(), &method, &options),
         _ => native(window.app_handle(), &plugin, &method, &options).await,
     }
 }
@@ -403,6 +408,8 @@ fn create_main(app: &AppHandle) -> tauri::Result<WebviewWindow> {
 
             if started {
                 handle.state::<Mutex<Links>>().lock().unwrap().listening = false;
+                // The old page's connections go with it.
+                handle.state::<socket::Sockets>().close_all(&handle);
             }
 
             let waiting = {
@@ -573,6 +580,7 @@ pub fn run() {
             listening: false,
         }))
         .manage(Mutex::new(Held::default()))
+        .manage(socket::Sockets::default())
         .invoke_handler(tauri::generate_handler![seance_call])
         .setup(|app| {
             let handle = app.handle().clone();

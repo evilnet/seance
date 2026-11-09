@@ -1,13 +1,19 @@
 import {expect} from "chai";
 import sinon from "sinon";
 import socket from "../../client/js/socket";
-import {IrcClient, IrcClientOptions, parseJoinList, buildUrl} from "../../client/js/irc/client";
+import {
+	IrcClient,
+	IrcClientOptions,
+	parseJoinList,
+	buildUrl,
+	tcpHostOf,
+} from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";
 import * as saved from "../../client/js/irc/saved-networks";
 import {registerBusHandlers} from "../../client/js/irc/bus";
 import {utf8ByteLength} from "../../client/js/irc/message";
 import type {Transport} from "../../client/js/irc/types";
-import type {TransportEvent, TransportState} from "../../client/js/irc/transport";
+import type {TransportEvent, TransportOptions, TransportState} from "../../client/js/irc/transport";
 import {CTCP_REPLY_INTERVAL_MS} from "../../client/js/irc/handlers/privmsg";
 import {ChanState, ChanType} from "../../shared/types/chan";
 import {MessageType, SharedMsg} from "../../shared/types/msg";
@@ -1204,6 +1210,46 @@ describe("IrcClient", function () {
 			expect(payloads("init")).to.have.length(2);
 		});
 
+		it("refuses IRC over TCP without the app shell, and does not dial", function () {
+			const h = setup({transport: "tcp", port: 6697});
+			h.client.connect();
+			expect(h.transport.connectCalls).to.equal(0);
+			expect(messages().some((m) => /works only in the app/.test(m.text ?? ""))).to.equal(
+				true
+			);
+		});
+
+		it("gives IRC over TCP the shell's socket, and rebuilds the transport when the type changes", function () {
+			const seen: TransportOptions[] = [];
+			const bridge = {call: () => Promise.resolve({}), listen() {}};
+			const h = setup({
+				transport: "tcp",
+				port: 6697,
+				socketBridge: bridge,
+				transportFactory(opts) {
+					seen.push(opts);
+					return new FakeTransport();
+				},
+			});
+			expect(seen[0].url).to.equal("ircs://irc.test:6697");
+			expect(seen[0].WebSocketImpl).to.be.a("function");
+
+			// Only the type changes: that alone needs a new transport.
+			h.client.applySettings({
+				host: "irc.test",
+				port: 6697,
+				tls: true,
+				nick: "alice",
+				join: "#seance",
+				sasl: "",
+				saslAccount: "",
+				saslPassword: "",
+			});
+			expect(seen).to.have.length(2);
+			expect(seen[1].url).to.equal("wss://irc.test:6697/");
+			expect(seen[1].WebSocketImpl).to.equal(undefined);
+		});
+
 		it("tears down at once when new settings swap the transport right after disconnect()", function () {
 			const made: FakeTransport[] = [];
 			const h = setup({
@@ -1482,6 +1528,15 @@ describe("IrcClient", function () {
 				"wss://irc.example.org:443/"
 			);
 			expect(buildUrl("::1", 8443, true)).to.equal("wss://[::1]:8443/");
+		});
+
+		it("builds irc:// and ircs:// URLs for IRC over TCP, and bare hosts to dial", function () {
+			expect(buildUrl("irc.example.org/ws", 6697, true, "tcp")).to.equal(
+				"ircs://irc.example.org:6697"
+			);
+			expect(buildUrl("::1", 6667, false, "tcp")).to.equal("irc://[::1]:6667");
+			expect(tcpHostOf(" ircs://irc.example.org/x ")).to.equal("irc.example.org");
+			expect(tcpHostOf("[::1]")).to.equal("::1");
 		});
 
 		it("parses the join list with keys and missing prefixes", function () {

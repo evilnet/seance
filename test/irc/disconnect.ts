@@ -35,6 +35,31 @@ describe("describeClose", function () {
 		expect(report.hint).to.contain("open https://irc.example.org:8443/ in a new tab");
 	});
 
+	it("gives IRC over TCP its own hints, with no browser advice", function () {
+		const tls = describeClose({
+			...base,
+			url: "ircs://irc.example.org:6697",
+			host: "irc.example.org",
+			phase: "connecting",
+			pageProtocol: "https:",
+			errorMessage: "invalid peer certificate: UnknownIssuer",
+		});
+
+		expect(tls.text).to.contain("(invalid peer certificate: UnknownIssuer)");
+		expect(tls.hint).to.contain("self-signed");
+		expect(tls.hint).to.not.contain("new tab");
+
+		const plain = describeClose({
+			...base,
+			url: "irc://irc.example.org:6667",
+			phase: "connecting",
+			pageProtocol: "https:",
+		});
+
+		expect(plain.hint).to.contain("blocks the connection");
+		expect(plain.hint).to.not.contain("ws://");
+	});
+
 	it("includes an informative transport error but not the browser stock one", function () {
 		const informative = describeClose({
 			...base,

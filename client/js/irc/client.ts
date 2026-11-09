@@ -143,8 +143,10 @@ import {
 	policyHost,
 	refreshPolicy,
 	StsUpgrade,
+	stsHost,
 	upgradeOptions,
 } from "./sts";
+import {shellSocketCtor, type SocketBridge} from "./shellSocket";
 import {channelOrder, get as getSavedNetwork, NetworkCursor, setCursor} from "./saved-networks";
 import {noteServiceReply, resetServiceReplies} from "./services";
 import {dropQuietLine, isRepeatedMissingBot} from "./quiet";
@@ -268,6 +270,12 @@ export interface IrcClientOptions extends ConnectOptions {
 	ids?: IdAllocator;
 	/** Build the transport (tests inject a fake); defaults to `new WsTransport(opts)`. */
 	transportFactory?: (opts: TransportOptions) => Transport;
+	/**
+	 * The app shell's bridge, for `transport: "tcp"` (shellSocket.ts). The
+	 * manager passes `window.seanceShell`; without one (a browser) a TCP
+	 * network does not connect.
+	 */
+	socketBridge?: SocketBridge;
 	/** The server's flood rule as we model it (fakelag.ts); ircu's by default. */
 	fakeLag?: FakeLagModel;
 	reconnect?: ReconnectOptions;
@@ -582,7 +590,7 @@ export class IrcClient {
 		this.networkName = hostnameOf(host);
 		this.bus = options.bus ?? socket;
 		this.ids = options.ids ?? sharedIds;
-		this.url = buildUrl(host, options.port, options.tls);
+		this.url = buildUrl(host, options.port, options.tls, options.transport);
 		this.transport = this.createTransport();
 		this.unsubscribeTransport = this.transport.on((ev) => this.onTransportEvent(ev));
 
@@ -814,7 +822,8 @@ export class IrcClient {
 			proxyPort: 0,
 			proxyUsername: "",
 			proxyPassword: "",
-			hasSTSPolicy: getPolicy(o.host) !== undefined,
+			transport: o.transport ?? "websocket",
+			hasSTSPolicy: getPolicy(stsHost(o)) !== undefined,
 		};
 	}
 
@@ -835,6 +844,17 @@ export class IrcClient {
 
 		this.settleClose(); // before quitting is reset: it was our QUIT
 		this.applyPendingOptions();
+
+		if (this.options.transport === "tcp" && !this.options.socketBridge) {
+			// No app shell, no raw socket: say so rather than dial and retry forever.
+			this.pushMessage(
+				this.lobby,
+				{type: MessageType.ERROR, text: t("connect.tcpNeedsApp")},
+				true
+			);
+			return;
+		}
+
 		this.applyStsPolicy();
 		this.quitting = false;
 		this.closeHintShown = false;
@@ -907,6 +927,7 @@ export class IrcClient {
 			host: next.host,
 			port: next.port,
 			tls: next.tls,
+			transport: next.transport,
 			join: next.join,
 			sasl: next.sasl,
 			saslAccount: next.saslAccount,
@@ -945,7 +966,12 @@ export class IrcClient {
 
 	private endpointChanged(next: IrcClientOptions): boolean {
 		const o = this.options;
-		return next.host !== o.host || next.port !== o.port || next.tls !== o.tls;
+		return (
+			next.host !== o.host ||
+			next.port !== o.port ||
+			next.tls !== o.tls ||
+			(next.transport === "tcp") !== (o.transport === "tcp")
+		);
 	}
 
 	/** Swap in settings edited while connected, if any (before a connect). */
@@ -986,6 +1012,14 @@ export class IrcClient {
 			subprotocols: ["text.ircv3.net", "binary.ircv3.net"],
 		};
 
+		if (this.options.transport === "tcp" && this.options.socketBridge) {
+			transportOptions.WebSocketImpl = shellSocketCtor(this.options.socketBridge, {
+				host: tcpHostOf(this.options.host),
+				port: this.options.port,
+				tls: this.options.tls,
+			});
+		}
+
 		if (this.options.reconnect) {
 			transportOptions.reconnect = this.options.reconnect;
 		}
@@ -1000,7 +1034,7 @@ export class IrcClient {
 		this.settleClose(); // the old transport's close event will not reach us
 		this.unsubscribeTransport();
 		this.options = {...next};
-		this.url = buildUrl(next.host, next.port, next.tls);
+		this.url = buildUrl(next.host, next.port, next.tls, next.transport);
 		this.transport = this.createTransport();
 		this.unsubscribeTransport = this.transport.on((ev) => this.onTransportEvent(ev));
 	}
@@ -1052,7 +1086,7 @@ export class IrcClient {
 		const value = parseStsValue(raw);
 
 		if (this.options.tls) {
-			applyDuration(this.options.host, this.options.port, value);
+			applyDuration(stsHost(this.options), this.options.port, value);
 			return;
 		}
 
@@ -1068,7 +1102,11 @@ export class IrcClient {
 		// secure endpoint; an edit to another host is left alone.
 		const pending = this.pendingOptions;
 
-		if (pending && policyHost(pending.host) === policyHost(this.options.host)) {
+		if (
+			pending &&
+			(pending.transport === "tcp") === (this.options.transport === "tcp") &&
+			policyHost(pending.host) === policyHost(this.options.host)
+		) {
 			this.pendingOptions = {...pending, ...secure};
 		}
 
@@ -1628,7 +1666,7 @@ export class IrcClient {
 		this.authtoken.clear();
 
 		if (this.options.tls) {
-			refreshPolicy(this.options.host);
+			refreshPolicy(stsHost(this.options));
 		}
 
 		resetBatches(this);
@@ -3646,7 +3684,12 @@ function hostnameOf(host: string): string {
 	return slash === -1 ? stripped : stripped.slice(0, slash);
 }
 
-export function buildUrl(host: string, port: number, tls: boolean): string {
+export function buildUrl(
+	host: string,
+	port: number,
+	tls: boolean,
+	transport?: ConnectOptions["transport"]
+): string {
 	const stripped = host.trim().replace(/^(?:wss?|https?|ircs?):\/\//i, "");
 	const slash = stripped.indexOf("/");
 	let hostname = slash === -1 ? stripped : stripped.slice(0, slash);
@@ -3656,7 +3699,17 @@ export function buildUrl(host: string, port: number, tls: boolean): string {
 		hostname = `[${hostname}]`; // bare IPv6 literal
 	}
 
+	if (transport === "tcp") {
+		return `${tls ? "ircs" : "irc"}://${hostname}:${port}`; // no path over TCP
+	}
+
 	return `${tls ? "wss" : "ws"}://${hostname}:${port}${path}`;
+}
+
+/** The host to dial over TCP: no scheme, path or IPv6 brackets. */
+export function tcpHostOf(host: string): string {
+	const name = hostnameOf(host.trim());
+	return name.startsWith("[") && name.endsWith("]") ? name.slice(1, -1) : name;
 }
 
 /** The cursor stored for `uuid`, if the network was saved and has one. */

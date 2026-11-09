@@ -157,6 +157,20 @@
 					/>
 				</div>
 			</div>
+			<div v-if="!hostLocked && canUseTcp" class="connect-row">
+				<label for="connect:transport">{{ t("connect.connection") }}</label>
+				<div class="input-wrap">
+					<select
+						id="connect:transport"
+						v-model="connection"
+						class="input"
+						name="transport"
+					>
+						<option value="websocket">{{ t("connect.connection.websocket") }}</option>
+						<option value="tcp">{{ t("connect.connection.tcp") }}</option>
+					</select>
+				</div>
+			</div>
 			<div v-if="!hostLocked" class="connect-row">
 				<label></label>
 				<div class="input-wrap">
@@ -413,6 +427,7 @@ import {brandingFeatures, expandNick, nickFromAccount} from "../../js/branding";
 import {autoconnectSavedNetworks, createNetwork} from "../../js/irc/manager";
 import * as saved from "../../js/irc/saved-networks";
 import {defaultPort, SavedNetwork} from "../../js/irc/saved-networks";
+import {isShell} from "../../js/helpers/shell";
 import {mergeJoinLists} from "../../js/helpers/linkTarget";
 import {askNativeAlertPermission, nativeAlertsAvailable} from "../../js/helpers/nativeAlerts";
 import {router, switchToChannel} from "../../js/router";
@@ -486,8 +501,24 @@ export default defineComponent({
 		const pinServer = () => {
 			if (hostLocked) {
 				Object.assign(form, server);
+				form.transport = "websocket"; // the deploy's server is a WebSocket one
 			}
 		};
+
+		// IRC over TCP: only the app shell can open a raw socket.
+		const canUseTcp = isShell();
+		const connection = computed({
+			get: () => form.transport ?? "websocket",
+			set(value: string) {
+				const next = value === "tcp" ? "tcp" : "websocket";
+
+				if (form.port === defaultPort(form.tls, form.transport)) {
+					form.port = defaultPort(form.tls, next);
+				}
+
+				form.transport = next;
+			},
+		});
 
 		// The sign-in panel replaces the whole form; `brandingFeatures` only
 		// reports it when there is a `defaultNetwork` to sign in to, and pins
@@ -540,6 +571,9 @@ export default defineComponent({
 			form.host = net.host;
 			form.port = net.port;
 			form.tls = net.tls;
+
+			form.transport = net.transport ?? "websocket";
+
 			form.nick = net.nick;
 			form.join = net.join;
 			form.sasl = net.sasl;
@@ -636,8 +670,8 @@ export default defineComponent({
 		watch(
 			() => form.tls,
 			(useTls) => {
-				if (form.port === defaultPort(!useTls)) {
-					form.port = defaultPort(useTls);
+				if (form.port === defaultPort(!useTls, form.transport)) {
+					form.port = defaultPort(useTls, form.transport);
 				}
 			}
 		);
@@ -750,6 +784,8 @@ export default defineComponent({
 			form,
 			store,
 			t,
+			canUseTcp,
+			connection,
 			ariaLabel,
 			serverAddressLabel,
 			serverPortLabel,
