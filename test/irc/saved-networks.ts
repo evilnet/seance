@@ -477,6 +477,7 @@ describe("saved-networks", function () {
 			"saslPassword",
 			"serverPassword",
 			"tls",
+			"trustedCertificates",
 		]);
 		expect(saved.displayName(entry())).to.equal("irc.example.org");
 		expect(saved.displayName(entry({name: "Home"}))).to.equal("Home");
@@ -683,5 +684,37 @@ describe("saved-networks", function () {
 			expect(cleared).to.not.have.property("serverPassword");
 			expect(cleared).to.not.have.property("hasServerPassword");
 		});
+	});
+});
+
+describe("saved networks: trusted certificates", function () {
+	const a = "aa".repeat(32);
+	const b = "BB:".repeat(31) + "BB";
+
+	it("keeps well-formed SHA-256 fingerprints, lowercased and deduplicated", function () {
+		const net = saved.normalize({
+			uuid: "u1",
+			host: "h",
+			trustedCertificates: [a, b, a, "nope", 5],
+		});
+		expect(net?.trustedCertificates).to.deep.equal([a, "bb".repeat(32)]);
+		expect(saved.toConnectOptions(net!).trustedCertificates).to.deep.equal([
+			a,
+			"bb".repeat(32),
+		]);
+		expect(saved.normalize({uuid: "u2", host: "h"})).to.not.have.property(
+			"trustedCertificates"
+		);
+	});
+
+	it("adds one at the end and drops the oldest past the cap", function () {
+		let net = saved.normalize({uuid: "u3", host: "h"})!;
+
+		for (let i = 0; i <= saved.MAX_TRUSTED_CERTIFICATES; i++) {
+			net = saved.withTrustedCertificate(net, i.toString(16).padStart(64, "0"));
+		}
+
+		expect(net.trustedCertificates).to.have.length(saved.MAX_TRUSTED_CERTIFICATES);
+		expect(net.trustedCertificates?.[0]).to.equal("1".padStart(64, "0"));
 	});
 });

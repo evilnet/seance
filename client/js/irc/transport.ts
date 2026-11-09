@@ -36,6 +36,8 @@
  * underneath it has to provide: the browser's `WebSocket` is one, the app
  * shell's TCP socket (shellSocket.ts) another.
  */
+import type {UntrustedCertificate} from "./shellSocket";
+
 export interface LineSocket {
 	readonly readyState: number;
 	readonly OPEN: number;
@@ -94,7 +96,8 @@ export type TransportEvent =
 			willReconnect: boolean;
 			delayMs?: number;
 	  }
-	| {type: "error"; message: string}
+	// `certificate`: the app shell refused the server's certificate (ShellSocket).
+	| {type: "error"; message: string; certificate?: UntrustedCertificate}
 	// `reason`: the server said it throttled us, or the device has no network.
 	| {type: "reconnecting"; attempt: number; delayMs: number; reason?: RetryReason}
 	// The scheduled retry is starting now (its wait from "reconnecting" is over).
@@ -254,7 +257,13 @@ export class WsTransport {
 		});
 		ws.addEventListener("error", (ev) => {
 			if (ws === this.ws) {
-				this.emit({type: "error", message: errorMessage(ev)});
+				const certificate = (ev as {certificate?: UntrustedCertificate} | null)
+					?.certificate;
+				this.emit({
+					type: "error",
+					message: errorMessage(ev),
+					...(certificate ? {certificate} : {}),
+				});
 			}
 		});
 		ws.addEventListener("close", (ev) => {

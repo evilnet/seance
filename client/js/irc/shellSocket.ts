@@ -32,6 +32,75 @@ export interface TcpEndpoint {
 	host: string;
 	port: number;
 	tls: boolean;
+	/** SHA-256 fingerprints (hex) of certificates to accept past the usual checks; read at each dial. */
+	trust?: readonly string[];
+}
+
+/**
+ * A certificate the shell would not trust, as socket.rs `describe_certificate`
+ * reports it with the close: what the user sees to decide on it.
+ */
+export interface UntrustedCertificate {
+	sha256: string;
+	/** Why it failed: expired, issued for another name, by an unknown authority, or other. */
+	problem: "expired" | "name" | "issuer" | "other";
+	subject?: string;
+	issuer?: string;
+	selfSigned?: boolean;
+	/** Unix seconds. */
+	notBefore?: number;
+	notAfter?: number;
+	names?: string[];
+}
+
+/** The shell's `certificate` field, checked: anything malformed is dropped. */
+export function parseCertificate(raw: unknown): UntrustedCertificate | undefined {
+	if (!raw || typeof raw !== "object") {
+		return undefined;
+	}
+
+	const r = raw as Record<string, unknown>;
+
+	if (typeof r.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(r.sha256)) {
+		return undefined;
+	}
+
+	const problem = ["expired", "name", "issuer"].includes(r.problem as string)
+		? (r.problem as UntrustedCertificate["problem"])
+		: "other";
+	const out: UntrustedCertificate = {sha256: r.sha256, problem};
+	const text = (v: unknown) => (typeof v === "string" && v.length <= 1024 ? v : undefined);
+	const time = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
+	const subject = text(r.subject);
+	const issuer = text(r.issuer);
+	const notBefore = time(r.notBefore);
+	const notAfter = time(r.notAfter);
+
+	if (subject !== undefined) {
+		out.subject = subject;
+	}
+
+	if (issuer !== undefined) {
+		out.issuer = issuer;
+	}
+
+	if (typeof r.selfSigned === "boolean") {
+		out.selfSigned = r.selfSigned;
+	}
+
+	if (notBefore !== undefined) {
+		out.notBefore = notBefore;
+	}
+
+	if (notAfter !== undefined) {
+		out.notAfter = notAfter;
+	}
+
+	if (Array.isArray(r.names)) {
+		out.names = r.names.filter((n): n is string => typeof n === "string").slice(0, 20);
+	}
+
+	return out;
 }
 
 const PLUGIN = "Socket";
@@ -68,7 +137,8 @@ function routesFor(bridge: SocketBridge): Map<string, ShellSocket> {
 		route(data, (s, d) =>
 			s.onShellClose(
 				typeof d.code === "number" ? d.code : 1006,
-				typeof d.reason === "string" ? d.reason : ""
+				typeof d.reason === "string" ? d.reason : "",
+				parseCertificate(d.certificate)
 			)
 		)
 	);
@@ -129,6 +199,7 @@ export class ShellSocket implements LineSocket {
 			host: endpoint.host,
 			port: endpoint.port,
 			tls: endpoint.tls,
+			...(endpoint.trust && endpoint.trust.length > 0 ? {trust: [...endpoint.trust]} : {}),
 		};
 		let opened: Promise<unknown>;
 
@@ -208,13 +279,16 @@ export class ShellSocket implements LineSocket {
 	}
 
 	/** @internal The shell lost the socket, or refused a call. */
-	onShellClose(code: number, reason: string): void {
+	onShellClose(code: number, reason: string, certificate?: UntrustedCertificate): void {
 		if (this.state === this.CLOSING || this.state === this.CLOSED) {
 			return; // a page close fires its own event
 		}
 
 		if (code !== 1000) {
-			this.fire("error", {message: reason || "connection failed"});
+			this.fire("error", {
+				message: reason || "connection failed",
+				...(certificate ? {certificate} : {}),
+			});
 		}
 
 		this.finish(code, reason);

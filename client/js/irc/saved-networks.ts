@@ -289,6 +289,12 @@ export function normalize(raw: Record<string, unknown>): SavedNetwork | undefine
 		net.hasServerPassword = true;
 	}
 
+	const trusted = asFingerprints(raw.trustedCertificates);
+
+	if (trusted.length > 0) {
+		net.trustedCertificates = trusted;
+	}
+
 	if (typeof raw.lastUsed === "number" && Number.isFinite(raw.lastUsed)) {
 		net.lastUsed = raw.lastUsed;
 	}
@@ -439,7 +445,36 @@ export function toConnectOptions(net: SavedNetwork): ConnectOptions {
 		// Configured but not on disk: undefined, so a live client keeps the
 		// one it was given (IrcClient.applySettings).
 		serverPassword: net.serverPassword ?? (net.hasServerPassword ? undefined : ""),
+		trustedCertificates: net.trustedCertificates ?? [],
 	};
+}
+
+/** How many certificates one network may trust (the shell refuses more). */
+export const MAX_TRUSTED_CERTIFICATES = 8;
+
+/** SHA-256 fingerprints, lowercase hex, deduplicated, the newest last; anything else dropped. */
+function asFingerprints(value: unknown): string[] {
+	if (!Array.isArray(value)) {
+		return [];
+	}
+
+	const out: string[] = [];
+
+	for (const item of value) {
+		const hex = asString(item).replace(/:/g, "").toLowerCase();
+
+		if (/^[0-9a-f]{64}$/.test(hex) && !out.includes(hex)) {
+			out.push(hex);
+		}
+	}
+
+	return out.slice(-MAX_TRUSTED_CERTIFICATES);
+}
+
+/** `net` trusting `sha256` too; the oldest one goes past the cap. */
+export function withTrustedCertificate(net: SavedNetwork, sha256: string): SavedNetwork {
+	const trusted = asFingerprints([...(net.trustedCertificates ?? []), sha256]);
+	return {...net, trustedCertificates: trusted};
 }
 
 /**

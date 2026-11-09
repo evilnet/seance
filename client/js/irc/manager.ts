@@ -32,6 +32,8 @@ import type {SavedNetwork} from "./saved-networks";
 import type {ConnectOptions} from "./types";
 import type {GlobalModeState} from "../helpers/dnd";
 import {shellBridge} from "../helpers/shell";
+import {askCertificateTrust} from "../certificatePrompt";
+import type {UntrustedCertificate} from "./shellSocket";
 
 /** The global do-not-disturb as client/js/dnd.ts last set it; new clients start with it. */
 const globalDnd: {active: boolean; until: number | null} = {active: false, until: null};
@@ -105,6 +107,39 @@ function stopAutoconnect(uuid: string): void {
 	}
 }
 
+/**
+ * The shell refused a network's certificate: ask the user, then trust it for
+ * good (saved with the network), for this session, or not at all.
+ */
+async function untrustedCertificate(uuid: string, certificate: UntrustedCertificate) {
+	const client = clients.get(uuid);
+
+	if (!client) {
+		return;
+	}
+
+	const answer = await askCertificateTrust(client.options.host, certificate);
+
+	// The network may have gone, or its address changed, while the question was up.
+	if (clients.get(uuid) !== client) {
+		return;
+	}
+
+	if (answer === "always") {
+		const current = saved.get(uuid);
+
+		if (current) {
+			const next = saved.withTrustedCertificate(current, certificate.sha256);
+			saved.save(next);
+			client.applySettings(saved.toConnectOptions(next));
+		}
+
+		client.connect();
+	} else if (answer === "once") {
+		client.trustCertificateOnce(certificate.sha256);
+	}
+}
+
 /** Create (or reuse) the client for these options, save the config and connect. */
 export function createNetwork(options: CreateNetworkOptions): IrcClient {
 	const entry = rememberNetwork(options);
@@ -133,6 +168,8 @@ export function createNetwork(options: CreateNetworkOptions): IrcClient {
 			// to the connect screen from.
 			onSaslRejected: () => stopAutoconnect(entry.uuid),
 			onServerPasswordRejected: () => stopAutoconnect(entry.uuid),
+			onUntrustedCertificate: (certificate) =>
+				void untrustedCertificate(entry.uuid, certificate),
 		});
 		clients.set(entry.uuid, client);
 		// Load the network's ignore list now, which mirrors it for the push

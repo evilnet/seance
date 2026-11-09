@@ -14,11 +14,16 @@
 // - lines, queues and writes are capped; at most MAX_SOCKETS at once, and
 //   MAX_OPENS a minute (no scanning the LAN through it).
 //
-// `Socket.open {id, page, host, port, tls}` → events `open {id}`, `lines
-// {id, lines}` (one per read), `close {id, code, reason}`: 1000 when the
-// server ended the connection, FINAL (4001) for a failure a retry cannot
-// mend (an untrusted certificate, a server that is not IRC), 1006 for any
-// other. `Socket.send {id,
+// `Socket.open {id, page, host, port, tls, trust?}` → events `open {id}`,
+// `lines {id, lines}` (one per read), `close {id, code, reason,
+// certificate?}`: 1000 when the server ended the connection, FINAL (4001)
+// for a failure a retry cannot mend (an untrusted certificate, a server that
+// is not IRC), 1006 for any other. `trust` is a list of SHA-256 fingerprints
+// (hex) of certificates the user accepted for this network: a server whose
+// certificate fails the usual checks is still let through when its own
+// certificate is one of them, byte for byte. A close for an untrusted
+// certificate carries what the page shows the user to decide on it
+// (`certificate`: sha256, subject, issuer, names, notBefore, notAfter, problem). `Socket.send {id,
 // lines}`, once open. `Socket.close {id}`: the queued lines are written (a
 // QUIT gets out), the socket shut, and no event follows. A page load closes
 // every socket, and an open from the page before it (`page`, a token per
@@ -164,6 +169,7 @@ pub fn call(app: &AppHandle, method: &str, options: &Value) -> Result<Value, She
                 .unwrap_or_default();
             let port = options.get("port").and_then(Value::as_u64).unwrap_or(0);
             let tls = options.get("tls").and_then(Value::as_bool).unwrap_or(false);
+            let trust = trust_option(options).map_err(refuse)?;
 
             if host.is_empty() || host.len() > 255 {
                 return Err(refuse("no host"));
@@ -231,7 +237,7 @@ pub fn call(app: &AppHandle, method: &str, options: &Value) -> Result<Value, She
                 greeted,
             };
             drop(tx);
-            tauri::async_runtime::spawn(task.run(host, port, tls, rx));
+            tauri::async_runtime::spawn(task.run(host, port, tls, trust, rx));
             Ok(json!({}))
         }
         "send" => {
@@ -265,12 +271,12 @@ pub fn call(app: &AppHandle, method: &str, options: &Value) -> Result<Value, She
                 });
 
                 if let Err(reason) = checked {
-                    end_socket(app, &id, None, 1006, reason);
+                    end_socket(app, &id, None, 1006, reason, None);
                     return Err(refuse(reason));
                 }
 
                 if tx.try_send(line.to_owned()).is_err() {
-                    end_socket(app, &id, None, 1006, "send queue full");
+                    end_socket(app, &id, None, 1006, "send queue full", None);
                     return Err(refuse("send queue full"));
                 }
             }
@@ -300,6 +306,7 @@ fn end_socket(
     owner: Option<&mpsc::Sender<String>>,
     code: u16,
     reason: &str,
+    certificate: Option<Value>,
 ) {
     let sockets = app.state::<Sockets>();
     let mut state = sockets.0.lock().unwrap();
@@ -316,13 +323,13 @@ fn end_socket(
     if ours {
         state.sockets.remove(id);
         drop(state);
-        crate::emit(
-            app,
-            PLUGIN,
-            "close",
-            json!({"id": id, "code": code, "reason": reason}),
-            false,
-        );
+        let mut event = json!({"id": id, "code": code, "reason": reason});
+
+        if let Some(certificate) = certificate {
+            event["certificate"] = certificate;
+        }
+
+        crate::emit(app, PLUGIN, "close", event, false);
     }
 }
 
@@ -340,12 +347,21 @@ struct Task {
 }
 
 impl Task {
-    async fn run(self, host: String, port: u16, tls: bool, mut rx: mpsc::Receiver<String>) {
-        let dial = tokio::time::timeout(DIAL_DEADLINE, dial(&host, port, tls));
+    async fn run(
+        self,
+        host: String,
+        port: u16,
+        tls: bool,
+        trust: Vec<[u8; 32]>,
+        mut rx: mpsc::Receiver<String>,
+    ) {
+        let dial = tokio::time::timeout(DIAL_DEADLINE, dial(&host, port, tls, trust));
         let stream = tokio::select! {
             result = dial => match result {
                 Ok(Ok(stream)) => stream,
-                Ok(Err((code, reason))) => return self.end(code, &reason),
+                Ok(Err(DialError { code, reason, certificate })) => {
+                    return self.end_with(code, &reason, certificate)
+                }
                 Err(_) => return self.end(1006, "connect timed out"),
             },
             // Closed by the page while dialling (`send` refuses lines until
@@ -418,8 +434,12 @@ impl Task {
 
     /// The socket ended on its own: tell the page, unless it closed us.
     fn end(&self, code: u16, reason: &str) {
+        self.end_with(code, reason, None);
+    }
+
+    fn end_with(&self, code: u16, reason: &str, certificate: Option<Value>) {
         if let Some(tx) = self.marker.upgrade() {
-            end_socket(&self.app, &self.id, Some(&tx), code, reason);
+            end_socket(&self.app, &self.id, Some(&tx), code, reason, certificate);
         }
     }
 }
@@ -449,8 +469,31 @@ async fn drain<W: AsyncWrite + Unpin>(writer: &mut W, lines: Vec<String>) {
 /// page does not retry it, since the next dial would fail the same way.
 const FINAL: u16 = 4001;
 
+/// Why a dial failed: the close code and reason, and for a certificate
+/// the user may choose to trust, what the page shows them about it.
+struct DialError {
+    code: u16,
+    reason: String,
+    certificate: Option<Value>,
+}
+
+impl From<(u16, String)> for DialError {
+    fn from((code, reason): (u16, String)) -> Self {
+        DialError {
+            code,
+            reason,
+            certificate: None,
+        }
+    }
+}
+
 /// Dial `host`; a failure is its close code and reason.
-async fn dial(host: &str, port: u16, tls: bool) -> Result<Box<dyn Stream>, (u16, String)> {
+async fn dial(
+    host: &str,
+    port: u16,
+    tls: bool,
+    trust: Vec<[u8; 32]>,
+) -> Result<Box<dyn Stream>, DialError> {
     let addrs: Vec<_> = tokio::net::lookup_host((host, port))
         .await
         .map_err(|e| (1006, format!("cannot resolve {host}: {e}")))?
@@ -480,11 +523,27 @@ async fn dial(host: &str, port: u16, tls: bool) -> Result<Box<dyn Stream>, (u16,
 
     let name = rustls::pki_types::ServerName::try_from(host.to_owned())
         .map_err(|_| (FINAL, format!("{host} is not a valid TLS server name")))?;
-    let stream = tls_connector()
+    let verifier = Arc::new(TrustingVerifier::new(trust).map_err(|reason| (1006, reason))?);
+    let stream = tls_connector(verifier.clone())
         .map_err(|reason| (1006, reason))?
         .connect(name, tcp)
         .await
-        .map_err(tls_failure)?;
+        .map_err(|e| {
+            let (code, reason) = tls_failure(e);
+            let certificate = if code == FINAL {
+                verifier
+                    .rejected()
+                    .map(|cert| describe_certificate(&cert, &reason))
+            } else {
+                None
+            };
+
+            DialError {
+                code,
+                reason,
+                certificate,
+            }
+        })?;
     Ok(Box::new(stream))
 }
 
@@ -525,21 +584,222 @@ fn tls_failure(e: std::io::Error) -> (u16, String) {
     }
 }
 
-/// Built once: Mozilla's roots on the ring provider.
-fn tls_connector() -> Result<tokio_rustls::TlsConnector, String> {
-    static CONFIG: OnceLock<Result<Arc<rustls::ClientConfig>, String>> = OnceLock::new();
-    let config = CONFIG.get_or_init(|| {
-        let roots = rustls::RootCertStore {
-            roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
-        };
-        rustls::ClientConfig::builder_with_provider(Arc::new(
-            rustls::crypto::ring::default_provider(),
-        ))
+/// Mozilla's roots on the ring provider, built once.
+fn provider_and_roots() -> &'static (
+    Arc<rustls::crypto::CryptoProvider>,
+    Arc<rustls::RootCertStore>,
+) {
+    static BOTH: OnceLock<(
+        Arc<rustls::crypto::CryptoProvider>,
+        Arc<rustls::RootCertStore>,
+    )> = OnceLock::new();
+    BOTH.get_or_init(|| {
+        (
+            Arc::new(rustls::crypto::ring::default_provider()),
+            Arc::new(rustls::RootCertStore {
+                roots: webpki_roots::TLS_SERVER_ROOTS.to_vec(),
+            }),
+        )
+    })
+}
+
+/// A connector for one dial: the usual checks, and the user's trusted
+/// certificates past them (`TrustingVerifier`).
+fn tls_connector(verifier: Arc<TrustingVerifier>) -> Result<tokio_rustls::TlsConnector, String> {
+    let (provider, _) = provider_and_roots();
+    let config = rustls::ClientConfig::builder_with_provider(provider.clone())
         .with_safe_default_protocol_versions()
-        .map(|builder| Arc::new(builder.with_root_certificates(roots).with_no_client_auth()))
-        .map_err(|e| e.to_string())
-    });
-    config.clone().map(tokio_rustls::TlsConnector::from)
+        .map_err(|e| e.to_string())?
+        .dangerous()
+        .with_custom_certificate_verifier(verifier)
+        .with_no_client_auth();
+    Ok(tokio_rustls::TlsConnector::from(Arc::new(config)))
+}
+
+/// The usual WebPKI checks against Mozilla's roots, with one way past them:
+/// a server certificate whose SHA-256 is one the user chose to trust for
+/// this network. Only a certificate that fails the checks is compared, and
+/// only the exact certificate passes: a renewed or different one asks again.
+/// The handshake's own signatures are checked as usual either way, so the
+/// server must hold that certificate's key. The certificate it rejected is
+/// kept for the close event.
+#[derive(Debug)]
+struct TrustingVerifier {
+    inner: Arc<rustls::client::WebPkiServerVerifier>,
+    trust: Vec<[u8; 32]>,
+    rejected: Mutex<Option<Vec<u8>>>,
+}
+
+impl TrustingVerifier {
+    fn new(trust: Vec<[u8; 32]>) -> Result<Self, String> {
+        let (provider, roots) = provider_and_roots();
+        let inner = rustls::client::WebPkiServerVerifier::builder_with_provider(
+            roots.clone(),
+            provider.clone(),
+        )
+        .build()
+        .map_err(|e| e.to_string())?;
+        Ok(TrustingVerifier {
+            inner,
+            trust,
+            rejected: Mutex::new(None),
+        })
+    }
+
+    fn rejected(&self) -> Option<Vec<u8>> {
+        self.rejected.lock().unwrap().clone()
+    }
+}
+
+impl rustls::client::danger::ServerCertVerifier for TrustingVerifier {
+    fn verify_server_cert(
+        &self,
+        end_entity: &rustls::pki_types::CertificateDer<'_>,
+        intermediates: &[rustls::pki_types::CertificateDer<'_>],
+        server_name: &rustls::pki_types::ServerName<'_>,
+        ocsp_response: &[u8],
+        now: rustls::pki_types::UnixTime,
+    ) -> Result<rustls::client::danger::ServerCertVerified, rustls::Error> {
+        match self.inner.verify_server_cert(
+            end_entity,
+            intermediates,
+            server_name,
+            ocsp_response,
+            now,
+        ) {
+            Err(rustls::Error::InvalidCertificate(_))
+                if self.trust.contains(&sha256(end_entity.as_ref())) =>
+            {
+                Ok(rustls::client::danger::ServerCertVerified::assertion())
+            }
+            Err(e) => {
+                if matches!(e, rustls::Error::InvalidCertificate(_)) {
+                    *self.rejected.lock().unwrap() = Some(end_entity.as_ref().to_vec());
+                }
+
+                Err(e)
+            }
+            ok => ok,
+        }
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        message: &[u8],
+        cert: &rustls::pki_types::CertificateDer<'_>,
+        dss: &rustls::DigitallySignedStruct,
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        self.inner.verify_tls12_signature(message, cert, dss)
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        message: &[u8],
+        cert: &rustls::pki_types::CertificateDer<'_>,
+        dss: &rustls::DigitallySignedStruct,
+    ) -> Result<rustls::client::danger::HandshakeSignatureValid, rustls::Error> {
+        self.inner.verify_tls13_signature(message, cert, dss)
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<rustls::SignatureScheme> {
+        self.inner.supported_verify_schemes()
+    }
+}
+
+fn sha256(bytes: &[u8]) -> [u8; 32] {
+    let digest = ring::digest::digest(&ring::digest::SHA256, bytes);
+    let mut out = [0u8; 32];
+    out.copy_from_slice(digest.as_ref());
+    out
+}
+
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// `trust`: at most MAX_TRUSTED fingerprints, each 64 hex digits (colons allowed).
+fn trust_option(options: &Value) -> Result<Vec<[u8; 32]>, String> {
+    let Some(list) = options.get("trust") else {
+        return Ok(Vec::new());
+    };
+    let list = list.as_array().ok_or("trust is not a list")?;
+
+    if list.len() > MAX_TRUSTED {
+        return Err("too many trusted certificates".into());
+    }
+
+    list.iter()
+        .map(|v| {
+            v.as_str()
+                .and_then(parse_fingerprint)
+                .ok_or_else(|| "a trusted certificate is not a SHA-256 fingerprint".to_string())
+        })
+        .collect()
+}
+
+const MAX_TRUSTED: usize = 8;
+
+fn parse_fingerprint(text: &str) -> Option<[u8; 32]> {
+    let digits: Vec<u8> = text.bytes().filter(|b| *b != b':').collect();
+
+    if digits.len() != 64 {
+        return None;
+    }
+
+    let mut out = [0u8; 32];
+
+    for (i, pair) in digits.chunks(2).enumerate() {
+        let pair = std::str::from_utf8(pair).ok()?;
+        out[i] = u8::from_str_radix(pair, 16).ok()?;
+    }
+
+    Some(out)
+}
+
+/// What the page shows about a certificate it did not trust: enough to
+/// decide on, read from the certificate itself.
+fn describe_certificate(der: &[u8], reason: &str) -> Value {
+    let problem = if reason.contains("expired") {
+        "expired"
+    } else if reason.contains("different name") {
+        "name"
+    } else if reason.contains("unknown authority") {
+        "issuer"
+    } else {
+        "other"
+    };
+    let mut out = json!({"sha256": hex(&sha256(der)), "problem": problem});
+
+    if let Ok((_, cert)) = x509_parser::parse_x509_certificate(der) {
+        out["subject"] = json!(cert.subject().to_string());
+        out["issuer"] = json!(cert.issuer().to_string());
+        out["notBefore"] = json!(cert.validity().not_before.timestamp());
+        out["notAfter"] = json!(cert.validity().not_after.timestamp());
+        out["selfSigned"] = json!(cert.subject() == cert.issuer());
+
+        if let Ok(Some(san)) = cert.subject_alternative_name() {
+            let names: Vec<String> = san
+                .value
+                .general_names
+                .iter()
+                .filter_map(|name| match name {
+                    x509_parser::extensions::GeneralName::DNSName(dns) => Some(dns.to_string()),
+                    x509_parser::extensions::GeneralName::IPAddress(ip) => match ip.len() {
+                        4 => Some(std::net::Ipv4Addr::new(ip[0], ip[1], ip[2], ip[3]).to_string()),
+                        16 => <[u8; 16]>::try_from(*ip)
+                            .ok()
+                            .map(|b| std::net::Ipv6Addr::from(b).to_string()),
+                        _ => None,
+                    },
+                    _ => None,
+                })
+                .take(20)
+                .collect();
+            out["names"] = json!(names);
+        }
+    }
+
+    out
 }
 
 /// `[::1]` → `::1`; anything else as given, trimmed.
@@ -766,7 +1026,10 @@ mod tests {
             got.truncate(n);
             got
         });
-        let mut stream = dial("127.0.0.1", port, false).await.unwrap();
+        let mut stream = dial("127.0.0.1", port, false, Vec::new())
+            .await
+            .ok()
+            .unwrap();
         let mut buf = Vec::new();
         let mut chunk = [0u8; 64];
         let n = stream.read(&mut chunk).await.unwrap();
@@ -781,11 +1044,50 @@ mod tests {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
         drop(listener);
-        assert!(dial("127.0.0.1", port, false).await.is_err());
+        assert!(dial("127.0.0.1", port, false, Vec::new()).await.is_err());
     }
 
     #[test]
     fn tls_config_builds_with_ring() {
-        assert!(tls_connector().is_ok());
+        let verifier = Arc::new(TrustingVerifier::new(Vec::new()).unwrap());
+        assert!(tls_connector(verifier).is_ok());
+    }
+
+    #[test]
+    fn parses_fingerprints_with_or_without_colons() {
+        let plain = "00".repeat(31) + "ff";
+        let colons = plain
+            .as_bytes()
+            .chunks(2)
+            .map(|p| std::str::from_utf8(p).unwrap())
+            .collect::<Vec<_>>()
+            .join(":");
+        let mut want = [0u8; 32];
+        want[31] = 0xff;
+        assert_eq!(parse_fingerprint(&plain), Some(want));
+        assert_eq!(parse_fingerprint(&colons.to_uppercase()), Some(want));
+        assert_eq!(parse_fingerprint("abcd"), None);
+        assert_eq!(parse_fingerprint(&"zz".repeat(32)), None);
+    }
+
+    #[test]
+    fn trust_option_is_a_short_list_of_fingerprints() {
+        let fp = "ab".repeat(32);
+        assert_eq!(trust_option(&json!({})).unwrap(), Vec::<[u8; 32]>::new());
+        assert_eq!(trust_option(&json!({"trust": [fp]})).unwrap().len(), 1);
+        assert!(trust_option(&json!({"trust": "nope"})).is_err());
+        assert!(trust_option(&json!({"trust": ["short"]})).is_err());
+        assert!(trust_option(&json!({"trust": vec![fp; MAX_TRUSTED + 1]})).is_err());
+    }
+
+    #[test]
+    fn describes_a_certificate_it_cannot_parse_by_its_fingerprint() {
+        let d = describe_certificate(
+            b"not der",
+            "the server's certificate is not trusted: it has expired",
+        );
+        assert_eq!(d["problem"], "expired");
+        assert_eq!(d["sha256"].as_str().unwrap().len(), 64);
+        assert!(d.get("subject").is_none());
     }
 }

@@ -114,6 +114,29 @@
 				</div>
 			</div>
 			<div
+				v-if="connection === 'tcp' && (defaults.trustedCertificates ?? []).length > 0"
+				class="connect-row"
+			>
+				<label>{{ t("form.trustedCertificates") }}</label>
+				<div class="input-wrap">
+					<ul class="trusted-certificates">
+						<li v-for="fp in defaults.trustedCertificates" :key="fp">
+							<code dir="ltr" :title="formatFingerprint(fp)">{{
+								formatFingerprint(fp)
+							}}</code>
+							<button
+								type="button"
+								class="btn btn-small"
+								@click="forgetCertificate(fp)"
+							>
+								{{ t("form.trustedCertificates.remove") }}
+							</button>
+						</li>
+					</ul>
+					<p class="connect-note">{{ t("form.trustedCertificates.help") }}</p>
+				</div>
+			</div>
+			<div
 				v-if="status ? status.connected || status.connecting : defaults.connected"
 				class="connect-note"
 			>
@@ -424,6 +447,28 @@
 </template>
 
 <style>
+.trusted-certificates {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.trusted-certificates li {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	margin-block-end: 0.25rem;
+}
+
+.trusted-certificates code {
+	flex: 1 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: 0.75rem;
+}
+
 .presence-mode-hint {
 	margin-block-start: 0.25rem;
 	font-size: 0.8125rem;
@@ -558,6 +603,7 @@ import {isDesktopShell, isShell} from "../js/helpers/shell";
 import {useStore} from "../js/store";
 import webpush from "../js/webpush";
 import {useI18n} from "../js/i18n";
+import {formatFingerprint} from "../js/certificatePrompt";
 import type {ServicesConfig, SharedNetworkStatus} from "../../shared/types/network";
 /** The services roles as the form shows them, in order. */
 type ServiceRoleField = {
@@ -898,6 +944,13 @@ export default defineComponent({
 			},
 		});
 
+		// Applied with the rest of the form, on Save (saved-networks fromForm).
+		const forgetCertificate = (fp: string) => {
+			props.defaults.trustedCertificates = (props.defaults.trustedCertificates ?? []).filter(
+				(other) => other !== fp
+			);
+		};
+
 		const formData = (): SavedNetwork => {
 			const data: SavedNetwork = {
 				...props.defaults,
@@ -956,6 +1009,8 @@ export default defineComponent({
 		};
 
 		return {
+			formatFingerprint,
+			forgetCertificate,
 			t,
 			ariaEditLabel,
 			namePlaceholder,

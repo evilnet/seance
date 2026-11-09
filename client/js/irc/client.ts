@@ -146,7 +146,7 @@ import {
 	stsHost,
 	upgradeOptions,
 } from "./sts";
-import {shellSocketCtor, type SocketBridge} from "./shellSocket";
+import {shellSocketCtor, type SocketBridge, type UntrustedCertificate} from "./shellSocket";
 import {channelOrder, get as getSavedNetwork, NetworkCursor, setCursor} from "./saved-networks";
 import {noteServiceReply, resetServiceReplies} from "./services";
 import {dropQuietLine, isRepeatedMissingBot} from "./quiet";
@@ -304,6 +304,12 @@ export interface IrcClientOptions extends ConnectOptions {
 	onSaslRejected?: () => void;
 	/** The server password was missing or refused (464 before 001): same effect. */
 	onServerPasswordRejected?: () => void;
+	/**
+	 * The app shell refused the server's TLS certificate (an expired or
+	 * self-signed one): the connection stays down, and this asks the user
+	 * whether to trust it (manager.ts, certificatePrompt.ts).
+	 */
+	onUntrustedCertificate?: (certificate: UntrustedCertificate) => void;
 }
 
 /** What to try after a SASL login the deploy insists on did not happen. */
@@ -557,6 +563,10 @@ export class IrcClient {
 	private quitting = false;
 	/** Last transport error text for the close report; browsers say nothing useful. */
 	private lastTransportError?: string;
+	/** The certificate the last failed dial was refused for, if that was why. */
+	private lastCertificate?: UntrustedCertificate;
+	/** Certificates trusted for this session only ("Just this once"), by SHA-256. */
+	private readonly trustedOnce = new Set<string>();
 	/** The close report's hint is shown once per attempt series, not per retry. */
 	private closeHintShown = false;
 	/** The close about to arrive is ours and the lobby already says why (transport.abandon). */
@@ -923,9 +933,16 @@ export class IrcClient {
 	 * the port or TLS box does not keep it hammering the wrong address.
 	 * The nick is not touched here: `/nick` owns it.
 	 */
+	/** Accept `sha256` for this session only ("Just this once"), then dial. */
+	trustCertificateOnce(sha256: string): void {
+		this.trustedOnce.add(sha256);
+		this.connect();
+	}
+
 	applySettings(next: ConnectOptions): void {
 		const merged: IrcClientOptions = {
 			...this.options,
+			trustedCertificates: next.trustedCertificates ?? this.options.trustedCertificates,
 			host: next.host,
 			port: next.port,
 			tls: next.tls,
@@ -1017,10 +1034,19 @@ export class IrcClient {
 		};
 
 		if (this.options.transport === "tcp" && this.options.socketBridge) {
+			// The trusted certificates are read at each dial, not now: a
+			// certificate trusted after this transport was made counts.
+			const trusted = () => [
+				...(this.options.trustedCertificates ?? []),
+				...this.trustedOnce,
+			];
 			transportOptions.WebSocketImpl = shellSocketCtor(this.options.socketBridge, {
 				host: tcpHostOf(this.options.host),
 				port: this.options.port,
 				tls: this.options.tls,
+				get trust() {
+					return trusted();
+				},
 			});
 		}
 
@@ -1198,6 +1224,7 @@ export class IrcClient {
 			case "error":
 				// Always followed by a close event, which is where we report.
 				this.lastTransportError = ev.message;
+				this.lastCertificate = ev.certificate;
 				break;
 		}
 	}
@@ -1797,6 +1824,14 @@ export class IrcClient {
 		}
 
 		this.lastTransportError = undefined;
+		const certificate = this.lastCertificate;
+		this.lastCertificate = undefined;
+
+		// A certificate the shell would not trust: the next dial would be
+		// refused the same way (the transport does not retry it), so ask.
+		if (certificate && !willReconnect) {
+			this.options.onUntrustedCertificate?.(certificate);
+		}
 
 		// Settings edited during this connection: reconnect with them instead
 		// of letting the transport retry the old address.

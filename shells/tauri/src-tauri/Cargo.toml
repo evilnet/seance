@@ -28,6 +28,10 @@ tokio = { version = "=1.54.1", features = ["net", "io-util", "sync", "time", "ma
 tokio-rustls = { version = "=0.26.6", default-features = false, features = ["ring", "logging", "tls12"] }
 rustls = { version = "=0.23.46", default-features = false, features = ["ring", "std", "logging", "tls12"] }
 webpki-roots = "=1.0.11"
+# The trusted-certificate check (socket.rs TrustingVerifier): its SHA-256,
+# and the fields the page shows about a certificate it does not trust.
+ring = "=0.17.14"
+x509-parser = "=0.18.1"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "=2.5.5"
