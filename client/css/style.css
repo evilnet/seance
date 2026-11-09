@@ -158,8 +158,11 @@
 	 * docks at the inline-end edge and slides out past that one. The
 	 * magnitudes are the panes' own widths, whatever those end up being
 	 * (--sidebar-width is capped to the screen, so a literal length here
-	 * would leave a strip visible). */
-	--slide-away: calc(-1 * var(--sidebar-width));
+	 * would leave a strip visible). The sidebar's is 100% of its own box,
+	 * not --sidebar-width: the Mac app zooms it at the small font steps and
+	 * the shell widens it by the notch's inset, and a length left that much
+	 * of it showing over the start of every message. */
+	--slide-away: -100%;
 	--slide-end-away: var(--userlist-width);
 
 	/* #status-bar-tint's height, and the room the sidebar leaves for it. In px:
@@ -170,7 +173,7 @@
 /* RTL flips which edge each pane hides past: same magnitudes, swapped
  * signs. :root[dir] and not [dir] :root — the attribute sits on <html>. */
 :root[dir="rtl"] {
-	--slide-away: var(--sidebar-width);
+	--slide-away: 100%;
 	--slide-end-away: calc(-1 * var(--userlist-width));
 }
 
