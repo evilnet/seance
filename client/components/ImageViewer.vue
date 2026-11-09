@@ -4,6 +4,9 @@
 		ref="viewer"
 		:class="{opened: link !== null}"
 		@wheel="onMouseWheel"
+		@gesturestart="onGestureStart"
+		@gesturechange="onGestureChange"
+		@gestureend.prevent
 		@touchstart="onTouchStart"
 		@touchmove.passive.stop="onTouchMove"
 		@touchend.stop="onTouchEnd"
@@ -489,6 +492,44 @@ export default defineComponent({
 		};
 
 		// If image is zoomed in, holding ctrl while scrolling will move the image up and down
+		// Zoom to newScale about a point on screen, keeping what is under it
+		// there. transform.x/y is the image's centre in the viewer.
+		const zoomAt = (newScale: number, clientX: number, clientY: number) => {
+			const viewerEl = viewer.value;
+
+			if (!viewerEl || link.value === null) {
+				return;
+			}
+
+			const scale = Math.min(3, Math.max(0.1, newScale));
+			const rect = viewerEl.getBoundingClientRect();
+			const px = clientX - rect.left;
+			const py = clientY - rect.top;
+			const ratio = scale / transform.value.scale;
+
+			transform.value.x = px - (px - transform.value.x) * ratio;
+			transform.value.y = py - (py - transform.value.y) * ratio;
+			transform.value.scale = scale;
+			correctPosition();
+		};
+
+		// WebKit (Safari, and the Mac app's WKWebView) sends a trackpad pinch
+		// as gesture events, not wheels: scale is relative to the gesture's
+		// start.
+		type PinchEvent = Event & {scale: number; clientX: number; clientY: number};
+		let pinchFrom = 1;
+
+		const onGestureStart = (e: Event) => {
+			e.preventDefault();
+			pinchFrom = transform.value.scale;
+		};
+
+		const onGestureChange = (e: Event) => {
+			e.preventDefault();
+			const pinch = e as PinchEvent;
+			zoomAt(pinchFrom * pinch.scale, pinch.clientX, pinch.clientY);
+		};
+
 		const onMouseWheel = (e: WheelEvent) => {
 			// if image viewer is closing (css animation), you can still trigger mousewheel
 			// TODO: Figure out a better fix for this
@@ -498,8 +539,10 @@ export default defineComponent({
 
 			e.preventDefault(); // TODO: Can this be passive?
 
+			// A trackpad pinch arrives in Chromium and Firefox as a wheel with
+			// ctrlKey set: zoom by it, about the pointer.
 			if (e.ctrlKey) {
-				transform.value.y += e.deltaY;
+				zoomAt(transform.value.scale * Math.exp(-e.deltaY / 100), e.clientX, e.clientY);
 			} else {
 				const delta = e.deltaY > 0 ? 0.1 : -0.1;
 				const newScale = Math.min(3, Math.max(0.1, transform.value.scale + delta));
@@ -570,6 +613,8 @@ export default defineComponent({
 			onImageLoad,
 			onImageMouseDown,
 			onMouseWheel,
+			onGestureStart,
+			onGestureChange,
 			onClick,
 			onTouchStart,
 			onTouchMove,
