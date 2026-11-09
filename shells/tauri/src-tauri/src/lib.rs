@@ -420,7 +420,7 @@ fn create_main(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     let builder = builder
         .title_bar_style(tauri::TitleBarStyle::Overlay)
         .hidden_title(true)
-        .traffic_light_position(tauri::LogicalPosition::new(18.0, 17.0))
+        .traffic_light_position(tauri::LogicalPosition::new(20.0, 19.0))
         .transparent(true)
         .effects(
             tauri::window::EffectsBuilder::new()

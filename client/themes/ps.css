@@ -3561,21 +3561,25 @@ html[data-reduce-motion]:root {
  * Finder or Mail sidebar, inset from the window's edges with its corners
  * rounded and the traffic lights inside it, so the scene runs around it. Its
  * top strip is the lights' (style.css), shortened by the inset so the lights
- * and the presence control share a centre line. The open row is a rounded
- * wash, not coffee's marker, and the badges are capsules. Everything else is
- * ps as it is everywhere. */
+ * and the presence control share a centre line, and its corners are the
+ * window's own (16px on macOS 26) less the inset, so the two are concentric.
+ * The inset and the radius are px: they answer AppKit's frame, not the
+ * page's font size. The content beside it runs to the window's edges, as a
+ * Finder window's does. The open row is a rounded wash, not coffee's marker,
+ * and the badges are capsules. The user's word, 2026-11-09: rounded is right
+ * here, as this emulates macOS. Everything else is ps as it is everywhere. */
 @media (min-width: 769px) {
 	html[data-platform="macos"] #sidebar {
-		margin: 0.5rem;
+		margin: 8px;
 		margin-inline-end: 0;
 		border: 0.0625rem solid var(--ps-g-edge);
-		border-radius: 0.875rem;
+		border-radius: 8px;
 		overflow: hidden;
 		box-shadow: 0 0.5rem 1.875rem rgb(0 0 0 / 18%);
 	}
 
 	html[data-platform="macos"] #sidebar .logo-container {
-		height: calc(2 * (var(--mac-titlebar-height) / 2 - 0.5rem));
+		height: calc(var(--mac-titlebar-height) - 16px);
 		padding-inline-end: 0.375rem;
 	}
 

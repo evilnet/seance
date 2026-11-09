@@ -362,15 +362,15 @@ html[data-shell="native"] #status-bar-tint {
 
 /* The Mac app's titlebar is an overlay (shells/tauri/src-tauri/src/lib.rs):
  * the page runs to the window's top edge and the traffic lights sit over its
- * top-left corner, centred in a 48px strip (17px down, 18px in, three
- * buttons ending 72px in). The sidebar's top strip is that height, and a header the sidebar does not cover keeps clear of them
+ * top-left corner, centred in a 52px strip, a macOS 26 toolbar's height
+ * (19px down, 20px in, three buttons ending 74px in). The sidebar's top strip is that height, and a header the sidebar does not cover keeps clear of them
  * beside; the header is the strip's height, so the two line up. The lights
  * are AppKit's and do not follow the page's font size, so these stay in px,
  * and they stay on the left in a right-to-left page as well (native.ts drags
  * the window from both places). */
 html[data-platform="macos"] {
-	--mac-titlebar-height: 48px;
-	--mac-traffic-lights-end: 80px;
+	--mac-titlebar-height: 52px;
+	--mac-traffic-lights-end: 84px;
 }
 
 /* The strip is a toolbar: the lights on the left, the presence control on
