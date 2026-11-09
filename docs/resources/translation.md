@@ -41,7 +41,12 @@ comes from the running service, or without one from the configuration
 with `by: "user"` when the user switched it off ("Translation is turned off
 on this device.") and without when the deploy did ("Translation is turned
 off in this deployment."; switch.ts `translationOffBlock`). Nothing shows
-either today, since every surface that would is absent while off. Every
+either today, since every surface that would is absent while off -- but
+one: off by the user's setting (not the deploy's), the channel menu still
+has "Translation…", which opens Settings → Language, where the switch is
+(`contextMenu.ts`, `reader.ts` `translationOffByUser`), so a reader
+looking for translation in a channel finds the way to turn it on. It
+makes nothing (`translate-off.mjs`). Every
 entry of the reading pipeline (`reader.ts`: a line, a
 history page, a replay, the topic, a language change, a retry) and of the
 composer (`writer.ts`) asks first. Switching off acts at once (a store watch
