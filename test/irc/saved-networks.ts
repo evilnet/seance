@@ -717,4 +717,19 @@ describe("saved networks: trusted certificates", function () {
 		expect(net.trustedCertificates).to.have.length(saved.MAX_TRUSTED_CERTIFICATES);
 		expect(net.trustedCertificates?.[0]).to.equal("1".padStart(64, "0"));
 	});
+
+	it("drops them when the form moves the network to another server", function () {
+		const existing = saved.normalize({
+			uuid: "u4",
+			host: "h",
+			port: 6697,
+			trustedCertificates: [a],
+		})!;
+		expect(saved.fromForm({uuid: "u4", host: "h"}, existing).trustedCertificates).to.deep.equal(
+			[a]
+		);
+		expect(saved.fromForm({uuid: "u4", host: "other"}, existing)).to.not.have.property(
+			"trustedCertificates"
+		);
+	});
 });

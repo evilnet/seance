@@ -118,10 +118,16 @@ async function untrustedCertificate(uuid: string, certificate: UntrustedCertific
 		return;
 	}
 
-	const answer = await askCertificateTrust(client.options.host, certificate);
+	const {host, port} = client.options;
+	const answer = await askCertificateTrust(host, certificate);
 
-	// The network may have gone, or its address changed, while the question was up.
-	if (clients.get(uuid) !== client) {
+	// The network may have gone, or its address changed, while the question
+	// was up: the answer was about that server's certificate, not this one's.
+	if (
+		clients.get(uuid) !== client ||
+		client.options.host !== host ||
+		client.options.port !== port
+	) {
 		return;
 	}
 

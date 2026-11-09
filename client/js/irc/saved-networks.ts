@@ -415,6 +415,16 @@ export function fromForm(data: Record<string, unknown>, existing?: SavedNetwork)
 		base.serverPassword = existing.serverPassword;
 	}
 
+	// Certificates were trusted for the server they came from: a network
+	// moved to another host or port starts with none.
+	if (
+		existing &&
+		(asString(base.host).trim().toLowerCase() !== existing.host.trim().toLowerCase() ||
+			Number(base.port) !== existing.port)
+	) {
+		delete base.trustedCertificates;
+	}
+
 	// The services block travels whole: the key present with nothing in it
 	// is "None" (the loop above keeps the stored one for a missing key).
 	if ("services" in data) {

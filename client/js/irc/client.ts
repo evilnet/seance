@@ -956,6 +956,11 @@ export class IrcClient {
 		};
 		const state = this.transport.state;
 
+		// A certificate trusted once was trusted for that server, not this one.
+		if (next.host !== this.options.host || next.port !== this.options.port) {
+			this.trustedOnce.clear();
+		}
+
 		// New credentials have not proved themselves here yet.
 		if (
 			next.saslAccount !== this.options.saslAccount ||
