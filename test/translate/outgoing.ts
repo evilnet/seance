@@ -207,8 +207,9 @@ describe("translate/outgoing", () => {
 			routes: (to: string) => boolean,
 			last = "",
 			declared: string[] = [],
-			reading = "en"
-		) => onceTargetDefault({reading, last, declared, fallback, routes});
+			reading = "en",
+			recent: string[] = []
+		) => onceTargetDefault({reading, last, declared, recent, fallback, routes});
 		// A device without the GPU model: every pair but the cleanup pass.
 		const cpuOnly = (to: string) => to !== "en";
 
@@ -216,8 +217,19 @@ describe("translate/outgoing", () => {
 			// Reading English, no earlier pick: the dialog used to open on
 			// English -> English, disabled, "Correcting a message needs the
 			// GPU model".
-			expect(pick(cpuOnly)).to.equal("de");
 			expect(pick(cpuOnly, "", ["fr"])).to.equal("fr");
+		});
+
+		it("preselects nothing rather than the first language on the list", () => {
+			// It opened on German for every English reader with nothing set,
+			// which read as a setting nobody had made.
+			expect(pick(cpuOnly)).to.equal("");
+		});
+
+		it("takes a language the channel has been written in lately, after a declared one", () => {
+			expect(pick(cpuOnly, "", [], "en", ["en", "es"])).to.equal("es");
+			expect(pick(cpuOnly, "", ["fr"], "en", ["es"])).to.equal("fr");
+			expect(pick(cpuOnly, "pt", ["fr"], "en", ["es"])).to.equal("pt");
 		});
 
 		it("keeps the cleanup pass where it runs, after a language the channel speaks", () => {
@@ -228,8 +240,8 @@ describe("translate/outgoing", () => {
 		});
 
 		it("passes over a last pick the device can no longer serve", () => {
-			expect(pick(cpuOnly, "en")).to.equal("de");
-			expect(pick((to) => to === "es", "fr")).to.equal("es");
+			expect(pick(cpuOnly, "en")).to.equal("");
+			expect(pick((to) => to === "es", "fr", ["es"])).to.equal("es");
 		});
 
 		it("keeps the old preselection when nothing routes, so the dialog says why", () => {

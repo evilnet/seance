@@ -56,9 +56,11 @@ export interface ChannelTranslation {
 	/** Term memory, oldest first, one entry per source term and target language. */
 	terms: TermEntry[];
 	/**
-	 * The language the composer's translate button last translated a
-	 * message into here (writer.ts `translateOnce`), preselected by its
-	 * dialog next time; null until it has been used.
+	 * The language last picked here to write in, as a one-off (writer.ts
+	 * `translateOnce`) or as the send target (`write`, which sets it too),
+	 * preselected by the composer's dialog next time; null until one has
+	 * been picked. It outlives the target: turning the target off clears
+	 * `write`, and the dialog still opens on the language it was.
 	 */
 	once: string | null;
 	/**
@@ -251,6 +253,11 @@ export function setChannelTranslation(
 
 	delete rest.terms;
 	const next: ChannelTranslation = {...current, ...rest};
+
+	// A send target is a pick too (`once`): remembered past its Off.
+	if (rest.write) {
+		next.once = rest.write;
+	}
 
 	// The patch comes from the panel, so the codes are checked here as well
 	// as on load: the committed record is what the store mirrors until the

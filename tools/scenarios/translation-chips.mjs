@@ -229,7 +229,7 @@ export default async function run(page) {
 	await page.screenshot("translation-chips-replaced");
 
 	page.check(
-		"the marker is no button",
+		"the marker is no button (Message.vue's onFlipClick, the text's own guards)",
 		(await page.evaluate(`${row}.querySelector(".msg-translate-flip").tagName`)) === "SPAN"
 	);
 	await page.evaluate(`${row}.querySelector(".msg-flippable").click()`);
@@ -252,6 +252,16 @@ export default async function run(page) {
 	await page.evaluate(`${row}.querySelector(".msg-flippable").click()`);
 	await page.waitFor(`!${row}.querySelector(".msg-translated")`, {
 		label: "and a third swapped the original back again",
+	});
+	// The marker swaps them too: its tooltip offers the original, and
+	// people click it.
+	await page.evaluate(`${row}.querySelector(".msg-translate-flip").click()`);
+	await page.waitFor(`!!${row}.querySelector(".msg-translated")`, {
+		label: "a click on the marker brought the translation back",
+	});
+	await page.evaluate(`${row}.querySelector(".msg-translate-flip").click()`);
+	await page.waitFor(`!${row}.querySelector(".msg-translated")`, {
+		label: "and a second swapped the original back",
 	});
 
 	const icons = await page.evaluate(ICONS);

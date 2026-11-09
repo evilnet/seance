@@ -154,6 +154,12 @@ describe("translate/channelStore", () => {
 		expect(getChannelTranslation("n1", "#seance").once).to.equal(null);
 	});
 
+	it("a send target is remembered as the last pick past its Off", () => {
+		setChannelTranslation("n1", "#seance", {write: "es", writeFrom: "en"});
+		setChannelTranslation("n1", "#seance", {write: null, writeFrom: null});
+		expect(getChannelTranslation("n1", "#seance").once).to.equal("es");
+	});
+
 	it("a stored read language from the old per-channel picker migrates to on", () => {
 		backend.set(STORAGE_KEY, JSON.stringify({"n1/#a": {read: "en", since: 1234}}));
 

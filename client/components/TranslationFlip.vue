@@ -1,7 +1,10 @@
 <template>
 	<!-- A translated line shows its translation in the original's place
-	     (Message.vue `replaced`) and a tap on the text swaps the two; this
-	     marker before it only says which is showing, so it is no button. -->
+	     (Message.vue `replaced`). This marker before it says which is
+	     showing, and a tap on it swaps the two as a tap on the text does
+	     (Message.vue binds `onFlipClick` to both, so a long press or the
+	     tap that closes the toolbar does not count here either): its
+	     tooltip says "Show the original", and people tapped it. -->
 	<span
 		v-if="entry && entry.status === 'done'"
 		class="msg-translate-flip"

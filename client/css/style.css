@@ -3073,7 +3073,8 @@ html[data-shell="native"] .language-sheet--phone {
 	color: var(--body-color);
 }
 
-.language-sheet-once {
+.language-sheet-once,
+.language-sheet-read {
 	display: flex;
 	flex: 0 0 auto;
 	align-items: center;
@@ -3081,7 +3082,8 @@ html[data-shell="native"] .language-sheet--phone {
 	cursor: pointer;
 }
 
-.language-sheet-once-box {
+.language-sheet-once-box,
+.language-sheet-read-box {
 	margin: 0;
 }
 
@@ -8743,11 +8745,12 @@ html[data-shell="native"] #image-viewer .next-image-btn {
 }
 
 /* A translated line stands in the original's place (Message.vue
- * `replaced`), and a tap on the text swaps the two. The marker before it
- * (TranslationFlip.vue) wears the translation chips' accent look, dimmed
- * while the original is the one showing -- the header topic's flipper's
- * look, though only a marker. */
+ * `replaced`), and a tap on the text or on the marker before it swaps the
+ * two. The marker (TranslationFlip.vue) wears the translation chips' accent
+ * look, dimmed while the original is the one showing -- the header topic's
+ * flipper's look. */
 #chat .msg-translate-flip {
+	cursor: pointer;
 	display: inline-flex;
 	align-items: center;
 	vertical-align: 0.05em;
@@ -8768,7 +8771,7 @@ html[data-shell="native"] #image-viewer .next-image-btn {
 }
 
 /* A tap on a translated line's text swaps it with the original (Message.vue
-   onFlipClick). */
+   onFlipClick), as a tap on its marker does. */
 #chat .msg-flippable {
 	cursor: pointer;
 }
