@@ -314,9 +314,19 @@ reload). Every other translation scenario switches translation on first
   flattered it on the long tail). Differences under ~10 points are ties.
   NLLB first with the LLM as the fallback class for sr hr sl el he fa bn ta
   et lv lt eu cy is sw af tl ur fi hu hi; the LLM and NLLB in one class for
-  sk ms gl th cs nb bg id; the LLM and OPUS-MT in one class for de nl ru fr,
-  the LLM then OPUS-MT for es it; the LLM then NLLB everywhere else (pl, ca
-  and ga measured the LLM ahead). Arabic measured NLLB well ahead (29 points
+  sk ms gl th cs nb bg id; the LLM then NLLB everywhere else (pl, ca
+  and ga measured the LLM ahead). **An OPUS-MT pair goes first, alone,
+  wherever there is one** (`routes.default.ts` `opusEntry`), then the LLM,
+  then NLLB: least to most resource-intensive, since a pair is ~100 MB and
+  runs a line on the CPU in under a second where the LLM is a 1-2 GB
+  download and a GPU. The measurement had the LLM and OPUS-MT tied for
+  de nl ru fr and the LLM ahead for es it (`OPUS_TIED`, kept as the record
+  and for `tools/i18n/fill.ts`); that is not worth a 2 GB question in a
+  chat client. The system translator (Apple's, `engines/apple.ts`) is
+  asked before any table. A deploy's own routes (`translation.routes`)
+  are its own: AfterNET's `[["opus:en-ko", "llm"], "nllb"]` keeps the pair
+  first only while the LLM is not downloaded, and needs
+  `["opus:en-ko", "llm", "nllb"]` to put it first always. Arabic measured NLLB well ahead (29 points
   on the web weights) and is placed LLM-first anyway: the LLM reads the
   channel's context and the seq2seq models do not, and a short-line round
   trip flatters benchmark-trained models in chat. Each placement
