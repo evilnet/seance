@@ -363,8 +363,7 @@ html[data-shell="native"] #status-bar-tint {
 /* The Mac app's titlebar is an overlay (shells/tauri/src-tauri/src/lib.rs):
  * the page runs to the window's top edge and the traffic lights sit over its
  * top-left corner, centred in a 48px strip (17px down, 18px in, three
- * buttons ending 72px in). The sidebar's top strip gives them that height to
- * themselves, and a header the sidebar does not cover keeps clear of them
+ * buttons ending 72px in). The sidebar's top strip is that height, and a header the sidebar does not cover keeps clear of them
  * beside; the header is the strip's height, so the two line up. The lights
  * are AppKit's and do not follow the page's font size, so these stay in px,
  * and they stay on the left in a right-to-left page as well (native.ts drags
@@ -374,8 +373,31 @@ html[data-platform="macos"] {
 	--mac-traffic-lights-end: 80px;
 }
 
+/* The strip is a toolbar: the lights on the left, the presence control on
+ * the right, and no logo (a Mac app's sidebar carries none; the Dock has
+ * the icon). */
 html[data-platform="macos"] #sidebar .logo-container {
-	padding-top: var(--mac-titlebar-height);
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	box-sizing: border-box;
+	height: var(--mac-titlebar-height);
+	padding: 0 10px 0 var(--mac-traffic-lights-end);
+}
+
+html[data-platform="macos"] #sidebar .logo {
+	display: none;
+}
+
+html[data-platform="macos"] #sidebar .presence-pill-row {
+	flex: 1 1 auto;
+	justify-content: flex-end;
+	min-width: 0;
+	margin: 0;
+}
+
+html[data-platform="macos"] #sidebar .presence-pill {
+	white-space: nowrap;
 }
 
 html[data-platform="macos"] .window .header {
@@ -10227,6 +10249,89 @@ html[data-reduce-motion] #form .upload-bar-track.indeterminate .upload-bar-fill 
 	color: var(--body-color-muted);
 	font-size: 0.8125rem;
 	margin-top: 2px;
+}
+
+/* The Mac app's sizes (data-platform="macos", set before the first paint by
+ * loading-error-handlers.js): menus and the sidebar's rows at AppKit's
+ * metrics, 13px text in 22px menu items and 26px rows, whatever the theme.
+ * Only sizes and shapes: colours stay the theme's. Every selector is the base
+ * rule's own wrapped in :where(), so it has the base rule's weight; it wins
+ * over style.css because it comes later, and a theme that sets the same
+ * property (a square Windows 98 menu, ps's own rows) still wins over it. */
+:where(html[data-platform="macos"]) #context-menu,
+:where(html[data-platform="macos"]) .textcomplete-menu {
+	padding: 0.3125rem;
+	min-width: 10rem;
+	font-size: 0.8125rem;
+	border-radius: 0.625rem;
+}
+
+:where(html[data-platform="macos"]) #context-menu {
+	min-inline-size: min(10rem, 100vw);
+}
+
+:where(html[data-platform="macos"]) .context-menu-item,
+:where(html[data-platform="macos"]) .textcomplete-item {
+	margin: 0;
+	padding: 0.1875rem 0.625rem 0.1875rem 0.375rem;
+	line-height: 1.25;
+	border-radius: 0.3125rem;
+}
+
+:where(html[data-platform="macos"]) .context-menu-item::before,
+:where(html[data-platform="macos"]) .textcomplete-item::before {
+	width: 1.25rem;
+}
+
+:where(html[data-platform="macos"]) .context-menu-divider {
+	margin: 0.3125rem 0.625rem;
+}
+
+:where(html[data-platform="macos"]) .header-popover {
+	font-size: 0.8125rem;
+	border-radius: 0.625rem;
+}
+
+:where(html[data-platform="macos"]) .channel-list-item {
+	font-size: 0.8125rem;
+	padding-block: 0.3125rem;
+	padding-inline: 0.5rem;
+	margin-inline: 0.625rem;
+	border-radius: 0.375rem;
+}
+
+:where(html[data-platform="macos"]) .channel-list-item[data-type="lobby"] {
+	padding-block: 0.375rem 0.25rem;
+	padding-inline: 0 0.5rem;
+}
+
+:where(html[data-platform="macos"]) .channel-list-item .close {
+	width: 1rem;
+	height: 1rem;
+	margin-block: -0.125rem;
+}
+
+:where(html[data-platform="macos"]) .channel-list-item .close::before {
+	font-size: 1rem;
+	line-height: 1rem;
+}
+
+:where(html[data-platform="macos"]) .jump-to-input {
+	margin: 0.25rem 0.625rem 0.75rem;
+}
+
+:where(html[data-platform="macos"]) .jump-to-input .input {
+	height: 1.75rem;
+	padding-block: 0;
+	padding-inline: 1.75rem 0.5rem;
+	border-radius: 0.4375rem;
+	font-size: 0.8125rem;
+}
+
+:where(html[data-platform="macos"]) .jump-to-input::before {
+	inset-inline: 0.5625rem auto;
+	font-size: 0.75rem;
+	line-height: 1.75rem !important;
 }
 
 /* Increase Contrast (iOS, macOS), Windows' contrast themes and Android's High

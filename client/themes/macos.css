@@ -144,8 +144,9 @@ html[data-platform="macos"] #sidebar {
 	}
 }
 
-/* Source-list rows: 13 px text (0.8125rem at the default step), a rounded
- * selection inset from the edges, no marker. */
+/* Source-list rows (their sizes are the Mac app's, style.css): a rounded
+ * selection inset from the edges, no marker, and (on the web too) no logo
+ * above them. */
 #sidebar .logo {
 	display: none;
 }
@@ -154,49 +155,9 @@ html[data-platform="macos"] #sidebar {
 	min-height: 0.75rem;
 }
 
-/* In the Mac app the sidebar's top strip is a toolbar: the traffic lights on
- * the left (style.css keeps the strip's height and the header beside them
- * in step with them), the presence control on the right, nothing under
- * either. The lights are AppKit's and stay on the left in a right-to-left
- * page, hence the physical sides. */
-html[data-platform="macos"] #sidebar .logo-container {
-	display: flex;
-	align-items: center;
-	justify-content: flex-end;
-	box-sizing: border-box;
-	height: var(--mac-titlebar-height);
-	padding: 0 10px 0 var(--mac-traffic-lights-end);
-}
-
-html[data-platform="macos"] #sidebar .presence-pill-row {
-	flex: 1 1 auto;
-	justify-content: flex-end;
-	min-width: 0;
-	margin: 0;
-}
-
-html[data-platform="macos"] #sidebar .presence-pill {
-	white-space: nowrap;
-}
-
-/* A search field: short, rounded, the glass on the leading side. */
-.jump-to-input {
-	margin: 0.25rem 0.625rem 0.75rem;
-}
-
-.jump-to-input .input {
-	height: 1.75rem;
-	padding-block: 0;
-	padding-inline: 1.75rem 0.5rem;
-	border-radius: 0.4375rem;
-	font-size: 0.8125rem;
-	box-shadow: none;
-}
-
-.jump-to-input::before {
-	inset-inline: 0.5625rem auto;
-	font-size: 0.75rem;
-	line-height: 1.75rem !important;
+.channel-list-item {
+	margin-inline: 0.625rem;
+	border-radius: 0.375rem;
 }
 
 /* Row icons in the accent, as Mail's and Finder's sidebar symbols are. */
@@ -223,26 +184,6 @@ html[data-reduce-motion] .channel-list-item[data-type="lobby"] .lobby-tools > * 
 	transition: none;
 }
 
-.channel-list-item {
-	font-size: 0.8125rem;
-	padding-block: 0.3125rem;
-	padding-inline: 0.5rem;
-	margin-inline: 0.625rem;
-	border-radius: 0.375rem;
-}
-
-/* The close button fits the row rather than setting its height. */
-.channel-list-item .close {
-	width: 1rem;
-	height: 1rem;
-	margin-block: -0.125rem;
-}
-
-.channel-list-item .close::before {
-	font-size: 1rem;
-	line-height: 1rem;
-}
-
 .channel-list-item.active,
 [dir="rtl"] .channel-list-item.active {
 	box-shadow: none;
@@ -265,8 +206,6 @@ html[data-reduce-motion] .channel-list-item[data-type="lobby"] .lobby-tools > * 
 	font-size: 0.6875rem;
 	font-weight: 600;
 	color: var(--rail-fg-muted);
-	padding-block: 0.375rem 0.25rem;
-	padding-inline: 0 0.5rem;
 }
 
 .channel-list-item[data-type="lobby"]:hover,
@@ -356,39 +295,17 @@ input[type="checkbox"] {
 	border-top-color: var(--chat-accent-rule);
 }
 
-/* Menus at an NSMenu's size: 13 px items 22 px tall, a 5 px inset, the
- * selection in the accent, a translucent rounded panel. */
+/* Menus as NSMenu draws them (their sizes are the Mac app's, style.css):
+ * a translucent panel, the selection in the accent. */
 #context-menu,
 .textcomplete-menu {
-	padding: 0.3125rem;
-	min-width: 10rem;
-	font-size: 0.8125rem;
 	border: 0.5px solid var(--mac-separator);
-	border-radius: 0.625rem;
 	background-color: color-mix(in srgb, var(--menu-bg) 85%, transparent);
 	backdrop-filter: blur(1.25rem) saturate(1.5);
 	box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 25%);
 }
 
-#context-menu {
-	min-inline-size: min(10rem, 100vw);
-}
-
-.context-menu-item,
-.textcomplete-item {
-	margin: 0;
-	padding: 0.1875rem 0.625rem 0.1875rem 0.375rem;
-	line-height: 1.25;
-	border-radius: 0.3125rem;
-}
-
-.context-menu-item::before,
-.textcomplete-item::before {
-	width: 1.25rem;
-}
-
 .context-menu-divider {
-	margin: 0.3125rem 0.625rem;
 	background-color: var(--chat-rule);
 }
 
@@ -410,9 +327,4 @@ input[type="checkbox"] {
 		background-color: var(--menu-bg);
 		backdrop-filter: none;
 	}
-}
-
-.header-popover {
-	font-size: 0.8125rem;
-	border-radius: 0.625rem;
 }
