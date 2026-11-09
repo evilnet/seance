@@ -308,7 +308,9 @@
 	min-height: 0;
 }
 
-@media (max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse) {
+@media (max-width: 480px),
+	(max-width: 768px) and (pointer: coarse),
+	(max-height: 500px) and (hover: none) and (pointer: coarse) {
 	#search-panel {
 		position: absolute;
 		inset: 0;
@@ -650,7 +652,9 @@
 	flex: 1;
 }
 
-@media (max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse) {
+@media (max-width: 480px),
+	(max-width: 768px) and (pointer: coarse),
+	(max-height: 500px) and (hover: none) and (pointer: coarse) {
 	.search-chips {
 		flex-wrap: nowrap;
 		overflow-x: auto;

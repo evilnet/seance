@@ -156,11 +156,11 @@
 }
 
 /* Only the chat window has the terminal panes. The dialogs — settings, help,
- * the connect form, the changelog, search results, the mentions pane — are XP dialogs on the
+ * the connect form, the changelog, search results, the header popovers — are XP dialogs on the
  * face grey: the window tokens are re-mapped on those windows, so everything
  * in them that reads a token follows. Black on the face 17.4:1, muted 5.6:1,
  * the selection blue for links and buttons 4.6:1. */
-:is(.window:not(#chat), .mentions-popup) {
+:is(.window:not(#chat), .header-popover) {
 	--window-bg-color: var(--win-face);
 	--body-color: #000;
 	--body-color-muted: #5a5a5a;
@@ -176,7 +176,7 @@
 /* Increase Contrast resets the muted tones on :root (style.css), which the
  * re-mapping above outranks inside these windows: restate it here, against
  * the dialogs' own text colour. */
-html[data-contrast="more"] :is(.window:not(#chat), .mentions-popup) {
+html[data-contrast="more"] :is(.window:not(#chat), .header-popover) {
 	--body-color-muted: var(--body-color);
 }
 

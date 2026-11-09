@@ -116,6 +116,7 @@ import {detectProfile, type ServerProfile} from "./profiles";
 import {interceptRequestLine, resetRequests} from "./request";
 import {noticeMessage} from "./snotice";
 import {ISupport} from "./isupport";
+import {languageFieldsOf} from "./langtag";
 import {ChannelList} from "./channelList";
 import {
 	formatLine,
@@ -143,9 +144,17 @@ import {
 	policyHost,
 	refreshPolicy,
 	StsUpgrade,
+	stsHost,
 	upgradeOptions,
 } from "./sts";
-import {channelOrder, get as getSavedNetwork, NetworkCursor, setCursor} from "./saved-networks";
+import {shellSocketCtor, type SocketBridge, type UntrustedCertificate} from "./shellSocket";
+import {
+	channelOrder,
+	get as getSavedNetwork,
+	MAX_TRUSTED_CERTIFICATES,
+	NetworkCursor,
+	setCursor,
+} from "./saved-networks";
 import {noteServiceReply, resetServiceReplies} from "./services";
 import {dropQuietLine, isRepeatedMissingBot} from "./quiet";
 import {BackgroundQueue, FakeLagClock, type FakeLagModel} from "./fakelag";
@@ -268,6 +277,12 @@ export interface IrcClientOptions extends ConnectOptions {
 	ids?: IdAllocator;
 	/** Build the transport (tests inject a fake); defaults to `new WsTransport(opts)`. */
 	transportFactory?: (opts: TransportOptions) => Transport;
+	/**
+	 * The app shell's bridge, for `transport: "tcp"` (shellSocket.ts). The
+	 * manager passes `window.seanceShell`; without one (a browser) a TCP
+	 * network does not connect.
+	 */
+	socketBridge?: SocketBridge;
 	/** The server's flood rule as we model it (fakelag.ts); ircu's by default. */
 	fakeLag?: FakeLagModel;
 	reconnect?: ReconnectOptions;
@@ -294,6 +309,14 @@ export interface IrcClientOptions extends ConnectOptions {
 	 * way back to the connect screen to fix them.
 	 */
 	onSaslRejected?: () => void;
+	/** The server password was missing or refused (464 before 001): same effect. */
+	onServerPasswordRejected?: () => void;
+	/**
+	 * The app shell refused the server's TLS certificate (an expired or
+	 * self-signed one): the connection stays down, and this asks the user
+	 * whether to trust it (manager.ts, certificatePrompt.ts).
+	 */
+	onUntrustedCertificate?: (certificate: UntrustedCertificate) => void;
 }
 
 /** What to try after a SASL login the deploy insists on did not happen. */
@@ -547,6 +570,15 @@ export class IrcClient {
 	private quitting = false;
 	/** Last transport error text for the close report; browsers say nothing useful. */
 	private lastTransportError?: string;
+	/** The certificate the last failed dial was refused for, if that was why. */
+	private lastCertificate?: UntrustedCertificate;
+	/**
+	 * Certificates trusted for this session only ("Just this once"), each for
+	 * the server it was shown for: `host`, `port` and SHA-256, a line each.
+	 */
+	private readonly trustedOnce = new Set<string>();
+	/** The certificate trusted last, kept within the shell's cap (certificatesToTrust). */
+	private newestTrust?: string;
 	/** The close report's hint is shown once per attempt series, not per retry. */
 	private closeHintShown = false;
 	/** The close about to arrive is ours and the lobby already says why (transport.abandon). */
@@ -582,7 +614,7 @@ export class IrcClient {
 		this.networkName = hostnameOf(host);
 		this.bus = options.bus ?? socket;
 		this.ids = options.ids ?? sharedIds;
-		this.url = buildUrl(host, options.port, options.tls);
+		this.url = buildUrl(host, options.port, options.tls, options.transport);
 		this.transport = this.createTransport();
 		this.unsubscribeTransport = this.transport.on((ev) => this.onTransportEvent(ev));
 
@@ -814,7 +846,8 @@ export class IrcClient {
 			proxyPort: 0,
 			proxyUsername: "",
 			proxyPassword: "",
-			hasSTSPolicy: getPolicy(o.host) !== undefined,
+			transport: o.transport ?? "websocket",
+			hasSTSPolicy: getPolicy(stsHost(o)) !== undefined,
 		};
 	}
 
@@ -835,6 +868,17 @@ export class IrcClient {
 
 		this.settleClose(); // before quitting is reset: it was our QUIT
 		this.applyPendingOptions();
+
+		if (this.options.transport === "tcp" && !this.options.socketBridge) {
+			// No app shell, no raw socket: say so rather than dial and retry forever.
+			this.pushMessage(
+				this.lobby,
+				{type: MessageType.ERROR, text: t("connect.tcpNeedsApp")},
+				true
+			);
+			return;
+		}
+
 		this.applyStsPolicy();
 		this.quitting = false;
 		this.closeHintShown = false;
@@ -893,6 +937,59 @@ export class IrcClient {
 	}
 
 	/**
+	 * Accept `sha256` from `host`:`port` for this session only ("Just this
+	 * once"), then dial. A network moved elsewhere does not take it along.
+	 */
+	trustCertificateOnce(sha256: string, host: string, port: number): void {
+		this.trustedOnce.add(`${host}\n${port}\n${sha256}`);
+		this.newestTrust = sha256;
+		this.connect();
+	}
+
+	/**
+	 * Accept `sha256` for this network from now on ("Always"; the caller
+	 * saves it with the network), then dial. Only the trusted list changes:
+	 * the live address (an STS upgrade's port) and the live credentials (a
+	 * password not kept on disk) stay as they are.
+	 */
+	trustCertificate(sha256: string): void {
+		const kept = (this.options.trustedCertificates ?? []).filter((fp) => fp !== sha256);
+		this.options = {
+			...this.options,
+			trustedCertificates: [...kept, sha256].slice(-MAX_TRUSTED_CERTIFICATES),
+		};
+		this.newestTrust = sha256;
+		this.connect();
+	}
+
+	/** Whether the next dial already offers the shell `sha256`. */
+	trusts(sha256: string): boolean {
+		return this.certificatesToTrust().includes(sha256);
+	}
+
+	/**
+	 * The certificates the shell is to accept for the server dialled now:
+	 * the saved ones and those trusted once for this host and port, without
+	 * repeats. The shell takes at most MAX_TRUSTED_CERTIFICATES; the one
+	 * trusted last is always among them, whichever way it was trusted.
+	 */
+	private certificatesToTrust(): string[] {
+		const here = `${this.options.host}\n${this.options.port}\n`;
+		const once = [...this.trustedOnce]
+			.filter((key) => key.startsWith(here))
+			.map((key) => key.slice(here.length));
+		const all = [...new Set([...(this.options.trustedCertificates ?? []), ...once])];
+		const newest = this.newestTrust;
+
+		if (newest && all.includes(newest)) {
+			all.splice(all.indexOf(newest), 1);
+			all.push(newest);
+		}
+
+		return all.slice(-MAX_TRUSTED_CERTIFICATES);
+	}
+
+	/**
 	 * Take edited connection settings (`network:edit`). Host, port and TLS
 	 * need a fresh transport, so while a connection is up (or being opened)
 	 * they wait for the next connect — including the automatic reconnect
@@ -904,13 +1001,17 @@ export class IrcClient {
 	applySettings(next: ConnectOptions): void {
 		const merged: IrcClientOptions = {
 			...this.options,
+			trustedCertificates: next.trustedCertificates ?? this.options.trustedCertificates,
 			host: next.host,
 			port: next.port,
 			tls: next.tls,
+			transport: next.transport,
 			join: next.join,
 			sasl: next.sasl,
 			saslAccount: next.saslAccount,
 			saslPassword: next.saslPassword,
+			// Undefined: configured but not kept on disk, so keep the one in memory.
+			serverPassword: next.serverPassword ?? this.options.serverPassword,
 		};
 		const state = this.transport.state;
 
@@ -945,7 +1046,12 @@ export class IrcClient {
 
 	private endpointChanged(next: IrcClientOptions): boolean {
 		const o = this.options;
-		return next.host !== o.host || next.port !== o.port || next.tls !== o.tls;
+		return (
+			next.host !== o.host ||
+			next.port !== o.port ||
+			next.tls !== o.tls ||
+			(next.transport === "tcp") !== (o.transport === "tcp")
+		);
 	}
 
 	/** Swap in settings edited while connected, if any (before a connect). */
@@ -986,6 +1092,20 @@ export class IrcClient {
 			subprotocols: ["text.ircv3.net", "binary.ircv3.net"],
 		};
 
+		if (this.options.transport === "tcp" && this.options.socketBridge) {
+			// The trusted certificates are read at each dial, not now: a
+			// certificate trusted after this transport was made counts.
+			const trusted = () => this.certificatesToTrust();
+			transportOptions.WebSocketImpl = shellSocketCtor(this.options.socketBridge, {
+				host: tcpHostOf(this.options.host),
+				port: this.options.port,
+				tls: this.options.tls,
+				get trust() {
+					return trusted();
+				},
+			});
+		}
+
 		if (this.options.reconnect) {
 			transportOptions.reconnect = this.options.reconnect;
 		}
@@ -1000,7 +1120,7 @@ export class IrcClient {
 		this.settleClose(); // the old transport's close event will not reach us
 		this.unsubscribeTransport();
 		this.options = {...next};
-		this.url = buildUrl(next.host, next.port, next.tls);
+		this.url = buildUrl(next.host, next.port, next.tls, next.transport);
 		this.transport = this.createTransport();
 		this.unsubscribeTransport = this.transport.on((ev) => this.onTransportEvent(ev));
 	}
@@ -1052,7 +1172,7 @@ export class IrcClient {
 		const value = parseStsValue(raw);
 
 		if (this.options.tls) {
-			applyDuration(this.options.host, this.options.port, value);
+			applyDuration(stsHost(this.options), this.options.port, value);
 			return;
 		}
 
@@ -1068,7 +1188,11 @@ export class IrcClient {
 		// secure endpoint; an edit to another host is left alone.
 		const pending = this.pendingOptions;
 
-		if (pending && policyHost(pending.host) === policyHost(this.options.host)) {
+		if (
+			pending &&
+			(pending.transport === "tcp") === (this.options.transport === "tcp") &&
+			policyHost(pending.host) === policyHost(this.options.host)
+		) {
 			this.pendingOptions = {...pending, ...secure};
 		}
 
@@ -1156,6 +1280,7 @@ export class IrcClient {
 			case "error":
 				// Always followed by a close event, which is where we report.
 				this.lastTransportError = ev.message;
+				this.lastCertificate = ev.certificate;
 				break;
 		}
 	}
@@ -1200,6 +1325,11 @@ export class IrcClient {
 
 		for (const line of this.caps.start()) {
 			this.send(line);
+		}
+
+		// Before NICK/USER, as registration requires; trailing, so spaces survive.
+		if (this.options.serverPassword) {
+			this.send(trailingLine("PASS", [this.options.serverPassword]));
 		}
 
 		this.send(formatLine({command: "NICK", params: [this.nick]}));
@@ -1341,6 +1471,40 @@ export class IrcClient {
 
 		this.disconnect("SASL authentication failed");
 		return true;
+	}
+
+	/**
+	 * 464 before 001: the server (often a bouncer: ZNC answers a client with
+	 * no PASS this way, then waits) wants a server password, or refused the
+	 * one sent. Every connection would get the same answer, so this one
+	 * stops, says why, and the entry stops connecting by itself. After 001 a
+	 * 464 is an ordinary error (OPER with the wrong password).
+	 */
+	serverPasswordFailed(): void {
+		if (this.welcomed || this.isQuitting) {
+			return;
+		}
+
+		const host = this.options.host;
+		const sent = !!this.options.serverPassword;
+		this.pushMessage(
+			this.lobby,
+			{
+				type: MessageType.ERROR,
+				text: sent
+					? t("connect.serverPasswordRefused", {host})
+					: t("connect.serverPasswordNeeded", {host}),
+			},
+			true
+		);
+		this.pushMessage(this.lobby, {text: t("connect.serverPasswordHint")}, true);
+		this.closeExplained = true;
+		this.bus.dispatch("network:aborted", {
+			network: this.uuid,
+			reason: sent ? "server password refused" : "server password required",
+		});
+		this.options.onServerPasswordRejected?.();
+		this.disconnect(sent ? "Server password refused" : "Server password required");
 	}
 
 	/** Whether a SASL failure of this kind is worth another connection (see saslFailed). */
@@ -1628,7 +1792,7 @@ export class IrcClient {
 		this.authtoken.clear();
 
 		if (this.options.tls) {
-			refreshPolicy(this.options.host);
+			refreshPolicy(stsHost(this.options));
 		}
 
 		resetBatches(this);
@@ -1716,6 +1880,14 @@ export class IrcClient {
 		}
 
 		this.lastTransportError = undefined;
+		const certificate = this.lastCertificate;
+		this.lastCertificate = undefined;
+
+		// A certificate the shell would not trust: the next dial would be
+		// refused the same way (the transport does not retry it), so ask.
+		if (certificate && !willReconnect) {
+			this.options.onUntrustedCertificate?.(certificate);
+		}
 
 		// Settings edited during this connection: reconnect with them instead
 		// of letting the transport retry the old address.
@@ -2170,6 +2342,7 @@ export class IrcClient {
 			replyTo: opts.tags?.[REPLY_TAG],
 			editOf: i === 0 ? opts.firstTags?.[EDIT_TAG] : undefined,
 			statusmsgGroup: group,
+			...languageFieldsOf((name) => opts.tags?.[name]),
 		});
 
 		const deliver = (): boolean => {
@@ -3646,7 +3819,12 @@ function hostnameOf(host: string): string {
 	return slash === -1 ? stripped : stripped.slice(0, slash);
 }
 
-export function buildUrl(host: string, port: number, tls: boolean): string {
+export function buildUrl(
+	host: string,
+	port: number,
+	tls: boolean,
+	transport?: ConnectOptions["transport"]
+): string {
 	const stripped = host.trim().replace(/^(?:wss?|https?|ircs?):\/\//i, "");
 	const slash = stripped.indexOf("/");
 	let hostname = slash === -1 ? stripped : stripped.slice(0, slash);
@@ -3656,7 +3834,17 @@ export function buildUrl(host: string, port: number, tls: boolean): string {
 		hostname = `[${hostname}]`; // bare IPv6 literal
 	}
 
+	if (transport === "tcp") {
+		return `${tls ? "ircs" : "irc"}://${hostname}:${port}`; // no path over TCP
+	}
+
 	return `${tls ? "wss" : "ws"}://${hostname}:${port}${path}`;
+}
+
+/** The host to dial over TCP: no scheme, path or IPv6 brackets. */
+export function tcpHostOf(host: string): string {
+	const name = hostnameOf(host.trim());
+	return name.startsWith("[") && name.endsWith("]") ? name.slice(1, -1) : name;
 }
 
 /** The cursor stored for `uuid`, if the network was saved and has one. */

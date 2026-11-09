@@ -27,16 +27,33 @@ describe("parseIrcUri helper", function () {
 		});
 	});
 
-	it("should keep host and channel of a legacy irc:// link, but not its port", function () {
-		const obj = {
+	it("should read irc:// and ircs:// as TCP with their port", function () {
+		expect(parseIrcUri("irc://example.com:6667/#chan")).to.deep.equal({
+			tls: false,
+			name: "example.com",
+			host: "example.com",
+			port: "6667",
+			transport: "tcp",
+			join: "#chan",
+		});
+		expect(parseIrcUri("ircs://example.com/%23chan%20key")).to.deep.equal({
 			tls: true,
 			name: "example.com",
 			host: "example.com",
-			join: "#chan",
-		};
+			transport: "tcp",
+			join: "#chan key",
+		});
+	});
 
-		expect(parseIrcUri("irc://example.com:6667/#chan")).to.deep.equal(obj);
-		expect(parseIrcUri("ircs://example.com:6697/#chan")).to.deep.equal(obj);
+	it("should never read a link's userinfo or query", function () {
+		expect(parseIrcUri("ircs://user:hunter2@example.com:6697/?pass=x#chan")).to.deep.equal({
+			tls: true,
+			name: "example.com",
+			host: "example.com",
+			port: "6697",
+			transport: "tcp",
+			join: "#chan",
+		});
 	});
 
 	it("should not parse an unknown scheme", function () {

@@ -73,12 +73,19 @@ describe("translate/channelStore", () => {
 		expect(defaultChannelTranslation()).to.deep.equal({
 			read: false,
 			write: null,
+			writeFrom: null,
 			formality: "auto",
 			variant: "",
 			languages: [],
 			terms: [],
 			once: null,
+			noSuggest: false,
 		});
+	});
+
+	it("a declined suggestion is kept as a strict boolean", () => {
+		expect(setChannelTranslation("n1", "#seance", {noSuggest: true}).noSuggest).to.equal(true);
+		expect(getChannelTranslation("n1", "#seance").noSuggest).to.equal(true);
 	});
 
 	it("the channel's languages are kept, deduplicated, unknown codes dropped", () => {
@@ -145,6 +152,21 @@ describe("translate/channelStore", () => {
 		// A language this build cannot route loads as none.
 		backend.data.set(STORAGE_KEY, JSON.stringify({"n1/#seance": {read: false, once: "xx"}}));
 		expect(getChannelTranslation("n1", "#seance").once).to.equal(null);
+	});
+
+	it("a send target is remembered as the last pick past its Off", () => {
+		setChannelTranslation("n1", "#seance", {write: "es", writeFrom: "en"});
+		setChannelTranslation("n1", "#seance", {write: null, writeFrom: null});
+		expect(getChannelTranslation("n1", "#seance").once).to.equal("es");
+	});
+
+	it("a target saved before targets set `once` is kept at its Off", () => {
+		backend.data.set(
+			STORAGE_KEY,
+			JSON.stringify({"n1/#seance": {read: true, write: "es", writeFrom: "en", once: null}})
+		);
+		setChannelTranslation("n1", "#seance", {write: null, writeFrom: null});
+		expect(getChannelTranslation("n1", "#seance").once).to.equal("es");
 	});
 
 	it("a stored read language from the old per-channel picker migrates to on", () => {

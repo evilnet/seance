@@ -413,7 +413,7 @@ const SOLID_SURFACES = [
 	".settings-modal",
 	"#connect",
 	"#context-menu",
-	".mentions-popup",
+	".header-popover",
 	".textcomplete-menu",
 	".reaction-picker",
 	".reaction-picker-heading",
@@ -434,7 +434,7 @@ const GLASS_FILTER = `blur(0.625rem) var(--ps-g-lift,) saturate(${SATURATE})`;
 /** Where the scene is running and it is day: the one place the backdrop is brightened. */
 const DAY_SCENE = ':root[data-ps-light="day"]';
 const PHONE =
-	"@media (max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse)";
+	"@media (max-width: 480px), (max-width: 768px) and (pointer: coarse), (max-height: 500px) and (hover: none) and (pointer: coarse)";
 /** style.css's user list laid over a narrow chat pane, the condition verbatim. */
 const OVERLAID = "@container chat (max-width: calc(50ch + 8.5rem + 84px))";
 /**
@@ -1773,6 +1773,19 @@ describe("the ps theme's composer: one thin divider over the flat input (the use
 		expect(valueOf("#form:focus-within", "box-shadow")).to.equal("none");
 
 		// Nothing in ps.css draws the strip's top edge otherwise, in any state.
+		// The Mac app is the exception: its composer floats as a capsule with
+		// an edge all round (ps.css's html[data-platform="macos"] block, the
+		// user's call for the Mac toolbar look, 2026-11-09).
+		const notMac = (s: string) => !s.startsWith('html[data-platform="macos"]');
+		const MAC = "@media (min-width: 769px)";
+		expect(
+			valueOf('html[data-platform="macos"] #form', "border", MAC),
+			"the Mac capsule's edge all round"
+		).to.equal("0.0625rem solid var(--ps-g-edge)");
+		expect(
+			valueOf('html[data-platform="macos"] #form', "background-color", REDUCED_TRANSPARENCY),
+			"the Mac capsule solid under reduced transparency"
+		).to.equal("var(--ps-g-solid)");
 		const widths = [
 			"border",
 			"border-width",
@@ -1788,12 +1801,12 @@ describe("the ps theme's composer: one thin divider over the flat input (the use
 			"border-block-start-style",
 		];
 		const edges = rules
-			.filter((r) => r.selectors.some((s) => /#form(?![\w-])[^ ]*$/.test(s)))
+			.filter((r) => r.selectors.some((s) => notMac(s) && /#form(?![\w-])[^ ]*$/.test(s)))
 			.flatMap((r) => r.decls)
 			.filter(([p]) => widths.includes(p));
 		expect(edges, "ps.css's widths or styles on #form's edge").to.deep.equal([]);
 		const shadows = rules
-			.filter((r) => r.selectors.some((s) => /#form(?![\w-])[^ ]*$/.test(s)))
+			.filter((r) => r.selectors.some((s) => notMac(s) && /#form(?![\w-])[^ ]*$/.test(s)))
 			.flatMap((r) => r.decls)
 			.filter(([p, v]) => p === "box-shadow" && v !== "none");
 		expect(shadows, "ps.css's shadows on #form").to.deep.equal([]);
@@ -3412,15 +3425,27 @@ describe("the ps theme's yurt and its smoke (plan 3, spec §5.3)", function () {
 	});
 
 	it("steps in by the user list's width while a channel shows the list, and by nothing else", function () {
+		const MAC_LIST_OPEN = LIST_OPEN.replace("html:", 'html[data-platform="macos"]:');
+
 		for (const sel of [YURT, SMOKE]) {
 			expect(valueOf(`${LIST_OPEN} ${sel}`, "--ps-yurt-in"), sel).to.equal(
 				"var(--userlist-width)"
 			);
+			// On the Mac the list is a pane hovering over the plains: no step.
+			expect(
+				valueOf(`${MAC_LIST_OPEN} ${sel}`, "--ps-yurt-in", "@media (min-width: 769px)"),
+				sel
+			).to.equal("0px");
 		}
 
 		const setters = rules.filter((r) => r.decls.some(([p]) => p === "--ps-yurt-in"));
 		expect(setters.flatMap((r) => r.selectors).sort()).to.deep.equal(
-			[`${LIST_OPEN} ${YURT}`, `${LIST_OPEN} ${SMOKE}`].sort()
+			[
+				`${LIST_OPEN} ${YURT}`,
+				`${LIST_OPEN} ${SMOKE}`,
+				`${MAC_LIST_OPEN} ${YURT}`,
+				`${MAC_LIST_OPEN} ${SMOKE}`,
+			].sort()
 		);
 		expect(css, "no script writes the place any more").to.not.include("--ps-yurt-left");
 	});

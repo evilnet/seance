@@ -1,250 +1,263 @@
 <template>
-	<!-- One markup, two layouts. The sheet is teleported to #viewport so it can
-	     cover the whole app: the desktop panel is absolutely positioned
-	     inside the channel view, which clips its overflow. -->
-	<Teleport to="#viewport" :disabled="!phone">
+	<!-- A header popover (style.css `.header-popover`), as the mentions are:
+	     under the channel menu's ⋮ on a pointer machine, the whole chat under
+	     the header on a phone. Teleported to #viewport, whose transparent
+	     container is its backdrop; #chat clips its overflow. -->
+	<Teleport to="#viewport">
 		<div
-			ref="panel"
-			class="translation-panel"
-			:class="{'translation-panel--sheet screen-overlay': phone}"
-			role="dialog"
-			:aria-modal="phone ? 'true' : undefined"
-			:aria-label="panelLabel"
+			class="header-popover-container"
+			v-backdrop="closeFromOutside"
+			data-escape-close="translation"
+			@contextmenu.self.prevent="close"
 		>
-			<div class="translation-panel-title">
-				<span class="translation-panel-heading">{{ t("translate.panel.heading") }}</span>
-				<span class="translation-panel-channel">{{ channel.name }}</span>
-				<button
-					type="button"
-					class="translation-panel-close"
-					:aria-label="closeLabel"
-					:title="closeLabel"
-					@click="$emit('close')"
-				>
-					✕
-				</button>
-			</div>
+			<div
+				ref="panel"
+				class="header-popover translation-panel"
+				role="dialog"
+				aria-modal="true"
+				:aria-label="panelLabel"
+				tabindex="-1"
+				:style="placement"
+				@keydown.tab="onTab"
+				@keydown.esc.stop.prevent="close"
+			>
+				<div class="header-popover-title">
+					<h2>
+						{{ t("translate.panel.heading") }}
+						<span class="header-popover-aside">{{ channel.name }}</span>
+					</h2>
+					<button
+						type="button"
+						class="header-popover-close"
+						:aria-label="closeLabel"
+						@click="close"
+					>
+						✕
+					</button>
+				</div>
 
-			<div class="translation-panel-body">
-				<!-- Nothing here can translate (the engines switched off, a
+				<div class="translation-panel-body">
+					<!-- Nothing here can translate (the engines switched off, a
 				     device that runs neither): said first, as two sentences,
 				     with the Settings link below. -->
-				<div
-					v-if="blockedWhy"
-					id="translation-panel-blocked"
-					class="translation-panel-blocked"
-					role="status"
-				>
-					<p>{{ t("translate.unavailable.lead") }}</p>
-					<p>{{ blockedWhy }}</p>
-				</div>
-				<section class="translation-panel-section">
-					<h3>{{ t("translate.panel.reading") }}</h3>
-					<!-- The reading language is not chosen here: it is the
+					<div
+						v-if="blockedWhy"
+						id="translation-panel-blocked"
+						class="translation-panel-blocked"
+						role="status"
+					>
+						<p>{{ t("translate.unavailable.lead") }}</p>
+						<p>{{ blockedWhy }}</p>
+					</div>
+					<!-- The engine paused itself after repeated failures (queue.ts
+					     PAUSE_AFTER_FAILURES) and comes back on its own. -->
+					<p
+						v-else-if="pausedWhy"
+						class="translation-panel-blocked translation-panel-paused"
+						role="status"
+					>
+						{{ t("translate.panel.paused", {reason: pausedWhy}) }}
+					</p>
+					<section class="translation-panel-section">
+						<h3>{{ t("translate.panel.reading") }}</h3>
+						<!-- The reading language is not chosen here: it is the
 					     interface's (the one `locale` setting, Settings →
 					     Translation). This is only the switch. -->
-					<div class="translation-panel-field">
-						<span class="translation-panel-label">{{
-							t("translate.panel.readIn", {language: name(readingLanguage())})
-						}}</span>
-						<div
-							class="translation-panel-segmented"
-							role="radiogroup"
-							:aria-label="readingLabel"
-							@keydown="onRadioKey"
-						>
-							<button
-								v-for="option in readingChoices"
-								:key="String(option.value)"
-								type="button"
-								role="radio"
-								class="translation-panel-segment"
-								:aria-checked="state.read === option.value"
-								:tabindex="state.read === option.value ? 0 : -1"
-								:disabled="option.value && !state.read && !!blockedWhy"
-								:aria-describedby="
-									option.value && blockedWhy
-										? 'translation-panel-blocked'
-										: undefined
-								"
-								@click="setRead(option.value)"
+						<div class="translation-panel-field">
+							<span class="translation-panel-label">{{
+								t("translate.panel.readIn", {language: name(readingLanguage())})
+							}}</span>
+							<div
+								class="translation-panel-segmented"
+								role="radiogroup"
+								:aria-label="readingLabel"
+								@keydown="onRadioKey"
 							>
-								{{ option.label }}
-							</button>
+								<button
+									v-for="option in readingChoices"
+									:key="String(option.value)"
+									type="button"
+									role="radio"
+									class="translation-panel-segment"
+									:aria-checked="state.read === option.value"
+									:tabindex="state.read === option.value ? 0 : -1"
+									:disabled="option.value && !state.read && !!blockedWhy"
+									:aria-describedby="
+										option.value && blockedWhy
+											? 'translation-panel-blocked'
+											: undefined
+									"
+									@click="setRead(option.value)"
+								>
+									{{ option.label }}
+								</button>
+							</div>
+							<span
+								v-if="state.read && limited(readingLanguage())"
+								class="translation-panel-limited"
+								>{{ t("translate.limitedLanguage") }}</span
+							>
+							<span class="translation-panel-hint">{{
+								t("translate.panel.readHint")
+							}}</span>
 						</div>
-						<span
-							v-if="state.read && limited(readingLanguage())"
-							class="translation-panel-limited"
-							>{{ t("translate.limitedLanguage") }}</span
-						>
-						<span class="translation-panel-hint">{{
-							t("translate.panel.readHint")
-						}}</span>
-					</div>
 
-					<!-- The languages people write here. Not a multi-select: the
+						<!-- The languages people write here. Not a multi-select: the
 					     list is fifty long and what a channel speaks is two or
 					     three of them, so they go in one at a time and come out
 					     as chips. -->
-					<div class="translation-panel-field">
-						<span id="translation-panel-languages" class="translation-panel-label">{{
-							t("translation.panel.languages", {channel: channel.name})
-						}}</span>
-						<div v-if="state.languages.length" class="translation-panel-chips">
+						<div class="translation-panel-field">
 							<span
-								v-for="code in state.languages"
-								:key="code"
-								class="translation-panel-chip"
+								id="translation-panel-languages"
+								class="translation-panel-label"
+								>{{
+									t("translation.panel.languages", {channel: channel.name})
+								}}</span
 							>
-								{{ name(code) }}
-								<button
-									type="button"
-									class="translation-panel-chip-remove"
-									:aria-label="removeLabel(code)"
-									:title="removeLabel(code)"
-									@click="removeLanguage(code)"
+							<div v-if="state.languages.length" class="translation-panel-chips">
+								<span
+									v-for="code in state.languages"
+									:key="code"
+									class="translation-panel-chip"
 								>
-									✕
-								</button>
-							</span>
+									{{ name(code) }}
+									<button
+										type="button"
+										class="translation-panel-chip-remove"
+										:aria-label="removeLabel(code)"
+										:title="removeLabel(code)"
+										@click="removeLanguage(code)"
+									>
+										✕
+									</button>
+								</span>
+							</div>
+							<select
+								name="translateLanguageAdd"
+								class="input translation-panel-control"
+								aria-labelledby="translation-panel-languages"
+								value=""
+								@change="onAddLanguage"
+							>
+								<option value="">{{ t("translate.panel.addLanguage") }}</option>
+								<option v-for="code in addable" :key="code" :value="code">
+									{{ name(code) }}
+								</option>
+							</select>
+							<span class="translation-panel-hint">{{
+								t("translate.panel.languagesHint")
+							}}</span>
 						</div>
-						<select
-							name="translateLanguageAdd"
-							class="input translation-panel-control"
-							aria-labelledby="translation-panel-languages"
-							value=""
-							@change="onAddLanguage"
-						>
-							<option value="">{{ t("translate.panel.addLanguage") }}</option>
-							<option v-for="code in addable" :key="code" :value="code">
-								{{ name(code) }}
-							</option>
-						</select>
-						<span class="translation-panel-hint">{{
-							t("translate.panel.languagesHint")
-						}}</span>
-					</div>
-				</section>
+					</section>
 
-				<section class="translation-panel-section">
-					<h3>{{ t("translate.panel.writing") }}</h3>
-					<label class="translation-panel-field">
-						<span class="translation-panel-label">{{
-							t("translate.panel.writeLabel")
-						}}</span>
-						<select
-							name="translateWrite"
-							class="input translation-panel-control"
-							:aria-describedby="
-								writeNote ? 'translation-panel-write-note' : undefined
-							"
-							:value="state.write ?? ''"
-							@change="onWrite"
-						>
-							<option value="">{{ t("translate.panel.off") }}</option>
-							<!-- A language nothing here can write in is on the list,
+					<section class="translation-panel-section">
+						<h3>{{ t("translate.panel.writing") }}</h3>
+						<label class="translation-panel-field">
+							<span class="translation-panel-label">{{
+								t("translate.panel.writeLabel")
+							}}</span>
+							<select
+								name="translateWrite"
+								class="input translation-panel-control"
+								:aria-describedby="
+									writeNote ? 'translation-panel-write-note' : undefined
+								"
+								:value="state.write ?? ''"
+								@change="onWrite"
+							>
+								<option value="">{{ t("translate.panel.off") }}</option>
+								<!-- A language nothing here can write in is on the list,
 							     disabled; the note under the select says why. -->
-							<option
-								v-for="code in languages"
-								:key="code"
-								:value="code"
-								:disabled="writeBlocked(code)"
+								<option
+									v-for="code in languages"
+									:key="code"
+									:value="code"
+									:disabled="writeBlocked(code)"
+								>
+									{{ name(code) }}
+								</option>
+							</select>
+							<span v-if="limited(state.write)" class="translation-panel-limited">{{
+								t("translate.limitedLanguage")
+							}}</span>
+							<span
+								v-if="writeNote"
+								id="translation-panel-write-note"
+								class="translation-panel-why"
+								><span class="translation-panel-why-lead">{{
+									writeNote.lead
+								}}</span>
+								<span>{{ writeNote.why }}</span></span
 							>
-								{{ name(code) }}
-							</option>
-						</select>
-						<span v-if="limited(state.write)" class="translation-panel-limited">{{
-							t("translate.limitedLanguage")
-						}}</span>
-						<span
-							v-if="writeNote"
-							id="translation-panel-write-note"
-							class="translation-panel-why"
-							><span class="translation-panel-why-lead">{{ writeNote.lead }}</span>
-							<span>{{ writeNote.why }}</span></span
-						>
-						<span class="translation-panel-hint">{{
-							t("translate.panel.writeHint")
-						}}</span>
-					</label>
+							<span class="translation-panel-hint">{{
+								t("translate.panel.writeHint")
+							}}</span>
+						</label>
 
-					<!-- A native picker is a poor target on a phone: the three
-					     choices are a segmented control there. -->
-					<div v-if="phone" class="translation-panel-field">
-						<span id="translation-panel-formality" class="translation-panel-label">{{
-							t("translate.formality.label")
-						}}</span>
-						<div
-							class="translation-panel-segmented"
-							role="radiogroup"
-							aria-labelledby="translation-panel-formality"
-							@keydown="onRadioKey"
-						>
-							<button
-								v-for="option in formalities"
-								:key="option.value"
-								type="button"
-								role="radio"
-								name="translateFormality"
-								class="translation-panel-segment"
-								:aria-checked="state.formality === option.value"
-								:tabindex="state.formality === option.value ? 0 : -1"
-								@click="setFormality(option.value)"
+						<!-- Three choices are three targets, not a native picker. -->
+						<div class="translation-panel-field">
+							<span
+								id="translation-panel-formality"
+								class="translation-panel-label"
+								>{{ t("translate.formality.label") }}</span
 							>
-								{{ option.label }}
-							</button>
+							<div
+								class="translation-panel-segmented"
+								role="radiogroup"
+								aria-labelledby="translation-panel-formality"
+								@keydown="onRadioKey"
+							>
+								<button
+									v-for="option in formalities"
+									:key="option.value"
+									type="button"
+									role="radio"
+									name="translateFormality"
+									class="translation-panel-segment"
+									:aria-checked="state.formality === option.value"
+									:tabindex="state.formality === option.value ? 0 : -1"
+									@click="setFormality(option.value)"
+								>
+									{{ option.label }}
+								</button>
+							</div>
 						</div>
-					</div>
-					<label v-else class="translation-panel-field">
-						<span class="translation-panel-label">{{
-							t("translate.formality.label")
-						}}</span>
-						<select
-							name="translateFormality"
-							class="input translation-panel-control"
-							:value="state.formality"
-							@change="onFormality"
-						>
-							<option value="auto">{{ t("translate.formality.auto") }}</option>
-							<option value="formal">{{ t("translate.formality.formal") }}</option>
-							<option value="casual">{{ t("translate.formality.casual") }}</option>
-						</select>
-					</label>
 
-					<label class="translation-panel-field">
-						<span class="translation-panel-label">{{
-							t("translate.panel.variant")
-						}}</span>
-						<input
-							name="translateVariant"
-							type="text"
-							class="input translation-panel-control"
-							:value="state.variant"
-							:placeholder="variantPlaceholder"
-							@change="onVariant"
-						/>
-						<span class="translation-panel-hint">{{
-							t("translate.panel.variantHint")
-						}}</span>
-					</label>
-				</section>
-			</div>
+						<label class="translation-panel-field">
+							<span class="translation-panel-label">{{
+								t("translate.panel.variant")
+							}}</span>
+							<input
+								name="translateVariant"
+								type="text"
+								class="input translation-panel-control"
+								:value="state.variant"
+								:placeholder="variantPlaceholder"
+								@change="onVariant"
+							/>
+							<span class="translation-panel-hint">{{
+								t("translate.panel.variantHint")
+							}}</span>
+						</label>
+					</section>
+				</div>
 
-			<div class="translation-panel-foot">
-				<router-link
-					class="translation-panel-more"
-					to="/settings/translation"
-					@click="$emit('close')"
-				>
-					{{ t("translate.panel.settingsLink") }}
-				</router-link>
+				<div class="translation-panel-foot">
+					<router-link
+						class="translation-panel-more"
+						to="/settings/translation"
+						@click="close"
+					>
+						{{ t("translate.panel.settingsLink") }}
+					</router-link>
+				</div>
 			</div>
 		</div>
 	</Teleport>
 </template>
 
 <script lang="ts">
-import {computed, defineComponent, onBeforeUnmount, onMounted, PropType, ref} from "vue";
+import {computed, defineComponent, nextTick, onBeforeUnmount, onMounted, PropType, ref} from "vue";
 import {useI18n} from "../js/i18n";
 import {SUPPORTED_LANGUAGES, languageName} from "../js/translate/languages";
 import {
@@ -262,13 +275,12 @@ import {translateService} from "../js/translate";
 import {llmChoice, normalizeDeviceChoice} from "../js/translate/models";
 import {useStore} from "../js/store";
 import {cancelOutgoing} from "../js/translate/writer";
-import {hasVirtualKeyboard} from "../js/helpers/device";
+import eventbus from "../js/eventbus";
+import {placeUnder} from "../js/helpers/headerPopover";
+import {trapTab} from "../js/helpers/trapTab";
 import {collator} from "../js/i18n/collation";
 import type {ClientChan, ClientNetwork} from "../js/types";
 import type {Formality} from "../js/translate/channelStore";
-
-/** The width below which the panel is a sheet: the phone layout's breakpoint. */
-const NARROW = "(max-width: 479px)";
 
 export default defineComponent({
 	name: "TranslationPanel",
@@ -299,7 +311,7 @@ export default defineComponent({
 		const languages = computed(() =>
 			[...SUPPORTED_LANGUAGES].sort((a, b) => collator().compare(name(a), name(b)))
 		);
-		// The segmented control's short labels (the phone layout).
+		// The formality control's short labels: three segments side by side.
 		const formalities = computed((): {value: Formality; label: string}[] => [
 			{value: "auto", label: t("translate.formality.autoShort")},
 			{value: "formal", label: t("translate.formality.formal")},
@@ -314,21 +326,26 @@ export default defineComponent({
 		const valueOf = (event: Event) =>
 			(event.target as HTMLSelectElement | HTMLInputElement).value;
 
-		// A touch-primary device has no room for the anchored panel and no
-		// pointer for its small controls; so has a window narrow enough that
-		// the chat itself is the phone's layout. Read before the first render
-		// so the panel is never drawn in the wrong layout and teleported after.
-		const narrowQuery =
-			typeof window !== "undefined" && typeof window.matchMedia === "function"
-				? window.matchMedia(NARROW)
-				: null;
-		const narrow = ref(narrowQuery ? narrowQuery.matches : false);
+		const close = () => emit("close");
 
-		const onNarrow = (event: MediaQueryListEvent) => {
-			narrow.value = event.matches;
+		// A press on a header button beside the pane closes it and does what
+		// the button says, as the mentions do, or each would need two presses.
+		const closeFromOutside = (event: MouseEvent) => {
+			close();
+			void nextTick(() => {
+				document
+					.elementFromPoint(event.clientX, event.clientY)
+					?.closest<HTMLElement>("button")
+					?.click();
+			});
 		};
 
-		const phone = computed(() => hasVirtualKeyboard() || narrow.value);
+		// Under the channel menu's ⋮, which is what opens it (its
+		// "Translation…"); the phone layout's rule ignores the placement.
+		const placement = ref<Record<string, string>>({});
+		const place = () => {
+			placement.value = placeUnder(document.querySelector("#chat button.menu"), panel.value);
+		};
 
 		// What is left to declare, so the picker never offers a language the
 		// channel already lists.
@@ -366,6 +383,9 @@ export default defineComponent({
 
 		// Nothing here can translate at all: the banner's reason (router.ts
 		// `translationBlock`), and the reading switch's On is disabled.
+		// The engine's own message: a verbatim value, never translated.
+		const pausedWhy = computed(() => store.state.translation.paused?.message ?? "");
+
 		const blockedWhy = computed(() => {
 			const block = currentTranslationBlock();
 
@@ -413,59 +433,30 @@ export default defineComponent({
 			// A strip already up was translated for the old target: it must not
 			// survive the change, finished or not.
 			cancelOutgoing(props.channel);
-			setChannelOptions(props.network, props.channel, {write: valueOf(event) || null});
+			// Set here, the target names no source: each draft is detected
+			// (the composer's dialog is where a source is named, `writeFrom`).
+			setChannelOptions(props.network, props.channel, {
+				write: valueOf(event) || null,
+				writeFrom: null,
+			});
 		};
 
 		const setFormality = (formality: Formality) =>
 			setChannelOptions(props.network, props.channel, {formality});
 
-		const onFormality = (event: Event) => setFormality(valueOf(event) as Formality);
 		const onVariant = (event: Event) =>
 			setChannelOptions(props.network, props.channel, {variant: valueOf(event).trim()});
 
-		// What Tab can reach inside the panel, in document order.
-		const tabbable = (): HTMLElement[] =>
-			Array.from(
-				panel.value?.querySelectorAll<HTMLElement>(
-					"button, select, input, textarea, a[href], [tabindex]"
-				) ?? []
-			).filter(
-				(el) =>
-					el.tabIndex >= 0 &&
-					!(el as HTMLButtonElement).disabled &&
-					el.getClientRects().length > 0
-			);
+		const onTab = (event: KeyboardEvent) => trapTab(event, panel.value as HTMLElement);
 
-		const onKey = (event: KeyboardEvent) => {
-			if (event.key === "Escape") {
-				emit("close");
-				return;
-			}
-
-			// The sheet is modal (aria-modal, the whole screen): Tab wraps
-			// inside it instead of walking out into the app hidden under it.
-			// The desktop panel is not modal and lets the focus go.
-			if (event.key !== "Tab" || !phone.value) {
-				return;
-			}
-
-			const items = tabbable();
-
-			if (items.length === 0) {
-				return;
-			}
-
-			const first = items[0];
-			const last = items[items.length - 1];
-			const active = document.activeElement;
-			const inside = !!panel.value && panel.value.contains(active);
-
-			if (event.shiftKey && (!inside || active === first)) {
-				event.preventDefault();
-				last.focus();
-			} else if (!event.shiftKey && (!inside || active === last)) {
-				event.preventDefault();
-				first.focus();
+		// Escape and Android's Back close the topmost overlay
+		// (helpers/escapeLayer.ts): this one when it is on top. The app's
+		// binding ignores a key pressed in a field, so the pane also takes
+		// Escape itself while the focus is inside it (the template's
+		// @keydown.esc, as SourceLanguagePicker.vue does).
+		const onEscape = (layer: string | null) => {
+			if (layer === "translation") {
+				close();
 			}
 		};
 
@@ -506,55 +497,41 @@ export default defineComponent({
 			next.click();
 		};
 
-		const onPointer = (event: MouseEvent) => {
-			// The sheet covers the viewport, so there is no outside to click.
-			if (phone.value) {
-				return;
-			}
-
-			if (panel.value && !panel.value.contains(event.target as Node)) {
-				emit("close");
-			}
-		};
-
-		let pointerTimer: ReturnType<typeof setTimeout> | null = null;
-
 		onMounted(() => {
-			document.addEventListener("keydown", onKey);
-			narrowQuery?.addEventListener("change", onNarrow);
-			// Deferred so the click that opened the panel does not close it.
-			pointerTimer = setTimeout(() => document.addEventListener("mousedown", onPointer), 0);
+			eventbus.on("escapekey", onEscape);
+			window.addEventListener("resize", place);
+			place();
 			// The panel's main control first: the reading switch's checked
 			// choice (one Tab stop), not the second field's select.
-			panel.value?.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]')?.focus();
+			void nextTick(() =>
+				panel.value
+					?.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]')
+					?.focus()
+			);
 		});
 		onBeforeUnmount(() => {
-			document.removeEventListener("keydown", onKey);
-			document.removeEventListener("mousedown", onPointer);
-			narrowQuery?.removeEventListener("change", onNarrow);
-
-			// A panel closed within the tick would otherwise leave the
-			// deferred registration to add a listener nothing removes.
-			if (pointerTimer !== null) {
-				clearTimeout(pointerTimer);
-				pointerTimer = null;
-			}
+			eventbus.off("escapekey", onEscape);
+			window.removeEventListener("resize", place);
 
 			// The caret goes back where it came from — but only when the panel
 			// is what holds it: a channel switch closes the panel too, and the
 			// composer has just been given the focus for the new conversation.
 			if (panel.value?.contains(document.activeElement)) {
-				document.querySelector<HTMLElement>("#chat button.translate")?.focus();
+				document.querySelector<HTMLElement>("#chat button.menu")?.focus();
 			}
 		});
 
 		return {
 			t,
 			blockedWhy,
+			pausedWhy,
 			writeBlocked,
 			writeNote,
 			panel,
-			phone,
+			placement,
+			close,
+			closeFromOutside,
+			onTab,
 			state,
 			languages,
 			addable,
@@ -573,7 +550,6 @@ export default defineComponent({
 			removeLabel,
 			onWrite,
 			setFormality,
-			onFormality,
 			onVariant,
 			onRadioKey,
 		};

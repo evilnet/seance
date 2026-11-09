@@ -1,7 +1,7 @@
 <template>
 	<aside id="sidebar" ref="sidebar">
 		<div class="scrollable-area">
-			<div class="logo-container">
+			<div class="logo-container" :data-tauri-drag-region="dragRegion">
 				<img src="img/logo-tile.png" class="logo" :alt="appName" role="presentation" />
 				<!-- The language selector's development-build entry point:
 				     a popover holding the same LanguageSelect that Settings
@@ -91,11 +91,13 @@
 					></button> </router-link
 			></span>
 		</footer>
+		<SidebarResizer />
 	</aside>
 </template>
 
 <script lang="ts">
 import {computed, defineComponent, nextTick, onMounted, onUnmounted, PropType, ref} from "vue";
+import {macDragRegion} from "../js/helpers/shell";
 import {useRoute} from "vue-router";
 import {useStore} from "../js/store";
 import {useI18n} from "../js/i18n";
@@ -103,69 +105,9 @@ import NetworkList from "./NetworkList.vue";
 import LanguageSelect from "./LanguageSelect.vue";
 import eventbus from "../js/eventbus";
 import PresencePill from "./PresencePill.vue";
+import SidebarResizer from "./SidebarResizer.vue";
 import {devtoolsAvailable, toggleDevtools} from "../js/devtools";
-
-/** An open modal overlay (the oper cards, builder and dialog, the confirm
- * dialog, the upload preview…): they carry `.opened` while shown; the script
- * editor is mounted only while open, so its presence is enough. The
- * sidebar's own dimmer is not one; a swipe on it closes the sidebar. */
-const OPEN_OVERLAY =
-	'[id$="-overlay"].opened:not(#sidebar-overlay), #script-editor-overlay, #image-viewer.opened';
-
-function inOpenOverlay(el: Element): boolean {
-	return el.closest(OPEN_OVERLAY) !== null;
-}
-
-/** The panes the walk stops at: they scroll up and down (which computes
- * `overflow-x: auto` too), and one wide child must not take the swipe away
- * from the whole pane. */
-const PANE = "#chat .chat, .window, #viewport";
-
-/** `el` or the nearest ancestor inside its pane that scrolls sideways and has something to scroll. */
-function sidewaysScroller(el: Element): Element | null {
-	for (
-		let node: Element | null = el;
-		node && node !== document.body && !node.matches(PANE);
-		node = node.parentElement
-	) {
-		if (node.scrollWidth > node.clientWidth + 1) {
-			const overflowX = window.getComputedStyle(node).overflowX;
-
-			if (overflowX === "auto" || overflowX === "scroll") {
-				return node;
-			}
-		}
-	}
-
-	return null;
-}
-
-/**
- * Whether a swipe starting on `el` is the scroll of a sideways scroller
- * under it: only when that scroller can still move the way the swipe goes —
- * right to open (it is scrolled away from its start), left to close (it is
- * short of its end). One resting at its start gives an opening swipe nothing.
- * Right to left, the start is the right edge and `scrollLeft` runs from 0
- * down to minus the overflow, so the two directions swap. On a right-to-left
- * page the sidebar docks at the right edge, so opening it is a swipe to the
- * left and the directions swap once more.
- */
-function scrollerTakesSwipe(el: Element, opening: boolean): boolean {
-	const scroller = sidewaysScroller(el);
-
-	if (!scroller) {
-		return false;
-	}
-
-	const rtl = window.getComputedStyle(scroller).direction === "rtl";
-	const fromStart = Math.abs(scroller.scrollLeft);
-	const rightward = opening !== (document.documentElement.dir === "rtl");
-	const towardStart = rightward !== rtl;
-
-	return towardStart
-		? fromStart > 0
-		: fromStart < scroller.scrollWidth - scroller.clientWidth - 1;
-}
+import {inOpenOverlay, scrollerTakesSwipe} from "../js/helpers/sidewaysSwipe";
 
 export default defineComponent({
 	name: "Sidebar",
@@ -173,6 +115,7 @@ export default defineComponent({
 		NetworkList,
 		LanguageSelect,
 		PresencePill,
+		SidebarResizer,
 	},
 	props: {
 		overlay: {type: Object as PropType<HTMLElement | null>, required: true},
@@ -470,6 +413,7 @@ export default defineComponent({
 		onUnmounted(() => eventbus.off("escapekey", closeLocale));
 
 		return {
+			dragRegion: macDragRegion(),
 			appName,
 			isDevelopment,
 			toggleDevtools,

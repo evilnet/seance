@@ -10,9 +10,16 @@
 //   more than the tie band.
 // - The LLM and NLLB in one class where they tie: a downloaded NLLB is
 //   preferred, the LLM otherwise (router.ts).
-// - The OPUS-MT pairs: in one class with the LLM for de, nl and ru (OPUS
-//   ahead on three cases, and under a second a line on the CPU), the class
-//   after the LLM for fr, es and it (the LLM ahead).
+// - The OPUS-MT pairs: first, whatever the measurement, as the cheapest
+//   engine that can take the line (a pair is ~100 MB and a line takes
+//   under a second on the CPU, where the LLM is a 1-2 GB download and a
+//   GPU). Least to most resource-intensive: the system translator (Apple's,
+//   service.ts, ahead of any table), then a pair, then the LLM. The LLM
+//   measured ahead of OPUS-MT for fr, es and it, and tied for de, nl and ru
+//   (`opusTied`, which still records that and steers tools/i18n/fill.ts);
+//   that is no longer worth a 2 GB question in a chat client. Someone who
+//   wants the LLM's quality downloads it and switches the pair off
+//   (Settings → Translation).
 // - Every other language: the LLM first, NLLB next.
 //
 // A larger GPU model moves the line between "NLLB is better" and "the LLM
@@ -29,7 +36,11 @@ export interface RoutePlacement {
 	nllbFirst: readonly string[];
 	/** The LLM and NLLB within the tie band: one class. */
 	nllbTied: readonly string[];
-	/** OPUS-MT pair languages whose pairs tie with or beat the LLM: one class with it. */
+	/**
+	 * OPUS-MT pair languages whose pairs tied with or beat the LLM. A record
+	 * of the measurement (and tools/i18n/fill.ts's engine choice): the app's
+	 * tables put every pair first, tied or not (`opusEntry`).
+	 */
 	opusTied: readonly string[];
 	/**
 	 * Languages whose best measured engine brought back under 55% of a line's
@@ -69,7 +80,7 @@ export const NLLB_FIRST: readonly string[] = [
 /** The LLM and NLLB within the tie band: one class. */
 export const NLLB_TIED: readonly string[] = ["sk", "ms", "gl", "th", "cs", "nb", "bg", "id"];
 
-/** OPUS-MT pair languages whose pairs tie with or beat the LLM: one class with it. */
+/** OPUS-MT pair languages whose pairs tie with or beat the LLM (a record; every pair routes first). */
 export const OPUS_TIED: readonly string[] = ["de", "nl", "ru", "fr"];
 
 /** Under 55% of a line's content words back from the best engine (see `RoutePlacement`). */
@@ -167,15 +178,11 @@ function entryFor(placement: RoutePlacement, from: string, to: string): RouteEnt
 	return ["llm", "nllb"];
 }
 
-function opusEntry(placement: RoutePlacement, pairKey: string): RouteEntry {
-	const [from, to] = pairKey.split("-");
+/** An OPUS-MT pair's entry: the pair first, the cheapest engine (see the header). */
+function opusEntry(pairKey: string): RouteEntry {
 	const candidate: Candidate = `opus:${pairKey}`;
 
-	if (placement.opusTied.includes(from) || placement.opusTied.includes(to)) {
-		return [["llm", candidate], "nllb"];
-	}
-
-	return ["llm", candidate, "nllb"];
+	return [candidate, "llm", "nllb"];
 }
 
 /** A route table from one model's placements. */
@@ -196,7 +203,7 @@ export function buildRoutes(placement: RoutePlacement): RouteTable {
 	for (const pairKey of Object.keys(DEFAULT_OPUS_PAIRS)) {
 		const [from, to] = pairKey.split("-");
 
-		(table[to] ??= {})[from] = opusEntry(placement, pairKey);
+		(table[to] ??= {})[from] = opusEntry(pairKey);
 	}
 
 	// Every target with a row gets a row for every placed source, so a

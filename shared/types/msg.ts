@@ -117,6 +117,13 @@ export type SharedMsg = {
 	msgid?: string;
 	/** msgid this message replies to (`+reply` / `+draft/reply`); may not be loaded. */
 	replyTo?: string;
+	/**
+	 * The supported language the sender says the text is in (`+draft/language`,
+	 * `irc/langtag.ts`): a strong prior for the reader's detector, never an order.
+	 */
+	language?: string;
+	/** The sender's client machine-translated the text (`+evilnet.github.io/machine-translated`). */
+	machineTranslated?: boolean;
 	/** Aggregated `+draft/react` reactions, in first-seen order. */
 	reactions?: MsgReaction[];
 	/** Set when a REDACT for this message arrived; rendered as a placeholder. */

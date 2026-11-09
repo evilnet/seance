@@ -4,6 +4,7 @@
 
 import type {TypingState} from "../../../shared/types/msg";
 import {formatLine, formatTags} from "./message";
+import {languageTags} from "./langtag";
 
 /** Client tags (`+name` keys) to put on an outbound line; values unescaped. */
 export type ClientTags = Record<string, string>;
@@ -22,6 +23,23 @@ export const REDACTION_CAP = "draft/message-redaction";
 /** The tags that mark a message as a reply to `msgid`: both forms, so every client sees it. */
 export function replyTags(msgid: string): ClientTags {
 	return {[REPLY_TAG]: msgid, [DRAFT_REPLY_TAG]: msgid};
+}
+
+/**
+ * The client tags a line of input carries (`InputOptions`): the reply
+ * tags and the language tags (`langtag.ts`). Undefined when there are none.
+ */
+export function inputTags(opts: {
+	reply?: string;
+	language?: string;
+	machineTranslated?: boolean;
+}): ClientTags | undefined {
+	const tags: ClientTags = {
+		...(opts.reply ? replyTags(opts.reply) : {}),
+		...languageTags(opts.language, opts.machineTranslated === true),
+	};
+
+	return Object.keys(tags).length > 0 ? tags : undefined;
 }
 
 /** Typing notification tag (https://ircv3.net/specs/client-tags/typing), on TAGMSG. */

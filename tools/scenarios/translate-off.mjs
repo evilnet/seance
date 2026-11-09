@@ -1,8 +1,8 @@
 // Translation switched off, its default (client/js/settings.ts
 // `translationEnabled`, translate/switch.ts): absent, not just disabled. No
-// translate button in the channel header, the composer or the message
-// toolbar, no "Translation…" in the channel menu, no TranslationLine, no
-// strip; Settings → Translation is the interface language and the switch
+// translate button in the composer or the message toolbar, no translation
+// panel ("Translation…" in the channel menu opens Settings instead, where
+// the switch is), no TranslationLine, no strip; Settings → Translation is the interface language and the switch
 // alone, under a tab named "Language"; and nothing of the machinery runs --
 // no worker script fetched, no Worker constructed, no GPU adapter asked
 // for -- not on a cold load, not when the interface language changes with a
@@ -22,7 +22,7 @@
 //    downloaded, so the script is fetched and a Worker made; off, it is
 //    terminated.
 // 2. With ?fakeTranslate (the in-page fake, which never makes a Worker), the
-//    surfaces: header button, composer button, toolbar Translate, a German
+//    surfaces: composer button, toolbar Translate, the channel menu, a German
 //    line read into English, the composer's strip for the kept write
 //    target -- on, then off again.
 //
@@ -117,13 +117,13 @@ const KEPT = `JSON.parse(localStorage.getItem("thelounge.translate") || "{}")[${
 
 /** Every translation surface the chat view can show, present or not. */
 const SURFACES = `(() => ({
-	header: !!document.querySelector("#chat button.translate"),
 	composer: !!document.querySelector("#translate-once"),
 	strip: !!document.querySelector(".translate-bar"),
 	panel: !!document.querySelector(".translation-panel"),
-	lines: document.querySelectorAll("#chat .msg-translation, #chat [class*='msg-translation']").length,
+	lines: document.querySelectorAll("#chat .msg-translation, #chat [class*='msg-translat']").length,
 	topicFlip: !!document.querySelector("#chat .topic-flip"),
 	placeholder: document.querySelector("#input")?.getAttribute("placeholder") ?? "",
+	target: document.querySelector("#translate-once .translate-once-target")?.textContent.trim() ?? "",
 }))()`;
 
 const isPhone = `matchMedia("(hover: none) and (pointer: coarse)").matches`;
@@ -219,6 +219,33 @@ async function menuOffersTranslation(page) {
 	return offered;
 }
 
+/**
+ * Off by the user's setting: the channel menu's "Translation…" is still
+ * there, and opens Settings → Translation (named "Language" while off),
+ * without making any of the machinery.
+ */
+async function menuOpensTranslationSettings(page) {
+	await page.click("#chat .header button.menu");
+	await page.waitFor(`!!document.querySelector("#context-menu")`, {label: "the channel menu"});
+
+	if (
+		!(await page.evaluate(
+			`!!document.querySelector("#context-menu .context-menu-translate-off")`
+		))
+	) {
+		await pressEscape(page);
+		return false;
+	}
+
+	await page.click("#context-menu .context-menu-translate-off");
+	await page.waitFor(`!!document.querySelector('#settings input[name="translationEnabled"]')`, {
+		label: "Settings → Translation, with its switch",
+	});
+	await closeSettings(page);
+
+	return true;
+}
+
 async function fabricate(page) {
 	const made = await page.evaluate(fakeNetworkSnippet());
 
@@ -267,7 +294,6 @@ async function checkOff(page, phone, where) {
 	const s = await page.evaluate(SURFACES);
 
 	console.log(`surfaces (${where})`, JSON.stringify(s));
-	page.check(`${where}: no translate button in the header`, s.header === false);
 	page.check(`${where}: no translate button in the composer`, s.composer === false);
 	page.check(
 		`${where}: no strip, no panel, no translation under a message`,
@@ -279,8 +305,12 @@ async function checkOff(page, phone, where) {
 		s.placeholder === EN["composer.placeholder"].replace("{name}", CHANNEL)
 	);
 	page.check(
-		`${where}: the channel menu has no "Translation…"`,
+		`${where}: the channel menu has no "Translation…" panel`,
 		(await menuOffersTranslation(page)) === false
+	);
+	page.check(
+		`${where}: the channel menu's "Translation…" opens Settings, where the switch is`,
+		await menuOpensTranslationSettings(page)
 	);
 	page.check(
 		`${where}: the toolbar has no Translate`,
@@ -451,8 +481,8 @@ export default async function run(page) {
 	await openTab(page);
 	await flipSwitch(page, true);
 	await closeSettings(page);
-	await page.waitFor(`!!document.querySelector("#chat button.translate")`, {
-		label: "the header's translate button appears",
+	await page.waitFor(`!!document.querySelector("#translate-once")`, {
+		label: "the composer's translate button appears",
 	});
 	await page.evaluate(STAMP_MSGIDS);
 
@@ -464,7 +494,7 @@ export default async function run(page) {
 		)}, self: false, time: new Date(), users: [], msgid: "seance-fake-31"},
 	})`);
 	await page.waitFor(
-		`!!document.querySelector("#msg-31 .msg-translation, #msg-31 [class*='msg-translation']")`,
+		`!!document.querySelector("#msg-31 .msg-translation, #msg-31 [class*='msg-translat']")`,
 		{
 			label: "the German line is read",
 			timeout: 15000,
@@ -474,11 +504,10 @@ export default async function run(page) {
 	const onSurfaces = await page.evaluate(SURFACES);
 
 	console.log("surfaces (fake, on)", JSON.stringify(onSurfaces));
-	page.check("on: the header's translate button is there", onSurfaces.header);
 	page.check("on: the composer's translate button is there", onSurfaces.composer);
 	page.check(
-		"on: the kept write target names German in the placeholder",
-		onSurfaces.placeholder !== EN["composer.placeholder"].replace("{name}", CHANNEL)
+		"on: the kept write target names German on the translate button",
+		onSurfaces.target.endsWith("→ DE")
 	);
 	page.check("on: a line is read under its message", onSurfaces.lines > 0);
 	page.check(
@@ -525,7 +554,7 @@ export default async function run(page) {
 	page.check(
 		"fake, switched off: a new line is not read and the engine is asked nothing",
 		(await page.evaluate(
-			`document.querySelectorAll("#msg-32 [class*='msg-translation']").length`
+			`document.querySelectorAll("#msg-32 [class*='msg-translat']").length`
 		)) === 0 &&
 			(await page.evaluate(`(window.__seanceTranslateFake?.requests ?? []).length`)) ===
 				requestsOff
@@ -558,14 +587,8 @@ export default async function run(page) {
 		label: "the composer's translate button is back",
 	});
 	await page.fill("#form #input", "one more");
-	// Lit for the kept write target, the button's first click turns it off;
-	// the next opens the picker.
 	await page.click("#translate-once");
-	await page.waitFor(`!document.querySelector("#translate-once.on")`, {
-		label: "the write target off",
-	});
-	await page.click("#translate-once");
-	await page.waitFor(`!!document.querySelector(".source-language-picker")`, {
+	await page.waitFor(`!!document.querySelector(".language-sheet")`, {
 		label: "the composer's language picker",
 	});
 	await openTab(page);
@@ -577,6 +600,6 @@ export default async function run(page) {
 	});
 	page.check(
 		"on again: the picker left open at the switch-off stays closed",
-		!(await page.evaluate(`!!document.querySelector(".source-language-picker")`))
+		!(await page.evaluate(`!!document.querySelector(".language-sheet")`))
 	);
 }

@@ -7,8 +7,10 @@
  * because network settings and sort, mute and collapse preferences are keyed
  * by it (see docs/resources/bus-contract.md §"Store expectations").
  *
- * The SASL password is only written to disk when `rememberPassword` is set;
- * otherwise `saslPassword` is stripped on save and the user is asked again.
+ * The SASL and server passwords are only written to disk when
+ * `rememberPassword` is set; otherwise `saslPassword` and `serverPassword`
+ * are stripped on save and the user is asked again (`hasServerPassword`
+ * remembers that there was one to ask for).
  *
  * Kept free of store imports so it runs under mocha; tests swap the storage
  * backend with {@link useStorageBackend}.
@@ -51,8 +53,11 @@ export type SavedNetwork = ConnectOptions & {
 	name: string;
 	/** Connect at startup without visiting the connect form. */
 	autoconnect?: boolean;
-	/** Persist `saslPassword`. Off by default so the password never hits disk. */
+	/** Persist `saslPassword` and `serverPassword`. Off by default so no password hits disk. */
 	rememberPassword?: boolean;
+	/** A server password is configured, even when it was not kept on disk:
+	 * the connect form asks for it again (see {@link needsPassword}). */
+	hasServerPassword?: boolean;
 	/** Register this device's Web Push subscription with this network
 	 * (`draft/webpush`). Entries stored before the flag existed read as
 	 * enabled — push was unconditional then. */
@@ -97,7 +102,11 @@ export function useStorageBackend(next: StorageBackend | null): void {
 }
 
 /** The WebSocket ports we suggest: 9998 for wss://, 8067 for ws://. */
-export function defaultPort(tls: boolean): number {
+export function defaultPort(tls: boolean, transport?: ConnectOptions["transport"]): number {
+	if (transport === "tcp") {
+		return tls ? 6697 : 6667;
+	}
+
 	return tls ? 9998 : 8067;
 }
 
@@ -163,9 +172,9 @@ function asBoolean(value: unknown): boolean {
 	return s !== "" && s !== "0" && s !== "false" && s !== "off";
 }
 
-function asPort(value: unknown, tls: boolean): number {
+function asPort(value: unknown, tls: boolean, transport?: ConnectOptions["transport"]): number {
 	const port = typeof value === "number" ? value : parseInt(asString(value), 10);
-	return Number.isInteger(port) && port > 0 && port <= 65535 ? port : defaultPort(tls);
+	return Number.isInteger(port) && port > 0 && port <= 65535 ? port : defaultPort(tls, transport);
 }
 
 /** A stored / incoming cursor, or undefined when there is nothing usable in it. */
@@ -248,12 +257,15 @@ export function normalize(raw: Record<string, unknown>): SavedNetwork | undefine
 	const tls = raw.tls === undefined ? true : asBoolean(raw.tls);
 	const sasl = asString(raw.sasl) === "plain" ? "plain" : "";
 	const rememberPassword = asBoolean(raw.rememberPassword);
+	// Only `tcp` is stored; anything else (the form's `websocket`) is the default.
+	const transport = raw.transport === "tcp" ? "tcp" : undefined;
 	const net: SavedNetwork = {
 		uuid,
 		name: asString(raw.name),
 		host: asString(raw.host),
-		port: asPort(raw.port, tls),
+		port: asPort(raw.port, tls, transport),
 		tls,
+		...(transport ? {transport} : {}),
 		nick: asString(raw.nick),
 		join: asJoin(raw.join),
 		sasl,
@@ -265,6 +277,23 @@ export function normalize(raw: Record<string, unknown>): SavedNetwork | undefine
 		notifyEnabled: raw.notifyEnabled === undefined ? true : asBoolean(raw.notifyEnabled),
 		commands: parseCommands(raw.commands),
 	};
+
+	// A line break or NUL would end the PASS line early (wire.ts refuses it).
+	const serverPassword = asString(raw.serverPassword).replace(/[\r\n\0]/g, "");
+
+	if (serverPassword) {
+		net.serverPassword = serverPassword;
+	}
+
+	if (serverPassword || asBoolean(raw.hasServerPassword)) {
+		net.hasServerPassword = true;
+	}
+
+	const trusted = asFingerprints(raw.trustedCertificates);
+
+	if (trusted.length > 0) {
+		net.trustedCertificates = trusted;
+	}
 
 	if (typeof raw.lastUsed === "number" && Number.isFinite(raw.lastUsed)) {
 		net.lastUsed = raw.lastUsed;
@@ -360,7 +389,14 @@ export function fromForm(data: Record<string, unknown>, existing?: SavedNetwork)
 		}
 	}
 
-	for (const flag of ["tls", "autoconnect", "rememberPassword", "pushEnabled", "notifyEnabled"]) {
+	for (const flag of [
+		"tls",
+		"autoconnect",
+		"rememberPassword",
+		"pushEnabled",
+		"notifyEnabled",
+		"hasServerPassword",
+	]) {
 		if (!(flag in data)) {
 			base[flag] = false;
 		}
@@ -369,6 +405,18 @@ export function fromForm(data: Record<string, unknown>, existing?: SavedNetwork)
 	// A blank password field in the edit form means "keep what I had".
 	if (existing && asString(data.saslPassword) === "" && existing.saslPassword) {
 		base.saslPassword = existing.saslPassword;
+	}
+
+	// The server password's switch off clears it; on with the field blank
+	// keeps the stored one, as for SASL.
+	if (!base.hasServerPassword) {
+		delete base.serverPassword;
+	} else if (asString(data.serverPassword) === "" && existing?.serverPassword) {
+		base.serverPassword = existing.serverPassword;
+	}
+
+	if (existing && moved(existing, base.host, base.port)) {
+		delete base.trustedCertificates;
 	}
 
 	// The services block travels whole: the key present with nothing in it
@@ -392,12 +440,73 @@ export function toConnectOptions(net: SavedNetwork): ConnectOptions {
 		host: net.host,
 		port: net.port,
 		tls: net.tls,
+		...(net.transport ? {transport: net.transport} : {}),
 		nick: net.nick,
 		join: net.join,
 		sasl: net.sasl,
 		saslAccount: net.saslAccount,
 		saslPassword: net.saslPassword,
+		// Configured but not on disk: undefined, so a live client keeps the
+		// one it was given (IrcClient.applySettings).
+		serverPassword: net.serverPassword ?? (net.hasServerPassword ? undefined : ""),
+		trustedCertificates: net.trustedCertificates ?? [],
 	};
+}
+
+/** Whether two host names are the same server's, as typed or not. */
+export function sameHost(a: string, b: string): boolean {
+	return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
+/**
+ * Whether `host` and `port` (either may be absent: unchanged) take `existing`
+ * to another server. Certificates were trusted for the server they came
+ * from, so a network that moved starts with none (fromForm, mergeOptions).
+ */
+function moved(existing: SavedNetwork, host: unknown, port: unknown): boolean {
+	return (
+		(host !== undefined && !sameHost(asString(host), existing.host)) ||
+		(port !== undefined && Number(port) !== existing.port)
+	);
+}
+
+/** How many certificates one network may trust (the shell refuses more). */
+export const MAX_TRUSTED_CERTIFICATES = 8;
+
+/** SHA-256 fingerprints, lowercase hex, deduplicated, the newest last; anything else dropped. */
+function asFingerprints(value: unknown): string[] {
+	if (!Array.isArray(value)) {
+		return [];
+	}
+
+	const out: string[] = [];
+
+	for (const item of value) {
+		const hex = asString(item).replace(/:/g, "").toLowerCase();
+
+		if (/^[0-9a-f]{64}$/.test(hex) && !out.includes(hex)) {
+			out.push(hex);
+		}
+	}
+
+	return out.slice(-MAX_TRUSTED_CERTIFICATES);
+}
+
+/** `net` trusting `sha256` too; the oldest one goes past the cap. */
+export function withTrustedCertificate(net: SavedNetwork, sha256: string): SavedNetwork {
+	const trusted = asFingerprints([...(net.trustedCertificates ?? []), sha256]);
+	return {...net, trustedCertificates: trusted};
+}
+
+/**
+ * The entry cannot connect as saved: a password it needs was not kept on
+ * disk (`rememberPassword` off), so it waits for the connect form.
+ */
+export function needsPassword(net: SavedNetwork): boolean {
+	return (
+		(net.sasl === "plain" && !net.saslPassword) ||
+		(!!net.hasServerPassword && !net.serverPassword)
+	);
 }
 
 // --------------------------------------------------------------- storage
@@ -432,13 +541,40 @@ function read(): SavedNetwork[] {
 	return result;
 }
 
-function write(entries: SavedNetwork[]): void {
+const changeListeners = new Set<() => void>();
+
+/**
+ * Hear every write of the list in this page (another tab's arrive as a
+ * `storage` event) but the history cursor's, which moves on every message
+ * and is shown nowhere. The sidebar's saved-but-not-connected rows follow
+ * it. Returns the unsubscribe.
+ */
+export function onSavedNetworksChange(listener: () => void): () => void {
+	changeListeners.add(listener);
+	return () => changeListeners.delete(listener);
+}
+
+function write(entries: SavedNetwork[], notify = true): void {
 	backend.set(STORAGE_KEY, JSON.stringify(entries));
+
+	if (!notify) {
+		return;
+	}
+
+	for (const listener of changeListeners) {
+		listener();
+	}
 }
 
 /** Never let a password reach disk unless the user asked for it. */
 function forStorage(net: SavedNetwork): SavedNetwork {
-	return net.rememberPassword ? {...net} : {...net, saslPassword: ""};
+	if (net.rememberPassword) {
+		return {...net};
+	}
+
+	const {serverPassword: _dropped, ...rest} = net;
+	void _dropped;
+	return {...rest, saslPassword: ""};
 }
 
 function byRecency(a: SavedNetwork, b: SavedNetwork): number {
@@ -523,7 +659,7 @@ export function setCursor(uuid: string, cursor: NetworkCursor): void {
 
 	if (net) {
 		net.cursor = cursor;
-		write(all);
+		write(all, false);
 	}
 }
 
@@ -562,7 +698,12 @@ export function lastUsed(): SavedNetwork | undefined {
  * An existing entry for the same server and nick, so re-typing a network
  * into the connect form keeps its uuid (and the preferences keyed by it).
  */
-export function findMatching(host: string, port: number, nick: string): SavedNetwork | undefined {
+export function findMatching(
+	host: string,
+	port: number,
+	nick: string,
+	transport?: ConnectOptions["transport"]
+): SavedNetwork | undefined {
 	const h = hostnameOf(host).toLowerCase();
 	const n = nick.trim().toLowerCase();
 
@@ -570,6 +711,29 @@ export function findMatching(host: string, port: number, nick: string): SavedNet
 		(net) =>
 			hostnameOf(net.host).toLowerCase() === h &&
 			net.port === port &&
-			net.nick.toLowerCase() === n
+			net.nick.toLowerCase() === n &&
+			(net.transport === "tcp") === (transport === "tcp")
 	);
+}
+
+/** The stored entry with the connect options laid over it (undefined options keep the stored value). */
+export function mergeOptions(
+	existing: SavedNetwork | undefined,
+	uuid: string,
+	options: Partial<ConnectOptions> & Record<string, unknown>
+): Record<string, unknown> {
+	const merged: Record<string, unknown> = {...(existing ?? {}), uuid};
+
+	for (const [key, value] of Object.entries(options)) {
+		if (value !== undefined) {
+			merged[key] = value;
+		}
+	}
+
+	// The connect screen can point a saved network at another server too.
+	if (existing && moved(existing, options.host, options.port)) {
+		delete merged.trustedCertificates;
+	}
+
+	return merged;
 }

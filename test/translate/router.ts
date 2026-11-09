@@ -387,25 +387,21 @@ describe("translate/router", () => {
 			}
 		});
 
-		it("gives the OPUS-MT pairs the class they measured into", () => {
-			expect(candidatesFor(DEFAULT_ROUTES, "de", "en")).to.deep.equal([
-				["llm", "opus:de-en"],
-				["nllb"],
-			]);
-			expect(candidatesFor(DEFAULT_ROUTES, "en", "ru")).to.deep.equal([
-				["llm", "opus:en-ru"],
-				["nllb"],
-			]);
-			// French tied with OPUS-MT on the web weights (Qwen +3).
-			expect(candidatesFor(DEFAULT_ROUTES, "en", "fr")).to.deep.equal([
-				["llm", "opus:en-fr"],
-				["nllb"],
-			]);
-			expect(candidatesFor(DEFAULT_ROUTES, "en", "es")).to.deep.equal([
-				["llm"],
-				["opus:en-es"],
-				["nllb"],
-			]);
+		// Least to most resource-intensive: the pair first, alone, tied or not
+		// (routes.default.ts), the LLM next, NLLB last.
+		it("puts every OPUS-MT pair first, before the LLM", () => {
+			for (const [from, to] of [
+				["de", "en"],
+				["en", "ru"],
+				["en", "fr"],
+				["en", "es"],
+			]) {
+				expect(candidatesFor(DEFAULT_ROUTES, from, to), `${from}→${to}`).to.deep.equal([
+					[`opus:${from}-${to}`],
+					["llm"],
+					["nllb"],
+				]);
+			}
 		});
 
 		it("keeps the LLM first everywhere else", () => {

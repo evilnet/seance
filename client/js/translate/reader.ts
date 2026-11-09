@@ -14,7 +14,7 @@
 // setReading/setChannelOptions; the chip and the toolbar call
 // retranslate/showOriginal/retryTranslation.
 
-import {toRaw, watch} from "vue";
+import {ref as vueRef, toRaw, watch} from "vue";
 
 import {getBranding} from "../branding";
 import {userLanguageRef} from "../i18n";
@@ -34,12 +34,20 @@ import {
 	termsFor,
 } from "./channelStore";
 import {buildContext} from "./context";
-import {type Detection, LanguagePrior, detectLanguage, detectionSkip, sourceFor} from "./detect";
+import {
+	type Detection,
+	LanguagePrior,
+	detectLanguage,
+	detectionSkip,
+	sourceFor,
+	withSenderLanguage,
+} from "./detect";
 import {ReplayBatches, historyQueueOrder, isChatLine, isEligible, plainTextOf} from "./eligibility";
 import {namesFor} from "./names";
 import {fromLocaleTag} from "./languages";
 import {needsDownloadError} from "./consent";
 import {
+	APPLE_REF,
 	type ModelBlock,
 	choiceFor,
 	deviceOrder,
@@ -60,6 +68,7 @@ import {
 	servedIsolating,
 	serviceSettings,
 	setTranslationUsage,
+	systemTranslator,
 	translateService,
 	translationOn,
 } from "./index";
@@ -69,6 +78,7 @@ import {sentReadBacks, takesReadBack} from "./sentReadBack";
 import {protect, stripCopiedNickPrefix} from "./spans";
 import {topicEntryId} from "./topic";
 import {yieldToPage} from "./yieldToPage";
+import {claimPack} from "./applePacks";
 
 const queues = new Map<string, TranslateQueue>();
 const priors = new Map<string, LanguagePrior>();
@@ -207,6 +217,20 @@ export function translationAvailable(): boolean {
 }
 
 /**
+ * `translationAvailable`, with a probe still running counted as yes: for
+ * what must not pop into place once the probe lands (the composer's
+ * translate button, which shifted the input on every app load). Only a
+ * device the probe rules out takes it away again.
+ */
+export function translationMayRun(): boolean {
+	if (!translationOn()) {
+		return false;
+	}
+
+	return translateService().enabled && store.state.translation.capability?.tier !== "none";
+}
+
+/**
  * The catalog as the service runs it: the language model the setting, the
  * probe and its device setting resolve to. Read from the running service
  * when there is one and from the configuration otherwise, so naming a model
@@ -313,6 +337,19 @@ function offBlock(): ModelBlock | null {
 }
 
 /**
+ * Translation is off by the user's own setting (its default), not the
+ * deploy's: the switch in Settings would turn it on. Never makes the service.
+ */
+export function translationOffByUser(): boolean {
+	return (
+		translationOffBlock(
+			store.state.branding.translation,
+			store.state.settings.translationEnabled
+		)?.by === "user"
+	);
+}
+
+/**
  * Whether anything can translate here right now, and if not why (router.ts
  * `translationBlock`): the deploy, the probe, the device, the user's two
  * switches. Null once an engine runs. Reactive through the store reads, so
@@ -352,6 +389,12 @@ export function pairVerdict(from: string | null, to: string): RouteVerdict {
 		return {route: null, why: off, polish: from !== null && from === to};
 	}
 
+	const apple = appleVerdict(from, to);
+
+	if (apple) {
+		return apple;
+	}
+
 	const service = translateService();
 	const capability = store.state.translation.capability;
 	const {switches, devices} = serviceSettings();
@@ -370,6 +413,47 @@ export function pairVerdict(from: string | null, to: string): RouteVerdict {
 	}
 
 	return explainRoute(service.routeTable, liveCatalog(), input);
+}
+
+/** Bumped when the system translator learns a pair's status, so a verdict that read it recomputes. */
+const appleStatuses = vueRef(0);
+const appleHeard = new WeakSet<object>();
+
+/**
+ * The system translator's verdict, where the service would take it: a pair
+ * whose pack is installed goes to Apple before any table (service.ts
+ * `appleRoute`), so the row says so -- no download -- instead of naming the
+ * table's model. A pair not asked about yet is asked once (`lookup`) and the
+ * verdict recomputes when the answer arrives; until then, and for a pack
+ * that is not installed, the table's verdict stands, as the service's walk
+ * does on a line it reads.
+ */
+function appleVerdict(from: string | null, to: string): RouteVerdict | null {
+	const apple = systemTranslator();
+
+	if (!apple || !from || from === to || serviceSettings().system === false) {
+		return null;
+	}
+
+	if (!appleHeard.has(apple)) {
+		appleHeard.add(apple);
+		apple.onKnown(() => {
+			appleStatuses.value++;
+		});
+	}
+
+	// Read so that a computed over this verdict hears the next answer.
+	void appleStatuses.value;
+	const status = apple.knownStatus(from, to);
+
+	if (status === undefined) {
+		apple.lookup(from, to);
+		return null;
+	}
+
+	return status === "installed"
+		? {route: {candidate: "apple", ref: APPLE_REF, device: "cpu"}, why: null, polish: false}
+		: null;
 }
 
 function priorFor(network: ClientNetwork, channel: ClientChan): LanguagePrior {
@@ -441,17 +525,24 @@ function queueFor(network: ClientNetwork): TranslateQueue {
 		const service = translateService();
 
 		queue = new TranslateQueue({
-			// A route a declined download left empty fails the line with the
-			// model named (consent.ts), through the queue's rejection path,
-			// which pauses nothing.
+			// Quiet: nothing the reader did not ask for interrupts them. A
+			// route that needs a download nobody agreed to fails the line
+			// with the model named (consent.ts), through the queue's rejection
+			// path, which pauses nothing, and the line offers the download
+			// (TranslationLine.vue); a system language pack is offered on the
+			// line too (applePacks.ts), never in the system's sheet.
 			route: (from, to, hint) =>
-				service.resolve(from, to, hint).then(({route, refused, refusedDevice}) => {
-					if (!route && refused) {
-						throw new Error(needsDownloadError(refused, refusedDevice ?? undefined));
-					}
+				service
+					.resolve(from, to, hint, {quiet: true})
+					.then(({route, refused, refusedDevice}) => {
+						if (!route && refused) {
+							throw new Error(
+								needsDownloadError(refused, refusedDevice ?? undefined)
+							);
+						}
 
-					return route ? {engine: route.ref.engine, device: route.device} : null;
-				}),
+						return route ? {engine: route.ref.engine, device: route.device} : null;
+					}),
 			translate: (req, signal) => service.translate(req, signal),
 			loadTicks: () => service.loadTicks(),
 			priority(chanId) {
@@ -574,6 +665,11 @@ function applyUpdate(id: number, update: QueueUpdate): void {
 					error: null,
 				},
 			});
+
+			if (existing) {
+				claimPack(id, existing.from, existing.to);
+			}
+
 			break;
 		case "failed":
 			// A line queued with its source left to the engine because the
@@ -864,7 +960,10 @@ export function setChannelOptions(
 	network: ClientNetwork,
 	channel: ClientChan,
 	patch: Partial<
-		Pick<ChannelTranslation, "write" | "formality" | "variant" | "languages" | "once">
+		Pick<
+			ChannelTranslation,
+			"write" | "writeFrom" | "formality" | "variant" | "languages" | "once" | "noSuggest"
+		>
 	>
 ): void {
 	commitChannel(network, channel, setChannelTranslation(network.uuid, channel.name, patch));
@@ -993,21 +1092,29 @@ export async function translateMessage(
 	// A chosen source is the answer detection would have given: no chunk to
 	// download, no verdict to reach, and the previous entry's candidates
 	// stay on offer.
-	const detection = from
+	const detected = from
 		? {
 				lang: from,
 				confidence: 1,
 				candidates: store.state.translations[message.id]?.candidates ?? [],
 		  }
 		: await detectLanguage(plainText(), prior, initial.languages, {
-				// The language the reader already reads, so a channel that
-				// declares one other can place a line too short for franc. The
-				// switch is re-read after the await below; this is the target as
-				// it stands now, which is the one the reader is looking at.
+				// The language the reader already reads: a lone verdict with it
+				// in the running is no verdict (detect.ts `decide`). The switch
+				// is re-read after the await below; this is the target as it
+				// stands now, which is the one the reader is looking at.
 				exclude: readingLanguage(),
+				// The user's own lines say what they write, not the channel.
+				learn: !message.self,
 		  });
+	// The sender's word for its language (`+draft/language`, irc/langtag.ts)
+	// as a strong prior: it settles the short lines the detector cannot
+	// place, and loses only to a verdict close to certain (detect.ts
+	// `withSenderLanguage`). Not for a forced line: the toolbar's Translate
+	// and the chip's Retranslate are the reader's way past a wrong tag.
+	const detection = from || force ? detected : withSenderLanguage(detected, message.language);
 
-	// Detection (the first call also awaits the franc chunk download) can
+	// Detection (the first call also awaits the identifiers' chunk) can
 	// take a while: re-read the switch afterwards, since a switch-off or a
 	// target change during that wait must not still ship a translation (a
 	// target change queues the channel again itself), and a channel left
@@ -1026,10 +1133,9 @@ export async function translateMessage(
 
 	const to = readingLanguage();
 
-	// Placed in the reading language, or not placed with the reading language
-	// among the contenders: left alone (detect.ts `detectionSkip`) and
-	// marked. A line the detector could not place is otherwise translated
-	// with its source left to the engine.
+	// Placed in the reading language, not placed at all, or placed on doubt
+	// in a language the channel is not known to write: left alone (detect.ts
+	// `detectionSkip`), and the toolbar's Translate still translates it.
 	const skip = force ? null : detectionSkip(detection, to);
 
 	if (skip) {
@@ -1039,8 +1145,8 @@ export async function translateMessage(
 
 	// What the line is translated from, whether the source is left to the
 	// engine, and what the router may still be told (detect.ts `sourceFor`):
-	// a chosen source as it stands, a verdict that is neither missing nor
-	// weak, or nothing at all. Unsure means the prompt says nothing about the
+	// a chosen source as it stands, the detector's verdict, or nothing at
+	// all. Unsure means the prompt says nothing about the
 	// source (`context.sourceHint` is null) -- the channel's prior is no
 	// better a guess, having announced a Spanish line in a German channel as
 	// "probably German" -- while `routeHint` keeps the line routable.
@@ -1053,10 +1159,10 @@ export async function translateMessage(
 		spans: protectedText.spans,
 		meta: protectedText.meta,
 		from: source,
-		// Routing only, never the prompt: a weak verdict names no source in
-		// the request the model reads, but still steers the router, so a
-		// CPU-only device can route the line to a seq2seq model instead of
-		// leaving it untranslated (detect.ts `sourceFor`).
+		// Routing only, never the prompt: where the request names no source,
+		// the channel's prior still steers the router, so a CPU-only device
+		// can route the line to a seq2seq model instead of leaving it
+		// untranslated (detect.ts `sourceFor`).
 		routeHint,
 		to,
 		context: buildContext(channel, message, {

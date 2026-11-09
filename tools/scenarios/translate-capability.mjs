@@ -40,8 +40,7 @@
 // its Run on and its Downloads open (a download ahead of use) and makes the
 // cleanup pass say so; both off puts the
 // panel's notice up ("Translation can't run here right now." and both
-// switches named), disables the reading switch's On, dims the header button
-// and makes its click open the panel, disables the message toolbar's
+// switches named), disables the reading switch's On, disables the message toolbar's
 // Translate with the reason as its description, and disables German in the
 // composer's dialog. On noWebgpu, the CPU models off is the one switch named.
 //
@@ -51,11 +50,12 @@
 // dialog with "This needs NLLB-200, which is switched off …" until the switch
 // is turned on. The GPU model select greys a model this GPU cannot bind
 // (binds128, binds160: the 4B, with a hint naming it and the buffer numbers) and no
-// other. Last, on the desktop device, the download question: a channel with
-// several German lines switched to reading asks once ("Download <model>?",
-// its size, Download / Not now), Not now fails every line with "Needs
-// <model>, a <size> download: …" and pauses nothing, nothing is remembered,
-// a Retry asks once more, and every copy line still says "Not downloaded".
+// other. Last, on the desktop device on a connection that saves data (so no
+// download is a quiet one, service.ts QUIET_DOWNLOAD_BYTES): a channel with
+// several German lines switched to reading asks nothing -- reading never
+// interrupts -- and every line offers the download instead, "Needs a <size>
+// download · Download", its title naming the model; nothing pauses, nothing
+// is remembered, and every copy line still says "Not downloaded".
 //
 // Not on the fake engine: ?fakeTranslate replaces the probe with its own
 // answer. A production build is fine; no model is ever downloaded.
@@ -71,7 +71,7 @@
 // the listener that posts the line the toolbar is checked on).
 
 import {readFileSync} from "node:fs";
-import {TRANSLATION_ON} from "./lib/translation.mjs";
+import {TRANSLATION_ON, closeTranslationPanel, openTranslationPanel} from "./lib/translation.mjs";
 
 const RUN = Date.now().toString(36);
 const BASE = process.env.SEANCE_HTTP || "http://localhost:8041/";
@@ -213,9 +213,7 @@ const SETTING = {
 };
 const text = (selector) =>
 	`((document.querySelector(${JSON.stringify(selector)}) || {}).textContent || "").trim()`;
-const GLOBE = "#chat button.translate";
-const PICKER = ".source-language-picker";
-const CONFIRM = `${PICKER} .source-language-picker-confirm`;
+const PICKER = ".language-sheet";
 
 /** A second user who says one line in the channel, for the toolbar. */
 function speaker(nick, line) {
@@ -383,62 +381,66 @@ export default async function run(page) {
 		});
 	};
 
-	const pickTarget = async (code) => {
-		await page.evaluate(
-			`(() => { const s = document.querySelector('${PICKER} select[name="translateInto"]'); s.value = ${JSON.stringify(
-				code
-			)}; s.dispatchEvent(new Event("change", {bubbles: true})); })()`
-		);
-		await page.sleep(100);
-	};
-
-	const pickerState = () =>
-		page.evaluate(`(() => {
-			const confirm = document.querySelector(${JSON.stringify(CONFIRM)});
-			const hint = document.querySelector("${PICKER} .source-language-picker-hint");
-			const described = confirm.getAttribute("aria-describedby");
+	// A row of the sheet's "They read" list, read without picking it: a
+	// row that runs would apply at once. A blocked one is tapped, which
+	// leaves the sheet up with the reason under the list.
+	const rowState = async (code) => {
+		const row = `${PICKER} .language-sheet-row[data-code="${code}"]`;
+		const state = await page.evaluate(`(() => {
+			const row = document.querySelector('${row}');
 			return {
-				disabled: confirm.disabled,
-				label: confirm.textContent.trim(),
-				lead: ((hint && hint.querySelector(".source-language-picker-blocked")) || {}).textContent?.trim() || "",
-				why: ((hint && hint.querySelector(".source-language-picker-why")) || {}).textContent?.trim() || "",
-				hint: hint ? hint.textContent.trim() : "",
-				describedOk: !described || document.getElementById(described) === hint,
+				disabled: row.classList.contains("blocked"),
+				status: (row.querySelector(".language-sheet-status") || {}).textContent?.trim() || "",
+				underHeading: (() => {
+					const items = [...document.querySelectorAll("${PICKER} .language-sheet-list > li")];
+					const heading = items.findIndex((li) => li.classList.contains("language-sheet-section"));
+					return heading >= 0 && items.indexOf(row.closest("li")) > heading;
+				})(),
+			};
+		})()`);
+
+		if (!state.disabled) {
+			return {
+				...state,
+				lead: "",
+				why: "",
+				live: await page.evaluate(
+					`document.querySelector("${PICKER} .language-sheet-hint")?.getAttribute("aria-live") ?? null`
+				),
+			};
+		}
+
+		await page.evaluate(`document.querySelector('${row}').scrollIntoView({block: "nearest"})`);
+		await page.click(row);
+		await page.sleep(100);
+
+		const hint = await page.evaluate(`(() => {
+			const hint = document.querySelector("${PICKER} .language-sheet-hint");
+			return {
+				lead: ((hint && hint.querySelector(".language-sheet-blocked")) || {}).textContent?.trim() || "",
+				why: ((hint && hint.querySelector(".language-sheet-why")) || {}).textContent?.trim() || "",
 				live: hint ? hint.getAttribute("aria-live") : null,
 			};
 		})()`);
 
+		return {...state, ...hint};
+	};
+	const openedOnCode = () =>
+		page.evaluate(
+			`document.querySelector('${PICKER} .language-sheet-side[data-side="to"]').dataset.code`
+		);
+
 	const closePicker = async () => {
-		await page.click(`${PICKER} .source-language-picker-cancel`);
+		await page.evaluate(
+			`document.querySelector(".language-sheet").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))`
+		);
 		await page.waitFor(`!document.querySelector(${JSON.stringify(PICKER)})`, {
 			label: "dialog closed",
 		});
 	};
 
-	const openPanel = async () => {
-		const touch = await page.evaluate(
-			`matchMedia("(hover: none) and (pointer: coarse)").matches`
-		);
-
-		if (touch) {
-			await page.click(GLOBE);
-		} else {
-			await page.evaluate(
-				`document.querySelector(${JSON.stringify(
-					GLOBE
-				)}).dispatchEvent(new MouseEvent("contextmenu", {bubbles: true, cancelable: true}))`
-			);
-		}
-
-		await page.waitFor(`!!document.querySelector(".translation-panel")`, {label: "panel open"});
-	};
-
-	const closePanel = async () => {
-		await page.click(".translation-panel-close");
-		await page.waitFor(`!document.querySelector(".translation-panel")`, {
-			label: "panel closed",
-		});
-	};
+	const openPanel = () => openTranslationPanel(page);
+	const closePanel = () => closeTranslationPanel(page);
 
 	const panelState = () =>
 		page.evaluate(`(() => {
@@ -727,47 +729,41 @@ export default async function run(page) {
 		await openPicker();
 
 		const llm = device.runs[SMALL];
-		const opened = await pickerState();
-		const openedOn = await page.evaluate(
-			`document.querySelector('${PICKER} select[name="translateInto"]').value`
-		);
+		const openedOn = await openedOnCode();
+		const opened = openedOn ? await rowState(openedOn) : {disabled: false};
 
 		// No earlier pick: the cleanup pass where the GPU model runs, else
-		// the first language this device serves -- never a disabled dialog.
+		// nothing preselected -- never a disabled dialog, and never the
+		// first language on the list passed off as a setting.
 		page.check(
-			`${name}: the dialog opens on ${
-				llm ? "the cleanup pass" : "a pair that runs"
-			} (${openedOn}, ${opened.disabled ? "disabled" : "enabled"})`,
-			!opened.disabled && (llm ? openedOn === "en" : openedOn !== "en")
+			`${name}: the dialog opens on ${llm ? "the cleanup pass" : "no preselection"} (${
+				openedOn || "none"
+			}, ${opened.disabled ? "disabled" : "enabled"})`,
+			!opened.disabled && (llm ? openedOn === "en" : openedOn === "")
 		);
 		await page.screenshot(`${name}-composer-opened`, {selector: PICKER, pad: 8});
-		await pickTarget("en");
+		const same = await rowState("en");
 
-		const same = await pickerState();
-
-		page.check(`${name}: the dialog's hint is a polite live region`, same.live === "polite");
+		page.check(`${name}: the sheet's hint is a polite live region`, same.live === "polite");
 
 		if (llm) {
 			page.check(
-				`${name}: the cleanup pass is on offer ("${same.label}")`,
-				!same.disabled &&
-					same.label === EN["translate.picker.targetConfirmCorrect"] &&
-					same.hint === EN["translate.picker.sameLanguage"]
+				`${name}: the cleanup pass is on offer ("${same.status}")`,
+				!same.disabled && same.status === EN["translate.sheet.corrects"]
 			);
 		} else {
 			page.check(
 				`${name}: the cleanup pass is disabled with its reason (${same.lead} / ${same.why})`,
 				same.disabled &&
+					same.underHeading &&
 					same.lead === EN["translate.picker.sameLanguageNeedsGpu"] &&
-					same.why === device.why(SMALL) &&
-					same.describedOk
+					same.why === device.why(SMALL)
 			);
 		}
 
 		await page.screenshot(`${name}-composer-same`, {selector: PICKER, pad: 8});
-		await pickTarget("de");
 
-		const german = await pickerState();
+		const german = await rowState("de");
 
 		page.check(
 			`${name}: German is on offer (CPU models serve it)`,
@@ -880,9 +876,8 @@ export default async function run(page) {
 				.replace("{to}", "Japanese");
 
 			await openPicker();
-			await pickTarget("ja");
 
-			const off = await pickerState();
+			const off = await rowState("ja");
 
 			page.check(
 				`noWebgpu, NLLB off: Japanese is disabled, NLLB named (${off.lead} / ${off.why})`,
@@ -908,9 +903,8 @@ export default async function run(page) {
 			);
 			await closeSettings();
 			await openPicker();
-			await pickTarget("ja");
 
-			const on = await pickerState();
+			const on = await rowState("ja");
 
 			page.check(
 				`noWebgpu, NLLB on: Japanese is on offer (${on.lead || "enabled"})`,
@@ -978,18 +972,17 @@ export default async function run(page) {
 			await closeSettings();
 			await openPicker();
 
-			// The GPU model off: the dialog no longer opens on the cleanup pass.
-			const openedOff = await page.evaluate(
-				`document.querySelector('${PICKER} select[name="translateInto"]').value`
-			);
+			// The GPU model off: the sheet no longer opens on the cleanup pass.
+			const openedOff = await openedOnCode();
 
 			page.check(
-				`desktop, GPU off: the dialog opens on a pair that runs (${openedOff})`,
-				openedOff !== "en" && !(await pickerState()).disabled
+				`desktop, GPU off: the sheet opens on a pair that runs, or none (${
+					openedOff || "none"
+				})`,
+				openedOff === "" || (openedOff !== "en" && !(await rowState(openedOff)).disabled)
 			);
-			await pickTarget("en");
 
-			const polish = await pickerState();
+			const polish = await rowState("en");
 
 			page.check(
 				`desktop, GPU off: the cleanup pass names the switch (${polish.why})`,
@@ -1012,16 +1005,6 @@ export default async function run(page) {
 			await openSettings();
 			await setSwitch("translateCpu", false);
 			await closeSettings();
-
-			const header = await page.evaluate(`(() => {
-				const b = document.querySelector(${JSON.stringify(GLOBE)});
-				return {unavailable: b.classList.contains("unavailable"), label: b.getAttribute("aria-label")};
-			})()`);
-
-			page.check(
-				`desktop, both off: the header button is dimmed and says so (${header.label})`,
-				header.unavailable && header.label === EN["translate.unavailable.lead"]
-			);
 
 			// Under --mobile the toolbar is a finger's: a long press opens it
 			// and marks the last pointer a touch (helpers/inputModality.ts).
@@ -1083,11 +1066,8 @@ export default async function run(page) {
 				await closePanel();
 			}
 
-			// The header's click opens the panel with the reason, not a reading that fails.
-			await page.click(GLOBE);
-			await page.waitFor(`!!document.querySelector(".translation-panel")`, {
-				label: "the header's click opened the panel",
-			});
+			// The channel menu's panel gives the reason, not a reading that fails.
+			await openPanel();
 
 			const off = await panelState();
 			const onSegment = await page.evaluate(
@@ -1118,9 +1098,8 @@ export default async function run(page) {
 			await closePanel();
 
 			await openPicker();
-			await pickTarget("de");
 
-			const blocked = await pickerState();
+			const blocked = await rowState("de");
 
 			page.check(
 				`desktop, both off: German in the dialog is disabled with the reason (${blocked.lead} / ${blocked.why})`,
@@ -1147,12 +1126,16 @@ export default async function run(page) {
 	);
 
 	/**
-	 * The download question, on the desktop device: nothing is downloaded,
-	 * so the first route of a channel's lines asks; Not now must fail them
-	 * all with the model named, once, and pause nothing.
+	 * Downloads on the desktop device: nothing is downloaded, and the
+	 * connection saves data, so reading's first route of a channel's lines
+	 * needs a download nobody agreed to. It must ask nothing, offer it on
+	 * every line with the model named, and pause nothing.
 	 */
 	async function consentStage(index) {
 		page.check("--- consent", true);
+		await page.addInitScript(
+			`Object.defineProperty(Navigator.prototype, "connection", {configurable: true, get: () => ({saveData: true, type: "wifi"})});`
+		);
 		await coldLoad("desktop", index);
 
 		const lines = [
@@ -1187,127 +1170,56 @@ export default async function run(page) {
 			}).observe(overlay, {attributes: true, attributeFilter: ["class"], childList: true, subtree: true});
 		})()`);
 
-		// Reading on: the header's click with a pointer, the panel's On under a finger.
-		// The question comes up over the sheet the switch was thrown in, so
-		// the sheet is put away only once it has been answered.
-		if (MOBILE) {
-			await openPanel();
-			await page.evaluate(`${readOnSegment}.click()`);
-		} else {
-			await page.click(GLOBE);
-		}
+		// Reading on: the panel's On.
+		await openPanel();
+		await page.evaluate(`${readOnSegment}.click()`);
+		await closePanel();
 
-		await page.waitFor(`!!document.querySelector("#confirm-dialog-overlay.opened")`, {
-			label: "the download question",
-			timeout: 30000,
-		});
-		// Every line is waiting on it by now: still one question.
-		await page.sleep(2000);
-
-		const question = await page.evaluate(`(() => {
-			const d = document.querySelector("#confirm-dialog");
-			return {
-				count: window.__questions.length,
-				title: d.querySelector(".confirm-text-title").textContent.trim(),
-				text: d.querySelector(".confirm-text p").textContent.trim(),
-				download: d.querySelector(".btn-confirm").textContent.trim(),
-				notNow: d.querySelector(".btn-cancel").textContent.trim(),
-			};
-		})()`);
+		// The language model's copy is the GPU's (a reason names its device).
 		// Which GPU model the device default picked: the 4B on a desktop with
-		// the memory for it, the 1.7B on a phone.
-		const model = /^Download (.+)\?$/.exec(question.title)?.[1] ?? "";
+		// the memory for it.
 		const sizeOf = {
 			[EN["translate.model.llm"].replace("{name}", "Qwen3 1.7B")]: 984_000_000,
 			[EN["translate.model.llm"].replace("{name}", "Qwen3 4B")]: 2_280_000_000,
 		};
-
-		page.check(
-			`consent: one question for ${lines.length} lines, naming the model and its size (${question.count}: ${question.title} / ${question.text})`,
-			question.count === 1 &&
-				model in sizeOf &&
-				question.title === EN["translate.consent.title"].replace("{model}", model) &&
-				question.text ===
-					EN["translate.consent.text"]
-						.replace("{model}", model)
-						.replace("{size}", size(sizeOf[model])) &&
-				question.download === EN["translate.model.download"] &&
-				question.notNow === EN["translate.consent.notNow"]
-		);
-		await page.screenshot("consent-question");
-		// Past the overlay's fade-in before the click.
-		await page.sleep(500);
-		// The download question opened by itself: no answer before it is armed (ConfirmDialog.vue ARM_MS).
-		await page.waitFor(`!!document.querySelector("#confirm-dialog[data-armed]")`, {
-			label: "the download question armed",
-		});
-		await page.click("#confirm-dialog .btn-cancel");
-
-		if (MOBILE) {
-			await page.sleep(300);
-			await closePanel();
-		}
-
-		// The language model's copy is the GPU's (a reason names its device).
-		const reason = EN["translate.why.downloadGpu"]
-			.replace("{model}", model)
-			.replace("{size}", size(sizeOf[model]));
-		const FAILED = `${JSON.stringify(
+		const OFFERS = `${JSON.stringify(
 			lines
-		)}.map((line) => [...document.querySelectorAll("#chat .msg:not(.self)")].find((m) => m.textContent.includes(line))).map((m) => { const r = m && m.querySelector('.msg-translation[data-status="failed"] .msg-translation-reason'); return r ? {text: r.textContent.trim(), title: r.title} : null; })`;
+		)}.map((line) => [...document.querySelectorAll("#chat .msg:not(.self)")].find((m) => m.textContent.includes(line))).map((m) => { const r = m && m.querySelector('.msg-translation[data-status="failed"] .msg-translation-offer'); return r ? {text: r.textContent.replace(/\\s+/g, " ").trim(), title: r.title} : null; })`;
 
-		await page.waitFor(`${FAILED}.every((r) => r)`, {
-			label: "every line failed",
-			timeout: 20000,
+		await page.waitFor(`${OFFERS}.every((r) => r)`, {
+			label: "every line offers its download",
+			timeout: 30000,
 		});
 		await page.sleep(1500);
 
-		const failed = await page.evaluate(FAILED);
+		const offers = await page.evaluate(OFFERS);
+		const reasons = Object.entries(sizeOf).map(([model, bytes]) => ({
+			text: `${EN["translate.line.needsDownload"].replace("{size}", size(bytes))} ${
+				EN["translate.line.download"]
+			}`,
+			title: EN["translate.why.downloadGpu"]
+				.replace("{model}", model)
+				.replace("{size}", size(bytes)),
+		}));
 		const after = await page.evaluate(`(() => ({
 			count: window.__questions.length,
 			open: !!document.querySelector("#confirm-dialog-overlay.opened"),
-			label: document.querySelector(${JSON.stringify(GLOBE)}).getAttribute("aria-label"),
+			paused: !!document.getElementById("app").__vue_app__.config.globalProperties.$store.state.translation.paused,
 			consent: localStorage.getItem("thelounge.state.translateConsent"),
 		}))()`);
 
 		page.check(
-			`consent: Not now fails every line naming the model (${failed[0]?.text})`,
-			failed.every((r) => r && r.text === reason && r.title === reason)
+			`consent: every line offers the language model's download (${offers[0]?.text} / ${offers[0]?.title})`,
+			offers.every(
+				(r) => r && reasons.some((want) => want.text === r.text && want.title === r.title)
+			)
 		);
 		page.check(
-			`consent: still one question, none open, nothing remembered (${after.count}, ${after.consent})`,
-			after.count === 1 && !after.open && after.consent === null
+			`consent: nothing asked, nothing remembered (${after.count}, ${after.consent})`,
+			after.count === 0 && !after.open && after.consent === null
 		);
-		page.check(`consent: no pause (${after.label})`, !/paused/i.test(after.label || ""));
-		await page.screenshot("consent-not-now");
-
-		// A Retry is someone asking: one more question.
-		await page.evaluate(`(() => {
-			const line = ${JSON.stringify(lines[0])};
-			const m = [...document.querySelectorAll("#chat .msg:not(.self)")].find((el) => el.textContent.includes(line));
-			m.setAttribute("data-consent-retry", "1");
-		})()`);
-		await page.evaluate(
-			`document.querySelector("[data-consent-retry] .msg-translation-retry").click()`
-		);
-		await page.waitFor(`!!document.querySelector("#confirm-dialog-overlay.opened")`, {
-			label: "the question again after a Retry",
-		});
-
-		const again = await page.evaluate(`window.__questions.length`);
-
-		page.check(`consent: a Retry asks once more (${again})`, again === 2);
-		// Past the overlay's fade-in before the click.
-		await page.sleep(500);
-		// The download question opened by itself: no answer before it is armed (ConfirmDialog.vue ARM_MS).
-		await page.waitFor(`!!document.querySelector("#confirm-dialog[data-armed]")`, {
-			label: "the download question armed",
-		});
-		await page.click("#confirm-dialog .btn-cancel");
-		await page.waitFor(
-			`!!document.querySelector('[data-consent-retry] .msg-translation[data-status="failed"]')`,
-			{label: "the retried line failed again"}
-		);
+		page.check(`consent: no pause (${after.paused})`, !after.paused);
+		await page.screenshot("consent-offers");
 
 		// Nothing was downloaded, or is: every model row still says so.
 		await openSettings();

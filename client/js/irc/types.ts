@@ -40,6 +40,13 @@ export type ConnectOptions = {
 	host: string;
 	port: number;
 	tls: boolean;
+	/**
+	 * `tcp`: plain IRC over TCP (TLS when `tls`), made by the app shell
+	 * (shellSocket.ts); unavailable in a browser. `websocket` or absent: IRC
+	 * over WebSocket. The forms send `websocket` to switch back (an absent
+	 * option keeps the stored value); a saved entry never holds it.
+	 */
+	transport?: "tcp" | "websocket";
 	nick: string;
 	/** Comma-separated channel list, optionally with keys (`#a key, #b`). */
 	join: string;
@@ -47,6 +54,19 @@ export type ConnectOptions = {
 	sasl: "" | "plain" | "external";
 	saslAccount: string;
 	saslPassword: string;
+	/**
+	 * Server password, sent as `PASS` before `NICK`/`USER` when non-empty.
+	 * Bouncers that predate client SASL want it (ZNC: `user/network:password`);
+	 * independent of SASL, and both are sent when both are set.
+	 */
+	serverPassword?: string;
+	/**
+	 * Certificates the user chose to trust for this network although they
+	 * fail the usual checks (an expired or self-signed one), by SHA-256 in
+	 * lowercase hex. Only the app shell's raw TCP connections honour them
+	 * (shells/tauri socket.rs); a browser's WebSocket checks for itself.
+	 */
+	trustedCertificates?: string[];
 	/**
 	 * Drop the connection when a configured SASL login does not succeed,
 	 * instead of carrying on unauthenticated. Unset means "ask the deploy":
@@ -68,8 +88,9 @@ export type Handler = (client: IrcClient, msg: IrcMessage) => void;
 
 /**
  * What the UI attached to a line of input (`input` emit, bus-contract §1.4):
- * msgids to reply to and/or replace. Only plain text honours both; `/me`
- * honours `reply`; every other command ignores them.
+ * msgids to reply to and/or replace, and the language tags' fields. Plain
+ * text and `/me` honour them (an edit goes out with its reply tags only:
+ * the composer never translates an edit); every other command ignores them.
  */
 export interface InputOptions {
 	reply?: string;
@@ -77,6 +98,14 @@ export interface InputOptions {
 	/** Run by the client, not typed or clicked (a network's saved commands
 	 * after every registration): never counts as the user asking. */
 	auto?: boolean;
+	/**
+	 * The language the text is in, when Seance knows it from something
+	 * other than the text: the composer's translation into a language the
+	 * user picked. Sent as `+draft/language` on plain text and `/me`.
+	 */
+	language?: string;
+	/** The composer machine-translated the text (`+evilnet.github.io/machine-translated`). */
+	machineTranslated?: boolean;
 }
 
 /** The channel (or lobby/query) an input line was typed into. */

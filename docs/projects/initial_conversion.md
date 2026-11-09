@@ -163,6 +163,8 @@ No fixed order. Tackle items in whatever sequence the friction dictates.
 5. [ ] **Docs**
    - [x] a. Rewrite `CLAUDE.md` to reflect the static-SPA architecture and `attic/` policy. _Done 2026-08-25._
    - [ ] b. Move this file to `docs/archives/` when shipped.
+6. [ ] **Vendor tag namespace**
+   - [ ] a. Move `+seance/edit` to `+evilnet.github.io/edit`, as `+evilnet.github.io/machine-translated` already is (`irc/langtag.ts`). Waits for nefarious2 to stop dropping client tags under `+evilnet.github.io/` (`is_reserved_vendor_tag` reserves the whole namespace today). Keep reading `+seance/edit`, since history holds edits sent with it.
 
 ## Sequencing checkpoints
 

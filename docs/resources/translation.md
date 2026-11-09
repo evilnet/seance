@@ -19,10 +19,9 @@ backup with the rest of `settings`). That one rule is
 state).
 
 Off, translation is absent, not disabled -- nothing renders, nothing is
-dimmed: no translate button in the channel header and no panel (neither the
-column nor the phone's sheet, and the channel menu's "Translation…" is gone,
-so nothing asks for one through `state.translation.panelFor`), no composer
-button, strip or round-trip row, and the first Enter sends every draft as
+dimmed: no panel (the channel menu's "Translation…" is gone, so nothing
+asks for one through `state.translation.panelFor`), no composer
+button, strip or round-trip row, and Return sends every draft as
 typed (`outgoing.ts` `firstEnterTranslates`; a kept write target and `/me`
 included), no Translate in the message toolbar, no `TranslationLine` under a
 message and no topic translation or flipper. There are no keyboard shortcuts
@@ -42,7 +41,12 @@ comes from the running service, or without one from the configuration
 with `by: "user"` when the user switched it off ("Translation is turned off
 on this device.") and without when the deploy did ("Translation is turned
 off in this deployment."; switch.ts `translationOffBlock`). Nothing shows
-either today, since every surface that would is absent while off. Every
+either today, since every surface that would is absent while off -- but
+one: off by the user's setting (not the deploy's), the channel menu still
+has "Translation…", which opens Settings → Language, where the switch is
+(`contextMenu.ts`, `reader.ts` `translationOffByUser`), so a reader
+looking for translation in a channel finds the way to turn it on. It
+makes nothing (`translate-off.mjs`). Every
 entry of the reading pipeline (`reader.ts`: a line, a
 history page, a replay, the topic, a language change, a retry) and of the
 composer (`writer.ts`) asks first. Switching off acts at once (a store watch
@@ -50,7 +54,7 @@ syncs the switch): the switch puts the service out of reach, then its
 listeners stop their work while it still stands -- the reader cancels every
 queue (its lines dropped, never failed, so nothing counts toward a pause),
 forgets them and clears `state.translations` (Message.vue restyles an
-original from it), the paused banner and a pending panel ask; the composer
+original from it), the pause and a pending panel ask; the composer
 aborts every strip and round trip, clears `state.outgoingTranslations` and
 the waiting read-backs, the drafts staying in their inputs -- and only then
 is the service disposed: its worker terminated, every store watch and
@@ -201,7 +205,7 @@ reload). Every other translation scenario switches translation on first
   translation-engine list independent of the interface's target list at
   `translation-languages.txt`, which the beta trimmed to 24 (§ i18n.md
   "Adding a language"). A line in a dropped language
-  is no longer detected as that language (franc's candidates are the
+  is no longer detected as that language (the identifiers weigh only the
   supported list), so it reads as unplaced; the reading language is the
   interface's (`reader.ts` `readingLanguage`, `fromLocaleTag`), which
   maps any tag the supported list lacks to English, and a channel's stored read
@@ -310,9 +314,19 @@ reload). Every other translation scenario switches translation on first
   flattered it on the long tail). Differences under ~10 points are ties.
   NLLB first with the LLM as the fallback class for sr hr sl el he fa bn ta
   et lv lt eu cy is sw af tl ur fi hu hi; the LLM and NLLB in one class for
-  sk ms gl th cs nb bg id; the LLM and OPUS-MT in one class for de nl ru fr,
-  the LLM then OPUS-MT for es it; the LLM then NLLB everywhere else (pl, ca
-  and ga measured the LLM ahead). Arabic measured NLLB well ahead (29 points
+  sk ms gl th cs nb bg id; the LLM then NLLB everywhere else (pl, ca
+  and ga measured the LLM ahead). **An OPUS-MT pair goes first, alone,
+  wherever there is one** (`routes.default.ts` `opusEntry`), then the LLM,
+  then NLLB: least to most resource-intensive, since a pair is ~100 MB and
+  runs a line on the CPU in under a second where the LLM is a 1-2 GB
+  download and a GPU. The measurement had the LLM and OPUS-MT tied for
+  de nl ru fr and the LLM ahead for es it (`OPUS_TIED`, kept as the record
+  and for `tools/i18n/fill.ts`); that is not worth a 2 GB question in a
+  chat client. The system translator (Apple's, `engines/apple.ts`) is
+  asked before any table. A deploy's own routes (`translation.routes`)
+  are its own: AfterNET's `[["opus:en-ko", "llm"], "nllb"]` keeps the pair
+  first only while the LLM is not downloaded, and needs
+  `["opus:en-ko", "llm", "nllb"]` to put it first always. Arabic measured NLLB well ahead (29 points
   on the web weights) and is placed LLM-first anyway: the LLM reads the
   channel's context and the seq2seq models do not, and a short-line round
   trip flatters benchmark-trained models in chat. Each placement
@@ -368,8 +382,7 @@ the chips' "Retranslate from…" (the confirm disabled, the reason in a polite
 live region that describes it); the panel (a notice when nothing runs, the
 reading switch's On disabled, languages nothing can write in greyed under
 "Send my messages in" with the reason, the note naming the greyed option);
-the header button (dimmed, labelled "Translation can't run here right
-now." on touch as with a pointer, its click opens the panel); the message
+the message
 toolbar's Translate (with a pointer disabled, the reason as its tooltip and
 description; under a finger, which shows no tooltip, `aria-disabled` and
 its tap opens the panel with the reason); and a line or strip that failed for
@@ -380,15 +393,16 @@ adapters, also `--mobile`).
 ### A download asks first
 
 The router sends a request to the best class whether its model is
-downloaded or not, and the service downloads on demand, so one click on the
-header's translate button could start a 1-2 GB download. Before the first
+downloaded or not, and the service downloads on demand, so one switch of a
+channel's reading on could start a 1-2 GB download. Before the first
 download of a model that is not on the device, not downloading already and
 never agreed to, the user is asked once (`consent.ts` `DownloadConsent`,
 held by the service): the app's confirm dialog (`ConfirmDialog.vue`, its
 `note`/`cancel`/`primary` options) titled "Download <model>?", the size from
 `ModelRef.sizeBytes` through `friendlysize`, a line about the connection
 when `navigator.connection` reports Save-Data or a cellular link, and
-Download / Not now. The question is asked **when the route is resolved**
+Download / Not now -- for anything but reading, which never asks (below).
+The question is asked **when the route is resolved**
 (`service.ts` `resolve`, which `route()` and `translate()`'s own walk go
 through), before the reading queue or the composer arms a request
 deadline, so a dialog left open times nothing out and the queue's engine
@@ -413,6 +427,38 @@ and marker form are chosen with the answer known.
   `translate()` report it, through `fail()`, which counts it toward no
   pause (`PAUSE_AFTER_FAILURES` never trips on a declined download). A
   Retry on a line is a new question (`service.forgetDeclines`).
+- **Reading never asks** (`ResolveOptions.quiet`, which the reading queue
+  and every `purpose: "read"` request pass): a line nobody translated by
+  hand must not pop a dialog. Its route takes what needs no yes, and where
+  nothing does the line fails with `needsDownloadError` like a Not now --
+  without recording one, so the composer still asks -- and
+  `TranslationLine.vue` offers it on the line instead of a failure: "Needs a
+  <size> download · **Download**", the reason above as its title. The
+  Download is the yes (`service.allowDownload` for the copy the reason
+  named) and retries the line, whose download's progress then shows on it.
+  The composer, which the user is waiting on, still asks in the dialog.
+- **A small copy is no question at all**: one of `QUIET_DOWNLOAD_BYTES`
+  (128 MB) or less -- an OPUS-MT pair's CPU copy, a deploy's per-language
+  models -- downloads unasked, from reading and the composer alike, unless
+  `navigator.connection` reports Save-Data or a cellular link
+  (`ServiceDeps.metered`; iOS reports neither, so there it is always quiet).
+- **The system translator's pack is offered on the line, never in its
+  sheet by itself** (the iOS and macOS shells, `engines/apple.ts`): reading takes an
+  installed pack only; a pack that could be downloaded is reported
+  (`ServiceDeps.onApplePack` → `applePacks.ts`), the line is translated by
+  the table now, and the first line translated from that pair shows "Apple
+  can translate <language> on this device · **Get it**" under it, once per
+  pair per page load. Get it opens the system's sheet (`offer`); once the
+  pack lands, the pair is Apple's. The composer still offers the sheet the
+  first time it needs a pack; Settings keeps its own pack button.
+- **The UI's verdict knows Apple's packs.** `reader.ts` `pairVerdict` (the
+  sheet's rows, the panel, the source picker, the composer's suggestion
+  card) answers with the system translator for a pair whose pack is
+  installed, as the service would route it, so those rows show no download
+  instead of the table model's size (an Apple pair once read "a 108 MB
+  download" for the OPUS-MT pair it would never fetch). It reads
+  `AppleTranslator.knownStatus`; a pair not asked about yet is asked once
+  (`lookup`) and the verdict recomputes when the answer arrives (`onKnown`).
 - The UI's availability questions (`pairVerdict`) do not read declines:
   the actions stay offered, and a line or strip says why it did not run.
 - Without a dialog wired (`ServiceDeps.askDownload` absent) every download
@@ -421,9 +467,11 @@ and marker form are chosen with the answer known.
 
 Tests: `test/translate/consent.ts`, `test/translate/service.ts` "download
 consent"; browser check `tools/scenarios/translate-capability.mjs` (one
-question for a channel's lines, Not now naming the model on each line, no
-pause) and `tools/scenarios/translate-consent.mjs` (the fake: Not now
-falling back to a downloaded OPUS pair).
+reading asks nothing and offers the download on each line, no pause) and
+`tools/scenarios/translate-consent.mjs` (the fake: reading falls back to a
+downloaded OPUS pair unasked, then a line's Download is remembered and
+runs the language model). Until 2026-11 reading asked in the dialog too,
+and the iOS sheet opened by itself on the first line of a new language.
 
 ### Phones and small GPUs
 
@@ -819,13 +867,13 @@ per copy, and `TranslateRequest` carries the device.
 
 ## Reading a channel
 
-The translate button in a channel's header switches translation on for that
-channel (`Chat.vue`, `translate/reader.ts`; the button carries the
+The reading switch in a channel's translation panel (the channel menu's
+"Translation…", below) switches translation on for that channel
+(`translate/reader.ts` `setReading`; translation's surfaces carry the
 `fa-language` glyph (`文A`) -- the globe keeps only the dev locale
 selector's language-setting role): from then on every message in it, the
-user's own included, is detected (`detect.ts`: the function-word classifier
-first (below), then `franc` in its own chunk, with the channel's declared
-languages and then its dominant language settling near ties), skipped when
+user's own included, is detected (`detect.ts`: the line's script, then fastText and ELD in their own
+chunk, placed only where they agree (below)), skipped when
 nothing translatable is left of it (`eligibility.ts`: URLs, code, emoji,
 formatting codes and nick mentions stripped -- there is no word floor, a
 one-word line reads; a line stripped to nothing still does not queue) or
@@ -837,22 +885,36 @@ channel's terms and the deploy's glossary behind them) and queued
 (`queue.ts`: the active channel first, one request per engine, LLM lines
 of one channel and pair batched, items that fell two hundred messages
 behind dropped, an engine paused after three failures in a row). The
-result lives in `store.state.translations` keyed by the message id and
-renders as `TranslationLine.vue` under the original: a "German → English"
-chip (source → target; where the engine placed the source itself, the
-detector's contenders stand in for it -- "Norwegian / Danish → English",
-"French? → English", "? → English" with none -- `labels.ts`), the text streaming with a caret, a retry when it failed (an icon
-button, "Retry the translation" its tooltip and accessible name, with the
-translated reason beside "Couldn't translate" when there is one -- a model
-that would not load says so rather than leaving the tier looking broken;
-the one `unchanged` failure renders as the compact chip below instead); the chip's
-menu copies, retranslates or hides the line ("Copy translation" puts the
-translated text on the clipboard through `js/clipboard.ts`, the helper the
-message toolbar's Copy uses, and says nothing when the browser refuses),
-and the toolbar's Translate does one
-message on request in a channel that is off -- and brings a hidden
-translation back, at no cost, once the chip's "Show original only" has
-taken it away.
+result lives in `store.state.translations` keyed by the message id. **A
+done translation stands in the original's place** (`Message.vue`
+`replaced`, the `.msg-translated` span inside `.content`, `lang` the
+target): no row of its own. **A tap on the text swaps the original
+back**, and the next tap the translation in again (`.msg-flippable`,
+`Message.vue` `onFlipClick` → `showOriginal`, the entry's `hidden`); a tap
+on a link, nick, channel or spoiler inside it, the end of a selection or
+long press, and the tap that closes an open toolbar do not count, and the
+toolbar's menu has the same swap for a keyboard. The marker before the text
+(`TranslationFlip.vue`, the fa-language glyph in the chips' accent box,
+dimmed while the original shows) swaps them too: Message.vue binds the
+same `onFlipClick` to it, so the same taps do not count. "Translated from
+German. Show the original" is its tooltip and accessible name, "Sent in
+Polish. Show what was sent" on an own line's read-back. The header topic keeps its flipper button. Until 2026-11 the translation was a second row under
+the original with a "from German" label; a channel reader asked for the
+original to be replaced instead. Nothing renders while a line is pending:
+it swaps in when done, rather than streaming into a row that then
+disappears (`TranslationLine.vue` still shows a line waiting on a model
+download, with the note). A failure keeps its row under the original: the
+"from …" chip, "Couldn't translate" with the translated reason when there
+is one -- a model that would not load says so rather than leaving the tier
+looking broken -- and a retry icon button ("Retry the translation" its
+tooltip and accessible name); the chip's menu retranslates. A translated
+line's menu is its toolbar's Translate ("Translation options",
+`MessageActions.vue` `openMenu`): Show original / Show translation first,
+then "Copy translation" (through `js/clipboard.ts`, the helper the
+message toolbar's Copy uses, silent when the browser refuses),
+Retranslate, "Retranslate from `<Language>`" per detector runner-up, and
+"Retranslate from…" with the picker. On an untranslated line the same
+action translates on request.
 
 **The toolbar's Translate asks before it guesses.** A line nobody asked
 about has not been detected, so an ad-hoc translation of it would be the
@@ -874,9 +936,11 @@ the app is read in.
 **A pause is a minute off, not the end of reading.** Three failures in a
 row take an engine out of the rotation (`PAUSE_AFTER_FAILURES`), and
 `PAUSE_RESUME_MS` (60 s) later it resumes itself: the failure count goes
-back to zero and `QueueDeps.onResume` clears the header's paused banner.
-A user's Retry goes through the same `resume()` and disarms the waiting
-timer, so the banner is never cleared twice; a second pause waits again.
+back to zero and `QueueDeps.onResume` clears `state.translation.paused`,
+which the channel's panel shows while it lasts ("Translation is paused for
+now: <the engine's message>"). A user's Retry goes through the same
+`resume()` and disarms the waiting timer, so the pause is never cleared
+twice; a second pause waits again.
 Two errors never count toward a pause at all -- `WORKER_DISPOSED` (the
 pagehide teardown, an idle unload) and an `ABORTED` the queue did not ask
 for. Neither says anything about the engine, so the batch goes back to the
@@ -914,7 +978,7 @@ did complete and the next line may well be one it can do. The line keeps
 its chip and its Retry.
 
 **The detector is shown prose and nothing else.** Every detection site --
-the reader's, the toolbar's Translate, the chip's "Translate anyway" and
+the reader's, the toolbar's Translate, the chip's Retranslate and
 "Retry", and the composer's draft -- passes the line through
 `eligibility.ts` `plainTextOf` first, which is also what the word count
 behind eligibility measures. Gone before the detector sees it: the IRC
@@ -931,147 +995,71 @@ a link loses its target to the link node and would otherwise lose its text
 with it. A line that is nothing but syntax -- a bare `#seance` -- is left
 with no words at all and is not eligible.
 
-**Detection starts with the function words.** franc's trigram model
-misplaces chat-length lines confidently: measured against the app's own
-language set, "I just woke up again." came back Dutch at confidence 1.0,
-"good morning" Swedish and "helo their friend" Scots -- and a misdetection
-routes the line to an engine with a wrong source, which hands it back
-unchanged and the row reports a failure for perfectly ordinary English. So
-`detectLanguage` asks `chatdetect.ts` first: `stopwords.json` -- generated
-by `tools/generate-stopwords.py` (wordfreq's frequency-ordered function
-words per language, `stopwords-iso` where wordfreq lacks the tag, any word
-shared by four or more tables dropped as noise, ~60 words each, ~19 KB
-committed) -- scores each line's tokens against every candidate language's
-function words (by containment for ja/zh/ko, which write without spaces).
-A verdict two hits or more and strictly ahead of the runner-up wins over
-franc outright; on a line too short for trigrams (under `DETECT_MIN_LENGTH`,
-10 characters) a single classifier hit is already the answer, where before
-there was none; anything weaker falls through to the trigram flow
-unchanged. The classifier is misspelling-tolerant by shape: "helo
-**their** friend" still hits "their". What the measured failures do now:
-"I just woke up again." places as English via the classifier (`same`, the
-chip names it); "good morning" is chat content words the classifier
-leaves unplaced by design, so it falls through to the trigram flow; and a
-misspelled short line with one function word ("helo **their** friend")
-places via the classifier.
+**Two identifiers are asked, and a line is placed only where they agree.**
+A line whose script only one supported language writes is placed by its
+letters (`detect.ts` `scriptLanguage`: kana Japanese, Hangul Korean, Han
+without kana Chinese, Thai, Hebrew, Greek, Bengali, Tamil). Anything else
+goes to `lid.real.ts`, a chunk of its own (`js/lid.js`) loaded on the first
+line there is to place: fastText's lid.176 (Facebook's 176-language model,
+the compressed `lid.176.ftz`, 938 KB, run in `fastText.common.wasm`, 432 KB,
+both served from `js/lid/` on the app's own origin) ranks the lower-cased line, and ELD
+(Efficient Language Detector, its `small` n-gram table, plain JavaScript,
+weighing only the supported languages) names one language and says whether
+it calls that reliable. `decide` then places the line, in order:
 
-**A short line the function words cannot place is looked up.** A lone word
-carries no grammar at all: "test", "hola", "danke" hit no function-word
-table and are far under `DETECT_MIN_LENGTH`, so franc is never asked
-either, and the line used to go to the engine with no source named -- which
-for one English word means the engine hands that word straight back and the
-row reports a failure. `wordlookup.ts` `lookupShortLine` places it instead:
-`wordlist.json` -- generated by `tools/generate-wordlist.py`, the 800 most
-frequent words of each of the 24 translation targets with their rank, one
-map keyed by the word, ~390 KB committed and loaded as its own lazy
-chunk on the first short line that reaches it -- gives every language
-1/rank for each of the line's words, so a word at rank 5 counts far more
-than one at rank 700. One language carrying the words places the line
-("test" is English and nothing else, "hola" Spanish); several are settled
-first by a leader `LOOKUP_LEAD` (3x) ahead of the runner-up ("hasta luego"
-leads 17x), and only where nothing leads by the channel's prior naming one
-of the contenders ("ja so gut" is German, Slovak, Polish and English,
-German 1.8x ahead, and a German channel decides it). The order is the
-point: "the" is English rank 1 against Spanish rank 301, a ~300x lead, and
-a Spanish channel's prior must not turn a lone "the" into a line translated
-from Spanish. Anything else stays unplaced with its contenders named,
-exactly as before. The lookup runs only on a line of at most
-`LOOKUP_MAX_WORDS` (3) words the classifier did not place, never overrules
-it, never takes a line off franc that franc could have had (a line it will
-not place and franc can still see goes to the trigram flow), and notes
-nothing into the channel's prior -- one word is no evidence about a
-channel. Its verdict is _not_ weak: that is the point, since `sourceFor`
-only translates _from_ a verdict that is not weak, and "test" read in
-Spanish has to become "prueba". Two limits worth knowing: a word no table
-lists ("lol") leaves the lookup silent, and ja/zh/ko/th write without
-spaces, so a sentence in one of them arrives as one token that matches
-nothing -- the classifier's containment matching is what serves those
-languages. That case never fetches the chunk: a line with no letter in it,
-or a single space-free token longer than `LOOKUP_MAX_SCRIPTLESS` (9, the
-longest entry any of those languages has), is answered before the table is
-asked for, so a Japanese reader does not download 390 KB for nothing (a
-lone word still is looked up -- "ありがとう" places as Japanese).
-A lookup verdict's `confidence` is `min(1, Σ 1/rank)`, so it says how
-common the words are: only a word ranked about 4th or better in its
-language clears `WRITE_DETECT_MIN_GAP` (0.3), the floor the composer's
-`reverseSource` trusts a verdict from. That is the right split for a draft:
-a lone "the" (English rank 1, confidence 1) is English and the composer
-takes it, while "hola" (Spanish rank 416, confidence 0.0024) or "danke"
-(German rank 204) is too thin a claim about what the user is typing and the
-composer falls back as before. The reading pipeline has no such floor -- it
-reads `weak`, which a lookup verdict never is. Thai is the one
-language whose words come from a stopword list rather than a frequency one
-(the table lists it under `partial`). Both generators read the same tag list
-and source ladder (`tools/wordsources.py`) and both need wordfreq and
-stopwordsiso, which are not project dependencies -- run them from a venv
-(`python3 -m venv tmp/venv-words && tmp/venv-words/bin/pip install wordfreq stopwordsiso`), and `tools/generate-wordlist.py --check` says whether the
-committed table is still byte for byte what the sources generate.
+1. fastText's best at `AGREE_MIN` (0.3) or more, with ELD naming the same
+   language;
+2. a language ELD's table lacks (`ELD_MISSING`: id gl ga cy sw af),
+   fastText at `ALONE_MIN` (0.6) or more, with the reading language nowhere
+   in fastText's top `RIVAL_DEPTH` (3) -- "ya" is Swahili to fastText at
+   0.96, and English is in the running;
+3. ELD's verdict where ELD calls it reliable, the reading language again
+   nowhere in fastText's top three;
+4. a language the channel declared that either identifier names (below);
+5. nothing: the line is unplaced, and the reader leaves it alone.
 
-**A thin verdict is a hint, never a source.** A single function-word hit
-places "je suis la" in Vietnamese (the noise cut in
-`tools/generate-stopwords.py` drops a word shared by four tables or more,
-so `je`, `suis` and `la` are all gone from French while `la` survives in
-Vietnamese) and a narrow trigram lead places "hasta luego" in Polish.
-`Detection.weak` marks both: a classifier verdict under
-`CHAT_STRENGTH_MIN` (2) hits, and a franc verdict whose measured lead is
-under `WEAK_CONFIDENCE` (0.2). A language the channel declared, or its
-prior, is never weak -- `DETECT_MIN_GAP` there is how "the reader's claim
-decided it" is written down, not a measurement. `detectionSkip` reads
-`lang` whatever its weight, so a weak English verdict still leaves an
-English line alone for an English reader; what weak changes is
-`detect.ts` `sourceFor(detection, from, to)`, the one place that decides
-what a line is translated _from_: a chosen source wins, a verdict that is
-neither missing nor weak is the source, and anything else queues the line
-with no source named and `unsure` set -- the engine places it, which an
-LLM does well and a wrong `from` makes impossible. The router is told more
-than the prompt is: `sourceFor` also returns a `routeHint` (the channel's
-prior first, the weak verdict as the last resort), which rides on
-`QueueItem.routeHint` into `TranslateRequest.hint` and never into the
-prompt. Without it a weak line would be unroutable on a CPU-only device --
-`router.ts` skips every seq2seq candidate when no source is known at all --
-which would mean no translation where there used to be a wrong one. The
-composer has the same split (`outgoing.ts` `sourceHintFor`).
+`confidence` is fastText's probability for the verdict (`AGREE_MIN` where
+fastText did not rank it, 1 for a script), which is what the composer's
+`WRITE_DETECT_MIN_GAP` (0.3) reads. Measured on 339 hand-labelled chat lines
+(`tools/translate-eval/lid.mts` on `lid-set.json`,
+`results/2026-11-08-lid.md`), this places one English line in 166 elsewhere
+("sus", Spanish to both) and 83% of the foreign ones in their own language;
+franc with the function-word classifier and the 800-word lookup it replaces
+(until 2026-11) placed 7 English lines elsewhere ("uncanny" and "I know what
+to do tho" Polish among them) and 47% of the foreign ones. What it leaves
+unplaced is mostly one- and two-word greetings ("merci", "hola", "tack"),
+which the toolbar's Translate still translates.
 
-**A failure is worded in the reader's language, and `unchanged` barely
-speaks at all.** The failed row's frame and its known reasons are catalog
+**A failure is worded in the reader's language, and `unchanged` does not
+speak at all.** The failed row's frame and its known reasons are catalog
 keys now -- "Couldn't translate" (`translate.failed`), and the reason
 constants (`ANSWERED`, `NARRATION`, `DEGENERATE`) each have a key of their
 own (`translate.reason.*`); an unknown engine error keeps its verbatim text
 in the title (server and technical text is never translated). The
 `unchanged` verdict -- the model handed the line back, which as often as
-not means there was nothing to translate -- drops the prose row for a
-compact chip: the `fa-equals` glyph carrying the translated "Not
-translated" as its tooltip and accessible name, wearing the same accent
-style as every other translation chip and opening the failed row's menu
-minus Copy (Retranslate, the per-candidate "Retranslate from
-`<Language>`", "Retranslate from...", Show original only -- there is no
-translation to copy). Production builds render the icon alone; a
-development build appends the reason ("the line came back unchanged") after
-it (`devtoolsAvailable`). The line itself is the one to read, since there is
-no translation row to be the bright line, so its original takes the
-translation's ink (`Message.vue` `unchanged`, `#chat .msg.unchanged .content`) -- over the own-line dimming too: an own line that translated
-shows a bright row, and an own line that came back as it was should read
-the same rather than stay dim with only the chip to show for it. A
-detection skip is not this; its original keeps whatever ink it had. Browser
-check: `tools/scenarios/translation-chips.mjs`, which puts the verdict on
-the page's own line.
+not means there was nothing to translate -- renders nothing under the
+message, on anyone's line or the user's own (`TranslationLine.vue`'s
+`v-if`): the line is the one to read, and a "=" chip under every "Lol"
+the detector misplaced was noise (it was shown until 2026-11). The entry
+stays in the store as `failed`, so the toolbar's Translate still offers the
+line. Browser check: `tools/scenarios/translation-chips.mjs`, which puts the
+verdict on someone else's line and on the page's own.
 
-**A line the detector cannot place still translates, unless it could be
-the reading language.** `detect.ts` `detectionSkip` decides: a line placed
-in the reading language is skipped (`same`); a line it could not place is
-skipped (`unsure`) only when the reading language is among its
-`candidates`, or when there are none (a line too short to look at), and is
-otherwise queued with `from: null` and no `sourceHint` (`sourceFor`, above)
--- neither the weak guess, which would send the line to a seq2seq model
-with the wrong source, nor the channel's prior, which announced an unsure
-Spanish line as "probably German" in a German channel. Measured on a real channel's
-history (71 lines, read in English), skipping every unsure line left 21
-untranslated -- 13 of one user's 15 Spanish lines, which franc ranks
-within a hundredth of Galician and Portuguese -- where the rule translates
-63 and the 8 it still skips are all English. On a device whose router has
-no engine for an unnamed source (CPU only) such a line cannot be routed,
-and the queue's "no translation engine" failure is written as the `unsure`
-mark instead (`reader.ts` `applyUpdate`).
+**A line in doubt is left alone.** `detect.ts` `detectionSkip` skips a
+line placed in the reading language (`same`) and one nobody placed
+(`unsure`): an unplaced line might be readable as it is ("lol", "brb",
+"mmm tweaking"), and handed to an engine with no source named such lines
+came back "from Polish". Everything placed elsewhere is queued with its
+source (`sourceFor`: a chosen source as it stands, else the verdict, and
+for a forced line in the reading language the channel's prior as the
+routing hint, `QueueItem.routeHint` → `TranslateRequest.hint`, never the
+prompt).
+
+**The prior learns only from what measured something.** `detectLanguage`
+notes a placed verdict into the channel's prior when the line is at least
+`DETECT_MIN_LENGTH` (10) characters and not the user's own line
+(`learn: false` from `reader.ts`): own lines say what the user writes, not
+what the channel does. The prior only routes; it never places a line.
 
 **The topic is read too.** A channel's topic is the line everyone in it
 is looking at, so a reading channel reads it like its lines: `reader.ts`
@@ -1093,67 +1081,48 @@ stands); a switch-off or a fresh read (`requeueReading`) drops the entry
 `tools/scenarios/translate-reading.mjs` (the speaker sets a German topic
 before the switch-on and another after).
 
-**A skipped line is marked.** Every line detection skips gets a store entry
-of its own -- `status: "skipped"`, `reason` `same` (with `from` the reading
-language) or `unsure` (with the candidates kept) -- which
-`TranslationLine.vue` renders as a small chip after the message
-(`.msg-translation-skipped-tag`, the same accent style as the `lang → lang`
-chip -- the old muted look is gone): the
-language's name in the reader's language for `same`, "?" for `unsure`; no
-text row, no caret, and the original keeps its ink. The tag's menu offers
-**Translate anyway** (the forced `retranslate`; the toolbar's Translate is
-offered on such a line too), a **Retranslate from `<Language>`** per
-candidate (neither the line's own source nor the reading language) and
-**Retranslate from...** with the picker. Lines eligibility turns away
-(pending copies, types other than chat, a line with no words left after
-the stripping -- there is no word floor) stay unmarked. A
-mark is never a translation: `buildContext` quotes only `done` text, the
-menu has no Copy, a language change requeues the line like any other (the
-one entry the requeue keeps is an own line's `done` read-back), a rebuilt
-retry does not take a mark's `from` as its source, and `takesReadBack` does
-not count a mark as the line's translation.
+**A line detection skips is not marked.** Every line detection skips gets
+a store entry of its own -- `status: "skipped"`, `reason` `same` (with
+`from` the reading language) or `unsure` (with the candidates kept) -- and
+`TranslationLine.vue` renders neither: no chip, no text row, and the
+original keeps its ink. An "English" mark on every line of a channel that
+writes the reading language, and a "?" on every line too short to place,
+were noise (both were shown until 2026-11). The toolbar's Translate still
+translates either, and its menu names the line's language first if wanted.
+Lines eligibility turns away (pending copies, types other than chat, a line
+with no words left after the stripping -- there is no word floor) get no
+entry. A skip is never a translation: `buildContext` quotes only `done`
+text, a language change requeues the line like any other (the one entry
+the requeue keeps is an own line's `done` read-back), a rebuilt retry does
+not take a skip's `from` as its source, and `takesReadBack` does not count
+a skip as the line's translation.
 
-**The channel's own languages weight detection.** The panel's _Languages
+**The channel's own languages are the last word.** The panel's _Languages
 spoken here_ records what people write in a channel (`channelStore.ts`
 `languages`, ISO 639-1, supported codes only, persisted with the rest of
-the record), and `detect.ts` weighs them above its automatic prior in
-three ways. What they weigh is the trigram flow: a decisive classifier
-verdict (above) is already final before the declared languages are
-consulted. A declared language that franc ranks within `DECLARED_MARGIN`
-(0.25) of its best **wins** over an undeclared best -- a trigram lead that
-small is a weaker claim than the reader's; two declared contenders that
-close resolve by their own gap, then by the prior, and where neither
-separates them the line is left alone rather than translated from a coin
-toss. A best franc names but we cannot translate from is **rescued** by a
-declared contender instead of coming back undetermined. And a line under
-`DETECT_MIN_LENGTH` (10 characters), which franc cannot place at all, is
-taken as the one declared language that is **not** what the reader reads
-when there is exactly one -- so "So ist es" in a German/English channel
-read in English is translated, where before it was skipped. Nothing is
-noted into the automatic prior from that last case: a line the detector
-never saw is no evidence about the channel. `candidates` -- the chip menu's
-one-click corrections -- puts the declared contenders first. The composer
-declares nothing: a draft is the user's own language, not a channel
-matter.
+the record). Where neither identifier's verdict stands on its own, a
+declared language that is not the reading language and that either of
+them names places the line (`decide` step 4): "tak" in a Polish channel
+is Polish. The composer declares nothing: a draft is the user's own
+language, not a channel matter.
 
 There are three ways to retranslate on that menu, because detection is the
 thing most likely to be wrong: **Retranslate** runs the line again as it
 was, **Retranslate from `<Language>`** appears once per runner-up the
 detector ranked (`detect.ts` `candidates`, at most `DETECT_CANDIDATES` (3)
-known languages in franc's order, carried on the entry; the line's own
+supported languages in the identifiers' order, carried on the entry; the line's own
 source is left off the menu, since that item would only repeat
 Retranslate), and **Retranslate from...** opens
 `SourceLanguagePicker.vue` for any of the supported languages -- a popover
 under the chip where there is a pointer, a bottom sheet on a phone or under
 480px, closing on Escape, on Cancel and on a click outside. A chosen source
 skips detection altogether: the entry's `from` becomes that language (so
-the chip reads "French → English"), the runners-up it inherited stay on the menu
+the label reads "from French"), the runners-up it inherited stay on the menu
 (the detector's own guess among them), and nothing is noted into the
 channel's language prior -- one reader's correction of one line is not the
-channel's language. A retry keeps whatever source the failed line had. The translated line is `user-select: text` like the
-original above it -- `body` is `user-select: none`, so a block that is
-meant to be read and quoted has to say so. Once a translation is in, it is
-the bright line; the original dims to the muted colour.
+channel's language. A retry keeps whatever source the failed line had. The translated text is `user-select: text` like the
+original it stands in for -- `body` is `user-select: none`, so text that is
+meant to be read and quoted has to say so.
 
 A message that arrived as `draft/multiline` is one message whose text
 carries newlines, and it goes through the composer's own `translateDraft`
@@ -1188,7 +1157,7 @@ user's own lines are
 read too, so a line written before the switch-on, before a rejoin or a
 reload, or sent without a read-back gets its translation like anyone's
 (an own line already in the reading language is detected as such,
-skipped and marked). The one own line the pipeline leaves alone is a posted
+skipped). The one own line the pipeline leaves alone is a posted
 translation that keeps the composer's read-back (§ Writing in a channel). History is bounded per _load_, each
 load queueing at most `HISTORY_QUEUE_CAP` (40) of its lines, newest first
 (`eligibility.ts` `historyQueueOrder`, through `reader.ts` `queueHistory`,
@@ -1248,36 +1217,28 @@ switch-on, "load more", language-change and rejoin steps of
 
 The per-channel choices -- reading on/off, the languages spoken here,
 outgoing target, formality, variant -- are one component
-(`TranslationPanel.vue`) in two layouts. Where
-there is a pointer it is a column anchored under the channel header: each
-setting a label with its control beneath it, so the four controls share one
-width and one rhythm (20rem wide, 2.125rem controls); the section headings
-and the one-line hints are left out, and a footer carries a link to
-Settings -> Translation beside Done. Where `helpers/device.ts`
-`hasVirtualKeyboard()` reports a touch-primary device, or the window is as
-narrow as the phone's chat layout (`max-width: 479px`), the same markup
-`<Teleport>`s to `<body>` and takes `.translation-panel--sheet`: a
-full-screen sheet with 2.75rem controls, the two sections (Reading,
-Writing) under their headings, a hint under each control, formality as a
-three-way segmented control (`role="radiogroup"`, "As written" / "Formally"
-/ "Casually") rather than a native picker, and a full-width Done above the
-safe area. The sheet's height follows `--viewport-height`
-(`helpers/viewport.ts`), so iOS's keyboard cannot push Done off the screen.
+(`TranslationPanel.vue`), opened from the channel menu's "Translation…"
+(the header's ⋮, a sidebar row's menu, or a message's toolbar when nothing
+here can translate); there is no translate button in the header. It is a
+header popover, the mentions' own design (`docs/resources/client-features.md`
+§ Header popovers): the `.header-popover` surface under the ⋮ button with a
+title row ("Translation" and the channel, a ✕), the whole chat under the
+header on a phone. Inside, two sections (Reading, Writing) under their
+headings, each setting a label with its control beneath it and a one-line
+hint, the reading switch and formality as segmented controls
+(`role="radiogroup"`, "As written" / "Formally" / "Casually"), and a footer
+link to Settings -> Translation. While an engine has paused itself (§ A
+pause is a minute off), a notice at the top says so with the engine's
+reason. Controls are 2.25rem with a pointer and
+2.75rem under a finger (`pointer: coarse`).
 
-How it opens splits the same way. With a pointer, a click on the translate
-button toggles reading and a right-click opens the panel -- and a click
-that turns reading **on** opens the panel with it, so the reader sees and
-can adjust the languages at once (a click that turns reading off only
-turns it off); on touch there is no
-right-click, so the **tap** opens the panel (whose first control is the
-reading switch) and the button's label says "Translation settings" (or,
-when nothing here can translate, that it cannot run). The
-channel menu's "Translation..." reaches it on both. It closes on the X, on
-Done, on Escape, and -- the anchored panel only, since the sheet has no
-outside -- on a click outside it; the caret goes back to the translate
-button when the panel is what held it. Browser checks:
-`tools/scenarios/translate-reading.mjs` (the column, and the sheet under
-`--mobile`) and `tools/scenarios/translate-composer.mjs --mobile --width=390 --height=844` (the sheet in full).
+It closes on the ✕, on Escape or Android's Back (its escape layer,
+`translation`), and on a press outside it, which also does what a header
+button pressed there says, as the mentions' pane does; the caret goes back
+to the ⋮ button when the panel is what held it, and Tab stays inside it.
+Browser checks: `tools/scenarios/translate-reading.mjs` (desktop and
+`--mobile`) and `tools/scenarios/translate-composer.mjs --mobile
+--width=390 --height=844` (the phone layout in full).
 
 _Languages spoken here_ is the one field that is not a single choice: the
 declared languages show as chips (`.translation-panel-chip`, each the
@@ -1286,7 +1247,7 @@ and a `translateLanguageAdd` select whose first option reads "Add a
 language…" appends one at a time and springs back to that option -- a
 fifty-long multi-select would be a poor way to name the two or three
 languages a channel speaks. It offers only what the channel has not
-declared yet. On the sheet its hint reads "Lines in these languages are
+declared yet. Its hint reads "Lines in these languages are
 recognised even when they are short or look alike."
 
 A language a translation is _about_ is named in the language the interface
@@ -1323,16 +1284,78 @@ verified in both directions through the `qqx` pseudo-locale
 The panel also sets an outgoing target per channel (`write`, next to `read`
 in `thelounge.translate`); `writeTarget()` returns it as soon as
 translation is enabled, without waiting for the device probe, so the
-composer can show a placeholder ("sent in German") the instant the target
-is picked.
+composer's translate button can name it ("EN → DE", in place of its
+glyph) the instant the target is picked. The placeholder stays the plain
+"Write to #channel": a language name in it wrapped onto a second line on a
+phone.
 
-The first Enter on a non-empty, non-command, non-edit draft
+### The live preview and one-step send
+
+With a write target set, the draft is translated while it is typed: a
+pause of `PREVIEW_PAUSE_MS` (700 ms, `ChatInput.vue`) after the last
+keystroke (real typing only: a channel switch restoring a saved draft, or
+ArrowUp through the history, previews nothing) calls `translateOutgoing` for it, so the strip already shows the line Return
+will send ("Will send in German") and its read-back ("Reads back as: …")
+before the user reaches for Return. Typing on dims the last preview in place
+(`.translate-bar-is-stale`) until the new one starts to stream, so the
+composer keeps its height instead of closing and opening on every word.
+
+**Return sends, once.** A Return on a draft whose preview is done sends the
+translation at once (the read-back is for looking at, not a gate). A Return
+while it is still translating, or before the pause came, starts or waits for
+it and sends it the moment it is done, saying so under the strip ("Sends
+when the translation is ready"); a failure stops there, and the strip offers
+the draft as written to the next Return; a run that ends with no strip at
+all (the draft turned out to need none, or the target moved) answers the
+waiting Return once by the path a Return with no strip takes, which sends a
+draft that needs no translation as typed. Changing the draft (even only
+adding or removing a `/me `), Escape, a channel switch or turning the target
+off cancels a waiting send, and a send that went out late leaves the focus
+where the user has gone meanwhile. There is
+no Send or Edit button on the strip any more -- the composer's own send
+button does what Return does -- only Copy.
+
+**The language the user writes in is theirs to say.** The sheet the
+translate button opens has an "I write" as well as a "They read";
+picked as the channel's target (not "This message only"), both are kept
+(`channelStore.ts` `writeFrom` beside `write`; turning the target off, or
+setting it from the panel, clears it), and every draft is then taken as that
+language. Detection still runs, but only to catch a draft typed straight in
+the target, which is sent as typed as before. Before, the mode kept only the target and guessed each draft's
+language, and a short English line ("Heck yeah it is") scored as Afrikaans,
+for which the phone had no model. Where no source was named and the guess
+has no route at all on this device, the reading language is tried before
+the request fails (`writer.ts` `translateOutgoing`): a draft misplaced by
+the detector is likelier than a language the user writes in with no model
+for it.
+
+**The suggestion card.** Where a channel's recent lines from others are
+mostly in one language that is not the user's -- at least
+`SUGGEST_MIN_LINES` (5) of them and `SUGGEST_MIN_SHARE` (half) of every
+placed line among the newest `RECENT_LINES` (`recent.ts`
+`suggestedLanguage`) -- and the channel has no write target, the composer
+offers it above the strip: "Most of #linux writes in Portuguese. Write
+your messages in Portuguese here?", with the model and its download size
+when that is still to come. **Write in Portuguese** sets the target with
+the reading language as `writeFrom`, as a pick in the sheet would; **Not
+in this channel** sets `channelStore.ts` `noSuggest`, and the card is not
+offered there again. It needs reading on (the counts are the reader's
+verdicts), a channel rather than a query, and a route for the pair.
+
+The sheet opens on a tap and nothing more: on a touch screen it focuses
+itself rather than its search, since focusing the search there brings the
+keyboard up over the list before anyone asked (on a desktop the search has
+the keyboard, so typing a few letters and Return picks). The phone's sheet
+is docked to the chat pane, not the screen, and opening the sidebar closes
+it.
+
+The preview (or a Return that comes first) for a non-empty, non-command, non-edit draft
 (`outgoing.ts` `draftGate`) calls `writer.ts` `translateOutgoing` instead
 of sending. **`/me` is the one command that translates**: an ACTION is
 prose, and the reading side translates everyone else's, so `draftGate`
 answers `{kind: "action", text}` with what follows `/me ` and that text is
 what the strip holds, what the watcher compares against and what the voice
-and term memory record; the second Enter sends `/me <translation>`, the
+and term memory record; Return sends `/me <translation>`, the
 command back on the front and never escaped. An action with nothing after
 it is the command's own business. The call itself: it detects the draft's language (no channel prior -- it is the
 user's own line, not what the channel has been saying), decides the source
@@ -1395,22 +1418,22 @@ to send -- and given up after `WRITE_TIMEOUT_MS` (2 min).
 
 The result lives in `store.state.outgoingTranslations`, keyed by channel
 id, and `ChatInput.vue` renders it as the `.translate-bar` strip above the
-input: an "English → German" chip (the draft's language → its target, "→
-German" until a source is named; the entry's `from`, which a retry leaves
-alone, so the chip reads the same before, during and after one) -- whose
+input: a "Will send in German" label over the line (the target, which a
+retry leaves alone, so the label reads the same before, during and after
+one; the direction itself is on the translate button) -- whose
 `title` names the route the text came down,
 `<Source> → <Target> · <model id> (GPU|CPU)`, from the `requestFrom`, `engine`
 and `model` the entry carries (all null, and no title, until the route has
 answered); "auto" stands in for a
 source the request left to the model, and " · retried without a source" follows
 once the bare second try ran (`retried`) -- the streaming
-text with a caret, and icon buttons -- their words kept as the tooltip and
-accessible name, never as visible text -- for Copy (its tooltip reads "Copied" for two seconds after
-it worked), Send (disabled while pending), and Edit. Both rows of the strip are
+text with a caret, and a Copy icon button once it is done -- its word kept as the
+tooltip and accessible name, never as visible text; it reads "Copied" for two
+seconds after it worked. Both rows of the strip are
 `user-select: text`: the line the user is being asked to approve has to be
 selectable. A failure shows "couldn't translate, send as written?" -- followed by the
 reason, truncated, with the whole of it in the title -- and turns
-Send's tooltip into "Send as written".
+the send button's tooltip into "Send as written".
 
 Two answers are failures rather than translations, on the same terms as the
 reading side: **an echo** ("came back unchanged") and **an answer with no letters in it** ("empty translation"). A third was added once the
@@ -1457,7 +1480,7 @@ bare and fails it, uncounted, only if the second answer is judged the same. The 
 guard any more -- a source is never the target -- so what it means is the
 model declining: a line with nothing to translate ("ok, brb", a bare nick)
 as much as one it would not touch. The offer the strip already makes is the
-right one for either, and the second Enter sends the draft as written. The
+right one for either, and the next Return sends the draft as written. The
 round trip refuses a letterless read-back the same way ("couldn't check"),
 and neither an echo nor a letterless answer joins the `voice` quoted to the
 model next time or the channel's term memory (`termPair`): a voice line in
@@ -1483,33 +1506,67 @@ channel switched off, a language change, drop-behind), never un-pauses an
 engine, and counts toward no pause; a user's Retry asks in the normal shape
 again and gets its own bare retry.
 
-**The composer's translate button is the send target's toggle.** The
+**The composer's translate button opens the language sheet.** The
 language mark beside the paperclip and the plane (`ChatInput.vue`
-`translateOnce`) is independent of the globe, which is reading: off, a
-click opens the language picker in its "translate into" form
-(`SourceLanguagePicker.vue` `purpose="target"`), and the pick becomes the
-channel's write target -- `channelStore.ts` `write`, the very setting the
-panel's "Send my messages in" shows, so the two controls never disagree --
-until the button, lit and `aria-pressed` while a target is set, is clicked
-again (the panel's Off does the same). A draft already typed gets its
-strip at once. The dialog's **"This message only"** (offered when there is
+`translateOnce`) is independent of the reading switch: a click opens
+`ComposerLanguageSheet.vue`, and a pick in it becomes the channel's write
+target -- `channelStore.ts` `write`, the very setting the panel's "Send my
+messages in" shows, so the two controls never disagree -- lit on the
+button, and named in its label ("Sending in German · change or turn off"),
+while it is set, until **Turn off** in the sheet's header (or the panel's Off). Setting a target in another language also switches the channel's reading on (`setReading`): the replies come back in it. Turning the target off leaves reading as it is. The
+same pair picked again changes nothing; a new one replaces the strip. The
+sheet closes on a channel switch. A draft already typed gets its strip at
+once. The list is plain buttons (the current one `aria-current`, a row
+that cannot run labelled so, not disabled, since its tap gives the
+reason); "This message only" sits above it, as a pick applies at once,
+and Return in an empty search applies the highlighted language.
+
+The sheet is the pair on top -- **I write** ⇄ **They read**, two halves
+of which the lit one is what the list below fills in, and a swap between
+them -- then the languages the channel has been written in lately as
+chips ("Spoken in #linux lately": `recent.ts` `recentLanguages`, the
+reading pipeline's own verdicts on the newest `RECENT_LINES` lines from
+others, so only with reading on), a search (by the interface's name or the
+language's own, accents folded), and the whole list, each row the name in
+the interface's language with the endonym beside it. A row under "They
+read" says what picking it costs: **Corrects spelling** for the language
+the user writes, the model's download size where its copy is not on this
+device yet (`service.ts` `downloadBytes`, the route's own copy). A
+language `pairVerdict` has no route for goes to the end of the list,
+under one **Not available on this device** heading rather than a label on
+every row (on a phone most of the list can be that), dimmed, its tap
+leaving the sheet up with the reason under the list. The header holds
+the title, Turn off and a ✕.
+Picking under "They read" applies and closes; picking under "I write"
+names the source (or "Detect automatically") and moves on to "They read".
+The sheet's **"This message only"** (offered when there is
 a draft) makes the pick a one-off instead: `writer.ts` `translateOnce`,
 `translateOutgoing` with its target named rather than read off the
 channel, so it runs with no write target set and is not invalidated by
 the panel's target moving; the strip comes up as it does for a write
-target and the next Enter sends what it holds. The dialog preselects the
-channel's last one-off language, else its write target (`lastOnceTarget`;
-the last pick is kept with the channel's record, `channelStore.ts` `once`,
-so it survives a reload and travels in the settings backup), else a
-language the channel declares, else **the language the interface is in**
-(the cleanup pass), else the first supported language that is not it --
-each only where this device serves it from the reading language
-(`outgoing.ts` `onceTargetDefault`, the router's `pairVerdict`), so a
-device without the GPU model never opens on a disabled cleanup pass. When
+target and the next Enter sends what it holds. The sheet's "They read"
+shows the target that is set; **with none it says "Choose…"**, so the
+sheet opened while translation is off does not look switched on. Its
+list still highlights a suggestion, one tap (or Enter) away: the
+channel's last pick, one-off or send target alike (`lastOnceTarget`; kept
+with the channel's record, `channelStore.ts` `once`, which a send target
+sets too, so it survives the target's Off, a reload, and travels in the
+settings backup), else a language the channel declares, else one it has
+been written in lately (`recent.ts`, the sheet's own chips), else **the
+language the interface is in** (the cleanup pass) -- each only where this
+device serves it from the reading language (`outgoing.ts`
+`onceTargetDefault`, the router's `pairVerdict`), so a device without the
+GPU model never opens on a disabled cleanup pass. None of them: nothing
+is highlighted (it used to be the first supported language that routes,
+German for an English reader, which read as a setting nobody made). When
 nothing routes at all the last pick, else the interface's language, stands
-and the dialog says why. The dialog also asks what to translate **from**,
-preselected to the language the user reads, with "Detect automatically"
-as the write target has it. **The same language twice is a cleanup**: a
+and the sheet says why. Under the pair the sheet also carries the
+channel's reading switch ("Read messages in English", the panel's own
+`setReading`): the composer's button is the translation control people
+find first, and they opened it looking for translation of what others
+write. Its "I write" starts on the language the user
+reads, or on the `writeFrom` kept with the target that is set ("Detect
+automatically" where that is none). **The same language twice is a cleanup**: a
 draft already in the language it is asked into is not sent as typed the
 way a write target would (the user asked for something) but corrected in
 place -- `purpose: "polish"`, the LLM as a copy editor with a wording
@@ -1518,13 +1575,11 @@ misspellings, grammar, punctuation **and a word that is the wrong word
 though it is spelled correctly** fixed, every other word kept,
 abbreviations and symbols included, nothing rephrased), the router sending a same-language
 request to the LLM alone (`router.ts`; no GPU model, no route, and the
-dialog says so), and an echo read as "nothing to correct" rather than a
-failure. The dialog says what it will do rather than what it is: with the
-source and the target the same, its confirm button reads **Correct**, not
-Translate -- and it is disabled where the cleanup cannot run at all (no
-GPU model, the hint under the selects saying why), which is the state a
-freshly opened dialog is in on a CPU-only device, both languages having
-defaulted to the interface's. **A polish carries none of the channel**: its prompt is the
+sheet says so), and an echo read as "nothing to correct" rather than a
+failure. The sheet says what it will do rather than what it is: the
+language the user writes reads **Corrects spelling** under "They read" --
+and sits under **Not available on this device** where the cleanup cannot run at all (no GPU
+model, the reason under the list on a tap). **A polish carries none of the channel**: its prompt is the
 copy editor's system message and `Correct: <line>`, nothing above it, and
 `writer.ts` gives the request an empty context but for the register.
 Measured on the web build's 4B weights (2026-09-19,
@@ -1575,8 +1630,8 @@ no translation, so it is neither read back nor noted into the voice and
 term memory. The same happens when detection finds the draft already in
 the picked language -- and **when the channel's write target is the
 language the user reads**: a write target set to one's own language can
-only mean "send my lines corrected", so the first Enter brings up the
-cleanup strip (the placeholder reads "sent corrected") and the second
+only mean "send my lines corrected", so the preview is the
+cleanup (the translate button reads "EN ✓") and Return
 sends it, where a foreign write target that finds the draft already in
 it still sends as typed. Browser check:
 `tools/scenarios/translate-composer.mjs` § 0.
@@ -1607,7 +1662,7 @@ that is the translation over again, and reports the failure ("couldn't
 check") only when the bare try comes back unchanged too. It costs a second
 generation only where the first produced nothing usable.
 
-The second Enter is the same `input` bus emit
+The send is the same `input` bus emit
 as any other send (`deliver`, so history, replies and edits do not
 diverge): it ships the strip's translation, or the draft itself after a
 failure, and calls `noteOutgoingSent`, which extends the voice and, when
@@ -1667,9 +1722,9 @@ The bare second try on an echo, a narration, an answered question or a
 loop still drops the
 context, all but the register; the routing hint stays.
 
-When the second Enter sends a translation whose read-back finished, the
-posted line shows that read-back as its translation, with the same chip
-and emphasis as any translated line, and no request is made for it.
+When Return sends a translation whose read-back finished, the
+posted line shows that read-back as its translation, labelled "sent in
+German" rather than "from German", and no request is made for it.
 `writer.ts` `recordSentReadBack` records the read-back against the exact
 text sent **before** the send (the IRC layer puts the line in the store
 inside the send's emit), and a `msg` listener in `initWriter` matches own
@@ -1706,6 +1761,60 @@ without a real model declining; `[echo-once]` does that to the first
 request carrying it and translates every later one, which is the bare
 second try succeeding. Browser check:
 `tools/scenarios/translate-composer.mjs` (also `--mobile`).
+
+## Language tags
+
+A composer translation tells other clients what it is, through two client
+tags (`irc/langtag.ts`; the research and the reasons are in the project's
+proposal):
+
+- `+draft/language=<BCP 47>` names the language the text is in. It is the
+  name IRCv3 PR #424 used (a closed draft), so another client may already
+  read it. Seance's `zh` goes out as `zh-Hans` and its `tl` as `fil`.
+- `+evilnet.github.io/machine-translated` (no value) says the sender's
+  client machine-translated the user's own words. It means nothing without
+  a language, and a reader drops it when the language is missing or
+  unusable.
+
+**What sends them.** Only a finished composer translation into a language
+the user picked (`ChatInput.vue` `deliver`, through the `input` event's
+`language` / `machineTranslated` to `wire.ts` `inputTags`): both tags for a
+translation, the language alone for a correction in the same language (a
+polish). A line sent as written, one already in the target language, an
+edit, `/msg`, `/notice` and everything automatic go out untagged: Seance
+never guesses a language for the wire, and sending as written is the
+way to send a line unmarked. The tags ride every chunk of a split line and
+a `draft/multiline` batch's opener, the pending copy carries the fields at
+once, and nothing goes without `message-tags`. A server whose
+`CLIENTTAGDENY` blocks either tag drops it and still delivers the line
+(message-tags § Client-only tags), so Seance sends them regardless.
+
+**What reading does with them.** `handlers/privmsg.ts` puts `language` and
+`machineTranslated` on the message (live, echo and history alike);
+`codeOfLanguageTag` takes the primary subtag (`es-MX` is `es`), maps
+`fil`/`iw`/`in`/`no` to Seance's codes, and ignores whatever names no
+language Seance supports (`und`, `mul`, private use, junk) and
+Traditional Chinese (Seance's `zh` is Simplified). The reader (`reader.ts` `translateMessage`
+through `detect.ts` `withSenderLanguage`) takes the sender's language as a
+strong prior, never an order: it places a line the detector could not, and
+decides one it was unsure of, but a detection of another language at
+`SENDER_OVERRULE_MIN` (0.9) or above wins, with the sender's language kept
+as a runner-up on the chip's menu. A line tagged in the reader's own
+language is therefore not translated, and a forced Translate or a
+Retranslate from a picked source ignores the tag. `Message.vue` shows
+"(machine translated)" after the text when the flag came in, its title
+naming the language.
+
+**Two Seance instances.** A's translation goes out tagged; A's echo and B's
+copy both carry the fields; B reads it from the tagged source, or skips it
+when that is B's reading language; B's reply into A's language comes back
+tagged and A skips it. Nothing is translated or sent on anyone's behalf, so
+the two never answer each other. nefarious2 before it lets
+`+evilnet.github.io/` client tags through drops the flag (on the echo
+too) and keeps the language: the note is then missing everywhere, and the
+reading prior still works. Browser check, two browsers in one channel plus
+a raw speaker: `tools/scenarios/translate-language-tags.mjs` (it says
+whether the server relayed the flag and asserts accordingly).
 
 ## Span protection
 
@@ -1788,6 +1897,33 @@ separator elsewhere in the table falls back to the **verbatim** policy and
 is appended after the text rather than put back at its column -- accepted
 as today's policy rather than special-cased.
 
+### Placeholders on the seq2seq route
+
+OPUS-MT's vocabulary has no `⟦` or `⟧` (the AfterNET MT models' does;
+NLLB-200's was not measured and takes the same chain). Its SentencePiece answered `Por cierto, ⟦1⟧, ¿el canal ⟦2⟧ sigue
+activo?` with `By the way,,1, channel,2, still active?`, so the reader
+showed the `,1,` and appended the nickname and the channel after the line
+(found in a two-client test on the dev ircd, es<->en). The engine
+(`engines/seq2seq.ts` `ENGINE_FORMS`, `runPart`) therefore writes each part's
+placeholders in an engine form, reads the answer's back to `⟦n⟧` (only the
+numbers it was given) and leaves the restore below untouched.
+
+No single form survived every shipped pair. Over 94 lines in 14 directions
+(OPUS-MT en<->ru, en<->es, en->de; AfterNET MT en<->zh, en<->ko, en->ar,
+en<->pt, en<->pl), lines kept whole: `[1]` 86, `X1` 82, `⟦1⟧` 54 (only on
+the AfterNET MT models' own vocabulary), `@1` 58, `<1>` 52, `{1}` 47;
+`【1】`, `⟨1⟩` and `{{1}}` next to none. `[1]` loses its digit from Russian,
+`X1` is dropped into Arabic (and comes back Cyrillic `Х1` from English into
+Russian, which the reader accepts). `Xn` is written apart from a letter,
+a digit or another placeholder it touches (`X1 X2`, `X1 мир`), or it would
+not read back; the line then keeps that space. So the forms are tried in that order --
+`[n]`, `Xn`, then `⟦n⟧` itself -- and the next is used only when the answer
+lost a placeholder; the answer that kept the most wins. A form the part
+already holds as text (someone typed `[2]`) is skipped, so a user's own
+`[2]` is never read as a placeholder. A part with no placeholder is one call,
+as before. Tests: `test/translate/seq2seq.ts` "placeholders in a form the
+vocabulary keeps".
+
 ### Emphasis marks on the LLM route
 
 A marker pair is the one span whose _content_ the engine has to translate,
@@ -1810,7 +1946,9 @@ for the engine the request is about to reach.
   hidden (`[the log](⟦1⟧)`).
 - **`placeholder`** -- `⟦1⟧German⟦2⟧`, what every seq2seq candidate gets.
   They read no prompt, so the code has to do all of it, and they do not have
-  the LLM's problem.
+  the LLM's problem. The seq2seq engine then rewrites every `⟦n⟧` into a
+  form its vocabulary keeps before the model sees it (§ Placeholders on the
+  seq2seq route).
 - **`tags`** -- `<1>German</1>`, kept because `tools/translate-llm.ts --markers tags` measures it, and reachable from nowhere else.
 
 Measured over `tools/translate-eval/markers.json` (eight cases, the two
@@ -2076,8 +2214,13 @@ The code the build ships: `@huggingface/transformers` 4.2.0 and
 `@mlc-ai/web-llm` 0.2.85 are Apache-2.0, `onnxruntime-web` (and the
 `js/ort/` wasm it loads) MIT, `@wllama/wllama` 3.8.1 MIT (Copyright (c) 2024
 Xuan Son NGUYEN) and llama.cpp/ggml, which it compiles into `js/wllama.wasm`,
-MIT (Copyright (c) 2023-2024 The ggml authors), `franc` and its three helpers
-(the `js/franc.js` chunk) MIT -- all compatible with Seance's MIT. Neither
+MIT (Copyright (c) 2023-2024 The ggml authors), and in the
+`js/lid.js` chunk ELD 2.1.1 (Apache-2.0), fasttext.wasm.js 1.0.0 and the
+fastText it compiles into `fastText.common.wasm` (both MIT) -- all
+compatible with Seance's MIT. The `lid.176.ftz` model beside it is
+CC-BY-SA-3.0 (Facebook): it is data the app loads, not code linked into it,
+and its notice is in the `js/lid.js` banner, since the file can carry no
+comment. Neither
 Apache-2.0 package carries a NOTICE file; their builds carry no notice
 either, nor do wllama's, and the minifier drops ONNX Runtime Web's own, so
 `scripts/build-info.mts` (`chunkNotices`) writes one `/*!` block per licence

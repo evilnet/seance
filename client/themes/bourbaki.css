@@ -157,7 +157,7 @@ body,
 #chat .userlist,
 #form,
 #footer button,
-.mentions-popup,
+.header-popover,
 #context-menu,
 .textcomplete-menu {
 	border: var(--dos-frame);

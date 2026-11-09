@@ -195,7 +195,7 @@ export function brandManifest(content: string): string {
 // top of each (vite.config.mts postBanner), keyed by the chunk's name without
 // its hash. The minifier drops Prism's own `@license` comment, and flourite's
 // build carries none at all. The markdown chunks are MIT (see
-// docs/projects/markdown-messages.md); so is franc, and CodeMirror, the
+// docs/projects/markdown-messages.md); so is CodeMirror, the
 // script editor's (client/js/helpers/luaEditor.ts); the translation worker
 // (vite.translate.config.mts) carries two Apache-2.0 libraries and four MIT
 // ones (docs/resources/translation.md § Licences).
@@ -212,10 +212,23 @@ export const chunkNotices: Record<string, string> = {
 		"/*! CodeMirror 6 (@codemirror/state, view, language, commands, legacy-modes, streamparser; @lezer/common, " +
 		"highlight, lr; style-mod, w3c-keyname, crelt, @marijn/find-cluster-break) | MIT | " +
 		"Copyright (C) 2016-2021 Marijn Haverbeke and others | https://codemirror.net */\n",
-	// The language guesser's chunk: franc and the three helpers it pulls in.
-	"js/franc.js":
-		"/*! franc 6.2.0, n-gram 2.0.2, trigram-utils 2.0.1, collapse-white-space 2.1.0 | MIT | " +
-		"Copyright (c) 2014-2015 Titus Wormer | https://github.com/wooorm/franc */\n",
+	// The language identifiers' chunk (client/js/translate/lid.real.ts): ELD
+	// and the fastText binding. lid.176.ftz and fastText.common.wasm are
+	// files beside it that can carry no comment, so their notices are here.
+	"js/lid.js":
+		"/*!\n" +
+		" * eld 2.1.1 | Copyright 2023 Nito T.M. | " +
+		"https://github.com/nitotm/efficient-language-detector-js\n" +
+		" * Licensed under the Apache License, Version 2.0: " +
+		"https://www.apache.org/licenses/LICENSE-2.0\n" +
+		" * fasttext.wasm.js 1.0.0 | MIT | Copyright (c) 2023 Yuns | " +
+		"https://github.com/yunsii/fasttext.wasm.js\n" +
+		" * fastText (compiled into fastText.common.wasm) | MIT | " +
+		"Copyright (c) 2016-present, Facebook, Inc. | https://github.com/facebookresearch/fastText\n" +
+		" * lid.176.ftz language identification model | CC-BY-SA-3.0 | " +
+		"Facebook, Inc. | https://fasttext.cc/docs/en/language-identification.html | " +
+		"https://creativecommons.org/licenses/by-sa/3.0/\n" +
+		" */\n",
 	// The translation worker. The two Apache-2.0 libraries ship their builds
 	// without a notice, and Apache-2.0 § 4 asks a redistribution to carry the
 	// licence. The MIT ones neither: wllama, llama.cpp/ggml (which it

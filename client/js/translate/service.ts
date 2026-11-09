@@ -47,6 +47,7 @@ import {
 	catalogModels,
 	choiceFor,
 	copyDevices,
+	listedSize,
 	modelBlock,
 	selectLlm,
 } from "./models";
@@ -61,6 +62,13 @@ export const CPU_IDLE_UNLOAD_MS = 5 * 60 * 1000;
 export const APPLE_NOT_A_DOWNLOAD =
 	"the system translator's language packs are managed by the system";
 export const TRANSLATION_UNAVAILABLE = "no translation engine can take this request";
+/**
+ * A copy this size or smaller downloads without asking (a pair model, the
+ * deploy's per-language models), unless the connection says it is metered
+ * (`ServiceDeps.metered`): asking costs the reader more than the download
+ * does. The language models and NLLB-200 are far over it.
+ */
+export const QUIET_DOWNLOAD_BYTES = 128_000_000;
 /**
  * How long a route waits for the worker to say what is downloaded
  * (`cacheOrDeadline`). Generous on purpose: past it the router no longer
@@ -117,6 +125,24 @@ export interface ServiceDeps {
 	 * no shell bridge). Absent everywhere else.
 	 */
 	apple?: AppleTranslator;
+	/** The connection says it is metered (cellular, data saver): no download is quiet. */
+	metered?(): boolean;
+	/**
+	 * A reading route found the system translator could take this pair once
+	 * its language pack is downloaded, and did not open the system's sheet
+	 * for it (`ResolveOptions.quiet`): the reader offers it on the line.
+	 */
+	onApplePack?(from: string, to: string): void;
+}
+
+/**
+ * How a route is resolved. `quiet` is the reading pipeline's: nothing a
+ * reader did not ask for interrupts them, so a download that needs a yes
+ * is not asked about (the request fails naming it, and the line offers
+ * it) and the system translator's sheet is not opened (`onApplePack`).
+ */
+export interface ResolveOptions {
+	quiet?: boolean;
 }
 
 /**
@@ -191,6 +217,21 @@ export function loadNote(view: ModelView): LoadNote {
 		ref: view.ref,
 		percent: Math.round(view.fraction * 100),
 	};
+}
+
+/**
+ * What a route still has to download before it can run: its copy's size, on
+ * the device it runs on, unless that copy's view says it is already in this
+ * device's cache. 0 when nothing is left to fetch or the size is unknown
+ * (a deploy's own model, Apple's system translation).
+ */
+export function downloadBytes(
+	route: Pick<Route, "ref" | "device">,
+	views: readonly Pick<ModelView, "ref" | "device" | "cached">[]
+): number {
+	const view = views.find((v) => v.ref.id === route.ref.id && v.device === route.device);
+
+	return view?.cached ? 0 : route.ref.copies[route.device]?.sizeBytes ?? 0;
 }
 
 /** What a copy's view is kept under. */
@@ -757,7 +798,8 @@ export class TranslateService {
 	async resolve(
 		from: string | null,
 		to: string,
-		hint: string | null = null
+		hint: string | null = null,
+		options: ResolveOptions = {}
 	): Promise<RouteResolution> {
 		const none: RouteResolution = {route: null, refused: null, refusedDevice: null};
 
@@ -770,7 +812,7 @@ export class TranslateService {
 
 		// Ahead of the table, and of the worker's cache probe: the system
 		// translator needs no download, no consent and no worker.
-		const apple = await this.appleRoute(from, to, hint);
+		const apple = await this.appleRoute(from, to, hint, options.quiet === true);
 
 		if (apple) {
 			return {route: apple, refused: null, refusedDevice: null};
@@ -846,6 +888,13 @@ export class TranslateService {
 				return {route, refused: null, refusedDevice: null};
 			}
 
+			// Not asked: this request takes only what needs no download, and
+			// a later one that is not quiet still asks.
+			if (options.quiet) {
+				cachedOnly = true;
+				continue;
+			}
+
 			const yes = await consent.ask(
 				{...route.ref, id: this.consentId(route.ref, route.device)},
 				route.device,
@@ -876,7 +925,8 @@ export class TranslateService {
 	private async appleRoute(
 		from: string | null,
 		to: string,
-		hint: string | null
+		hint: string | null,
+		quiet: boolean
 	): Promise<Route | null> {
 		const apple = this.deps.apple;
 		const source = from ?? hint;
@@ -890,14 +940,35 @@ export class TranslateService {
 		}
 
 		const status = await apple.status(source, to);
+		// Asked again after every wait: the switch, or translation as a
+		// whole, may have gone off since, and a sheet the shell is handed
+		// cannot be taken back.
+		const allowed = () => !this.disposed && this.settings.system !== false;
 
-		// A pack that can be downloaded is offered once (engines/apple.ts
-		// `offer`): the system's sheet, then the table if it is declined.
-		if (status === "installed" || (status === "supported" && (await apple.offer(source, to)))) {
+		if (!allowed()) {
+			return null;
+		}
+
+		if (status === "installed") {
 			return {candidate: "apple", ref: APPLE_REF, device: "cpu"};
 		}
 
-		return null;
+		if (status !== "supported") {
+			return null;
+		}
+
+		// Reading: the table translates the line now, and the reader offers
+		// the pack on it. Anything else asked for this translation by name:
+		// the pack is offered once (engines/apple.ts `offer`), the system's
+		// sheet, then the table if it is declined.
+		if (quiet) {
+			this.deps.onApplePack?.(source, to);
+			return null;
+		}
+
+		return (await apple.offer(source, to, allowed)) && allowed()
+			? {candidate: "apple", ref: APPLE_REF, device: "cpu"}
+			: null;
 	}
 
 	/**
@@ -907,6 +978,12 @@ export class TranslateService {
 	 */
 	private needsConsent(ref: ModelRef, device: Device): boolean {
 		if (!this.consent) {
+			return false;
+		}
+
+		const sizeBytes = ref.copies[device]?.sizeBytes ?? listedSize(ref);
+
+		if (sizeBytes > 0 && sizeBytes <= QUIET_DOWNLOAD_BYTES && !this.deps.metered?.()) {
 			return false;
 		}
 
@@ -921,6 +998,23 @@ export class TranslateService {
 				!this.consent?.granted(this.consentId(each, device))
 			);
 		});
+	}
+
+	/**
+	 * A line's Download (TranslationLine.vue), the yes to the copy its
+	 * failure named (consent.ts `needsDownloadError`): every copy of the
+	 * model when it named none.
+	 */
+	allowDownload(id: string, device?: Device): void {
+		const ref = catalogModels(this.options.catalog).find((model) => model.id === id);
+
+		if (!ref) {
+			return;
+		}
+
+		for (const copy of device ? [device] : copyDevices(ref)) {
+			this.consent?.grant(this.consentId(ref, copy));
+		}
 	}
 
 	/**
@@ -1159,7 +1253,8 @@ export class TranslateService {
 				const {route, refused, refusedDevice} = await this.resolve(
 					request.from,
 					request.to,
-					hint
+					hint,
+					{quiet: request.purpose === "read"}
 				);
 
 				// After the teardown check: a worker torn down while the route

@@ -138,7 +138,16 @@ export type State = {
 	serverConfiguration: SharedConfiguration | LockedSharedConfiguration | null;
 	sidebarOpen: boolean;
 	sidebarDragging: boolean;
+	/** The user list beside the messages, as the user last left it (saved). */
 	userlistOpen: boolean;
+	/**
+	 * The chat pane is too narrow for the user list to sit beside the
+	 * messages, so it lies over them instead (userlistOverlay.ts). Never on
+	 * a touch device, which keeps its own behaviour.
+	 */
+	userlistOverlays: boolean;
+	/** The user list lying over the messages is open. Never saved: it starts closed. */
+	userlistOverlayOpen: boolean;
 	/** The file upload in flight (`client/js/upload.ts`); `null` when idle. */
 	uploadProgress: UploadProgress | null;
 	/**
@@ -182,6 +191,8 @@ const state = (): State => ({
 	sidebarOpen: false,
 	sidebarDragging: false,
 	userlistOpen: storage.get("thelounge.state.userlist") !== "false",
+	userlistOverlays: false,
+	userlistOverlayOpen: false,
 	uploadProgress: null,
 	translation: {capability: null, models: [], workerError: null, paused: null, panelFor: null},
 	translations: {},
@@ -312,6 +323,8 @@ type Mutations = {
 	toggleSidebar(state: State): void;
 	toggleUserlist(state: State): void;
 	userlistOpen(state: State, payload: State["userlistOpen"]): void;
+	userlistOverlays(state: State, payload: State["userlistOverlays"]): void;
+	userlistOverlayOpen(state: State, payload: State["userlistOverlayOpen"]): void;
 	uploadProgress(state: State, progress: State["uploadProgress"]): void;
 	translationCapability(state: State, capability: Capability): void;
 	translationModels(state: State, models: ModelView[]): void;
@@ -408,10 +421,24 @@ const mutations: Mutations = {
 		state.sidebarOpen = !state.sidebarOpen;
 	},
 	toggleUserlist(state) {
-		state.userlistOpen = !state.userlistOpen;
+		if (state.userlistOverlays) {
+			state.userlistOverlayOpen = !state.userlistOverlayOpen;
+		} else {
+			state.userlistOpen = !state.userlistOpen;
+		}
 	},
 	userlistOpen(state, payload) {
 		state.userlistOpen = payload;
+	},
+	userlistOverlays(state, payload) {
+		if (state.userlistOverlays !== payload) {
+			state.userlistOverlayOpen = false;
+		}
+
+		state.userlistOverlays = payload;
+	},
+	userlistOverlayOpen(state, payload) {
+		state.userlistOverlayOpen = payload;
 	},
 	uploadProgress(state, progress) {
 		state.uploadProgress = progress;

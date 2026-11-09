@@ -43,8 +43,15 @@ import {setContextProvider, scriptManager} from "./irc/scripting/manager";
 import {MessageType} from "../../shared/types/msg";
 import {takeTestSwitches} from "./translate/testSwitches";
 import {startIsolationMirror} from "./translate";
+import {isShell, nativePlatform} from "./helpers/shell";
 // Also registers the IRC layer's bus handlers (input, names, more, network:*).
-import {allClients, autoconnectSavedNetworks, clientForNetwork, createNetwork} from "./irc/manager";
+import {
+	allClients,
+	autoconnectSavedNetworks,
+	clientForNetwork,
+	createNetwork,
+	endAutoconnectWait,
+} from "./irc/manager";
 
 declare global {
 	interface Window {
@@ -75,8 +82,25 @@ export async function boot(): Promise<void> {
 	store.commit("branding", branding);
 	document.title = branding.appName;
 
-	if (branding.theme && configuration.themes.some((t) => t.name === branding.theme)) {
-		configuration.defaultTheme = branding.theme;
+	const deployTheme =
+		branding.theme && configuration.themes.some((t) => t.name === branding.theme)
+			? branding.theme
+			: undefined;
+
+	if (deployTheme) {
+		configuration.defaultTheme = deployTheme;
+	}
+
+	// The default a stored theme was chosen against, for the migration below:
+	// the deploy's, as before the Mac app had a default of its own. Measured
+	// against "macos", a Mac user's stored coffee would count as a choice and
+	// lose following the system's light or dark mode.
+	const migrationDefault = configuration.defaultTheme;
+
+	// The Mac app looks like a Mac app unless the deploy names a theme of
+	// its own; loading-error-handlers.js makes the same choice before boot.
+	if (nativePlatform() === "macos" && !deployTheme) {
+		configuration.defaultTheme = "macos";
 	}
 
 	// Uploads exist only when the deploy names an uploader endpoint.
@@ -96,7 +120,7 @@ export async function boot(): Promise<void> {
 
 	// Needs the deploy's default theme, which a stored theme is measured
 	// against, and has to come before the settings are applied.
-	void store.dispatch("settings/migrate", {defaultTheme: configuration.defaultTheme});
+	void store.dispatch("settings/migrate", {defaultTheme: migrationDefault});
 
 	// 'theme' setting depends on serverConfiguration.themes so
 	// settings cannot be applied before this point
@@ -228,7 +252,9 @@ export async function boot(): Promise<void> {
 	if (handled) {
 		// The URL's web+irc:// link or connect parameters have been acted on:
 		// a saved network is connecting, or the connect form is pre-filled
-		// waiting for the user's approval.
+		// waiting for the user's approval. Until then the autoconnect
+		// networks are not connected, and the sidebar says so.
+		endAutoconnectWait();
 		return;
 	}
 
@@ -281,6 +307,9 @@ async function handleQueryParams(
 	}
 
 	const params = new URLSearchParams(search);
+	// The app shell dials raw TCP, so an irc:// or ircs:// link means what it
+	// says there; a browser reads only its host and channels.
+	const tcp = isShell();
 	const raw = params.has("uri")
 		? (parseIrcUri(String(params.get("uri"))) as Record<string, unknown>)
 		: (Object.fromEntries(params.entries()) as Record<string, unknown>);
@@ -289,7 +318,7 @@ async function handleQueryParams(
 		removeQueryParams();
 	}
 
-	const suggestion = linkSuggestion(raw);
+	const suggestion = linkSuggestion(raw, {tcp});
 
 	if (!suggestion) {
 		// No server named: the leftover parameters (nick, join, ...) still
@@ -323,7 +352,7 @@ async function handleQueryParams(
 
 		// The connection would need a password nobody stored: back to the
 		// form, pre-filled from the saved entry, to type it.
-		if (!live?.isConnected && entry.sasl === "plain" && !entry.saslPassword) {
+		if (!live?.isConnected && saved.needsPassword(entry)) {
 			await router.push({
 				name: "Connect",
 				query: {savedLink: entry.uuid, join: suggestion.join, fromLink: "1"},
@@ -358,6 +387,10 @@ function suggestionQuery(suggestion: LinkSuggestion): LocationQueryRaw {
 		port: String(suggestion.port),
 		tls: suggestion.tls ? "1" : "0",
 	};
+
+	if (suggestion.transport === "tcp") {
+		query.transport = "tcp";
+	}
 
 	if (suggestion.join) {
 		query.join = suggestion.join;

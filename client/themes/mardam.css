@@ -377,7 +377,7 @@ body,
 	box-shadow: var(--bevel-sunken), 0 0 0 2px var(--focus-ring);
 }
 
-.mentions-popup,
+.header-popover,
 #context-menu,
 .textcomplete-menu {
 	border: 0;

@@ -6,7 +6,7 @@
 // imports nothing and is what the leaf helpers (haptics, keepAlive, appBadge,
 // viewport) talk to; this file is free to pull in the store and the router.
 
-import {leavePage, onStandalonePage, openTarget} from "./router";
+import {leavePage, onStandalonePage, openTarget, router} from "./router";
 import {closeOpenImage} from "./helpers/imageViewer";
 import {followSystemTextSize} from "./helpers/systemTextSize";
 import {reconnectAll} from "./irc/manager";
@@ -195,6 +195,21 @@ export function installNativeHooks(): void {
 	if (isDesktopShell()) {
 		document.documentElement.dataset.shell = "desktop";
 		document.documentElement.dataset.platform = nativePlatform();
+
+		if (nativePlatform() === "macos") {
+			// The menu bar's own items (shells/tauri/src-tauri/src/lib.rs
+			// install_mac_menu): Settings… ⌘,, Toggle Sidebar ⌃⌘S, Help ⌘?.
+			nativeListen("App", "menuAction", ({action}: {action?: string}) => {
+				if (action === "settings") {
+					void router.push("/settings");
+				} else if (action === "help") {
+					void router.push("/help");
+				} else if (action === "toggleSidebar") {
+					store.commit("toggleSidebar");
+				}
+			});
+		}
+
 		document.addEventListener("contextmenu", (event) => {
 			if (!wantsNativeMenu(event.target)) {
 				event.preventDefault();

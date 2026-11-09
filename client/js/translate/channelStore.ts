@@ -39,6 +39,11 @@ export interface ChannelTranslation {
 	read: boolean;
 	/** Outgoing target (plan 3) or null. */
 	write: string | null;
+	/**
+	 * The language the user said they write in when they set the target
+	 * (the composer dialog's "Translate from"); null: detect each draft.
+	 */
+	writeFrom: string | null;
 	formality: Formality;
 	/** Free text for the prompt, e.g. "Brazilian Portuguese". */
 	variant: string;
@@ -51,11 +56,18 @@ export interface ChannelTranslation {
 	/** Term memory, oldest first, one entry per source term and target language. */
 	terms: TermEntry[];
 	/**
-	 * The language the composer's translate button last translated a
-	 * message into here (writer.ts `translateOnce`), preselected by its
-	 * dialog next time; null until it has been used.
+	 * The language last picked here to write in, as a one-off (writer.ts
+	 * `translateOnce`) or as the send target (`write`, which sets it too),
+	 * preselected by the composer's dialog next time; null until one has
+	 * been picked. It outlives the target: turning the target off clears
+	 * `write`, and the dialog still opens on the language it was.
 	 */
 	once: string | null;
+	/**
+	 * The composer's suggestion card ("Most of #linux writes in
+	 * Portuguese") was turned down here: it is not offered again.
+	 */
+	noSuggest: boolean;
 }
 
 export interface StorageBackend {
@@ -85,11 +97,13 @@ export function defaultChannelTranslation(): ChannelTranslation {
 	return {
 		read: false,
 		write: null,
+		writeFrom: null,
 		formality: "auto",
 		variant: "",
 		languages: [],
 		terms: [],
 		once: null,
+		noSuggest: false,
 	};
 }
 
@@ -172,6 +186,9 @@ function sanitize(value: unknown): ChannelTranslation | null {
 	out.read = Boolean(raw.read);
 	out.write = typeof raw.write === "string" && isSupported(raw.write) ? raw.write : null;
 	out.once = typeof raw.once === "string" && isSupported(raw.once) ? raw.once : null;
+	out.writeFrom =
+		typeof raw.writeFrom === "string" && isSupported(raw.writeFrom) ? raw.writeFrom : null;
+	out.noSuggest = raw.noSuggest === true;
 	out.formality = isFormality(raw.formality) ? raw.formality : "auto";
 	out.variant = typeof raw.variant === "string" ? raw.variant : "";
 	out.languages = languagesOf(raw.languages);
@@ -236,6 +253,14 @@ export function setChannelTranslation(
 
 	delete rest.terms;
 	const next: ChannelTranslation = {...current, ...rest};
+
+	// A send target is a pick too (`once`): remembered past its Off. A
+	// record saved before targets set `once` keeps its target at the Off.
+	if (rest.write) {
+		next.once = rest.write;
+	} else if ("write" in rest && !next.once && current.write) {
+		next.once = current.write;
+	}
 
 	// The patch comes from the panel, so the codes are checked here as well
 	// as on load: the committed record is what the store mirrors until the

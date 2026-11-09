@@ -256,6 +256,26 @@ describe("STS", function () {
 		});
 	});
 
+	describe("transport", function () {
+		it("keeps TCP and WebSocket policies for one host apart", function () {
+			expect(sts.stsHost({host: "irc.example.org"})).to.equal("irc.example.org");
+			expect(sts.stsHost({host: "irc.example.org/ws", transport: "tcp"})).to.equal(
+				"tcp:irc.example.org"
+			);
+			sts.setPolicy("irc.example.org", {port: 8443, expiresAt: T0 + 1000, preload: false});
+			const tcp = {...BASE, transport: "tcp" as const, port: 6667};
+			expect(sts.upgradeOptions(tcp)).to.equal(tcp);
+
+			sts.setPolicy("tcp:irc.example.org", {
+				port: 6697,
+				expiresAt: T0 + 1000,
+				preload: false,
+			});
+			expect(sts.upgradeOptions(tcp)).to.deep.equal({...tcp, tls: true, port: 6697});
+			expect(sts.upgradeOptions(BASE)).to.deep.equal({...BASE, tls: true, port: 8443});
+		});
+	});
+
 	describe("IrcClient", function () {
 		it("on an insecure connection, sts port= reconnects securely exactly once", function () {
 			const h = setup();

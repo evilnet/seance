@@ -14,6 +14,7 @@
  * This module is store- and DOM-free (it runs under mocha).
  */
 
+import {languageFieldsOf} from "./langtag";
 import {t} from "../i18n/core";
 import {MessageType} from "../../../shared/types/msg";
 import type {IrcClient} from "./client";
@@ -627,6 +628,7 @@ export function sendMultiline(
 					replyTo: tags[REPLY_TAG],
 					editOf: tags[EDIT_TAG],
 					statusmsgGroup: splitStatusTarget(client, target).group,
+					...languageFieldsOf((name) => tags[name]),
 				},
 				{arm: false}
 			);
