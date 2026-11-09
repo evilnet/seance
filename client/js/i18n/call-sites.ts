@@ -2287,6 +2287,7 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"sidebar.mentions",
 	"sidebar.networkList",
 	"sidebar.noResults",
+	"sidebar.resize",
 	"sidebar.savedNetworkConnect",
 	"sidebar.savedNetworkOff",
 	"sidebar.savedNetworkPassword",

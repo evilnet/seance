@@ -14250,6 +14250,12 @@ msgctxt "sidebar.noResults"
 msgid "No results found."
 msgstr ""
 
+#. Tooltip and screen-reader label of the thin handle on the edge of the sidebar (channel list) next to the chat. The arrow keys also resize it when it has focus.
+#: client/components/SidebarResizer.vue
+msgctxt "sidebar.resize"
+msgid "Drag to resize the sidebar; double-click for its usual width"
+msgstr ""
+
 #. Tooltip and aria-label of a greyed sidebar row for a saved network that is not connected (it did not connect by itself at startup, or was quit); clicking it connects. {name} is the network's name.
 #: client/components/DormantNetwork.vue:122
 msgctxt "sidebar.savedNetworkConnect"

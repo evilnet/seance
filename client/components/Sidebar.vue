@@ -91,6 +91,7 @@
 					></button> </router-link
 			></span>
 		</footer>
+		<SidebarResizer />
 	</aside>
 </template>
 
@@ -103,6 +104,7 @@ import NetworkList from "./NetworkList.vue";
 import LanguageSelect from "./LanguageSelect.vue";
 import eventbus from "../js/eventbus";
 import PresencePill from "./PresencePill.vue";
+import SidebarResizer from "./SidebarResizer.vue";
 import {devtoolsAvailable, toggleDevtools} from "../js/devtools";
 
 /** An open modal overlay (the oper cards, builder and dialog, the confirm
@@ -173,6 +175,7 @@ export default defineComponent({
 		NetworkList,
 		LanguageSelect,
 		PresencePill,
+		SidebarResizer,
 	},
 	props: {
 		overlay: {type: Object as PropType<HTMLElement | null>, required: true},
