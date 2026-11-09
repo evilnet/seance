@@ -155,6 +155,23 @@ export default defineComponent({
 			}
 		};
 
+		// The viewer's content box, in its own coordinates: the picture is
+		// fitted and kept inside it. A platform that keeps the picture clear of
+		// the window's own controls (the Mac app's traffic lights, style.css)
+		// pads the viewer; elsewhere it is the whole viewer.
+		const contentBox = (viewerEl: HTMLElement) => {
+			const style = getComputedStyle(viewerEl);
+			const left = parseFloat(style.paddingLeft) || 0;
+			const top = parseFloat(style.paddingTop) || 0;
+
+			return {
+				left,
+				top,
+				width: viewerEl.clientWidth - left - (parseFloat(style.paddingRight) || 0),
+				height: viewerEl.clientHeight - top - (parseFloat(style.paddingBottom) || 0),
+			};
+		};
+
 		const prepareImage = () => {
 			const viewerEl = viewer.value;
 			const imageEl = image.value;
@@ -163,14 +180,7 @@ export default defineComponent({
 				return;
 			}
 
-			// The image is fitted to the viewer's content box: a platform that
-			// keeps it clear of the window's own controls (the Mac app's traffic
-			// lights, style.css) pads the viewer, and the image opens inside.
-			const style = getComputedStyle(viewerEl);
-			const padLeft = parseFloat(style.paddingLeft) || 0;
-			const padTop = parseFloat(style.paddingTop) || 0;
-			const width = viewerEl.clientWidth - padLeft - (parseFloat(style.paddingRight) || 0);
-			const height = viewerEl.clientHeight - padTop - (parseFloat(style.paddingBottom) || 0);
+			const {left: padLeft, top: padTop, width, height} = contentBox(viewerEl);
 			const scale = Math.min(1, width / imageEl.width, height / imageEl.height);
 
 			position.value.x = Math.floor(-image.value!.naturalWidth / 2);
@@ -216,23 +226,26 @@ export default defineComponent({
 
 			const widthScaled = imageEl.width * transform.value.scale;
 			const heightScaled = imageEl.height * transform.value.scale;
-			const containerWidth = viewerEl.offsetWidth;
-			const containerHeight = viewerEl.offsetHeight;
+			const box = contentBox(viewerEl);
+			const right = box.left + box.width;
+			const bottom = box.top + box.height;
 
-			if (widthScaled < containerWidth) {
-				transform.value.x = containerWidth / 2;
-			} else if (transform.value.x - widthScaled / 2 > 0) {
-				transform.value.x = widthScaled / 2;
-			} else if (transform.value.x + widthScaled / 2 < containerWidth) {
-				transform.value.x = containerWidth - widthScaled / 2;
+			// Smaller than the content box: centred in it. Larger: no edge of
+			// the picture comes inside it.
+			if (widthScaled < box.width) {
+				transform.value.x = box.left + box.width / 2;
+			} else if (transform.value.x - widthScaled / 2 > box.left) {
+				transform.value.x = box.left + widthScaled / 2;
+			} else if (transform.value.x + widthScaled / 2 < right) {
+				transform.value.x = right - widthScaled / 2;
 			}
 
-			if (heightScaled < containerHeight) {
-				transform.value.y = containerHeight / 2;
-			} else if (transform.value.y - heightScaled / 2 > 0) {
-				transform.value.y = heightScaled / 2;
-			} else if (transform.value.y + heightScaled / 2 < containerHeight) {
-				transform.value.y = containerHeight - heightScaled / 2;
+			if (heightScaled < box.height) {
+				transform.value.y = box.top + box.height / 2;
+			} else if (transform.value.y - heightScaled / 2 > box.top) {
+				transform.value.y = box.top + heightScaled / 2;
+			} else if (transform.value.y + heightScaled / 2 < bottom) {
+				transform.value.y = bottom - heightScaled / 2;
 			}
 		};
 
@@ -441,8 +454,7 @@ export default defineComponent({
 			const startTransformY = transform.value.y;
 			const widthScaled = imageEl.width * transform.value.scale;
 			const heightScaled = imageEl.height * transform.value.scale;
-			const containerWidth = viewerEl.offsetWidth;
-			const containerHeight = viewerEl.offsetHeight;
+			const box = contentBox(viewerEl);
 			const centerX = transform.value.x - widthScaled / 2;
 			const centerY = transform.value.y - heightScaled / 2;
 			let movedDistance = 0;
@@ -456,11 +468,11 @@ export default defineComponent({
 
 				movedDistance = Math.max(movedDistance, Math.abs(newX), Math.abs(newY));
 
-				if (centerX < 0 || widthScaled + centerX > containerWidth) {
+				if (centerX < box.left || widthScaled + centerX > box.left + box.width) {
 					transform.value.x = startTransformX + newX;
 				}
 
-				if (centerY < 0 || heightScaled + centerY > containerHeight) {
+				if (centerY < box.top || heightScaled + centerY > box.top + box.height) {
 					transform.value.y = startTransformY + newY;
 				}
 
@@ -530,6 +542,10 @@ export default defineComponent({
 			zoomAt(pinchFrom * pinch.scale, pinch.clientX, pinch.clientY);
 		};
 
+		const scrollPans =
+			document.documentElement.dataset.platform === "macos" ||
+			/^Mac/.test(navigator.platform);
+
 		const onMouseWheel = (e: WheelEvent) => {
 			// if image viewer is closing (css animation), you can still trigger mousewheel
 			// TODO: Figure out a better fix for this
@@ -543,6 +559,12 @@ export default defineComponent({
 			// ctrlKey set: zoom by it, about the pointer.
 			if (e.ctrlKey) {
 				zoomAt(transform.value.scale * Math.exp(-e.deltaY / 100), e.clientX, e.clientY);
+			} else if (scrollPans) {
+				// On a Mac a scroll is the trackpad's two fingers (or a mouse
+				// wheel): it moves the picture, as Preview's does; the pinch
+				// zooms. Elsewhere a wheel still zooms in steps.
+				transform.value.x -= e.deltaX;
+				transform.value.y -= e.deltaY;
 			} else {
 				const delta = e.deltaY > 0 ? 0.1 : -0.1;
 				const newScale = Math.min(3, Math.max(0.1, transform.value.scale + delta));
