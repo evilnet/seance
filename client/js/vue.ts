@@ -5,6 +5,8 @@ import {createApp} from "vue";
 import {store, CallableGetters, key} from "./store";
 import App from "../components/App.vue";
 import storage from "./localStorage";
+// Before the first paint: the sidebar opens at the width the user left it.
+import "./sidebarWidth";
 import {router} from "./router";
 import "./socket-events"; // this sets up all socket event listeners, do not remove
 import eventbus from "./eventbus";

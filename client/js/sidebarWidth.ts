@@ -11,9 +11,13 @@ const KEY = "thelounge.state.sidebarWidth";
 export const MIN_REM = 8;
 export const MAX_REM = 30;
 
-function rootPx(): number {
+/** The root font size in px: what 1rem is now. */
+export function rootPx(): number {
 	return parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
 }
+
+/** Room the chat keeps beside a dragged sidebar, whatever was saved. */
+const CHAT_MIN = "20rem";
 
 function apply(rem: number | null): void {
 	const style = document.documentElement.style;
@@ -21,7 +25,10 @@ function apply(rem: number | null): void {
 	if (rem === null) {
 		style.removeProperty("--sidebar-user-width");
 	} else {
-		style.setProperty("--sidebar-user-width", `${rem}rem`);
+		style.setProperty(
+			"--sidebar-user-width",
+			`max(${MIN_REM}rem, min(${rem}rem, calc(100vw - ${CHAT_MIN})))`
+		);
 	}
 }
 
@@ -45,6 +52,11 @@ export function setSidebarPx(px: number, save = true): number {
 	}
 
 	return rem;
+}
+
+/** Back to the width as saved (a cancelled drag). */
+export function restoreSidebarWidth(): void {
+	apply(storedSidebarRem());
 }
 
 /** Back to the default width. */

@@ -115,7 +115,71 @@ export default async function run(page) {
 	await page.sleep(200);
 	page.check("a double-click puts the default back", (await page.evaluate(WIDTH)) === start);
 
-	await drag(page, hx, hx - 40, y);
+	page.check(
+		"the double-click saved nothing",
+		(await page.evaluate(`localStorage.getItem("thelounge.state.sidebarWidth")`)) === null
+	);
+
+	// A click without a move changes and saves nothing.
+	const c = await page.rect("#sidebar .sidebar-resizer");
+	const cx = c.x + 1;
+	await page.send("Input.dispatchMouseEvent", {
+		type: "mousePressed",
+		x: cx,
+		y,
+		button: "left",
+		clickCount: 1,
+	});
+	await page.send("Input.dispatchMouseEvent", {
+		type: "mouseReleased",
+		x: cx,
+		y,
+		button: "left",
+		clickCount: 1,
+	});
+	await page.sleep(400);
+	page.check(
+		"a plain click changes and saves nothing",
+		(await page.evaluate(WIDTH)) === start &&
+			(await page.evaluate(`localStorage.getItem("thelounge.state.sidebarWidth")`)) === null
+	);
+
+	// A cancelled drag puts the width back, unsaved, and lets go of the page.
+	const k = await page.rect("#sidebar .sidebar-resizer");
+	const kx = k.x + k.width / 2;
+	await page.evaluate(`(() => {
+		const h = document.querySelector("#sidebar .sidebar-resizer");
+		const at = (type, x) => h.dispatchEvent(new PointerEvent(type, {pointerId: 7, clientX: x, clientY: ${y}, button: 0, buttons: 1, bubbles: true, isPrimary: true}));
+		h.setPointerCapture = () => {};
+		h.releasePointerCapture = () => {};
+		at("pointerdown", ${kx});
+		at("pointermove", ${kx} + 50);
+		h.dispatchEvent(new PointerEvent("pointercancel", {pointerId: 7, clientX: 0, bubbles: true}));
+		// The real capture back, for the drag below.
+		delete h.setPointerCapture;
+		delete h.releasePointerCapture;
+	})()`);
+	await page.sleep(200);
+	page.check(
+		"a cancelled drag restores the width and saves nothing",
+		(await page.evaluate(WIDTH)) === start &&
+			(await page.evaluate(`localStorage.getItem("thelounge.state.sidebarWidth")`)) ===
+				null &&
+			!(await page.evaluate(
+				`document.documentElement.classList.contains("sidebar-resizing")`
+			))
+	);
+
+	// The handle moved with the reset: take it again, and see the drag took.
+	const d = await page.rect("#sidebar .sidebar-resizer");
+	const dx = d.x + d.width / 2;
+	await drag(page, dx, dx - 40, y);
+	const dragged = await page.evaluate(WIDTH);
+	page.check(
+		`a second drag narrows it again (${dragged}px)`,
+		Math.abs(dragged - (start - 40)) <= 4
+	);
+
 	await page.send("Emulation.setDeviceMetricsOverride", {
 		width: 400,
 		height: 800,
