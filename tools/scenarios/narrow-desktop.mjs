@@ -117,5 +117,60 @@ export default async function run(page) {
 	await resize(page, 640);
 	s = await page.evaluate(STATE);
 	page.check("back to 640: the channel list beside the chat again", s.sidebar === "panel");
+
+	// A bigger font step moves the threshold without moving the pane: the
+	// list still starts closed there, and its toggle still saves nothing.
+	await resize(page, 1100);
+	await page.evaluate(`localStorage.setItem("thelounge.state.userlist", "true")`);
+	s = await page.evaluate(STATE);
+	page.check(`1100, medium: user list beside (${s.userlist})`, s.userlist === "beside");
+	await page.evaluate(`document.documentElement.dataset.fontSize = "huge"`);
+	await page.sleep(400);
+	s = await page.evaluate(STATE);
+	page.check(
+		`1100, huge font: user list closed, not laid open over the messages (${s.userlist})`,
+		s.userlist === "closed"
+	);
+	page.check(
+		"the probe adds no scroll",
+		await page.evaluate(`document.documentElement.scrollWidth <= innerWidth`)
+	);
+	await page.evaluate(`document.documentElement.dataset.fontSize = "medium"`);
+	await page.sleep(400);
+
+	// A two-finger swipe on a trackpad (pixel wheel deltas): fingers to the
+	// left (Chrome reports no inversion) hide the channel list, to the right
+	// show it; a vertical scroll does neither.
+	const swipe = async (dx, dy = 0) => {
+		const chat = await page.rect("#chat .messages");
+		const x = chat.x + chat.width / 2;
+		const y = chat.y + chat.height / 2;
+		for (let i = 0; i < 8; i++) {
+			await page.send("Input.dispatchMouseEvent", {
+				type: "mouseWheel",
+				x,
+				y,
+				deltaX: dx,
+				deltaY: dy,
+			});
+		}
+		await page.sleep(500);
+	};
+	await swipe(30);
+	s = await page.evaluate(STATE);
+	const hidden = !(await page.evaluate(
+		`document.querySelector("#viewport").classList.contains("menu-open")`
+	));
+	page.check("a swipe one way hides the channel list", hidden);
+	await swipe(-30);
+	page.check(
+		"a swipe the other way shows it",
+		await page.evaluate(`document.querySelector("#viewport").classList.contains("menu-open")`)
+	);
+	await swipe(3, 60);
+	page.check(
+		"a vertical scroll leaves it",
+		await page.evaluate(`document.querySelector("#viewport").classList.contains("menu-open")`)
+	);
 	page.check("no console errors", page.consoleErrors.length === 0);
 }
