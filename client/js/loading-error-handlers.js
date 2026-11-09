@@ -177,11 +177,11 @@
 			document.documentElement.dataset.platform = "macos";
 		}
 
-		// A build with a default theme of its own (data-server-theme other
-		// than the stock "coffee", configuration.ts) keeps it in the Mac app
-		// too, as boot.ts does for a deploy's.
+		// A deploy's own theme (config.json) is known only at boot, which
+		// lets it win (boot.ts): until then a branded Mac app paints macos,
+		// as any branded deploy paints the build's default.
 		const serverTheme = themeEl.dataset.serverTheme;
-		const defaultTheme = macApp && serverTheme === "coffee" ? "macos" : serverTheme;
+		const defaultTheme = macApp ? "macos" : serverTheme;
 		const storedTheme = typeof userSettings.theme === "string" ? userSettings.theme : undefined;
 		const chosen = storedTheme ?? defaultTheme;
 		// The shell test is platformDefaults.ts currentPlatform's, inlined:

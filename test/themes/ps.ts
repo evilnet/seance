@@ -1777,6 +1777,15 @@ describe("the ps theme's composer: one thin divider over the flat input (the use
 		// an edge all round (ps.css's html[data-platform="macos"] block, the
 		// user's call for the Mac toolbar look, 2026-11-09).
 		const notMac = (s: string) => !s.startsWith('html[data-platform="macos"]');
+		const MAC = "@media (min-width: 769px)";
+		expect(
+			valueOf('html[data-platform="macos"] #form', "border", MAC),
+			"the Mac capsule's edge all round"
+		).to.equal("0.0625rem solid var(--ps-g-edge)");
+		expect(
+			valueOf('html[data-platform="macos"] #form', "background-color", REDUCED_TRANSPARENCY),
+			"the Mac capsule solid under reduced transparency"
+		).to.equal("var(--ps-g-solid)");
 		const widths = [
 			"border",
 			"border-width",

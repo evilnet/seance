@@ -1077,7 +1077,10 @@ export default defineComponent({
 
 			eventbus.emit(PICKER_OPENED, uid);
 			eventbus.on(PICKER_OPENED, onOtherOpened);
-			document.addEventListener("mousedown", onDocumentMouseDown);
+			// Capture: the Mac app's window-drag script (Tauri's drag region,
+			// helpers/shell.ts macDragRegion) stops a press on the header from
+			// bubbling, and that press must still close the picker.
+			document.addEventListener("mousedown", onDocumentMouseDown, true);
 			window.addEventListener("scroll", reposition, true);
 			window.addEventListener("resize", repositionSettled);
 			window.visualViewport?.addEventListener("resize", repositionSettled);
@@ -1098,7 +1101,7 @@ export default defineComponent({
 			backWatcher?.destroy();
 			backWatcher = null;
 			eventbus.off(PICKER_OPENED, onOtherOpened);
-			document.removeEventListener("mousedown", onDocumentMouseDown);
+			document.removeEventListener("mousedown", onDocumentMouseDown, true);
 			window.removeEventListener("scroll", reposition, true);
 			window.removeEventListener("resize", repositionSettled);
 			window.visualViewport?.removeEventListener("resize", repositionSettled);

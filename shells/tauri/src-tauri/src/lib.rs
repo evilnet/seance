@@ -708,7 +708,11 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             apple::start(app.handle());
             #[cfg(target_os = "macos")]
-            install_mac_menu(app.handle())?;
+            // A menu that cannot be built leaves Tauri's default, not a
+            // window that never opens.
+            if let Err(e) = install_mac_menu(app.handle()) {
+                eprintln!("the menu bar's own items: {e}");
+            }
             #[cfg(any(windows, target_os = "linux"))]
             alerts::setup(app.handle());
 

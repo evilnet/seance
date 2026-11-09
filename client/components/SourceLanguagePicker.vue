@@ -247,7 +247,10 @@ export default defineComponent({
 
 		onMounted(() => {
 			document.addEventListener("keydown", onKey);
-			document.addEventListener("mousedown", onDocumentMouseDown);
+			// Capture: the Mac app's window-drag script (Tauri's drag region,
+			// helpers/shell.ts macDragRegion) stops a press on the header from
+			// bubbling, and that press must still close the picker.
+			document.addEventListener("mousedown", onDocumentMouseDown, true);
 			window.addEventListener("scroll", reposition, true);
 			window.addEventListener("resize", reposition);
 			narrowQuery?.addEventListener("change", onNarrow);
@@ -268,7 +271,7 @@ export default defineComponent({
 
 		onBeforeUnmount(() => {
 			document.removeEventListener("keydown", onKey);
-			document.removeEventListener("mousedown", onDocumentMouseDown);
+			document.removeEventListener("mousedown", onDocumentMouseDown, true);
 			window.removeEventListener("scroll", reposition, true);
 			window.removeEventListener("resize", reposition);
 			narrowQuery?.removeEventListener("change", onNarrow);

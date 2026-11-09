@@ -429,9 +429,10 @@ html[data-platform="macos"] .window .header {
 /* The lights are on the window's left in either direction of text: over the
  * sidebar's strip when the sidebar is open on the left, over the header's
  * left end otherwise, which right to left is always (the sidebar docks on
- * the right). Physical on purpose. */
+ * the right). Physical on purpose, and #viewport in both selectors so a
+ * theme's own #chat .header padding (ps's) does not win over them. */
 html[data-platform="macos"]:not([dir="rtl"]) #viewport:not(.menu-open) .window .header,
-html[data-platform="macos"][dir="rtl"] .window .header {
+html[data-platform="macos"][dir="rtl"] #viewport .window .header {
 	padding-left: var(--mac-traffic-lights-end);
 }
 
