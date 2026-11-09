@@ -3556,6 +3556,41 @@ html[data-reduce-motion]:root {
 
 /* ---- reduced transparency ---- */
 
+/* ps on the Mac (html[data-platform="macos"], the desktop layout only): the
+ * sidebar is a pane of glass floating over the plains, as macOS 26 draws a
+ * Finder or Mail sidebar, inset from the window's edges with its corners
+ * rounded and the traffic lights inside it, so the scene runs around it. Its
+ * top strip is the lights' (style.css), shortened by the inset so the lights
+ * and the presence control share a centre line. The open row is a rounded
+ * wash, not coffee's marker, and the badges are capsules. Everything else is
+ * ps as it is everywhere. */
+@media (min-width: 769px) {
+	html[data-platform="macos"] #sidebar {
+		margin: 0.5rem;
+		margin-inline-end: 0;
+		border: 0.0625rem solid var(--ps-g-edge);
+		border-radius: 0.875rem;
+		overflow: hidden;
+		box-shadow: 0 0.5rem 1.875rem rgb(0 0 0 / 18%);
+	}
+
+	html[data-platform="macos"] #sidebar .logo-container {
+		height: calc(2 * (var(--mac-titlebar-height) / 2 - 0.5rem));
+		padding-inline-end: 0.375rem;
+	}
+
+	html[data-platform="macos"] .channel-list-item.active,
+	html[data-platform="macos"][dir="rtl"] .channel-list-item.active {
+		box-shadow: none;
+		background-color: var(--ps-g-wash-strong);
+	}
+
+	html[data-platform="macos"] .channel-list-item .badge {
+		border-radius: 1em;
+		padding: 0.2em 0.55em;
+	}
+}
+
 /* A system that asks for less transparency gets the chrome solid: no blur, the
  * solid colour, by day and at night — and the words' surfaces with it (the
  * card and the pills, an own row's card and a mention's, the glass column,
