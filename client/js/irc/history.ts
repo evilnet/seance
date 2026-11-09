@@ -928,21 +928,41 @@ export const chathistoryBatch: BatchHandler = (client, batch) => {
 export const ZNC_PLAYBACK_BATCH = "znc.in/playback";
 
 /**
- * What ZNC has shown each conversation on this page, by identity: its own
- * `time` tag, the sender, the command and the text, with how many times each
- * came. ZNC has no msgids, and a buffer it does not clear
+ * What each conversation has shown on this page, by identity: the time, the
+ * sender, the kind (message, action, notice) and the text, with how many
+ * times each came. ZNC has no msgids, and a buffer it does not clear
  * (`AutoClearChanBuffer` off, or the `*playback` module) comes back on every
- * attach, along with lines we already saw live. Bounded per conversation.
+ * attach, along with lines we already saw live. A query's lines restored from
+ * this device (querylog.ts) count too, seeded at its first replay
+ * ({@link seedFromQueryLog}). Bounded per conversation.
  */
 const zncSeen = new WeakMap<IrcClient, Map<string, Map<string, number>>>();
+/** Conversations whose logged lines were counted in already, per client. */
+const zncSeeded = new WeakMap<IrcClient, Set<string>>();
 const ZNC_SEEN_MAX = 2000;
 
-/** A line's identity, from the bouncer's own time tag; none without one. */
-function zncKey(line: IrcMessage): string | undefined {
-	const time = line.tags.get("time");
-	return time
-		? [time, line.source?.name ?? "", line.command, ...line.params.slice(1)].join("\0")
-		: undefined;
+/** A line's identity: epoch ms, sender, kind, text. */
+function identity(ms: number, nick: string, kind: string, text: string): string {
+	return [ms, nick, kind, text].join("\0");
+}
+
+/** A PRIVMSG or NOTICE's identity, from the bouncer's own time tag; none without one. */
+function zncKey(client: IrcClient, line: IrcMessage): string | undefined {
+	const ms = Date.parse(line.tags.get("time") ?? "");
+
+	if (Number.isNaN(ms)) {
+		return undefined;
+	}
+
+	let text = line.params[1] ?? "";
+	let kind = line.command === "NOTICE" ? "notice" : "message";
+
+	if (kind === "message" && text.startsWith("\x01ACTION ")) {
+		kind = "action";
+		text = text.slice("\x01ACTION ".length).replace(/\x01$/, "");
+	}
+
+	return identity(ms, client.casefold(line.source?.name ?? ""), kind, text);
 }
 
 function zncSeenFor(client: IrcClient, target: string): Map<string, number> {
@@ -974,9 +994,52 @@ function trimSeen(seen: Map<string, number>): void {
 	}
 }
 
+/**
+ * Count a query's lines kept on this device (querylog.ts) as shown, once per
+ * page: after a reload they were restored into the window, and ZNC's QueryLog
+ * buffer replays the same lines. Counted with the larger of the two counts,
+ * since the lines seen live since are in the log as well.
+ */
+function seedFromQueryLog(client: IrcClient, target: string, seen: Map<string, number>): void {
+	if (client.isChannelName(target)) {
+		return;
+	}
+
+	let seeded = zncSeeded.get(client);
+
+	if (!seeded) {
+		seeded = new Set();
+		zncSeeded.set(client, seeded);
+	}
+
+	const folded = client.casefold(target);
+
+	if (seeded.has(folded)) {
+		return;
+	}
+
+	seeded.add(folded);
+	const logged = new Map<string, number>();
+
+	for (const msg of client.queryLog.messages(target)) {
+		const ms = new Date(msg.time).getTime();
+
+		if (Number.isNaN(ms) || msg.text === undefined || msg.type === undefined) {
+			continue;
+		}
+
+		const key = identity(ms, client.casefold(msg.from?.nick ?? ""), msg.type, msg.text);
+		logged.set(key, (logged.get(key) ?? 0) + 1);
+	}
+
+	for (const [key, count] of logged) {
+		seen.set(key, Math.max(count, seen.get(key) ?? 0));
+	}
+}
+
 /** A live PRIVMSG or NOTICE behind ZNC: remembered, so its replay is known. */
 export function noteZncLine(client: IrcClient, line: IrcMessage): void {
-	const key = zncKey(line);
+	const key = zncKey(client, line);
 	const target = line.params[0];
 
 	if (!key || !target) {
@@ -1004,9 +1067,10 @@ export const zncPlaybackBatch: BatchHandler = (client, batch) => {
 	}
 
 	const seen = zncSeenFor(client, target);
+	seedFromQueryLog(client, target, seen);
 	const inBatch = new Map<string, number>();
 	const lines = batch.messages.filter((line) => {
-		const key = zncKey(line);
+		const key = zncKey(client, line);
 
 		if (!key) {
 			return true;

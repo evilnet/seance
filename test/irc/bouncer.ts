@@ -10,6 +10,8 @@ import {
 } from "../../client/js/irc/bouncer";
 import {setup, register, Harness} from "./support";
 import * as saved from "../../client/js/irc/saved-networks";
+import * as querylog from "../../client/js/irc/querylog";
+import {MessageType, type SharedMsg} from "../../shared/types/msg";
 import type {StorageBackend} from "../../client/js/irc/saved-networks";
 
 /** In-memory stand-in for the localStorage wrapper. */
@@ -28,7 +30,6 @@ class MemoryStorage implements StorageBackend {
 		this.data.delete(key);
 	}
 }
-import type {SharedMsg} from "../../shared/types/msg";
 
 /** What ZNC 1.9 offers a client (its own caps plus the legacy `znc.in/*` names). */
 const ZNC_CAPS =
@@ -110,6 +111,45 @@ describe("Bouncers: ZNC buffer playback", function () {
 
 		const chan = h.client.findChannel("#seance")!;
 		expect(h.messages(chan.id).filter((m) => m.text === "ok")).to.have.length(2);
+	});
+
+	it("skips a buffered query line this device kept from before a reload", function () {
+		querylog.useStorageBackend(new MemoryStorage());
+
+		try {
+			const h = setup();
+			// What a page that went away left in the query log: one line from
+			// bob, one of ours (an action), both still in ZNC's QueryLog buffer.
+			const kept = (nick: string, type: MessageType, text: string, minute: number) =>
+				({
+					type,
+					text,
+					time: new Date(`2026-11-08T10:0${minute}:00.000Z`),
+					from: {nick, mode: ""},
+					self: nick === "alice",
+				} as unknown as SharedMsg);
+			h.client.queryLog.append("bob", kept("bob", MessageType.MESSAGE, "hi there", 5));
+			h.client.queryLog.append("bob", kept("alice", MessageType.ACTION, "waves", 6));
+			register(h, ZNC_CAPS);
+			attach(
+				h,
+				[
+					"@time=2026-11-08T10:05:00.000Z :bob!bob@host PRIVMSG alice :hi there",
+					"@time=2026-11-08T10:06:00.000Z :alice!alice@host PRIVMSG bob :\x01ACTION waves\x01",
+					"@time=2026-11-08T10:07:00.000Z :bob!bob@host PRIVMSG alice :new since",
+				],
+				"bob"
+			);
+
+			const query = h.client.findChannel("bob")!;
+			const delivered = h
+				.payloads<MsgPayload>("msg")
+				.filter((p) => p.chan === query.id)
+				.map((p) => p.msg.text);
+			expect(delivered).to.deep.equal(["new since"]);
+		} finally {
+			querylog.useStorageBackend(null);
+		}
 	});
 
 	it("opens a query from a buffered private message", function () {
