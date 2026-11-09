@@ -240,6 +240,52 @@ export function sourceFor(
 	return {source, unsure: false, routeHint: source ?? priorTop};
 }
 
+/**
+ * How sure the detector must be to overrule the language the sender's
+ * client named (`+draft/language`, irc/langtag.ts). Above every lone
+ * verdict's floor (`ALONE_MIN`): a tag is the sender's own word, so only a
+ * verdict close to certain -- a script only one language writes (1), or
+ * both identifiers agreeing near the top -- outweighs it.
+ */
+export const SENDER_OVERRULE_MIN = 0.9;
+
+/**
+ * The detection with the sender's language (`sender`, a supported code
+ * from the message's `+draft/language`) taken as a strong prior, never an
+ * order: an unplaced or weak verdict becomes the sender's language, an
+ * agreeing one stands, and only a verdict at `SENDER_OVERRULE_MIN` or more
+ * for another language overrules it -- the sender's language then stays on
+ * the menu as a one-click correction. A tag cannot make a line the
+ * detector is sure of look like the reader's own, nor send a line it is
+ * sure of to an engine from the wrong source.
+ */
+export function withSenderLanguage(detection: Detection, sender: string | undefined): Detection {
+	if (!sender || !isSupported(sender)) {
+		return detection;
+	}
+
+	const others = detection.candidates.filter((code) => code !== sender);
+
+	if (detection.lang !== null && detection.lang !== sender) {
+		if (detection.confidence >= SENDER_OVERRULE_MIN) {
+			return {
+				...detection,
+				candidates: [
+					detection.lang,
+					sender,
+					...others.filter((c) => c !== detection.lang),
+				].slice(0, DETECT_CANDIDATES),
+			};
+		}
+	}
+
+	return {
+		lang: sender,
+		confidence: detection.lang === sender ? detection.confidence : AGREE_MIN,
+		candidates: [sender, ...others].slice(0, DETECT_CANDIDATES),
+	};
+}
+
 /** The dominant language of a channel's recent messages. */
 export class LanguagePrior {
 	private recent: string[] = [];

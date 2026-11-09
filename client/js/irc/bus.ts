@@ -55,11 +55,11 @@ export function networkInfo(
 }
 
 export function registerBusHandlers(bus: EventBus, registry: ClientRegistry): void {
-	bus.handle("input", ({target, text, reply, edit}) => {
+	bus.handle("input", ({target, text, reply, edit, language, machineTranslated}) => {
 		const client = registry.clientForChannel(target);
 
 		if (client) {
-			client.input(target, text, {reply, edit});
+			client.input(target, text, {reply, edit, language, machineTranslated});
 		} else {
 			// eslint-disable-next-line no-console
 			console.warn("[irc] input for unknown channel", target, text);

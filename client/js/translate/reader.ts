@@ -34,7 +34,14 @@ import {
 	termsFor,
 } from "./channelStore";
 import {buildContext} from "./context";
-import {type Detection, LanguagePrior, detectLanguage, detectionSkip, sourceFor} from "./detect";
+import {
+	type Detection,
+	LanguagePrior,
+	detectLanguage,
+	detectionSkip,
+	sourceFor,
+	withSenderLanguage,
+} from "./detect";
 import {ReplayBatches, historyQueueOrder, isChatLine, isEligible, plainTextOf} from "./eligibility";
 import {namesFor} from "./names";
 import {fromLocaleTag} from "./languages";
@@ -1023,7 +1030,7 @@ export async function translateMessage(
 	// A chosen source is the answer detection would have given: no chunk to
 	// download, no verdict to reach, and the previous entry's candidates
 	// stay on offer.
-	const detection = from
+	const detected = from
 		? {
 				lang: from,
 				confidence: 1,
@@ -1038,6 +1045,12 @@ export async function translateMessage(
 				// The user's own lines say what they write, not the channel.
 				learn: !message.self,
 		  });
+	// The sender's word for its language (`+draft/language`, irc/langtag.ts)
+	// as a strong prior: it settles the short lines the detector cannot
+	// place, and loses only to a verdict close to certain (detect.ts
+	// `withSenderLanguage`). Not for a forced line: the toolbar's Translate
+	// and the chip's Retranslate are the reader's way past a wrong tag.
+	const detection = from || force ? detected : withSenderLanguage(detected, message.language);
 
 	// Detection (the first call also awaits the identifiers' chunk) can
 	// take a while: re-read the switch afterwards, since a switch-off or a

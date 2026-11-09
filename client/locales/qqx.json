@@ -747,6 +747,8 @@
   "message.edited": "‫ţḣïś ṁéśśàġé ẃàś éḋïţéḋţḣïś ṁéśśàġé ẃàś éḋïţéḋ‬",
   "message.editedAt": "‫éḋïţéḋ {time}éḋïţéḋ {time}‬",
   "message.editedBadge": "‫)éḋïţéḋ()éḋïţéḋ(‬",
+  "message.machineTranslated": "‫ṁàċḣïñé ţŕàñśľàţéḋ ïñţö {language} ḃý ţḣé śéñḋéŕ'ś àṗṗṁàċḣïñé ţŕàñśľàţéḋ ïñţö {language} ḃý ţḣé śéñḋéŕ'ś àṗṗ‬",
+  "message.machineTranslatedBadge": "‫)ṁàċḣïñé ţŕàñśľàţéḋ()ṁàċḣïñé ţŕàñśľàţéḋ(‬",
   "message.noticeFrom": "‫ñöţïċé:ñöţïċé:‬",
   "message.quickReact": "‫ŕéàċţ ẃïţḣ {reaction}ŕéàċţ ẃïţḣ {reaction}‬",
   "message.quickRemove": "‫ŕéṁöṽé {reaction}ŕéṁöṽé {reaction}‬",

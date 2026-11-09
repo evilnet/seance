@@ -687,6 +687,8 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"message.edited",
 	"message.editedAt",
 	"message.editedBadge",
+	"message.machineTranslated",
+	"message.machineTranslatedBadge",
 	"message.noticeFrom",
 	"message.quickReact",
 	"message.quickRemove",

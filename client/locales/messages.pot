@@ -4214,6 +4214,18 @@ msgctxt "message.editedBadge"
 msgid "(edited)"
 msgstr ""
 
+#. Tooltip of the "(machine translated)" note on a chat message. {language} is the language the message is in, e.g. "Spanish".
+#: client/components/Message.vue
+msgctxt "message.machineTranslated"
+msgid "Machine translated into {language} by the sender's app"
+msgstr ""
+
+#. Small note after a chat message, beside "(edited)": the sender's app translated the message by machine before sending it. Keep it short.
+#: client/components/Message.vue
+msgctxt "message.machineTranslatedBadge"
+msgid "(machine translated)"
+msgstr ""
+
 #. Drawn before the sender's nick of an IRC NOTICE message in the chat (a label, then the nick).
 #: client/components/Message.vue
 msgctxt "message.noticeFrom"

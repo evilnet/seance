@@ -116,6 +116,7 @@ import {detectProfile, type ServerProfile} from "./profiles";
 import {interceptRequestLine, resetRequests} from "./request";
 import {noticeMessage} from "./snotice";
 import {ISupport} from "./isupport";
+import {languageFieldsOf} from "./langtag";
 import {ChannelList} from "./channelList";
 import {
 	formatLine,
@@ -2341,6 +2342,7 @@ export class IrcClient {
 			replyTo: opts.tags?.[REPLY_TAG],
 			editOf: i === 0 ? opts.firstTags?.[EDIT_TAG] : undefined,
 			statusmsgGroup: group,
+			...languageFieldsOf((name) => opts.tags?.[name]),
 		});
 
 		const deliver = (): boolean => {

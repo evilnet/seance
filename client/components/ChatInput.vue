@@ -1071,9 +1071,15 @@ export default defineComponent({
 		 * Ship `text` as the message; `original` is what the input history
 		 * remembers (the draft, when `text` is its translation). Everything
 		 * a send does lives here so the plain path, the translated path and
-		 * the "send as written" path cannot drift apart.
+		 * the "send as written" path cannot drift apart. `language` is the
+		 * language tags' fields (irc/langtag.ts), given only for a finished
+		 * translation into a language the user picked.
 		 */
-		const deliver = (text: string, original: string) => {
+		const deliver = (
+			text: string,
+			original: string,
+			language?: {language: string; machineTranslated: boolean}
+		) => {
 			const target = props.channel.id;
 			const editing = props.channel.editing;
 			const replyTo = props.channel.replyTo;
@@ -1144,6 +1150,7 @@ export default defineComponent({
 				text,
 				...(reply ? {reply} : {}),
 				...(edit ? {edit} : {}),
+				...(language && !edit ? language : {}),
 			});
 
 			props.channel.replyTo = null;
@@ -1248,8 +1255,17 @@ export default defineComponent({
 					recordSentReadBack(props.channel, entry);
 				}
 
+				// The language tags (docs/resources/translation.md § Language
+				// tags): the target is the user's pick, so the line's
+				// language is known, not guessed. A corrected line is in
+				// the user's own words, so it is not marked machine-made.
+				const tagged =
+					translated !== null
+						? {language: entry.to, machineTranslated: !polished}
+						: undefined;
+
 				cancelOutgoing(props.channel);
-				deliver(line, text);
+				deliver(line, text, tagged);
 
 				if (translated !== null && !polished) {
 					noteOutgoingSent(

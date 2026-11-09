@@ -324,6 +324,10 @@ interface ClientToServerEvents {
 		reply?: string;
 		/** msgid of our own message to replace: REDACT (channels) + resend with `+seance/edit`. */
 		edit?: string;
+		/** The language the text is in (the composer's translation target): `+draft/language`. */
+		language?: string;
+		/** The composer machine-translated it: `+evilnet.github.io/machine-translated`. */
+		machineTranslated?: boolean;
 	}>;
 	/** Send `text` to a target named by network uuid + channel/nick — the
 	 * form a notification can use after the page (and its channel ids) is

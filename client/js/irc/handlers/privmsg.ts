@@ -14,6 +14,7 @@ import {privilegesModified} from "../oper";
 import {noteServicesLine, snoopNicks} from "../servicesfeed";
 import {handleServerNotice, handleWallops} from "../snotice";
 import {DRAFT_REPLY_TAG, EDIT_TAG, REPLY_TAG, trailingLine} from "../wire";
+import {languageFieldsOf} from "../langtag";
 import {noteListDelay} from "./list";
 import type {Handler} from "../types";
 import {ignoreListFor} from "../../ignore";
@@ -272,6 +273,14 @@ function handleMessage(
 	if (editOf) {
 		message.editOf = editOf;
 	}
+
+	// The language tags (`langtag.ts`): what the sender says the text is
+	// in, and whether its client machine-translated it. An edit carries its
+	// own, so a rewrite sent as typed loses the original's note.
+	Object.assign(
+		message,
+		languageFieldsOf((name) => msg.tags.get(name))
+	);
 
 	// The original leaves the inbox, loaded or not; the inbox checks that
 	// the edit's sender wrote it (`by`). The edit brings its own entry if it
