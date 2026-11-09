@@ -428,7 +428,7 @@ and marker form are chosen with the answer known.
   `navigator.connection` reports Save-Data or a cellular link
   (`ServiceDeps.metered`; iOS reports neither, so there it is always quiet).
 - **The system translator's pack is offered on the line, never in its
-  sheet by itself** (iOS shell, `engines/apple.ts`): reading takes an
+  sheet by itself** (the iOS and macOS shells, `engines/apple.ts`): reading takes an
   installed pack only; a pack that could be downloaded is reported
   (`ServiceDeps.onApplePack` → `applePacks.ts`), the line is translated by
   the table now, and the first line translated from that pair shows "Apple

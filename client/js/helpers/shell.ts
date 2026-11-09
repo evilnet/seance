@@ -89,6 +89,16 @@ export function isIOSShell(): boolean {
 	return nativePlatform() === "ios";
 }
 
+/**
+ * True where the shell answers `AppleTranslate` (Apple's Translation
+ * framework, shells/tauri/src-tauri/swift SeanceTranslate): the iOS and the
+ * macOS shells.
+ */
+export function hasAppleTranslate(): boolean {
+	const platform = nativePlatform();
+	return platform === "ios" || platform === "macos";
+}
+
 export function isAndroidShell(): boolean {
 	return nativePlatform() === "android";
 }

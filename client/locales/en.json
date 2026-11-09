@@ -2810,6 +2810,7 @@
   "translate.system.hint": "It runs on this device with language packs from the system, and is fast. Other languages use the models below.",
   "translate.system.installed": "{from} → {to}: downloaded. Apple Translation translates it.",
   "translate.system.notDownloaded": "{from} → {to}: not downloaded. You can also download languages in Settings → Apps → Translate.",
+  "translate.system.notDownloadedMac": "{from} → {to}: not downloaded. You can also download languages in System Settings → General → Language & Region → Translation Languages.",
   "translate.system.sourceLabel": "Language to download",
   "translate.system.supported": "{from} → {to}: not downloaded yet.",
   "translate.system.switch": "Translate with Apple Translation when the language is downloaded",

@@ -2563,6 +2563,7 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"translate.system.hint",
 	"translate.system.installed",
 	"translate.system.notDownloaded",
+	"translate.system.notDownloadedMac",
 	"translate.system.sourceLabel",
 	"translate.system.supported",
 	"translate.system.switch",

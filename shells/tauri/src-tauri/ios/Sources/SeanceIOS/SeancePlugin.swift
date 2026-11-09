@@ -1,5 +1,7 @@
 import ObjectiveC
 import SeanceNotifications
+import SeanceTranslate
+import SwiftUI
 import Tauri
 import UIKit
 import UserNotifications
@@ -14,7 +16,8 @@ class EventHandlerArgs: Decodable {
 /// events go back through the one channel it set at start. LocalNotifications
 /// is the one the macOS shell answers too (../swift, SeanceNotifications);
 /// App, Keyboard, StatusBar, SplashScreen, Badge and Power are answered here,
-/// and AppleTranslate (Apple's Translation framework) in AppleTranslate.swift.
+/// and AppleTranslate (Apple's Translation framework, ../swift SeanceTranslate,
+/// shared with the macOS shell) with `prepareHost` for its download sheet.
 final class SeancePlugin: Plugin {
     private var channel: Channel?
     private var held: [JsonObject] = []
@@ -117,9 +120,30 @@ final class SeancePlugin: Plugin {
         case ("LocalNotifications", _) where Notifications.methods.contains(method):
             return try await notifications.call(method, options)
         case ("AppleTranslate", _) where AppleTranslate.methods.contains(method):
-            return try await appleTranslate.call(method, options, presentingFrom: presenter)
+            return try await appleTranslate.call(method, options, host: prepareHost)
         default:
             throw Failure(code: "unimplemented", message: "\(plugin).\(method) is not implemented")
+        }
+    }
+
+    /// AppleTranslate's `prepare` question: its 1×1 SwiftUI view as a child of
+    /// the web view's controller, so the system's download sheet has a view
+    /// controller to present from.
+    private var prepareHost: PrepareHost {
+        { [weak self] view in
+            guard let parent = self?.presenter else { return nil }
+            let controller = UIHostingController(rootView: view)
+            controller.view.backgroundColor = .clear
+            controller.view.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
+            controller.view.isUserInteractionEnabled = false
+            parent.addChild(controller)
+            parent.view.addSubview(controller.view)
+            controller.didMove(toParent: parent)
+            return {
+                controller.willMove(toParent: nil)
+                controller.view.removeFromSuperview()
+                controller.removeFromParent()
+            }
         }
     }
 

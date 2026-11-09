@@ -1,7 +1,11 @@
+import AppKit
 import Foundation
 import SeanceNotifications
+import SeanceTranslate
+import SwiftUI
 
-// The macOS shell's Swift (Notifications.swift), reached from Rust
+// The macOS shell's Swift (SeanceNotifications' alerts and SeanceTranslate's
+// AppleTranslate, both shared with the iOS shell), reached from Rust
 // (src/apple.rs) through two C entry points:
 //
 // - `seance_apple_start(event)`, once at setup: makes the plugin and gives it
@@ -40,22 +44,28 @@ public func seanceAppleCall(
     }
     let reject: (String, String) -> Void = { code, message in answer(["err": ["code": code, "message": message]]) }
 
-    guard plugin == "LocalNotifications", Notifications.methods.contains(method) else {
-        reject("unimplemented", "\(plugin).\(method) is not implemented")
-        return
-    }
-    guard let notifications = Shared.notifications else {
-        reject("unavailable", "the plugin has not started")
-        return
-    }
     guard let options = (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [String: Any] else {
         reject("badRequest", "options must be a JSON object")
+        return
+    }
+    let run: () async throws -> [String: Any]
+    switch plugin {
+    case "LocalNotifications" where Notifications.methods.contains(method):
+        guard let notifications = Shared.notifications else {
+            reject("unavailable", "the plugin has not started")
+            return
+        }
+        run = { try await notifications.call(method, options) }
+    case "AppleTranslate" where AppleTranslate.methods.contains(method):
+        run = { try await Shared.appleTranslate.call(method, options, host: prepareHost) }
+    default:
+        reject("unimplemented", "\(plugin).\(method) is not implemented")
         return
     }
 
     Task {
         do {
-            answer(["ok": try await notifications.call(method, options)])
+            answer(["ok": try await run()])
         } catch let failure as Failure {
             reject(failure.code, failure.message)
         } catch {
@@ -71,4 +81,18 @@ private func encode(_ value: Any) -> Data {
 
 private enum Shared {
     static var notifications: Notifications?
+    static let appleTranslate = AppleTranslate()
+}
+
+/// AppleTranslate's `prepare` question: its 1×1 SwiftUI view in the key
+/// window's content view, so `.translationTask` has a window to attach the
+/// system's download sheet to.
+private let prepareHost: PrepareHost = { view in
+    guard let window = NSApp.keyWindow ?? NSApp.mainWindow ?? NSApp.windows.first(where: { $0.isVisible }),
+          let content = window.contentView
+    else { return nil }
+    let host = NSHostingView(rootView: view)
+    host.frame = NSRect(x: 0, y: 0, width: 1, height: 1)
+    content.addSubview(host)
+    return { host.removeFromSuperview() }
 }
