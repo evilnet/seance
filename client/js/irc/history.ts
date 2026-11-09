@@ -50,6 +50,7 @@ import {formatLine, IrcMessage} from "./message";
 import {searchAck, searchContextBatch} from "./historysearch";
 import {settlePendingLabel} from "./pending";
 import {inBouncerReplay, inServerCatchup} from "./persistence";
+import {toLogged} from "./querylog";
 import type {Handler} from "./types";
 
 /** How long to wait for the server before answering `more` with nothing. */
@@ -701,8 +702,9 @@ function toDate(value: Date | string): Date {
 /**
  * The JOIN's first page (`LATEST`) against the rows the device's cache put
  * above it (historycache.ts). The rows join the channel's history only when
- * the page proves they meet it: it carries one of their msgids, nothing it
- * holds falls inside their span without being one of them, and what it
+ * the page proves they meet it: it carries one of their msgids, no line of
+ * a kind the cache keeps falls inside their span without being one of them
+ * (events it never keeps go in among them), and what it
  * holds past them is older than every chat line already shown below them
  * (an ATTACH replay, a live line) — appended, it would land after those.
  * Then the older part goes on top and the newer part is appended, as a
@@ -741,6 +743,10 @@ function reconcileCached(
 	const fresh = messages.filter((m) => !m.msgid || !cachedMsgids.has(m.msgid));
 	const older: SharedMsg[] = [];
 	const newer: SharedMsg[] = [];
+	// Inside their span: a line of a kind the cache keeps, missing from it,
+	// is a gap the rows would hide; anything else (a JOIN, a QUIT, a MODE
+	// from event-playback) was never kept and goes in among them.
+	const between: SharedMsg[] = [];
 	let inside = false;
 
 	for (const msg of fresh) {
@@ -750,8 +756,10 @@ function reconcileCached(
 			older.push(msg);
 		} else if (t > newest) {
 			newer.push(msg);
-		} else {
+		} else if (msg.msgid && toLogged(msg)) {
 			inside = true;
+		} else {
+			between.push(msg);
 		}
 	}
 
@@ -767,7 +775,7 @@ function reconcileCached(
 	const newestNewer = newer.reduce((t, m) => Math.max(t, toDate(m.time).getTime()), -Infinity);
 
 	if (overlap && !inside && newestNewer <= below) {
-		if (newer.length === 0) {
+		if (newer.length === 0 && between.length === 0) {
 			// Nothing new since: the rows stay where they are, confirmed.
 			for (const id of chan.cachedIds) {
 				const ref = chan.msgRefs.get(id);
@@ -784,12 +792,15 @@ function reconcileCached(
 		}
 
 		// The new lines belong between the cached rows and what is already
-		// below them (our JOIN, at the least), where neither an append nor a
-		// prepend can put them: take the rows out and deliver all three as
-		// one page, in order.
+		// below them (our JOIN, at the least), and the events among the rows,
+		// where neither an append nor a prepend can put them: take the rows
+		// out and deliver it all as one page, in order.
 		const kept = [...chan.cachedMsgs.values()].map((m) => ({...m}));
+		const middle = [...kept, ...between].sort(
+			(a, b) => toDate(a.time).getTime() - toDate(b.time).getTime()
+		);
 		dropCached(client, chan);
-		deliverPrepend(client, chan, [...older, ...kept, ...newer], more);
+		deliverPrepend(client, chan, [...older, ...middle, ...newer], more);
 		return;
 	}
 

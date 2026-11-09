@@ -478,6 +478,28 @@ describe("History cache in a client (irc/history.ts reconcileCached)", function 
 		expect(payloads("msg:drop")).to.have.length(1);
 	});
 
+	it("a JOIN or QUIT inside their span, which the cache never keeps, does not undo them", async function () {
+		backend.put("#seance", [logged(1), logged(3)]);
+		await start();
+		const label = join();
+		dispatch.resetHistory();
+		answer(label, [
+			hist(1),
+			"@time=2026-08-25T11:02:00.000Z;msgid=e2 :carol!c@host JOIN #seance",
+			hist(3),
+			"@time=2026-08-25T11:04:00.000Z;msgid=e4 :carol!c@host QUIT :bye",
+		]);
+
+		// The events land in order among the kept lines, not on top of them.
+		expect(mores().flatMap((p) => p.messages.map((m) => m.msgid))).to.deep.equal([
+			"m1",
+			"e2",
+			"m3",
+			"e4",
+		]);
+		expect(client.findChannel("#seance")!.cachedIds.size).to.equal(0);
+	});
+
 	it("a redaction takes a kept line off the device though it is not loaded", async function () {
 		backend.put("#seance", [logged(1), logged(2)]);
 		await start();
