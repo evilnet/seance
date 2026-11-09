@@ -440,6 +440,21 @@ html[data-platform="macos"][dir="rtl"] #sidebar .logo-container {
 	padding-left: 10px;
 }
 
+/* The image viewer as Quick Look shows a picture: over the window dimmed and
+ * blurred rather than blacked out, the picture opening clear of the traffic
+ * lights' strip and of the previous and next arrows (the viewer fits it to its
+ * content box, ImageViewer.vue), its close button below the lights. */
+html[data-platform="macos"] #image-viewer {
+	box-sizing: border-box;
+	padding: calc(var(--mac-titlebar-height) + 1rem) 4.5rem 3rem;
+	background: rgb(0 0 0 / 55%);
+	backdrop-filter: blur(1.25rem);
+}
+
+html[data-platform="macos"] #image-viewer .close-btn {
+	top: var(--mac-titlebar-height);
+}
+
 /* A pane laid over the window (Settings, Help, the oper panel, the
  * changelog; Settings.vue) starts below the lights' strip, so the lights
  * never sit on top of its corner. */
