@@ -107,7 +107,8 @@ struct Links {
 }
 
 /// The schemes the page reads (client/js/helpers/parseIrcUri.ts). The OS hands
-/// a desktop shell the `web+` two alone (tauri.conf.json); a link in a message
+/// a desktop shell the `web+` two (tauri.conf.json), and `irc`/`ircs` on macOS
+/// or once the user has turned them on (`irc_links`); a link in a message
 /// can be any of them.
 fn is_irc_link(value: &str) -> bool {
     // Bytes, not a str slice: a link from outside may put a multi-byte
@@ -117,6 +118,102 @@ fn is_irc_link(value: &str) -> bool {
             && value.as_bytes()[..scheme.len()].eq_ignore_ascii_case(scheme.as_bytes())
     };
     has("web+irc:/") || has("web+ircs:/") || has("irc:/") || has("ircs:/")
+}
+
+/// The schemes that name a TCP server (draft-butcher-irc-url). The phones
+/// claim them in their manifests and macOS in its bundle (Info.macos.plist),
+/// where the system picks the default; Windows and Linux only from
+/// `irc_links`, so Seance never takes them from HexChat or Konversation by
+/// starting. They stay out of tauri.conf.json's `desktop.schemes`: the
+/// installers write every scheme listed there, and `register_all()` does
+/// at each launch.
+#[cfg(any(windows, target_os = "linux"))]
+const TCP_SCHEMES: [&str; 2] = ["irc", "ircs"];
+
+/// `App.ircLinks`: `{enable: bool}` claims `irc:`/`ircs:` for this app or
+/// gives them up; with or without it, answers `{enabled}`, whether both
+/// point here now. A claim that fails half way is undone, so the switch never
+/// reads off while one scheme is still taken.
+#[cfg(any(windows, target_os = "linux"))]
+async fn irc_links(app: AppHandle, options: &Value) -> Result<Value, ShellError> {
+    let enable = options.get("enable").and_then(Value::as_bool);
+    let failed = |message: String| ShellError {
+        message,
+        code: "failed".into(),
+    };
+
+    // xdg-mime and update-desktop-database are processes; off the
+    // async runtime's threads.
+    tauri::async_runtime::spawn_blocking(move || {
+        let links = app.deep_link();
+        let release_all = || {
+            TCP_SCHEMES
+                .iter()
+                .try_for_each(|scheme| release_link(links, scheme))
+        };
+
+        match enable {
+            Some(true) => {
+                let claimed = TCP_SCHEMES
+                    .iter()
+                    .try_for_each(|scheme| links.register(scheme).map_err(|e| e.to_string()));
+
+                if let Err(message) = claimed {
+                    let _ = release_all();
+                    return Err(failed(message));
+                }
+            }
+            Some(false) => release_all().map_err(failed)?,
+            None => {}
+        }
+
+        let enabled = TCP_SCHEMES
+            .iter()
+            .all(|scheme| links.is_registered(scheme).unwrap_or(false));
+        Ok(json!({ "enabled": enabled }))
+    })
+    .await
+    .map_err(|e| failed(e.to_string()))?
+}
+
+/// Give a scheme back. Linux: the plugin's `unregister()`, which touches only
+/// this app's desktop file and its own default. Not on Windows, where it
+/// deletes `HKLM\Software\Classes\<scheme>` first (another client's, if
+/// installed for all users, when run elevated) and otherwise stops at the
+/// access-denied before reaching this user's key: only this user's class,
+/// and only while it runs this app.
+#[cfg(target_os = "linux")]
+fn release_link(
+    links: &tauri_plugin_deep_link::DeepLink<tauri::Wry>,
+    scheme: &str,
+) -> Result<(), String> {
+    links.unregister(scheme).map_err(|e| e.to_string())
+}
+
+/// Only this user's class, while it still runs the command the plugin's
+/// `register()` writes (`"<exe>" "%1"`, tauri-plugin-deep-link 2.6.3; the
+/// NSIS uninstaller makes the same check, windows/hooks.nsh).
+#[cfg(windows)]
+fn release_link(
+    _: &tauri_plugin_deep_link::DeepLink<tauri::Wry>,
+    scheme: &str,
+) -> Result<(), String> {
+    use windows_registry::CURRENT_USER;
+
+    let exe = tauri::utils::platform::current_exe().map_err(|e| e.to_string())?;
+    let ours = format!("\"{}\" \"%1\"", dunce::simplified(&exe).display());
+    let class = format!("Software\\Classes\\{scheme}");
+    let owned = CURRENT_USER
+        .open(format!("{class}\\shell\\open\\command"))
+        .and_then(|key| key.get_string(""))
+        .is_ok_and(|command| command == ours);
+
+    if owned {
+        CURRENT_USER
+            .remove_tree(&class)
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 /// A link from the OS (a deep link, a second launch's argv) or a message: to
@@ -211,6 +308,11 @@ async fn seance_call(
             links.listening = true;
             Ok(json!({ "url": links.launch }))
         }
+        // irc: and ircs: on Windows and Linux, only when the user asks
+        // (Settings, General). Not at launch: register() takes the scheme
+        // from whatever had it, every time.
+        #[cfg(any(windows, target_os = "linux"))]
+        ("App", "ircLinks") => irc_links(window.app_handle().clone(), &options).await,
         // The Dock bounces once, the taskbar button flashes, the window is
         // marked urgent; nothing while the window has the focus.
         #[cfg(desktop)]

@@ -43,7 +43,7 @@ import {setContextProvider, scriptManager} from "./irc/scripting/manager";
 import {MessageType} from "../../shared/types/msg";
 import {takeTestSwitches} from "./translate/testSwitches";
 import {startIsolationMirror} from "./translate";
-import {nativePlatform} from "./helpers/shell";
+import {isShell, nativePlatform} from "./helpers/shell";
 // Also registers the IRC layer's bus handlers (input, names, more, network:*).
 import {
 	allClients,
@@ -307,6 +307,9 @@ async function handleQueryParams(
 	}
 
 	const params = new URLSearchParams(search);
+	// The app shell dials raw TCP, so an irc:// or ircs:// link means what it
+	// says there; a browser reads only its host and channels.
+	const tcp = isShell();
 	const raw = params.has("uri")
 		? (parseIrcUri(String(params.get("uri"))) as Record<string, unknown>)
 		: (Object.fromEntries(params.entries()) as Record<string, unknown>);
@@ -315,7 +318,7 @@ async function handleQueryParams(
 		removeQueryParams();
 	}
 
-	const suggestion = linkSuggestion(raw);
+	const suggestion = linkSuggestion(raw, {tcp});
 
 	if (!suggestion) {
 		// No server named: the leftover parameters (nick, join, ...) still
@@ -384,6 +387,10 @@ function suggestionQuery(suggestion: LinkSuggestion): LocationQueryRaw {
 		port: String(suggestion.port),
 		tls: suggestion.tls ? "1" : "0",
 	};
+
+	if (suggestion.transport === "tcp") {
+		query.transport = "tcp";
+	}
 
 	if (suggestion.join) {
 		query.join = suggestion.join;

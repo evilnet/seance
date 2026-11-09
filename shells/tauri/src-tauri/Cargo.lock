@@ -3072,6 +3072,7 @@ name = "seance-tauri"
 version = "0.1.0"
 dependencies = [
  "block2",
+ "dunce",
  "notify-rust",
  "objc2",
  "objc2-app-kit",
@@ -3095,6 +3096,7 @@ dependencies = [
  "tokio-rustls",
  "webkit2gtk",
  "webpki-roots",
+ "windows-registry",
  "zbus",
 ]
 

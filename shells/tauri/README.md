@@ -87,7 +87,7 @@ compiled out of a release build.
 
 | Plugin               | Methods / events                                                                                                               | Notes                                                                                                                                                                                                                     |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `App`                | `getLaunchUrl`, `requestAttention`; event `appUrlOpen`                                                                         | `web+irc:` links; an alert while the window is not in front bounces the Dock icon, flashes the taskbar button or marks the window urgent                                                                                  |
+| `App`                | `getLaunchUrl`, `requestAttention`, `ircLinks`; event `appUrlOpen`                                                             | IRC links (`ircLinks`: Windows and Linux, below); an alert while the window is not in front bounces the Dock icon, flashes the taskbar button or marks the window urgent                                                  |
 | `Badge`              | `checkPermissions`, `requestPermissions`, `set`, `clear`                                                                       | the count on the Dock (macOS) and launchers (Linux); a red dot over the taskbar button on Windows, which shows no number. Not yet run on Windows                                                                          |
 | `LocalNotifications` | `checkPermissions`, `requestPermissions`, `schedule`, `removeDeliveredNotifications`; event `localNotificationActionPerformed` | Windows, Linux (`src/alerts.rs`); macOS answers from the Apple plugins. A click opens the conversation (on Windows only while the toast is on screen); reading it removes the alert on Linux only. Not yet run on Windows |
 
@@ -107,7 +107,15 @@ compiled out of a release build.
   `App.getLaunchUrl`, later ones as `App.appUrlOpen` — no reload, so no
   connection is dropped. A second launch hands its argv over
   (`single-instance`). A build run from source registers nothing with the
-  OS; an installed one declares the scheme in its bundle.
+  OS; an installed one declares the scheme in its bundle. `irc:` and
+  `ircs:` (TCP) are claimed only where the system or the user picks the
+  default: the phones' manifests, macOS's `Info.macos.plist`, and on
+  Windows and Linux the Settings → General switch (`App.ircLinks`
+  `{enable}`, answers `{enabled}`). Why, and what "off" gives back:
+  `TCP_SCHEMES` and `release_link` in `src/lib.rs`. A Windows Default apps
+  choice still wins over the switch. The NSIS uninstaller removes the claim
+  (`windows/hooks.nsh`); on Linux, turn the switch off before removing the
+  package.
 - **Closing the window** follows the platform: macOS keeps the app in the
   Dock (⌘Q quits, the Dock icon reopens), Windows keeps it in the
   notification area (the tray menu has Quit), Linux quits — a tray may not be

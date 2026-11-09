@@ -1145,6 +1145,12 @@ msgctxt "connect.guestTitle"
 msgid "No account?"
 msgstr ""
 
+#. Notice in the dialog a plain irc:// link opens in the app, under the link's description: the suggested IRC connection would be unencrypted plain TCP.
+#: client/components/Windows/Connect.vue:122
+msgctxt "connect.linkCleartext"
+msgid "This connection will not be encrypted: anyone between you and the server can read what you send, your password included."
+msgstr ""
+
 #. Notice at the top of the connect form when a web+irc:// link named a server the deploy does not allow; {network} is this deploy's network name, {host} the refused server.
 #: client/components/Windows/Connect.vue:608
 msgctxt "connect.linkIgnored"
@@ -13497,6 +13503,12 @@ msgstr ""
 #: client/components/Settings/General.vue
 msgctxt "settings.general.installGuide"
 msgid "How to install {appName}"
+msgstr ""
+
+#. Switch in Settings, General, in the Windows and Linux apps: make this app the system's handler for irc:// and ircs:// links (taking them from any other IRC client). {appName} is the app's name.
+#: client/components/Settings/General.vue:31
+msgctxt "settings.general.ircLinks"
+msgid "Open irc:// and ircs:// links in {appName}"
 msgstr ""
 
 #. Switch label in Settings → General (Android app only).
