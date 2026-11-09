@@ -1,7 +1,8 @@
 // Translation switched off, its default (client/js/settings.ts
 // `translationEnabled`, translate/switch.ts): absent, not just disabled. No
-// translate button in the composer or the message toolbar, no
-// "Translation…" in the channel menu, no TranslationLine, no strip; Settings → Translation is the interface language and the switch
+// translate button in the composer or the message toolbar, no translation
+// panel ("Translation…" in the channel menu opens Settings instead, where
+// the switch is), no TranslationLine, no strip; Settings → Translation is the interface language and the switch
 // alone, under a tab named "Language"; and nothing of the machinery runs --
 // no worker script fetched, no Worker constructed, no GPU adapter asked
 // for -- not on a cold load, not when the interface language changes with a
@@ -218,6 +219,33 @@ async function menuOffersTranslation(page) {
 	return offered;
 }
 
+/**
+ * Off by the user's setting: the channel menu's "Translation…" is still
+ * there, and opens Settings → Translation (named "Language" while off),
+ * without making any of the machinery.
+ */
+async function menuOpensTranslationSettings(page) {
+	await page.click("#chat .header button.menu");
+	await page.waitFor(`!!document.querySelector("#context-menu")`, {label: "the channel menu"});
+
+	if (
+		!(await page.evaluate(
+			`!!document.querySelector("#context-menu .context-menu-translate-off")`
+		))
+	) {
+		await pressEscape(page);
+		return false;
+	}
+
+	await page.click("#context-menu .context-menu-translate-off");
+	await page.waitFor(`!!document.querySelector('#settings input[name="translationEnabled"]')`, {
+		label: "Settings → Translation, with its switch",
+	});
+	await closeSettings(page);
+
+	return true;
+}
+
 async function fabricate(page) {
 	const made = await page.evaluate(fakeNetworkSnippet());
 
@@ -277,8 +305,12 @@ async function checkOff(page, phone, where) {
 		s.placeholder === EN["composer.placeholder"].replace("{name}", CHANNEL)
 	);
 	page.check(
-		`${where}: the channel menu has no "Translation…"`,
+		`${where}: the channel menu has no "Translation…" panel`,
 		(await menuOffersTranslation(page)) === false
+	);
+	page.check(
+		`${where}: the channel menu's "Translation…" opens Settings, where the switch is`,
+		await menuOpensTranslationSettings(page)
 	);
 	page.check(
 		`${where}: the toolbar has no Translate`,

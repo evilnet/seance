@@ -337,6 +337,19 @@ function offBlock(): ModelBlock | null {
 }
 
 /**
+ * Translation is off by the user's own setting (its default), not the
+ * deploy's: the switch in Settings would turn it on. Never makes the service.
+ */
+export function translationOffByUser(): boolean {
+	return (
+		translationOffBlock(
+			store.state.branding.translation,
+			store.state.settings.translationEnabled
+		)?.by === "user"
+	);
+}
+
+/**
  * Whether anything can translate here right now, and if not why (router.ts
  * `translationBlock`): the deploy, the probe, the device, the user's two
  * switches. Null once an engine runs. Reactive through the store reads, so

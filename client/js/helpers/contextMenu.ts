@@ -4,8 +4,12 @@ import {clearHistory} from "../history";
 import {setMuteStatus} from "../mute";
 import eventbus from "../eventbus";
 import type {ClientChan, ClientNetwork, ClientUser} from "../types";
-import {switchToChannel} from "../router";
-import {requestTranslationPanel, translationAvailable} from "../translate/reader";
+import {navigate, switchToChannel} from "../router";
+import {
+	requestTranslationPanel,
+	translationAvailable,
+	translationOffByUser,
+} from "../translate/reader";
 import {TypedStore} from "../store";
 import useCloseChannel from "../hooks/use-close-channel";
 import {ChanType} from "../../../shared/types/chan";
@@ -223,6 +227,18 @@ export function generateChannelContextMenu(
 					// Chat.vue takes it once it shows that channel.
 					switchToChannel(channel);
 					requestTranslationPanel(channel);
+				},
+			});
+		} else if (translationOffByUser()) {
+			// Off by the user's setting, its default: the same item opens
+			// Settings, where the switch is. People looked for translation in
+			// a channel and found nothing to say it existed.
+			items.push({
+				label: t("translate.menu.panel"),
+				type: "item",
+				class: "translate-off",
+				action() {
+					void navigate("Translation");
 				},
 			});
 		}
