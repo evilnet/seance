@@ -117,6 +117,40 @@ const NON_TEXT_INPUTS = new Set([
 	"submit",
 ]);
 
+/** Where the Mac app's window is dragged from: the strip over the sidebar
+ * the traffic lights sit in, and a window's header, as a Mac toolbar is. */
+const MAC_DRAG_REGION = "#sidebar .logo-container, .window .header";
+
+/** What in a drag region is a control, and keeps its own click. */
+const MAC_DRAG_EXCLUDED =
+	"button, a, input, select, textarea, label, [role='button'], [contenteditable], .topic, .tooltipped";
+
+/**
+ * The Mac app's titlebar is an overlay (shells/tauri/src-tauri/src/lib.rs),
+ * so the page moves the window itself: a press on an empty part of a drag
+ * region starts the system's own window drag, and a double-click zooms, as
+ * a titlebar does.
+ */
+function installMacWindowDrag(): void {
+	document.addEventListener("mousedown", (event) => {
+		const target = event.target;
+
+		if (
+			event.button !== 0 ||
+			!(target instanceof Element) ||
+			!target.closest(MAC_DRAG_REGION) ||
+			target.closest(MAC_DRAG_EXCLUDED)
+		) {
+			return;
+		}
+
+		event.preventDefault();
+		void nativeCall("Window", event.detail === 2 ? "toggleZoom" : "startDragging").catch(
+			() => undefined
+		);
+	});
+}
+
 /**
  * A desktop web view's own right-click menu belongs over text the user can
  * act on: a text field (where it carries the spelling guesses) or a
@@ -195,6 +229,11 @@ export function installNativeHooks(): void {
 	if (isDesktopShell()) {
 		document.documentElement.dataset.shell = "desktop";
 		document.documentElement.dataset.platform = nativePlatform();
+
+		if (nativePlatform() === "macos") {
+			installMacWindowDrag();
+		}
+
 		document.addEventListener("contextmenu", (event) => {
 			if (!wantsNativeMenu(event.target)) {
 				event.preventDefault();

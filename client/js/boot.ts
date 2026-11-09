@@ -43,6 +43,7 @@ import {setContextProvider, scriptManager} from "./irc/scripting/manager";
 import {MessageType} from "../../shared/types/msg";
 import {takeTestSwitches} from "./translate/testSwitches";
 import {startIsolationMirror} from "./translate";
+import {nativePlatform} from "./helpers/shell";
 // Also registers the IRC layer's bus handlers (input, names, more, network:*).
 import {
 	allClients,
@@ -80,6 +81,12 @@ export async function boot(): Promise<void> {
 	const branding = await loadBranding();
 	store.commit("branding", branding);
 	document.title = branding.appName;
+
+	// The Mac app looks like a Mac app unless the deploy names a theme of
+	// its own; loading-error-handlers.js makes the same choice before boot.
+	if (nativePlatform() === "macos") {
+		configuration.defaultTheme = "macos";
+	}
 
 	if (branding.theme && configuration.themes.some((t) => t.name === branding.theme)) {
 		configuration.defaultTheme = branding.theme;

@@ -1,0 +1,270 @@
+/* macOS — a Mac app's look: the system font at the sizes Mail and Finder
+ * use, the user's accent colour (System Settings → Appearance) for the
+ * selected row and the controls, and light or dark with the system on its
+ * own, so it needs no partner in themePairs.json.
+ *
+ * The rules are coffee's (creama's palette by light, coffee's by dark: the
+ * two nick tables are each held to their own surface); this file re-declares
+ * the tokens and restyles the sidebar as a source list. Inside the Mac app
+ * (html[data-platform="macos"], set before the first paint by
+ * loading-error-handlers.js) the sidebar is left unpainted over the window's
+ * own sidebar material (shells/tauri/src-tauri/src/lib.rs create_main), so it
+ * is translucent as a Finder sidebar is; anywhere else it is a solid grey. The
+ * chat stays opaque everywhere: text is never set on the material. */
+@import "coffee.css" (prefers-color-scheme: dark);
+@import "creama.css" (prefers-color-scheme: light);
+
+:root {
+	color-scheme: light dark;
+
+	/* The user's accent: WebKit's own name for it on macOS, else the CSS
+	 * system colour, else the default blue. */
+	--mac-accent: #007aff;
+	--mac-accent-fg: #fff;
+
+	/* Chat surface: textBackgroundColor and the label colours. */
+	--chat-bg: #fff;
+	--chat-fg: #1d1d1f;
+	--chat-fg-muted: #6e6e73;
+	--chat-fg-faint: #8a8a8e;
+	--chat-heading: #6e6e73;
+	--chat-rule: #e5e5e5;
+	--chat-accent: #0068da; /* linkColor: the accent itself is under 4.5:1 on white */
+	--chat-accent-fg: #fff;
+	--chat-accent-rule: color-mix(in srgb, var(--mac-accent) 60%, transparent);
+	--chat-highlight-bg: color-mix(in srgb, var(--mac-accent) 8%, var(--chat-bg));
+	--chat-selection: color-mix(in srgb, var(--mac-accent) 25%, var(--chat-bg));
+	--composer-bg: #f5f5f7;
+	--composer-border: #dcdcde;
+	--window-border: #d8d8da;
+	--window-shadow: none;
+	--menu-bg: #fff;
+
+	/* Sidebar: a source list. --mac-rail-bg is what stands in for the
+	 * material where there is none (a browser, Reduce Transparency). */
+	--mac-rail-bg: #e8e8ea;
+	--rail-bg-top: var(--mac-rail-bg);
+	--rail-bg-bottom: var(--mac-rail-bg);
+	--rail-fg: #1d1d1f;
+	--rail-fg-strong: #1d1d1f;
+	--rail-fg-active: #1d1d1f;
+	--rail-fg-muted: #6b6b70;
+	--rail-item-active-bg: rgb(0 0 0 / 9%);
+	--rail-item-hover-bg: rgb(0 0 0 / 5%);
+	--rail-accent: var(--mac-accent);
+	--rail-accent-fg: var(--mac-accent-fg);
+	--rail-badge-bg: transparent;
+	--rail-badge-fg: #6b6b70;
+	--rail-input-bg: rgb(0 0 0 / 6%);
+	--rail-input-border: transparent;
+
+	/* Tints and the focus ring take the accent. */
+	--accent-tint-20: color-mix(in srgb, var(--mac-accent) 20%, transparent);
+	--accent-tint-30: color-mix(in srgb, var(--mac-accent) 30%, transparent);
+	--focus-ring: color-mix(in srgb, var(--mac-accent) 50%, transparent);
+
+	/* Separators between the sidebar, the header and the composer. */
+	--mac-separator: rgb(0 0 0 / 10%);
+}
+
+@supports (color: AccentColor) {
+	:root {
+		--mac-accent: AccentColor;
+		--mac-accent-fg: AccentColorText;
+	}
+}
+
+@supports (color: -apple-system-control-accent) {
+	:root {
+		--mac-accent: -apple-system-control-accent;
+		--mac-accent-fg: #fff;
+	}
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--chat-bg: #1e1e1e;
+		--chat-fg: #e5e5e7;
+		--chat-fg-muted: #98989d;
+		--chat-fg-faint: #7c7c80;
+		--chat-heading: #98989d;
+		--chat-rule: #333336;
+		--chat-accent: #419cff;
+		--chat-accent-fg: #1e1e1e;
+		--composer-bg: #262628;
+		--composer-border: #3a3a3c;
+		--window-border: #3a3a3c;
+		--menu-bg: #2a2a2c;
+		--mac-rail-bg: #2b2b2d;
+		--rail-fg: #e5e5e7;
+		--rail-fg-strong: #f5f5f7;
+		--rail-fg-active: #f5f5f7;
+		--rail-fg-muted: #98989d;
+		--rail-item-active-bg: rgb(255 255 255 / 11%);
+		--rail-item-hover-bg: rgb(255 255 255 / 6%);
+		--rail-badge-fg: #98989d;
+		--rail-input-bg: rgb(255 255 255 / 8%);
+		--mac-separator: rgb(0 0 0 / 45%);
+	}
+}
+
+/* The window fills the space beside the sidebar, square and flat, as a Mac
+ * window's content does: no day.css card around it. */
+#viewport,
+#viewport.menu-open {
+	padding: 0;
+}
+
+.window {
+	border-radius: 0;
+	box-shadow: none;
+}
+
+#viewport.menu-open > .window {
+	border-inline-start: 1px solid var(--mac-separator);
+}
+
+body,
+#sidebar {
+	background: var(--mac-rail-bg);
+}
+
+/* Inside the Mac app the page leaves the window's material showing behind
+ * the sidebar; html's canvas colour would cover all of it otherwise. */
+html[data-platform="macos"],
+html[data-platform="macos"] body,
+html[data-platform="macos"] #sidebar {
+	background: transparent;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+	html[data-platform="macos"] body,
+	html[data-platform="macos"] #sidebar {
+		background: var(--mac-rail-bg);
+	}
+}
+
+/* Source-list rows: 13 px text (0.8125rem at the default step), a rounded
+ * selection inset from the edges, no marker. */
+#sidebar .logo {
+	display: none;
+}
+
+#sidebar .logo-container {
+	min-height: 0.75rem;
+}
+
+.channel-list-item {
+	font-size: 0.8125rem;
+	padding-block: 0.3125rem;
+	padding-inline: 0.5rem;
+	margin-inline: 0.625rem;
+	border-radius: 0.375rem;
+}
+
+.channel-list-item.active,
+[dir="rtl"] .channel-list-item.active {
+	box-shadow: none;
+}
+
+/* The selection is the accent while the sidebar has the keyboard, and grey
+ * otherwise, as AppKit draws a source list's. */
+#sidebar:focus-within .channel-list-item.active {
+	background-color: var(--mac-accent);
+	color: var(--mac-accent-fg);
+}
+
+#sidebar:focus-within .channel-list-item.active :is(.name, .badge, .lobby-nick),
+#sidebar:focus-within .channel-list-item.active::before {
+	color: inherit;
+}
+
+/* A network is a section: its name in the small bold secondary label. */
+.channel-list-item[data-type="lobby"] {
+	font-size: 0.6875rem;
+	font-weight: 600;
+	color: var(--rail-fg-muted);
+	padding-block: 0.375rem 0.25rem;
+	padding-inline: 0 0.5rem;
+}
+
+.channel-list-item[data-type="lobby"]:hover,
+.channel-list-item[data-type="lobby"].active {
+	color: var(--rail-fg);
+}
+
+.channel-list-item .lobby-status {
+	font-size: 0.6875rem;
+}
+
+#sidebar .network {
+	margin-bottom: 0.75rem;
+}
+
+/* Unread counts are plain secondary text, as Mail's are; a mention is the
+ * accent capsule. */
+.channel-list-item .badge {
+	font-size: 0.75rem;
+	font-variant-numeric: tabular-nums;
+	padding: 0.15em 0.45em;
+	border-radius: 1em;
+}
+
+.channel-list-item .badge.highlight {
+	font-weight: 600;
+}
+
+.channel-list-item.has-highlight:not(.is-muted) .name {
+	font-weight: 600;
+}
+
+.jump-to-input .input {
+	font-size: 0.8125rem;
+	border-radius: 0.375rem;
+}
+
+#footer {
+	font-size: 0.9375rem;
+}
+
+#footer button {
+	border-radius: 0.375rem;
+}
+
+/* The chat's chrome: a toolbar-weight header and composer, hairlines. */
+#chat .header {
+	font-size: 0.8125rem;
+}
+
+#chat .header .title {
+	font-weight: 600;
+}
+
+#form {
+	background: var(--chat-bg);
+}
+
+#form:focus-within {
+	border-top-color: var(--composer-border);
+	box-shadow: none;
+}
+
+#form #input {
+	caret-color: auto;
+}
+
+.btn {
+	border-radius: 0.375rem;
+}
+
+input[type="checkbox"] {
+	accent-color: var(--mac-accent);
+}
+
+::selection {
+	background: var(--chat-selection);
+}
+
+#chat .unread-marker::before {
+	border-top-color: var(--chat-accent-rule);
+}

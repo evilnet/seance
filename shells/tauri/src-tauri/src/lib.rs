@@ -239,6 +239,22 @@ async fn seance_call(
             set_badge(&window, 0);
             Ok(json!({}))
         }
+        // The overlay titlebar's drag strip (macOS): a press there moves the
+        // window, a double-click zooms it.
+        #[cfg(target_os = "macos")]
+        ("Window", "startDragging") => {
+            let _ = window.start_dragging();
+            Ok(json!({}))
+        }
+        #[cfg(target_os = "macos")]
+        ("Window", "toggleZoom") => {
+            let _ = if window.is_maximized().unwrap_or(false) {
+                window.unmaximize()
+            } else {
+                window.maximize()
+            };
+            Ok(json!({}))
+        }
         #[cfg(any(windows, target_os = "linux"))]
         ("LocalNotifications", _) => alerts::call(window.app_handle(), &method, &options),
         #[cfg(all(debug_assertions, feature = "snapshot"))]
@@ -390,6 +406,28 @@ fn create_main(app: &AppHandle) -> tauri::Result<WebviewWindow> {
         // channels in the sidebar could not be reordered, and a file dropped
         // on the chat never reached the upload. The page handles both.
         .disable_drag_drop_handler();
+    // The window is clear and the sidebar material (Finder's, Mail's) sits
+    // behind the web view; whatever the page paints covers it. A theme that
+    // leaves its sidebar unpainted inside this shell (macos.css) shows the
+    // desktop through it, blurred, as a Mac sidebar does. The material dims
+    // with the window when another app is in front.
+    //
+    // The titlebar is an overlay: the page runs to the window's top edge and
+    // the traffic lights sit over the sidebar, as in Finder and Mail. The page
+    // keeps clear of them and drags the window from its top strip and its
+    // header (`Window.startDragging`, client/js/native.ts).
+    #[cfg(target_os = "macos")]
+    let builder = builder
+        .title_bar_style(tauri::TitleBarStyle::Overlay)
+        .hidden_title(true)
+        .traffic_light_position(tauri::LogicalPosition::new(18.0, 17.0))
+        .transparent(true)
+        .effects(
+            tauri::window::EffectsBuilder::new()
+                .effect(tauri::window::Effect::Sidebar)
+                .state(tauri::window::EffectState::FollowsWindowActiveState)
+                .build(),
+        );
 
     builder
         .initialization_script(init_script(&version))

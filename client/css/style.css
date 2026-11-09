@@ -360,6 +360,22 @@ html[data-shell="native"] #status-bar-tint {
 	display: none;
 }
 
+/* The Mac app's titlebar is an overlay (shells/tauri/src-tauri/src/lib.rs):
+ * the page runs to the window's top edge and the traffic lights sit over its
+ * top-left corner, 17px down and 18px in, three buttons 52px wide. The
+ * sidebar's top strip (the logo or the presence pill) starts below them,
+ * and a header the sidebar does not cover keeps clear of them beside. The lights are AppKit's and do
+ * not follow the page's font size, so these stay in px, and they stay on the
+ * left in a right-to-left page as well (native.ts drags the window from both
+ * places). */
+html[data-platform="macos"] #sidebar .logo-container {
+	padding-top: 34px;
+}
+
+html[data-platform="macos"] #viewport:not(.menu-open) .window .header {
+	padding-left: 84px;
+}
+
 /* The shell on a phone (shells/tauri, native.ts): its WebView runs under the
  * system bars, so the page keeps clear of them itself. The insets are named
  * once here and every rule below spends them: env(), or the same numbers as
