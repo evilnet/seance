@@ -384,7 +384,12 @@ fn create_main(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     let builder = builder
         .title(app.package_info().name.clone())
         .inner_size(1100.0, 760.0)
-        .min_inner_size(400.0, 300.0);
+        .min_inner_size(400.0, 300.0)
+        // Tauri's own drag-and-drop handler takes every drag over the
+        // window, so the page's HTML5 drag events never fire: networks and
+        // channels in the sidebar could not be reordered, and a file dropped
+        // on the chat never reached the upload. The page handles both.
+        .disable_drag_drop_handler();
 
     builder
         .initialization_script(init_script(&version))
