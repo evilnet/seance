@@ -1,5 +1,6 @@
 <template>
 	<div
+		ref="handleEl"
 		class="sidebar-resizer"
 		role="separator"
 		aria-orientation="vertical"
@@ -20,7 +21,7 @@
 // wider, double-click it for the default width, or focus it and use the
 // arrow keys (sidebarWidth.ts). Hidden on the phone layout, whose sidebar is
 // a drawer.
-import {computed, defineComponent, ref} from "vue";
+import {computed, defineComponent, onBeforeUnmount, onMounted, ref} from "vue";
 import {useI18n} from "../js/i18n";
 import {
 	MAX_REM,
@@ -29,7 +30,6 @@ import {
 	restoreSidebarWidth,
 	rootPx,
 	setSidebarPx,
-	storedSidebarRem,
 } from "../js/sidebarWidth";
 
 export default defineComponent({
@@ -38,10 +38,30 @@ export default defineComponent({
 		const {t} = useI18n();
 		const label = computed(() => t("sidebar.resize"));
 		const hint = computed(() => t("sidebar.resizeHint"));
-		/** The width in rem, for assistive tech; the default's own when nothing is saved. */
-		const width = ref<number | null>(storedSidebarRem());
-		// style.css's default, 7rem + 108px, in rem at the root size now.
-		const valueNow = computed(() => Math.round(width.value ?? 7 + 108 / rootPx()));
+		/** The width shown, in rem, for assistive tech: measured, so a font step or a narrower window that caps it is told too. */
+		const valueNow = ref<number>(MIN_REM);
+		const handleEl = ref<HTMLElement | null>(null);
+		let observer: ResizeObserver | null = null;
+
+		onMounted(() => {
+			const bar = handleEl.value?.closest<HTMLElement>("#sidebar");
+
+			if (!bar || typeof ResizeObserver !== "function") {
+				return;
+			}
+
+			observer = new ResizeObserver(() => {
+				valueNow.value = Math.round(bar.getBoundingClientRect().width / rootPx());
+			});
+			observer.observe(bar);
+		});
+
+		onBeforeUnmount(() => {
+			observer?.disconnect();
+			// Taken away mid-drag (the sidebar unmounted): the page must not
+			// stay unselectable.
+			document.documentElement.classList.remove("sidebar-resizing");
+		});
 
 		const sidebar = (el: Element) => el.closest<HTMLElement>("#sidebar");
 		const isRtl = (el: Element) => getComputedStyle(el).direction === "rtl";
@@ -92,7 +112,7 @@ export default defineComponent({
 
 				// A click without a move changes nothing (a double-click's first half too).
 				if (drag.moved) {
-					width.value = setSidebarPx(widthAt(ev.clientX));
+					setSidebarPx(widthAt(ev.clientX));
 				}
 
 				drag = null;
@@ -123,10 +143,7 @@ export default defineComponent({
 			handle.addEventListener("lostpointercapture", lost);
 		};
 
-		const onReset = () => {
-			resetSidebarWidth();
-			width.value = null;
-		};
+		const onReset = () => resetSidebarWidth();
 
 		const onKeydown = (e: KeyboardEvent) => {
 			const bar = sidebar(e.currentTarget as HTMLElement);
@@ -138,10 +155,20 @@ export default defineComponent({
 			e.preventDefault();
 			const wider = (e.key === "ArrowRight") !== isRtl(bar);
 			const step = rootPx();
-			width.value = setSidebarPx(bar.getBoundingClientRect().width + (wider ? step : -step));
+			setSidebarPx(bar.getBoundingClientRect().width + (wider ? step : -step));
 		};
 
-		return {label, hint, valueNow, MIN_REM, MAX_REM, onPointerDown, onReset, onKeydown};
+		return {
+			label,
+			hint,
+			valueNow,
+			handleEl,
+			MIN_REM,
+			MAX_REM,
+			onPointerDown,
+			onReset,
+			onKeydown,
+		};
 	},
 });
 </script>

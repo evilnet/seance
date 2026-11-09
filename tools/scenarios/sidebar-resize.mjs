@@ -193,5 +193,30 @@ export default async function run(page) {
 			`getComputedStyle(document.querySelector("#sidebar .sidebar-resizer")).display`
 		)) === "none" && (await page.evaluate(WIDTH)) === start
 	);
+	// Dragged far out in a modest window, the sidebar shrinks in its row as
+	// the default does, leaving the chat its share, and what is announced is
+	// the width shown.
+	await page.send("Emulation.setDeviceMetricsOverride", {
+		width: 800,
+		height: 700,
+		deviceScaleFactor: 1,
+		mobile: false,
+	});
+	await page.sleep(300);
+	const w = await page.rect("#sidebar .sidebar-resizer");
+	await drag(page, w.x + w.width / 2, 790, y);
+	const shown = await page.evaluate(WIDTH);
+	const kept = Number(
+		await page.evaluate(`localStorage.getItem("thelounge.state.sidebarWidth")`)
+	);
+	const announced = Number(
+		await page.evaluate(
+			`document.querySelector("#sidebar .sidebar-resizer").getAttribute("aria-valuenow")`
+		)
+	);
+	page.check(
+		`dragged out at 800px it shrinks in its row, the chat keeping its share: ${shown}px shown, ${kept}rem kept, ${announced} announced`,
+		shown < 480 && 800 - shown >= 320 && kept === 30 && announced === Math.round(shown / 16)
+	);
 	page.check("no console errors", page.consoleErrors.length === 0);
 }

@@ -1251,6 +1251,13 @@ p {
 	z-index: 2;
 }
 
+/* A finger needs more to land on (an iPad's sidebar beside the chat). */
+@media (pointer: coarse) {
+	.sidebar-resizer {
+		width: 0.875rem;
+	}
+}
+
 .sidebar-resizer:hover,
 .sidebar-resizer:focus-visible,
 html.sidebar-resizing .sidebar-resizer {

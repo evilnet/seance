@@ -16,19 +16,13 @@ export function rootPx(): number {
 	return parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
 }
 
-/** Room the chat keeps beside a dragged sidebar, whatever was saved. */
-const CHAT_MIN = "20rem";
-
 function apply(rem: number | null): void {
 	const style = document.documentElement.style;
 
 	if (rem === null) {
 		style.removeProperty("--sidebar-user-width");
 	} else {
-		style.setProperty(
-			"--sidebar-user-width",
-			`max(${MIN_REM}rem, min(${rem}rem, calc(100vw - ${CHAT_MIN})))`
-		);
+		style.setProperty("--sidebar-user-width", `${rem}rem`);
 	}
 }
 
@@ -37,12 +31,17 @@ function clampRem(rem: number): number {
 }
 
 /** The width as stored, or null for the default. */
-export function storedSidebarRem(): number | null {
+function storedSidebarRem(): number | null {
 	const rem = Number(storage.get(KEY));
 	return Number.isFinite(rem) && rem > 0 ? clampRem(rem) : null;
 }
 
-/** Set the width to `px` (clamped), and keep it unless `save` is false (mid-drag). */
+/**
+ * Set the width to `px` (clamped to 8–30rem), and keep it unless `save` is
+ * false (mid-drag). In a window too narrow for it the sidebar shrinks in its
+ * row as the default does, leaving the chat its share, and takes the kept
+ * width again when the window has room.
+ */
 export function setSidebarPx(px: number, save = true): number {
 	const rem = clampRem(px / rootPx());
 	apply(rem);
