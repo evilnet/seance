@@ -15,7 +15,8 @@
 // wins over the class's own order; a better class is never skipped for a
 // downloaded model in a worse one: its model is downloaded on demand
 // instead (service.ts), once the user has agreed to that download
-// (consent.ts). NLLB-200 runs only once the user has switched it on
+// (consent.ts) -- unless an OPUS-MT pair that needs no question can take
+// it, which service.ts `resolve` then takes without asking. NLLB-200 runs only once the user has switched it on
 // (`switches.nllb`; its licence is non-commercial), so the OPUS-MT pairs
 // and the language model serve without it. A seq2seq candidate needs a
 // source language: the request's `from`, or failing that its source hint.

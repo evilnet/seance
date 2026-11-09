@@ -285,7 +285,16 @@ reload). Every other translation scenario switches translation on first
   in the error. The alternative -- answer from the best downloaded class
   while the better one downloads -- was not taken: it is exactly how a
   Filipino draft reached Qwen, and a device with nothing downloaded has to
-  wait for a download anyway.
+  wait for a download anyway. **One exception, for an OPUS-MT pair:** where
+  the better class would need a download the user is asked about, and an
+  OPUS-MT pair that needs no question (on the device, or under
+  `QUIET_DOWNLOAD_BYTES`) can take the line, the pair takes it and nothing
+  is asked (`service.ts` `resolve`). A sentence typed into the composer met
+  a 2 GB question for the LLM while the pair reading the channel was
+  already there, and most people said no and saw nothing. The pairs are
+  placed the class after the LLM or tied with it, so this trades a little
+  wording for a translation at all; once the LLM is downloaded (Settings)
+  it is taken first again.
 - **The source hint.** A seq2seq model has no prompt to detect a source in,
   so a request whose `from` is null used to skip every CPU candidate. A
   request's routing hint now picks the table row when `from` is null and

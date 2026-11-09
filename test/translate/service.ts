@@ -2064,21 +2064,42 @@ describe("translate/service", () => {
 			r.service.dispose();
 		});
 
-		it("not now: a cached model takes the request, and no second model is asked about", async () => {
+		it("an OPUS-MT pair on the device takes the request unasked over the LLM's download", async () => {
 			const ask = dialog();
 			const r = consentRig("gpu", true, DEFAULT_ROUTES, {askDownload: ask.askDownload});
 			clock = r.clock;
 			// Spanish to English: the LLM is a better class than the OPUS pair,
-			// which is the one on the device.
+			// which is the one on the device. A 2 GB question for a line the
+			// pair can take was one most people said no to.
 			r.cached.add(catalog.opus["es-en"].id);
 
-			const routed = r.service.route("es", "en");
+			expect((await r.service.route("es", "en"))?.candidate).to.equal("opus:es-en");
+			expect(await text(r.service.translate({...base, from: "es"}))).to.equal("seq:Hallo");
+			expect(r.llm.calls.load).to.deep.equal([]);
+			expect(ask.asked).to.deep.equal([]);
+			r.service.dispose();
+		});
+
+		it("not now: a cached model takes the request, and no second model is asked about", async () => {
+			const ask = dialog();
+			const r = consentRig(
+				"gpu",
+				true,
+				{en: {sw: ["llm", "nllb"]}},
+				{askDownload: ask.askDownload}
+			);
+			clock = r.clock;
+			// Swahili to English: the LLM is a better class than NLLB-200, whose
+			// CPU copy is the one on the device. Not an OPUS-MT pair, so the
+			// LLM's download is asked about.
+			r.cached.add(`${catalog.nllb.id}@cpu`);
+
+			const routed = r.service.route("sw", "en");
 
 			await r.clock.tickAsync(10);
 			expect(ask.asked).to.deep.equal([catalog.llm.id]);
 			ask.answer(false);
-			expect((await routed)?.candidate).to.equal("opus:es-en");
-			expect(await text(r.service.translate({...base, from: "es"}))).to.equal("seq:Hallo");
+			expect(await routed).to.deep.include({candidate: "nllb", device: "cpu"});
 			expect(r.llm.calls.load).to.deep.equal([]);
 			expect(ask.open).to.equal(0);
 			expect(ask.asked).to.have.length(1);

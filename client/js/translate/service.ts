@@ -889,8 +889,22 @@ export class TranslateService {
 			}
 
 			// Not asked: this request takes only what needs no download, and
-			// a later one that is not quiet still asks.
-			if (options.quiet) {
+			// a later one that is not quiet still asks. Nor asked where an
+			// OPUS-MT pair that needs no question -- on the device, or small
+			// enough to fetch unasked (`QUIET_DOWNLOAD_BYTES`) -- can take
+			// the pair: a sentence typed into the composer met a 2 GB
+			// question for the LLM while the pair that reads the channel was
+			// already there, and most people said no and saw nothing. The
+			// pairs are measured the class after the LLM or tied with it
+			// (routes.default.ts), unlike a downloaded LLM in place of a
+			// better NLLB, which is how a Filipino draft reached Qwen (docs:
+			// "A better class that is not downloaded"). The LLM is one
+			// Download away in Settings, and taken first once it is here.
+			const unasked = options.quiet
+				? null
+				: explainRoute(this.table, this.options.catalog, input(true)).route;
+
+			if (options.quiet || unasked?.candidate.startsWith("opus:")) {
 				cachedOnly = true;
 				continue;
 			}
