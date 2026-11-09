@@ -177,7 +177,11 @@
 			document.documentElement.dataset.platform = "macos";
 		}
 
-		const defaultTheme = macApp ? "macos" : themeEl.dataset.serverTheme;
+		// A build with a default theme of its own (data-server-theme other
+		// than the stock "coffee", configuration.ts) keeps it in the Mac app
+		// too, as boot.ts does for a deploy's.
+		const serverTheme = themeEl.dataset.serverTheme;
+		const defaultTheme = macApp && serverTheme === "coffee" ? "macos" : serverTheme;
 		const storedTheme = typeof userSettings.theme === "string" ? userSettings.theme : undefined;
 		const chosen = storedTheme ?? defaultTheme;
 		// The shell test is platformDefaults.ts currentPlatform's, inlined:
@@ -186,7 +190,7 @@
 			typeof userSettings.matchSystemAppearance === "boolean"
 				? userSettings.matchSystemAppearance
 				: typeof window.seanceShell?.call === "function" &&
-				  !(storedTheme && storedTheme !== defaultTheme && pairOf(storedTheme));
+				  !(storedTheme && storedTheme !== serverTheme && pairOf(storedTheme));
 		const theme = matchSystem ? pairedTheme(chosen) : chosen;
 
 		if (theme && themeEl.getAttribute("href") !== `themes/${theme}.css`) {

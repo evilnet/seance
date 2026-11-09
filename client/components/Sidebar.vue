@@ -1,7 +1,7 @@
 <template>
 	<aside id="sidebar" ref="sidebar">
 		<div class="scrollable-area">
-			<div class="logo-container">
+			<div class="logo-container" :data-tauri-drag-region="dragRegion">
 				<img src="img/logo-tile.png" class="logo" :alt="appName" role="presentation" />
 				<!-- The language selector's development-build entry point:
 				     a popover holding the same LanguageSelect that Settings
@@ -97,6 +97,7 @@
 
 <script lang="ts">
 import {computed, defineComponent, nextTick, onMounted, onUnmounted, PropType, ref} from "vue";
+import {macDragRegion} from "../js/helpers/shell";
 import {useRoute} from "vue-router";
 import {useStore} from "../js/store";
 import {useI18n} from "../js/i18n";
@@ -412,6 +413,7 @@ export default defineComponent({
 		onUnmounted(() => eventbus.off("escapekey", closeLocale));
 
 		return {
+			dragRegion: macDragRegion(),
 			appName,
 			isDevelopment,
 			toggleDevtools,

@@ -384,8 +384,9 @@ html[data-shell="native"] #status-bar-tint {
  * (19px down, 20px in, three buttons ending 74px in). The sidebar's top strip is that height, and a header the sidebar does not cover keeps clear of them
  * beside; the header is the strip's height, so the two line up. The lights
  * are AppKit's and do not follow the page's font size, so these stay in px,
- * and they stay on the left in a right-to-left page as well (native.ts drags
- * the window from both places). */
+ * and they stay on the left in a right-to-left page as well. The window is
+ * dragged from both places (Tauri's drag region, helpers/shell.ts
+ * macDragRegion). */
 html[data-platform="macos"] {
 	--mac-titlebar-height: 52px;
 	--mac-traffic-lights-end: 84px;
@@ -425,8 +426,17 @@ html[data-platform="macos"] .window .header {
 	line-height: var(--mac-titlebar-height);
 }
 
-html[data-platform="macos"] #viewport:not(.menu-open) .window .header {
+/* The lights are on the window's left in either direction of text: over the
+ * sidebar's strip when the sidebar is open on the left, over the header's
+ * left end otherwise, which right to left is always (the sidebar docks on
+ * the right). Physical on purpose. */
+html[data-platform="macos"]:not([dir="rtl"]) #viewport:not(.menu-open) .window .header,
+html[data-platform="macos"][dir="rtl"] .window .header {
 	padding-left: var(--mac-traffic-lights-end);
+}
+
+html[data-platform="macos"][dir="rtl"] #sidebar .logo-container {
+	padding-left: 10px;
 }
 
 /* The shell on a phone (shells/tauri, native.ts): its WebView runs under the

@@ -3603,7 +3603,6 @@ html[data-reduce-motion]:root {
 	html[data-platform="macos"] #chat .header,
 	html[data-platform="macos"] #form {
 		--ps-mac-glass: rgb(255 251 244 / var(--ps-g-tint));
-		--ps-mac-blur: blur(0.625rem) var(--ps-g-lift,) saturate(1.12);
 	}
 
 	html[data-platform="macos"][data-ps-light="night"] #chat .header,
@@ -3629,8 +3628,8 @@ html[data-reduce-motion]:root {
 		border: 0.0625rem solid var(--ps-g-edge);
 		background-color: var(--ps-mac-glass);
 		/* stylelint-disable-next-line property-no-vendor-prefix -- see the glass section */
-		-webkit-backdrop-filter: var(--ps-mac-blur);
-		backdrop-filter: var(--ps-mac-blur);
+		-webkit-backdrop-filter: blur(0.625rem) var(--ps-g-lift,) saturate(1.12);
+		backdrop-filter: blur(0.625rem) var(--ps-g-lift,) saturate(1.12);
 		box-shadow: 0 0.125rem 0.5rem rgb(0 0 0 / 10%);
 	}
 
@@ -3712,6 +3711,10 @@ html[data-reduce-motion]:root {
 	#chat .header,
 	#chat .userlist,
 	#form,
+	html[data-platform="macos"] #chat .header,
+	html[data-platform="macos"] #chat .header > :is(.title, .topic, button),
+	html[data-platform="macos"] #chat .header > span > button,
+	html[data-platform="macos"] #form,
 	#chat .msg-reaction:not(.self, .msg-reaction-add),
 	#viewport.menu-open #sidebar,
 	#viewport.menu-dragging #sidebar,

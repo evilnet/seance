@@ -1773,6 +1773,10 @@ describe("the ps theme's composer: one thin divider over the flat input (the use
 		expect(valueOf("#form:focus-within", "box-shadow")).to.equal("none");
 
 		// Nothing in ps.css draws the strip's top edge otherwise, in any state.
+		// The Mac app is the exception: its composer floats as a capsule with
+		// an edge all round (ps.css's html[data-platform="macos"] block, the
+		// user's call for the Mac toolbar look, 2026-11-09).
+		const notMac = (s: string) => !s.startsWith('html[data-platform="macos"]');
 		const widths = [
 			"border",
 			"border-width",
@@ -1788,12 +1792,12 @@ describe("the ps theme's composer: one thin divider over the flat input (the use
 			"border-block-start-style",
 		];
 		const edges = rules
-			.filter((r) => r.selectors.some((s) => /#form(?![\w-])[^ ]*$/.test(s)))
+			.filter((r) => r.selectors.some((s) => notMac(s) && /#form(?![\w-])[^ ]*$/.test(s)))
 			.flatMap((r) => r.decls)
 			.filter(([p]) => widths.includes(p));
 		expect(edges, "ps.css's widths or styles on #form's edge").to.deep.equal([]);
 		const shadows = rules
-			.filter((r) => r.selectors.some((s) => /#form(?![\w-])[^ ]*$/.test(s)))
+			.filter((r) => r.selectors.some((s) => notMac(s) && /#form(?![\w-])[^ ]*$/.test(s)))
 			.flatMap((r) => r.decls)
 			.filter(([p, v]) => p === "box-shadow" && v !== "none");
 		expect(shadows, "ps.css's shadows on #form").to.deep.equal([]);

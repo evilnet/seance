@@ -239,22 +239,6 @@ async fn seance_call(
             set_badge(&window, 0);
             Ok(json!({}))
         }
-        // The overlay titlebar's drag strip (macOS): a press there moves the
-        // window, a double-click zooms it.
-        #[cfg(target_os = "macos")]
-        ("Window", "startDragging") => {
-            let _ = window.start_dragging();
-            Ok(json!({}))
-        }
-        #[cfg(target_os = "macos")]
-        ("Window", "toggleZoom") => {
-            let _ = if window.is_maximized().unwrap_or(false) {
-                window.unmaximize()
-            } else {
-                window.maximize()
-            };
-            Ok(json!({}))
-        }
         #[cfg(any(windows, target_os = "linux"))]
         ("LocalNotifications", _) => alerts::call(window.app_handle(), &method, &options),
         #[cfg(all(debug_assertions, feature = "snapshot"))]
@@ -416,7 +400,7 @@ fn create_main(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     // the traffic lights sit over the sidebar, as in Finder and Mail, centred
     // on the 52pt toolbar strip (style.css --mac-titlebar-height). The page
     // keeps clear of them and drags the window from its top strip and its
-    // header (`Window.startDragging`, client/js/native.ts).
+    // header with Tauri's drag region (capabilities/mac-window-drag.json).
     #[cfg(target_os = "macos")]
     let builder = builder
         .title_bar_style(tauri::TitleBarStyle::Overlay)
@@ -535,126 +519,52 @@ fn enable_spell_checking(_: &WebviewWindow) {}
 /// rest are AppKit's own items.
 #[cfg(target_os = "macos")]
 fn install_mac_menu(app: &AppHandle) -> tauri::Result<()> {
-    use tauri::menu::{AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu};
+    use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 
-    let name = app.package_info().name.clone();
-    let about = AboutMetadata {
-        name: Some(name.clone()),
-        version: Some(app.package_info().version.to_string()),
-        ..Default::default()
+    // Tauri's default: the app menu (About, Services, Hide, Quit), File,
+    // Edit, View (Enter Full Screen), Window and Help, in that order.
+    let menu = Menu::default(app)?;
+    let submenu = |index: usize| -> tauri::Result<Submenu<_>> {
+        menu.items()?
+            .get(index)
+            .and_then(|item| item.as_submenu().cloned())
+            .ok_or_else(|| {
+                std::io::Error::other(format!("no submenu {index} in the default menu")).into()
+            })
     };
-    let sep = || PredefinedMenuItem::separator(app);
+    let item = |id: &str, text: &str, accelerator: &str| {
+        MenuItem::with_id(app, id, text, true, Some(accelerator))
+    };
 
-    let app_menu = Submenu::with_items(
-        app,
-        &name,
-        true,
+    submenu(0)?.insert_items(
         &[
-            &PredefinedMenuItem::about(app, None, Some(about))?,
-            &sep()?,
-            &MenuItem::with_id(app, "settings", "Settings…", true, Some("CmdOrCtrl+,"))?,
-            &sep()?,
-            &PredefinedMenuItem::services(app, None)?,
-            &sep()?,
-            &PredefinedMenuItem::hide(app, None)?,
-            &PredefinedMenuItem::hide_others(app, None)?,
-            &PredefinedMenuItem::show_all(app, None)?,
-            &sep()?,
-            &PredefinedMenuItem::quit(app, None)?,
+            &item("settings", "Settings…", "CmdOrCtrl+,")?,
+            &PredefinedMenuItem::separator(app)?,
         ],
+        2,
     )?;
-    let file_menu = Submenu::with_items(
-        app,
-        "File",
-        true,
-        &[&PredefinedMenuItem::close_window(app, None)?],
-    )?;
-    let edit_menu = Submenu::with_items(
-        app,
-        "Edit",
-        true,
-        &[
-            &PredefinedMenuItem::undo(app, None)?,
-            &PredefinedMenuItem::redo(app, None)?,
-            &sep()?,
-            &PredefinedMenuItem::cut(app, None)?,
-            &PredefinedMenuItem::copy(app, None)?,
-            &PredefinedMenuItem::paste(app, None)?,
-            &PredefinedMenuItem::select_all(app, None)?,
-        ],
-    )?;
-    let view_menu = Submenu::with_items(
-        app,
-        "View",
-        true,
-        &[
-            &MenuItem::with_id(
-                app,
-                "toggleSidebar",
-                "Toggle Sidebar",
-                true,
-                Some("Ctrl+Cmd+S"),
-            )?,
-            &sep()?,
-            &PredefinedMenuItem::fullscreen(app, None)?,
-        ],
-    )?;
+    submenu(3)?.prepend_items(&[
+        &item("toggleSidebar", "Toggle Sidebar", "Ctrl+Cmd+S")?,
+        &PredefinedMenuItem::separator(app)?,
+    ])?;
     // Channel 1…9 (⌘1–⌘9): the page picks which conversation is Nth.
-    let channels = (1..=9)
-        .map(|n| {
-            MenuItem::with_id(
-                app,
-                format!("go.channel.{n}"),
-                format!("Channel {n}"),
-                true,
-                Some(format!("CmdOrCtrl+{n}").as_str()),
-            )
-        })
-        .collect::<tauri::Result<Vec<_>>>()?;
-    let channel_items: Vec<&dyn tauri::menu::IsMenuItem<_>> = channels
-        .iter()
-        .map(|item| item as &dyn tauri::menu::IsMenuItem<_>)
-        .collect();
-    let go_menu = Submenu::with_items(app, "Go", true, &channel_items)?;
-    let window_menu = Submenu::with_items(
-        app,
-        "Window",
-        true,
-        &[
-            &PredefinedMenuItem::minimize(app, None)?,
-            &PredefinedMenuItem::maximize(app, None)?,
-            &sep()?,
-            &PredefinedMenuItem::bring_all_to_front(app, None)?,
-        ],
-    )?;
-    let help_menu = Submenu::with_items(
-        app,
-        "Help",
-        true,
-        &[&MenuItem::with_id(
-            app,
-            "help",
-            format!("{name} Help"),
-            true,
-            Some("CmdOrCtrl+Shift+Slash"),
-        )?],
-    )?;
+    let go = Submenu::new(app, "Go", true)?;
+    for n in 1..=9 {
+        go.append(&item(
+            &format!("go.channel.{n}"),
+            &format!("Channel {n}"),
+            &format!("CmdOrCtrl+{n}"),
+        )?)?;
+    }
+    menu.insert(&go, 4)?;
+    let name = app.package_info().name.clone();
+    submenu(6)?.append(&item(
+        "help",
+        &format!("{name} Help"),
+        "CmdOrCtrl+Shift+Slash",
+    )?)?;
 
-    let menu = Menu::with_items(
-        app,
-        &[
-            &app_menu,
-            &file_menu,
-            &edit_menu,
-            &view_menu,
-            &go_menu,
-            &window_menu,
-            &help_menu,
-        ],
-    )?;
     app.set_menu(menu)?;
-    window_menu.set_as_windows_menu_for_nsapp()?;
-    help_menu.set_as_help_menu_for_nsapp()?;
     app.on_menu_event(|app, event| {
         let action = event.id().as_ref();
 

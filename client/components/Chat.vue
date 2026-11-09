@@ -18,12 +18,16 @@
 				:aria-label="channel.name"
 				role="tabpanel"
 			>
-				<div class="header">
+				<div class="header" :data-tauri-drag-region="dragRegion">
 					<SidebarToggle />
 					<span class="title" :aria-label="openTitle"
 						><bdi>{{ channel.name }}</bdi></span
 					>
-					<div v-if="channel.editTopic === true" class="topic-container">
+					<div
+						v-if="channel.editTopic === true"
+						class="topic-container"
+						data-tauri-drag-region="false"
+					>
 						<input
 							ref="topicInput"
 							dir="auto"
@@ -42,6 +46,7 @@
 						v-else
 						:title="topicTitle"
 						:class="{topic: true, empty: !channel.topic}"
+						data-tauri-drag-region="false"
 						@dblclick="editTopic"
 						><button
 							v-if="topicTranslation"
@@ -179,6 +184,7 @@ import {
 	Component,
 } from "vue";
 import {watchUserlistOverlay} from "../js/userlistOverlay";
+import {macDragRegion} from "../js/helpers/shell";
 import {channelOpened} from "../js/helpers/lastChannel";
 import {prefetchEmojiCatalog} from "../js/helpers/emoji";
 import type {ClientNetwork, ClientChan} from "../js/types";
@@ -494,6 +500,7 @@ export default defineComponent({
 
 		return {
 			chatPane,
+			dragRegion: macDragRegion(),
 			leavePast,
 			pastStatus,
 			store,
