@@ -109,6 +109,8 @@ export interface ServiceDeps {
 	askDownload?(ref: ModelRef, device: Device): Promise<boolean>;
 	/** Where the yeses are remembered; in memory when absent. */
 	consent?: ConsentStore;
+	/** Where the copies the user removed are remembered (consent.ts `REMOVED_KEY`); in memory when absent. */
+	removed?: ConsentStore;
 	/**
 	 * The question once the language model's GPU copy has stopped (a load
 	 * failure, or the second failed generation in a row) while its device
@@ -365,7 +367,8 @@ export class TranslateService {
 		this.consent = deps.askDownload
 			? new DownloadConsent(
 					(ref, device) => deps.askDownload!(ref, device),
-					deps.consent ?? memoryConsent()
+					deps.consent ?? memoryConsent(),
+					deps.removed ?? memoryConsent()
 			  )
 			: null;
 	}
@@ -982,8 +985,16 @@ export class TranslateService {
 		}
 
 		const sizeBytes = ref.copies[device]?.sizeBytes ?? listedSize(ref);
+		// A copy the user removed is asked for again whatever its size
+		// (consent.ts `REMOVED_KEY`): reading never fetches it back quietly.
+		const removed = this.consent.removed(this.consentId(ref, device));
 
-		if (sizeBytes > 0 && sizeBytes <= QUIET_DOWNLOAD_BYTES && !this.deps.metered?.()) {
+		if (
+			!removed &&
+			sizeBytes > 0 &&
+			sizeBytes <= QUIET_DOWNLOAD_BYTES &&
+			!this.deps.metered?.()
+		) {
 			return false;
 		}
 

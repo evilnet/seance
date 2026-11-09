@@ -83,7 +83,7 @@
 					:disabled="!reading && readBlocked"
 					@change="toggleReading"
 				/>
-				{{ t("translate.panel.readIn", {language: name(readingLanguage())}) }}
+				{{ t("translate.panel.readHere", {language: name(readingLanguage())}) }}
 			</label>
 			<div v-if="recent.length" class="language-sheet-recent">
 				<span class="language-sheet-recent-label">{{
@@ -290,7 +290,7 @@ export default defineComponent({
 		// the hint below and Enter are about.
 		const shownTo = computed(() => (picked.value ? to.value : props.target ?? ""));
 
-		const reading = computed(() => channelTranslation(props.network, props.channel).read);
+		const reading = computed(() => !channelTranslation(props.network, props.channel).exclude);
 		const readBlocked = computed(() => currentTranslationBlock() !== null);
 		const toggleReading = (event: Event) =>
 			setReading(props.network, props.channel, (event.target as HTMLInputElement).checked);

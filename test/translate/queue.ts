@@ -1100,6 +1100,40 @@ describe("translate/queue", () => {
 		expect(r.updates.filter(([id]) => id === 2).map(([, u]) => u.status)).to.include("done");
 	});
 
+	it("cancelWaiting drops one waiting item and leaves a running one alone", async () => {
+		let release: (() => void) | null = null;
+		const r = rig();
+		clock = r.clock;
+		let calls = 0;
+		r.deps.translate = (_req, _signal) =>
+			(async function* () {
+				if (calls++ === 0) {
+					await new Promise<void>((resolve) => {
+						release = resolve;
+					});
+				}
+
+				yield {id: 0, text: "done", done: true};
+			})();
+		r.queue.enqueue(item(1, "eins zwei drei", {single: true}));
+		r.queue.enqueue(item(2, "vier fünf sechs", {single: true}));
+		r.queue.enqueue(item(3, "sieben acht neun", {single: true}));
+		await settle(r.clock, 3);
+
+		expect(r.queue.cancelWaiting(1)).to.equal(false);
+		expect(r.queue.cancelWaiting(2)).to.equal(true);
+		expect(r.queue.cancelWaiting(2)).to.equal(false);
+		release?.();
+		await settle(r.clock);
+
+		const statuses = (id: number) =>
+			r.updates.filter(([u]) => u === id).map(([, u]) => u.status);
+
+		expect(statuses(1)).to.include("done");
+		expect(statuses(2)).to.deep.equal(["dropped"]);
+		expect(statuses(3)).to.include("done");
+	});
+
 	it("cancelChannel calls the iterator's return, so a cancel reaches an engine that never yields", async () => {
 		const r = rig();
 		clock = r.clock;

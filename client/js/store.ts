@@ -162,6 +162,8 @@ export type State = {
 		paused: {engine: EngineName; message: string} | null;
 		/** The channel id whose translation panel was asked for (the channel menu). */
 		panelFor: number | null;
+		/** A one-time note on show (translate/reader.ts `showNote`, TranslationNote.vue). */
+		note: "firstRun" | "everywhere" | null;
 	};
 	translations: Record<number, TranslationEntry>;
 	outgoingTranslations: Record<number, OutgoingTranslation>;
@@ -194,7 +196,14 @@ const state = (): State => ({
 	userlistOverlays: false,
 	userlistOverlayOpen: false,
 	uploadProgress: null,
-	translation: {capability: null, models: [], workerError: null, paused: null, panelFor: null},
+	translation: {
+		capability: null,
+		models: [],
+		workerError: null,
+		paused: null,
+		panelFor: null,
+		note: null,
+	},
 	translations: {},
 	outgoingTranslations: {},
 	translateChannels: {},
@@ -332,6 +341,7 @@ type Mutations = {
 	translationPaused(state: State, paused: State["translation"]["paused"]): void;
 	/** Ask the view of that channel to open its translation panel; null clears it. */
 	translationPanelFor(state: State, id: number | null): void;
+	translationNote(state: State, note: "firstRun" | "everywhere" | null): void;
 	translationEntry(state: State, payload: {id: number; entry: TranslationEntry}): void;
 	translationPatch(state: State, payload: {id: number; patch: Partial<TranslationEntry>}): void;
 	translationRemove(state: State, id: number): void;
@@ -457,6 +467,9 @@ const mutations: Mutations = {
 	},
 	translationPanelFor(state, id) {
 		state.translation.panelFor = id;
+	},
+	translationNote(state, note) {
+		state.translation.note = note;
 	},
 	translationEntry(state, {id, entry}) {
 		state.translations[id] = entry;

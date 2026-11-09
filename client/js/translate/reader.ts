@@ -2,15 +2,18 @@
 // modules — with index.ts and writer.ts — that import the store. Nothing
 // here runs while translation is off (index.ts `translationOn`, switch.ts):
 // every entry asks first, switching off stops every queue and clears what
-// the store shows (`stopReading`), and switching back on starts the
-// channels that read over (`resumeReading`). A second
-// `socket.on("msg")` listener (registered by
-// socket-events/translate.ts after socket-events/msg.ts pushed the
-// message) runs eligibility → detection → context → queue, and a second
-// `socket.on("more")` does the same for a history page (newest first,
-// capped), as does a replay batch and the requeue of a switch-on or a
-// language change; the queue
-// writes state.translations; the header globe and the panel call
+// the store shows (`stopReading`), and switching back on reads what is on
+// screen (`resumeReading`).
+//
+// With translation on, every channel and query reads unless the user
+// excluded it (switch.ts `readsHere`), but only the conversation on screen
+// does any work (onScreen.ts): its live lines as they arrive (a second
+// `socket.on("msg")` listener, registered by socket-events/translate.ts
+// after socket-events/msg.ts pushed the message), and the lines that come
+// into view -- on opening it, on scrolling, on a history page or a replay
+// landing, on the page coming back from the background -- through
+// `scanOnScreen`. Each runs eligibility → detection → context → queue; the
+// queue writes state.translations; the panel and the composer sheet call
 // setReading/setChannelOptions; the chip and the toolbar call
 // retranslate/showOriginal/retryTranslation.
 
@@ -30,6 +33,7 @@ import {
 	forgetNetwork,
 	forgetTerms,
 	loadAll,
+	migrateChannelStore,
 	setChannelTranslation,
 	termsFor,
 } from "./channelStore";
@@ -42,9 +46,11 @@ import {
 	sourceFor,
 	withSenderLanguage,
 } from "./detect";
-import {ReplayBatches, historyQueueOrder, isChatLine, isEligible, plainTextOf} from "./eligibility";
+import {HISTORY_QUEUE_CAP, isChatLine, isEligible, plainTextOf} from "./eligibility";
 import {namesFor} from "./names";
-import {fromLocaleTag} from "./languages";
+import {fromLocaleTag, isSupported} from "./languages";
+import {OnScreen, linesToRead} from "./onScreen";
+import storage from "../localStorage";
 import {needsDownloadError} from "./consent";
 import {
 	APPLE_REF,
@@ -72,7 +78,7 @@ import {
 	translateService,
 	translationOn,
 } from "./index";
-import {considersLine, readingChannels, translationOffBlock} from "./switch";
+import {considersLine, readsHere as readsRule, translationOffBlock} from "./switch";
 import {NO_ROUTE, type QueueItem, type QueueUpdate, TranslateQueue} from "./queue";
 import {sentReadBacks, takesReadBack} from "./sentReadBack";
 import {protect, stripCopiedNickPrefix} from "./spans";
@@ -81,6 +87,19 @@ import {yieldToPage} from "./yieldToPage";
 import {claimPack} from "./applePacks";
 
 const queues = new Map<string, TranslateQueue>();
+/** The conversation on screen and its lines in view (onScreen.ts). */
+export const onScreen = new OnScreen();
+/**
+ * Lines looked at and found not to be worth anything -- not a chat line,
+ * nothing left once the syntax is gone -- which leave no entry in the
+ * store: remembered so scrolling past them again does not strip and
+ * measure them again. Forgotten with the reading they were judged under.
+ */
+const considered = new Set<number>();
+/** Lines on their way through `translateMessage` right now: a scan does not start them twice. */
+const considering = new Set<number>();
+/** Translation was just switched on and its first scan has not finished. */
+let firstReadPending = false;
 const priors = new Map<string, LanguagePrior>();
 const arrivals = new Map<number, number>();
 /**
@@ -127,58 +146,88 @@ export function channelTranslation(
 }
 
 /**
- * The language the user reads in: the interface's (`userLanguageRef`, the
- * one language setting — the Settings → Translation select and the dev
- * sidebar's globe both write it; `fromLocaleTag` maps it to a translation
- * code). The one decision for everything that needs it: the queues
- * translate into it, the composer (`writer.ts`) places a draft it cannot
- * detect and reads a translation back into it, and the labels
- * (`TranslationLine.vue`, the composer strip, the channel header's
- * translate button) name their languages in it. Reading itself is on or
- * off per channel (`setReading`); the language is not, so a draft can no
- * longer meet a panel language that differs from this one.
+ * The language the user reads in: Settings → Language's "Translate into"
+ * (`translateInto`, any of the supported languages), or where that is
+ * "Same as the interface" (its default, ""), the interface's
+ * (`userLanguageRef`; `fromLocaleTag` maps it to a translation code). The
+ * one decision for everything that needs it: the queues translate into it,
+ * the composer (`writer.ts`) places a draft it cannot detect and reads a
+ * translation back into it, and the labels (`TranslationLine.vue`, the
+ * composer strip) name their languages in it.
  */
 export function readingLanguage(): string {
-	return fromLocaleTag(userLanguageRef.value);
+	const into = store.state.settings.translateInto;
+
+	return typeof into === "string" && isSupported(into)
+		? into
+		: fromLocaleTag(userLanguageRef.value);
 }
 
 /**
- * The reading language changed (the interface's language did -- in
- * Settings or through the dev globe): re-read every channel that
- * is reading, the way a switch-on does (`requeueReading` -- not
- * `setReading`, which is already on and would return at its no-op guard).
- * A change that leaves the effective language alone restarts nothing; the
- * language the reader is initialised with is the one to measure the first
- * change against, so it is recorded there rather than guessed at here.
+ * The languages the user reads besides the reading language (Settings →
+ * Language, "I also read"): a line detected in one is left as it is,
+ * though the toolbar's Translate still translates it on request.
  */
-let lastReadingLanguage: string | null = null;
+export function alsoReadLanguages(): string[] {
+	const list: unknown = store.state.settings.translateAlsoRead;
+
+	return Array.isArray(list)
+		? list.filter((code): code is string => typeof code === "string" && isSupported(code))
+		: [];
+}
+
+/** The effective-reading rule (switch.ts `readsHere`) over the store. */
+export function readsHere(network: ClientNetwork, channel: ClientChan): boolean {
+	return readsRule(translationOn(), channel.type, channelTranslation(network, channel).exclude);
+}
+
+/** Whether `channel` is the conversation on screen (onScreen.ts). */
+function shownNow(channel: ClientChan): boolean {
+	return onScreen.current() === channel.id;
+}
+
+/**
+ * What reading is judged under: the reading language and the "I also
+ * read" list. When either changes (Settings, or the interface's language
+ * while "Translate into" follows it), every conversation starts over
+ * (`requeueReading`): what is translated is dropped, and the one on screen
+ * is read again in the new terms. A change that leaves both alone
+ * restarts nothing; the terms the reader is initialised with are the ones
+ * to measure the first change against, so they are recorded there.
+ */
+let lastReadingTerms: string | null = null;
+
+function readingTerms(): string {
+	return JSON.stringify([readingLanguage(), [...alsoReadLanguages()].sort()]);
+}
 
 function restartAllReading(): void {
-	const next = readingLanguage();
+	const next = readingTerms();
 
-	if (next === lastReadingLanguage) {
+	if (next === lastReadingTerms) {
 		return;
 	}
 
-	lastReadingLanguage = next;
+	lastReadingTerms = next;
 
 	for (const network of store.state.networks) {
 		for (const channel of network.channels) {
-			if (channelTranslation(network, channel).read) {
+			if (readsHere(network, channel)) {
 				requeueReading(network, channel);
 			}
 		}
 	}
 }
 
-watch(userLanguageRef, restartAllReading);
+watch(readingTerms, restartAllReading);
 
 /**
  * Whether translation is wanted right now (service.ts `setInUse`): a
- * composer strip open (with its read-back), a line waiting in a queue, or a
- * channel still in the store reading or writing through it. A channel that
- * was left keeps its setting for a rejoin but wants nothing meanwhile. When
- * none is, and nothing is in flight, the models unload at once.
+ * composer strip open (with its read-back), a line waiting in a queue, the
+ * conversation on screen reading, or a channel still in the store writing
+ * through it. A conversation in the background reads nothing until it is
+ * opened, so it wants nothing meanwhile. When none is, and nothing is in
+ * flight, the models unload at once.
  */
 export function translationInUse(): boolean {
 	if (Object.keys(store.state.outgoingTranslations).length > 0) {
@@ -189,12 +238,15 @@ export function translationInUse(): boolean {
 		return true;
 	}
 
-	return store.state.networks.some((network) =>
-		network.channels.some((channel) => {
-			const setting = channelTranslation(network, channel);
+	const shown = onScreen.current();
+	const found = shown === null ? undefined : store.getters.findChannel(shown);
 
-			return !!setting.read || !!setting.write;
-		})
+	if (found && readsHere(found.network, found.channel)) {
+		return true;
+	}
+
+	return store.state.networks.some((network) =>
+		network.channels.some((channel) => !!channelTranslation(network, channel).write)
 	);
 }
 
@@ -477,47 +529,6 @@ function stillCurrent(chanId: number, generation: number): boolean {
 	return generationOf(chanId) === generation && !!store.getters.findChannel(chanId);
 }
 
-/**
- * Queue a load of history lines, in the order given (newest first,
- * `historyQueueOrder`), one after another so the queue's order is that
- * order: a history page, a replay batch, or the requeue of a switch-on or a
- * language change. Every line still goes through eligibility and detection.
- */
-async function queueHistory(
-	network: ClientNetwork,
-	channel: ClientChan,
-	newestFirst: readonly ClientMessage[]
-): Promise<void> {
-	const generation = generationOf(channel.id);
-
-	for (const [index, message] of newestFirst.entries()) {
-		// A task boundary between two lines (yieldToPage.ts): once the
-		// detector is loaded the whole load would otherwise be one task.
-		if (index > 0) {
-			await yieldToPage();
-		}
-
-		if (!stillCurrent(channel.id, generation)) {
-			return;
-		}
-
-		await translateMessage(network, channel, message, false, true);
-	}
-}
-
-/**
- * A replay's lines grouped into the batch that brought them (eligibility.ts
- * `ReplayBatches`): each batch of a catch-up or a bouncer replay queues at
- * most `HISTORY_QUEUE_CAP` of its lines, newest first.
- */
-const replayBatches = new ReplayBatches<ClientMessage>((chanId, newestFirst) => {
-	const target = store.getters.findChannel(chanId);
-
-	if (target) {
-		void queueHistory(target.network, target.channel, newestFirst);
-	}
-});
-
 function queueFor(network: ClientNetwork): TranslateQueue {
 	let queue = queues.get(network.uuid);
 
@@ -715,6 +726,7 @@ function forgetItems(match: (entry: {network: string; item: QueueItem}) => boole
 export function forgetTranslations(ids: readonly number[]): void {
 	for (const id of ids) {
 		items.delete(id);
+		considered.delete(id);
 	}
 }
 
@@ -727,24 +739,24 @@ function commitChannel(
 }
 
 /**
- * Turn reading on or off for a channel. Off cancels what is queued; on
- * starts the channel over on what it shows (`requeueReading`). The same
- * setting again changes nothing.
+ * "Translate what I read here" (the panel and the composer sheet): off
+ * stores an exclusion (channelStore.ts `exclude`) and stops the
+ * conversation's reading; on removes it and reads what is on screen. The
+ * same setting again changes nothing. A line asked for by hand -- the
+ * toolbar's Translate -- is still translated in an excluded conversation.
  */
 export function setReading(network: ClientNetwork, channel: ClientChan, on: boolean): void {
-	const before = channelTranslation(network, channel).read;
-	const value = setChannelTranslation(network.uuid, channel.name, {read: on});
+	const before = readsHere(network, channel);
+	const value = setChannelTranslation(network.uuid, channel.name, {exclude: !on});
 
 	commitChannel(network, channel, value);
 
-	if (on === before) {
+	if (readsHere(network, channel) === before) {
 		return;
 	}
 
 	if (!on) {
-		generations.set(channel.id, generationOf(channel.id) + 1);
-		replayBatches.drop(channel.id);
-		queues.get(network.uuid)?.cancelChannel(channel.id);
+		stopChannel(network, channel);
 		forgetTopic(channel.id);
 		return;
 	}
@@ -753,37 +765,47 @@ export function setReading(network: ClientNetwork, channel: ClientChan, on: bool
 }
 
 /**
- * Start a reading channel over on what it shows: its queued work and
- * translations go, its language prior with them, and its messages are
- * queued again, newest first and capped like a history load. Both ways
- * into a fresh read go through here -- a switch-on, and a change of the
- * reading language (`restartAllReading`), which leaves the switch alone
- * and so never reaches `setReading`'s body.
+ * A conversation's reading stops where it stands: every detection and scan
+ * under way gives up at its next check, and its waiting and in-flight
+ * lines leave the queue as dropped -- which is what makes them worth
+ * reading again when they are next in view (`scanOnScreen`). What is
+ * finished stays.
+ */
+function stopChannel(network: ClientNetwork, channel: ClientChan): void {
+	generations.set(channel.id, generationOf(channel.id) + 1);
+	queues.get(network.uuid)?.cancelChannel(channel.id);
+}
+
+/**
+ * Start a conversation over: its queued work and translations go, its
+ * language prior with them, and the one on screen is read again from what
+ * is in view (`scanOnScreen`); one in the background is read when it is
+ * opened. Every way into a fresh read goes through here -- reading
+ * switched back on in it, and a change of the reading language or of "I
+ * also read" (`restartAllReading`), which leave the exclusion alone and so
+ * never reach `setReading`'s body.
  *
- * Own lines go with the rest and are queued again like anyone's. The one
+ * Own lines go with the rest and are read again like anyone's. The one
  * exception is an own line whose translation is already in the new language
  * -- a posted line's read-back (writer.ts) -- which is kept, and which the
- * requeue then leaves alone rather than translating it a second time.
+ * scan then leaves alone rather than translating it a second time.
  */
 export function requeueReading(network: ClientNetwork, channel: ClientChan): void {
 	// Switched off: the channel's setting is kept and nothing is queued;
-	// switching back on starts it over from here (`resumeReading`).
+	// switching back on reads what is on screen (`resumeReading`).
 	if (!translationOn()) {
 		return;
 	}
 
-	generations.set(channel.id, generationOf(channel.id) + 1);
-	replayBatches.drop(channel.id);
-	queues.get(network.uuid)?.cancelChannel(channel.id);
+	stopChannel(network, channel);
 
-	// The language is the global reading language (the interface's): only
-	// a finished translation already in it is
-	// kept, a skipped mark is detected again like everything else.
+	// Only a finished translation already in the reading language is kept;
+	// a skipped mark is detected again like everything else.
 	const lang = readingLanguage();
 
 	forgetItems(({item}) => item.chanId === channel.id);
 
-	const requeued = channel.messages.filter((m) => {
+	const dropped = channel.messages.filter((m) => {
 		const entry = store.state.translations[m.id];
 
 		return !(m.self && entry?.status === "done" && entry.to === lang);
@@ -791,12 +813,149 @@ export function requeueReading(network: ClientNetwork, channel: ClientChan): voi
 
 	store.commit(
 		"translationRemoveMany",
-		requeued.map((m) => m.id)
+		dropped.map((m) => m.id)
 	);
+
+	for (const m of channel.messages) {
+		considered.delete(m.id);
+	}
+
 	priors.delete(channelKey(network.uuid, channel.name));
 	forgetTopic(channel.id);
-	void queueHistory(network, channel, historyQueueOrder(requeued));
-	void readTopic(network, channel);
+
+	if (shownNow(channel)) {
+		scheduleScan(channel.id);
+		void readTopic(network, channel);
+	}
+}
+
+/** Channel ids with a scan asked for and not yet run: one scan per task, however many asks. */
+const scansDue = new Set<number>();
+
+/**
+ * Ask for a scan of `chanId`, run in a task of its own: after every
+ * observer callback of the frame that asked (lineVisibility.ts has two),
+ * so the scan sees which lines are on the visible part as well as which
+ * are near it.
+ */
+function scheduleScan(chanId: number): void {
+	if (scansDue.has(chanId)) {
+		return;
+	}
+
+	scansDue.add(chanId);
+	setTimeout(() => {
+		scansDue.delete(chanId);
+		void scanOnScreen(chanId);
+	});
+}
+
+/**
+ * Whether a line in view still needs reading: nothing has looked at it in
+ * the current reading (no entry, not judged ineligible), or what did was
+ * cut short (dropped: the conversation was left, or the page hidden,
+ * before it finished). A failed line keeps its Retry, a skipped one its
+ * mark, a done one its translation: none of them is read again.
+ */
+function wantsReading(id: number): boolean {
+	if (considered.has(id) || considering.has(id)) {
+		return false;
+	}
+
+	const entry = store.state.translations[id];
+
+	return !entry || entry.status === "dropped";
+}
+
+/**
+ * Read the lines of the conversation on screen that are in view and not
+ * read yet, newest first and at most `HISTORY_QUEUE_CAP` of them a scan.
+ * Asked whenever lines come into view (onScreen.ts), a conversation is
+ * opened, the page comes back, or reading starts over; a scan of a
+ * conversation that is no longer on screen, or no longer reads, does
+ * nothing, and one cut short by a later change stops at its next line.
+ */
+async function scanOnScreen(chanId: number): Promise<void> {
+	const found = store.getters.findChannel(chanId);
+
+	if (!found || !shownNow(found.channel) || !readsHere(found.network, found.channel)) {
+		return;
+	}
+
+	const {network, channel} = found;
+	const generation = generationOf(chanId);
+	const inView = onScreen.inView(chanId);
+	const lines = linesToRead(
+		toRaw(channel.messages),
+		inView,
+		(m) => wantsReading(m.id),
+		HISTORY_QUEUE_CAP,
+		onScreen.visible(chanId)
+	);
+	let queued = false;
+
+	for (const [index, message] of lines.entries()) {
+		// A task boundary between two lines (yieldToPage.ts): once the
+		// detector is loaded a whole screen would otherwise be one task.
+		if (index > 0) {
+			await yieldToPage();
+		}
+
+		if (!stillCurrent(chanId, generation) || !shownNow(channel)) {
+			return;
+		}
+
+		if (wantsReading(message.id) && (await readLine(network, channel, message, false))) {
+			queued = true;
+		}
+	}
+
+	// Nothing reported in view yet (the list has not mounted its observer):
+	// the first-run note waits for a scan that has seen the screen.
+	if (inView.size > 0) {
+		noteFirstRead(queued);
+	}
+}
+
+/**
+ * One line through `translateMessage` on reading's own account (not a
+ * forced request): marked while it is on its way, so a scan does not start
+ * it twice, and remembered as considered when it turned out not to be worth
+ * reading, so the next scan passes it by.
+ */
+async function readLine(
+	network: ClientNetwork,
+	channel: ClientChan,
+	message: ClientMessage,
+	live: boolean
+): Promise<boolean> {
+	considering.add(message.id);
+
+	try {
+		const outcome = await translateMessage(network, channel, message, false, !live);
+
+		if (outcome === "ineligible") {
+			considered.add(message.id);
+		}
+
+		return outcome === "queued";
+	} finally {
+		considering.delete(message.id);
+	}
+}
+
+/**
+ * A line left the view before its turn came: reading lets it go (dropped,
+ * so it is read again when it is back in view), and what is in view now is
+ * not kept waiting behind what the reader scrolled past. A line someone
+ * asked for -- the toolbar's Translate, a Retry: a single item -- stays.
+ */
+function lineLeft(id: number): void {
+	const known = items.get(id);
+
+	if (known && !known.item.single) {
+		queues.get(known.network)?.cancelWaiting(id);
+	}
 }
 
 /** The topic each channel's translation was made from (topic.ts). */
@@ -834,8 +993,13 @@ export async function readTopic(network: ClientNetwork, channel: ClientChan): Pr
 	const topic = channel.topic;
 	const initial = channelTranslation(network, channel);
 
-	if (!initial.read || !topic) {
+	if (!readsHere(network, channel) || !topic) {
 		forgetTopic(channel.id);
+		return;
+	}
+
+	// Read when its conversation is opened (Chat.vue asks again then).
+	if (!shownNow(channel)) {
 		return;
 	}
 
@@ -886,7 +1050,7 @@ export async function readTopic(network: ClientNetwork, channel: ClientChan): Pr
 	if (
 		!translationOn() ||
 		!store.getters.findChannel(channel.id) ||
-		!settings.read ||
+		!readsHere(network, channel) ||
 		generationOf(channel.id) !== generation ||
 		channel.topic !== topic
 	) {
@@ -895,7 +1059,7 @@ export async function readTopic(network: ClientNetwork, channel: ClientChan): Pr
 
 	const to = readingLanguage();
 
-	if (detectionSkip(detection, to)) {
+	if (detectionSkip(detection, to, alsoReadLanguages())) {
 		// Already readable: no entry, the header shows the topic as it is.
 		items.delete(id);
 		store.commit("translationRemoveMany", [id]);
@@ -949,9 +1113,12 @@ export async function readTopic(network: ClientNetwork, channel: ClientChan): Pr
  * Ask the view of that channel to open its translation panel (the channel
  * menu's "Translation…", which switches to the channel first). Store
  * state rather than an event: the view may not exist yet when it is asked.
+ * Off by the user's own setting, the panel opens too, as the one button
+ * that switches translation on (spec § Finding it); off by the deploy, it
+ * does not.
  */
 export function requestTranslationPanel(channel: ClientChan): void {
-	if (translationOn()) {
+	if (translationOn() || translationOffByUser()) {
 		store.commit("translationPanelFor", channel.id);
 	}
 }
@@ -981,6 +1148,10 @@ function markSkipped(
 	to: string,
 	detection: Detection
 ): void {
+	// "same" is the reading language or one the user also reads: the mark
+	// names the language it was taken for.
+	const from = reason === "same" ? detection.lang ?? to : "";
+
 	const existing = store.state.translations[id];
 
 	if (existing && (existing.status === "done" || existing.status === "pending")) {
@@ -993,7 +1164,7 @@ function markSkipped(
 			status: "skipped",
 			reason,
 			text: "",
-			from: reason === "same" ? to : "",
+			from,
 			to,
 			candidates: detection.candidates,
 			engine: null,
@@ -1017,6 +1188,14 @@ function entryFor(from: string, to: string, candidates: string[]): TranslationEn
 }
 
 /**
+ * What `translateMessage` did with a line: `queued` (a request, or a
+ * forced one), `skipped` (a mark: already readable, or unsure), `ineligible`
+ * (nothing in it to read, judged once per reading) or `stale` (reading
+ * changed or stopped while it was looked at; the line is as it was).
+ */
+export type LineOutcome = "queued" | "skipped" | "ineligible" | "stale";
+
+/**
  * Consider one message. `force` is the toolbar's "Translate" and the chip's
  * "Retranslate": eligibility and the target check are skipped, and an
  * unknown source is left to the LLM. `replay` is the bus payload's flag: a
@@ -1036,14 +1215,15 @@ export async function translateMessage(
 	force = false,
 	replay = false,
 	from?: string
-): Promise<void> {
+): Promise<LineOutcome> {
 	// Switched off, nothing is looked at, a forced line included; and a line
-	// of a channel that does not read is not worth the probe below.
-	if (
-		!message.text ||
-		!considersLine(translationOn(), channelTranslation(network, channel).read, force)
-	) {
-		return;
+	// of a conversation that does not read is not worth the probe below.
+	if (!message.text) {
+		return "ineligible";
+	}
+
+	if (!considersLine(translationOn(), readsHere(network, channel), force)) {
+		return "stale";
 	}
 
 	// The service is created (and the device probe started) on first use,
@@ -1054,7 +1234,7 @@ export async function translateMessage(
 	}
 
 	if (!translationAvailable()) {
-		return;
+		return "stale";
 	}
 
 	const initial = channelTranslation(network, channel);
@@ -1084,8 +1264,12 @@ export async function translateMessage(
 	let plain: string | undefined;
 	const plainText = () => (plain ??= plainTextOf(message.text ?? "", nicks));
 
-	if (!force && (!initial.read || !isEligible(message, {nicks, plain: plainText}))) {
-		return;
+	if (!force && !readsHere(network, channel)) {
+		return "stale";
+	}
+
+	if (!force && !isEligible(message, {nicks, plain: plainText})) {
+		return "ineligible";
 	}
 
 	const prior = priorFor(network, channel);
@@ -1124,23 +1308,24 @@ export async function translateMessage(
 	// Switched off meanwhile: a forced line too (the generation test below
 	// is not a forced line's).
 	if (!translationOn() || !store.getters.findChannel(channel.id)) {
-		return;
+		return "stale";
 	}
 
-	if (!force && (!settings.read || generationOf(channel.id) !== generation)) {
-		return;
+	if (!force && (!readsHere(network, channel) || generationOf(channel.id) !== generation)) {
+		return "stale";
 	}
 
 	const to = readingLanguage();
 
-	// Placed in the reading language, not placed at all, or placed on doubt
-	// in a language the channel is not known to write: left alone (detect.ts
-	// `detectionSkip`), and the toolbar's Translate still translates it.
-	const skip = force ? null : detectionSkip(detection, to);
+	// Placed in the reading language or one the user also reads, not placed
+	// at all, or placed on doubt in a language the channel is not known to
+	// write: left alone (detect.ts `detectionSkip`), and the toolbar's
+	// Translate still translates it.
+	const skip = force ? null : detectionSkip(detection, to, alsoReadLanguages());
 
 	if (skip) {
 		markSkipped(message.id, skip, to, detection);
-		return;
+		return "skipped";
 	}
 
 	// What the line is translated from, whether the source is left to the
@@ -1202,6 +1387,8 @@ export async function translateMessage(
 	} else {
 		queueFor(network).enqueue(item);
 	}
+
+	return "queued";
 }
 
 /**
@@ -1307,11 +1494,12 @@ function stopReading(): void {
 	for (const network of store.state.networks) {
 		for (const channel of network.channels) {
 			generations.set(channel.id, generationOf(channel.id) + 1);
-			replayBatches.drop(channel.id);
 		}
 	}
 
 	items.clear();
+	considered.clear();
+	firstReadPending = false;
 	topicSources.clear();
 	priors.clear();
 	store.commit("translationRemoveMany", Object.keys(store.state.translations).map(Number));
@@ -1326,26 +1514,153 @@ function stopReading(): void {
 }
 
 /**
- * Translation switched back on: every channel whose kept setting reads
- * starts over on what it shows (`requeueReading`, topic included), the way
- * switching its reading on does. No reload, and nothing for the others.
+ * Translation switched (back) on: the conversation on screen is read from
+ * what is in view, topic included; the others when they are opened. No
+ * reload. The first time on this device, a note says what changed when
+ * nothing on screen needed translating (`noteFirstRead`).
  */
 function resumeReading(): void {
-	for (const {network, channel} of readingChannels(
-		store.state.networks,
-		(n: ClientNetwork, c: ClientChan) => channelTranslation(n, c).read
-	)) {
-		requeueReading(network, channel);
+	firstReadPending = !seenNote("firstRun");
+	openOnScreen();
+}
+
+/** Read the conversation on screen, if there is one: its lines in view and its topic. */
+function openOnScreen(): void {
+	const shown = onScreen.current();
+	const found = shown === null ? undefined : store.getters.findChannel(shown);
+
+	if (!found || !readsHere(found.network, found.channel)) {
+		if (firstReadPending && found) {
+			noteFirstRead(false);
+		}
+
+		return;
+	}
+
+	scheduleScan(found.channel.id);
+	void readTopic(found.network, found.channel);
+}
+
+/**
+ * The conversation on screen changed: the one left stops where it stands
+ * (its unfinished lines are read again when it is next on screen; its
+ * finished ones stay), and the new one is read.
+ */
+function onConversationChange(from: number | null): void {
+	if (from !== null) {
+		const left = store.getters.findChannel(from);
+
+		if (left) {
+			stopChannel(left.network, left.channel);
+		}
+	}
+
+	if (translationOn()) {
+		openOnScreen();
+	}
+}
+
+/** Device-side, one-time notes (spec § Finding it, § Existing users): not in the backup. */
+export const NOTES_KEY = "thelounge.state.translateNotes";
+
+export type TranslationNote = "firstRun" | "everywhere";
+
+function seenNotes(): string[] {
+	try {
+		const parsed: unknown = JSON.parse(storage.get(NOTES_KEY) ?? "[]");
+
+		return Array.isArray(parsed)
+			? parsed.filter((n): n is string => typeof n === "string")
+			: [];
+	} catch {
+		return [];
+	}
+}
+
+function seenNote(note: TranslationNote): boolean {
+	return seenNotes().includes(note);
+}
+
+/** A note was shown, or made pointless: it is not shown again on this device. */
+export function markNoteSeen(note: TranslationNote): void {
+	const seen = seenNotes();
+
+	if (!seen.includes(note)) {
+		try {
+			storage.set(NOTES_KEY, JSON.stringify([...seen, note]));
+		} catch {
+			// A storage that cannot write shows the note again next time: harmless.
+		}
+	}
+}
+
+/** Show a note (TranslationNote.vue) unless it was seen; it is marked seen as it is shown. */
+function showNote(note: TranslationNote): void {
+	if (seenNote(note)) {
+		return;
+	}
+
+	markNoteSeen(note);
+	store.commit("translationNote", note);
+}
+
+/**
+ * The first scan after switching translation on that saw the screen
+ * finished: when it translated nothing, nothing visibly changed, so the
+ * first-run note says what will. Either way the note is settled for this
+ * device.
+ */
+function noteFirstRead(translatedSomething: boolean): void {
+	if (!firstReadPending) {
+		return;
+	}
+
+	firstReadPending = false;
+
+	if (translatedSomething) {
+		markNoteSeen("firstRun");
+	} else {
+		showNote("firstRun");
 	}
 }
 
 export function initReader(): void {
+	// Once per stored version (channelStore.ts): an older blob -- an
+	// upgrade, or an old backup restored -- reads everywhere from now on,
+	// and an enabled user is told so once.
+	const migration = migrateChannelStore();
+
 	store.commit("translateChannelsLoaded", loadAll());
 	setTranslationUsage(translationInUse);
 	onTranslationSwitch((on) => (on ? resumeReading() : stopReading()));
-	// The language reading starts in: the first change after boot is measured
+	// What reading starts under: the first change after boot is measured
 	// against this, so it counts like any other.
-	lastReadingLanguage = readingLanguage();
+	lastReadingTerms = readingTerms();
+
+	if (migration !== "current" && translationOn()) {
+		showNote("everywhere");
+	}
+
+	// The conversation on screen: the store's active channel (router.ts
+	// clears it while Settings is open) in a visible page.
+	onScreen.show(store.state.activeChannel?.channel.id ?? null);
+	onScreen.setPageShown(document.visibilityState !== "hidden");
+	watch(
+		() => store.state.activeChannel?.channel.id ?? null,
+		(id) => onScreen.show(id)
+	);
+	document.addEventListener("visibilitychange", () => {
+		onScreen.setPageShown(document.visibilityState !== "hidden");
+	});
+	onScreen.onChange((change) => {
+		if (change.kind === "conversation") {
+			onConversationChange(change.from);
+		} else if (change.kind === "left") {
+			lineLeft(change.messageId);
+		} else if (translationOn()) {
+			scheduleScan(change.chanId);
+		}
+	});
 
 	// After socket-events/msg.ts pushed the message (import order in
 	// socket-events/index.ts): the object in `data.msg` is the one in
@@ -1365,17 +1680,20 @@ export function initReader(): void {
 			arrivals.set(target.channel.id, (arrivals.get(target.channel.id) ?? 0) + 1);
 		}
 
-		if (!channelTranslation(target.network, target.channel).read) {
+		// Only the conversation on screen reads as lines arrive; another one
+		// reads them when it is opened. A replayed line (a reconnect's
+		// catch-up, a bouncer replay) is read when it is in view, like a
+		// history page: a reload of a channel that has been on for a week
+		// does not queue a week.
+		if (
+			!readsHere(target.network, target.channel) ||
+			!shownNow(target.channel) ||
+			data.replay
+		) {
 			return;
 		}
 
-		// A replayed line (a reconnect's catch-up, a bouncer replay) waits
-		// for the rest of its batch, so the batch is queued newest first and
-		// capped like a history page: a reload of a channel that has been on
-		// for a week does not queue a week.
-		if (data.replay) {
-			replayBatches.add(target.channel.id, data.msg);
-		} else {
+		{
 			// A posted translation keeps the composer's read-back rather than
 			// being translated again (sentReadBack.ts `takesReadBack`): checked
 			// here, synchronously in the dispatch, so it holds whichever of
@@ -1395,30 +1713,13 @@ export function initReader(): void {
 				return;
 			}
 
-			void translateMessage(target.network, target.channel, data.msg);
+			void readLine(target.network, target.channel, data.msg, true);
 		}
 	});
 
-	// After socket-events/more.ts prepended the page (import order in
-	// socket-events/index.ts): the objects in `data.messages` are the ones
-	// now in `channel.messages`, so their ids are store ids. Both things
-	// that arrive as `more` (irc/history.ts `mode: "prepend"`) -- the page
-	// MessageList asked for and a channel's first history fill on joining
-	// it -- are a load like any other: the newest `HISTORY_QUEUE_CAP` of the
-	// page, newest first.
-	socket.on("more", (data) => {
-		const target = store.getters.findChannel(data.chan);
-
-		if (
-			!target ||
-			!translationOn() ||
-			!channelTranslation(target.network, target.channel).read
-		) {
-			return;
-		}
-
-		void queueHistory(target.network, target.channel, historyQueueOrder(data.messages));
-	});
+	// A history page (`more`: the page MessageList asked for, a join's
+	// first fill) is read as its lines come into view (MessageList.vue's
+	// line observer, onScreen.ts), so nothing listens for it here.
 
 	// Registered before socket-events/part.ts (import order), so the
 	// channel is still in the store when this runs. The channel's setting
@@ -1437,8 +1738,12 @@ export function initReader(): void {
 		priors.delete(channelKey(target.network.uuid, target.channel.name));
 		arrivals.delete(target.channel.id);
 		generations.delete(target.channel.id);
-		replayBatches.drop(target.channel.id);
+		onScreen.forget(target.channel.id);
 		forgetItems(({item}) => item.chanId === target.channel.id);
+
+		for (const m of target.channel.messages) {
+			considered.delete(m.id);
+		}
 		store.commit(
 			"translationRemoveMany",
 			target.channel.messages.map((m) => m.id)
@@ -1481,8 +1786,12 @@ export function initReader(): void {
 			for (const c of network.channels) {
 				arrivals.delete(c.id);
 				generations.delete(c.id);
-				replayBatches.drop(c.id);
+				onScreen.forget(c.id);
 				forgetTopic(c.id);
+
+				for (const m of c.messages) {
+					considered.delete(m.id);
+				}
 			}
 		}
 

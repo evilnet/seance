@@ -37,7 +37,7 @@ import {
 	ServiceSettings,
 	TranslateService,
 } from "./service";
-import {storedConsent} from "./consent";
+import {REMOVED_KEY, storedConsent} from "./consent";
 import {TranslationSwitch, translationAllowed} from "./switch";
 import eventbus from "../eventbus";
 import storage from "../localStorage";
@@ -478,6 +478,7 @@ function create(): Made {
 	if (!fake || new URLSearchParams(initialSearch).has("askDownloads")) {
 		deps.askDownload = askDownload;
 		deps.consent = storedConsent(storage);
+		deps.removed = storedConsent(storage, REMOVED_KEY);
 	}
 
 	// The GPU stopped under Auto: ask about the CPU. "Always" is the

@@ -80,6 +80,35 @@
 				✕
 			</button>
 		</div>
+		<!-- A one-time translation note (translate/reader.ts `showNote`):
+		     what switching translation on changed when nothing on screen
+		     showed it, or, after an upgrade, that every conversation now
+		     reads. Same card as the suggestion below. -->
+		<div
+			v-if="translationNote"
+			class="translate-suggest translate-note"
+			role="region"
+			aria-labelledby="translate-note-lead"
+		>
+			<p id="translate-note-lead" class="translate-suggest-lead">{{ translationNote }}</p>
+			<div class="translate-suggest-actions">
+				<button
+					v-if="store.state.translation.note === 'everywhere'"
+					type="button"
+					class="btn btn-sm translate-note-choose"
+					@click="chooseConversations"
+				>
+					{{ t("translate.note.choose") }}
+				</button>
+				<button
+					type="button"
+					class="btn btn-sm translate-suggest-accept translate-note-dismiss"
+					@click="dismissNote"
+				>
+					{{ t("translate.note.dismiss") }}
+				</button>
+			</div>
+		</div>
 		<!-- The suggestion card: a channel that mostly writes in another
 		     language offers to write in it here. Its decline is per channel. -->
 		<div
@@ -358,8 +387,8 @@ import {
 	liveLlmName,
 	pairVerdict,
 	readingLanguage,
+	requestTranslationPanel,
 	setChannelOptions,
-	setReading,
 	translationMayRun,
 } from "../js/translate/reader";
 import ComposerLanguageSheet from "./ComposerLanguageSheet.vue";
@@ -1640,17 +1669,10 @@ export default defineComponent({
 
 			cancelOutgoing(props.channel);
 			forgetPreview();
+			// Reading is not touched: it is on everywhere unless the user
+			// excluded this conversation, and a write target never undoes
+			// that choice (translate/switch.ts `readsHere`).
 			setChannelOptions(props.network, props.channel, {write: to, writeFrom: from});
-
-			// Writing to a channel in another language is reading it too:
-			// the replies come back in that language. Turning the target
-			// off later leaves reading as it is.
-			if (
-				to !== readingLanguage() &&
-				!channelTranslation(props.network, props.channel).read
-			) {
-				setReading(props.network, props.channel, true);
-			}
 
 			if (translatable) {
 				void translateOutgoing(props.network, props.channel, gate.text);
@@ -1716,6 +1738,29 @@ export default defineComponent({
 		const declineSuggestion = () => {
 			setChannelOptions(props.network, props.channel, {noSuggest: true});
 			focusForTyping();
+		};
+
+		// The one-time note's words, in the reading language's own name.
+		const translationNote = computed(() => {
+			const note = store.state.translation.note;
+
+			if (!note || !translationOn()) {
+				return "";
+			}
+
+			return note === "firstRun"
+				? t("translate.note.firstRun", {language: readerName(readingLanguage())})
+				: t("translate.note.everywhere");
+		});
+		const dismissNote = () => {
+			store.commit("translationNote", null);
+			focusForTyping();
+		};
+		// "Choose conversations": this conversation's panel, where "Translate
+		// messages here" is the exclusion.
+		const chooseConversations = () => {
+			store.commit("translationNote", null);
+			requestTranslationPanel(props.channel);
 		};
 
 		// The live preview (spec § Composer): with a send target set, a
@@ -2198,6 +2243,9 @@ export default defineComponent({
 			suggestionNote,
 			acceptSuggestion,
 			declineSuggestion,
+			translationNote,
+			dismissNote,
+			chooseConversations,
 		};
 	},
 });

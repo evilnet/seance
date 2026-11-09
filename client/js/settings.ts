@@ -219,6 +219,24 @@ const defaultConfig = {
 	translationEnabled: {
 		default: false,
 	},
+	/**
+	 * The language messages are translated into (Settings → Language,
+	 * "Translate into"): any supported language code, or "" -- "Same as the
+	 * interface", the default -- for the interface's own (translate/reader.ts
+	 * `readingLanguage`). A new key: the retired `translateTo` was moved
+	 * into `locale` and deleted (`migrateReadingToLocale`).
+	 */
+	translateInto: {
+		default: "",
+	},
+	/**
+	 * Languages the user reads besides that one (Settings → Language, "I
+	 * also read"): a line detected in one of them is left as it is
+	 * (translate/detect.ts `detectionSkip`). Supported codes; empty by default.
+	 */
+	translateAlsoRead: {
+		default: [] as string[],
+	},
 	/** auto | formal | casual, one line of the prompt. */
 	translateFormality: {
 		default: "auto",
