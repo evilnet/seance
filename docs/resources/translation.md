@@ -872,11 +872,10 @@ on a link, nick, channel or spoiler inside it, the end of a selection or
 long press, and the tap that closes an open toolbar do not count, and the
 toolbar's menu has the same swap for a keyboard. The marker before the text
 (`TranslationFlip.vue`, the fa-language glyph in the chips' accent box,
-dimmed while the original shows) is only that, a marker, not a button:
-"Translated from German. Show the original" its tooltip and accessible
-name, "Sent in Polish. Show what was sent" on an own line's read-back.
-Until 2026-11 the marker was the button and a tap on the text did nothing;
-the header topic keeps its flipper button. Until 2026-11 the translation was a second row under
+dimmed while the original shows) swaps them too: Message.vue binds the
+same `onFlipClick` to it, so the same taps do not count. "Translated from
+German. Show the original" is its tooltip and accessible name, "Sent in
+Polish. Show what was sent" on an own line's read-back. The header topic keeps its flipper button. Until 2026-11 the translation was a second row under
 the original with a "from German" label; a channel reader asked for the
 original to be replaced instead. Nothing renders while a line is pending:
 it swaps in when done, rather than streaming into a row that then
@@ -1523,17 +1522,26 @@ a draft) makes the pick a one-off instead: `writer.ts` `translateOnce`,
 channel, so it runs with no write target set and is not invalidated by
 the panel's target moving; the strip comes up as it does for a write
 target and the next Enter sends what it holds. The sheet's "They read"
-starts on the target that is set; with none it is preselected to the
-channel's last one-off language, else its write target (`lastOnceTarget`;
-the last pick is kept with the channel's record, `channelStore.ts` `once`,
-so it survives a reload and travels in the settings backup), else a
-language the channel declares, else **the language the interface is in**
-(the cleanup pass), else the first supported language that is not it --
-each only where this device serves it from the reading language
-(`outgoing.ts` `onceTargetDefault`, the router's `pairVerdict`), so a
-device without the GPU model never opens on a disabled cleanup pass. When
+shows the target that is set; **with none it says "Choose…"**, so the
+sheet opened while translation is off does not look switched on. Its
+list still highlights a suggestion, one tap (or Enter) away: the
+channel's last pick, one-off or send target alike (`lastOnceTarget`; kept
+with the channel's record, `channelStore.ts` `once`, which a send target
+sets too, so it survives the target's Off, a reload, and travels in the
+settings backup), else a language the channel declares, else one it has
+been written in lately (`recent.ts`, the sheet's own chips), else **the
+language the interface is in** (the cleanup pass) -- each only where this
+device serves it from the reading language (`outgoing.ts`
+`onceTargetDefault`, the router's `pairVerdict`), so a device without the
+GPU model never opens on a disabled cleanup pass. None of them: nothing
+is highlighted (it used to be the first supported language that routes,
+German for an English reader, which read as a setting nobody made). When
 nothing routes at all the last pick, else the interface's language, stands
-and the sheet says why. Its "I write" starts on the language the user
+and the sheet says why. Under the pair the sheet also carries the
+channel's reading switch ("Read messages in English", the panel's own
+`setReading`): the composer's button is the translation control people
+find first, and they opened it looking for translation of what others
+write. Its "I write" starts on the language the user
 reads, or on the `writeFrom` kept with the target that is set ("Detect
 automatically" where that is none). **The same language twice is a cleanup**: a
 draft already in the language it is asked into is not sent as typed the

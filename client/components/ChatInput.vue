@@ -256,6 +256,7 @@
 			<ComposerLanguageSheet
 				v-if="translateOncePickerOpen"
 				:anchor="translateOnceButton"
+				:network="network"
 				:channel="channel"
 				:target="sendTarget"
 				:initial-to="translateOncePreselected"
@@ -1571,16 +1572,21 @@ export default defineComponent({
 			const target = sendTarget.value;
 
 			// The target that is set; else the channel's last pick, a
-			// language the channel speaks, or the user's own (the cleanup
-			// pass) -- each only where this device can serve it from the
-			// reading language, so a device without the GPU model never
-			// opens on a disabled cleanup pass (outgoing.ts `onceTargetDefault`).
+			// language the channel declares or has been written in lately,
+			// or the user's own (the cleanup pass) -- each only where this
+			// device can serve it from the reading language, so a device
+			// without the GPU model never opens on a disabled cleanup pass
+			// (outgoing.ts `onceTargetDefault`). With no target the sheet
+			// shows it as a suggestion, not as what is set.
 			translateOncePreselected.value =
 				target ??
 				onceTargetDefault({
 					reading,
 					last: lastOnceTarget(props.network, props.channel),
 					declared: channelTranslation(props.network, props.channel).languages,
+					recent: recentLanguages(props.channel.messages, store.state.translations).map(
+						(c) => c.code
+					),
 					fallback: SUPPORTED_LANGUAGES,
 					routes: (to) => !!pairVerdict(reading, to).route,
 				});

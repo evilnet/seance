@@ -454,12 +454,15 @@ export default async function run(page) {
 			)
 		);
 	}
-	// Nothing picked on this channel yet: "They read" starts as the
-	// language the interface is in, "I write" as the same.
+	// Nothing picked on this channel yet: "They read" asks for a choice
+	// rather than naming one (translation is off here), with the
+	// interface's own language highlighted as the suggestion; "I write"
+	// starts as that language.
 	await page.check(
-		"the sheet starts on the interface's own language",
-		(await page.evaluate(sideValue(1))) === "English" &&
-			(await page.evaluate(sideValue(0))) === "English"
+		"the sheet asks for a language, suggesting the interface's own",
+		(await page.evaluate(sideValue(1))) === "Choose…" &&
+			(await page.evaluate(sideValue(0))) === "English" &&
+			(await page.evaluate(`!!document.querySelector('${row("en")}.pending')`))
 	);
 	await page.check(
 		"the sheet's languages are named in the interface language, with their own name beside",
@@ -533,8 +536,9 @@ export default async function run(page) {
 	// The channel's last one-off, not the interface's language: a
 	// remembered pick still outranks the default (`lastOnceTarget`).
 	await page.check(
-		"the sheet remembers Spanish, the one-off picked before it",
-		(await page.evaluate(sideValue(1))) === "Spanish"
+		"the sheet suggests Spanish, the one-off picked before it, without calling it set",
+		(await page.evaluate(sideValue(1))) === "Choose…" &&
+			(await page.evaluate(`!!document.querySelector('${row("es")}.pending')`))
 	);
 	await page.check(
 		"the language the user writes reads 'Corrects spelling'",
@@ -662,8 +666,9 @@ export default async function run(page) {
 	await page.fill(INPUT, `and this one too ${RUN}`);
 	await openSheet("the sheet again");
 	await page.check(
-		"the sheet remembers English, the last one-off",
-		(await page.evaluate(sideValue(1))) === "English"
+		"the sheet suggests German, the target just turned off",
+		(await page.evaluate(sideValue(1))) === "Choose…" &&
+			(await page.evaluate(`!!document.querySelector('${row("de")}.pending')`))
 	);
 	// "I write" first: its pick names the source and moves on to "They read".
 	await page.click(`${SHEET} .language-sheet-side:first-child`);

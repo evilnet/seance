@@ -730,15 +730,16 @@ export default async function run(page) {
 
 		const llm = device.runs[SMALL];
 		const openedOn = await openedOnCode();
-		const opened = await rowState(openedOn);
+		const opened = openedOn ? await rowState(openedOn) : {disabled: false};
 
 		// No earlier pick: the cleanup pass where the GPU model runs, else
-		// the first language this device serves -- never a disabled dialog.
+		// nothing preselected -- never a disabled dialog, and never the
+		// first language on the list passed off as a setting.
 		page.check(
-			`${name}: the dialog opens on ${
-				llm ? "the cleanup pass" : "a pair that runs"
-			} (${openedOn}, ${opened.disabled ? "disabled" : "enabled"})`,
-			!opened.disabled && (llm ? openedOn === "en" : openedOn !== "en")
+			`${name}: the dialog opens on ${llm ? "the cleanup pass" : "no preselection"} (${
+				openedOn || "none"
+			}, ${opened.disabled ? "disabled" : "enabled"})`,
+			!opened.disabled && (llm ? openedOn === "en" : openedOn === "")
 		);
 		await page.screenshot(`${name}-composer-opened`, {selector: PICKER, pad: 8});
 		const same = await rowState("en");
@@ -975,8 +976,10 @@ export default async function run(page) {
 			const openedOff = await openedOnCode();
 
 			page.check(
-				`desktop, GPU off: the sheet opens on a pair that runs (${openedOff})`,
-				openedOff !== "en" && !(await rowState(openedOff)).disabled
+				`desktop, GPU off: the sheet opens on a pair that runs, or none (${
+					openedOff || "none"
+				})`,
+				openedOff === "" || (openedOff !== "en" && !(await rowState(openedOff)).disabled)
 			);
 
 			const polish = await rowState("en");

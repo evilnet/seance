@@ -202,7 +202,10 @@ export interface OnceRequest {
 	from: string | null;
 }
 
-/** The picker's preselection: the channel's last one-off target, else its write target. */
+/**
+ * The picker's preselection: the channel's last pick (`once`), else its
+ * write target (a record saved before a target set `once` as well).
+ */
 export function lastOnceTarget(network: ClientNetwork, channel: ClientChan): string {
 	const settings = channelTranslation(network, channel);
 

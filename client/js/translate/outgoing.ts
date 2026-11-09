@@ -255,30 +255,36 @@ export function reverseTarget(readingLanguage: string, writeTarget: string): str
  * not work there at all. So a preselection the device cannot serve is
  * passed over, in this order:
  *
- * - the channel's last pick (`once`, else its send target);
+ * - the channel's last pick (`once`: the last one-off or send target);
  * - a language the channel declares, other than the reading language;
- * - the reading language itself -- the cleanup pass, where it runs;
- * - the first of `fallback` (the supported list, English first) that is
- *   not the reading language.
+ * - a language the channel has been written in lately (`recent`, most
+ *   lines first), other than the reading language;
+ * - the reading language itself -- the cleanup pass, where it runs.
+ *
+ * None of those: "" -- nothing is preselected and the dialog's "They read"
+ * says "Choose…". It used to open on the first supported language that
+ * routes, German for an English reader, which read as a setting nobody
+ * made.
  *
  * `routes(to)` is the router's verdict for reading → `to`. When nothing
- * routes (the probe still running, both engines off) the old preselection
- * stands -- the last pick, else the reading language -- and the dialog
- * says why it cannot run.
+ * routes at all (no `fallback` language either: the probe still running,
+ * both engines off) the old preselection stands -- the last pick, else the
+ * reading language -- and the dialog says why it cannot run.
  */
 export function onceTargetDefault(options: {
 	reading: string;
 	last: string;
 	declared: readonly string[];
+	recent: readonly string[];
 	fallback: readonly string[];
 	routes: (to: string) => boolean;
 }): string {
-	const {reading, last, declared, fallback, routes} = options;
+	const {reading, last, declared, recent, fallback, routes} = options;
 	const candidates = [
 		last,
 		...declared.filter((code) => code !== reading),
+		...recent.filter((code) => code !== reading),
 		reading,
-		...fallback.filter((code) => code !== reading),
 	];
 
 	for (const code of candidates) {
@@ -287,7 +293,7 @@ export function onceTargetDefault(options: {
 		}
 	}
 
-	return last || reading;
+	return fallback.some((code) => code !== reading && routes(code)) ? "" : last || reading;
 }
 
 /** What two texts are compared as by `isUnchanged`: the differences a model

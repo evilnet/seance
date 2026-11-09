@@ -48,7 +48,7 @@
 					class="language-sheet-swap"
 					:aria-label="t('translate.sheet.swap')"
 					:title="t('translate.sheet.swap')"
-					:disabled="!from || !to || from === to"
+					:disabled="!from || !shownTo || from === shownTo"
 					@click="swap"
 				>
 					⇄
@@ -66,10 +66,25 @@
 						t("translate.sheet.theyRead")
 					}}</span>
 					<span class="language-sheet-side-value">{{
-						to ? name(to) : t("translate.sheet.choose")
+						shownTo ? name(shownTo) : t("translate.sheet.choose")
 					}}</span>
 				</button>
 			</div>
+			<!-- The other direction, reading, is the channel panel's switch;
+			     it is here too because this button is the one translation
+			     control in sight, and people opened it looking for "translate
+			     what they write". -->
+			<label class="language-sheet-read">
+				<input
+					v-switch
+					type="checkbox"
+					class="language-sheet-read-box"
+					:checked="reading"
+					:disabled="!reading && readBlocked"
+					@change="toggleReading"
+				/>
+				{{ t("translate.panel.readIn", {language: name(readingLanguage())}) }}
+			</label>
 			<div v-if="recent.length" class="language-sheet-recent">
 				<span class="language-sheet-recent-label">{{
 					t("translate.sheet.recent", {channel: channel.name})
@@ -199,12 +214,19 @@ import {translateWhyText} from "../js/helpers/translateWhy";
 import {useI18n} from "../js/i18n";
 import {collator} from "../js/i18n/collation";
 import {SUPPORTED_LANGUAGES, languageEndonym, languageName} from "../js/translate/languages";
-import {liveLlmName, pairVerdict, readingLanguage} from "../js/translate/reader";
+import {
+	channelTranslation,
+	currentTranslationBlock,
+	liveLlmName,
+	pairVerdict,
+	readingLanguage,
+	setReading,
+} from "../js/translate/reader";
 import {recentLanguages} from "../js/translate/recent";
 import {downloadBytes} from "../js/translate/service";
 import type {RouteVerdict} from "../js/translate/router";
 import {useStore} from "../js/store";
-import type {ClientChan} from "../js/types";
+import type {ClientChan, ClientNetwork} from "../js/types";
 
 /** Gap between the button and the popover, and the margin it keeps off screen edges. */
 const GAP = 6;
@@ -234,6 +256,7 @@ export default defineComponent({
 	props: {
 		/** The translate button the popover hangs off. */
 		anchor: {type: Object as PropType<HTMLElement | null>, default: null},
+		network: {type: Object as PropType<ClientNetwork>, required: true},
 		channel: {type: Object as PropType<ClientChan>, required: true},
 		/** The channel's send target now; null when it has none. */
 		target: {type: String as PropType<string | null>, default: null},
@@ -257,6 +280,20 @@ export default defineComponent({
 		const to = ref<string>(props.initialTo);
 		const query = ref("");
 		const once = ref(false);
+		// With no target set, `initialTo` is only a suggestion (the last
+		// pick, a language the channel speaks): highlighted in the list, one
+		// tap away, but "They read" says "Choose…" until something is picked
+		// -- a sheet that opened on "They read German" looked switched on.
+		const picked = ref(false);
+		// A pick made here shows over the target that is set: a blocked
+		// tap or swap keeps the sheet up, and "They read" must name what
+		// the hint below and Enter are about.
+		const shownTo = computed(() => (picked.value ? to.value : props.target ?? ""));
+
+		const reading = computed(() => channelTranslation(props.network, props.channel).read);
+		const readBlocked = computed(() => currentTranslationBlock() !== null);
+		const toggleReading = (event: Event) =>
+			setReading(props.network, props.channel, (event.target as HTMLInputElement).checked);
 
 		const current = computed(() => (side.value === "from" ? from.value : props.target));
 		const sideLabel = computed(() =>
@@ -400,6 +437,7 @@ export default defineComponent({
 			}
 
 			to.value = code;
+			picked.value = true;
 
 			if (verdicts.value.get(code)?.route) {
 				apply();
@@ -420,13 +458,14 @@ export default defineComponent({
 		};
 
 		const swap = () => {
-			if (!from.value || !to.value) {
+			if (!from.value || !shownTo.value) {
 				return;
 			}
 
 			const was = from.value;
-			from.value = to.value;
+			from.value = shownTo.value;
 			to.value = was;
+			picked.value = true;
 			side.value = "to";
 
 			if (verdicts.value.get(to.value)?.route) {
@@ -573,8 +612,13 @@ export default defineComponent({
 			side,
 			from,
 			to,
+			shownTo,
 			query,
 			once,
+			reading,
+			readBlocked,
+			readingLanguage,
+			toggleReading,
 			current,
 			sideLabel,
 			recent,

@@ -67,7 +67,11 @@
 					:network="network"
 					:channel="channel"
 					dir="auto"
-				/>&#32;<TranslationFlip v-if="hasTranslationEntry" :message="message" /><button
+				/>&#32;<TranslationFlip
+					v-if="hasTranslationEntry"
+					:message="message"
+					@click="onFlipClick"
+				/><button
 					v-if="message.redacted && !revealed"
 					type="button"
 					class="msg-redacted"
@@ -178,7 +182,11 @@
 					<span v-else class="msg-reply-text">{{ t("message.replyUnknown") }}</span>
 				</button>
 				<StatusmsgMarker :group="message.statusmsgGroup" />
-				<TranslationFlip v-if="hasTranslationEntry" :message="message" />
+				<TranslationFlip
+					v-if="hasTranslationEntry"
+					:message="message"
+					@click="onFlipClick"
+				/>
 				<button
 					v-if="message.redacted && !revealed"
 					type="button"
@@ -571,8 +579,9 @@ export default defineComponent({
 
 		// A finished, shown translation stands in the original's place
 		// (docs/resources/translation.md § Reading a channel); a tap on the
-		// text swaps the original back and the translation in again, and the
-		// marker before it (TranslationFlip.vue) says which is showing.
+		// text, or on the marker before it (TranslationFlip.vue, which says
+		// which is showing), swaps the original back and the translation in
+		// again.
 		// Pending, failed, dropped or hidden translations leave the original
 		// as it is.
 		const doneEntry = computed(() => {
