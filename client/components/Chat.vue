@@ -2,6 +2,7 @@
 	<div id="chat-container" class="window" :data-current-channel="channel.name" lang="">
 		<div
 			id="chat"
+			ref="chatPane"
 			:class="{
 				'hide-motd': !store.state.settings.motd,
 				'time-seconds': store.state.settings.showSeconds,
@@ -166,7 +167,18 @@ import ListInvites from "./Special/ListInvites.vue";
 import ListExcepts from "./Special/ListExcepts.vue";
 import ListIgnored from "./Special/ListIgnored.vue";
 import TranslationPanel from "./TranslationPanel.vue";
-import {defineComponent, PropType, ref, computed, watch, nextTick, onMounted, Component} from "vue";
+import {
+	defineComponent,
+	PropType,
+	ref,
+	computed,
+	watch,
+	nextTick,
+	onMounted,
+	onBeforeUnmount,
+	Component,
+} from "vue";
+import {watchUserlistOverlay} from "../js/userlistOverlay";
 import {channelOpened} from "../js/helpers/lastChannel";
 import {prefetchEmojiCatalog} from "../js/helpers/emoji";
 import type {ClientNetwork, ClientChan} from "../js/types";
@@ -458,7 +470,18 @@ export default defineComponent({
 			}
 		);
 
+		const chatPane = ref<HTMLElement | null>(null);
+		let stopUserlistOverlay: (() => void) | null = null;
+
+		onBeforeUnmount(() => {
+			stopUserlistOverlay?.();
+		});
+
 		onMounted(() => {
+			if (chatPane.value) {
+				stopUserlistOverlay = watchUserlistOverlay(chatPane.value);
+			}
+
 			channelChanged();
 			openPanelIfAsked();
 
@@ -470,6 +493,7 @@ export default defineComponent({
 		});
 
 		return {
+			chatPane,
 			leavePast,
 			pastStatus,
 			store,

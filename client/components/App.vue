@@ -104,7 +104,9 @@ export default defineComponent({
 				notified: store.getters.mentionCount > 0,
 				"menu-open": store.state.appLoaded && store.state.sidebarOpen,
 				"menu-dragging": store.state.sidebarDragging,
-				"userlist-open": store.state.userlistOpen,
+				"userlist-open": store.state.userlistOverlays
+					? store.state.userlistOverlayOpen
+					: store.state.userlistOpen,
 			};
 		});
 

@@ -341,7 +341,7 @@ html {
 		 * whole page on top. The chat's header is the paper the strip was,
 		 * so the swap itself shows nothing. The query is PHONE_LAYOUT_QUERY
 		 * (helpers/device.ts). */
-		@media (max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse) {
+		@media (max-width: 480px), (max-width: 768px) and (pointer: coarse), (max-height: 500px) and (hover: none) and (pointer: coarse) {
 			body:has(#viewport.menu-open) #status-bar-tint,
 			body:has(#viewport.menu-dragging) #status-bar-tint {
 				z-index: -1;
@@ -2427,7 +2427,7 @@ html[data-contrast="more"] .translation-panel-segment[aria-checked="true"] {
 
 /* On a phone the foot is the pane's last row: out of the home indicator's
    strip, as the composer is. */
-@media (max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse) {
+@media (max-width: 480px), (max-width: 768px) and (pointer: coarse), (max-height: 500px) and (hover: none) and (pointer: coarse) {
 	.translation-panel-foot {
 		padding-block-end: max(0.625rem, var(--inset-inner-bottom, 0px));
 	}
@@ -6537,7 +6537,7 @@ html[data-contrast="more"] .oper-tag {
 
 /* On a phone the card is the page, like the settings modal. The phone
  * layout's own list (PHONE_LAYOUT_QUERY), so a landscape phone counts. */
-@media (max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse) {
+@media (max-width: 480px), (max-width: 768px) and (pointer: coarse), (max-height: 500px) and (hover: none) and (pointer: coarse) {
 	#oper-investigate-overlay {
 		padding: 0;
 	}
@@ -6800,7 +6800,7 @@ html[data-contrast="more"] .oper-tag {
 
 /* On a phone the builder is the page, and a row wraps its value under the
  * label: the phone layout's list, so a landscape phone gets one column too. */
-@media (max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse) {
+@media (max-width: 480px), (max-width: 768px) and (pointer: coarse), (max-height: 500px) and (hover: none) and (pointer: coarse) {
 	#oper-alert-overlay {
 		padding: 0;
 	}
@@ -7062,7 +7062,7 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
  * composer is, or the Done button's border meets the screen's rounded
  * corner. The phone layout's list: the cards and the alert builder are the
  * page on a landscape phone as well. */
-@media (max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse) {
+@media (max-width: 480px), (max-width: 768px) and (pointer: coarse), (max-height: 500px) and (hover: none) and (pointer: coarse) {
 	html[data-shell="native"] .settings-modal-footer {
 		padding-bottom: max(0.6rem, var(--inset-inner-bottom));
 	}
@@ -7336,7 +7336,7 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
 }
 
 /* The phone: the whole chat under the header, as the header stays. */
-@media (max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse) {
+@media (max-width: 480px), (max-width: 768px) and (pointer: coarse), (max-height: 500px) and (hover: none) and (pointer: coarse) {
 	.header-popover {
 		border-radius: 0;
 		border: 0;
@@ -8007,7 +8007,7 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
 }
 
 /* The phone layout; the same list as PHONE_LAYOUT_QUERY in helpers/device.ts. */
-@media (max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse) {
+@media (max-width: 480px), (max-width: 768px) and (pointer: coarse), (max-height: 500px) and (hover: none) and (pointer: coarse) {
 	/**
 	  * TODO Replace this with `@media (hover: hover)` when Firefox supports it
 	  * See:
@@ -8143,6 +8143,11 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
  * phone. The threshold moves with the font-size setting by itself. */
 /* stylelint-disable-next-line at-rule-no-unknown */
 @container chat (max-width: calc(50ch + 8.5rem + 84px)) {
+	/* Read by userlistOverlay.ts: here the list starts closed on a desktop. */
+	#chat .chat-view {
+		--userlist-overlays: 1;
+	}
+
 	#chat .userlist {
 		background-color: var(--window-bg-color);
 		height: 100%;
@@ -8162,9 +8167,12 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
  * row becomes inline flow: time, nick and text run on like a line of a
  * log and wrap. This used to be the phone's layout, chosen at 479px of
  * screen; chosen by the pane's width it also covers a big font step in a
- * modest window. */
+ * modest window. A pane of 480px or less is inline too, whatever the font:
+ * that is the window at which the sidebar gives way (PHONE_LAYOUT_QUERY),
+ * and a window narrowing past it went from inline beside the sidebar to
+ * columns once it hid, then back to inline some 50px later. */
 /* stylelint-disable-next-line at-rule-no-unknown */
-@container chat (max-width: calc(50ch + 2.5rem)) {
+@container chat (max-width: calc(50ch + 2.5rem)) or (max-width: 480px) {
 	#chat .messages {
 		display: block;
 		padding: 5px 0;
