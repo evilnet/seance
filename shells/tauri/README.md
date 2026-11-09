@@ -112,10 +112,17 @@ compiled out of a release build.
   them: macOS declares them in `Info.macos.plist` and lets Launch Services
   choose; Windows and Linux claim them only when the user turns on
   Settings → General → "Open irc:// and ircs:// links", which calls
-  `App.ircLinks` `{enable}` (the plugin's `register`/`unregister`) and
-  answers `{enabled}`. They must stay out of `desktop.schemes`: the
-  installers write every scheme listed there, and `register_all()` does at
-  each launch.
+  `App.ircLinks` `{enable}` and answers `{enabled, overridden}`. On is the
+  plugin's `register`; off gives back only what is this app's (Linux: the
+  plugin's `unregister`, which touches its own desktop file; Windows: this
+  user's `Software\Classes\<scheme>` while it runs this app, never HKLM,
+  which the plugin's `unregister` would delete first). `overridden` is a
+  Windows `UserChoice` for another app, which wins and only the user can
+  change. They must stay out of `desktop.schemes`: the installers write
+  every scheme listed there, and `register_all()` does at each launch. The
+  NSIS uninstaller removes this user's claim (`windows/hooks.nsh`); on
+  Linux, turn the switch off before removing the package, or the system
+  default stays on a missing app.
 - **Closing the window** follows the platform: macOS keeps the app in the
   Dock (⌘Q quits, the Dock icon reopens), Windows keeps it in the
   notification area (the tray menu has Quit), Linux quits — a tray may not be

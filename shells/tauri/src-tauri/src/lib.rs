@@ -131,42 +131,125 @@ fn is_irc_link(value: &str) -> bool {
 const TCP_SCHEMES: [&str; 2] = ["irc", "ircs"];
 
 /// `App.ircLinks`: `{enable: bool}` claims `irc:`/`ircs:` for this app or
-/// gives them up; with or without it, answers `{enabled}`, whether both
-/// point here now.
+/// gives them up; with or without it, answers `{enabled, overridden}`:
+/// whether both point here now, and (Windows) whether the user's choice in
+/// Default apps sends them elsewhere anyway. A claim that fails half way is
+/// undone, so the switch never reads off while one scheme is still taken.
 #[cfg(any(windows, target_os = "linux"))]
 async fn irc_links(app: AppHandle, options: &Value) -> Result<Value, ShellError> {
     let enable = options.get("enable").and_then(Value::as_bool);
+    let failed = |message: String| ShellError {
+        message,
+        code: "failed".into(),
+    };
 
     // xdg-mime and update-desktop-database are processes; off the
     // async runtime's threads.
     tauri::async_runtime::spawn_blocking(move || {
         let links = app.deep_link();
+        let release_all = || {
+            TCP_SCHEMES
+                .iter()
+                .try_for_each(|scheme| release_link(links, scheme))
+        };
 
-        if let Some(enable) = enable {
-            for scheme in TCP_SCHEMES {
-                let done = if enable {
-                    links.register(scheme)
-                } else {
-                    links.unregister(scheme)
-                };
+        match enable {
+            Some(true) => {
+                let claimed = TCP_SCHEMES
+                    .iter()
+                    .try_for_each(|scheme| links.register(scheme).map_err(|e| e.to_string()));
 
-                done.map_err(|e| ShellError {
-                    message: e.to_string(),
-                    code: "failed".into(),
-                })?;
+                if let Err(message) = claimed {
+                    let _ = release_all();
+                    return Err(failed(message));
+                }
             }
+            Some(false) => release_all().map_err(failed)?,
+            None => {}
         }
 
-        let enabled = TCP_SCHEMES
-            .iter()
-            .all(|scheme| links.is_registered(scheme).unwrap_or(false));
-        Ok(json!({ "enabled": enabled }))
+        let enabled = TCP_SCHEMES.iter().all(|scheme| holds_link(links, scheme));
+        Ok(json!({ "enabled": enabled, "overridden": enabled && TCP_SCHEMES.iter().any(|scheme| chosen_elsewhere(scheme)) }))
     })
     .await
-    .map_err(|e| ShellError {
-        message: e.to_string(),
-        code: "failed".into(),
-    })?
+    .map_err(|e| failed(e.to_string()))?
+}
+
+/// Give a scheme back. Linux: the plugin's `unregister()`, which touches only
+/// this app's desktop file and its own default. Not on Windows, where it
+/// deletes `HKLM\Software\Classes\<scheme>` first (another client's, if
+/// installed for all users, when run elevated) and otherwise stops at the
+/// access-denied before reaching this user's key: only this user's class,
+/// and only while it runs this app.
+#[cfg(target_os = "linux")]
+fn release_link(
+    links: &tauri_plugin_deep_link::DeepLink<tauri::Wry>,
+    scheme: &str,
+) -> Result<(), String> {
+    links.unregister(scheme).map_err(|e| e.to_string())
+}
+
+#[cfg(windows)]
+fn release_link(
+    _: &tauri_plugin_deep_link::DeepLink<tauri::Wry>,
+    scheme: &str,
+) -> Result<(), String> {
+    if win_links::owned(scheme) {
+        windows_registry::CURRENT_USER
+            .remove_tree(win_links::class(scheme))
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn holds_link(links: &tauri_plugin_deep_link::DeepLink<tauri::Wry>, scheme: &str) -> bool {
+    links.is_registered(scheme).unwrap_or(false)
+}
+
+#[cfg(windows)]
+fn holds_link(_: &tauri_plugin_deep_link::DeepLink<tauri::Wry>, scheme: &str) -> bool {
+    win_links::owned(scheme)
+}
+
+#[cfg(target_os = "linux")]
+fn chosen_elsewhere(_: &str) -> bool {
+    false
+}
+
+/// The user picked another app for the scheme in Default apps: a
+/// `UserChoice` naming another ProgId wins over any class we write, and only
+/// the user can change it.
+#[cfg(windows)]
+fn chosen_elsewhere(scheme: &str) -> bool {
+    windows_registry::CURRENT_USER
+        .open(format!(
+            "Software\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\{scheme}\\UserChoice"
+        ))
+        .and_then(|key| key.get_string("ProgId"))
+        .is_ok_and(|prog_id| !prog_id.eq_ignore_ascii_case(scheme))
+}
+
+/// This user's registry class for a scheme, as the plugin's `register()`
+/// writes it (`"<exe>" "%1"`).
+#[cfg(windows)]
+mod win_links {
+    pub fn class(scheme: &str) -> String {
+        format!("Software\\Classes\\{scheme}")
+    }
+
+    /// This user's class for `scheme` opens this app.
+    pub fn owned(scheme: &str) -> bool {
+        let Ok(exe) = tauri::utils::platform::current_exe() else {
+            return false;
+        };
+        let command = format!("\"{}\" \"%1\"", dunce::simplified(&exe).display());
+
+        windows_registry::CURRENT_USER
+            .open(format!("{}\\shell\\open\\command", class(scheme)))
+            .and_then(|key| key.get_string(""))
+            .is_ok_and(|value| value == command)
+    }
 }
 
 /// A link from the OS (a deep link, a second launch's argv) or a message: to

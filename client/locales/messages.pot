@@ -13517,6 +13517,12 @@ msgctxt "settings.general.ircLinks"
 msgid "Open irc:// and ircs:// links in {appName}"
 msgstr ""
 
+#. Hint under the 'Open irc:// and ircs:// links' switch in the Windows app, shown when the user's choice in Windows' Default apps settings sends these links to another app anyway. 'Settings, Default apps' names the Windows settings page.
+#: client/components/Settings/General.vue:40
+msgctxt "settings.general.ircLinksOverridden"
+msgid "Windows still opens these links in the app chosen in Settings, Default apps."
+msgstr ""
+
 #. Switch label in Settings → General (Android app only).
 #: client/components/Settings/General.vue
 msgctxt "settings.general.keepAlive"

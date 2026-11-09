@@ -243,6 +243,12 @@ describe("linkTarget helper", function () {
 				);
 			});
 
+			it("prefers TLS over the other transport to cleartext on its own", function () {
+				expect(uuidOf(decideLinkTarget(plainLink(), {saved: [plainNet, wsNet]}))).to.equal(
+					wsNet.uuid
+				);
+			});
+
 			it("never downgrades an ircs:// link to a plain network", function () {
 				expect(decideLinkTarget(tcp(), {saved: [plainNet]}).kind).to.equal("new");
 				expect(

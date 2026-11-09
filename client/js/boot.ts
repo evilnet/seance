@@ -14,7 +14,6 @@ import type {LocationQueryRaw} from "vue-router";
 import {store} from "./store";
 import {migrateReadingToLocale} from "./settings";
 import parseIrcUri from "./helpers/parseIrcUri";
-import {isShell} from "./helpers/shell";
 import {
 	decideLinkTarget,
 	linkSuggestion,
@@ -44,7 +43,7 @@ import {setContextProvider, scriptManager} from "./irc/scripting/manager";
 import {MessageType} from "../../shared/types/msg";
 import {takeTestSwitches} from "./translate/testSwitches";
 import {startIsolationMirror} from "./translate";
-import {nativePlatform} from "./helpers/shell";
+import {isShell, nativePlatform} from "./helpers/shell";
 // Also registers the IRC layer's bus handlers (input, names, more, network:*).
 import {
 	allClients,

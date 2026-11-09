@@ -2167,6 +2167,7 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"settings.general.installApp",
 	"settings.general.installGuide",
 	"settings.general.ircLinks",
+	"settings.general.ircLinksOverridden",
 	"settings.general.keepAlive",
 	"settings.general.keepAliveHeading",
 	"settings.general.keepAliveHelp",

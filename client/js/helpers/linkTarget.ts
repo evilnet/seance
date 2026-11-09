@@ -13,11 +13,11 @@
  *    matches whatever port it uses (a network's direct servers rarely sit
  *    on 443). A link may upgrade but never downgrade: a TLS link never
  *    matches a cleartext network, and a plain `irc://` link prefers a saved
- *    TLS network on its host to a plain one, whatever port it names;
- *  - nothing on the link's transport, but the host is saved over the other
- *    one (a `wss://` entry for an `irc://` link, say) → that network, on the
- *    same no-downgrade terms: the user approved that server and chose how to
- *    reach it;
+ *    TLS network on its host to a plain one, whatever port it names.
+ *    A TLS network over the other transport (a `wss://` entry for an
+ *    `irc://` link, say) beats a cleartext one on the link's own, and with
+ *    nothing on the link's transport the host saved over the other one is
+ *    used: the user approved that server and chose how to reach it;
  *  - a locked deploy (`lockHost` / `allowCustomServer: false`) and the link
  *    names some other host → refuse it, with a message;
  *  - anything else → the connect form, pre-filled, for the user to approve.
@@ -129,29 +129,28 @@ export function decideLinkTarget(suggestion: LinkSuggestion, policy: LinkPolicy)
 		return {kind: "locked", suggestion};
 	}
 
-	// Never weaker than the link: a TLS link needs a TLS network.
-	const onHost = policy.saved.filter(
-		(net) => hostnameOf(net.host).toLowerCase() === host && (net.tls || !suggestion.tls)
+	// Never weaker than the link: a TLS link needs a TLS network. A port the
+	// link names has to agree only on its own transport (a port means
+	// nothing across transports), and only when the link asked for TLS: a
+	// plain link's port is a cleartext one, and the upgrade is the point.
+	const eligible = policy.saved.filter((net) => {
+		const sameTransport = transportOf(net) === suggestion.transport;
+		return (
+			hostnameOf(net.host).toLowerCase() === host &&
+			(net.tls || !suggestion.tls) &&
+			(!suggestion.portGiven ||
+				!sameTransport ||
+				net.port === suggestion.port ||
+				(net.tls && !suggestion.tls))
+		);
+	});
+	// TLS first, wherever it is saved; then the link's own transport.
+	const rank = (net: SavedNetwork) =>
+		(net.tls ? 0 : 2) + (transportOf(net) === suggestion.transport ? 0 : 1);
+	const network = eligible.reduce<SavedNetwork | undefined>(
+		(best, net) => (best === undefined || rank(net) < rank(best) ? net : best),
+		undefined
 	);
-	const sameTransport = onHost.filter((net) => transportOf(net) === suggestion.transport);
-	const otherTransport = onHost.filter((net) => transportOf(net) !== suggestion.transport);
-	const network =
-		// A TLS network on the link's transport and host. Its port only has
-		// to agree when the link asked for TLS: a plain link's port is a
-		// cleartext one, and the upgrade is the point.
-		sameTransport.find(
-			(net) =>
-				net.tls &&
-				(!suggestion.tls || !suggestion.portGiven || net.port === suggestion.port)
-		) ??
-		// A plain link: a plain network there, on its port if it named one.
-		sameTransport.find(
-			(net) => !net.tls && (!suggestion.portGiven || net.port === suggestion.port)
-		) ??
-		// The same host over the other transport. A port means nothing
-		// across transports, so it is not compared; TLS first.
-		otherTransport.find((net) => net.tls) ??
-		otherTransport[0];
 
 	return network ? {kind: "saved", network, suggestion} : {kind: "new", suggestion};
 }

@@ -61,6 +61,10 @@ snapshot = ["dep:objc2-web-kit", "dep:objc2-foundation", "dep:objc2-core-foundat
 # (src/apple.rs).
 [target.'cfg(windows)'.dependencies]
 notify-rust = "=4.18.2"
+# irc:/ircs: given back from this user's registry alone (src/lib.rs
+# `release_link`); the deep-link plugin's own versions.
+windows-registry = "=0.6.1"
+dunce = "=1.0.5"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 zbus = { version = "=5.19.0", default-features = false, features = ["blocking-api", "async-io"] }
