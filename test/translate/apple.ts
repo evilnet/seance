@@ -151,6 +151,74 @@ describe("translate/engines/apple", () => {
 		expect(bridge.calls.map((c) => c.options.strategy)).to.deep.equal(["low", "high"]);
 	});
 
+	// The UI's synchronous questions (reader.ts `pairVerdict`): a row asks
+	// what is known, `lookup` asks the bridge once, and the answer is heard.
+	describe("known statuses", () => {
+		it("knows nothing until asked, asks once, and tells its listeners", async () => {
+			const bridge = fakeBridge({"es>en": "installed"});
+			const apple = new AppleTranslator(bridge.deps);
+			let heard = 0;
+
+			apple.onKnown(() => heard++);
+
+			expect(apple.knownStatus("es", "en")).to.equal(undefined);
+			apple.lookup("es", "en");
+			apple.lookup("es", "en");
+			await apple.status("es", "en");
+			apple.lookup("es", "en");
+
+			expect(apple.knownStatus("es", "en")).to.equal("installed");
+			expect(bridge.calls.map((c) => c.method)).to.deep.equal(["availability"]);
+			expect(heard).to.equal(1);
+		});
+
+		it("knows a bridge that does not answer as unsupported", async () => {
+			const apple = new AppleTranslator({
+				invoke: () => Promise.reject(new Error("no bridge")),
+			});
+
+			await apple.status("es", "en");
+
+			expect(apple.knownStatus("es", "en")).to.equal("unsupported");
+		});
+
+		it("forgets what it knew with the statuses, and tells its listeners", async () => {
+			const bridge = fakeBridge({"es>en": "installed"});
+			const apple = new AppleTranslator(bridge.deps);
+			let heard = 0;
+
+			await apple.status("es", "en");
+			apple.onKnown(() => heard++);
+			apple.forget();
+
+			expect(apple.knownStatus("es", "en")).to.equal(undefined);
+			expect(heard).to.equal(1);
+		});
+
+		it("forgets what it knew on a strategy change, not on a skip change", async () => {
+			const bridge = fakeBridge({"es>en": "installed"});
+			const apple = new AppleTranslator(bridge.deps);
+
+			await apple.status("es", "en");
+			apple.setOptions({strategy: "low", skip: true});
+			expect(apple.knownStatus("es", "en")).to.equal("installed");
+			apple.setOptions({strategy: "high", skip: true});
+			expect(apple.knownStatus("es", "en")).to.equal(undefined);
+		});
+
+		it("a listener removed hears nothing more", async () => {
+			const bridge = fakeBridge({"es>en": "installed"});
+			const apple = new AppleTranslator(bridge.deps);
+			let heard = 0;
+			const off = apple.onKnown(() => heard++);
+
+			off();
+			await apple.status("es", "en");
+
+			expect(heard).to.equal(0);
+		});
+	});
+
 	it("lists the system's languages, and none when the bridge does not answer", async () => {
 		const answering = new AppleTranslator({
 			invoke: <T>() => Promise.resolve({languages: ["de", "en", "ja"]} as T),
