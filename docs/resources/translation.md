@@ -1829,7 +1829,9 @@ en<->pt, en<->pl), lines kept whole: `[1]` 86, `X1` 82, `⟦1⟧` 54 (only on
 the AfterNET MT models' own vocabulary), `@1` 58, `<1>` 52, `{1}` 47;
 `【1】`, `⟨1⟩` and `{{1}}` next to none. `[1]` loses its digit from Russian,
 `X1` is dropped into Arabic (and comes back Cyrillic `Х1` from English into
-Russian, which the reader accepts). So the forms are tried in that order --
+Russian, which the reader accepts). `Xn` is written apart from a letter,
+a digit or another placeholder it touches (`X1 X2`, `X1 мир`), or it would
+not read back; the line then keeps that space. So the forms are tried in that order --
 `[n]`, `Xn`, then `⟦n⟧` itself -- and the next is used only when the answer
 lost a placeholder; the answer that kept the most wins. A form the part
 already holds as text (someone typed `[2]`) is skipped, so a user's own

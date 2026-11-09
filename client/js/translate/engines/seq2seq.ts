@@ -43,11 +43,16 @@ interface EngineForm {
 	write: (n: number) => string;
 	/** Reads the form back, tolerating the space a model may put inside it. */
 	read: RegExp;
+	/**
+	 * Written apart from a letter, a digit or another placeholder it
+	 * touches: `X1X2` or `X1мир` would not read back as a placeholder.
+	 */
+	pad?: boolean;
 }
 
 export const ENGINE_FORMS: EngineForm[] = [
 	{write: (n) => `[${n}]`, read: /\[\s*(\d+)\s*\]/g},
-	{write: (n) => `X${n}`, read: /(?<![\p{L}\p{N}_])[XxХх]\s?(\d+)(?![\p{N}])/gu},
+	{write: (n) => `X${n}`, read: /(?<![\p{L}\p{N}_])[XxХх]\s?(\d+)(?![\p{N}])/gu, pad: true},
 	{write: placeholder, read: /⟦\s*(\d+)\s*⟧/g},
 ];
 
@@ -60,7 +65,18 @@ export function writeForm(text: string, form: EngineForm): string | null {
 		return null;
 	}
 
-	return text.replace(/⟦\s*(\d+)\s*⟧/g, (_m, n: string) => form.write(Number(n)));
+	return text.replace(/⟦\s*(\d+)\s*⟧/g, (match, n: string, at: number) => {
+		const written = form.write(Number(n));
+
+		if (!form.pad) {
+			return written;
+		}
+
+		const before = /[\p{L}\p{N}]/u.test(text[at - 1] ?? "") ? " " : "";
+		const after = /[\p{L}\p{N}⟦]/u.test(text[at + match.length] ?? "") ? " " : "";
+
+		return before + written + after;
+	});
 }
 
 /** An engine's answer with `form`'s placeholders, for the numbers it was given, back as `⟦n⟧`. */

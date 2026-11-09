@@ -385,6 +385,23 @@ describe("translate/engines/seq2seq", () => {
 			expect(sent).to.deep.equal(["привет [1]", "привет X1"]);
 		});
 
+		it("writes a letter-number apart from what it touches, so it reads back", async () => {
+			// Brackets dropped, as above: two emoji side by side, and emphasis on a word.
+			const {engine, sent, model} = await engineAnswering((t) =>
+				t.replace(/\[(\d+)\]/g, "$1").replace(/⟦\d+⟧/g, ",")
+			);
+			const [one, two] = [placeholder(1), placeholder(2)];
+
+			expect(await translate(engine, model, `hola ${one}${two}`)).to.equal(
+				`hola ${one} ${two}`
+			);
+			expect(await translate(engine, model, `${one}мир${two}`)).to.equal(`${one} мир ${two}`);
+			expect(sent.filter((line) => line.includes("X"))).to.deep.equal([
+				"hola X1 X2",
+				"X1 мир X2",
+			]);
+		});
+
 		it("reads a letter-number transliterated into Cyrillic", () => {
 			expect(readForm("Спасибо Х1", ENGINE_FORMS[1], [1])).to.equal(
 				`Спасибо ${placeholder(1)}`
