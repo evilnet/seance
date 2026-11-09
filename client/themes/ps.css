@@ -3562,8 +3562,9 @@ html[data-reduce-motion]:root {
  * rounded and the traffic lights inside it, so the scene runs around it. Its
  * top strip is the lights' (style.css), shortened by the inset so the lights
  * and the presence control share a centre line. The open row is a rounded
- * wash, not coffee's marker, and the badges are capsules. Everything else is
- * ps as it is everywhere. */
+ * wash, not coffee's marker, and the badges are capsules. The user's word,
+ * 2026-11-09: rounded is right here, as this emulates macOS. Everything else
+ * is ps as it is everywhere. */
 @media (min-width: 769px) {
 	html[data-platform="macos"] #sidebar {
 		margin: 0.5rem;
@@ -3588,6 +3589,32 @@ html[data-reduce-motion]:root {
 	html[data-platform="macos"] .channel-list-item .badge {
 		border-radius: 1em;
 		padding: 0.2em 0.55em;
+	}
+
+	/* The header and the composer float too: a glass capsule across the top
+	 * of the conversation, centred on the traffic lights' line (style.css's
+	 * strip, less a 4px inset each side) so the lights sit in it when the
+	 * sidebar is closed, and a rounded pane at the foot, the scene showing
+	 * between them and the window's edges. */
+	html[data-platform="macos"] #chat .header {
+		box-sizing: border-box;
+		height: calc(var(--mac-titlebar-height) - 0.5rem);
+		line-height: calc(var(--mac-titlebar-height) - 0.5rem);
+		margin: 0.25rem 0.5rem 0;
+		border: 0.0625rem solid var(--ps-g-edge);
+		border-radius: 1.25rem;
+		box-shadow: 0 0.25rem 1rem rgb(0 0 0 / 12%);
+	}
+
+	html[data-platform="macos"] #form {
+		margin: 0 0.5rem 0.5rem;
+		border: 0.0625rem solid var(--ps-g-edge);
+		border-radius: 1.125rem;
+		box-shadow: 0 0.25rem 1rem rgb(0 0 0 / 12%);
+	}
+
+	html[data-platform="macos"] #form:focus-within {
+		border-color: var(--ps-g-edge);
 	}
 }
 
