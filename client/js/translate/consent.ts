@@ -19,6 +19,15 @@ import type {Device, ModelRef} from "./engine";
 export const CONSENT_KEY = "thelounge.state.translateConsent";
 
 /**
+ * Where the copies the user removed are remembered, by the same ids: a
+ * removed copy stays removed (spec § Downloads). Reading never fetches it
+ * back quietly, however small it is -- the line offers it instead -- until
+ * someone asks for it again: a line's Download, Settings' Download, or a
+ * yes to the question. Device state, like the consents.
+ */
+export const REMOVED_KEY = "thelounge.state.translateRemoved";
+
+/**
  * The id a copy's yes is kept under. The copy of the device the model ran
  * on before it could run on either -- the language model's GPU copy,
  * OPUS-MT's and NLLB-200's CPU copy -- keeps the id its yes always had, so
@@ -163,10 +172,22 @@ export class DownloadConsent {
 
 	private readonly askUser: (ref: ModelRef, device: Device) => Promise<boolean>;
 	private readonly store: ConsentStore;
+	/** The copies removed and not asked for since (`REMOVED_KEY`). */
+	private readonly removedStore: ConsentStore;
 
-	constructor(askUser: (ref: ModelRef, device: Device) => Promise<boolean>, store: ConsentStore) {
+	constructor(
+		askUser: (ref: ModelRef, device: Device) => Promise<boolean>,
+		store: ConsentStore,
+		removed: ConsentStore = memoryConsent()
+	) {
 		this.askUser = askUser;
 		this.store = store;
+		this.removedStore = removed;
+	}
+
+	/** The copy was removed, and nobody has asked for it since. */
+	removed(id: string): boolean {
+		return this.removedStore.has(id);
 	}
 
 	granted(id: string): boolean {
@@ -185,17 +206,22 @@ export class DownloadConsent {
 		return this.declinedIds.size > 0;
 	}
 
-	/** An explicit act (Settings' Download): yes, and no decline stands. */
+	/** An explicit act (Settings' Download, a line's): yes, no decline stands, and no removal. */
 	grant(id: string): void {
 		this.grantedIds.add(id);
 		this.store.grant(id);
 		this.declinedIds.delete(id);
+		this.removedStore.revoke(id);
 	}
 
-	/** The model was deleted: its next download is a new question. */
+	/**
+	 * The model was deleted: its next download is a new question, asked
+	 * whatever its size (`removed`), and reading never fetches it quietly.
+	 */
 	revoke(id: string): void {
 		this.grantedIds.delete(id);
 		this.store.revoke(id);
+		this.removedStore.grant(id);
 	}
 
 	/** A Retry on a line: the session's "not now" is over, the next route asks again. */
@@ -237,6 +263,7 @@ export class DownloadConsent {
 			if (yes) {
 				this.grantedIds.add(ref.id);
 				this.store.grant(ref.id);
+				this.removedStore.revoke(ref.id);
 			} else {
 				this.declinedIds.add(ref.id);
 			}

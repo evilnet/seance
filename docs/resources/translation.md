@@ -43,10 +43,13 @@ on this device.") and without when the deploy did ("Translation is turned
 off in this deployment."; switch.ts `translationOffBlock`). Nothing shows
 either today, since every surface that would is absent while off -- but
 one: off by the user's setting (not the deploy's), the channel menu still
-has "Translation…", which opens Settings → Language, where the switch is
-(`contextMenu.ts`, `reader.ts` `translationOffByUser`), so a reader
-looking for translation in a channel finds the way to turn it on. It
-makes nothing (`translate-off.mjs`). Every
+has "Translation…", which opens the conversation's panel with one button,
+"Translate messages into `<Language>`", and the line "Translation runs on
+this device and downloads language data as you need it." (`contextMenu.ts`,
+`TranslationPanel.vue`, `reader.ts` `translationOffByUser`): a reader
+looking for translation in a conversation turns it on there, in two taps,
+without Settings (§ Reading everywhere). Opening it makes nothing
+(`translate-off.mjs`). Every
 entry of the reading pipeline (`reader.ts`: a line, a
 history page, a replay, the topic, a language change, a retry) and of the
 composer (`writer.ts`) asks first. Switching off acts at once (a store watch
@@ -61,19 +64,19 @@ is the service disposed: its worker terminated, every store watch and
 listener `create()` registered undone. A disposed service routes nothing and
 asks nothing, however late a request reaches it (`service.ts` `resolve`).
 
-Kept while off: the per-channel choices (`thelounge.translate`: reading,
-write target, languages, terms), the downloaded models and the download
-consents. Switching back on needs no reload: the first thing that needs the
-service makes a fresh one, and every channel whose kept setting reads
-starts over on what it shows (`reader.ts` `resumeReading`, switch.ts
-`readingChannels`), as switching its reading on does.
+Kept while off: the per-conversation choices (`thelounge.translate`:
+exclusions, write target, languages, terms), the downloaded models and the
+download consents. Switching back on needs no reload: the first thing that
+needs the service makes a fresh one, and the conversation on screen is read
+from what is in view (`reader.ts` `resumeReading`, § Reading everywhere).
 
 Settings → Translation (`Settings/Translation.vue`) keeps the interface
 language picker whatever the switch and the deploy say: it is a production
-build's only language picker. Off (either way), the tab and its heading
-read "Language" and the picker "Interface language"; the switch itself is
+build's only language picker, labelled "Interface language" either way. Off
+(either way), the tab and its heading read "Language"; the switch itself is
 offered only where the deploy allows translation, with a hint that it
-downloads models (a few hundred MB to over 1 GB each) when first used.
+downloads models (a few hundred MB to over 1 GB each) when first used. On,
+"Translate into" and "I also read" follow it (§ Reading everywhere).
 Everything else -- formality, the per-model switches and Run on, the model
 manager and its copies, the device and threads lines, the test-switch lines,
 the NLLB-200 licence line -- is `Settings/TranslationOptions.vue`, mounted
@@ -442,6 +445,13 @@ and marker form are chosen with the answer known.
   models -- downloads unasked, from reading and the composer alike, unless
   `navigator.connection` reports Save-Data or a cellular link
   (`ServiceDeps.metered`; iOS reports neither, so there it is always quiet).
+- **A removed copy stays removed.** Deleting a copy in Settings records it in
+  `thelounge.state.translateRemoved` (`consent.ts` `REMOVED_KEY`,
+  `DownloadConsent.revoke`), and a removed copy is never quiet, whatever its
+  size (`service.ts` `needsConsent`): reading offers it on the line rather
+  than fetching it back while the conversation is still on screen. Asking
+  for it again -- the line's Download, Settings' Download, a yes in the
+  dialog -- clears the mark (`grant`).
 - **The system translator's pack is offered on the line, never in its
   sheet by itself** (the iOS and macOS shells, `engines/apple.ts`): reading takes an
   installed pack only; a pack that could be downloaded is reported
@@ -466,7 +476,7 @@ and marker form are chosen with the answer known.
   the URL also has `askDownloads`.
 
 Tests: `test/translate/consent.ts`, `test/translate/service.ts` "download
-consent"; browser check `tools/scenarios/translate-capability.mjs` (one
+consent" and "quiet downloads" (a removed copy stays removed); browser check `tools/scenarios/translate-capability.mjs` (one
 reading asks nothing and offers the download on each line, no pause) and
 `tools/scenarios/translate-consent.mjs` (the fake: reading falls back to a
 downloaded OPUS pair unasked, then a line's Download is remembered and
@@ -865,14 +875,125 @@ device's copy is `<id>@<device>`, a download of its own that a yes to the
 first never covers. The protocol's `has` and `delete` and the cache API answer
 per copy, and `TranslateRequest` carries the device.
 
+## Reading everywhere
+
+**On means every conversation.** With translation on, every channel and
+query is read in the reading language; a lobby and the special windows
+never are. "Translate messages here into `<Language>`" in a conversation's
+panel and in the composer's language sheet is the one per-conversation
+control, and off it stores an exclusion (`channelStore.ts` `exclude`) that
+is remembered. The rule is `switch.ts` `readsHere` (on, a channel or a
+query, not excluded), asked through `reader.ts` `readsHere` at every way
+into reading: a live line, a line coming into view (a history page, a
+replay, opening the conversation, scrolling), the topic, a change of
+language, a retry. Nothing else switches reading: in particular a write
+target no longer turns reading on as a side effect (it used to, in
+`ChatInput.vue`'s target pick), so it can never undo an exclusion. A line
+asked for by hand -- the toolbar's Translate, the chip's Retranslate --
+is still translated in an excluded conversation (`considersLine`'s
+`force`): that is the way past an exclusion, and past a wrong skip.
+
+**Only the conversation on screen does any work.** `onScreen.ts` holds
+which conversation is on screen -- the store's active channel (router.ts
+clears it while Settings is open) in a page whose
+`document.visibilityState` is not hidden -- and which of its lines are in
+view. A phone with the app in the background has nothing on screen though
+its active channel stays set. `MessageList.vue` reports its rows while
+translation is on (`helpers/lineVisibility.ts` `watchLines`: one
+IntersectionObserver on the scroller, half a screen above and below counted
+as in view, `LINE_MARGIN`, and a MutationObserver that observes rows as they
+mount). Then:
+
+- A live line is read as it arrives only in the conversation on screen. A
+  line in any other conversation routes nothing, downloads nothing and asks
+  nothing: it is read when that conversation is opened.
+- Opening a conversation, scrolling, a history page or a replay landing,
+  and the page coming back from the background all read what is in view and
+  not read yet (`reader.ts` `scanOnScreen`): what is on the visible part
+  itself first (a second observer with no margin), then the margin around
+  it, each newest first, at most `HISTORY_QUEUE_CAP` (40) a scan. There is no history listener any more,
+  nor replay batching: a replayed line and a page's lines are read when they
+  are in view, like any other, so scrolling up through history translates
+  what scrolls into view and nothing else.
+- A line that leaves the view before its turn came leaves the queue as
+  dropped (`lineLeft`, `TranslateQueue.cancelWaiting`), so what is in view
+  is never kept waiting behind what the reader scrolled past; it is read
+  again if it comes back. One already running finishes, and a line someone
+  asked for (the toolbar's Translate, a Retry) stays queued.
+- Leaving a conversation (another one opened, Settings, the page hidden)
+  stops its work where it stands (`stopChannel`): detections under way give
+  up, waiting and in-flight lines leave the queue as dropped. Finished
+  translations are kept, never recomputed on reopen; a dropped line is read
+  again when it is next in view (`wantsReading`), a failed one keeps its
+  Retry, a skipped one its mark. A line that turned out to hold nothing to
+  read is remembered (`considered`) so scrolling past it again costs nothing.
+- `translationInUse` counts the conversation on screen, not every channel,
+  so the models unload as soon as nothing on screen or in the composer needs
+  them.
+
+What counts as a line to read is unchanged: anyone's chat line, the
+user's own included, by eligibility and detection as below. Notification
+text stays the original text: notifications are shown before the reader
+sees a line, and translating them is not part of this.
+
+**The reading language is "Translate into".** Settings → Language's
+"Translate into" (`settings.ts` `translateInto`, carried by the backup)
+offers every supported language, named in the interface's language, after
+its default "Same as the interface (`<Language>`)", which is "" and follows
+the interface language as before (`reader.ts` `readingLanguage`). It is a
+new key: the retired `translateTo` is moved into `locale` and deleted by
+`settings.ts` `migrateReadingToLocale`, and is not reused.
+
+**"I also read"** (`translateAlsoRead`, a list, carried by the backup) is a
+row of chips with an "Add a language…" select under "Translate into": a
+line detected in one of those languages is left as written, marked like a
+line in the reading language (`detect.ts` `detectionSkip`'s `alsoRead`; the
+mark names the language it was taken for). Detection itself is unchanged.
+Changing either setting starts every conversation over
+(`restartAllReading` over `readingTerms`): what is translated goes, and the
+conversation on screen is read again.
+
+**Finding it, and the first time.** The channel menu's "Translation…" is
+there while translation is off by the user's own switch and opens the panel
+with its one button (§ Switched off by default); the button switches
+translation on and closes the panel, so lines on screen translate in front
+of the reader. When the first scan after switching on finds nothing on
+screen to read, a one-time note above the composer says what will happen:
+"Messages in other languages will now appear in `<Language>`. Tap a
+translated message to see the original." Either way the note is settled for
+this device.
+
+**Existing users** (`channelStore.ts` `migrateChannelStore`, run by
+`initReader` once per stored version). The blob carries a schema version
+(`STORE_VERSION` 2 under the key `version`, never a record key since those
+hold a "/"), so it travels with the settings backup and an old blob a
+restore puts back is migrated again; no device-side "already ran" bit can
+hide one. Version 1 had no exclusions and its `read: false` cannot be told
+from "never touched", so every version-1 record reads. Everything else is
+kept exactly: `write` and `writeFrom` (a null source included, and a target
+equal to the reading language, which is still the polish pass), `once` (the
+picker's preselection), `noSuggest` (the channel's write card), `formality`,
+the terms, and `languages` and `variant` (no longer offered from step 2 on).
+No conversation's sends change: `write: null` stays off. An enabled user
+whose blob was migrated (or who had none) sees one note: "Messages in other
+languages are now translated in every conversation.", with "Choose
+conversations" (this conversation's panel) and "OK". The notes are device
+state (`reader.ts` `NOTES_KEY`, `thelounge.state.translateNotes`), not in the
+backup. An older build that rewrites the blob drops its `exclude` keys and
+version, and the next boot of this one reads that blob as version 1.
+
+Tests: `test/translate/channelStore.ts` (the migration table, its re-run on
+a restored blob, the version never a record), `test/translate/switch.ts`
+(`readsHere`), `test/translate/onScreen.ts` (on screen, the page hidden,
+lines in view, newest-first scans), `test/translate/detect.ts` ("I also
+read"); browser check `tools/scenarios/translate-everywhere.mjs`.
+
 ## Reading a channel
 
-The reading switch in a channel's translation panel (the channel menu's
-"Translation…", below) switches translation on for that channel
-(`translate/reader.ts` `setReading`; translation's surfaces carry the
+With translation on, every line of the conversation on screen, the user's
+own included (§ Reading everywhere; translation's surfaces carry the
 `fa-language` glyph (`文A`) -- the globe keeps only the dev locale
-selector's language-setting role): from then on every message in it, the
-user's own included, is detected (`detect.ts`: the line's script, then fastText and ELD in their own
+selector's language-setting role), is detected (`detect.ts`: the line's script, then fastText and ELD in their own
 chunk, placed only where they agree (below)), skipped when
 nothing translatable is left of it (`eligibility.ts`: URLs, code, emoji,
 formatting codes and nick mentions stripped -- there is no word floor, a
@@ -1158,43 +1279,31 @@ read too, so a line written before the switch-on, before a rejoin or a
 reload, or sent without a read-back gets its translation like anyone's
 (an own line already in the reading language is detected as such,
 skipped). The one own line the pipeline leaves alone is a posted
-translation that keeps the composer's read-back (§ Writing in a channel). History is bounded per _load_, each
-load queueing at most `HISTORY_QUEUE_CAP` (40) of its lines, newest first
-(`eligibility.ts` `historyQueueOrder`, through `reader.ts` `queueHistory`,
-one line after another so the queue's order is that order):
+translation that keeps the composer's read-back (§ Writing in a channel).
+History is read as it comes into view (§ Reading everywhere): a history
+page arriving as `more` (the page `MessageList.vue` asked for and a
+channel's first fill on joining it alike), one batch of a reconnect's
+catch-up or a bouncer replay (`msg` with `replay`), all go through
+`scanOnScreen`, at most `HISTORY_QUEUE_CAP` (40) lines a scan, newest
+first. Until 2026-11 each load queued its newest 40 lines whether or not
+anyone was looking at them, and lines further back stayed untranslated.
 
-- a history page arriving as `more` (`irc/history.ts` `mode: "prepend"`)
-  -- the page `MessageList.vue` asked for and a channel's first fill on
-  joining it alike; the reader's second `socket.on("more")` runs after
-  `socket-events/more.ts` has prepended the page, so the objects it queues
-  are the store's own and their ids are store ids;
-- one batch of a reconnect's catch-up or a bouncer replay, which reaches
-  the reader as `msg` with `replay`, one line at a time. A batch is
-  delivered in one synchronous run (`deliverAppend`) and the bus
-  dispatches synchronously, so `eligibility.ts` `ReplayBatches` takes the
-  lines a channel receives before a microtask as one batch; the next batch
-  counts afresh, with no live line needed in between;
-- the requeue of a switch-on or a language change (below).
-
-**Switching reading on, or to another language, retranslates what is on
-screen** (`reader.ts` `requeueReading`): the channel's queued work is
-cancelled, its remembered items, translations and language prior go, and
-its messages are queued again as one load. Switching on again does
-nothing, and switching off only cancels what is queued. A posted line's
+**Switching reading back on in a conversation, or a change of reading
+language, retranslates what is on screen** (`reader.ts` `requeueReading`):
+the conversation's queued work is cancelled, its remembered items,
+translations and language prior go, and the one on screen is read again
+from what is in view. Excluding it only stops its work. A posted line's
 translation is the composer's read-back (§ Writing in a channel): it is
-kept, and left out of the requeue, when it is already in the reading
-language; when it is not it goes with the rest and the line is translated
-again like any other. The same requeue runs for every reading-on channel
-when the reading language itself moves -- the interface's language
-changed, in Settings or through the dev globe (`reader.ts`
-`restartAllReading`). That path calls `requeueReading` itself: reading is
-already on, so `setReading` would return at its no-op guard and retranslate
-nothing. The language reading started in is recorded in `initReader`, so
-the first change after a page load counts like any other.
+kept when it is already in the reading language; when it is not it goes
+with the rest and the line is translated again like any other. The same
+restart runs for every reading conversation when the reading language or
+"I also read" moves (`reader.ts` `restartAllReading`). The terms reading
+started under are recorded in `initReader`, so the first change after a
+page load counts like any other.
 
 **Leaving a channel keeps its setting.** A part cancels that channel's
 queued work, forgets its queue items and drops the translations with its
-messages, but the record stays: a rejoin finds reading still on, into the
+messages, but the record stays: a rejoin finds its exclusion (if any) as it was, into the
 reading language as it stands then, and translates the history the join
 loads. A network's quit
 still forgets its channels' records. A per-channel generation stops a
@@ -1215,7 +1324,7 @@ switch-on, "load more", language-change and rejoin steps of
 
 ## The channel's panel
 
-The per-channel choices -- reading on/off, the languages spoken here,
+The per-channel choices -- "Translate messages here" (the exclusion), the languages spoken here,
 outgoing target, formality, variant -- are one component
 (`TranslationPanel.vue`), opened from the channel menu's "Translation…"
 (the header's ⋮, a sidebar row's menu, or a message's toolbar when nothing
@@ -1513,7 +1622,7 @@ language mark beside the paperclip and the plane (`ChatInput.vue`
 target -- `channelStore.ts` `write`, the very setting the panel's "Send my
 messages in" shows, so the two controls never disagree -- lit on the
 button, and named in its label ("Sending in German · change or turn off"),
-while it is set, until **Turn off** in the sheet's header (or the panel's Off). Setting a target in another language also switches the channel's reading on (`setReading`): the replies come back in it. Turning the target off leaves reading as it is. The
+while it is set, until **Turn off** in the sheet's header (or the panel's Off). Setting a target leaves reading alone: reading is on everywhere unless excluded, and a target never undoes an exclusion (§ Reading everywhere). The
 same pair picked again changes nothing; a new one replaces the strip. The
 sheet closes on a channel switch. A draft already typed gets its strip at
 once. The list is plain buttons (the current one `aria-current`, a row
@@ -1561,7 +1670,7 @@ is highlighted (it used to be the first supported language that routes,
 German for an English reader, which read as a setting nobody made). When
 nothing routes at all the last pick, else the interface's language, stands
 and the sheet says why. Under the pair the sheet also carries the
-channel's reading switch ("Read messages in English", the panel's own
+conversation's reading switch ("Translate messages here into English", the panel's own
 `setReading`): the composer's button is the translation control people
 find first, and they opened it looking for translation of what others
 write. Its "I write" starts on the language the user

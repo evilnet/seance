@@ -199,6 +199,7 @@ import {
 	readingLanguage,
 	showOriginal,
 	translationAvailable as translationAvailableNow,
+	translationOffByUser,
 } from "../js/translate/reader";
 import {topicEntryId} from "../js/translate/topic";
 
@@ -303,7 +304,7 @@ export default defineComponent({
 			() => [
 				props.channel.id,
 				props.channel.topic,
-				channelTranslation(props.network, props.channel).read,
+				channelTranslation(props.network, props.channel).exclude,
 				readingLanguage(),
 			],
 			() => void readTopic(props.network, props.channel),
@@ -422,11 +423,16 @@ export default defineComponent({
 		};
 
 		const translationPanelOpen = ref(false);
+		// The panel opens where translation runs, and also where the user's
+		// own switch has it off: there it is the one button that turns it
+		// on (TranslationPanel.vue), so a conversation is where translation
+		// is found (spec § Finding it). A deploy that turned it off offers
+		// no panel.
 		const translationAvailable = computed(
 			() =>
 				(props.channel.type === ChanType.CHANNEL ||
 					props.channel.type === ChanType.QUERY) &&
-				translationAvailableNow()
+				(translationAvailableNow() || translationOffByUser())
 		);
 
 		watch(

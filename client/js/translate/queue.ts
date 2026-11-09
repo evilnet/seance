@@ -272,6 +272,24 @@ export class TranslateQueue {
 		}
 	}
 
+	/**
+	 * Take one waiting item off the queue as dropped -- the line left the
+	 * reader's view before its turn came -- and report whether it was
+	 * waiting. One already running finishes: it is nearly there.
+	 */
+	cancelWaiting(id: number): boolean {
+		const index = this.waiting.findIndex((q) => q.item.id === id);
+
+		if (index < 0) {
+			return false;
+		}
+
+		this.waiting.splice(index, 1);
+		this.deps.onUpdate(id, {status: "dropped"});
+
+		return true;
+	}
+
 	cancelAll(): void {
 		this.globalGeneration++;
 

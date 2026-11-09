@@ -1,13 +1,14 @@
 // Translation switched off, its default (client/js/settings.ts
 // `translationEnabled`, translate/switch.ts): absent, not just disabled. No
-// translate button in the composer or the message toolbar, no translation
-// panel ("Translation…" in the channel menu opens Settings instead, where
-// the switch is), no TranslationLine, no strip; Settings → Translation is the interface language and the switch
+// translate button in the composer or the message toolbar, no reading
+// controls ("Translation…" in the channel menu opens the panel as one
+// button that switches translation on, and makes nothing by opening), no
+// TranslationLine, no strip; Settings → Translation is the interface language and the switch
 // alone, under a tab named "Language"; and nothing of the machinery runs --
 // no worker script fetched, no Worker constructed, no GPU adapter asked
 // for -- not on a cold load, not when the interface language changes with a
-// channel whose kept per-channel reading is on. Switched on, all of it comes
-// back without a reload, and the kept channel starts reading again;
+// channel whose kept choices are stored. Switched on, all of it comes
+// back without a reload, and the channel on screen is read;
 // switched off, it goes again at once. Nor does it cost the rest of the app
 // anything: a load the service worker serves while it is off is not
 // cross-origin isolated.
@@ -81,7 +82,8 @@ const WATCH = `(() => {
 })()`;
 
 // A channel whose reading and write target were on before translation was
-// switched off: kept (thelounge.translate), never acted on while off.
+// switched off, stored the way the previous version stored it (no schema
+// version): migrated once at boot (channelStore.ts), never acted on while off.
 const KEPT_CHANNEL = `(() => {
 	if (!localStorage.getItem("thelounge.translate")) {
 		localStorage.setItem("thelounge.translate", JSON.stringify({
@@ -114,6 +116,7 @@ const STORED_SETTING = `JSON.parse(localStorage.getItem("settings") || "{}").tra
 const KEPT = `JSON.parse(localStorage.getItem("thelounge.translate") || "{}")[${JSON.stringify(
 	`${NETWORK}/${CHANNEL}`
 )}] || null`;
+const KEPT_VERSION = `JSON.parse(localStorage.getItem("thelounge.translate") || "{}").version ?? null`;
 
 /** Every translation surface the chat view can show, present or not. */
 const SURFACES = `(() => ({
@@ -221,29 +224,44 @@ async function menuOffersTranslation(page) {
 
 /**
  * Off by the user's setting: the channel menu's "Translation…" is still
- * there, and opens Settings → Translation (named "Language" while off),
- * without making any of the machinery.
+ * there, and opens the conversation's panel as one button that switches
+ * translation on, with no reading or writing control, without making any
+ * of the machinery. Closed again by its ✕ without pressing the button.
  */
-async function menuOpensTranslationSettings(page) {
+async function menuOpensEnablePanel(page) {
 	await page.click("#chat .header button.menu");
 	await page.waitFor(`!!document.querySelector("#context-menu")`, {label: "the channel menu"});
 
 	if (
-		!(await page.evaluate(
-			`!!document.querySelector("#context-menu .context-menu-translate-off")`
-		))
+		!(await page.evaluate(`!!document.querySelector("#context-menu .context-menu-translate")`))
 	) {
 		await pressEscape(page);
 		return false;
 	}
 
-	await page.click("#context-menu .context-menu-translate-off");
-	await page.waitFor(`!!document.querySelector('#settings input[name="translationEnabled"]')`, {
-		label: "Settings → Translation, with its switch",
+	await page.click("#context-menu .context-menu-translate");
+	await page.waitFor(`!!document.querySelector(".translation-panel")`, {
+		label: "the translation panel",
 	});
-	await closeSettings(page);
 
-	return true;
+	const panel = await page.evaluate(`(() => ({
+		button: document.querySelector(".translation-panel-enable-button")?.textContent.trim() ?? "",
+		radios: document.querySelectorAll(".translation-panel [role=radiogroup]").length,
+		selects: document.querySelectorAll(".translation-panel select").length,
+	}))()`);
+
+	await page.evaluate(
+		`document.querySelector(".translation-panel .header-popover-close").click()`
+	);
+	await page.waitFor(`!document.querySelector(".translation-panel")`, {
+		label: "the panel closed",
+	});
+
+	return (
+		panel.button === EN["translate.panel.enable"].replace("{language}", "English") &&
+		panel.radios === 0 &&
+		panel.selects === 0
+	);
 }
 
 async function fabricate(page) {
@@ -280,9 +298,8 @@ const TAB = `(() => ({
 	options: !!document.querySelector("#settings .translate-options"),
 	formality: !!document.querySelector('#settings input[name="translateFormality"]'),
 	models: document.querySelectorAll("#settings .translate-model").length,
-	languageHint: [...document.querySelectorAll("#settings .translate-hint")].some(
-		(el) => el.textContent.trim() === ${JSON.stringify(EN["translate.settings.languageHint"])}
-	),
+	into: !!document.querySelector('#settings select[name="translateInto"]'),
+	alsoRead: !!document.querySelector("#settings .translate-also-add"),
 }))()`;
 
 async function flipSwitch(page, on) {
@@ -305,12 +322,8 @@ async function checkOff(page, phone, where) {
 		s.placeholder === EN["composer.placeholder"].replace("{name}", CHANNEL)
 	);
 	page.check(
-		`${where}: the channel menu has no "Translation…" panel`,
-		(await menuOffersTranslation(page)) === false
-	);
-	page.check(
-		`${where}: the channel menu's "Translation…" opens Settings, where the switch is`,
-		await menuOpensTranslationSettings(page)
+		`${where}: the channel menu's "Translation…" opens the panel as one button that turns translation on`,
+		await menuOpensEnablePanel(page)
 	);
 	page.check(
 		`${where}: the toolbar has no Translate`,
@@ -360,8 +373,8 @@ export default async function run(page) {
 		off.hint === EN["translate.settings.enableHint"]
 	);
 	page.check(
-		"off: no formality, no models, no reading-language hint",
-		!off.options && !off.formality && off.models === 0 && !off.languageHint
+		"off: no formality, no models, no Translate into, no I also read",
+		!off.options && !off.formality && off.models === 0 && !off.into && !off.alsoRead
 	);
 	await page.screenshot("2-off-settings");
 
@@ -389,8 +402,10 @@ export default async function run(page) {
 	const kept = await page.evaluate(KEPT);
 
 	page.check(
-		"off: the kept channel's reading and write target are left alone",
-		kept?.read === true && kept?.write === "de"
+		"off: the kept channel's write target is left alone, migrated once to the versioned blob",
+		kept?.write === "de" &&
+			!("read" in (kept ?? {})) &&
+			(await page.evaluate(KEPT_VERSION)) === 2
 	);
 
 	// Switched on: the rest of the tab appears, named for translation, and
@@ -412,12 +427,12 @@ export default async function run(page) {
 		on.heading === EN["translate.settings.heading"]
 	);
 	page.check(
-		`on: the picker is "${EN["translate.settings.languageLabel"]}"`,
-		on.label === EN["translate.settings.languageLabel"]
+		`on: the picker is still "${EN["translate.settings.interfaceLanguageLabel"]}"`,
+		on.label === EN["translate.settings.interfaceLanguageLabel"]
 	);
 	page.check(
-		"on: formality and the models are there",
-		on.options && on.formality && on.models > 0 && on.languageHint
+		"on: Translate into, I also read, formality and the models are there",
+		on.options && on.formality && on.models > 0 && on.into && on.alsoRead
 	);
 	await page.waitFor(WORKER_FETCHED, {
 		label: "translate-worker.js fetched once on",
@@ -486,7 +501,7 @@ export default async function run(page) {
 	});
 	await page.evaluate(STAMP_MSGIDS);
 
-	// A German line arrives: the kept channel reads again, into English.
+	// A German line arrives in the channel on screen: read, into English.
 	await page.evaluate(`window.socket.dispatch("msg", {
 		chan: 2,
 		msg: {id: 31, type: "message", from: {mode: "", modes: [], away: "", lastMessage: Date.now(), nick: "moria"}, text: ${JSON.stringify(
@@ -561,7 +576,7 @@ export default async function run(page) {
 	);
 	page.check(
 		"fake, switched off: the kept channel's setting survives the round trip",
-		(await page.evaluate(KEPT))?.read === true && (await page.evaluate(KEPT))?.write === "de"
+		(await page.evaluate(KEPT))?.write === "de"
 	);
 	await page.screenshot("5-off-again-channel");
 

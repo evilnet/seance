@@ -266,6 +266,78 @@ msgctxt "browse.updated"
 msgid "Updated {when}"
 msgstr ""
 
+#. Button: saves this exact certificate as trusted for this network. A different certificate is asked about again.
+#: client/js/certificatePrompt.ts
+msgctxt "certificate.prompt.always"
+msgid "Always trust this certificate"
+msgstr ""
+
+#. {host} is the IRC server's host name.
+#: client/js/certificatePrompt.ts
+msgctxt "certificate.prompt.expired"
+msgid "{host}'s certificate has expired. Trust it only if you know why: someone may be pretending to be the server."
+msgstr ""
+
+#. Second line of the certificate question, under the warning. {date} is the day the server's certificate expired.
+#: client/js/certificatePrompt.ts
+msgctxt "certificate.prompt.expiredOn"
+msgid "It expired on {date}."
+msgstr ""
+
+#. Label above the certificate's fingerprint, which is hex digits separated by colons.
+#: client/js/certificatePrompt.ts
+msgctxt "certificate.prompt.fingerprint"
+msgid "SHA-256 fingerprint:"
+msgstr ""
+
+#. {host} is the IRC server's host name.
+#: client/js/certificatePrompt.ts
+msgctxt "certificate.prompt.issuer"
+msgid "{host}'s certificate is signed by an authority this app does not know. Trust it only if you know why: someone may be pretending to be the server."
+msgstr ""
+
+#. {host} is the IRC server's host name.
+#: client/js/certificatePrompt.ts
+msgctxt "certificate.prompt.name"
+msgid "{host}'s certificate was issued for a different name. Trust it only if you know why: someone may be pretending to be the server."
+msgstr ""
+
+#. Second line of the certificate question, under the warning. {names} is a comma-separated list of host names read from the certificate, shown verbatim.
+#: client/js/certificatePrompt.ts
+msgctxt "certificate.prompt.names"
+msgid "It was issued for {names}."
+msgstr ""
+
+#. Button: refuses the certificate; the network stays disconnected.
+#: client/js/certificatePrompt.ts
+msgctxt "certificate.prompt.no"
+msgid "Don't connect"
+msgstr ""
+
+#. Button: trusts the certificate until the app is closed.
+#: client/js/certificatePrompt.ts
+msgctxt "certificate.prompt.once"
+msgid "Just this once"
+msgstr ""
+
+#. {host} is the IRC server's host name.
+#: client/js/certificatePrompt.ts
+msgctxt "certificate.prompt.other"
+msgid "{host}'s certificate could not be verified. Trust it only if you know why: someone may be pretending to be the server."
+msgstr ""
+
+#. {host} is the IRC server's host name.
+#: client/js/certificatePrompt.ts
+msgctxt "certificate.prompt.selfSigned"
+msgid "{host}'s certificate is self-signed, so nobody vouches for it. Trust it only if you know why: someone may be pretending to be the server."
+msgstr ""
+
+#. Title of the dialog asked when the app's raw TCP connection refuses an IRC server's TLS certificate.
+#: client/js/certificatePrompt.ts
+msgctxt "certificate.prompt.title"
+msgid "Trust this server's certificate?"
+msgstr ""
+
 #. Tooltip and aria-label of the ✕ button on a private-conversation or list-window row in the sidebar network list; clicking closes that window (nothing is left on the server).
 #: client/components/Channel.vue
 msgctxt "channel.close"
@@ -1011,6 +1083,25 @@ msgctxt "connect.connectingToAttempt"
 msgid "Connecting to {host}:{port}… (attempt {attempt})"
 msgstr "Connexion à {host}:{port}… (tentative {attempt})"
 
+#. Label of the select choosing how the app reaches the IRC server: over WebSocket or over a raw TCP connection. Shown only in the app.
+#: client/components/Windows/Connect.vue
+#: client/components/NetworkForm.vue
+msgctxt "connect.connection"
+msgid "Connection"
+msgstr ""
+
+#. Option of the Connection select: a classic IRC connection over raw TCP, ports 6667 or 6697. Only the app can make it.
+#: client/components/Windows/Connect.vue
+msgctxt "connect.connection.tcp"
+msgid "IRC over TCP"
+msgstr ""
+
+#. Option of the Connection select: IRC carried over a WebSocket, what browsers use.
+#: client/components/Windows/Connect.vue
+msgctxt "connect.connection.websocket"
+msgid "WebSocket"
+msgstr ""
+
 #. Lobby status line when the user's own /quit closed the connection on purpose.
 #: client/js/irc/client.ts
 msgctxt "connect.disconnected"
@@ -1029,6 +1120,12 @@ msgctxt "connect.enterPassword"
 msgid "Enter the password for {account} to connect."
 msgstr "Saisissez le mot de passe de {account} pour vous connecter."
 
+#. Connect form notice when a link opens a saved network whose server password was not remembered. {host} is the server's host name.
+#: client/components/Windows/Connect.vue
+msgctxt "connect.enterServerPassword"
+msgid "Enter the server password for {host}."
+msgstr ""
+
 #. Error notice shown under the guest sign-in form when the guest nick field was left empty or invalid.
 #: client/components/Windows/Connect.vue:672
 msgctxt "connect.guestNickRequired"
@@ -1046,6 +1143,12 @@ msgstr "Se connecter en tant qu'invité"
 msgctxt "connect.guestTitle"
 msgid "No account?"
 msgstr "Aucun compte ?"
+
+#. Notice in the dialog a plain irc:// link opens in the app, under the link's description: the suggested IRC connection would be unencrypted plain TCP.
+#: client/components/Windows/Connect.vue:122
+msgctxt "connect.linkCleartext"
+msgid "This connection will not be encrypted: anyone between you and the server can read what you send, your password included."
+msgstr ""
 
 #. Notice at the top of the connect form when a web+irc:// link named a server the deploy does not allow; {network} is this deploy's network name, {host} the refused server.
 #: client/components/Windows/Connect.vue:608
@@ -1231,6 +1334,12 @@ msgctxt "connect.saslToggle"
 msgid "I have a services account (SASL)"
 msgstr "J'ai un compte auprès des services (SASL)"
 
+#. Follow-up to a failed SASL login that has worked on this network before: the login is kept and the next connect tries it again.
+#: client/js/irc/client.ts
+msgctxt "connect.saslTrustedGaveUpHint"
+msgid "This login has worked here before, so it is kept: connecting again tries it once more. If the password has changed, update it in this network's settings."
+msgstr ""
+
 #. The IRC server section of the connect form: heading above the server fields, and the label of the server host field.
 #: client/components/Windows/Connect.vue:124
 #: client/components/Windows/Connect.vue:132
@@ -1243,6 +1352,24 @@ msgstr "Serveur"
 msgctxt "connect.serverAddress"
 msgid "Server address"
 msgstr "Adresse du serveur"
+
+#. Lobby hint after connect.serverPasswordNeeded / connect.serverPasswordRefused. 'username/network:password' is literal syntax: keep it untranslated.
+#: client/js/irc/client.ts
+msgctxt "connect.serverPasswordHint"
+msgid "Set the server password in this network's settings. For ZNC it is username/network:password."
+msgstr ""
+
+#. Lobby error: the server answered 464 (password required) during registration and no server password was set; the connection stopped. {host} is the configured host name.
+#: client/js/irc/client.ts
+msgctxt "connect.serverPasswordNeeded"
+msgid "{host} needs a server password before you can connect."
+msgstr ""
+
+#. Lobby error: the server answered 464 (password mismatch) to the server password that was sent; the connection stopped. {host} is the configured host name.
+#: client/js/irc/client.ts
+msgctxt "connect.serverPasswordRefused"
+msgid "{host} refused the server password."
+msgstr ""
 
 #. aria-label of the numeric port input next to the server host field on the connect form.
 #: client/components/Windows/Connect.vue:156
@@ -1285,6 +1412,12 @@ msgstr "Passage à TLS sur le port {port} (politique STS)"
 msgctxt "connect.submit"
 msgid "Connect"
 msgstr "Se connecter"
+
+#. Lobby error when a network set to IRC over TCP is opened in a web browser, which cannot open raw TCP connections.
+#: client/js/irc/client.ts
+msgctxt "connect.tcpNeedsApp"
+msgid "IRC over TCP works only in the app. A browser can connect over WebSocket only."
+msgstr ""
 
 #. Heading of the connect form (features.signIn off).
 #: client/js/branding.ts
@@ -1441,6 +1574,18 @@ msgstr "Le WebSocket s'est ouvert, mais le serveur l'a fermé avant la fin de l'
 msgctxt "disconnect.hint.sessionConflict"
 msgid "This account is already connected on this network - another tab, window or device is using it. Close that client; this tab then connects on its next retry (a dead connection is reclaimed within about a minute)."
 msgstr "Ce compte est déjà connecté sur ce réseau - un autre onglet, une autre fenêtre ou un autre appareil l'utilise. Fermez ce client ; cet onglet se connectera alors à la prochaine tentative (une connexion morte est récupérée en une minute environ)."
+
+#. Hint after a plain (no TLS) raw TCP connection failed to open, in the app.
+#: client/js/irc/disconnect.ts
+msgctxt "disconnect.hint.tcpPlainCauses"
+msgid "Likely causes: the server is down, the port is wrong, or something on the network blocks the connection."
+msgstr ""
+
+#. Hint after a TLS connection over raw TCP (not WebSocket) failed to open, in the app.
+#: client/js/irc/disconnect.ts
+msgctxt "disconnect.hint.tcpTlsCauses"
+msgid "Likely causes: the server is down, the port is wrong, or its certificate is not trusted. A server with a self-signed certificate can only be reached without TLS for now."
+msgstr ""
 
 #. Follow-up hint under a failed secure (wss://) dial. {url} is the network's address with https: in place of wss:, for accepting a self-signed certificate once.
 #: client/js/irc/disconnect.ts
@@ -1898,6 +2043,27 @@ msgctxt "form.serverAddress"
 msgid "Server address"
 msgstr "Adresse du serveur"
 
+#. Label of the server password field (IRC PASS), separate from the services account password.
+#: client/components/NetworkForm.vue
+#: client/components/Windows/Connect.vue
+msgctxt "form.serverPassword"
+msgid "Server password"
+msgstr ""
+
+#. Tooltip on the server password switch. 'username/network:password' is literal syntax the user types: keep it untranslated.
+#: client/components/NetworkForm.vue
+#: client/components/Windows/Connect.vue
+msgctxt "form.serverPasswordHelp"
+msgid "Only if the server or bouncer asks for one. For ZNC, enter username/network:password."
+msgstr ""
+
+#. Switch on the connect form and in a network's settings that shows the server password field (sent as PASS, before the login). Bouncers such as ZNC ask for it.
+#: client/components/NetworkForm.vue
+#: client/components/Windows/Connect.vue
+msgctxt "form.serverPasswordToggle"
+msgid "This server needs a password"
+msgstr ""
+
 #. aria-label of the numeric port input next to the server host field on the network edit form.
 #: client/components/NetworkForm.vue:76
 msgctxt "form.serverPort"
@@ -2005,6 +2171,24 @@ msgstr "Le flux des connexions et des arrivées"
 msgctxt "form.status"
 msgid "Status"
 msgstr "Statut"
+
+#. Label in a network's settings: TLS certificates the user chose to trust for this network although they failed the usual checks.
+#: client/components/NetworkForm.vue
+msgctxt "form.trustedCertificates"
+msgid "Trusted certificates"
+msgstr ""
+
+#. Help text under the list of trusted certificates.
+#: client/components/NetworkForm.vue
+msgctxt "form.trustedCertificates.help"
+msgid "These certificates are accepted for this network although they did not pass the usual checks. Removing one makes the app ask again."
+msgstr ""
+
+#. Button next to one trusted certificate: stops trusting it (takes effect on Save).
+#: client/components/NetworkForm.vue
+msgctxt "form.trustedCertificates.remove"
+msgid "Remove"
+msgstr ""
 
 #. Checkbox on the network edit form: connect to this network over TLS instead of a plain connection.
 #: client/components/NetworkForm.vue:86
@@ -2596,6 +2780,12 @@ msgstr "Passer à la prochaine fenêtre avec des messages non lus dans la liste 
 msgctxt "help.shortcuts.nextWindow"
 msgid "Switch to the next window in the channel list."
 msgstr "Passer à la prochaine fenêtre dans la liste des canaux."
+
+#. Description of the modifier+1 to 9 keyboard shortcut in the help window (⌘ in the macOS app, Ctrl in the app elsewhere, Alt in a browser on Windows); each digit jumps to the channel or private chat at that position in the sidebar, network entries not counted.
+#: client/components/Windows/Help.vue
+msgctxt "help.shortcuts.nthWindow"
+msgid "Switch to that channel in the channel list: 1 is the first channel, 9 the ninth. Networks are not counted."
+msgstr ""
 
 #. Description of the Alt+Shift+Up keyboard shortcut in the help window; it moves to the previous network's home view in the sidebar.
 #: client/components/Windows/Help.vue
@@ -4024,6 +4214,18 @@ msgctxt "message.editedBadge"
 msgid "(edited)"
 msgstr "(modifié)"
 
+#. Tooltip of the "(machine translated)" note on a chat message. {language} is the language the message is in, e.g. "Spanish".
+#: client/components/Message.vue
+msgctxt "message.machineTranslated"
+msgid "Machine translated into {language} by the sender's app"
+msgstr ""
+
+#. Small note after a chat message, beside "(edited)": the sender's app translated the message by machine before sending it. Keep it short.
+#: client/components/Message.vue
+msgctxt "message.machineTranslatedBadge"
+msgid "(machine translated)"
+msgstr ""
+
 #. Drawn before the sender's nick of an IRC NOTICE message in the chat (a label, then the nick).
 #: client/components/Message.vue
 msgctxt "message.noticeFrom"
@@ -4133,6 +4335,18 @@ msgstr "Ce pseudo n'est pas valide."
 msgctxt "msg.noSuchNick"
 msgid "No such nick: {nick}"
 msgstr "Pseudo introuvable : {nick}"
+
+#. Line in a conversation when someone deletes (redacts) a message that this device never loaded, so there is nothing to hide. {nick} is the user who deleted it, verbatim.
+#: client/js/irc/handlers/redact.ts
+msgctxt "msg.redactedUnloaded"
+msgid "{nick} deleted a message"
+msgstr ""
+
+#. Line in a conversation when someone deletes (redacts) a message that this device never loaded, with the reason they gave. {nick} is the user who deleted it and {reason} their reason, both verbatim — never translate their content.
+#: client/js/irc/handlers/redact.ts
+msgctxt "msg.redactedUnloadedReason"
+msgid "{nick} deleted a message ({reason})"
+msgstr ""
 
 #. Line in the server window after the server reports the IRC operator's server notice mask (snomask): {value} is the number, {hex} the same in hexadecimal. 'snomask' jargon.
 #: client/js/irc/handlers/numerics.ts
@@ -13304,6 +13518,12 @@ msgctxt "settings.general.installGuide"
 msgid "How to install {appName}"
 msgstr "Comment installer {appName}"
 
+#. Switch in Settings, General, in the Windows and Linux apps: make this app the system's handler for irc:// and ircs:// links (taking them from any other IRC client). {appName} is the app's name.
+#: client/components/Settings/General.vue:31
+msgctxt "settings.general.ircLinks"
+msgid "Open irc:// and ircs:// links in {appName}"
+msgstr ""
+
 #. Switch label in Settings → General (Android app only).
 #: client/components/Settings/General.vue
 msgctxt "settings.general.keepAlive"
@@ -14150,6 +14370,36 @@ msgstr "Liste des réseaux et des canaux"
 msgctxt "sidebar.noResults"
 msgid "No results found."
 msgstr "Aucun résultat trouvé."
+
+#. Screen-reader label of the thin handle on the edge of the sidebar (channel list) next to the chat. The arrow keys resize it when it has focus.
+#: client/components/SidebarResizer.vue
+msgctxt "sidebar.resize"
+msgid "Resize sidebar"
+msgstr ""
+
+#. Tooltip of the thin handle on the edge of the sidebar (channel list) next to the chat.
+#: client/components/SidebarResizer.vue
+msgctxt "sidebar.resizeHint"
+msgid "Drag to resize the sidebar; double-click for its usual width"
+msgstr ""
+
+#. Tooltip and aria-label of a greyed sidebar row for a saved network that is not connected (it did not connect by itself at startup, or was quit); clicking it connects. {name} is the network's name.
+#: client/components/DormantNetwork.vue:122
+msgctxt "sidebar.savedNetworkConnect"
+msgid "Connect to {name}"
+msgstr ""
+
+#. Second line of a greyed sidebar row for a saved network that is not connected; clicking the row connects it.
+#: client/components/DormantNetwork.vue:124
+msgctxt "sidebar.savedNetworkOff"
+msgid "Not connected"
+msgstr ""
+
+#. Second line of a greyed sidebar row for a saved network whose login password was not remembered; clicking the row opens the connect form to type it.
+#: client/components/DormantNetwork.vue:124
+msgctxt "sidebar.savedNetworkPassword"
+msgid "Needs password"
+msgstr ""
 
 #. Screen-reader-only label of the sidebar's jump-to search input (visually hidden).
 #: client/components/NetworkList.vue:12
@@ -15009,6 +15259,13 @@ msgctxt "translate.model.loadingPercent"
 msgid "Loading… {percent}%"
 msgstr "Chargement… {percent}%"
 
+#. The name of a translation model in Settings → Translation: a language-pair model the network supplies in place of an OPUS-MT pair. {name} is the network's own name for the model, never translated; {from} and {to} are language names.
+#: client/js/helpers/modelLabel.ts
+#: client/js/helpers/translateWhy.ts
+msgctxt "translate.model.namedPair"
+msgid "{name} {from} → {to}"
+msgstr ""
+
 #. Reason a GPU translation model cannot load here: {needed} is the model's largest piece, {limit} what this device's graphics processor can bind in one buffer; both are sizes such as "186 MiB" (binary units, kept as they are). Shown under the model's row in Settings → Translation (its Download button greyed out) and, after a lead sentence such as 'Correcting a message needs the language model.', wherever an action needing that model is unavailable.
 #: client/components/Settings/Translation.vue
 #: client/js/helpers/translateWhy.ts
@@ -15040,6 +15297,30 @@ msgctxt "translate.model.smallBufferBuild"
 msgid "This GPU gets a build of the model made for small graphics buffers: its largest buffer is {size}."
 msgstr "Ce GPU reçoit une version du modèle conçue pour les petits tampons graphiques : son plus grand tampon fait {size}."
 
+#. Button on the one-time note saying translation now reads every conversation: opens this conversation's translation panel, where it can be turned off here.
+#: client/components/ChatInput.vue
+msgctxt "translate.note.choose"
+msgid "Choose conversations"
+msgstr ""
+
+#. Button that dismisses a one-time translation note above the message box.
+#: client/components/ChatInput.vue
+msgctxt "translate.note.dismiss"
+msgid "OK"
+msgstr ""
+
+#. One-time note above the message box after an update, for someone who had translation on: it used to be switched on per channel, now it reads every conversation.
+#: client/components/ChatInput.vue
+msgctxt "translate.note.everywhere"
+msgid "Messages in other languages are now translated in every conversation."
+msgstr ""
+
+#. One-time note above the message box right after translation is switched on, shown when nothing on screen needed translating. {language} is the language messages are translated into.
+#: client/components/ChatInput.vue
+msgctxt "translate.note.firstRun"
+msgid "Messages in other languages will now appear in {language}. Tap a translated message to see the original."
+msgstr ""
+
 #. Lead sentence when a translation is unavailable for a language pair (the composer's language sheet, the retranslate dialog, the translation panel's 'Send my messages in'); the reason follows as a sentence of its own. {from} and {to} are language names, already in the interface language.
 #: client/components/SourceLanguagePicker.vue
 #: client/components/TranslationPanel.vue
@@ -15065,6 +15346,18 @@ msgstr "Ajouter une langue…"
 msgctxt "translate.panel.close"
 msgid "Close"
 msgstr "Fermer"
+
+#. The one button in a conversation's translation panel while translation is switched off: it switches translation on for every conversation. {language} is the language name messages will be translated into.
+#: client/components/TranslationPanel.vue
+msgctxt "translate.panel.enable"
+msgid "Translate messages into {language}"
+msgstr ""
+
+#. Line under the button that switches translation on. Translation runs locally; models are downloaded when first needed.
+#: client/components/TranslationPanel.vue
+msgctxt "translate.panel.enableHint"
+msgid "Translation runs on this device and downloads language data as you need it."
+msgstr ""
 
 #. Heading of the translation panel, a dialog of translation settings for one conversation; the conversation's name is shown next to it.
 #: client/components/TranslationPanel.vue
@@ -15102,17 +15395,18 @@ msgctxt "translate.panel.paused"
 msgid "Translation is paused for now: {reason}"
 msgstr ""
 
-#. Explanatory note under the reading switch in the translation panel.
+#. Label of the switch in a conversation's translation panel and the composer's language sheet that keeps translation on (default) or off for this one conversation. {language} is the language name messages are translated into.
 #: client/components/TranslationPanel.vue
-msgctxt "translate.panel.readHint"
-msgid "Lines others send are shown with a translation underneath."
-msgstr "Les lignes envoyées par les autres s'affichent avec une traduction en dessous."
+#: client/components/ComposerLanguageSheet.vue
+msgctxt "translate.panel.readHere"
+msgid "Translate messages here into {language}"
+msgstr ""
 
-#. Label of the on/off switch for translating incoming messages in the translation panel. {language} is the language name they would be translated into.
+#. Hint under the switch that keeps translation on or off for one conversation. Translation reads every conversation unless the user turns it off here.
 #: client/components/TranslationPanel.vue
-msgctxt "translate.panel.readIn"
-msgid "Read messages in {language}"
-msgstr "Lire les messages en {language}"
+msgctxt "translate.panel.readHereHint"
+msgid "On in every conversation. Turn it off to leave this one as written."
+msgstr ""
 
 #. Heading of the translation panel's section about incoming messages, and the label of the on/off control in it.
 #: client/components/TranslationPanel.vue
@@ -15224,6 +15518,30 @@ msgctxt "translate.retry"
 msgid "Retry the translation"
 msgstr "Réessayer la traduction"
 
+#. Label of the list in Settings → Language of languages the user reads besides their main one; messages in them are not translated.
+#: client/components/Settings/Translation.vue
+msgctxt "translate.settings.alsoRead"
+msgid "I also read"
+msgstr ""
+
+#. First option of the select that adds a language to the I also read list. It is an action, not a value.
+#: client/components/Settings/Translation.vue
+msgctxt "translate.settings.alsoReadAdd"
+msgid "Add a language…"
+msgstr ""
+
+#. Hint under the I also read list in Settings → Language.
+#: client/components/Settings/Translation.vue
+msgctxt "translate.settings.alsoReadHint"
+msgid "Messages in these languages are left as written."
+msgstr ""
+
+#. Accessible name and tooltip of the ✕ button on a language in the I also read list. {language} is the language's name.
+#: client/components/Settings/Translation.vue
+msgctxt "translate.settings.alsoReadRemove"
+msgid "Remove {language}"
+msgstr ""
+
 #. Settings → Translation, the line under "Run on" for OPUS-MT on a phone while Auto is chosen: the graphics processor (GPU) could run it, but the app runs it on the main processor (CPU) so that the GPU's memory stays free for the language model (the large AI model, e.g. Qwen3). "Auto" is the choice of that name; "here" means on this device. One sentence.
 #: client/components/Settings/Translation.vue
 msgctxt "translate.settings.autoPicksCpu"
@@ -15326,24 +15644,24 @@ msgctxt "translate.settings.interfaceLanguageLabel"
 msgid "Interface language"
 msgstr "Langue de l'interface"
 
-#. Introductory paragraph of the Translation tab in Settings, explaining that translation runs locally.
+#. Label of the select in Settings → Language choosing the language messages are translated into.
+#: client/components/Settings/Translation.vue
+msgctxt "translate.settings.into"
+msgid "Translate into"
+msgstr ""
+
+#. The first and default option of the Translate into select: follow the interface language. {language} is the interface language's name.
+#: client/components/Settings/Translation.vue
+msgctxt "translate.settings.intoSame"
+msgid "Same as the interface ({language})"
+msgstr ""
+
+#. Introduction at the top of Settings → Language while translation is on.
 #: client/components/Settings/Translation.vue
 #, fuzzy
 msgctxt "translate.settings.intro"
-msgid "Messages are translated on this device by a model it downloads once; nothing is sent to a translation service. Turn it on per channel from Translation… in the channel's menu."
+msgid "Messages in other languages are translated on this device, in every conversation; nothing is sent to a translation service."
 msgstr "Les messages sont traduits sur cet appareil par un modèle qu'il télécharge une seule fois ; rien n'est envoyé à un service de traduction. Activez-la canal par canal avec le bouton de traduction dans l'en-tête du canal."
-
-#. Explanatory note under the language picker in Settings → Translation.
-#: client/components/Settings/Translation.vue
-msgctxt "translate.settings.languageHint"
-msgid "The language the interface is written in and messages are translated into — one control. Automatic follows your browser's language."
-msgstr "La langue de l'interface et la langue de traduction — un contrôle unique. Automatique suit la langue du navigateur."
-
-#. Label of the picker in Settings → Translation that chooses one language for both the interface and the translations of incoming messages.
-#: client/components/Settings/Translation.vue
-msgctxt "translate.settings.languageLabel"
-msgid "Interface and reading language"
-msgstr "Langue de l'interface et de lecture"
 
 #. One option of the language model picker in Settings → Translation. {name} is the model's product name, {size} its download size.
 #: client/components/Settings/Translation.vue
@@ -15673,6 +15991,12 @@ msgstr ""
 #: client/components/Settings/TranslationOptions.vue
 msgctxt "translate.system.notDownloaded"
 msgid "{from} → {to}: not downloaded. You can also download languages in Settings → Apps → Translate."
+msgstr ""
+
+#. Status line in the settings → Translation, the section for the device's own translator (Apple's Translation framework), in the Mac app. "Apple Translation" is the feature's name; keep it recognisable. {from} and {to} are language names. Shown when the download sheet closed without the pack. "System Settings → General → Language & Region → Translation Languages" is the path in the Mac's System Settings; use the system's own names for it.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.system.notDownloadedMac"
+msgid "{from} → {to}: not downloaded. You can also download languages in System Settings → General → Language & Region → Translation Languages."
 msgstr ""
 
 #. Label (for screen readers) of the language picker in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. The user picks a language to translate from, to check or download its pack.

@@ -36,7 +36,24 @@
 					</button>
 				</div>
 
-				<div class="translation-panel-body">
+				<!-- Off by the user's own switch: the panel is the one button that
+				     turns translation on, from the conversation where it was
+				     looked for (spec § Finding it). On, it closes so the lines on
+				     screen translate in front of the reader. -->
+				<div v-if="offByUser" class="translation-panel-body translation-panel-enable">
+					<button
+						type="button"
+						class="btn translation-panel-enable-button"
+						@click="enable"
+					>
+						{{ t("translate.panel.enable", {language: name(readingLanguage())}) }}
+					</button>
+					<span class="translation-panel-hint">{{
+						t("translate.panel.enableHint")
+					}}</span>
+				</div>
+
+				<div v-else class="translation-panel-body">
 					<!-- Nothing here can translate (the engines switched off, a
 				     device that runs neither): said first, as two sentences,
 				     with the Settings link below. -->
@@ -60,12 +77,13 @@
 					</p>
 					<section class="translation-panel-section">
 						<h3>{{ t("translate.panel.reading") }}</h3>
-						<!-- The reading language is not chosen here: it is the
-					     interface's (the one `locale` setting, Settings →
-					     Translation). This is only the switch. -->
+						<!-- Reading is on in every conversation: this switch is the
+					     exclusion ("Don't translate here", channelStore.ts
+					     `exclude`). The language is not chosen here: Settings →
+					     Language's "Translate into". -->
 						<div class="translation-panel-field">
 							<span class="translation-panel-label">{{
-								t("translate.panel.readIn", {language: name(readingLanguage())})
+								t("translate.panel.readHere", {language: name(readingLanguage())})
 							}}</span>
 							<div
 								class="translation-panel-segmented"
@@ -79,9 +97,9 @@
 									type="button"
 									role="radio"
 									class="translation-panel-segment"
-									:aria-checked="state.read === option.value"
-									:tabindex="state.read === option.value ? 0 : -1"
-									:disabled="option.value && !state.read && !!blockedWhy"
+									:aria-checked="reads === option.value"
+									:tabindex="reads === option.value ? 0 : -1"
+									:disabled="option.value && !reads && !!blockedWhy"
 									:aria-describedby="
 										option.value && blockedWhy
 											? 'translation-panel-blocked'
@@ -93,12 +111,12 @@
 								</button>
 							</div>
 							<span
-								v-if="state.read && limited(readingLanguage())"
+								v-if="reads && limited(readingLanguage())"
 								class="translation-panel-limited"
 								>{{ t("translate.limitedLanguage") }}</span
 							>
 							<span class="translation-panel-hint">{{
-								t("translate.panel.readHint")
+								t("translate.panel.readHereHint")
 							}}</span>
 						</div>
 
@@ -242,7 +260,7 @@
 					</section>
 				</div>
 
-				<div class="translation-panel-foot">
+				<div v-if="!offByUser" class="translation-panel-foot">
 					<router-link
 						class="translation-panel-more"
 						to="/settings/translation"
@@ -268,6 +286,7 @@ import {
 	readingLanguage,
 	setChannelOptions,
 	setReading,
+	translationOffByUser,
 } from "../js/translate/reader";
 import {translateWhyText} from "../js/helpers/translateWhy";
 import {isLimitedLanguage} from "../js/translate/routes.default";
@@ -294,6 +313,9 @@ export default defineComponent({
 		const panel = ref<HTMLElement | null>(null);
 		const store = useStore();
 		const state = computed(() => channelTranslation(props.network, props.channel));
+		// Reading here: on unless excluded (translate/switch.ts `readsHere`).
+		const reads = computed(() => !state.value.exclude);
+		const offByUser = computed(() => translationOffByUser());
 		// The limited languages are the selected GPU model's (routes.default.ts).
 		const limited = (code: string | null) =>
 			isLimitedLanguage(
@@ -327,6 +349,17 @@ export default defineComponent({
 			(event.target as HTMLSelectElement | HTMLInputElement).value;
 
 		const close = () => emit("close");
+
+		// Turning translation on is the whole setup: the panel closes, and
+		// what is on screen is read (translate/reader.ts `resumeReading`).
+		const enable = () => {
+			void store.dispatch("settings/update", {
+				name: "translationEnabled",
+				value: true,
+				sync: true,
+			});
+			close();
+		};
 
 		// A press on a header button beside the pane closes it and does what
 		// the button says, as the mentions do, or each would need two presses.
@@ -552,6 +585,9 @@ export default defineComponent({
 			setFormality,
 			onVariant,
 			onRadioKey,
+			reads,
+			offByUser,
+			enable,
 		};
 	},
 });

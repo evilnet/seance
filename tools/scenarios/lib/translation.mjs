@@ -68,19 +68,22 @@ export async function setReadingThroughPanel(page, on) {
 	await closeTranslationPanel(page);
 }
 
-/** JS source: whether the open conversation reads in translation (the store's entry). */
+/**
+ * JS source: whether the open conversation reads in translation: translation
+ * on, and the conversation not excluded (translate/switch.ts `readsHere`).
+ */
 export const READING_ON = `(() => {
 	const store = document.getElementById("app")?.__vue_app__?.config.globalProperties.$store;
 	const active = store?.state.activeChannel;
 
-	if (!active) {
+	if (!active || store.state.settings.translationEnabled !== true) {
 		return false;
 	}
 
 	const entry =
 		store.state.translateChannels[active.network.uuid + "/" + active.channel.name.toLowerCase()];
 
-	return !!(entry && entry.read);
+	return !(entry && entry.exclude);
 })()`;
 
 /** JS source: whether this conversation offers translation at all (the composer's button shows exactly then). */

@@ -15299,6 +15299,30 @@ msgctxt "translate.model.smallBufferBuild"
 msgid "This GPU gets a build of the model made for small graphics buffers: its largest buffer is {size}."
 msgstr ""
 
+#. Button on the one-time note saying translation now reads every conversation: opens this conversation's translation panel, where it can be turned off here.
+#: client/components/ChatInput.vue
+msgctxt "translate.note.choose"
+msgid "Choose conversations"
+msgstr ""
+
+#. Button that dismisses a one-time translation note above the message box.
+#: client/components/ChatInput.vue
+msgctxt "translate.note.dismiss"
+msgid "OK"
+msgstr ""
+
+#. One-time note above the message box after an update, for someone who had translation on: it used to be switched on per channel, now it reads every conversation.
+#: client/components/ChatInput.vue
+msgctxt "translate.note.everywhere"
+msgid "Messages in other languages are now translated in every conversation."
+msgstr ""
+
+#. One-time note above the message box right after translation is switched on, shown when nothing on screen needed translating. {language} is the language messages are translated into.
+#: client/components/ChatInput.vue
+msgctxt "translate.note.firstRun"
+msgid "Messages in other languages will now appear in {language}. Tap a translated message to see the original."
+msgstr ""
+
 #. Lead sentence when a translation is unavailable for a language pair (the composer's language sheet, the retranslate dialog, the translation panel's 'Send my messages in'); the reason follows as a sentence of its own. {from} and {to} are language names, already in the interface language.
 #: client/components/SourceLanguagePicker.vue
 #: client/components/TranslationPanel.vue
@@ -15323,6 +15347,18 @@ msgstr ""
 #: client/components/TranslationPanel.vue
 msgctxt "translate.panel.close"
 msgid "Close"
+msgstr ""
+
+#. The one button in a conversation's translation panel while translation is switched off: it switches translation on for every conversation. {language} is the language name messages will be translated into.
+#: client/components/TranslationPanel.vue
+msgctxt "translate.panel.enable"
+msgid "Translate messages into {language}"
+msgstr ""
+
+#. Line under the button that switches translation on. Translation runs locally; models are downloaded when first needed.
+#: client/components/TranslationPanel.vue
+msgctxt "translate.panel.enableHint"
+msgid "Translation runs on this device and downloads language data as you need it."
 msgstr ""
 
 #. Heading of the translation panel, a dialog of translation settings for one conversation; the conversation's name is shown next to it.
@@ -15361,16 +15397,17 @@ msgctxt "translate.panel.paused"
 msgid "Translation is paused for now: {reason}"
 msgstr ""
 
-#. Explanatory note under the reading switch in the translation panel.
+#. Label of the switch in a conversation's translation panel and the composer's language sheet that keeps translation on (default) or off for this one conversation. {language} is the language name messages are translated into.
 #: client/components/TranslationPanel.vue
-msgctxt "translate.panel.readHint"
-msgid "Lines others send are shown with a translation underneath."
+#: client/components/ComposerLanguageSheet.vue
+msgctxt "translate.panel.readHere"
+msgid "Translate messages here into {language}"
 msgstr ""
 
-#. Label of the on/off switch for translating incoming messages in the translation panel. {language} is the language name they would be translated into.
+#. Hint under the switch that keeps translation on or off for one conversation. Translation reads every conversation unless the user turns it off here.
 #: client/components/TranslationPanel.vue
-msgctxt "translate.panel.readIn"
-msgid "Read messages in {language}"
+msgctxt "translate.panel.readHereHint"
+msgid "On in every conversation. Turn it off to leave this one as written."
 msgstr ""
 
 #. Heading of the translation panel's section about incoming messages, and the label of the on/off control in it.
@@ -15483,6 +15520,30 @@ msgctxt "translate.retry"
 msgid "Retry the translation"
 msgstr ""
 
+#. Label of the list in Settings → Language of languages the user reads besides their main one; messages in them are not translated.
+#: client/components/Settings/Translation.vue
+msgctxt "translate.settings.alsoRead"
+msgid "I also read"
+msgstr ""
+
+#. First option of the select that adds a language to the I also read list. It is an action, not a value.
+#: client/components/Settings/Translation.vue
+msgctxt "translate.settings.alsoReadAdd"
+msgid "Add a language…"
+msgstr ""
+
+#. Hint under the I also read list in Settings → Language.
+#: client/components/Settings/Translation.vue
+msgctxt "translate.settings.alsoReadHint"
+msgid "Messages in these languages are left as written."
+msgstr ""
+
+#. Accessible name and tooltip of the ✕ button on a language in the I also read list. {language} is the language's name.
+#: client/components/Settings/Translation.vue
+msgctxt "translate.settings.alsoReadRemove"
+msgid "Remove {language}"
+msgstr ""
+
 #. Settings → Translation, the line under "Run on" for OPUS-MT on a phone while Auto is chosen: the graphics processor (GPU) could run it, but the app runs it on the main processor (CPU) so that the GPU's memory stays free for the language model (the large AI model, e.g. Qwen3). "Auto" is the choice of that name; "here" means on this device. One sentence.
 #: client/components/Settings/Translation.vue
 msgctxt "translate.settings.autoPicksCpu"
@@ -15585,22 +15646,22 @@ msgctxt "translate.settings.interfaceLanguageLabel"
 msgid "Interface language"
 msgstr ""
 
-#. Introductory paragraph of the Translation tab in Settings, explaining that translation runs locally.
+#. Label of the select in Settings → Language choosing the language messages are translated into.
+#: client/components/Settings/Translation.vue
+msgctxt "translate.settings.into"
+msgid "Translate into"
+msgstr ""
+
+#. The first and default option of the Translate into select: follow the interface language. {language} is the interface language's name.
+#: client/components/Settings/Translation.vue
+msgctxt "translate.settings.intoSame"
+msgid "Same as the interface ({language})"
+msgstr ""
+
+#. Introduction at the top of Settings → Language while translation is on.
 #: client/components/Settings/Translation.vue
 msgctxt "translate.settings.intro"
-msgid "Messages are translated on this device by a model it downloads once; nothing is sent to a translation service. Turn it on per channel from Translation… in the channel's menu."
-msgstr ""
-
-#. Explanatory note under the language picker in Settings → Translation.
-#: client/components/Settings/Translation.vue
-msgctxt "translate.settings.languageHint"
-msgid "The language the interface is written in and messages are translated into — one control. Automatic follows your browser's language."
-msgstr ""
-
-#. Label of the picker in Settings → Translation that chooses one language for both the interface and the translations of incoming messages.
-#: client/components/Settings/Translation.vue
-msgctxt "translate.settings.languageLabel"
-msgid "Interface and reading language"
+msgid "Messages in other languages are translated on this device, in every conversation; nothing is sent to a translation service."
 msgstr ""
 
 #. One option of the language model picker in Settings → Translation. {name} is the model's product name, {size} its download size.

@@ -3,7 +3,7 @@ import sinon from "sinon";
 import {
 	TranslationSwitch,
 	considersLine,
-	readingChannels,
+	readsHere,
 	translationAllowed,
 	translationOffBlock,
 } from "../../client/js/translate/switch";
@@ -310,7 +310,7 @@ describe("translate/switch", () => {
 		});
 	});
 
-	describe("readingChannels", () => {
+	describe("readsHere (the effective-reading rule)", () => {
 		beforeEach(() => {
 			useStorageBackend(memoryBackend());
 		});
@@ -319,26 +319,30 @@ describe("translate/switch", () => {
 			useStorageBackend(null);
 		});
 
-		it("names the channels whose kept per-channel reading is on, network by network", () => {
-			setChannelTranslation("net-a", "#reading", {read: true});
+		it("reads every channel and query while on, unless excluded", () => {
+			expect(readsHere(true, "channel", false)).to.equal(true);
+			expect(readsHere(true, "query", false)).to.equal(true);
+			expect(readsHere(true, "channel", true)).to.equal(false);
+			expect(readsHere(true, "query", true)).to.equal(false);
+		});
+
+		it("never a lobby or a special window, and nothing while off", () => {
+			expect(readsHere(true, "lobby", false)).to.equal(false);
+			expect(readsHere(true, "special", false)).to.equal(false);
+			expect(readsHere(false, "channel", false)).to.equal(false);
+		});
+
+		it("a write target neither switches reading on nor undoes an exclusion", () => {
 			setChannelTranslation("net-a", "#writing", {write: "de"});
-			setChannelTranslation("net-b", "alice", {read: true});
+			setChannelTranslation("net-a", "#quiet", {exclude: true});
+			setChannelTranslation("net-a", "#quiet", {write: "pt"});
 
-			const networks = [
-				{
-					uuid: "net-a",
-					channels: [{name: "#reading"}, {name: "#writing"}, {name: "#quiet"}],
-				},
-				{uuid: "net-b", channels: [{name: "alice"}]},
-			];
-			const found = readingChannels(
-				networks,
-				(network, channel) => getChannelTranslation(network.uuid, channel.name).read
-			);
+			const excluded = (name: string) => getChannelTranslation("net-a", name).exclude;
 
-			expect(
-				found.map(({network, channel}) => `${network.uuid}/${channel.name}`)
-			).to.deep.equal(["net-a/#reading", "net-b/alice"]);
+			expect(readsHere(true, "channel", excluded("#writing"))).to.equal(true);
+			expect(readsHere(true, "channel", excluded("#quiet"))).to.equal(false);
+			// A conversation nobody touched reads.
+			expect(readsHere(true, "channel", excluded("#untouched"))).to.equal(true);
 		});
 	});
 });

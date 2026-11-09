@@ -2420,6 +2420,36 @@ describe("translate/service", () => {
 			r.service.dispose();
 		});
 
+		it("a small copy the user removed stays removed: reading offers it, a yes brings it back", async () => {
+			const ask = asker();
+			const removed = memoryConsent();
+			const r = rig("cpu", true, ROUTES, {askDownload: ask.askDownload, removed});
+			clock = r.clock;
+			const opus = catalog.opus["de-en"];
+
+			expect((await r.service.route("de", "en"))?.ref.id).to.equal(opus.id);
+			await r.service.remove(opus, "cpu");
+			expect(removed.has(opus.id)).to.equal(true);
+
+			// Reading never fetches it back quietly, small as it is: the
+			// line is refused naming it, and nobody was asked.
+			r.service.setSettings({switches: {llm: false, opus: true, nllb: false}, devices: AUTO});
+
+			const quiet = await r.service.resolve("de", "en", null, {quiet: true});
+
+			expect(quiet.route).to.equal(null);
+			expect(quiet.refused?.id).to.equal(opus.id);
+			expect(ask.asked).to.deep.equal([]);
+
+			// The line's Download asks for it again: routed, and no longer removed.
+			r.service.allowDownload(opus.id, "cpu");
+			expect(removed.has(opus.id)).to.equal(false);
+			expect(
+				(await r.service.resolve("de", "en", null, {quiet: true})).route?.ref.id
+			).to.equal(opus.id);
+			r.service.dispose();
+		});
+
 		it("asks before a small copy on a metered connection", async () => {
 			const metered = asker();
 			const m = rig("cpu", true, ROUTES, {
