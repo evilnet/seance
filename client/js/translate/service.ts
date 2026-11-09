@@ -890,10 +890,18 @@ export class TranslateService {
 		}
 
 		const status = await apple.status(source, to);
+		// Asked again after every wait: the switch, or translation as a
+		// whole, may have gone off since, and a sheet the shell is handed
+		// cannot be taken back.
+		const allowed = () => !this.disposed && this.settings.system !== false;
 
 		// A pack that can be downloaded is offered once (engines/apple.ts
 		// `offer`): the system's sheet, then the table if it is declined.
-		if (status === "installed" || (status === "supported" && (await apple.offer(source, to)))) {
+		if (
+			allowed() &&
+			(status === "installed" ||
+				(status === "supported" && (await apple.offer(source, to, allowed)) && allowed()))
+		) {
 			return {candidate: "apple", ref: APPLE_REF, device: "cpu"};
 		}
 

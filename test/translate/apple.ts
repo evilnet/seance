@@ -184,6 +184,65 @@ describe("translate/engines/apple", () => {
 			expect(bridge.calls.filter((c) => c.method === "prepare")).to.have.length(1);
 		});
 
+		it("shows one sheet at a time, another pair's offer waiting for it to close", async () => {
+			const bridge = fakeBridge({"pl>en": "supported", "sv>en": "supported"});
+			let open = 0;
+			let most = 0;
+			const closes: (() => void)[] = [];
+			const apple = new AppleTranslator({
+				invoke<T>(method: string, options: Record<string, unknown>): Promise<T> {
+					if (method !== "prepare") {
+						return bridge.deps.invoke<T>(method, options);
+					}
+
+					open++;
+					most = Math.max(most, open);
+
+					return new Promise<void>((resolve) => closes.push(resolve)).then(() => {
+						open--;
+
+						return bridge.deps.invoke<T>(method, options);
+					});
+				},
+			});
+
+			const pl = apple.offer("pl", "en");
+			const sv = apple.offer("sv", "en");
+
+			await Promise.resolve();
+			await Promise.resolve();
+			expect(closes).to.have.length(1);
+			closes[0]();
+			expect(await pl).to.equal(true);
+			await Promise.resolve();
+			expect(closes).to.have.length(2);
+			closes[1]();
+			expect(await sv).to.equal(true);
+			expect(most).to.equal(1);
+		});
+
+		it("declined, no other pair is offered on this page load", async () => {
+			const bridge = fakeBridge({"pl>en": "supported", "sv>en": "supported"});
+			const apple = new AppleTranslator(bridge.deps);
+
+			bridge.sheet = "decline";
+
+			const answers = await Promise.all([apple.offer("pl", "en"), apple.offer("sv", "en")]);
+
+			expect(answers).to.deep.equal([false, false]);
+			expect(await apple.offer("sv", "en")).to.equal(false);
+			expect(bridge.calls.filter((c) => c.method === "prepare")).to.have.length(1);
+		});
+
+		it("not allowed by the time its turn comes, shows nothing and may be offered later", async () => {
+			const bridge = fakeBridge({"pl>en": "supported"});
+			const apple = new AppleTranslator(bridge.deps);
+
+			expect(await apple.offer("pl", "en", () => false)).to.equal(false);
+			expect(bridge.calls.filter((c) => c.method === "prepare")).to.have.length(0);
+			expect(await apple.offer("pl", "en")).to.equal(true);
+		});
+
 		it("accepted but still downloading, it asks the status afresh until the pack lands", async () => {
 			const bridge = fakeBridge({"pl>en": "supported"});
 			const apple = new AppleTranslator(bridge.deps);
