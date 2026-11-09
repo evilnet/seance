@@ -54,7 +54,7 @@ strip = true
 # view's own rendering to a file — screenshots that do not need the screen,
 # which a locked or headless machine does not give. Off in every real build.
 [features]
-snapshot = ["dep:objc2", "dep:objc2-web-kit", "dep:objc2-app-kit", "dep:objc2-foundation", "dep:objc2-core-foundation", "dep:block2"]
+snapshot = ["dep:objc2-web-kit", "dep:objc2-foundation", "dep:objc2-core-foundation"]
 
 # The OS's notifications (src/alerts.rs): toasts on Windows, the freedesktop
 # notification server over D-Bus on Linux. macOS has its own Swift
@@ -69,9 +69,11 @@ zbus = { version = "=5.19.0", default-features = false, features = ["blocking-ap
 webkit2gtk = "=2.0.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2 = { version = "0.6", optional = true }
+# The menu bar's shortcuts ahead of the web view (lib.rs
+# page_menu_shortcuts_first); the snapshot feature uses the rest.
+objc2 = "0.6"
 objc2-web-kit = { version = "0.3", optional = true, features = ["WKWebView", "WKSnapshotConfiguration", "block2", "objc2-app-kit", "objc2-core-foundation"] }
-objc2-app-kit = { version = "0.3", optional = true, features = ["NSImage", "NSResponder", "NSView"] }
+objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSEvent", "NSImage", "NSMenu", "NSResponder", "NSView", "block2"] }
 objc2-foundation = { version = "0.3", optional = true, features = ["NSData", "NSString", "NSError"] }
-block2 = { version = "0.6", optional = true }
+block2 = "0.6"
 objc2-core-foundation = { version = "0.3", optional = true, features = ["CFCGTypes"] }

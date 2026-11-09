@@ -565,6 +565,7 @@ fn install_mac_menu(app: &AppHandle) -> tauri::Result<()> {
     )?)?;
 
     app.set_menu(menu)?;
+    page_menu_shortcuts_first();
     app.on_menu_event(|app, event| {
         let action = event.id().as_ref();
 
@@ -577,6 +578,61 @@ fn install_mac_menu(app: &AppHandle) -> tauri::Result<()> {
     });
 
     Ok(())
+}
+
+/// The shortcuts of the menu items above go to the menu bar before the web
+/// view. WebKit offers a key equivalent to the page first and passes it on to
+/// the menu only when the page leaves it, and with the focus in a text field
+/// (the composer, almost always) it keeps ⌘1–9 and ⌘, for itself, so those
+/// items answered a click and never their keys. AppKit's own items (⌘H, ⌘Q,
+/// ⌘C) are not touched: only these chords are taken, and only when the menu
+/// has an enabled item for them.
+#[cfg(target_os = "macos")]
+fn page_menu_shortcuts_first() {
+    use block2::RcBlock;
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::{NSApplication, NSEvent, NSEventMask, NSEventModifierFlags};
+    use std::ptr::NonNull;
+
+    let handler = RcBlock::new(|event: NonNull<NSEvent>| -> *mut NSEvent {
+        // SAFETY: AppKit hands the monitor a live event for the call.
+        let e = unsafe { event.as_ref() };
+        let mods = e.modifierFlags()
+            & (NSEventModifierFlags::Command
+                | NSEventModifierFlags::Control
+                | NSEventModifierFlags::Option
+                | NSEventModifierFlags::Shift);
+        let key = e
+            .charactersIgnoringModifiers()
+            .map(|k| k.to_string().to_lowercase())
+            .unwrap_or_default();
+        let cmd = NSEventModifierFlags::Command;
+        let ours = match key.as_str() {
+            "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "," => mods == cmd,
+            "s" => mods == cmd | NSEventModifierFlags::Control,
+            "/" | "?" => mods == cmd | NSEventModifierFlags::Shift,
+            _ => false,
+        };
+
+        if ours {
+            if let Some(menu) = MainThreadMarker::new()
+                .and_then(|mtm| NSApplication::sharedApplication(mtm).mainMenu())
+            {
+                if menu.performKeyEquivalent(e) {
+                    return std::ptr::null_mut();
+                }
+            }
+        }
+
+        event.as_ptr()
+    });
+
+    // SAFETY: called on the main thread at setup; the monitor lives as long
+    // as the app, so the token is never removed.
+    let monitor = unsafe {
+        NSEvent::addLocalMonitorForEventsMatchingMask_handler(NSEventMask::KeyDown, &handler)
+    };
+    std::mem::forget(monitor);
 }
 
 /// Close follows the platform (desktop-shells.md § 5.2): a Mac app keeps
