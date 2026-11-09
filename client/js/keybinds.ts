@@ -44,7 +44,7 @@ function visibleWindows(): ClientChan[] {
 	return flat;
 }
 
-// Jump to the Nth conversation in the sidebar with a digit: ⌘1–9 in the app
+// Jump to the Nth channel or query in the sidebar with a digit (lobbies not counted): ⌘1–9 in the app
 // on Apple systems, Ctrl+1–9 in the app elsewhere, Alt+1–9 in a browser on
 // Windows, and nothing where every chord is taken (helpers/numberShortcut.ts).
 // From the composer too: no layout types a character with these chords.
@@ -54,7 +54,10 @@ if (numberModifier) {
 	Mousetrap.bind(
 		["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((n) => `${numberModifier}+${n}`),
 		function (_e, keys) {
-			const target = visibleWindows()[Number(keys.split("+").pop()) - 1];
+			// Channels and queries only: a network's lobby is not a channel,
+			// as in other clients' ⌘1–9.
+			const conversations = visibleWindows().filter((chan) => chan.type !== ChanType.LOBBY);
+			const target = conversations[Number(keys.split("+").pop()) - 1];
 
 			if (target) {
 				jumpToChannel(target);

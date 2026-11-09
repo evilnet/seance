@@ -2776,10 +2776,10 @@ msgctxt "help.shortcuts.nextWindow"
 msgid "Switch to the next window in the channel list."
 msgstr ""
 
-#. Description of the modifier+1 to 9 keyboard shortcut in the help window (⌘ in the macOS app, Ctrl in the app elsewhere, Alt in a browser on Windows); each digit jumps to the conversation at that position in the sidebar.
+#. Description of the modifier+1 to 9 keyboard shortcut in the help window (⌘ in the macOS app, Ctrl in the app elsewhere, Alt in a browser on Windows); each digit jumps to the channel or private chat at that position in the sidebar, network entries not counted.
 #: client/components/Windows/Help.vue
 msgctxt "help.shortcuts.nthWindow"
-msgid "Switch to that window in the channel list: 1 is the first, 9 the ninth."
+msgid "Switch to that channel in the channel list: 1 is the first channel, 9 the ninth. Networks are not counted."
 msgstr ""
 
 #. Description of the Alt+Shift+Up keyboard shortcut in the help window; it moves to the previous network's home view in the sidebar.
