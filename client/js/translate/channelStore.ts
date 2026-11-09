@@ -254,9 +254,12 @@ export function setChannelTranslation(
 	delete rest.terms;
 	const next: ChannelTranslation = {...current, ...rest};
 
-	// A send target is a pick too (`once`): remembered past its Off.
+	// A send target is a pick too (`once`): remembered past its Off. A
+	// record saved before targets set `once` keeps its target at the Off.
 	if (rest.write) {
 		next.once = rest.write;
+	} else if ("write" in rest && !next.once && current.write) {
+		next.once = current.write;
 	}
 
 	// The patch comes from the panel, so the codes are checked here as well

@@ -736,9 +736,9 @@ export default async function run(page) {
 		// nothing preselected -- never a disabled dialog, and never the
 		// first language on the list passed off as a setting.
 		page.check(
-			`${name}: the dialog opens on ${
-				llm ? "the cleanup pass" : "no preselection"
-			} (${openedOn || "none"}, ${opened.disabled ? "disabled" : "enabled"})`,
+			`${name}: the dialog opens on ${llm ? "the cleanup pass" : "no preselection"} (${
+				openedOn || "none"
+			}, ${opened.disabled ? "disabled" : "enabled"})`,
 			!opened.disabled && (llm ? openedOn === "en" : openedOn === "")
 		);
 		await page.screenshot(`${name}-composer-opened`, {selector: PICKER, pad: 8});

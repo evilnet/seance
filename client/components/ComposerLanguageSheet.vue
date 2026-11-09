@@ -285,7 +285,10 @@ export default defineComponent({
 		// tap away, but "They read" says "Choose…" until something is picked
 		// -- a sheet that opened on "They read German" looked switched on.
 		const picked = ref(false);
-		const shownTo = computed(() => props.target ?? (picked.value ? to.value : ""));
+		// A pick made here shows over the target that is set: a blocked
+		// tap or swap keeps the sheet up, and "They read" must name what
+		// the hint below and Enter are about.
+		const shownTo = computed(() => (picked.value ? to.value : props.target ?? ""));
 
 		const reading = computed(() => channelTranslation(props.network, props.channel).read);
 		const readBlocked = computed(() => currentTranslationBlock() !== null);

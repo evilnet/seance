@@ -666,9 +666,9 @@ export default async function run(page) {
 	await page.fill(INPUT, `and this one too ${RUN}`);
 	await openSheet("the sheet again");
 	await page.check(
-		"the sheet suggests English, the last pick",
+		"the sheet suggests German, the target just turned off",
 		(await page.evaluate(sideValue(1))) === "Choose…" &&
-			(await page.evaluate(`!!document.querySelector('${row("en")}.pending')`))
+			(await page.evaluate(`!!document.querySelector('${row("de")}.pending')`))
 	);
 	// "I write" first: its pick names the source and moves on to "They read".
 	await page.click(`${SHEET} .language-sheet-side:first-child`);
