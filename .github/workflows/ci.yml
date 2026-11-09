@@ -24,7 +24,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
+  # Lint and the type check need no build, so they run beside the build and
+  # the tests rather than ahead of them.
+  lint:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -52,23 +54,50 @@ jobs:
       - name: Type check
         run: pnpm typecheck
 
-      # Before mocha: test/tests/build.ts inspects public/.
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: ".node-version"
+
+      - name: Install pnpm
+        run: npm install --global "$(node -p 'require("./package.json").packageManager')"
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Before mocha: test/tests/build.ts inspects public/. The one build:
+      # mocha and the smoke test both run against this production tree
+      # (`pnpm test:mocha` would build public/ again, in development mode).
       - name: Production build
         run: pnpm build
         env:
           NODE_ENV: production
 
       - name: Mocha
-        run: pnpm test:mocha
+        run: pnpm test:mocha:built
 
       # tools/scenarios/smoke.mjs: the connect form appears, and nothing
       # throws or logs an error. Ubuntu 24.04's AppArmor forbids the
       # unprivileged user namespaces Chromium's sandbox needs, and
       # browser-drive keeps the sandbox on, so lift that for this runner.
+      # The runner image ships Google Chrome; Playwright's Chromium (and its
+      # system packages) is fetched only on an image without it.
       - name: Smoke
         run: |
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-          pnpm exec playwright install --with-deps chromium
-          export CHROME_BIN="$(node -e 'console.log(require("@playwright/test").chromium.executablePath())')"
+          CHROME_BIN="$(command -v google-chrome || true)"
+          if [ -z "$CHROME_BIN" ]; then
+            pnpm exec playwright install --with-deps --no-shell chromium
+            CHROME_BIN="$(node -e 'console.log(require("@playwright/test").chromium.executablePath())')"
+          fi
+          export CHROME_BIN
+          "$CHROME_BIN" --version
           python3 -m http.server -d public 8000 &
+          trap 'kill $!' EXIT
           node tools/browser-drive.mjs tools/scenarios/smoke.mjs --no-ws
