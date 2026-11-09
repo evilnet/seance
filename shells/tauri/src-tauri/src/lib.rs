@@ -527,10 +527,11 @@ fn enable_spell_checking(_: &WebviewWindow) {}
 
 /// The Mac app's menu bar: Tauri's default menu with what a Mac app is
 /// expected to have besides, each with its usual shortcut: Settings… (⌘,) in
-/// the app menu, Toggle Sidebar (⌃⌘S) in View and the app's help (⌘?) in
-/// Help. Those three are the page's to carry out; the shell hands it the
-/// item's id as `App.menuAction` (client/js/native.ts). The rest are
-/// AppKit's own items.
+/// the app menu, Toggle Sidebar (⌃⌘S) in View, Channel 1…9 (⌘1–⌘9) in Go
+/// and the app's help (⌘?) in Help. Those are the page's to carry out; the
+/// shell hands it the item's id as `App.menuAction` `{action}`
+/// (client/js/native.ts; `go.channel.N` is the keyboard switcher's). The
+/// rest are AppKit's own items.
 #[cfg(target_os = "macos")]
 fn install_mac_menu(app: &AppHandle) -> tauri::Result<()> {
     use tauri::menu::{AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu};
@@ -597,6 +598,23 @@ fn install_mac_menu(app: &AppHandle) -> tauri::Result<()> {
             &PredefinedMenuItem::fullscreen(app, None)?,
         ],
     )?;
+    // Channel 1…9 (⌘1–⌘9): the page picks which conversation is Nth.
+    let channels = (1..=9)
+        .map(|n| {
+            MenuItem::with_id(
+                app,
+                format!("go.channel.{n}"),
+                format!("Channel {n}"),
+                true,
+                Some(format!("CmdOrCtrl+{n}").as_str()),
+            )
+        })
+        .collect::<tauri::Result<Vec<_>>>()?;
+    let channel_items: Vec<&dyn tauri::menu::IsMenuItem<_>> = channels
+        .iter()
+        .map(|item| item as &dyn tauri::menu::IsMenuItem<_>)
+        .collect();
+    let go_menu = Submenu::with_items(app, "Go", true, &channel_items)?;
     let window_menu = Submenu::with_items(
         app,
         "Window",
@@ -628,6 +646,7 @@ fn install_mac_menu(app: &AppHandle) -> tauri::Result<()> {
             &file_menu,
             &edit_menu,
             &view_menu,
+            &go_menu,
             &window_menu,
             &help_menu,
         ],
@@ -638,7 +657,9 @@ fn install_mac_menu(app: &AppHandle) -> tauri::Result<()> {
     app.on_menu_event(|app, event| {
         let action = event.id().as_ref();
 
-        if matches!(action, "settings" | "toggleSidebar" | "help") {
+        if matches!(action, "settings" | "toggleSidebar" | "help")
+            || action.starts_with("go.channel.")
+        {
             show_main(app);
             emit(app, "App", "menuAction", json!({ "action": action }), false);
         }
