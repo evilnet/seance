@@ -36,9 +36,6 @@
 				/>
 				{{ t("settings.general.ircLinks", {appName}) }}
 			</label>
-			<p v-if="ircLinks && ircLinksOverridden" class="keepalive-hint">
-				{{ t("settings.general.ircLinksOverridden") }}
-			</p>
 			<button
 				v-if="canShowGuide"
 				id="show-install-guide"
@@ -234,9 +231,6 @@ import {
 	SettingsBackup,
 } from "../../js/helpers/settingsBackup";
 
-/** The shell's `App.ircLinks` answer (shells/tauri/src-tauri/src/lib.rs). */
-type IrcLinksAnswer = {enabled?: unknown; overridden?: unknown};
-
 export default defineComponent({
 	name: "GeneralSettings",
 	setup() {
@@ -321,8 +315,7 @@ export default defineComponent({
 		// reads as off. null: no switch (a browser, macOS, an older shell).
 		const ircLinks = ref<boolean | null>(null);
 		const ircLinksBusy = ref(false);
-		/** Windows: the user's pick in Default apps sends them elsewhere anyway. */
-		const ircLinksOverridden = ref(false);
+
 		const askIrcLinks = async (options: {enable?: boolean} = {}) => {
 			const platform = nativePlatform();
 
@@ -331,17 +324,17 @@ export default defineComponent({
 			}
 
 			ircLinksBusy.value = true;
-			// A refused change still answers with where things stand.
-			const answer =
-				(await nativeCall<IrcLinksAnswer>("App", "ircLinks", options)) ??
-				(options.enable === undefined
-					? null
-					: await nativeCall<IrcLinksAnswer>("App", "ircLinks"));
+
+			if (options.enable !== undefined) {
+				await nativeCall("App", "ircLinks", options);
+			}
+
+			// Whatever the change did, show where things stand now.
+			const answer = await nativeCall<{enabled?: unknown}>("App", "ircLinks");
 			ircLinksBusy.value = false;
 
 			if (answer && typeof answer.enabled === "boolean") {
 				ircLinks.value = answer.enabled;
-				ircLinksOverridden.value = answer.overridden === true;
 			}
 		};
 		const toggleIrcLinks = async (event: Event) => {
@@ -524,7 +517,6 @@ export default defineComponent({
 			store,
 			ircLinks,
 			ircLinksBusy,
-			ircLinksOverridden,
 			toggleIrcLinks,
 			t,
 			uploadCanvasHelp,

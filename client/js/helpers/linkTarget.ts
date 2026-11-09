@@ -33,11 +33,12 @@
 
 import {defaultPort, hostnameOf, type SavedNetwork} from "../irc/saved-networks";
 import {parseJoinList} from "../irc/client";
+import type {ConnectOptions} from "../irc/types";
 
 /** A web+irc: link names a wss:// endpoint; no port and no saved network means 443. */
 const DEFAULT_LINK_PORT = 443;
 
-export type LinkTransport = "tcp" | "websocket";
+export type LinkTransport = NonNullable<ConnectOptions["transport"]>;
 
 /** The connection details a URL may suggest. No password field, on purpose. */
 export interface LinkSuggestion {
@@ -81,7 +82,8 @@ function firstString(value: unknown): string {
  * Read a suggestion out of a query-parameter object (`parseIrcUri` output or
  * raw `?host=…` entries). `undefined` when no server is named. Password and
  * autoconnect parameters are deliberately never read. `transport: "tcp"` is
- * honoured only when the page can dial TCP (`tcp`, the app shell).
+ * honoured only when the page can dial TCP (`tcp`, the app shell); a browser
+ * keeps such a link's host and channels and asks for wss:// on 443 instead.
  */
 export function linkSuggestion(
 	params: Record<string, unknown>,
@@ -93,12 +95,14 @@ export function linkSuggestion(
 		return undefined;
 	}
 
-	const port = Number(firstString(params.port));
+	const tcpLink = firstString(params.transport) === "tcp";
+	const transport: LinkTransport = tcpLink && options.tcp === true ? "tcp" : "websocket";
+	// A TCP link's port and cleartext mean nothing to a WebSocket.
+	const unusable = tcpLink && transport !== "tcp";
+	const port = unusable ? NaN : Number(firstString(params.port));
 	const portGiven = Number.isInteger(port) && port > 0 && port <= 65535;
 	const tlsParam = firstString(params.tls);
-	const tls = !(tlsParam === "0" || tlsParam === "false");
-	const transport: LinkTransport =
-		options.tcp === true && firstString(params.transport) === "tcp" ? "tcp" : "websocket";
+	const tls = unusable || !(tlsParam === "0" || tlsParam === "false");
 	const suggestion: LinkSuggestion = {
 		host,
 		port: portGiven ? port : transport === "tcp" ? defaultPort(tls, "tcp") : DEFAULT_LINK_PORT,
@@ -129,24 +133,23 @@ export function decideLinkTarget(suggestion: LinkSuggestion, policy: LinkPolicy)
 		return {kind: "locked", suggestion};
 	}
 
-	// Never weaker than the link: a TLS link needs a TLS network. A port the
-	// link names has to agree only on its own transport (a port means
-	// nothing across transports), and only when the link asked for TLS: a
-	// plain link's port is a cleartext one, and the upgrade is the point.
-	const eligible = policy.saved.filter((net) => {
-		const sameTransport = transportOf(net) === suggestion.transport;
-		return (
-			hostnameOf(net.host).toLowerCase() === host &&
-			(net.tls || !suggestion.tls) &&
-			(!suggestion.portGiven ||
-				!sameTransport ||
-				net.port === suggestion.port ||
-				(net.tls && !suggestion.tls))
-		);
-	});
+	const sameTransport = (net: SavedNetwork) => transportOf(net) === suggestion.transport;
+	// Never weaker than the link: a TLS link needs a TLS network.
+	const notWeaker = (net: SavedNetwork) => net.tls || !suggestion.tls;
+	// A port the link names has to agree only with a network it would
+	// otherwise reach the same way: same transport (a port means nothing
+	// across transports) and same TLS (a plain link's port is a cleartext
+	// one, and upgrading is the point).
+	const portAgrees = (net: SavedNetwork) =>
+		!suggestion.portGiven ||
+		!sameTransport(net) ||
+		net.tls !== suggestion.tls ||
+		net.port === suggestion.port;
+	const eligible = policy.saved.filter(
+		(net) => hostnameOf(net.host).toLowerCase() === host && notWeaker(net) && portAgrees(net)
+	);
 	// TLS first, wherever it is saved; then the link's own transport.
-	const rank = (net: SavedNetwork) =>
-		(net.tls ? 0 : 2) + (transportOf(net) === suggestion.transport ? 0 : 1);
+	const rank = (net: SavedNetwork) => (net.tls ? 0 : 2) + (sameTransport(net) ? 0 : 1);
 	const network = eligible.reduce<SavedNetwork | undefined>(
 		(best, net) => (best === undefined || rank(net) < rank(best) ? net : best),
 		undefined

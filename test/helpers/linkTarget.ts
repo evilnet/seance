@@ -78,9 +78,7 @@ describe("linkTarget helper", function () {
 
 		it("reads an irc:// or ircs:// link as TCP in the app, with 6667 / 6697 defaults", function () {
 			const app = {tcp: true};
-			expect(
-				linkSuggestion(parseIrcUri("irc://irc.example.org/#chan", app), app)
-			).to.deep.equal({
+			expect(linkSuggestion(parseIrcUri("irc://irc.example.org/#chan"), app)).to.deep.equal({
 				host: "irc.example.org",
 				port: 6667,
 				portGiven: false,
@@ -88,9 +86,7 @@ describe("linkTarget helper", function () {
 				transport: "tcp",
 				join: "#chan",
 			});
-			expect(
-				linkSuggestion(parseIrcUri("ircs://irc.example.org/#chan", app), app)
-			).to.deep.equal({
+			expect(linkSuggestion(parseIrcUri("ircs://irc.example.org/#chan"), app)).to.deep.equal({
 				host: "irc.example.org",
 				port: 6697,
 				portGiven: false,
@@ -98,7 +94,7 @@ describe("linkTarget helper", function () {
 				transport: "tcp",
 				join: "#chan",
 			});
-			expect(linkSuggestion(parseIrcUri("irc://irc.example.org:7000", app), app)).to.include({
+			expect(linkSuggestion(parseIrcUri("irc://irc.example.org:7000"), app)).to.include({
 				port: 7000,
 				portGiven: true,
 				tls: false,

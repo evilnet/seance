@@ -311,7 +311,7 @@ async function handleQueryParams(
 	// says there; a browser reads only its host and channels.
 	const tcp = isShell();
 	const raw = params.has("uri")
-		? (parseIrcUri(String(params.get("uri")), {tcp}) as Record<string, unknown>)
+		? (parseIrcUri(String(params.get("uri"))) as Record<string, unknown>)
 		: (Object.fromEntries(params.entries()) as Record<string, unknown>);
 
 	if (clean) {

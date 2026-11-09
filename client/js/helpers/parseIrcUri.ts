@@ -10,11 +10,10 @@
  *   TCP connection we cannot make). Always `wss://`; no port means the saved
  *   network's, else 443 (`linkTarget.ts`).
  * - `irc:` / `ircs:` name a TCP IRC server
- *   (https://datatracker.ietf.org/doc/html/draft-butcher-irc-url-04). The app
- *   shell can dial one (`{tcp: true}`): plain TCP for `irc:`, TLS for
- *   `ircs:`, the link's port or 6667 / 6697 (`linkTarget.ts`). A browser
- *   cannot, so there they are read for their host and channels only, and
- *   their port is ignored.
+ *   (https://datatracker.ietf.org/doc/html/draft-butcher-irc-url-04):
+ *   `transport: "tcp"`, cleartext for `irc:`, TLS for `ircs:`, with the
+ *   link's port. Only the app shell can dial one; in a browser
+ *   `linkTarget.ts` keeps their host and channels and drops the rest.
  *
  * Anything else — an unknown scheme, no host, an unparseable URL — yields an
  * empty object, which leaves the connect form on its own defaults.
@@ -27,19 +26,11 @@ export interface ParsedIrcUri {
 	port?: string;
 	tls: boolean;
 	join: string;
-	/** Only for an `irc:` / `ircs:` link read with `{tcp: true}`. */
+	/** Only for an `irc:` / `ircs:` link. */
 	transport?: "tcp";
 }
 
-export interface ParseOptions {
-	/** The page can dial raw TCP (the app shell): read `irc:`/`ircs:` as TCP. */
-	tcp?: boolean;
-}
-
-export default (
-	stringUri: string,
-	options: ParseOptions = {}
-): ParsedIrcUri | Record<string, never> => {
+export default (stringUri: string): ParsedIrcUri | Record<string, never> => {
 	let uri: URL;
 
 	try {
@@ -48,13 +39,9 @@ export default (
 		return {}; // do nothing on invalid uri
 	}
 
-	// Legacy IRC links (https://tools.ietf.org/html/draft-butcher-irc-url-04)
-	// keep their host and channels; only web+irc(s): carries a usable port,
-	// unless the page can dial TCP.
-	const legacy = uri.protocol === "irc:" || uri.protocol === "ircs:";
-	const tcp = legacy && options.tcp === true;
+	const tcp = uri.protocol === "irc:" || uri.protocol === "ircs:";
 
-	if (!legacy && uri.protocol !== "web+irc:" && uri.protocol !== "web+ircs:") {
+	if (!tcp && uri.protocol !== "web+irc:" && uri.protocol !== "web+ircs:") {
 		return {};
 	}
 
@@ -102,7 +89,7 @@ export default (
 	// host": a saved network there matches whatever port it uses, and the
 	// connect form falls back to 443, or 6667 / 6697 over TCP
 	// (linkTarget.ts).
-	if ((!legacy || tcp) && uri.port) {
+	if (uri.port) {
 		parsed.port = uri.port;
 	}
 

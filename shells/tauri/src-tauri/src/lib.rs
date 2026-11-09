@@ -131,10 +131,9 @@ fn is_irc_link(value: &str) -> bool {
 const TCP_SCHEMES: [&str; 2] = ["irc", "ircs"];
 
 /// `App.ircLinks`: `{enable: bool}` claims `irc:`/`ircs:` for this app or
-/// gives them up; with or without it, answers `{enabled, overridden}`:
-/// whether both point here now, and (Windows) whether the user's choice in
-/// Default apps sends them elsewhere anyway. A claim that fails half way is
-/// undone, so the switch never reads off while one scheme is still taken.
+/// gives them up; with or without it, answers `{enabled}`, whether both
+/// point here now. A claim that fails half way is undone, so the switch never
+/// reads off while one scheme is still taken.
 #[cfg(any(windows, target_os = "linux"))]
 async fn irc_links(app: AppHandle, options: &Value) -> Result<Value, ShellError> {
     let enable = options.get("enable").and_then(Value::as_bool);
@@ -168,8 +167,10 @@ async fn irc_links(app: AppHandle, options: &Value) -> Result<Value, ShellError>
             None => {}
         }
 
-        let enabled = TCP_SCHEMES.iter().all(|scheme| holds_link(links, scheme));
-        Ok(json!({ "enabled": enabled, "overridden": enabled && TCP_SCHEMES.iter().any(|scheme| chosen_elsewhere(scheme)) }))
+        let enabled = TCP_SCHEMES
+            .iter()
+            .all(|scheme| links.is_registered(scheme).unwrap_or(false));
+        Ok(json!({ "enabled": enabled }))
     })
     .await
     .map_err(|e| failed(e.to_string()))?
@@ -189,67 +190,30 @@ fn release_link(
     links.unregister(scheme).map_err(|e| e.to_string())
 }
 
+/// Only this user's class, while it still runs the command the plugin's
+/// `register()` writes (`"<exe>" "%1"`, tauri-plugin-deep-link 2.6.3; the
+/// NSIS uninstaller makes the same check, windows/hooks.nsh).
 #[cfg(windows)]
 fn release_link(
     _: &tauri_plugin_deep_link::DeepLink<tauri::Wry>,
     scheme: &str,
 ) -> Result<(), String> {
-    if win_links::owned(scheme) {
-        windows_registry::CURRENT_USER
-            .remove_tree(win_links::class(scheme))
+    use windows_registry::CURRENT_USER;
+
+    let exe = tauri::utils::platform::current_exe().map_err(|e| e.to_string())?;
+    let ours = format!("\"{}\" \"%1\"", dunce::simplified(&exe).display());
+    let class = format!("Software\\Classes\\{scheme}");
+    let owned = CURRENT_USER
+        .open(format!("{class}\\shell\\open\\command"))
+        .and_then(|key| key.get_string(""))
+        .is_ok_and(|command| command == ours);
+
+    if owned {
+        CURRENT_USER
+            .remove_tree(&class)
             .map_err(|e| e.to_string())?;
     }
     Ok(())
-}
-
-#[cfg(target_os = "linux")]
-fn holds_link(links: &tauri_plugin_deep_link::DeepLink<tauri::Wry>, scheme: &str) -> bool {
-    links.is_registered(scheme).unwrap_or(false)
-}
-
-#[cfg(windows)]
-fn holds_link(_: &tauri_plugin_deep_link::DeepLink<tauri::Wry>, scheme: &str) -> bool {
-    win_links::owned(scheme)
-}
-
-#[cfg(target_os = "linux")]
-fn chosen_elsewhere(_: &str) -> bool {
-    false
-}
-
-/// The user picked another app for the scheme in Default apps: a
-/// `UserChoice` naming another ProgId wins over any class we write, and only
-/// the user can change it.
-#[cfg(windows)]
-fn chosen_elsewhere(scheme: &str) -> bool {
-    windows_registry::CURRENT_USER
-        .open(format!(
-            "Software\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\{scheme}\\UserChoice"
-        ))
-        .and_then(|key| key.get_string("ProgId"))
-        .is_ok_and(|prog_id| !prog_id.eq_ignore_ascii_case(scheme))
-}
-
-/// This user's registry class for a scheme, as the plugin's `register()`
-/// writes it (`"<exe>" "%1"`).
-#[cfg(windows)]
-mod win_links {
-    pub fn class(scheme: &str) -> String {
-        format!("Software\\Classes\\{scheme}")
-    }
-
-    /// This user's class for `scheme` opens this app.
-    pub fn owned(scheme: &str) -> bool {
-        let Ok(exe) = tauri::utils::platform::current_exe() else {
-            return false;
-        };
-        let command = format!("\"{}\" \"%1\"", dunce::simplified(&exe).display());
-
-        windows_registry::CURRENT_USER
-            .open(format!("{}\\shell\\open\\command", class(scheme)))
-            .and_then(|key| key.get_string(""))
-            .is_ok_and(|value| value == command)
-    }
 }
 
 /// A link from the OS (a deep link, a second launch's argv) or a message: to

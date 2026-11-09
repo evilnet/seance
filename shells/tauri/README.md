@@ -108,21 +108,14 @@ compiled out of a release build.
   connection is dropped. A second launch hands its argv over
   (`single-instance`). A build run from source registers nothing with the
   OS; an installed one declares the scheme in its bundle. `irc:` and
-  `ircs:` (TCP) are another matter, since HexChat or Konversation may own
-  them: macOS declares them in `Info.macos.plist` and lets Launch Services
-  choose; Windows and Linux claim them only when the user turns on
-  Settings → General → "Open irc:// and ircs:// links", which calls
-  `App.ircLinks` `{enable}` and answers `{enabled, overridden}`. On is the
-  plugin's `register`; off gives back only what is this app's (Linux: the
-  plugin's `unregister`, which touches its own desktop file; Windows: this
-  user's `Software\Classes\<scheme>` while it runs this app, never HKLM,
-  which the plugin's `unregister` would delete first). `overridden` is a
-  Windows `UserChoice` for another app, which wins and only the user can
-  change. They must stay out of `desktop.schemes`: the installers write
-  every scheme listed there, and `register_all()` does at each launch. The
-  NSIS uninstaller removes this user's claim (`windows/hooks.nsh`); on
-  Linux, turn the switch off before removing the package, or the system
-  default stays on a missing app.
+  `ircs:` (TCP) are claimed only where the system or the user picks the
+  default: the phones' manifests, macOS's `Info.macos.plist`, and on
+  Windows and Linux the Settings → General switch (`App.ircLinks`
+  `{enable}`, answers `{enabled}`). Why, and what "off" gives back:
+  `TCP_SCHEMES` and `release_link` in `src/lib.rs`. A Windows Default apps
+  choice still wins over the switch. The NSIS uninstaller removes the claim
+  (`windows/hooks.nsh`); on Linux, turn the switch off before removing the
+  package.
 - **Closing the window** follows the platform: macOS keeps the app in the
   Dock (⌘Q quits, the Dock icon reopens), Windows keeps it in the
   notification area (the tray menu has Quit), Linux quits — a tray may not be

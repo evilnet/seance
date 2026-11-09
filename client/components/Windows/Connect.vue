@@ -118,11 +118,8 @@
 				{{ linkNotice }}
 			</div>
 
-			<div v-if="linkCleartext" class="connect-notice connect-link-notice connect-cleartext">
-				<span>{{ t("connect.linkCleartext") }}</span>
-				<button type="button" class="btn" @click="useLinkTls">
-					{{ t("connect.linkUseTls", {port: tlsPort}) }}
-				</button>
+			<div v-if="linkCleartext" class="connect-notice connect-link-notice">
+				{{ t("connect.linkCleartext") }}
 			</div>
 
 			<h2 v-if="!hostLocked">{{ t("connect.server") }}</h2>
@@ -420,17 +417,6 @@
 	padding: 24px;
 	border-radius: 5px;
 	background: var(--window-bg-color);
-}
-
-#connect .connect-cleartext {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: 0.625rem;
-}
-
-#connect .connect-cleartext span {
-	flex: 1 1 12rem;
 }
 
 #connect .link-approval-buttons {
@@ -748,16 +734,11 @@ export default defineComponent({
 		});
 
 		// A plain irc:// link in the app: say the connection would be
-		// cleartext, and offer TLS on its usual port rather than trying it
-		// behind the user's back (some networks have no TLS port).
+		// cleartext. The TLS switch is right there; nothing tries TLS behind
+		// the user's back (some networks have no TLS port).
 		const linkCleartext = computed(
 			() => fromLink && !savedLink && form.transport === "tcp" && !form.tls
 		);
-		const tlsPort = defaultPort(true, "tcp");
-		const useLinkTls = () => {
-			form.tls = true;
-			form.port = tlsPort;
-		};
 
 		// Follow the TLS checkbox while the port is still one of the defaults.
 		watch(
@@ -914,8 +895,6 @@ export default defineComponent({
 			notice,
 			linkNotice,
 			linkCleartext,
-			tlsPort,
-			useLinkTls,
 			fromLink,
 			passwordInput,
 			serverPasswordInput,

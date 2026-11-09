@@ -47,21 +47,20 @@ rules hold, plus:
   already and chose how to reach it.
 - **Upgrade, never downgrade**: an `ircs://` (or `web+irc:`) link never
   matches a cleartext network. A plain `irc://` link prefers a saved TLS
-  network on its host, whatever port it names.
-- A plain `irc://` link to a new server says so in the form: the connection
-  would not be encrypted, with a button for TLS on 6697 rather than trying
-  TLS behind the user's back (some networks have none).
+  network on its host, over either transport and whatever port it names.
+- A plain `irc://` link to a new server says in the form that the
+  connection would not be encrypted; nothing tries TLS behind the user's
+  back (some networks have none).
 - Only the host, port, path and fragment are read: userinfo
   (`irc://user:pass@host`) and the query never reach the form.
 - The shell's socket limits (bad ports, the first-line IRC check, the open
   rate) apply behind the form as they do to a typed server.
 
-Who receives them: the phones claim all four schemes in their manifests, and
-the system or the user picks between apps. macOS declares `irc`/`ircs` in its
-bundle (`Info.macos.plist`) and Launch Services picks the default. Windows
-and Linux take them only when the user turns on Settings → General → "Open
-irc:// and ircs:// links", because claiming a scheme there takes it from
-HexChat or Konversation; the switch shows whether they point at the app now.
+Who receives them: the phones claim all four schemes in their manifests,
+macOS declares `irc`/`ircs` in its bundle, and Windows and Linux take them
+only from Settings → General → "Open irc:// and ircs:// links", because
+claiming a scheme there takes it from HexChat or Konversation
+(`shells/tauri/README.md` § Links).
 
 ## Why `web+irc:` and not `wirc:`
 
