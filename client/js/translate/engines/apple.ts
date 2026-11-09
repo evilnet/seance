@@ -62,6 +62,14 @@ export class AppleError extends Error {
 
 export class AppleTranslator {
 	private statuses = new Map<string, Promise<AppleStatus>>();
+	/**
+	 * The answers so far, for the UI's synchronous questions (reader.ts
+	 * `pairVerdict`): a row that says "a 108 MB download" for a pair Apple
+	 * translates is a promise the router never keeps.
+	 */
+	private known = new Map<string, AppleStatus>();
+	/** Told when an answer arrives or the answers are forgotten. */
+	private listeners = new Set<() => void>();
 	/** Sheets open now, one per pair, every request for the pair waiting on it. */
 	private offers = new Map<string, Promise<boolean>>();
 	/** Pairs offered on this page load: declined, or downloading in the background. */
@@ -83,6 +91,8 @@ export class AppleTranslator {
 	setOptions(options: AppleOptions): void {
 		if (options.strategy !== this.options.strategy) {
 			this.statuses.clear();
+			this.known.clear();
+			this.notify();
 		}
 
 		this.options = options;
@@ -111,9 +121,15 @@ export class AppleTranslator {
 							this.pending.delete(key);
 						}
 
+						this.learn(key, answer.status);
+
 						return answer.status;
 					},
-					() => "unsupported" as const
+					() => {
+						this.learn(key, "unsupported");
+
+						return "unsupported" as const;
+					}
 				);
 			this.statuses.set(key, status);
 		}
@@ -125,9 +141,46 @@ export class AppleTranslator {
 		return (await this.status(from, to)) === "installed";
 	}
 
+	/**
+	 * The pair's status as last answered, without asking: undefined until an
+	 * answer has come. `lookup` asks for it once.
+	 */
+	knownStatus(from: string, to: string): AppleStatus | undefined {
+		return this.known.get(this.key(from, to));
+	}
+
+	/** Ask for the pair's status unless it is known or already asked; `onKnown` hears the answer. */
+	lookup(from: string, to: string): void {
+		const key = this.key(from, to);
+
+		if (!this.known.has(key) && !this.statuses.has(key)) {
+			void this.status(from, to);
+		}
+	}
+
+	/** `listener` runs when a status arrives or the statuses are forgotten. */
+	onKnown(listener: () => void): void {
+		this.listeners.add(listener);
+	}
+
 	/** Every pair's status asked again on next use. */
 	forget(): void {
 		this.statuses.clear();
+		this.known.clear();
+		this.notify();
+	}
+
+	private learn(key: string, status: AppleStatus): void {
+		if (this.known.get(key) !== status) {
+			this.known.set(key, status);
+			this.notify();
+		}
+	}
+
+	private notify(): void {
+		for (const listener of this.listeners) {
+			listener();
+		}
 	}
 
 	/**
@@ -252,6 +305,10 @@ export class AppleTranslator {
 			.catch((e: unknown) => {
 				throw asAppleError(e);
 			});
+
+		// Anything asked while the sheet was up (a row's `lookup`) was
+		// answered with the status before the download: asked again.
+		this.forget();
 
 		return {status: answer.status, ...(answer.error ? {error: answer.error} : {})};
 	}

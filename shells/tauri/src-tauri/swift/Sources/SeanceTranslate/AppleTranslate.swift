@@ -1,12 +1,13 @@
 import SeanceNotifications
 import SwiftUI
 import Translation
-import UIKit
 
 /// `AppleTranslate`: Apple's Translation framework for the page's translator
 /// (client/js/translate/engines/apple.ts), so a line is translated by the
 /// system's own language packs instead of a model the page downloads.
-/// SeancePlugin's `call` hands it every `AppleTranslate` method.
+/// The iOS shell's SeancePlugin and the macOS shell's Bridge.swift hand it
+/// every `AppleTranslate` method; each brings its own `PrepareHost`, the one
+/// part that needs the platform's windows.
 ///
 /// - `availability({from, to, strategy?})`: `{status}` — `installed`,
 ///   `supported` (the pair exists, its pack is not downloaded) or
@@ -31,13 +32,15 @@ import UIKit
 ///
 /// Carried over from the Capacitor shell's AppleTranslatePlugin (rdrake,
 /// PseudoSean/seance#9); the framework code is unchanged, the plugin glue is
-/// SeancePlugin's: options in, `Failure` out.
-final class AppleTranslate {
-    static let methods = ["availability", "translate", "prepare", "languages"]
+/// the shell's: options in, `Failure` out.
+public final class AppleTranslate {
+    public static let methods = ["availability", "translate", "prepare", "languages"]
 
     private let translator = SerialTranslator()
 
-    func call(_ method: String, _ options: [String: Any], presentingFrom parent: UIViewController?) async throws -> [String: Any] {
+    public init() {}
+
+    public func call(_ method: String, _ options: [String: Any], host: PrepareHost?) async throws -> [String: Any] {
         switch method {
         case "availability":
             let (from, to) = try Self.pair(options)
@@ -64,10 +67,10 @@ final class AppleTranslate {
         case "prepare":
             let (from, to) = try Self.pair(options)
             let high = Self.high(options)
-            guard let parent else {
+            guard let host else {
                 throw Failure(code: "noView", message: "no view to present from")
             }
-            let error = await Self.askToDownload(from: from, to: to, high: high, parent: parent)
+            let error = await Self.askToDownload(from: from, to: to, high: high, host: host)
             let status = await Self.status(from: from, to: to, high: high)
             if let error, status != "installed" {
                 let (code, message) = Self.describe(error)
@@ -81,34 +84,28 @@ final class AppleTranslate {
 
     /// `.translationTask` hands its action a session that may ask to download
     /// (`canRequestDownloads`), and `prepareTranslation()` is what shows the
-    /// sheet. It needs a SwiftUI view in the window, so a 1×1 clear one is
-    /// added for the length of the question. Answers the sheet's error, nil
-    /// when it finished.
+    /// sheet. It needs a SwiftUI view in the window, so the shell's host adds a
+    /// 1×1 clear one for the length of the question. Answers the sheet's
+    /// error, nil when it finished.
     @MainActor
-    private static func askToDownload(from: Locale.Language, to: Locale.Language, high: Bool, parent: UIViewController) async -> Error? {
+    private static func askToDownload(from: Locale.Language, to: Locale.Language, high: Bool, host: PrepareHost) async -> Error? {
         await withCheckedContinuation { (continuation: CheckedContinuation<Error?, Never>) in
-            var host: UIHostingController<PrepareView>?
+            var remove: (() -> Void)?
             var answered = false
-            let view = PrepareView(source: from, target: to, high: high) { error in
+            let finish: (Error?) -> Void = { error in
                 DispatchQueue.main.async {
-                    host?.willMove(toParent: nil)
-                    host?.view.removeFromSuperview()
-                    host?.removeFromParent()
-                    host = nil
+                    remove?()
+                    remove = nil
                     if !answered {
                         answered = true
                         continuation.resume(returning: error)
                     }
                 }
             }
-            let controller = UIHostingController(rootView: view)
-            controller.view.backgroundColor = .clear
-            controller.view.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
-            controller.view.isUserInteractionEnabled = false
-            parent.addChild(controller)
-            parent.view.addSubview(controller.view)
-            controller.didMove(toParent: parent)
-            host = controller
+            remove = host(AnyView(PrepareView(source: from, target: to, high: high, done: finish)))
+            if remove == nil {
+                finish(Failure(code: "noView", message: "no window to present from"))
+            }
         }
     }
 
@@ -125,7 +122,7 @@ final class AppleTranslate {
 
     static func status(from: Locale.Language, to: Locale.Language, high: Bool) async -> String {
         let availability: LanguageAvailability
-        if #available(iOS 26.4, *) {
+        if #available(iOS 26.4, macOS 26.4, *) {
             availability = LanguageAvailability(preferredStrategy: high ? .highFidelity : .lowLatency)
         } else {
             availability = LanguageAvailability()
@@ -180,7 +177,7 @@ actor SerialTranslator {
         let key = "\(from.maximalIdentifier)>\(to.maximalIdentifier)>\(high)"
         if let session = sessions[key] { return session }
         let session: TranslationSession
-        if #available(iOS 26.4, *) {
+        if #available(iOS 26.4, macOS 26.4, *) {
             session = TranslationSession(installedSource: from, target: to, preferredStrategy: high ? .highFidelity : .lowLatency)
         } else {
             session = TranslationSession(installedSource: from, target: to)
@@ -195,7 +192,7 @@ actor SerialTranslator {
 
         var requests: [TranslationSession.Request] = []
         for (i, line) in lines.enumerated() {
-            if skip, #available(iOS 26.4, *) {
+            if skip, #available(iOS 26.4, macOS 26.4, *) {
                 requests.append(TranslationSession.Request(sourceText: protectPlaceholders(line), clientIdentifier: String(i)))
             } else {
                 requests.append(TranslationSession.Request(sourceText: line, clientIdentifier: String(i)))
@@ -231,7 +228,7 @@ actor SerialTranslator {
 /// URLs, code and line prefixes (client/js/translate/spans.ts). The `#/…/#`
 /// literal, not a bare `/…/` one: this package builds in Swift 5 mode, where
 /// a bare regex literal needs a compiler flag.
-@available(iOS 26.4, *)
+@available(iOS 26.4, macOS 26.4, *)
 func protectPlaceholders(_ line: String) -> AttributedString {
     var text = AttributedString(line)
     for match in line.matches(of: #/⟦[0-9]+⟧/#) {
@@ -242,6 +239,12 @@ func protectPlaceholders(_ line: String) -> AttributedString {
     }
     return text
 }
+
+/// Puts a SwiftUI view into the app's window for the length of the download
+/// question (`prepare`) and answers how to take it out again, or nil when
+/// there is no window to put it in. UIKit's on iOS (SeancePlugin), AppKit's
+/// on macOS (Bridge.swift); both run on the main thread.
+public typealias PrepareHost = @MainActor (AnyView) -> (() -> Void)?
 
 /// The download question's host: `.translationTask` runs its action once the
 /// configuration is set, with a session that may ask the user to download.
@@ -264,7 +267,7 @@ struct PrepareView: View {
                 }
             }
             .onAppear {
-                if #available(iOS 26.4, *) {
+                if #available(iOS 26.4, macOS 26.4, *) {
                     configuration = .init(source: source, target: target, preferredStrategy: high ? .highFidelity : .lowLatency)
                 } else {
                     configuration = .init(source: source, target: target)

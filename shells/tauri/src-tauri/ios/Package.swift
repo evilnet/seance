@@ -1,7 +1,8 @@
 // swift-tools-version:5.9
 // The iOS shell's own Swift (src/mobile.rs): one Tauri plugin, `Seance`, that
 // answers the page's plugins, with the message alerts the macOS shell has too
-// (../swift, SeanceNotifications). build.rs copies Tauri's Swift API into
+// and its AppleTranslate engine (../swift, SeanceNotifications and
+// SeanceTranslate). build.rs copies Tauri's Swift API into
 // .tauri/ and links this package.
 import PackageDescription
 
@@ -21,6 +22,7 @@ let package = Package(
             dependencies: [
                 .byName(name: "Tauri"),
                 .product(name: "SeanceNotifications", package: "SeanceTauri"),
+                .product(name: "SeanceTranslate", package: "SeanceTauri"),
             ],
             path: "Sources"
         ),

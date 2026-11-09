@@ -15925,6 +15925,12 @@ msgctxt "translate.system.notDownloaded"
 msgid "{from} → {to}: not downloaded. You can also download languages in Settings → Apps → Translate."
 msgstr ""
 
+#. Status line in the settings → Translation, the section for the device's own translator (Apple's Translation framework), in the Mac app. "Apple Translation" is the feature's name; keep it recognisable. {from} and {to} are language names. Shown when the download sheet closed without the pack. "System Settings → General → Language & Region → Translation Languages" is the path in the Mac's System Settings; use the system's own names for it.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.system.notDownloadedMac"
+msgid "{from} → {to}: not downloaded. You can also download languages in System Settings → General → Language & Region → Translation Languages."
+msgstr ""
+
 #. Label (for screen readers) of the language picker in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. The user picks a language to translate from, to check or download its pack.
 #: client/components/Settings/TranslationOptions.vue
 msgctxt "translate.system.sourceLabel"

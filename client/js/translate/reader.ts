@@ -14,7 +14,7 @@
 // setReading/setChannelOptions; the chip and the toolbar call
 // retranslate/showOriginal/retryTranslation.
 
-import {toRaw, watch} from "vue";
+import {ref as vueRef, toRaw, watch} from "vue";
 
 import {getBranding} from "../branding";
 import {userLanguageRef} from "../i18n";
@@ -47,6 +47,7 @@ import {namesFor} from "./names";
 import {fromLocaleTag} from "./languages";
 import {needsDownloadError} from "./consent";
 import {
+	APPLE_REF,
 	type ModelBlock,
 	choiceFor,
 	deviceOrder,
@@ -67,6 +68,7 @@ import {
 	servedIsolating,
 	serviceSettings,
 	setTranslationUsage,
+	systemTranslator,
 	translateService,
 	translationOn,
 } from "./index";
@@ -374,6 +376,12 @@ export function pairVerdict(from: string | null, to: string): RouteVerdict {
 		return {route: null, why: off, polish: from !== null && from === to};
 	}
 
+	const apple = appleVerdict(from, to);
+
+	if (apple) {
+		return apple;
+	}
+
 	const service = translateService();
 	const capability = store.state.translation.capability;
 	const {switches, devices} = serviceSettings();
@@ -392,6 +400,47 @@ export function pairVerdict(from: string | null, to: string): RouteVerdict {
 	}
 
 	return explainRoute(service.routeTable, liveCatalog(), input);
+}
+
+/** Bumped when the system translator learns a pair's status, so a verdict that read it recomputes. */
+const appleStatuses = vueRef(0);
+const appleHeard = new WeakSet<object>();
+
+/**
+ * The system translator's verdict, where the service would take it: a pair
+ * whose pack is installed goes to Apple before any table (service.ts
+ * `appleRoute`), so the row says so -- no download -- instead of naming the
+ * table's model. A pair not asked about yet is asked once (`lookup`) and the
+ * verdict recomputes when the answer arrives; until then, and for a pack
+ * that is not installed, the table's verdict stands, as the service's walk
+ * does on a line it reads.
+ */
+function appleVerdict(from: string | null, to: string): RouteVerdict | null {
+	const apple = systemTranslator();
+
+	if (!apple || !from || from === to || serviceSettings().system === false) {
+		return null;
+	}
+
+	if (!appleHeard.has(apple)) {
+		appleHeard.add(apple);
+		apple.onKnown(() => {
+			appleStatuses.value++;
+		});
+	}
+
+	// Read so that a computed over this verdict hears the next answer.
+	void appleStatuses.value;
+	const status = apple.knownStatus(from, to);
+
+	if (status === undefined) {
+		apple.lookup(from, to);
+		return null;
+	}
+
+	return status === "installed"
+		? {route: {candidate: "apple", ref: APPLE_REF, device: "cpu"}, why: null, polish: false}
+		: null;
 }
 
 function priorFor(network: ClientNetwork, channel: ClientChan): LanguagePrior {

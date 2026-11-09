@@ -428,7 +428,7 @@ and marker form are chosen with the answer known.
   `navigator.connection` reports Save-Data or a cellular link
   (`ServiceDeps.metered`; iOS reports neither, so there it is always quiet).
 - **The system translator's pack is offered on the line, never in its
-  sheet by itself** (iOS shell, `engines/apple.ts`): reading takes an
+  sheet by itself** (the iOS and macOS shells, `engines/apple.ts`): reading takes an
   installed pack only; a pack that could be downloaded is reported
   (`ServiceDeps.onApplePack` → `applePacks.ts`), the line is translated by
   the table now, and the first line translated from that pair shows "Apple
@@ -436,6 +436,14 @@ and marker form are chosen with the answer known.
   pair per page load. Get it opens the system's sheet (`offer`); once the
   pack lands, the pair is Apple's. The composer still offers the sheet the
   first time it needs a pack; Settings keeps its own pack button.
+- **The UI's verdict knows Apple's packs.** `reader.ts` `pairVerdict` (the
+  sheet's rows, the panel, the source picker, the composer's suggestion
+  card) answers with the system translator for a pair whose pack is
+  installed, as the service would route it, so those rows show no download
+  instead of the table model's size (an Apple pair once read "a 108 MB
+  download" for the OPUS-MT pair it would never fetch). It reads
+  `AppleTranslator.knownStatus`; a pair not asked about yet is asked once
+  (`lookup`) and the verdict recomputes when the answer arrives (`onKnown`).
 - The UI's availability questions (`pairVerdict`) do not read declines:
   the actions stay offered, and a line or strip says why it did not run.
 - Without a dialog wired (`ServiceDeps.askDownload` absent) every download

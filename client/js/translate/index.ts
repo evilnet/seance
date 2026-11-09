@@ -27,7 +27,7 @@ import {
 	normalizeDeviceChoice,
 } from "./models";
 import {APPLE_PLUGIN, AppleTranslator} from "./engines/apple";
-import {isIOSShell, nativeInvoke} from "../helpers/shell";
+import {hasAppleTranslate, nativeInvoke} from "../helpers/shell";
 import type {MainPort, MainToWorker} from "./protocol";
 import {RouteTable} from "./router";
 import {
@@ -492,11 +492,11 @@ function create(): Made {
 		});
 	};
 
-	// The system translator: the iOS shell's AppleTranslate plugin
-	// (shells/tauri/src-tauri/ios/Sources/SeanceIOS/AppleTranslate.swift),
-	// on this thread, since the worker has no bridge. Nowhere else.
+	// The system translator: the AppleTranslate plugin of the iOS and macOS
+	// shells (shells/tauri/src-tauri/swift/Sources/SeanceTranslate), on this
+	// thread, since the worker has no bridge. Nowhere else.
 	const apple =
-		!fake && isIOSShell()
+		!fake && hasAppleTranslate()
 			? new AppleTranslator({
 					invoke: (method, options) => nativeInvoke(APPLE_PLUGIN, method, options),
 			  })
