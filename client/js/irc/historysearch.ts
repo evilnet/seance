@@ -91,6 +91,35 @@ interface SearchGroup {
 	/** Channels not asked about yet. */
 	queue: string[];
 	hits: SearchHit[];
+	/** Answered already (a newer search took its place): its part in flight is dropped. */
+	done?: boolean;
+}
+
+/** The search over every channel still asking, per connection: a newer search ends it. */
+const activeGroups = new WeakMap<IrcClient, SearchGroup>();
+
+/**
+ * A newer search replaces the one over every channel still asking: the rest of
+ * its channels are not asked about, and it is answered now, as a failure (the
+ * window has moved on and drops it). The part in flight stays tracked, so its
+ * reply is still known for what it is, and is dropped.
+ */
+function supersedeGroup(client: IrcClient): void {
+	const group = activeGroups.get(client);
+
+	if (!group) {
+		return;
+	}
+
+	activeGroups.delete(client);
+	group.queue.length = 0;
+	group.done = true;
+	client.dispatchBus("search:results", {
+		network: client.uuid,
+		requestId: group.requestId,
+		status: "fail",
+		hits: [],
+	});
 }
 /**
  * Servers that answered a search without `in=` with `FAIL SEARCH INVALID_PARAMS in`:
@@ -310,7 +339,13 @@ function answerPart(
 ): void {
 	const base = {network: client.uuid, requestId: group.requestId};
 
+	if (group.done) {
+		return; // superseded: answered already
+	}
+
 	if (status !== "ok") {
+		group.done = true;
+		activeGroups.delete(client);
 		client.dispatchBus("search:results", {...base, status, error, hits: []});
 		return;
 	}
@@ -325,6 +360,8 @@ function answerPart(
 	const time = (hit: SearchHit) => new Date(hit.msg.time).getTime();
 	const sorted = group.hits.toSorted((a, b) => time(a) - time(b));
 	const kept = group.attrs.limit ? sorted.slice(-group.attrs.limit) : sorted;
+	group.done = true;
+	activeGroups.delete(client);
 	client.dispatchBus("search:results", {...base, status: "ok", hits: kept});
 }
 
@@ -363,7 +400,9 @@ function fanOut(client: IrcClient, requestId: number, attrs: SearchAttrs): void 
 	}
 
 	const {in: _all, ...rest} = attrs;
-	askNext(client, {requestId, attrs: rest, queue, hits: []});
+	const group: SearchGroup = {requestId, attrs: rest, queue, hits: []};
+	activeGroups.set(client, group);
+	askNext(client, group);
 }
 
 /** Send a request, which always gets its one answer, whatever happens. */
@@ -419,6 +458,7 @@ function canAskParent(client: IrcClient): boolean {
 /** Send a `SEARCH`, answered by one `search:results`. */
 export function requestSearch(client: IrcClient, requestId: number, attrs: SearchAttrs): void {
 	const available = client.caps.hasCapability(SEARCH_CAP) && client.caps.hasCapability("batch");
+	supersedeGroup(client);
 
 	if (available && client.isWelcomed && !attrs.in && needsIn.has(client)) {
 		fanOut(client, requestId, attrs);
@@ -724,6 +764,7 @@ export function resetSearches(client: IrcClient): void {
 	// The queue they waited in is gone with the socket; a new one asks afresh,
 	// and the next server may be another (an edited network).
 	parentsAsked.delete(client);
+	activeGroups.delete(client);
 	needsIn.delete(client);
 	timesByClient.delete(client);
 }

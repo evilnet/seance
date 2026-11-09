@@ -892,6 +892,33 @@ describe("historysearch", function () {
 			expect(transport.sent[0]).to.contain("in=#seance");
 		});
 
+		it("stops asking the channels of a search a newer one replaced", function () {
+			const {client, transport} = setup();
+			transport.line("@time=2026-08-25T12:00:00.000Z :alice!alice@host JOIN #linux");
+			transport.line("@time=2026-08-25T12:00:00.000Z :alice!alice@host JOIN #debian");
+			requestSearch(client, 1, {text: "fake"});
+			refuse(transport, transport.sent[transport.sent.length - 1]);
+			const firstPart = transport.sent[transport.sent.length - 1];
+			expect(firstPart).to.contain("text=fake");
+			transport.sent.length = 0;
+
+			// The user types a new search while #linux's part is out.
+			requestSearch(client, 2, {text: "lag"});
+			expect(transport.sent).to.have.length(1);
+			expect(transport.sent[0]).to.contain("text=lag");
+			const [superseded] = payloads<ResultsPayload>("search:results");
+			expect(superseded).to.include({requestId: 1, status: "fail"});
+
+			// The old part's answer comes in: dropped, and nothing more of it is asked.
+			batch(transport, "soju.im/search", labelOf(firstPart), [ROW3]);
+			expect(transport.sent.filter((line) => line.includes("text=fake"))).to.deep.equal([]);
+			expect(payloads<ResultsPayload>("search:results")).to.have.length(1);
+
+			// The new search carries on through its channels.
+			batch(transport, "soju.im/search", labelOf(transport.sent[0]), []);
+			expect(transport.sent[1]).to.contain("text=lag");
+		});
+
 		it("reports a failure only when no channel found anything", function () {
 			const {client, transport} = setup();
 			requestSearch(client, 3, {text: "fake"});
