@@ -8,30 +8,16 @@
 			:class="{'source-language-picker--sheet': phone, flipped}"
 			:style="style"
 			role="dialog"
-			:aria-label="dialogLabel"
+			tabindex="-1"
+			:aria-label="t('translate.picker.dialog')"
 			@keydown.esc.stop.prevent="$emit('close')"
 		>
-			<label v-if="purpose === 'target'" class="source-language-picker-field">
-				<span class="source-language-picker-label">{{
-					t("translate.picker.fromLabel")
-				}}</span>
-				<select
-					v-model="from"
-					name="translateFrom"
-					class="input source-language-picker-control"
-				>
-					<option value="">{{ t("translate.picker.fromAuto") }}</option>
-					<option v-for="code in languages" :key="code" :value="code">
-						{{ name(code) }}
-					</option>
-				</select>
-			</label>
 			<label class="source-language-picker-field">
-				<span class="source-language-picker-label">{{ fieldLabel }}</span>
+				<span class="source-language-picker-label">{{ t("translate.picker.label") }}</span>
 				<select
 					ref="select"
 					v-model="choice"
-					:name="purpose === 'target' ? 'translateInto' : 'translateFrom'"
+					name="translateFrom"
 					class="input source-language-picker-control"
 				>
 					<option v-for="code in languages" :key="code" :value="code">
@@ -39,23 +25,13 @@
 					</option>
 				</select>
 			</label>
-			<label v-if="purpose === 'target' && onceOffered" class="source-language-picker-once">
-				<input
-					v-model="once"
-					v-switch
-					type="checkbox"
-					class="source-language-picker-once-box"
-				/>
-				{{ t("translate.picker.thisMessageOnly") }}
-			</label>
-			<!-- Live: the reason appears and changes as the selects do. The
+			<!-- Live: the reason appears and changes as the select does. The
 			     lead and the reason are two whole sentences. -->
 			<div :id="hintId" class="source-language-picker-hint" aria-live="polite">
 				<template v-if="blockedLead">
 					<p class="source-language-picker-blocked">{{ blockedLead }}</p>
 					<p class="source-language-picker-why">{{ blockedWhy }}</p>
 				</template>
-				<p v-else-if="sameLanguage">{{ t("translate.picker.sameLanguage") }}</p>
 			</div>
 			<div class="source-language-picker-actions">
 				<button
@@ -72,7 +48,7 @@
 					:aria-describedby="blockedLead ? hintId : undefined"
 					@click="confirm"
 				>
-					{{ confirmLabel }}
+					{{ t("translate.picker.confirm") }}
 				</button>
 			</div>
 		</div>
@@ -80,13 +56,23 @@
 </template>
 
 <script lang="ts">
-import {computed, defineComponent, nextTick, onBeforeUnmount, onMounted, PropType, ref} from "vue";
+import {
+	computed,
+	defineComponent,
+	nextTick,
+	onBeforeUnmount,
+	onMounted,
+	PropType,
+	ref,
+	watch,
+} from "vue";
 import {hasVirtualKeyboard} from "../js/helpers/device";
 import {useI18n} from "../js/i18n";
 import {collator} from "../js/i18n/collation";
 import {SUPPORTED_LANGUAGES, languageName} from "../js/translate/languages";
 import {liveLlmName, pairVerdict, readingLanguage} from "../js/translate/reader";
 import {translateWhyText} from "../js/helpers/translateWhy";
+import {useStore} from "../js/store";
 
 let pickers = 0;
 
@@ -106,25 +92,15 @@ export default defineComponent({
 		/** The detector's runners-up, for the preselection when there is no source. */
 		candidates: {type: Array as PropType<string[]>, default: () => []},
 		/**
-		 * What the language is for: `source` retranslates a line from it
-		 * (the chip menu's "Retranslate from…"), `target` translates the
-		 * composer's draft into it, this once (the translate button).
-		 */
-		purpose: {type: String as PropType<"source" | "target">, default: "source"},
-		/** `target` only: the source preselected -- the language the user reads. */
-		selectedFrom: {type: String, default: ""},
-		/**
-		 * `source` only: the language the line is translated into, so the
-		 * dialog can say when the picked source has no engine here. Empty:
-		 * not checked.
+		 * The language the line is translated into, so the dialog can say
+		 * when the picked source has no engine here. Empty: not checked.
 		 */
 		to: {type: String, default: ""},
-		/** `target` only: a draft is there, so "This message only" is on offer. */
-		onceOffered: {type: Boolean, default: false},
 	},
 	emits: ["pick", "close"],
 	setup(props, {emit}) {
 		const {t} = useI18n();
+		const store = useStore();
 		const root = ref<HTMLDivElement | null>(null);
 		const select = ref<HTMLSelectElement | null>(null);
 		const name = (code: string) => languageName(code, readingLanguage());
@@ -135,37 +111,14 @@ export default defineComponent({
 		const languages = computed(() =>
 			[...SUPPORTED_LANGUAGES].sort((a, b) => collator().compare(name(a), name(b)))
 		);
-		const dialogLabel = computed(() =>
-			props.purpose === "target"
-				? t("translate.picker.targetDialog")
-				: t("translate.picker.dialog")
-		);
-		const fieldLabel = computed(() =>
-			props.purpose === "target"
-				? t("translate.picker.targetLabel")
-				: t("translate.picker.label")
-		);
 		const choice = ref(props.selected || props.candidates[0] || languages.value[0]);
-		// The source of a one-off: the language the user reads, or "" for
-		// detection. Picking the same language twice asks for a cleanup.
-		const from = ref(props.purpose === "target" ? props.selectedFrom : "");
-		// "This message only": a one-off rather than the send target.
-		const once = ref(false);
-		const sameLanguage = computed(
-			() => props.purpose === "target" && from.value !== "" && from.value === choice.value
-		);
 
 		// The pair the confirm would ask for, through the router's own rule
-		// (reader.ts `pairVerdict`): a pair nothing here can serve -- the
-		// cleanup pass without the GPU model, both engines switched off --
-		// is offered disabled with its reason, never left to fail later.
-		const verdict = computed(() => {
-			if (props.purpose === "target") {
-				return pairVerdict(from.value || null, choice.value);
-			}
+		// (reader.ts `pairVerdict`): a pair nothing here can serve -- both
+		// engines switched off, say -- is offered disabled with its reason,
+		// never left to fail later.
+		const verdict = computed(() => (props.to ? pairVerdict(choice.value, props.to) : null));
 
-			return props.to ? pairVerdict(choice.value, props.to) : null;
-		});
 		const hintId = `source-language-picker-hint-${++pickers}`;
 		const blockedLead = computed(() => {
 			const v = verdict.value;
@@ -178,29 +131,12 @@ export default defineComponent({
 				return t("translate.picker.sameLanguageNeedsGpu");
 			}
 
-			const pairFrom = props.purpose === "target" ? from.value : choice.value;
-			const pairTo = props.purpose === "target" ? choice.value : props.to;
-
-			return pairFrom
-				? t("translate.pair.unavailable", {from: name(pairFrom), to: name(pairTo)})
-				: t("translate.pair.unavailableInto", {to: name(pairTo)});
+			return t("translate.pair.unavailable", {from: name(choice.value), to: name(props.to)});
 		});
 		const blockedWhy = computed(() => {
 			const v = verdict.value;
 
 			return v && !v.route ? translateWhyText(v.why, liveLlmName()) : "";
-		});
-
-		// A target that is the source is a cleanup pass, not a translation:
-		// the button says what it will do (writer.ts, the strip's chip).
-		const confirmLabel = computed(() => {
-			if (props.purpose !== "target") {
-				return t("translate.picker.confirm");
-			}
-
-			return sameLanguage.value
-				? t("translate.picker.targetConfirmCorrect")
-				: t("translate.picker.targetConfirm");
 		});
 
 		const narrowQuery =
@@ -237,7 +173,15 @@ export default defineComponent({
 			}
 
 			if (phone.value) {
-				style.value = {};
+				// Docked to the chat pane, not the screen: on a tablet the
+				// sidebar beside the chat stays clear of it.
+				const pane = document.getElementById("chat")?.getBoundingClientRect();
+				style.value = pane
+					? {
+							left: `${Math.round(Math.max(0, pane.left))}px`,
+							right: `${Math.round(Math.max(0, window.innerWidth - pane.right))}px`,
+					  }
+					: {};
 				flipped.value = false;
 				return;
 			}
@@ -268,13 +212,19 @@ export default defineComponent({
 
 		const close = () => emit("close");
 
+		// The sidebar opening (a swipe, the menu button) is somewhere else
+		// to be: the sheet would otherwise stay over it.
+		watch(
+			() => store.state.sidebarOpen,
+			(open) => {
+				if (open) {
+					close();
+				}
+			}
+		);
+
 		const confirm = () => {
-			emit(
-				"pick",
-				choice.value,
-				props.purpose === "target" ? from.value || null : undefined,
-				props.purpose === "target" ? once.value && props.onceOffered : undefined
-			);
+			emit("pick", choice.value);
 			close();
 		};
 
@@ -302,9 +252,17 @@ export default defineComponent({
 			window.addEventListener("resize", reposition);
 			narrowQuery?.addEventListener("change", onNarrow);
 
+			// Focus on the select with a keyboard, so arrows pick at once.
+			// Never on a touch screen: there, focusing a select opens the
+			// system's wheel or list over the sheet before anyone asked.
 			void nextTick(() => {
 				reposition();
-				select.value?.focus();
+
+				if (hasVirtualKeyboard()) {
+					root.value?.focus({preventScroll: true});
+				} else {
+					select.value?.focus();
+				}
 			});
 		});
 
@@ -327,12 +285,6 @@ export default defineComponent({
 			select,
 			choice,
 			languages,
-			dialogLabel,
-			fieldLabel,
-			confirmLabel,
-			from,
-			once,
-			sameLanguage,
 			hintId,
 			blockedLead,
 			blockedWhy,

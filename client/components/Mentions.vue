@@ -2,13 +2,14 @@
 	<div
 		v-if="isOpen"
 		id="mentions-popup-container"
+		class="header-popover-container"
 		v-backdrop="closeFromOutside"
 		data-escape-close="mentions"
 		@contextmenu.self="closePopup"
 	>
 		<div
 			ref="popup"
-			class="mentions-popup"
+			class="header-popover mentions-popup"
 			role="dialog"
 			aria-labelledby="mentions-popup-heading"
 			tabindex="-1"
@@ -18,12 +19,15 @@
 			@keydown.down.exact.prevent="moveFocus($event, 1)"
 			@keydown.up.exact.prevent="moveFocus($event, -1)"
 		>
-			<div class="mentions-popup-title">
+			<div class="header-popover-title mentions-popup-title">
 				<h2 id="mentions-popup-heading">
 					{{ t("mentions.title") }}
-					<span v-if="total" class="mentions-total" :aria-label="totalLabel">{{
-						totalText
-					}}</span>
+					<span
+						v-if="total"
+						class="header-popover-aside mentions-total"
+						:aria-label="totalLabel"
+						>{{ totalText }}</span
+					>
 				</h2>
 				<button
 					v-if="groups.length"
@@ -34,7 +38,7 @@
 				</button>
 				<!-- On the phone the pane is the whole screen: nothing outside it to tap. -->
 				<button
-					class="mentions-close"
+					class="header-popover-close mentions-close"
 					type="button"
 					:aria-label="t('mentions.close')"
 					@click="closePopup"
@@ -180,37 +184,6 @@
 </template>
 
 <style>
-#mentions-popup-container {
-	z-index: 8;
-}
-
-/* Over a modal window, or Alt+M would open it out of reach; under everything
- * else, as the sidebar and what a nick's menu opens must be over it. */
-#viewport:has(> .window.screen-overlay) #mentions-popup-container {
-	z-index: 21;
-}
-
-.mentions-popup {
-	background-color: var(--window-bg-color);
-	position: absolute;
-	box-sizing: border-box;
-	width: min(26rem, calc(100vw - 1rem));
-	min-width: min(12rem, 100vw);
-	/* Under the @ button (--mentions-right/-top, set on open), kept on screen. */
-	right: clamp(
-		0.5rem,
-		var(--mentions-right, 5rem),
-		calc(100% - min(26rem, 100vw - 1rem) - 0.5rem)
-	);
-	top: var(--mentions-top, 3.4rem);
-	max-height: 25rem;
-	display: flex;
-	flex-direction: column;
-	overflow: hidden;
-	z-index: 2;
-	padding: 0;
-}
-
 .mentions-list {
 	flex: 1 1 auto;
 	overflow-y: auto;
@@ -225,50 +198,6 @@
 		var(--mention-mark-color, var(--highlight-border-color)) 35%,
 		transparent
 	);
-}
-
-.mentions-popup > .mentions-popup-title {
-	display: flex;
-	align-items: center;
-	gap: 0.25rem;
-	padding: 0.625rem 0.75rem 0.375rem;
-}
-
-.mentions-popup-title h2 {
-	flex: 1 1 auto;
-	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-	margin: 0;
-	font-size: 1.125rem;
-	font-weight: 700;
-	color: var(--window-heading-color, inherit);
-}
-
-.mentions-popup .mentions-total {
-	margin-inline-start: 0.375rem;
-	font-size: 0.8125rem;
-	font-weight: normal;
-	color: var(--body-color-muted);
-}
-
-.mentions-popup .mentions-close {
-	flex-shrink: 0;
-	min-width: 2.25rem;
-	min-height: 2.25rem;
-	margin: -0.375rem -0.375rem -0.375rem 0;
-	padding: 0;
-	border: 0;
-	background: none;
-	color: var(--body-color-muted);
-	font-size: 1.125rem;
-	line-height: 1;
-}
-
-.mentions-popup .mentions-close:hover,
-.mentions-popup .mentions-close:focus-visible {
-	color: var(--body-color);
 }
 
 .mentions-popup .oper-btn {
@@ -509,37 +438,6 @@ html[data-contrast="more"] .mentions-popup .mentions-entry-read > * {
 	font-size: 0.875rem;
 	color: var(--body-color-muted);
 }
-
-@media (min-height: 500px) {
-	.mentions-popup {
-		max-height: 60vh;
-	}
-}
-
-@media (max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse) {
-	.mentions-popup {
-		border-radius: 0;
-		border: 0;
-		box-shadow: none;
-		width: 100%;
-		max-height: none;
-		right: 0;
-		left: 0;
-		bottom: 0;
-		top: 3rem; /* header height */
-	}
-
-	/* Placed against #viewport's padding box, which in the shell runs under
-	 * the status bar and the navigation bar: start under the header where it
-	 * really is, and stop above the bars. */
-	html[data-shell="native"] .mentions-popup {
-		top: calc(var(--inset-top) + 3rem);
-		bottom: var(--inset-outer-bottom);
-		left: var(--inset-left);
-		right: var(--inset-right);
-		width: auto;
-	}
-}
 </style>
 
 <script lang="ts">
@@ -563,6 +461,7 @@ import {isTouchInput} from "../js/helpers/inputModality";
 import {recentTime} from "../js/helpers/messageTime";
 import {clearHighlight, paintHighlight, rangesIn} from "../js/helpers/paintHighlight";
 import {trapTab} from "../js/helpers/trapTab";
+import {placeUnder} from "../js/helpers/headerPopover";
 import {mentionSpans, parseKeywordList} from "../js/highlight";
 import {computed, defineComponent, nextTick, ref, onMounted, onUnmounted, watch} from "vue";
 import {useStore} from "../js/store";
@@ -708,20 +607,10 @@ export default defineComponent({
 		const placement = ref<Record<string, string>>({});
 
 		const place = () => {
-			const button = document.querySelector("#chat button.mentions");
-			const container = popup.value?.offsetParent;
-
-			if (!button || !container) {
-				placement.value = {};
-				return;
-			}
-
-			const b = button.getBoundingClientRect();
-			const c = container.getBoundingClientRect();
-			placement.value = {
-				"--mentions-top": `${b.bottom - c.top}px`,
-				"--mentions-right": `${c.right - b.right}px`,
-			};
+			placement.value = placeUnder(
+				document.querySelector("#chat button.mentions"),
+				popup.value
+			);
 		};
 
 		/** Focus, for a keyboard, what `next` names once the list has changed, or the pane. */

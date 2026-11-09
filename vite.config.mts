@@ -366,7 +366,9 @@ const chunkNames: [RegExp, string][] = [
 	[/[\\/]scenes[\\/]psng[\\/]scene\.ts$/, "scene-ps"],
 	[/[\\/]helpers[\\/]luaEditor\.ts$/, "code-editor"],
 	[/[\\/]eruda[\\/]/, "eruda"],
-	[/[\\/]franc[\\/]/, "franc"],
+	[/[\\/]translate[\\/]lid\.real\.ts$/, "lid"],
+	// fastText's Emscripten glue, which its loader imports on its own.
+	[/[\\/]fasttext\.wasm\.js[\\/]dist[\\/]core[\\/]/, "lid-core"],
 ];
 
 function chunkName(chunk: {name: string; facadeModuleId: string | null}): string {
@@ -414,6 +416,9 @@ export default defineConfig({
 				assetFileNames: (asset) =>
 					asset.names.some((n) => n.endsWith(".css"))
 						? "css/style.css"
+						: // The language identifiers' model and wasm (lid.real.ts).
+						asset.names.some((n) => /\.(wasm|ftz)$/.test(n))
+						? "js/lid/[name][extname]"
 						: "[name][extname]",
 				postBanner: (chunk) => chunkNotices[`js/${chunkName(chunk)}.js`] ?? "",
 			},

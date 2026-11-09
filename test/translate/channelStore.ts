@@ -73,12 +73,19 @@ describe("translate/channelStore", () => {
 		expect(defaultChannelTranslation()).to.deep.equal({
 			read: false,
 			write: null,
+			writeFrom: null,
 			formality: "auto",
 			variant: "",
 			languages: [],
 			terms: [],
 			once: null,
+			noSuggest: false,
 		});
+	});
+
+	it("a declined suggestion is kept as a strict boolean", () => {
+		expect(setChannelTranslation("n1", "#seance", {noSuggest: true}).noSuggest).to.equal(true);
+		expect(getChannelTranslation("n1", "#seance").noSuggest).to.equal(true);
 	});
 
 	it("the channel's languages are kept, deduplicated, unknown codes dropped", () => {

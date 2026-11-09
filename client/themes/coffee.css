@@ -510,7 +510,7 @@ kbd {
 	box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
-.mentions-popup,
+.header-popover,
 #context-menu,
 .textcomplete-menu {
 	background-color: var(--menu-bg);

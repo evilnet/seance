@@ -71,21 +71,6 @@
 							:aria-label="connectingLabel"
 						/>
 					</span>
-					<span
-						v-if="translationAvailable"
-						class="translate-tooltip tooltipped tooltipped-w tooltipped-no-touch"
-						:data-tooltip="translateLabel"
-					>
-						<button
-							class="translate"
-							:class="{on: channelReads, unavailable: translationBlocked}"
-							:aria-label="translateLabel"
-							:aria-pressed="touch ? undefined : channelReads"
-							:aria-expanded="translationPanelOpen"
-							@click="onTranslateClick"
-							@contextmenu.prevent="openTranslationPanel"
-						/>
-					</span>
 					<button class="mentions" :aria-label="mentionsLabel" @click="openMentions">
 						<span v-if="mentionCount" class="mentions-badge" aria-hidden="true">{{
 							mentionBadge
@@ -194,14 +179,10 @@ import {
 	channelTranslation,
 	readTopic,
 	readingLanguage,
-	setReading,
 	showOriginal,
 	translationAvailable as translationAvailableNow,
-	currentTranslationBlock,
 } from "../js/translate/reader";
 import {topicEntryId} from "../js/translate/topic";
-import {languageName} from "../js/translate/languages";
-import {hasVirtualKeyboard} from "../js/helpers/device";
 
 export default defineComponent({
 	name: "Chat",
@@ -423,95 +404,12 @@ export default defineComponent({
 		};
 
 		const translationPanelOpen = ref(false);
-		const translationState = computed(() => channelTranslation(props.network, props.channel));
 		const translationAvailable = computed(
 			() =>
 				(props.channel.type === ChanType.CHANNEL ||
 					props.channel.type === ChanType.QUERY) &&
 				translationAvailableNow()
 		);
-		// The light means reading; a write target shows in the tooltip.
-		const channelReads = computed(() => translationState.value.read);
-		// A touch device has no right-click, so the tap is what opens the
-		// panel there and the button says so; the click keeps toggling
-		// reading where there is a pointer.
-		const touch = hasVirtualKeyboard();
-		// Nothing here can translate (router.ts `translationBlock`): the button
-		// stays, says so, and opens the panel, whose banner gives the reason.
-		const translationBlocked = computed(() => !!currentTranslationBlock());
-		const translateLabel = computed(() => {
-			// Before the touch label: a tap opens the panel either way, but
-			// the button's name should not promise settings when nothing
-			// here can translate.
-			if (translationBlocked.value) {
-				return t("translate.unavailable.lead");
-			}
-
-			if (touch) {
-				return t("translate.header.settings");
-			}
-
-			// Every language the tooltip names is named in the language the
-			// reader reads this channel in (F40), like every other label.
-			const name = (code: string) => languageName(code, readingLanguage());
-			const {read, write} = translationState.value;
-			const paused = store.state.translation.paused;
-			// One whole phrase per state (reading on/off × a write target ×
-			// paused): the tooltip is never assembled from translated pieces,
-			// and every key is a literal the pot check can see.
-			const vars = {
-				reading: name(readingLanguage()),
-				writing: write ? name(write) : "",
-				// The engine's own text: a verbatim value, never translated.
-				reason: paused ? paused.message : "",
-			};
-
-			if (paused) {
-				if (read) {
-					return write
-						? t("translate.header.readWritePaused", vars)
-						: t("translate.header.readPaused", vars);
-				}
-
-				return write
-					? t("translate.header.offWritePaused", vars)
-					: t("translate.header.offPaused", vars);
-			}
-
-			if (read) {
-				return write
-					? t("translate.header.readWrite", vars)
-					: t("translate.header.read", vars);
-			}
-
-			return write ? t("translate.header.offWrite", vars) : t("translate.header.off", vars);
-		});
-
-		const openTranslationPanel = () => {
-			translationPanelOpen.value = true;
-		};
-
-		const toggleTranslation = () => {
-			const wasOn = translationState.value.read;
-
-			setReading(props.network, props.channel, !wasOn);
-
-			// Switching a channel on opens its panel with it: the reader sees
-			// which languages they just asked for and can adjust them at once,
-			// where the click alone would silently pick the global target.
-			// Switching off is the whole of what switching off means.
-			if (!wasOn) {
-				openTranslationPanel();
-			}
-		};
-
-		const onTranslateClick = () => {
-			if (touch || translationBlocked.value) {
-				openTranslationPanel();
-			} else {
-				toggleTranslation();
-			}
-		};
 
 		watch(
 			() => props.channel.id,
@@ -521,7 +419,7 @@ export default defineComponent({
 		);
 
 		// Translation switched off (or nothing here can run it any more):
-		// the panel goes with the button, and does not come back with it.
+		// the panel closes, and does not come back with it.
 		watch(translationAvailable, (available) => {
 			if (!available) {
 				translationPanelOpen.value = false;
@@ -601,12 +499,6 @@ export default defineComponent({
 			openMentions,
 			translationPanelOpen,
 			translationAvailable,
-			channelReads,
-			translationBlocked,
-			translateLabel,
-			touch,
-			onTranslateClick,
-			openTranslationPanel,
 			mentionCount,
 			mentionBadge,
 		};

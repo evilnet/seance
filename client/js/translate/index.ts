@@ -44,6 +44,7 @@ import storage from "../localStorage";
 import {KEEP, t} from "../i18n/core";
 import friendlysize from "../helpers/friendlysize";
 import {modelDisplayName} from "../helpers/translateWhy";
+import {clearPacks, notePack} from "./applePacks";
 
 // Captured at module load (vue.ts imports the router, which statically
 // imports Settings/Translation.vue, before `boot()` runs) rather than read
@@ -503,7 +504,12 @@ function create(): Made {
 
 	if (apple) {
 		deps.apple = apple;
+		// Reading never opens the sheet: the line offers the pack.
+		deps.onApplePack = notePack;
 	}
+
+	// A download is quiet only on a connection that does not say it is metered.
+	deps.metered = meteredConnection;
 
 	const selectedLlm = selectedLlmSetting();
 	const catalog = configuredCatalog();
@@ -518,6 +524,9 @@ function create(): Made {
 		},
 		serviceSettings()
 	);
+
+	// The packs offered on lines belong to this service's page load.
+	undo.push(clearPacks);
 
 	// A switch or a device setting changed: the service gets the whole set.
 	// Every watch and listener registered here is undone with the service

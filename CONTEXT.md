@@ -133,12 +133,12 @@ A channel's outgoing language, set from the panel and persisted alongside the re
 _Avoid_: send language, outgoing switch
 
 **the strip**:
-The `.translate-bar` above the input (`ChatInput.vue`) that shows a draft's outgoing translation: the chip, the streaming text, Check/Send/Edit, and the read-back row underneath. A different draft, a channel switch, Escape or the strip's own Edit takes it down.
+The `.translate-bar` above the input (`ChatInput.vue`) that shows a draft's outgoing translation while it is typed (the live preview): the "Will send in …" label, the streaming text, Copy, and the read-back row underneath. A changed draft dims it until the next preview; a send, a channel switch or Escape takes it down.
 _Avoid_: translation bar, preview box
 
-**the first Enter / the second Enter**:
-The first Enter on a draft with a write target starts its translation (`translateOutgoing`) instead of sending; the second Enter, once the strip shows a result (or a failure), sends what the strip holds.
-_Avoid_: initial submit, confirm submit
+**the one-step send**:
+Return on a draft with a write target sends what the strip holds; before the preview is done it waits for it and sends then (`sendQueued` in `ChatInput.vue`). After a failure the next Return sends the draft as written. (It replaced the first Enter / second Enter pair.)
+_Avoid_: initial submit, confirm submit, second Enter
 
 **read back**:
 The round trip: a done translation translated once more, back toward the user's reading language, shown under the strip so a failed or a subtly wrong translation can be caught before sending. `"auto"` runs it as soon as the translation ends; `"button"` waits for Check.
