@@ -81,7 +81,14 @@ function messageOf(err: unknown): string {
 }
 
 function newId(): string {
-	return globalThis.crypto.randomUUID();
+	// randomUUID exists only in a secure context; this module loads with
+	// client.ts on every page, a plain-HTTP one too.
+	if (typeof globalThis.crypto.randomUUID === "function") {
+		return globalThis.crypto.randomUUID();
+	}
+
+	const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
+	return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 /**
