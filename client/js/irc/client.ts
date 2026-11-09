@@ -359,6 +359,17 @@ export interface IrcClientOptions extends ConnectOptions {
 	 * for the lobby to say so.
 	 */
 	onBouncerNetworks?: (networks: BouncerNetwork[]) => {added: string[]; over: string[]};
+	/**
+	 * The bouncer deleted one of its networks: on the control connection,
+	 * `BOUNCER NETWORK <id> *` (`-notify`). The manager stops the entry bound
+	 * to it connecting by itself.
+	 */
+	onBouncerNetworkRemoved?: (id: string) => void;
+	/**
+	 * This connection's `BOUNCER BIND` was refused (`FAIL BOUNCER
+	 * INVALID_NETID`): the network is gone from the bouncer. Same effect.
+	 */
+	onBouncerNetworkGone?: () => void;
 }
 
 /**
@@ -1708,6 +1719,33 @@ export class IrcClient {
 		});
 		this.options.onServerPasswordRejected?.();
 		this.disconnect(sent ? "Server password refused" : "Server password required");
+	}
+
+	/**
+	 * The bouncer refused to bind this connection to its network (`FAIL
+	 * BOUNCER INVALID_NETID`): the network was deleted there, from this or
+	 * another client. Every connection would get the same answer, so this one
+	 * stops, says why, and the entry stops connecting by itself; the user can
+	 * remove it. soju would otherwise carry on with an unbound login that
+	 * joins nothing.
+	 */
+	bouncerNetworkGone(): void {
+		if (this.isQuitting) {
+			return;
+		}
+
+		this.pushMessage(
+			this.lobby,
+			{type: MessageType.ERROR, text: t("bouncer.networkGone")},
+			true
+		);
+		this.closeExplained = true;
+		this.bus.dispatch("network:aborted", {
+			network: this.uuid,
+			reason: "bouncer network deleted",
+		});
+		this.options.onBouncerNetworkGone?.();
+		this.disconnect("Bouncer network deleted");
 	}
 
 	/** Whether a SASL failure of this kind is worth another connection (see saslFailed). */

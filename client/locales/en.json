@@ -107,6 +107,7 @@
   },
   "bans.unbanMask": "Unban {mask}",
   "bans.undo": "Undo",
+  "bouncer.networkGone": "This network was deleted on the bouncer, so it no longer connects. You can remove it here.",
   "bouncer.networksAdded": "Added this bouncer's networks: {names}",
   "bouncer.networksOver": {
     "one": "Not added: {names}. This bouncer already has {count} network saved here, the most Seance adds; remove one to make room.",

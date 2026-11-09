@@ -525,6 +525,12 @@ msgstr ""
 #: client/components/Windows/BanList.vue
 msgctxt "bans.undo"
 msgid "Undo"
+#. Lobby error on a network bound to one of a bouncer's networks (soju) when the bouncer says that network no longer exists (it was deleted there). The connection stopped and the network no longer connects at startup.
+#: client/js/irc/client.ts
+msgctxt "bouncer.networkGone"
+msgid "This network was deleted on the bouncer, so it no longer connects. You can remove it here."
+msgstr ""
+
 #. Lobby line on a bouncer's control connection (soju) after Seance added the networks the bouncer listed, each as a network of its own. {names} is a comma-separated list of network names.
 #: client/js/irc/bouncer.ts:164
 msgctxt "bouncer.networksAdded"

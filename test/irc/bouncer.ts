@@ -297,13 +297,15 @@ describe("Bouncers: soju's networks (soju.im/bouncer-networks)", function () {
 		expect(h.transport.sent).to.not.include("BOUNCER LISTNETWORKS");
 	});
 
-	it("offers a network added on the bouncer later (-notify), and ignores a removed one", function () {
+	it("offers a network added on the bouncer later (-notify), and reports a removed one", function () {
 		const offered: BouncerNetwork[] = [];
+		const removed: string[] = [];
 		const h = setup({
 			onBouncerNetworks(networks) {
 				offered.push(...networks);
 				return {added: [], over: []};
 			},
+			onBouncerNetworkRemoved: (id) => removed.push(id),
 		});
 		control(h);
 		h.transport.lines(
@@ -312,6 +314,44 @@ describe("Bouncers: soju's networks (soju.im/bouncer-networks)", function () {
 		);
 
 		expect(offered).to.deep.equal([{id: "7", name: "EFnet"}]);
+		expect(removed).to.deep.equal(["1"]);
+	});
+
+	it("stops a bound network the bouncer deleted (FAIL BOUNCER INVALID_NETID)", function () {
+		let gone = 0;
+		const h = setup({bouncerNetId: "42", onBouncerNetworkGone: () => gone++});
+		register(h, SOJU_CAPS, [
+			":irc.test FAIL BOUNCER INVALID_NETID BIND 42 :Unknown network ID",
+		]);
+
+		expect(gone).to.equal(1);
+		expect(h.client.isQuitting).to.equal(true);
+		expect(h.transport.sent.some((line) => line.startsWith("QUIT"))).to.equal(true);
+		expect(h.messages(h.client.lobby.id).map((m) => m.text)).to.include(
+			"This network was deleted on the bouncer, so it no longer connects. You can remove it here."
+		);
+	});
+
+	it("stops on a refused BIND before 001 too, without reconnecting", function () {
+		let gone = 0;
+		const h = setup({bouncerNetId: "42", onBouncerNetworkGone: () => gone++});
+		h.client.connect();
+		h.transport.open();
+		h.transport.line(`:irc.test CAP * LS :${SOJU_CAPS}`);
+		h.transport.line(":irc.test FAIL BOUNCER INVALID_NETID 42 :Unknown network ID");
+
+		expect(gone).to.equal(1);
+		expect(h.client.isQuitting).to.equal(true);
+	});
+
+	it("leaves an INVALID_NETID about another id to the lobby", function () {
+		let gone = 0;
+		const h = setup({bouncerNetId: "42", onBouncerNetworkGone: () => gone++});
+		register(h, SOJU_CAPS);
+		h.transport.line(":irc.test FAIL BOUNCER INVALID_NETID BIND 7 :Unknown network ID");
+
+		expect(gone).to.equal(0);
+		expect(h.client.isQuitting).to.equal(false);
 	});
 
 	it("adds nothing for a login without SASL: soju binds only a SASL account", function () {

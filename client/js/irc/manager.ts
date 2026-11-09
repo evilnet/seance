@@ -203,6 +203,8 @@ export function createNetwork(options: CreateNetworkOptions): IrcClient {
 			// A custom name from the edit form beats ISUPPORT NETWORK.
 			savedName: () => saved.get(entry.uuid)?.name || undefined,
 			onBouncerNetworks: (networks) => addBouncerNetworks(entry.uuid, networks),
+			onBouncerNetworkRemoved: (id) => bouncerNetworkRemoved(entry.uuid, id),
+			onBouncerNetworkGone: () => stopAutoconnect(entry.uuid),
 		});
 		clients.set(entry.uuid, client);
 		// Load the network's ignore list now, which mirrors it for the push
@@ -323,6 +325,32 @@ function addBouncerNetworks(
 	}
 
 	return {added: fresh.map((net) => net.name), over};
+}
+
+/**
+ * The bouncer behind a control connection deleted one of its networks: the
+ * entry bound to it stops connecting by itself (its live connection is
+ * closed by the bouncer, and the refused BIND on reconnect says so in its
+ * lobby). The entry stays for the user to remove.
+ */
+function bouncerNetworkRemoved(controlUuid: string, id: string): void {
+	const control = saved.get(controlUuid);
+
+	if (!control) {
+		return;
+	}
+
+	for (const other of saved.list()) {
+		if (
+			other.bouncerNetId === id &&
+			other.host === control.host &&
+			other.port === control.port &&
+			other.tls === control.tls &&
+			other.saslAccount === control.saslAccount
+		) {
+			stopAutoconnect(other.uuid);
+		}
+	}
 }
 
 /**

@@ -200,11 +200,56 @@ export const bouncerNetworksBatch: BatchHandler = (client, batch) => {
 	offer(client, networks);
 };
 
-/** A single `BOUNCER NETWORK` (`-notify`: a network added or changed elsewhere). */
+/** `BOUNCER NETWORK <id> *`: the bouncer deleted that network; its id, else undefined. */
+export function parseRemoval(msg: IrcMessage): string | undefined {
+	const [sub, id, attrs] = msg.params;
+
+	return sub?.toUpperCase() === "NETWORK" && isNetworkId(id) && attrs === "*" ? id : undefined;
+}
+
+/**
+ * A single `BOUNCER NETWORK` (`-notify`): a network added or changed
+ * elsewhere, or deleted (`*`), which stops the entry bound to it connecting
+ * by itself. Its own connection is closed by the bouncer, and the reconnect's
+ * refused `BIND` says so there ({@link bindFailed}).
+ */
 export function bouncerLine(client: IrcClient, msg: IrcMessage): void {
+	if (!isBouncerControl(client)) {
+		return;
+	}
+
+	const removed = parseRemoval(msg);
+
+	if (removed) {
+		client.options.onBouncerNetworkRemoved?.(removed);
+		return;
+	}
+
 	const net = parseNetwork(msg);
 
-	if (net && isBouncerControl(client)) {
+	if (net) {
 		offer(client, [net]);
 	}
+}
+
+/**
+ * `FAIL BOUNCER INVALID_NETID [BIND] <id> :text` naming this connection's own
+ * network: it was deleted on the bouncer. The spec puts the subcommand before
+ * the id, so the id is looked for anywhere in the context. True when handled.
+ */
+export function bindFailed(client: IrcClient, msg: IrcMessage): boolean {
+	const [command, code, ...rest] = msg.params;
+	const own = client.options.bouncerNetId;
+
+	if (
+		!own ||
+		command?.toUpperCase() !== "BOUNCER" ||
+		code?.toUpperCase() !== "INVALID_NETID" ||
+		!rest.slice(0, -1).includes(own)
+	) {
+		return false;
+	}
+
+	client.bouncerNetworkGone();
+	return true;
 }
