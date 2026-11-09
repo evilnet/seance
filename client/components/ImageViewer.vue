@@ -160,16 +160,22 @@ export default defineComponent({
 				return;
 			}
 
-			const width = viewerEl.offsetWidth;
-			const height = viewerEl.offsetHeight;
+			// The image is fitted to the viewer's content box: a platform that
+			// keeps it clear of the window's own controls (the Mac app's traffic
+			// lights, style.css) pads the viewer, and the image opens inside.
+			const style = getComputedStyle(viewerEl);
+			const padLeft = parseFloat(style.paddingLeft) || 0;
+			const padTop = parseFloat(style.paddingTop) || 0;
+			const width = viewerEl.clientWidth - padLeft - (parseFloat(style.paddingRight) || 0);
+			const height = viewerEl.clientHeight - padTop - (parseFloat(style.paddingBottom) || 0);
 			const scale = Math.min(1, width / imageEl.width, height / imageEl.height);
 
 			position.value.x = Math.floor(-image.value!.naturalWidth / 2);
 			position.value.y = Math.floor(-image.value!.naturalHeight / 2);
 			transform.value.scale = Math.max(scale, 0.1);
 			fitScale = transform.value.scale;
-			transform.value.x = width / 2;
-			transform.value.y = height / 2;
+			transform.value.x = padLeft + width / 2;
+			transform.value.y = padTop + height / 2;
 		};
 
 		const onImageLoad = () => {
