@@ -5,6 +5,7 @@ import {
 	linkSuggestion,
 	mergeJoinLists,
 	sanitizeLinkParams,
+	type LinkSuggestion,
 } from "../../client/js/helpers/linkTarget";
 import type {SavedNetwork} from "../../client/js/irc/saved-networks";
 
@@ -32,6 +33,7 @@ describe("linkTarget helper", function () {
 				port: 443,
 				portGiven: false,
 				tls: true,
+				transport: "websocket",
 				join: "#chan",
 			});
 			expect(
@@ -41,6 +43,7 @@ describe("linkTarget helper", function () {
 				port: 8443,
 				portGiven: true,
 				tls: true,
+				transport: "websocket",
 				join: "#chan",
 			});
 		});
@@ -51,6 +54,7 @@ describe("linkTarget helper", function () {
 				port: 443,
 				portGiven: false,
 				tls: true,
+				transport: "websocket",
 				join: "",
 			});
 		});
@@ -72,6 +76,48 @@ describe("linkTarget helper", function () {
 			expect(linkSuggestion({host: "h", port: "8443"})?.port).to.equal(8443);
 		});
 
+		it("reads an irc:// or ircs:// link as TCP in the app, with 6667 / 6697 defaults", function () {
+			const app = {tcp: true};
+			expect(
+				linkSuggestion(parseIrcUri("irc://irc.example.org/#chan", app), app)
+			).to.deep.equal({
+				host: "irc.example.org",
+				port: 6667,
+				portGiven: false,
+				tls: false,
+				transport: "tcp",
+				join: "#chan",
+			});
+			expect(
+				linkSuggestion(parseIrcUri("ircs://irc.example.org/#chan", app), app)
+			).to.deep.equal({
+				host: "irc.example.org",
+				port: 6697,
+				portGiven: false,
+				tls: true,
+				transport: "tcp",
+				join: "#chan",
+			});
+			expect(linkSuggestion(parseIrcUri("irc://irc.example.org:7000", app), app)).to.include({
+				port: 7000,
+				portGiven: true,
+				tls: false,
+				transport: "tcp",
+			});
+		});
+
+		it("keeps a browser on WebSocket whatever the parameters say", function () {
+			expect(linkSuggestion(parseIrcUri("irc://irc.example.org:6667/#chan"))).to.deep.equal({
+				host: "irc.example.org",
+				port: 443,
+				portGiven: false,
+				tls: true,
+				transport: "websocket",
+				join: "#chan",
+			});
+			expect(linkSuggestion({host: "h", transport: "tcp"})?.transport).to.equal("websocket");
+		});
+
 		it("never reads a password or autoconnect", function () {
 			const suggestion = linkSuggestion({
 				host: "h",
@@ -87,11 +133,12 @@ describe("linkTarget helper", function () {
 	});
 
 	describe("decideLinkTarget", function () {
-		const suggested = (overrides = {}) => ({
+		const suggested = (overrides: Partial<LinkSuggestion> = {}): LinkSuggestion => ({
 			host: "irc.example.org",
 			port: 443,
 			portGiven: true,
 			tls: true,
+			transport: "websocket",
 			join: "#chan",
 			...overrides,
 		});
@@ -151,6 +198,76 @@ describe("linkTarget helper", function () {
 			});
 
 			expect(decision.kind).to.equal("saved");
+		});
+
+		describe("over TCP", function () {
+			const tcp = (overrides: Partial<LinkSuggestion> = {}) =>
+				suggested({transport: "tcp", port: 6697, portGiven: false, ...overrides});
+			const plainLink = (overrides: Partial<LinkSuggestion> = {}) =>
+				tcp({tls: false, port: 6667, ...overrides});
+			const wsNet = net({uuid: "33333333-3333-4333-8333-333333333333"});
+			const tlsNet = net({
+				uuid: "44444444-4444-4444-8444-444444444444",
+				transport: "tcp",
+				port: 6697,
+			});
+			const plainNet = net({
+				uuid: "55555555-5555-4555-8555-555555555555",
+				transport: "tcp",
+				port: 6667,
+				tls: false,
+			});
+			const uuidOf = (decision: ReturnType<typeof decideLinkTarget>) =>
+				decision.kind === "saved" ? decision.network.uuid : decision.kind;
+
+			it("prefers a network on the link's own transport", function () {
+				expect(uuidOf(decideLinkTarget(tcp(), {saved: [wsNet, tlsNet]}))).to.equal(
+					tlsNet.uuid
+				);
+				expect(uuidOf(decideLinkTarget(suggested(), {saved: [tlsNet, wsNet]}))).to.equal(
+					wsNet.uuid
+				);
+			});
+
+			it("upgrades a plain link to a saved TLS network, whatever its port", function () {
+				expect(uuidOf(decideLinkTarget(plainLink(), {saved: [plainNet, tlsNet]}))).to.equal(
+					tlsNet.uuid
+				);
+				expect(
+					uuidOf(
+						decideLinkTarget(plainLink({portGiven: true}), {saved: [plainNet, tlsNet]})
+					)
+				).to.equal(tlsNet.uuid);
+				expect(uuidOf(decideLinkTarget(plainLink(), {saved: [plainNet]}))).to.equal(
+					plainNet.uuid
+				);
+			});
+
+			it("never downgrades an ircs:// link to a plain network", function () {
+				expect(decideLinkTarget(tcp(), {saved: [plainNet]}).kind).to.equal("new");
+				expect(
+					decideLinkTarget(suggested(), {saved: [plainNet, net({tls: false})]}).kind
+				).to.equal("new");
+			});
+
+			it("checks the port of an ircs:// link that names one", function () {
+				expect(
+					decideLinkTarget(tcp({port: 7000, portGiven: true}), {saved: [tlsNet]}).kind
+				).to.equal("new");
+				expect(
+					uuidOf(decideLinkTarget(tcp({portGiven: true}), {saved: [tlsNet]}))
+				).to.equal(tlsNet.uuid);
+			});
+
+			it("falls back to the host saved over the other transport, never weaker", function () {
+				expect(
+					uuidOf(decideLinkTarget(plainLink({portGiven: true}), {saved: [wsNet]}))
+				).to.equal(wsNet.uuid);
+				expect(uuidOf(decideLinkTarget(suggested(), {saved: [tlsNet]}))).to.equal(
+					tlsNet.uuid
+				);
+				expect(decideLinkTarget(suggested(), {saved: [plainNet]}).kind).to.equal("new");
+			});
 		});
 
 		it("refuses foreign hosts on a locked deploy", function () {

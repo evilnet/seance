@@ -39,6 +39,43 @@ describe("parseIrcUri helper", function () {
 		expect(parseIrcUri("ircs://example.com:6697/#chan")).to.deep.equal(obj);
 	});
 
+	it("should read irc:// and ircs:// as TCP with their port in the app", function () {
+		expect(parseIrcUri("irc://example.com:6667/#chan", {tcp: true})).to.deep.equal({
+			tls: false,
+			name: "example.com",
+			host: "example.com",
+			port: "6667",
+			transport: "tcp",
+			join: "#chan",
+		});
+		expect(parseIrcUri("ircs://example.com/%23chan%20key", {tcp: true})).to.deep.equal({
+			tls: true,
+			name: "example.com",
+			host: "example.com",
+			transport: "tcp",
+			join: "#chan key",
+		});
+	});
+
+	it("should keep web+irc:// on WebSocket in the app", function () {
+		expect(parseIrcUri("web+irc://example.com:1337", {tcp: true})).to.deep.equal(
+			parseIrcUri("web+irc://example.com:1337")
+		);
+	});
+
+	it("should never read a link's userinfo or query", function () {
+		expect(
+			parseIrcUri("ircs://user:hunter2@example.com:6697/?pass=x#chan", {tcp: true})
+		).to.deep.equal({
+			tls: true,
+			name: "example.com",
+			host: "example.com",
+			port: "6697",
+			transport: "tcp",
+			join: "#chan",
+		});
+	});
+
 	it("should not parse an unknown scheme", function () {
 		expect(parseIrcUri("wirc://example.com")).to.deep.equal({});
 		expect(parseIrcUri("https://example.com")).to.deep.equal({});

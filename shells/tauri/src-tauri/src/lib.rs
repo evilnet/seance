@@ -107,7 +107,8 @@ struct Links {
 }
 
 /// The schemes the page reads (client/js/helpers/parseIrcUri.ts). The OS hands
-/// a desktop shell the `web+` two alone (tauri.conf.json); a link in a message
+/// a desktop shell the `web+` two (tauri.conf.json), and `irc`/`ircs` on macOS
+/// or once the user has turned them on (`irc_links`); a link in a message
 /// can be any of them.
 fn is_irc_link(value: &str) -> bool {
     // Bytes, not a str slice: a link from outside may put a multi-byte
@@ -117,6 +118,55 @@ fn is_irc_link(value: &str) -> bool {
             && value.as_bytes()[..scheme.len()].eq_ignore_ascii_case(scheme.as_bytes())
     };
     has("web+irc:/") || has("web+ircs:/") || has("irc:/") || has("ircs:/")
+}
+
+/// The schemes that name a TCP server (draft-butcher-irc-url). The phones
+/// claim them in their manifests and macOS in its bundle (Info.macos.plist),
+/// where the system picks the default; Windows and Linux only from
+/// `irc_links`, so Seance never takes them from HexChat or Konversation by
+/// starting. They stay out of tauri.conf.json's `desktop.schemes`: the
+/// installers write every scheme listed there, and `register_all()` does
+/// at each launch.
+#[cfg(any(windows, target_os = "linux"))]
+const TCP_SCHEMES: [&str; 2] = ["irc", "ircs"];
+
+/// `App.ircLinks`: `{enable: bool}` claims `irc:`/`ircs:` for this app or
+/// gives them up; with or without it, answers `{enabled}`, whether both
+/// point here now.
+#[cfg(any(windows, target_os = "linux"))]
+async fn irc_links(app: AppHandle, options: &Value) -> Result<Value, ShellError> {
+    let enable = options.get("enable").and_then(Value::as_bool);
+
+    // xdg-mime and update-desktop-database are processes; off the
+    // async runtime's threads.
+    tauri::async_runtime::spawn_blocking(move || {
+        let links = app.deep_link();
+
+        if let Some(enable) = enable {
+            for scheme in TCP_SCHEMES {
+                let done = if enable {
+                    links.register(scheme)
+                } else {
+                    links.unregister(scheme)
+                };
+
+                done.map_err(|e| ShellError {
+                    message: e.to_string(),
+                    code: "failed".into(),
+                })?;
+            }
+        }
+
+        let enabled = TCP_SCHEMES
+            .iter()
+            .all(|scheme| links.is_registered(scheme).unwrap_or(false));
+        Ok(json!({ "enabled": enabled }))
+    })
+    .await
+    .map_err(|e| ShellError {
+        message: e.to_string(),
+        code: "failed".into(),
+    })?
 }
 
 /// A link from the OS (a deep link, a second launch's argv) or a message: to
@@ -211,6 +261,11 @@ async fn seance_call(
             links.listening = true;
             Ok(json!({ "url": links.launch }))
         }
+        // irc: and ircs: on Windows and Linux, only when the user asks
+        // (Settings, General). Not at launch: register() takes the scheme
+        // from whatever had it, every time.
+        #[cfg(any(windows, target_os = "linux"))]
+        ("App", "ircLinks") => irc_links(window.app_handle().clone(), &options).await,
         // The Dock bounces once, the taskbar button flashes, the window is
         // marked urgent; nothing while the window has the focus.
         #[cfg(desktop)]

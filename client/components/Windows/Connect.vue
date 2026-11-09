@@ -118,6 +118,13 @@
 				{{ linkNotice }}
 			</div>
 
+			<div v-if="linkCleartext" class="connect-notice connect-link-notice connect-cleartext">
+				<span>{{ t("connect.linkCleartext") }}</span>
+				<button type="button" class="btn" @click="useLinkTls">
+					{{ t("connect.linkUseTls", {port: tlsPort}) }}
+				</button>
+			</div>
+
 			<h2 v-if="!hostLocked">{{ t("connect.server") }}</h2>
 			<div v-if="hostLocked" class="connect-row connect-network">
 				<label>{{ t("connect.network") }}</label>
@@ -415,6 +422,17 @@
 	background: var(--window-bg-color);
 }
 
+#connect .connect-cleartext {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.625rem;
+}
+
+#connect .connect-cleartext span {
+	flex: 1 1 12rem;
+}
+
 #connect .link-approval-buttons {
 	display: flex;
 	gap: 10px;
@@ -488,7 +506,16 @@ export type {ConnectOptions};
  * `saslPassword` is deliberately not accepted: a link must not carry secrets
  * (docs/projects/irc-link-new-server-dialog.md).
  */
-const CONNECT_PARAMS = ["host", "port", "tls", "nick", "join", "channels", "saslAccount"];
+const CONNECT_PARAMS = [
+	"host",
+	"port",
+	"tls",
+	"transport",
+	"nick",
+	"join",
+	"channels",
+	"saslAccount",
+];
 
 export default defineComponent({
 	name: "Connect",
@@ -670,7 +697,7 @@ export default defineComponent({
 				focusPassword = "server";
 			}
 		} else if (hasConnectParams) {
-			applyQueryParams(form, props.queryParams);
+			applyQueryParams(form, props.queryParams, canUseTcp);
 			pinServer();
 			showSasl.value = form.sasl === "plain" || !!form.saslAccount;
 		} else {
@@ -719,6 +746,18 @@ export default defineComponent({
 
 			return "";
 		});
+
+		// A plain irc:// link in the app: say the connection would be
+		// cleartext, and offer TLS on its usual port rather than trying it
+		// behind the user's back (some networks have no TLS port).
+		const linkCleartext = computed(
+			() => fromLink && !savedLink && form.transport === "tcp" && !form.tls
+		);
+		const tlsPort = defaultPort(true, "tcp");
+		const useLinkTls = () => {
+			form.tls = true;
+			form.port = tlsPort;
+		};
 
 		// Follow the TLS checkbox while the port is still one of the defaults.
 		watch(
@@ -874,6 +913,9 @@ export default defineComponent({
 			submitted,
 			notice,
 			linkNotice,
+			linkCleartext,
+			tlsPort,
+			useLinkTls,
 			fromLink,
 			passwordInput,
 			serverPasswordInput,
@@ -893,10 +935,10 @@ function isTruthyParam(value: unknown): boolean {
 
 /**
  * Pre-fill the form from `?host=...&nick=...` style URL parameters or the
- * output of `parseIrcUri` for `web+irc://` links. `channels` is accepted as an
+ * output of `parseIrcUri` for `web+irc://` (and, in the app, `irc://`) links. `channels` is accepted as an
  * alias for `join` for compatibility with other clients.
  */
-function applyQueryParams(form: ConnectOptions, params?: Record<string, any>) {
+function applyQueryParams(form: ConnectOptions, params?: Record<string, any>, canUseTcp = false) {
 	if (!params) {
 		return;
 	}
@@ -904,6 +946,7 @@ function applyQueryParams(form: ConnectOptions, params?: Record<string, any>) {
 	const host = firstParam(params.host);
 	const port = firstParam(params.port);
 	const tls = firstParam(params.tls);
+	const transport = firstParam(params.transport);
 	const nick = firstParam(params.nick);
 	const join = firstParam(params.join ?? params.channels);
 	const saslAccount = firstParam(params.saslAccount);
@@ -918,6 +961,11 @@ function applyQueryParams(form: ConnectOptions, params?: Record<string, any>) {
 
 	if (tls !== undefined) {
 		form.tls = !(tls === "0" || tls === "false");
+	}
+
+	// Only the app shell dials TCP; a browser keeps its WebSocket.
+	if (transport === "tcp" && canUseTcp) {
+		form.transport = "tcp";
 	}
 
 	if (nick) {

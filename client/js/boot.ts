@@ -14,6 +14,7 @@ import type {LocationQueryRaw} from "vue-router";
 import {store} from "./store";
 import {migrateReadingToLocale} from "./settings";
 import parseIrcUri from "./helpers/parseIrcUri";
+import {isShell} from "./helpers/shell";
 import {
 	decideLinkTarget,
 	linkSuggestion,
@@ -307,15 +308,18 @@ async function handleQueryParams(
 	}
 
 	const params = new URLSearchParams(search);
+	// The app shell dials raw TCP, so an irc:// or ircs:// link means what it
+	// says there; a browser reads only its host and channels.
+	const tcp = isShell();
 	const raw = params.has("uri")
-		? (parseIrcUri(String(params.get("uri"))) as Record<string, unknown>)
+		? (parseIrcUri(String(params.get("uri")), {tcp}) as Record<string, unknown>)
 		: (Object.fromEntries(params.entries()) as Record<string, unknown>);
 
 	if (clean) {
 		removeQueryParams();
 	}
 
-	const suggestion = linkSuggestion(raw);
+	const suggestion = linkSuggestion(raw, {tcp});
 
 	if (!suggestion) {
 		// No server named: the leftover parameters (nick, join, ...) still
@@ -384,6 +388,10 @@ function suggestionQuery(suggestion: LinkSuggestion): LocationQueryRaw {
 		port: String(suggestion.port),
 		tls: suggestion.tls ? "1" : "0",
 	};
+
+	if (suggestion.transport === "tcp") {
+		query.transport = "tcp";
+	}
 
 	if (suggestion.join) {
 		query.join = suggestion.join;

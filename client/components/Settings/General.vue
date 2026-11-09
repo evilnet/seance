@@ -1,6 +1,13 @@
 <template>
 	<div>
-		<div v-if="canRegisterProtocol || store.state.installPromptAvailable || canShowGuide">
+		<div
+			v-if="
+				canRegisterProtocol ||
+				store.state.installPromptAvailable ||
+				canShowGuide ||
+				ircLinks !== null
+			"
+		>
 			<h2>{{ t("settings.general.nativeApp") }}</h2>
 			<button
 				v-if="store.state.installPromptAvailable"
@@ -18,6 +25,17 @@
 			>
 				{{ t("settings.general.openLinks", {appName}) }}
 			</button>
+			<label v-if="ircLinks !== null" class="opt">
+				<input
+					v-switch
+					:checked="ircLinks"
+					:disabled="ircLinksBusy"
+					type="checkbox"
+					name="ircLinks"
+					@change="toggleIrcLinks"
+				/>
+				{{ t("settings.general.ircLinks", {appName}) }}
+			</label>
 			<button
 				v-if="canShowGuide"
 				id="show-install-guide"
@@ -196,7 +214,7 @@ import {
 } from "../../js/helpers/keepAlive";
 import eventbus from "../../js/eventbus";
 import {currentPlatform} from "../../js/helpers/platformDefaults";
-import {isShell} from "../../js/helpers/shell";
+import {isShell, nativeCall, nativePlatform} from "../../js/helpers/shell";
 import {createState} from "../../js/settings";
 import {
 	applyBackup,
@@ -289,6 +307,43 @@ export default defineComponent({
 				window.navigator.registerProtocolHandler(scheme, uri, appName.value);
 			}
 		};
+
+		// irc: and ircs: in the Windows and Linux apps: theirs only when the
+		// user says so, since HexChat or Konversation may have them (the
+		// shell's `App.ircLinks`, shells/tauri/README.md). The switch shows
+		// what the system says now, so a client that took them back since
+		// reads as off. null: no switch (a browser, macOS, an older shell).
+		const ircLinks = ref<boolean | null>(null);
+		const ircLinksBusy = ref(false);
+		const askIrcLinks = async (options: {enable?: boolean} = {}) => {
+			const platform = nativePlatform();
+
+			if (platform !== "windows" && platform !== "linux") {
+				return;
+			}
+
+			ircLinksBusy.value = true;
+			// A refused change still answers with where things stand.
+			const answer =
+				(await nativeCall<{enabled?: unknown}>("App", "ircLinks", options)) ??
+				(options.enable === undefined
+					? null
+					: await nativeCall<{enabled?: unknown}>("App", "ircLinks"));
+			ircLinksBusy.value = false;
+
+			if (answer && typeof answer.enabled === "boolean") {
+				ircLinks.value = answer.enabled;
+			}
+		};
+		const toggleIrcLinks = async (event: Event) => {
+			const box = event.target as HTMLInputElement;
+			await askIrcLinks({enable: box.checked});
+			box.checked = ircLinks.value === true;
+		};
+
+		onMounted(() => {
+			void askIrcLinks();
+		});
 
 		// Settings backup (helpers/settingsBackup.ts). The download is a
 		// gzipped JSON file; a restore replaces every covered localStorage
@@ -458,6 +513,9 @@ export default defineComponent({
 		return {
 			appName,
 			store,
+			ircLinks,
+			ircLinksBusy,
+			toggleIrcLinks,
 			t,
 			uploadCanvasHelp,
 			keepAliveHelp,

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- The links the Mac app opens. This replaces the list the bundler
+	     builds from tauri.conf.json's deep-link `desktop.schemes`, so the
+	     web+ two are repeated here. irc: and ircs: (TCP, draft-butcher-irc-url)
+	     are only declared: Launch Services picks which app opens them, and
+	     the user can choose another in Finder. They stay out of
+	     `desktop.schemes`, which the Windows and Linux installers would
+	     write as this app's (src/lib.rs `TCP_SCHEMES`). -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>chat.seance.desktop web+irc</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>web+irc</string>
+				<string>web+ircs</string>
+			</array>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>chat.seance.desktop irc</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>irc</string>
+				<string>ircs</string>
+			</array>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+		</dict>
+	</array>
+</dict>
+</plist>
