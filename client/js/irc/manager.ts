@@ -107,6 +107,9 @@ function stopAutoconnect(uuid: string): void {
 	}
 }
 
+/** Networks whose certificate question is up (untrustedCertificate). */
+const asking = new Set<string>();
+
 /**
  * The shell refused a network's certificate: ask the user, then trust it for
  * good (saved with the network), for this session, or not at all.
@@ -114,12 +117,21 @@ function stopAutoconnect(uuid: string): void {
 async function untrustedCertificate(uuid: string, certificate: UntrustedCertificate) {
 	const client = clients.get(uuid);
 
-	if (!client) {
+	// One question per network at a time: a refusal while it is up (another
+	// Connect) would queue the same question behind it.
+	if (!client || asking.has(uuid)) {
 		return;
 	}
 
 	const {host, port} = client.options;
-	const answer = await askCertificateTrust(host, certificate);
+	asking.add(uuid);
+	let answer: Awaited<ReturnType<typeof askCertificateTrust>>;
+
+	try {
+		answer = await askCertificateTrust(host, certificate);
+	} finally {
+		asking.delete(uuid);
+	}
 
 	// The network may have gone, or its address changed, while the question
 	// was up: the answer was about that server's certificate, not this one's.
@@ -131,17 +143,23 @@ async function untrustedCertificate(uuid: string, certificate: UntrustedCertific
 		return;
 	}
 
-	if (answer === "always") {
-		const current = saved.get(uuid);
+	if (answer === "no") {
+		return;
+	}
 
-		if (current && current.host === host && current.port === port) {
-			const next = saved.withTrustedCertificate(current, certificate.sha256);
-			saved.save(next);
-			client.applySettings(saved.toConnectOptions(next));
-		}
+	// "Always" is kept with the saved network. A network that is not saved,
+	// or whose saved entry names another server, has nowhere to keep it, so
+	// it counts for this session, rather than dialling into the same
+	// question. The port may differ: an STS upgrade moves the live client to
+	// the secure port and leaves the saved one as typed.
+	const current = answer === "always" ? saved.get(uuid) : undefined;
 
+	if (current && saved.sameHost(current.host, host)) {
+		const next = saved.withTrustedCertificate(current, certificate.sha256);
+		saved.save(next);
+		client.applySettings(saved.toConnectOptions(next));
 		client.connect();
-	} else if (answer === "once") {
+	} else {
 		client.trustCertificateOnce(certificate.sha256, host, port);
 	}
 }

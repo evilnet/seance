@@ -368,13 +368,12 @@ describe("ShellSocket", function () {
 				id: bridge.calls[0].options.id,
 				code: FINAL_CLOSE,
 				reason: "the server's certificate is not trusted: it has expired",
-				certificate: {sha256, problem: "expired", subject: "CN=irc", notAfter: 1},
+				certificate: {sha256, problem: "expired", notAfter: 1},
 			});
 			const error = events.find((e) => e.type === "error") as {certificate?: unknown};
 			expect(error.certificate).to.deep.equal({
 				sha256,
 				problem: "expired",
-				subject: "CN=irc",
 				notAfter: 1,
 			});
 
@@ -428,11 +427,14 @@ describe("parseCertificate", function () {
 			parseCertificate({
 				sha256,
 				problem: "weird",
-				subject: 7,
-				notBefore: "x",
+				notAfter: "x",
 				names: ["a", 3, "b"],
-				selfSigned: true,
 			})
-		).to.deep.equal({sha256, problem: "other", names: ["a", "b"], selfSigned: true});
+		).to.deep.equal({sha256, problem: "other", names: ["a", "b"]});
+		expect(parseCertificate({sha256, problem: "selfSigned", notAfter: 100})).to.deep.equal({
+			sha256,
+			problem: "selfSigned",
+			notAfter: 100,
+		});
 	});
 });

@@ -415,13 +415,7 @@ export function fromForm(data: Record<string, unknown>, existing?: SavedNetwork)
 		base.serverPassword = existing.serverPassword;
 	}
 
-	// Certificates were trusted for the server they came from: a network
-	// moved to another host or port starts with none.
-	if (
-		existing &&
-		(asString(base.host).trim().toLowerCase() !== existing.host.trim().toLowerCase() ||
-			Number(base.port) !== existing.port)
-	) {
+	if (existing && moved(existing, base.host, base.port)) {
 		delete base.trustedCertificates;
 	}
 
@@ -457,6 +451,23 @@ export function toConnectOptions(net: SavedNetwork): ConnectOptions {
 		serverPassword: net.serverPassword ?? (net.hasServerPassword ? undefined : ""),
 		trustedCertificates: net.trustedCertificates ?? [],
 	};
+}
+
+/** Whether two host names are the same server's, as typed or not. */
+export function sameHost(a: string, b: string): boolean {
+	return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
+/**
+ * Whether `host` and `port` (either may be absent: unchanged) take `existing`
+ * to another server. Certificates were trusted for the server they came
+ * from, so a network that moved starts with none (fromForm, mergeOptions).
+ */
+function moved(existing: SavedNetwork, host: unknown, port: unknown): boolean {
+	return (
+		(host !== undefined && !sameHost(asString(host), existing.host)) ||
+		(port !== undefined && Number(port) !== existing.port)
+	);
 }
 
 /** How many certificates one network may trust (the shell refuses more). */
@@ -717,6 +728,11 @@ export function mergeOptions(
 		if (value !== undefined) {
 			merged[key] = value;
 		}
+	}
+
+	// The connect screen can point a saved network at another server too.
+	if (existing && moved(existing, options.host, options.port)) {
+		delete merged.trustedCertificates;
 	}
 
 	return merged;

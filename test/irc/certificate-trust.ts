@@ -78,3 +78,26 @@ describe("untrusted certificate: bound to the server", function () {
 		expect([...c.trustedOnce]).to.deep.equal([`elsewhere.test\n6697\n${certificate.sha256}`]);
 	});
 });
+
+describe("untrusted certificate: what the shell is sent", function () {
+	const fp = (n: number) => n.toString(16).padStart(64, "0");
+	const sent = (h: ReturnType<typeof setup>) =>
+		(h.client as unknown as {certificatesToTrust(): string[]}).certificatesToTrust();
+
+	it("sends a certificate once, saved and trusted once alike", function () {
+		const h = setup({trustedCertificates: [certificate.sha256]});
+		h.client.trustCertificateOnce(
+			certificate.sha256,
+			h.client.options.host,
+			h.client.options.port
+		);
+		expect(sent(h)).to.deep.equal([certificate.sha256]);
+	});
+
+	it("stays within the shell's eight, the one trusted just now kept", function () {
+		const saved = [1, 2, 3, 4, 5, 6, 7, 8].map(fp);
+		const h = setup({trustedCertificates: saved});
+		h.client.trustCertificateOnce(fp(9), h.client.options.host, h.client.options.port);
+		expect(sent(h)).to.deep.equal([...saved.slice(1), fp(9)]);
+	});
+});

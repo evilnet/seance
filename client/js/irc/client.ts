@@ -147,7 +147,13 @@ import {
 	upgradeOptions,
 } from "./sts";
 import {shellSocketCtor, type SocketBridge, type UntrustedCertificate} from "./shellSocket";
-import {channelOrder, get as getSavedNetwork, NetworkCursor, setCursor} from "./saved-networks";
+import {
+	channelOrder,
+	get as getSavedNetwork,
+	MAX_TRUSTED_CERTIFICATES,
+	NetworkCursor,
+	setCursor,
+} from "./saved-networks";
 import {noteServiceReply, resetServiceReplies} from "./services";
 import {dropQuietLine, isRepeatedMissingBot} from "./quiet";
 import {BackgroundQueue, FakeLagClock, type FakeLagModel} from "./fakelag";
@@ -928,15 +934,6 @@ export class IrcClient {
 	}
 
 	/**
-	 * Take edited connection settings (`network:edit`). Host, port and TLS
-	 * need a fresh transport, so while a connection is up (or being opened)
-	 * they wait for the next connect — including the automatic reconnect
-	 * after that connection drops. An idle client switches at once; one that
-	 * is waiting to reconnect switches and retries right away, so a typo in
-	 * the port or TLS box does not keep it hammering the wrong address.
-	 * The nick is not touched here: `/nick` owns it.
-	 */
-	/**
 	 * Accept `sha256` from `host`:`port` for this session only ("Just this
 	 * once"), then dial. A network moved elsewhere does not take it along.
 	 */
@@ -945,6 +942,30 @@ export class IrcClient {
 		this.connect();
 	}
 
+	/**
+	 * The certificates the shell is to accept for the server dialled now:
+	 * the saved ones and those trusted once for this host and port, without
+	 * repeats. The shell takes at most MAX_TRUSTED_CERTIFICATES, and one
+	 * trusted just now outranks the oldest saved one.
+	 */
+	private certificatesToTrust(): string[] {
+		const here = `${this.options.host}\n${this.options.port}\n`;
+		const once = [...this.trustedOnce]
+			.filter((key) => key.startsWith(here))
+			.map((key) => key.slice(here.length));
+		const all = [...new Set([...(this.options.trustedCertificates ?? []), ...once])];
+		return all.slice(-MAX_TRUSTED_CERTIFICATES);
+	}
+
+	/**
+	 * Take edited connection settings (`network:edit`). Host, port and TLS
+	 * need a fresh transport, so while a connection is up (or being opened)
+	 * they wait for the next connect — including the automatic reconnect
+	 * after that connection drops. An idle client switches at once; one that
+	 * is waiting to reconnect switches and retries right away, so a typo in
+	 * the port or TLS box does not keep it hammering the wrong address.
+	 * The nick is not touched here: `/nick` owns it.
+	 */
 	applySettings(next: ConnectOptions): void {
 		const merged: IrcClientOptions = {
 			...this.options,
@@ -1042,13 +1063,7 @@ export class IrcClient {
 		if (this.options.transport === "tcp" && this.options.socketBridge) {
 			// The trusted certificates are read at each dial, not now: a
 			// certificate trusted after this transport was made counts.
-			const trusted = () => {
-				const here = `${this.options.host}\n${this.options.port}\n`;
-				const once = [...this.trustedOnce]
-					.filter((key) => key.startsWith(here))
-					.map((key) => key.slice(here.length));
-				return [...(this.options.trustedCertificates ?? []), ...once];
-			};
+			const trusted = () => this.certificatesToTrust();
 			transportOptions.WebSocketImpl = shellSocketCtor(this.options.socketBridge, {
 				host: tcpHostOf(this.options.host),
 				port: this.options.port,

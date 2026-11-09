@@ -42,16 +42,15 @@ export interface TcpEndpoint {
  */
 export interface UntrustedCertificate {
 	sha256: string;
-	/** Why it failed: expired, issued for another name, by an unknown authority, or other. */
-	problem: "expired" | "name" | "issuer" | "other";
-	subject?: string;
-	issuer?: string;
-	selfSigned?: boolean;
-	/** Unix seconds. */
-	notBefore?: number;
+	/** Why it failed: expired, issued for another name, by an unknown authority, self-signed, or other. */
+	problem: "expired" | "name" | "issuer" | "selfSigned" | "other";
+	/** When it expired (Unix seconds), for an expired one. */
 	notAfter?: number;
+	/** The names it was issued for, for one issued for another name. */
 	names?: string[];
 }
+
+const PROBLEMS = new Set(["expired", "name", "issuer", "selfSigned"]);
 
 /** The shell's `certificate` field, checked: anything malformed is dropped. */
 export function parseCertificate(raw: unknown): UntrustedCertificate | undefined {
@@ -65,39 +64,19 @@ export function parseCertificate(raw: unknown): UntrustedCertificate | undefined
 		return undefined;
 	}
 
-	const problem = ["expired", "name", "issuer"].includes(r.problem as string)
+	const problem = PROBLEMS.has(r.problem as string)
 		? (r.problem as UntrustedCertificate["problem"])
 		: "other";
 	const out: UntrustedCertificate = {sha256: r.sha256, problem};
-	const text = (v: unknown) => (typeof v === "string" && v.length <= 1024 ? v : undefined);
-	const time = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
-	const subject = text(r.subject);
-	const issuer = text(r.issuer);
-	const notBefore = time(r.notBefore);
-	const notAfter = time(r.notAfter);
 
-	if (subject !== undefined) {
-		out.subject = subject;
-	}
-
-	if (issuer !== undefined) {
-		out.issuer = issuer;
-	}
-
-	if (typeof r.selfSigned === "boolean") {
-		out.selfSigned = r.selfSigned;
-	}
-
-	if (notBefore !== undefined) {
-		out.notBefore = notBefore;
-	}
-
-	if (notAfter !== undefined) {
-		out.notAfter = notAfter;
+	if (typeof r.notAfter === "number" && Number.isFinite(r.notAfter)) {
+		out.notAfter = r.notAfter;
 	}
 
 	if (Array.isArray(r.names)) {
-		out.names = r.names.filter((n): n is string => typeof n === "string").slice(0, 20);
+		out.names = r.names
+			.filter((n): n is string => typeof n === "string" && n.length <= 255)
+			.slice(0, 20);
 	}
 
 	return out;

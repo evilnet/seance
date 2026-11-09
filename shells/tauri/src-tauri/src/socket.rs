@@ -23,7 +23,8 @@
 // certificate fails the usual checks is still let through when its own
 // certificate is one of them, byte for byte. A close for an untrusted
 // certificate carries what the page shows the user to decide on it
-// (`certificate`: sha256, subject, issuer, names, notBefore, notAfter, problem). `Socket.send {id,
+// (`certificate`: sha256, problem, and notAfter or names when rustls
+// gave them). `Socket.send {id,
 // lines}`, once open. `Socket.close {id}`: the queued lines are written (a
 // QUIT gets out), the socket shut, and no event follows. A page load closes
 // every socket, and an open from the page before it (`page`, a token per
@@ -533,7 +534,7 @@ async fn dial(
             let certificate = if code == FINAL {
                 verifier
                     .rejected()
-                    .map(|cert| describe_certificate(&cert, &reason))
+                    .map(|(der, why)| describe_certificate(&der, &why))
             } else {
                 None
             };
@@ -620,14 +621,15 @@ fn tls_connector(verifier: Arc<TrustingVerifier>) -> Result<tokio_rustls::TlsCon
 /// a server certificate whose SHA-256 is one the user chose to trust for
 /// this network. Only a certificate that fails the checks is compared, and
 /// only the exact certificate passes: a renewed or different one asks again.
-/// The handshake's own signatures are checked as usual either way, so the
-/// server must hold that certificate's key. The certificate it rejected is
-/// kept for the close event.
+/// A revoked certificate or a bad signature on it is never let through. The
+/// handshake's own signatures are checked as usual either way, so the server
+/// must hold that certificate's key. The certificate it rejected, and why,
+/// are kept for the close event.
 #[derive(Debug)]
 struct TrustingVerifier {
     inner: Arc<rustls::client::WebPkiServerVerifier>,
     trust: Vec<[u8; 32]>,
-    rejected: Mutex<Option<Vec<u8>>>,
+    rejected: Mutex<Option<(Vec<u8>, rustls::CertificateError)>>,
 }
 
 impl TrustingVerifier {
@@ -646,9 +648,15 @@ impl TrustingVerifier {
         })
     }
 
-    fn rejected(&self) -> Option<Vec<u8>> {
+    fn rejected(&self) -> Option<(Vec<u8>, rustls::CertificateError)> {
         self.rejected.lock().unwrap().clone()
     }
+}
+
+/// A failure the user may override by trusting the exact certificate.
+fn overridable(e: &rustls::CertificateError) -> bool {
+    use rustls::CertificateError as C;
+    !matches!(e, C::Revoked | C::BadSignature | C::BadEncoding)
 }
 
 impl rustls::client::danger::ServerCertVerifier for TrustingVerifier {
@@ -667,19 +675,15 @@ impl rustls::client::danger::ServerCertVerifier for TrustingVerifier {
             ocsp_response,
             now,
         ) {
-            Err(rustls::Error::InvalidCertificate(_))
-                if self.trust.contains(&sha256(end_entity.as_ref())) =>
-            {
-                Ok(rustls::client::danger::ServerCertVerified::assertion())
-            }
-            Err(e) => {
-                if matches!(e, rustls::Error::InvalidCertificate(_)) {
-                    *self.rejected.lock().unwrap() = Some(end_entity.as_ref().to_vec());
+            Err(rustls::Error::InvalidCertificate(why)) if overridable(&why) => {
+                if self.trust.contains(&sha256(end_entity.as_ref())) {
+                    return Ok(rustls::client::danger::ServerCertVerified::assertion());
                 }
 
-                Err(e)
+                *self.rejected.lock().unwrap() = Some((end_entity.as_ref().to_vec(), why.clone()));
+                Err(rustls::Error::InvalidCertificate(why))
             }
-            ok => ok,
+            other => other,
         }
     }
 
@@ -756,47 +760,51 @@ fn parse_fingerprint(text: &str) -> Option<[u8; 32]> {
     Some(out)
 }
 
-/// What the page shows about a certificate it did not trust: enough to
-/// decide on, read from the certificate itself.
-fn describe_certificate(der: &[u8], reason: &str) -> Value {
-    let problem = if reason.contains("expired") {
-        "expired"
-    } else if reason.contains("different name") {
-        "name"
-    } else if reason.contains("unknown authority") {
-        "issuer"
-    } else {
-        "other"
-    };
-    let mut out = json!({"sha256": hex(&sha256(der)), "problem": problem});
+/// A name as webpki presents it in `NotValidForNameContext`: its own Debug
+/// text, `DnsName("irc.example")` or `IpAddress(192.0.2.1)`. The name alone,
+/// or nothing for the kinds a server is not named by.
+fn presented_name(text: &str) -> Option<&str> {
+    text.strip_prefix("DnsName(\"")
+        .and_then(|rest| rest.strip_suffix("\")"))
+        .or_else(|| {
+            text.strip_prefix("IpAddress(")
+                .and_then(|rest| rest.strip_suffix(')'))
+        })
+}
 
-    if let Ok((_, cert)) = x509_parser::parse_x509_certificate(der) {
-        out["subject"] = json!(cert.subject().to_string());
-        out["issuer"] = json!(cert.issuer().to_string());
-        out["notBefore"] = json!(cert.validity().not_before.timestamp());
-        out["notAfter"] = json!(cert.validity().not_after.timestamp());
-        out["selfSigned"] = json!(cert.subject() == cert.issuer());
+/// What the page shows about a certificate it did not trust: its SHA-256,
+/// why it failed, and what rustls already read from it (the names it is for,
+/// when it expired).
+fn describe_certificate(der: &[u8], why: &rustls::CertificateError) -> Value {
+    use rustls::CertificateError as C;
+    let mut out = json!({"sha256": hex(&sha256(der))});
 
-        if let Ok(Some(san)) = cert.subject_alternative_name() {
-            let names: Vec<String> = san
-                .value
-                .general_names
+    match why {
+        C::Expired => out["problem"] = json!("expired"),
+        C::ExpiredContext { not_after, .. } => {
+            out["problem"] = json!("expired");
+            out["notAfter"] = json!(not_after.as_secs());
+        }
+        C::NotValidForName => out["problem"] = json!("name"),
+        C::NotValidForNameContext { presented, .. } => {
+            out["problem"] = json!("name");
+            let names: Vec<&str> = presented
                 .iter()
-                .filter_map(|name| match name {
-                    x509_parser::extensions::GeneralName::DNSName(dns) => Some(dns.to_string()),
-                    x509_parser::extensions::GeneralName::IPAddress(ip) => match ip.len() {
-                        4 => Some(std::net::Ipv4Addr::new(ip[0], ip[1], ip[2], ip[3]).to_string()),
-                        16 => <[u8; 16]>::try_from(*ip)
-                            .ok()
-                            .map(|b| std::net::Ipv6Addr::from(b).to_string()),
-                        _ => None,
-                    },
-                    _ => None,
-                })
+                .filter_map(|n| presented_name(n))
                 .take(20)
                 .collect();
             out["names"] = json!(names);
         }
+        C::UnknownIssuer => out["problem"] = json!("issuer"),
+        // How a certificate made with `openssl req -x509` fails: it calls
+        // itself a CA, and rustls hands on webpki's own error for that.
+        C::Other(other)
+            if other.0.downcast_ref::<webpki::Error>()
+                == Some(&webpki::Error::CaUsedAsEndEntity) =>
+        {
+            out["problem"] = json!("selfSigned")
+        }
+        _ => out["problem"] = json!("other"),
     }
 
     out
@@ -1081,13 +1089,96 @@ mod tests {
     }
 
     #[test]
-    fn describes_a_certificate_it_cannot_parse_by_its_fingerprint() {
-        let d = describe_certificate(
-            b"not der",
-            "the server's certificate is not trusted: it has expired",
+    fn describes_a_certificate_from_the_error() {
+        let expired = describe_certificate(
+            b"der",
+            &rustls::CertificateError::ExpiredContext {
+                time: rustls::pki_types::UnixTime::since_unix_epoch(Duration::from_secs(200)),
+                not_after: rustls::pki_types::UnixTime::since_unix_epoch(Duration::from_secs(100)),
+            },
         );
-        assert_eq!(d["problem"], "expired");
-        assert_eq!(d["sha256"].as_str().unwrap().len(), 64);
-        assert!(d.get("subject").is_none());
+        assert_eq!(expired["problem"], "expired");
+        assert_eq!(expired["notAfter"], 100);
+        assert_eq!(expired["sha256"].as_str().unwrap().len(), 64);
+
+        let name = describe_certificate(
+            b"der",
+            &rustls::CertificateError::NotValidForNameContext {
+                expected: rustls::pki_types::ServerName::try_from("irc.example").unwrap(),
+                presented: vec![
+                    "DnsName(\"other.example\")".into(),
+                    "IpAddress(192.0.2.1)".into(),
+                    "DirectoryName".into(),
+                ],
+            },
+        );
+        assert_eq!(name["problem"], "name");
+        assert_eq!(name["names"], json!(["other.example", "192.0.2.1"]));
+
+        let other = describe_certificate(b"der", &rustls::CertificateError::Revoked);
+        assert_eq!(other["problem"], "other");
+    }
+
+    /// A self-signed certificate (tests/self-signed.der, for irc.example):
+    /// refused and kept for the prompt, unless its SHA-256 is trusted; and a
+    /// trusted one is still refused for a revoked certificate.
+    #[test]
+    fn trusts_exactly_the_pinned_certificate() {
+        use rustls::client::danger::ServerCertVerifier;
+        let der = rustls::pki_types::CertificateDer::from(
+            include_bytes!("../tests/self-signed.der").to_vec(),
+        );
+        let name = rustls::pki_types::ServerName::try_from("irc.example").unwrap();
+        let now = rustls::pki_types::UnixTime::now();
+
+        let refuses = TrustingVerifier::new(Vec::new()).unwrap();
+        assert!(refuses
+            .verify_server_cert(&der, &[], &name, &[], now)
+            .is_err());
+        let (kept, why) = refuses.rejected().expect("the refused certificate is kept");
+        assert_eq!(kept, der.as_ref());
+        assert_eq!(describe_certificate(&kept, &why)["problem"], "selfSigned");
+
+        let trusts = TrustingVerifier::new(vec![sha256(der.as_ref())]).unwrap();
+        assert!(trusts
+            .verify_server_cert(&der, &[], &name, &[], now)
+            .is_ok());
+        assert!(trusts.rejected().is_none());
+
+        let other = TrustingVerifier::new(vec![[0u8; 32]]).unwrap();
+        assert!(other
+            .verify_server_cert(&der, &[], &name, &[], now)
+            .is_err());
+
+        assert!(!overridable(&rustls::CertificateError::Revoked));
+        assert!(overridable(&rustls::CertificateError::UnknownIssuer));
+    }
+
+    /// Against badssl.com's broken certificates, over the network:
+    /// `cargo test --lib badssl -- --ignored`.
+    #[tokio::test]
+    #[ignore]
+    async fn badssl_refusals_carry_the_certificate() {
+        for (host, problem) in [
+            ("expired.badssl.com", "expired"),
+            ("wrong.host.badssl.com", "name"),
+            // Not marked a CA, so rustls says only that nobody known signed it.
+            ("self-signed.badssl.com", "issuer"),
+            ("untrusted-root.badssl.com", "issuer"),
+        ] {
+            let Err(e) = dial(host, 443, true, Vec::new()).await else {
+                panic!("{host} was trusted");
+            };
+            assert_eq!(e.code, FINAL, "{host}: {}", e.reason);
+            let cert = e.certificate.expect(host);
+            assert_eq!(cert["problem"], problem, "{host}: {cert}");
+            println!("{host}: {cert}");
+
+            let fp = parse_fingerprint(cert["sha256"].as_str().unwrap()).unwrap();
+            assert!(
+                dial(host, 443, true, vec![fp]).await.is_ok(),
+                "{host} refused although trusted"
+            );
+        }
     }
 }

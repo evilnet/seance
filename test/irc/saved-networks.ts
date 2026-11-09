@@ -732,4 +732,24 @@ describe("saved networks: trusted certificates", function () {
 			"trustedCertificates"
 		);
 	});
+
+	it("drops them when the connect screen points the network at another server", function () {
+		const existing = saved.normalize({
+			uuid: "u5",
+			host: "irc.example",
+			port: 6697,
+			trustedCertificates: [a],
+		})!;
+		const same = saved.mergeOptions(existing, "u5", {host: "IRC.example ", port: 6697});
+		expect(same.trustedCertificates).to.deep.equal([a]);
+		expect(saved.mergeOptions(existing, "u5", {nick: "bob"}).trustedCertificates).to.deep.equal(
+			[a]
+		);
+		expect(saved.mergeOptions(existing, "u5", {host: "evil.example"})).to.not.have.property(
+			"trustedCertificates"
+		);
+		expect(saved.mergeOptions(existing, "u5", {port: 7000})).to.not.have.property(
+			"trustedCertificates"
+		);
+	});
 });

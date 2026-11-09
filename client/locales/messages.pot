@@ -279,16 +279,16 @@ msgctxt "certificate.prompt.expired"
 msgid "{host}'s certificate has expired. Trust it only if you know why: someone may be pretending to be the server."
 msgstr ""
 
+#. Second line of the certificate question, under the warning. {date} is the day the server's certificate expired.
+#: client/js/certificatePrompt.ts
+msgctxt "certificate.prompt.expiredOn"
+msgid "It expired on {date}."
+msgstr ""
+
 #. Label above the certificate's fingerprint, which is hex digits separated by colons.
 #: client/js/certificatePrompt.ts
 msgctxt "certificate.prompt.fingerprint"
 msgid "SHA-256 fingerprint:"
-msgstr ""
-
-#. {subject} and {issuer} are names read from the certificate, shown verbatim. {from} and {until} are dates.
-#: client/js/certificatePrompt.ts
-msgctxt "certificate.prompt.issued"
-msgid "Issued to {subject} by {issuer}, valid from {from} to {until}."
 msgstr ""
 
 #. {host} is the IRC server's host name.
@@ -301,6 +301,12 @@ msgstr ""
 #: client/js/certificatePrompt.ts
 msgctxt "certificate.prompt.name"
 msgid "{host}'s certificate was issued for a different name. Trust it only if you know why: someone may be pretending to be the server."
+msgstr ""
+
+#. Second line of the certificate question, under the warning. {names} is a comma-separated list of host names read from the certificate, shown verbatim.
+#: client/js/certificatePrompt.ts
+msgctxt "certificate.prompt.names"
+msgid "It was issued for {names}."
 msgstr ""
 
 #. Button: refuses the certificate; the network stays disconnected.
