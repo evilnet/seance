@@ -26,6 +26,56 @@ import {
 	TranslateRequest,
 } from "../engine";
 import {nllbCode} from "../languages";
+import {placeholder, placeholdersIn} from "../spans";
+
+/**
+ * How a span's placeholder is written for a seq2seq model. OPUS-MT's
+ * vocabulary has no `⟦` or `⟧`, and its SentencePiece turns `⟦1⟧` into
+ * `,1,`, so the nickname, channel or emoji it stood for was appended after
+ * the line and the `,1,` shown in its place. Measured over the shipped pairs (94 lines in
+ * 14 directions; docs/resources/translation.md § Placeholders on the seq2seq
+ * route), no one form survives everything: `[1]` keeps 86 (lost from
+ * Russian), `X1` 82 (lost into Arabic), `⟦1⟧` 54 (only on the AfterNET MT
+ * models' own vocabulary). So the forms are tried in order and the next one
+ * is used only when the engine lost a placeholder; `⟦n⟧` itself is the last.
+ */
+interface EngineForm {
+	write: (n: number) => string;
+	/** Reads the form back, tolerating the space a model may put inside it. */
+	read: RegExp;
+}
+
+export const ENGINE_FORMS: EngineForm[] = [
+	{write: (n) => `[${n}]`, read: /\[\s*(\d+)\s*\]/g},
+	{write: (n) => `X${n}`, read: /(?<![\p{L}\p{N}_])[XxХх]\s?(\d+)(?![\p{N}])/gu},
+	{write: placeholder, read: /⟦\s*(\d+)\s*⟧/g},
+];
+
+/** `text` with its placeholders written in `form`, or null when the text already holds that form. */
+export function writeForm(text: string, form: EngineForm): string | null {
+	if (
+		form.write(1) !== placeholder(1) &&
+		new RegExp(form.read.source, form.read.flags).test(text)
+	) {
+		return null;
+	}
+
+	return text.replace(/⟦\s*(\d+)\s*⟧/g, (_m, n: string) => form.write(Number(n)));
+}
+
+/** An engine's answer with `form`'s placeholders, for the numbers it was given, back as `⟦n⟧`. */
+export function readForm(text: string, form: EngineForm, numbers: number[]): string {
+	return text.replace(new RegExp(form.read.source, form.read.flags), (match, n: string) =>
+		numbers.includes(Number(n)) ? placeholder(Number(n)) : match
+	);
+}
+
+/** How many of `numbers` an answer carries exactly once. */
+function kept(text: string, numbers: number[]): number {
+	const found = [...text.matchAll(/⟦\s*(\d+)\s*⟧/g)].map((m) => Number(m[1]));
+
+	return numbers.filter((n) => found.filter((f) => f === n).length === 1).length;
+}
 
 export interface PipelineLike {
 	(text: string, options: Record<string, string>): Promise<{translation_text: string}[]>;
@@ -297,10 +347,7 @@ export class Seq2seqEngine implements Engine {
 				if (parts.length > 1 && !/\p{L}/u.test(parts[n])) {
 					done.push(parts[n].trim());
 				} else {
-					const source = req.token ? `${req.token} ${parts[n]}` : parts[n];
-					const result = await this.run(pipe, source, options, req.model);
-
-					done.push((result[0]?.translation_text ?? "").trim());
+					done.push(await this.runPart(pipe, parts[n], req, options, signal));
 				}
 
 				if (signal.aborted) {
@@ -330,6 +377,55 @@ export class Seq2seqEngine implements Engine {
 		}
 
 		yield {id: req.id, text: done.join(" "), done: true};
+	}
+
+	/**
+	 * One part of a request, its placeholders written in the first form the
+	 * engine carries through (`ENGINE_FORMS`): a form that lost one is
+	 * followed by the next, and the answer that kept the most is used. A part
+	 * with no placeholder is one call, as it always was.
+	 */
+	private async runPart(
+		pipe: PipelineLike,
+		part: string,
+		req: TranslateRequest,
+		options: Record<string, string>,
+		signal: AbortSignal
+	): Promise<string> {
+		const numbers = placeholdersIn(part);
+		const call = async (text: string) => {
+			const source = req.token ? `${req.token} ${text}` : text;
+			const result = await this.run(pipe, source, options, req.model);
+
+			return (result[0]?.translation_text ?? "").trim();
+		};
+
+		if (numbers.length === 0) {
+			return call(part);
+		}
+
+		let best: {text: string; kept: number} | null = null;
+
+		for (const form of ENGINE_FORMS) {
+			const written = writeForm(part, form);
+
+			if (written === null) {
+				continue;
+			}
+
+			const text = readForm(await call(written), form, numbers);
+			const count = kept(text, numbers);
+
+			if (!best || count > best.kept) {
+				best = {text, kept: count};
+			}
+
+			if (count === numbers.length || signal.aborted) {
+				break;
+			}
+		}
+
+		return best?.text ?? "";
 	}
 
 	/** One pipeline call; a GPU failure says why the GPU went away when it did (as webllm.ts). */

@@ -1812,6 +1812,31 @@ separator elsewhere in the table falls back to the **verbatim** policy and
 is appended after the text rather than put back at its column -- accepted
 as today's policy rather than special-cased.
 
+### Placeholders on the seq2seq route
+
+OPUS-MT's vocabulary has no `⟦` or `⟧` (the AfterNET MT models' does;
+NLLB-200's was not measured and takes the same chain). Its SentencePiece answered `Por cierto, ⟦1⟧, ¿el canal ⟦2⟧ sigue
+activo?` with `By the way,,1, channel,2, still active?`, so the reader
+showed the `,1,` and appended the nickname and the channel after the line
+(found in a two-client test on the dev ircd, es<->en). The engine
+(`engines/seq2seq.ts` `ENGINE_FORMS`, `runPart`) therefore writes each part's
+placeholders in an engine form, reads the answer's back to `⟦n⟧` (only the
+numbers it was given) and leaves the restore below untouched.
+
+No single form survived every shipped pair. Over 94 lines in 14 directions
+(OPUS-MT en<->ru, en<->es, en->de; AfterNET MT en<->zh, en<->ko, en->ar,
+en<->pt, en<->pl), lines kept whole: `[1]` 86, `X1` 82, `⟦1⟧` 54 (only on
+the AfterNET MT models' own vocabulary), `@1` 58, `<1>` 52, `{1}` 47;
+`【1】`, `⟨1⟩` and `{{1}}` next to none. `[1]` loses its digit from Russian,
+`X1` is dropped into Arabic (and comes back Cyrillic `Х1` from English into
+Russian, which the reader accepts). So the forms are tried in that order --
+`[n]`, `Xn`, then `⟦n⟧` itself -- and the next is used only when the answer
+lost a placeholder; the answer that kept the most wins. A form the part
+already holds as text (someone typed `[2]`) is skipped, so a user's own
+`[2]` is never read as a placeholder. A part with no placeholder is one call,
+as before. Tests: `test/translate/seq2seq.ts` "placeholders in a form the
+vocabulary keeps".
+
 ### Emphasis marks on the LLM route
 
 A marker pair is the one span whose _content_ the engine has to translate,
@@ -1834,7 +1859,9 @@ for the engine the request is about to reach.
   hidden (`[the log](⟦1⟧)`).
 - **`placeholder`** -- `⟦1⟧German⟦2⟧`, what every seq2seq candidate gets.
   They read no prompt, so the code has to do all of it, and they do not have
-  the LLM's problem.
+  the LLM's problem. The seq2seq engine then rewrites every `⟦n⟧` into a
+  form its vocabulary keeps before the model sees it (§ Placeholders on the
+  seq2seq route).
 - **`tags`** -- `<1>German</1>`, kept because `tools/translate-llm.ts --markers tags` measures it, and reachable from nowhere else.
 
 Measured over `tools/translate-eval/markers.json` (eight cases, the two

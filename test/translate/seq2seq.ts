@@ -1,12 +1,15 @@
 import {expect} from "chai";
 import {EngineError, emptyContext, type TranslateRequest} from "../../client/js/translate/engine";
 import {
+	ENGINE_FORMS,
 	SEQ2SEQ_MAX_LOADED,
 	Seq2seqEngine,
+	readForm,
 	splitSentences,
 	translationOptions,
 	type PipelineLike,
 	type Seq2seqDeps,
+	writeForm,
 } from "../../client/js/translate/engines/seq2seq";
 import {buildCatalog} from "../../client/js/translate/models";
 import {placeholder} from "../../client/js/translate/spans";
@@ -324,6 +327,87 @@ describe("translate/engines/seq2seq", () => {
 
 		expect(d.calls.run.map(([, text]) => text)).to.deep.equal(["Wir sind da. Bis bald"]);
 		expect(chunks).to.deep.equal([{text: `[${opus.id}] Wir sind da. Bis bald`, done: true}]);
+	});
+
+	describe("placeholders in a form the vocabulary keeps", () => {
+		/** An engine whose pipeline answers `answer(text)` for each call. */
+		async function engineAnswering(answer: (text: string) => string) {
+			const sent: string[] = [];
+			const pipe = ((text: string) => {
+				sent.push(text);
+				return Promise.resolve([{translation_text: answer(text)}]);
+			}) as unknown as PipelineLike;
+			pipe.dispose = () => Promise.resolve();
+			const engine = new Seq2seqEngine({
+				pipeline: () => Promise.resolve(pipe),
+				threads: () => false,
+			});
+			const opus = catalog.opus["es-en"];
+			await engine.load(opus, "cpu", () => {});
+
+			return {engine, sent, model: opus.id};
+		}
+
+		async function translate(engine: Seq2seqEngine, model: string, text: string) {
+			let last = "";
+
+			for await (const chunk of engine.translate(
+				request({model, text}),
+				new AbortController().signal
+			)) {
+				last = chunk.text;
+			}
+
+			return last;
+		}
+
+		it("writes ⟦n⟧ as [n] and reads the answer back as ⟦n⟧", async () => {
+			const {engine, sent, model} = await engineAnswering((t) =>
+				t.replace("Gracias", "Thanks").replace("[ 2 ]", "[2]")
+			);
+			const text = `Gracias ${placeholder(1)} ${placeholder(2)}`;
+
+			expect(await translate(engine, model, text)).to.equal(
+				`Thanks ${placeholder(1)} ${placeholder(2)}`
+			);
+			expect(sent).to.deep.equal(["Gracias [1] [2]"]);
+		});
+
+		it("tries the next form when one is lost, and keeps the best answer", async () => {
+			// Like OPUS-MT ru-en: brackets dropped, a bare letter-number kept.
+			const {engine, sent, model} = await engineAnswering((t) =>
+				t.replace(/\[(\d+)\]/g, "$1").replace(/⟦\d+⟧/g, ",")
+			);
+
+			expect(await translate(engine, model, `привет ${placeholder(1)}`)).to.equal(
+				`привет ${placeholder(1)}`
+			);
+			expect(sent).to.deep.equal(["привет [1]", "привет X1"]);
+		});
+
+		it("reads a letter-number transliterated into Cyrillic", () => {
+			expect(readForm("Спасибо Х1", ENGINE_FORMS[1], [1])).to.equal(
+				`Спасибо ${placeholder(1)}`
+			);
+		});
+
+		it("never uses a form the text already holds, nor reads a number it was not given", async () => {
+			const {engine, sent, model} = await engineAnswering((t) => t);
+
+			expect(await translate(engine, model, `see [2] and ${placeholder(1)}`)).to.equal(
+				`see [2] and ${placeholder(1)}`
+			);
+			expect(sent).to.deep.equal([`see [2] and X1`]);
+			expect(readForm("X1 X7", ENGINE_FORMS[1], [1])).to.equal(`${placeholder(1)} X7`);
+			expect(writeForm("model X1 is here ⟦1⟧", ENGINE_FORMS[1])).to.equal(null);
+		});
+
+		it("falls back to ⟦n⟧ last, and gives up after every form", async () => {
+			const {engine, sent, model} = await engineAnswering(() => "lost");
+
+			expect(await translate(engine, model, `hola ${placeholder(1)}`)).to.equal("lost");
+			expect(sent).to.deep.equal(["hola [1]", "hola X1", `hola ${placeholder(1)}`]);
+		});
 	});
 
 	it("a request's target token goes in front of the text", async () => {
