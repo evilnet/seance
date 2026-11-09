@@ -10,7 +10,6 @@ import {
 } from "../../client/js/translate/engine";
 import {
 	APPLE_REF,
-	DEFAULT_OPUS_PAIRS,
 	QWEN3_1_7B_ID,
 	QWEN3_4B_ID,
 	buildCatalog,
@@ -21,8 +20,7 @@ import {
 import {ABORTED, WRITE_TIMEOUT_MS, translateDraft} from "../../client/js/translate/outgoing";
 import {createPortPair} from "../../client/js/translate/protocol";
 import type {RouteTable} from "../../client/js/translate/router";
-import {DEFAULT_ROUTES, OPUS_TIED} from "../../client/js/translate/routes.default";
-
+import {DEFAULT_ROUTES} from "../../client/js/translate/routes.default";
 import {TranslateClient, WORKER_DISPOSED} from "../../client/js/translate/client";
 import {
 	CACHE_WAIT_MS,
@@ -76,15 +74,11 @@ const ROUTES: RouteTable = Object.fromEntries(
 	Object.entries(DEFAULT_ROUTES).map(([to, row]) => [to, {...row}])
 );
 
-for (const pair of Object.keys(DEFAULT_OPUS_PAIRS)) {
-	const [from, to] = pair.split("-");
-	const opus = `opus:${pair}` as const;
-
-	ROUTES[to][from] =
-		OPUS_TIED.includes(from) || OPUS_TIED.includes(to)
-			? [["llm", opus], "nllb"]
-			: ["llm", opus, "nllb"];
-}
+// The pairs the mechanics tests run on, in their old order.
+ROUTES.en.de = [["llm", "opus:de-en"], "nllb"];
+ROUTES.en.fr = [["llm", "opus:fr-en"], "nllb"];
+ROUTES.fr.en = [["llm", "opus:en-fr"], "nllb"];
+ROUTES.en.es = ["llm", "opus:es-en", "nllb"];
 
 /**
  * A service whose workers never answer: `dies` fires each one's `error`
