@@ -331,7 +331,7 @@ async function handleQueryParams(
 
 		// The connection would need a password nobody stored: back to the
 		// form, pre-filled from the saved entry, to type it.
-		if (!live?.isConnected && entry.sasl === "plain" && !entry.saslPassword) {
+		if (!live?.isConnected && saved.needsPassword(entry)) {
 			await router.push({
 				name: "Connect",
 				query: {savedLink: entry.uuid, join: suggestion.join, fromLink: "1"},

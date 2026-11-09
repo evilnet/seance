@@ -261,6 +261,12 @@ export const numericError: Handler = (client, msg) => {
 	pushError(client, error, error.channel);
 };
 
+/** ERR_PASSWDMISMATCH: shown as any error; before 001 it also ends the connect. */
+const passwordMismatch: Handler = (client, msg) => {
+	numericError(client, msg);
+	client.serverPasswordFailed();
+};
+
 export default {
 	"001": welcome,
 	"002": infoLine,
@@ -284,4 +290,5 @@ export default {
 	"396": hostHidden,
 	"432": badNick,
 	"433": badNick,
+	"464": passwordMismatch,
 };

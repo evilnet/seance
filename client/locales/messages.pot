@@ -1049,6 +1049,12 @@ msgctxt "connect.enterPassword"
 msgid "Enter the password for {account} to connect."
 msgstr ""
 
+#. Connect form notice when a link opens a saved network whose server password was not remembered. {host} is the server's host name.
+#: client/components/Windows/Connect.vue
+msgctxt "connect.enterServerPassword"
+msgid "Enter the server password for {host}."
+msgstr ""
+
 #. Error notice shown under the guest sign-in form when the guest nick field was left empty or invalid.
 #: client/components/Windows/Connect.vue:672
 msgctxt "connect.guestNickRequired"
@@ -1268,6 +1274,24 @@ msgstr ""
 #: client/components/Windows/Connect.vue:139
 msgctxt "connect.serverAddress"
 msgid "Server address"
+msgstr ""
+
+#. Lobby hint after connect.serverPasswordNeeded / connect.serverPasswordRefused. 'username/network:password' is literal syntax: keep it untranslated.
+#: client/js/irc/client.ts
+msgctxt "connect.serverPasswordHint"
+msgid "Set the server password in this network's settings. For ZNC it is username/network:password."
+msgstr ""
+
+#. Lobby error: the server answered 464 (password required) during registration and no server password was set; the connection stopped. {host} is the configured host name.
+#: client/js/irc/client.ts
+msgctxt "connect.serverPasswordNeeded"
+msgid "{host} needs a server password before you can connect."
+msgstr ""
+
+#. Lobby error: the server answered 464 (password mismatch) to the server password that was sent; the connection stopped. {host} is the configured host name.
+#: client/js/irc/client.ts
+msgctxt "connect.serverPasswordRefused"
+msgid "{host} refused the server password."
 msgstr ""
 
 #. aria-label of the numeric port input next to the server host field on the connect form.
@@ -1940,6 +1964,27 @@ msgstr ""
 #: client/components/NetworkForm.vue:60
 msgctxt "form.serverAddress"
 msgid "Server address"
+msgstr ""
+
+#. Label of the server password field (IRC PASS), separate from the services account password.
+#: client/components/NetworkForm.vue
+#: client/components/Windows/Connect.vue
+msgctxt "form.serverPassword"
+msgid "Server password"
+msgstr ""
+
+#. Tooltip on the server password switch. 'username/network:password' is literal syntax the user types: keep it untranslated.
+#: client/components/NetworkForm.vue
+#: client/components/Windows/Connect.vue
+msgctxt "form.serverPasswordHelp"
+msgid "Only if the server or bouncer asks for one. For ZNC, enter username/network:password."
+msgstr ""
+
+#. Switch on the connect form and in a network's settings that shows the server password field (sent as PASS, before the login). Bouncers such as ZNC ask for it.
+#: client/components/NetworkForm.vue
+#: client/components/Windows/Connect.vue
+msgctxt "form.serverPasswordToggle"
+msgid "This server needs a password"
 msgstr ""
 
 #. aria-label of the numeric port input next to the server host field on the network edit form.

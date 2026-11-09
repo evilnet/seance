@@ -7,8 +7,10 @@
  * because network settings and sort, mute and collapse preferences are keyed
  * by it (see docs/resources/bus-contract.md §"Store expectations").
  *
- * The SASL password is only written to disk when `rememberPassword` is set;
- * otherwise `saslPassword` is stripped on save and the user is asked again.
+ * The SASL and server passwords are only written to disk when
+ * `rememberPassword` is set; otherwise `saslPassword` and `serverPassword`
+ * are stripped on save and the user is asked again (`hasServerPassword`
+ * remembers that there was one to ask for).
  *
  * Kept free of store imports so it runs under mocha; tests swap the storage
  * backend with {@link useStorageBackend}.
@@ -51,8 +53,11 @@ export type SavedNetwork = ConnectOptions & {
 	name: string;
 	/** Connect at startup without visiting the connect form. */
 	autoconnect?: boolean;
-	/** Persist `saslPassword`. Off by default so the password never hits disk. */
+	/** Persist `saslPassword` and `serverPassword`. Off by default so no password hits disk. */
 	rememberPassword?: boolean;
+	/** A server password is configured, even when it was not kept on disk:
+	 * the connect form asks for it again (see {@link needsPassword}). */
+	hasServerPassword?: boolean;
 	/** Register this device's Web Push subscription with this network
 	 * (`draft/webpush`). Entries stored before the flag existed read as
 	 * enabled — push was unconditional then. */
@@ -273,6 +278,17 @@ export function normalize(raw: Record<string, unknown>): SavedNetwork | undefine
 		commands: parseCommands(raw.commands),
 	};
 
+	// A line break or NUL would end the PASS line early (wire.ts refuses it).
+	const serverPassword = asString(raw.serverPassword).replace(/[\r\n\0]/g, "");
+
+	if (serverPassword) {
+		net.serverPassword = serverPassword;
+	}
+
+	if (serverPassword || asBoolean(raw.hasServerPassword)) {
+		net.hasServerPassword = true;
+	}
+
 	if (typeof raw.lastUsed === "number" && Number.isFinite(raw.lastUsed)) {
 		net.lastUsed = raw.lastUsed;
 	}
@@ -367,7 +383,14 @@ export function fromForm(data: Record<string, unknown>, existing?: SavedNetwork)
 		}
 	}
 
-	for (const flag of ["tls", "autoconnect", "rememberPassword", "pushEnabled", "notifyEnabled"]) {
+	for (const flag of [
+		"tls",
+		"autoconnect",
+		"rememberPassword",
+		"pushEnabled",
+		"notifyEnabled",
+		"hasServerPassword",
+	]) {
 		if (!(flag in data)) {
 			base[flag] = false;
 		}
@@ -376,6 +399,14 @@ export function fromForm(data: Record<string, unknown>, existing?: SavedNetwork)
 	// A blank password field in the edit form means "keep what I had".
 	if (existing && asString(data.saslPassword) === "" && existing.saslPassword) {
 		base.saslPassword = existing.saslPassword;
+	}
+
+	// The server password's switch off clears it; on with the field blank
+	// keeps the stored one, as for SASL.
+	if (!base.hasServerPassword) {
+		delete base.serverPassword;
+	} else if (asString(data.serverPassword) === "" && existing?.serverPassword) {
+		base.serverPassword = existing.serverPassword;
 	}
 
 	// The services block travels whole: the key present with nothing in it
@@ -405,7 +436,21 @@ export function toConnectOptions(net: SavedNetwork): ConnectOptions {
 		sasl: net.sasl,
 		saslAccount: net.saslAccount,
 		saslPassword: net.saslPassword,
+		// Configured but not on disk: undefined, so a live client keeps the
+		// one it was given (IrcClient.applySettings).
+		serverPassword: net.serverPassword ?? (net.hasServerPassword ? undefined : ""),
 	};
+}
+
+/**
+ * The entry cannot connect as saved: a password it needs was not kept on
+ * disk (`rememberPassword` off), so it waits for the connect form.
+ */
+export function needsPassword(net: SavedNetwork): boolean {
+	return (
+		(net.sasl === "plain" && !net.saslPassword) ||
+		(!!net.hasServerPassword && !net.serverPassword)
+	);
 }
 
 // --------------------------------------------------------------- storage
@@ -467,7 +512,13 @@ function write(entries: SavedNetwork[], notify = true): void {
 
 /** Never let a password reach disk unless the user asked for it. */
 function forStorage(net: SavedNetwork): SavedNetwork {
-	return net.rememberPassword ? {...net} : {...net, saslPassword: ""};
+	if (net.rememberPassword) {
+		return {...net};
+	}
+
+	const {serverPassword: _dropped, ...rest} = net;
+	void _dropped;
+	return {...rest, saslPassword: ""};
 }
 
 function byRecency(a: SavedNetwork, b: SavedNetwork): number {

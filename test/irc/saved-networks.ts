@@ -475,6 +475,7 @@ describe("saved-networks", function () {
 			"sasl",
 			"saslAccount",
 			"saslPassword",
+			"serverPassword",
 			"tls",
 		]);
 		expect(saved.displayName(entry())).to.equal("irc.example.org");
@@ -618,5 +619,69 @@ describe("saved-networks", function () {
 
 		expect(calls).to.equal(0);
 		expect(saved.get(net.uuid)?.cursor).to.deep.equal({msgid: "a", time: 1});
+	});
+
+	describe("server password", function () {
+		it("is kept on disk only with rememberPassword, and marked when it is not", function () {
+			saved.save(entry({serverPassword: "bob/rig:pw", rememberPassword: true}));
+			expect(saved.get(entry().uuid)?.serverPassword).to.equal("bob/rig:pw");
+			expect(saved.get(entry().uuid)?.hasServerPassword).to.equal(true);
+			expect(saved.needsPassword(saved.get(entry().uuid) as SavedNetwork)).to.equal(false);
+
+			saved.save(entry({serverPassword: "bob/rig:pw", rememberPassword: false}));
+			const raw = backend.get(saved.STORAGE_KEY) as string;
+			expect(raw).to.not.include("bob/rig:pw");
+			const stored = saved.get(entry().uuid) as SavedNetwork;
+			expect(stored).to.not.have.property("serverPassword");
+			expect(stored.hasServerPassword).to.equal(true);
+			expect(saved.needsPassword(stored)).to.equal(true);
+		});
+
+		it("is absent from an entry that never had one", function () {
+			const net = saved.normalize(entry()) as SavedNetwork;
+			expect(net).to.not.have.property("serverPassword");
+			expect(net).to.not.have.property("hasServerPassword");
+			expect(saved.needsPassword(net)).to.equal(false);
+			expect(saved.toConnectOptions(net).serverPassword).to.equal("");
+		});
+
+		it("drops CR, LF and NUL, which would end the PASS line", function () {
+			const net = saved.normalize(entry({serverPassword: "a\r\nb\0c"})) as SavedNetwork;
+			expect(net.serverPassword).to.equal("abc");
+		});
+
+		it("is undefined in the connect options when configured but not kept", function () {
+			const net = saved.normalize(entry({hasServerPassword: true})) as SavedNetwork;
+			expect(saved.toConnectOptions(net).serverPassword).to.equal(undefined);
+			expect(
+				saved.toConnectOptions(
+					saved.normalize(entry({serverPassword: "x"})) as SavedNetwork
+				).serverPassword
+			).to.equal("x");
+		});
+
+		it("edit form: the switch off clears it, on and blank keeps it", function () {
+			const existing = saved.normalize(
+				entry({serverPassword: "old", rememberPassword: true})
+			) as SavedNetwork;
+
+			const kept = saved.fromForm(
+				{...existing, hasServerPassword: true, serverPassword: ""},
+				existing
+			);
+			expect(kept.serverPassword).to.equal("old");
+
+			const changed = saved.fromForm(
+				{...existing, hasServerPassword: true, serverPassword: "new"},
+				existing
+			);
+			expect(changed.serverPassword).to.equal("new");
+
+			const {hasServerPassword: _off, ...withoutSwitch} = existing;
+			void _off;
+			const cleared = saved.fromForm({...withoutSwitch, serverPassword: "old"}, existing);
+			expect(cleared).to.not.have.property("serverPassword");
+			expect(cleared).to.not.have.property("hasServerPassword");
+		});
 	});
 });
