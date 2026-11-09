@@ -413,14 +413,15 @@ fn create_main(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     // with the window when another app is in front.
     //
     // The titlebar is an overlay: the page runs to the window's top edge and
-    // the traffic lights sit over the sidebar, as in Finder and Mail. The page
+    // the traffic lights sit over the sidebar, as in Finder and Mail, centred
+    // on the 52pt toolbar strip (style.css --mac-titlebar-height). The page
     // keeps clear of them and drags the window from its top strip and its
     // header (`Window.startDragging`, client/js/native.ts).
     #[cfg(target_os = "macos")]
     let builder = builder
         .title_bar_style(tauri::TitleBarStyle::Overlay)
         .hidden_title(true)
-        .traffic_light_position(tauri::LogicalPosition::new(20.0, 19.0))
+        .traffic_light_position(tauri::LogicalPosition::new(20.0, 28.0))
         .transparent(true)
         .effects(
             tauri::window::EffectsBuilder::new()
