@@ -228,6 +228,24 @@ html[data-font-size="huge"] {
 	font-size: 212.5%;
 }
 
+/* In the Mac app the two steps below medium make the conversation smaller,
+ * not the window's chrome: a Mac sidebar and its menus stay at AppKit's size
+ * whatever size the content's text is (Mail's message font, Finder's icon
+ * size). The sidebar is zoomed back up to medium's scale; the menus keep
+ * medium's 13px as a floor (below, the Mac app's sizes). The steps above
+ * medium still grow everything, sidebar included. */
+html[data-platform="macos"][data-font-size="tiny"] {
+	--mac-sidebar-zoom: 1.6; /* 100% / 62.5% */
+}
+
+html[data-platform="macos"][data-font-size="small"] {
+	--mac-sidebar-zoom: 1.2308; /* 100% / 81.25% */
+}
+
+html[data-platform="macos"] #sidebar {
+	zoom: var(--mac-sidebar-zoom, 1);
+}
+
 /* "Match system text size" (the matchSystemTextSize setting, native shells
  * only, helpers/systemTextSize.ts): the system's body text size takes the
  * place of the step, so 1rem is what the system's own apps set their text in
@@ -381,8 +399,10 @@ html[data-platform="macos"] #sidebar .logo-container {
 	align-items: center;
 	justify-content: flex-end;
 	box-sizing: border-box;
-	height: var(--mac-titlebar-height);
-	padding: 0 10px 0 var(--mac-traffic-lights-end);
+
+	/* In the window's px, whatever the sidebar's zoom (the font-size step). */
+	height: calc(var(--mac-titlebar-height) / var(--mac-sidebar-zoom, 1));
+	padding: 0 10px 0 calc(var(--mac-traffic-lights-end) / var(--mac-sidebar-zoom, 1));
 }
 
 html[data-platform="macos"] #sidebar .logo {
@@ -10260,9 +10280,9 @@ html[data-reduce-motion] #form .upload-bar-track.indeterminate .upload-bar-fill 
  * property (a square Windows 98 menu, ps's own rows) still wins over it. */
 :where(html[data-platform="macos"]) #context-menu,
 :where(html[data-platform="macos"]) .textcomplete-menu {
-	padding: 0.3125rem;
+	padding: max(5px, 0.3125rem);
 	min-width: 10rem;
-	font-size: 0.8125rem;
+	font-size: max(13px, 0.8125rem);
 	border-radius: 0.625rem;
 }
 
@@ -10273,14 +10293,14 @@ html[data-reduce-motion] #form .upload-bar-track.indeterminate .upload-bar-fill 
 :where(html[data-platform="macos"]) .context-menu-item,
 :where(html[data-platform="macos"]) .textcomplete-item {
 	margin: 0;
-	padding: 0.1875rem 0.625rem 0.1875rem 0.375rem;
+	padding: max(3px, 0.1875rem) max(10px, 0.625rem) max(3px, 0.1875rem) max(6px, 0.375rem);
 	line-height: 1.25;
 	border-radius: 0.3125rem;
 }
 
 :where(html[data-platform="macos"]) .context-menu-item::before,
 :where(html[data-platform="macos"]) .textcomplete-item::before {
-	width: 1.25rem;
+	width: max(20px, 1.25rem);
 }
 
 :where(html[data-platform="macos"]) .context-menu-divider {
@@ -10288,7 +10308,7 @@ html[data-reduce-motion] #form .upload-bar-track.indeterminate .upload-bar-fill 
 }
 
 :where(html[data-platform="macos"]) .header-popover {
-	font-size: 0.8125rem;
+	font-size: max(13px, 0.8125rem);
 	border-radius: 0.625rem;
 }
 

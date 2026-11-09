@@ -3569,17 +3569,19 @@ html[data-reduce-motion]:root {
  * and the badges are capsules. The user's word, 2026-11-09: rounded is right
  * here, as this emulates macOS. Everything else is ps as it is everywhere. */
 @media (min-width: 769px) {
+	/* The sidebar is zoomed back to medium below that step (style.css), so its
+	 * inset and corners, in the window's px, are divided by the zoom. */
 	html[data-platform="macos"] #sidebar {
-		margin: 8px;
+		margin: calc(8px / var(--mac-sidebar-zoom, 1));
 		margin-inline-end: 0;
 		border: 0.0625rem solid var(--ps-g-edge);
-		border-radius: 8px;
+		border-radius: calc(8px / var(--mac-sidebar-zoom, 1));
 		overflow: hidden;
 		box-shadow: 0 0.5rem 1.875rem rgb(0 0 0 / 18%);
 	}
 
 	html[data-platform="macos"] #sidebar .logo-container {
-		height: calc(var(--mac-titlebar-height) - 16px);
+		height: calc((var(--mac-titlebar-height) - 16px) / var(--mac-sidebar-zoom, 1));
 		padding-inline-end: 0.375rem;
 	}
 
