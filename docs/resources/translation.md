@@ -875,11 +875,7 @@ toolbar's menu has the same swap for a keyboard. The marker before the text
 dimmed while the original shows) swaps them too: Message.vue binds the
 same `onFlipClick` to it, so the same taps do not count. "Translated from
 German. Show the original" is its tooltip and accessible name, "Sent in
-Polish. Show what was sent" on an own line's read-back. For a while in
-2026-11 only the text swapped and the marker was inert, though its
-tooltip offered the original, and readers clicked the marker and got
-nothing; before that the marker was the button and a tap on the text did
-nothing. The header topic keeps its flipper button. Until 2026-11 the translation was a second row under
+Polish. Show what was sent" on an own line's read-back. The header topic keeps its flipper button. Until 2026-11 the translation was a second row under
 the original with a "from German" label; a channel reader asked for the
 original to be replaced instead. Nothing renders while a line is pending:
 it swaps in when done, rather than streaming into a row that then
