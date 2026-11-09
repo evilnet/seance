@@ -3371,9 +3371,12 @@ select option {
  * The strip beside it still takes the tap that closes the drawer, and still
  * fades. */
 @media (max-width: 480px), (max-width: 768px) and (pointer: coarse), (max-height: 500px) and (hover: none) and (pointer: coarse) {
-	/* Physical, as style.css places the drawer (right: 100% and a translate). */
+	/* At the inline start, where style.css docks the drawer, so a right to
+	 * left page dims beside its drawer rather than under it. The Mac app
+	 * zooms the drawer at the small font steps (style.css
+	 * --mac-sidebar-zoom), so its inner edge is that much further in. */
 	#sidebar-overlay {
-		left: var(--sidebar-width);
+		inset-inline-start: calc(var(--sidebar-width) * var(--mac-sidebar-zoom, 1));
 	}
 
 	/* The measured budget's pre-decided fallback (spec §10): on the phone

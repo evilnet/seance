@@ -567,8 +567,10 @@ describe("the ps theme's chrome: glass over the plains (docs/projects/ps-theme.m
 			"utf8"
 		);
 		expect(style, "style.css's phone block, the same list").to.include(`${PHONE} {`);
-		// Physical, as style.css places the drawer (right: 100% and a translate).
-		expect(valueOf("#sidebar-overlay", "left", PHONE)).to.equal("var(--sidebar-width)");
+		// The drawer's inline-start edge, at its zoomed width in the Mac app.
+		expect(valueOf("#sidebar-overlay", "inset-inline-start", PHONE)).to.equal(
+			"calc(var(--sidebar-width) * var(--mac-sidebar-zoom, 1))"
+		);
 	});
 
 	it("washes the glass away from its text: lighter by day, toward black at night, the solid panels keeping their tints", function () {
