@@ -33,9 +33,9 @@
 
 import {startDevice} from "./lib/device.mjs";
 import {
+	SHEET,
 	TRANSLATION_ON,
 	TRANSLATION_OFFERED,
-	closeTranslationSheet,
 	openTranslationSheet,
 	setReadingThroughSheet,
 } from "./lib/translation.mjs";
@@ -131,14 +131,30 @@ async function connect(dev) {
 	await dev.waitFor(TRANSLATION_OFFERED, {timeout: 20000, label: "translation offered"});
 }
 
+/**
+ * The conversation's send target through the menu's sheet: Write in's Off,
+ * or its language, which opens the list, and the row is the pick (a pick
+ * closes the sheet).
+ */
 async function setWriteTarget(dev, code) {
 	await openTranslationSheet(dev);
-	await dev.evaluate(
-		`(() => { const s = document.querySelector('.translation-panel select[name="translateWrite"]'); s.value = ${JSON.stringify(
-			code
-		)}; s.dispatchEvent(new Event("change", {bubbles: true})); })()`
-	);
-	await closeTranslationSheet(dev);
+
+	if (!code) {
+		await dev.click(`${SHEET} .translation-sheet-off`);
+	} else {
+		await dev.click(`${SHEET} .translation-sheet-language`);
+		await dev.waitFor(
+			`!!document.querySelector('${SHEET} .language-sheet-row[data-code="${code}"]')`,
+			{label: "the sheet's language list"}
+		);
+		await dev.evaluate(
+			`document.querySelector('${SHEET} .language-sheet-row[data-code="${code}"]').click()`
+		);
+	}
+
+	await dev.waitFor(`!document.querySelector(${JSON.stringify(SHEET)})`, {
+		label: "the pick closed the sheet",
+	});
 }
 
 /** Type a draft, let the preview settle, and send what the strip shows. */

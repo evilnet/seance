@@ -7,7 +7,7 @@
 // own language, names every language in it (not in itself) and says
 // "Correct" where the source and the target are the same, opens without a
 // focused select on a phone and closes when the sidebar opens; the panel sets
-// the write target and the translate button says so ("EN → DE", the
+// the write target and the translate button says so ("DE", the
 // placeholder staying plain); a pause in typing puts a "Will send in German"
 // strip above the input (the live preview) with the fake's "[German] …"
 // streaming in, Send live throughout, the draft still in the input, the
@@ -60,10 +60,12 @@
 
 import {
 	READING_ON,
+	SHEET as TRANSLATION_SHEET,
 	TRANSLATION_ON,
 	TRANSLATION_OFFERED,
 	closeTranslationSheet,
 	openTranslationSheet,
+	setReadingThroughSheet,
 } from "./lib/translation.mjs";
 
 const RUN = Date.now().toString(36);
@@ -169,48 +171,76 @@ async function heard(other, text, timeout = 10000) {
 
 const openPanel = openTranslationSheet;
 
+/**
+ * The conversation's send target through the menu's sheet: Write in's Off,
+ * or its language, which opens the list, and the row is the pick (a pick
+ * closes the sheet).
+ */
 async function setWriteTarget(page, code) {
 	await openPanel(page);
-	await page.evaluate(
-		`(() => { const s = document.querySelector('.translation-panel select[name="translateWrite"]'); s.value = ${JSON.stringify(
-			code
-		)}; s.dispatchEvent(new Event("change", {bubbles: true})); })()`
-	);
-	await closeTranslationSheet(page);
+
+	if (!code) {
+		await page.click(`${TRANSLATION_SHEET} .translation-sheet-off`);
+	} else {
+		await page.click(`${TRANSLATION_SHEET} .translation-sheet-language`);
+		await page.waitFor(
+			`!!document.querySelector('${TRANSLATION_SHEET} .language-sheet-row[data-code="${code}"]')`,
+			{label: "the sheet's language list"}
+		);
+		// The row's own click: a real one on a row the list scrolled near
+		// the screen's top can land on the header instead.
+		await page.evaluate(
+			`document.querySelector('${TRANSLATION_SHEET} .language-sheet-row[data-code="${code}"]').click()`
+		);
+	}
+
+	await page.waitFor(`!document.querySelector(${JSON.stringify(TRANSLATION_SHEET)})`, {
+		label: "the pick closed the sheet",
+	});
 }
 
 /**
- * The phone layout, under `--mobile`: the same choices as the mentions' pane
- * on a phone, the whole chat under the header, with room to press them.
+ * The phone layout, under `--mobile`: the menu's sheet on the phone's
+ * screen, with room to press its choices, the register three buttons under
+ * More rather than a native picker.
  */
 async function panelIsASheet(page) {
 	await openPanel(page);
 
-	const rect = await page.rect(".translation-panel");
-	const header = await page.rect("#chat .header");
+	const rect = await page.rect(TRANSLATION_SHEET);
 	const viewport = await page.evaluate(`({w: innerWidth, h: innerHeight})`);
 	const size = rect ? `${Math.round(rect.width)}x${Math.round(rect.height)}` : "none";
 
 	await page.check(
-		`the panel fills the chat under the header (${size} of ${viewport.w}x${viewport.h})`,
+		`the sheet lies on the phone's screen (${size} of ${viewport.w}x${viewport.h})`,
 		!!rect &&
-			!!header &&
-			Math.round(rect.x) === 0 &&
-			Math.round(rect.width) === viewport.w &&
-			Math.abs(rect.y - (header.y + header.height)) <= 2 &&
-			Math.round(rect.y + rect.height) === viewport.h
+			rect.x >= 0 &&
+			rect.y >= 0 &&
+			Math.round(rect.x + rect.width) <= viewport.w &&
+			Math.round(rect.y + rect.height) <= viewport.h
+	);
+	await page.evaluate(`(() => {
+		const more = document.querySelector("${TRANSLATION_SHEET} .translation-sheet-more");
+
+		if (!more.open) {
+			more.querySelector("summary").click();
+		}
+	})()`);
+	await page.waitFor(
+		`document.querySelector("${TRANSLATION_SHEET} .translation-sheet-more").open`,
+		{
+			label: "More opens",
+		}
 	);
 	await page.check(
 		"formality is a segmented control, not a native picker",
 		await page.evaluate(
-			`!!document.querySelector('.translation-panel-segmented[role="radiogroup"]') && !document.querySelector('select[name="translateFormality"]')`
+			`!!document.querySelector('${TRANSLATION_SHEET} [role="radiogroup"] [name="translateFormality"]') && !document.querySelector('select[name="translateFormality"]')`
 		)
 	);
 
-	// The formality group alone: the reading switch above it is a segmented
-	// control of its own (Off/On) in this layout.
 	const segments = await page.evaluate(
-		`[...document.querySelectorAll('.translation-panel-segment[name="translateFormality"]')].map((b) => b.textContent.trim())`
+		`[...document.querySelectorAll('${TRANSLATION_SHEET} [name="translateFormality"]')].map((b) => b.textContent.trim())`
 	);
 
 	await page.check(
@@ -218,22 +248,10 @@ async function panelIsASheet(page) {
 		segments.join("|") === "As written|Formally|Casually"
 	);
 	await page.check(
-		"the write target is a native select in this layout too",
-		await page.evaluate(
-			`!!document.querySelector('.translation-panel select[name="translateWrite"]')`
-		)
-	);
-	await page.check(
-		"the hints are shown",
-		(await page.evaluate(
-			`getComputedStyle(document.querySelector(".translation-panel-hint")).display`
-		)) !== "none"
-	);
-	await page.check(
 		"the close button is on screen",
 		await page.evaluate(
 			`(() => {
-				const r = document.querySelector(".translation-panel .header-popover-close").getBoundingClientRect();
+				const r = document.querySelector("${TRANSLATION_SHEET} .language-sheet-close").getBoundingClientRect();
 				return r.height > 0 && r.bottom <= innerHeight + 1;
 			})()`
 		)
@@ -261,7 +279,7 @@ const SETTLED = `(!!document.querySelector(${JSON.stringify(
 	BAR
 )}) && !document.querySelector(".translate-bar-is-stale") && !document.querySelector(".translate-bar-caret"))`;
 
-/** What the translate button says while a send target is set ("EN → DE"). */
+/** What the translate button says while a send target is set ("DE", or "EN ✓" corrected). */
 const buttonTarget = `((document.querySelector("#translate-once .translate-once-target") || {}).textContent || "").trim()`;
 
 /**
@@ -404,9 +422,24 @@ export default async function run(page) {
 	// target and Enter sends the translation. The button is dead on an
 	// empty draft, and the dialog remembers the language for the next pick.
 	const ONCE = "#form #translate-once";
-	const SHEET = ".language-sheet";
+	const SHEET = TRANSLATION_SHEET;
+	// 0: "I write" (under More); 1: Write in's language ("Choose…" unset).
 	const sideValue = (n) =>
-		`((document.querySelectorAll("${SHEET} .language-sheet-side-value")[${n}] || {}).textContent || "").trim()`;
+		n === 0
+			? `((document.querySelector("${SHEET} .language-sheet-side[data-side=from] .language-sheet-side-value") || {}).textContent || "").trim()`
+			: `((document.querySelector("${SHEET} .translation-sheet-language") || {}).textContent || "").replace("▾", "").trim()`;
+	const openMore = async () => {
+		await page.evaluate(`(() => {
+			const more = document.querySelector("${SHEET} .translation-sheet-more");
+
+			if (!more.open) {
+				more.querySelector("summary").click();
+			}
+		})()`);
+		await page.waitFor(`document.querySelector("${SHEET} .translation-sheet-more").open`, {
+			label: "More opens",
+		});
+	};
 	const row = (code) => `${SHEET} .language-sheet-row[data-code="${code}"]`;
 	// A row may sit under the list's own scroll: brought into it first, as
 	// a finger would scroll to it.
@@ -584,8 +617,10 @@ export default async function run(page) {
 		(await page.count(".language-sheet-once-box")) === 0
 	);
 	await page.check(
-		"no Off chip with nothing to turn off",
-		(await page.count(".language-sheet-off")) === 0
+		"Write in is on Off with nothing set",
+		(await page.evaluate(
+			`document.querySelector("${SHEET} .translation-sheet-off")?.getAttribute("aria-checked")`
+		)) === "true"
 	);
 	await pick("de");
 	await page.waitFor(`document.querySelector(${JSON.stringify(ONCE)}).classList.contains("on")`, {
@@ -598,8 +633,8 @@ export default async function run(page) {
 		)
 	);
 	await page.check(
-		"the button names the send target, EN → DE",
-		(await page.evaluate(buttonTarget)) === "EN → DE"
+		"the button names the send target's code, DE",
+		(await page.evaluate(buttonTarget)) === "DE"
 	);
 	await page.check(
 		"the placeholder stays plain, one line",
@@ -656,7 +691,7 @@ export default async function run(page) {
 			)) === "true"
 	);
 	await page.screenshot("translate-sheet", {selector: SHEET});
-	await page.click(".language-sheet-off");
+	await page.click(`${SHEET} .translation-sheet-off`);
 	await page.waitFor(
 		`!document.querySelector(${JSON.stringify(ONCE)}).classList.contains("on")`,
 		{label: "Off turned the button off"}
@@ -670,14 +705,16 @@ export default async function run(page) {
 		(await page.evaluate(sideValue(1))) === "Choose…" &&
 			(await page.evaluate(`!!document.querySelector('${row("de")}.pending')`))
 	);
-	// "I write" first: its pick names the source and moves on to "They read".
-	await page.click(`${SHEET} .language-sheet-side:first-child`);
+	// "I write" (under More) first: its pick names the source and moves the
+	// list on to the target.
+	await openMore();
+	await page.click(`${SHEET} .language-sheet-side[data-side="from"]`);
 	await pick("fr");
 	await page.check(
-		"picking in 'I write' sets it and moves to 'They read'",
+		"picking in 'I write' sets it and moves the list to the target",
 		(await page.evaluate(sideValue(0))) === "French" &&
 			(await page.evaluate(
-				`document.querySelectorAll("${SHEET} .language-sheet-side")[1].classList.contains("active")`
+				`!document.querySelector("${SHEET} .language-sheet-side[data-side=from]").classList.contains("active") && !!document.querySelector("${SHEET} .language-sheet-list")`
 			)) &&
 			(await page.count(SHEET)) === 1
 	);
@@ -697,7 +734,9 @@ export default async function run(page) {
 		);
 	} else {
 		await page.evaluate(
-			`document.querySelector(".language-sheet").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))`
+			`document.querySelector(${JSON.stringify(
+				SHEET
+			)}).dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))`
 		);
 		await page.waitFor(`!document.querySelector(${JSON.stringify(SHEET)})`, {
 			label: "Escape closed the sheet",
@@ -707,14 +746,17 @@ export default async function run(page) {
 
 	// 1. The write target.
 	await openPanel(page);
+	await page.click(`${TRANSLATION_SHEET} .translation-sheet-language`);
+	await page.waitFor(`!!document.querySelector("${TRANSLATION_SHEET} .language-sheet-list")`, {
+		label: "Write in's language opens the list",
+	});
 	await page.check(
-		"the write target options are named in the interface language",
+		"the write target's languages are named in the interface language",
 		await page.evaluate(
 			`(() => {
-				const s = document.querySelector('.translation-panel select[name="translateWrite"]');
-				const text = (v) => s.querySelector('option[value="' + v + '"]').textContent.trim();
-				// The panel names a language in the language the channel is
-				// read in, not in itself (TranslationPanel.vue name()).
+				const text = (v) => document.querySelector('${TRANSLATION_SHEET} .language-sheet-row[data-code="' + v + '"] .language-sheet-name').textContent.trim();
+				// The sheet names a language in the language the channel is
+				// read in, not in itself (TranslationSheet.vue name()).
 				const names = new Intl.DisplayNames(
 					[document.documentElement.lang || "en"],
 					{type: "language"}
@@ -761,8 +803,8 @@ export default async function run(page) {
 
 	await setWriteTarget(page, "de");
 	await page.check(
-		"the button says the channel sends in German",
-		(await page.evaluate(buttonTarget)) === "EN → DE"
+		"the button says the channel sends in German, DE",
+		(await page.evaluate(buttonTarget)) === "DE"
 	);
 
 	if (MOBILE) {
@@ -1426,11 +1468,7 @@ export default async function run(page) {
 	// reads own lines too, would translate it into English if it were not
 	// the line the read-back is for. It keeps the read-back and no reading
 	// request is made for it.
-	await openPanel(page);
-	await page.evaluate(
-		`(() => { for (const s of document.querySelectorAll('.translation-panel-segmented .translation-panel-segment')) { if (s.textContent.trim() === "On") { s.click(); return; } } throw new Error("no On segment"); })()`
-	);
-	await closeTranslationSheet(page);
+	await setReadingThroughSheet(page, true);
 	await page.waitFor(READING_ON, {
 		label: "reading is on in English",
 	});
