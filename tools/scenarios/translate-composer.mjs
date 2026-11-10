@@ -399,6 +399,20 @@ export default async function run(page) {
 	// Translation ships switched off (settings.ts translationEnabled).
 	await page.addInitScript(TRANSLATION_ON);
 	await page.addInitScript(PREVIEW_AS_TYPED);
+	// What this run checks is the language model's route: the echo retry,
+	// the numbered batch, the marks. Automatic routes English into German
+	// to its OPUS-MT pair first (router.ts), so the run prefers the
+	// language model (Settings → Advanced, "Language model first").
+	await page.addInitScript(`(() => {
+		try {
+			const settings = JSON.parse(localStorage.getItem("settings") || "{}");
+
+			if (settings && typeof settings === "object" && !("translatePrefer" in settings)) {
+				settings.translatePrefer = "llm";
+				localStorage.setItem("settings", JSON.stringify(settings));
+			}
+		} catch (e) {}
+	})()`);
 	const other = listener(LISTENER);
 
 	// The strip's Copy button goes through navigator.clipboard, which a
@@ -1374,6 +1388,10 @@ export default async function run(page) {
 		timeout: 20000,
 		label: "the multi-line draft's check ended",
 	});
+	// A Return goes once the translation has been on screen half a second
+	// (offer.ts SHOWN_BEFORE_SEND_MS); the language model's check can end
+	// inside that.
+	await page.sleep(600);
 	await page.evaluate(`document.querySelector("#form").requestSubmit()`);
 	await page.waitFor(
 		`document.body.innerText.includes(${JSON.stringify(`[German] line three ${RUN}`)})`,
