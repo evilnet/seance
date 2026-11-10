@@ -83,19 +83,46 @@ describe("describeClose", function () {
 			"Connection to localhost closed during IRC registration (connection lost). Not reconnecting."
 		);
 		expect(report.hint).to.contain("before registration");
+		expect(report.hint).to.contain("IRC over WebSocket");
 	});
 
-	it("does not blame the WebSocket for a raw TCP drop during registration", function () {
+	for (const url of ["irc://irc.example.org:6667", "ircs://irc.example.org:6697"]) {
+		it(`does not blame the WebSocket for a raw TCP drop during registration (${url})`, function () {
+			const report = describeClose({
+				...base,
+				url,
+				phase: "registering",
+				code: 1000,
+				reason: "the server closed the connection",
+			});
+
+			expect(report.hint).to.not.contain("WebSocket");
+			expect(report.hint).to.contain("before registration");
+		});
+	}
+
+	it("keeps the not-reconnecting headline for a raw TCP drop during registration", function () {
+		const report = describeClose({
+			...base,
+			url: "irc://irc.example.org:6667",
+			phase: "registering",
+			willReconnect: false,
+		});
+
+		expect(report.text).to.contain("Not reconnecting.");
+		expect(report.hint).to.not.contain("WebSocket");
+	});
+
+	it("still offers the takeover hint over raw TCP", function () {
 		const report = describeClose({
 			...base,
 			url: "ircs://irc.example.org:6697",
 			phase: "registering",
 			code: 1000,
-			reason: "the server closed the connection",
+			reason: "Account already has an active session on this network",
 		});
 
-		expect(report.hint).to.not.contain("WebSocket");
-		expect(report.hint).to.contain("before registration");
+		expect(report.hint).to.contain("another tab");
 	});
 
 	it("offers the takeover hint when the server names a live session", function () {
@@ -121,6 +148,7 @@ describe("describeClose", function () {
 
 		expect(report.hint).to.not.contain("another tab");
 		expect(report.hint).to.contain("before registration");
+		expect(report.hint).to.contain("IRC over WebSocket");
 	});
 
 	it("names known close codes on a real disconnect", function () {

@@ -1308,9 +1308,8 @@ export class IrcClient {
 		this.motdForFeatured = "unsent";
 		this.channelList.reset();
 		this.host = "";
-		// The ident the last connection was given is the server's, not ours:
-		// one that adds "~" for an unverified ident (Ergo, ircu) refuses that
-		// back in USER (468), and registration then never finishes.
+		// Not the ident the last connection learned: that is the server's
+		// ("~rdrake" when unverified), and Ergo refuses it in USER (468).
 		this.ident = this.registrationIdent;
 		this.account = "";
 		this.persistenceHold = false;
