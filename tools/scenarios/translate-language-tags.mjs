@@ -33,6 +33,7 @@
 
 import {startDevice} from "./lib/device.mjs";
 import {
+	PREVIEW_AS_TYPED,
 	SHEET,
 	TRANSLATION_ON,
 	TRANSLATION_OFFERED,
@@ -122,6 +123,9 @@ function speaker(nick) {
 
 async function connect(dev) {
 	await dev.addInitScript(TRANSLATION_ON);
+	// The strip shows as the draft is typed, the language model's too
+	// (Automatic waits for Return on it).
+	await dev.addInitScript(PREVIEW_AS_TYPED);
 	await dev.goto(dev.url, {waitForSelector: "#connect form"});
 	await dev.click('#connect button[type="submit"]');
 	await dev.waitFor(`!!document.querySelector(${JSON.stringify(INPUT)})`, {
@@ -161,6 +165,9 @@ async function setWriteTarget(dev, code) {
 async function sendTranslated(dev, draft) {
 	await dev.fill(INPUT, draft);
 	await dev.waitFor(SETTLED, {timeout: 20000, label: `the strip for "${draft}"`});
+	// A Return sends a translation once it has been on screen half a
+	// second (offer.ts SHOWN_BEFORE_SEND_MS); one sooner is held.
+	await dev.sleep(600);
 	await dev.evaluate(ENTER);
 	await dev.waitFor(`!document.querySelector(${JSON.stringify(BAR)})`, {
 		timeout: 10000,
