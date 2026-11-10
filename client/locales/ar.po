@@ -15268,6 +15268,24 @@ msgctxt "translate.device.gpu"
 msgid "GPU"
 msgstr "GPU"
 
+#. Button on the card offering to switch translation on in a conversation written in another language.
+#: client/components/TranslationDiscovery.vue
+msgctxt "translate.discover.accept"
+msgid "Translate messages"
+msgstr ""
+
+#. Button on the card offering to switch translation on: no more such offers in this conversation on this device.
+#: client/components/TranslationDiscovery.vue
+msgctxt "translate.discover.decline"
+msgid "Not now"
+msgstr ""
+
+#. Card above the message box while translation is off: most recent lines from others here are in {language}, which the user does not read; {reading} is the language they read.
+#: client/components/TranslationDiscovery.vue
+msgctxt "translate.discover.lead"
+msgid "People here are writing in {language}. Translate messages into {reading}?"
+msgstr ""
+
 #. Why a translation failed, shown after 'Couldn't translate': the request was cancelled before it finished. Lowercase: it follows a colon or a dash.
 #: client/js/helpers/translateErrors.ts
 msgctxt "translate.error.aborted"
@@ -15688,6 +15706,7 @@ msgstr ""
 
 #. Line under the button that switches translation on. Translation runs locally; models are downloaded when first needed.
 #: client/components/TranslationSheet.vue
+#: client/components/TranslationDiscovery.vue
 msgctxt "translate.panel.enableHint"
 msgid "Translation runs on this device and downloads language data as you need it."
 msgstr ""

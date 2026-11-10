@@ -55,7 +55,9 @@ this device and downloads language data as you need it." (`contextMenu.ts`,
 `TranslationSheet.vue`, `reader.ts` `translationOffByUser`): a reader
 looking for translation in a conversation turns it on there, in two taps,
 without Settings (§ Reading everywhere). Opening it makes nothing
-(`translate-off.mjs`). Every
+(`translate-off.mjs`). A conversation whose people write in a language the
+user does not read also offers it in place, in a card above the composer
+(§ Offered in place). Every
 entry of the reading pipeline (`reader.ts`: a line, a
 history page, a replay, the topic, a language change, a retry) and of the
 composer (`writer.ts`) asks first. Switching off acts at once (a store watch
@@ -87,6 +89,52 @@ Everything else -- formality, the per-model switches and Run on, the model
 manager and its copies, the device and threads lines, the test-switch lines,
 the NLLB-200 licence line -- is `Settings/TranslationOptions.vue`, mounted
 only while translation is on, since its setup makes the service.
+
+### Offered in place
+
+Off by the user's setting (not the deploy's), a conversation whose people
+write in a language the user does not read offers to switch translation
+on, in one card above the composer (`TranslationDiscovery.vue`):
+
+> People here are writing in Portuguese. Translate messages into English?
+> Translation runs on this device and downloads language data as you need it.
+> [Translate messages] [Not now]
+
+"Translate messages" is the same switch as the sheet's button and Settings'
+(`translationEnabled`): translation comes on and what is on screen is read
+(`reader.ts` `resumeReading`). "Not now" is remembered for that
+conversation on this device (`offerDeclines.ts`, its own key
+`thelounge.translateDiscoveryDeclined`, apart from the writing offers' and
+the write card's `noSuggest`); there is no count of declines across
+conversations. The sheet's "Reset choices for this conversation" lifts it
+with the writing offers' decline.
+
+The reading pipeline does not run while off, so the card has its own
+observation (`discover.ts` `discoverLanguage`, Vue-free and mocha-tested):
+the newest `DISCOVER_LINES` (20) prose lines from others in the
+conversation on screen -- not the user's own, notices, redacted or
+superseded ones -- each placed by the sender's `+draft/language` tag, else by
+the detector alone (`detect.ts` `detectLanguage`, `learn: false`, so no
+channel prior moves), and the language is the one the channel write card
+would name (`recent.ts` `suggestedLanguage`: at least five lines and half
+of every placed one), offered only when it is neither the reading language
+nor one the user also reads. A line of fewer than three words (after
+`plainTextOf`) is not put to the detector: "ok", "lol" and a name are
+guesses, and the card should not rest on them. It runs when a conversation
+comes on screen and 1.5 s after its lines stop arriving.
+
+What it costs while off is the detector and nothing else: `js/lid.js` with
+lid.176 and ELD (about 2.5 MB, once, then cached), no translation service,
+worker, device probe or download question. And only where an offer is
+possible: a conversation with fewer than five lines worth placing (tagged,
+or long enough) asks the detector nothing, so the chunk is not fetched
+there. Off by the deploy, a conversation offers nothing.
+
+Browser check: `tools/scenarios/translate-discover.mjs` (too few lines: no
+card and no detector; six Portuguese lines: the card, the detector and no
+Worker; another conversation; "Not now" across a reload; deploy off; on the
+fake engine, "Translate messages" reads the lines on screen), also
+`--mobile`.
 
 ### Settings → Language
 

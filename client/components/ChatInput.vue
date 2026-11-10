@@ -109,6 +109,7 @@
 				</button>
 			</div>
 		</div>
+		<TranslationDiscovery :network="network" :channel="channel" />
 		<!-- The suggestion card: a channel that mostly writes in another
 		     language offers to write in it here. Its decline is per channel. -->
 		<div
@@ -493,6 +494,7 @@ import {
 	translationOffByUser,
 } from "../js/translate/reader";
 import TranslationSheet from "./TranslationSheet.vue";
+import TranslationDiscovery from "./TranslationDiscovery.vue";
 import {loadNoteText, modelLabel} from "../js/helpers/modelLabel";
 import friendlysize from "../js/helpers/friendlysize";
 import {recentLanguages, suggestedLanguage} from "../js/translate/recent";
@@ -567,7 +569,13 @@ const bracketWraps = {
 
 export default defineComponent({
 	name: "ChatInput",
-	components: {TranslationSheet, TypingIndicator, QuotePreview, ReactionPicker},
+	components: {
+		TranslationSheet,
+		TranslationDiscovery,
+		TypingIndicator,
+		QuotePreview,
+		ReactionPicker,
+	},
 	props: {
 		network: {type: Object as PropType<ClientNetwork>, required: true},
 		channel: {type: Object as PropType<ClientChan>, required: true},
