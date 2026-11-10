@@ -10,15 +10,14 @@ import type {UntrustedCertificate} from "./irc/shellSocket";
 
 export type CertificateAnswer = "always" | "once" | "no";
 
-/** `ab12…` → `["AB", "12", …]`: the bytes certificate viewers show joined
- * by colons, kept apart for a display that breaks between them. */
-export function fingerprintPairs(sha256: string): string[] {
-	return sha256.toUpperCase().match(/../g) ?? [];
+/** `ab12…` → `AB:12:…`, the way certificate viewers show it. */
+export function formatFingerprint(sha256: string): string {
+	return (sha256.toUpperCase().match(/../g) ?? []).join(":");
 }
 
-/** `AB:12:…` in two lines of 16 bytes, so it fits a narrow dialog. */
+/** The same in two lines of 16 bytes, so it fits a narrow dialog. */
 function fingerprintLines(sha256: string): string {
-	const pairs = fingerprintPairs(sha256);
+	const pairs = sha256.toUpperCase().match(/../g) ?? [];
 	return [pairs.slice(0, 16).join(":"), pairs.slice(16).join(":")].join("\n");
 }
 

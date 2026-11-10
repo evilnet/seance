@@ -124,7 +124,9 @@
 							<!-- A break opportunity after each colon: the fingerprint
 							wraps between bytes, never inside one. -->
 							<code dir="ltr"
-								><template v-for="(pair, i) in fingerprintPairs(fp)" :key="i"
+								><template
+									v-for="(pair, i) in formatFingerprint(fp).split(':')"
+									:key="i"
 									>{{ i > 0 ? ":" : "" }}<wbr v-if="i > 0" />{{ pair }}</template
 								></code
 							>
@@ -464,16 +466,11 @@
 	margin-block-end: 0.5rem;
 }
 
-/* The fingerprint wraps at its colons (two lines in the desktop form, three
- * or four on a phone). A zero basis and width keep its text out of the
- * row's minimum width, so it never pushes the form wider. */
+/* The fingerprint wraps at its colons (the <wbr>s in the template), so its
+ * narrowest is one byte and it never pushes the form wider. */
 .trusted-certificates code {
-	flex: 1 1 0;
-	width: 0;
-	min-width: 0;
+	flex: 1;
 	font-size: 0.75rem;
-	line-height: 1.4;
-	white-space: normal;
 }
 
 /* An icon button, like the alias rows' (Settings/Aliases.vue). It is not a
@@ -634,7 +631,7 @@ import {isDesktopShell, isShell, macDragRegion} from "../js/helpers/shell";
 import {useStore} from "../js/store";
 import webpush from "../js/webpush";
 import {useI18n} from "../js/i18n";
-import {fingerprintPairs} from "../js/certificatePrompt";
+import {formatFingerprint} from "../js/certificatePrompt";
 import type {ServicesConfig, SharedNetworkStatus} from "../../shared/types/network";
 /** The services roles as the form shows them, in order. */
 type ServiceRoleField = {
@@ -1040,7 +1037,7 @@ export default defineComponent({
 		};
 
 		return {
-			fingerprintPairs,
+			formatFingerprint,
 			forgetCertificate,
 			dragRegion: macDragRegion(),
 			t,
