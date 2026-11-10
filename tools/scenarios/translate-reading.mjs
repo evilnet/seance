@@ -185,11 +185,9 @@ function setPanelRead(page, on) {
  * channel.
  */
 async function setReadOverride(page, code) {
-	await page.click(`#footer button.settings`);
-	await page.waitFor(`!!document.querySelector(".settings-menu button.translation")`, {
-		label: "settings open for the override",
-	});
-	await page.click(`.settings-menu button.translation`);
+	// By its route: on a phone the footer's Settings is in the closed
+	// sidebar, off the screen.
+	await page.evaluate(`location.hash = "#/settings/translation"`);
 	await page.waitFor(`!!document.querySelector('select[name="locale"]')`, {
 		label: "the translation tab",
 	});

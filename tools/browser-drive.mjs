@@ -363,7 +363,9 @@ async function rect(selector, index = 0) {
 			const el = document.querySelectorAll(${jsString(selector)})[${Number(index)}];
 			if (!el) return null;
 			const r = el.getBoundingClientRect();
-			return {x: r.x, y: r.y, width: r.width, height: r.height};
+			const lines = el.getClientRects();
+			const f = lines.length > 1 ? lines[0] : null;
+			return {x: r.x, y: r.y, width: r.width, height: r.height, first: f && {x: f.x, y: f.y, width: f.width, height: f.height}};
 		})()`
 	);
 }
@@ -407,7 +409,11 @@ async function pointAt(selector, index) {
 		r = await rect(selector, index);
 	}
 
-	return {x: r.x + r.width / 2, y: r.y + r.height / 2};
+	// An inline element that wraps (a long message's text) has a gap or
+	// another element at its box's middle: a finger lands on its first line.
+	const at = r.first ?? r;
+
+	return {x: at.x + at.width / 2, y: at.y + at.height / 2};
 }
 
 async function hover(selector, index = 0) {
