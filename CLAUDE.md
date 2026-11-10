@@ -10,7 +10,7 @@ Status: `docs/projects/initial_conversion.md`. Upstream is still `github.com/the
 
 ## Commands
 
-pnpm, at the version `package.json`'s `packageManager` names (`npm i -g pnpm@12.16.1`; pnpm does not switch itself, because that writes a two-document lockfile GitHub's dependency graph cannot read). Node 25+ ships no corepack, and pnpm advises against it anyway. Dependency install scripts run only when `pnpm-workspace.yaml`'s `allowBuilds` names them.
+pnpm, at the version `package.json`'s `packageManager` names (`npm i -g pnpm@12.16.1`; pnpm does not switch itself, because that writes a two-document lockfile GitHub's dependency graph cannot read). Node 25+ ships no corepack, and pnpm advises against it anyway. Dependency install scripts run only when `pnpm-workspace.yaml`'s `allowBuilds` names them. Every checkout and worktree runs its own `pnpm install` (pnpm links from one shared store, so it is quick); never symlink `node_modules` from another checkout, which `make` refuses.
 
 | Task                                            | Command                                       |
 | ----------------------------------------------- | --------------------------------------------- |
