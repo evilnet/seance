@@ -79,6 +79,38 @@ const IRCD = process.env.SEANCE_IRC_WS || "ws://127.0.0.1:8067/";
 const CHANNEL = "#seance-capability";
 const EN = JSON.parse(readFileSync("client/locales/en.json", "utf8"));
 const MOBILE = process.argv.includes("--mobile");
+/**
+ * JS source: the language other than English the open channel's newest 60
+ * lines from others were placed in most (recent.ts `recentLanguages`), or "".
+ */
+const RECENT_FOREIGN = `(() => {
+	const store = document.getElementById("app").__vue_app__.config.globalProperties.$store;
+	const messages = store.state.activeChannel.channel.messages;
+	const counts = new Map();
+	let looked = 0;
+
+	for (let i = messages.length - 1; i >= 0 && looked < 60; i--) {
+		const m = messages[i];
+
+		if (m.self || (m.type !== "message" && m.type !== "action")) {
+			continue;
+		}
+
+		looked++;
+
+		const e = store.state.translations[m.id];
+
+		if (e && e.from && e.status !== "dropped") {
+			counts.set(e.from, (counts.get(e.from) || 0) + 1);
+		}
+	}
+
+	const ranked = [...counts.entries()]
+		.filter(([code]) => code !== "en")
+		.sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
+
+	return ranked.length ? ranked[0][0] : "";
+})()`;
 
 const MiB = 1024 * 1024;
 const GiB = 1024 * MiB;
@@ -732,14 +764,23 @@ export default async function run(page) {
 		const openedOn = await openedOnCode();
 		const opened = openedOn ? await rowState(openedOn) : {disabled: false};
 
-		// No earlier pick: the cleanup pass where the GPU model runs, else
-		// nothing preselected -- never a disabled dialog, and never the
-		// first language on the list passed off as a setting.
+		// No earlier pick: a language the channel has been written in lately
+		// (earlier runs' lines are in its history, and reading places them),
+		// else the cleanup pass where the GPU model runs, else nothing
+		// preselected -- never a disabled dialog, and never the first
+		// language on the list passed off as a setting (outgoing.ts
+		// `onceTargetDefault`, recent.ts `recentLanguages`).
+		const recent = String(await page.evaluate(RECENT_FOREIGN));
+
 		page.check(
-			`${name}: the dialog opens on ${llm ? "the cleanup pass" : "no preselection"} (${
-				openedOn || "none"
-			}, ${opened.disabled ? "disabled" : "enabled"})`,
-			!opened.disabled && (llm ? openedOn === "en" : openedOn === "")
+			`${name}: the dialog opens on ${
+				recent
+					? `the channel's recent ${recent}`
+					: llm
+					? "the cleanup pass"
+					: "no preselection"
+			} (${openedOn || "none"}, ${opened.disabled ? "disabled" : "enabled"})`,
+			!opened.disabled && openedOn === (recent || (llm ? "en" : ""))
 		);
 		await page.screenshot(`${name}-composer-opened`, {selector: PICKER, pad: 8});
 		const same = await rowState("en");
@@ -995,13 +1036,13 @@ export default async function run(page) {
 			);
 			await closePicker();
 
-			// Both off: a line from someone else, for the toolbar.
+			// Both off: a line from someone else, for the toolbar. Earlier
+			// runs' copies are in the channel's history: wait for a new one.
+			const HELLOS = `[...document.querySelectorAll("#chat .msg:not(.self)")].filter((m) => m.textContent.includes("Hallo zusammen")).length`;
+			const hellosBefore = Number(await page.evaluate(HELLOS));
 			const other = await speaker(`cs${RUN}`, "Hallo zusammen, wie geht es euch heute?");
 
-			await page.waitFor(
-				`[...document.querySelectorAll("#chat .msg:not(.self)")].some((m) => m.textContent.includes("Hallo zusammen"))`,
-				{label: "the speaker's line"}
-			);
+			await page.waitFor(`${HELLOS} > ${hellosBefore}`, {label: "the speaker's line"});
 			await openSettings();
 			await setSwitch("translateCpu", false);
 			await closeSettings();
@@ -1071,7 +1112,7 @@ export default async function run(page) {
 
 			const off = await panelState();
 			const onSegment = await page.evaluate(
-				`(() => { const b = ${readOnSegment}; return {disabled: b.disabled, described: b.getAttribute("aria-describedby")}; })()`
+				`(() => { const b = ${readOnSegment}; return {checked: b.getAttribute("aria-checked") === "true", described: b.getAttribute("aria-describedby")}; })()`
 			);
 			const reading = await page.evaluate(
 				`JSON.parse(localStorage.getItem("thelounge.translate") || "{}")`
@@ -1083,12 +1124,14 @@ export default async function run(page) {
 					off.banner.includes(EN["translate.why.allOff"])
 			);
 			page.check(
-				`desktop, both off: reading's On is disabled and described by the notice`,
-				onSegment.disabled && onSegment.described === "translation-panel-blocked"
+				// Reading is on unless excluded: On is the checked choice, so it
+				// is not disabled, and the notice says why nothing is read.
+				`desktop, both off: reading's On is described by the notice`,
+				onSegment.checked && onSegment.described === "translation-panel-blocked"
 			);
 			page.check(
-				`desktop, both off: the click did not switch reading on`,
-				!JSON.stringify(reading).includes('"read":true')
+				`desktop, both off: the conversation is not excluded`,
+				!JSON.stringify(reading).includes('"exclude":true')
 			);
 			page.check(
 				`desktop, both off: every language is greyed under "Send my messages in"`,
@@ -1170,7 +1213,7 @@ export default async function run(page) {
 			}).observe(overlay, {attributes: true, attributeFilter: ["class"], childList: true, subtree: true});
 		})()`);
 
-		// Reading on: the panel's On.
+		// Reading is on unless excluded; the panel's On leaves it so.
 		await openPanel();
 		await page.evaluate(`${readOnSegment}.click()`);
 		await closePanel();
@@ -1182,9 +1225,11 @@ export default async function run(page) {
 			[EN["translate.model.llm"].replace("{name}", "Qwen3 1.7B")]: 984_000_000,
 			[EN["translate.model.llm"].replace("{name}", "Qwen3 4B")]: 2_280_000_000,
 		};
+		// Each line's newest copy: the channel's history holds earlier runs'
+		// copies above the screen, which reading leaves alone (onScreen.ts).
 		const OFFERS = `${JSON.stringify(
 			lines
-		)}.map((line) => [...document.querySelectorAll("#chat .msg:not(.self)")].find((m) => m.textContent.includes(line))).map((m) => { const r = m && m.querySelector('.msg-translation[data-status="failed"] .msg-translation-offer'); return r ? {text: r.textContent.replace(/\\s+/g, " ").trim(), title: r.title} : null; })`;
+		)}.map((line) => [...document.querySelectorAll("#chat .msg:not(.self)")].reverse().find((m) => m.textContent.includes(line))).map((m) => { const r = m && m.querySelector('.msg-translation[data-status="failed"] .msg-translation-offer'); return r ? {text: r.textContent.replace(/\\s+/g, " ").trim(), title: r.title} : null; })`;
 
 		await page.waitFor(`${OFFERS}.every((r) => r)`, {
 			label: "every line offers its download",
