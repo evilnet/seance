@@ -7,18 +7,21 @@
 //
 // In order:
 //  1. A reply to a Portuguese line offers "Reply in Portuguese"; taken, it
-//     is for this message: "This message goes in Portuguese".
+//     is for this message: "This message goes in Portuguese". The answer is
+//     kept for the conversation and the language: asked once.
 //  2. Send safety: a Return before the preview sends nothing ("Translating…
 //     Press Return again"), nor does one in the instant it lands; the next
 //     Return after it has been on screen sends the translation, tagged, as
 //     a reply. The language goes with the message.
 //  3. No offer for a reply to a machine-translated line, to the user's own
 //     line, or over an edit.
-//  4. Adversarial, the parent edited mid-preview: the preview and a Return
+//  4. A later reply to a Portuguese line takes Portuguese without asking.
+//     Adversarial, the parent edited mid-preview: the preview and a Return
 //     waiting on it go, and the draft is previewed again. Cancelling the
 //     reply takes the message's language with it.
 //  5. "Send as written" sends the draft as typed, untagged, while the
-//     preview is still on its way.
+//     preview is still on its way. "Write as typed" on a language taken
+//     without asking is for that message: the next reply takes it again.
 //  6. A query whose other person writes Polish offers "Write to moria in
 //     Polish"; "Another language…" opens the list with "This message only"
 //     set, and a pick is this message's language; "Always here" makes it
@@ -29,7 +32,12 @@
 //  8. Adversarial, the page put away and back while a preview is out
 //     (pagehide takes the worker down): the preview is asked again, not
 //     failed, and when it lands nothing is sent by itself.
-//  9. "Not now" hides offers in that conversation, on this device.
+//  9. A language answered yes in a query is taken without asking after a
+//     send.
+// 10. "Not now" to a language: not offered in that conversation again,
+//     remembered on this device; another language still is.
+// 11. A draft sent past an offer without answering it is a no: that
+//     language is not offered there again.
 //
 //   NODE_ENV=development pnpm build && python3 -m http.server -d public 8021 &
 //   SEANCE_HTTP=http://localhost:8021/ CHROME_BIN=… node tools/browser-drive.mjs tools/scenarios/translate-offers.mjs
@@ -113,6 +121,14 @@ const PT = "Bom dia a todos, alguém sabe se a reunião de amanhã ainda está m
 const PL = [
 	"Cześć, czy możesz mi pomóc z konfiguracją serwera dzisiaj wieczorem?",
 	"Nie wiem, dlaczego to połączenie ciągle się zrywa po kilku minutach.",
+];
+const FR = [
+	"Bonjour à tous, est-ce que quelqu'un sait si la réunion de demain est maintenue ?",
+	"Je pense que nous devrions en parler ensemble avant la fin de la semaine.",
+];
+const ES = [
+	"Hola a todos, ¿alguien sabe si la reunión de mañana sigue en pie a las diez?",
+	"Creo que deberíamos hablarlo con calma antes del fin de semana.",
 ];
 const DE = [
 	"Hallo, ich habe gerade gesehen, dass der Server wieder läuft, danke dafür.",
@@ -225,9 +241,13 @@ export default async function run(page) {
 	await page.evaluate(`${CHAN(CHANNEL)}.editing = null`);
 	await cancelReply(page, CHANNEL);
 
-	// --- 4. The parent edited mid-preview; the reply cancelled. ----------
+	// --- 4. Asked once; the parent edited mid-preview; the reply cancelled.
 	await replyTo(page, CHANNEL, pt);
-	await page.click("#form .translate-offer-accept");
+	page.check(
+		`a later reply in Portuguese takes it without asking (${await page.evaluate(OFFER)})`,
+		(await page.evaluate(OFFER)).startsWith("This message goes in Portuguese") &&
+			!(await page.evaluate(`!!document.querySelector("#form .translate-offer-accept")`))
+	);
 	await typeDraft(page, "I will bring the slides and the projector for the meeting");
 	await pressEnter(page);
 	await page.waitFor(QUEUED, {label: "a Return waits on the preview"});
@@ -267,7 +287,9 @@ export default async function run(page) {
 
 	// --- 5. Send as written. ---------------------------------------------
 	await replyTo(page, CHANNEL, pt);
-	await page.click("#form .translate-offer-accept");
+	await page.waitFor(`!!document.querySelector("#form .translate-offer-taken")`, {
+		label: "Portuguese taken without asking",
+	});
 	await typeDraft(page, "running five minutes late, start without me please");
 	await pressEnter(page);
 	await page.waitFor(`!!document.querySelector("#form .translate-bar-as-written")`, {
@@ -291,6 +313,34 @@ export default async function run(page) {
 		"and nothing else went when the preview would have landed",
 		(await page.evaluate(SENT)).length === 3
 	);
+
+	// "Write as typed" on a language taken without asking: this message.
+	await replyTo(page, CHANNEL, pt);
+	await page.waitFor(`!!document.querySelector("#form .translate-offer-drop")`, {
+		label: "the taken language's Write as typed",
+	});
+	await page.click("#form .translate-offer-drop");
+	await page.sleep(200);
+	page.check(
+		`Write as typed: this message goes as typed, and nothing asks (${await page.evaluate(
+			OFFER
+		)})`,
+		(await page.evaluate(OFFER)) === ""
+	);
+	await typeDraft(page, "ok, no rush at all");
+	await pressEnter(page);
+	await page.sleep(200);
+	page.check(
+		"sent as typed, untagged",
+		(await page.evaluate(SENT))[3]?.text === "ok, no rush at all" &&
+			(await page.evaluate(SENT))[3]?.language === undefined
+	);
+	await replyTo(page, CHANNEL, pt);
+	page.check(
+		"the next reply in Portuguese takes it again",
+		(await page.evaluate(OFFER)).startsWith("This message goes in Portuguese")
+	);
+	await cancelReply(page, CHANNEL);
 
 	// --- 6. A query in Polish. -------------------------------------------
 	await open(page, QUERY);
@@ -412,28 +462,78 @@ export default async function run(page) {
 		(await page.evaluate(SENT))[sentBefore]?.language === "de"
 	);
 
-	// --- 9. Not now. -----------------------------------------------------
-	await page.waitFor(`document.querySelector("#form .translate-offer-decline")`, {
-		label: "the offer is back after the send",
-	});
+	// --- 9. Asked once in the query too. --------------------------------
+	await page.sleep(300);
+	page.check(
+		`after the send, German is taken without asking (${await page.evaluate(OFFER)})`,
+		(await page.evaluate(OFFER)).startsWith("This message goes in German")
+	);
+
+	// --- 10. Not now, for one language. -----------------------------------
+	await open(page, CHANNEL);
+
+	const fr = await say(page, CHANNEL, FR[0]);
+
+	await page.waitFor(read(fr), {label: "a French line is read", timeout: 15000});
+	await replyTo(page, CHANNEL, fr);
+	page.check(
+		`a reply to a French line offers French (${await page.evaluate(OFFER)})`,
+		(await page.evaluate(OFFER)).startsWith("Reply in French")
+	);
 	await page.click("#form .translate-offer-decline");
 	await page.sleep(200);
 	page.check(
-		"Not now: no offer in this conversation, remembered on this device",
+		"Not now: no offer, remembered for French in this conversation on this device",
 		(await page.evaluate(OFFER)) === "" &&
 			(await page.evaluate(
-				`JSON.parse(localStorage.getItem("thelounge.translateOffersDeclined") || "[]").includes(${JSON.stringify(
-					`${NETWORK}/moria`
-				)})`
+				`JSON.parse(localStorage.getItem("thelounge.translateOfferAnswers") || "{}")[${JSON.stringify(
+					`${NETWORK}/#seance\u0000fr`
+				)}] === "no"`
 			))
 	);
-	await open(page, CHANNEL);
+
+	const fr2 = await say(page, CHANNEL, FR[1]);
+
+	await page.waitFor(read(fr2), {label: "another French line is read", timeout: 15000});
+	await replyTo(page, CHANNEL, fr2);
+	page.check("another French line offers nothing", (await page.evaluate(OFFER)) === "");
 	await replyTo(page, CHANNEL, pt);
 	page.check(
-		"another conversation still offers",
-		(await page.evaluate(OFFER)).startsWith("Reply in Portuguese")
+		"Portuguese is still taken here",
+		(await page.evaluate(OFFER)).startsWith("This message goes in Portuguese")
 	);
+	await cancelReply(page, CHANNEL);
 	await page.screenshot("5-reply-offer-again");
+
+	// --- 11. Sent past without an answer. --------------------------------
+	const es = await say(page, CHANNEL, ES[0]);
+
+	await page.waitFor(read(es), {label: "a Spanish line is read", timeout: 15000});
+	await replyTo(page, CHANNEL, es);
+	page.check(
+		`a reply to a Spanish line offers Spanish (${await page.evaluate(OFFER)})`,
+		(await page.evaluate(OFFER)).startsWith("Reply in Spanish")
+	);
+
+	const sentBeforeEs = (await page.evaluate(SENT)).length;
+
+	await typeDraft(page, "sounds good to me");
+	await pressEnter(page);
+	await page.sleep(300);
+	page.check(
+		"the draft went as typed",
+		(await page.evaluate(SENT))[sentBeforeEs]?.text === "sounds good to me"
+	);
+
+	const es2 = await say(page, CHANNEL, ES[1]);
+
+	await page.waitFor(read(es2), {label: "another Spanish line is read", timeout: 15000});
+	await replyTo(page, CHANNEL, es2);
+	page.check(
+		"sent past without an answer: Spanish is not offered here again",
+		(await page.evaluate(OFFER)) === ""
+	);
+	await cancelReply(page, CHANNEL);
 
 	page.check(
 		`no console errors (${page.consoleErrors.map((e) => e.text).join(" | ")})`,

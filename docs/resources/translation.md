@@ -1714,12 +1714,21 @@ language as `writeFrom`, as the card's yes does). **Another language…**
 opens the sheet's list with "This message only" already set, which is how
 a wrong guess is put right for one message without touching the
 conversation; a pick there with "This message only" is this message's
-language too, and an edit of the draft previews into it again. **Write as
-typed** drops it. **Not now** declines offers in that conversation, on this
-device (`offerDeclines.ts`, `thelounge.translateOffersDeclined`: device
-state, not in the settings backup); the channel card keeps its own
-`noSuggest`, and "Reset choices for this conversation" lifts both. The
+language too, and an edit of the draft previews into it again. The
 language goes with the message when it is sent.
+
+**Asked once per conversation and language** (`offerDeclines.ts`
+`offerAnswer`, `thelounge.translateOfferAnswers`: device state, not in the
+settings backup). Taking an offer answers yes: a later reply to a line in
+that language, or a later draft in that query, takes it without asking,
+with the same "This message goes in Portuguese" note. **Write as typed**
+there sends that message as typed and keeps the answer, so the next reply
+takes it again. **Not now** answers no for that language in that
+conversation, and so does sending a draft past the offer without answering
+it; another language is still offered. The channel card keeps its own
+`noSuggest`, and "Reset choices for this conversation" lifts both, the
+answers with them. The older whole-conversation decline
+(`thelounge.translateOffersDeclined`) is still honoured where it was set.
 
 **A preview belongs to its target**: the language and the reply parent, by
 id and text (`offer.ts` `previewKey`). When either moves under it -- the

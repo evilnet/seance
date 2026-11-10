@@ -501,7 +501,12 @@ import {loadNoteText, modelLabel} from "../js/helpers/modelLabel";
 import friendlysize from "../js/helpers/friendlysize";
 import {recentLanguages, suggestedLanguage} from "../js/translate/recent";
 import {composerOffer, previewKey, sendReady} from "../js/translate/offer";
-import {declineOffers, forgetOfferDecline, offersDeclined} from "../js/translate/offerDeclines";
+import {
+	answerOffer,
+	forgetOfferDecline,
+	offerAnswer,
+	offersDeclined,
+} from "../js/translate/offerDeclines";
 import {translateErrorText} from "../js/helpers/translateErrors";
 import {translateWhyText} from "../js/helpers/translateWhy";
 import {downloadBytes, loadNote} from "../js/translate/service";
@@ -1267,6 +1272,9 @@ export default defineComponent({
 		 * language tags' fields (irc/langtag.ts), given only for a finished
 		 * translation into a language the user picked.
 		 */
+		// What a send settles before the composer is cleared (the writing
+		// offer's answer, below).
+		const beforeSend: Array<() => void> = [];
 		const deliver = (
 			text: string,
 			original: string,
@@ -1282,6 +1290,10 @@ export default defineComponent({
 
 			// What this brings lands in the present, so that is where to be.
 			closePast(props.channel);
+
+			if (!editing) {
+				beforeSend.forEach((hook) => hook());
+			}
 
 			props.channel.inputHistoryPosition = 0;
 			props.channel.pendingMessage = "";
@@ -1972,13 +1984,40 @@ export default defineComponent({
 				},
 			});
 		});
+		// The answer already given to this language's offer here: asked once
+		// per conversation and language (offerDeclines.ts `offerAnswer`).
+		const offerAnswered = computed(() =>
+			offerNow.value
+				? offerAnswer(props.network.uuid, props.channel.name, offerNow.value.code)
+				: undefined
+		);
 		const offer = computed(() =>
 			offerNow.value &&
 			!draftTarget.value &&
+			offerAnswered.value === undefined &&
 			!offersDeclined(props.network.uuid, props.channel.name)
 				? offerNow.value
 				: null
 		);
+		// "Write as typed" on an offer taken without asking: this message
+		// goes as typed, and the offer is not taken again for the same line.
+		const offerSkipped = new Map<number, string>();
+		// An offer sent past without an answer is a no for its language here:
+		// it is not asked again (it was asked once). A sent message also ends
+		// its "Write as typed".
+		beforeSend.push(() => {
+			const unanswered = offer.value;
+
+			if (unanswered) {
+				answerOffer(props.network.uuid, props.channel.name, unanswered.code, "no");
+			}
+
+			offerSkipped.delete(props.channel.id);
+		});
+		const offerOccasion = () =>
+			offerNow.value
+				? `${offerNow.value.kind}:${offerNow.value.code}:${props.channel.replyTo?.id ?? ""}`
+				: "";
 		const offerLabel = computed(() => {
 			const shown = offer.value;
 
@@ -2015,12 +2054,19 @@ export default defineComponent({
 
 			cancelOutgoing(props.channel);
 			forgetPreview();
+			answerOffer(props.network.uuid, props.channel.name, shown.code, "yes");
 			draftTargets.set(props.channel.id, {to: shown.code, from: null, kind: shown.kind});
 			startDraftPreview();
 			focusForTyping();
 		};
+		// "Not now": that language is not offered in this conversation again.
 		const declineOffer = () => {
-			declineOffers(props.network.uuid, props.channel.name);
+			const shown = offer.value;
+
+			if (shown) {
+				answerOffer(props.network.uuid, props.channel.name, shown.code, "no");
+			}
+
 			focusForTyping();
 		};
 		// Another language for this message: the sheet's list, with "This
@@ -2053,7 +2099,12 @@ export default defineComponent({
 			focusForTyping();
 		};
 		// "Write as typed": this message's language goes, its preview with it.
+		// The answer stays: the next reply in that language takes it again.
 		const dropDraftTarget = () => {
+			if (draftTarget.value && draftTarget.value.kind !== "pick") {
+				offerSkipped.set(props.channel.id, offerOccasion());
+			}
+
 			draftTargets.delete(props.channel.id);
 			cancelOutgoing(props.channel);
 			forgetPreview();
@@ -2301,6 +2352,37 @@ export default defineComponent({
 					draftTargets.delete(id);
 				}
 			}
+		);
+
+		// An offer answered "yes" here before is taken without asking: this
+		// message goes in that language, with the note that says so and its
+		// "Write as typed". Registered after the watcher above, which drops a
+		// target the offer no longer names.
+		watch(
+			() =>
+				[
+					props.channel.id,
+					offerNow.value?.kind,
+					offerNow.value?.code,
+					props.channel.replyTo?.id,
+					offerAnswered.value,
+				] as const,
+			([id]) => {
+				const answered = offerNow.value;
+
+				if (
+					!answered ||
+					offerAnswered.value !== "yes" ||
+					draftTargets.has(id) ||
+					offerSkipped.get(id) === offerOccasion()
+				) {
+					return;
+				}
+
+				draftTargets.set(id, {to: answered.code, from: null, kind: answered.kind});
+				startDraftPreview();
+			},
+			{immediate: true}
 		);
 
 		const onBlur = () => {
