@@ -14915,6 +14915,18 @@ msgctxt "translate.error.aborted"
 msgid "aborted"
 msgstr "中止"
 
+#. Why a translation failed, shown after 'Couldn't translate': the model that would translate this failed to load earlier in this session, and is not tried again until the page is reloaded. Lowercase: it follows a colon or a dash.
+#: client/js/helpers/translateErrors.ts
+msgctxt "translate.error.down"
+msgid "the model for this failed to load earlier; reload the page to try it again"
+msgstr ""
+
+#. Why a translation failed, shown after 'Couldn't translate': the model that would translate this failed to load earlier in this session, and is not tried again until the page is reloaded. {detail} is the model's name and the library's own untranslated error text. Lowercase: it follows a colon or a dash.
+#: client/js/helpers/translateErrors.ts
+msgctxt "translate.error.downDetail"
+msgid "the model for this failed to load earlier ({detail}); reload the page to try it again"
+msgstr ""
+
 #. Why a translation failed, shown after 'Couldn't translate' (so it reads 'Couldn't translate: the GPU stopped (…): …'): the graphics processor the translation model was running on stopped working in the middle of the translation — on a phone usually because the system ran short of memory or the app went to the background. {reason} is the browser's own untranslated explanation of why the GPU stopped, {detail} the browser's own untranslated error from the step that failed. Lowercase: it follows a colon or a dash.
 #: client/js/helpers/translateErrors.ts
 msgctxt "translate.error.gpuLost"

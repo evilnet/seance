@@ -27,6 +27,7 @@ import {
 	CPU_IDLE_UNLOAD_MS,
 	GPU_IDLE_UNLOAD_MS,
 	QUIET_DOWNLOAD_BYTES,
+	TRANSLATION_DOWN,
 	TRANSLATION_UNAVAILABLE,
 	TranslateService,
 	applePackError,
@@ -668,6 +669,36 @@ describe("translate/service", () => {
 			status: "failed",
 			error: "Can't create a session",
 		});
+		r.service.dispose();
+	});
+
+	it("a later request says what is down and why, not a bare 'no engine'", async () => {
+		const r = rig("gpu");
+		clock = r.clock;
+		await r.service.models();
+		r.llm.failLoad = new Error("device lost");
+		r.seq2seq.load = () => Promise.reject(new Error("Can't create a session"));
+
+		const failure = async (request: typeof base) => {
+			try {
+				await text(r.service.translate(request));
+			} catch (e) {
+				return (e as Error).message;
+			}
+
+			return "";
+		};
+
+		// The first request tries every model and reports its own last load.
+		expect(await failure(base)).to.equal(
+			`${TRANSLATION_UNAVAILABLE}: ${catalog.nllb.id}: Can't create a session`
+		);
+		// The next finds them all down for the session: it names the model
+		// the table would take, the language model here, and its reason.
+		expect(await failure({...base, text: "Zwei"})).to.equal(
+			`${TRANSLATION_DOWN}: ${catalog.llm.id}: device lost`
+		);
+		expect(r.llm.calls.load.length).to.equal(1);
 		r.service.dispose();
 	});
 

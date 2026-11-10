@@ -2410,6 +2410,8 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"translate.discover.decline",
 	"translate.discover.lead",
 	"translate.error.aborted",
+	"translate.error.down",
+	"translate.error.downDetail",
 	"translate.error.gpuLost",
 	"translate.error.timedOut",
 	"translate.error.tooLong",
