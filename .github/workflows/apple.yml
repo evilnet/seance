@@ -1,11 +1,14 @@
 # The desktop shell's smoke run, the macOS app and an iOS Simulator build, on
-# pull requests that touch what goes into the Apple apps, and by hand. The
-# smoke run goes first: it fails fastest. Nothing here is signed, and the iOS
-# build only compiles.
+# pushes to develop that touch what goes into the Apple apps, and by hand
+# (Actions > Apple > Run workflow, on any branch). Not on pull requests: a cold
+# macOS build takes long enough to hold one up. The develop run saves the build
+# cache a run by hand starts from. The smoke run goes first: it fails fastest.
+# Nothing here is signed, and the iOS build only compiles.
 name: Apple
 
 on:
-  pull_request:
+  push:
+    branches: [develop]
     paths:
       - "Makefile"
       - ".github/workflows/apple.yml"

@@ -1,11 +1,13 @@
-# The Android shell's build and unit tests, on pull requests that touch what
-# goes into the APK, and by hand. Not a test of the app running: nothing here
-# boots a WebView, installs or signs the APK.
+# The Android shell's build and unit tests, on pull requests and pushes to
+# develop that touch what goes into the APK, and by hand. The develop run saves
+# the build cache pull requests start from (they cannot read each other's).
+# Not a test of the app running: nothing here boots a WebView, installs or
+# signs the APK.
 name: Android
 
 on:
   pull_request:
-    paths:
+    paths: &shell-paths
       - "Makefile"
       - ".github/workflows/android.yml"
       - "shells/tauri/**"
@@ -20,6 +22,9 @@ on:
       - "!shells/tauri/tools/*macos*"
       - "!shells/tauri/tools/shots-linux.sh"
       - "!shells/tauri/**/*.md"
+  push:
+    branches: [develop]
+    paths: *shell-paths
   workflow_dispatch:
 
 permissions:
