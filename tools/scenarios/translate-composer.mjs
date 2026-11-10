@@ -14,7 +14,8 @@
 // request logged with purpose "write"; typing dims the strip until the next
 // preview; the check runs automatically once the translation ends (a
 // "Reads back as" row, "[English] [German] …", a read request); a Return
-// before the preview is done says it sends when ready and then sends it;
+// before the preview is done sends nothing and says to press Return again,
+// nothing goes when the preview lands, and the next Return sends it;
 // Return sends the previewed
 // translation (the other user hears "[German] …", the strip goes, the
 // input clears) and ArrowUp recalls the original draft; Escape drops a
@@ -666,20 +667,35 @@ export default async function run(page) {
 		label: "the strip is gone after the German send",
 	});
 
-	// One step: a Return before the preview has come waits for it and
-	// sends it, saying so meanwhile; nothing goes as typed.
+	// Send safety: a Return before the preview has come sends nothing,
+	// says so, and nothing goes when the preview lands; the next Return,
+	// once it has been seen, sends it. Nothing goes as typed.
 	const quickDraft = `straight out with no pause ${RUN}`;
 
 	await typeAndEnter(page, quickDraft);
 	await page.waitFor(`!!document.querySelector(".translate-bar-queued")`, {
-		label: "the strip says it sends when ready",
+		label: "the strip says to press Return again",
 	});
+	await page.waitFor(
+		`(document.querySelector(${JSON.stringify(
+			BAR
+		)} + " .translate-bar-text") || {}).textContent?.includes(${JSON.stringify(
+			`[German] ${quickDraft}`
+		)})`,
+		{timeout: 30000, label: "the preview lands"}
+	);
+	await page.sleep(1500);
 	await page.check(
-		"the Return sent the translation once it was done",
+		"nothing was sent when the preview landed",
+		!other.heard().some((line) => line.includes(quickDraft))
+	);
+	await page.evaluate(ENTER);
+	await page.check(
+		"the next Return sent the translation",
 		(await heard(other, `[German] ${quickDraft}`, 20000)) && !other.heard().includes(quickDraft)
 	);
 	await page.waitFor(`!document.querySelector(${JSON.stringify(BAR)})`, {
-		label: "the strip is gone after the one-step send",
+		label: "the strip is gone after the send",
 	});
 	// With the target set, the sheet opens on it, checked, and offers Off.
 	await openSheet("the sheet with a target set");

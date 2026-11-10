@@ -9893,6 +9893,62 @@ html[data-reduce-motion] #chat .msg.actions-open .msg-actions {
 	color: var(--button-text-color-hover);
 }
 
+/* A writing offer, or this message's language once taken (translate/offer.ts):
+   one line in the strip's place, the strip's rule, the action first and the
+   two links after it. */
+#form .translate-offer {
+	flex: 1 0 100%;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.25rem 0.75rem;
+	min-width: 0;
+	margin: 0 0.25rem 0.25rem;
+	padding: 0.125rem 0.5rem;
+	border-inline-start: 2px solid var(--chat-accent, var(--link-color));
+	color: var(--body-color);
+	font-size: 0.8125rem;
+	line-height: 1.45;
+}
+
+#form .translate-offer .btn {
+	margin: 0;
+}
+
+#form .translate-offer-accept {
+	background: var(--button-color);
+	color: var(--button-text-color-hover);
+}
+
+#form .translate-offer-lead {
+	flex: 0 1 auto;
+	min-width: 0;
+	color: var(--body-color-muted);
+}
+
+/* The strip's and the offer's text buttons: links, not boxes. */
+#form .translate-offer-link,
+#form .translate-bar-link {
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--link-color);
+	font: inherit;
+	font-size: 0.75rem;
+	cursor: pointer;
+}
+
+#form .translate-offer-link:hover,
+#form .translate-offer-link:focus-visible,
+#form .translate-bar-link:hover,
+#form .translate-bar-link:focus-visible {
+	text-decoration: underline;
+}
+
+#form .translate-bar-send {
+	gap: 0.75rem;
+}
+
 /* Both rows of the strip: the translation about to be sent, and the
    read-back under it. `body` is `user-select: none`, so without this the
    line the user is being asked to approve cannot be selected or copied. */
