@@ -59,6 +59,12 @@ export interface TranslationEntry {
 	 */
 	candidates: string[];
 	engine: EngineName | null;
+	/**
+	 * The model translating or that translated the line (engine.ts
+	 * `ModelRef.id`, queue.ts `onModel`), named at the foot of the line's
+	 * "Translation options". Absent until one is known.
+	 */
+	model?: string;
 	error: string | null;
 	/** "Show original only": the line is kept but not rendered. */
 	hidden: boolean;

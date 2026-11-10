@@ -62,7 +62,7 @@ import {
 	mergeRoutes,
 	routeInput,
 } from "./router";
-import {llmAheadOf, routesFor as shippedRoutesFor} from "./routes.default";
+import {routesFor as shippedRoutesFor} from "./routes.default";
 
 /** A loaded GPU model with no request for this long gives its memory back. */
 export const GPU_IDLE_UNLOAD_MS = 3 * 60 * 1000;
@@ -925,8 +925,6 @@ export class TranslateService {
 			),
 			llmCpuAfterGpu: this.cpuFallback === "yes",
 			prefer,
-			llmFirstIfCached:
-				prefer === "auto" && llmAheadOf(this.options.catalog.llm.id, from ?? hint, to),
 			// Per copy: one device's download, or its yes, says nothing of
 			// the other's.
 			cached: (ref: ModelRef, device: Device) =>
@@ -1407,7 +1405,7 @@ export class TranslateService {
 					}
 
 					completed = true;
-					yield {id, text, done: true};
+					yield {id, text, done: true, model: APPLE_REF.id};
 
 					return;
 				}
@@ -1551,7 +1549,7 @@ export class TranslateService {
 							this.ticks++;
 						}
 
-						yield chunk;
+						yield {...chunk, model: route.ref.id};
 					}
 
 					// A cancel ends the stream normally (client.ts closes it at

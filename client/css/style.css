@@ -7484,6 +7484,19 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
 	white-space: nowrap;
 }
 
+/* A quiet line at a menu's foot, nothing to choose (contextMenu.ts
+ * `ContextMenuNoteItem`): which model translated a line. It may wrap. */
+.context-menu-note {
+	display: block;
+	max-inline-size: 18rem;
+	padding: 0.25rem 0.5rem 0.375rem;
+	color: var(--body-color-muted);
+	font-size: 0.8125rem;
+	line-height: 1.35;
+	white-space: normal;
+	cursor: default;
+}
+
 .context-menu-item.active,
 .textcomplete-item:focus,
 .textcomplete-item:hover,

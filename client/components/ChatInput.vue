@@ -477,6 +477,8 @@ import {SUPPORTED_LANGUAGES, languageName} from "../js/translate/languages";
 import {
 	draftGate,
 	firstEnterTranslates,
+	normalizePreviewSetting,
+	previewsWhileTyping,
 	onceTargetDefault,
 	sendableTranslation,
 } from "../js/translate/outgoing";
@@ -2120,10 +2122,28 @@ export default defineComponent({
 			);
 		};
 
+		// Whether a pause in typing translates the draft (outgoing.ts
+		// `previewsWhileTyping`), else the first Return does. The route is
+		// the one a draft in the reading language would take.
+		const previewLive = computed(() => {
+			const to = effectiveTarget.value;
+
+			if (!to) {
+				return false;
+			}
+
+			const route = pairVerdict(readingLanguage(), to).route;
+
+			return previewsWhileTyping(
+				normalizePreviewSetting(store.state.settings.translatePreview),
+				route?.ref.engine === "llm"
+			);
+		});
+
 		const schedulePreview = () => {
 			clearPreviewTimer();
 
-			if (!effectiveTarget.value) {
+			if (!effectiveTarget.value || !previewLive.value) {
 				return;
 			}
 
@@ -2195,12 +2215,16 @@ export default defineComponent({
 		// a Return waiting on it go together, and the draft previews anew at
 		// once (nobody is typing: the change came from a tap or a line).
 		const previewAgain = () => {
-			if (outgoing.value || sendQueuedHere.value || stale.value) {
+			// Translating on Return: a new preview only where there was one
+			// (the user already pressed Return for this draft).
+			const had = !!(outgoing.value || sendQueuedHere.value || stale.value);
+
+			if (had) {
 				cancelOutgoing(props.channel);
 				forgetPreview();
 			}
 
-			if ((props.channel.pendingMessage ?? "").trim() !== "") {
+			if ((props.channel.pendingMessage ?? "").trim() !== "" && (had || previewLive.value)) {
 				runPreview();
 			}
 		};

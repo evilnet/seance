@@ -299,6 +299,24 @@ function liveCatalog() {
 	);
 }
 
+/**
+ * A model by its id (`ModelRef.id`, a translation entry's `model`), from the
+ * catalog the app runs on: null for an id it does not list any more.
+ */
+export function modelRefById(id: string): ModelRef | null {
+	if (id === APPLE_REF.id) {
+		return APPLE_REF;
+	}
+
+	const catalog = liveCatalog();
+
+	return (
+		[...catalog.llmChoices, catalog.llm, catalog.nllb, ...Object.values(catalog.opus)].find(
+			(ref) => ref.id === id
+		) ?? null
+	);
+}
+
 /** The language model in use, by its product name (the words of a reason that names it). */
 export function liveLlmName(): string {
 	return llmName(liveCatalog().llm);
@@ -553,8 +571,15 @@ function queueFor(network: ClientNetwork): TranslateQueue {
 							);
 						}
 
-						return route ? {engine: route.ref.engine, device: route.device} : null;
+						return route
+							? {engine: route.ref.engine, device: route.device, model: route.ref.id}
+							: null;
 					}),
+			onModel(id, model) {
+				if (store.state.translations[id] && store.state.translations[id]?.model !== model) {
+					store.commit("translationPatch", {id, patch: {model}});
+				}
+			},
 			translate: (req, signal) => service.translate(req, signal),
 			loadTicks: () => service.loadTicks(),
 			priority(chanId) {

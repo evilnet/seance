@@ -140,6 +140,7 @@ import {recentLanguages} from "../js/translate/recent";
 import ReactionPicker from "./ReactionPicker.vue";
 import SourceLanguagePicker from "./SourceLanguagePicker.vue";
 import {useI18n} from "../js/i18n";
+import {translatedByText} from "../js/helpers/modelLabel";
 
 // How long the "Copied" label stays over the row (its fade in style.css
 // takes as long)
@@ -406,6 +407,17 @@ export default defineComponent({
 				},
 			};
 
+			// At the foot, quietly: which model translated the line, or
+			// tried to (a failed one). Where someone doubting a translation
+			// already looks; nowhere else on screen.
+			const by = translatedByText(store.state.translations[props.message.id]?.model);
+			const foot = by
+				? [
+						{type: "divider" as const},
+						{type: "note" as const, label: by, class: "translate-by"},
+				  ]
+				: [];
+
 			eventbus.emit("contextmenu:items", {
 				event,
 				items: done
@@ -445,6 +457,7 @@ export default defineComponent({
 									action: () => translateFrom(code),
 								})),
 							pick,
+							...foot,
 					  ]
 					: [
 							{
@@ -454,6 +467,7 @@ export default defineComponent({
 								action: () => translateFrom(),
 							},
 							pick,
+							...foot,
 					  ],
 			});
 		};

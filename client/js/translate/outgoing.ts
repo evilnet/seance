@@ -145,6 +145,31 @@ export function draftGate(text: string, editing: boolean): DraftGate {
  * (translate/switch.ts) every draft goes as typed -- a write target the
  * channel kept and a `/me` included -- and no strip comes up.
  */
+/**
+ * When the composer translates a draft (settings.ts `translatePreview`):
+ * `typing`, after a pause in typing, the live preview; `enter`, on the first
+ * Return, the second sending it (PR #139's way); `auto`, as it is typed on a
+ * quick route and on Return on the language model's.
+ */
+export type PreviewSetting = "auto" | "typing" | "enter";
+
+/** A stored value that is none of the three reads as Automatic. */
+export function normalizePreviewSetting(value: unknown): PreviewSetting {
+	return value === "typing" || value === "enter" ? value : "auto";
+}
+
+/**
+ * Whether a pause in typing translates the draft. On Automatic only a quick
+ * route does: a seq2seq pair or the system translator answers in under a
+ * second, while the language model -- seconds a line on a GPU, far more on
+ * the CPU, and a full context with every request -- would be asked again at
+ * every pause for drafts nobody sends. `llm` is whether the route the draft
+ * would take is the language model's; unknown counts as not.
+ */
+export function previewsWhileTyping(setting: PreviewSetting, llm: boolean): boolean {
+	return setting === "typing" || (setting === "auto" && !llm);
+}
+
 export function firstEnterTranslates(gate: DraftGate, to: string | null, on: boolean): boolean {
 	return on && !!to && (gate.kind === "ok" || gate.kind === "action");
 }

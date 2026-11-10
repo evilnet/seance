@@ -36,7 +36,7 @@
 //   … --mobile --width=390 --height=844
 
 import {fakeNetworkSnippet} from "./lib/fake-network.mjs";
-import {SHEET, TRANSLATION_ON} from "./lib/translation.mjs";
+import {SHEET, TRANSLATION_ON, PREVIEW_AS_TYPED} from "./lib/translation.mjs";
 
 const BASE = process.env.SEANCE_HTTP || "http://localhost:8021/";
 
@@ -121,6 +121,7 @@ const DE = [
 
 export default async function run(page) {
 	await page.addInitScript(TRANSLATION_ON);
+	await page.addInitScript(PREVIEW_AS_TYPED);
 	await page.goto(page.url, {waitForSelector: "#connect form"});
 	page.check(
 		"a development build fabricated the network",
