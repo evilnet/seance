@@ -121,16 +121,20 @@
 				<div class="input-wrap">
 					<ul class="trusted-certificates">
 						<li v-for="fp in defaults.trustedCertificates" :key="fp">
-							<code dir="ltr" :title="formatFingerprint(fp)">{{
-								formatFingerprint(fp)
-							}}</code>
+							<!-- A break opportunity after each colon: the fingerprint
+							wraps between bytes, never inside one. -->
+							<code dir="ltr"
+								><template v-for="(pair, i) in fingerprintPairs(fp)" :key="i"
+									>{{ i > 0 ? ":" : "" }}<wbr v-if="i > 0" />{{ pair }}</template
+								></code
+							>
 							<button
 								type="button"
-								class="btn btn-small"
+								class="trusted-certificate-remove"
+								:title="t('form.trustedCertificates.remove')"
+								:aria-label="t('form.trustedCertificates.remove')"
 								@click="forgetCertificate(fp)"
-							>
-								{{ t("form.trustedCertificates.remove") }}
-							</button>
+							/>
 						</li>
 					</ul>
 					<p class="connect-note">{{ t("form.trustedCertificates.help") }}</p>
@@ -457,27 +461,43 @@
 	display: flex;
 	align-items: center;
 	gap: 0.5rem;
-	margin-block-end: 0.25rem;
+	margin-block-end: 0.5rem;
 }
 
-/* A zero basis and width keep the fingerprint's unwrapped text out of the
- * row's minimum width, so it truncates instead of pushing the form wider. */
+/* The fingerprint wraps at its colons (two lines in the desktop form, three
+ * or four on a phone). A zero basis and width keep its text out of the
+ * row's minimum width, so it never pushes the form wider. */
 .trusted-certificates code {
 	flex: 1 1 0;
 	width: 0;
 	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 	font-size: 0.75rem;
+	line-height: 1.4;
+	white-space: normal;
 }
 
-/* `#connect .btn` (style.css) is a full-width button with a top margin: in
- * this row it would be as wide as the row itself, beside the fingerprint. */
-#connect .trusted-certificates .btn {
+/* An icon button, like the alias rows' (Settings/Aliases.vue). It is not a
+ * `.btn`: `#connect .btn` (style.css) is full width with a top margin. */
+.trusted-certificate-remove {
 	flex: none;
-	width: auto;
-	margin-top: 0;
+	width: 2rem;
+	height: 2rem;
+	padding: 0;
+	border: 0;
+	border-radius: 0.25rem;
+	background: none;
+	color: var(--body-color-muted);
+	cursor: pointer;
+}
+
+.trusted-certificate-remove::before {
+	font: normal normal normal 1rem/1 FontAwesome;
+	content: "\f1f8"; /* https://fontawesome.com/icons/trash */
+}
+
+.trusted-certificate-remove:hover,
+.trusted-certificate-remove:focus-visible {
+	color: #e74c3c;
 }
 
 .presence-mode-hint {
@@ -614,7 +634,7 @@ import {isDesktopShell, isShell, macDragRegion} from "../js/helpers/shell";
 import {useStore} from "../js/store";
 import webpush from "../js/webpush";
 import {useI18n} from "../js/i18n";
-import {formatFingerprint} from "../js/certificatePrompt";
+import {fingerprintPairs} from "../js/certificatePrompt";
 import type {ServicesConfig, SharedNetworkStatus} from "../../shared/types/network";
 /** The services roles as the form shows them, in order. */
 type ServiceRoleField = {
@@ -1020,7 +1040,7 @@ export default defineComponent({
 		};
 
 		return {
-			formatFingerprint,
+			fingerprintPairs,
 			forgetCertificate,
 			dragRegion: macDragRegion(),
 			t,
