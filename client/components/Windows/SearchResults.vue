@@ -23,6 +23,8 @@
 		<div class="chat-view" data-type="search-results">
 			<template v-if="network && channel">
 				<div class="search-head" :inert="filtersOpen" :data-tauri-drag-region="dragRegion">
+					<!-- Covering the chat, the panel covers its header's toggle too. -->
+					<SidebarToggle v-if="coverBox" />
 					<form class="search-query" role="search" @submit.prevent="submit">
 						<span class="search-icon search-icon-find" aria-hidden="true" />
 						<!-- mousetrap: Escape closes the panel from the field too (App.vue). -->
@@ -300,6 +302,8 @@
 				/>
 			</template>
 		</div>
+		<!-- 1rem wide: useSearchFit sees the text size change through it. -->
+		<span ref="probe" class="search-fit-probe" aria-hidden="true" />
 	</aside>
 </template>
 
@@ -329,8 +333,22 @@
 	z-index: 2;
 }
 
-#search-panel.covering.tucked {
+/* Tucked only while it covers the chat (a phone, a narrow window). */
+#search-panel.tucked {
 	display: none;
+}
+
+.search-fit-probe {
+	position: absolute;
+	width: 1rem;
+	height: 0;
+	visibility: hidden;
+	pointer-events: none;
+}
+
+#viewport #search-panel .lt {
+	position: relative;
+	flex: none;
 }
 
 .chat-view[data-type="search-results"] {
@@ -348,10 +366,6 @@
 		inset: 0;
 		z-index: 2;
 		border: 0;
-	}
-
-	#search-panel.tucked {
-		display: none;
 	}
 }
 
@@ -697,7 +711,7 @@
 
 <script lang="ts">
 import dayjs from "dayjs";
-import {computed, defineComponent, onMounted, onUnmounted, ref, watch} from "vue";
+import {computed, defineComponent, nextTick, onMounted, onUnmounted, ref, watch} from "vue";
 import {useRoute, useRouter} from "vue-router";
 
 import eventbus from "../../js/eventbus";
@@ -737,6 +751,7 @@ import type {SharedMsg} from "../../../shared/types/msg";
 import type {SearchHit, SearchStatus} from "../../../shared/types/search";
 import ParsedMessage from "../ParsedMessage.vue";
 import SearchFilterSheet from "../SearchFilterSheet.vue";
+import SidebarToggle from "../SidebarToggle.vue";
 import Username from "../Username.vue";
 
 const PAGE_SIZE = 100;
@@ -761,7 +776,7 @@ interface Chip {
 
 export default defineComponent({
 	name: "SearchResults",
-	components: {I18nFrame, ParsedMessage, SearchFilterSheet, Username},
+	components: {I18nFrame, ParsedMessage, SearchFilterSheet, SidebarToggle, Username},
 	setup() {
 		const store = useStore();
 		const route = useRoute();
@@ -770,7 +785,8 @@ export default defineComponent({
 
 		const queryField = ref<HTMLInputElement>();
 		const panel = ref<HTMLElement>();
-		const coverBox = useSearchFit(panel);
+		const probe = ref<HTMLElement>();
+		const coverBox = useSearchFit(panel, probe);
 
 		// The field holds the words; every filter is a chip. The route's q has both.
 		const opened = parseSearchQuery(String(route.query.q ?? ""));
@@ -1177,17 +1193,32 @@ export default defineComponent({
 			});
 			remember(query.value);
 
+			// Covering the chat, the panel tucks away once the chat beside is
+			// the hit's (RoutedChat would otherwise mark the one it leaves read),
+			// and the keyboard goes to the composer rather than to nothing.
+			const tuck = () => {
+				if (!searchCovers.value) {
+					return;
+				}
+
+				searchTucked.value = true;
+
+				if (!phone.value) {
+					void nextTick(() => document.getElementById("input")?.focus());
+				}
+			};
+
 			if (chat !== channel.value) {
 				clearTimeout(liveTimer);
-				void router.replace({
-					name: "SearchResults",
-					params: {id: chat.id},
-					query: {q: formatSearchQuery({...filters.value, in: scope.value})},
-				});
-			}
-
-			if (searchCovers.value) {
-				searchTucked.value = true;
+				void router
+					.replace({
+						name: "SearchResults",
+						params: {id: chat.id},
+						query: {q: formatSearchQuery({...filters.value, in: scope.value})},
+					})
+					.then(tuck);
+			} else {
+				tuck();
 			}
 		};
 
@@ -1413,8 +1444,10 @@ export default defineComponent({
 		);
 
 		// Only with no overlay up: Escape over a context menu closes the menu.
+		// Tucked away, Escape is the chat's (ChatInput.vue leaves the older
+		// lines a hit opened); the magnifier brings search back first.
 		const onEscape = (layer: string | null) => {
-			if (layer === null) {
+			if (layer === null && !searchTucked.value) {
 				closeSearch();
 			}
 		};
@@ -1476,6 +1509,7 @@ export default defineComponent({
 			hitError,
 			phone,
 			panel,
+			probe,
 			coverBox,
 			dragRegion: macDragRegion(),
 			recent,

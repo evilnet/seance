@@ -436,7 +436,20 @@ html[data-platform="macos"] .window .header {
  * the right). Physical on purpose, and #viewport in both selectors so a
  * theme's own #chat .header padding (ps's) does not win over them. */
 html[data-platform="macos"]:not([dir="rtl"]) #viewport:not(.menu-open) .window .header,
-html[data-platform="macos"][dir="rtl"] #viewport .window .header {
+html[data-platform="macos"][dir="rtl"] #viewport:not(:has(> #search-panel:not(.covering, .screen-overlay))) .window .header {
+	padding-left: var(--mac-traffic-lights-end);
+}
+
+/* The channel browser's head is its own, not a .header: the same strip, kept
+ * clear of the lights in the same places (ChannelBrowser.vue). */
+html[data-platform="macos"] #channel-browser .browse-head {
+	box-sizing: border-box;
+	min-height: var(--mac-titlebar-height);
+	padding-block: 0;
+}
+
+html[data-platform="macos"]:not([dir="rtl"]) #viewport:not(.menu-open) #channel-browser .browse-head,
+html[data-platform="macos"][dir="rtl"] #viewport #channel-browser .browse-head {
 	padding-left: var(--mac-traffic-lights-end);
 }
 
@@ -464,7 +477,8 @@ html[data-platform="macos"] #sidebar .scrollable-area > :not(.logo-container) {
  * header beside it, and the window drags from it too (SearchResults.vue).
  * It keeps clear of the lights wherever it reaches the window's left edge:
  * covering the screen (the phone layout), covering the chat with the
- * sidebar closed, and right to left always, where it is the leftmost pane. */
+ * sidebar closed, and right to left always, where it is the leftmost pane;
+ * beside it there the chat's header does not need the room (above). */
 html[data-platform="macos"] #search-panel .search-head {
 	box-sizing: border-box;
 	min-height: var(--mac-titlebar-height);

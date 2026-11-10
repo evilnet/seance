@@ -19,7 +19,7 @@ export const phoneLayout = ref(isPhoneLayout());
  * it, {@link searchFitsBeside} decides). False in the phone layout, which
  * covers the screen its own way.
  */
-export const searchCoversChat = ref(false);
+const searchCoversChat = ref(false);
 
 /** The panel's width beside the chat, in rem, and its share of the window between. */
 export const SEARCH_MIN_REM = 20;
@@ -50,12 +50,20 @@ export function searchFitsBeside(roomPx: number, viewportPx: number, remPx: numb
 /** Whether the panel takes the chat's place: the chat is not read meanwhile. */
 export const searchCovers = computed(() => phoneLayout.value || searchCoversChat.value);
 
-// Beside the chat there is nothing to tuck behind.
-watch(searchCovers, (covers) => {
-	if (!covers) {
-		searchTucked.value = false;
-	}
-});
+/**
+ * What the sidebar leaves search and the chat, measured in either layout:
+ * beside, the chat, the panel and the theme's gap between them (bourbaki's
+ * #viewport gap); covering, the chat alone. The two agree, so the choice made
+ * from it cannot flip back and forth.
+ */
+export function roomBesideSidebar(m: {
+	chatPx: number;
+	panelPx: number;
+	gapPx: number;
+	covering: boolean;
+}): number {
+	return m.covering ? m.chatPx : m.chatPx + m.panelPx + m.gapPx;
+}
 
 if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
 	window.matchMedia(PHONE_LAYOUT_QUERY).addEventListener("change", (event) => {
@@ -79,7 +87,10 @@ export interface ChatBox {
  * that room is the chat and the panel; over it, the chat alone. Either way
  * it is the same number, so the choice cannot flip back and forth.
  */
-export function useSearchFit(panel: Ref<HTMLElement | undefined>): Ref<ChatBox | null> {
+export function useSearchFit(
+	panel: Ref<HTMLElement | undefined>,
+	probe: Ref<HTMLElement | undefined>
+): Ref<ChatBox | null> {
 	const box = ref<ChatBox | null>(null);
 	let observer: ResizeObserver | null = null;
 	let observedChat: Element | null = null;
@@ -100,6 +111,8 @@ export function useSearchFit(panel: Ref<HTMLElement | undefined>): Ref<ChatBox |
 			observedChat = chat;
 		}
 
+		// The phone layout covers the screen its own way, and a panel a hit
+		// tucked away stays tucked until this has decided for the new layout.
 		if (phoneLayout.value || !panel.value || !viewport || !chat) {
 			searchCoversChat.value = false;
 			box.value = null;
@@ -109,8 +122,13 @@ export function useSearchFit(panel: Ref<HTMLElement | undefined>): Ref<ChatBox |
 		const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
 		const area = viewport.getBoundingClientRect();
 		const own = chat.getBoundingClientRect();
-		const room =
-			own.width + (searchCoversChat.value ? 0 : panel.value.getBoundingClientRect().width);
+		const room = roomBesideSidebar({
+			chatPx: own.width,
+			panelPx: panel.value.getBoundingClientRect().width,
+			gapPx: parseFloat(getComputedStyle(viewport).columnGap) || 0,
+			// What the page shows now, not what was last decided.
+			covering: panel.value.classList.contains("covering"),
+		});
 		const covers = !searchFitsBeside(room, area.width, rem);
 
 		searchCoversChat.value = covers;
@@ -122,6 +140,11 @@ export function useSearchFit(panel: Ref<HTMLElement | undefined>): Ref<ChatBox |
 					height: own.height,
 			  }
 			: null;
+
+		// Beside the chat there is nothing to tuck behind.
+		if (!covers) {
+			searchTucked.value = false;
+		}
 	};
 
 	// In the next frame, not inside the observer's callback: what it changes
@@ -135,7 +158,9 @@ export function useSearchFit(panel: Ref<HTMLElement | undefined>): Ref<ChatBox |
 	onMounted(() => {
 		observer = new ResizeObserver(schedule);
 
-		for (const el of [panel.value, document.getElementById("viewport")]) {
+		// The probe is 1rem wide: a text size change moves the threshold even
+		// where no box changes size (the sidebar closed, the panel covering).
+		for (const el of [panel.value, probe.value, document.getElementById("viewport")]) {
 			if (el) {
 				observer.observe(el);
 			}
@@ -144,9 +169,15 @@ export function useSearchFit(panel: Ref<HTMLElement | undefined>): Ref<ChatBox |
 		measure();
 	});
 
-	// The phone layout comes and goes with the window, and the panel's own
-	// size need not change when it does.
-	watch(phoneLayout, schedule);
+	// Into the phone layout the box goes at once, so the screen overlay's own
+	// placement is not overridden for a frame. Out of it the panel counts as
+	// covering until the next frame decides, so the chat it covered is not
+	// marked read in between.
+	watch(phoneLayout, (phone) => {
+		box.value = null;
+		searchCoversChat.value = !phone;
+		schedule();
+	});
 
 	onUnmounted(() => {
 		cancelAnimationFrame(frame);

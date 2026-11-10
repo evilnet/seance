@@ -213,7 +213,7 @@ Mousetrap.bind(["mod+f"], function () {
 	}
 
 	if (router.currentRoute.value.name === "SearchResults") {
-		searchTucked.value = false; // a phone's panel a hit tucked away comes back
+		searchTucked.value = false; // a panel a hit tucked away (covering the chat) comes back
 		void nextTick(() =>
 			document.querySelector<HTMLInputElement>(".search-query input")?.focus()
 		);

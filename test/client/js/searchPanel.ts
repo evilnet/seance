@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
 	CHAT_MIN_REM,
+	roomBesideSidebar,
 	SEARCH_MAX_REM,
 	SEARCH_MIN_REM,
 	SEARCH_SHARE,
@@ -42,5 +43,16 @@ describe("search beside the chat or over it (client/js/searchPanel.ts)", functio
 	it("needs more room at a larger text size", function () {
 		expect(searchFitsBeside(652, 900, rem)).to.equal(true);
 		expect(searchFitsBeside(652, 900, 20)).to.equal(false);
+	});
+
+	it("measures the same room beside the chat and over it, a theme's gap included", function () {
+		// bourbaki: #viewport { gap: 0.5rem }. Beside, the chat, the gap and the
+		// panel; covering, the chat has taken the panel's place and the gap's.
+		const beside = roomBesideSidebar({chatPx: 232, panelPx: 320, gapPx: 8, covering: false});
+		const over = roomBesideSidebar({chatPx: 560, panelPx: 560, gapPx: 8, covering: true});
+		expect(beside).to.equal(560);
+		expect(over).to.equal(beside);
+		// So right at the threshold the choice holds in both layouts.
+		expect(searchFitsBeside(beside, 800, rem)).to.equal(searchFitsBeside(over, 800, rem));
 	});
 });
