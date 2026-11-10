@@ -6,6 +6,11 @@
 // translation off itself, or checks that a choice survives a reload, keeps
 // what it stored. tools/scenarios/translate-off.mjs is the scenario about the
 // switch itself, and starts without it.
+//
+// Settings keeps the engines, devices and downloads under a collapsed
+// "Advanced: engines and storage" (TranslationOptions.vue), whose open state
+// is a per-device convenience: the script leaves it open unless a scenario
+// stored otherwise, so the scenarios that drive those controls find them.
 
 export const TRANSLATION_ON = `(() => {
 	try {
@@ -22,6 +27,10 @@ export const TRANSLATION_ON = `(() => {
 		if (!("translationEnabled" in settings)) {
 			settings.translationEnabled = true;
 			localStorage.setItem("settings", JSON.stringify(settings));
+		}
+
+		if (localStorage.getItem("thelounge.state.translateAdvancedOpen") === null) {
+			localStorage.setItem("thelounge.state.translateAdvancedOpen", "1");
 		}
 	} catch (e) {}
 })()`;

@@ -88,6 +88,40 @@ manager and its copies, the device and threads lines, the test-switch lines,
 the NLLB-200 licence line -- is `Settings/TranslationOptions.vue`, mounted
 only while translation is on, since its setup makes the service.
 
+### Settings → Language
+
+The normal path is the interface language, the switch with its one consent
+line ("Runs on this device and downloads language data as you need it."),
+Translate into, I also read and the register. Everything else -- the system
+translator's switch and packs, the per-model switches and Run on, the
+language model choice, the device and threads lines, the model manager --
+sits under **Advanced: engines and storage**
+(`TranslationOptions.vue` `#translate-advanced`), a `<details>` collapsed
+until the user opens it; its open state is a per-device convenience
+(`thelounge.state.translateAdvancedOpen`), and the scenarios' init script
+leaves it open (`tools/scenarios/lib/translation.mjs`). Nothing in it
+changed behaviour: the stored switches, device pins and model choice stay
+effective, routing is untouched, NLLB-200 stays opt-in with its licence
+line, and nothing on the normal path needs Advanced. A worker that stopped
+is said above it, on the normal path. Advanced opens on what is on the
+device, each downloaded copy counted once ("Language data on this device:
+1.2 GB in total"), and says that one download can serve several languages,
+so the list below it is by download, never by language.
+
+The large-download question is in plain words (`index.ts` `askDownload`):
+"Download language data?", "German needs a larger download (2.1 GiB). It
+is kept on this device, so it is downloaded only once." -- the language is
+the side of the request's pair that is not the reading language
+(`DownloadAbout`, threaded from `service.ts` `resolve` through
+`consent.ts` `ask`), with no model and no device; where it cannot be told,
+"Translating this needs a larger download". The rules are as before: a copy
+of `QUIET_DOWNLOAD_BYTES` or less downloads unasked unless the connection
+reports itself metered, reading never asks (it offers the download on the
+line), and a removed download stays removed until asked for again. The
+one-time note after an upgrade carries the same consent line. Browser
+check: `tools/scenarios/translate-settings-plain.mjs` (fake engine,
+desktop and `--mobile`).
+
 Tests: `test/translate/switch.ts` (the rule and who switched it off, the
 switch's life and the order of its stop -- a listener that throws stops
 neither the others nor the destroy -- the channels resumed) and

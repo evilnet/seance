@@ -19,13 +19,7 @@ import {serviceWorkerCanServe} from "../pwa";
 import {type Capability, probeOnce} from "./capability";
 import {emptyContext, type Device, type ModelRef} from "./engine";
 import {TranslateClient} from "./client";
-import {
-	type ModelCatalog,
-	buildCatalog,
-	listedSize,
-	nativeDevice,
-	normalizeDeviceChoice,
-} from "./models";
+import {type ModelCatalog, buildCatalog, listedSize, normalizeDeviceChoice} from "./models";
 import {APPLE_PLUGIN, AppleTranslator} from "./engines/apple";
 import {hasAppleTranslate, nativeInvoke} from "../helpers/shell";
 import type {MainPort, MainToWorker} from "./protocol";
@@ -37,7 +31,10 @@ import {
 	ServiceSettings,
 	TranslateService,
 } from "./service";
-import {REMOVED_KEY, storedConsent} from "./consent";
+import {type DownloadAbout, REMOVED_KEY, storedConsent} from "./consent";
+import {languageName} from "./languages";
+// A cycle (reader.ts imports this module), read only at call time.
+import {readingLanguage} from "./reader";
 import {TranslationSwitch, translationAllowed} from "./switch";
 import eventbus from "../eventbus";
 import storage from "../localStorage";
@@ -326,28 +323,20 @@ function meteredConnection(): boolean {
 }
 
 /**
- * The question's title, a whole sentence per device: the model's usual
- * copy (the GPU's for the language model, the CPU's for the others) asks
- * with the plain title, the other device's names its device.
+ * The language a download is for, in the question's plain words: the side
+ * of the pair that is not the user's reading language (a line read from
+ * Finnish, a message written into it), or null where that cannot be told
+ * (a request with no source, a same-language cleanup pass).
  */
-function consentTitle(model: string, device: Device, usual: Device): string {
-	if (device === usual) {
-		return t("translate.consent.title", {model});
+function downloadLanguage(about: DownloadAbout | undefined): string | null {
+	if (!about) {
+		return null;
 	}
 
-	return device === "cpu"
-		? t("translate.consent.titleCpu", {model})
-		: t("translate.consent.titleGpu", {model});
-}
+	const reading = readingLanguage();
+	const foreign = about.to === reading ? about.from ?? about.hint : about.to;
 
-function consentText(model: string, device: Device, usual: Device, size: string): string {
-	if (device === usual) {
-		return t("translate.consent.text", {model, size});
-	}
-
-	return device === "cpu"
-		? t("translate.consent.textCpu", {model, size})
-		: t("translate.consent.textGpu", {model, size});
+	return foreign && foreign !== reading ? foreign : null;
 }
 
 /**
@@ -356,23 +345,28 @@ function consentText(model: string, device: Device, usual: Device, size: string)
  * the user opens over it sends it back to wait: a question displaced and
  * answered no would be a session's "Not now" to downloads.
  */
-function askDownload(ref: ModelRef, device: Device): Promise<boolean> {
+function askDownload(ref: ModelRef, device: Device, about?: DownloadAbout): Promise<boolean> {
 	// Switched off since the request was routed: nobody is asked (the
 	// disposed service routes nothing after the answer either).
 	if (!translationOn()) {
 		return Promise.resolve(false);
 	}
 
-	const model = modelDisplayName(ref);
 	const sizeBytes = ref.copies[device]?.sizeBytes ?? listedSize(ref);
-	const usual = nativeDevice(ref);
+	const size = friendlysize(sizeBytes);
+	const code = downloadLanguage(about);
+	const language = code ? languageName(code, readingLanguage()) : null;
 
 	return new Promise((resolve) => {
 		eventbus.emit(
 			"confirm-dialog",
 			{
-				title: consentTitle(model, device, usual),
-				text: consentText(model, device, usual, friendlysize(sizeBytes)),
+				// Plain words, no model and no device: what the download is
+				// for and how big it is (Settings' Advanced names the model).
+				title: t("translate.consent.titlePlain"),
+				text: language
+					? t("translate.consent.textLanguage", {language, size})
+					: t("translate.consent.textPlain", {size}),
 				note: meteredConnection() ? t("translate.consent.metered") : undefined,
 				button: t("translate.model.download"),
 				cancel: t("translate.consent.notNow"),
