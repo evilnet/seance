@@ -15,6 +15,7 @@ import {
 import {parseBatchedOutput, stripSentinel} from "./prompt";
 import {
 	type MarkerForm,
+	PLACEHOLDER_SOURCE,
 	type Protected,
 	placeholdersIn,
 	protect,
@@ -353,7 +354,7 @@ export function isUnchanged(source: string, translation: string): boolean {
  * this only matters to a caller holding a protected text).
  */
 export function hasNoLetters(text: string): boolean {
-	return !/[\p{L}\p{N}]/u.test(text.replace(/⟦\s*\d+\s*⟧/g, ""));
+	return !/[\p{L}\p{N}]/u.test(text.replace(new RegExp(PLACEHOLDER_SOURCE, "g"), ""));
 }
 
 /** The longest run of one repeated token, 2-gram or 3-gram a text is in. */
@@ -793,7 +794,7 @@ export function termPair(draft: string, translation: string): [string, string] |
 		return null;
 	}
 
-	if (source.startsWith("/") || source.includes("⟦") || target.includes("⟦")) {
+	if (source.startsWith("/") || /[⟦⟧]/.test(source) || /[⟦⟧]/.test(target)) {
 		return null;
 	}
 
@@ -1003,7 +1004,10 @@ export interface TranslateCapture {
 
 /** Nothing here but placeholders: a fenced code block's line, say. */
 function isProtectedOnly(line: string): boolean {
-	return placeholdersIn(line).length > 0 && line.replace(/⟦\s*\d+\s*⟧/g, "").trim() === "";
+	return (
+		placeholdersIn(line).length > 0 &&
+		line.replace(new RegExp(PLACEHOLDER_SOURCE, "g"), "").trim() === ""
+	);
 }
 
 /** One translation of the already-protected `line`, streamed through `onChunk` (restored). */

@@ -1317,16 +1317,19 @@ it calls that reliable. `decide` then places the line, in order:
    in fastText's top `RIVAL_DEPTH` (3) -- "ya" is Swahili to fastText at
    0.96, and English is in the running;
 3. ELD's verdict where ELD calls it reliable, the reading language again
-   nowhere in fastText's top three;
+   nowhere in fastText's top three, nor lower in its list at
+   `READING_RIVAL_MIN` (0.02) or more -- "in vet med they use antisedan" is
+   Swedish to ELD and Norwegian, Swedish, Danish to fastText with English
+   fourth at 0.03, where a Norwegian sentence has English at 0.002;
 4. a language the channel declared that either identifier names (below);
 5. nothing: the line is unplaced, and the reader leaves it alone.
 
 `confidence` is fastText's probability for the verdict (`AGREE_MIN` where
 fastText did not rank it, 1 for a script), which is what the composer's
-`WRITE_DETECT_MIN_GAP` (0.3) reads. Measured on 339 hand-labelled chat lines
+`WRITE_DETECT_MIN_GAP` (0.3) reads. Measured on 340 hand-labelled chat lines
 (`tools/translate-eval/lid.mts` on `lid-set.json`,
-`results/2026-11-08-lid.md`), this places one English line in 166 elsewhere
-("sus", Spanish to both) and 83% of the foreign ones in their own language;
+`results/2026-11-08-lid.md`), this places one English line in 167 elsewhere
+("sus", Spanish to both) and 82% of the foreign ones in their own language;
 franc with the function-word classifier and the 800-word lookup it replaces
 (until 2026-11) placed 7 English lines elsewhere ("uncanny" and "I know what
 to do tho" Polish among them) and 47% of the foreign ones. What it leaves
@@ -2344,6 +2347,14 @@ already holds as text (someone typed `[2]`) is skipped, so a user's own
 `[2]` is never read as a placeholder. A part with no placeholder is one call,
 as before. Tests: `test/translate/seq2seq.ts` "placeholders in a form the
 vocabulary keeps".
+
+Every placeholder is read back with either bracket either way round
+(`PLACEHOLDER_SOURCE`): engines hand back `⟧1⟧` and `⟦1⟦` for `⟦1⟧`, and
+read strictly the nick it stood for was appended after the line with
+`⟧1⟧` left where the nick belonged. A turned-round placeholder someone
+typed is protected by the same pattern, so it comes back as typed. Tests:
+`test/translate/spans.ts` "reads a placeholder whose bracket an engine
+turned round".
 
 ### Emphasis marks on the LLM route
 
