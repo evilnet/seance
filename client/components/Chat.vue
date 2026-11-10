@@ -95,12 +95,6 @@
 						/>
 					</span>
 				</div>
-				<TranslationPanel
-					v-if="translationPanelOpen && translationAvailable"
-					:channel="channel"
-					:network="network"
-					@close="translationPanelOpen = false"
-				/>
 				<div v-if="channel.type === 'special'" class="chat-content">
 					<div class="chat">
 						<div class="messages">
@@ -171,7 +165,6 @@ import ListBans from "./Special/ListBans.vue";
 import ListInvites from "./Special/ListInvites.vue";
 import ListExcepts from "./Special/ListExcepts.vue";
 import ListIgnored from "./Special/ListIgnored.vue";
-import TranslationPanel from "./TranslationPanel.vue";
 import {
 	defineComponent,
 	PropType,
@@ -193,13 +186,7 @@ import {SpecialChanType, ChanType} from "../../shared/types/chan";
 import {layout, toPlainText} from "../js/helpers/ircmessageparser/layout";
 import {useI18n} from "../js/i18n";
 import {formatNumber} from "../js/i18n/numbers";
-import {
-	channelTranslation,
-	readTopic,
-	readingLanguage,
-	showOriginal,
-	translationAvailable as translationAvailableNow,
-} from "../js/translate/reader";
+import {channelTranslation, readTopic, readingLanguage, showOriginal} from "../js/translate/reader";
 import {topicEntryId} from "../js/translate/topic";
 
 export default defineComponent({
@@ -211,7 +198,6 @@ export default defineComponent({
 		ChatUserList,
 		SidebarToggle,
 		MessageSearchForm,
-		TranslationPanel,
 	},
 	props: {
 		network: {type: Object as PropType<ClientNetwork>, required: true},
@@ -303,7 +289,7 @@ export default defineComponent({
 			() => [
 				props.channel.id,
 				props.channel.topic,
-				channelTranslation(props.network, props.channel).read,
+				channelTranslation(props.network, props.channel).exclude,
 				readingLanguage(),
 			],
 			() => void readTopic(props.network, props.channel),
@@ -421,43 +407,6 @@ export default defineComponent({
 			});
 		};
 
-		const translationPanelOpen = ref(false);
-		const translationAvailable = computed(
-			() =>
-				(props.channel.type === ChanType.CHANNEL ||
-					props.channel.type === ChanType.QUERY) &&
-				translationAvailableNow()
-		);
-
-		watch(
-			() => props.channel.id,
-			() => {
-				translationPanelOpen.value = false;
-			}
-		);
-
-		// Translation switched off (or nothing here can run it any more):
-		// the panel closes, and does not come back with it.
-		watch(translationAvailable, (available) => {
-			if (!available) {
-				translationPanelOpen.value = false;
-			}
-		});
-
-		// The channel menu's "Translation…" switches to the channel and
-		// leaves its id in the store, so the ask survives the switch: open
-		// the panel once this view is the channel that was asked for, and
-		// clear it. Registered after the watcher above, which closes the
-		// panel on a channel change and would otherwise undo this one.
-		const openPanelIfAsked = () => {
-			if (store.state.translation.panelFor === props.channel.id) {
-				translationPanelOpen.value = true;
-				store.commit("translationPanelFor", null);
-			}
-		};
-
-		watch(() => [props.channel.id, store.state.translation.panelFor], openPanelIfAsked);
-
 		watch(
 			() => props.channel,
 			() => {
@@ -489,7 +438,6 @@ export default defineComponent({
 			}
 
 			channelChanged();
-			openPanelIfAsked();
 
 			if (props.channel.editTopic) {
 				void nextTick(() => {
@@ -528,8 +476,6 @@ export default defineComponent({
 			saveTopic,
 			openContextMenu,
 			openMentions,
-			translationPanelOpen,
-			translationAvailable,
 			mentionCount,
 			mentionBadge,
 		};

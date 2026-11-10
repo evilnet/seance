@@ -1,5 +1,5 @@
 const FOCUSABLE =
-	'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]';
+	'a[href], summary, button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]';
 
 /** Keep Tab inside a modal `root`: past either end it comes round to the other. */
 export function trapTab(event: KeyboardEvent, root: HTMLElement): void {

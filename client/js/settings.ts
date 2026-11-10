@@ -219,6 +219,24 @@ const defaultConfig = {
 	translationEnabled: {
 		default: false,
 	},
+	/**
+	 * The language messages are translated into (Settings → Language,
+	 * "Translate into"): any supported language code, or "" -- "Same as the
+	 * interface", the default -- for the interface's own (translate/reader.ts
+	 * `readingLanguage`). A new key: the retired `translateTo` was moved
+	 * into `locale` and deleted (`migrateReadingToLocale`).
+	 */
+	translateInto: {
+		default: "",
+	},
+	/**
+	 * Languages the user reads besides that one (Settings → Language, "I
+	 * also read"): a line detected in one of them is left as it is
+	 * (translate/detect.ts `detectionSkip`). Supported codes; empty by default.
+	 */
+	translateAlsoRead: {
+		default: [] as string[],
+	},
 	/** auto | formal | casual, one line of the prompt. */
 	translateFormality: {
 		default: "auto",
@@ -243,6 +261,14 @@ const defaultConfig = {
 	 * for a pair whose language pack is installed. */
 	translateSystem: {
 		default: true,
+	},
+	/** Settings → Advanced's "Prefer": auto | llm | small (translate/router.ts
+	 * `EnginePreference`). Automatic takes the cheapest model that measured
+	 * well enough, and the language model where it measured ahead once it is
+	 * downloaded; the other two put the language model first or last, every
+	 * other model kept as a fallback. */
+	translatePrefer: {
+		default: "auto",
 	},
 	/** Which device each model runs on: auto | gpu | cpu (translate/models.ts `DeviceChoices`). */
 	translateLlmDevice: {

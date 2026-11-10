@@ -92,6 +92,20 @@ export const REQUEST_TIMEOUT_MS = 2 * 60 * 1000;
 export const CPU_BATCH_MAX_LINES = 2;
 export const CPU_REQUEST_TIMEOUT_MS = 6 * 60 * 1000;
 
+/** A stream passed through, telling `onModel` the model each chunk names. */
+async function* withModel(
+	stream: AsyncIterable<TranslateChunk>,
+	onModel: (model: string) => void
+): AsyncIterable<TranslateChunk> {
+	for await (const chunk of stream) {
+		if (chunk.model) {
+			onModel(chunk.model);
+		}
+
+		yield chunk;
+	}
+}
+
 /** The language model on the CPU: the one route the longer figures are for. */
 function slowLlm(engine: EngineName, device: Device): boolean {
 	return engine === "llm" && device === "cpu";
@@ -163,7 +177,7 @@ export interface QueueDeps {
 		from: string | null,
 		to: string,
 		hint: string | null
-	): Promise<{engine: EngineName; device: Device} | null>;
+	): Promise<{engine: EngineName; device: Device; model?: string} | null>;
 	translate(
 		req: Omit<TranslateRequest, "id" | "model">,
 		signal: AbortSignal
@@ -173,6 +187,13 @@ export interface QueueDeps {
 	/** Messages that arrived in the channel so far (a counter the reader keeps). */
 	arrivals(chanId: number): number;
 	onUpdate(id: number, update: QueueUpdate): void;
+	/**
+	 * The model a line is being translated with, by its id (engine.ts
+	 * `ModelRef.id`): the route's when the line is queued, then the one the
+	 * service says served it (`TranslateChunk.model`) if that differs.
+	 * Optional; only "Translation options" and a failed line's popup name it.
+	 */
+	onModel?(id: number, model: string): void;
 	onPause(engine: EngineName, message: string): void;
 	/**
 	 * The engine runs again: the pause waited out (`PAUSE_RESUME_MS`) or
@@ -270,6 +291,24 @@ export class TranslateQueue {
 				running.abort();
 			}
 		}
+	}
+
+	/**
+	 * Take one waiting item off the queue as dropped -- the line left the
+	 * reader's view before its turn came -- and report whether it was
+	 * waiting. One already running finishes: it is nearly there.
+	 */
+	cancelWaiting(id: number): boolean {
+		const index = this.waiting.findIndex((q) => q.item.id === id);
+
+		if (index < 0) {
+			return false;
+		}
+
+		this.waiting.splice(index, 1);
+		this.deps.onUpdate(id, {status: "dropped"});
+
+		return true;
 	}
 
 	cancelAll(): void {
@@ -442,6 +481,10 @@ export class TranslateQueue {
 				};
 
 				this.waiting.push(queued);
+
+				if (routed.model) {
+					this.deps.onModel?.(item.id, routed.model);
+				}
 
 				if (resumePaused && this.pausedEngines.has(engine)) {
 					// A retry is someone asking for this line now: the engine its
@@ -666,6 +709,12 @@ export class TranslateQueue {
 
 				last = chunk.text;
 
+				if (chunk.model) {
+					for (const q of batch) {
+						this.deps.onModel?.(q.item.id, chunk.model);
+					}
+				}
+
 				if (batch.length === 1 && !chunk.done) {
 					this.deps.onUpdate(first.id, {
 						status: "pending",
@@ -771,7 +820,10 @@ export class TranslateQueue {
 			},
 		};
 		const deps: OutgoingDeps = {
-			translate: (req, signal) => this.deps.translate(req, signal),
+			translate: (req, signal) =>
+				withModel(this.deps.translate(req, signal), (model) =>
+					this.deps.onModel?.(item.id, model)
+				),
 			setTimeout: (fn, ms) => setTimeout(fn, ms),
 			clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
 			loadTicks: () => this.deps.loadTicks?.() ?? 0,

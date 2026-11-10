@@ -19,17 +19,11 @@ import {serviceWorkerCanServe} from "../pwa";
 import {type Capability, probeOnce} from "./capability";
 import {emptyContext, type Device, type ModelRef} from "./engine";
 import {TranslateClient} from "./client";
-import {
-	type ModelCatalog,
-	buildCatalog,
-	listedSize,
-	nativeDevice,
-	normalizeDeviceChoice,
-} from "./models";
+import {type ModelCatalog, buildCatalog, listedSize, normalizeDeviceChoice} from "./models";
 import {APPLE_PLUGIN, AppleTranslator} from "./engines/apple";
 import {hasAppleTranslate, nativeInvoke} from "../helpers/shell";
 import type {MainPort, MainToWorker} from "./protocol";
-import {RouteTable} from "./router";
+import {RouteTable, normalizePreference} from "./router";
 import {
 	CpuFallbackAnswer,
 	CpuFallbackInfo,
@@ -37,14 +31,18 @@ import {
 	ServiceSettings,
 	TranslateService,
 } from "./service";
-import {storedConsent} from "./consent";
+import {type DownloadAbout, REMOVED_KEY, storedConsent} from "./consent";
+import {languageName} from "./languages";
+// A cycle (reader.ts imports this module), read only at call time.
+import {readingLanguage} from "./reader";
 import {TranslationSwitch, translationAllowed} from "./switch";
 import eventbus from "../eventbus";
 import storage from "../localStorage";
 import {KEEP, t} from "../i18n/core";
 import friendlysize from "../helpers/friendlysize";
 import {modelDisplayName} from "../helpers/translateWhy";
-import {clearPacks, notePack} from "./applePacks";
+import {clearPacks, notePack, takePack} from "./applePacks";
+import {runDetached} from "../helpers/detachedScope";
 
 // Captured at module load (vue.ts imports the router, which statically
 // imports Settings/Translation.vue, before `boot()` runs) rather than read
@@ -84,7 +82,16 @@ interface Made {
 
 const gate = new TranslationSwitch<Made>({
 	on: translationOn,
-	create,
+	// Made by whatever asks first, often a component's computed (Chat.vue's
+	// `translationAvailable`): in a scope of its own, or every watch
+	// create() registers would stop when that component unmounts (Settings
+	// opening closes the chat) and the service would never hear a switch.
+	create() {
+		const {value: made, stop} = runDetached(create);
+
+		made.undo.push(stop);
+		return made;
+	},
 	destroy(made) {
 		for (const undo of made.undo) {
 			undo();
@@ -230,6 +237,7 @@ export function serviceSettings(): ServiceSettings {
 			nllb: normalizeDeviceChoice(settings.translateNllbDevice),
 		},
 		system: settings.translateSystem !== false,
+		prefer: normalizePreference(settings.translatePrefer),
 	};
 }
 
@@ -315,29 +323,24 @@ function meteredConnection(): boolean {
 	return !!connection && (connection.saveData === true || connection.type === "cellular");
 }
 
+/** The remembered GPU loss (service.ts `ServiceDeps.gpuMemory`). */
+const GPU_LOST_KEY = "thelounge.state.translateGpuLost";
+
 /**
- * The question's title, a whole sentence per device: the model's usual
- * copy (the GPU's for the language model, the CPU's for the others) asks
- * with the plain title, the other device's names its device.
+ * The language a download is for, in the question's plain words: the side
+ * of the pair that is not the user's reading language (a line read from
+ * Finnish, a message written into it), or null where that cannot be told
+ * (a request with no source, a same-language cleanup pass).
  */
-function consentTitle(model: string, device: Device, usual: Device): string {
-	if (device === usual) {
-		return t("translate.consent.title", {model});
+function downloadLanguage(about: DownloadAbout | undefined): string | null {
+	if (!about) {
+		return null;
 	}
 
-	return device === "cpu"
-		? t("translate.consent.titleCpu", {model})
-		: t("translate.consent.titleGpu", {model});
-}
+	const reading = readingLanguage();
+	const foreign = about.to === reading ? about.from ?? about.hint : about.to;
 
-function consentText(model: string, device: Device, usual: Device, size: string): string {
-	if (device === usual) {
-		return t("translate.consent.text", {model, size});
-	}
-
-	return device === "cpu"
-		? t("translate.consent.textCpu", {model, size})
-		: t("translate.consent.textGpu", {model, size});
+	return foreign && foreign !== reading ? foreign : null;
 }
 
 /**
@@ -346,24 +349,40 @@ function consentText(model: string, device: Device, usual: Device, size: string)
  * the user opens over it sends it back to wait: a question displaced and
  * answered no would be a session's "Not now" to downloads.
  */
-function askDownload(ref: ModelRef, device: Device): Promise<boolean> {
+function askDownload(ref: ModelRef, device: Device, about?: DownloadAbout): Promise<boolean> {
 	// Switched off since the request was routed: nobody is asked (the
 	// disposed service routes nothing after the answer either).
 	if (!translationOn()) {
 		return Promise.resolve(false);
 	}
 
-	const model = modelDisplayName(ref);
 	const sizeBytes = ref.copies[device]?.sizeBytes ?? listedSize(ref);
-	const usual = nativeDevice(ref);
+	const size = friendlysize(sizeBytes);
+	const code = downloadLanguage(about);
+	const language = code ? languageName(code, readingLanguage()) : null;
 
 	return new Promise((resolve) => {
 		eventbus.emit(
 			"confirm-dialog",
 			{
-				title: consentTitle(model, device, usual),
-				text: consentText(model, device, usual, friendlysize(sizeBytes)),
-				note: meteredConnection() ? t("translate.consent.metered") : undefined,
+				// Plain words, no model and no device: what the download is
+				// for and how big it is (Settings' Advanced names the model).
+				title: t("translate.consent.titlePlain"),
+				text: language
+					? t("translate.consent.textLanguage", {language, size})
+					: t("translate.consent.textPlain", {size}),
+				// The language model on the processor: Auto takes it only
+				// where the GPU cannot run it (models.ts `deviceOrder`), and
+				// a line there takes a while.
+				note:
+					[
+						ref.family === "llm" && device === "cpu"
+							? t("translate.consent.slowCpu")
+							: "",
+						meteredConnection() ? t("translate.consent.metered") : "",
+					]
+						.filter(Boolean)
+						.join(" ") || undefined,
 				button: t("translate.model.download"),
 				cancel: t("translate.consent.notNow"),
 				primary: true,
@@ -478,11 +497,23 @@ function create(): Made {
 	if (!fake || new URLSearchParams(initialSearch).has("askDownloads")) {
 		deps.askDownload = askDownload;
 		deps.consent = storedConsent(storage);
+		deps.removed = storedConsent(storage, REMOVED_KEY);
 	}
 
 	// The GPU stopped under Auto: ask about the CPU. "Always" is the
 	// setting, so Settings shows it and the backup carries it.
 	deps.askCpuFallback = askCpuFallback;
+
+	// A GPU this device lost under a translation stays off across reloads
+	// until Settings' "Try the GPU again" (service.ts `retryGpu`). Not in
+	// the fake's runs, whose scenarios lose the GPU on purpose.
+	if (!fake) {
+		deps.gpuMemory = {
+			lost: () => storage.get(GPU_LOST_KEY) === "1",
+			remember: () => storage.set(GPU_LOST_KEY, "1"),
+			forget: () => storage.remove(GPU_LOST_KEY),
+		};
+	}
 
 	deps.saveLlmDevice = (device) => {
 		void store.dispatch("settings/update", {
@@ -506,6 +537,8 @@ function create(): Made {
 		deps.apple = apple;
 		// Reading never opens the sheet: the line offers the pack.
 		deps.onApplePack = notePack;
+		// Installed (from a line, Settings or the system): no line offers it.
+		deps.onApplePackInstalled = takePack;
 	}
 
 	// A download is quiet only on a connection that does not say it is metered.
@@ -544,6 +577,7 @@ function create(): Made {
 					devices.opus,
 					devices.nllb,
 					store.state.settings.translateSystem !== false,
+					normalizePreference(store.state.settings.translatePrefer),
 				];
 			},
 			() => created.setSettings(serviceSettings())

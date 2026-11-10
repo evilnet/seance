@@ -51,32 +51,27 @@ export function translationOffBlock(
  * Whether the reading pipeline looks at a line at all: never while
  * translation is off, not even one someone asked for (`force`, the
  * toolbar's Translate and the chip's Retranslate, which are not offered
- * then); while on, a line of a channel that reads, or one someone asked for.
+ * then); while on, a line of a conversation that reads (`readsHere`), or
+ * one someone asked for -- in an excluded conversation too, which is the
+ * way past an exclusion for one line.
  */
-export function considersLine(on: boolean, channelReads: boolean, force: boolean): boolean {
-	return on && (force || channelReads);
+export function considersLine(on: boolean, reads: boolean, force: boolean): boolean {
+	return on && (force || reads);
 }
 
+/** The kinds of conversation reading covers: a channel and a query, never a lobby or a list. */
+export const READ_KINDS: readonly string[] = ["channel", "query"];
+
 /**
- * The channels to start reading again when translation is switched back on:
- * those whose kept per-channel setting reads (channelStore.ts `read`), in
- * the order the networks and their channels stand.
+ * The one effective-reading rule (spec § Reading), asked at every way into
+ * reading -- a live line, a history page, a replay, the topic, a change of
+ * language, a retry: translation is on, the conversation is a channel or a
+ * query, and the user did not say "Don't translate here" in it
+ * (channelStore.ts `exclude`). Nothing else switches reading on or off; a
+ * write target in particular does not.
  */
-export function readingChannels<N extends {channels: readonly C[]}, C>(
-	networks: readonly N[],
-	reads: (network: N, channel: C) => boolean
-): {network: N; channel: C}[] {
-	const found: {network: N; channel: C}[] = [];
-
-	for (const network of networks) {
-		for (const channel of network.channels) {
-			if (reads(network, channel)) {
-				found.push({network, channel});
-			}
-		}
-	}
-
-	return found;
+export function readsHere(on: boolean, kind: string, excluded: boolean): boolean {
+	return on && READ_KINDS.includes(kind) && !excluded;
 }
 
 export interface SwitchDeps<S> {

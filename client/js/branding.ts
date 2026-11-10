@@ -220,8 +220,12 @@ export interface BrandingTranslation {
 	enabled?: boolean;
 	/** Mirror base URL for the weights; the layout is documented in branding.md § Translation. */
 	modelBase?: string;
-	/** The WebLLM model id, and its compiled library URL when it is not a prebuilt one. */
-	llm?: {model?: string; lib?: string};
+	/**
+	 * The WebLLM model id, and its compiled library URL when it is not a
+	 * prebuilt one. `splitModel`: where a mirror serves the 1.7B's weights
+	 * a second time for its small-buffer build (branding.md § Translation).
+	 */
+	llm?: {model?: string; lib?: string; splitModel?: string};
 	/**
 	 * The NLLB repo and OPUS-MT repos keyed "from-to"; a pair may also be
 	 * `{model, token?, name?, sizeBytes?}` (models.ts `OpusPairOption`).
@@ -841,9 +845,10 @@ export function normalizeTranslation(
 	}
 
 	if (isRecord(value.llm)) {
-		const llm: {model?: string; lib?: string} = {};
+		const llm: NonNullable<BrandingTranslation["llm"]> = {};
 		const model = optionalString(value.llm.model);
 		const lib = optionalUrl(value.llm.lib, base);
+		const splitModel = optionalUrl(value.llm.splitModel, base);
 
 		if (model !== undefined) {
 			llm.model = model;
@@ -851,6 +856,10 @@ export function normalizeTranslation(
 
 		if (lib !== undefined) {
 			llm.lib = lib;
+		}
+
+		if (splitModel !== undefined) {
+			llm.splitModel = splitModel;
 		}
 
 		if (Object.keys(llm).length > 0) {

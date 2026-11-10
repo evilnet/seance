@@ -1,5 +1,6 @@
 import {expect} from "chai";
 import {
+	AFTERNET_MT_HOST,
 	DEFAULT_LLM_ID,
 	DEFAULT_NLLB_ID,
 	LLM_CHOICES,
@@ -55,6 +56,36 @@ describe("translate/models", () => {
 		expect(catalog.opus["fi-en"].id).to.equal("mirror/opus-fi-en");
 		expect(catalog.opus["fi-en"].pair).to.deep.equal(["fi", "en"]);
 		expect(catalog.opus["de-en"].id).to.equal("Xenova/opus-mt-de-en");
+	});
+
+	it("every build ships the AfterNET MT pairs, one repo both ways, from AfterNET's host", () => {
+		const catalog = buildCatalog();
+
+		for (const code of ["ar", "ko", "pl", "pt", "sv", "zh"]) {
+			const into = catalog.opus[`en-${code}`];
+			const from = catalog.opus[`${code}-en`];
+
+			expect(into.copies.cpu?.source, code).to.equal(`seance-mt/marian-${code}`);
+			expect(from.copies.cpu?.source, code).to.equal(`seance-mt/marian-${code}`);
+			expect(into.copies.cpu?.host, code).to.equal(AFTERNET_MT_HOST);
+			expect(into.label).to.deep.equal({
+				kind: "opus",
+				from: "en",
+				to: code,
+				name: "AfterNET MT",
+			});
+			expect(from.token, code).to.equal(">>eng<<");
+			expect(into.id).to.not.equal(from.id);
+		}
+
+		expect(catalog.opus["en-sv"].token).to.equal(">>swe<<");
+		// OPUS-MT keeps its pairs and Hugging Face.
+		expect(catalog.opus["en-fr"].copies.cpu?.source).to.equal("Xenova/opus-mt-en-fr");
+		expect(catalog.opus["en-fr"].copies.cpu).to.not.have.property("host");
+		// A deploy's own pair for the key wins.
+		expect(
+			buildCatalog({cpu: {opus: {"en-sv": "mirror/sv"}}}).opus["en-sv"].copies.cpu
+		).to.not.have.property("host");
 	});
 
 	it("a deploy's pair can carry a target token and its own size", () => {

@@ -679,6 +679,18 @@ describe("branding", function () {
 			});
 		});
 
+		it("resolves the small-buffer build's mirrored weights against the page", function () {
+			const translation = normalizeTranslation(
+				{modelBase: "models/", llm: {splitModel: "models/Qwen3-1.7B-split/"}},
+				"https://irc.example/client/index.html"
+			);
+
+			expect(translation).to.deep.equal({
+				modelBase: "https://irc.example/client/models/",
+				llm: {splitModel: "https://irc.example/client/models/Qwen3-1.7B-split/"},
+			});
+		});
+
 		it("still drops a mirror that is not a URL at all", function () {
 			const base = "https://irc.example/client/";
 

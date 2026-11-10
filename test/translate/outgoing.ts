@@ -23,7 +23,6 @@ import {
 	isAnsweredQuestion,
 	bareRetry,
 	draftGate,
-	firstEnterTranslates,
 	tidyAnswer,
 	echoingSoFar,
 	hasNoLetters,
@@ -110,37 +109,6 @@ const echo: Script = (req) =>
 describe("translate/outgoing", () => {
 	afterEach(() => sinon.restore());
 
-	describe("firstEnterTranslates", () => {
-		// The composer's first Enter (ChatInput.vue): translate the draft into
-		// the write target, or send it as typed. With translation switched off
-		// (translate/switch.ts) every draft goes as typed, a channel's kept
-		// write target and a `/me` included -- the strip never comes up.
-		it("sends every draft as typed while translation is off", () => {
-			expect(firstEnterTranslates(draftGate("hallo zusammen", false), "en", false)).to.equal(
-				false
-			);
-			expect(firstEnterTranslates(draftGate("/me winkt", false), "en", false)).to.equal(
-				false
-			);
-			expect(firstEnterTranslates(draftGate("//nicht", false), "en", false)).to.equal(false);
-		});
-
-		it("while on, translates prose and actions into a write target, and nothing else", () => {
-			expect(firstEnterTranslates(draftGate("hallo zusammen", false), "en", true)).to.equal(
-				true
-			);
-			expect(firstEnterTranslates(draftGate("/me winkt", false), "en", true)).to.equal(true);
-			// No write target: as typed.
-			expect(firstEnterTranslates(draftGate("hallo zusammen", false), null, true)).to.equal(
-				false
-			);
-			// Commands, edits and empty drafts never translate.
-			expect(firstEnterTranslates(draftGate("/join #x", false), "en", true)).to.equal(false);
-			expect(firstEnterTranslates(draftGate("hallo", true), "en", true)).to.equal(false);
-			expect(firstEnterTranslates(draftGate("  ", false), "en", true)).to.equal(false);
-		});
-	});
-
 	describe("draftGate", () => {
 		it("lets text through and stops commands, edits and empty drafts", () => {
 			expect(draftGate("hello there", false)).to.deep.equal({
@@ -206,10 +174,9 @@ describe("translate/outgoing", () => {
 		const pick = (
 			routes: (to: string) => boolean,
 			last = "",
-			declared: string[] = [],
-			reading = "en",
-			recent: string[] = []
-		) => onceTargetDefault({reading, last, declared, recent, fallback, routes});
+			recent: string[] = [],
+			reading = "en"
+		) => onceTargetDefault({reading, last, recent, fallback, routes});
 		// A device without the GPU model: every pair but the cleanup pass.
 		const cpuOnly = (to: string) => to !== "en";
 
@@ -226,10 +193,9 @@ describe("translate/outgoing", () => {
 			expect(pick(cpuOnly)).to.equal("");
 		});
 
-		it("takes a language the channel has been written in lately, after a declared one", () => {
-			expect(pick(cpuOnly, "", [], "en", ["en", "es"])).to.equal("es");
-			expect(pick(cpuOnly, "", ["fr"], "en", ["es"])).to.equal("fr");
-			expect(pick(cpuOnly, "pt", ["fr"], "en", ["es"])).to.equal("pt");
+		it("takes a language the channel has been written in lately, after the last pick", () => {
+			expect(pick(cpuOnly, "", ["en", "es"])).to.equal("es");
+			expect(pick(cpuOnly, "pt", ["es"])).to.equal("pt");
 		});
 
 		it("keeps the cleanup pass where it runs, after a language the channel speaks", () => {

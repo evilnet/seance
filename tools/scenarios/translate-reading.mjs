@@ -79,10 +79,10 @@
 import {rigFeature} from "./lib/rig-feature.mjs";
 import {
 	READING_ON,
-	TRANSLATION_ON,
+	SHEET,
 	TRANSLATION_OFFERED,
-	closeTranslationPanel,
-	openTranslationPanel,
+	closeTranslationSheet,
+	openTranslationSheet,
 } from "./lib/translation.mjs";
 
 const RUN = Date.now().toString(36);
@@ -93,6 +93,18 @@ const IRCD = process.env.SEANCE_IRC_WS || "ws://127.0.0.1:8067/";
 const BASE = process.env.SEANCE_HTTP ?? "http://localhost:8021/";
 
 export const url = `${BASE}?host=127.0.0.1&port=8067&tls=false&nick=${NICK}&join=%23seance-translate&fakeTranslate`;
+
+/** Init script: translation switched off by the user, unless a setting is already stored. */
+const TRANSLATION_OFF = `(() => {
+	try {
+		const settings = JSON.parse(localStorage.getItem("settings") || "{}") || {};
+
+		if (!("translationEnabled" in settings)) {
+			settings.translationEnabled = false;
+			localStorage.setItem("settings", JSON.stringify(settings));
+		}
+	} catch (e) {}
+})()`;
 
 const PAUSED = `!!document.getElementById("app").__vue_app__.config.globalProperties.$store.state.translation.paused`;
 const LINES = `document.querySelectorAll('.msg-translated').length`;
@@ -135,41 +147,32 @@ async function settledLines(page, label) {
 }
 
 /**
- * Reading on or off: the channel menu's panel, its first control, and the
+ * Reading on or off: the channel menu's sheet, its reading switch, and the
  * close button puts it away.
  */
 async function setReading(page, code) {
 	await openPanel(page);
 	await setPanelRead(page, Boolean(code));
-	await closeTranslationPanel(page);
+	await closeTranslationSheet(page);
 }
 
-/** The panel, from the channel menu's "Translation…". */
-const openPanel = openTranslationPanel;
-
-/** Set one of the panel's selects and let Vue hear it. */
-function setPanelSelect(page, name, value) {
-	return page.evaluate(
-		`(() => { const s = document.querySelector('.translation-panel select[name=${JSON.stringify(
-			name
-		)}]'); s.value = ${JSON.stringify(
-			value
-		)}; s.dispatchEvent(new Event("change", {bubbles: true})); })()`
-	);
-}
+/** The sheet, from the channel menu's "Translation…". */
+const openPanel = openTranslationSheet;
 
 /**
- * The panel's reading switch (Off / On). The language is not chosen here:
- * it is the interface's, with the Settings override as the exception.
+ * The sheet's reading switch ("Translate messages here into …", the
+ * exclusion). The language is not chosen here: it is Settings → Language's
+ * "Translate into". By its class, not by label: the interface may be in
+ * French by then.
  */
 function setPanelRead(page, on) {
-	// By place, not by label: the interface may be in French by then. The
-	// reading switch is the panel's first radiogroup, Off then On.
-	return page.evaluate(
-		`document.querySelector(".translation-panel [role=radiogroup]").querySelectorAll("[role=radio]")[${
-			on ? 1 : 0
-		}].click()`
-	);
+	return page.evaluate(`(() => {
+		const box = document.querySelector("${SHEET} .language-sheet-read-box");
+
+		if (box.checked !== ${on}) {
+			box.click();
+		}
+	})()`);
 }
 
 /**
@@ -180,11 +183,9 @@ function setPanelRead(page, on) {
  * channel.
  */
 async function setReadOverride(page, code) {
-	await page.click(`#footer button.settings`);
-	await page.waitFor(`!!document.querySelector(".settings-menu button.translation")`, {
-		label: "settings open for the override",
-	});
-	await page.click(`.settings-menu button.translation`);
+	// By its route: on a phone the footer's Settings is in the closed
+	// sidebar, off the screen.
+	await page.evaluate(`location.hash = "#/settings/translation"`);
 	await page.waitFor(`!!document.querySelector('select[name="locale"]')`, {
 		label: "the translation tab",
 	});
@@ -335,8 +336,11 @@ function speaker(nick) {
 }
 
 export default async function run(page) {
-	// Translation ships switched off (settings.ts translationEnabled).
-	await page.addInitScript(TRANSLATION_ON);
+	// Translation starts switched off by the user (settings.ts
+	// translationEnabled), so the run can show the switch-on reading what
+	// the channel already holds. Only an absent setting is written: once the
+	// run switches it on, a reload keeps it on.
+	await page.addInitScript(TRANSLATION_OFF);
 	// The rig leaves message redaction off: without the feature REDACT
 	// answers FAIL DISABLED and the page is never offered the cap that
 	// makes it show one.
@@ -381,11 +385,7 @@ async function scenario(page) {
 		timeout: 20000,
 		label: "chat input up",
 	});
-	await page.waitFor(TRANSLATION_OFFERED, {
-		timeout: 10000,
-		label: "translation offered once the probe answered",
-	});
-	await page.check("reading starts off", !(await page.evaluate(READING_ON)));
+	await page.check("translation starts off", !(await page.evaluate(READING_ON)));
 
 	// A German topic before the switch: the header shows it as set while
 	// reading is off, and the switch-on reads it like the lines (reader.ts
@@ -433,8 +433,19 @@ async function scenario(page) {
 	await page.sleep(1500);
 	await page.check("nothing translated while reading is off", (await page.evaluate(LINES)) === 0);
 
-	await setReading(page, "en");
+	// Switching translation on is the whole setup: the channel menu's
+	// "Translation…" is one button while it is off, and the conversation
+	// reads from then on (switch.ts `readsHere`).
+	await openPanel(page);
+	await page.click(`${SHEET} .translation-sheet-enable-button`);
+	await page.waitFor(`!document.querySelector(${JSON.stringify(SHEET)})`, {
+		label: "the enable button closed the sheet",
+	});
 	await page.waitFor(READING_ON, {label: "reading on"});
+	await page.waitFor(TRANSLATION_OFFERED, {
+		timeout: 10000,
+		label: "translation offered once the probe answered",
+	});
 	await page.waitFor(
 		preSwitch
 			.map((line) => `!!(${newestRow(line)})?.querySelector('.msg-translated')`)
@@ -876,16 +887,27 @@ async function scenario(page) {
 
 	await page.waitFor(`${LINES} === ${base + 6}`, {timeout: 20000, label: "burst translated"});
 
-	// The burst was batched into one multi-line LLM request, not five
-	// independent translations: the request log (client/js/translate/fakePort.ts)
-	// shows a request with `lines >= 2`, and fewer requests than burst lines
-	// overall — the tell for the per-line fallback never firing.
+	// On the LLM route the burst is batched into one multi-line request,
+	// not five independent translations: the request log
+	// (client/js/translate/fakePort.ts) shows a request with `lines >= 2`,
+	// and fewer requests than burst lines overall -- the tell for the
+	// per-line fallback never firing. A seq2seq route (OPUS-MT, the default
+	// for German → English) takes one line a request by design: there each
+	// line goes once.
 	const burstRequests = await page.evaluate(`(${REQUESTS}).slice(${requestsBeforeBurst})`);
+	const burstEngines = [...new Set(burstRequests.map((r) => r.engine))];
+
 	await page.check(
-		`the burst was batched, not five singles (${
-			burstRequests.length
-		} requests, lines per request: ${burstRequests.map((r) => r.lines).join(",")})`,
-		burstRequests.some((r) => r.lines >= 2) && burstRequests.length < 5
+		burstEngines.includes("llm")
+			? `the burst was batched, not five singles (${
+					burstRequests.length
+			  } requests, lines per request: ${burstRequests.map((r) => r.lines).join(",")})`
+			: `the burst went to ${burstEngines.join(", ")} one line a request, each once (${
+					burstRequests.length
+			  } requests)`,
+		burstEngines.includes("llm")
+			? burstRequests.some((r) => r.lines >= 2) && burstRequests.length < 5
+			: burstRequests.length === 5 && new Set(burstRequests.map((r) => r.text)).size === 5
 	);
 
 	for (let i = 1; i <= 5; i++) {
@@ -899,22 +921,14 @@ async function scenario(page) {
 		);
 	}
 
-	// The channel now mostly writes German: the composer offers to write in
-	// it (the suggestion card), and the language sheet lists it under
-	// "Spoken in … lately". Declined, the card stays gone for the channel.
-	await page.waitFor(`!!document.querySelector("#form .translate-suggest")`, {
-		label: "the suggestion card",
-	});
-	await page.check(
-		"the suggestion card offers German",
-		/German/.test(
-			await page.evaluate(
-				`document.querySelector("#form .translate-suggest-accept").textContent`
-			)
-		)
-	);
-	await page.screenshot("translate-suggest", {selector: "#form"});
+	// The channel now mostly writes German: the translate panel's language
+	// list (the chip opens the panel, its language button the sheet) lists
+	// it under "Spoken in … lately".
 	await page.click("#form #translate-once");
+	await page.waitFor(`!!document.querySelector(".translate-panel")`, {
+		label: "the translate panel",
+	});
+	await page.click("#form .translate-panel-language");
 	await page.waitFor(`!!document.querySelector(".language-sheet")`, {
 		label: "the language sheet",
 	});
@@ -928,10 +942,8 @@ async function scenario(page) {
 		`document.querySelector(".language-sheet").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))`
 	);
 	await page.waitFor(`!document.querySelector(".language-sheet")`, {label: "the sheet closed"});
-	await page.click("#form .translate-suggest-decline");
-	await page.waitFor(`!document.querySelector("#form .translate-suggest")`, {
-		label: "the declined card is gone",
-	});
+	await page.click("#form .translate-panel-cancel");
+	await page.waitFor(`!document.querySelector(".translate-panel")`, {label: "the panel closed"});
 
 	// The translated row's menu (its toolbar's Translate): swap first, then
 	// Copy translation.
@@ -1087,19 +1099,19 @@ async function scenario(page) {
 		(await page.evaluate(chipOf(ownRow))) === "sent in German"
 	);
 
-	// The panel: opened from the channel menu, full language names, closes
+	// The sheet: opened from the channel menu, full language names, closes
 	// on Escape.
 	await openPanel(page);
 
-	const panelRect = await page.rect(".translation-panel");
+	const panelRect = await page.rect(SHEET);
 	const viewport = await page.evaluate(`({w: innerWidth, h: innerHeight})`);
 
 	await page.check(
-		`panel is tall enough (${panelRect ? panelRect.height : "none"}px)`,
+		`the sheet is tall enough (${panelRect ? panelRect.height : "none"}px)`,
 		!!panelRect && panelRect.height > 40
 	);
 	await page.check(
-		"panel lies inside the viewport",
+		"the sheet lies inside the viewport",
 		!!panelRect &&
 			panelRect.x >= 0 &&
 			panelRect.y >= 0 &&
@@ -1111,45 +1123,32 @@ async function scenario(page) {
 		"the footer links to Settings -> Translation",
 		String(
 			await page.evaluate(
-				`(document.querySelector(".translation-panel-more") || {}).getAttribute("href")`
+				`(document.querySelector(${JSON.stringify(
+					`${SHEET} .translation-sheet-settings`
+				)}) || {}).getAttribute("href")`
 			)
 		).endsWith("/settings/translation")
 	);
 
-	if (MOBILE) {
-		// The phone's layout fills the chat under the header, asserted in
-		// full by tools/scenarios/translate-composer.mjs --mobile.
-		await page.check(
-			"the panel came up across the phone's width",
-			!!panelRect && Math.round(panelRect.width) === viewport.w
-		);
-	} else {
-		// One column: every setting is a label with its control under it, so
-		// the two selects and the variant input come out the same width
-		// (reading and formality are segmented controls, not control rows).
-		const controlWidths = await page.evaluate(
-			`[...document.querySelectorAll(".translation-panel .translation-panel-control")].map((c) => Math.round(c.getBoundingClientRect().width))`
-		);
+	// Opened from the menu, the sheet is on its switches: the language list
+	// stays closed until Write in's language asks for it.
+	await page.check(
+		"the menu's sheet opens on its switches, the list closed",
+		(await page.count(`${SHEET} .language-sheet-list`)) === 0 &&
+			(await page.count(`${SHEET} .language-sheet-read-box`)) === 1
+	);
 
-		await page.check(
-			`the three controls share one width (${controlWidths.join(", ")})`,
-			controlWidths.length === 3 && new Set(controlWidths).size === 1
-		);
-		await page.check(
-			"the hints are shown in the desktop panel too",
-			(await page.evaluate(
-				`getComputedStyle(document.querySelector(".translation-panel-hint")).display`
-			)) !== "none"
-		);
-	}
-
-	await page.screenshot("translation-panel");
+	await page.screenshot("translation-sheet");
 
 	const readLabel = String(
 		await page.evaluate(
-			`document.querySelector(".translation-panel-label")?.textContent.trim() ?? ""`
+			`document.querySelector(${JSON.stringify(
+				`${SHEET} .language-sheet-read`
+			)})?.textContent.trim() ?? ""`
 		)
 	);
+	// translate.panel.readHere: "Translate messages here into {language}".
+	const READ_LEAD = "Translate messages here into ";
 	const readingEndonym = await page.evaluate(
 		`new Intl.DisplayNames([navigator.language], {type: "language"}).of(navigator.language.split("-")[0])`
 	);
@@ -1158,12 +1157,12 @@ async function scenario(page) {
 		`the reading section names the language in itself (${readLabel})`,
 		// The language comes from the interface (the unified setting), and
 		// the label carries its endonym — "English", never the bare code.
-		readLabel.startsWith("Read messages in ") &&
+		readLabel.startsWith(READ_LEAD) &&
 			readLabel.endsWith(readingEndonym) &&
-			!/^[a-z]{2}$/i.test(readLabel.replace("Read messages in ", ""))
+			!/^[a-z]{2}$/i.test(readLabel.replace(READ_LEAD, ""))
 	);
 
-	// A real key press: Escape reaches the panel through the app's own
+	// A real key press: Escape reaches the sheet through the app's own
 	// binding (App.vue, helpers/escapeLayer.ts), not a listener of its own.
 	for (const type of ["keyDown", "keyUp"]) {
 		await page.send("Input.dispatchKeyEvent", {
@@ -1175,9 +1174,9 @@ async function scenario(page) {
 		});
 	}
 
-	await page.waitFor(`!document.querySelector(".translation-panel")`, {
+	await page.waitFor(`!document.querySelector(${JSON.stringify(SHEET)})`, {
 		timeout: 5000,
-		label: "panel closes on Escape",
+		label: "the sheet closes on Escape",
 	});
 
 	// A line carrying the fake's failure token fails once; the retry
@@ -1482,42 +1481,17 @@ async function scenario(page) {
 	);
 	await page.screenshot("redacted-translation");
 
-	// The channel's declared languages. Reading is off by now, so this turns
-	// it back on through the panel's own control on either layout -- and the
-	// panel is where German is declared in the first place.
+	// Reading is off by now: the sheet's own switch turns it back on.
 	await openPanel(page);
-	await setPanelSelect(page, "translateLanguageAdd", "de");
-	await page.waitFor(`!!document.querySelector(".translation-panel-chip")`, {
-		label: "German is declared as spoken here",
-	});
-
-	const chipText = String(
-		await page.evaluate(`document.querySelector(".translation-panel-chip").textContent.trim()`)
-	);
-
-	// The panel's chips name their language in the reader's language, like
-	// every label does (TranslationPanel.vue `name`).
-	await page.check(
-		`the chip names the language for the reader (${chipText})`,
-		chipText.startsWith("German")
-	);
-	await page.check(
-		"the picker no longer offers a language the channel has declared",
-		!(await page.evaluate(
-			`[...document.querySelectorAll('.translation-panel select[name="translateLanguageAdd"] option')].some((o) => o.value === "de")`
-		))
-	);
-	await page.screenshot("panel-languages");
-
 	await setPanelRead(page, true);
-	await closeTranslationPanel(page);
+	await closeTranslationSheet(page);
 	await page.waitFor(READING_ON, {label: "reading is on again"});
 
 	// Switching on again queues what the channel shows once more.
 	const reBase = await settledLines(page, "the second switch-on's requeue");
 
 	// Nine characters, three words: both identifiers call it German. German
-	// is declared as spoken here by now, though the verdict does not need it.
+	// is the channel's language lately, though the verdict does not need it.
 	const shortLine = "So ist es";
 
 	other.say(shortLine);
@@ -1535,9 +1509,9 @@ async function scenario(page) {
 		(await page.evaluate(chipOf(shortRow))) === "from German"
 	);
 
-	// History the reader asks for: a "load more" is translated, newest line
-	// first, and at most HISTORY_QUEUE_CAP of the page
-	// (client/js/translate/eligibility.ts).
+	// History the reader asks for: a "load more" is translated once it is in
+	// view, newest line first, and at most HISTORY_QUEUE_CAP of it a scan
+	// (client/js/translate/reader.ts `scanOnScreen`).
 	const HISTORY_QUEUE_CAP = 40;
 
 	await page.check(
@@ -1585,6 +1559,12 @@ async function scenario(page) {
 		timeout: 20000,
 		label: "a page of older messages arrived",
 	});
+	// Only what is in view is read (onScreen.ts): bring the loaded page's
+	// newest rows onto the screen, as reading back to the button would --
+	// the row that was the top before the load at the bottom of the view.
+	await page.evaluate(
+		`document.getElementById(${JSON.stringify(topBefore)}).scrollIntoView({block: "end"})`
+	);
 	await page.waitFor(`${LINES} > ${doneBefore}`, {
 		timeout: 30000,
 		label: "the loaded history is translated",

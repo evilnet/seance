@@ -48,8 +48,14 @@
 			@pick="pickSource"
 			@close="pickerOpen = false"
 		/>
+		<span v-if="entry.status === 'failed' && packNeed" class="msg-translation-offer">
+			{{ t("translate.line.applePackNeeded", {language: packLanguage}) }}
+			<button type="button" class="msg-translation-get" @click.stop="getNeededPack">
+				{{ t("translate.line.applePackGet") }}
+			</button>
+		</span>
 		<span
-			v-if="entry.status === 'failed' && needed"
+			v-else-if="entry.status === 'failed' && needed"
 			class="msg-translation-offer"
 			:title="reasonText"
 		>
@@ -111,9 +117,9 @@ import {translateWhyText} from "../js/helpers/translateWhy";
 import {ANSWERED, DEGENERATE, NARRATION, UNCHANGED} from "../js/translate/outgoing";
 import {languageName} from "../js/translate/languages";
 import {directionText, sourceText} from "../js/translate/labels";
-import {loadNoteText} from "../js/helpers/modelLabel";
+import {loadNoteText, translatedByText} from "../js/helpers/modelLabel";
 import {translateErrorText} from "../js/helpers/translateErrors";
-import {loadNote} from "../js/translate/service";
+import {loadNote, parseApplePack} from "../js/translate/service";
 import type {ClientChan, ClientMessage, ClientNetwork} from "../js/types";
 import ParsedMessage from "./ParsedMessage.vue";
 import SourceLanguagePicker from "./SourceLanguagePicker.vue";
@@ -260,6 +266,7 @@ export default defineComponent({
 
 		const openMenu = (mouseEvent: MouseEvent) => {
 			const event = anchorOf(mouseEvent);
+			const by = translatedByText(entry.value?.model);
 			const sources = [
 				...alternatives.value.map((code) => ({
 					label: t("translate.menu.retranslateFrom", {language: nameOf(code)}),
@@ -303,6 +310,13 @@ export default defineComponent({
 						class: "translate-hide",
 						action: () => showOriginal(props.message.id, true),
 					},
+					// Which model translated it, quietly at the foot.
+					...(by
+						? [
+								{type: "divider" as const},
+								{type: "note" as const, label: by, class: "translate-by"},
+						  ]
+						: []),
 				],
 			});
 		};
@@ -344,8 +358,31 @@ export default defineComponent({
 
 			if (value?.from) {
 				takePack(value.from, value.to);
-				void systemTranslator()?.offer(value.from, value.to);
+				void systemTranslator()?.offer(value.from, value.to, () => true, true);
 			}
+		};
+
+		// No model here takes the pair without a download nobody agreed to,
+		// and Apple's would once its pack is installed (service.ts
+		// `applePackError`): the line offers the pack, not an error. The tap
+		// opens the system's sheet whatever was declined before, and
+		// translates the line once the sheet closes.
+		const packNeed = computed(() => {
+			const error = entry.value?.status === "failed" ? entry.value.error : null;
+
+			return error ? parseApplePack(error) : null;
+		});
+		const packLanguage = computed(() => (packNeed.value ? nameOf(packNeed.value.from) : ""));
+		const getNeededPack = () => {
+			const need = packNeed.value;
+			const apple = systemTranslator();
+
+			if (!need || !apple) {
+				return;
+			}
+
+			takePack(need.from, need.to);
+			void apple.offer(need.from, need.to, () => true, true).then(() => retry());
 		};
 
 		// Why it failed, after "couldn't translate": an engine's error can be
@@ -377,6 +414,9 @@ export default defineComponent({
 			applePack,
 			sourceName,
 			getApplePack,
+			packNeed,
+			packLanguage,
+			getNeededPack,
 			shortReason,
 			t,
 			UNCHANGED,

@@ -12,7 +12,11 @@ export type Candidate = "llm" | "nllb" | `opus:${string}` | "apple";
 /** The shape `BrandingTranslation` (branding.ts) is assignable to. */
 export interface CatalogOptions {
 	modelBase?: string;
-	llm?: {model?: string; lib?: string};
+	/**
+	 * `splitModel`: the 1.7B's weights served again under a URL of their
+	 * own, for its small-buffer build on a mirrored deploy (`buildCatalog`).
+	 */
+	llm?: {model?: string; lib?: string; splitModel?: string};
 	cpu?: {nllb?: string; opus?: Record<string, string | OpusPairOption>};
 	/**
 	 * Give OPUS-MT and NLLB-200 their GPU copies. Off in the shipped app,
@@ -38,6 +42,8 @@ export interface OpusPairOption {
 	name?: string;
 	/** Its CPU download, for Settings and the download question; else an OPUS-MT pair's. */
 	sizeBytes?: number;
+	/** Where its files come from, when not Hugging Face (`DeviceCopy.host`). */
+	host?: string;
 }
 
 export interface ModelCatalog {
@@ -92,7 +98,48 @@ export const APPLE_REF: ModelRef = {
 	label: {kind: "apple"},
 	copies: {},
 };
-export const DEFAULT_OPUS_PAIRS: Record<string, string> = {
+/**
+ * Where the AfterNET MT models are served from until they have a Hugging
+ * Face organisation of their own: AfterNET's model mirror, which sends
+ * `Access-Control-Allow-Origin: *` and answers range requests.
+ */
+export const AFTERNET_MT_HOST = "https://bot.hextalk.org/models";
+
+/** One direction of an AfterNET MT model: a bidirectional Marian student, ~30 MB in q8. */
+function afternetMt(code: string, token: string, sizeBytes: number): OpusPairOption {
+	return {
+		model: `seance-mt/marian-${code}`,
+		token,
+		name: "AfterNET MT",
+		sizeBytes,
+		host: AFTERNET_MT_HOST,
+	};
+}
+
+/**
+ * The AfterNET MT pairs every build ships: English to and from each
+ * language here, where Helsinki's OPUS-MT has no pair the app ships, so a
+ * line in them otherwise needs the 1-2 GB language model or NLLB's
+ * 600 MB. One repo serves both directions (`sharedPairId`), downloaded
+ * once. French, German, Spanish and Russian keep OPUS-MT until the two are
+ * compared on the same test set.
+ */
+export const DEFAULT_AFTERNET_PAIRS: Record<string, OpusPairOption> = {
+	"en-ar": afternetMt("ar", ">>ara<<", 30_475_874),
+	"ar-en": afternetMt("ar", ">>eng<<", 30_475_874),
+	"en-ko": afternetMt("ko", ">>kor<<", 30_033_335),
+	"ko-en": afternetMt("ko", ">>eng<<", 30_033_335),
+	"en-pl": afternetMt("pl", ">>pol<<", 29_981_445),
+	"pl-en": afternetMt("pl", ">>eng<<", 29_981_445),
+	"en-pt": afternetMt("pt", ">>por<<", 29_942_656),
+	"pt-en": afternetMt("pt", ">>eng<<", 29_942_656),
+	"en-sv": afternetMt("sv", ">>swe<<", 29_882_505),
+	"sv-en": afternetMt("sv", ">>eng<<", 29_882_505),
+	"en-zh": afternetMt("zh", ">>zho<<", 29_741_545),
+	"zh-en": afternetMt("zh", ">>eng<<", 29_741_545),
+};
+
+export const DEFAULT_OPUS_PAIRS: Record<string, string | OpusPairOption> = {
 	"de-en": "Xenova/opus-mt-de-en",
 	"en-de": "Xenova/opus-mt-en-de",
 	"fr-en": "Xenova/opus-mt-fr-en",
@@ -105,6 +152,7 @@ export const DEFAULT_OPUS_PAIRS: Record<string, string> = {
 	"en-nl": "Xenova/opus-mt-en-nl",
 	"ru-en": "Xenova/opus-mt-ru-en",
 	"en-ru": "Xenova/opus-mt-en-ru",
+	...DEFAULT_AFTERNET_PAIRS,
 };
 
 // The downloads as Hugging Face lists them (2026-10-27): the MLC repo's
@@ -174,7 +222,9 @@ function opusRef(pairKey: string, option: string | OpusPairOption, gpu: boolean)
 		token,
 		name,
 		sizeBytes,
+		host,
 	} = typeof option === "string" ? {model: option} : option;
+	const hosted = host ? {host: host.replace(/\/+$/, "")} : {};
 
 	return {
 		engine: "seq2seq",
@@ -182,13 +232,14 @@ function opusRef(pairKey: string, option: string | OpusPairOption, gpu: boolean)
 		id: typeof option === "string" ? repo : sharedPairId(repo, pairKey),
 		label: {kind: "opus", from, to, ...(name && {name})},
 		copies: {
-			cpu: {sizeBytes: sizeBytes ?? OPUS_SIZE_BYTES, source: repo, dtype: "q8"},
+			cpu: {sizeBytes: sizeBytes ?? OPUS_SIZE_BYTES, source: repo, dtype: "q8", ...hosted},
 			...(gpu && {
 				gpu: {
 					sizeBytes: OPUS_GPU_SIZE_BYTES,
 					source: repo,
 					dtype: "fp16",
 					largestBufferBytes: OPUS_GPU_LARGEST_BYTES,
+					...hosted,
 				},
 			}),
 		},
@@ -511,6 +562,7 @@ const GPU_REASONS: readonly DeviceReason[] = [
 	"NO_ADAPTER",
 	"NO_F16",
 	"GPU_LIMITS",
+	"GPU_LOST",
 ];
 
 /**
@@ -590,7 +642,13 @@ function gpuBlock(
 	// OPUS-MT and NLLB-200 on the GPU: any WebGPU device with f16 whose
 	// largest binding holds the copy's biggest tensor; WebLLM's shader
 	// floors (GPU_LIMITS) and the language model's buffer rule do not apply.
-	for (const code of ["PROBE_FAILED", "INSECURE_ORIGIN", "NO_WEBGPU", "NO_ADAPTER"] as const) {
+	for (const code of [
+		"PROBE_FAILED",
+		"INSECURE_ORIGIN",
+		"NO_WEBGPU",
+		"NO_ADAPTER",
+		"GPU_LOST",
+	] as const) {
 		if (capability.reasons.includes(code)) {
 			return {kind: "device", reason: code};
 		}
@@ -872,6 +930,24 @@ export function selectLlm(
 	return llm === catalog.llm ? catalog : {...catalog, llm};
 }
 
+/**
+ * The small-buffer build's weights on a mirrored deploy: `llm.splitModel`
+ * with a trailing slash, unless it is the model's own mirrored directory,
+ * whose manifest key the build must not share.
+ */
+function splitModelFor(options: CatalogOptions): string | undefined {
+	const given = options.llm?.splitModel;
+
+	if (!given || !options.modelBase) {
+		return undefined;
+	}
+
+	const url = given.endsWith("/") ? given : `${given}/`;
+	const own = `${options.modelBase.replace(/\/+$/, "")}/${QWEN3_1_7B_ID}/`;
+
+	return url === own ? undefined : url;
+}
+
 export function buildCatalog(
 	options: CatalogOptions = {},
 	selectedLlm: string | null = null
@@ -883,15 +959,24 @@ export function buildCatalog(
 	// 1.7B wasm fails.
 	//
 	// The small-buffer build reads the published weights from Hugging Face
-	// at a pinned commit through the app's own library: a deploy that
-	// mirrors the weights (`modelBase`, which keeps its readers off
-	// third-party hosts) or names its own library for the model has neither,
-	// so there the model has no such build and a small GPU cannot run it.
+	// at a pinned commit through the app's own library. A deploy that names
+	// its own library for the model has no such build. One that mirrors the
+	// weights (`modelBase`, which keeps its readers off third-party hosts)
+	// has it only where it serves the same files a second time
+	// (`llm.splitModel`): the build's rewritten manifest is cached under its
+	// URL, which must not be the model's own (splitManifest.ts).
+	const splitModel = splitModelFor(options);
 	const llmChoices = LLM_CHOICES.map((ref): ModelRef => {
 		const choice: ModelRef = ref.id === llmId && lib ? {...ref, lib} : {...ref};
 
-		if (choice.smallBuffer && (options.modelBase || choice.lib)) {
+		if (choice.smallBuffer && choice.lib) {
 			delete choice.smallBuffer;
+		} else if (choice.smallBuffer && options.modelBase) {
+			if (splitModel) {
+				choice.smallBuffer = {...choice.smallBuffer, model: splitModel};
+			} else {
+				delete choice.smallBuffer;
+			}
 		}
 
 		return choice;

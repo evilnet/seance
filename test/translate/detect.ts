@@ -257,6 +257,17 @@ describe("translate/detect", () => {
 				null
 			);
 		});
+
+		it("skips a line in a language the user also reads, as the reading language", () => {
+			const es = {lang: "es", confidence: 0.9, candidates: []};
+
+			expect(detectionSkip(es, "en", ["es", "pt"])).to.equal("same");
+			expect(detectionSkip(es, "en", ["pt"])).to.equal(null);
+			// An unplaced line is unsure whatever the list says.
+			expect(
+				detectionSkip({lang: null, confidence: 0, candidates: ["es"]}, "en", ["es"])
+			).to.equal("unsure");
+		});
 	});
 
 	describe("withSenderLanguage (+draft/language)", () => {

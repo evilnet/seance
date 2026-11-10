@@ -93,6 +93,20 @@ function kept(text: string, numbers: number[]): number {
 	return numbers.filter((n) => found.filter((f) => f === n).length === 1).length;
 }
 
+/**
+ * Where transformers.js fetches a copy from: the deploy's mirror for every
+ * copy when there is one (a mirror is a whole mirror), else the copy's own
+ * host, else Hugging Face (null: the library's defaults).
+ */
+export function remoteFor(
+	copy: Pick<DeviceCopy, "host">,
+	modelBase: string | undefined
+): {remoteHost: string; remotePathTemplate: string} | null {
+	const base = (modelBase ?? copy.host)?.replace(/\/+$/, "");
+
+	return base ? {remoteHost: `${base}/`, remotePathTemplate: "{model}/"} : null;
+}
+
 export interface PipelineLike {
 	(text: string, options: Record<string, string>): Promise<{translation_text: string}[]>;
 	dispose(): Promise<void>;

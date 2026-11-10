@@ -8,10 +8,11 @@
 // `deviceOrder`: a pinned device alone, Auto's order otherwise): a copy
 // whose device cannot run it (`modelBlock`), marked down (`DownKey`), or
 // whose download the caller refuses is passed over for the next device,
-// and the candidate's route is its first device left. A downloaded copy
-// never reorders a candidate's devices -- the better device's copy is
-// asked for, and only a declined download falls back to the copy already
-// there. Inside a class a candidate whose route is already downloaded
+// and the candidate's route is its first device left. Under Auto a
+// downloaded copy Auto would not otherwise try (the language model's CPU
+// copy) joins the walk after the others, and on a phone a copy already on
+// the device answers before the better device's download (`walkDevices`).
+// A pinned device stands as pinned. Inside a class a candidate whose route is already downloaded
 // wins over the class's own order; a better class is never skipped for a
 // downloaded model in a worse one: its model is downloaded on demand
 // instead (service.ts), once the user has agreed to that download
@@ -102,6 +103,39 @@ export interface RouteInput {
 	 * the CPU (`deviceOrder`). Absent, the GPU alone.
 	 */
 	llmCpuAfterGpu?: boolean;
+	/**
+	 * The user's engine preference (`translatePrefer`, Settings → Advanced):
+	 * `llm` takes the language model ahead of every class, `small` puts it
+	 * behind them. Either way every other candidate stays a fallback in the
+	 * table's order, so a preference reorders and never refuses. Absent (or
+	 * Automatic), the table's own order.
+	 */
+	prefer?: EnginePreference;
+}
+
+/** Settings → Advanced's "Prefer": the table's order, the language model first, or last. */
+export type EnginePreference = "auto" | "llm" | "small";
+
+/** A stored value that is none of the three (a hand edit, an older backup) reads as Automatic. */
+export function normalizePreference(value: unknown): EnginePreference {
+	return value === "llm" || value === "small" ? value : "auto";
+}
+
+/**
+ * The classes with the language model taken out of wherever the table put
+ * it and made a class of its own, first or last. An entry without it is
+ * returned as it is.
+ */
+export function withLlmAt(classes: Candidate[][], at: "first" | "last"): Candidate[][] {
+	if (!classes.some((group) => group.includes("llm"))) {
+		return classes;
+	}
+
+	const rest = classes
+		.map((group) => group.filter((candidate) => candidate !== "llm"))
+		.filter((group) => group.length > 0);
+
+	return at === "first" ? [["llm"], ...rest] : [...rest, ["llm"]];
 }
 
 export interface Route {
@@ -184,6 +218,9 @@ export function candidatesFor(table: RouteTable, from: string | null, to: string
 	return classesOf(entry);
 }
 
+/** Every engine switched on: what a device can run, whatever the switches. */
+const ALL_ON: EngineSwitches = {llm: true, opus: true, nllb: true};
+
 /** A device code: nothing the user can change in Settings. */
 const DEVICE_KINDS: ReadonlySet<RouteBlock["kind"]> = new Set(["device", "buffer", "memory"]);
 /** What the user can act on: a switch, a download, the 4B's "choose 1.7B". */
@@ -212,13 +249,40 @@ function walkDevices(
 	input: RouteInput
 ): {device: Device; why: null} | {device: null; why: RouteBlock} {
 	const blocks: RouteBlock[] = [];
-
-	for (const device of deviceOrder(
+	const auto = choiceFor(ref, input.devices) === "auto";
+	const order = deviceOrder(
 		ref,
 		choiceFor(ref, input.devices),
 		input.capability,
 		input.llmCpuAfterGpu
-	)) {
+	);
+	const cached = (device: Device) => input.cached?.(ref, device) === true;
+
+	// Under Auto a copy already on the device is one the user chose to
+	// download, and asking for the other device's (a 1-2 GB question on a
+	// phone) when it is there is what made a downloaded CPU copy look
+	// ignored. So a downloaded copy Auto would otherwise never try (the
+	// language model's CPU copy: Auto runs it on the GPU alone) joins the
+	// walk, and whichever usable copy is downloaded answers first. Nothing
+	// downloaded: the order stands, the better device first.
+	if (auto && input.cached) {
+		for (const device of ["gpu", "cpu"] as const) {
+			if (!order.includes(device) && ref.copies[device] && cached(device)) {
+				order.push(device);
+			}
+		}
+	}
+
+	// Which downloaded copy answers first is a phone's rule: there the
+	// better device's download is the language model's 1-2 GB on a GPU
+	// that may not hold it. On a computer a downloaded CPU copy would keep
+	// Auto off a usable GPU for good, so the GPU is still asked for; the
+	// downloaded copy only joins the walk (after the GPU, for a GPU that is
+	// blocked, down or declined).
+	const preferCached = auto && input.capability?.mobile === true;
+	let usable: Device | null = null;
+
+	for (const device of order) {
 		const block: RouteBlock | null =
 			modelBlock(ref, device, input.capability, input.switches) ??
 			(input.down.has(`${candidate}@${device}`)
@@ -227,14 +291,19 @@ function walkDevices(
 				? {kind: "download", ref, device}
 				: null);
 
-		if (!block) {
+		if (block) {
+			blocks.push(block);
+			continue;
+		}
+
+		if (!preferCached || cached(device)) {
 			return {device, why: null};
 		}
 
-		blocks.push(block);
+		usable = usable ?? device;
 	}
 
-	return {device: null, why: deviceReason(blocks)};
+	return usable ? {device: usable, why: null} : {device: null, why: deviceReason(blocks)};
 }
 
 /**
@@ -333,16 +402,34 @@ export function explainRoute(
 	}
 
 	if (polish) {
-		const answer = candidateRoute("llm", refFor(catalog, "llm"), input, source);
+		const llm = refFor(catalog, "llm");
+		const answer = candidateRoute("llm", llm, input, source);
 
-		return answer.route
-			? {route: answer.route, why: null, polish}
-			: {route: null, why: answer.why, polish};
+		if (answer.route) {
+			return {route: answer.route, why: null, polish};
+		}
+
+		// The cleanup pass is the language model's alone, so its CPU copy
+		// is its last way in too, where the GPU cannot run it.
+		if (llm && cpuLastResort(llm, input)) {
+			const onCpuAnswer = candidateRoute("llm", llm, onCpu(input), source);
+
+			if (onCpuAnswer.route) {
+				return {route: onCpuAnswer.route, why: null, polish};
+			}
+
+			// Its reason ranks with the GPU's as the table's do: a declined
+			// download or a switch off says more than the GPU's code.
+			return {route: null, why: pickReason([answer.why, onCpuAnswer.why]), polish};
+		}
+
+		return {route: null, why: answer.why, polish};
 	}
 
 	const blocks: RouteBlock[] = [];
+	const classes = orderedClasses(table, input, source);
 
-	for (const group of candidatesFor(table, source, input.to)) {
+	for (const group of classes) {
 		let first: Route | null = null;
 
 		for (const candidate of group) {
@@ -369,7 +456,70 @@ export function explainRoute(
 		}
 	}
 
+	// Nothing in the table took it: the language model's CPU copy, where
+	// the GPU cannot run it, is the last way in (`cpuLastResort`).
+	const llm = refFor(catalog, "llm");
+
+	if (llm && classes.some((group) => group.includes("llm")) && cpuLastResort(llm, input)) {
+		const answer = candidateRoute("llm", llm, onCpu(input), source);
+
+		if (answer.route) {
+			return {route: answer.route, why: null, polish};
+		}
+
+		blocks.push(answer.why);
+	}
+
 	return {route: null, why: pickReason(blocks), polish};
+}
+
+/**
+ * Under Auto the language model runs on the GPU alone (models.ts
+ * `deviceOrder`), but where the GPU cannot run it at all -- no WebGPU,
+ * below WebLLM's limits, a binding too small, a GPU lost here before
+ * (`GPU_LOST`) -- its CPU copy is the only way to the pairs no small model
+ * covers (translation.md § The ladder, step 6). It comes
+ * after every class of the table, since a line on it takes a while: a
+ * small model, or NLLB-200 once switched on, answers first. Its download
+ * is asked for like any other, as slow (translate/index.ts `askDownload`).
+ * Not after a yes to carrying on on the CPU, when Auto's own order already
+ * has it, nor for a pinned device.
+ */
+export function cpuLastResort(ref: ModelRef, input: RouteInput): boolean {
+	return (
+		ref.family === "llm" &&
+		choiceFor(ref, input.devices) === "auto" &&
+		!input.llmCpuAfterGpu &&
+		input.capability !== null &&
+		modelBlock(ref, "gpu", input.capability, ALL_ON) !== null
+	);
+}
+
+/** The input with the language model pinned to the CPU. */
+function onCpu(input: RouteInput): RouteInput {
+	return {...input, devices: {...input.devices, llm: "cpu"}};
+}
+
+/**
+ * The pair's classes in the order the user's preference asks for (see
+ * `RouteInput.prefer`).
+ */
+function orderedClasses(
+	table: RouteTable,
+	input: RouteInput,
+	source: string | null
+): Candidate[][] {
+	const classes = candidatesFor(table, source, input.to);
+
+	if (input.prefer === "llm") {
+		return withLlmAt(classes, "first");
+	}
+
+	if (input.prefer === "small") {
+		return withLlmAt(classes, "last");
+	}
+
+	return classes;
 }
 
 export function resolveRoute(
@@ -421,7 +571,25 @@ export function translationBlock(
 			down: new Set(),
 			capability,
 		}).why as ModelBlock | null;
-	const llm = walk(catalog.llm);
+	const walked = walk(catalog.llm);
+	const lastResort: RouteInput = {
+		from: null,
+		hint: null,
+		to: "",
+		tier: capability?.tier ?? "none",
+		switches,
+		devices,
+		down: new Set(),
+		capability,
+	};
+	// Where the GPU cannot run it, Auto still reaches its CPU copy after the
+	// table (`cpuLastResort`): that is a way in too, and with the language
+	// model switched off its switch is what would open it.
+	const cpuWhy =
+		walked !== null && cpuLastResort(catalog.llm, lastResort)
+			? (walkDevices("llm", catalog.llm, onCpu(lastResort)).why as ModelBlock | null)
+			: undefined;
+	const llm = cpuWhy === null ? null : cpuWhy?.kind === "off" ? cpuWhy : walked;
 
 	// NLLB-200 switched on and able to run is a way in of its own (it needs
 	// no other switch); switched off it is never the reason.

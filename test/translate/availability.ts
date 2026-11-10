@@ -48,12 +48,25 @@ function cap(overrides: Partial<Capability>): Capability {
 /** The five devices the browser scenario stubs, and three more the probe can report. */
 const DEVICES: Record<string, Capability> = {
 	noWebgpu: cap({tier: "cpu", reasons: ["NO_WEBGPU"], f16: false, maxBufferBytes: 0}),
+	// And no Memory64 either (an iPhone or a Mac in Safari without WebGPU):
+	// the language model runs on neither device.
+	noWebgpuNoM64: cap({
+		tier: "cpu",
+		reasons: ["NO_WEBGPU", "NO_MEMORY64"],
+		f16: false,
+		maxBufferBytes: 0,
+	}),
 	noF16: cap({tier: "cpu", reasons: ["NO_F16"], f16: false}),
 	// A phone: WebGPU's 128 MiB floor, which the 1.7B's small-buffer build fits.
 	binds128: cap({maxBufferBytes: 128 * MiB}),
 	// Below even the small-buffer build (no WebGPU device is: its floor is
 	// 128 MiB), so the tier is cpu and every GPU row says what it needs.
 	binds64: cap({tier: "cpu", reasons: ["SMALL_BUFFER"], maxBufferBytes: 64 * MiB}),
+	binds64NoM64: cap({
+		tier: "cpu",
+		reasons: ["SMALL_BUFFER", "NO_MEMORY64"],
+		maxBufferBytes: 64 * MiB,
+	}),
 	binds160: cap({maxBufferBytes: 160 * MiB}),
 	desktop: cap({}),
 	noSimd: cap({
@@ -216,9 +229,11 @@ describe("translate availability", () => {
 
 			it("gives the 4B no CPU copy on any device", () => {
 				for (const device of Object.values(DEVICES)) {
+					// No Memory64 says that first: no language model runs there.
 					if (
 						device.reasons.includes("NO_WASM_SIMD") ||
-						device.reasons.includes("PROBE_FAILED")
+						device.reasons.includes("PROBE_FAILED") ||
+						device.reasons.includes("NO_MEMORY64")
 					) {
 						continue;
 					}
@@ -446,7 +461,8 @@ describe("translate availability", () => {
 		});
 
 		it("explains the cleanup pass by the GPU model's own block", () => {
-			const binds64 = ask(DEVICES.binds64, on, "en", "en");
+			// No Memory64 either, so no CPU copy to fall back to.
+			const binds64 = ask(DEVICES.binds64NoM64, on, "en", "en");
 
 			expect(binds64.route).to.equal(null);
 			expect(binds64.polish).to.equal(true);
@@ -457,11 +473,12 @@ describe("translate availability", () => {
 			});
 			// A phone's 128 MiB runs the 1.7B's small-buffer build: on offer.
 			expect(ask(DEVICES.binds128, on, "en", "en").route?.ref.id).to.equal(QWEN3_1_7B_ID);
-			expect(ask(DEVICES.noF16, on, "en", "en").why).to.deep.equal({
-				kind: "device",
-				reason: "NO_F16",
+			// Where the CPU runs it, Auto takes the CPU copy for it too.
+			expect(ask(DEVICES.noF16, on, "en", "en").route).to.include({
+				candidate: "llm",
+				device: "cpu",
 			});
-			expect(ask(DEVICES.noWebgpu, on, "en", "en").why).to.deep.equal({
+			expect(ask(DEVICES.noWebgpuNoM64, on, "en", "en").why).to.deep.equal({
 				kind: "device",
 				reason: "NO_WEBGPU",
 			});
@@ -476,14 +493,19 @@ describe("translate availability", () => {
 		});
 
 		it("names the switch the user can turn on over a device the GPU model cannot use", () => {
-			// CPU-only device, OPUS-MT and NLLB-200 off: the LLM cannot run
-			// here anyway, so the fix is OPUS-MT's switch (the pair's own).
+			// CPU-only device without Memory64, OPUS-MT and NLLB-200 off: the
+			// LLM cannot run here anyway, so the fix is OPUS-MT's switch (the
+			// pair's own).
 			expect(
-				ask(DEVICES.noWebgpu, {llm: true, opus: false, nllb: false}, "de", "en").why
+				ask(DEVICES.noWebgpuNoM64, {llm: true, opus: false, nllb: false}, "de", "en").why
 			).to.deep.equal({
 				kind: "off",
 				engine: "opus",
 			});
+			// With Memory64 the LLM's CPU copy is Auto's last way in.
+			expect(
+				ask(DEVICES.noWebgpu, {llm: true, opus: false, nllb: false}, "de", "en").route
+			).to.include({candidate: "llm", device: "cpu"});
 		});
 
 		it("names both switches when either would serve the pair", () => {
@@ -508,10 +530,15 @@ describe("translate availability", () => {
 		});
 
 		it("explains an LLM-only pair on a device without the GPU model by the device", () => {
-			expect(ask(DEVICES.binds64, on, "en", "fil").why).to.deep.equal({
+			expect(ask(DEVICES.binds64NoM64, on, "en", "fil").why).to.deep.equal({
 				kind: "buffer",
 				needed: small.smallBuffer!.largestBufferBytes,
 				limit: 64 * MiB,
+			});
+			// Where the CPU can run it, Auto takes the CPU copy after the table.
+			expect(ask(DEVICES.binds64, on, "en", "fil").route).to.include({
+				candidate: "llm",
+				device: "cpu",
 			});
 			expect(ask(DEVICES.desktop, on, "en", "fil").route?.candidate).to.equal("llm");
 		});
@@ -520,13 +547,19 @@ describe("translate availability", () => {
 			expect(ask(DEVICES.noWebgpu, on, null, "en", true).route?.candidate).to.equal("nllb");
 			// A request with no source at all: only the LLM takes one, and it is
 			// the device that keeps it out, so that is what is said.
-			expect(ask(DEVICES.noWebgpu, on, null, "en", false).why).to.deep.equal({
+			expect(ask(DEVICES.noWebgpuNoM64, on, null, "en", false).why).to.deep.equal({
 				kind: "device",
 				reason: "NO_WEBGPU",
 			});
 			expect(
-				ask(DEVICES.noWebgpu, {llm: false, opus: true, nllb: true}, null, "en", false).why
+				ask(DEVICES.noWebgpuNoM64, {llm: false, opus: true, nllb: true}, null, "en", false)
+					.why
 			).to.deep.equal({kind: "device", reason: "NO_WEBGPU"});
+			// With Memory64 the LLM's CPU copy takes the request with no source.
+			expect(ask(DEVICES.noWebgpu, on, null, "en", false).route).to.include({
+				candidate: "llm",
+				device: "cpu",
+			});
 		});
 
 		describe("NLLB-200 switched off (the default; its licence is non-commercial)", () => {
@@ -552,10 +585,16 @@ describe("translate availability", () => {
 			});
 
 			it("gives a pair only NLLB serves here the NLLB reason", () => {
-				// No WebGPU, English to Filipino: no OPUS pair, the LLM cannot run.
-				expect(askShipped(DEVICES.noWebgpu, "en", "fil").why).to.deep.equal({
+				// No WebGPU and no Memory64, English to Filipino: no OPUS pair,
+				// the LLM cannot run.
+				expect(askShipped(DEVICES.noWebgpuNoM64, "en", "fil").why).to.deep.equal({
 					kind: "off",
 					engine: "nllb",
+				});
+				// With Memory64 the LLM's CPU copy serves it, after the table.
+				expect(askShipped(DEVICES.noWebgpu, "en", "fil").route).to.include({
+					candidate: "llm",
+					device: "cpu",
 				});
 				// And it is a real fix: switched on, NLLB takes it.
 				expect(
@@ -680,13 +719,24 @@ describe("translate availability", () => {
 		});
 
 		it("names the switch that would fix it on a device without the GPU model", () => {
-			expect(block(DEVICES.noWebgpu, {llm: true, opus: false, nllb: false})).to.deep.equal({
+			expect(
+				block(DEVICES.noWebgpuNoM64, {llm: true, opus: false, nllb: false})
+			).to.deep.equal({
 				kind: "off",
 				engine: "opus",
 			});
-			expect(block(DEVICES.binds64, {llm: false, opus: false, nllb: false})).to.deep.equal({
+			// The LLM's CPU copy is a way in where the CPU runs it.
+			expect(block(DEVICES.noWebgpu, {llm: true, opus: false, nllb: false})).to.equal(null);
+			expect(
+				block(DEVICES.binds64NoM64, {llm: false, opus: false, nllb: false})
+			).to.deep.equal({
 				kind: "off",
 				engine: "opus",
+			});
+			// With Memory64 the language model's CPU copy serves too: either switch would.
+			expect(block(DEVICES.binds64, {llm: false, opus: false, nllb: false})).to.deep.equal({
+				kind: "off",
+				engine: "all",
 			});
 			// A phone runs the 1.7B's small-buffer build: either switch would serve.
 			expect(block(DEVICES.binds128, {llm: false, opus: false, nllb: false})).to.deep.equal({

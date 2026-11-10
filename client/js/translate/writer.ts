@@ -59,6 +59,7 @@ import {
 	setChannelOptions,
 } from "./reader";
 import type {Route} from "./router";
+import {WORKER_DISPOSED} from "./client";
 import {sentReadBacks} from "./sentReadBack";
 import {LLM_MARKERS, type MarkerForm, stripCopiedNickPrefix} from "./spans";
 
@@ -168,38 +169,17 @@ export function writeTarget(network: ClientNetwork, channel: ClientChan): string
 	return translationOn() ? channelTranslation(network, channel).write : null;
 }
 
-/**
- * The composer's translate button: the draft into `to`, this once, whether
- * or not the channel has a write target -- the strip comes up as it does
- * for a write target, and the next Enter sends what it holds. The choice
- * is kept with the channel's record (channelStore.ts `once`, so it
- * survives a reload and travels in the settings backup) for the button's
- * next pick (`lastOnceTarget`).
- */
-export function translateOnce(
-	network: ClientNetwork,
-	channel: ClientChan,
-	draft: string,
-	to: string,
-	from: string | null = null
-): Promise<"strip" | "plain"> {
-	// Switched off, the button is gone; nothing is kept for it either.
-	if (!translationOn()) {
-		return Promise.resolve("plain");
-	}
-
-	if (channelTranslation(network, channel).once !== to) {
-		setChannelOptions(network, channel, {once: to});
-	}
-
-	return translateOutgoing(network, channel, draft, {to, from});
-}
-
 /** A one-off request: its target, and its source when the dialog named one. */
 export interface OnceRequest {
 	to: string;
 	/** Null: detect the draft's language, as a write target does. */
 	from: string | null;
+	/**
+	 * A writing offer taken for this message (offer.ts): the target behaves
+	 * as the conversation's would -- a draft already in it goes as typed --
+	 * rather than as a one-off pick, which corrects a draft in its own language.
+	 */
+	asTarget?: boolean;
 }
 
 /**
@@ -315,12 +295,15 @@ export async function translateOutgoing(
 			target: channel.name,
 			messages: channel.messages,
 		});
-		// No channel prior and no declared languages: both describe what
+		// No channel prior: it describes what
 		// others write here, and this is the user's own line.
 		// A source the one-off dialog named is the verdict, no detection run.
 		// The one picked with the channel's target (`writeFrom`) is the
-		// source too, but detection still runs, so a reply typed straight in
-		// the target language is sent as typed.
+		// source too, and the composer's button names it; detection still
+		// runs, so a reply typed straight in the target language is sent as
+		// typed. With none picked the button's language is the reading
+		// language as a default, and a draft the detector is sure of in
+		// another language goes from that one (`writeSource`).
 		const namedFrom = once ? once.from : channelTranslation(network, channel).writeFrom;
 		const detection: Detection = once?.from
 			? {lang: once.from, confidence: 1, candidates: []}
@@ -352,7 +335,7 @@ export async function translateOutgoing(
 		const ownLanguage = to === readingLanguage();
 		const inTarget = detection.lang === to && detection.confidence >= WRITE_DETECT_MIN_GAP;
 
-		if (inTarget && !once && !ownLanguage) {
+		if (inTarget && (!once || once.asTarget) && !ownLanguage) {
 			cancelOutgoing(channel);
 			return "plain";
 		}
@@ -407,10 +390,6 @@ export async function translateOutgoing(
 
 		polishContext.formality = formalityOf(settings.formality);
 
-		if (settings.variant) {
-			polishContext.variant = settings.variant;
-		}
-
 		const context = polish
 			? polishContext
 			: buildContext(
@@ -431,7 +410,6 @@ export async function translateOutgoing(
 						terms: termsFor(settings.terms, from, to),
 						glossary: getBranding().translation?.glossary ?? [],
 						formality: formalityOf(settings.formality),
-						variant: settings.variant,
 						sourceHint: from,
 						nicks,
 						voice: voiceFor(channel, to),
@@ -706,7 +684,6 @@ export async function checkOutgoing(network: ClientNetwork, channel: ClientChan)
 				terms: termsFor(settings.terms, entry.to, target),
 				glossary: getBranding().translation?.glossary ?? [],
 				formality: formalityOf(settings.formality),
-				variant: settings.variant,
 				sourceHint: entry.to,
 				nicks,
 			}

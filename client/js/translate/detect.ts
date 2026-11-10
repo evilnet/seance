@@ -201,15 +201,20 @@ export function decide(
 /**
  * Why the reading pipeline leaves a detected line alone, or null when it
  * translates it: `same` when the detector placed it in the reading language
- * `to`, `unsure` when it could not place it at all. An unplaced line might
+ * `to` or in one the user also reads (`alsoRead`, Settings → Language's "I
+ * also read"), `unsure` when it could not place it at all. An unplaced line might
  * be readable as it is ("lol", "brb", "mmm tweaking"): handed to an engine
  * with no source named, such lines came back "from Polish". The toolbar's
  * Translate still translates it.
  */
 export type DetectionSkip = "same" | "unsure" | null;
 
-export function detectionSkip(detection: Detection, to: string): DetectionSkip {
-	if (detection.lang === to) {
+export function detectionSkip(
+	detection: Detection,
+	to: string,
+	alsoRead: readonly string[] = []
+): DetectionSkip {
+	if (detection.lang === to || (detection.lang !== null && alsoRead.includes(detection.lang))) {
 		return "same";
 	}
 
