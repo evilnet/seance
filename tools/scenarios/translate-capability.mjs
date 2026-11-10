@@ -71,7 +71,13 @@
 // the listener that posts the line the toolbar is checked on).
 
 import {readFileSync} from "node:fs";
-import {TRANSLATION_ON, closeTranslationSheet, openTranslationSheet} from "./lib/translation.mjs";
+import {
+	SHEET,
+	TRANSLATION_ON,
+	closeTranslationSheet,
+	openTranslationSheet,
+	setReadingThroughSheet,
+} from "./lib/translation.mjs";
 
 const RUN = Date.now().toString(36);
 const BASE = process.env.SEANCE_HTTP || "http://localhost:8041/";
@@ -459,7 +465,7 @@ export default async function run(page) {
 	};
 	const openedOnCode = () =>
 		page.evaluate(
-			`document.querySelector('${PICKER} .language-sheet-side[data-side="to"]').dataset.code`
+			`document.querySelector('${PICKER} .translation-sheet-language[data-side="to"]').dataset.code`
 		);
 
 	const closePicker = async () => {
@@ -474,23 +480,37 @@ export default async function run(page) {
 	const openPanel = () => openTranslationSheet(page);
 	const closePanel = () => closeTranslationSheet(page);
 
-	const panelState = () =>
-		page.evaluate(`(() => {
-			const select = document.querySelector('.translation-panel select[name="translateWrite"]');
-			const note = document.getElementById("translation-panel-write-note");
-			const banner = document.getElementById("translation-panel-blocked");
-			const on = [...document.querySelectorAll(".translation-panel-segment")].find((b) => b.getAttribute("aria-checked") === "false" && b.closest('[role="radiogroup"]') && b.parentElement.previousElementSibling);
+	// The menu's sheet: its notice, and Write in's languages -- the list
+	// opened from Write in's language, each row read without picking it (a
+	// row that runs would apply at once). A blocked row carries its reason
+	// as its title.
+	const panelState = async () => {
+		const banner = await page.evaluate(`(() => {
+			const banner = document.getElementById("translation-sheet-blocked");
 			return {
-				enDisabled: [...select.options].find((o) => o.value === "en").disabled,
-				deDisabled: [...select.options].find((o) => o.value === "de").disabled,
-				note: note ? note.textContent.replace(/\\s+/g, " ").trim() : "",
-				noteDescribes: !note || select.getAttribute("aria-describedby") === note.id,
 				banner: banner ? banner.textContent.replace(/\\s+/g, " ").trim() : "",
 				bannerRole: banner ? banner.getAttribute("role") : null,
 			};
 		})()`);
 
-	const readOnSegment = `[...document.querySelectorAll(".translation-panel-section")][0].querySelectorAll(".translation-panel-segment")[1]`;
+		if (!(await page.count(`${SHEET} .language-sheet-list`))) {
+			await page.click(`${SHEET} .translation-sheet-language`);
+			await page.waitFor(`!!document.querySelector("${SHEET} .language-sheet-list")`, {
+				label: "Write in's language opens the list",
+			});
+		}
+
+		const rows = await page.evaluate(`(() => {
+			const row = (code) => document.querySelector('${SHEET} .language-sheet-row[data-code="' + code + '"]');
+			return {
+				enDisabled: row("en").classList.contains("blocked"),
+				deDisabled: row("de").classList.contains("blocked"),
+				note: (row("en").title || "").replace(/\\s+/g, " ").trim(),
+			};
+		})()`);
+
+		return {...banner, ...rows};
+	};
 
 	for (const [index, name] of names.entries()) {
 		const device = DEVICES[name] && deviceFor(name);
@@ -812,28 +832,30 @@ export default async function run(page) {
 		);
 		await closePicker();
 
-		// 3. The panel: the user's own language under "Send my messages in".
+		// 3. The menu's sheet: the user's own language under Write in.
 		await openPanel();
 
-		const panel = await panelState();
 		const focus = await page.evaluate(`(() => {
 			const a = document.activeElement;
-			return a ? {role: a.getAttribute("role"), checked: a.getAttribute("aria-checked"), text: a.textContent.trim()} : null;
+			return a ? {inSheet: !!a.closest(${JSON.stringify(
+				SHEET
+			)}), tag: a.tagName, cls: a.className} : null;
 		})()`);
 
 		page.check(
-			`${name}: the panel opens on the reading switch's checked choice (${JSON.stringify(
-				focus
-			)})`,
-			!!focus && focus.role === "radio" && focus.checked === "true"
+			`${name}: the sheet takes the focus as it opens (${JSON.stringify(focus)})`,
+			!!focus && focus.inSheet
 		);
 
 		if (MOBILE) {
 			// The sheet is modal: Tab and Shift+Tab stay inside it, walking
 			// its controls and wrapping last -> first (and first -> last
 			// under Shift) -- not merely never leaving, which a Tab that
-			// moved nothing would pass too.
-			const TABBABLE = `[...document.querySelector(".translation-panel").querySelectorAll("button, select, input, textarea, a[href], [tabindex]")].filter((el) => el.tabIndex >= 0 && !el.disabled && el.getClientRects().length > 0)`;
+			// moved nothing would pass too. A closed More's controls are laid
+			// out but out of Tab's reach: only its summary counts.
+			const TABBABLE = `[...document.querySelector(${JSON.stringify(
+				SHEET
+			)}).querySelectorAll("button, select, input, textarea, a[href], summary, [tabindex]")].filter((el) => el.tabIndex >= 0 && !el.disabled && el.getClientRects().length > 0 && (el.tagName === "SUMMARY" || !el.closest("details:not([open])")))`;
 			const count = await page.evaluate(`${TABBABLE}.length`);
 			const forward = [];
 			const backward = [];
@@ -858,7 +880,9 @@ export default async function run(page) {
 				});
 
 				const at = await page.evaluate(
-					`(() => { const a = document.activeElement; if (!a || !a.closest(".translation-panel")) { return a ? a.tagName + "." + a.className : "none"; } return ${TABBABLE}.indexOf(a); })()`
+					`(() => { const a = document.activeElement; if (!a || !a.closest(${JSON.stringify(
+						SHEET
+					)})) { return a ? a.tagName + "." + a.className : "none"; } return ${TABBABLE}.indexOf(a); })()`
 				);
 
 				if (typeof at === "string") {
@@ -886,8 +910,10 @@ export default async function run(page) {
 			);
 		}
 
+		const panel = await panelState();
+
 		page.check(
-			`${name}: no notice in the panel (something runs)`,
+			`${name}: no notice in the sheet (something runs)`,
 			panel.banner === "" && !panel.deDisabled
 		);
 		page.check(
@@ -896,15 +922,7 @@ export default async function run(page) {
 			})`,
 			llm
 				? !panel.enDisabled && panel.note === ""
-				: panel.enDisabled &&
-						panel.note.includes(
-							EN["translate.panel.ownLanguageNeedsGpu"].replace(
-								"{language}",
-								"English"
-							)
-						) &&
-						panel.note.includes(device.why(SMALL)) &&
-						panel.noteDescribes
+				: panel.enDisabled && panel.note.includes(device.why(SMALL))
 		);
 		await page.screenshot(`${name}-panel`);
 		await closePanel();
@@ -1036,13 +1054,21 @@ export default async function run(page) {
 			);
 			await closePicker();
 
-			// Reading is on: what it has under way finishes first, so the
-			// switch below finds the engine idle and takes effect at once
-			// (service.ts setSettings → afterEngineIdle).
-			await page.waitFor(
-				`!Object.values(document.getElementById("app").__vue_app__.config.globalProperties.$store.state.translations).some((e) => e.status === "pending")`,
-				{timeout: 60000, label: "reading has nothing under way"}
-			);
+			// Reading is on: let what it has under way finish first, so the
+			// switch below finds the engine idle (service.ts setSettings →
+			// afterEngineIdle). Best effort: a line left waiting off screen
+			// stays pending, and the run goes on after a while regardless.
+			for (let i = 0; i < 40; i++) {
+				if (
+					!(await page.evaluate(
+						`Object.values(document.getElementById("app").__vue_app__.config.globalProperties.$store.state.translations).some((e) => e.status === "pending")`
+					))
+				) {
+					break;
+				}
+
+				await page.sleep(500);
+			}
 			await openSettings();
 			await setSwitch("translateCpu", false);
 			await closeSettings();
@@ -1112,8 +1138,8 @@ export default async function run(page) {
 			} else {
 				// The tap a finger makes: the panel opens with the reason.
 				await finger("[data-cap-target] .msg-action-translate", 60);
-				await page.waitFor(`!!document.querySelector(".translation-panel")`, {
-					label: "the toolbar's tap opened the panel",
+				await page.waitFor(`!!document.querySelector(${JSON.stringify(SHEET)})`, {
+					label: "the toolbar's tap opened the sheet",
 				});
 
 				const tapped = await panelState();
@@ -1130,8 +1156,10 @@ export default async function run(page) {
 			await openPanel();
 
 			const off = await panelState();
-			const onSegment = await page.evaluate(
-				`(() => { const b = ${readOnSegment}; return {checked: b.getAttribute("aria-checked") === "true", described: b.getAttribute("aria-describedby")}; })()`
+			const readBox = await page.evaluate(
+				`(() => { const b = document.querySelector(${JSON.stringify(
+					`${SHEET} .language-sheet-read-box`
+				)}); return {checked: b.checked, disabled: b.disabled}; })()`
 			);
 			const reading = await page.evaluate(
 				`JSON.parse(localStorage.getItem("thelounge.translate") || "{}")`
@@ -1143,17 +1171,17 @@ export default async function run(page) {
 					off.banner.includes(EN["translate.why.allOff"])
 			);
 			page.check(
-				// Reading is on unless excluded: On is the checked choice, so it
-				// is not disabled, and the notice says why nothing is read.
-				`desktop, both off: reading's On is described by the notice`,
-				onSegment.checked && onSegment.described === "translation-panel-blocked"
+				// Reading is on unless excluded: the switch stays on and live,
+				// and the notice above it says why nothing is read.
+				`desktop, both off: the reading switch stays on under the notice`,
+				readBox.checked && !readBox.disabled && off.banner !== ""
 			);
 			page.check(
 				`desktop, both off: the conversation is not excluded`,
 				!JSON.stringify(reading).includes('"exclude":true')
 			);
 			page.check(
-				`desktop, both off: every language is greyed under "Send my messages in"`,
+				`desktop, both off: every language is greyed under Write in`,
 				off.enDisabled && off.deDisabled
 			);
 			await page.screenshot("desktop-both-off-panel");
@@ -1237,10 +1265,8 @@ export default async function run(page) {
 			}).observe(overlay, {attributes: true, attributeFilter: ["class"], childList: true, subtree: true});
 		})()`);
 
-		// Reading is on unless excluded; the panel's On leaves it so.
-		await openPanel();
-		await page.evaluate(`${readOnSegment}.click()`);
-		await closePanel();
+		// Reading is on unless excluded; the sheet's switch leaves it so.
+		await setReadingThroughSheet(page, true);
 
 		// The language model's copy is the GPU's (a reason names its device).
 		// Which GPU model the device default picked: the 4B on a desktop with

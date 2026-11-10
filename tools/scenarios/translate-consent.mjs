@@ -23,12 +23,7 @@
 // unset for the build: a production build compiles the fake out.
 
 import {readFileSync} from "node:fs";
-import {
-	TRANSLATION_ON,
-	TRANSLATION_OFFERED,
-	closeTranslationSheet,
-	openTranslationSheet,
-} from "./lib/translation.mjs";
+import {TRANSLATION_ON, TRANSLATION_OFFERED, setReadingThroughSheet} from "./lib/translation.mjs";
 
 const RUN = Date.now().toString(36);
 const NICK = `cn${RUN}`;
@@ -162,12 +157,8 @@ export default async function run(page) {
 		}
 	);
 
-	await openTranslationSheet(page);
-	await page.evaluate(
-		`(() => { for (const s of document.querySelectorAll('.translation-panel-segmented .translation-panel-segment')) { if (s.textContent.trim() === "On") { s.click(); return; } } throw new Error("no reading segment"); })()`
-	);
-
-	await closeTranslationSheet(page);
+	// Reading is on unless excluded; the sheet's switch leaves it so.
+	await setReadingThroughSheet(page, true);
 
 	// No question: the downloaded pair takes every line.
 	await page.waitFor(
