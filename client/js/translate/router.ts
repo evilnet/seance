@@ -102,6 +102,46 @@ export interface RouteInput {
 	 * the CPU (`deviceOrder`). Absent, the GPU alone.
 	 */
 	llmCpuAfterGpu?: boolean;
+	/**
+	 * The user's engine preference (`translatePrefer`, Settings → Advanced):
+	 * `llm` takes the language model ahead of every class, `small` puts it
+	 * behind them. Either way every other candidate stays a fallback in the
+	 * table's order, so a preference reorders and never refuses. Absent (or
+	 * Automatic), the table's own order.
+	 */
+	prefer?: EnginePreference;
+	/**
+	 * Automatic's one exception: the pair is one where the language model
+	 * measured ahead of the pair's own model (routes.default.ts `llmAheadOf`),
+	 * so once the language model's copy is on the device -- the download the
+	 * table's order avoids asking for is already made -- it goes first.
+	 */
+	llmFirstIfCached?: boolean;
+}
+
+/** Settings → Advanced's "Prefer": the table's order, the language model first, or last. */
+export type EnginePreference = "auto" | "llm" | "small";
+
+/** A stored value that is none of the three (a hand edit, an older backup) reads as Automatic. */
+export function normalizePreference(value: unknown): EnginePreference {
+	return value === "llm" || value === "small" ? value : "auto";
+}
+
+/**
+ * The classes with the language model taken out of wherever the table put
+ * it and made a class of its own, first or last. An entry without it is
+ * returned as it is.
+ */
+export function withLlmAt(classes: Candidate[][], at: "first" | "last"): Candidate[][] {
+	if (!classes.some((group) => group.includes("llm"))) {
+		return classes;
+	}
+
+	const rest = classes
+		.map((group) => group.filter((candidate) => candidate !== "llm"))
+		.filter((group) => group.length > 0);
+
+	return at === "first" ? [["llm"], ...rest] : [...rest, ["llm"]];
 }
 
 export interface Route {
@@ -342,7 +382,7 @@ export function explainRoute(
 
 	const blocks: RouteBlock[] = [];
 
-	for (const group of candidatesFor(table, source, input.to)) {
+	for (const group of orderedClasses(table, catalog, input, source)) {
 		let first: Route | null = null;
 
 		for (const candidate of group) {
@@ -370,6 +410,37 @@ export function explainRoute(
 	}
 
 	return {route: null, why: pickReason(blocks), polish};
+}
+
+/**
+ * The pair's classes in the order the user's preference asks for (see
+ * `RouteInput.prefer`, `RouteInput.llmFirstIfCached`).
+ */
+function orderedClasses(
+	table: RouteTable,
+	catalog: ModelCatalog,
+	input: RouteInput,
+	source: string | null
+): Candidate[][] {
+	const classes = candidatesFor(table, source, input.to);
+
+	if (input.prefer === "llm") {
+		return withLlmAt(classes, "first");
+	}
+
+	if (input.prefer === "small") {
+		return withLlmAt(classes, "last");
+	}
+
+	if (input.llmFirstIfCached && input.cached) {
+		const llm = candidateRoute("llm", refFor(catalog, "llm"), input, source).route;
+
+		if (llm && input.cached(llm.ref, llm.device)) {
+			return withLlmAt(classes, "first");
+		}
+	}
+
+	return classes;
 }
 
 export function resolveRoute(

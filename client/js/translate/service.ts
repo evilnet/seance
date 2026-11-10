@@ -53,8 +53,16 @@ import {
 	selectLlm,
 } from "./models";
 import {CPU_BATCH_MAX_LINES, CPU_REQUEST_TIMEOUT_MS, REQUEST_TIMEOUT_MS} from "./queue";
-import {DownKey, Route, RouteTable, explainRoute, mergeRoutes, routeInput} from "./router";
-import {routesFor as shippedRoutesFor} from "./routes.default";
+import {
+	DownKey,
+	EnginePreference,
+	Route,
+	RouteTable,
+	explainRoute,
+	mergeRoutes,
+	routeInput,
+} from "./router";
+import {llmAheadOf, routesFor as shippedRoutesFor} from "./routes.default";
 
 /** A loaded GPU model with no request for this long gives its memory back. */
 export const GPU_IDLE_UNLOAD_MS = 3 * 60 * 1000;
@@ -184,6 +192,13 @@ export interface ServiceSettings {
 	devices: DeviceChoices;
 	/** The system translator, where there is one (`ServiceDeps.apple`); absent is on. */
 	system?: boolean;
+	/**
+	 * Settings → Advanced's "Prefer" (`translatePrefer`; router.ts
+	 * `RouteInput.prefer`). The language model preferred also comes ahead of
+	 * the system translator, which then serves only what it cannot take.
+	 * Absent is Automatic.
+	 */
+	prefer?: EnginePreference;
 }
 
 export type ModelStatus = "idle" | "downloading" | "ready" | "failed";
@@ -815,12 +830,73 @@ export class TranslateService {
 		}
 
 		// Ahead of the table, and of the worker's cache probe: the system
-		// translator needs no download, no consent and no worker.
-		const apple = await this.appleRoute(from, to, hint, options.quiet === true);
+		// translator needs no download, no consent and no worker -- unless the
+		// user prefers the language model and it can take this pair
+		// (`llmTakes`), when the table, which then starts with it, goes first.
+		const prefer = this.settings.prefer ?? "auto";
+		const llmFirst = prefer === "llm" && (await this.llmTakes(from, to, hint));
 
-		if (apple) {
-			return {route: apple, refused: null, refusedDevice: null};
+		if (this.disposed) {
+			return none;
 		}
+
+		if (!llmFirst) {
+			const apple = await this.appleRoute(from, to, hint, options.quiet === true);
+
+			if (apple) {
+				return {route: apple, refused: null, refusedDevice: null};
+			}
+		}
+
+		return this.tableRoute(from, to, hint, options, prefer);
+	}
+
+	/**
+	 * Could the language model take this pair now -- its copy able to run,
+	 * not down, not a download the user declined this session? What decides
+	 * whether a preferred language model comes ahead of the system translator.
+	 */
+	private async llmTakes(from: string | null, to: string, hint: string | null): Promise<boolean> {
+		const capability = await this.capabilities();
+
+		if (this.disposed || capability.tier === "none") {
+			return false;
+		}
+
+		await this.cacheOrDeadline();
+
+		if (this.disposed) {
+			return false;
+		}
+
+		const declined = !!this.consent?.anyDeclined;
+		const route = explainRoute(this.table, this.options.catalog, {
+			...routeInput(
+				capability,
+				this.settings.switches,
+				this.settings.devices,
+				{from, to, hint},
+				this.down
+			),
+			llmCpuAfterGpu: this.cpuFallback === "yes",
+			prefer: "llm",
+			refuse: declined
+				? (ref: ModelRef, device: Device) => this.needsConsent(ref, device)
+				: undefined,
+		}).route;
+
+		return route?.candidate === "llm";
+	}
+
+	/** `resolve`'s walk of the route table, after the system translator. */
+	private async tableRoute(
+		from: string | null,
+		to: string,
+		hint: string | null,
+		options: ResolveOptions,
+		prefer: EnginePreference
+	): Promise<RouteResolution> {
+		const none: RouteResolution = {route: null, refused: null, refusedDevice: null};
 
 		const capability = await this.capabilities();
 
@@ -848,6 +924,9 @@ export class TranslateService {
 				this.down
 			),
 			llmCpuAfterGpu: this.cpuFallback === "yes",
+			prefer,
+			llmFirstIfCached:
+				prefer === "auto" && llmAheadOf(this.options.catalog.llm.id, from ?? hint, to),
 			// Per copy: one device's download, or its yes, says nothing of
 			// the other's.
 			cached: (ref: ModelRef, device: Device) =>

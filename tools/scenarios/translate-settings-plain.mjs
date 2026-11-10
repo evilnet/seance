@@ -111,6 +111,63 @@ export default async function run(page) {
 	);
 	await page.screenshot("2-settings-advanced");
 
+	// --- 2b. Preferred model: Automatic by default, its hint naming the
+	// languages the language model takes once downloaded; the choice saves.
+	const PREFER = "#settings .translate-prefer";
+	const prefer = () =>
+		page.evaluate(`(() => {
+			const section = document.querySelector("${PREFER}");
+			return {
+				heading: section?.querySelector("h3")?.textContent.trim(),
+				labels: [...(section?.querySelectorAll("label.opt") ?? [])].map((l) => l.textContent.trim()),
+				checked: section?.querySelector("input:checked")?.value,
+				hint: section?.querySelector(".translate-prefer-hint")?.textContent.replace(/\\s+/g, " ").trim(),
+				ahead: section?.querySelector(".translate-prefer-ahead")?.textContent.trim() ?? null,
+				stored: ${STORE}.state.settings.translatePrefer,
+			};
+		})()`);
+	const auto = await prefer();
+
+	console.log("prefer", JSON.stringify(auto));
+	page.check(
+		`Advanced has "${auto.heading}", on Automatic (${auto.labels.join(" / ")})`,
+		auto.heading === EN["translate.prefer.heading"] &&
+			auto.labels.join("|") ===
+				[
+					EN["translate.prefer.auto"],
+					EN["translate.prefer.llm"],
+					EN["translate.prefer.small"],
+				].join("|") &&
+			auto.checked === "auto" &&
+			auto.stored === "auto"
+	);
+	page.check(
+		`Automatic's hint names where the language model goes first (${auto.ahead})`,
+		auto.hint.startsWith(EN["translate.prefer.autoHint"]) &&
+			/Spanish/.test(auto.ahead ?? "") &&
+			/Italian/.test(auto.ahead ?? "") &&
+			!/German|Dutch|Russian/.test(auto.ahead ?? "")
+	);
+	await page.evaluate(
+		`document.querySelector('${PREFER} input[value="llm"]').scrollIntoView({block: "center"})`
+	);
+	await page.screenshot("2b-preferred-model");
+	await page.click(`${PREFER} input[value="llm"]`);
+	await page.waitFor(`${STORE}.state.settings.translatePrefer === "llm"`, {
+		label: "Language model first saved",
+	});
+
+	const llm = await prefer();
+
+	page.check(
+		"Language model first saves, and says what it costs",
+		llm.checked === "llm" && llm.hint === EN["translate.prefer.llmHint"] && llm.ahead === null
+	);
+	await page.click(`${PREFER} input[value="auto"]`);
+	await page.waitFor(`${STORE}.state.settings.translatePrefer === "auto"`, {
+		label: "back on Automatic",
+	});
+
 	// Only the language model, so the write below needs its large download.
 	for (const name of ["translateCpu", "translateNllb"]) {
 		await page.evaluate(

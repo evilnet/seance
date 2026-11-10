@@ -291,6 +291,34 @@ no engine). Every other translation scenario switches translation on first
   af, trails it in hr sl el he ta eu ga cy sw tl ur, and none of its
   languages is limited (`test/translate/routes.ts` pins where the two tables
   differ).
+- **Which model goes first: Automatic, or the user's preference.** Every
+  OPUS-MT pair routes ahead of the language model (`opusEntry`, #240), since
+  a pair is a ~100 MB download and the language model 1–2 GB. Two things
+  reorder that, both in `router.ts` `orderedClasses` and never refusing
+  anything (every other candidate stays a fallback in the table's order):
+  - **Automatic's one exception** (`RouteInput.llmFirstIfCached`). Where the
+    selected language model measured ahead of the pair by more than the tie
+    band (`RoutePlacement.llmAhead`: 1.7B es 74/60 and it 76/63; 4B fr, es
+    and it), and its copy for the device it would run on is already
+    downloaded, it goes first: the download the pair-first order avoids is
+    made already. `routes.default.ts` `llmAheadOf` names those pairs; a tie
+    (de, nl, ru, and fr on 1.7B, where OPUS-MT measured level or ahead)
+    stays with the pair.
+  - **Settings → Advanced's "Preferred model"** (`translatePrefer`:
+    `auto`, `llm`, `small`; `normalizePreference` reads anything else as
+    Automatic). "Language model first" makes the language model a class of
+    its own ahead of the table's (`withLlmAt`); it also comes ahead of the
+    system translator, which then takes only a pair the language model
+    cannot (`service.ts` `llmTakes`: its copy able to run, not down, not a
+    download declined this session). "Smaller models first" puts the
+    language model behind every other class. Neither changes what can run,
+    so every "can this run?" question (Settings' rows, the toolbar, the
+    sheet) asks without it.
+  - **Where it is said.** Only under the choice itself: Automatic's hint
+    names the languages the selected model takes once downloaded
+    (`TranslationOptions.vue` `preferAhead`), the other two what they cost.
+    A line never names its model (the download's question has no model
+    name either, § A download asks first).
 - **Only the languages that translate well are offered.** Estonian,
   Latvian, Lithuanian and Icelandic came back under 55% of a line's content
   words from every engine (1.7B, 4B, NLLB), so they were dropped from

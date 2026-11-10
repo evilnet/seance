@@ -3481,6 +3481,27 @@ describe("translate/service", () => {
 			r.service.dispose();
 		});
 
+		it("the language model preferred comes ahead of it, which then takes what the model cannot", async () => {
+			const r = appleRig({"de>en": "installed"});
+
+			r.service.setSettings({
+				switches: {llm: true, opus: true, nllb: true},
+				devices: AUTO,
+				prefer: "llm",
+			});
+			expect((await r.service.route("de", "en"))?.candidate).to.equal("llm");
+			expect(r.bridge.calls.filter((c) => c.method === "translate")).to.have.length(0);
+
+			// The language model switched off: the system translator, as before.
+			r.service.setSettings({
+				switches: {llm: false, opus: true, nllb: true},
+				devices: AUTO,
+				prefer: "llm",
+			});
+			expect((await r.service.route("de", "en"))?.candidate).to.equal("apple");
+			r.service.dispose();
+		});
+
 		const write = {...base, purpose: "write" as const};
 
 		it("offers a missing pack once: downloaded, the pair is Apple's", async () => {
