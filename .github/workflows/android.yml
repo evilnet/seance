@@ -58,7 +58,7 @@ jobs:
           NDK=29.0.14206865
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --licenses >/dev/null
-          "$SDKMANAGER" "platforms;android-37" "ndk;$NDK" >/dev/null
+          "$SDKMANAGER" "platforms;android-37.0" "ndk;$NDK" >/dev/null
           echo "NDK_HOME=$ANDROID_HOME/ndk/$NDK" >>"$GITHUB_ENV"
 
       - name: Rust target
@@ -79,4 +79,5 @@ jobs:
         with:
           name: seance-android-debug
           path: shells/tauri/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+          if-no-files-found: error
           retention-days: 14

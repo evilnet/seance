@@ -58,9 +58,14 @@ jobs:
       - name: iOS Simulator build
         run: make ios-sim-build
 
+      # A tar keeps the executable bit, which an uploaded directory loses.
+      - name: Pack the app
+        run: tar -cf Seance.app.tar -C shells/tauri/src-tauri/target/release/bundle/macos Seance.app
+
       - name: Keep the app
         uses: actions/upload-artifact@v7
         with:
           name: seance-macos-unsigned
-          path: shells/tauri/src-tauri/target/release/bundle/macos/Seance.app
+          path: Seance.app.tar
+          if-no-files-found: error
           retention-days: 14
