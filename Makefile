@@ -12,6 +12,7 @@
 #   export JAVA_HOME := $(shell /usr/libexec/java_home)
 #   export ANDROID_HOME := $(HOME)/Library/Android/sdk
 #   export NDK_HOME := $(ANDROID_HOME)/ndk/29.0.14206865
+#   export RUSTUP_TOOLCHAIN := 1.99.1    # pin Rust for the native builds
 #
 # Written for the make that ships with macOS (GNU Make 3.81) as well as newer.
 
@@ -30,7 +31,9 @@ MAC_TEST_TIMEOUT ?= 600
 
 # Outputs are copied to dist/<platform>-<variant>-<commit>/ once a build has
 # succeeded, so a failed build never leaves an older artifact looking current.
-COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)$(shell git diff --quiet HEAD -- 2>/dev/null || echo -dirty)
+# Files the builds themselves rewrite (the locale catalogs, the iOS project's
+# Info.plist) do not count as local changes.
+COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)$(shell git diff --quiet HEAD -- . ':!client/locales/*.json' ':!shells/tauri/src-tauri/gen/apple/*/Info.plist' 2>/dev/null || echo -dirty)
 # publish,<variant>,<path>: copy a finished output into dist/.
 publish = rm -rf "dist/$(1)-$(COMMIT)" && mkdir -p "dist/$(1)-$(COMMIT)" && cp -R "$(2)" "dist/$(1)-$(COMMIT)/" && echo "built: dist/$(1)-$(COMMIT)/$(notdir $(2))"
 
@@ -100,10 +103,12 @@ mac-build: tauri-deps
 	@$(call publish,mac-release,$(TAURI)/src-tauri/target/release/bundle/macos/Seance.app)
 
 # A debug build that loads the page and checks the bridge; it opens a real
-# window, so it needs a logged-in GUI session. perl's alarm stands in for
-# timeout(1), which macOS does not ship.
+# window, so it needs a logged-in GUI session. It runs under an identifier of
+# its own: under Seance's, single-instance would hand the run to a Seance
+# you already have open. perl's alarm stands in for timeout(1), which macOS
+# does not ship.
 mac-test: tauri-deps
-	cd $(TAURI) && perl -e 'alarm shift; exec @ARGV or die "$$!\n"' $(MAC_TEST_TIMEOUT) $(PNPM) smoke
+	cd $(TAURI) && TAURI_CONFIG='{"identifier":"chat.seance.desktop.maketest"}' perl -e 'alarm shift; exec @ARGV or die "$$!\n"' $(MAC_TEST_TIMEOUT) $(PNPM) smoke
 
 ## Android
 
