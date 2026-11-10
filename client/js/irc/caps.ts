@@ -190,6 +190,14 @@ export class CapNegotiator {
 	 */
 	onHold?: () => void;
 
+	/**
+	 * True once the server has registered us (001). A `CAP REQ` sent after
+	 * `CAP END` but before that suspends registration again (cap-negotiation:
+	 * a REQ during registration means the server MUST NOT finish it until
+	 * `CAP END`), so the negotiator sends `CAP END` again behind it.
+	 */
+	isRegistered?: () => boolean;
+
 	/** `beforeEnd` took over; waiting for `end()`. */
 	private pendingEnd = false;
 	/** Set when a required cap is missing at LS time; negotiation halts. */
@@ -303,6 +311,7 @@ export class CapNegotiator {
 		}
 
 		this.maybeEnd(result);
+		this.reEnd(result);
 		result.done = this.ended;
 
 		if (result.missingRequired.length > 0 && result.errorCode === undefined) {
@@ -482,6 +491,19 @@ export class CapNegotiator {
 		// One REQ normally; split only if the line would exceed the frame cap.
 		for (const chunk of splitMessage(REQ_PREFIX.length, names.join(" "), MAX_LINE_BYTES)) {
 			result.send.push(REQ_PREFIX + chunk);
+		}
+	}
+
+	/** `CAP END` again behind a REQ sent after it during registration (isRegistered). */
+	private reEnd(result: CapResult): void {
+		if (!this.ended || this.isRegistered === undefined || this.isRegistered()) {
+			return;
+		}
+
+		const lastEnd = result.send.lastIndexOf("CAP END");
+
+		if (result.send.slice(lastEnd + 1).some((line) => line.startsWith(REQ_PREFIX))) {
+			result.send.push("CAP END");
 		}
 	}
 

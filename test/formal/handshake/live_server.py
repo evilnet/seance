@@ -238,6 +238,9 @@ def main():
         # sleeps cannot place; the timely ones cover every server path
         if not t["env"]["timely"]:
             continue
+        # an ident/DNS hold (env.hold) cannot be stretched on demand either
+        if t["env"].get("hold"):
+            continue
         # a services split mid-exchange (ServerAgentLost) cannot be staged
         # with one fake services link; its 906 is the only one not answering
         # our own AUTHENTICATE *
