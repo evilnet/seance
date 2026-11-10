@@ -39,6 +39,7 @@
 import {readFileSync} from "node:fs";
 import {TRANSLATION_ON} from "./lib/translation.mjs";
 
+const MOBILE = process.argv.includes("--mobile");
 const BASE = process.env.SEANCE_HTTP || "http://127.0.0.1:8063/seance/develop/";
 const LOG = process.env.SEANCE_SERVER_LOG || null;
 const EN = JSON.parse(readFileSync("client/locales/en.json", "utf8"));
@@ -256,13 +257,19 @@ export default async function run(page) {
 			);
 		} else {
 			page.check(`${name}: no build line on the 1.7B row`, buildLine === "");
+			// Under --mobile the page is a phone's, which the 4B is too large
+			// for whatever the GPU binds (models.ts tooLargeForPhone).
 			page.check(
-				`${name}: the 4B runs too`,
+				`${name}: the 4B ${MOBILE ? "is too large for a phone's page" : "runs too"}`,
 				(await page.evaluate(
 					`!!document.querySelector(${JSON.stringify(
-						large + " .translate-copy-download:not([disabled])"
+						large +
+							` .translate-copy-download${MOBILE ? "[disabled]" : ":not([disabled])"}`
 					)})`
-				)) === true
+				)) === true &&
+					(!MOBILE ||
+						(await page.evaluate(textOf(`${large} .translate-copy-why`))) ===
+							EN["translate.why.phoneMemory"])
 			);
 		}
 
