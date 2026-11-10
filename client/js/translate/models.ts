@@ -12,7 +12,11 @@ export type Candidate = "llm" | "nllb" | `opus:${string}` | "apple";
 /** The shape `BrandingTranslation` (branding.ts) is assignable to. */
 export interface CatalogOptions {
 	modelBase?: string;
-	llm?: {model?: string; lib?: string};
+	/**
+	 * `splitModel`: the 1.7B's weights served again under a URL of their
+	 * own, for its small-buffer build on a mirrored deploy (`buildCatalog`).
+	 */
+	llm?: {model?: string; lib?: string; splitModel?: string};
 	cpu?: {nllb?: string; opus?: Record<string, string | OpusPairOption>};
 	/**
 	 * Give OPUS-MT and NLLB-200 their GPU copies. Off in the shipped app,
@@ -879,6 +883,24 @@ export function selectLlm(
 	return llm === catalog.llm ? catalog : {...catalog, llm};
 }
 
+/**
+ * The small-buffer build's weights on a mirrored deploy: `llm.splitModel`
+ * with a trailing slash, unless it is the model's own mirrored directory,
+ * whose manifest key the build must not share.
+ */
+function splitModelFor(options: CatalogOptions): string | undefined {
+	const given = options.llm?.splitModel;
+
+	if (!given || !options.modelBase) {
+		return undefined;
+	}
+
+	const url = given.endsWith("/") ? given : `${given}/`;
+	const own = `${options.modelBase.replace(/\/+$/, "")}/${QWEN3_1_7B_ID}/`;
+
+	return url === own ? undefined : url;
+}
+
 export function buildCatalog(
 	options: CatalogOptions = {},
 	selectedLlm: string | null = null
@@ -890,15 +912,24 @@ export function buildCatalog(
 	// 1.7B wasm fails.
 	//
 	// The small-buffer build reads the published weights from Hugging Face
-	// at a pinned commit through the app's own library: a deploy that
-	// mirrors the weights (`modelBase`, which keeps its readers off
-	// third-party hosts) or names its own library for the model has neither,
-	// so there the model has no such build and a small GPU cannot run it.
+	// at a pinned commit through the app's own library. A deploy that names
+	// its own library for the model has no such build. One that mirrors the
+	// weights (`modelBase`, which keeps its readers off third-party hosts)
+	// has it only where it serves the same files a second time
+	// (`llm.splitModel`): the build's rewritten manifest is cached under its
+	// URL, which must not be the model's own (splitManifest.ts).
+	const splitModel = splitModelFor(options);
 	const llmChoices = LLM_CHOICES.map((ref): ModelRef => {
 		const choice: ModelRef = ref.id === llmId && lib ? {...ref, lib} : {...ref};
 
-		if (choice.smallBuffer && (options.modelBase || choice.lib)) {
+		if (choice.smallBuffer && choice.lib) {
 			delete choice.smallBuffer;
+		} else if (choice.smallBuffer && options.modelBase) {
+			if (splitModel) {
+				choice.smallBuffer = {...choice.smallBuffer, model: splitModel};
+			} else {
+				delete choice.smallBuffer;
+			}
 		}
 
 		return choice;

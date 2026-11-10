@@ -109,6 +109,46 @@ describe("translate small-buffer build", () => {
 			expect(small.smallBuffer?.id).to.equal(QWEN3_1_7B_SPLIT_ID);
 		});
 
+		it("keeps the build on a mirror that serves the weights again under their own URL", () => {
+			const base = "https://example.org/models";
+			const mirrored = buildCatalog({
+				modelBase: base,
+				llm: {splitModel: `${base}/${QWEN3_1_7B_SPLIT_ID}`},
+			});
+			const build = mirrored.llmChoices.find((ref) => ref.id === QWEN3_1_7B_ID)?.smallBuffer;
+
+			// The mirror's copy, slash-terminated; the app's library and the split stay.
+			expect(build?.model).to.equal(`${base}/${QWEN3_1_7B_SPLIT_ID}/`);
+			expect(build?.lib).to.equal(small.smallBuffer?.lib);
+			expect(build?.split).to.deep.equal(small.smallBuffer?.split);
+			// The 4B still has none.
+			expect(mirrored.llmChoices.find((ref) => ref.id === QWEN3_4B_ID)?.smallBuffer).to.equal(
+				undefined
+			);
+			// The model's own mirrored directory would share its manifest key: no build.
+			const same = buildCatalog({
+				modelBase: base,
+				llm: {splitModel: `${base}/${QWEN3_1_7B_ID}/`},
+			});
+
+			expect(same.llm.smallBuffer).to.equal(undefined);
+			// A library of the deploy's own still rules it out.
+			const ownLib = buildCatalog({
+				modelBase: base,
+				llm: {
+					model: QWEN3_1_7B_ID,
+					lib: "https://example.org/qwen3.wasm",
+					splitModel: `${base}/${QWEN3_1_7B_SPLIT_ID}/`,
+				},
+			});
+
+			expect(ownLib.llm.smallBuffer).to.equal(undefined);
+			// Without a mirror, the pinned Hugging Face copy, whatever splitModel says.
+			expect(
+				buildCatalog({llm: {splitModel: "https://example.org/x/"}}).llm.smallBuffer?.model
+			).to.equal(small.smallBuffer?.model);
+		});
+
 		it("pins the build to a revision, so its manifest key is never the model's own", () => {
 			const build = small.smallBuffer!;
 			const prebuilt = [

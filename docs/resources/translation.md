@@ -503,8 +503,9 @@ million cases), and over every pair of all 46 languages out of the box. The
 Apple steps are enumerated through the service in test/translate/service.ts
 ("the ladder's Apple steps, every case"). One fact the matrix records: a
 deploy that mirrors the models (`modelBase`) has no small-buffer build of
-the 1.7B, so a GPU binding under the 1.7B's own 148 MiB tensor gets no
-language model on the GPU there.
+the 1.7B unless it serves the weights again under `translation.llm.splitModel`
+(branding.md § Translation), so without it a GPU binding under the 1.7B's
+own 148 MiB tensor gets no language model on the GPU there.
 
 ### What runs here, and why not
 
@@ -698,9 +699,11 @@ model patch, the toolchain, how it is rebuilt and checked).
   build of the model made for small graphics buffers: its largest buffer
   is 74.2 MiB."
 - **What has no build.** The 4B (its row keeps "Needs a GPU buffer of
-  185.5 MiB; this device binds at most 128 MiB"); a deploy that mirrors the
-  weights (`translation.modelBase`) or names its own library for the 1.7B,
-  since the build reads Hugging Face through the app's library.
+  185.5 MiB; this device binds at most 128 MiB"); a deploy that names its
+  own library for the 1.7B; and a deploy that mirrors the weights
+  (`translation.modelBase`) without serving them a second time under
+  `translation.llm.splitModel`, since the build's rewritten manifest is
+  cached under its weights' URL and cannot share the model's own.
 - **What is proven.** The rewrite is byte-for-byte the one the bench ran
   (2026-10-28, headless Chromium on SwiftShader, which has no
   `shader-f16`, so with the q4f32 twin of the library): the stock library
