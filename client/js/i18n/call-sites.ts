@@ -2450,6 +2450,7 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"translate.model.copyDownloaded",
 	"translate.model.copyNotDownloaded",
 	"translate.model.delete",
+	"translate.model.down",
 	"translate.model.download",
 	"translate.model.failed",
 	"translate.model.failedUnknown",

@@ -293,8 +293,16 @@ reload). Every other translation scenario switches translation on first
   copy the table would take were nothing down (`RouteResolution.down`), and
   the request fails with `TRANSLATION_DOWN` and the reason that copy's load
   gave (`downReasons`): "the model for this failed to load earlier
-  (<model>: <error>); reload the page to try it again". The alternative -- answer from the best downloaded class
-  while the better one downloads -- was not taken: it is exactly how a
+  (<model>: <error>); reload the page to try it again". The model views
+  carry the same reason as `downError` (`downErrorOf`, only on the model
+  the reason names), which a cache answer does not reset: `applyCached`
+  turns a failed copy whose files are there back into "ready", so Settings
+  said "Downloaded" for a copy nothing would route to. The row now says
+  "Failed to load: … Reload the page to try it again." for as long as the
+  copy is down. Tests `test/translate/service.ts` "a later request says
+  what is down and why"; browser check `tools/scenarios/translate-down.mjs`
+  (also `--mobile`; the fake worker's `failLoad`). The alternative --
+  answer from the best downloaded class while the better one downloads -- was not taken: it is exactly how a
   Filipino draft reached Qwen, and a device with nothing downloaded has to
   wait for a download anyway.
 - **The source hint.** A seq2seq model has no prompt to detect a source in,

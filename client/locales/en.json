@@ -2691,6 +2691,7 @@
   "translate.model.copyDownloaded": "Downloaded · {size}",
   "translate.model.copyNotDownloaded": "Not downloaded · {size}",
   "translate.model.delete": "Remove",
+  "translate.model.down": "Failed to load: {error}. Reload the page to try it again.",
   "translate.model.download": "Download",
   "translate.model.failed": "Failed: {error}",
   "translate.model.failedUnknown": "Failed: unknown error",

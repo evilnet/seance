@@ -206,6 +206,13 @@ export interface ModelView {
 	status: ModelStatus;
 	fraction: number;
 	error: string | null;
+	/**
+	 * Why this copy is down for the session: its load's own error, kept
+	 * after `error` is reset (`applyCached` turns a failed copy whose files
+	 * are there back into "ready", which read as "Downloaded" in Settings
+	 * while nothing would route to it). Null when the copy is not down.
+	 */
+	downError?: string | null;
 }
 
 /** What `loadNote` reports; the phrase itself is the component's (helpers/modelLabel.ts). */
@@ -2294,9 +2301,23 @@ export class TranslateService {
 					error: null,
 				};
 
-				return {...view};
+				return {...view, downError: this.downErrorOf(ref, device)};
 			})
 		);
+	}
+
+	/**
+	 * The load error that took this copy down, or null: `downReasons` is
+	 * kept per candidate, and a candidate's key names whichever model ran it
+	 * (the language model's GPU copy is either Qwen), so only the model the
+	 * reason names gets it.
+	 */
+	private downErrorOf(ref: ModelRef, device: Device): string | null {
+		const key: DownKey = `${candidateOf(ref)}@${device}`;
+		const reason = this.down.has(key) ? this.downReasons.get(key) : undefined;
+		const prefix = `${ref.id}: `;
+
+		return reason?.startsWith(prefix) ? reason.slice(prefix.length) : null;
 	}
 
 	private publish(): void {
