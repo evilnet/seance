@@ -116,9 +116,6 @@ function resolveMember(name, spec) {
 			kind: "pr",
 			number: pr.number,
 			title: pr.title,
-			state: pr.merged_at ? "merged" : pr.state,
-			head: pr.head.label,
-			base: pr.base.label,
 			commits,
 			ref,
 			sha,
@@ -234,11 +231,19 @@ function cmdNew(args) {
 	if (fs.existsSync(wt)) {
 		die(`${wt} exists and mix did not create it; leaving it alone`);
 	}
+	if (git(["for-each-ref", "--count=1", `refs/mix/${name}/`])) {
+		die(`refs/mix/${name}/ is in use and mix did not create it; leaving it alone`);
+	}
 	// Until the manifest is saved, abort cannot find this mix: if new stops
-	// before then, drop the refs it fetched.
+	// before then, drop the refs it fetched and the worktree it added.
 	let saved = false;
+	let added = false;
 	process.on("exit", () => {
 		if (!saved) {
+			if (added) {
+				gitTry(["worktree", "unlock", wt]);
+				gitTry(["worktree", "remove", "--force", wt]);
+			}
 			dropRefs(name);
 		}
 	});
@@ -255,6 +260,7 @@ function cmdNew(args) {
 		created: new Date().toISOString(),
 	};
 	git(["worktree", "add", "--detach", wt, m.baseSha]);
+	added = true;
 	fs.writeFileSync(
 		path.join(path.resolve(wt, git(["rev-parse", "--git-dir"], wt)), MARKER),
 		`${name}\n`
@@ -289,6 +295,10 @@ function cmdForget([name, file]) {
 	const m = load(name);
 	if (!file) {
 		die("forget needs a file");
+	}
+	// checkout -m would overwrite a file that is not in conflict.
+	if (!git(["diff", "--name-only", "--diff-filter=U", "--", file], m.worktree)) {
+		die(`${file} is not in conflict in ${m.worktree}`);
 	}
 	// rerere forget only drops the recorded resolution; checkout -m puts the
 	// conflict markers back in the file, to resolve by hand.
