@@ -262,6 +262,14 @@ const defaultConfig = {
 	translateSystem: {
 		default: true,
 	},
+	/** Settings → Advanced's "Prefer": auto | llm | small (translate/router.ts
+	 * `EnginePreference`). Automatic takes the cheapest model that measured
+	 * well enough, and the language model where it measured ahead once it is
+	 * downloaded; the other two put the language model first or last, every
+	 * other model kept as a fallback. */
+	translatePrefer: {
+		default: "auto",
+	},
 	/** Which device each model runs on: auto | gpu | cpu (translate/models.ts `DeviceChoices`). */
 	translateLlmDevice: {
 		default: "auto",

@@ -23,7 +23,7 @@ import {type ModelCatalog, buildCatalog, listedSize, normalizeDeviceChoice} from
 import {APPLE_PLUGIN, AppleTranslator} from "./engines/apple";
 import {hasAppleTranslate, nativeInvoke} from "../helpers/shell";
 import type {MainPort, MainToWorker} from "./protocol";
-import {RouteTable} from "./router";
+import {RouteTable, normalizePreference} from "./router";
 import {
 	CpuFallbackAnswer,
 	CpuFallbackInfo,
@@ -237,6 +237,7 @@ export function serviceSettings(): ServiceSettings {
 			nllb: normalizeDeviceChoice(settings.translateNllbDevice),
 		},
 		system: settings.translateSystem !== false,
+		prefer: normalizePreference(settings.translatePrefer),
 	};
 }
 
@@ -549,6 +550,7 @@ function create(): Made {
 					devices.opus,
 					devices.nllb,
 					store.state.settings.translateSystem !== false,
+					normalizePreference(store.state.settings.translatePrefer),
 				];
 			},
 			() => created.setSettings(serviceSettings())

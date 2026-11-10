@@ -114,6 +114,7 @@ describe("translate/routes.default", () => {
 			nllbFirst: ["fi"],
 			nllbTied: [],
 			opusTied: [],
+			llmAhead: [],
 			limited: [],
 		});
 

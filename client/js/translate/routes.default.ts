@@ -17,9 +17,10 @@
 //   service.ts, ahead of any table), then a pair, then the LLM. The LLM
 //   measured ahead of OPUS-MT for fr, es and it, and tied for de, nl and ru
 //   (`opusTied`, which still records that and steers tools/i18n/fill.ts);
-//   that is no longer worth a 2 GB question in a chat client. Someone who
-//   wants the LLM's quality downloads it and switches the pair off
-//   (Settings → Translation).
+//   that is no longer worth a 2 GB question in a chat client. Once the
+//   LLM is on the device anyway, the languages it measured ahead in
+//   (`llmAhead`) take it first (router.ts `llmFirstIfCached`), and Settings
+//   → Advanced's "Prefer" puts it first everywhere (`translatePrefer`).
 // - Every other language: the LLM first, NLLB next.
 //
 // A larger GPU model moves the line between "NLLB is better" and "the LLM
@@ -42,6 +43,13 @@ export interface RoutePlacement {
 	 * tables put every pair first, tied or not (`opusEntry`).
 	 */
 	opusTied: readonly string[];
+	/**
+	 * OPUS-MT pair languages where the LLM came back ahead of the pair by
+	 * more than the tie band. The pair still routes first, since it is the
+	 * cheaper download; once the LLM's copy is on the device, these take it
+	 * first instead (`llmAheadOf`).
+	 */
+	llmAhead: readonly string[];
 	/**
 	 * Languages whose best measured engine brought back under 55% of a line's
 	 * content words: translations into and out of them are often wrong
@@ -83,6 +91,9 @@ export const NLLB_TIED: readonly string[] = ["sk", "ms", "gl", "th", "cs", "nb",
 /** OPUS-MT pair languages whose pairs tie with or beat the LLM (a record; every pair routes first). */
 export const OPUS_TIED: readonly string[] = ["de", "nl", "ru", "fr"];
 
+/** OPUS-MT pair languages the LLM beat by more than the tie band (es 74/60, it 76/63). */
+export const LLM_AHEAD: readonly string[] = ["es", "it"];
+
 /** Under 55% of a line's content words back from the best engine (see `RoutePlacement`). */
 export const LIMITED_LANGUAGES: readonly string[] = ["hi", "bn", "hu", "sk", "ko"];
 
@@ -90,6 +101,7 @@ export const QWEN3_1_7B: RoutePlacement = {
 	nllbFirst: NLLB_FIRST,
 	nllbTied: NLLB_TIED,
 	opusTied: OPUS_TIED,
+	llmAhead: LLM_AHEAD,
 	limited: LIMITED_LANGUAGES,
 };
 
@@ -130,6 +142,9 @@ export const QWEN3_4B_NLLB_TIED: readonly string[] = [
 
 export const QWEN3_4B_OPUS_TIED: readonly string[] = ["de", "nl", "ru"];
 
+/** fr 76/63, es 84/60, it 79/63. */
+export const QWEN3_4B_LLM_AHEAD: readonly string[] = ["fr", "es", "it"];
+
 // Empty: the four languages 4B measured under 55% (et lv lt is) were under it
 // for every engine, and are no longer offered (languages.ts).
 export const QWEN3_4B_LIMITED_LANGUAGES: readonly string[] = [];
@@ -138,6 +153,7 @@ export const QWEN3_4B: RoutePlacement = {
 	nllbFirst: QWEN3_4B_NLLB_FIRST,
 	nllbTied: QWEN3_4B_NLLB_TIED,
 	opusTied: QWEN3_4B_OPUS_TIED,
+	llmAhead: QWEN3_4B_LLM_AHEAD,
 	limited: QWEN3_4B_LIMITED_LANGUAGES,
 };
 
@@ -161,6 +177,26 @@ export function isLimitedLanguage(
 	llmModelId: string | null = QWEN3_1_7B_ID
 ): boolean {
 	return !!code && limitedLanguagesFor(llmModelId).includes(code);
+}
+
+/**
+ * Did this GPU model measure ahead of the shipped OPUS-MT pair for this
+ * pair (`RoutePlacement.llmAhead`)? Only a shipped pair's languages count:
+ * a pair with no OPUS-MT model already routes the LLM first, or NLLB by
+ * measurement.
+ */
+export function llmAheadOf(
+	llmModelId: string | null | undefined,
+	from: string | null,
+	to: string
+): boolean {
+	if (!from || !DEFAULT_OPUS_PAIRS[`${from}-${to}`]) {
+		return false;
+	}
+
+	const ahead = placementFor(llmModelId).llmAhead;
+
+	return ahead.includes(from) || ahead.includes(to);
 }
 
 /** The entry for a pair without an OPUS-MT model; `"*"` stands for any language. */

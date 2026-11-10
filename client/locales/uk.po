@@ -15546,6 +15546,54 @@ msgctxt "translate.picker.sameLanguageNeedsGpu"
 msgid "Correcting a message needs the language model."
 msgstr "Для виправлення повідомлення потрібна мовна модель."
 
+#. Settings → Translation → Advanced, the model-preference choice: the app picks the model per language. Radio button label.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.prefer.auto"
+msgid "Automatic (recommended)"
+msgstr ""
+
+#. Second sentence of the hint under Automatic. {languages} is a list of language names joined the interface language's way, such as 'Spanish and Italian'.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.prefer.autoAhead"
+msgid "Once the language model is downloaded, it also takes {languages}, where it translates better."
+msgstr ""
+
+#. Hint under Automatic in the model-preference choice (Settings → Translation → Advanced).
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.prefer.autoHint"
+msgid "Each language gets the smallest download that translates it well."
+msgstr ""
+
+#. Settings → Translation → Advanced: heading of the choice of which translation model is tried first. Short.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.prefer.heading"
+msgid "Preferred model"
+msgstr ""
+
+#. Settings → Translation → Advanced, the model-preference choice: the large language model (Qwen) is tried first for every language. Radio button label.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.prefer.llm"
+msgid "Language model first"
+msgstr ""
+
+#. Hint under 'Language model first' in the model-preference choice (Settings → Translation → Advanced).
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.prefer.llmHint"
+msgid "The language model takes every language it can run, ahead of the system translator. It is slower and uses more battery; the other models take what it cannot."
+msgstr ""
+
+#. Settings → Translation → Advanced, the model-preference choice: the small per-language models (OPUS-MT, NLLB-200) are tried first. Radio button label.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.prefer.small"
+msgid "Smaller models first"
+msgstr ""
+
+#. Hint under 'Smaller models first' in the model-preference choice (Settings → Translation → Advanced).
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.prefer.smallHint"
+msgid "The smaller models take every language they have. They are quicker and lighter; the language model takes the rest."
+msgstr ""
+
 #. Failure reason after 'Couldn't translate': the model replied to a question it found in the message rather than translating the message. Lowercase; reads as the tail of that sentence.
 #: client/components/TranslationLine.vue
 msgctxt "translate.reason.answered"
