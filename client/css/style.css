@@ -1335,6 +1335,14 @@ p {
 	position: relative; /* the resizer's containing block */
 	flex-direction: column;
 	width: var(--sidebar-width);
+
+	/* The width is the sidebar's, never a share of a squeeze. The chat
+	 * beside it starts from its content's size (.window, flex: 1 1 auto),
+	 * and when that and the search pane add up to more than the row, the
+	 * overflow is taken from every item that can shrink: the "is typing"
+	 * line's text or opening search would take some of it from here, and
+	 * the sidebar's edge would move each time they came and went. */
+	flex-shrink: 0;
 	max-height: 100%;
 	will-change: transform;
 	color: #b7c5d1; /* same as .channel-list-item color */
