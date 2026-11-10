@@ -409,6 +409,24 @@ describe("IrcClient SASL", function () {
 		expect(transport.sent[transport.sent.length - 1]).to.equal("CAP END");
 	});
 
+	it("ends registration again behind the retries of a REQ NAKed after CAP END", function () {
+		// nefarious2 holds registration for a REQ sent after CAP END until the
+		// next CAP END (cap-negotiation); without one, 001 never came.
+		const {client, transport} = setup({sasl: "", saslAccount: "", saslPassword: ""});
+		transport.line(`:irc.test CAP * LS :${OFFERED_CAPS}`);
+		const req = transport.sent.find((l) => l.startsWith("CAP REQ :")) as string;
+		expect(transport.sent.slice(-2)).to.deep.equal([req, "CAP END"]);
+
+		transport.line(`:irc.test CAP alice NAK :${req.slice("CAP REQ :".length)}`);
+		expect(transport.sent[transport.sent.length - 1]).to.equal("CAP END");
+		expect(transport.sent.filter((l) => l === "CAP END")).to.have.length(2);
+
+		finishRegistration(transport);
+		expect(client.isWelcomed).to.equal(true);
+		transport.line(":irc.test CAP alice NEW :draft/pre-away");
+		expect(transport.sent.filter((l) => l === "CAP END")).to.have.length(2);
+	});
+
 	it("waits for the sasl ACK before AUTHENTICATE, and ends with CAP END when sasl is NAKed", function () {
 		// sasl-3.1: the client MUST enable sasl before using AUTHENTICATE.
 		const {client, transport} = setup(CARRY_ON);

@@ -207,6 +207,41 @@ describe("irc/caps", function () {
 		});
 	});
 
+	describe("a REQ after CAP END, before 001", function () {
+		// cap-negotiation: a REQ during registration suspends it until the
+		// next CAP END, so one sent after our END needs another END behind it.
+		function negotiator(registered: {value: boolean}): CapNegotiator {
+			const neg = new CapNegotiator({required: [], wanted: ["a", "b"]});
+			neg.isRegistered = () => registered.value;
+			return neg;
+		}
+
+		it("ends again behind the per-cap retries of a NAKed REQ", function () {
+			const neg = negotiator({value: false});
+			expect(feed(neg, ":s CAP * LS :a b").send).to.deep.equal(["CAP REQ :a b", "CAP END"]);
+			expect(feed(neg, ":s CAP * NAK :a b").send).to.deep.equal([
+				"CAP REQ :a",
+				"CAP REQ :b",
+				"CAP END",
+			]);
+		});
+
+		it("ends again behind a REQ for a cap NEW offers", function () {
+			const neg = negotiator({value: false});
+			feed(neg, ":s CAP * LS :a");
+			expect(feed(neg, ":s CAP * NEW :b").send).to.deep.equal(["CAP REQ :b", "CAP END"]);
+		});
+
+		it("sends no CAP END once registered, or for a reply that sends nothing", function () {
+			const registered = {value: false};
+			const neg = negotiator(registered);
+			feed(neg, ":s CAP * LS :a");
+			expect(feed(neg, ":s CAP * ACK :a").send).to.deep.equal([]);
+			registered.value = true;
+			expect(feed(neg, ":s CAP * NEW :b").send).to.deep.equal(["CAP REQ :b"]);
+		});
+	});
+
 	describe("edge cases", function () {
 		it("sends CAP END directly when nothing offered is wanted", function () {
 			const neg = new CapNegotiator({required: [], wanted: ["batch"]});

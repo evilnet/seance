@@ -1572,6 +1572,8 @@ export class IrcClient {
 			accept,
 		});
 
+		caps.isRegistered = () => this.isWelcomed;
+
 		if (mechanism) {
 			caps.beforeEnd = () => this.startSasl(mechanism);
 			// The same deadline covers the wait for the sasl ACK.
