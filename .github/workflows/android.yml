@@ -2,9 +2,10 @@
 # develop that touch what goes into the APK, and by hand. The develop run saves
 # the build cache pull requests start from (they cannot read each other's).
 # Not a test of the app running: nothing here boots a WebView or installs the
-# APK. A run by hand with "release" ticked builds the signed release APK and
-# AAB instead of the debug APK, with the key from the repository's secrets
-# (shells/tauri/README.md § Phones).
+# APK. Pushing a tag vX.Y.Z, or a run by hand with "release" ticked, builds
+# the signed release APK and AAB instead of the debug APK, with the key from
+# the repository's secrets (shells/tauri/README.md § Phones). A tag's build
+# is version X.Y.Z and lands in a draft GitHub release of that tag.
 name: Android
 
 on:
@@ -26,6 +27,8 @@ on:
       - "!shells/tauri/**/*.md"
   push:
     branches: [develop]
+    # GitHub does not apply paths to a tag push.
+    tags: ["v*"]
     paths: *shell-paths
   workflow_dispatch:
     inputs:
@@ -44,6 +47,8 @@ concurrency:
 jobs:
   android:
     runs-on: ubuntu-latest
+    env:
+      RELEASE: ${{ inputs.release || startsWith(github.ref, 'refs/tags/v') }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
@@ -81,11 +86,11 @@ jobs:
           workspaces: shells/tauri/src-tauri
 
       - name: Build
-        if: ${{ !inputs.release }}
+        if: env.RELEASE != 'true'
         run: make android-build
 
       - name: Release key
-        if: ${{ inputs.release }}
+        if: env.RELEASE == 'true'
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -101,15 +106,28 @@ jobs:
             "$RUNNER_TEMP/release.jks" "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" \
             >shells/tauri/src-tauri/gen/android/keystore.properties
 
+      # A tag's version replaces tauri.conf.json's; Tauri derives the
+      # versionCode from it (major * 1000000 + minor * 1000 + patch), so each
+      # release tag must be higher than the last for users to upgrade.
+      - name: Version from the tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Tag $GITHUB_REF_NAME is not vX.Y.Z"
+            exit 1
+          fi
+          echo "RELEASE_VERSION=$VERSION" >>"$GITHUB_ENV"
+
       - name: Release build
-        if: ${{ inputs.release }}
+        if: env.RELEASE == 'true'
         run: make android-release
 
       - name: Unit tests
         run: make android-test
 
       - name: Keep the APK
-        if: ${{ !inputs.release }}
+        if: env.RELEASE != 'true'
         uses: actions/upload-artifact@v7
         with:
           name: seance-android-debug
@@ -118,7 +136,7 @@ jobs:
           retention-days: 14
 
       - name: Keep the release APK and AAB
-        if: ${{ inputs.release }}
+        if: env.RELEASE == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: seance-android-release
@@ -127,3 +145,25 @@ jobs:
             shells/tauri/src-tauri/gen/android/app/build/outputs/bundle/universalRelease/*.aab
           if-no-files-found: error
           retention-days: 14
+
+  # A draft, so a person reads it over and publishes it.
+  release:
+    needs: android
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: seance-android-release
+          path: release
+
+      - name: Draft the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shopt -s globstar
+          gh release create "$GITHUB_REF_NAME" release/**/*.apk release/**/*.aab \
+            --repo "$GITHUB_REPOSITORY" --draft --verify-tag --generate-notes \
+            --title "Seance $GITHUB_REF_NAME"

@@ -83,9 +83,11 @@ android-test: tauri-deps $(ANDROID_GENERATED) ## the push code's JVM unit tests
 
 # Signed with the key keystore.properties names (shells/tauri/README.md
 # § Phones). The APK and AAB land under $(ANDROID)/app/build/outputs/.
+# RELEASE_VERSION=X.Y.Z overrides tauri.conf.json's version, and so the
+# versionCode; the CLI does not read TAURI_CONFIG for these.
 android-release: tauri-deps ## signed release APK and AAB (aarch64)
 	@if [ ! -f $(ANDROID)/keystore.properties ]; then echo "android-release: $(ANDROID)/keystore.properties is missing (shells/tauri/README.md § Phones)" >&2; exit 1; fi
-	cd $(TAURI) && pnpm tauri android build --apk --aab --target aarch64
+	cd $(TAURI) && pnpm tauri android build $(if $(RELEASE_VERSION),--config '{"version":"$(RELEASE_VERSION)"}') --apk --aab --target aarch64
 
 # Needs the Simulator runtime matching Xcode's SDK (README § Phones).
 ios-sim-build: tauri-deps ## unsigned iOS Simulator build: compiles, runs nothing
