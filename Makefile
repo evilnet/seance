@@ -31,7 +31,7 @@ IOS_TRACKED := $(TAURI)/src-tauri/gen/apple/seance-tauri.xcodeproj/project.pbxpr
 .NOTPARALLEL:
 
 .PHONY: help deps tauri-deps web-build web-test web-lint web-typecheck web-mocha \
-	web-smoke web-run mac-build mac-test android-build android-test android-release \
+	web-smoke web-run mac-build mac-test linux-build linux-test android-build android-test android-release \
 	ios-sim-build ios-device-build ios-install ios-run mac-install android-install \
 	ircd e2e
 
@@ -80,6 +80,17 @@ mac-build: tauri-deps ## the desktop app (release .app, no DMG)
 # the run never touches that app's data.
 mac-test: tauri-deps ## the desktop shell's smoke run
 	cd $(TAURI) && TAURI_CONFIG='{"identifier":"chat.seance.desktop.maketest"}' pnpm smoke
+
+# In Docker (shells/tauri/tools/linux), for this machine's architecture:
+# arm64 on Apple silicon. The .deb and AppImage land in tmp/linux-app/.
+linux-build: tauri-deps ## the Linux app (.deb, AppImage) in Docker
+	cd $(TAURI) && pnpm prepare-app && tools/build-linux.sh
+
+# The smoke and the walk-through under Xvfb in Docker; screenshots land in
+# tmp/tauri-linux/. The walk-through talks to the dev ircd (make ircd).
+linux-test: tauri-deps ## the Linux shell's smoke run and walk-through, in Docker
+	@python3 -c 'import socket; socket.create_connection(("127.0.0.1", 8067), 2)' 2>/dev/null || { echo "linux-test: nothing on port 8067; start the dev ircd (make ircd)" >&2; exit 1; }
+	cd $(TAURI) && pnpm prepare-app && tools/shots-linux.sh
 
 # The APK lands in $(ANDROID)/app/build/outputs/apk/universal/debug/.
 android-build: tauri-deps ## debug APK (aarch64)

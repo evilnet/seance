@@ -6,8 +6,9 @@ set -e
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../../.." && pwd)
 OUT=$(mkdir -p "${1:-$ROOT/tmp/tauri-linux}" && cd "${1:-$ROOT/tmp/tauri-linux}" && pwd)
+CLI=$(node -p 'require(process.argv[1]).devDependencies["@tauri-apps/cli"]' "$HERE/../package.json")
 
-docker build -q -t seance-tauri-linux "$HERE/linux" > /dev/null
+docker build -q --build-arg "TAURI_CLI=$CLI" -t seance-tauri-linux "$HERE/linux" > /dev/null
 node "$HERE/guest.mjs" & GUEST=$!
 docker run --rm --add-host=host.docker.internal:host-gateway \
 	-v "$ROOT:/src" -v "$OUT:/out" \
