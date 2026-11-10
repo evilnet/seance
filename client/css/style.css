@@ -7063,9 +7063,10 @@ html[data-contrast="more"] .oper-tag {
 	 * sidebar, and its edge moved each time they came and went.
 	 *
 	 * Below its minimum the sidebar gives way instead (sidebarWidth.ts), so a
-	 * wide sidebar and search on a small window still leave a chat. 15rem at
-	 * most, and never more than the row has after search's 20rem minimum and
-	 * 10rem of sidebar: past that the three would overflow the window. */
+	 * wide sidebar beside search still leaves some chat. The minimum is 15rem
+	 * and falls to 0 as the row narrows to 30rem (search's 20rem and about a
+	 * narrow sidebar's 10rem), so it does not push a small window into
+	 * overflow. That far down, search can still crowd the chat out. */
 	flex-basis: 0;
 	min-width: clamp(0px, 100% - 30rem, 15rem);
 }
