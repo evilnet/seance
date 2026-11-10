@@ -43,16 +43,15 @@ jobs:
       - name: Install pnpm
         run: npm install --global "$(node -p 'require("./package.json").packageManager')"
 
-      - name: Install
-        run: pnpm install --frozen-lockfile
-
+      # The same targets anyone runs locally (Makefile); each installs the
+      # lockfile as committed first.
       - name: Lint
-        run: pnpm lint
+        run: make web-lint
 
       # The build configs, client/ (with shared/) and tools/; not test/ yet.
       # .vue files are not type-checked.
       - name: Type check
-        run: pnpm typecheck
+        run: make web-typecheck
 
   check:
     runs-on: ubuntu-latest
@@ -68,36 +67,26 @@ jobs:
       - name: Install pnpm
         run: npm install --global "$(node -p 'require("./package.json").packageManager')"
 
-      - name: Install
-        run: pnpm install --frozen-lockfile
-
       # Before mocha: test/tests/build.ts inspects public/. The one build:
       # mocha and the smoke test both run against this production tree
       # (`pnpm test:mocha` would build public/ again, in development mode).
       - name: Production build
-        run: pnpm build
-        env:
-          NODE_ENV: production
+        run: make web-build
 
       - name: Mocha
-        run: pnpm test:mocha:built
+        run: make web-mocha
 
-      # tools/scenarios/smoke.mjs: the connect form appears, and nothing
-      # throws or logs an error. Ubuntu 24.04's AppArmor forbids the
-      # unprivileged user namespaces Chromium's sandbox needs, and
-      # browser-drive keeps the sandbox on, so lift that for this runner.
-      # The runner image ships Google Chrome; Playwright's Chromium (and its
-      # system packages) is fetched only on an image without it.
+      # tools/scenarios/smoke.mjs through tools/smoke.sh (`make web-smoke`):
+      # the connect form appears, and nothing throws or logs an error.
+      # Ubuntu 24.04's AppArmor forbids the unprivileged user namespaces
+      # Chromium's sandbox needs, and browser-drive keeps the sandbox on, so
+      # lift that for this runner. The runner image ships Google Chrome,
+      # which smoke.sh finds on PATH; Playwright's Chromium (and its system
+      # packages) is fetched only on an image without it.
       - name: Smoke
         run: |
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-          CHROME_BIN="$(command -v google-chrome || true)"
-          if [ -z "$CHROME_BIN" ]; then
+          if ! command -v google-chrome >/dev/null; then
             pnpm exec playwright install --with-deps --no-shell chromium
-            CHROME_BIN="$(node -e 'console.log(require("@playwright/test").chromium.executablePath())')"
           fi
-          export CHROME_BIN
-          "$CHROME_BIN" --version
-          python3 -m http.server -d public 8000 &
-          trap 'kill $!' EXIT
-          node tools/browser-drive.mjs tools/scenarios/smoke.mjs --no-ws
+          make web-smoke

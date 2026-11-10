@@ -1,0 +1,97 @@
+# The Android shell's build and unit tests (`make android-build
+# android-test`), on pull requests that touch what goes into the APK and by
+# hand (Actions → Android → Run workflow). The debug APK is kept as the run's
+# artifact for two weeks.
+#
+# Not on every pull request: a web-only change cannot break the native side
+# in a way this sees (public/ is compiled in, but ci.yml already builds and
+# smoke-tests it), and these runs are slow. Watch the run times and the
+# Actions minutes before widening or narrowing the paths below.
+#
+# What it cannot see: the app running. android-test is the push code's JVM
+# unit tests; nothing here boots a WebView, installs the APK or signs it.
+name: Android
+
+on:
+  pull_request:
+    paths:
+      - "Makefile"
+      - ".github/workflows/android.yml"
+      - "shells/tauri/**"
+      # The Apple and desktop-only parts of the shell.
+      - "!shells/tauri/src-tauri/gen/apple/**"
+      - "!shells/tauri/src-tauri/ios/**"
+      - "!shells/tauri/src-tauri/swift/**"
+      - "!shells/tauri/src-tauri/Info.*.plist"
+      - "!shells/tauri/src-tauri/tauri.ios.conf.json"
+      - "!shells/tauri/src-tauri/windows/**"
+      - "!shells/tauri/tools/linux/**"
+      - "!shells/tauri/tools/*macos*"
+      - "!shells/tauri/tools/shots-linux.sh"
+      - "!shells/tauri/**/*.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: ".node-version"
+
+      - name: Install pnpm
+        run: npm install --global "$(node -p 'require("./package.json").packageManager')"
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # The runner image has the SDK and its command-line tools; the platform
+      # the project compiles against (compileSdk in gen/android/app) and the
+      # NDK the README names are added.
+      - name: Android SDK and NDK
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          "$SDKMANAGER" "platforms;android-37" "ndk;29.0.14206865" >/dev/null
+          echo "NDK_HOME=$ANDROID_HOME/ndk/29.0.14206865" >>"$GITHUB_ENV"
+
+      - name: Rust target
+        run: rustup target add aarch64-linux-android
+
+      - name: Cache Cargo and Gradle
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.gradle/caches
+            shells/tauri/src-tauri/target
+          key: android-${{ hashFiles('shells/tauri/src-tauri/Cargo.lock', 'shells/tauri/src-tauri/gen/android/**/*.gradle*') }}
+          restore-keys: android-
+
+      - name: Build
+        run: make android-build
+
+      - name: Unit tests
+        run: make android-test
+
+      - name: Keep the APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: seance-android-debug
+          path: dist/android-*/
+          retention-days: 14

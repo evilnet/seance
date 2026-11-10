@@ -1,0 +1,81 @@
+# The macOS app and an iOS Simulator build (`make mac-build ios-sim-build`),
+# then the desktop shell's smoke run (`make mac-test`), on pull requests that
+# touch what goes into the Apple apps and by hand (Actions → Apple → Run
+# workflow). The unsigned Seance.app is kept as the run's artifact for two
+# weeks.
+#
+# Not on every pull request: macOS runners are slow to start and their
+# minutes cost several times Linux's. Watch the run times and the Actions
+# minutes before widening or narrowing the paths below.
+#
+# What it cannot see: anything signed, and the iOS app running. ios-sim-build
+# only compiles; mac-test runs a debug build, not the release .app.
+name: Apple
+
+on:
+  pull_request:
+    paths:
+      - "Makefile"
+      - ".github/workflows/apple.yml"
+      - "shells/tauri/**"
+      # The Android, Windows and Linux-only parts of the shell.
+      - "!shells/tauri/src-tauri/gen/android/**"
+      - "!shells/tauri/src-tauri/tauri.android.conf.json"
+      - "!shells/tauri/src-tauri/windows/**"
+      - "!shells/tauri/tools/linux/**"
+      - "!shells/tauri/tools/shots-linux.sh"
+      - "!shells/tauri/**/*.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apple-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apple:
+    # macOS 26 and Xcode 26: the shell's deployment target
+    # (shells/tauri/README.md).
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: ".node-version"
+
+      - name: Install pnpm
+        run: npm install --global "$(node -p 'require("./package.json").packageManager')"
+
+      - name: Rust targets
+        run: rustup target add aarch64-apple-darwin aarch64-apple-ios-sim
+
+      - name: Cache Cargo
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            shells/tauri/src-tauri/target
+          key: apple-${{ hashFiles('shells/tauri/src-tauri/Cargo.lock') }}
+          restore-keys: apple-
+
+      - name: macOS app
+        run: make mac-build
+
+      - name: iOS Simulator build
+        run: make ios-sim-build
+
+      - name: Desktop smoke
+        run: make mac-test
+
+      - name: Keep the app
+        uses: actions/upload-artifact@v7
+        with:
+          name: seance-macos-unsigned
+          path: dist/mac-*/
+          retention-days: 14
