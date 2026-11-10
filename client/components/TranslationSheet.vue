@@ -10,8 +10,10 @@
 			:class="{'language-sheet--phone': phone}"
 			:style="style"
 			role="dialog"
+			aria-modal="true"
 			tabindex="-1"
 			:aria-label="t('translate.panel.title', {channel: channel.name})"
+			@keydown.tab="onTab"
 			@keydown.esc.stop.prevent="close"
 		>
 			<div class="language-sheet-head">
@@ -357,6 +359,7 @@ import {
 import {hasVirtualKeyboard} from "../js/helpers/device";
 import friendlysize from "../js/helpers/friendlysize";
 import {translateWhyText} from "../js/helpers/translateWhy";
+import {trapTab} from "../js/helpers/trapTab";
 import {useI18n} from "../js/i18n";
 import {collator} from "../js/i18n/collation";
 import {SUPPORTED_LANGUAGES, languageEndonym, languageName} from "../js/translate/languages";
@@ -431,6 +434,12 @@ export default defineComponent({
 		const store = useStore();
 		const root = ref<HTMLDivElement | null>(null);
 		const search = ref<HTMLInputElement | null>(null);
+		// Modal, as the panel it replaces was: Tab comes round inside it.
+		const onTab = (event: KeyboardEvent) => {
+			if (root.value) {
+				trapTab(event, root.value);
+			}
+		};
 		const name = (code: string) => languageName(code, readingLanguage());
 
 		const side = ref<"from" | "to">("to");
@@ -894,6 +903,7 @@ export default defineComponent({
 		});
 
 		return {
+			onTab,
 			t,
 			root,
 			search,

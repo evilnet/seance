@@ -23,6 +23,7 @@
 //     is changed while the preview for the old target is still streaming,
 //     and the strip that stands is for the new target.
 //  7. Off by the user: the menu's sheet is one button, nothing else.
+//  8. The sheet is modal: Tab and Shift+Tab stay inside it.
 //
 //   NODE_ENV=development pnpm build && python3 -m http.server -d public 8021 &
 //   SEANCE_HTTP=http://localhost:8021/ CHROME_BIN=… node tools/browser-drive.mjs tools/scenarios/translate-sheet.mjs
@@ -141,6 +142,41 @@ async function openMore(page) {
 	});
 }
 
+async function tab(page, shift) {
+	for (const type of ["rawKeyDown", "keyUp"]) {
+		await page.send("Input.dispatchKeyEvent", {
+			type,
+			key: "Tab",
+			code: "Tab",
+			windowsVirtualKeyCode: 9,
+			modifiers: shift ? 8 : 0,
+		});
+	}
+}
+
+/** Tab past both ends of the open sheet: where the focus went outside it. */
+async function tabOutside(page) {
+	const TABBABLE = `[...document.querySelector("${SHEET}").querySelectorAll("button, select, input, summary, a[href], [tabindex]")].filter((el) => el.tabIndex >= 0 && !el.disabled && el.getClientRects().length > 0)`;
+	const count = await page.evaluate(`${TABBABLE}.length`);
+	const outside = [];
+
+	await page.evaluate(`${TABBABLE}[0].focus()`);
+
+	for (let i = 0; i < 2 * count + 4; i++) {
+		await tab(page, i >= count + 2);
+
+		const at = await page.evaluate(
+			`(() => { const a = document.activeElement; return a && a.closest("${SHEET}") ? null : a ? a.tagName + "." + a.className : "none"; })()`
+		);
+
+		if (at) {
+			outside.push(at);
+		}
+	}
+
+	return {count, outside};
+}
+
 export default async function run(page) {
 	await page.addInitScript(TRANSLATION_ON);
 	await page.goto(page.url, {waitForSelector: "#connect form"});
@@ -161,6 +197,15 @@ export default async function run(page) {
 			fromMenu.panels === 0
 	);
 	await page.screenshot("1-sheet-from-menu");
+
+	const trapped = await tabOutside(page);
+
+	page.check(
+		`the sheet is modal: Tab and Shift+Tab stay inside its ${trapped.count} controls (${
+			trapped.outside.join(", ") || "always inside"
+		})`,
+		trapped.count > 1 && trapped.outside.length === 0
+	);
 	await closeTranslationSheet(page);
 
 	// --- 2. From the chip: the list; a pick is the write target. ---------
