@@ -1423,7 +1423,7 @@ glyph) the instant the target is picked. The placeholder stays the plain
 "Write to #channel": a language name in it wrapped onto a second line on a
 phone.
 
-### The live preview and one-step send
+### The live preview and send safety
 
 With a write target set, the draft is translated while it is typed: a
 pause of `PREVIEW_PAUSE_MS` (700 ms, `ChatInput.vue`) after the last
@@ -1434,20 +1434,31 @@ before the user reaches for Return. Typing on dims the last preview in place
 (`.translate-bar-is-stale`) until the new one starts to stream, so the
 composer keeps its height instead of closing and opening on every word.
 
-**Return sends, once.** A Return on a draft whose preview is done sends the
-translation at once (the read-back is for looking at, not a gate). A Return
-while it is still translating, or before the pause came, starts or waits for
-it and sends it the moment it is done, saying so under the strip ("Sends
-when the translation is ready"); a failure stops there, and the strip offers
-the draft as written to the next Return; a run that ends with no strip at
-all (the draft turned out to need none, or the target moved) answers the
-waiting Return once by the path a Return with no strip takes, which sends a
-draft that needs no translation as typed. Changing the draft (even only
-adding or removing a `/me `), Escape, a channel switch or turning the target
-off cancels a waiting send, and a send that went out late leaves the focus
-where the user has gone meanwhile. There is
-no Send or Edit button on the strip any more -- the composer's own send
-button does what Return does -- only Copy.
+**Return sends a translation only once it has been seen** (send safety,
+`offer.ts` `sendReady`). A Return on a draft whose preview is done and has
+been on screen for `SHOWN_BEFORE_SEND_MS` (500 ms) sends the translation
+(the read-back is for looking at, not a gate). A Return before that -- while
+it is still translating, before the pause came, or in the instant it lands
+-- starts or waits for the preview and sends nothing, saying so under the
+strip ("Translating… Press Return again once it's shown"); the next Return
+after the result has been seen sends it. Nothing is ever sent by itself
+when a translation lands. A failure stops there, and the strip offers the
+draft as written to the next Return (the send button says "Send as
+written"); a run that ends with no strip at all (the draft turned out to
+need none, or the target moved) answers the waiting Return once by the path
+a Return with no strip takes, which sends a draft that needs no translation
+as typed -- never a translation. **Send as written** is on the strip
+throughout, while the preview is coming, during a download and after a
+failure: it sends the draft as typed, untagged, in place of a Return
+waiting on the preview. Changing the draft (even only adding or removing a
+`/me `), Escape, a channel switch or turning the target off cancels a
+waiting Return. A preview the page took down under it (pagehide: a phone
+putting the page away, the back-forward cache, which terminates the
+worker) is not the translation's failure: it is asked again once the page
+is visible (`writer.ts` `interruptedOutgoing`). There is no Edit button on
+the strip -- the composer's own send button does what Return does -- only
+Copy, Send as written and, for a language taken for this message, Always
+here.
 
 **The language the user writes in is theirs to say.** The sheet the
 translate button opens has an "I write" as well as a "They read";
@@ -1475,6 +1486,79 @@ the reading language as `writeFrom`, as a pick in the sheet would; **Not
 in this channel** sets `channelStore.ts` `noSuggest`, and the card is not
 offered there again. It needs reading on (the counts are the reader's
 verdicts), a channel rather than a query, and a route for the pair.
+
+### Suggested writing
+
+Nothing is sent translated unless the user chose a language for the
+conversation or took an offer for that message. The offers
+(`translate/offer.ts`, mocha `test/translate/offer.ts`) sit in the strip's
+place above the input while there is no strip:
+
+| Situation                                          | Offer                     |
+| -------------------------------------------------- | ------------------------- |
+| A reply to a line in another language              | "Reply in Portuguese"     |
+| A query whose other person writes another language | "Write to Ana in Polish"  |
+| A channel that mostly writes another language      | the suggestion card above |
+
+The language is the reading pipeline's verdict for the line (`lineLanguage`:
+the reader's `from`, else, where the conversation does not read, the
+sender's own `+draft/language` tag). A query goes by the other person's
+newest placed line among their `QUERY_LINES` (5) newest, passing over the
+user's own lines, pending, redacted and superseded ones, notices and lines
+the detector could not place (an emoji, a code paste, one word); when the
+two newest placed lines disagree it is ambiguous and nothing is offered.
+**No offer** for a language the user reads or also reads (regional forms
+included), one the device cannot write, a reply to the user's own line
+(its raw text is whatever they sent, and what they see may be its
+read-back), a machine-translated line (its tag names the language of the
+text that was sent, not the one its author reads, and the other person's
+client translates the reply for them anyway), an edit, a conversation with
+a language set (the cleanup pass included: it is a choice), or after "Not
+now". A reply to a line that names no language offers nothing, not the
+query's language. A reply's offer comes before a query's.
+
+**Taken, it is for this message** (`ChatInput.vue` `draftTargets`, per
+conversation, never stored): "This message goes in Portuguese", then the
+preview as for a conversation's language -- a draft already in it goes as
+typed (`writer.ts` `OnceRequest.asTarget`) -- with **Always here** on the
+strip to make it the conversation's language (`write`, with the reading
+language as `writeFrom`, as the card's yes does). **Another language…**
+opens the sheet's list with "This message only" already set, which is how
+a wrong guess is put right for one message without touching the
+conversation; a pick there with "This message only" is this message's
+language too, and an edit of the draft previews into it again. **Write as
+typed** drops it. **Not now** declines offers in that conversation, on this
+device (`offerDeclines.ts`, `thelounge.translateOffersDeclined`: device
+state, not in the settings backup); the channel card keeps its own
+`noSuggest`, and "Reset choices for this conversation" lifts both. The
+language goes with the message when it is sent.
+
+**A preview belongs to its target**: the language and the reply parent, by
+id and text (`offer.ts` `previewKey`). When either moves under it -- the
+parent edited (the edit handler replaces `channel.replyTo`), another parent
+picked, the reply cancelled, an offer's language changed -- the preview,
+its read-back and a Return waiting on it go together and the draft is
+previewed again at once. An offer taken goes when the offer would no longer
+say it: the reply cancelled or answering another line, the other person of
+a query writing in another language; the offer then says what it says now.
+
+**Kept as they were**: edits bypass translation (`draftGate`'s `edit`);
+`/me` is the only command that translates and is re-prefixed; multiline
+batching and command escaping (`sendableTranslation`); `writeSource` and a
+stored `writeFrom`; a write target equal to the reading language still
+means the cleanup pass, which is not "Send as written"; the language tags
+on a sent translation.
+
+Browser check: `tools/scenarios/translate-offers.mjs` on the fake engine
+(desktop and `--mobile`): the reply offer and its message-only language;
+send safety (a Return before the preview, and one in the instant it lands,
+send nothing; the next one sends the tagged reply); no offer for a
+machine-translated parent, the user's own line or an edit; the parent
+edited mid-preview, the reply cancelled; Send as written while the preview
+is out; the query offer, Another language… with "This message only" set,
+Always here; the other person switching language mid-preview; the page put
+away and back mid-preview (pagehide), with nothing sent when the preview
+lands; Not now.
 
 The sheet opens on a tap and nothing more: on a touch screen it focuses
 itself rather than its search, since focusing the search there brings the

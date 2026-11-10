@@ -59,6 +59,7 @@ import {
 	setChannelOptions,
 } from "./reader";
 import type {Route} from "./router";
+import {WORKER_DISPOSED} from "./client";
 import {sentReadBacks} from "./sentReadBack";
 import {LLM_MARKERS, type MarkerForm, stripCopiedNickPrefix} from "./spans";
 
@@ -200,6 +201,12 @@ export interface OnceRequest {
 	to: string;
 	/** Null: detect the draft's language, as a write target does. */
 	from: string | null;
+	/**
+	 * A writing offer taken for this message (offer.ts): the target behaves
+	 * as the conversation's would -- a draft already in it goes as typed --
+	 * rather than as a one-off pick, which corrects a draft in its own language.
+	 */
+	asTarget?: boolean;
 }
 
 /**
@@ -210,6 +217,16 @@ export function lastOnceTarget(network: ClientNetwork, channel: ClientChan): str
 	const settings = channelTranslation(network, channel);
 
 	return settings.once ?? settings.write ?? "";
+}
+
+/**
+ * A strip that failed only because the page took the worker down under it
+ * (pagehide: a phone putting the page away, a back-forward cache): not the
+ * translation's failure, so the composer asks again once the page is back
+ * rather than offer the draft as written.
+ */
+export function interruptedOutgoing(entry: OutgoingTranslation | undefined): boolean {
+	return entry?.status === "failed" && entry.error === WORKER_DISPOSED;
 }
 
 export function outgoingTranslation(channel: ClientChan): OutgoingTranslation | undefined {
@@ -352,7 +369,7 @@ export async function translateOutgoing(
 		const ownLanguage = to === readingLanguage();
 		const inTarget = detection.lang === to && detection.confidence >= WRITE_DETECT_MIN_GAP;
 
-		if (inTarget && !once && !ownLanguage) {
+		if (inTarget && (!once || once.asTarget) && !ownLanguage) {
 			cancelOutgoing(channel);
 			return "plain";
 		}

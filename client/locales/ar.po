@@ -15635,6 +15635,54 @@ msgctxt "translate.note.firstRun"
 msgid "Messages in other languages will now appear in {language}. Tap a translated message to see the original."
 msgstr ""
 
+#. Button on the composer's translation preview, or beside translate.offer.thisMessage: write every message in this conversation in that language from now on.
+#: client/components/ChatInput.vue
+msgctxt "translate.offer.alwaysHere"
+msgid "Always here"
+msgstr ""
+
+#. Link beside translate.offer.thisMessage: this message is not translated after all.
+#: client/components/ChatInput.vue
+msgctxt "translate.offer.asTyped"
+msgid "Write as typed"
+msgstr ""
+
+#. Link beside translate.offer.thisMessage: pick a different language for this message.
+#: client/components/ChatInput.vue
+msgctxt "translate.offer.change"
+msgid "Change"
+msgstr ""
+
+#. Link beside a writing offer above the composer: no more such offers in this conversation, on this device.
+#: client/components/ChatInput.vue
+msgctxt "translate.offer.decline"
+msgid "Not now"
+msgstr ""
+
+#. Link beside a writing offer above the composer: opens the language list to pick a different language for this message.
+#: client/components/ChatInput.vue
+msgctxt "translate.offer.other"
+msgid "Another language…"
+msgstr ""
+
+#. Button above the composer in a private conversation whose other person writes in another language: this message is translated into it. {nick} is their nickname, {language} the language's name.
+#: client/components/ChatInput.vue
+msgctxt "translate.offer.query"
+msgid "Write to {nick} in {language}"
+msgstr ""
+
+#. Button above the composer while replying to a line in another language: this message is translated into that language. {language} is the language's name.
+#: client/components/ChatInput.vue
+msgctxt "translate.offer.reply"
+msgid "Reply in {language}"
+msgstr ""
+
+#. Note above the composer once a language was taken for this message alone, before its translation preview appears. {language} is the language's name.
+#: client/components/ChatInput.vue
+msgctxt "translate.offer.thisMessage"
+msgid "This message goes in {language}"
+msgstr ""
+
 #. Lead sentence when a translation is unavailable for a language pair (the composer's language sheet, the retranslate dialog, the translation panel's 'Send my messages in'); the reason follows as a sentence of its own. {from} and {to} are language names, already in the interface language.
 #: client/components/SourceLanguagePicker.vue
 #: client/components/TranslationSheet.vue
@@ -16110,6 +16158,12 @@ msgctxt "translate.strip.readsBack"
 msgid "Reads back as:"
 msgstr ""
 
+#. Note under the composer's translation preview after Return was pressed before the translation was finished and on screen: nothing was sent; the next Return sends it.
+#: client/components/ChatInput.vue
+msgctxt "translate.strip.returnAgain"
+msgid "Translating… Press Return again once it's shown."
+msgstr ""
+
 #. Tooltip of the composer translation strip's direction chip, naming the route a translation took. {from} and {to} are language names (or the word from translate.strip.sourceAuto), {model} is the model's technical id. This one ran on the main processor.
 #: client/components/ChatInput.vue
 msgctxt "translate.strip.routeCpu"
@@ -16146,7 +16200,7 @@ msgctxt "translate.strip.routeSystemRetried"
 msgid "{from} → {to} · Apple Translation (built into the system) · retried without a source"
 msgstr ""
 
-#. Tooltip and aria-label of the send button in the composer's translation strip after the translation failed: the message goes out in the language the user typed it in.
+#. Button on the composer's translation preview, and the send button's tooltip after a failed translation: send the draft as typed, in the language the user typed it in, instead of the translation.
 #: client/components/ChatInput.vue
 msgctxt "translate.strip.sendAsWritten"
 msgid "Send as written"
@@ -16157,12 +16211,6 @@ msgstr "إرسال كما كُتب"
 msgctxt "translate.strip.sendTranslation"
 msgid "Send the translation"
 msgstr "إرسال الترجمة"
-
-#. Note under the composer's translation preview after Return was pressed while it was still translating: the message goes as soon as it is done.
-#: client/components/ChatInput.vue
-msgctxt "translate.strip.sendsWhenReady"
-msgid "Sends when the translation is ready"
-msgstr ""
 
 #. Stands in for the source language in the composer translation strip's route tooltip when no source was named and the model was left to work it out. Substituted as {from} in translate.strip.routeGpu and its siblings.
 #: client/components/ChatInput.vue

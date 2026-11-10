@@ -421,6 +421,8 @@ export default defineComponent({
 		initialFrom: {type: String as PropType<string | null>, default: null},
 		/** A draft is there, so "This message only" is on offer. */
 		onceOffered: {type: Boolean, default: false},
+		/** "This message only" is set when the sheet opens: from a writing offer. */
+		onceFirst: {type: Boolean, default: false},
 		/**
 		 * The language list is open from the start: the composer's chip,
 		 * which is about the language to write in. The channel menu opens
@@ -446,7 +448,7 @@ export default defineComponent({
 		const from = ref<string | null>(props.initialFrom);
 		const to = ref<string>(props.initialTo);
 		const query = ref("");
-		const once = ref(false);
+		const once = ref(props.onceFirst);
 		// With no target set, `initialTo` is only a suggestion (the last
 		// pick, a language the channel speaks): highlighted in the list, one
 		// tap away, but "They read" says "Choose…" until something is picked
