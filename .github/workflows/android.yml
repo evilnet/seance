@@ -1,8 +1,10 @@
 # The Android shell's build and unit tests, on pull requests and pushes to
 # develop that touch what goes into the APK, and by hand. The develop run saves
 # the build cache pull requests start from (they cannot read each other's).
-# Not a test of the app running: nothing here boots a WebView, installs or
-# signs the APK.
+# Not a test of the app running: nothing here boots a WebView or installs the
+# APK. A run by hand with "release" ticked builds the signed release APK and
+# AAB instead of the debug APK, with the key from the repository's secrets
+# (shells/tauri/README.md § Phones).
 name: Android
 
 on:
@@ -26,6 +28,11 @@ on:
     branches: [develop]
     paths: *shell-paths
   workflow_dispatch:
+    inputs:
+      release:
+        description: "Build the signed release APK and AAB"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -74,15 +81,49 @@ jobs:
           workspaces: shells/tauri/src-tauri
 
       - name: Build
+        if: ${{ !inputs.release }}
         run: make android-build
+
+      - name: Release key
+        if: ${{ inputs.release }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$STORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::error::A release build needs the four ANDROID_KEY* secrets (shells/tauri/README.md § Phones)"
+            exit 1
+          fi
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode >"$RUNNER_TEMP/release.jks"
+          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$RUNNER_TEMP/release.jks" "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" \
+            >shells/tauri/src-tauri/gen/android/keystore.properties
+
+      - name: Release build
+        if: ${{ inputs.release }}
+        run: make android-release
 
       - name: Unit tests
         run: make android-test
 
       - name: Keep the APK
+        if: ${{ !inputs.release }}
         uses: actions/upload-artifact@v7
         with:
           name: seance-android-debug
           path: shells/tauri/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Keep the release APK and AAB
+        if: ${{ inputs.release }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: seance-android-release
+          path: |
+            shells/tauri/src-tauri/gen/android/app/build/outputs/apk/universal/release/*.apk
+            shells/tauri/src-tauri/gen/android/app/build/outputs/bundle/universalRelease/*.aab
           if-no-files-found: error
           retention-days: 14

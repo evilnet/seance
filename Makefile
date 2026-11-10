@@ -21,7 +21,8 @@ ANDROID_GENERATED := $(ANDROID)/tauri.settings.gradle
 .NOTPARALLEL:
 
 .PHONY: help deps tauri-deps web-build web-test web-lint web-typecheck web-mocha \
-	web-smoke web-run mac-build mac-test android-build android-test ios-sim-build ircd e2e
+	web-smoke web-run mac-build mac-test android-build android-test android-release \
+	ios-sim-build ircd e2e
 
 help: ## this list
 	@awk -F ':.*## ' '/^[a-z0-9-]+:.*## /{printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -79,6 +80,12 @@ $(ANDROID_GENERATED):
 # gen/android itself is Seance's code: never regenerated.
 android-test: tauri-deps $(ANDROID_GENERATED) ## the push code's JVM unit tests
 	cd $(ANDROID) && ./gradlew :app:testUniversalDebugUnitTest
+
+# Signed with the key keystore.properties names (shells/tauri/README.md
+# § Phones). The APK and AAB land under $(ANDROID)/app/build/outputs/.
+android-release: tauri-deps ## signed release APK and AAB (aarch64)
+	@if [ ! -f $(ANDROID)/keystore.properties ]; then echo "android-release: $(ANDROID)/keystore.properties is missing (shells/tauri/README.md § Phones)" >&2; exit 1; fi
+	cd $(TAURI) && pnpm tauri android build --apk --aab --target aarch64
 
 # Needs the Simulator runtime matching Xcode's SDK (README § Phones).
 ios-sim-build: tauri-deps ## unsigned iOS Simulator build: compiles, runs nothing
