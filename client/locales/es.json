@@ -2437,7 +2437,6 @@
   "translate.model.percent": "{percent}%",
   "translate.model.smallBufferBuild": "Esta GPU recibe una versión del modelo hecha para búferes gráficos pequeños: su mayor búfer es de {size}.",
   "translate.pair.unavailable": "Nada en este dispositivo puede traducir del {from} al {to}.",
-  "translate.pair.unavailableInto": "Nada en este dispositivo puede traducir al {to}.",
   "translate.panel.heading": "Traducción",
   "translate.panel.off": "Desactivado",
   "translate.panel.settingsLink": "Idioma y modelos en Ajustes",

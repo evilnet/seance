@@ -1802,9 +1802,13 @@ export default defineComponent({
 					fallback: SUPPORTED_LANGUAGES,
 					routes: (to) => !!pairVerdict(reading, to).route,
 				});
+			// The source the user named with the target, or Detect: the
+			// sheet never names one for them, or a draft the detector is sure
+			// is French would still go from the reading language because
+			// "I write" showed it (writer.ts `namedFrom`).
 			translateOnceFrom.value = target
 				? channelTranslation(props.network, props.channel).writeFrom
-				: reading;
+				: null;
 			translateOncePickerOpen.value = true;
 		};
 

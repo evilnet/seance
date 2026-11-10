@@ -2478,7 +2478,6 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"translate.offer.reply",
 	"translate.offer.thisMessage",
 	"translate.pair.unavailable",
-	"translate.pair.unavailableInto",
 	"translate.panel.enable",
 	"translate.panel.enableHint",
 	"translate.panel.heading",

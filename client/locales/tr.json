@@ -2522,7 +2522,6 @@
   "translate.model.percent": "{percent}%",
   "translate.model.smallBufferBuild": "Bu GPU, modelin küçük grafik arabellekleri için yapılmış bir sürümünü alır: en büyük arabelleği {size}.",
   "translate.pair.unavailable": "Bu cihazdaki hiçbir şey çeviri yapamıyor: {from} → {to}.",
-  "translate.pair.unavailableInto": "Bu cihazdaki hiçbir şey şu dile çeviremiyor: {to}.",
   "translate.panel.heading": "Çeviri",
   "translate.panel.off": "Kapalı",
   "translate.panel.settingsLink": "Ayarlar'da dil ve modeller",

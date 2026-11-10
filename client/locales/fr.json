@@ -2415,7 +2415,6 @@
   "translate.model.percent": "{percent}%",
   "translate.model.smallBufferBuild": "Ce GPU reçoit une version du modèle conçue pour les petits tampons graphiques : son plus grand tampon fait {size}.",
   "translate.pair.unavailable": "Rien sur cet appareil ne peut traduire : {from} → {to}.",
-  "translate.pair.unavailableInto": "Rien sur cet appareil ne peut traduire vers cette langue : {to}.",
   "translate.panel.heading": "Traduction",
   "translate.panel.off": "Désactivé",
   "translate.panel.settingsLink": "Langue et modèles dans les paramètres",

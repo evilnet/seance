@@ -2583,7 +2583,6 @@
   "translate.model.percent": "{percent}%",
   "translate.model.smallBufferBuild": "Tento GPU dostane verziu modelu určenú pre malé grafické vyrovnávacie pamäte: jej najväčšia vyrovnávacia pamäť má {size}.",
   "translate.pair.unavailable": "Nič na tomto zariadení nedokáže preložiť: {from} → {to}.",
-  "translate.pair.unavailableInto": "Nič na tomto zariadení nedokáže preložiť do jazyka: {to}.",
   "translate.panel.heading": "Preklad",
   "translate.panel.off": "Vypnuté",
   "translate.panel.settingsLink": "Jazyk a modely v Nastaveniach",
