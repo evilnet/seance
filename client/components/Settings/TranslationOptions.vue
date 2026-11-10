@@ -1261,6 +1261,13 @@ export default defineComponent({
 		const copyState = (view: ModelView) => {
 			const percent = Math.round(view.fraction * 100);
 
+			// Down for the session after a failed load: the copy may still
+			// be downloaded, but nothing routes to it until a reload, and
+			// "Downloaded" alone hid that (and why).
+			if (view.downError && view.status !== "downloading") {
+				return t("translate.model.down", {error: translateErrorText(view.downError)});
+			}
+
 			switch (view.status) {
 				case "downloading":
 					// Already on this device: the copy is loading, not downloading.

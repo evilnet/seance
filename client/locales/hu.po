@@ -15272,6 +15272,12 @@ msgctxt "translate.model.delete"
 msgid "Remove"
 msgstr "Eltávolítás"
 
+#. State of a model row in Settings → Translation: the model failed to load earlier in this session, so it is not used until the page is reloaded, even when its files are downloaded. {error} is the library's own untranslated message.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.model.down"
+msgid "Failed to load: {error}. Reload the page to try it again."
+msgstr ""
+
 #. Button on a model row in Settings → Translation that fetches the model onto this device.
 #: client/components/Settings/Translation.vue
 msgctxt "translate.model.download"

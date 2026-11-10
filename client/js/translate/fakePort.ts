@@ -103,6 +103,12 @@ interface TranslateFakeGlobal {
 	 * A terminated fake worker holds nothing, as a real one frees its memory.
 	 */
 	loaded?: Partial<Record<WorkerEngineName, string[]>>;
+	/**
+	 * Set by a scenario: every load on that engine fails with this message
+	 * (a load-class failure, as a model that will not load is), until it is
+	 * cleared. The copy still reads as downloaded, as a real cache does.
+	 */
+	failLoad?: Partial<Record<WorkerEngineName, string>>;
 }
 
 function fakeGlobal(): TranslateFakeGlobal {
@@ -178,6 +184,13 @@ class ScriptedEngine implements Engine {
 			}
 
 			onProgress({fraction: i / 10, text: `shard ${i} of 10`});
+		}
+
+		const failure = fakeGlobal().failLoad?.[this.name];
+
+		if (failure) {
+			this.state = "cold";
+			throw new EngineError(failure, "load");
 		}
 
 		this.loaded = this.name === "llm" ? [ref.id] : [...this.loaded, ref.id];

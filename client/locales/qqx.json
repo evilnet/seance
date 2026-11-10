@@ -2696,6 +2696,7 @@
   "translate.model.copyDownloaded": "‫ḋöẃñľöàḋéḋ · {size}ḋöẃñľöàḋéḋ · {size}‬",
   "translate.model.copyNotDownloaded": "‫ñöţ ḋöẃñľöàḋéḋ · {size}ñöţ ḋöẃñľöàḋéḋ · {size}‬",
   "translate.model.delete": "‫ŕéṁöṽéŕéṁöṽé‬",
+  "translate.model.down": "‫ḟàïľéḋ ţö ľöàḋ: {error}. ŕéľöàḋ ţḣé ṗàġé ţö ţŕý ïţ àġàïñ.ḟàïľéḋ ţö ľöàḋ: {error}. ŕéľöàḋ ţḣé ṗàġé ţö ţŕý ïţ àġàïñ.‬",
   "translate.model.download": "‫ḋöẃñľöàḋḋöẃñľöàḋ‬",
   "translate.model.failed": "‫ḟàïľéḋ: {error}ḟàïľéḋ: {error}‬",
   "translate.model.failedUnknown": "‫ḟàïľéḋ: üñķñöẃñ éŕŕöŕḟàïľéḋ: üñķñöẃñ éŕŕöŕ‬",

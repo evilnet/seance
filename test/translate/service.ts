@@ -699,6 +699,23 @@ describe("translate/service", () => {
 			`${TRANSLATION_DOWN}: ${catalog.llm.id}: device lost`
 		);
 		expect(r.llm.calls.load.length).to.equal(1);
+
+		// A cache answer resets a failed copy to downloaded (Settings said
+		// "Downloaded" for the model that would not load); the down reason
+		// outlives it, on each down copy and only there.
+		r.cached.add(catalog.llm.id);
+		const views = await r.service.models();
+		const copy = (id: string, device: "gpu" | "cpu") =>
+			views.find((v) => v.ref.id === id && v.device === device);
+
+		expect(copy(catalog.llm.id, "gpu")).to.include({
+			status: "ready",
+			error: null,
+			downError: "device lost",
+		});
+		expect(copy(catalog.nllb.id, "gpu")?.downError).to.equal("Can't create a session");
+		// Never tried: no reason.
+		expect(copy(catalog.llm.id, "cpu")?.downError).to.equal(null);
 		r.service.dispose();
 	});
 
