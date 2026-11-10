@@ -2462,7 +2462,6 @@
   "translate.model.percent": "{percent}%",
   "translate.model.smallBufferBuild": "Denne GPU får en version af modellen lavet til små grafikbuffere: dens største buffer er {size}.",
   "translate.pair.unavailable": "Intet på denne enhed kan oversætte fra {from} til {to}.",
-  "translate.pair.unavailableInto": "Intet på denne enhed kan oversætte til {to}.",
   "translate.panel.heading": "Oversættelse",
   "translate.panel.off": "Fra",
   "translate.panel.settingsLink": "Sprog og modeller i Indstillinger",

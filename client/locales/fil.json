@@ -2434,7 +2434,6 @@
   "translate.model.percent": "{percent}%",
   "translate.model.smallBufferBuild": "Ang GPU na ito ay gagamit ng bersyon ng model na ginawa para sa maliliit na graphics buffer: {size} ang pinakamalaking buffer nito.",
   "translate.pair.unavailable": "Walang makapagsasalin sa device na ito mula {from} papuntang {to}.",
-  "translate.pair.unavailableInto": "Walang makapagsasalin sa device na ito papuntang {to}.",
   "translate.panel.heading": "Pagsasalin",
   "translate.panel.off": "Naka-off",
   "translate.panel.settingsLink": "Wika at mga modelo sa Mga setting",

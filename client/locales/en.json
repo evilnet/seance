@@ -2718,7 +2718,6 @@
   "translate.offer.reply": "Reply in {language}",
   "translate.offer.thisMessage": "This message goes in {language}",
   "translate.pair.unavailable": "Nothing on this device can translate {from} into {to}.",
-  "translate.pair.unavailableInto": "Nothing on this device can translate into {to}.",
   "translate.panel.enable": "Translate messages into {language}",
   "translate.panel.enableHint": "Translation runs on this device and downloads language data as you need it.",
   "translate.panel.heading": "Translation",

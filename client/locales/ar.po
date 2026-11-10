@@ -15729,12 +15729,6 @@ msgctxt "translate.pair.unavailable"
 msgid "Nothing on this device can translate {from} into {to}."
 msgstr "لا شيء على هذا الجهاز يستطيع الترجمة من {from} إلى {to}."
 
-#. Lead sentence in the composer's language sheet when the source is 'Detect automatically' and no engine here translates into the chosen language; the reason follows as a sentence of its own. {to} is a language name, already in the interface language.
-#: client/components/TranslationSheet.vue
-msgctxt "translate.pair.unavailableInto"
-msgid "Nothing on this device can translate into {to}."
-msgstr "لا شيء على هذا الجهاز يستطيع الترجمة إلى {to}."
-
 #. The one button in a conversation's translation panel while translation is switched off: it switches translation on for every conversation. {language} is the language name messages will be translated into.
 #: client/components/TranslationSheet.vue
 msgctxt "translate.panel.enable"

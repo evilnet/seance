@@ -2520,7 +2520,6 @@
   "translate.model.percent": "{percent}%",
   "translate.model.smallBufferBuild": "Ez a GPU a modell kis grafikus pufferekhez készült változatát kapja: a legnagyobb puffere {size}.",
   "translate.pair.unavailable": "Ezen az eszközön semmi sem tud fordítani: {from} → {to}.",
-  "translate.pair.unavailableInto": "Ezen az eszközön semmi sem tud fordítani erre a nyelvre: {to}.",
   "translate.panel.heading": "Fordítás",
   "translate.panel.off": "Ki",
   "translate.panel.settingsLink": "Nyelv és modellek a Beállításokban",

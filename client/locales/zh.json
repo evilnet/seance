@@ -2461,7 +2461,6 @@
   "translate.model.percent": "{percent}%",
   "translate.model.smallBufferBuild": "此 GPU 将使用为小型图形缓冲区构建的模型版本：其最大缓冲区为 {size}。",
   "translate.pair.unavailable": "此设备上没有能将{from}翻译成{to}的引擎。",
-  "translate.pair.unavailableInto": "此设备上没有能翻译成{to}的引擎。",
   "translate.panel.heading": "翻译",
   "translate.panel.off": "关",
   "translate.panel.settingsLink": "设置中的语言和模型",

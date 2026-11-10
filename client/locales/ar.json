@@ -2826,7 +2826,6 @@
   "translate.model.percent": "{percent}%",
   "translate.model.smallBufferBuild": "تحصل وحدة GPU هذه على إصدار من النموذج مصمم للمخازن المؤقتة الرسومية الصغيرة: أكبر مخزن مؤقت فيه {size}.",
   "translate.pair.unavailable": "لا شيء على هذا الجهاز يستطيع الترجمة من {from} إلى {to}.",
-  "translate.pair.unavailableInto": "لا شيء على هذا الجهاز يستطيع الترجمة إلى {to}.",
   "translate.panel.heading": "الترجمة",
   "translate.panel.off": "إيقاف",
   "translate.panel.settingsLink": "اللغة والنماذج في الإعدادات",

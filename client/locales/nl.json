@@ -2419,7 +2419,6 @@
   "translate.model.percent": "{percent}%",
   "translate.model.smallBufferBuild": "Deze GPU krijgt een versie van het model voor kleine grafische buffers: de grootste buffer is {size}.",
   "translate.pair.unavailable": "Niets op dit apparaat kan van het {from} naar het {to} vertalen.",
-  "translate.pair.unavailableInto": "Niets op dit apparaat kan naar het {to} vertalen.",
   "translate.panel.heading": "Vertaling",
   "translate.panel.off": "Uit",
   "translate.panel.settingsLink": "Taal en modellen in Instellingen",

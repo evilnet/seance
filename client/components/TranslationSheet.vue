@@ -488,12 +488,16 @@ export default defineComponent({
 
 		// Each target through the router's own rule (reader.ts `pairVerdict`)
 		// from the language the user writes: a pair nothing here can serve
-		// says so on its row instead of failing on the first send.
+		// says so on its row instead of failing on the first send. Under
+		// Detect a draft goes from the reading language unless the detector
+		// is sure of another (outgoing.ts `writeSource`), so that is the
+		// pair each row is judged by.
+		const writes = computed(() => from.value ?? readingLanguage());
 		const verdicts = computed(() => {
 			const out = new Map<string, RouteVerdict>();
 
 			for (const code of SUPPORTED_LANGUAGES) {
-				out.set(code, pairVerdict(from.value, code));
+				out.set(code, pairVerdict(writes.value, code));
 			}
 
 			return out;
@@ -541,7 +545,7 @@ export default defineComponent({
 
 					const size = downloadBytes(verdict.route, store.state.translation.models);
 
-					if (code === from.value) {
+					if (code === writes.value) {
 						row.status = t("translate.sheet.corrects");
 					} else if (size > 0) {
 						row.status = t("translate.sheet.download", {size: friendlysize(size)});
@@ -576,9 +580,9 @@ export default defineComponent({
 				return t("translate.picker.sameLanguageNeedsGpu");
 			}
 
-			return from.value
-				? t("translate.pair.unavailable", {from: name(from.value), to: name(to.value)})
-				: t("translate.pair.unavailableInto", {to: name(to.value)});
+			// Judged from the reading language under Detect (`writes`), and
+			// named so.
+			return t("translate.pair.unavailable", {from: name(writes.value), to: name(to.value)});
 		});
 		const blockedWhy = computed(() => {
 			const verdict = blockedVerdict.value;
@@ -589,7 +593,11 @@ export default defineComponent({
 		const close = () => emit("close");
 
 		const apply = () => {
-			emit("pick", to.value, from.value, once.value && props.onceOffered);
+			// Under Detect the row that reads "Corrects spelling" is the
+			// cleanup pass it says: the user's language into itself.
+			const named = from.value ?? (to.value === writes.value ? to.value : null);
+
+			emit("pick", to.value, named, once.value && props.onceOffered);
 			close();
 		};
 
@@ -698,7 +706,7 @@ export default defineComponent({
 		// the defaults it is back to.
 		const reset = () => {
 			emit("reset");
-			from.value = readingLanguage();
+			from.value = null;
 			to.value = "";
 			picked.value = false;
 			once.value = false;
