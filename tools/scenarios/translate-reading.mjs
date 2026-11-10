@@ -79,7 +79,6 @@
 import {rigFeature} from "./lib/rig-feature.mjs";
 import {
 	READING_ON,
-	TRANSLATION_ON,
 	TRANSLATION_OFFERED,
 	closeTranslationPanel,
 	openTranslationPanel,
@@ -94,6 +93,20 @@ const BASE = process.env.SEANCE_HTTP ?? "http://localhost:8021/";
 
 export const url = `${BASE}?host=127.0.0.1&port=8067&tls=false&nick=${NICK}&join=%23seance-translate&fakeTranslate`;
 
+/** Init script: translation switched off by the user, unless a setting is already stored. */
+const TRANSLATION_OFF = `(() => {
+	try {
+		const settings = JSON.parse(localStorage.getItem("settings") || "{}") || {};
+
+		if (!("translationEnabled" in settings)) {
+			settings.translationEnabled = false;
+			localStorage.setItem("settings", JSON.stringify(settings));
+		}
+	} catch (e) {}
+})()`;
+
+/** The suggestion card, not the one-time note that shares its card (ChatInput.vue). */
+const SUGGEST = "#form .translate-suggest:not(.translate-note)";
 const PAUSED = `!!document.getElementById("app").__vue_app__.config.globalProperties.$store.state.translation.paused`;
 const LINES = `document.querySelectorAll('.msg-translated').length`;
 const MOBILE = process.argv.includes("--mobile");
@@ -335,8 +348,11 @@ function speaker(nick) {
 }
 
 export default async function run(page) {
-	// Translation ships switched off (settings.ts translationEnabled).
-	await page.addInitScript(TRANSLATION_ON);
+	// Translation starts switched off by the user (settings.ts
+	// translationEnabled), so the run can show the switch-on reading what
+	// the channel already holds. Only an absent setting is written: once the
+	// run switches it on, a reload keeps it on.
+	await page.addInitScript(TRANSLATION_OFF);
 	// The rig leaves message redaction off: without the feature REDACT
 	// answers FAIL DISABLED and the page is never offered the cap that
 	// makes it show one.
@@ -381,11 +397,7 @@ async function scenario(page) {
 		timeout: 20000,
 		label: "chat input up",
 	});
-	await page.waitFor(TRANSLATION_OFFERED, {
-		timeout: 10000,
-		label: "translation offered once the probe answered",
-	});
-	await page.check("reading starts off", !(await page.evaluate(READING_ON)));
+	await page.check("translation starts off", !(await page.evaluate(READING_ON)));
 
 	// A German topic before the switch: the header shows it as set while
 	// reading is off, and the switch-on reads it like the lines (reader.ts
@@ -433,8 +445,19 @@ async function scenario(page) {
 	await page.sleep(1500);
 	await page.check("nothing translated while reading is off", (await page.evaluate(LINES)) === 0);
 
-	await setReading(page, "en");
+	// Switching translation on is the whole setup: the channel menu's
+	// "Translation…" is one button while it is off, and the conversation
+	// reads from then on (switch.ts `readsHere`).
+	await openPanel(page);
+	await page.click(".translation-panel .translation-panel-enable-button");
+	await page.waitFor(`!document.querySelector(".translation-panel")`, {
+		label: "the enable button closed the panel",
+	});
 	await page.waitFor(READING_ON, {label: "reading on"});
+	await page.waitFor(TRANSLATION_OFFERED, {
+		timeout: 10000,
+		label: "translation offered once the probe answered",
+	});
 	await page.waitFor(
 		preSwitch
 			.map((line) => `!!(${newestRow(line)})?.querySelector('.msg-translated')`)
@@ -876,16 +899,27 @@ async function scenario(page) {
 
 	await page.waitFor(`${LINES} === ${base + 6}`, {timeout: 20000, label: "burst translated"});
 
-	// The burst was batched into one multi-line LLM request, not five
-	// independent translations: the request log (client/js/translate/fakePort.ts)
-	// shows a request with `lines >= 2`, and fewer requests than burst lines
-	// overall — the tell for the per-line fallback never firing.
+	// On the LLM route the burst is batched into one multi-line request,
+	// not five independent translations: the request log
+	// (client/js/translate/fakePort.ts) shows a request with `lines >= 2`,
+	// and fewer requests than burst lines overall -- the tell for the
+	// per-line fallback never firing. A seq2seq route (OPUS-MT, the default
+	// for German → English) takes one line a request by design: there each
+	// line goes once.
 	const burstRequests = await page.evaluate(`(${REQUESTS}).slice(${requestsBeforeBurst})`);
+	const burstEngines = [...new Set(burstRequests.map((r) => r.engine))];
+
 	await page.check(
-		`the burst was batched, not five singles (${
-			burstRequests.length
-		} requests, lines per request: ${burstRequests.map((r) => r.lines).join(",")})`,
-		burstRequests.some((r) => r.lines >= 2) && burstRequests.length < 5
+		burstEngines.includes("llm")
+			? `the burst was batched, not five singles (${
+					burstRequests.length
+			  } requests, lines per request: ${burstRequests.map((r) => r.lines).join(",")})`
+			: `the burst went to ${burstEngines.join(", ")} one line a request, each once (${
+					burstRequests.length
+			  } requests)`,
+		burstEngines.includes("llm")
+			? burstRequests.some((r) => r.lines >= 2) && burstRequests.length < 5
+			: burstRequests.length === 5 && new Set(burstRequests.map((r) => r.text)).size === 5
 	);
 
 	for (let i = 1; i <= 5; i++) {
@@ -902,14 +936,16 @@ async function scenario(page) {
 	// The channel now mostly writes German: the composer offers to write in
 	// it (the suggestion card), and the language sheet lists it under
 	// "Spoken in … lately". Declined, the card stays gone for the channel.
-	await page.waitFor(`!!document.querySelector("#form .translate-suggest")`, {
+	await page.waitFor(`!!document.querySelector(${JSON.stringify(SUGGEST)})`, {
 		label: "the suggestion card",
 	});
 	await page.check(
 		"the suggestion card offers German",
 		/German/.test(
 			await page.evaluate(
-				`document.querySelector("#form .translate-suggest-accept").textContent`
+				`document.querySelector(${JSON.stringify(
+					`${SUGGEST} .translate-suggest-accept`
+				)}).textContent`
 			)
 		)
 	);
@@ -928,8 +964,8 @@ async function scenario(page) {
 		`document.querySelector(".language-sheet").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))`
 	);
 	await page.waitFor(`!document.querySelector(".language-sheet")`, {label: "the sheet closed"});
-	await page.click("#form .translate-suggest-decline");
-	await page.waitFor(`!document.querySelector("#form .translate-suggest")`, {
+	await page.click(`${SUGGEST} .translate-suggest-decline`);
+	await page.waitFor(`!document.querySelector(${JSON.stringify(SUGGEST)})`, {
 		label: "the declined card is gone",
 	});
 
@@ -1150,6 +1186,8 @@ async function scenario(page) {
 			`document.querySelector(".translation-panel-label")?.textContent.trim() ?? ""`
 		)
 	);
+	// translate.panel.readHere: "Translate messages here into {language}".
+	const READ_LEAD = "Translate messages here into ";
 	const readingEndonym = await page.evaluate(
 		`new Intl.DisplayNames([navigator.language], {type: "language"}).of(navigator.language.split("-")[0])`
 	);
@@ -1158,9 +1196,9 @@ async function scenario(page) {
 		`the reading section names the language in itself (${readLabel})`,
 		// The language comes from the interface (the unified setting), and
 		// the label carries its endonym — "English", never the bare code.
-		readLabel.startsWith("Read messages in ") &&
+		readLabel.startsWith(READ_LEAD) &&
 			readLabel.endsWith(readingEndonym) &&
-			!/^[a-z]{2}$/i.test(readLabel.replace("Read messages in ", ""))
+			!/^[a-z]{2}$/i.test(readLabel.replace(READ_LEAD, ""))
 	);
 
 	// A real key press: Escape reaches the panel through the app's own
@@ -1535,9 +1573,9 @@ async function scenario(page) {
 		(await page.evaluate(chipOf(shortRow))) === "from German"
 	);
 
-	// History the reader asks for: a "load more" is translated, newest line
-	// first, and at most HISTORY_QUEUE_CAP of the page
-	// (client/js/translate/eligibility.ts).
+	// History the reader asks for: a "load more" is translated once it is in
+	// view, newest line first, and at most HISTORY_QUEUE_CAP of it a scan
+	// (client/js/translate/reader.ts `scanOnScreen`).
 	const HISTORY_QUEUE_CAP = 40;
 
 	await page.check(
@@ -1585,6 +1623,12 @@ async function scenario(page) {
 		timeout: 20000,
 		label: "a page of older messages arrived",
 	});
+	// Only what is in view is read (onScreen.ts): bring the loaded page's
+	// newest rows onto the screen, as reading back to the button would --
+	// the row that was the top before the load at the bottom of the view.
+	await page.evaluate(
+		`document.getElementById(${JSON.stringify(topBefore)}).scrollIntoView({block: "end"})`
+	);
 	await page.waitFor(`${LINES} > ${doneBefore}`, {
 		timeout: 30000,
 		label: "the loaded history is translated",
