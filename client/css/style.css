@@ -7101,10 +7101,10 @@ html[data-contrast="more"] .oper-tag {
 	 * sidebar, and its edge moved each time they came and went.
 	 *
 	 * Below its minimum the sidebar gives way instead (sidebarWidth.ts), so a
-	 * wide sidebar beside search still leaves some chat. The minimum is 15rem
-	 * and falls to 0 as the row narrows to 30rem (search's 20rem and about a
-	 * narrow sidebar's 10rem), so it does not push a small window into
-	 * overflow. That far down, search can still crowd the chat out. */
+	 * wide sidebar still leaves some chat. The minimum is 15rem and falls to
+	 * 0 as the row narrows to 30rem, so it does not push a small window into
+	 * overflow. Search never squeezes either of them: where it does not fit
+	 * beside 15rem of chat it covers the chat (js/searchPanel.ts). */
 	flex-basis: 0;
 	min-width: clamp(0px, 100% - 30rem, 15rem);
 }
