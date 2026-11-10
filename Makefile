@@ -1,150 +1,94 @@
-# Short commands for building, testing and running each of Seance's targets.
-# Every recipe calls the repository's own scripts; the toolchains each native
-# target needs are in shells/tauri/README.md.
+# One command per target to build, test and run Seance; each recipe calls the
+# repository's own scripts. Toolchains: shells/tauri/README.md. Targets fail
+# when their toolchain is missing, so CI calls the ones it gates on by name.
 #
-#   make help
-#
-# Targets are <platform>-<action>. Each fails when its toolchain is missing:
-# CI should call the platform targets it means to gate on, by name.
-#
-# Optional settings go in local.mk (gitignored), e.g. for the Android SDK:
+# Optional settings go in local.mk (gitignored), e.g.:
 #
 #   export JAVA_HOME := $(shell /usr/libexec/java_home)
 #   export ANDROID_HOME := $(HOME)/Library/Android/sdk
 #   export NDK_HOME := $(ANDROID_HOME)/ndk/29.0.14206865
-#   export RUSTUP_TOOLCHAIN := 1.99.1    # pin Rust for the native builds
+#   export RUSTUP_TOOLCHAIN := 1.99.1
 #
-# Written for the make that ships with macOS (GNU Make 3.81) as well as newer.
+# Written for the make macOS ships (GNU Make 3.81) as well as newer.
 
 -include local.mk
 
-SHELL := /bin/sh
-PNPM ?= pnpm
 TAURI := shells/tauri
-ANDROID_PROJECT := $(TAURI)/src-tauri/gen/android
-# web-run's port; the smoke check takes its own (tools/smoke.sh).
-PORT ?= 8000
-ANDROID_TARGET ?= aarch64
-IOS_SIM_TARGET ?= aarch64-sim
-# The longest mac-test may run before it counts as hung, in seconds.
-MAC_TEST_TIMEOUT ?= 600
+ANDROID := $(TAURI)/src-tauri/gen/android
+# Written by a tauri android build, gitignored, and applied by Gradle.
+ANDROID_GENERATED := $(ANDROID)/tauri.settings.gradle $(ANDROID)/app/tauri.build.gradle.kts
 
-# Outputs are copied to dist/<platform>-<variant>-<commit>/ once a build has
-# succeeded, so a failed build never leaves an older artifact looking current.
-# Files the builds themselves rewrite (the locale catalogs, the iOS project's
-# Info.plist) do not count as local changes.
-COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)$(shell git diff --quiet HEAD -- . ':!client/locales/*.json' ':!shells/tauri/src-tauri/gen/apple/*/Info.plist' 2>/dev/null || echo -dirty)
-# publish,<variant>,<path>: copy a finished output into dist/.
-publish = rm -rf "dist/$(1)-$(COMMIT)" && mkdir -p "dist/$(1)-$(COMMIT)" && cp -R "$(2)" "dist/$(1)-$(COMMIT)/" && echo "built: dist/$(1)-$(COMMIT)/$(notdir $(2))"
-
-# The web and shell builds all write public/ and the native icons, so two of
-# them must never run at once, even under make -j.
+# The web and shell builds all write public/ and the icons.
 .NOTPARALLEL:
 
-.PHONY: help deps tauri-deps \
-	web-build web-test web-lint web-typecheck web-mocha web-smoke web-run \
-	mac-build mac-test android-build android-test ios-sim-build \
-	ircd e2e
+.PHONY: help deps tauri-deps web-build web-test web-lint web-typecheck web-mocha \
+	web-smoke web-run mac-build mac-test android-build android-test ios-sim-build ircd e2e
 
-help:
-	@echo "Seance: make <target>"
-	@echo ""
-	@echo "  web-build       production build of the SPA into public/"
-	@echo "  web-test        what CI runs: lint, typecheck, mocha, smoke (builds first)"
-	@echo "  web-run         build, then serve public/ on http://127.0.0.1:$(PORT)/"
-	@echo "  mac-build       the desktop app (release Seance.app, no installers)"
-	@echo "  mac-test        the desktop shell's smoke run (pnpm smoke; needs a GUI session)"
-	@echo "  android-build   debug APK ($(ANDROID_TARGET))"
-	@echo "  android-test    the Android push code's unit tests (JVM only)"
-	@echo "  ios-sim-build   unsigned iOS Simulator build: proves it compiles, runs nothing"
-	@echo "  ircd            start the dev ircd in Docker (tools/nefarious-dev/run.sh -d)"
-	@echo "  e2e             Playwright e2e; needs SEANCE_E2E_IRC_URL"
-	@echo ""
-	@echo "Outputs land in dist/<target>-<commit>/. Settings: local.mk (see the top of this file)."
+help: ## this list
+	@awk -F ':.*## ' '/^[a-z0-9-]+:.*## /{printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-# Install when the installed tree does not match the lockfile (the same test
-# shells/tauri/tools/prepare.mjs makes), not merely when node_modules exists.
+# Install when node_modules does not match the lockfile (the test prepare.mjs
+# makes), not merely when it exists.
 deps:
-	@cmp -s pnpm-lock.yaml node_modules/.pnpm/lock.yaml 2>/dev/null || $(PNPM) install --frozen-lockfile
+	@cmp -s pnpm-lock.yaml node_modules/.pnpm/lock.yaml 2>/dev/null || pnpm install --frozen-lockfile
 
 tauri-deps: deps
-	@cmp -s $(TAURI)/pnpm-lock.yaml $(TAURI)/node_modules/.pnpm/lock.yaml 2>/dev/null || (cd $(TAURI) && $(PNPM) install --frozen-lockfile)
+	@cmp -s $(TAURI)/pnpm-lock.yaml $(TAURI)/node_modules/.pnpm/lock.yaml 2>/dev/null || (cd $(TAURI) && pnpm install --frozen-lockfile)
 
-## Web
+web-build: deps ## production build of the SPA into public/
+	NODE_ENV=production pnpm build
 
-web-build: deps
-	NODE_ENV=production $(PNPM) build
-
-# The same checks and order as .github/workflows/ci.yml, against one
-# production build (pnpm test:mocha would rebuild in development mode).
-web-test: web-build web-lint web-typecheck web-mocha web-smoke
+# One production build for mocha and the smoke check, as in ci.yml (pnpm
+# test:mocha would rebuild in development mode).
+web-test: web-build web-lint web-typecheck web-mocha web-smoke ## lint, typecheck, mocha, smoke
 
 web-lint: deps
-	$(PNPM) lint
+	pnpm lint
 
 web-typecheck: deps
-	$(PNPM) typecheck
+	pnpm typecheck
 
 web-mocha: deps
-	$(PNPM) test:mocha:built
+	pnpm test:mocha:built
 
 web-smoke: deps
 	tools/smoke.sh
 
-web-run: web-build
-	python3 -m http.server -d public --bind 127.0.0.1 $(PORT)
+web-run: web-build ## build, then serve public/ (tools/serve.sh)
+	tools/serve.sh
 
-## Desktop (macOS)
+# tauri build makes a fresh production public/ and the icons first. The .app
+# lands in $(TAURI)/src-tauri/target/release/bundle/macos/.
+mac-build: tauri-deps ## the desktop app (release .app, no DMG)
+	cd $(TAURI) && pnpm tauri build --bundles app
 
-# tauri build runs prepare-app first (a fresh production public/ and the
-# icons). --bundles app: the .app only, not the DMG.
-mac-build: tauri-deps
-	cd $(TAURI) && $(PNPM) tauri build --bundles app
-	@$(call publish,mac-release,$(TAURI)/src-tauri/target/release/bundle/macos/Seance.app)
+# Opens a real window, so it needs a GUI session. Under an identifier of its
+# own, so single-instance never hands the run to a Seance you have open, and
+# the run never touches that app's data.
+mac-test: tauri-deps ## the desktop shell's smoke run
+	cd $(TAURI) && TAURI_CONFIG='{"identifier":"chat.seance.desktop.maketest"}' pnpm smoke
 
-# A debug build that loads the page and checks the bridge; it opens a real
-# window, so it needs a logged-in GUI session. It runs under an identifier of
-# its own: under Seance's, single-instance would hand the run to a Seance
-# you already have open. perl's alarm stands in for timeout(1), which macOS
-# does not ship.
-mac-test: tauri-deps
-	cd $(TAURI) && TAURI_CONFIG='{"identifier":"chat.seance.desktop.maketest"}' perl -e 'alarm shift; exec @ARGV or die "$$!\n"' $(MAC_TEST_TIMEOUT) $(PNPM) smoke
+# The APK lands in $(ANDROID)/app/build/outputs/apk/universal/debug/.
+android-build: tauri-deps ## debug APK (aarch64)
+	cd $(TAURI) && pnpm tauri android build --debug --apk --target aarch64
 
-## Android
+$(ANDROID_GENERATED):
+	$(MAKE) android-build
 
-# The README's debug APK. Needs the SDK, NDK, JDK and the Rust target; see
-# shells/tauri/README.md § Phones and the local.mk example above.
-android-build: tauri-deps
-	cd $(TAURI) && $(PNPM) tauri android build --debug --apk --target $(ANDROID_TARGET)
-	@$(call publish,android-debug-$(ANDROID_TARGET),$(ANDROID_PROJECT)/app/build/outputs/apk/universal/debug/app-universal-debug.apk)
+# gen/android itself is Seance's code: never regenerated.
+android-test: tauri-deps $(ANDROID_GENERATED) ## the push code's JVM unit tests
+	cd $(ANDROID) && ./gradlew :app:testUniversalDebugUnitTest
 
-# Gradle applies tauri.settings.gradle and app/tauri.build.gradle.kts, which
-# are gitignored and written by a tauri android build, so one runs first when
-# they are missing. gen/android itself is Seance's code: never regenerated.
-android-test: tauri-deps
-	@if [ ! -f $(ANDROID_PROJECT)/tauri.settings.gradle ] || [ ! -f $(ANDROID_PROJECT)/app/tauri.build.gradle.kts ]; then \
-	  echo "android-test: Tauri's generated Gradle files are missing; building once to write them"; \
-	  $(MAKE) android-build; \
-	fi
-	cd $(ANDROID_PROJECT) && ./gradlew :app:testUniversalDebugUnitTest
-
-## iOS
-
-# A Simulator build, unsigned: it compiles the app and the Swift plugins and
-# proves nothing about running. Needs Xcode and the Simulator runtime that
-# matches Xcode's SDK (shells/tauri/README.md § Phones).
-ios-sim-build: tauri-deps
-	cd $(TAURI) && $(PNPM) tauri ios build --debug --target $(IOS_SIM_TARGET)
-
-## Live IRC
+# Needs the Simulator runtime matching Xcode's SDK (README § Phones).
+ios-sim-build: tauri-deps ## unsigned iOS Simulator build: compiles, runs nothing
+	cd $(TAURI) && pnpm tauri ios build --debug --target aarch64-sim
 
 # Replaces any running nefarious-dev container, whichever checkout started it.
-ircd:
+ircd: ## the dev ircd in Docker
 	tools/nefarious-dev/run.sh -d
 
-# The live Markdown test sends messages to a real channel, so it never picks a
-# server for you. Playwright serves public/ on 8000 and reuses a server
-# already there: stop one from another checkout first.
-e2e: web-build
-	@if [ -z "$$SEANCE_E2E_IRC_URL" ]; then echo "e2e: set SEANCE_E2E_IRC_URL (e.g. wss://irc.example.org:9998/)" >&2; exit 1; fi
-	$(PNPM) exec playwright test
+# Without SEANCE_E2E_IRC_URL the live test skips itself; fail instead, so a
+# green run means it ran. Playwright reuses a server already on port 8000.
+e2e: web-build ## Playwright e2e against SEANCE_E2E_IRC_URL
+	@test -n "$$SEANCE_E2E_IRC_URL" || { echo "e2e: set SEANCE_E2E_IRC_URL (e.g. wss://irc.example.org:9998/)" >&2; exit 1; }
+	pnpm exec playwright test
