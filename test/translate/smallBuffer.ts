@@ -149,6 +149,19 @@ describe("translate small-buffer build", () => {
 			).to.equal(small.smallBuffer?.model);
 		});
 
+		it("keeps the build on a mirror that names the pinned Hugging Face copy", () => {
+			// A mirror that does not store the 1.7B (it redirects to Hugging
+			// Face) points the build at the copy the shipped build reads.
+			const mirrored = buildCatalog({
+				modelBase: "https://example.org/models",
+				llm: {splitModel: QWEN3_1_7B_PINNED_MODEL},
+			});
+
+			expect(mirrored.llm.smallBuffer?.model).to.equal(QWEN3_1_7B_PINNED_MODEL);
+			expect(mirrored.llm.smallBuffer?.model).to.equal(small.smallBuffer?.model);
+			expect(mirrored.llm.smallBuffer?.lib).to.equal(small.smallBuffer?.lib);
+		});
+
 		it("pins the build to a revision, so its manifest key is never the model's own", () => {
 			const build = small.smallBuffer!;
 			const prebuilt = [
