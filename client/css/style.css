@@ -400,6 +400,7 @@ html[data-platform="macos"] {
  * the icon). */
 html[data-platform="macos"] #sidebar .logo-container {
 	display: flex;
+	flex: none; /* it stays as the list scrolls (below) */
 	align-items: center;
 	justify-content: flex-end;
 	box-sizing: border-box;
@@ -441,6 +442,39 @@ html[data-platform="macos"][dir="rtl"] #viewport .window .header {
 
 html[data-platform="macos"][dir="rtl"] #sidebar .logo-container {
 	padding-left: 10px;
+}
+
+/* The sidebar scrolls below its strip, never under the lights: the list
+ * scrolls, not the area holding the strip and the list. */
+html[data-platform="macos"] #sidebar .scrollable-area {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+html[data-platform="macos"] #sidebar .scrollable-area > :not(.logo-container) {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: hidden auto;
+	scrollbar-width: thin;
+	overscroll-behavior: contain;
+}
+
+/* Search's head is a strip of the same height, so it lines up with the
+ * header beside it, and the window drags from it too (SearchResults.vue).
+ * It keeps clear of the lights wherever it reaches the window's left edge:
+ * covering the screen (the phone layout), covering the chat with the
+ * sidebar closed, and right to left always, where it is the leftmost pane. */
+html[data-platform="macos"] #search-panel .search-head {
+	box-sizing: border-box;
+	min-height: var(--mac-titlebar-height);
+	padding-block: 0;
+}
+
+html[data-platform="macos"]:not([dir="rtl"]) #viewport:not(.menu-open) #search-panel.covering .search-head,
+html[data-platform="macos"]:not([dir="rtl"]) #search-panel.screen-overlay .search-head,
+html[data-platform="macos"][dir="rtl"] #search-panel .search-head {
+	padding-left: var(--mac-traffic-lights-end);
 }
 
 /* The image viewer as Quick Look shows a picture: over the window dimmed and

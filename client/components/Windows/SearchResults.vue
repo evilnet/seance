@@ -1,18 +1,28 @@
 <template>
 	<aside
 		id="search-panel"
+		ref="panel"
 		class="window"
 		:class="{
 			'screen-overlay': phone,
+			covering: !!coverBox,
 			tucked: searchTucked,
 			'time-seconds': store.state.settings.showSeconds,
 			'time-12h': store.state.settings.use12hClock,
 		}"
+		:style="
+			coverBox && {
+				left: `${coverBox.left}px`,
+				top: `${coverBox.top}px`,
+				width: `${coverBox.width}px`,
+				height: `${coverBox.height}px`,
+			}
+		"
 		:aria-label="t('search.results.aria')"
 	>
 		<div class="chat-view" data-type="search-results">
 			<template v-if="network && channel">
-				<div class="search-head" :inert="filtersOpen">
+				<div class="search-head" :inert="filtersOpen" :data-tauri-drag-region="dragRegion">
 					<form class="search-query" role="search" @submit.prevent="submit">
 						<span class="search-icon search-icon-find" aria-hidden="true" />
 						<!-- mousetrap: Escape closes the panel from the field too (App.vue). -->
@@ -294,11 +304,33 @@
 </template>
 
 <style>
-/* Beside the chat, whose lines a hit scrolls to; over it on a phone. */
+/* Beside the chat, whose lines a hit scrolls to, when both fit; otherwise
+ * over it. The width is js/searchPanel.ts searchBesideWidth's; change the two
+ * together. */
 #search-panel {
-	flex: 0 0 clamp(20rem, 34%, 30rem);
+	flex: 0 1 clamp(20rem, 34%, 30rem);
+	min-width: 0;
 	overflow: hidden;
 	border-inline-start: 1px solid var(--oper-line);
+}
+
+/* Beside the chat the sidebar keeps its width. Should the window narrow
+ * past the point where both fit, the panel gives way for the moment it takes
+ * useSearchFit to see it and cover the chat instead; the sidebar giving way
+ * there would make the room it measures look larger than it is. */
+#viewport:has(> #search-panel:not(.covering, .screen-overlay)) #sidebar {
+	flex-shrink: 0;
+}
+
+/* A desktop window without room for both (searchPanel.ts useSearchFit): the
+ * panel takes the chat's box, given inline, and nothing beside it moves. */
+#search-panel.covering {
+	position: absolute;
+	z-index: 2;
+}
+
+#search-panel.covering.tucked {
+	display: none;
 }
 
 .chat-view[data-type="search-results"] {
@@ -671,7 +703,8 @@ import {useRoute, useRouter} from "vue-router";
 import eventbus from "../../js/eventbus";
 import socket from "../../js/socket";
 import {navigate, switchToChannel} from "../../js/router";
-import {phoneLayout as phone, searchTucked} from "../../js/searchPanel";
+import {phoneLayout as phone, searchCovers, searchTucked, useSearchFit} from "../../js/searchPanel";
+import {macDragRegion} from "../../js/helpers/shell";
 import {forgetSearches, recentSearches, rememberSearch} from "../../js/helpers/searchRecents";
 import {
 	ALL_CHANNELS,
@@ -736,6 +769,8 @@ export default defineComponent({
 		const {t, tCount, locale} = useI18n();
 
 		const queryField = ref<HTMLInputElement>();
+		const panel = ref<HTMLElement>();
+		const coverBox = useSearchFit(panel);
 
 		// The field holds the words; every filter is a chip. The route's q has both.
 		const opened = parseSearchQuery(String(route.query.q ?? ""));
@@ -1118,7 +1153,8 @@ export default defineComponent({
 
 		// The chat beside goes to the message; the results stay. A hit in another
 		// conversation moves the route there, its scope spelt out so the search is
-		// the same one. On a phone the panel tucks away until the magnifier.
+		// the same one. Over the chat (a phone, a narrow window) the panel tucks
+		// away until the magnifier.
 		const openHit = (hit: SearchHit) => {
 			const chat = findChat(hit.target);
 
@@ -1150,7 +1186,7 @@ export default defineComponent({
 				});
 			}
 
-			if (phone.value) {
+			if (searchCovers.value) {
 				searchTucked.value = true;
 			}
 		};
@@ -1439,6 +1475,9 @@ export default defineComponent({
 			clearRecent,
 			hitError,
 			phone,
+			panel,
+			coverBox,
+			dragRegion: macDragRegion(),
 			recent,
 			searchTucked,
 			useRecent,
