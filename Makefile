@@ -1,6 +1,5 @@
 # One command per target to build, test and run Seance; each recipe calls the
-# repository's own scripts. Toolchains: shells/tauri/README.md. Targets fail
-# when their toolchain is missing, so CI calls the ones it gates on by name.
+# repository's own scripts. Toolchains: shells/tauri/README.md.
 #
 # Optional settings go in local.mk (gitignored), e.g.:
 #
@@ -15,10 +14,10 @@
 
 TAURI := shells/tauri
 ANDROID := $(TAURI)/src-tauri/gen/android
-# Written by a tauri android build, gitignored, and applied by Gradle.
-ANDROID_GENERATED := $(ANDROID)/tauri.settings.gradle $(ANDROID)/app/tauri.build.gradle.kts
+# One of the files a tauri android build writes (gitignored) and Gradle applies.
+ANDROID_GENERATED := $(ANDROID)/tauri.settings.gradle
 
-# The web and shell builds all write public/ and the icons.
+# The web and shell builds all write public/; the shell builds the icons too.
 .NOTPARALLEL:
 
 .PHONY: help deps tauri-deps web-build web-test web-lint web-typecheck web-mocha \
@@ -27,13 +26,14 @@ ANDROID_GENERATED := $(ANDROID)/tauri.settings.gradle $(ANDROID)/app/tauri.build
 help: ## this list
 	@awk -F ':.*## ' '/^[a-z0-9-]+:.*## /{printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-# pnpm skips an install that is already current. Not into a node_modules that
-# is a symlink into another checkout (prepare.mjs refuses those too).
+# pnpm skips an install that is already current. A node_modules that is a
+# symlink into another checkout is left alone: installing would change that
+# checkout's tree.
 deps:
-	@[ -L node_modules ] || pnpm install --frozen-lockfile
+	@if [ -L node_modules ]; then echo "deps: node_modules is a symlink; not installing"; else pnpm install --frozen-lockfile; fi
 
 tauri-deps: deps
-	@[ -L $(TAURI)/node_modules ] || (cd $(TAURI) && pnpm install --frozen-lockfile)
+	@if [ -L $(TAURI)/node_modules ]; then echo "tauri-deps: $(TAURI)/node_modules is a symlink; not installing"; else cd $(TAURI) && pnpm install --frozen-lockfile; fi
 
 web-build: deps ## production build of the SPA into public/
 	NODE_ENV=production pnpm build
@@ -54,7 +54,7 @@ web-mocha: deps
 web-smoke: deps
 	tools/smoke.sh
 
-web-run: web-build ## build, then serve public/ (tools/serve.sh)
+web-run: web-build ## build, then serve public/ on :8765 (tools/serve.sh)
 	tools/serve.sh
 
 # tauri build makes a fresh production public/ and the icons first. The .app

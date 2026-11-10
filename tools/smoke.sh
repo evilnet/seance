@@ -1,13 +1,14 @@
 #!/bin/sh
-# CI's smoke check, runnable locally (make web-test): serve the built public/
-# on a port of its own (SMOKE_PORT, default 8790), run tools/scenarios/smoke.mjs in
-# Chromium ($CHROME_BIN, else one found on PATH, in /Applications or from
-# Playwright), stop the server.
+# CI's smoke check, runnable locally (make web-test): serve the built
+# public/ on a port of its own (SMOKE_PORT, default 8790), run
+# tools/scenarios/smoke.mjs in Chromium ($CHROME_BIN, else one found on PATH,
+# in /Applications or from Playwright), stop the server.
 set -eu
 cd "$(dirname "$0")/.."
 SMOKE_PORT="${SMOKE_PORT:-8790}"
 URL="http://127.0.0.1:$SMOKE_PORT/"
-answers() { node -e 'fetch(process.argv[1]).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))' "$URL"; }
+# A listener that accepts but never answers counts as not answering.
+answers() { node -e 'fetch(process.argv[1],{signal:AbortSignal.timeout(1000)}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))' "$URL"; }
 
 [ -f public/index.html ] || { echo "smoke: public/ is not built (make web-build)" >&2; exit 1; }
 
