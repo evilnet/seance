@@ -26,14 +26,15 @@ ANDROID_GENERATED := $(ANDROID)/tauri.settings.gradle
 help: ## this list
 	@awk -F ':.*## ' '/^[a-z0-9-]+:.*## /{printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-# pnpm skips an install that is already current. A node_modules that is a
-# symlink into another checkout is left alone: installing would change that
-# checkout's tree.
+# pnpm skips an install that is already current. Each checkout installs its
+# own: pnpm links from one shared store, so that is quick and small.
 deps:
-	@if [ -L node_modules ]; then echo "deps: node_modules is a symlink; not installing"; else pnpm install --frozen-lockfile; fi
+	@if [ -L node_modules ]; then echo "deps: node_modules is a symlink; remove it and run make again" >&2; exit 1; fi
+	pnpm install --frozen-lockfile
 
 tauri-deps: deps
-	@if [ -L $(TAURI)/node_modules ]; then echo "tauri-deps: $(TAURI)/node_modules is a symlink; not installing"; else cd $(TAURI) && pnpm install --frozen-lockfile; fi
+	@if [ -L $(TAURI)/node_modules ]; then echo "tauri-deps: $(TAURI)/node_modules is a symlink; remove it and run make again" >&2; exit 1; fi
+	cd $(TAURI) && pnpm install --frozen-lockfile
 
 web-build: deps ## production build of the SPA into public/
 	NODE_ENV=production pnpm build
