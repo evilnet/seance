@@ -1067,13 +1067,14 @@ export default async function run(page) {
 
 			// Off is not "can't": its Run on and its Downloads stay open (a
 			// download ahead of use), and no reason is shown for the switch.
+			// On an iPad the CPU copy is closed for memory, switch or not.
 			const rows = await page.evaluate(`(() => ({
 				gpu: !document.querySelector(${JSON.stringify(RADIO("translateLlmDevice", "gpu"))}).disabled,
 				cpu: !document.querySelector(${JSON.stringify(RADIO("translateLlmDevice", "cpu"))}).disabled,
 				downloads: ${JSON.stringify(
-					[COPY(SMALL, "gpu"), COPY(SMALL, "cpu")].concat(
-						device.runs[LARGE] ? [COPY(LARGE, "gpu")] : []
-					)
+					[COPY(SMALL, "gpu")]
+						.concat(appleMobile ? [] : [COPY(SMALL, "cpu")])
+						.concat(device.runs[LARGE] ? [COPY(LARGE, "gpu")] : [])
 				)}.every((sel) => document.querySelector(sel + " .translate-copy-download").disabled === false),
 				auto: (document.querySelector(${JSON.stringify(
 					FAMILY("llm")
@@ -1085,7 +1086,7 @@ export default async function run(page) {
 					rows
 				)})`,
 				rows.gpu &&
-					rows.cpu &&
+					rows.cpu === !appleMobile &&
 					rows.downloads &&
 					rows.auto === EN["translate.settings.autoPicksGpu"]
 			);
@@ -1168,7 +1169,12 @@ export default async function run(page) {
 			// Under --mobile the toolbar is a finger's: a long press opens it
 			// and marks the last pointer a touch (helpers/inputModality.ts).
 			if (MOBILE) {
-				await page.evaluate(`${HELLO}.setAttribute("data-cap-target", "1")`);
+				// A finger presses what is on screen: the line may sit below
+				// the fold, under the history that came in after it.
+				await page.evaluate(
+					`(() => { ${HELLO}.setAttribute("data-cap-target", "1"); ${HELLO}.scrollIntoView({block: "center"}); })()`
+				);
+				await page.sleep(300);
 				await finger("[data-cap-target] .content", 700);
 			}
 
@@ -1355,14 +1361,26 @@ export default async function run(page) {
 		await page.sleep(1500);
 
 		const offers = await page.evaluate(OFFERS);
-		const reasons = Object.entries(sizeOf).map(([model, bytes]) => ({
+		// German into English routes the OPUS-MT pair first (the table's
+		// cheapest class), so its CPU copy is the download a line offers;
+		// the language model's GPU copy stays accepted for a table that
+		// puts it first.
+		const offerFor = (model, bytes, why) => ({
 			text: `${EN["translate.line.needsDownload"].replace("{size}", size(bytes))} ${
 				EN["translate.line.download"]
 			}`,
-			title: EN["translate.why.downloadGpu"]
-				.replace("{model}", model)
-				.replace("{size}", size(bytes)),
-		}));
+			title: EN[why].replace("{model}", model).replace("{size}", size(bytes)),
+		});
+		const reasons = [
+			offerFor(
+				EN["translate.model.opus"].replace("{from}", "German").replace("{to}", "English"),
+				113_000_000,
+				"translate.why.downloadCpu"
+			),
+			...Object.entries(sizeOf).map(([model, bytes]) =>
+				offerFor(model, bytes, "translate.why.downloadGpu")
+			),
+		];
 		const after = await page.evaluate(`(() => ({
 			count: window.__questions.length,
 			open: !!document.querySelector("#confirm-dialog-overlay.opened"),
@@ -1371,7 +1389,7 @@ export default async function run(page) {
 		}))()`);
 
 		page.check(
-			`consent: every line offers the language model's download (${offers[0]?.text} / ${offers[0]?.title})`,
+			`consent: every line offers its route's download (${offers[0]?.text} / ${offers[0]?.title})`,
 			offers.every(
 				(r) => r && reasons.some((want) => want.text === r.text && want.title === r.title)
 			)
