@@ -1195,6 +1195,11 @@ export default async function run(page) {
 	 */
 	async function consentStage(index) {
 		page.check("--- consent", true);
+		// Nothing downloaded: reading is on in every conversation, so the
+		// stages before this one read the channel's German lines and left
+		// OPUS-MT's copy in the cache (seq2seq.real.ts CACHE_NAME), which a
+		// cold load's localStorage.clear() does not touch.
+		await page.evaluate(`caches.delete("transformers-cache")`);
 		await page.addInitScript(
 			`Object.defineProperty(Navigator.prototype, "connection", {configurable: true, get: () => ({saveData: true, type: "wifi"})});`
 		);
