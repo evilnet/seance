@@ -27,13 +27,13 @@ ANDROID_GENERATED := $(ANDROID)/tauri.settings.gradle $(ANDROID)/app/tauri.build
 help: ## this list
 	@awk -F ':.*## ' '/^[a-z0-9-]+:.*## /{printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-# Install when node_modules does not match the lockfile (the test prepare.mjs
-# makes), not merely when it exists.
+# pnpm skips an install that is already current. Not into a node_modules that
+# is a symlink into another checkout (prepare.mjs refuses those too).
 deps:
-	@cmp -s pnpm-lock.yaml node_modules/.pnpm/lock.yaml 2>/dev/null || pnpm install --frozen-lockfile
+	@[ -L node_modules ] || pnpm install --frozen-lockfile
 
 tauri-deps: deps
-	@cmp -s $(TAURI)/pnpm-lock.yaml $(TAURI)/node_modules/.pnpm/lock.yaml 2>/dev/null || (cd $(TAURI) && pnpm install --frozen-lockfile)
+	@[ -L $(TAURI)/node_modules ] || (cd $(TAURI) && pnpm install --frozen-lockfile)
 
 web-build: deps ## production build of the SPA into public/
 	NODE_ENV=production pnpm build
@@ -88,7 +88,9 @@ ircd: ## the dev ircd in Docker
 	tools/nefarious-dev/run.sh -d
 
 # Without SEANCE_E2E_IRC_URL the live test skips itself; fail instead, so a
-# green run means it ran. Playwright reuses a server already on port 8000.
+# green run means it ran. Playwright would test a server already on port 8000
+# (another checkout's) rather than start its own, so that port must be free.
 e2e: web-build ## Playwright e2e against SEANCE_E2E_IRC_URL
 	@test -n "$$SEANCE_E2E_IRC_URL" || { echo "e2e: set SEANCE_E2E_IRC_URL (e.g. wss://irc.example.org:9998/)" >&2; exit 1; }
+	@python3 -c 'import socket; socket.socket().bind(("127.0.0.1", 8000))' 2>/dev/null || { echo "e2e: port 8000 is in use; stop that server first" >&2; exit 1; }
 	pnpm exec playwright test
