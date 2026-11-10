@@ -1036,29 +1036,51 @@ export default async function run(page) {
 			);
 			await closePicker();
 
-			// Both off: a line from someone else, for the toolbar. Earlier
-			// runs' copies are in the channel's history: wait for a new one.
+			// Reading is on: what it has under way finishes first, so the
+			// switch below finds the engine idle and takes effect at once
+			// (service.ts setSettings → afterEngineIdle).
+			await page.waitFor(
+				`!Object.values(document.getElementById("app").__vue_app__.config.globalProperties.$store.state.translations).some((e) => e.status === "pending")`,
+				{timeout: 60000, label: "reading has nothing under way"}
+			);
+			await openSettings();
+			await setSwitch("translateCpu", false);
+			await closeSettings();
+
+			// Both off: a line from someone else, for the toolbar. It comes
+			// after the switch: reading is on, and a line queued while
+			// OPUS-MT was still on finishes there by design. Earlier runs'
+			// copies are in the channel's history: wait for a new one.
 			const HELLOS = `[...document.querySelectorAll("#chat .msg:not(.self)")].filter((m) => m.textContent.includes("Hallo zusammen")).length`;
 			const hellosBefore = Number(await page.evaluate(HELLOS));
 			const other = await speaker(`cs${RUN}`, "Hallo zusammen, wie geht es euch heute?");
 
 			await page.waitFor(`${HELLOS} > ${hellosBefore}`, {label: "the speaker's line"});
-			await openSettings();
-			await setSwitch("translateCpu", false);
-			await closeSettings();
+
+			// The row by its id: once read, its text is the translation's.
+			const helloId = String(
+				await page.evaluate(
+					`[...document.querySelectorAll("#chat .msg:not(.self)")].filter((m) => m.textContent.includes("Hallo zusammen")).pop().id`
+				)
+			);
+			const HELLO = `document.getElementById(${JSON.stringify(helloId)})`;
+
+			// Reading settles the line (work under way when the switches went
+			// off finishes), and the toolbar's Translate is on offer again.
+			await page.waitFor(`!!${HELLO}?.querySelector(".msg-action-translate")`, {
+				timeout: 30000,
+				label: "the line's toolbar offers Translate",
+			});
 
 			// Under --mobile the toolbar is a finger's: a long press opens it
 			// and marks the last pointer a touch (helpers/inputModality.ts).
 			if (MOBILE) {
-				await page.evaluate(`(() => {
-					const msg = [...document.querySelectorAll("#chat .msg:not(.self)")].reverse().find((m) => m.textContent.includes("Hallo zusammen"));
-					msg.setAttribute("data-cap-target", "1");
-				})()`);
+				await page.evaluate(`${HELLO}.setAttribute("data-cap-target", "1")`);
 				await finger("[data-cap-target] .content", 700);
 			}
 
 			const toolbar = await page.evaluate(`(() => {
-				const msg = [...document.querySelectorAll("#chat .msg:not(.self)")].reverse().find((m) => m.textContent.includes("Hallo zusammen"));
+				const msg = ${HELLO};
 				const b = msg && msg.querySelector(".msg-action-translate");
 				const described = b && b.getAttribute("aria-describedby");
 				return b ? {disabled: b.disabled, ariaDisabled: b.getAttribute("aria-disabled"), title: b.title, described: described ? (document.getElementById(described) || {}).textContent?.trim() : ""} : null;
@@ -1079,12 +1101,9 @@ export default async function run(page) {
 			);
 
 			if (!MOBILE) {
-				// The speaker's line by its text: the list's last element of
-				// its type need not be a message.
-				await page.evaluate(`(() => {
-					const msg = [...document.querySelectorAll("#chat .msg:not(.self)")].reverse().find((m) => m.textContent.includes("Hallo zusammen"));
-					msg.setAttribute("data-cap-target", "1");
-				})()`);
+				// The speaker's line by its id: the list's last element of its
+				// type need not be a message.
+				await page.evaluate(`${HELLO}.setAttribute("data-cap-target", "1")`);
 				await page.hover("[data-cap-target]");
 				await page.screenshot("desktop-both-off-toolbar", {
 					selector: "[data-cap-target]",
