@@ -12,7 +12,7 @@
 /** The rows' margin around the scroller's visible part: half a screen either way. */
 export const LINE_MARGIN = "50% 0px";
 
-const ID = /^msg-(\d+)$/;
+const ID = /^msg-(-?\d+)$/;
 
 function idOf(node: Node): number | null {
 	if (!(node instanceof HTMLElement) || !node.classList.contains("msg")) {
