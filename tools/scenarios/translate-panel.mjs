@@ -185,6 +185,18 @@ async function pickLanguage(page, code) {
 
 export default async function run(page) {
 	await page.addInitScript(TRANSLATION_ON);
+	// Every line the page sends, as sent: the echo is no evidence of the
+	// tags, since an ircd may strip a client tag it does not know (the dev
+	// ircd drops +evilnet.github.io/machine-translated and keeps the
+	// language).
+	await page.addInitScript(`(() => {
+		const send = WebSocket.prototype.send;
+		window.__seanceSent = [];
+		WebSocket.prototype.send = function (data) {
+			window.__seanceSent.push(String(data));
+			return send.call(this, data);
+		};
+	})()`);
 	const other = listener(LISTENER);
 
 	await page.goto(page.url, {waitForSelector: "#connect form"});
@@ -263,11 +275,19 @@ export default async function run(page) {
 	});
 
 	const sent = await page.evaluate(LAST_OWN);
+	const wire = await page.evaluate(
+		`(window.__seanceSent || []).find((l) => / PRIVMSG \\S+ :/.test(l) && l.endsWith(${JSON.stringify(
+			`[German] ${typed}`
+		)})) ?? null`
+	);
 
 	await page.check(
-		`the line is German, machine-translated (${JSON.stringify(sent)})`,
-		sent?.language === "de" && sent?.mt === true
+		`the line went out as German, machine-translated (${JSON.stringify(wire)})`,
+		!!wire &&
+			/^@\S*\+draft\/language=de[;\s]/.test(wire) &&
+			/^@\S*\+evilnet\.github\.io\/machine-translated[;=\s]/.test(wire)
 	);
+	await page.check(`the own line is German (${JSON.stringify(sent)})`, sent?.language === "de");
 
 	// 6. Inserted and edited: the user's own line, untagged.
 	const second = `see you at the meeting ${RUN}`;
@@ -312,15 +332,20 @@ export default async function run(page) {
 	const french = `Est-ce que le serveur redémarre ce soir, quelqu'un le sait ? ${RUN}`;
 
 	other.say(french);
-	await page.waitFor(`document.body.innerText.includes(${JSON.stringify(RUN)})`, {
+	const frenchLine = `(() => {
+		const store = document.getElementById("app")?.__vue_app__?.config.globalProperties.$store;
+		const chan = store?.state.activeChannel?.channel;
+		return (chan?.messages || []).find((m) => !m.self && m.text === ${JSON.stringify(french)}) ?? null;
+	})()`;
+
+	// The line itself, not RUN on screen: RUN is in the earlier lines too.
+	await page.waitFor(`!!${frenchLine}`, {
 		timeout: 20000,
 		label: "the French line arrives",
 	});
 	await page.evaluate(`(() => {
 		const store = document.getElementById("app")?.__vue_app__?.config.globalProperties.$store;
-		const chan = store.state.activeChannel.channel;
-		const line = [...chan.messages].reverse().find((m) => !m.self && m.type === "message");
-		chan.replyTo = line;
+		store.state.activeChannel.channel.replyTo = ${frenchLine};
 	})()`);
 	await page.waitFor(
 		`document.querySelector(${JSON.stringify(BUTTON)}).classList.contains("suggested")`,
