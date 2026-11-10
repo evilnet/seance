@@ -122,7 +122,6 @@ import {isEditable, startEdit, startReply} from "../js/helpers/compose";
 import {myReactions} from "../js/helpers/messageUpdates";
 import {loadEmojiCatalog} from "../js/helpers/emoji";
 import {
-	channelTranslation,
 	currentTranslationBlock,
 	liveLlmName,
 	readingLanguage,
@@ -137,6 +136,7 @@ import {ChanType} from "../../shared/types/chan";
 import {MessageType} from "../../shared/types/msg";
 import type {ClientChan, ClientMessage, ClientNetwork} from "../js/types";
 import {languageName} from "../js/translate/languages";
+import {recentLanguages} from "../js/translate/recent";
 import ReactionPicker from "./ReactionPicker.vue";
 import SourceLanguagePicker from "./SourceLanguagePicker.vue";
 import {useI18n} from "../js/i18n";
@@ -364,11 +364,11 @@ export default defineComponent({
 		};
 
 		// Nothing has placed this line, so the dialog opens on what the
-		// channel is known to speak (the panel's declared languages) rather
-		// than on whatever sorts first; with none declared it opens on the
-		// list, as the chip's picker does for a line with no source.
-		const channelLanguages = computed(
-			() => channelTranslation(props.network, props.channel).languages
+		// channel has been written in lately (recent.ts) rather than on
+		// whatever sorts first; with nothing yet it opens on the list, as the
+		// chip's picker does for a line with no source.
+		const channelLanguages = computed(() =>
+			recentLanguages(props.channel.messages, store.state.translations).map((c) => c.code)
 		);
 
 		const translateFrom = (from?: string) =>
@@ -463,7 +463,7 @@ export default defineComponent({
 			// there, so the tap opens the channel's translation panel, whose
 			// notice gives the reason and the way to Settings.
 			if (translateBlocked.value) {
-				store.commit("translationPanelFor", props.channel.id);
+				store.commit("translationSheetFor", props.channel.id);
 				emit("done");
 				return;
 			}

@@ -206,10 +206,9 @@ describe("translate/outgoing", () => {
 		const pick = (
 			routes: (to: string) => boolean,
 			last = "",
-			declared: string[] = [],
-			reading = "en",
-			recent: string[] = []
-		) => onceTargetDefault({reading, last, declared, recent, fallback, routes});
+			recent: string[] = [],
+			reading = "en"
+		) => onceTargetDefault({reading, last, recent, fallback, routes});
 		// A device without the GPU model: every pair but the cleanup pass.
 		const cpuOnly = (to: string) => to !== "en";
 
@@ -226,10 +225,9 @@ describe("translate/outgoing", () => {
 			expect(pick(cpuOnly)).to.equal("");
 		});
 
-		it("takes a language the channel has been written in lately, after a declared one", () => {
-			expect(pick(cpuOnly, "", [], "en", ["en", "es"])).to.equal("es");
-			expect(pick(cpuOnly, "", ["fr"], "en", ["es"])).to.equal("fr");
-			expect(pick(cpuOnly, "pt", ["fr"], "en", ["es"])).to.equal("pt");
+		it("takes a language the channel has been written in lately, after the last pick", () => {
+			expect(pick(cpuOnly, "", ["en", "es"])).to.equal("es");
+			expect(pick(cpuOnly, "pt", ["es"])).to.equal("pt");
 		});
 
 		it("keeps the cleanup pass where it runs, after a language the channel speaks", () => {

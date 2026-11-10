@@ -26,46 +26,48 @@ export const TRANSLATION_ON = `(() => {
 	} catch (e) {}
 })()`;
 
-// A channel's translation choices open from the channel menu (the header's
-// ⋮ → "Translation…"; there is no translate button in the header). The
-// helpers below are that path and what the header's lit button used to
-// show: whether the open conversation reads in translation.
+// A conversation's translation sheet (TranslationSheet.vue) opens from the
+// composer's language chip, or from the channel menu (the header's ⋮ →
+// "Translation…"), which opens it on its switches with the language list
+// closed. The helpers below are the menu's path.
 
-/** Open the channel menu's "Translation…" panel and wait for it. */
-export async function openTranslationPanel(page) {
+/** The open translation sheet. */
+export const SHEET = ".translation-sheet";
+
+/** Open the channel menu's "Translation…" sheet and wait for it. */
+export async function openTranslationSheet(page) {
 	await page.click("#chat .header button.menu");
 	await page.waitFor(`!!document.querySelector("#context-menu .context-menu-translate")`, {
 		timeout: 5000,
 		label: "the channel menu offers Translation…",
 	});
 	await page.click("#context-menu .context-menu-translate");
-	await page.waitFor(`!!document.querySelector(".translation-panel")`, {
+	await page.waitFor(`!!document.querySelector("${SHEET}")`, {
 		timeout: 10000,
-		label: "the translation panel opens",
+		label: "the translation sheet opens",
 	});
 }
 
-/** Close the panel by its ✕ and wait for it to go. */
-export async function closeTranslationPanel(page) {
-	await page.evaluate(
-		`document.querySelector(".translation-panel .header-popover-close").click()`
-	);
-	await page.waitFor(`!document.querySelector(".translation-panel")`, {
+/** Close the sheet by its ✕ and wait for it to go. */
+export async function closeTranslationSheet(page) {
+	await page.evaluate(`document.querySelector("${SHEET} .language-sheet-close").click()`);
+	await page.waitFor(`!document.querySelector("${SHEET}")`, {
 		timeout: 5000,
-		label: "the translation panel closes",
+		label: "the translation sheet closes",
 	});
 }
 
-/** Switch reading for the open conversation on or off through its panel. */
-export async function setReadingThroughPanel(page, on) {
-	await openTranslationPanel(page);
-	// The reading switch is the panel's first radiogroup: Off, then On.
-	await page.evaluate(
-		`document.querySelectorAll(".translation-panel [role=radiogroup]")[0].querySelectorAll("[role=radio]")[${
-			on ? 1 : 0
-		}].click()`
-	);
-	await closeTranslationPanel(page);
+/** Switch reading for the open conversation on or off through its sheet. */
+export async function setReadingThroughSheet(page, on) {
+	await openTranslationSheet(page);
+	await page.evaluate(`(() => {
+		const box = document.querySelector("${SHEET} .language-sheet-read-box");
+
+		if (box.checked !== ${on}) {
+			box.click();
+		}
+	})()`);
+	await closeTranslationSheet(page);
 }
 
 /**

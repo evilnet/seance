@@ -30,6 +30,7 @@ import {
 	channelKey,
 	defaultChannelTranslation,
 	effectiveFormality,
+	forgetChannel,
 	forgetNetwork,
 	forgetTerms,
 	loadAll,
@@ -1039,7 +1040,7 @@ export async function readTopic(network: ClientNetwork, channel: ClientChan): Pr
 
 	const generation = generationOf(channel.id);
 	const prior = priorFor(network, channel);
-	const detection = await detectLanguage(plain, prior, initial.languages, {
+	const detection = await detectLanguage(plain, prior, [], {
 		exclude: readingLanguage(),
 	});
 
@@ -1095,7 +1096,6 @@ export async function readTopic(network: ClientNetwork, channel: ClientChan): Pr
 					settings.formality,
 					store.state.settings.translateFormality
 				),
-				variant: settings.variant,
 				sourceHint: source ?? (unsure ? null : prior.top()),
 				nicks,
 			}
@@ -1110,16 +1110,36 @@ export async function readTopic(network: ClientNetwork, channel: ClientChan): Pr
 }
 
 /**
- * Ask the view of that channel to open its translation panel (the channel
- * menu's "Translation…", which switches to the channel first). Store
- * state rather than an event: the view may not exist yet when it is asked.
- * Off by the user's own setting, the panel opens too, as the one button
- * that switches translation on (spec § Finding it); off by the deploy, it
- * does not.
+ * Ask the view of that channel to open its translation sheet
+ * (TranslationSheet.vue: the channel menu's "Translation…", which switches
+ * to the channel first). Store state rather than an event: the view may
+ * not exist yet when it is asked. Off by the user's own setting, the sheet
+ * opens too, as the one button that switches translation on (spec §
+ * Finding it); off by the deploy, it does not.
  */
-export function requestTranslationPanel(channel: ClientChan): void {
+export function requestTranslationSheet(channel: ClientChan): void {
 	if (translationOn() || translationOffByUser()) {
-		store.commit("translationPanelFor", channel.id);
+		store.commit("translationSheetFor", channel.id);
+	}
+}
+
+/**
+ * "Reset choices for this conversation": everything stored for it goes --
+ * an exclusion, the write target and the language it was written from,
+ * the register, the last pick, a declined suggestion, the term memory --
+ * and it is back to what every conversation starts as. An exclusion lifted
+ * reads what is on screen, as switching reading back on does. The caller
+ * drops a composer strip made for the old target (writer.ts
+ * `cancelOutgoing`), as the sheet's Off does.
+ */
+export function resetChannelChoices(network: ClientNetwork, channel: ClientChan): void {
+	const before = readsHere(network, channel);
+
+	forgetChannel(network.uuid, channel.name);
+	store.commit("translateChannelRemove", channelKey(network.uuid, channel.name));
+
+	if (!before && readsHere(network, channel)) {
+		requeueReading(network, channel);
 	}
 }
 
@@ -1127,10 +1147,7 @@ export function setChannelOptions(
 	network: ClientNetwork,
 	channel: ClientChan,
 	patch: Partial<
-		Pick<
-			ChannelTranslation,
-			"write" | "writeFrom" | "formality" | "variant" | "languages" | "once" | "noSuggest"
-		>
+		Pick<ChannelTranslation, "write" | "writeFrom" | "formality" | "once" | "noSuggest">
 	>
 ): void {
 	commitChannel(network, channel, setChannelTranslation(network.uuid, channel.name, patch));
@@ -1282,7 +1299,7 @@ export async function translateMessage(
 				confidence: 1,
 				candidates: store.state.translations[message.id]?.candidates ?? [],
 		  }
-		: await detectLanguage(plainText(), prior, initial.languages, {
+		: await detectLanguage(plainText(), prior, [], {
 				// The language the reader already reads: a lone verdict with it
 				// in the running is no verdict (detect.ts `decide`). The switch
 				// is re-read after the await below; this is the target as it
@@ -1364,7 +1381,6 @@ export async function translateMessage(
 				settings.formality,
 				store.state.settings.translateFormality
 			),
-			variant: settings.variant,
 			sourceHint: source ?? (unsure ? null : prior.top()),
 			nicks,
 		}),
@@ -1508,8 +1524,8 @@ function stopReading(): void {
 		store.commit("translationPaused", null);
 	}
 
-	if (store.state.translation.panelFor !== null) {
-		store.commit("translationPanelFor", null);
+	if (store.state.translation.sheetFor !== null) {
+		store.commit("translationSheetFor", null);
 	}
 }
 

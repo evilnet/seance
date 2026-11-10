@@ -58,14 +58,6 @@ export interface ChannelTranslation {
 	 */
 	writeFrom: string | null;
 	formality: Formality;
-	/** Free text for the prompt, e.g. "Brazilian Portuguese". */
-	variant: string;
-	/**
-	 * The languages people write in this channel (ISO 639-1, supported
-	 * codes only, deduplicated). Detection favours them: see detect.ts
-	 * `DECLARED_MARGIN`. Empty when nothing was declared.
-	 */
-	languages: string[];
 	/** Term memory, oldest first, one entry per source term and target language. */
 	terms: TermEntry[];
 	/**
@@ -112,8 +104,6 @@ export function defaultChannelTranslation(): ChannelTranslation {
 		write: null,
 		writeFrom: null,
 		formality: "auto",
-		variant: "",
-		languages: [],
 		terms: [],
 		once: null,
 		noSuggest: false,
@@ -137,27 +127,6 @@ export function asFormality(value: unknown): Formality {
  */
 export function effectiveFormality(channel: Formality, global: unknown): Formality {
 	return channel !== "auto" ? channel : asFormality(global);
-}
-
-/**
- * The declared languages as the record keeps them: supported codes only,
- * in the order they were added, no duplicates. A code this build cannot
- * route is dropped rather than kept as a dead weight on detection.
- */
-function languagesOf(value: unknown): string[] {
-	if (!Array.isArray(value)) {
-		return [];
-	}
-
-	const out: string[] = [];
-
-	for (const code of value) {
-		if (typeof code === "string" && isSupported(code) && !out.includes(code)) {
-			out.push(code);
-		}
-	}
-
-	return out;
 }
 
 /**
@@ -205,8 +174,6 @@ function sanitize(value: unknown, version: number): ChannelTranslation | null {
 		typeof raw.writeFrom === "string" && isSupported(raw.writeFrom) ? raw.writeFrom : null;
 	out.noSuggest = raw.noSuggest === true;
 	out.formality = isFormality(raw.formality) ? raw.formality : "auto";
-	out.variant = typeof raw.variant === "string" ? raw.variant : "";
-	out.languages = languagesOf(raw.languages);
 	out.terms = Array.isArray(raw.terms)
 		? raw.terms
 				.filter(isTermEntry)
@@ -340,12 +307,6 @@ export function setChannelTranslation(
 	} else if ("write" in rest && !next.once && current.write) {
 		next.once = current.write;
 	}
-
-	// The patch comes from the panel, so the codes are checked here as well
-	// as on load: the committed record is what the store mirrors until the
-	// next page, and an unroutable language must not sit in it weighting
-	// detection.
-	next.languages = languagesOf(next.languages);
 
 	all[key] = next;
 	saveAll(all);

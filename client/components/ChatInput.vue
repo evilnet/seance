@@ -282,20 +282,25 @@
 					sendTargetCode
 				}}</span>
 			</button>
-			<ComposerLanguageSheet
-				v-if="translateOncePickerOpen"
-				:anchor="translateOnceButton"
-				:network="network"
-				:channel="channel"
-				:target="sendTarget"
-				:initial-to="translateOncePreselected"
-				:initial-from="translateOnceFrom"
-				:once-offered="canTranslateOnce"
-				@pick="translateOnce"
-				@off="turnTranslateOff"
-				@close="translateOncePickerOpen = false"
-			/>
 		</span>
+		<!-- The conversation's translation sheet: from the chip above, or the
+		     channel menu's "Translation…" (anchored on the ⋮ then), which
+		     also opens it while the user's switch has translation off. -->
+		<TranslationSheet
+			v-if="translateOncePickerOpen && (translateOnceAvailable || translationOffByUser())"
+			:anchor="sheetAnchor"
+			:network="network"
+			:channel="channel"
+			:target="sendTarget"
+			:initial-to="translateOncePreselected"
+			:initial-from="translateOnceFrom"
+			:once-offered="canTranslateOnce"
+			:list-first="sheetListFirst"
+			@pick="translateOnce"
+			@off="turnTranslateOff"
+			@reset="resetChoices"
+			@close="translateOncePickerOpen = false"
+		/>
 		<span
 			v-if="store.state.serverConfiguration?.fileUpload || networkFilehost"
 			id="upload-tooltip"
@@ -387,11 +392,13 @@ import {
 	liveLlmName,
 	pairVerdict,
 	readingLanguage,
-	requestTranslationPanel,
+	requestTranslationSheet,
+	resetChannelChoices,
 	setChannelOptions,
 	translationMayRun,
+	translationOffByUser,
 } from "../js/translate/reader";
-import ComposerLanguageSheet from "./ComposerLanguageSheet.vue";
+import TranslationSheet from "./TranslationSheet.vue";
 import {loadNoteText, modelLabel} from "../js/helpers/modelLabel";
 import friendlysize from "../js/helpers/friendlysize";
 import {recentLanguages, suggestedLanguage} from "../js/translate/recent";
@@ -462,7 +469,7 @@ const bracketWraps = {
 
 export default defineComponent({
 	name: "ChatInput",
-	components: {ComposerLanguageSheet, TypingIndicator, QuotePreview, ReactionPicker},
+	components: {TranslationSheet, TypingIndicator, QuotePreview, ReactionPicker},
 	props: {
 		network: {type: Object as PropType<ClientNetwork>, required: true},
 		channel: {type: Object as PropType<ClientChan>, required: true},
@@ -1504,11 +1511,10 @@ export default defineComponent({
 			});
 		};
 
-		// The translate button opens the language sheet
-		// (ComposerLanguageSheet.vue), independent of the globe (which is
-		// reading): the pick becomes the channel's write target (channelStore
-		// `write`, the same setting the panel's "Send my messages in" shows),
-		// lit on the button until the sheet's Off; its "This message only"
+		// The translate button opens the conversation's translation sheet
+		// (TranslationSheet.vue) on its language list: the pick becomes the
+		// channel's write target (channelStore `write`, the sheet's "Write
+		// in"), shown on the button until the sheet's Off; its "This message only"
 		// makes the pick a one-off instead (writer.ts `translateOnce`), the
 		// way the toolbar's Translate reads one line. Shown wherever
 		// translation can run at all, and while the device probe is still
@@ -1523,8 +1529,10 @@ export default defineComponent({
 		);
 		// Translation switched off (or no longer able to run here): the
 		// picker goes with its button, and does not come back open with it.
+		// The sheet the user opened to switch it on (`translationOffByUser`)
+		// stays: it is the way back.
 		watch(translateOnceAvailable, (available) => {
-			if (!available) {
+			if (!available && !translationOffByUser()) {
 				translateOncePickerOpen.value = false;
 			}
 		});
@@ -1550,12 +1558,11 @@ export default defineComponent({
 			}
 
 			// The user's own language: lines go corrected, not translated.
+			// Another: its code alone, the language this conversation is
+			// written in (spec § One sheet per conversation).
 			return to === readingLanguage()
 				? t("translate.composer.targetCorrected", {language: codeOf(to)})
-				: t("translate.composer.targetPair", {
-						from: codeOf(readingLanguage()),
-						to: codeOf(to),
-				  });
+				: codeOf(to);
 		});
 		const translateOnceLabel = computed(() => {
 			const to = sendTarget.value;
@@ -1587,21 +1594,29 @@ export default defineComponent({
 			focusForTyping();
 		};
 
-		const openTranslateOnce = () => {
-			if (!canSend.value) {
-				return;
-			}
+		// "Reset choices for this conversation" (the sheet's More): the
+		// stored choices go, a strip made for the old target with them.
+		const resetChoices = () => {
+			cancelOutgoing(props.channel);
+			forgetPreview();
+			resetChannelChoices(props.network, props.channel);
+		};
 
-			if (translateOncePickerOpen.value) {
-				translateOncePickerOpen.value = false;
-				return;
-			}
+		// What the sheet hangs off, and whether it opens on the language
+		// list: the chip (the language to write in), or the channel menu's
+		// ⋮ (its switches first).
+		const sheetAnchor = ref<HTMLElement | null>(null);
+		const sheetListFirst = ref(true);
+
+		const openSheet = (anchor: HTMLElement | null, listFirst: boolean) => {
+			sheetAnchor.value = anchor;
+			sheetListFirst.value = listFirst;
 
 			const reading = readingLanguage();
 			const target = sendTarget.value;
 
 			// The target that is set; else the channel's last pick, a
-			// language the channel declares or has been written in lately,
+			// language the channel has been written in lately,
 			// or the user's own (the cleanup pass) -- each only where this
 			// device can serve it from the reading language, so a device
 			// without the GPU model never opens on a disabled cleanup pass
@@ -1612,7 +1627,6 @@ export default defineComponent({
 				onceTargetDefault({
 					reading,
 					last: lastOnceTarget(props.network, props.channel),
-					declared: channelTranslation(props.network, props.channel).languages,
 					recent: recentLanguages(props.channel.messages, store.state.translations).map(
 						(c) => c.code
 					),
@@ -1623,6 +1637,19 @@ export default defineComponent({
 				? channelTranslation(props.network, props.channel).writeFrom
 				: reading;
 			translateOncePickerOpen.value = true;
+		};
+
+		const openTranslateOnce = () => {
+			if (!canSend.value) {
+				return;
+			}
+
+			if (translateOncePickerOpen.value) {
+				translateOncePickerOpen.value = false;
+				return;
+			}
+
+			openSheet(translateOnceButton.value, true);
 		};
 
 		// A same-language pick is a cleanup pass on the GPU model
@@ -1674,7 +1701,10 @@ export default defineComponent({
 			// that choice (translate/switch.ts `readsHere`).
 			setChannelOptions(props.network, props.channel, {write: to, writeFrom: from});
 
-			if (translatable) {
+			// Read after the cancel above: a preview for the old target that
+			// was still on its way kept the composer busy, and the draft would
+			// otherwise sit with no strip until the next keystroke.
+			if (canTranslateOnce.value && (gate.kind === "ok" || gate.kind === "action")) {
 				void translateOutgoing(props.network, props.channel, gate.text);
 			}
 
@@ -1760,7 +1790,7 @@ export default defineComponent({
 		// messages here" is the exclusion.
 		const chooseConversations = () => {
 			store.commit("translationNote", null);
-			requestTranslationPanel(props.channel);
+			requestTranslationSheet(props.channel);
 		};
 
 		// The live preview (spec § Composer): with a send target set, a
@@ -1879,6 +1909,26 @@ export default defineComponent({
 				translateOncePickerOpen.value = false;
 				focusForTyping();
 			}
+		);
+
+		// The channel menu's "Translation…" (and a blocked toolbar Translate,
+		// a note's "Choose conversations") switches to the channel and leaves
+		// its id in the store, so the ask survives the switch: open the sheet
+		// once this composer is the channel that was asked for, and clear it.
+		// Registered after the watcher above, which closes the sheet on a
+		// channel change and would otherwise undo this one. On its switches,
+		// hung off the menu's ⋮ (the language list is one tap away).
+		watch(
+			() => [props.channel.id, store.state.translation.sheetFor] as const,
+			([id, asked]) => {
+				if (asked !== id) {
+					return;
+				}
+
+				store.commit("translationSheetFor", null);
+				openSheet(document.querySelector<HTMLElement>("#chat button.menu"), false);
+			},
+			{immediate: true}
 		);
 
 		watch(
@@ -2228,6 +2278,10 @@ export default defineComponent({
 			outgoingSendLabel,
 			translateOnceButton,
 			translateOncePickerOpen,
+			sheetAnchor,
+			sheetListFirst,
+			resetChoices,
+			translationOffByUser,
 			translateOnceAvailable,
 			canTranslateOnce,
 			translateOnceLabel,

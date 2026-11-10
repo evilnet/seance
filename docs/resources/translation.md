@@ -19,8 +19,8 @@ backup with the rest of `settings`). That one rule is
 state).
 
 Off, translation is absent, not disabled -- nothing renders, nothing is
-dimmed: no panel (the channel menu's "Translation…" is gone, so nothing
-asks for one through `state.translation.panelFor`), no composer
+dimmed: no sheet (the channel menu's "Translation…" is gone, so nothing
+asks for one through `state.translation.sheetFor`), no composer
 button, strip or round-trip row, and Return sends every draft as
 typed (`outgoing.ts` `firstEnterTranslates`; a kept write target and `/me`
 included), no Translate in the message toolbar, no `TranslationLine` under a
@@ -49,10 +49,10 @@ on this device.") and without when the deploy did ("Translation is turned
 off in this deployment."; switch.ts `translationOffBlock`). Nothing shows
 either today, since every surface that would is absent while off -- but
 one: off by the user's setting (not the deploy's), the channel menu still
-has "Translation…", which opens the conversation's panel with one button,
+has "Translation…", which opens the conversation's sheet with one button,
 "Translate messages into `<Language>`", and the line "Translation runs on
 this device and downloads language data as you need it." (`contextMenu.ts`,
-`TranslationPanel.vue`, `reader.ts` `translationOffByUser`): a reader
+`TranslationSheet.vue`, `reader.ts` `translationOffByUser`): a reader
 looking for translation in a conversation turns it on there, in two taps,
 without Settings (§ Reading everywhere). Opening it makes nothing
 (`translate-off.mjs`). Every
@@ -1054,8 +1054,8 @@ menu uses) of two items -- **Translate**, which is the guess
 (`retranslate` with no source), and **Translate from another language…**,
 which opens `SourceLanguagePicker.vue` in its `source` form anchored on
 the button and retranslates from the pick. The picker opens on the
-channel's declared languages (`channelStore.ts` `languages`, the panel's
-chips) rather than on whatever sorts first; the detector's runners-up are
+languages the channel has been written in lately (`recent.ts`) rather
+than on whatever sorts first; the detector's runners-up are
 not on the menu, since nothing has run a detector on this line yet -- the
 chip that follows the translation carries them, and that is where a wrong
 guess is corrected. The one click that stays a click is the hidden
@@ -1227,14 +1227,10 @@ the requeue keeps is an own line's `done` read-back), a rebuilt retry does
 not take a skip's `from` as its source, and `takesReadBack` does not count
 a skip as the line's translation.
 
-**The channel's own languages are the last word.** The panel's _Languages
-spoken here_ records what people write in a channel (`channelStore.ts`
-`languages`, ISO 639-1, supported codes only, persisted with the rest of
-the record). Where neither identifier's verdict stands on its own, a
-declared language that is not the reading language and that either of
-them names places the line (`decide` step 4): "tak" in a Polish channel
-is Polish. The composer declares nothing: a draft is the user's own
-language, not a channel matter.
+**Declared languages are retired.** `decide` step 4 still places a line on
+a declared language either identifier names, but nothing declares one any
+more: the panel's _Languages spoken here_ went with step 2 (§ One sheet),
+and the reader passes no declared languages.
 
 There are three ways to retranslate on that menu, because detection is the
 thing most likely to be wrong: **Retranslate** runs the line again as it
@@ -1263,12 +1259,12 @@ kept the first line and the rest of the message was silently lost. An entry leav
 drops it, and so do the message-limit trim, a part and a quit -- and with
 the entry goes the queue item the pipeline remembered for that message
 (`reader.ts` `forgetTranslations`), which nothing could reach again. The
-switch, the outgoing target (plan 3), formality, variant, the languages
-spoken here and the term memory are per channel under
+switch, the outgoing target (plan 3), formality and the term memory are
+per channel under
 `thelounge.translate` (`channelStore.ts`); leaving a channel keeps them,
 and only a network's quit forgets them. The channel menu's
-"Translation…" switches to the channel and asks for the panel through
-`state.translation.panelFor`, which the view clears as it opens it.
+"Translation…" switches to the channel and asks for the sheet through
+`state.translation.sheetFor`, which the composer clears as it opens it.
 Nothing on a message object changes and nothing about unread or highlight
 counts does. Browser check: `tools/scenarios/translate-reading.mjs`, on
 the in-page fake engine (`?fakeTranslate`, `fakePort.ts`): it answers a
@@ -1331,45 +1327,65 @@ the conversation moving on. Browser check: the
 switch-on, "load more", language-change and rejoin steps of
 `tools/scenarios/translate-reading.mjs`.
 
-## The channel's panel
+## One sheet
 
-The per-channel choices -- "Translate messages here" (the exclusion), the languages spoken here,
-outgoing target, formality, variant -- are one component
-(`TranslationPanel.vue`), opened from the channel menu's "Translation…"
-(the header's ⋮, a sidebar row's menu, or a message's toolbar when nothing
-here can translate); there is no translate button in the header. It is a
-header popover, the mentions' own design (`docs/resources/client-features.md`
-§ Header popovers): the `.header-popover` surface under the ⋮ button with a
-title row ("Translation" and the channel, a ✕), the whole chat under the
-header on a phone. Inside, two sections (Reading, Writing) under their
-headings, each setting a label with its control beneath it and a one-line
-hint, the reading switch and formality as segmented controls
-(`role="radiogroup"`, "As written" / "Formally" / "Casually"), and a footer
-link to Settings -> Translation. While an engine has paused itself (§ A
-pause is a minute off), a notice at the top says so with the engine's
-reason. Controls are 2.25rem with a pointer and
-2.75rem under a finger (`pointer: coarse`).
+A conversation's translation choices are one sheet (`TranslationSheet.vue`),
+with two ways in: the composer's language chip, and the channel menu's
+"Translation…" (the header's ⋮, a sidebar row's menu, a message's toolbar
+when nothing here can translate, a note's "Choose conversations"). There is
+no other panel and no translate button in the header.
 
-It closes on the ✕, on Escape or Android's Back (its escape layer,
-`translation`), and on a press outside it, which also does what a header
-button pressed there says, as the mentions' pane does; the caret goes back
-to the ⋮ button when the panel is what held it, and Tab stays inside it.
-Browser checks: `tools/scenarios/translate-reading.mjs` (desktop and
-`--mobile`) and `tools/scenarios/translate-composer.mjs --mobile
---width=390 --height=844` (the phone layout in full).
+```
+Translation · #linux                                  ✕
+[x] Translate messages here into English
+Write in   [ Off | Portuguese ▾ ]
+  (the language list: chips spoken here lately, search, every language)
+▸ More     I write [English] ⇄ · Address people · Reset choices for this conversation
+Language and models in Settings
+```
 
-_Languages spoken here_ is the one field that is not a single choice: the
-declared languages show as chips (`.translation-panel-chip`, each the
-language's own name and a ✕ that removes it, wrapping above the control),
-and a `translateLanguageAdd` select whose first option reads "Add a
-language…" appends one at a time and springs back to that option -- a
-fifty-long multi-select would be a poor way to name the two or three
-languages a channel speaks. It offers only what the channel has not
-declared yet. Its hint reads "Lines in these languages are
-recognised even when they are short or look alike."
+- **Opened from the chip** it opens on the language list, as the composer's
+  sheet always did: a pick is the conversation's write target, or with
+  "This message only" a one-off (writer.ts `translateOnce`). **Opened from
+  the menu** it opens on its switches, hung off the ⋮, the list one tap
+  away on Write in's language button. The menu's ask is store state
+  (`state.translation.sheetFor`, `reader.ts` `requestTranslationSheet`),
+  which ChatInput.vue clears as it opens the sheet, so the ask survives
+  the switch to the channel.
+- **Translate messages here** is the exclusion (§ Reading everywhere),
+  disabled while nothing here can translate, with the reason in a banner at
+  the top; a pause (§ A pause is a minute off) is a notice there too.
+- **Write in** is a two-segment radiogroup: Off (the target goes, and a
+  strip made for it with it) and the language, which opens the list. The
+  composer's chip shows the plain glyph, or the target's code ("PT") while
+  this conversation writes in another language ("EN ✓" for the cleanup pass
+  into the user's own).
+- **More** holds what most people never need: "I write" (the source the
+  list fills in when it is pressed, and the swap), the register ("Address
+  people": As written / Formally / Casually), and **Reset choices for this
+  conversation** (`reader.ts` `resetChannelChoices`): every stored choice
+  for the conversation goes (`channelStore.ts` `forgetChannel`: the
+  exclusion, the target and its source, the register, the last pick, a
+  declined suggestion, the term memory), a strip for the old target goes
+  with them, and an exclusion lifted reads what is on screen.
+- **Retired:** "Languages spoken here" and "Variant". Neither is offered,
+  stored or applied any more: a record that still carries them loses them
+  on load, detection gets no declared languages, and no prompt gets a
+  variant (`context.ts` keeps the field for a caller that names one). The
+  retranslate-from dialog and the composer's preselection lean on the
+  languages the channel has been written in lately (`recent.ts`) instead.
+
+Changing the target while a preview for the old one is still on its way
+drops that preview and previews the draft for the new target at once.
+The sheet closes on its ✕, Escape, a press outside it, a channel switch and
+the sidebar opening; on a phone it is docked to the chat pane's bottom
+edge (`.language-sheet--phone`). Browser check:
+`tools/scenarios/translate-sheet.mjs` (desktop and `--mobile --width=390
+--height=844`): both ways in, a pick, More, Reset with a strip up, Reset
+lifting an exclusion, the target changed mid-preview, and the off state.
 
 A language a translation is _about_ is named in the language the interface
-is in: the panel's lists, the composer's translate-into dialog and the
+is in: the sheet's list and the
 chip menu's retranslate-from dialog all call `languageName(code, readingLanguage())` (`Intl.DisplayNames` in the reading language, the
 bundled English table behind it), so an English interface offers "French"
 and not "Français". The one list that keeps the endonym is the interface's
@@ -1627,11 +1643,11 @@ again and gets its own bare retry.
 **The composer's translate button opens the language sheet.** The
 language mark beside the paperclip and the plane (`ChatInput.vue`
 `translateOnce`) is independent of the reading switch: a click opens
-`ComposerLanguageSheet.vue`, and a pick in it becomes the channel's write
-target -- `channelStore.ts` `write`, the very setting the panel's "Send my
-messages in" shows, so the two controls never disagree -- lit on the
-button, and named in its label ("Sending in German · change or turn off"),
-while it is set, until **Turn off** in the sheet's header (or the panel's Off). Setting a target leaves reading alone: reading is on everywhere unless excluded, and a target never undoes an exclusion (§ Reading everywhere). The
+the conversation's sheet (`TranslationSheet.vue`, § One sheet) on its
+language list, and a pick in it becomes the channel's write target --
+`channelStore.ts` `write`, the sheet's "Write in" -- shown on the button
+("DE") and named in its label ("Sending in German · change or turn off"),
+while it is set, until the sheet's **Off**. Setting a target leaves reading alone: reading is on everywhere unless excluded, and a target never undoes an exclusion (§ Reading everywhere). The
 same pair picked again changes nothing; a new one replaces the strip. The
 sheet closes on a channel switch. A draft already typed gets its strip at
 once. The list is plain buttons (the current one `aria-current`, a row

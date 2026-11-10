@@ -161,7 +161,7 @@ export type State = {
 		/** The queue paused an engine after repeated failures (spec § Lifecycle). */
 		paused: {engine: EngineName; message: string} | null;
 		/** The channel id whose translation panel was asked for (the channel menu). */
-		panelFor: number | null;
+		sheetFor: number | null;
 		/** A one-time note on show (translate/reader.ts `showNote`, TranslationNote.vue). */
 		note: "firstRun" | "everywhere" | null;
 	};
@@ -201,7 +201,7 @@ const state = (): State => ({
 		models: [],
 		workerError: null,
 		paused: null,
-		panelFor: null,
+		sheetFor: null,
 		note: null,
 	},
 	translations: {},
@@ -340,7 +340,7 @@ type Mutations = {
 	translationWorkerError(state: State, message: string | null): void;
 	translationPaused(state: State, paused: State["translation"]["paused"]): void;
 	/** Ask the view of that channel to open its translation panel; null clears it. */
-	translationPanelFor(state: State, id: number | null): void;
+	translationSheetFor(state: State, id: number | null): void;
 	translationNote(state: State, note: "firstRun" | "everywhere" | null): void;
 	translationEntry(state: State, payload: {id: number; entry: TranslationEntry}): void;
 	translationPatch(state: State, payload: {id: number; patch: Partial<TranslationEntry>}): void;
@@ -465,8 +465,8 @@ const mutations: Mutations = {
 	translationPaused(state, paused) {
 		state.translation.paused = paused;
 	},
-	translationPanelFor(state, id) {
-		state.translation.panelFor = id;
+	translationSheetFor(state, id) {
+		state.translation.sheetFor = id;
 	},
 	translationNote(state, note) {
 		state.translation.note = note;
