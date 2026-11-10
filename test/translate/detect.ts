@@ -7,6 +7,7 @@ import {
 	ELD_MISSING,
 	LanguagePrior,
 	type LidResult,
+	READING_RIVAL_MIN,
 	decide,
 	declaredLanguages,
 	detectLanguage,
@@ -134,6 +135,26 @@ describe("translate/detect", () => {
 				).lang
 			).to.equal(null);
 			expect(decide(lid([["it", 0.25]], "es", false)).lang).to.equal(null);
+		});
+
+		// An English line read as Swedish by ELD, with fastText split
+		// three ways over Scandinavian and English fourth at 0.03.
+		it("refuses ELD alone while fastText still gives the reading language a real chance", () => {
+			const scandinavian = (en: number) =>
+				lid(
+					[
+						["nb", 0.52],
+						["sv", 0.27],
+						["da", 0.14],
+						["en", en],
+					],
+					"sv",
+					true
+				);
+
+			expect(decide(scandinavian(0.033)).lang).to.equal(null);
+			expect(decide(scandinavian(READING_RIVAL_MIN - 0.001)).lang).to.equal("sv");
+			expect(decide(scandinavian(0.033), "de").lang).to.equal("sv");
 		});
 
 		it("gives an ELD verdict fastText did not rank AGREE_MIN", () => {

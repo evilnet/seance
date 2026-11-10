@@ -112,8 +112,19 @@ const PATTERNS: RegExp[] = [
 	/\x03(?:\d{1,2}(?:,\d{1,2})?)?|[\x02\x0f\x11\x16\x1d\x1e\x1f]/g,
 ];
 
-/** A placeholder as the engines see it; the spaces a model may insert are tolerated. */
-const PLACEHOLDER_RX = /⟦\s*(\d+)\s*⟧/g;
+/**
+ * A placeholder as the engines hand it back. The spaces a model may insert
+ * are tolerated, and so is a bracket turned the wrong way round: models
+ * write `⟧1⟧` and `⟦1⟦` for `⟦1⟧` (measured on the 1.7B model, see
+ * `LLM_MARKERS`, and seen from a seq2seq engine on a nick at the start of a
+ * line), and read strictly the span was appended after the line while the
+ * mangled number stayed where the nick belonged. Neither bracket is a
+ * character anyone types in chat, and one somebody does type is protected
+ * with the same pattern (`protectTypedMarkers`), so it still comes back as
+ * typed.
+ */
+export const PLACEHOLDER_SOURCE = "[⟦⟧]\\s*(\\d+)\\s*[⟦⟧]";
+const PLACEHOLDER_RX = new RegExp(PLACEHOLDER_SOURCE, "g");
 
 // The client's own emphasis markers (parseMarkdown.ts `EMPHASIS`), longest
 // first so `**bold**` is one pair and not two nested italics. Each is a full
