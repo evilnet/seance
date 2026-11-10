@@ -125,11 +125,39 @@ async function heard(other, line, timeout = 10000) {
 	}
 }
 
+/** What 文A and the composer look like, for a panel that did not open. */
+const BUTTON_STATE = `(() => {
+	const b = document.querySelector(${JSON.stringify(BUTTON)});
+	const store = document.getElementById("app")?.__vue_app__?.config.globalProperties.$store;
+	const active = store?.state.activeChannel;
+
+	return {
+		button: !!b,
+		disabled: b?.disabled ?? null,
+		expanded: b?.getAttribute("aria-expanded") ?? null,
+		connected: active?.network.status.connected ?? null,
+		channel: active?.channel.name ?? null,
+		type: active?.channel.type ?? null,
+		note: store?.state.translation.note ?? null,
+	};
+})()`;
+
 async function openPanel(page) {
 	await page.evaluate(`document.querySelector(${JSON.stringify(BUTTON)}).click()`);
-	await page.waitFor(`!!document.querySelector(${JSON.stringify(FIELD)})`, {
-		label: "the panel opens",
-	});
+
+	const deadline = Date.now() + 5000;
+
+	while (!(await page.evaluate(`!!document.querySelector(${JSON.stringify(FIELD)})`))) {
+		if (Date.now() > deadline) {
+			page.check(
+				`文A opens the panel (${JSON.stringify(await page.evaluate(BUTTON_STATE))})`,
+				false
+			);
+			throw new Error("the panel did not open");
+		}
+
+		await page.sleep(100);
+	}
 }
 
 /** Pick `code` in the sheet's list, opened from the panel's language button. */

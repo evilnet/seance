@@ -937,8 +937,8 @@ export default defineComponent({
 			// machine-translated, read back, and "sent in French" on the line.
 			// Changed by so much as a character, it is the user's own line.
 			const inserted = insertedFor.get(props.channel.id);
-			// Matched before the command check: a translation that begins with
-			// "/" is still text (sendableTranslation escapes it below).
+			// Matched before the command check. The line was made safe on
+			// Insert (a translation is never a command), so it goes as it is.
 			if (inserted?.translated && !editing && text === inserted.line) {
 				const done = inserted.translated;
 				// A corrected line (from and to the same) is the user's own
@@ -948,22 +948,15 @@ export default defineComponent({
 					recordSentReadBack(props.channel, done.entry);
 				}
 
-				// A translation is text, never a command, on every line of it
-				// (outgoing.ts sendableTranslation): the model wrote it, from a
-				// prompt quoting other people's lines.
-				const splitsLines =
-					clientForNetwork(props.network.uuid)?.multilineLimits() === undefined;
-				const line = sendableTranslation(draftGate(done.typed, false), text, splitsLines);
-
 				cancelOutgoing(props.channel);
-				deliver(line, text, {language: done.to, machineTranslated: !polished});
+				deliver(text, text, {language: done.to, machineTranslated: !polished});
 
 				if (!polished) {
 					noteOutgoingSent(
 						props.network,
 						props.channel,
-						done.typed,
-						text,
+						draftGate(done.typed, false).text,
+						done.entry.text,
 						done.to,
 						done.from
 					);
@@ -1168,7 +1161,10 @@ export default defineComponent({
 				messages: props.channel.messages,
 				entries: store.state.translations,
 				editing: !!props.channel.editing,
-				writeTarget: sendTarget.value,
+				// Only a mark on the button, so it is offered over the
+				// conversation's language too (suggestedCode drops it when
+				// it is that language).
+				writeTarget: null,
 				declined: false,
 				languages: {
 					reading,
@@ -1224,6 +1220,14 @@ export default defineComponent({
 		const panelTo = ref("");
 		const panelFrom = ref<string | null>(null);
 
+		// Translation switched off: the panel goes, and does not come back
+		// open with the button.
+		watch(translateOnceAvailable, (available) => {
+			if (!available) {
+				panelOpen.value = false;
+			}
+		});
+
 		const defaultTarget = () => {
 			const reading = readingLanguage();
 
@@ -1270,7 +1274,23 @@ export default defineComponent({
 		// way a pasted link would, and the panel closes. Sent unchanged, it
 		// goes as the translation (onSubmit); the panel's language becomes
 		// the conversation's, for the button and the next time.
-		const insertTranslation = (value: PanelInsert) => {
+		const insertTranslation = (inserted: PanelInsert) => {
+			// A translation is text, never a command, on every line of it
+			// (outgoing.ts sendableTranslation): the model wrote it, from a
+			// prompt quoting other people's lines. It is made safe here, as
+			// it goes into the box, so a line of it that begins with "/"
+			// cannot run as a command once the user edits it either; a
+			// `/me` typed in the panel comes back in front of it.
+			const value: PanelInsert = inserted.translated
+				? {
+						...inserted,
+						line: sendableTranslation(
+							draftGate(inserted.translated.typed, false),
+							inserted.line,
+							clientForNetwork(props.network.uuid)?.multilineLimits() === undefined
+						),
+				  }
+				: inserted;
 			const el = input.value;
 			const draft = props.channel.pendingMessage ?? "";
 			const start = el ? el.selectionStart : draft.length;

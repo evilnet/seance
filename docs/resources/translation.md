@@ -1650,7 +1650,12 @@ German  Der Build ist wieder grün
   translation (already in the language, or the verdict `"plain"`) is
   inserted as typed. Return in the panel does what Insert does;
   Shift+Return is a new line.
-- **Insert** puts the line into the message box at the caret (a space
+- **Insert** puts the line into the message box at the caret, made safe
+  as it goes in (`sendableTranslation`: a translation is text, never a
+  command, so a line of it that begins with "/" is escaped, and stays
+  escaped if the user edits it; a `/me` typed in the panel is put back in
+  front of its translated prose, and any other command typed there is
+  inserted as typed) (a space
   before it where it would run into a word), closes the panel and gives
   the box the focus. The panel's language becomes the conversation's
   (`channelStore.ts` `write`, with the panel's source as `writeFrom`), so
@@ -1659,7 +1664,7 @@ German  Der Build ist wieder grün
 - **Sent unchanged, it goes as the translation** (`ChatInput.vue`
   `onSubmit` over `insertedFor`): tagged with its language and as
   machine-translated (§ Language tags; a polish carries the language
-  alone), escaped by `sendableTranslation`, its read-back recorded for the
+  alone), its read-back recorded for the
   posted line (`recordSentReadBack`) and the pair noted into the voice and
   term memory (`noteOutgoingSent`). **Edited, it is the user's own line**:
   sent as typed, untagged. A line in the box that was never inserted is

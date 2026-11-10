@@ -135,6 +135,7 @@ import {useI18n} from "../js/i18n";
 import {languageName} from "../js/translate/languages";
 import {liveLlmName, pairVerdict, readingLanguage} from "../js/translate/reader";
 import {cancelOutgoing, translateOutgoing} from "../js/translate/writer";
+import {draftGate} from "../js/translate/outgoing";
 import {loadNote} from "../js/translate/service";
 import {loadNoteText} from "../js/helpers/modelLabel";
 import {translateErrorText} from "../js/helpers/translateErrors";
@@ -190,12 +191,15 @@ export default defineComponent({
 		const readerName = (code: string) => languageName(code, reading.value);
 		const toName = computed(() => readerName(props.to));
 		const typed = computed(() => text.value.trim());
+		// What is asked for: the prose of a `/me`, which Insert puts back
+		// behind its `/me `; a command is no prose, and goes as typed.
+		const gate = computed(() => draftGate(typed.value, false));
 
 		// The writer's entry, while it is for what the panel holds now.
 		const entry = computed(() => {
 			const value = store.state.outgoingTranslations[props.channel.id];
 
-			return value && value.draft === typed.value && value.to === props.to ? value : null;
+			return value && value.draft === gate.value.text && value.to === props.to ? value : null;
 		});
 
 		const state = computed<"empty" | "pending" | "done" | "failed" | "asTyped">(() => {
@@ -298,8 +302,14 @@ export default defineComponent({
 				return;
 			}
 
+			if (gate.value.kind === "command") {
+				cancelOutgoing(props.channel);
+				plainFor.value = asked;
+				return;
+			}
+
 			plainFor.value = null;
-			void translateOutgoing(props.network, props.channel, asked, {
+			void translateOutgoing(props.network, props.channel, gate.value.text, {
 				to: props.to,
 				from: props.from,
 			}).then((verdict) => {

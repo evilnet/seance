@@ -592,8 +592,8 @@ export default async function run(page) {
 			(await page.evaluate(`document.querySelector("#form #input").value`)) === ""
 	);
 
-	// The composer's language picker open when translation goes off does not
-	// come back open with it.
+	// The translate panel and the sheet open when translation goes off do
+	// not come back open with it.
 	await openTab(page);
 	await flipSwitch(page, true);
 	await closeSettings(page);
@@ -602,8 +602,12 @@ export default async function run(page) {
 	});
 	await page.fill("#form #input", "one more");
 	await page.click("#translate-once");
+	await page.waitFor(`!!document.querySelector(".translate-panel")`, {
+		label: "the translate panel",
+	});
+	await page.click("#form .translate-panel-language");
 	await page.waitFor(`!!document.querySelector(".language-sheet")`, {
-		label: "the composer's language picker",
+		label: "the sheet's language list, from the panel",
 	});
 	await openTab(page);
 	await flipSwitch(page, false);
@@ -613,7 +617,7 @@ export default async function run(page) {
 		label: "the composer's translate button, once more",
 	});
 	page.check(
-		"on again: the picker left open at the switch-off stays closed",
-		!(await page.evaluate(`!!document.querySelector(".language-sheet")`))
+		"on again: the panel and the sheet left open at the switch-off stay closed",
+		!(await page.evaluate(`!!document.querySelector(".language-sheet, .translate-panel")`))
 	);
 }
