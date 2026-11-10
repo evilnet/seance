@@ -63,6 +63,13 @@ export const APPLE_NOT_A_DOWNLOAD =
 	"the system translator's language packs are managed by the system";
 export const TRANSLATION_UNAVAILABLE = "no translation engine can take this request";
 /**
+ * Nothing routes because what would serve the request failed to load
+ * earlier this session (`down`): the reason travels after a colon, the
+ * one that model's load gave, so a later request does not say a bare
+ * "no translation engine" while Settings shows every model able to run.
+ */
+export const TRANSLATION_DOWN = "the model for this failed to load earlier";
+/**
  * A copy this size or smaller downloads without asking (a pair model, the
  * deploy's per-language models), unless the connection says it is metered
  * (`ServiceDeps.metered`): asking costs the reader more than the download
@@ -154,6 +161,12 @@ export interface RouteResolution {
 	route: Route | null;
 	refused: ModelRef | null;
 	refusedDevice: Device | null;
+	/**
+	 * No route because the copy that would serve is down for the session:
+	 * that copy and the reason its load gave (`Service.downReasons`), when
+	 * one was kept.
+	 */
+	down?: {key: DownKey; reason: string | null} | null;
 }
 
 export interface ServiceOptions {
@@ -262,6 +275,8 @@ export class TranslateService {
 	private probed: Capability | null = null;
 	private selectedLlm: string | null = null;
 	private down = new Set<DownKey>();
+	/** Why each down copy went down: its load error, "<model id>: <reason>". */
+	private downReasons = new Map<DownKey, string>();
 	private idleTimer: unknown = null;
 	private inFlight = 0;
 	private nextId = 1;
@@ -736,6 +751,7 @@ export class TranslateService {
 	private forgetDown(candidate: Candidate, device?: Device): void {
 		for (const d of device ? [device] : (["gpu", "cpu"] as const)) {
 			this.down.delete(`${candidate}@${d}`);
+			this.downReasons.delete(`${candidate}@${d}`);
 		}
 	}
 
@@ -876,11 +892,26 @@ export class TranslateService {
 				const refused = cachedOnly
 					? explainRoute(this.table, this.options.catalog, input(false)).route
 					: null;
+				// Nothing declined: the route the table would take were nothing
+				// down. One that is down is why there is none.
+				const wouldBe = refused
+					? null
+					: explainRoute(this.table, this.options.catalog, {
+							...input(false),
+							down: new Set(),
+					  }).route;
+				const downKey: DownKey | null = wouldBe
+					? `${wouldBe.candidate}@${wouldBe.device}`
+					: null;
 
 				return {
 					route: null,
 					refused: refused?.ref ?? null,
 					refusedDevice: refused?.device ?? null,
+					down:
+						downKey && this.down.has(downKey)
+							? {key: downKey, reason: this.downReasons.get(downKey) ?? null}
+							: null,
 				};
 			}
 
@@ -1250,7 +1281,7 @@ export class TranslateService {
 
 		try {
 			for (;;) {
-				const {route, refused, refusedDevice} = await this.resolve(
+				const {route, refused, refusedDevice, down} = await this.resolve(
 					request.from,
 					request.to,
 					hint,
@@ -1269,6 +1300,14 @@ export class TranslateService {
 				// names the model and its size (helpers/translateErrors.ts).
 				if (!route && refused) {
 					throw new Error(needsDownloadError(refused, refusedDevice ?? undefined));
+				}
+
+				// Down for the session, and not by this call (whose own load
+				// error is the truer report): say so, with the reason it went.
+				if (!route && down && !lastLoadError) {
+					throw new Error(
+						down.reason ? `${TRANSLATION_DOWN}: ${down.reason}` : TRANSLATION_DOWN
+					);
 				}
 
 				if (!route) {
@@ -1520,6 +1559,7 @@ export class TranslateService {
 							!this.otherLlmStartedSince(llmId, llmSeq))
 					) {
 						this.down.add(`${route.candidate}@${route.device}`);
+						this.downReasons.set(`${route.candidate}@${route.device}`, lastLoadError);
 
 						// The GPU ran it and stopped: the copy was on the device
 						// (or its download had finished), or the browser said

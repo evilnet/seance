@@ -6,7 +6,7 @@ import {threadsText, translateWhyText} from "../../client/js/helpers/translateWh
 import {translateErrorText} from "../../client/js/helpers/translateErrors";
 import type {RouteBlock} from "../../client/js/translate/router";
 import {buildCatalog, listedSize, type DeviceReason} from "../../client/js/translate/models";
-import {TRANSLATION_UNAVAILABLE} from "../../client/js/translate/service";
+import {TRANSLATION_DOWN, TRANSLATION_UNAVAILABLE} from "../../client/js/translate/service";
 import {needsDownloadError} from "../../client/js/translate/consent";
 import friendlysize from "../../client/js/helpers/friendlysize";
 import {ABORTED, TIMED_OUT} from "../../client/js/translate/outgoing";
@@ -182,6 +182,15 @@ describe("translateErrorText", () => {
 			"no translation engine can take this request: out of memory"
 		);
 		expect(translateErrorText("WebGPU device lost")).to.equal("WebGPU device lost");
+	});
+
+	it("says a model failed to load earlier, with its reason, and that a reload tries it again", () => {
+		expect(translateErrorText(TRANSLATION_DOWN, () => "unused")).to.equal(
+			en["translate.error.down"]
+		);
+		expect(translateErrorText(`${TRANSLATION_DOWN}: Qwen3-1.7B: device lost`)).to.equal(
+			"the model for this failed to load earlier (Qwen3-1.7B: device lost); reload the page to try it again"
+		);
 	});
 
 	it("words a declined download with the model and its size, as the router's reason does", () => {

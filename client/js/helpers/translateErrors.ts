@@ -9,7 +9,7 @@ import {t} from "../i18n/core";
 import {WORKER_DISPOSED} from "../translate/client";
 import {CONTEXT_OVERFLOW, parseGpuLost} from "../translate/engine";
 import {ABORTED, TIMED_OUT} from "../translate/outgoing";
-import {TRANSLATION_UNAVAILABLE} from "../translate/service";
+import {TRANSLATION_DOWN, TRANSLATION_UNAVAILABLE} from "../translate/service";
 import {parseNeedsDownload} from "../translate/consent";
 import {needsDownloadText} from "./translateWhy";
 
@@ -50,6 +50,16 @@ export function translateErrorText(error: string, explain?: () => string): strin
 
 	if (need) {
 		return needsDownloadText(need, need.device);
+	}
+
+	// What would serve failed to load earlier this session: a reload tries
+	// it again. The detail is that load's own error, the library's text.
+	if (error === TRANSLATION_DOWN) {
+		return t("translate.error.down");
+	}
+
+	if (error.startsWith(`${TRANSLATION_DOWN}: `)) {
+		return t("translate.error.downDetail", {detail: error.slice(TRANSLATION_DOWN.length + 2)});
 	}
 
 	if (error === TRANSLATION_UNAVAILABLE) {

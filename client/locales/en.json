@@ -2648,6 +2648,8 @@
   "translate.device.cpu": "CPU",
   "translate.device.gpu": "GPU",
   "translate.error.aborted": "aborted",
+  "translate.error.down": "the model for this failed to load earlier; reload the page to try it again",
+  "translate.error.downDetail": "the model for this failed to load earlier ({detail}); reload the page to try it again",
   "translate.error.gpuLost": "the GPU stopped ({reason}): {detail}",
   "translate.error.timedOut": "timed out",
   "translate.error.tooLong": "too long for this device",

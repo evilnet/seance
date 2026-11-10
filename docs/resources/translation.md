@@ -287,7 +287,13 @@ reload). Every other translation scenario switches translation on first
   runs out while the service's `loadTicks` counter is still moving, and
   fires once the download stalls. A download that fails marks the class
   down; the next class answers, and the reason stays on the model's row and
-  in the error. The alternative -- answer from the best downloaded class
+  in the error. A later request that finds every model down for the
+  session no longer fails with a bare "no translation engine can take this
+  request" while Settings shows every row able to run: `resolve` names the
+  copy the table would take were nothing down (`RouteResolution.down`), and
+  the request fails with `TRANSLATION_DOWN` and the reason that copy's load
+  gave (`downReasons`): "the model for this failed to load earlier
+  (<model>: <error>); reload the page to try it again". The alternative -- answer from the best downloaded class
   while the better one downloads -- was not taken: it is exactly how a
   Filipino draft reached Qwen, and a device with nothing downloaded has to
   wait for a download anyway.
