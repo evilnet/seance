@@ -460,13 +460,24 @@
 	margin-block-end: 0.25rem;
 }
 
+/* A zero basis and width keep the fingerprint's unwrapped text out of the
+ * row's minimum width, so it truncates instead of pushing the form wider. */
 .trusted-certificates code {
-	flex: 1 1 auto;
+	flex: 1 1 0;
+	width: 0;
 	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	font-size: 0.75rem;
+}
+
+/* `#connect .btn` (style.css) is a full-width button with a top margin: in
+ * this row it would be as wide as the row itself, beside the fingerprint. */
+#connect .trusted-certificates .btn {
+	flex: none;
+	width: auto;
+	margin-top: 0;
 }
 
 .presence-mode-hint {
