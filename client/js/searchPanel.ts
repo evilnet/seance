@@ -122,10 +122,12 @@ export function useSearchFit(
 		const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
 		const area = viewport.getBoundingClientRect();
 		const own = chat.getBoundingClientRect();
+		const panelPx = panel.value.getBoundingClientRect().width;
 		const room = roomBesideSidebar({
 			chatPx: own.width,
-			panelPx: panel.value.getBoundingClientRect().width,
-			gapPx: parseFloat(getComputedStyle(viewport).columnGap) || 0,
+			panelPx,
+			// A hidden panel (tucked) leaves no gap beside the chat.
+			gapPx: panelPx > 0 ? parseFloat(getComputedStyle(viewport).columnGap) || 0 : 0,
 			// What the page shows now, not what was last decided.
 			covering: panel.value.classList.contains("covering"),
 		});

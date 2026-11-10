@@ -1203,9 +1203,9 @@ export default defineComponent({
 
 				searchTucked.value = true;
 
-				if (!phone.value) {
-					void nextTick(() => document.getElementById("input")?.focus());
-				}
+				// The composer's own way in: no keyboard raised on a touch screen,
+				// the caret after any draft (ChatInput.vue focusForTyping).
+				void nextTick(() => eventbus.emit("input:focus"));
 			};
 
 			if (chat !== channel.value) {
