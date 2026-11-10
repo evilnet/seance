@@ -158,7 +158,7 @@ Android (`UploadChooserClient.kt`, in front of wry's chrome client); what a
 picker app answers is taken only as another app's `content:` URI. The app's
 data stays out of Android's backup and device transfers.
 
-**Android** (SDK, NDK 29, JDK 17+; the emulator or a phone over adb):
+**Android** (SDK, NDK 29, JDK 21, which a release build's lint needs; the emulator or a phone over adb):
 
 ```sh
 NODE_ENV=production pnpm build          # at the root: public/ is compiled in
