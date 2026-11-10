@@ -124,15 +124,20 @@ export function describeClose(ctx: CloseContext): CloseReport {
 		// with the proxy's keepalive). Say that instead of the generic hint.
 		const sessionConflict = /active session/i.test(ctx.reason);
 		const vars = {host: ctx.host, detail: closeDetail(ctx.code, ctx.reason)};
+		const text = retrying
+			? t("disconnect.registeringClosed", vars)
+			: t("disconnect.registeringClosedNotReconnecting", vars);
 
-		return {
-			text: retrying
-				? t("disconnect.registeringClosed", vars)
-				: t("disconnect.registeringClosedNotReconnecting", vars),
-			hint: sessionConflict
-				? t("disconnect.hint.sessionConflict")
-				: t("disconnect.hint.registration"),
-		};
+		if (sessionConflict) {
+			return {text, hint: t("disconnect.hint.sessionConflict")};
+		}
+
+		// IRC over TCP (the app shell): there is no WebSocket to doubt.
+		if (ctx.url.startsWith("irc:") || ctx.url.startsWith("ircs:")) {
+			return {text, hint: t("disconnect.hint.tcpRegistration")};
+		}
+
+		return {text, hint: t("disconnect.hint.registration")};
 	}
 
 	return {

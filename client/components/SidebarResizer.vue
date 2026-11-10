@@ -43,6 +43,17 @@ export default defineComponent({
 		const handleEl = ref<HTMLElement | null>(null);
 		let observer: ResizeObserver | null = null;
 
+		const sidebar = (el: Element) => el.closest<HTMLElement>("#sidebar");
+		/**
+		 * The sidebar's width in its own CSS px. The Mac app zooms it at the
+		 * small font steps (style.css --mac-sidebar-zoom), and its box on
+		 * screen is that much wider than the width it is given: measured on
+		 * screen and given back, it grew by the zoom with every drag and key.
+		 * The pointer's travel is screen px too, so it is divided the same way.
+		 */
+		const zoomOf = (bar: HTMLElement) => parseFloat(getComputedStyle(bar).zoom) || 1;
+		const widthOf = (bar: HTMLElement) => bar.getBoundingClientRect().width / zoomOf(bar);
+
 		onMounted(() => {
 			const bar = handleEl.value?.closest<HTMLElement>("#sidebar");
 
@@ -51,7 +62,7 @@ export default defineComponent({
 			}
 
 			observer = new ResizeObserver(() => {
-				valueNow.value = Math.round(bar.getBoundingClientRect().width / rootPx());
+				valueNow.value = Math.round(widthOf(bar) / rootPx());
 			});
 			observer.observe(bar);
 		});
@@ -63,7 +74,6 @@ export default defineComponent({
 			document.documentElement.classList.remove("sidebar-resizing");
 		});
 
-		const sidebar = (el: Element) => el.closest<HTMLElement>("#sidebar");
 		const isRtl = (el: Element) => getComputedStyle(el).direction === "rtl";
 
 		/** The drag in progress: one pointer at a time. */
@@ -81,16 +91,17 @@ export default defineComponent({
 			drag = {
 				id: e.pointerId,
 				startX: e.clientX,
-				startWidth: bar.getBoundingClientRect().width,
+				startWidth: widthOf(bar),
 				moved: false,
 			};
 			const rtl = isRtl(bar);
+			const zoom = zoomOf(bar);
 			handle.setPointerCapture(e.pointerId);
 			document.documentElement.classList.add("sidebar-resizing");
 
 			// The width the pointer has moved it to, the grab point kept.
 			const widthAt = (x: number) =>
-				drag!.startWidth + (rtl ? drag!.startX - x : x - drag!.startX);
+				drag!.startWidth + (rtl ? drag!.startX - x : x - drag!.startX) / zoom;
 
 			const move = (ev: PointerEvent) => {
 				if (ev.pointerId !== drag?.id) {
@@ -155,7 +166,7 @@ export default defineComponent({
 			e.preventDefault();
 			const wider = (e.key === "ArrowRight") !== isRtl(bar);
 			const step = rootPx();
-			setSidebarPx(bar.getBoundingClientRect().width + (wider ? step : -step));
+			setSidebarPx(widthOf(bar) + (wider ? step : -step));
 		};
 
 		return {
