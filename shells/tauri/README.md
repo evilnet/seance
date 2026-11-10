@@ -50,6 +50,18 @@ as it is and a square logo would show as a square in the Dock.
 systems' APIs with no availability checks, and a WebKit far past the
 bundle's Safari 16.4 floor (Vite's default `build.target`).
 
+### Linux from a Mac
+
+`make linux-build` builds the release `.deb` and AppImage in Docker
+(`tools/build-linux.sh`, the image in `tools/linux`) for the machine's own
+architecture, so arm64 on Apple silicon, into `tmp/linux-app/`. To click
+around in it, an Ubuntu Desktop arm64 VM in UTM is enough: share the
+checkout's `tmp/linux-app` with the VM (UTM's VirtFS directory share, mounted
+in the guest with `sudo mount -t 9p -o trans=virtio share /mnt`) and
+`sudo apt install /mnt/seance_*.deb`. A VM's virtual GPU says nothing about
+WebKitGTK's speed, so the Linux engine gate (`desktop-shells.md` § 6) is
+measured on real hardware, not there.
+
 ## Checks
 
 - **Smoke**: `pnpm smoke` (`prepare-app`, then a debug build with `--smoke`) loads the
