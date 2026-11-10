@@ -37,7 +37,7 @@
 				t('translate.writePanel.placeholder', {language: readerName(from ?? reading)})
 			"
 			@input="schedule"
-			@keydown.enter.exact.prevent="onEnter"
+			@keydown.enter.exact="onEnter"
 		/>
 		<!-- Quiet while it streams, announced once it is done or failed. -->
 		<div
@@ -219,8 +219,15 @@ export default defineComponent({
 		});
 
 		// Insert waits for a finished translation of exactly what is typed:
-		// never half of one, never one of an older text.
-		const insertable = computed(() => state.value === "done" || state.value === "asTyped");
+		// never half of one, never one of an older text, and never before
+		// its read-back has settled, which the posted line shows as its
+		// translation (writer.ts `recordSentReadBack`); closing the panel
+		// would otherwise cut it off.
+		const insertable = computed(
+			() =>
+				state.value === "asTyped" ||
+				(state.value === "done" && entry.value?.check.status !== "pending")
+		);
 
 		const pendingLabel = computed(() => {
 			const value = entry.value;
@@ -312,6 +319,9 @@ export default defineComponent({
 			void translateOutgoing(props.network, props.channel, gate.value.text, {
 				to: props.to,
 				from: props.from,
+				// Typed already in the panel's language: inserted as typed,
+				// not corrected (a pick of the user's own language still is).
+				asTarget: true,
 			}).then((verdict) => {
 				if (verdict === "plain" && typed.value === asked) {
 					plainFor.value = asked;
@@ -349,7 +359,15 @@ export default defineComponent({
 
 		// Return inserts once the translation is there; before that it waits,
 		// as the button does. Shift+Return is a new line in the panel.
-		const onEnter = () => insert();
+		const onEnter = (event: KeyboardEvent) => {
+			// The Return that ends an IME composition is the composition's.
+			if (event.isComposing || event.keyCode === 229) {
+				return;
+			}
+
+			event.preventDefault();
+			insert();
+		};
 
 		// Another language picked while text is typed: translated into it now.
 		watch(

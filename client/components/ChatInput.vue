@@ -280,6 +280,7 @@ import {
 	channelTranslation,
 	pairVerdict,
 	readingLanguage,
+	alsoReadLanguages,
 	requestTranslationSheet,
 	resetChannelChoices,
 	setChannelOptions,
@@ -342,6 +343,12 @@ const bracketWraps = {
 	"~": "~",
 	_: "_",
 };
+
+// What Insert put in each conversation's message box, by channel id. Kept
+// outside the component: the draft (channel.pendingMessage) outlives a
+// ChatInput (Settings unmounts it), and an inserted translation sent after
+// the user came back must still go as the translation it is.
+const insertedFor = reactive(new Map<number, PanelInsert>());
 
 export default defineComponent({
 	name: "ChatInput",
@@ -754,7 +761,9 @@ export default defineComponent({
 		// What Insert put in the composer, per conversation: sent unchanged,
 		// it goes as the translation it is (tagged, read back, "sent in
 		// French"); edited, it is the user's own message.
-		const insertedFor = reactive(new Map<number, PanelInsert>());
+
+		// Whether the translate panel is open (openPanel, below).
+		const panelOpen = ref(false);
 
 		const sendTooltip = computed(() =>
 			canSend.value ? t("composer.send") : t("composer.notConnected")
@@ -948,7 +957,10 @@ export default defineComponent({
 					recordSentReadBack(props.channel, done.entry);
 				}
 
-				cancelOutgoing(props.channel);
+				if (!panelOpen.value) {
+					cancelOutgoing(props.channel);
+				}
+
 				deliver(text, text, {language: done.to, machineTranslated: !polished});
 
 				if (!polished) {
@@ -1168,7 +1180,7 @@ export default defineComponent({
 				declined: false,
 				languages: {
 					reading,
-					alsoRead: [],
+					alsoRead: alsoReadLanguages(),
 					routes: (to) => !!pairVerdict(reading, to).route,
 				},
 			});
@@ -1216,7 +1228,6 @@ export default defineComponent({
 		// taken by opening it, else the conversation's, else the default
 		// pick (the channel's last pick, a language it has been written in
 		// lately, each only where this device can serve it).
-		const panelOpen = ref(false);
 		const panelTo = ref("");
 		const panelFrom = ref<string | null>(null);
 
@@ -1328,7 +1339,13 @@ export default defineComponent({
 		// Off (the sheet's Write in): the conversation's language goes.
 		const turnTranslateOff = () => {
 			setChannelOptions(props.network, props.channel, {write: null, writeFrom: null});
-			cancelOutgoing(props.channel);
+
+			// An open panel owns the translation under way; Off is about
+			// the conversation's language, not the panel's.
+			if (!panelOpen.value) {
+				cancelOutgoing(props.channel);
+			}
+
 			focusForTyping();
 		};
 

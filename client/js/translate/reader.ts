@@ -17,6 +17,7 @@
 // setReading/setChannelOptions; the chip and the toolbar call
 // retranslate/showOriginal/retryTranslation.
 
+import {forgetOfferDecline} from "./offerDeclines";
 import {ref as vueRef, toRaw, watch} from "vue";
 
 import {getBranding} from "../branding";
@@ -224,11 +225,12 @@ function restartAllReading(): void {
 watch(readingTerms, restartAllReading);
 
 /**
- * Whether translation is wanted right now (service.ts `setInUse`): a
- * composer strip open (with its read-back), a line waiting in a queue, the
- * conversation on screen reading, or a channel still in the store writing
- * through it. A conversation in the background reads nothing until it is
- * opened, so it wants nothing meanwhile. When none is, and nothing is in
+ * Whether translation is wanted right now (service.ts `setInUse`): the
+ * translate panel at work (with its read-back), a line waiting in a queue,
+ * or the conversation on screen reading. A conversation in the background
+ * reads nothing until it is opened, so it wants nothing meanwhile, and a
+ * conversation's remembered write language wants nothing until the panel
+ * is opened. When none is, and nothing is in
  * flight, the models unload at once.
  */
 export function translationInUse(): boolean {
@@ -243,13 +245,7 @@ export function translationInUse(): boolean {
 	const shown = onScreen.current();
 	const found = shown === null ? undefined : store.getters.findChannel(shown);
 
-	if (found && readsHere(found.network, found.channel)) {
-		return true;
-	}
-
-	return store.state.networks.some((network) =>
-		network.channels.some((channel) => !!channelTranslation(network, channel).write)
-	);
+	return !!found && readsHere(found.network, found.channel);
 }
 
 /**
@@ -1193,6 +1189,7 @@ export function resetChannelChoices(network: ClientNetwork, channel: ClientChan)
 	const before = readsHere(network, channel);
 
 	forgetChannel(network.uuid, channel.name);
+	forgetOfferDecline(network.uuid, channel.name);
 	store.commit("translateChannelRemove", channelKey(network.uuid, channel.name));
 
 	if (!before && readsHere(network, channel)) {
@@ -1726,6 +1723,13 @@ export function initReader(): void {
 		onScreen.setPageShown(document.visibilityState !== "hidden");
 	});
 	onScreen.onChange((change) => {
+		// What is on screen is not store state, so the usage watch in
+		// index.ts cannot see it change: another conversation, Settings or
+		// a hidden page may be the end of what translation was wanted for.
+		if (change.kind !== "left") {
+			activeService()?.usageChanged();
+		}
+
 		if (change.kind === "conversation") {
 			onConversationChange(change.from);
 		} else if (change.kind === "left") {

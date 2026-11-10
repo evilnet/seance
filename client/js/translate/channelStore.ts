@@ -253,7 +253,8 @@ export type MigrationResult = "current" | "upgraded" | "absent";
  * hide one). Version 1 → 2 (spec § Existing users): every record reads,
  * since an old `read: false` cannot be told from "never touched"; `write`,
  * `writeFrom`, `once`, `noSuggest`, `formality` and the terms are kept as
- * they were; `languages` and `variant` too (step 2 stops applying them).
+ * they were; the retired `languages` and `variant` are dropped
+ * (translation.md § One sheet: neither is offered, stored or applied).
  * A garbage blob is left alone for the next write to replace.
  */
 export function migrateChannelStore(): MigrationResult {

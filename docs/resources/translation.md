@@ -1646,7 +1646,9 @@ German  Der Build ist wieder grün
   failed. The chip's `title` names the route (`<Source> → <Target> ·
 <model> (GPU|CPU)`, or the system translator).
 - **Insert waits for a finished translation of exactly what is typed**:
-  never half of one, never one of an older text. A draft that needs no
+  never half of one, never one of an older text, and not before its
+  read-back has settled, since the posted line shows that read-back as its
+  translation. Return that ends an IME composition is left to it. A draft that needs no
   translation (already in the language, or the verdict `"plain"`) is
   inserted as typed. Return in the panel does what Insert does;
   Shift+Return is a new line.
@@ -1672,6 +1674,10 @@ German  Der Build ist wieder grün
 - **A failure** says so in the panel ("Couldn't translate into German",
   the reason truncated, the whole of it in the title), with **Try again**;
   Insert stays disabled.
+- An inserted line is remembered per conversation outside the composer,
+  so one sent after Settings or another screen still goes as a
+  translation. The conversation's remembered language keeps no model
+  loaded by itself; only the panel at work does.
 - **Cancel**, Escape, the button again, a channel switch and Reset choices
   close the panel, cancel its translation and leave the box as it was.
 - **The panel's language button** opens the conversation's sheet on its
