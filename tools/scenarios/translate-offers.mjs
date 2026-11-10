@@ -36,8 +36,9 @@
 //     send.
 // 10. "Not now" to a language: not offered in that conversation again,
 //     remembered on this device; another language still is.
-// 11. A draft sent past an offer without answering it is a no: that
-//     language is not offered there again.
+// 11. A draft sent past an offer without answering it is "not this time":
+//     nothing is recorded, the next three replies in that language go
+//     without it, and then it is made again.
 //
 //   NODE_ENV=development pnpm build && python3 -m http.server -d public 8021 &
 //   SEANCE_HTTP=http://localhost:8021/ CHROME_BIN=… node tools/browser-drive.mjs tools/scenarios/translate-offers.mjs
@@ -525,13 +526,39 @@ export default async function run(page) {
 		(await page.evaluate(SENT))[sentBeforeEs]?.text === "sounds good to me"
 	);
 
-	const es2 = await say(page, CHANNEL, ES[1]);
+	// Not a no: the next replies in Spanish go without the offer, and after
+	// OFFER_IGNORE_REPLIES (3) of them it is made again.
+	for (let n = 1; n <= 3; n++) {
+		const id = await say(page, CHANNEL, `${ES[1]} (${n})`);
+
+		await page.waitFor(read(id), {label: `Spanish line ${n} is read`, timeout: 15000});
+		await replyTo(page, CHANNEL, id);
+		page.check(
+			`reply ${n} after sending past: no offer yet`,
+			(await page.evaluate(OFFER)) === ""
+		);
+
+		const before = (await page.evaluate(SENT)).length;
+
+		await typeDraft(page, `noted, thanks (${n})`);
+		await pressEnter(page);
+		await page.waitFor(`${SENT}.length > ${before}`, {label: `reply ${n} sent`});
+	}
+
+	const es2 = await say(page, CHANNEL, ES[0].replace("diez", "once"));
 
 	await page.waitFor(read(es2), {label: "another Spanish line is read", timeout: 15000});
 	await replyTo(page, CHANNEL, es2);
 	page.check(
-		"sent past without an answer: Spanish is not offered here again",
-		(await page.evaluate(OFFER)) === ""
+		`sent past is "not this time": after three replies Spanish is offered again (${await page.evaluate(
+			OFFER
+		)})`,
+		(await page.evaluate(OFFER)).startsWith("Reply in Spanish") &&
+			(await page.evaluate(
+				`JSON.parse(localStorage.getItem("thelounge.translateOfferAnswers") || "{}")[${JSON.stringify(
+					`${NETWORK}/#seance\u0000es`
+				)}] === undefined`
+			))
 	);
 	await cancelReply(page, CHANNEL);
 

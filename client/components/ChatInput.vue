@@ -504,7 +504,10 @@ import {composerOffer, previewKey, sendReady} from "../js/translate/offer";
 import {
 	answerOffer,
 	forgetOfferDecline,
+	ignoreOffer,
+	noteReplyIn,
 	offerAnswer,
+	offerIgnored,
 	offersDeclined,
 } from "../js/translate/offerDeclines";
 import {translateErrorText} from "../js/helpers/translateErrors";
@@ -1995,6 +1998,7 @@ export default defineComponent({
 			offerNow.value &&
 			!draftTarget.value &&
 			offerAnswered.value === undefined &&
+			!offerIgnored(props.network.uuid, props.channel.name, offerNow.value.code) &&
 			!offersDeclined(props.network.uuid, props.channel.name)
 				? offerNow.value
 				: null
@@ -2002,14 +2006,18 @@ export default defineComponent({
 		// "Write as typed" on an offer taken without asking: this message
 		// goes as typed, and the offer is not taken again for the same line.
 		const offerSkipped = new Map<number, string>();
-		// An offer sent past without an answer is a no for its language here:
-		// it is not asked again (it was asked once). A sent message also ends
-		// its "Write as typed".
+		// An offer sent past without an answer is "not this time", never a
+		// no: it waits a few replies in that language, or the next session,
+		// and is made again (offerDeclines.ts `ignoreOffer`). A sent message
+		// also ends its "Write as typed".
 		beforeSend.push(() => {
 			const unanswered = offer.value;
+			const waiting = offerNow.value;
 
 			if (unanswered) {
-				answerOffer(props.network.uuid, props.channel.name, unanswered.code, "no");
+				ignoreOffer(props.network.uuid, props.channel.name, unanswered.code);
+			} else if (waiting) {
+				noteReplyIn(props.network.uuid, props.channel.name, waiting.code);
 			}
 
 			offerSkipped.delete(props.channel.id);

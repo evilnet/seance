@@ -59,8 +59,9 @@ const offers = declines("thelounge.translateOffersDeclined");
 /**
  * The writing offer's answer, per conversation and language: "yes" (taken
  * once, so a later reply or query line in that language takes it without
- * asking) or "no" ("Not now", or the draft sent without taking it, so that
- * language is not offered here again). Device state, as the declines are.
+ * asking) or "no" ("Not now", so that language is not offered here again).
+ * Device state, as the declines are. Only a tap answers: a draft sent past
+ * the offer is `ignoreOffer`.
  */
 export type OfferAnswer = "yes" | "no";
 
@@ -92,6 +93,47 @@ const answers = ref<Record<string, OfferAnswer>>(loadAnswers());
 function saveAnswers(next: Record<string, OfferAnswer>): void {
 	answers.value = next;
 	storage.set(ANSWERS_KEY, JSON.stringify(next));
+}
+
+/**
+ * How many more replies in a language an offer sent past unanswered waits
+ * before it is made again. Sending past is "not this time", never a no: it
+ * may be a draft typed before the offer was noticed. Kept in memory only,
+ * so the next session offers again whatever the count.
+ */
+export const OFFER_IGNORE_REPLIES = 3;
+
+const ignored = ref<Map<string, number>>(new Map());
+
+/** The offer for `code` here was sent past unanswered: wait before making it again. */
+export function ignoreOffer(networkUuid: string, channelName: string, code: string): void {
+	ignored.value = new Map(ignored.value).set(
+		answerKey(networkUuid, channelName, code),
+		OFFER_IGNORE_REPLIES
+	);
+}
+
+/** Whether the offer for `code` here is waiting after being sent past. Reactive. */
+export function offerIgnored(networkUuid: string, channelName: string, code: string): boolean {
+	return (ignored.value.get(answerKey(networkUuid, channelName, code)) ?? 0) > 0;
+}
+
+/** A reply in `code` went out while its offer was waiting: one fewer to wait. */
+export function noteReplyIn(networkUuid: string, channelName: string, code: string): void {
+	const key = answerKey(networkUuid, channelName, code);
+	const left = ignored.value.get(key) ?? 0;
+
+	if (left > 0) {
+		const next = new Map(ignored.value);
+
+		if (left === 1) {
+			next.delete(key);
+		} else {
+			next.set(key, left - 1);
+		}
+
+		ignored.value = next;
+	}
 }
 
 /** The answer given to writing in `code` here, if any. Reactive. */
@@ -142,6 +184,10 @@ export function forgetOfferDecline(networkUuid: string, channelName: string): vo
 
 	if (Object.keys(kept).length !== Object.keys(answers.value).length) {
 		saveAnswers(kept);
+	}
+
+	if ([...ignored.value.keys()].some((key) => key.startsWith(prefix))) {
+		ignored.value = new Map([...ignored.value].filter(([key]) => !key.startsWith(prefix)));
 	}
 }
 

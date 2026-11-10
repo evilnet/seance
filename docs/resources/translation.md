@@ -1723,9 +1723,12 @@ settings backup). Taking an offer answers yes: a later reply to a line in
 that language, or a later draft in that query, takes it without asking,
 with the same "This message goes in Portuguese" note. **Write as typed**
 there sends that message as typed and keeps the answer, so the next reply
-takes it again. **Not now** answers no for that language in that
-conversation, and so does sending a draft past the offer without answering
-it; another language is still offered. The channel card keeps its own
+takes it again. Only a tap answers: **Not now** is a no for that language
+in that conversation, and another language is still offered. A draft sent
+past the offer without answering it is "not this time": nothing is
+recorded, the next `OFFER_IGNORE_REPLIES` (3) replies in that language go
+without it, and then, or in the next session, it is made again (the count
+is kept in memory only). The channel card keeps its own
 `noSuggest`, and "Reset choices for this conversation" lifts both, the
 answers with them. The older whole-conversation decline
 (`thelounge.translateOffersDeclined`) is still honoured where it was set.
