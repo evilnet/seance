@@ -48,7 +48,7 @@ Live tests (`test/irc/*.live.ts`) are skipped unless `SEANCE_IRC_URL` is set; ru
 - **`shells/`** — the app shell around `public/`: `tauri/` (iOS, Android, Windows, macOS, Linux). The page reaches it through one bridge, `client/js/helpers/shell.ts`. Plan: `docs/projects/desktop-shells.md`; the shell has a README.
 - **`shared/`** — cross-cutting types and helpers.
 - **`attic/`** — TheLounge's old server. Reference only; never import from it.
-- **`tools/`** — dev ircd, `irc-ws-probe.mjs`, `browser-drive.mjs` + `scenarios/` (real-Chromium checks; `docs/resources/browser-testing.md`).
+- **`tools/`** — dev ircd, `irc-ws-probe.mjs`, `browser-drive.mjs` + `scenarios/` (real-Chromium checks; `docs/resources/browser-testing.md`), `mix.mjs` (open PRs merged at pinned shas into a worktree of their own, to build and test together; usage at its top).
 
 ## Rules
 
