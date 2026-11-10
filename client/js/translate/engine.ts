@@ -232,6 +232,8 @@ export interface TranslateChunk {
 	/** Cumulative for a streaming engine, the whole result for seq2seq. */
 	text: string;
 	done: boolean;
+	/** The model that produced it (`ModelRef.id`), where the service says so. */
+	model?: string;
 }
 
 export interface EngineCapabilities {

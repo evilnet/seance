@@ -111,8 +111,8 @@ export default async function run(page) {
 	);
 	await page.screenshot("2-settings-advanced");
 
-	// --- 2b. Preferred model: Automatic by default, its hint naming the
-	// languages the language model takes once downloaded; the choice saves.
+	// --- 2b. Preferred model: Automatic by default, its hint saying what it does;
+	// the choice saves.
 	const PREFER = "#settings .translate-prefer";
 	const prefer = () =>
 		page.evaluate(`(() => {
@@ -122,7 +122,6 @@ export default async function run(page) {
 				labels: [...(section?.querySelectorAll("label.opt") ?? [])].map((l) => l.textContent.trim()),
 				checked: section?.querySelector("input:checked")?.value,
 				hint: section?.querySelector(".translate-prefer-hint")?.textContent.replace(/\\s+/g, " ").trim(),
-				ahead: section?.querySelector(".translate-prefer-ahead")?.textContent.trim() ?? null,
 				stored: ${STORE}.state.settings.translatePrefer,
 			};
 		})()`);
@@ -142,11 +141,8 @@ export default async function run(page) {
 			auto.stored === "auto"
 	);
 	page.check(
-		`Automatic's hint names where the language model goes first (${auto.ahead})`,
-		auto.hint.startsWith(EN["translate.prefer.autoHint"]) &&
-			/Spanish/.test(auto.ahead ?? "") &&
-			/Italian/.test(auto.ahead ?? "") &&
-			!/German|Dutch|Russian/.test(auto.ahead ?? "")
+		`Automatic's hint says what it does (${auto.hint})`,
+		auto.hint === EN["translate.prefer.autoHint"]
 	);
 	await page.evaluate(
 		`document.querySelector('${PREFER} input[value="llm"]').scrollIntoView({block: "center"})`
@@ -161,7 +157,7 @@ export default async function run(page) {
 
 	page.check(
 		"Language model first saves, and says what it costs",
-		llm.checked === "llm" && llm.hint === EN["translate.prefer.llmHint"] && llm.ahead === null
+		llm.checked === "llm" && llm.hint === EN["translate.prefer.llmHint"]
 	);
 	await page.click(`${PREFER} input[value="auto"]`);
 	await page.waitFor(`${STORE}.state.settings.translatePrefer === "auto"`, {

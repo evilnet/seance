@@ -111,7 +111,7 @@ import {translateWhyText} from "../js/helpers/translateWhy";
 import {ANSWERED, DEGENERATE, NARRATION, UNCHANGED} from "../js/translate/outgoing";
 import {languageName} from "../js/translate/languages";
 import {directionText, sourceText} from "../js/translate/labels";
-import {loadNoteText} from "../js/helpers/modelLabel";
+import {loadNoteText, translatedByText} from "../js/helpers/modelLabel";
 import {translateErrorText} from "../js/helpers/translateErrors";
 import {loadNote} from "../js/translate/service";
 import type {ClientChan, ClientMessage, ClientNetwork} from "../js/types";
@@ -260,6 +260,7 @@ export default defineComponent({
 
 		const openMenu = (mouseEvent: MouseEvent) => {
 			const event = anchorOf(mouseEvent);
+			const by = translatedByText(entry.value?.model);
 			const sources = [
 				...alternatives.value.map((code) => ({
 					label: t("translate.menu.retranslateFrom", {language: nameOf(code)}),
@@ -303,6 +304,13 @@ export default defineComponent({
 						class: "translate-hide",
 						action: () => showOriginal(props.message.id, true),
 					},
+					// Which model translated it, quietly at the foot.
+					...(by
+						? [
+								{type: "divider" as const},
+								{type: "note" as const, label: by, class: "translate-by"},
+						  ]
+						: []),
 				],
 			});
 		};

@@ -131,7 +131,23 @@
 				</div>
 				<div class="translate-hint translate-prefer-hint">
 					{{ preferHint }}
-					<span v-if="preferAhead" class="translate-prefer-ahead">{{ preferAhead }}</span>
+				</div>
+			</section>
+			<!-- When the composer translates a draft (outgoing.ts
+			     `previewsWhileTyping`): Automatic is as it is typed on a quick
+			     route, on the first Return on the language model's. -->
+			<section class="translate-preview">
+				<h3 id="label-translate-preview">{{ t("translate.preview.label") }}</h3>
+				<div role="radiogroup" aria-labelledby="label-translate-preview">
+					<label v-for="choice in previewChoices" :key="choice.value" class="opt">
+						<input
+							:checked="previewSetting === choice.value"
+							type="radio"
+							name="translatePreview"
+							:value="choice.value"
+						/>
+						{{ choice.label }}
+					</label>
 				</div>
 			</section>
 			<h3>{{ t("translate.settings.models") }}</h3>
@@ -730,9 +746,8 @@ import {useStore} from "../../js/store";
 import {systemTranslator, translateService} from "../../js/translate";
 import type {AppleStatus} from "../../js/translate/engines/apple";
 import {languageName} from "../../js/translate/languages";
-import {activeLocale} from "../../js/i18n/core";
 import {normalizePreference} from "../../js/translate/router";
-import {placementFor} from "../../js/translate/routes.default";
+import {normalizePreviewSetting} from "../../js/translate/outgoing";
 import type {Device, DeviceChoice, ModelRef} from "../../js/translate/engine";
 import {
 	LLM_MIN_BUFFER_BYTES,
@@ -926,14 +941,20 @@ export default defineComponent({
 		);
 		const opusModels = Object.values(service.catalog.opus);
 
-		// Settings → Advanced's "Prefer" (router.ts `EnginePreference`). Under
-		// Automatic, the languages the selected language model measured ahead
-		// in (routes.default.ts `llmAhead`), which it takes once downloaded.
+		// Settings → Advanced's "Prefer" (router.ts `EnginePreference`).
 		const prefer = computed(() => normalizePreference(store.state.settings.translatePrefer));
 		const preferChoices = computed(() => [
 			{value: "auto", label: t("translate.prefer.auto")},
 			{value: "llm", label: t("translate.prefer.llm")},
 			{value: "small", label: t("translate.prefer.small")},
+		]);
+		const previewSetting = computed(() =>
+			normalizePreviewSetting(store.state.settings.translatePreview)
+		);
+		const previewChoices = computed(() => [
+			{value: "auto", label: t("translate.preview.auto")},
+			{value: "typing", label: t("translate.preview.typing")},
+			{value: "enter", label: t("translate.preview.enter")},
 		]);
 		const preferHint = computed(() => {
 			if (prefer.value === "llm") {
@@ -946,23 +967,6 @@ export default defineComponent({
 
 			return t("translate.prefer.autoHint");
 		});
-		const preferAhead = computed(() => {
-			if (prefer.value !== "auto") {
-				return "";
-			}
-
-			const locale = activeLocale();
-			const ahead = placementFor(selectedLlm.value.id).llmAhead.map((code) =>
-				languageName(code, locale)
-			);
-
-			return ahead.length
-				? t("translate.prefer.autoAhead", {
-						languages: new Intl.ListFormat(locale, {type: "conjunction"}).format(ahead),
-				  })
-				: "";
-		});
-
 		const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 		onMounted(() => {
@@ -1407,7 +1411,8 @@ export default defineComponent({
 			prefer,
 			preferChoices,
 			preferHint,
-			preferAhead,
+			previewSetting,
+			previewChoices,
 			storageLine,
 			advancedOpen,
 			onAdvancedToggle,

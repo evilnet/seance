@@ -231,6 +231,27 @@ describe("translate/queue", () => {
 		expect(r.requests[0].purpose).to.equal("read");
 	});
 
+	it("names the model: the route's when queued, the one the service says served it after", async () => {
+		const r = rig();
+		const models: [number, string][] = [];
+		clock = r.clock;
+		r.deps.route = () => Promise.resolve({engine: "llm", device: "gpu", model: "planned"});
+		r.deps.onModel = (id, model) => models.push([id, model]);
+		const deps = r.deps;
+		const translate = deps.translate.bind(deps);
+		r.deps.translate = (req, signal) =>
+			(async function* () {
+				for await (const chunk of translate(req, signal)) {
+					yield {...chunk, model: "served"};
+				}
+			})();
+		r.queue.enqueue(item(1, "guten Morgen zusammen"));
+		await settle(r.clock);
+
+		expect(models[0]).to.deep.equal([1, "planned"]);
+		expect(models[models.length - 1]).to.deep.equal([1, "served"]);
+	});
+
 	it("the active channel goes first, then arrival order", async () => {
 		const r = rig();
 		clock = r.clock;

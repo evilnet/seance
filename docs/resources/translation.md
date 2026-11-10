@@ -293,32 +293,29 @@ no engine). Every other translation scenario switches translation on first
   differ).
 - **Which model goes first: Automatic, or the user's preference.** Every
   OPUS-MT pair routes ahead of the language model (`opusEntry`, #240), since
-  a pair is a ~100 MB download and the language model 1–2 GB. Two things
-  reorder that, both in `router.ts` `orderedClasses` and never refusing
-  anything (every other candidate stays a fallback in the table's order):
-  - **Automatic's one exception** (`RouteInput.llmFirstIfCached`). Where the
-    selected language model measured ahead of the pair by more than the tie
-    band (`RoutePlacement.llmAhead`: 1.7B es 74/60 and it 76/63; 4B fr, es
-    and it), and its copy for the device it would run on is already
-    downloaded, it goes first: the download the pair-first order avoids is
-    made already. `routes.default.ts` `llmAheadOf` names those pairs; a tie
-    (de, nl, ru, and fr on 1.7B, where OPUS-MT measured level or ahead)
-    stays with the pair.
-  - **Settings → Advanced's "Preferred model"** (`translatePrefer`:
-    `auto`, `llm`, `small`; `normalizePreference` reads anything else as
-    Automatic). "Language model first" makes the language model a class of
-    its own ahead of the table's (`withLlmAt`); it also comes ahead of the
-    system translator, which then takes only a pair the language model
-    cannot (`service.ts` `llmTakes`: its copy able to run, not down, not a
-    download declined this session). "Smaller models first" puts the
-    language model behind every other class. Neither changes what can run,
-    so every "can this run?" question (Settings' rows, the toolbar, the
-    sheet) asks without it.
-  - **Where it is said.** Only under the choice itself: Automatic's hint
-    names the languages the selected model takes once downloaded
-    (`TranslationOptions.vue` `preferAhead`), the other two what they cost.
-    A line never names its model (the download's question has no model
-    name either, § A download asks first).
+  a pair is a ~100 MB download and the language model 1–2 GB. Settings →
+  Advanced's "Preferred model" (`translatePrefer`: `auto`, `llm`, `small`;
+  `normalizePreference` reads anything else as Automatic) reorders that, in
+  `router.ts` `orderedClasses`, and never refuses anything: every other
+  candidate stays a fallback in the table's order, and the switches still
+  decide what may run. "Language model first" makes the language model a
+  class of its own ahead of the table's (`withLlmAt`); it also comes ahead
+  of the system translator, which then takes only a pair the language model
+  cannot (`service.ts` `llmTakes`: its copy able to run, not down, not a
+  download declined this session). "Smaller models first" puts the language
+  model behind every other class. Neither changes what can run, so every
+  "can this run?" question (Settings' rows, the toolbar, the sheet) asks
+  without it. Automatic is the table and nothing else.
+- **Which model translated a line** is said in one place: the foot of the
+  line's "Translation options" (the toolbar's Translate on a translated or
+  failed line, and the chip's menu), a quiet line, "Translated on this
+  device by OPUS-MT English → Spanish" (`helpers/modelLabel.ts`
+  `translatedByText`, a `note` item of `contextMenu.ts`, which the pointer
+  and the keyboard pass over). The entry's `model` is the route's when the
+  line is queued and the one the service says served it after
+  (`TranslateChunk.model`, queue.ts `onModel`), so a fallback mid-request is
+  named as it happened. Nothing on the line itself, the composer or the
+  download question names a model.
 - **Only the languages that translate well are offered.** Estonian,
   Latvian, Lithuanian and Icelandic came back under 55% of a line's content
   words from every engine (1.7B, 4B, NLLB), so they were dropped from
@@ -1534,6 +1531,21 @@ glyph) the instant the target is picked. The placeholder stays the plain
 phone.
 
 ### The live preview and send safety
+
+**When the draft is translated** is Settings → Advanced's "Show your
+translation" (`translatePreview`, outgoing.ts `PreviewSetting`,
+`previewsWhileTyping`). "As you type" is the live preview below, after
+`PREVIEW_PAUSE_MS` of no typing. "When you press Return" is PR #139's way:
+the first Return translates and shows the strip with its read-back, the
+second sends it. Automatic, the default, previews as it is typed where the
+draft's route is a quick model (an OPUS-MT pair, NLLB-200, the system
+translator) and waits for Return where it is the language model: seconds a
+line on a GPU and far more on the CPU, with the conversation's whole
+context in every request, so a request at every pause in typing costs the
+device for drafts nobody sends. The route is the one a draft in the
+reading language would take (`pairVerdict`). A change of target or reply
+parent makes a new preview only where there was one, or while previewing
+as typed (`ChatInput.vue` `previewAgain`).
 
 With a write target set, the draft is translated while it is typed: a
 pause of `PREVIEW_PAUSE_MS` (700 ms, `ChatInput.vue`) after the last

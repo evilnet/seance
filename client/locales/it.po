@@ -15145,6 +15145,18 @@ msgctxt "translate.load.loading"
 msgid "Loading {model} into memory… {percent}%"
 msgstr "Caricamento di {model} in memoria… {percent}%"
 
+#. Quiet line at the foot of a translated message's menu: the system's own translator translated it. Apple Translation is a product name.
+#: client/js/helpers/modelLabel.ts
+msgctxt "translate.menu.byApple"
+msgid "Translated on this device by Apple Translation"
+msgstr ""
+
+#. Quiet line at the foot of a translated message's menu: which model translated it. {model} is the model's full name, e.g. 'OPUS-MT English → German' or 'Qwen3 1.7B'.
+#: client/js/helpers/modelLabel.ts
+msgctxt "translate.menu.byModel"
+msgid "Translated on this device by {model}"
+msgstr ""
+
 #. A translation chip's menu item.
 #: client/components/TranslationLine.vue
 msgctxt "translate.menu.copy"
@@ -15472,12 +15484,6 @@ msgctxt "translate.prefer.auto"
 msgid "Automatic (recommended)"
 msgstr ""
 
-#. Second sentence of the hint under Automatic. {languages} is a list of language names joined the interface language's way, such as 'Spanish and Italian'.
-#: client/components/Settings/TranslationOptions.vue
-msgctxt "translate.prefer.autoAhead"
-msgid "Once the language model is downloaded, it also takes {languages}, where it translates better."
-msgstr ""
-
 #. Hint under Automatic in the model-preference choice (Settings → Translation → Advanced).
 #: client/components/Settings/TranslationOptions.vue
 msgctxt "translate.prefer.autoHint"
@@ -15512,6 +15518,30 @@ msgstr ""
 #: client/components/Settings/TranslationOptions.vue
 msgctxt "translate.prefer.smallHint"
 msgid "The smaller models take every language they have. They are quicker and lighter; the language model takes the rest."
+msgstr ""
+
+#. Option under 'Show your translation'. The language model is the large AI model, which is slow.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.preview.auto"
+msgid "Automatic: as you type with a quick model, when you press Return with the language model"
+msgstr ""
+
+#. Option under 'Show your translation': the first Return translates, the second sends.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.preview.enter"
+msgid "When you press Return"
+msgstr ""
+
+#. Heading of a choice in Settings → Translation → Advanced: when the message box translates what the user is writing.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.preview.label"
+msgid "Show your translation"
+msgstr ""
+
+#. Option under 'Show your translation': the draft is translated after a short pause in typing.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.preview.typing"
+msgid "As you type"
 msgstr ""
 
 #. Failure reason after 'Couldn't translate': the model replied to a question it found in the message rather than translating the message. Lowercase; reads as the tail of that sentence.

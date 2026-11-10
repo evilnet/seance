@@ -41,10 +41,27 @@ type ContextMenuDividerItem = {
 	type: "divider";
 };
 
+/**
+ * A line of quiet text at the menu's foot, nothing to choose: what the
+ * entries above act on (the model that translated a line). Skipped by the
+ * keyboard and the pointer.
+ */
+type ContextMenuNoteItem = {
+	type: "note";
+	label: string;
+	class: string;
+};
+
 export type ContextMenuItem =
 	| ContextMenuItemWithAction
 	| ContextMenuItemWithLink
-	| ContextMenuDividerItem;
+	| ContextMenuDividerItem
+	| ContextMenuNoteItem;
+
+/** Not something to choose: the keyboard and the pointer pass over it. */
+export function inertMenuItem(item: ContextMenuItem | undefined): boolean {
+	return !!item && "type" in item && (item.type === "divider" || item.type === "note");
+}
 
 export function generateChannelContextMenu(
 	channel: ClientChan,

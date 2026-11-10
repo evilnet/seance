@@ -110,13 +110,6 @@ export interface RouteInput {
 	 * Automatic), the table's own order.
 	 */
 	prefer?: EnginePreference;
-	/**
-	 * Automatic's one exception: the pair is one where the language model
-	 * measured ahead of the pair's own model (routes.default.ts `llmAheadOf`),
-	 * so once the language model's copy is on the device -- the download the
-	 * table's order avoids asking for is already made -- it goes first.
-	 */
-	llmFirstIfCached?: boolean;
 }
 
 /** Settings → Advanced's "Prefer": the table's order, the language model first, or last. */
@@ -382,7 +375,7 @@ export function explainRoute(
 
 	const blocks: RouteBlock[] = [];
 
-	for (const group of orderedClasses(table, catalog, input, source)) {
+	for (const group of orderedClasses(table, input, source)) {
 		let first: Route | null = null;
 
 		for (const candidate of group) {
@@ -414,11 +407,10 @@ export function explainRoute(
 
 /**
  * The pair's classes in the order the user's preference asks for (see
- * `RouteInput.prefer`, `RouteInput.llmFirstIfCached`).
+ * `RouteInput.prefer`).
  */
 function orderedClasses(
 	table: RouteTable,
-	catalog: ModelCatalog,
 	input: RouteInput,
 	source: string | null
 ): Candidate[][] {
@@ -430,14 +422,6 @@ function orderedClasses(
 
 	if (input.prefer === "small") {
 		return withLlmAt(classes, "last");
-	}
-
-	if (input.llmFirstIfCached && input.cached) {
-		const llm = candidateRoute("llm", refFor(catalog, "llm"), input, source).route;
-
-		if (llm && input.cached(llm.ref, llm.device)) {
-			return withLlmAt(classes, "first");
-		}
 	}
 
 	return classes;

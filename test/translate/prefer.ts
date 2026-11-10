@@ -13,18 +13,11 @@ import {
 	withLlmAt,
 	type RouteInput,
 } from "../../client/js/translate/router";
-import {
-	DEFAULT_ROUTES,
-	LLM_AHEAD,
-	OPUS_TIED,
-	QWEN3_4B,
-	QWEN3_4B_OPUS_TIED,
-	llmAheadOf,
-} from "../../client/js/translate/routes.default";
+import {DEFAULT_ROUTES} from "../../client/js/translate/routes.default";
+import {normalizePreviewSetting, previewsWhileTyping} from "../../client/js/translate/outgoing";
 
-// Settings → Advanced's "Prefer" (router.ts `EnginePreference`) and
-// Automatic's one exception (`llmFirstIfCached`, routes.default.ts
-// `llmAheadOf`), over the shipped table, where an OPUS-MT pair routes first.
+// Settings → Advanced's "Prefer" (router.ts `EnginePreference`), over the
+// shipped table, where an OPUS-MT pair routes first.
 
 const catalog = buildCatalog();
 const AUTO: DeviceChoices = {llm: "auto", opus: "auto", nllb: "auto"};
@@ -112,49 +105,23 @@ describe("translate: the engine preference", () => {
 		// NLLB-200 off: the language model still serves, as the fallback.
 		expect(route({...ja, prefer: "small"})).to.equal("llm");
 	});
+});
 
-	it("Automatic: the language model first where it measured ahead, once downloaded", () => {
-		const ahead = {llmFirstIfCached: true};
-
-		// Not downloaded: the cheaper pair, as before.
-		expect(route({...ahead, cached: () => false})).to.equal("opus:es-en");
-		// Downloaded: the language model.
-		expect(route({...ahead, cached: llmOnGpu})).to.equal("llm");
-		// Downloaded, but only its CPU copy, which Auto does not route to.
-		expect(
-			route({
-				...ahead,
-				cached: (ref: ModelRef, device: Device) =>
-					ref.id === catalog.llm.id && device === "cpu",
-			})
-		).to.equal("opus:es-en");
-		// Downloaded but unable to run: the pair.
-		expect(route({...ahead, cached: llmOnGpu, down: new Set(["llm@gpu"])})).to.equal(
-			"opus:es-en"
-		);
+describe("translate/outgoing preview setting", () => {
+	it("an unknown stored value reads as Automatic", () => {
+		expect(normalizePreviewSetting("enter")).to.equal("enter");
+		expect(normalizePreviewSetting("typing")).to.equal("typing");
+		expect(normalizePreviewSetting(true)).to.equal("auto");
+		expect(normalizePreviewSetting(undefined)).to.equal("auto");
 	});
 
-	it("names the pairs the language model measured ahead in, per model", () => {
-		expect(LLM_AHEAD).to.deep.equal(["es", "it"]);
-		expect(QWEN3_4B.llmAhead).to.deep.equal(["fr", "es", "it"]);
+	it("Automatic previews on a quick model, waits for Return on the language model", () => {
+		expect(previewsWhileTyping("auto", false)).to.equal(true);
+		expect(previewsWhileTyping("auto", true)).to.equal(false);
+	});
 
-		// A measured tie, or the pair ahead, is never in the list.
-		for (const code of [...OPUS_TIED, ...QWEN3_4B_OPUS_TIED]) {
-			if (code !== "fr") {
-				expect(LLM_AHEAD).not.to.include(code);
-				expect(QWEN3_4B.llmAhead).not.to.include(code);
-			}
-		}
-
-		expect(llmAheadOf(QWEN3_1_7B_ID, "es", "en")).to.equal(true);
-		expect(llmAheadOf(QWEN3_1_7B_ID, "en", "it")).to.equal(true);
-		expect(llmAheadOf(QWEN3_1_7B_ID, "fr", "en")).to.equal(false);
-		expect(llmAheadOf(QWEN3_4B_ID, "fr", "en")).to.equal(true);
-		expect(llmAheadOf(QWEN3_1_7B_ID, "de", "en")).to.equal(false);
-		// Only a shipped pair counts: es→de has no OPUS-MT model.
-		expect(llmAheadOf(QWEN3_1_7B_ID, "es", "de")).to.equal(false);
-		expect(llmAheadOf(QWEN3_1_7B_ID, null, "en")).to.equal(false);
-		// A deploy's own model gets 1.7B's placements.
-		expect(llmAheadOf("someone/else", "es", "en")).to.equal(true);
+	it("As you type and When you press Return are what they say, whatever the model", () => {
+		expect(previewsWhileTyping("typing", true)).to.equal(true);
+		expect(previewsWhileTyping("enter", false)).to.equal(false);
 	});
 });

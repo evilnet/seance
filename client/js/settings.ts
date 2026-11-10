@@ -270,6 +270,14 @@ const defaultConfig = {
 	translatePrefer: {
 		default: "auto",
 	},
+	/**
+	 * When the composer translates a draft (translate/outgoing.ts
+	 * `PreviewSetting`): auto | typing | enter. Automatic is as it is typed
+	 * on a quick route and on the first Return on the language model's.
+	 */
+	translatePreview: {
+		default: "auto",
+	},
 	/** Which device each model runs on: auto | gpu | cpu (translate/models.ts `DeviceChoices`). */
 	translateLlmDevice: {
 		default: "auto",

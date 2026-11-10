@@ -67,6 +67,7 @@ import {
 	closeTranslationSheet,
 	openTranslationSheet,
 	setReadingThroughSheet,
+	PREVIEW_AS_TYPED,
 } from "./lib/translation.mjs";
 
 const RUN = Date.now().toString(36);
@@ -397,6 +398,7 @@ async function hardwareNewlineIsAnEdit(page) {
 export default async function run(page) {
 	// Translation ships switched off (settings.ts translationEnabled).
 	await page.addInitScript(TRANSLATION_ON);
+	await page.addInitScript(PREVIEW_AS_TYPED);
 	const other = listener(LISTENER);
 
 	// The strip's Copy button goes through navigator.clipboard, which a
