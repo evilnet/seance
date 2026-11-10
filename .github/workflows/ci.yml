@@ -76,13 +76,9 @@ jobs:
       - name: Mocha
         run: make web-mocha
 
-      # tools/scenarios/smoke.mjs through tools/smoke.sh (`make web-smoke`):
-      # the connect form appears, and nothing throws or logs an error.
       # Ubuntu 24.04's AppArmor forbids the unprivileged user namespaces
-      # Chromium's sandbox needs, and browser-drive keeps the sandbox on, so
-      # lift that for this runner. The runner image ships Google Chrome,
-      # which smoke.sh finds on PATH; Playwright's Chromium (and its system
-      # packages) is fetched only on an image without it.
+      # Chromium's sandbox needs (browser-drive keeps it on). The image ships
+      # Google Chrome; Playwright's Chromium is fetched only on one without.
       - name: Smoke
         run: |
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0

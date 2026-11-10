@@ -1,15 +1,6 @@
-# The Android shell's build and unit tests (`make android-build
-# android-test`), on pull requests that touch what goes into the APK and by
-# hand (Actions → Android → Run workflow). The debug APK is kept as the run's
-# artifact for two weeks.
-#
-# Not on every pull request: a web-only change cannot break the native side
-# in a way this sees (public/ is compiled in, but ci.yml already builds and
-# smoke-tests it), and these runs are slow. Watch the run times and the
-# Actions minutes before widening or narrowing the paths below.
-#
-# What it cannot see: the app running. android-test is the push code's JVM
-# unit tests; nothing here boots a WebView, installs the APK or signs it.
+# The Android shell's build and unit tests, on pull requests that touch what
+# goes into the APK, and by hand. Not a test of the app running: nothing here
+# boots a WebView, installs or signs the APK.
 name: Android
 
 on:
@@ -58,30 +49,24 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+          cache: gradle
+          cache-dependency-path: shells/tauri/src-tauri/gen/android/**/*.gradle*
 
-      # The runner image has the SDK and its command-line tools; the platform
-      # the project compiles against (compileSdk in gen/android/app) and the
-      # NDK the README names are added.
+      # The image has the SDK; add compileSdk's platform and the README's NDK.
       - name: Android SDK and NDK
         run: |
+          NDK=29.0.14206865
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --licenses >/dev/null
-          "$SDKMANAGER" "platforms;android-37" "ndk;29.0.14206865" >/dev/null
-          echo "NDK_HOME=$ANDROID_HOME/ndk/29.0.14206865" >>"$GITHUB_ENV"
+          "$SDKMANAGER" "platforms;android-37" "ndk;$NDK" >/dev/null
+          echo "NDK_HOME=$ANDROID_HOME/ndk/$NDK" >>"$GITHUB_ENV"
 
       - name: Rust target
         run: rustup target add aarch64-linux-android
 
-      - name: Cache Cargo and Gradle
-        uses: actions/cache@v6
+      - uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            ~/.gradle/caches
-            shells/tauri/src-tauri/target
-          key: android-${{ hashFiles('shells/tauri/src-tauri/Cargo.lock', 'shells/tauri/src-tauri/gen/android/**/*.gradle*') }}
-          restore-keys: android-
+          workspaces: shells/tauri/src-tauri
 
       - name: Build
         run: make android-build
@@ -93,5 +78,5 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: seance-android-debug
-          path: dist/android-*/
+          path: shells/tauri/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
           retention-days: 14
