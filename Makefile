@@ -123,15 +123,17 @@ ios-run: ios-install ## ... then launch it
 
 # Tauri leaves the bundle with only the linker's ad-hoc signature on the
 # binary, which codesign --verify rejects inside a bundle; signing the whole
-# bundle ad hoc seals its resources. Checks the new .app before touching the
-# installed one, then quits Seance, replaces /Applications/Seance.app and
-# opens the new one.
+# bundle ad hoc seals its resources. Checks and copies the new .app beside the
+# installed one before touching it (a failed copy leaves the old app), then
+# quits Seance, swaps it in and opens it.
 mac-install: mac-build ## build, then replace /Applications/Seance.app and open it
 	codesign --force --deep --sign - $(MAC_APP)
 	codesign --verify --deep --strict $(MAC_APP)
+	rm -rf /Applications/Seance.app.new
+	ditto $(MAC_APP) /Applications/Seance.app.new
 	osascript -e 'tell application id "chat.seance.desktop" to quit' 2>/dev/null || true
 	rm -rf /Applications/Seance.app
-	ditto $(MAC_APP) /Applications/Seance.app
+	mv /Applications/Seance.app.new /Applications/Seance.app
 	open /Applications/Seance.app
 
 # adb refuses an APK signed with another key than the installed app's; this
