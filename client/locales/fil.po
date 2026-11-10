@@ -1581,6 +1581,12 @@ msgctxt "disconnect.hint.tcpPlainCauses"
 msgid "Likely causes: the server is down, the port is wrong, or something on the network blocks the connection."
 msgstr ""
 
+#. Follow-up hint under a raw TCP connection (the app) the server dropped during IRC registration, when the close reason named no live session.
+#: client/js/irc/disconnect.ts
+msgctxt "disconnect.hint.tcpRegistration"
+msgid "The server closed the connection before registration finished. Look for a server notice or error above for the reason."
+msgstr ""
+
 #. Hint after a TLS connection over raw TCP (not WebSocket) failed to open, in the app.
 #: client/js/irc/disconnect.ts
 msgctxt "disconnect.hint.tcpTlsCauses"
@@ -2184,7 +2190,7 @@ msgctxt "form.trustedCertificates.help"
 msgid "These certificates are accepted for this network although they did not pass the usual checks. Removing one makes the app ask again."
 msgstr ""
 
-#. Button next to one trusted certificate: stops trusting it (takes effect on Save).
+#. Tooltip and screen-reader name of the trash icon button next to one trusted certificate: stops trusting it (takes effect on Save).
 #: client/components/NetworkForm.vue
 msgctxt "form.trustedCertificates.remove"
 msgid "Remove"
@@ -15371,54 +15377,6 @@ msgctxt "translate.note.firstRun"
 msgid "Messages in other languages will now appear in {language}. Tap a translated message to see the original."
 msgstr ""
 
-#. Button on the composer's translation preview, or beside translate.offer.thisMessage: write every message in this conversation in that language from now on.
-#: client/components/ChatInput.vue
-msgctxt "translate.offer.alwaysHere"
-msgid "Always here"
-msgstr ""
-
-#. Link beside translate.offer.thisMessage: this message is not translated after all.
-#: client/components/ChatInput.vue
-msgctxt "translate.offer.asTyped"
-msgid "Write as typed"
-msgstr ""
-
-#. Link beside translate.offer.thisMessage: pick a different language for this message.
-#: client/components/ChatInput.vue
-msgctxt "translate.offer.change"
-msgid "Change"
-msgstr ""
-
-#. Link beside a writing offer above the composer: no more such offers in this conversation, on this device.
-#: client/components/ChatInput.vue
-msgctxt "translate.offer.decline"
-msgid "Not now"
-msgstr ""
-
-#. Link beside a writing offer above the composer: opens the language list to pick a different language for this message.
-#: client/components/ChatInput.vue
-msgctxt "translate.offer.other"
-msgid "Another language…"
-msgstr ""
-
-#. Button above the composer in a private conversation whose other person writes in another language: this message is translated into it. {nick} is their nickname, {language} the language's name.
-#: client/components/ChatInput.vue
-msgctxt "translate.offer.query"
-msgid "Write to {nick} in {language}"
-msgstr ""
-
-#. Button above the composer while replying to a line in another language: this message is translated into that language. {language} is the language's name.
-#: client/components/ChatInput.vue
-msgctxt "translate.offer.reply"
-msgid "Reply in {language}"
-msgstr ""
-
-#. Note above the composer once a language was taken for this message alone, before its translation preview appears. {language} is the language's name.
-#: client/components/ChatInput.vue
-msgctxt "translate.offer.thisMessage"
-msgid "This message goes in {language}"
-msgstr ""
-
 #. Lead sentence when a translation is unavailable for a language pair (the composer's language sheet, the retranslate dialog, the translation panel's 'Send my messages in'); the reason follows as a sentence of its own. {from} and {to} are language names, already in the interface language.
 #: client/components/SourceLanguagePicker.vue
 #: client/components/TranslationSheet.vue
@@ -15555,30 +15513,6 @@ msgstr ""
 #: client/components/Settings/TranslationOptions.vue
 msgctxt "translate.prefer.smallHint"
 msgid "The smaller models take every language they have. They are quicker and lighter; the language model takes the rest."
-msgstr ""
-
-#. Option under 'Show your translation'. The language model is the large AI model, which is slow.
-#: client/components/Settings/TranslationOptions.vue
-msgctxt "translate.preview.auto"
-msgid "Automatic: as you type with a quick model, when you press Return with the language model"
-msgstr ""
-
-#. Option under 'Show your translation': the first Return translates, the second sends.
-#: client/components/Settings/TranslationOptions.vue
-msgctxt "translate.preview.enter"
-msgid "When you press Return"
-msgstr ""
-
-#. Heading of a choice in Settings → Translation → Advanced: when the message box translates what the user is writing.
-#: client/components/Settings/TranslationOptions.vue
-msgctxt "translate.preview.label"
-msgid "Show your translation"
-msgstr ""
-
-#. Option under 'Show your translation': the draft is translated after a short pause in typing.
-#: client/components/Settings/TranslationOptions.vue
-msgctxt "translate.preview.typing"
-msgid "As you type"
 msgstr ""
 
 #. Failure reason after 'Couldn't translate': the model replied to a question it found in the message rather than translating the message. Lowercase; reads as the tail of that sentence.
@@ -15947,54 +15881,11 @@ msgctxt "translate.strip.checkFailed"
 msgid "couldn't check"
 msgstr "hindi masuri"
 
-#. Tooltip and aria-label of the copy button in the composer's translation strip, for two seconds after the translation was put on the clipboard.
-#: client/components/ChatInput.vue
-msgctxt "translate.strip.copied"
-msgid "Copied"
-msgstr "Nakopya"
-
-#. Tooltip and aria-label of the copy button in the composer's translation strip; it puts the translated text on the clipboard.
-#: client/components/ChatInput.vue
-msgctxt "translate.strip.copy"
-msgid "Copy the translation"
-msgstr "Kopyahin ang salin"
-
-#. Text of the strip above the message composer when the outgoing translation failed; the user can press Enter again to send the message as they wrote it.
-#: client/components/ChatInput.vue
-msgctxt "translate.strip.failed"
-msgid "couldn't translate, send as written?"
-msgstr "hindi maisalin; ipadala na lang kung paano isinulat?"
-
-#. Chip at the start of the composer's translation strip when the draft was corrected in its own language rather than translated. {language} is that language's name, in the interface language.
-#: client/components/ChatInput.vue
-msgctxt "translate.strip.polishChip"
-msgid "{language}, corrected"
-msgstr "{language}, naitama"
-
-#. Label before the composer preview's round trip: the translation translated back into the user's language, so they can check it. The text follows it.
-#: client/components/ChatInput.vue
-#, fuzzy
-msgctxt "translate.strip.readsBack"
-msgid "Reads back as:"
-msgstr ""
-
-#. Note under the composer's translation preview after Return was pressed before the translation was finished and on screen: nothing was sent; the next Return sends it.
-#: client/components/ChatInput.vue
-msgctxt "translate.strip.returnAgain"
-msgid "Translating… Press Return again once it's shown."
-msgstr ""
-
 #. Tooltip of the composer translation strip's direction chip, naming the route a translation took. {from} and {to} are language names (or the word from translate.strip.sourceAuto), {model} is the model's technical id. This one ran on the main processor.
 #: client/components/ChatInput.vue
 msgctxt "translate.strip.routeCpu"
 msgid "{from} → {to} · {model} (CPU)"
 msgstr "{from} → {to} · {model} (CPU)"
-
-#. Tooltip of the composer translation strip's direction chip when the first attempt was tried again with no source language named. {from} and {to} are language names, {model} is the model's technical id. This one ran on the main processor.
-#: client/components/ChatInput.vue
-msgctxt "translate.strip.routeCpuRetried"
-msgid "{from} → {to} · {model} (CPU) · retried without a source"
-msgstr "{from} → {to} · {model} (CPU) · sinubukan ulit nang walang source na wika"
 
 #. Tooltip of the composer translation strip's direction chip, naming the route a translation took. {from} and {to} are language names (or the word from translate.strip.sourceAuto), {model} is the model's technical id. This one ran on the graphics processor.
 #: client/components/ChatInput.vue
@@ -16002,35 +15893,11 @@ msgctxt "translate.strip.routeGpu"
 msgid "{from} → {to} · {model} (GPU)"
 msgstr "{from} → {to} · {model} (GPU)"
 
-#. Tooltip of the composer translation strip's direction chip when the first attempt was tried again with no source language named. {from} and {to} are language names, {model} is the model's technical id. This one ran on the graphics processor.
-#: client/components/ChatInput.vue
-msgctxt "translate.strip.routeGpuRetried"
-msgid "{from} → {to} · {model} (GPU) · retried without a source"
-msgstr "{from} → {to} · {model} (GPU) · sinubukan ulit nang walang source na wika"
-
 #. Tooltip of the composer translation strip's direction chip, naming the route a translation took. {from} and {to} are language names (or the word from translate.strip.sourceAuto). This one was done by the device's own translator (Apple's Translation framework), with a language pack from the system settings; "Apple Translation" is the feature's name.
 #: client/components/ChatInput.vue
 msgctxt "translate.strip.routeSystem"
 msgid "{from} → {to} · Apple Translation (built into the system)"
 msgstr ""
-
-#. Tooltip of the composer translation strip's direction chip when the first attempt was tried again with no source language named. {from} and {to} are language names. This one was done by the device's own translator (Apple's Translation framework); "Apple Translation" is the feature's name.
-#: client/components/ChatInput.vue
-msgctxt "translate.strip.routeSystemRetried"
-msgid "{from} → {to} · Apple Translation (built into the system) · retried without a source"
-msgstr ""
-
-#. Button on the composer's translation preview, and the send button's tooltip after a failed translation: send the draft as typed, in the language the user typed it in, instead of the translation.
-#: client/components/ChatInput.vue
-msgctxt "translate.strip.sendAsWritten"
-msgid "Send as written"
-msgstr "Ipadala kung paano isinulat"
-
-#. Tooltip and aria-label of the send button in the composer's translation strip: the translated text is what gets sent.
-#: client/components/ChatInput.vue
-msgctxt "translate.strip.sendTranslation"
-msgid "Send the translation"
-msgstr "Ipadala ang salin"
 
 #. Stands in for the source language in the composer translation strip's route tooltip when no source was named and the model was left to work it out. Substituted as {from} in translate.strip.routeGpu and its siblings.
 #: client/components/ChatInput.vue
@@ -16042,36 +15909,6 @@ msgstr "awtomatiko"
 #: client/components/ChatInput.vue
 msgctxt "translate.strip.translating"
 msgid "Translating…"
-msgstr ""
-
-#. Label over the composer's live translation preview: the line Return will send, and the language it is in.
-#: client/components/ChatInput.vue
-msgctxt "translate.strip.willSendIn"
-msgid "Will send in {language}"
-msgstr ""
-
-#. Button on the suggestion card above the message box: from now on, the user's messages in this channel are translated into {language} (a language name) before they are sent.
-#: client/components/ChatInput.vue
-msgctxt "translate.suggest.accept"
-msgid "Write in {language}"
-msgstr ""
-
-#. Button on the suggestion card above the message box: dismiss it and do not suggest it again in this channel.
-#: client/components/ChatInput.vue
-msgctxt "translate.suggest.decline"
-msgid "Not in this channel"
-msgstr ""
-
-#. Note on the suggestion card above the message box. {model} is a translation model's name; {size} is a file size such as '312.5 MiB'.
-#: client/components/ChatInput.vue
-msgctxt "translate.suggest.download"
-msgid "Uses {model}, a {size} download."
-msgstr ""
-
-#. Card above the message box. {channel} is a channel name such as #linux; {language} is a language name such as Portuguese. Saying yes translates the user's messages into that language before they are sent.
-#: client/components/ChatInput.vue
-msgctxt "translate.suggest.lead"
-msgid "Most of {channel} writes in {language}. Write your messages in {language} here?"
 msgstr ""
 
 #. Status line in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. {from} and {to} are language names. Shown while the system's download sheet is open.
@@ -16318,6 +16155,72 @@ msgstr "Naka-off ang pagsasalin sa device na ito."
 msgctxt "translate.why.unserved"
 msgid "No model on this device covers this pair of languages."
 msgstr "Walang modelo sa device na ito na sumasaklaw sa pares ng wikang ito."
+
+#. The text typed in the translate panel is already in the target language (or needs no translation). {language} is the target language's name.
+#: client/components/TranslatePanel.vue
+msgctxt "translate.writePanel.asTyped"
+msgid "Already in {language}: Insert puts it in as typed"
+msgstr ""
+
+#. Closes the translate panel without changing the message box.
+#: client/components/TranslatePanel.vue
+msgctxt "translate.writePanel.cancel"
+msgid "Cancel"
+msgstr ""
+
+#. The translate panel's translation failed. A short reason may follow. {language} is the target language's name.
+#: client/components/TranslatePanel.vue
+msgctxt "translate.writePanel.failed"
+msgid "Couldn't translate into {language}"
+msgstr ""
+
+#. Shown under the translate panel's empty text box. {language} is the target language's name.
+#: client/components/TranslatePanel.vue
+msgctxt "translate.writePanel.hint"
+msgid "The {language} shows here as you type"
+msgstr ""
+
+#. Screen-reader label for the translate panel's text box, where the user types in their own language.
+#: client/components/TranslatePanel.vue
+msgctxt "translate.writePanel.inputLabel"
+msgid "What to translate"
+msgstr ""
+
+#. Puts the translation into the message box and closes the translate panel. The user then sends it as usual.
+#: client/components/TranslatePanel.vue
+msgctxt "translate.writePanel.insert"
+msgid "Insert"
+msgstr ""
+
+#. The translate panel's heading, beside a button with the language's name that opens the language list.
+#: client/components/TranslatePanel.vue
+msgctxt "translate.writePanel.into"
+msgid "Translate into"
+msgstr ""
+
+#. The translate panel's accessible name: the panel above the message box where the user types in their own language and gets a translation to insert. {language} is the target language's name.
+#: client/components/TranslatePanel.vue
+msgctxt "translate.writePanel.label"
+msgid "Translate into {language}"
+msgstr ""
+
+#. Placeholder of the translate panel's text box. {language} is the language the user writes in (usually their own).
+#: client/components/TranslatePanel.vue
+msgctxt "translate.writePanel.placeholder"
+msgid "Type in {language}"
+msgstr ""
+
+#. Under the translation in the translate panel: the translation translated back into the user's language, so they can check it. {text} is that read-back.
+#: client/components/TranslatePanel.vue
+msgctxt "translate.writePanel.readsAs"
+msgid "Reads as: “{text}”"
+msgstr ""
+
+#. Button in the translate panel after a failed translation: translate the same text again.
+#: client/components/TranslatePanel.vue
+msgctxt "translate.writePanel.tryAgain"
+msgid "Try again"
+msgstr ""
 
 #. Line above the message input naming the two longest-typing users and summarizing everyone else. {nick1} and {nick2} are those users' names; {count} is how many further users are typing. The singular form shows when one further user is meant, the plural for any other number.
 #: client/components/TypingIndicator.vue:31

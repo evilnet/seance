@@ -2504,16 +2504,8 @@
   "translate.settings.useNllb": "ใช้ NLLB-200 กับภาษาที่โมเดลอื่นไม่รองรับ",
   "translate.settings.workerError": "ไม่สามารถเชื่อมต่อกับเวิร์กเกอร์การแปล: {error}",
   "translate.strip.checkFailed": "ไม่สามารถตรวจสอบได้",
-  "translate.strip.copied": "คัดลอกแล้ว",
-  "translate.strip.copy": "คัดลอกการแปล",
-  "translate.strip.failed": "แปลไม่ได้ ส่งตามที่เขียนไหม",
-  "translate.strip.polishChip": "{language}, ตรวจแก้แล้ว",
   "translate.strip.routeCpu": "{from} → {to} · {model} (CPU)",
-  "translate.strip.routeCpuRetried": "{from} → {to} · {model} (CPU) · ลองซ้ำโดยไม่ระบุภาษาต้นทาง",
   "translate.strip.routeGpu": "{from} → {to} · {model} (GPU)",
-  "translate.strip.routeGpuRetried": "{from} → {to} · {model} (GPU) · ลองซ้ำโดยไม่ระบุภาษาต้นทาง",
-  "translate.strip.sendAsWritten": "ส่งตามที่เขียน",
-  "translate.strip.sendTranslation": "ส่งคำแปล",
   "translate.strip.sourceAuto": "อัตโนมัติ",
   "translate.threads.reload": {
     "other": "โหลดแอปใหม่เพื่อใช้เธรด CPU {count} เธรด"

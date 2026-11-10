@@ -110,219 +110,19 @@
 			</div>
 		</div>
 		<TranslationDiscovery :network="network" :channel="channel" />
-		<!-- The suggestion card: a channel that mostly writes in another
-		     language offers to write in it here. Its decline is per channel. -->
-		<div
-			v-if="suggestion"
-			class="translate-suggest"
-			role="region"
-			aria-labelledby="translate-suggest-lead"
-		>
-			<p id="translate-suggest-lead" class="translate-suggest-lead">{{ suggestionLead }}</p>
-			<p v-if="suggestionNote" class="translate-suggest-note">{{ suggestionNote }}</p>
-			<div class="translate-suggest-actions">
-				<button
-					type="button"
-					class="btn btn-sm translate-suggest-accept"
-					@click="acceptSuggestion"
-				>
-					{{ t("translate.suggest.accept", {language: suggestionName}) }}
-				</button>
-				<button
-					type="button"
-					class="btn btn-sm translate-suggest-decline"
-					@click="declineSuggestion"
-				>
-					{{ t("translate.suggest.decline") }}
-				</button>
-			</div>
-		</div>
-		<!-- A writing offer (translate/offer.ts): replying to a line in
-		     another language, or a query whose other person writes one.
-		     Taken, it is for this message only; the strip that follows has
-		     "Always here". In the strip's place, while there is none. -->
-		<div
-			v-if="offer && !outgoing && !stale"
-			class="translate-offer"
-			role="region"
-			:aria-label="offerLabel"
-		>
-			<button
-				type="button"
-				class="btn btn-sm translate-offer-accept"
-				@mousedown.prevent
-				@click="acceptOffer"
-			>
-				{{ offerLabel }}
-			</button>
-			<button
-				ref="offerOther"
-				type="button"
-				class="translate-offer-link translate-offer-other"
-				@mousedown.prevent
-				@click="otherLanguage(offerOther)"
-			>
-				{{ t("translate.offer.other") }}
-			</button>
-			<button
-				type="button"
-				class="translate-offer-link translate-offer-decline"
-				@mousedown.prevent
-				@click="declineOffer"
-			>
-				{{ t("translate.offer.decline") }}
-			</button>
-		</div>
-		<!-- This message's language, taken from an offer or picked for it
-		     alone, until its preview comes up (the strip says it then). -->
-		<div
-			v-else-if="draftTarget && !outgoing && !stale"
-			class="translate-offer translate-offer-taken"
-			role="status"
-		>
-			<span class="translate-offer-lead">{{ draftTargetLabel }}</span>
-			<button
-				ref="takenOther"
-				type="button"
-				class="translate-offer-link translate-offer-other"
-				@mousedown.prevent
-				@click="otherLanguage(takenOther)"
-			>
-				{{ t("translate.offer.change") }}
-			</button>
-			<button
-				type="button"
-				class="translate-offer-link translate-offer-always"
-				@mousedown.prevent
-				@click="alwaysHere"
-			>
-				{{ t("translate.offer.alwaysHere") }}
-			</button>
-			<button
-				type="button"
-				class="translate-offer-link translate-offer-drop"
-				@mousedown.prevent
-				@click="dropDraftTarget"
-			>
-				{{ t("translate.offer.asTyped") }}
-			</button>
-		</div>
-		<!-- A translation streams in token by token, and every token is a
-		     patch of this region: announced live, a screen reader would read
-		     the strip out again on each one. It stays quiet while it streams
-		     and announces itself once, whole, when it is done or has failed. -->
-		<div
-			v-if="outgoing || stale"
-			:class="[
-				'translate-bar',
-				{failed: outgoing?.status === 'failed', 'translate-bar-is-stale': !!stale},
-			]"
-			role="status"
-			:aria-live="!outgoing || outgoing.status === 'pending' ? 'off' : 'polite'"
-		>
-			<div class="translate-bar-row">
-				<span class="translate-bar-chip" :title="outgoingChipTitle">{{
-					outgoing ? outgoingChip : stale?.chip
-				}}</span>
-				<!-- The last preview, dimmed, while the draft is being typed on
-				     and until the new one starts to stream: the strip keeps its
-				     height instead of closing and opening on every word. -->
-				<span
-					v-if="stale"
-					class="translate-bar-text translate-bar-stale"
-					dir="auto"
-					:lang="stale.to"
-					>{{ stale.text
-					}}<span
-						v-if="outgoing?.status === 'pending'"
-						class="translate-bar-caret"
-						aria-hidden="true"
-					></span
-				></span>
-				<span
-					v-else-if="outgoing?.status === 'failed'"
-					class="translate-bar-text translate-bar-failed"
-					>{{ t("translate.strip.failed")
-					}}<span
-						v-if="outgoing.error"
-						class="translate-bar-reason"
-						:title="outgoing.error"
-						>{{ shortReason(outgoing.error) }}</span
-					></span
-				>
-				<span v-else-if="outgoing" class="translate-bar-text" dir="auto" :lang="outgoing.to"
-					>{{ outgoing.text
-					}}<span v-if="outgoingDownload" class="translate-bar-download">{{
-						outgoingDownload
-					}}</span
-					><span
-						v-if="outgoing.status === 'pending'"
-						class="translate-bar-caret"
-						aria-hidden="true"
-					></span
-				></span>
-				<span v-if="outgoing?.status === 'done'" class="translate-bar-actions">
-					<button
-						type="button"
-						:class="[
-							'translate-bar-button',
-							'translate-bar-copy',
-							{'translate-bar-copy-done': copiedOutgoing},
-						]"
-						:title="copyLabel"
-						:aria-label="copyLabel"
-						@mousedown.prevent
-						@click="copyOutgoing"
-					/>
-				</span>
-			</div>
-			<p v-if="sendQueuedHere" class="translate-bar-queued">
-				{{ t("translate.strip.returnAgain") }}
-			</p>
-			<div
-				v-if="outgoing && !stale && outgoing.check.status !== 'idle'"
-				class="translate-bar-row translate-bar-check"
-			>
-				<span class="translate-bar-check-label">{{ outgoingCheckLabel }}</span>
-				<span v-if="outgoing.check.status === 'failed'" class="translate-bar-failed">{{
-					t("translate.strip.checkFailed")
-				}}</span>
-				<span
-					v-else
-					class="translate-bar-text"
-					dir="auto"
-					:lang="outgoing.check.to ?? undefined"
-					:title="outgoing.check.text"
-					>{{ outgoing.check.text
-					}}<span
-						v-if="outgoing.check.status === 'pending'"
-						class="translate-bar-caret"
-						aria-hidden="true"
-					></span
-				></span>
-			</div>
-			<!-- Always on the strip, whatever it is doing: the draft as typed,
-			     instead of the translation (and of a Return waiting on it). -->
-			<div v-if="outgoing" class="translate-bar-row translate-bar-send">
-				<button
-					type="button"
-					class="translate-bar-link translate-bar-as-written"
-					@mousedown.prevent
-					@click="sendAsWritten"
-				>
-					{{ t("translate.strip.sendAsWritten") }}
-				</button>
-				<button
-					v-if="draftTarget"
-					type="button"
-					class="translate-bar-link translate-bar-always"
-					@mousedown.prevent
-					@click="alwaysHere"
-				>
-					{{ t("translate.offer.alwaysHere") }}
-				</button>
-			</div>
-		</div>
+		<!-- The translate panel: typed in the user's language, inserted into
+		     the composer as its translation. The composer is never
+		     translated on its own; what is sent is what the box holds. -->
+		<TranslatePanel
+			v-if="panelOpen && translateOnceAvailable"
+			:network="network"
+			:channel="channel"
+			:to="panelTo"
+			:from="panelFrom"
+			@choose="choosePanelLanguage"
+			@insert="insertTranslation"
+			@close="closePanel"
+		/>
 		<span id="nick">{{ network.nick }}</span>
 		<label for="input" class="sr-only">{{ t("composer.inputLabel") }}</label>
 		<textarea
@@ -356,22 +156,23 @@
 			class="tooltipped tooltipped-w tooltipped-no-touch"
 			:aria-label="translateOnceLabel"
 		>
-			<!-- `mousedown.prevent`, like the send button: the caret stays in the
-			textarea, so the picker's pick translates the draft that is there. -->
+			<!-- Opens the translate panel. Dashed while a reply suggests a
+			     language (a French line: "FR"), solid while this conversation
+			     has one it last wrote in. -->
 			<button
 				id="translate-once"
 				ref="translateOnceButton"
 				type="button"
-				:class="{on: !!sendTarget}"
+				:class="{on: !!buttonCode, suggested: !!suggestedCode}"
 				:aria-label="translateOnceLabel"
-				aria-haspopup="dialog"
-				:aria-expanded="translateOncePickerOpen"
+				:aria-expanded="panelOpen"
+				aria-controls="translate-panel-input"
 				:disabled="!canSend"
 				@mousedown.prevent
-				@click="openTranslateOnce"
+				@click="togglePanel"
 			>
-				<span v-if="sendTarget" class="translate-once-target" aria-hidden="true">{{
-					sendTargetCode
+				<span v-if="buttonCode" class="translate-once-target" aria-hidden="true">{{
+					buttonCode
 				}}</span>
 			</button>
 		</span>
@@ -386,7 +187,7 @@
 			:target="sendTarget"
 			:initial-to="translateOncePreselected"
 			:initial-from="translateOnceFrom"
-			:once-offered="canTranslateOnce || sheetOnceFirst"
+			:once-offered="false"
 			:once-first="sheetOnceFirst"
 			:list-first="sheetListFirst"
 			@pick="translateOnce"
@@ -443,7 +244,6 @@ import getCaretCoordinates from "textarea-caret";
 import {wrapCursor} from "undate";
 import autocompletion from "../js/autocompletion";
 import {commands} from "../js/commands/index";
-import {writeClipboard} from "../js/clipboard";
 import {expandAlias} from "../js/helpers/aliases";
 import socket from "../js/socket";
 import {clientForNetwork} from "../js/irc/manager";
@@ -474,19 +274,10 @@ import {
 import {hasVirtualKeyboard} from "../js/helpers/device";
 import {useI18n} from "../js/i18n";
 import {SUPPORTED_LANGUAGES, languageName} from "../js/translate/languages";
-import {
-	draftGate,
-	firstEnterTranslates,
-	normalizePreviewSetting,
-	previewsWhileTyping,
-	onceTargetDefault,
-	sendableTranslation,
-} from "../js/translate/outgoing";
+import {draftGate, onceTargetDefault, sendableTranslation} from "../js/translate/outgoing";
 import {translationOn} from "../js/translate";
 import {
-	alsoReadLanguages,
 	channelTranslation,
-	liveLlmName,
 	pairVerdict,
 	readingLanguage,
 	requestTranslationSheet,
@@ -496,38 +287,21 @@ import {
 	translationOffByUser,
 } from "../js/translate/reader";
 import TranslationSheet from "./TranslationSheet.vue";
+import TranslatePanel, {type PanelInsert} from "./TranslatePanel.vue";
 import TranslationDiscovery from "./TranslationDiscovery.vue";
-import {loadNoteText, modelLabel} from "../js/helpers/modelLabel";
-import friendlysize from "../js/helpers/friendlysize";
-import {recentLanguages, suggestedLanguage} from "../js/translate/recent";
-import {composerOffer, previewKey, sendReady} from "../js/translate/offer";
-import {declineOffers, forgetOfferDecline, offersDeclined} from "../js/translate/offerDeclines";
-import {translateErrorText} from "../js/helpers/translateErrors";
-import {translateWhyText} from "../js/helpers/translateWhy";
-import {downloadBytes, loadNote} from "../js/translate/service";
+import {recentLanguages} from "../js/translate/recent";
+import {composerOffer} from "../js/translate/offer";
 import {
 	cancelOutgoing,
-	interruptedOutgoing,
 	lastOnceTarget,
 	noteOutgoingSent,
 	recordSentReadBack,
-	translateOnce as translateDraftOnce,
-	translateOutgoing,
-	type OnceRequest,
 	writeTarget,
 } from "../js/translate/writer";
 
 /** How long after a Return its late-arriving newline is still recognised. */
 const ENTER_NEWLINE_WINDOW_MS = 500;
 
-/** Characters of a failure reason the strip shows; the title has all of it. */
-const REASON_MAX = 120;
-
-/** How long the strip's Copy button reads "Copied" after a successful copy. */
-const COPIED_LABEL_MS = 2000;
-
-/** The pause in typing after which the draft is translated into the strip. */
-const PREVIEW_PAUSE_MS = 700;
 import {TypingReporter} from "../js/helpers/typingReporter";
 import TypingIndicator from "./TypingIndicator.vue";
 import QuotePreview from "./QuotePreview.vue";
@@ -572,6 +346,7 @@ const bracketWraps = {
 export default defineComponent({
 	name: "ChatInput",
 	components: {
+		TranslatePanel,
 		TranslationSheet,
 		TranslationDiscovery,
 		TypingIndicator,
@@ -775,7 +550,6 @@ export default defineComponent({
 		// Set by real typing (the input event), so only typing previews: a
 		// channel switch restoring a saved draft, or ArrowUp through the
 		// history, costs no translation run nobody asked for.
-		let typedChange = false;
 
 		const setPendingMessage = (e: Event) => {
 			const el = e.target as HTMLTextAreaElement;
@@ -793,7 +567,6 @@ export default defineComponent({
 
 			enterNewlineDeadline = 0;
 
-			typedChange = true;
 			props.channel.pendingMessage = el.value;
 			props.channel.inputHistoryPosition = 0;
 			props.channel.editDismissed = false; // typing re-arms ArrowUp-to-edit
@@ -974,268 +747,18 @@ export default defineComponent({
 			};
 		});
 
-		// The outgoing translation (spec § Composer): the strip above the
-		// input is store state per channel (writer.ts), so a channel switch
-		// keeps it like it keeps the draft.
-		const outgoing = computed(() => store.state.outgoingTranslations[props.channel.id]);
-
-		let previewTimer: ReturnType<typeof setTimeout> | null = null;
-		const stalePreview = ref<{chanId: number; text: string; chip: string; to: string} | null>(
-			null
-		);
-		const stale = computed(() => {
-			const kept = stalePreview.value;
-			const entry = outgoing.value;
-
-			if (!kept || kept.chanId !== props.channel.id) {
-				return null;
-			}
-
-			return !entry || (entry.status === "pending" && entry.text === "") ? kept : null;
-		});
-		// A Return that came before its preview was done: sent once it is.
-		// `draft` is what the strip translates (a `/me`'s text), `raw` the
-		// whole draft: "/me waves" and "waves" share a `draft`, not a send.
-		const sendQueued = ref<{
-			chanId: number;
-			draft: string;
-			raw: string;
-			retried?: boolean;
-		} | null>(null);
-		const sendQueuedHere = computed(() => sendQueued.value?.chanId === props.channel.id);
-
-		// When each conversation's finished translation came on screen, by
-		// the draft it is of: Return sends it only once it has been seen
-		// (offer.ts `sendReady`).
-		const shownAt = new Map<number, {draft: string; at: number}>();
-		const markShown = (draft: string) => {
-			const was = shownAt.get(props.channel.id);
-
-			if (!was || was.draft !== draft) {
-				shownAt.set(props.channel.id, {draft, at: performance.now()});
-			}
-		};
-		const shownAtFor = (draft: string) => {
-			const was = shownAt.get(props.channel.id);
-
-			return was && was.draft === draft ? was.at : null;
-		};
-
-		// A language for this message alone, per conversation: a writing
-		// offer taken ("reply", "query"), or one picked in the sheet with
-		// "This message only" ("pick"). It goes with the message when it is
-		// sent, and an offer's goes when the offer would no longer say it.
-		type DraftTarget = {to: string; from: string | null; kind: "reply" | "query" | "pick"};
-		const draftTargets = reactive(new Map<number, DraftTarget>());
-		const draftTarget = computed(() => draftTargets.get(props.channel.id) ?? null);
-		// The language a draft is translated into: this message's own, else
-		// the conversation's.
-		const effectiveTarget = computed(
-			() => draftTarget.value?.to ?? writeTarget(props.network, props.channel)
-		);
-		// The request a draft's translation goes out as: the message's own
-		// language when it has one, else the conversation's (no request).
-		const draftRequest = (): OnceRequest | undefined => {
-			const own = draftTarget.value;
-
-			if (!own) {
-				return undefined;
-			}
-
-			return own.kind === "pick"
-				? {to: own.to, from: own.from}
-				: {to: own.to, from: null, asTarget: true};
-		};
-
-		const clearPreviewTimer = () => {
-			if (previewTimer !== null) {
-				clearTimeout(previewTimer);
-				previewTimer = null;
-			}
-		};
-
-		const forgetPreview = () => {
-			clearPreviewTimer();
-			stalePreview.value = null;
-			sendQueued.value = null;
-			shownAt.delete(props.channel.id);
-		};
-
 		// The strip's labels name their languages in the language the user
 		// reads this channel in, not the browser's (reader.ts readingLanguage).
 		const readerName = (code: string) => languageName(code, readingLanguage());
 
-		// Source → target, "→ German" until (or unless) a source is named.
-		const outgoingChip = computed(() => {
-			const entry = outgoing.value;
+		// What Insert put in the composer, per conversation: sent unchanged,
+		// it goes as the translation it is (tagged, read back, "sent in
+		// French"); edited, it is the user's own message.
+		const insertedFor = reactive(new Map<number, PanelInsert>());
 
-			if (!entry) {
-				return "";
-			}
-
-			// A cleanup pass (writer.ts: from and to the same) is not a
-			// translation, and its chip says what it is.
-			if (entry.from && entry.from === entry.to) {
-				return t("translate.strip.polishChip", {language: readerName(entry.to)});
-			}
-
-			// What the strip is: the line Return will send, and its language
-			// (a one-off's is on no button).
-			return t("translate.strip.willSendIn", {language: readerName(entry.to)});
-		});
-
-		// The read-back row's label: the translation's language → the one it
-		// is read back into, the user's reading language.
-		const outgoingCheckLabel = computed(() => t("translate.strip.readsBack"));
-
-		// Which route the strip's text came down, in the chip's title: the
-		// pair as the request asked for it ("auto" where the source was left
-		// to the model), the model's own id, whether it ran on the GPU, and
-		// whether the bare second try ran. The chip's visible text stays the
-		// draft's direction -- this is for someone wondering why a
-		// translation reads as it does. No title until the route has answered.
-		const outgoingChipTitle = computed(() => {
-			const entry = outgoing.value;
-
-			if (!entry || !entry.model) {
-				return undefined;
-			}
-
-			const from = entry.requestFrom
-				? readerName(entry.requestFrom)
-				: t("translate.strip.sourceAuto");
-			const gpu = entry.device === "gpu";
-			// One whole phrase per shape (device × retried): no translated
-			// fragment is ever glued onto another, and every key is a literal
-			// the pot check can see.
-			const vars = {from, to: readerName(entry.to), model: entry.model};
-
-			if (entry.engine === "apple") {
-				return entry.retried
-					? t("translate.strip.routeSystemRetried", vars)
-					: t("translate.strip.routeSystem", vars);
-			}
-
-			if (entry.retried) {
-				return gpu
-					? t("translate.strip.routeGpuRetried", vars)
-					: t("translate.strip.routeCpuRetried", vars);
-			}
-
-			return gpu ? t("translate.strip.routeGpu", vars) : t("translate.strip.routeCpu", vars);
-		});
-
-		// The route's model downloading for this draft (service.ts loads it on
-		// demand, and the deadline waits for it): the strip says so rather
-		// than blink a caret for minutes.
-		const outgoingDownload = computed(() => {
-			const entry = outgoing.value;
-
-			if (!entry || entry.status !== "pending" || entry.text || !entry.model) {
-				return "";
-			}
-
-			// One view per copy: the route's own, on the device it runs on.
-			const view = store.state.translation.models.find(
-				(v) =>
-					v.ref.id === entry.model &&
-					(!entry.device || v.device === entry.device) &&
-					v.status === "downloading"
-			);
-
-			// Loaded and working, nothing streamed yet: a language model on
-			// the CPU can take many seconds to its first word, and the caret
-			// alone did not say anything was happening.
-			return view ? loadNoteText(loadNote(view)) : t("translate.strip.translating");
-		});
-
-		// Why it failed, beside "couldn't translate": an ORT session error or
-		// a model id is long and multi-line, so the strip shows the head of it
-		// and the title carries the whole thing.
-		const shortReason = (error: string | null) => {
-			if (!error) {
-				return "";
-			}
-
-			const text = translateErrorText(error, () => {
-				const entry = outgoing.value;
-				const verdict = entry ? pairVerdict(entry.from, entry.to) : null;
-
-				return verdict && !verdict.route
-					? translateWhyText(verdict.why, liveLlmName())
-					: "";
-			})
-				.replace(/\s+/g, " ")
-				.trim();
-
-			return text.length > REASON_MAX ? `${text.slice(0, REASON_MAX - 1)}…` : text;
-		};
-
-		// Copy: the translation is what the strip is showing, so it is what
-		// the button puts on the clipboard. The label says so for two
-		// seconds, since nothing else about the page changes.
-		const copiedOutgoing = ref(false);
-		let copiedTimer: number | null = null;
-
-		const copyOutgoing = () => {
-			const entry = outgoing.value;
-
-			if (!entry) {
-				return;
-			}
-
-			void writeClipboard(entry.text).then((copied) => {
-				if (!copied) {
-					return;
-				}
-
-				copiedOutgoing.value = true;
-
-				if (copiedTimer !== null) {
-					window.clearTimeout(copiedTimer);
-				}
-
-				copiedTimer = window.setTimeout(() => {
-					copiedOutgoing.value = false;
-					copiedTimer = null;
-				}, COPIED_LABEL_MS);
-			});
-		};
-
-		// The strip's three buttons: whole phrases from the catalog, never a
-		// ternary over two literals in the template.
-		const copyLabel = computed(() =>
-			copiedOutgoing.value ? t("translate.strip.copied") : t("translate.strip.copy")
+		const sendTooltip = computed(() =>
+			canSend.value ? t("composer.send") : t("composer.notConnected")
 		);
-		const outgoingSendLabel = computed(() =>
-			outgoing.value?.status === "failed"
-				? t("translate.strip.sendAsWritten")
-				: t("translate.strip.sendTranslation")
-		);
-
-		// A translation or its check still running: the one-off dialog's
-		// "This message only" waits for it.
-		const outgoingBusy = computed(() => {
-			const entry = outgoing.value;
-
-			if (!entry) {
-				return false;
-			}
-
-			return entry.status === "pending" || entry.check.status === "pending";
-		});
-
-		const sendTooltip = computed(() => {
-			if (!canSend.value) {
-				return t("composer.notConnected");
-			}
-
-			if (!outgoing.value) {
-				return t("composer.send");
-			}
-
-			return outgoingSendLabel.value;
-		});
 
 		/**
 		 * Run `line` as a UI-only command (`/collapse`, `/search`, …).
@@ -1285,9 +808,7 @@ export default defineComponent({
 
 			props.channel.inputHistoryPosition = 0;
 			props.channel.pendingMessage = "";
-			forgetPreview();
-			// A language taken for this message goes with it.
-			draftTargets.delete(target);
+			insertedFor.delete(target);
 			clearInput();
 			setInputSize();
 
@@ -1411,117 +932,44 @@ export default defineComponent({
 				return false;
 			}
 
-			// The second Enter (spec § Composer 5): the strip's translation
-			// goes, or after a failure the draft as written. Nothing goes
-			// while it is still translating (or, with the automatic check,
-			// still reading back).
-			const entry = store.state.outgoingTranslations[props.channel.id];
-			// What of the draft a translation is of: the draft itself, or the
-			// text of a `/me`, which goes back out behind the command.
-			const gate = draftGate(text, !!editing);
-
-			if (entry && entry.draft === gate.text) {
-				// Send safety (spec § Send safety): a translation goes only
-				// once it has been on screen, finished. A Return before that
-				// -- while it is still coming, or in the instant it lands --
-				// says "Translating…" and sends nothing; the next Return
-				// after the result has been seen sends it. "Send as written"
-				// is on the strip throughout.
-				if (
-					entry.status === "pending" ||
-					(entry.status === "done" &&
-						!sendReady(entry, shownAtFor(entry.draft), performance.now()))
-				) {
-					sendQueued.value = {chanId: props.channel.id, draft: gate.text, raw: text};
-					return false;
+			// A translation Insert put here, sent as it was inserted: it goes
+			// as a translation -- tagged with its language and as
+			// machine-translated, read back, and "sent in French" on the line.
+			// Changed by so much as a character, it is the user's own line.
+			const inserted = insertedFor.get(props.channel.id);
+			// Matched before the command check: a translation that begins with
+			// "/" is still text (sendableTranslation escapes it below).
+			if (inserted?.translated && !editing && text === inserted.line) {
+				const done = inserted.translated;
+				// A corrected line (from and to the same) is the user's own
+				// words: not marked machine-made, nothing to read back.
+				const polished = done.from !== null && done.from === done.to;
+				if (!polished) {
+					recordSentReadBack(props.channel, done.entry);
 				}
 
-				const translated = entry.status === "done" ? entry.text : null;
 				// A translation is text, never a command, on every line of it
-				// (outgoing.ts sendableTranslation); an action's goes back
-				// behind its `/me `. Whether the later lines need escaping is
-				// the IRC layer's split: one message under draft/multiline.
+				// (outgoing.ts sendableTranslation): the model wrote it, from a
+				// prompt quoting other people's lines.
 				const splitsLines =
 					clientForNetwork(props.network.uuid)?.multilineLimits() === undefined;
-				const line =
-					translated === null ? text : sendableTranslation(gate, translated, splitsLines);
-
-				// Before the send: the IRC layer puts the line in the store
-				// inside deliver's emit, and cancelOutgoing takes the strip.
-				// A corrected line (from and to the same) is the line itself:
-				// nothing to read back, no voice or term to learn from it.
-				const polished = entry.from !== null && entry.from === entry.to;
-
-				if (translated !== null && !polished) {
-					recordSentReadBack(props.channel, entry);
-				}
-
-				// The language tags (docs/resources/translation.md § Language
-				// tags): the target is the user's pick, so the line's
-				// language is known, not guessed. A corrected line is in
-				// the user's own words, so it is not marked machine-made.
-				const tagged =
-					translated !== null
-						? {language: entry.to, machineTranslated: !polished}
-						: undefined;
+				const line = sendableTranslation(draftGate(done.typed, false), text, splitsLines);
 
 				cancelOutgoing(props.channel);
-				deliver(line, text, tagged);
+				deliver(line, text, {language: done.to, machineTranslated: !polished});
 
-				if (translated !== null && !polished) {
+				if (!polished) {
 					noteOutgoingSent(
 						props.network,
 						props.channel,
-						gate.text,
-						translated,
-						entry.to,
-						entry.from
+						done.typed,
+						text,
+						done.to,
+						done.from
 					);
 				}
 
 				return;
-			}
-
-			if (entry) {
-				// A strip for another draft (the watch below normally removes it first).
-				cancelOutgoing(props.channel);
-			}
-
-			// The first Enter (spec § Composer 1-3): translate, and send only
-			// when the draft turns out to need none. Translation switched off,
-			// every draft goes as typed (outgoing.ts firstEnterTranslates).
-			if (firstEnterTranslates(gate, effectiveTarget.value, translationOn())) {
-				// The verdict can be seconds late (a cold engine, a slow
-				// device), so it is checked against the composer it started
-				// in: another conversation, a changed draft or a network that
-				// went down in the meantime all leave the draft where it is.
-				const startedFor = props.channel.id;
-
-				clearPreviewTimer();
-				sendQueued.value = {
-					chanId: startedFor,
-					draft: gate.text,
-					raw: text,
-					retried: queued,
-				};
-
-				void translateOutgoing(
-					props.network,
-					props.channel,
-					gate.text,
-					draftRequest()
-				).then((verdict) => {
-					if (
-						verdict === "plain" &&
-						props.channel.id === startedFor &&
-						props.channel.pendingMessage === text &&
-						canSend.value
-					) {
-						deliver(text, text);
-					}
-				});
-
-				return false;
 			}
 
 			deliver(text, text);
@@ -1674,15 +1122,14 @@ export default defineComponent({
 			});
 		};
 
-		// The translate button opens the conversation's translation sheet
-		// (TranslationSheet.vue) on its language list: the pick becomes the
-		// channel's write target (channelStore `write`, the sheet's "Write
-		// in"), shown on the button until the sheet's Off; its "This message only"
-		// makes the pick a one-off instead (writer.ts `translateOnce`), the
-		// way the toolbar's Translate reads one line. Shown wherever
-		// translation can run at all, and while the device probe is still
-		// out: a button that appeared when it landed shifted the composer on
-		// every app load.
+		// The translate button opens the translate panel (TranslatePanel.vue):
+		// the user types in their own language, the panel translates it, and
+		// Insert puts the translation into the composer. The panel's language
+		// is the conversation's (channelStore `write`, the sheet's "Write
+		// in"), which the panel's language button changes through the sheet's
+		// list. Shown wherever translation can run at all, and while the
+		// device probe is still out: a button that appeared when it landed
+		// shifted the composer on every app load.
 		const translateOnceButton = ref<HTMLButtonElement | null>(null);
 		const translateOncePickerOpen = ref(false);
 		const translateOnceAvailable = computed(
@@ -1699,258 +1146,16 @@ export default defineComponent({
 				translateOncePickerOpen.value = false;
 			}
 		});
-		const canTranslateOnce = computed(() => {
-			const gate = draftGate(props.channel.pendingMessage ?? "", !!props.channel.editing);
-
-			return (
-				(gate.kind === "ok" || gate.kind === "action") &&
-				gate.text.trim() !== "" &&
-				canSend.value &&
-				!outgoingBusy.value
-			);
-		});
-		// The channel's send target: the button is lit while one is set,
-		// and reads it as "EN → PT" (the language the user reads → the target).
+		// The language this conversation was last written in through the
+		// panel: the panel opens on it, and the button shows its code.
 		const sendTarget = computed(() => writeTarget(props.network, props.channel));
 		const codeOf = (code: string) => code.split("-")[0].toUpperCase();
-		const sendTargetCode = computed(() => {
-			const to = sendTarget.value;
 
-			if (!to) {
-				return "";
-			}
-
-			// The user's own language: lines go corrected, not translated.
-			// Another: its code alone, the language this conversation is
-			// written in (spec § One sheet per conversation).
-			return to === readingLanguage()
-				? t("translate.composer.targetCorrected", {language: codeOf(to)})
-				: codeOf(to);
-		});
-		const translateOnceLabel = computed(() => {
-			const to = sendTarget.value;
-
-			if (!to) {
-				return t("translate.composer.sendOff");
-			}
-
-			const language = languageName(to, readingLanguage());
-
-			return to === readingLanguage()
-				? t("translate.composer.sendCorrectedOn", {language})
-				: t("translate.composer.sendOn", {language});
-		});
-		// Read when the dialog opens: the last pick is plain session memory
-		// (writer.ts), not store state, so nothing would recompute it.
-		const translateOncePreselected = ref("");
-
-		// The sheet's "I write": the language the user said they write in
-		// with the target that is set, else the one they read. Null (detect
-		// each draft) only where the target was set that way.
-		const translateOnceFrom = ref<string | null>(null);
-
-		// Off: the send target goes, and a strip in flight for it with it.
-		const turnTranslateOff = () => {
-			setChannelOptions(props.network, props.channel, {write: null, writeFrom: null});
-			cancelOutgoing(props.channel);
-			forgetPreview();
-			draftTargets.delete(props.channel.id);
-			focusForTyping();
-		};
-
-		// "Reset choices for this conversation" (the sheet's More): the
-		// stored choices go, a strip made for the old target with them.
-		const resetChoices = () => {
-			cancelOutgoing(props.channel);
-			forgetPreview();
-			draftTargets.delete(props.channel.id);
-			forgetOfferDecline(props.network.uuid, props.channel.name);
-			resetChannelChoices(props.network, props.channel);
-		};
-
-		// What the sheet hangs off, and whether it opens on the language
-		// list: the chip (the language to write in), or the channel menu's
-		// ⋮ (its switches first).
-		const sheetAnchor = ref<HTMLElement | null>(null);
-		const sheetListFirst = ref(true);
-		// Opened from a writing offer: "This message only" is set already.
-		const sheetOnceFirst = ref(false);
-
-		const openSheet = (anchor: HTMLElement | null, listFirst: boolean, onceFirst = false) => {
-			sheetAnchor.value = anchor;
-			sheetListFirst.value = listFirst;
-			sheetOnceFirst.value = onceFirst;
-
-			const reading = readingLanguage();
-			const target = sendTarget.value;
-
-			// The target that is set; else the channel's last pick, a
-			// language the channel has been written in lately,
-			// or the user's own (the cleanup pass) -- each only where this
-			// device can serve it from the reading language, so a device
-			// without the GPU model never opens on a disabled cleanup pass
-			// (outgoing.ts `onceTargetDefault`). With no target the sheet
-			// shows it as a suggestion, not as what is set.
-			translateOncePreselected.value =
-				target ??
-				onceTargetDefault({
-					reading,
-					last: lastOnceTarget(props.network, props.channel),
-					recent: recentLanguages(props.channel.messages, store.state.translations).map(
-						(c) => c.code
-					),
-					fallback: SUPPORTED_LANGUAGES,
-					routes: (to) => !!pairVerdict(reading, to).route,
-				});
-			// The source the user named with the target, or Detect: the
-			// sheet never names one for them, or a draft the detector is sure
-			// is French would still go from the reading language because
-			// "I write" showed it (writer.ts `namedFrom`).
-			translateOnceFrom.value = target
-				? channelTranslation(props.network, props.channel).writeFrom
-				: null;
-			translateOncePickerOpen.value = true;
-		};
-
-		const openTranslateOnce = () => {
-			if (!canSend.value) {
-				return;
-			}
-
-			if (translateOncePickerOpen.value) {
-				translateOncePickerOpen.value = false;
-				return;
-			}
-
-			openSheet(translateOnceButton.value, true);
-		};
-
-		// A same-language pick is a cleanup pass on the GPU model
-		// (writer.ts, router.ts): the sheet asks the router's own rule
-		// (reader.ts `pairVerdict`) and says why when it cannot run.
-		const translateOnce = (to: string, from: string | null = null, once = false) => {
-			translateOncePickerOpen.value = false;
-
-			const draft = props.channel.pendingMessage ?? "";
-			const gate = draftGate(draft, !!props.channel.editing);
-			const translatable =
-				canTranslateOnce.value && (gate.kind === "ok" || gate.kind === "action");
-
-			if (once) {
-				// A Return waiting on the target's preview is not a send of
-				// the one-off: that strip is for reading first.
-				forgetPreview();
-				// This message's language, until it is sent: an edit of the
-				// draft previews into it again, as a conversation's would.
-				draftTargets.set(props.channel.id, {to, from, kind: "pick"});
-
-				// The verdict is checked against the composer it started in,
-				// as the first Enter's is: a "plain" verdict (the draft is
-				// already in that language) leaves the draft where it is --
-				// the dialog asked for a translation, not a send.
-				if (translatable) {
-					void translateDraftOnce(props.network, props.channel, gate.text, to, from);
-				}
-
-				focusForTyping();
-				return;
-			}
-
-			// The mode: the channel's send target, from here on. A draft
-			// already typed gets the strip now rather than on its Enter.
-			// With the language the user said they write in: each draft is
-			// taken as that, not guessed at (a short English line scores as
-			// Afrikaans often enough). The same pair again changes nothing,
-			// a finished preview included; a strip for a target it replaces goes.
-			if (
-				to === sendTarget.value &&
-				from === channelTranslation(props.network, props.channel).writeFrom
-			) {
-				focusForTyping();
-				return;
-			}
-
-			cancelOutgoing(props.channel);
-			forgetPreview();
-			// The conversation's language now: this message's own goes.
-			draftTargets.delete(props.channel.id);
-			// Reading is not touched: it is on everywhere unless the user
-			// excluded this conversation, and a write target never undoes
-			// that choice (translate/switch.ts `readsHere`).
-			setChannelOptions(props.network, props.channel, {write: to, writeFrom: from});
-
-			// Read after the cancel above: a preview for the old target that
-			// was still on its way kept the composer busy, and the draft would
-			// otherwise sit with no strip until the next keystroke.
-			if (canTranslateOnce.value && (gate.kind === "ok" || gate.kind === "action")) {
-				void translateOutgoing(props.network, props.channel, gate.text);
-			}
-
-			focusForTyping();
-		};
-
-		// The suggestion card (spec § Composer): where a channel's recent
-		// lines from others are mostly in one language that is not the
-		// user's -- by the reading pipeline's own verdicts, so only with
-		// reading on -- and nothing is set or declined, offer to write in it.
+		// Replying to a line in another language suggests that language
+		// (offer.ts `composerOffer`: only off a line placed with confidence,
+		// never "ok", a name or a link). A suggestion only marks the button;
+		// nothing opens or changes until the user taps it.
 		const suggestion = computed(() => {
-			if (
-				!translateOnceAvailable.value ||
-				props.channel.type !== ChanType.CHANNEL ||
-				sendTarget.value ||
-				props.channel.editing ||
-				channelTranslation(props.network, props.channel).noSuggest
-			) {
-				return null;
-			}
-
-			const reading = readingLanguage();
-			const code = suggestedLanguage(
-				recentLanguages(props.channel.messages, store.state.translations),
-				reading
-			);
-			const route = code ? pairVerdict(reading, code).route : null;
-
-			return code && route ? {code, route} : null;
-		});
-		const suggestionName = computed(() =>
-			suggestion.value ? languageName(suggestion.value.code, readingLanguage()) : ""
-		);
-		const suggestionLead = computed(() =>
-			suggestion.value
-				? t("translate.suggest.lead", {
-						channel: props.channel.name,
-						language: suggestionName.value,
-				  })
-				: ""
-		);
-		// What saying yes costs, where it costs a download.
-		const suggestionNote = computed(() => {
-			const route = suggestion.value?.route;
-			const size = route ? downloadBytes(route, store.state.translation.models) : 0;
-
-			return route && size > 0
-				? t("translate.suggest.download", {
-						model: modelLabel(route.ref),
-						size: friendlysize(size),
-				  })
-				: "";
-		});
-		const acceptSuggestion = () => {
-			const code = suggestion.value?.code;
-
-			if (code) {
-				translateOnce(code, readingLanguage());
-			}
-		};
-		const declineSuggestion = () => {
-			setChannelOptions(props.network, props.channel, {noSuggest: true});
-			focusForTyping();
-		};
-
-		// What the writing offer would say now, decline or not (offer.ts):
-		// an offer taken goes when it no longer would.
-		const offerNow = computed(() => {
 			if (!translateOnceAvailable.value) {
 				return null;
 			}
@@ -1967,110 +1172,194 @@ export default defineComponent({
 				declined: false,
 				languages: {
 					reading,
-					alsoRead: alsoReadLanguages(),
+					alsoRead: [],
 					routes: (to) => !!pairVerdict(reading, to).route,
 				},
 			});
 		});
-		const offer = computed(() =>
-			offerNow.value &&
-			!draftTarget.value &&
-			!offersDeclined(props.network.uuid, props.channel.name)
-				? offerNow.value
-				: null
+		const suggestedCode = computed(() =>
+			suggestion.value && suggestion.value.code !== sendTarget.value
+				? codeOf(suggestion.value.code)
+				: ""
 		);
-		const offerLabel = computed(() => {
-			const shown = offer.value;
+		// The code on the button: the suggestion's, else the conversation's.
+		// The user's own language is the cleanup pass ("EN ✓").
+		const buttonCode = computed(() => {
+			if (suggestedCode.value) {
+				return suggestedCode.value;
+			}
 
-			if (!shown) {
+			const to = sendTarget.value;
+
+			if (!to) {
 				return "";
 			}
 
-			const language = readerName(shown.code);
-
-			return shown.kind === "reply"
-				? t("translate.offer.reply", {language})
-				: t("translate.offer.query", {nick: props.channel.name, language});
+			return to === readingLanguage()
+				? t("translate.composer.targetCorrected", {language: codeOf(to)})
+				: codeOf(to);
 		});
-		const draftTargetLabel = computed(() =>
-			draftTarget.value
-				? t("translate.offer.thisMessage", {language: readerName(draftTarget.value.to)})
-				: ""
-		);
-		const startDraftPreview = () => {
-			const gate = draftGate(props.channel.pendingMessage ?? "", !!props.channel.editing);
+		const translateOnceLabel = computed(() => {
+			const to = suggestion.value?.code ?? sendTarget.value;
 
-			if (canTranslateOnce.value && (gate.kind === "ok" || gate.kind === "action")) {
-				void translateOutgoing(props.network, props.channel, gate.text, draftRequest());
-			}
-		};
-		// Taken: this message goes in the offer's language. A draft already
-		// typed gets its strip now.
-		const acceptOffer = () => {
-			const shown = offer.value;
-
-			if (!shown) {
-				return;
+			if (!to) {
+				return t("translate.composer.sendOff");
 			}
 
-			cancelOutgoing(props.channel);
-			forgetPreview();
-			draftTargets.set(props.channel.id, {to: shown.code, from: null, kind: shown.kind});
-			startDraftPreview();
-			focusForTyping();
-		};
-		const declineOffer = () => {
-			declineOffers(props.network.uuid, props.channel.name);
-			focusForTyping();
-		};
-		// Another language for this message: the sheet's list, with "This
-		// message only" set, so a wrong guess is put right for this message
-		// without touching the conversation.
-		const offerOther = ref<HTMLElement | null>(null);
-		const takenOther = ref<HTMLElement | null>(null);
-		const otherLanguage = (anchor: HTMLElement | null) => {
-			const guess = draftTarget.value?.to ?? offer.value?.code ?? "";
+			const language = languageName(to, readingLanguage());
 
-			openSheet(anchor, true, true);
+			return to === readingLanguage()
+				? t("translate.composer.sendCorrectedOn", {language})
+				: t("translate.composer.sendOn", {language});
+		});
+		// Read when the sheet opens: the list's preselection and "I write".
+		const translateOncePreselected = ref("");
+		const translateOnceFrom = ref<string | null>(null);
 
-			if (guess) {
-				translateOncePreselected.value = guess;
-			}
-		};
-		// "Always here": this message's language becomes the conversation's.
-		const alwaysHere = () => {
-			const own = draftTarget.value;
+		// The panel, and the language it translates into: the suggestion
+		// taken by opening it, else the conversation's, else the default
+		// pick (the channel's last pick, a language it has been written in
+		// lately, each only where this device can serve it).
+		const panelOpen = ref(false);
+		const panelTo = ref("");
+		const panelFrom = ref<string | null>(null);
 
-			if (!own) {
-				return;
-			}
+		const defaultTarget = () => {
+			const reading = readingLanguage();
 
-			draftTargets.delete(props.channel.id);
-			setChannelOptions(props.network, props.channel, {
-				write: own.to,
-				writeFrom: own.kind === "pick" ? own.from : readingLanguage(),
+			return onceTargetDefault({
+				reading,
+				last: lastOnceTarget(props.network, props.channel),
+				recent: recentLanguages(props.channel.messages, store.state.translations).map(
+					(c) => c.code
+				),
+				fallback: SUPPORTED_LANGUAGES,
+				routes: (to) => !!pairVerdict(reading, to).route,
 			});
-			focusForTyping();
 		};
-		// "Write as typed": this message's language goes, its preview with it.
-		const dropDraftTarget = () => {
-			draftTargets.delete(props.channel.id);
-			cancelOutgoing(props.channel);
-			forgetPreview();
-			focusForTyping();
-		};
-		// "Send as written": the draft as typed, now, whatever the strip is
-		// doing -- a preview on its way, a download, a failure -- and in
-		// place of a Return waiting on it.
-		const sendAsWritten = () => {
-			const text = props.channel.pendingMessage ?? "";
 
-			if (!text || !canSend.value) {
+		const openPanel = () => {
+			const settings = channelTranslation(props.network, props.channel);
+
+			panelTo.value = suggestion.value?.code ?? sendTarget.value ?? defaultTarget();
+			panelFrom.value = panelTo.value === sendTarget.value ? settings.writeFrom : null;
+			translateOncePickerOpen.value = false;
+			panelOpen.value = true;
+		};
+
+		const closePanel = () => {
+			panelOpen.value = false;
+			translateOncePickerOpen.value = false;
+			focusForTyping();
+		};
+
+		const togglePanel = () => {
+			if (!canSend.value) {
 				return;
 			}
 
+			if (panelOpen.value) {
+				closePanel();
+				return;
+			}
+
+			openPanel();
+		};
+
+		// Insert: the translation goes into the composer at the caret, the
+		// way a pasted link would, and the panel closes. Sent unchanged, it
+		// goes as the translation (onSubmit); the panel's language becomes
+		// the conversation's, for the button and the next time.
+		const insertTranslation = (value: PanelInsert) => {
+			const el = input.value;
+			const draft = props.channel.pendingMessage ?? "";
+			const start = el ? el.selectionStart : draft.length;
+			const end = el ? el.selectionEnd : draft.length;
+			const before = draft.slice(0, start);
+			const after = draft.slice(end);
+			const pad = before && !/\s$/.test(before) ? " " : "";
+			const next = `${before}${pad}${value.line}${after}`;
+
+			props.channel.pendingMessage = next;
+			insertedFor.set(props.channel.id, value);
+
+			if (value.translated && value.translated.to !== sendTarget.value) {
+				setChannelOptions(props.network, props.channel, {
+					write: value.translated.to,
+					writeFrom: panelFrom.value,
+				});
+			}
+
+			panelOpen.value = false;
+			void nextTick(() => {
+				setInputSize();
+
+				const field = input.value;
+
+				if (field) {
+					const caret = before.length + pad.length + value.line.length;
+
+					field.focus();
+					field.setSelectionRange(caret, caret);
+				}
+			});
+		};
+
+		// Off (the sheet's Write in): the conversation's language goes.
+		const turnTranslateOff = () => {
+			setChannelOptions(props.network, props.channel, {write: null, writeFrom: null});
 			cancelOutgoing(props.channel);
-			deliver(text, text);
+			focusForTyping();
+		};
+
+		// "Reset choices for this conversation" (the sheet's More).
+		const resetChoices = () => {
+			cancelOutgoing(props.channel);
+			panelOpen.value = false;
+			insertedFor.delete(props.channel.id);
+			resetChannelChoices(props.network, props.channel);
+		};
+
+		// What the sheet hangs off, and whether it opens on the language
+		// list: the panel's language button, or the channel menu's ⋮ (its
+		// switches first).
+		const sheetAnchor = ref<HTMLElement | null>(null);
+		const sheetListFirst = ref(true);
+		const sheetOnceFirst = ref(false);
+
+		const openSheet = (anchor: HTMLElement | null, listFirst: boolean) => {
+			sheetAnchor.value = anchor;
+			sheetListFirst.value = listFirst;
+			sheetOnceFirst.value = false;
+			translateOncePreselected.value =
+				(panelOpen.value ? panelTo.value : sendTarget.value) || defaultTarget();
+			translateOnceFrom.value = panelOpen.value
+				? panelFrom.value
+				: sendTarget.value
+				? channelTranslation(props.network, props.channel).writeFrom
+				: null;
+			translateOncePickerOpen.value = true;
+		};
+
+		// The panel's language button: the sheet's list, over the button.
+		const choosePanelLanguage = (anchor: HTMLElement | null | undefined) => {
+			openSheet(anchor ?? translateOnceButton.value, true);
+		};
+
+		// A pick in the sheet: the panel's language while the panel is open,
+		// else the conversation's. A same-language pick is a cleanup pass on
+		// the GPU model (writer.ts, router.ts).
+		const translateOnce = (to: string, from: string | null = null) => {
+			translateOncePickerOpen.value = false;
+
+			if (panelOpen.value) {
+				panelTo.value = to;
+				panelFrom.value = from;
+				return;
+			}
+
+			setChannelOptions(props.network, props.channel, {write: to, writeFrom: from});
+			focusForTyping();
 		};
 
 		// The one-time note's words, in the reading language's own name.
@@ -2096,213 +1385,6 @@ export default defineComponent({
 			requestTranslationSheet(props.channel);
 		};
 
-		// The live preview (spec § Composer): with a send target set, a
-		// pause in typing translates the draft into the strip, so the Return
-		// that follows sends what the user has already read. The last
-		// preview stays up, dimmed, while the draft changes under it.
-		const runPreview = () => {
-			previewTimer = null;
-			const draft = props.channel.pendingMessage ?? "";
-			const gate = draftGate(draft, !!props.channel.editing);
-			const to = effectiveTarget.value;
-
-			if (
-				!canSend.value ||
-				gate.text.trim() === "" ||
-				!firstEnterTranslates(gate, to, translationOn())
-			) {
-				stalePreview.value = null;
-				return;
-			}
-
-			if (outgoing.value?.draft === gate.text) {
-				return;
-			}
-
-			void translateOutgoing(props.network, props.channel, gate.text, draftRequest()).then(
-				(verdict) => {
-					// Already in the target language: nothing to preview.
-					if (verdict === "plain" && !outgoing.value) {
-						stalePreview.value = null;
-					}
-				}
-			);
-		};
-
-		// Whether a pause in typing translates the draft (outgoing.ts
-		// `previewsWhileTyping`), else the first Return does. The route is
-		// the one a draft in the reading language would take.
-		const previewLive = computed(() => {
-			const to = effectiveTarget.value;
-
-			if (!to) {
-				return false;
-			}
-
-			const route = pairVerdict(readingLanguage(), to).route;
-
-			return previewsWhileTyping(
-				normalizePreviewSetting(store.state.settings.translatePreview),
-				route?.ref.engine === "llm"
-			);
-		});
-
-		const schedulePreview = () => {
-			clearPreviewTimer();
-
-			if (!effectiveTarget.value || !previewLive.value) {
-				return;
-			}
-
-			previewTimer = setTimeout(runPreview, PREVIEW_PAUSE_MS);
-		};
-
-		watch(
-			() => [outgoing.value?.status, outgoing.value?.text] as const,
-			() => {
-				const entry = outgoing.value;
-				const queued = sendQueued.value;
-
-				if (!entry) {
-					// The run ended with no strip: the draft needs none (a
-					// "plain" verdict), or the target moved under it. A Return
-					// waiting on it is answered once, by the path a Return with
-					// no strip takes -- which sends a "plain" draft as typed.
-					if (queued && queued.chanId === props.channel.id) {
-						sendQueued.value = null;
-
-						if (!queued.retried && queued.raw === props.channel.pendingMessage) {
-							void nextTick(() => onSubmit(false, true));
-						}
-					}
-
-					return;
-				}
-
-				if (entry.status === "done") {
-					markShown(entry.draft);
-				}
-
-				if (entry.status === "done" && entry.text) {
-					stalePreview.value = {
-						chanId: props.channel.id,
-						text: entry.text,
-						chip: outgoingChip.value,
-						to: entry.to,
-					};
-				} else if (entry.status === "failed") {
-					stalePreview.value = null;
-				}
-
-				if (
-					!queued ||
-					queued.chanId !== props.channel.id ||
-					queued.draft !== entry.draft ||
-					queued.raw !== props.channel.pendingMessage
-				) {
-					return;
-				}
-
-				// Done or failed: the Return waiting on it is answered by
-				// the result being on screen, never by a send in the same
-				// instant (spec § Send safety). The next Return sends what
-				// the strip then shows; after a failure, the draft as written.
-				if (entry.status === "done" || entry.status === "failed") {
-					sendQueued.value = null;
-				}
-			}
-		);
-
-		onUnmounted(clearPreviewTimer);
-
-		// A preview belongs to its target (spec § A preview belongs to its
-		// target): the language and the reply parent, by id and text. When
-		// either moves under it -- an offer's language changed, the parent
-		// was edited, the reply cancelled -- the preview, its read-back and
-		// a Return waiting on it go together, and the draft previews anew at
-		// once (nobody is typing: the change came from a tap or a line).
-		const previewAgain = () => {
-			// Translating on Return: a new preview only where there was one
-			// (the user already pressed Return for this draft).
-			const had = !!(outgoing.value || sendQueuedHere.value || stale.value);
-
-			if (had) {
-				cancelOutgoing(props.channel);
-				forgetPreview();
-			}
-
-			if ((props.channel.pendingMessage ?? "").trim() !== "" && (had || previewLive.value)) {
-				runPreview();
-			}
-		};
-
-		watch(
-			() => [props.channel.id, effectiveTarget.value] as const,
-			([id, to], [idBefore]) => {
-				// A strip already for this language (one started by the tap
-				// that set it) stands.
-				if (id === idBefore && (!outgoing.value || outgoing.value.to !== to)) {
-					previewAgain();
-				}
-			}
-		);
-		watch(
-			() => [props.channel.id, previewKey(null, props.channel.replyTo)] as const,
-			([id, key], [idBefore, keyBefore]) => {
-				if (id === idBefore && key !== keyBefore) {
-					previewAgain();
-				}
-			}
-		);
-
-		// The page put away and back (a phone's app switcher, the back-forward
-		// cache): pagehide took the worker down under a preview, which then
-		// failed through no fault of its own. Asked again once the page is
-		// visible (or at once, where the failure lands after it came back).
-		const resumePreview = () => {
-			if (document.visibilityState !== "visible" || !interruptedOutgoing(outgoing.value)) {
-				return;
-			}
-
-			previewAgain();
-		};
-
-		watch(
-			() => interruptedOutgoing(outgoing.value),
-			(interrupted) => {
-				if (interrupted) {
-					resumePreview();
-				}
-			}
-		);
-		onMounted(() => {
-			window.addEventListener("pageshow", resumePreview);
-			document.addEventListener("visibilitychange", resumePreview);
-		});
-		onUnmounted(() => {
-			window.removeEventListener("pageshow", resumePreview);
-			document.removeEventListener("visibilitychange", resumePreview);
-		});
-
-		// An offer taken goes when the offer would no longer say it: the
-		// reply was cancelled or now answers another line, the other person
-		// of a query writes in another language. Then the offer (if any)
-		// comes back with what it says now.
-		watch(
-			() => [props.channel.id, offerNow.value?.kind, offerNow.value?.code] as const,
-			([id, kind, code], [idBefore]) => {
-				const own = draftTargets.get(id);
-
-				if (id !== idBefore || !own || own.kind === "pick") {
-					return;
-				}
-
-				if (own.kind !== kind || own.to !== code) {
-					draftTargets.delete(id);
-				}
-			}
-		);
-
 		const onBlur = () => {
 			if (autocompletionRef.value) {
 				autocompletionRef.value.hide();
@@ -2318,8 +1400,8 @@ export default defineComponent({
 
 				// A draft left in the previous channel is reported `paused` there.
 				typing.switchTarget();
-				forgetPreview();
-				// The sheet was opened for the channel left behind.
+				// The panel and the sheet were for the channel left behind.
+				panelOpen.value = false;
 				translateOncePickerOpen.value = false;
 				focusForTyping();
 			}
@@ -2347,50 +1429,8 @@ export default defineComponent({
 
 		watch(
 			() => props.channel.pendingMessage,
-			(value) => {
+			() => {
 				setInputSize();
-
-				// Typing, or walking the history, invalidates the strip (spec
-				// § Composer 3): the next Enter translates afresh.
-				const entry = store.state.outgoingTranslations[props.channel.id];
-
-				// Against the part of the draft the strip is a translation of
-				// (a `/me`'s text, not the command in front of it), with one
-				// trailing newline tolerated on a touch-primary device: there
-				// the Return puts its newline in the draft before `keypress`
-				// fires, so the draft reads "…\n" for the moment between the
-				// two and `onEnterKey` -> `onSubmit(true)` strips exactly that
-				// newline back off. Without the tolerance the second Enter
-				// would find the strip already cancelled and translate afresh
-				// instead of sending. Only there: with a hardware keyboard the
-				// Return is preventDefaulted and never reaches the draft, so a
-				// trailing newline is a deliberate Shift+Enter -- an edit of
-				// the draft like any other, and the strip goes.
-				const gated = draftGate(value, !!props.channel.editing).text;
-				const typed =
-					hasVirtualKeyboard() && gated.endsWith("\n") ? gated.slice(0, -1) : gated;
-
-				if (entry && typed !== entry.draft) {
-					cancelOutgoing(props.channel);
-				}
-
-				const queued = sendQueued.value;
-				const raw =
-					hasVirtualKeyboard() && value.endsWith("\n") ? value.slice(0, -1) : value;
-
-				if (queued && queued.raw !== raw) {
-					sendQueued.value = null;
-				}
-
-				const fromTyping = typedChange;
-
-				typedChange = false;
-
-				if (typed.trim() === "") {
-					forgetPreview();
-				} else if (fromTyping && (!entry || typed !== entry.draft)) {
-					schedulePreview();
-				}
 			}
 		);
 
@@ -2444,10 +1484,9 @@ export default defineComponent({
 			// Escape cancels a pending reply/edit before anything else gets it
 			// (the global handler in App.vue blurs the input otherwise).
 			inputTrap.bind("esc", () => {
-				// A translation strip goes first (spec § Composer 6); the draft stays.
-				if (store.state.outgoingTranslations[props.channel.id] || stale.value) {
-					cancelOutgoing(props.channel);
-					forgetPreview();
+				// The translate panel goes first; the draft stays.
+				if (panelOpen.value) {
+					closePanel();
 					return false;
 				}
 
@@ -2617,11 +1656,6 @@ export default defineComponent({
 				ticker = null;
 			}
 
-			if (copiedTimer !== null) {
-				window.clearTimeout(copiedTimer);
-				copiedTimer = null;
-			}
-
 			eventbus.off("escapekey", blurInput);
 			eventbus.off("input:focus", focusForTyping);
 
@@ -2636,19 +1670,6 @@ export default defineComponent({
 		});
 
 		return {
-			offer,
-			offerLabel,
-			acceptOffer,
-			declineOffer,
-			offerOther,
-			takenOther,
-			otherLanguage,
-			draftTarget,
-			draftTargetLabel,
-			alwaysHere,
-			dropDraftTarget,
-			sendAsWritten,
-			sheetOnceFirst,
 			store,
 			t,
 			input,
@@ -2688,42 +1709,30 @@ export default defineComponent({
 			retryInSeconds,
 			canConnectNow,
 			connectNetwork,
-			outgoing,
-			outgoingChip,
-			outgoingCheckLabel,
-			outgoingChipTitle,
-			outgoingDownload,
-			shortReason,
-			outgoingBusy,
 			sendTooltip,
-			stale,
-			sendQueuedHere,
-			sendTargetCode,
-			copiedOutgoing,
-			copyOutgoing,
-			copyLabel,
-			outgoingSendLabel,
 			translateOnceButton,
 			translateOncePickerOpen,
 			sheetAnchor,
 			sheetListFirst,
+			sheetOnceFirst,
 			resetChoices,
 			translationOffByUser,
 			translateOnceAvailable,
-			canTranslateOnce,
 			translateOnceLabel,
 			translateOncePreselected,
 			translateOnceFrom,
 			sendTarget,
-			openTranslateOnce,
+			buttonCode,
+			suggestedCode,
+			panelOpen,
+			panelTo,
+			panelFrom,
+			togglePanel,
+			closePanel,
+			choosePanelLanguage,
+			insertTranslation,
 			translateOnce,
 			turnTranslateOff,
-			suggestion,
-			suggestionName,
-			suggestionLead,
-			suggestionNote,
-			acceptSuggestion,
-			declineSuggestion,
 			translationNote,
 			dismissNote,
 			chooseConversations,

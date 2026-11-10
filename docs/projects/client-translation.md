@@ -891,7 +891,8 @@ shows in the tooltip.
   `?fakeTranslate` query the dev build honours): `translate-reading.mjs`
   (switch on, burst, streaming line, chip menu, scroll drop, failure label)
   and `translate-composer.mjs` (strip, check, edit invalidation, escape,
-  error path), both also `--mobile`.
+  error path), both also `--mobile`. The strip has since been replaced by
+  the translate panel, checked by `translate-panel.mjs`.
 - **Quality** (`tools/translate-eval.mjs`): runs the real engines in headless
   Chromium over a FLORES-200 sample and a small IRC-style set kept in
   `tools/translate-eval/`, reports chrF per pair per engine, and writes the
@@ -925,7 +926,8 @@ the app usable without the next:
 2. **Reading**: `detect.ts`, `queue.ts`, `prompt.ts`, the store map, the
    header switch, `Message.vue`, the per-channel store, `translate-reading.mjs`.
 3. **Composer**: the strip, the check, the gate, the send path,
-   `translate-composer.mjs`.
+   `translate-composer.mjs` (since replaced by the translate panel and
+   `translate-panel.mjs`).
 4. **Evaluation**: `tools/translate-eval.mjs`, `docs/resources/translation.md`,
    and the default route table rewritten from its numbers.
 

@@ -106,8 +106,6 @@ const TRANSLATION_OFF = `(() => {
 	} catch (e) {}
 })()`;
 
-/** The suggestion card, not the one-time note that shares its card (ChatInput.vue). */
-const SUGGEST = "#form .translate-suggest:not(.translate-note)";
 const PAUSED = `!!document.getElementById("app").__vue_app__.config.globalProperties.$store.state.translation.paused`;
 const LINES = `document.querySelectorAll('.msg-translated').length`;
 const MOBILE = process.argv.includes("--mobile");
@@ -923,24 +921,14 @@ async function scenario(page) {
 		);
 	}
 
-	// The channel now mostly writes German: the composer offers to write in
-	// it (the suggestion card), and the language sheet lists it under
-	// "Spoken in … lately". Declined, the card stays gone for the channel.
-	await page.waitFor(`!!document.querySelector(${JSON.stringify(SUGGEST)})`, {
-		label: "the suggestion card",
-	});
-	await page.check(
-		"the suggestion card offers German",
-		/German/.test(
-			await page.evaluate(
-				`document.querySelector(${JSON.stringify(
-					`${SUGGEST} .translate-suggest-accept`
-				)}).textContent`
-			)
-		)
-	);
-	await page.screenshot("translate-suggest", {selector: "#form"});
+	// The channel now mostly writes German: the translate panel's language
+	// list (the chip opens the panel, its language button the sheet) lists
+	// it under "Spoken in … lately".
 	await page.click("#form #translate-once");
+	await page.waitFor(`!!document.querySelector(".translate-panel")`, {
+		label: "the translate panel",
+	});
+	await page.click("#form .translate-panel-language");
 	await page.waitFor(`!!document.querySelector(".language-sheet")`, {
 		label: "the language sheet",
 	});
@@ -954,10 +942,8 @@ async function scenario(page) {
 		`document.querySelector(".language-sheet").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))`
 	);
 	await page.waitFor(`!document.querySelector(".language-sheet")`, {label: "the sheet closed"});
-	await page.click(`${SUGGEST} .translate-suggest-decline`);
-	await page.waitFor(`!document.querySelector(${JSON.stringify(SUGGEST)})`, {
-		label: "the declined card is gone",
-	});
+	await page.click("#form .translate-panel-cancel");
+	await page.waitFor(`!document.querySelector(".translate-panel")`, {label: "the panel closed"});
 
 	// The translated row's menu (its toolbar's Translate): swap first, then
 	// Copy translation.

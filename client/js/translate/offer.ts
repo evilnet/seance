@@ -213,33 +213,3 @@ export function composerOffer(input: OfferInput): WriteOffer | null {
 
 	return null;
 }
-
-/**
- * What a draft's translation belongs to (spec § A preview belongs to its
- * target): the target, and the reply parent by id and text, so an edited
- * parent is a different one. When the key changes under a preview, the
- * preview, its read-back and any Return waiting on it go together.
- */
-export function previewKey(to: string | null, replyTo: {id: number; text?: string} | null): string {
-	return JSON.stringify([to, replyTo ? [replyTo.id, replyTo.text ?? ""] : null]);
-}
-
-/**
- * How long a finished translation must have been on screen before Return
- * sends it (spec § Send safety). A Return in the same instant the text
- * first appears was pressed for the draft, not for the translation.
- */
-export const SHOWN_BEFORE_SEND_MS = 500;
-
-/**
- * Whether Return sends the strip's translation now: it is finished, and has
- * been on screen for `SHOWN_BEFORE_SEND_MS`. Otherwise Return only says
- * "Translating…", and the next Return after the result has been seen sends.
- */
-export function sendReady(
-	entry: {status: string} | undefined,
-	shownAt: number | null,
-	now: number
-): boolean {
-	return entry?.status === "done" && shownAt !== null && now - shownAt >= SHOWN_BEFORE_SEND_MS;
-}

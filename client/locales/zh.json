@@ -2507,16 +2507,8 @@
   "translate.settings.useNllb": "对其他模型不支持的语言使用 NLLB-200",
   "translate.settings.workerError": "无法连接到翻译工作线程：{error}",
   "translate.strip.checkFailed": "无法检查",
-  "translate.strip.copied": "已复制",
-  "translate.strip.copy": "复制翻译",
-  "translate.strip.failed": "无法翻译，按原样发送？",
-  "translate.strip.polishChip": "{language}，已校正",
   "translate.strip.routeCpu": "{from} → {to} · {model} (CPU)",
-  "translate.strip.routeCpuRetried": "{from} → {to} · {model} (CPU) · 未指定源语言重试",
   "translate.strip.routeGpu": "{from} → {to} · {model} (GPU)",
-  "translate.strip.routeGpuRetried": "{from} → {to} · {model} (GPU) · 未指定源语言重试",
-  "translate.strip.sendAsWritten": "按原样发送",
-  "translate.strip.sendTranslation": "发送翻译",
   "translate.strip.sourceAuto": "自动",
   "translate.threads.reload": {
     "other": "重新加载应用以使用 {count} 个 CPU 线程。"

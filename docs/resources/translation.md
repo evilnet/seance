@@ -21,9 +21,8 @@ state).
 Off, translation is absent, not disabled -- nothing renders, nothing is
 dimmed: no sheet (the channel menu's "Translation…" is gone, so nothing
 asks for one through `state.translation.sheetFor`), no composer
-button, strip or round-trip row, and Return sends every draft as
-typed (`outgoing.ts` `firstEnterTranslates`; a kept write target and `/me`
-included), no Translate in the message toolbar, no `TranslationLine` under a
+button or translate panel, and Return sends every draft as
+typed (the box is never translated, § Writing in a channel), no Translate in the message toolbar, no `TranslationLine` under a
 message and no topic translation or flipper. There are no keyboard shortcuts
 or commands for translation to switch off.
 
@@ -177,8 +176,7 @@ neither the others nor the destroy -- the channels resumed) and
 real service and queue: every line dropped, none failed, no pause, the
 worker terminated; a disposed service routing nothing and asking no
 question), `test/helpers/detachedScope.ts` (a watch outlives the scope it
-was made in), `test/translate/outgoing.ts`
-`firstEnterTranslates`; browser check `tools/scenarios/translate-off.mjs`
+was made in); browser check `tools/scenarios/translate-off.mjs`
 (also `--mobile`: no surface, no worker fetched, no Worker made, no GPU asked
 for on a cold load or a language change; on and off again without a
 reload), and `tools/scenarios/translate-switches.mjs` (every engine
@@ -1544,9 +1542,9 @@ Write in   [ Off | Portuguese ▾ ]
 Language and models in Settings
 ```
 
-- **Opened from the chip** it opens on the language list, as the composer's
-  sheet always did: a pick is the conversation's write target, or with
-  "This message only" a one-off (writer.ts `translateOnce`). **Opened from
+- **Opened from the translate panel's language button** it opens on the
+  language list: a pick is the panel's language (§ The translate panel),
+  kept as the conversation's once something is inserted. **Opened from
   the menu** it opens on its switches, hung off the ⋮, the list one tap
   away on Write in's language button. The menu's ask is store state
   (`state.translation.sheetFor`, `reader.ts` `requestTranslationSheet`),
@@ -1557,17 +1555,17 @@ Language and models in Settings
   the top; a pause (§ A pause is a minute off) is a notice there too.
 - **Write in** is a two-segment radiogroup: Off (the target goes, and a
   strip made for it with it) and the language, which opens the list. The
-  composer's chip shows the plain glyph, or the target's code ("PT") while
+  composer's button shows the plain glyph, or the target's code ("PT") while
   this conversation writes in another language ("EN ✓" for the cleanup pass
-  into the user's own).
+  into the user's own). A pick with the panel closed sets the target.
 - **More** holds what most people never need: "I write" (the source the
   list fills in when it is pressed, and the swap), the register ("Address
   people": As written / Formally / Casually), and **Reset choices for this
   conversation** (`reader.ts` `resetChannelChoices`): every stored choice
   for the conversation goes (`channelStore.ts` `forgetChannel`: the
   exclusion, the target and its source, the register, the last pick, a
-  declined suggestion, the term memory), a strip for the old target goes
-  with them, and an exclusion lifted reads what is on screen.
+  declined suggestion, the term memory), an open panel closes with them, and
+  an exclusion lifted reads what is on screen.
 - **Retired:** "Languages spoken here" and "Variant". Neither is offered,
   stored or applied any more: a record that still carries them loses them
   on load, detection gets no declared languages, and no prompt gets a
@@ -1575,14 +1573,16 @@ Language and models in Settings
   retranslate-from dialog and the composer's preselection lean on the
   languages the channel has been written in lately (`recent.ts`) instead.
 
-Changing the target while a preview for the old one is still on its way
-drops that preview and previews the draft for the new target at once.
+Changing the panel's language while a translation for the old one is
+still on its way drops it and translates what is typed into the new one
+at once.
 The sheet closes on its ✕, Escape, a press outside it, a channel switch and
 the sidebar opening; on a phone it is docked to the chat pane's bottom
 edge (`.language-sheet--phone`). Browser check:
 `tools/scenarios/translate-sheet.mjs` (desktop and `--mobile --width=390
---height=844`): both ways in, a pick, More, Reset with a strip up, Reset
-lifting an exclusion, the target changed mid-preview, and the off state.
+--height=844`): both ways in, a pick, More, Reset with the panel up,
+Reset lifting an exclusion, the language changed mid-translation, and the
+off state.
 
 A language a translation is _about_ is named in the language the interface
 is in: the sheet's list and the
@@ -1595,8 +1595,8 @@ someone looking for a language to read the app in is looking for its own
 name.
 
 **Every surface here speaks the interface's language.** There is no English
-literal left in the feature: the panel, Settings -> Translation, the chips,
-the strip, the failure rows, the model manager and the context menu all
+literal left in the feature: the sheet, Settings -> Translation, the chips,
+the translate panel, the failure rows, the model manager and the context menu all
 render catalog keys (`docs/resources/i18n.md`). The Vue-free modules stay
 Vue-free and i18n-free -- `models.ts`, `service.ts` and `capability.ts`
 return **codes** (a model's label, a load note's phase, a device verdict's
@@ -1606,7 +1606,7 @@ the Settings -> Translation language select is `LanguageSelect.vue`, the
 same control the dev build's sidebar globe uses, so there is one list of
 codes and not two that could disagree; the channel menu's "Translation…"
 is offered only where the deploy has translation at all
-(`reader.ts` `translationAvailable`); and the composer strip's live region
+(`reader.ts` `translationAvailable`); and the translate panel's live region
 is `aria-live="off"` while a translation is streaming in, `polite` once it
 is done or failed, so a screen reader reads the result rather than every
 token. The surfaces' CSS is written in logical properties throughout and
@@ -1615,188 +1615,84 @@ verified in both directions through the `qqx` pseudo-locale
 
 ## Writing in a channel
 
-The panel also sets an outgoing target per channel (`write`, next to `read`
-in `thelounge.translate`); `writeTarget()` returns it as soon as
-translation is enabled, without waiting for the device probe, so the
-composer's translate button can name it ("EN → DE", in place of its
-glyph) the instant the target is picked. The placeholder stays the plain
-"Write to #channel": a language name in it wrapped onto a second line on a
-phone.
+**The message box is never translated.** What is sent is what the box
+holds, as the user sees it. Writing in another language goes through one
+place, the translate panel, and comes back into the box as text the user
+can read over, edit or send.
 
-### The live preview and send safety
+### The translate panel
 
-**When the draft is translated** is Settings → Advanced's "Show your
-translation" (`translatePreview`, outgoing.ts `PreviewSetting`,
-`previewsWhileTyping`). "As you type" is the live preview below, after
-`PREVIEW_PAUSE_MS` of no typing. "When you press Return" is PR #139's way:
-the first Return translates and shows the strip with its read-back, the
-second sends it. Automatic, the default, previews as it is typed where the
-draft's route is a quick model (an OPUS-MT pair, NLLB-200, the system
-translator) and waits for Return where it is the language model: seconds a
-line on a GPU and far more on the CPU, with the conversation's whole
-context in every request, so a request at every pause in typing costs the
-device for drafts nobody sends. The route is the one a draft in the
-reading language would take (`pairVerdict`). A change of target or reply
-parent makes a new preview only where there was one, or while previewing
-as typed (`ChatInput.vue` `previewAgain`).
+The composer's translate button (文 A, `ChatInput.vue` `togglePanel`)
+opens `TranslatePanel.vue` above the input, focused, with the draft in the
+message box left alone:
 
-With a write target set, the draft is translated while it is typed: a
-pause of `PREVIEW_PAUSE_MS` (700 ms, `ChatInput.vue`) after the last
-keystroke (real typing only: a channel switch restoring a saved draft, or
-ArrowUp through the history, previews nothing) calls `translateOutgoing` for it, so the strip already shows the line Return
-will send ("Will send in German") and its read-back ("Reads back as: …")
-before the user reaches for Return. Typing on dims the last preview in place
-(`.translate-bar-is-stale`) until the new one starts to stream, so the
-composer keeps its height instead of closing and opening on every word.
+```
+Translate into   [ German ▾ ]
+┌──────────────────────────────────────────────┐
+│ the build is green again                      │
+└──────────────────────────────────────────────┘
+German  Der Build ist wieder grün
+        Reads as: The build is green again
+                                    Cancel  Insert
+```
 
-**Return sends a translation only once it has been seen** (send safety,
-`offer.ts` `sendReady`). A Return on a draft whose preview is done and has
-been on screen for `SHOWN_BEFORE_SEND_MS` (500 ms) sends the translation
-(the read-back is for looking at, not a gate). A Return before that -- while
-it is still translating, before the pause came, or in the instant it lands
--- starts or waits for the preview and sends nothing, saying so under the
-strip ("Translating… Press Return again once it's shown"); the next Return
-after the result has been seen sends it. Nothing is ever sent by itself
-when a translation lands. A failure stops there, and the strip offers the
-draft as written to the next Return (the send button says "Send as
-written"); a run that ends with no strip at all (the draft turned out to
-need none, or the target moved) answers the waiting Return once by the path
-a Return with no strip takes, which sends a draft that needs no translation
-as typed -- never a translation. **Send as written** is on the strip
-throughout, while the preview is coming, during a download and after a
-failure: it sends the draft as typed, untagged, in place of a Return
-waiting on the preview. Changing the draft (even only adding or removing a
-`/me `), Escape, a channel switch or turning the target off cancels a
-waiting Return. A preview the page took down under it (pagehide: a phone
-putting the page away, the back-forward cache, which terminates the
-worker) is not the translation's failure: it is asked again once the page
-is visible (`writer.ts` `interruptedOutgoing`). There is no Edit button on
-the strip -- the composer's own send button does what Return does -- only
-Copy, Send as written and, for a language taken for this message, Always
-here.
+- **Typed in the user's own language, translated as it is typed.** A pause
+  of `PANEL_PAUSE_MS` (700 ms) after the last keystroke calls
+  `writer.ts` `translateOutgoing` with the panel's language named
+  (`{to, from}`); the result streams into the panel from
+  `store.state.outgoingTranslations` and its read-back ("Reads as: …",
+  `checkOutgoing`) comes up under it once it is done. The live region is
+  `aria-live="off"` while it streams and `polite` once it is done or
+  failed. The chip's `title` names the route (`<Source> → <Target> ·
+<model> (GPU|CPU)`, or the system translator).
+- **Insert waits for a finished translation of exactly what is typed**:
+  never half of one, never one of an older text. A draft that needs no
+  translation (already in the language, or the verdict `"plain"`) is
+  inserted as typed. Return in the panel does what Insert does;
+  Shift+Return is a new line.
+- **Insert** puts the line into the message box at the caret (a space
+  before it where it would run into a word), closes the panel and gives
+  the box the focus. The panel's language becomes the conversation's
+  (`channelStore.ts` `write`, with the panel's source as `writeFrom`), so
+  the button then names it ("DE"; "EN ✓" for the cleanup pass into the
+  user's own language) and the panel opens on it next time.
+- **Sent unchanged, it goes as the translation** (`ChatInput.vue`
+  `onSubmit` over `insertedFor`): tagged with its language and as
+  machine-translated (§ Language tags; a polish carries the language
+  alone), escaped by `sendableTranslation`, its read-back recorded for the
+  posted line (`recordSentReadBack`) and the pair noted into the voice and
+  term memory (`noteOutgoingSent`). **Edited, it is the user's own line**:
+  sent as typed, untagged. A line in the box that was never inserted is
+  always sent as typed.
+- **A failure** says so in the panel ("Couldn't translate into German",
+  the reason truncated, the whole of it in the title), with **Try again**;
+  Insert stays disabled.
+- **Cancel**, Escape, the button again, a channel switch and Reset choices
+  close the panel, cancel its translation and leave the box as it was.
+- **The panel's language button** opens the conversation's sheet on its
+  language list (§ One sheet), anchored on the button; a pick there is the
+  panel's language and what is typed is translated into it at once.
 
-**The language the user writes in is theirs to say.** The sheet the
-translate button opens has an "I write" as well as a "They read";
-picked as the channel's target (not "This message only"), both are kept
-(`channelStore.ts` `writeFrom` beside `write`; turning the target off, or
-setting it from the panel, clears it), and every draft is then taken as that
-language. Detection still runs, but only to catch a draft typed straight in
-the target, which is sent as typed as before. Before, the mode kept only the target and guessed each draft's
-language, and a short English line ("Heck yeah it is") scored as Afrikaans,
-for which the phone had no model. Where no source was named and the guess
-has no route at all on this device, the reading language is tried before
-the request fails (`writer.ts` `translateOutgoing`): a draft misplaced by
-the detector is likelier than a language the user writes in with no model
-for it.
+**What the panel opens on**: a suggestion, else the conversation's
+language, else the default pick (`outgoing.ts` `onceTargetDefault`: the
+channel's last pick, a language it has been written in lately, each only
+where this device serves it from the reading language). **The suggestion**
+is the one offer left (`offer.ts` `composerOffer`): a reply to a line
+placed with confidence in another language, or a query whose other person
+writes one. It only marks the button, its code drawn with a dashed outline
+(`#translate-once.suggested`), unless that is already the conversation's
+language; nothing opens or changes until the user taps it. There is no
+card, no "This message only" and no live preview in the box: those all
+went with the strip the panel replaced.
 
-**The suggestion card.** Where a channel's recent lines from others are
-mostly in one language that is not the user's -- at least
-`SUGGEST_MIN_LINES` (5) of them and `SUGGEST_MIN_SHARE` (half) of every
-placed line among the newest `RECENT_LINES` (`recent.ts`
-`suggestedLanguage`) -- and the channel has no write target, the composer
-offers it above the strip: "Most of #linux writes in Portuguese. Write
-your messages in Portuguese here?", with the model and its download size
-when that is still to come. **Write in Portuguese** sets the target with
-the reading language as `writeFrom`, as a pick in the sheet would; **Not
-in this channel** sets `channelStore.ts` `noSuggest`, and the card is not
-offered there again. It needs reading on (the counts are the reader's
-verdicts), a channel rather than a query, and a route for the pair.
-
-### Suggested writing
-
-Nothing is sent translated unless the user chose a language for the
-conversation or took an offer for that message. The offers
-(`translate/offer.ts`, mocha `test/translate/offer.ts`) sit in the strip's
-place above the input while there is no strip:
-
-| Situation                                          | Offer                     |
-| -------------------------------------------------- | ------------------------- |
-| A reply to a line in another language              | "Reply in Portuguese"     |
-| A query whose other person writes another language | "Write to Ana in Polish"  |
-| A channel that mostly writes another language      | the suggestion card above |
-
-The language is the reading pipeline's verdict for the line (`lineLanguage`:
-the reader's `from`, else, where the conversation does not read, the
-sender's own `+draft/language` tag). A query goes by the other person's
-newest placed line among their `QUERY_LINES` (5) newest, passing over the
-user's own lines, pending, redacted and superseded ones, notices and lines
-the detector could not place (an emoji, a code paste, one word); when the
-two newest placed lines disagree it is ambiguous and nothing is offered.
-**No offer** for a language the user reads or also reads (regional forms
-included), one the device cannot write, a reply to the user's own line
-(its raw text is whatever they sent, and what they see may be its
-read-back), a machine-translated line (its tag names the language of the
-text that was sent, not the one its author reads, and the other person's
-client translates the reply for them anyway), an edit, a conversation with
-a language set (the cleanup pass included: it is a choice), or after "Not
-now". A reply to a line that names no language offers nothing, not the
-query's language. A reply's offer comes before a query's.
-
-**Taken, it is for this message** (`ChatInput.vue` `draftTargets`, per
-conversation, never stored): "This message goes in Portuguese", then the
-preview as for a conversation's language -- a draft already in it goes as
-typed (`writer.ts` `OnceRequest.asTarget`) -- with **Always here** on the
-strip to make it the conversation's language (`write`, with the reading
-language as `writeFrom`, as the card's yes does). **Another language…**
-opens the sheet's list with "This message only" already set, which is how
-a wrong guess is put right for one message without touching the
-conversation; a pick there with "This message only" is this message's
-language too, and an edit of the draft previews into it again. **Write as
-typed** drops it. **Not now** declines offers in that conversation, on this
-device (`offerDeclines.ts`, `thelounge.translateOffersDeclined`: device
-state, not in the settings backup); the channel card keeps its own
-`noSuggest`, and "Reset choices for this conversation" lifts both. The
-language goes with the message when it is sent.
-
-**A preview belongs to its target**: the language and the reply parent, by
-id and text (`offer.ts` `previewKey`). When either moves under it -- the
-parent edited (the edit handler replaces `channel.replyTo`), another parent
-picked, the reply cancelled, an offer's language changed -- the preview,
-its read-back and a Return waiting on it go together and the draft is
-previewed again at once. An offer taken goes when the offer would no longer
-say it: the reply cancelled or answering another line, the other person of
-a query writing in another language; the offer then says what it says now.
-
-**Kept as they were**: edits bypass translation (`draftGate`'s `edit`);
-`/me` is the only command that translates and is re-prefixed; multiline
-batching and command escaping (`sendableTranslation`); `writeSource` and a
-stored `writeFrom`; a write target equal to the reading language still
-means the cleanup pass, which is not "Send as written"; the language tags
-on a sent translation.
-
-Browser check: `tools/scenarios/translate-offers.mjs` on the fake engine
-(desktop and `--mobile`): the reply offer and its message-only language;
-send safety (a Return before the preview, and one in the instant it lands,
-send nothing; the next one sends the tagged reply); no offer for a
-machine-translated parent, the user's own line or an edit; the parent
-edited mid-preview, the reply cancelled; Send as written while the preview
-is out; the query offer, Another language… with "This message only" set,
-Always here; the other person switching language mid-preview; the page put
-away and back mid-preview (pagehide), with nothing sent when the preview
-lands; Not now.
-
-The sheet opens on a tap and nothing more: on a touch screen it focuses
-itself rather than its search, since focusing the search there brings the
-keyboard up over the list before anyone asked (on a desktop the search has
-the keyboard, so typing a few letters and Return picks). The phone's sheet
-is docked to the chat pane, not the screen, and opening the sidebar closes
-it.
-
-The preview (or a Return that comes first) for a non-empty, non-command, non-edit draft
-(`outgoing.ts` `draftGate`) calls `writer.ts` `translateOutgoing` instead
-of sending. **`/me` is the one command that translates**: an ACTION is
-prose, and the reading side translates everyone else's, so `draftGate`
-answers `{kind: "action", text}` with what follows `/me ` and that text is
-what the strip holds, what the watcher compares against and what the voice
-and term memory record; Return sends `/me <translation>`, the
-command back on the front and never escaped. An action with nothing after
-it is the command's own business. The call itself: it detects the draft's language (no channel prior -- it is the
-user's own line, not what the channel has been saying), decides the source
-with `writeSource` (`outgoing.ts`), and builds context the same way the reader does
-(recent lines, reply target, topic, names, terms, glossary) plus a `voice`:
-the last `VOICE_LINES` (5) of this channel's own sent translations to this
-target, session-only, so the model's phrasing stays consistent across a
-conversation without ever touching persisted storage.
+**The language the user writes in is theirs to say.** The sheet's "I
+write", picked with the language, is the panel's source and is kept as the
+channel's `writeFrom` on Insert; the writer takes it as the draft's
+language and never second-guesses it. Where no source was named and the
+detector's guess has no route at all on this device, the reading language
+is tried before the request fails (`writer.ts` `translateOutgoing`): a
+draft misplaced by the detector is likelier than a language the user
+writes in with no model for it.
 
 The language the user reads in is **one language everywhere**
 (`reader.ts` `readingLanguage`): the interface's. One setting, `locale`,
@@ -1806,30 +1702,18 @@ messages are translated into; the old `translateTo` reading override is
 gone (`settings.ts` `migrateReadingToLocale` moved a pinned one into
 `locale` and deleted it). One consequence: the reading language can only
 be one of the interface's languages (the 24 of
-`translation-languages.txt`), not any of the ~50 the engines support -- a
-Finnish or Hebrew reader cannot have lines translated into Finnish or
-Hebrew until the interface offers that language. Reading itself
-stays on or off per channel; the language does not, which is why the
-composer and the reader cannot disagree the way the per-channel picker
-once let them (a channel reading English while the global named German
-would have had a draft translated from German into German).
+`translation-languages.txt`), not any of the ~50 the engines support.
 
-**The composer's button names the source the draft goes from**
-(2026-11-10, `ChatInput.vue` `sendSource`). Under a channel's send target
-it reads "EN → ES": the language picked with the target in the composer's
-dialog (`writeFrom`), which the writer takes as the draft's source and never
-second-guesses; with none picked, the source the strip's draft is being
-translated from as `writeSource` below chose it; else the reading language.
-Before, it always named the reading language, even over a picked source and
-while a draft detected as another language went from that one. Browser
-check `tools/scenarios/translate-composer-source.mjs` (the dev ircd; also
-`--mobile`), which also checks the strip's "Translating…": while the model
-works and nothing has streamed, the strip says so (`ChatInput.vue`
-`outgoingDownload`, `translate.strip.translating`) instead of a caret alone,
-since a language model on a phone's CPU can take many seconds to its first
-word.
+Browser check: `tools/scenarios/translate-panel.mjs` on the fake engine
+(desktop and `--mobile --width=390 --height=844`, with a second user
+over a raw WebSocket): the panel opening focused with the draft untouched,
+Escape, a language picked from the panel, Insert waiting for the
+translation and the read-back, Insert and the button naming the language,
+the line sent tagged and heard by the other user, an inserted line edited
+going untagged, a failure with Try again, and a reply to a French line
+suggesting French.
 
-`writeSource` has two rules.`writeSource` (one-offs with no source named) has two rules. A draft too short for the detector to place
+`writeSource` (one-offs with no source named) has two rules. A draft too short for the detector to place
 (`Detection.lang === null`) is taken as the user's reading language when
 that differs from the write target, else left to the LLM. A draft the
 detector does place is trusted outright when its verdict agrees with the
@@ -1865,23 +1749,16 @@ among blank lines is sent as that line alone, since a blank line is nothing
 to send -- and given up after `WRITE_TIMEOUT_MS` (2 min).
 
 The result lives in `store.state.outgoingTranslations`, keyed by channel
-id, and `ChatInput.vue` renders it as the `.translate-bar` strip above the
-input: a "Will send in German" label over the line (the target, which a
-retry leaves alone, so the label reads the same before, during and after
-one; the direction itself is on the translate button) -- whose
-`title` names the route the text came down,
+id, and `TranslatePanel.vue` renders the entry for exactly what it holds
+(the draft and the language must both match): a chip naming the language
+-- whose `title` names the route the text came down,
 `<Source> → <Target> · <model id> (GPU|CPU)`, from the `requestFrom`, `engine`
 and `model` the entry carries (all null, and no title, until the route has
-answered); "auto" stands in for a
-source the request left to the model, and " · retried without a source" follows
-once the bare second try ran (`retried`) -- the streaming
-text with a caret, and a Copy icon button once it is done -- its word kept as the
-tooltip and accessible name, never as visible text; it reads "Copied" for two
-seconds after it worked. Both rows of the strip are
-`user-select: text`: the line the user is being asked to approve has to be
-selectable. A failure shows "couldn't translate, send as written?" -- followed by the
-reason, truncated, with the whole of it in the title -- and turns
-the send button's tooltip into "Send as written".
+answered); "auto" stands in for a source the request left to the model --
+then the streaming text with a caret, and the read-back under it once it is
+done. Both rows are `user-select: text`. A failure shows "Couldn't
+translate into German" followed by the reason, truncated, with the whole of
+it in the title, and Try again.
 
 Two answers are failures rather than translations, on the same terms as the
 reading side: **an echo** ("came back unchanged") and **an answer with no letters in it** ("empty translation"). A third was added once the
@@ -1927,8 +1804,8 @@ for the draft and the read-back, and the reading queue retries the line once
 bare and fails it, uncounted, only if the second answer is judged the same. The echo needs no `from !== to`
 guard any more -- a source is never the target -- so what it means is the
 model declining: a line with nothing to translate ("ok, brb", a bare nick)
-as much as one it would not touch. The offer the strip already makes is the
-right one for either, and the next Return sends the draft as written. The
+as much as one it would not touch. The panel says it couldn't translate, and
+the user can still Cancel and type the line in the box as written. The
 round trip refuses a letterless read-back the same way ("couldn't check"),
 and neither an echo nor a letterless answer joins the `voice` quoted to the
 model next time or the channel's term memory (`termPair`): a voice line in
@@ -1954,19 +1831,14 @@ channel switched off, a language change, drop-behind), never un-pauses an
 engine, and counts toward no pause; a user's Retry asks in the normal shape
 again and gets its own bare retry.
 
-**The composer's translate button opens the language sheet.** The
-language mark beside the paperclip and the plane (`ChatInput.vue`
-`translateOnce`) is independent of the reading switch: a click opens
-the conversation's sheet (`TranslationSheet.vue`, § One sheet) on its
-language list, and a pick in it becomes the channel's write target --
-`channelStore.ts` `write`, the sheet's "Write in" -- shown on the button
-("DE") and named in its label ("Sending in German · change or turn off"),
-while it is set, until the sheet's **Off**. Setting a target leaves reading alone: reading is on everywhere unless excluded, and a target never undoes an exclusion (§ Reading everywhere). The
-same pair picked again changes nothing; a new one replaces the strip. The
-sheet closes on a channel switch. A draft already typed gets its strip at
-once. The list is plain buttons (the current one `aria-current`, a row
-that cannot run labelled so, not disabled, since its tap gives the
-reason); "This message only" sits above it, as a pick applies at once,
+**The composer's translate button opens the panel** (§ The translate
+panel). It is independent of the reading switch, names the conversation's
+language while one is set ("DE", "Sending in German" in its label) and
+marks a suggestion with a dashed outline. Setting a language leaves reading
+alone: reading is on everywhere unless excluded, and a target never undoes
+an exclusion (§ Reading everywhere). The sheet, opened from the panel's
+language button, is plain buttons (the current one `aria-current`, a row
+that cannot run labelled so, not disabled, since its tap gives the reason),
 and Return in an empty search applies the highlighted language.
 
 The sheet is the pair on top -- **I write** ⇄ **They read**, two halves
@@ -1987,12 +1859,7 @@ leaving the sheet up with the reason under the list. The header holds
 the title, Turn off and a ✕.
 Picking under "They read" applies and closes; picking under "I write"
 names the source (or "Detect automatically") and moves on to "They read".
-The sheet's **"This message only"** (offered when there is
-a draft) makes the pick a one-off instead: `writer.ts` `translateOnce`,
-`translateOutgoing` with its target named rather than read off the
-channel, so it runs with no write target set and is not invalidated by
-the panel's target moving; the strip comes up as it does for a write
-target and the next Enter sends what it holds. The sheet's "They read"
+The sheet's "They read"
 shows the target that is set; **with none it says "Choose…"**, so the
 sheet opened while translation is off does not look switched on. Its
 list still highlights a suggestion, one tap (or Enter) away: the
@@ -2073,16 +1940,14 @@ confusables scored _below_ the plain sentence and would be dead weight in a
 German channel, while the sentence alone corrects `das es` into `dass es`,
 `ihr seit` into `ihr seid` and `je suis aller a` into `je suis allé à`.
 
-The strip's chip reads "English, corrected"; a corrected line is
+The panel's chip reads "English, corrected"; a corrected line is
 no translation, so it is neither read back nor noted into the voice and
 term memory. The same happens when detection finds the draft already in
 the picked language -- and **when the channel's write target is the
 language the user reads**: a write target set to one's own language can
-only mean "send my lines corrected", so the preview is the
-cleanup (the translate button reads "EN ✓") and Return
-sends it, where a foreign write target that finds the draft already in
-it still sends as typed. Browser check:
-`tools/scenarios/translate-composer.mjs` § 0.
+only mean "send my lines corrected", so the panel's translation is the
+cleanup (the translate button reads "EN ✓"), where a foreign language that
+finds the draft already in it inserts it as typed.
 
 **An echo buys one more generation, and a bare one.** Before the strip
 reports "came back unchanged" the same draft goes out a second time in the
@@ -2112,8 +1977,7 @@ generation only where the first produced nothing usable.
 
 The send is the same `input` bus emit
 as any other send (`deliver`, so history, replies and edits do not
-diverge): it ships the strip's translation, or the draft itself after a
-failure, and calls `noteOutgoingSent`, which extends the voice and, when
+diverge): it ships the inserted translation, sent unchanged, and calls `noteOutgoingSent`, which extends the voice and, when
 the draft and its translation are term-sized (`termPair`: one line, short
 both ways, genuinely different), remembers the pair in the channel's term
 memory.
@@ -2145,9 +2009,8 @@ store's copy reloaded), closing a query drops its own (`forgetTerms` from
 the reader's `part` handler; the record's switches stay), and the settings
 backup carries channels' terms but never a query's (`withoutPrivateTerms`).
 
-Typing again, walking input history, Escape, the strip's own Edit
-button and parting the channel all invalidate the strip; the next Enter
-starts over.
+Typing again in the panel invalidates its translation and starts a new
+one after the pause; Cancel, Escape and a channel switch drop it.
 
 The round trip reads a done translation back toward `reverseTarget` (the
 user's reading language, whatever the draft was detected as -- when the
@@ -2208,7 +2071,7 @@ stays, the `[Language]` prefix does not) so the echo rule can be exercised
 without a real model declining; `[echo-once]` does that to the first
 request carrying it and translates every later one, which is the bare
 second try succeeding. Browser check:
-`tools/scenarios/translate-composer.mjs` (also `--mobile`).
+`tools/scenarios/translate-panel.mjs` (also `--mobile`).
 
 ## Language tags
 

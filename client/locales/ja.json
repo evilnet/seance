@@ -2507,16 +2507,8 @@
   "translate.settings.useNllb": "他のモデルが対応していない言語に NLLB-200 を使う",
   "translate.settings.workerError": "翻訳ワーカーに接続できませんでした: {error}",
   "translate.strip.checkFailed": "検証できませんでした",
-  "translate.strip.copied": "コピーしました",
-  "translate.strip.copy": "翻訳をコピー",
-  "translate.strip.failed": "翻訳できませんでした。書いたまま送信しますか？",
-  "translate.strip.polishChip": "{language}、校正済み",
   "translate.strip.routeCpu": "{from} → {to} · {model} (CPU)",
-  "translate.strip.routeCpuRetried": "{from} → {to} · {model} (CPU) · 翻訳元を指定せずに再試行",
   "translate.strip.routeGpu": "{from} → {to} · {model} (GPU)",
-  "translate.strip.routeGpuRetried": "{from} → {to} · {model} (GPU) · 翻訳元を指定せずに再試行",
-  "translate.strip.sendAsWritten": "書いたまま送信",
-  "translate.strip.sendTranslation": "翻訳を送信",
   "translate.strip.sourceAuto": "自動",
   "translate.threads.reload": {
     "other": "{count} 個のCPUスレッドを使うには、アプリを再読み込みしてください。"

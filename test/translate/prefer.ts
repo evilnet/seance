@@ -14,7 +14,6 @@ import {
 	type RouteInput,
 } from "../../client/js/translate/router";
 import {DEFAULT_ROUTES} from "../../client/js/translate/routes.default";
-import {normalizePreviewSetting, previewsWhileTyping} from "../../client/js/translate/outgoing";
 
 // Settings → Advanced's "Prefer" (router.ts `EnginePreference`), over the
 // shipped table, where an OPUS-MT pair routes first.
@@ -104,24 +103,5 @@ describe("translate: the engine preference", () => {
 		).to.equal("nllb");
 		// NLLB-200 off: the language model still serves, as the fallback.
 		expect(route({...ja, prefer: "small"})).to.equal("llm");
-	});
-});
-
-describe("translate/outgoing preview setting", () => {
-	it("an unknown stored value reads as Automatic", () => {
-		expect(normalizePreviewSetting("enter")).to.equal("enter");
-		expect(normalizePreviewSetting("typing")).to.equal("typing");
-		expect(normalizePreviewSetting(true)).to.equal("auto");
-		expect(normalizePreviewSetting(undefined)).to.equal("auto");
-	});
-
-	it("Automatic previews on a quick model, waits for Return on the language model", () => {
-		expect(previewsWhileTyping("auto", false)).to.equal(true);
-		expect(previewsWhileTyping("auto", true)).to.equal(false);
-	});
-
-	it("As you type and When you press Return are what they say, whatever the model", () => {
-		expect(previewsWhileTyping("typing", true)).to.equal(true);
-		expect(previewsWhileTyping("enter", false)).to.equal(false);
 	});
 });

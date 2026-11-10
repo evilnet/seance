@@ -7285,6 +7285,12 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
 	content: none;
 }
 
+/* A reply suggests a language: the button names it, dashed, until the
+   user takes it. */
+#form #translate-once.suggested {
+	border-style: dashed;
+}
+
 #form .translate-once-target {
 	font-size: 0.75rem;
 	font-weight: 600;
@@ -9848,20 +9854,7 @@ html[data-reduce-motion] #chat .msg.actions-open .msg-actions {
 	margin-inline-start: 0.5rem;
 }
 
-/* The previous preview while the draft changes under it. */
-#form .translate-bar-stale {
-	opacity: 0.55;
-}
-
-#form .translate-bar-queued {
-	margin: 0;
-	color: var(--body-color-muted);
-	font-size: 0.75rem;
-	font-style: italic;
-}
-
-/* The suggestion card: "Most of #linux writes in Portuguese…", above the
-   strip, in the strip's accent rule. */
+/* A one-time translation note above the composer, in the accent rule. */
 #form .translate-suggest {
 	flex: 1 0 100%;
 	display: flex;
@@ -9906,41 +9899,7 @@ html[data-reduce-motion] #chat .msg.actions-open .msg-actions {
 	color: var(--button-text-color-hover);
 }
 
-/* A writing offer, or this message's language once taken (translate/offer.ts):
-   one line in the strip's place, the strip's rule, the action first and the
-   two links after it. */
-#form .translate-offer {
-	flex: 1 0 100%;
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: 0.25rem 0.75rem;
-	min-width: 0;
-	margin: 0 0.25rem 0.25rem;
-	padding: 0.125rem 0.5rem;
-	border-inline-start: 2px solid var(--chat-accent, var(--link-color));
-	color: var(--body-color);
-	font-size: 0.8125rem;
-	line-height: 1.45;
-}
-
-#form .translate-offer .btn {
-	margin: 0;
-}
-
-#form .translate-offer-accept {
-	background: var(--button-color);
-	color: var(--button-text-color-hover);
-}
-
-#form .translate-offer-lead {
-	flex: 0 1 auto;
-	min-width: 0;
-	color: var(--body-color-muted);
-}
-
-/* The strip's and the offer's text buttons: links, not boxes. */
-#form .translate-offer-link,
+/* The panel's text buttons: links, not boxes. */
 #form .translate-bar-link {
 	padding: 0;
 	border: 0;
@@ -9951,15 +9910,92 @@ html[data-reduce-motion] #chat .msg.actions-open .msg-actions {
 	cursor: pointer;
 }
 
-#form .translate-offer-link:hover,
-#form .translate-offer-link:focus-visible,
 #form .translate-bar-link:hover,
 #form .translate-bar-link:focus-visible {
 	text-decoration: underline;
 }
 
-#form .translate-bar-send {
-	gap: 0.75rem;
+/* The translate panel (TranslatePanel.vue): above the composer, the
+   user's own text, its translation and the read-back, then Cancel and
+   Insert. The composer below it is untouched until Insert. */
+#form .translate-panel {
+	flex: 1 0 100%;
+	display: flex;
+	flex-direction: column;
+	gap: 0.375rem;
+	min-width: 0;
+	max-height: calc(var(--viewport-height, 100vh) * 0.5);
+	overflow: auto;
+	margin: 0 0.25rem 0.375rem;
+	padding: 0.5rem 0.625rem;
+	border-radius: 0.5rem;
+	background: var(--accent-tint-20, rgb(128 128 128 / 15%));
+	color: var(--body-color);
+	font-size: 0.875rem;
+}
+
+#form .translate-panel-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+}
+
+#form .translate-panel-title {
+	font-weight: 600;
+}
+
+#form .translate-panel-language {
+	padding: 0.125rem 0.25rem;
+	border: 0;
+	background: transparent;
+	color: var(--chat-accent, var(--link-color));
+	font: inherit;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+#form .translate-panel-input {
+	box-sizing: border-box;
+	width: 100%;
+	min-height: 3rem;
+	padding: 0.375rem 0.5rem;
+	border: 1px solid rgb(128 128 128 / 30%);
+	border-radius: 0.375rem;
+	background: var(--window-bg-color, transparent);
+	color: var(--body-color);
+	font: inherit;
+	resize: vertical;
+}
+
+#form .translate-panel-result {
+	flex: 0 0 auto;
+	max-height: none;
+	margin: 0;
+}
+
+#form .translate-panel-result .translate-bar-chip {
+	display: block;
+}
+
+#form .translate-panel-check {
+	display: block;
+	font-style: italic;
+}
+
+#form .translate-panel-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.5rem;
+}
+
+#form .translate-panel-actions .btn {
+	margin: 0;
+}
+
+#form .translate-panel-insert:not([disabled]) {
+	background: var(--button-color);
+	color: var(--button-text-color-hover);
 }
 
 /* Both rows of the strip: the translation about to be sent, and the
@@ -10000,41 +10036,6 @@ html[data-reduce-motion] #form .translate-bar-caret {
 	font-size: 0.85em;
 	overflow-wrap: anywhere;
 }
-
-/* Icon buttons, the word kept as the tooltip/accessible name: a square
-   target with the glyph centred (see .translate-bar-copy etc. below for the
-   Font Awesome codes). */
-#form .translate-bar-button {
-	flex: 0 0 auto;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 1.75rem;
-	height: 1.25rem;
-	padding: 0;
-	border: 0;
-	border-radius: 0.1875rem;
-	background: transparent;
-	color: var(--body-color-muted);
-	font-size: 0.8125rem;
-	cursor: pointer;
-}
-
-#form .translate-bar-button::before {
-	font: normal normal normal 1em/1 FontAwesome;
-	-webkit-font-smoothing: antialiased;
-	-moz-osx-font-smoothing: grayscale;
-}
-
-#form .translate-bar-copy::before { content: "\f0c5"; /* https://fontawesome.com/icons/copy?style=solid */ }
-#form .translate-bar-copy-done::before { content: "\f00c"; /* https://fontawesome.com/icons/check?style=solid */ }
-
-#form .translate-bar-button:hover,
-#form .translate-bar-button:focus-visible {
-	background: var(--accent-tint-20, rgb(128 128 128 / 15%));
-	outline: 0;
-}
-
 
 #form .translate-bar-check {
 	flex-wrap: nowrap;

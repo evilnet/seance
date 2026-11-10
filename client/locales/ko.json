@@ -2502,16 +2502,8 @@
   "translate.settings.useNllb": "다른 모델이 지원하지 않는 언어에 NLLB-200 사용",
   "translate.settings.workerError": "번역 워커에 연결할 수 없음: {error}",
   "translate.strip.checkFailed": "확인할 수 없음",
-  "translate.strip.copied": "복사됨",
-  "translate.strip.copy": "번역 복사",
-  "translate.strip.failed": "번역할 수 없음, 원문으로 보낼까요?",
-  "translate.strip.polishChip": "{language}, 교정됨",
   "translate.strip.routeCpu": "{from} → {to} · {model} (CPU)",
-  "translate.strip.routeCpuRetried": "{from} → {to} · {model} (CPU) · 원문 언어 없이 재시도",
   "translate.strip.routeGpu": "{from} → {to} · {model} (GPU)",
-  "translate.strip.routeGpuRetried": "{from} → {to} · {model} (GPU) · 원문 언어 없이 재시도",
-  "translate.strip.sendAsWritten": "쓴 그대로 보내기",
-  "translate.strip.sendTranslation": "번역 보내기",
   "translate.strip.sourceAuto": "자동",
   "translate.threads.reload": {
     "other": "CPU 스레드 {count}개를 사용하려면 앱을 다시 불러오세요."

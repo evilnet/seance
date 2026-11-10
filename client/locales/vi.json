@@ -2503,16 +2503,8 @@
   "translate.settings.useNllb": "Dùng NLLB-200 cho các ngôn ngữ mà các mô hình khác không hỗ trợ",
   "translate.settings.workerError": "Không thể kết nối với worker dịch: {error}",
   "translate.strip.checkFailed": "không thể kiểm tra",
-  "translate.strip.copied": "Đã sao chép",
-  "translate.strip.copy": "Sao chép bản dịch",
-  "translate.strip.failed": "không thể dịch, gửi nguyên văn?",
-  "translate.strip.polishChip": "{language}, đã sửa",
   "translate.strip.routeCpu": "{from} → {to} · {model} (CPU)",
-  "translate.strip.routeCpuRetried": "{from} → {to} · {model} (CPU) · thử lại không chỉ định ngôn ngữ nguồn",
   "translate.strip.routeGpu": "{from} → {to} · {model} (GPU)",
-  "translate.strip.routeGpuRetried": "{from} → {to} · {model} (GPU) · thử lại không chỉ định ngôn ngữ nguồn",
-  "translate.strip.sendAsWritten": "Gửi nguyên văn",
-  "translate.strip.sendTranslation": "Gửi bản dịch",
   "translate.strip.sourceAuto": "tự động",
   "translate.threads.reload": {
     "other": "Hãy tải lại ứng dụng để dùng {count} luồng CPU."

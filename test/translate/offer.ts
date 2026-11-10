@@ -3,13 +3,10 @@ import {
 	type OfferInput,
 	type OfferMessage,
 	QUERY_LINES,
-	SHOWN_BEFORE_SEND_MS,
 	composerOffer,
 	lineLanguage,
-	previewKey,
 	queryOffer,
 	replyOffer,
-	sendReady,
 } from "../../client/js/translate/offer";
 
 const languages = {reading: "en", alsoRead: ["fr"], routes: () => true};
@@ -168,32 +165,6 @@ describe("translate/offer", () => {
 			expect(composerOffer({...base, writeTarget: "en"})).to.equal(null);
 			expect(composerOffer({...base, editing: true, replyTo: line(2)})).to.equal(null);
 			expect(composerOffer({...base, declined: true, replyTo: line(2)})).to.equal(null);
-		});
-	});
-
-	describe("previewKey", () => {
-		it("changes with the target, the parent, and the parent's text", () => {
-			const a = previewKey("pt", {id: 1, text: "olá"});
-
-			expect(previewKey("pt", {id: 1, text: "olá"})).to.equal(a);
-			expect(previewKey("es", {id: 1, text: "olá"})).to.not.equal(a);
-			expect(previewKey("pt", {id: 2, text: "olá"})).to.not.equal(a);
-			expect(previewKey("pt", {id: 1, text: "olá, tudo bem?"})).to.not.equal(a);
-			expect(previewKey("pt", null)).to.not.equal(a);
-		});
-	});
-
-	describe("sendReady", () => {
-		it("only a finished translation that has been on screen long enough", () => {
-			expect(sendReady(undefined, null, 1000)).to.equal(false);
-			expect(sendReady({status: "pending"}, 0, 10_000)).to.equal(false);
-			expect(sendReady({status: "failed"}, 0, 10_000)).to.equal(false);
-			expect(sendReady({status: "done"}, null, 10_000)).to.equal(false);
-			expect(sendReady({status: "done"}, 1000, 1000)).to.equal(false);
-			expect(sendReady({status: "done"}, 1000, 1000 + SHOWN_BEFORE_SEND_MS - 1)).to.equal(
-				false
-			);
-			expect(sendReady({status: "done"}, 1000, 1000 + SHOWN_BEFORE_SEND_MS)).to.equal(true);
 		});
 	});
 });

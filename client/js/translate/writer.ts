@@ -169,33 +169,6 @@ export function writeTarget(network: ClientNetwork, channel: ClientChan): string
 	return translationOn() ? channelTranslation(network, channel).write : null;
 }
 
-/**
- * The composer's translate button: the draft into `to`, this once, whether
- * or not the channel has a write target -- the strip comes up as it does
- * for a write target, and the next Enter sends what it holds. The choice
- * is kept with the channel's record (channelStore.ts `once`, so it
- * survives a reload and travels in the settings backup) for the button's
- * next pick (`lastOnceTarget`).
- */
-export function translateOnce(
-	network: ClientNetwork,
-	channel: ClientChan,
-	draft: string,
-	to: string,
-	from: string | null = null
-): Promise<"strip" | "plain"> {
-	// Switched off, the button is gone; nothing is kept for it either.
-	if (!translationOn()) {
-		return Promise.resolve("plain");
-	}
-
-	if (channelTranslation(network, channel).once !== to) {
-		setChannelOptions(network, channel, {once: to});
-	}
-
-	return translateOutgoing(network, channel, draft, {to, from});
-}
-
 /** A one-off request: its target, and its source when the dialog named one. */
 export interface OnceRequest {
 	to: string;
@@ -217,16 +190,6 @@ export function lastOnceTarget(network: ClientNetwork, channel: ClientChan): str
 	const settings = channelTranslation(network, channel);
 
 	return settings.once ?? settings.write ?? "";
-}
-
-/**
- * A strip that failed only because the page took the worker down under it
- * (pagehide: a phone putting the page away, a back-forward cache): not the
- * translation's failure, so the composer asks again once the page is back
- * rather than offer the draft as written.
- */
-export function interruptedOutgoing(entry: OutgoingTranslation | undefined): boolean {
-	return entry?.status === "failed" && entry.error === WORKER_DISPOSED;
 }
 
 export function outgoingTranslation(channel: ClientChan): OutgoingTranslation | undefined {

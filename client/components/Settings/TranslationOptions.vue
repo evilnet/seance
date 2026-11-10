@@ -133,23 +133,6 @@
 					{{ preferHint }}
 				</div>
 			</section>
-			<!-- When the composer translates a draft (outgoing.ts
-			     `previewsWhileTyping`): Automatic is as it is typed on a quick
-			     route, on the first Return on the language model's. -->
-			<section class="translate-preview">
-				<h3 id="label-translate-preview">{{ t("translate.preview.label") }}</h3>
-				<div role="radiogroup" aria-labelledby="label-translate-preview">
-					<label v-for="choice in previewChoices" :key="choice.value" class="opt">
-						<input
-							:checked="previewSetting === choice.value"
-							type="radio"
-							name="translatePreview"
-							:value="choice.value"
-						/>
-						{{ choice.label }}
-					</label>
-				</div>
-			</section>
 			<h3>{{ t("translate.settings.models") }}</h3>
 			<div v-if="capability" class="translate-hint translate-device">
 				<!-- What the device has: a GPU the models can be given (an
@@ -757,7 +740,6 @@ import {systemTranslator, translateService} from "../../js/translate";
 import type {AppleStatus} from "../../js/translate/engines/apple";
 import {languageName} from "../../js/translate/languages";
 import {normalizePreference} from "../../js/translate/router";
-import {normalizePreviewSetting} from "../../js/translate/outgoing";
 import type {Device, DeviceChoice, ModelRef} from "../../js/translate/engine";
 import {
 	LLM_MIN_BUFFER_BYTES,
@@ -957,14 +939,6 @@ export default defineComponent({
 			{value: "auto", label: t("translate.prefer.auto")},
 			{value: "llm", label: t("translate.prefer.llm")},
 			{value: "small", label: t("translate.prefer.small")},
-		]);
-		const previewSetting = computed(() =>
-			normalizePreviewSetting(store.state.settings.translatePreview)
-		);
-		const previewChoices = computed(() => [
-			{value: "auto", label: t("translate.preview.auto")},
-			{value: "typing", label: t("translate.preview.typing")},
-			{value: "enter", label: t("translate.preview.enter")},
 		]);
 		const preferHint = computed(() => {
 			if (prefer.value === "llm") {
@@ -1441,8 +1415,6 @@ export default defineComponent({
 			prefer,
 			preferChoices,
 			preferHint,
-			previewSetting,
-			previewChoices,
 			storageLine,
 			advancedOpen,
 			onAdvancedToggle,

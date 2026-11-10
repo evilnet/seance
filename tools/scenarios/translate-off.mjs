@@ -24,7 +24,7 @@
 //    terminated.
 // 2. With ?fakeTranslate (the in-page fake, which never makes a Worker), the
 //    surfaces: composer button, toolbar Translate, the channel menu, a German
-//    line read into English, the composer's strip for the kept write
+//    line read into English, the translate panel for the kept write
 //    target -- on, then off again.
 //
 //   NODE_ENV=development pnpm build
@@ -121,7 +121,7 @@ const KEPT_VERSION = `JSON.parse(localStorage.getItem("thelounge.translate") || 
 /** Every translation surface the chat view can show, present or not. */
 const SURFACES = `(() => ({
 	composer: !!document.querySelector("#translate-once"),
-	strip: !!document.querySelector(".translate-bar"),
+	strip: !!document.querySelector(".translate-panel"),
 	panel: !!document.querySelector(".translation-sheet"),
 	lines: document.querySelectorAll("#chat .msg-translation, #chat [class*='msg-translat']").length,
 	topicFlip: !!document.querySelector("#chat .topic-flip"),
@@ -313,7 +313,7 @@ async function checkOff(page, phone, where) {
 	console.log(`surfaces (${where})`, JSON.stringify(s));
 	page.check(`${where}: no translate button in the composer`, s.composer === false);
 	page.check(
-		`${where}: no strip, no panel, no translation under a message`,
+		`${where}: no translate panel, no sheet, no translation under a message`,
 		!s.strip && !s.panel && s.lines === 0
 	);
 	page.check(`${where}: no topic flipper`, s.topicFlip === false);
@@ -531,15 +531,14 @@ export default async function run(page) {
 	);
 	page.check("on: the toolbar offers Translate", (await toolbarTranslate(page, phone)) === true);
 
-	// The kept write target: the first Enter brings the strip up.
+	// A draft in the box and the translate panel open on the kept target.
 	await page.fill("#form #input", "good morning everyone");
-	await page.evaluate(
-		`document.querySelector("#form #input").dispatchEvent(new KeyboardEvent("keypress", {key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true, cancelable: true}))`
-	);
-	await page.waitFor(`!!document.querySelector(".translate-bar")`, {label: "the strip comes up"});
+	await page.evaluate(`document.querySelector("#form #translate-once").click()`);
+	await page.waitFor(`!!document.querySelector(".translate-panel")`, {label: "the panel opens"});
+	await page.fill("#translate-panel-input", "see you all later");
 	await page.screenshot("4-on-channel");
 
-	// Off again, from Settings, with the strip up and a line read.
+	// Off again, from Settings, with the panel open and a line read.
 	await openTab(page);
 	await flipSwitch(page, false);
 	await closeSettings(page);
@@ -580,16 +579,16 @@ export default async function run(page) {
 	);
 	await page.screenshot("5-off-again-channel");
 
-	// The first Enter, with the channel's write target still kept: no strip,
-	// the draft goes as typed (out of the input; the fabricated network has
+	// Enter, with the channel's write target still kept: no panel, the
+	// draft goes as typed (out of the input; the fabricated network has
 	// no connection to carry it, which is not this check's business).
 	await page.evaluate(
 		`document.querySelector("#form #input").dispatchEvent(new KeyboardEvent("keypress", {key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true, cancelable: true}))`
 	);
 	await page.sleep(600);
 	page.check(
-		"fake, switched off: Enter sends the draft as typed, with no strip",
-		!(await page.evaluate(`!!document.querySelector(".translate-bar")`)) &&
+		"fake, switched off: Enter sends the draft as typed, with no panel",
+		!(await page.evaluate(`!!document.querySelector(".translate-panel")`)) &&
 			(await page.evaluate(`document.querySelector("#form #input").value`)) === ""
 	);
 

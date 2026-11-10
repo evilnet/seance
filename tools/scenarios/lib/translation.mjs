@@ -99,20 +99,3 @@ export const READING_ON = `(() => {
 
 /** JS source: whether this conversation offers translation at all (the composer's button shows exactly then). */
 export const TRANSLATION_OFFERED = `!!document.querySelector("#translate-once")`;
-
-// "Show your translation" (Settings → Advanced, settings.ts
-// `translatePreview`) pinned to "As you type": Automatic waits for Return
-// where the draft's route is the language model (outgoing.ts
-// `previewsWhileTyping`), so a scenario about the live preview pins it
-// rather than depend on which model the fake routes a pair to. Run after
-// TRANSLATION_ON; a scenario that stores its own choice keeps it.
-export const PREVIEW_AS_TYPED = `(() => {
-	try {
-		const settings = JSON.parse(localStorage.getItem("settings") || "{}");
-
-		if (settings && typeof settings === "object" && !("translatePreview" in settings)) {
-			settings.translatePreview = "typing";
-			localStorage.setItem("settings", JSON.stringify(settings));
-		}
-	} catch (e) {}
-})()`;

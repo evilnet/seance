@@ -7,21 +7,22 @@
 //  1. The channel menu's "Translation…" opens the sheet on its switches:
 //     the reading switch on, Write in Off, no language list, More closed.
 //     There is no other translation panel.
-//  2. The composer's chip opens the same sheet with the language list
-//     open. Picking Portuguese makes it the conversation's write target:
-//     the chip reads "PT", and the sheet opened again from the menu shows
-//     Write in on Portuguese.
+//  2. The translate panel's language button (the chip opens the panel)
+//     opens the same sheet with the language list open. Portuguese picked
+//     there and a translation inserted make it the conversation's write
+//     target: the chip reads "PT", and the sheet opened again from the
+//     menu shows Write in on Portuguese.
 //  3. More: the register is stored for the conversation; "I write" opens
 //     the list on the other side.
-//  4. Adversarial, a strip in flight: a draft is previewed into
-//     Portuguese, then "Reset choices for this conversation" is pressed
-//     with the strip up. The strip goes with the target, the record is
-//     gone, the chip is the plain glyph again, and Enter sends as typed.
+//  4. Adversarial, the panel open: text is being translated into
+//     Portuguese in the panel when "Reset choices for this conversation" is
+//     pressed. The panel goes with the target, the record is gone, the chip
+//     is the plain glyph again, and Enter sends the composer's draft as typed.
 //  5. Reset lifts an exclusion: with reading off here a German line stays
 //     as written; Reset reads it.
-//  6. Adversarial, the target changed mid-preview: the sheet's Write in
-//     is changed while the preview for the old target is still streaming,
-//     and the strip that stands is for the new target.
+//  6. Adversarial, the language changed mid-translation: the panel's
+//     language is changed while the translation into the old one is still
+//     streaming, and the translation that stands is for the new one.
 //  7. Off by the user: the menu's sheet is one button, nothing else.
 //  8. The sheet is modal: Tab and Shift+Tab stay inside it.
 //
@@ -49,7 +50,11 @@ const RECORD = `(JSON.parse(localStorage.getItem("thelounge.translate") || "{}")
 	KEY
 )}] ?? null)`;
 const CHIP = `((document.querySelector("#translate-once .translate-once-target") || {}).textContent || "").trim()`;
-const STRIP = `!!document.querySelector(".translate-bar")`;
+const PANEL_UP = `!!document.querySelector(".translate-panel")`;
+const INSERT_READY = `(() => {
+	const b = document.querySelector("#form .translate-panel-insert");
+	return !!b && !b.disabled;
+})()`;
 
 let nextId = 700;
 
@@ -113,11 +118,21 @@ async function pressEnter(page) {
 	);
 }
 
+/** The chip opens the panel; the panel's language button, the sheet's list. */
 async function openFromChip(page) {
-	await page.click("#translate-once");
+	if (!(await page.evaluate(PANEL_UP))) {
+		await page.click("#translate-once");
+		await page.waitFor(PANEL_UP, {label: "the chip opens the translate panel"});
+	}
+
+	await page.click("#form .translate-panel-language");
 	await page.waitFor(`!!document.querySelector("${SHEET} .language-sheet-list")`, {
-		label: "the chip opens the sheet on the language list",
+		label: "the panel's language button opens the sheet on the language list",
 	});
+}
+
+async function typeInPanel(page, text) {
+	await page.fill("#translate-panel-input", text);
 }
 
 async function pickLanguage(page, code) {
@@ -208,14 +223,19 @@ export default async function run(page) {
 	);
 	await closeTranslationSheet(page);
 
-	// --- 2. From the chip: the list; a pick is the write target. ---------
+	// --- 2. From the panel: the list; inserted, the write target. --------
 	await openFromChip(page);
 	page.check(
-		"the chip opens the same sheet with the list and its search",
+		"the panel's language button opens the same sheet with the list and its search",
 		(await page.evaluate(SHOWN)).search
 	);
 	await page.screenshot("2-sheet-from-chip");
 	await pickLanguage(page, "pt");
+	await typeInPanel(page, "thanks for the help");
+	await page.waitFor(INSERT_READY, {label: "the Portuguese is ready", timeout: 15000});
+	await page.click("#form .translate-panel-insert");
+	await page.waitFor(`!${PANEL_UP}`, {label: "Insert closes the panel"});
+	await typeDraft(page, "");
 	page.check(
 		'Portuguese is the write target, and the chip reads "PT"',
 		(await page.evaluate(RECORD))?.write === "pt" && (await page.evaluate(CHIP)) === "PT"
@@ -253,10 +273,11 @@ export default async function run(page) {
 	await page.screenshot("3-sheet-more");
 	await closeTranslationSheet(page);
 
-	// --- 4. Reset with a strip up. ---------------------------------------
+	// --- 4. Reset with the panel open. -----------------------------------
 	await typeDraft(page, "good morning everyone");
-	await pressEnter(page);
-	await page.waitFor(STRIP, {label: "the strip comes up for Portuguese", timeout: 15000});
+	await page.click("#translate-once");
+	await page.waitFor(PANEL_UP, {label: "the panel opens on Portuguese"});
+	await typeInPanel(page, "see you soon");
 	await openTranslationSheet(page);
 	await openMore(page);
 	await page.click(`${SHEET} .translation-sheet-reset`);
@@ -270,14 +291,14 @@ export default async function run(page) {
 	);
 	await closeTranslationSheet(page);
 	page.check(
-		"reset: the strip went with the target, and the chip is the plain glyph",
-		!(await page.evaluate(STRIP)) && (await page.evaluate(CHIP)) === ""
+		"reset: the panel went with the target, and the chip is the plain glyph",
+		!(await page.evaluate(PANEL_UP)) && (await page.evaluate(CHIP)) === ""
 	);
 	await pressEnter(page);
 	await page.sleep(600);
 	page.check(
 		"reset: Enter sends the draft as typed",
-		!(await page.evaluate(STRIP)) &&
+		!(await page.evaluate(PANEL_UP)) &&
 			(await page.evaluate(`document.querySelector("#form #input").value`)) === ""
 	);
 
@@ -306,12 +327,10 @@ export default async function run(page) {
 		timeout: 15000,
 	});
 
-	// --- 6. Write in changed while the old target's preview is out. ------
+	// --- 6. The panel's language changed while its translation is out. --
 	await openFromChip(page);
 	await pickLanguage(page, "es");
-	// The pause after typing previews the draft (no Enter: an Enter on a
-	// preview under way is a send once it is done, step 3's to change).
-	await typeDraft(page, "see you all tomorrow at the station");
+	await typeInPanel(page, "see you all tomorrow at the station");
 	// The fake streams a word at a time: the Spanish preview is on its way.
 	await page.waitFor(
 		`(window.__seanceTranslateFake?.requests ?? []).some((r) => r.to === "es" && r.text.includes("station"))`,
@@ -319,7 +338,10 @@ export default async function run(page) {
 	);
 	await openFromChip(page);
 	await pickLanguage(page, "fr");
-	await page.waitFor(STRIP, {label: "a strip for the new target", timeout: 20000});
+	await page.waitFor(
+		`(document.querySelector(".translate-panel-translation")?.textContent ?? "").includes("[French]")`,
+		{label: "the panel's translation is for the new language", timeout: 20000}
+	);
 	// Long enough for the Spanish answer to have landed had it been kept.
 	await page.sleep(3000);
 
@@ -329,12 +351,15 @@ export default async function run(page) {
 
 	console.log("strip after the change", strip);
 	page.check(
-		"the strip that stands is for French, not the Spanish one that was on its way",
+		"the translation that stands is for French, not the Spanish one that was on its way",
 		JSON.parse(strip)?.to === "fr" &&
-			(
-				await page.evaluate(`document.querySelector(".translate-bar")?.textContent ?? ""`)
-			).includes("[French]")
+			!(
+				await page.evaluate(
+					`document.querySelector(".translate-panel-translation")?.textContent ?? ""`
+				)
+			).includes("[Spanish]")
 	);
+	await page.click("#form .translate-panel-cancel");
 	await page.screenshot("4-strip-new-target");
 
 	// --- 7. Off by the user: one button. ---------------------------------
