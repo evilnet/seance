@@ -213,7 +213,11 @@ interface Deploy {
 	tiedWithLlm: boolean;
 }
 
-const OPUS = ["de", "fr", "es", "it", "nl", "ru"].flatMap((code) => [`en-${code}`, `${code}-en`]);
+// Every build's small models: OPUS-MT's six languages and the AfterNET MT
+// six (models.ts DEFAULT_OPUS_PAIRS), English both ways.
+const OPUS = ["de", "fr", "es", "it", "nl", "ru", "ar", "ko", "pl", "pt", "sv", "zh"].flatMap(
+	(code) => [`en-${code}`, `${code}-en`]
+);
 const TOKENS: Record<string, string> = {
 	ar: ">>ara<<",
 	ko: ">>kor<<",

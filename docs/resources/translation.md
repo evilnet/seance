@@ -356,7 +356,17 @@ no engine). Every other translation scenario switches translation on first
   the weights it loads.
 - **OPUS-MT and NLLB-200 on the CPU: transformers.js on ONNX Runtime WASM.** Purpose-built translation
   models: NLLB-200 distilled 600M (any pair, FLORES codes) and OPUS-MT pair
-  models (30-80 MB each). Two stay loaded, least recently used evicted.
+  models (30-80 MB each). Every build also ships AfterNET MT, bidirectional
+  Marian students of ~30 MB each (`models.ts` `DEFAULT_AFTERNET_PAIRS`),
+  for English to and from Arabic, Korean, Polish, Portuguese, Swedish and
+  Chinese, where OPUS-MT has no shipped pair; they run as pairs with a
+  target token (branding.md, "A multilingual Marian model as a pair") and
+  route first like any pair. They are fetched from AfterNET's mirror
+  (`AFTERNET_MT_HOST`, `https://bot.hextalk.org/models`) until they have a
+  Hugging Face organisation; a deploy's own `modelBase` fetches them from
+  there instead, under `seance-mt/marian-<code>/`. transformers.js reads
+  one host for the whole library, so the worker loads its seq2seq models
+  one at a time, each with its own (`seq2seq.real.ts`, `remoteFor`). Two stay loaded, least recently used evicted.
   Several times faster with WASM threads, which need the cross-origin
   isolation headers (branding.md). **NLLB is sent one sentence at a time**
   (`engines/seq2seq.ts` `splitSentences`: after `.` `!` `?` `…` and

@@ -42,6 +42,8 @@ export interface OpusPairOption {
 	name?: string;
 	/** Its CPU download, for Settings and the download question; else an OPUS-MT pair's. */
 	sizeBytes?: number;
+	/** Where its files come from, when not Hugging Face (`DeviceCopy.host`). */
+	host?: string;
 }
 
 export interface ModelCatalog {
@@ -96,7 +98,48 @@ export const APPLE_REF: ModelRef = {
 	label: {kind: "apple"},
 	copies: {},
 };
-export const DEFAULT_OPUS_PAIRS: Record<string, string> = {
+/**
+ * Where the AfterNET MT models are served from until they have a Hugging
+ * Face organisation of their own: AfterNET's model mirror, which sends
+ * `Access-Control-Allow-Origin: *` and answers range requests.
+ */
+export const AFTERNET_MT_HOST = "https://bot.hextalk.org/models";
+
+/** One direction of an AfterNET MT model: a bidirectional Marian student, ~30 MB in q8. */
+function afternetMt(code: string, token: string, sizeBytes: number): OpusPairOption {
+	return {
+		model: `seance-mt/marian-${code}`,
+		token,
+		name: "AfterNET MT",
+		sizeBytes,
+		host: AFTERNET_MT_HOST,
+	};
+}
+
+/**
+ * The AfterNET MT pairs every build ships: English to and from each
+ * language here, where Helsinki's OPUS-MT has no pair the app ships, so a
+ * line in them otherwise needs the 1-2 GB language model or NLLB's
+ * 600 MB. One repo serves both directions (`sharedPairId`), downloaded
+ * once. French, German, Spanish and Russian keep OPUS-MT until the two are
+ * compared on the same test set.
+ */
+export const DEFAULT_AFTERNET_PAIRS: Record<string, OpusPairOption> = {
+	"en-ar": afternetMt("ar", ">>ara<<", 30_475_874),
+	"ar-en": afternetMt("ar", ">>eng<<", 30_475_874),
+	"en-ko": afternetMt("ko", ">>kor<<", 30_033_335),
+	"ko-en": afternetMt("ko", ">>eng<<", 30_033_335),
+	"en-pl": afternetMt("pl", ">>pol<<", 29_981_445),
+	"pl-en": afternetMt("pl", ">>eng<<", 29_981_445),
+	"en-pt": afternetMt("pt", ">>por<<", 29_942_656),
+	"pt-en": afternetMt("pt", ">>eng<<", 29_942_656),
+	"en-sv": afternetMt("sv", ">>swe<<", 29_882_505),
+	"sv-en": afternetMt("sv", ">>eng<<", 29_882_505),
+	"en-zh": afternetMt("zh", ">>zho<<", 29_741_545),
+	"zh-en": afternetMt("zh", ">>eng<<", 29_741_545),
+};
+
+export const DEFAULT_OPUS_PAIRS: Record<string, string | OpusPairOption> = {
 	"de-en": "Xenova/opus-mt-de-en",
 	"en-de": "Xenova/opus-mt-en-de",
 	"fr-en": "Xenova/opus-mt-fr-en",
@@ -109,6 +152,7 @@ export const DEFAULT_OPUS_PAIRS: Record<string, string> = {
 	"en-nl": "Xenova/opus-mt-en-nl",
 	"ru-en": "Xenova/opus-mt-ru-en",
 	"en-ru": "Xenova/opus-mt-en-ru",
+	...DEFAULT_AFTERNET_PAIRS,
 };
 
 // The downloads as Hugging Face lists them (2026-10-27): the MLC repo's
@@ -178,7 +222,9 @@ function opusRef(pairKey: string, option: string | OpusPairOption, gpu: boolean)
 		token,
 		name,
 		sizeBytes,
+		host,
 	} = typeof option === "string" ? {model: option} : option;
+	const hosted = host ? {host: host.replace(/\/+$/, "")} : {};
 
 	return {
 		engine: "seq2seq",
@@ -186,13 +232,14 @@ function opusRef(pairKey: string, option: string | OpusPairOption, gpu: boolean)
 		id: typeof option === "string" ? repo : sharedPairId(repo, pairKey),
 		label: {kind: "opus", from, to, ...(name && {name})},
 		copies: {
-			cpu: {sizeBytes: sizeBytes ?? OPUS_SIZE_BYTES, source: repo, dtype: "q8"},
+			cpu: {sizeBytes: sizeBytes ?? OPUS_SIZE_BYTES, source: repo, dtype: "q8", ...hosted},
 			...(gpu && {
 				gpu: {
 					sizeBytes: OPUS_GPU_SIZE_BYTES,
 					source: repo,
 					dtype: "fp16",
 					largestBufferBytes: OPUS_GPU_LARGEST_BYTES,
+					...hosted,
 				},
 			}),
 		},

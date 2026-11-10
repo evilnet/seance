@@ -3965,7 +3965,10 @@ describe("translate/service", () => {
 			function expected(c: AppleCase): Outcome {
 				const pair = `${c.from}-en`;
 				const small =
-					["de-en", "fr-en", "es-en", "it-en", "nl-en", "ru-en"].includes(pair) ||
+					// Every build ships OPUS-MT's pairs and AfterNET MT's (ko among them).
+					["de-en", "fr-en", "es-en", "it-en", "nl-en", "ru-en", "ko-en"].includes(
+						pair
+					) ||
 					(c.deploy.name === "AfterNET" && afternetPairs.includes(pair));
 				// On the device, or a download nobody is asked about. AfterNET's
 				// pairs share a class with the language model: a downloaded

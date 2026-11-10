@@ -75,6 +75,13 @@ export interface DeviceCopy {
 	/** The single file to fetch, where the copy is one (a GGUF). */
 	file?: string;
 	/**
+	 * Where the copy's files are fetched from in place of Hugging Face,
+	 * without a trailing slash: `<host>/<source>/<file>`. A shipped model
+	 * hosted elsewhere (models.ts `AFTERNET_MT_HOST`). A deploy's mirror
+	 * (`modelBase`) wins over it: a mirror is a whole mirror.
+	 */
+	host?: string;
+	/**
 	 * The largest single buffer the copy binds on the GPU: every weight
 	 * tensor is one storage binding, so a device below this cannot load it.
 	 * Unknown (a deploy's own model): trusted to fit. CPU copies have none.

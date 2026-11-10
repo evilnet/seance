@@ -377,23 +377,13 @@ describe("translate/router", () => {
 	describe("the default table", () => {
 		it("puts NLLB first where it measured ahead, in both directions", () => {
 			// Arabic measured NLLB ahead too, but stays LLM-first for the
-			// channel context the LLM reads (routes.default.ts): it routes like
-			// any language the table has no opinion about.
-			for (const pair of [
-				["ar", "en"],
-				["en", "ar"],
-			] as const) {
-				expect(
-					candidatesFor(DEFAULT_ROUTES, pair[0], pair[1]),
-					pair.join("→")
-				).to.deep.equal(
-					candidatesFor(
-						DEFAULT_ROUTES,
-						pair[0] === "ar" ? "pt" : "en",
-						pair[1] === "ar" ? "pt" : "en"
-					)
-				);
-			}
+			// channel context the LLM reads (routes.default.ts): away from
+			// English, where no small model covers it, it routes like any
+			// language the table has no opinion about.
+			expect(candidatesFor(DEFAULT_ROUTES, "ar", "ja")).to.deep.equal(
+				candidatesFor(DEFAULT_ROUTES, "ko", "ja")
+			);
+			expect(candidatesFor(DEFAULT_ROUTES, "ja", "ar")).to.deep.equal([["llm"], ["nllb"]]);
 
 			// Placed from the web build's own weights (2026-09-13-web-weights.md).
 			for (const code of ["tl", "el", "fi", "hu", "hi", "sw"]) {
@@ -426,12 +416,16 @@ describe("translate/router", () => {
 
 		// Least to most resource-intensive: the pair first, alone, tied or not
 		// (routes.default.ts), the LLM next, NLLB last.
-		it("puts every OPUS-MT pair first, before the LLM", () => {
+		it("puts every small pair first, before the LLM: OPUS-MT's and AfterNET MT's", () => {
 			for (const [from, to] of [
 				["de", "en"],
 				["en", "ru"],
 				["en", "fr"],
 				["en", "es"],
+				["sv", "en"],
+				["en", "pt"],
+				["ar", "en"],
+				["en", "zh"],
 			]) {
 				expect(candidatesFor(DEFAULT_ROUTES, from, to), `${from}→${to}`).to.deep.equal([
 					[`opus:${from}-${to}`],
@@ -443,11 +437,11 @@ describe("translate/router", () => {
 
 		it("keeps the LLM first everywhere else", () => {
 			expect(candidatesFor(DEFAULT_ROUTES, "ja", "fr")).to.deep.equal([["llm"], ["nllb"]]);
-			expect(candidatesFor(DEFAULT_ROUTES, "en", "pt")).to.deep.equal([["llm"], ["nllb"]]);
+			expect(candidatesFor(DEFAULT_ROUTES, "de", "pt")).to.deep.equal([["llm"], ["nllb"]]);
 			expect(candidatesFor(DEFAULT_ROUTES, "de", "fr")).to.deep.equal([["llm"], ["nllb"]]);
 
 			// Qwen ahead of NLLB by more than the tie band on the web weights.
-			for (const code of ["pl", "ca", "ga"]) {
+			for (const code of ["ca", "ga"]) {
 				expect(candidatesFor(DEFAULT_ROUTES, "en", code), `en→${code}`).to.deep.equal([
 					["llm"],
 					["nllb"],
