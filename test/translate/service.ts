@@ -19,7 +19,7 @@ import {
 } from "../../client/js/translate/models";
 import {ABORTED, WRITE_TIMEOUT_MS, translateDraft} from "../../client/js/translate/outgoing";
 import {createPortPair} from "../../client/js/translate/protocol";
-import type {RouteTable} from "../../client/js/translate/router";
+import {mergeRoutes, type RouteTable} from "../../client/js/translate/router";
 import {DEFAULT_ROUTES} from "../../client/js/translate/routes.default";
 import {TranslateClient, WORKER_DISPOSED} from "../../client/js/translate/client";
 import {
@@ -29,7 +29,9 @@ import {
 	QUIET_DOWNLOAD_BYTES,
 	TRANSLATION_UNAVAILABLE,
 	TranslateService,
+	applePackError,
 	downloadBytes,
+	parseApplePack,
 	loadNote,
 	type CpuFallbackAnswer,
 	type CpuFallbackInfo,
@@ -2340,7 +2342,8 @@ describe("translate/service", () => {
 				}
 			);
 			clock = r.clock;
-			r.cached.add(`${catalog.nllb.id}@cpu`);
+			// Nothing on the device (a downloaded CPU copy would answer under
+			// Auto without asking: router.ts `walkDevices`).
 			const routed = r.service.route("sw", "en");
 
 			await r.clock.tickAsync(10);
@@ -2348,7 +2351,7 @@ describe("translate/service", () => {
 			expect(ask.asked).to.deep.equal([`${catalog.nllb.id}@gpu`]);
 			expect(ask.devices).to.deep.equal(["gpu"]);
 			ask.answer(false);
-			// Not now: the CPU copy on the device serves.
+			// Not now: the CPU copy the old yes was for serves, unasked.
 			expect(await routed).to.deep.include({candidate: "nllb", device: "cpu"});
 
 			await r.service.remove(catalog.nllb, "cpu");
@@ -2569,9 +2572,14 @@ describe("translate/service", () => {
 			expect(await text(r.service.translate(base))).to.equal("llm:Hallo");
 			expect(r.llm.calls.devices).to.deep.equal(["gpu", "cpu"]);
 
-			// Back on Auto the GPU copy is still down for the session.
+			// Back on Auto the GPU copy is still down for the session, and the
+			// CPU copy the pinned request downloaded answers: a downloaded
+			// copy joins Auto's walk (router.ts `walkDevices`).
 			r.service.setSettings({switches: ON, devices: AUTO});
-			expect((await r.service.route("de", "en"))?.candidate).to.equal("opus:de-en");
+			expect(await r.service.route("de", "en")).to.deep.include({
+				candidate: "llm",
+				device: "cpu",
+			});
 			r.service.dispose();
 		});
 
@@ -2841,20 +2849,150 @@ describe("translate/service", () => {
 			r.service.dispose();
 		});
 
-		it("says nothing of a reason the failure did not carry, and knows a CPU copy on the device", async () => {
+		it("says nothing of a reason the failure did not carry", async () => {
 			const q = question();
 			const r = rig("gpu", true, LLM_ONLY, {askCpuFallback: q.askCpuFallback});
 			clock = r.clock;
-			// Both copies on the device: a plain failure of the GPU copy asks.
-			r.cached.add(catalog.llm.id);
+			// The GPU copy on the device: a plain failure of it asks.
+			r.cached.add(`${catalog.llm.id}@gpu`);
 			r.llm.failLoad = new Error("shader compilation failed");
 
 			const result = text(r.service.translate(base));
 
 			await r.clock.tickAsync(10);
-			expect(q.asked[0].info).to.deep.include({cached: true, reason: null});
+			expect(q.asked[0].info).to.deep.include({cached: false, reason: null});
 			q.answer("once");
 			expect(await result).to.equal("llm:Hallo");
+			r.service.dispose();
+		});
+
+		it("asks nothing when the CPU copy is on the device: Auto carries on there", async () => {
+			const q = question();
+			const r = rig("gpu", true, LLM_ONLY, {askCpuFallback: q.askCpuFallback});
+			clock = r.clock;
+			// Both copies on the device (a tester's phone had the CPU copy from
+			// Settings): the GPU copy runs first, and when it stops the
+			// downloaded CPU copy takes the request without a full-screen
+			// question.
+			r.cached.add(catalog.llm.id);
+			r.llm.failLoad = new Error(LOST);
+			const ticks = r.service.loadTicks();
+
+			expect(await text(r.service.translate(base))).to.equal("llm:Hallo");
+			expect(q.asked).to.deep.equal([]);
+			// Recorded as a yes: the carried-over request's deadline gets the
+			// answer's fresh period, as after the question.
+			expect(r.service.loadTicks()).to.be.above(ticks);
+			expect(r.llm.calls.devices).to.deep.equal(["gpu", "cpu"]);
+			r.service.dispose();
+		});
+
+		it("keeps the CPU's deadline moving after a GPU attempt that asked nothing", async () => {
+			// A GPU download cut short asks nothing (it is not the GPU
+			// stopping), and the downloaded CPU copy takes over: the caller
+			// armed the GPU's deadline, so the attempt still ticks.
+			const r = rig("gpu", true, LLM_ONLY);
+			clock = r.clock;
+			r.cached.add(`${catalog.llm.id}@cpu`);
+			r.llm.failLoad = new Error("the download broke off");
+			r.llm.loadTicks = 0;
+			const ticks = r.service.loadTicks();
+
+			expect(await text(r.service.translate(base))).to.equal("llm:Hallo");
+			expect(r.llm.calls.devices).to.deep.equal(["gpu", "cpu"]);
+			expect(r.service.loadTicks()).to.be.above(ticks);
+			r.service.dispose();
+		});
+
+		it("remembers a lost GPU for the next page load, and Try the GPU again forgets it", async () => {
+			let remembered = false;
+			const gpuMemory = {
+				lost: () => remembered,
+				remember() {
+					remembered = true;
+				},
+				forget() {
+					remembered = false;
+				},
+			};
+			const q = question();
+			const first = rig("gpu", true, LLM_ONLY, {askCpuFallback: q.askCpuFallback, gpuMemory});
+			clock = first.clock;
+			first.llm.failLoad = new Error(LOST);
+
+			const result = text(first.service.translate(base));
+
+			await first.clock.tickAsync(10);
+			q.answer("no");
+			await result.catch(() => "");
+			expect(remembered).to.equal(true);
+			first.service.dispose();
+			first.clock.restore();
+
+			// The next load: the GPU is off, the tier with it, and Auto's
+			// way in is the language model's CPU copy, after the table.
+			const next = rig("gpu", true, LLM_ONLY, {gpuMemory});
+			clock = next.clock;
+			const masked = await next.service.capabilities();
+
+			expect(masked.reasons).to.include("GPU_LOST");
+			expect(masked.tier).to.equal("cpu");
+			expect(await next.service.route("de", "en")).to.deep.include({
+				candidate: "llm",
+				device: "cpu",
+			});
+
+			const retried = await next.service.retryGpu();
+
+			expect(retried.reasons).to.not.include("GPU_LOST");
+			expect(retried.tier).to.equal("gpu");
+			expect(remembered).to.equal(false);
+			expect(await next.service.route("de", "en")).to.deep.include({
+				candidate: "llm",
+				device: "gpu",
+			});
+			next.service.dispose();
+		});
+
+		it("remembers a GPU lost while generating, not only while loading", async () => {
+			let remembered = false;
+			const gpuMemory = {
+				lost: () => remembered,
+				remember() {
+					remembered = true;
+				},
+				forget() {
+					remembered = false;
+				},
+			};
+			const r = rig("gpu", true, LLM_ONLY, {gpuMemory});
+			clock = r.clock;
+			// A tester's phone: the device lost under the first generation,
+			// which WebLLM reports as the request failing.
+			r.llm.failTranslate = new Error(LOST);
+
+			await text(r.service.translate(base)).catch(() => "");
+			expect(remembered).to.equal(true);
+			r.service.dispose();
+		});
+
+		it("a load that fails without the GPU being lost is not remembered", async () => {
+			let remembered = false;
+			const gpuMemory = {
+				lost: () => remembered,
+				remember() {
+					remembered = true;
+				},
+				forget() {
+					remembered = false;
+				},
+			};
+			const r = rig("gpu", true, {en: {de: ["llm", "opus:de-en"]}}, {gpuMemory});
+			clock = r.clock;
+			r.llm.failLoad = new Error("the download broke off");
+
+			await text(r.service.translate(base)).catch(() => "");
+			expect(remembered).to.equal(false);
 			r.service.dispose();
 		});
 
@@ -3462,9 +3600,45 @@ describe("translate/service", () => {
 	});
 
 	describe("system translator", () => {
-		function appleRig(status: Record<string, "installed" | "supported" | "unsupported">) {
+		// The language model's download needs a yes (it is 1 GB, far past a
+		// quiet download), which this rig gives whenever it is asked: what
+		// it counts is whether the table or the system's sheet came first.
+		function appleRig(
+			status: Record<string, "installed" | "supported" | "unsupported">,
+			deps: Pick<ServiceDeps, "onApplePack" | "onApplePackInstalled"> = {}
+		) {
 			const bridge = fakeBridge(status);
-			const r = rig("gpu", true, ROUTES, {apple: new AppleTranslator(bridge.deps)});
+			const asked: string[] = [];
+			// German without its OPUS pair: only downloads that need a yes.
+			const r = rig(
+				"gpu",
+				true,
+				{...ROUTES, en: {...ROUTES.en, de: ["llm", "nllb"]}},
+				{
+					apple: new AppleTranslator(bridge.deps),
+					askDownload(ref: ModelRef, device: Device) {
+						asked.push(`${ref.id}@${device}`);
+
+						return Promise.resolve(true);
+					},
+					...deps,
+				}
+			);
+
+			clock = r.clock;
+
+			return {...r, bridge, asked};
+		}
+
+		function appleRigWith(
+			routes: RouteTable,
+			status: Record<string, "installed" | "supported" | "unsupported">
+		) {
+			const bridge = fakeBridge(status);
+			const r = rig("gpu", true, routes, {
+				apple: new AppleTranslator(bridge.deps),
+				askDownload: () => Promise.resolve(true),
+			});
 
 			clock = r.clock;
 
@@ -3523,18 +3697,62 @@ describe("translate/service", () => {
 			r.service.dispose();
 		});
 
-		it("never opens the sheet for a line read: the table translates it, and the pair is reported", async () => {
-			const bridge = fakeBridge({"de>en": "supported"});
+		it("never opens the sheet for a line read: a model on the device translates it, and the pair is reported", async () => {
 			const noted: string[] = [];
-			const r = rig("gpu", true, ROUTES, {
-				apple: new AppleTranslator(bridge.deps),
-				onApplePack: (from, to) => noted.push(`${from}>${to}`),
-			});
+			const r = appleRig(
+				{"de>en": "supported"},
+				{onApplePack: (from, to) => noted.push(`${from}>${to}`)}
+			);
 
-			clock = r.clock;
+			r.cached.add(r.service.catalog.llm.id);
 			expect(await text(r.service.translate(base))).to.equal("llm:Hallo");
-			expect(bridge.calls.filter((c) => c.method === "prepare")).to.have.length(0);
+			expect(r.bridge.calls.filter((c) => c.method === "prepare")).to.have.length(0);
 			expect(noted).to.deep.equal(["de>en"]);
+			expect(r.asked).to.deep.equal([]);
+			r.service.dispose();
+		});
+
+		it("offers the pack on a line read, ahead of a download that needs a yes", async () => {
+			const r = appleRig({"de>en": "supported"});
+
+			expect(await text(r.service.translate(base)).catch((e: Error) => e.message)).to.equal(
+				applePackError("de", "en")
+			);
+			expect(parseApplePack(applePackError("de", "en"))).to.deep.equal({
+				from: "de",
+				to: "en",
+			});
+			expect(r.asked, "nothing asked while reading").to.deep.equal([]);
+			expect(r.bridge.calls.filter((c) => c.method === "prepare")).to.have.length(0);
+			r.service.dispose();
+		});
+
+		it("offers the sheet ahead of a download that needs a yes, and no question while it is installed", async () => {
+			const r = appleRig({"de>en": "supported"});
+
+			expect(await text(r.service.translate(write))).to.equal("[Hallo]");
+			expect(r.asked).to.deep.equal([]);
+			r.service.dispose();
+		});
+
+		it("a small model that downloads unasked comes ahead of the sheet", async () => {
+			const opusFirst: RouteTable = {en: {de: ["opus:de-en", "llm"]}};
+			const s = appleRigWith(opusFirst, {"de>en": "supported"});
+
+			expect(await text(s.service.translate(write))).to.equal("seq:Hallo");
+			expect(s.bridge.calls.filter((c) => c.method === "prepare")).to.have.length(0);
+			s.service.dispose();
+		});
+
+		it("an installed pack tells whatever offered it", async () => {
+			const installed: string[] = [];
+			const r = appleRig(
+				{"de>en": "installed"},
+				{onApplePackInstalled: (from, to) => installed.push(`${from}>${to}`)}
+			);
+
+			expect(await text(r.service.translate(base))).to.equal("[Hallo]");
+			expect(installed).to.deep.equal(["de>en"]);
 			r.service.dispose();
 		});
 
@@ -3551,6 +3769,9 @@ describe("translate/service", () => {
 		it("a failed translation falls through to the table and takes the engine out for the session", async () => {
 			const r = appleRig({"de>en": "installed"});
 
+			// On the device: the line read takes it with no question.
+			r.cached.add(r.service.catalog.llm.id);
+
 			r.bridge.reject = "failed";
 			expect(await text(r.service.translate(base))).to.equal("llm:Hallo");
 			expect((await r.service.route("de", "en"))?.candidate).to.equal("llm");
@@ -3559,6 +3780,9 @@ describe("translate/service", () => {
 
 		it("a pack gone since its status was asked routes elsewhere, without taking the engine out", async () => {
 			const r = appleRig({"de>en": "installed", "fr>en": "installed"});
+
+			// On the device: the line read takes it with no question.
+			r.cached.add(r.service.catalog.llm.id);
 
 			await r.service.route("de", "en");
 			r.bridge.status["de>en"] = "supported";
@@ -3572,6 +3796,9 @@ describe("translate/service", () => {
 
 		it("switched off, the table routes every request", async () => {
 			const r = appleRig({"de>en": "installed"});
+
+			// On the device: the line read takes it with no question.
+			r.cached.add(r.service.catalog.llm.id);
 
 			r.service.setSettings({
 				switches: {llm: true, opus: true, nllb: true},
@@ -3608,7 +3835,7 @@ describe("translate/service", () => {
 			});
 			close();
 			expect((await de)?.candidate).to.equal("llm");
-			expect((await fr)?.candidate).to.equal("llm");
+			expect((await fr)?.candidate).to.not.equal("apple");
 			expect(r.bridge.calls.filter((c) => c.method === "prepare")).to.have.length(1);
 			r.service.dispose();
 		});
@@ -3635,6 +3862,218 @@ describe("translate/service", () => {
 			close();
 			await Promise.allSettled([de, fr]);
 			expect(r.bridge.calls.filter((c) => c.method === "prepare")).to.have.length(1);
+		});
+
+		// The ladder's Apple steps (translation.md § The ladder, steps 1
+		// to 3), enumerated: installed, the system's;
+		// downloadable, whatever is on the device or downloads unasked
+		// first, then the pack (offered on the line read, the sheet asked
+		// by name), then the table's downloads; not offered, the table.
+		// The router's own steps after it are routingMatrix.ts's.
+		describe("the ladder's Apple steps, every case", () => {
+			const afternetPairs = ["ko-en", "en-ko"];
+			const afternetOptions = {
+				cpu: {
+					opus: Object.fromEntries(
+						afternetPairs.map((pair) => [
+							pair,
+							{
+								model: "seance-mt/marian-ko",
+								token: pair === "en-ko" ? ">>kor<<" : ">>eng<<",
+								name: "AfterNET MT",
+								sizeBytes: 30_000_000,
+							},
+						])
+					),
+				},
+			};
+			const deploys = [
+				{
+					name: "shipped",
+					catalog: buildCatalog({seq2seqGpu: true}),
+					routes: DEFAULT_ROUTES,
+				},
+				{
+					name: "AfterNET",
+					catalog: buildCatalog({...afternetOptions, seq2seqGpu: true}),
+					routes: mergeRoutes(DEFAULT_ROUTES, {
+						en: {ko: [["opus:ko-en", "llm"], "nllb"]},
+						ko: {en: [["opus:en-ko", "llm"], "nllb"]},
+					}),
+				},
+			];
+			type Outcome = "apple" | "seq" | "llm" | "pack" | "needsDownload" | "none";
+
+			interface AppleCase {
+				deploy: (typeof deploys)[number];
+				from: string;
+				status: "installed" | "supported" | "unsupported";
+				llmOn: boolean;
+				llmCached: boolean;
+				purpose: "read" | "write";
+				sheet: "install" | "decline";
+			}
+
+			function expected(c: AppleCase): Outcome {
+				const pair = `${c.from}-en`;
+				const small =
+					["de-en", "fr-en", "es-en", "it-en", "nl-en", "ru-en"].includes(pair) ||
+					(c.deploy.name === "AfterNET" && afternetPairs.includes(pair));
+				// On the device, or a download nobody is asked about. AfterNET's
+				// pairs share a class with the language model: a downloaded
+				// one answers first.
+				const tied = c.deploy.name === "AfterNET" && afternetPairs.includes(pair);
+				const llmThere = c.llmOn && c.llmCached;
+				const ready: Outcome | null =
+					tied && llmThere ? "llm" : small ? "seq" : llmThere ? "llm" : null;
+
+				if (c.status === "installed") {
+					return "apple";
+				}
+
+				if (ready) {
+					return ready;
+				}
+
+				if (c.status === "supported") {
+					if (c.purpose === "read") {
+						return "pack";
+					}
+
+					if (c.sheet === "install") {
+						return "apple";
+					}
+				}
+
+				// The table's downloads: asked for by name, refused while reading.
+				if (!c.llmOn) {
+					return "none";
+				}
+
+				return c.purpose === "read" ? "needsDownload" : "llm";
+			}
+
+			async function outcome(
+				c: AppleCase
+			): Promise<{got: Outcome; asked: number; sheets: number}> {
+				const bridge = fakeBridge({[`${c.from}>en`]: c.status});
+				let asked = 0;
+				const r = rig(
+					"gpu",
+					true,
+					c.deploy.routes,
+					{
+						apple: new AppleTranslator(bridge.deps),
+						askDownload() {
+							asked++;
+
+							return Promise.resolve(true);
+						},
+					},
+					{catalog: c.deploy.catalog}
+				);
+
+				clock = r.clock;
+				bridge.sheet = c.sheet;
+				r.service.setSettings({
+					switches: {llm: c.llmOn, opus: true, nllb: false},
+					devices: AUTO,
+				});
+
+				if (c.llmCached) {
+					r.cached.add(r.service.catalog.llm.id);
+				}
+
+				let got: Outcome;
+
+				try {
+					const out = await text(
+						r.service.translate({...base, from: c.from, purpose: c.purpose})
+					);
+
+					got = out.startsWith("[") ? "apple" : out.startsWith("llm:") ? "llm" : "seq";
+				} catch (e) {
+					const message = (e as Error).message;
+
+					got = parseApplePack(message)
+						? "pack"
+						: message.startsWith("translation needs a model download")
+						? "needsDownload"
+						: message.startsWith(TRANSLATION_UNAVAILABLE)
+						? "none"
+						: (message as Outcome);
+				}
+
+				r.service.dispose();
+				r.clock.restore();
+				clock = null;
+
+				return {
+					got,
+					asked,
+					sheets: bridge.calls.filter((call) => call.method === "prepare").length,
+				};
+			}
+
+			it("routes as the ladder says, and reading never asks or opens a sheet", async () => {
+				const misses: string[] = [];
+
+				for (const deploy of deploys) {
+					for (const from of ["de", "ko", "ja"]) {
+						for (const status of ["installed", "supported", "unsupported"] as const) {
+							for (const llmOn of [true, false]) {
+								for (const llmCached of [false, true]) {
+									for (const purpose of ["read", "write"] as const) {
+										for (const sheet of ["install", "decline"] as const) {
+											const c = {
+												deploy,
+												from,
+												status,
+												llmOn,
+												llmCached,
+												purpose,
+												sheet,
+											};
+											const want = expected(c);
+											const {got, asked, sheets} = await outcome(c);
+											const name = `${
+												deploy.name
+											} ${from}>en, pack ${status}, llm ${
+												llmOn ? "on" : "off"
+											}${
+												llmCached ? " on the device" : ""
+											}, ${purpose}, sheet ${sheet}`;
+
+											if (got !== want) {
+												misses.push(`${name}: want ${want}, got ${got}`);
+											}
+
+											if (purpose === "read" && (asked > 0 || sheets > 0)) {
+												misses.push(
+													`${name}: reading asked ${asked}, sheets ${sheets}`
+												);
+											}
+
+											// The sheet only where the pack is the next step.
+											const sheetDue =
+												purpose === "write" &&
+												status === "supported" &&
+												(want === "apple" || sheet === "decline") &&
+												expected({...c, sheet: "install"}) === "apple";
+
+											if (sheets !== (sheetDue ? 1 : 0)) {
+												misses.push(`${name}: ${sheets} sheets`);
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+
+				expect(misses).to.deep.equal([]);
+			});
 		});
 
 		it("is never downloaded or deleted through the worker", async () => {

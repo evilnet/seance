@@ -201,6 +201,16 @@
 				<ul v-if="capability.reasons.length" class="translate-device-reasons">
 					<li v-for="reason in capability.reasons" :key="reason">
 						{{ reasonText(reason) }}
+						<!-- A GPU lost before is kept off until asked
+					     (translate/service.ts `retryGpu`). -->
+						<button
+							v-if="reason === 'GPU_LOST'"
+							type="button"
+							class="btn btn-small translate-retry-gpu"
+							@click="retryGpu"
+						>
+							{{ t("translate.capability.retryGpu") }}
+						</button>
 					</li>
 				</ul>
 			</div>
@@ -967,6 +977,13 @@ export default defineComponent({
 
 			return t("translate.prefer.autoHint");
 		});
+		// Settings' "Try the GPU again": the service forgets the lost GPU
+		// and the store gets the capability as it stands now.
+		const retryGpu = () => {
+			void service.retryGpu().then((now) => {
+				store.commit("translationCapability", now);
+			});
+		};
 		const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 		onMounted(() => {
@@ -1024,6 +1041,8 @@ export default defineComponent({
 					return t("translate.capability.reason.noMemory64");
 				case "PROBE_FAILED":
 					return t("translate.capability.reason.probeFailed");
+				case "GPU_LOST":
+					return t("translate.capability.reason.gpuLost");
 
 				default: {
 					const unhandled: never = reason;
@@ -1141,6 +1160,10 @@ export default defineComponent({
 					// The GPU could run it: the CPU comes first by choice
 					// (OPUS-MT on a phone, models.ts deviceOrder).
 					return t("translate.settings.autoPicksCpu");
+				}
+
+				if (family.id === "llm") {
+					return t("translate.settings.autoPicksCpuNoGpuLlm");
 				}
 
 				return family.id === "nllb"
@@ -1429,6 +1452,7 @@ export default defineComponent({
 			tCount,
 			modelLabel,
 			reasonText,
+			retryGpu,
 			llmUnfit,
 			unfitLlms,
 			whyText: translateWhyText,

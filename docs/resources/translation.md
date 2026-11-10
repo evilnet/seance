@@ -455,6 +455,57 @@ no engine). Every other translation scenario switches translation on first
   "Translations into and out of this language are often wrong." when one is
   chosen — the selected GPU model's list.
 
+### The ladder
+
+Every request takes the first step it can run, of one ladder. A pinned Run
+on or a switch turned off removes steps; nothing adds one.
+
+1. **Apple, its pack installed** (the iOS and macOS apps): ahead of every
+   table (`service.ts` `resolve`).
+2. **What is on the device, or downloads without a question**: a small CPU
+   model for the pair (OPUS-MT; a deploy's own, AfterNET MT's ~30 MB
+   Marian models), a downloaded language model or NLLB-200. The table's
+   order and classes decide among them (below).
+3. **Apple's pack, downloadable**: ahead of any download that needs a yes
+   (the language model's ~1 GB). Reading never opens the system's sheet:
+   a line no model here can take fails with `applePackError`, and
+   TranslationLine.vue offers the pack in its place ("Japanese needs
+   Apple's language pack · Get it"; the tap opens the sheet whatever was
+   declined before, and translates the line). A line a model did translate
+   offers it under itself, once per pair (`applePacks.ts`), until the pack
+   is installed (`onApplePackInstalled`). Asked by name (the composer), the
+   sheet opens once, then the table and its download questions.
+4. **The language model on the GPU.** Skipped where the device lost its GPU
+   under a translation before: `ServiceDeps.gpuMemory` keeps that in
+   `thelounge.state.translateGpuLost`, the probe then reads `GPU_LOST` and
+   the tier `cpu`, and Settings → Translation lists the reason with "Try the
+   GPU again" (`retryGpu`).
+5. **NLLB-200**, only once switched on, placed by the measurement (NLLB
+   first, tied, or after the language model).
+6. **The language model's CPU copy**, under Auto, where the GPU cannot run
+   it at all (no WebGPU, below WebLLM's limits, a binding too small, a GPU
+   lost before) and the CPU can (Memory64, not an iPhone or iPad page):
+   after every class of the table (router.ts `cpuLastResort`), its
+   download asked for like any other with "each line takes a while"
+   (index.ts `askDownload`). A downloaded CPU copy needs no question and
+   answers in its class (§ Devices).
+7. **Nothing**: the reason says what would fix it.
+
+No pivot through English: German to French is the language model's or
+NLLB-200's, never two OPUS-MT pairs.
+
+`test/translate/routingMatrix.ts` writes the ladder down a second time from
+facts (what each measured platform runs, the deploy's pairs, the placement
+lists) and runs the real router over every platform, deploy (the shipped
+build, AfterNET's config as its builds carry it and with all ten of its
+models), pair kind, switch, Run on, downloaded copy and lost GPU (about 4.6
+million cases), and over every pair of all 46 languages out of the box. The
+Apple steps are enumerated through the service in test/translate/service.ts
+("the ladder's Apple steps, every case"). One fact the matrix records: a
+deploy that mirrors the models (`modelBase`) has no small-buffer build of
+the 1.7B, so a GPU binding under the 1.7B's own 148 MiB tensor gets no
+language model on the GPU there.
+
 ### What runs here, and why not
 
 One Vue-free rule answers "can this run on this device, and if not why" for
@@ -870,7 +921,22 @@ on a computer. Auto leaves out a device the model has no copy for, so in this
 build OPUS-MT and NLLB-200 are CPU only. The router walks candidate x device in that order, passing over
 a copy that is blocked, marked down or whose download the user declined, so
 under Auto a declined download falls back to the other device's downloaded
-copy for OPUS-MT and NLLB-200 and never for the language model. A GPU loss
+copy. **A downloaded copy under Auto** (`router.ts` `walkDevices`,
+2026-11-10): a downloaded copy Auto would not otherwise try -- the language
+model's CPU copy, downloaded from Settings -- joins the walk after the other
+devices, so it answers once the GPU copy is blocked, down or declined,
+without the "GPU stopped" question (`service.ts` `carryOnOnCpu` records that
+as a yes, unasked, for the deadline bookkeeping). On a phone
+(`capability.mobile`) a usable copy already on the device also answers
+before the better device's download: there that download is the language
+model's 1-2 GB on a GPU that may not hold it. On a computer the better
+device is still asked for, since a downloaded CPU copy would otherwise keep
+Auto off a usable GPU for good. Both downloaded, the better device's; a
+pinned device is still that device alone. This was a phone with the 1.7B's
+CPU copy downloaded and **Run on** left at Auto: every draft asked for the
+GPU copy's download instead, the GPU was then lost, and the "GPU stopped"
+question came up over the copy already there. `reader.ts` `pairVerdict`
+reads the same cache state from the model views. A GPU loss
 (`GPU_LOST`) marks down that model's GPU copy alone, for the session
 (`DownKey` is `<candidate>@<device>`); in this build that is only ever the
 language model's, since OPUS-MT and NLLB-200 have no GPU copy to lose. A
@@ -1721,7 +1787,22 @@ composer and the reader cannot disagree the way the per-channel picker
 once let them (a channel reading English while the global named German
 would have had a draft translated from German into German).
 
-`writeSource` has two rules. A draft too short for the detector to place
+**The composer's button names the source the draft goes from**
+(2026-11-10, `ChatInput.vue` `sendSource`). Under a channel's send target
+it reads "EN → ES": the language picked with the target in the composer's
+dialog (`writeFrom`), which the writer takes as the draft's source and never
+second-guesses; with none picked, the source the strip's draft is being
+translated from as `writeSource` below chose it; else the reading language.
+Before, it always named the reading language, even over a picked source and
+while a draft detected as another language went from that one. Browser
+check `tools/scenarios/translate-composer-source.mjs` (the dev ircd; also
+`--mobile`), which also checks the strip's "Translating…": while the model
+works and nothing has streamed, the strip says so (`ChatInput.vue`
+`outgoingDownload`, `translate.strip.translating`) instead of a caret alone,
+since a language model on a phone's CPU can take many seconds to its first
+word.
+
+`writeSource` has two rules.`writeSource` (one-offs with no source named) has two rules. A draft too short for the detector to place
 (`Detection.lang === null`) is taken as the user's reading language when
 that differs from the write target, else left to the LLM. A draft the
 detector does place is trusted outright when its verdict agrees with the

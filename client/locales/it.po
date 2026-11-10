@@ -14808,6 +14808,12 @@ msgctxt "translate.capability.reason.gpuLimits"
 msgid "GPU shader limits too low"
 msgstr "limiti degli shader della GPU troppo bassi"
 
+#. One reason the graphics-processor models are not used, listed under the device verdict in Settings → Translation, followed by a 'Try the GPU again' button: the graphics processor stopped (was lost) during an earlier translation on this device, so the app keeps translation off it. Lowercase start, short phrase like the other reasons in the list. GPU is the usual abbreviation for the graphics processor.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.capability.reason.gpuLost"
+msgid "GPU lost while translating, so it is not used"
+msgstr ""
+
 #. One reason the graphics-processor model cannot run, listed under the device verdict in Settings → Translation: the page is not served securely. WebGPU, HTTPS and localhost are technical names.
 #: client/components/Settings/Translation.vue
 msgctxt "translate.capability.reason.insecureOrigin"
@@ -14855,6 +14861,12 @@ msgstr "il controllo del dispositivo stesso non è riuscito"
 msgctxt "translate.capability.reason.smallBuffer"
 msgid "The GPU binds at most {limit} in one buffer; the smallest build of the language model for the GPU needs {needed}"
 msgstr "La GPU associa al massimo {limit} in un buffer; la versione più piccola del modello linguistico per la GPU richiede {needed}"
+
+#. Button after the reason 'GPU lost while translating, so it is not used' in Settings → Translation: uses the graphics processor for translation again. GPU is the usual abbreviation for the graphics processor.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.capability.retryGpu"
+msgid "Try the GPU again"
+msgstr ""
 
 #. Settings → Translation, under the line that says how much the GPU can hold in one buffer. Shown only while a developer test setting pretends the graphics card is smaller than it is, to try what a phone gets. {size} is a data size with its unit, e.g. '128 MiB'. {key} is the name of the stored setting, e.g. 'thelounge.state.gpuTestLimitMiB' — never translate it. 'Storage' is the browser's local storage for this site.
 #: client/components/Settings/Translation.vue:89
@@ -14917,6 +14929,12 @@ msgstr "La tua connessione è a consumo o in modalità risparmio dati."
 msgctxt "translate.consent.notNow"
 msgid "Not now"
 msgstr "Non ora"
+
+#. Extra line in the dialog asking before the language model is downloaded for the main processor (CPU), on a device whose graphics processor cannot run it: a warning that translating will be slow.
+#: client/js/translate/index.ts
+msgctxt "translate.consent.slowCpu"
+msgid "This device can't run it on its graphics processor, so it runs on the main processor, where each line takes a while."
+msgstr ""
 
 #. Text of the large-download question. {language} is the language being translated from or into (a language name), {size} the download's size, such as 900 MB.
 #: client/js/translate/index.ts
@@ -15119,6 +15137,13 @@ msgstr ""
 #: client/components/TranslationLine.vue
 msgctxt "translate.line.applePackGet"
 msgid "Get it"
+msgstr ""
+
+#. Shown under a line in a channel (iPhone, iPad and Mac app only), in place of a failure, followed by a 'Get it' button: none of the app's own models can translate this language here, and the device's own translator (Apple's Translation framework) can once its language pack is downloaded from the system's sheet. {language} is a language name, e.g. 'Japanese'. 'Apple' is the company; keep it recognisable.
+#: client/components/TranslationLine.vue
+#: client/js/helpers/translateErrors.ts
+msgctxt "translate.line.applePackNeeded"
+msgid "{language} needs Apple's language pack"
 msgstr ""
 
 #. Button after 'Needs a {size} download' under a line in a channel: downloads the translation model and translates the line.
@@ -15604,6 +15629,12 @@ msgctxt "translate.settings.autoPicksCpu"
 msgid "Auto picks the CPU here, to keep the GPU's memory for the language model."
 msgstr "Qui Automatico sceglie la CPU, per lasciare la memoria della GPU al modello linguistico."
 
+#. Settings → Translation, the line under 'Run on' for the language model (the large AI model, e.g. Qwen3) while Auto is chosen, on a device whose graphics processor (GPU) cannot run it: the app runs it on the main processor (CPU), only for languages no smaller model covers, and translating is slow there. 'Auto' is the choice of that name; 'here' means on this device.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.settings.autoPicksCpuNoGpuLlm"
+msgid "Auto runs it on the CPU here, since the GPU can't. It comes after the smaller models, and each line takes a while."
+msgstr ""
+
 #. Settings → Translation, the line under "Run on" for NLLB-200 while Auto is chosen: the app runs it on the main processor (CPU) because this device's graphics processor (GPU) cannot run it; the GPU's reason is shown just above, next to the struck-through GPU choice. NLLB-200 is a product name, never translated. One sentence.
 #: client/components/Settings/Translation.vue
 msgctxt "translate.settings.autoPicksCpuNoGpuNllb"
@@ -15995,6 +16026,12 @@ msgctxt "translate.strip.sourceAuto"
 msgid "auto"
 msgstr "automatico"
 
+#. Composer strip above the message box, in place of the translation while the model works on it and nothing of it has arrived yet (on a phone's CPU that can take many seconds). Ends with an ellipsis.
+#: client/components/ChatInput.vue
+msgctxt "translate.strip.translating"
+msgid "Translating…"
+msgstr ""
+
 #. Label over the composer's live translation preview: the line Return will send, and the language it is in.
 #: client/components/ChatInput.vue
 msgctxt "translate.strip.willSendIn"
@@ -16160,6 +16197,12 @@ msgstr "Serve {model} per la GPU, un download di {size}: scaricalo in Impostazio
 msgctxt "translate.why.gpuLimits"
 msgid "This GPU's shader limits are too low to run models on it."
 msgstr "I limiti degli shader di questa GPU sono troppo bassi per eseguirvi i modelli."
+
+#. Reason a translation model is not run on the graphics processor: the graphics processor was lost during an earlier translation on this device. Shown wherever a translation action is unavailable (Settings → Translation's model rows, the composer's translate dialog, the per-channel translation panel, the message toolbar's tooltip), as a sentence of its own under a lead sentence. 'Settings → Translation' names the settings tab. GPU is the usual abbreviation for the graphics processor.
+#: client/js/helpers/translateWhy.ts
+msgctxt "translate.why.gpuLost"
+msgid "The GPU stopped during an earlier translation on this device, so it is not used. Settings → Translation can try it again."
+msgstr ""
 
 #. Reason a translation model cannot run on the graphics processor: the page is plain HTTP. Shown wherever a translation action is unavailable (Settings → Translation's model rows, the composer's translate dialog, the per-channel translation panel, the message toolbar's tooltip), as a sentence of its own under a lead sentence such as 'Correcting a message needs the language model.'. 'Settings → Translation' names the settings tab. Keep 'WebGPU', 'HTTPS' and 'localhost'; GPU is the usual abbreviation for the graphics processor.
 #: client/js/helpers/translateWhy.ts

@@ -41,7 +41,7 @@ import storage from "../localStorage";
 import {KEEP, t} from "../i18n/core";
 import friendlysize from "../helpers/friendlysize";
 import {modelDisplayName} from "../helpers/translateWhy";
-import {clearPacks, notePack} from "./applePacks";
+import {clearPacks, notePack, takePack} from "./applePacks";
 import {runDetached} from "../helpers/detachedScope";
 
 // Captured at module load (vue.ts imports the router, which statically
@@ -323,6 +323,9 @@ function meteredConnection(): boolean {
 	return !!connection && (connection.saveData === true || connection.type === "cellular");
 }
 
+/** The remembered GPU loss (service.ts `ServiceDeps.gpuMemory`). */
+const GPU_LOST_KEY = "thelounge.state.translateGpuLost";
+
 /**
  * The language a download is for, in the question's plain words: the side
  * of the pair that is not the user's reading language (a line read from
@@ -368,7 +371,18 @@ function askDownload(ref: ModelRef, device: Device, about?: DownloadAbout): Prom
 				text: language
 					? t("translate.consent.textLanguage", {language, size})
 					: t("translate.consent.textPlain", {size}),
-				note: meteredConnection() ? t("translate.consent.metered") : undefined,
+				// The language model on the processor: Auto takes it only
+				// where the GPU cannot run it (models.ts `deviceOrder`), and
+				// a line there takes a while.
+				note:
+					[
+						ref.family === "llm" && device === "cpu"
+							? t("translate.consent.slowCpu")
+							: "",
+						meteredConnection() ? t("translate.consent.metered") : "",
+					]
+						.filter(Boolean)
+						.join(" ") || undefined,
 				button: t("translate.model.download"),
 				cancel: t("translate.consent.notNow"),
 				primary: true,
@@ -490,6 +504,17 @@ function create(): Made {
 	// setting, so Settings shows it and the backup carries it.
 	deps.askCpuFallback = askCpuFallback;
 
+	// A GPU this device lost under a translation stays off across reloads
+	// until Settings' "Try the GPU again" (service.ts `retryGpu`). Not in
+	// the fake's runs, whose scenarios lose the GPU on purpose.
+	if (!fake) {
+		deps.gpuMemory = {
+			lost: () => storage.get(GPU_LOST_KEY) === "1",
+			remember: () => storage.set(GPU_LOST_KEY, "1"),
+			forget: () => storage.remove(GPU_LOST_KEY),
+		};
+	}
+
 	deps.saveLlmDevice = (device) => {
 		void store.dispatch("settings/update", {
 			name: "translateLlmDevice",
@@ -512,6 +537,8 @@ function create(): Made {
 		deps.apple = apple;
 		// Reading never opens the sheet: the line offers the pack.
 		deps.onApplePack = notePack;
+		// Installed (from a line, Settings or the system): no line offers it.
+		deps.onApplePackInstalled = takePack;
 	}
 
 	// A download is quiet only on a connection that does not say it is metered.

@@ -336,8 +336,11 @@ export async function translateOutgoing(
 		// others write here, and this is the user's own line.
 		// A source the one-off dialog named is the verdict, no detection run.
 		// The one picked with the channel's target (`writeFrom`) is the
-		// source too, but detection still runs, so a reply typed straight in
-		// the target language is sent as typed.
+		// source too, and the composer's button names it; detection still
+		// runs, so a reply typed straight in the target language is sent as
+		// typed. With none picked the button's language is the reading
+		// language as a default, and a draft the detector is sure of in
+		// another language goes from that one (`writeSource`).
 		const namedFrom = once ? once.from : channelTranslation(network, channel).writeFrom;
 		const detection: Detection = once?.from
 			? {lang: once.from, confidence: 1, candidates: []}
