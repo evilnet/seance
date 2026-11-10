@@ -37,6 +37,28 @@ describe("translate/spans", () => {
 		);
 	});
 
+	// An engine handed `⟦1⟧: in vet med…` back as `⟧1⟧: in vet med…`: read
+	// strictly, the nick went to the end of the line and `⟧1⟧` stayed in
+	// its place.
+	it("reads a placeholder whose bracket an engine turned round", () => {
+		const info = protect("someone_: in vet med they use antisedan", {nicks: ["someone_"]});
+
+		expect(info.spans).to.include("someone_");
+		const mangled = info.text.replace(placeholder(1), "⟧1⟧");
+
+		expect(restoreAll(mangled, info)).to.equal("someone_: in vet med they use antisedan");
+		expect(restoreAll(info.text.replace(placeholder(1), "⟦ 1 ⟦"), info)).to.equal(
+			"someone_: in vet med they use antisedan"
+		);
+		expect(placeholdersIn("⟧1⟧ and ⟦2⟦")).to.deep.equal([1, 2]);
+	});
+
+	it("keeps a turned-round placeholder somebody typed as typed", () => {
+		const info = protect("look ⟧3⟧ here");
+
+		expect(restoreAll(info.text, info)).to.equal("look ⟧3⟧ here");
+	});
+
 	describe("emoji", () => {
 		// The Marian (OPUS-MT) models drop or mangle emoji -- "thanks for the
 		// help 👍" came back "danke für die Hilfe" (rdrake, PR #139) -- so an
