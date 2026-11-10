@@ -207,6 +207,12 @@ export function settleEcho(
 	// and not every server does. So it is a fast path, not the only one.
 	let entry = label ? entries.find((e) => e.label === label) : undefined;
 
+	// A label that names no copy answers a line whose copy is already gone
+	// (timed out, say): it is that line's late echo, never another copy's.
+	if (label && !entry) {
+		return undefined;
+	}
+
 	if (!entry) {
 		// No usable label. Our echoes carry the text we sent, so match a copy
 		// of the same kind in this channel by exact text. That is what keeps a
