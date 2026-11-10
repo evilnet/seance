@@ -35,9 +35,9 @@ import {startDevice} from "./lib/device.mjs";
 import {
 	TRANSLATION_ON,
 	TRANSLATION_OFFERED,
-	closeTranslationPanel,
-	openTranslationPanel,
-	setReadingThroughPanel,
+	closeTranslationSheet,
+	openTranslationSheet,
+	setReadingThroughSheet,
 } from "./lib/translation.mjs";
 
 const RUN = Date.now().toString(36);
@@ -132,13 +132,13 @@ async function connect(dev) {
 }
 
 async function setWriteTarget(dev, code) {
-	await openTranslationPanel(dev);
+	await openTranslationSheet(dev);
 	await dev.evaluate(
 		`(() => { const s = document.querySelector('.translation-panel select[name="translateWrite"]'); s.value = ${JSON.stringify(
 			code
 		)}; s.dispatchEvent(new Event("change", {bubbles: true})); })()`
 	);
-	await closeTranslationPanel(dev);
+	await closeTranslationSheet(dev);
 }
 
 /** Type a draft, let the preview settle, and send what the strip shows. */
@@ -185,8 +185,8 @@ export default async function run(page) {
 		await raw.joined;
 
 		// Both read in English (the interface's language) from here on.
-		await setReadingThroughPanel(page, true);
-		await setReadingThroughPanel(b, true);
+		await setReadingThroughSheet(page, true);
+		await setReadingThroughSheet(b, true);
 
 		// 1. A writes "hola" into Spanish through the composer.
 		await setWriteTarget(page, "es");

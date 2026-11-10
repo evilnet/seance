@@ -40,7 +40,7 @@
 
 import {readFileSync} from "node:fs";
 import {fakeNetworkSnippet} from "./lib/fake-network.mjs";
-import {TRANSLATION_ON, closeTranslationPanel, setReadingThroughPanel} from "./lib/translation.mjs";
+import {TRANSLATION_ON, closeTranslationSheet, setReadingThroughSheet} from "./lib/translation.mjs";
 
 const BASE = process.env.SEANCE_HTTP || "http://localhost:8021/";
 const EN = JSON.parse(readFileSync("client/locales/en.json", "utf8"));
@@ -171,16 +171,16 @@ export default async function run(page) {
 	);
 	await page.screenshot("1-note-everywhere");
 	await page.click(".translate-note-choose");
-	await page.waitFor(`!!document.querySelector(".translation-panel")`, {
-		label: "Choose conversations opens the panel",
+	await page.waitFor(`!!document.querySelector(".translation-sheet")`, {
+		label: "Choose conversations opens the sheet",
 	});
 	page.check(
-		"the panel's switch: this conversation is translated",
+		"the sheet's switch: this conversation is translated",
 		await page.evaluate(
-			`document.querySelectorAll(".translation-panel [role=radiogroup]")[0].querySelectorAll("[role=radio]")[1].getAttribute("aria-checked") === "true"`
+			`document.querySelector(".translation-sheet .language-sheet-read-box").checked`
 		)
 	);
-	await closeTranslationPanel(page);
+	await closeTranslationSheet(page);
 	page.check(
 		"the note is gone and does not come back",
 		!(await page.evaluate(`!!document.querySelector(".translate-note")`)) &&
@@ -235,7 +235,7 @@ export default async function run(page) {
 	page.check("back: one request for it", (await asked(page, "Zeile 3:")) === 1);
 
 	// --- 4. An exclusion. -----------------------------------------------
-	await setReadingThroughPanel(page, false);
+	await setReadingThroughSheet(page, false);
 
 	const excluded = await say(page, CHANNEL, GERMAN(4));
 
@@ -244,7 +244,7 @@ export default async function run(page) {
 		"excluded: the line stays as written, the exclusion is stored",
 		(await asked(page, "Zeile 4:")) === 0 && (await page.evaluate(BLOB))[KEY]?.exclude === true
 	);
-	await setReadingThroughPanel(page, true);
+	await setReadingThroughSheet(page, true);
 	await page.waitFor(translated(excluded), {
 		label: "included again, the line on screen is read",
 		timeout: 15000,
@@ -371,12 +371,12 @@ export default async function run(page) {
 	await fabricate(page);
 	await page.click("#chat .header button.menu");
 	await page.click("#context-menu .context-menu-translate");
-	await page.waitFor(`!!document.querySelector(".translation-panel-enable-button")`, {
+	await page.waitFor(`!!document.querySelector(".translation-sheet-enable-button")`, {
 		label: "the panel is one button",
 	});
 	await page.screenshot("5-enable-panel");
-	await page.click(".translation-panel-enable-button");
-	await page.waitFor(`!document.querySelector(".translation-panel")`, {
+	await page.click(".translation-sheet-enable-button");
+	await page.waitFor(`!document.querySelector(".translation-sheet")`, {
 		label: "the panel closes",
 	});
 	page.check(
@@ -406,10 +406,10 @@ export default async function run(page) {
 
 	await page.click("#chat .header button.menu");
 	await page.click("#context-menu .context-menu-translate");
-	await page.waitFor(`!!document.querySelector(".translation-panel-enable-button")`, {
+	await page.waitFor(`!!document.querySelector(".translation-sheet-enable-button")`, {
 		label: "the panel is one button",
 	});
-	await page.click(".translation-panel-enable-button");
+	await page.click(".translation-sheet-enable-button");
 	await page.waitFor(translated(waiting), {
 		label: "the German line on screen is translated in front of the reader",
 		timeout: 15000,

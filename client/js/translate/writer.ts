@@ -315,7 +315,7 @@ export async function translateOutgoing(
 			target: channel.name,
 			messages: channel.messages,
 		});
-		// No channel prior and no declared languages: both describe what
+		// No channel prior: it describes what
 		// others write here, and this is the user's own line.
 		// A source the one-off dialog named is the verdict, no detection run.
 		// The one picked with the channel's target (`writeFrom`) is the
@@ -407,10 +407,6 @@ export async function translateOutgoing(
 
 		polishContext.formality = formalityOf(settings.formality);
 
-		if (settings.variant) {
-			polishContext.variant = settings.variant;
-		}
-
 		const context = polish
 			? polishContext
 			: buildContext(
@@ -431,7 +427,6 @@ export async function translateOutgoing(
 						terms: termsFor(settings.terms, from, to),
 						glossary: getBranding().translation?.glossary ?? [],
 						formality: formalityOf(settings.formality),
-						variant: settings.variant,
 						sourceHint: from,
 						nicks,
 						voice: voiceFor(channel, to),
@@ -706,7 +701,6 @@ export async function checkOutgoing(network: ClientNetwork, channel: ClientChan)
 				terms: termsFor(settings.terms, entry.to, target),
 				glossary: getBranding().translation?.glossary ?? [],
 				formality: formalityOf(settings.formality),
-				variant: settings.variant,
 				sourceHint: entry.to,
 				nicks,
 			}

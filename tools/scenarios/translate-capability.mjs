@@ -71,7 +71,7 @@
 // the listener that posts the line the toolbar is checked on).
 
 import {readFileSync} from "node:fs";
-import {TRANSLATION_ON, closeTranslationPanel, openTranslationPanel} from "./lib/translation.mjs";
+import {TRANSLATION_ON, closeTranslationSheet, openTranslationSheet} from "./lib/translation.mjs";
 
 const RUN = Date.now().toString(36);
 const BASE = process.env.SEANCE_HTTP || "http://localhost:8041/";
@@ -471,8 +471,8 @@ export default async function run(page) {
 		});
 	};
 
-	const openPanel = () => openTranslationPanel(page);
-	const closePanel = () => closeTranslationPanel(page);
+	const openPanel = () => openTranslationSheet(page);
+	const closePanel = () => closeTranslationSheet(page);
 
 	const panelState = () =>
 		page.evaluate(`(() => {

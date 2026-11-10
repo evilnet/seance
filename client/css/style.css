@@ -191,6 +191,7 @@
 
 .window,
 .header-popover,
+.language-sheet,
 .oper-investigate,
 .oper-alert-builder,
 #oper-action-overlay,
@@ -2369,110 +2370,8 @@ textarea.input {
 	border-bottom: 1px solid #e7e7e7;
 }
 
-/* A channel's translation choices (TranslationPanel.vue): a header popover
-   under the channel menu's ⋮, on `.header-popover`'s surface, title and phone
-   layout. Every setting is a label with its control beneath it; the controls
-   are `.input`, which every theme already colours. */
-.translation-panel-body {
-	flex: 1 1 auto;
-	min-height: 0;
-	overflow-y: auto;
-	overscroll-behavior: contain;
-	display: flex;
-	flex-direction: column;
-	gap: 1.25rem;
-	padding: 0.25rem 0.75rem 0.75rem;
-}
-
-.translation-panel-section {
-	display: flex;
-	flex-direction: column;
-	gap: 0.75rem;
-}
-
-.translation-panel-section h3 {
-	margin: 0;
-	color: var(--body-color-muted);
-	font-size: 0.75rem;
-	font-weight: 600;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
-}
-
-.translation-panel-field {
-	display: flex;
-	flex-direction: column;
-	gap: 0.375rem;
-}
-
-.translation-panel-label {
-	font-size: 0.9375rem;
-}
-
-.translation-panel-hint {
-	color: var(--body-color-muted);
-	font-size: 0.8125rem;
-}
-
-/* A language every engine measured poorly in (routes.default.ts
-   LIMITED_LANGUAGES). */
-.translation-panel-limited {
-	display: block;
-	color: var(--body-color-muted);
-	font-size: 0.8125rem;
-	font-style: italic;
-}
-
-/* Why nothing here can translate: first in the panel, two sentences. */
-.translation-panel-blocked {
-	padding: 0.5rem 0.75rem;
-	border-inline-start: 0.1875rem solid var(--error-fg, #c33);
-	border-radius: 0.25rem;
-	background: rgb(128 128 128 / 10%);
-	font-size: 0.875rem;
-}
-
-.translation-panel-blocked p {
-	margin: 0;
-}
-
-/* Paused, not blocked: the same notice in the pane's own warning colour. */
-.translation-panel-paused {
-	margin: 0;
-	border-inline-start-color: var(--oper-amber);
-}
-
-.translation-panel-blocked p + p {
-	margin-block-start: 0.25rem;
-	color: var(--body-color-muted);
-}
-
-/* Why a language under "Send my messages in" is greyed. */
-.translation-panel-why {
-	display: flex;
-	flex-direction: column;
-	gap: 0.125rem;
-	color: var(--body-color-muted);
-	font-size: 0.8125rem;
-}
-
-.translation-panel-why-lead {
-	color: var(--body-color);
-}
-
-.translation-panel-control {
-	width: 100%;
-	box-sizing: border-box;
-	height: 2.25rem;
-	margin: 0;
-	padding: 0 0.625rem;
-	border-radius: 0.375rem;
-	font: inherit;
-	line-height: normal;
-}
-
-/* The channel's declared languages: as many as it takes, wrapping above
-   the picker that adds them. */
+/* Settings → Language's "I also read" (Settings/Translation.vue): as many
+   languages as it takes, wrapping above the picker that adds them. */
 .translation-panel-chips {
 	display: flex;
 	flex-wrap: wrap;
@@ -2508,84 +2407,8 @@ textarea.input {
 	color: var(--body-color);
 }
 
-/* Two or three choices are as many targets, not a native picker. */
-.translation-panel-segmented {
-	display: grid;
-	grid-auto-columns: 1fr;
-	grid-auto-flow: column;
-	height: 2.25rem;
-	overflow: hidden;
-	border: 1px solid var(--oper-line-2);
-	border-radius: 0.375rem;
-
-	/* From the pane's own colours (the `.header-popover` tokens): a theme's
-	   composer colours are the composer's, black on black on zelenzy. */
-	background: var(--oper-sunk);
-}
-
-.translation-panel-segment {
-	padding: 0 0.25rem;
-	border: 0;
-	border-inline-end: 1px solid var(--oper-line-2);
-	background: none;
-	color: inherit;
-	font: inherit;
-	font-size: 0.9375rem;
-	cursor: pointer;
-}
-
-.translation-panel-segment:last-child {
-	border-inline-end: 0;
-}
-
-.translation-panel-segment[aria-checked="true"] {
-	/* Marked by a ring in the pane's link colour over a wash of it, the
-	   label in the body's ink: a link colour as text on its own wash falls
-	   under 4.5:1 on light themes, and a chat accent is a colour meant for
-	   the scrollback's background, not this one. */
-	background: color-mix(in oklab, var(--link-color) 18%, var(--window-bg-color));
-	box-shadow: inset 0 0 0 0.125rem var(--link-color);
-	color: var(--body-color);
-	font-weight: 600;
-}
-
-html[data-contrast="more"] .translation-panel-segment[aria-checked="true"] {
-	box-shadow: inset 0 0 0 0.125rem var(--body-color);
-}
-
-.translation-panel-segment:disabled {
-	opacity: 0.5;
-	cursor: default;
-}
-
-.translation-panel-foot {
-	flex: 0 0 auto;
-	padding: 0.625rem 0.75rem;
-	border-block-start: 1px solid var(--window-border, rgb(128 128 128 / 30%));
-	text-align: center;
-	font-size: 0.875rem;
-}
-
-/* On a phone the foot is the pane's last row: out of the home indicator's
-   strip, as the composer is. */
-@media (max-width: 480px), (max-width: 768px) and (pointer: coarse), (max-height: 500px) and (hover: none) and (pointer: coarse) {
-	.translation-panel-foot {
-		padding-block-end: max(0.625rem, var(--inset-inner-bottom, 0px));
-	}
-}
-
 /* A finger: every control a target. */
 @media (pointer: coarse) {
-	.translation-panel-control,
-	.translation-panel-segmented {
-		height: 2.75rem;
-	}
-
-	.translation-panel-control {
-		padding: 0 0.875rem;
-		font-size: 1rem;
-	}
-
 	.translation-panel-chip {
 		padding-block: 0.1875rem;
 		padding-inline: 0.625rem 0.375rem;
@@ -2756,10 +2579,10 @@ html[data-shell="native"] .source-language-picker--sheet {
 	padding: 0.75em 1em;
 }
 
-/* The composer's language sheet (ComposerLanguageSheet.vue): the pair on
-   top, the channel's languages as chips, a search and the whole list. A
-   popover over the translate button on a desktop; on a phone a sheet
-   docked to the chat pane's bottom edge. Teleported to <body>. */
+/* A conversation's translation sheet (TranslationSheet.vue): the reading
+   switch, Write in, the language chips, a search and the whole list, and
+   More. A popover over the button that opened it on a desktop; on a phone
+   a sheet docked to the chat pane's bottom edge. Teleported to <body>. */
 .language-sheet {
 	position: fixed;
 	z-index: 1000;
@@ -2769,6 +2592,8 @@ html[data-shell="native"] .source-language-picker--sheet {
 	width: 21rem;
 	max-width: calc(100vw - 1rem);
 	max-height: min(32rem, 80vh);
+	overflow-y: auto;
+	overscroll-behavior: contain;
 	box-sizing: border-box;
 	padding: 0.75rem;
 	border: 1px solid var(--window-border, rgb(128 128 128 / 30%));
@@ -2802,7 +2627,7 @@ html[data-shell="native"] .language-sheet--phone {
 	padding-left: calc(1rem + var(--inset-left));
 }
 
-/* The title, Turn off and ✕ on one line. */
+/* The title and ✕ on one line. */
 .language-sheet-head {
 	display: flex;
 	flex: 0 0 auto;
@@ -2815,18 +2640,6 @@ html[data-shell="native"] .language-sheet--phone {
 	flex: 1 1 auto;
 	min-width: 0;
 	font-weight: 600;
-}
-
-.language-sheet-off {
-	flex: 0 0 auto;
-	padding: 0.25rem 0.5rem;
-	border: 0;
-	border-radius: 0.25rem;
-	background: transparent;
-	color: var(--chat-accent, var(--link-color));
-	font: inherit;
-	font-size: 0.875em;
-	cursor: pointer;
 }
 
 .language-sheet-close {
@@ -2845,14 +2658,6 @@ html[data-shell="native"] .language-sheet--phone {
 
 .language-sheet-close:hover {
 	color: var(--body-color);
-}
-
-/* I write ⇄ They read: two halves, the one the list fills in lit. */
-.language-sheet-pair {
-	display: flex;
-	flex: 0 0 auto;
-	align-items: stretch;
-	gap: 0.375rem;
 }
 
 .language-sheet-side {
@@ -3088,6 +2893,162 @@ html[data-shell="native"] .language-sheet--phone {
 .language-sheet-once-box,
 .language-sheet-read-box {
 	margin: 0;
+}
+
+/* The conversation's translation sheet (TranslationSheet.vue) on the
+   language sheet's surface: the reading switch, Write in, the list when it
+   is open, and More. */
+.language-sheet-aside {
+	margin-inline-start: 0.375rem;
+	color: var(--body-color-muted);
+	font-weight: normal;
+}
+
+.translation-sheet-enable {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.translation-sheet-label {
+	font-size: 0.9375em;
+}
+
+.translation-sheet-hint,
+.translation-sheet-limited {
+	color: var(--body-color-muted);
+	font-size: 0.8125em;
+}
+
+/* A language every engine measured poorly in (routes.default.ts
+   LIMITED_LANGUAGES). */
+.translation-sheet-limited {
+	font-style: italic;
+}
+
+/* Why nothing here can translate: first in the sheet, two sentences. */
+.translation-sheet-blocked {
+	flex: 0 0 auto;
+	margin: 0;
+	padding: 0.5rem 0.75rem;
+	border-inline-start: 0.1875rem solid var(--error-fg, #c33);
+	border-radius: 0.25rem;
+	background: rgb(128 128 128 / 10%);
+}
+
+.translation-sheet-blocked p {
+	margin: 0;
+}
+
+.translation-sheet-blocked p + p {
+	margin-block-start: 0.25rem;
+	color: var(--body-color-muted);
+}
+
+/* Paused, not blocked: the same notice in a warning colour. */
+.translation-sheet-paused {
+	border-inline-start-color: var(--oper-amber, #c7841a);
+}
+
+.translation-sheet-write,
+.translation-sheet-field {
+	display: flex;
+	flex: 0 0 auto;
+	flex-direction: column;
+	gap: 0.375rem;
+}
+
+/* Two or three choices are as many targets, not a native picker. */
+.translation-sheet-segmented {
+	display: grid;
+	grid-auto-columns: 1fr;
+	grid-auto-flow: column;
+	height: 2.25rem;
+	overflow: hidden;
+	border: 1px solid var(--oper-line-2);
+	border-radius: 0.375rem;
+	background: var(--oper-sunk);
+}
+
+.translation-sheet-segment {
+	min-width: 0;
+	padding: 0 0.25rem;
+	overflow: hidden;
+	border: 0;
+	border-inline-end: 1px solid var(--oper-line-2);
+	border-radius: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	font-size: 0.9375em;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.translation-sheet-segment:last-child {
+	border-inline-end: 0;
+}
+
+.translation-sheet-segment[aria-checked="true"] {
+	/* Marked by a ring in the link colour over a wash of it, the label in
+	   the body's ink: a link colour as text on its own wash falls under
+	   4.5:1 on light themes. */
+	background: color-mix(in oklab, var(--link-color) 18%, var(--window-bg-color));
+	box-shadow: inset 0 0 0 0.125rem var(--link-color);
+	color: var(--body-color);
+	font-weight: 600;
+}
+
+html[data-contrast="more"] .translation-sheet-segment[aria-checked="true"] {
+	box-shadow: inset 0 0 0 0.125rem var(--body-color);
+}
+
+.translation-sheet-more {
+	flex: 0 0 auto;
+	padding-block-start: 0.5rem;
+	border-block-start: 1px solid var(--window-border, rgb(128 128 128 / 30%));
+}
+
+.translation-sheet-more > summary {
+	color: var(--body-color-muted);
+	cursor: pointer;
+}
+
+.translation-sheet-more-body {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+	padding-block-start: 0.625rem;
+}
+
+.translation-sheet-from {
+	display: flex;
+	align-items: stretch;
+	gap: 0.375rem;
+}
+
+.translation-sheet-reset {
+	align-self: flex-start;
+	padding: 0.25rem 0;
+	border: 0;
+	background: transparent;
+	color: var(--chat-accent, var(--link-color));
+	font: inherit;
+	cursor: pointer;
+}
+
+.translation-sheet-settings {
+	flex: 0 0 auto;
+	font-size: 0.875em;
+	text-align: center;
+}
+
+/* A finger: every control a target. */
+@media (pointer: coarse) {
+	.translation-sheet-segmented {
+		height: 2.75rem;
+	}
 }
 
 /* Compose mode. A phone in landscape has ~430px; the keyboard and Safari's

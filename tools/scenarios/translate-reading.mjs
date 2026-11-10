@@ -80,8 +80,8 @@ import {rigFeature} from "./lib/rig-feature.mjs";
 import {
 	READING_ON,
 	TRANSLATION_OFFERED,
-	closeTranslationPanel,
-	openTranslationPanel,
+	closeTranslationSheet,
+	openTranslationSheet,
 } from "./lib/translation.mjs";
 
 const RUN = Date.now().toString(36);
@@ -154,11 +154,11 @@ async function settledLines(page, label) {
 async function setReading(page, code) {
 	await openPanel(page);
 	await setPanelRead(page, Boolean(code));
-	await closeTranslationPanel(page);
+	await closeTranslationSheet(page);
 }
 
 /** The panel, from the channel menu's "Translation…". */
-const openPanel = openTranslationPanel;
+const openPanel = openTranslationSheet;
 
 /** Set one of the panel's selects and let Vue hear it. */
 function setPanelSelect(page, name, value) {
@@ -1548,7 +1548,7 @@ async function scenario(page) {
 	await page.screenshot("panel-languages");
 
 	await setPanelRead(page, true);
-	await closeTranslationPanel(page);
+	await closeTranslationSheet(page);
 	await page.waitFor(READING_ON, {label: "reading is on again"});
 
 	// Switching on again queues what the channel shows once more.

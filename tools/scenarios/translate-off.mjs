@@ -122,7 +122,7 @@ const KEPT_VERSION = `JSON.parse(localStorage.getItem("thelounge.translate") || 
 const SURFACES = `(() => ({
 	composer: !!document.querySelector("#translate-once"),
 	strip: !!document.querySelector(".translate-bar"),
-	panel: !!document.querySelector(".translation-panel"),
+	panel: !!document.querySelector(".translation-sheet"),
 	lines: document.querySelectorAll("#chat .msg-translation, #chat [class*='msg-translat']").length,
 	topicFlip: !!document.querySelector("#chat .topic-flip"),
 	placeholder: document.querySelector("#input")?.getAttribute("placeholder") ?? "",
@@ -240,21 +240,21 @@ async function menuOpensEnablePanel(page) {
 	}
 
 	await page.click("#context-menu .context-menu-translate");
-	await page.waitFor(`!!document.querySelector(".translation-panel")`, {
-		label: "the translation panel",
+	await page.waitFor(`!!document.querySelector(".translation-sheet")`, {
+		label: "the translation sheet",
 	});
 
 	const panel = await page.evaluate(`(() => ({
-		button: document.querySelector(".translation-panel-enable-button")?.textContent.trim() ?? "",
-		radios: document.querySelectorAll(".translation-panel [role=radiogroup]").length,
-		selects: document.querySelectorAll(".translation-panel select").length,
+		button: document.querySelector(".translation-sheet-enable-button")?.textContent.trim() ?? "",
+		radios: document.querySelectorAll(".translation-sheet [role=radiogroup], .translation-sheet input").length,
+		selects: document.querySelectorAll(".translation-sheet select, .translation-sheet details").length,
 	}))()`);
 
 	await page.evaluate(
-		`document.querySelector(".translation-panel .header-popover-close").click()`
+		`document.querySelector(".translation-sheet .language-sheet-close").click()`
 	);
-	await page.waitFor(`!document.querySelector(".translation-panel")`, {
-		label: "the panel closed",
+	await page.waitFor(`!document.querySelector(".translation-sheet")`, {
+		label: "the sheet closed",
 	});
 
 	return (
@@ -522,7 +522,7 @@ export default async function run(page) {
 	page.check("on: the composer's translate button is there", onSurfaces.composer);
 	page.check(
 		"on: the kept write target names German on the translate button",
-		onSurfaces.target.endsWith("→ DE")
+		onSurfaces.target === "DE"
 	);
 	page.check("on: a line is read under its message", onSurfaces.lines > 0);
 	page.check(

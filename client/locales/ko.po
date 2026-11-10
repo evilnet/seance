@@ -14826,12 +14826,6 @@ msgctxt "translate.composer.targetCorrected"
 msgid "{language} ✓"
 msgstr ""
 
-#. The composer's translate button while the channel has a send target: the language the user writes in, an arrow, the language messages are sent in, as short codes ({from} and {to} are e.g. EN and PT). Turn the arrow round for a right-to-left language.
-#: client/components/ChatInput.vue
-msgctxt "translate.composer.targetPair"
-msgid "{from} → {to}"
-msgstr ""
-
 #. Extra line in the dialog asking before a translation model is downloaded, shown only when the browser reports a cellular connection or Data Saver: a warning that the download may cost data.
 #: client/js/translate/index.ts
 msgctxt "translate.consent.metered"
@@ -14966,27 +14960,27 @@ msgid "As the original does"
 msgstr "원문대로"
 
 #. The same choice as translate.formality.auto, shortened for the narrow segmented control on a phone: keep whatever the original message did.
-#: client/components/TranslationPanel.vue
+#: client/components/TranslationSheet.vue
 msgctxt "translate.formality.autoShort"
 msgid "As written"
 msgstr "쓴 그대로"
 
 #. Choice for how formally a translation addresses people: always use the familiar form.
-#: client/components/TranslationPanel.vue
+#: client/components/TranslationSheet.vue
 #: client/components/Settings/Translation.vue
 msgctxt "translate.formality.casual"
 msgid "Casually"
 msgstr "편하게"
 
 #. Choice for how formally a translation addresses people: always use the polite form.
-#: client/components/TranslationPanel.vue
+#: client/components/TranslationSheet.vue
 #: client/components/Settings/Translation.vue
 msgctxt "translate.formality.formal"
 msgid "Formally"
 msgstr "격식 있게"
 
 #. Label of the control that chooses how formally the translation addresses people, in the translation panel and in Settings.
-#: client/components/TranslationPanel.vue
+#: client/components/TranslationSheet.vue
 #: client/components/Settings/Translation.vue
 msgctxt "translate.formality.label"
 msgid "Address people"
@@ -15029,7 +15023,7 @@ msgid "The GPU stopped"
 msgstr "GPU가 멈췄습니다"
 
 #. Warning shown under a language choice, in the translation panel and in Settings, when the available models translate that language poorly.
-#: client/components/TranslationPanel.vue
+#: client/components/TranslationSheet.vue
 #: client/components/Settings/Translation.vue
 msgctxt "translate.limitedLanguage"
 msgid "Translations into and out of this language are often wrong."
@@ -15243,144 +15237,72 @@ msgstr ""
 
 #. Lead sentence when a translation is unavailable for a language pair (the composer's language sheet, the retranslate dialog, the translation panel's 'Send my messages in'); the reason follows as a sentence of its own. {from} and {to} are language names, already in the interface language.
 #: client/components/SourceLanguagePicker.vue
-#: client/components/TranslationPanel.vue
-#: client/components/ComposerLanguageSheet.vue
+#: client/components/TranslationSheet.vue
+#: client/components/TranslationSheet.vue
 msgctxt "translate.pair.unavailable"
 msgid "Nothing on this device can translate {from} into {to}."
 msgstr "이 기기에서는 {from}에서 {to}(으)로 번역할 수 있는 것이 없습니다."
 
 #. Lead sentence in the composer's language sheet when the source is 'Detect automatically' and no engine here translates into the chosen language; the reason follows as a sentence of its own. {to} is a language name, already in the interface language.
-#: client/components/ComposerLanguageSheet.vue
+#: client/components/TranslationSheet.vue
 msgctxt "translate.pair.unavailableInto"
 msgid "Nothing on this device can translate into {to}."
 msgstr "이 기기에서는 {to}(으)로 번역할 수 있는 것이 없습니다."
 
-#. The placeholder option of the picker that adds a language to the list of languages spoken in this conversation, in the translation panel.
-#: client/components/TranslationPanel.vue
-msgctxt "translate.panel.addLanguage"
-msgid "Add a language…"
-msgstr "언어 추가…"
-
-#. Tooltip and aria-label of the ✕ button that closes the translation panel.
-#: client/components/TranslationPanel.vue
-msgctxt "translate.panel.close"
-msgid "Close"
-msgstr "닫기"
-
 #. The one button in a conversation's translation panel while translation is switched off: it switches translation on for every conversation. {language} is the language name messages will be translated into.
-#: client/components/TranslationPanel.vue
+#: client/components/TranslationSheet.vue
 msgctxt "translate.panel.enable"
 msgid "Translate messages into {language}"
 msgstr ""
 
 #. Line under the button that switches translation on. Translation runs locally; models are downloaded when first needed.
-#: client/components/TranslationPanel.vue
+#: client/components/TranslationSheet.vue
 msgctxt "translate.panel.enableHint"
 msgid "Translation runs on this device and downloads language data as you need it."
 msgstr ""
 
 #. Heading of the translation panel, a dialog of translation settings for one conversation; the conversation's name is shown next to it.
-#: client/components/TranslationPanel.vue
+#: client/components/TranslationSheet.vue
 msgctxt "translate.panel.heading"
 msgid "Translation"
 msgstr "번역"
 
-#. Explanatory note under the list of languages spoken in this conversation, in the translation panel.
-#: client/components/TranslationPanel.vue
-msgctxt "translate.panel.languagesHint"
-msgid "Lines in these languages are recognised even when they are short or look alike."
-msgstr "이 언어들로 된 줄은 짧거나 비슷해 보여도 인식됩니다."
-
 #. The off choice: the segmented switch for translating incoming messages, and the first option of the 'send my messages in' picker, both in the translation panel.
-#: client/components/TranslationPanel.vue
+#: client/components/TranslationSheet.vue
 msgctxt "translate.panel.off"
 msgid "Off"
 msgstr "끔"
 
-#. The on choice of the segmented switch for translating incoming messages, in the translation panel.
-#: client/components/TranslationPanel.vue
-msgctxt "translate.panel.on"
-msgid "On"
-msgstr "켬"
-
-#. Note under the 'Send my messages in' picker of the translation panel, on a device that cannot run the language model. {language} is the user's own language (the one they read), shown greyed in that picker: choosing it would mean correcting one's own messages, which only the language model (a large AI model) does. A reason sentence follows on its own line.
-#: client/components/TranslationPanel.vue
-msgctxt "translate.panel.ownLanguageNeedsGpu"
-msgid "{language} is greyed out: correcting a message needs the language model."
-msgstr "{language}은(는) 회색으로 표시됩니다: 메시지를 교정하려면 언어 모델이 필요합니다."
-
 #. Status line at the top of the per-channel translation panel while the engine has paused itself after repeated failures; it resumes by itself within a minute. {reason} is the engine's own untranslated message.
-#: client/components/TranslationPanel.vue
+#: client/components/TranslationSheet.vue
 msgctxt "translate.panel.paused"
 msgid "Translation is paused for now: {reason}"
 msgstr ""
 
 #. Label of the switch in a conversation's translation panel and the composer's language sheet that keeps translation on (default) or off for this one conversation. {language} is the language name messages are translated into.
-#: client/components/TranslationPanel.vue
-#: client/components/ComposerLanguageSheet.vue
+#: client/components/TranslationSheet.vue
+#: client/components/TranslationSheet.vue
 msgctxt "translate.panel.readHere"
 msgid "Translate messages here into {language}"
 msgstr ""
 
-#. Hint under the switch that keeps translation on or off for one conversation. Translation reads every conversation unless the user turns it off here.
-#: client/components/TranslationPanel.vue
-msgctxt "translate.panel.readHereHint"
-msgid "On in every conversation. Turn it off to leave this one as written."
-msgstr ""
-
-#. Heading of the translation panel's section about incoming messages, and the label of the on/off control in it.
-#: client/components/TranslationPanel.vue
-msgctxt "translate.panel.reading"
-msgid "Reading"
-msgstr "읽기"
-
 #. Link at the foot of the translation panel; it opens the application's Translation settings page.
-#: client/components/TranslationPanel.vue
+#: client/components/TranslationSheet.vue
 msgctxt "translate.panel.settingsLink"
 msgid "Language and models in Settings"
 msgstr "설정의 언어 및 모델"
 
 #. aria-label of the translation panel, a dialog of translation settings for one conversation. {channel} is the channel name or nickname.
-#: client/components/TranslationPanel.vue
+#: client/components/TranslationSheet.vue
 msgctxt "translate.panel.title"
 msgid "Translation for {channel}"
 msgstr "{channel}의 번역"
 
-#. Label of the free-text field naming a regional variety of the target language, in the translation panel.
-#: client/components/TranslationPanel.vue
-msgctxt "translate.panel.variant"
-msgid "Variant"
-msgstr "지역 변형"
-
-#. Explanatory note under the regional variety field in the translation panel.
-#: client/components/TranslationPanel.vue
-msgctxt "translate.panel.variantHint"
-msgid "A regional flavour the model should aim for."
-msgstr "모델이 목표로 할 지역별 표현."
-
-#. Placeholder of the free-text field naming a regional variety of the target language, in the translation panel. Replace the example with one that suits the target language.
-#: client/components/TranslationPanel.vue
-msgctxt "translate.panel.variantPlaceholder"
-msgid "e.g. Brazilian Portuguese"
-msgstr "예: 브라질 포르투갈어"
-
 #. Explanatory note under the 'send my messages in' picker in the translation panel. Enter is the keyboard key of that name.
-#: client/components/TranslationPanel.vue
+#: client/components/TranslationSheet.vue
 msgctxt "translate.panel.writeHint"
 msgid "Enter shows the translation first; Enter again sends it."
 msgstr "Enter를 누르면 번역이 먼저 표시되고, 한 번 더 누르면 전송됩니다."
-
-#. Label of the picker that chooses the language the user's own messages are translated into before sending, in the translation panel.
-#: client/components/TranslationPanel.vue
-msgctxt "translate.panel.writeLabel"
-msgid "Send my messages in"
-msgstr "내 메시지를 보낼 언어"
-
-#. Heading of the translation panel's section about the messages the user sends.
-#: client/components/TranslationPanel.vue
-msgctxt "translate.panel.writing"
-msgid "Writing"
-msgstr "쓰기"
 
 #. Button that closes the retranslate-from dialog without doing anything.
 #: client/components/SourceLanguagePicker.vue
@@ -15408,8 +15330,8 @@ msgstr "이 줄의 원본 언어"
 
 #. Lead sentence in the composer's language sheet, the retranslate dialog and the translation panel when the same language is picked as source and target (a spelling and grammar cleanup pass), which only the language model (a large AI model) can do and which cannot run now; the reason (no WebGPU, buffer too small, switched off, …) follows as a sentence of its own.
 #: client/components/SourceLanguagePicker.vue
-#: client/components/TranslationPanel.vue
-#: client/components/ComposerLanguageSheet.vue
+#: client/components/TranslationSheet.vue
+#: client/components/TranslationSheet.vue
 msgctxt "translate.picker.sameLanguageNeedsGpu"
 msgid "Correcting a message needs the language model."
 msgstr "메시지를 교정하려면 언어 모델이 필요합니다."
@@ -15652,100 +15574,93 @@ msgid "Could not reach the translation worker: {error}"
 msgstr "번역 워커에 연결할 수 없음: {error}"
 
 #. Value of the language sheet's 'They read' side before any language is picked.
-#: client/components/ComposerLanguageSheet.vue
+#: client/components/TranslationSheet.vue
 msgctxt "translate.sheet.choose"
 msgid "Choose…"
 msgstr ""
 
 #. Tooltip and aria-label of the ✕ button that closes the composer's language sheet without changing anything.
-#: client/components/ComposerLanguageSheet.vue
+#: client/components/TranslationSheet.vue
 msgctxt "translate.sheet.close"
 msgid "Close"
 msgstr ""
 
 #. Status beside the language the user writes in, in the language sheet's 'They read' list: picking it corrects spelling and grammar rather than translating. Short.
-#: client/components/ComposerLanguageSheet.vue
+#: client/components/TranslationSheet.vue
 msgctxt "translate.sheet.corrects"
 msgid "Corrects spelling"
 msgstr ""
 
 #. Value of the language sheet's 'I write' side, and the first row of its list, when the language of each message is detected rather than named.
-#: client/components/ComposerLanguageSheet.vue
+#: client/components/TranslationSheet.vue
 msgctxt "translate.sheet.detect"
 msgid "Detect automatically"
 msgstr ""
 
-#. aria-label of the language sheet the composer's translate button opens: pick the language you write in and the one your messages are translated into.
-#: client/components/ComposerLanguageSheet.vue
-msgctxt "translate.sheet.dialog"
-msgid "Choose the language your messages are sent in"
-msgstr ""
-
 #. Status beside a language in the language sheet whose translation model is not on this device yet. {size} is a file size such as '312.5 MiB'. Short.
-#: client/components/ComposerLanguageSheet.vue
+#: client/components/TranslationSheet.vue
 msgctxt "translate.sheet.download"
 msgid "{size} download"
 msgstr ""
 
 #. Label of the language sheet's first side: the language the user writes their messages in. Short, shown above the language's name.
-#: client/components/ComposerLanguageSheet.vue
+#: client/components/TranslationSheet.vue
 msgctxt "translate.sheet.iWrite"
 msgid "I write"
 msgstr ""
 
+#. A conversation's translation sheet: the collapsed section with the language the user writes in, the register and Reset choices.
+#: client/components/TranslationSheet.vue:268
+msgctxt "translate.sheet.more"
+msgid "More"
+msgstr ""
+
 #. Shown in the language sheet's list when the search finds nothing. {query} is what the user typed.
-#: client/components/ComposerLanguageSheet.vue
+#: client/components/TranslationSheet.vue
 msgctxt "translate.sheet.noMatch"
 msgid "No language matches “{query}”."
 msgstr ""
 
-#. Button in the language sheet's header, shown while the user's messages in this channel are being translated: stop translating them.
-#: client/components/ComposerLanguageSheet.vue
-#, fuzzy
-msgctxt "translate.sheet.off"
-msgid "Turn off"
-msgstr ""
-
 #. Heading over shortcut buttons in the language sheet: the languages people wrote in most in this channel recently. {channel} is the channel's name, e.g. #linux.
-#: client/components/ComposerLanguageSheet.vue
+#: client/components/TranslationSheet.vue
 msgctxt "translate.sheet.recent"
 msgid "Spoken in {channel} lately"
 msgstr ""
 
+#. A conversation's translation sheet, under More: clears everything stored for this conversation (the language messages are sent in, the register, an exclusion), back to the defaults.
+#: client/components/TranslationSheet.vue:327
+msgctxt "translate.sheet.reset"
+msgid "Reset choices for this conversation"
+msgstr ""
+
 #. Placeholder and aria-label of the search field in the language sheet.
-#: client/components/ComposerLanguageSheet.vue
+#: client/components/TranslationSheet.vue
 msgctxt "translate.sheet.search"
 msgid "Search languages"
 msgstr ""
 
 #. Tooltip and aria-label of the button between the language sheet's two sides: exchanges the language the user writes and the one they send in.
-#: client/components/ComposerLanguageSheet.vue
+#: client/components/TranslationSheet.vue
 msgctxt "translate.sheet.swap"
 msgid "Swap languages"
 msgstr ""
 
-#. Label of the language sheet's second side: the language the user's messages are sent in, the one the channel reads. Short, shown above the language's name.
-#: client/components/ComposerLanguageSheet.vue
-msgctxt "translate.sheet.theyRead"
-msgid "They read"
-msgstr ""
-
 #. Checkbox in the language sheet: ticked, the picked language applies to the draft alone (a one-off) rather than to every message the user sends in this channel.
-#: client/components/ComposerLanguageSheet.vue
+#: client/components/TranslationSheet.vue
 msgctxt "translate.sheet.thisMessageOnly"
 msgid "This message only"
 msgstr ""
 
-#. Heading of the language sheet the composer's translate button opens: the language the user's messages are translated into before they are sent.
-#: client/components/ComposerLanguageSheet.vue
-msgctxt "translate.sheet.title"
-msgid "Send my messages in"
-msgstr ""
-
 #. Heading over the languages at the end of the language sheet's list that nothing on this device can translate into from the language the user writes. Tapping one shows why.
-#: client/components/ComposerLanguageSheet.vue
+#: client/components/TranslationSheet.vue
 msgctxt "translate.sheet.unavailableHeading"
 msgid "Not available on this device"
+msgstr ""
+
+#. A conversation's translation sheet: the label over Off and the language this conversation's messages are sent in.
+#: client/components/TranslationSheet.vue:93
+msgctxt "translate.sheet.writeIn"
+msgid "Write in"
 msgstr ""
 
 #. Text of the second row of the composer's translation strip when translating the translation back into the user's own language failed.
@@ -15968,7 +15883,7 @@ msgid "Show the translated topic"
 msgstr "번역된 주제 보기"
 
 #. Lead sentence of the per-channel translation panel's notice when no translation engine can run (both switched off, or a device that runs neither); the reason follows as a sentence of its own.
-#: client/components/TranslationPanel.vue
+#: client/components/TranslationSheet.vue
 msgctxt "translate.unavailable.lead"
 msgid "Translation can't run here right now."
 msgstr "지금은 여기서 번역을 실행할 수 없습니다."
@@ -16111,18 +16026,6 @@ msgstr "이 기기에서는 번역이 꺼져 있습니다."
 msgctxt "translate.why.unserved"
 msgid "No model on this device covers this pair of languages."
 msgstr "이 기기의 어떤 모델도 이 언어 쌍을 지원하지 않습니다."
-
-#. Translation panel, channel languages field. {channel} is the channel's name (#seance).
-#: client/components/TranslationPanel.vue
-msgctxt "translation.panel.languages"
-msgid "Languages: {channel}"
-msgstr "언어: {channel}"
-
-#. Translation panel, a language chip's remove button. {language} is the language's name in the interface language.
-#: client/components/TranslationPanel.vue
-msgctxt "translation.panel.remove"
-msgid "Remove {language}"
-msgstr "{language} 제거"
 
 #. Line above the message input naming the two longest-typing users and summarizing everyone else. {nick1} and {nick2} are those users' names; {count} is how many further users are typing. The singular form shows when one further user is meant, the plural for any other number.
 #: client/components/TypingIndicator.vue:31

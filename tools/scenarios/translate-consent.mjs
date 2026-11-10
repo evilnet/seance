@@ -26,8 +26,8 @@ import {readFileSync} from "node:fs";
 import {
 	TRANSLATION_ON,
 	TRANSLATION_OFFERED,
-	closeTranslationPanel,
-	openTranslationPanel,
+	closeTranslationSheet,
+	openTranslationSheet,
 } from "./lib/translation.mjs";
 
 const RUN = Date.now().toString(36);
@@ -162,12 +162,12 @@ export default async function run(page) {
 		}
 	);
 
-	await openTranslationPanel(page);
+	await openTranslationSheet(page);
 	await page.evaluate(
 		`(() => { for (const s of document.querySelectorAll('.translation-panel-segmented .translation-panel-segment')) { if (s.textContent.trim() === "On") { s.click(); return; } } throw new Error("no reading segment"); })()`
 	);
 
-	await closeTranslationPanel(page);
+	await closeTranslationSheet(page);
 
 	// No question: the downloaded pair takes every line.
 	await page.waitFor(

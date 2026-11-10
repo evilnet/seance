@@ -6,7 +6,7 @@ import eventbus from "../eventbus";
 import type {ClientChan, ClientNetwork, ClientUser} from "../types";
 import {switchToChannel} from "../router";
 import {
-	requestTranslationPanel,
+	requestTranslationSheet,
 	translationAvailable,
 	translationOffByUser,
 } from "../translate/reader";
@@ -230,7 +230,7 @@ export function generateChannelContextMenu(
 					// opens the channel first and leaves the ask in the store:
 					// Chat.vue takes it once it shows that channel.
 					switchToChannel(channel);
-					requestTranslationPanel(channel);
+					requestTranslationSheet(channel);
 				},
 			});
 		}

@@ -56,14 +56,14 @@
 // Needs the dev ircd's plain-WS port on 127.0.0.1:8067. NODE_ENV must be
 // unset for the build: a production build compiles the fake out. The
 // panel opens from the channel menu's "Translation…" in every layout
-// (lib/translation.mjs openTranslationPanel).
+// (lib/translation.mjs openTranslationSheet).
 
 import {
 	READING_ON,
 	TRANSLATION_ON,
 	TRANSLATION_OFFERED,
-	closeTranslationPanel,
-	openTranslationPanel,
+	closeTranslationSheet,
+	openTranslationSheet,
 } from "./lib/translation.mjs";
 
 const RUN = Date.now().toString(36);
@@ -167,7 +167,7 @@ async function heard(other, text, timeout = 10000) {
 	}
 }
 
-const openPanel = openTranslationPanel;
+const openPanel = openTranslationSheet;
 
 async function setWriteTarget(page, code) {
 	await openPanel(page);
@@ -176,7 +176,7 @@ async function setWriteTarget(page, code) {
 			code
 		)}; s.dispatchEvent(new Event("change", {bubbles: true})); })()`
 	);
-	await closeTranslationPanel(page);
+	await closeTranslationSheet(page);
 }
 
 /**
@@ -239,7 +239,7 @@ async function panelIsASheet(page) {
 		)
 	);
 	await page.screenshot("translation-sheet");
-	await closeTranslationPanel(page);
+	await closeTranslationSheet(page);
 }
 
 async function typeAndEnter(page, text) {
@@ -723,7 +723,7 @@ export default async function run(page) {
 			})()`
 		)
 	);
-	await closeTranslationPanel(page);
+	await closeTranslationSheet(page);
 
 	// A write target that is the page's own language: every draft in it is
 	// corrected on the first Enter, and the placeholder says so.
@@ -1430,7 +1430,7 @@ export default async function run(page) {
 	await page.evaluate(
 		`(() => { for (const s of document.querySelectorAll('.translation-panel-segmented .translation-panel-segment')) { if (s.textContent.trim() === "On") { s.click(); return; } } throw new Error("no On segment"); })()`
 	);
-	await closeTranslationPanel(page);
+	await closeTranslationSheet(page);
 	await page.waitFor(READING_ON, {
 		label: "reading is on in English",
 	});

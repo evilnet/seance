@@ -78,8 +78,6 @@ describe("translate/channelStore", () => {
 			write: null,
 			writeFrom: null,
 			formality: "auto",
-			variant: "",
-			languages: [],
 			terms: [],
 			once: null,
 			noSuggest: false,
@@ -91,38 +89,31 @@ describe("translate/channelStore", () => {
 		expect(getChannelTranslation("n1", "#seance").noSuggest).to.equal(true);
 	});
 
-	it("the channel's languages are kept, deduplicated, unknown codes dropped", () => {
-		expect(
-			setChannelTranslation("n1", "#seance", {languages: ["de", "en", "de", "xx", "nb"]})
-				.languages
-		).to.deep.equal(["de", "en", "nb"]);
-		expect(getChannelTranslation("n1", "#seance").languages).to.deep.equal(["de", "en", "nb"]);
-
-		// A patch that does not mention them leaves them alone.
-		expect(setChannelTranslation("n1", "#seance", {exclude: true}).languages).to.deep.equal([
-			"de",
-			"en",
-			"nb",
-		]);
-		expect(setChannelTranslation("n1", "#seance", {languages: []}).languages).to.deep.equal([]);
-	});
-
-	it("sanitize drops languages this build cannot route", () => {
+	it("a retired choice (languages spoken here, variant) is dropped on load", () => {
 		backend.set(
 			STORAGE_KEY,
 			JSON.stringify({
-				"n1/#a": {read: "en", languages: ["de", "zz", 7, "de"]},
-				"n1/#b": {read: "en", languages: "de"},
+				"n1/#a": {read: "en", languages: ["de", "pt"], variant: "BR", write: "pt"},
 			})
 		);
 
 		const all = loadAll();
 
-		expect(all["n1/#a"].languages).to.deep.equal(["de"]);
-		expect(all["n1/#b"].languages).to.deep.equal([]);
+		expect(all["n1/#a"]).to.not.have.property("languages");
+		expect(all["n1/#a"]).to.not.have.property("variant");
+		expect(all["n1/#a"].write).to.equal("pt");
 		// A version-1 record reads, whatever its `read` held.
 		expect(all["n1/#a"].exclude).to.equal(false);
-		expect(all["n1/#b"].exclude).to.equal(false);
+	});
+
+	it("forgetChannel takes every choice for one conversation, and only it", () => {
+		setChannelTranslation("n1", "#seance", {exclude: true, write: "pt", formality: "formal"});
+		setChannelTranslation("n1", "#other", {write: "de"});
+		rememberTerm("n1", "#seance", {source: "rig", target: "aparelho", from: "en", to: "pt"});
+		forgetChannel("n1", "#Seance");
+
+		expect(getChannelTranslation("n1", "#seance")).to.deep.equal(defaultChannelTranslation());
+		expect(getChannelTranslation("n1", "#other").write).to.equal("de");
 	});
 
 	it("an exclusion persists, and the blob carries its version", () => {
@@ -138,11 +129,11 @@ describe("translate/channelStore", () => {
 	});
 
 	it("lifting an exclusion keeps the rest of the record", () => {
-		setChannelTranslation("n1", "#seance", {exclude: true, variant: "keep me"});
+		setChannelTranslation("n1", "#seance", {exclude: true, write: "pt"});
 
 		expect(setChannelTranslation("n1", "#seance", {exclude: false})).to.include({
 			exclude: false,
-			variant: "keep me",
+			write: "pt",
 		});
 	});
 
@@ -171,8 +162,7 @@ describe("translate/channelStore", () => {
 			expect(all["n1/#off"]).to.include({write: "en", writeFrom: "de", noSuggest: true});
 			expect(all["n1/#polish"]).to.include({write: "en", writeFrom: null});
 			// Writing off stays off; `once` stays a remembered preselection.
-			expect(all["n1/#plain"]).to.include({write: null, once: "fr", variant: "BR"});
-			expect(all["n1/#plain"].languages).to.deep.equal(["pt"]);
+			expect(all["n1/#plain"]).to.include({write: null, once: "fr"});
 
 			const stored = JSON.parse(backend.data.get(STORAGE_KEY) as string);
 
@@ -430,7 +420,7 @@ describe("translate/channelStore", () => {
 		backend.set(
 			STORAGE_KEY,
 			JSON.stringify({
-				"n1/#a": {read: "xx", write: "zz", variant: "keep me"},
+				"n1/#a": {read: "xx", write: "zz", once: "de"},
 				"n1/#b": {read: "de", write: "en"},
 			})
 		);
@@ -440,7 +430,7 @@ describe("translate/channelStore", () => {
 		// The unroutable write is no target at all.
 		expect(all["n1/#a"].write).to.equal(null);
 		// The rest of the record stays.
-		expect(all["n1/#a"].variant).to.equal("keep me");
+		expect(all["n1/#a"].once).to.equal("de");
 		expect(all["n1/#b"].write).to.equal("en");
 	});
 
