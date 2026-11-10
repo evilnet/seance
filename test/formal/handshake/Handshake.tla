@@ -26,9 +26,11 @@
 (* Seance SASL_TIMEOUT_MS 12 s < registration timeout.                     *)
 (*                                                                         *)
 (* Left out: PING cookie (Seance sends CAP LS before NICK, so it is never  *)
-(*   asked), ident/DNS/iauth (independent holds), cap-notify NEW/DEL,      *)
+(*   asked), cap-notify NEW/DEL,                                           *)
 (*   REQ split over several lines, the local Keycloak and iauth SASL tiers *)
-(*   (same gate, different agent), bouncer deferral.                       *)
+(*   (same gate, different agent), bouncer deferral.  ident/DNS/iauth are  *)
+(*   one abstract hold (env.hold): it keeps registration waiting for a     *)
+(*   while after CAP END, which is when a late REQ suspends it again.      *)
 (***************************************************************************)
 EXTENDS Naturals, Sequences, FiniteSets
 
@@ -51,6 +53,7 @@ VARIABLES
     \* --- nefarious2 ---
     sActive, capPending, nickSet, userSet, saslPending, cookie, nextCookie,
     saslComplete, account, registered, sClosed, regDuringSasl,
+    lookup,       \* an independent hold (ident/DNS/iauth) is still pending
     \* --- history, for model-based tests (not read by any action) ---
     sent,         \* every line Seance sent, in order
     got,          \* every event Seance handled: [m, at |-> Len(sent) before it]
@@ -60,7 +63,7 @@ cvars == <<cAvail, cEnabled, cOut, cLs, cEnded, cPendEnd, cRetried, sasl,
            saslOk, timer, welcomed, cQuit, cEndSent, cSaslStarts, outcome>>
 svars == <<sActive, capPending, nickSet, userSet, saslPending, cookie,
            nextCookie, saslComplete, account, registered, sClosed,
-           regDuringSasl>>
+           regDuringSasl, lookup>>
 hist == <<sent, got, svcNo>>
 vars == <<env, c2s, s2c, svcIn, svcOut, cvars, svars, hist>>
 
@@ -78,7 +81,8 @@ Envs == [ offered   : SUBSET Caps,     \* CAP LS
           eager     : BOOLEAN,         \* not Seance: a client that may send CAP END
                                        \* at any moment (tests the server's gate)
           timely    : BOOLEAN,         \* network and services answer well inside every timeout
-          trusted   : BOOLEAN ]        \* this login has worked on this network (saslTrust.ts)
+          trusted   : BOOLEAN,         \* this login has worked on this network (saslTrust.ts)
+          hold      : BOOLEAN ]        \* ident/DNS/iauth still running when the client is done
 
 Wanted == IF env.creds THEN Caps ELSE Caps \ {"sasl"}
 
@@ -98,7 +102,7 @@ Init ==
     /\ sActive = {} /\ capPending = FALSE /\ nickSet = FALSE /\ userSet = FALSE
     /\ saslPending = FALSE /\ cookie = 0 /\ nextCookie = 1
     /\ saslComplete = FALSE /\ account = FALSE /\ registered = FALSE
-    /\ sClosed = FALSE /\ regDuringSasl = FALSE
+    /\ sClosed = FALSE /\ regDuringSasl = FALSE /\ lookup = env.hold
     /\ outcome = "none"
     /\ sent = c2s /\ got = << >> /\ svcNo = FALSE
 
@@ -215,6 +219,9 @@ CRecvNAK(m) ==
         out == (cOut \ m.caps) \cup retry
         reqs == [i \in 1..Len(SeqOf(retry)) |-> MsgS("REQ", {SeqOf(retry)[i]})]
         e == MaybeEnd(cEnabled, out)
+        \* caps.ts reEnd: a REQ after our CAP END but before 001 suspends
+        \* registration again, so CAP END goes out once more behind it.
+        reEnd == IF cEnded /\ ~welcomed /\ retry # {} THEN << Msg("CAPEND") >> ELSE << >>
         abort == "sasl" \in naked /\ sasl \in {"challenge", "result"}
         quit == abort /\ FailDrops
         abortLines == IF abort
@@ -223,7 +230,7 @@ CRecvNAK(m) ==
                             ELSE IF e.ended THEN << >> ELSE << Msg("CAPEND") >>)
                       ELSE << >>
     IN /\ cOut' = out /\ cRetried' = cRetried \cup retry
-       /\ ClientSend(IF e.quit THEN e.lines ELSE reqs \o e.lines \o abortLines)
+       /\ ClientSend(IF e.quit THEN e.lines ELSE reqs \o reEnd \o e.lines \o abortLines)
        /\ cEnded' = IF abort THEN ~quit \/ e.ended ELSE e.ended
        \* saslFailed() returning true skips caps.end(), so pendingEnd stays
        /\ cPendEnd' = IF abort THEN quit ELSE e.pend
@@ -305,7 +312,7 @@ EagerCapEnd ==
 
 \* check_auth_finished(): no hold from 0..AR_LAST_SCAN left, so register.
 \* auth_complete_sasl() gives the account a completed SASL proved.
-CanReg(n, u, cp, sp) == ~registered /\ n /\ u /\ ~cp /\ ~sp
+CanReg(n, u, cp, sp) == ~registered /\ n /\ u /\ ~cp /\ ~sp /\ ~lookup
 RegOut(c) == IF c THEN << Msg("001") >> ELSE << >>
 \* c: registers in this step; sc: saslComplete after it; ck: cookie after it.
 RegVars(c, sc, ck) ==
@@ -345,6 +352,7 @@ SRecvAuth(m) ==
         /\ s2c' = s2c /\ SUnchangedSasl /\ NoReg
 
 ServerRecv ==
+    /\ UNCHANGED lookup
     /\ c2s # << >> /\ ~sClosed
     /\ LET m == Head(c2s) IN
        /\ c2s' = Tail(c2s)
@@ -390,6 +398,7 @@ ServerRecv ==
 
 \* Replies from the agent (m_sasl.c), matched on the cookie.
 ServerSvc ==
+    /\ UNCHANGED lookup
     /\ svcOut # << >> /\ ~sClosed
     /\ LET r == Head(svcOut) IN
        /\ svcOut' = Tail(svcOut)
@@ -419,6 +428,7 @@ ServerSvc ==
 \* The services link splits with an exchange open (list.c exit path):
 \* abort_sasl(cptr, 0) sends 906 and the registration hold is dropped.
 ServerAgentLost ==
+    /\ UNCHANGED lookup
     /\ cookie # 0 /\ ~sClosed /\ ~env.svcUp /\ (~env.timely \/ Quiet)
     /\ LET c == CanReg(nickSet, userSet, capPending, FALSE) IN
        /\ cookie' = 0 /\ saslPending' = FALSE
@@ -432,6 +442,7 @@ ServerAgentLost ==
 \* sasl_timeout_callback: abort_sasl(cptr, 1) then auth_sasl_done.  The 904
 \* says ": request timed out" (m_sasl.c, sasl_auth.c); "904T" stands for it.
 ServerSaslTimeout ==
+    /\ UNCHANGED lookup
     /\ cookie # 0 /\ ~sClosed /\ (~env.timely \/ Quiet)
     /\ LET c == CanReg(nickSet, userSet, capPending, FALSE) IN
        /\ cookie' = 0 /\ saslPending' = FALSE
@@ -444,10 +455,26 @@ ServerSaslTimeout ==
     /\ UNCHANGED hist
 
 \* auth_ping_timeout: a user-controlled hold (CAP, SASL, NICK, USER) is left.
+\* In a timely world it waits for Seance's own SASL timer, which fires
+\* first; the eager client has no such timer to wait for.
 ServerRegTimeout ==
-    /\ ~registered /\ ~sClosed /\ (~env.timely \/ (Quiet /\ cookie = 0 /\ ~timer))
+    /\ UNCHANGED lookup
+    /\ ~registered /\ ~sClosed /\ (~env.timely \/ (Quiet /\ cookie = 0 /\ (~timer \/ env.eager) /\ ~lookup))
     /\ sClosed' = TRUE
     /\ UNCHANGED <<env, c2s, s2c, svcIn, svcOut, sActive, capPending, nickSet, userSet, saslPending, cookie, nextCookie, saslComplete, account, registered, regDuringSasl>>
+    /\ UNCHANGED cvars
+    /\ UNCHANGED hist
+
+\* The independent hold finishes (check_auth_finished from the ident/DNS/
+\* iauth callback): register now if nothing else holds the client.
+ServerLookupDone ==
+    /\ lookup /\ ~sClosed
+    /\ lookup' = FALSE
+    /\ LET c == ~registered /\ nickSet /\ userSet /\ ~capPending /\ ~saslPending IN
+       /\ s2c' = s2c \o RegOut(c)
+       /\ RegVars(c, saslComplete, cookie)
+    /\ UNCHANGED <<env, c2s, svcIn, svcOut, sActive, capPending, nickSet, userSet, sClosed>>
+    /\ SUnchangedSasl
     /\ UNCHANGED cvars
     /\ UNCHANGED hist
 
@@ -469,13 +496,14 @@ Done == (welcomed /\ Quiet) \/ cQuit \/ sClosed
 Next ==
     \/ ClientRecv \/ ClientSaslTimer \/ EagerCapEnd
     \/ ServerRecv \/ ServerSvc \/ ServerSaslTimeout \/ ServerAgentLost \/ ServerRegTimeout
+    \/ ServerLookupDone
     \/ Services
     \/ (Done /\ UNCHANGED vars)
 
 Fairness ==
     /\ WF_vars(ClientRecv) /\ WF_vars(ServerRecv) /\ WF_vars(ServerSvc)
     /\ WF_vars(Services) /\ WF_vars(ClientSaslTimer)
-    /\ WF_vars(ServerSaslTimeout) /\ WF_vars(ServerRegTimeout)
+    /\ WF_vars(ServerSaslTimeout) /\ WF_vars(ServerRegTimeout) /\ WF_vars(ServerLookupDone)
 
 Spec == Init /\ [][Next]_vars /\ Fairness
 
@@ -484,18 +512,19 @@ Spec == Init /\ [][Next]_vars /\ Fairness
 
 TypeOK ==
     /\ sasl \in {"none", "challenge", "result"}
-    /\ cEndSent \in 0..3
+    /\ cEndSent \in 0..4
     /\ outcome \in {"none", "rejected", "retry"}
 
 \* S1: the gate never registers a client with a SASL exchange open.
 NoRegisterDuringSasl == ~regDuringSasl
 
-\* S3: CAP END at most once.
-\* Not a spec rule: a REQ sent after CAP END but before 001 suspends
-\* registration again until another END (capability-negotiation, and
-\* nefarious2's cap_req).  It holds here because nothing makes Seance REQ
-\* in that window: nefarious2 sends CAP NEW only to registered clients.
-CapEndOnce == cEndSent <= 1
+\* S3: no CAP END is wasted: each one after the first follows a REQ that
+\* went out after the previous END and before 001 (caps.ts reEnd).  A REQ
+\* in that window suspends registration again until another END
+\* (capability-negotiation; nefarious2's cap_req), so one END is not
+\* always enough.  Bounded here by the per-cap NAK retries, which come in
+\* one flush.
+CapEndBounded == cEndSent <= 2
 
 \* S4: once settled, both sides agree on the enabled caps ...
 CapsAgree == (welcomed /\ Quiet) => cEnabled = sActive
@@ -533,4 +562,11 @@ Terminates == <>(welcomed \/ cQuit \/ sClosed)
 
 \* L2: in a good world it ends in 001 (no needless reconnect).
 WelcomedWhenPossible == GoodWorld ~> welcomed
+
+\* L3: without SASL, a timely handshake always ends in 001, also when a
+\* NAKed REQ is retried cap by cap while ident/DNS still hold registration.
+\* It failed before caps.ts reEnd: the retries suspended registration
+\* after our only CAP END, and nefarious2 closed the connection at its
+\* registration timeout.
+WelcomedWithoutSasl == (~env.creds /\ ~env.eager /\ env.timely) ~> welcomed
 =============================================================================
