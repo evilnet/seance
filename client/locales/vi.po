@@ -14840,41 +14840,23 @@ msgctxt "translate.consent.notNow"
 msgid "Not now"
 msgstr "Để sau"
 
-#. Body of the dialog asking before a translation model is downloaded (title 'Download {model}?'). {model} is the model's name as Settings lists it; {size} its download size with its unit, e.g. '938.4 MiB' or '2.1 GiB'. The buttons are 'Not now' and 'Download'.
+#. Text of the large-download question. {language} is the language being translated from or into (a language name), {size} the download's size, such as 900 MB.
 #: client/js/translate/index.ts
-msgctxt "translate.consent.text"
-msgid "Translating this needs {model}, a {size} download. It is kept on this device, so it is downloaded only once."
-msgstr "Bản dịch này cần {model}, dung lượng tải xuống {size}. Mô hình được giữ trên thiết bị này nên chỉ tải xuống một lần."
+msgctxt "translate.consent.textLanguage"
+msgid "{language} needs a larger download ({size}). It is kept on this device, so it is downloaded only once."
+msgstr ""
 
-#. Body of the dialog asking before the CPU copy of a translation model is downloaded (title 'Download {model} for the CPU?'). {model} is the model's name as Settings lists it; {size} its download size with its unit, e.g. '938.4 MiB' or '2.1 GiB'. CPU is the usual abbreviation for the main processor. The buttons are 'Not now' and 'Download'.
+#. Text of the large-download question where the language cannot be named. {size} is the download's size, such as 900 MB.
 #: client/js/translate/index.ts
-msgctxt "translate.consent.textCpu"
-msgid "Translating this needs {model} on the CPU, a {size} download. It is kept on this device, so it is downloaded only once."
-msgstr "Bản dịch này cần {model} trên CPU, dung lượng tải xuống {size}. Mô hình được giữ trên thiết bị này nên chỉ tải xuống một lần."
+msgctxt "translate.consent.textPlain"
+msgid "Translating this needs a larger download ({size}). It is kept on this device, so it is downloaded only once."
+msgstr ""
 
-#. Body of the dialog asking before the GPU copy of a translation model is downloaded (title 'Download {model} for the GPU?'). {model} is the model's name as Settings lists it; {size} its download size with its unit, e.g. '938.4 MiB' or '2.1 GiB'. GPU is the usual abbreviation for the graphics processor. The buttons are 'Not now' and 'Download'.
+#. Title of the question asked before a large translation download. No model name: the text says which language it is for.
 #: client/js/translate/index.ts
-msgctxt "translate.consent.textGpu"
-msgid "Translating this needs {model} on the GPU, a {size} download. It is kept on this device, so it is downloaded only once."
-msgstr "Bản dịch này cần {model} trên GPU, dung lượng tải xuống {size}. Mô hình được giữ trên thiết bị này nên chỉ tải xuống một lần."
-
-#. Title of the dialog that asks before a translation model is downloaded for the first time, because a translation (reading a channel, the composer, a message's Translate) needs it and it is not on this device yet. {model} is the model's name as Settings lists it, e.g. 'Qwen3 1.7B (GPU, all languages)' or 'OPUS-MT German → English (CPU)'.
-#: client/js/translate/index.ts
-msgctxt "translate.consent.title"
-msgid "Download {model}?"
-msgstr "Tải xuống {model}?"
-
-#. Title of the dialog that asks before the CPU copy of a translation model is downloaded, when the model's usual copy is the graphics processor's (the language model). {model} is the model's name as Settings lists it, e.g. 'Qwen3 1.7B'. CPU is the usual abbreviation for the main processor.
-#: client/js/translate/index.ts
-msgctxt "translate.consent.titleCpu"
-msgid "Download {model} for the CPU?"
-msgstr "Tải xuống {model} cho CPU?"
-
-#. Title of the dialog that asks before the GPU copy of a translation model is downloaded, when the model's usual copy is the main processor's (OPUS-MT, NLLB-200). {model} is the model's name as Settings lists it, e.g. 'NLLB-200 600M (200 languages)'. GPU is the usual abbreviation for the graphics processor.
-#: client/js/translate/index.ts
-msgctxt "translate.consent.titleGpu"
-msgid "Download {model} for the GPU?"
-msgstr "Tải xuống {model} cho GPU?"
+msgctxt "translate.consent.titlePlain"
+msgid "Download language data?"
+msgstr ""
 
 #. Settings → Translation: the main processor, as the choice after "Run on" and as the label in front of a model copy line ("CPU  Not downloaded · 1 GiB"). Use the usual abbreviation in your language (most keep CPU). Very short.
 #: client/components/Settings/Translation.vue
@@ -15225,10 +15207,11 @@ msgctxt "translate.note.dismiss"
 msgid "OK"
 msgstr ""
 
-#. One-time note above the message box after an update, for someone who had translation on: it used to be switched on per channel, now it reads every conversation.
+#. One-time note above the composer after an upgrade, for someone who already had translation on: reading now covers every conversation, and what it does on the device.
 #: client/components/ChatInput.vue
+#, fuzzy
 msgctxt "translate.note.everywhere"
-msgid "Messages in other languages are now translated in every conversation."
+msgid "Messages in other languages are now translated in every conversation, on this device. Language data is downloaded as you need it."
 msgstr ""
 
 #. One-time note above the message box right after translation is switched on, shown when nothing on screen needed translating. {language} is the language messages are translated into.
@@ -15410,6 +15393,12 @@ msgctxt "translate.retry"
 msgid "Retry the translation"
 msgstr "Thử dịch lại"
 
+#. Collapsed section at the bottom of Settings → Language: the translation engines, the devices they run on, and the downloaded language data. Nobody needs it on the normal path.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.settings.advanced"
+msgid "Advanced: engines and storage"
+msgstr ""
+
 #. Label of the list in Settings → Language of languages the user reads besides their main one; messages in them are not translated.
 #: client/components/Settings/Translation.vue
 msgctxt "translate.settings.alsoRead"
@@ -15482,10 +15471,11 @@ msgctxt "translate.settings.enable"
 msgid "Translate messages on this device"
 msgstr "Dịch tin nhắn trên thiết bị này"
 
-#. Note under the switch that turns translation on (Settings → Translation): what it does, and that turning it on means large downloads (the translation models) the first time they are used. MB and GB are megabytes and gigabytes; write them as your language usually does.
+#. Under the Settings switch that turns translation on: what switching it on agrees to.
 #: client/components/Settings/Translation.vue
+#, fuzzy
 msgctxt "translate.settings.enableHint"
-msgid "Translates channels and your messages on this device. Its models are downloaded when first used: a few hundred MB to over 1 GB each."
+msgid "Runs on this device and downloads language data as you need it."
 msgstr "Dịch các kênh và tin nhắn của bạn ngay trên thiết bị này. Các mô hình được tải xuống khi dùng lần đầu: mỗi mô hình từ vài trăm MB đến hơn 1 GB."
 
 #. The first option of the language model picker in Settings → Translation: the client picks the largest model the device can run.
@@ -15598,6 +15588,24 @@ msgstr[0] "{count} cặp ngôn ngữ"
 msgctxt "translate.settings.runOn"
 msgid "Run on"
 msgstr "Chạy trên"
+
+#. Top of Settings' Advanced section: the size of every translation download on this device, each counted once. {size} is like 1.2 GB.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.settings.storage"
+msgid "Language data on this device: {size} in total."
+msgstr ""
+
+#. Top of Settings' Advanced section when nothing for translation is downloaded.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.settings.storageNone"
+msgid "No language data downloaded yet."
+msgstr ""
+
+#. After translate.settings.storage: why the list below is by download rather than by language.
+#: client/components/Settings/TranslationOptions.vue
+msgctxt "translate.settings.storageShared"
+msgid "One download can serve several languages, so removing it can affect more than one."
+msgstr ""
 
 #. Label of the checkbox in Settings → Translation that allows the small OPUS-MT translation models (one per language pair). OPUS-MT is a product name, never translated.
 #: client/components/Settings/Translation.vue

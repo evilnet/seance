@@ -17,6 +17,7 @@
 import {Capability} from "./capability";
 import {
 	ConsentStore,
+	type DownloadAbout,
 	DownloadConsent,
 	consentId,
 	memoryConsent,
@@ -106,7 +107,7 @@ export interface ServiceDeps {
 	 * `device` is the copy's, for its size. Absent, every download goes
 	 * ahead unasked (the tests that are not about consent).
 	 */
-	askDownload?(ref: ModelRef, device: Device): Promise<boolean>;
+	askDownload?(ref: ModelRef, device: Device, about?: DownloadAbout): Promise<boolean>;
 	/** Where the yeses are remembered; in memory when absent. */
 	consent?: ConsentStore;
 	/** Where the copies the user removed are remembered (consent.ts `REMOVED_KEY`); in memory when absent. */
@@ -366,7 +367,7 @@ export class TranslateService {
 		this.applyLlmSelection();
 		this.consent = deps.askDownload
 			? new DownloadConsent(
-					(ref, device) => deps.askDownload!(ref, device),
+					(ref, device, about) => deps.askDownload!(ref, device, about),
 					deps.consent ?? memoryConsent(),
 					deps.removed ?? memoryConsent()
 			  )
@@ -901,7 +902,8 @@ export class TranslateService {
 			const yes = await consent.ask(
 				{...route.ref, id: this.consentId(route.ref, route.device)},
 				route.device,
-				() => this.needsConsent(route.ref, route.device)
+				() => this.needsConsent(route.ref, route.device),
+				{from, to, hint}
 			);
 
 			if (this.disposed) {

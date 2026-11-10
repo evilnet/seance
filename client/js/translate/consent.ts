@@ -152,6 +152,19 @@ export function storedConsent(
 }
 
 /**
+ * The request a download question is asked for: the pair it would
+ * translate, so the question can name the language in plain words
+ * ("Finnish needs a larger download") rather than the model. The first
+ * request to ask is the one named; others waiting on the same model share
+ * its answer.
+ */
+export interface DownloadAbout {
+	from: string | null;
+	to: string;
+	hint: string | null;
+}
+
+/**
  * The question and its answers. `ask` is the dialog: true for Download,
  * false for Not now (or a dialog that closed without an answer).
  */
@@ -170,13 +183,17 @@ export class DownloadConsent {
 	/** One dialog at a time across models: the next waits for the last to be answered. */
 	private chain: Promise<unknown> = Promise.resolve();
 
-	private readonly askUser: (ref: ModelRef, device: Device) => Promise<boolean>;
+	private readonly askUser: (
+		ref: ModelRef,
+		device: Device,
+		about?: DownloadAbout
+	) => Promise<boolean>;
 	private readonly store: ConsentStore;
 	/** The copies removed and not asked for since (`REMOVED_KEY`). */
 	private readonly removedStore: ConsentStore;
 
 	constructor(
-		askUser: (ref: ModelRef, device: Device) => Promise<boolean>,
+		askUser: (ref: ModelRef, device: Device, about?: DownloadAbout) => Promise<boolean>,
 		store: ConsentStore,
 		removed: ConsentStore = memoryConsent()
 	) {
@@ -238,7 +255,12 @@ export class DownloadConsent {
 	 * (Settings, another question's yes for it) is no longer worth a dialog,
 	 * and the answer is then yes without anything stored.
 	 */
-	ask(ref: ModelRef, device: Device, stillNeeded: () => boolean): Promise<boolean> {
+	ask(
+		ref: ModelRef,
+		device: Device,
+		stillNeeded: () => boolean,
+		about?: DownloadAbout
+	): Promise<boolean> {
 		const waiting = this.pending.get(ref.id);
 
 		if (waiting) {
@@ -258,7 +280,7 @@ export class DownloadConsent {
 				return true;
 			}
 
-			const yes = await this.askUser(ref, device).catch(() => false);
+			const yes = await this.askUser(ref, device, about).catch(() => false);
 
 			if (yes) {
 				this.grantedIds.add(ref.id);
