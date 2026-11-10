@@ -261,6 +261,13 @@ async function panelIsASheet(page) {
 	await closeTranslationSheet(page);
 }
 
+/**
+ * Send safety (ChatInput.vue): Return sends a translation only once it has
+ * been on screen, finished, for 500 ms. A Return meant to send what the
+ * strip shows waits this long after the strip settles.
+ */
+const SEEN_MS = 700;
+
 async function typeAndEnter(page, text) {
 	await page.fill(INPUT, text);
 	await page.evaluate(ENTER);
@@ -353,6 +360,7 @@ async function appendNewline(page) {
 }
 
 async function newlineThenEnter(page, label) {
+	await page.sleep(SEEN_MS);
 	await appendNewline(page);
 	await page.check(
 		`the strip survived the trailing newline (${label})`,
@@ -552,6 +560,7 @@ export default async function run(page) {
 		)}`,
 		{timeout: 30000, label: "the one-off translation's read-back"}
 	);
+	await page.sleep(SEEN_MS);
 	await page.evaluate(ENTER);
 	await page.check(
 		"Enter sent the one-off translation",
@@ -600,6 +609,7 @@ export default async function run(page) {
 		"no read-back row under a corrected line",
 		(await page.count(".translate-bar-check")) === 0
 	);
+	await page.sleep(SEEN_MS);
 	await page.evaluate(ENTER);
 	await page.check(
 		"Enter sent the corrected line",
@@ -658,6 +668,7 @@ export default async function run(page) {
 		)}`,
 		{timeout: 30000, label: "its read-back"}
 	);
+	await page.sleep(SEEN_MS);
 	await page.evaluate(ENTER);
 	await page.check(
 		"Enter sends the preview in German",
@@ -808,6 +819,7 @@ export default async function run(page) {
 			await page.evaluate(`(document.querySelector(".translate-bar-chip") || {}).textContent`)
 		).includes("corrected")
 	);
+	await page.sleep(SEEN_MS);
 	await page.evaluate(ENTER);
 	await page.check(
 		"Enter sends the corrected line",
@@ -947,6 +959,7 @@ export default async function run(page) {
 			return line ? line.textContent.trim() : "";
 		})()`;
 
+	await page.sleep(SEEN_MS);
 	await page.evaluate(ENTER);
 	await page.waitFor(`!document.querySelector(${JSON.stringify(BAR)})`, {
 		label: "the strip went with the send",
@@ -1223,6 +1236,7 @@ export default async function run(page) {
 		timeout: 30000,
 		label: "the round trip finished and Send is offered",
 	});
+	await page.sleep(SEEN_MS);
 	await page.evaluate(ENTER);
 	await page.waitFor(settledSelf(`[German] ${retried}`), {
 		timeout: 20000,
@@ -1309,6 +1323,7 @@ export default async function run(page) {
 		(await page.evaluate(inputValue)) === `/me ${action}`
 	);
 	await page.waitFor(SETTLED, {timeout: 25000, label: "the action's read-back finished"});
+	await page.sleep(SEEN_MS);
 	await page.evaluate(ENTER);
 	await page.waitFor(`!document.querySelector(${JSON.stringify(BAR)})`, {
 		label: "the strip went with the action",
@@ -1515,6 +1530,7 @@ export default async function run(page) {
 		`the read-back was the one reading request for the line so far (${readsBeforeSend})`,
 		readsBeforeSend === 1
 	);
+	await page.sleep(SEEN_MS);
 	await page.evaluate(ENTER);
 	await page.waitFor(settledSelf(posted), {
 		timeout: 20000,
