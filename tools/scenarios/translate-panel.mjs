@@ -143,6 +143,12 @@ const BUTTON_STATE = `(() => {
 })()`;
 
 async function openPanel(page) {
+	// 文A is disabled until the network counts as connected, which on a
+	// real ircd can come a moment after the channel view does.
+	await page.waitFor(`!document.querySelector(${JSON.stringify(BUTTON)}).disabled`, {
+		timeout: 20000,
+		label: "文A is enabled",
+	});
 	await page.evaluate(`document.querySelector(${JSON.stringify(BUTTON)}).click()`);
 
 	const deadline = Date.now() + 5000;
