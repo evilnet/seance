@@ -31,6 +31,9 @@
 (*   (same gate, different agent), bouncer deferral.  ident/DNS/iauth are  *)
 (*   one abstract hold (env.hold): it keeps registration waiting for a     *)
 (*   while after CAP END, which is when a late REQ suspends it again.      *)
+(*   Assumed: the hold always ends well (the lookup answers, iauth lets    *)
+(*   the client in), and the registration timeout cannot fire while it is  *)
+(*   pending.  A hold that times out or refuses is out of scope.           *)
 (***************************************************************************)
 EXTENDS Naturals, Sequences, FiniteSets
 
@@ -525,6 +528,21 @@ NoRegisterDuringSasl == ~regDuringSasl
 \* always enough.  Bounded here by the per-cap NAK retries, which come in
 \* one flush.
 CapEndBounded == cEndSent <= 2
+
+\* S3b: the obligation behind it.  Once settled, every REQ Seance sent
+\* after a CAP END and before it handled 001 has a CAP END after it, so no
+\* late REQ leaves registration suspended.  Seance only: the eager client
+\* sends CAP END whenever it likes.
+WelcomeAt ==
+    IF \E k \in 1..Len(got) : got[k].m.t = "001"
+    THEN got[CHOOSE k \in 1..Len(got) : got[k].m.t = "001"].at
+    ELSE Len(sent)
+
+LateReqEnded ==
+    (Quiet /\ ~cQuit /\ ~env.eager) =>
+        \A i \in 1..WelcomeAt :
+            (sent[i].t = "REQ" /\ \E k \in 1..(i - 1) : sent[k].t = "CAPEND")
+                => \E j \in (i + 1)..Len(sent) : sent[j].t = "CAPEND"
 
 \* S4: once settled, both sides agree on the enabled caps ...
 CapsAgree == (welcomed /\ Quiet) => cEnabled = sActive

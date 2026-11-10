@@ -15,6 +15,7 @@ unrestricted, which fails on the open gap below.
 | ---------------------- | ----------------------------------------------------------------------------- |
 | `NoRegisterDuringSasl` | the server never sends 001 with a SASL exchange open                          |
 | `CapEndBounded`        | Seance sends CAP END at most twice: once more only behind a late REQ          |
+| `LateReqEnded`         | every REQ sent after CAP END and before 001 has a CAP END after it            |
 | `CapsAgree`            | once settled, Seance's enabled caps equal the server's                        |
 | `OneOpener`            | Seance sends `AUTHENTICATE PLAIN` at most once per connection                 |
 | `NoFalseRejection`     | Seance turns autoconnect off only when the login really cannot succeed        |
@@ -73,8 +74,14 @@ the spec shared by Seance and nefarious2 would not show here.
   came and the server closed the connection at its registration timeout.
   The model left those holds out, so it missed this; `env.hold` now stands
   for them, and `WelcomedWithoutSasl` (`Stall.cfg`) fails without
-  `caps.ts` `reEnd` and passes with it. Found live, by trace-checking
-  nefarious2 against the IRCv3 spec model.
+  `caps.ts` `reEnd` and passes with it, and so does `LateReqEnded`. Found
+  live, by trace-checking nefarious2 against the IRCv3 spec model. The
+  model assumes the hold always ends well and that the registration
+  timeout cannot fire while it is pending; a lookup or iauth that times
+  out or refuses is out of scope. `live_server.py` skips held behaviours
+  (it cannot make the ircd's ident or DNS wait on cue), so the held
+  traces are checked against Seance's code by `replay.ts` only, with no
+  live evidence from the ircd.
 - **Limits of the outage rule.** Retrying is a policy, not
   proof that the next try will work: a misconfigured server that sends
   `906` (Solanum with no `sasl_service`) or times out every time is
