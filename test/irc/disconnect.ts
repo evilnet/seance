@@ -85,6 +85,19 @@ describe("describeClose", function () {
 		expect(report.hint).to.contain("before registration");
 	});
 
+	it("does not blame the WebSocket for a raw TCP drop during registration", function () {
+		const report = describeClose({
+			...base,
+			url: "ircs://irc.example.org:6697",
+			phase: "registering",
+			code: 1000,
+			reason: "the server closed the connection",
+		});
+
+		expect(report.hint).to.not.contain("WebSocket");
+		expect(report.hint).to.contain("before registration");
+	});
+
 	it("offers the takeover hint when the server names a live session", function () {
 		const report = describeClose({
 			...base,

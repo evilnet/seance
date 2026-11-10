@@ -302,6 +302,7 @@
   "disconnect.hint.registration": "The WebSocket opened but the server dropped it before registration finished - check that this port really speaks IRC over WebSocket, and look for a server notice above for the reason.",
   "disconnect.hint.sessionConflict": "This account is already connected on this network - another tab, window or device is using it. Close that client; this tab then connects on its next retry (a dead connection is reclaimed within about a minute).",
   "disconnect.hint.tcpPlainCauses": "Likely causes: the server is down, the port is wrong, or something on the network blocks the connection.",
+  "disconnect.hint.tcpRegistration": "The server closed the connection before registration finished. Look for a server notice or error above for the reason.",
   "disconnect.hint.tcpTlsCauses": "Likely causes: the server is down, the port is wrong, or its certificate is not trusted. A server with a self-signed certificate can only be reached without TLS for now.",
   "disconnect.hint.wssCauses": "The browser does not reveal why. Likely causes: the server is down, the port is wrong, or its TLS certificate is not trusted — for a self-signed certificate, open {url} in a new tab, accept the warning, then reconnect.",
   "disconnect.registeringClosed": "Connection to {host} closed during IRC registration{detail}.",

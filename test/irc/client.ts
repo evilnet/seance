@@ -1063,6 +1063,19 @@ describe("IrcClient", function () {
 			}
 		});
 
+		it("registers again with its own ident, not the one the server gave it", function () {
+			const h = setup();
+			joined(h);
+			// The server marked the ident unverified; it would refuse "~alice" in USER.
+			h.transport.line(":alice!~alice@host JOIN #more");
+			expect(h.client.ident).to.equal("~alice");
+			h.transport.closed(1006, "", true);
+
+			h.sentAfter();
+			h.transport.open();
+			expect(h.sentAfter()).to.include("USER alice 0 * :alice");
+		});
+
 		it("marks everything parted on an unclean close and re-joins after re-registering", function () {
 			const h = setup();
 			const id = joined(h);
