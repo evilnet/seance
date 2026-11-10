@@ -259,6 +259,28 @@ describe("Pending outgoing messages (irc/pending.ts)", function () {
 			]);
 		});
 
+		it("does not settle a newer copy with the late echo of one that timed out", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.sendMessage("#seance", "same");
+			clock.tick(PENDING_TIMEOUT_MS);
+			h.client.sendMessage("#seance", "same");
+			const second = h.lastMessage(id);
+			expect(second.pending).to.equal(true);
+
+			// The first line's echo, late: its label names a copy already
+			// given up on, so it settles nothing. The second copy waits for
+			// its own answer.
+			h.transport.line("@label=s1;msgid=m1 :alice!alice@host.example PRIVMSG #seance :same");
+			expect(settled(h).map((s) => s.id)).to.not.include(second.id);
+
+			h.transport.line("@label=s2 :irc.test 404 alice #seance :Cannot send to channel");
+			expect(settled(h).map((s) => s.id)).to.include(second.id);
+			expect(errorsIn(h, id).map((m) => m.text)).to.include(
+				"Not sent (Cannot send to channel): same"
+			);
+		});
+
 		it("fails every copy when the connection closes", function () {
 			const h = setup();
 			const id = joined(h);

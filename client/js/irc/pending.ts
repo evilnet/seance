@@ -16,10 +16,11 @@
  * puts the label on the echo (on the batch opener for a multiline one) and
  * on the numeric that rejects it (probed 2026-09-04). But the spec does not
  * require the label on a propagated echo-message copy, so it is a fast path,
- * not the only one: failing it (or without the cap at all) the copy is found
- * by content — the oldest unsettled copy of the same kind in the channel,
- * exact text preferred — since echoes come back in the order the lines went
- * out. See {@link settleEcho}.
+ * not the only one. A label that is present decides: if it names no copy we
+ * hold, the echo settles nothing. An echo without one (or any echo without
+ * the cap) is matched by content — the oldest unsettled copy of the same kind
+ * in the channel, exact text preferred — since echoes come back in the order
+ * the lines went out. See {@link settleEcho}.
  *
  * Copies bypass `IrcClient.pushMessage` on purpose: a line the server has
  * not taken must not move the read marker, count towards the history
@@ -206,6 +207,13 @@ export function settleEcho(
 	// echo, which the spec does not require of a propagated echo-message copy
 	// and not every server does. So it is a fast path, not the only one.
 	let entry = label ? entries.find((e) => e.label === label) : undefined;
+
+	// A label that is present decides. One that names no copy answers a line
+	// we hold no copy of (it timed out, or never had one), so it settles
+	// nothing rather than another copy with the same text.
+	if (label && !entry) {
+		return undefined;
+	}
 
 	if (!entry) {
 		// No usable label. Our echoes carry the text we sent, so match a copy
