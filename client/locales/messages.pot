@@ -1582,6 +1582,12 @@ msgctxt "disconnect.hint.tcpPlainCauses"
 msgid "Likely causes: the server is down, the port is wrong, or something on the network blocks the connection."
 msgstr ""
 
+#. Follow-up hint under a raw TCP connection (the app) the server dropped during IRC registration, when the close reason named no live session.
+#: client/js/irc/disconnect.ts
+msgctxt "disconnect.hint.tcpRegistration"
+msgid "The server closed the connection before registration finished. Look for a server notice or error above for the reason."
+msgstr ""
+
 #. Hint after a TLS connection over raw TCP (not WebSocket) failed to open, in the app.
 #: client/js/irc/disconnect.ts
 msgctxt "disconnect.hint.tcpTlsCauses"

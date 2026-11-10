@@ -260,6 +260,7 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"disconnect.hint.registration",
 	"disconnect.hint.sessionConflict",
 	"disconnect.hint.tcpPlainCauses",
+	"disconnect.hint.tcpRegistration",
 	"disconnect.hint.tcpTlsCauses",
 	"disconnect.hint.wssCauses",
 	"disconnect.registeringClosed",

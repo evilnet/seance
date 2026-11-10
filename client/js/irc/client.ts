@@ -609,7 +609,7 @@ export class IrcClient {
 		this.fakeLag = new FakeLagClock(options.fakeLag);
 		this.background = new BackgroundQueue(this.fakeLag, () => this.isWelcomed);
 		this.nick = options.nick;
-		this.ident = options.username || sanitizeIdent(options.nick);
+		this.ident = this.registrationIdent;
 		this.uuid = options.uuid ?? deriveUuid(host, options.port, options.nick);
 		this.networkName = hostnameOf(host);
 		this.bus = options.bus ?? socket;
@@ -1285,6 +1285,11 @@ export class IrcClient {
 		}
 	}
 
+	/** The ident USER asks for: the configured one, or one made from the nick. */
+	private get registrationIdent(): string {
+		return this.options.username || sanitizeIdent(this.options.nick);
+	}
+
 	/** Transport open: fresh negotiation state, then CAP LS / NICK / USER. */
 	private onOpen(): void {
 		this._state = "registering";
@@ -1303,6 +1308,9 @@ export class IrcClient {
 		this.motdForFeatured = "unsent";
 		this.channelList.reset();
 		this.host = "";
+		// Not the ident the last connection learned: that is the server's
+		// ("~rdrake" when unverified), and Ergo refuses it in USER (468).
+		this.ident = this.registrationIdent;
 		this.account = "";
 		this.persistenceHold = false;
 		this.persistenceSetting = undefined;
