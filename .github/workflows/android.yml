@@ -1,0 +1,83 @@
+# The Android shell's build and unit tests, on pull requests that touch what
+# goes into the APK, and by hand. Not a test of the app running: nothing here
+# boots a WebView, installs or signs the APK.
+name: Android
+
+on:
+  pull_request:
+    paths:
+      - "Makefile"
+      - ".github/workflows/android.yml"
+      - "shells/tauri/**"
+      # The Apple and desktop-only parts of the shell.
+      - "!shells/tauri/src-tauri/gen/apple/**"
+      - "!shells/tauri/src-tauri/ios/**"
+      - "!shells/tauri/src-tauri/swift/**"
+      - "!shells/tauri/src-tauri/Info.*.plist"
+      - "!shells/tauri/src-tauri/tauri.ios.conf.json"
+      - "!shells/tauri/src-tauri/windows/**"
+      - "!shells/tauri/tools/linux/**"
+      - "!shells/tauri/tools/*macos*"
+      - "!shells/tauri/tools/shots-linux.sh"
+      - "!shells/tauri/**/*.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: ".node-version"
+
+      - name: Install pnpm
+        run: npm install --global "$(node -p 'require("./package.json").packageManager')"
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+          cache-dependency-path: shells/tauri/src-tauri/gen/android/**/*.gradle*
+
+      # The image has the SDK; add compileSdk's platform and the README's NDK.
+      - name: Android SDK and NDK
+        run: |
+          NDK=29.0.14206865
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          "$SDKMANAGER" "platforms;android-37.0" "ndk;$NDK" >/dev/null
+          echo "NDK_HOME=$ANDROID_HOME/ndk/$NDK" >>"$GITHUB_ENV"
+
+      - name: Rust target
+        run: rustup target add aarch64-linux-android
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: shells/tauri/src-tauri
+
+      - name: Build
+        run: make android-build
+
+      - name: Unit tests
+        run: make android-test
+
+      - name: Keep the APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: seance-android-debug
+          path: shells/tauri/src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+          if-no-files-found: error
+          retention-days: 14
