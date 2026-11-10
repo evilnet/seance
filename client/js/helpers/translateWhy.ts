@@ -122,6 +122,8 @@ export function translateWhyText(block: RouteBlock, llm: string = defaultLlmName
 					return t("translate.why.noMemory64");
 				case "PROBE_FAILED":
 					return t("translate.why.probeFailed");
+				case "GPU_LOST":
+					return t("translate.why.gpuLost");
 				default:
 					return t("translate.why.noWebgpu");
 			}

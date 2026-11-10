@@ -511,6 +511,7 @@ const GPU_REASONS: readonly DeviceReason[] = [
 	"NO_ADAPTER",
 	"NO_F16",
 	"GPU_LIMITS",
+	"GPU_LOST",
 ];
 
 /**
@@ -590,7 +591,13 @@ function gpuBlock(
 	// OPUS-MT and NLLB-200 on the GPU: any WebGPU device with f16 whose
 	// largest binding holds the copy's biggest tensor; WebLLM's shader
 	// floors (GPU_LIMITS) and the language model's buffer rule do not apply.
-	for (const code of ["PROBE_FAILED", "INSECURE_ORIGIN", "NO_WEBGPU", "NO_ADAPTER"] as const) {
+	for (const code of [
+		"PROBE_FAILED",
+		"INSECURE_ORIGIN",
+		"NO_WEBGPU",
+		"NO_ADAPTER",
+		"GPU_LOST",
+	] as const) {
 		if (capability.reasons.includes(code)) {
 			return {kind: "device", reason: code};
 		}

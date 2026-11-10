@@ -34,7 +34,13 @@ export type CapabilityReason =
 	 */
 	| "NO_MEMORY64"
 	/** The probe itself threw: nothing could be measured (service.ts). */
-	| "PROBE_FAILED";
+	| "PROBE_FAILED"
+	/**
+	 * The GPU was lost under a translation on this device before (service.ts
+	 * `ServiceDeps.gpuMemory`): not a probe result but a remembered one, so
+	 * the models stay off it across reloads until Settings tries it again.
+	 */
+	| "GPU_LOST";
 
 export interface Capability {
 	tier: Tier;

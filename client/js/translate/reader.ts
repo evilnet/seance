@@ -81,6 +81,7 @@ import {
 } from "./index";
 import {considersLine, readsHere as readsRule, translationOffBlock} from "./switch";
 import {NO_ROUTE, type QueueItem, type QueueUpdate, TranslateQueue} from "./queue";
+import {applePackError} from "./service";
 import {sentReadBacks, takesReadBack} from "./sentReadBack";
 import {protect, stripCopiedNickPrefix} from "./spans";
 import {topicEntryId} from "./topic";
@@ -357,9 +358,24 @@ export function modelDevices(ref: ModelRef, exact = false): ModelDevices {
 	const block = (device: Device) =>
 		modelBlock(on(device), device, capability, switches, service.enabled);
 
+	const order = deviceOrder(ref, choice, capability);
+
+	// Under Auto the language model's CPU copy is the router's last way in
+	// where the GPU cannot run it (router.ts `cpuLastResort`): Settings says
+	// Auto runs it there.
+	if (
+		ref.family === "llm" &&
+		choice === "auto" &&
+		capability &&
+		!order.includes("cpu") &&
+		modelBlock(on("gpu"), "gpu", capability, {llm: true, opus: true, nllb: true}) !== null
+	) {
+		order.push("cpu");
+	}
+
 	return {
 		choice,
-		order: deviceOrder(ref, choice, capability),
+		order,
 		blocks: {gpu: block("gpu"), cpu: block("cpu")},
 	};
 }
@@ -469,11 +485,21 @@ export function pairVerdict(from: string | null, to: string): RouteVerdict {
 	const service = translateService();
 	const capability = store.state.translation.capability;
 	const {switches, devices} = serviceSettings();
-	const input = routeInput(capability, switches, devices, {
-		from,
-		to,
-		sourceLater: from === null,
-	});
+	const input = {
+		...routeInput(capability, switches, devices, {
+			from,
+			to,
+			sourceLater: from === null,
+		}),
+		// What is downloaded, as Settings last heard it: under Auto a
+		// downloaded copy answers first, and the language model's CPU copy
+		// runs only once it is downloaded (router.ts `walkDevices`), so a
+		// verdict without it would call such a pair unroutable.
+		cached: (ref: ModelRef, device: Device) =>
+			store.state.translation.models.some(
+				(view) => view.ref.id === ref.id && view.device === device && view.cached
+			),
+	};
 
 	if (!service.enabled || !capability) {
 		return {
@@ -564,7 +590,13 @@ function queueFor(network: ClientNetwork): TranslateQueue {
 			route: (from, to, hint) =>
 				service
 					.resolve(from, to, hint, {quiet: true})
-					.then(({route, refused, refusedDevice}) => {
+					.then(({route, refused, refusedDevice, applePack}) => {
+						// Apple's pack, ahead of any download of ours: the
+						// line offers it (TranslationLine.vue).
+						if (!route && applePack && (from ?? hint)) {
+							throw new Error(applePackError((from ?? hint) as string, to));
+						}
+
 						if (!route && refused) {
 							throw new Error(
 								needsDownloadError(refused, refusedDevice ?? undefined)

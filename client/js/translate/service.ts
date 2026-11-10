@@ -35,7 +35,7 @@ import {
 	TranslateRequest,
 	parseGpuLost,
 } from "./engine";
-import {AppleError, AppleTranslator} from "./engines/apple";
+import {AppleError, type AppleStatus, AppleTranslator} from "./engines/apple";
 import {ABORTED} from "./outgoing";
 import {
 	APPLE_REF,
@@ -144,6 +144,15 @@ export interface ServiceDeps {
 	 * for it (`ResolveOptions.quiet`): the reader offers it on the line.
 	 */
 	onApplePack?(from: string, to: string): void;
+	/**
+	 * The GPU lost under a translation on this device, remembered across
+	 * page loads (translate/index.ts keeps it in localStorage): while it
+	 * says lost, the probe's answer carries `GPU_LOST` and no model is
+	 * routed to the GPU (models.ts `modelBlock`). Absent, nothing is kept.
+	 */
+	gpuMemory?: {lost(): boolean; remember(): void; forget(): void};
+	/** The pair's pack is installed now: whatever offered it stops (applePacks.ts). */
+	onApplePackInstalled?(from: string, to: string): void;
 }
 
 /**
@@ -152,6 +161,27 @@ export interface ServiceDeps {
  * is not asked about (the request fails naming it, and the line offers
  * it) and the system translator's sheet is not opened (`onApplePack`).
  */
+/** The system translator's route: it runs outside the page, so its device is nominal. */
+const APPLE_ROUTE: Route = {candidate: "apple", ref: APPLE_REF, device: "cpu"};
+
+/**
+ * A request no route could take but the system translator would, once the
+ * pair's language pack is installed: `${APPLE_PACK_NEEDED}: <from>><to>`
+ * (`applePackError`). The line offers the pack instead of an error.
+ */
+export const APPLE_PACK_NEEDED = "apple language pack needed";
+
+export function applePackError(from: string, to: string): string {
+	return `${APPLE_PACK_NEEDED}: ${from}>${to}`;
+}
+
+/** The pair an `applePackError` names, or null for any other error. */
+export function parseApplePack(error: string): {from: string; to: string} | null {
+	const match = error.match(/^apple language pack needed: ([^>]+)>(.+)$/);
+
+	return match ? {from: match[1], to: match[2]} : null;
+}
+
 export interface ResolveOptions {
 	quiet?: boolean;
 }
@@ -165,6 +195,13 @@ export interface RouteResolution {
 	route: Route | null;
 	refused: ModelRef | null;
 	refusedDevice: Device | null;
+	/**
+	 * No route here takes the pair without a download the user has not
+	 * agreed to, and the system translator would once its language pack is
+	 * installed: the pack is the fix to offer (`APPLE_PACK_NEEDED`), ahead of
+	 * any model of ours.
+	 */
+	applePack?: boolean;
 }
 
 export interface ServiceOptions {
@@ -280,6 +317,8 @@ export class TranslateService {
 	private probed: Capability | null = null;
 	private selectedLlm: string | null = null;
 	private down = new Set<DownKey>();
+	/** The probe's own answer, before a remembered GPU loss was laid over it (`retryGpu`). */
+	private unmasked: Capability | null = null;
 	private idleTimer: unknown = null;
 	private inFlight = 0;
 	private nextId = 1;
@@ -575,7 +614,24 @@ export class TranslateService {
 						mobile: false,
 					})
 				)
-				.then((capability) => {
+				.then((probed) => {
+					// A GPU this device lost under a translation before is
+					// kept off, as if the probe had refused it, until
+					// Settings tries it again (`retryGpu`).
+					// The tier goes with it: no GPU model is picked for a GPU
+					// nothing runs on (models.ts `llmChoice`), so Auto's CPU
+					// copy is a model that has one.
+					this.unmasked = probed;
+
+					const capability: Capability =
+						this.deps.gpuMemory?.lost() && !probed.reasons.includes("GPU_LOST")
+							? {
+									...probed,
+									tier: probed.tier === "gpu" ? "cpu" : probed.tier,
+									reasons: [...probed.reasons, "GPU_LOST"],
+							  }
+							: probed;
+
 					this.probed = capability;
 					// An unset choice is the device's: now that the device
 					// has answered, the selection is resolved again.
@@ -586,6 +642,40 @@ export class TranslateService {
 		}
 
 		return this.capability;
+	}
+
+	/**
+	 * Settings' "Try the GPU again": the remembered GPU loss is forgotten
+	 * and the probe's answer stands again, GPU and all, for this page load
+	 * too: the language model's GPU copy marked down after the loss is
+	 * tried again, and Auto's way back to the GPU is the router's. Resolves
+	 * with the capability now, which the store is told (translate/index.ts).
+	 */
+	async retryGpu(): Promise<Capability> {
+		this.deps.gpuMemory?.forget();
+
+		const before = await this.capabilities();
+
+		if (this.disposed || !before.reasons.includes("GPU_LOST") || !this.unmasked) {
+			return before;
+		}
+
+		const capability = this.unmasked;
+
+		this.probed = capability;
+		this.capability = Promise.resolve(capability);
+
+		for (const key of [...this.down]) {
+			if (key.endsWith("@gpu")) {
+				this.down.delete(key);
+			}
+		}
+
+		this.applyLlmSelection();
+		this.probeLanded();
+		this.publish();
+
+		return capability;
 	}
 
 	/**
@@ -840,12 +930,55 @@ export class TranslateService {
 			return none;
 		}
 
-		if (!llmFirst) {
-			const apple = await this.appleRoute(from, to, hint, options.quiet === true);
+		if (llmFirst) {
+			return this.tableRoute(from, to, hint, options, prefer);
+		}
 
-			if (apple) {
-				return {route: apple, refused: null, refusedDevice: null};
+		const apple = await this.appleStatus(from, to, hint);
+
+		if (this.disposed) {
+			return none;
+		}
+
+		if (apple === "installed") {
+			// Installed since a line offered it: no line offers it any more.
+			this.deps.onApplePackInstalled?.((from ?? hint) as string, to);
+
+			return {route: APPLE_ROUTE, refused: null, refusedDevice: null};
+		}
+
+		if (apple !== "supported") {
+			return this.tableRoute(from, to, hint, options, prefer);
+		}
+
+		// The pack is downloadable (translation.md § The ladder, steps
+		// 2 and 3): what is on the device, or downloads
+		// without a question (a small CPU model), comes first; then the
+		// pack, ahead of any download that needs a yes (the language
+		// model's 1 GB). Reading never opens the system's sheet: a line the
+		// table translated offers the pack under it, and one it could not
+		// says the pack is what it needs (`applePack`). Anything else asked
+		// by name opens the sheet once (engines/apple.ts `offer`), and a
+		// declined sheet leaves the table, its download questions and all.
+		const source = (from ?? hint) as string;
+		const ready = await this.tableRoute(from, to, hint, {quiet: true}, prefer);
+
+		if (this.disposed || ready.route) {
+			if (ready.route && options.quiet) {
+				this.deps.onApplePack?.(source, to);
 			}
+
+			return ready;
+		}
+
+		if (options.quiet) {
+			return {...ready, applePack: true};
+		}
+
+		const allowed = () => !this.disposed && this.settings.system !== false;
+
+		if ((await this.deps.apple!.offer(source, to, allowed)) && allowed()) {
+			return {route: APPLE_ROUTE, refused: null, refusedDevice: null};
 		}
 
 		return this.tableRoute(from, to, hint, options, prefer);
@@ -997,19 +1130,18 @@ export class TranslateService {
 	}
 
 	/**
-	 * The system translator's route: there is one, it is switched on and not
-	 * down, the request has a source that is not its target (a polish is the
-	 * language model's alone, router.ts), and the pair's language pack is
-	 * installed, or downloaded when its sheet first offers it. Anything else
-	 * is the table's. Its `device` is only what the
-	 * route type asks for: the system's translator runs outside the page.
+	 * The system translator's word on this pair: null where it cannot take
+	 * it at all -- none here, switched off or down, no source, or a request
+	 * in one language (a polish is the language model's alone, router.ts) --
+	 * else whether its language pack is installed, downloadable or not
+	 * offered for the pair. The route it gives runs outside the page, so its
+	 * `device` is only what the route type asks for.
 	 */
-	private async appleRoute(
+	private async appleStatus(
 		from: string | null,
 		to: string,
-		hint: string | null,
-		quiet: boolean
-	): Promise<Route | null> {
+		hint: string | null
+	): Promise<AppleStatus | null> {
 		const apple = this.deps.apple;
 		const source = from ?? hint;
 
@@ -1022,35 +1154,11 @@ export class TranslateService {
 		}
 
 		const status = await apple.status(source, to);
-		// Asked again after every wait: the switch, or translation as a
-		// whole, may have gone off since, and a sheet the shell is handed
-		// cannot be taken back.
+		// Asked again after the wait: the switch, or translation as a whole,
+		// may have gone off since.
 		const allowed = () => !this.disposed && this.settings.system !== false;
 
-		if (!allowed()) {
-			return null;
-		}
-
-		if (status === "installed") {
-			return {candidate: "apple", ref: APPLE_REF, device: "cpu"};
-		}
-
-		if (status !== "supported") {
-			return null;
-		}
-
-		// Reading: the table translates the line now, and the reader offers
-		// the pack on it. Anything else asked for this translation by name:
-		// the pack is offered once (engines/apple.ts `offer`), the system's
-		// sheet, then the table if it is declined.
-		if (quiet) {
-			this.deps.onApplePack?.(source, to);
-			return null;
-		}
-
-		return (await apple.offer(source, to, allowed)) && allowed()
-			? {candidate: "apple", ref: APPLE_REF, device: "cpu"}
-			: null;
+		return allowed() ? status : null;
 	}
 
 	/**
@@ -1169,6 +1277,24 @@ export class TranslateService {
 		}
 
 		if (!this.cpuQuestion) {
+			// The CPU copy is already on the device: under Auto the router
+			// takes it once the GPU copy is down (router.ts `walkDevices`),
+			// so there is nothing to ask. The full-screen question over a
+			// copy the user had downloaded read as the app ignoring it.
+			// Recorded as a "this time" yes, unasked, so the carried-over
+			// request keeps the CPU's deadline bookkeeping (`fellBack`, the
+			// answer's fresh period) and Auto takes the CPU after the GPU for
+			// the session, as after a yes. No consent is granted: the copy
+			// is already there.
+			if (this.cpuFallbackDue(ref) && this.views.get(copyKey(ref, "cpu"))?.cached === true) {
+				this.ticks++;
+				this.cpuAnswers++;
+				this.cpuAnsweredAt = Date.now();
+				this.cpuFallback = "yes";
+
+				return Promise.resolve(true);
+			}
+
 			if (!this.cpuFallbackDue(ref)) {
 				return Promise.resolve(this.cpuFallback === "yes");
 			}
@@ -1310,6 +1436,11 @@ export class TranslateService {
 		// The fallback question answered during this call: an attempt on the
 		// CPU after it was carried over, its deadline armed for the GPU.
 		const answersAtStart = this.cpuAnswers;
+		// The language model's GPU copy failed earlier in this call, and the
+		// walk went on to its CPU copy: the caller armed the deadline for
+		// the GPU, whatever the fallback question says (a GPU download cut
+		// short asks nothing, and a downloaded CPU copy then takes over).
+		let leftGpu = false;
 		// A teardown (pagehide, unload all) while the route was still being
 		// resolved -- the first route asks the worker what is downloaded --
 		// ends this call like one during the translation itself, rather than
@@ -1340,7 +1471,7 @@ export class TranslateService {
 
 		try {
 			for (;;) {
-				const {route, refused, refusedDevice} = await this.resolve(
+				const {route, refused, refusedDevice, applePack} = await this.resolve(
 					request.from,
 					request.to,
 					hint,
@@ -1357,6 +1488,12 @@ export class TranslateService {
 
 				// "Not now" to the download this request needed: the reason
 				// names the model and its size (helpers/translateErrors.ts).
+				// Apple's pack would take it, ahead of the download any model
+				// of ours needs: the line offers the pack (TranslationLine.vue).
+				if (!route && applePack) {
+					throw new Error(applePackError((request.from ?? hint) as string, request.to));
+				}
+
 				if (!route && refused) {
 					throw new Error(needsDownloadError(refused, refusedDevice ?? undefined));
 				}
@@ -1517,10 +1654,12 @@ export class TranslateService {
 				// until the first one, an attempt carried over or starting the
 				// model cold is kept alive (`keepAlive`).
 				const fellBack =
-					llmId !== null && route.device === "cpu" && this.cpuFallback === "yes";
+					llmId !== null &&
+					route.device === "cpu" &&
+					(this.cpuFallback === "yes" || leftGpu);
 				const carriedOver = fellBack && this.cpuAnswers !== answersAtStart;
 				const alive =
-					fellBack && (carriedOver || cpuColdStart)
+					fellBack && (carriedOver || cpuColdStart || leftGpu)
 						? this.keepAlive(
 								() => yielded,
 								carriedOver ? this.cpuAnsweredAt : Date.now()
@@ -1576,6 +1715,19 @@ export class TranslateService {
 						throw e;
 					}
 
+					// The browser said the GPU was lost, whenever it happened:
+					// loading, before the first chunk or in the middle of the
+					// stream (WebLLM reports one under generation as the
+					// request failing, not the load). The next page load keeps
+					// the models off it (`ServiceDeps.gpuMemory`); this one has
+					// the down mark and the question below.
+					if (
+						route.device === "gpu" &&
+						parseGpuLost(e instanceof Error ? e.message : String(e)) !== null
+					) {
+						this.deps.gpuMemory?.remember();
+					}
+
 					if (yielded) {
 						throw e;
 					}
@@ -1610,6 +1762,10 @@ export class TranslateService {
 							!this.otherLlmStartedSince(llmId, llmSeq))
 					) {
 						this.down.add(`${route.candidate}@${route.device}`);
+
+						if (llmId && route.device === "gpu") {
+							leftGpu = true;
+						}
 
 						// The GPU ran it and stopped: the copy was on the device
 						// (or its download had finished), or the browser said

@@ -1143,7 +1143,10 @@ export default defineComponent({
 					v.status === "downloading"
 			);
 
-			return view ? loadNoteText(loadNote(view)) : "";
+			// Loaded and working, nothing streamed yet: a language model on
+			// the CPU can take many seconds to its first word, and the caret
+			// alone did not say anything was happening.
+			return view ? loadNoteText(loadNote(view)) : t("translate.strip.translating");
 		});
 
 		// Why it failed, beside "couldn't translate": an ORT session error or

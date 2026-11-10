@@ -27,7 +27,8 @@
 // then one line per copy (none on the GPU for OPUS-MT and NLLB-200): a GPU copy's Download
 // is disabled exactly where it cannot run and is described by that reason,
 // and "In use" marks a language model only where one can run. Under
-// --mobile every device is a phone (`userAgentData.mobile`): the 4B is
+// --mobile every device is a phone (`userAgentData.mobile`; with the Mac's
+// user agent and touch it also reads as an iPad, `appleMobile`): the 4B is
 // too large for its page and OPUS-MT's Auto picks the CPU. The composer's
 // translate dialog, opened on the
 // same language twice (the cleanup pass, LLM-only), shows the confirm
@@ -42,13 +43,18 @@
 // panel's notice up ("Translation can't run here right now." and both
 // switches named), disables the reading switch's On, disables the message toolbar's
 // Translate with the reason as its description, and disables German in the
-// composer's dialog. On noWebgpu, the CPU models off is the one switch named.
+// composer's dialog. Where the GPU cannot run the language model, its CPU
+// copy is Auto's last way in (router.ts cpuLastResort) but on a phone: there
+// the cleanup pass runs, "In use" marks the 1.7B, and on noWebgpu the CPU
+// models off puts up no notice until the language model is off too. On an
+// iPhone or iPad (--mobile reads as one) the CPU models off is the one
+// switch named.
 //
 // NLLB-200 (CC-BY-NC-4.0) is off until switched on, its licence line under
 // the switch on every device, its Run on still open where it can run, and on
-// noWebgpu English -> Japanese (no OPUS pair) is disabled in the composer's
-// dialog with "This needs NLLB-200, which is switched off …" until the switch
-// is turned on. The GPU model select greys a model this GPU cannot bind
+// noWebgpu English -> Japanese (no OPUS pair) is on offer through the
+// language model's CPU copy, or disabled on an iPad until the switch is
+// turned on. The GPU model select greys a model this GPU cannot bind
 // (binds128, binds160: the 4B, with a hint naming it and the buffer numbers) and no
 // other. Last, on the desktop device on a connection that saves data (so no
 // download is a quiet one, service.ts QUIET_DOWNLOAD_BYTES): a channel with
@@ -527,6 +533,15 @@ export default async function run(page) {
 		await openSettings();
 
 		const mobile = !!DEVICES[name].mobile || MOBILE;
+		// The language model's CPU copy is Auto's last way in where the GPU
+		// cannot run it (router.ts cpuLastResort; headless Chromium has
+		// Memory64), except on an iPhone or iPad, whose page it is too large
+		// for (models.ts cpuBlock, `appleMobile`). --mobile keeps the Mac's
+		// user agent with touch, which reads as an iPad; the phone device's
+		// Android user agent does not.
+		const appleMobile = MOBILE;
+		const lastResort = !appleMobile && !device.runs[SMALL];
+		const llmRuns = device.runs[SMALL] || lastResort;
 		const deviceLine = await page.evaluate(text(".translate-device-has"));
 		const hasGpu = DEVICES[name].gpu !== null;
 
@@ -562,9 +577,14 @@ export default async function run(page) {
 				};
 			})()`);
 		const autoSays = (family, verdicts) => {
+			// The language model: the GPU under Auto, and its CPU copy as the
+			// last way in where the GPU cannot run it (router.ts cpuLastResort;
+			// headless Chromium has Memory64).
 			const order =
 				family === "llm"
-					? ["gpu"]
+					? verdicts.gpu === null
+						? ["gpu"]
+						: ["gpu", "cpu"]
 					: family === "nllb"
 					? verdicts.gpu === null
 						? ["gpu", "cpu"]
@@ -588,6 +608,8 @@ export default async function run(page) {
 				return EN[
 					verdicts.gpu === null
 						? "translate.settings.autoPicksCpu"
+						: family === "llm"
+						? "translate.settings.autoPicksCpuNoGpuLlm"
 						: family === "nllb"
 						? "translate.settings.autoPicksCpuNoGpuNllb"
 						: "translate.settings.autoPicksCpuNoGpuOpus"
@@ -599,7 +621,10 @@ export default async function run(page) {
 			return verdicts[order[0]];
 		};
 		const families = {
-			llm: {gpu: device.runs[SMALL] ? null : device.why(SMALL), cpu: null},
+			llm: {
+				gpu: device.runs[SMALL] ? null : device.why(SMALL),
+				cpu: appleMobile ? EN["translate.why.phoneMemory"] : null,
+			},
 			opus: {gpu: device.seq2seqGpu ? device.seq2seqGpu() : null, cpu: null},
 			nllb: {gpu: device.nllbGpu ? device.nllbGpu() : null, cpu: null},
 		};
@@ -677,12 +702,17 @@ export default async function run(page) {
 				state.name ===
 					`${EN["translate.model.download"]} ${state.modelName} ${EN["translate.device.gpu"]}`
 			);
-			// Only the 1.7B has a CPU copy; it can be downloaded everywhere here.
+			// Only the 1.7B has a CPU copy; it can be downloaded everywhere
+			// here but on a phone, whose page it is too large for.
 			page.check(
 				`${name}: ${id} ${
-					id === SMALL ? "has an open CPU copy line" : "has no CPU copy line"
+					id !== SMALL
+						? "has no CPU copy line"
+						: appleMobile
+						? "has a disabled CPU copy line"
+						: "has an open CPU copy line"
 				}`,
-				id === SMALL ? state.cpuLine && state.cpuDisabled === false : !state.cpuLine
+				id === SMALL ? state.cpuLine && state.cpuDisabled === appleMobile : !state.cpuLine
 			);
 		}
 
@@ -690,7 +720,9 @@ export default async function run(page) {
 		const inUse = await page.evaluate(
 			`[...document.querySelectorAll(".translate-model-in-use")].map((el) => el.closest(".translate-model").dataset.model).join(",")`
 		);
-		const expectInUse = device.runs[SMALL] && !device.runs[LARGE] ? SMALL : undefined;
+		// The CPU last resort is the 1.7B (the 4B has no CPU copy).
+		const expectInUse =
+			(device.runs[SMALL] && !device.runs[LARGE]) || lastResort ? SMALL : undefined;
 
 		page.check(
 			`${name}: "In use" is on ${
@@ -780,7 +812,7 @@ export default async function run(page) {
 		// 2. The composer's dialog: what it opens on, the cleanup pass, German.
 		await openPicker();
 
-		const llm = device.runs[SMALL];
+		const llm = llmRuns;
 		const openedOn = await openedOnCode();
 		const opened = openedOn ? await rowState(openedOn) : {disabled: false};
 
@@ -927,20 +959,28 @@ export default async function run(page) {
 		await page.screenshot(`${name}-panel`);
 		await closePanel();
 
-		// NLLB-200's opt-in: English to Japanese has no OPUS pair, and this
-		// device runs no GPU model, so only NLLB could take it.
+		// English to Japanese has no OPUS pair, and this device runs no GPU
+		// model: with NLLB-200 off, the language model's CPU copy is Auto's
+		// last way in (router.ts cpuLastResort), so Japanese is on offer --
+		// but not on an iPhone or iPad, where nothing then translates it.
 		if (name === "noWebgpu") {
-			const japanese = EN["translate.pair.unavailable"]
-				.replace("{from}", "English")
-				.replace("{to}", "Japanese");
-
 			await openPicker();
 
 			const off = await rowState("ja");
 
 			page.check(
-				`noWebgpu, NLLB off: Japanese is disabled, NLLB named (${off.lead} / ${off.why})`,
-				off.disabled && off.lead === japanese && off.why === EN["translate.why.nllbOff"]
+				appleMobile
+					? `noWebgpu, NLLB off: Japanese is disabled on an iPad (${off.lead})`
+					: `noWebgpu, NLLB off: Japanese is on offer through the language model on the CPU (${
+							off.lead || "enabled"
+					  })`,
+				appleMobile
+					? off.disabled &&
+							off.lead ===
+								EN["translate.pair.unavailable"]
+									.replace("{from}", "English")
+									.replace("{to}", "Japanese")
+					: !off.disabled && off.lead === ""
 			);
 			await page.screenshot("noWebgpu-nllb-off-composer", {selector: PICKER, pad: 8});
 			await closePicker();
@@ -984,14 +1024,41 @@ export default async function run(page) {
 
 			const off = await panelState();
 
+			// The language model's CPU copy still runs here: no notice. On an
+			// iPhone or iPad it does not, and OPUS-MT's switch is the fix.
 			page.check(
-				`noWebgpu, CPU models off: the notice names the CPU switch (${off.banner})`,
-				off.banner.includes(EN["translate.unavailable.lead"]) &&
-					off.banner.includes(EN["translate.why.cpuOff"]) &&
-					off.bannerRole === "status"
+				appleMobile
+					? `noWebgpu, CPU models off: the notice names the CPU switch (${off.banner})`
+					: `noWebgpu, CPU models off: no notice, the language model's CPU copy serves (${off.banner})`,
+				appleMobile
+					? off.banner.includes(EN["translate.why.cpuOff"]) && off.bannerRole === "status"
+					: off.banner === ""
 			);
-			await page.screenshot("noWebgpu-cpu-off-panel");
 			await closePanel();
+			await openSettings();
+			await setSwitch("translateLlm", false);
+			await closeSettings();
+			await openPanel();
+
+			const none = await panelState();
+
+			// On an iPhone or iPad the language model's switch would not help: OPUS-MT's
+			// is still the one named.
+			page.check(
+				`noWebgpu, every engine off: the notice names ${
+					appleMobile ? "the CPU switch" : "both switches"
+				} (${none.banner})`,
+				none.banner.includes(EN["translate.unavailable.lead"]) &&
+					none.banner.includes(
+						EN[appleMobile ? "translate.why.cpuOff" : "translate.why.allOff"]
+					) &&
+					none.bannerRole === "status"
+			);
+			await page.screenshot("noWebgpu-all-off-panel");
+			await closePanel();
+			await openSettings();
+			await setSwitch("translateLlm", true);
+			await closeSettings();
 		}
 
 		if (name === "desktop") {
