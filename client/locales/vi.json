@@ -2463,7 +2463,6 @@
   "translate.model.percent": "{percent}%",
   "translate.model.smallBufferBuild": "GPU này nhận một bản dựng của mô hình dành cho bộ đệm đồ họa nhỏ: bộ đệm lớn nhất của nó là {size}.",
   "translate.pair.unavailable": "Không có gì trên thiết bị này dịch được từ {from} sang {to}.",
-  "translate.pair.unavailableInto": "Không có gì trên thiết bị này dịch được sang {to}.",
   "translate.panel.addLanguage": "Thêm ngôn ngữ…",
   "translate.panel.close": "Đóng",
   "translate.panel.heading": "Dịch",

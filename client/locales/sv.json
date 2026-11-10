@@ -2474,7 +2474,6 @@
   "translate.model.percent": "{percent}%",
   "translate.model.smallBufferBuild": "Den här GPU:n får en version av modellen gjord för små grafikbuffertar: dess största buffert är {size}.",
   "translate.pair.unavailable": "Inget på den här enheten kan översätta från {from} till {to}.",
-  "translate.pair.unavailableInto": "Inget på den här enheten kan översätta till {to}.",
   "translate.panel.addLanguage": "Lägg till ett språk…",
   "translate.panel.close": "Stäng",
   "translate.panel.heading": "Översättning",

@@ -2464,7 +2464,6 @@
   "translate.model.percent": "{percent}%",
   "translate.model.smallBufferBuild": "GPU นี้จะได้รุ่นของโมเดลที่ทำมาสำหรับบัฟเฟอร์กราฟิกขนาดเล็ก บัฟเฟอร์ที่ใหญ่ที่สุดของรุ่นนี้คือ {size}",
   "translate.pair.unavailable": "ไม่มีสิ่งใดบนอุปกรณ์นี้ที่แปลจาก{from}เป็น{to}ได้",
-  "translate.pair.unavailableInto": "ไม่มีสิ่งใดบนอุปกรณ์นี้ที่แปลเป็น{to}ได้",
   "translate.panel.addLanguage": "เพิ่มภาษา…",
   "translate.panel.close": "ปิด",
   "translate.panel.heading": "การแปล",

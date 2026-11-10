@@ -457,11 +457,11 @@ export default async function run(page) {
 	// Nothing picked on this channel yet: "They read" asks for a choice
 	// rather than naming one (translation is off here), with the
 	// interface's own language highlighted as the suggestion; "I write"
-	// starts as that language.
+	// starts on Detect, since the user named no source.
 	await page.check(
 		"the sheet asks for a language, suggesting the interface's own",
 		(await page.evaluate(sideValue(1))) === "Choose…" &&
-			(await page.evaluate(sideValue(0))) === "English" &&
+			(await page.evaluate(sideValue(0))) === "Detect automatically" &&
 			(await page.evaluate(`!!document.querySelector('${row("en")}.pending')`))
 	);
 	await page.check(

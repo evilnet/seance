@@ -2545,7 +2545,6 @@
   "translate.model.percent": "{percent}%",
   "translate.model.smallBufferBuild": "Acest GPU primește o versiune a modelului făcută pentru buffere grafice mici: cel mai mare buffer al ei are {size}.",
   "translate.pair.unavailable": "Nimic de pe acest dispozitiv nu poate traduce din {from} în {to}.",
-  "translate.pair.unavailableInto": "Nimic de pe acest dispozitiv nu poate traduce în {to}.",
   "translate.panel.addLanguage": "Adaugă o limbă…",
   "translate.panel.close": "Închide",
   "translate.panel.heading": "Traducere",

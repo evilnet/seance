@@ -2467,7 +2467,6 @@
   "translate.model.percent": "{percent}%",
   "translate.model.smallBufferBuild": "このGPUには、小さなグラフィックバッファ向けに作られたモデルのビルドが使われます。その最大バッファは{size}です。",
   "translate.pair.unavailable": "このデバイスには{from}から{to}に翻訳できるものがありません。",
-  "translate.pair.unavailableInto": "このデバイスには{to}に翻訳できるものがありません。",
   "translate.panel.addLanguage": "言語を追加…",
   "translate.panel.close": "閉じる",
   "translate.panel.heading": "翻訳",

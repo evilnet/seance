@@ -2461,7 +2461,6 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"translate.model.percent",
 	"translate.model.smallBufferBuild",
 	"translate.pair.unavailable",
-	"translate.pair.unavailableInto",
 	"translate.panel.addLanguage",
 	"translate.panel.close",
 	"translate.panel.heading",

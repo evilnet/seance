@@ -2682,7 +2682,6 @@
   "translate.model.percent": "{percent}%",
   "translate.model.smallBufferBuild": "Этот GPU получает версию модели для небольших графических буферов: её наибольший буфер — {size}.",
   "translate.pair.unavailable": "На этом устройстве нечем перевести с языка «{from}» на «{to}».",
-  "translate.pair.unavailableInto": "На этом устройстве нечем перевести на язык «{to}».",
   "translate.panel.addLanguage": "Добавить язык…",
   "translate.panel.close": "Закрыть",
   "translate.panel.heading": "Перевод",

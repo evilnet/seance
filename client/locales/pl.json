@@ -2657,7 +2657,6 @@
   "translate.model.percent": "{percent}%",
   "translate.model.smallBufferBuild": "Ten GPU otrzymuje wersję modelu przygotowaną dla małych buforów graficznych: jej największy bufor ma {size}.",
   "translate.pair.unavailable": "Nic na tym urządzeniu nie przetłumaczy: {from} → {to}.",
-  "translate.pair.unavailableInto": "Nic na tym urządzeniu nie przetłumaczy na język: {to}.",
   "translate.panel.addLanguage": "Dodaj język…",
   "translate.panel.close": "Zamknij",
   "translate.panel.heading": "Tłumaczenie",

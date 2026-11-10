@@ -14968,11 +14968,6 @@ msgctxt "translate.pair.unavailable"
 msgid "Nothing on this device can translate {from} into {to}."
 msgstr "이 기기에서는 {from}에서 {to}(으)로 번역할 수 있는 것이 없습니다."
 
-#. Lead sentence in the composer's language sheet when the source is 'Detect automatically' and no engine here translates into the chosen language; the reason follows as a sentence of its own. {to} is a language name, already in the interface language.
-#: client/components/ComposerLanguageSheet.vue
-msgctxt "translate.pair.unavailableInto"
-msgid "Nothing on this device can translate into {to}."
-msgstr "이 기기에서는 {to}(으)로 번역할 수 있는 것이 없습니다."
 
 #. The placeholder option of the picker that adds a language to the list of languages spoken in this conversation, in the translation panel.
 #: client/components/TranslationPanel.vue
