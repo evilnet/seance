@@ -1877,12 +1877,16 @@ html[data-reduce-motion] .channel-list-item.has-activity:not(.is-typing)::before
 	line-height: 1;
 }
 
+/* The count is sized off the row's own text, not the root, so it stays shorter
+ * than the name's line (0.75em of text plus 0.25em above and below is 1.125em,
+ * a line is about 1.2em) and never makes its row taller than an unread-free
+ * one, whatever size a platform or theme gives the row. */
 .channel-list-item .badge {
 	background: rgb(255 255 255 / 6%);
 	border-radius: 3px;
 	color: #afb6c0;
-	font-size: 0.75rem;
-	padding: 0.3em 0.5em;
+	font-size: 0.75em;
+	padding: 0.25em 0.5em;
 	transition: background-color 0.2s, color 0.2s;
 }
 
@@ -10320,8 +10324,11 @@ html[data-reduce-motion] #form .upload-bar-track.indeterminate .upload-bar-fill 
 }
 
 /* The Mac app's sizes (data-platform="macos", set before the first paint by
- * loading-error-handlers.js): menus and the sidebar's rows at AppKit's
- * metrics, 13px text in 22px menu items and 26px rows, whatever the theme.
+ * loading-error-handlers.js): menus at AppKit's metrics, 13px text in 22px
+ * items, and the sidebar's rows AppKit's shape, whatever the theme. A row's
+ * name is the messages' size, not AppKit's 13px: the chat's text stays at the
+ * web's 1rem, and a source list smaller than the conversation it lists is not
+ * what Slack, Discord, Element or Mail do.
  * Only sizes and shapes: colours stay the theme's. Every selector is the base
  * rule's own wrapped in :where(), so it has the base rule's weight; it wins
  * over style.css because it comes later, and a theme that sets the same
@@ -10361,7 +10368,6 @@ html[data-reduce-motion] #form .upload-bar-track.indeterminate .upload-bar-fill 
 }
 
 :where(html[data-platform="macos"]) .channel-list-item {
-	font-size: 0.8125rem;
 	padding-block: 0.3125rem;
 	padding-inline: 0.5rem;
 	margin-inline: 0.625rem;
