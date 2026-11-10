@@ -34,7 +34,13 @@ app: the root service worker isolates no document while translation is off
 so no device probe, no worker, no download or "The GPU stopped" question --
 and `translateService()` throws if anything asks it then (every caller is
 behind `translationOn()`; `activeService()` reads the running one without
-making it). Nor does a reason's wording make one: the model a reason names
+making it). The service is made by whatever asks first, which on a cold
+load is a component's computed (Chat.vue `translationAvailable`), so it is
+made in a scope of its own (`helpers/detachedScope.ts` `runDetached`): the
+watches it registers -- the engine switches, the devices, the model --
+otherwise belonged to that component and stopped when it unmounted
+(Settings opening closes the chat), and the service never heard a switch
+again. Nor does a reason's wording make one: the model a reason names
 comes from the running service, or without one from the configuration
 (`index.ts` `configuredCatalog`, `reader.ts` `liveCatalog`), and while off
 `currentTranslationBlock` and `pairVerdict` answer `{kind: "disabled"}`
@@ -88,11 +94,14 @@ neither the others nor the destroy -- the channels resumed) and
 `test/translate/service.ts` "switched off by the user" (the stop over a
 real service and queue: every line dropped, none failed, no pause, the
 worker terminated; a disposed service routing nothing and asking no
-question), `test/translate/outgoing.ts`
+question), `test/helpers/detachedScope.ts` (a watch outlives the scope it
+was made in), `test/translate/outgoing.ts`
 `firstEnterTranslates`; browser check `tools/scenarios/translate-off.mjs`
 (also `--mobile`: no surface, no worker fetched, no Worker made, no GPU asked
 for on a cold load or a language change; on and off again without a
-reload). Every other translation scenario switches translation on first
+reload), and `tools/scenarios/translate-switches.mjs` (every engine
+switched off in Settings, with the chat view unmounted, and a new line finds
+no engine). Every other translation scenario switches translation on first
 (`tools/scenarios/lib/translation.mjs`).
 
 ## Two engines, one router

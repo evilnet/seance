@@ -45,6 +45,7 @@ import {KEEP, t} from "../i18n/core";
 import friendlysize from "../helpers/friendlysize";
 import {modelDisplayName} from "../helpers/translateWhy";
 import {clearPacks, notePack} from "./applePacks";
+import {runDetached} from "../helpers/detachedScope";
 
 // Captured at module load (vue.ts imports the router, which statically
 // imports Settings/Translation.vue, before `boot()` runs) rather than read
@@ -84,7 +85,16 @@ interface Made {
 
 const gate = new TranslationSwitch<Made>({
 	on: translationOn,
-	create,
+	// Made by whatever asks first, often a component's computed (Chat.vue's
+	// `translationAvailable`): in a scope of its own, or every watch
+	// create() registers would stop when that component unmounts (Settings
+	// opening closes the chat) and the service would never hear a switch.
+	create() {
+		const {value: made, stop} = runDetached(create);
+
+		made.undo.push(stop);
+		return made;
+	},
 	destroy(made) {
 		for (const undo of made.undo) {
 			undo();
