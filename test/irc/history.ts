@@ -967,9 +967,11 @@ describe("Chat history (history.ts)", function () {
 	describe("catch-up after a reconnect", function () {
 		function reconnect(
 			h: Harness,
-			isupport = "CHATHISTORY=100 MSGREFTYPES=timestamp,msgid"
+			isupport = "CHATHISTORY=100 MSGREFTYPES=timestamp,msgid",
+			whileDown?: () => void
 		): string[] {
 			h.transport.closed();
+			whileDown?.();
 			dispatch.resetHistory();
 			h.client.connect();
 			h.transport.open();
@@ -1339,6 +1341,73 @@ describe("Chat history (history.ts)", function () {
 					.map((p) => p.msg.text)
 					.slice(-2)
 			).to.deep.equal(["older", "one"]);
+		});
+
+		describe("our clock ahead of the server's", function () {
+			/** A line typed while the socket is down: a local error, stamped by our clock at 12:40. */
+			function typedWhileDown(h: Harness, id: number): () => void {
+				return () => {
+					clock.setSystemTime(new Date("2026-08-25T12:40:00.000Z"));
+					socket.emit("input", {target: id, text: "anyone?"});
+				};
+			}
+
+			/** The newest page of the gap; every line in it is older than our local line. */
+			const NEWEST_PAGE = [
+				"@time=2026-08-25T12:16:00.000Z;msgid=g2 :bob!bob@host PRIVMSG #seance :two",
+				"@time=2026-08-25T12:17:00.000Z;msgid=g3 :bob!bob@host PRIVMSG #seance :three",
+			];
+
+			it("a local line does not set the floor: the walk goes on to what the server stamped", function () {
+				const h = setup({isupport: "CHATHISTORY=2 MSGREFTYPES=timestamp,msgid"});
+				const id = joined(h);
+				h.transport.line(
+					"@msgid=seen;time=2026-08-25T12:10:00.000Z :bob!bob@host PRIVMSG #seance :x"
+				);
+
+				const sent = reconnect(
+					h,
+					"CHATHISTORY=2 MSGREFTYPES=timestamp,msgid",
+					typedWhileDown(h, id)
+				);
+				const chan = h.client.findChannel("#seance")!;
+				// Our 12:40 error is the newest line held, ahead of the 12:30 JOIN.
+				expect(chan.newestRef?.msgid).to.equal(undefined);
+				reply(h, sent, NEWEST_PAGE);
+
+				// 12:16 is older than our 12:40 error, but newer than `seen`:
+				// the gap is not closed yet.
+				const next = h.sent();
+				expect(next[0]).to.match(/CHATHISTORY BEFORE #seance msgid=g2 2$/);
+				reply(h, next, [
+					"@time=2026-08-25T12:10:00.000Z;msgid=seen :bob!bob@host PRIVMSG #seance :x",
+					"@time=2026-08-25T12:15:00.000Z;msgid=g1 :bob!bob@host PRIVMSG #seance :one",
+				]);
+
+				expect(h.sent()).to.deep.equal([]);
+				expect(
+					msgs(id)
+						.map((p) => p.msg.text)
+						.slice(-3)
+				).to.deep.equal(["one", "two", "three"]);
+				expect(chan.historyFilled).to.equal(true);
+			});
+
+			it("nor for the active channel, whose fetch goes out with the JOIN", function () {
+				const h = setup({isupport: "CHATHISTORY=2 MSGREFTYPES=timestamp,msgid"});
+				const id = joined(h);
+				h.client.open(id);
+				h.transport.line(
+					"@msgid=seen;time=2026-08-25T12:10:00.000Z :bob!bob@host PRIVMSG #seance :x"
+				);
+
+				reconnect(h, "CHATHISTORY=2 MSGREFTYPES=timestamp,msgid", typedWhileDown(h, id));
+				const fetch = h.transport.sent.filter((l) => l.includes("CHATHISTORY")).at(-1);
+				expect(fetch).to.match(/CHATHISTORY LATEST #seance \* 2$/);
+				reply(h, [fetch!], NEWEST_PAGE);
+
+				expect(h.sent()[0]).to.match(/CHATHISTORY BEFORE #seance msgid=g2 2$/);
+			});
 		});
 
 		it("delivers the pages already gathered when a later one fails", function () {
