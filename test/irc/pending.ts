@@ -8,7 +8,7 @@
 import {expect} from "chai";
 import sinon from "sinon";
 import socket from "../../client/js/socket";
-import {PENDING_TIMEOUT_MS} from "../../client/js/irc/pending";
+import {PENDING_TIMEOUT_MS, resetPending} from "../../client/js/irc/pending";
 import {batchCooldownMs} from "../../client/js/irc/multiline";
 import {replyTags} from "../../client/js/irc/wire";
 import {MessageType, SharedMsg} from "../../shared/types/msg";
@@ -386,6 +386,21 @@ describe("Pending outgoing messages (irc/pending.ts)", function () {
 			expect(h.messages(id).filter((m) => m.text === "hello" && !m.pending)).to.have.length(
 				2
 			);
+		});
+
+		it("forgets that the server labels echoes when the connection closes", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.sendMessage("#seance", "first");
+			h.transport.line("@label=s1;msgid=m1 :alice!alice@host.example PRIVMSG #seance :first");
+
+			// The next connection may reach a server that does not relay labels.
+			resetPending(h.client, "connection lost");
+			h.client.sendMessage("#seance", "hello");
+			const copy = h.lastMessage(id);
+
+			h.transport.line("@msgid=m2 :alice!alice@host.example PRIVMSG #seance :hello");
+			expect(settled(h).map((s) => s.id)).to.include(copy.id);
 		});
 
 		it("shows a line once when the same msgid arrives twice (a message to ourselves)", function () {

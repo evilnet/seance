@@ -291,9 +291,14 @@ export function settlePendingLabel(client: IrcClient, label: string): boolean {
 
 /** Report everything still waiting as not sent (the connection closed). */
 export function resetPending(client: IrcClient, reason: string): void {
-	for (const entry of [...registryOf(client).entries]) {
+	const registry = registryOf(client);
+
+	for (const entry of [...registry.entries]) {
 		failPending(client, entry, reason);
 	}
+
+	// The next connection may reach a server that does not relay labels.
+	registry.labelledEchoes = false;
 }
 
 /** Whether any copy is waiting (tests / diagnostics). */
