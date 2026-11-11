@@ -42,6 +42,7 @@
 import {ChanType} from "../../../shared/types/chan";
 import type {SharedMsg} from "../../../shared/types/msg";
 import type {Channel, MsgRef} from "./channel";
+import type {IdBlock} from "./ids";
 import type {IrcClient, ReplayCollection} from "./client";
 import type {BatchHandler} from "./handlers/batch";
 import {countPageUnread, scheduleMarkRead} from "./handlers/markread";
@@ -63,6 +64,13 @@ export const MORE_PAGE_SIZE = 100;
 export const JOIN_PAGE_SIZE = 50;
 /** Most pages fetched in one catch-up (LATEST plus BEFORE pages). */
 const MAX_CATCHUP_PAGES = 5;
+/**
+ * Ids set aside for one catch-up's gap (`IrcClient.reserveIds`): the walk
+ * brings at most pages × page size, and the cursor's replay, every target's
+ * together, would have to be this long to run out. Past that, lines take
+ * ordinary ids and land after the live ones, as every gap did before.
+ */
+export const GAP_IDS = 1_000_000;
 /** Clock-skew allowance when deciding a page has reached what we already
  * held (the spec's FUZZ_INTERVAL, "perhaps 1 to 10 seconds"). */
 export const CATCHUP_FUZZ_MS = 5_000;
@@ -89,6 +97,8 @@ export interface HistorySpec {
 	held?: ReadonlySet<string>;
 	/** Re-issue after a reconnect when the answer never came (the `more` pages). */
 	retry?: boolean;
+	/** Catch-up: ids for the gap, set aside when it started (`IrcClient.reserveIds`). */
+	ids?: IdBlock;
 }
 
 export interface HistoryRequest {
@@ -121,6 +131,8 @@ export interface HistoryRequest {
 	gap: SharedMsg[];
 	/** Catch-up: post-delivery work of the gathered pages, in the same order. */
 	gapAfter: (() => void)[];
+	/** Catch-up: the gap's ids (HistorySpec.ids). */
+	ids?: IdBlock;
 	timer: ReturnType<typeof setTimeout>;
 }
 
@@ -220,6 +232,7 @@ export function requestHistory(
 		pagesLeft: spec.pagesLeft ?? 0,
 		floor: spec.floor,
 		held: spec.held,
+		ids: spec.ids,
 		gap: [],
 		gapAfter: [],
 		timer: setTimeout(() => resolve(client, request, null, "timeout"), HISTORY_TIMEOUT_MS),
@@ -293,7 +306,8 @@ export function requestChannelHistory(
 	client: IrcClient,
 	chan: Channel,
 	before: MsgRef | undefined,
-	held?: ReadonlySet<string>
+	held?: ReadonlySet<string>,
+	ids?: IdBlock
 ): HistoryRequest | undefined {
 	if (chan.historyRequested && before) {
 		return requestHistory(client, chan, {
@@ -303,6 +317,7 @@ export function requestChannelHistory(
 			pagesLeft: MAX_CATCHUP_PAGES - 1,
 			floor: before,
 			held: held ?? new Set(chan.msgids),
+			ids,
 		});
 	}
 
@@ -522,11 +537,16 @@ function deliverPrepend(
 }
 
 /** Append catch-up messages as live ones: counted as unread, never notified. */
-function deliverAppend(client: IrcClient, chan: Channel, messages: SharedMsg[]): void {
+function deliverAppend(
+	client: IrcClient,
+	chan: Channel,
+	messages: SharedMsg[],
+	ids: IdBlock | undefined
+): void {
 	for (const msg of messages) {
 		// pushMessage copies; write the id back so post-replay work
 		// (`afterReplay` closures hold the collected objects) can find it.
-		msg.id = client.pushMessage(chan, msg, false, {replay: true}).id;
+		msg.id = client.pushMessage(chan, msg, false, {replay: true, ids}).id;
 	}
 
 	// Unread against this device's read point only: another device may have
@@ -617,6 +637,7 @@ function resolve(
 				pagesLeft: request.pagesLeft - 1,
 				floor: request.floor,
 				held: request.held,
+				ids: request.ids,
 			};
 			const {gap, gapAfter} = request;
 			const job = {
@@ -631,7 +652,7 @@ function resolve(
 						return;
 					}
 
-					deliverAppend(client, chan, gap);
+					deliverAppend(client, chan, gap, spec.ids);
 					runAfter(gapAfter);
 				},
 			};
@@ -657,7 +678,7 @@ function resolve(
 			chan.historyFilled = true;
 		}
 
-		deliverAppend(client, chan, request.gap);
+		deliverAppend(client, chan, request.gap, request.ids);
 		runAfter(request.gapAfter);
 		return;
 	}
@@ -752,7 +773,7 @@ function deliverCatchup(client: IrcClient, target: string, lines: IrcMessage[]):
 	}
 
 	const {messages, after} = replay(client, chan, lines);
-	deliverAppend(client, chan, messages);
+	deliverAppend(client, chan, messages, client.replayIds);
 	runAfter(after);
 }
 

@@ -28,6 +28,7 @@
 
 import {ChanState, ChanType} from "../../../shared/types/chan";
 import type {Channel, MsgRef} from "./channel";
+import type {IdBlock} from "./ids";
 import type {IrcClient} from "./client";
 import type {BatchHandler} from "./handlers/batch";
 import {fetchReadMarker, markReadEnabled} from "./handlers/markread";
@@ -72,6 +73,8 @@ interface PendingCatchup {
 	chan: Channel;
 	/** The channel's newest known message before this JOIN (reconnect catch-up). */
 	before: MsgRef | undefined;
+	/** Ids for the reconnect's gap, set aside at the JOIN ({@link gapIds}). */
+	ids: IdBlock | undefined;
 	/** History + marker already went out with the JOIN; only the modes are left. */
 	prefetched: boolean;
 	/**
@@ -156,7 +159,17 @@ export function pendingCatchup(client: IrcClient): readonly Channel[] {
  */
 export function prefetchCatchup(client: IrcClient, chan: Channel): void {
 	chan.catchupPrefetched = true;
-	fetchFor(client, chan, chan.catchupRef());
+	fetchFor(client, chan, chan.catchupRef(), undefined, gapIds(client, chan, chan.catchupRef()));
+}
+
+/**
+ * A reconnect's gap is delivered after the lines relayed while it is
+ * fetched, but goes above them: its ids are set aside when the catch-up
+ * starts, before any of those lines (IdAllocator.reserve). None for a
+ * first fill, which is a history page.
+ */
+function gapIds(client: IrcClient, chan: Channel, before: MsgRef | undefined): IdBlock | undefined {
+	return chan.historyRequested && before ? client.reserveIds() : undefined;
 }
 
 /**
@@ -181,7 +194,14 @@ export function enqueueCatchup(
 		const queued = takePending(client, chan);
 
 		if (!prefetched) {
-			fetchFor(client, chan, before ?? queued?.before, before ? heldIds : queued?.heldIds);
+			const from = before ?? queued?.before;
+			fetchFor(
+				client,
+				chan,
+				from,
+				before ? heldIds : queued?.heldIds,
+				gapIds(client, chan, from)
+			);
 		}
 
 		queueModes(client, chan);
@@ -192,7 +212,8 @@ export function enqueueCatchup(
 		return; // nothing left to ask for: the modes wait for the first open
 	}
 
-	const pending: PendingCatchup = {chan, before, prefetched, held, heldIds};
+	const ids = prefetched ? undefined : gapIds(client, chan, before);
+	const pending: PendingCatchup = {chan, before, ids, prefetched, held, heldIds};
 
 	if (parkForTargets(client, pending)) {
 		return;
@@ -440,7 +461,7 @@ function step(client: IrcClient, next: PendingCatchup): void {
 	}
 
 	if (!next.prefetched) {
-		fetchFor(client, next.chan, next.before, next.heldIds, !next.markerQueued);
+		fetchFor(client, next.chan, next.before, next.heldIds, next.ids, !next.markerQueued);
 	}
 
 	if (next.chan.id === client.activeChannelId) {
@@ -452,7 +473,8 @@ function fetchFor(
 	client: IrcClient,
 	chan: Channel,
 	before: MsgRef | undefined,
-	heldIds?: ReadonlySet<string>,
+	heldIds: ReadonlySet<string> | undefined,
+	ids: IdBlock | undefined,
 	marker = true
 ): void {
 	// nefarious2 volunteers the marker after a logged-in account's JOIN (`*`
@@ -465,7 +487,7 @@ function fetchFor(
 		fetchReadMarker(client, chan);
 	}
 
-	requestChannelHistory(client, chan, before, heldIds);
+	requestChannelHistory(client, chan, before, heldIds, ids);
 
 	retryLostHistory(client, chan);
 }
