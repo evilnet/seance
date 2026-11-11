@@ -3097,7 +3097,7 @@ export class IrcClient {
 			this.isSelf(msg.source.name);
 		const joinName = selfJoin ? msg.params[0] ?? "" : "";
 		const joined = selfJoin ? this.findChannel(joinName) : undefined;
-		const beforeJoin: MsgRef | undefined = selfJoin ? joined?.newestServerRef() : undefined;
+		const beforeJoin: MsgRef | undefined = selfJoin ? joined?.catchupRef() : undefined;
 		// Only once history has filled it: before that, its newest stamped line
 		// can be our own previous JOIN, with the scrollback never fetched.
 		const heldBeforeJoin: MsgRef | undefined =

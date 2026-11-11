@@ -1406,8 +1406,58 @@ describe("Chat history (history.ts)", function () {
 				expect(fetch).to.match(/CHATHISTORY LATEST #seance \* 2$/);
 				reply(h, [fetch!], NEWEST_PAGE);
 
-				expect(h.sent()[0]).to.match(/CHATHISTORY BEFORE #seance msgid=g2 2$/);
+				const next = h.sent();
+				expect(next[0]).to.match(/CHATHISTORY BEFORE #seance msgid=g2 2$/);
+				reply(h, next, [
+					"@time=2026-08-25T12:10:00.000Z;msgid=seen :bob!bob@host PRIVMSG #seance :x",
+					"@time=2026-08-25T12:15:00.000Z;msgid=g1 :bob!bob@host PRIVMSG #seance :one",
+				]);
+
+				expect(h.sent()).to.deep.equal([]);
+				expect(
+					msgs(id)
+						.map((p) => p.msg.text)
+						.slice(-3)
+				).to.deep.equal(["one", "two", "three"]);
+				expect(h.client.findChannel("#seance")!.historyFilled).to.equal(true);
 			});
+		});
+
+		it("walks the gap on a server without msgids, from the newest line held", function () {
+			const h = setup({isupport: "CHATHISTORY=2 MSGREFTYPES=timestamp"});
+			h.transport.lines(
+				"@time=2026-08-25T12:00:00.000Z :alice!alice@host JOIN #seance",
+				":irc.test 353 alice = #seance :@alice bob",
+				":irc.test 366 alice #seance :End of /NAMES list."
+			);
+			reply(h, h.sent(), []);
+			const id = h.chan();
+			h.transport.line("@time=2026-08-25T12:10:00.000Z :bob!bob@host PRIVMSG #seance :x");
+
+			const sent = reconnect(h, "CHATHISTORY=2 MSGREFTYPES=timestamp");
+			reply(h, sent, [
+				"@time=2026-08-25T12:16:00.000Z :bob!bob@host PRIVMSG #seance :two",
+				"@time=2026-08-25T12:17:00.000Z :bob!bob@host PRIVMSG #seance :three",
+			]);
+
+			// Appended and walked, not a first fill put above what we hold.
+			expect(mores(id)).to.have.length(0);
+			const next = h.sent();
+			expect(next[0]).to.match(
+				/CHATHISTORY BEFORE #seance timestamp=2026-08-25T12:16:00.000Z 2$/
+			);
+			reply(h, next, [
+				"@time=2026-08-25T12:09:00.000Z :bob!bob@host PRIVMSG #seance :older",
+				"@time=2026-08-25T12:15:00.000Z :bob!bob@host PRIVMSG #seance :one",
+			]);
+
+			expect(h.sent()).to.deep.equal([]);
+			expect(
+				msgs(id)
+					.map((p) => p.msg.text)
+					.slice(-3)
+			).to.deep.equal(["one", "two", "three"]);
+			expect(h.client.findChannel("#seance")!.historyFilled).to.equal(true);
 		});
 
 		it("delivers the pages already gathered when a later one fails", function () {
