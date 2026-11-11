@@ -69,6 +69,8 @@ interface Registry {
 	entries: PendingMessage[];
 	/** Counter behind {@link pendingLabel}. */
 	labels: number;
+	/** The server has put our label on an echo: it relays labels, so an unlabelled line of ours is not our echo. */
+	labelledEchoes: boolean;
 }
 
 const registries = new WeakMap<IrcClient, Registry>();
@@ -77,7 +79,7 @@ function registryOf(client: IrcClient): Registry {
 	let registry = registries.get(client);
 
 	if (!registry) {
-		registry = {entries: [], labels: 0};
+		registry = {entries: [], labels: 0, labelledEchoes: false};
 		registries.set(client, registry);
 	}
 
@@ -200,13 +202,13 @@ export function settleEcho(
 	type: MessageType,
 	text: string
 ): PendingMessage | undefined {
-	const entries = registryOf(client).entries;
+	const registry = registryOf(client);
 	const label = msg.tags.get("label");
 
 	// The label is the exact match — but only when the server relays it on the
 	// echo, which the spec does not require of a propagated echo-message copy
 	// and not every server does. So it is a fast path, not the only one.
-	let entry = label ? entries.find((e) => e.label === label) : undefined;
+	let entry = label ? byLabel(client, label) : undefined;
 
 	// A label that is present decides. One that names no copy answers a line
 	// we hold no copy of (it timed out, or never had one), so it settles
@@ -215,12 +217,18 @@ export function settleEcho(
 		return undefined;
 	}
 
-	if (!entry) {
+	if (entry) {
+		registry.labelledEchoes = true;
+	} else {
 		// No usable label. Our echoes carry the text we sent, so match a copy
-		// of the same kind in this channel by exact text. That is what keeps a
-		// self message we never sent — the same account on another device —
-		// from settling anything: it matches none of our copies.
-		const kind = entries.filter((e) => e.chan === chan && e.type === type);
+		// of the same kind in this channel by exact text: a self message we
+		// never sent (the same account on another device) matches none. Once
+		// this server has labelled an echo of ours, a copy that went out with
+		// a label waits for its labelled echo; an unlabelled line is not it
+		// (another device, or a message to ourselves delivered back).
+		const kind = registry.entries.filter(
+			(e) => e.chan === chan && e.type === type && !(registry.labelledEchoes && e.label)
+		);
 		entry = kind.find((e) => e.text === text);
 
 		// A server with no `labeled-response` at all can also alter the text
@@ -255,6 +263,33 @@ export function failPendingLabel(client: IrcClient, label: string, reason: strin
 	return true;
 }
 
+/**
+ * An unlabelled 404 for `channel` on a server without `labeled-response`:
+ * it fails a copy only when exactly one PRIVMSG / ACTION that has gone out
+ * waits there. With two or more, nothing says which the server refused, and
+ * failing the wrong one would let the other's echo confirm it. (A 401 can
+ * answer WHOIS as well, and a NOTICE rarely draws an error.) Returns whether
+ * one was failed.
+ */
+export function failPendingTarget(client: IrcClient, channel: string, reason: string): boolean {
+	const chan = client.findChannel(channel);
+
+	if (!chan || client.caps.hasCapability("labeled-response")) {
+		return false;
+	}
+
+	const waiting = registryOf(client).entries.filter(
+		(e) => e.chan === chan && e.type !== MessageType.NOTICE && e.timer !== undefined
+	);
+
+	if (waiting.length !== 1) {
+		return false;
+	}
+
+	failPending(client, waiting[0], reason);
+	return true;
+}
+
 /** A labelled `ACK`: the server took the line and has nothing to echo. */
 export function settlePendingLabel(client: IrcClient, label: string): boolean {
 	const entry = byLabel(client, label);
@@ -263,9 +298,14 @@ export function settlePendingLabel(client: IrcClient, label: string): boolean {
 
 /** Report everything still waiting as not sent (the connection closed). */
 export function resetPending(client: IrcClient, reason: string): void {
-	for (const entry of [...registryOf(client).entries]) {
+	const registry = registryOf(client);
+
+	for (const entry of [...registry.entries]) {
 		failPending(client, entry, reason);
 	}
+
+	// The next connection may reach a server that does not relay labels.
+	registry.labelledEchoes = false;
 }
 
 /** Whether any copy is waiting (tests / diagnostics). */

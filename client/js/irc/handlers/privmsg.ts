@@ -282,6 +282,20 @@ function handleMessage(
 		languageFieldsOf((name) => msg.tags.get(name))
 	);
 
+	// A live message of ours is the echo of one we sent: its pending copy
+	// comes down before the real one goes in (bus-contract §1.9).
+	if (self && !client.replaying) {
+		settleEcho(client, chan, msg, type, text);
+	}
+
+	// A live msgid the channel already shows is the same message again: a
+	// message to ourselves comes back as both the echo and the delivered
+	// copy. (A replay has its own msgid dedupe in history.ts, and a search
+	// must still hit a line the channel shows.)
+	if (msgid && !client.replaying && chan.idOf(msgid) !== undefined) {
+		return;
+	}
+
 	// The original leaves the inbox, loaded or not; the inbox checks that
 	// the edit's sender wrote it (`by`). The edit brings its own entry if it
 	// still mentions us.
@@ -292,12 +306,6 @@ function handleMessage(
 			msgid: editOf,
 			by: nick,
 		});
-	}
-
-	// A live message of ours is the echo of one we sent: its pending copy
-	// comes down before the real one goes in (bus-contract §1.9).
-	if (self && !client.replaying) {
-		settleEcho(client, chan, msg, type, text);
 	}
 
 	// An edit of a loaded message takes that message's place in the list
