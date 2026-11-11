@@ -175,6 +175,8 @@ interface ServerToClientEvents {
 	}>;
 	/** A REDACT resolved to the loaded message it targets. */
 	"msg:redact": EventHandler<{chan: number; id: number; by: string; reason?: string; time: Date}>;
+	/** Rows the device's cache restored that the server's history did not confirm: take them out (irc/historycache.ts). */
+	"msg:drop": EventHandler<{chan: number; ids: number[]}>;
 	/** Message `id` (already delivered via `msg`) replaces message `replaces`. */
 	"msg:edit": EventHandler<{chan: number; id: number; replaces: number}>;
 	/**

@@ -50,6 +50,7 @@ import {formatLine, IrcMessage} from "./message";
 import {searchAck, searchContextBatch} from "./historysearch";
 import {settlePendingLabel} from "./pending";
 import {inBouncerReplay, inServerCatchup} from "./persistence";
+import {toLogged} from "./querylog";
 import type {Handler} from "./types";
 
 /** How long to wait for the server before answering `more` with nothing. */
@@ -292,11 +293,19 @@ export function requestChannelHistory(
 		});
 	}
 
-	return requestHistory(client, chan, {
+	const request = requestHistory(client, chan, {
 		subcommand: "LATEST",
 		limit: JOIN_PAGE_SIZE,
 		mode: "prepend",
 	});
+
+	if (!request) {
+		// No page will ever stand in for what the device's cache showed.
+		chan.firstFillAnswered = true;
+		dropCached(client, chan);
+	}
+
+	return request;
 }
 
 /**
@@ -394,8 +403,13 @@ interface Replayed {
  * `+seance/edit` resends) is returned separately: it needs the messages'
  * ids, which only exist after delivery.
  */
-function replay(client: IrcClient, chan: Channel, lines: IrcMessage[]): Replayed {
-	const known = new Set(chan.msgids);
+function replay(
+	client: IrcClient,
+	chan: Channel,
+	lines: IrcMessage[],
+	keepCached = false
+): Replayed {
+	const known = new Set(keepCached ? chan.confirmedMsgids() : chan.msgids);
 	const collected: ReplayCollection = {messages: [], after: []};
 
 	for (const line of lines) {
@@ -475,6 +489,8 @@ function deliverPrepend(
 
 		if (chan.type === ChanType.QUERY) {
 			client.queryLog.append(chan.name, msg); // by time, deduplicated
+		} else if (chan.type === ChanType.CHANNEL) {
+			client.historyCache.append(chan.name, msg);
 		}
 	});
 
@@ -544,9 +560,21 @@ function resolve(
 
 	const {chan} = request;
 	const answered = outcome === "batch" || outcome === "ack";
+	// The JOIN's first page, whatever its outcome, replaces the rows restored
+	// from the device's cache (historycache.ts): the page is replayed without
+	// counting those rows as shown, so the lines they duplicate come back as
+	// the server's, and the rows themselves leave the buffer below.
+	const firstFill = request.mode === "prepend" && request.subcommand === "LATEST";
+	const replacing = firstFill && chan.cachedIds.size > 0;
+
+	if (firstFill) {
+		chan.firstFillAnswered = true;
+	}
 
 	const {messages, after} =
-		lines && lines.length > 0 ? replay(client, chan, lines) : {messages: [], after: []};
+		lines && lines.length > 0
+			? replay(client, chan, lines, replacing)
+			: {messages: [], after: []};
 
 	if (request.mode === "append") {
 		// The spec's loop: this page reached what we already hold when it
@@ -558,7 +586,9 @@ function resolve(
 		// For the same reason an empty page without the end tag stops the walk
 		// (nothing to page back from) but does not vouch for the gap.
 		const page = lines ?? [];
-		const known = new Set(chan.msgids);
+		// Only what the server sent this page: a row restored from the
+		// device's cache proves nothing about what lies between it and now.
+		const known = new Set(chan.confirmedMsgids());
 		const floorMs = request.floor ? request.floor.time.getTime() - CATCHUP_FUZZ_MS : undefined;
 		let reached = false;
 		let oldest: MsgRef | undefined;
@@ -660,8 +690,29 @@ function resolve(
 
 	// The end tag closes it even after a full page (draft/chathistory-end).
 	const more = outcome === "timeout" || (lines !== null && lines.length > 0 && !end);
+
+	if (replacing) {
+		dropCached(client, chan);
+	}
+
 	deliverPrepend(client, chan, messages, more);
 	runAfter(after);
+}
+
+/**
+ * Take the rows restored from the device's cache out of the channel and the
+ * buffer: the server's first page has answered and stands in for them, or no
+ * page can be asked for.
+ */
+export function dropCached(client: IrcClient, chan: Channel): void {
+	if (chan.cachedIds.size === 0) {
+		return;
+	}
+
+	const ids = [...chan.cachedIds];
+	chan.forget(ids);
+	chan.cachedIds.clear();
+	client.dispatch("msg:drop", {chan: chan.id, ids});
 }
 
 /** Closed `chathistory` batch: answer the request it belongs to. */

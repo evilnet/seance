@@ -9,6 +9,7 @@ import {prefersTwelveHourClock} from "./helpers/hourCycle";
 import storage from "./localStorage";
 import {normalizeSceneMotion, themeScene} from "./themeScene";
 import {setQueryLogEnabled} from "./irc/querylog";
+import {setHistoryCacheEnabled} from "./irc/historycache";
 import {setClosedQueriesKept} from "./irc/closedQueries";
 import {forgetPrivateTerms, loadAll} from "./translate/channelStore";
 import {setKeepAlive} from "./helpers/keepAlive";
@@ -385,6 +386,17 @@ const defaultConfig = {
 	// Report own input activity as `+typing` TAGMSGs (IRCv3 typing client tag).
 	sendTypingNotifications: {
 		default: true,
+	},
+	// Experimental, off by default: keep the recent lines of every channel in
+	// this browser (IndexedDB) and show them straight away after a reload,
+	// until the server's history replaces them (irc/historycache.ts). Off
+	// deletes what is kept; applyAll runs this at boot, before any network
+	// is created.
+	keepChannelHistory: {
+		default: false,
+		apply(_store: TypedStore, value: boolean) {
+			setHistoryCacheEnabled(value);
+		},
 	},
 	// Keep the recent lines of private conversations in this browser so they
 	// come back after a reload (irc/querylog.ts). Off deletes what is kept

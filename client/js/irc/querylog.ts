@@ -59,7 +59,7 @@ export function useStorageBackend(next: StorageBackend | null): void {
 }
 
 /** One line as stored: what the message renders from, dates as ISO strings. */
-interface LoggedMsg {
+export interface LoggedMsg {
 	msgid?: string;
 	/** msgids of edits folded into this line (history dedupe). */
 	aka?: string[];
@@ -142,7 +142,7 @@ function isoOf(value: Date | string): string {
 	return (value instanceof Date ? value : new Date(value)).toISOString();
 }
 
-function toLogged(msg: SharedMsg): LoggedMsg | undefined {
+export function toLogged(msg: SharedMsg): LoggedMsg | undefined {
 	// Always typed when it is someone talking (handlers/privmsg.ts); an
 	// untyped line in a query is the client's own status text.
 	const type = msg.type;
@@ -192,7 +192,7 @@ function toLogged(msg: SharedMsg): LoggedMsg | undefined {
 	return out;
 }
 
-function fromLogged(entry: LoggedMsg): SharedMsg {
+export function fromLogged(entry: LoggedMsg): SharedMsg {
 	const msg: SharedMsg = {
 		id: 0,
 		time: new Date(entry.time),
@@ -234,6 +234,53 @@ function fromLogged(entry: LoggedMsg): SharedMsg {
 	}
 
 	return msg;
+}
+
+/**
+ * Add or take `nick`'s reaction `text` on a stored line (`fold` is the
+ * network's casemapping). False when nothing changed. Shared with
+ * historycache.ts.
+ */
+export function applyLoggedReaction(
+	line: LoggedMsg,
+	text: string,
+	nick: string,
+	remove: boolean,
+	fold: (s: string) => string
+): boolean {
+	const reactions = line.reactions ?? [];
+	let reaction = reactions.find((r) => r.text === text);
+
+	if (remove) {
+		if (!reaction) {
+			return false;
+		}
+
+		reaction.nicks = reaction.nicks.filter((n) => fold(n) !== fold(nick));
+
+		if (reaction.nicks.length === 0) {
+			reactions.splice(reactions.indexOf(reaction), 1);
+		}
+	} else {
+		if (!reaction) {
+			reaction = {text, nicks: []};
+			reactions.push(reaction);
+		}
+
+		if (reaction.nicks.some((n) => fold(n) === fold(nick))) {
+			return false;
+		}
+
+		reaction.nicks.push(nick);
+	}
+
+	if (reactions.length > 0) {
+		line.reactions = reactions;
+	} else {
+		delete line.reactions;
+	}
+
+	return true;
 }
 
 function validEntry(value: unknown): value is LoggedMsg {
@@ -408,43 +455,9 @@ export class QueryLog {
 	react(name: string, msgid: string, text: string, nick: string, remove: boolean): void {
 		const line = this.find(name)?.messages.find((m) => this.hasMsgid(m, msgid));
 
-		if (!line) {
-			return;
+		if (line && applyLoggedReaction(line, text, nick, remove, this.fold)) {
+			this.changed();
 		}
-
-		const reactions = line.reactions ?? [];
-		let reaction = reactions.find((r) => r.text === text);
-
-		if (remove) {
-			if (!reaction) {
-				return;
-			}
-
-			reaction.nicks = reaction.nicks.filter((n) => this.fold(n) !== this.fold(nick));
-
-			if (reaction.nicks.length === 0) {
-				reactions.splice(reactions.indexOf(reaction), 1);
-			}
-		} else {
-			if (!reaction) {
-				reaction = {text, nicks: []};
-				reactions.push(reaction);
-			}
-
-			if (reaction.nicks.some((n) => this.fold(n) === this.fold(nick))) {
-				return;
-			}
-
-			reaction.nicks.push(nick);
-		}
-
-		if (reactions.length > 0) {
-			line.reactions = reactions;
-		} else {
-			delete line.reactions;
-		}
-
-		this.changed();
 	}
 
 	/** The query was closed: forget it. */

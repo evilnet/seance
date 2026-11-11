@@ -115,6 +115,8 @@ Client→server emits: `input` gains optional `language` / `machineTranslated` (
 
 Ordering guarantees: `msg:react` / `msg:redact` / `msg:edit` are only ever dispatched after the `msg` they refer to, with resolved ids — including inside a history replay, where they are applied after the batch's messages are delivered. The IRC layer owns the msgid→id map (`Channel.idByMsgid`); the store never looks msgids up except to render a reply quote.
 
+Rows restored from the device's cache (`irc/historycache.ts`) arrive as an ordinary `more` page before the JOIN's first history page. When that page is answered (or turns out never to be asked for), `msg:drop {chan, ids}` takes them out of the buffer, and the page itself follows as the usual `more` (held, like the other updates, behind a page the store is still holding back). Nothing else ever removes rows by id.
+
 ### 1.5 Typing notifications
 
 `+typing` client tag (https://ircv3.net/specs/client-tags/typing) on `TAGMSG`; needs `message-tags` only. nefarious2 relays it and never stores a `+typing`-only TAGMSG, so nothing arrives in chathistory.

@@ -61,6 +61,23 @@ socket.on("msg:redact", function (data) {
 	});
 });
 
+// Rows restored from the device's cache, replaced by the server's first
+// history page (irc/history.ts dropCached).
+socket.on("msg:drop", function (data) {
+	afterHeldPage(data.chan, () => {
+		const target = store.getters.findChannel(data.chan);
+
+		if (!target) {
+			return;
+		}
+
+		const ids = new Set(data.ids);
+		target.channel.messages = target.channel.messages.filter((m) => !ids.has(m.id));
+		store.commit("translationRemoveMany", data.ids);
+		forgetTranslations(data.ids);
+	});
+});
+
 socket.on("msg:edit", function (data) {
 	afterHeldPage(data.chan, () => {
 		const target = store.getters.findChannel(data.chan);

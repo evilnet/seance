@@ -135,6 +135,26 @@
 				</label>
 			</div>
 		</div>
+		<div>
+			<h2>{{ t("settings.general.experimentalHeading") }}</h2>
+			<div>
+				<label class="opt">
+					<input
+						v-switch
+						:checked="store.state.settings.keepChannelHistory"
+						type="checkbox"
+						name="keepChannelHistory"
+					/>
+					{{ t("settings.general.keepChannelHistory") }}
+					<span
+						class="tooltipped tooltipped-n tooltipped-no-delay"
+						:aria-label="keepChannelHistoryHelp"
+					>
+						<button class="extra-help" />
+					</span>
+				</label>
+			</div>
+		</div>
 		<div v-if="!store.state.serverConfiguration?.public">
 			<h2>{{ t("settings.general.awayHeading") }}</h2>
 
@@ -207,6 +227,10 @@ import {useI18n} from "../../js/i18n";
 import {canDescribeInstall, openInstallGuide, promptInstall} from "../../js/pwa";
 import {MAX_MESSAGES, MAX_QUERIES} from "../../js/irc/querylog";
 import {
+	MAX_AGE_MS as CACHE_MAX_AGE_MS,
+	MAX_LINES as CACHE_MAX_LINES,
+} from "../../js/irc/historycache";
+import {
 	keepAliveAvailable as isKeepAliveAvailable,
 	keepAliveStatus as fetchKeepAliveStatus,
 	onKeepAliveStatus,
@@ -242,6 +266,12 @@ export default defineComponent({
 		const sendTypingHelp = computed(() => t("settings.general.sendTypingHelp"));
 		const keepPrivateHelp = computed(() =>
 			t("settings.general.keepPrivateHelp", {lines: MAX_MESSAGES, queries: MAX_QUERIES})
+		);
+		const keepChannelHistoryHelp = computed(() =>
+			t("settings.general.keepChannelHistoryHelp", {
+				lines: CACHE_MAX_LINES,
+				days: Math.round(CACHE_MAX_AGE_MS / 86_400_000),
+			})
 		);
 		const awayPlaceholder = computed(() =>
 			t("settings.general.awayPlaceholder", {appName: appName.value})
@@ -523,6 +553,7 @@ export default defineComponent({
 			keepAliveHelp,
 			sendTypingHelp,
 			keepPrivateHelp,
+			keepChannelHistoryHelp,
 			awayPlaceholder,
 			includePasswordsHelp,
 			fileAriaLabel,
