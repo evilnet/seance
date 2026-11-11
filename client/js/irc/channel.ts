@@ -307,6 +307,16 @@ export class Channel {
 	}
 
 	/**
+	 * Where a reconnect's catch-up walk may stop (history.ts, the floor):
+	 * {@link newestServerRef}, so that a local line on a clock ahead of the
+	 * server's cannot end the walk above the gap. A server that sends no
+	 * msgids gives no such line; there it is `newestRef`, as before.
+	 */
+	catchupRef(): MsgRef | undefined {
+		return this.newestServerRef() ?? this.newestRef;
+	}
+
+	/**
 	 * msgid of the newest chat line that has one (`/react` without an
 	 * explicit msgid). Joins, quits and other events carry msgids too, but
 	 * show no reactions, and `newestRef` may be a local line without a

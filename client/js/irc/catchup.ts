@@ -156,7 +156,7 @@ export function pendingCatchup(client: IrcClient): readonly Channel[] {
  */
 export function prefetchCatchup(client: IrcClient, chan: Channel): void {
 	chan.catchupPrefetched = true;
-	fetchFor(client, chan, chan.newestRef);
+	fetchFor(client, chan, chan.catchupRef());
 }
 
 /**

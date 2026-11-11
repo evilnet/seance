@@ -3088,7 +3088,8 @@ export class IrcClient {
 		}
 
 		// Our own JOIN (live, not replayed) is what triggers a history load;
-		// the reference for a catch-up is the newest message before the JOIN.
+		// the reference for a catch-up is the newest message the server
+		// stamped before the JOIN, never a local line on our own clock.
 		const selfJoin =
 			msg.command === "JOIN" &&
 			!this.replayContext &&
@@ -3096,7 +3097,7 @@ export class IrcClient {
 			this.isSelf(msg.source.name);
 		const joinName = selfJoin ? msg.params[0] ?? "" : "";
 		const joined = selfJoin ? this.findChannel(joinName) : undefined;
-		const beforeJoin: MsgRef | undefined = selfJoin ? joined?.newestRef : undefined;
+		const beforeJoin: MsgRef | undefined = selfJoin ? joined?.catchupRef() : undefined;
 		// Only once history has filled it: before that, its newest stamped line
 		// can be our own previous JOIN, with the scrollback never fetched.
 		const heldBeforeJoin: MsgRef | undefined =
