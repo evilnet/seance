@@ -3105,6 +3105,10 @@ export class IrcClient {
 		// (see handlers/join.ts): its history and modes are not asked again.
 		const alreadyJoined = joined?.state === ChanState.JOINED;
 
+		if (joined && !alreadyJoined) {
+			joined.heldAtJoin = new Set(joined.msgids);
+		}
+
 		const handler = handlers.get(msg.command) ?? unhandled;
 
 		try {

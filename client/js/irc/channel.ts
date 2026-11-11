@@ -141,6 +141,12 @@ export class Channel {
 	 */
 	historyFilled = false;
 	/**
+	 * The msgids held when our JOIN came back, for the reconnect walk: only
+	 * those mean a page reached what we had. A line relayed while the walk
+	 * runs is in its pages too, with the gap below it still unfilled.
+	 */
+	heldAtJoin: ReadonlySet<string> | undefined = undefined;
+	/**
 	 * Open, but its reader was taken to an older message: nothing is read until
 	 * they reach the bottom ({@link IrcClient.isReading}). What we say still reads it,
 	 * and so do reads from other sessions.

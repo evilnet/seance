@@ -1228,6 +1228,63 @@ describe("Chat history (history.ts)", function () {
 			expect(pendingHistory(h.client)).to.have.length(0);
 		});
 
+		it("does not stop at a line it only holds because it was relayed during the catch-up", function () {
+			const h = setup({isupport: "CHATHISTORY=2 MSGREFTYPES=timestamp,msgid"});
+			joined(h);
+			h.transport.line(
+				"@msgid=seen;time=2026-08-25T12:10:00.000Z :bob!bob@host PRIVMSG #seance :x"
+			);
+
+			const sent = reconnect(h, "CHATHISTORY=2 MSGREFTYPES=timestamp,msgid");
+			// carol speaks while LATEST is in flight, so the page holds her line too
+			h.transport.line(
+				"@time=2026-08-25T12:31:00.000Z;msgid=g4 :carol!carol@host PRIVMSG #seance :four"
+			);
+			reply(h, sent, [
+				"@time=2026-08-25T12:16:00.000Z;msgid=g2 :bob!bob@host PRIVMSG #seance :two",
+				"@time=2026-08-25T12:31:00.000Z;msgid=g4 :carol!carol@host PRIVMSG #seance :four",
+			]);
+
+			// A full page with nothing held from before the reconnect: walk on.
+			const chan = h.client.findChannel("#seance")!;
+			const next = h.sent();
+			expect(next[0]).to.match(/CHATHISTORY BEFORE #seance msgid=g2 2$/);
+			expect(chan.historyFilled).to.equal(false);
+
+			reply(h, next, [
+				"@time=2026-08-25T12:10:00.000Z;msgid=seen :bob!bob@host PRIVMSG #seance :x",
+				"@time=2026-08-25T12:15:00.000Z;msgid=g1 :bob!bob@host PRIVMSG #seance :one",
+			]);
+			expect(h.sent()).to.deep.equal([]);
+			expect(chan.historyFilled).to.equal(true);
+			expect(msgs().filter((p) => p.msg.msgid === "g4")).to.have.length(1);
+			expect(
+				msgs()
+					.filter((p) => p.replay)
+					.map((p) => p.msg.text)
+			).to.deep.equal(["one", "two"]);
+		});
+
+		it("does not stop at a line relayed during the catch-up even when its time ties the floor", function () {
+			const h = setup({isupport: "CHATHISTORY=2 MSGREFTYPES=timestamp,msgid"});
+			joined(h);
+			h.transport.line(
+				"@msgid=seen;time=2026-08-25T12:10:00.000Z :bob!bob@host PRIVMSG #seance :x"
+			);
+
+			const sent = reconnect(h, "CHATHISTORY=2 MSGREFTYPES=timestamp,msgid");
+			h.transport.line(
+				"@time=2026-08-25T12:10:00.000Z;msgid=g4 :carol!carol@host PRIVMSG #seance :four"
+			);
+			reply(h, sent, [
+				"@time=2026-08-25T12:10:00.000Z;msgid=g3 :bob!bob@host PRIVMSG #seance :three",
+				"@time=2026-08-25T12:10:00.000Z;msgid=g4 :carol!carol@host PRIVMSG #seance :four",
+			]);
+
+			expect(h.sent()[0]).to.match(/CHATHISTORY BEFORE #seance msgid=g3 2$/);
+			expect(h.client.findChannel("#seance")!.historyFilled).to.equal(false);
+		});
+
 		it("walks on past a short page with no end tag: the server may have cut it short", function () {
 			const h = setup({isupport: "CHATHISTORY=3 MSGREFTYPES=timestamp,msgid"});
 			const id = joined(h);

@@ -18,8 +18,8 @@
  * - **Catch-up** (re-JOIN after a reconnect): the spec's own gap-filling
  *   loop (chathistory.md, "Client pseudocode"): `CHATHISTORY LATEST`, then
  *   `BEFORE <oldest of the page>` back until a page overlaps what we already
- *   show (a msgid we hold, or a line older than the newest we had seen
- *   minus {@link CATCHUP_FUZZ_MS} of clock skew), carries
+ *   show (a msgid we held when our JOIN came back, or a line older than the
+ *   newest we had seen minus {@link CATCHUP_FUZZ_MS} of clock skew), carries
  *   `draft/chathistory-end`, comes back empty, or the page cap is hit.
  *   Walking back from the present rather than forward from our newest line
  *   means the newest messages arrive first and the fill cannot be defeated
@@ -550,15 +550,15 @@ function resolve(
 
 	if (request.mode === "append") {
 		// The spec's loop: this page reached what we already hold when it
-		// carries a msgid we show (replay dropped that line, so look at the
-		// raw page) or a line older than the previous session's newest
-		// minus the skew allowance. An empty page, the end tag, the page cap,
+		// carries a msgid we held when our JOIN came back (heldAtJoin; replay
+		// dropped that line, so look at the raw page) or a line older than
+		// the previous session's newest minus the skew allowance. An empty page, the end tag, the page cap,
 		// or a page without timestamps also stop it. A short page does not:
 		// nefarious2 filters pages and caps its scan, so it can leave a hole.
 		// For the same reason an empty page without the end tag stops the walk
 		// (nothing to page back from) but does not vouch for the gap.
 		const page = lines ?? [];
-		const known = new Set(chan.msgids);
+		const known = chan.heldAtJoin ?? new Set(chan.msgids);
 		const floorMs = request.floor ? request.floor.time.getTime() - CATCHUP_FUZZ_MS : undefined;
 		let reached = false;
 		let oldest: MsgRef | undefined;
@@ -640,6 +640,7 @@ function resolve(
 			chan.historyFilled = true;
 		}
 
+		chan.heldAtJoin = undefined;
 		deliverAppend(client, chan, request.gap);
 		runAfter(request.gapAfter);
 		return;
