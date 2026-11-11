@@ -730,6 +730,37 @@ describe("Connect burst: batched JOIN, catch-up paced by fake lag, lazy MODE (ir
 			expect(fetched(next)).to.deep.equal(["#three"]);
 		});
 
+		it("walks on past a line said while the channel waited its turn", function () {
+			const h = heldThenDropped(HELD);
+			const [targets] = collect(h, 1, isTargets).map((s) => s.line);
+			// Joined, its catch-up not yet sent: carol speaks.
+			h.transport.line(
+				"@time=2026-08-27T12:59:00.000Z;msgid=live :carol!carol@host PRIVMSG #three :now"
+			);
+			answerTargets(h, targets, [["#three", "2026-08-27T12:59:00.000Z"]]);
+			const [fetch] = collect(h, 1, isFetch).map((s) => s.line);
+			const label = /^@label=(\S+) /.exec(fetch)![1];
+			const limit = Number(fetch.split(" ").at(-1));
+			h.transport.line(`@label=${label} :irc.test BATCH +p chathistory #three`);
+
+			for (let i = 0; i < limit - 1; i++) {
+				const time = new Date(Date.parse("2026-08-27T12:30:00.000Z") + i * 1000);
+				h.transport.line(
+					`@batch=p;time=${time.toISOString()};msgid=w${i} :bob!bob@host PRIVMSG #three :line ${i}`
+				);
+			}
+
+			h.transport.line(
+				"@batch=p;time=2026-08-27T12:59:00.000Z;msgid=live :carol!carol@host PRIVMSG #three :now"
+			);
+			h.transport.line(":irc.test BATCH -p");
+
+			// A full page, and nothing in it was held at the JOIN: the gap goes on.
+			const before = collect(h, 1, (l) => /CHATHISTORY BEFORE #three /.test(l));
+			expect(before.map((s) => s.line)[0]).to.match(/ msgid=w0 /);
+			expect(h.client.findChannel("#three")!.historyFilled).to.equal(false);
+		});
+
 		it("asks even when the clock has room for it the moment the first channel waits", function () {
 			const h = connected(); // the lobby is open: no channel is served first
 			joinAll(h);

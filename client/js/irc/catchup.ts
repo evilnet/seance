@@ -80,6 +80,8 @@ interface PendingCatchup {
 	 * with to tell that nothing is new.
 	 */
 	held: MsgRef | undefined;
+	/** The msgids the channel held at this JOIN: what the catch-up walk may stop on. */
+	heldIds: ReadonlySet<string> | undefined;
 	/** Its marker query is a job of its own, queued right ahead of this step. */
 	markerQueued?: boolean;
 }
@@ -165,7 +167,8 @@ export function enqueueCatchup(
 	client: IrcClient,
 	chan: Channel,
 	before: MsgRef | undefined,
-	held: MsgRef | undefined
+	held: MsgRef | undefined,
+	heldIds?: ReadonlySet<string>
 ): void {
 	const prefetched = chan.catchupPrefetched;
 	chan.catchupPrefetched = false;
@@ -178,7 +181,7 @@ export function enqueueCatchup(
 		const queued = takePending(client, chan);
 
 		if (!prefetched) {
-			fetchFor(client, chan, before ?? queued?.before);
+			fetchFor(client, chan, before ?? queued?.before, before ? heldIds : queued?.heldIds);
 		}
 
 		queueModes(client, chan);
@@ -189,7 +192,7 @@ export function enqueueCatchup(
 		return; // nothing left to ask for: the modes wait for the first open
 	}
 
-	const pending: PendingCatchup = {chan, before, prefetched, held};
+	const pending: PendingCatchup = {chan, before, prefetched, held, heldIds};
 
 	if (parkForTargets(client, pending)) {
 		return;
@@ -437,7 +440,7 @@ function step(client: IrcClient, next: PendingCatchup): void {
 	}
 
 	if (!next.prefetched) {
-		fetchFor(client, next.chan, next.before, !next.markerQueued);
+		fetchFor(client, next.chan, next.before, next.heldIds, !next.markerQueued);
 	}
 
 	if (next.chan.id === client.activeChannelId) {
@@ -449,6 +452,7 @@ function fetchFor(
 	client: IrcClient,
 	chan: Channel,
 	before: MsgRef | undefined,
+	heldIds?: ReadonlySet<string>,
 	marker = true
 ): void {
 	// nefarious2 volunteers the marker after a logged-in account's JOIN (`*`
@@ -461,7 +465,7 @@ function fetchFor(
 		fetchReadMarker(client, chan);
 	}
 
-	requestChannelHistory(client, chan, before);
+	requestChannelHistory(client, chan, before, heldIds);
 
 	retryLostHistory(client, chan);
 }

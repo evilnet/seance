@@ -1285,6 +1285,31 @@ describe("Chat history (history.ts)", function () {
 			expect(h.client.findChannel("#seance")!.historyFilled).to.equal(false);
 		});
 
+		it("keeps each walk's own record of what was held when a rejoin starts another", function () {
+			const h = setup({isupport: "CHATHISTORY=2 MSGREFTYPES=timestamp,msgid"});
+			joined(h);
+			h.transport.line(
+				"@msgid=seen;time=2026-08-25T12:10:00.000Z :bob!bob@host PRIVMSG #seance :x"
+			);
+
+			const first = reconnect(h, "CHATHISTORY=2 MSGREFTYPES=timestamp,msgid");
+			h.transport.lines(
+				"@time=2026-08-25T12:31:00.000Z;msgid=g4 :carol!carol@host PRIVMSG #seance :four",
+				"@time=2026-08-25T12:31:30.000Z;msgid=k1 :bob!bob@host KICK #seance alice :out",
+				"@time=2026-08-25T12:32:00.000Z;msgid=join-3 :alice!alice@host JOIN #seance",
+				":irc.test 353 alice = #seance :@alice bob",
+				":irc.test 366 alice #seance :End of /NAMES list."
+			);
+			h.sent();
+
+			// The first walk's page: g4 was held by the second JOIN, not the first.
+			reply(h, first, [
+				"@time=2026-08-25T12:16:00.000Z;msgid=g2 :bob!bob@host PRIVMSG #seance :two",
+				"@time=2026-08-25T12:31:00.000Z;msgid=g4 :carol!carol@host PRIVMSG #seance :four",
+			]);
+			expect(h.sent()[0]).to.match(/CHATHISTORY BEFORE #seance msgid=g2 2$/);
+		});
+
 		it("walks on past a short page with no end tag: the server may have cut it short", function () {
 			const h = setup({isupport: "CHATHISTORY=3 MSGREFTYPES=timestamp,msgid"});
 			const id = joined(h);
