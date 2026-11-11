@@ -552,8 +552,10 @@ function resolve(
 		// The spec's loop: this page reached what we already hold when it
 		// carries a msgid we held when our JOIN came back (heldAtJoin; replay
 		// dropped that line, so look at the raw page) or a line older than
-		// the previous session's newest minus the skew allowance. An empty page, the end tag, the page cap,
-		// or a page without timestamps also stop it. A short page does not:
+		// the previous session's newest minus the skew allowance. A line
+		// relayed live while the walk runs is in its pages too and does not
+		// count. An empty page, the end tag, the page cap, or a page without
+		// timestamps also stop it. A short page does not:
 		// nefarious2 filters pages and caps its scan, so it can leave a hole.
 		// For the same reason an empty page without the end tag stops the walk
 		// (nothing to page back from) but does not vouch for the gap.
@@ -614,6 +616,7 @@ function resolve(
 						return;
 					}
 
+					chan.heldAtJoin = undefined;
 					deliverAppend(client, chan, gap);
 					runAfter(gapAfter);
 				},
