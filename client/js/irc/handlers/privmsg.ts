@@ -282,18 +282,6 @@ function handleMessage(
 		languageFieldsOf((name) => msg.tags.get(name))
 	);
 
-	// The original leaves the inbox, loaded or not; the inbox checks that
-	// the edit's sender wrote it (`by`). The edit brings its own entry if it
-	// still mentions us.
-	if (editOf && !self) {
-		client.dispatch("inbox:drop", {
-			network: client.uuid,
-			target: chan.name,
-			msgid: editOf,
-			by: nick,
-		});
-	}
-
 	// A live message of ours is the echo of one we sent: its pending copy
 	// comes down before the real one goes in (bus-contract §1.9).
 	if (self && !client.replaying) {
@@ -306,6 +294,18 @@ function handleMessage(
 	// must still hit a line the channel shows.)
 	if (msgid && !client.replaying && chan.idOf(msgid) !== undefined) {
 		return;
+	}
+
+	// The original leaves the inbox, loaded or not; the inbox checks that
+	// the edit's sender wrote it (`by`). The edit brings its own entry if it
+	// still mentions us.
+	if (editOf && !self) {
+		client.dispatch("inbox:drop", {
+			network: client.uuid,
+			target: chan.name,
+			msgid: editOf,
+			by: nick,
+		});
 	}
 
 	// An edit of a loaded message takes that message's place in the list

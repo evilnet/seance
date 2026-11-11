@@ -8,7 +8,7 @@
 import {expect} from "chai";
 import sinon from "sinon";
 import socket from "../../client/js/socket";
-import {PENDING_TIMEOUT_MS, resetPending} from "../../client/js/irc/pending";
+import {PENDING_TIMEOUT_MS, resetPending, showPending} from "../../client/js/irc/pending";
 import {batchCooldownMs} from "../../client/js/irc/multiline";
 import {replyTags} from "../../client/js/irc/wire";
 import {MessageType, SharedMsg} from "../../shared/types/msg";
@@ -427,6 +427,22 @@ describe("Pending outgoing messages (irc/pending.ts)", function () {
 			expect(h.payloads("msg:edit")).to.have.length(1);
 		});
 
+		it("settles a copy sent without a label by text after labeled-response comes back", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.sendMessage("#seance", "first");
+			h.transport.line("@label=s1;msgid=m1 :alice!alice@host.example PRIVMSG #seance :first");
+			h.transport.line(":irc.test CAP alice DEL :labeled-response");
+			h.client.sendMessage("#seance", "hello");
+			const copy = h.lastMessage(id);
+			h.transport.line(":irc.test CAP alice NEW :labeled-response");
+			h.transport.line(":irc.test CAP alice ACK :labeled-response");
+
+			h.transport.line("@msgid=m2 :alice!alice@host.example PRIVMSG #seance :hello");
+
+			expect(settled(h).map((s) => s.id)).to.include(copy.id);
+		});
+
 		it("matches unlabelled echoes by text again once labeled-response is deleted", function () {
 			const h = setup();
 			const id = joined(h);
@@ -496,6 +512,35 @@ describe("Pending outgoing messages (irc/pending.ts)", function () {
 			h.transport.line(":alice!alice@host.example PRIVMSG #seance :a");
 			expect(settled(h)).to.deep.equal([{chan: id, id: first.id}]);
 			expect(second.pending).to.equal(true);
+		});
+
+		it("does not fail a copy on an unlabelled 401: it may answer another command (WHOIS)", function () {
+			const h = setup();
+			const id = joined(h, NO_LABELS);
+			h.client.sendMessage("#seance", "first");
+			const copy = h.lastMessage(id);
+
+			h.transport.line(":irc.test 401 alice #seance :No such nick/channel");
+
+			expect(settled(h)).to.deep.equal([]);
+			expect(copy.pending).to.equal(true);
+		});
+
+		it("does not count a copy still queued to go out against an unlabelled 404", function () {
+			const h = setup();
+			const id = joined(h, NO_LABELS);
+			const chan = h.client.findChannel("#seance")!;
+			const queued = showPending(
+				h.client,
+				chan,
+				{type: MessageType.MESSAGE, text: "later"},
+				{arm: false}
+			);
+
+			h.transport.line(":irc.test 404 alice #seance :Cannot send to channel");
+
+			expect(settled(h)).to.deep.equal([]);
+			expect(pendingIn(h, id).map((m) => m.id)).to.deep.equal([queued.id]);
 		});
 
 		it("does not pin an unlabelled 404 on a notice copy", function () {

@@ -228,28 +228,15 @@ export const numericError: Handler = (client, msg) => {
 
 	const params = msg.params.slice(1); // drop our nick
 	const reason = params.length > 0 ? params[params.length - 1] : "";
+	const notSent = reason || t("pending.numericError", {code: msg.command});
 	// `labeled-response`: the numeric answers one of our lines. A message of
 	// ours it rejects is reported with its text, where it was typed.
 	const label = msg.tags.get("label");
 
 	if (
-		label &&
-		failPendingLabel(client, label, reason || t("pending.numericError", {code: msg.command}))
-	) {
-		return;
-	}
-
-	// Without `labeled-response` a 401 / 404 still answers the oldest line
-	// we are waiting on for that target.
-	if (
-		!label &&
-		(msg.command === "401" || msg.command === "404") &&
-		!client.caps.hasCapability("labeled-response") &&
-		failPendingTarget(
-			client,
-			msg.params[1] ?? "",
-			reason || t("pending.numericError", {code: msg.command})
-		)
+		label
+			? failPendingLabel(client, label, notSent)
+			: msg.command === "404" && failPendingTarget(client, params[0] ?? "", notSent)
 	) {
 		return;
 	}

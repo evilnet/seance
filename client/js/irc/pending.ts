@@ -202,13 +202,13 @@ export function settleEcho(
 	type: MessageType,
 	text: string
 ): PendingMessage | undefined {
-	const entries = registryOf(client).entries;
+	const registry = registryOf(client);
 	const label = msg.tags.get("label");
 
 	// The label is the exact match — but only when the server relays it on the
 	// echo, which the spec does not require of a propagated echo-message copy
 	// and not every server does. So it is a fast path, not the only one.
-	let entry = label ? entries.find((e) => e.label === label) : undefined;
+	let entry = label ? byLabel(client, label) : undefined;
 
 	// A label that is present decides. One that names no copy answers a line
 	// we hold no copy of (it timed out, or never had one), so it settles
@@ -218,19 +218,17 @@ export function settleEcho(
 	}
 
 	if (entry) {
-		registryOf(client).labelledEchoes = true;
-	} else if (registryOf(client).labelledEchoes && client.caps.hasCapability("labeled-response")) {
-		// This server labels our echoes, so an unlabelled line of ours is
-		// not one: the same account on another device, or a message to
-		// ourselves delivered back. Matching it by text would settle the
-		// copy its real echo is still on the way for.
-		return undefined;
+		registry.labelledEchoes = true;
 	} else {
 		// No usable label. Our echoes carry the text we sent, so match a copy
-		// of the same kind in this channel by exact text. That is what keeps a
-		// self message we never sent — the same account on another device —
-		// from settling anything: it matches none of our copies.
-		const kind = entries.filter((e) => e.chan === chan && e.type === type);
+		// of the same kind in this channel by exact text: a self message we
+		// never sent (the same account on another device) matches none. Once
+		// this server has labelled an echo of ours, a copy that went out with
+		// a label waits for its labelled echo; an unlabelled line is not it
+		// (another device, or a message to ourselves delivered back).
+		const kind = registry.entries.filter(
+			(e) => e.chan === chan && e.type === type && !(registry.labelledEchoes && e.label)
+		);
 		entry = kind.find((e) => e.text === text);
 
 		// A server with no `labeled-response` at all can also alter the text
@@ -266,20 +264,24 @@ export function failPendingLabel(client: IrcClient, label: string, reason: strin
 }
 
 /**
- * An unlabelled rejection (a 4xx numeric naming `target`) on a server
- * without `labeled-response`. Only when exactly one copy waits for that
- * target is it known to be the line refused. Servers rarely answer a NOTICE with an error, so only a PRIVMSG / ACTION
- * copy is a candidate. Returns whether one was failed.
+ * An unlabelled 404 for `channel` on a server without `labeled-response`:
+ * it fails a copy only when exactly one PRIVMSG / ACTION that has gone out
+ * waits there. With two or more, nothing says which the server refused, and
+ * failing the wrong one would let the other's echo confirm it. (A 401 can
+ * answer WHOIS as well, and a NOTICE rarely draws an error.) Returns whether
+ * one was failed.
  */
-export function failPendingTarget(client: IrcClient, target: string, reason: string): boolean {
-	const chan = client.findChannel(target);
-	const waiting = chan
-		? registryOf(client).entries.filter((e) => e.chan === chan && e.type !== MessageType.NOTICE)
-		: [];
+export function failPendingTarget(client: IrcClient, channel: string, reason: string): boolean {
+	const chan = client.findChannel(channel);
 
-	// With two or more waiting, nothing says which one the server refused
-	// (it need not answer in order), and failing the wrong one would let
-	// the other's echo confirm it. They wait for their echo or the timeout.
+	if (!chan || client.caps.hasCapability("labeled-response")) {
+		return false;
+	}
+
+	const waiting = registryOf(client).entries.filter(
+		(e) => e.chan === chan && e.type !== MessageType.NOTICE && e.timer !== undefined
+	);
+
 	if (waiting.length !== 1) {
 		return false;
 	}
