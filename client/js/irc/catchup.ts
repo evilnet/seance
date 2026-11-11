@@ -195,7 +195,13 @@ export function enqueueCatchup(
 
 		if (!prefetched) {
 			const from = before ?? queued?.before;
-			fetchFor(client, chan, from, before ? heldIds : queued?.heldIds, gapIds(client, chan, from));
+			fetchFor(
+				client,
+				chan,
+				from,
+				before ? heldIds : queued?.heldIds,
+				gapIds(client, chan, from)
+			);
 		}
 
 		queueModes(client, chan);
