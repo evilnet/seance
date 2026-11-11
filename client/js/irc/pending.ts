@@ -267,22 +267,24 @@ export function failPendingLabel(client: IrcClient, label: string, reason: strin
 
 /**
  * An unlabelled rejection (a 4xx numeric naming `target`) on a server
- * without `labeled-response`: the oldest copy for that target is the line it
- * answers, since the server answers lines in the order they went out.
- * Servers rarely answer a NOTICE with an error, so only a PRIVMSG / ACTION
+ * without `labeled-response`. Only when exactly one copy waits for that
+ * target is it known to be the line refused. Servers rarely answer a NOTICE with an error, so only a PRIVMSG / ACTION
  * copy is a candidate. Returns whether one was failed.
  */
 export function failPendingTarget(client: IrcClient, target: string, reason: string): boolean {
 	const chan = client.findChannel(target);
-	const entry = chan
-		? registryOf(client).entries.find((e) => e.chan === chan && e.type !== MessageType.NOTICE)
-		: undefined;
+	const waiting = chan
+		? registryOf(client).entries.filter((e) => e.chan === chan && e.type !== MessageType.NOTICE)
+		: [];
 
-	if (!entry) {
+	// With two or more waiting, nothing says which one the server refused
+	// (it need not answer in order), and failing the wrong one would let
+	// the other's echo confirm it. They wait for their echo or the timeout.
+	if (waiting.length !== 1) {
 		return false;
 	}
 
-	failPending(client, entry, reason);
+	failPending(client, waiting[0], reason);
 	return true;
 }
 

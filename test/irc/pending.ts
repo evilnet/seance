@@ -468,19 +468,33 @@ describe("Pending outgoing messages (irc/pending.ts)", function () {
 			expect(settled(h)).to.deep.equal([{chan: id, id: second.id}]);
 		});
 
-		it("reports an unlabelled 404 against the oldest copy for that target", function () {
+		it("reports an unlabelled 404 against the one copy waiting for that target", function () {
 			const h = setup();
 			const id = joined(h, NO_LABELS);
 			h.client.sendMessage("#seance", "first");
-			h.client.sendMessage("#seance", "second");
-			const [first, second] = pendingIn(h, id);
+			const copy = h.lastMessage(id);
 
 			h.transport.line(":irc.test 404 alice #seance :Cannot send to channel");
 
-			expect(settled(h)).to.deep.equal([{chan: id, id: first.id}]);
+			expect(settled(h)).to.deep.equal([{chan: id, id: copy.id}]);
 			expect(errorsIn(h, id).map((m) => m.text)).to.deep.equal([
 				"Not sent (Cannot send to channel): first",
 			]);
+		});
+
+		it("fails neither copy on an unlabelled 404 when two wait for that target", function () {
+			const h = setup();
+			const id = joined(h, NO_LABELS);
+			h.client.sendMessage("#seance", "a");
+			h.client.sendMessage("#seance", "a");
+			const [first, second] = pendingIn(h, id);
+
+			// The 404 may be for the second; the first's echo follows.
+			h.transport.line(":irc.test 404 alice #seance :Cannot send to channel");
+			expect(settled(h)).to.deep.equal([]);
+
+			h.transport.line(":alice!alice@host.example PRIVMSG #seance :a");
+			expect(settled(h)).to.deep.equal([{chan: id, id: first.id}]);
 			expect(second.pending).to.equal(true);
 		});
 
