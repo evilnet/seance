@@ -8,7 +8,7 @@
 import {expect} from "chai";
 import sinon from "sinon";
 import socket from "../../client/js/socket";
-import {PENDING_TIMEOUT_MS} from "../../client/js/irc/pending";
+import {PENDING_TIMEOUT_MS, resetPending, showPending} from "../../client/js/irc/pending";
 import {batchCooldownMs} from "../../client/js/irc/multiline";
 import {replyTags} from "../../client/js/irc/wire";
 import {MessageType, SharedMsg} from "../../shared/types/msg";
@@ -310,6 +310,154 @@ describe("Pending outgoing messages (irc/pending.ts)", function () {
 		});
 	});
 
+	describe("labelled responses and repeated msgids", function () {
+		function labelledBatch(h: Harness, label: string, ref: string, lines: string[]): void {
+			h.transport.line(`@label=${label} :irc.test BATCH +${ref} labeled-response`);
+
+			for (const line of lines) {
+				h.transport.line(
+					line.startsWith("@")
+						? `@batch=${ref};${line.slice(1)}`
+						: `@batch=${ref} ${line}`
+				);
+			}
+
+			h.transport.line(`:irc.test BATCH -${ref}`);
+		}
+
+		it("reports a labelled FAIL for the message as not sent", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.sendMessage("#seance", "hi there");
+			const copy = h.lastMessage(id);
+
+			h.transport.line("@label=s1 :irc.test FAIL PRIVMSG CANNOT_SEND #seance :You are muted");
+
+			expect(settled(h)).to.deep.equal([{chan: id, id: copy.id}]);
+			expect(errorsIn(h, id).map((m) => m.text)).to.deep.equal([
+				"Not sent (You are muted): hi there",
+			]);
+		});
+
+		it("reports a FAIL inside the message's labelled batch as not sent", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.sendMessage("#seance", "hi there");
+			const copy = h.lastMessage(id);
+
+			labelledBatch(h, "s1", "lb1", [
+				":irc.test FAIL PRIVMSG CANNOT_SEND #seance :You are muted",
+			]);
+
+			expect(settled(h)).to.deep.equal([{chan: id, id: copy.id}]);
+			expect(errorsIn(h, id).map((m) => m.text)).to.deep.equal([
+				"Not sent (You are muted): hi there",
+			]);
+		});
+
+		it("settles the copy a labelled batch's echo answers, not the oldest with that text", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.sendMessage("#seance", "same");
+			h.client.sendMessage("#seance", "same");
+			const [, second] = pendingIn(h, id);
+
+			labelledBatch(h, "s2", "lb2", [
+				"@msgid=m2 :alice!alice@host.example PRIVMSG #seance :same",
+			]);
+
+			expect(settled(h)).to.deep.equal([{chan: id, id: second.id}]);
+		});
+
+		it("leaves a copy alone for an unlabelled same-text line once the server labels echoes", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.sendMessage("#seance", "first");
+			h.transport.line("@label=s1;msgid=m1 :alice!alice@host.example PRIVMSG #seance :first");
+			h.client.sendMessage("#seance", "hello");
+			const copy = h.lastMessage(id);
+
+			// The same account on another device says the same thing first.
+			h.transport.line("@msgid=m9 :alice!alice@host.example PRIVMSG #seance :hello");
+			expect(settled(h).map((s) => s.id)).to.not.include(copy.id);
+
+			h.transport.line("@label=s2;msgid=m2 :alice!alice@host.example PRIVMSG #seance :hello");
+			expect(settled(h).map((s) => s.id)).to.include(copy.id);
+			expect(h.messages(id).filter((m) => m.text === "hello" && !m.pending)).to.have.length(
+				2
+			);
+		});
+
+		it("forgets that the server labels echoes when the connection closes", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.sendMessage("#seance", "first");
+			h.transport.line("@label=s1;msgid=m1 :alice!alice@host.example PRIVMSG #seance :first");
+
+			// The next connection may reach a server that does not relay labels.
+			resetPending(h.client, "connection lost");
+			h.client.sendMessage("#seance", "hello");
+			const copy = h.lastMessage(id);
+
+			h.transport.line("@msgid=m2 :alice!alice@host.example PRIVMSG #seance :hello");
+			expect(settled(h).map((s) => s.id)).to.include(copy.id);
+		});
+
+		it("shows a line once when the same msgid arrives twice (a message to ourselves)", function () {
+			const h = setup();
+			const id = joined(h);
+
+			h.transport.line("@msgid=m1 :alice!alice@host.example PRIVMSG #seance :once");
+			h.transport.line("@msgid=m1 :alice!alice@host.example PRIVMSG #seance :once");
+
+			expect(h.messages(id).filter((m) => m.text === "once")).to.have.length(1);
+		});
+
+		it("applies an edit once when its msgid arrives twice", function () {
+			const h = setup();
+			const id = joined(h);
+			h.transport.line("@msgid=old :bob!bob@host.example PRIVMSG #seance :original");
+			const edit =
+				"@msgid=e1;+seance/edit=old :bob!bob@host.example PRIVMSG #seance :replacement";
+
+			h.transport.line(edit);
+			h.transport.line(edit);
+
+			expect(h.messages(id).filter((m) => m.msgid === "e1")).to.have.length(1);
+			expect(h.payloads("msg:edit")).to.have.length(1);
+		});
+
+		it("settles a copy sent without a label by text after labeled-response comes back", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.sendMessage("#seance", "first");
+			h.transport.line("@label=s1;msgid=m1 :alice!alice@host.example PRIVMSG #seance :first");
+			h.transport.line(":irc.test CAP alice DEL :labeled-response");
+			h.client.sendMessage("#seance", "hello");
+			const copy = h.lastMessage(id);
+			h.transport.line(":irc.test CAP alice NEW :labeled-response");
+			h.transport.line(":irc.test CAP alice ACK :labeled-response");
+
+			h.transport.line("@msgid=m2 :alice!alice@host.example PRIVMSG #seance :hello");
+
+			expect(settled(h).map((s) => s.id)).to.include(copy.id);
+		});
+
+		it("matches unlabelled echoes by text again once labeled-response is deleted", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.sendMessage("#seance", "first");
+			h.transport.line("@label=s1;msgid=m1 :alice!alice@host.example PRIVMSG #seance :first");
+			h.transport.line(":irc.test CAP alice DEL :labeled-response");
+			h.client.sendMessage("#seance", "hello");
+			const copy = h.lastMessage(id);
+
+			h.transport.line("@msgid=m2 :alice!alice@host.example PRIVMSG #seance :hello");
+
+			expect(settled(h).map((s) => s.id)).to.include(copy.id);
+		});
+	});
+
 	describe("without labeled-response", function () {
 		it("sends no label and settles the copy with the same text", function () {
 			const h = setup();
@@ -334,6 +482,78 @@ describe("Pending outgoing messages (irc/pending.ts)", function () {
 			h.transport.line("@msgid=m2 :alice!alice@host.example PRIVMSG #seance :second");
 
 			expect(settled(h)).to.deep.equal([{chan: id, id: second.id}]);
+		});
+
+		it("reports an unlabelled 404 against the one copy waiting for that target", function () {
+			const h = setup();
+			const id = joined(h, NO_LABELS);
+			h.client.sendMessage("#seance", "first");
+			const copy = h.lastMessage(id);
+
+			h.transport.line(":irc.test 404 alice #seance :Cannot send to channel");
+
+			expect(settled(h)).to.deep.equal([{chan: id, id: copy.id}]);
+			expect(errorsIn(h, id).map((m) => m.text)).to.deep.equal([
+				"Not sent (Cannot send to channel): first",
+			]);
+		});
+
+		it("fails neither copy on an unlabelled 404 when two wait for that target", function () {
+			const h = setup();
+			const id = joined(h, NO_LABELS);
+			h.client.sendMessage("#seance", "a");
+			h.client.sendMessage("#seance", "a");
+			const [first, second] = pendingIn(h, id);
+
+			// The 404 may be for the second; the first's echo follows.
+			h.transport.line(":irc.test 404 alice #seance :Cannot send to channel");
+			expect(settled(h)).to.deep.equal([]);
+
+			h.transport.line(":alice!alice@host.example PRIVMSG #seance :a");
+			expect(settled(h)).to.deep.equal([{chan: id, id: first.id}]);
+			expect(second.pending).to.equal(true);
+		});
+
+		it("does not fail a copy on an unlabelled 401: it may answer another command (WHOIS)", function () {
+			const h = setup();
+			const id = joined(h, NO_LABELS);
+			h.client.sendMessage("#seance", "first");
+			const copy = h.lastMessage(id);
+
+			h.transport.line(":irc.test 401 alice #seance :No such nick/channel");
+
+			expect(settled(h)).to.deep.equal([]);
+			expect(copy.pending).to.equal(true);
+		});
+
+		it("does not count a copy still queued to go out against an unlabelled 404", function () {
+			const h = setup();
+			const id = joined(h, NO_LABELS);
+			const chan = h.client.findChannel("#seance")!;
+			const queued = showPending(
+				h.client,
+				chan,
+				{type: MessageType.MESSAGE, text: "later"},
+				{arm: false}
+			);
+
+			h.transport.line(":irc.test 404 alice #seance :Cannot send to channel");
+
+			expect(settled(h)).to.deep.equal([]);
+			expect(pendingIn(h, id).map((m) => m.id)).to.deep.equal([queued.id]);
+		});
+
+		it("does not pin an unlabelled 404 on a notice copy", function () {
+			const h = setup();
+			const id = joined(h, NO_LABELS);
+			h.client.sendMessage("#seance", "heads up", {notice: true});
+			h.client.sendMessage("#seance", "hello");
+			const [notice, msg] = pendingIn(h, id);
+
+			h.transport.line(":irc.test 404 alice #seance :Cannot send to channel");
+
+			expect(settled(h)).to.deep.equal([{chan: id, id: msg.id}]);
+			expect(notice.pending).to.equal(true);
 		});
 
 		it("falls back to the oldest copy of the same kind when the server altered the text", function () {
