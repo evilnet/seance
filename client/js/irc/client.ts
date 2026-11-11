@@ -3105,6 +3105,10 @@ export class IrcClient {
 		// A JOIN for a channel we are already in repeats a membership we have
 		// (see handlers/join.ts): its history and modes are not asked again.
 		const alreadyJoined = joined?.state === ChanState.JOINED;
+		// What a reconnect's catch-up walk may stop on: only what we held at
+		// this JOIN. A line relayed while the walk runs is in its pages too,
+		// with the gap below it still unfilled (history.ts).
+		const heldIds = joined && !alreadyJoined ? new Set(joined.msgids) : undefined;
 
 		const handler = handlers.get(msg.command) ?? unhandled;
 
@@ -3127,7 +3131,7 @@ export class IrcClient {
 				// History + read marker, paced (catchup.ts): the active channel
 				// now, the rest one at a time so the server's flood penalty
 				// never queues the user's own lines.
-				enqueueCatchup(this, chan, beforeJoin, heldBeforeJoin);
+				enqueueCatchup(this, chan, beforeJoin, heldBeforeJoin, heldIds);
 			} else if (chan) {
 				// The replay fills the gap, not a `more` page the last
 				// connection died on: that one is asked again here.
