@@ -304,7 +304,7 @@ function handleMessage(
 	// message to ourselves comes back as both the echo and the delivered
 	// copy. (A replay has its own msgid dedupe in history.ts, and a search
 	// must still hit a line the channel shows.)
-	if (msgid && !editOf && !client.replaying && chan.idOf(msgid) !== undefined) {
+	if (msgid && !client.replaying && chan.idOf(msgid) !== undefined) {
 		return;
 	}
 

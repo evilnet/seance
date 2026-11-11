@@ -310,7 +310,7 @@ describe("Pending outgoing messages (irc/pending.ts)", function () {
 		});
 	});
 
-	describe("model-derived delivery cases (test/formal delivery model)", function () {
+	describe("labelled responses and repeated msgids", function () {
 		function labelledBatch(h: Harness, label: string, ref: string, lines: string[]): void {
 			h.transport.line(`@label=${label} :irc.test BATCH +${ref} labeled-response`);
 
@@ -412,6 +412,34 @@ describe("Pending outgoing messages (irc/pending.ts)", function () {
 
 			expect(h.messages(id).filter((m) => m.text === "once")).to.have.length(1);
 		});
+
+		it("applies an edit once when its msgid arrives twice", function () {
+			const h = setup();
+			const id = joined(h);
+			h.transport.line("@msgid=old :bob!bob@host.example PRIVMSG #seance :original");
+			const edit =
+				"@msgid=e1;+seance/edit=old :bob!bob@host.example PRIVMSG #seance :replacement";
+
+			h.transport.line(edit);
+			h.transport.line(edit);
+
+			expect(h.messages(id).filter((m) => m.msgid === "e1")).to.have.length(1);
+			expect(h.payloads("msg:edit")).to.have.length(1);
+		});
+
+		it("matches unlabelled echoes by text again once labeled-response is deleted", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.sendMessage("#seance", "first");
+			h.transport.line("@label=s1;msgid=m1 :alice!alice@host.example PRIVMSG #seance :first");
+			h.transport.line(":irc.test CAP alice DEL :labeled-response");
+			h.client.sendMessage("#seance", "hello");
+			const copy = h.lastMessage(id);
+
+			h.transport.line("@msgid=m2 :alice!alice@host.example PRIVMSG #seance :hello");
+
+			expect(settled(h).map((s) => s.id)).to.include(copy.id);
+		});
 	});
 
 	describe("without labeled-response", function () {
@@ -454,6 +482,19 @@ describe("Pending outgoing messages (irc/pending.ts)", function () {
 				"Not sent (Cannot send to channel): first",
 			]);
 			expect(second.pending).to.equal(true);
+		});
+
+		it("does not pin an unlabelled 404 on a notice copy", function () {
+			const h = setup();
+			const id = joined(h, NO_LABELS);
+			h.client.sendMessage("#seance", "heads up", {notice: true});
+			h.client.sendMessage("#seance", "hello");
+			const [notice, msg] = pendingIn(h, id);
+
+			h.transport.line(":irc.test 404 alice #seance :Cannot send to channel");
+
+			expect(settled(h)).to.deep.equal([{chan: id, id: msg.id}]);
+			expect(notice.pending).to.equal(true);
 		});
 
 		it("falls back to the oldest copy of the same kind when the server altered the text", function () {

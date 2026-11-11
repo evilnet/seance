@@ -219,7 +219,7 @@ export function settleEcho(
 
 	if (entry) {
 		registryOf(client).labelledEchoes = true;
-	} else if (registryOf(client).labelledEchoes) {
+	} else if (registryOf(client).labelledEchoes && client.caps.hasCapability("labeled-response")) {
 		// This server labels our echoes, so an unlabelled line of ours is
 		// not one: the same account on another device, or a message to
 		// ourselves delivered back. Matching it by text would settle the
@@ -268,12 +268,15 @@ export function failPendingLabel(client: IrcClient, label: string, reason: strin
 /**
  * An unlabelled rejection (a 4xx numeric naming `target`) on a server
  * without `labeled-response`: the oldest copy for that target is the line it
- * answers, since the server answers lines in the order they went out and
- * every earlier one has been echoed by now. Returns whether one was failed.
+ * answers, since the server answers lines in the order they went out. A
+ * NOTICE draws no error reply, so only a PRIVMSG / ACTION copy is a
+ * candidate. Returns whether one was failed.
  */
 export function failPendingTarget(client: IrcClient, target: string, reason: string): boolean {
 	const chan = client.findChannel(target);
-	const entry = chan ? registryOf(client).entries.find((e) => e.chan === chan) : undefined;
+	const entry = chan
+		? registryOf(client).entries.find((e) => e.chan === chan && e.type !== MessageType.NOTICE)
+		: undefined;
 
 	if (!entry) {
 		return false;
