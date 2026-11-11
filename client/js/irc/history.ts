@@ -18,8 +18,8 @@
  * - **Catch-up** (re-JOIN after a reconnect): the spec's own gap-filling
  *   loop (chathistory.md, "Client pseudocode"): `CHATHISTORY LATEST`, then
  *   `BEFORE <oldest of the page>` back until a page overlaps what we already
- *   show (a msgid we hold, or a line older than the newest we had seen
- *   minus {@link CATCHUP_FUZZ_MS} of clock skew), carries
+ *   show (a msgid we held when our JOIN came back, or a line older than the
+ *   newest we had seen minus {@link CATCHUP_FUZZ_MS} of clock skew), carries
  *   `draft/chathistory-end`, comes back empty, or the page cap is hit.
  *   Walking back from the present rather than forward from our newest line
  *   means the newest messages arrive first and the fill cannot be defeated
@@ -93,6 +93,8 @@ export interface HistorySpec {
 	mode: "prepend" | "append";
 	pagesLeft?: number;
 	floor?: MsgRef;
+	/** Catch-up: the msgids held when the walk began (see HistoryRequest.held). */
+	held?: ReadonlySet<string>;
 	/** Re-issue after a reconnect when the answer never came (the `more` pages). */
 	retry?: boolean;
 	/** Catch-up: ids for the gap, set aside when it started (`IrcClient.reserveIds`). */
@@ -119,6 +121,12 @@ export interface HistoryRequest {
 	pagesLeft: number;
 	/** Catch-up: the newest message the previous session saw; the walk back stops on reaching it. */
 	floor?: MsgRef;
+	/**
+	 * Catch-up: the msgids the channel held at our JOIN; only these mean a
+	 * page reached what we had. A line relayed while the walk runs is in its
+	 * pages too, with the gap below it still unfilled.
+	 */
+	held?: ReadonlySet<string>;
 	/** Catch-up: the gap gathered so far, oldest first (pages arrive newest first). */
 	gap: SharedMsg[];
 	/** Catch-up: post-delivery work of the gathered pages, in the same order. */
@@ -223,6 +231,7 @@ export function requestHistory(
 		retry: spec.retry ? {...spec, retry: false} : undefined,
 		pagesLeft: spec.pagesLeft ?? 0,
 		floor: spec.floor,
+		held: spec.held,
 		ids: spec.ids,
 		gap: [],
 		gapAfter: [],
@@ -287,13 +296,17 @@ export function requestMore(client: IrcClient, chan: Channel, lastId: number): b
  * latest {@link JOIN_PAGE_SIZE} messages; after a reconnect (history was
  * loaded before and we know the newest message) it is the gap between that
  * message and now, gathered from LATEST backwards (see the header) and
- * appended as live messages. `before` is the channel's newest reference as
- * it was before the JOIN line itself was pushed.
+ * appended as live messages. `before` is the channel's catch-up reference
+ * (Channel.catchupRef) as it was before the JOIN line itself was pushed:
+ * the walk's floor, so a line the server stamped where there is one. `held`
+ * is its msgids then (taken now when absent: a request sent ahead of the JOIN
+ * echo).
  */
 export function requestChannelHistory(
 	client: IrcClient,
 	chan: Channel,
 	before: MsgRef | undefined,
+	held?: ReadonlySet<string>,
 	ids?: IdBlock
 ): HistoryRequest | undefined {
 	if (chan.historyRequested && before) {
@@ -303,6 +316,7 @@ export function requestChannelHistory(
 			mode: "append",
 			pagesLeft: MAX_CATCHUP_PAGES - 1,
 			floor: before,
+			held: held ?? new Set(chan.msgids),
 			ids,
 		});
 	}
@@ -570,15 +584,17 @@ function resolve(
 
 	if (request.mode === "append") {
 		// The spec's loop: this page reached what we already hold when it
-		// carries a msgid we show (replay dropped that line, so look at the
-		// raw page) or a line older than the previous session's newest
-		// minus the skew allowance. An empty page, the end tag, the page cap,
-		// or a page without timestamps also stop it. A short page does not:
+		// carries a msgid we held when our JOIN came back (request.held; replay
+		// dropped that line, so look at the raw page) or a line older than
+		// the previous session's newest minus the skew allowance. A line
+		// relayed live while the walk runs is in its pages too and does not
+		// count. An empty page, the end tag, the page cap, or a page without
+		// timestamps also stop it. A short page does not:
 		// nefarious2 filters pages and caps its scan, so it can leave a hole.
 		// For the same reason an empty page without the end tag stops the walk
 		// (nothing to page back from) but does not vouch for the gap.
 		const page = lines ?? [];
-		const known = new Set(chan.msgids);
+		const known = request.held ?? new Set(chan.msgids);
 		const floorMs = request.floor ? request.floor.time.getTime() - CATCHUP_FUZZ_MS : undefined;
 		let reached = false;
 		let oldest: MsgRef | undefined;
@@ -620,6 +636,7 @@ function resolve(
 				mode: "append",
 				pagesLeft: request.pagesLeft - 1,
 				floor: request.floor,
+				held: request.held,
 				ids: request.ids,
 			};
 			const {gap, gapAfter} = request;

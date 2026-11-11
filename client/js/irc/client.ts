@@ -3092,7 +3092,8 @@ export class IrcClient {
 		}
 
 		// Our own JOIN (live, not replayed) is what triggers a history load;
-		// the reference for a catch-up is the newest message before the JOIN.
+		// the reference for a catch-up is the newest message the server
+		// stamped before the JOIN, never a local line on our own clock.
 		const selfJoin =
 			msg.command === "JOIN" &&
 			!this.replayContext &&
@@ -3100,7 +3101,7 @@ export class IrcClient {
 			this.isSelf(msg.source.name);
 		const joinName = selfJoin ? msg.params[0] ?? "" : "";
 		const joined = selfJoin ? this.findChannel(joinName) : undefined;
-		const beforeJoin: MsgRef | undefined = selfJoin ? joined?.newestRef : undefined;
+		const beforeJoin: MsgRef | undefined = selfJoin ? joined?.catchupRef() : undefined;
 		// Only once history has filled it: before that, its newest stamped line
 		// can be our own previous JOIN, with the scrollback never fetched.
 		const heldBeforeJoin: MsgRef | undefined =
@@ -3108,6 +3109,10 @@ export class IrcClient {
 		// A JOIN for a channel we are already in repeats a membership we have
 		// (see handlers/join.ts): its history and modes are not asked again.
 		const alreadyJoined = joined?.state === ChanState.JOINED;
+		// What a reconnect's catch-up walk may stop on: only what we held at
+		// this JOIN. A line relayed while the walk runs is in its pages too,
+		// with the gap below it still unfilled (history.ts).
+		const heldIds = joined && !alreadyJoined ? new Set(joined.msgids) : undefined;
 
 		const handler = handlers.get(msg.command) ?? unhandled;
 
@@ -3130,7 +3135,7 @@ export class IrcClient {
 				// History + read marker, paced (catchup.ts): the active channel
 				// now, the rest one at a time so the server's flood penalty
 				// never queues the user's own lines.
-				enqueueCatchup(this, chan, beforeJoin, heldBeforeJoin);
+				enqueueCatchup(this, chan, beforeJoin, heldBeforeJoin, heldIds);
 			} else if (chan) {
 				// The replay fills the gap, not a `more` page the last
 				// connection died on: that one is asked again here.

@@ -83,6 +83,8 @@ interface PendingCatchup {
 	 * with to tell that nothing is new.
 	 */
 	held: MsgRef | undefined;
+	/** The msgids the channel held at this JOIN: what the catch-up walk may stop on. */
+	heldIds: ReadonlySet<string> | undefined;
 	/** Its marker query is a job of its own, queued right ahead of this step. */
 	markerQueued?: boolean;
 }
@@ -157,7 +159,7 @@ export function pendingCatchup(client: IrcClient): readonly Channel[] {
  */
 export function prefetchCatchup(client: IrcClient, chan: Channel): void {
 	chan.catchupPrefetched = true;
-	fetchFor(client, chan, chan.newestRef, gapIds(client, chan, chan.newestRef));
+	fetchFor(client, chan, chan.catchupRef(), undefined, gapIds(client, chan, chan.catchupRef()));
 }
 
 /**
@@ -178,7 +180,8 @@ export function enqueueCatchup(
 	client: IrcClient,
 	chan: Channel,
 	before: MsgRef | undefined,
-	held: MsgRef | undefined
+	held: MsgRef | undefined,
+	heldIds?: ReadonlySet<string>
 ): void {
 	const prefetched = chan.catchupPrefetched;
 	chan.catchupPrefetched = false;
@@ -192,7 +195,7 @@ export function enqueueCatchup(
 
 		if (!prefetched) {
 			const from = before ?? queued?.before;
-			fetchFor(client, chan, from, gapIds(client, chan, from));
+			fetchFor(client, chan, from, before ? heldIds : queued?.heldIds, gapIds(client, chan, from));
 		}
 
 		queueModes(client, chan);
@@ -204,7 +207,7 @@ export function enqueueCatchup(
 	}
 
 	const ids = prefetched ? undefined : gapIds(client, chan, before);
-	const pending: PendingCatchup = {chan, before, ids, prefetched, held};
+	const pending: PendingCatchup = {chan, before, ids, prefetched, held, heldIds};
 
 	if (parkForTargets(client, pending)) {
 		return;
@@ -452,7 +455,7 @@ function step(client: IrcClient, next: PendingCatchup): void {
 	}
 
 	if (!next.prefetched) {
-		fetchFor(client, next.chan, next.before, next.ids, !next.markerQueued);
+		fetchFor(client, next.chan, next.before, next.heldIds, next.ids, !next.markerQueued);
 	}
 
 	if (next.chan.id === client.activeChannelId) {
@@ -464,6 +467,7 @@ function fetchFor(
 	client: IrcClient,
 	chan: Channel,
 	before: MsgRef | undefined,
+	heldIds: ReadonlySet<string> | undefined,
 	ids: IdBlock | undefined,
 	marker = true
 ): void {
@@ -477,7 +481,7 @@ function fetchFor(
 		fetchReadMarker(client, chan);
 	}
 
-	requestChannelHistory(client, chan, before, ids);
+	requestChannelHistory(client, chan, before, heldIds, ids);
 
 	retryLostHistory(client, chan);
 }
