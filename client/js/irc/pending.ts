@@ -268,9 +268,9 @@ export function failPendingLabel(client: IrcClient, label: string, reason: strin
 /**
  * An unlabelled rejection (a 4xx numeric naming `target`) on a server
  * without `labeled-response`: the oldest copy for that target is the line it
- * answers, since the server answers lines in the order they went out. A
- * NOTICE draws no error reply, so only a PRIVMSG / ACTION copy is a
- * candidate. Returns whether one was failed.
+ * answers, since the server answers lines in the order they went out.
+ * Servers rarely answer a NOTICE with an error, so only a PRIVMSG / ACTION
+ * copy is a candidate. Returns whether one was failed.
  */
 export function failPendingTarget(client: IrcClient, target: string, reason: string): boolean {
 	const chan = client.findChannel(target);
