@@ -9,6 +9,7 @@ import type {SharedNetworkChan} from "../../../shared/types/network";
 import type {SharedUser} from "../../../shared/types/user";
 import {MessageType, type SharedMsg, type UserInMessage} from "../../../shared/types/msg";
 import type {HistorySpec} from "./history";
+import type {IdBlock} from "./ids";
 
 export type Casefold = (s: string) => string;
 
@@ -140,6 +141,13 @@ export class Channel {
 	 * never taken for one that finished (catchup.ts).
 	 */
 	historyFilled = false;
+	/**
+	 * Ids set aside at our JOIN for the reconnect's catch-up gap, which is
+	 * delivered after the lines relayed live meanwhile but goes above them
+	 * (IrcClient.pushMessage with `replay`). Replaced at every JOIN, dropped
+	 * once the gap is delivered.
+	 */
+	gapIds: IdBlock | undefined = undefined;
 	/**
 	 * Open, but its reader was taken to an older message: nothing is read until
 	 * they reach the bottom ({@link IrcClient.isReading}). What we say still reads it,

@@ -194,12 +194,26 @@ function standsIn<T extends SharedMsg>(messages: T[], index: number): boolean {
 	return index > 0 && messages[index - 1].supersededBy === messages[index].id;
 }
 
+/** The id that places the row at `index`: an edit standing in counts as its original. */
+function placeId<T extends SharedMsg>(messages: T[], index: number): number {
+	while (standsIn(messages, index)) {
+		index--;
+	}
+
+	return messages[index].id;
+}
+
 /**
  * Add a delivered message to a channel's list. Pending copies of our own
  * outgoing messages (bus-contract §1.9) stay a trailing block — the slot
  * their echo will land in — so anything else goes in ahead of that block
  * and a new copy goes after it. A copy that stands in an edited message's
  * place ({@link applyEdit}) is not part of the block: it stays put.
+ *
+ * Rows keep rising ids, which the unread marker relies on: a message with
+ * an older id than the rows at the bottom (a reconnect's catch-up gap,
+ * which the IRC layer numbers below the lines relayed while it was being
+ * fetched) goes in above them, never between an edit and its original.
  */
 export function insertMessage<T extends SharedMsg>(messages: T[], msg: T): void {
 	if (msg.pending) {
@@ -210,6 +224,10 @@ export function insertMessage<T extends SharedMsg>(messages: T[], msg: T): void 
 	let at = messages.length;
 
 	while (at > 0 && messages[at - 1].pending && !standsIn(messages, at - 1)) {
+		at--;
+	}
+
+	while (at > 0 && placeId(messages, at - 1) > msg.id) {
 		at--;
 	}
 

@@ -1174,6 +1174,53 @@ describe("Chat history (history.ts)", function () {
 			expect(chan.shared.unread, "the live line is still unread").to.equal(1);
 		});
 
+		it("catch-up: the gap takes ids between what we held and a line relayed during the walk", function () {
+			const h = setup();
+			const id = joined(h);
+			h.transport.line(
+				"@msgid=a;time=2026-08-25T12:10:00.000Z :bob!bob@host PRIVMSG #seance :before the drop"
+			);
+			const sent = reconnect(h);
+			// A live line lands while the catch-up is still out.
+			h.transport.line(
+				"@msgid=live;time=2026-08-25T12:40:00.000Z :bob!bob@host PRIVMSG #seance :just now"
+			);
+
+			reply(h, sent, [
+				"@time=2026-08-25T12:10:00.000Z;msgid=a :bob!bob@host PRIVMSG #seance :before the drop",
+				"@time=2026-08-25T12:20:00.000Z;msgid=g1 :bob!bob@host PRIVMSG #seance :one",
+				"@time=2026-08-25T12:25:00.000Z;msgid=g2 :bob!bob@host PRIVMSG #seance :two",
+			]);
+
+			// The UI keeps rows in id order (insertMessage), so ids are what
+			// put the gap above the line relayed while it was being fetched.
+			const chan = h.client.findChannel("#seance")!;
+			const idOf = (msgid: string) => chan.idOf(msgid)!;
+			expect(idOf("a")).to.be.lessThan(idOf("g1"));
+			expect(idOf("g1")).to.be.lessThan(idOf("g2"));
+			expect(idOf("g2")).to.be.lessThan(idOf("live"));
+			expect(msgs(id).map((p) => p.msg.text)).to.include.members(["one", "two", "just now"]);
+		});
+
+		it("catch-up: a later live line still takes an id above the gap's", function () {
+			const h = setup();
+			joined(h);
+			h.transport.line(
+				"@msgid=a;time=2026-08-25T12:10:00.000Z :bob!bob@host PRIVMSG #seance :before the drop"
+			);
+			const sent = reconnect(h);
+			reply(h, sent, [
+				"@time=2026-08-25T12:10:00.000Z;msgid=a :bob!bob@host PRIVMSG #seance :before the drop",
+				"@time=2026-08-25T12:20:00.000Z;msgid=g1 :bob!bob@host PRIVMSG #seance :one",
+			]);
+			h.transport.line(
+				"@msgid=after;time=2026-08-25T12:41:00.000Z :bob!bob@host PRIVMSG #seance :later"
+			);
+
+			const chan = h.client.findChannel("#seance")!;
+			expect(chan.idOf("g1")!).to.be.lessThan(chan.idOf("after")!);
+		});
+
 		it("catch-up: lines at or before a known read marker do not count", function () {
 			const h = setup();
 			joined(h);

@@ -596,6 +596,25 @@ describe("PERSISTENCE ATTACH catch-up cursor (irc/persistence.ts)", function () 
 			restore(h);
 		}
 
+		it("gives the replay ids above what we held and below a line relayed before it closed", function () {
+			const h = saslClient();
+			reconnect(h);
+			// A live line arrives while the replay batch is still open.
+			h.transport.lines(
+				":irc.test BATCH +outer evilnet.github.io/bouncer-replay",
+				"@batch=outer; :irc.test BATCH +inner chathistory #seance",
+				"@batch=inner;time=2026-08-28T12:10:00.000Z;msgid=r1 :bob!bob@host PRIVMSG #seance :missed",
+				"@time=2026-08-28T12:30:00.000Z;msgid=live :bob!bob@host PRIVMSG #seance :just now",
+				"@batch=outer :irc.test BATCH -inner",
+				":irc.test BATCH -outer"
+			);
+
+			const chan = h.client.findChannel("#seance")!;
+			const idOf = (msgid: string) => chan.idByMsgid.get(msgid)!;
+			expect(idOf("m1")).to.be.lessThan(idOf("r1"));
+			expect(idOf("r1")).to.be.lessThan(idOf("live"));
+		});
+
 		it("asks for no CHATHISTORY when the cursor was accepted", function () {
 			const h = saslClient();
 			reconnect(h);

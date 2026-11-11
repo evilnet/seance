@@ -81,7 +81,7 @@ import {
 	setAttended,
 	syncPresence,
 } from "./presence";
-import {abortHistory, retryLostHistory} from "./history";
+import {abortHistory, GAP_IDS, retryLostHistory} from "./history";
 import {resetSearches} from "./historysearch";
 import {globalUntil, MUTE_KEY, MUTE_READ_DELAY_MS, type PendingMute, releaseMute} from "./pushMute";
 import {MODE_KEY, PRESENCE_KEY, syncShared, type Stamped} from "./presenceShare";
@@ -3119,6 +3119,14 @@ export class IrcClient {
 		if (selfJoin && !alreadyJoined) {
 			const chan = this.findChannel(joinName);
 
+			// A reconnect's gap (our walk, or the cursor's replay) arrives
+			// after what is relayed live meanwhile but is older: its ids are
+			// set aside now, so it lands above those lines (pushMessage).
+			if (chan) {
+				chan.gapIds =
+					chan.historyRequested && beforeJoin ? this.ids.reserve(GAP_IDS) : undefined;
+			}
+
 			// The ATTACH cursor's server-driven replay already covers the gap
 			// of a channel the server restored; asking again per channel is
 			// exactly what the cursor replaces (persistence.ts).
@@ -3629,7 +3637,8 @@ export class IrcClient {
 			return msg;
 		}
 
-		msg.id = this.ids.msgId();
+		const gap = replay ? chan.gapIds : undefined;
+		msg.id = gap && gap.next < gap.end ? gap.next++ : this.ids.msgId();
 		const ref = chan.remember(msg);
 		chan.newestRef = ref;
 		this.noteCursor(msg);

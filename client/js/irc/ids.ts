@@ -1,9 +1,17 @@
+/** Ids set aside by {@link IdAllocator.reserve}: `next` up to `end` (exclusive). */
+export interface IdBlock {
+	next: number;
+	end: number;
+}
+
 /**
  * Id allocation for channels and messages.
  *
  * The UI assumes channel ids are unique across every network (`findChannel`,
- * the `#/chan-<id>` route) and that message ids increase monotonically across
- * every channel (unread marker, `more.lastId`, mention dedupe). One shared
+ * the `#/chan-<id>` route) and that message ids increase with a channel's row
+ * order across every channel (unread marker, `more.lastId`, mention dedupe),
+ * which is time order: a catch-up gap delivered late takes ids set aside
+ * before the live lines it arrives behind ({@link reserve}). One shared
  * allocator therefore serves all {@link IrcClient} instances; tests can pass
  * their own to get deterministic numbers.
  */
@@ -29,6 +37,19 @@ export class IdAllocator {
 
 	msgId(): number {
 		return this.nextMsg++;
+	}
+
+	/**
+	 * Set aside `count` message ids, above every id handed out so far and
+	 * below every later one, for lines that are older than what arrives
+	 * next but are only delivered after it: a reconnect's catch-up gap,
+	 * reserved at our JOIN, comes in after the lines relayed live while it
+	 * was being fetched, and its ids keep it above them.
+	 */
+	reserve(count: number): IdBlock {
+		const block = {next: this.nextMsg, end: this.nextMsg + count};
+		this.nextMsg += count;
+		return block;
 	}
 
 	/**

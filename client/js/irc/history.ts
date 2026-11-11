@@ -63,6 +63,13 @@ export const MORE_PAGE_SIZE = 100;
 export const JOIN_PAGE_SIZE = 50;
 /** Most pages fetched in one catch-up (LATEST plus BEFORE pages). */
 const MAX_CATCHUP_PAGES = 5;
+/**
+ * Ids set aside at a reconnect's JOIN for its gap (`Channel.gapIds`): well
+ * past what the walk can bring (pages × page size), with room for the
+ * cursor's replay. A longer gap's newest lines take ordinary ids and land
+ * after the live ones, as every gap did before.
+ */
+export const GAP_IDS = 10_000;
 /** Clock-skew allowance when deciding a page has reached what we already
  * held (the spec's FUZZ_INTERVAL, "perhaps 1 to 10 seconds"). */
 export const CATCHUP_FUZZ_MS = 5_000;
@@ -514,6 +521,8 @@ function deliverAppend(client: IrcClient, chan: Channel, messages: SharedMsg[]):
 		// (`afterReplay` closures hold the collected objects) can find it.
 		msg.id = client.pushMessage(chan, msg, false, {replay: true}).id;
 	}
+
+	chan.gapIds = undefined;
 
 	// Unread against this device's read point only: another device may have
 	// read it. The autojoin's ask for the query's marker may already have
