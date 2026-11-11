@@ -69,6 +69,8 @@ interface Registry {
 	entries: PendingMessage[];
 	/** Counter behind {@link pendingLabel}. */
 	labels: number;
+	/** The server has put our label on an echo: it relays labels, so an unlabelled line of ours is not our echo. */
+	labelledEchoes: boolean;
 }
 
 const registries = new WeakMap<IrcClient, Registry>();
@@ -77,7 +79,7 @@ function registryOf(client: IrcClient): Registry {
 	let registry = registries.get(client);
 
 	if (!registry) {
-		registry = {entries: [], labels: 0};
+		registry = {entries: [], labels: 0, labelledEchoes: false};
 		registries.set(client, registry);
 	}
 
@@ -215,7 +217,15 @@ export function settleEcho(
 		return undefined;
 	}
 
-	if (!entry) {
+	if (entry) {
+		registryOf(client).labelledEchoes = true;
+	} else if (registryOf(client).labelledEchoes) {
+		// This server labels our echoes, so an unlabelled line of ours is
+		// not one: the same account on another device, or a message to
+		// ourselves delivered back. Matching it by text would settle the
+		// copy its real echo is still on the way for.
+		return undefined;
+	} else {
 		// No usable label. Our echoes carry the text we sent, so match a copy
 		// of the same kind in this channel by exact text. That is what keeps a
 		// self message we never sent — the same account on another device —
@@ -246,6 +256,24 @@ function byLabel(client: IrcClient, label: string): PendingMessage | undefined {
 /** A labelled rejection (a 4xx numeric): report it with the text. Returns whether it was ours. */
 export function failPendingLabel(client: IrcClient, label: string, reason: string): boolean {
 	const entry = byLabel(client, label);
+
+	if (!entry) {
+		return false;
+	}
+
+	failPending(client, entry, reason);
+	return true;
+}
+
+/**
+ * An unlabelled rejection (a 4xx numeric naming `target`) on a server
+ * without `labeled-response`: the oldest copy for that target is the line it
+ * answers, since the server answers lines in the order they went out and
+ * every earlier one has been echoed by now. Returns whether one was failed.
+ */
+export function failPendingTarget(client: IrcClient, target: string, reason: string): boolean {
+	const chan = client.findChannel(target);
+	const entry = chan ? registryOf(client).entries.find((e) => e.chan === chan) : undefined;
 
 	if (!entry) {
 		return false;

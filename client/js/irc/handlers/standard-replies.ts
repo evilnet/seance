@@ -19,6 +19,7 @@ import {targetsFailed} from "../catchup";
 import {chatHistoryFailed} from "../history";
 import {searchContextFailed, searchFailed} from "../historysearch";
 import {multilineCooldown, multilineRejected} from "../multiline";
+import {failPendingLabel} from "../pending";
 import {inRestorationWindow, noteRestorationActivity, persistenceFailed} from "../persistence";
 import {isOwnMetadataKey} from "./metadata";
 import type {Handler} from "../types";
@@ -271,6 +272,15 @@ function reply(kind: "FAIL" | "WARN" | "NOTE"): Handler {
 		}
 
 		const description = rest.length > 0 ? rest[rest.length - 1] : "";
+		const label = msg.tags.get("label");
+
+		// `labeled-response`: a FAIL that answers a message of ours (a
+		// PRIVMSG / NOTICE refused) is reported with its text, where it was
+		// typed, like a labelled numeric.
+		if (kind === "FAIL" && label && failPendingLabel(client, label, description || code)) {
+			return;
+		}
+
 		const context = rest.slice(0, -1);
 		const text = `${command === "*" ? "" : `${command}: `}${description}${
 			context.length > 0 ? ` (${context.join(" ")})` : ""

@@ -12,7 +12,7 @@ import {errorSpec} from "../errors";
 import {formatLine} from "../message";
 import {t} from "../../i18n/core";
 import {noteSnomask, parseSnomask} from "../oper";
-import {failPendingLabel} from "../pending";
+import {failPendingLabel, failPendingTarget} from "../pending";
 import type {Handler} from "../types";
 
 /** Params without our own leading nick, joined for display. */
@@ -235,6 +235,21 @@ export const numericError: Handler = (client, msg) => {
 	if (
 		label &&
 		failPendingLabel(client, label, reason || t("pending.numericError", {code: msg.command}))
+	) {
+		return;
+	}
+
+	// Without `labeled-response` a 401 / 404 still answers the oldest line
+	// we are waiting on for that target.
+	if (
+		!label &&
+		(msg.command === "401" || msg.command === "404") &&
+		!client.caps.hasCapability("labeled-response") &&
+		failPendingTarget(
+			client,
+			msg.params[1] ?? "",
+			reason || t("pending.numericError", {code: msg.command})
+		)
 	) {
 		return;
 	}

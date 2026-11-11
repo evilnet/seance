@@ -262,11 +262,13 @@ export const labeledBatch: BatchHandler = (client, batch) => {
 		return;
 	}
 
-	// Only the opener has the label, and a FAIL needs it to find its request.
+	// Only the opener has the label. Every line in the batch answers that
+	// label's request, so each takes it: a FAIL to find its request, an echo
+	// or a numeric to find the pending copy it answers (pending.ts).
 	const label = batch.tags.get("label");
 
 	for (const msg of batch.messages) {
-		if (label && msg.command === "FAIL" && !msg.tags.has("label")) {
+		if (label && !msg.tags.has("label")) {
 			msg.tags.set("label", label);
 		}
 
