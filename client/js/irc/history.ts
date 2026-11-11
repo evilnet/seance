@@ -274,8 +274,9 @@ export function requestMore(client: IrcClient, chan: Channel, lastId: number): b
  * latest {@link JOIN_PAGE_SIZE} messages; after a reconnect (history was
  * loaded before and we know the newest message) it is the gap between that
  * message and now, gathered from LATEST backwards (see the header) and
- * appended as live messages. `before` is the channel's newest reference as
- * it was before the JOIN line itself was pushed.
+ * appended as live messages. `before` is the channel's catch-up reference
+ * (Channel.catchupRef) as it was before the JOIN line itself was pushed:
+ * the walk's floor, so a line the server stamped where there is one.
  */
 export function requestChannelHistory(
 	client: IrcClient,
