@@ -28,7 +28,7 @@ const CHAN = "#gap";
 export const url = `http://localhost:${PORT}/?host=127.0.0.1&port=${IRCD_PORT}&tls=false&nick=${NICK}&join=${encodeURIComponent(
 	CHAN
 )}`;
-export const allowWsFrameErrors = true;
+export const allowWsFrameErrors = /after close/;
 
 const T0 = Date.now();
 const at = (minutes) => new Date(T0 + minutes * 60_000).toISOString();
@@ -44,6 +44,10 @@ const GAP = [say(at(-10), "g1", "gap one"), say(at(-9), "g2", "gap two")];
 const LIVE = "live during the catch-up";
 
 let joins = 0;
+let answered = () => {};
+const caughtUp = new Promise((resolve) => {
+	answered = resolve;
+});
 
 /** A `chathistory` batch; `end` says there is nothing older (draft/chathistory-end). */
 function chathistory(send, lines, end = false) {
@@ -75,6 +79,7 @@ function script(line, {send, nick}) {
 			const live = say(new Date().toISOString(), "live", LIVE);
 			send(live);
 			chathistory(send, [HELD[2], ...GAP, live]);
+			answered();
 		}
 
 		return true;
@@ -121,10 +126,9 @@ export default async function run(page) {
 		ircd.drop();
 
 		const row = `.channel-list-item[data-name="${CHAN}"]`;
-		await page.waitFor(`document.querySelector('${row} .badge')?.textContent.trim()`, {
-			label: "unread after the reconnect",
-		});
-		await page.sleep(3000);
+		// The catch-up has been answered; a moment for the page to take it in.
+		await caughtUp;
+		await page.sleep(500);
 		await page.click(row);
 		await page.waitFor(`${texts}.includes("gap one")`, {label: "gap shown"});
 

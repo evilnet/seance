@@ -210,10 +210,11 @@ function placeId<T extends SharedMsg>(messages: T[], index: number): number {
  * and a new copy goes after it. A copy that stands in an edited message's
  * place ({@link applyEdit}) is not part of the block: it stays put.
  *
- * Rows keep rising ids, which the unread marker relies on: a message with
- * an older id than the rows at the bottom (a reconnect's catch-up gap,
- * which the IRC layer numbers below the lines relayed while it was being
- * fetched) goes in above them, never between an edit and its original.
+ * Rows keep rising ids, an edit counting as the original it stands in for,
+ * which the unread marker relies on: a message with an older id than the
+ * rows at the bottom (a reconnect's catch-up gap, which the IRC layer
+ * numbers below the lines relayed while it was being fetched) goes in above
+ * them, never between an edit and its original.
  */
 export function insertMessage<T extends SharedMsg>(messages: T[], msg: T): void {
 	if (msg.pending) {

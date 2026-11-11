@@ -275,6 +275,7 @@ export function persistenceFailed(client: IrcClient, msg: IrcMessage): boolean {
 	if (context === "ATTACH" && client.attachCursor !== undefined) {
 		client.attachCursor = undefined;
 		client.serverReplay = false;
+		client.replayIds = undefined;
 		// eslint-disable-next-line no-console
 		console.debug(`[irc] PERSISTENCE ATTACH refused (${code}); catching up ourselves`);
 		return true;
@@ -317,6 +318,7 @@ export const bouncerReplayBatch: BatchHandler = (client, batch) => {
 		client.handleMessage(msg);
 	}
 
+	client.replayIds = undefined; // the replay is over
 	presenceResumed(client);
 };
 

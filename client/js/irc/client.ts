@@ -109,7 +109,7 @@ import {
 	RESTORE_QUIET_MS,
 	serverReplayCovers,
 } from "./persistence";
-import {IdAllocator, sharedIds} from "./ids";
+import {IdAllocator, type IdBlock, sharedIds} from "./ids";
 import {NoticeLog} from "./noticelog";
 import {initialOper, OperState, operRegistered, resetOper} from "./oper";
 import {detectProfile, type ServerProfile} from "./profiles";
@@ -528,6 +528,8 @@ export class IrcClient {
 	attachCursor: string | undefined;
 	/** The server took that cursor: it replays the gap, so catchup.ts stands down. */
 	serverReplay = false;
+	/** Ids for the cursor's replay, every target's, set aside when the server took the cursor. */
+	replayIds: IdBlock | undefined = undefined;
 
 	private saslTimer: ReturnType<typeof setTimeout> | null = null;
 	private readonly bus: Pick<EventBus, "dispatch">;
@@ -1317,6 +1319,7 @@ export class IrcClient {
 		this.bouncerAlias = false;
 		this.attachCursor = undefined;
 		this.serverReplay = false;
+		this.replayIds = undefined;
 		this.endSasl();
 
 		// SASL was picked for this network but there is nothing to log in
@@ -1822,6 +1825,7 @@ export class IrcClient {
 		resetServiceReplies(this);
 		resetOper(this);
 		this.serverReplay = false;
+		this.replayIds = undefined;
 		this.clearPendingEdits();
 		this.clearTyping();
 
@@ -3119,14 +3123,6 @@ export class IrcClient {
 		if (selfJoin && !alreadyJoined) {
 			const chan = this.findChannel(joinName);
 
-			// A reconnect's gap (our walk, or the cursor's replay) arrives
-			// after what is relayed live meanwhile but is older: its ids are
-			// set aside now, so it lands above those lines (pushMessage).
-			if (chan) {
-				chan.gapIds =
-					chan.historyRequested && beforeJoin ? this.ids.reserve(GAP_IDS) : undefined;
-			}
-
 			// The ATTACH cursor's server-driven replay already covers the gap
 			// of a channel the server restored; asking again per channel is
 			// exactly what the cursor replaces (persistence.ts).
@@ -3616,13 +3612,14 @@ export class IrcClient {
 	 * someone else said, not an edit, newer than the read marker — and
 	 * `increasesUnread` is ignored; the flag travels on the `msg` event so
 	 * the consumer skips notifications. An unread highlight, replayed or
-	 * not, also goes out as `inbox:add`.
+	 * not, also goes out as `inbox:add`. `ids`: the catch-up's own block
+	 * ({@link reserveIds}), while it lasts.
 	 */
 	pushMessage(
 		chan: Channel,
 		partial: Partial<SharedMsg>,
 		increasesUnread = false,
-		{replay = false}: {replay?: boolean} = {}
+		{replay = false, ids}: {replay?: boolean; ids?: IdBlock} = {}
 	): SharedMsg {
 		const msg: SharedMsg = {
 			users: [],
@@ -3637,8 +3634,7 @@ export class IrcClient {
 			return msg;
 		}
 
-		const gap = replay ? chan.gapIds : undefined;
-		msg.id = gap && gap.next < gap.end ? gap.next++ : this.ids.msgId();
+		msg.id = ids && ids.next < ids.end ? ids.next++ : this.ids.msgId();
 		const ref = chan.remember(msg);
 		chan.newestRef = ref;
 		this.noteCursor(msg);
@@ -3760,6 +3756,15 @@ export class IrcClient {
 	/** The channel whose history is being replayed (for QUIT/NICK, which name none). */
 	get replayTarget(): Channel | undefined {
 		return this.replayContext?.target;
+	}
+
+	/**
+	 * Ids for a catch-up gap that arrives after lines relayed live meanwhile
+	 * but goes above them ({@link IdAllocator.reserve}): taken when the
+	 * catch-up starts, before any of those lines.
+	 */
+	reserveIds(): IdBlock {
+		return this.ids.reserve(GAP_IDS);
 	}
 
 	/** Ids for `count` older messages, below everything shown so far (see ids.ts). */
