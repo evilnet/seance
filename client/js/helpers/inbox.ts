@@ -25,7 +25,8 @@ export const EXCERPT_LEAD = 30;
 
 /**
  * A dismissed entry, remembered so the catch-up does not bring it back,
- * until its conversation is read past it.
+ * until its conversation is read past it (a channel mention's: and its
+ * read entry's keep is over, see pruneRead).
  */
 export type Dismissal = {key: string; network: string; target: string; time: string};
 
@@ -210,18 +211,25 @@ export function conversationEntries(
 }
 
 /**
- * `target` on `network` was read up to `time`: a dismissal it covers has
- * nothing left to hold back.
+ * `target` on `network` was read up to `time`: a private conversation's
+ * dismissal it covers has nothing left to hold back. A channel mention's
+ * stays while a read entry for it could still come back (READ_KEEP_MS).
  */
 export function pruneRead(
 	list: Dismissal[],
 	network: string,
 	target: string,
-	time: Date
+	time: Date,
+	now = Date.now()
 ): Dismissal[] {
 	const key = conversationKey(network, target);
 	return list.filter(
-		(e) => conversationKey(e.network, e.target) !== key || timeOf(e) > time.getTime()
+		(e) =>
+			conversationKey(e.network, e.target) !== key ||
+			timeOf(e) > time.getTime() ||
+			// A channel mention read goes on being listed, read, for as long
+			// as a read entry stays: its dismissal must hold it back as long.
+			(!e.key.startsWith("query:") && now - timeOf(e) <= READ_KEEP_MS)
 	);
 }
 

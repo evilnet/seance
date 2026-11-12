@@ -146,7 +146,8 @@ export function countPageUnread(
 	chan: Channel,
 	page: Array<[SharedMsg, MsgRef]>,
 	marker: Date,
-	lastRead = 0
+	lastRead = 0,
+	replaced?: ReadonlySet<SharedMsg>
 ): void {
 	let readTo = marker.getTime();
 
@@ -180,7 +181,7 @@ export function countPageUnread(
 		if (msg.highlight) {
 			ref.highlight = true;
 			highlight++;
-			const entry = client.inboxEntry(chan, msg);
+			const entry = replaced?.has(msg) ? null : client.mentionEntry(chan, msg, true);
 
 			if (entry) {
 				mentions.push(entry);

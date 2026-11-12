@@ -2760,15 +2760,22 @@ export class IrcClient {
 	 * first: an older page brought the original in, or a catch-up). The edit
 	 * takes its place now (`msg:edit`), as it does when the original is
 	 * there first, so the two are never both on screen — nor both in a copy
-	 * of the conversation.
+	 * of the conversation. True when its own author's edit replaced it
+	 * (the inbox drops an edited mention only then, `inbox:drop`'s `by`).
 	 */
-	settleLateOriginal(chan: Channel, msg: SharedMsg): void {
-		const editMsgid = msg.msgid ? chan.takeEditOf(msg.msgid) : undefined;
-		const id = editMsgid === undefined ? undefined : chan.idOf(editMsgid);
+	settleLateOriginal(chan: Channel, msg: SharedMsg): boolean {
+		const edit = msg.msgid ? chan.takeEditOf(msg.msgid) : undefined;
+		const id = edit === undefined ? undefined : chan.idOf(edit.msgid);
 
 		if (id !== undefined && id !== msg.id) {
 			this.dispatch("msg:edit", {chan: chan.id, id, replaces: msg.id});
 		}
+
+		return (
+			edit !== undefined &&
+			msg.from?.nick !== undefined &&
+			this.casefold(edit.by) === this.casefold(msg.from.nick)
+		);
 	}
 
 	/** The tagged resend that completes an edit. */
@@ -3302,6 +3309,23 @@ export class IrcClient {
 		return this.highlightTester.isHighlightException(text, exceptions);
 	}
 
+	/**
+	 * The inbox entry for a highlight in `chan`, live, caught up or in a
+	 * history page, or null. One read already (looked at here, or past
+	 * another session's marker) goes in read, as one read later stays
+	 * (helpers/inbox.ts), so every device lists the same mentions. A private
+	 * conversation's entry is the conversation itself: only an unread line
+	 * puts it in. Nothing from the lobby (inboxEntry).
+	 */
+	mentionEntry(chan: Channel, msg: SharedMsg, unread: boolean): InboxEntry | null {
+		if (!msg.highlight || (!unread && chan.type === ChanType.QUERY)) {
+			return null;
+		}
+
+		const entry = this.inboxEntry(chan, msg);
+		return entry && !unread ? {...entry, read: true} : entry;
+	}
+
 	/** The inbox entry for an unread highlight in `chan` (helpers/inbox.ts), or null. */
 	inboxEntry(chan: Channel, msg: SharedMsg): InboxEntry | null {
 		if (!markable(chan)) {
@@ -3649,8 +3673,8 @@ export class IrcClient {
 	 * appends) the message counts as unread as it would have live — what
 	 * someone else said, not an edit, newer than the read marker — and
 	 * `increasesUnread` is ignored; the flag travels on the `msg` event so
-	 * the consumer skips notifications. An unread highlight, replayed or
-	 * not, also goes out as `inbox:add`. `ids`: the catch-up's own block
+	 * the consumer skips notifications. A highlight, replayed or not, also
+	 * goes out as `inbox:add`, read when it is read already. `ids`: the catch-up's own block
 	 * ({@link reserveIds}), while it lasts.
 	 */
 	pushMessage(
@@ -3736,13 +3760,9 @@ export class IrcClient {
 			highlight: shared.highlight,
 			...(replay ? {replay: true} : {}),
 		});
-		this.settleLateOriginal(chan, msg);
-
-		// An unread highlight in a conversation, live or caught up, is an
-		// inbox entry; one read already (looked at, or past another
-		// session's marker) is not, nor one in the lobby, which no read
-		// marker ever clears.
-		const entry = ref.highlight ? this.inboxEntry(chan, msg) : null;
+		// An original its edit already replaced is not news, read or not.
+		const replaced = this.settleLateOriginal(chan, msg);
+		const entry = replaced ? null : this.mentionEntry(chan, msg, !!ref.highlight);
 
 		if (entry) {
 			this.bus.dispatch("inbox:add", {entries: [entry]});

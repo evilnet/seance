@@ -48,12 +48,16 @@ on this device only.
 
 Every device builds the same list from what the server already gives it:
 
-- **Live** highlights, and **catch-up** highlights: the `CHATHISTORY AFTER` /
-  bouncer replay appended after a reconnect (`history.ts` `deliverAppend`) and
-  the first history page of a cold load past the read marker
-  (`countPageUnread`), all as the `inbox:add` bus event. Only what counted as
-  unread, only in a channel or a query (the lobby has no read point). A muted
-  conversation's are kept but not shown or counted. Older scrollback is never added.
+- **Live** highlights, **catch-up** highlights (the `CHATHISTORY AFTER` /
+  bouncer replay appended after a reconnect, `history.ts` `deliverAppend`)
+  and those in a **history page** (`deliverPrepend`), all as the `inbox:add`
+  bus event (`IrcClient.mentionEntry`). In a channel every highlight goes in,
+  one read already (looked at here, or past the read marker) marked read, so
+  every device lists the same mentions; in a query only an unread line, its
+  entry being the conversation; nothing from the lobby, which has no read
+  point. A read entry past its seven-day keep never goes in, nor an original
+  its author's edit already replaced. A muted conversation's are kept but not
+  shown or counted.
 - **Marked read** by the `inbox:read {network, target, time}` bus event that
   `moveReadMarker` dispatches whenever the read point moves, and by
   `inbox:drop {network, target, msgid, by?}` when the message is deleted
@@ -61,7 +65,8 @@ Every device builds the same list from what the server already gives it:
   it loaded (an edit is dropped only when `by` sent the entry's message).
 - **Dismissed** on this device: the entry goes, and its key and time are
   remembered (`thelounge.mentions.dismissed`, 200 at most) so the next
-  catch-up does not bring it back, until the conversation is read past it.
+  catch-up does not bring it back, until the conversation is read past it
+  and, for a channel mention, its read entry's seven days are over.
   A dismissal holds back what it covered, not a later line under the same
   key: a private conversation's next message comes in. Parting a channel
   or closing a query dismisses its entries, so a rejoin's catch-up does

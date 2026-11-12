@@ -247,11 +247,24 @@ describe("helpers/inbox.ts", function () {
 			expect(left.map((d) => d.key)).to.deep.equal([list[2], list[3], list[4]].map(entryKey));
 		});
 
-		it("forgets a dismissal the read point has passed", function () {
+		it("forgets a private conversation's dismissal the read point has passed", function () {
+			const gone: Dismissal[] = [
+				{key: "query:net-1/bob", network: "net-1", target: "bob", time: minute(1)},
+			];
+			expect(pruneRead(gone, "net-1", "bob", new Date(minute(2)))).to.deep.equal([]);
+		});
+
+		it("keeps a channel mention's dismissal while a read entry for it could come back", function () {
 			const gone: Dismissal[] = [
 				{key: "k", network: "net-1", target: "#seance", time: minute(1)},
 			];
-			expect(pruneRead(gone, "net-1", "#seance", new Date(minute(2)))).to.deep.equal([]);
+			const now = Date.parse(minute(2));
+			expect(pruneRead(gone, "net-1", "#seance", new Date(minute(2)), now)).to.deep.equal(
+				gone
+			);
+			expect(
+				pruneRead(gone, "net-1", "#seance", new Date(minute(2)), now + READ_KEEP_MS)
+			).to.deep.equal([]);
 		});
 	});
 
