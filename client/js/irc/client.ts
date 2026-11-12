@@ -3616,8 +3616,8 @@ export class IrcClient {
 	 * appends) the message counts as unread as it would have live — what
 	 * someone else said, not an edit, newer than the read marker — and
 	 * `increasesUnread` is ignored; the flag travels on the `msg` event so
-	 * the consumer skips notifications. An unread highlight, replayed or
-	 * not, also goes out as `inbox:add`. `ids`: the catch-up's own block
+	 * the consumer skips notifications. A highlight, replayed or not, also
+	 * goes out as `inbox:add`, read when it is read already. `ids`: the catch-up's own block
 	 * ({@link reserveIds}), while it lasts.
 	 */
 	pushMessage(
@@ -3705,14 +3705,21 @@ export class IrcClient {
 		});
 		this.settleLateOriginal(chan, msg);
 
-		// An unread highlight in a conversation, live or caught up, is an
-		// inbox entry; one read already (looked at, or past another
-		// session's marker) is not, nor one in the lobby, which no read
-		// marker ever clears.
-		const entry = ref.highlight ? this.inboxEntry(chan, msg) : null;
+		// A highlight in a conversation, live or caught up, is an inbox
+		// entry; one read already (looked at here, or past another session's
+		// marker) goes in read, as one read later stays (helpers/inbox.ts),
+		// so every device lists the same mentions. A private conversation's
+		// entry is the conversation itself: only an unread line puts it in.
+		// Nothing from the lobby, which no read marker ever clears.
+		const entry =
+			msg.highlight && (ref.highlight || chan.type !== ChanType.QUERY)
+				? this.inboxEntry(chan, msg)
+				: null;
 
 		if (entry) {
-			this.bus.dispatch("inbox:add", {entries: [entry]});
+			this.bus.dispatch("inbox:add", {
+				entries: [ref.highlight ? entry : {...entry, read: true}],
+			});
 		}
 
 		return msg;

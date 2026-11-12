@@ -171,6 +171,14 @@ export function countPageUnread(
 
 	for (const [msg, ref] of page) {
 		if (ref.time.getTime() <= readTo || !countsAsUnread(msg)) {
+			// A mention read already is listed read, as pushMessage lists it.
+			const entry =
+				msg.highlight && chan.type !== ChanType.QUERY ? client.inboxEntry(chan, msg) : null;
+
+			if (entry) {
+				mentions.push({...entry, read: true});
+			}
+
 			continue;
 		}
 

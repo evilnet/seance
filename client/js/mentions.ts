@@ -67,7 +67,11 @@ export function loadMentions(): void {
 
 export function addMentions(entries: InboxEntry[]): void {
 	if (entries.length > 0) {
-		commitIfChanged(addEntries(store.state.mentions, entries, dismissed));
+		// A page of older history can bring mentions read long ago: past
+		// their keep, they never go in.
+		commitIfChanged(
+			dropExpired(addEntries(store.state.mentions, entries, dismissed), Date.now())
+		);
 	}
 }
 
