@@ -2733,37 +2733,48 @@ export class IrcClient {
 	settleLateOriginal(chan: Channel, msg: SharedMsg): boolean {
 		const edit = this.takeLateEdit(chan, msg);
 
-		if (edit) {
+		if (edit !== undefined) {
 			this.showLateEdit(chan, msg, edit);
 		}
 
 		return edit !== undefined;
 	}
 
-	/** The edit of `msg` already shown, if its author sent it; taken off the list either way. */
-	private takeLateEdit(chan: Channel, msg: SharedMsg): string | undefined {
+	/**
+	 * The id of the edit of `msg` already shown, if its author sent it and
+	 * it is still loaded; the waiting edit is taken off the list either way.
+	 */
+	private takeLateEdit(chan: Channel, msg: SharedMsg): number | undefined {
 		const edit = msg.msgid ? chan.takeEditOf(msg.msgid) : undefined;
-		const author: Author = {nick: msg.from?.nick, self: msg.self};
-		return edit && this.isAuthor(author, edit.by) ? edit.msgid : undefined;
+		const author: Author = {nick: msg.from?.nick, account: msg.fromAccount, self: msg.self};
+
+		if (!edit || !this.isAuthor(author, edit.by)) {
+			return undefined;
+		}
+
+		const id = chan.idOf(edit.msgid);
+		return id !== undefined && id !== msg.id ? id : undefined;
 	}
 
-	/** Put the edit `editMsgid` in `msg`'s place (`msg:edit`, after `msg`'s own event). */
-	private showLateEdit(chan: Channel, msg: SharedMsg, editMsgid: string): void {
-		const id = chan.idOf(editMsgid);
-
-		if (id !== undefined && id !== msg.id) {
-			this.dispatch("msg:edit", {chan: chan.id, id, replaces: msg.id});
-		}
+	/** Put the shown edit `id` in `msg`'s place (`msg:edit`, after `msg`'s own event). */
+	private showLateEdit(chan: Channel, msg: SharedMsg, id: number): void {
+		this.dispatch("msg:edit", {chan: chan.id, id, replaces: msg.id});
 	}
 
 	/**
-	 * Whether an edit sent by `by` may replace a line `author` sent: ours
-	 * replace ours, anyone else's only their own, by nick under the
-	 * server's casemapping. The inbox applies the same rule (`inbox:drop`).
+	 * Whether an edit sent by `by` may replace a line `author` sent. With
+	 * an account on both (`account-tag`) the accounts decide, across nick
+	 * changes; otherwise ours replace ours, and anyone else's only lines of
+	 * the same nick under the server's casemapping. The inbox applies the
+	 * same rule (`inbox:drop`).
 	 */
 	isAuthor(author: Author | undefined, by: Author): boolean {
-		if (author?.self || by.self) {
-			return !!author?.self && !!by.self;
+		if (author?.account && by.account) {
+			return this.casefold(author.account) === this.casefold(by.account);
+		}
+
+		if (author?.self && by.self) {
+			return true;
 		}
 
 		return (
@@ -3730,7 +3741,7 @@ export class IrcClient {
 				shared.highlight = 0;
 				scheduleMarkRead(this, chan);
 			}
-		} else if (lateEdit) {
+		} else if (lateEdit !== undefined) {
 			// Hidden behind its edit, which counted already: nothing to count.
 		} else if (this.isReading(chan)) {
 			// Only a person looking reads it; a hidden page marks nothing
@@ -3761,11 +3772,11 @@ export class IrcClient {
 			...(replay ? {replay: true} : {}),
 		});
 		// An original its edit already replaced is not news, read or not.
-		if (lateEdit) {
+		if (lateEdit !== undefined) {
 			this.showLateEdit(chan, msg, lateEdit);
 		}
 
-		const entry = lateEdit ? null : this.mentionEntry(chan, msg, !!ref.highlight);
+		const entry = lateEdit !== undefined ? null : this.mentionEntry(chan, msg, !!ref.highlight);
 
 		if (entry) {
 			this.bus.dispatch("inbox:add", {entries: [entry]});

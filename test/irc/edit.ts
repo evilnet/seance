@@ -431,6 +431,75 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 			);
 		});
 
+		it("counts someone else's edit of a loaded line as a line of its own", function () {
+			const h = setup();
+			const id = joined(h);
+			const unread = () => h.payloads<{unread: number}>("msg").pop()?.unread;
+			h.transport.line("@msgid=b1 :bob!bob@host PRIVMSG #seance :teh");
+			h.transport.line(
+				"@msgid=c1;+seance/edit=b1 :carol!carol@host PRIVMSG #seance :mine now"
+			);
+
+			expect(unread()).to.equal(2);
+			expect(h.lastMessage(id).editOf).to.equal(undefined);
+		});
+
+		it("takes an edit across a nick change when both lines carry the same account", function () {
+			const h = setup();
+			const id = joined(h);
+			h.transport.line("@msgid=b1;account=bob :bob!bob@host PRIVMSG #seance :teh");
+			const oldId = h.lastMessage(id).id;
+			h.transport.line(":bob!bob@host NICK robert");
+			h.transport.line(
+				"@msgid=b2;account=bob;+seance/edit=b1 :robert!bob@host PRIVMSG #seance :the"
+			);
+
+			expect(h.payloads<EditPayload>("msg:edit")).to.deep.equal([
+				{chan: id, id: h.lastMessage(id).id, replaces: oldId},
+			]);
+		});
+
+		it("refuses an edit from another account under the same nick", function () {
+			const h = setup();
+			joined(h);
+			h.transport.line("@msgid=b1;account=bob :bob!bob@host PRIVMSG #seance :teh");
+			h.transport.line(
+				"@msgid=b2;account=mallory;+seance/edit=b1 :bob!m@host PRIVMSG #seance :mine now"
+			);
+
+			expect(h.payloads("msg:edit")).to.have.length(0);
+		});
+
+		it("takes our own edit replayed after our nick changed", function () {
+			const h = setup();
+			const id = joined(h);
+			h.transport.line(
+				"@msgid=a1;time=2026-08-25T12:00:01.000Z :alice!alice@host.example PRIVMSG #seance :teh"
+			);
+			const oldId = h.lastMessage(id).id;
+			h.transport.line(":alice!alice@host.example NICK alicia");
+			h.transport.line(
+				"@msgid=a2;time=2026-08-25T12:00:02.000Z;+seance/edit=a1 :alice!alice@host.example PRIVMSG #seance :the"
+			);
+
+			expect(h.payloads<EditPayload>("msg:edit")).to.deep.equal([
+				{chan: id, id: h.lastMessage(id).id, replaces: oldId},
+			]);
+		});
+
+		it("counts an original whose waiting edit was trimmed away", function () {
+			const h = setup();
+			const id = joined(h);
+			h.transport.line("@msgid=e1;+seance/edit=o1 :bob!bob@host PRIVMSG #seance :the");
+			const chan = h.client.channelById(id)!;
+			chan.forget([h.lastMessage(id).id]);
+			const before = chan.shared.highlight;
+			h.transport.line("@msgid=o1 :bob!bob@host PRIVMSG #seance :alice: teh");
+
+			expect(h.payloads("msg:edit")).to.have.length(0);
+			expect(chan.shared.highlight).to.equal(before + 1);
+		});
+
 		it("shows the message but no msg:edit when the old one is not loaded", function () {
 			const h = setup();
 			const id = joined(h);

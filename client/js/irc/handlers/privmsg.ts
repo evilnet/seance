@@ -6,7 +6,7 @@
 import {ChanType} from "../../../../shared/types/chan";
 import {MessageType, SharedMsg} from "../../../../shared/types/msg";
 import type {IrcClient} from "../client";
-import type {Channel} from "../channel";
+import type {Author, Channel} from "../channel";
 import type {IrcMessage} from "../message";
 import {settleEcho} from "../pending";
 import {inRestorationWindow, isRoutineReplayNotice} from "../persistence";
@@ -264,7 +264,19 @@ function handleMessage(
 	// own edit marker, bus-contract §1.4. The parent may not be loaded; the
 	// UI resolves it when rendering.
 	const replyTo = replyTagOf(msg);
-	const editOf = msg.tags.get(EDIT_TAG);
+	const by: Author = {nick, account: account || undefined, self};
+	let editOf = msg.tags.get(EDIT_TAG);
+
+	// Someone else's edit of a line we show replaces nothing: it is a line
+	// of its own, counted and shown as one (IrcClient.isAuthor). One whose
+	// original is not loaded is judged when the original comes.
+	if (editOf) {
+		const shown = chan.idOf(editOf);
+
+		if (shown !== undefined && !client.isAuthor(chan.msgRefs.get(shown)?.from, by)) {
+			editOf = undefined;
+		}
+	}
 
 	if (replyTo) {
 		message.replyTo = replyTo;
@@ -325,7 +337,6 @@ function handleMessage(
 		client.afterReplay(() => {
 			const id = pushed.id || (pushed.msgid ? into.idOf(pushed.msgid) : undefined);
 			const replaces = into.idOf(editOf);
-			const by = {nick, self};
 
 			if (id && replaces !== undefined && replaces !== id) {
 				// Only its author's edit takes a line's place; anyone else's
