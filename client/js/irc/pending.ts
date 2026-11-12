@@ -16,11 +16,13 @@
  * puts the label on the echo (on the batch opener for a multiline one) and
  * on the numeric that rejects it (probed 2026-09-04). But the spec does not
  * require the label on a propagated echo-message copy, so it is a fast path,
- * not the only one. A label that is present decides: if it names no copy we
- * hold, the echo settles nothing. An echo without one (or any echo without
- * the cap) is matched by content — the oldest unsettled copy of the same kind
- * in the channel, exact text preferred — since echoes come back in the order
- * the lines went out. See {@link settleEcho}.
+ * not the only one. A label of ours that is present decides: if it names no
+ * copy we hold, the echo settles nothing. While a batch is open on the
+ * connection nefarious2 tags the echo `@batch` instead, so an echo in a
+ * batch may have no label or another command's. An echo without one of ours
+ * (or any echo without the cap) is matched by content — the oldest unsettled
+ * copy of the same kind in the channel, exact text preferred — since echoes
+ * come back in the order the lines went out. See {@link settleEcho}.
  *
  * Copies bypass `IrcClient.pushMessage` on purpose: a line the server has
  * not taken must not move the read marker, count towards the history
@@ -203,16 +205,23 @@ export function settleEcho(
 	text: string
 ): PendingMessage | undefined {
 	const registry = registryOf(client);
-	const label = msg.tags.get("label");
+	// nefarious2 tags a line to us `@batch` *instead of* `@label` while any
+	// batch is open on the connection (send.c), so our echo can come back
+	// inside another command's batch: unlabelled, or carrying that batch's
+	// label, which `labeledBatch` (request.ts) copies onto every inner line.
+	// Only a label we gave a message says which copy the echo answers.
+	const tagged = msg.tags.get("label");
+	const label = tagged !== undefined && isMessageLabel(registry, tagged) ? tagged : undefined;
+	const inBatch = msg.tags.has("batch");
 
 	// The label is the exact match — but only when the server relays it on the
 	// echo, which the spec does not require of a propagated echo-message copy
 	// and not every server does. So it is a fast path, not the only one.
 	let entry = label ? byLabel(client, label) : undefined;
 
-	// A label that is present decides. One that names no copy answers a line
-	// we hold no copy of (it timed out, or never had one), so it settles
-	// nothing rather than another copy with the same text.
+	// A label of ours decides. One that names no copy answers a line we hold
+	// no copy of (it timed out), so it settles nothing rather than another
+	// copy with the same text.
 	if (label && !entry) {
 		return undefined;
 	}
@@ -225,9 +234,13 @@ export function settleEcho(
 		// never sent (the same account on another device) matches none. Once
 		// this server has labelled an echo of ours, a copy that went out with
 		// a label waits for its labelled echo; an unlabelled line is not it
-		// (another device, or a message to ourselves delivered back).
+		// (another device, or a message to ourselves delivered back) — unless
+		// it came in a batch, which may have taken its label (above).
 		const kind = registry.entries.filter(
-			(e) => e.chan === chan && e.type === type && !(registry.labelledEchoes && e.label)
+			(e) =>
+				e.chan === chan &&
+				e.type === type &&
+				!(registry.labelledEchoes && e.label && !inBatch)
 		);
 		entry = kind.find((e) => e.text === text);
 
@@ -245,6 +258,12 @@ export function settleEcho(
 	}
 
 	return entry;
+}
+
+/** Whether {@link pendingLabel} issued `label` (`s<n>`; no other label of ours has that shape). */
+function isMessageLabel(registry: Registry, label: string): boolean {
+	const match = /^s(\d+)$/.exec(label);
+	return match !== null && Number(match[1]) <= registry.labels;
 }
 
 function byLabel(client: IrcClient, label: string): PendingMessage | undefined {

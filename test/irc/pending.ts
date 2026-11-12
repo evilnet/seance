@@ -388,6 +388,68 @@ describe("Pending outgoing messages (irc/pending.ts)", function () {
 			);
 		});
 
+		// nefarious2 tags a line to us `@batch=` *instead of* `@label=` while a
+		// batch is open on the connection (send.c format_message_tags_for_ex:
+		// fwd batch, else batch, else label). So the echo of a labelled line
+		// can come back with no label of its own.
+		it("settles the copy whose echo lands in another command's labelled batch", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.sendMessage("#seance", "first");
+			h.transport.line("@label=s1;msgid=m1 :alice!alice@host.example PRIVMSG #seance :first");
+			h.client.sendMessage("#seance", "hello");
+			const copy = h.lastMessage(id);
+
+			// An async reply (a labelled LIST) holds a batch open; our echo joins it.
+			labelledBatch(h, "r7", "lb7", [
+				"@msgid=m2 :alice!alice@host.example PRIVMSG #seance :hello",
+			]);
+			clock.tick(PENDING_TIMEOUT_MS);
+
+			expect(settled(h).map((s) => s.id)).to.include(copy.id);
+			expect(errorsIn(h, id)).to.deep.equal([]);
+			expect(h.messages(id).filter((m) => m.text === "hello" && !m.pending)).to.have.length(
+				1
+			);
+		});
+
+		it("settles the copy whose echo carries a batch tag instead of its label", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.sendMessage("#seance", "first");
+			h.transport.line("@label=s1;msgid=m1 :alice!alice@host.example PRIVMSG #seance :first");
+			h.client.sendMessage("#seance", "hello");
+			const copy = h.lastMessage(id);
+
+			// A batch the client does not hold open (unknown ref): the line is
+			// handled as it comes, unlabelled.
+			h.transport.line("@batch=zz;msgid=m2 :alice!alice@host.example PRIVMSG #seance :hello");
+			clock.tick(PENDING_TIMEOUT_MS);
+
+			expect(settled(h).map((s) => s.id)).to.include(copy.id);
+			expect(errorsIn(h, id)).to.deep.equal([]);
+			expect(h.messages(id).filter((m) => m.text === "hello" && !m.pending)).to.have.length(
+				1
+			);
+		});
+
+		it("still settles nothing with a late echo in its own labelled batch", function () {
+			const h = setup();
+			const id = joined(h);
+			h.client.sendMessage("#seance", "same");
+			clock.tick(PENDING_TIMEOUT_MS);
+			h.client.sendMessage("#seance", "same");
+			const second = h.lastMessage(id);
+
+			// The batch's label is the first line's own (s1): it decides, as a
+			// label on the echo itself would.
+			labelledBatch(h, "s1", "lb1", [
+				"@msgid=m1 :alice!alice@host.example PRIVMSG #seance :same",
+			]);
+
+			expect(settled(h).map((s) => s.id)).to.not.include(second.id);
+		});
+
 		it("forgets that the server labels echoes when the connection closes", function () {
 			const h = setup();
 			const id = joined(h);
