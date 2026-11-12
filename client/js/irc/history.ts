@@ -619,8 +619,26 @@ function resolve(
 			}
 		}
 
+		// A page can reach past what we hold into lines we never loaded (a
+		// busy channel, or only its last page shown): older than the gap, not
+		// part of it, and appended they would land above the rejoin as if
+		// new. Scrolling up brings them as history. A line below the floor
+		// but within what we hold is one we missed, and still goes in.
+		const holdsFrom = chan.oldestServerTime();
+		const inGap =
+			floorMs === undefined
+				? messages
+				: messages.filter((msg) => {
+						const ms = new Date(msg.time).getTime();
+						return (
+							Number.isNaN(ms) ||
+							ms >= floorMs ||
+							(holdsFrom !== undefined && ms >= holdsFrom)
+						);
+				  });
+
 		// Pages arrive newest first; keep the gathered gap oldest first.
-		request.gap.unshift(...messages);
+		request.gap.unshift(...inGap);
 		request.gapAfter.unshift(...after);
 
 		if (!reached && !end && request.pagesLeft > 0 && oldest) {

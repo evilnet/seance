@@ -998,6 +998,25 @@ describe("Chat history (history.ts)", function () {
 			return h.sent();
 		}
 
+		it("does not append rows of its page that are older than what it held", function () {
+			// A reconnect's LATEST page reaches past the oldest row we hold
+			// (a busy channel, or only the last page loaded): those rows were
+			// never in the gap and must not land above the rejoin as new ones.
+			const h = setup();
+			const id = joined(h, [hist(10), hist(11), hist(12)]);
+			const sent = reconnect(h);
+			dispatch.resetHistory();
+			const missed =
+				"@time=2026-08-25T12:20:00.000Z;msgid=new1 :bob!bob@host PRIVMSG #seance :missed";
+			reply(h, sent, [...[5, 6, 7, 8, 9, 10, 11, 12].map((n) => hist(n)), missed]);
+
+			expect(
+				msgs(id)
+					.filter((p) => p.msg.type === MessageType.MESSAGE)
+					.map((p) => p.msg.text)
+			).to.deep.equal(["missed"]);
+		});
+
 		it("delivers a page again after the UI dropped its rows (history:trim)", function () {
 			const h = setup();
 			const id = joined(h, [hist(1), hist(2), hist(3)]);
