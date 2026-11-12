@@ -18,6 +18,7 @@
 import type {IrcClient} from "../client";
 import type {IrcMessage} from "../message";
 import type {Handler} from "../types";
+import {noteRestorationActivity, PERSISTENCE_CAP} from "../persistence";
 
 export interface OpenBatch {
 	ref: string;
@@ -92,6 +93,14 @@ export function interceptBatchLine(client: IrcClient, msg: IrcMessage): boolean 
 	}
 
 	batch.messages.push(msg);
+
+	// A session restoration arrives as one batch, delivered when it closes.
+	// On a slow link a large one takes longer than the autojoin's quiet
+	// period, which must not run out while its lines are still coming in.
+	if (batch.type === PERSISTENCE_CAP) {
+		noteRestorationActivity(client);
+	}
+
 	return true;
 }
 

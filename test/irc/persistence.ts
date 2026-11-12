@@ -327,6 +327,36 @@ describe("Session persistence and quiet re-joins (irc/persistence.ts)", function
 			expect(h.sent().filter((l) => l.startsWith("JOIN"))).to.deep.equal(["JOIN #other"]);
 		});
 
+		it("holds the autojoin while a restoration batch is still arriving", function () {
+			const h = setup({join: "#seance,#other"});
+			register(h, CAPS, HOLD);
+
+			// The quiet period starts, then a large batch trickles in over a
+			// slow link for longer than it (a phone: 0.76 s for ten channels).
+			clock.tick(RESTORE_WAIT_MS - RESTORE_QUIET_MS);
+			h.transport.line(
+				":irc.test NOTE BOUNCER ALIAS_ATTACHED :Attached to session AZ7 as alias on irc.test"
+			);
+			h.transport.line(":irc.test BATCH +p1 draft/persistence");
+			for (const line of [
+				"@batch=p1 :alice!alice@host JOIN #seance alice :Alice",
+				"@batch=p1 :irc.test 332 alice #seance :Welcome",
+				"@batch=p1 :irc.test 353 alice = #seance :@alice bob",
+			]) {
+				clock.tick(RESTORE_QUIET_MS - 1);
+				h.transport.line(line);
+			}
+
+			clock.tick(RESTORE_QUIET_MS - 1);
+			expect(h.sent().filter((l) => l.startsWith("JOIN"))).to.deep.equal([]);
+
+			h.transport.lines(
+				"@batch=p1 :irc.test 366 alice #seance :End of /NAMES list.",
+				":irc.test BATCH -p1"
+			);
+			expect(h.sent().filter((l) => l.startsWith("JOIN"))).to.deep.equal(["JOIN #other"]);
+		});
+
 		it("never holds the autojoin past RESTORE_MAX_WAIT_MS", function () {
 			const h = setup();
 			register(h, CAPS, HOLD);
