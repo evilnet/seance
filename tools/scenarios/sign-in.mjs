@@ -17,7 +17,8 @@
 //       "channels": ["#seance"],
 //       "nick": "guest????"
 //     },
-//     "features": {"signIn": true, "allowCustomServer": false, "multiNetwork": false}
+//     "features": {"signIn": true, "allowCustomServer": false, "multiNetwork": false},
+//     "links": {"register": "https://accounts.example/register"}
 //   }
 //   JSON
 //   pnpm build && python3 -m http.server -d public 8023 &
@@ -28,7 +29,10 @@
 // is not a gap — it is what makes the failure path testable, and the failure
 // path is the one with teeth. What the scenario pins down:
 //
-//   * the panel has no server fields at all, and names the network instead;
+//   * the panel has no server fields at all, and no network row either (the
+//     deploy is that network's own client);
+//   * `links.register` is a link under Sign in to the network's sign-up page,
+//     in a new tab;
 //   * a refused login is reported in the lobby and the connection dropped,
 //     rather than quietly registering the user as a stranger
 //     (`features.saslDisconnectOnFail`), and the view follows the report to the
@@ -124,12 +128,8 @@ export default async function run(page) {
 			(await page.count('#connect input[name="tls"]')) === 0
 	);
 	page.check(
-		"it names the network instead",
-		String(
-			await page.evaluate(
-				`document.querySelector("#connect .connect-network")?.textContent ?? ""`
-			)
-		).includes("TestNet")
+		"nor a network row: the deploy is that network's own client",
+		(await page.count("#connect .connect-network")) === 0
 	);
 	page.check(
 		"account, password and a guest nick are the whole form",
@@ -142,6 +142,17 @@ export default async function run(page) {
 		/^guest\d{4}$/.test(
 			String(await page.evaluate(`document.querySelector("#connect\\\\:guestNick").value`))
 		)
+	);
+	page.check(
+		"a register link under Sign in opens the sign-up page in a new tab",
+		(await page.evaluate(`(() => {
+			const a = document.querySelector("#connect .sign-in-register a");
+			const signIn = document.querySelector("#connect .btn-signin");
+			return !!a && !!signIn &&
+				a.href === "https://accounts.example/register" &&
+				a.target === "_blank" && a.rel === "noopener" &&
+				a.getBoundingClientRect().top > signIn.getBoundingClientRect().bottom;
+		})()`)) === true
 	);
 	await page.screenshot("1-sign-in-panel");
 

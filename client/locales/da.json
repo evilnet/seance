@@ -529,7 +529,6 @@
   "link.trustTitleShown": "Vises altid {scopes} — skift",
   "link.tryAgain": "Klik for at prøve igen",
   "list.isEmpty": "{kind} er tom",
-  "list.kindBans": "Banliste",
   "list.kindExcepts": "Undtagelsesliste",
   "list.kindInvites": "Invitationsliste",
   "list.windowTitle": "{kind} i {channel}",
@@ -2339,9 +2338,6 @@
     "one": "{count} ulæst besked",
     "other": "{count} ulæste beskeder"
   },
-  "special.bans.banned": "Bannet",
-  "special.bans.bannedAt": "Bannet den",
-  "special.bans.bannedBy": "Bannet af",
   "special.excepts.exempted": "Undtaget",
   "special.excepts.exemptedAt": "Undtaget den",
   "special.excepts.exemptedBy": "Undtaget af",

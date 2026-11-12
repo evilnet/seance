@@ -195,6 +195,7 @@
 .oper-investigate,
 .oper-alert-builder,
 #oper-action-overlay,
+#ban-overlay,
 #oper-note-overlay {
 	--oper-amber: var(--oper-amber-theme, color-mix(in oklab, #c7841a 65%, var(--body-color)));
 	--oper-red: var(--oper-red-theme, color-mix(in oklab, #e74c3c 75%, var(--body-color)));
@@ -954,6 +955,8 @@ p {
 .context-menu-action-ignore::before { content: "\f506"; /* https://fontawesome.com/icons/user-slash?style=solid  */ }
 .context-menu-action-unignore::before { content: "\f4fc"; /* https://fontawesome.com/icons/user-check?style=solid  */ }
 .context-menu-action-kick::before { content: "\f05e"; /* http://fontawesome.io/icon/ban/ */ }
+.context-menu-action-ban::before { content: "\f0e3"; /* https://fontawesome.com/icons/gavel?style=solid */ }
+.context-menu-action-unban::before { content: "\f09c"; /* http://fontawesome.io/icon/unlock/ */ }
 .context-menu-action-set-mode::before { content: "\f067"; /* http://fontawesome.io/icon/plus/ */ }
 .context-menu-action-revoke-mode::before { content: "\f068"; /* http://fontawesome.io/icon/minus/ */ }
 .context-menu-network::before { content: "\f233"; /* https://fontawesome.com/icons/server?style=solid */ }
@@ -3763,6 +3766,16 @@ html[data-own-messages="band"] #chat .msg.self[data-type="action"]:not(.highligh
 #chat .msg.channel_list_truncated .text {
 	color: #f00;
 	padding-inline-start: 20px;
+}
+
+/* An address in a join, part or quit line: the line's own text until hovered. */
+.host-address {
+	cursor: pointer;
+}
+
+.host-address:hover {
+	text-decoration: underline dotted;
+	text-underline-offset: 0.15em;
 }
 
 #chat table.ban-list,
@@ -7027,7 +7040,8 @@ html[data-contrast="more"] .oper-tag {
 :where(html[data-input="touch"]) #oper-investigate-overlay .btn-small,
 :where(html[data-input="touch"]) #oper-alert-overlay .btn-small,
 :where(html[data-input="touch"]) #oper-action-dialog .btn,
-:where(html[data-input="touch"]) #oper-action-dialog .oper-chip {
+:where(html[data-input="touch"]) #oper-action-dialog .oper-chip,
+:where(html[data-input="touch"]) #ban-dialog .oper-chip {
 	min-height: 2.75rem;
 	min-width: 2.75rem;
 }
@@ -8510,6 +8524,7 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
 #install-guide-overlay,
 #upload-preview-overlay,
 #oper-action-overlay,
+#ban-overlay,
 #upload-overlay,
 #image-viewer,
 #image-viewer .open-btn,
@@ -8526,6 +8541,7 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
 #install-guide-overlay,
 #upload-preview-overlay,
 #oper-action-overlay,
+#ban-overlay,
 #upload-overlay,
 #image-viewer {
 	position: fixed;
@@ -8562,7 +8578,8 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
 /* The oper dialog holds text fields: absolute in #viewport, the visible
  * band, so iOS's keyboard does not cover its buttons (fixed measures
  * against the layout viewport, which iOS never shrinks). */
-#oper-action-overlay {
+#oper-action-overlay,
+#ban-overlay {
 	position: absolute;
 }
 
@@ -8571,6 +8588,7 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
 #install-guide-overlay.opened,
 #upload-preview-overlay.opened,
 #oper-action-overlay.opened,
+#ban-overlay.opened,
 #upload-overlay.is-dragover,
 #image-viewer.opened {
 	visibility: visible;

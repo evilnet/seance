@@ -105,6 +105,25 @@ export class ISupport {
 		}
 	}
 
+	/** How many bans a channel may hold: `MAXBANS`, else `b` in `MAXLIST`. */
+	get maxBans(): number | undefined {
+		const direct = parseInt(this.get("MAXBANS") ?? "", 10);
+
+		if (direct > 0) {
+			return direct;
+		}
+
+		for (const part of (this.get("MAXLIST") ?? "").split(",")) {
+			const [modes, value] = part.split(":");
+
+			if (modes.includes("b") && parseInt(value, 10) > 0) {
+				return parseInt(value, 10);
+			}
+		}
+
+		return undefined;
+	}
+
 	get(token: string): string | undefined {
 		return this.map.get(token.toUpperCase());
 	}

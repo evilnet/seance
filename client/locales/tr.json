@@ -534,7 +534,6 @@
   "link.trustTitleShown": "Her zaman gösteriliyor ({scopes}) — değiştir",
   "link.tryAgain": "Tekrar denemek için tıkla",
   "list.isEmpty": "{kind} boş",
-  "list.kindBans": "Yasak listesi",
   "list.kindExcepts": "İstisna listesi",
   "list.kindInvites": "Davet listesi",
   "list.windowTitle": "{channel} için {kind}",
@@ -2399,9 +2398,6 @@
     "one": "{count} okunmamış mesaj",
     "other": "{count} okunmamış mesaj"
   },
-  "special.bans.banned": "Yasaklandı",
-  "special.bans.bannedAt": "Yasaklanma tarihi",
-  "special.bans.bannedBy": "Yasaklayan",
   "special.excepts.exempted": "Muaf tutuldu",
   "special.excepts.exemptedAt": "Muafiyet tarihi",
   "special.excepts.exemptedBy": "Muaf tutan",
