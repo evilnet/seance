@@ -11,10 +11,12 @@ export interface IdBlock {
  * the `#/chan-<id>` route) and that message ids rise down a channel's rows
  * (the unread marker, `more.lastId`), which is time order: a catch-up gap
  * delivered late takes ids set aside before the live lines it arrives
- * behind ({@link reserve}). An edit standing in its original's place is the
- * one exception (helpers/messageUpdates.ts `applyEdit`). One shared
- * allocator therefore serves all {@link IrcClient} instances; tests can pass
- * their own to get deterministic numbers.
+ * behind ({@link reserve}). A catch-up line older than rows already shown
+ * takes a fractional id between its neighbours' (irc/history.ts
+ * `placeByTime`), never one from here. An edit standing in its original's
+ * place is the one exception (helpers/messageUpdates.ts `applyEdit`). One
+ * shared allocator therefore serves all {@link IrcClient} instances; tests
+ * can pass their own to get deterministic numbers.
  */
 export class IdAllocator {
 	private nextChan: number;

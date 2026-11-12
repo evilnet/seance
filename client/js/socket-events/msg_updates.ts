@@ -98,6 +98,20 @@ socket.on("msg:edit", function (data) {
 	});
 });
 
+// Shown as an edit before its original came, by someone who did not write
+// that: a line of its own, not marked edited (IrcClient.takeLateEdit).
+socket.on("msg:unedit", function (data) {
+	afterHeldPage(data.chan, () => {
+		const message = store.getters
+			.findChannel(data.chan)
+			?.channel.messages.find((m) => m.id === data.id);
+
+		if (message) {
+			delete message.editOf;
+		}
+	});
+});
+
 socket.on("msg:settled", function (data) {
 	const target = store.getters.findChannel(data.chan);
 

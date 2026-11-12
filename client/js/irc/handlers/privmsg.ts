@@ -6,14 +6,14 @@
 import {ChanType} from "../../../../shared/types/chan";
 import {MessageType, SharedMsg} from "../../../../shared/types/msg";
 import type {IrcClient} from "../client";
-import type {Channel} from "../channel";
+import {authorOf, type Author, type Channel} from "../channel";
 import type {IrcMessage} from "../message";
 import {settleEcho} from "../pending";
 import {inRestorationWindow, isRoutineReplayNotice} from "../persistence";
 import {privilegesModified} from "../oper";
 import {noteServicesLine, snoopNicks} from "../servicesfeed";
 import {handleServerNotice, handleWallops} from "../snotice";
-import {DRAFT_REPLY_TAG, EDIT_TAG, REPLY_TAG, trailingLine} from "../wire";
+import {DRAFT_REPLY_TAG, editTagOf, REPLY_TAG, trailingLine} from "../wire";
 import {languageFieldsOf} from "../langtag";
 import {noteListDelay} from "./list";
 import type {Handler} from "../types";
@@ -264,7 +264,22 @@ function handleMessage(
 	// own edit marker, bus-contract §1.4. The parent may not be loaded; the
 	// UI resolves it when rendering.
 	const replyTo = replyTagOf(msg);
-	const editOf = msg.tags.get(EDIT_TAG);
+	const by: Author = {nick, account: account || undefined, self};
+	let editOf = editTagOf((name) => msg.tags.get(name));
+
+	// Someone else's edit of a line we show replaces nothing: it is a line
+	// of its own, counted and shown as one (IrcClient.isAuthor). One whose
+	// original is not loaded is judged when the original comes.
+	if (editOf) {
+		const shown = chan.idOf(editOf);
+		const replayed = shown === undefined ? client.replayedMessage(chan, editOf) : undefined;
+		const original =
+			shown !== undefined ? chan.msgRefs.get(shown)?.from : replayed && authorOf(replayed);
+
+		if ((shown !== undefined || original) && !client.isAuthor(original, by)) {
+			editOf = undefined;
+		}
+	}
 
 	if (replyTo) {
 		message.replyTo = replyTo;
@@ -299,19 +314,30 @@ function handleMessage(
 	// The original leaves the inbox, loaded or not; the inbox checks that
 	// the edit's sender wrote it (`by`). The edit brings its own entry if it
 	// still mentions us.
+	// In a replay it waits for the delivery: the original may be in the
+	// same page, and its entry goes in only as the page is delivered.
 	if (editOf && !self) {
-		client.dispatch("inbox:drop", {
-			network: client.uuid,
-			target: chan.name,
-			msgid: editOf,
-			by: nick,
-		});
+		const where = chan.name;
+		client.afterReplay(() =>
+			client.dispatch("inbox:drop", {
+				network: client.uuid,
+				target: where,
+				msgid: editOf,
+				by: {nick, ...(account ? {account} : {})},
+			})
+		);
 	}
 
 	// An edit of a loaded message takes that message's place in the list
 	// (`msg:edit`), so it is not a new unread message; a highlight in it
-	// still counts, as `pushMessage` counts every highlight.
-	const pushed = client.pushMessage(chan, message, !self && !editOf);
+	// still counts, as `pushMessage` counts every highlight. One whose
+	// original is not shown stands alone and counts as a line: the original,
+	// if it comes, counts for nothing behind it (`IrcClient.takeLateEdit`).
+	const pushed = client.pushMessage(
+		chan,
+		message,
+		!self && (!editOf || chan.idOf(editOf) === undefined)
+	);
 
 	if (editOf) {
 		// `msg:edit` must follow the `msg` and carry resolved ids; in a
@@ -322,11 +348,16 @@ function handleMessage(
 			const replaces = into.idOf(editOf);
 
 			if (id && replaces !== undefined && replaces !== id) {
-				client.dispatch("msg:edit", {chan: into.id, id, replaces});
+				// Only its author's edit takes a line's place; anyone else's
+				// is a line of its own.
+				if (client.isAuthor(into.msgRefs.get(replaces)?.from, by)) {
+					client.dispatch("msg:edit", {chan: into.id, id, replaces});
+				}
 			} else if (id && replaces === undefined && pushed.msgid) {
 				// The original may still arrive (an older page): it is put
-				// behind this edit then, not shown beside it.
-				into.awaitOriginal(editOf, pushed.msgid);
+				// behind this edit then, not shown beside it, if its author
+				// sent this (IrcClient.settleLateOriginal).
+				into.awaitOriginal(editOf, pushed.msgid, by);
 			}
 		});
 	}

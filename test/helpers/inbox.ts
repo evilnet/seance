@@ -76,7 +76,7 @@ describe("helpers/inbox.ts", function () {
 
 		it("keeps what survives a reload, never the session-local id", function () {
 			const made = entryFor("net-1", "#seance", msg)!;
-			expect(made).to.deep.equal(entry());
+			expect(made).to.deep.equal(entry({account: null}));
 			expect(made).to.not.have.property("id");
 		});
 
@@ -85,6 +85,13 @@ describe("helpers/inbox.ts", function () {
 			const made = entryFor("net-1", "carol", long, {query: true, findMention: () => 200})!;
 			expect(made.query).to.equal(true);
 			expect(made.text).to.equal(long.text);
+		});
+
+		it("keeps the account the line was sent from, or that it had none", function () {
+			expect(entryFor("net-1", "#seance", {...msg, fromAccount: "bob"})!.account).to.equal(
+				"bob"
+			);
+			expect(entryFor("net-1", "#seance", msg)!.account).to.equal(null);
 		});
 
 		it("makes nothing of our own line or a line without a sender", function () {
@@ -200,8 +207,39 @@ describe("helpers/inbox.ts", function () {
 		});
 
 		it("for an edit, only when its sender wrote the message", function () {
-			expect(dropMessage(list, "net-1", "#seance", "b", "mallory")).to.have.length(4);
-			expect(dropMessage(list, "net-1", "#seance", "b", "carol")).to.have.length(3);
+			expect(dropMessage(list, "net-1", "#seance", "b", {nick: "mallory"})).to.have.length(4);
+			expect(dropMessage(list, "net-1", "#seance", "b", {nick: "carol"})).to.have.length(3);
+		});
+
+		it("for an edit, goes by the account the line was sent from", function () {
+			const bobs = [entry({msgid: "b", account: "bob"})];
+			// Whoever holds the nick now did not write it.
+			expect(
+				dropMessage(bobs, "net-1", "#seance", "b", {nick: "bob", account: "mallory"})
+			).to.have.length(1);
+			expect(dropMessage(bobs, "net-1", "#seance", "b", {nick: "bob"})).to.have.length(1);
+			// Its author under another nick did.
+			expect(
+				dropMessage(bobs, "net-1", "#seance", "b", {nick: "robert", account: "BOB"})
+			).to.have.length(0);
+		});
+
+		it("for an edit, holds a line sent without an account to the nick", function () {
+			const plain = [entry({msgid: "b", account: null})];
+			expect(
+				dropMessage(plain, "net-1", "#seance", "b", {nick: "bob", account: "bob"})
+			).to.have.length(1);
+			expect(dropMessage(plain, "net-1", "#seance", "b", {nick: "Bob"})).to.have.length(0);
+		});
+
+		it("for an edit, holds an entry stored before accounts were kept to the nick", function () {
+			const stored = [entry({msgid: "b"})];
+			expect(
+				dropMessage(stored, "net-1", "#seance", "b", {nick: "bob", account: "bob"})
+			).to.have.length(0);
+			expect(
+				dropMessage(stored, "net-1", "#seance", "b", {nick: "carol", account: "bob"})
+			).to.have.length(1);
 		});
 	});
 
@@ -247,11 +285,24 @@ describe("helpers/inbox.ts", function () {
 			expect(left.map((d) => d.key)).to.deep.equal([list[2], list[3], list[4]].map(entryKey));
 		});
 
-		it("forgets a dismissal the read point has passed", function () {
+		it("forgets a private conversation's dismissal the read point has passed", function () {
+			const gone: Dismissal[] = [
+				{key: "query:net-1/bob", network: "net-1", target: "bob", time: minute(1)},
+			];
+			expect(pruneRead(gone, "net-1", "bob", new Date(minute(2)))).to.deep.equal([]);
+		});
+
+		it("keeps a channel mention's dismissal while a read entry for it could come back", function () {
 			const gone: Dismissal[] = [
 				{key: "k", network: "net-1", target: "#seance", time: minute(1)},
 			];
-			expect(pruneRead(gone, "net-1", "#seance", new Date(minute(2)))).to.deep.equal([]);
+			const now = Date.parse(minute(2));
+			expect(pruneRead(gone, "net-1", "#seance", new Date(minute(2)), now)).to.deep.equal(
+				gone
+			);
+			expect(
+				pruneRead(gone, "net-1", "#seance", new Date(minute(2)), now + READ_KEEP_MS)
+			).to.deep.equal([]);
 		});
 	});
 

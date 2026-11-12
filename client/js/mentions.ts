@@ -8,6 +8,7 @@ import {shallowRef} from "vue";
 import storage from "./localStorage";
 import {store} from "./store";
 import type {InboxEntry} from "../../shared/types/mention";
+import type {Author} from "./irc/channel";
 import {
 	MAX_DISMISSED,
 	addEntries,
@@ -67,7 +68,11 @@ export function loadMentions(): void {
 
 export function addMentions(entries: InboxEntry[]): void {
 	if (entries.length > 0) {
-		commitIfChanged(addEntries(store.state.mentions, entries, dismissed));
+		// A page of older history can bring mentions read long ago: past
+		// their keep, they never go in.
+		commitIfChanged(
+			dropExpired(addEntries(store.state.mentions, entries, dismissed), Date.now())
+		);
 	}
 }
 
@@ -93,12 +98,12 @@ export function markMentionOpened(entry: InboxEntry): void {
 }
 
 /** Drop the entry of a message that is gone (deleted, or replaced by `by`'s edit). */
-export function dropMentionOf(network: string, target: string, msgid: string, by?: string): void {
+export function dropMentionOf(network: string, target: string, msgid: string, by?: Author): void {
 	commitIfChanged(dropMessage(store.state.mentions, network, target, msgid, by));
 	undoableMentions.value = dropMessage(undoableMentions.value, network, target, msgid, by);
 }
 
-/** On this device only, remembered until the conversation is read past them. */
+/** On this device only, remembered until they could no longer come back (pruneRead). */
 export function dismissMentions(entries: InboxEntry[]): void {
 	const keys = new Set(entries.map(entryKey));
 	setDismissed([...dismissed, ...entries.map(dismissalOf)]);

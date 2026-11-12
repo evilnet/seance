@@ -12,7 +12,8 @@
 /** The rows' margin around the scroller's visible part: half a screen either way. */
 export const LINE_MARGIN = "50% 0px";
 
-const ID = /^msg-(-?\d+)$/;
+// A catch-up line placed between two rows has a fractional id (irc/history.ts).
+const ID = /^msg-(-?\d+(?:\.\d+)?(?:e-?\d+)?)$/;
 
 function idOf(node: Node): number | null {
 	if (!(node instanceof HTMLElement) || !node.classList.contains("msg")) {
