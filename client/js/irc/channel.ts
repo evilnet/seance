@@ -51,6 +51,8 @@ export interface MsgRef {
 /** A line's sender as the edit rule needs it: an edit replaces only its author's line. */
 export interface Author {
 	nick?: string;
+	/** Services account (`account-tag`): the identity across nick changes. */
+	account?: string;
 	/** Ours, whatever our nick was then. */
 	self?: boolean;
 }
@@ -238,7 +240,11 @@ export class Channel {
 		}
 
 		if (msg.self || msg.from?.nick) {
-			ref.from = msg.self ? {nick: msg.from?.nick, self: true} : {nick: msg.from?.nick};
+			ref.from = {
+				nick: msg.from?.nick,
+				account: msg.fromAccount,
+				...(msg.self ? {self: true} : {}),
+			};
 		}
 
 		this.msgRefs.set(msg.id, ref);
