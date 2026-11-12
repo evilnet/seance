@@ -1265,9 +1265,12 @@ export class IrcClient {
 	private onTransportEvent(ev: TransportEvent): void {
 		switch (ev.type) {
 			case "open":
-				this.stsPolicy = this.options.tls
-					? holdPolicy(stsHost(this.options), () => getPolicy(stsHost(this.options)))
-					: undefined;
+				if (this.options.tls) {
+					const host = stsHost(this.options);
+					this.stsPolicy = holdPolicy(host, () => getPolicy(host));
+				} else {
+					this.stsPolicy = undefined;
+				}
 				this.onOpen();
 				break;
 			case "line":

@@ -19,14 +19,8 @@ import {hostnameOf} from "./saved-networks";
 import type {ConnectOptions} from "./types";
 
 export const STORAGE_KEY = "thelounge.sts";
-/**
- * localStorage key: host → how many times a `duration=0` removed its policy.
- * A connection's own copy of the policy ({@link HeldPolicy}) is good for the
- * close's reschedule only while this count is what it was when the copy was
- * taken: a removal since, by any connection or tab, retires every copy taken
- * before it, whatever was learned for the host after.
- */
-export const REMOVED_KEY = "thelounge.stsRemovals";
+/** localStorage key: host → how many times a `duration=0` removed its policy (see holdPolicy). */
+const REMOVED_KEY = "thelounge.stsRemovals";
 
 /** A cached persistence policy for one host. */
 export interface StsPolicy {
@@ -207,7 +201,7 @@ export function setPolicy(host: string, policy: StsPolicy, now: number = Date.no
 export function deletePolicy(host: string): void {
 	const key = policyHost(host);
 	const removed = readRemoved();
-	writeRemoved({...removed, [key]: (removed[key] ?? 0) + 1});
+	storage.set(REMOVED_KEY, JSON.stringify({...removed, [key]: (removed[key] ?? 0) + 1}));
 
 	const policies = read();
 	delete policies[key];
@@ -230,7 +224,7 @@ export function holdPolicy(
 	host: string,
 	take: () => StsPolicy | undefined
 ): HeldPolicy | undefined {
-	const removals = readRemoved()[policyHost(host)] ?? 0;
+	const removals = removalsOf(host);
 	const policy = take();
 	return policy && {policy, removals};
 }
@@ -255,8 +249,8 @@ function readRemoved(): Record<string, number> {
 	return result;
 }
 
-function writeRemoved(removed: Record<string, number>): void {
-	storage.set(REMOVED_KEY, JSON.stringify(removed));
+function removalsOf(host: string): number {
+	return readRemoved()[policyHost(host)] ?? 0;
 }
 
 /** Drop every expired policy. */
@@ -306,13 +300,12 @@ export function applyDuration(
  * on disconnect"). The caller makes sure a connection did open, and may
  * pass the policy as the connection knows it, for when the stored one was
  * pruned meanwhile — not when a `duration=0` removed it since the copy was
- * taken ({@link REMOVED_KEY}). No-op without a duration.
+ * taken (holdPolicy). No-op without a duration.
  */
 export function refreshPolicy(host: string, held?: HeldPolicy, now: number = Date.now()): void {
-	const key = policyHost(host);
 	const policy =
-		read()[key] ??
-		(held && held.removals === (readRemoved()[key] ?? 0) ? held.policy : undefined);
+		read()[policyHost(host)] ??
+		(held && held.removals === removalsOf(host) ? held.policy : undefined);
 
 	if (policy && policy.duration !== undefined && policy.duration > 0) {
 		setPolicy(host, {...policy, expiresAt: now + policy.duration * 1000}, now);
