@@ -510,6 +510,59 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 			expect(chan.shared.unread).to.equal(before + 1);
 		});
 
+		it("takes back nothing for an earlier revision already read", function () {
+			const h = setup();
+			const id = joined(h);
+			const chan = h.client.channelById(id)!;
+			h.transport.line(
+				"@time=2026-08-25T11:00:00.000Z;msgid=e1;+seance/edit=o :bob!bob@host PRIVMSG #seance :alice: second"
+			);
+			h.transport.line(
+				"@time=2026-08-25T12:00:00.000Z;msgid=e2;+seance/edit=o :bob!bob@host PRIVMSG #seance :alice: third"
+			);
+			h.transport.line(":irc.test MARKREAD #seance timestamp=2026-08-25T11:30:00.000Z");
+			const before = {unread: chan.shared.unread, highlight: chan.shared.highlight};
+			h.transport.line(
+				"@time=2026-08-25T10:00:00.000Z;msgid=o :bob!bob@host PRIVMSG #seance :first"
+			);
+
+			expect({unread: chan.shared.unread, highlight: chan.shared.highlight}).to.deep.equal(
+				before
+			);
+		});
+
+		it("counts a longer chain of edits once when a catch-up brings its start", function () {
+			const h = setup();
+			const id = joined(h);
+			const chan = h.client.channelById(id)!;
+			const before = chan.shared.unread;
+			h.transport.line("@msgid=e3;+seance/edit=e2 :bob!bob@host PRIVMSG #seance :fourth");
+			h.transport.line("@msgid=o :bob!bob@host PRIVMSG #seance :first");
+			h.transport.line("@msgid=e1;+seance/edit=o :bob!bob@host PRIVMSG #seance :second");
+			h.transport.line("@msgid=e2;+seance/edit=e1 :bob!bob@host PRIVMSG #seance :third");
+
+			expect(chan.shared.unread).to.equal(before + 1);
+		});
+
+		it("keeps the newest revision's count, whatever order they came in", function () {
+			const h = setup();
+			const id = joined(h);
+			const chan = h.client.channelById(id)!;
+			h.transport.line(
+				"@time=2026-08-25T12:00:00.000Z;msgid=e2;+seance/edit=o :bob!bob@host PRIVMSG #seance :third"
+			);
+			const newest = h.lastMessage(id).id;
+			h.transport.line(
+				"@time=2026-08-25T11:00:00.000Z;msgid=e1;+seance/edit=o :bob!bob@host PRIVMSG #seance :second"
+			);
+			h.transport.line(
+				"@time=2026-08-25T10:00:00.000Z;msgid=o :bob!bob@host PRIVMSG #seance :first"
+			);
+
+			expect(h.payloads<EditPayload>("msg:edit").map((e) => e.id)).to.deep.equal([newest]);
+			expect(chan.msgRefs.get(newest)?.unread).to.equal(true);
+		});
+
 		it("keeps every edit waiting for an original, and applies its author's", function () {
 			const h = setup();
 			const id = joined(h);

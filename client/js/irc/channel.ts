@@ -48,6 +48,8 @@ export interface MsgRef {
 	highlight?: boolean;
 	/** Who sent it, for the edit rule (IrcClient.isAuthor). */
 	from?: Author;
+	/** The msgid of the line it edits, if it is an edit. */
+	editOf?: string;
 }
 
 /**
@@ -283,6 +285,10 @@ export class Channel {
 
 		if (msg.self || msg.from?.nick) {
 			ref.from = authorOf(msg);
+		}
+
+		if (msg.editOf) {
+			ref.editOf = msg.editOf;
 		}
 
 		this.msgRefs.set(msg.id, ref);

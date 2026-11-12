@@ -351,8 +351,8 @@ const TYPING_COST_MS = 2000;
 interface LateEdit {
 	/** The edit that takes its place. */
 	id: number;
-	/** The line the original itself edits, now hidden behind the edit too. */
-	behind?: number;
+	/** The lines the original itself edits in turn, now hidden behind the edit too. */
+	behind: number[];
 	/** Whether a line hidden this way gave its count back. */
 	uncounted: boolean;
 }
@@ -2784,7 +2784,7 @@ export class IrcClient {
 	 * takes its place now (`msg:edit`), as it does when the original is
 	 * there first, so the two are never both on screen — nor both in a copy
 	 * of the conversation. The ids its own author's edit hid: `msg`, and the
-	 * line `msg` itself edits, if it does; none when anyone else's edit is
+	 * lines `msg` itself edits in turn; none when anyone else's edit is
 	 * all there was ({@link isAuthor}). Neither counts: the edit did.
 	 */
 	settleLateOriginal(chan: Channel, msg: SharedMsg): number[] {
@@ -2806,7 +2806,7 @@ export class IrcClient {
 			});
 		}
 
-		return late.behind === undefined ? [msg.id] : [msg.id, late.behind];
+		return [msg.id, ...late.behind];
 	}
 
 	/**
@@ -2833,52 +2833,76 @@ export class IrcClient {
 			}
 		}
 
-		const id = revisions.pop();
-
-		if (id === undefined) {
+		if (revisions.length === 0) {
 			return undefined;
 		}
 
-		// The author's newest edit stands for the whole line: its earlier
-		// ones, and the line `msg` edits in turn, count for nothing more.
+		// The author's newest edit (by time: older pages deliver older ones
+		// last) stands for the whole line. Its earlier ones, and every line
+		// `msg` edits in turn back to the first, count for nothing more.
+		const timeOf = (id: number) => chan.msgRefs.get(id)?.time.getTime() ?? 0;
+		revisions.sort((a, b) => timeOf(a) - timeOf(b) || a - b);
+		const id = revisions.pop()!;
+		const behind = this.chainBehind(chan, msg, author);
 		let uncounted = false;
 
-		for (const earlier of revisions) {
-			uncounted = this.uncount(chan, earlier) || uncounted;
-		}
-
-		const edited = msg.editOf ? chan.idOf(msg.editOf) : undefined;
-		const behind =
-			edited !== undefined && this.isAuthor(chan.msgRefs.get(edited)?.from, author)
-				? edited
-				: undefined;
-
-		if (behind !== undefined) {
-			uncounted = this.uncount(chan, behind) || uncounted;
+		for (const hidden of [...revisions, ...behind]) {
+			uncounted = this.uncount(chan, hidden) || uncounted;
 		}
 
 		return {id, behind, uncounted};
 	}
 
-	/** Take back what the line `id` added to the counters. True if anything. */
+	/** The shown lines `msg` edits in turn, by its author, newest first. */
+	private chainBehind(chan: Channel, msg: SharedMsg, author: Author): number[] {
+		const behind: number[] = [];
+		let next = msg.editOf;
+
+		while (next !== undefined) {
+			const id = chan.idOf(next);
+			const ref = id !== undefined ? chan.msgRefs.get(id) : undefined;
+
+			if (
+				id === undefined ||
+				!ref ||
+				behind.includes(id) ||
+				!this.isAuthor(ref.from, author)
+			) {
+				break;
+			}
+
+			behind.push(id);
+			next = ref.editOf;
+		}
+
+		return behind;
+	}
+
+	/**
+	 * Take back what the line `id` added to the counters, if it still
+	 * counts: past the read marker. True if anything changed.
+	 */
 	private uncount(chan: Channel, id: number): boolean {
 		const ref = chan.msgRefs.get(id);
+
+		if (!ref || (!ref.unread && !ref.highlight)) {
+			return false;
+		}
+
+		const counted = !chan.readMarker || ref.time.getTime() > chan.readMarker.getTime();
 		const shared = chan.shared;
-		let changed = false;
 
-		if (ref?.unread) {
-			ref.unread = false;
+		if (counted && ref.unread) {
 			shared.unread = Math.max(0, shared.unread - 1);
-			changed = true;
 		}
 
-		if (ref?.highlight) {
-			ref.highlight = false;
+		if (counted && ref.highlight) {
 			shared.highlight = Math.max(0, shared.highlight - 1);
-			changed = true;
 		}
 
-		return changed;
+		ref.unread = false;
+		ref.highlight = false;
+		return counted;
 	}
 
 	/** {@link isEditAuthor} under this server's casemapping. */
