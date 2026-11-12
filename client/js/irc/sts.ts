@@ -220,9 +220,19 @@ export interface HeldPolicy {
 	removals: number;
 }
 
-/** Take a copy of `policy` for a connection to `host` (none without a policy). */
-export function holdPolicy(host: string, policy: StsPolicy | undefined): HeldPolicy | undefined {
-	return policy && {policy, removals: readRemoved()[policyHost(host)] ?? 0};
+/**
+ * Take a copy of the policy `take` reads or learns for a connection to
+ * `host` (none without a policy). The count is read first: a removal by
+ * another tab while `take` runs leaves the copy under the older count,
+ * retired, never a removed policy under the newer one.
+ */
+export function holdPolicy(
+	host: string,
+	take: () => StsPolicy | undefined
+): HeldPolicy | undefined {
+	const removals = readRemoved()[policyHost(host)] ?? 0;
+	const policy = take();
+	return policy && {policy, removals};
 }
 
 function readRemoved(): Record<string, number> {

@@ -1224,7 +1224,9 @@ export class IrcClient {
 		if (this.options.tls) {
 			if (value.duration !== undefined) {
 				const host = stsHost(this.options);
-				this.stsPolicy = holdPolicy(host, applyDuration(host, this.options.port, value));
+				this.stsPolicy = holdPolicy(host, () =>
+					applyDuration(host, this.options.port, value)
+				);
 			}
 
 			return false;
@@ -1264,7 +1266,7 @@ export class IrcClient {
 		switch (ev.type) {
 			case "open":
 				this.stsPolicy = this.options.tls
-					? holdPolicy(stsHost(this.options), getPolicy(stsHost(this.options)))
+					? holdPolicy(stsHost(this.options), () => getPolicy(stsHost(this.options)))
 					: undefined;
 				this.onOpen();
 				break;
