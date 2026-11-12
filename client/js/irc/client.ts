@@ -2410,8 +2410,11 @@ export class IrcClient {
 				}
 
 				if (!echo) {
+					// As the server would tag it (`account-tag`), so the edit
+					// rule sees our account on our own lines (isEditAuthor).
+					const own = this.account ? {...line.base, account: this.account} : line.base;
 					this.handleLine(
-						`${tagPrefix(line.base)}:${this.nick}!${this.ident}@${
+						`${tagPrefix(own)}:${this.nick}!${this.ident}@${
 							this.host || "localhost"
 						} ${command} ${target} :${line.body}`
 					);

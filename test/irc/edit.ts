@@ -339,6 +339,7 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 		it("replaces our own account-tagged line with our edit sent without echo-message", function () {
 			const h = setup();
 			const id = joined(h, NO_ECHO);
+			h.client.account = "alice"; // logged in
 			h.transport.line(
 				"@msgid=m1;account=alice;time=2026-08-25T12:00:01.000Z :alice!alice@host.example PRIVMSG #seance :teh text"
 			);
@@ -556,6 +557,19 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 			joined(h);
 			h.transport.line("@msgid=b1;account=bob :bob!bob@host PRIVMSG #seance :teh");
 			h.transport.line("@msgid=b2;+seance/edit=b1 :bob!m@host PRIVMSG #seance :mine now");
+
+			expect(h.payloads("msg:edit")).to.have.length(0);
+		});
+
+		it("refuses an edit under our nick without an account of our account-tagged line", function () {
+			const h = setup();
+			joined(h);
+			h.transport.line(
+				"@msgid=a1;account=alice :alice!alice@host.example PRIVMSG #seance :teh"
+			);
+			h.transport.line(
+				"@msgid=a2;+seance/edit=a1 :alice!x@elsewhere PRIVMSG #seance :not me"
+			);
 
 			expect(h.payloads("msg:edit")).to.have.length(0);
 		});
