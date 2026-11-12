@@ -534,8 +534,10 @@ function deliverPrepend(
 	const totalMessages = chan.shared.totalMessages + (moreAvailable ? 1 : 0);
 	client.dispatch("more", {chan: chan.id, messages, totalMessages, moreAvailable});
 
-	// An original its edit already replaced is not news, read or not.
-	const replaced = new Set(messages.filter((msg) => client.settleLateOriginal(chan, msg)));
+	// An original its edit already replaced is not news, read or not, nor
+	// a line in this page that it edits in turn.
+	const hidden = new Set(messages.flatMap((msg) => client.settleLateOriginal(chan, msg)));
+	const replaced = new Set(messages.filter((msg) => hidden.has(msg.id)));
 
 	if (marker && !looking) {
 		countPageUnread(client, chan, page, marker, 0, replaced);

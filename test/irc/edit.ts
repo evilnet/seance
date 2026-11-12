@@ -456,6 +456,60 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 			expect(chan.shared.unread).to.equal(before + 1);
 		});
 
+		it("counts a chain of edits once when an older page brings its start", function () {
+			const h = setup();
+			const id = joined(h);
+			registerBusHandlers(socket, {
+				clientForChannel: (chanId) => (h.client.channelById(chanId) ? h.client : undefined),
+				clientForNetwork: () => h.client,
+				allClients: () => [h.client],
+				createNetwork: () => h.client,
+				remove: () => undefined,
+			});
+			h.transport.line(":irc.test MARKREAD #seance timestamp=2026-08-25T10:00:00.000Z");
+			const chan = h.client.channelById(id)!;
+			const before = chan.shared.unread;
+			h.transport.line(
+				"@time=2026-08-25T12:00:09.000Z;msgid=e2;+seance/edit=e1 :bob!bob@host PRIVMSG #seance :third"
+			);
+
+			socket.emit("more", {target: id, lastId: h.lastMessage(id).id, condensed: false});
+			batch(
+				h,
+				[
+					"@time=2026-08-25T11:00:00.000Z;msgid=o :bob!bob@host PRIVMSG #seance :first",
+					"@time=2026-08-25T11:00:01.000Z;msgid=e1;+seance/edit=o :bob!bob@host PRIVMSG #seance :second",
+				],
+				{label: labelOf(h.sent())}
+			);
+
+			expect(chan.shared.unread).to.equal(before + 1);
+		});
+
+		it("counts a chain of edits once when a catch-up brings its start", function () {
+			const h = setup();
+			const id = joined(h);
+			const chan = h.client.channelById(id)!;
+			const before = chan.shared.unread;
+			h.transport.line("@msgid=e2;+seance/edit=e1 :bob!bob@host PRIVMSG #seance :third");
+			h.transport.line("@msgid=o :bob!bob@host PRIVMSG #seance :first");
+			h.transport.line("@msgid=e1;+seance/edit=o :bob!bob@host PRIVMSG #seance :second");
+
+			expect(chan.shared.unread).to.equal(before + 1);
+		});
+
+		it("counts two of one author's edits waiting for the same original once", function () {
+			const h = setup();
+			const id = joined(h);
+			const chan = h.client.channelById(id)!;
+			const before = chan.shared.unread;
+			h.transport.line("@msgid=e1;+seance/edit=o :bob!bob@host PRIVMSG #seance :second");
+			h.transport.line("@msgid=e2;+seance/edit=o :bob!bob@host PRIVMSG #seance :third");
+			h.transport.line("@msgid=o :bob!bob@host PRIVMSG #seance :first");
+
+			expect(chan.shared.unread).to.equal(before + 1);
+		});
+
 		it("keeps every edit waiting for an original, and applies its author's", function () {
 			const h = setup();
 			const id = joined(h);

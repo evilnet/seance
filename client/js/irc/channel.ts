@@ -26,15 +26,13 @@ export const SAID_TYPES: ReadonlySet<MessageType> = new Set([
  * A line delivered without a live `pushMessage` (a history page, a restored
  * query log) counts as unread past the read marker when a live one would
  * have: something someone else said, or a highlight. An edit counts only
- * when its original is not `shown`: then it stands alone, and the original,
+ * when its original is not shown in `chan`: then it stands alone, and the original,
  * if it comes, is put behind it uncounted (`IrcClient.takeLateEdit`).
  */
-export function countsAsUnread(
-	msg: SharedMsg,
-	shown: (msgid: string) => boolean = () => true
-): boolean {
+export function countsAsUnread(msg: SharedMsg, chan: Channel): boolean {
 	const said =
-		SAID_TYPES.has(msg.type ?? MessageType.MESSAGE) && (!msg.editOf || !shown(msg.editOf));
+		SAID_TYPES.has(msg.type ?? MessageType.MESSAGE) &&
+		(!msg.editOf || chan.idOf(msg.editOf) === undefined);
 	return !msg.self && (said || !!msg.highlight);
 }
 

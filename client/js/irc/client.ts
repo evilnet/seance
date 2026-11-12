@@ -347,6 +347,16 @@ export const UNKNOWN_HOST_BYTES = 75;
 /** A `+typing` TAGMSG: one command of fake lag. */
 const TYPING_COST_MS = 2000;
 
+/** An original's author's edit shown before it ({@link IrcClient.settleLateOriginal}). */
+interface LateEdit {
+	/** The edit that takes its place. */
+	id: number;
+	/** The line the original itself edits, now hidden behind the edit too. */
+	behind?: number;
+	/** Whether a line hidden this way gave its count back. */
+	uncounted: boolean;
+}
+
 export class IrcClient {
 	readonly uuid: string;
 	/** Replaced (not mutated) when an STS upgrade changes port/tls, see {@link reconfigure}. */
@@ -2773,17 +2783,30 @@ export class IrcClient {
 	 * first: an older page brought the original in, or a catch-up). The edit
 	 * takes its place now (`msg:edit`), as it does when the original is
 	 * there first, so the two are never both on screen — nor both in a copy
-	 * of the conversation. True when its own author's edit replaced it;
-	 * anyone else's leaves it alone ({@link isAuthor}).
+	 * of the conversation. The ids its own author's edit hid: `msg`, and the
+	 * line `msg` itself edits, if it does; none when anyone else's edit is
+	 * all there was ({@link isAuthor}). Neither counts: the edit did.
 	 */
-	settleLateOriginal(chan: Channel, msg: SharedMsg): boolean {
-		const edit = this.takeLateEdit(chan, msg);
+	settleLateOriginal(chan: Channel, msg: SharedMsg): number[] {
+		const late = this.takeLateEdit(chan, msg);
 
-		if (edit !== undefined) {
-			this.dispatch("msg:edit", {chan: chan.id, id: edit, replaces: msg.id});
+		if (late === undefined) {
+			return [];
 		}
 
-		return edit !== undefined;
+		this.dispatch("msg:edit", {chan: chan.id, id: late.id, replaces: msg.id});
+
+		if (late.uncounted) {
+			const shared = chan.shared;
+			this.dispatch("markread", {
+				chan: chan.id,
+				firstUnread: shared.firstUnread,
+				unread: shared.unread,
+				highlight: shared.highlight,
+			});
+		}
+
+		return late.behind === undefined ? [msg.id] : [msg.id, late.behind];
 	}
 
 	/**
@@ -2792,9 +2815,9 @@ export class IrcClient {
 	 * anyone else's becomes a line of its own (`msg:unedit`): it was counted
 	 * as one when it came, its original not being there to replace.
 	 */
-	private takeLateEdit(chan: Channel, msg: SharedMsg): number | undefined {
+	private takeLateEdit(chan: Channel, msg: SharedMsg): LateEdit | undefined {
 		const author = authorOf(msg);
-		let replacing: number | undefined;
+		const revisions: number[] = [];
 
 		for (const edit of msg.msgid ? chan.takeEditsOf(msg.msgid) : []) {
 			const id = chan.idOf(edit.msgid);
@@ -2804,13 +2827,58 @@ export class IrcClient {
 			}
 
 			if (this.isAuthor(author, edit.by)) {
-				replacing = id;
+				revisions.push(id);
 			} else {
 				this.dispatch("msg:unedit", {chan: chan.id, id});
 			}
 		}
 
-		return replacing;
+		const id = revisions.pop();
+
+		if (id === undefined) {
+			return undefined;
+		}
+
+		// The author's newest edit stands for the whole line: its earlier
+		// ones, and the line `msg` edits in turn, count for nothing more.
+		let uncounted = false;
+
+		for (const earlier of revisions) {
+			uncounted = this.uncount(chan, earlier) || uncounted;
+		}
+
+		const edited = msg.editOf ? chan.idOf(msg.editOf) : undefined;
+		const behind =
+			edited !== undefined && this.isAuthor(chan.msgRefs.get(edited)?.from, author)
+				? edited
+				: undefined;
+
+		if (behind !== undefined) {
+			uncounted = this.uncount(chan, behind) || uncounted;
+		}
+
+		return {id, behind, uncounted};
+	}
+
+	/** Take back what the line `id` added to the counters. True if anything. */
+	private uncount(chan: Channel, id: number): boolean {
+		const ref = chan.msgRefs.get(id);
+		const shared = chan.shared;
+		let changed = false;
+
+		if (ref?.unread) {
+			ref.unread = false;
+			shared.unread = Math.max(0, shared.unread - 1);
+			changed = true;
+		}
+
+		if (ref?.highlight) {
+			ref.highlight = false;
+			shared.highlight = Math.max(0, shared.highlight - 1);
+			changed = true;
+		}
+
+		return changed;
 	}
 
 	/** {@link isEditAuthor} under this server's casemapping. */
@@ -3749,7 +3817,7 @@ export class IrcClient {
 		// An original its author's edit already replaced on screen counts
 		// for nothing: the edit counted in its place (privmsg.ts counts an
 		// edit whose original is not shown, countsAsUnread too).
-		const lateEdit = this.takeLateEdit(chan, msg);
+		const lateEdit = this.takeLateEdit(chan, msg)?.id;
 		const shared = chan.shared;
 		shared.totalMessages++;
 		// Already read on another session (draft/read-marker), e.g. a catch-up.
@@ -3789,11 +3857,7 @@ export class IrcClient {
 			}
 
 			// A catch-up line counts as privmsg.ts counts a live one.
-			if (
-				replay
-					? countsAsUnread(msg, (msgid) => chan.idOf(msgid) !== undefined)
-					: increasesUnread || msg.highlight
-			) {
+			if (replay ? countsAsUnread(msg, chan) : increasesUnread || msg.highlight) {
 				shared.unread++;
 				ref.unread = true;
 			}
