@@ -153,15 +153,26 @@ export const UNREACHED_JITTER_MS = 5_000;
 export const OFFLINE_RETRY_MS = 30_000;
 /** The quick retries after dials that failed before opening, before the long wait. */
 export const QUICK_RETRY_MS = [1_000, 2_000, 4_000] as const;
-/** localStorage key: host name → epoch ms of its last dial, from any network or tab. */
+/** localStorage key: host name → its last dial (epoch ms, and which transport), from any network or tab. */
 export const LAST_DIAL_KEY = "thelounge.lastDial";
+/**
+ * How long a long wait's end waits after claiming the host's dial before
+ * reading the claim back: another tab whose wait ended at the same moment
+ * has written its own by then, and only the last writer dials.
+ */
+export const DIAL_CLAIM_SETTLE_MS = 200;
 const PING_RE = /^(?:@\S+ )?(?::\S+ )?PING(?: (.*))?$/i; // [tags] [prefix] PING [params]
+
+/** Transports made in this page: part of an id where `crypto.randomUUID` is missing. */
+let transports = 0;
 
 export class WsTransport {
 	private readonly opts: Required<Omit<TransportOptions, "WebSocketImpl">> &
 		Pick<TransportOptions, "WebSocketImpl">;
 	private readonly listeners = new Set<(ev: TransportEvent) => void>();
 	private readonly decoder = new TextDecoder();
+	/** Tells this transport's {@link LAST_DIAL_KEY} entries from other dialers'. */
+	private readonly id = globalThis.crypto?.randomUUID?.() ?? `${Math.random()}-${++transports}`;
 	private ws: LineSocket | null = null;
 	private _state: TransportState = "closed";
 	private attempt = 0;
@@ -239,7 +250,7 @@ export class WsTransport {
 		}
 
 		this._state = "connecting";
-		noteDial(this.opts.url);
+		noteDial(this.opts.url, this.id);
 		let ws: LineSocket;
 
 		try {
@@ -554,14 +565,37 @@ export class WsTransport {
 				return;
 			}
 
-			this.emit({type: "retry", attempt: this.attempt});
-
-			// A retry listener may have closed this transport (an STS
-			// policy took the dial to another one): then it does not dial.
-			if (this._state === "reconnect-wait") {
-				this.dial();
+			if (this.hold !== "unreached") {
+				this.retryNow();
+				return;
 			}
+
+			// Claim the host's dial, then read the claim back: two tabs whose
+			// waits end together both pass the check above, and only the one
+			// whose claim stands dials now; the other waits its turn.
+			noteDial(this.opts.url, this.id);
+			this.timer = setTimeout(() => {
+				this.timer = null;
+				const other = this.spacingWait();
+
+				if (other > 0) {
+					this.scheduleRetry(other, reason, true);
+				} else {
+					this.retryNow();
+				}
+			}, DIAL_CLAIM_SETTLE_MS);
 		}, delayMs);
+	}
+
+	/** The wait is over: say so, then dial. */
+	private retryNow(): void {
+		this.emit({type: "retry", attempt: this.attempt});
+
+		// A retry listener may have closed this transport (an STS
+		// policy took the dial to another one): then it does not dial.
+		if (this._state === "reconnect-wait") {
+			this.dial();
+		}
 	}
 
 	/**
@@ -578,12 +612,18 @@ export class WsTransport {
 		const last = lastDials()[addressOf(this.opts.url)];
 		const now = Date.now();
 
-		// (A last dial in the future is a clock that went back: not ours to wait for.)
-		if (last === undefined || last > now || now - last >= UNREACHED_RETRY_MS) {
+		// Our own claim delays nothing. (A last dial in the future is a clock
+		// that went back: not ours to wait for.)
+		if (
+			last === undefined ||
+			last.by === this.id ||
+			last.at > now ||
+			now - last.at >= UNREACHED_RETRY_MS
+		) {
 			return 0;
 		}
 
-		return last + UNREACHED_RETRY_MS - now + Math.round(Math.random() * UNREACHED_JITTER_MS);
+		return last.at + UNREACHED_RETRY_MS - now + Math.round(Math.random() * UNREACHED_JITTER_MS);
 	}
 
 	/**
@@ -635,8 +675,13 @@ function addressOf(url: string): string {
 	}
 }
 
+interface LastDial {
+	at: number;
+	by: string;
+}
+
 /** {@link LAST_DIAL_KEY}'s map; empty when unreadable. */
-function lastDials(): Record<string, number> {
+function lastDials(): Record<string, LastDial> {
 	let parsed: unknown;
 
 	try {
@@ -645,12 +690,14 @@ function lastDials(): Record<string, number> {
 		return {};
 	}
 
-	const result: Record<string, number> = {};
+	const result: Record<string, LastDial> = {};
 
 	if (parsed && typeof parsed === "object") {
-		for (const [host, at] of Object.entries(parsed as Record<string, unknown>)) {
-			if (typeof at === "number" && Number.isFinite(at)) {
-				result[host] = at;
+		for (const [host, entry] of Object.entries(parsed as Record<string, unknown>)) {
+			const {at, by} = (entry ?? {}) as Partial<Record<keyof LastDial, unknown>>;
+
+			if (typeof at === "number" && Number.isFinite(at) && typeof by === "string") {
+				result[host] = {at, by};
 			}
 		}
 	}
@@ -658,18 +705,18 @@ function lastDials(): Record<string, number> {
 	return result;
 }
 
-/** Note a dial to `url`'s host now; entries too old to delay anyone are dropped. */
-function noteDial(url: string): void {
+/** Note a dial to `url`'s host now, by transport `by`; entries too old to delay anyone are dropped. */
+function noteDial(url: string, by: string): void {
 	const now = Date.now();
-	const kept: Record<string, number> = {};
+	const kept: Record<string, LastDial> = {};
 
-	for (const [host, at] of Object.entries(lastDials())) {
-		if (now - at < UNREACHED_RETRY_MS) {
-			kept[host] = at;
+	for (const [host, entry] of Object.entries(lastDials())) {
+		if (now - entry.at < UNREACHED_RETRY_MS) {
+			kept[host] = entry;
 		}
 	}
 
-	kept[addressOf(url)] = now;
+	kept[addressOf(url)] = {at: now, by};
 	storage.set(LAST_DIAL_KEY, JSON.stringify(kept));
 }
 

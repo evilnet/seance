@@ -242,11 +242,12 @@ export function applyDuration(
  * closes (`now + duration`), so a long-lived connection does not outlive its
  * policy — also when the expiry passed during the connection, so the stored
  * policy is read whether or not it has expired (sts.md "Rescheduling expiry
- * on disconnect"). The caller makes sure a connection did open. No-op
- * without a stored duration.
+ * on disconnect"). The caller makes sure a connection did open, and may
+ * pass the policy as the connection knows it, for when the stored one was
+ * pruned meanwhile. No-op without a duration.
  */
-export function refreshPolicy(host: string, now: number = Date.now()): void {
-	const policy = read()[policyHost(host)];
+export function refreshPolicy(host: string, known?: StsPolicy, now: number = Date.now()): void {
+	const policy = read()[policyHost(host)] ?? known;
 
 	if (policy && policy.duration !== undefined && policy.duration > 0) {
 		setPolicy(host, {...policy, expiresAt: now + policy.duration * 1000}, now);

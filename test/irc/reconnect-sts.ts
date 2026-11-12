@@ -13,6 +13,8 @@ import {IrcClient} from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";
 import {NO_FAKE_LAG} from "../../client/js/irc/fakelag";
 import {
+	DIAL_CLAIM_SETTLE_MS,
+	LAST_DIAL_KEY,
 	QUICK_RETRY_MS,
 	UNREACHED_JITTER_MS,
 	UNREACHED_RETRY_MS,
@@ -75,7 +77,7 @@ class WS {
 	}
 }
 
-function network(port: number, tls: boolean): IrcClient {
+function network(port: number, tls: boolean, Impl: typeof WS = WS): IrcClient {
 	return new IrcClient({
 		host: HOST,
 		port,
@@ -89,7 +91,7 @@ function network(port: number, tls: boolean): IrcClient {
 		bus: {dispatch: () => undefined},
 		fakeLag: NO_FAKE_LAG,
 		transportFactory: (o: TransportOptions) =>
-			new WsTransport({...o, WebSocketImpl: WS as never}),
+			new WsTransport({...o, WebSocketImpl: Impl as never}),
 	});
 }
 
@@ -180,6 +182,33 @@ describe("STS and the retry schedule", function () {
 		});
 	});
 
+	it("an upgraded retry that fails at once keeps its own countdown", function () {
+		// A WebSocket whose constructor refuses wss:// (a blocked URL, say).
+		const Throwing = class extends WS {
+			constructor(url: string) {
+				if (url.startsWith("wss:")) {
+					throw new Error("blocked");
+				}
+
+				super(url);
+			}
+		};
+		const plain = network(8067, false, Throwing);
+		plain.connect();
+		WS.all[0].open();
+		sts.setPolicy(HOST, {
+			port: 8443,
+			expiresAt: T0 + 3_600_000,
+			preload: false,
+			duration: 3600,
+		});
+		WS.all[0].drop();
+		clock.tick(5000);
+
+		expect(plain.options.tls).to.equal(true);
+		expect((plain as unknown as {retryAt?: number}).retryAt, "retryAt").to.be.a("number");
+	});
+
 	it("an insecure LS with sts=port= is answered by the upgrade alone", function () {
 		const plain = network(8067, false);
 		plain.connect();
@@ -228,6 +257,30 @@ describe("STS and the retry schedule", function () {
 			const secure = network(8443, true);
 			secure.connect();
 			clock.tick(5000);
+			WS.all[0].drop();
+
+			expect(sts.getPolicy(HOST)).to.equal(undefined);
+		});
+
+		it("also when another dial pruned it from the store meanwhile", function () {
+			const secure = network(8443, true);
+			secure.connect();
+			WS.all[0].open();
+			WS.all[0].line(":srv CAP * LS :sts=duration=60");
+			clock.tick(120_000);
+			sts.clearExpired(); // what another network's dial does
+			expect(sts.getPolicy(HOST)).to.equal(undefined);
+			WS.all[0].drop();
+
+			expect(sts.getPolicy(HOST)?.expiresAt).to.equal(T0 + 120_000 + 60_000);
+		});
+
+		it("but not one the connection removed with duration=0", function () {
+			const secure = network(8443, true);
+			secure.connect();
+			WS.all[0].open();
+			WS.all[0].line(":srv CAP * LS :sts=duration=60");
+			WS.all[0].line(":srv CAP alice NEW :sts=duration=0");
 			WS.all[0].drop();
 
 			expect(sts.getPolicy(HOST)).to.equal(undefined);
@@ -317,7 +370,32 @@ describe("STS and the retry schedule", function () {
 			const gaps = dials.slice(quick).map((at, i) => at - dials[quick + i - 1]);
 			expect(gaps.length).to.be.at.least(4);
 			expect(Math.min(...gaps)).to.be.above(IP_WINDOW_S * 1000);
-			expect(Math.max(...gaps)).to.be.at.most(UNREACHED_RETRY_MS + UNREACHED_JITTER_MS);
+			expect(Math.max(...gaps)).to.be.at.most(
+				UNREACHED_RETRY_MS + UNREACHED_JITTER_MS + DIAL_CLAIM_SETTLE_MS
+			);
+		});
+
+		it("a long wait whose claim on the host another tab overwrote does not dial", function () {
+			const t = new WsTransport({url: `wss://${HOST}:8443/`, WebSocketImpl: WS as never});
+			t.connect();
+
+			// Refused before opening until the long wait after the quick retries.
+			for (let i = 0; i <= QUICK_RETRY_MS.length; i++) {
+				WS.all.at(-1)?.drop();
+				clock.tick(QUICK_RETRY_MS[i] ?? 0);
+			}
+
+			const before = WS.all.length;
+			clock.tick(UNREACHED_RETRY_MS + UNREACHED_JITTER_MS); // the wait ends: our claim is written
+			// Another tab's wait ended at the same moment: its claim lands after ours.
+			const claims = JSON.parse(data.get(LAST_DIAL_KEY) ?? "{}") as Record<string, unknown>;
+			claims[HOST] = {at: Date.now(), by: "another tab"};
+			data.set(LAST_DIAL_KEY, JSON.stringify(claims));
+			clock.tick(DIAL_CLAIM_SETTLE_MS);
+
+			expect(WS.all.length, "dials").to.equal(before);
+			expect(t.state).to.equal("reconnect-wait");
+			t.close();
 		});
 
 		it("two networks on one address get back in after IPcheck refused them", function () {

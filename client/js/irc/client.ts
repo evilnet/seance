@@ -143,6 +143,7 @@ import {
 	parseStsValue,
 	policyHost,
 	refreshPolicy,
+	type StsPolicy,
 	StsUpgrade,
 	stsHost,
 	upgradeOptions,
@@ -544,6 +545,12 @@ export class IrcClient {
 	private closeUnreported = false;
 	/** One insecure → secure reconnect per connection; reset when the transport closes. */
 	private stsUpgradeTried = false;
+	/**
+	 * The host's STS policy as this secure connection knows it: read when it
+	 * opens, replaced by a `duration` it learns. The close reschedules from
+	 * this copy, since another dial may have pruned the stored one meanwhile.
+	 */
+	private stsPolicy: StsPolicy | undefined;
 	/** Settings edited while connected (`network:edit`); applied on the next connect. */
 	private pendingOptions: IrcClientOptions | null = null;
 	private networkName: string;
@@ -950,7 +957,7 @@ export class IrcClient {
 		}
 
 		if (this.options.tls) {
-			refreshPolicy(stsHost(this.options));
+			refreshPolicy(stsHost(this.options), this.stsPolicy);
 		}
 
 		if (this.isConnected) {
@@ -1209,7 +1216,10 @@ export class IrcClient {
 		const value = parseStsValue(raw);
 
 		if (this.options.tls) {
-			applyDuration(stsHost(this.options), this.options.port, value);
+			if (value.duration !== undefined) {
+				this.stsPolicy = applyDuration(stsHost(this.options), this.options.port, value);
+			}
+
 			return false;
 		}
 
@@ -1246,6 +1256,7 @@ export class IrcClient {
 	private onTransportEvent(ev: TransportEvent): void {
 		switch (ev.type) {
 			case "open":
+				this.stsPolicy = this.options.tls ? getPolicy(stsHost(this.options)) : undefined;
 				this.onOpen();
 				break;
 			case "line":
@@ -1302,14 +1313,16 @@ export class IrcClient {
 				// A policy learned since this transport was made (by another
 				// network or tab on the host) takes this dial: the plain
 				// transport is closed, so it does not dial after this event.
+				// The scheduled retry is dialling now: no due time any more.
+				// (Before the upgraded dial below, whose own failure may set one.)
+				this._state = "connecting";
+				this.retryAt = undefined;
+				this.retryReason = undefined;
+
 				if (this.applyStsPolicy()) {
 					this.transport.connect();
 				}
 
-				// The scheduled retry is dialling now: no due time any more.
-				this._state = "connecting";
-				this.retryAt = undefined;
-				this.retryReason = undefined;
 				this.announceStatus();
 				this.pushMessage(
 					this.lobby,
@@ -1848,8 +1861,10 @@ export class IrcClient {
 		// An opened secure connection reschedules its host's policy, also an
 		// expired one; a dial that never opened leaves the store alone.
 		if (this.options.tls && (phase === "registering" || phase === "registered")) {
-			refreshPolicy(stsHost(this.options));
+			refreshPolicy(stsHost(this.options), this.stsPolicy);
 		}
+
+		this.stsPolicy = undefined;
 
 		resetBatches(this);
 		// Before resetMultiline, which takes the copies of what it had queued
