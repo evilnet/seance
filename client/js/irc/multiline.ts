@@ -749,8 +749,16 @@ function transmit(client: IrcClient, batch: SentBatch): boolean {
 		const text = joinPlan(batch.lines);
 		const body = batch.action ? `${ACTION_PREFIX}${text}\x01` : text;
 
+		// Tagged with our account as the server would (`account-tag`), so the
+		// edit rule sees it on our own line (channel.ts isEditAuthor).
+		const tags = new Map(Object.entries(batch.tags));
+
+		if (client.account) {
+			tags.set("account", client.account);
+		}
+
 		client.handleMessage({
-			tags: new Map(Object.entries(batch.tags)),
+			tags,
 			source: {name: client.nick, user: client.ident, host: client.host || "localhost"},
 			command: batch.command,
 			params: [batch.target, body],
