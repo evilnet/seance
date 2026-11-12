@@ -48,6 +48,36 @@ export interface MsgRef {
 	from?: Author;
 }
 
+/**
+ * Whether an edit sent by `by` may replace a line `author` sent: ours
+ * replace ours; otherwise, when either carries an account (`account-tag`),
+ * the accounts decide, across nick changes, and one without never matches
+ * one with; with none, the same nick. `fold` is the server's casemapping
+ * where it is known. One rule for the timeline, past views and search.
+ */
+export function isEditAuthor(
+	author: Author | undefined,
+	by: Author,
+	fold: (s: string) => string = (s) => s.toLowerCase()
+): boolean {
+	if (author?.self && by.self) {
+		return true;
+	}
+
+	if (author?.account || by.account) {
+		return !!author?.account && !!by.account && fold(author.account) === fold(by.account);
+	}
+
+	return (
+		author?.nick !== undefined && by.nick !== undefined && fold(author.nick) === fold(by.nick)
+	);
+}
+
+/** A message's sender, for {@link isEditAuthor}. */
+export function authorOf(msg: SharedMsg): Author {
+	return {nick: msg.from?.nick, account: msg.fromAccount, self: msg.self};
+}
+
 /** A line's sender as the edit rule needs it: an edit replaces only its author's line. */
 export interface Author {
 	nick?: string;
@@ -240,11 +270,7 @@ export class Channel {
 		}
 
 		if (msg.self || msg.from?.nick) {
-			ref.from = {
-				nick: msg.from?.nick,
-				account: msg.fromAccount,
-				...(msg.self ? {self: true} : {}),
-			};
+			ref.from = authorOf(msg);
 		}
 
 		this.msgRefs.set(msg.id, ref);

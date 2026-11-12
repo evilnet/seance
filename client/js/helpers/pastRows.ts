@@ -2,6 +2,7 @@
 // around an old message, held beside the channel's buffer. Vue-free and store-free.
 import type {SharedMsg} from "../../../shared/types/msg";
 import {applyEdit} from "./messageUpdates";
+import {authorOf, isEditAuthor} from "../irc/channel";
 
 /** `fresh` added before or after `rows`, without what is already there. */
 export function mergePage<T extends SharedMsg>(
@@ -26,9 +27,9 @@ export function pageEdge<T extends SharedMsg>(
 	return (where === "BEFORE" ? anchored[0] : anchored[anchored.length - 1])?.msgid;
 }
 
-/** An edit is its original author's: case folded, as a nick is. */
-export function sameAuthor(a: SharedMsg, b: SharedMsg): boolean {
-	return a.from?.nick?.toLowerCase() === b.from?.nick?.toLowerCase();
+/** Whether `edit` may replace `original`: the timeline's rule (irc/channel.ts `isEditAuthor`). */
+export function sameAuthor(original: SharedMsg, edit: SharedMsg): boolean {
+	return isEditAuthor(authorOf(original), authorOf(edit));
 }
 
 /**
