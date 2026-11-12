@@ -2762,15 +2762,20 @@ export class IrcClient {
 	}
 
 	/**
-	 * Whether an edit sent by `by` may replace a line `author` sent. With
-	 * an account on both (`account-tag`) the accounts decide, across nick
-	 * changes; otherwise ours replace ours, and anyone else's only lines of
-	 * the same nick under the server's casemapping. The inbox applies the
-	 * same rule (`inbox:drop`).
+	 * Whether an edit sent by `by` may replace a line `author` sent. When
+	 * either carries an account (`account-tag`) the accounts decide, across
+	 * nick changes, and one without an account never matches one with; with
+	 * none, ours replace ours, and anyone else's only lines of the same nick
+	 * under the server's casemapping. (An edit of a line not loaded still
+	 * reaches the inbox, which checks the nick alone, `inbox:drop`.)
 	 */
 	isAuthor(author: Author | undefined, by: Author): boolean {
-		if (author?.account && by.account) {
-			return this.casefold(author.account) === this.casefold(by.account);
+		if (author?.account || by.account) {
+			return (
+				!!author?.account &&
+				!!by.account &&
+				this.casefold(author.account) === this.casefold(by.account)
+			);
 		}
 
 		if (author?.self && by.self) {

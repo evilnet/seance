@@ -470,6 +470,15 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 			expect(h.payloads("msg:edit")).to.have.length(0);
 		});
 
+		it("refuses an edit without an account of a line that carried one", function () {
+			const h = setup();
+			joined(h);
+			h.transport.line("@msgid=b1;account=bob :bob!bob@host PRIVMSG #seance :teh");
+			h.transport.line("@msgid=b2;+seance/edit=b1 :bob!m@host PRIVMSG #seance :mine now");
+
+			expect(h.payloads("msg:edit")).to.have.length(0);
+		});
+
 		it("takes our own edit replayed after our nick changed", function () {
 			const h = setup();
 			const id = joined(h);
