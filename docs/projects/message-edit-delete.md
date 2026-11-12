@@ -21,6 +21,16 @@ Spec: `docs/resources/bus-contract.md` § 1.4; server facts:
   timestamp and shows "(edited)" with the edit time as its tooltip). Own
   edits look the same as anyone else's, the pending copy included, and an
   edit raises no unread count and no notification unless it highlights.
+  An edit that comes before its original (an older page, a catch-up) stands
+  alone and counts as a line. Every such edit waits for the original
+  (`Channel.awaitOriginal`); when it comes, its author's edit takes its
+  place and it counts for nothing, so the message counts once. Anyone else's
+  becomes a line of its own (`msg:unedit`), already counted. Authorship is
+  one rule everywhere, the inbox included (`isEditAuthor`): the account when
+  either line has one, else both ours, else the same nick. `self` is judged
+  by the current nick for a replayed line, so without accounts two replayed
+  lines sent under the nick we hold now can read as ours; with accounts it
+  is never consulted.
   Pencil action in `MessageActions.vue`; `input` carries an optional `edit`
   msgid. ArrowUp in an empty composer edits the newest own message and
   ArrowUp/Down step through them, but only from the composer's top/bottom

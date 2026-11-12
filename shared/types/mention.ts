@@ -19,6 +19,11 @@ export type InboxEntry = {
 	/** Kept to display the entry only; a long line's is cut to its mention. */
 	text: string;
 	from: UserInMessage;
+	/**
+	 * The account the line was sent from, `null` when it had none. Absent on
+	 * entries stored before it was kept: those are held to the nick.
+	 */
+	account?: string | null;
 	/** Read or opened: stays in the list, dimmed, and leaves every count. */
 	read?: true;
 };

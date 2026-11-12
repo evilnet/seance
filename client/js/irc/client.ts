@@ -2787,17 +2787,30 @@ export class IrcClient {
 	}
 
 	/**
-	 * The id of the edit of `msg` already shown, if its author sent it and
-	 * it is still loaded; the waiting edit is taken off the list either way.
+	 * The id of the newest edit of `msg` already shown that its author sent,
+	 * if one is still loaded. Every waiting edit is taken off the list, and
+	 * anyone else's becomes a line of its own (`msg:unedit`): it was counted
+	 * as one when it came, its original not being there to replace.
 	 */
 	private takeLateEdit(chan: Channel, msg: SharedMsg): number | undefined {
-		const edit = msg.msgid ? chan.takeEditOf(msg.msgid) : undefined;
-		if (!edit || !this.isAuthor(authorOf(msg), edit.by)) {
-			return undefined;
+		const author = authorOf(msg);
+		let replacing: number | undefined;
+
+		for (const edit of msg.msgid ? chan.takeEditsOf(msg.msgid) : []) {
+			const id = chan.idOf(edit.msgid);
+
+			if (id === undefined || id === msg.id) {
+				continue;
+			}
+
+			if (this.isAuthor(author, edit.by)) {
+				replacing = id;
+			} else {
+				this.dispatch("msg:unedit", {chan: chan.id, id});
+			}
 		}
 
-		const id = chan.idOf(edit.msgid);
-		return id !== undefined && id !== msg.id ? id : undefined;
+		return replacing;
 	}
 
 	/** {@link isEditAuthor} under this server's casemapping. */
@@ -3734,7 +3747,8 @@ export class IrcClient {
 		}
 
 		// An original its author's edit already replaced on screen counts
-		// for nothing: the edit counted in its place.
+		// for nothing: the edit counted in its place (privmsg.ts counts an
+		// edit whose original is not shown, countsAsUnread too).
 		const lateEdit = this.takeLateEdit(chan, msg);
 		const shared = chan.shared;
 		shared.totalMessages++;
@@ -3775,7 +3789,11 @@ export class IrcClient {
 			}
 
 			// A catch-up line counts as privmsg.ts counts a live one.
-			if (replay ? countsAsUnread(msg) : increasesUnread || msg.highlight) {
+			if (
+				replay
+					? countsAsUnread(msg, (msgid) => chan.idOf(msgid) !== undefined)
+					: increasesUnread || msg.highlight
+			) {
 				shared.unread++;
 				ref.unread = true;
 			}

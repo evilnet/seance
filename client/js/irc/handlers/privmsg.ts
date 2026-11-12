@@ -326,15 +326,21 @@ function handleMessage(
 				network: client.uuid,
 				target: where,
 				msgid: editOf,
-				by: nick,
+				by: {nick, ...(account ? {account} : {})},
 			})
 		);
 	}
 
 	// An edit of a loaded message takes that message's place in the list
 	// (`msg:edit`), so it is not a new unread message; a highlight in it
-	// still counts, as `pushMessage` counts every highlight.
-	const pushed = client.pushMessage(chan, message, !self && !editOf);
+	// still counts, as `pushMessage` counts every highlight. One whose
+	// original is not shown stands alone and counts as a line: the original,
+	// if it comes, counts for nothing behind it (`IrcClient.takeLateEdit`).
+	const pushed = client.pushMessage(
+		chan,
+		message,
+		!self && (!editOf || chan.idOf(editOf) === undefined)
+	);
 
 	if (editOf) {
 		// `msg:edit` must follow the `msg` and carry resolved ids; in a

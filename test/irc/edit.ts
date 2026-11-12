@@ -415,6 +415,81 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 			expect(h.payloads("msg:edit")).to.have.length(0);
 		});
 
+		it("counts a line once when its author's edit comes before it", function () {
+			const h = setup();
+			const id = joined(h);
+			const chan = h.client.channelById(id)!;
+			const before = chan.shared.unread;
+			h.transport.line("@msgid=e1;+seance/edit=o1 :bob!bob@host PRIVMSG #seance :the");
+			h.transport.line("@msgid=o1 :bob!bob@host PRIVMSG #seance :teh");
+
+			expect(h.payloads("msg:edit")).to.have.length(1);
+			expect(chan.shared.unread).to.equal(before + 1);
+		});
+
+		it("counts an edit in an older page whose original is not loaded", function () {
+			const h = setup();
+			const id = joined(h);
+			registerBusHandlers(socket, {
+				clientForChannel: (chanId) => (h.client.channelById(chanId) ? h.client : undefined),
+				clientForNetwork: () => h.client,
+				allClients: () => [h.client],
+				createNetwork: () => h.client,
+				remove: () => undefined,
+			});
+			h.transport.line(":irc.test MARKREAD #seance timestamp=2026-08-25T10:00:00.000Z");
+			h.transport.line(
+				"@time=2026-08-25T12:00:09.000Z;msgid=n1 :carol!carol@host PRIVMSG #seance :newest"
+			);
+			const chan = h.client.channelById(id)!;
+			const before = chan.shared.unread;
+
+			socket.emit("more", {target: id, lastId: h.lastMessage(id).id, condensed: false});
+			batch(
+				h,
+				[
+					"@time=2026-08-25T11:00:00.000Z;msgid=e1;+seance/edit=o1 :bob!bob@host PRIVMSG #seance :the",
+				],
+				{label: labelOf(h.sent())}
+			);
+
+			expect(chan.shared.unread).to.equal(before + 1);
+		});
+
+		it("keeps every edit waiting for an original, and applies its author's", function () {
+			const h = setup();
+			const id = joined(h);
+			h.transport.line(
+				"@msgid=e1;account=bob;+seance/edit=o1 :bob!bob@host PRIVMSG #seance :the"
+			);
+			const authors = h.lastMessage(id).id;
+			h.transport.line(
+				"@msgid=m1;account=mallory;+seance/edit=o1 :mallory!m@host PRIVMSG #seance :mine"
+			);
+			h.transport.line("@msgid=o1;account=bob :bob!bob@host PRIVMSG #seance :teh");
+			const original = h.lastMessage(id).id;
+
+			expect(h.payloads<EditPayload>("msg:edit")).to.deep.equal([
+				{chan: id, id: authors, replaces: original},
+			]);
+		});
+
+		it("turns someone else's edit that came first into a line of its own", function () {
+			const h = setup();
+			const id = joined(h);
+			const chan = h.client.channelById(id)!;
+			const before = chan.shared.unread;
+			h.transport.line(
+				"@msgid=c1;+seance/edit=o1 :carol!carol@host PRIVMSG #seance :mine now"
+			);
+			const carols = h.lastMessage(id).id;
+			h.transport.line("@msgid=o1 :bob!bob@host PRIVMSG #seance :teh");
+
+			expect(h.payloads("msg:edit")).to.have.length(0);
+			expect(h.payloads("msg:unedit")).to.deep.equal([{chan: id, id: carols}]);
+			expect(chan.shared.unread).to.equal(before + 2);
+		});
+
 		it("counts nothing for an original its author's edit already replaced", function () {
 			const h = setup();
 			const id = joined(h);

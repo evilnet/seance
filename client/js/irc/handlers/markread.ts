@@ -172,7 +172,11 @@ export function countPageUnread(
 
 	for (const [msg, ref] of page) {
 		// An original its author's edit replaced is hidden behind it: no news.
-		if (ref.time.getTime() <= readTo || !countsAsUnread(msg) || replaced?.has(msg)) {
+		if (
+			ref.time.getTime() <= readTo ||
+			!countsAsUnread(msg, (msgid) => chan.idOf(msgid) !== undefined) ||
+			replaced?.has(msg)
+		) {
 			continue;
 		}
 

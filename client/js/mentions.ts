@@ -8,6 +8,7 @@ import {shallowRef} from "vue";
 import storage from "./localStorage";
 import {store} from "./store";
 import type {InboxEntry} from "../../shared/types/mention";
+import type {Author} from "./irc/channel";
 import {
 	MAX_DISMISSED,
 	addEntries,
@@ -97,7 +98,7 @@ export function markMentionOpened(entry: InboxEntry): void {
 }
 
 /** Drop the entry of a message that is gone (deleted, or replaced by `by`'s edit). */
-export function dropMentionOf(network: string, target: string, msgid: string, by?: string): void {
+export function dropMentionOf(network: string, target: string, msgid: string, by?: Author): void {
 	commitIfChanged(dropMessage(store.state.mentions, network, target, msgid, by));
 	undoableMentions.value = dropMessage(undoableMentions.value, network, target, msgid, by);
 }
