@@ -31,7 +31,7 @@ import type {
 import type {PushSession, ServerToClientEvents} from "../../../shared/types/socket-events";
 import {CapNegotiator, SEANCE_CAPS, webpushVapidOf, WEBPUSH_CAP} from "./caps";
 import {casefold, namesEqual} from "./casemap";
-import {Channel, MsgRef, SAID_TYPES, countsAsUnread} from "./channel";
+import {Author, Channel, MsgRef, SAID_TYPES, countsAsUnread} from "./channel";
 import {QueryLog} from "./querylog";
 import {commandNames, dispatchInput} from "./commands";
 import {describeClose} from "./disconnect";
@@ -2727,21 +2727,49 @@ export class IrcClient {
 	 * first: an older page brought the original in, or a catch-up). The edit
 	 * takes its place now (`msg:edit`), as it does when the original is
 	 * there first, so the two are never both on screen — nor both in a copy
-	 * of the conversation. True when its own author's edit replaced it
-	 * (the inbox drops an edited mention only then, `inbox:drop`'s `by`).
+	 * of the conversation. True when its own author's edit replaced it;
+	 * anyone else's leaves it alone ({@link isAuthor}).
 	 */
 	settleLateOriginal(chan: Channel, msg: SharedMsg): boolean {
+		const edit = this.takeLateEdit(chan, msg);
+
+		if (edit) {
+			this.showLateEdit(chan, msg, edit);
+		}
+
+		return edit !== undefined;
+	}
+
+	/** The edit of `msg` already shown, if its author sent it; taken off the list either way. */
+	private takeLateEdit(chan: Channel, msg: SharedMsg): string | undefined {
 		const edit = msg.msgid ? chan.takeEditOf(msg.msgid) : undefined;
-		const id = edit === undefined ? undefined : chan.idOf(edit.msgid);
+		const author: Author = {nick: msg.from?.nick, self: msg.self};
+		return edit && this.isAuthor(author, edit.by) ? edit.msgid : undefined;
+	}
+
+	/** Put the edit `editMsgid` in `msg`'s place (`msg:edit`, after `msg`'s own event). */
+	private showLateEdit(chan: Channel, msg: SharedMsg, editMsgid: string): void {
+		const id = chan.idOf(editMsgid);
 
 		if (id !== undefined && id !== msg.id) {
 			this.dispatch("msg:edit", {chan: chan.id, id, replaces: msg.id});
 		}
+	}
+
+	/**
+	 * Whether an edit sent by `by` may replace a line `author` sent: ours
+	 * replace ours, anyone else's only their own, by nick under the
+	 * server's casemapping. The inbox applies the same rule (`inbox:drop`).
+	 */
+	isAuthor(author: Author | undefined, by: Author): boolean {
+		if (author?.self || by.self) {
+			return !!author?.self && !!by.self;
+		}
 
 		return (
-			edit !== undefined &&
-			msg.from?.nick !== undefined &&
-			this.casefold(edit.by) === this.casefold(msg.from.nick)
+			author?.nick !== undefined &&
+			by.nick !== undefined &&
+			this.casefold(author.nick) === this.casefold(by.nick)
 		);
 	}
 
@@ -3673,6 +3701,9 @@ export class IrcClient {
 			this.queryLog.append(chan.name, msg);
 		}
 
+		// An original its author's edit already replaced on screen counts
+		// for nothing: the edit counted in its place.
+		const lateEdit = this.takeLateEdit(chan, msg);
 		const shared = chan.shared;
 		shared.totalMessages++;
 		// Already read on another session (draft/read-marker), e.g. a catch-up.
@@ -3699,6 +3730,8 @@ export class IrcClient {
 				shared.highlight = 0;
 				scheduleMarkRead(this, chan);
 			}
+		} else if (lateEdit) {
+			// Hidden behind its edit, which counted already: nothing to count.
 		} else if (this.isReading(chan)) {
 			// Only a person looking reads it; a hidden page marks nothing
 			// (presence.ts marks the open channel when attention returns).
@@ -3728,8 +3761,11 @@ export class IrcClient {
 			...(replay ? {replay: true} : {}),
 		});
 		// An original its edit already replaced is not news, read or not.
-		const replaced = this.settleLateOriginal(chan, msg);
-		const entry = replaced ? null : this.mentionEntry(chan, msg, !!ref.highlight);
+		if (lateEdit) {
+			this.showLateEdit(chan, msg, lateEdit);
+		}
+
+		const entry = lateEdit ? null : this.mentionEntry(chan, msg, !!ref.highlight);
 
 		if (entry) {
 			this.bus.dispatch("inbox:add", {entries: [entry]});

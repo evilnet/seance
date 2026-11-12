@@ -350,6 +350,87 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 			expect(unread()).to.equal(2);
 		});
 
+		it("lets no one but its author replace a loaded message", function () {
+			const h = setup();
+			const id = joined(h);
+			h.transport.line("@msgid=b1 :bob!bob@host PRIVMSG #seance :teh");
+			h.transport.line(
+				"@msgid=c1;+seance/edit=b1 :carol!carol@host PRIVMSG #seance :mine now"
+			);
+
+			expect(h.payloads("msg:edit")).to.have.length(0);
+			expect(h.lastMessage(id).text).to.equal("mine now");
+		});
+
+		it("takes an author's edit across a nick case change", function () {
+			const h = setup();
+			const id = joined(h);
+			h.transport.line("@msgid=b1 :bob!bob@host PRIVMSG #seance :teh");
+			const oldId = h.lastMessage(id).id;
+			h.transport.line("@msgid=b2;+seance/edit=b1 :BOB!bob@host PRIVMSG #seance :the");
+
+			expect(h.payloads<EditPayload>("msg:edit")).to.deep.equal([
+				{chan: id, id: h.lastMessage(id).id, replaces: oldId},
+			]);
+		});
+
+		it("lets no one but its author replace an original delivered after the edit", function () {
+			const h = setup();
+			const id = joined(h);
+			h.transport.line(
+				"@msgid=c1;+seance/edit=o1 :carol!carol@host PRIVMSG #seance :mine now"
+			);
+			h.transport.line("@msgid=o1 :bob!bob@host PRIVMSG #seance :teh");
+
+			expect(h.payloads("msg:edit")).to.have.length(0);
+		});
+
+		it("counts nothing for an original its author's edit already replaced", function () {
+			const h = setup();
+			const id = joined(h);
+			const last = () => h.payloads<{unread: number; highlight: number}>("msg").pop();
+			h.transport.line("@msgid=e1;+seance/edit=o1 :bob!bob@host PRIVMSG #seance :the");
+			const before = last();
+			h.transport.line("@msgid=o1 :bob!bob@host PRIVMSG #seance :alice: teh");
+
+			expect(h.payloads("msg:edit")).to.have.length(1);
+			expect(last()).to.include({unread: before?.unread, highlight: before?.highlight});
+			expect(h.client.channelById(id)!.shared.unread).to.equal(before?.unread);
+		});
+
+		it("counts nothing for an original its author's edit replaced, in an older page", function () {
+			const h = setup();
+			const id = joined(h);
+			registerBusHandlers(socket, {
+				clientForChannel: (chanId) => (h.client.channelById(chanId) ? h.client : undefined),
+				clientForNetwork: () => h.client,
+				allClients: () => [h.client],
+				createNetwork: () => h.client,
+				remove: () => undefined,
+			});
+			h.transport.line(":irc.test MARKREAD #seance timestamp=2026-08-25T10:00:00.000Z");
+			h.transport.line(
+				"@time=2026-08-25T12:00:05.000Z;msgid=e1;+seance/edit=o1 :bob!bob@host PRIVMSG #seance :the"
+			);
+			const edit = h.lastMessage(id);
+			const chan = h.client.channelById(id)!;
+			const before = {unread: chan.shared.unread, highlight: chan.shared.highlight};
+
+			socket.emit("more", {target: id, lastId: edit.id, condensed: false});
+			batch(
+				h,
+				[
+					"@time=2026-08-25T11:00:00.000Z;msgid=o1 :bob!bob@host PRIVMSG #seance :alice: teh",
+				],
+				{label: labelOf(h.sent())}
+			);
+
+			expect(h.payloads("msg:edit")).to.have.length(1);
+			expect({unread: chan.shared.unread, highlight: chan.shared.highlight}).to.deep.equal(
+				before
+			);
+		});
+
 		it("shows the message but no msg:edit when the old one is not loaded", function () {
 			const h = setup();
 			const id = joined(h);

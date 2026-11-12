@@ -44,6 +44,15 @@ export interface MsgRef {
 	unread?: boolean;
 	/** Bumped the channel's `highlight` counter when pushed. */
 	highlight?: boolean;
+	/** Who sent it, for the edit rule (IrcClient.isAuthor). */
+	from?: Author;
+}
+
+/** A line's sender as the edit rule needs it: an edit replaces only its author's line. */
+export interface Author {
+	nick?: string;
+	/** Ours, whatever our nick was then. */
+	self?: boolean;
 }
 
 /** A fresh user record; `mode` mirrors `modes[0]` and must be kept in sync. */
@@ -116,7 +125,7 @@ export class Channel {
 	 * When the original is delivered, `IrcClient.settleLateOriginal` puts the
 	 * edit in its place, so the two never stand side by side.
 	 */
-	private readonly editsBeforeOriginal = new Map<string, {msgid: string; by: string}>();
+	private readonly editsBeforeOriginal = new Map<string, {msgid: string; by: Author}>();
 	/** The newest message we have seen; a reconnect asks for history AFTER it. */
 	newestRef: MsgRef | undefined = undefined;
 	/**
@@ -228,6 +237,10 @@ export class Channel {
 			ref.reactable = true;
 		}
 
+		if (msg.self || msg.from?.nick) {
+			ref.from = msg.self ? {nick: msg.from?.nick, self: true} : {nick: msg.from?.nick};
+		}
+
 		this.msgRefs.set(msg.id, ref);
 		return ref;
 	}
@@ -260,12 +273,12 @@ export class Channel {
 	}
 
 	/** The edit `editMsgid` is shown, its original `originalMsgid` not yet. */
-	awaitOriginal(originalMsgid: string, editMsgid: string, by: string): void {
+	awaitOriginal(originalMsgid: string, editMsgid: string, by: Author): void {
 		this.editsBeforeOriginal.set(originalMsgid, {msgid: editMsgid, by});
 	}
 
 	/** The shown edit waiting for `msgid` and its sender, taken off the list. */
-	takeEditOf(msgid: string): {msgid: string; by: string} | undefined {
+	takeEditOf(msgid: string): {msgid: string; by: Author} | undefined {
 		const edit = this.editsBeforeOriginal.get(msgid);
 
 		if (edit !== undefined) {

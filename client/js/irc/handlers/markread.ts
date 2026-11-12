@@ -171,7 +171,8 @@ export function countPageUnread(
 	const mentions: InboxEntry[] = [];
 
 	for (const [msg, ref] of page) {
-		if (ref.time.getTime() <= readTo || !countsAsUnread(msg)) {
+		// An original its author's edit replaced is hidden behind it: no news.
+		if (ref.time.getTime() <= readTo || !countsAsUnread(msg) || replaced?.has(msg)) {
 			continue;
 		}
 
@@ -181,7 +182,7 @@ export function countPageUnread(
 		if (msg.highlight) {
 			ref.highlight = true;
 			highlight++;
-			const entry = replaced?.has(msg) ? null : client.mentionEntry(chan, msg, true);
+			const entry = client.mentionEntry(chan, msg, true);
 
 			if (entry) {
 				mentions.push(entry);

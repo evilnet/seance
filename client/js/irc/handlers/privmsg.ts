@@ -325,13 +325,19 @@ function handleMessage(
 		client.afterReplay(() => {
 			const id = pushed.id || (pushed.msgid ? into.idOf(pushed.msgid) : undefined);
 			const replaces = into.idOf(editOf);
+			const by = {nick, self};
 
 			if (id && replaces !== undefined && replaces !== id) {
-				client.dispatch("msg:edit", {chan: into.id, id, replaces});
+				// Only its author's edit takes a line's place; anyone else's
+				// is a line of its own.
+				if (client.isAuthor(into.msgRefs.get(replaces)?.from, by)) {
+					client.dispatch("msg:edit", {chan: into.id, id, replaces});
+				}
 			} else if (id && replaces === undefined && pushed.msgid) {
 				// The original may still arrive (an older page): it is put
-				// behind this edit then, not shown beside it.
-				into.awaitOriginal(editOf, pushed.msgid, nick);
+				// behind this edit then, not shown beside it, if its author
+				// sent this (IrcClient.settleLateOriginal).
+				into.awaitOriginal(editOf, pushed.msgid, by);
 			}
 		});
 	}
