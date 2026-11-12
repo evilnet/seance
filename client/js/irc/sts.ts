@@ -19,6 +19,8 @@ import {hostnameOf} from "./saved-networks";
 import type {ConnectOptions} from "./types";
 
 export const STORAGE_KEY = "thelounge.sts";
+/** localStorage key: host → how many times a `duration=0` removed its policy (see holdPolicy). */
+const REMOVED_KEY = "thelounge.stsRemovals";
 
 /** A cached persistence policy for one host. */
 export interface StsPolicy {
@@ -192,10 +194,63 @@ export function setPolicy(host: string, policy: StsPolicy, now: number = Date.no
 	write(policies);
 }
 
+/**
+ * Remove the policy for `host`, counting the removal first: a close that
+ * runs in between still finds the policy stored and reschedules that.
+ */
 export function deletePolicy(host: string): void {
+	const key = policyHost(host);
+	const removed = readRemoved();
+	storage.set(REMOVED_KEY, JSON.stringify({...removed, [key]: (removed[key] ?? 0) + 1}));
+
 	const policies = read();
-	delete policies[policyHost(host)];
+	delete policies[key];
 	write(policies);
+}
+
+/** A connection's own copy of its host's policy, and the removals counted when it was taken. */
+export interface HeldPolicy {
+	policy: StsPolicy;
+	removals: number;
+}
+
+/**
+ * Take a copy of the policy `take` reads or learns for a connection to
+ * `host` (none without a policy). The count is read first: a removal by
+ * another tab while `take` runs leaves the copy under the older count,
+ * retired, never a removed policy under the newer one.
+ */
+export function holdPolicy(
+	host: string,
+	take: () => StsPolicy | undefined
+): HeldPolicy | undefined {
+	const removals = removalsOf(host);
+	const policy = take();
+	return policy && {policy, removals};
+}
+
+function readRemoved(): Record<string, number> {
+	const result: Record<string, number> = {};
+
+	try {
+		const parsed: unknown = JSON.parse(storage.get(REMOVED_KEY) ?? "{}");
+
+		if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+			for (const [host, count] of Object.entries(parsed as Record<string, unknown>)) {
+				if (typeof count === "number" && Number.isFinite(count)) {
+					result[host] = count;
+				}
+			}
+		}
+	} catch (e) {
+		storage.remove(REMOVED_KEY);
+	}
+
+	return result;
+}
+
+function removalsOf(host: string): number {
+	return readRemoved()[policyHost(host)] ?? 0;
 }
 
 /** Drop every expired policy. */
@@ -240,10 +295,17 @@ export function applyDuration(
 /**
  * The spec asks clients to reschedule the expiry when a secure connection
  * closes (`now + duration`), so a long-lived connection does not outlive its
- * policy. No-op without a stored duration.
+ * policy — also when the expiry passed during the connection, so the stored
+ * policy is read whether or not it has expired (sts.md "Rescheduling expiry
+ * on disconnect"). The caller makes sure a connection did open, and may
+ * pass the policy as the connection knows it, for when the stored one was
+ * pruned meanwhile — not when a `duration=0` removed it since the copy was
+ * taken (holdPolicy). No-op without a duration.
  */
-export function refreshPolicy(host: string, now: number = Date.now()): void {
-	const policy = getPolicy(host, now);
+export function refreshPolicy(host: string, held?: HeldPolicy, now: number = Date.now()): void {
+	const policy =
+		read()[policyHost(host)] ??
+		(held && held.removals === removalsOf(host) ? held.policy : undefined);
 
 	if (policy && policy.duration !== undefined && policy.duration > 0) {
 		setPolicy(host, {...policy, expiresAt: now + policy.duration * 1000}, now);

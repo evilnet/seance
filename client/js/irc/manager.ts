@@ -356,9 +356,7 @@ if (typeof window !== "undefined") {
 		}
 
 		for (const client of allClients()) {
-			if (client.isConnected) {
-				client.send("QUIT :page closed");
-			}
+			client.unload();
 		}
 	});
 }
@@ -472,7 +470,7 @@ export function reconnectAll(opts: {networkBack?: boolean} = {}): void {
 				transport.redial &&
 				transport.connectingForMs() > STALE_DIAL_MS
 			) {
-				transport.redial();
+				client.redial();
 			}
 		} else if (transport.state === "open") {
 			if (transport.probe) {
