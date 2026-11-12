@@ -1688,9 +1688,8 @@ msgctxt "connect.linkSuggestJoin"
 msgid "This link suggests connecting to {host}:{port} and joining {channels}. Nothing is saved until you choose to connect."
 msgstr "Bu bağlantı {host}:{port} sunucusuna bağlanmayı ve şu kanallara katılmayı öneriyor: {channels}. Bağlanmayı seçene kadar hiçbir şey kaydedilmez."
 
-#. Read-only row label on the connect/sign-in form, above the name of the network being connected to (shown instead of an editable server field).
-#: client/components/Windows/Connect.vue:28
-#: client/components/Windows/Connect.vue:126
+#. Read-only row label on the connect form of a deploy that pins the server, above the name of the network being connected to (shown instead of an editable server field).
+#: client/components/Windows/Connect.vue
 msgctxt "connect.network"
 msgid "Network"
 msgstr "Ağ"

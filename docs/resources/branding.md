@@ -113,7 +113,7 @@ URL parameters (`?host=…&port=…&nick=…&join=…`, `?uri=web+irc://…`) st
 }
 ```
 
-The panel has **no server fields at all** — it names the network instead — so `signIn` implies `allowCustomServer: false`: a `?host=` URL or a `web+irc://` link to anywhere else is refused the same way a locked deploy refuses it. `brandingFeatures()` resolves both, and turns `signIn` off again if the config has no `defaultNetwork`, since there would be nothing to sign in to.
+The panel has **no server fields at all**, and does not name the network either (the deploy is that network's own client, and its name, icons and intro already say so), so `signIn` implies `allowCustomServer: false`: a `?host=` URL or a `web+irc://` link to anywhere else is refused the same way a locked deploy refuses it. `brandingFeatures()` resolves both, and turns `signIn` off again if the config has no `defaultNetwork`, since there would be nothing to sign in to.
 
 It offers two ways in:
 
