@@ -2676,6 +2676,30 @@ describe("service worker merged notification time", function () {
 		}
 	});
 
+	it("an older worker's card with no time stays untimed when a timed message joins", async function () {
+		const sw = makeSW();
+
+		await sw.sandbox.registration.showNotification("alice", {
+			tag: "push-alice",
+			body: "earlier",
+			data: {
+				kind: "push",
+				count: 1,
+				target: "alice",
+				messages: [{from: "alice", text: "earlier", msgid: "m-old"}],
+			},
+		});
+		await firePush(
+			sw,
+			`{"t":"msg","from":"alice","target":"pushtest","msgid":"m-new","time":"${OLDER}","text":"later"}`
+		);
+
+		const live = cards(sw);
+		expect(live).to.have.lengthOf(1);
+		expect(live[0].data.count).to.equal(2);
+		expect(live[0].data.time, "its newest time is unknown").to.equal(undefined);
+	});
+
 	it("stays untimed when a timed message follows an untimed one", async function () {
 		const sw = makeSW();
 
