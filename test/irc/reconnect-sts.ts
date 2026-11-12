@@ -286,6 +286,34 @@ describe("STS and the retry schedule", function () {
 			expect(sts.getPolicy(HOST)).to.equal(undefined);
 		});
 
+		it("but not one another connection to the host removed with duration=0", function () {
+			const a = network(8443, true);
+			const b = network(8443, true);
+			a.connect();
+			WS.all[0].open();
+			WS.all[0].line(":srv CAP * LS :sts=duration=60");
+			b.connect();
+			WS.all[1].open();
+			WS.all[1].line(":srv CAP * LS :sts=duration=0");
+			expect(sts.getPolicy(HOST)).to.equal(undefined);
+			WS.all[0].drop();
+
+			expect(sts.getPolicy(HOST)).to.equal(undefined);
+		});
+
+		it("and a policy learned after a removal is rescheduled again", function () {
+			const a = network(8443, true);
+			a.connect();
+			WS.all[0].open();
+			WS.all[0].line(":srv CAP * LS :sts=duration=0");
+			WS.all[0].line(":srv CAP alice NEW :sts=duration=60");
+			clock.tick(120_000);
+			sts.clearExpired(); // what another network's dial does
+			WS.all[0].drop();
+
+			expect(sts.getPolicy(HOST)?.expiresAt).to.equal(T0 + 120_000 + 60_000);
+		});
+
 		it("when the page goes away", function () {
 			const secure = network(8443, true);
 			secure.connect();

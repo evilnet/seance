@@ -19,6 +19,12 @@ import {hostnameOf} from "./saved-networks";
 import type {ConnectOptions} from "./types";
 
 export const STORAGE_KEY = "thelounge.sts";
+/**
+ * localStorage key: host → when a `duration=0` removed its policy. A
+ * connection that still holds the old policy must not bring it back at its
+ * close (refreshPolicy); a policy stored for the host again clears it.
+ */
+export const REMOVED_KEY = "thelounge.stsRemoved";
 
 /** A cached persistence policy for one host. */
 export interface StsPolicy {
@@ -185,6 +191,12 @@ export function setPolicy(host: string, policy: StsPolicy, now: number = Date.no
 
 	if (policy.expiresAt > now) {
 		policies[key] = {...policy};
+		const removed = readRemoved();
+
+		if (key in removed) {
+			delete removed[key];
+			writeRemoved(removed);
+		}
 	} else {
 		delete policies[key];
 	}
@@ -192,10 +204,39 @@ export function setPolicy(host: string, policy: StsPolicy, now: number = Date.no
 	write(policies);
 }
 
-export function deletePolicy(host: string): void {
+export function deletePolicy(host: string, now: number = Date.now()): void {
 	const policies = read();
 	delete policies[policyHost(host)];
 	write(policies);
+	writeRemoved({...readRemoved(), [policyHost(host)]: now});
+}
+
+function readRemoved(): Record<string, number> {
+	const result: Record<string, number> = {};
+
+	try {
+		const parsed: unknown = JSON.parse(storage.get(REMOVED_KEY) ?? "{}");
+
+		if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+			for (const [host, at] of Object.entries(parsed as Record<string, unknown>)) {
+				if (typeof at === "number" && Number.isFinite(at)) {
+					result[host] = at;
+				}
+			}
+		}
+	} catch (e) {
+		storage.remove(REMOVED_KEY);
+	}
+
+	return result;
+}
+
+function writeRemoved(removed: Record<string, number>): void {
+	if (Object.keys(removed).length === 0) {
+		storage.remove(REMOVED_KEY);
+	} else {
+		storage.set(REMOVED_KEY, JSON.stringify(removed));
+	}
 }
 
 /** Drop every expired policy. */
@@ -223,7 +264,7 @@ export function applyDuration(
 	}
 
 	if (value.duration === 0) {
-		deletePolicy(host);
+		deletePolicy(host, now);
 		return undefined;
 	}
 
@@ -244,10 +285,12 @@ export function applyDuration(
  * policy is read whether or not it has expired (sts.md "Rescheduling expiry
  * on disconnect"). The caller makes sure a connection did open, and may
  * pass the policy as the connection knows it, for when the stored one was
- * pruned meanwhile. No-op without a duration.
+ * pruned meanwhile — not when a `duration=0` removed it ({@link REMOVED_KEY}).
+ * No-op without a duration.
  */
 export function refreshPolicy(host: string, known?: StsPolicy, now: number = Date.now()): void {
-	const policy = read()[policyHost(host)] ?? known;
+	const key = policyHost(host);
+	const policy = read()[key] ?? (key in readRemoved() ? undefined : known);
 
 	if (policy && policy.duration !== undefined && policy.duration > 0) {
 		setPolicy(host, {...policy, expiresAt: now + policy.duration * 1000}, now);
