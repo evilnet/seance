@@ -36,8 +36,8 @@ the pane shows it with the conversation's unread count ("7 unread").
 **Read rule:** an entry is read, and stays in the list dimmed and out of every
 count (`read`), once its target's read point passes its `time`, or once it is
 opened. It leaves when closed with its ×, by Dismiss all, or 7 days after it was
-said if read (counted from the line, checked when the page loads). A conversation shows its newest three rows, with "Show N more" for
-the rest (`ROWS_PER_GROUP`). Discord's mentions are the model. What is unread is
+said if read (counted from the line, checked when the page loads). A conversation shows its newest three rows, newest first, with "Show N more" under them for
+the rest (`ROWS_PER_GROUP`), which keeps that order. Discord's mentions are the model. What is unread is
 kept ahead of what is read when the caps fill. The read point is the one `handlers/markread.ts`
 `moveReadMarker` keeps: our own reading (opening the conversation, or the
 window coming back to it), a `MARKREAD` from another session of the account,
