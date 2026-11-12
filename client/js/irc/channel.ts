@@ -306,12 +306,16 @@ export class Channel {
 		return best;
 	}
 
-	/** Time of the oldest line we hold that the server stamped (has a msgid), in ms. */
-	oldestServerTime(): number | undefined {
+	/** Time of the oldest line we hold whose msgid is in `among`, in ms. */
+	oldestTimeOf(among: ReadonlySet<string>): number | undefined {
 		let oldest: number | undefined;
 
 		for (const ref of this.msgRefs.values()) {
-			if (ref.msgid && (oldest === undefined || ref.time.getTime() < oldest)) {
+			if (
+				ref.msgid &&
+				among.has(ref.msgid) &&
+				(oldest === undefined || ref.time.getTime() < oldest)
+			) {
 				oldest = ref.time.getTime();
 			}
 		}

@@ -625,8 +625,9 @@ function resolve(
 		// new. Scrolling up brings them as history. A line below the floor
 		// but within what we hold is one we missed, and still goes in.
 		// Without a msgid on anything held there is no server-stamped
-		// boundary to judge by, and the page is kept as before.
-		const holdsFrom = chan.oldestServerTime();
+		// boundary to judge by, and the page is kept as before. Held means at
+		// the JOIN (`known`): a live line since is newer than the gap.
+		const holdsFrom = chan.oldestTimeOf(known);
 		const cutoff =
 			floorMs === undefined || holdsFrom === undefined
 				? undefined

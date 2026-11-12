@@ -380,6 +380,26 @@ describe("Session persistence and quiet re-joins (irc/persistence.ts)", function
 			expect(h.sent().filter((l) => l.startsWith("JOIN"))).to.deep.equal(["JOIN #other"]);
 		});
 
+		it("counts a nested batch closing as restoration arriving", function () {
+			const h = setup({join: "#seance,#other"});
+			register(h, CAPS, HOLD);
+			clock.tick(RESTORE_WAIT_MS - RESTORE_QUIET_MS);
+			h.transport.lines(
+				":irc.test BATCH +p1 draft/persistence",
+				"@batch=p1 :irc.test BATCH +n1 netjoin",
+				"@batch=n1 :alice!alice@host JOIN #seance alice :Alice",
+				"@batch=n1 :irc.test 353 alice = #seance :@alice bob",
+				"@batch=n1 :irc.test 366 alice #seance :End of /NAMES list."
+			);
+			clock.tick(RESTORE_QUIET_MS - 1);
+			h.transport.line("@batch=p1 :irc.test BATCH -n1");
+			clock.tick(2);
+			expect(h.sent().filter((l) => l.startsWith("JOIN"))).to.deep.equal([]);
+
+			h.transport.line(":irc.test BATCH -p1");
+			expect(h.sent().filter((l) => l.startsWith("JOIN"))).to.deep.equal(["JOIN #other"]);
+		});
+
 		it("never holds the autojoin past RESTORE_MAX_WAIT_MS", function () {
 			const h = setup();
 			register(h, CAPS, HOLD);

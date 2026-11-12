@@ -18,7 +18,7 @@
 import type {IrcClient} from "../client";
 import type {IrcMessage} from "../message";
 import type {Handler} from "../types";
-import {noteRestorationActivity, PERSISTENCE_CAP} from "../persistence";
+import {inRestoration, noteRestorationActivity} from "../persistence";
 
 export interface OpenBatch {
 	ref: string;
@@ -104,17 +104,6 @@ export function interceptBatchLine(client: IrcClient, msg: IrcMessage): boolean 
 	return true;
 }
 
-/** True when `batch` is, or is nested in, the server's session restoration. */
-function inRestoration(batch: OpenBatch | undefined): boolean {
-	for (let b = batch; b; b = b.parent) {
-		if (b.type === PERSISTENCE_CAP) {
-			return true;
-		}
-	}
-
-	return false;
-}
-
 /** Drop every open batch (transport closed). */
 export function resetBatches(client: IrcClient): void {
 	openBatches.get(client)?.clear();
@@ -188,6 +177,11 @@ const batch: Handler = (client, msg) => {
 	}
 
 	batches.delete(ref);
+
+	if (inRestoration(open)) {
+		noteRestorationActivity(client); // and so is its closer
+	}
+
 	deliver(client, open);
 };
 
