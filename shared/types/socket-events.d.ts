@@ -274,10 +274,10 @@ interface ServerToClientEvents {
 		 */
 		placed?: boolean;
 		/**
-		 * A placed line that counts as unread below the marker: the marker
-		 * moved back to this row id, just above it.
+		 * A placed line that counts as unread: if it lies under the store's
+		 * marker, the marker goes back to the row before it.
 		 */
-		firstUnread?: number;
+		counted?: boolean;
 	}>;
 	/**
 	 * Unread mentions for the inbox (docs/projects/inbox.md): a live or

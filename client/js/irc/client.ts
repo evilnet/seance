@@ -3656,7 +3656,8 @@ export class IrcClient {
 	 * it takes that id. `old`: such a line, placed or not (out of room
 	 * between its neighbours): it is not the channel's newest line, a line
 	 * of ours moves `firstUnread` only forward, and one that counts as unread
-	 * below the marker moves it back above itself, sent as `firstUnread`.
+	 * below the marker moves it back above itself and is flagged `counted`
+	 * for the store, whose own marker may lie elsewhere.
 	 */
 	pushMessage(
 		chan: Channel,
@@ -3682,10 +3683,9 @@ export class IrcClient {
 			return msg;
 		}
 
-		const placed = id !== undefined || old;
+		const placed = old;
 		msg.id = id ?? (ids && ids.next < ids.end ? ids.next++ : this.ids.msgId());
 		const ref = chan.remember(msg);
-		let movedMarker = false;
 
 		if (!placed || !chan.newestRef) {
 			chan.newestRef = ref;
@@ -3746,7 +3746,6 @@ export class IrcClient {
 			// it may lie below the marker: the marker goes back above it.
 			if (placed && ref.unread && msg.id <= shared.firstUnread) {
 				shared.firstUnread = this.rowBefore(chan, msg.id);
-				movedMarker = true;
 			}
 
 			if (msg.highlight) {
@@ -3762,7 +3761,7 @@ export class IrcClient {
 			highlight: shared.highlight,
 			...(replay ? {replay: true} : {}),
 			...(placed ? {placed: true} : {}),
-			...(movedMarker ? {firstUnread: shared.firstUnread} : {}),
+			...(placed && ref.unread ? {counted: true} : {}),
 		});
 		this.settleLateOriginal(chan, msg);
 

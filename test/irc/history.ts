@@ -1133,10 +1133,11 @@ describe("Chat history (history.ts)", function () {
 			expect(chan.shared.firstUnread).to.equal(chan.idOf("h3"));
 		});
 
-		it("sends the marker it moved back with a placed line that counts as unread", function () {
+		it("flags every placed line that counts as unread, whether or not this side's marker moved", function () {
+			// The store's marker can lie above this side's (switching channels
+			// moves only the store's), so it places its own marker from the flag.
 			const h = setup();
 			joined(h, [said("h1", "11:30"), said("h3", "11:32")]);
-			const chan = h.client.findChannel("#seance")!;
 			const sent = reconnect(h);
 			dispatch.resetHistory();
 			reply(h, sent, [said("h3", "11:32"), said("g1", "11:50"), said("g2", "11:51")]);
@@ -1144,12 +1145,9 @@ describe("Chat history (history.ts)", function () {
 			const events = dispatch
 				.getCalls()
 				.filter((c) => c.args[0] === "msg")
-				.map((c) => c.args[1] as {msg: SharedMsg; placed?: boolean; firstUnread?: number});
-			const g1 = events.find((p) => p.msg.msgid === "g1");
-			expect(g1?.placed).to.equal(true);
-			expect(g1?.firstUnread).to.equal(chan.idOf("h3"));
-			// Already above g2: nothing to send.
-			expect(events.find((p) => p.msg.msgid === "g2")?.firstUnread).to.equal(undefined);
+				.map((c) => c.args[1] as {msg: SharedMsg; placed?: boolean; counted?: boolean});
+			expect(events.find((p) => p.msg.msgid === "g1")?.counted).to.equal(true);
+			expect(events.find((p) => p.msg.msgid === "g2")?.counted).to.equal(true);
 		});
 
 		it("a line of ours placed among the held rows does not move the unread marker back", function () {
