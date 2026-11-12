@@ -18,7 +18,12 @@
 import type {IrcClient} from "../client";
 import type {IrcMessage} from "../message";
 import type {Handler} from "../types";
-import {inRestoration, noteRestorationActivity} from "../persistence";
+import {
+	PERSISTENCE_CAP,
+	inRestoration,
+	noteRestorationActivity,
+	noteRestorationBatch,
+} from "../persistence";
 
 export interface OpenBatch {
 	ref: string;
@@ -159,6 +164,10 @@ const batch: Handler = (client, msg) => {
 		};
 		batches.set(ref, opened);
 
+		if (opened.type === PERSISTENCE_CAP) {
+			noteRestorationBatch(client, true);
+		}
+
 		if (inRestoration(opened)) {
 			noteRestorationActivity(client); // the opener is restoration arriving too
 		}
@@ -177,6 +186,10 @@ const batch: Handler = (client, msg) => {
 	}
 
 	batches.delete(ref);
+
+	if (open.type === PERSISTENCE_CAP) {
+		noteRestorationBatch(client, false);
+	}
 
 	if (inRestoration(open)) {
 		noteRestorationActivity(client); // and so is its closer

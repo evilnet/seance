@@ -65,6 +65,8 @@ interface RestoreState {
 	timer: ReturnType<typeof setTimeout> | null;
 	/** No extension past this point, whatever keeps arriving. */
 	deadline: number;
+	/** Restoration batches opened and not yet closed. */
+	open: number;
 }
 
 const states = new WeakMap<IrcClient, RestoreState>();
@@ -73,7 +75,7 @@ function stateOf(client: IrcClient): RestoreState {
 	let state = states.get(client);
 
 	if (!state) {
-		state = {timer: null, deadline: 0};
+		state = {timer: null, deadline: 0, open: 0};
 		states.set(client, state);
 	}
 
@@ -141,6 +143,17 @@ export function noteRestorationActivity(client: IrcClient): void {
 	arm(client, state, RESTORE_QUIET_MS);
 }
 
+/**
+ * A restoration batch opened or closed. While one is open the autojoin waits
+ * for it to close, however long its lines pause (a retransmit on a phone),
+ * up to the deadline: the quiet period only stands in for a batch nobody
+ * announced.
+ */
+export function noteRestorationBatch(client: IrcClient, opened: boolean): void {
+	const state = stateOf(client);
+	state.open = Math.max(0, state.open + (opened ? 1 : -1));
+}
+
 function arm(client: IrcClient, state: RestoreState, delay: number): void {
 	if (state.timer !== null) {
 		clearTimeout(state.timer);
@@ -149,6 +162,12 @@ function arm(client: IrcClient, state: RestoreState, delay: number): void {
 	const wait = Math.max(0, Math.min(delay, state.deadline - Date.now()));
 	state.timer = setTimeout(() => {
 		state.timer = null;
+
+		if (state.open > 0 && Date.now() < state.deadline) {
+			arm(client, state, RESTORE_QUIET_MS);
+			return;
+		}
+
 		client.restorationSettled();
 	}, wait);
 }
@@ -157,6 +176,7 @@ function arm(client: IrcClient, state: RestoreState, delay: number): void {
 export function cancelRestoration(client: IrcClient): void {
 	const state = stateOf(client);
 	state.deadline = 0;
+	state.open = 0;
 	clearWait(state);
 }
 
