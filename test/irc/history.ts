@@ -998,6 +998,133 @@ describe("Chat history (history.ts)", function () {
 			return h.sent();
 		}
 
+		it("does not append rows of its page that are older than what it held", function () {
+			// A reconnect's LATEST page reaches past the oldest row we hold
+			// (a busy channel, or only the last page loaded): those rows were
+			// never in the gap and must not land above the rejoin as new ones.
+			const h = setup();
+			const id = joined(h, [hist(10), hist(11), hist(12)]);
+			const sent = reconnect(h);
+			dispatch.resetHistory();
+			const missed =
+				"@time=2026-08-25T12:20:00.000Z;msgid=new1 :bob!bob@host PRIVMSG #seance :missed";
+			reply(h, sent, [...[5, 6, 7, 8, 9, 10, 11, 12].map((n) => hist(n)), missed]);
+
+			expect(
+				msgs(id)
+					.filter((p) => p.msg.type === MessageType.MESSAGE)
+					.map((p) => p.msg.text)
+			).to.deep.equal(["missed"]);
+		});
+
+		it("without msgids, still delivers a page below a local line's floor", function () {
+			// Nothing held carries a msgid, so there is no server-stamped
+			// boundary to judge "older than what we hold" by: keep the page.
+			const isup = "CHATHISTORY=100 MSGREFTYPES=timestamp";
+			const h = setup({isupport: isup});
+			const plain = (t: string, text: string) =>
+				`@time=2026-08-25T${t}.000Z :bob!bob@host PRIVMSG #seance :${text}`;
+			h.transport.lines(
+				"@time=2026-08-25T12:00:00.000Z :alice!alice@host JOIN #seance alice :Alice",
+				":irc.test 353 alice = #seance :@alice bob",
+				":irc.test 366 alice #seance :End of /NAMES list."
+			);
+			const id = h.chan();
+			const first = h.sent().find((l) => l.includes("CHATHISTORY"));
+			batch(h, [], {label: labelOf(first)});
+			h.transport.line(plain("12:10:00", "held"));
+			h.transport.closed();
+			clock.setSystemTime(new Date("2026-08-25T12:40:00.000Z"));
+			socket.emit("input", {target: id, text: "anyone?"});
+			h.client.connect();
+			h.transport.open();
+			h.transport.line(
+				"@time=x :irc.test CAP * LS :draft/chathistory=100 labeled-response batch message-tags server-time"
+			);
+			const req = h.transport.sent.find(
+				(l, i) => i >= h.transport.sent.length - 4 && l.startsWith("CAP REQ :")
+			);
+			h.transport.line(
+				`:irc.test CAP alice ACK :${(req as string).slice("CAP REQ :".length)}`
+			);
+			h.transport.lines(
+				":irc.test 001 alice :Welcome back",
+				`:irc.test 005 alice CHANTYPES=#& PREFIX=(ov)@+ CHANMODES=b,k,l,imnpst CASEMAPPING=rfc1459 ${isup} :are supported by this server`,
+				":irc.test 422 alice :MOTD File is missing"
+			);
+			h.sent();
+			h.transport.lines(
+				"@time=2026-08-25T12:41:00.000Z :alice!alice@host JOIN #seance",
+				":irc.test 353 alice = #seance :@alice bob",
+				":irc.test 366 alice #seance :End of /NAMES list."
+			);
+			const sent = h.sent();
+			dispatch.resetHistory();
+			reply(h, sent, [plain("12:16:00", "two"), plain("12:17:00", "three")]);
+
+			expect(
+				msgs(id)
+					.filter((p) => p.msg.type === MessageType.MESSAGE)
+					.map((p) => p.msg.text)
+			).to.deep.equal(["two", "three"]);
+		});
+
+		it("judges a page by what was held at the JOIN, not a live line since", function () {
+			// The same as above, but a live line with a msgid lands before
+			// the reply: it is newer than the gap and must not become the
+			// boundary the page is cut at.
+			const isup = "CHATHISTORY=100 MSGREFTYPES=timestamp";
+			const h = setup({isupport: isup});
+			const plain = (t: string, text: string) =>
+				`@time=2026-08-25T${t}.000Z :bob!bob@host PRIVMSG #seance :${text}`;
+			h.transport.lines(
+				"@time=2026-08-25T12:00:00.000Z :alice!alice@host JOIN #seance alice :Alice",
+				":irc.test 353 alice = #seance :@alice bob",
+				":irc.test 366 alice #seance :End of /NAMES list."
+			);
+			const id = h.chan();
+			const first = h.sent().find((l) => l.includes("CHATHISTORY"));
+			batch(h, [], {label: labelOf(first)});
+			h.transport.line(plain("12:10:00", "held"));
+			h.transport.closed();
+			clock.setSystemTime(new Date("2026-08-25T12:40:00.000Z"));
+			socket.emit("input", {target: id, text: "anyone?"});
+			h.client.connect();
+			h.transport.open();
+			h.transport.line(
+				"@time=x :irc.test CAP * LS :draft/chathistory=100 labeled-response batch message-tags server-time"
+			);
+			const req = h.transport.sent.find(
+				(l, i) => i >= h.transport.sent.length - 4 && l.startsWith("CAP REQ :")
+			);
+			h.transport.line(
+				`:irc.test CAP alice ACK :${(req as string).slice("CAP REQ :".length)}`
+			);
+			h.transport.lines(
+				":irc.test 001 alice :Welcome back",
+				`:irc.test 005 alice CHANTYPES=#& PREFIX=(ov)@+ CHANMODES=b,k,l,imnpst CASEMAPPING=rfc1459 ${isup} :are supported by this server`,
+				":irc.test 422 alice :MOTD File is missing"
+			);
+			h.sent();
+			h.transport.lines(
+				"@time=2026-08-25T12:41:00.000Z :alice!alice@host JOIN #seance",
+				":irc.test 353 alice = #seance :@alice bob",
+				":irc.test 366 alice #seance :End of /NAMES list."
+			);
+			const sent = h.sent();
+			h.transport.line(
+				"@time=2026-08-25T12:42:00.000Z;msgid=live1 :bob!bob@host PRIVMSG #seance :live"
+			);
+			dispatch.resetHistory();
+			reply(h, sent, [plain("12:16:00", "two"), plain("12:17:00", "three")]);
+
+			expect(
+				msgs(id)
+					.filter((p) => p.msg.type === MessageType.MESSAGE)
+					.map((p) => p.msg.text)
+			).to.deep.equal(["two", "three"]);
+		});
+
 		it("delivers a page again after the UI dropped its rows (history:trim)", function () {
 			const h = setup();
 			const id = joined(h, [hist(1), hist(2), hist(3)]);

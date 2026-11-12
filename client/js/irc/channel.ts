@@ -306,6 +306,23 @@ export class Channel {
 		return best;
 	}
 
+	/** Time of the oldest line we hold whose msgid is in `among`, in ms. */
+	oldestTimeOf(among: ReadonlySet<string>): number | undefined {
+		let oldest: number | undefined;
+
+		for (const ref of this.msgRefs.values()) {
+			if (
+				ref.msgid &&
+				among.has(ref.msgid) &&
+				(oldest === undefined || ref.time.getTime() < oldest)
+			) {
+				oldest = ref.time.getTime();
+			}
+		}
+
+		return oldest;
+	}
+
 	/**
 	 * Where a reconnect's catch-up walk may stop (history.ts, the floor):
 	 * {@link newestServerRef}, so that a local line on a clock ahead of the
