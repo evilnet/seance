@@ -685,17 +685,32 @@ describe("The inbox's events (docs/projects/inbox.md)", function () {
 				type: "message",
 				text: "alice: ping",
 				from: added()[0].from,
+				account: null,
 			},
 		]);
 		expect(added()[0].from.nick).to.equal("bob");
 	});
 
-	it("adds no highlight in the conversation someone is looking at", function () {
+	it("adds a highlight in the conversation someone is looking at, read", function () {
 		const h = setup();
 		const chanId = joined(h);
 		socket.emit("open", chanId);
 		live(h, 1, "alice: ping");
-		expect(added()).to.have.length(0);
+		expect(added().map((e) => [e.msgid, e.read])).to.deep.equal([["m1", true]]);
+	});
+
+	it("adds no line of a private conversation someone is looking at", function () {
+		const h = setup();
+		joined(h);
+		h.transport.line(
+			"@time=2026-08-25T12:10:00.000Z;msgid=q1 :carol!carol@host PRIVMSG alice :hello there"
+		);
+		socket.emit("open", h.client.findChannel("carol")!.id);
+		dispatch.resetHistory();
+		h.transport.line(
+			"@time=2026-08-25T12:11:00.000Z;msgid=q2 :carol!carol@host PRIVMSG alice :still there?"
+		);
+		expect(added()).to.deep.equal([]);
 	});
 
 	it("adds a highlight, and sends no MARKREAD, once the conversation is left", function () {
@@ -715,14 +730,16 @@ describe("The inbox's events (docs/projects/inbox.md)", function () {
 		expect(h.sent()).to.deep.equal(["MARKREAD #seance timestamp=2026-08-25T12:01:00.000Z"]);
 	});
 
-	it("adds no highlight already read on another session", function () {
+	it("adds a highlight already read on another session, read", function () {
 		const h = setup();
 		joined(h);
 		marker(h, "timestamp=2026-08-25T12:05:00.000Z");
 		live(h, 4, "alice: old news"); // e.g. a catch-up line
-		expect(added()).to.have.length(0);
 		live(h, 6, "alice: new");
-		expect(added().map((e) => e.msgid)).to.deep.equal(["m6"]);
+		expect(added().map((e) => [e.msgid, e.read])).to.deep.equal([
+			["m4", true],
+			["m6", undefined],
+		]);
 	});
 
 	it("adds a query line, and nothing from the lobby, which no read point clears", function () {
@@ -756,7 +773,7 @@ describe("The inbox's events (docs/projects/inbox.md)", function () {
 		]);
 	});
 
-	it("adds the highlights past the marker in a history page, not the older ones", function () {
+	it("adds the highlights in a history page, the ones before the marker read", function () {
 		const h = setup();
 		const label = join(h)
 			.find((l) => l.includes("CHATHISTORY"))
@@ -770,7 +787,96 @@ describe("The inbox's events (docs/projects/inbox.md)", function () {
 			":irc.test BATCH -hist1"
 		);
 
-		expect(added().map((e) => e.msgid)).to.deep.equal(["h3"]);
+		expect(
+			added()
+				.map((e) => [e.msgid, e.read])
+				.sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+		).to.deep.equal([
+			["h1", true],
+			["h3", undefined],
+		]);
+	});
+
+	it("lists a history page's mentions read while someone is looking", function () {
+		const h = setup();
+		const label = join(h)
+			.find((l) => l.includes("CHATHISTORY"))
+			?.match(/^@label=([^ ;]+)/)?.[1];
+		socket.emit("open", h.client.findChannel("#seance")!.id);
+		h.transport.lines(
+			`${label ? `@label=${label} ` : ""}:irc.test BATCH +hist1 chathistory #seance`,
+			"@batch=hist1;time=2026-08-25T11:00:00.000Z;msgid=h1 :bob!bob@host PRIVMSG #seance :alice: seen",
+			":irc.test BATCH -hist1"
+		);
+
+		expect(added().map((e) => [e.msgid, e.read])).to.deep.equal([["h1", true]]);
+	});
+
+	it("lists no original an edit already replaced, arriving after it", function () {
+		const h = setup();
+		joined(h);
+		h.transport.line(
+			"@time=2026-08-25T12:10:00.000Z;msgid=e1;+seance/edit=o1 :bob!bob@host PRIVMSG #seance :alice: fixed"
+		);
+		const edit = added().map((e) => e.msgid);
+		h.transport.line(
+			"@time=2026-08-25T12:09:00.000Z;msgid=o1 :bob!bob@host PRIVMSG #seance :alice: typo"
+		);
+
+		expect(added().map((e) => e.msgid)).to.deep.equal(edit);
+	});
+
+	it("drops an original whose edit is later in the same history page", function () {
+		const h = setup();
+		const label = join(h)
+			.find((l) => l.includes("CHATHISTORY"))
+			?.match(/^@label=([^ ;]+)/)?.[1];
+		socket.emit("open", h.client.findChannel("#seance")!.id);
+		dispatch.resetHistory();
+		h.transport.lines(
+			`${label ? `@label=${label} ` : ""}:irc.test BATCH +hist1 chathistory #seance`,
+			"@batch=hist1;time=2026-08-25T11:00:00.000Z;msgid=o1 :bob!bob@host PRIVMSG #seance :alice: typo",
+			"@batch=hist1;time=2026-08-25T11:01:00.000Z;msgid=e1;+seance/edit=o1 :bob!bob@host PRIVMSG #seance :never mind",
+			":irc.test BATCH -hist1"
+		);
+		const events = dispatch
+			.getCalls()
+			.map((call) => call.args[0] as string)
+			.filter((ev) => ev === "inbox:add" || ev === "inbox:drop");
+
+		expect(added().map((e) => e.msgid)).to.deep.equal(["o1"]);
+		expect(events).to.deep.equal(["inbox:add", "inbox:drop"]);
+	});
+
+	it("still lists an original that someone else's edit named first", function () {
+		const h = setup();
+		joined(h);
+		h.transport.line(
+			"@time=2026-08-25T12:10:00.000Z;msgid=e1;+seance/edit=o1 :mallory!m@host PRIVMSG #seance :hi"
+		);
+		h.transport.line(
+			"@time=2026-08-25T12:09:00.000Z;msgid=o1 :bob!bob@host PRIVMSG #seance :alice: real"
+		);
+
+		expect(added().map((e) => e.msgid)).to.deep.equal(["o1"]);
+	});
+
+	it("lists no original an edit already replaced, in a history page", function () {
+		const h = setup();
+		const label = join(h)
+			.find((l) => l.includes("CHATHISTORY"))
+			?.match(/^@label=([^ ;]+)/)?.[1];
+		h.transport.line(
+			"@time=2026-08-25T12:10:00.000Z;msgid=e1;+seance/edit=o1 :bob!bob@host PRIVMSG #seance :alice: fixed"
+		);
+		const edit = added().map((e) => e.msgid);
+		h.transport.lines(
+			`${label ? `@label=${label} ` : ""}:irc.test BATCH +hist1 chathistory #seance`,
+			"@batch=hist1;time=2026-08-25T12:09:00.000Z;msgid=o1 :bob!bob@host PRIVMSG #seance :alice: typo",
+			":irc.test BATCH -hist1"
+		);
+
+		expect(added().map((e) => e.msgid)).to.deep.equal(edit);
 	});
 
 	it("marks a query's entry as one for the whole conversation", function () {
@@ -817,7 +923,23 @@ describe("The inbox's events (docs/projects/inbox.md)", function () {
 			"@time=2026-08-25T12:10:00.000Z;msgid=e1;+seance/edit=gone :bob!bob@host PRIVMSG #seance :fixed"
 		);
 		expect(payloads("inbox:drop")).to.deep.equal([
-			{network: h.client.uuid, target: "#seance", msgid: "gone", by: "bob"},
+			{network: h.client.uuid, target: "#seance", msgid: "gone", by: {nick: "bob"}},
+		]);
+	});
+
+	it("reports the editor's account with an edit's original", function () {
+		const h = setup();
+		joined(h);
+		h.transport.line(
+			"@time=2026-08-25T12:10:00.000Z;msgid=e1;account=bob;+seance/edit=gone :robert!bob@host PRIVMSG #seance :fixed"
+		);
+		expect(payloads("inbox:drop")).to.deep.equal([
+			{
+				network: h.client.uuid,
+				target: "#seance",
+				msgid: "gone",
+				by: {nick: "robert", account: "bob"},
+			},
 		]);
 	});
 

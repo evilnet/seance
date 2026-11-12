@@ -421,7 +421,7 @@ interface Replayed {
  * Run the batch's lines through the normal handlers in collect mode and
  * keep what landed in `chan`, minus messages the channel already shows.
  * Work queued with `IrcClient.afterReplay` (TAGMSG reactions, REDACTs,
- * `+seance/edit` resends) is returned separately: it needs the messages'
+ * edit resends) is returned separately: it needs the messages'
  * ids, which only exist after delivery.
  */
 function replay(client: IrcClient, chan: Channel, lines: IrcMessage[]): Replayed {
@@ -433,7 +433,14 @@ function replay(client: IrcClient, chan: Channel, lines: IrcMessage[]): Replayed
 		// deduplicates below and serves as a BEFORE/AFTER reference. A handler
 		// that forgets still gets it here: a replayed line is a stored one.
 		const msgid = line.tags.get("msgid");
-		const result = client.collectReplay(chan, () => client.handleMessage(line));
+		// The page so far goes along: an edit judges an original on it
+		// (privmsg.ts, the author rule).
+		const result = client.collectReplay(
+			chan,
+			() => client.handleMessage(line),
+			false,
+			collected
+		);
 
 		for (const item of result.messages) {
 			if (msgid && !item.msg.msgid) {
@@ -528,12 +535,25 @@ function deliverPrepend(
 	const totalMessages = chan.shared.totalMessages + (moreAvailable ? 1 : 0);
 	client.dispatch("more", {chan: chan.id, messages, totalMessages, moreAvailable});
 
-	for (const msg of messages) {
-		client.settleLateOriginal(chan, msg);
-	}
+	// An original its edit already replaced is not news, read or not, nor
+	// a line in this page that it edits in turn.
+	const hidden = new Set(messages.flatMap((msg) => client.settleLateOriginal(chan, msg)));
+	const replaced = new Set(messages.filter((msg) => hidden.has(msg.id)));
 
 	if (marker && !looking) {
-		countPageUnread(client, chan, page, marker);
+		countPageUnread(client, chan, page, marker, 0, replaced);
+	}
+
+	// The page's other mentions are read already (or looked at now): they
+	// are listed read, as a live one would be.
+	const read = page.flatMap(([msg, ref]) => {
+		const entry =
+			ref.highlight || replaced.has(msg) ? null : client.mentionEntry(chan, msg, false);
+		return entry ? [entry] : [];
+	});
+
+	if (read.length > 0) {
+		client.dispatch("inbox:add", {entries: read});
 	}
 }
 

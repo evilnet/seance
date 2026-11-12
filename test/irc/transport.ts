@@ -2,6 +2,8 @@ import {expect} from "chai";
 import sinon from "sinon";
 import {
 	CONNECT_TIMEOUT_MS,
+	DIAL_CLAIM_SETTLE_MS,
+	LAST_DIAL_KEY,
 	OFFLINE_RETRY_MS,
 	QUICK_RETRY_MS,
 	UNREACHED_JITTER_MS,
@@ -10,6 +12,7 @@ import {
 	TransportEvent,
 	TransportOptions,
 } from "../../client/js/irc/transport";
+import storage from "../../client/js/localStorage";
 
 type Handler = (ev: unknown) => void;
 
@@ -112,6 +115,8 @@ describe("WsTransport", function () {
 	beforeEach(function () {
 		FakeWebSocket.instances = [];
 		FakeWebSocket.throwOnConstruct = false;
+		// Earlier tests' dials, on a clock that restarts at 0, would space this one's.
+		storage.remove(LAST_DIAL_KEY);
 		clock = sinon.useFakeTimers();
 	});
 
@@ -609,6 +614,8 @@ describe("WsTransport foreground recovery", function () {
 	beforeEach(function () {
 		FakeWebSocket.instances = [];
 		FakeWebSocket.throwOnConstruct = false;
+		// Earlier tests' dials, on a clock that restarts at 0, would space this one's.
+		storage.remove(LAST_DIAL_KEY);
 		clock = sinon.useFakeTimers();
 	});
 
@@ -745,6 +752,8 @@ describe("WsTransport: a request to connect restarts the schedule", function () 
 	beforeEach(function () {
 		FakeWebSocket.instances = [];
 		FakeWebSocket.throwOnConstruct = false;
+		// Earlier tests' dials, on a clock that restarts at 0, would space this one's.
+		storage.remove(LAST_DIAL_KEY);
 		clock = sinon.useFakeTimers();
 	});
 
@@ -842,6 +851,8 @@ describe("WsTransport.abandon()", function () {
 	beforeEach(function () {
 		FakeWebSocket.instances = [];
 		FakeWebSocket.throwOnConstruct = false;
+		// Earlier tests' dials, on a clock that restarts at 0, would space this one's.
+		storage.remove(LAST_DIAL_KEY);
 		clock = sinon.useFakeTimers();
 	});
 
@@ -926,6 +937,8 @@ describe("WsTransport: the server's throttle", function () {
 	beforeEach(function () {
 		FakeWebSocket.instances = [];
 		FakeWebSocket.throwOnConstruct = false;
+		// Earlier tests' dials, on a clock that restarts at 0, would space this one's.
+		storage.remove(LAST_DIAL_KEY);
 		clock = sinon.useFakeTimers();
 	});
 
@@ -1025,12 +1038,17 @@ describe("WsTransport: the server's throttle", function () {
 
 		for (let i = 0; i < 12; i++) {
 			last().closed(1006, "", false);
-			clock.tick((lastReconnecting(events) as {delayMs: number}).delayMs);
+			// A long wait's end claims the host's dial and dials only after the settle.
+			clock.tick(
+				(lastReconnecting(events) as {delayMs: number}).delayMs + DIAL_CLAIM_SETTLE_MS
+			);
 		}
 
 		last().closed(1006, "", false);
 		expect(isLongWait(lastReconnecting(events))).to.equal(true);
-		clock.tick(UNREACHED_RETRY_MS + UNREACHED_JITTER_MS);
+		const dialled = FakeWebSocket.instances.length;
+		clock.tick(UNREACHED_RETRY_MS + UNREACHED_JITTER_MS + DIAL_CLAIM_SETTLE_MS);
+		expect(FakeWebSocket.instances.length, "the long wait's dial").to.equal(dialled + 1);
 
 		// One that opens, even briefly, earns the quick retries again.
 		last().open();

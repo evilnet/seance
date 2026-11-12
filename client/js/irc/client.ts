@@ -29,9 +29,17 @@ import type {
 	SharedServerOptions,
 } from "../../../shared/types/network";
 import type {PushSession, ServerToClientEvents} from "../../../shared/types/socket-events";
-import {CapNegotiator, SEANCE_CAPS, webpushVapidOf, WEBPUSH_CAP} from "./caps";
+import {CapNegotiator, parseCapList, SEANCE_CAPS, webpushVapidOf, WEBPUSH_CAP} from "./caps";
 import {casefold, namesEqual} from "./casemap";
-import {Channel, MsgRef, SAID_TYPES, countsAsUnread} from "./channel";
+import {
+	Author,
+	authorOf,
+	Channel,
+	isEditAuthor,
+	MsgRef,
+	SAID_TYPES,
+	countsAsUnread,
+} from "./channel";
 import {QueryLog} from "./querylog";
 import {commandNames, dispatchInput} from "./commands";
 import {describeClose} from "./disconnect";
@@ -144,6 +152,8 @@ import {
 	parseStsValue,
 	policyHost,
 	refreshPolicy,
+	type HeldPolicy,
+	holdPolicy,
 	StsUpgrade,
 	stsHost,
 	upgradeOptions,
@@ -171,7 +181,9 @@ import {
 import type {ConnectOptions, InputOptions, IrcClientState, Transport} from "./types";
 import {
 	ClientTags,
-	EDIT_TAG,
+	editTagOf,
+	editTags,
+	withoutLegacyEdit,
 	REACT_TAG,
 	REDACTION_CAP,
 	REPLY_TAG,
@@ -211,7 +223,7 @@ export interface SendMessageOptions {
 	action?: boolean;
 	/** Client tags (`+name` keys, unescaped values) put on every chunk. */
 	tags?: ClientTags;
-	/** Client tags put on the first chunk only (`+seance/edit`). */
+	/** Client tags put on the first chunk only (the edit tags, `editTags`). */
 	firstTags?: ClientTags;
 }
 
@@ -338,6 +350,16 @@ export const UNKNOWN_HOST_BYTES = 75;
 
 /** A `+typing` TAGMSG: one command of fake lag. */
 const TYPING_COST_MS = 2000;
+
+/** An original's author's edit shown before it ({@link IrcClient.settleLateOriginal}). */
+interface LateEdit {
+	/** The edit that takes its place. */
+	id: number;
+	/** The lines the original itself edits in turn, now hidden behind the edit too. */
+	behind: number[];
+	/** Whether a line hidden this way gave its count back. */
+	uncounted: boolean;
+}
 
 export class IrcClient {
 	readonly uuid: string;
@@ -549,6 +571,12 @@ export class IrcClient {
 	private closeUnreported = false;
 	/** One insecure → secure reconnect per connection; reset when the transport closes. */
 	private stsUpgradeTried = false;
+	/**
+	 * The host's STS policy as this secure connection knows it: read when it
+	 * opens, replaced by a `duration` it learns. The close reschedules from
+	 * this copy, since another dial may have pruned the stored one meanwhile.
+	 */
+	private stsPolicy: HeldPolicy | undefined;
 	/** Settings edited while connected (`network:edit`); applied on the next connect. */
 	private pendingOptions: IrcClientOptions | null = null;
 	private networkName: string;
@@ -599,6 +627,8 @@ export class IrcClient {
 	private replayContext: {
 		target: Channel;
 		inert: boolean;
+		/** The page's lines collected before this one (history.ts `replay`). */
+		earlier?: ReplayCollection;
 		collected: ReplayCollection;
 	} | null = null;
 	/** Edits whose REDACT is in flight, by the msgid being replaced. */
@@ -933,6 +963,36 @@ export class IrcClient {
 		}
 	}
 
+	/**
+	 * Foreground poke on a dial that seems stuck: start over now
+	 * (`transport.redial`), securely if a policy for the host came since.
+	 */
+	redial(): void {
+		if (this.applyStsPolicy()) {
+			this.transport.connect();
+		} else {
+			this.transport.redial?.();
+		}
+	}
+
+	/**
+	 * The page is going away (`pagehide`): say goodbye, and reschedule the
+	 * host's STS policy as the close would — its event never comes.
+	 */
+	unload(): void {
+		if (this.transport.state !== "open") {
+			return;
+		}
+
+		if (this.options.tls) {
+			refreshPolicy(stsHost(this.options), this.stsPolicy);
+		}
+
+		if (this.isConnected) {
+			this.send("QUIT :page closed");
+		}
+	}
+
 	/** `/quit`: remove the network from the UI, then disconnect for good. */
 	quit(reason?: string): void {
 		// Before the QUIT, on the same socket: our do not disturb goes too.
@@ -1130,18 +1190,25 @@ export class IrcClient {
 		this.unsubscribeTransport = this.transport.on((ev) => this.onTransportEvent(ev));
 	}
 
-	/** Before connecting: a cached STS policy for the host turns `ws://` into `wss://`. */
-	private applyStsPolicy(): void {
+	/**
+	 * Before every dial: a cached STS policy for the host turns `ws://` into
+	 * `wss://`. The plain transport is closed (a retry it had pending must
+	 * not dial) and a fresh one, not yet dialling, takes its place. True if
+	 * it upgraded.
+	 */
+	private applyStsPolicy(): boolean {
 		clearExpired();
 		const upgraded = upgradeOptions(this.options);
 
 		if (upgraded === this.options) {
-			return;
+			return false;
 		}
 
+		this.transport.close();
 		this.reconfigure(upgraded);
 		this.pushMessage(this.lobby, {text: t("connect.stsUpgrade", {port: upgraded.port})}, true);
 		this.options.onStsUpgrade?.({port: upgraded.port, tls: true});
+		return true;
 	}
 
 	/**
@@ -1151,38 +1218,44 @@ export class IrcClient {
 	 * over `wss://` on that port (once); over `wss://` a `duration=` caches /
 	 * refreshes / removes the host's policy.
 	 */
-	private checkSts(msg: IrcMessage): void {
+	private checkSts(msg: IrcMessage): boolean {
 		if (msg.command !== "CAP") {
-			return;
+			return false;
 		}
 
 		const subcommand = (msg.params[1] ?? "").toUpperCase();
+		const more = msg.params[2] === "*" && msg.params.length > 3;
 
-		if (subcommand === "NEW") {
-			const names = (msg.params[msg.params.length - 1] ?? "").split(" ");
-
-			if (!names.some((token) => token === "sts" || token.startsWith("sts="))) {
-				return;
-			}
-		} else if (subcommand !== "LS" || (msg.params[2] === "*" && msg.params.length > 3)) {
-			return; // not LS, or more LS lines follow
+		if ((subcommand !== "LS" && subcommand !== "NEW") || (subcommand === "LS" && more)) {
+			return false; // not LS or NEW, or more LS lines follow
 		}
 
-		const raw = this.caps.value("sts");
+		// Read before the CAP handler sees the line: this line's own value,
+		// else (LS only) one an earlier line of the reply brought.
+		const own = parseCapList(msg.params[msg.params.length - 1] ?? "").find(
+			([name]) => name === "sts"
+		);
+		const raw = own ? own[1] : subcommand === "LS" ? this.caps.value("sts") : undefined;
 
 		if (raw === undefined) {
-			return;
+			return false;
 		}
 
 		const value = parseStsValue(raw);
 
 		if (this.options.tls) {
-			applyDuration(stsHost(this.options), this.options.port, value);
-			return;
+			if (value.duration !== undefined) {
+				const host = stsHost(this.options);
+				this.stsPolicy = holdPolicy(host, () =>
+					applyDuration(host, this.options.port, value)
+				);
+			}
+
+			return false;
 		}
 
 		if (value.port === undefined || this.stsUpgradeTried) {
-			return;
+			return false;
 		}
 
 		this.stsUpgradeTried = true;
@@ -1208,11 +1281,18 @@ export class IrcClient {
 		this.quitting = false;
 		this.reconfigure({...this.options, ...secure}); // tears the old session down
 		this.connect();
+		return true;
 	}
 
 	private onTransportEvent(ev: TransportEvent): void {
 		switch (ev.type) {
 			case "open":
+				if (this.options.tls) {
+					const host = stsHost(this.options);
+					this.stsPolicy = holdPolicy(host, () => getPolicy(host));
+				} else {
+					this.stsPolicy = undefined;
+				}
 				this.onOpen();
 				break;
 			case "line":
@@ -1227,8 +1307,9 @@ export class IrcClient {
 				this.bus.dispatch("connecting");
 
 				// The server's throttle or no network here: the close before
-				// this event did not know why it would wait.
-				if (ev.reason) {
+				// this event did not know why it would wait. Or the wait was
+				// pushed back past another dial to the host (transport.ts).
+				if (ev.reason || ev.spaced) {
 					this.retryAt = Date.now() + ev.delayMs;
 					this.retryReason = ev.reason;
 					this.announceStatus();
@@ -1265,10 +1346,19 @@ export class IrcClient {
 				);
 				break;
 			case "retry":
+				// A policy learned since this transport was made (by another
+				// network or tab on the host) takes this dial: the plain
+				// transport is closed, so it does not dial after this event.
 				// The scheduled retry is dialling now: no due time any more.
+				// (Before the upgraded dial below, whose own failure may set one.)
 				this._state = "connecting";
 				this.retryAt = undefined;
 				this.retryReason = undefined;
+
+				if (this.applyStsPolicy()) {
+					this.transport.connect();
+				}
+
 				this.announceStatus();
 				this.pushMessage(
 					this.lobby,
@@ -1808,9 +1898,13 @@ export class IrcClient {
 		this.endSasl();
 		this.authtoken.clear();
 
-		if (this.options.tls) {
-			refreshPolicy(stsHost(this.options));
+		// An opened secure connection reschedules its host's policy, also an
+		// expired one; a dial that never opened leaves the store alone.
+		if (this.options.tls && (phase === "registering" || phase === "registered")) {
+			refreshPolicy(stsHost(this.options), this.stsPolicy);
 		}
+
+		this.stsPolicy = undefined;
 
 		resetBatches(this);
 		// Before resetMultiline, which takes the copies of what it had queued
@@ -2267,11 +2361,10 @@ export class IrcClient {
 		// when the host is still unknown. nefarious2's HOSTLEN is 75 (a cloak
 		// can run that long), past the usual 63, and an untagged line it
 		// delivers is cut at 510 bytes, source included.
-		const hostLen = this.host.length || UNKNOWN_HOST_BYTES;
-		const sourceBytes =
+		const originBytes =
 			utf8ByteLength(`:${this.nick}!${this.ident}@`) +
-			hostLen +
-			utf8ByteLength(` ${command} ${target} :`);
+			(this.host.length || UNKNOWN_HOST_BYTES);
+		const sourceBytes = originBytes + utf8ByteLength(` ${command} ${target} :`);
 		const actionBytes = opts.action ? "\x01ACTION \x01".length : 0;
 		// With `echo-message` each line is labelled so its echo can be told
 		// apart (pending.ts); without it there is no echo to label.
@@ -2324,6 +2417,19 @@ export class IrcClient {
 			if (count > 1 || !fitsOneLine(plan[0][0].text)) {
 				// `opts.tags` (a reply) belongs on every batch, `opts.firstTags`
 				// (an edit) only on the first — one edit replaces one message.
+				// The opener carries them all; the legacy edit tag gives way
+				// before the opener would pass the frame cap.
+				let first = opts.firstTags ?? {};
+				const opener = `BATCH +${"x".repeat(8)} draft/multiline ${target}`;
+				const openerBytes =
+					originBytes +
+					utf8ByteLength(`${tagPrefix({...first, ...opts.tags})} ${opener}`) +
+					(labelled ? LABEL_TAG_BYTES : 0);
+
+				if (openerBytes > MAX_LINE_BYTES) {
+					first = withoutLegacyEdit(first);
+				}
+
 				sendMultiline(
 					this,
 					target,
@@ -2331,7 +2437,7 @@ export class IrcClient {
 					plan,
 					opts.tags ?? {},
 					opts.action === true,
-					opts.firstTags ?? {}
+					first
 				);
 				return;
 			}
@@ -2387,7 +2493,7 @@ export class IrcClient {
 			text: chunk,
 			label,
 			replyTo: opts.tags?.[REPLY_TAG],
-			editOf: i === 0 ? opts.firstTags?.[EDIT_TAG] : undefined,
+			editOf: i === 0 ? editTagOf((name) => opts.firstTags?.[name]) : undefined,
 			statusmsgGroup: group,
 			...languageFieldsOf((name) => opts.tags?.[name]),
 		});
@@ -2399,8 +2505,11 @@ export class IrcClient {
 				}
 
 				if (!echo) {
+					// As the server would tag it (`account-tag`), so the edit
+					// rule sees our account on our own lines (isEditAuthor).
+					const own = this.account ? {...line.base, account: this.account} : line.base;
 					this.handleLine(
-						`${tagPrefix(line.base)}:${this.nick}!${this.ident}@${
+						`${tagPrefix(own)}:${this.nick}!${this.ident}@${
 							this.host || "localhost"
 						} ${command} ${target} :${line.body}`
 					);
@@ -2699,7 +2808,7 @@ export class IrcClient {
 	 * `action` (bus-contract §1.4).
 	 * There is no edit on the wire, so in a channel where REDACT works the
 	 * old message is redacted (`:edited`) first and the resend, tagged
-	 * `+seance/edit=<old>`, goes out once our own REDACT is echoed back
+	 * the edit tags (`editTags`), goes out once our own REDACT is echoed back
 	 * ({@link settleEdit}); `FAIL REDACT` ({@link rejectEdit}) or
 	 * {@link EDIT_TIMEOUT_MS} without an answer abort it. In queries, or
 	 * without the cap, only the tagged resend happens. Without
@@ -2760,15 +2869,136 @@ export class IrcClient {
 	 * first: an older page brought the original in, or a catch-up). The edit
 	 * takes its place now (`msg:edit`), as it does when the original is
 	 * there first, so the two are never both on screen — nor both in a copy
-	 * of the conversation.
+	 * of the conversation. The ids its own author's edit hid: `msg`, and the
+	 * lines `msg` itself edits in turn; none when anyone else's edit is
+	 * all there was ({@link isAuthor}). Neither counts: the edit did.
 	 */
-	settleLateOriginal(chan: Channel, msg: SharedMsg): void {
-		const editMsgid = msg.msgid ? chan.takeEditOf(msg.msgid) : undefined;
-		const id = editMsgid === undefined ? undefined : chan.idOf(editMsgid);
+	settleLateOriginal(chan: Channel, msg: SharedMsg): number[] {
+		const late = this.takeLateEdit(chan, msg);
 
-		if (id !== undefined && id !== msg.id) {
-			this.dispatch("msg:edit", {chan: chan.id, id, replaces: msg.id});
+		if (late === undefined) {
+			return [];
 		}
+
+		this.dispatch("msg:edit", {chan: chan.id, id: late.id, replaces: msg.id});
+
+		if (late.uncounted) {
+			const shared = chan.shared;
+			this.dispatch("markread", {
+				chan: chan.id,
+				firstUnread: shared.firstUnread,
+				unread: shared.unread,
+				highlight: shared.highlight,
+			});
+		}
+
+		return [msg.id, ...late.behind];
+	}
+
+	/**
+	 * The id of the newest edit of `msg` already shown that its author sent,
+	 * if one is still loaded. Every waiting edit is taken off the list, and
+	 * anyone else's becomes a line of its own (`msg:unedit`): it was counted
+	 * as one when it came, its original not being there to replace.
+	 */
+	private takeLateEdit(chan: Channel, msg: SharedMsg): LateEdit | undefined {
+		const author = authorOf(msg);
+		const revisions: number[] = [];
+
+		for (const edit of msg.msgid ? chan.takeEditsOf(msg.msgid) : []) {
+			const id = chan.idOf(edit.msgid);
+
+			if (id === undefined || id === msg.id) {
+				continue;
+			}
+
+			if (this.isAuthor(author, edit.by)) {
+				revisions.push(id);
+			} else {
+				this.dispatch("msg:unedit", {chan: chan.id, id});
+			}
+		}
+
+		if (revisions.length === 0) {
+			return undefined;
+		}
+
+		// The author's newest edit (by time: older pages deliver older ones
+		// last) stands for the whole line. Its earlier ones, and every line
+		// `msg` edits in turn back to the first, count for nothing more.
+		const timeOf = (id: number) => chan.msgRefs.get(id)?.time.getTime() ?? 0;
+		revisions.sort((a, b) => timeOf(a) - timeOf(b) || a - b);
+		const id = revisions.pop()!;
+		const behind = this.chainBehind(chan, msg, author);
+		let uncounted = false;
+
+		for (const earlier of revisions) {
+			// Behind the newest, as an edit of an edit would be (applyEdit).
+			this.dispatch("msg:edit", {chan: chan.id, id, replaces: earlier});
+		}
+
+		for (const hidden of [...revisions, ...behind]) {
+			uncounted = this.uncount(chan, hidden) || uncounted;
+		}
+
+		return {id, behind, uncounted};
+	}
+
+	/** The shown lines `msg` edits in turn, by its author, newest first. */
+	private chainBehind(chan: Channel, msg: SharedMsg, author: Author): number[] {
+		const behind: number[] = [];
+		let next = msg.editOf;
+
+		while (next !== undefined) {
+			const id = chan.idOf(next);
+			const ref = id !== undefined ? chan.msgRefs.get(id) : undefined;
+
+			if (
+				id === undefined ||
+				!ref ||
+				behind.includes(id) ||
+				!this.isAuthor(ref.from, author)
+			) {
+				break;
+			}
+
+			behind.push(id);
+			next = ref.editOf;
+		}
+
+		return behind;
+	}
+
+	/**
+	 * Take back what the line `id` added to the counters, if it still
+	 * counts: past the read marker. True if anything changed.
+	 */
+	private uncount(chan: Channel, id: number): boolean {
+		const ref = chan.msgRefs.get(id);
+
+		if (!ref || (!ref.unread && !ref.highlight)) {
+			return false;
+		}
+
+		const counted = !chan.readMarker || ref.time.getTime() > chan.readMarker.getTime();
+		const shared = chan.shared;
+
+		if (counted && ref.unread) {
+			shared.unread = Math.max(0, shared.unread - 1);
+		}
+
+		if (counted && ref.highlight) {
+			shared.highlight = Math.max(0, shared.highlight - 1);
+		}
+
+		ref.unread = false;
+		ref.highlight = false;
+		return counted;
+	}
+
+	/** {@link isEditAuthor} under this server's casemapping. */
+	isAuthor(author: Author | undefined, by: Author): boolean {
+		return isEditAuthor(author, by, (name) => this.casefold(name));
 	}
 
 	/** The tagged resend that completes an edit. */
@@ -2779,7 +3009,7 @@ export class IrcClient {
 		replyTo?: string,
 		action = false
 	): void {
-		const opts: SendMessageOptions = {firstTags: {[EDIT_TAG]: oldMsgid}, action};
+		const opts: SendMessageOptions = {firstTags: editTags(oldMsgid), action};
 
 		if (replyTo) {
 			opts.tags = replyTags(replyTo);
@@ -3147,6 +3377,13 @@ export class IrcClient {
 		// with the gap below it still unfilled (history.ts).
 		const heldIds = joined && !alreadyJoined ? new Set(joined.msgids) : undefined;
 
+		// An upgrade policy read on a plain connection is acted on before the
+		// CAP handler answers the line: that socket gets nothing but the
+		// QUIT, no `CAP REQ` and no `CAP END` that would register us there.
+		if (this.checkSts(msg)) {
+			return;
+		}
+
 		const handler = handlers.get(msg.command) ?? unhandled;
 
 		try {
@@ -3155,8 +3392,6 @@ export class IrcClient {
 			// eslint-disable-next-line no-console
 			console.error(`[irc] handler for ${msg.command} failed on: ${msg.raw}`, err);
 		}
-
-		this.checkSts(msg);
 
 		if (selfJoin && !alreadyJoined) {
 			const chan = this.findChannel(joinName);
@@ -3300,6 +3535,23 @@ export class IrcClient {
 	isHighlightException(text: string): boolean {
 		const {exceptions} = this.options.highlights?.() ?? {keywords: [], exceptions: []};
 		return this.highlightTester.isHighlightException(text, exceptions);
+	}
+
+	/**
+	 * The inbox entry for a highlight in `chan`, live, caught up or in a
+	 * history page, or null. One read already (looked at here, or past
+	 * another session's marker) goes in read, as one read later stays
+	 * (helpers/inbox.ts), so every device lists the same mentions. A private
+	 * conversation's entry is the conversation itself: only an unread line
+	 * puts it in. Nothing from the lobby (inboxEntry).
+	 */
+	mentionEntry(chan: Channel, msg: SharedMsg, unread: boolean): InboxEntry | null {
+		if (!msg.highlight || (!unread && chan.type === ChanType.QUERY)) {
+			return null;
+		}
+
+		const entry = this.inboxEntry(chan, msg);
+		return entry && !unread ? {...entry, read: true} : entry;
 	}
 
 	/** The inbox entry for an unread highlight in `chan` (helpers/inbox.ts), or null. */
@@ -3649,8 +3901,8 @@ export class IrcClient {
 	 * appends) the message counts as unread as it would have live — what
 	 * someone else said, not an edit, newer than the read marker — and
 	 * `increasesUnread` is ignored; the flag travels on the `msg` event so
-	 * the consumer skips notifications. An unread highlight, replayed or
-	 * not, also goes out as `inbox:add`. `ids`: the catch-up's own block
+	 * the consumer skips notifications. A highlight, replayed or not, also
+	 * goes out as `inbox:add`, read when it is read already. `ids`: the catch-up's own block
 	 * ({@link reserveIds}), while it lasts. `id`: a catch-up line placed
 	 * among the rows already shown, by its time (history.ts `placeByTime`):
 	 * it takes that id. `old`: such a line, placed or not (out of room
@@ -3698,6 +3950,10 @@ export class IrcClient {
 			this.queryLog.append(chan.name, msg);
 		}
 
+		// An original its author's edit already replaced on screen counts
+		// for nothing: the edit counted in its place (privmsg.ts counts an
+		// edit whose original is not shown, countsAsUnread too).
+		const lateEdit = this.takeLateEdit(chan, msg)?.id;
 		const shared = chan.shared;
 		shared.totalMessages++;
 		// Already read on another session (draft/read-marker), e.g. a catch-up.
@@ -3705,7 +3961,10 @@ export class IrcClient {
 			chan.readMarker !== undefined && ref.time.getTime() <= chan.readMarker.getTime();
 		const said = SAID_TYPES.has(msg.type ?? MessageType.MESSAGE);
 
-		if (msg.self) {
+		if (lateEdit !== undefined) {
+			// Hidden behind its edit, which counted already: nothing to count,
+			// and an old line of ours reads nothing either.
+		} else if (msg.self) {
 			// Something we said is read by definition; our own JOIN/MODE
 			// are not (a reconnect must not advance the read marker), and
 			// replayed by a catch-up they leave the counters and the
@@ -3737,7 +3996,7 @@ export class IrcClient {
 			}
 
 			// A catch-up line counts as privmsg.ts counts a live one.
-			if (replay ? countsAsUnread(msg) : increasesUnread || msg.highlight) {
+			if (replay ? countsAsUnread(msg, chan) : increasesUnread || msg.highlight) {
 				shared.unread++;
 				ref.unread = true;
 			}
@@ -3763,13 +4022,12 @@ export class IrcClient {
 			...(placed ? {placed: true} : {}),
 			...(placed && ref.unread ? {counted: true} : {}),
 		});
-		this.settleLateOriginal(chan, msg);
+		// An original its edit already replaced is not news, read or not.
+		if (lateEdit !== undefined) {
+			this.dispatch("msg:edit", {chan: chan.id, id: lateEdit, replaces: msg.id});
+		}
 
-		// An unread highlight in a conversation, live or caught up, is an
-		// inbox entry; one read already (looked at, or past another
-		// session's marker) is not, nor one in the lobby, which no read
-		// marker ever clears.
-		const entry = ref.highlight ? this.inboxEntry(chan, msg) : null;
+		const entry = lateEdit !== undefined ? null : this.mentionEntry(chan, msg, !!ref.highlight);
 
 		if (entry) {
 			this.bus.dispatch("inbox:add", {entries: [entry]});
@@ -3785,9 +4043,19 @@ export class IrcClient {
 	 * a handler dispatches gets out either, for rows that are only being looked
 	 * at (historysearch.ts), where history's `inbox:drop` for an edit would be wrong.
 	 */
-	collectReplay(target: Channel, fn: () => void, inert = false): ReplayCollection {
+	collectReplay(
+		target: Channel,
+		fn: () => void,
+		inert = false,
+		earlier?: ReplayCollection
+	): ReplayCollection {
 		const previous = this.replayContext;
-		const context = {target, inert, collected: {messages: [], after: []} as ReplayCollection};
+		const context = {
+			target,
+			inert,
+			earlier,
+			collected: {messages: [], after: []} as ReplayCollection,
+		};
 		this.replayContext = context;
 
 		try {
@@ -3811,6 +4079,17 @@ export class IrcClient {
 		} else {
 			fn();
 		}
+	}
+
+	/**
+	 * A message of `chan` collected by the replay under way, by msgid: from
+	 * this line or an earlier one of the same page (`collectReplay`'s `earlier`).
+	 */
+	replayedMessage(chan: Channel, msgid: string): SharedMsg | undefined {
+		const context = this.replayContext;
+		const find = (c: ReplayCollection | undefined) =>
+			c?.messages.find((m) => m.chan === chan && m.msg.msgid === msgid)?.msg;
+		return find(context?.collected) ?? find(context?.earlier);
 	}
 
 	/** True inside {@link collectReplay}: handlers must not touch channel state. */

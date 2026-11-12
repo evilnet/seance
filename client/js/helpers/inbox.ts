@@ -8,6 +8,7 @@
 import type {InboxEntry} from "../../../shared/types/mention";
 import {MessageType, type SharedMsg} from "../../../shared/types/msg";
 import {casefold} from "../irc/casemap";
+import {isEditAuthor, type Author} from "../irc/channel";
 import {cleanIrcMessage} from "../../../shared/irc";
 
 /** How many entries a device keeps; the oldest go first. */
@@ -25,7 +26,8 @@ export const EXCERPT_LEAD = 30;
 
 /**
  * A dismissed entry, remembered so the catch-up does not bring it back,
- * until its conversation is read past it.
+ * until its conversation is read past it (a channel mention's: and its
+ * read entry's keep is over, see pruneRead).
  */
 export type Dismissal = {key: string; network: string; target: string; time: string};
 
@@ -104,6 +106,7 @@ export function entryFor(
 		type: msg.type ?? MessageType.MESSAGE,
 		text: options.query ? msg.text ?? "" : excerptText(msg.text ?? "", options.findMention),
 		from: msg.from,
+		account: msg.fromAccount ?? null,
 	};
 }
 
@@ -210,18 +213,25 @@ export function conversationEntries(
 }
 
 /**
- * `target` on `network` was read up to `time`: a dismissal it covers has
- * nothing left to hold back.
+ * `target` on `network` was read up to `time`: a private conversation's
+ * dismissal it covers has nothing left to hold back. A channel mention's
+ * stays while a read entry for it could still come back (READ_KEEP_MS).
  */
 export function pruneRead(
 	list: Dismissal[],
 	network: string,
 	target: string,
-	time: Date
+	time: Date,
+	now = Date.now()
 ): Dismissal[] {
 	const key = conversationKey(network, target);
 	return list.filter(
-		(e) => conversationKey(e.network, e.target) !== key || timeOf(e) > time.getTime()
+		(e) =>
+			conversationKey(e.network, e.target) !== key ||
+			timeOf(e) > time.getTime() ||
+			// A channel mention read goes on being listed, read, for as long
+			// as a read entry stays: its dismissal must hold it back as long.
+			(!e.key.startsWith("query:") && now - timeOf(e) <= READ_KEEP_MS)
 	);
 }
 
@@ -249,22 +259,34 @@ export function dropExpired(list: InboxEntry[], now: number): InboxEntry[] {
  * The message `msgid` in `target` on `network` is gone: drop the entry that
  * shows it, in that conversation only (a REDACT or an edit elsewhere naming
  * it must not reach it). With `by` (an edit, which only its author may
- * make), only when `by` sent it.
+ * make), only when `by` sent it, by the timeline's rule (`isEditAuthor`).
  */
 export function dropMessage(
 	list: InboxEntry[],
 	network: string,
 	target: string,
 	msgid: string,
-	by?: string
+	by?: Author
 ): InboxEntry[] {
 	const key = conversationKey(network, target);
 	return list.filter(
 		(e) =>
 			conversationKey(e.network, e.target) !== key ||
 			e.msgid !== msgid ||
-			(by !== undefined && casefold(e.from.nick ?? "") !== casefold(by))
+			(by !== undefined && !wroteIt(e, by))
 	);
+}
+
+/** Whether `by` sent the line `entry` shows. */
+function wroteIt(entry: InboxEntry, by: Author): boolean {
+	const nick = entry.from.nick;
+
+	if (entry.account === undefined) {
+		// Stored before the account was kept: the nick is all there is.
+		return nick !== undefined && casefold(nick) === casefold(by.nick ?? "");
+	}
+
+	return isEditAuthor({nick, account: entry.account ?? undefined}, by, casefold);
 }
 
 export type InboxGroup = {

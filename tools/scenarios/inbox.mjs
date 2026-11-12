@@ -709,6 +709,12 @@ export default async function run(page) {
 		)})`,
 		(await page.evaluate(shownInGroup)) === 3
 	);
+	await page.check(
+		"a channel's rows read newest first, the newest on top",
+		(await page.evaluate(
+			`document.querySelector("${moreButton}").closest(".mentions-group").querySelector(".mentions-entry").textContent.includes("number 4")`
+		)) === true
+	);
 	await page.screenshot("6b-show-more", {selector: POPUP, pad: 16});
 	await press(moreButton);
 	await page.waitFor(`!document.querySelector("${moreButton}")`, {label: "the rest shown"});
@@ -716,6 +722,12 @@ export default async function run(page) {
 		"Show more brings the rest",
 		(await page.evaluate(
 			`[...document.querySelectorAll(".mentions-group")].some((g) => g.querySelectorAll(".mentions-entry").length > 3)`
+		)) === true
+	);
+	await page.check(
+		"Show more keeps the newest on top",
+		(await page.evaluate(
+			`[...document.querySelectorAll(".mentions-group")].find((g) => g.querySelectorAll(".mentions-entry").length > 3).querySelector(".mentions-entry").textContent.includes("number 4")`
 		)) === true
 	);
 	await clickBackdrop(page, "#mentions-popup-container");

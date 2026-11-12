@@ -179,6 +179,11 @@ interface ServerToClientEvents {
 	/** Message `id` (already delivered via `msg`) replaces message `replaces`. */
 	"msg:edit": EventHandler<{chan: number; id: number; replaces: number}>;
 	/**
+	 * Message `id`, shown as an edit of a line not loaded yet, is not one:
+	 * that line came, and someone else wrote it. It stands as a line of its own.
+	 */
+	"msg:unedit": EventHandler<{chan: number; id: number}>;
+	/**
 	 * The pending copy `id` (delivered via `msg` with `pending: true`) is
 	 * settled: drop it. The echo, or the error line, that settles it
 	 * follows as its own `msg`.
@@ -292,7 +297,12 @@ interface ServerToClientEvents {
 	 * an edit from `by` (whom the inbox checks against the entry's sender),
 	 * whether or not it is loaded.
 	 */
-	"inbox:drop": EventHandler<{network: string; target: string; msgid: string; by?: string}>;
+	"inbox:drop": EventHandler<{
+		network: string;
+		target: string;
+		msgid: string;
+		by?: {nick?: string; account?: string};
+	}>;
 
 	init: EventHandler<{active: number; networks: SharedNetwork[]; token?: string}>;
 
@@ -341,7 +351,7 @@ interface ClientToServerEvents {
 		text: string;
 		/** msgid to reply to: plain text / `/me` get `+reply` (and `+draft/reply`). */
 		reply?: string;
-		/** msgid of our own message to replace: REDACT (channels) + resend with `+seance/edit`. */
+		/** msgid of our own message to replace: REDACT (channels) + resend with the edit tags. */
 		edit?: string;
 		/** The language the text is in (the composer's translation target): `+draft/language`. */
 		language?: string;
