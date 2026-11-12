@@ -23,6 +23,7 @@ import account from "./account";
 import away from "./away";
 import batch, {registerBatchHandler} from "./batch";
 import {targetsBatch} from "../catchup";
+import bouncer, {BOUNCER_BATCH, bouncerBatch} from "../bouncer";
 import cap from "./cap";
 import chghost from "./chghost";
 import error from "./error";
@@ -56,6 +57,7 @@ const modules: Record<string, Handler>[] = [
 	account,
 	away,
 	batch,
+	bouncer,
 	cap,
 	chghost,
 	error,
@@ -99,6 +101,7 @@ registerBatchHandler(MULTILINE_CAP, multilineBatch);
 registerBatchHandler(AUTHTOKEN_BATCH, authtokenBatch);
 registerBatchHandler("draft/persistence", persistenceBatch);
 registerBatchHandler(BOUNCER_REPLAY_BATCH, bouncerReplayBatch);
+registerBatchHandler(BOUNCER_BATCH, bouncerBatch);
 // Ours resolve their request (../request.ts); anyone else's are unwrapped.
 registerBatchHandler("labeled-response", labeledBatch);
 // The registration burst ends presence.ts's wait for the shared presence.

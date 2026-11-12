@@ -74,6 +74,17 @@
 							@click.stop="openOperPanel"
 						/>
 					</span>
+					<span
+						v-if="network.bouncer"
+						aria-label="Bouncer networks…"
+						class="oper-panel-tooltip tooltipped tooltipped-e tooltipped-no-touch"
+					>
+						<button
+							class="oper-panel bouncer-panel"
+							aria-label="Bouncer networks…"
+							@click.stop="openBouncerPanel"
+						/>
+					</span>
 				</div>
 				<!-- The presence dot stands before the nick, and alone when there
 				     is none; it never opens the row or starts a drag. -->
@@ -157,6 +168,11 @@ export default defineComponent({
 
 		const openOperPanel = () => {
 			void router.push(`/oper/${props.network.uuid}/opers`);
+		};
+
+		// A soju's networks (Windows/BouncerPanel.vue): only on its bouncer connection.
+		const openBouncerPanel = () => {
+			void router.push(`/bouncer/${props.network.uuid}`);
 		};
 
 		// Notification state for this network (bell icon): subscribed,
@@ -328,6 +344,7 @@ export default defineComponent({
 			editLabel,
 			opered,
 			openOperPanel,
+			openBouncerPanel,
 			statusClass,
 			statusLabel,
 			onStatusClick,

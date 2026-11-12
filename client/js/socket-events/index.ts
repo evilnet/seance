@@ -7,6 +7,7 @@
 // round-trip): setting, sync_sort, mute_changed, mentions, history_clear,
 // search, msg_preview (previews are built client-side, see
 // helpers/mediaPreview.ts).
+import "./bouncer";
 import "./connection";
 import "./channel_bans";
 import "./channel_list";

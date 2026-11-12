@@ -120,6 +120,7 @@ import {
 import {IdAllocator, type IdBlock, sharedIds} from "./ids";
 import {NoticeLog} from "./noticelog";
 import {initialOper, OperState, operRegistered, resetOper} from "./oper";
+import {BouncerAttrs, bindLine, bouncerCaps, bouncerRegistered} from "./bouncer";
 import {detectProfile, type ServerProfile} from "./profiles";
 import {canRequest, interceptRequestLine, request, resetRequests} from "./request";
 import {noticeMessage} from "./snotice";
@@ -332,6 +333,19 @@ export interface IrcClientOptions extends ConnectOptions {
 	 * whether to trust it (manager.ts, certificatePrompt.ts).
 	 */
 	onUntrustedCertificate?: (certificate: UntrustedCertificate) => void;
+	/**
+	 * soju network to bind this connection to (`BOUNCER BIND`, bouncer.ts);
+	 * set by the manager on the networks a bouncer connection lists.
+	 */
+	bouncerNetid?: string;
+	/**
+	 * A bouncer connection learned of a soju network (`attrs`, the whole
+	 * set so far) or of its removal (`null`); the manager keeps a network
+	 * of its own per netid.
+	 */
+	onBouncerNetwork?: (netid: string, attrs: BouncerAttrs | null) => void;
+	/** …and the netids of a whole list (the `soju.im/bouncer-networks` batch). */
+	onBouncerList?: (netids: string[]) => void;
 }
 
 /**
@@ -506,6 +520,8 @@ export class IrcClient {
 	 * form through {@link setServices}. Undefined: none configured.
 	 */
 	services: ServicesConfig | undefined;
+	/** soju's networks by netid, on a bouncer connection (bouncer.ts). */
+	readonly bouncerNetworks = new Map<string, BouncerAttrs>();
 	/** Query windows brought back from the log, filled on the first announce. */
 	private restoredQueries: Channel[] = [];
 	caps = new CapNegotiator(SEANCE_CAPS);
@@ -1729,7 +1745,7 @@ export class IrcClient {
 
 		const caps = new CapNegotiator({
 			...SEANCE_CAPS,
-			wanted: mechanism ? [...SEANCE_CAPS.wanted, "sasl"] : SEANCE_CAPS.wanted,
+			wanted: [...SEANCE_CAPS.wanted, ...bouncerCaps(this), ...(mechanism ? ["sasl"] : [])],
 			accept,
 		});
 
@@ -1849,6 +1865,12 @@ export class IrcClient {
 			// it without an account and again once we are registered. It goes
 			// out in the same flush as `CAP END`, before it (persistence.ts).
 			this.offerAttachCursor();
+
+			const bind = bindLine(this);
+
+			if (bind) {
+				this.send(bind);
+			}
 		}
 
 		for (const line of this.caps.end()) {
@@ -2115,6 +2137,7 @@ export class IrcClient {
 		this.scheduleMuteRead();
 		flushDeferredMarkRead(this);
 		operRegistered(this);
+		bouncerRegistered(this);
 
 		if (this.caps.enabled.size > 0) {
 			this.pushMessage(

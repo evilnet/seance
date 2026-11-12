@@ -521,6 +521,26 @@ describe("saved-networks", function () {
 		expect(saved.displayName({name: "", host: "wss://h.example/ws"})).to.equal("h.example");
 	});
 
+	it("keeps a soju's networks linked, out of the list, and removes them with it", function () {
+		const parent = entry({uuid: "soju"});
+		saved.save(parent);
+		saved.save(entry({uuid: "child", bouncer: {parent: "soju", netid: "42"}}));
+		saved.save(entry({uuid: "other", nick: "bob"}));
+
+		expect(saved.get("child")?.bouncer).to.deep.equal({parent: "soju", netid: "42"});
+		expect(saved.list().map((n) => n.uuid)).to.have.members(["soju", "other"]);
+		expect(saved.bouncerChildren("soju").map((n) => n.uuid)).to.deep.equal(["child"]);
+		// The connect form re-typing the bouncer's server finds the bouncer, not its network.
+		expect(saved.findMatching(parent.host, parent.port, "alice")?.uuid).to.equal("soju");
+		expect(
+			saved.fromForm({uuid: "child", nick: "al"}, saved.get("child")).bouncer
+		).to.deep.equal({parent: "soju", netid: "42"});
+
+		saved.remove("soju");
+		expect(saved.get("child")).to.be.undefined;
+		expect(saved.get("other")).to.not.be.undefined;
+	});
+
 	it("has no services block by default, and round-trips one", function () {
 		saved.save(entry());
 		expect(saved.get(entry().uuid)).to.not.have.property("services");

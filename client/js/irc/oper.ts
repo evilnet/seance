@@ -16,6 +16,7 @@
  * Kept free of store/DOM imports (mocha).
  */
 
+import {isBouncerRoot} from "./bouncer";
 import type {OperLevel, SharedOperState} from "../../../shared/types/oper";
 import type {IrcClient} from "./client";
 import type {IrcMessage} from "./message";
@@ -115,7 +116,9 @@ export function setUserModes(client: IrcClient, modes: string): void {
 function modesChanged(client: IrcClient): void {
 	const oper = client.oper;
 	const before = oper.level;
-	oper.level = levelOf(oper.umodes);
+	// soju's `+o` on its own connection is a soju admin, not an IRC
+	// operator: the oper tools would ask soju for PRIVS and snomasks.
+	oper.level = isBouncerRoot(client) ? "none" : levelOf(oper.umodes);
 
 	if (!oper.umodes.has("s")) {
 		oper.snomask = undefined;
