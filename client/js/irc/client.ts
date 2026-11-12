@@ -2289,11 +2289,10 @@ export class IrcClient {
 		// when the host is still unknown. nefarious2's HOSTLEN is 75 (a cloak
 		// can run that long), past the usual 63, and an untagged line it
 		// delivers is cut at 510 bytes, source included.
-		const hostLen = this.host.length || UNKNOWN_HOST_BYTES;
-		const sourceBytes =
+		const originBytes =
 			utf8ByteLength(`:${this.nick}!${this.ident}@`) +
-			hostLen +
-			utf8ByteLength(` ${command} ${target} :`);
+			(this.host.length || UNKNOWN_HOST_BYTES);
+		const sourceBytes = originBytes + utf8ByteLength(` ${command} ${target} :`);
 		const actionBytes = opts.action ? "\x01ACTION \x01".length : 0;
 		// With `echo-message` each line is labelled so its echo can be told
 		// apart (pending.ts); without it there is no echo to label.
@@ -2348,16 +2347,14 @@ export class IrcClient {
 				// (an edit) only on the first — one edit replaces one message.
 				// The opener carries them all; the legacy edit tag gives way
 				// before the opener would pass the frame cap.
-				const openerBytes = (tags: ClientTags) =>
-					sourceBytes -
-					utf8ByteLength(` ${command} ${target} :`) +
-					utf8ByteLength(
-						`${tagPrefix(tags)} BATCH +${"x".repeat(8)} draft/multiline ${target}`
-					) +
-					(labelled ? LABEL_TAG_BYTES : 0);
 				let first = opts.firstTags ?? {};
+				const opener = `BATCH +${"x".repeat(8)} draft/multiline ${target}`;
+				const openerBytes =
+					originBytes +
+					utf8ByteLength(`${tagPrefix({...first, ...opts.tags})} ${opener}`) +
+					(labelled ? LABEL_TAG_BYTES : 0);
 
-				if (openerBytes({...first, ...opts.tags}) > MAX_LINE_BYTES) {
+				if (openerBytes > MAX_LINE_BYTES) {
 					first = withoutLegacyEdit(first);
 				}
 
