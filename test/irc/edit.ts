@@ -369,6 +369,21 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 			]);
 		});
 
+		it("replaces our own account-tagged line with a multiline edit sent without echo-message", function () {
+			const h = setup();
+			const id = joined(h, `${NO_ECHO} draft/multiline=max-bytes=4096,max-lines=24`);
+			h.client.account = "alice"; // logged in
+			h.transport.line(
+				"@msgid=m1;account=alice;time=2026-08-25T12:00:01.000Z :alice!alice@host.example PRIVMSG #seance :teh text"
+			);
+			const oldId = h.lastMessage(id).id;
+			h.client.input(id, "first line\nsecond line", {edit: "m1"});
+
+			expect(h.payloads<EditPayload>("msg:edit")).to.deep.equal([
+				{chan: id, id: h.lastMessage(id).id, replaces: oldId},
+			]);
+		});
+
 		it("does not wait for a REDACT echo without echo-message and applies the local echo", function () {
 			const {h, id, oldId} = withOwnMessage(NO_ECHO);
 			h.client.input(id, "the text", {edit: "m1"});
