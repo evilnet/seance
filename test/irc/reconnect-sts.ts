@@ -301,6 +301,26 @@ describe("STS and the retry schedule", function () {
 			expect(sts.getPolicy(HOST)).to.equal(undefined);
 		});
 
+		it("nor one removed before the host's next policy was learned and pruned", function () {
+			const a = network(8443, true);
+			const b = network(8443, true);
+			const c = network(9443, true);
+			a.connect();
+			WS.all[0].open();
+			WS.all[0].line(":srv CAP * LS :sts=duration=3600");
+			b.connect();
+			WS.all[1].open();
+			WS.all[1].line(":srv CAP * LS :sts=duration=0");
+			c.connect();
+			WS.all[2].open();
+			WS.all[2].line(":srv CAP * LS :sts=duration=1");
+			clock.tick(5000);
+			sts.clearExpired(); // what another network's dial does
+			WS.all[0].drop();
+
+			expect(sts.getPolicy(HOST)).to.equal(undefined);
+		});
+
 		it("and a policy learned after a removal is rescheduled again", function () {
 			const a = network(8443, true);
 			a.connect();

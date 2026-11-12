@@ -1046,7 +1046,9 @@ describe("WsTransport: the server's throttle", function () {
 
 		last().closed(1006, "", false);
 		expect(isLongWait(lastReconnecting(events))).to.equal(true);
-		clock.tick(UNREACHED_RETRY_MS + UNREACHED_JITTER_MS);
+		const dialled = FakeWebSocket.instances.length;
+		clock.tick(UNREACHED_RETRY_MS + UNREACHED_JITTER_MS + DIAL_CLAIM_SETTLE_MS);
+		expect(FakeWebSocket.instances.length, "the long wait's dial").to.equal(dialled + 1);
 
 		// One that opens, even briefly, earns the quick retries again.
 		last().open();

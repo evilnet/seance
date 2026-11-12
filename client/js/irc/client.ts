@@ -144,7 +144,8 @@ import {
 	parseStsValue,
 	policyHost,
 	refreshPolicy,
-	type StsPolicy,
+	type HeldPolicy,
+	holdPolicy,
 	StsUpgrade,
 	stsHost,
 	upgradeOptions,
@@ -555,7 +556,7 @@ export class IrcClient {
 	 * opens, replaced by a `duration` it learns. The close reschedules from
 	 * this copy, since another dial may have pruned the stored one meanwhile.
 	 */
-	private stsPolicy: StsPolicy | undefined;
+	private stsPolicy: HeldPolicy | undefined;
 	/** Settings edited while connected (`network:edit`); applied on the next connect. */
 	private pendingOptions: IrcClientOptions | null = null;
 	private networkName: string;
@@ -1222,7 +1223,8 @@ export class IrcClient {
 
 		if (this.options.tls) {
 			if (value.duration !== undefined) {
-				this.stsPolicy = applyDuration(stsHost(this.options), this.options.port, value);
+				const host = stsHost(this.options);
+				this.stsPolicy = holdPolicy(host, applyDuration(host, this.options.port, value));
 			}
 
 			return false;
@@ -1261,7 +1263,9 @@ export class IrcClient {
 	private onTransportEvent(ev: TransportEvent): void {
 		switch (ev.type) {
 			case "open":
-				this.stsPolicy = this.options.tls ? getPolicy(stsHost(this.options)) : undefined;
+				this.stsPolicy = this.options.tls
+					? holdPolicy(stsHost(this.options), getPolicy(stsHost(this.options)))
+					: undefined;
 				this.onOpen();
 				break;
 			case "line":
