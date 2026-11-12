@@ -54,6 +54,7 @@ interface Rec {
 	}>;
 	silent?: boolean;
 	renotify?: boolean;
+	timestamp?: number;
 	shownAt?: number;
 	closed: boolean;
 	close(): void;
@@ -493,6 +494,7 @@ function makeSW(options: HarnessOptions = {}): SWHarness {
 					data: opts.data,
 					actions: opts.actions,
 					renotify: opts.renotify,
+					timestamp: opts.timestamp,
 					shownAt: now(),
 					closed: false,
 					close() {
@@ -2648,6 +2650,30 @@ describe("service worker merged notification time", function () {
 		expect(live).to.have.lengthOf(1);
 		expect(live[0].data.count).to.equal(2);
 		expect(live[0].data.time).to.equal(NEWER);
+		expect(live[0].timestamp).to.equal(Date.parse(NEWER));
+	});
+
+	it("a newer message with no usable time leaves the card untimed", async function () {
+		this.timeout(8000);
+		for (const bad of ["", `,"time":"not a time"`]) {
+			const sw = makeSW();
+
+			await firePush(
+				sw,
+				`{"t":"msg","from":"alice","target":"pushtest","msgid":"u1","time":"${OLDER}","text":"first"}`
+			);
+			await firePush(
+				sw,
+				`{"t":"msg","from":"alice","target":"pushtest","msgid":"u2"${bad},"text":"second"}`
+			);
+
+			const live = cards(sw);
+			expect(live).to.have.lengthOf(1);
+			expect(live[0].data.time, bad || "no time").to.equal(undefined);
+
+			await fireClick(sw, live[0], "markread");
+			expect(sw.lastSent(), "Mark read uses the click time").to.not.include(OLDER);
+		}
 	});
 
 	it("a relay between the two times leaves the card on Chrome", async function () {
@@ -2663,14 +2689,17 @@ describe("service worker merged notification time", function () {
 	});
 
 	it("a relay between the two times leaves the card under WebKit", async function () {
-		const sw = makeSW({userAgent: IOS_UA});
+		const sw = makeSW({userAgent: IOS_UA, webkitNotifications: true});
 
 		await newestFirst(sw);
 		await firePush(sw, `:irc.testnet.local MARKREAD alice timestamp=${BETWEEN}`);
 
+		// WebKit's tags replace nothing, so the earlier copy is still up;
+		// the newest one is the conversation's card.
 		const live = cards(sw);
-		expect(live, "the card holds an unread message").to.have.lengthOf(1);
-		expect(live[0].data.messages!.map((m) => m.text)).to.include("second");
+		expect(live, "nothing was closed").to.have.lengthOf(2);
+		const newest = live.reduce((a, b) => (b.shownAt! >= a.shownAt! ? b : a));
+		expect(newest.data.messages!.map((m) => m.text)).to.include("second");
 	});
 
 	it("Mark read on the merged card marks the newest message", async function () {
