@@ -2676,6 +2676,28 @@ describe("service worker merged notification time", function () {
 		}
 	});
 
+	it("stays untimed when a timed message follows an untimed one", async function () {
+		const sw = makeSW();
+
+		await firePush(
+			sw,
+			`{"t":"msg","from":"alice","target":"pushtest","msgid":"s1","time":"${NEWER}","text":"newest"}`
+		);
+		await firePush(
+			sw,
+			`{"t":"msg","from":"alice","target":"pushtest","msgid":"s2","text":"untimed"}`
+		);
+		await firePush(
+			sw,
+			`{"t":"msg","from":"alice","target":"pushtest","msgid":"s3","time":"${OLDER}","text":"oldest"}`
+		);
+
+		const live = cards(sw);
+		expect(live).to.have.lengthOf(1);
+		expect(live[0].data.count).to.equal(3);
+		expect(live[0].data.time, "its newest time is unknown").to.equal(undefined);
+	});
+
 	it("a relay between the two times leaves the card on Chrome", async function () {
 		const sw = makeSW({fastTimers: true});
 
@@ -2700,6 +2722,7 @@ describe("service worker merged notification time", function () {
 		expect(live, "nothing was closed").to.have.lengthOf(2);
 		const newest = live.reduce((a, b) => (b.shownAt! >= a.shownAt! ? b : a));
 		expect(newest.data.messages!.map((m) => m.text)).to.include("second");
+		expect(newest.data.time).to.equal(NEWER);
 	});
 
 	it("Mark read on the merged card marks the newest message", async function () {
