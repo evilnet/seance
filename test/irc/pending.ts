@@ -325,6 +325,61 @@ describe("Pending outgoing messages (irc/pending.ts)", function () {
 			h.transport.line(`:irc.test BATCH -${ref}`);
 		}
 
+		/** A PM to bob once a labelled echo has shown the server relays labels. */
+		function pmAfterLabelledEcho(h: Harness): {id: number; copy: SharedMsg} {
+			joined(h);
+			h.transport.line("@msgid=b0 :bob!bob@host.example PRIVMSG alice :hey");
+			h.client.sendMessage("bob", "first");
+			h.transport.line("@label=s1;msgid=m1 :alice!alice@host.example PRIVMSG bob :first");
+			h.client.sendMessage("bob", "hehe");
+			const id = h.client.findChannel("bob")!.id;
+			return {id, copy: h.lastMessage(id)};
+		}
+
+		it("settles a PM's copy by its labelled echo when a batch holds the 301 too", function () {
+			const h = setup();
+			const {id, copy} = pmAfterLabelledEcho(h);
+
+			labelledBatch(h, "s2", "lb2", [
+				":irc.test 301 alice bob :phone in pocket",
+				"@msgid=m2 :alice!alice@host.example PRIVMSG bob :hehe",
+			]);
+
+			expect(settled(h).map((s) => s.id)).to.include(copy.id);
+			clock.tick(PENDING_TIMEOUT_MS + 1);
+			expect(errorsIn(h, id)).to.deep.equal([]);
+		});
+
+		it("leaves the copy waiting for its label when a 301 names another nick", function () {
+			const h = setup();
+			const {id, copy} = pmAfterLabelledEcho(h);
+
+			h.transport.line("@label=s2 :irc.test 301 alice carol :elsewhere");
+			h.transport.line("@msgid=m9 :alice!alice@host.example PRIVMSG bob :hehe");
+
+			expect(settled(h).map((s) => s.id)).to.not.include(copy.id);
+			h.transport.line("@label=s2;msgid=m2 :alice!alice@host.example PRIVMSG bob :hehe");
+			expect(settled(h).map((s) => s.id)).to.include(copy.id);
+			expect(errorsIn(h, id)).to.deep.equal([]);
+		});
+
+		it("ignores a labelled 301 with no nick", function () {
+			const h = setup();
+			pmAfterLabelledEcho(h);
+
+			expect(() => h.transport.line("@label=s2 :irc.test 301 alice")).to.not.throw();
+		});
+
+		it("still reports a labelled FAIL after a labelled 301", function () {
+			const h = setup();
+			const {id} = pmAfterLabelledEcho(h);
+
+			h.transport.line("@label=s2 :irc.test 301 alice bob :phone in pocket");
+			h.transport.line("@label=s2 :irc.test FAIL PRIVMSG CANNOT_SEND bob :Blocked");
+
+			expect(errorsIn(h, id).map((m) => m.text)).to.deep.equal(["Not sent (Blocked): hehe"]);
+		});
+
 		it("reports a labelled FAIL for the message as not sent", function () {
 			const h = setup();
 			const id = joined(h);
@@ -386,6 +441,25 @@ describe("Pending outgoing messages (irc/pending.ts)", function () {
 			expect(h.messages(id).filter((m) => m.text === "hello" && !m.pending)).to.have.length(
 				2
 			);
+		});
+
+		it("settles a PM's copy when the 301 took the label and the echo came without it", function () {
+			const h = setup();
+			joined(h);
+			h.transport.line("@msgid=b0 :bob!bob@host.example PRIVMSG alice :hey");
+			h.client.sendMessage("bob", "first");
+			h.transport.line("@label=s1;msgid=m1 :alice!alice@host.example PRIVMSG bob :first");
+			h.client.sendMessage("bob", "hehe");
+			const id = h.client.findChannel("bob")!.id;
+			const copy = h.lastMessage(id);
+
+			// nefarious2 labels the away reply, then echoes without the label.
+			h.transport.line("@label=s2 :irc.test 301 alice bob :phone in pocket");
+			h.transport.line("@msgid=m2 :alice!alice@host.example PRIVMSG bob :hehe");
+
+			expect(settled(h).map((s) => s.id)).to.include(copy.id);
+			clock.tick(PENDING_TIMEOUT_MS + 1);
+			expect(errorsIn(h, id)).to.deep.equal([]);
 		});
 
 		it("forgets that the server labels echoes when the connection closes", function () {

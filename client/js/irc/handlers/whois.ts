@@ -14,6 +14,7 @@ import {t} from "../../i18n/core";
 import type {Handler} from "../types";
 import {AWAY_STAR} from "../presence";
 import {isIp} from "../profiles/report";
+import {pendingLabelSpent} from "../pending";
 
 export interface WhoisData {
 	nick: string;
@@ -364,6 +365,13 @@ const away: Handler = (client, msg) => {
 
 	if (!nick) {
 		return;
+	}
+
+	// It may answer a message of ours whose echo then comes unlabelled.
+	const label = msg.tags.get("label");
+
+	if (label) {
+		pendingLabelSpent(client, label, nick);
 	}
 
 	const raw = last(msg);

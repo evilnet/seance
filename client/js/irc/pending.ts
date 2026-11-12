@@ -47,6 +47,8 @@ export interface PendingMessage {
 	label?: string;
 	type: MessageType;
 	text: string;
+	/** The server spent the label on another reply (see {@link pendingLabelSpent}). */
+	labelSpent?: boolean;
 	/** Reports the copy as not sent {@link PENDING_TIMEOUT_MS} after it was armed. */
 	timer?: ReturnType<typeof setTimeout>;
 }
@@ -227,7 +229,10 @@ export function settleEcho(
 		// a label waits for its labelled echo; an unlabelled line is not it
 		// (another device, or a message to ourselves delivered back).
 		const kind = registry.entries.filter(
-			(e) => e.chan === chan && e.type === type && !(registry.labelledEchoes && e.label)
+			(e) =>
+				e.chan === chan &&
+				e.type === type &&
+				!(registry.labelledEchoes && e.label && !e.labelSpent)
 		);
 		entry = kind.find((e) => e.text === text);
 
@@ -288,6 +293,21 @@ export function failPendingTarget(client: IrcClient, channel: string, reason: st
 
 	failPending(client, waiting[0], reason);
 	return true;
+}
+
+/**
+ * A labelled 301 for a message of ours to someone away: nefarious2 puts the
+ * label on it and sends the echo without one, where the
+ * spec wants both in a labelled batch. The copy keeps its label (a labelled
+ * echo, FAIL or ACK still finds it) and may also be settled by an unlabelled
+ * echo of the same text.
+ */
+export function pendingLabelSpent(client: IrcClient, label: string, nick: string): void {
+	const entry = byLabel(client, label);
+
+	if (entry && client.casefold(entry.chan.name) === client.casefold(nick)) {
+		entry.labelSpent = true;
+	}
 }
 
 /** A labelled `ACK`: the server took the line and has nothing to echo. */
