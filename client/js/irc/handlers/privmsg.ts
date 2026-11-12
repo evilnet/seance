@@ -272,12 +272,9 @@ function handleMessage(
 	// original is not loaded is judged when the original comes.
 	if (editOf) {
 		const shown = chan.idOf(editOf);
+		const replayed = shown === undefined ? client.replayedMessage(chan, editOf) : undefined;
 		const original =
-			shown !== undefined
-				? chan.msgRefs.get(shown)?.from
-				: client.replaying
-				? maybeAuthor(client.replayedMessage(chan, editOf))
-				: undefined;
+			shown !== undefined ? chan.msgRefs.get(shown)?.from : replayed && authorOf(replayed);
 
 		if ((shown !== undefined || original) && !client.isAuthor(original, by)) {
 			editOf = undefined;
@@ -364,11 +361,6 @@ function handleMessage(
 			}
 		});
 	}
-}
-
-/** The sender of `msg`, if there is one. */
-function maybeAuthor(msg: SharedMsg | undefined): Author | undefined {
-	return msg ? authorOf(msg) : undefined;
 }
 
 /** The msgid a PRIVMSG / TAGMSG refers to (`+reply` preferred, `+draft/reply` accepted). */
