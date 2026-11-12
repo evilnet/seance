@@ -102,7 +102,7 @@ export function dropMentionOf(network: string, target: string, msgid: string, by
 	undoableMentions.value = dropMessage(undoableMentions.value, network, target, msgid, by);
 }
 
-/** On this device only, remembered until the conversation is read past them. */
+/** On this device only, remembered until they could no longer come back (pruneRead). */
 export function dismissMentions(entries: InboxEntry[]): void {
 	const keys = new Set(entries.map(entryKey));
 	setDismissed([...dismissed, ...entries.map(dismissalOf)]);

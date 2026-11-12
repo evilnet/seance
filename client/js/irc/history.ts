@@ -527,12 +527,23 @@ function deliverPrepend(
 	const totalMessages = chan.shared.totalMessages + (moreAvailable ? 1 : 0);
 	client.dispatch("more", {chan: chan.id, messages, totalMessages, moreAvailable});
 
-	for (const msg of messages) {
-		client.settleLateOriginal(chan, msg);
-	}
+	// An original its edit already replaced is not news, read or not.
+	const replaced = new Set(messages.filter((msg) => client.settleLateOriginal(chan, msg)));
 
 	if (marker && !looking) {
-		countPageUnread(client, chan, page, marker);
+		countPageUnread(client, chan, page, marker, 0, replaced);
+	}
+
+	// The page's other mentions are read already (or looked at now): they
+	// are listed read, as a live one would be.
+	const read = page.flatMap(([msg, ref]) => {
+		const entry =
+			ref.highlight || replaced.has(msg) ? null : client.mentionEntry(chan, msg, false);
+		return entry ? [entry] : [];
+	});
+
+	if (read.length > 0) {
+		client.dispatch("inbox:add", {entries: read});
 	}
 }
 

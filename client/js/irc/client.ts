@@ -2727,15 +2727,17 @@ export class IrcClient {
 	 * first: an older page brought the original in, or a catch-up). The edit
 	 * takes its place now (`msg:edit`), as it does when the original is
 	 * there first, so the two are never both on screen — nor both in a copy
-	 * of the conversation.
+	 * of the conversation. True when an edit replaced it.
 	 */
-	settleLateOriginal(chan: Channel, msg: SharedMsg): void {
+	settleLateOriginal(chan: Channel, msg: SharedMsg): boolean {
 		const editMsgid = msg.msgid ? chan.takeEditOf(msg.msgid) : undefined;
 		const id = editMsgid === undefined ? undefined : chan.idOf(editMsgid);
 
 		if (id !== undefined && id !== msg.id) {
 			this.dispatch("msg:edit", {chan: chan.id, id, replaces: msg.id});
 		}
+
+		return editMsgid !== undefined;
 	}
 
 	/** The tagged resend that completes an edit. */
@@ -3269,6 +3271,23 @@ export class IrcClient {
 		return this.highlightTester.isHighlightException(text, exceptions);
 	}
 
+	/**
+	 * The inbox entry for a highlight in `chan`, live, caught up or in a
+	 * history page, or null. One read already (looked at here, or past
+	 * another session's marker) goes in read, as one read later stays
+	 * (helpers/inbox.ts), so every device lists the same mentions. A private
+	 * conversation's entry is the conversation itself: only an unread line
+	 * puts it in. Nothing from the lobby (inboxEntry).
+	 */
+	mentionEntry(chan: Channel, msg: SharedMsg, unread: boolean): InboxEntry | null {
+		if (!msg.highlight || (!unread && chan.type === ChanType.QUERY)) {
+			return null;
+		}
+
+		const entry = this.inboxEntry(chan, msg);
+		return entry && !unread ? {...entry, read: true} : entry;
+	}
+
 	/** The inbox entry for an unread highlight in `chan` (helpers/inbox.ts), or null. */
 	inboxEntry(chan: Channel, msg: SharedMsg): InboxEntry | null {
 		if (!markable(chan)) {
@@ -3703,23 +3722,12 @@ export class IrcClient {
 			highlight: shared.highlight,
 			...(replay ? {replay: true} : {}),
 		});
-		this.settleLateOriginal(chan, msg);
-
-		// A highlight in a conversation, live or caught up, is an inbox
-		// entry; one read already (looked at here, or past another session's
-		// marker) goes in read, as one read later stays (helpers/inbox.ts),
-		// so every device lists the same mentions. A private conversation's
-		// entry is the conversation itself: only an unread line puts it in.
-		// Nothing from the lobby, which no read marker ever clears.
-		const entry =
-			msg.highlight && (ref.highlight || chan.type !== ChanType.QUERY)
-				? this.inboxEntry(chan, msg)
-				: null;
+		// An original its edit already replaced is not news, read or not.
+		const replaced = this.settleLateOriginal(chan, msg);
+		const entry = replaced ? null : this.mentionEntry(chan, msg, !!ref.highlight);
 
 		if (entry) {
-			this.bus.dispatch("inbox:add", {
-				entries: [ref.highlight ? entry : {...entry, read: true}],
-			});
+			this.bus.dispatch("inbox:add", {entries: [entry]});
 		}
 
 		return msg;

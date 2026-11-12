@@ -786,10 +786,61 @@ describe("The inbox's events (docs/projects/inbox.md)", function () {
 			":irc.test BATCH -hist1"
 		);
 
-		expect(added().map((e) => [e.msgid, e.read])).to.deep.equal([
+		expect(
+			added()
+				.map((e) => [e.msgid, e.read])
+				.sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+		).to.deep.equal([
 			["h1", true],
 			["h3", undefined],
 		]);
+	});
+
+	it("lists a history page's mentions read while someone is looking", function () {
+		const h = setup();
+		const label = join(h)
+			.find((l) => l.includes("CHATHISTORY"))
+			?.match(/^@label=([^ ;]+)/)?.[1];
+		socket.emit("open", h.client.findChannel("#seance")!.id);
+		h.transport.lines(
+			`${label ? `@label=${label} ` : ""}:irc.test BATCH +hist1 chathistory #seance`,
+			"@batch=hist1;time=2026-08-25T11:00:00.000Z;msgid=h1 :bob!bob@host PRIVMSG #seance :alice: seen",
+			":irc.test BATCH -hist1"
+		);
+
+		expect(added().map((e) => [e.msgid, e.read])).to.deep.equal([["h1", true]]);
+	});
+
+	it("lists no original an edit already replaced, arriving after it", function () {
+		const h = setup();
+		joined(h);
+		h.transport.line(
+			"@time=2026-08-25T12:10:00.000Z;msgid=e1;+seance/edit=o1 :bob!bob@host PRIVMSG #seance :alice: fixed"
+		);
+		const edit = added().map((e) => e.msgid);
+		h.transport.line(
+			"@time=2026-08-25T12:09:00.000Z;msgid=o1 :bob!bob@host PRIVMSG #seance :alice: typo"
+		);
+
+		expect(added().map((e) => e.msgid)).to.deep.equal(edit);
+	});
+
+	it("lists no original an edit already replaced, in a history page", function () {
+		const h = setup();
+		const label = join(h)
+			.find((l) => l.includes("CHATHISTORY"))
+			?.match(/^@label=([^ ;]+)/)?.[1];
+		h.transport.line(
+			"@time=2026-08-25T12:10:00.000Z;msgid=e1;+seance/edit=o1 :bob!bob@host PRIVMSG #seance :alice: fixed"
+		);
+		const edit = added().map((e) => e.msgid);
+		h.transport.lines(
+			`${label ? `@label=${label} ` : ""}:irc.test BATCH +hist1 chathistory #seance`,
+			"@batch=hist1;time=2026-08-25T12:09:00.000Z;msgid=o1 :bob!bob@host PRIVMSG #seance :alice: typo",
+			":irc.test BATCH -hist1"
+		);
+
+		expect(added().map((e) => e.msgid)).to.deep.equal(edit);
 	});
 
 	it("marks a query's entry as one for the whole conversation", function () {
