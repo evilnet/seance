@@ -89,8 +89,14 @@ socket.on("msg", function (data) {
 	let shellAlerted = false;
 
 	if (data.msg.self) {
-		// Our own JOIN in a catch-up is not reading the channel (IrcClient.pushMessage).
-		if (!data.replay || SAID_TYPES.has(data.msg.type ?? MessageType.MESSAGE)) {
+		// Our own JOIN in a catch-up is not reading the channel, and a line
+		// of ours placed among older rows does not move the marker back
+		// (IrcClient.pushMessage).
+		if (
+			!data.replay ||
+			(SAID_TYPES.has(data.msg.type ?? MessageType.MESSAGE) &&
+				(!data.placed || !channel.firstUnread || data.msg.id > channel.firstUnread))
+		) {
 			channel.firstUnread = data.msg.id;
 		}
 	} else if (!data.replay && (!data.msg.editOf || data.msg.highlight)) {

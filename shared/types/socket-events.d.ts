@@ -267,6 +267,12 @@ interface ServerToClientEvents {
 		 * but do not notify or play a sound.
 		 */
 		replay?: boolean;
+		/**
+		 * A catch-up line placed among rows already shown, by its server
+		 * time (irc/history.ts `placeByTime`): its id lies between its
+		 * neighbours', and a line of ours never moves `firstUnread` back.
+		 */
+		placed?: boolean;
 	}>;
 	/**
 	 * Unread mentions for the inbox (docs/projects/inbox.md): a live or

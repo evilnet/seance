@@ -3651,13 +3651,16 @@ export class IrcClient {
 	 * `increasesUnread` is ignored; the flag travels on the `msg` event so
 	 * the consumer skips notifications. An unread highlight, replayed or
 	 * not, also goes out as `inbox:add`. `ids`: the catch-up's own block
-	 * ({@link reserveIds}), while it lasts.
+	 * ({@link reserveIds}), while it lasts. `id`: a catch-up line placed
+	 * among the rows already shown, by its time (history.ts `placeByTime`):
+	 * it takes that id, is not the channel's newest line, and a line of ours
+	 * moves `firstUnread` only forward.
 	 */
 	pushMessage(
 		chan: Channel,
 		partial: Partial<SharedMsg>,
 		increasesUnread = false,
-		{replay = false, ids}: {replay?: boolean; ids?: IdBlock} = {}
+		{replay = false, ids, id}: {replay?: boolean; ids?: IdBlock; id?: number} = {}
 	): SharedMsg {
 		const msg: SharedMsg = {
 			users: [],
@@ -3672,9 +3675,14 @@ export class IrcClient {
 			return msg;
 		}
 
-		msg.id = ids && ids.next < ids.end ? ids.next++ : this.ids.msgId();
+		const placed = id !== undefined;
+		msg.id = placed ? id : ids && ids.next < ids.end ? ids.next++ : this.ids.msgId();
 		const ref = chan.remember(msg);
-		chan.newestRef = ref;
+
+		if (!placed || !chan.newestRef) {
+			chan.newestRef = ref;
+		}
+
 		this.noteCursor(msg);
 
 		if (chan.type === ChanType.QUERY) {
@@ -3694,7 +3702,10 @@ export class IrcClient {
 			// are not (a reconnect must not advance the read marker), and
 			// replayed by a catch-up they leave the counters and the
 			// new-messages line where the lines before them put them.
-			if (said || !replay) {
+			if (
+				!replay ||
+				(said && (!placed || !shared.firstUnread || msg.id > shared.firstUnread))
+			) {
 				shared.firstUnread = msg.id;
 			}
 
@@ -3735,6 +3746,7 @@ export class IrcClient {
 			unread: shared.unread,
 			highlight: shared.highlight,
 			...(replay ? {replay: true} : {}),
+			...(placed ? {placed: true} : {}),
 		});
 		this.settleLateOriginal(chan, msg);
 
