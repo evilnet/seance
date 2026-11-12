@@ -161,7 +161,6 @@ import ChatInput from "./ChatInput.vue";
 import ChatUserList from "./ChatUserList.vue";
 import SidebarToggle from "./SidebarToggle.vue";
 import MessageSearchForm from "./MessageSearchForm.vue";
-import ListBans from "./Special/ListBans.vue";
 import ListInvites from "./Special/ListInvites.vue";
 import ListExcepts from "./Special/ListExcepts.vue";
 import ListIgnored from "./Special/ListIgnored.vue";
@@ -316,8 +315,6 @@ export default defineComponent({
 
 		const specialComponent = computed(() => {
 			switch (props.channel.special) {
-				case SpecialChanType.BANLIST:
-					return ListBans as Component;
 				case SpecialChanType.INVITELIST:
 					return ListInvites as Component;
 				case SpecialChanType.EXCEPTLIST:

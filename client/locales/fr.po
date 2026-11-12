@@ -6,6 +6,526 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): the same mask is already on the list.
+#: client/components/BanDialog.vue
+msgctxt "ban.alreadySet"
+msgid "This ban is already set."
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): said after it worked, before the dialog closes.
+#: client/components/BanDialog.vue
+msgctxt "ban.banned"
+msgid "Banned."
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): button that closes it.
+#: client/components/BanDialog.vue
+msgctxt "ban.cancel"
+msgid "Cancel"
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): the mask field is empty.
+#: client/js/helpers/channelBans.ts
+msgctxt "ban.check.empty"
+msgid "Enter a mask."
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): why a typed mask cannot be sent.
+#: client/js/helpers/channelBans.ts
+msgctxt "ban.check.invalid"
+msgid "A mask can't contain spaces or start with a colon."
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): a ban on the list already catches this. {mask} is that ban's mask, verbatim.
+#: client/components/BanDialog.vue
+msgctxt "ban.covered"
+msgid "Already covered by {mask}."
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): link that switches the dialog to the ban just named.
+#: client/components/BanDialog.vue
+msgctxt "ban.editThat"
+msgid "Edit that ban"
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): switch that also kicks whoever the mask catches in the channel.
+#: client/components/BanDialog.vue
+msgctxt "ban.kick"
+msgid "Kick them too"
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): note when too many people match to kick from here.
+#: client/components/BanDialog.vue
+msgctxt "ban.kickTooMany"
+msgid "More than {count} person matches, so nobody will be kicked."
+msgid_plural "More than {count} people match, so nobody will be kicked."
+msgstr[0] ""
+msgstr[1] ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): said after a kick with no new ban, before the dialog closes.
+#: client/components/BanDialog.vue
+msgctxt "ban.kicked"
+msgid "Kicked."
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): shown while the server is asked for the person's address.
+#: client/components/BanDialog.vue
+msgctxt "ban.lookingUp"
+msgid "Looking them up…"
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): label of the mask field.
+#: client/components/BanDialog.vue
+msgctxt "ban.mask"
+msgid "Mask"
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): placeholder of the mask field: the shape of a mask. Leave it as it is unless your language writes these differently.
+#: client/components/BanDialog.vue
+msgctxt "ban.maskPlaceholder"
+msgid "nick!user@host"
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): nothing could be sent.
+#: client/components/BanDialog.vue
+msgctxt "ban.notConnected"
+msgid "Not sent: the connection is down."
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): who in the channel matches the mask, when there are too many to name. {nicks} is a list of nicks; {more} is a number.
+#: client/components/BanDialog.vue
+msgctxt "ban.preview.more"
+msgid "Matches {count} person here now: {nicks} and {more} more"
+msgid_plural "Matches {count} people here now: {nicks} and {more} more"
+msgstr[0] ""
+msgstr[1] ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): nobody in the channel matches the mask.
+#: client/components/BanDialog.vue
+msgctxt "ban.preview.none"
+msgid "Matches nobody here now"
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): who in the channel matches the mask. {nicks} is a list of nicks, verbatim.
+#: client/components/BanDialog.vue
+msgctxt "ban.preview.some"
+msgid "Matches {count} person here now: {nicks}"
+msgid_plural "Matches {count} people here now: {nicks}"
+msgstr[0] ""
+msgstr[1] ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): label of the reason field. A ban has no reason of its own; this goes with the kick.
+#: client/components/BanDialog.vue
+msgctxt "ban.reason"
+msgid "Reason for the kick"
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): placeholder of the reason field.
+#: client/components/BanDialog.vue
+msgctxt "ban.reasonPlaceholder"
+msgid "Optional"
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): button that removes the ban being edited.
+#: client/components/BanDialog.vue
+msgctxt "ban.remove"
+msgid "Remove ban"
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): said after the ban went, before the dialog closes.
+#: client/components/BanDialog.vue
+msgctxt "ban.removed"
+msgid "Removed."
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): warning that the server will delete bans this wider one covers.
+#: client/components/BanDialog.vue
+msgctxt "ban.replaces"
+msgid "Replaces {count} narrower ban."
+msgid_plural "Replaces {count} narrower bans."
+msgstr[0] ""
+msgstr[1] ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): button that replaces the ban with the edited mask.
+#: client/components/BanDialog.vue
+msgctxt "ban.save"
+msgid "Save"
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): said after an edit worked, before the dialog closes.
+#: client/components/BanDialog.vue
+msgctxt "ban.saved"
+msgid "Saved."
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): the button's text while the server answers.
+#: client/components/BanDialog.vue
+msgctxt "ban.sending"
+msgid "Sending…"
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): no answer in time.
+#: client/components/BanDialog.vue
+msgctxt "ban.silent"
+msgid "The server did not answer."
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): button that sets the ban.
+#: client/components/BanDialog.vue
+msgctxt "ban.submit"
+msgid "Ban"
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): the same button when the ban is already covered and only the kick is left to do.
+#: client/components/BanDialog.vue
+msgctxt "ban.submitKick"
+msgid "Kick"
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): tooltip of a suggested mask matching a logged-in account.
+#: client/js/helpers/channelBans.ts
+msgctxt "ban.suggest.account"
+msgid "Their account"
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): tooltip of a suggested mask matching anyone on the person's host.
+#: client/js/helpers/channelBans.ts
+msgctxt "ban.suggest.host"
+msgid "This address"
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): tooltip of a suggested mask matching the person's username on their host.
+#: client/js/helpers/channelBans.ts
+msgctxt "ban.suggest.identHost"
+msgid "This username at this address"
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): tooltip of a suggested mask an IRC operator can see.
+#: client/js/helpers/channelBans.ts
+msgctxt "ban.suggest.ip"
+msgid "Their real IP address"
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): tooltip of a suggested mask matching the nick alone.
+#: client/js/helpers/channelBans.ts
+msgctxt "ban.suggest.nick"
+msgid "This nick, from anywhere"
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): tooltip of the widest suggested mask.
+#: client/js/helpers/channelBans.ts
+msgctxt "ban.suggest.wide"
+msgid "Everyone on this provider"
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): title when opened with nobody in mind. {channel} is verbatim.
+#: client/components/BanDialog.vue
+msgctxt "ban.titleAdd"
+msgid "Add a ban to {channel}"
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): title when changing a ban already set. {channel} is verbatim.
+#: client/components/BanDialog.vue
+msgctxt "ban.titleEdit"
+msgid "Edit ban in {channel}"
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): title when it is about someone. {nick} and {channel} are verbatim.
+#: client/components/BanDialog.vue
+msgctxt "ban.titleNick"
+msgid "Ban {nick} from {channel}"
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): the server accepted the command and did nothing.
+#: client/components/BanDialog.vue
+msgctxt "ban.unchanged"
+msgid "The server changed nothing. It may not take this kind of ban, or a ban already covers it."
+msgstr ""
+
+#. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): warning that the mask catches the reader.
+#: client/components/BanDialog.vue
+msgctxt "ban.you"
+msgid "This would ban you too."
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): button that opens the empty ban dialog.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.add"
+msgid "Add ban"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): note at the bottom when the server had nothing to remove.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.alreadyGone"
+msgid "That ban was already gone."
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): accessible name of the window. {channel} is the channel's name, verbatim.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.aria"
+msgid "Bans in {channel}"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): how many bans the list shows after filtering.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.count"
+msgid "{count} ban"
+msgid_plural "{count} bans"
+msgstr[0] ""
+msgstr[1] ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): entry on a row's menu: opens the ban in the ban dialog.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.edit"
+msgid "Edit…"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): the channel has no bans. {channel} is the channel's name, verbatim.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.empty"
+msgid "No bans in {channel}"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): filter chip showing bans on a logged-in account.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.filter.account"
+msgid "Accounts"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): filter chip showing bans on a nick, user or host.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.filter.address"
+msgid "Addresses"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): filter chip showing every ban.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.filter.all"
+msgid "All"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): filter chip showing the bans the reader set.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.filter.mine"
+msgid "Set by you"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): filter chip showing every other kind of ban (real name, channel, muted…).
+#: client/components/Windows/BanList.vue
+msgctxt "bans.filter.other"
+msgid "Other"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): accessible name of the row of filter chips.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.filters"
+msgid "Filter bans"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): tag on a ban that matches a logged-in account.
+#: client/js/irc/profiles/nefarious/extbans.ts
+msgctxt "bans.kind.account"
+msgid "Account"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): tag on a ban that matches people in another channel.
+#: client/js/irc/profiles/nefarious/extbans.ts
+msgctxt "bans.kind.channel"
+msgid "Other channel"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): tag on a kind of extended ban Seance has no name for.
+#: client/js/irc/profiles/nefarious/extbans.ts
+msgctxt "bans.kind.extended"
+msgid "Extended"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): tag on a ban that borrows another channel's ban list.
+#: client/js/irc/profiles/nefarious/extbans.ts
+msgctxt "bans.kind.linked"
+msgid "Shared list"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): tag on a ban that matches a mark the server put on people.
+#: client/js/irc/profiles/nefarious/extbans.ts
+msgctxt "bans.kind.mark"
+msgid "Marked"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): tag on a ban that stops people changing their nick.
+#: client/js/irc/profiles/nefarious/extbans.ts
+msgctxt "bans.kind.noNick"
+msgid "No nick changes"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): tag on a ban that stops people talking but lets them stay.
+#: client/js/irc/profiles/nefarious/extbans.ts
+msgctxt "bans.kind.quiet"
+msgid "Muted"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): tag on a ban that matches the real name field.
+#: client/js/irc/profiles/nefarious/extbans.ts
+msgctxt "bans.kind.realname"
+msgid "Real name"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): how many of the bans the server allows a channel are taken. {used} and {limit} are numbers.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.limit"
+msgid "{used} of {limit} used"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): shown while the server sends the list.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.loading"
+msgid "Loading…"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): shown when the list never came.
+#: client/js/irc/banList.ts
+msgctxt "bans.noAnswer"
+msgid "The server did not answer."
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): empty result of a search. {query} is what was typed, verbatim.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.noMatches"
+msgid "No ban matches {query}"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): the chosen filter has no bans.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.noneHere"
+msgid "Nothing in this view"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): explanation under "Not connected".
+#: client/components/Windows/BanList.vue
+msgctxt "bans.offlineNote"
+msgid "The list comes from the server; it loads once the network is back."
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): note above the list when the reader cannot change bans.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.readOnly"
+msgid "Only channel operators can change these."
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): heading above the server's own words when it refuses the list.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.refused"
+msgid "The server would not show this list"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): note at the bottom after several bans went.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.removedMany"
+msgid "Removed {count} ban"
+msgid_plural "Removed {count} bans"
+msgstr[0] ""
+msgstr[1] ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): note at the bottom after a ban went. {mask} is the ban's mask, verbatim.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.removedOne"
+msgid "Removed {mask}"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): accessible name of the search field.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.search"
+msgid "Search bans"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): placeholder of the search field. Pasting someone's user@host finds the bans that catch them.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.searchPlaceholder"
+msgid "Search masks and who set them, or paste an address"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): under a ban's mask when the server gave no time. {who} is a nick, verbatim.
+#: client/js/helpers/banMenu.ts
+msgctxt "bans.setBy"
+msgid "Set by {who}"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): under a ban's mask. {who} is a nick, verbatim; {when} is a relative time such as "3 days ago".
+#: client/js/helpers/banMenu.ts
+msgctxt "bans.setByWhen"
+msgid "Set by {who}, {when}"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): sort choice, alphabetical by the ban's mask.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.sort.mask"
+msgid "By mask"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): sort choice.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.sort.newest"
+msgid "Newest first"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): sort choice.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.sort.oldest"
+msgid "Oldest first"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): sort choice, alphabetical by who set the ban.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.sort.setter"
+msgid "By who set them"
+msgstr ""
+
+#. Bans window: who a ban was set by, when the server did not name anyone. Fills {who} in "Set by {who}".
+#: client/js/helpers/banMenu.ts
+msgctxt "bans.theServer"
+msgid "the server"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): the window's heading, next to the channel's name.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.title"
+msgid "Bans"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): the button on each row, and the same entry on a row's menu: removes that ban.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.unban"
+msgid "Unban"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): button that removes every ban the list shows, and the title and button of its confirmation.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.unbanAll"
+msgid "Unban {count}"
+msgid_plural "Unban these {count}"
+msgstr[0] ""
+msgstr[1] ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): the confirmation before removing every ban shown. {channel} is the channel's name, verbatim.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.unbanAllText"
+msgid "Remove {count} ban from {channel}?"
+msgid_plural "Remove {count} bans from {channel}?"
+msgstr[0] ""
+msgstr[1] ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): accessible name of a row's Unban button. {mask} is the ban's mask, verbatim.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.unbanMask"
+msgid "Unban {mask}"
+msgstr ""
+
+#. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): button next to the note that a ban was removed: puts it back.
+#: client/components/Windows/BanList.vue
+msgctxt "bans.undo"
+msgid "Undo"
+msgstr ""
+
 #. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): heading of the full list.
 #: client/components/Windows/ChannelBrowser.vue
 msgctxt "browse.all"
@@ -3582,12 +4102,6 @@ msgctxt "list.isEmpty"
 msgid "{kind} is empty"
 msgstr "{kind} est vide"
 
-#. Name of the channel-ban (+b) list, inserted into '{kind} is empty' and '{kind} for {channel}'.
-#: client/js/irc/handlers/lists.ts
-msgctxt "list.kindBans"
-msgid "Ban list"
-msgstr "Liste des bannissements"
-
 #. Name of the ban-exception (+e) list, inserted into '{kind} is empty' and '{kind} for {channel}'.
 #: client/js/irc/handlers/lists.ts
 msgctxt "list.kindExcepts"
@@ -3910,6 +4424,18 @@ msgid "{count} unread"
 msgid_plural "{count} unread"
 msgstr[0] "{count} non lu"
 msgstr[1] "{count} non lus"
+
+#. Menu on a nick in a channel: opens the ban dialog for that person.
+#: client/js/helpers/contextMenu.ts
+msgctxt "menu.ban"
+msgid "Ban…"
+msgstr ""
+
+#. Menu on a user@host address in a join, part or quit line: opens the ban dialog for that address. {channel} is the channel's name, verbatim.
+#: client/js/helpers/banMenu.ts
+msgctxt "menu.banFrom"
+msgid "Ban from {channel}…"
+msgstr ""
 
 #. The word for a group chat room, filling {type} in the context-menu mute items. Lowercase mid-sentence.
 #: client/js/helpers/contextMenu.ts
@@ -14438,24 +14964,6 @@ msgid "{count} unread message"
 msgid_plural "{count} unread messages"
 msgstr[0] "{count} message non lu"
 msgstr[1] "{count} messages non lus"
-
-#. Column header of the channel-ban list: the banned hostmask, verbatim server data.
-#: client/components/Special/ListBans.vue
-msgctxt "special.bans.banned"
-msgid "Banned"
-msgstr "Banni"
-
-#. Column header of the channel-ban list: when the ban was set, locale-formatted.
-#: client/components/Special/ListBans.vue
-msgctxt "special.bans.bannedAt"
-msgid "Banned At"
-msgstr "Banni le"
-
-#. Column header of the channel-ban list: the operator who set the ban, verbatim.
-#: client/components/Special/ListBans.vue
-msgctxt "special.bans.bannedBy"
-msgid "Banned By"
-msgstr "Banni par"
 
 #. Column header of the ban-exception list: the exempted hostmask, verbatim server data.
 #: client/components/Special/ListExcepts.vue

@@ -13,6 +13,7 @@ import {
 import {TypedStore} from "../store";
 import useCloseChannel from "../hooks/use-close-channel";
 import {ChanType} from "../../../shared/types/chan";
+import {banItem, holdsChannelPower} from "./banMenu";
 import {isOperOn, operChannelItems, operUserItems} from "./operMenu";
 import {ignoreListFor} from "../ignore";
 
@@ -178,12 +179,8 @@ export function generateChannelContextMenu(
 			label: t("menu.listBanned"),
 			type: "item",
 			class: "list",
-			action() {
-				socket.emit("input", {
-					target: channel.id,
-					text: "/banlist",
-				});
-			},
+			// The Bans window asks the server itself when it opens.
+			link: `/bans/${network.uuid}/${encodeURIComponent(channel.name)}`,
 		});
 	}
 
@@ -360,7 +357,9 @@ export function generateUserContextMenu(
 	store: TypedStore,
 	channel: ClientChan,
 	network: ClientNetwork,
-	user: Pick<ClientUser, "nick" | "modes">
+	user: Pick<ClientUser, "nick" | "modes">,
+	/** `ident@host` when the nick was clicked in a line that shows it. */
+	address?: string
 ): ContextMenuItem[] {
 	const currentChannelUser: ClientUser | Record<string, never> = channel
 		? channel.users.find((u) => u.nick === network.nick) || {}
@@ -518,8 +517,7 @@ export function generateUserContextMenu(
 		}
 	});
 
-	// Determine if we are half-op or op depending on the network modes so we can kick.
-	if (!compare(networkModeSymbols.indexOf("%") > -1 ? "%" : "@", currentChannelUser.modes[0])) {
+	if (holdsChannelPower(networkModeSymbols, currentChannelUser.modes)) {
 		// Check if the target user has no mode or a mode lower than ours.
 		if (user.modes.length === 0 || compare(currentChannelUser.modes[0], user.modes[0])) {
 			items.push({
@@ -533,6 +531,11 @@ export function generateUserContextMenu(
 					});
 				},
 			});
+		}
+
+		if (channel.type === ChanType.CHANNEL && user.nick !== network.nick) {
+			const target = {nick: user.nick, address};
+			items.push(banItem(network, channel.name, t("menu.ban"), target));
 		}
 	}
 

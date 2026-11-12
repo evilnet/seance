@@ -3,7 +3,8 @@
  * Ported from attic/server/plugins/irc-events/modelist.ts (which consumed
  * irc-framework's accumulated `banlist` / `inviteList` events).
  *
- * Entries accumulate per client + channel until the end numeric, which
+ * +b goes to `IrcClient.bans` (banList.ts) and the Bans window. For the other
+ * two, entries accumulate per client + channel until the end numeric, which
  * either opens (`join`) or refreshes (`msg:special`) a `ChanType.SPECIAL`
  * window named `<List name> for <channel>`, or reports "<List name> is
  * empty" when nothing came back. nefarious2 sends
@@ -22,8 +23,8 @@ import type {IrcMessage} from "../message";
 import type {Handler} from "../types";
 import {showSpecial} from "./list";
 
-/** Row shape `Special/ListBans.vue` and `Special/ListExcepts.vue` render. */
-export interface BanEntry {
+/** Row shape `Special/ListExcepts.vue` renders. */
+export interface ExceptEntry {
 	hostmask: string;
 	banned_by: string;
 	banned_at?: Date;
@@ -44,17 +45,17 @@ interface RawEntry {
 
 interface ListKind {
 	/** Mode letter; keys the accumulation buffer. */
-	mode: "b" | "I" | "e";
+	mode: "I" | "e";
 	/** The human name, resolved at use: window title prefix and "is empty"
 	 * text. A resolver keeps every t() call a plain literal (the pot ↔
 	 * call-site scanner only sees direct calls). */
 	label: () => string;
 	/** Which special-channel component renders the window. */
 	special: SpecialChanType;
-	toRow: (entry: RawEntry) => BanEntry | InviteEntry;
+	toRow: (entry: RawEntry) => ExceptEntry | InviteEntry;
 }
 
-const toBan = (entry: RawEntry): BanEntry => ({
+const toExcept = (entry: RawEntry): ExceptEntry => ({
 	hostmask: entry.mask,
 	banned_by: entry.by,
 	banned_at: entry.at,
@@ -66,24 +67,17 @@ const toInvite = (entry: RawEntry): InviteEntry => ({
 	invited_at: entry.at,
 });
 
-const BANS: ListKind = {
-	mode: "b",
-	label: () => t("list.kindBans"),
-	special: SpecialChanType.BANLIST,
-	toRow: toBan,
-};
 const INVITES: ListKind = {
 	mode: "I",
 	label: () => t("list.kindInvites"),
 	special: SpecialChanType.INVITELIST,
 	toRow: toInvite,
 };
-// +e entries share the ban row shape; `ListExcepts.vue` only changes the headers.
 const EXCEPTS: ListKind = {
 	mode: "e",
 	label: () => t("list.kindExcepts"),
 	special: SpecialChanType.EXCEPTLIST,
-	toRow: toBan,
+	toRow: toExcept,
 };
 
 /** Per-client accumulation buffers keyed by `<mode>:<casefolded channel>`. */
@@ -169,8 +163,24 @@ function finish(kind: ListKind, client: IrcClient, msg: IrcMessage): void {
 	showSpecial(client, name, kind.special, data, channel);
 }
 
-const banList: Handler = (client, msg) => accumulate(BANS, client, msg);
-const endOfBanList: Handler = (client, msg) => finish(BANS, client, msg);
+const banList: Handler = (client, msg) => {
+	const [, channel, mask, by = "", at] = msg.params;
+
+	if (channel && mask) {
+		client.bans.addRow(channel, {mask, by, at: parseListTime(at)?.getTime()});
+	}
+};
+
+// A list nobody asked for is a typed `/mode #chan b`: it opens the window.
+const endOfBanList: Handler = (client, msg) => {
+	const channel = msg.params[1];
+
+	if (channel) {
+		const asked = client.bans.finish(channel, Date.now());
+		client.dispatchBans(channel, !asked);
+	}
+};
+
 const inviteList: Handler = (client, msg) => accumulate(INVITES, client, msg);
 const endOfInviteList: Handler = (client, msg) => finish(INVITES, client, msg);
 const exceptList: Handler = (client, msg) => accumulate(EXCEPTS, client, msg);

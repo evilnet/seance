@@ -535,7 +535,6 @@
   "link.trustTitleShown": "Mindig látható ({scopes}) — módosítás",
   "link.tryAgain": "Kattints az újrapróbáláshoz",
   "list.isEmpty": "{kind} üres",
-  "list.kindBans": "Kitiltási lista",
   "list.kindExcepts": "Kivétellista",
   "list.kindInvites": "Meghívólista",
   "list.windowTitle": "{kind} – {channel}",
@@ -2397,9 +2396,6 @@
     "one": "{count} olvasatlan üzenet",
     "other": "{count} olvasatlan üzenet"
   },
-  "special.bans.banned": "Kitiltva",
-  "special.bans.bannedAt": "Kitiltás ideje",
-  "special.bans.bannedBy": "Kitiltotta",
   "special.excepts.exempted": "Kivétel",
   "special.excepts.exemptedAt": "Kivétel ideje",
   "special.excepts.exemptedBy": "Kivételt beállította",
