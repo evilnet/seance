@@ -2612,6 +2612,78 @@ describe("service worker read markers against late pushes", function () {
 	});
 });
 
+describe("service worker merged notification time", function () {
+	// Push services may deliver out of order (RFC 8030). A conversation's
+	// pushes merge into one card, whose `time` the read relay's close and
+	// Mark read compare: it is the newest message the card holds, not the
+	// push that arrived last.
+	const IOS_UA =
+		"Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148";
+	const OLDER = "2026-09-02T20:00:01.000Z";
+	const NEWER = "2026-09-02T20:00:02.000Z";
+	const BETWEEN = "2026-09-02T20:00:01.500Z";
+
+	/** Two messages pushed newest first. */
+	async function newestFirst(sw: SWHarness): Promise<void> {
+		await firePush(
+			sw,
+			`{"t":"msg","from":"alice","target":"pushtest","msgid":"oo2","time":"${NEWER}","text":"second"}`
+		);
+		await firePush(
+			sw,
+			`{"t":"msg","from":"alice","target":"pushtest","msgid":"oo1","time":"${OLDER}","text":"first"}`
+		);
+	}
+
+	function cards(sw: SWHarness): Rec[] {
+		return sw.records.filter((n) => !n.closed && n.data.kind === "push");
+	}
+
+	it("carries the newest message's time, whatever order the pushes came in", async function () {
+		const sw = makeSW();
+
+		await newestFirst(sw);
+
+		const live = cards(sw);
+		expect(live).to.have.lengthOf(1);
+		expect(live[0].data.count).to.equal(2);
+		expect(live[0].data.time).to.equal(NEWER);
+	});
+
+	it("a relay between the two times leaves the card on Chrome", async function () {
+		const sw = makeSW({fastTimers: true});
+
+		await newestFirst(sw);
+		await firePush(sw, `{"t":"read","target":"alice","ts":"${BETWEEN}"}`);
+		await new Promise((r) => setTimeout(r, 30));
+
+		const live = cards(sw);
+		expect(live, "the card holds an unread message").to.have.lengthOf(1);
+		expect(live[0].data.messages!.map((m) => m.text)).to.include("second");
+	});
+
+	it("a relay between the two times leaves the card under WebKit", async function () {
+		const sw = makeSW({userAgent: IOS_UA});
+
+		await newestFirst(sw);
+		await firePush(sw, `:irc.testnet.local MARKREAD alice timestamp=${BETWEEN}`);
+
+		const live = cards(sw);
+		expect(live, "the card holds an unread message").to.have.lengthOf(1);
+		expect(live[0].data.messages!.map((m) => m.text)).to.include("second");
+	});
+
+	it("Mark read on the merged card marks the newest message", async function () {
+		this.timeout(8000);
+		const sw = makeSW();
+
+		await newestFirst(sw);
+		await fireClick(sw, cards(sw)[0], "markread");
+
+		expect(sw.lastSent()).to.include(`MARKREAD alice timestamp=${NEWER}`);
+	});
+});
+
 describe("service worker push log", function () {
 	// The worker writes what it did with each push into IndexedDB
 	// (`pushlog`), for Settings → Notifications → Diagnostics: the one way to

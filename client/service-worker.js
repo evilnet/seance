@@ -2301,6 +2301,12 @@ async function showMessage(P, parsed, checkSeen, mustShow = false, silent = fals
 	}
 
 	const count = ((prev && prev.count) || 0) + (added.isNew ? 1 : 0);
+	// The card's time is its newest message, never the push that arrived
+	// last: pushes can come out of order, and the relay's close and Mark
+	// read compare this time with the read marker.
+	const prevTime = prev && typeof prev.time === "string" ? prev.time : undefined;
+	const cardTime =
+		prevTime && (!time || Date.parse(prevTime) > Date.parse(time)) ? prevTime : time;
 	const body = P.renderMergedBody(added.entries, isChannel, (text) =>
 		P.notificationText(text, {markdown})
 	);
@@ -2346,14 +2352,14 @@ async function showMessage(P, parsed, checkSeen, mustShow = false, silent = fals
 		silent,
 		icon: "img/icon-192.png",
 		body,
-		timestamp: time ? Date.parse(time) : undefined,
+		timestamp: cardTime ? Date.parse(cardTime) : undefined,
 		data: {
 			kind: "push",
 			count,
 			from: parsed.nick,
 			target: replyTo,
 			network,
-			time,
+			time: cardTime,
 			messages: added.entries,
 		},
 		actions,
