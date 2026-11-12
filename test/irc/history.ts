@@ -1075,6 +1075,83 @@ describe("Chat history (history.ts)", function () {
 			expect(rowsByStore(h)).to.deep.equal(["o", "join-1", "h", "a"]);
 		});
 
+		it("#290: a line older than everything held takes a fresh id below every other, not a fraction", function () {
+			// A fraction next to the first row would lie in the unit above an
+			// integer id that may be another channel's row, and two channels
+			// could mint the same one (translations are kept by id).
+			const h = setup();
+			joined(h);
+			h.transport.line(said("h", "12:00:02"));
+			const sent = reconnect(h);
+			reply(h, sent, [said("o", "11:59:58"), said("h", "12:00:02"), said("a", "12:05")]);
+
+			const chan = h.client.findChannel("#seance")!;
+			const o = chan.idOf("o")!;
+			expect(Number.isInteger(o), `id ${o}`).to.equal(true);
+			expect(Math.min(...chan.msgRefs.keys())).to.equal(o);
+		});
+
+		it("a line that runs out of room between its neighbours is still not the newest", function () {
+			// Each reconnect brings a line just after h, splitting the same gap
+			// again, until the ids run out of precision and the line falls back
+			// to the reserved block.
+			const h = setup();
+			joined(h);
+			h.transport.lines(said("h", "12:10"), said("i", "12:14"));
+			const chan = h.client.findChannel("#seance")!;
+			const after = (n: number) =>
+				`@time=2026-08-25T12:10:00.${String(999 - n).padStart(
+					3,
+					"0"
+				)}Z;msgid=x${n} :bob!bob@host PRIVMSG #seance :x${n}`;
+
+			for (let n = 0; n < 60; n++) {
+				const sent = reconnect(h);
+				reply(h, sent, [said("h", "12:10"), after(n), said("i", "12:14")]);
+				expect(chan.newestRef?.msgid, `after ${n + 1} splits`).to.equal("i");
+			}
+		});
+
+		it("moves the unread marker back above a placed line that counts as unread", function () {
+			// The rejoin's own JOIN put the marker at itself; a gap line older
+			// than it but unread must not sit above the marker.
+			// h1 and h3 come with the JOIN's own history page, so their ids are
+			// below the JOIN row's, as in tools/scenarios/catchup-gap-order.mjs.
+			const h = setup();
+			joined(h, [said("h1", "11:30"), said("h3", "11:32")]);
+			const chan = h.client.findChannel("#seance")!;
+			const sent = reconnect(h);
+			h.transport.line(said("live", "12:31", "carol"));
+			reply(h, sent, [
+				said("h3", "11:32"),
+				said("g1", "11:50"),
+				said("g2", "11:51"),
+				said("live", "12:31", "carol"),
+			]);
+
+			expect(chan.shared.firstUnread).to.be.lessThan(chan.idOf("g1")!);
+			expect(chan.shared.firstUnread).to.equal(chan.idOf("h3"));
+		});
+
+		it("sends the marker it moved back with a placed line that counts as unread", function () {
+			const h = setup();
+			joined(h, [said("h1", "11:30"), said("h3", "11:32")]);
+			const chan = h.client.findChannel("#seance")!;
+			const sent = reconnect(h);
+			dispatch.resetHistory();
+			reply(h, sent, [said("h3", "11:32"), said("g1", "11:50"), said("g2", "11:51")]);
+
+			const events = dispatch
+				.getCalls()
+				.filter((c) => c.args[0] === "msg")
+				.map((c) => c.args[1] as {msg: SharedMsg; placed?: boolean; firstUnread?: number});
+			const g1 = events.find((p) => p.msg.msgid === "g1");
+			expect(g1?.placed).to.equal(true);
+			expect(g1?.firstUnread).to.equal(chan.idOf("h3"));
+			// Already above g2: nothing to send.
+			expect(events.find((p) => p.msg.msgid === "g2")?.firstUnread).to.equal(undefined);
+		});
+
 		it("a line of ours placed among the held rows does not move the unread marker back", function () {
 			// Something we said live during the walk read everything before
 			// it; an older line of ours the walk brings must not undo that.

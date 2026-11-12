@@ -99,6 +99,10 @@ socket.on("msg", function (data) {
 		) {
 			channel.firstUnread = data.msg.id;
 		}
+	} else if (data.firstUnread !== undefined) {
+		// Unread, but placed below the marker by its time (irc/history.ts
+		// `placeByTime`): the IRC side moved the marker back above it.
+		channel.firstUnread = Math.min(channel.firstUnread, data.firstUnread);
 	} else if (!data.replay && (!data.msg.editOf || data.msg.highlight)) {
 		// An edit is not news (it replaces a message in place) unless it
 		// brings a highlight with it.

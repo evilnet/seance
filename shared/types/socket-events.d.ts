@@ -273,6 +273,11 @@ interface ServerToClientEvents {
 		 * neighbours', and a line of ours never moves `firstUnread` back.
 		 */
 		placed?: boolean;
+		/**
+		 * A placed line that counts as unread below the marker: the marker
+		 * moved back to this row id, just above it.
+		 */
+		firstUnread?: number;
 	}>;
 	/**
 	 * Unread mentions for the inbox (docs/projects/inbox.md): a live or

@@ -548,24 +548,31 @@ function deliverPrepend(
  * row when every one is newer; the lines are taken oldest first, so a run
  * keeps its server order. Its id lies between its neighbours' ids, which
  * is what the store orders rows by (helpers/messageUpdates.ts
- * `insertMessage`): a run between two rows is numbered evenly across the
- * open interval between them, never wider than one unit past the lower
- * row's integer part, so the ids are never integers and no allocator
- * (IdAllocator) can hand one out again. Lines newer than everything held
- * are left out: they take the reserved block, as before. Nothing is
- * placed without a held line that carries a msgid (no server time to
- * place against).
+ * `insertMessage`): a run after a row is numbered evenly across the open
+ * interval up to the next row, never wider than one unit past the lower
+ * row's integer part, so the ids are never integers, no allocator
+ * (IdAllocator) can hand one out again, and the unit above an integer id
+ * holds only its own channel's rows. A run before every row takes fresh
+ * history ids instead (below every id there is), not a fraction under the
+ * first row, which would lie in the unit above some other row's id. Lines
+ * newer than everything held are left out: they take the reserved block, as
+ * before. `old` holds every line that is not newer, numbered or not (out of
+ * float precision after very many splits of one gap): none of them is the
+ * channel's newest. Nothing is placed without a held line that carries a
+ * msgid (no server time to place against).
  */
 function placeByTime(
+	client: IrcClient,
 	chan: Channel,
 	messages: SharedMsg[],
 	held: ReadonlySet<string>
-): Map<SharedMsg, number> {
+): {ids: Map<SharedMsg, number>; old: Set<SharedMsg>} {
 	const placed = new Map<SharedMsg, number>();
+	const old = new Set<SharedMsg>();
 	const newest = chan.newestTimeOf(held);
 
 	if (newest === undefined) {
-		return placed;
+		return {ids: placed, old};
 	}
 
 	interface Row {
@@ -586,6 +593,8 @@ function placeByTime(
 		if (Number.isNaN(time) || time > newest) {
 			continue;
 		}
+
+		old.add(msg);
 
 		let at = rows.findIndex((row) => row.stamped);
 
@@ -612,9 +621,21 @@ function placeByTime(
 
 		const lo = rows[start - 1]?.id;
 		const hi = rows[end]?.id;
-		const from = lo ?? Math.ceil(hi ?? 1) - 1;
-		const to = Math.min(hi ?? Infinity, Math.floor(from) + 1);
 		const count = end - start;
+
+		if (lo === undefined) {
+			const fresh = client.historyIds(count);
+
+			for (let k = 0; k < count; k++) {
+				placed.set(rows[start + k].msg!, fresh[k]);
+			}
+
+			start = end;
+			continue;
+		}
+
+		const from = lo;
+		const to = Math.min(hi ?? Infinity, Math.floor(from) + 1);
 		let previous = from;
 
 		for (let k = 0; k < count; k++) {
@@ -631,7 +652,7 @@ function placeByTime(
 		start = end;
 	}
 
-	return placed;
+	return {ids: placed, old};
 }
 
 /**
@@ -646,13 +667,17 @@ function deliverAppend(
 	ids: IdBlock | undefined,
 	held?: ReadonlySet<string>
 ): void {
-	const placed = held ? placeByTime(chan, messages, held) : undefined;
+	const placed = held ? placeByTime(client, chan, messages, held) : undefined;
 
 	for (const msg of messages) {
 		// pushMessage copies; write the id back so post-replay work
 		// (`afterReplay` closures hold the collected objects) can find it.
-		const id = placed?.get(msg);
-		msg.id = client.pushMessage(chan, msg, false, {replay: true, ids, id}).id;
+		msg.id = client.pushMessage(chan, msg, false, {
+			replay: true,
+			ids,
+			id: placed?.ids.get(msg),
+			old: placed?.old.has(msg),
+		}).id;
 	}
 
 	// Unread against this device's read point only: another device may have
