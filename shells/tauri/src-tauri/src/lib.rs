@@ -813,8 +813,10 @@ pub fn run() {
                 None => show_main(app),
             },
         ))
-        .plugin(tauri_plugin_deep_link::init())
-        .plugin(tauri_plugin_window_state::Builder::default().build());
+        .plugin(tauri_plugin_deep_link::init());
+    // The Mac keeps the window's place itself (apple::place_window).
+    #[cfg(not(any(target_os = "android", target_os = "ios", target_os = "macos")))]
+    let builder = builder.plugin(tauri_plugin_window_state::Builder::default().build());
 
     #[cfg(mobile)]
     let builder = tauri::Builder::default()
@@ -875,6 +877,8 @@ pub fn run() {
             alerts::setup(app.handle());
 
             let main = create_main(app.handle())?;
+            #[cfg(target_os = "macos")]
+            apple::place_window(&main);
             enable_spell_checking(&main);
             #[cfg(desktop)]
             install_close_behaviour(app.handle())?;
