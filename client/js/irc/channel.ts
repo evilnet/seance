@@ -81,7 +81,7 @@ export function isEditAuthor(
 }
 
 /** An edit shown before its original: its msgid, and who sent it. */
-export interface WaitingEdit {
+interface WaitingEdit {
 	msgid: string;
 	by: Author;
 }
