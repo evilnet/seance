@@ -136,7 +136,7 @@ export function webpushVapidOf(value: string): string | undefined {
 }
 
 /** Parse a CAP LS/NEW/ACK list (`name[=value] ...`) into [name, value] pairs. */
-function parseCapList(list: string): [string, string][] {
+export function parseCapList(list: string): [string, string][] {
 	const result: [string, string][] = [];
 
 	for (const token of list.split(/[ \t]+/)) {

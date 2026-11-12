@@ -29,6 +29,13 @@
  * automatic one: past the 40 s window, so a refused dial cannot keep the
  * server's window open. Those long waits are {@link WsTransport.holding}:
  * the foreground poke leaves them be, and only Connect now cuts them.
+ *
+ * IPcheck counts per address, not per dialer: two networks or tabs on one
+ * host whose long waits interleave would keep the window open for each
+ * other. So every dial notes its time per host in localStorage
+ * ({@link LAST_DIAL_KEY}, shared by the page's networks and its tabs), and
+ * a long wait for a dial that never opened ends no sooner than
+ * {@link UNREACHED_RETRY_MS} after the host's last dial, whoever made it.
  */
 
 /**
@@ -37,6 +44,7 @@
  * shell's TCP socket (shellSocket.ts) another.
  */
 import type {UntrustedCertificate} from "./shellSocket";
+import storage from "../localStorage";
 
 export interface LineSocket {
 	readonly readyState: number;
@@ -99,7 +107,14 @@ export type TransportEvent =
 	// `certificate`: the app shell refused the server's certificate (ShellSocket).
 	| {type: "error"; message: string; certificate?: UntrustedCertificate}
 	// `reason`: the server said it throttled us, or the device has no network.
-	| {type: "reconnecting"; attempt: number; delayMs: number; reason?: RetryReason}
+	| {
+			type: "reconnecting";
+			attempt: number;
+			delayMs: number;
+			reason?: RetryReason;
+			// A long wait pushed back past another dial to the same host.
+			spaced?: boolean;
+	  }
 	// The scheduled retry is starting now (its wait from "reconnecting" is over).
 	| {type: "retry"; attempt: number};
 
@@ -138,6 +153,8 @@ export const UNREACHED_JITTER_MS = 5_000;
 export const OFFLINE_RETRY_MS = 30_000;
 /** The quick retries after dials that failed before opening, before the long wait. */
 export const QUICK_RETRY_MS = [1_000, 2_000, 4_000] as const;
+/** localStorage key: host name → epoch ms of its last dial, from any network or tab. */
+export const LAST_DIAL_KEY = "thelounge.lastDial";
 const PING_RE = /^(?:@\S+ )?(?::\S+ )?PING(?: (.*))?$/i; // [tags] [prefix] PING [params]
 
 export class WsTransport {
@@ -155,8 +172,12 @@ export class WsTransport {
 	private throttleMs: number | null = null;
 	/** Dials in a row that failed before opening, of the {@link QUICK_RETRY_MS} allowed. */
 	private quickFailures = 0;
-	/** The pending retry is a long wait ({@link holding}). */
-	private hold = false;
+	/**
+	 * The pending retry is a long wait ({@link holding}): the server's
+	 * throttle, or the one after dials that never opened, which is also
+	 * spaced from the host's other dials ({@link spacingWait}).
+	 */
+	private hold: "throttled" | "unreached" | null = null;
 	private connectingSince = 0;
 	private connectTimer: ReturnType<typeof setTimeout> | null = null;
 	private probeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -200,7 +221,7 @@ export class WsTransport {
 
 	/** A long wait is pending: the foreground poke leaves it be, Connect now does not. */
 	holding(): boolean {
-		return this._state === "reconnect-wait" && this.hold;
+		return this._state === "reconnect-wait" && this.hold !== null;
 	}
 
 	/** Open the socket now, on whatever attempt count the schedule is at. */
@@ -208,7 +229,7 @@ export class WsTransport {
 		this.clearTimer();
 		this.closedByUs = false;
 		this.throttleMs = null;
-		this.hold = false;
+		this.hold = null;
 		// A superseded socket's open says nothing about this one.
 		this.openedAt = null;
 		const Impl: LineSocketCtor | undefined = this.opts.WebSocketImpl ?? globalThis.WebSocket;
@@ -218,6 +239,7 @@ export class WsTransport {
 		}
 
 		this._state = "connecting";
+		noteDial(this.opts.url);
 		let ws: LineSocket;
 
 		try {
@@ -491,12 +513,12 @@ export class WsTransport {
 				delayMs = serverWait;
 				why = "throttled";
 				this.quickFailures = QUICK_RETRY_MS.length;
-				this.hold = true;
+				this.hold = "throttled";
 			} else if (unreached && this.quickFailures < QUICK_RETRY_MS.length) {
 				delayMs = QUICK_RETRY_MS[this.quickFailures++];
 			} else if (unreached) {
 				delayMs = UNREACHED_RETRY_MS + Math.round(Math.random() * UNREACHED_JITTER_MS);
-				this.hold = true;
+				this.hold = "unreached";
 			} else if (offline) {
 				// Nothing to retry until the network is back: the `online` poke dials then.
 				delayMs = OFFLINE_RETRY_MS;
@@ -514,19 +536,54 @@ export class WsTransport {
 	}
 
 	/** Wait `delayMs`, then dial. */
-	private scheduleRetry(delayMs: number, reason?: RetryReason): void {
+	private scheduleRetry(delayMs: number, reason?: RetryReason, spaced = false): void {
 		this._state = "reconnect-wait";
 		this.emit({
 			type: "reconnecting",
 			attempt: this.attempt,
 			delayMs,
 			...(reason ? {reason} : {}),
+			...(spaced ? {spaced} : {}),
 		});
 		this.timer = setTimeout(() => {
 			this.timer = null;
+			const spacing = this.spacingWait();
+
+			if (spacing > 0) {
+				this.scheduleRetry(spacing, reason, true);
+				return;
+			}
+
 			this.emit({type: "retry", attempt: this.attempt});
-			this.dial();
+
+			// A retry listener may have closed this transport (an STS
+			// policy took the dial to another one): then it does not dial.
+			if (this._state === "reconnect-wait") {
+				this.dial();
+			}
 		}, delayMs);
+	}
+
+	/**
+	 * How much longer a long wait after unreached dials must run so that it
+	 * ends {@link UNREACHED_RETRY_MS} (and jitter) after the host's last
+	 * dial, which another network or tab may have made meanwhile; 0 when
+	 * it may dial now.
+	 */
+	private spacingWait(): number {
+		if (this.hold !== "unreached") {
+			return 0;
+		}
+
+		const last = lastDials()[addressOf(this.opts.url)];
+		const now = Date.now();
+
+		// (A last dial in the future is a clock that went back: not ours to wait for.)
+		if (last === undefined || last > now || now - last >= UNREACHED_RETRY_MS) {
+			return 0;
+		}
+
+		return last + UNREACHED_RETRY_MS - now + Math.round(Math.random() * UNREACHED_JITTER_MS);
 	}
 
 	/**
@@ -567,6 +624,53 @@ export class WsTransport {
 			listener(ev);
 		}
 	}
+}
+
+/** The host a dial reaches, as IPcheck's address stands in for it: the URL's host name. */
+function addressOf(url: string): string {
+	try {
+		return new URL(url).hostname.toLowerCase();
+	} catch (err: unknown) {
+		return url;
+	}
+}
+
+/** {@link LAST_DIAL_KEY}'s map; empty when unreadable. */
+function lastDials(): Record<string, number> {
+	let parsed: unknown;
+
+	try {
+		parsed = JSON.parse(storage.get(LAST_DIAL_KEY) ?? "{}");
+	} catch (err: unknown) {
+		return {};
+	}
+
+	const result: Record<string, number> = {};
+
+	if (parsed && typeof parsed === "object") {
+		for (const [host, at] of Object.entries(parsed as Record<string, unknown>)) {
+			if (typeof at === "number" && Number.isFinite(at)) {
+				result[host] = at;
+			}
+		}
+	}
+
+	return result;
+}
+
+/** Note a dial to `url`'s host now; entries too old to delay anyone are dropped. */
+function noteDial(url: string): void {
+	const now = Date.now();
+	const kept: Record<string, number> = {};
+
+	for (const [host, at] of Object.entries(lastDials())) {
+		if (now - at < UNREACHED_RETRY_MS) {
+			kept[host] = at;
+		}
+	}
+
+	kept[addressOf(url)] = now;
+	storage.set(LAST_DIAL_KEY, JSON.stringify(kept));
 }
 
 /** Browser error events carry no message; `ws`/undici ones do. */

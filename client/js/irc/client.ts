@@ -29,7 +29,7 @@ import type {
 	SharedServerOptions,
 } from "../../../shared/types/network";
 import type {PushSession, ServerToClientEvents} from "../../../shared/types/socket-events";
-import {CapNegotiator, SEANCE_CAPS, webpushVapidOf, WEBPUSH_CAP} from "./caps";
+import {CapNegotiator, parseCapList, SEANCE_CAPS, webpushVapidOf, WEBPUSH_CAP} from "./caps";
 import {casefold, namesEqual} from "./casemap";
 import {Channel, MsgRef, SAID_TYPES, countsAsUnread} from "./channel";
 import {QueryLog} from "./querylog";
@@ -928,6 +928,36 @@ export class IrcClient {
 		}
 	}
 
+	/**
+	 * Foreground poke on a dial that seems stuck: start over now
+	 * (`transport.redial`), securely if a policy for the host came since.
+	 */
+	redial(): void {
+		if (this.applyStsPolicy()) {
+			this.transport.connect();
+		} else {
+			this.transport.redial?.();
+		}
+	}
+
+	/**
+	 * The page is going away (`pagehide`): say goodbye, and reschedule the
+	 * host's STS policy as the close would — its event never comes.
+	 */
+	unload(): void {
+		if (this.transport.state !== "open") {
+			return;
+		}
+
+		if (this.options.tls) {
+			refreshPolicy(stsHost(this.options));
+		}
+
+		if (this.isConnected) {
+			this.send("QUIT :page closed");
+		}
+	}
+
 	/** `/quit`: remove the network from the UI, then disconnect for good. */
 	quit(reason?: string): void {
 		// Before the QUIT, on the same socket: our do not disturb goes too.
@@ -1125,18 +1155,25 @@ export class IrcClient {
 		this.unsubscribeTransport = this.transport.on((ev) => this.onTransportEvent(ev));
 	}
 
-	/** Before connecting: a cached STS policy for the host turns `ws://` into `wss://`. */
-	private applyStsPolicy(): void {
+	/**
+	 * Before every dial: a cached STS policy for the host turns `ws://` into
+	 * `wss://`. The plain transport is closed (a retry it had pending must
+	 * not dial) and a fresh one, not yet dialling, takes its place. True if
+	 * it upgraded.
+	 */
+	private applyStsPolicy(): boolean {
 		clearExpired();
 		const upgraded = upgradeOptions(this.options);
 
 		if (upgraded === this.options) {
-			return;
+			return false;
 		}
 
+		this.transport.close();
 		this.reconfigure(upgraded);
 		this.pushMessage(this.lobby, {text: t("connect.stsUpgrade", {port: upgraded.port})}, true);
 		this.options.onStsUpgrade?.({port: upgraded.port, tls: true});
+		return true;
 	}
 
 	/**
@@ -1146,38 +1183,38 @@ export class IrcClient {
 	 * over `wss://` on that port (once); over `wss://` a `duration=` caches /
 	 * refreshes / removes the host's policy.
 	 */
-	private checkSts(msg: IrcMessage): void {
+	private checkSts(msg: IrcMessage): boolean {
 		if (msg.command !== "CAP") {
-			return;
+			return false;
 		}
 
 		const subcommand = (msg.params[1] ?? "").toUpperCase();
+		const more = msg.params[2] === "*" && msg.params.length > 3;
 
-		if (subcommand === "NEW") {
-			const names = (msg.params[msg.params.length - 1] ?? "").split(" ");
-
-			if (!names.some((token) => token === "sts" || token.startsWith("sts="))) {
-				return;
-			}
-		} else if (subcommand !== "LS" || (msg.params[2] === "*" && msg.params.length > 3)) {
-			return; // not LS, or more LS lines follow
+		if ((subcommand !== "LS" && subcommand !== "NEW") || (subcommand === "LS" && more)) {
+			return false; // not LS or NEW, or more LS lines follow
 		}
 
-		const raw = this.caps.value("sts");
+		// Read before the CAP handler sees the line: this line's own value,
+		// else (LS only) one an earlier line of the reply brought.
+		const own = parseCapList(msg.params[msg.params.length - 1] ?? "").find(
+			([name]) => name === "sts"
+		);
+		const raw = own ? own[1] : subcommand === "LS" ? this.caps.value("sts") : undefined;
 
 		if (raw === undefined) {
-			return;
+			return false;
 		}
 
 		const value = parseStsValue(raw);
 
 		if (this.options.tls) {
 			applyDuration(stsHost(this.options), this.options.port, value);
-			return;
+			return false;
 		}
 
 		if (value.port === undefined || this.stsUpgradeTried) {
-			return;
+			return false;
 		}
 
 		this.stsUpgradeTried = true;
@@ -1203,6 +1240,7 @@ export class IrcClient {
 		this.quitting = false;
 		this.reconfigure({...this.options, ...secure}); // tears the old session down
 		this.connect();
+		return true;
 	}
 
 	private onTransportEvent(ev: TransportEvent): void {
@@ -1222,8 +1260,9 @@ export class IrcClient {
 				this.bus.dispatch("connecting");
 
 				// The server's throttle or no network here: the close before
-				// this event did not know why it would wait.
-				if (ev.reason) {
+				// this event did not know why it would wait. Or the wait was
+				// pushed back past another dial to the host (transport.ts).
+				if (ev.reason || ev.spaced) {
 					this.retryAt = Date.now() + ev.delayMs;
 					this.retryReason = ev.reason;
 					this.announceStatus();
@@ -1260,6 +1299,13 @@ export class IrcClient {
 				);
 				break;
 			case "retry":
+				// A policy learned since this transport was made (by another
+				// network or tab on the host) takes this dial: the plain
+				// transport is closed, so it does not dial after this event.
+				if (this.applyStsPolicy()) {
+					this.transport.connect();
+				}
+
 				// The scheduled retry is dialling now: no due time any more.
 				this._state = "connecting";
 				this.retryAt = undefined;
@@ -1799,7 +1845,9 @@ export class IrcClient {
 		this.endSasl();
 		this.authtoken.clear();
 
-		if (this.options.tls) {
+		// An opened secure connection reschedules its host's policy, also an
+		// expired one; a dial that never opened leaves the store alone.
+		if (this.options.tls && (phase === "registering" || phase === "registered")) {
 			refreshPolicy(stsHost(this.options));
 		}
 
@@ -3103,6 +3151,13 @@ export class IrcClient {
 		// (see handlers/join.ts): its history and modes are not asked again.
 		const alreadyJoined = joined?.state === ChanState.JOINED;
 
+		// An upgrade policy read on a plain connection is acted on before the
+		// CAP handler answers the line: that socket gets nothing but the
+		// QUIT, no `CAP REQ` and no `CAP END` that would register us there.
+		if (this.checkSts(msg)) {
+			return;
+		}
+
 		const handler = handlers.get(msg.command) ?? unhandled;
 
 		try {
@@ -3111,8 +3166,6 @@ export class IrcClient {
 			// eslint-disable-next-line no-console
 			console.error(`[irc] handler for ${msg.command} failed on: ${msg.raw}`, err);
 		}
-
-		this.checkSts(msg);
 
 		if (selfJoin && !alreadyJoined) {
 			const chan = this.findChannel(joinName);
