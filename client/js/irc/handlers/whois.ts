@@ -362,15 +362,16 @@ const whoisCountry: Handler = (client, msg) => {
  */
 const away: Handler = (client, msg) => {
 	const nick = msg.params[1];
-	const label = msg.tags.get("label");
-
-	// It may answer a PRIVMSG of ours whose echo then comes unlabelled.
-	if (label) {
-		pendingLabelSpent(client, label, nick);
-	}
 
 	if (!nick) {
 		return;
+	}
+
+	// It may answer a message of ours whose echo then comes unlabelled.
+	const label = msg.tags.get("label");
+
+	if (label) {
+		pendingLabelSpent(client, label, nick);
 	}
 
 	const raw = last(msg);

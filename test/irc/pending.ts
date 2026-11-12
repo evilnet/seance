@@ -350,6 +350,26 @@ describe("Pending outgoing messages (irc/pending.ts)", function () {
 			expect(errorsIn(h, id)).to.deep.equal([]);
 		});
 
+		it("leaves the copy waiting for its label when a 301 names another nick", function () {
+			const h = setup();
+			const {id, copy} = pmAfterLabelledEcho(h);
+
+			h.transport.line("@label=s2 :irc.test 301 alice carol :elsewhere");
+			h.transport.line("@msgid=m9 :alice!alice@host.example PRIVMSG bob :hehe");
+
+			expect(settled(h).map((s) => s.id)).to.not.include(copy.id);
+			h.transport.line("@label=s2;msgid=m2 :alice!alice@host.example PRIVMSG bob :hehe");
+			expect(settled(h).map((s) => s.id)).to.include(copy.id);
+			expect(errorsIn(h, id)).to.deep.equal([]);
+		});
+
+		it("ignores a labelled 301 with no nick", function () {
+			const h = setup();
+			pmAfterLabelledEcho(h);
+
+			expect(() => h.transport.line("@label=s2 :irc.test 301 alice")).to.not.throw();
+		});
+
 		it("still reports a labelled FAIL after a labelled 301", function () {
 			const h = setup();
 			const {id} = pmAfterLabelledEcho(h);
