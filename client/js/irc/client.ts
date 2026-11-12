@@ -31,7 +31,15 @@ import type {
 import type {PushSession, ServerToClientEvents} from "../../../shared/types/socket-events";
 import {CapNegotiator, SEANCE_CAPS, webpushVapidOf, WEBPUSH_CAP} from "./caps";
 import {casefold, namesEqual} from "./casemap";
-import {Author, Channel, MsgRef, SAID_TYPES, countsAsUnread} from "./channel";
+import {
+	Author,
+	authorOf,
+	Channel,
+	isEditAuthor,
+	MsgRef,
+	SAID_TYPES,
+	countsAsUnread,
+} from "./channel";
 import {QueryLog} from "./querylog";
 import {commandNames, dispatchInput} from "./commands";
 import {describeClose} from "./disconnect";
@@ -599,6 +607,8 @@ export class IrcClient {
 	private replayContext: {
 		target: Channel;
 		inert: boolean;
+		/** The page's lines collected before this one (history.ts `replay`). */
+		earlier?: ReplayCollection;
 		collected: ReplayCollection;
 	} | null = null;
 	/** Edits whose REDACT is in flight, by the msgid being replaced. */
@@ -2767,7 +2777,7 @@ export class IrcClient {
 		const edit = this.takeLateEdit(chan, msg);
 
 		if (edit !== undefined) {
-			this.showLateEdit(chan, msg, edit);
+			this.dispatch("msg:edit", {chan: chan.id, id: edit, replaces: msg.id});
 		}
 
 		return edit !== undefined;
@@ -2779,9 +2789,7 @@ export class IrcClient {
 	 */
 	private takeLateEdit(chan: Channel, msg: SharedMsg): number | undefined {
 		const edit = msg.msgid ? chan.takeEditOf(msg.msgid) : undefined;
-		const author: Author = {nick: msg.from?.nick, account: msg.fromAccount, self: msg.self};
-
-		if (!edit || !this.isAuthor(author, edit.by)) {
+		if (!edit || !this.isAuthor(authorOf(msg), edit.by)) {
 			return undefined;
 		}
 
@@ -2789,37 +2797,9 @@ export class IrcClient {
 		return id !== undefined && id !== msg.id ? id : undefined;
 	}
 
-	/** Put the shown edit `id` in `msg`'s place (`msg:edit`, after `msg`'s own event). */
-	private showLateEdit(chan: Channel, msg: SharedMsg, id: number): void {
-		this.dispatch("msg:edit", {chan: chan.id, id, replaces: msg.id});
-	}
-
-	/**
-	 * Whether an edit sent by `by` may replace a line `author` sent. When
-	 * either carries an account (`account-tag`) the accounts decide, across
-	 * nick changes, and one without an account never matches one with; with
-	 * none, ours replace ours, and anyone else's only lines of the same nick
-	 * under the server's casemapping. (An edit of a line not loaded still
-	 * reaches the inbox, which checks the nick alone, `inbox:drop`.)
-	 */
+	/** {@link isEditAuthor} under this server's casemapping. */
 	isAuthor(author: Author | undefined, by: Author): boolean {
-		if (author?.account || by.account) {
-			return (
-				!!author?.account &&
-				!!by.account &&
-				this.casefold(author.account) === this.casefold(by.account)
-			);
-		}
-
-		if (author?.self && by.self) {
-			return true;
-		}
-
-		return (
-			author?.nick !== undefined &&
-			by.nick !== undefined &&
-			this.casefold(author.nick) === this.casefold(by.nick)
-		);
+		return isEditAuthor(author, by, (name) => this.casefold(name));
 	}
 
 	/** The tagged resend that completes an edit. */
@@ -3760,7 +3740,10 @@ export class IrcClient {
 			chan.readMarker !== undefined && ref.time.getTime() <= chan.readMarker.getTime();
 		const said = SAID_TYPES.has(msg.type ?? MessageType.MESSAGE);
 
-		if (msg.self) {
+		if (lateEdit !== undefined) {
+			// Hidden behind its edit, which counted already: nothing to count,
+			// and an old line of ours reads nothing either.
+		} else if (msg.self) {
 			// Something we said is read by definition; our own JOIN/MODE
 			// are not (a reconnect must not advance the read marker), and
 			// replayed by a catch-up they leave the counters and the
@@ -3779,8 +3762,6 @@ export class IrcClient {
 				shared.highlight = 0;
 				scheduleMarkRead(this, chan);
 			}
-		} else if (lateEdit !== undefined) {
-			// Hidden behind its edit, which counted already: nothing to count.
 		} else if (this.isReading(chan)) {
 			// Only a person looking reads it; a hidden page marks nothing
 			// (presence.ts marks the open channel when attention returns).
@@ -3811,7 +3792,7 @@ export class IrcClient {
 		});
 		// An original its edit already replaced is not news, read or not.
 		if (lateEdit !== undefined) {
-			this.showLateEdit(chan, msg, lateEdit);
+			this.dispatch("msg:edit", {chan: chan.id, id: lateEdit, replaces: msg.id});
 		}
 
 		const entry = lateEdit !== undefined ? null : this.mentionEntry(chan, msg, !!ref.highlight);
@@ -3830,9 +3811,19 @@ export class IrcClient {
 	 * a handler dispatches gets out either, for rows that are only being looked
 	 * at (historysearch.ts), where history's `inbox:drop` for an edit would be wrong.
 	 */
-	collectReplay(target: Channel, fn: () => void, inert = false): ReplayCollection {
+	collectReplay(
+		target: Channel,
+		fn: () => void,
+		inert = false,
+		earlier?: ReplayCollection
+	): ReplayCollection {
 		const previous = this.replayContext;
-		const context = {target, inert, collected: {messages: [], after: []} as ReplayCollection};
+		const context = {
+			target,
+			inert,
+			earlier,
+			collected: {messages: [], after: []} as ReplayCollection,
+		};
 		this.replayContext = context;
 
 		try {
@@ -3856,6 +3847,17 @@ export class IrcClient {
 		} else {
 			fn();
 		}
+	}
+
+	/**
+	 * A message of `chan` collected by the replay under way, by msgid: from
+	 * this line or an earlier one of the same page (`collectReplay`'s `earlier`).
+	 */
+	replayedMessage(chan: Channel, msgid: string): SharedMsg | undefined {
+		const context = this.replayContext;
+		const find = (c: ReplayCollection | undefined) =>
+			c?.messages.find((m) => m.chan === chan && m.msg.msgid === msgid)?.msg;
+		return find(context?.collected) ?? find(context?.earlier);
 	}
 
 	/** True inside {@link collectReplay}: handlers must not touch channel state. */

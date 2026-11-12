@@ -297,6 +297,20 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 			expect(h.payloads("msg:redact")).to.have.length(0);
 		});
 
+		it("replaces our own account-tagged line with our edit sent without echo-message", function () {
+			const h = setup();
+			const id = joined(h, NO_ECHO);
+			h.transport.line(
+				"@msgid=m1;account=alice;time=2026-08-25T12:00:01.000Z :alice!alice@host.example PRIVMSG #seance :teh text"
+			);
+			const oldId = h.lastMessage(id).id;
+			h.client.input(id, "the text", {edit: "m1"});
+
+			expect(h.payloads<EditPayload>("msg:edit")).to.deep.equal([
+				{chan: id, id: h.lastMessage(id).id, replaces: oldId},
+			]);
+		});
+
 		it("does not wait for a REDACT echo without echo-message and applies the local echo", function () {
 			const {h, id, oldId} = withOwnMessage(NO_ECHO);
 			h.client.input(id, "the text", {edit: "m1"});
@@ -507,6 +521,53 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 
 			expect(h.payloads("msg:edit")).to.have.length(0);
 			expect(chan.shared.highlight).to.equal(before + 1);
+		});
+
+		it("counts someone else's edit of a line in the same history page as a line of its own", function () {
+			const h = setup();
+			const id = joined(h);
+			registerBusHandlers(socket, {
+				clientForChannel: (chanId) => (h.client.channelById(chanId) ? h.client : undefined),
+				clientForNetwork: () => h.client,
+				allClients: () => [h.client],
+				createNetwork: () => h.client,
+				remove: () => undefined,
+			});
+			h.transport.line(":irc.test MARKREAD #seance timestamp=2026-08-25T10:00:00.000Z");
+			socket.emit("more", {target: id, lastId: -1, condensed: false});
+			batch(
+				h,
+				[
+					"@time=2026-08-25T11:00:00.000Z;msgid=h1 :bob!bob@host PRIVMSG #seance :teh",
+					"@time=2026-08-25T11:00:05.000Z;msgid=h2;+seance/edit=h1 :carol!carol@host PRIVMSG #seance :mine now",
+				],
+				{label: labelOf(h.sent())}
+			);
+
+			expect(h.payloads("msg:edit")).to.have.length(0);
+			expect(h.client.channelById(id)!.shared.unread).to.equal(2);
+		});
+
+		it("counts nothing more for our own late original once our edit replaced it", function () {
+			const h = setup();
+			const id = joined(h);
+			h.transport.line(
+				"@msgid=a2;time=2026-08-25T12:00:02.000Z;+seance/edit=a1 :alice!alice@host.example PRIVMSG #seance :the"
+			);
+			h.transport.line(
+				"@msgid=b1;time=2026-08-25T12:00:03.000Z :bob!bob@host PRIVMSG #seance :alice: hi"
+			);
+			const chan = h.client.channelById(id)!;
+			const before = {unread: chan.shared.unread, highlight: chan.shared.highlight};
+			h.transport.line(
+				"@msgid=a1;time=2026-08-25T12:00:01.000Z :alice!alice@host.example PRIVMSG #seance :teh"
+			);
+
+			expect(h.payloads("msg:edit")).to.have.length(1);
+			expect(before).to.deep.equal({unread: 1, highlight: 1});
+			expect({unread: chan.shared.unread, highlight: chan.shared.highlight}).to.deep.equal(
+				before
+			);
 		});
 
 		it("shows the message but no msg:edit when the old one is not loaded", function () {

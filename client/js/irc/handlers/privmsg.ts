@@ -6,7 +6,7 @@
 import {ChanType} from "../../../../shared/types/chan";
 import {MessageType, SharedMsg} from "../../../../shared/types/msg";
 import type {IrcClient} from "../client";
-import type {Author, Channel} from "../channel";
+import {authorOf, type Author, type Channel} from "../channel";
 import type {IrcMessage} from "../message";
 import {settleEcho} from "../pending";
 import {inRestorationWindow, isRoutineReplayNotice} from "../persistence";
@@ -272,8 +272,14 @@ function handleMessage(
 	// original is not loaded is judged when the original comes.
 	if (editOf) {
 		const shown = chan.idOf(editOf);
+		const original =
+			shown !== undefined
+				? chan.msgRefs.get(shown)?.from
+				: client.replaying
+				? maybeAuthor(client.replayedMessage(chan, editOf))
+				: undefined;
 
-		if (shown !== undefined && !client.isAuthor(chan.msgRefs.get(shown)?.from, by)) {
+		if ((shown !== undefined || original) && !client.isAuthor(original, by)) {
 			editOf = undefined;
 		}
 	}
@@ -352,6 +358,11 @@ function handleMessage(
 			}
 		});
 	}
+}
+
+/** The sender of `msg`, if there is one. */
+function maybeAuthor(msg: SharedMsg | undefined): Author | undefined {
+	return msg ? authorOf(msg) : undefined;
 }
 
 /** The msgid a PRIVMSG / TAGMSG refers to (`+reply` preferred, `+draft/reply` accepted). */
