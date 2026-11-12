@@ -94,21 +94,6 @@
 						</button>
 					</div>
 					<p v-if="group.missing" class="mentions-group-missing">{{ group.missing }}</p>
-					<!-- Above the rows: what it brings is older, and a group reads oldest first. -->
-					<button
-						v-if="group.hidden"
-						class="oper-btn oper-btn-ghost mentions-more"
-						@click="showAll(group)"
-					>
-						{{
-							group.hiddenUnread
-								? tCount("mentions.showMoreUnread", group.hidden, {
-										count: group.hidden,
-										unread: group.hiddenUnread,
-								  })
-								: tCount("mentions.showMore", group.hidden, {count: group.hidden})
-						}}
-					</button>
 					<!-- A click opens the conversation; Enter on a focused row does too.
 					     Vue's .delete is Delete and Backspace both. -->
 					<div
@@ -171,6 +156,21 @@
 							</div>
 						</div>
 					</div>
+					<!-- Below the rows: a group reads newest first, and what it brings is older. -->
+					<button
+						v-if="group.hidden"
+						class="oper-btn oper-btn-ghost mentions-more"
+						@click="showAll(group)"
+					>
+						{{
+							group.hiddenUnread
+								? tCount("mentions.showMoreUnread", group.hidden, {
+										count: group.hidden,
+										unread: group.hiddenUnread,
+								  })
+								: tCount("mentions.showMore", group.hidden, {count: group.hidden})
+						}}
+					</button>
 				</section>
 			</div>
 
@@ -517,12 +517,15 @@ export default defineComponent({
 		let keyboard = false;
 
 		const rowsOf = (key: string, query: boolean, entries: MentionWithContext[]) => {
+			// Newest first, as the groups are: the latest mention is on top
+			// whether the group shows its first rows or all of them.
+			const newest = [...entries].reverse();
 			const shown = query
-				? entries.slice(-1)
+				? newest.slice(0, 1)
 				: expanded.value.has(key)
-				? entries
-				: entries.slice(-ROWS_PER_GROUP);
-			const behind = query ? [] : entries.slice(0, entries.length - shown.length);
+				? newest
+				: newest.slice(0, ROWS_PER_GROUP);
+			const behind = query ? [] : newest.slice(shown.length);
 			return {
 				shown,
 				unread: entries.filter((e) => !e.read).length,
@@ -729,9 +732,10 @@ export default defineComponent({
 			const section = (document.activeElement as HTMLElement | null)?.closest(
 				".mentions-group"
 			);
+			const before = group.shown.length;
 			expanded.value = new Set([...expanded.value, group.key]);
-			// The button is gone: on to the first row it brought.
-			refocus(() => section?.querySelector<HTMLElement>(".mentions-entry"));
+			// The button is gone: on to the first row it brought, under those shown before.
+			refocus(() => section?.querySelectorAll<HTMLElement>(".mentions-entry")[before]);
 		};
 
 		// A click on the row opens the conversation; one on a link, a nick

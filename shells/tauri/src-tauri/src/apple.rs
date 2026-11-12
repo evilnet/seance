@@ -1,6 +1,7 @@
 // macOS's LocalNotifications: the Swift package under swift/ answers it with
 // the methods and shapes the iOS shell's plugin answers too (the same Swift,
-// SeanceNotifications), so the page has one code path. Two C entry points: `start`, once,
+// SeanceNotifications), so the page has one code path. Two C entry points
+// for the page's plugins (a third, `place_window`, is the window's): `start`, once,
 // with the callback their events come back through, and `call`, the plugin,
 // the method and its options as JSON in, and a callback, on any thread, with
 // `{"ok": …}` or `{"err": {code, message}}`.
@@ -15,6 +16,7 @@ type Event = extern "C" fn(*const c_char, *const c_char, *const c_char, bool);
 
 extern "C" {
     fn seance_apple_start(event: Event);
+    fn seance_window_place(window: *mut c_void);
     fn seance_apple_call(
         plugin: *const c_char,
         method: *const c_char,
@@ -31,6 +33,16 @@ pub fn start(app: &AppHandle) {
     if APP.set(app.clone()).is_ok() {
         // SAFETY: called once; Swift keeps the function pointer.
         unsafe { seance_apple_start(event) };
+    }
+}
+
+/// The window's size and place from here on: put back where the user left it
+/// in this arrangement of displays, and again whenever the displays change
+/// (swift/Sources/SeanceTauri/WindowPlace.swift). On the main thread, once.
+pub fn place_window(window: &tauri::WebviewWindow) {
+    if let Ok(ns_window) = window.ns_window() {
+        // SAFETY: a live NSWindow, on the main thread (Tauri's setup).
+        unsafe { seance_window_place(ns_window) };
     }
 }
 
