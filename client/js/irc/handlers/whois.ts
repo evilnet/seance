@@ -364,9 +364,8 @@ const away: Handler = (client, msg) => {
 	const nick = msg.params[1];
 	const label = msg.tags.get("label");
 
-	// It may answer a PRIVMSG of ours whose echo then comes unlabelled; in a
-	// labelled batch the echo carries the label, so that one changes nothing.
-	if (label && !msg.tags.has("batch")) {
+	// It may answer a PRIVMSG of ours whose echo then comes unlabelled.
+	if (label) {
 		pendingLabelSpent(client, label, nick);
 	}
 

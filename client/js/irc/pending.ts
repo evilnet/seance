@@ -296,8 +296,8 @@ export function failPendingTarget(client: IrcClient, channel: string, reason: st
 }
 
 /**
- * A labelled 301 for a PRIVMSG of ours to someone away, outside a batch:
- * nefarious2 puts the label on it and sends the echo without one, where the
+ * A labelled 301 for a PRIVMSG of ours to someone away: nefarious2 puts the
+ * label on it and sends the echo without one, where the
  * spec wants both in a labelled batch. The copy keeps its label (a labelled
  * echo, FAIL or ACK still finds it) and may also be settled by an unlabelled
  * echo of the same text.
