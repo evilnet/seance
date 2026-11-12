@@ -38,7 +38,7 @@
 import type {CapNegotiator} from "./caps";
 import type {Channel, MsgRef} from "./channel";
 import type {IrcClient} from "./client";
-import type {BatchHandler, OpenBatch} from "./handlers/batch";
+import {openBatchesOf, type BatchHandler, type OpenBatch} from "./handlers/batch";
 import {formatLine, IrcMessage, utf8ByteLength} from "./message";
 import {presenceResumed} from "./presence";
 
@@ -65,8 +65,6 @@ interface RestoreState {
 	timer: ReturnType<typeof setTimeout> | null;
 	/** No extension past this point, whatever keeps arriving. */
 	deadline: number;
-	/** Restoration batches opened and not yet closed. */
-	open: number;
 }
 
 const states = new WeakMap<IrcClient, RestoreState>();
@@ -75,7 +73,7 @@ function stateOf(client: IrcClient): RestoreState {
 	let state = states.get(client);
 
 	if (!state) {
-		state = {timer: null, deadline: 0, open: 0};
+		state = {timer: null, deadline: 0};
 		states.set(client, state);
 	}
 
@@ -144,14 +142,18 @@ export function noteRestorationActivity(client: IrcClient): void {
 }
 
 /**
- * A restoration batch opened or closed. While one is open the autojoin waits
- * for it to close, however long its lines pause (a retransmit on a phone),
- * up to the deadline: the quiet period only stands in for a batch nobody
- * announced.
+ * A restoration batch is still open. While one is, the autojoin waits for it
+ * to close, however long its lines pause (a retransmit on a phone), up to the
+ * deadline: the quiet period only stands in for a batch nobody announced.
  */
-export function noteRestorationBatch(client: IrcClient, opened: boolean): void {
-	const state = stateOf(client);
-	state.open = Math.max(0, state.open + (opened ? 1 : -1));
+function restorationBatchOpen(client: IrcClient): boolean {
+	for (const open of openBatchesOf(client).values()) {
+		if (open.type === PERSISTENCE_CAP) {
+			return true;
+		}
+	}
+
+	return false;
 }
 
 function arm(client: IrcClient, state: RestoreState, delay: number): void {
@@ -163,7 +165,7 @@ function arm(client: IrcClient, state: RestoreState, delay: number): void {
 	state.timer = setTimeout(() => {
 		state.timer = null;
 
-		if (state.open > 0 && Date.now() < state.deadline) {
+		if (restorationBatchOpen(client) && Date.now() < state.deadline) {
 			arm(client, state, RESTORE_QUIET_MS);
 			return;
 		}
@@ -176,7 +178,6 @@ function arm(client: IrcClient, state: RestoreState, delay: number): void {
 export function cancelRestoration(client: IrcClient): void {
 	const state = stateOf(client);
 	state.deadline = 0;
-	state.open = 0;
 	clearWait(state);
 }
 
@@ -207,7 +208,9 @@ export const persistenceBatch: BatchHandler = (client, batch) => {
 		client.restoring = false;
 	}
 
-	if (waiting) {
+	if (waiting && restorationBatchOpen(client)) {
+		arm(client, state, RESTORE_QUIET_MS); // another one is still being restored
+	} else if (waiting) {
 		client.restorationSettled();
 	}
 

@@ -421,6 +421,35 @@ describe("Session persistence and quiet re-joins (irc/persistence.ts)", function
 			expect(h.sent().filter((l) => l.startsWith("JOIN"))).to.deep.equal(["JOIN #other"]);
 		});
 
+		it("keeps holding the autojoin while another restoration batch is still open", function () {
+			const h = setup({join: "#seance,#other"});
+			register(h, CAPS, HOLD);
+			h.transport.lines(
+				":irc.test BATCH +outer draft/persistence",
+				"@batch=outer :alice!alice@host JOIN #seance alice :Alice",
+				"@batch=outer :irc.test BATCH +inner draft/persistence",
+				":irc.test BATCH -inner"
+			);
+			expect(h.sent().filter((l) => l.startsWith("JOIN"))).to.deep.equal([]);
+			expect(awaitingRestoration(h.client)).to.equal(true);
+
+			h.transport.line(":irc.test BATCH -outer");
+			expect(h.sent().filter((l) => l.startsWith("JOIN"))).to.deep.equal(["JOIN #other"]);
+		});
+
+		it("stops holding for a restoration batch whose reference another batch took over", function () {
+			const h = setup({join: "#seance"});
+			register(h, CAPS, HOLD);
+			h.transport.lines(
+				":irc.test BATCH +p draft/persistence",
+				":irc.test BATCH +p netjoin",
+				":irc.test BATCH -p"
+			);
+			clock.tick(RESTORE_QUIET_MS);
+			expect(awaitingRestoration(h.client)).to.equal(false);
+			expect(h.sent().filter((l) => l.startsWith("JOIN"))).to.deep.equal(["JOIN #seance"]);
+		});
+
 		it("gives up on a restoration batch that never closes at RESTORE_MAX_WAIT_MS", function () {
 			const h = setup({join: "#seance,#other"});
 			register(h, CAPS, HOLD);
