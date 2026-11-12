@@ -559,7 +559,11 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 				"@time=2026-08-25T10:00:00.000Z;msgid=o :bob!bob@host PRIVMSG #seance :first"
 			);
 
-			expect(h.payloads<EditPayload>("msg:edit").map((e) => e.id)).to.deep.equal([newest]);
+			const earlier = h.lastMessage(id).id - 1;
+			expect(h.payloads<EditPayload>("msg:edit")).to.deep.equal([
+				{chan: id, id: newest, replaces: earlier},
+				{chan: id, id: newest, replaces: h.lastMessage(id).id},
+			]);
 			expect(chan.msgRefs.get(newest)?.unread).to.equal(true);
 		});
 

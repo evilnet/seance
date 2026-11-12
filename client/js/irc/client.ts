@@ -2846,6 +2846,11 @@ export class IrcClient {
 		const behind = this.chainBehind(chan, msg, author);
 		let uncounted = false;
 
+		for (const earlier of revisions) {
+			// Behind the newest, as an edit of an edit would be (applyEdit).
+			this.dispatch("msg:edit", {chan: chan.id, id, replaces: earlier});
+		}
+
 		for (const hidden of [...revisions, ...behind]) {
 			uncounted = this.uncount(chan, hidden) || uncounted;
 		}
