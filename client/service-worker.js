@@ -2301,6 +2301,18 @@ async function showMessage(P, parsed, checkSeen, mustShow = false, silent = fals
 	}
 
 	const count = ((prev && prev.count) || 0) + (added.isNew ? 1 : 0);
+	// The card's time is its newest message, never the push that arrived
+	// last: pushes can come out of order, and the relay's close and Mark
+	// read compare this time with the read marker. A card holding a message
+	// with no usable time has no newest time, so it stays untimed, as a card
+	// with no time always was: Mark read falls back to the click time. A
+	// "Marked as read" stub holds no messages and passes nothing on.
+	const prevHolds = Boolean(prev && prev.messages && prev.messages.length);
+	const prevMs = prevHolds && typeof prev.time === "string" ? Date.parse(prev.time) : NaN;
+	const newMs = time ? Date.parse(time) : NaN;
+	const untimed = Number.isNaN(newMs) || (prevHolds && Number.isNaN(prevMs));
+	// Both times are valid here, or there is no previous time (NaN > x is false).
+	const cardTime = untimed ? undefined : prevMs > newMs ? prev.time : time;
 	const body = P.renderMergedBody(added.entries, isChannel, (text) =>
 		P.notificationText(text, {markdown})
 	);
@@ -2346,14 +2358,14 @@ async function showMessage(P, parsed, checkSeen, mustShow = false, silent = fals
 		silent,
 		icon: "img/icon-192.png",
 		body,
-		timestamp: time ? Date.parse(time) : undefined,
+		timestamp: cardTime ? Date.parse(cardTime) : undefined,
 		data: {
 			kind: "push",
 			count,
 			from: parsed.nick,
 			target: replyTo,
 			network,
-			time,
+			time: cardTime,
 			messages: added.entries,
 		},
 		actions,
