@@ -523,7 +523,6 @@
   "link.trustTitleShown": "{scopes}のメディアを常に表示中 — 変更",
   "link.tryAgain": "クリックして再試行",
   "list.isEmpty": "{kind}は空です",
-  "list.kindBans": "バンリスト",
   "list.kindExcepts": "例外リスト",
   "list.kindInvites": "招待リスト",
   "list.windowTitle": "{channel}の{kind}",
@@ -2338,9 +2337,6 @@
   "sidebar.unread": {
     "other": "未読メッセージ {count} 件"
   },
-  "special.bans.banned": "バン対象",
-  "special.bans.bannedAt": "バン日時",
-  "special.bans.bannedBy": "バン設定者",
   "special.excepts.exempted": "例外対象",
   "special.excepts.exemptedAt": "例外設定日時",
   "special.excepts.exemptedBy": "例外設定者",

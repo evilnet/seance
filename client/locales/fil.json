@@ -517,7 +517,6 @@
   "link.trustTitleShown": "Laging ipinapakita {scopes} — baguhin",
   "link.tryAgain": "I-click para subukan ulit",
   "list.isEmpty": "{kind}: walang laman",
-  "list.kindBans": "Listahan ng ban",
   "list.kindExcepts": "Listahan ng exception",
   "list.kindInvites": "Listahan ng imbitasyon",
   "list.windowTitle": "{kind} para sa {channel}",
@@ -2312,9 +2311,6 @@
     "one": "{count} hindi pa nababasang mensahe",
     "other": "{count} hindi pa nababasang mensahe"
   },
-  "special.bans.banned": "Naka-ban",
-  "special.bans.bannedAt": "Na-ban noong",
-  "special.bans.bannedBy": "Na-ban ni",
   "special.excepts.exempted": "Na-exempt",
   "special.excepts.exemptedAt": "Na-exempt noong",
   "special.excepts.exemptedBy": "Na-exempt ni",

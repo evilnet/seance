@@ -533,7 +533,6 @@
   "link.trustTitleShown": "Sempre mostrado {scopes} — alterar",
   "link.tryAgain": "Clique para tentar novamente",
   "list.isEmpty": "{kind}: nenhuma entrada",
-  "list.kindBans": "Lista de banidos",
   "list.kindExcepts": "Lista de exceções",
   "list.kindInvites": "Lista de convites",
   "list.windowTitle": "{kind} para {channel}",
@@ -2358,9 +2357,6 @@
     "one": "{count} mensagem não lida",
     "other": "{count} mensagens não lidas"
   },
-  "special.bans.banned": "Banido",
-  "special.bans.bannedAt": "Banido em",
-  "special.bans.bannedBy": "Banido por",
   "special.excepts.exempted": "Isento",
   "special.excepts.exemptedAt": "Isento em",
   "special.excepts.exemptedBy": "Isento por",

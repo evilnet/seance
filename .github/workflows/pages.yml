@@ -67,7 +67,11 @@ permissions:
 # run (`plan`'s `if`, the same test as below): a push to a draft, a push to a
 # PR by someone outside the repository with no `preview` label, a label other
 # than `preview`. Such a run takes a group of its own, or it would replace a
-# real run still queued in `pages` and then deploy nothing.
+# real run still queued in `pages-site` and then deploy nothing.
+#
+# The group was `pages` until 2026-11-12: run 42670153548's deploy job stuck
+# `waiting` at the github-pages environment with nothing to wait on, and no
+# API would cancel it, so it held `pages` and every later run queued behind it.
 concurrency:
   group: >-
     ${{ (github.event_name == 'pull_request_target' && (
@@ -76,7 +80,7 @@ concurrency:
       || (github.event.action != 'closed' && github.event.action != 'labeled' && github.event.action != 'unlabeled'
           && !contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
           && !contains(github.event.pull_request.labels.*.name, 'preview'))
-    )) && format('pages-noop-{0}', github.run_id) || 'pages' }}
+    )) && format('pages-noop-{0}', github.run_id) || 'pages-site' }}
   cancel-in-progress: false
 
 jobs:

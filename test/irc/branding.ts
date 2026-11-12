@@ -102,6 +102,16 @@ describe("branding", function () {
 			expect(config.strings).to.deep.equal({"connect.submit": "Go"});
 		});
 
+		it("keeps an http(s) links.register and has none by default", function () {
+			const url = "https://accounts.example/realms/net/protocol/openid-connect/registrations";
+
+			expect(normalizeBranding({links: {register: url}}).links?.register).to.equal(url);
+			expect(normalizeBranding({}).links?.register).to.equal(undefined);
+			expect(
+				normalizeBranding({links: {register: "javascript:alert(1)"}}).links?.register
+			).to.equal(undefined);
+		});
+
 		it("drops a relative links.* value even when a page base exists, unlike a mirror path", function () {
 			// A typo'd `links.source: "github"` must never resolve against the
 			// app's own origin (https://<app-origin>/github); only translation's

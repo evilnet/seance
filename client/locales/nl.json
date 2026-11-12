@@ -525,7 +525,6 @@
   "link.trustTitleShown": "Altijd {scopes} getoond — wijzigen",
   "link.tryAgain": "Klik om het opnieuw te proberen",
   "list.isEmpty": "{kind} is leeg",
-  "list.kindBans": "Banlijst",
   "list.kindExcepts": "Uitzonderingslijst",
   "list.kindInvites": "Uitnodigingslijst",
   "list.windowTitle": "{kind} voor {channel}",
@@ -2296,9 +2295,6 @@
     "one": "{count} ongelezen bericht",
     "other": "{count} ongelezen berichten"
   },
-  "special.bans.banned": "Verbannen",
-  "special.bans.bannedAt": "Verbannen op",
-  "special.bans.bannedBy": "Verbannen door",
   "special.excepts.exempted": "Vrijgesteld",
   "special.excepts.exemptedAt": "Vrijgesteld op",
   "special.excepts.exemptedBy": "Vrijgesteld door",

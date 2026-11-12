@@ -539,7 +539,6 @@
   "link.trustTitleShown": "Arătat întotdeauna {scopes} — schimbă",
   "link.tryAgain": "Clic pentru a încerca din nou",
   "list.isEmpty": "{kind}: nicio intrare",
-  "list.kindBans": "Lista de banuri",
   "list.kindExcepts": "Lista excepțiilor",
   "list.kindInvites": "Lista invitațiilor",
   "list.windowTitle": "{kind} pentru {channel}",
@@ -2415,9 +2414,6 @@
     "few": "{count} mesaje necitite",
     "other": "{count} de mesaje necitite"
   },
-  "special.bans.banned": "Cu ban",
-  "special.bans.bannedAt": "Ban dat la",
-  "special.bans.bannedBy": "Ban dat de",
   "special.excepts.exempted": "Exceptat",
   "special.excepts.exemptedAt": "Exceptat la",
   "special.excepts.exemptedBy": "Exceptat de",

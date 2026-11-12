@@ -528,7 +528,6 @@
   "link.trustTitleShown": "Visas alltid {scopes} — ändra",
   "link.tryAgain": "Klicka för att försöka igen",
   "list.isEmpty": "{kind} är tom",
-  "list.kindBans": "Bannlista",
   "list.kindExcepts": "Undantagslista",
   "list.kindInvites": "Inbjudningslista",
   "list.windowTitle": "{kind} för {channel}",
@@ -2345,9 +2344,6 @@
     "one": "{count} oläst meddelande",
     "other": "{count} olästa meddelanden"
   },
-  "special.bans.banned": "Bannad",
-  "special.bans.bannedAt": "Bannad den",
-  "special.bans.bannedBy": "Bannad av",
   "special.excepts.exempted": "Undantagen",
   "special.excepts.exemptedAt": "Undantagen den",
   "special.excepts.exemptedBy": "Undantagen av",

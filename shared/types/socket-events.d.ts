@@ -21,6 +21,7 @@ import {SharedUser} from "./user";
 import {SharedChangelogData} from "./changelog";
 import {SharedConfiguration, LockedSharedConfiguration} from "./config";
 import {SharedOperState, SnoticeInfo} from "./oper";
+import {BanChange, BanChangeOutcome, SharedBanList} from "./ban-list";
 import {SharedChannelList} from "./channel-list";
 
 type Session = {
@@ -249,6 +250,13 @@ interface ServerToClientEvents {
 	"msg:special": EventHandler<{chan: number; data?: Record<string, any>}>;
 	/** A network's channel list as the client holds it (irc/channelList.ts): on every change of its status, every PROGRESS_EVERY rows, and when the MOTD's featured channels are known. */
 	"channel:list": EventHandler<{network: string; list: SharedChannelList}>;
+	"channel:bans": EventHandler<{network: string; list: SharedBanList; open: boolean}>;
+	"channel:bans:changed": EventHandler<{
+		network: string;
+		id: string;
+		outcome: BanChangeOutcome;
+		text?: string;
+	}>;
 	msg: EventHandler<{
 		msg: SharedMsg;
 		chan: number;
@@ -357,6 +365,8 @@ interface ClientToServerEvents {
 	"persistence:sessions:list": EventHandler<{network?: string}>;
 	/** Ask a network for its channel list (one `LIST`, the whole answer, kept on the device); refused while one is under way or the server's delay runs. `args` are the server's own LIST arguments (`/list >10`). */
 	"channel:list:ask": EventHandler<{network: string; args?: string[]}>;
+	"channel:bans:ask": EventHandler<{network: string; channel: string}>;
+	"channel:bans:change": EventHandler<{network: string; id: string; change: BanChange}>;
 	/** End the current device's bouncer session (`PERSISTENCE DETACH`): the hold preference clears and the session is destroyed. */
 	"persistence:sessions:logout": EventHandler<{network?: string}>;
 
