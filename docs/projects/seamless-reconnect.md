@@ -105,7 +105,11 @@ server does not announce, so the rule is now about the _content_:
   `PERSISTENCE STATUS ON` is 2 s, but every sign of a restoration in
   progress — one of the server's JOINs, a bouncer NOTE — extends it to
   `RESTORE_QUIET_MS` (750 ms) of quiet, capped at `RESTORE_MAX_WAIT_MS`
-  (8 s) from registration. An unbatched burst (no `batch` cap, or the
+  (8 s) from registration. While a `draft/persistence` batch is open the
+  quiet period does not end the wait: it lasts until the batch closes or
+  the 8 s run out, so a pause inside the batch (a retransmit on a phone)
+  does not send the autojoin into it (`test/formal/wip/session`, W_Gap).
+  An unbatched burst (no `batch` cap, or the
   second burst) is covered as well as a batched one, and a JOIN we send
   into a restoration is what makes nefarious2 answer with the extra topic +
   NAMES burst in the first place.
