@@ -24,12 +24,6 @@
 
 			<p v-if="signInIntro" class="sign-in-intro">{{ signInIntro }}</p>
 
-			<div class="connect-row connect-network">
-				<label>{{ t("connect.network") }}</label>
-				<div class="input-wrap">
-					<strong>{{ networkLabel }}</strong>
-				</div>
-			</div>
 			<div class="connect-row">
 				<label for="connect:saslAccount">{{ t("connect.account") }}</label>
 				<input

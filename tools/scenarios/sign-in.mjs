@@ -29,7 +29,8 @@
 // is not a gap — it is what makes the failure path testable, and the failure
 // path is the one with teeth. What the scenario pins down:
 //
-//   * the panel has no server fields at all, and names the network instead;
+//   * the panel has no server fields at all, and no network row either (the
+//     deploy is that network's own client);
 //   * `links.register` is a link under Sign in to the network's sign-up page,
 //     in a new tab;
 //   * a refused login is reported in the lobby and the connection dropped,
@@ -127,12 +128,8 @@ export default async function run(page) {
 			(await page.count('#connect input[name="tls"]')) === 0
 	);
 	page.check(
-		"it names the network instead",
-		String(
-			await page.evaluate(
-				`document.querySelector("#connect .connect-network")?.textContent ?? ""`
-			)
-		).includes("TestNet")
+		"nor a network row: the deploy is that network's own client",
+		(await page.count("#connect .connect-network")) === 0
 	);
 	page.check(
 		"account, password and a guest nick are the whole form",
