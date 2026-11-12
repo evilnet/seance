@@ -13,7 +13,7 @@ import {inRestorationWindow, isRoutineReplayNotice} from "../persistence";
 import {privilegesModified} from "../oper";
 import {noteServicesLine, snoopNicks} from "../servicesfeed";
 import {handleServerNotice, handleWallops} from "../snotice";
-import {DRAFT_REPLY_TAG, EDIT_TAG, REPLY_TAG, trailingLine} from "../wire";
+import {DRAFT_REPLY_TAG, editTagOf, REPLY_TAG, trailingLine} from "../wire";
 import {languageFieldsOf} from "../langtag";
 import {noteListDelay} from "./list";
 import type {Handler} from "../types";
@@ -264,7 +264,7 @@ function handleMessage(
 	// own edit marker, bus-contract §1.4. The parent may not be loaded; the
 	// UI resolves it when rendering.
 	const replyTo = replyTagOf(msg);
-	const editOf = msg.tags.get(EDIT_TAG);
+	const editOf = editTagOf((name) => msg.tags.get(name));
 
 	if (replyTo) {
 		message.replyTo = replyTo;

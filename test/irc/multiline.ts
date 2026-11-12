@@ -716,7 +716,7 @@ describe("multiline sending", function () {
 			client.input(chanId, "one\ntwo", {edit: "old"});
 
 			expect(transport.sent[0]).to.equal(
-				"@+seance/edit=old BATCH +m1 draft/multiline #seance"
+				"@+evilnet.github.io/edit=old;+seance/edit=old BATCH +m1 draft/multiline #seance"
 			);
 			expect(transport.sent[1]).to.equal("@batch=m1 PRIVMSG #seance :one");
 		});
@@ -907,7 +907,7 @@ describe("multiline sending", function () {
 			client.input(chanId, "z".repeat(700), {edit: "old"});
 
 			expect(transport.sent[0]).to.equal(
-				"@+seance/edit=old BATCH +m1 draft/multiline #seance"
+				"@+evilnet.github.io/edit=old;+seance/edit=old BATCH +m1 draft/multiline #seance"
 			);
 			expect(transport.sent.filter((line) => / BATCH \+/.test(` ${line}`))).to.have.length(1);
 			expect(transport.sent[transport.sent.length - 1]).to.equal("BATCH -m1");
@@ -1128,7 +1128,7 @@ describe("multiline sending", function () {
 			client.input(chanId, "one\rtwo", {edit: "old"});
 
 			expect(transport.sent).to.deep.equal([
-				"@+seance/edit=old BATCH +m1 draft/multiline #seance",
+				"@+evilnet.github.io/edit=old;+seance/edit=old BATCH +m1 draft/multiline #seance",
 				"@batch=m1 PRIVMSG #seance :one",
 				"@batch=m1 PRIVMSG #seance :two",
 				"BATCH -m1",
@@ -1205,7 +1205,7 @@ describe("multiline sending", function () {
 				client.input(chanId, "one\ntwo\nthree", {edit: "old", reply: "parent"});
 
 				expect(transport.sent[0]).to.equal(
-					"@+seance/edit=old;+reply=parent;+draft/reply=parent BATCH +m1 draft/multiline #seance"
+					"@+evilnet.github.io/edit=old;+seance/edit=old;+reply=parent;+draft/reply=parent BATCH +m1 draft/multiline #seance"
 				);
 
 				transport.sent.length = 0;

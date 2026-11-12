@@ -35,7 +35,7 @@ capability was negotiated — what the server sends, the server sends.
 `joinMultiline` joins the buffered lines with `\n`, except where a line
 carries `draft/multiline-concat`, which glues it to the previous one with no
 separator. The synthetic message takes its tags from the **batch opener**
-(msgid, time, `+draft/reply`, `+seance/edit`, …) and the first line's source,
+(msgid, time, `+draft/reply`, the edit tags, …) and the first line's source,
 then goes through the ordinary PRIVMSG/NOTICE handler, so CTCP `ACTION`,
 highlights, mentions, replies, edits and `echo-message` self-detection all see
 the whole text. A malformed batch (mixed commands, mixed targets) falls back
@@ -52,7 +52,7 @@ rejoin to exactly the input, packed under `max-lines` and `max-bytes` —
 and `sendMultiline` writes `BATCH +ref draft/multiline <target>`, the tagged
 lines, `BATCH -ref`, one whole batch at a time. Client-only tags go on the
 opener, as the draft requires; a reply reference repeats on each opener of a
-multi-batch plan while `+seance/edit` goes on the first only, because one edit
+multi-batch plan while the edit tags goes on the first only, because one edit
 replaces one message. Without `echo-message` the joined text is synthesised
 locally, exactly as the single-line path does.
 

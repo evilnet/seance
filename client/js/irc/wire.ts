@@ -13,8 +13,27 @@ export type ClientTags = Record<string, string>;
 export const REPLY_TAG = "+reply";
 /** The draft form of {@link REPLY_TAG}: what poxchat reads, sent alongside it until it reads `+reply`. */
 export const DRAFT_REPLY_TAG = "+draft/reply";
-/** Tag marking a resend that replaces one of our own messages (Seance-only). */
-export const EDIT_TAG = "+seance/edit";
+/**
+ * Tag marking a resend that replaces one of our own messages, in the
+ * vendor form the other Seance tags use (nefarious2 strips no client tag
+ * of that prefix since a428911b).
+ */
+export const EDIT_TAG = "+evilnet.github.io/edit";
+/**
+ * The tag Seance used before {@link EDIT_TAG}: read, and sent alongside it,
+ * until no build in use reads only this one (docs/projects/message-edit-delete.md).
+ */
+export const LEGACY_EDIT_TAG = "+seance/edit";
+
+/** The tags that mark a resend as replacing `msgid`: both forms, so every Seance build sees it. */
+export function editTags(msgid: string): ClientTags {
+	return {[EDIT_TAG]: msgid, [LEGACY_EDIT_TAG]: msgid};
+}
+
+/** The msgid a line's edit tag names, in either form. */
+export function editTagOf(tag: (name: string) => string | undefined): string | undefined {
+	return tag(EDIT_TAG) || tag(LEGACY_EDIT_TAG) || undefined;
+}
 /** Reaction / reaction removal tags (poxchat / nefarious2 convention). */
 export const REACT_TAG = "+draft/react";
 export const UNREACT_TAG = "+draft/unreact";

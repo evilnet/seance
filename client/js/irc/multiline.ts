@@ -29,7 +29,7 @@ import {
 	utf8ByteLength,
 } from "./message";
 import {armPending, pendingLabel, PendingMessage, settlePending, showPending} from "./pending";
-import {ClientTags, EDIT_TAG, REPLY_TAG, trailingLine} from "./wire";
+import {ClientTags, editTagOf, REPLY_TAG, trailingLine} from "./wire";
 
 /** The capability name, whose CAP 302 value carries the limits. */
 export const MULTILINE_CAP = "draft/multiline";
@@ -202,7 +202,7 @@ function passOn(client: IrcClient, batch: OpenBatch, lines: IrcMessage[]): void 
 /**
  * A closed `draft/multiline` batch: one synthetic `PRIVMSG`/`NOTICE` with the
  * joined text, carrying the opener's tags (msgid, time, `+reply`,
- * `+seance/edit`, …) and the first line's source, run through the ordinary
+ * the edit tags, …) and the first line's source, run through the ordinary
  * handlers so CTCP, highlights, replies and edits all see the whole message.
  * A malformed batch falls back to its lines, one by one, as an unhandled
  * batch type would. The handler is registered whether or not the cap was
@@ -571,7 +571,7 @@ function queueOf(client: IrcClient): MultilineQueue {
  * inner array, its lines tagged `batch` (and {@link CONCAT_TAG}), then
  * `BATCH -<ref>`. `openerTags` are the client-only tags every batch carries
  * (a reply reference applies to each of them); `firstOpenerTags` are the ones
- * only the first batch may carry (`+seance/edit` replaces *one* message, so
+ * only the first batch may carry (an edit replaces *one* message, so
  * a plan that needs several batches must not claim to replace it several
  * times). The draft requires those tags on the opener and forbids any tag but
  * `batch`/`concat` on the lines. An action is framed per line, which is what
@@ -626,7 +626,7 @@ export function sendMultiline(
 					text: joinPlan(lines),
 					label: batch.label,
 					replyTo: tags[REPLY_TAG],
-					editOf: tags[EDIT_TAG],
+					editOf: editTagOf((name) => tags[name]),
 					statusmsgGroup: splitStatusTarget(client, target).group,
 					...languageFieldsOf((name) => tags[name]),
 				},

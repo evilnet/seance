@@ -55,7 +55,7 @@ type ClientChan = Omit<SharedChan, "messages"> & {
 	replyParents?: Record<string, {nick: string; text: string; id?: undefined}>;
 	/** Message the next plain-text/`/me` input replies to (`+reply`). */
 	replyTo: ClientMessage | null;
-	/** Own message the next plain-text input replaces (`+seance/edit`). */
+	/** Own message the next plain-text input replaces (the edit tags, `wire.ts` `editTags`). */
 	editing: ClientMessage | null;
 	/**
 	 * Escape dismissed an edit: ArrowUp browses input history instead of

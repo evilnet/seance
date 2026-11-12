@@ -170,7 +170,8 @@ import {
 import type {ConnectOptions, InputOptions, IrcClientState, Transport} from "./types";
 import {
 	ClientTags,
-	EDIT_TAG,
+	editTagOf,
+	editTags,
 	REACT_TAG,
 	REDACTION_CAP,
 	REPLY_TAG,
@@ -210,7 +211,7 @@ export interface SendMessageOptions {
 	action?: boolean;
 	/** Client tags (`+name` keys, unescaped values) put on every chunk. */
 	tags?: ClientTags;
-	/** Client tags put on the first chunk only (`+seance/edit`). */
+	/** Client tags put on the first chunk only (the edit tags, `editTags`). */
 	firstTags?: ClientTags;
 }
 
@@ -2354,7 +2355,7 @@ export class IrcClient {
 			text: chunk,
 			label,
 			replyTo: opts.tags?.[REPLY_TAG],
-			editOf: i === 0 ? opts.firstTags?.[EDIT_TAG] : undefined,
+			editOf: i === 0 ? editTagOf((name) => opts.firstTags?.[name]) : undefined,
 			statusmsgGroup: group,
 			...languageFieldsOf((name) => opts.tags?.[name]),
 		});
@@ -2666,7 +2667,7 @@ export class IrcClient {
 	 * `action` (bus-contract §1.4).
 	 * There is no edit on the wire, so in a channel where REDACT works the
 	 * old message is redacted (`:edited`) first and the resend, tagged
-	 * `+seance/edit=<old>`, goes out once our own REDACT is echoed back
+	 * the edit tags (`editTags`), goes out once our own REDACT is echoed back
 	 * ({@link settleEdit}); `FAIL REDACT` ({@link rejectEdit}) or
 	 * {@link EDIT_TIMEOUT_MS} without an answer abort it. In queries, or
 	 * without the cap, only the tagged resend happens. Without
@@ -2781,7 +2782,7 @@ export class IrcClient {
 		replyTo?: string,
 		action = false
 	): void {
-		const opts: SendMessageOptions = {firstTags: {[EDIT_TAG]: oldMsgid}, action};
+		const opts: SendMessageOptions = {firstTags: editTags(oldMsgid), action};
 
 		if (replyTo) {
 			opts.tags = replyTags(replyTo);
