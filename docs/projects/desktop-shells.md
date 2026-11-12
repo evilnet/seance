@@ -106,8 +106,11 @@ Gating on the Push API alone was not enough, since WebView2 may expose it.
 - **Navigation**: the window navigates inside the app alone; any other
   http(s) link, `target="_blank"` and `window.open()` go to the user's
   browser (`opener`), anything else nowhere.
-- **Window**: `window-state` remembers size and place; `single-instance`
-  keeps one app, a second launch hands over its argv.
+- **Window**: `window-state` remembers size and place on every desktop but
+  the Mac, which keeps its own, in points and per arrangement of displays,
+  and puts the window back when the displays change
+  (`swift/Sources/SeanceTauri/WindowPlace.swift`). `single-instance` keeps
+  one app, a second launch hands over its argv.
 - **Links**: `deep-link` claims `web+irc:`; the page gets the launch link
   from `App.getLaunchUrl` and later ones as `App.appUrlOpen`, no reload.
 - **Bridge**: one `seance_call` command; no Tauri plugin API is exposed to
