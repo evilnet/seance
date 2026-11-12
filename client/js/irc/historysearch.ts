@@ -35,7 +35,7 @@ import type {IrcClient} from "./client";
 import type {BatchHandler, OpenBatch} from "./handlers/batch";
 import {formatLine, MAX_LINE_BYTES, utf8ByteLength, type IrcMessage} from "./message";
 import type {Channel} from "./channel";
-import {historyLimit} from "./history";
+import {historyLimit, takesMsgidRefs} from "./history";
 import {applyEdit, applyReaction, applyRedaction} from "../helpers/messageUpdates";
 import {sameAuthor} from "../helpers/pastRows";
 import {ignoreListFor} from "../ignore";
@@ -250,7 +250,8 @@ function sendRequest(
 function canAskContext(client: IrcClient): boolean {
 	return (
 		client.caps.hasCapability("draft/chathistory") &&
-		client.caps.hasCapability("labeled-response")
+		client.caps.hasCapability("labeled-response") &&
+		takesMsgidRefs(client) // the window and the parent are asked for by msgid
 	);
 }
 

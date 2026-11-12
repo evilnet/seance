@@ -113,8 +113,9 @@ import {writeFileSync} from "node:fs";
 import {join} from "node:path";
 import {pathToFileURL} from "node:url";
 
+// helpers/device.ts PHONE_LAYOUT_QUERY, verbatim.
 const PHONE_LAYOUT_QUERY =
-	"(max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse)";
+	"(max-width: 480px), (max-width: 768px) and (pointer: coarse), (max-height: 500px) and (hover: none) and (pointer: coarse)";
 const RUN = Date.now().toString(36);
 const NICK = `ng${RUN}`;
 const BASE = `http://localhost:${process.env.SEANCE_HTTP_PORT ?? "8021"}/`;

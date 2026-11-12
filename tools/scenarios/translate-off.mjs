@@ -1,13 +1,14 @@
 // Translation switched off, its default (client/js/settings.ts
 // `translationEnabled`, translate/switch.ts): absent, not just disabled. No
-// translate button in the channel header, the composer or the message
-// toolbar, no "Translation…" in the channel menu, no TranslationLine, no
-// strip; Settings → Translation is the interface language and the switch
+// translate button in the composer or the message toolbar, no reading
+// controls ("Translation…" in the channel menu opens the panel as one
+// button that switches translation on, and makes nothing by opening), no
+// TranslationLine, no strip; Settings → Translation is the interface language and the switch
 // alone, under a tab named "Language"; and nothing of the machinery runs --
 // no worker script fetched, no Worker constructed, no GPU adapter asked
 // for -- not on a cold load, not when the interface language changes with a
-// channel whose kept per-channel reading is on. Switched on, all of it comes
-// back without a reload, and the kept channel starts reading again;
+// channel whose kept choices are stored. Switched on, all of it comes
+// back without a reload, and the channel on screen is read;
 // switched off, it goes again at once. Nor does it cost the rest of the app
 // anything: a load the service worker serves while it is off is not
 // cross-origin isolated.
@@ -22,8 +23,8 @@
 //    downloaded, so the script is fetched and a Worker made; off, it is
 //    terminated.
 // 2. With ?fakeTranslate (the in-page fake, which never makes a Worker), the
-//    surfaces: header button, composer button, toolbar Translate, a German
-//    line read into English, the composer's strip for the kept write
+//    surfaces: composer button, toolbar Translate, the channel menu, a German
+//    line read into English, the translate panel for the kept write
 //    target -- on, then off again.
 //
 //   NODE_ENV=development pnpm build
@@ -81,7 +82,8 @@ const WATCH = `(() => {
 })()`;
 
 // A channel whose reading and write target were on before translation was
-// switched off: kept (thelounge.translate), never acted on while off.
+// switched off, stored the way the previous version stored it (no schema
+// version): migrated once at boot (channelStore.ts), never acted on while off.
 const KEPT_CHANNEL = `(() => {
 	if (!localStorage.getItem("thelounge.translate")) {
 		localStorage.setItem("thelounge.translate", JSON.stringify({
@@ -114,16 +116,17 @@ const STORED_SETTING = `JSON.parse(localStorage.getItem("settings") || "{}").tra
 const KEPT = `JSON.parse(localStorage.getItem("thelounge.translate") || "{}")[${JSON.stringify(
 	`${NETWORK}/${CHANNEL}`
 )}] || null`;
+const KEPT_VERSION = `JSON.parse(localStorage.getItem("thelounge.translate") || "{}").version ?? null`;
 
 /** Every translation surface the chat view can show, present or not. */
 const SURFACES = `(() => ({
-	header: !!document.querySelector("#chat button.translate"),
 	composer: !!document.querySelector("#translate-once"),
-	strip: !!document.querySelector(".translate-bar"),
-	panel: !!document.querySelector(".translation-panel"),
-	lines: document.querySelectorAll("#chat .msg-translation, #chat [class*='msg-translation']").length,
+	strip: !!document.querySelector(".translate-panel"),
+	panel: !!document.querySelector(".translation-sheet"),
+	lines: document.querySelectorAll("#chat .msg-translation, #chat [class*='msg-translat']").length,
 	topicFlip: !!document.querySelector("#chat .topic-flip"),
 	placeholder: document.querySelector("#input")?.getAttribute("placeholder") ?? "",
+	target: document.querySelector("#translate-once .translate-once-target")?.textContent.trim() ?? "",
 }))()`;
 
 const isPhone = `matchMedia("(hover: none) and (pointer: coarse)").matches`;
@@ -219,6 +222,48 @@ async function menuOffersTranslation(page) {
 	return offered;
 }
 
+/**
+ * Off by the user's setting: the channel menu's "Translation…" is still
+ * there, and opens the conversation's panel as one button that switches
+ * translation on, with no reading or writing control, without making any
+ * of the machinery. Closed again by its ✕ without pressing the button.
+ */
+async function menuOpensEnablePanel(page) {
+	await page.click("#chat .header button.menu");
+	await page.waitFor(`!!document.querySelector("#context-menu")`, {label: "the channel menu"});
+
+	if (
+		!(await page.evaluate(`!!document.querySelector("#context-menu .context-menu-translate")`))
+	) {
+		await pressEscape(page);
+		return false;
+	}
+
+	await page.click("#context-menu .context-menu-translate");
+	await page.waitFor(`!!document.querySelector(".translation-sheet")`, {
+		label: "the translation sheet",
+	});
+
+	const panel = await page.evaluate(`(() => ({
+		button: document.querySelector(".translation-sheet-enable-button")?.textContent.trim() ?? "",
+		radios: document.querySelectorAll(".translation-sheet [role=radiogroup], .translation-sheet input").length,
+		selects: document.querySelectorAll(".translation-sheet select, .translation-sheet details").length,
+	}))()`);
+
+	await page.evaluate(
+		`document.querySelector(".translation-sheet .language-sheet-close").click()`
+	);
+	await page.waitFor(`!document.querySelector(".translation-sheet")`, {
+		label: "the sheet closed",
+	});
+
+	return (
+		panel.button === EN["translate.panel.enable"].replace("{language}", "English") &&
+		panel.radios === 0 &&
+		panel.selects === 0
+	);
+}
+
 async function fabricate(page) {
 	const made = await page.evaluate(fakeNetworkSnippet());
 
@@ -253,9 +298,8 @@ const TAB = `(() => ({
 	options: !!document.querySelector("#settings .translate-options"),
 	formality: !!document.querySelector('#settings input[name="translateFormality"]'),
 	models: document.querySelectorAll("#settings .translate-model").length,
-	languageHint: [...document.querySelectorAll("#settings .translate-hint")].some(
-		(el) => el.textContent.trim() === ${JSON.stringify(EN["translate.settings.languageHint"])}
-	),
+	into: !!document.querySelector('#settings select[name="translateInto"]'),
+	alsoRead: !!document.querySelector("#settings .translate-also-add"),
 }))()`;
 
 async function flipSwitch(page, on) {
@@ -267,10 +311,9 @@ async function checkOff(page, phone, where) {
 	const s = await page.evaluate(SURFACES);
 
 	console.log(`surfaces (${where})`, JSON.stringify(s));
-	page.check(`${where}: no translate button in the header`, s.header === false);
 	page.check(`${where}: no translate button in the composer`, s.composer === false);
 	page.check(
-		`${where}: no strip, no panel, no translation under a message`,
+		`${where}: no translate panel, no sheet, no translation under a message`,
 		!s.strip && !s.panel && s.lines === 0
 	);
 	page.check(`${where}: no topic flipper`, s.topicFlip === false);
@@ -279,8 +322,8 @@ async function checkOff(page, phone, where) {
 		s.placeholder === EN["composer.placeholder"].replace("{name}", CHANNEL)
 	);
 	page.check(
-		`${where}: the channel menu has no "Translation…"`,
-		(await menuOffersTranslation(page)) === false
+		`${where}: the channel menu's "Translation…" opens the panel as one button that turns translation on`,
+		await menuOpensEnablePanel(page)
 	);
 	page.check(
 		`${where}: the toolbar has no Translate`,
@@ -330,8 +373,8 @@ export default async function run(page) {
 		off.hint === EN["translate.settings.enableHint"]
 	);
 	page.check(
-		"off: no formality, no models, no reading-language hint",
-		!off.options && !off.formality && off.models === 0 && !off.languageHint
+		"off: no formality, no models, no Translate into, no I also read",
+		!off.options && !off.formality && off.models === 0 && !off.into && !off.alsoRead
 	);
 	await page.screenshot("2-off-settings");
 
@@ -359,8 +402,10 @@ export default async function run(page) {
 	const kept = await page.evaluate(KEPT);
 
 	page.check(
-		"off: the kept channel's reading and write target are left alone",
-		kept?.read === true && kept?.write === "de"
+		"off: the kept channel's write target is left alone, migrated once to the versioned blob",
+		kept?.write === "de" &&
+			!("read" in (kept ?? {})) &&
+			(await page.evaluate(KEPT_VERSION)) === 2
 	);
 
 	// Switched on: the rest of the tab appears, named for translation, and
@@ -382,12 +427,12 @@ export default async function run(page) {
 		on.heading === EN["translate.settings.heading"]
 	);
 	page.check(
-		`on: the picker is "${EN["translate.settings.languageLabel"]}"`,
-		on.label === EN["translate.settings.languageLabel"]
+		`on: the picker is still "${EN["translate.settings.interfaceLanguageLabel"]}"`,
+		on.label === EN["translate.settings.interfaceLanguageLabel"]
 	);
 	page.check(
-		"on: formality and the models are there",
-		on.options && on.formality && on.models > 0 && on.languageHint
+		"on: Translate into, I also read, formality and the models are there",
+		on.options && on.formality && on.models > 0 && on.into && on.alsoRead
 	);
 	await page.waitFor(WORKER_FETCHED, {
 		label: "translate-worker.js fetched once on",
@@ -451,12 +496,12 @@ export default async function run(page) {
 	await openTab(page);
 	await flipSwitch(page, true);
 	await closeSettings(page);
-	await page.waitFor(`!!document.querySelector("#chat button.translate")`, {
-		label: "the header's translate button appears",
+	await page.waitFor(`!!document.querySelector("#translate-once")`, {
+		label: "the composer's translate button appears",
 	});
 	await page.evaluate(STAMP_MSGIDS);
 
-	// A German line arrives: the kept channel reads again, into English.
+	// A German line arrives in the channel on screen: read, into English.
 	await page.evaluate(`window.socket.dispatch("msg", {
 		chan: 2,
 		msg: {id: 31, type: "message", from: {mode: "", modes: [], away: "", lastMessage: Date.now(), nick: "moria"}, text: ${JSON.stringify(
@@ -464,7 +509,7 @@ export default async function run(page) {
 		)}, self: false, time: new Date(), users: [], msgid: "seance-fake-31"},
 	})`);
 	await page.waitFor(
-		`!!document.querySelector("#msg-31 .msg-translation, #msg-31 [class*='msg-translation']")`,
+		`!!document.querySelector("#msg-31 .msg-translation, #msg-31 [class*='msg-translat']")`,
 		{
 			label: "the German line is read",
 			timeout: 15000,
@@ -474,11 +519,10 @@ export default async function run(page) {
 	const onSurfaces = await page.evaluate(SURFACES);
 
 	console.log("surfaces (fake, on)", JSON.stringify(onSurfaces));
-	page.check("on: the header's translate button is there", onSurfaces.header);
 	page.check("on: the composer's translate button is there", onSurfaces.composer);
 	page.check(
-		"on: the kept write target names German in the placeholder",
-		onSurfaces.placeholder !== EN["composer.placeholder"].replace("{name}", CHANNEL)
+		"on: the kept write target names German on the translate button",
+		onSurfaces.target === "DE"
 	);
 	page.check("on: a line is read under its message", onSurfaces.lines > 0);
 	page.check(
@@ -487,15 +531,14 @@ export default async function run(page) {
 	);
 	page.check("on: the toolbar offers Translate", (await toolbarTranslate(page, phone)) === true);
 
-	// The kept write target: the first Enter brings the strip up.
+	// A draft in the box and the translate panel open on the kept target.
 	await page.fill("#form #input", "good morning everyone");
-	await page.evaluate(
-		`document.querySelector("#form #input").dispatchEvent(new KeyboardEvent("keypress", {key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true, cancelable: true}))`
-	);
-	await page.waitFor(`!!document.querySelector(".translate-bar")`, {label: "the strip comes up"});
+	await page.evaluate(`document.querySelector("#form #translate-once").click()`);
+	await page.waitFor(`!!document.querySelector(".translate-panel")`, {label: "the panel opens"});
+	await page.fill("#translate-panel-input", "see you all later");
 	await page.screenshot("4-on-channel");
 
-	// Off again, from Settings, with the strip up and a line read.
+	// Off again, from Settings, with the panel open and a line read.
 	await openTab(page);
 	await flipSwitch(page, false);
 	await closeSettings(page);
@@ -525,32 +568,32 @@ export default async function run(page) {
 	page.check(
 		"fake, switched off: a new line is not read and the engine is asked nothing",
 		(await page.evaluate(
-			`document.querySelectorAll("#msg-32 [class*='msg-translation']").length`
+			`document.querySelectorAll("#msg-32 [class*='msg-translat']").length`
 		)) === 0 &&
 			(await page.evaluate(`(window.__seanceTranslateFake?.requests ?? []).length`)) ===
 				requestsOff
 	);
 	page.check(
 		"fake, switched off: the kept channel's setting survives the round trip",
-		(await page.evaluate(KEPT))?.read === true && (await page.evaluate(KEPT))?.write === "de"
+		(await page.evaluate(KEPT))?.write === "de"
 	);
 	await page.screenshot("5-off-again-channel");
 
-	// The first Enter, with the channel's write target still kept: no strip,
-	// the draft goes as typed (out of the input; the fabricated network has
+	// Enter, with the channel's write target still kept: no panel, the
+	// draft goes as typed (out of the input; the fabricated network has
 	// no connection to carry it, which is not this check's business).
 	await page.evaluate(
 		`document.querySelector("#form #input").dispatchEvent(new KeyboardEvent("keypress", {key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true, cancelable: true}))`
 	);
 	await page.sleep(600);
 	page.check(
-		"fake, switched off: Enter sends the draft as typed, with no strip",
-		!(await page.evaluate(`!!document.querySelector(".translate-bar")`)) &&
+		"fake, switched off: Enter sends the draft as typed, with no panel",
+		!(await page.evaluate(`!!document.querySelector(".translate-panel")`)) &&
 			(await page.evaluate(`document.querySelector("#form #input").value`)) === ""
 	);
 
-	// The composer's language picker open when translation goes off does not
-	// come back open with it.
+	// The translate panel and the sheet open when translation goes off do
+	// not come back open with it.
 	await openTab(page);
 	await flipSwitch(page, true);
 	await closeSettings(page);
@@ -558,15 +601,13 @@ export default async function run(page) {
 		label: "the composer's translate button is back",
 	});
 	await page.fill("#form #input", "one more");
-	// Lit for the kept write target, the button's first click turns it off;
-	// the next opens the picker.
 	await page.click("#translate-once");
-	await page.waitFor(`!document.querySelector("#translate-once.on")`, {
-		label: "the write target off",
+	await page.waitFor(`!!document.querySelector(".translate-panel")`, {
+		label: "the translate panel",
 	});
-	await page.click("#translate-once");
-	await page.waitFor(`!!document.querySelector(".source-language-picker")`, {
-		label: "the composer's language picker",
+	await page.click("#form .translate-panel-language");
+	await page.waitFor(`!!document.querySelector(".language-sheet")`, {
+		label: "the sheet's language list, from the panel",
 	});
 	await openTab(page);
 	await flipSwitch(page, false);
@@ -576,7 +617,7 @@ export default async function run(page) {
 		label: "the composer's translate button, once more",
 	});
 	page.check(
-		"on again: the picker left open at the switch-off stays closed",
-		!(await page.evaluate(`!!document.querySelector(".source-language-picker")`))
+		"on again: the panel and the sheet left open at the switch-off stay closed",
+		!(await page.evaluate(`!!document.querySelector(".language-sheet, .translate-panel")`))
 	);
 }

@@ -821,7 +821,7 @@ function swIrcOpen(net, pre, onReady, optional = []) {
 			nick,
 			/** The optional caps the server acknowledged. */
 			caps: new Set(),
-			/** `message-tags` negotiated: client tags (`+draft/reply`) may go out. */
+			/** `message-tags` negotiated: client tags (`+reply`) may go out. */
 			tags: false,
 			onLine(fn) {
 				watchers.push(fn);
@@ -994,8 +994,9 @@ function swIrcAct(net, pre, post) {
 // notice that ends the replay), with a settle timer as the fallback, and a
 // 404 earns one retry. A PM has no such race.
 
-/** Mirrors REPLY_TAG in client/js/irc/wire.ts. */
-const REPLY_TAG = "+draft/reply";
+/** Mirror REPLY_TAG and DRAFT_REPLY_TAG in client/js/irc/wire.ts: a reply carries both. */
+const REPLY_TAG = "+reply";
+const DRAFT_REPLY_TAG = "+draft/reply";
 const REPLAY_SETTLE_MS = 1500; // channel reply: wait at most this long for the JOIN replay
 const REPLY_GRACE_MS = 600; // after sending: time for the server to refuse (404) before QUIT
 const REPLY_RETRY_MS = 800;
@@ -1074,8 +1075,8 @@ function swIrcSend(net, target, text, replyTo) {
 		[],
 		(ws, done, ctx) => {
 			const channel = isChannelName(target);
-			const prefix =
-				replyTo && ctx.tags ? "@" + REPLY_TAG + "=" + escapeTagValue(replyTo) + " " : "";
+			const reply = replyTo && ctx.tags ? escapeTagValue(replyTo) : "";
+			const prefix = reply ? `@${REPLY_TAG}=${reply};${DRAFT_REPLY_TAG}=${reply} ` : "";
 			let fired = false;
 			let retried = false;
 			let settle = null;
@@ -2831,9 +2832,10 @@ async function handleResubscribe(oldSub, newSub) {
 		post.push("WEBPUSH UNREGISTER " + oldEndpoint);
 	}
 
-	post.push(
-		"WEBPUSH REGISTER " + sub.endpoint + " p256dh=" + sub.keys.p256dh + ";auth=" + sub.keys.auth
-	);
+	// A PushSubscription has no `keys` of its own: they are in its JSON form
+	// (base64url, as WEBPUSH REGISTER wants them).
+	const keys = sub.toJSON().keys;
+	post.push("WEBPUSH REGISTER " + sub.endpoint + " p256dh=" + keys.p256dh + ";auth=" + keys.auth);
 
 	// After 001: nefarious2 silently drops a WEBPUSH REGISTER sent between
 	// SASL and CAP END (docs/projects/push-subscription.md).

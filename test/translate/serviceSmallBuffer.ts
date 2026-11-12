@@ -180,7 +180,8 @@ describe("translate/service and the small-buffer build", () => {
 		r.store.grant(QWEN3_1_7B_ID);
 		r.releaseProbe();
 
-		const route = await r.service.route("de", "en");
+		// ja-en: a pair with no OPUS-MT model, so the LLM is first.
+		const route = await r.service.route("ja", "en");
 
 		expect(route?.ref.id).to.equal(QWEN3_1_7B_ID);
 		expect(r.asked).to.deep.equal([QWEN3_1_7B_SPLIT_ID]);

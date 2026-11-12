@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+- Language tags: a message the composer translates goes out tagged with the language it is in (`+draft/language`) and, when it was translated rather than corrected, `+evilnet.github.io/machine-translated`; another Seance reads the tag as a strong hint of the source (a short or ambiguous line is translated from it, a line tagged in the reader's own language is left alone) and shows "(machine translated)" after the text. Lines sent as written are never tagged.
 - `/j` is `/join`, out of the box: `/j #chan [key]` joins, `/j #listed` switches to the window already open, and it completes and expands like the long form.
 - Attention: a hidden page (or one unfocused for a minute) tells the server `AWAY *` (`draft/pre-away`: away for an unspecified reason, per connection, never overriding a `/away` the user set) and clears it on return, so the server's push rule stops treating "spoke a moment ago, then switched apps" as attended. A hidden page no longer marks the open channel read; attention returning does. Another user's `AWAY *` shows as away without a reason.
 - Settings → Appearance → Your own messages: greyed text (the default, as before), a highlighted row, or nothing — one of the three, on every theme. The grey that marks your own lines is hard to see on an iPhone with a dark theme; the setting applies to every theme (`html[data-own-messages]`, `--own-bg` for a theme that names its band).

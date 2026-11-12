@@ -35,7 +35,9 @@
 						{active: id === activeItem, 'context-menu-checked': item.checked === true},
 					]"
 					:role="
-						item.checked === undefined
+						item.type === 'note' || item.type === 'divider'
+							? 'none'
+							: item.checked === undefined
 							? 'menuitem'
 							: item.toggle
 							? 'menuitemcheckbox'
@@ -43,7 +45,7 @@
 					"
 					:aria-checked="item.checked === undefined ? undefined : String(item.checked)"
 					@mouseenter="hoverItem(id)"
-					@click="clickItem(item)"
+					@click="item.type === 'note' ? undefined : clickItem(item)"
 				>
 					{{ item.label }}
 				</li>
@@ -58,6 +60,7 @@ import {
 	generateChannelContextMenu,
 	generateInlineChannelContextMenu,
 	ContextMenuItem,
+	inertMenuItem,
 } from "../js/helpers/contextMenu";
 import eventbus from "../js/eventbus";
 import {defineComponent, nextTick, onMounted, onUnmounted, PropType, ref} from "vue";
@@ -157,7 +160,7 @@ export default defineComponent({
 		};
 
 		const hoverItem = (id: number) => {
-			activeItem.value = id;
+			activeItem.value = inertMenuItem(items.value[id]) ? -1 : id;
 		};
 
 		const clickItem = (item: ContextMenuItem) => {
@@ -291,23 +294,16 @@ export default defineComponent({
 		};
 
 		const navigateMenu = (direction: number) => {
+			const count = items.value.length;
 			let currentIndex = activeItem.value;
 
-			currentIndex += direction;
+			// Past every divider and note (nothing to choose), wrapping round.
+			for (let step = 0; step < count; step++) {
+				currentIndex = (((currentIndex + direction) % count) + count) % count;
 
-			const nextItem = items.value[currentIndex];
-
-			// If the next item we would select is a divider, skip over it
-			if (nextItem && "type" in nextItem && nextItem.type === "divider") {
-				currentIndex += direction;
-			}
-
-			if (currentIndex < 0) {
-				currentIndex += items.value.length;
-			}
-
-			if (currentIndex > items.value.length - 1) {
-				currentIndex -= items.value.length;
+				if (!inertMenuItem(items.value[currentIndex])) {
+					break;
+				}
 			}
 
 			activeItem.value = currentIndex;

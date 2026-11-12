@@ -2987,6 +2987,11 @@ html[data-contrast="more"]:root[data-ps-light="night"]:is(:not([data-ps-words]),
 	#chat .userlist {
 		--ps-g-tint: var(--ps-g-tint-float, var(--ps-g-tint-a));
 	}
+
+	/* On the Mac the pane keeps its bottom inset (below) laid over the chat. */
+	html[data-platform="macos"] #chat .userlist {
+		height: calc(100% - 8px);
+	}
 }
 
 /* The phone's sliding sidebar and user list keep style.css's slide
@@ -3123,7 +3128,7 @@ html[data-contrast="more"]:root[data-ps-light="night"]:is(:not([data-ps-words]),
 .settings-modal,
 #connect,
 #context-menu,
-.mentions-popup,
+.header-popover,
 .textcomplete-menu,
 .reaction-picker,
 .reaction-picker-heading,
@@ -3139,7 +3144,7 @@ html[data-contrast="more"]:root[data-ps-light="night"]:is(:not([data-ps-words]),
 .settings-modal,
 #connect,
 #context-menu,
-.mentions-popup,
+.header-popover,
 .textcomplete-menu,
 .reaction-picker,
 .reaction-picker-heading,
@@ -3365,10 +3370,13 @@ select option {
  * drawer lies over the undimmed plains, whose grounds the tint is held over.
  * The strip beside it still takes the tap that closes the drawer, and still
  * fades. */
-@media (max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse) {
-	/* Physical, as style.css places the drawer (right: 100% and a translate). */
+@media (max-width: 480px), (max-width: 768px) and (pointer: coarse), (max-height: 500px) and (hover: none) and (pointer: coarse) {
+	/* At the inline start, where style.css docks the drawer, so a right to
+	 * left page dims beside its drawer rather than under it. The Mac app
+	 * zooms the drawer at the small font steps (style.css
+	 * --mac-sidebar-zoom), so its inner edge is that much further in. */
 	#sidebar-overlay {
-		left: var(--sidebar-width);
+		inset-inline-start: calc(var(--sidebar-width) * var(--mac-sidebar-zoom, 1));
 	}
 
 	/* The measured budget's pre-decided fallback (spec §10): on the phone
@@ -3556,6 +3564,194 @@ html[data-reduce-motion]:root {
 
 /* ---- reduced transparency ---- */
 
+/* ps on the Mac (html[data-platform="macos"], the desktop layout only): the
+ * sidebar is a pane of glass floating over the plains, as macOS 26 draws a
+ * Finder or Mail sidebar, inset from the window's edges with its corners
+ * rounded and the traffic lights inside it, so the scene runs around it. Its
+ * top strip is the lights' (style.css), shortened by the inset so the lights
+ * and the presence control share a centre line, and its corners are the
+ * window's own (16px on macOS 26) less the inset, so the two are concentric.
+ * The inset and the radius are px: they answer AppKit's frame, not the
+ * page's font size. The content beside it runs to the window's edges, as a
+ * Finder window's does. The open row is a rounded wash, not coffee's marker,
+ * and the badges are capsules. The user's word, 2026-11-09: rounded is right
+ * here, as this emulates macOS. Everything else is ps as it is everywhere. */
+@media (min-width: 769px) {
+	/* The sidebar is zoomed back to medium below that step (style.css), so its
+	 * inset and corners, in the window's px, are divided by the zoom. */
+	html[data-platform="macos"] #sidebar {
+		margin: calc(8px / var(--mac-sidebar-zoom, 1));
+		margin-inline-end: 0;
+		border: 0.0625rem solid var(--ps-g-edge);
+		border-radius: calc(8px / var(--mac-sidebar-zoom, 1));
+		overflow: hidden;
+		box-shadow: 0 0.5rem 1.875rem rgb(0 0 0 / 18%);
+	}
+
+	html[data-platform="macos"] #sidebar .logo-container {
+		height: calc((var(--mac-titlebar-height) - 16px) / var(--mac-sidebar-zoom, 1));
+		padding-inline-end: 0.375rem;
+	}
+
+	html[data-platform="macos"] .channel-list-item.active,
+	html[data-platform="macos"][dir="rtl"] .channel-list-item.active {
+		box-shadow: none;
+		background-color: var(--ps-g-wash-strong);
+	}
+
+	html[data-platform="macos"] .channel-list-item .badge {
+		border-radius: 1em;
+		padding: 0.2em 0.55em;
+	}
+
+	/* A macOS 26 toolbar: no band across the plains, the conversation's name
+	 * and topic in one glass capsule and each button a glass disc, floating
+	 * over the sky; the composer is a glass capsule floating over the grass.
+	 * Each piece is the header's or the composer's own glass, tint and edge. */
+	html[data-platform="macos"] #chat .header,
+	html[data-platform="macos"] #form {
+		--ps-mac-glass: rgb(255 251 244 / var(--ps-g-tint));
+	}
+
+	html[data-platform="macos"][data-ps-light="night"] #chat .header,
+	html[data-platform="macos"][data-ps-light="night"] #form {
+		--ps-mac-glass: rgb(12 17 32 / var(--ps-g-tint-a));
+	}
+
+	html[data-platform="macos"] #chat .header {
+		gap: 0.375rem;
+		padding-inline: 0.625rem;
+		border-block-end: 0;
+		background-color: transparent;
+		/* stylelint-disable-next-line property-no-vendor-prefix -- ps's prefixed blur, off on the band */
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
+	}
+
+	html[data-platform="macos"] #chat .header > :is(.title, .topic, button),
+	html[data-platform="macos"] #chat .header > span > button {
+		box-sizing: border-box;
+		height: 2rem;
+		line-height: calc(2rem - 2px);
+		border: 0.0625rem solid var(--ps-g-edge);
+		background-color: var(--ps-mac-glass);
+		/* stylelint-disable-next-line property-no-vendor-prefix -- see the glass section */
+		-webkit-backdrop-filter: blur(0.625rem) var(--ps-g-lift,) saturate(1.12);
+		backdrop-filter: blur(0.625rem) var(--ps-g-lift,) saturate(1.12);
+		box-shadow: 0 0.125rem 0.5rem rgb(0 0 0 / 10%);
+	}
+
+	html[data-platform="macos"] #chat .header > button,
+	html[data-platform="macos"] #chat .header > span > button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 2rem;
+		padding: 0;
+		border-radius: 50%;
+	}
+
+	html[data-platform="macos"] #chat .header > button::before,
+	html[data-platform="macos"] #chat .header > span > button::before {
+		width: auto;
+		line-height: calc(2rem - 2px);
+	}
+
+	/* The name and the topic are one capsule, split by the edge's hairline;
+	 * with no topic the name is a capsule of its own. The name is drawn over
+	 * the topic so the topic's shadow does not darken it. The topic's own fade
+	 * would fade its glass too, so it ends in an ellipsis instead. */
+	html[data-platform="macos"] #chat .header .title {
+		position: relative;
+		z-index: 1;
+		padding-inline: 0.875rem;
+		border-radius: 1rem;
+	}
+
+	html[data-platform="macos"] #chat .header .title:has(+ .topic:not(.empty)) {
+		border-inline-end: 0;
+		border-start-end-radius: 0;
+		border-end-end-radius: 0;
+	}
+
+	html[data-platform="macos"] #chat .header .topic {
+		margin-inline-start: -0.375rem;
+		padding-inline: 0.75rem 0.875rem;
+		border-radius: 1rem;
+		border-start-start-radius: 0;
+		border-end-start-radius: 0;
+		mask-image: none;
+		text-overflow: ellipsis;
+	}
+
+	html[data-platform="macos"] #chat .header .topic.empty {
+		visibility: hidden;
+	}
+
+	/* With no band under the toolbar, the messages fade out as they scroll up
+	 * to it, as a macOS 26 window's content does at its scroll edge, rather
+	 * than being cut off at a line. */
+	html[data-platform="macos"] #chat .chat {
+		mask-image: linear-gradient(to bottom, transparent, black 1.25rem);
+	}
+
+	html[data-platform="macos"] #form {
+		margin: 0 0.625rem 0.625rem;
+		border: 0.0625rem solid var(--ps-g-edge);
+		border-radius: 1.25rem;
+		background-color: var(--ps-mac-glass);
+		box-shadow: 0 0.25rem 1rem rgb(0 0 0 / 12%);
+	}
+
+	html[data-platform="macos"] #form:focus-within {
+		border-color: var(--ps-g-edge);
+	}
+
+	/* The member list is a pane like the sidebar, an inspector's: inset from
+	 * window's trailing edge and the composer, under the toolbar, its corners
+	 * rounded as the sidebar's are, so the plains run
+	 * around it rather than a slab of glass meeting the edge. Laid over a
+	 * narrow chat it keeps the inset. Its group headings are the sidebar's
+	 * section labels, in the flow: a sticky heading's veil, glass over glass,
+	 * was a darker band across the pane. Its rows are rounded washes inset
+	 * from the pane's sides, as the sidebar's are. */
+	html[data-platform="macos"] #chat .userlist {
+		margin-inline-end: 8px;
+		margin-block-end: 8px;
+		border: 0.0625rem solid var(--ps-g-edge);
+		border-radius: 8px;
+		overflow: hidden;
+		box-shadow: 0 0.5rem 1.875rem rgb(0 0 0 / 18%);
+	}
+
+	/* A pane hovering over the plains leaves them where they are: the yurt
+	 * keeps its place when the list opens (the scene section moves it to stay
+	 * clear of a docked slab), and the pane's glass passes over it. */
+	html[data-platform="macos"]:has(.userlist-open .chat-view[data-type="channel"]) #theme-scene .ps-yurt,
+	html[data-platform="macos"]:has(.userlist-open .chat-view[data-type="channel"]) #theme-scene .ps-smoke {
+		--ps-yurt-in: 0px;
+	}
+
+	html[data-platform="macos"] #chat .userlist .user-mode[data-label]::before {
+		position: static;
+		background-color: transparent;
+		color: var(--rail-fg-muted, var(--body-color-muted));
+		font-size: 0.75rem;
+		font-weight: 600;
+		padding-inline: 0.875rem;
+	}
+
+	html[data-platform="macos"] #chat .userlist .names .user {
+		margin-inline: 0.375rem;
+		padding-inline: 0.5rem;
+		border-radius: 0.375rem;
+	}
+
+	html[data-platform="macos"] #chat .userlist .user.active {
+		background-color: var(--ps-g-wash-strong);
+	}
+}
+
 /* A system that asks for less transparency gets the chrome solid: no blur, the
  * solid colour, by day and at night — and the words' surfaces with it (the
  * card and the pills, an own row's card and a mention's, the glass column,
@@ -3567,6 +3763,10 @@ html[data-reduce-motion]:root {
 	#chat .header,
 	#chat .userlist,
 	#form,
+	html[data-platform="macos"] #chat .header,
+	html[data-platform="macos"] #chat .header > :is(.title, .topic, button),
+	html[data-platform="macos"] #chat .header > span > button,
+	html[data-platform="macos"] #form,
 	#chat .msg-reaction:not(.self, .msg-reaction-add),
 	#viewport.menu-open #sidebar,
 	#viewport.menu-dragging #sidebar,

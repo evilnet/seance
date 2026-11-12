@@ -1,10 +1,13 @@
-import {isPhoneLayout} from "./helpers/device";
+import {isPhoneLayout, PHONE_LAYOUT_QUERY} from "./helpers/device";
+import {listenForTrackpadSwipes} from "./trackpadSwipe";
 
 import "../css/style.css";
 import {createApp} from "vue";
 import {store, CallableGetters, key} from "./store";
 import App from "../components/App.vue";
 import storage from "./localStorage";
+// Before the first paint: the sidebar opens at the width the user left it.
+import "./sidebarWidth";
 import {router} from "./router";
 import "./socket-events"; // this sets up all socket event listeners, do not remove
 import eventbus from "./eventbus";
@@ -33,6 +36,7 @@ VueApp.directive("backdrop", backdropDirective);
 VueApp.mount("#app");
 
 void boot();
+listenForTrackpadSwipes();
 
 store.watch(
 	(state) => state.sidebarOpen,
@@ -43,6 +47,24 @@ store.watch(
 		}
 	}
 );
+
+// A window crossing into the phone layout (a desktop window made narrower
+// than 481px) closes the sidebar, which turns into a drawer there: left open,
+// it covered the chat at once, dimmed. The header's menu button opens it.
+// Back out, it is as the user last left it beside the chat. The close is not
+// saved: the watcher above only saves outside the phone layout.
+if (typeof window.matchMedia === "function") {
+	window.matchMedia(PHONE_LAYOUT_QUERY).addEventListener("change", (event) => {
+		if (!store.state.appLoaded) {
+			return;
+		}
+
+		store.commit(
+			"sidebarOpen",
+			event.matches ? false : storage.get("thelounge.state.sidebar") !== "false"
+		);
+	});
+}
 
 store.watch(
 	(state) => state.userlistOpen,

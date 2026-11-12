@@ -62,7 +62,7 @@
 			class="msg-action msg-action-translate"
 			:aria-label="translateLabel"
 			:title="translateBlocked || translateLabel"
-			:aria-haspopup="hiddenTranslation || translateBlocked ? undefined : 'menu'"
+			:aria-haspopup="translateBlocked ? undefined : 'menu'"
 			:disabled="!!translateBlocked && !explainOnTap"
 			:aria-disabled="translateBlocked && explainOnTap ? 'true' : undefined"
 			:aria-describedby="translateBlocked ? translateWhyId : undefined"
@@ -122,7 +122,6 @@ import {isEditable, startEdit, startReply} from "../js/helpers/compose";
 import {myReactions} from "../js/helpers/messageUpdates";
 import {loadEmojiCatalog} from "../js/helpers/emoji";
 import {
-	channelTranslation,
 	currentTranslationBlock,
 	liveLlmName,
 	readingLanguage,
@@ -136,9 +135,12 @@ import {isTouchInput, onInputKindChange} from "../js/helpers/inputModality";
 import {ChanType} from "../../shared/types/chan";
 import {MessageType} from "../../shared/types/msg";
 import type {ClientChan, ClientMessage, ClientNetwork} from "../js/types";
+import {languageName} from "../js/translate/languages";
+import {recentLanguages} from "../js/translate/recent";
 import ReactionPicker from "./ReactionPicker.vue";
 import SourceLanguagePicker from "./SourceLanguagePicker.vue";
 import {useI18n} from "../js/i18n";
+import {translatedByText} from "../js/helpers/modelLabel";
 
 // How long the "Copied" label stays over the row (its fade in style.css
 // takes as long)
@@ -302,18 +304,16 @@ export default defineComponent({
 			() => !!props.message.self || props.channel.type === ChanType.CHANNEL
 		);
 
-		// "Show original only" hides the line, chip included, so the toolbar
-		// is the only way back to it.
-		const hiddenTranslation = computed(() => {
+		// A translated line, shown or swapped back to its original: the
+		// action opens the translation's own menu (copy, retranslate, swap).
+		const doneEntry = computed(() => {
 			const entry = store.state.translations[props.message.id];
 
-			return !!entry && entry.status === "done" && entry.hidden;
+			return entry && entry.status === "done" ? entry : null;
 		});
 
 		const translateLabel = computed(() =>
-			hiddenTranslation.value
-				? t("translate.action.showTranslation")
-				: t("translate.action.translate")
+			doneEntry.value ? t("translate.action.options") : t("translate.action.translate")
 		);
 
 		const canTranslate = computed(() => {
@@ -334,9 +334,9 @@ export default defineComponent({
 				!entry ||
 				entry.status === "failed" ||
 				entry.status === "dropped" ||
-				// A line detection left alone: the mark's "Translate anyway".
+				// A line detection left alone.
 				entry.status === "skipped" ||
-				hiddenTranslation.value
+				entry.status === "done"
 			);
 		});
 
@@ -345,7 +345,7 @@ export default defineComponent({
 		// and not a request that fails a moment later. Showing a hidden
 		// translation again needs no engine.
 		const translateBlocked = computed(() => {
-			if (hiddenTranslation.value) {
+			if (doneEntry.value) {
 				return "";
 			}
 
@@ -365,23 +365,22 @@ export default defineComponent({
 		};
 
 		// Nothing has placed this line, so the dialog opens on what the
-		// channel is known to speak (the panel's declared languages) rather
-		// than on whatever sorts first; with none declared it opens on the
-		// list, as the chip's picker does for a line with no source.
-		const channelLanguages = computed(
-			() => channelTranslation(props.network, props.channel).languages
+		// channel has been written in lately (recent.ts) rather than on
+		// whatever sorts first; with nothing yet it opens on the list, as the
+		// chip's picker does for a line with no source.
+		const channelLanguages = computed(() =>
+			recentLanguages(props.channel.messages, store.state.translations).map((c) => c.code)
 		);
 
 		const translateFrom = (from?: string) =>
 			retranslate(props.network, props.channel, props.message, from);
 
 		/**
-		 * The action's menu: translate now, with the line's language left to
-		 * the detector, or name that language first. Nothing detected this
-		 * line yet -- that is what the action is for -- so the detector's
-		 * runners-up are not on offer the way the chip's menu has them
-		 * (`TranslationLine.vue`); after the translation the chip carries
-		 * them. A keyboard activation gives the menu no pointer to open at,
+		 * The action's menu. An untranslated line: translate now, with its
+		 * language left to the detector, or name that language first. A
+		 * translated one: swap it with the original (what a tap on the text
+		 * does, Message.vue onFlipClick), copy, retranslate, or retranslate from the
+		 * detector's runners-up or a picked language. A keyboard activation gives the menu no pointer to open at,
 		 * so it is anchored under the button, as the chip's is.
 		 */
 		const openMenu = (mouseEvent: MouseEvent) => {
@@ -395,24 +394,81 @@ export default defineComponent({
 				  })
 				: mouseEvent;
 
+			const done = doneEntry.value;
+			const nameOf = (code: string) => languageName(code, readingLanguage());
+			const pick = {
+				label: done
+					? t("translate.menu.retranslateFromPicker")
+					: t("translate.menu.translateFromPicker"),
+				type: "item",
+				class: done ? "translate-retry-pick" : "translate-from-pick",
+				action() {
+					sourcePickerOpen.value = true;
+				},
+			};
+
+			// At the foot, quietly: which model translated the line, or
+			// tried to (a failed one). Where someone doubting a translation
+			// already looks; nowhere else on screen.
+			const by = translatedByText(store.state.translations[props.message.id]?.model);
+			const foot = by
+				? [
+						{type: "divider" as const},
+						{type: "note" as const, label: by, class: "translate-by"},
+				  ]
+				: [];
+
 			eventbus.emit("contextmenu:items", {
 				event,
-				items: [
-					{
-						label: t("translate.menu.translateNow"),
-						type: "item",
-						class: "translate-now",
-						action: () => translateFrom(),
-					},
-					{
-						label: t("translate.menu.translateFromPicker"),
-						type: "item",
-						class: "translate-from-pick",
-						action() {
-							sourcePickerOpen.value = true;
-						},
-					},
-				],
+				items: done
+					? [
+							{
+								label: done.hidden
+									? t("translate.action.showTranslation")
+									: t("translate.menu.showOriginal"),
+								type: "item",
+								class: "translate-flip",
+								action: () => showOriginal(props.message.id, !done.hidden),
+							},
+							{
+								label: t("translate.menu.copy"),
+								type: "item",
+								class: "translate-copy",
+								// Nowhere to report a refused clipboard: silent.
+								action() {
+									void writeClipboard(done.text);
+								},
+							},
+							{
+								label: t("translate.menu.retranslate"),
+								type: "item",
+								class: "translate-retry",
+								action: () => translateFrom(),
+							},
+							// The detector's runners-up, the line's own source left out.
+							...(done.candidates ?? [])
+								.filter((code) => code !== done.from)
+								.map((code) => ({
+									label: t("translate.menu.retranslateFrom", {
+										language: nameOf(code),
+									}),
+									type: "item",
+									class: "translate-retry-from",
+									action: () => translateFrom(code),
+								})),
+							pick,
+							...foot,
+					  ]
+					: [
+							{
+								label: t("translate.menu.translateNow"),
+								type: "item",
+								class: "translate-now",
+								action: () => translateFrom(),
+							},
+							pick,
+							...foot,
+					  ],
 			});
 		};
 
@@ -421,15 +477,8 @@ export default defineComponent({
 			// there, so the tap opens the channel's translation panel, whose
 			// notice gives the reason and the way to Settings.
 			if (translateBlocked.value) {
-				store.commit("translationPanelFor", props.channel.id);
+				store.commit("translationSheetFor", props.channel.id);
 				emit("done");
-				return;
-			}
-
-			if (hiddenTranslation.value) {
-				// Showing it again must not cost a new translation, and there
-				// is nothing to choose: no menu on this one.
-				showOriginal(props.message.id, false);
 				return;
 			}
 
@@ -508,7 +557,6 @@ export default defineComponent({
 			sourcePickerOpen,
 			translateButton,
 			channelLanguages,
-			hiddenTranslation,
 			mine,
 			canEdit,
 			canDelete,

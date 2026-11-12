@@ -53,7 +53,7 @@ type ClientChan = Omit<SharedChan, "messages"> & {
 	usersOutdated: boolean;
 	/** Reply parents fetched for their quotes because no loaded row has them, by msgid. */
 	replyParents?: Record<string, {nick: string; text: string; id?: undefined}>;
-	/** Message the next plain-text/`/me` input replies to (`+draft/reply`). */
+	/** Message the next plain-text/`/me` input replies to (`+reply`). */
 	replyTo: ClientMessage | null;
 	/** Own message the next plain-text input replaces (`+seance/edit`). */
 	editing: ClientMessage | null;

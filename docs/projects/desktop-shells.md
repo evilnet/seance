@@ -150,6 +150,13 @@ plugin so the page has one code path. Nothing is shared with the iOS shell,
 which keeps Capacitor's plugins as they are; a Swift type both shells wrap
 waits for a second plugin both need (translation).
 
+**Built (2026-11-09):** `AppleTranslate` on macOS. The framework code moved
+from the iOS shell into `swift/` as `SeanceTranslate`, which both shells
+link; each brings a `PrepareHost` for the download sheet (a
+`UIHostingController` child on iOS, a 1×1 `NSHostingView` in the key
+window's content view on macOS), and Bridge.swift routes the plugin.
+The page's gate is `helpers/shell.ts` `hasAppleTranslate()` (iOS and macOS).
+
 ### 4.4 Distribution
 
 Direct downloads only, no app stores. macOS: Developer ID signing and

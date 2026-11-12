@@ -44,7 +44,12 @@ export interface ContextOptions {
 	/** The deploy's `translation.glossary` (branding.ts), merged into the terms. */
 	glossary: [string, string][];
 	formality: Formality;
-	variant: string;
+	/**
+	 * Free text for the prompt ("Brazilian Portuguese"). Nothing sets it per
+	 * conversation any more (the channel panel's "Variant" was retired with
+	 * it); kept for a caller that names one.
+	 */
+	variant?: string;
 	sourceHint: string | null;
 	/** The user's earlier lines in the target language, oldest first (a write only). */
 	voice?: string[];

@@ -5,7 +5,11 @@ import {setMuteStatus} from "../mute";
 import eventbus from "../eventbus";
 import type {ClientChan, ClientNetwork, ClientUser} from "../types";
 import {switchToChannel} from "../router";
-import {requestTranslationPanel, translationAvailable} from "../translate/reader";
+import {
+	requestTranslationSheet,
+	translationAvailable,
+	translationOffByUser,
+} from "../translate/reader";
 import {TypedStore} from "../store";
 import useCloseChannel from "../hooks/use-close-channel";
 import {ChanType} from "../../../shared/types/chan";
@@ -38,10 +42,27 @@ type ContextMenuDividerItem = {
 	type: "divider";
 };
 
+/**
+ * A line of quiet text at the menu's foot, nothing to choose: what the
+ * entries above act on (the model that translated a line). Skipped by the
+ * keyboard and the pointer.
+ */
+type ContextMenuNoteItem = {
+	type: "note";
+	label: string;
+	class: string;
+};
+
 export type ContextMenuItem =
 	| ContextMenuItemWithAction
 	| ContextMenuItemWithLink
-	| ContextMenuDividerItem;
+	| ContextMenuDividerItem
+	| ContextMenuNoteItem;
+
+/** Not something to choose: the keyboard and the pointer pass over it. */
+export function inertMenuItem(item: ContextMenuItem | undefined): boolean {
+	return !!item && "type" in item && (item.type === "divider" || item.type === "note");
+}
 
 export function generateChannelContextMenu(
 	channel: ClientChan,
@@ -206,10 +227,14 @@ export function generateChannelContextMenu(
 			},
 		});
 
-		// Only where translation can actually run: a deploy with the feature
-		// off, or a device whose probe found neither a GPU nor WASM SIMD,
-		// offers no panel to open (translate/reader.ts translationAvailable).
-		if (translationAvailable()) {
+		// Where translation can actually run, and where it is off by the
+		// user's own setting (its default): the panel then opens as the one
+		// button that switches it on, so translation is found in the
+		// conversation, never only in Settings (spec § Finding it). A deploy
+		// with the feature off, or a device whose probe found neither a GPU
+		// nor WASM SIMD, offers nothing (translate/reader.ts
+		// translationAvailable).
+		if (translationAvailable() || translationOffByUser()) {
 			items.push({
 				label: t("translate.menu.panel"),
 				type: "item",
@@ -219,7 +244,7 @@ export function generateChannelContextMenu(
 					// opens the channel first and leaves the ask in the store:
 					// Chat.vue takes it once it shows that channel.
 					switchToChannel(channel);
-					requestTranslationPanel(channel);
+					requestTranslationSheet(channel);
 				},
 			});
 		}

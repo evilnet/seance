@@ -239,7 +239,9 @@
 	height: 2.75rem;
 }
 
-@media (max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse) {
+@media (max-width: 480px),
+	(max-width: 768px) and (pointer: coarse),
+	(max-height: 500px) and (hover: none) and (pointer: coarse) {
 	#search-filters-overlay {
 		align-items: flex-end;
 		padding: 2rem 0 0;

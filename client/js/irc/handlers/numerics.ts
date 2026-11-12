@@ -12,7 +12,7 @@ import {errorSpec} from "../errors";
 import {formatLine} from "../message";
 import {t} from "../../i18n/core";
 import {noteSnomask, parseSnomask} from "../oper";
-import {failPendingLabel} from "../pending";
+import {failPendingLabel, failPendingTarget} from "../pending";
 import type {Handler} from "../types";
 
 /** Params without our own leading nick, joined for display. */
@@ -228,13 +228,15 @@ export const numericError: Handler = (client, msg) => {
 
 	const params = msg.params.slice(1); // drop our nick
 	const reason = params.length > 0 ? params[params.length - 1] : "";
+	const notSent = reason || t("pending.numericError", {code: msg.command});
 	// `labeled-response`: the numeric answers one of our lines. A message of
 	// ours it rejects is reported with its text, where it was typed.
 	const label = msg.tags.get("label");
 
 	if (
-		label &&
-		failPendingLabel(client, label, reason || t("pending.numericError", {code: msg.command}))
+		label
+			? failPendingLabel(client, label, notSent)
+			: msg.command === "404" && failPendingTarget(client, params[0] ?? "", notSent)
 	) {
 		return;
 	}
@@ -261,6 +263,12 @@ export const numericError: Handler = (client, msg) => {
 	pushError(client, error, error.channel);
 };
 
+/** ERR_PASSWDMISMATCH: shown as any error; before 001 it also ends the connect. */
+const passwordMismatch: Handler = (client, msg) => {
+	numericError(client, msg);
+	client.serverPasswordFailed();
+};
+
 export default {
 	"001": welcome,
 	"002": infoLine,
@@ -284,4 +292,5 @@ export default {
 	"396": hostHidden,
 	"432": badNick,
 	"433": badNick,
+	"464": passwordMismatch,
 };

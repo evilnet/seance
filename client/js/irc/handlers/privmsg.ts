@@ -13,7 +13,8 @@ import {inRestorationWindow, isRoutineReplayNotice} from "../persistence";
 import {privilegesModified} from "../oper";
 import {noteServicesLine, snoopNicks} from "../servicesfeed";
 import {handleServerNotice, handleWallops} from "../snotice";
-import {EDIT_TAG, REPLY_TAG, trailingLine} from "../wire";
+import {DRAFT_REPLY_TAG, EDIT_TAG, REPLY_TAG, trailingLine} from "../wire";
+import {languageFieldsOf} from "../langtag";
 import {noteListDelay} from "./list";
 import type {Handler} from "../types";
 import {ignoreListFor} from "../../ignore";
@@ -259,7 +260,7 @@ function handleMessage(
 		message.statusmsgGroup = group;
 	}
 
-	// Replies (`+reply` ratified, `+draft/reply` what poxchat sends) and our
+	// Replies (`+reply`, or the `+draft/reply` poxchat sends) and our
 	// own edit marker, bus-contract §1.4. The parent may not be loaded; the
 	// UI resolves it when rendering.
 	const replyTo = replyTagOf(msg);
@@ -273,6 +274,28 @@ function handleMessage(
 		message.editOf = editOf;
 	}
 
+	// The language tags (`langtag.ts`): what the sender says the text is
+	// in, and whether its client machine-translated it. An edit carries its
+	// own, so a rewrite sent as typed loses the original's note.
+	Object.assign(
+		message,
+		languageFieldsOf((name) => msg.tags.get(name))
+	);
+
+	// A live message of ours is the echo of one we sent: its pending copy
+	// comes down before the real one goes in (bus-contract §1.9).
+	if (self && !client.replaying) {
+		settleEcho(client, chan, msg, type, text);
+	}
+
+	// A live msgid the channel already shows is the same message again: a
+	// message to ourselves comes back as both the echo and the delivered
+	// copy. (A replay has its own msgid dedupe in history.ts, and a search
+	// must still hit a line the channel shows.)
+	if (msgid && !client.replaying && chan.idOf(msgid) !== undefined) {
+		return;
+	}
+
 	// The original leaves the inbox, loaded or not; the inbox checks that
 	// the edit's sender wrote it (`by`). The edit brings its own entry if it
 	// still mentions us.
@@ -283,12 +306,6 @@ function handleMessage(
 			msgid: editOf,
 			by: nick,
 		});
-	}
-
-	// A live message of ours is the echo of one we sent: its pending copy
-	// comes down before the real one goes in (bus-contract §1.9).
-	if (self && !client.replaying) {
-		settleEcho(client, chan, msg, type, text);
 	}
 
 	// An edit of a loaded message takes that message's place in the list
@@ -315,9 +332,9 @@ function handleMessage(
 	}
 }
 
-/** The msgid a PRIVMSG / TAGMSG refers to (`+draft/reply` preferred, `+reply` accepted). */
+/** The msgid a PRIVMSG / TAGMSG refers to (`+reply` preferred, `+draft/reply` accepted). */
 export function replyTagOf(msg: IrcMessage): string | undefined {
-	return msg.tags.get(REPLY_TAG) || msg.tags.get("+reply") || undefined;
+	return msg.tags.get(REPLY_TAG) || msg.tags.get(DRAFT_REPLY_TAG) || undefined;
 }
 
 function handleCtcpResponse(client: IrcClient, nick: string, ctcp: Ctcp, time: Date): void {

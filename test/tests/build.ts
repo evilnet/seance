@@ -146,30 +146,23 @@ describe("public folder", function () {
 		expect(fs.existsSync(path.join(publicFolder, "js", "translate-worker.js"))).to.be.true;
 	});
 
-	it("the short-line word list is its own chunk, not part of the bundle", function () {
-		// client/js/translate/wordlist.json is ~390 KB of frequency data the
-		// lookup (wordlookup.ts) fetches on the first short line it has to
-		// place. It rides in its own chunk, like franc's: in the bundle it
-		// would be paid for by every page load.
-		const wordlist = chunk("wordlist");
+	it("the language identifiers are their own chunk and carry their notices", function () {
+		// detect.ts imports lid.real.ts on the first line it has to place; the
+		// notice is scripts/build-info.mts chunkNotices, keyed by the chunk's
+		// name (vite.config.mts chunkNames gives it its name). The model and
+		// the wasm are files beside it, fetched from the app's origin.
+		const lid = chunk("lid");
 
-		expect(wordlist, "js/wordlist.<hash>.js").to.be.a("string");
-		expect(read("js", wordlist!)).to.include("gracias");
-		expect(read("js", entry()!).includes("gracias")).to.be.false;
-	});
-
-	it("franc is its own chunk and carries its licence notice", function () {
-		// detect.ts imports it on the first line it has to guess; the notice
-		// is scripts/build-info.mts chunkNotices, keyed by the chunk's name
-		// (vite.config.mts chunkNames gives franc's chunk its name).
-		const franc = chunk("franc");
-
-		expect(franc, "js/franc.<hash>.js").to.be.a("string");
-		expect(read("js", franc!)).to.match(/^\/\*! franc 6\.2\.0, .* \| MIT \|/);
-		// n-gram's own error message: the library's code, not a call into it.
-		const ngram = "is not a valid argument for `n-gram`";
-		expect(read("js", franc!)).to.include(ngram);
-		expect(read("js", entry()!).includes(ngram)).to.be.false;
+		expect(lid, "js/lid.<hash>.js").to.be.a("string");
+		expect(read("js", lid!)).to.match(/^\/\*!\n \* eld 2\.1\.1 /);
+		expect(read("js", lid!)).to.include(
+			"lid.176.ftz language identification model | CC-BY-SA-3.0"
+		);
+		// ELD's n-gram table rides in the chunk, never the entry.
+		expect(read("js", entry()!).includes("setLanguageSubset")).to.be.false;
+		expect(fs.existsSync(path.join(publicFolder, "js", "lid", "lid.176.ftz"))).to.be.true;
+		expect(fs.existsSync(path.join(publicFolder, "js", "lid", "fastText.common.wasm"))).to.be
+			.true;
 	});
 
 	it("the locale catalogs are copied for the push worker, and the lazy ones are chunks", function () {
@@ -241,7 +234,7 @@ describe("public folder", function () {
 		expect(worker).to.not.match(/import\.meta/);
 
 		// And nowhere else: a wasm or an ES module outside the places that
-		// hold them on purpose (js/ort/, js/wllama.wasm, models/) is one the
+		// hold them on purpose (js/ort/, js/lid/, js/wllama.wasm, models/) is one the
 		// bundler emitted on its own -- under the worker build's
 		// assetFileNames (js/), or Vite's default assets/ if that ever went.
 		expect(fs.existsSync(path.join(publicFolder, "assets")), "public/assets/").to.be.false;
@@ -250,6 +243,7 @@ describe("public folder", function () {
 				(file) =>
 					/\.(wasm|mjs)$/.test(file) &&
 					!file.startsWith("js/ort/") &&
+					!file.startsWith("js/lid/") &&
 					!file.startsWith("models/") &&
 					file !== "js/wllama.wasm"
 			)

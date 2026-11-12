@@ -8,6 +8,8 @@ import {topEscapeLayer} from "./helpers/escapeLayer";
 import isChannelCollapsed from "./helpers/isChannelCollapsed";
 import isIgnoredKeybind from "./helpers/isIgnoredKeybind";
 import listenForTwoFingerSwipes from "./helpers/listenForTwoFingerSwipes";
+import {numberShortcutModifier} from "./helpers/numberShortcut";
+import {nativeListen, nativePlatform} from "./helpers/shell";
 import {ClientChan} from "./types";
 import {ChanType} from "../../shared/types/chan";
 
@@ -28,27 +30,71 @@ listenForTwoFingerSwipes(function (cardinalDirection: string) {
 	}
 });
 
-function navigateWindow(direction: number) {
-	if (store.state.networks.length === 0) {
-		return;
-	}
-
-	const flatChannels: ClientChan[] = [];
-	let index = -1;
+/** The conversations in sidebar order, the collapsed networks' left out (lobbies stay). */
+function visibleWindows(): ClientChan[] {
+	const flat: ClientChan[] = [];
 
 	for (const network of store.state.networks) {
 		for (const channel of network.channels) {
-			if (isChannelCollapsed(network, channel)) {
-				continue;
+			if (!isChannelCollapsed(network, channel)) {
+				flat.push(channel);
 			}
-
-			if (index === -1 && store.state.activeChannel?.channel === channel) {
-				index = flatChannels.length;
-			}
-
-			flatChannels.push(channel);
 		}
 	}
+
+	return flat;
+}
+
+/** The Nth channel or query (1-based) in sidebar order; a network's lobby is not counted, as in other clients' ⌘1–9. */
+function jumpToNthChannel(n: number) {
+	const conversations = visibleWindows().filter((chan) => chan.type !== ChanType.LOBBY);
+	const target = conversations[n - 1];
+
+	if (target) {
+		jumpToChannel(target);
+	}
+}
+
+// Jump to the Nth channel or query with a digit: in the macOS app through
+// the menu bar's Go menu (⌘1–9, the shell's install_mac_menu sends
+// `go.channel.N`), so the shortcut is a real menu item and fires once;
+// elsewhere through the keyboard, with the modifier each platform leaves
+// free (Ctrl+1–9 in the app on Windows and Linux, Alt+1–9 in a browser on
+// Windows, nothing where every chord is taken: helpers/numberShortcut.ts).
+// From the composer too: no layout types a character with these chords.
+if (nativePlatform() === "macos") {
+	nativeListen("App", "menuAction", (data: {action?: unknown}) => {
+		const match = /^go\.channel\.([1-9])$/.exec(
+			typeof data?.action === "string" ? data.action : ""
+		);
+
+		if (match) {
+			jumpToNthChannel(Number(match[1]));
+		}
+	});
+} else {
+	const numberModifier = numberShortcutModifier();
+
+	if (numberModifier) {
+		Mousetrap.bind(
+			["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((n) => `${numberModifier}+${n}`),
+			function (_e, keys) {
+				jumpToNthChannel(Number(keys.split("+").pop()));
+				return false;
+			}
+		);
+	}
+}
+
+function navigateWindow(direction: number) {
+	const flatChannels = visibleWindows();
+
+	if (flatChannels.length === 0) {
+		return;
+	}
+
+	const active = store.state.activeChannel?.channel;
+	let index = active ? flatChannels.indexOf(active) : -1;
 
 	// Circular array, and a modulo bug workaround because in JS it stays negative
 	const length = flatChannels.length;
@@ -167,7 +213,7 @@ Mousetrap.bind(["mod+f"], function () {
 	}
 
 	if (router.currentRoute.value.name === "SearchResults") {
-		searchTucked.value = false; // a phone's panel a hit tucked away comes back
+		searchTucked.value = false; // a panel a hit tucked away (covering the chat) comes back
 		void nextTick(() =>
 			document.querySelector<HTMLInputElement>(".search-query input")?.focus()
 		);
@@ -307,7 +353,10 @@ document.addEventListener("keydown", (e) => {
 });
 
 function scrollIntoViewNicely(el) {
+	// "nearest": a row already in sight stays where it is, as after a click;
+	// one out of sight is brought to the nearer edge. "center" moved the list
+	// on every keyboard switch, visible or not.
 	// Ideally this would use behavior: "smooth", but that does not consistently work in e.g. Chrome
 	// https://github.com/iamdustan/smoothscroll/issues/28#issuecomment-364061459
-	el.scrollIntoView({block: "center", inline: "nearest"});
+	el.scrollIntoView({block: "nearest", inline: "nearest"});
 }

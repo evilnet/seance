@@ -11,10 +11,12 @@ const cap: Handler = (client, msg) => {
 	const result = client.caps.handle(msg);
 
 	for (const line of result.send) {
-		if (client.isQuitting) {
+		if (client.isQuitting || !client.socketOpen) {
 			// A required SASL login failed while the negotiator ran its
 			// `beforeEnd` hook (client.ts): the `CAP END` it queued behind
-			// that would only go out after our QUIT.
+			// that would only go out after our QUIT — or, when the failure
+			// is retried, on the socket `transport.abandon()` already dropped,
+			// where each line would be reported as sent while disconnected.
 			break;
 		}
 

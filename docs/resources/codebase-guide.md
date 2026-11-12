@@ -41,7 +41,7 @@ Run a single mocha file:
 NODE_ENV=test pnpm exec mocha --config=test/.mocharc.yml test/irc/client.ts
 ```
 
-CI (`.github/workflows/ci.yml`) runs on every pull request and push to `develop`: a frozen-lockfile install, `pnpm lint`, the production build, `pnpm test:mocha`, and `tools/scenarios/smoke.mjs` (the built app boots in Chromium with no console error).
+CI (`.github/workflows/ci.yml`) runs on every pull request and push to `develop`, in two parallel jobs after a frozen-lockfile install: `lint` (`pnpm lint`, `pnpm typecheck`) and `check` (the production build, mocha against it with `pnpm test:mocha:built`, which is `pnpm test:mocha` without its build, and `tools/scenarios/smoke.mjs`: the built app boots in Chromium with no console error).
 
 `pnpm test:mocha` runs the production-shaped `pnpm build` first because `test/tests/build.ts` inspects `public/`. Live tests (`test/irc/*.live.ts`) are `describe.skip` unless `SEANCE_IRC_URL` is set:
 
@@ -156,7 +156,7 @@ Cross-cutting types and helpers. `shared/types/socket-events.ts` (`ServerToClien
 - Prettier is enforced (`pnpm lint`, and CI). If `pnpm lint` fails, run `pnpm format:prettier` first.
 - **UI sizing: rem, never px** — moved to `docs/resources/client-features.md` § UI sizing: rem, never px.
 - `client/` compiles with `strict: true`; `noImplicitAny: false` remains in the tsconfigs with a "TODO: Remove eventually" — write explicit types in new code. No Node built-ins in `client/` (it must bundle for the browser; `transport.ts` uses only the global `WebSocket`).
-- **Pipeline the registration exchange.** Lines are processed in order and pre-registration commands are not charged fake lag, so never wait for a reply whose outcome the server already knows: `CAP END` (or the SASL opener) goes out in the same flush as `CAP REQ`, and the active channel's history/marker in the same flush as the `JOIN` (`caps.ts` `pipelineEnd`, `catchup.ts` `prefetchCatchup`).
+- **Pipeline the registration exchange.** Lines are processed in order and pre-registration commands are not charged fake lag, so never wait for a reply whose outcome the server already knows: `CAP END` goes out in the same flush as `CAP REQ`. The SASL opener is the one exception: it waits for the `sasl` ACK, since sasl-3.1 requires the cap enabled first and a NAKed REQ makes the server drop an opener queued behind it. That costs one round trip and no extra command. A `CAP REQ` sent after that `CAP END` but before 001 (a NAKed REQ retried cap by cap, a `CAP NEW`) suspends registration again, so the negotiator sends another `CAP END` behind it (`caps.ts` `reEnd`). The active channel's history/marker goes out in the same flush as the `JOIN` (`caps.ts` `pipelineEnd`, `catchup.ts` `prefetchCatchup`).
 - **Nothing but registration before 001** — moved to `docs/resources/irc-layer.md` § Nothing but registration before 001.
 - **Don't add per-channel commands to the connect path** — moved to `docs/resources/irc-layer.md` § Don't add per-channel commands to the connect path.
 - `MAX_LINE_BYTES = 500` (`client/js/irc/message.ts`) caps every outbound line, tags included: nefarious2 kills connections on inbound WS frames >= 528 bytes (#98) and the branch rejects message bodies over 512 bytes as excess flood, and browsers cannot control fragmentation. `splitMessage` chunks long text; do not raise the cap.

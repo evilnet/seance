@@ -20,6 +20,7 @@
 			</button>
 		</div>
 		<div
+			ref="messageRows"
 			class="messages"
 			role="log"
 			aria-live="polite"
@@ -78,6 +79,9 @@ import {continuesRun} from "../js/helpers/messageRuns";
 import {noteScroll, noteTouch} from "../js/helpers/scrollSettle";
 import {selectionActive, unwatchSelection, watchSelection} from "../js/helpers/touchSelection";
 import socket from "../js/socket";
+import {translationOn} from "../js/translate";
+import {onScreen} from "../js/translate/reader";
+import {watchLines} from "../js/helpers/lineVisibility";
 import {setReadHold} from "../js/helpers/readHold";
 import {cancelPastRequests, closePast, openPast, pastPage} from "../js/pastView";
 import {jumpStep, revealMessage, type JumpTarget} from "../js/helpers/jumpToMessage";
@@ -132,6 +136,31 @@ export default defineComponent({
 		const chat = ref<HTMLDivElement | null>(null);
 		const loadMoreButton = ref<HTMLButtonElement | null>(null);
 		const historyObserver = ref<IntersectionObserver | null>(null);
+		const messageRows = ref<HTMLDivElement | null>(null);
+
+		// Translation reads the lines in view (translate/onScreen.ts): while
+		// it is on, every row reports coming into view and leaving it. The
+		// rows of a list that goes (another channel, translation off) are
+		// forgotten, so the next mount reports them afresh.
+		watch(
+			() => [translationOn(), chat.value, messageRows.value, props.channel.id] as const,
+			([on, root, list, chanId], _, onCleanup) => {
+				if (!on || !root || !list) {
+					return;
+				}
+
+				const stop = watchLines(root, list, {
+					inView: (id, inView) => onScreen.setLine(chanId, id, inView),
+					visible: (id, visible) => onScreen.setVisible(chanId, id, visible),
+				});
+
+				onCleanup(() => {
+					stop();
+					onScreen.forget(chanId);
+				});
+			},
+			{flush: "post", immediate: true}
+		);
 		const skipNextScrollEvent = ref(false);
 
 		const isWaitingForNextTick = ref(false);
@@ -966,6 +995,7 @@ export default defineComponent({
 
 		return {
 			chat,
+			messageRows,
 			store,
 			t,
 			loadingOlder,

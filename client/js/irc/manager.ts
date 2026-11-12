@@ -14,6 +14,7 @@
  */
 
 import {CLOSED_STORAGE_KEY, closedStorageChanged, onClosedSharingStopped} from "./closedQueries";
+import {ref} from "vue";
 import socket from "../socket";
 import {store} from "../store";
 import {parseKeywordList} from "../highlight";
@@ -22,6 +23,7 @@ import {ignoreListFor} from "../ignore";
 import {registerBusHandlers} from "./bus";
 import {IrcClient} from "./client";
 import {flushQueryLogs} from "./querylog";
+import {forgetLogin, typedCredentialsDiffer} from "./saslTrust";
 import {pruneUserAway} from "./userAwayStore";
 import {leavesAwayToWorker, syncPresence} from "./presence";
 import {claimMute, clearRemoteDnd} from "./pushMute";
@@ -29,6 +31,9 @@ import * as saved from "./saved-networks";
 import type {SavedNetwork} from "./saved-networks";
 import type {ConnectOptions} from "./types";
 import type {GlobalModeState} from "../helpers/dnd";
+import {shellBridge} from "../helpers/shell";
+import {askCertificateTrust} from "../certificatePrompt";
+import type {UntrustedCertificate} from "./shellSocket";
 
 /** The global do-not-disturb as client/js/dnd.ts last set it; new clients start with it. */
 const globalDnd: {active: boolean; until: number | null} = {active: false, until: null};
@@ -53,6 +58,7 @@ export type CreateNetworkOptions = ConnectOptions &
 			| "pushEnabled"
 			| "notifyEnabled"
 			| "commands"
+			| "hasServerPassword"
 		>
 	>;
 
@@ -72,26 +78,95 @@ function allNetworks() {
 function rememberNetwork(options: CreateNetworkOptions): SavedNetwork {
 	const uuid =
 		options.uuid ||
-		saved.findMatching(options.host, options.port, options.nick)?.uuid ||
+		saved.findMatching(options.host, options.port, options.nick, options.transport)?.uuid ||
 		saved.newUuid();
 	const existing = saved.get(uuid);
-	const merged: Record<string, unknown> = {...(existing ?? {}), uuid};
-
-	for (const [key, value] of Object.entries(options)) {
-		if (value !== undefined) {
-			merged[key] = value;
-		}
-	}
-
-	const entry = saved.normalize(merged);
+	const entry = saved.normalize(saved.mergeOptions(existing, uuid, options));
 
 	if (!entry) {
 		throw new Error("createNetwork: missing uuid");
 	}
 
+	// Credentials from the connect form are unproven: a mistyped password on
+	// a network whose login has worked gets no retries (saslTrust.ts).
+	if (typedCredentialsDiffer(existing, options)) {
+		forgetLogin(uuid);
+	}
+
 	saved.save(entry);
 	saved.touchLastUsed(uuid);
 	return entry;
+}
+
+/** A refused login: the saved entry stops connecting at page load (see createNetwork). */
+function stopAutoconnect(uuid: string): void {
+	const current = saved.get(uuid);
+
+	if (current?.autoconnect) {
+		saved.save({...current, autoconnect: false});
+	}
+}
+
+/** Networks whose certificate question is up (untrustedCertificate). */
+const asking = new Set<string>();
+
+/**
+ * The shell refused a network's certificate: ask the user, then trust it for
+ * good (saved with the network), for this session, or not at all.
+ */
+async function untrustedCertificate(uuid: string, certificate: UntrustedCertificate) {
+	const client = clients.get(uuid);
+
+	// One question per network at a time: a refusal while it is up (another
+	// Connect) would queue the same question behind it.
+	if (!client || asking.has(uuid)) {
+		return;
+	}
+
+	// Refused although the dial offered it: trust cannot override what is
+	// wrong with it (the shell never lets a revoked one through), so asking
+	// again would only loop.
+	if (client.trusts(certificate.sha256)) {
+		return;
+	}
+
+	const {host, port} = client.options;
+	asking.add(uuid);
+	let answer: Awaited<ReturnType<typeof askCertificateTrust>>;
+
+	try {
+		answer = await askCertificateTrust(host, certificate);
+	} finally {
+		asking.delete(uuid);
+	}
+
+	// The network may have gone, or its address changed, while the question
+	// was up: the answer was about that server's certificate, not this one's.
+	if (
+		clients.get(uuid) !== client ||
+		client.options.host !== host ||
+		client.options.port !== port
+	) {
+		return;
+	}
+
+	if (answer === "no") {
+		return;
+	}
+
+	// "Always" is kept with the saved network. A network that is not saved,
+	// or whose saved entry names another server, has nowhere to keep it, so
+	// it counts for this session, rather than dialling into the same
+	// question. The port may differ: an STS upgrade moves the live client to
+	// the secure port and leaves the saved one as typed.
+	const current = answer === "always" ? saved.get(uuid) : undefined;
+
+	if (current && saved.sameHost(current.host, host)) {
+		saved.save(saved.withTrustedCertificate(current, certificate.sha256));
+		client.trustCertificate(certificate.sha256);
+	} else {
+		client.trustCertificateOnce(certificate.sha256, host, port);
+	}
 }
 
 /** Create (or reuse) the client for these options, save the config and connect. */
@@ -103,6 +178,8 @@ export function createNetwork(options: CreateNetworkOptions): IrcClient {
 		client = new IrcClient({
 			...saved.toConnectOptions(entry),
 			uuid: entry.uuid,
+			// The app shell's raw sockets, for a network set to IRC over TCP.
+			socketBridge: shellBridge() ?? undefined,
 			highlights: highlightKeywords,
 			networksForInit: allNetworks,
 			setMuteStatus,
@@ -118,13 +195,10 @@ export function createNetwork(options: CreateNetworkOptions): IrcClient {
 			// credentials would be refused again at every page load, and a
 			// network that never registers is not one the user can get back
 			// to the connect screen from.
-			onSaslRejected() {
-				const current = saved.get(entry.uuid);
-
-				if (current?.autoconnect) {
-					saved.save({...current, autoconnect: false});
-				}
-			},
+			onSaslRejected: () => stopAutoconnect(entry.uuid),
+			onServerPasswordRejected: () => stopAutoconnect(entry.uuid),
+			onUntrustedCertificate: (certificate) =>
+				void untrustedCertificate(entry.uuid, certificate),
 		});
 		clients.set(entry.uuid, client);
 		// Load the network's ignore list now, which mirrors it for the push
@@ -171,6 +245,29 @@ export function createNetwork(options: CreateNetworkOptions): IrcClient {
  */
 let autoconnectDone = false;
 
+/**
+ * Until boot reaches autoconnect, an entry it is about to dial is not shown
+ * as a not-connected network in the sidebar (NetworkList.vue): its live row
+ * comes a moment later. Reactive, so the rows appear if boot stops short —
+ * a link waiting on the user's answer (`endAutoconnectWait`).
+ */
+const bootDialing = ref(true);
+
+/** Whether boot's autoconnect, not run yet, will dial this entry by itself. */
+export function autoconnectPending(entry: SavedNetwork): boolean {
+	return bootDialing.value && willAutoconnect(entry);
+}
+
+/** Boot will not autoconnect for now (it waits on the user). */
+export function endAutoconnectWait(): void {
+	bootDialing.value = false;
+}
+
+/** A password it needs was not kept: it waits for the connect form. */
+function willAutoconnect(entry: SavedNetwork): boolean {
+	return !!entry.autoconnect && !saved.needsPassword(entry);
+}
+
 export function autoconnectSavedNetworks(): IrcClient[] {
 	if (autoconnectDone) {
 		return [];
@@ -182,17 +279,15 @@ export function autoconnectSavedNetworks(): IrcClient[] {
 	pruneUserAway([...saved.list().map((entry) => entry.uuid), ...clients.keys()]);
 
 	for (const entry of saved.list()) {
-		if (!entry.autoconnect || clients.has(entry.uuid)) {
-			continue;
-		}
-
-		if (entry.sasl === "plain" && !entry.saslPassword) {
+		if (!willAutoconnect(entry) || clients.has(entry.uuid)) {
 			continue;
 		}
 
 		started.push(createNetwork(entry));
 	}
 
+	// After the dials: their live rows are in the store by now.
+	endAutoconnectWait();
 	return started;
 }
 
@@ -399,6 +494,7 @@ registerBusHandlers(socket, {
 	remove(uuid) {
 		clients.get(uuid)?.queryLog.dispose();
 		clients.delete(uuid);
+		forgetLogin(uuid);
 	},
 });
 

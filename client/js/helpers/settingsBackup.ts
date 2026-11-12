@@ -80,6 +80,14 @@ export const BACKUP_PREFIXES: readonly string[] = [
 	"thelounge.script_storage.",
 ];
 
+/**
+ * Keys a restore clears although no file carries them: what this device
+ * learnt about the networks the file replaces. The SASL logins that worked
+ * (irc/saslTrust.ts) are keyed by network uuid, and a restored entry with
+ * the same uuid may carry other credentials.
+ */
+export const CLEARED_ON_RESTORE: readonly string[] = ["thelounge.state.saslOk"];
+
 export interface SettingsBackup {
 	format: typeof FORMAT;
 	version: number;
@@ -119,7 +127,7 @@ function storedBackupKeys(): string[] {
 }
 
 export interface CollectOptions {
-	/** Keep `saslPassword` on the saved networks; off strips it. */
+	/** Keep `saslPassword` and `serverPassword` on the saved networks; off strips them. */
 	includePasswords?: boolean;
 	/** The live settings object; storage only holds `settings` once one has
 	 * been changed, so the caller passes the store's, defaults and all. */
@@ -158,8 +166,9 @@ export function collectBackup(options: CollectOptions = {}): SettingsBackup {
 				return net;
 			}
 
-			const {saslPassword, ...rest} = net as Record<string, unknown>;
+			const {saslPassword, serverPassword, ...rest} = net as Record<string, unknown>;
 			void saslPassword;
+			void serverPassword;
 			return {...rest, rememberPassword: false};
 		});
 	}
@@ -194,8 +203,10 @@ export function hasPasswords(backup: SettingsBackup): boolean {
 			(net) =>
 				typeof net === "object" &&
 				net !== null &&
-				typeof (net as Record<string, unknown>).saslPassword === "string" &&
-				(net as Record<string, unknown>).saslPassword !== ""
+				["saslPassword", "serverPassword"].some((key) => {
+					const value = (net as Record<string, unknown>)[key];
+					return typeof value === "string" && value !== "";
+				})
 		)
 	);
 }
@@ -332,6 +343,10 @@ export function applyBackup(
 		if (!written.includes(key) && coveredBy(backup.version, key)) {
 			backend.remove(key);
 		}
+	}
+
+	for (const key of CLEARED_ON_RESTORE) {
+		backend.remove(key);
 	}
 }
 

@@ -11,7 +11,6 @@
 				'has-actions': canAct,
 				'actions-open': actionsOpen,
 				translated,
-				unchanged,
 				'select-armed': actionsOpen && selectArmed,
 			},
 		]"
@@ -68,7 +67,11 @@
 					:network="network"
 					:channel="channel"
 					dir="auto"
-				/>&#32;<button
+				/>&#32;<TranslationFlip
+					v-if="hasTranslationEntry"
+					:message="message"
+					@click="onFlipClick"
+				/><button
 					v-if="message.redacted && !revealed"
 					type="button"
 					class="msg-redacted"
@@ -83,12 +86,27 @@
 					@click="hideRevealed"
 					><ParsedMessage :message="message" />
 					<span class="msg-redacted-note">{{ redactedLabel }}</span></span
+				><span
+					v-else-if="flippable"
+					class="msg-flippable"
+					:class="{'msg-translated': !!replaced}"
+					:lang="replaced ? replaced.to : undefined"
+					@click="onFlipClick"
+					><ParsedMessage
+						:message="message"
+						:text="replaced ? replaced.text : undefined" /></span
 				><ParsedMessage v-else :message="message" />
 				<span
 					v-if="message.editOf || message.editedAt"
 					class="msg-edited"
 					:title="editedTitle"
 					>{{ t("message.editedBadge") }}</span
+				>
+				<span
+					v-if="message.machineTranslated && !message.redacted"
+					class="msg-machine-translated"
+					:title="machineTranslatedTitle"
+					>{{ t("message.machineTranslatedBadge") }}</span
 				>
 				<TranslationLine
 					v-if="hasTranslationEntry && channel && (!message.redacted || revealed)"
@@ -164,6 +182,11 @@
 					<span v-else class="msg-reply-text">{{ t("message.replyUnknown") }}</span>
 				</button>
 				<StatusmsgMarker :group="message.statusmsgGroup" />
+				<TranslationFlip
+					v-if="hasTranslationEntry"
+					:message="message"
+					@click="onFlipClick"
+				/>
 				<button
 					v-if="message.redacted && !revealed"
 					type="button"
@@ -179,12 +202,28 @@
 					@click="hideRevealed"
 					><ParsedMessage :network="network" :message="message" />
 					<span class="msg-redacted-note">{{ redactedLabel }}</span></span
+				><span
+					v-else-if="flippable"
+					class="msg-flippable"
+					:class="{'msg-translated': !!replaced}"
+					:lang="replaced ? replaced.to : undefined"
+					@click="onFlipClick"
+					><ParsedMessage
+						:network="network"
+						:message="message"
+						:text="replaced ? replaced.text : undefined" /></span
 				><ParsedMessage v-else :network="network" :message="message" />
 				<span
 					v-if="message.editOf || message.editedAt"
 					class="msg-edited"
 					:title="editedTitle"
 					>{{ t("message.editedBadge") }}</span
+				>
+				<span
+					v-if="message.machineTranslated && !message.redacted"
+					class="msg-machine-translated"
+					:title="machineTranslatedTitle"
+					>{{ t("message.machineTranslatedBadge") }}</span
 				>
 				<TranslationLine
 					v-if="hasTranslationEntry && channel && (!message.redacted || revealed)"
@@ -227,10 +266,12 @@ import MessageTypes from "./MessageTypes";
 import StatusmsgMarker from "./StatusmsgMarker.vue";
 import MessageActions from "./MessageActions.vue";
 import MessageReactions from "./MessageReactions.vue";
+import TranslationFlip from "./TranslationFlip.vue";
 import TranslationLine from "./TranslationLine.vue";
-import {UNCHANGED} from "../js/translate/outgoing";
 import QuotePreview from "./QuotePreview.vue";
 import {replyQuote} from "../js/helpers/messageUpdates";
+import {readingLanguage, showOriginal} from "../js/translate/reader";
+import {languageName} from "../js/translate/languages";
 import socket from "../js/socket";
 import {quoteLayout, toPlainText} from "../js/helpers/ircmessageparser/layout";
 import {MessageType} from "../../shared/types/msg";
@@ -294,6 +335,7 @@ export default defineComponent({
 		StatusmsgMarker,
 		MessageActions,
 		MessageReactions,
+		TranslationFlip,
 		TranslationLine,
 		QuotePreview,
 	},
@@ -503,6 +545,17 @@ export default defineComponent({
 			return formatDateTime(props.message.time, store.state.settings.use12hClock);
 		});
 
+		// The sender's client machine-translated the line (irc/langtag.ts):
+		// said on the line itself, so nobody takes the engine's phrasing for
+		// the sender's own. Named in the reader's language.
+		const machineTranslatedTitle = computed(() =>
+			props.message.language
+				? t("message.machineTranslated", {
+						language: languageName(props.message.language, readingLanguage()),
+				  })
+				: ""
+		);
+
 		// An edit keeps its original's time (msg:edit); when it was made is editedAt.
 		const editedTitle = computed(() => {
 			return props.message.editedAt
@@ -524,27 +577,49 @@ export default defineComponent({
 		// one (each of its states, the skipped chip included, is an entry).
 		const hasTranslationEntry = computed(() => !!store.state.translations[props.message.id]);
 
-		// A finished, shown translation is the bright line; the original dims
-		// (docs/resources/translation.md § Reading a channel). Pending,
-		// failed, dropped or hidden ("Show original only") keep the original
-		// at its normal colour.
-		const translated = computed(() => {
+		// A finished, shown translation stands in the original's place
+		// (docs/resources/translation.md § Reading a channel); a tap on the
+		// text, or on the marker before it (TranslationFlip.vue, which says
+		// which is showing), swaps the original back and the translation in
+		// again.
+		// Pending, failed, dropped or hidden translations leave the original
+		// as it is.
+		const doneEntry = computed(() => {
 			const entry = store.state.translations[props.message.id];
 
-			return !!entry && entry.status === "done" && !entry.hidden;
+			return entry && entry.status === "done" && entry.text ? entry : null;
 		});
+		const replaced = computed(() =>
+			doneEntry.value && !doneEntry.value.hidden ? doneEntry.value : null
+		);
+		const flippable = computed(() => doneEntry.value !== null);
 
-		// A line the engine handed back as it was (the `unchanged` verdict,
-		// shown as the "=" chip) has no translation row to be the bright
-		// line, so the original is it: it takes the translated ink, which
-		// matters for an own line, dimmed by `.self` like every other.
-		const unchanged = computed(() => {
-			const entry = store.state.translations[props.message.id];
+		// Not a tap on something in the text (a link, a nick, a channel, a
+		// spoiler), not the end of a selection or a long press, and not the
+		// tap that closes an open toolbar.
+		const onFlipClick = (e: MouseEvent) => {
+			const entry = doneEntry.value;
+			const target = e.target as HTMLElement | null;
 
-			return (
-				!!entry && entry.status === "failed" && entry.error === UNCHANGED && !entry.hidden
-			);
-		});
+			if (
+				!entry ||
+				swallowClick ||
+				selectionActive.value ||
+				openActions.value !== null ||
+				target?.closest("a, button, input, [role='button'], .user, .inline-channel")
+			) {
+				return;
+			}
+
+			const selection = window.getSelection();
+
+			if (selection && !selection.isCollapsed && selection.toString().trim() !== "") {
+				return;
+			}
+
+			showOriginal(props.message.id, !entry.hidden);
+		};
+		const translated = computed(() => replaced.value !== null);
 
 		const isAction = () => {
 			if (!props.message.type) {
@@ -680,6 +755,7 @@ export default defineComponent({
 			messageTime,
 			messageTimeLocale,
 			editedTitle,
+			machineTranslatedTitle,
 			messageComponent,
 			isAction,
 			quote,
@@ -696,7 +772,9 @@ export default defineComponent({
 			hideRevealed,
 			canAct,
 			translated,
-			unchanged,
+			replaced,
+			flippable,
+			onFlipClick,
 			hasTranslationEntry,
 		};
 	},

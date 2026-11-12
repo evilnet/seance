@@ -10,7 +10,7 @@ Status: `docs/projects/initial_conversion.md`. Upstream is still `github.com/the
 
 ## Commands
 
-pnpm, at the version `package.json`'s `packageManager` names (`npm i -g pnpm@12.16.1`; pnpm does not switch itself, because that writes a two-document lockfile GitHub's dependency graph cannot read). Node 25+ ships no corepack, and pnpm advises against it anyway. Dependency install scripts run only when `pnpm-workspace.yaml`'s `allowBuilds` names them.
+pnpm, at the version `package.json`'s `packageManager` names (`npm i -g pnpm@12.16.1`; pnpm does not switch itself, because that writes a two-document lockfile GitHub's dependency graph cannot read). Node 25+ ships no corepack, and pnpm advises against it anyway. Dependency install scripts run only when `pnpm-workspace.yaml`'s `allowBuilds` names them. Every checkout and worktree runs its own `pnpm install` (pnpm links from one shared store, so it is quick); never symlink `node_modules` from another checkout, which `make` refuses.
 
 | Task                                            | Command                                       |
 | ----------------------------------------------- | --------------------------------------------- |
@@ -32,7 +32,7 @@ There is no `pnpm dev`/`pnpm start`; build and serve `public/` statically. One m
 NODE_ENV=test pnpm exec mocha --config=test/.mocharc.yml test/irc/client.ts
 ```
 
-CI (`.github/workflows/ci.yml`) runs on every pull request and push to `develop`: a frozen-lockfile install, `pnpm lint`, `pnpm typecheck`, the production build, `pnpm test:mocha`, and `tools/scenarios/smoke.mjs` (the built app boots in Chromium with no console error).
+CI (`.github/workflows/ci.yml`) runs on every pull request and push to `develop`, in two parallel jobs after a frozen-lockfile install: `lint` (`pnpm lint`, `pnpm typecheck`) and `check` (the production build, mocha against it with `pnpm test:mocha:built`, and `tools/scenarios/smoke.mjs`: the built app boots in Chromium with no console error).
 
 Live tests (`test/irc/*.live.ts`) are skipped unless `SEANCE_IRC_URL` is set; run them one file at a time. The dev ircd is `tools/nefarious-dev/run.sh` (Docker; `ws://` 8067, `wss://` 8443, channel `#seance`). Both: `docs/resources/nefarious2-dev.md`.
 
@@ -43,12 +43,12 @@ Live tests (`test/irc/*.live.ts`) are skipped unless `SEANCE_IRC_URL` is set; ru
 - **`client/js/irc/`** — the IRC layer: `transport.ts` (WebSocket) → `message.ts` (parser) → `caps.ts`/`sasl.ts`/`isupport.ts` → `client.ts` (`IrcClient`, one per network) → `handlers/` → `socket.dispatch(...)`. Input comes back through `bus.ts` → `commands/`. Module notes and protocol rules (unread counts, reconnects, SASL, retries, the server's throttle, pending messages, …): `docs/resources/irc-layer.md`.
   - **To add a handler**: a file in `handlers/` exporting `{COMMAND: handler}` and one entry in `handlers/index.ts` `modules`. Handlers mutate the client's model through `client.*` (`pushMessage`, `findChannel`, `timeOf`, …), never the transport or the store. Model: `handlers/away.ts`.
   - **To add a command**: a file in `commands/` exporting a `Command` and one entry in `commands/index.ts`. Build lines with `formatLine` / `trailingLine`. Model: `commands/away.ts`. Unknown commands are sent raw.
-- **`client/js/translate/`** — on-device translation in its own worker (`js/translate-worker.js`, built by `vite.translate.config.mts` after every app build; WebLLM, transformers.js/ONNX Runtime, wllama), off by default: it runs only where the deploy allows it and the user's `translationEnabled` is on (`translate/switch.ts`), and while off nothing of it renders or runs. Summary: `docs/resources/client-features.md` § Translation; long form `docs/resources/translation.md`.
+- **`client/js/translate/`** — on-device translation in its own worker (`js/translate-worker.js`, built by `vite.translate.config.mts` after every app build; WebLLM, transformers.js/ONNX Runtime, wllama), off by default: it runs only where the deploy allows it and the user's `translationEnabled` is on (`translate/switch.ts`), and while off nothing of it renders or runs but the detector behind the in-place offer to switch it on (translation.md § Offered in place). Summary: `docs/resources/client-features.md` § Translation; long form `docs/resources/translation.md`.
 - **`client/js/i18n/`**, **`client/locales/`**, **`tools/i18n/`** — the interface's 24 languages: `messages.pot`, the `.po` catalogs compiled to JSON by `pnpm i18n:compile` (`pnpm build` runs it). `docs/resources/i18n.md`.
 - **`shells/`** — the app shell around `public/`: `tauri/` (iOS, Android, Windows, macOS, Linux). The page reaches it through one bridge, `client/js/helpers/shell.ts`. Plan: `docs/projects/desktop-shells.md`; the shell has a README.
 - **`shared/`** — cross-cutting types and helpers.
 - **`attic/`** — TheLounge's old server. Reference only; never import from it.
-- **`tools/`** — dev ircd, `irc-ws-probe.mjs`, `browser-drive.mjs` + `scenarios/` (real-Chromium checks; `docs/resources/browser-testing.md`).
+- **`tools/`** — dev ircd, `irc-ws-probe.mjs`, `browser-drive.mjs` + `scenarios/` (real-Chromium checks; `docs/resources/browser-testing.md`), `mix.mjs` (open PRs merged at pinned shas into a worktree of their own, to build and test together; usage at its top).
 
 ## Rules
 

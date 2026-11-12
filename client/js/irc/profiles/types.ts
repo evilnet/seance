@@ -139,4 +139,10 @@ export interface ServerProfile {
 	 * `CONNEXIT_NOTICES`), so the UI can say a category is silent.
 	 */
 	operFeatures: string[];
+	/**
+	 * `METADATA * SET <key> private :<value>` writes the key visible only to
+	 * the account's own sessions (nefarious2's extension; draft/metadata-2
+	 * leaves visibility to the server and has no such parameter).
+	 */
+	privateMetadata?: boolean;
 }

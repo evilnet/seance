@@ -1,7 +1,9 @@
 import {expect} from "chai";
 import {
 	STORAGE_KEY,
+	STORE_VERSION,
 	TERM_CAP,
+	VERSION_KEY,
 	channelKey,
 	asFormality,
 	defaultChannelTranslation,
@@ -13,6 +15,7 @@ import {
 	getChannelTranslation,
 	isPrivateKey,
 	loadAll,
+	migrateChannelStore,
 	rememberTerm,
 	setChannelTranslation,
 	splitKey,
@@ -68,70 +71,148 @@ describe("translate/channelStore", () => {
 		expect(splitKey("n1/#seance")).to.deep.equal({network: "n1", name: "#seance"});
 	});
 
-	it("an unknown channel is off with the defaults", () => {
+	it("an unknown channel reads (no exclusion) with the defaults", () => {
 		expect(getChannelTranslation("n1", "#seance")).to.deep.equal(defaultChannelTranslation());
 		expect(defaultChannelTranslation()).to.deep.equal({
-			read: false,
+			exclude: false,
 			write: null,
+			writeFrom: null,
 			formality: "auto",
-			variant: "",
-			languages: [],
 			terms: [],
 			once: null,
+			noSuggest: false,
 		});
 	});
 
-	it("the channel's languages are kept, deduplicated, unknown codes dropped", () => {
-		expect(
-			setChannelTranslation("n1", "#seance", {languages: ["de", "en", "de", "xx", "nb"]})
-				.languages
-		).to.deep.equal(["de", "en", "nb"]);
-		expect(getChannelTranslation("n1", "#seance").languages).to.deep.equal(["de", "en", "nb"]);
-
-		// A patch that does not mention them leaves them alone.
-		expect(setChannelTranslation("n1", "#seance", {read: true}).languages).to.deep.equal([
-			"de",
-			"en",
-			"nb",
-		]);
-		expect(setChannelTranslation("n1", "#seance", {languages: []}).languages).to.deep.equal([]);
+	it("a declined suggestion is kept as a strict boolean", () => {
+		expect(setChannelTranslation("n1", "#seance", {noSuggest: true}).noSuggest).to.equal(true);
+		expect(getChannelTranslation("n1", "#seance").noSuggest).to.equal(true);
 	});
 
-	it("sanitize drops languages this build cannot route", () => {
+	it("a retired choice (languages spoken here, variant) is dropped on load", () => {
 		backend.set(
 			STORAGE_KEY,
 			JSON.stringify({
-				"n1/#a": {read: "en", languages: ["de", "zz", 7, "de"]},
-				"n1/#b": {read: "en", languages: "de"},
+				"n1/#a": {read: "en", languages: ["de", "pt"], variant: "BR", write: "pt"},
 			})
 		);
 
 		const all = loadAll();
 
-		expect(all["n1/#a"].languages).to.deep.equal(["de"]);
-		expect(all["n1/#b"].languages).to.deep.equal([]);
-		// A stored read language from the per-channel picker the unified
-		// design removed migrates to plain "on".
-		expect(all["n1/#a"].read).to.equal(true);
-		expect(all["n1/#b"].read).to.equal(true);
+		expect(all["n1/#a"]).to.not.have.property("languages");
+		expect(all["n1/#a"]).to.not.have.property("variant");
+		expect(all["n1/#a"].write).to.equal("pt");
+		// A version-1 record reads, whatever its `read` held.
+		expect(all["n1/#a"].exclude).to.equal(false);
 	});
 
-	it("switching reading on persists", () => {
-		const state = setChannelTranslation("n1", "#Seance", {read: true});
+	it("forgetChannel takes every choice for one conversation, and only it", () => {
+		setChannelTranslation("n1", "#seance", {exclude: true, write: "pt", formality: "formal"});
+		setChannelTranslation("n1", "#other", {write: "de"});
+		rememberTerm("n1", "#seance", {source: "rig", target: "aparelho", from: "en", to: "pt"});
+		forgetChannel("n1", "#Seance");
 
-		expect(state.read).to.equal(true);
-		expect(JSON.parse(backend.data.get(STORAGE_KEY) as string)["n1/#seance"].read).to.equal(
-			true
-		);
-		expect(getChannelTranslation("n1", "#seance").read).to.equal(true);
+		expect(getChannelTranslation("n1", "#seance")).to.deep.equal(defaultChannelTranslation());
+		expect(getChannelTranslation("n1", "#other").write).to.equal("de");
 	});
 
-	it("switching off keeps the rest of the record", () => {
-		setChannelTranslation("n1", "#seance", {read: true, variant: "keep me"});
+	it("an exclusion persists, and the blob carries its version", () => {
+		const state = setChannelTranslation("n1", "#Seance", {exclude: true});
+		const stored = JSON.parse(backend.data.get(STORAGE_KEY) as string);
 
-		expect(setChannelTranslation("n1", "#seance", {read: false})).to.include({
-			read: false,
-			variant: "keep me",
+		expect(state.exclude).to.equal(true);
+		expect(stored["n1/#seance"].exclude).to.equal(true);
+		expect(stored[VERSION_KEY]).to.equal(STORE_VERSION);
+		expect(getChannelTranslation("n1", "#seance").exclude).to.equal(true);
+		// The version is not a record.
+		expect(Object.keys(loadAll())).to.deep.equal(["n1/#seance"]);
+	});
+
+	it("lifting an exclusion keeps the rest of the record", () => {
+		setChannelTranslation("n1", "#seance", {exclude: true, write: "pt"});
+
+		expect(setChannelTranslation("n1", "#seance", {exclude: false})).to.include({
+			exclude: false,
+			write: "pt",
+		});
+	});
+
+	describe("migrateChannelStore (version 1 to 2)", () => {
+		const v1 = {
+			"n1/#on": {read: true, write: "es", writeFrom: null, once: "es", formality: "formal"},
+			"n1/#off": {read: false, write: "en", writeFrom: "de", noSuggest: true},
+			"n1/#polish": {read: true, write: "en", writeFrom: null},
+			"n1/#plain": {read: false, write: null, once: "fr", languages: ["pt"], variant: "BR"},
+		};
+
+		it("reads every conversation and keeps every writing choice exactly", () => {
+			backend.set(STORAGE_KEY, JSON.stringify(v1));
+			expect(migrateChannelStore()).to.equal("upgraded");
+
+			const all = loadAll();
+
+			for (const key of Object.keys(v1)) {
+				expect(all[key].exclude, key).to.equal(false);
+			}
+
+			// A named target and its source, a null source (detect each
+			// draft), and the same-language polish target are all kept.
+			expect(all["n1/#on"]).to.include({write: "es", writeFrom: null, once: "es"});
+			expect(all["n1/#on"].formality).to.equal("formal");
+			expect(all["n1/#off"]).to.include({write: "en", writeFrom: "de", noSuggest: true});
+			expect(all["n1/#polish"]).to.include({write: "en", writeFrom: null});
+			// Writing off stays off; `once` stays a remembered preselection.
+			expect(all["n1/#plain"]).to.include({write: null, once: "fr"});
+
+			const stored = JSON.parse(backend.data.get(STORAGE_KEY) as string);
+
+			expect(stored[VERSION_KEY]).to.equal(STORE_VERSION);
+			expect(stored["n1/#on"]).to.not.have.property("read");
+		});
+
+		it("runs once: an exclusion made after it survives the next boot", () => {
+			backend.set(STORAGE_KEY, JSON.stringify(v1));
+			migrateChannelStore();
+			setChannelTranslation("n1", "#on", {exclude: true});
+			expect(migrateChannelStore()).to.equal("current");
+			expect(loadAll()["n1/#on"].exclude).to.equal(true);
+		});
+
+		it("runs again for an old blob a backup restore puts back", () => {
+			backend.set(STORAGE_KEY, JSON.stringify({"n1/#x": {read: true}}));
+			migrateChannelStore();
+			setChannelTranslation("n1", "#x", {exclude: true});
+			// The restore writes the old blob, version and all, over it.
+			backend.set(STORAGE_KEY, JSON.stringify({"n1/#x": {read: false, exclude: true}}));
+			expect(migrateChannelStore()).to.equal("upgraded");
+			// An `exclude` in a version-1 blob is not one: version 1 had none.
+			expect(loadAll()["n1/#x"].exclude).to.equal(false);
+		});
+
+		it("nothing stored: a current, empty blob, so a later boot does not migrate", () => {
+			expect(migrateChannelStore()).to.equal("absent");
+			expect(JSON.parse(backend.data.get(STORAGE_KEY) as string)).to.deep.equal({
+				[VERSION_KEY]: STORE_VERSION,
+			});
+			expect(migrateChannelStore()).to.equal("current");
+		});
+
+		it("an empty version-1 blob is upgraded too", () => {
+			backend.set(STORAGE_KEY, "{}");
+			expect(migrateChannelStore()).to.equal("upgraded");
+		});
+
+		it("leaves a garbage blob alone", () => {
+			backend.set(STORAGE_KEY, "nonsense");
+			expect(migrateChannelStore()).to.equal("current");
+			expect(backend.data.get(STORAGE_KEY)).to.equal("nonsense");
+		});
+
+		it("the version key is never a private conversation's", () => {
+			expect(isPrivateKey(VERSION_KEY)).to.equal(false);
+			expect(
+				withoutPrivateTerms({[VERSION_KEY]: 2} as Record<string, unknown>)
+			).to.deep.equal({[VERSION_KEY]: 2});
 		});
 	});
 
@@ -143,14 +224,29 @@ describe("translate/channelStore", () => {
 			"es"
 		);
 		// A language this build cannot route loads as none.
-		backend.data.set(STORAGE_KEY, JSON.stringify({"n1/#seance": {read: false, once: "xx"}}));
+		backend.data.set(STORAGE_KEY, JSON.stringify({"n1/#seance": {once: "xx"}}));
 		expect(getChannelTranslation("n1", "#seance").once).to.equal(null);
 	});
 
-	it("a stored read language from the old per-channel picker migrates to on", () => {
+	it("a send target is remembered as the last pick past its Off", () => {
+		setChannelTranslation("n1", "#seance", {write: "es", writeFrom: "en"});
+		setChannelTranslation("n1", "#seance", {write: null, writeFrom: null});
+		expect(getChannelTranslation("n1", "#seance").once).to.equal("es");
+	});
+
+	it("a target saved before targets set `once` is kept at its Off", () => {
+		backend.data.set(
+			STORAGE_KEY,
+			JSON.stringify({"n1/#seance": {write: "es", writeFrom: "en", once: null}})
+		);
+		setChannelTranslation("n1", "#seance", {write: null, writeFrom: null});
+		expect(getChannelTranslation("n1", "#seance").once).to.equal("es");
+	});
+
+	it("a stored read language from the old per-channel picker loads as reading", () => {
 		backend.set(STORAGE_KEY, JSON.stringify({"n1/#a": {read: "en", since: 1234}}));
 
-		expect(loadAll()["n1/#a"]).to.deep.equal({...defaultChannelTranslation(), read: true});
+		expect(loadAll()["n1/#a"]).to.deep.equal(defaultChannelTranslation());
 	});
 
 	it("term memory replaces a same-source same-language entry, keeps the newest, and is capped", () => {
@@ -244,9 +340,9 @@ describe("translate/channelStore", () => {
 	});
 
 	it("forgetting a channel or a network removes its entries", () => {
-		setChannelTranslation("n1", "#a", {read: true});
-		setChannelTranslation("n1", "#b", {read: true});
-		setChannelTranslation("n2", "#a", {read: true});
+		setChannelTranslation("n1", "#a", {exclude: true});
+		setChannelTranslation("n1", "#b", {exclude: true});
+		setChannelTranslation("n2", "#a", {exclude: true});
 		forgetChannel("n1", "#A");
 		expect(Object.keys(loadAll())).to.deep.equal(["n1/#b", "n2/#a"]);
 		forgetNetwork("n1");
@@ -271,11 +367,11 @@ describe("translate/channelStore", () => {
 		});
 
 		it("closing a query drops its terms and keeps its switches", () => {
-			setChannelTranslation("n1", "alice", {read: true, write: "de"});
+			setChannelTranslation("n1", "alice", {exclude: true, write: "de"});
 			rememberTerm("n1", "alice", term("meet at 5"));
 			const kept = forgetTerms("n1", "Alice");
 			expect(kept?.terms).to.deep.equal([]);
-			expect(kept?.read).to.equal(true);
+			expect(kept?.exclude).to.equal(true);
 			expect(getChannelTranslation("n1", "alice").write).to.equal("de");
 			expect(getChannelTranslation("n1", "alice").terms).to.deep.equal([]);
 			// Nothing left to drop: nothing written, nothing for the store.
@@ -312,39 +408,39 @@ describe("translate/channelStore", () => {
 	it("survives unreadable storage", () => {
 		backend.set(STORAGE_KEY, "nonsense");
 		expect(loadAll()).to.deep.equal({});
-		backend.set(STORAGE_KEY, JSON.stringify({"n1/#a": {read: 7, terms: "x"}, "n1/#b": null}));
-		// A truthy read is on, whatever it once held; the junk term list goes.
-		expect(loadAll()).to.deep.equal({"n1/#a": {...defaultChannelTranslation(), read: true}});
+		backend.set(
+			STORAGE_KEY,
+			JSON.stringify({"n1/#a": {exclude: 7, terms: "x"}, "n1/#b": null, [VERSION_KEY]: 2})
+		);
+		// An exclusion is a strict boolean; the junk term list goes.
+		expect(loadAll()).to.deep.equal({"n1/#a": defaultChannelTranslation()});
 	});
 
 	it("drops a stored target this build cannot route", () => {
 		backend.set(
 			STORAGE_KEY,
 			JSON.stringify({
-				"n1/#a": {read: "xx", write: "zz", variant: "keep me"},
+				"n1/#a": {read: "xx", write: "zz", once: "de"},
 				"n1/#b": {read: "de", write: "en"},
 			})
 		);
 
 		const all = loadAll();
 
-		// The unroutable write is no target at all; a stored read was a
-		// switch, and on is on whatever language it once named.
-		expect(all["n1/#a"].read).to.equal(true);
+		// The unroutable write is no target at all.
 		expect(all["n1/#a"].write).to.equal(null);
 		// The rest of the record stays.
-		expect(all["n1/#a"].variant).to.equal("keep me");
-		expect(all["n1/#b"].read).to.equal(true);
+		expect(all["n1/#a"].once).to.equal("de");
 		expect(all["n1/#b"].write).to.equal("en");
 	});
 
 	it("a patch cannot overwrite the term memory", () => {
-		setChannelTranslation("n1", "#seance", {read: true});
+		setChannelTranslation("n1", "#seance", {exclude: true});
 		rememberTerm("n1", "#seance", {source: "rig", target: "Testaufbau", from: "en", to: "de"});
 		const before = getChannelTranslation("n1", "#seance");
 		const next = setChannelTranslation("n1", "#seance", {
 			...before,
-			read: false,
+			exclude: false,
 			terms: [],
 		} as Partial<Omit<ChannelTranslation, "terms">>);
 

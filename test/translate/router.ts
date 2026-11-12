@@ -85,6 +85,12 @@ function input(overrides: Overrides = {}): RouteInput {
 	};
 }
 
+/** A device without WebGPU or Memory64 (Safari): the language model runs on neither device. */
+const noLlm = (): Capability => ({
+	...capabilityFor("cpu"),
+	reasons: ["NO_WEBGPU", "NO_MEMORY64"],
+});
+
 /** Both copies of a candidate marked down. */
 const downBoth = (candidate: Candidate) =>
 	new Set([`${candidate}@gpu`, `${candidate}@cpu`] as const);
@@ -115,9 +121,17 @@ describe("translate/router", () => {
 		expect(resolveRoute(table, catalog, input({from: "en", to: "en"}))?.candidate).to.equal(
 			"llm"
 		);
-		expect(resolveRoute(table, catalog, input({from: "en", to: "en", tier: "cpu"}))).to.equal(
-			null
-		);
+		// No GPU: the CPU copy, where the CPU runs it, and nothing where not.
+		expect(
+			resolveRoute(table, catalog, input({from: "en", to: "en", tier: "cpu"}))
+		).to.deep.include({candidate: "llm", device: "cpu"});
+		expect(
+			resolveRoute(
+				table,
+				catalog,
+				input({from: "en", to: "en", tier: "cpu", capability: noLlm()})
+			)
+		).to.equal(null);
 		expect(
 			resolveRoute(table, catalog, input({from: "en", to: "en", switches: {llm: false}}))
 		).to.equal(null);
@@ -146,14 +160,30 @@ describe("translate/router", () => {
 		expect(
 			resolveRoute(table, catalog, input({tier: "cpu", switches: {opus: false}}))?.candidate
 		).to.equal("nllb");
+		// Nothing in the table left: the language model's CPU copy, Auto's
+		// last way in where the GPU cannot run it, and only where the CPU can.
 		expect(
 			resolveRoute(table, catalog, input({tier: "cpu", switches: {opus: false, nllb: false}}))
+		).to.deep.include({candidate: "llm", device: "cpu"});
+		expect(
+			resolveRoute(
+				table,
+				catalog,
+				input({tier: "cpu", capability: noLlm(), switches: {opus: false, nllb: false}})
+			)
 		).to.equal(null);
 		expect(resolveRoute(table, catalog, input({tier: "none"}))).to.equal(null);
 	});
 
 	it("skips the seq2seq candidates when neither a source nor a hint is known", () => {
-		expect(resolveRoute(table, catalog, input({from: null, tier: "cpu"}))).to.equal(null);
+		expect(
+			resolveRoute(table, catalog, input({from: null, tier: "cpu", capability: noLlm()}))
+		).to.equal(null);
+		// The language model's CPU copy needs no source either.
+		expect(resolveRoute(table, catalog, input({from: null, tier: "cpu"}))).to.deep.include({
+			candidate: "llm",
+			device: "cpu",
+		});
 		expect(resolveRoute(table, catalog, input({from: null}))?.candidate).to.equal("llm");
 	});
 
@@ -216,11 +246,15 @@ describe("translate/router", () => {
 			resolveRoute(table, catalog, input({cached: cachedOpus, down: downBoth("opus:de-en")}))
 				?.candidate
 		).to.equal("llm");
-		// A downloaded LLM on a device that cannot run it stays unrouted.
+		// A downloaded LLM on a device without WebGPU: its GPU copy stays
+		// unrouted, and the CPU copy the user downloaded runs.
 		expect(
 			resolveRoute(table, catalog, input({tier: "cpu", cached: isCached(catalog.llm.id)}))
-				?.candidate
-		).to.equal("opus:de-en");
+		).to.deep.include({candidate: "llm", device: "cpu"});
+		// Nothing downloaded: Auto never asks for the language model's CPU copy.
+		expect(resolveRoute(table, catalog, input({tier: "cpu"}))?.candidate).to.equal(
+			"opus:de-en"
+		);
 		// A down best class falls to the next one.
 		expect(
 			resolveRoute(table, catalog, input({from: "sw", down: downBoth("nllb")}))?.candidate
@@ -292,8 +326,11 @@ describe("translate/router", () => {
 			resolveRoute(table, catalog, input({from: "sw", switches: {nllb: false}}))?.candidate
 		).to.equal("llm");
 		expect(
-			explainRoute(table, catalog, input({from: "sw", tier: "cpu", switches: {nllb: false}}))
-				.why
+			explainRoute(
+				table,
+				catalog,
+				input({from: "sw", tier: "cpu", capability: noLlm(), switches: {nllb: false}})
+			).why
 		).to.deep.equal({kind: "off", engine: "nllb"});
 		// The OPUS pair needs no NLLB.
 		expect(
@@ -340,23 +377,13 @@ describe("translate/router", () => {
 	describe("the default table", () => {
 		it("puts NLLB first where it measured ahead, in both directions", () => {
 			// Arabic measured NLLB ahead too, but stays LLM-first for the
-			// channel context the LLM reads (routes.default.ts): it routes like
-			// any language the table has no opinion about.
-			for (const pair of [
-				["ar", "en"],
-				["en", "ar"],
-			] as const) {
-				expect(
-					candidatesFor(DEFAULT_ROUTES, pair[0], pair[1]),
-					pair.join("→")
-				).to.deep.equal(
-					candidatesFor(
-						DEFAULT_ROUTES,
-						pair[0] === "ar" ? "pt" : "en",
-						pair[1] === "ar" ? "pt" : "en"
-					)
-				);
-			}
+			// channel context the LLM reads (routes.default.ts): away from
+			// English, where no small model covers it, it routes like any
+			// language the table has no opinion about.
+			expect(candidatesFor(DEFAULT_ROUTES, "ar", "ja")).to.deep.equal(
+				candidatesFor(DEFAULT_ROUTES, "ko", "ja")
+			);
+			expect(candidatesFor(DEFAULT_ROUTES, "ja", "ar")).to.deep.equal([["llm"], ["nllb"]]);
 
 			// Placed from the web build's own weights (2026-09-13-web-weights.md).
 			for (const code of ["tl", "el", "fi", "hu", "hi", "sw"]) {
@@ -387,34 +414,34 @@ describe("translate/router", () => {
 			}
 		});
 
-		it("gives the OPUS-MT pairs the class they measured into", () => {
-			expect(candidatesFor(DEFAULT_ROUTES, "de", "en")).to.deep.equal([
-				["llm", "opus:de-en"],
-				["nllb"],
-			]);
-			expect(candidatesFor(DEFAULT_ROUTES, "en", "ru")).to.deep.equal([
-				["llm", "opus:en-ru"],
-				["nllb"],
-			]);
-			// French tied with OPUS-MT on the web weights (Qwen +3).
-			expect(candidatesFor(DEFAULT_ROUTES, "en", "fr")).to.deep.equal([
-				["llm", "opus:en-fr"],
-				["nllb"],
-			]);
-			expect(candidatesFor(DEFAULT_ROUTES, "en", "es")).to.deep.equal([
-				["llm"],
-				["opus:en-es"],
-				["nllb"],
-			]);
+		// Least to most resource-intensive: the pair first, alone, tied or not
+		// (routes.default.ts), the LLM next, NLLB last.
+		it("puts every small pair first, before the LLM: OPUS-MT's and AfterNET MT's", () => {
+			for (const [from, to] of [
+				["de", "en"],
+				["en", "ru"],
+				["en", "fr"],
+				["en", "es"],
+				["sv", "en"],
+				["en", "pt"],
+				["ar", "en"],
+				["en", "zh"],
+			]) {
+				expect(candidatesFor(DEFAULT_ROUTES, from, to), `${from}→${to}`).to.deep.equal([
+					[`opus:${from}-${to}`],
+					["llm"],
+					["nllb"],
+				]);
+			}
 		});
 
 		it("keeps the LLM first everywhere else", () => {
 			expect(candidatesFor(DEFAULT_ROUTES, "ja", "fr")).to.deep.equal([["llm"], ["nllb"]]);
-			expect(candidatesFor(DEFAULT_ROUTES, "en", "pt")).to.deep.equal([["llm"], ["nllb"]]);
+			expect(candidatesFor(DEFAULT_ROUTES, "de", "pt")).to.deep.equal([["llm"], ["nllb"]]);
 			expect(candidatesFor(DEFAULT_ROUTES, "de", "fr")).to.deep.equal([["llm"], ["nllb"]]);
 
 			// Qwen ahead of NLLB by more than the tie band on the web weights.
-			for (const code of ["pl", "ca", "ga"]) {
+			for (const code of ["ca", "ga"]) {
 				expect(candidatesFor(DEFAULT_ROUTES, "en", code), `en→${code}`).to.deep.equal([
 					["llm"],
 					["nllb"],
@@ -474,9 +501,41 @@ describe("translate/router", () => {
 			});
 		});
 
-		it("a declined GPU download falls back to the CPU copy for OPUS-MT only", () => {
-			// A downloaded copy does not outrank the better device: the GPU
-			// copy is asked for first.
+		it("under Auto on a phone a downloaded copy answers before the better device's download", () => {
+			const phone = {...capabilityFor("gpu"), mobile: true};
+			const llmCpu = isCached(catalog.llm.id, "cpu");
+
+			// A phone with the 1.7B's CPU copy downloaded and Run on left
+			// at Automatic: it runs, rather than a GPU download being asked for.
+			expect(
+				resolveRoute(llmOnly, catalog, input({...enJa, capability: phone, cached: llmCpu}))
+			).to.deep.include({candidate: "llm", device: "cpu"});
+			// Nothing downloaded: the GPU copy, as before.
+			expect(
+				resolveRoute(llmOnly, catalog, input({...enJa, capability: phone}))
+			).to.deep.include({candidate: "llm", device: "gpu"});
+			// Both downloaded: the better device's.
+			expect(
+				resolveRoute(
+					llmOnly,
+					catalog,
+					input({...enJa, capability: phone, cached: isCached(catalog.llm.id)})
+				)
+			).to.deep.include({candidate: "llm", device: "gpu"});
+			// Pinned to the GPU, the downloaded CPU copy is not used.
+			expect(
+				resolveRoute(
+					llmOnly,
+					catalog,
+					input({...enJa, capability: phone, devices: {llm: "gpu"}, cached: llmCpu})
+				)
+			).to.deep.include({candidate: "llm", device: "gpu"});
+		});
+
+		it("under Auto on a computer the better device is still asked for; a downloaded copy only joins the walk", () => {
+			const llmCpu = isCached(catalog.llm.id, "cpu");
+
+			// A downloaded CPU copy does not keep Auto off a usable GPU.
 			expect(
 				resolveRoute(
 					shipped,
@@ -484,6 +543,24 @@ describe("translate/router", () => {
 					input({...enDe, switches: {llm: false}, cached: opusCpuCached})
 				)
 			).to.deep.include({candidate: "opus:en-de", device: "gpu"});
+			expect(
+				resolveRoute(llmOnly, catalog, input({...enJa, cached: llmCpu}))
+			).to.deep.include({
+				candidate: "llm",
+				device: "gpu",
+			});
+			// Its GPU copy down for the session (the device was lost): the
+			// downloaded CPU copy answers, unasked.
+			expect(
+				resolveRoute(
+					llmOnly,
+					catalog,
+					input({...enJa, cached: llmCpu, down: new Set(["llm@gpu"])})
+				)
+			).to.deep.include({candidate: "llm", device: "cpu"});
+		});
+
+		it("a declined GPU download falls back to the CPU copy for OPUS-MT only", () => {
 			// "Not now" to the GPU copy: the CPU copy on the device serves.
 			expect(
 				resolveRoute(
@@ -492,26 +569,48 @@ describe("translate/router", () => {
 					input({...enDe, cached: opusCpuCached, refuse: refuseGpu})
 				)
 			).to.deep.include({candidate: "opus:en-de", device: "cpu"});
-			// The language model has the GPU alone under Auto: a downloaded
-			// CPU copy is never fallen back to.
-			const verdict = explainRoute(
-				llmOnly,
-				catalog,
-				input({...enJa, cached: isCached(catalog.llm.id, "cpu"), refuse: refuseGpu})
-			);
+			// The language model has the GPU alone under Auto: a CPU copy not
+			// on the device is never fallen back to.
+			const verdict = explainRoute(llmOnly, catalog, input({...enJa, refuse: refuseGpu}));
 
 			expect(verdict.route).to.equal(null);
 			expect(verdict.why).to.deep.include({kind: "download", device: "gpu"});
+		});
+
+		it("names the CPU copy's reason when a cleanup pass finds no way in", () => {
+			const enEn = {from: "en", to: "en", tier: "cpu" as const};
+
+			expect(explainRoute(llmOnly, catalog, input({...enEn})).route).to.deep.include({
+				candidate: "llm",
+				device: "cpu",
+			});
+			// The CPU copy's declined download, not the GPU's code.
+			expect(
+				explainRoute(llmOnly, catalog, input({...enEn, refuse: () => true})).why
+			).to.deep.include({kind: "download", device: "cpu"});
+			// The language model's switch, not the GPU's code.
+			expect(
+				explainRoute(llmOnly, catalog, input({...enEn, switches: {llm: false}})).why
+			).to.deep.equal({kind: "off", engine: "llm"});
+			// With no Memory64 the CPU is no way in: the GPU's reason stands.
+			expect(
+				explainRoute(llmOnly, catalog, input({...enEn, capability: noLlm()})).why
+			).to.deep.equal({kind: "device", reason: "NO_WEBGPU"});
 		});
 
 		it("runs a language model pinned to the CPU on a device without WebGPU", () => {
 			expect(
 				resolveRoute(table, catalog, input({...enJa, tier: "cpu", devices: {llm: "cpu"}}))
 			).to.deep.include({candidate: "llm", device: "cpu"});
-			// Under Auto it stays blocked by the GPU's reason.
-			expect(explainRoute(llmOnly, catalog, input({...enJa, tier: "cpu"})).why).to.deep.equal(
-				{kind: "device", reason: "NO_WEBGPU"}
-			);
+			// Under Auto the GPU cannot run it, so Auto takes the CPU copy
+			// after the table; with no Memory64 the GPU's reason stands.
+			expect(
+				explainRoute(llmOnly, catalog, input({...enJa, tier: "cpu"})).route
+			).to.deep.include({candidate: "llm", device: "cpu"});
+			expect(
+				explainRoute(llmOnly, catalog, input({...enJa, tier: "cpu", capability: noLlm()}))
+					.why
+			).to.deep.equal({kind: "device", reason: "NO_WEBGPU"});
 		});
 
 		it("walks past a copy marked down to the model's other copy", () => {

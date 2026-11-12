@@ -174,6 +174,19 @@ describe("BATCH handling (handlers/batch.ts)", function () {
 		expect(openBatchesOf(client).has("b1")).to.equal(false);
 	});
 
+	it("matches the batch type exactly: another case is another type", function () {
+		const {transport, chanId} = setup();
+
+		transport.lines(
+			":irc.test BATCH +up Seance-Test #seance",
+			"@batch=up :bob!b@h PRIVMSG #seance :one",
+			":irc.test BATCH -up"
+		);
+
+		expect(received, "not the seance-test handler's").to.have.length(0);
+		expect(messages(chanId).map((m) => m.text)).to.deep.equal(["one"]);
+	});
+
 	it("unwraps unknown batch types in order when they close", function () {
 		const {client, transport, chanId} = setup();
 		const chan = client.findChannel("#seance")!;

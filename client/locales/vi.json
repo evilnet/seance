@@ -17,6 +17,7 @@
   "chat.mentions": "Mở các lượt nhắc đến bạn",
   "chat.mentionsBadgeOver": "{count}+",
   "chat.mentionsUnread": {
+    "one": "Mở các lượt nhắc đến bạn, {count} chưa đọc",
     "other": "Mở các lượt nhắc đến bạn, {count} chưa đọc"
   },
   "chat.saveTopic": "Lưu chủ đề",
@@ -70,6 +71,7 @@
   "cmd.usageVer": "Cách dùng: /ver <nick>",
   "cmd.usageWho": "Cách dùng: /who [mask] [flags] (kênh hiện tại nếu không có mask)",
   "code.showAllLines": {
+    "one": "Hiển thị tất cả {count} dòng",
     "other": "Hiển thị tất cả {count} dòng"
   },
   "code.showLess": "Hiển thị ít hơn",
@@ -87,9 +89,11 @@
   "composer.offlineWaiting": "Bạn đang ngoại tuyến. Sẽ kết nối lại với {network} khi mạng trở lại.",
   "composer.placeholder": "Gửi tin nhắn cho {name}",
   "composer.reconnectIn": {
+    "one": "Kết nối lại tới {network} sau {seconds} giây…",
     "other": "Kết nối lại tới {network} sau {seconds} giây…"
   },
   "composer.reconnectInThrottled": {
+    "one": "Kết nối lại tới {network} sau {seconds} giây: máy chủ giới hạn việc kết nối lại liên tục.",
     "other": "Kết nối lại tới {network} sau {seconds} giây: máy chủ giới hạn việc kết nối lại liên tục."
   },
   "composer.replyingTo": "Đang trả lời {nick}:",
@@ -100,27 +104,35 @@
   "composer.uploadWaiting": "đang chờ máy chủ…",
   "composer.uploading": "Đang tải lên {file}",
   "condensed.away": {
+    "one": "được đánh dấu vắng mặt {count} lần",
     "other": "được đánh dấu vắng mặt {count} lần"
   },
   "condensed.back": {
+    "one": "được đánh dấu quay lại {count} lần",
     "other": "được đánh dấu quay lại {count} lần"
   },
   "condensed.chghost": {
+    "one": "{count} người dùng đã đổi tên máy chủ",
     "other": "{count} người dùng đã đổi tên máy chủ"
   },
   "condensed.join": {
+    "one": "{count} người dùng đã vào",
     "other": "{count} người dùng đã vào"
   },
   "condensed.kicked": {
+    "one": "{count} người dùng đã bị đá ra",
     "other": "{count} người dùng đã bị đá ra"
   },
   "condensed.left": {
+    "one": "{count} người dùng đã rời đi",
     "other": "{count} người dùng đã rời đi"
   },
   "condensed.modes": {
+    "one": "đã đặt {count} chế độ",
     "other": "đã đặt {count} chế độ"
   },
   "condensed.nick": {
+    "one": "{count} người dùng đã đổi nick",
     "other": "{count} người dùng đã đổi nick"
   },
   "condensed.toggle": "Hiện hoặc ẩn tin nhắn trạng thái",
@@ -559,6 +571,7 @@
   "mentions.dismissGroup": "Loại bỏ",
   "mentions.dismissOne": "Loại bỏ trên thiết bị này",
   "mentions.dismissedHere": {
+    "one": "Đã loại bỏ {count} trên thiết bị này",
     "other": "Đã loại bỏ {count} trên thiết bị này"
   },
   "mentions.empty": "Bạn đã xem hết rồi",
@@ -574,6 +587,7 @@
   "mentions.title": "Lượt nhắc đến",
   "mentions.undo": "Hoàn tác",
   "mentions.unread": {
+    "one": "{count} chưa đọc",
     "other": "{count} chưa đọc"
   },
   "menu.chanTypeChannel": "kênh",
@@ -677,6 +691,7 @@
   "oper.action.killReasonPlaceholder": "Hiển thị cho người dùng và trên toàn mạng",
   "oper.action.killed": "Đã kill {nick}.",
   "oper.action.lineTooLong": {
+    "one": "Quá dài để gửi: rút ngắn lý do đi {count} byte (chữ có dấu, chữ viết khác và emoji chiếm 2–4 byte mỗi ký tự).",
     "other": "Quá dài để gửi: rút ngắn lý do đi {count} byte (chữ có dấu, chữ viết khác và emoji chiếm 2–4 byte mỗi ký tự)."
   },
   "oper.action.lookingUp": "Đang tra cứu {nick}…",
@@ -685,14 +700,17 @@
   "oper.action.maskPlaceholderZline": "203.0.113.7 hoặc 203.0.113.0/24",
   "oper.action.notSentDown": "Chưa gửi: mất kết nối.",
   "oper.action.previewMany": {
+    "one": "Khớp {count} người dùng: {nicks}.",
     "other": "Khớp {count} người dùng: {nicks}."
   },
   "oper.action.previewMore": {
+    "one": "Khớp {count} người dùng: {nicks} và {more} người khác.",
     "other": "Khớp {count} người dùng: {nicks} và {more} người khác."
   },
   "oper.action.previewNobody": "Không khớp ai đang kết nối lúc này.",
   "oper.action.previewOne": "Khớp 1 người dùng: {nicks}.",
   "oper.action.previewWide": {
+    "one": "Khớp {count} người dùng: {nicks} và {more} người khác — máy chủ từ chối từ 20 người trở lên nếu không buộc.",
     "other": "Khớp {count} người dùng: {nicks} và {more} người khác — máy chủ từ chối từ 20 người trở lên nếu không buộc."
   },
   "oper.action.reason": "Lý do",
@@ -712,42 +730,54 @@
   "oper.action.titleKill": "Kill {nick}",
   "oper.action.whoNow": "{nick} hiện là {who}.",
   "oper.activity.actions": {
+    "one": "{count} hành động",
     "other": "{count} hành động"
   },
   "oper.activity.byKind": "Theo loại",
   "oper.activity.byOper": "Theo oper",
   "oper.activity.count.alerts": {
+    "one": "{count} lần đổi cảnh báo",
     "other": "{count} lần đổi cảnh báo"
   },
   "oper.activity.count.glines": {
+    "one": "{count} lệnh G-line",
     "other": "{count} lệnh G-line"
   },
   "oper.activity.count.jupes": {
+    "one": "{count} lệnh jupe",
     "other": "{count} lệnh jupe"
   },
   "oper.activity.count.kills": {
+    "one": "{count} lần kill",
     "other": "{count} lần kill"
   },
   "oper.activity.count.links": {
+    "one": "{count} lần liên kết và tách máy chủ",
     "other": "{count} lần liên kết và tách máy chủ"
   },
   "oper.activity.count.modes": {
+    "one": "{count} chế độ kênh",
     "other": "{count} chế độ kênh"
   },
   "oper.activity.count.opers": {
+    "one": "{count} lần lên oper",
     "other": "{count} lần lên oper"
   },
   "oper.activity.count.other": {
+    "one": "{count} hành động khác",
     "other": "{count} hành động khác"
   },
   "oper.activity.count.rehash": {
+    "one": "{count} lần rehash và khởi động lại",
     "other": "{count} lần rehash và khởi động lại"
   },
   "oper.activity.count.wallops": {
+    "one": "{count} tin WALLOPS",
     "other": "{count} tin WALLOPS"
   },
   "oper.activity.empty": "Không có gì được lưu trong khoảng này.",
   "oper.activity.foot": {
+    "one": "Từ {count} thông báo được lưu kể từ {since}.",
     "other": "Từ {count} thông báo được lưu kể từ {since}."
   },
   "oper.activity.join": "Tham gia",
@@ -806,6 +836,7 @@
   "oper.alertBuilder.form.expiryOption": "{label} ({duration})",
   "oper.alertBuilder.form.matchUsers": "Khớp người dùng…",
   "oper.alertBuilder.form.moreNicks": {
+    "one": "{nicks} và {count} người khác",
     "other": "{nicks} và {count} người khác"
   },
   "oper.alertBuilder.form.name": "Tên",
@@ -837,15 +868,18 @@
   "oper.alertBuilder.matches.clauses": "{first} · {second}",
   "oper.alertBuilder.matches.noOpers": "không ai là oper",
   "oper.alertBuilder.matches.noOpersAmongFirst": {
+    "one": "không ai trong {count} người đầu là oper",
     "other": "không ai trong {count} người đầu là oper"
   },
   "oper.alertBuilder.matches.none": "Hiện không có gì khớp.",
   "oper.alertBuilder.matches.oneOper": "một người là oper: {opers}",
   "oper.alertBuilder.matches.opers": {
+    "one": "{count} người là oper: {opers}",
     "other": "{count} người là oper: {opers}"
   },
   "oper.alertBuilder.matches.tooMany": "{matches} — quá nhiều; hãy kiểm tra tiêu chí",
   "oper.alertBuilder.matches.users": {
+    "one": "Hiện khớp {count} người dùng",
     "other": "Hiện khớp {count} người dùng"
   },
   "oper.alertBuilder.placeholder.account": "glob; ngầm hiểu đã đăng nhập",
@@ -881,6 +915,7 @@
   "oper.alertBuilder.wide.server": "cả một máy chủ",
   "oper.alertBuilder.wide.unauthed": "mọi người dùng chưa đăng nhập",
   "oper.alerts.everythingElse": {
+    "one": "Mọi thứ khác · {count} loại",
     "other": "Mọi thứ khác · {count} loại"
   },
   "oper.alerts.line.banHits": "Trúng lệnh cấm",
@@ -941,6 +976,7 @@
   "oper.alerts.section.actions": "Hành động của oper",
   "oper.alerts.section.network": "Mạng",
   "oper.alerts.until.days": {
+    "one": "thêm {count} ngày",
     "other": "thêm {count} ngày"
   },
   "oper.alerts.until.tomorrow": "đến ngày mai",
@@ -1019,6 +1055,7 @@
   "oper.check.managing.local": "cục bộ",
   "oper.check.managing.remote": "từ xa",
   "oper.check.messages": {
+    "one": "{count} tin nhắn",
     "other": "{count} tin nhắn"
   },
   "oper.check.of": "trên",
@@ -1096,6 +1133,7 @@
   "oper.check.status.zombieWith": "xác sống {status}",
   "oper.check.subtitle.channel": "Kênh",
   "oper.check.subtitle.matches": {
+    "one": "{count} kết quả khớp",
     "other": "{count} kết quả khớp"
   },
   "oper.check.subtitle.server": "Máy chủ",
@@ -1110,15 +1148,19 @@
   "oper.check.truncated": "{line} Máy chủ dừng ở giới hạn MAX_CHECK_OUTPUT.",
   "oper.chip.title": "Hành động oper",
   "oper.investigate.agoDays": {
+    "one": "{count} ngày trước",
     "other": "{count} ngày trước"
   },
   "oper.investigate.agoHours": {
+    "one": "{count} giờ trước",
     "other": "{count} giờ trước"
   },
   "oper.investigate.agoMinutes": {
+    "one": "{count} phút trước",
     "other": "{count} phút trước"
   },
   "oper.investigate.agoSeconds": {
+    "one": "{count} giây trước",
     "other": "{count} giây trước"
   },
   "oper.investigate.card.alertOnThis": "Cảnh báo về điều này…",
@@ -1138,6 +1180,7 @@
   "oper.investigate.card.close": "Đóng thẻ",
   "oper.investigate.card.closeEsc": "Đóng (Esc)",
   "oper.investigate.card.commonCount": {
+    "one": "{shared} trên {count} người dùng",
     "other": "{shared} trên {count} người dùng"
   },
   "oper.investigate.card.commonHeading": "Điều phần lớn có chung",
@@ -1145,6 +1188,7 @@
   "oper.investigate.card.compareNotChannel": "So sánh cần một nick, không phải kênh.",
   "oper.investigate.card.comparePlaceholder": "nick để so sánh",
   "oper.investigate.card.compareScore": {
+    "one": "{same} trên {count} khớp",
     "other": "{same} trên {count} khớp"
   },
   "oper.investigate.card.compareSelf": "Đó là {nick}: hãy so sánh với người khác.",
@@ -1168,6 +1212,7 @@
   "oper.investigate.card.likeBoth": "giống cả hai",
   "oper.investigate.card.likeOne": "giống {nick}",
   "oper.investigate.card.lookAlike": {
+    "one": "{shared} trên {count} người dùng trông giống nhau",
     "other": "{shared} trên {count} người dùng trông giống nhau"
   },
   "oper.investigate.card.lookUp": "Tra cứu",
@@ -1217,6 +1262,7 @@
   "oper.investigate.card.traceCount": "Đếm bằng trace",
   "oper.investigate.card.traceFailed": "{bot} không đếm được",
   "oper.investigate.card.traceMatches": {
+    "one": "Hiện có {count} người dùng khớp",
     "other": "Hiện có {count} người dùng khớp"
   },
   "oper.investigate.card.users": "Người dùng",
@@ -1257,19 +1303,24 @@
   "oper.investigate.fate.zlinedThen": "khi đó bị Z-line bởi {by}",
   "oper.investigate.fate.zlinedThenReason": "khi đó bị Z-line bởi {by} vì '{reason}'",
   "oper.investigate.identDigits": {
+    "one": "{count} chữ số",
     "other": "{count} chữ số"
   },
   "oper.investigate.identDigitsGlob": {
+    "one": "{count} chữ số ({glob})",
     "other": "{count} chữ số ({glob})"
   },
   "oper.investigate.identLetters": {
+    "one": "{count} chữ cái",
     "other": "{count} chữ cái"
   },
   "oper.investigate.identLettersGlob": {
+    "one": "{count} chữ cái ({glob})",
     "other": "{count} chữ cái ({glob})"
   },
   "oper.investigate.lastHour.created": "{nick} đã tạo kênh",
   "oper.investigate.lastHour.joined": {
+    "one": "{nicks} đã vào",
     "other": "{nicks} đã vào"
   },
   "oper.investigate.lastHour.kicked": "{kicker} đã đá {nick}",
@@ -1328,6 +1379,7 @@
   "oper.investigate.user.ip": "Địa chỉ IP",
   "oper.investigate.user.lastQuit": "Thoát lần cuối",
   "oper.investigate.user.liveBanCount": {
+    "one": "{count} đang hiệu lực",
     "other": "{count} đang hiệu lực"
   },
   "oper.investigate.user.lookingUp": "Đang tra cứu…",
@@ -1349,6 +1401,7 @@
   "oper.investigate.user.server": "Máy chủ",
   "oper.investigate.user.serviceBan": "bởi {by}, {ago} trước, hết hạn sau {expires}",
   "oper.investigate.user.serviceBanCount": {
+    "one": "{count} từ dịch vụ",
     "other": "{count} từ dịch vụ"
   },
   "oper.investigate.user.serviceBanNever": "bởi {by}, {ago} trước, không bao giờ hết hạn",
@@ -1623,6 +1676,7 @@
   "oper.panel.title": "Công cụ oper",
   "oper.profile.generic": "Máy chủ IRC",
   "oper.report.bytes": {
+    "one": "{count} byte",
     "other": "{count} byte"
   },
   "oper.report.collapse": "Thu gọn",
@@ -1634,6 +1688,7 @@
   "oper.report.noPrivs": "Không có quyền nào được báo cáo.",
   "oper.report.notSent": "Chưa gửi: mất kết nối.",
   "oper.report.privsCount": {
+    "one": "{count} quyền",
     "other": "{count} quyền"
   },
   "oper.report.privsLabel": "Quyền",
@@ -1643,6 +1698,7 @@
   "oper.report.rerunLabel": "Chạy lại {command}",
   "oper.report.rerunTitle": "Chạy lại: {command}",
   "oper.report.showAllRows": {
+    "one": "Hiện tất cả {count} hàng",
     "other": "Hiện tất cả {count} hàng"
   },
   "oper.services.botOffline": "{bot} không trực tuyến (không có nick này).",
@@ -1651,20 +1707,25 @@
   "oper.services.check.closed": "Không kiểm tra được: mạng chưa kết nối.",
   "oper.services.check.noBots": "Không có bot để kiểm tra: hãy nhập ít nhất một.",
   "oper.services.check.notLike": {
+    "one": "{bots} có vẻ không phải {package}.",
     "other": "{bots} có vẻ không phải {package}."
   },
   "oper.services.check.offline": {
+    "one": "{bots} không trực tuyến (không có nick này).",
     "other": "{bots} không trực tuyến (không có nick này)."
   },
   "oper.services.check.online": {
+    "one": "{bots} đang trực tuyến.",
     "other": "{bots} đang trực tuyến."
   },
   "oper.services.check.onlineLooks": {
+    "one": "{bots} đang trực tuyến và có vẻ là {package}.",
     "other": "{bots} đang trực tuyến và có vẻ là {package}."
   },
   "oper.services.check.sentences": "{first} {second}",
   "oper.services.check.timeout": "Không kiểm tra được: máy chủ không trả lời.",
   "oper.services.check.untrusted": {
+    "one": "{bots} không phải dịch vụ của mạng, nên các trả lời sẽ không được tin cậy.",
     "other": "{bots} không phải dịch vụ của mạng, nên các trả lời sẽ không được tin cậy."
   },
   "oper.services.connectionDown": "Mất kết nối.",
@@ -1949,6 +2010,7 @@
   "scripting.nameInvalid": "Chỉ chữ cái, chữ số, _ và -, bắt đầu bằng chữ cái hoặc chữ số, tối đa {max}.",
   "scripting.nameTaken": "Đã có kịch bản khác tên là {name}.",
   "scripting.queueFull": {
+    "one": "[Lỗi Lua] Chưa gửi: đã có {count} dòng của kịch bản đang chờ gửi",
     "other": "[Lỗi Lua] Chưa gửi: đã có {count} dòng của kịch bản đang chờ gửi"
   },
   "scripting.storage.codeTooLong": "“{name}” dài quá {max} ký tự.",
@@ -1981,6 +2043,7 @@
   "search.results.aria": "Kết quả tìm kiếm",
   "search.window.allChannels": "tất cả kênh của tôi",
   "search.window.allHidden": {
+    "one": "{count} kết quả, đều bị bộ lọc của bạn ẩn",
     "other": "{count} kết quả, đều bị bộ lọc của bạn ẩn"
   },
   "search.window.allHiddenNote": "Tin nhắn cũ hơn vẫn có thể khớp. Đã tìm đến {when}.",
@@ -2005,13 +2068,16 @@
   "search.window.field": "Tìm tin nhắn",
   "search.window.filters": "Bộ lọc",
   "search.window.hiddenCount": {
+    "one": "{count} bị bộ lọc ẩn",
     "other": "{count} bị bộ lọc ẩn"
   },
   "search.window.inScope": "Trong {scope}",
   "search.window.loadedInstead": {
+    "one": "Thay vào đó đang tìm trong {count} tin nhắn đã tải trên thiết bị này. Bộ lọc vẫn hoạt động.",
     "other": "Thay vào đó đang tìm trong {count} tin nhắn đã tải trên thiết bị này. Bộ lọc vẫn hoạt động."
   },
   "search.window.matchCount": {
+    "one": "{count} kết quả",
     "other": "{count} kết quả"
   },
   "search.window.noMatches": "Không có kết quả trong {scope}",
@@ -2056,9 +2122,11 @@
   "settings.aliases.previewMiss": "Không phải bí danh — nội dung sẽ được gửi đúng như đã gõ.",
   "settings.aliases.removeAria": "Xóa bí danh {name}",
   "settings.aliases.statusBroken": {
+    "one": "Đã lưu {count} bí danh — các hàng có lỗi chưa được lưu.",
     "other": "Đã lưu {count} bí danh — các hàng có lỗi chưa được lưu."
   },
   "settings.aliases.statusSaved": {
+    "one": "Đã lưu {count} bí danh.",
     "other": "Đã lưu {count} bí danh."
   },
   "settings.aliases.titleHeading": "Bí danh lệnh",
@@ -2168,6 +2236,7 @@
   "settings.general.backupIntro": "Lưu cài đặt của bạn vào một tệp. Bạn có thể khôi phục ở đây hoặc trên thiết bị khác. Các kịch bản trong tệp được nhập sẽ ở trạng thái tắt, và chính tính năng kịch bản cũng vậy.",
   "settings.general.backupMutes": "danh sách tắt tiếng và bỏ qua",
   "settings.general.backupNetworks": {
+    "one": "{count} mạng",
     "other": "{count} mạng"
   },
   "settings.general.backupPartSettings": "cài đặt của bạn",
@@ -2258,6 +2327,7 @@
   "settings.scriptEdit.ariaNamed": "Sửa kịch bản {name}",
   "settings.scriptEdit.autosave": "Thay đổi được lưu khi bạn gõ.",
   "settings.scriptEdit.charCount": {
+    "one": "{count} ký tự",
     "other": "{count} ký tự"
   },
   "settings.scriptEdit.checkSyntax": "Kiểm tra cú pháp",
@@ -2275,6 +2345,7 @@
   "settings.scriptEdit.export": "Xuất .lua",
   "settings.scriptEdit.folder": "Thư mục",
   "settings.scriptEdit.lineCount": {
+    "one": "{count} dòng",
     "other": "{count} dòng"
   },
   "settings.scriptEdit.missing": "Kịch bản này không còn nữa — đã bị xóa ở đây hoặc trong một thẻ khác.",
@@ -2323,6 +2394,7 @@
   "sidebar.jumpTo": "Chuyển đến...",
   "sidebar.language": "Ngôn ngữ hiển thị",
   "sidebar.mentions": {
+    "one": "{count} lượt nhắc đến",
     "other": "{count} lượt nhắc đến"
   },
   "sidebar.networkList": "Danh sách mạng và kênh",
@@ -2332,6 +2404,7 @@
   "sidebar.toggle": "Hiện/ẩn danh sách kênh",
   "sidebar.toggleDevtools": "Bật/tắt công cụ phát triển eruda",
   "sidebar.unread": {
+    "one": "{count} tin nhắn chưa đọc",
     "other": "{count} tin nhắn chưa đọc"
   },
   "special.excepts.exempted": "Được miễn trừ",
@@ -2390,6 +2463,7 @@
   "translate.capability.gpu": "Thiết bị này có GPU và CPU.",
   "translate.capability.none": "Không thể dịch trên thiết bị này.",
   "translate.capability.prefillChunk": {
+    "one": "Lời nhắc được gửi tới GPU mỗi lần {count} token (công tắc thử nghiệm {key}).",
     "other": "Lời nhắc được gửi tới GPU mỗi lần {count} token (công tắc thử nghiệm {key})."
   },
   "translate.capability.prefillChunkLibrary": "Lời nhắc được gửi tới GPU theo các khối riêng của mô hình (công tắc thử nghiệm {key}).",
@@ -2403,22 +2477,10 @@
   "translate.capability.reason.probeFailed": "chính bước kiểm tra thiết bị đã thất bại",
   "translate.capability.reason.smallBuffer": "GPU chỉ liên kết tối đa {limit} trong một bộ đệm; bản nhỏ nhất của mô hình ngôn ngữ cho GPU cần {needed}",
   "translate.capability.testLimit": "Đã giới hạn ở {size} để thử nghiệm ({key} trong bộ nhớ của trình duyệt này). Xóa mục đó và tải lại trang để dùng giới hạn riêng của GPU.",
-  "translate.chip.alreadyIn": "Đã là {language}, không dịch. Tùy chọn dịch",
   "translate.chip.options": "{languages}. Tùy chọn dịch",
-  "translate.chip.unsure": "Không phân biệt được ngôn ngữ, không dịch. Tùy chọn dịch",
-  "translate.composer.placeholder": "Gửi tin nhắn cho {name} · gửi bằng {language}",
-  "translate.composer.placeholderCorrected": "Gửi tin nhắn cho {name} · gửi bản đã sửa",
-  "translate.composer.sendCorrectedOn": "Đang gửi bản đã sửa bằng {language} · nhấp để dừng",
   "translate.composer.sendOff": "Dịch những gì tôi gửi…",
-  "translate.composer.sendOn": "Đang gửi bằng {language} · nhấp để dừng",
   "translate.consent.metered": "Kết nối của bạn là kết nối có đo lượng dữ liệu hoặc đang bật tiết kiệm dữ liệu.",
   "translate.consent.notNow": "Để sau",
-  "translate.consent.text": "Bản dịch này cần {model}, dung lượng tải xuống {size}. Mô hình được giữ trên thiết bị này nên chỉ tải xuống một lần.",
-  "translate.consent.textCpu": "Bản dịch này cần {model} trên CPU, dung lượng tải xuống {size}. Mô hình được giữ trên thiết bị này nên chỉ tải xuống một lần.",
-  "translate.consent.textGpu": "Bản dịch này cần {model} trên GPU, dung lượng tải xuống {size}. Mô hình được giữ trên thiết bị này nên chỉ tải xuống một lần.",
-  "translate.consent.title": "Tải xuống {model}?",
-  "translate.consent.titleCpu": "Tải xuống {model} cho CPU?",
-  "translate.consent.titleGpu": "Tải xuống {model} cho GPU?",
   "translate.device.cpu": "CPU",
   "translate.device.gpu": "GPU",
   "translate.error.aborted": "đã bị hủy",
@@ -2440,15 +2502,6 @@
   "translate.gpuFallback.text": "{model} đã ngừng hoạt động trên GPU của thiết bị này. Chạy trên CPU thay thế? Cách này chậm hơn và cần tải xuống {size}.",
   "translate.gpuFallback.textCached": "{model} đã ngừng hoạt động trên GPU của thiết bị này. Chạy trên CPU thay thế? Cách này chậm hơn.",
   "translate.gpuFallback.title": "GPU đã ngừng hoạt động",
-  "translate.header.off": "Dịch tin nhắn sang {reading}",
-  "translate.header.offPaused": "Dịch tin nhắn sang {reading}, tạm dừng: {reason}",
-  "translate.header.offWrite": "Dịch tin nhắn sang {reading}, gửi bằng {writing}",
-  "translate.header.offWritePaused": "Dịch tin nhắn sang {reading}, gửi bằng {writing}, tạm dừng: {reason}",
-  "translate.header.read": "Đang dịch sang {reading}",
-  "translate.header.readPaused": "Đang dịch sang {reading}, tạm dừng: {reason}",
-  "translate.header.readWrite": "Đang dịch sang {reading}, gửi bằng {writing}",
-  "translate.header.readWritePaused": "Đang dịch sang {reading}, gửi bằng {writing}, tạm dừng: {reason}",
-  "translate.header.settings": "Cài đặt dịch",
   "translate.limitedLanguage": "Việc dịch sang và ra khỏi ngôn ngữ này thường sai.",
   "translate.load.downloading": "Đang tải {model}… {percent}%",
   "translate.load.loading": "Đang tải {model} vào bộ nhớ… {percent}%",
@@ -2458,7 +2511,6 @@
   "translate.menu.retranslateFrom": "Dịch lại từ: {language}",
   "translate.menu.retranslateFromPicker": "Dịch lại từ…",
   "translate.menu.showOriginal": "Chỉ hiển thị nguyên bản",
-  "translate.menu.translateAnyway": "Vẫn dịch",
   "translate.menu.translateFromPicker": "Dịch từ ngôn ngữ khác…",
   "translate.menu.translateNow": "Dịch",
   "translate.model.copyDownloaded": "Đã tải xuống · {size}",
@@ -2474,40 +2526,17 @@
   "translate.model.opus": "OPUS-MT {from} → {to}",
   "translate.model.percent": "{percent}%",
   "translate.model.smallBufferBuild": "GPU này nhận một bản dựng của mô hình dành cho bộ đệm đồ họa nhỏ: bộ đệm lớn nhất của nó là {size}.",
-  "translate.notTranslated": "Không dịch",
   "translate.pair.unavailable": "Không có gì trên thiết bị này dịch được từ {from} sang {to}.",
-  "translate.pair.unavailableInto": "Không có gì trên thiết bị này dịch được sang {to}.",
-  "translate.panel.addLanguage": "Thêm ngôn ngữ…",
-  "translate.panel.close": "Đóng",
   "translate.panel.heading": "Dịch",
-  "translate.panel.languagesHint": "Các dòng trong các ngôn ngữ này được nhận diện ngay cả khi chúng ngắn hoặc trông giống nhau.",
   "translate.panel.off": "Tắt",
-  "translate.panel.on": "Bật",
-  "translate.panel.ownLanguageNeedsGpu": "{language} bị làm mờ: sửa một tin nhắn cần mô hình ngôn ngữ.",
-  "translate.panel.readHint": "Các dòng người khác gửi được hiển thị kèm bản dịch bên dưới.",
-  "translate.panel.readIn": "Đọc tin nhắn bằng {language}",
-  "translate.panel.reading": "Đọc",
   "translate.panel.settingsLink": "Ngôn ngữ và mô hình trong Cài đặt",
   "translate.panel.title": "Dịch cho {channel}",
-  "translate.panel.variant": "Biến thể",
-  "translate.panel.variantHint": "Biến thể vùng miền mà mô hình nên hướng tới.",
-  "translate.panel.variantPlaceholder": "Ví dụ: tiếng Bồ Đào Nha Brazil",
   "translate.panel.writeHint": "Nhấn Enter để xem bản dịch trước; nhấn Enter lần nữa để gửi.",
-  "translate.panel.writeLabel": "Gửi tin nhắn của tôi bằng",
-  "translate.panel.writing": "Viết",
   "translate.picker.cancel": "Hủy",
   "translate.picker.confirm": "Dịch",
   "translate.picker.dialog": "Dịch lại từ ngôn ngữ khác",
-  "translate.picker.fromAuto": "Tự động nhận diện",
-  "translate.picker.fromLabel": "Dịch từ",
   "translate.picker.label": "Dịch dòng này từ",
-  "translate.picker.sameLanguage": "Cùng ngôn ngữ: thay vào đó sẽ sửa chính tả và ngữ pháp.",
   "translate.picker.sameLanguageNeedsGpu": "Sửa một tin nhắn cần mô hình ngôn ngữ.",
-  "translate.picker.targetConfirm": "Dịch",
-  "translate.picker.targetConfirmCorrect": "Sửa",
-  "translate.picker.targetDialog": "Dịch tin nhắn này sang một ngôn ngữ",
-  "translate.picker.targetLabel": "Dịch sang",
-  "translate.picker.thisMessageOnly": "Chỉ tin nhắn này",
   "translate.reason.answered": "đã trả lời thay vì dịch",
   "translate.reason.degenerate": "câu trả lời là những ký hiệu rác",
   "translate.reason.narration": "đã nói về yêu cầu thay vì dịch",
@@ -2520,7 +2549,6 @@
   "translate.settings.deviceAuto": "Tự động",
   "translate.settings.disabled": "Tính năng dịch đã bị tắt trên bản triển khai này.",
   "translate.settings.enable": "Dịch tin nhắn trên thiết bị này",
-  "translate.settings.enableHint": "Dịch các kênh và tin nhắn của bạn ngay trên thiết bị này. Các mô hình được tải xuống khi dùng lần đầu: mỗi mô hình từ vài trăm MB đến hơn 1 GB.",
   "translate.settings.gpuAutomatic": "Tự động — tốt nhất cho thiết bị này",
   "translate.settings.gpuModel": "Mô hình ngôn ngữ",
   "translate.settings.gpuModelHint": "Mô hình lớn hơn dịch tự nhiên hơn, cần khoảng 3,4 GB bộ nhớ đồ họa và chậm hơn.",
@@ -2529,17 +2557,16 @@
   "translate.settings.headingLanguage": "Ngôn ngữ",
   "translate.settings.inUse": "Đang dùng",
   "translate.settings.interfaceLanguageLabel": "Ngôn ngữ giao diện",
-  "translate.settings.intro": "Tin nhắn được dịch ngay trên thiết bị này bằng một mô hình chỉ tải xuống một lần; không có gì được gửi đến dịch vụ dịch. Bật cho từng kênh bằng nút dịch trên thanh tiêu đề của kênh.",
-  "translate.settings.languageHint": "Ngôn ngữ của giao diện và ngôn ngữ mà tin nhắn được dịch sang — chung một tùy chọn. Tự động sẽ theo ngôn ngữ của trình duyệt.",
-  "translate.settings.languageLabel": "Ngôn ngữ giao diện và ngôn ngữ đọc",
   "translate.settings.modelOption": "{name} · {size}",
   "translate.settings.models": "Mô hình",
   "translate.settings.nllbLicence": "NLLB-200 dùng giấy phép CC BY-NC 4.0: chỉ dành cho mục đích phi thương mại.",
   "translate.settings.opusDownloaded": {
+    "one": "Đã tải xuống {count} cặp · {size}",
     "other": "Đã tải xuống {count} cặp · {size}"
   },
   "translate.settings.opusNone": "Chưa tải cặp nào · khoảng {size} mỗi cặp",
   "translate.settings.opusPairs": {
+    "one": "{count} cặp ngôn ngữ",
     "other": "{count} cặp ngôn ngữ"
   },
   "translate.settings.runOn": "Chạy trên",
@@ -2548,28 +2575,20 @@
   "translate.settings.useNllb": "Dùng NLLB-200 cho các ngôn ngữ mà các mô hình khác không hỗ trợ",
   "translate.settings.workerError": "Không thể kết nối với worker dịch: {error}",
   "translate.strip.checkFailed": "không thể kiểm tra",
-  "translate.strip.copied": "Đã sao chép",
-  "translate.strip.copy": "Sao chép bản dịch",
-  "translate.strip.failed": "không thể dịch, gửi nguyên văn?",
-  "translate.strip.keepTyping": "Tiếp tục gõ (Esc)",
-  "translate.strip.polishChip": "{language}, đã sửa",
   "translate.strip.routeCpu": "{from} → {to} · {model} (CPU)",
-  "translate.strip.routeCpuRetried": "{from} → {to} · {model} (CPU) · thử lại không chỉ định ngôn ngữ nguồn",
   "translate.strip.routeGpu": "{from} → {to} · {model} (GPU)",
-  "translate.strip.routeGpuRetried": "{from} → {to} · {model} (GPU) · thử lại không chỉ định ngôn ngữ nguồn",
-  "translate.strip.sendAsWritten": "Gửi nguyên văn",
-  "translate.strip.sendTranslation": "Gửi bản dịch",
   "translate.strip.sourceAuto": "tự động",
   "translate.threads.reload": {
+    "one": "Hãy tải lại ứng dụng để dùng {count} luồng CPU.",
     "other": "Hãy tải lại ứng dụng để dùng {count} luồng CPU."
   },
   "translate.threads.using": {
+    "one": "Đang dùng {count} luồng CPU.",
     "other": "Đang dùng {count} luồng CPU."
   },
   "translate.topic.showOriginal": "Hiện chủ đề gốc",
   "translate.topic.showTranslation": "Hiện chủ đề đã dịch",
   "translate.unavailable.lead": "Hiện không thể dịch ở đây.",
-  "translate.unchangedReason": "dòng trả về không thay đổi",
   "translate.why.allOff": "Cả mô hình ngôn ngữ lẫn OPUS-MT đều đang tắt trong Cài đặt → Dịch.",
   "translate.why.cpuOff": "OPUS-MT đang tắt trong Cài đặt → Dịch.",
   "translate.why.down": "Mô hình cho việc này đã không tải được lúc trước; hãy tải lại trang để thử lại.",
@@ -2593,9 +2612,8 @@
   "translate.why.probing": "Vẫn đang kiểm tra thiết bị này có thể chạy những gì…",
   "translate.why.switchedOff": "Tính năng dịch đang tắt trên thiết bị này.",
   "translate.why.unserved": "Không có mô hình nào trên thiết bị này hỗ trợ cặp ngôn ngữ này.",
-  "translation.panel.languages": "Ngôn ngữ: {channel}",
-  "translation.panel.remove": "Xóa {language}",
   "typing.many": {
+    "one": "{nick1}, {nick2} và {count} người khác đang gõ…",
     "other": "{nick1}, {nick2} và {count} người khác đang gõ…"
   },
   "typing.one": "{nick} đang gõ…",
@@ -2605,6 +2623,7 @@
   "upload.cancel": "Hủy bỏ",
   "upload.cancelled": "Đã hủy tải lên",
   "upload.confirmCount": {
+    "one": "Tải lên {count} tệp",
     "other": "Tải lên {count} tệp"
   },
   "upload.confirmHint": "Hãy kiểm tra xem đây có đúng là thứ bạn muốn chia sẻ không, rồi tải lên. Bất kỳ ai mở được liên kết đều có thể xem nó.",
@@ -2627,6 +2646,7 @@
   "upload.removeTitle": "Không tải lên tệp này",
   "upload.tooLarge": "Tệp {file} vượt quá kích thước tối đa cho phép",
   "userlist.count": {
+    "one": "{count} người dùng",
     "other": "{count} người dùng"
   },
   "userlist.mode.admins": "Quản trị viên",
@@ -2639,6 +2659,7 @@
   "userlist.title": "Danh sách người dùng cho {name}",
   "who.account": "Tài khoản",
   "who.count": {
+    "one": "{count} người dùng",
     "other": "{count} người dùng"
   },
   "who.flagAway": "vắng mặt",

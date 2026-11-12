@@ -1,35 +1,35 @@
 <template>
-	<span
-		v-if="entry && entry.status === 'skipped' && !entry.hidden"
-		class="msg-translation-skipped"
-		:data-reason="entry.reason"
-	>
-		<button
-			ref="chip"
-			type="button"
-			class="msg-translation-skipped-tag"
-			:aria-label="chipLabel"
-			:title="chipLabel"
-			@click.stop="openMenu"
-		>
-			{{ chipText }}
-		</button>
-		<SourceLanguagePicker
-			v-if="pickerOpen"
-			:anchor="chip"
-			:selected="entry.from"
-			:candidates="entry.candidates"
-			:to="entry.to"
-			@pick="pickSource"
-			@close="pickerOpen = false"
-		/>
-	</span>
+	<!-- A done translation stands in the original's place (Message.vue
+	     `replaced`, a tap on the text swaps it back), so this row is only
+	     for what is not one: a failure with its retry, or a line waiting on a
+	     model download. Nothing at all for a line the reader left alone (a
+	     detection skip), one the engine handed back as it was (UNCHANGED), or
+	     one still being translated: it swaps in when done. The toolbar's
+	     Translate still translates any of them. Two offers nobody is
+	     interrupted by: a download the line needs (`needed`, a Download link
+	     in place of the failure), and the system translator's language pack
+	     on the first line translated from its pair (`applePack`). -->
 	<div
-		v-else-if="entry && !entry.hidden && entry.status !== 'dropped'"
+		v-if="
+			entry &&
+			!entry.hidden &&
+			(entry.status === 'failed'
+				? entry.error !== UNCHANGED
+				: entry.status === 'done'
+				? applePack
+				: !!download)
+		"
 		class="msg-translation"
 		:data-status="entry.status"
 	>
+		<span v-if="entry.status === 'done'" class="msg-translation-offer">
+			{{ t("translate.line.applePack", {language: sourceName}) }}
+			<button type="button" class="msg-translation-get" @click.stop="getApplePack">
+				{{ t("translate.line.applePackGet") }}
+			</button>
+		</span>
 		<button
+			v-else
 			ref="chip"
 			type="button"
 			class="msg-translation-chip"
@@ -48,38 +48,41 @@
 			@pick="pickSource"
 			@close="pickerOpen = false"
 		/>
-		<span v-if="entry.status === 'failed'" class="msg-translation-failed">
-			<button
-				v-if="entry.error === UNCHANGED"
-				type="button"
-				class="msg-translation-skipped-tag"
-				:title="notTranslatedLabel"
-				:aria-label="notTranslatedLabel"
-				@click.stop="openMenu"
-			>
-				<i class="fas fa-equals" aria-hidden="true" />
-				<span v-if="devtoolsAvailable" class="msg-translation-reason">{{
-					t("translate.unchangedReason")
-				}}</span>
+		<span v-if="entry.status === 'failed' && packNeed" class="msg-translation-offer">
+			{{ t("translate.line.applePackNeeded", {language: packLanguage}) }}
+			<button type="button" class="msg-translation-get" @click.stop="getNeededPack">
+				{{ t("translate.line.applePackGet") }}
 			</button>
-			<!-- The reason's tooltip is the reason in full (the line cuts it
-			     at REASON_MAX), in words: a declined download's raw error is
-			     a code and the model as JSON. -->
-			<template v-else>
-				{{ t("translate.failed") }}
-				<span v-if="entry.error" class="msg-translation-reason" :title="reasonText">{{
-					shortReason(reasonText)
-				}}</span>
-				<button
-					type="button"
-					class="msg-translation-retry"
-					:title="retryLabel"
-					:aria-label="retryLabel"
-					@click.stop="retry"
-				/>
-			</template>
 		</span>
-		<span v-else class="msg-translation-text" :lang="entry.to" dir="auto">
+		<span
+			v-else-if="entry.status === 'failed' && needed"
+			class="msg-translation-offer"
+			:title="reasonText"
+		>
+			{{ t("translate.line.needsDownload", {size: neededSize}) }}
+			<button type="button" class="msg-translation-get" @click.stop="getDownload">
+				{{ t("translate.line.download") }}
+			</button>
+		</span>
+		<span v-else-if="entry.status === 'failed'" class="msg-translation-failed">
+			{{ t("translate.failed") }}
+			<span v-if="entry.error" class="msg-translation-reason" :title="reasonText">{{
+				shortReason(reasonText)
+			}}</span>
+			<button
+				type="button"
+				class="msg-translation-retry"
+				:title="retryLabel"
+				:aria-label="retryLabel"
+				@click.stop="retry"
+			/>
+		</span>
+		<span
+			v-else-if="entry.status !== 'done'"
+			class="msg-translation-text"
+			:lang="entry.to"
+			dir="auto"
+		>
 			<ParsedMessage
 				v-if="entry.text"
 				:network="network"
@@ -99,7 +102,6 @@
 <script lang="ts">
 import {computed, defineComponent, PropType, ref} from "vue";
 import {writeClipboard} from "../js/clipboard";
-import {devtoolsAvailable} from "../js/devtools";
 import eventbus from "../js/eventbus";
 import {useI18n} from "../js/i18n";
 import {useStore} from "../js/store";
@@ -114,13 +116,17 @@ import {
 import {translateWhyText} from "../js/helpers/translateWhy";
 import {ANSWERED, DEGENERATE, NARRATION, UNCHANGED} from "../js/translate/outgoing";
 import {languageName} from "../js/translate/languages";
-import {directionText} from "../js/translate/labels";
-import {loadNoteText} from "../js/helpers/modelLabel";
+import {directionText, sourceText} from "../js/translate/labels";
+import {loadNoteText, translatedByText} from "../js/helpers/modelLabel";
 import {translateErrorText} from "../js/helpers/translateErrors";
-import {loadNote} from "../js/translate/service";
+import {loadNote, parseApplePack} from "../js/translate/service";
 import type {ClientChan, ClientMessage, ClientNetwork} from "../js/types";
 import ParsedMessage from "./ParsedMessage.vue";
 import SourceLanguagePicker from "./SourceLanguagePicker.vue";
+import friendlysize from "../js/helpers/friendlysize";
+import {parseNeedsDownload} from "../js/translate/consent";
+import {packShownOn, takePack} from "../js/translate/applePacks";
+import {activeService, systemTranslator} from "../js/translate";
 
 /** Characters of a failure reason the line shows; the title has all of it. */
 const REASON_MAX = 120;
@@ -137,7 +143,6 @@ export default defineComponent({
 		const store = useStore();
 		const {t} = useI18n();
 		const entry = computed(() => store.state.translations[props.message.id]);
-		const notTranslatedLabel = computed(() => t("translate.notTranslated"));
 		const retryLabel = computed(() => t("translate.retry"));
 		// The failure reason after "Couldn't translate": the classifier's
 		// verdicts are phrases of our own and come from the pot; any other
@@ -173,8 +178,6 @@ export default defineComponent({
 		const nameOf = (code: string) => languageName(code, readingLanguage());
 		// Source → target; `from` is "" when the engine placed the source
 		// itself, and the detector's contenders are named instead (labels.ts).
-		// A skipped line's tag is the language it was taken for, or "?" when
-		// the detector could not tell.
 		const chipText = computed(() => {
 			const value = entry.value;
 
@@ -182,11 +185,15 @@ export default defineComponent({
 				return "";
 			}
 
-			if (value.status === "skipped") {
-				return value.reason === "same" && value.from ? nameOf(value.from) : "?";
+			// An own line's translation is the read-back of what was sent
+			// (sentReadBack.ts): its language is the one it went out in.
+			if (props.message.self && value.from) {
+				return t("translate.chip.sentIn", {language: nameOf(value.from)});
 			}
 
-			return directionText(value.from, value.to, value.candidates ?? [], nameOf);
+			return t("translate.chip.from", {
+				language: sourceText(value.from, value.to, value.candidates ?? [], nameOf),
+			});
 		});
 		const chipLabel = computed(() => {
 			const value = entry.value;
@@ -195,13 +202,9 @@ export default defineComponent({
 				return "";
 			}
 
-			if (value.status === "skipped") {
-				return value.reason === "same" && value.from
-					? t("translate.chip.alreadyIn", {language: nameOf(value.from)})
-					: t("translate.chip.unsure");
-			}
-
-			return t("translate.chip.options", {languages: chipText.value});
+			return t("translate.chip.options", {
+				languages: directionText(value.from, value.to, value.candidates ?? [], nameOf),
+			});
 		});
 
 		// Nothing streamed yet and a model of this line's engine downloading:
@@ -232,15 +235,10 @@ export default defineComponent({
 		// not among them: "Retranslate from German" on a line already read as
 		// German is just "Retranslate". An explicit source keeps the list, so
 		// the way back to the detector's own guess is on the menu too.
-		// A skipped line leaves the reading language off as well: "Retranslate
-		// from English" into English is no translation.
 		const alternatives = computed(() => {
 			const value = entry.value;
 
-			return (value?.candidates ?? []).filter(
-				(code) =>
-					code !== value?.from && !(value?.status === "skipped" && code === value.to)
-			);
+			return (value?.candidates ?? []).filter((code) => code !== value?.from);
 		});
 
 		// The context menu positions itself at the pointer, and a keyboard
@@ -268,6 +266,7 @@ export default defineComponent({
 
 		const openMenu = (mouseEvent: MouseEvent) => {
 			const event = anchorOf(mouseEvent);
+			const by = translatedByText(entry.value?.model);
 			const sources = [
 				...alternatives.value.map((code) => ({
 					label: t("translate.menu.retranslateFrom", {language: nameOf(code)}),
@@ -285,45 +284,19 @@ export default defineComponent({
 				},
 			];
 
-			// A mark has no text to copy, hide or retranslate: what it offers
-			// is the translation it did not get.
-			if (entry.value?.status === "skipped") {
-				eventbus.emit("contextmenu:items", {
-					event,
-					items: [
-						{
-							label: t("translate.menu.translateAnyway"),
-							type: "item",
-							class: "translate-anyway",
-							action: () => retranslateFrom(),
-						},
-						...sources,
-					],
-				});
-				return;
-			}
-
-			// An entry that failed as "unchanged" has no translation to copy,
-			// so its menu is the failed row's minus the Copy item.
-			const unchanged = entry.value?.status === "failed" && entry.value.error === UNCHANGED;
-
 			eventbus.emit("contextmenu:items", {
 				event,
 				items: [
-					...(unchanged
-						? []
-						: [
-								{
-									label: t("translate.menu.copy"),
-									type: "item",
-									class: "translate-copy",
-									// Like the toolbar's Copy: nowhere to report a
-									// refused clipboard, so a failure is silent.
-									action() {
-										void writeClipboard(entry.value?.text ?? "");
-									},
-								},
-						  ]),
+					{
+						label: t("translate.menu.copy"),
+						type: "item",
+						class: "translate-copy",
+						// Like the toolbar's Copy: nowhere to report a refused
+						// clipboard, so a failure is silent.
+						action() {
+							void writeClipboard(entry.value?.text ?? "");
+						},
+					},
 					{
 						label: t("translate.menu.retranslate"),
 						type: "item",
@@ -337,11 +310,80 @@ export default defineComponent({
 						class: "translate-hide",
 						action: () => showOriginal(props.message.id, true),
 					},
+					// Which model translated it, quietly at the foot.
+					...(by
+						? [
+								{type: "divider" as const},
+								{type: "note" as const, label: by, class: "translate-by"},
+						  ]
+						: []),
 				],
 			});
 		};
 
 		const retry = () => retryTranslation(props.network, props.channel, props.message);
+
+		// A download the line needs and nobody agreed to (service.ts
+		// `ResolveOptions.quiet`): the line offers it, and the yes retries it,
+		// the download's progress then shown on the line (`download`).
+		const needed = computed(() => {
+			const error = entry.value?.status === "failed" ? entry.value.error : null;
+
+			return error ? parseNeedsDownload(error) : null;
+		});
+		const neededSize = computed(() => friendlysize(needed.value?.sizeBytes ?? 0));
+		const getDownload = () => {
+			const need = needed.value;
+
+			if (need) {
+				activeService()?.allowDownload(need.id, need.device);
+				retry();
+			}
+		};
+
+		// The system translator could take this line's pair once its pack is
+		// downloaded (applePacks.ts); the sheet opens only on this tap.
+		const applePack = computed(() => {
+			const value = entry.value;
+
+			return (
+				!!value &&
+				value.status === "done" &&
+				packShownOn(props.message.id, value.from, value.to)
+			);
+		});
+		const sourceName = computed(() => (entry.value?.from ? nameOf(entry.value.from) : ""));
+		const getApplePack = () => {
+			const value = entry.value;
+
+			if (value?.from) {
+				takePack(value.from, value.to);
+				void systemTranslator()?.offer(value.from, value.to, () => true, true);
+			}
+		};
+
+		// No model here takes the pair without a download nobody agreed to,
+		// and Apple's would once its pack is installed (service.ts
+		// `applePackError`): the line offers the pack, not an error. The tap
+		// opens the system's sheet whatever was declined before, and
+		// translates the line once the sheet closes.
+		const packNeed = computed(() => {
+			const error = entry.value?.status === "failed" ? entry.value.error : null;
+
+			return error ? parseApplePack(error) : null;
+		});
+		const packLanguage = computed(() => (packNeed.value ? nameOf(packNeed.value.from) : ""));
+		const getNeededPack = () => {
+			const need = packNeed.value;
+			const apple = systemTranslator();
+
+			if (!need || !apple) {
+				return;
+			}
+
+			takePack(need.from, need.to);
+			void apple.offer(need.from, need.to, () => true, true).then(() => retry());
+		};
 
 		// Why it failed, after "couldn't translate": an engine's error can be
 		// long and multi-line, so the line shows the head of it and the title
@@ -366,11 +408,18 @@ export default defineComponent({
 			openMenu,
 			pickSource,
 			retry,
+			needed,
+			neededSize,
+			getDownload,
+			applePack,
+			sourceName,
+			getApplePack,
+			packNeed,
+			packLanguage,
+			getNeededPack,
 			shortReason,
 			t,
 			UNCHANGED,
-			devtoolsAvailable,
-			notTranslatedLabel,
 			retryLabel,
 			reasonText,
 		};

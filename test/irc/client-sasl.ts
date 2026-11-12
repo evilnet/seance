@@ -7,9 +7,16 @@
 import {expect} from "chai";
 import sinon from "sinon";
 import socket from "../../client/js/socket";
-import {IrcClient, IrcClientOptions, saslRequiredHint} from "../../client/js/irc/client";
+import {
+	IrcClient,
+	IrcClientOptions,
+	saslRequiredHint,
+	saslTrustedGaveUpHint,
+	SASL_TRUSTED_RETRIES,
+} from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";
 import {encodePlain, SASL_TIMEOUT_MS} from "../../client/js/irc/sasl";
+import {loginTrusted, trustLogin, useStorageBackend} from "../../client/js/irc/saslTrust";
 import {DEFAULT_BRANDING, resetBranding, setBranding} from "../../client/js/branding";
 import type {Transport} from "../../client/js/irc/types";
 import type {TransportEvent, TransportState} from "../../client/js/irc/transport";
@@ -402,38 +409,93 @@ describe("IrcClient SASL", function () {
 		expect(transport.sent[transport.sent.length - 1]).to.equal("CAP END");
 	});
 
-	it("pipelines AUTHENTICATE behind the REQ, and aborts to CAP END when the server NAKs sasl", function () {
+	it("ends registration again behind the retries of a REQ NAKed after CAP END", function () {
+		// nefarious2 holds registration for a REQ sent after CAP END until the
+		// next CAP END (cap-negotiation); without one, 001 never came.
+		const {client, transport} = setup({sasl: "", saslAccount: "", saslPassword: ""});
+		transport.line(`:irc.test CAP * LS :${OFFERED_CAPS}`);
+		const req = transport.sent.find((l) => l.startsWith("CAP REQ :")) as string;
+		expect(transport.sent.slice(-2)).to.deep.equal([req, "CAP END"]);
+
+		transport.line(`:irc.test CAP alice NAK :${req.slice("CAP REQ :".length)}`);
+		expect(transport.sent[transport.sent.length - 1]).to.equal("CAP END");
+		expect(transport.sent.filter((l) => l === "CAP END")).to.have.length(2);
+
+		finishRegistration(transport);
+		expect(client.isWelcomed).to.equal(true);
+		transport.line(":irc.test CAP alice NEW :draft/pre-away");
+		expect(transport.sent.filter((l) => l === "CAP END")).to.have.length(2);
+	});
+
+	it("waits for the sasl ACK before AUTHENTICATE, and ends with CAP END when sasl is NAKed", function () {
+		// sasl-3.1: the client MUST enable sasl before using AUTHENTICATE.
 		const {client, transport} = setup(CARRY_ON);
 		transport.line(`:irc.test CAP * LS :${OFFERED_CAPS} sasl=PLAIN`);
 		const req = transport.sent.find((l) => l.startsWith("CAP REQ :")) as string;
 		const names = req.slice("CAP REQ :".length).split(" ");
-		// The opener goes out with the REQ: no round trip waiting for the ACK.
-		expect(transport.sent[transport.sent.indexOf(req) + 1]).to.equal("AUTHENTICATE PLAIN");
-		expect(client.sasl).to.not.equal(null);
+		expect(transport.sent[transport.sent.length - 1]).to.equal(req);
+		expect(client.sasl).to.equal(null);
 
 		// A NAKed multi-cap REQ is retried one cap at a time...
 		transport.line(`:irc.test CAP alice NAK :${names.join(" ")}`);
 		expect(transport.sent.filter((l) => l === "CAP REQ :sasl")).to.have.length(1);
-		expect(transport.sent).to.not.include("CAP END");
 
-		// ...and a NAK of `sasl` itself ends the exchange.
+		for (const name of names.filter((n) => n !== "sasl")) {
+			transport.line(`:irc.test CAP alice ACK :${name}`);
+		}
+
+		expect(transport.sent).to.not.include("CAP END");
+		expect(transport.sent).to.not.include("AUTHENTICATE PLAIN");
+
+		// ...and a NAK of `sasl` itself ends negotiation with nothing opened.
 		transport.line(":irc.test CAP alice NAK :sasl");
-		expect(transport.sent.slice(-2)).to.deep.equal(["AUTHENTICATE *", "CAP END"]);
-		expect(client.sasl).to.equal(null);
+		expect(transport.sent[transport.sent.length - 1]).to.equal("CAP END");
+		expect(transport.sent).to.not.include("AUTHENTICATE PLAIN");
+		expect(errors(client.lobby.id)[0]).to.equal(
+			"SASL authentication failed: the server refused the sasl capability"
+		);
+	});
+
+	it("opens SASL after a NAKed multi-cap REQ once sasl alone is ACKed", function () {
+		// A pipelined opener would have been dropped with the NAKed REQ, and
+		// the retry never sent it again: a 12 s wait and a reconnect.
+		const {client, transport} = setup();
+		transport.line(`:irc.test CAP * LS :${OFFERED_CAPS} sasl=PLAIN`);
+		const req = transport.sent.find((l) => l.startsWith("CAP REQ :")) as string;
+		const names = req.slice("CAP REQ :".length).split(" ");
+		transport.line(`:irc.test CAP alice NAK :${names.join(" ")}`);
+
+		for (const name of names) {
+			transport.line(`:irc.test CAP alice ACK :${name}`);
+		}
+
+		expect(transport.sent[transport.sent.length - 1]).to.equal("AUTHENTICATE PLAIN");
+		transport.line("AUTHENTICATE +");
+		transport.lines(
+			":irc.test 900 alice alice!alice@host alice :You are now logged in as alice",
+			":irc.test 903 alice :SASL authentication successful"
+		);
+		expect(transport.sent[transport.sent.length - 1]).to.equal("CAP END");
+		expect(client.account).to.equal("alice");
 	});
 
 	it("aborts the connection when the server NAKs sasl", function () {
 		const {client, transport} = setup();
 		transport.line(`:irc.test CAP * LS :${OFFERED_CAPS} sasl=PLAIN`);
 		const req = transport.sent.find((l) => l.startsWith("CAP REQ :")) as string;
-		transport.line(`:irc.test CAP alice NAK :${req.slice("CAP REQ :".length)}`);
+		const names = req.slice("CAP REQ :".length).split(" ");
+		transport.line(`:irc.test CAP alice NAK :${names.join(" ")}`);
+
+		for (const name of names.filter((n) => n !== "sasl")) {
+			transport.line(`:irc.test CAP alice ACK :${name}`);
+		}
+
 		transport.line(":irc.test CAP alice NAK :sasl");
 
 		expect(errors(client.lobby.id)[0]).to.equal(
 			"SASL authentication failed: the server refused the sasl capability"
 		);
-		// The abort still goes out: the server is told before we quit.
-		expect(transport.sent).to.include("AUTHENTICATE *");
+		expect(transport.sent).to.not.include("AUTHENTICATE PLAIN");
 		expectAborted(transport, client);
 	});
 
@@ -484,7 +546,7 @@ describe("IrcClient SASL", function () {
 			expect(transport.sent[transport.sent.length - 1]).to.equal(
 				"QUIT :SASL authentication failed"
 			);
-			expect(transport.abandonCalls).to.deep.equal(["SASL timed out"]);
+			expect(transport.abandonCalls).to.deep.equal(["SASL failed (server)"]);
 			expect(transport.closeCalls).to.equal(0);
 			expect(client.isQuitting).to.equal(false);
 			expect(client.isConnected).to.equal(false);
@@ -495,6 +557,127 @@ describe("IrcClient SASL", function () {
 			// Not a credentials problem, and the close that followed was ours.
 			expect(texts(client.lobby.id)).to.not.include(saslRequiredHint());
 			expect(texts(client.lobby.id)).to.include("Reconnecting in 1s (attempt 1)…");
+		} finally {
+			clock.restore();
+		}
+	});
+
+	for (const [when, lines] of [
+		[
+			"the server gives up waiting for services",
+			[
+				"AUTHENTICATE +",
+				":irc.test 904 alice :SASL authentication failed: request timed out",
+			],
+		],
+		[
+			"the services link splits mid-exchange",
+			["AUTHENTICATE +", ":irc.test 906 alice :SASL authentication aborted"],
+		],
+	] as const) {
+		it(`QUITs and retries, without turning autoconnect off, when ${when}`, function () {
+			// nefarious2's own SASL timeout (10s) beats ours (12s); taking its
+			// 904 for a refusal left a network with slow services off for good.
+			const clock = sinon.useFakeTimers();
+
+			try {
+				let rejected = 0;
+				const {client, transport} = setup({onSaslRejected: () => rejected++});
+				offer(transport, `${OFFERED_CAPS} sasl=PLAIN`);
+				transport.lines(...lines);
+
+				expect(rejected).to.equal(0);
+				expect(transport.sent).to.not.include("CAP END");
+				expect(transport.sent[transport.sent.length - 1]).to.equal(
+					"QUIT :SASL authentication failed"
+				);
+				expect(transport.abandonCalls).to.have.length(1);
+				expect(transport.closeCalls).to.equal(0);
+				expect(client.isQuitting).to.equal(false);
+				expect(texts(client.lobby.id)).to.not.include(saslRequiredHint());
+			} finally {
+				clock.restore();
+			}
+		});
+	}
+
+	it("gives up waiting for the sasl ACK after the timeout, and retries", function () {
+		const clock = sinon.useFakeTimers();
+
+		try {
+			let rejected = 0;
+			const {client, transport} = setup({onSaslRejected: () => rejected++});
+			transport.line(`:irc.test CAP * LS :${OFFERED_CAPS} sasl=PLAIN`);
+
+			clock.tick(SASL_TIMEOUT_MS + 1);
+
+			expect(transport.sent).to.not.include("AUTHENTICATE PLAIN");
+			expect(transport.sent).to.not.include("CAP END");
+			expect(transport.sent[transport.sent.length - 1]).to.equal(
+				"QUIT :SASL authentication failed"
+			);
+			expect(transport.abandonCalls).to.have.length(1);
+			expect(rejected).to.equal(0);
+			expect(client.isQuitting).to.equal(false);
+		} finally {
+			clock.restore();
+		}
+	});
+
+	it("ends CAP when the sasl ACK never comes and the deploy connects anyway", function () {
+		const clock = sinon.useFakeTimers();
+
+		try {
+			const {client, transport} = setup(CARRY_ON);
+			transport.line(`:irc.test CAP * LS :${OFFERED_CAPS} sasl=PLAIN`);
+
+			clock.tick(SASL_TIMEOUT_MS + 1);
+			expect(transport.sent[transport.sent.length - 1]).to.equal("CAP END");
+
+			// The late ACK opens nothing and does not end CAP twice.
+			const req = transport.sent.find((l) => l.startsWith("CAP REQ :")) as string;
+			transport.line(`:irc.test CAP alice ACK :${req.slice("CAP REQ :".length)}`);
+			expect(transport.sent).to.not.include("AUTHENTICATE PLAIN");
+			expect(transport.sent.filter((l) => l === "CAP END")).to.have.length(1);
+			expect(client.sasl).to.equal(null);
+		} finally {
+			clock.restore();
+		}
+	});
+
+	it("keeps a NAK of sasl as the answer when another cap's reply never comes", function () {
+		const clock = sinon.useFakeTimers();
+
+		try {
+			let rejected = 0;
+			const {transport} = setup({onSaslRejected: () => rejected++});
+			transport.line(":irc.test CAP * LS :multi-prefix sasl=PLAIN");
+			transport.line(":irc.test CAP alice NAK :multi-prefix sasl");
+			transport.line(":irc.test CAP alice NAK :sasl");
+			// multi-prefix's own reply never comes.
+
+			clock.tick(SASL_TIMEOUT_MS + 1);
+
+			expect(rejected).to.equal(1);
+			expect(transport.abandonCalls).to.deep.equal([]);
+		} finally {
+			clock.restore();
+		}
+	});
+
+	it("stops the ACK deadline on disconnect", function () {
+		const clock = sinon.useFakeTimers();
+
+		try {
+			const {client, transport} = setup(CARRY_ON);
+			transport.line(`:irc.test CAP * LS :${OFFERED_CAPS} sasl=PLAIN`);
+			client.disconnect();
+			const sent = transport.sent.length;
+
+			clock.tick(SASL_TIMEOUT_MS + 1);
+
+			expect(transport.sent).to.have.length(sent);
+			expect(errors(client.lobby.id)).to.deep.equal([]);
 		} finally {
 			clock.restore();
 		}
@@ -543,5 +726,285 @@ describe("IrcClient SASL", function () {
 		expect(transport.sent[transport.sent.length - 1]).to.equal("AUTHENTICATE EXTERNAL");
 		transport.line("AUTHENTICATE +");
 		expect(transport.sent[transport.sent.length - 1]).to.equal("AUTHENTICATE +");
+	});
+
+	it("takes EXTERNAL refused before any challenge as a refusal, not an outage", function () {
+		// Atheme and Anope fail EXTERNAL without a client certificate before
+		// `AUTHENTICATE +`, and a browser has none: retrying would loop.
+		let rejected = 0;
+		const {client, transport} = setup({
+			sasl: "external",
+			saslAccount: "",
+			saslPassword: "",
+			onSaslRejected: () => rejected++,
+		});
+		offer(transport, `${OFFERED_CAPS} sasl=PLAIN,EXTERNAL`);
+		transport.line(":irc.test 904 alice :SASL authentication failed");
+
+		expect(rejected).to.equal(1);
+		expect(transport.abandonCalls).to.deep.equal([]);
+		expect(client.isQuitting).to.equal(true);
+	});
+});
+
+describe("IrcClient SASL: the server could not check the login", function () {
+	let store: Map<string, string>;
+
+	beforeEach(function () {
+		installSpy();
+		store = new Map();
+		useStorageBackend({
+			get: (key) => store.get(key) ?? null,
+			set: (key, value) => void store.set(key, value),
+			remove: (key) => void store.delete(key),
+		});
+	});
+
+	afterEach(function () {
+		useStorageBackend(null);
+		removeSpy();
+		resetBranding();
+	});
+
+	/**
+	 * What a retry looks like: QUIT, the socket given up as lost, no
+	 * rejection, and exactly two error lines — the failure and the retry.
+	 * The negotiator's `CAP END` flush runs after `beforeEnd` abandoned the
+	 * socket; a third line would be that flush reported as sent while
+	 * disconnected.
+	 */
+	function expectRetried(transport: FakeTransport, client: IrcClient, rejected: number): void {
+		expect(transport.sent).to.not.include("CAP END");
+		expect(transport.sent[transport.sent.length - 1]).to.equal(
+			"QUIT :SASL authentication failed"
+		);
+		expect(transport.abandonCalls).to.have.length.greaterThan(0);
+		expect(transport.closeCalls).to.equal(0);
+		expect(client.isQuitting).to.equal(false);
+		expect(rejected).to.equal(0);
+		const reported = errors(client.lobby.id);
+		expect(reported).to.have.length(2);
+		expect(reported[0]).to.match(/^SASL authentication failed: /);
+		expect(reported[1]).to.equal(
+			"Not connecting to irc.test without the login you asked for; trying again."
+		);
+		expect(texts(client.lobby.id)).to.not.include(saslRequiredHint());
+	}
+
+	/** A fresh connection on the same client, up to the server's answer to our PLAIN. */
+	function again(transport: FakeTransport, offered = `${OFFERED_CAPS} sasl=PLAIN`): void {
+		transport.sent = [];
+		transport.open();
+		offer(transport, offered);
+		transport.line("AUTHENTICATE +");
+	}
+
+	for (const [what, line] of [
+		[
+			"its own timeout (it gives up at 10 s, before ours)",
+			":irc.test 904 alice :SASL authentication failed: request timed out",
+		],
+		[
+			"its services being unreachable",
+			":irc.test 904 alice :SASL authentication failed: service unavailable",
+		],
+		["its services splitting mid-exchange", ":irc.test 906 alice :SASL authentication aborted"],
+	]) {
+		it(`retries after ${what}, even for a login never seen to work`, function () {
+			let rejected = 0;
+			const {client, transport} = setup({onSaslRejected: () => rejected++});
+			offer(transport, `${OFFERED_CAPS} sasl=PLAIN`);
+			transport.line("AUTHENTICATE +");
+			transport.line(line);
+
+			expectRetried(transport, client, rejected);
+		});
+	}
+
+	it("remembers a login that worked, and forgets it when the credentials change", function () {
+		const {client, transport} = setup();
+		offer(transport, `${OFFERED_CAPS} sasl=PLAIN`);
+		transport.line("AUTHENTICATE +");
+		transport.line(":irc.test 903 alice :SASL authentication successful");
+		expect(loginTrusted(client.uuid, "alice")).to.equal(true);
+		expect(loginTrusted(client.uuid, "bob")).to.equal(false);
+
+		client.applySettings({
+			host: "irc.test",
+			port: 8443,
+			tls: true,
+			join: "",
+			sasl: "plain",
+			saslAccount: "alice",
+			saslPassword: "changed",
+		} as Parameters<IrcClient["applySettings"]>[0]);
+		expect(loginTrusted(client.uuid, "alice")).to.equal(false);
+	});
+
+	it("still takes a bare 904 for a refusal when the login never worked here", function () {
+		let rejected = 0;
+		const {client, transport} = setup({onSaslRejected: () => rejected++});
+		offer(transport, `${OFFERED_CAPS} sasl=PLAIN`);
+		transport.line("AUTHENTICATE +");
+		transport.line(":irc.test 904 alice :SASL authentication failed");
+
+		expect(rejected).to.equal(1);
+		expectAborted(transport, client);
+	});
+
+	it(`gives a login that worked ${SASL_TRUSTED_RETRIES} more tries on a bare 904, then stays down and keeps the login`, function () {
+		// nefarious2 answers a Keycloak it cannot reach with the same bare 904
+		// as a wrong password, for the whole of the outage: giving the login
+		// up would turn autoconnect off, and the cold start after the outage
+		// would never dial.
+		let rejected = 0;
+		const {client, transport} = setup({onSaslRejected: () => rejected++});
+		trustLogin(client.uuid, "alice");
+
+		offer(transport, `${OFFERED_CAPS} sasl=PLAIN`);
+		transport.line("AUTHENTICATE +");
+
+		for (let i = 0; i < SASL_TRUSTED_RETRIES; i++) {
+			transport.line(":irc.test 904 alice :SASL authentication failed");
+			expect(transport.abandonCalls, `retry ${i + 1}`).to.have.length(i + 1);
+			expect(rejected).to.equal(0);
+			again(transport);
+		}
+
+		transport.line(":irc.test 904 alice :SASL authentication failed");
+		expect(transport.abandonCalls).to.have.length(SASL_TRUSTED_RETRIES);
+		expect(transport.closeCalls).to.equal(1);
+		expect(client.isQuitting).to.equal(true);
+		expect(client.isConnected).to.equal(false);
+		// Down, but not given up: no rejection (autoconnect stays), the login kept.
+		expect(rejected).to.equal(0);
+		expect(loginTrusted(client.uuid, "alice")).to.equal(true);
+		expect(texts(client.lobby.id)).to.include(saslTrustedGaveUpHint());
+		expect(texts(client.lobby.id)).to.not.include(saslRequiredHint());
+
+		// The next connect the user or a page load asks for gets the tries again.
+		client.connect();
+		again(transport);
+		transport.line(":irc.test 904 alice :SASL authentication failed");
+		expect(transport.abandonCalls).to.have.length(SASL_TRUSTED_RETRIES + 1);
+		expect(rejected).to.equal(0);
+	});
+
+	it("forgets a login edited while the exchange ran, even when the old one then succeeds", function () {
+		const {client, transport} = setup();
+		offer(transport, `${OFFERED_CAPS} sasl=PLAIN`);
+		transport.line("AUTHENTICATE +");
+
+		client.applySettings({
+			host: "irc.test",
+			port: 8443,
+			tls: true,
+			join: "",
+			sasl: "plain",
+			saslAccount: "alice",
+			saslPassword: "changed",
+		} as Parameters<IrcClient["applySettings"]>[0]);
+		transport.line(":irc.test 903 alice :SASL authentication successful");
+		// The old password proved itself; the edited one has not.
+		expect(loginTrusted(client.uuid, "alice")).to.equal(true);
+
+		transport.abandon("lost");
+		transport.open(); // the edited settings are taken here
+		expect(loginTrusted(client.uuid, "alice")).to.equal(false);
+	});
+
+	it("ends with the report once the user has disconnected, even for a failure it would retry", function () {
+		const {client, transport} = setup();
+		offer(transport, `${OFFERED_CAPS} sasl=PLAIN`);
+		transport.line("AUTHENTICATE +");
+		client.disconnect();
+		expect(transport.closeCalls).to.equal(1);
+
+		transport.line(":irc.test 904 alice :SASL authentication failed: request timed out");
+
+		// The server's line, quoted whole, and nothing after it.
+		expect(errors(client.lobby.id)).to.deep.equal([
+			"SASL authentication failed: SASL authentication failed: request timed out",
+		]);
+		expect(transport.abandonCalls).to.have.length(0);
+		expect(client.isQuitting).to.equal(true);
+	});
+
+	it("starts the count again after a login succeeds", function () {
+		let rejected = 0;
+		const {client, transport} = setup({onSaslRejected: () => rejected++});
+		trustLogin(client.uuid, "alice");
+		offer(transport, `${OFFERED_CAPS} sasl=PLAIN`);
+		transport.line("AUTHENTICATE +");
+
+		for (let i = 0; i < SASL_TRUSTED_RETRIES; i++) {
+			transport.line(":irc.test 904 alice :SASL authentication failed");
+			again(transport);
+		}
+
+		transport.line(":irc.test 903 alice :SASL authentication successful");
+		again(transport);
+		transport.line(":irc.test 904 alice :SASL authentication failed");
+
+		expect(rejected).to.equal(0);
+		expect(transport.abandonCalls).to.have.length(SASL_TRUSTED_RETRIES + 1);
+	});
+
+	it("retries when the sasl cap is gone on a network where the login worked (services split)", function () {
+		// nefarious2 leaves sasl out of CAP LS while its services are not linked.
+		let rejected = 0;
+		const {client, transport} = setup({onSaslRejected: () => rejected++});
+		trustLogin(client.uuid, "alice");
+		transport.line(`:irc.test CAP * LS :${OFFERED_CAPS}`);
+
+		expect(errors(client.lobby.id)[0]).to.equal(
+			"SASL authentication failed: the server does not offer SASL"
+		);
+		expectRetried(transport, client, rejected);
+	});
+
+	it("retries when the server NAKs sasl on a network where the login worked", function () {
+		let rejected = 0;
+		const {client, transport} = setup({onSaslRejected: () => rejected++});
+		trustLogin(client.uuid, "alice");
+		transport.line(`:irc.test CAP * LS :${OFFERED_CAPS} sasl=PLAIN`);
+		const req = transport.sent.find((l) => l.startsWith("CAP REQ :")) as string;
+		const names = req.slice("CAP REQ :".length).split(" ");
+		transport.line(`:irc.test CAP alice NAK :${names.join(" ")}`);
+
+		for (const name of names.filter((n) => n !== "sasl")) {
+			transport.line(`:irc.test CAP alice ACK :${name}`);
+		}
+
+		transport.line(":irc.test CAP alice NAK :sasl");
+
+		// Nothing was opened: the opener waits for the ACK.
+		expect(transport.sent).to.not.include("AUTHENTICATE PLAIN");
+		expectRetried(transport, client, rejected);
+	});
+
+	it("never retries without credentials, trusted or not", function () {
+		let rejected = 0;
+		const transport = new FakeTransport();
+		const client = new IrcClient({
+			host: "irc.test",
+			port: 8443,
+			tls: true,
+			nick: "alice",
+			join: "",
+			sasl: "plain",
+			saslAccount: "alice",
+			saslPassword: "",
+			ids: new IdAllocator(),
+			transportFactory: () => transport,
+			highlights: () => ({keywords: [], exceptions: []}),
+			onSaslRejected: () => rejected++,
+		});
+		trustLogin(client.uuid, "alice");
+		client.connect();
+		transport.open();
+
+		expect(transport.abandonCalls).to.deep.equal([]);
+		expect(rejected).to.equal(1);
 	});
 });

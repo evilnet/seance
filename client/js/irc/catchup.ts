@@ -28,6 +28,7 @@
 
 import {ChanState, ChanType} from "../../../shared/types/chan";
 import type {Channel, MsgRef} from "./channel";
+import type {IdBlock} from "./ids";
 import type {IrcClient} from "./client";
 import type {BatchHandler} from "./handlers/batch";
 import {fetchReadMarker, markReadEnabled} from "./handlers/markread";
@@ -72,6 +73,8 @@ interface PendingCatchup {
 	chan: Channel;
 	/** The channel's newest known message before this JOIN (reconnect catch-up). */
 	before: MsgRef | undefined;
+	/** Ids for the reconnect's gap, set aside at the JOIN ({@link gapIds}). */
+	ids: IdBlock | undefined;
 	/** History + marker already went out with the JOIN; only the modes are left. */
 	prefetched: boolean;
 	/**
@@ -80,6 +83,8 @@ interface PendingCatchup {
 	 * with to tell that nothing is new.
 	 */
 	held: MsgRef | undefined;
+	/** The msgids the channel held at this JOIN: what the catch-up walk may stop on. */
+	heldIds: ReadonlySet<string> | undefined;
 	/** Its marker query is a job of its own, queued right ahead of this step. */
 	markerQueued?: boolean;
 }
@@ -154,7 +159,17 @@ export function pendingCatchup(client: IrcClient): readonly Channel[] {
  */
 export function prefetchCatchup(client: IrcClient, chan: Channel): void {
 	chan.catchupPrefetched = true;
-	fetchFor(client, chan, chan.newestRef);
+	fetchFor(client, chan, chan.catchupRef(), undefined, gapIds(client, chan, chan.catchupRef()));
+}
+
+/**
+ * A reconnect's gap is delivered after the lines relayed while it is
+ * fetched, but goes above them: its ids are set aside when the catch-up
+ * starts, before any of those lines (IdAllocator.reserve). None for a
+ * first fill, which is a history page.
+ */
+function gapIds(client: IrcClient, chan: Channel, before: MsgRef | undefined): IdBlock | undefined {
+	return chan.historyRequested && before ? client.reserveIds() : undefined;
 }
 
 /**
@@ -165,7 +180,8 @@ export function enqueueCatchup(
 	client: IrcClient,
 	chan: Channel,
 	before: MsgRef | undefined,
-	held: MsgRef | undefined
+	held: MsgRef | undefined,
+	heldIds?: ReadonlySet<string>
 ): void {
 	const prefetched = chan.catchupPrefetched;
 	chan.catchupPrefetched = false;
@@ -178,7 +194,14 @@ export function enqueueCatchup(
 		const queued = takePending(client, chan);
 
 		if (!prefetched) {
-			fetchFor(client, chan, before ?? queued?.before);
+			const from = before ?? queued?.before;
+			fetchFor(
+				client,
+				chan,
+				from,
+				before ? heldIds : queued?.heldIds,
+				gapIds(client, chan, from)
+			);
 		}
 
 		queueModes(client, chan);
@@ -189,7 +212,8 @@ export function enqueueCatchup(
 		return; // nothing left to ask for: the modes wait for the first open
 	}
 
-	const pending: PendingCatchup = {chan, before, prefetched, held};
+	const ids = prefetched ? undefined : gapIds(client, chan, before);
+	const pending: PendingCatchup = {chan, before, ids, prefetched, held, heldIds};
 
 	if (parkForTargets(client, pending)) {
 		return;
@@ -437,7 +461,7 @@ function step(client: IrcClient, next: PendingCatchup): void {
 	}
 
 	if (!next.prefetched) {
-		fetchFor(client, next.chan, next.before, !next.markerQueued);
+		fetchFor(client, next.chan, next.before, next.heldIds, next.ids, !next.markerQueued);
 	}
 
 	if (next.chan.id === client.activeChannelId) {
@@ -449,6 +473,8 @@ function fetchFor(
 	client: IrcClient,
 	chan: Channel,
 	before: MsgRef | undefined,
+	heldIds: ReadonlySet<string> | undefined,
+	ids: IdBlock | undefined,
 	marker = true
 ): void {
 	// nefarious2 volunteers the marker after a logged-in account's JOIN (`*`
@@ -461,7 +487,7 @@ function fetchFor(
 		fetchReadMarker(client, chan);
 	}
 
-	requestChannelHistory(client, chan, before);
+	requestChannelHistory(client, chan, before, heldIds, ids);
 
 	retryLostHistory(client, chan);
 }
@@ -544,7 +570,8 @@ function sendTargets(client: IrcClient, state: TargetsState): void {
 	// From the start: the server's index moves on messages only (not joins,
 	// parts, topics, redactions), so the newest line we hold can be well past
 	// a quiet channel's newest message, and a window starting there would
-	// leave it out. Newest first, so a long history costs nothing extra.
+	// leave it out. The limit counts from the first bound, so the newer one
+	// goes first: the newest `limit` targets, as in the spec's example.
 	const since = new Date(0);
 	const until = new Date(Date.now() + TARGETS_AHEAD_MS);
 	const tags: Record<string, string> = {};
@@ -559,8 +586,8 @@ function sendTargets(client: IrcClient, state: TargetsState): void {
 		command: "CHATHISTORY",
 		params: [
 			"TARGETS",
-			`timestamp=${since.toISOString()}`,
 			`timestamp=${until.toISOString()}`,
+			`timestamp=${since.toISOString()}`,
 			String(historyLimit(client, TARGETS_LIMIT)),
 		],
 	});

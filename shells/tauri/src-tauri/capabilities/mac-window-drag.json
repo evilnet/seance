@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "mac-window-drag",
+  "description": "The Mac app's titlebar is an overlay, so the page moves the window: Tauri's own drag region (data-tauri-drag-region, client/js/helpers/shell.ts macDragRegion) needs these two window commands, and nothing else of Tauri's API.",
+  "windows": ["main"],
+  "platforms": ["macOS"],
+  "permissions": ["core:window:allow-start-dragging", "core:window:allow-internal-toggle-maximize"]
+}

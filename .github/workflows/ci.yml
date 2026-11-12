@@ -24,7 +24,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
+  # Lint and the type check need no build, so they run beside the build and
+  # the tests rather than ahead of them.
+  lint:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -41,34 +43,46 @@ jobs:
       - name: Install pnpm
         run: npm install --global "$(node -p 'require("./package.json").packageManager')"
 
-      - name: Install
-        run: pnpm install --frozen-lockfile
-
+      # The same targets anyone runs locally (Makefile); each installs the
+      # lockfile as committed first.
       - name: Lint
-        run: pnpm lint
+        run: make web-lint
 
       # The build configs, client/ (with shared/) and tools/; not test/ yet.
       # .vue files are not type-checked.
       - name: Type check
-        run: pnpm typecheck
+        run: make web-typecheck
 
-      # Before mocha: test/tests/build.ts inspects public/.
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: ".node-version"
+
+      - name: Install pnpm
+        run: npm install --global "$(node -p 'require("./package.json").packageManager')"
+
+      # Before mocha: test/tests/build.ts inspects public/. The one build:
+      # mocha and the smoke test both run against this production tree
+      # (`pnpm test:mocha` would build public/ again, in development mode).
       - name: Production build
-        run: pnpm build
-        env:
-          NODE_ENV: production
+        run: make web-build
 
       - name: Mocha
-        run: pnpm test:mocha
+        run: make web-mocha
 
-      # tools/scenarios/smoke.mjs: the connect form appears, and nothing
-      # throws or logs an error. Ubuntu 24.04's AppArmor forbids the
-      # unprivileged user namespaces Chromium's sandbox needs, and
-      # browser-drive keeps the sandbox on, so lift that for this runner.
+      # Ubuntu 24.04's AppArmor forbids the unprivileged user namespaces
+      # Chromium's sandbox needs (browser-drive keeps it on). The image ships
+      # Google Chrome; Playwright's Chromium is fetched only on one without.
       - name: Smoke
         run: |
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-          pnpm exec playwright install --with-deps chromium
-          export CHROME_BIN="$(node -e 'console.log(require("@playwright/test").chromium.executablePath())')"
-          python3 -m http.server -d public 8000 &
-          node tools/browser-drive.mjs tools/scenarios/smoke.mjs --no-ws
+          if ! command -v google-chrome >/dev/null; then
+            pnpm exec playwright install --with-deps --no-shell chromium
+          fi
+          make web-smoke

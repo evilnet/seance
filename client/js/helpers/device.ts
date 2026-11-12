@@ -19,15 +19,18 @@ export function hasVirtualKeyboard(): boolean {
 
 /**
  * The CSS breakpoint that turns the sidebar and the user list into overlays
- * (`style.css`, `Mentions.vue`): a window narrower than a tablet, or a
- * touch-primary device shorter than one — a phone turned sideways is 812 to
- * 932px wide but under 500px tall, and a side panel there leaves a third of
- * the screen for the chat. Tablets are 744px and up on their short side, so
- * they keep the panels in both orientations. Keep the string and the CSS
- * `@media` lists identical.
+ * (`style.css`, `SearchFilterSheet.vue`): a touch screen narrower than a
+ * tablet, a touch-primary device shorter than one — a phone turned sideways
+ * is 812 to 932px wide but under 500px tall, and a side panel there leaves a
+ * third of the screen for the chat — or any window too narrow for the
+ * channel list and some chat beside it. Tablets are 744px and up on their
+ * short side, so they keep the panels in both orientations. A narrow desktop
+ * window (a mouse, 481 to 768px) keeps the channel list beside the chat too:
+ * there the user list is what gives way (userlistOverlay.ts). Keep the
+ * string and the CSS `@media` lists identical.
  */
 export const PHONE_LAYOUT_QUERY =
-	"(max-width: 768px), (max-height: 500px) and (hover: none) and (pointer: coarse)";
+	"(max-width: 480px), (max-width: 768px) and (pointer: coarse), (max-height: 500px) and (hover: none) and (pointer: coarse)";
 
 /** Whether the sidebar is an overlay right now. False where the query cannot be asked (tests). */
 export function isPhoneLayout(): boolean {

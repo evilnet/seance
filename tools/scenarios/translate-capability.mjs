@@ -27,7 +27,8 @@
 // then one line per copy (none on the GPU for OPUS-MT and NLLB-200): a GPU copy's Download
 // is disabled exactly where it cannot run and is described by that reason,
 // and "In use" marks a language model only where one can run. Under
-// --mobile every device is a phone (`userAgentData.mobile`): the 4B is
+// --mobile every device is a phone (`userAgentData.mobile`; with the Mac's
+// user agent and touch it also reads as an iPad, `appleMobile`): the 4B is
 // too large for its page and OPUS-MT's Auto picks the CPU. The composer's
 // translate dialog, opened on the
 // same language twice (the cleanup pass, LLM-only), shows the confirm
@@ -40,22 +41,27 @@
 // its Run on and its Downloads open (a download ahead of use) and makes the
 // cleanup pass say so; both off puts the
 // panel's notice up ("Translation can't run here right now." and both
-// switches named), disables the reading switch's On, dims the header button
-// and makes its click open the panel, disables the message toolbar's
+// switches named), disables the reading switch's On, disables the message toolbar's
 // Translate with the reason as its description, and disables German in the
-// composer's dialog. On noWebgpu, the CPU models off is the one switch named.
+// composer's dialog. Where the GPU cannot run the language model, its CPU
+// copy is Auto's last way in (router.ts cpuLastResort) but on a phone: there
+// the cleanup pass runs, "In use" marks the 1.7B, and on noWebgpu the CPU
+// models off puts up no notice until the language model is off too. On an
+// iPhone or iPad (--mobile reads as one) the CPU models off is the one
+// switch named.
 //
 // NLLB-200 (CC-BY-NC-4.0) is off until switched on, its licence line under
 // the switch on every device, its Run on still open where it can run, and on
-// noWebgpu English -> Japanese (no OPUS pair) is disabled in the composer's
-// dialog with "This needs NLLB-200, which is switched off …" until the switch
-// is turned on. The GPU model select greys a model this GPU cannot bind
+// noWebgpu English -> Japanese (no OPUS pair) is on offer through the
+// language model's CPU copy, or disabled on an iPad until the switch is
+// turned on. The GPU model select greys a model this GPU cannot bind
 // (binds128, binds160: the 4B, with a hint naming it and the buffer numbers) and no
-// other. Last, on the desktop device, the download question: a channel with
-// several German lines switched to reading asks once ("Download <model>?",
-// its size, Download / Not now), Not now fails every line with "Needs
-// <model>, a <size> download: …" and pauses nothing, nothing is remembered,
-// a Retry asks once more, and every copy line still says "Not downloaded".
+// other. Last, on the desktop device on a connection that saves data (so no
+// download is a quiet one, service.ts QUIET_DOWNLOAD_BYTES): a channel with
+// several German lines switched to reading asks nothing -- reading never
+// interrupts -- and every line offers the download instead, "Needs a <size>
+// download · Download", its title naming the model; nothing pauses, nothing
+// is remembered, and every copy line still says "Not downloaded".
 //
 // Not on the fake engine: ?fakeTranslate replaces the probe with its own
 // answer. A production build is fine; no model is ever downloaded.
@@ -71,7 +77,13 @@
 // the listener that posts the line the toolbar is checked on).
 
 import {readFileSync} from "node:fs";
-import {TRANSLATION_ON} from "./lib/translation.mjs";
+import {
+	SHEET,
+	TRANSLATION_ON,
+	closeTranslationSheet,
+	openTranslationSheet,
+	setReadingThroughSheet,
+} from "./lib/translation.mjs";
 
 const RUN = Date.now().toString(36);
 const BASE = process.env.SEANCE_HTTP || "http://localhost:8041/";
@@ -79,6 +91,38 @@ const IRCD = process.env.SEANCE_IRC_WS || "ws://127.0.0.1:8067/";
 const CHANNEL = "#seance-capability";
 const EN = JSON.parse(readFileSync("client/locales/en.json", "utf8"));
 const MOBILE = process.argv.includes("--mobile");
+/**
+ * JS source: the language other than English the open channel's newest 60
+ * lines from others were placed in most (recent.ts `recentLanguages`), or "".
+ */
+const RECENT_FOREIGN = `(() => {
+	const store = document.getElementById("app").__vue_app__.config.globalProperties.$store;
+	const messages = store.state.activeChannel.channel.messages;
+	const counts = new Map();
+	let looked = 0;
+
+	for (let i = messages.length - 1; i >= 0 && looked < 60; i--) {
+		const m = messages[i];
+
+		if (m.self || (m.type !== "message" && m.type !== "action")) {
+			continue;
+		}
+
+		looked++;
+
+		const e = store.state.translations[m.id];
+
+		if (e && e.from && e.status !== "dropped") {
+			counts.set(e.from, (counts.get(e.from) || 0) + 1);
+		}
+	}
+
+	const ranked = [...counts.entries()]
+		.filter(([code]) => code !== "en")
+		.sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
+
+	return ranked.length ? ranked[0][0] : "";
+})()`;
 
 const MiB = 1024 * 1024;
 const GiB = 1024 * MiB;
@@ -213,9 +257,7 @@ const SETTING = {
 };
 const text = (selector) =>
 	`((document.querySelector(${JSON.stringify(selector)}) || {}).textContent || "").trim()`;
-const GLOBE = "#chat button.translate";
-const PICKER = ".source-language-picker";
-const CONFIRM = `${PICKER} .source-language-picker-confirm`;
+const PICKER = ".language-sheet";
 
 /** A second user who says one line in the channel, for the toolbar. */
 function speaker(nick, line) {
@@ -383,80 +425,98 @@ export default async function run(page) {
 		});
 	};
 
-	const pickTarget = async (code) => {
-		await page.evaluate(
-			`(() => { const s = document.querySelector('${PICKER} select[name="translateInto"]'); s.value = ${JSON.stringify(
-				code
-			)}; s.dispatchEvent(new Event("change", {bubbles: true})); })()`
-		);
-		await page.sleep(100);
-	};
-
-	const pickerState = () =>
-		page.evaluate(`(() => {
-			const confirm = document.querySelector(${JSON.stringify(CONFIRM)});
-			const hint = document.querySelector("${PICKER} .source-language-picker-hint");
-			const described = confirm.getAttribute("aria-describedby");
+	// A row of the sheet's "They read" list, read without picking it: a
+	// row that runs would apply at once. A blocked one is tapped, which
+	// leaves the sheet up with the reason under the list.
+	const rowState = async (code) => {
+		const row = `${PICKER} .language-sheet-row[data-code="${code}"]`;
+		const state = await page.evaluate(`(() => {
+			const row = document.querySelector('${row}');
 			return {
-				disabled: confirm.disabled,
-				label: confirm.textContent.trim(),
-				lead: ((hint && hint.querySelector(".source-language-picker-blocked")) || {}).textContent?.trim() || "",
-				why: ((hint && hint.querySelector(".source-language-picker-why")) || {}).textContent?.trim() || "",
-				hint: hint ? hint.textContent.trim() : "",
-				describedOk: !described || document.getElementById(described) === hint,
+				disabled: row.classList.contains("blocked"),
+				status: (row.querySelector(".language-sheet-status") || {}).textContent?.trim() || "",
+				underHeading: (() => {
+					const items = [...document.querySelectorAll("${PICKER} .language-sheet-list > li")];
+					const heading = items.findIndex((li) => li.classList.contains("language-sheet-section"));
+					return heading >= 0 && items.indexOf(row.closest("li")) > heading;
+				})(),
+			};
+		})()`);
+
+		if (!state.disabled) {
+			return {
+				...state,
+				lead: "",
+				why: "",
+				live: await page.evaluate(
+					`document.querySelector("${PICKER} .language-sheet-hint")?.getAttribute("aria-live") ?? null`
+				),
+			};
+		}
+
+		await page.evaluate(`document.querySelector('${row}').scrollIntoView({block: "nearest"})`);
+		await page.click(row);
+		await page.sleep(100);
+
+		const hint = await page.evaluate(`(() => {
+			const hint = document.querySelector("${PICKER} .language-sheet-hint");
+			return {
+				lead: ((hint && hint.querySelector(".language-sheet-blocked")) || {}).textContent?.trim() || "",
+				why: ((hint && hint.querySelector(".language-sheet-why")) || {}).textContent?.trim() || "",
 				live: hint ? hint.getAttribute("aria-live") : null,
 			};
 		})()`);
 
+		return {...state, ...hint};
+	};
+	const openedOnCode = () =>
+		page.evaluate(
+			`document.querySelector('${PICKER} .translation-sheet-language[data-side="to"]').dataset.code`
+		);
+
 	const closePicker = async () => {
-		await page.click(`${PICKER} .source-language-picker-cancel`);
+		await page.evaluate(
+			`document.querySelector(".language-sheet").dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}))`
+		);
 		await page.waitFor(`!document.querySelector(${JSON.stringify(PICKER)})`, {
 			label: "dialog closed",
 		});
 	};
 
-	const openPanel = async () => {
-		const touch = await page.evaluate(
-			`matchMedia("(hover: none) and (pointer: coarse)").matches`
-		);
+	const openPanel = () => openTranslationSheet(page);
+	const closePanel = () => closeTranslationSheet(page);
 
-		if (touch) {
-			await page.click(GLOBE);
-		} else {
-			await page.evaluate(
-				`document.querySelector(${JSON.stringify(
-					GLOBE
-				)}).dispatchEvent(new MouseEvent("contextmenu", {bubbles: true, cancelable: true}))`
-			);
-		}
-
-		await page.waitFor(`!!document.querySelector(".translation-panel")`, {label: "panel open"});
-	};
-
-	const closePanel = async () => {
-		await page.click(".translation-panel-close");
-		await page.waitFor(`!document.querySelector(".translation-panel")`, {
-			label: "panel closed",
-		});
-	};
-
-	const panelState = () =>
-		page.evaluate(`(() => {
-			const select = document.querySelector('.translation-panel select[name="translateWrite"]');
-			const note = document.getElementById("translation-panel-write-note");
-			const banner = document.getElementById("translation-panel-blocked");
-			const on = [...document.querySelectorAll(".translation-panel-segment")].find((b) => b.getAttribute("aria-checked") === "false" && b.closest('[role="radiogroup"]') && b.parentElement.previousElementSibling);
+	// The menu's sheet: its notice, and Write in's languages -- the list
+	// opened from Write in's language, each row read without picking it (a
+	// row that runs would apply at once). A blocked row carries its reason
+	// as its title.
+	const panelState = async () => {
+		const banner = await page.evaluate(`(() => {
+			const banner = document.getElementById("translation-sheet-blocked");
 			return {
-				enDisabled: [...select.options].find((o) => o.value === "en").disabled,
-				deDisabled: [...select.options].find((o) => o.value === "de").disabled,
-				note: note ? note.textContent.replace(/\\s+/g, " ").trim() : "",
-				noteDescribes: !note || select.getAttribute("aria-describedby") === note.id,
 				banner: banner ? banner.textContent.replace(/\\s+/g, " ").trim() : "",
 				bannerRole: banner ? banner.getAttribute("role") : null,
 			};
 		})()`);
 
-	const readOnSegment = `[...document.querySelectorAll(".translation-panel-section")][0].querySelectorAll(".translation-panel-segment")[1]`;
+		if (!(await page.count(`${SHEET} .language-sheet-list`))) {
+			await page.click(`${SHEET} .translation-sheet-language`);
+			await page.waitFor(`!!document.querySelector("${SHEET} .language-sheet-list")`, {
+				label: "Write in's language opens the list",
+			});
+		}
+
+		const rows = await page.evaluate(`(() => {
+			const row = (code) => document.querySelector('${SHEET} .language-sheet-row[data-code="' + code + '"]');
+			return {
+				enDisabled: row("en").classList.contains("blocked"),
+				deDisabled: row("de").classList.contains("blocked"),
+				note: (row("en").title || "").replace(/\\s+/g, " ").trim(),
+			};
+		})()`);
+
+		return {...banner, ...rows};
+	};
 
 	for (const [index, name] of names.entries()) {
 		const device = DEVICES[name] && deviceFor(name);
@@ -473,6 +533,15 @@ export default async function run(page) {
 		await openSettings();
 
 		const mobile = !!DEVICES[name].mobile || MOBILE;
+		// The language model's CPU copy is Auto's last way in where the GPU
+		// cannot run it (router.ts cpuLastResort; headless Chromium has
+		// Memory64), except on an iPhone or iPad, whose page it is too large
+		// for (models.ts cpuBlock, `appleMobile`). --mobile keeps the Mac's
+		// user agent with touch, which reads as an iPad; the phone device's
+		// Android user agent does not.
+		const appleMobile = MOBILE;
+		const lastResort = !appleMobile && !device.runs[SMALL];
+		const llmRuns = device.runs[SMALL] || lastResort;
 		const deviceLine = await page.evaluate(text(".translate-device-has"));
 		const hasGpu = DEVICES[name].gpu !== null;
 
@@ -508,9 +577,14 @@ export default async function run(page) {
 				};
 			})()`);
 		const autoSays = (family, verdicts) => {
+			// The language model: the GPU under Auto, and its CPU copy as the
+			// last way in where the GPU cannot run it (router.ts cpuLastResort;
+			// headless Chromium has Memory64).
 			const order =
 				family === "llm"
-					? ["gpu"]
+					? verdicts.gpu === null
+						? ["gpu"]
+						: ["gpu", "cpu"]
 					: family === "nllb"
 					? verdicts.gpu === null
 						? ["gpu", "cpu"]
@@ -534,6 +608,8 @@ export default async function run(page) {
 				return EN[
 					verdicts.gpu === null
 						? "translate.settings.autoPicksCpu"
+						: family === "llm"
+						? "translate.settings.autoPicksCpuNoGpuLlm"
 						: family === "nllb"
 						? "translate.settings.autoPicksCpuNoGpuNllb"
 						: "translate.settings.autoPicksCpuNoGpuOpus"
@@ -545,7 +621,10 @@ export default async function run(page) {
 			return verdicts[order[0]];
 		};
 		const families = {
-			llm: {gpu: device.runs[SMALL] ? null : device.why(SMALL), cpu: null},
+			llm: {
+				gpu: device.runs[SMALL] ? null : device.why(SMALL),
+				cpu: appleMobile ? EN["translate.why.phoneMemory"] : null,
+			},
 			opus: {gpu: device.seq2seqGpu ? device.seq2seqGpu() : null, cpu: null},
 			nllb: {gpu: device.nllbGpu ? device.nllbGpu() : null, cpu: null},
 		};
@@ -623,12 +702,17 @@ export default async function run(page) {
 				state.name ===
 					`${EN["translate.model.download"]} ${state.modelName} ${EN["translate.device.gpu"]}`
 			);
-			// Only the 1.7B has a CPU copy; it can be downloaded everywhere here.
+			// Only the 1.7B has a CPU copy; it can be downloaded everywhere
+			// here but on a phone, whose page it is too large for.
 			page.check(
 				`${name}: ${id} ${
-					id === SMALL ? "has an open CPU copy line" : "has no CPU copy line"
+					id !== SMALL
+						? "has no CPU copy line"
+						: appleMobile
+						? "has a disabled CPU copy line"
+						: "has an open CPU copy line"
 				}`,
-				id === SMALL ? state.cpuLine && state.cpuDisabled === false : !state.cpuLine
+				id === SMALL ? state.cpuLine && state.cpuDisabled === appleMobile : !state.cpuLine
 			);
 		}
 
@@ -636,7 +720,9 @@ export default async function run(page) {
 		const inUse = await page.evaluate(
 			`[...document.querySelectorAll(".translate-model-in-use")].map((el) => el.closest(".translate-model").dataset.model).join(",")`
 		);
-		const expectInUse = device.runs[SMALL] && !device.runs[LARGE] ? SMALL : undefined;
+		// The CPU last resort is the 1.7B (the 4B has no CPU copy).
+		const expectInUse =
+			(device.runs[SMALL] && !device.runs[LARGE]) || lastResort ? SMALL : undefined;
 
 		page.check(
 			`${name}: "In use" is on ${
@@ -726,48 +812,51 @@ export default async function run(page) {
 		// 2. The composer's dialog: what it opens on, the cleanup pass, German.
 		await openPicker();
 
-		const llm = device.runs[SMALL];
-		const opened = await pickerState();
-		const openedOn = await page.evaluate(
-			`document.querySelector('${PICKER} select[name="translateInto"]').value`
-		);
+		const llm = llmRuns;
+		const openedOn = await openedOnCode();
+		const opened = openedOn ? await rowState(openedOn) : {disabled: false};
 
-		// No earlier pick: the cleanup pass where the GPU model runs, else
-		// the first language this device serves -- never a disabled dialog.
+		// No earlier pick: a language the channel has been written in lately
+		// (earlier runs' lines are in its history, and reading places them),
+		// else the cleanup pass where the GPU model runs, else nothing
+		// preselected -- never a disabled dialog, and never the first
+		// language on the list passed off as a setting (outgoing.ts
+		// `onceTargetDefault`, recent.ts `recentLanguages`).
+		const recent = String(await page.evaluate(RECENT_FOREIGN));
+
 		page.check(
 			`${name}: the dialog opens on ${
-				llm ? "the cleanup pass" : "a pair that runs"
-			} (${openedOn}, ${opened.disabled ? "disabled" : "enabled"})`,
-			!opened.disabled && (llm ? openedOn === "en" : openedOn !== "en")
+				recent
+					? `the channel's recent ${recent}`
+					: llm
+					? "the cleanup pass"
+					: "no preselection"
+			} (${openedOn || "none"}, ${opened.disabled ? "disabled" : "enabled"})`,
+			!opened.disabled && openedOn === (recent || (llm ? "en" : ""))
 		);
 		await page.screenshot(`${name}-composer-opened`, {selector: PICKER, pad: 8});
-		await pickTarget("en");
+		const same = await rowState("en");
 
-		const same = await pickerState();
-
-		page.check(`${name}: the dialog's hint is a polite live region`, same.live === "polite");
+		page.check(`${name}: the sheet's hint is a polite live region`, same.live === "polite");
 
 		if (llm) {
 			page.check(
-				`${name}: the cleanup pass is on offer ("${same.label}")`,
-				!same.disabled &&
-					same.label === EN["translate.picker.targetConfirmCorrect"] &&
-					same.hint === EN["translate.picker.sameLanguage"]
+				`${name}: the cleanup pass is on offer ("${same.status}")`,
+				!same.disabled && same.status === EN["translate.sheet.corrects"]
 			);
 		} else {
 			page.check(
 				`${name}: the cleanup pass is disabled with its reason (${same.lead} / ${same.why})`,
 				same.disabled &&
+					same.underHeading &&
 					same.lead === EN["translate.picker.sameLanguageNeedsGpu"] &&
-					same.why === device.why(SMALL) &&
-					same.describedOk
+					same.why === device.why(SMALL)
 			);
 		}
 
 		await page.screenshot(`${name}-composer-same`, {selector: PICKER, pad: 8});
-		await pickTarget("de");
 
-		const german = await pickerState();
+		const german = await rowState("de");
 
 		page.check(
 			`${name}: German is on offer (CPU models serve it)`,
@@ -775,28 +864,30 @@ export default async function run(page) {
 		);
 		await closePicker();
 
-		// 3. The panel: the user's own language under "Send my messages in".
+		// 3. The menu's sheet: the user's own language under Write in.
 		await openPanel();
 
-		const panel = await panelState();
 		const focus = await page.evaluate(`(() => {
 			const a = document.activeElement;
-			return a ? {role: a.getAttribute("role"), checked: a.getAttribute("aria-checked"), text: a.textContent.trim()} : null;
+			return a ? {inSheet: !!a.closest(${JSON.stringify(
+				SHEET
+			)}), tag: a.tagName, cls: a.className} : null;
 		})()`);
 
 		page.check(
-			`${name}: the panel opens on the reading switch's checked choice (${JSON.stringify(
-				focus
-			)})`,
-			!!focus && focus.role === "radio" && focus.checked === "true"
+			`${name}: the sheet takes the focus as it opens (${JSON.stringify(focus)})`,
+			!!focus && focus.inSheet
 		);
 
 		if (MOBILE) {
 			// The sheet is modal: Tab and Shift+Tab stay inside it, walking
 			// its controls and wrapping last -> first (and first -> last
 			// under Shift) -- not merely never leaving, which a Tab that
-			// moved nothing would pass too.
-			const TABBABLE = `[...document.querySelector(".translation-panel").querySelectorAll("button, select, input, textarea, a[href], [tabindex]")].filter((el) => el.tabIndex >= 0 && !el.disabled && el.getClientRects().length > 0)`;
+			// moved nothing would pass too. A closed More's controls are laid
+			// out but out of Tab's reach: only its summary counts.
+			const TABBABLE = `[...document.querySelector(${JSON.stringify(
+				SHEET
+			)}).querySelectorAll("button, select, input, textarea, a[href], summary, [tabindex]")].filter((el) => el.tabIndex >= 0 && !el.disabled && el.getClientRects().length > 0 && (el.tagName === "SUMMARY" || !el.closest("details:not([open])")))`;
 			const count = await page.evaluate(`${TABBABLE}.length`);
 			const forward = [];
 			const backward = [];
@@ -821,7 +912,9 @@ export default async function run(page) {
 				});
 
 				const at = await page.evaluate(
-					`(() => { const a = document.activeElement; if (!a || !a.closest(".translation-panel")) { return a ? a.tagName + "." + a.className : "none"; } return ${TABBABLE}.indexOf(a); })()`
+					`(() => { const a = document.activeElement; if (!a || !a.closest(${JSON.stringify(
+						SHEET
+					)})) { return a ? a.tagName + "." + a.className : "none"; } return ${TABBABLE}.indexOf(a); })()`
 				);
 
 				if (typeof at === "string") {
@@ -849,8 +942,10 @@ export default async function run(page) {
 			);
 		}
 
+		const panel = await panelState();
+
 		page.check(
-			`${name}: no notice in the panel (something runs)`,
+			`${name}: no notice in the sheet (something runs)`,
 			panel.banner === "" && !panel.deDisabled
 		);
 		page.check(
@@ -859,34 +954,33 @@ export default async function run(page) {
 			})`,
 			llm
 				? !panel.enDisabled && panel.note === ""
-				: panel.enDisabled &&
-						panel.note.includes(
-							EN["translate.panel.ownLanguageNeedsGpu"].replace(
-								"{language}",
-								"English"
-							)
-						) &&
-						panel.note.includes(device.why(SMALL)) &&
-						panel.noteDescribes
+				: panel.enDisabled && panel.note.includes(device.why(SMALL))
 		);
 		await page.screenshot(`${name}-panel`);
 		await closePanel();
 
-		// NLLB-200's opt-in: English to Japanese has no OPUS pair, and this
-		// device runs no GPU model, so only NLLB could take it.
+		// English to Japanese has no OPUS pair, and this device runs no GPU
+		// model: with NLLB-200 off, the language model's CPU copy is Auto's
+		// last way in (router.ts cpuLastResort), so Japanese is on offer --
+		// but not on an iPhone or iPad, where nothing then translates it.
 		if (name === "noWebgpu") {
-			const japanese = EN["translate.pair.unavailable"]
-				.replace("{from}", "English")
-				.replace("{to}", "Japanese");
-
 			await openPicker();
-			await pickTarget("ja");
 
-			const off = await pickerState();
+			const off = await rowState("ja");
 
 			page.check(
-				`noWebgpu, NLLB off: Japanese is disabled, NLLB named (${off.lead} / ${off.why})`,
-				off.disabled && off.lead === japanese && off.why === EN["translate.why.nllbOff"]
+				appleMobile
+					? `noWebgpu, NLLB off: Japanese is disabled on an iPad (${off.lead})`
+					: `noWebgpu, NLLB off: Japanese is on offer through the language model on the CPU (${
+							off.lead || "enabled"
+					  })`,
+				appleMobile
+					? off.disabled &&
+							off.lead ===
+								EN["translate.pair.unavailable"]
+									.replace("{from}", "English")
+									.replace("{to}", "Japanese")
+					: !off.disabled && off.lead === ""
 			);
 			await page.screenshot("noWebgpu-nllb-off-composer", {selector: PICKER, pad: 8});
 			await closePicker();
@@ -908,9 +1002,8 @@ export default async function run(page) {
 			);
 			await closeSettings();
 			await openPicker();
-			await pickTarget("ja");
 
-			const on = await pickerState();
+			const on = await rowState("ja");
 
 			page.check(
 				`noWebgpu, NLLB on: Japanese is on offer (${on.lead || "enabled"})`,
@@ -931,14 +1024,41 @@ export default async function run(page) {
 
 			const off = await panelState();
 
+			// The language model's CPU copy still runs here: no notice. On an
+			// iPhone or iPad it does not, and OPUS-MT's switch is the fix.
 			page.check(
-				`noWebgpu, CPU models off: the notice names the CPU switch (${off.banner})`,
-				off.banner.includes(EN["translate.unavailable.lead"]) &&
-					off.banner.includes(EN["translate.why.cpuOff"]) &&
-					off.bannerRole === "status"
+				appleMobile
+					? `noWebgpu, CPU models off: the notice names the CPU switch (${off.banner})`
+					: `noWebgpu, CPU models off: no notice, the language model's CPU copy serves (${off.banner})`,
+				appleMobile
+					? off.banner.includes(EN["translate.why.cpuOff"]) && off.bannerRole === "status"
+					: off.banner === ""
 			);
-			await page.screenshot("noWebgpu-cpu-off-panel");
 			await closePanel();
+			await openSettings();
+			await setSwitch("translateLlm", false);
+			await closeSettings();
+			await openPanel();
+
+			const none = await panelState();
+
+			// On an iPhone or iPad the language model's switch would not help: OPUS-MT's
+			// is still the one named.
+			page.check(
+				`noWebgpu, every engine off: the notice names ${
+					appleMobile ? "the CPU switch" : "both switches"
+				} (${none.banner})`,
+				none.banner.includes(EN["translate.unavailable.lead"]) &&
+					none.banner.includes(
+						EN[appleMobile ? "translate.why.cpuOff" : "translate.why.allOff"]
+					) &&
+					none.bannerRole === "status"
+			);
+			await page.screenshot("noWebgpu-all-off-panel");
+			await closePanel();
+			await openSettings();
+			await setSwitch("translateLlm", true);
+			await closeSettings();
 		}
 
 		if (name === "desktop") {
@@ -947,13 +1067,14 @@ export default async function run(page) {
 
 			// Off is not "can't": its Run on and its Downloads stay open (a
 			// download ahead of use), and no reason is shown for the switch.
+			// On an iPad the CPU copy is closed for memory, switch or not.
 			const rows = await page.evaluate(`(() => ({
 				gpu: !document.querySelector(${JSON.stringify(RADIO("translateLlmDevice", "gpu"))}).disabled,
 				cpu: !document.querySelector(${JSON.stringify(RADIO("translateLlmDevice", "cpu"))}).disabled,
 				downloads: ${JSON.stringify(
-					[COPY(SMALL, "gpu"), COPY(SMALL, "cpu")].concat(
-						device.runs[LARGE] ? [COPY(LARGE, "gpu")] : []
-					)
+					[COPY(SMALL, "gpu")]
+						.concat(appleMobile ? [] : [COPY(SMALL, "cpu")])
+						.concat(device.runs[LARGE] ? [COPY(LARGE, "gpu")] : [])
 				)}.every((sel) => document.querySelector(sel + " .translate-copy-download").disabled === false),
 				auto: (document.querySelector(${JSON.stringify(
 					FAMILY("llm")
@@ -965,7 +1086,7 @@ export default async function run(page) {
 					rows
 				)})`,
 				rows.gpu &&
-					rows.cpu &&
+					rows.cpu === !appleMobile &&
 					rows.downloads &&
 					rows.auto === EN["translate.settings.autoPicksGpu"]
 			);
@@ -978,18 +1099,17 @@ export default async function run(page) {
 			await closeSettings();
 			await openPicker();
 
-			// The GPU model off: the dialog no longer opens on the cleanup pass.
-			const openedOff = await page.evaluate(
-				`document.querySelector('${PICKER} select[name="translateInto"]').value`
-			);
+			// The GPU model off: the sheet no longer opens on the cleanup pass.
+			const openedOff = await openedOnCode();
 
 			page.check(
-				`desktop, GPU off: the dialog opens on a pair that runs (${openedOff})`,
-				openedOff !== "en" && !(await pickerState()).disabled
+				`desktop, GPU off: the sheet opens on a pair that runs, or none (${
+					openedOff || "none"
+				})`,
+				openedOff === "" || (openedOff !== "en" && !(await rowState(openedOff)).disabled)
 			);
-			await pickTarget("en");
 
-			const polish = await pickerState();
+			const polish = await rowState("en");
 
 			page.check(
 				`desktop, GPU off: the cleanup pass names the switch (${polish.why})`,
@@ -1002,39 +1122,64 @@ export default async function run(page) {
 			);
 			await closePicker();
 
-			// Both off: a line from someone else, for the toolbar.
-			const other = await speaker(`cs${RUN}`, "Hallo zusammen, wie geht es euch heute?");
+			// Reading is on: let what it has under way finish first, so the
+			// switch below finds the engine idle (service.ts setSettings →
+			// afterEngineIdle). Best effort: a line left waiting off screen
+			// stays pending, and the run goes on after a while regardless.
+			for (let i = 0; i < 40; i++) {
+				if (
+					!(await page.evaluate(
+						`Object.values(document.getElementById("app").__vue_app__.config.globalProperties.$store.state.translations).some((e) => e.status === "pending")`
+					))
+				) {
+					break;
+				}
 
-			await page.waitFor(
-				`[...document.querySelectorAll("#chat .msg:not(.self)")].some((m) => m.textContent.includes("Hallo zusammen"))`,
-				{label: "the speaker's line"}
-			);
+				await page.sleep(500);
+			}
 			await openSettings();
 			await setSwitch("translateCpu", false);
 			await closeSettings();
 
-			const header = await page.evaluate(`(() => {
-				const b = document.querySelector(${JSON.stringify(GLOBE)});
-				return {unavailable: b.classList.contains("unavailable"), label: b.getAttribute("aria-label")};
-			})()`);
+			// Both off: a line from someone else, for the toolbar. It comes
+			// after the switch: reading is on, and a line queued while
+			// OPUS-MT was still on finishes there by design. Earlier runs'
+			// copies are in the channel's history: wait for a new one.
+			const HELLOS = `[...document.querySelectorAll("#chat .msg:not(.self)")].filter((m) => m.textContent.includes("Hallo zusammen")).length`;
+			const hellosBefore = Number(await page.evaluate(HELLOS));
+			const other = await speaker(`cs${RUN}`, "Hallo zusammen, wie geht es euch heute?");
 
-			page.check(
-				`desktop, both off: the header button is dimmed and says so (${header.label})`,
-				header.unavailable && header.label === EN["translate.unavailable.lead"]
+			await page.waitFor(`${HELLOS} > ${hellosBefore}`, {label: "the speaker's line"});
+
+			// The row by its id: once read, its text is the translation's.
+			const helloId = String(
+				await page.evaluate(
+					`[...document.querySelectorAll("#chat .msg:not(.self)")].filter((m) => m.textContent.includes("Hallo zusammen")).pop().id`
+				)
 			);
+			const HELLO = `document.getElementById(${JSON.stringify(helloId)})`;
+
+			// Reading settles the line (work under way when the switches went
+			// off finishes), and the toolbar's Translate is on offer again.
+			await page.waitFor(`!!${HELLO}?.querySelector(".msg-action-translate")`, {
+				timeout: 30000,
+				label: "the line's toolbar offers Translate",
+			});
 
 			// Under --mobile the toolbar is a finger's: a long press opens it
 			// and marks the last pointer a touch (helpers/inputModality.ts).
 			if (MOBILE) {
-				await page.evaluate(`(() => {
-					const msg = [...document.querySelectorAll("#chat .msg:not(.self)")].reverse().find((m) => m.textContent.includes("Hallo zusammen"));
-					msg.setAttribute("data-cap-target", "1");
-				})()`);
+				// A finger presses what is on screen: the line may sit below
+				// the fold, under the history that came in after it.
+				await page.evaluate(
+					`(() => { ${HELLO}.setAttribute("data-cap-target", "1"); ${HELLO}.scrollIntoView({block: "center"}); })()`
+				);
+				await page.sleep(300);
 				await finger("[data-cap-target] .content", 700);
 			}
 
 			const toolbar = await page.evaluate(`(() => {
-				const msg = [...document.querySelectorAll("#chat .msg:not(.self)")].reverse().find((m) => m.textContent.includes("Hallo zusammen"));
+				const msg = ${HELLO};
 				const b = msg && msg.querySelector(".msg-action-translate");
 				const described = b && b.getAttribute("aria-describedby");
 				return b ? {disabled: b.disabled, ariaDisabled: b.getAttribute("aria-disabled"), title: b.title, described: described ? (document.getElementById(described) || {}).textContent?.trim() : ""} : null;
@@ -1055,12 +1200,9 @@ export default async function run(page) {
 			);
 
 			if (!MOBILE) {
-				// The speaker's line by its text: the list's last element of
-				// its type need not be a message.
-				await page.evaluate(`(() => {
-					const msg = [...document.querySelectorAll("#chat .msg:not(.self)")].reverse().find((m) => m.textContent.includes("Hallo zusammen"));
-					msg.setAttribute("data-cap-target", "1");
-				})()`);
+				// The speaker's line by its id: the list's last element of its
+				// type need not be a message.
+				await page.evaluate(`${HELLO}.setAttribute("data-cap-target", "1")`);
 				await page.hover("[data-cap-target]");
 				await page.screenshot("desktop-both-off-toolbar", {
 					selector: "[data-cap-target]",
@@ -1069,8 +1211,8 @@ export default async function run(page) {
 			} else {
 				// The tap a finger makes: the panel opens with the reason.
 				await finger("[data-cap-target] .msg-action-translate", 60);
-				await page.waitFor(`!!document.querySelector(".translation-panel")`, {
-					label: "the toolbar's tap opened the panel",
+				await page.waitFor(`!!document.querySelector(${JSON.stringify(SHEET)})`, {
+					label: "the toolbar's tap opened the sheet",
 				});
 
 				const tapped = await panelState();
@@ -1083,15 +1225,14 @@ export default async function run(page) {
 				await closePanel();
 			}
 
-			// The header's click opens the panel with the reason, not a reading that fails.
-			await page.click(GLOBE);
-			await page.waitFor(`!!document.querySelector(".translation-panel")`, {
-				label: "the header's click opened the panel",
-			});
+			// The channel menu's panel gives the reason, not a reading that fails.
+			await openPanel();
 
 			const off = await panelState();
-			const onSegment = await page.evaluate(
-				`(() => { const b = ${readOnSegment}; return {disabled: b.disabled, described: b.getAttribute("aria-describedby")}; })()`
+			const readBox = await page.evaluate(
+				`(() => { const b = document.querySelector(${JSON.stringify(
+					`${SHEET} .language-sheet-read-box`
+				)}); return {checked: b.checked, disabled: b.disabled}; })()`
 			);
 			const reading = await page.evaluate(
 				`JSON.parse(localStorage.getItem("thelounge.translate") || "{}")`
@@ -1103,24 +1244,25 @@ export default async function run(page) {
 					off.banner.includes(EN["translate.why.allOff"])
 			);
 			page.check(
-				`desktop, both off: reading's On is disabled and described by the notice`,
-				onSegment.disabled && onSegment.described === "translation-panel-blocked"
+				// Reading is on unless excluded: the switch stays on and live,
+				// and the notice above it says why nothing is read.
+				`desktop, both off: the reading switch stays on under the notice`,
+				readBox.checked && !readBox.disabled && off.banner !== ""
 			);
 			page.check(
-				`desktop, both off: the click did not switch reading on`,
-				!JSON.stringify(reading).includes('"read":true')
+				`desktop, both off: the conversation is not excluded`,
+				!JSON.stringify(reading).includes('"exclude":true')
 			);
 			page.check(
-				`desktop, both off: every language is greyed under "Send my messages in"`,
+				`desktop, both off: every language is greyed under Write in`,
 				off.enDisabled && off.deDisabled
 			);
 			await page.screenshot("desktop-both-off-panel");
 			await closePanel();
 
 			await openPicker();
-			await pickTarget("de");
 
-			const blocked = await pickerState();
+			const blocked = await rowState("de");
 
 			page.check(
 				`desktop, both off: German in the dialog is disabled with the reason (${blocked.lead} / ${blocked.why})`,
@@ -1147,12 +1289,21 @@ export default async function run(page) {
 	);
 
 	/**
-	 * The download question, on the desktop device: nothing is downloaded,
-	 * so the first route of a channel's lines asks; Not now must fail them
-	 * all with the model named, once, and pause nothing.
+	 * Downloads on the desktop device: nothing is downloaded, and the
+	 * connection saves data, so reading's first route of a channel's lines
+	 * needs a download nobody agreed to. It must ask nothing, offer it on
+	 * every line with the model named, and pause nothing.
 	 */
 	async function consentStage(index) {
 		page.check("--- consent", true);
+		// Nothing downloaded: reading is on in every conversation, so the
+		// stages before this one read the channel's German lines and left
+		// OPUS-MT's copy in the cache (seq2seq.real.ts CACHE_NAME), which a
+		// cold load's localStorage.clear() does not touch.
+		await page.evaluate(`caches.delete("transformers-cache")`);
+		await page.addInitScript(
+			`Object.defineProperty(Navigator.prototype, "connection", {configurable: true, get: () => ({saveData: true, type: "wifi"})});`
+		);
 		await coldLoad("desktop", index);
 
 		const lines = [
@@ -1187,127 +1338,68 @@ export default async function run(page) {
 			}).observe(overlay, {attributes: true, attributeFilter: ["class"], childList: true, subtree: true});
 		})()`);
 
-		// Reading on: the header's click with a pointer, the panel's On under a finger.
-		// The question comes up over the sheet the switch was thrown in, so
-		// the sheet is put away only once it has been answered.
-		if (MOBILE) {
-			await openPanel();
-			await page.evaluate(`${readOnSegment}.click()`);
-		} else {
-			await page.click(GLOBE);
-		}
+		// Reading is on unless excluded; the sheet's switch leaves it so.
+		await setReadingThroughSheet(page, true);
 
-		await page.waitFor(`!!document.querySelector("#confirm-dialog-overlay.opened")`, {
-			label: "the download question",
-			timeout: 30000,
-		});
-		// Every line is waiting on it by now: still one question.
-		await page.sleep(2000);
-
-		const question = await page.evaluate(`(() => {
-			const d = document.querySelector("#confirm-dialog");
-			return {
-				count: window.__questions.length,
-				title: d.querySelector(".confirm-text-title").textContent.trim(),
-				text: d.querySelector(".confirm-text p").textContent.trim(),
-				download: d.querySelector(".btn-confirm").textContent.trim(),
-				notNow: d.querySelector(".btn-cancel").textContent.trim(),
-			};
-		})()`);
+		// The language model's copy is the GPU's (a reason names its device).
 		// Which GPU model the device default picked: the 4B on a desktop with
-		// the memory for it, the 1.7B on a phone.
-		const model = /^Download (.+)\?$/.exec(question.title)?.[1] ?? "";
+		// the memory for it.
 		const sizeOf = {
 			[EN["translate.model.llm"].replace("{name}", "Qwen3 1.7B")]: 984_000_000,
 			[EN["translate.model.llm"].replace("{name}", "Qwen3 4B")]: 2_280_000_000,
 		};
-
-		page.check(
-			`consent: one question for ${lines.length} lines, naming the model and its size (${question.count}: ${question.title} / ${question.text})`,
-			question.count === 1 &&
-				model in sizeOf &&
-				question.title === EN["translate.consent.title"].replace("{model}", model) &&
-				question.text ===
-					EN["translate.consent.text"]
-						.replace("{model}", model)
-						.replace("{size}", size(sizeOf[model])) &&
-				question.download === EN["translate.model.download"] &&
-				question.notNow === EN["translate.consent.notNow"]
-		);
-		await page.screenshot("consent-question");
-		// Past the overlay's fade-in before the click.
-		await page.sleep(500);
-		// The download question opened by itself: no answer before it is armed (ConfirmDialog.vue ARM_MS).
-		await page.waitFor(`!!document.querySelector("#confirm-dialog[data-armed]")`, {
-			label: "the download question armed",
-		});
-		await page.click("#confirm-dialog .btn-cancel");
-
-		if (MOBILE) {
-			await page.sleep(300);
-			await closePanel();
-		}
-
-		// The language model's copy is the GPU's (a reason names its device).
-		const reason = EN["translate.why.downloadGpu"]
-			.replace("{model}", model)
-			.replace("{size}", size(sizeOf[model]));
-		const FAILED = `${JSON.stringify(
+		// Each line's newest copy: the channel's history holds earlier runs'
+		// copies above the screen, which reading leaves alone (onScreen.ts).
+		const OFFERS = `${JSON.stringify(
 			lines
-		)}.map((line) => [...document.querySelectorAll("#chat .msg:not(.self)")].find((m) => m.textContent.includes(line))).map((m) => { const r = m && m.querySelector('.msg-translation[data-status="failed"] .msg-translation-reason'); return r ? {text: r.textContent.trim(), title: r.title} : null; })`;
+		)}.map((line) => [...document.querySelectorAll("#chat .msg:not(.self)")].reverse().find((m) => m.textContent.includes(line))).map((m) => { const r = m && m.querySelector('.msg-translation[data-status="failed"] .msg-translation-offer'); return r ? {text: r.textContent.replace(/\\s+/g, " ").trim(), title: r.title} : null; })`;
 
-		await page.waitFor(`${FAILED}.every((r) => r)`, {
-			label: "every line failed",
-			timeout: 20000,
+		await page.waitFor(`${OFFERS}.every((r) => r)`, {
+			label: "every line offers its download",
+			timeout: 30000,
 		});
 		await page.sleep(1500);
 
-		const failed = await page.evaluate(FAILED);
+		const offers = await page.evaluate(OFFERS);
+		// German into English routes the OPUS-MT pair first (the table's
+		// cheapest class), so its CPU copy is the download a line offers;
+		// the language model's GPU copy stays accepted for a table that
+		// puts it first.
+		const offerFor = (model, bytes, why) => ({
+			text: `${EN["translate.line.needsDownload"].replace("{size}", size(bytes))} ${
+				EN["translate.line.download"]
+			}`,
+			title: EN[why].replace("{model}", model).replace("{size}", size(bytes)),
+		});
+		const reasons = [
+			offerFor(
+				EN["translate.model.opus"].replace("{from}", "German").replace("{to}", "English"),
+				113_000_000,
+				"translate.why.downloadCpu"
+			),
+			...Object.entries(sizeOf).map(([model, bytes]) =>
+				offerFor(model, bytes, "translate.why.downloadGpu")
+			),
+		];
 		const after = await page.evaluate(`(() => ({
 			count: window.__questions.length,
 			open: !!document.querySelector("#confirm-dialog-overlay.opened"),
-			label: document.querySelector(${JSON.stringify(GLOBE)}).getAttribute("aria-label"),
+			paused: !!document.getElementById("app").__vue_app__.config.globalProperties.$store.state.translation.paused,
 			consent: localStorage.getItem("thelounge.state.translateConsent"),
 		}))()`);
 
 		page.check(
-			`consent: Not now fails every line naming the model (${failed[0]?.text})`,
-			failed.every((r) => r && r.text === reason && r.title === reason)
+			`consent: every line offers its route's download (${offers[0]?.text} / ${offers[0]?.title})`,
+			offers.every(
+				(r) => r && reasons.some((want) => want.text === r.text && want.title === r.title)
+			)
 		);
 		page.check(
-			`consent: still one question, none open, nothing remembered (${after.count}, ${after.consent})`,
-			after.count === 1 && !after.open && after.consent === null
+			`consent: nothing asked, nothing remembered (${after.count}, ${after.consent})`,
+			after.count === 0 && !after.open && after.consent === null
 		);
-		page.check(`consent: no pause (${after.label})`, !/paused/i.test(after.label || ""));
-		await page.screenshot("consent-not-now");
-
-		// A Retry is someone asking: one more question.
-		await page.evaluate(`(() => {
-			const line = ${JSON.stringify(lines[0])};
-			const m = [...document.querySelectorAll("#chat .msg:not(.self)")].find((el) => el.textContent.includes(line));
-			m.setAttribute("data-consent-retry", "1");
-		})()`);
-		await page.evaluate(
-			`document.querySelector("[data-consent-retry] .msg-translation-retry").click()`
-		);
-		await page.waitFor(`!!document.querySelector("#confirm-dialog-overlay.opened")`, {
-			label: "the question again after a Retry",
-		});
-
-		const again = await page.evaluate(`window.__questions.length`);
-
-		page.check(`consent: a Retry asks once more (${again})`, again === 2);
-		// Past the overlay's fade-in before the click.
-		await page.sleep(500);
-		// The download question opened by itself: no answer before it is armed (ConfirmDialog.vue ARM_MS).
-		await page.waitFor(`!!document.querySelector("#confirm-dialog[data-armed]")`, {
-			label: "the download question armed",
-		});
-		await page.click("#confirm-dialog .btn-cancel");
-		await page.waitFor(
-			`!!document.querySelector('[data-consent-retry] .msg-translation[data-status="failed"]')`,
-			{label: "the retried line failed again"}
-		);
+		page.check(`consent: no pause (${after.paused})`, !after.paused);
+		await page.screenshot("consent-offers");
 
 		// Nothing was downloaded, or is: every model row still says so.
 		await openSettings();

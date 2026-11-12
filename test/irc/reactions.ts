@@ -35,7 +35,7 @@ describe("Replies and reactions (handlers/tagmsg.ts, +draft/reply)", function ()
 
 			expect(h.client.react(chan, "m1", "a b;c\\d")).to.equal(true);
 			expect(h.sent()).to.deep.equal([
-				"@+draft/react=a\\sb\\:c\\\\d;+draft/reply=m1 TAGMSG #seance",
+				"@+draft/react=a\\sb\\:c\\\\d;+reply=m1;+draft/reply=m1 TAGMSG #seance",
 			]);
 		});
 
@@ -44,7 +44,9 @@ describe("Replies and reactions (handlers/tagmsg.ts, +draft/reply)", function ()
 			const id = joined(h);
 
 			h.client.react(h.client.channelById(id)!, "m1", "👍", true);
-			expect(h.sent()).to.deep.equal(["@+draft/unreact=👍;+draft/reply=m1 TAGMSG #seance"]);
+			expect(h.sent()).to.deep.equal([
+				"@+draft/unreact=👍;+reply=m1;+draft/reply=m1 TAGMSG #seance",
+			]);
 		});
 
 		it("/react defaults to the newest message with a msgid, /unreact takes an explicit one", function () {
@@ -59,8 +61,8 @@ describe("Replies and reactions (handlers/tagmsg.ts, +draft/reply)", function ()
 			h.client.input(id, "/react 👍");
 			h.client.input(id, "/unreact 👍 m1");
 			expect(h.sent()).to.deep.equal([
-				"@+draft/react=👍;+draft/reply=m2 TAGMSG #seance",
-				"@+draft/unreact=👍;+draft/reply=m1 TAGMSG #seance",
+				"@+draft/react=👍;+reply=m2;+draft/reply=m2 TAGMSG #seance",
+				"@+draft/unreact=👍;+reply=m1;+draft/reply=m1 TAGMSG #seance",
 			]);
 		});
 
@@ -75,7 +77,9 @@ describe("Replies and reactions (handlers/tagmsg.ts, +draft/reply)", function ()
 			);
 
 			h.client.input(id, "/react 👍");
-			expect(h.sent()).to.deep.equal(["@+draft/react=👍;+draft/reply=m2 TAGMSG #seance"]);
+			expect(h.sent()).to.deep.equal([
+				"@+draft/react=👍;+reply=m2;+draft/reply=m2 TAGMSG #seance",
+			]);
 		});
 
 		it("/react takes words, emoji runs and shortcodes, msgid or not", function () {
@@ -94,10 +98,10 @@ describe("Replies and reactions (handlers/tagmsg.ts, +draft/reply)", function ()
 			h.client.input(id, "/react   spaced   out  ");
 
 			expect(h.sent()).to.deep.equal([
-				"@+draft/react=so\\scool;+draft/reply=m2 TAGMSG #seance",
-				"@+draft/react=🎉🎉🎉;+draft/reply=m1 TAGMSG #seance",
-				"@+draft/react=🎉;+draft/reply=m2 TAGMSG #seance",
-				"@+draft/react=spaced\\sout;+draft/reply=m2 TAGMSG #seance",
+				"@+draft/react=so\\scool;+reply=m2;+draft/reply=m2 TAGMSG #seance",
+				"@+draft/react=🎉🎉🎉;+reply=m1;+draft/reply=m1 TAGMSG #seance",
+				"@+draft/react=🎉;+reply=m2;+draft/reply=m2 TAGMSG #seance",
+				"@+draft/react=spaced\\sout;+reply=m2;+draft/reply=m2 TAGMSG #seance",
 			]);
 		});
 
@@ -145,8 +149,8 @@ describe("Replies and reactions (handlers/tagmsg.ts, +draft/reply)", function ()
 			socket.emit("msg:react", {target: id, msgid: "m1", text: "🎉", remove: true});
 			socket.emit("msg:react", {target: 999, msgid: "m1", text: "🎉"});
 			expect(h.sent()).to.deep.equal([
-				"@+draft/react=🎉;+draft/reply=m1 TAGMSG #seance",
-				"@+draft/unreact=🎉;+draft/reply=m1 TAGMSG #seance",
+				"@+draft/react=🎉;+reply=m1;+draft/reply=m1 TAGMSG #seance",
+				"@+draft/unreact=🎉;+reply=m1;+draft/reply=m1 TAGMSG #seance",
 			]);
 		});
 	});
@@ -208,7 +212,9 @@ describe("Replies and reactions (handlers/tagmsg.ts, +draft/reply)", function ()
 			const {h, id, msgId} = withMessage(NO_ECHO);
 			h.client.react(h.client.channelById(id)!, "m1", "👍");
 
-			expect(h.sent()).to.deep.equal(["@+draft/react=👍;+draft/reply=m1 TAGMSG #seance"]);
+			expect(h.sent()).to.deep.equal([
+				"@+draft/react=👍;+reply=m1;+draft/reply=m1 TAGMSG #seance",
+			]);
 			expect(h.payloads<ReactPayload>("msg:react")).to.deep.equal([
 				{chan: id, id: msgId, text: "👍", nick: "alice", remove: false},
 			]);
@@ -324,8 +330,8 @@ describe("Replies and reactions (handlers/tagmsg.ts, +draft/reply)", function ()
 			h.client.input(id, "/msg bob hi", {reply: "m1"});
 			h.client.input(id, "/notice bob hi", {reply: "m1"});
 			expect(h.sent()).to.deep.equal([
-				"@+draft/reply=m1;label=s1 PRIVMSG #seance :yes",
-				"@+draft/reply=m1;label=s2 PRIVMSG #seance :\x01ACTION nods\x01",
+				"@+reply=m1;+draft/reply=m1;label=s1 PRIVMSG #seance :yes",
+				"@+reply=m1;+draft/reply=m1;label=s2 PRIVMSG #seance :\x01ACTION nods\x01",
 				"@label=s3 PRIVMSG bob :hi",
 				"@label=s4 NOTICE bob :hi",
 			]);
@@ -343,7 +349,9 @@ describe("Replies and reactions (handlers/tagmsg.ts, +draft/reply)", function ()
 			});
 
 			socket.emit("input", {target: id, text: "via bus", reply: "m1"});
-			expect(h.sent()).to.deep.equal(["@+draft/reply=m1;label=s1 PRIVMSG #seance :via bus"]);
+			expect(h.sent()).to.deep.equal([
+				"@+reply=m1;+draft/reply=m1;label=s1 PRIVMSG #seance :via bus",
+			]);
 		});
 
 		it("reads +reply and +draft/reply into replyTo", function () {
@@ -385,7 +393,7 @@ describe("Replies and reactions (handlers/tagmsg.ts, +draft/reply)", function ()
 
 			for (const line of sent) {
 				expect(line).to.match(
-					/^@\+draft\/reply=ABAAAAAaA8Iz\[f;label=s\d+ PRIVMSG #seance :wörd\d+/
+					/^@\+reply=ABAAAAAaA8Iz\[f;\+draft\/reply=ABAAAAAaA8Iz\[f;label=s\d+ PRIVMSG #seance :wörd\d+/
 				);
 				expect(utf8ByteLength(line) + source.length).to.be.at.most(MAX_LINE_BYTES);
 			}

@@ -1,15 +1,28 @@
-// Per-channel translation state (spec § Settings, persistence): the reading
-// and writing targets, formality and variant, the languages people write in
-// the channel, and the channel's term memory. One JSON blob under
-// `thelounge.translate`, keyed by network uuid and lower-cased channel name
-// like helpers/mediaTrust.ts. Vue-free; the store slice in store.ts mirrors
-// it for reactivity (reader.ts keeps the two in step).
+// Per-conversation translation state (spec § Settings, persistence): whether
+// reading is excluded here, the writing target, formality and variant, the
+// languages people write in the channel, and the channel's term memory. One
+// JSON blob under `thelounge.translate`, keyed by network uuid and
+// lower-cased channel name like helpers/mediaTrust.ts, beside one
+// `version` key (`STORE_VERSION`, see `migrateChannelStore`). Vue-free; the
+// store slice in store.ts mirrors it for reactivity (reader.ts keeps the two
+// in step).
 
 import storage from "../localStorage";
 import {isSupported} from "./languages";
 
 export const STORAGE_KEY = "thelounge.translate";
 export const TERM_CAP = 300;
+
+/**
+ * The blob's schema, stored in it under `VERSION_KEY` so it travels with
+ * the settings backup (helpers/settingsBackup.ts carries the whole blob).
+ * Absent is version 1: a record's `read` was an opt-in reading switch.
+ * Version 2 reads every conversation and stores the opposite, an explicit
+ * `exclude`; see `migrateChannelStore` for the mapping.
+ */
+export const STORE_VERSION = 2;
+/** The blob's version key. Never a record key: those always hold a "/". */
+export const VERSION_KEY = "version";
 
 export type Formality = "auto" | "formal" | "casual";
 
@@ -30,32 +43,36 @@ export interface TermEntry {
 
 export interface ChannelTranslation {
 	/**
-	 * Reading on or off. The language is not per channel: it is the
-	 * interface's (the one `locale` setting), so a stored record only
-	 * remembers the switch. A record
-	 * from before the unification carries the language a per-channel
-	 * picker once set ("de"); anything truthy loads as on.
+	 * "Don't translate here": with translation on, every channel and query
+	 * is read (reader.ts `readsHere`) except one the user excluded. The
+	 * reading language is not per conversation (reader.ts
+	 * `readingLanguage`). Stored only from version 2 on; an older record's
+	 * `read` is not carried over (`migrateChannelStore`).
 	 */
-	read: boolean;
+	exclude: boolean;
 	/** Outgoing target (plan 3) or null. */
 	write: string | null;
-	formality: Formality;
-	/** Free text for the prompt, e.g. "Brazilian Portuguese". */
-	variant: string;
 	/**
-	 * The languages people write in this channel (ISO 639-1, supported
-	 * codes only, deduplicated). Detection favours them: see detect.ts
-	 * `DECLARED_MARGIN`. Empty when nothing was declared.
+	 * The language the user said they write in when they set the target
+	 * (the composer dialog's "Translate from"); null: detect each draft.
 	 */
-	languages: string[];
+	writeFrom: string | null;
+	formality: Formality;
 	/** Term memory, oldest first, one entry per source term and target language. */
 	terms: TermEntry[];
 	/**
-	 * The language the composer's translate button last translated a
-	 * message into here (writer.ts `translateOnce`), preselected by its
-	 * dialog next time; null until it has been used.
+	 * The language last picked here to write in, as a one-off (writer.ts
+	 * `translateOnce`) or as the send target (`write`, which sets it too),
+	 * preselected by the composer's dialog next time; null until one has
+	 * been picked. It outlives the target: turning the target off clears
+	 * `write`, and the dialog still opens on the language it was.
 	 */
 	once: string | null;
+	/**
+	 * The composer's suggestion card ("Most of #linux writes in
+	 * Portuguese") was turned down here: it is not offered again.
+	 */
+	noSuggest: boolean;
 }
 
 export interface StorageBackend {
@@ -83,13 +100,13 @@ export function splitKey(key: string): {network: string; name: string} {
 
 export function defaultChannelTranslation(): ChannelTranslation {
 	return {
-		read: false,
+		exclude: false,
 		write: null,
+		writeFrom: null,
 		formality: "auto",
-		variant: "",
-		languages: [],
 		terms: [],
 		once: null,
+		noSuggest: false,
 	};
 }
 
@@ -113,27 +130,6 @@ export function effectiveFormality(channel: Formality, global: unknown): Formali
 }
 
 /**
- * The declared languages as the record keeps them: supported codes only,
- * in the order they were added, no duplicates. A code this build cannot
- * route is dropped rather than kept as a dead weight on detection.
- */
-function languagesOf(value: unknown): string[] {
-	if (!Array.isArray(value)) {
-		return [];
-	}
-
-	const out: string[] = [];
-
-	for (const code of value) {
-		if (typeof code === "string" && isSupported(code) && !out.includes(code)) {
-			out.push(code);
-		}
-	}
-
-	return out;
-}
-
-/**
  * A stored term this build can place: both sides text, a supported target
  * and a supported (or unknown) source. A legacy `[source, target]` pair
  * carries no language, so it is dropped: the memory starts over once.
@@ -154,7 +150,7 @@ function isTermEntry(value: unknown): value is TermEntry {
 	);
 }
 
-function sanitize(value: unknown): ChannelTranslation | null {
+function sanitize(value: unknown, version: number): ChannelTranslation | null {
 	if (typeof value !== "object" || value === null) {
 		return null;
 	}
@@ -164,17 +160,20 @@ function sanitize(value: unknown): ChannelTranslation | null {
 	// loses its extra keys the next time this one writes the blob.
 	const out = defaultChannelTranslation();
 
-	// A stored read is a switch: whatever language a per-channel picker
-	// once held, truthy means reading was on. The write target this build
-	// cannot route (hand-edited, or dropped from SUPPORTED_LANGUAGES by a
-	// later version) is no target at all: it would leave every outgoing
-	// line failing to route.
-	out.read = Boolean(raw.read);
+	// Version 1 had no exclusions: its `read: false` meant "never switched
+	// on" as often as "switched off", and the two cannot be told apart, so
+	// every version-1 record reads (spec § Existing users). From version 2
+	// an exclusion is what the user chose, and survives every later load.
+	// The write target this build cannot route (hand-edited, or dropped
+	// from SUPPORTED_LANGUAGES by a later version) is no target at all: it
+	// would leave every outgoing line failing to route.
+	out.exclude = version >= 2 && raw.exclude === true;
 	out.write = typeof raw.write === "string" && isSupported(raw.write) ? raw.write : null;
 	out.once = typeof raw.once === "string" && isSupported(raw.once) ? raw.once : null;
+	out.writeFrom =
+		typeof raw.writeFrom === "string" && isSupported(raw.writeFrom) ? raw.writeFrom : null;
+	out.noSuggest = raw.noSuggest === true;
 	out.formality = isFormality(raw.formality) ? raw.formality : "auto";
-	out.variant = typeof raw.variant === "string" ? raw.variant : "";
-	out.languages = languagesOf(raw.languages);
 	out.terms = Array.isArray(raw.terms)
 		? raw.terms
 				.filter(isTermEntry)
@@ -185,25 +184,48 @@ function sanitize(value: unknown): ChannelTranslation | null {
 	return out;
 }
 
-export function loadAll(): Record<string, ChannelTranslation> {
+/** The stored blob, parsed: null when there is none or it is not an object. */
+function readBlob(): Record<string, unknown> | null {
 	let parsed: unknown;
 
 	try {
 		const raw = backend.get(STORAGE_KEY);
 
-		parsed = raw ? JSON.parse(raw) : {};
+		parsed = raw ? JSON.parse(raw) : null;
 	} catch {
-		return {};
+		return null;
 	}
 
 	if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+		return null;
+	}
+
+	return parsed as Record<string, unknown>;
+}
+
+/** A blob's schema version: absent (or anything not a whole number) is 1. */
+function versionOf(blob: Record<string, unknown>): number {
+	const version = blob[VERSION_KEY];
+
+	return typeof version === "number" && Number.isInteger(version) && version > 0 ? version : 1;
+}
+
+export function loadAll(): Record<string, ChannelTranslation> {
+	const blob = readBlob();
+
+	if (!blob) {
 		return {};
 	}
 
+	const version = versionOf(blob);
 	const out: Record<string, ChannelTranslation> = {};
 
-	for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
-		const entry = sanitize(value);
+	for (const [key, value] of Object.entries(blob)) {
+		if (key === VERSION_KEY) {
+			continue;
+		}
+
+		const entry = sanitize(value, version);
 
 		if (entry) {
 			out[key] = entry;
@@ -214,7 +236,49 @@ export function loadAll(): Record<string, ChannelTranslation> {
 }
 
 function saveAll(all: Record<string, ChannelTranslation>): void {
-	backend.set(STORAGE_KEY, JSON.stringify(all));
+	backend.set(STORAGE_KEY, JSON.stringify({...all, [VERSION_KEY]: STORE_VERSION}));
+}
+
+/**
+ * What `migrateChannelStore` found: `current` (already this version),
+ * `upgraded` (an older blob, rewritten), or `absent` (nothing stored; a
+ * current, empty blob is written so a later boot finds it current).
+ */
+export type MigrationResult = "current" | "upgraded" | "absent";
+
+/**
+ * Bring the stored blob to `STORE_VERSION`, once per stored version: at
+ * boot, and so again for an old blob a backup restore puts back (the
+ * version travels inside the blob, so no device-side "already ran" bit can
+ * hide one). Version 1 → 2 (spec § Existing users): every record reads,
+ * since an old `read: false` cannot be told from "never touched"; `write`,
+ * `writeFrom`, `once`, `noSuggest`, `formality` and the terms are kept as
+ * they were; the retired `languages` and `variant` are dropped
+ * (translation.md § One sheet: neither is offered, stored or applied).
+ * A garbage blob is left alone for the next write to replace.
+ */
+export function migrateChannelStore(): MigrationResult {
+	let raw: string | null;
+
+	try {
+		raw = backend.get(STORAGE_KEY);
+	} catch {
+		return "current";
+	}
+
+	if (!raw) {
+		saveAll({});
+		return "absent";
+	}
+
+	const blob = readBlob();
+
+	if (!blob || versionOf(blob) >= STORE_VERSION) {
+		return "current";
+	}
+
+	saveAll(loadAll());
+	return "upgraded";
 }
 
 export function getChannelTranslation(
@@ -237,11 +301,13 @@ export function setChannelTranslation(
 	delete rest.terms;
 	const next: ChannelTranslation = {...current, ...rest};
 
-	// The patch comes from the panel, so the codes are checked here as well
-	// as on load: the committed record is what the store mirrors until the
-	// next page, and an unroutable language must not sit in it weighting
-	// detection.
-	next.languages = languagesOf(next.languages);
+	// A send target is a pick too (`once`): remembered past its Off. A
+	// record saved before targets set `once` keeps its target at the Off.
+	if (rest.write) {
+		next.once = rest.write;
+	} else if ("write" in rest && !next.once && current.write) {
+		next.once = current.write;
+	}
 
 	all[key] = next;
 	saveAll(all);
@@ -298,7 +364,7 @@ export function termsFor(
  * or in a backup file; a nick never starts with a channel prefix.
  */
 export function isPrivateKey(key: string): boolean {
-	return !/^[#&!+]/.test(splitKey(key).name);
+	return key !== VERSION_KEY && !/^[#&!+]/.test(splitKey(key).name);
 }
 
 /**

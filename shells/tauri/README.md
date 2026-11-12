@@ -50,6 +50,18 @@ as it is and a square logo would show as a square in the Dock.
 systems' APIs with no availability checks, and a WebKit far past the
 bundle's Safari 16.4 floor (Vite's default `build.target`).
 
+### Linux from a Mac
+
+`make linux-build` builds the release `.deb` and AppImage in Docker
+(`tools/build-linux.sh`, the image in `tools/linux`) for the machine's own
+architecture, so arm64 on Apple silicon, into `tmp/linux-app/`. To click
+around in it, an Ubuntu Desktop arm64 VM in UTM is enough: share the
+checkout's `tmp/linux-app` with the VM (UTM's VirtFS directory share, mounted
+in the guest with `sudo mount -t 9p -o trans=virtio share /mnt`) and
+`sudo apt install /mnt/seance_*.deb`. A VM's virtual GPU says nothing about
+WebKitGTK's speed, so the Linux engine gate (`desktop-shells.md` § 6) is
+measured on real hardware, not there.
+
 ## Checks
 
 - **Smoke**: `pnpm smoke` (`prepare-app`, then a debug build with `--smoke`) loads the
@@ -85,11 +97,12 @@ compiled out of a release build.
   page. No Tauri plugin API is exposed to the page
   (`capabilities/default.json`).
 
-| Plugin               | Methods / events                                                                                                               | Notes                                                                                                                                                                                                                     |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `App`                | `getLaunchUrl`, `requestAttention`; event `appUrlOpen`                                                                         | `web+irc:` links; an alert while the window is not in front bounces the Dock icon, flashes the taskbar button or marks the window urgent                                                                                  |
-| `Badge`              | `checkPermissions`, `requestPermissions`, `set`, `clear`                                                                       | the count on the Dock (macOS) and launchers (Linux); a red dot over the taskbar button on Windows, which shows no number. Not yet run on Windows                                                                          |
-| `LocalNotifications` | `checkPermissions`, `requestPermissions`, `schedule`, `removeDeliveredNotifications`; event `localNotificationActionPerformed` | Windows, Linux (`src/alerts.rs`); macOS answers from the Apple plugins. A click opens the conversation (on Windows only while the toast is on screen); reading it removes the alert on Linux only. Not yet run on Windows |
+| Plugin               | Methods / events                                                                                                               | Notes                                                                                                                                                                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `App`                | `getLaunchUrl`, `requestAttention`, `ircLinks`; event `appUrlOpen`                                                             | IRC links (`ircLinks`: Windows and Linux, below); an alert while the window is not in front bounces the Dock icon, flashes the taskbar button or marks the window urgent                                                      |
+| `Badge`              | `checkPermissions`, `requestPermissions`, `set`, `clear`                                                                       | the count on the Dock (macOS) and launchers (Linux); a red dot over the taskbar button on Windows, which shows no number. Not yet run on Windows                                                                              |
+| `LocalNotifications` | `checkPermissions`, `requestPermissions`, `schedule`, `removeDeliveredNotifications`; event `localNotificationActionPerformed` | Windows, Linux (`src/alerts.rs`); macOS answers from the Apple plugins. A click opens the conversation (on Windows only while the toast is on screen); reading it removes the alert on Linux only. Not yet run on Windows     |
+| `AppleTranslate`     | `availability`, `translate`, `prepare`, `languages`                                                                            | macOS only: Apple's Translation framework (`swift/` SeanceTranslate, shared with the iOS shell; `prepare`'s download sheet hangs off the key window). Windows and Linux answer `unimplemented`, and the page never asks there |
 
 - **CSP** (`tauri.conf.json`): `'self'` scripts only, plus
   `'wasm-unsafe-eval'` and `blob:` workers for the in-page translation
@@ -107,7 +120,15 @@ compiled out of a release build.
   `App.getLaunchUrl`, later ones as `App.appUrlOpen` — no reload, so no
   connection is dropped. A second launch hands its argv over
   (`single-instance`). A build run from source registers nothing with the
-  OS; an installed one declares the scheme in its bundle.
+  OS; an installed one declares the scheme in its bundle. `irc:` and
+  `ircs:` (TCP) are claimed only where the system or the user picks the
+  default: the phones' manifests, macOS's `Info.macos.plist`, and on
+  Windows and Linux the Settings → General switch (`App.ircLinks`
+  `{enable}`, answers `{enabled}`). Why, and what "off" gives back:
+  `TCP_SCHEMES` and `release_link` in `src/lib.rs`. A Windows Default apps
+  choice still wins over the switch. The NSIS uninstaller removes the claim
+  (`windows/hooks.nsh`); on Linux, turn the switch off before removing the
+  package.
 - **Closing the window** follows the platform: macOS keeps the app in the
   Dock (⌘Q quits, the Dock icon reopens), Windows keeps it in the
   notification area (the tray menu has Quit), Linux quits — a tray may not be
@@ -140,7 +161,7 @@ the Tauri CLI's projects, committed with the shell's own files in them.
 | `StatusBar`           | both bars' style                                     | style (wry's view controller's `preferredStatusBarStyle`, swapped) |
 | `Badge`               | answered, nothing to set                             | the app icon's count                                               |
 | `Haptics`             | `tauri-plugin-haptics`                               | `tauri-plugin-haptics`                                             |
-| `AppleTranslate`      | —                                                    | `AppleTranslate.swift`: Apple's Translation framework, unbuilt     |
+| `AppleTranslate`      | —                                                    | `swift/` SeanceTranslate, shared with the macOS shell              |
 
 Links (`web+irc:`, `web+ircs:`, `irc:`, `ircs:`) are declared to the deep-link plugin
 (`tauri.conf.json` `plugins.deep-link.mobile`), which writes the Android
@@ -149,7 +170,7 @@ Android (`UploadChooserClient.kt`, in front of wry's chrome client); what a
 picker app answers is taken only as another app's `content:` URI. The app's
 data stays out of Android's backup and device transfers.
 
-**Android** (SDK, NDK 29, JDK 17+; the emulator or a phone over adb):
+**Android** (SDK, NDK 29, JDK 21, which a release build's lint needs; the emulator or a phone over adb):
 
 ```sh
 NODE_ENV=production pnpm build          # at the root: public/ is compiled in
@@ -159,6 +180,25 @@ export NDK_HOME=$ANDROID_HOME/ndk/29.0.14206865
 pnpm tauri android build --debug --apk --target aarch64
 adb install -r src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
 ```
+
+A release build (`make android-release`: a signed APK and AAB) reads the key
+from `src-tauri/gen/android/keystore.properties`, which is gitignored and
+never committed:
+
+```properties
+storeFile=/Users/you/.android/seance-release.jks
+storePassword=…
+keyAlias=…
+keyPassword=…
+```
+
+Without the file, Gradle builds the release unsigned. A debug APK is signed
+with the machine's own debug key, so an APK from another machine (CI's
+included) only installs after uninstalling the app. CI's signed build
+(Actions > Android > Run workflow, with "release" ticked) writes the file
+from four repository secrets: `ANDROID_KEYSTORE_BASE64` (`base64 -i` of the
+keystore), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and
+`ANDROID_KEY_PASSWORD`.
 
 The push code's unit tests: `./gradlew :app:testUniversalDebugUnitTest` in
 `src-tauri/gen/android`. A debug build's WebView is debuggable

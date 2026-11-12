@@ -5,7 +5,7 @@
 		:role="embedded ? undefined : 'tabpanel'"
 		:aria-label="ariaEditLabel"
 	>
-		<div v-if="!embedded" class="header">
+		<div v-if="!embedded" class="header" :data-tauri-drag-region="dragRegion">
 			<SidebarToggle />
 		</div>
 		<form :class="{container: !embedded}" method="post" action="" @submit.prevent="onSubmit">
@@ -17,7 +17,7 @@
 			<!--
 				Only what `ConnectOptions` (client/js/irc/types.ts) and the saved
 				network store support is offered. Dropped from TheLounge's form:
-				server password, "only allow trusted certificates", SOCKS proxy,
+				"only allow trusted certificates", SOCKS proxy,
 				username / real name / leave message, SASL EXTERNAL (client
 				certificates) and the STS lock — none of them apply to a browser
 				WebSocket connection, or they wait on later phases (STS: D.6).
@@ -81,6 +81,20 @@
 					/>
 				</div>
 			</div>
+			<div v-if="canUseTcp" class="connect-row">
+				<label for="connect:transport">{{ t("connect.connection") }}</label>
+				<div class="input-wrap">
+					<select
+						id="connect:transport"
+						v-model="connection"
+						class="input"
+						name="transport"
+					>
+						<option value="websocket">{{ t("connect.connection.websocket") }}</option>
+						<option value="tcp">{{ t("connect.connection.tcp") }}</option>
+					</select>
+				</div>
+			</div>
 			<div class="connect-row">
 				<label></label>
 				<div class="input-wrap">
@@ -97,6 +111,35 @@
 						/>
 						{{ t("form.autoconnect") }}
 					</label>
+				</div>
+			</div>
+			<div
+				v-if="connection === 'tcp' && (defaults.trustedCertificates ?? []).length > 0"
+				class="connect-row"
+			>
+				<label>{{ t("form.trustedCertificates") }}</label>
+				<div class="input-wrap">
+					<ul class="trusted-certificates">
+						<li v-for="fp in defaults.trustedCertificates" :key="fp">
+							<!-- A break opportunity after each colon: the fingerprint
+							wraps between bytes, never inside one. -->
+							<code dir="ltr"
+								><template
+									v-for="(pair, i) in formatFingerprint(fp).split(':')"
+									:key="i"
+									>{{ i > 0 ? ":" : "" }}<wbr v-if="i > 0" />{{ pair }}</template
+								></code
+							>
+							<button
+								type="button"
+								class="trusted-certificate-remove"
+								:title="t('form.trustedCertificates.remove')"
+								:aria-label="t('form.trustedCertificates.remove')"
+								@click="forgetCertificate(fp)"
+							/>
+						</li>
+					</ul>
+					<p class="connect-note">{{ t("form.trustedCertificates.help") }}</p>
 				</div>
 			</div>
 			<div
@@ -207,20 +250,60 @@
 						/>
 					</RevealPassword>
 				</div>
-				<div class="connect-row">
-					<label></label>
-					<div class="input-wrap">
-						<label class="tls">
-							<input
-								v-model="defaults.rememberPassword"
-								v-switch
-								type="checkbox"
-								name="rememberPassword"
-							/>
-							{{ t("form.rememberPassword") }}
-						</label>
-					</div>
+			</template>
+
+			<!-- PASS before registration: bouncers without client SASL (ZNC). -->
+			<div class="connect-row">
+				<label></label>
+				<div class="input-wrap">
+					<label class="tls">
+						<input
+							v-model="defaults.hasServerPassword"
+							v-switch
+							type="checkbox"
+							name="hasServerPassword"
+						/>
+						{{ t("form.serverPasswordToggle") }}
+						<span
+							class="tooltipped tooltipped-n tooltipped-no-delay"
+							:aria-label="serverPasswordHelp"
+						>
+							<button class="extra-help" type="button" />
+						</span>
+					</label>
 				</div>
+			</div>
+			<div v-if="defaults.hasServerPassword" class="connect-row">
+				<label for="connect:serverPassword">{{ t("form.serverPassword") }}</label>
+				<RevealPassword v-slot:default="slotProps" class="input-wrap password-container">
+					<input
+						id="connect:serverPassword"
+						v-model="defaults.serverPassword"
+						dir="auto"
+						class="input"
+						:type="slotProps.isVisible ? 'text' : 'password'"
+						name="serverPassword"
+						maxlength="300"
+						autocomplete="off"
+						:placeholder="serverPasswordWasSet ? passwordPlaceholder : undefined"
+					/>
+				</RevealPassword>
+			</div>
+			<div v-if="defaults.sasl === 'plain' || defaults.hasServerPassword" class="connect-row">
+				<label></label>
+				<div class="input-wrap">
+					<label class="tls">
+						<input
+							v-model="defaults.rememberPassword"
+							v-switch
+							type="checkbox"
+							name="rememberPassword"
+						/>
+						{{ t("form.rememberPassword") }}
+					</label>
+				</div>
+			</div>
+			<template v-if="defaults.sasl === 'plain'">
 				<!-- A desktop shell takes no push (webpush.ts pushBackend). -->
 				<div v-if="!desktopShell" class="connect-row">
 					<label></label>
@@ -370,6 +453,50 @@
 </template>
 
 <style>
+.trusted-certificates {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.trusted-certificates li {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	margin-block-end: 0.5rem;
+}
+
+/* The fingerprint wraps at its colons (the <wbr>s in the template), so its
+ * narrowest is one byte and it never pushes the form wider. */
+.trusted-certificates code {
+	flex: 1;
+	font-size: 0.75rem;
+}
+
+/* An icon button, like the alias rows' (Settings/Aliases.vue). It is not a
+ * `.btn`: `#connect .btn` (style.css) is full width with a top margin. */
+.trusted-certificate-remove {
+	flex: none;
+	width: 2rem;
+	height: 2rem;
+	padding: 0;
+	border: 0;
+	border-radius: 0.25rem;
+	background: none;
+	color: var(--body-color-muted);
+	cursor: pointer;
+}
+
+.trusted-certificate-remove::before {
+	font: normal normal normal 1rem/1 FontAwesome;
+	content: "\f1f8"; /* https://fontawesome.com/icons/trash */
+}
+
+.trusted-certificate-remove:hover,
+.trusted-certificate-remove:focus-visible {
+	color: #e74c3c;
+}
+
 .presence-mode-hint {
 	margin-block-start: 0.25rem;
 	font-size: 0.8125rem;
@@ -486,6 +613,7 @@ import {
 	watch,
 } from "vue";
 import {
+	defaultPort,
 	displayName,
 	parseCommands,
 	presenceModeOf,
@@ -499,10 +627,11 @@ import {describeServiceCheck} from "../js/irc/services";
 import {servicesCheck} from "../js/helpers/operRequest";
 import {isOperOn} from "../js/helpers/operMenu";
 import {askNativeAlertPermission, nativeAlertsAvailable} from "../js/helpers/nativeAlerts";
-import {isDesktopShell} from "../js/helpers/shell";
+import {isDesktopShell, isShell, macDragRegion} from "../js/helpers/shell";
 import {useStore} from "../js/store";
 import webpush from "../js/webpush";
 import {useI18n} from "../js/i18n";
+import {formatFingerprint} from "../js/certificatePrompt";
 import type {ServicesConfig, SharedNetworkStatus} from "../../shared/types/network";
 /** The services roles as the form shows them, in order. */
 type ServiceRoleField = {
@@ -567,6 +696,9 @@ export default defineComponent({
 		const commandsHelp = computed(() => t("form.commandsHelp").replace(/\s*\n\s*/g, " "));
 		const passwordPlaceholder = computed(() => t("form.passwordPlaceholder"));
 		const pushHelp = computed(() => t("form.pushHelp"));
+		const serverPasswordHelp = computed(() => t("form.serverPasswordHelp"));
+		// The form opened on a configured one: blank keeps it (saved-networks fromForm).
+		const serverPasswordWasSet = !!props.defaults.hasServerPassword;
 		const browserNotificationsHelp = computed(() => t("form.browserNotificationsHelp"));
 		const store = useStore();
 		const commandsInput = ref<HTMLTextAreaElement | null>(null);
@@ -806,6 +938,14 @@ export default defineComponent({
 		watch(
 			() => props.defaults.tls,
 			(isSecureChecked) => {
+				if (props.defaults.transport === "tcp") {
+					if (props.defaults.port === defaultPort(!isSecureChecked, "tcp")) {
+						props.defaults.port = defaultPort(isSecureChecked, "tcp");
+					}
+
+					return;
+				}
+
 				const ports = [8067, 8443];
 				const newPort = isSecureChecked ? 1 : 0;
 
@@ -814,6 +954,30 @@ export default defineComponent({
 				}
 			}
 		);
+
+		// IRC over TCP: only the app shell can open a raw socket.
+		const canUseTcp = isShell();
+		const connection = computed({
+			get: () => (props.defaults.transport === "tcp" ? "tcp" : "websocket"),
+			set(value: string) {
+				const tcp = value === "tcp";
+				const tls = props.defaults.tls;
+				const from = tcp ? (tls ? 8443 : 8067) : defaultPort(tls, "tcp");
+
+				if (props.defaults.port === from) {
+					props.defaults.port = tcp ? defaultPort(tls, "tcp") : tls ? 8443 : 8067;
+				}
+
+				props.defaults.transport = tcp ? "tcp" : "websocket";
+			},
+		});
+
+		// Applied with the rest of the form, on Save (saved-networks fromForm).
+		const forgetCertificate = (fp: string) => {
+			props.defaults.trustedCertificates = (props.defaults.trustedCertificates ?? []).filter(
+				(other) => other !== fp
+			);
+		};
 
 		const formData = (): SavedNetwork => {
 			const data: SavedNetwork = {
@@ -873,6 +1037,9 @@ export default defineComponent({
 		};
 
 		return {
+			formatFingerprint,
+			forgetCertificate,
+			dragRegion: macDragRegion(),
 			t,
 			ariaEditLabel,
 			namePlaceholder,
@@ -882,11 +1049,15 @@ export default defineComponent({
 			commandsHelp,
 			passwordPlaceholder,
 			pushHelp,
+			serverPasswordHelp,
+			serverPasswordWasSet,
 			browserNotificationsHelp,
 			presenceMode,
 			presenceHint,
 			pushInfo,
 			desktopShell: isDesktopShell(),
+			canUseTcp,
+			connection,
 			renewPush,
 			onNotifyToggle,
 			SERVICES_PROFILES,

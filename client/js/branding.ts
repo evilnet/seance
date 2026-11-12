@@ -13,6 +13,7 @@
 
 import enCatalog from "../locales/en.json";
 import {interpolate, t as coreT, tCount as coreTCount, type Vars} from "./i18n/core";
+import type {OpusPairOption} from "./translate/models";
 
 export interface BrandingNetwork {
 	/** Display name for the network (defaults to the host name). */
@@ -219,10 +220,17 @@ export interface BrandingTranslation {
 	enabled?: boolean;
 	/** Mirror base URL for the weights; the layout is documented in branding.md § Translation. */
 	modelBase?: string;
-	/** The WebLLM model id, and its compiled library URL when it is not a prebuilt one. */
-	llm?: {model?: string; lib?: string};
-	/** The NLLB repo and OPUS-MT repos keyed "from-to". */
-	cpu?: {nllb?: string; opus?: Record<string, string>};
+	/**
+	 * The WebLLM model id, and its compiled library URL when it is not a
+	 * prebuilt one. `splitModel`: where a mirror serves the 1.7B's weights
+	 * a second time for its small-buffer build (branding.md § Translation).
+	 */
+	llm?: {model?: string; lib?: string; splitModel?: string};
+	/**
+	 * The NLLB repo and OPUS-MT repos keyed "from-to"; a pair may also be
+	 * `{model, token?, name?, sizeBytes?}` (models.ts `OpusPairOption`).
+	 */
+	cpu?: {nllb?: string; opus?: Record<string, string | OpusPairOption>};
 	/**
 	 * Route overrides: target → source (or "*") → quality classes, best
 	 * first. A string is a class of one (so a flat list is a strict order);
@@ -539,6 +547,71 @@ function normalizeStringMap(value: unknown): Record<string, string> | undefined 
 	return Object.keys(map).length > 0 ? map : undefined;
 }
 
+/**
+ * `translation.cpu.opus`: each pair a repo, or `{model, token?, name?,
+ * sizeBytes?}`. An entry without a usable `model`, or with a `token` that is
+ * not one, is dropped whole: a multilingual model run without its token
+ * answers in the wrong language. A malformed `name` or `sizeBytes` is
+ * dropped alone.
+ */
+function normalizeOpusPairs(value: unknown): Record<string, string | OpusPairOption> | undefined {
+	if (!isRecord(value)) {
+		return undefined;
+	}
+
+	const map: Record<string, string | OpusPairOption> = {};
+
+	for (const [rawKey, entry] of Object.entries(value)) {
+		const key = rawKey.trim();
+
+		if (key.length === 0) {
+			continue;
+		}
+
+		const repo = optionalString(entry);
+
+		if (repo !== undefined) {
+			map[key] = repo;
+			continue;
+		}
+
+		if (!isRecord(entry)) {
+			continue;
+		}
+
+		const model = optionalString(entry.model);
+
+		if (model === undefined) {
+			continue;
+		}
+
+		const option: OpusPairOption = {model};
+		const token = optionalString(entry.token);
+		const name = optionalString(entry.name);
+		const sizeBytes = entry.sizeBytes;
+
+		if (entry.token !== undefined && token === undefined) {
+			continue;
+		}
+
+		if (token !== undefined) {
+			option.token = token;
+		}
+
+		if (name !== undefined) {
+			option.name = name;
+		}
+
+		if (typeof sizeBytes === "number" && Number.isSafeInteger(sizeBytes) && sizeBytes > 0) {
+			option.sizeBytes = sizeBytes;
+		}
+
+		map[key] = option;
+	}
+
+	return Object.keys(map).length > 0 ? map : undefined;
+}
+
 /** A list of non-empty strings, e.g. MIME types; `undefined` when empty. */
 function normalizeStringList(value: unknown): string[] | undefined {
 	if (!Array.isArray(value)) {
@@ -772,9 +845,10 @@ export function normalizeTranslation(
 	}
 
 	if (isRecord(value.llm)) {
-		const llm: {model?: string; lib?: string} = {};
+		const llm: NonNullable<BrandingTranslation["llm"]> = {};
 		const model = optionalString(value.llm.model);
 		const lib = optionalUrl(value.llm.lib, base);
+		const splitModel = optionalUrl(value.llm.splitModel, base);
 
 		if (model !== undefined) {
 			llm.model = model;
@@ -784,15 +858,19 @@ export function normalizeTranslation(
 			llm.lib = lib;
 		}
 
+		if (splitModel !== undefined) {
+			llm.splitModel = splitModel;
+		}
+
 		if (Object.keys(llm).length > 0) {
 			translation.llm = llm;
 		}
 	}
 
 	if (isRecord(value.cpu)) {
-		const cpu: {nllb?: string; opus?: Record<string, string>} = {};
+		const cpu: NonNullable<BrandingTranslation["cpu"]> = {};
 		const nllb = optionalString(value.cpu.nllb);
-		const opus = normalizeStringMap(value.cpu.opus);
+		const opus = normalizeOpusPairs(value.cpu.opus);
 
 		if (nllb !== undefined) {
 			cpu.nllb = nllb;

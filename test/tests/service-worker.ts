@@ -2161,7 +2161,9 @@ describe("service worker reply pipeline", function () {
 
 		const sent = sw.lastSent();
 		expect(sent).to.include("CAP REQ :sasl message-tags");
-		expect(sent).to.include("@+draft/reply=BjAAAaBjrep2 PRIVMSG #seance :yes");
+		expect(sent).to.include(
+			"@+reply=BjAAAaBjrep2;+draft/reply=BjAAAaBjrep2 PRIVMSG #seance :yes"
+		);
 	});
 
 	it("answers a multiline message by its msgid even when its first line arrived last", async function () {
@@ -2174,7 +2176,9 @@ describe("service worker reply pipeline", function () {
 		const rec = sw.records.filter((n) => !n.closed)[0];
 		await fireClick(sw, rec, "reply", {reply: "yes"});
 
-		expect(sw.lastSent()).to.include("@+draft/reply=BjAAAaBjml1 PRIVMSG #seance :yes");
+		expect(sw.lastSent()).to.include(
+			"@+reply=BjAAAaBjml1;+draft/reply=BjAAAaBjml1 PRIVMSG #seance :yes"
+		);
 	});
 
 	it("sends a plain PRIVMSG when the server offers no message-tags", async function () {
@@ -2313,6 +2317,11 @@ describe("service worker notification click", function () {
 	});
 });
 
+/** A PushSubscription as browsers give it: the keys only through toJSON(). */
+function pushSubscription(endpoint: string) {
+	return {endpoint, toJSON: () => ({endpoint, keys: {p256dh: "P", auth: "A"}})};
+}
+
 describe("service worker subscription renewal", function () {
 	// Renewal is the push-only worker's job; the root registration holds no
 	// subscription in the per-network design.
@@ -2323,7 +2332,7 @@ describe("service worker subscription renewal", function () {
 		const promises: Promise<unknown>[] = [];
 		const ev = {
 			oldSubscription: null,
-			newSubscription: {endpoint: "https://push.example/e1", keys: {p256dh: "P", auth: "A"}},
+			newSubscription: pushSubscription("https://push.example/e1"),
 			waitUntil: (p: Promise<unknown>) => promises.push(p),
 		};
 
@@ -2339,6 +2348,7 @@ describe("service worker subscription renewal", function () {
 			l.startsWith("WEBPUSH REGISTER https://push.example/e1")
 		);
 		expect(register, "REGISTER sent").to.be.greaterThan(-1);
+		expect(sent[register]).to.equal("WEBPUSH REGISTER https://push.example/e1 p256dh=P;auth=A");
 		expect(register, "after CAP END, not before").to.be.greaterThan(capEnd);
 	});
 
@@ -2347,7 +2357,7 @@ describe("service worker subscription renewal", function () {
 		const promises: Promise<unknown>[] = [];
 		const ev = {
 			oldSubscription: {endpoint: "https://push.example/OLD"},
-			newSubscription: {endpoint: "https://push.example/NEW", keys: {p256dh: "P", auth: "A"}},
+			newSubscription: pushSubscription("https://push.example/NEW"),
 			waitUntil: (p: Promise<unknown>) => promises.push(p),
 		};
 
@@ -2371,7 +2381,7 @@ describe("service worker subscription renewal", function () {
 		const promises: Promise<unknown>[] = [];
 		const ev = {
 			oldSubscription: {endpoint: "https://push.example/OLD"},
-			newSubscription: {endpoint: "https://push.example/NEW", keys: {p256dh: "P", auth: "A"}},
+			newSubscription: pushSubscription("https://push.example/NEW"),
 			waitUntil: (p: Promise<unknown>) => promises.push(p),
 		};
 

@@ -43,14 +43,27 @@ const DEFAULT_CHANMODES: ChanModes = {
 	d: "aCcDdHiMmNnOPpQRrSsTtZz",
 };
 
+const utf8 = new TextDecoder("utf-8", {fatal: true});
+
+/** `bytes` as UTF-8, else one character per byte (a server from before UTF-8). */
+function decodeRun(bytes: Uint8Array): string {
+	try {
+		return utf8.decode(bytes);
+	} catch {
+		return String.fromCharCode(...bytes);
+	}
+}
+
 /** Unescape `\xHH` sequences in an ISUPPORT value. */
 function unescapeValue(value: string): string {
 	if (!value.includes("\\x")) {
 		return value;
 	}
 
-	return value.replace(/\\x([0-9a-fA-F]{2})/g, (_m, hex: string) =>
-		String.fromCharCode(parseInt(hex, 16))
+	// Each run of escapes is the UTF-8 encoding of what it stands for
+	// (`Caf\xC3\xA9` is "Café"), so a run is decoded as one byte string.
+	return value.replace(/(?:\\x[0-9a-fA-F]{2})+/g, (run) =>
+		decodeRun(Uint8Array.from(run.split("\\x").slice(1), (hex) => parseInt(hex, 16)))
 	);
 }
 

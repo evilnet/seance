@@ -142,7 +142,7 @@ export default async function run(page) {
 	// here anyway, but a device that has one must still take the CPU path.
 	// addInitScript applies to every later navigation, so both loads get it.
 	await page.addInitScript(
-		`try { localStorage.setItem("settings", JSON.stringify({translateLlm: false, translateTo: "en"})); } catch (e) {}`
+		`try { localStorage.setItem("settings", JSON.stringify({translationEnabled: true, translateLlm: false, translateTo: "en"})); } catch (e) {}`
 	);
 
 	// ---- Settings → Translation: download a real OPUS model ---------------

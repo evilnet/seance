@@ -59,6 +59,7 @@ import {
 	setChannelOptions,
 } from "./reader";
 import type {Route} from "./router";
+import {WORKER_DISPOSED} from "./client";
 import {sentReadBacks} from "./sentReadBack";
 import {LLM_MARKERS, type MarkerForm, stripCopiedNickPrefix} from "./spans";
 
@@ -168,41 +169,23 @@ export function writeTarget(network: ClientNetwork, channel: ClientChan): string
 	return translationOn() ? channelTranslation(network, channel).write : null;
 }
 
-/**
- * The composer's translate button: the draft into `to`, this once, whether
- * or not the channel has a write target -- the strip comes up as it does
- * for a write target, and the next Enter sends what it holds. The choice
- * is kept with the channel's record (channelStore.ts `once`, so it
- * survives a reload and travels in the settings backup) for the button's
- * next pick (`lastOnceTarget`).
- */
-export function translateOnce(
-	network: ClientNetwork,
-	channel: ClientChan,
-	draft: string,
-	to: string,
-	from: string | null = null
-): Promise<"strip" | "plain"> {
-	// Switched off, the button is gone; nothing is kept for it either.
-	if (!translationOn()) {
-		return Promise.resolve("plain");
-	}
-
-	if (channelTranslation(network, channel).once !== to) {
-		setChannelOptions(network, channel, {once: to});
-	}
-
-	return translateOutgoing(network, channel, draft, {to, from});
-}
-
 /** A one-off request: its target, and its source when the dialog named one. */
 export interface OnceRequest {
 	to: string;
 	/** Null: detect the draft's language, as a write target does. */
 	from: string | null;
+	/**
+	 * A writing offer taken for this message (offer.ts): the target behaves
+	 * as the conversation's would -- a draft already in it goes as typed --
+	 * rather than as a one-off pick, which corrects a draft in its own language.
+	 */
+	asTarget?: boolean;
 }
 
-/** The picker's preselection: the channel's last one-off target, else its write target. */
+/**
+ * The picker's preselection: the channel's last pick (`once`), else its
+ * write target (a record saved before a target set `once` as well).
+ */
 export function lastOnceTarget(network: ClientNetwork, channel: ClientChan): string {
 	const settings = channelTranslation(network, channel);
 
@@ -312,9 +295,16 @@ export async function translateOutgoing(
 			target: channel.name,
 			messages: channel.messages,
 		});
-		// No channel prior and no declared languages: both describe what
+		// No channel prior: it describes what
 		// others write here, and this is the user's own line.
 		// A source the one-off dialog named is the verdict, no detection run.
+		// The one picked with the channel's target (`writeFrom`) is the
+		// source too, and the composer's button names it; detection still
+		// runs, so a reply typed straight in the target language is sent as
+		// typed. With none picked the button's language is the reading
+		// language as a default, and a draft the detector is sure of in
+		// another language goes from that one (`writeSource`).
+		const namedFrom = once ? once.from : channelTranslation(network, channel).writeFrom;
 		const detection: Detection = once?.from
 			? {lang: once.from, confidence: 1, candidates: []}
 			: await detectLanguage(plainTextOf(draft, nicks), null, []);
@@ -345,7 +335,7 @@ export async function translateOutgoing(
 		const ownLanguage = to === readingLanguage();
 		const inTarget = detection.lang === to && detection.confidence >= WRITE_DETECT_MIN_GAP;
 
-		if (inTarget && !once && !ownLanguage) {
+		if (inTarget && (!once || once.asTarget) && !ownLanguage) {
 			cancelOutgoing(channel);
 			return "plain";
 		}
@@ -356,26 +346,49 @@ export async function translateOutgoing(
 		// the engine to guess at; a one-off with "detect" and no verdict is
 		// left to the engine, since the line may well be a foreign one
 		// pasted in to be translated.
-		const guessed = once?.from ?? writeSource(detection, readingLanguage(), to);
-		const polish =
-			inTarget || (ownLanguage && !once && guessed === null) || (!!once && once.from === to);
-		const from = polish ? to : guessed;
+		const guessed = namedFrom ?? writeSource(detection, readingLanguage(), to);
+		const polish = inTarget || (ownLanguage && !once && guessed === null) || namedFrom === to;
+		let from = polish ? to : guessed;
 		// The detector's verdict, however weak, rides along as the routing
 		// hint: a seq2seq route takes it as its source, so a draft whose
 		// source is left to the LLM can still reach NLLB (router.ts). It is
 		// not the prompt's `sourceHint`: the LLM is not told a guess the
 		// code judged too weak to trust.
+		let route = await service.route(from, to, sourceHintFor(detection, from, to));
+
+		// A detected source nothing here can translate from ("Heck yeah it
+		// is" placed as Afrikaans, with only English pairs on the device)
+		// is far likelier a short draft misplaced than a language the user
+		// writes in: the reading language, when it has a route, wins over
+		// a failure. A source the user named is never second-guessed.
+		const reading = readingLanguage();
+
+		if (
+			!route &&
+			!polish &&
+			!namedFrom &&
+			from !== null &&
+			from !== reading &&
+			reading !== to
+		) {
+			const fallback = await service.route(reading, to, reading);
+
+			if (fallback) {
+				from = reading;
+				route = fallback;
+			}
+		}
+
+		if (!current(channel, draft, controller)) {
+			return "strip";
+		}
+
 		const hint = sourceHintFor(detection, from, to);
-		const route = await service.route(from, to, hint);
 		// Nothing of the channel travels with a polish (the prompt profiles
 		// say why): the register is all it keeps.
 		const polishContext = emptyContext();
 
 		polishContext.formality = formalityOf(settings.formality);
-
-		if (settings.variant) {
-			polishContext.variant = settings.variant;
-		}
 
 		const context = polish
 			? polishContext
@@ -397,7 +410,6 @@ export async function translateOutgoing(
 						terms: termsFor(settings.terms, from, to),
 						glossary: getBranding().translation?.glossary ?? [],
 						formality: formalityOf(settings.formality),
-						variant: settings.variant,
 						sourceHint: from,
 						nicks,
 						voice: voiceFor(channel, to),
@@ -672,7 +684,6 @@ export async function checkOutgoing(network: ClientNetwork, channel: ClientChan)
 				terms: termsFor(settings.terms, entry.to, target),
 				glossary: getBranding().translation?.glossary ?? [],
 				formality: formalityOf(settings.formality),
-				variant: settings.variant,
 				sourceHint: entry.to,
 				nicks,
 			}

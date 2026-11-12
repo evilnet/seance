@@ -2,6 +2,7 @@
 	<div id="chat-container" class="window" :data-current-channel="channel.name" lang="">
 		<div
 			id="chat"
+			ref="chatPane"
 			:class="{
 				'hide-motd': !store.state.settings.motd,
 				'time-seconds': store.state.settings.showSeconds,
@@ -17,12 +18,16 @@
 				:aria-label="channel.name"
 				role="tabpanel"
 			>
-				<div class="header">
+				<div class="header" :data-tauri-drag-region="dragRegion">
 					<SidebarToggle />
 					<span class="title" :aria-label="openTitle"
 						><bdi>{{ channel.name }}</bdi></span
 					>
-					<div v-if="channel.editTopic === true" class="topic-container">
+					<div
+						v-if="channel.editTopic === true"
+						class="topic-container"
+						data-tauri-drag-region="false"
+					>
 						<input
 							ref="topicInput"
 							dir="auto"
@@ -41,6 +46,7 @@
 						v-else
 						:title="topicTitle"
 						:class="{topic: true, empty: !channel.topic}"
+						data-tauri-drag-region="false"
 						@dblclick="editTopic"
 						><button
 							v-if="topicTranslation"
@@ -71,21 +77,6 @@
 							:aria-label="connectingLabel"
 						/>
 					</span>
-					<span
-						v-if="translationAvailable"
-						class="translate-tooltip tooltipped tooltipped-w tooltipped-no-touch"
-						:data-tooltip="translateLabel"
-					>
-						<button
-							class="translate"
-							:class="{on: channelReads, unavailable: translationBlocked}"
-							:aria-label="translateLabel"
-							:aria-pressed="touch ? undefined : channelReads"
-							:aria-expanded="translationPanelOpen"
-							@click="onTranslateClick"
-							@contextmenu.prevent="openTranslationPanel"
-						/>
-					</span>
 					<button class="mentions" :aria-label="mentionsLabel" @click="openMentions">
 						<span v-if="mentionCount" class="mentions-badge" aria-hidden="true">{{
 							mentionBadge
@@ -104,12 +95,6 @@
 						/>
 					</span>
 				</div>
-				<TranslationPanel
-					v-if="translationPanelOpen && translationAvailable"
-					:channel="channel"
-					:network="network"
-					@close="translationPanelOpen = false"
-				/>
 				<div v-if="channel.type === 'special'" class="chat-content">
 					<div class="chat">
 						<div class="messages">
@@ -179,8 +164,19 @@ import MessageSearchForm from "./MessageSearchForm.vue";
 import ListInvites from "./Special/ListInvites.vue";
 import ListExcepts from "./Special/ListExcepts.vue";
 import ListIgnored from "./Special/ListIgnored.vue";
-import TranslationPanel from "./TranslationPanel.vue";
-import {defineComponent, PropType, ref, computed, watch, nextTick, onMounted, Component} from "vue";
+import {
+	defineComponent,
+	PropType,
+	ref,
+	computed,
+	watch,
+	nextTick,
+	onMounted,
+	onBeforeUnmount,
+	Component,
+} from "vue";
+import {watchUserlistOverlay} from "../js/userlistOverlay";
+import {macDragRegion} from "../js/helpers/shell";
 import {channelOpened} from "../js/helpers/lastChannel";
 import {prefetchEmojiCatalog} from "../js/helpers/emoji";
 import type {ClientNetwork, ClientChan} from "../js/types";
@@ -189,18 +185,8 @@ import {SpecialChanType, ChanType} from "../../shared/types/chan";
 import {layout, toPlainText} from "../js/helpers/ircmessageparser/layout";
 import {useI18n} from "../js/i18n";
 import {formatNumber} from "../js/i18n/numbers";
-import {
-	channelTranslation,
-	readTopic,
-	readingLanguage,
-	setReading,
-	showOriginal,
-	translationAvailable as translationAvailableNow,
-	currentTranslationBlock,
-} from "../js/translate/reader";
+import {channelTranslation, readTopic, readingLanguage, showOriginal} from "../js/translate/reader";
 import {topicEntryId} from "../js/translate/topic";
-import {languageName} from "../js/translate/languages";
-import {hasVirtualKeyboard} from "../js/helpers/device";
 
 export default defineComponent({
 	name: "Chat",
@@ -211,7 +197,6 @@ export default defineComponent({
 		ChatUserList,
 		SidebarToggle,
 		MessageSearchForm,
-		TranslationPanel,
 	},
 	props: {
 		network: {type: Object as PropType<ClientNetwork>, required: true},
@@ -303,7 +288,7 @@ export default defineComponent({
 			() => [
 				props.channel.id,
 				props.channel.topic,
-				channelTranslation(props.network, props.channel).read,
+				channelTranslation(props.network, props.channel).exclude,
 				readingLanguage(),
 			],
 			() => void readTopic(props.network, props.channel),
@@ -419,126 +404,6 @@ export default defineComponent({
 			});
 		};
 
-		const translationPanelOpen = ref(false);
-		const translationState = computed(() => channelTranslation(props.network, props.channel));
-		const translationAvailable = computed(
-			() =>
-				(props.channel.type === ChanType.CHANNEL ||
-					props.channel.type === ChanType.QUERY) &&
-				translationAvailableNow()
-		);
-		// The light means reading; a write target shows in the tooltip.
-		const channelReads = computed(() => translationState.value.read);
-		// A touch device has no right-click, so the tap is what opens the
-		// panel there and the button says so; the click keeps toggling
-		// reading where there is a pointer.
-		const touch = hasVirtualKeyboard();
-		// Nothing here can translate (router.ts `translationBlock`): the button
-		// stays, says so, and opens the panel, whose banner gives the reason.
-		const translationBlocked = computed(() => !!currentTranslationBlock());
-		const translateLabel = computed(() => {
-			// Before the touch label: a tap opens the panel either way, but
-			// the button's name should not promise settings when nothing
-			// here can translate.
-			if (translationBlocked.value) {
-				return t("translate.unavailable.lead");
-			}
-
-			if (touch) {
-				return t("translate.header.settings");
-			}
-
-			// Every language the tooltip names is named in the language the
-			// reader reads this channel in (F40), like every other label.
-			const name = (code: string) => languageName(code, readingLanguage());
-			const {read, write} = translationState.value;
-			const paused = store.state.translation.paused;
-			// One whole phrase per state (reading on/off × a write target ×
-			// paused): the tooltip is never assembled from translated pieces,
-			// and every key is a literal the pot check can see.
-			const vars = {
-				reading: name(readingLanguage()),
-				writing: write ? name(write) : "",
-				// The engine's own text: a verbatim value, never translated.
-				reason: paused ? paused.message : "",
-			};
-
-			if (paused) {
-				if (read) {
-					return write
-						? t("translate.header.readWritePaused", vars)
-						: t("translate.header.readPaused", vars);
-				}
-
-				return write
-					? t("translate.header.offWritePaused", vars)
-					: t("translate.header.offPaused", vars);
-			}
-
-			if (read) {
-				return write
-					? t("translate.header.readWrite", vars)
-					: t("translate.header.read", vars);
-			}
-
-			return write ? t("translate.header.offWrite", vars) : t("translate.header.off", vars);
-		});
-
-		const openTranslationPanel = () => {
-			translationPanelOpen.value = true;
-		};
-
-		const toggleTranslation = () => {
-			const wasOn = translationState.value.read;
-
-			setReading(props.network, props.channel, !wasOn);
-
-			// Switching a channel on opens its panel with it: the reader sees
-			// which languages they just asked for and can adjust them at once,
-			// where the click alone would silently pick the global target.
-			// Switching off is the whole of what switching off means.
-			if (!wasOn) {
-				openTranslationPanel();
-			}
-		};
-
-		const onTranslateClick = () => {
-			if (touch || translationBlocked.value) {
-				openTranslationPanel();
-			} else {
-				toggleTranslation();
-			}
-		};
-
-		watch(
-			() => props.channel.id,
-			() => {
-				translationPanelOpen.value = false;
-			}
-		);
-
-		// Translation switched off (or nothing here can run it any more):
-		// the panel goes with the button, and does not come back with it.
-		watch(translationAvailable, (available) => {
-			if (!available) {
-				translationPanelOpen.value = false;
-			}
-		});
-
-		// The channel menu's "Translation…" switches to the channel and
-		// leaves its id in the store, so the ask survives the switch: open
-		// the panel once this view is the channel that was asked for, and
-		// clear it. Registered after the watcher above, which closes the
-		// panel on a channel change and would otherwise undo this one.
-		const openPanelIfAsked = () => {
-			if (store.state.translation.panelFor === props.channel.id) {
-				translationPanelOpen.value = true;
-				store.commit("translationPanelFor", null);
-			}
-		};
-
-		watch(() => [props.channel.id, store.state.translation.panelFor], openPanelIfAsked);
-
 		watch(
 			() => props.channel,
 			() => {
@@ -557,9 +422,19 @@ export default defineComponent({
 			}
 		);
 
+		const chatPane = ref<HTMLElement | null>(null);
+		let stopUserlistOverlay: (() => void) | null = null;
+
+		onBeforeUnmount(() => {
+			stopUserlistOverlay?.();
+		});
+
 		onMounted(() => {
+			if (chatPane.value) {
+				stopUserlistOverlay = watchUserlistOverlay(chatPane.value);
+			}
+
 			channelChanged();
-			openPanelIfAsked();
 
 			if (props.channel.editTopic) {
 				void nextTick(() => {
@@ -569,6 +444,8 @@ export default defineComponent({
 		});
 
 		return {
+			chatPane,
+			dragRegion: macDragRegion(),
 			leavePast,
 			pastStatus,
 			store,
@@ -596,14 +473,6 @@ export default defineComponent({
 			saveTopic,
 			openContextMenu,
 			openMentions,
-			translationPanelOpen,
-			translationAvailable,
-			channelReads,
-			translationBlocked,
-			translateLabel,
-			touch,
-			onTranslateClick,
-			openTranslationPanel,
 			mentionCount,
 			mentionBadge,
 		};

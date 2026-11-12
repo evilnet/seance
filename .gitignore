@@ -28,3 +28,6 @@ docs/superpowers/
 # agent scratch (local session state)
 .claude-config/
 .mcp-memory/
+
+# make: personal settings (Makefile header)
+local.mk

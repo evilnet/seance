@@ -115,7 +115,11 @@ function writeIfNewer(
 		return server;
 	}
 
-	client.send(`METADATA * SET ${key} private :${formatStamped(mine)}`);
+	const line = client.metadataSetLine(key, formatStamped(mine));
+
+	if (line) {
+		client.send(line);
+	}
 	return mine;
 }
 

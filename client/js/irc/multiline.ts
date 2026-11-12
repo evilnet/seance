@@ -14,6 +14,7 @@
  * This module is store- and DOM-free (it runs under mocha).
  */
 
+import {languageFieldsOf} from "./langtag";
 import {t} from "../i18n/core";
 import {MessageType} from "../../../shared/types/msg";
 import type {IrcClient} from "./client";
@@ -200,7 +201,7 @@ function passOn(client: IrcClient, batch: OpenBatch, lines: IrcMessage[]): void 
 
 /**
  * A closed `draft/multiline` batch: one synthetic `PRIVMSG`/`NOTICE` with the
- * joined text, carrying the opener's tags (msgid, time, `+draft/reply`,
+ * joined text, carrying the opener's tags (msgid, time, `+reply`,
  * `+seance/edit`, …) and the first line's source, run through the ordinary
  * handlers so CTCP, highlights, replies and edits all see the whole message.
  * A malformed batch falls back to its lines, one by one, as an unhandled
@@ -385,9 +386,22 @@ export function planMultiline(
 			batch.length > 0 &&
 			(batch.length >= limits.maxLines || bytes + feed + size > limits.maxBytes)
 		) {
-			plan.push(batch);
+			// Only the first batch can get here blank (its leading blank
+			// lines): those are dropped rather than sent alone.
+			if (batch.some((held) => held.text !== "")) {
+				plan.push(batch);
+			}
+
 			batch = [];
 			bytes = 0;
+		}
+
+		if (batch.length === 0 && line.text === "" && plan.length > 0) {
+			// No batch may be blank throughout (the draft forbids sending one,
+			// and the server's FAIL would drop the rest of the message): blank
+			// lines where a later batch would start are left out, the gap
+			// between two batches shows anyway.
+			continue;
 		}
 
 		if (batch.length === 0) {
@@ -614,6 +628,7 @@ export function sendMultiline(
 					replyTo: tags[REPLY_TAG],
 					editOf: tags[EDIT_TAG],
 					statusmsgGroup: splitStatusTarget(client, target).group,
+					...languageFieldsOf((name) => tags[name]),
 				},
 				{arm: false}
 			);

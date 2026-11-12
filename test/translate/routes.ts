@@ -24,6 +24,22 @@ describe("translate/routes.default", () => {
 	// OPUS-MT (Apache-2.0 code, CC-BY weights) before NLLB-200 (CC-BY-NC-4.0)
 	// wherever a pair exists, in either model's table: NLLB is only ever the
 	// class after the pair's own model.
+	// Least to most resource-intensive: a ~100 MB pair on the CPU before a
+	// 1-2 GB language model, whatever the measured quality order.
+	it("puts an OPUS-MT pair first, alone, wherever the pair exists", () => {
+		for (const id of [QWEN3_1_7B_ID, QWEN3_4B_ID]) {
+			const table = routesFor(id);
+
+			for (const pair of Object.keys(DEFAULT_OPUS_PAIRS)) {
+				const [from, to] = pair.split("-");
+
+				expect(classesOf(table[to][from])[0], `${id} ${pair}`).to.deep.equal([
+					`opus:${pair}`,
+				]);
+			}
+		}
+	});
+
 	it("puts an OPUS-MT pair ahead of NLLB-200 wherever the pair exists", () => {
 		for (const id of [QWEN3_1_7B_ID, QWEN3_4B_ID]) {
 			const table = routesFor(id);
@@ -103,8 +119,8 @@ describe("translate/routes.default", () => {
 
 		expect(table["*"].fi).to.deep.equal(["nllb", "llm"]);
 		expect(table["*"].sr).to.equal(undefined);
-		// de-en is an OPUS pair not tied in this placement: the LLM, then OPUS.
-		expect(table.en.de).to.deep.equal(["llm", "opus:de-en", "nllb"]);
+		// de-en is an OPUS pair: the pair first, tied or not.
+		expect(table.en.de).to.deep.equal(["opus:de-en", "llm", "nllb"]);
 	});
 
 	it("the limited languages are per model", () => {

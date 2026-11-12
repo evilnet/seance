@@ -6,7 +6,7 @@
 		:aria-modal="fromLink ? 'true' : undefined"
 		:aria-label="ariaLabel"
 	>
-		<div v-if="!fromLink" class="header">
+		<div v-if="!fromLink" class="header" :data-tauri-drag-region="dragRegion">
 			<SidebarToggle />
 		</div>
 		<form
@@ -118,6 +118,10 @@
 				{{ linkNotice }}
 			</div>
 
+			<div v-if="linkCleartext" class="connect-notice connect-link-notice">
+				{{ t("connect.linkCleartext") }}
+			</div>
+
 			<h2 v-if="!hostLocked">{{ t("connect.server") }}</h2>
 			<div v-if="hostLocked" class="connect-row connect-network">
 				<label>{{ t("connect.network") }}</label>
@@ -155,6 +159,20 @@
 						:aria-label="serverPortLabel"
 						required
 					/>
+				</div>
+			</div>
+			<div v-if="!hostLocked && canUseTcp" class="connect-row">
+				<label for="connect:transport">{{ t("connect.connection") }}</label>
+				<div class="input-wrap">
+					<select
+						id="connect:transport"
+						v-model="connection"
+						class="input"
+						name="transport"
+					>
+						<option value="websocket">{{ t("connect.connection.websocket") }}</option>
+						<option value="tcp">{{ t("connect.connection.tcp") }}</option>
+					</select>
 				</div>
 			</div>
 			<div v-if="!hostLocked" class="connect-row">
@@ -260,21 +278,66 @@
 						</label>
 					</div>
 				</div>
-				<div v-if="showSavedNetworks" class="connect-row">
+			</template>
+
+			<!-- PASS before registration: bouncers without client SASL (ZNC).
+			     A locked host still shows it for a saved entry that has one. -->
+			<template v-if="!hostLocked || showServerPassword">
+				<div class="connect-row">
 					<label></label>
 					<div class="input-wrap">
 						<label class="tls">
 							<input
-								v-model="rememberPassword"
+								v-model="showServerPassword"
 								v-switch
 								type="checkbox"
-								name="rememberPassword"
+								name="hasServerPassword"
 							/>
-							{{ t("connect.rememberPassword") }}
+							{{ t("form.serverPasswordToggle") }}
+							<span
+								class="tooltipped tooltipped-n tooltipped-no-delay"
+								:aria-label="serverPasswordHelp"
+							>
+								<button class="extra-help" type="button" />
+							</span>
 						</label>
 					</div>
 				</div>
+				<div v-if="showServerPassword" class="connect-row">
+					<label for="connect:serverPassword">{{ t("form.serverPassword") }}</label>
+					<RevealPassword
+						v-slot:default="slotProps"
+						class="input-wrap password-container"
+					>
+						<input
+							id="connect:serverPassword"
+							ref="serverPasswordInput"
+							v-model="form.serverPassword"
+							dir="auto"
+							class="input"
+							:type="slotProps.isVisible ? 'text' : 'password'"
+							name="serverPassword"
+							maxlength="300"
+							autocomplete="off"
+							required
+						/>
+					</RevealPassword>
+				</div>
 			</template>
+			<div v-if="showSavedNetworks && (showSasl || showServerPassword)" class="connect-row">
+				<label></label>
+				<div class="input-wrap">
+					<label class="tls">
+						<input
+							v-model="rememberPassword"
+							v-switch
+							type="checkbox"
+							name="rememberPassword"
+						/>
+						{{ t("connect.rememberPassword") }}
+					</label>
+				</div>
+			</div>
 
 			<div class="connect-row">
 				<label></label>
@@ -413,6 +476,7 @@ import {brandingFeatures, expandNick, nickFromAccount} from "../../js/branding";
 import {autoconnectSavedNetworks, createNetwork} from "../../js/irc/manager";
 import * as saved from "../../js/irc/saved-networks";
 import {defaultPort, SavedNetwork} from "../../js/irc/saved-networks";
+import {isShell, macDragRegion} from "../../js/helpers/shell";
 import {mergeJoinLists} from "../../js/helpers/linkTarget";
 import {askNativeAlertPermission, nativeAlertsAvailable} from "../../js/helpers/nativeAlerts";
 import {router, switchToChannel} from "../../js/router";
@@ -428,7 +492,16 @@ export type {ConnectOptions};
  * `saslPassword` is deliberately not accepted: a link must not carry secrets
  * (docs/projects/irc-link-new-server-dialog.md).
  */
-const CONNECT_PARAMS = ["host", "port", "tls", "nick", "join", "channels", "saslAccount"];
+const CONNECT_PARAMS = [
+	"host",
+	"port",
+	"tls",
+	"transport",
+	"nick",
+	"join",
+	"channels",
+	"saslAccount",
+];
 
 export default defineComponent({
 	name: "Connect",
@@ -457,6 +530,7 @@ export default defineComponent({
 		const serverAddressLabel = computed(() => t("connect.serverAddress"));
 		const serverPortLabel = computed(() => t("connect.serverPort"));
 		const channelsPlaceholder = computed(() => t("connect.channelsPlaceholder"));
+		const serverPasswordHelp = computed(() => t("form.serverPasswordHelp"));
 		const tls = network?.tls ?? defaults?.tls ?? true;
 		// The server the deploy points at. Pinned when the host is locked.
 		const server = {
@@ -474,6 +548,7 @@ export default defineComponent({
 			sasl: defaults?.sasl === "plain" ? "plain" : "",
 			saslAccount: defaults?.saslAccount || "",
 			saslPassword: defaults?.saslPassword || "",
+			serverPassword: "",
 		});
 
 		// `lockHost` hides the server fields; `allowCustomServer: false` does the
@@ -486,8 +561,24 @@ export default defineComponent({
 		const pinServer = () => {
 			if (hostLocked) {
 				Object.assign(form, server);
+				form.transport = "websocket"; // the deploy's server is a WebSocket one
 			}
 		};
+
+		// IRC over TCP: only the app shell can open a raw socket.
+		const canUseTcp = isShell();
+		const connection = computed({
+			get: () => form.transport ?? "websocket",
+			set(value: string) {
+				const next = value === "tcp" ? "tcp" : "websocket";
+
+				if (form.port === defaultPort(form.tls, form.transport)) {
+					form.port = defaultPort(form.tls, next);
+				}
+
+				form.transport = next;
+			},
+		});
 
 		// The sign-in panel replaces the whole form; `brandingFeatures` only
 		// reports it when there is a `defaultNetwork` to sign in to, and pins
@@ -503,6 +594,7 @@ export default defineComponent({
 		const rememberMe = ref(false);
 
 		const showSasl = ref(false);
+		const showServerPassword = ref(false);
 		const rememberPassword = ref(false);
 		const autoconnect = ref(false);
 		/** Push defaults to on for a new network: the flag means "register when
@@ -535,17 +627,23 @@ export default defineComponent({
 		const submitted = ref<ConnectOptions | null>(null);
 		const notice = ref("");
 		const passwordInput = ref<HTMLInputElement | null>(null);
+		const serverPasswordInput = ref<HTMLInputElement | null>(null);
 
 		const prefill = (net: SavedNetwork) => {
 			form.host = net.host;
 			form.port = net.port;
 			form.tls = net.tls;
+
+			form.transport = net.transport ?? "websocket";
+
 			form.nick = net.nick;
 			form.join = net.join;
 			form.sasl = net.sasl;
 			form.saslAccount = net.saslAccount;
 			form.saslPassword = net.saslPassword;
 			showSasl.value = net.sasl === "plain";
+			form.serverPassword = net.serverPassword ?? "";
+			showServerPassword.value = !!net.hasServerPassword;
 			rememberPassword.value = !!net.rememberPassword;
 			autoconnect.value = !!net.autoconnect;
 			pushEnabled.value = net.pushEnabled !== false;
@@ -567,7 +665,7 @@ export default defineComponent({
 		const savedLink = savedLinkUuid ? saved.get(savedLinkUuid) : undefined;
 		const linkIgnored = firstParam(props.queryParams?.linkIgnored);
 		const fromLink = isTruthyParam(props.queryParams?.fromLink);
-		let focusPassword = false;
+		let focusPassword: "sasl" | "server" | false = false;
 
 		if (savedLink) {
 			prefill(savedLink);
@@ -579,10 +677,13 @@ export default defineComponent({
 
 			if (savedLink.sasl === "plain" && !savedLink.saslPassword) {
 				notice.value = t("connect.enterPassword", {account: savedLink.saslAccount});
-				focusPassword = true;
+				focusPassword = "sasl";
+			} else if (savedLink.hasServerPassword && !savedLink.serverPassword) {
+				notice.value = t("connect.enterServerPassword", {host: savedLink.host});
+				focusPassword = "server";
 			}
 		} else if (hasConnectParams) {
-			applyQueryParams(form, props.queryParams);
+			applyQueryParams(form, props.queryParams, canUseTcp);
 			pinServer();
 			showSasl.value = form.sasl === "plain" || !!form.saslAccount;
 		} else {
@@ -632,12 +733,19 @@ export default defineComponent({
 			return "";
 		});
 
+		// A plain irc:// link in the app: say the connection would be
+		// cleartext. The TLS switch is right there; nothing tries TLS behind
+		// the user's back (some networks have no TLS port).
+		const linkCleartext = computed(
+			() => fromLink && !savedLink && form.transport === "tcp" && !form.tls
+		);
+
 		// Follow the TLS checkbox while the port is still one of the defaults.
 		watch(
 			() => form.tls,
 			(useTls) => {
-				if (form.port === defaultPort(!useTls)) {
-					form.port = defaultPort(useTls);
+				if (form.port === defaultPort(!useTls, form.transport)) {
+					form.port = defaultPort(useTls, form.transport);
 				}
 			}
 		);
@@ -660,6 +768,7 @@ export default defineComponent({
 			const client = createNetwork({
 				...submitted.value,
 				uuid: (signInMode ? signInUuid() : selectedUuid.value) ?? undefined,
+				hasServerPassword: !!submitted.value.serverPassword,
 				pushEnabled: pushEnabled.value,
 				notifyEnabled: notifyEnabled.value,
 				...options,
@@ -713,8 +822,13 @@ export default defineComponent({
 				form.saslPassword = "";
 			}
 
+			if (!showServerPassword.value) {
+				form.serverPassword = "";
+			}
+
 			start({
-				rememberPassword: showSasl.value && rememberPassword.value,
+				rememberPassword:
+					(showSasl.value || showServerPassword.value) && rememberPassword.value,
 				autoconnect: autoconnect.value,
 			});
 		};
@@ -741,15 +855,20 @@ export default defineComponent({
 		onMounted(() => {
 			// A link to a saved network whose password was not remembered:
 			// everything is filled in but the password, so put the cursor there.
-			if (focusPassword) {
+			if (focusPassword === "sasl") {
 				passwordInput.value?.focus();
+			} else if (focusPassword === "server") {
+				serverPasswordInput.value?.focus();
 			}
 		});
 
 		return {
+			dragRegion: macDragRegion(),
 			form,
 			store,
 			t,
+			canUseTcp,
+			connection,
 			ariaLabel,
 			serverAddressLabel,
 			serverPortLabel,
@@ -764,6 +883,8 @@ export default defineComponent({
 			networkLabel,
 			showSavedNetworks,
 			showSasl,
+			showServerPassword,
+			serverPasswordHelp,
 			rememberPassword,
 			autoconnect,
 			pushEnabled,
@@ -773,8 +894,10 @@ export default defineComponent({
 			submitted,
 			notice,
 			linkNotice,
+			linkCleartext,
 			fromLink,
 			passwordInput,
+			serverPasswordInput,
 			onSubmit,
 			cancelLink,
 		};
@@ -791,10 +914,10 @@ function isTruthyParam(value: unknown): boolean {
 
 /**
  * Pre-fill the form from `?host=...&nick=...` style URL parameters or the
- * output of `parseIrcUri` for `web+irc://` links. `channels` is accepted as an
+ * output of `parseIrcUri` for `web+irc://` (and, in the app, `irc://`) links. `channels` is accepted as an
  * alias for `join` for compatibility with other clients.
  */
-function applyQueryParams(form: ConnectOptions, params?: Record<string, any>) {
+function applyQueryParams(form: ConnectOptions, params?: Record<string, any>, canUseTcp = false) {
 	if (!params) {
 		return;
 	}
@@ -802,6 +925,7 @@ function applyQueryParams(form: ConnectOptions, params?: Record<string, any>) {
 	const host = firstParam(params.host);
 	const port = firstParam(params.port);
 	const tls = firstParam(params.tls);
+	const transport = firstParam(params.transport);
 	const nick = firstParam(params.nick);
 	const join = firstParam(params.join ?? params.channels);
 	const saslAccount = firstParam(params.saslAccount);
@@ -816,6 +940,11 @@ function applyQueryParams(form: ConnectOptions, params?: Record<string, any>) {
 
 	if (tls !== undefined) {
 		form.tls = !(tls === "0" || tls === "false");
+	}
+
+	// Only the app shell dials TCP; a browser keeps its WebSocket.
+	if (transport === "tcp" && canUseTcp) {
+		form.transport = "tcp";
 	}
 
 	if (nick) {

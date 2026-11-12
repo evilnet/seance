@@ -1,0 +1,74 @@
+# The desktop shell's smoke run, the macOS app and an iOS Simulator build, on
+# pushes to develop that touch what goes into the Apple apps, and by hand
+# (Actions > Apple > Run workflow, on any branch). Not on pull requests: a cold
+# macOS build takes long enough to hold one up. The develop run saves the build
+# cache a run by hand starts from. The smoke run goes first: it fails fastest.
+# Nothing here is signed, and the iOS build only compiles.
+name: Apple
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - "Makefile"
+      - ".github/workflows/apple.yml"
+      - "shells/tauri/**"
+      # The Android, Windows and Linux-only parts of the shell.
+      - "!shells/tauri/src-tauri/gen/android/**"
+      - "!shells/tauri/src-tauri/tauri.android.conf.json"
+      - "!shells/tauri/src-tauri/windows/**"
+      - "!shells/tauri/tools/linux/**"
+      - "!shells/tauri/tools/shots-linux.sh"
+      - "!shells/tauri/**/*.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apple-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apple:
+    # The shell's deployment target is macOS 26 (shells/tauri/README.md).
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: ".node-version"
+
+      - name: Install pnpm
+        run: npm install --global "$(node -p 'require("./package.json").packageManager')"
+
+      - name: Rust target
+        run: rustup target add aarch64-apple-ios-sim
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: shells/tauri/src-tauri
+
+      - name: Desktop smoke
+        run: make mac-test
+
+      - name: macOS app
+        run: make mac-build
+
+      - name: iOS Simulator build
+        run: make ios-sim-build
+
+      # A tar keeps the executable bit, which an uploaded directory loses.
+      - name: Pack the app
+        run: tar -cf Seance.app.tar -C shells/tauri/src-tauri/target/release/bundle/macos Seance.app
+
+      - name: Keep the app
+        uses: actions/upload-artifact@v7
+        with:
+          name: seance-macos-unsigned
+          path: Seance.app.tar
+          if-no-files-found: error
+          retention-days: 14

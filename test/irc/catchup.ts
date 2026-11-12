@@ -189,11 +189,12 @@ describe("Connect burst: batched JOIN, catch-up paced by fake lag, lazy MODE (ir
 			"#four",
 		]);
 
-		// One TARGETS, first in the queue, from the start of time (nothing is
-		// held yet) to a day past now.
+		// One TARGETS, first in the queue, from a day past now back to the
+		// start of time (nothing is held yet): newer bound first, so a server
+		// following the spec counts the limit from the newest (issue #216).
 		const [targets] = collect(h, 1).map((s) => s.line);
 		expect(targets).to.match(
-			/^@label=tg\d+ CHATHISTORY TARGETS timestamp=1970-01-01T00:00:00\.000Z timestamp=2026-08-28T12:00:\d\d\.\d{3}Z 100$/
+			/^@label=tg\d+ CHATHISTORY TARGETS timestamp=2026-08-28T12:00:\d\d\.\d{3}Z timestamp=1970-01-01T00:00:00\.000Z 100$/
 		);
 		answerTargets(h, targets, [
 			["#three", "2026-08-27T11:59:00.000Z"],
@@ -604,7 +605,9 @@ describe("Connect burst: batched JOIN, catch-up paced by fake lag, lazy MODE (ir
 			const h = heldThenDropped(HELD);
 			const [targets] = collect(h, 1, isTargets).map((s) => s.line);
 			// From the start: events move what we hold, not the server's index.
-			expect(targets).to.include("TARGETS timestamp=1970-01-01T00:00:00.000Z ");
+			expect(targets).to.match(
+				/ TARGETS timestamp=\S+ timestamp=1970-01-01T00:00:00\.000Z \d+$/
+			);
 			answerTargets(h, targets, [
 				["#three", "2026-08-27T12:05:00.000Z"], // written to since
 				["#seance", "2026-08-27T12:04:00.000Z"], // the active one: served already
@@ -664,7 +667,9 @@ describe("Connect burst: batched JOIN, catch-up paced by fake lag, lazy MODE (ir
 			h.sent();
 			joinAll(h);
 			const [targets] = collect(h, 1, isTargets).map((s) => s.line);
-			expect(targets).to.include("TARGETS timestamp=1970-01-01T00:00:00.000Z ");
+			expect(targets).to.match(
+				/ TARGETS timestamp=\S+ timestamp=1970-01-01T00:00:00\.000Z \d+$/
+			);
 			answerTargets(h, targets, []);
 			expect(fetched(collect(h, 20).map((s) => s.line))).to.deep.equal([
 				"#two",
@@ -723,6 +728,37 @@ describe("Connect burst: batched JOIN, catch-up paced by fake lag, lazy MODE (ir
 			answerTargets(h, again, [["#three", "2026-08-27T12:59:00.000Z"]]);
 			const next = collect(h, 1, isFetch).map((s) => s.line);
 			expect(fetched(next)).to.deep.equal(["#three"]);
+		});
+
+		it("walks on past a line said while the channel waited its turn", function () {
+			const h = heldThenDropped(HELD);
+			const [targets] = collect(h, 1, isTargets).map((s) => s.line);
+			// Joined, its catch-up not yet sent: carol speaks.
+			h.transport.line(
+				"@time=2026-08-27T12:59:00.000Z;msgid=live :carol!carol@host PRIVMSG #three :now"
+			);
+			answerTargets(h, targets, [["#three", "2026-08-27T12:59:00.000Z"]]);
+			const [fetch] = collect(h, 1, isFetch).map((s) => s.line);
+			const label = /^@label=(\S+) /.exec(fetch)![1];
+			const limit = Number(fetch.split(" ").at(-1));
+			h.transport.line(`@label=${label} :irc.test BATCH +p chathistory #three`);
+
+			for (let i = 0; i < limit - 1; i++) {
+				const time = new Date(Date.parse("2026-08-27T12:30:00.000Z") + i * 1000);
+				h.transport.line(
+					`@batch=p;time=${time.toISOString()};msgid=w${i} :bob!bob@host PRIVMSG #three :line ${i}`
+				);
+			}
+
+			h.transport.line(
+				"@batch=p;time=2026-08-27T12:59:00.000Z;msgid=live :carol!carol@host PRIVMSG #three :now"
+			);
+			h.transport.line(":irc.test BATCH -p");
+
+			// A full page, and nothing in it was held at the JOIN: the gap goes on.
+			const before = collect(h, 1, (l) => /CHATHISTORY BEFORE #three /.test(l));
+			expect(before.map((s) => s.line)[0]).to.match(/ msgid=w0 /);
+			expect(h.client.findChannel("#three")!.historyFilled).to.equal(false);
 		});
 
 		it("asks even when the clock has room for it the moment the first channel waits", function () {

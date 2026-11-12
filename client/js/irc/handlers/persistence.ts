@@ -100,6 +100,8 @@ const persistence: Handler = (client, msg) => {
 		// Our cursor was taken: the server drives the catch-up from it, so
 		// catchup.ts stands down for the channels it restores.
 		client.serverReplay = true;
+		// Before anything live: its replay goes above what arrives meanwhile.
+		client.replayIds = client.reserveIds();
 		return;
 	}
 

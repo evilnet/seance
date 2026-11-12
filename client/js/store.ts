@@ -60,6 +60,12 @@ export interface TranslationEntry {
 	 */
 	candidates: string[];
 	engine: EngineName | null;
+	/**
+	 * The model translating or that translated the line (engine.ts
+	 * `ModelRef.id`, queue.ts `onModel`), named at the foot of the line's
+	 * "Translation options". Absent until one is known.
+	 */
+	model?: string;
 	error: string | null;
 	/** "Show original only": the line is kept but not rendered. */
 	hidden: boolean;
@@ -139,7 +145,16 @@ export type State = {
 	serverConfiguration: SharedConfiguration | LockedSharedConfiguration | null;
 	sidebarOpen: boolean;
 	sidebarDragging: boolean;
+	/** The user list beside the messages, as the user last left it (saved). */
 	userlistOpen: boolean;
+	/**
+	 * The chat pane is too narrow for the user list to sit beside the
+	 * messages, so it lies over them instead (userlistOverlay.ts). Never on
+	 * a touch device, which keeps its own behaviour.
+	 */
+	userlistOverlays: boolean;
+	/** The user list lying over the messages is open. Never saved: it starts closed. */
+	userlistOverlayOpen: boolean;
 	/** The file upload in flight (`client/js/upload.ts`); `null` when idle. */
 	uploadProgress: UploadProgress | null;
 	/**
@@ -153,7 +168,9 @@ export type State = {
 		/** The queue paused an engine after repeated failures (spec § Lifecycle). */
 		paused: {engine: EngineName; message: string} | null;
 		/** The channel id whose translation panel was asked for (the channel menu). */
-		panelFor: number | null;
+		sheetFor: number | null;
+		/** A one-time note on show (translate/reader.ts `showNote`, TranslationNote.vue). */
+		note: "firstRun" | "everywhere" | null;
 	};
 	translations: Record<number, TranslationEntry>;
 	outgoingTranslations: Record<number, OutgoingTranslation>;
@@ -185,8 +202,17 @@ const state = (): State => ({
 	sidebarOpen: false,
 	sidebarDragging: false,
 	userlistOpen: storage.get("thelounge.state.userlist") !== "false",
+	userlistOverlays: false,
+	userlistOverlayOpen: false,
 	uploadProgress: null,
-	translation: {capability: null, models: [], workerError: null, paused: null, panelFor: null},
+	translation: {
+		capability: null,
+		models: [],
+		workerError: null,
+		paused: null,
+		sheetFor: null,
+		note: null,
+	},
 	translations: {},
 	outgoingTranslations: {},
 	translateChannels: {},
@@ -316,13 +342,16 @@ type Mutations = {
 	toggleSidebar(state: State): void;
 	toggleUserlist(state: State): void;
 	userlistOpen(state: State, payload: State["userlistOpen"]): void;
+	userlistOverlays(state: State, payload: State["userlistOverlays"]): void;
+	userlistOverlayOpen(state: State, payload: State["userlistOverlayOpen"]): void;
 	uploadProgress(state: State, progress: State["uploadProgress"]): void;
 	translationCapability(state: State, capability: Capability): void;
 	translationModels(state: State, models: ModelView[]): void;
 	translationWorkerError(state: State, message: string | null): void;
 	translationPaused(state: State, paused: State["translation"]["paused"]): void;
 	/** Ask the view of that channel to open its translation panel; null clears it. */
-	translationPanelFor(state: State, id: number | null): void;
+	translationSheetFor(state: State, id: number | null): void;
+	translationNote(state: State, note: "firstRun" | "everywhere" | null): void;
 	translationEntry(state: State, payload: {id: number; entry: TranslationEntry}): void;
 	translationPatch(state: State, payload: {id: number; patch: Partial<TranslationEntry>}): void;
 	translationRemove(state: State, id: number): void;
@@ -413,10 +442,24 @@ const mutations: Mutations = {
 		state.sidebarOpen = !state.sidebarOpen;
 	},
 	toggleUserlist(state) {
-		state.userlistOpen = !state.userlistOpen;
+		if (state.userlistOverlays) {
+			state.userlistOverlayOpen = !state.userlistOverlayOpen;
+		} else {
+			state.userlistOpen = !state.userlistOpen;
+		}
 	},
 	userlistOpen(state, payload) {
 		state.userlistOpen = payload;
+	},
+	userlistOverlays(state, payload) {
+		if (state.userlistOverlays !== payload) {
+			state.userlistOverlayOpen = false;
+		}
+
+		state.userlistOverlays = payload;
+	},
+	userlistOverlayOpen(state, payload) {
+		state.userlistOverlayOpen = payload;
 	},
 	uploadProgress(state, progress) {
 		state.uploadProgress = progress;
@@ -433,8 +476,11 @@ const mutations: Mutations = {
 	translationPaused(state, paused) {
 		state.translation.paused = paused;
 	},
-	translationPanelFor(state, id) {
-		state.translation.panelFor = id;
+	translationSheetFor(state, id) {
+		state.translation.sheetFor = id;
+	},
+	translationNote(state, note) {
+		state.translation.note = note;
 	},
 	translationEntry(state, {id, entry}) {
 		state.translations[id] = entry;

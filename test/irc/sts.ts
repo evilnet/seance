@@ -5,6 +5,7 @@
  */
 import {expect} from "chai";
 import sinon from "sinon";
+import {ChanState} from "../../shared/types/chan";
 import storage from "../../client/js/localStorage";
 import {IrcClient, IrcClientOptions} from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";
@@ -255,6 +256,26 @@ describe("STS", function () {
 		});
 	});
 
+	describe("transport", function () {
+		it("keeps TCP and WebSocket policies for one host apart", function () {
+			expect(sts.stsHost({host: "irc.example.org"})).to.equal("irc.example.org");
+			expect(sts.stsHost({host: "irc.example.org/ws", transport: "tcp"})).to.equal(
+				"tcp:irc.example.org"
+			);
+			sts.setPolicy("irc.example.org", {port: 8443, expiresAt: T0 + 1000, preload: false});
+			const tcp = {...BASE, transport: "tcp" as const, port: 6667};
+			expect(sts.upgradeOptions(tcp)).to.equal(tcp);
+
+			sts.setPolicy("tcp:irc.example.org", {
+				port: 6697,
+				expiresAt: T0 + 1000,
+				preload: false,
+			});
+			expect(sts.upgradeOptions(tcp)).to.deep.equal({...tcp, tls: true, port: 6697});
+			expect(sts.upgradeOptions(BASE)).to.deep.equal({...BASE, tls: true, port: 8443});
+		});
+	});
+
 	describe("IrcClient", function () {
 		it("on an insecure connection, sts port= reconnects securely exactly once", function () {
 			const h = setup();
@@ -278,6 +299,9 @@ describe("STS", function () {
 			expect(h.lobbyTexts()).to.include(
 				"Server requires a secure connection (STS): reconnecting on port 8443…"
 			);
+			// The insecure socket is torn down now (its close event is not ours
+			// any more) and quietly: the line above said why.
+			expect(h.lobbyTexts()).to.not.include("Disconnected.");
 			// Nothing is cached from an insecure connection.
 			expect(sts.getPolicy("irc.example.org")).to.equal(undefined);
 
@@ -290,6 +314,73 @@ describe("STS", function () {
 			expect(h.transports).to.have.length(2);
 			expect(secure.closeCalls).to.equal(0);
 			expect(sts.getPolicy("irc.example.org")).to.include({port: 8443, preload: false});
+		});
+
+		it("after registration, a CAP NEW upgrade tears the session down and rejoins over wss://", function () {
+			const h = setup({join: "#seance"});
+			h.client.connect();
+			const [plain] = h.transports;
+			plain.open();
+			plain.line(":irc.example.org CAP * LS :cap-notify");
+			plain.line(":irc.example.org 001 alice :Welcome");
+			plain.line(":irc.example.org 422 alice :MOTD File is missing");
+			plain.line(":alice!a@h JOIN #seance");
+			plain.line(":irc.example.org 353 alice = #seance :alice bob");
+			plain.line(":irc.example.org 366 alice #seance :End of /NAMES list.");
+			const chan = h.client.findChannel("#seance")!;
+			expect(chan.state).to.equal(ChanState.JOINED);
+
+			plain.line(":irc.example.org CAP alice NEW :sts=port=8443,duration=300");
+			expect(plain.sent[plain.sent.length - 1]).to.equal("QUIT :STS upgrade");
+			expect(plain.closeCalls).to.equal(1);
+			expect(chan.state, "torn down like any lost connection").to.equal(ChanState.PARTED);
+			expect(chan.users.size).to.equal(0);
+			expect(chan.rejoining, "the rejoin is not news").to.equal(true);
+			expect(h.lobbyTexts()).to.not.include("Disconnected.");
+			expect(h.transports).to.have.length(2);
+			const secure = h.transports[1];
+			expect(secure.url).to.equal("wss://irc.example.org:8443/");
+			expect(secure.connectCalls).to.equal(1);
+
+			plain.closed(); // the old socket's late close is not ours any more
+			expect(h.transports).to.have.length(2);
+
+			secure.open();
+			secure.line(":irc.example.org CAP * LS :sts=duration=300");
+			secure.line(":irc.example.org 001 alice :Welcome");
+			secure.line(":irc.example.org 422 alice :MOTD File is missing");
+			expect(secure.sent).to.include("JOIN #seance");
+			expect(sts.getPolicy("irc.example.org")).to.include({port: 8443});
+		});
+
+		it("an upgrade keeps settings edited for this host on the secure endpoint, and leaves another host alone", function () {
+			const upgradeWith = (edit: Partial<ConnectOptions>) => {
+				const h = setup();
+				h.client.connect();
+				const [plain] = h.transports;
+				plain.open();
+				plain.line(":irc.example.org CAP * LS :cap-notify");
+				plain.line(":irc.example.org 001 alice :Welcome");
+				h.client.applySettings({...BASE, ...edit});
+				plain.line(":irc.example.org CAP alice NEW :sts=port=8443,duration=300");
+				return h;
+			};
+
+			const same = upgradeWith({join: "#other"});
+			expect(same.transports[same.transports.length - 1].url).to.equal(
+				"wss://irc.example.org:8443/"
+			);
+			expect(same.client.options.join, "the edit is kept").to.equal("#other");
+
+			const recased = upgradeWith({host: "IRC.Example.org"});
+			expect(recased.transports[recased.transports.length - 1].url).to.equal(
+				"wss://IRC.Example.org:8443/"
+			);
+
+			const other = upgradeWith({host: "irc.other.org", port: 9000});
+			expect(other.transports[other.transports.length - 1].url).to.equal(
+				"ws://irc.other.org:9000/"
+			);
 		});
 
 		it("ignores sts without port= on an insecure connection", function () {
@@ -321,6 +412,23 @@ describe("STS", function () {
 			// duration=0 (e.g. via a later LS) removes it.
 			h.transports[0].line(":irc.example.org CAP * LS :sts=duration=0");
 			expect(sts.getPolicy("irc.example.org")).to.equal(undefined);
+		});
+
+		it("stores a policy a CAP NEW brings on a secure connection, and only for sts", function () {
+			const h = setup({tls: true, port: 8443});
+			h.client.connect();
+			h.transports[0].open();
+			h.transports[0].line(":irc.example.org CAP * LS :cap-notify");
+			h.transports[0].line(":irc.example.org CAP alice NEW :away-notify");
+			expect(sts.getPolicy("irc.example.org")).to.equal(undefined);
+
+			h.transports[0].line(":irc.example.org CAP alice NEW :sts=port=6697,duration=600");
+			expect(sts.getPolicy("irc.example.org")).to.deep.equal({
+				port: 8443,
+				expiresAt: T0 + 600_000,
+				preload: false,
+				duration: 600,
+			});
 		});
 
 		it("reschedules the expiry when the secure connection closes", function () {

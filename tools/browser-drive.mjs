@@ -126,8 +126,14 @@ const chrome = spawn(
 		`--user-data-dir=${profile}`,
 		"about:blank",
 	],
-	{stdio: "ignore"}
+	{stdio: ["ignore", "ignore", "pipe"]}
 );
+
+// The end of Chromium's stderr, for the error when DevTools never comes up.
+let chromeStderr = "";
+chrome.stderr.on("data", (chunk) => {
+	chromeStderr = (chromeStderr + chunk).slice(-2000);
+});
 
 let chromeExited = false;
 chrome.on("exit", () => {
@@ -153,10 +159,16 @@ function cleanup() {
 	}
 }
 
+// Chromium usually answers within two seconds, but a cold start on a CI
+// runner has taken nine and more, so wait up to thirty.
 async function devtoolsTarget() {
-	for (let i = 0; i < 100; i++) {
+	for (let i = 0; i < 300; i++) {
 		if (chromeExited) {
-			throw new Error(`${chromeBin} exited before DevTools came up`);
+			throw new Error(
+				`${chromeBin} exited before DevTools came up${
+					chromeStderr ? `; its stderr ended:\n${chromeStderr}` : ""
+				}`
+			);
 		}
 
 		try {
@@ -173,7 +185,11 @@ async function devtoolsTarget() {
 		await sleep(100);
 	}
 
-	throw new Error(`no DevTools target from ${chromeBin} on port ${port}`);
+	throw new Error(
+		`no DevTools target from ${chromeBin} on port ${port} after 30 s${
+			chromeStderr ? `; its stderr ended:\n${chromeStderr}` : ""
+		}`
+	);
 }
 
 // ------------------------------------------------------------ cdp plumbing
@@ -363,7 +379,9 @@ async function rect(selector, index = 0) {
 			const el = document.querySelectorAll(${jsString(selector)})[${Number(index)}];
 			if (!el) return null;
 			const r = el.getBoundingClientRect();
-			return {x: r.x, y: r.y, width: r.width, height: r.height};
+			const lines = el.getClientRects();
+			const f = lines.length > 1 ? lines[0] : null;
+			return {x: r.x, y: r.y, width: r.width, height: r.height, first: f && {x: f.x, y: f.y, width: f.width, height: f.height}};
 		})()`
 	);
 }
@@ -407,7 +425,11 @@ async function pointAt(selector, index) {
 		r = await rect(selector, index);
 	}
 
-	return {x: r.x + r.width / 2, y: r.y + r.height / 2};
+	// An inline element that wraps (a long message's text) has a gap or
+	// another element at its box's middle: a finger lands on its first line.
+	const at = r.first ?? r;
+
+	return {x: at.x + at.width / 2, y: at.y + at.height / 2};
 }
 
 async function hover(selector, index = 0) {

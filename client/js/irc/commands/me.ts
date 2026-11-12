@@ -4,7 +4,7 @@
 
 import {ChanType} from "../../../../shared/types/chan";
 import {MessageType} from "../../../../shared/types/msg";
-import {REPLY_TAG} from "../wire";
+import {inputTags} from "../wire";
 import {t} from "../../i18n/core";
 import type {Command} from "../types";
 import {textAfter} from "./words";
@@ -39,9 +39,12 @@ const me: Command = {
 				return;
 			}
 
+			// A translated action carries its language tags as a message does.
+			const tags = cmd === "me" ? inputTags(opts ?? {}) : inputTags({reply});
+
 			client.sendMessage(chan.name, text, {
 				action: true,
-				...(reply ? {tags: {[REPLY_TAG]: reply}} : {}),
+				...(tags ? {tags} : {}),
 			});
 		}
 	},

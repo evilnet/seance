@@ -81,7 +81,7 @@ import {
 	setAttended,
 	syncPresence,
 } from "./presence";
-import {abortHistory, retryLostHistory} from "./history";
+import {abortHistory, GAP_IDS, retryLostHistory} from "./history";
 import {resetSearches} from "./historysearch";
 import {globalUntil, MUTE_KEY, MUTE_READ_DELAY_MS, type PendingMute, releaseMute} from "./pushMute";
 import {MODE_KEY, PRESENCE_KEY, syncShared, type Stamped} from "./presenceShare";
@@ -109,13 +109,14 @@ import {
 	RESTORE_QUIET_MS,
 	serverReplayCovers,
 } from "./persistence";
-import {IdAllocator, sharedIds} from "./ids";
+import {IdAllocator, type IdBlock, sharedIds} from "./ids";
 import {NoticeLog} from "./noticelog";
 import {initialOper, OperState, operRegistered, resetOper} from "./oper";
 import {detectProfile, type ServerProfile} from "./profiles";
 import {canRequest, interceptRequestLine, request, resetRequests} from "./request";
 import {noticeMessage} from "./snotice";
 import {ISupport} from "./isupport";
+import {languageFieldsOf} from "./langtag";
 import {ChannelList} from "./channelList";
 import {BanLists, takeBanList} from "./banList";
 import {
@@ -141,14 +142,24 @@ import {
 	clearExpired,
 	getPolicy,
 	parseStsValue,
+	policyHost,
 	refreshPolicy,
 	StsUpgrade,
+	stsHost,
 	upgradeOptions,
 } from "./sts";
-import {channelOrder, get as getSavedNetwork, NetworkCursor, setCursor} from "./saved-networks";
+import {shellSocketCtor, type SocketBridge, type UntrustedCertificate} from "./shellSocket";
+import {
+	channelOrder,
+	get as getSavedNetwork,
+	MAX_TRUSTED_CERTIFICATES,
+	NetworkCursor,
+	setCursor,
+} from "./saved-networks";
 import {noteServiceReply, resetServiceReplies} from "./services";
 import {dropQuietLine, isRepeatedMissingBot} from "./quiet";
 import {BackgroundQueue, FakeLagClock, type FakeLagModel} from "./fakelag";
+import {forgetLogin, loginTrusted, trustLogin} from "./saslTrust";
 import {
 	isOffline,
 	ReconnectOptions,
@@ -164,6 +175,7 @@ import {
 	REACT_TAG,
 	REDACTION_CAP,
 	REPLY_TAG,
+	replyTags,
 	tagPrefix,
 	trailingLine,
 	TYPING_INTERVAL_MS,
@@ -232,8 +244,28 @@ interface PendingEdit {
 /** How long an edit waits for the echoed REDACT before giving up. */
 export const EDIT_TIMEOUT_MS = 5000;
 
+/** How a SASL login failed, which decides whether another connection may help (`saslFailed`). */
+export type SaslFailureCause = "server" | "unavailable" | "unexplained" | "refused";
+
+/**
+ * Unexplained 904s a login that has worked on the network gets retried
+ * through before it is given up for this connection: enough to ride out a
+ * login backend that is briefly unreachable, few enough that a password
+ * changed elsewhere is reported within minutes (nefarious2's default
+ * IPcheck spaces the connections about a minute apart, which also rides
+ * out a blip). The count is of this connection's attempts, missing-cap
+ * retries between them included, and starts over at each connect the user
+ * or a page load asks for.
+ */
+export const SASL_TRUSTED_RETRIES = 3;
+
 /** Trailing throttle on writing the catch-up cursor to localStorage. */
 export const CURSOR_SAVE_INTERVAL_MS = 1000;
+
+/** `METADATA * SET <key> private :` (nefarious2's private write), the value follows. */
+function metadataSetPrefix(key: string): string {
+	return `METADATA * SET ${key} private :`;
+}
 
 export interface IrcClientOptions extends ConnectOptions {
 	/** Stable network id; derived from host/port/nick when omitted. */
@@ -246,6 +278,12 @@ export interface IrcClientOptions extends ConnectOptions {
 	ids?: IdAllocator;
 	/** Build the transport (tests inject a fake); defaults to `new WsTransport(opts)`. */
 	transportFactory?: (opts: TransportOptions) => Transport;
+	/**
+	 * The app shell's bridge, for `transport: "tcp"` (shellSocket.ts). The
+	 * manager passes `window.seanceShell`; without one (a browser) a TCP
+	 * network does not connect.
+	 */
+	socketBridge?: SocketBridge;
 	/** The server's flood rule as we model it (fakelag.ts); ircu's by default. */
 	fakeLag?: FakeLagModel;
 	reconnect?: ReconnectOptions;
@@ -272,11 +310,24 @@ export interface IrcClientOptions extends ConnectOptions {
 	 * way back to the connect screen to fix them.
 	 */
 	onSaslRejected?: () => void;
+	/** The server password was missing or refused (464 before 001): same effect. */
+	onServerPasswordRejected?: () => void;
+	/**
+	 * The app shell refused the server's TLS certificate (an expired or
+	 * self-signed one): the connection stays down, and this asks the user
+	 * whether to trust it (manager.ts, certificatePrompt.ts).
+	 */
+	onUntrustedCertificate?: (certificate: UntrustedCertificate) => void;
 }
 
 /** What to try after a SASL login the deploy insists on did not happen. */
 export function saslRequiredHint(): string {
 	return t("connect.saslRequiredHint");
+}
+
+/** The trusted retries ran out: the login is kept, the next connect tries again. */
+export function saslTrustedGaveUpHint(): string {
+	return t("connect.saslTrustedGaveUpHint");
 }
 
 /** Prefix characters a channel name may start with when the user omits one. */
@@ -448,6 +499,8 @@ export class IrcClient {
 	/** The last SASL exchange ended successfully (903); a configured login
 	 * that was asked for and succeeded. Drives the push-subscribe prompt. */
 	saslOk = false;
+	/** Unexplained 904s in a row on a login that has worked (`SASL_TRUSTED_RETRIES`). */
+	private saslUnexplainedRun = 0;
 	/** Services account we are logged in as (900/901); "" when not. */
 	account = "";
 	/** The server holds our session across disconnects (`PERSISTENCE STATUS ON`, see persistence.ts). */
@@ -478,12 +531,22 @@ export class IrcClient {
 	attachCursor: string | undefined;
 	/** The server took that cursor: it replays the gap, so catchup.ts stands down. */
 	serverReplay = false;
+	/** Ids for the cursor's replay, every target's, set aside when the server took the cursor. */
+	replayIds: IdBlock | undefined = undefined;
 
 	private saslTimer: ReturnType<typeof setTimeout> | null = null;
 	private readonly bus: Pick<EventBus, "dispatch">;
 	private readonly ids: IdAllocator;
 	private url: string;
 	private unsubscribeTransport: () => void = () => undefined;
+	/**
+	 * {@link disconnect} closed a live socket and its close event, which the
+	 * transport delivers later, has not come yet. A connect or a transport
+	 * swap before then would lose that event (a redial makes the transport
+	 * ignore the old socket; a swap unsubscribes from it), and the teardown
+	 * in {@link onClose} with it: see {@link settleClose}.
+	 */
+	private closeUnreported = false;
 	/** One insecure → secure reconnect per connection; reset when the transport closes. */
 	private stsUpgradeTried = false;
 	/** Settings edited while connected (`network:edit`); applied on the next connect. */
@@ -512,6 +575,15 @@ export class IrcClient {
 	private quitting = false;
 	/** Last transport error text for the close report; browsers say nothing useful. */
 	private lastTransportError?: string;
+	/** The certificate the last failed dial was refused for, if that was why. */
+	private lastCertificate?: UntrustedCertificate;
+	/**
+	 * Certificates trusted for this session only ("Just this once"), each for
+	 * the server it was shown for: `host`, `port` and SHA-256, a line each.
+	 */
+	private readonly trustedOnce = new Set<string>();
+	/** The certificate trusted last, kept within the shell's cap (certificatesToTrust). */
+	private newestTrust?: string;
 	/** The close report's hint is shown once per attempt series, not per retry. */
 	private closeHintShown = false;
 	/** The close about to arrive is ours and the lobby already says why (transport.abandon). */
@@ -542,12 +614,12 @@ export class IrcClient {
 		this.fakeLag = new FakeLagClock(options.fakeLag);
 		this.background = new BackgroundQueue(this.fakeLag, () => this.isWelcomed);
 		this.nick = options.nick;
-		this.ident = options.username || sanitizeIdent(options.nick);
+		this.ident = this.registrationIdent;
 		this.uuid = options.uuid ?? deriveUuid(host, options.port, options.nick);
 		this.networkName = hostnameOf(host);
 		this.bus = options.bus ?? socket;
 		this.ids = options.ids ?? sharedIds;
-		this.url = buildUrl(host, options.port, options.tls);
+		this.url = buildUrl(host, options.port, options.tls, options.transport);
 		this.transport = this.createTransport();
 		this.unsubscribeTransport = this.transport.on((ev) => this.onTransportEvent(ev));
 
@@ -642,9 +714,43 @@ export class IrcClient {
 		return detectProfile(this.serverVersion, this.isupport);
 	}
 
+	/**
+	 * The line that writes one of our own metadata keys (`value` empty
+	 * deletes it), or undefined when it must not be written. Every key we
+	 * keep (closed queries, presence, the push mute and payload tier) is
+	 * for the account's own sessions only, and only nefarious2 lets a
+	 * client say so ({@link ServerProfile.privateMetadata}): draft/metadata-2
+	 * leaves visibility to the server, and a public key is listed in
+	 * everyone's WHOIS of us. So on any other server they are not written.
+	 * Until this connection's 004 has named the server family (a write right
+	 * behind 001), the write is private: on a server without the parameter
+	 * that stores a junk value, which leaks nothing.
+	 */
+	metadataSetLine(key: string, value: string): string | undefined {
+		if (!value) {
+			return `METADATA * SET ${key}`;
+		}
+
+		if (this.serverVersion !== undefined && !this.profile.privateMetadata) {
+			return undefined;
+		}
+
+		return `${metadataSetPrefix(key)}${value}`;
+	}
+
 	/** True between our own QUIT/disconnect and the transport closing. */
 	get isQuitting(): boolean {
 		return this.quitting;
+	}
+
+	/**
+	 * Whether a line sent now would go out: the socket is open. False
+	 * after `transport.abandon()` has dropped it from inside a handler, when
+	 * the handler's remaining lines must be dropped rather than reported as
+	 * sent to a dead socket (handlers/cap.ts, `finalLines`).
+	 */
+	get socketOpen(): boolean {
+		return this.transport.state === "open";
 	}
 
 	/**
@@ -745,7 +851,8 @@ export class IrcClient {
 			proxyPort: 0,
 			proxyUsername: "",
 			proxyPassword: "",
-			hasSTSPolicy: getPolicy(o.host) !== undefined,
+			transport: o.transport ?? "websocket",
+			hasSTSPolicy: getPolicy(stsHost(o)) !== undefined,
 		};
 	}
 
@@ -764,7 +871,19 @@ export class IrcClient {
 			return;
 		}
 
+		this.settleClose(); // before quitting is reset: it was our QUIT
 		this.applyPendingOptions();
+
+		if (this.options.transport === "tcp" && !this.options.socketBridge) {
+			// No app shell, no raw socket: say so rather than dial and retry forever.
+			this.pushMessage(
+				this.lobby,
+				{type: MessageType.ERROR, text: t("connect.tcpNeedsApp")},
+				true
+			);
+			return;
+		}
+
 		this.applyStsPolicy();
 		this.quitting = false;
 		this.closeHintShown = false;
@@ -797,6 +916,11 @@ export class IrcClient {
 			this.send(trailingLine("QUIT", [fits]));
 		}
 
+		if (state === "open" || state === "connecting") {
+			this.closeUnreported = true; // a second call must not clear it: the event is still due
+		}
+
+		this.clearSaslTimer();
 		this.transport.close();
 		this.retryAt = undefined;
 		this.retryReason = undefined;
@@ -818,6 +942,59 @@ export class IrcClient {
 	}
 
 	/**
+	 * Accept `sha256` from `host`:`port` for this session only ("Just this
+	 * once"), then dial. A network moved elsewhere does not take it along.
+	 */
+	trustCertificateOnce(sha256: string, host: string, port: number): void {
+		this.trustedOnce.add(`${host}\n${port}\n${sha256}`);
+		this.newestTrust = sha256;
+		this.connect();
+	}
+
+	/**
+	 * Accept `sha256` for this network from now on ("Always"; the caller
+	 * saves it with the network), then dial. Only the trusted list changes:
+	 * the live address (an STS upgrade's port) and the live credentials (a
+	 * password not kept on disk) stay as they are.
+	 */
+	trustCertificate(sha256: string): void {
+		const kept = (this.options.trustedCertificates ?? []).filter((fp) => fp !== sha256);
+		this.options = {
+			...this.options,
+			trustedCertificates: [...kept, sha256].slice(-MAX_TRUSTED_CERTIFICATES),
+		};
+		this.newestTrust = sha256;
+		this.connect();
+	}
+
+	/** Whether the next dial already offers the shell `sha256`. */
+	trusts(sha256: string): boolean {
+		return this.certificatesToTrust().includes(sha256);
+	}
+
+	/**
+	 * The certificates the shell is to accept for the server dialled now:
+	 * the saved ones and those trusted once for this host and port, without
+	 * repeats. The shell takes at most MAX_TRUSTED_CERTIFICATES; the one
+	 * trusted last is always among them, whichever way it was trusted.
+	 */
+	private certificatesToTrust(): string[] {
+		const here = `${this.options.host}\n${this.options.port}\n`;
+		const once = [...this.trustedOnce]
+			.filter((key) => key.startsWith(here))
+			.map((key) => key.slice(here.length));
+		const all = [...new Set([...(this.options.trustedCertificates ?? []), ...once])];
+		const newest = this.newestTrust;
+
+		if (newest && all.includes(newest)) {
+			all.splice(all.indexOf(newest), 1);
+			all.push(newest);
+		}
+
+		return all.slice(-MAX_TRUSTED_CERTIFICATES);
+	}
+
+	/**
 	 * Take edited connection settings (`network:edit`). Host, port and TLS
 	 * need a fresh transport, so while a connection is up (or being opened)
 	 * they wait for the next connect — including the automatic reconnect
@@ -829,15 +1006,28 @@ export class IrcClient {
 	applySettings(next: ConnectOptions): void {
 		const merged: IrcClientOptions = {
 			...this.options,
+			trustedCertificates: next.trustedCertificates ?? this.options.trustedCertificates,
 			host: next.host,
 			port: next.port,
 			tls: next.tls,
+			transport: next.transport,
 			join: next.join,
 			sasl: next.sasl,
 			saslAccount: next.saslAccount,
 			saslPassword: next.saslPassword,
+			// Undefined: configured but not kept on disk, so keep the one in memory.
+			serverPassword: next.serverPassword ?? this.options.serverPassword,
 		};
 		const state = this.transport.state;
+
+		// New credentials have not proved themselves here yet.
+		if (
+			next.saslAccount !== this.options.saslAccount ||
+			next.saslPassword !== this.options.saslPassword
+		) {
+			forgetLogin(this.uuid);
+			this.saslUnexplainedRun = 0;
+		}
 
 		if (state === "open" || state === "connecting") {
 			this.pendingOptions = merged;
@@ -861,7 +1051,12 @@ export class IrcClient {
 
 	private endpointChanged(next: IrcClientOptions): boolean {
 		const o = this.options;
-		return next.host !== o.host || next.port !== o.port || next.tls !== o.tls;
+		return (
+			next.host !== o.host ||
+			next.port !== o.port ||
+			next.tls !== o.tls ||
+			(next.transport === "tcp") !== (o.transport === "tcp")
+		);
 	}
 
 	/** Swap in settings edited while connected, if any (before a connect). */
@@ -873,6 +1068,16 @@ export class IrcClient {
 		}
 
 		this.pendingOptions = null;
+
+		// Credentials edited while a login ran: that login may have succeeded
+		// since and trusted the account again; the edited ones are unproven.
+		if (
+			next.saslAccount !== this.options.saslAccount ||
+			next.saslPassword !== this.options.saslPassword
+		) {
+			forgetLogin(this.uuid);
+			this.saslUnexplainedRun = 0;
+		}
 
 		if (this.endpointChanged(next)) {
 			this.transport.close();
@@ -892,6 +1097,20 @@ export class IrcClient {
 			subprotocols: ["text.ircv3.net", "binary.ircv3.net"],
 		};
 
+		if (this.options.transport === "tcp" && this.options.socketBridge) {
+			// The trusted certificates are read at each dial, not now: a
+			// certificate trusted after this transport was made counts.
+			const trusted = () => this.certificatesToTrust();
+			transportOptions.WebSocketImpl = shellSocketCtor(this.options.socketBridge, {
+				host: tcpHostOf(this.options.host),
+				port: this.options.port,
+				tls: this.options.tls,
+				get trust() {
+					return trusted();
+				},
+			});
+		}
+
 		if (this.options.reconnect) {
 			transportOptions.reconnect = this.options.reconnect;
 		}
@@ -903,9 +1122,10 @@ export class IrcClient {
 
 	/** Switch to `next` (port/tls) with a fresh transport; the old one is left to close. */
 	private reconfigure(next: IrcClientOptions): void {
+		this.settleClose(); // the old transport's close event will not reach us
 		this.unsubscribeTransport();
 		this.options = {...next};
-		this.url = buildUrl(next.host, next.port, next.tls);
+		this.url = buildUrl(next.host, next.port, next.tls, next.transport);
 		this.transport = this.createTransport();
 		this.unsubscribeTransport = this.transport.on((ev) => this.onTransportEvent(ev));
 	}
@@ -925,17 +1145,27 @@ export class IrcClient {
 	}
 
 	/**
-	 * After the final `CAP LS`: over `ws://` an `sts` with `port=` means drop
-	 * the connection and come back over `wss://` on that port (once); over
-	 * `wss://` a `duration=` caches / refreshes / removes the host's policy.
+	 * After the final `CAP LS`, or a `CAP NEW` that names `sts` (the spec has
+	 * the client store or update a policy it learns that way too): over
+	 * `ws://` an `sts` with `port=` means drop the connection and come back
+	 * over `wss://` on that port (once); over `wss://` a `duration=` caches /
+	 * refreshes / removes the host's policy.
 	 */
 	private checkSts(msg: IrcMessage): void {
-		if (msg.command !== "CAP" || (msg.params[1] ?? "").toUpperCase() !== "LS") {
+		if (msg.command !== "CAP") {
 			return;
 		}
 
-		if (msg.params[2] === "*" && msg.params.length > 3) {
-			return; // more LS lines follow
+		const subcommand = (msg.params[1] ?? "").toUpperCase();
+
+		if (subcommand === "NEW") {
+			const names = (msg.params[msg.params.length - 1] ?? "").split(" ");
+
+			if (!names.some((token) => token === "sts" || token.startsWith("sts="))) {
+				return;
+			}
+		} else if (subcommand !== "LS" || (msg.params[2] === "*" && msg.params.length > 3)) {
+			return; // not LS, or more LS lines follow
 		}
 
 		const raw = this.caps.value("sts");
@@ -947,7 +1177,7 @@ export class IrcClient {
 		const value = parseStsValue(raw);
 
 		if (this.options.tls) {
-			applyDuration(this.options.host, this.options.port, value);
+			applyDuration(stsHost(this.options), this.options.port, value);
 			return;
 		}
 
@@ -957,8 +1187,26 @@ export class IrcClient {
 
 		this.stsUpgradeTried = true;
 		this.pushMessage(this.lobby, {text: t("connect.stsReconnect", {port: value.port})}, true);
+		const secure = {tls: true, port: value.port};
+
+		// Settings edited during this connection for this host keep the
+		// secure endpoint; an edit to another host is left alone.
+		const pending = this.pendingOptions;
+
+		if (
+			pending &&
+			(pending.transport === "tcp") === (this.options.transport === "tcp") &&
+			policyHost(pending.host) === policyHost(this.options.host)
+		) {
+			this.pendingOptions = {...pending, ...secure};
+		}
+
+		this.closeExplained = true; // the line above says why
 		this.disconnect("STS upgrade");
-		this.reconfigure({...this.options, tls: true, port: value.port});
+		// Not the user's quit: channels joined so far (a `CAP NEW` after
+		// registration) are rejoined quietly, as after a lost connection.
+		this.quitting = false;
+		this.reconfigure({...this.options, ...secure}); // tears the old session down
 		this.connect();
 	}
 
@@ -1037,8 +1285,14 @@ export class IrcClient {
 			case "error":
 				// Always followed by a close event, which is where we report.
 				this.lastTransportError = ev.message;
+				this.lastCertificate = ev.certificate;
 				break;
 		}
+	}
+
+	/** The ident USER asks for: the configured one, or one made from the nick. */
+	private get registrationIdent(): string {
+		return this.options.username || sanitizeIdent(this.options.nick);
 	}
 
 	/** Transport open: fresh negotiation state, then CAP LS / NICK / USER. */
@@ -1047,6 +1301,7 @@ export class IrcClient {
 		this.offlineNoted = false;
 		this.connected = false;
 		this.welcomed = false;
+		this.serverVersion = undefined; // this connection's 004 says again
 		this.fakeLag.stop();
 		this.retryAt = undefined;
 		this.retryReason = undefined;
@@ -1059,12 +1314,16 @@ export class IrcClient {
 		this.channelList.reset();
 		this.bans.reset();
 		this.host = "";
+		// Not the ident the last connection learned: that is the server's
+		// ("~rdrake" when unverified), and Ergo refuses it in USER (468).
+		this.ident = this.registrationIdent;
 		this.account = "";
 		this.persistenceHold = false;
 		this.persistenceSetting = undefined;
 		this.bouncerAlias = false;
 		this.attachCursor = undefined;
 		this.serverReplay = false;
+		this.replayIds = undefined;
 		this.endSasl();
 
 		// SASL was picked for this network but there is nothing to log in
@@ -1081,6 +1340,11 @@ export class IrcClient {
 
 		for (const line of this.caps.start()) {
 			this.send(line);
+		}
+
+		// Before NICK/USER, as registration requires; trailing, so spaces survive.
+		if (this.options.serverPassword) {
+			this.send(trailingLine("PASS", [this.options.serverPassword]));
 		}
 
 		this.send(formatLine({command: "NICK", params: [this.nick]}));
@@ -1118,19 +1382,42 @@ export class IrcClient {
 	 * unless the deploy turned {@link saslRequired} off, never carried on
 	 * with: QUIT instead of connecting unauthenticated.
 	 *
-	 * What comes after the QUIT depends on what failed. A rejection (904, a
-	 * server without the cap, a NAK, missing credentials) will not change
-	 * on a retry, so the network stays down. A `timedOut` exchange is the
-	 * server or its services being slow — the phone coming back to a poor
-	 * link, a lagging services link — and retrying is exactly right: the
-	 * socket is dropped as lost (`transport.abandon`) and the usual
-	 * reconnect follows, so the foreground poke and the schedule keep
-	 * working on it instead of leaving the network for the user to reconnect
-	 * by hand.
+	 * What comes after the QUIT depends on `cause`:
+	 *
+	 * - `server`: the server could not check the login — our timeout, its
+	 *   own (`904 … request timed out`, which comes first: nefarious2 waits
+	 *   10 s, we wait 12), its services unreachable or gone mid-exchange.
+	 *   Retrying is exactly right: the socket is dropped as lost
+	 *   (`transport.abandon`) and the usual reconnect follows, so the
+	 *   foreground poke and the schedule keep working on it instead of
+	 *   leaving the network for the user to reconnect by hand.
+	 * - `unavailable`: no usable `sasl` cap, or a NAK. nefarious2 stops
+	 *   offering the cap while its services are split, so on a network where
+	 *   this login has worked before ({@link loginTrusted}) it is the server
+	 *   and is retried like `server`; anywhere else it is a server that does
+	 *   not do SASL, and final.
+	 * - `unexplained`: a plain 904, which nefarious2 sends for a wrong
+	 *   password and for a Keycloak it cannot reach alike. A login that has
+	 *   worked here is given `SASL_TRUSTED_RETRIES` more connections; then,
+	 *   and for any other login, it is a refusal.
+	 * - `refused` (the default): final. Missing credentials, 902/905/907.
+	 *
+	 * A final failure stays down. One that follows the trusted retries keeps
+	 * the trust and the autoconnect: a Keycloak outage reads as a bare 904
+	 * for its whole length (and nefarious2 withdraws and re-offers `sasl`
+	 * meanwhile, so the retries are rarely the uninterrupted run the name
+	 * suggests), and a cold start after it must still dial. Any other final
+	 * failure forgets the login and turns autoconnect off (manager.ts
+	 * `onSaslRejected`): the same credentials would be refused at every
+	 * page load.
+	 *
+	 * Nothing beyond the report once the user has disconnected: the socket
+	 * is theirs to close, and a close report held back for a retry that
+	 * never comes would swallow the next real drop's.
 	 *
 	 * Returns true when it dropped the connection, so callers stop there.
 	 */
-	private saslFailed(reason: string, timedOut = false): boolean {
+	private saslFailed(reason: string, cause: SaslFailureCause = "refused"): boolean {
 		this.pushMessage(
 			this.lobby,
 			{type: MessageType.ERROR, text: t("connect.saslFailed", {reason})},
@@ -1141,7 +1428,13 @@ export class IrcClient {
 			return false;
 		}
 
-		if (timedOut && this.transport.abandon) {
+		if (this.isQuitting) {
+			return true;
+		}
+
+		const trusted = loginTrusted(this.uuid, this.options.saslAccount ?? "");
+
+		if (this.saslRetries(cause, trusted) && this.transport.abandon) {
 			this.pushMessage(
 				this.lobby,
 				{
@@ -1156,8 +1449,18 @@ export class IrcClient {
 			}
 
 			this.closeExplained = true;
-			this.transport.abandon("SASL timed out");
+			this.transport.abandon(`SASL failed (${cause})`);
 			return true;
+		}
+
+		// The trusted retries ran out: this connection gives up, the login
+		// and its autoconnect stay (see above), and the next connect gets
+		// the retries again.
+		const keepsLogin = cause === "unexplained" && trusted;
+		this.saslUnexplainedRun = 0;
+
+		if (!keepsLogin) {
+			forgetLogin(this.uuid);
 		}
 
 		this.pushMessage(
@@ -1168,13 +1471,74 @@ export class IrcClient {
 			},
 			true
 		);
-		this.pushMessage(this.lobby, {text: saslRequiredHint()}, true);
+		this.pushMessage(
+			this.lobby,
+			{text: keepsLogin ? saslTrustedGaveUpHint() : saslRequiredHint()},
+			true
+		);
 		// The connect flow has already opened an autojoin channel; the reason
 		// this network is empty is in the lobby, so the view goes there.
 		this.bus.dispatch("network:aborted", {network: this.uuid, reason});
-		this.options.onSaslRejected?.();
+
+		if (!keepsLogin) {
+			this.options.onSaslRejected?.();
+		}
+
 		this.disconnect("SASL authentication failed");
 		return true;
+	}
+
+	/**
+	 * 464 before 001: the server (often a bouncer: ZNC answers a client with
+	 * no PASS this way, then waits) wants a server password, or refused the
+	 * one sent. Every connection would get the same answer, so this one
+	 * stops, says why, and the entry stops connecting by itself. After 001 a
+	 * 464 is an ordinary error (OPER with the wrong password).
+	 */
+	serverPasswordFailed(): void {
+		if (this.welcomed || this.isQuitting) {
+			return;
+		}
+
+		const host = this.options.host;
+		const sent = !!this.options.serverPassword;
+		this.pushMessage(
+			this.lobby,
+			{
+				type: MessageType.ERROR,
+				text: sent
+					? t("connect.serverPasswordRefused", {host})
+					: t("connect.serverPasswordNeeded", {host}),
+			},
+			true
+		);
+		this.pushMessage(this.lobby, {text: t("connect.serverPasswordHint")}, true);
+		this.closeExplained = true;
+		this.bus.dispatch("network:aborted", {
+			network: this.uuid,
+			reason: sent ? "server password refused" : "server password required",
+		});
+		this.options.onServerPasswordRejected?.();
+		this.disconnect(sent ? "Server password refused" : "Server password required");
+	}
+
+	/** Whether a SASL failure of this kind is worth another connection (see saslFailed). */
+	private saslRetries(cause: SaslFailureCause, trusted: boolean): boolean {
+		switch (cause) {
+			case "server":
+				return true;
+			case "unavailable":
+				return trusted;
+			case "unexplained":
+				if (!trusted || this.saslUnexplainedRun >= SASL_TRUSTED_RETRIES) {
+					return false;
+				}
+
+				this.saslUnexplainedRun++;
+				return true;
+			default:
+				return false;
+		}
 	}
 
 	/** Why the server's `sasl` cap cannot carry `mechanism`, for the report. */
@@ -1202,12 +1566,6 @@ export class IrcClient {
 				return parseMultilineValue(value) !== undefined;
 			}
 
-			if (name === WEBPUSH_CAP) {
-				// Without a VAPID key the server could never send a push, so
-				// subscribing would be pointless (webpush.ts).
-				return webpushVapidOf(value) !== undefined;
-			}
-
 			if (name === "sasl") {
 				return mechanism !== null && mechanismOffered(mechanism, value);
 			}
@@ -1221,8 +1579,12 @@ export class IrcClient {
 			accept,
 		});
 
+		caps.isRegistered = () => this.isWelcomed;
+
 		if (mechanism) {
 			caps.beforeEnd = () => this.startSasl(mechanism);
+			// The same deadline covers the wait for the sasl ACK.
+			caps.onHold = () => this.armSaslTimer();
 		}
 
 		// The shared metadata, subscribed before registration where the server
@@ -1234,6 +1596,7 @@ export class IrcClient {
 
 			if (
 				!this.isQuitting &&
+				this.socketOpen &&
 				this.saslOk &&
 				metadata !== undefined &&
 				metadata.split(",").includes("before-connect") &&
@@ -1256,15 +1619,14 @@ export class IrcClient {
 	}
 
 	/**
-	 * `beforeEnd` hook: open the exchange if the server enabled `sasl` — or is
-	 * about to (the opener is pipelined right behind the `CAP REQ`, which the
-	 * server has answered by the time it reads AUTHENTICATE). A server that
+	 * `beforeEnd` hook: open the exchange once the server has ACKed `sasl`
+	 * (caps.ts holds it back until every REQ is answered). A server that
 	 * offers no usable `sasl` is a SASL failure like any other: the user
 	 * asked to log in and will not be logged in.
 	 */
 	private startSasl(mechanism: SaslMechanism): string[] {
-		if (!this.caps.hasCapability("sasl") && !this.caps.isRequesting("sasl")) {
-			this.saslFailed(this.saslUnavailable(mechanism));
+		if (!this.caps.hasCapability("sasl")) {
+			this.saslCapLost(mechanism);
 			return [];
 		}
 
@@ -1276,11 +1638,25 @@ export class IrcClient {
 		return this.sasl.start();
 	}
 
+	/** `sasl` did not end up enabled (not offered usably, NAKed or DELed): fail as `unavailable`. */
+	private saslCapLost(mechanism: SaslMechanism): boolean {
+		// The ACK wait's deadline has nothing left to wait for.
+		this.clearSaslTimer();
+		this.saslOk = false;
+		// Offered with our mechanism, so we asked for it: the server NAKed it.
+		const refused = mechanismOffered(mechanism, this.caps.value("sasl"));
+		return this.saslFailed(
+			refused ? t("connect.saslReason.capRefused") : this.saslUnavailable(mechanism),
+			"unavailable"
+		);
+	}
+
 	/**
 	 * Apply what the state machine returned for one inbound line (called by
-	 * handlers/sasl.ts), or for the timer running out (`timedOut`).
+	 * handlers/sasl.ts), or for the exchange ending without one: the timer
+	 * running out (`server`), the server NAKing `sasl` (`unavailable`).
 	 */
-	saslProgress(result: SaslResult, timedOut = false): void {
+	saslProgress(result: SaslResult, ended?: SaslFailureCause): void {
 		for (const line of result.send) {
 			this.send(line);
 		}
@@ -1299,11 +1675,17 @@ export class IrcClient {
 		if (!result.ok) {
 			this.saslOk = false;
 
-			if (this.saslFailed(result.error ?? t("connect.saslReason.unknown"), timedOut)) {
+			const cause: SaslFailureCause =
+				ended ??
+				(result.retryable ? "server" : result.unexplained ? "unexplained" : "refused");
+
+			if (this.saslFailed(result.error ?? t("connect.saslReason.unknown"), cause)) {
 				return;
 			}
 		} else {
 			this.saslOk = true;
+			this.saslUnexplainedRun = 0;
+			trustLogin(this.uuid, this.options.saslAccount ?? "");
 
 			// The one window `PERSISTENCE ATTACH` fits in: the server refuses
 			// it without an account and again once we are registered. It goes
@@ -1334,7 +1716,7 @@ export class IrcClient {
 	/** Give up on an exchange in progress (e.g. the server NAKed `sasl`) and finish CAP. */
 	abortSasl(reason: string): void {
 		if (this.sasl && !this.sasl.done) {
-			this.saslProgress(this.sasl.abort(reason));
+			this.saslProgress(this.sasl.abort(reason), "unavailable");
 		}
 	}
 
@@ -1344,7 +1726,22 @@ export class IrcClient {
 			this.saslTimer = null;
 
 			if (this.sasl && !this.sasl.done) {
-				this.saslProgress(this.sasl.abort(t("connect.saslReason.timeout")), true);
+				this.saslProgress(this.sasl.abort(t("connect.saslReason.timeout")), "server");
+			} else if (!this.sasl && !this.caps.done && this.saslMechanism) {
+				// Still waiting on the REQ replies: nothing was opened, so there
+				// is nothing to abort. If `sasl` itself is already settled as
+				// unusable (NAKed, DELed), that is the answer, whatever reply
+				// is still missing; otherwise the server is slow.
+				const settled = !this.caps.hasCapability("sasl") && !this.caps.isRequesting("sasl");
+				const dropped = settled
+					? this.saslCapLost(this.saslMechanism)
+					: this.saslFailed(t("connect.saslReason.timeout"), "server");
+
+				if (!dropped) {
+					for (const line of this.caps.end()) {
+						this.send(line);
+					}
+				}
 			}
 		}, SASL_TIMEOUT_MS);
 	}
@@ -1361,7 +1758,19 @@ export class IrcClient {
 		this.sasl = null;
 	}
 
+	/**
+	 * Run the teardown of a socket {@link disconnect} closed now, instead of
+	 * when its close event comes: the caller is about to redial or swap the
+	 * transport, after which that event never arrives.
+	 */
+	private settleClose(): void {
+		if (this.closeUnreported) {
+			this.onClose(1000, "", false);
+		}
+	}
+
 	private onClose(code: number, reason: string, willReconnect: boolean, delayMs?: number): void {
+		this.closeUnreported = false;
 		const phase = this._state;
 		const wasUp = phase !== "disconnected";
 		this._state = "disconnected";
@@ -1400,7 +1809,7 @@ export class IrcClient {
 		this.authtoken.clear();
 
 		if (this.options.tls) {
-			refreshPolicy(this.options.host);
+			refreshPolicy(stsHost(this.options));
 		}
 
 		resetBatches(this);
@@ -1420,6 +1829,7 @@ export class IrcClient {
 		resetServiceReplies(this);
 		resetOper(this);
 		this.serverReplay = false;
+		this.replayIds = undefined;
 		this.clearPendingEdits();
 		this.clearTyping();
 
@@ -1461,11 +1871,11 @@ export class IrcClient {
 		const quiet = this.offlineNoted && isOffline();
 
 		if (wasUp && !quiet) {
-			if (this.quitting) {
-				this.pushMessage(this.lobby, {text: t("connect.disconnected")}, true);
-			} else if (this.closeExplained) {
+			if (this.closeExplained) {
 				// We dropped the socket ourselves and said why just before.
 				this.closeExplained = false;
+			} else if (this.quitting) {
+				this.pushMessage(this.lobby, {text: t("connect.disconnected")}, true);
 			} else {
 				const report = describeClose({
 					url: this.url,
@@ -1488,6 +1898,14 @@ export class IrcClient {
 		}
 
 		this.lastTransportError = undefined;
+		const certificate = this.lastCertificate;
+		this.lastCertificate = undefined;
+
+		// A certificate the shell would not trust: the next dial would be
+		// refused the same way (the transport does not retry it), so ask.
+		if (certificate && !willReconnect) {
+			this.options.onUntrustedCertificate?.(certificate);
+		}
 
 		// Settings edited during this connection: reconnect with them instead
 		// of letting the transport retry the old address.
@@ -1641,16 +2059,22 @@ export class IrcClient {
 
 	/**
 	 * The VAPID public key this server advertises for Web Push, when the
-	 * `draft/webpush` capability is enabled: the cap 302 value is the primary
-	 * source, the `VAPID` ISUPPORT token the fallback. Undefined when the
-	 * network cannot push (cap missing or no key).
+	 * `draft/webpush` capability is enabled: the `VAPID` ISUPPORT token the
+	 * spec has the server send once the cap is on, or nefarious2's cap 302
+	 * value (`vapid=<key>`). The cap is requested bare too, as the spec has
+	 * it offered; undefined when the network cannot push (cap missing or no
+	 * key), and nothing subscribes then.
 	 */
 	webpushVapid(): string | undefined {
 		if (!this.caps.hasCapability(WEBPUSH_CAP)) {
 			return undefined;
 		}
 
-		return webpushVapidOf(this.caps.value(WEBPUSH_CAP) ?? "") ?? this.isupport.vapid;
+		return (
+			webpushVapidOf(this.caps.value(WEBPUSH_CAP) ?? "") ??
+			// The same checks and normal form for the 005 token.
+			webpushVapidOf(`vapid=${this.isupport.vapid ?? ""}`)
+		);
 	}
 
 	/**
@@ -1819,6 +2243,13 @@ export class IrcClient {
 	 * echoed them.
 	 */
 	sendMessage(target: string, text: string, opts: SendMessageOptions = {}) {
+		if (!this.caps.hasCapability("message-tags") && (opts.tags || opts.firstTags)) {
+			// Client tags (a reply, an edit) need `message-tags`: a server
+			// without it would read `@+reply=…` as the command and the
+			// message would be lost. It goes out plain instead.
+			opts = {...opts, tags: undefined, firstTags: undefined};
+		}
+
 		scriptManager.dispatchSend(text, target);
 		// The message itself ends the typing session on the receiver's side:
 		// forget ours (no `done`), and let the next `active` go out at once.
@@ -1958,6 +2389,7 @@ export class IrcClient {
 			replyTo: opts.tags?.[REPLY_TAG],
 			editOf: i === 0 ? opts.firstTags?.[EDIT_TAG] : undefined,
 			statusmsgGroup: group,
+			...languageFieldsOf((name) => opts.tags?.[name]),
 		});
 
 		const deliver = (): boolean => {
@@ -2030,7 +2462,8 @@ export class IrcClient {
 
 	/**
 	 * React to (or, with `remove`, take a reaction off) the message `msgid`
-	 * in `chan`: `@+draft/react=<text>;+draft/reply=<msgid> TAGMSG` (bus-contract §1.4).
+	 * in `chan`: `@+draft/react=<text>;+reply=<msgid>;+draft/reply=<msgid> TAGMSG`
+	 * (bus-contract §1.4).
 	 */
 	react(chan: Channel, msgid: string, text: string, remove = false): boolean {
 		if (!this.caps.hasCapability("message-tags")) {
@@ -2051,7 +2484,7 @@ export class IrcClient {
 
 		return this.sendTagmsg(chan.name, {
 			[remove ? UNREACT_TAG : REACT_TAG]: text,
-			[REPLY_TAG]: msgid,
+			...replyTags(msgid),
 		});
 	}
 
@@ -2229,7 +2662,8 @@ export class IrcClient {
 
 	/** Whether the server lets us send REDACT. */
 	get canRedact(): boolean {
-		return this.caps.hasCapability(REDACTION_CAP);
+		// The draft has redaction depend on `message-tags` (a msgid is a tag).
+		return this.caps.hasCapability(REDACTION_CAP) && this.caps.hasCapability("message-tags");
 	}
 
 	/**
@@ -2348,7 +2782,7 @@ export class IrcClient {
 		const opts: SendMessageOptions = {firstTags: {[EDIT_TAG]: oldMsgid}, action};
 
 		if (replyTo) {
-			opts.tags = {[REPLY_TAG]: replyTo};
+			opts.tags = replyTags(replyTo);
 		}
 
 		this.sendMessage(chan.name, text, opts);
@@ -2691,7 +3125,8 @@ export class IrcClient {
 		}
 
 		// Our own JOIN (live, not replayed) is what triggers a history load;
-		// the reference for a catch-up is the newest message before the JOIN.
+		// the reference for a catch-up is the newest message the server
+		// stamped before the JOIN, never a local line on our own clock.
 		const selfJoin =
 			msg.command === "JOIN" &&
 			!this.replayContext &&
@@ -2699,7 +3134,7 @@ export class IrcClient {
 			this.isSelf(msg.source.name);
 		const joinName = selfJoin ? msg.params[0] ?? "" : "";
 		const joined = selfJoin ? this.findChannel(joinName) : undefined;
-		const beforeJoin: MsgRef | undefined = selfJoin ? joined?.newestRef : undefined;
+		const beforeJoin: MsgRef | undefined = selfJoin ? joined?.catchupRef() : undefined;
 		// Only once history has filled it: before that, its newest stamped line
 		// can be our own previous JOIN, with the scrollback never fetched.
 		const heldBeforeJoin: MsgRef | undefined =
@@ -2707,6 +3142,10 @@ export class IrcClient {
 		// A JOIN for a channel we are already in repeats a membership we have
 		// (see handlers/join.ts): its history and modes are not asked again.
 		const alreadyJoined = joined?.state === ChanState.JOINED;
+		// What a reconnect's catch-up walk may stop on: only what we held at
+		// this JOIN. A line relayed while the walk runs is in its pages too,
+		// with the gap below it still unfilled (history.ts).
+		const heldIds = joined && !alreadyJoined ? new Set(joined.msgids) : undefined;
 
 		const handler = handlers.get(msg.command) ?? unhandled;
 
@@ -2729,7 +3168,7 @@ export class IrcClient {
 				// History + read marker, paced (catchup.ts): the active channel
 				// now, the rest one at a time so the server's flood penalty
 				// never queues the user's own lines.
-				enqueueCatchup(this, chan, beforeJoin, heldBeforeJoin);
+				enqueueCatchup(this, chan, beforeJoin, heldBeforeJoin, heldIds);
 			} else if (chan) {
 				// The replay fills the gap, not a `more` page the last
 				// connection died on: that one is asked again here.
@@ -3015,14 +3454,18 @@ export class IrcClient {
 
 		// What the server keeps, and what fits one line after the command
 		// (MAX_LINE_BYTES): a server allowing more must not get an unsendable line.
-		const prefix = `METADATA * SET ${CLOSED_KEY} private :`;
+		const prefix = metadataSetPrefix(CLOSED_KEY);
 		const room = MAX_LINE_BYTES - new TextEncoder().encode(prefix).length;
 		const value = encodeClosed(
 			this.closed.entries(),
 			Math.min(this.metadataMaxValueBytes(), room),
 			Date.now()
 		);
-		this.send(value ? `${prefix}${value}` : `METADATA * SET ${CLOSED_KEY}`);
+		const line = this.metadataSetLine(CLOSED_KEY, value);
+
+		if (line) {
+			this.send(line);
+		}
 	}
 
 	/**
@@ -3207,13 +3650,14 @@ export class IrcClient {
 	 * someone else said, not an edit, newer than the read marker — and
 	 * `increasesUnread` is ignored; the flag travels on the `msg` event so
 	 * the consumer skips notifications. An unread highlight, replayed or
-	 * not, also goes out as `inbox:add`.
+	 * not, also goes out as `inbox:add`. `ids`: the catch-up's own block
+	 * ({@link reserveIds}), while it lasts.
 	 */
 	pushMessage(
 		chan: Channel,
 		partial: Partial<SharedMsg>,
 		increasesUnread = false,
-		{replay = false}: {replay?: boolean} = {}
+		{replay = false, ids}: {replay?: boolean; ids?: IdBlock} = {}
 	): SharedMsg {
 		const msg: SharedMsg = {
 			users: [],
@@ -3228,7 +3672,7 @@ export class IrcClient {
 			return msg;
 		}
 
-		msg.id = this.ids.msgId();
+		msg.id = ids && ids.next < ids.end ? ids.next++ : this.ids.msgId();
 		const ref = chan.remember(msg);
 		chan.newestRef = ref;
 		this.noteCursor(msg);
@@ -3352,6 +3796,15 @@ export class IrcClient {
 		return this.replayContext?.target;
 	}
 
+	/**
+	 * Ids for a catch-up gap that arrives after lines relayed live meanwhile
+	 * but goes above them ({@link IdAllocator.reserve}): taken when the
+	 * catch-up starts, before any of those lines.
+	 */
+	reserveIds(): IdBlock {
+		return this.ids.reserve(GAP_IDS);
+	}
+
 	/** Ids for `count` older messages, below everything shown so far (see ids.ts). */
 	historyIds(count: number): number[] {
 		return this.ids.historyIds(count);
@@ -3428,7 +3881,12 @@ function hostnameOf(host: string): string {
 	return slash === -1 ? stripped : stripped.slice(0, slash);
 }
 
-export function buildUrl(host: string, port: number, tls: boolean): string {
+export function buildUrl(
+	host: string,
+	port: number,
+	tls: boolean,
+	transport?: ConnectOptions["transport"]
+): string {
 	const stripped = host.trim().replace(/^(?:wss?|https?|ircs?):\/\//i, "");
 	const slash = stripped.indexOf("/");
 	let hostname = slash === -1 ? stripped : stripped.slice(0, slash);
@@ -3438,7 +3896,17 @@ export function buildUrl(host: string, port: number, tls: boolean): string {
 		hostname = `[${hostname}]`; // bare IPv6 literal
 	}
 
+	if (transport === "tcp") {
+		return `${tls ? "ircs" : "irc"}://${hostname}:${port}`; // no path over TCP
+	}
+
 	return `${tls ? "wss" : "ws"}://${hostname}:${port}${path}`;
+}
+
+/** The host to dial over TCP: no scheme, path or IPv6 brackets. */
+export function tcpHostOf(host: string): string {
+	const name = hostnameOf(host.trim());
+	return name.startsWith("[") && name.endsWith("]") ? name.slice(1, -1) : name;
 }
 
 /** The cursor stored for `uuid`, if the network was saved and has one. */

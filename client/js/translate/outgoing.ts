@@ -15,6 +15,7 @@ import {
 import {parseBatchedOutput, stripSentinel} from "./prompt";
 import {
 	type MarkerForm,
+	PLACEHOLDER_SOURCE,
 	type Protected,
 	placeholdersIn,
 	protect,
@@ -30,11 +31,11 @@ export const CPU_WRITE_TIMEOUT_MS = 6 * 60 * 1000;
 export const TERM_MAX_WORDS = 3;
 export const TERM_MAX_CHARS = 40;
 /**
- * How sure the detector must be (its best guess's lead over the runner-up,
+ * How sure the detector must be (fastText's probability for the verdict,
  * `detect.ts` `Detection.confidence`) before the composer trusts it over the
- * user's reading language: three times the reading side's `DETECT_MIN_GAP`
- * (0.1), because a wrong source here sends the draft to the LLM in the
- * wrong language rather than just skipping a translation.
+ * user's reading language: the reading side's `AGREE_MIN`, because a wrong
+ * source here sends the draft to the LLM in the wrong language rather than
+ * just skipping a translation.
  */
 export const WRITE_DETECT_MIN_GAP = 0.3;
 export const TIMED_OUT = "timed out";
@@ -139,19 +140,8 @@ export function draftGate(text: string, editing: boolean): DraftGate {
 }
 
 /**
- * Whether the composer's first Enter translates the draft (into `to`, the
- * channel's write target) rather than sending it as typed: prose and a
- * `/me`'s text, with a write target, while translation is on. Switched off
- * (translate/switch.ts) every draft goes as typed -- a write target the
- * channel kept and a `/me` included -- and no strip comes up.
- */
-export function firstEnterTranslates(gate: DraftGate, to: string | null, on: boolean): boolean {
-	return on && !!to && (gate.kind === "ok" || gate.kind === "action");
-}
-
-/**
- * The composer's line for a translation the second Enter sends. A
- * translation is text, never a command: the model wrote it, from a prompt
+ * The composer's line for a translation Insert put there, sent unchanged
+ * (TranslatePanel.vue). A translation is text, never a command: the model wrote it, from a prompt
  * that quotes the channel's topic and other people's lines, so a line of it
  * that begins with "/" must not run (`/quit`, `/msg NickServ …`, or any raw
  * line, since unknown commands go out as typed).
@@ -255,31 +245,30 @@ export function reverseTarget(readingLanguage: string, writeTarget: string): str
  * not work there at all. So a preselection the device cannot serve is
  * passed over, in this order:
  *
- * - the channel's last pick (`once`, else its send target);
- * - a language the channel declares, other than the reading language;
- * - the reading language itself -- the cleanup pass, where it runs;
- * - the first of `fallback` (the supported list, English first) that is
- *   not the reading language.
+ * - the channel's last pick (`once`: the last one-off or send target);
+ * - a language the channel has been written in lately (`recent`, most
+ *   lines first), other than the reading language;
+ * - the reading language itself -- the cleanup pass, where it runs.
+ *
+ * None of those: "" -- nothing is preselected and the dialog's "They read"
+ * says "Choose…". It used to open on the first supported language that
+ * routes, German for an English reader, which read as a setting nobody
+ * made.
  *
  * `routes(to)` is the router's verdict for reading → `to`. When nothing
- * routes (the probe still running, both engines off) the old preselection
- * stands -- the last pick, else the reading language -- and the dialog
- * says why it cannot run.
+ * routes at all (no `fallback` language either: the probe still running,
+ * both engines off) the old preselection stands -- the last pick, else the
+ * reading language -- and the dialog says why it cannot run.
  */
 export function onceTargetDefault(options: {
 	reading: string;
 	last: string;
-	declared: readonly string[];
+	recent: readonly string[];
 	fallback: readonly string[];
 	routes: (to: string) => boolean;
 }): string {
-	const {reading, last, declared, fallback, routes} = options;
-	const candidates = [
-		last,
-		...declared.filter((code) => code !== reading),
-		reading,
-		...fallback.filter((code) => code !== reading),
-	];
+	const {reading, last, recent, fallback, routes} = options;
+	const candidates = [last, ...recent.filter((code) => code !== reading), reading];
 
 	for (const code of candidates) {
 		if (code && routes(code)) {
@@ -287,7 +276,7 @@ export function onceTargetDefault(options: {
 		}
 	}
 
-	return last || reading;
+	return fallback.some((code) => code !== reading && routes(code)) ? "" : last || reading;
 }
 
 /** What two texts are compared as by `isUnchanged`: the differences a model
@@ -329,7 +318,7 @@ export function isUnchanged(source: string, translation: string): boolean {
  * this only matters to a caller holding a protected text).
  */
 export function hasNoLetters(text: string): boolean {
-	return !/[\p{L}\p{N}]/u.test(text.replace(/⟦\s*\d+\s*⟧/g, ""));
+	return !/[\p{L}\p{N}]/u.test(text.replace(new RegExp(PLACEHOLDER_SOURCE, "g"), ""));
 }
 
 /** The longest run of one repeated token, 2-gram or 3-gram a text is in. */
@@ -769,7 +758,7 @@ export function termPair(draft: string, translation: string): [string, string] |
 		return null;
 	}
 
-	if (source.startsWith("/") || source.includes("⟦") || target.includes("⟦")) {
+	if (source.startsWith("/") || /[⟦⟧]/.test(source) || /[⟦⟧]/.test(target)) {
 		return null;
 	}
 
@@ -979,7 +968,10 @@ export interface TranslateCapture {
 
 /** Nothing here but placeholders: a fenced code block's line, say. */
 function isProtectedOnly(line: string): boolean {
-	return placeholdersIn(line).length > 0 && line.replace(/⟦\s*\d+\s*⟧/g, "").trim() === "";
+	return (
+		placeholdersIn(line).length > 0 &&
+		line.replace(new RegExp(PLACEHOLDER_SOURCE, "g"), "").trim() === ""
+	);
 }
 
 /** One translation of the already-protected `line`, streamed through `onChunk` (restored). */

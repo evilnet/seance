@@ -1,13 +1,19 @@
 import {expect} from "chai";
 import sinon from "sinon";
 import socket from "../../client/js/socket";
-import {IrcClient, IrcClientOptions, parseJoinList, buildUrl} from "../../client/js/irc/client";
+import {
+	IrcClient,
+	IrcClientOptions,
+	parseJoinList,
+	buildUrl,
+	tcpHostOf,
+} from "../../client/js/irc/client";
 import {IdAllocator} from "../../client/js/irc/ids";
 import * as saved from "../../client/js/irc/saved-networks";
 import {registerBusHandlers} from "../../client/js/irc/bus";
 import {utf8ByteLength} from "../../client/js/irc/message";
 import type {Transport} from "../../client/js/irc/types";
-import type {TransportEvent, TransportState} from "../../client/js/irc/transport";
+import type {TransportEvent, TransportOptions, TransportState} from "../../client/js/irc/transport";
 import {CTCP_REPLY_INTERVAL_MS} from "../../client/js/irc/handlers/privmsg";
 import {ChanState, ChanType} from "../../shared/types/chan";
 import {MessageType, SharedMsg} from "../../shared/types/msg";
@@ -181,10 +187,18 @@ function lastMessage(chanId?: number): SharedMsg {
 }
 
 /** Drive the fake server through CAP / 001 / 005 / MOTD end. */
-function register(h: Harness, {echo = true, motd = "422"}: {echo?: boolean; motd?: string} = {}) {
+function register(
+	h: Harness,
+	{echo = true, motd = "422", tags = true}: {echo?: boolean; motd?: string; tags?: boolean} = {}
+) {
 	h.client.connect();
 	h.transport.open();
-	const offered = echo ? OFFERED_CAPS : OFFERED_CAPS.replace("echo-message ", "");
+	let offered = echo ? OFFERED_CAPS : OFFERED_CAPS.replace("echo-message ", "");
+
+	if (!tags) {
+		offered = offered.replace(" message-tags", "");
+	}
+
 	h.transport.line(`:irc.test CAP * LS :${offered}`);
 	const req = h.transport.sent.find((l) => l.startsWith("CAP REQ :"));
 	expect(req, "CAP REQ sent").to.be.a("string");
@@ -1049,6 +1063,32 @@ describe("IrcClient", function () {
 			}
 		});
 
+		it("registers again with its own ident, not the one the server gave it", function () {
+			const h = setup();
+			joined(h);
+			// The server marked the ident unverified; it would refuse "~alice" in USER.
+			h.transport.line(":alice!~alice@host JOIN #more");
+			expect(h.client.ident).to.equal("~alice");
+			h.transport.closed(1006, "", true);
+
+			h.sentAfter();
+			h.transport.open();
+			expect(h.sentAfter()).to.include("USER alice 0 * :alice");
+		});
+
+		it("registers again with the configured ident after a CHGHOST changed it", function () {
+			const h = setup({username: "custom"});
+			joined(h);
+			h.transport.line(":alice!custom@host CHGHOST ~custom cloaked.example");
+			expect(h.client.ident).to.equal("~custom");
+			h.transport.closed(1006, "", true);
+
+			h.sentAfter();
+			h.transport.open();
+			const user = h.sentAfter().filter((line) => line.startsWith("USER "));
+			expect(user).to.deep.equal(["USER custom 0 * :alice"]);
+		});
+
 		it("marks everything parted on an unclean close and re-joins after re-registering", function () {
 			const h = setup();
 			const id = joined(h);
@@ -1165,6 +1205,134 @@ describe("IrcClient", function () {
 			);
 			expect(payloads("network:status").slice(-1)[0].connected).to.equal(false);
 			expect(h.client.state).to.equal("disconnected");
+		});
+
+		it("tears down at once on a connect right after disconnect()", function () {
+			// The close event of the socket disconnect() closed comes later,
+			// and a redial makes the real transport ignore it: the teardown
+			// must not wait for it.
+			const h = setup();
+			joined(h);
+			h.transport.line(":alice!alice@host JOIN #kept");
+			h.client.disconnect("bye");
+			h.client.connect();
+
+			expect(h.transport.connectCalls).to.equal(2);
+			expect(h.client.state).to.equal("connecting");
+			expect(h.client.findChannel("#seance")!.state).to.equal(ChanState.PARTED);
+			expect(h.client.findChannel("#seance")!.users.size).to.equal(0);
+			expect(messages(1).filter((m) => m.text === "Disconnected.")).to.have.length(1);
+
+			h.transport.open();
+			h.transport.line(`:irc.test CAP * LS :${OFFERED_CAPS}`);
+			const req = h.transport.sent.filter((l) => l.startsWith("CAP REQ :")).pop() as string;
+			h.transport.line(`:irc.test CAP alice ACK :${req.slice("CAP REQ :".length)}`);
+			h.sentAfter();
+			h.transport.lines(":irc.test 001 alice :Welcome back", ":irc.test 422 alice :No MOTD");
+
+			const joins = h.sentAfter().filter((l) => l.startsWith("JOIN "));
+			expect(joins).to.have.length(1);
+			expect(joins[0].split(" ")[1].split(",")).to.have.members(["#seance", "#kept"]);
+			expect(payloads("init")).to.have.length(2);
+		});
+
+		it("refuses IRC over TCP without the app shell, and does not dial", function () {
+			const h = setup({transport: "tcp", port: 6697});
+			h.client.connect();
+			expect(h.transport.connectCalls).to.equal(0);
+			expect(messages().some((m) => /works only in the app/.test(m.text ?? ""))).to.equal(
+				true
+			);
+		});
+
+		it("gives IRC over TCP the shell's socket, and rebuilds the transport when the type changes", function () {
+			const seen: TransportOptions[] = [];
+			const bridge = {call: () => Promise.resolve({}), listen() {}};
+			const h = setup({
+				transport: "tcp",
+				port: 6697,
+				socketBridge: bridge,
+				transportFactory(opts) {
+					seen.push(opts);
+					return new FakeTransport();
+				},
+			});
+			expect(seen[0].url).to.equal("ircs://irc.test:6697");
+			expect(seen[0].WebSocketImpl).to.be.a("function");
+
+			// Only the type changes: that alone needs a new transport.
+			h.client.applySettings({
+				host: "irc.test",
+				port: 6697,
+				tls: true,
+				nick: "alice",
+				join: "#seance",
+				sasl: "",
+				saslAccount: "",
+				saslPassword: "",
+			});
+			expect(seen).to.have.length(2);
+			expect(seen[1].url).to.equal("wss://irc.test:6697/");
+			expect(seen[1].WebSocketImpl).to.equal(undefined);
+		});
+
+		it("tears down at once when new settings swap the transport right after disconnect()", function () {
+			const made: FakeTransport[] = [];
+			const h = setup({
+				transportFactory() {
+					const t = new FakeTransport();
+					made.push(t);
+					return t;
+				},
+			});
+			h.transport = made[0];
+			joined(h);
+			h.client.disconnect();
+			h.client.applySettings({
+				host: "irc.test",
+				port: 7000,
+				tls: true,
+				nick: "alice",
+				join: "#seance",
+				sasl: "",
+				saslAccount: "",
+				saslPassword: "",
+			});
+
+			expect(made).to.have.length(2);
+			expect(h.client.state).to.equal("disconnected");
+			expect(h.client.findChannel("#seance")!.state).to.equal(ChanState.PARTED);
+			expect(messages(1).filter((m) => m.text === "Disconnected.")).to.have.length(1);
+			expect(payloads("network:status").slice(-1)[0]).to.include({
+				connected: false,
+				connecting: false,
+			});
+
+			// The old transport's late close is not ours any more.
+			made[0].closed(1000);
+			expect(messages(1).filter((m) => m.text === "Disconnected.")).to.have.length(1);
+		});
+
+		it("still tears down on connect after disconnect() was called twice", function () {
+			const h = setup();
+			joined(h);
+			h.client.disconnect();
+			h.client.disconnect();
+			h.client.connect();
+
+			expect(h.client.findChannel("#seance")!.state).to.equal(ChanState.PARTED);
+			expect(messages(1).filter((m) => m.text === "Disconnected.")).to.have.length(1);
+		});
+
+		it("does not tear down twice when the close event came before the connect", function () {
+			const h = setup();
+			joined(h);
+			h.client.disconnect();
+			h.transport.closed(1000);
+			h.client.connect();
+
+			expect(messages(1).filter((m) => m.text === "Disconnected.")).to.have.length(1);
+			expect(h.transport.connectCalls).to.equal(2);
 		});
 
 		it("dispatches `quit` for /quit", function () {
@@ -1288,6 +1456,16 @@ describe("IrcClient", function () {
 			expect(payloads("part")).to.deep.equal([{chan: query.id}, {chan: id}]);
 		});
 
+		it("sends a reply plainly when the server has no message-tags", function () {
+			const h = setup();
+			register(h, {tags: false});
+			h.client.sendMessage("#seance", "hi", {
+				tags: {"+draft/reply": "BjAAAaBjrep9"},
+				firstTags: {"+seance/edit": "BjAAAaBjold1"},
+			});
+			expect(h.sentAfter()).to.deep.equal(["@label=s1 PRIVMSG #seance :hi"]);
+		});
+
 		it("opens a query window with /query", function () {
 			const h = setup();
 			const id = joined(h);
@@ -1355,7 +1533,7 @@ describe("IrcClient", function () {
 				replyTo: "BjAAAaBjrep9",
 			});
 			expect(h.transport.sent[h.transport.sent.length - 1]).to.equal(
-				"@+draft/reply=BjAAAaBjrep9;label=s2 PRIVMSG #seance :from a notification"
+				"@+reply=BjAAAaBjrep9;+draft/reply=BjAAAaBjrep9;label=s2 PRIVMSG #seance :from a notification"
 			);
 
 			socket.emit("network:get", h.client.uuid);
@@ -1376,6 +1554,15 @@ describe("IrcClient", function () {
 				"wss://irc.example.org:443/"
 			);
 			expect(buildUrl("::1", 8443, true)).to.equal("wss://[::1]:8443/");
+		});
+
+		it("builds irc:// and ircs:// URLs for IRC over TCP, and bare hosts to dial", function () {
+			expect(buildUrl("irc.example.org/ws", 6697, true, "tcp")).to.equal(
+				"ircs://irc.example.org:6697"
+			);
+			expect(buildUrl("::1", 6667, false, "tcp")).to.equal("irc://[::1]:6667");
+			expect(tcpHostOf(" ircs://irc.example.org/x ")).to.equal("irc.example.org");
+			expect(tcpHostOf("[::1]")).to.equal("::1");
 		});
 
 		it("parses the join list with keys and missing prefixes", function () {

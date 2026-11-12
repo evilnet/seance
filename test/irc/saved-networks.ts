@@ -1,6 +1,11 @@
 import {expect} from "chai";
 import * as saved from "../../client/js/irc/saved-networks";
 import type {SavedNetwork, StorageBackend} from "../../client/js/irc/saved-networks";
+import {
+	loginTrusted,
+	trustLogin,
+	useStorageBackend as useTrustBackend,
+} from "../../client/js/irc/saslTrust";
 
 /** In-memory stand-in for the localStorage wrapper. */
 class MemoryBackend implements StorageBackend {
@@ -71,6 +76,60 @@ describe("saved-networks", function () {
 
 		saved.useStorageBackend(null); // real wrapper; no window under mocha
 		expect(saved.list()).to.deep.equal([]);
+	});
+
+	it("keeps IRC over TCP through save, edit and connect options", function () {
+		saved.save({...entry(), transport: "tcp", port: 6697});
+		expect(saved.get(entry().uuid)?.transport).to.equal("tcp");
+		expect(saved.toConnectOptions(saved.get(entry().uuid)!)).to.include({
+			transport: "tcp",
+			port: 6697,
+		});
+
+		// The form sends `websocket` to go back; the stored `tcp` must not survive the merge.
+		const back = saved.fromForm(
+			{uuid: entry().uuid, transport: "websocket", tls: "on"},
+			saved.get(entry().uuid)
+		);
+		expect(back).to.not.have.property("transport");
+		expect(saved.toConnectOptions(back)).to.not.have.property("transport");
+
+		// Anything but `tcp` is the WebSocket default.
+		expect(saved.normalize({...entry(), transport: "carrier pigeon"})).to.not.have.property(
+			"transport"
+		);
+	});
+
+	it("lets the connect form switch a saved TCP network back to WebSocket", function () {
+		const tcp = saved.normalize({...entry(), transport: "tcp", port: 6697})!;
+		const back = {host: tcp.host, port: 8443, tls: true, transport: "websocket" as const};
+		expect(saved.normalize(saved.mergeOptions(tcp, tcp.uuid, back))).to.not.have.property(
+			"transport"
+		);
+		// Options that do not name the connection type keep the stored one.
+		expect(saved.normalize(saved.mergeOptions(tcp, tcp.uuid, {nick: "bob"}))).to.include({
+			transport: "tcp",
+			nick: "bob",
+		});
+	});
+
+	it("keeps a TCP and a WebSocket entry for one host and port apart", function () {
+		saved.save({...entry(), uuid: "ws", port: 6697});
+		saved.save({...entry(), uuid: "tcp", port: 6697, transport: "tcp"});
+		expect(saved.findMatching("irc.example.org", 6697, "alice")?.uuid).to.equal("ws");
+		expect(saved.findMatching("irc.example.org", 6697, "alice", "websocket")?.uuid).to.equal(
+			"ws"
+		);
+		expect(saved.findMatching("irc.example.org", 6697, "alice", "tcp")?.uuid).to.equal("tcp");
+	});
+
+	it("has TCP default ports beside the WebSocket ones", function () {
+		expect(saved.defaultPort(true, "tcp")).to.equal(6697);
+		expect(saved.defaultPort(false, "tcp")).to.equal(6667);
+		expect(saved.defaultPort(true)).to.equal(9998);
+		expect(
+			saved.normalize({...entry(), transport: "tcp", tls: false, port: ""})?.port
+		).to.equal(6667);
 	});
 
 	it("saves and reads back an entry under thelounge.networks", function () {
@@ -153,6 +212,21 @@ describe("saved-networks", function () {
 		expect(saved.list().map((n) => n.host)).to.deep.equal(["other.example"]);
 		saved.remove("unknown"); // no throw
 		expect(saved.list()).to.have.length(1);
+	});
+
+	it("removing an entry forgets the SASL login that worked on it", function () {
+		useTrustBackend(backend);
+
+		try {
+			saved.save(entry());
+			trustLogin(entry().uuid, "alice");
+			// The Networks page removes a network with no live client here,
+			// where no bus handler runs.
+			saved.remove(entry().uuid);
+			expect(loginTrusted(entry().uuid, "alice")).to.equal(false);
+		} finally {
+			useTrustBackend(null);
+		}
 	});
 
 	it("orders the list by recency and reports the last-used entry", function () {
@@ -401,7 +475,9 @@ describe("saved-networks", function () {
 			"sasl",
 			"saslAccount",
 			"saslPassword",
+			"serverPassword",
 			"tls",
+			"trustedCertificates",
 		]);
 		expect(saved.displayName(entry())).to.equal("irc.example.org");
 		expect(saved.displayName(entry({name: "Home"}))).to.equal("Home");
@@ -513,5 +589,167 @@ describe("saved-networks", function () {
 		saved.save({...net, presenceMode: undefined});
 		expect(saved.get(net.uuid)?.presenceMode).to.equal(undefined);
 		expect(saved.presenceModeOf(saved.get(net.uuid))).to.equal("global");
+	});
+
+	it("tells change listeners about every write until they unsubscribe", function () {
+		let calls = 0;
+		const off = saved.onSavedNetworksChange(() => calls++);
+		const net = entry();
+
+		saved.save(net);
+		saved.touchLastUsed(net.uuid);
+		saved.remove(net.uuid);
+		expect(calls).to.equal(3);
+
+		saved.remove(net.uuid); // nothing to remove, nothing written
+		expect(calls).to.equal(3);
+
+		off();
+		saved.save(net);
+		expect(calls).to.equal(3);
+	});
+
+	it("does not tell change listeners about a cursor write", function () {
+		const net = entry();
+		saved.save(net);
+		let calls = 0;
+		const off = saved.onSavedNetworksChange(() => calls++);
+
+		saved.setCursor(net.uuid, {msgid: "a", time: 1});
+		off();
+
+		expect(calls).to.equal(0);
+		expect(saved.get(net.uuid)?.cursor).to.deep.equal({msgid: "a", time: 1});
+	});
+
+	describe("server password", function () {
+		it("is kept on disk only with rememberPassword, and marked when it is not", function () {
+			saved.save(entry({serverPassword: "bob/rig:pw", rememberPassword: true}));
+			expect(saved.get(entry().uuid)?.serverPassword).to.equal("bob/rig:pw");
+			expect(saved.get(entry().uuid)?.hasServerPassword).to.equal(true);
+			expect(saved.needsPassword(saved.get(entry().uuid) as SavedNetwork)).to.equal(false);
+
+			saved.save(entry({serverPassword: "bob/rig:pw", rememberPassword: false}));
+			const raw = backend.get(saved.STORAGE_KEY) as string;
+			expect(raw).to.not.include("bob/rig:pw");
+			const stored = saved.get(entry().uuid) as SavedNetwork;
+			expect(stored).to.not.have.property("serverPassword");
+			expect(stored.hasServerPassword).to.equal(true);
+			expect(saved.needsPassword(stored)).to.equal(true);
+		});
+
+		it("is absent from an entry that never had one", function () {
+			const net = saved.normalize(entry()) as SavedNetwork;
+			expect(net).to.not.have.property("serverPassword");
+			expect(net).to.not.have.property("hasServerPassword");
+			expect(saved.needsPassword(net)).to.equal(false);
+			expect(saved.toConnectOptions(net).serverPassword).to.equal("");
+		});
+
+		it("drops CR, LF and NUL, which would end the PASS line", function () {
+			const net = saved.normalize(entry({serverPassword: "a\r\nb\0c"})) as SavedNetwork;
+			expect(net.serverPassword).to.equal("abc");
+		});
+
+		it("is undefined in the connect options when configured but not kept", function () {
+			const net = saved.normalize(entry({hasServerPassword: true})) as SavedNetwork;
+			expect(saved.toConnectOptions(net).serverPassword).to.equal(undefined);
+			expect(
+				saved.toConnectOptions(
+					saved.normalize(entry({serverPassword: "x"})) as SavedNetwork
+				).serverPassword
+			).to.equal("x");
+		});
+
+		it("edit form: the switch off clears it, on and blank keeps it", function () {
+			const existing = saved.normalize(
+				entry({serverPassword: "old", rememberPassword: true})
+			) as SavedNetwork;
+
+			const kept = saved.fromForm(
+				{...existing, hasServerPassword: true, serverPassword: ""},
+				existing
+			);
+			expect(kept.serverPassword).to.equal("old");
+
+			const changed = saved.fromForm(
+				{...existing, hasServerPassword: true, serverPassword: "new"},
+				existing
+			);
+			expect(changed.serverPassword).to.equal("new");
+
+			const {hasServerPassword: _off, ...withoutSwitch} = existing;
+			void _off;
+			const cleared = saved.fromForm({...withoutSwitch, serverPassword: "old"}, existing);
+			expect(cleared).to.not.have.property("serverPassword");
+			expect(cleared).to.not.have.property("hasServerPassword");
+		});
+	});
+});
+
+describe("saved networks: trusted certificates", function () {
+	const a = "aa".repeat(32);
+	const b = "BB:".repeat(31) + "BB";
+
+	it("keeps well-formed SHA-256 fingerprints, lowercased and deduplicated", function () {
+		const net = saved.normalize({
+			uuid: "u1",
+			host: "h",
+			trustedCertificates: [a, b, a, "nope", 5],
+		});
+		expect(net?.trustedCertificates).to.deep.equal([a, "bb".repeat(32)]);
+		expect(saved.toConnectOptions(net!).trustedCertificates).to.deep.equal([
+			a,
+			"bb".repeat(32),
+		]);
+		expect(saved.normalize({uuid: "u2", host: "h"})).to.not.have.property(
+			"trustedCertificates"
+		);
+	});
+
+	it("adds one at the end and drops the oldest past the cap", function () {
+		let net = saved.normalize({uuid: "u3", host: "h"})!;
+
+		for (let i = 0; i <= saved.MAX_TRUSTED_CERTIFICATES; i++) {
+			net = saved.withTrustedCertificate(net, i.toString(16).padStart(64, "0"));
+		}
+
+		expect(net.trustedCertificates).to.have.length(saved.MAX_TRUSTED_CERTIFICATES);
+		expect(net.trustedCertificates?.[0]).to.equal("1".padStart(64, "0"));
+	});
+
+	it("drops them when the form moves the network to another server", function () {
+		const existing = saved.normalize({
+			uuid: "u4",
+			host: "h",
+			port: 6697,
+			trustedCertificates: [a],
+		})!;
+		expect(saved.fromForm({uuid: "u4", host: "h"}, existing).trustedCertificates).to.deep.equal(
+			[a]
+		);
+		expect(saved.fromForm({uuid: "u4", host: "other"}, existing)).to.not.have.property(
+			"trustedCertificates"
+		);
+	});
+
+	it("drops them when the connect screen points the network at another server", function () {
+		const existing = saved.normalize({
+			uuid: "u5",
+			host: "irc.example",
+			port: 6697,
+			trustedCertificates: [a],
+		})!;
+		const same = saved.mergeOptions(existing, "u5", {host: "IRC.example ", port: 6697});
+		expect(same.trustedCertificates).to.deep.equal([a]);
+		expect(saved.mergeOptions(existing, "u5", {nick: "bob"}).trustedCertificates).to.deep.equal(
+			[a]
+		);
+		expect(saved.mergeOptions(existing, "u5", {host: "evil.example"})).to.not.have.property(
+			"trustedCertificates"
+		);
+		expect(saved.mergeOptions(existing, "u5", {port: 7000})).to.not.have.property(
+			"trustedCertificates"
+		);
 	});
 });

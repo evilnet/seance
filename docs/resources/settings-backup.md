@@ -59,6 +59,9 @@ which came from the do-not-disturb branch.
 Left out on purpose: `thelounge.sts` (a cache), `thelounge.push*` (this
 device's push subscriptions, bound to its service worker registration),
 `thelounge.mentions` (a log), `thelounge.state.*` (where the UI was last).
+A restore does clear one of those: `thelounge.state.saslOk`, the SASL logins
+this device has seen work (`irc/saslTrust.ts`), since a restored entry with
+the same uuid may carry other credentials (`CLEARED_ON_RESTORE`).
 The restore never writes a key outside the list above, whatever the file
 holds.
 

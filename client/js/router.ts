@@ -325,6 +325,11 @@ router.afterEach((to, from) => {
 	// Search opening, closing or asking again beside the same chat leaves it as it is.
 	const stays = showsChat(to.name) && showsChat(from.name) && to.params.id === from.params.id;
 
+	// The user list lying over the messages is for the channel it was opened on.
+	if (!stays) {
+		store.commit("userlistOverlayOpen", false);
+	}
+
 	if (store.state.activeChannel && !stays) {
 		const channel = store.state.activeChannel.channel;
 

@@ -22,6 +22,17 @@ tauri-plugin-deep-link = "=2.6.3"
 tauri-plugin-opener = "=2.7.2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# IRC over TCP (src/socket.rs). rustls on ring, not the default aws-lc-rs,
+# so no cmake/NASM in the Windows and phone builds; Mozilla's roots, built in.
+tokio = { version = "=1.54.1", features = ["net", "io-util", "sync", "time", "macros"] }
+tokio-rustls = { version = "=0.26.6", default-features = false, features = ["ring", "logging", "tls12"] }
+rustls = { version = "=0.23.46", default-features = false, features = ["ring", "std", "logging", "tls12"] }
+webpki-roots = "=1.0.11"
+# The trusted-certificate check (socket.rs TrustingVerifier): its SHA-256,
+# and rustls's own verifier error, to tell a self-signed certificate (both
+# already in the tree through rustls).
+ring = "=0.17.14"
+webpki = { package = "rustls-webpki", version = "=0.103.16", default-features = false }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "=2.5.5"
@@ -43,13 +54,17 @@ strip = true
 # view's own rendering to a file — screenshots that do not need the screen,
 # which a locked or headless machine does not give. Off in every real build.
 [features]
-snapshot = ["dep:objc2", "dep:objc2-web-kit", "dep:objc2-app-kit", "dep:objc2-foundation", "dep:objc2-core-foundation", "dep:block2"]
+snapshot = ["dep:objc2-web-kit", "dep:objc2-foundation", "dep:objc2-core-foundation"]
 
 # The OS's notifications (src/alerts.rs): toasts on Windows, the freedesktop
 # notification server over D-Bus on Linux. macOS has its own Swift
 # (src/apple.rs).
 [target.'cfg(windows)'.dependencies]
 notify-rust = "=4.18.2"
+# irc:/ircs: given back from this user's registry alone (src/lib.rs
+# `release_link`); the deep-link plugin's own versions.
+windows-registry = "=0.6.1"
+dunce = "=1.0.5"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 zbus = { version = "=5.19.0", default-features = false, features = ["blocking-api", "async-io"] }
@@ -58,9 +73,11 @@ zbus = { version = "=5.19.0", default-features = false, features = ["blocking-ap
 webkit2gtk = "=2.0.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2 = { version = "0.6", optional = true }
+# The menu bar's shortcuts ahead of the web view (lib.rs
+# page_menu_shortcuts_first); the snapshot feature uses the rest.
+objc2 = "0.6"
 objc2-web-kit = { version = "0.3", optional = true, features = ["WKWebView", "WKSnapshotConfiguration", "block2", "objc2-app-kit", "objc2-core-foundation"] }
-objc2-app-kit = { version = "0.3", optional = true, features = ["NSImage", "NSResponder", "NSView"] }
+objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSEvent", "NSImage", "NSMenu", "NSResponder", "NSView", "block2"] }
 objc2-foundation = { version = "0.3", optional = true, features = ["NSData", "NSString", "NSError"] }
-block2 = { version = "0.6", optional = true }
+block2 = "0.6"
 objc2-core-foundation = { version = "0.3", optional = true, features = ["CFCGTypes"] }

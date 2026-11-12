@@ -83,6 +83,16 @@ export function describeClose(ctx: CloseContext): CloseReport {
 		const text = retrying
 			? t("disconnect.couldNotConnect", vars)
 			: t("disconnect.couldNotConnectNotReconnecting", vars);
+		// IRC over TCP (the app shell): no browser rules apply, and an
+		// untrusted certificate is not the user's to accept in a tab.
+		if (ctx.url.startsWith("ircs:")) {
+			return {text, hint: t("disconnect.hint.tcpTlsCauses")};
+		}
+
+		if (ctx.url.startsWith("irc:")) {
+			return {text, hint: t("disconnect.hint.tcpPlainCauses")};
+		}
+
 		const secure = ctx.url.startsWith("wss:");
 
 		if (!secure && ctx.pageProtocol === "https:") {
@@ -114,15 +124,20 @@ export function describeClose(ctx: CloseContext): CloseReport {
 		// with the proxy's keepalive). Say that instead of the generic hint.
 		const sessionConflict = /active session/i.test(ctx.reason);
 		const vars = {host: ctx.host, detail: closeDetail(ctx.code, ctx.reason)};
+		const text = retrying
+			? t("disconnect.registeringClosed", vars)
+			: t("disconnect.registeringClosedNotReconnecting", vars);
 
-		return {
-			text: retrying
-				? t("disconnect.registeringClosed", vars)
-				: t("disconnect.registeringClosedNotReconnecting", vars),
-			hint: sessionConflict
-				? t("disconnect.hint.sessionConflict")
-				: t("disconnect.hint.registration"),
-		};
+		if (sessionConflict) {
+			return {text, hint: t("disconnect.hint.sessionConflict")};
+		}
+
+		// IRC over TCP (the app shell): there is no WebSocket to doubt.
+		if (ctx.url.startsWith("irc:") || ctx.url.startsWith("ircs:")) {
+			return {text, hint: t("disconnect.hint.tcpRegistration")};
+		}
+
+		return {text, hint: t("disconnect.hint.registration")};
 	}
 
 	return {

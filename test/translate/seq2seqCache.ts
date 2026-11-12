@@ -32,6 +32,23 @@ describe("translate/engines/seq2seqCache", () => {
 		expect(onnxDtype(`${repo}/config.json?download=1`)).to.equal(null);
 	});
 
+	it("a pair that shares its repo is answered from the repo, not its catalog id", async () => {
+		const shared = buildCatalog({
+			cpu: {opus: {"en-pt": {model: "net/mt-pt"}, "pt-en": {model: "net/mt-pt"}}},
+		});
+		const base = "https://models.example.test/net/mt-pt";
+		const s = store([`${base}/config.json`, `${base}/onnx/encoder_model_quantized.onnx`]);
+		const api = seq2seqCacheApi(s);
+
+		expect(await api.has(shared.opus["en-pt"], "cpu")).to.equal(true);
+		expect(await api.has(shared.opus["pt-en"], "cpu")).to.equal(true);
+
+		await api.delete(shared.opus["pt-en"], "cpu");
+
+		expect(await api.has(shared.opus["en-pt"], "cpu")).to.equal(false);
+		expect([...s.held]).to.deep.equal([]);
+	});
+
 	it("answers per copy, and deleting one copy leaves the other's files", async () => {
 		const ref = catalog.opus["en-de"];
 		const s = store([

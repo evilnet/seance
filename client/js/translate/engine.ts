@@ -33,7 +33,7 @@ export type EngineStatus = "cold" | "loading" | "ready" | "failed";
  * itself, a GPU model carries its own product name.
  */
 export type ModelLabel =
-	| {kind: "opus"; from: string; to: string}
+	| {kind: "opus"; from: string; to: string; name?: string}
 	| {kind: "nllb"}
 	| {kind: "llm"; name: string}
 	| {kind: "apple"};
@@ -75,6 +75,13 @@ export interface DeviceCopy {
 	/** The single file to fetch, where the copy is one (a GGUF). */
 	file?: string;
 	/**
+	 * Where the copy's files are fetched from in place of Hugging Face,
+	 * without a trailing slash: `<host>/<source>/<file>`. A shipped model
+	 * hosted elsewhere (models.ts `AFTERNET_MT_HOST`). A deploy's mirror
+	 * (`modelBase`) wins over it: a mirror is a whole mirror.
+	 */
+	host?: string;
+	/**
 	 * The largest single buffer the copy binds on the GPU: every weight
 	 * tensor is one storage binding, so a device below this cannot load it.
 	 * Unknown (a deploy's own model): trusted to fit. CPU copies have none.
@@ -114,6 +121,13 @@ export interface ModelRef {
 	smallBuffer?: SmallBufferBuild;
 	/** OPUS-MT pair models: [from, to] in ISO 639-1. */
 	pair?: [string, string];
+	/**
+	 * The target-language token a multilingual Marian model reads in front
+	 * of its source (`>>por<<`): a deploy's pair model that can translate
+	 * into several languages (`translation.cpu.opus`, branding.md). The
+	 * service sets it on each request (`TranslateRequest.token`).
+	 */
+	token?: string;
 	/**
 	 * A GPU model's compiled WebLLM library, when the deploy named one
 	 * (`translation.llm.lib`): it belongs to that model alone, never to the
@@ -205,6 +219,12 @@ export interface TranslateRequest {
 	hint?: string | null;
 	to: string;
 	/**
+	 * The route's target-language token (`ModelRef.token`), put in front of
+	 * the text by a seq2seq engine. The service's to set: a caller's is
+	 * replaced by the route's, or dropped.
+	 */
+	token?: string;
+	/**
 	 * `read` a line someone else wrote, `write` the user's draft, or
 	 * `polish` the user's draft in its own language: spelling, punctuation
 	 * and grammar corrected, nothing translated (the composer's translate
@@ -219,6 +239,8 @@ export interface TranslateChunk {
 	/** Cumulative for a streaming engine, the whole result for seq2seq. */
 	text: string;
 	done: boolean;
+	/** The model that produced it (`ModelRef.id`), where the service says so. */
+	model?: string;
 }
 
 export interface EngineCapabilities {
