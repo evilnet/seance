@@ -325,6 +325,41 @@ describe("Pending outgoing messages (irc/pending.ts)", function () {
 			h.transport.line(`:irc.test BATCH -${ref}`);
 		}
 
+		/** A PM to bob once a labelled echo has shown the server relays labels. */
+		function pmAfterLabelledEcho(h: Harness): {id: number; copy: SharedMsg} {
+			joined(h);
+			h.transport.line("@msgid=b0 :bob!bob@host.example PRIVMSG alice :hey");
+			h.client.sendMessage("bob", "first");
+			h.transport.line("@label=s1;msgid=m1 :alice!alice@host.example PRIVMSG bob :first");
+			h.client.sendMessage("bob", "hehe");
+			const id = h.client.findChannel("bob")!.id;
+			return {id, copy: h.lastMessage(id)};
+		}
+
+		it("settles a PM's copy by its labelled echo when a batch holds the 301 too", function () {
+			const h = setup();
+			const {id, copy} = pmAfterLabelledEcho(h);
+
+			labelledBatch(h, "s2", "lb2", [
+				":irc.test 301 alice bob :phone in pocket",
+				"@msgid=m2 :alice!alice@host.example PRIVMSG bob :hehe",
+			]);
+
+			expect(settled(h).map((s) => s.id)).to.include(copy.id);
+			clock.tick(PENDING_TIMEOUT_MS + 1);
+			expect(errorsIn(h, id)).to.deep.equal([]);
+		});
+
+		it("still reports a labelled FAIL after a labelled 301", function () {
+			const h = setup();
+			const {id} = pmAfterLabelledEcho(h);
+
+			h.transport.line("@label=s2 :irc.test 301 alice bob :phone in pocket");
+			h.transport.line("@label=s2 :irc.test FAIL PRIVMSG CANNOT_SEND bob :Blocked");
+
+			expect(errorsIn(h, id).map((m) => m.text)).to.deep.equal(["Not sent (Blocked): hehe"]);
+		});
+
 		it("reports a labelled FAIL for the message as not sent", function () {
 			const h = setup();
 			const id = joined(h);
