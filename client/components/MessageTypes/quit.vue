@@ -1,7 +1,13 @@
 <template>
 	<span class="content">
-		{{ parts[0] }}<bdi><Username :user="message.from" /></bdi>
-		<i class="hostmask"> (<ParsedMessage :network="network" :text="message.hostmask" />)</i>
+		{{ parts[0] }}<bdi><Username :user="message.from" :address="message.hostmask" /></bdi>
+		<i class="hostmask">
+			(<HostAddress
+				:network="network"
+				:address="message.hostmask"
+				:nick="message.from?.nick"
+			/>)</i
+		>
 		{{ parts[1] }}
 		<i v-if="message.text" class="quit-reason"
 			>(<ParsedMessage :network="network" :message="message" />)</i
@@ -12,6 +18,7 @@
 <script lang="ts">
 import {computed, defineComponent, PropType} from "vue";
 import type {ClientMessage, ClientNetwork} from "../../js/types";
+import HostAddress from "../HostAddress.vue";
 import ParsedMessage from "../ParsedMessage.vue";
 import Username from "../Username.vue";
 import {useI18n} from "../../js/i18n";
@@ -20,6 +27,7 @@ import {frameSegments, KEEP} from "../../js/i18n/core";
 export default defineComponent({
 	name: "MessageTypeQuit",
 	components: {
+		HostAddress,
 		ParsedMessage,
 		Username,
 	},

@@ -9,6 +9,7 @@ import {
 import Connect from "../components/Windows/Connect.vue";
 import Settings from "../components/Windows/Settings.vue";
 import Help from "../components/Windows/Help.vue";
+import BanList from "../components/Windows/BanList.vue";
 import ChannelBrowser from "../components/Windows/ChannelBrowser.vue";
 import Changelog from "../components/Windows/Changelog.vue";
 import NetworkEdit from "../components/Windows/NetworkEdit.vue";
@@ -120,6 +121,13 @@ const router = createRouter({
 			name: "ChannelBrowser",
 			path: "/browse/:uuid",
 			component: ChannelBrowser,
+		},
+		{
+			// The Bans window (docs/resources/client-features.md § Channel
+			// bans): a channel's bans, searched and changed on the device.
+			name: "BanList",
+			path: "/bans/:uuid/:channel",
+			component: BanList,
 		},
 		{
 			// The oper panel (docs/projects/oper-tools.md): a modal like
