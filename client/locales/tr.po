@@ -1758,6 +1758,12 @@ msgctxt "connect.reconnectWaitThrottled"
 msgid "Waiting {seconds}s: the server says it limits how often a device can reconnect (attempt {attempt})…"
 msgstr "{seconds} sn bekleniyor: sunucu, bir cihazın ne sıklıkla yeniden bağlanabileceğini sınırladığını söylüyor (deneme {attempt})…"
 
+#. Sign-in panel (the first screen of a deploy that signs users in to one network): a link under the Sign in button to the network's own sign-up page, which opens in a new tab. For someone who has no account to sign in with; the guest section below it is the other way in.
+#: client/components/Windows/Connect.vue
+msgctxt "connect.register"
+msgid "Register an account"
+msgstr ""
+
 #. Checkbox on the sign-in form: remember the account and reconnect on the next load.
 #: client/js/branding.ts
 msgctxt "connect.rememberMe"

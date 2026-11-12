@@ -17,7 +17,8 @@
 //       "channels": ["#seance"],
 //       "nick": "guest????"
 //     },
-//     "features": {"signIn": true, "allowCustomServer": false, "multiNetwork": false}
+//     "features": {"signIn": true, "allowCustomServer": false, "multiNetwork": false},
+//     "links": {"register": "https://accounts.example/register"}
 //   }
 //   JSON
 //   pnpm build && python3 -m http.server -d public 8023 &
@@ -29,6 +30,8 @@
 // path is the one with teeth. What the scenario pins down:
 //
 //   * the panel has no server fields at all, and names the network instead;
+//   * `links.register` is a link under Sign in to the network's sign-up page,
+//     in a new tab;
 //   * a refused login is reported in the lobby and the connection dropped,
 //     rather than quietly registering the user as a stranger
 //     (`features.saslDisconnectOnFail`), and the view follows the report to the
@@ -142,6 +145,17 @@ export default async function run(page) {
 		/^guest\d{4}$/.test(
 			String(await page.evaluate(`document.querySelector("#connect\\\\:guestNick").value`))
 		)
+	);
+	page.check(
+		"a register link under Sign in opens the sign-up page in a new tab",
+		(await page.evaluate(`(() => {
+			const a = document.querySelector("#connect .sign-in-register a");
+			const signIn = document.querySelector("#connect .btn-signin");
+			return !!a && !!signIn &&
+				a.href === "https://accounts.example/register" &&
+				a.target === "_blank" && a.rel === "noopener" &&
+				a.getBoundingClientRect().top > signIn.getBoundingClientRect().bottom;
+		})()`)) === true
 	);
 	await page.screenshot("1-sign-in-panel");
 

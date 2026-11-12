@@ -353,6 +353,7 @@
   "connect.reconnectIn": "Reconnecting in {seconds}s (attempt {attempt})…",
   "connect.reconnectNow": "Reconnecting now (attempt {attempt})…",
   "connect.reconnectWaitThrottled": "Waiting {seconds}s: the server says it limits how often a device can reconnect (attempt {attempt})…",
+  "connect.register": "Register an account",
   "connect.rememberMe": "Stay signed in on this device",
   "connect.rememberPassword": "Remember password on this device",
   "connect.saslFailed": "SASL authentication failed: {reason}",

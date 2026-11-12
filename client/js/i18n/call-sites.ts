@@ -287,6 +287,7 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"connect.reconnectIn",
 	"connect.reconnectNow",
 	"connect.reconnectWaitThrottled",
+	"connect.register",
 	"connect.rememberMe",
 	"connect.rememberPassword",
 	"connect.saslFailed",

@@ -89,6 +89,12 @@
 				</button>
 			</div>
 
+			<p v-if="registerLink" class="sign-in-register">
+				<a :href="registerLink" target="_blank" rel="noopener">{{
+					t("connect.register")
+				}}</a>
+			</p>
+
 			<template v-if="guestAccess">
 				<h2 class="sign-in-guest">{{ t("connect.guestTitle") }}</h2>
 				<div class="connect-row">
@@ -440,6 +446,12 @@
 	color: var(--body-color-muted, inherit);
 }
 
+/* Sign-up sits under Sign in, for whoever has no account yet: quiet, one
+ * line, before the guest half's rule. */
+#connect .sign-in-register {
+	margin-block: 1rem 0;
+}
+
 #connect .sign-in-guest {
 	margin-top: 2rem;
 }
@@ -587,6 +599,8 @@ export default defineComponent({
 		const guestAccess = features.guestAccess;
 		// A computed, not a snapshot: the intro must follow a locale change.
 		const signInIntro = computed(() => t("connect.signInIntro"));
+		/** The network's sign-up page (`links.register`), if the deploy has one. */
+		const registerLink = branding.links?.register;
 		/** The guest half's own field, so prefilling an account leaves it be. */
 		const guestNick = ref(network?.nick ? expandNick(network.nick) : "");
 		/** "Stay signed in": remember the password *and* connect on next load,
@@ -876,6 +890,7 @@ export default defineComponent({
 			signInMode,
 			guestAccess,
 			signInIntro,
+			registerLink,
 			guestNick,
 			rememberMe,
 			onGuest,
