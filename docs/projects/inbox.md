@@ -62,7 +62,9 @@ Every device builds the same list from what the server already gives it:
   `moveReadMarker` dispatches whenever the read point moves, and by
   `inbox:drop {network, target, msgid, by?}` when the message is deleted
   (`REDACT`) or replaced by its author's edit, whether or not the page has
-  it loaded (an edit is dropped only when `by` sent the entry's message).
+  it loaded (an edit is dropped only when `by` sent the entry's message, by
+  the timeline's author rule: entries keep the sender's `account`, `null`
+  for none, and one stored before that is held to the nick).
 - **Dismissed** on this device: the entry goes, and its key and time are
   remembered (`thelounge.mentions.dismissed`, 200 at most) so the next
   catch-up does not bring it back, until the conversation is read past it

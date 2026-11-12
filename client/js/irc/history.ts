@@ -432,7 +432,14 @@ function replay(client: IrcClient, chan: Channel, lines: IrcMessage[]): Replayed
 		// deduplicates below and serves as a BEFORE/AFTER reference. A handler
 		// that forgets still gets it here: a replayed line is a stored one.
 		const msgid = line.tags.get("msgid");
-		const result = client.collectReplay(chan, () => client.handleMessage(line));
+		// The page so far goes along: an edit judges an original on it
+		// (privmsg.ts, the author rule).
+		const result = client.collectReplay(
+			chan,
+			() => client.handleMessage(line),
+			false,
+			collected
+		);
 
 		for (const item of result.messages) {
 			if (msgid && !item.msg.msgid) {
@@ -527,8 +534,10 @@ function deliverPrepend(
 	const totalMessages = chan.shared.totalMessages + (moreAvailable ? 1 : 0);
 	client.dispatch("more", {chan: chan.id, messages, totalMessages, moreAvailable});
 
-	// An original its edit already replaced is not news, read or not.
-	const replaced = new Set(messages.filter((msg) => client.settleLateOriginal(chan, msg)));
+	// An original its edit already replaced is not news, read or not, nor
+	// a line in this page that it edits in turn.
+	const hidden = new Set(messages.flatMap((msg) => client.settleLateOriginal(chan, msg)));
+	const replaced = new Set(messages.filter((msg) => hidden.has(msg.id)));
 
 	if (marker && !looking) {
 		countPageUnread(client, chan, page, marker, 0, replaced);

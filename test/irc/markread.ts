@@ -685,6 +685,7 @@ describe("The inbox's events (docs/projects/inbox.md)", function () {
 				type: "message",
 				text: "alice: ping",
 				from: added()[0].from,
+				account: null,
 			},
 		]);
 		expect(added()[0].from.nick).to.equal("bob");
@@ -922,7 +923,23 @@ describe("The inbox's events (docs/projects/inbox.md)", function () {
 			"@time=2026-08-25T12:10:00.000Z;msgid=e1;+seance/edit=gone :bob!bob@host PRIVMSG #seance :fixed"
 		);
 		expect(payloads("inbox:drop")).to.deep.equal([
-			{network: h.client.uuid, target: "#seance", msgid: "gone", by: "bob"},
+			{network: h.client.uuid, target: "#seance", msgid: "gone", by: {nick: "bob"}},
+		]);
+	});
+
+	it("reports the editor's account with an edit's original", function () {
+		const h = setup();
+		joined(h);
+		h.transport.line(
+			"@time=2026-08-25T12:10:00.000Z;msgid=e1;account=bob;+seance/edit=gone :robert!bob@host PRIVMSG #seance :fixed"
+		);
+		expect(payloads("inbox:drop")).to.deep.equal([
+			{
+				network: h.client.uuid,
+				target: "#seance",
+				msgid: "gone",
+				by: {nick: "robert", account: "bob"},
+			},
 		]);
 	});
 

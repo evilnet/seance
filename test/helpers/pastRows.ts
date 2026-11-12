@@ -69,4 +69,11 @@ describe("helpers/pastRows.ts", function () {
 		expect(editRow(rows, {...row(9, "e"), editOf: "gone"})).to.equal(false);
 		expect(rows).to.have.length(1);
 	});
+
+	it("decides authorship by account when a line carries one", function () {
+		const acct = (r: SharedMsg, fromAccount?: string) => ({...r, fromAccount} as SharedMsg);
+		const rows = [acct(row(1, "a"), "bob")];
+		expect(editRow(rows, {...acct(row(9, "e"), "mallory"), editOf: "a"})).to.equal(false);
+		expect(editRow(rows, {...acct(row(9, "e", "robert"), "bob"), editOf: "a"})).to.equal(true);
+	});
 });

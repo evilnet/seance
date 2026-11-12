@@ -31,7 +31,15 @@ import type {
 import type {PushSession, ServerToClientEvents} from "../../../shared/types/socket-events";
 import {CapNegotiator, SEANCE_CAPS, webpushVapidOf, WEBPUSH_CAP} from "./caps";
 import {casefold, namesEqual} from "./casemap";
-import {Channel, MsgRef, SAID_TYPES, countsAsUnread} from "./channel";
+import {
+	Author,
+	authorOf,
+	Channel,
+	isEditAuthor,
+	MsgRef,
+	SAID_TYPES,
+	countsAsUnread,
+} from "./channel";
 import {QueryLog} from "./querylog";
 import {commandNames, dispatchInput} from "./commands";
 import {describeClose} from "./disconnect";
@@ -339,6 +347,16 @@ export const UNKNOWN_HOST_BYTES = 75;
 /** A `+typing` TAGMSG: one command of fake lag. */
 const TYPING_COST_MS = 2000;
 
+/** An original's author's edit shown before it ({@link IrcClient.settleLateOriginal}). */
+interface LateEdit {
+	/** The edit that takes its place. */
+	id: number;
+	/** The lines the original itself edits in turn, now hidden behind the edit too. */
+	behind: number[];
+	/** Whether a line hidden this way gave its count back. */
+	uncounted: boolean;
+}
+
 export class IrcClient {
 	readonly uuid: string;
 	/** Replaced (not mutated) when an STS upgrade changes port/tls, see {@link reconfigure}. */
@@ -599,6 +617,8 @@ export class IrcClient {
 	private replayContext: {
 		target: Channel;
 		inert: boolean;
+		/** The page's lines collected before this one (history.ts `replay`). */
+		earlier?: ReplayCollection;
 		collected: ReplayCollection;
 	} | null = null;
 	/** Edits whose REDACT is in flight, by the msgid being replaced. */
@@ -2399,8 +2419,11 @@ export class IrcClient {
 				}
 
 				if (!echo) {
+					// As the server would tag it (`account-tag`), so the edit
+					// rule sees our account on our own lines (isEditAuthor).
+					const own = this.account ? {...line.base, account: this.account} : line.base;
 					this.handleLine(
-						`${tagPrefix(line.base)}:${this.nick}!${this.ident}@${
+						`${tagPrefix(own)}:${this.nick}!${this.ident}@${
 							this.host || "localhost"
 						} ${command} ${target} :${line.body}`
 					);
@@ -2760,22 +2783,136 @@ export class IrcClient {
 	 * first: an older page brought the original in, or a catch-up). The edit
 	 * takes its place now (`msg:edit`), as it does when the original is
 	 * there first, so the two are never both on screen — nor both in a copy
-	 * of the conversation. True when its own author's edit replaced it
-	 * (the inbox drops an edited mention only then, `inbox:drop`'s `by`).
+	 * of the conversation. The ids its own author's edit hid: `msg`, and the
+	 * lines `msg` itself edits in turn; none when anyone else's edit is
+	 * all there was ({@link isAuthor}). Neither counts: the edit did.
 	 */
-	settleLateOriginal(chan: Channel, msg: SharedMsg): boolean {
-		const edit = msg.msgid ? chan.takeEditOf(msg.msgid) : undefined;
-		const id = edit === undefined ? undefined : chan.idOf(edit.msgid);
+	settleLateOriginal(chan: Channel, msg: SharedMsg): number[] {
+		const late = this.takeLateEdit(chan, msg);
 
-		if (id !== undefined && id !== msg.id) {
-			this.dispatch("msg:edit", {chan: chan.id, id, replaces: msg.id});
+		if (late === undefined) {
+			return [];
 		}
 
-		return (
-			edit !== undefined &&
-			msg.from?.nick !== undefined &&
-			this.casefold(edit.by) === this.casefold(msg.from.nick)
-		);
+		this.dispatch("msg:edit", {chan: chan.id, id: late.id, replaces: msg.id});
+
+		if (late.uncounted) {
+			const shared = chan.shared;
+			this.dispatch("markread", {
+				chan: chan.id,
+				firstUnread: shared.firstUnread,
+				unread: shared.unread,
+				highlight: shared.highlight,
+			});
+		}
+
+		return [msg.id, ...late.behind];
+	}
+
+	/**
+	 * The id of the newest edit of `msg` already shown that its author sent,
+	 * if one is still loaded. Every waiting edit is taken off the list, and
+	 * anyone else's becomes a line of its own (`msg:unedit`): it was counted
+	 * as one when it came, its original not being there to replace.
+	 */
+	private takeLateEdit(chan: Channel, msg: SharedMsg): LateEdit | undefined {
+		const author = authorOf(msg);
+		const revisions: number[] = [];
+
+		for (const edit of msg.msgid ? chan.takeEditsOf(msg.msgid) : []) {
+			const id = chan.idOf(edit.msgid);
+
+			if (id === undefined || id === msg.id) {
+				continue;
+			}
+
+			if (this.isAuthor(author, edit.by)) {
+				revisions.push(id);
+			} else {
+				this.dispatch("msg:unedit", {chan: chan.id, id});
+			}
+		}
+
+		if (revisions.length === 0) {
+			return undefined;
+		}
+
+		// The author's newest edit (by time: older pages deliver older ones
+		// last) stands for the whole line. Its earlier ones, and every line
+		// `msg` edits in turn back to the first, count for nothing more.
+		const timeOf = (id: number) => chan.msgRefs.get(id)?.time.getTime() ?? 0;
+		revisions.sort((a, b) => timeOf(a) - timeOf(b) || a - b);
+		const id = revisions.pop()!;
+		const behind = this.chainBehind(chan, msg, author);
+		let uncounted = false;
+
+		for (const earlier of revisions) {
+			// Behind the newest, as an edit of an edit would be (applyEdit).
+			this.dispatch("msg:edit", {chan: chan.id, id, replaces: earlier});
+		}
+
+		for (const hidden of [...revisions, ...behind]) {
+			uncounted = this.uncount(chan, hidden) || uncounted;
+		}
+
+		return {id, behind, uncounted};
+	}
+
+	/** The shown lines `msg` edits in turn, by its author, newest first. */
+	private chainBehind(chan: Channel, msg: SharedMsg, author: Author): number[] {
+		const behind: number[] = [];
+		let next = msg.editOf;
+
+		while (next !== undefined) {
+			const id = chan.idOf(next);
+			const ref = id !== undefined ? chan.msgRefs.get(id) : undefined;
+
+			if (
+				id === undefined ||
+				!ref ||
+				behind.includes(id) ||
+				!this.isAuthor(ref.from, author)
+			) {
+				break;
+			}
+
+			behind.push(id);
+			next = ref.editOf;
+		}
+
+		return behind;
+	}
+
+	/**
+	 * Take back what the line `id` added to the counters, if it still
+	 * counts: past the read marker. True if anything changed.
+	 */
+	private uncount(chan: Channel, id: number): boolean {
+		const ref = chan.msgRefs.get(id);
+
+		if (!ref || (!ref.unread && !ref.highlight)) {
+			return false;
+		}
+
+		const counted = !chan.readMarker || ref.time.getTime() > chan.readMarker.getTime();
+		const shared = chan.shared;
+
+		if (counted && ref.unread) {
+			shared.unread = Math.max(0, shared.unread - 1);
+		}
+
+		if (counted && ref.highlight) {
+			shared.highlight = Math.max(0, shared.highlight - 1);
+		}
+
+		ref.unread = false;
+		ref.highlight = false;
+		return counted;
+	}
+
+	/** {@link isEditAuthor} under this server's casemapping. */
+	isAuthor(author: Author | undefined, by: Author): boolean {
+		return isEditAuthor(author, by, (name) => this.casefold(name));
 	}
 
 	/** The tagged resend that completes an edit. */
@@ -3706,6 +3843,10 @@ export class IrcClient {
 			this.queryLog.append(chan.name, msg);
 		}
 
+		// An original its author's edit already replaced on screen counts
+		// for nothing: the edit counted in its place (privmsg.ts counts an
+		// edit whose original is not shown, countsAsUnread too).
+		const lateEdit = this.takeLateEdit(chan, msg)?.id;
 		const shared = chan.shared;
 		shared.totalMessages++;
 		// Already read on another session (draft/read-marker), e.g. a catch-up.
@@ -3713,7 +3854,10 @@ export class IrcClient {
 			chan.readMarker !== undefined && ref.time.getTime() <= chan.readMarker.getTime();
 		const said = SAID_TYPES.has(msg.type ?? MessageType.MESSAGE);
 
-		if (msg.self) {
+		if (lateEdit !== undefined) {
+			// Hidden behind its edit, which counted already: nothing to count,
+			// and an old line of ours reads nothing either.
+		} else if (msg.self) {
 			// Something we said is read by definition; our own JOIN/MODE
 			// are not (a reconnect must not advance the read marker), and
 			// replayed by a catch-up they leave the counters and the
@@ -3742,7 +3886,7 @@ export class IrcClient {
 			}
 
 			// A catch-up line counts as privmsg.ts counts a live one.
-			if (replay ? countsAsUnread(msg) : increasesUnread || msg.highlight) {
+			if (replay ? countsAsUnread(msg, chan) : increasesUnread || msg.highlight) {
 				shared.unread++;
 				ref.unread = true;
 			}
@@ -3761,8 +3905,11 @@ export class IrcClient {
 			...(replay ? {replay: true} : {}),
 		});
 		// An original its edit already replaced is not news, read or not.
-		const replaced = this.settleLateOriginal(chan, msg);
-		const entry = replaced ? null : this.mentionEntry(chan, msg, !!ref.highlight);
+		if (lateEdit !== undefined) {
+			this.dispatch("msg:edit", {chan: chan.id, id: lateEdit, replaces: msg.id});
+		}
+
+		const entry = lateEdit !== undefined ? null : this.mentionEntry(chan, msg, !!ref.highlight);
 
 		if (entry) {
 			this.bus.dispatch("inbox:add", {entries: [entry]});
@@ -3778,9 +3925,19 @@ export class IrcClient {
 	 * a handler dispatches gets out either, for rows that are only being looked
 	 * at (historysearch.ts), where history's `inbox:drop` for an edit would be wrong.
 	 */
-	collectReplay(target: Channel, fn: () => void, inert = false): ReplayCollection {
+	collectReplay(
+		target: Channel,
+		fn: () => void,
+		inert = false,
+		earlier?: ReplayCollection
+	): ReplayCollection {
 		const previous = this.replayContext;
-		const context = {target, inert, collected: {messages: [], after: []} as ReplayCollection};
+		const context = {
+			target,
+			inert,
+			earlier,
+			collected: {messages: [], after: []} as ReplayCollection,
+		};
 		this.replayContext = context;
 
 		try {
@@ -3804,6 +3961,17 @@ export class IrcClient {
 		} else {
 			fn();
 		}
+	}
+
+	/**
+	 * A message of `chan` collected by the replay under way, by msgid: from
+	 * this line or an earlier one of the same page (`collectReplay`'s `earlier`).
+	 */
+	replayedMessage(chan: Channel, msgid: string): SharedMsg | undefined {
+		const context = this.replayContext;
+		const find = (c: ReplayCollection | undefined) =>
+			c?.messages.find((m) => m.chan === chan && m.msg.msgid === msgid)?.msg;
+		return find(context?.collected) ?? find(context?.earlier);
 	}
 
 	/** True inside {@link collectReplay}: handlers must not touch channel state. */
