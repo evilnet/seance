@@ -3903,13 +3903,24 @@ export class IrcClient {
 	 * `increasesUnread` is ignored; the flag travels on the `msg` event so
 	 * the consumer skips notifications. A highlight, replayed or not, also
 	 * goes out as `inbox:add`, read when it is read already. `ids`: the catch-up's own block
-	 * ({@link reserveIds}), while it lasts.
+	 * ({@link reserveIds}), while it lasts. `id`: a catch-up line placed
+	 * among the rows already shown, by its time (history.ts `placeByTime`):
+	 * it takes that id. `old`: such a line, placed or not (out of room
+	 * between its neighbours): it is not the channel's newest line, a line
+	 * of ours moves `firstUnread` only forward, and one that counts as unread
+	 * below the marker moves it back above itself and is flagged `counted`
+	 * for the store, whose own marker may lie elsewhere.
 	 */
 	pushMessage(
 		chan: Channel,
 		partial: Partial<SharedMsg>,
 		increasesUnread = false,
-		{replay = false, ids}: {replay?: boolean; ids?: IdBlock} = {}
+		{
+			replay = false,
+			ids,
+			id,
+			old = false,
+		}: {replay?: boolean; ids?: IdBlock; id?: number; old?: boolean} = {}
 	): SharedMsg {
 		const msg: SharedMsg = {
 			users: [],
@@ -3924,9 +3935,14 @@ export class IrcClient {
 			return msg;
 		}
 
-		msg.id = ids && ids.next < ids.end ? ids.next++ : this.ids.msgId();
+		const placed = old;
+		msg.id = id ?? (ids && ids.next < ids.end ? ids.next++ : this.ids.msgId());
 		const ref = chan.remember(msg);
-		chan.newestRef = ref;
+
+		if (!placed || !chan.newestRef) {
+			chan.newestRef = ref;
+		}
+
 		this.noteCursor(msg);
 
 		if (chan.type === ChanType.QUERY) {
@@ -3953,7 +3969,10 @@ export class IrcClient {
 			// are not (a reconnect must not advance the read marker), and
 			// replayed by a catch-up they leave the counters and the
 			// new-messages line where the lines before them put them.
-			if (said || !replay) {
+			if (
+				!replay ||
+				(said && (!placed || !shared.firstUnread || msg.id > shared.firstUnread))
+			) {
 				shared.firstUnread = msg.id;
 			}
 
@@ -3982,6 +4001,12 @@ export class IrcClient {
 				ref.unread = true;
 			}
 
+			// Placed among older rows by its time (history.ts `placeByTime`),
+			// it may lie below the marker: the marker goes back above it.
+			if (placed && ref.unread && msg.id <= shared.firstUnread) {
+				shared.firstUnread = this.rowBefore(chan, msg.id);
+			}
+
 			if (msg.highlight) {
 				shared.highlight++;
 				ref.highlight = true;
@@ -3994,6 +4019,8 @@ export class IrcClient {
 			unread: shared.unread,
 			highlight: shared.highlight,
 			...(replay ? {replay: true} : {}),
+			...(placed ? {placed: true} : {}),
+			...(placed && ref.unread ? {counted: true} : {}),
 		});
 		// An original its edit already replaced is not news, read or not.
 		if (lateEdit !== undefined) {
@@ -4082,6 +4109,19 @@ export class IrcClient {
 	 */
 	reserveIds(): IdBlock {
 		return this.ids.reserve(GAP_IDS);
+	}
+
+	/** The id of the row just before `id` in `chan` (by id), or just under `id`. */
+	private rowBefore(chan: Channel, id: number): number {
+		let before: number | undefined;
+
+		for (const other of chan.msgRefs.keys()) {
+			if (other < id && (before === undefined || other > before)) {
+				before = other;
+			}
+		}
+
+		return before ?? id - 1;
 	}
 
 	/** Ids for `count` older messages, below everything shown so far (see ids.ts). */

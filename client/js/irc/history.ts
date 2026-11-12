@@ -26,12 +26,13 @@
  *   by an anchor the server can no longer see (a presence gap, retention,
  *   a clock disagreement): it stops where the server's history meets ours.
  *   The pages are gathered and appended once, oldest first, as ordinary
- *   `msg` events flagged `replay`: counted as unread like live ones
- *   (`IrcClient.pushMessage`), but no notification or mention entry. The
- *   server can drive the same thing itself off a `PERSISTENCE ATTACH` cursor, in
- *   which case its `chathistory` batches arrive unasked inside a
- *   `evilnet.github.io/bouncer-replay` wrapper and take the same path
- *   (persistence.ts).
+ *   `msg` events flagged `replay` (a line no newer than what we held goes
+ *   in among the rows by its time, {@link placeByTime}): counted as unread
+ *   like live ones (`IrcClient.pushMessage`), but no notification or
+ *   mention entry. The server can drive the same thing itself off a
+ *   `PERSISTENCE ATTACH` cursor, in which case its `chathistory` batches
+ *   arrive unasked inside a `evilnet.github.io/bouncer-replay` wrapper and
+ *   take the same path, appended without placement (persistence.ts).
  *
  * Requests are matched to replies by `labeled-response` label when that
  * cap is on, else by target. `FAIL CHATHISTORY`, a labeled `ACK` or a
@@ -556,17 +557,147 @@ function deliverPrepend(
 	}
 }
 
-/** Append catch-up messages as live ones: counted as unread, never notified. */
+/**
+ * Ids that put a reconnect's gathered lines among the rows already shown,
+ * by server time, for the lines that are not newer than the newest line
+ * held at the JOIN (`held`): a line missed between two held lines (#292),
+ * or one kept inside the skew allowance below everything held (#290).
+ * Appended with an id from the reserved block, either would show below
+ * the newer held lines. Each goes after the last server-stamped row whose
+ * time is no later than its own (after a tie), or before the first such
+ * row when every one is newer; the lines are taken oldest first, so a run
+ * keeps its server order. Its id lies between its neighbours' ids, which
+ * is what the store orders rows by (helpers/messageUpdates.ts
+ * `insertMessage`): a run after a row is numbered evenly across the open
+ * interval up to the next row, never wider than one unit past the lower
+ * row's integer part, so the ids are never integers, no allocator
+ * (IdAllocator) can hand one out again, and the unit above an integer id
+ * holds only its own channel's rows. A run before every row takes fresh
+ * history ids instead (below every id there is), not a fraction under the
+ * first row, which would lie in the unit above some other row's id. Lines
+ * newer than everything held are left out: they take the reserved block, as
+ * before. `old` holds every line that is not newer, numbered or not (out of
+ * float precision after very many splits of one gap): none of them is the
+ * channel's newest. Nothing is placed without a held line that carries a
+ * msgid (no server time to place against).
+ */
+function placeByTime(
+	client: IrcClient,
+	chan: Channel,
+	messages: SharedMsg[],
+	held: ReadonlySet<string>
+): {ids: Map<SharedMsg, number>; old: Set<SharedMsg>} {
+	const placed = new Map<SharedMsg, number>();
+	const old = new Set<SharedMsg>();
+	const newest = chan.newestTimeOf(held);
+
+	if (newest === undefined) {
+		return {ids: placed, old};
+	}
+
+	interface Row {
+		id?: number;
+		time: number;
+		stamped: boolean;
+		msg?: SharedMsg;
+	}
+
+	// The rows as the store shows them: in id order.
+	const rows: Row[] = [...chan.msgRefs]
+		.sort((a, b) => a[0] - b[0])
+		.map(([id, ref]) => ({id, time: ref.time.getTime(), stamped: ref.msgid !== undefined}));
+
+	for (const msg of messages) {
+		const time = new Date(msg.time).getTime();
+
+		if (Number.isNaN(time) || time > newest) {
+			continue;
+		}
+
+		old.add(msg);
+
+		let at = rows.findIndex((row) => row.stamped);
+
+		for (let i = rows.length - 1; i >= 0; i--) {
+			if (rows[i].stamped && rows[i].time <= time) {
+				at = i + 1;
+				break;
+			}
+		}
+
+		rows.splice(at, 0, {time, stamped: true, msg});
+	}
+
+	for (let start = 0; start < rows.length; start++) {
+		if (!rows[start].msg) {
+			continue;
+		}
+
+		let end = start;
+
+		while (end < rows.length && rows[end].msg) {
+			end++;
+		}
+
+		const lo = rows[start - 1]?.id;
+		const hi = rows[end]?.id;
+		const count = end - start;
+
+		if (lo === undefined) {
+			const fresh = client.historyIds(count);
+
+			for (let k = 0; k < count; k++) {
+				placed.set(rows[start + k].msg!, fresh[k]);
+			}
+
+			start = end;
+			continue;
+		}
+
+		const from = lo;
+		const to = Math.min(hi ?? Infinity, Math.floor(from) + 1);
+		let previous = from;
+
+		for (let k = 0; k < count; k++) {
+			const id = from + ((to - from) * (k + 1)) / (count + 1);
+
+			// Out of float precision (a gap split very many times): the
+			// line keeps the reserved block's id instead.
+			if (id > previous && id < to && !Number.isInteger(id)) {
+				placed.set(rows[start + k].msg!, id);
+				previous = id;
+			}
+		}
+
+		start = end;
+	}
+
+	return {ids: placed, old};
+}
+
+/**
+ * Append catch-up messages as live ones: counted as unread, never notified.
+ * With `held` (a reconnect's walk), lines no newer than what was held go in
+ * among the rows by time instead ({@link placeByTime}).
+ */
 function deliverAppend(
 	client: IrcClient,
 	chan: Channel,
 	messages: SharedMsg[],
-	ids: IdBlock | undefined
+	ids: IdBlock | undefined,
+	held?: ReadonlySet<string>
 ): void {
+	const placed = held ? placeByTime(client, chan, messages, held) : undefined;
+
 	for (const msg of messages) {
 		// pushMessage copies; write the id back so post-replay work
 		// (`afterReplay` closures hold the collected objects) can find it.
-		msg.id = client.pushMessage(chan, msg, false, {replay: true, ids}).id;
+		msg.id = client.pushMessage(chan, msg, false, {
+			replay: true,
+			ids,
+			id: placed?.ids.get(msg),
+			old: placed?.old.has(msg),
+		}).id;
 	}
 
 	// Unread against this device's read point only: another device may have
@@ -693,7 +824,7 @@ function resolve(
 						return;
 					}
 
-					deliverAppend(client, chan, gap, spec.ids);
+					deliverAppend(client, chan, gap, spec.ids, spec.held);
 					runAfter(gapAfter);
 				},
 			};
@@ -719,7 +850,7 @@ function resolve(
 			chan.historyFilled = true;
 		}
 
-		deliverAppend(client, chan, request.gap, request.ids);
+		deliverAppend(client, chan, request.gap, request.ids, known);
 		runAfter(request.gapAfter);
 		return;
 	}

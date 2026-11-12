@@ -374,19 +374,25 @@ export class Channel {
 
 	/** Time of the oldest line we hold whose msgid is in `among`, in ms. */
 	oldestTimeOf(among: ReadonlySet<string>): number | undefined {
-		let oldest: number | undefined;
+		return this.timeSpanOf(among)?.[0];
+	}
+
+	/** Time of the newest line we hold whose msgid is in `among`, in ms. */
+	newestTimeOf(among: ReadonlySet<string>): number | undefined {
+		return this.timeSpanOf(among)?.[1];
+	}
+
+	private timeSpanOf(among: ReadonlySet<string>): [number, number] | undefined {
+		let span: [number, number] | undefined;
 
 		for (const ref of this.msgRefs.values()) {
-			if (
-				ref.msgid &&
-				among.has(ref.msgid) &&
-				(oldest === undefined || ref.time.getTime() < oldest)
-			) {
-				oldest = ref.time.getTime();
+			if (ref.msgid && among.has(ref.msgid)) {
+				const time = ref.time.getTime();
+				span = span ? [Math.min(span[0], time), Math.max(span[1], time)] : [time, time];
 			}
 		}
 
-		return oldest;
+		return span;
 	}
 
 	/**

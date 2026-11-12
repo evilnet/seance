@@ -40,7 +40,16 @@ const HELD = [
 	say(at(-29), "h2", "held two"),
 	say(at(-28), "h3", "held three"),
 ];
-const GAP = [say(at(-10), "g1", "gap one"), say(at(-9), "g2", "gap two")];
+// Said after we joined, while the socket was cut: stamped when the
+// catch-up is answered, a moment before the live line. A gap stamped before
+// the JOIN would lie under the read point the open channel set, and be read.
+const gap = () => {
+	const now = Date.now();
+	return [
+		say(new Date(now - 400).toISOString(), "g1", "gap one"),
+		say(new Date(now - 300).toISOString(), "g2", "gap two"),
+	];
+};
 const LIVE = "live during the catch-up";
 
 let joins = 0;
@@ -78,7 +87,7 @@ function script(line, {send, nick}) {
 			// Said while the catch-up is out: relayed before the page it is in.
 			const live = say(new Date().toISOString(), "live", LIVE);
 			send(live);
-			chathistory(send, [HELD[2], ...GAP, live]);
+			chathistory(send, [HELD[2], ...gap(), live]);
 			answered();
 		}
 
