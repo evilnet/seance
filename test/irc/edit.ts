@@ -126,6 +126,24 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 			}
 		});
 
+		it("keeps a multiline edit's opener within the line cap, dropping +seance/edit when it must", function () {
+			const h = setup();
+			const id = joined(h, `${ALL_CAPS} draft/multiline=max-bytes=4096,max-lines=24`);
+			const old = "x".repeat(220);
+			h.transport.line(
+				`@msgid=${old};time=2026-08-25T12:00:01.000Z :alice!alice@host.example PRIVMSG #seance :teh text`
+			);
+			h.client.input(id, "first line\nsecond line", {edit: old});
+			h.sent();
+			h.transport.line(`:alice!alice@host.example REDACT #seance ${old} :edited`);
+
+			const opener = h.sent().find((l) => / BATCH \+/.test(l)) ?? "";
+			expect(opener).to.include(`+evilnet.github.io/edit=${old}`);
+			expect(utf8ByteLength(opener) + ":alice!alice@host.example ".length).to.be.at.most(
+				MAX_LINE_BYTES
+			);
+		});
+
 		it("keeps the reply reference on the resend", function () {
 			const {h, id} = withOwnMessage();
 			h.client.input(id, "the text", {edit: "m1", reply: "p1"});

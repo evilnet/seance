@@ -181,6 +181,7 @@ import {
 	ClientTags,
 	editTagOf,
 	editTags,
+	withoutLegacyEdit,
 	REACT_TAG,
 	REDACTION_CAP,
 	REPLY_TAG,
@@ -2335,6 +2336,21 @@ export class IrcClient {
 			if (count > 1 || !fitsOneLine(plan[0][0].text)) {
 				// `opts.tags` (a reply) belongs on every batch, `opts.firstTags`
 				// (an edit) only on the first — one edit replaces one message.
+				// The opener carries them all; the legacy edit tag gives way
+				// before the opener would pass the frame cap.
+				const openerBytes = (tags: ClientTags) =>
+					sourceBytes -
+					utf8ByteLength(` ${command} ${target} :`) +
+					utf8ByteLength(
+						`${tagPrefix(tags)} BATCH +${"x".repeat(8)} draft/multiline ${target}`
+					) +
+					(labelled ? LABEL_TAG_BYTES : 0);
+				let first = opts.firstTags ?? {};
+
+				if (openerBytes({...first, ...opts.tags}) > MAX_LINE_BYTES) {
+					first = withoutLegacyEdit(first);
+				}
+
 				sendMultiline(
 					this,
 					target,
@@ -2342,7 +2358,7 @@ export class IrcClient {
 					plan,
 					opts.tags ?? {},
 					opts.action === true,
-					opts.firstTags ?? {}
+					first
 				);
 				return;
 			}

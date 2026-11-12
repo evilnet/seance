@@ -30,6 +30,12 @@ export function editTags(msgid: string): ClientTags {
 	return {[EDIT_TAG]: msgid, [LEGACY_EDIT_TAG]: msgid};
 }
 
+/** `tags` without {@link LEGACY_EDIT_TAG}: where only one edit tag fits. */
+export function withoutLegacyEdit(tags: ClientTags): ClientTags {
+	const {[LEGACY_EDIT_TAG]: _legacy, ...rest} = tags;
+	return rest;
+}
+
 /** The msgid a line's edit tag names, in either form. */
 export function editTagOf(tag: (name: string) => string | undefined): string | undefined {
 	return tag(EDIT_TAG) || tag(LEGACY_EDIT_TAG) || undefined;
