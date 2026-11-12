@@ -49,23 +49,26 @@ export interface MsgRef {
 }
 
 /**
- * Whether an edit sent by `by` may replace a line `author` sent: ours
- * replace ours; otherwise, when either carries an account (`account-tag`),
- * the accounts decide, across nick changes, and one without never matches
- * one with; with none, the same nick. `fold` is the server's casemapping
- * where it is known. One rule for the timeline, past views and search.
+ * Whether an edit sent by `by` may replace a line `author` sent. When
+ * either carries an account (`account-tag`) the accounts decide, across
+ * nick changes, and one without never matches one with (our own lines
+ * echoed locally carry our account, `IrcClient.sendMessage`). With none,
+ * ours replace ours (`self` follows the current nick, so it is only
+ * trusted without accounts), and anyone else's only lines of the same
+ * nick. `fold` is the server's casemapping where it is known. One rule for
+ * the timeline, past views and search.
  */
 export function isEditAuthor(
 	author: Author | undefined,
 	by: Author,
 	fold: (s: string) => string = (s) => s.toLowerCase()
 ): boolean {
-	if (author?.self && by.self) {
-		return true;
-	}
-
 	if (author?.account || by.account) {
 		return !!author?.account && !!by.account && fold(author.account) === fold(by.account);
+	}
+
+	if (author?.self && by.self) {
+		return true;
 	}
 
 	return (
