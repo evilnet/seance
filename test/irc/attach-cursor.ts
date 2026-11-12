@@ -596,6 +596,62 @@ describe("PERSISTENCE ATTACH catch-up cursor (irc/persistence.ts)", function () 
 			restore(h);
 		}
 
+		it("gives the replay ids above what we held and below a line relayed before it closed", function () {
+			const h = saslClient();
+			reconnect(h);
+			// A live line arrives while the replay batch is still open.
+			h.transport.lines(
+				":irc.test BATCH +outer evilnet.github.io/bouncer-replay",
+				"@batch=outer; :irc.test BATCH +inner chathistory #seance",
+				"@batch=inner;time=2026-08-28T12:10:00.000Z;msgid=r1 :bob!bob@host PRIVMSG #seance :missed",
+				"@time=2026-08-28T12:30:00.000Z;msgid=live :bob!bob@host PRIVMSG #seance :just now",
+				"@batch=outer :irc.test BATCH -inner",
+				":irc.test BATCH -outer"
+			);
+
+			const chan = h.client.findChannel("#seance")!;
+			const idOf = (msgid: string) => chan.idByMsgid.get(msgid)!;
+			expect(idOf("m1")).to.be.lessThan(idOf("r1"));
+			expect(idOf("r1")).to.be.lessThan(idOf("live"));
+		});
+
+		it("keeps the replay's ids below a live line when a target comes in two batches", function () {
+			const h = saslClient();
+			reconnect(h);
+			h.transport.lines(
+				":irc.test BATCH +outer evilnet.github.io/bouncer-replay",
+				"@batch=outer; :irc.test BATCH +a chathistory #seance",
+				"@batch=a;time=2026-08-28T12:10:00.000Z;msgid=r1 :bob!bob@host PRIVMSG #seance :first",
+				"@batch=outer :irc.test BATCH -a",
+				"@time=2026-08-28T12:30:00.000Z;msgid=live :bob!bob@host PRIVMSG #seance :just now",
+				"@batch=outer; :irc.test BATCH +b chathistory #seance",
+				"@batch=b;time=2026-08-28T12:11:00.000Z;msgid=r2 :bob!bob@host PRIVMSG #seance :second",
+				"@batch=outer :irc.test BATCH -b",
+				":irc.test BATCH -outer"
+			);
+
+			const chan = h.client.findChannel("#seance")!;
+			const idOf = (msgid: string) => chan.idByMsgid.get(msgid)!;
+			expect(idOf("r1")).to.be.lessThan(idOf("r2"));
+			expect(idOf("r2")).to.be.lessThan(idOf("live"));
+		});
+
+		it("keeps a query's replay below a private message relayed before it closed", function () {
+			const h = saslClient();
+			reconnect(h);
+			h.transport.lines(
+				":irc.test BATCH +outer evilnet.github.io/bouncer-replay",
+				"@batch=outer; :irc.test BATCH +q chathistory bob",
+				"@batch=q;time=2026-08-28T12:10:00.000Z;msgid=p1 :bob!bob@host PRIVMSG alice :missed",
+				"@time=2026-08-28T12:30:00.000Z;msgid=p2 :bob!bob@host PRIVMSG alice :just now",
+				"@batch=outer :irc.test BATCH -q",
+				":irc.test BATCH -outer"
+			);
+
+			const query = h.client.findChannel("bob")!;
+			expect(query.idByMsgid.get("p1")!).to.be.lessThan(query.idByMsgid.get("p2")!);
+		});
+
 		it("asks for no CHATHISTORY when the cursor was accepted", function () {
 			const h = saslClient();
 			reconnect(h);

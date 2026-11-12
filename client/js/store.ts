@@ -5,6 +5,7 @@ import {createSettingsStore} from "./store-settings";
 import storage from "./localStorage";
 import type {ClientChan, ClientNetwork, NetChan} from "./types";
 import type {InboxEntry} from "../../shared/types/mention";
+import type {SharedBanList} from "../../shared/types/ban-list";
 import type {SharedChannelList} from "../../shared/types/channel-list";
 import type {InjectionKey} from "vue";
 
@@ -59,6 +60,12 @@ export interface TranslationEntry {
 	 */
 	candidates: string[];
 	engine: EngineName | null;
+	/**
+	 * The model translating or that translated the line (engine.ts
+	 * `ModelRef.id`, queue.ts `onModel`), named at the foot of the line's
+	 * "Translation options". Absent until one is known.
+	 */
+	model?: string;
 	error: string | null;
 	/** "Show original only": the line is kept but not rendered. */
 	hidden: boolean;
@@ -161,7 +168,9 @@ export type State = {
 		/** The queue paused an engine after repeated failures (spec § Lifecycle). */
 		paused: {engine: EngineName; message: string} | null;
 		/** The channel id whose translation panel was asked for (the channel menu). */
-		panelFor: number | null;
+		sheetFor: number | null;
+		/** A one-time note on show (translate/reader.ts `showNote`, TranslationNote.vue). */
+		note: "firstRun" | "everywhere" | null;
 	};
 	translations: Record<number, TranslationEntry>;
 	outgoingTranslations: Record<number, OutgoingTranslation>;
@@ -171,6 +180,8 @@ export type State = {
 	jumpTarget: JumpTarget | null;
 	/** Each network's channel list, by uuid (irc/channelList.ts, for the channel browser). */
 	channelLists: Record<string, SharedChannelList>;
+	/** Channels' bans, by {@link banListKey} (irc/banList.ts, for the Bans window). */
+	banLists: Record<string, SharedBanList>;
 };
 
 const state = (): State => ({
@@ -194,12 +205,20 @@ const state = (): State => ({
 	userlistOverlays: false,
 	userlistOverlayOpen: false,
 	uploadProgress: null,
-	translation: {capability: null, models: [], workerError: null, paused: null, panelFor: null},
+	translation: {
+		capability: null,
+		models: [],
+		workerError: null,
+		paused: null,
+		sheetFor: null,
+		note: null,
+	},
 	translations: {},
 	outgoingTranslations: {},
 	translateChannels: {},
 	jumpTarget: null,
 	channelLists: {},
+	banLists: {},
 });
 
 type Getters = {
@@ -331,7 +350,8 @@ type Mutations = {
 	translationWorkerError(state: State, message: string | null): void;
 	translationPaused(state: State, paused: State["translation"]["paused"]): void;
 	/** Ask the view of that channel to open its translation panel; null clears it. */
-	translationPanelFor(state: State, id: number | null): void;
+	translationSheetFor(state: State, id: number | null): void;
+	translationNote(state: State, note: "firstRun" | "everywhere" | null): void;
 	translationEntry(state: State, payload: {id: number; entry: TranslationEntry}): void;
 	translationPatch(state: State, payload: {id: number; patch: Partial<TranslationEntry>}): void;
 	translationRemove(state: State, id: number): void;
@@ -351,6 +371,7 @@ type Mutations = {
 	translateChannelsLoaded(state: State, all: Record<string, ChannelTranslation>): void;
 	jumpTarget(state: State, target: State["jumpTarget"]): void;
 	channelList(state: State, data: {network: string; list: SharedChannelList}): void;
+	banList(state: State, data: {network: string; list: SharedBanList}): void;
 };
 
 const mutations: Mutations = {
@@ -455,8 +476,11 @@ const mutations: Mutations = {
 	translationPaused(state, paused) {
 		state.translation.paused = paused;
 	},
-	translationPanelFor(state, id) {
-		state.translation.panelFor = id;
+	translationSheetFor(state, id) {
+		state.translation.sheetFor = id;
+	},
+	translationNote(state, note) {
+		state.translation.note = note;
 	},
 	translationEntry(state, {id, entry}) {
 		state.translations[id] = entry;
@@ -501,6 +525,9 @@ const mutations: Mutations = {
 	jumpTarget(state, target) {
 		state.jumpTarget = target;
 	},
+	banList(state, {network, list}) {
+		state.banLists[banListKey(network, list.channel)] = list;
+	},
 	channelList(state, {network, list}) {
 		state.channelLists[network] = list;
 	},
@@ -511,6 +538,11 @@ export type TypedCommit = <T extends keyof Mutations>(
 	payload?: Parameters<Mutations[T]>[1] | null,
 	options?: {root?: boolean}
 ) => ReturnType<Mutations[T]>;
+
+/** Where a channel's bans live in {@link State.banLists}. */
+export function banListKey(network: string, channel: string): string {
+	return `${network} ${channel.toLowerCase()}`;
+}
 
 const storePattern = {
 	state,

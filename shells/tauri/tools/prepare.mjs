@@ -11,8 +11,8 @@ import {readFileSync} from "node:fs";
 // changed them, the build run from here used the old ones (pnpm installs
 // before a top-level run, but did not for this one) and made a bundle that
 // throws on load ("Class extends value undefined"). pnpm keeps the lockfile it installed
-// from in node_modules/.pnpm/lock.yaml. Not installed for you: a worktree's
-// node_modules may be a symlink into another checkout.
+// from in node_modules/.pnpm/lock.yaml. Not installed for you: run pnpm
+// install in this checkout (or any make target, which does).
 const read = (file) => {
 	try {
 		return readFileSync(file, "utf8");

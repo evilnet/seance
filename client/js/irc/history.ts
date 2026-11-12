@@ -18,8 +18,8 @@
  * - **Catch-up** (re-JOIN after a reconnect): the spec's own gap-filling
  *   loop (chathistory.md, "Client pseudocode"): `CHATHISTORY LATEST`, then
  *   `BEFORE <oldest of the page>` back until a page overlaps what we already
- *   show (a msgid we hold, or a line older than the newest we had seen
- *   minus {@link CATCHUP_FUZZ_MS} of clock skew), carries
+ *   show (a msgid we held when our JOIN came back, or a line older than the
+ *   newest we had seen minus {@link CATCHUP_FUZZ_MS} of clock skew), carries
  *   `draft/chathistory-end`, comes back empty, or the page cap is hit.
  *   Walking back from the present rather than forward from our newest line
  *   means the newest messages arrive first and the fill cannot be defeated
@@ -42,6 +42,7 @@
 import {ChanType} from "../../../shared/types/chan";
 import type {SharedMsg} from "../../../shared/types/msg";
 import type {Channel, MsgRef} from "./channel";
+import type {IdBlock} from "./ids";
 import type {IrcClient, ReplayCollection} from "./client";
 import type {BatchHandler} from "./handlers/batch";
 import {countPageUnread, scheduleMarkRead} from "./handlers/markread";
@@ -63,6 +64,13 @@ export const MORE_PAGE_SIZE = 100;
 export const JOIN_PAGE_SIZE = 50;
 /** Most pages fetched in one catch-up (LATEST plus BEFORE pages). */
 const MAX_CATCHUP_PAGES = 5;
+/**
+ * Ids set aside for one catch-up's gap (`IrcClient.reserveIds`): the walk
+ * brings at most pages × page size, and the cursor's replay, every target's
+ * together, would have to be this long to run out. Past that, lines take
+ * ordinary ids and land after the live ones, as every gap did before.
+ */
+export const GAP_IDS = 1_000_000;
 /** Clock-skew allowance when deciding a page has reached what we already
  * held (the spec's FUZZ_INTERVAL, "perhaps 1 to 10 seconds"). */
 export const CATCHUP_FUZZ_MS = 5_000;
@@ -85,8 +93,12 @@ export interface HistorySpec {
 	mode: "prepend" | "append";
 	pagesLeft?: number;
 	floor?: MsgRef;
+	/** Catch-up: the msgids held when the walk began (see HistoryRequest.held). */
+	held?: ReadonlySet<string>;
 	/** Re-issue after a reconnect when the answer never came (the `more` pages). */
 	retry?: boolean;
+	/** Catch-up: ids for the gap, set aside when it started (`IrcClient.reserveIds`). */
+	ids?: IdBlock;
 }
 
 export interface HistoryRequest {
@@ -109,10 +121,18 @@ export interface HistoryRequest {
 	pagesLeft: number;
 	/** Catch-up: the newest message the previous session saw; the walk back stops on reaching it. */
 	floor?: MsgRef;
+	/**
+	 * Catch-up: the msgids the channel held at our JOIN; only these mean a
+	 * page reached what we had. A line relayed while the walk runs is in its
+	 * pages too, with the gap below it still unfilled.
+	 */
+	held?: ReadonlySet<string>;
 	/** Catch-up: the gap gathered so far, oldest first (pages arrive newest first). */
 	gap: SharedMsg[];
 	/** Catch-up: post-delivery work of the gathered pages, in the same order. */
 	gapAfter: (() => void)[];
+	/** Catch-up: the gap's ids (HistorySpec.ids). */
+	ids?: IdBlock;
 	timer: ReturnType<typeof setTimeout>;
 }
 
@@ -211,6 +231,8 @@ export function requestHistory(
 		retry: spec.retry ? {...spec, retry: false} : undefined,
 		pagesLeft: spec.pagesLeft ?? 0,
 		floor: spec.floor,
+		held: spec.held,
+		ids: spec.ids,
 		gap: [],
 		gapAfter: [],
 		timer: setTimeout(() => resolve(client, request, null, "timeout"), HISTORY_TIMEOUT_MS),
@@ -274,13 +296,18 @@ export function requestMore(client: IrcClient, chan: Channel, lastId: number): b
  * latest {@link JOIN_PAGE_SIZE} messages; after a reconnect (history was
  * loaded before and we know the newest message) it is the gap between that
  * message and now, gathered from LATEST backwards (see the header) and
- * appended as live messages. `before` is the channel's newest reference as
- * it was before the JOIN line itself was pushed.
+ * appended as live messages. `before` is the channel's catch-up reference
+ * (Channel.catchupRef) as it was before the JOIN line itself was pushed:
+ * the walk's floor, so a line the server stamped where there is one. `held`
+ * is its msgids then (taken now when absent: a request sent ahead of the JOIN
+ * echo).
  */
 export function requestChannelHistory(
 	client: IrcClient,
 	chan: Channel,
-	before: MsgRef | undefined
+	before: MsgRef | undefined,
+	held?: ReadonlySet<string>,
+	ids?: IdBlock
 ): HistoryRequest | undefined {
 	if (chan.historyRequested && before) {
 		return requestHistory(client, chan, {
@@ -289,6 +316,8 @@ export function requestChannelHistory(
 			mode: "append",
 			pagesLeft: MAX_CATCHUP_PAGES - 1,
 			floor: before,
+			held: held ?? new Set(chan.msgids),
+			ids,
 		});
 	}
 
@@ -508,11 +537,16 @@ function deliverPrepend(
 }
 
 /** Append catch-up messages as live ones: counted as unread, never notified. */
-function deliverAppend(client: IrcClient, chan: Channel, messages: SharedMsg[]): void {
+function deliverAppend(
+	client: IrcClient,
+	chan: Channel,
+	messages: SharedMsg[],
+	ids: IdBlock | undefined
+): void {
 	for (const msg of messages) {
 		// pushMessage copies; write the id back so post-replay work
 		// (`afterReplay` closures hold the collected objects) can find it.
-		msg.id = client.pushMessage(chan, msg, false, {replay: true}).id;
+		msg.id = client.pushMessage(chan, msg, false, {replay: true, ids}).id;
 	}
 
 	// Unread against this device's read point only: another device may have
@@ -550,15 +584,17 @@ function resolve(
 
 	if (request.mode === "append") {
 		// The spec's loop: this page reached what we already hold when it
-		// carries a msgid we show (replay dropped that line, so look at the
-		// raw page) or a line older than the previous session's newest
-		// minus the skew allowance. An empty page, the end tag, the page cap,
-		// or a page without timestamps also stop it. A short page does not:
+		// carries a msgid we held when our JOIN came back (request.held; replay
+		// dropped that line, so look at the raw page) or a line older than
+		// the previous session's newest minus the skew allowance. A line
+		// relayed live while the walk runs is in its pages too and does not
+		// count. An empty page, the end tag, the page cap, or a page without
+		// timestamps also stop it. A short page does not:
 		// nefarious2 filters pages and caps its scan, so it can leave a hole.
 		// For the same reason an empty page without the end tag stops the walk
 		// (nothing to page back from) but does not vouch for the gap.
 		const page = lines ?? [];
-		const known = new Set(chan.msgids);
+		const known = request.held ?? new Set(chan.msgids);
 		const floorMs = request.floor ? request.floor.time.getTime() - CATCHUP_FUZZ_MS : undefined;
 		let reached = false;
 		let oldest: MsgRef | undefined;
@@ -583,8 +619,29 @@ function resolve(
 			}
 		}
 
+		// A page can reach past what we hold into lines we never loaded (a
+		// busy channel, or only its last page shown): older than the gap, not
+		// part of it, and appended they would land above the rejoin as if
+		// new. Scrolling up brings them as history. A line below the floor
+		// but within what we hold is one we missed, and still goes in.
+		// Without a msgid on anything held there is no server-stamped
+		// boundary to judge by, and the page is kept as before. Held means at
+		// the JOIN (`known`): a live line since is newer than the gap.
+		const holdsFrom = chan.oldestTimeOf(known);
+		const cutoff =
+			floorMs === undefined || holdsFrom === undefined
+				? undefined
+				: Math.min(floorMs, holdsFrom);
+		const inGap =
+			cutoff === undefined
+				? messages
+				: messages.filter((msg) => {
+						const ms = new Date(msg.time).getTime();
+						return Number.isNaN(ms) || ms >= cutoff;
+				  });
+
 		// Pages arrive newest first; keep the gathered gap oldest first.
-		request.gap.unshift(...messages);
+		request.gap.unshift(...inGap);
 		request.gapAfter.unshift(...after);
 
 		if (!reached && !end && request.pagesLeft > 0 && oldest) {
@@ -600,6 +657,8 @@ function resolve(
 				mode: "append",
 				pagesLeft: request.pagesLeft - 1,
 				floor: request.floor,
+				held: request.held,
+				ids: request.ids,
 			};
 			const {gap, gapAfter} = request;
 			const job = {
@@ -614,7 +673,7 @@ function resolve(
 						return;
 					}
 
-					deliverAppend(client, chan, gap);
+					deliverAppend(client, chan, gap, spec.ids);
 					runAfter(gapAfter);
 				},
 			};
@@ -640,7 +699,7 @@ function resolve(
 			chan.historyFilled = true;
 		}
 
-		deliverAppend(client, chan, request.gap);
+		deliverAppend(client, chan, request.gap, request.ids);
 		runAfter(request.gapAfter);
 		return;
 	}
@@ -735,7 +794,7 @@ function deliverCatchup(client: IrcClient, target: string, lines: IrcMessage[]):
 	}
 
 	const {messages, after} = replay(client, chan, lines);
-	deliverAppend(client, chan, messages);
+	deliverAppend(client, chan, messages, client.replayIds);
 	runAfter(after);
 }
 

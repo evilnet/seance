@@ -77,6 +77,10 @@ describe("settings backup (helpers/settingsBackup.ts)", function () {
 		expect(isBackupKey("thelounge.state.dndMute")).to.equal(false);
 		// The models the user agreed to download belong to this device's storage.
 		expect(isBackupKey("thelounge.state.translateConsent")).to.equal(false);
+		// So do the removed copies and the one-time translation notes; the
+		// translation blob (its schema version inside it) travels.
+		expect(isBackupKey("thelounge.state.translateRemoved")).to.equal(false);
+		expect(isBackupKey("thelounge.state.translateNotes")).to.equal(false);
 		expect(isBackupKey("thelounge.mentions")).to.equal(false);
 	});
 

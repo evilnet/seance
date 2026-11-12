@@ -44,6 +44,14 @@ export const RIVAL_DEPTH = 3;
 export const PRIOR_WINDOW = 200;
 /** How many contenders a `Detection` carries. */
 export const DETECT_CANDIDATES = 3;
+/**
+ * How likely fastText must find the reading language, anywhere in its
+ * list, to stop ELD's lone verdict (rule 3). "in vet med they use
+ * antisedan" is English at 0.033 behind three Scandinavian guesses
+ * that each read "vet" and "med" their own way, and ELD called it Swedish;
+ * a real Norwegian sentence has English at 0.002 (tools/translate-eval).
+ */
+export const READING_RIVAL_MIN = 0.02;
 /** Shorter than this and a verdict is no evidence about the channel. */
 export const DETECT_MIN_LENGTH = 10;
 
@@ -126,7 +134,8 @@ const round = (value: number) => Math.round(value * 1000) / 1000;
  * 2. a language ELD cannot name (`ELD_MISSING`), fastText at `ALONE_MIN`,
  *    with the reading language nowhere in its top `RIVAL_DEPTH`;
  * 3. ELD's verdict where ELD calls it reliable, the reading language again
- *    nowhere in fastText's top `RIVAL_DEPTH`;
+ *    nowhere in fastText's top `RIVAL_DEPTH`, nor anywhere lower at
+ *    `READING_RIVAL_MIN` or more;
  * 4. a language the channel declared, where either identifier names it;
  * 5. nothing: the line is unplaced.
  *
@@ -169,7 +178,12 @@ export function decide(
 		return placed(top.lang, top.p);
 	}
 
-	if (eld && result.eld.reliable && !rivals.includes(reading)) {
+	if (
+		eld &&
+		result.eld.reliable &&
+		!rivals.includes(reading) &&
+		!fast.some((entry) => entry.lang === reading && entry.p >= READING_RIVAL_MIN)
+	) {
 		return placed(eld, fast.find((entry) => entry.lang === eld)?.p ?? AGREE_MIN);
 	}
 
@@ -187,15 +201,20 @@ export function decide(
 /**
  * Why the reading pipeline leaves a detected line alone, or null when it
  * translates it: `same` when the detector placed it in the reading language
- * `to`, `unsure` when it could not place it at all. An unplaced line might
+ * `to` or in one the user also reads (`alsoRead`, Settings → Language's "I
+ * also read"), `unsure` when it could not place it at all. An unplaced line might
  * be readable as it is ("lol", "brb", "mmm tweaking"): handed to an engine
  * with no source named, such lines came back "from Polish". The toolbar's
  * Translate still translates it.
  */
 export type DetectionSkip = "same" | "unsure" | null;
 
-export function detectionSkip(detection: Detection, to: string): DetectionSkip {
-	if (detection.lang === to) {
+export function detectionSkip(
+	detection: Detection,
+	to: string,
+	alsoRead: readonly string[] = []
+): DetectionSkip {
+	if (detection.lang === to || (detection.lang !== null && alsoRead.includes(detection.lang))) {
 		return "same";
 	}
 

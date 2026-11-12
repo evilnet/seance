@@ -3,6 +3,12 @@
 // PING answered. For scenarios about what the page does around a connection
 // (the sidebar, routing), not about the protocol; anything else it is sent
 // goes unanswered. One IRC line per text frame, `text.ircv3.net`.
+//
+// A scenario that needs a little protocol can script it: `caps` is offered
+// in CAP LS (anything asked for is ACKed, 001 waits for CAP END), `isupport`
+// joins the 005, and `onLine(line, {send, nick})` sees every client line
+// first and answers it itself by returning true. `drop()` cuts every open
+// socket without a word, and the server keeps listening for the redial.
 
 import crypto from "node:crypto";
 import net from "node:net";
@@ -64,7 +70,14 @@ function readFrames(buf) {
 	return {frames: out, rest: buf.subarray(off)};
 }
 
-export function startTinyIrcd({port, host = "127.0.0.1", name = "tiny.test"}) {
+export function startTinyIrcd({
+	port,
+	host = "127.0.0.1",
+	name = "tiny.test",
+	caps = "",
+	isupport = "",
+	onLine: script,
+}) {
 	const sockets = new Set();
 	const server = net.createServer((socket) => {
 		sockets.add(socket);
@@ -74,22 +87,38 @@ export function startTinyIrcd({port, host = "127.0.0.1", name = "tiny.test"}) {
 		let nick = "";
 		let user = false;
 		let welcomed = false;
+		let negotiating = false;
 		const send = (line) => socket.write(frame(line));
 
 		const welcome = () => {
-			if (welcomed || !nick || !user) return;
+			if (welcomed || negotiating || !nick || !user) return;
 			welcomed = true;
 			send(`:${name} 001 ${nick} :Welcome to the tiny network ${nick}`);
-			send(`:${name} 005 ${nick} NETWORK=Tiny CHANTYPES=# PREFIX=(ov)@+ :are supported`);
+			send(
+				`:${name} 005 ${nick} NETWORK=Tiny CHANTYPES=# PREFIX=(ov)@+${
+					isupport ? ` ${isupport}` : ""
+				} :are supported`
+			);
 			send(`:${name} 422 ${nick} :MOTD File is missing`);
 		};
 
 		const onLine = (line) => {
+			if (script?.(line, {send, nick})) return;
+
 			const [cmd, ...args] = line.split(" ");
 
 			switch (cmd.toUpperCase()) {
 				case "CAP":
-					if (args[0] === "LS") send(`:${name} CAP * LS :`);
+					if (args[0] === "LS") {
+						negotiating = caps !== "";
+						send(`:${name} CAP * LS :${caps}`);
+					} else if (args[0] === "REQ") {
+						send(`:${name} CAP ${nick || "*"} ACK ${args.slice(1).join(" ")}`);
+					} else if (args[0] === "END") {
+						negotiating = false;
+						welcome();
+					}
+
 					break;
 				case "NICK":
 					nick = args[0];
@@ -157,6 +186,11 @@ export function startTinyIrcd({port, host = "127.0.0.1", name = "tiny.test"}) {
 	// Open sockets are cut first: server.close() waits for them, and a
 	// scenario that fails before its page goes away would never end.
 	return {
+		drop: () => {
+			for (const socket of sockets) {
+				socket.destroy();
+			}
+		},
 		close: () =>
 			new Promise((resolve) => {
 				server.close(resolve);

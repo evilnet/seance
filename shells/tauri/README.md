@@ -50,6 +50,18 @@ as it is and a square logo would show as a square in the Dock.
 systems' APIs with no availability checks, and a WebKit far past the
 bundle's Safari 16.4 floor (Vite's default `build.target`).
 
+### Linux from a Mac
+
+`make linux-build` builds the release `.deb` and AppImage in Docker
+(`tools/build-linux.sh`, the image in `tools/linux`) for the machine's own
+architecture, so arm64 on Apple silicon, into `tmp/linux-app/`. To click
+around in it, an Ubuntu Desktop arm64 VM in UTM is enough: share the
+checkout's `tmp/linux-app` with the VM (UTM's VirtFS directory share, mounted
+in the guest with `sudo mount -t 9p -o trans=virtio share /mnt`) and
+`sudo apt install /mnt/seance_*.deb`. A VM's virtual GPU says nothing about
+WebKitGTK's speed, so the Linux engine gate (`desktop-shells.md` § 6) is
+measured on real hardware, not there.
+
 ## Checks
 
 - **Smoke**: `pnpm smoke` (`prepare-app`, then a debug build with `--smoke`) loads the
@@ -158,7 +170,7 @@ Android (`UploadChooserClient.kt`, in front of wry's chrome client); what a
 picker app answers is taken only as another app's `content:` URI. The app's
 data stays out of Android's backup and device transfers.
 
-**Android** (SDK, NDK 29, JDK 17+; the emulator or a phone over adb):
+**Android** (SDK, NDK 29, JDK 21, which a release build's lint needs; the emulator or a phone over adb):
 
 ```sh
 NODE_ENV=production pnpm build          # at the root: public/ is compiled in
@@ -168,6 +180,25 @@ export NDK_HOME=$ANDROID_HOME/ndk/29.0.14206865
 pnpm tauri android build --debug --apk --target aarch64
 adb install -r src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
 ```
+
+A release build (`make android-release`: a signed APK and AAB) reads the key
+from `src-tauri/gen/android/keystore.properties`, which is gitignored and
+never committed:
+
+```properties
+storeFile=/Users/you/.android/seance-release.jks
+storePassword=…
+keyAlias=…
+keyPassword=…
+```
+
+Without the file, Gradle builds the release unsigned. A debug APK is signed
+with the machine's own debug key, so an APK from another machine (CI's
+included) only installs after uninstalling the app. CI's signed build
+(Actions > Android > Run workflow, with "release" ticked) writes the file
+from four repository secrets: `ANDROID_KEYSTORE_BASE64` (`base64 -i` of the
+keystore), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and
+`ANDROID_KEY_PASSWORD`.
 
 The push code's unit tests: `./gradlew :app:testUniversalDebugUnitTest` in
 `src-tauri/gen/android`. A debug build's WebView is debuggable

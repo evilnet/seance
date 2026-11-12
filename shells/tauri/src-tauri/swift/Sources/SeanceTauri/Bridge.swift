@@ -14,6 +14,8 @@ import SwiftUI
 // - `seance_apple_call(plugin, method, options, context, done)`: the options
 //   as JSON in, `{"ok": result}` or `{"err": {code, message}}` as JSON out,
 //   through `done(context, json)`, which may come on any thread.
+//
+// The window's place is a third, `seance_window_place` (WindowPlace.swift).
 
 public typealias SeanceAppleDone = @convention(c) (UnsafeMutableRawPointer?, UnsafePointer<CChar>) -> Void
 public typealias SeanceAppleEvent = @convention(c) (UnsafePointer<CChar>, UnsafePointer<CChar>, UnsafePointer<CChar>, Bool) -> Void

@@ -39,9 +39,13 @@ const SMALL = "Qwen3-1.7B-q4f16_1-MLC";
 // The fake's probe fits the 4B, which has no CPU copy and is never asked
 // about: choose the 1.7B, keeping whatever else the settings hold (the
 // reload must keep the device the first half did not set).
+// English into German routes its OPUS-MT pair first under Automatic, so
+// the run prefers the language model ("Language model first"): the
+// question is about the language model's GPU.
 const CHOOSE_SMALL = `(() => {
 	const s = JSON.parse(localStorage.getItem("settings") || "{}");
 	s.translateLlmModel = ${JSON.stringify(SMALL)};
+	s.translatePrefer = "llm";
 	localStorage.setItem("settings", JSON.stringify(s));
 })()`;
 

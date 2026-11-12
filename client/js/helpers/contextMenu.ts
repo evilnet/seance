@@ -4,15 +4,16 @@ import {clearHistory} from "../history";
 import {setMuteStatus} from "../mute";
 import eventbus from "../eventbus";
 import type {ClientChan, ClientNetwork, ClientUser} from "../types";
-import {navigate, switchToChannel} from "../router";
+import {switchToChannel} from "../router";
 import {
-	requestTranslationPanel,
+	requestTranslationSheet,
 	translationAvailable,
 	translationOffByUser,
 } from "../translate/reader";
 import {TypedStore} from "../store";
 import useCloseChannel from "../hooks/use-close-channel";
 import {ChanType} from "../../../shared/types/chan";
+import {banItem, holdsChannelPower} from "./banMenu";
 import {isOperOn, operChannelItems, operUserItems} from "./operMenu";
 import {ignoreListFor} from "../ignore";
 
@@ -41,10 +42,27 @@ type ContextMenuDividerItem = {
 	type: "divider";
 };
 
+/**
+ * A line of quiet text at the menu's foot, nothing to choose: what the
+ * entries above act on (the model that translated a line). Skipped by the
+ * keyboard and the pointer.
+ */
+type ContextMenuNoteItem = {
+	type: "note";
+	label: string;
+	class: string;
+};
+
 export type ContextMenuItem =
 	| ContextMenuItemWithAction
 	| ContextMenuItemWithLink
-	| ContextMenuDividerItem;
+	| ContextMenuDividerItem
+	| ContextMenuNoteItem;
+
+/** Not something to choose: the keyboard and the pointer pass over it. */
+export function inertMenuItem(item: ContextMenuItem | undefined): boolean {
+	return !!item && "type" in item && (item.type === "divider" || item.type === "note");
+}
 
 export function generateChannelContextMenu(
 	channel: ClientChan,
@@ -161,12 +179,8 @@ export function generateChannelContextMenu(
 			label: t("menu.listBanned"),
 			type: "item",
 			class: "list",
-			action() {
-				socket.emit("input", {
-					target: channel.id,
-					text: "/banlist",
-				});
-			},
+			// The Bans window asks the server itself when it opens.
+			link: `/bans/${network.uuid}/${encodeURIComponent(channel.name)}`,
 		});
 	}
 
@@ -213,10 +227,14 @@ export function generateChannelContextMenu(
 			},
 		});
 
-		// Only where translation can actually run: a deploy with the feature
-		// off, or a device whose probe found neither a GPU nor WASM SIMD,
-		// offers no panel to open (translate/reader.ts translationAvailable).
-		if (translationAvailable()) {
+		// Where translation can actually run, and where it is off by the
+		// user's own setting (its default): the panel then opens as the one
+		// button that switches it on, so translation is found in the
+		// conversation, never only in Settings (spec § Finding it). A deploy
+		// with the feature off, or a device whose probe found neither a GPU
+		// nor WASM SIMD, offers nothing (translate/reader.ts
+		// translationAvailable).
+		if (translationAvailable() || translationOffByUser()) {
 			items.push({
 				label: t("translate.menu.panel"),
 				type: "item",
@@ -226,19 +244,7 @@ export function generateChannelContextMenu(
 					// opens the channel first and leaves the ask in the store:
 					// Chat.vue takes it once it shows that channel.
 					switchToChannel(channel);
-					requestTranslationPanel(channel);
-				},
-			});
-		} else if (translationOffByUser()) {
-			// Off by the user's setting, its default: the same item opens
-			// Settings, where the switch is. People looked for translation in
-			// a channel and found nothing to say it existed.
-			items.push({
-				label: t("translate.menu.panel"),
-				type: "item",
-				class: "translate-off",
-				action() {
-					void navigate("Translation");
+					requestTranslationSheet(channel);
 				},
 			});
 		}
@@ -351,7 +357,9 @@ export function generateUserContextMenu(
 	store: TypedStore,
 	channel: ClientChan,
 	network: ClientNetwork,
-	user: Pick<ClientUser, "nick" | "modes">
+	user: Pick<ClientUser, "nick" | "modes">,
+	/** `ident@host` when the nick was clicked in a line that shows it. */
+	address?: string
 ): ContextMenuItem[] {
 	const currentChannelUser: ClientUser | Record<string, never> = channel
 		? channel.users.find((u) => u.nick === network.nick) || {}
@@ -509,8 +517,7 @@ export function generateUserContextMenu(
 		}
 	});
 
-	// Determine if we are half-op or op depending on the network modes so we can kick.
-	if (!compare(networkModeSymbols.indexOf("%") > -1 ? "%" : "@", currentChannelUser.modes[0])) {
+	if (holdsChannelPower(networkModeSymbols, currentChannelUser.modes)) {
 		// Check if the target user has no mode or a mode lower than ours.
 		if (user.modes.length === 0 || compare(currentChannelUser.modes[0], user.modes[0])) {
 			items.push({
@@ -524,6 +531,11 @@ export function generateUserContextMenu(
 					});
 				},
 			});
+		}
+
+		if (channel.type === ChanType.CHANNEL && user.nick !== network.nick) {
+			const target = {nick: user.nick, address};
+			items.push(banItem(network, channel.name, t("menu.ban"), target));
 		}
 	}
 

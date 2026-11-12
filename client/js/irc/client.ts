@@ -81,7 +81,7 @@ import {
 	setAttended,
 	syncPresence,
 } from "./presence";
-import {abortHistory, retryLostHistory} from "./history";
+import {abortHistory, GAP_IDS, retryLostHistory} from "./history";
 import {resetSearches} from "./historysearch";
 import {globalUntil, MUTE_KEY, MUTE_READ_DELAY_MS, type PendingMute, releaseMute} from "./pushMute";
 import {MODE_KEY, PRESENCE_KEY, syncShared, type Stamped} from "./presenceShare";
@@ -109,15 +109,16 @@ import {
 	RESTORE_QUIET_MS,
 	serverReplayCovers,
 } from "./persistence";
-import {IdAllocator, sharedIds} from "./ids";
+import {IdAllocator, type IdBlock, sharedIds} from "./ids";
 import {NoticeLog} from "./noticelog";
 import {initialOper, OperState, operRegistered, resetOper} from "./oper";
 import {detectProfile, type ServerProfile} from "./profiles";
-import {interceptRequestLine, resetRequests} from "./request";
+import {canRequest, interceptRequestLine, request, resetRequests} from "./request";
 import {noticeMessage} from "./snotice";
 import {ISupport} from "./isupport";
 import {languageFieldsOf} from "./langtag";
 import {ChannelList} from "./channelList";
+import {BanLists, takeBanList} from "./banList";
 import {
 	formatLine,
 	IrcMessage,
@@ -348,6 +349,8 @@ export class IrcClient {
 	readonly isupport = new ISupport();
 	/** The channel browser's rows and the MOTD's featured channels (channelList.ts). */
 	readonly channelList = new ChannelList();
+	/** The Bans window's rows, per channel (banList.ts). */
+	readonly bans = new BanLists((name) => this.casefold(name));
 	/** NICKLEN as registration learned it before 005 (`handlers/numerics.ts`);
 	 * cleared with ISUPPORT, since the next connection may be another server. */
 	learnedNickLen: number | undefined;
@@ -529,6 +532,8 @@ export class IrcClient {
 	attachCursor: string | undefined;
 	/** The server took that cursor: it replays the gap, so catchup.ts stands down. */
 	serverReplay = false;
+	/** Ids for the cursor's replay, every target's, set aside when the server took the cursor. */
+	replayIds: IdBlock | undefined = undefined;
 
 	private saslTimer: ReturnType<typeof setTimeout> | null = null;
 	private readonly bus: Pick<EventBus, "dispatch">;
@@ -1366,6 +1371,7 @@ export class IrcClient {
 		this.motdBuffer = null;
 		this.motdForFeatured = "unsent";
 		this.channelList.reset();
+		this.bans.reset();
 		this.host = "";
 		// Not the ident the last connection learned: that is the server's
 		// ("~rdrake" when unverified), and Ergo refuses it in USER (468).
@@ -1376,6 +1382,7 @@ export class IrcClient {
 		this.bouncerAlias = false;
 		this.attachCursor = undefined;
 		this.serverReplay = false;
+		this.replayIds = undefined;
 		this.endSasl();
 
 		// SASL was picked for this network but there is nothing to log in
@@ -1631,6 +1638,8 @@ export class IrcClient {
 			accept,
 		});
 
+		caps.isRegistered = () => this.isWelcomed;
+
 		if (mechanism) {
 			caps.beforeEnd = () => this.startSasl(mechanism);
 			// The same deadline covers the wait for the sasl ACK.
@@ -1883,6 +1892,7 @@ export class IrcClient {
 		resetServiceReplies(this);
 		resetOper(this);
 		this.serverReplay = false;
+		this.replayIds = undefined;
 		this.clearPendingEdits();
 		this.clearTyping();
 
@@ -2237,6 +2247,35 @@ export class IrcClient {
 	/** The browser's copy of {@link channelList}. */
 	dispatchChannelList(): void {
 		this.bus.dispatch("channel:list", {network: this.uuid, list: this.channelList.snapshot()});
+	}
+
+	/**
+	 * Ask the server for a channel's bans (`channel:bans:ask`, `/banlist`).
+	 * Labeled where the server can, so a refusal ends the wait; else the 367s
+	 * and 368 reach handlers/lists.ts on their own. `open` shows the window.
+	 */
+	requestBanList(channel: string, open = false): void {
+		if (!this.isWelcomed) {
+			return;
+		}
+
+		this.bans.start(channel);
+		this.dispatchBans(channel, open);
+		const line = formatLine({command: "MODE", params: [channel, "b"]});
+
+		if (canRequest(this)) {
+			void request(this, line, {end: ["368"]}).then((reply) =>
+				takeBanList(this, channel, reply)
+			);
+		} else {
+			this.send(line);
+		}
+	}
+
+	/** The window's copy of a channel's bans. */
+	dispatchBans(channel: string, open = false): void {
+		const list = this.bans.snapshot(channel, this.isupport.maxBans);
+		this.bus.dispatch("channel:bans", {network: this.uuid, list, open});
 	}
 
 	/** Send one raw line. Reports an ERROR message in the lobby instead of throwing. */
@@ -3149,7 +3188,8 @@ export class IrcClient {
 		}
 
 		// Our own JOIN (live, not replayed) is what triggers a history load;
-		// the reference for a catch-up is the newest message before the JOIN.
+		// the reference for a catch-up is the newest message the server
+		// stamped before the JOIN, never a local line on our own clock.
 		const selfJoin =
 			msg.command === "JOIN" &&
 			!this.replayContext &&
@@ -3157,7 +3197,7 @@ export class IrcClient {
 			this.isSelf(msg.source.name);
 		const joinName = selfJoin ? msg.params[0] ?? "" : "";
 		const joined = selfJoin ? this.findChannel(joinName) : undefined;
-		const beforeJoin: MsgRef | undefined = selfJoin ? joined?.newestRef : undefined;
+		const beforeJoin: MsgRef | undefined = selfJoin ? joined?.catchupRef() : undefined;
 		// Only once history has filled it: before that, its newest stamped line
 		// can be our own previous JOIN, with the scrollback never fetched.
 		const heldBeforeJoin: MsgRef | undefined =
@@ -3165,6 +3205,10 @@ export class IrcClient {
 		// A JOIN for a channel we are already in repeats a membership we have
 		// (see handlers/join.ts): its history and modes are not asked again.
 		const alreadyJoined = joined?.state === ChanState.JOINED;
+		// What a reconnect's catch-up walk may stop on: only what we held at
+		// this JOIN. A line relayed while the walk runs is in its pages too,
+		// with the gap below it still unfilled (history.ts).
+		const heldIds = joined && !alreadyJoined ? new Set(joined.msgids) : undefined;
 
 		// An upgrade policy read on a plain connection is acted on before the
 		// CAP handler answers the line: that socket gets nothing but the
@@ -3192,7 +3236,7 @@ export class IrcClient {
 				// History + read marker, paced (catchup.ts): the active channel
 				// now, the rest one at a time so the server's flood penalty
 				// never queues the user's own lines.
-				enqueueCatchup(this, chan, beforeJoin, heldBeforeJoin);
+				enqueueCatchup(this, chan, beforeJoin, heldBeforeJoin, heldIds);
 			} else if (chan) {
 				// The replay fills the gap, not a `more` page the last
 				// connection died on: that one is asked again here.
@@ -3674,13 +3718,14 @@ export class IrcClient {
 	 * someone else said, not an edit, newer than the read marker — and
 	 * `increasesUnread` is ignored; the flag travels on the `msg` event so
 	 * the consumer skips notifications. An unread highlight, replayed or
-	 * not, also goes out as `inbox:add`.
+	 * not, also goes out as `inbox:add`. `ids`: the catch-up's own block
+	 * ({@link reserveIds}), while it lasts.
 	 */
 	pushMessage(
 		chan: Channel,
 		partial: Partial<SharedMsg>,
 		increasesUnread = false,
-		{replay = false}: {replay?: boolean} = {}
+		{replay = false, ids}: {replay?: boolean; ids?: IdBlock} = {}
 	): SharedMsg {
 		const msg: SharedMsg = {
 			users: [],
@@ -3695,7 +3740,7 @@ export class IrcClient {
 			return msg;
 		}
 
-		msg.id = this.ids.msgId();
+		msg.id = ids && ids.next < ids.end ? ids.next++ : this.ids.msgId();
 		const ref = chan.remember(msg);
 		chan.newestRef = ref;
 		this.noteCursor(msg);
@@ -3817,6 +3862,15 @@ export class IrcClient {
 	/** The channel whose history is being replayed (for QUIT/NICK, which name none). */
 	get replayTarget(): Channel | undefined {
 		return this.replayContext?.target;
+	}
+
+	/**
+	 * Ids for a catch-up gap that arrives after lines relayed live meanwhile
+	 * but goes above them ({@link IdAllocator.reserve}): taken when the
+	 * catch-up starts, before any of those lines.
+	 */
+	reserveIds(): IdBlock {
+		return this.ids.reserve(GAP_IDS);
 	}
 
 	/** Ids for `count` older messages, below everything shown so far (see ids.ts). */

@@ -14,7 +14,8 @@ unrestricted, which fails on the open gap below.
 | Property               | Meaning                                                                       |
 | ---------------------- | ----------------------------------------------------------------------------- |
 | `NoRegisterDuringSasl` | the server never sends 001 with a SASL exchange open                          |
-| `CapEndOnce`           | Seance sends CAP END at most once (see its comment: not a spec rule)          |
+| `CapEndBounded`        | Seance sends CAP END at most twice: once more only behind a late REQ          |
+| `LateReqEnded`         | every REQ sent after CAP END and before 001 has a CAP END after it            |
 | `CapsAgree`            | once settled, Seance's enabled caps equal the server's                        |
 | `OneOpener`            | Seance sends `AUTHENTICATE PLAIN` at most once per connection                 |
 | `NoFalseRejection`     | Seance turns autoconnect off only when the login really cannot succeed        |
@@ -23,6 +24,7 @@ unrestricted, which fails on the open gap below.
 | `LoggedInWhenPossible` | sasl offered and accepted, services up, right password: logged in at 001      |
 | `Terminates`           | every handshake ends in 001 or a closed connection                            |
 | `WelcomedWhenPossible` | in that same world it ends in 001                                             |
+| `WelcomedWithoutSasl`  | without SASL a timely handshake ends in 001 (`Stall.cfg`, three caps)         |
 
 The environment (caps offered, caps the server refuses, services up or
 down, password right or wrong, credentials, whether SASL is required, a
@@ -64,6 +66,22 @@ the spec shared by Seance and nefarious2 would not show here.
   round trip and no extra command. nefarious2 today never NAKs a REQ built
   from its own LS, but sasl-3.2 says a server MUST NAK `sasl` when the
   authentication layer is gone, so a server that follows it reaches this.
+- **Fixed: a REQ after CAP END left registration held.** A `CAP REQ`
+  during registration suspends it until the next `CAP END`
+  (capability-negotiation), which nefarious2 enforces. Seance sends
+  `CAP END` behind its first REQ, so when that REQ was NAKed and retried
+  cap by cap while ident or DNS still held registration, no second END
+  came and the server closed the connection at its registration timeout.
+  The model left those holds out, so it missed this; `env.hold` now stands
+  for them, and `WelcomedWithoutSasl` (`Stall.cfg`) fails without
+  `caps.ts` `reEnd` and passes with it, and so does `LateReqEnded`. Found
+  live, by trace-checking nefarious2 against the IRCv3 spec model. The
+  model assumes the hold always ends well and that the registration
+  timeout cannot fire while it is pending; a lookup or iauth that times
+  out or refuses is out of scope. `live_server.py` skips held behaviours
+  (it cannot make the ircd's ident or DNS wait on cue), so the held
+  traces are checked against Seance's code by `replay.ts` only, with no
+  live evidence from the ircd.
 - **Limits of the outage rule.** Retrying is a policy, not
   proof that the next try will work: a misconfigured server that sends
   `906` (Solanum with no `sasl_service`) or times out every time is
@@ -83,6 +101,8 @@ the spec shared by Seance and nefarious2 would not show here.
 ```sh
 # check the properties (tla2tools.jar 1.8+ from github.com/tlaplus/tlaplus)
 java -cp tla2tools.jar tlc2.TLC -config MC.cfg MC.tla
+# a REQ retried after CAP END, with three caps (WelcomedWithoutSasl)
+java -cp tla2tools.jar tlc2.TLC -config Stall.cfg MC.tla
 # the unrestricted AccountAgrees, which fails on the open finding
 java -cp tla2tools.jar tlc2.TLC -config Findings.cfg MC.tla
 # regenerate the traces the tests replay

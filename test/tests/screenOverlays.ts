@@ -22,14 +22,13 @@ describe("overlays carry .screen-overlay", function () {
 		// takes the insets in its own native rule
 		// (`html[data-shell="native"] .header-popover`, style.css).
 		"Mentions.vue": "anchored popover, own phone rule",
-		"TranslationPanel.vue": "anchored popover, own phone rule",
 		// A popover at its chip; its phone sheet sits on the bottom edge and
 		// has its own inset rule (`html[data-shell="native"]
 		// .source-language-picker--sheet`).
 		"SourceLanguagePicker.vue": "anchored popover, own sheet rule",
-		// The composer's language sheet: the same, its phone sheet's rule
-		// is `html[data-shell="native"] .language-sheet--phone`.
-		"ComposerLanguageSheet.vue": "anchored popover, own sheet rule",
+		// A conversation's translation sheet: the same, its phone sheet's
+		// rule is `html[data-shell="native"] .language-sheet--phone`.
+		"TranslationSheet.vue": "anchored popover, own sheet rule",
 		// The connect form is a page, not an overlay: its link-approval
 		// dialog is the window itself, laid out inside #viewport's padding.
 		"Windows/Connect.vue": "a page inside #viewport",

@@ -5,6 +5,7 @@ import {
 	SEQ2SEQ_MAX_LOADED,
 	Seq2seqEngine,
 	readForm,
+	remoteFor,
 	splitSentences,
 	translationOptions,
 	type PipelineLike,
@@ -629,5 +630,23 @@ describe("translate/engines/seq2seq", () => {
 		expect(d.calls.disposed).to.deep.equal([a.id]);
 		expect(engine.status()).to.equal("ready");
 		expect(engine.loadedModels()).to.deep.equal([b.id, c.id]);
+	});
+
+	describe("remoteFor", () => {
+		it("a mirror for every copy, else the copy's host, else Hugging Face", () => {
+			const hosted = {host: "https://mt.example/models"};
+			const mirror = "https://mirror.example/m/";
+
+			expect(remoteFor({}, undefined)).to.equal(null);
+			expect(remoteFor(hosted, undefined)).to.deep.equal({
+				remoteHost: "https://mt.example/models/",
+				remotePathTemplate: "{model}/",
+			});
+			expect(remoteFor(hosted, mirror)).to.deep.equal({
+				remoteHost: "https://mirror.example/m/",
+				remotePathTemplate: "{model}/",
+			});
+			expect(remoteFor({}, mirror)?.remoteHost).to.equal("https://mirror.example/m/");
+		});
 	});
 });

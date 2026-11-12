@@ -231,6 +231,27 @@ describe("translate/queue", () => {
 		expect(r.requests[0].purpose).to.equal("read");
 	});
 
+	it("names the model: the route's when queued, the one the service says served it after", async () => {
+		const r = rig();
+		const models: [number, string][] = [];
+		clock = r.clock;
+		r.deps.route = () => Promise.resolve({engine: "llm", device: "gpu", model: "planned"});
+		r.deps.onModel = (id, model) => models.push([id, model]);
+		const deps = r.deps;
+		const translate = deps.translate.bind(deps);
+		r.deps.translate = (req, signal) =>
+			(async function* () {
+				for await (const chunk of translate(req, signal)) {
+					yield {...chunk, model: "served"};
+				}
+			})();
+		r.queue.enqueue(item(1, "guten Morgen zusammen"));
+		await settle(r.clock);
+
+		expect(models[0]).to.deep.equal([1, "planned"]);
+		expect(models[models.length - 1]).to.deep.equal([1, "served"]);
+	});
+
 	it("the active channel goes first, then arrival order", async () => {
 		const r = rig();
 		clock = r.clock;
@@ -1098,6 +1119,40 @@ describe("translate/queue", () => {
 			"dropped",
 		]);
 		expect(r.updates.filter(([id]) => id === 2).map(([, u]) => u.status)).to.include("done");
+	});
+
+	it("cancelWaiting drops one waiting item and leaves a running one alone", async () => {
+		let release: (() => void) | null = null;
+		const r = rig();
+		clock = r.clock;
+		let calls = 0;
+		r.deps.translate = (_req, _signal) =>
+			(async function* () {
+				if (calls++ === 0) {
+					await new Promise<void>((resolve) => {
+						release = resolve;
+					});
+				}
+
+				yield {id: 0, text: "done", done: true};
+			})();
+		r.queue.enqueue(item(1, "eins zwei drei", {single: true}));
+		r.queue.enqueue(item(2, "vier fünf sechs", {single: true}));
+		r.queue.enqueue(item(3, "sieben acht neun", {single: true}));
+		await settle(r.clock, 3);
+
+		expect(r.queue.cancelWaiting(1)).to.equal(false);
+		expect(r.queue.cancelWaiting(2)).to.equal(true);
+		expect(r.queue.cancelWaiting(2)).to.equal(false);
+		release?.();
+		await settle(r.clock);
+
+		const statuses = (id: number) =>
+			r.updates.filter(([u]) => u === id).map(([, u]) => u.status);
+
+		expect(statuses(1)).to.include("done");
+		expect(statuses(2)).to.deep.equal(["dropped"]);
+		expect(statuses(3)).to.include("done");
 	});
 
 	it("cancelChannel calls the iterator's return, so a cancel reaches an engine that never yields", async () => {

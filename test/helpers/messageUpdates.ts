@@ -54,6 +54,30 @@ describe("Pending messages in the message list (helpers/messageUpdates.ts)", fun
 			expect(ids(messages)).to.deep.equal([1, 2, 3]);
 		});
 
+		it("puts an older id ahead of the rows with newer ids (a catch-up gap)", function () {
+			const messages = [msg(1), msg(9), msg(10)];
+			insertMessage(messages, msg(5));
+			insertMessage(messages, msg(6));
+			expect(ids(messages)).to.deep.equal([1, 5, 6, 9, 10]);
+		});
+
+		it("puts an older id ahead of the pending block as well", function () {
+			const messages = [msg(1), msg(9), msg(10, true)];
+			insertMessage(messages, msg(5));
+			expect(ids(messages)).to.deep.equal([1, 5, 9, 10]);
+		});
+
+		it("never splits an edited message from the edit standing in its place", function () {
+			// 2 is hidden behind its edit 9 (applyEdit), which counts as 2.
+			const messages = [msg(1), {...msg(2), supersededBy: 9}, msg(9), msg(10)];
+			insertMessage(messages, msg(5));
+			expect(ids(messages)).to.deep.equal([1, 2, 9, 5, 10]);
+
+			const before = [msg(1), {...msg(6), supersededBy: 9}, msg(9), msg(10)];
+			insertMessage(before, msg(5));
+			expect(ids(before)).to.deep.equal([1, 5, 6, 9, 10]);
+		});
+
 		it("works on an empty list", function () {
 			const messages: SharedMsg[] = [];
 			insertMessage(messages, msg(1, true));

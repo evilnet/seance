@@ -35,376 +35,448 @@
 				{{ t("translate.formality.casual") }}
 			</label>
 		</div>
-		<!-- The iOS and macOS shells' system translator (translate/engines/apple.ts):
-		     taken first for a pair whose language pack is downloaded, and
-		     its packs downloaded through the system's own sheet. -->
-		<section v-if="system" class="translate-system">
-			<h3>{{ t("translate.system.heading") }}</h3>
-			<label class="opt">
-				<input
-					v-switch
-					:checked="store.state.settings.translateSystem !== false"
-					type="checkbox"
-					name="translateSystem"
-				/>
-				{{ t("translate.system.switch") }}
-			</label>
-			<div class="translate-hint">{{ t("translate.system.hint") }}</div>
-			<!-- No `name`: the language picked here is a question for the
-			     system, not a setting. -->
-			<div v-if="systemLanguages.length" class="translate-system-pack">
-				<label class="sr-only" for="translate-system-source">{{
-					t("translate.system.sourceLabel")
-				}}</label>
-				<select
-					id="translate-system-source"
-					v-model="systemSource"
-					class="input"
-					@change="askSystemStatus"
-				>
-					<option v-for="code in systemLanguages" :key="code" :value="code">
-						{{ languageLabel(code) }}
-					</option>
-				</select>
-				<button
-					id="translate-system-download"
-					type="button"
-					class="btn btn-small"
-					:disabled="
-						systemBusy || systemStatus === 'installed' || systemStatus === 'unsupported'
-					"
-					@click.prevent="downloadSystemPack"
-				>
-					{{ t("translate.system.download") }}
-				</button>
-			</div>
-			<div
-				v-if="systemStatusText"
-				class="translate-hint translate-system-status"
-				role="status"
-				aria-live="polite"
-			>
-				{{ systemStatusText }}
-			</div>
-		</section>
-		<h3>{{ t("translate.settings.models") }}</h3>
+		<!-- A worker that stopped is said on the normal path: it is why
+		     nothing translates, whatever Advanced holds. -->
 		<div v-if="problem" class="translate-hint translate-error">
 			{{ t("translate.settings.workerError", {error: problem}) }}
 		</div>
-		<div v-if="capability" class="translate-hint translate-device">
-			<!-- What the device has: a GPU the models can be given (an
+		<!-- Advanced: the machinery, collapsed (spec § Engines: chosen for
+		     you). Everything in it stays effective -- the stored switches,
+		     device pins and model choice -- and nothing on the normal path
+		     needs it. Its open state is a per-device convenience. -->
+		<details
+			id="translate-advanced"
+			class="translate-advanced"
+			:open="advancedOpen"
+			@toggle="onAdvancedToggle"
+		>
+			<summary>{{ t("translate.settings.advanced") }}</summary>
+			<!-- What is on the device, each download counted once: one
+			     model can serve many languages, so this is by download,
+			     never by language. -->
+			<div class="translate-hint translate-storage">
+				{{ storageLine }}
+				{{ t("translate.settings.storageShared") }}
+			</div>
+			<!-- The iOS and macOS shells' system translator (translate/engines/apple.ts):
+		     taken first for a pair whose language pack is downloaded, and
+		     its packs downloaded through the system's own sheet. -->
+			<section v-if="system" class="translate-system">
+				<h3>{{ t("translate.system.heading") }}</h3>
+				<label class="opt">
+					<input
+						v-switch
+						:checked="store.state.settings.translateSystem !== false"
+						type="checkbox"
+						name="translateSystem"
+					/>
+					{{ t("translate.system.switch") }}
+				</label>
+				<div class="translate-hint">{{ t("translate.system.hint") }}</div>
+				<!-- No `name`: the language picked here is a question for the
+			     system, not a setting. -->
+				<div v-if="systemLanguages.length" class="translate-system-pack">
+					<label class="sr-only" for="translate-system-source">{{
+						t("translate.system.sourceLabel")
+					}}</label>
+					<select
+						id="translate-system-source"
+						v-model="systemSource"
+						class="input"
+						@change="askSystemStatus"
+					>
+						<option v-for="code in systemLanguages" :key="code" :value="code">
+							{{ languageLabel(code) }}
+						</option>
+					</select>
+					<button
+						id="translate-system-download"
+						type="button"
+						class="btn btn-small"
+						:disabled="
+							systemBusy ||
+							systemStatus === 'installed' ||
+							systemStatus === 'unsupported'
+						"
+						@click.prevent="downloadSystemPack"
+					>
+						{{ t("translate.system.download") }}
+					</button>
+				</div>
+				<div
+					v-if="systemStatusText"
+					class="translate-hint translate-system-status"
+					role="status"
+					aria-live="polite"
+				>
+					{{ systemStatusText }}
+				</div>
+			</section>
+			<!-- Which model is tried first (router.ts `EnginePreference`):
+			     Automatic is the measured table; the other two reorder it,
+			     every model kept as a fallback. The one place a model's
+			     languages are named: where the choice is made. -->
+			<section class="translate-prefer">
+				<h3 id="label-translate-prefer">{{ t("translate.prefer.heading") }}</h3>
+				<div role="radiogroup" aria-labelledby="label-translate-prefer">
+					<label v-for="choice in preferChoices" :key="choice.value" class="opt">
+						<input
+							:checked="prefer === choice.value"
+							type="radio"
+							name="translatePrefer"
+							:value="choice.value"
+						/>
+						{{ choice.label }}
+					</label>
+				</div>
+				<div class="translate-hint translate-prefer-hint">
+					{{ preferHint }}
+				</div>
+			</section>
+			<h3>{{ t("translate.settings.models") }}</h3>
+			<div v-if="capability" class="translate-hint translate-device">
+				<!-- What the device has: a GPU the models can be given (an
 			     adapter, whatever it can bind) and a CPU that runs them
 			     (WebAssembly SIMD), or neither. -->
-			<span class="translate-device-has">{{
-				deviceHas === "both"
-					? t("translate.capability.gpu")
-					: deviceHas === "cpu"
-					? t("translate.capability.cpu")
-					: t("translate.capability.none")
-			}}</span>
-			<!-- What the GPU binds in one buffer: whether a model's GPU
+				<span class="translate-device-has">{{
+					deviceHas === "both"
+						? t("translate.capability.gpu")
+						: deviceHas === "cpu"
+						? t("translate.capability.cpu")
+						: t("translate.capability.none")
+				}}</span>
+				<!-- What the GPU binds in one buffer: whether a model's GPU
 			     copy can load is that number against its largest tensor. -->
-			<span v-if="capability.maxBufferBytes > 0" class="translate-device-limit">{{
-				t("translate.capability.bufferLimit", {size: size(capability.maxBufferBytes)})
-			}}</span>
-			<!-- The test switch (translate/gpuTestLimit.ts) is on: the
+				<span v-if="capability.maxBufferBytes > 0" class="translate-device-limit">{{
+					t("translate.capability.bufferLimit", {size: size(capability.maxBufferBytes)})
+				}}</span>
+				<!-- The test switch (translate/gpuTestLimit.ts) is on: the
 			     limit above is the switch's, not the GPU's. -->
-			<span v-if="capability.bufferCapBytes" class="translate-device-test-limit">{{
-				t("translate.capability.testLimit", {
-					size: size(capability.bufferCapBytes),
-					key: testLimitKey,
-				})
-			}}</span>
-			<!-- The prefill chunk test switch (translate/gpuPrefillChunk.ts)
-			     is on: how a prompt goes to the GPU is the switch's. -->
-			<span
-				v-if="typeof capability.prefillChunk === 'number'"
-				class="translate-device-test-chunk"
-				>{{
-					tCount("translate.capability.prefillChunk", capability.prefillChunk, {
-						key: prefillChunkKey,
+				<span v-if="capability.bufferCapBytes" class="translate-device-test-limit">{{
+					t("translate.capability.testLimit", {
+						size: size(capability.bufferCapBytes),
+						key: testLimitKey,
 					})
-				}}</span
-			>
-			<span
-				v-else-if="capability.prefillChunk === null"
-				class="translate-device-test-chunk"
-				>{{ t("translate.capability.prefillChunkLibrary", {key: prefillChunkKey}) }}</span
-			>
-			<!-- How many threads the CPU models take, or that a reload
+				}}</span>
+				<!-- The prefill chunk test switch (translate/gpuPrefillChunk.ts)
+			     is on: how a prompt goes to the GPU is the switch's. -->
+				<span
+					v-if="typeof capability.prefillChunk === 'number'"
+					class="translate-device-test-chunk"
+					>{{
+						tCount("translate.capability.prefillChunk", capability.prefillChunk, {
+							key: prefillChunkKey,
+						})
+					}}</span
+				>
+				<span
+					v-else-if="capability.prefillChunk === null"
+					class="translate-device-test-chunk"
+					>{{
+						t("translate.capability.prefillChunkLibrary", {key: prefillChunkKey})
+					}}</span
+				>
+				<!-- How many threads the CPU models take, or that a reload
 			     brings them (translate/threads.ts). -->
-			<span v-if="threads" class="translate-device-threads">{{ threads }}</span>
-			<!-- Each reason is a phrase of its own: a translator is never
+				<span v-if="threads" class="translate-device-threads">{{ threads }}</span>
+				<!-- Each reason is a phrase of its own: a translator is never
 			     handed a list glued together with a comma. -->
-			<ul v-if="capability.reasons.length" class="translate-device-reasons">
-				<li v-for="reason in capability.reasons" :key="reason">
-					{{ reasonText(reason) }}
-				</li>
-			</ul>
-		</div>
-		<!-- One block per model family: its switch, Run on (Auto, GPU,
+				<ul v-if="capability.reasons.length" class="translate-device-reasons">
+					<li v-for="reason in capability.reasons" :key="reason">
+						{{ reasonText(reason) }}
+						<!-- A GPU lost before is kept off until asked
+					     (translate/service.ts `retryGpu`). -->
+						<button
+							v-if="reason === 'GPU_LOST'"
+							type="button"
+							class="btn btn-small translate-retry-gpu"
+							@click="retryGpu"
+						>
+							{{ t("translate.capability.retryGpu") }}
+						</button>
+					</li>
+				</ul>
+			</div>
+			<!-- One block per model family: its switch, Run on (Auto, GPU,
 		     CPU), what Auto picks here, then a line per copy. -->
-		<section
-			v-for="family in families"
-			:key="family.id"
-			class="translate-family"
-			:data-family="family.id"
-		>
-			<label class="opt translate-family-switch">
-				<input
-					v-switch
-					:checked="!!store.state.settings[family.switchName]"
-					type="checkbox"
-					:name="family.switchName"
-					:aria-describedby="family.id === 'nllb' ? 'translate-nllb-licence' : undefined"
-				/>
-				{{ family.label }}
-			</label>
-			<!-- NLLB-200 is opt-in: its licence is non-commercial, so it is
+			<section
+				v-for="family in families"
+				:key="family.id"
+				class="translate-family"
+				:data-family="family.id"
+			>
+				<label class="opt translate-family-switch">
+					<input
+						v-switch
+						:checked="!!store.state.settings[family.switchName]"
+						type="checkbox"
+						:name="family.switchName"
+						:aria-describedby="
+							family.id === 'nllb' ? 'translate-nllb-licence' : undefined
+						"
+					/>
+					{{ family.label }}
+				</label>
+				<!-- NLLB-200 is opt-in: its licence is non-commercial, so it is
 			     off until the user switches it on; OPUS-MT and the
 			     language model serve without it. The licence line
 			     describes the switch, so a screen reader hears why it is
 			     off. -->
-			<div
-				v-if="family.id === 'nllb'"
-				id="translate-nllb-licence"
-				class="translate-hint translate-nllb-licence"
-			>
-				{{ t("translate.settings.nllbLicence") }}
-			</div>
-			<div v-if="family.id === 'opus'" class="translate-hint translate-opus-pairs">
-				{{ tCount("translate.settings.opusPairs", opusModels.length) }}
-			</div>
-			<template v-if="family.id === 'llm'">
-				<label class="opt translate-llm-model">
-					<span>{{ t("translate.settings.gpuModel") }}</span>
-					<!-- The raw setting, not the resolved choice: "" is
+				<div
+					v-if="family.id === 'nllb'"
+					id="translate-nllb-licence"
+					class="translate-hint translate-nllb-licence"
+				>
+					{{ t("translate.settings.nllbLicence") }}
+				</div>
+				<div v-if="family.id === 'opus'" class="translate-hint translate-opus-pairs">
+					{{ tCount("translate.settings.opusPairs", opusModels.length) }}
+				</div>
+				<template v-if="family.id === 'llm'">
+					<label class="opt translate-llm-model">
+						<span>{{ t("translate.settings.gpuModel") }}</span>
+						<!-- The raw setting, not the resolved choice: "" is
 					     Automatic, and binding the resolved id would show
 					     the deploy's default as an explicit pick that
 					     Automatic could never win back. The "in use" tag
 					     below names what "" resolves to. -->
-					<select
-						name="translateLlmModel"
-						:value="store.state.settings.translateLlmModel"
-						:aria-describedby="unfitLlms.length ? 'translate-llm-unfit' : undefined"
-					>
-						<option value="">{{ t("translate.settings.gpuAutomatic") }}</option>
-						<!-- A model this GPU cannot bind is greyed: chosen,
+						<select
+							name="translateLlmModel"
+							:value="store.state.settings.translateLlmModel"
+							:aria-describedby="unfitLlms.length ? 'translate-llm-unfit' : undefined"
+						>
+							<option value="">{{ t("translate.settings.gpuAutomatic") }}</option>
+							<!-- A model this GPU cannot bind is greyed: chosen,
 						     it would not run, and the default would run in
 						     its place. -->
-						<option
-							v-for="choice in llmChoices"
-							:key="choice.id"
-							:value="choice.id"
-							:disabled="!!llmUnfit(choice)"
-						>
-							{{
-								t("translate.settings.modelOption", {
-									name: llmName(choice),
-									size: size(listedSize(choice)),
-								})
-							}}
-						</option>
-					</select>
-				</label>
-				<div class="translate-hint translate-llm-hint">
-					{{ t("translate.settings.gpuModelHint") }}
-				</div>
-				<div v-if="unfitLlms.length" id="translate-llm-unfit" class="translate-hint">
-					<p v-for="choice in unfitLlms" :key="choice.id" class="translate-llm-unfit">
-						{{ t("translate.settings.gpuModelUnfit", {model: llmName(choice)}) }}
-						{{ whyText(llmUnfit(choice)!, llmName(choice)) }}
-					</p>
-				</div>
-			</template>
-			<!-- Run on: the settings container stores a radio by its name
+							<option
+								v-for="choice in llmChoices"
+								:key="choice.id"
+								:value="choice.id"
+								:disabled="!!llmUnfit(choice)"
+							>
+								{{
+									t("translate.settings.modelOption", {
+										name: llmName(choice),
+										size: size(listedSize(choice)),
+									})
+								}}
+							</option>
+						</select>
+					</label>
+					<div class="translate-hint translate-llm-hint">
+						{{ t("translate.settings.gpuModelHint") }}
+					</div>
+					<div v-if="unfitLlms.length" id="translate-llm-unfit" class="translate-hint">
+						<p v-for="choice in unfitLlms" :key="choice.id" class="translate-llm-unfit">
+							{{ t("translate.settings.gpuModelUnfit", {model: llmName(choice)}) }}
+							{{ whyText(llmUnfit(choice)!, llmName(choice)) }}
+						</p>
+					</div>
+				</template>
+				<!-- Run on: the settings container stores a radio by its name
 			     and value, as it does the formality radios. A device that
 			     cannot run the family is a disabled choice with its reason
 			     beside it as text, and as its description. -->
-			<div
-				class="translate-run-on"
-				role="radiogroup"
-				:aria-labelledby="'translate-run-on-' + family.id"
-			>
-				<span :id="'translate-run-on-' + family.id" class="translate-run-on-label">{{
-					t("translate.settings.runOn")
-				}}</span>
-				<span class="translate-run-on-choices">
-					<span
-						v-for="choice in deviceChoices"
-						:key="choice"
-						class="translate-run-on-choice"
-					>
-						<label
-							class="translate-run-on-option"
-							:class="{unavailable: !!radioWhy(family, choice)}"
-						>
-							<input
-								type="radio"
-								:name="family.deviceName"
-								:value="choice"
-								:checked="family.devices.choice === choice"
-								:disabled="!!radioWhy(family, choice)"
-								:aria-describedby="
-									radioWhy(family, choice) ? reasonId(family, choice) : undefined
-								"
-							/>
-							{{ choiceLabel(choice) }}
-						</label>
-					</span>
-				</span>
-			</div>
-			<ul v-if="radioReasons(family).length" class="translate-run-on-reasons">
-				<li
-					v-for="reason in radioReasons(family)"
-					:id="listedReasonId(family.id, reason.device)"
-					:key="reason.device"
-					class="translate-run-on-why"
-				>
-					{{ reason.text }}
-				</li>
-			</ul>
-			<div
-				v-if="autoLine(family)"
-				:id="autoId(family.id)"
-				class="translate-hint translate-auto"
-				:class="{blocked: !runsOn(family)}"
-			>
-				{{ autoLine(family) }}
-			</div>
-			<!-- OPUS-MT: how many pairs each device holds, then a row per pair. -->
-			<div v-if="family.id === 'opus'" class="translate-copies translate-opus-summary">
 				<div
-					v-for="device in copyOrder(family)"
-					:key="device"
-					class="translate-copy-line translate-opus-device"
-					:data-device="device"
+					class="translate-run-on"
+					role="radiogroup"
+					:aria-labelledby="'translate-run-on-' + family.id"
 				>
-					<span :id="'translate-opus-device-' + device" class="translate-copy-device">{{
-						deviceLabel(device)
+					<span :id="'translate-run-on-' + family.id" class="translate-run-on-label">{{
+						t("translate.settings.runOn")
 					}}</span>
-					<span :id="'translate-opus-summary-' + device" class="translate-copy-state">{{
-						opusSummary(device)
-					}}</span>
-					<button
-						v-if="opusCached(device).length"
-						:id="'translate-opus-remove-' + device"
-						type="button"
-						class="btn btn-small translate-copy-remove"
-						:aria-labelledby="
-							'translate-opus-remove-' +
-							device +
-							' translate-opus-summary-' +
-							device +
-							' translate-opus-device-' +
-							device
-						"
-						@click.prevent="removeOpus(device)"
-					>
-						{{ t("translate.model.delete") }}
-					</button>
-				</div>
-			</div>
-			<ul class="translate-models">
-				<li
-					v-for="model in modelsOf(family)"
-					:key="model.ref.id"
-					class="translate-model"
-					:data-model="model.ref.id"
-				>
-					<span class="translate-model-name"
-						><span :id="nameId(model.ref)">{{ modelLabel(model.ref) }}</span>
+					<span class="translate-run-on-choices">
 						<span
-							v-if="family.id === 'llm' && model.ref.id === selectedLlm.id && llmRuns"
-							class="translate-model-in-use"
-							>{{ t("translate.settings.inUse") }}</span
-						></span
-					>
-					<div class="translate-copies">
-						<div
-							v-for="copy in model.copies"
-							:key="copy.device"
-							class="translate-copy"
-							:data-device="copy.device"
-							:data-status="copy.view.status"
-							:data-cached="String(copy.view.cached)"
+							v-for="choice in deviceChoices"
+							:key="choice"
+							class="translate-run-on-choice"
 						>
-							<div class="translate-copy-line">
-								<span
-									:id="copyId('device', copy.view)"
-									class="translate-copy-device"
-									>{{ deviceLabel(copy.device) }}</span
-								>
-								<span class="translate-copy-state">{{ copyState(copy.view) }}</span>
-								<!-- Named "Download <model> <device>": thirty
+							<label
+								class="translate-run-on-option"
+								:class="{unavailable: !!radioWhy(family, choice)}"
+							>
+								<input
+									type="radio"
+									:name="family.deviceName"
+									:value="choice"
+									:checked="family.devices.choice === choice"
+									:disabled="!!radioWhy(family, choice)"
+									:aria-describedby="
+										radioWhy(family, choice)
+											? reasonId(family, choice)
+											: undefined
+									"
+								/>
+								{{ choiceLabel(choice) }}
+							</label>
+						</span>
+					</span>
+				</div>
+				<ul v-if="radioReasons(family).length" class="translate-run-on-reasons">
+					<li
+						v-for="reason in radioReasons(family)"
+						:id="listedReasonId(family.id, reason.device)"
+						:key="reason.device"
+						class="translate-run-on-why"
+					>
+						{{ reason.text }}
+					</li>
+				</ul>
+				<div
+					v-if="autoLine(family)"
+					:id="autoId(family.id)"
+					class="translate-hint translate-auto"
+					:class="{blocked: !runsOn(family)}"
+				>
+					{{ autoLine(family) }}
+				</div>
+				<!-- OPUS-MT: how many pairs each device holds, then a row per pair. -->
+				<div v-if="family.id === 'opus'" class="translate-copies translate-opus-summary">
+					<div
+						v-for="device in copyOrder(family)"
+						:key="device"
+						class="translate-copy-line translate-opus-device"
+						:data-device="device"
+					>
+						<span
+							:id="'translate-opus-device-' + device"
+							class="translate-copy-device"
+							>{{ deviceLabel(device) }}</span
+						>
+						<span
+							:id="'translate-opus-summary-' + device"
+							class="translate-copy-state"
+							>{{ opusSummary(device) }}</span
+						>
+						<button
+							v-if="opusCached(device).length"
+							:id="'translate-opus-remove-' + device"
+							type="button"
+							class="btn btn-small translate-copy-remove"
+							:aria-labelledby="
+								'translate-opus-remove-' +
+								device +
+								' translate-opus-summary-' +
+								device +
+								' translate-opus-device-' +
+								device
+							"
+							@click.prevent="removeOpus(device)"
+						>
+							{{ t("translate.model.delete") }}
+						</button>
+					</div>
+				</div>
+				<ul class="translate-models">
+					<li
+						v-for="model in modelsOf(family)"
+						:key="model.ref.id"
+						class="translate-model"
+						:data-model="model.ref.id"
+					>
+						<span class="translate-model-name"
+							><span :id="nameId(model.ref)">{{ modelLabel(model.ref) }}</span>
+							<span
+								v-if="
+									family.id === 'llm' &&
+									model.ref.id === selectedLlm.id &&
+									llmRuns
+								"
+								class="translate-model-in-use"
+								>{{ t("translate.settings.inUse") }}</span
+							></span
+						>
+						<div class="translate-copies">
+							<div
+								v-for="copy in model.copies"
+								:key="copy.device"
+								class="translate-copy"
+								:data-device="copy.device"
+								:data-status="copy.view.status"
+								:data-cached="String(copy.view.cached)"
+							>
+								<div class="translate-copy-line">
+									<span
+										:id="copyId('device', copy.view)"
+										class="translate-copy-device"
+										>{{ deviceLabel(copy.device) }}</span
+									>
+									<span class="translate-copy-state">{{
+										copyState(copy.view)
+									}}</span>
+									<!-- Named "Download <model> <device>": thirty
 								     buttons that all read "Download" say nothing
 								     to a screen reader moving between them. -->
-								<button
-									v-if="!copy.view.cached && copy.view.status !== 'downloading'"
-									:id="copyId('action', copy.view)"
-									type="button"
-									class="btn btn-small translate-copy-download"
-									:aria-labelledby="copyNames(copy.view)"
-									:disabled="!copyAllowed(copy.view)"
-									:aria-describedby="copyWhyId(family, copy.view)"
-									@click.prevent="download(copy.view)"
-								>
-									{{ t("translate.model.download") }}
-								</button>
-								<button
-									v-else-if="copy.view.cached"
-									:id="copyId('action', copy.view)"
-									type="button"
-									class="btn btn-small translate-copy-remove"
-									:aria-labelledby="copyNames(copy.view)"
-									@click.prevent="remove(copy.view)"
-								>
-									{{ t("translate.model.delete") }}
-								</button>
-							</div>
-							<!-- Why this copy cannot run here, said once: when
+									<button
+										v-if="
+											!copy.view.cached && copy.view.status !== 'downloading'
+										"
+										:id="copyId('action', copy.view)"
+										type="button"
+										class="btn btn-small translate-copy-download"
+										:aria-labelledby="copyNames(copy.view)"
+										:disabled="!copyAllowed(copy.view)"
+										:aria-describedby="copyWhyId(family, copy.view)"
+										@click.prevent="download(copy.view)"
+									>
+										{{ t("translate.model.download") }}
+									</button>
+									<button
+										v-else-if="copy.view.cached"
+										:id="copyId('action', copy.view)"
+										type="button"
+										class="btn btn-small translate-copy-remove"
+										:aria-labelledby="copyNames(copy.view)"
+										@click.prevent="remove(copy.view)"
+									>
+										{{ t("translate.model.delete") }}
+									</button>
+								</div>
+								<!-- Why this copy cannot run here, said once: when
 							     Run on already says it for this device, the
 							     button is described by that. -->
-							<span
-								v-if="copyOwnWhy(family, copy.view)"
-								:id="copyId('why', copy.view)"
-								class="translate-copy-why"
-								>{{ copyOwnWhy(family, copy.view) }}</span
-							>
-							<!-- This GPU binds too little for the model itself:
+								<span
+									v-if="copyOwnWhy(family, copy.view)"
+									:id="copyId('why', copy.view)"
+									class="translate-copy-why"
+									>{{ copyOwnWhy(family, copy.view) }}</span
+								>
+								<!-- This GPU binds too little for the model itself:
 							     what Download fetches and what runs is its
 							     small-buffer build (models.ts
 							     smallBufferBuildFor), with its own need. -->
-							<span
-								v-if="copy.device === 'gpu' && smallBuild(model.ref)"
-								class="translate-model-small-build"
-								:data-build="smallBuild(model.ref)!.id"
-								>{{
-									t("translate.model.smallBufferBuild", {
-										size: size(smallBuild(model.ref)!.largestBufferBytes),
-									})
-								}}</span
-							>
-							<span
-								v-if="copy.view.status === 'downloading'"
-								class="translate-copy-track"
-								role="progressbar"
-								aria-valuemin="0"
-								aria-valuemax="100"
-								:aria-valuenow="Math.round(copy.view.fraction * 100)"
-								:aria-valuetext="copyState(copy.view)"
-								:aria-labelledby="copyNames(copy.view, false)"
-							>
 								<span
-									class="translate-copy-fill"
-									:style="{width: Math.round(copy.view.fraction * 100) + '%'}"
-								/>
-							</span>
+									v-if="copy.device === 'gpu' && smallBuild(model.ref)"
+									class="translate-model-small-build"
+									:data-build="smallBuild(model.ref)!.id"
+									>{{
+										t("translate.model.smallBufferBuild", {
+											size: size(smallBuild(model.ref)!.largestBufferBytes),
+										})
+									}}</span
+								>
+								<span
+									v-if="copy.view.status === 'downloading'"
+									class="translate-copy-track"
+									role="progressbar"
+									aria-valuemin="0"
+									aria-valuemax="100"
+									:aria-valuenow="Math.round(copy.view.fraction * 100)"
+									:aria-valuetext="copyState(copy.view)"
+									:aria-labelledby="copyNames(copy.view, false)"
+								>
+									<span
+										class="translate-copy-fill"
+										:style="{width: Math.round(copy.view.fraction * 100) + '%'}"
+									/>
+								</span>
+							</div>
 						</div>
-					</div>
-				</li>
-			</ul>
-		</section>
+					</li>
+				</ul>
+			</section>
+		</details>
 		<!-- A download's end, said once: the rows' own percentages are not
 		     live, they would chatter for minutes. -->
 		<div class="sr-only" role="status" aria-live="polite">{{ announcement }}</div>
@@ -412,6 +484,16 @@
 </template>
 
 <style>
+.translate-advanced {
+	margin-top: 1rem;
+}
+
+.translate-advanced > summary {
+	margin-bottom: 0.5rem;
+	font-weight: 600;
+	cursor: pointer;
+}
+
 .translate-system-pack {
 	display: flex;
 	gap: 0.5rem;
@@ -657,6 +739,7 @@ import {useStore} from "../../js/store";
 import {systemTranslator, translateService} from "../../js/translate";
 import type {AppleStatus} from "../../js/translate/engines/apple";
 import {languageName} from "../../js/translate/languages";
+import {normalizePreference} from "../../js/translate/router";
 import type {Device, DeviceChoice, ModelRef} from "../../js/translate/engine";
 import {
 	LLM_MIN_BUFFER_BYTES,
@@ -670,6 +753,7 @@ import {
 import {GPU_TEST_LIMIT_KEY} from "../../js/translate/gpuTestLimit";
 import {GPU_PREFILL_CHUNK_KEY} from "../../js/translate/gpuPrefillChunk";
 import {nativePlatform} from "../../js/helpers/shell";
+import storage from "../../js/localStorage";
 import {translateErrorText} from "../../js/helpers/translateErrors";
 import {translateWhyText} from "../../js/helpers/translateWhy";
 import {
@@ -709,6 +793,14 @@ const NO_GPU: readonly CapabilityReason[] = [
 export default defineComponent({
 	name: "TranslationOptions",
 	setup() {
+		// Advanced stays as the user left it, on this device.
+		const ADVANCED_KEY = "thelounge.state.translateAdvancedOpen";
+		const advancedOpen = ref(storage.get(ADVANCED_KEY) === "1");
+		const onAdvancedToggle = (event: Event) => {
+			advancedOpen.value = (event.target as HTMLDetailsElement).open;
+			storage.set(ADVANCED_KEY, advancedOpen.value ? "1" : "0");
+		};
+
 		const {t, tCount} = useI18n();
 		const store = useStore();
 		// Mounted only while translation is on (Translation.vue): this makes
@@ -841,6 +933,31 @@ export default defineComponent({
 		);
 		const opusModels = Object.values(service.catalog.opus);
 
+		// Settings → Advanced's "Prefer" (router.ts `EnginePreference`).
+		const prefer = computed(() => normalizePreference(store.state.settings.translatePrefer));
+		const preferChoices = computed(() => [
+			{value: "auto", label: t("translate.prefer.auto")},
+			{value: "llm", label: t("translate.prefer.llm")},
+			{value: "small", label: t("translate.prefer.small")},
+		]);
+		const preferHint = computed(() => {
+			if (prefer.value === "llm") {
+				return t("translate.prefer.llmHint");
+			}
+
+			if (prefer.value === "small") {
+				return t("translate.prefer.smallHint");
+			}
+
+			return t("translate.prefer.autoHint");
+		});
+		// Settings' "Try the GPU again": the service forgets the lost GPU
+		// and the store gets the capability as it stands now.
+		const retryGpu = () => {
+			void service.retryGpu().then((now) => {
+				store.commit("translationCapability", now);
+			});
+		};
 		const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 		onMounted(() => {
@@ -898,6 +1015,8 @@ export default defineComponent({
 					return t("translate.capability.reason.noMemory64");
 				case "PROBE_FAILED":
 					return t("translate.capability.reason.probeFailed");
+				case "GPU_LOST":
+					return t("translate.capability.reason.gpuLost");
 
 				default: {
 					const unhandled: never = reason;
@@ -1017,6 +1136,10 @@ export default defineComponent({
 					return t("translate.settings.autoPicksCpu");
 				}
 
+				if (family.id === "llm") {
+					return t("translate.settings.autoPicksCpuNoGpuLlm");
+				}
+
 				return family.id === "nllb"
 					? t("translate.settings.autoPicksCpuNoGpuNllb")
 					: t("translate.settings.autoPicksCpuNoGpuOpus");
@@ -1061,6 +1184,26 @@ export default defineComponent({
 			familyOrder(family).filter((device) => family.ref.copies[device] !== undefined);
 
 		const views = computed(() => store.state.translation.models);
+		// Every downloaded copy once, by model and device.
+		const storedBytes = computed(() => {
+			const seen = new Map<string, number>();
+
+			for (const view of views.value) {
+				if (view.cached) {
+					seen.set(
+						`${view.ref.id}@${view.device}`,
+						view.ref.copies[view.device]?.sizeBytes ?? 0
+					);
+				}
+			}
+
+			return [...seen.values()].reduce((sum, bytes) => sum + bytes, 0);
+		});
+		const storageLine = computed(() =>
+			storedBytes.value > 0
+				? t("translate.settings.storage", {size: friendlysize(storedBytes.value)})
+				: t("translate.settings.storageNone")
+		);
 
 		const viewOf = (modelRef: ModelRef, device: Device) =>
 			views.value.find((view) => view.ref.id === modelRef.id && view.device === device);
@@ -1091,6 +1234,13 @@ export default defineComponent({
 
 		const copyState = (view: ModelView) => {
 			const percent = Math.round(view.fraction * 100);
+
+			// Down for the session after a failed load: the copy may still
+			// be downloaded, but nothing routes to it until a reload, and
+			// "Downloaded" alone hid that (and why).
+			if (view.downError && view.status !== "downloading") {
+				return t("translate.model.down", {error: translateErrorText(view.downError)});
+			}
 
 			switch (view.status) {
 				case "downloading":
@@ -1262,6 +1412,12 @@ export default defineComponent({
 		);
 
 		return {
+			prefer,
+			preferChoices,
+			preferHint,
+			storageLine,
+			advancedOpen,
+			onAdvancedToggle,
 			system,
 			systemLanguages,
 			systemSource,
@@ -1275,6 +1431,7 @@ export default defineComponent({
 			tCount,
 			modelLabel,
 			reasonText,
+			retryGpu,
 			llmUnfit,
 			unfitLlms,
 			whyText: translateWhyText,

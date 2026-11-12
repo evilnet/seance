@@ -26,7 +26,7 @@ import {
 	TranslateRequest,
 } from "../engine";
 import {nllbCode} from "../languages";
-import {placeholder, placeholdersIn} from "../spans";
+import {PLACEHOLDER_SOURCE, placeholder, placeholdersIn} from "../spans";
 
 /**
  * How a span's placeholder is written for a seq2seq model. OPUS-MT's
@@ -53,7 +53,7 @@ interface EngineForm {
 export const ENGINE_FORMS: EngineForm[] = [
 	{write: (n) => `[${n}]`, read: /\[\s*(\d+)\s*\]/g},
 	{write: (n) => `X${n}`, read: /(?<![\p{L}\p{N}_])[XxХх]\s?(\d+)(?![\p{N}])/gu, pad: true},
-	{write: placeholder, read: /⟦\s*(\d+)\s*⟧/g},
+	{write: placeholder, read: new RegExp(PLACEHOLDER_SOURCE, "g")},
 ];
 
 /** `text` with its placeholders written in `form`, or null when the text already holds that form. */
@@ -88,9 +88,23 @@ export function readForm(text: string, form: EngineForm, numbers: number[]): str
 
 /** How many of `numbers` an answer carries exactly once. */
 function kept(text: string, numbers: number[]): number {
-	const found = [...text.matchAll(/⟦\s*(\d+)\s*⟧/g)].map((m) => Number(m[1]));
+	const found = [...text.matchAll(new RegExp(PLACEHOLDER_SOURCE, "g"))].map((m) => Number(m[1]));
 
 	return numbers.filter((n) => found.filter((f) => f === n).length === 1).length;
+}
+
+/**
+ * Where transformers.js fetches a copy from: the deploy's mirror for every
+ * copy when there is one (a mirror is a whole mirror), else the copy's own
+ * host, else Hugging Face (null: the library's defaults).
+ */
+export function remoteFor(
+	copy: Pick<DeviceCopy, "host">,
+	modelBase: string | undefined
+): {remoteHost: string; remotePathTemplate: string} | null {
+	const base = (modelBase ?? copy.host)?.replace(/\/+$/, "");
+
+	return base ? {remoteHost: `${base}/`, remotePathTemplate: "{model}/"} : null;
 }
 
 export interface PipelineLike {

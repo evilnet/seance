@@ -242,9 +242,15 @@ export class AppleTranslator {
 	 * would open (the user's switch, which may have gone off while the offer
 	 * waited). Declined (closed, or failed), no pair is offered again until
 	 * the next load; accepted, the pair's status is asked afresh until the
-	 * background download lands.
+	 * background download lands. `tapped`: the user asked for this pack by
+	 * name (the line's "Get it"), so an earlier decline does not hold it back.
 	 */
-	offer(from: string, to: string, allowed: () => boolean = () => true): Promise<boolean> {
+	offer(
+		from: string,
+		to: string,
+		allowed: () => boolean = () => true,
+		tapped = false
+	): Promise<boolean> {
 		const key = this.key(from, to);
 		const open = this.offers.get(key);
 
@@ -252,7 +258,9 @@ export class AppleTranslator {
 			return open;
 		}
 
-		if (this.declined || this.offered.has(key)) {
+		// A tap on the line's "Get it" is the user asking for this sheet:
+		// it opens whatever was declined before.
+		if (!tapped && (this.declined || this.offered.has(key))) {
 			return Promise.resolve(false);
 		}
 
@@ -260,7 +268,7 @@ export class AppleTranslator {
 
 		const answer = this.sheet
 			.then(() => {
-				if (this.declined || !allowed()) {
+				if ((this.declined && !tapped) || !allowed()) {
 					// Not shown, so not asked: a later request may offer it.
 					this.offered.delete(key);
 

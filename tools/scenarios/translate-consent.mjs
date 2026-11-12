@@ -10,7 +10,8 @@
 // downloaded, and the page's connection reports Save-Data, so not even the
 // pair is a quiet download) is offered on the line, "Needs a <size>
 // download · Download", unasked; its Download is remembered and the line is
-// translated on the GPU model, still with no question. Reading is switched
+// translated on what it fetched -- the German pair, the table's first class
+// for German (routes.default.ts) -- still with no question. Reading is switched
 // on in the channel menu's translation panel. A real browser, a scripted
 // engine: translate-capability.mjs routes the real worker.
 //
@@ -23,12 +24,7 @@
 // unset for the build: a production build compiles the fake out.
 
 import {readFileSync} from "node:fs";
-import {
-	TRANSLATION_ON,
-	TRANSLATION_OFFERED,
-	closeTranslationPanel,
-	openTranslationPanel,
-} from "./lib/translation.mjs";
+import {TRANSLATION_ON, TRANSLATION_OFFERED, setReadingThroughSheet} from "./lib/translation.mjs";
 
 const RUN = Date.now().toString(36);
 const NICK = `cn${RUN}`;
@@ -162,12 +158,8 @@ export default async function run(page) {
 		}
 	);
 
-	await openTranslationPanel(page);
-	await page.evaluate(
-		`(() => { for (const s of document.querySelectorAll('.translation-panel-segmented .translation-panel-segment')) { if (s.textContent.trim() === "On") { s.click(); return; } } throw new Error("no reading segment"); })()`
-	);
-
-	await closeTranslationPanel(page);
+	// Reading is on unless excluded; the sheet's switch leaves it so.
+	await setReadingThroughSheet(page, true);
 
 	// No question: the downloaded pair takes every line.
 	await page.waitFor(
@@ -240,7 +232,8 @@ export default async function run(page) {
 	page.check(`its title names the model (${offered.title})`, reason.test(offered.title));
 	await page.screenshot("consent-fake-needs-download");
 
-	// 4. Its Download: remembered, no question, and the GPU model runs.
+	// 4. Its Download: remembered, no question, and the German pair it
+	// fetched runs (the table's first class for German into English).
 	await page.evaluate(`${rowOf(german)}.querySelector(".msg-translation-get").click()`);
 	await page.waitFor(
 		`(() => { const m = ${rowOf(german)}; return m && m.querySelector('.msg-translated'); })()`,
@@ -262,8 +255,8 @@ export default async function run(page) {
 		yes.questions === 0 && yes.consent.length === 2 && yes.consent.includes(OPUS_IT)
 	);
 	page.check(
-		`the German line ran on the GPU model (${yes.model})`,
-		/^Qwen3-/.test(yes.model || "")
+		`the German line ran on the German pair it downloaded (${yes.model})`,
+		yes.model === "Xenova/opus-mt-de-en"
 	);
 
 	other.quit();

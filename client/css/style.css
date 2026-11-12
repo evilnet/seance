@@ -191,9 +191,11 @@
 
 .window,
 .header-popover,
+.language-sheet,
 .oper-investigate,
 .oper-alert-builder,
 #oper-action-overlay,
+#ban-overlay,
 #oper-note-overlay {
 	--oper-amber: var(--oper-amber-theme, color-mix(in oklab, #c7841a 65%, var(--body-color)));
 	--oper-red: var(--oper-red-theme, color-mix(in oklab, #e74c3c 75%, var(--body-color)));
@@ -400,6 +402,7 @@ html[data-platform="macos"] {
  * the icon). */
 html[data-platform="macos"] #sidebar .logo-container {
 	display: flex;
+	flex: none; /* it stays as the list scrolls (below) */
 	align-items: center;
 	justify-content: flex-end;
 	box-sizing: border-box;
@@ -435,12 +438,59 @@ html[data-platform="macos"] .window .header {
  * the right). Physical on purpose, and #viewport in both selectors so a
  * theme's own #chat .header padding (ps's) does not win over them. */
 html[data-platform="macos"]:not([dir="rtl"]) #viewport:not(.menu-open) .window .header,
-html[data-platform="macos"][dir="rtl"] #viewport .window .header {
+html[data-platform="macos"][dir="rtl"] #viewport:not(:has(> #search-panel:not(.covering, .screen-overlay))) .window .header {
+	padding-left: var(--mac-traffic-lights-end);
+}
+
+/* The channel browser's head is its own, not a .header: the same strip, kept
+ * clear of the lights in the same places (ChannelBrowser.vue). */
+html[data-platform="macos"] #channel-browser .browse-head {
+	box-sizing: border-box;
+	min-height: var(--mac-titlebar-height);
+	padding-block: 0;
+}
+
+html[data-platform="macos"]:not([dir="rtl"]) #viewport:not(.menu-open) #channel-browser .browse-head,
+html[data-platform="macos"][dir="rtl"] #viewport #channel-browser .browse-head {
 	padding-left: var(--mac-traffic-lights-end);
 }
 
 html[data-platform="macos"][dir="rtl"] #sidebar .logo-container {
 	padding-left: 10px;
+}
+
+/* The sidebar scrolls below its strip, never under the lights: the list
+ * scrolls, not the area holding the strip and the list. */
+html[data-platform="macos"] #sidebar .scrollable-area {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+html[data-platform="macos"] #sidebar .scrollable-area > :not(.logo-container) {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: hidden auto;
+	scrollbar-width: thin;
+	overscroll-behavior: contain;
+}
+
+/* Search's head is a strip of the same height, so it lines up with the
+ * header beside it, and the window drags from it too (SearchResults.vue).
+ * It keeps clear of the lights wherever it reaches the window's left edge:
+ * covering the screen (the phone layout), covering the chat with the
+ * sidebar closed, and right to left always, where it is the leftmost pane;
+ * beside it there the chat's header does not need the room (above). */
+html[data-platform="macos"] #search-panel .search-head {
+	box-sizing: border-box;
+	min-height: var(--mac-titlebar-height);
+	padding-block: 0;
+}
+
+html[data-platform="macos"]:not([dir="rtl"]) #viewport:not(.menu-open) #search-panel.covering .search-head,
+html[data-platform="macos"]:not([dir="rtl"]) #search-panel.screen-overlay .search-head,
+html[data-platform="macos"][dir="rtl"] #search-panel .search-head {
+	padding-left: var(--mac-traffic-lights-end);
 }
 
 /* The image viewer as Quick Look shows a picture: over the window dimmed and
@@ -905,6 +955,8 @@ p {
 .context-menu-action-ignore::before { content: "\f506"; /* https://fontawesome.com/icons/user-slash?style=solid  */ }
 .context-menu-action-unignore::before { content: "\f4fc"; /* https://fontawesome.com/icons/user-check?style=solid  */ }
 .context-menu-action-kick::before { content: "\f05e"; /* http://fontawesome.io/icon/ban/ */ }
+.context-menu-action-ban::before { content: "\f0e3"; /* https://fontawesome.com/icons/gavel?style=solid */ }
+.context-menu-action-unban::before { content: "\f09c"; /* http://fontawesome.io/icon/unlock/ */ }
 .context-menu-action-set-mode::before { content: "\f067"; /* http://fontawesome.io/icon/plus/ */ }
 .context-menu-action-revoke-mode::before { content: "\f068"; /* http://fontawesome.io/icon/minus/ */ }
 .context-menu-network::before { content: "\f233"; /* https://fontawesome.com/icons/server?style=solid */ }
@@ -1877,12 +1929,16 @@ html[data-reduce-motion] .channel-list-item.has-activity:not(.is-typing)::before
 	line-height: 1;
 }
 
+/* The count is sized off the row's own text, not the root, so it stays shorter
+ * than the name's line (0.75em of text plus 0.25em above and below is 1.125em,
+ * a line is about 1.2em) and never makes its row taller than an unread-free
+ * one, whatever size a platform or theme gives the row. */
 .channel-list-item .badge {
 	background: rgb(255 255 255 / 6%);
 	border-radius: 3px;
 	color: #afb6c0;
-	font-size: 0.75rem;
-	padding: 0.3em 0.5em;
+	font-size: 0.75em;
+	padding: 0.25em 0.5em;
 	transition: background-color 0.2s, color 0.2s;
 }
 
@@ -2369,110 +2425,8 @@ textarea.input {
 	border-bottom: 1px solid #e7e7e7;
 }
 
-/* A channel's translation choices (TranslationPanel.vue): a header popover
-   under the channel menu's ⋮, on `.header-popover`'s surface, title and phone
-   layout. Every setting is a label with its control beneath it; the controls
-   are `.input`, which every theme already colours. */
-.translation-panel-body {
-	flex: 1 1 auto;
-	min-height: 0;
-	overflow-y: auto;
-	overscroll-behavior: contain;
-	display: flex;
-	flex-direction: column;
-	gap: 1.25rem;
-	padding: 0.25rem 0.75rem 0.75rem;
-}
-
-.translation-panel-section {
-	display: flex;
-	flex-direction: column;
-	gap: 0.75rem;
-}
-
-.translation-panel-section h3 {
-	margin: 0;
-	color: var(--body-color-muted);
-	font-size: 0.75rem;
-	font-weight: 600;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
-}
-
-.translation-panel-field {
-	display: flex;
-	flex-direction: column;
-	gap: 0.375rem;
-}
-
-.translation-panel-label {
-	font-size: 0.9375rem;
-}
-
-.translation-panel-hint {
-	color: var(--body-color-muted);
-	font-size: 0.8125rem;
-}
-
-/* A language every engine measured poorly in (routes.default.ts
-   LIMITED_LANGUAGES). */
-.translation-panel-limited {
-	display: block;
-	color: var(--body-color-muted);
-	font-size: 0.8125rem;
-	font-style: italic;
-}
-
-/* Why nothing here can translate: first in the panel, two sentences. */
-.translation-panel-blocked {
-	padding: 0.5rem 0.75rem;
-	border-inline-start: 0.1875rem solid var(--error-fg, #c33);
-	border-radius: 0.25rem;
-	background: rgb(128 128 128 / 10%);
-	font-size: 0.875rem;
-}
-
-.translation-panel-blocked p {
-	margin: 0;
-}
-
-/* Paused, not blocked: the same notice in the pane's own warning colour. */
-.translation-panel-paused {
-	margin: 0;
-	border-inline-start-color: var(--oper-amber);
-}
-
-.translation-panel-blocked p + p {
-	margin-block-start: 0.25rem;
-	color: var(--body-color-muted);
-}
-
-/* Why a language under "Send my messages in" is greyed. */
-.translation-panel-why {
-	display: flex;
-	flex-direction: column;
-	gap: 0.125rem;
-	color: var(--body-color-muted);
-	font-size: 0.8125rem;
-}
-
-.translation-panel-why-lead {
-	color: var(--body-color);
-}
-
-.translation-panel-control {
-	width: 100%;
-	box-sizing: border-box;
-	height: 2.25rem;
-	margin: 0;
-	padding: 0 0.625rem;
-	border-radius: 0.375rem;
-	font: inherit;
-	line-height: normal;
-}
-
-/* The channel's declared languages: as many as it takes, wrapping above
-   the picker that adds them. */
+/* Settings → Language's "I also read" (Settings/Translation.vue): as many
+   languages as it takes, wrapping above the picker that adds them. */
 .translation-panel-chips {
 	display: flex;
 	flex-wrap: wrap;
@@ -2508,84 +2462,8 @@ textarea.input {
 	color: var(--body-color);
 }
 
-/* Two or three choices are as many targets, not a native picker. */
-.translation-panel-segmented {
-	display: grid;
-	grid-auto-columns: 1fr;
-	grid-auto-flow: column;
-	height: 2.25rem;
-	overflow: hidden;
-	border: 1px solid var(--oper-line-2);
-	border-radius: 0.375rem;
-
-	/* From the pane's own colours (the `.header-popover` tokens): a theme's
-	   composer colours are the composer's, black on black on zelenzy. */
-	background: var(--oper-sunk);
-}
-
-.translation-panel-segment {
-	padding: 0 0.25rem;
-	border: 0;
-	border-inline-end: 1px solid var(--oper-line-2);
-	background: none;
-	color: inherit;
-	font: inherit;
-	font-size: 0.9375rem;
-	cursor: pointer;
-}
-
-.translation-panel-segment:last-child {
-	border-inline-end: 0;
-}
-
-.translation-panel-segment[aria-checked="true"] {
-	/* Marked by a ring in the pane's link colour over a wash of it, the
-	   label in the body's ink: a link colour as text on its own wash falls
-	   under 4.5:1 on light themes, and a chat accent is a colour meant for
-	   the scrollback's background, not this one. */
-	background: color-mix(in oklab, var(--link-color) 18%, var(--window-bg-color));
-	box-shadow: inset 0 0 0 0.125rem var(--link-color);
-	color: var(--body-color);
-	font-weight: 600;
-}
-
-html[data-contrast="more"] .translation-panel-segment[aria-checked="true"] {
-	box-shadow: inset 0 0 0 0.125rem var(--body-color);
-}
-
-.translation-panel-segment:disabled {
-	opacity: 0.5;
-	cursor: default;
-}
-
-.translation-panel-foot {
-	flex: 0 0 auto;
-	padding: 0.625rem 0.75rem;
-	border-block-start: 1px solid var(--window-border, rgb(128 128 128 / 30%));
-	text-align: center;
-	font-size: 0.875rem;
-}
-
-/* On a phone the foot is the pane's last row: out of the home indicator's
-   strip, as the composer is. */
-@media (max-width: 480px), (max-width: 768px) and (pointer: coarse), (max-height: 500px) and (hover: none) and (pointer: coarse) {
-	.translation-panel-foot {
-		padding-block-end: max(0.625rem, var(--inset-inner-bottom, 0px));
-	}
-}
-
 /* A finger: every control a target. */
 @media (pointer: coarse) {
-	.translation-panel-control,
-	.translation-panel-segmented {
-		height: 2.75rem;
-	}
-
-	.translation-panel-control {
-		padding: 0 0.875rem;
-		font-size: 1rem;
-	}
-
 	.translation-panel-chip {
 		padding-block: 0.1875rem;
 		padding-inline: 0.625rem 0.375rem;
@@ -2756,10 +2634,10 @@ html[data-shell="native"] .source-language-picker--sheet {
 	padding: 0.75em 1em;
 }
 
-/* The composer's language sheet (ComposerLanguageSheet.vue): the pair on
-   top, the channel's languages as chips, a search and the whole list. A
-   popover over the translate button on a desktop; on a phone a sheet
-   docked to the chat pane's bottom edge. Teleported to <body>. */
+/* A conversation's translation sheet (TranslationSheet.vue): the reading
+   switch, Write in, the language chips, a search and the whole list, and
+   More. A popover over the button that opened it on a desktop; on a phone
+   a sheet docked to the chat pane's bottom edge. Teleported to <body>. */
 .language-sheet {
 	position: fixed;
 	z-index: 1000;
@@ -2769,6 +2647,8 @@ html[data-shell="native"] .source-language-picker--sheet {
 	width: 21rem;
 	max-width: calc(100vw - 1rem);
 	max-height: min(32rem, 80vh);
+	overflow-y: auto;
+	overscroll-behavior: contain;
 	box-sizing: border-box;
 	padding: 0.75rem;
 	border: 1px solid var(--window-border, rgb(128 128 128 / 30%));
@@ -2802,7 +2682,7 @@ html[data-shell="native"] .language-sheet--phone {
 	padding-left: calc(1rem + var(--inset-left));
 }
 
-/* The title, Turn off and ✕ on one line. */
+/* The title and ✕ on one line. */
 .language-sheet-head {
 	display: flex;
 	flex: 0 0 auto;
@@ -2815,18 +2695,6 @@ html[data-shell="native"] .language-sheet--phone {
 	flex: 1 1 auto;
 	min-width: 0;
 	font-weight: 600;
-}
-
-.language-sheet-off {
-	flex: 0 0 auto;
-	padding: 0.25rem 0.5rem;
-	border: 0;
-	border-radius: 0.25rem;
-	background: transparent;
-	color: var(--chat-accent, var(--link-color));
-	font: inherit;
-	font-size: 0.875em;
-	cursor: pointer;
 }
 
 .language-sheet-close {
@@ -2845,14 +2713,6 @@ html[data-shell="native"] .language-sheet--phone {
 
 .language-sheet-close:hover {
 	color: var(--body-color);
-}
-
-/* I write ⇄ They read: two halves, the one the list fills in lit. */
-.language-sheet-pair {
-	display: flex;
-	flex: 0 0 auto;
-	align-items: stretch;
-	gap: 0.375rem;
 }
 
 .language-sheet-side {
@@ -3088,6 +2948,162 @@ html[data-shell="native"] .language-sheet--phone {
 .language-sheet-once-box,
 .language-sheet-read-box {
 	margin: 0;
+}
+
+/* The conversation's translation sheet (TranslationSheet.vue) on the
+   language sheet's surface: the reading switch, Write in, the list when it
+   is open, and More. */
+.language-sheet-aside {
+	margin-inline-start: 0.375rem;
+	color: var(--body-color-muted);
+	font-weight: normal;
+}
+
+.translation-sheet-enable {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.translation-sheet-label {
+	font-size: 0.9375em;
+}
+
+.translation-sheet-hint,
+.translation-sheet-limited {
+	color: var(--body-color-muted);
+	font-size: 0.8125em;
+}
+
+/* A language every engine measured poorly in (routes.default.ts
+   LIMITED_LANGUAGES). */
+.translation-sheet-limited {
+	font-style: italic;
+}
+
+/* Why nothing here can translate: first in the sheet, two sentences. */
+.translation-sheet-blocked {
+	flex: 0 0 auto;
+	margin: 0;
+	padding: 0.5rem 0.75rem;
+	border-inline-start: 0.1875rem solid var(--error-fg, #c33);
+	border-radius: 0.25rem;
+	background: rgb(128 128 128 / 10%);
+}
+
+.translation-sheet-blocked p {
+	margin: 0;
+}
+
+.translation-sheet-blocked p + p {
+	margin-block-start: 0.25rem;
+	color: var(--body-color-muted);
+}
+
+/* Paused, not blocked: the same notice in a warning colour. */
+.translation-sheet-paused {
+	border-inline-start-color: var(--oper-amber, #c7841a);
+}
+
+.translation-sheet-write,
+.translation-sheet-field {
+	display: flex;
+	flex: 0 0 auto;
+	flex-direction: column;
+	gap: 0.375rem;
+}
+
+/* Two or three choices are as many targets, not a native picker. */
+.translation-sheet-segmented {
+	display: grid;
+	grid-auto-columns: 1fr;
+	grid-auto-flow: column;
+	height: 2.25rem;
+	overflow: hidden;
+	border: 1px solid var(--oper-line-2);
+	border-radius: 0.375rem;
+	background: var(--oper-sunk);
+}
+
+.translation-sheet-segment {
+	min-width: 0;
+	padding: 0 0.25rem;
+	overflow: hidden;
+	border: 0;
+	border-inline-end: 1px solid var(--oper-line-2);
+	border-radius: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	font-size: 0.9375em;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.translation-sheet-segment:last-child {
+	border-inline-end: 0;
+}
+
+.translation-sheet-segment[aria-checked="true"] {
+	/* Marked by a ring in the link colour over a wash of it, the label in
+	   the body's ink: a link colour as text on its own wash falls under
+	   4.5:1 on light themes. */
+	background: color-mix(in oklab, var(--link-color) 18%, var(--window-bg-color));
+	box-shadow: inset 0 0 0 0.125rem var(--link-color);
+	color: var(--body-color);
+	font-weight: 600;
+}
+
+html[data-contrast="more"] .translation-sheet-segment[aria-checked="true"] {
+	box-shadow: inset 0 0 0 0.125rem var(--body-color);
+}
+
+.translation-sheet-more {
+	flex: 0 0 auto;
+	padding-block-start: 0.5rem;
+	border-block-start: 1px solid var(--window-border, rgb(128 128 128 / 30%));
+}
+
+.translation-sheet-more > summary {
+	color: var(--body-color-muted);
+	cursor: pointer;
+}
+
+.translation-sheet-more-body {
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+	padding-block-start: 0.625rem;
+}
+
+.translation-sheet-from {
+	display: flex;
+	align-items: stretch;
+	gap: 0.375rem;
+}
+
+.translation-sheet-reset {
+	align-self: flex-start;
+	padding: 0.25rem 0;
+	border: 0;
+	background: transparent;
+	color: var(--chat-accent, var(--link-color));
+	font: inherit;
+	cursor: pointer;
+}
+
+.translation-sheet-settings {
+	flex: 0 0 auto;
+	font-size: 0.875em;
+	text-align: center;
+}
+
+/* A finger: every control a target. */
+@media (pointer: coarse) {
+	.translation-sheet-segmented {
+		height: 2.75rem;
+	}
 }
 
 /* Compose mode. A phone in landscape has ~430px; the keyboard and Safari's
@@ -3750,6 +3766,16 @@ html[data-own-messages="band"] #chat .msg.self[data-type="action"]:not(.highligh
 #chat .msg.channel_list_truncated .text {
 	color: #f00;
 	padding-inline-start: 20px;
+}
+
+/* An address in a join, part or quit line: the line's own text until hovered. */
+.host-address {
+	cursor: pointer;
+}
+
+.host-address:hover {
+	text-decoration: underline dotted;
+	text-underline-offset: 0.15em;
 }
 
 #chat table.ban-list,
@@ -7014,7 +7040,8 @@ html[data-contrast="more"] .oper-tag {
 :where(html[data-input="touch"]) #oper-investigate-overlay .btn-small,
 :where(html[data-input="touch"]) #oper-alert-overlay .btn-small,
 :where(html[data-input="touch"]) #oper-action-dialog .btn,
-:where(html[data-input="touch"]) #oper-action-dialog .oper-chip {
+:where(html[data-input="touch"]) #oper-action-dialog .oper-chip,
+:where(html[data-input="touch"]) #ban-dialog .oper-chip {
 	min-height: 2.75rem;
 	min-width: 2.75rem;
 }
@@ -7055,6 +7082,20 @@ html[data-contrast="more"] .oper-tag {
 		This caused a performance issue in Chrome
 	*/
 	overflow: hidden;
+
+	/* The chat takes what the sidebar and search leave, whatever its content.
+	 * Grown from its content's size (.window's flex-basis: auto), the "is
+	 * typing" line (which does not wrap) or the search pane beside it pushed
+	 * the row past the viewport, part of the overflow came out of the
+	 * sidebar, and its edge moved each time they came and went.
+	 *
+	 * Below its minimum the sidebar gives way instead (sidebarWidth.ts), so a
+	 * wide sidebar still leaves some chat. The minimum is 15rem and falls to
+	 * 0 as the row narrows to 30rem, so it does not push a small window into
+	 * overflow. Search never squeezes either of them: where it does not fit
+	 * beside 15rem of chat it covers the chat (js/searchPanel.ts). */
+	flex-basis: 0;
+	min-width: clamp(0px, 100% - 30rem, 15rem);
 }
 
 #version-checker {
@@ -7320,6 +7361,12 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
 	content: none;
 }
 
+/* A reply suggests a language: the button names it, dashed, until the
+   user takes it. */
+#form #translate-once.suggested {
+	border-style: dashed;
+}
+
 #form .translate-once-target {
 	font-size: 0.75rem;
 	font-weight: 600;
@@ -7521,6 +7568,19 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
 	line-height: 1.4;
 	border-radius: 3px;
 	white-space: nowrap;
+}
+
+/* A quiet line at a menu's foot, nothing to choose (contextMenu.ts
+ * `ContextMenuNoteItem`): which model translated a line. It may wrap. */
+.context-menu-note {
+	display: block;
+	max-inline-size: 18rem;
+	padding: 0.25rem 0.5rem 0.375rem;
+	color: var(--body-color-muted);
+	font-size: 0.8125rem;
+	line-height: 1.35;
+	white-space: normal;
+	cursor: default;
 }
 
 .context-menu-item.active,
@@ -8464,6 +8524,7 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
 #install-guide-overlay,
 #upload-preview-overlay,
 #oper-action-overlay,
+#ban-overlay,
 #upload-overlay,
 #image-viewer,
 #image-viewer .open-btn,
@@ -8480,6 +8541,7 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
 #install-guide-overlay,
 #upload-preview-overlay,
 #oper-action-overlay,
+#ban-overlay,
 #upload-overlay,
 #image-viewer {
 	position: fixed;
@@ -8516,7 +8578,8 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
 /* The oper dialog holds text fields: absolute in #viewport, the visible
  * band, so iOS's keyboard does not cover its buttons (fixed measures
  * against the layout viewport, which iOS never shrinks). */
-#oper-action-overlay {
+#oper-action-overlay,
+#ban-overlay {
 	position: absolute;
 }
 
@@ -8525,6 +8588,7 @@ html[data-shell="native"] :is(.screen-overlay, .network-form-embedded, .window:h
 #install-guide-overlay.opened,
 #upload-preview-overlay.opened,
 #oper-action-overlay.opened,
+#ban-overlay.opened,
 #upload-overlay.is-dragover,
 #image-viewer.opened {
 	visibility: visible;
@@ -9870,20 +9934,7 @@ html[data-reduce-motion] #chat .msg.actions-open .msg-actions {
 	margin-inline-start: 0.5rem;
 }
 
-/* The previous preview while the draft changes under it. */
-#form .translate-bar-stale {
-	opacity: 0.55;
-}
-
-#form .translate-bar-queued {
-	margin: 0;
-	color: var(--body-color-muted);
-	font-size: 0.75rem;
-	font-style: italic;
-}
-
-/* The suggestion card: "Most of #linux writes in Portuguese…", above the
-   strip, in the strip's accent rule. */
+/* A one-time translation note above the composer, in the accent rule. */
 #form .translate-suggest {
 	flex: 1 0 100%;
 	display: flex;
@@ -9928,6 +9979,105 @@ html[data-reduce-motion] #chat .msg.actions-open .msg-actions {
 	color: var(--button-text-color-hover);
 }
 
+/* The panel's text buttons: links, not boxes. */
+#form .translate-bar-link {
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: var(--link-color);
+	font: inherit;
+	font-size: 0.75rem;
+	cursor: pointer;
+}
+
+#form .translate-bar-link:hover,
+#form .translate-bar-link:focus-visible {
+	text-decoration: underline;
+}
+
+/* The translate panel (TranslatePanel.vue): above the composer, the
+   user's own text, its translation and the read-back, then Cancel and
+   Insert. The composer below it is untouched until Insert. */
+#form .translate-panel {
+	flex: 1 0 100%;
+	display: flex;
+	flex-direction: column;
+	gap: 0.375rem;
+	min-width: 0;
+	max-height: calc(var(--viewport-height, 100vh) * 0.5);
+	overflow: auto;
+	margin: 0 0.25rem 0.375rem;
+	padding: 0.5rem 0.625rem;
+	border-radius: 0.5rem;
+	background: var(--accent-tint-20, rgb(128 128 128 / 15%));
+	color: var(--body-color);
+	font-size: 0.875rem;
+}
+
+#form .translate-panel-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+}
+
+#form .translate-panel-title {
+	font-weight: 600;
+}
+
+#form .translate-panel-language {
+	padding: 0.125rem 0.25rem;
+	border: 0;
+	background: transparent;
+	color: var(--chat-accent, var(--link-color));
+	font: inherit;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+#form .translate-panel-input {
+	box-sizing: border-box;
+	width: 100%;
+	min-height: 3rem;
+	padding: 0.375rem 0.5rem;
+	border: 1px solid rgb(128 128 128 / 30%);
+	border-radius: 0.375rem;
+	background: var(--window-bg-color, transparent);
+	color: var(--body-color);
+	font: inherit;
+	resize: vertical;
+}
+
+#form .translate-panel-result {
+	flex: 0 0 auto;
+	max-height: none;
+	margin: 0;
+}
+
+#form .translate-panel-result .translate-bar-chip {
+	display: block;
+}
+
+#form .translate-panel-check {
+	display: block;
+	font-style: italic;
+}
+
+#form .translate-panel-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.5rem;
+}
+
+#form .translate-panel-actions .btn {
+	margin: 0;
+}
+
+#form .translate-panel-insert:not([disabled]) {
+	background: var(--button-color);
+	color: var(--button-text-color-hover);
+}
+
 /* Both rows of the strip: the translation about to be sent, and the
    read-back under it. `body` is `user-select: none`, so without this the
    line the user is being asked to approve cannot be selected or copied. */
@@ -9966,41 +10116,6 @@ html[data-reduce-motion] #form .translate-bar-caret {
 	font-size: 0.85em;
 	overflow-wrap: anywhere;
 }
-
-/* Icon buttons, the word kept as the tooltip/accessible name: a square
-   target with the glyph centred (see .translate-bar-copy etc. below for the
-   Font Awesome codes). */
-#form .translate-bar-button {
-	flex: 0 0 auto;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 1.75rem;
-	height: 1.25rem;
-	padding: 0;
-	border: 0;
-	border-radius: 0.1875rem;
-	background: transparent;
-	color: var(--body-color-muted);
-	font-size: 0.8125rem;
-	cursor: pointer;
-}
-
-#form .translate-bar-button::before {
-	font: normal normal normal 1em/1 FontAwesome;
-	-webkit-font-smoothing: antialiased;
-	-moz-osx-font-smoothing: grayscale;
-}
-
-#form .translate-bar-copy::before { content: "\f0c5"; /* https://fontawesome.com/icons/copy?style=solid */ }
-#form .translate-bar-copy-done::before { content: "\f00c"; /* https://fontawesome.com/icons/check?style=solid */ }
-
-#form .translate-bar-button:hover,
-#form .translate-bar-button:focus-visible {
-	background: var(--accent-tint-20, rgb(128 128 128 / 15%));
-	outline: 0;
-}
-
 
 #form .translate-bar-check {
 	flex-wrap: nowrap;
@@ -10320,8 +10435,11 @@ html[data-reduce-motion] #form .upload-bar-track.indeterminate .upload-bar-fill 
 }
 
 /* The Mac app's sizes (data-platform="macos", set before the first paint by
- * loading-error-handlers.js): menus and the sidebar's rows at AppKit's
- * metrics, 13px text in 22px menu items and 26px rows, whatever the theme.
+ * loading-error-handlers.js): menus at AppKit's metrics, 13px text in 22px
+ * items, and the sidebar's rows AppKit's shape, whatever the theme. A row's
+ * name is the messages' size, not AppKit's 13px: the chat's text stays at the
+ * web's 1rem, and a source list smaller than the conversation it lists is not
+ * what Slack, Discord, Element or Mail do.
  * Only sizes and shapes: colours stay the theme's. Every selector is the base
  * rule's own wrapped in :where(), so it has the base rule's weight; it wins
  * over style.css because it comes later, and a theme that sets the same
@@ -10361,7 +10479,6 @@ html[data-reduce-motion] #form .upload-bar-track.indeterminate .upload-bar-fill 
 }
 
 :where(html[data-platform="macos"]) .channel-list-item {
-	font-size: 0.8125rem;
 	padding-block: 0.3125rem;
 	padding-inline: 0.5rem;
 	margin-inline: 0.625rem;

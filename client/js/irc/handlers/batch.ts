@@ -18,6 +18,7 @@
 import type {IrcClient} from "../client";
 import type {IrcMessage} from "../message";
 import type {Handler} from "../types";
+import {inRestoration, noteRestorationActivity} from "../persistence";
 
 export interface OpenBatch {
 	ref: string;
@@ -92,6 +93,14 @@ export function interceptBatchLine(client: IrcClient, msg: IrcMessage): boolean 
 	}
 
 	batch.messages.push(msg);
+
+	// A session restoration arrives as one batch, delivered when it closes.
+	// On a slow link a large one takes longer than the autojoin's quiet
+	// period, which must not run out while its lines are still coming in.
+	if (inRestoration(batch)) {
+		noteRestorationActivity(client);
+	}
+
 	return true;
 }
 
@@ -140,14 +149,20 @@ const batch: Handler = (client, msg) => {
 		// *open* batches and servers reuse them sequentially — the next batch
 		// takes one back only after the previous one closed — so a real server
 		// never gets here; this is long-standing behaviour, left as it is.
-		batches.set(ref, {
+		const opened: OpenBatch = {
 			ref,
 			type: msg.params[1] ?? "",
 			params: msg.params.slice(2),
 			tags: msg.tags,
 			parent,
 			messages: [],
-		});
+		};
+		batches.set(ref, opened);
+
+		if (inRestoration(opened)) {
+			noteRestorationActivity(client); // the opener is restoration arriving too
+		}
+
 		return;
 	}
 
@@ -162,6 +177,11 @@ const batch: Handler = (client, msg) => {
 	}
 
 	batches.delete(ref);
+
+	if (inRestoration(open)) {
+		noteRestorationActivity(client); // and so is its closer
+	}
+
 	deliver(client, open);
 };
 

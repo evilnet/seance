@@ -5,7 +5,7 @@
 // a raw WebSocket speaker with message-tags stands in for "any other client".
 //
 // Steps, in order:
-//  1. A sends a composer translation into Spanish of a draft only the tag can
+//  1. A sends a translate-panel translation into Spanish of a draft only the tag can
 //     place ("hola"): the line A puts on the wire carries
 //     `+draft/language=es` and the machine-translated flag; A's own row (the
 //     echo) says "(machine translated)".
@@ -18,7 +18,7 @@
 //     note on B, and the run says which it saw.
 //  3. A tagged line in the reader's own language is not translated: the
 //     speaker's `+draft/language=en` "hola" asks the engine for nothing.
-//  4. B replies through its composer into English with a draft A's
+//  4. B replies through its translate panel into English with a draft A's
 //     detector could not place alone: A, reading in English, sees the tag
 //     name its own language and asks for no translation; there is no
 //     ping-pong, since nothing is translated or sent on anyone's behalf.
@@ -33,11 +33,11 @@
 
 import {startDevice} from "./lib/device.mjs";
 import {
+	SHEET,
 	TRANSLATION_ON,
 	TRANSLATION_OFFERED,
-	closeTranslationPanel,
-	openTranslationPanel,
-	setReadingThroughPanel,
+	openTranslationSheet,
+	setReadingThroughSheet,
 } from "./lib/translation.mjs";
 
 const RUN = Date.now().toString(36);
@@ -53,10 +53,11 @@ const linkFor = (nick) =>
 export const url = linkFor(`la${RUN}`);
 
 const INPUT = "#form #input";
-const BAR = ".translate-bar";
-const SETTLED = `(!!document.querySelector(${JSON.stringify(
-	BAR
-)}) && !document.querySelector(".translate-bar-is-stale") && !document.querySelector(".translate-bar-caret"))`;
+const PANEL = "#form .translate-panel";
+const INSERT_READY = `(() => {
+	const b = document.querySelector("#form .translate-panel-insert");
+	return !!b && !b.disabled;
+})()`;
 const ENTER = `document.querySelector(${JSON.stringify(
 	INPUT
 )}).dispatchEvent(new KeyboardEvent("keypress", {key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true, cancelable: true}))`;
@@ -131,24 +132,51 @@ async function connect(dev) {
 	await dev.waitFor(TRANSLATION_OFFERED, {timeout: 20000, label: "translation offered"});
 }
 
+/**
+ * The conversation's send target through the menu's sheet: Write in's Off,
+ * or its language, which opens the list, and the row is the pick (a pick
+ * closes the sheet).
+ */
 async function setWriteTarget(dev, code) {
-	await openTranslationPanel(dev);
-	await dev.evaluate(
-		`(() => { const s = document.querySelector('.translation-panel select[name="translateWrite"]'); s.value = ${JSON.stringify(
-			code
-		)}; s.dispatchEvent(new Event("change", {bubbles: true})); })()`
-	);
-	await closeTranslationPanel(dev);
+	await openTranslationSheet(dev);
+
+	if (!code) {
+		await dev.click(`${SHEET} .translation-sheet-off`);
+	} else {
+		await dev.click(`${SHEET} .translation-sheet-language`);
+		await dev.waitFor(
+			`!!document.querySelector('${SHEET} .language-sheet-row[data-code="${code}"]')`,
+			{label: "the sheet's language list"}
+		);
+		await dev.evaluate(
+			`document.querySelector('${SHEET} .language-sheet-row[data-code="${code}"]').click()`
+		);
+	}
+
+	await dev.waitFor(`!document.querySelector(${JSON.stringify(SHEET)})`, {
+		label: "the pick closed the sheet",
+	});
 }
 
-/** Type a draft, let the preview settle, and send what the strip shows. */
+/**
+ * Type a draft in the translate panel (TranslatePanel.vue), Insert its
+ * translation into the composer, and send it unchanged.
+ */
 async function sendTranslated(dev, draft) {
-	await dev.fill(INPUT, draft);
-	await dev.waitFor(SETTLED, {timeout: 20000, label: `the strip for "${draft}"`});
+	await dev.evaluate(`document.querySelector("#form #translate-once").click()`);
+	await dev.waitFor(`!!document.querySelector("#translate-panel-input")`, {
+		label: "the panel opens",
+	});
+	await dev.fill("#translate-panel-input", draft);
+	await dev.waitFor(INSERT_READY, {timeout: 20000, label: `the translation of "${draft}"`});
+	await dev.evaluate(`document.querySelector("#form .translate-panel-insert").click()`);
+	await dev.waitFor(`!document.querySelector(${JSON.stringify(PANEL)})`, {
+		label: "Insert closes the panel",
+	});
 	await dev.evaluate(ENTER);
-	await dev.waitFor(`!document.querySelector(${JSON.stringify(BAR)})`, {
+	await dev.waitFor(`document.querySelector(${JSON.stringify(INPUT)}).value === ""`, {
 		timeout: 10000,
-		label: "the strip goes once sent",
+		label: "the composer clears once sent",
 	});
 }
 
@@ -185,8 +213,8 @@ export default async function run(page) {
 		await raw.joined;
 
 		// Both read in English (the interface's language) from here on.
-		await setReadingThroughPanel(page, true);
-		await setReadingThroughPanel(b, true);
+		await setReadingThroughSheet(page, true);
+		await setReadingThroughSheet(b, true);
 
 		// 1. A writes "hola" into Spanish through the composer.
 		await setWriteTarget(page, "es");
