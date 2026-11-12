@@ -5,17 +5,18 @@
 		class="window screen-overlay"
 		role="dialog"
 		aria-modal="true"
-		:aria-label="`Bouncer networks on ${networkName}`"
+		:aria-label="t('windows.bouncer.dialog', {network: networkName})"
 	>
 		<div class="settings-modal">
 			<div class="settings-modal-header">
 				<h1>
-					Bouncer<span class="bouncer-modal-network"> · {{ networkName }}</span>
+					{{ t("windows.bouncer.title")
+					}}<span class="bouncer-modal-network"> · {{ networkName }}</span>
 				</h1>
 				<button
 					class="settings-modal-close"
 					type="button"
-					aria-label="Close the bouncer panel"
+					:aria-label="t('windows.bouncer.close')"
 					@click="close"
 				>
 					✕
@@ -24,14 +25,14 @@
 			<div class="settings-modal-body">
 				<div class="container">
 					<p v-if="!network?.bouncer" class="bouncer-empty">
-						{{ networkName }} is not a bouncer, or has not said so yet.
+						{{ t("windows.bouncer.notBouncer", {network: networkName}) }}
 					</p>
 					<template v-else>
 						<ul class="bouncer-list">
 							<li v-for="net in network.bouncer" :key="net.netid" class="bouncer-row">
 								<span
 									:class="['bouncer-state', net.attrs.state ?? 'disconnected']"
-									:title="net.attrs.state ?? 'disconnected'"
+									:title="stateLabel(net.attrs.state)"
 								/>
 								<span class="bouncer-name">
 									<strong>{{ net.attrs.name || net.netid }}</strong>
@@ -47,14 +48,14 @@
 										:disabled="busy"
 										@click="remove(net.netid)"
 									>
-										Delete
+										{{ t("windows.bouncer.delete") }}
 									</button>
 									<button
 										class="btn btn-small"
 										type="button"
 										@click="confirming = null"
 									>
-										Keep
+										{{ t("windows.bouncer.keep") }}
 									</button>
 								</template>
 								<template v-else>
@@ -64,7 +65,7 @@
 										:disabled="busy"
 										@click="edit(net)"
 									>
-										Edit
+										{{ t("windows.bouncer.edit") }}
 									</button>
 									<button
 										class="btn btn-small"
@@ -72,12 +73,12 @@
 										:disabled="busy"
 										@click="confirming = net.netid"
 									>
-										Delete…
+										{{ t("windows.bouncer.deleteAsk") }}
 									</button>
 								</template>
 							</li>
 							<li v-if="network.bouncer.length === 0" class="bouncer-empty">
-								No networks yet.
+								{{ t("windows.bouncer.empty") }}
 							</li>
 						</ul>
 
@@ -85,8 +86,10 @@
 							<h2>
 								{{
 									form.netid
-										? `Edit ${form.original.name || form.netid}`
-										: "Add a network"
+										? t("windows.bouncer.editTitle", {
+												network: form.original.name || form.netid,
+										  })
+										: t("windows.bouncer.addTitle")
 								}}
 							</h2>
 							<div v-for="field in FIELDS" :key="field.key" class="connect-row">
@@ -100,12 +103,12 @@
 												v-switch
 												type="checkbox"
 											/>
-											The bouncer connects with TLS
+											{{ t("windows.bouncer.tls") }}
 										</label>
 									</div>
 								</template>
 								<label v-if="field.key !== 'tls'" :for="`bouncer:${field.key}`">{{
-									field.label
+									fieldLabel(field.key)
 								}}</label>
 								<input
 									v-if="field.key !== 'tls'"
@@ -114,32 +117,38 @@
 									class="input"
 									:type="field.key === 'pass' ? 'password' : 'text'"
 									:inputmode="field.key === 'port' ? 'numeric' : undefined"
-									:placeholder="field.placeholder"
+									:placeholder="fieldPlaceholder(field.key)"
 									:required="field.key === 'host'"
 								/>
 							</div>
 							<p v-if="error" class="bouncer-error" role="alert">{{ error }}</p>
 							<div class="bouncer-form-actions">
 								<button class="btn" type="submit" :disabled="busy">
-									{{ form.netid ? "Save" : "Add network" }}
+									{{
+										form.netid
+											? t("windows.bouncer.save")
+											: t("windows.bouncer.addSubmit")
+									}}
 								</button>
 								<button class="btn" type="button" @click="form = null">
-									Cancel
+									{{ t("windows.bouncer.cancel") }}
 								</button>
 							</div>
 						</form>
 						<template v-else>
 							<p v-if="error" class="bouncer-error" role="alert">{{ error }}</p>
-							<button class="btn" type="button" @click="add">Add a network…</button>
+							<button class="btn" type="button" @click="add">
+								{{ t("windows.bouncer.addOpen") }}
+							</button>
 						</template>
 					</template>
 				</div>
 			</div>
 			<div class="settings-modal-footer">
-				<span class="settings-modal-note"
-					>The bouncer keeps these; each appears here as a network of its own.</span
-				>
-				<button class="btn settings-modal-done" type="button" @click="close">Done</button>
+				<span class="settings-modal-note">{{ t("windows.bouncer.note") }}</span>
+				<button class="btn settings-modal-done" type="button" @click="close">
+					{{ t("windows.bouncer.done") }}
+				</button>
 			</div>
 		</div>
 	</div>
@@ -217,19 +226,22 @@ import {useRoute} from "vue-router";
 import {useStore} from "../../js/store";
 import {leavePage} from "../../js/router";
 import socket from "../../js/socket";
+import {useI18n} from "../../js/i18n";
 import type {SharedBouncerNetwork} from "../../../shared/types/network";
 
 /** The spec's standard attributes the form edits; `state` and `error` are read-only. */
 const FIELDS = [
-	{key: "name", label: "Name", placeholder: "Libera.Chat"},
-	{key: "host", label: "Server", placeholder: "irc.libera.chat"},
-	{key: "port", label: "Port", placeholder: "6697 with TLS, 6667 without"},
-	{key: "tls", label: "TLS", placeholder: ""},
-	{key: "nickname", label: "Nick", placeholder: "the bouncer's default"},
-	{key: "username", label: "Username", placeholder: ""},
-	{key: "realname", label: "Real name", placeholder: ""},
-	{key: "pass", label: "Server password", placeholder: ""},
+	{key: "name"},
+	{key: "host"},
+	{key: "port"},
+	{key: "tls"},
+	{key: "nickname"},
+	{key: "username"},
+	{key: "realname"},
+	{key: "pass"},
 ] as const;
+
+type FieldKey = (typeof FIELDS)[number]["key"];
 
 const TEXT_KEYS = FIELDS.map((f) => f.key).filter((k) => k !== "tls");
 
@@ -255,6 +267,55 @@ export default defineComponent({
 	setup() {
 		const store = useStore();
 		const route = useRoute();
+		const {t} = useI18n();
+
+		// One literal t() per key: the i18n check reads call sites, never computed keys.
+		const fieldLabel = (key: FieldKey) => {
+			switch (key) {
+				case "name":
+					return t("windows.bouncer.fieldName");
+				case "host":
+					return t("windows.bouncer.fieldServer");
+				case "port":
+					return t("windows.bouncer.fieldPort");
+				case "tls":
+					return "TLS";
+				case "nickname":
+					return t("windows.bouncer.fieldNick");
+				case "username":
+					return t("windows.bouncer.fieldUsername");
+				case "realname":
+					return t("windows.bouncer.fieldRealname");
+				case "pass":
+					return t("windows.bouncer.fieldPassword");
+			}
+		};
+
+		const fieldPlaceholder = (key: FieldKey) => {
+			switch (key) {
+				case "name":
+					return "Libera.Chat";
+				case "host":
+					return "irc.libera.chat";
+				case "port":
+					return t("windows.bouncer.portPlaceholder");
+				case "nickname":
+					return t("windows.bouncer.nickPlaceholder");
+				default:
+					return "";
+			}
+		};
+
+		const stateLabel = (state: string | undefined) => {
+			switch (state) {
+				case "connected":
+					return t("windows.bouncer.stateConnected");
+				case "connecting":
+					return t("windows.bouncer.stateConnecting");
+				default:
+					return t("windows.bouncer.stateDisconnected");
+			}
+		};
 
 		const uuid = computed(() => String(route.params.uuid));
 		const network = computed(() => store.getters.findNetwork(uuid.value));
@@ -273,7 +334,7 @@ export default defineComponent({
 
 			pending = "";
 			busy.value = false;
-			error.value = data.ok ? "" : data.error ?? "The bouncer refused.";
+			error.value = data.ok ? "" : data.error ?? t("windows.bouncer.refused");
 
 			if (data.ok) {
 				form.value = null;
@@ -369,6 +430,10 @@ export default defineComponent({
 		};
 
 		return {
+			t,
+			fieldLabel,
+			fieldPlaceholder,
+			stateLabel,
 			FIELDS,
 			network,
 			networkName,

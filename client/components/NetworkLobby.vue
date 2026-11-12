@@ -76,12 +76,12 @@
 					</span>
 					<span
 						v-if="network.bouncer"
-						aria-label="Bouncer networks…"
+						:aria-label="t('lobby.bouncerPanel')"
 						class="oper-panel-tooltip tooltipped tooltipped-e tooltipped-no-touch"
 					>
 						<button
 							class="oper-panel bouncer-panel"
-							aria-label="Bouncer networks…"
+							:aria-label="t('lobby.bouncerPanel')"
 							@click.stop="openBouncerPanel"
 						/>
 					</span>

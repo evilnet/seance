@@ -1,6 +1,6 @@
 // soju.im/bouncer-networks in a real browser, against the dev soju.
 //
-//   corepack yarn build && python3 -m http.server -d public 8000 &
+//   pnpm build && python3 -m http.server -d public 8000 &
 //   tools/nefarious-dev/run.sh -d          # soju's upstream
 //   tools/soju-dev/run.sh -d               # ws://127.0.0.1:8090, seance/seance
 //   node tools/browser-drive.mjs tools/scenarios/bouncer-networks.mjs
@@ -143,6 +143,11 @@ export default async function run(page) {
 	await page.fill("#bouncer\\:port", "6667");
 	await page.click("#bouncer\\:tls");
 	await page.screenshot("3-add-form");
+	// The form scrolls inside the modal: a button below the body's fold is
+	// on screen but clipped, and a click there would land on the backdrop.
+	await page.evaluate(
+		`document.querySelector("#bouncer .bouncer-form button[type=submit]").scrollIntoView({block: "center"})`
+	);
 	await page.click("#bouncer .bouncer-form button[type=submit]");
 	await page.waitFor(
 		`[...document.querySelectorAll("#bouncer .bouncer-name strong")].some((e) => e.textContent === "Second")`,
@@ -153,6 +158,9 @@ export default async function run(page) {
 	// 4. Rename it.
 	await page.click("#bouncer .bouncer-row .btn", 2); // the second row's Edit
 	await page.fill("#bouncer\\:name", "Renamed");
+	await page.evaluate(
+		`document.querySelector("#bouncer .bouncer-form button[type=submit]").scrollIntoView({block: "center"})`
+	);
 	await page.click("#bouncer .bouncer-form button[type=submit]");
 	await page.waitFor(
 		`[...document.querySelectorAll("#bouncer .bouncer-name strong")].some((e) => e.textContent === "Renamed")`,
@@ -162,6 +170,9 @@ export default async function run(page) {
 	// 5. A refusal is shown in soju's words.
 	await page.click("#bouncer .bouncer-row .btn", 2);
 	await page.fill("#bouncer\\:port", "notaport");
+	await page.evaluate(
+		`document.querySelector("#bouncer .bouncer-form button[type=submit]").scrollIntoView({block: "center"})`
+	);
 	await page.click("#bouncer .bouncer-form button[type=submit]");
 	await page.waitFor(`document.querySelector("#bouncer .bouncer-form .bouncer-error")`, {
 		label: "soju's refusal",

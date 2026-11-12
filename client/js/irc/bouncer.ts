@@ -17,6 +17,7 @@
 
 import type {IrcClient} from "./client";
 import type {BatchHandler} from "./handlers/batch";
+import {t} from "../i18n/core";
 import {formatLine, formatTags, parseTags, type IrcMessage} from "./message";
 import {canRequest, request} from "./request";
 import type {Handler} from "./types";
@@ -190,11 +191,7 @@ export function bouncerFailed(client: IrcClient, msg: IrcMessage): boolean {
 	}
 
 	const text = msg.params[msg.params.length - 1];
-	client.pushMessage(
-		client.lobby,
-		{text: `The bouncer refused this network (${code}): ${text}`},
-		true
-	);
+	client.pushMessage(client.lobby, {text: t("bouncer.bindRefused", {code, message: text})}, true);
 	client.disconnect("BOUNCER BIND failed");
 	return true;
 }
@@ -242,7 +239,7 @@ export async function bouncerRequest(
 
 	return {
 		ok: false,
-		error: unit.outcome === "timeout" ? "The bouncer did not answer." : "No answer.",
+		error: unit.outcome === "timeout" ? t("bouncer.timeout") : t("bouncer.noAnswer"),
 	};
 }
 
