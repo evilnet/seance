@@ -1,8 +1,8 @@
 /**
  * `/ban <mask>`, `/unban <mask>`, `/kickban <nick> [reason]`, `/banlist`,
  * `/exceptlist`. Ported from attic/server/plugins/inputs/ban.ts; `/exceptlist`
- * is new (MODE query using the EXCEPTS mode letter). The 367/368 and 348/349
- * replies to `/banlist` and `/exceptlist` are handled in `handlers/lists.ts`.
+ * is new (MODE query using the EXCEPTS mode letter). `/banlist` opens the Bans
+ * window; the 367/368 and 348/349 replies are handled in `handlers/lists.ts`.
  */
 
 import {ChanType} from "../../../../shared/types/chan";
@@ -53,7 +53,7 @@ const ban: Command = {
 				break;
 
 			case "banlist":
-				client.send(formatLine({command: "MODE", params: [chan.name, "b"]}));
+				client.requestBanList(chan.name, true);
 				break;
 
 			case "exceptlist": {

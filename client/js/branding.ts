@@ -33,6 +33,12 @@ export interface BrandingLinks {
 	help?: string;
 	privacy?: string;
 	/**
+	 * Where a new user makes an account on the network (its services' or
+	 * identity provider's sign-up page): a link under the sign-in panel's
+	 * Sign in button. Absent, the panel shows none.
+	 */
+	register?: string;
+	/**
 	 * The GitHub repository the build comes from: Help's release notes,
 	 * commit and "report an issue" links (`helpers/sourceLinks.ts`). A fork
 	 * points it at itself.
@@ -914,7 +920,7 @@ export function normalizeBranding(
 
 	const links: BrandingLinks = {};
 
-	for (const key of ["website", "help", "privacy", "source"] as const) {
+	for (const key of ["website", "help", "privacy", "register", "source"] as const) {
 		// Only the translation model mirror may be a relative path; a link is
 		// rendered as an anchor or opened directly and stays on the strict
 		// http(s):// path — a typo like "github" must never resolve against

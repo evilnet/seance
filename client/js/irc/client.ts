@@ -113,11 +113,12 @@ import {IdAllocator, type IdBlock, sharedIds} from "./ids";
 import {NoticeLog} from "./noticelog";
 import {initialOper, OperState, operRegistered, resetOper} from "./oper";
 import {detectProfile, type ServerProfile} from "./profiles";
-import {interceptRequestLine, resetRequests} from "./request";
+import {canRequest, interceptRequestLine, request, resetRequests} from "./request";
 import {noticeMessage} from "./snotice";
 import {ISupport} from "./isupport";
 import {languageFieldsOf} from "./langtag";
 import {ChannelList} from "./channelList";
+import {BanLists, takeBanList} from "./banList";
 import {
 	formatLine,
 	IrcMessage,
@@ -348,6 +349,8 @@ export class IrcClient {
 	readonly isupport = new ISupport();
 	/** The channel browser's rows and the MOTD's featured channels (channelList.ts). */
 	readonly channelList = new ChannelList();
+	/** The Bans window's rows, per channel (banList.ts). */
+	readonly bans = new BanLists((name) => this.casefold(name));
 	/** NICKLEN as registration learned it before 005 (`handlers/numerics.ts`);
 	 * cleared with ISUPPORT, since the next connection may be another server. */
 	learnedNickLen: number | undefined;
@@ -1310,6 +1313,7 @@ export class IrcClient {
 		this.motdBuffer = null;
 		this.motdForFeatured = "unsent";
 		this.channelList.reset();
+		this.bans.reset();
 		this.host = "";
 		// Not the ident the last connection learned: that is the server's
 		// ("~rdrake" when unverified), and Ergo refuses it in USER (468).
@@ -2181,6 +2185,35 @@ export class IrcClient {
 	/** The browser's copy of {@link channelList}. */
 	dispatchChannelList(): void {
 		this.bus.dispatch("channel:list", {network: this.uuid, list: this.channelList.snapshot()});
+	}
+
+	/**
+	 * Ask the server for a channel's bans (`channel:bans:ask`, `/banlist`).
+	 * Labeled where the server can, so a refusal ends the wait; else the 367s
+	 * and 368 reach handlers/lists.ts on their own. `open` shows the window.
+	 */
+	requestBanList(channel: string, open = false): void {
+		if (!this.isWelcomed) {
+			return;
+		}
+
+		this.bans.start(channel);
+		this.dispatchBans(channel, open);
+		const line = formatLine({command: "MODE", params: [channel, "b"]});
+
+		if (canRequest(this)) {
+			void request(this, line, {end: ["368"]}).then((reply) =>
+				takeBanList(this, channel, reply)
+			);
+		} else {
+			this.send(line);
+		}
+	}
+
+	/** The window's copy of a channel's bans. */
+	dispatchBans(channel: string, open = false): void {
+		const list = this.bans.snapshot(channel, this.isupport.maxBans);
+		this.bus.dispatch("channel:bans", {network: this.uuid, list, open});
 	}
 
 	/** Send one raw line. Reports an ERROR message in the lobby instead of throwing. */

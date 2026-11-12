@@ -131,11 +131,11 @@ function setup(): {client: IrcClient; transport: FakeTransport} {
 	return {client, transport};
 }
 
-/** A complete ban list for `channel` (one entry). */
-function banList(transport: FakeTransport, channel: string): void {
+/** A complete invite list for `channel` (one entry). */
+function inviteList(transport: FakeTransport, channel: string): void {
 	transport.lines(
-		`:irc.test 367 alice ${channel} *!*@spam.example bob 1756123456`,
-		`:irc.test 368 alice ${channel} :End of Channel Ban List`
+		`:irc.test 346 alice ${channel} *!*@friend.example bob 1756123456`,
+		`:irc.test 347 alice ${channel} :End of Channel Invite List`
 	);
 }
 
@@ -153,20 +153,22 @@ describe("special windows", function () {
 	it("reuses a per-channel list window after a locale change", function () {
 		const {client, transport} = setup();
 
-		banList(transport, "#seance");
+		inviteList(transport, "#seance");
 
 		const opened = joins();
 		expect(opened).to.have.length(1);
 		expect(opened[0].type).to.equal(ChanType.SPECIAL);
-		expect(opened[0].special).to.equal(SpecialChanType.BANLIST);
+		expect(opened[0].special).to.equal(SpecialChanType.INVITELIST);
 
 		const englishName = opened[0].name;
 
 		// Another locale: the very same window has another title.
 		setCatalog("de", enCatalog, {"list.windowTitle": "{kind} von {channel}"});
-		expect(t("list.windowTitle", {kind: "Bans", channel: "#seance"})).to.not.equal(englishName);
+		expect(t("list.windowTitle", {kind: "Invites", channel: "#seance"})).to.not.equal(
+			englishName
+		);
 
-		banList(transport, "#seance");
+		inviteList(transport, "#seance");
 
 		expect(joins(), "no second window").to.have.length(1);
 		expect(specials().map((p) => p.chan)).to.deep.equal([opened[0].id]);
@@ -178,12 +180,12 @@ describe("special windows", function () {
 	it("keeps one window per channel, matched case-insensitively", function () {
 		const {client, transport} = setup();
 
-		banList(transport, "#seance");
-		banList(transport, "#other");
+		inviteList(transport, "#seance");
+		inviteList(transport, "#other");
 		expect(joins()).to.have.length(2);
 
 		// RFC1459 casemapping: #SEANCE is the same channel.
-		banList(transport, "#SEANCE");
+		inviteList(transport, "#SEANCE");
 		expect(joins(), "no window for a case variant").to.have.length(2);
 		expect(client.channels.filter((chan) => chan.shared.special !== undefined)).to.have.length(
 			2

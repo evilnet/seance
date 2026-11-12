@@ -583,7 +583,6 @@
   "link.trustTitleShown": "تُعرض الوسائط دائمًا {scopes} — تغيير",
   "link.tryAgain": "انقر لإعادة المحاولة",
   "list.isEmpty": "{kind} فارغ",
-  "list.kindBans": "قائمة الحظر",
   "list.kindExcepts": "قائمة الاستثناءات",
   "list.kindInvites": "قائمة الدعوات",
   "list.windowTitle": "{kind} لـ {channel}",
@@ -2699,9 +2698,6 @@
     "many": "{count} رسالة غير مقروءة",
     "other": "{count} رسالة غير مقروءة"
   },
-  "special.bans.banned": "المحظور",
-  "special.bans.bannedAt": "وقت الحظر",
-  "special.bans.bannedBy": "حظره",
   "special.excepts.exempted": "المستثنى",
   "special.excepts.exemptedAt": "وقت الاستثناء",
   "special.excepts.exemptedBy": "استثناه",

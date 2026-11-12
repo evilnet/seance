@@ -1,7 +1,7 @@
 <template>
 	<div
 		id="channel-browser"
-		class="window"
+		class="window browse-window"
 		role="region"
 		:aria-label="t('browse.aria', {network: networkName})"
 	>
@@ -315,7 +315,7 @@ html[data-reduce-motion] .browse-icon-refresh.spinning::before {
 	padding: 0.5rem 0.75rem 0;
 }
 
-#viewport #channel-browser .lt {
+#viewport .browse-window .lt {
 	position: relative;
 	flex: none;
 }
@@ -488,7 +488,7 @@ html[data-reduce-motion] .browse-icon-refresh.spinning::before {
 	padding: 1rem 0.75rem 0.5rem;
 }
 
-#channel-browser .browse-section-head h2 {
+.browse-window .browse-section-head h2 {
 	margin: 0;
 	padding: 0;
 	border: 0;
@@ -524,7 +524,7 @@ html[data-reduce-motion] .browse-icon-refresh.spinning::before {
 	}
 }
 
-#channel-browser .browse-body {
+.browse-window .browse-body {
 	container-type: inline-size;
 }
 
