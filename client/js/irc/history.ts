@@ -420,7 +420,7 @@ interface Replayed {
  * Run the batch's lines through the normal handlers in collect mode and
  * keep what landed in `chan`, minus messages the channel already shows.
  * Work queued with `IrcClient.afterReplay` (TAGMSG reactions, REDACTs,
- * `+seance/edit` resends) is returned separately: it needs the messages'
+ * edit resends) is returned separately: it needs the messages'
  * ids, which only exist after delivery.
  */
 function replay(client: IrcClient, chan: Channel, lines: IrcMessage[]): Replayed {

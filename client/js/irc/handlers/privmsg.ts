@@ -13,7 +13,7 @@ import {inRestorationWindow, isRoutineReplayNotice} from "../persistence";
 import {privilegesModified} from "../oper";
 import {noteServicesLine, snoopNicks} from "../servicesfeed";
 import {handleServerNotice, handleWallops} from "../snotice";
-import {DRAFT_REPLY_TAG, EDIT_TAG, REPLY_TAG, trailingLine} from "../wire";
+import {DRAFT_REPLY_TAG, editTagOf, REPLY_TAG, trailingLine} from "../wire";
 import {languageFieldsOf} from "../langtag";
 import {noteListDelay} from "./list";
 import type {Handler} from "../types";
@@ -265,7 +265,7 @@ function handleMessage(
 	// UI resolves it when rendering.
 	const replyTo = replyTagOf(msg);
 	const by: Author = {nick, account: account || undefined, self};
-	let editOf = msg.tags.get(EDIT_TAG);
+	let editOf = editTagOf((name) => msg.tags.get(name));
 
 	// Someone else's edit of a line we show replaces nothing: it is a line
 	// of its own, counted and shown as one (IrcClient.isAuthor). One whose

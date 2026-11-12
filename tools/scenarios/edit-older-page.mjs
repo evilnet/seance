@@ -9,7 +9,7 @@
 //
 // A helper joins a fresh channel and stays (the channel's history lives
 // while someone is in it), says an original line, 55 filler lines, then an
-// edit of the original tagged +seance/edit. The page joins: the first page
+// edit of the original tagged +evilnet.github.io/edit. The page joins: the first page
 // of history (50 lines) holds the edit and not its original. Scrolled to the
 // top, "load more" brings the original in; only the edit may be left
 // showing, where the original was, marked (edited). `SEANCE_PORT` serves
@@ -54,7 +54,7 @@ async function helper() {
 	}
 
 	await new Promise((r) => setTimeout(r, 500));
-	ws.send(`@+seance/edit=${msgid} PRIVMSG ${CHANNEL} :edited ${RUN}, typo fixed`);
+	ws.send(`@+evilnet.github.io/edit=${msgid} PRIVMSG ${CHANNEL} :edited ${RUN}, typo fixed`);
 	await new Promise((r) => setTimeout(r, 800));
 	return {ws, msgid};
 }

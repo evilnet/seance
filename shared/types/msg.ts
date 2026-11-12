@@ -129,7 +129,7 @@ export type SharedMsg = {
 	/** Set when a REDACT for this message arrived; rendered as a placeholder. */
 	redacted?: MsgRedaction;
 	/**
-	 * msgid of the message this one replaces (`+seance/edit`); rendered as
+	 * msgid of the message this one replaces (`+evilnet.github.io/edit` or `+seance/edit`); rendered as
 	 * "(edited)". When that original is loaded, `msg:edit` moves this
 	 * message into its place and gives it the original's `time`.
 	 */

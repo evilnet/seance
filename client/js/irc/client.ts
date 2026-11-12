@@ -179,7 +179,9 @@ import {
 import type {ConnectOptions, InputOptions, IrcClientState, Transport} from "./types";
 import {
 	ClientTags,
-	EDIT_TAG,
+	editTagOf,
+	editTags,
+	withoutLegacyEdit,
 	REACT_TAG,
 	REDACTION_CAP,
 	REPLY_TAG,
@@ -219,7 +221,7 @@ export interface SendMessageOptions {
 	action?: boolean;
 	/** Client tags (`+name` keys, unescaped values) put on every chunk. */
 	tags?: ClientTags;
-	/** Client tags put on the first chunk only (`+seance/edit`). */
+	/** Client tags put on the first chunk only (the edit tags, `editTags`). */
 	firstTags?: ClientTags;
 }
 
@@ -2287,11 +2289,10 @@ export class IrcClient {
 		// when the host is still unknown. nefarious2's HOSTLEN is 75 (a cloak
 		// can run that long), past the usual 63, and an untagged line it
 		// delivers is cut at 510 bytes, source included.
-		const hostLen = this.host.length || UNKNOWN_HOST_BYTES;
-		const sourceBytes =
+		const originBytes =
 			utf8ByteLength(`:${this.nick}!${this.ident}@`) +
-			hostLen +
-			utf8ByteLength(` ${command} ${target} :`);
+			(this.host.length || UNKNOWN_HOST_BYTES);
+		const sourceBytes = originBytes + utf8ByteLength(` ${command} ${target} :`);
 		const actionBytes = opts.action ? "\x01ACTION \x01".length : 0;
 		// With `echo-message` each line is labelled so its echo can be told
 		// apart (pending.ts); without it there is no echo to label.
@@ -2344,6 +2345,19 @@ export class IrcClient {
 			if (count > 1 || !fitsOneLine(plan[0][0].text)) {
 				// `opts.tags` (a reply) belongs on every batch, `opts.firstTags`
 				// (an edit) only on the first — one edit replaces one message.
+				// The opener carries them all; the legacy edit tag gives way
+				// before the opener would pass the frame cap.
+				let first = opts.firstTags ?? {};
+				const opener = `BATCH +${"x".repeat(8)} draft/multiline ${target}`;
+				const openerBytes =
+					originBytes +
+					utf8ByteLength(`${tagPrefix({...first, ...opts.tags})} ${opener}`) +
+					(labelled ? LABEL_TAG_BYTES : 0);
+
+				if (openerBytes > MAX_LINE_BYTES) {
+					first = withoutLegacyEdit(first);
+				}
+
 				sendMultiline(
 					this,
 					target,
@@ -2351,7 +2365,7 @@ export class IrcClient {
 					plan,
 					opts.tags ?? {},
 					opts.action === true,
-					opts.firstTags ?? {}
+					first
 				);
 				return;
 			}
@@ -2407,7 +2421,7 @@ export class IrcClient {
 			text: chunk,
 			label,
 			replyTo: opts.tags?.[REPLY_TAG],
-			editOf: i === 0 ? opts.firstTags?.[EDIT_TAG] : undefined,
+			editOf: i === 0 ? editTagOf((name) => opts.firstTags?.[name]) : undefined,
 			statusmsgGroup: group,
 			...languageFieldsOf((name) => opts.tags?.[name]),
 		});
@@ -2722,7 +2736,7 @@ export class IrcClient {
 	 * `action` (bus-contract §1.4).
 	 * There is no edit on the wire, so in a channel where REDACT works the
 	 * old message is redacted (`:edited`) first and the resend, tagged
-	 * `+seance/edit=<old>`, goes out once our own REDACT is echoed back
+	 * the edit tags (`editTags`), goes out once our own REDACT is echoed back
 	 * ({@link settleEdit}); `FAIL REDACT` ({@link rejectEdit}) or
 	 * {@link EDIT_TIMEOUT_MS} without an answer abort it. In queries, or
 	 * without the cap, only the tagged resend happens. Without
@@ -2923,7 +2937,7 @@ export class IrcClient {
 		replyTo?: string,
 		action = false
 	): void {
-		const opts: SendMessageOptions = {firstTags: {[EDIT_TAG]: oldMsgid}, action};
+		const opts: SendMessageOptions = {firstTags: editTags(oldMsgid), action};
 
 		if (replyTo) {
 			opts.tags = replyTags(replyTo);

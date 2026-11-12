@@ -340,7 +340,7 @@ interface ClientToServerEvents {
 		text: string;
 		/** msgid to reply to: plain text / `/me` get `+reply` (and `+draft/reply`). */
 		reply?: string;
-		/** msgid of our own message to replace: REDACT (channels) + resend with `+seance/edit`. */
+		/** msgid of our own message to replace: REDACT (channels) + resend with the edit tags. */
 		edit?: string;
 		/** The language the text is in (the composer's translation target): `+draft/language`. */
 		language?: string;

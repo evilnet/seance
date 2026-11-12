@@ -14,11 +14,14 @@ Spec: `docs/resources/bus-contract.md` § 1.4; server facts:
   "[Message deleted by …]" with click-to-reveal. `/redact <msgid> [reason]`
   (alias `/delete`) and the trash action in `MessageActions.vue`. `FAIL REDACT <code>` surfaces as an error line.
 - **Edit** — no wire standard. Seance emulates it: `REDACT <chan> <old> :edited`, wait for the echoed REDACT (or FAIL / 5 s timeout), then
-  `@+seance/edit=<old msgid> PRIVMSG <chan> :new text`. `client.editMessage()`,
-  `privmsg.ts` sets `msg.editOf`, `msg:edit` puts the new message in the
+  `@+evilnet.github.io/edit=<old msgid>;+seance/edit=<old msgid> PRIVMSG <chan> :new text`.
+  `client.editMessage()`, `privmsg.ts` sets `msg.editOf` (from either tag,
+  `wire.ts` `editTagOf`), `msg:edit` puts the new message in the
   old one's place (`helpers/messageUpdates.ts` `applyEdit`: moved behind the
   original, which is hidden by `supersededBy`; it keeps the original's
-  timestamp and shows "(edited)" with the edit time as its tooltip). Own
+  timestamp and shows "(edited)" with the edit time as its tooltip). Only
+  its author's edit replaces a line (`IrcClient.isAuthor`, ours replace
+  ours); anyone else's shows as a line of its own. Own
   edits look the same as anyone else's, the pending copy included, and an
   edit raises no unread count and no notification unless it highlights.
   An edit that comes before its original (an older page, a catch-up) stands
@@ -68,3 +71,22 @@ Spec: `docs/resources/bus-contract.md` § 1.4; server facts:
 - **Tests:** `test/irc/` covers redact/edit handlers; add a live-test case in
   `test/irc/*.live.ts` for the full edit round-trip once the live suites can
   run together (open follow-up in CLAUDE.md).
+
+## The edit tag's move to the vendor namespace
+
+The edit tag was `+seance/edit` until nefarious2 stopped stripping client
+tags under `+evilnet.github.io/` (evilnet/nefarious2 a428911b, which reserves
+only the tags the server writes). It is now `+evilnet.github.io/edit`, like
+`+evilnet.github.io/machine-translated`. For the transition Seance sends
+both (`wire.ts` `editTags`, as `replyTags` sends `+reply` and `+draft/reply`)
+and reads either (`editTagOf`). The second tag counts against
+`MAX_LINE_BYTES` like any other: the split is sized with the first chunk's
+tags (`test/irc/edit.ts`, the long one-line edit).
+
+- **Stop sending `+seance/edit`** once no build in use reads only it: the
+  first release with this change everywhere Seance ships (web, the app
+  stores, the desktop builds), plus a release's grace for installed apps
+  that update late.
+- **Keep reading `+seance/edit`** for as long as chat history can hold edits
+  sent with it (the server's history retention after the last build that
+  sent it), then drop `LEGACY_EDIT_TAG`.
