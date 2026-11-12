@@ -2311,6 +2311,7 @@ async function showMessage(P, parsed, checkSeen, mustShow = false, silent = fals
 	const prevMs = prevHolds && typeof prev.time === "string" ? Date.parse(prev.time) : NaN;
 	const newMs = time ? Date.parse(time) : NaN;
 	const untimed = Number.isNaN(newMs) || (prevHolds && Number.isNaN(prevMs));
+	// Both times are valid here, or there is no previous time (NaN > x is false).
 	const cardTime = untimed ? undefined : prevMs > newMs ? prev.time : time;
 	const body = P.renderMergedBody(added.entries, isChannel, (text) =>
 		P.notificationText(text, {markdown})
