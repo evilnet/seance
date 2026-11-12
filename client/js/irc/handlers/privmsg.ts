@@ -299,13 +299,18 @@ function handleMessage(
 	// The original leaves the inbox, loaded or not; the inbox checks that
 	// the edit's sender wrote it (`by`). The edit brings its own entry if it
 	// still mentions us.
+	// In a replay it waits for the delivery: the original may be in the
+	// same page, and its entry goes in only as the page is delivered.
 	if (editOf && !self) {
-		client.dispatch("inbox:drop", {
-			network: client.uuid,
-			target: chan.name,
-			msgid: editOf,
-			by: nick,
-		});
+		const where = chan.name;
+		client.afterReplay(() =>
+			client.dispatch("inbox:drop", {
+				network: client.uuid,
+				target: where,
+				msgid: editOf,
+				by: nick,
+			})
+		);
 	}
 
 	// An edit of a loaded message takes that message's place in the list

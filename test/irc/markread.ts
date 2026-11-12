@@ -825,6 +825,28 @@ describe("The inbox's events (docs/projects/inbox.md)", function () {
 		expect(added().map((e) => e.msgid)).to.deep.equal(edit);
 	});
 
+	it("drops an original whose edit is later in the same history page", function () {
+		const h = setup();
+		const label = join(h)
+			.find((l) => l.includes("CHATHISTORY"))
+			?.match(/^@label=([^ ;]+)/)?.[1];
+		socket.emit("open", h.client.findChannel("#seance")!.id);
+		dispatch.resetHistory();
+		h.transport.lines(
+			`${label ? `@label=${label} ` : ""}:irc.test BATCH +hist1 chathistory #seance`,
+			"@batch=hist1;time=2026-08-25T11:00:00.000Z;msgid=o1 :bob!bob@host PRIVMSG #seance :alice: typo",
+			"@batch=hist1;time=2026-08-25T11:01:00.000Z;msgid=e1;+seance/edit=o1 :bob!bob@host PRIVMSG #seance :never mind",
+			":irc.test BATCH -hist1"
+		);
+		const events = dispatch
+			.getCalls()
+			.map((call) => call.args[0] as string)
+			.filter((ev) => ev === "inbox:add" || ev === "inbox:drop");
+
+		expect(added().map((e) => e.msgid)).to.deep.equal(["o1"]);
+		expect(events).to.deep.equal(["inbox:add", "inbox:drop"]);
+	});
+
 	it("still lists an original that someone else's edit named first", function () {
 		const h = setup();
 		joined(h);
