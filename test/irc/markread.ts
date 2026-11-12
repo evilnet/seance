@@ -825,6 +825,19 @@ describe("The inbox's events (docs/projects/inbox.md)", function () {
 		expect(added().map((e) => e.msgid)).to.deep.equal(edit);
 	});
 
+	it("still lists an original that someone else's edit named first", function () {
+		const h = setup();
+		joined(h);
+		h.transport.line(
+			"@time=2026-08-25T12:10:00.000Z;msgid=e1;+seance/edit=o1 :mallory!m@host PRIVMSG #seance :hi"
+		);
+		h.transport.line(
+			"@time=2026-08-25T12:09:00.000Z;msgid=o1 :bob!bob@host PRIVMSG #seance :alice: real"
+		);
+
+		expect(added().map((e) => e.msgid)).to.deep.equal(["o1"]);
+	});
+
 	it("lists no original an edit already replaced, in a history page", function () {
 		const h = setup();
 		const label = join(h)

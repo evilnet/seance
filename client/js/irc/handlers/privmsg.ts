@@ -326,7 +326,7 @@ function handleMessage(
 			} else if (id && replaces === undefined && pushed.msgid) {
 				// The original may still arrive (an older page): it is put
 				// behind this edit then, not shown beside it.
-				into.awaitOriginal(editOf, pushed.msgid);
+				into.awaitOriginal(editOf, pushed.msgid, nick);
 			}
 		});
 	}

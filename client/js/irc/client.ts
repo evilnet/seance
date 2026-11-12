@@ -2727,17 +2727,22 @@ export class IrcClient {
 	 * first: an older page brought the original in, or a catch-up). The edit
 	 * takes its place now (`msg:edit`), as it does when the original is
 	 * there first, so the two are never both on screen — nor both in a copy
-	 * of the conversation. True when an edit replaced it.
+	 * of the conversation. True when its own author's edit replaced it
+	 * (the inbox drops an edited mention only then, `inbox:drop`'s `by`).
 	 */
 	settleLateOriginal(chan: Channel, msg: SharedMsg): boolean {
-		const editMsgid = msg.msgid ? chan.takeEditOf(msg.msgid) : undefined;
-		const id = editMsgid === undefined ? undefined : chan.idOf(editMsgid);
+		const edit = msg.msgid ? chan.takeEditOf(msg.msgid) : undefined;
+		const id = edit === undefined ? undefined : chan.idOf(edit.msgid);
 
 		if (id !== undefined && id !== msg.id) {
 			this.dispatch("msg:edit", {chan: chan.id, id, replaces: msg.id});
 		}
 
-		return editMsgid !== undefined;
+		return (
+			edit !== undefined &&
+			msg.from?.nick !== undefined &&
+			this.casefold(edit.by) === this.casefold(msg.from.nick)
+		);
 	}
 
 	/** The tagged resend that completes an edit. */
