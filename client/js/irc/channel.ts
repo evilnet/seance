@@ -25,13 +25,15 @@ export const SAID_TYPES: ReadonlySet<MessageType> = new Set([
 /**
  * A line delivered without a live `pushMessage` (a history page, a restored
  * query log) counts as unread past the read marker when a live one would
- * have: something someone else said, not an edit, or a highlight.
+ * have: something someone else said, or a highlight. An edit counts only
+ * when its original is not shown in `chan`: then it stands alone, and the original,
+ * if it comes, is put behind it uncounted (`IrcClient.takeLateEdit`).
  */
-export function countsAsUnread(msg: SharedMsg): boolean {
-	return (
-		!msg.self &&
-		((SAID_TYPES.has(msg.type ?? MessageType.MESSAGE) && !msg.editOf) || !!msg.highlight)
-	);
+export function countsAsUnread(msg: SharedMsg, chan: Channel): boolean {
+	const said =
+		SAID_TYPES.has(msg.type ?? MessageType.MESSAGE) &&
+		(!msg.editOf || chan.idOf(msg.editOf) === undefined);
+	return !msg.self && (said || !!msg.highlight);
 }
 
 /** What a CHATHISTORY request can point at: a message's msgid and/or time. */
@@ -46,6 +48,8 @@ export interface MsgRef {
 	highlight?: boolean;
 	/** Who sent it, for the edit rule (IrcClient.isAuthor). */
 	from?: Author;
+	/** The msgid of the line it edits, if it is an edit. */
+	editOf?: string;
 }
 
 /**
@@ -74,6 +78,12 @@ export function isEditAuthor(
 	return (
 		author?.nick !== undefined && by.nick !== undefined && fold(author.nick) === fold(by.nick)
 	);
+}
+
+/** An edit shown before its original: its msgid, and who sent it. */
+export interface WaitingEdit {
+	msgid: string;
+	by: Author;
 }
 
 /** A message's sender, for {@link isEditAuthor}. */
@@ -156,11 +166,12 @@ export class Channel {
 	readonly idByMsgid = new Map<string, number>();
 	/**
 	 * Edits shown before their original was (the original arrives later in
-	 * an older page): the original's msgid → the edit's, and who sent it.
-	 * When the original is delivered, `IrcClient.settleLateOriginal` puts the
-	 * edit in its place, so the two never stand side by side.
+	 * an older page): the original's msgid → every such edit, and who sent
+	 * it. When the original is delivered, `IrcClient.settleLateOriginal` puts
+	 * its author's edit in its place, so the two never stand side by side,
+	 * and makes anyone else's a line of its own.
 	 */
-	private readonly editsBeforeOriginal = new Map<string, {msgid: string; by: Author}>();
+	private readonly editsBeforeOriginal = new Map<string, WaitingEdit[]>();
 	/** The newest message we have seen; a reconnect asks for history AFTER it. */
 	newestRef: MsgRef | undefined = undefined;
 	/**
@@ -276,6 +287,10 @@ export class Channel {
 			ref.from = authorOf(msg);
 		}
 
+		if (msg.editOf) {
+			ref.editOf = msg.editOf;
+		}
+
 		this.msgRefs.set(msg.id, ref);
 		return ref;
 	}
@@ -309,18 +324,20 @@ export class Channel {
 
 	/** The edit `editMsgid` is shown, its original `originalMsgid` not yet. */
 	awaitOriginal(originalMsgid: string, editMsgid: string, by: Author): void {
-		this.editsBeforeOriginal.set(originalMsgid, {msgid: editMsgid, by});
+		const waiting = this.editsBeforeOriginal.get(originalMsgid);
+
+		if (waiting) {
+			waiting.push({msgid: editMsgid, by});
+		} else {
+			this.editsBeforeOriginal.set(originalMsgid, [{msgid: editMsgid, by}]);
+		}
 	}
 
-	/** The shown edit waiting for `msgid` and its sender, taken off the list. */
-	takeEditOf(msgid: string): {msgid: string; by: Author} | undefined {
-		const edit = this.editsBeforeOriginal.get(msgid);
-
-		if (edit !== undefined) {
-			this.editsBeforeOriginal.delete(msgid);
-		}
-
-		return edit;
+	/** The shown edits waiting for `msgid`, oldest first, taken off the list. */
+	takeEditsOf(msgid: string): WaitingEdit[] {
+		const edits = this.editsBeforeOriginal.get(msgid) ?? [];
+		this.editsBeforeOriginal.delete(msgid);
+		return edits;
 	}
 
 	/** Id of the loaded message with `msgid`, if we have shown it. */
