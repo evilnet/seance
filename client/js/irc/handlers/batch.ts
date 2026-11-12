@@ -97,11 +97,22 @@ export function interceptBatchLine(client: IrcClient, msg: IrcMessage): boolean 
 	// A session restoration arrives as one batch, delivered when it closes.
 	// On a slow link a large one takes longer than the autojoin's quiet
 	// period, which must not run out while its lines are still coming in.
-	if (batch.type === PERSISTENCE_CAP) {
+	if (inRestoration(batch)) {
 		noteRestorationActivity(client);
 	}
 
 	return true;
+}
+
+/** True when `batch` is, or is nested in, the server's session restoration. */
+function inRestoration(batch: OpenBatch | undefined): boolean {
+	for (let b = batch; b; b = b.parent) {
+		if (b.type === PERSISTENCE_CAP) {
+			return true;
+		}
+	}
+
+	return false;
 }
 
 /** Drop every open batch (transport closed). */
@@ -149,14 +160,20 @@ const batch: Handler = (client, msg) => {
 		// *open* batches and servers reuse them sequentially — the next batch
 		// takes one back only after the previous one closed — so a real server
 		// never gets here; this is long-standing behaviour, left as it is.
-		batches.set(ref, {
+		const opened: OpenBatch = {
 			ref,
 			type: msg.params[1] ?? "",
 			params: msg.params.slice(2),
 			tags: msg.tags,
 			parent,
 			messages: [],
-		});
+		};
+		batches.set(ref, opened);
+
+		if (inRestoration(opened)) {
+			noteRestorationActivity(client); // the opener is restoration arriving too
+		}
+
 		return;
 	}
 

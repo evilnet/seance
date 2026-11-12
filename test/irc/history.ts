@@ -1017,6 +1017,58 @@ describe("Chat history (history.ts)", function () {
 			).to.deep.equal(["missed"]);
 		});
 
+		it("without msgids, still delivers a page below a local line's floor", function () {
+			// Nothing held carries a msgid, so there is no server-stamped
+			// boundary to judge "older than what we hold" by: keep the page.
+			const isup = "CHATHISTORY=100 MSGREFTYPES=timestamp";
+			const h = setup({isupport: isup});
+			const plain = (t: string, text: string) =>
+				`@time=2026-08-25T${t}.000Z :bob!bob@host PRIVMSG #seance :${text}`;
+			h.transport.lines(
+				"@time=2026-08-25T12:00:00.000Z :alice!alice@host JOIN #seance alice :Alice",
+				":irc.test 353 alice = #seance :@alice bob",
+				":irc.test 366 alice #seance :End of /NAMES list."
+			);
+			const id = h.chan();
+			const first = h.sent().find((l) => l.includes("CHATHISTORY"));
+			batch(h, [], {label: labelOf(first)});
+			h.transport.line(plain("12:10:00", "held"));
+			h.transport.closed();
+			clock.setSystemTime(new Date("2026-08-25T12:40:00.000Z"));
+			socket.emit("input", {target: id, text: "anyone?"});
+			h.client.connect();
+			h.transport.open();
+			h.transport.line(
+				"@time=x :irc.test CAP * LS :draft/chathistory=100 labeled-response batch message-tags server-time"
+			);
+			const req = h.transport.sent.find(
+				(l, i) => i >= h.transport.sent.length - 4 && l.startsWith("CAP REQ :")
+			);
+			h.transport.line(
+				`:irc.test CAP alice ACK :${(req as string).slice("CAP REQ :".length)}`
+			);
+			h.transport.lines(
+				":irc.test 001 alice :Welcome back",
+				`:irc.test 005 alice CHANTYPES=#& PREFIX=(ov)@+ CHANMODES=b,k,l,imnpst CASEMAPPING=rfc1459 ${isup} :are supported by this server`,
+				":irc.test 422 alice :MOTD File is missing"
+			);
+			h.sent();
+			h.transport.lines(
+				"@time=2026-08-25T12:41:00.000Z :alice!alice@host JOIN #seance",
+				":irc.test 353 alice = #seance :@alice bob",
+				":irc.test 366 alice #seance :End of /NAMES list."
+			);
+			const sent = h.sent();
+			dispatch.resetHistory();
+			reply(h, sent, [plain("12:16:00", "two"), plain("12:17:00", "three")]);
+
+			expect(
+				msgs(id)
+					.filter((p) => p.msg.type === MessageType.MESSAGE)
+					.map((p) => p.msg.text)
+			).to.deep.equal(["two", "three"]);
+		});
+
 		it("delivers a page again after the UI dropped its rows (history:trim)", function () {
 			const h = setup();
 			const id = joined(h, [hist(1), hist(2), hist(3)]);

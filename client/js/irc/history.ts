@@ -624,17 +624,19 @@ function resolve(
 		// part of it, and appended they would land above the rejoin as if
 		// new. Scrolling up brings them as history. A line below the floor
 		// but within what we hold is one we missed, and still goes in.
+		// Without a msgid on anything held there is no server-stamped
+		// boundary to judge by, and the page is kept as before.
 		const holdsFrom = chan.oldestServerTime();
+		const cutoff =
+			floorMs === undefined || holdsFrom === undefined
+				? undefined
+				: Math.min(floorMs, holdsFrom);
 		const inGap =
-			floorMs === undefined
+			cutoff === undefined
 				? messages
 				: messages.filter((msg) => {
 						const ms = new Date(msg.time).getTime();
-						return (
-							Number.isNaN(ms) ||
-							ms >= floorMs ||
-							(holdsFrom !== undefined && ms >= holdsFrom)
-						);
+						return Number.isNaN(ms) || ms >= cutoff;
 				  });
 
 		// Pages arrive newest first; keep the gathered gap oldest first.
