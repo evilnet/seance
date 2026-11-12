@@ -14,6 +14,7 @@ import {t} from "../../i18n/core";
 import type {Handler} from "../types";
 import {AWAY_STAR} from "../presence";
 import {isIp} from "../profiles/report";
+import {pendingLabelSpent} from "../pending";
 
 export interface WhoisData {
 	nick: string;
@@ -361,6 +362,12 @@ const whoisCountry: Handler = (client, msg) => {
  */
 const away: Handler = (client, msg) => {
 	const nick = msg.params[1];
+	const label = msg.tags.get("label");
+
+	// It may answer a PRIVMSG of ours whose echo then comes unlabelled.
+	if (label) {
+		pendingLabelSpent(client, label);
+	}
 
 	if (!nick) {
 		return;

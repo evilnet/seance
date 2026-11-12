@@ -290,6 +290,20 @@ export function failPendingTarget(client: IrcClient, channel: string, reason: st
 	return true;
 }
 
+/**
+ * A labelled reply that is not the echo, ahead of it (a 301 for a PRIVMSG to
+ * someone away): nefarious2 puts the label on that first reply and sends the
+ * echo without one, where the spec wants both in a labelled batch. The copy
+ * drops its label so the unlabelled echo can match it by text.
+ */
+export function pendingLabelSpent(client: IrcClient, label: string): void {
+	const entry = byLabel(client, label);
+
+	if (entry) {
+		entry.label = undefined;
+	}
+}
+
 /** A labelled `ACK`: the server took the line and has nothing to echo. */
 export function settlePendingLabel(client: IrcClient, label: string): boolean {
 	const entry = byLabel(client, label);

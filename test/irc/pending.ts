@@ -388,6 +388,25 @@ describe("Pending outgoing messages (irc/pending.ts)", function () {
 			);
 		});
 
+		it("settles a PM's copy when the 301 took the label and the echo came without it", function () {
+			const h = setup();
+			joined(h);
+			h.transport.line("@msgid=b0 :bob!bob@host.example PRIVMSG alice :hey");
+			h.client.sendMessage("bob", "first");
+			h.transport.line("@label=s1;msgid=m1 :alice!alice@host.example PRIVMSG bob :first");
+			h.client.sendMessage("bob", "hehe");
+			const id = h.client.findChannel("bob")!.id;
+			const copy = h.lastMessage(id);
+
+			// nefarious2 labels the away reply, then echoes without the label.
+			h.transport.line("@label=s2 :irc.test 301 alice bob :phone in pocket");
+			h.transport.line("@msgid=m2 :alice!alice@host.example PRIVMSG bob :hehe");
+
+			expect(settled(h).map((s) => s.id)).to.include(copy.id);
+			clock.tick(PENDING_TIMEOUT_MS + 1);
+			expect(errorsIn(h, id)).to.deep.equal([]);
+		});
+
 		it("forgets that the server labels echoes when the connection closes", function () {
 			const h = setup();
 			const id = joined(h);
