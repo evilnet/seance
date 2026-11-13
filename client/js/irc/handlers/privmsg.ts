@@ -245,8 +245,15 @@ function handleMessage(
 	}
 
 	// `account-tag`: the sender's services account, when logged in. Trusting
-	// media "from alice" keys on this, never on the nick.
-	const account = msg.tags.get("account");
+	// media "from alice" keys on this, never on the nick. A live line from our
+	// own nick is ours: no one else holds the nick, and a bouncer session's
+	// other connections share our account. So it carries our account even
+	// where the server left it off, as nefarious2 does on the sender's echo of
+	// a private message with client tags (an edit, a reply), or the edit rule
+	// (isEditAuthor) would refuse our own edit. A local echo does the same
+	// (IrcClient.sendMessage); a replayed line keeps only what it carries.
+	const account =
+		msg.tags.get("account") || (self && !client.replaying && client.account) || undefined;
 
 	if (account) {
 		message.fromAccount = account;
