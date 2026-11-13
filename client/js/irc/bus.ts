@@ -6,6 +6,8 @@
  */
 
 import type {EventBus} from "../socket";
+import {t} from "../i18n/core";
+import {bouncerRequest} from "./bouncer";
 import type {IrcClient} from "./client";
 import {requestMore} from "./history";
 import {requestReplyParent, requestSearch, requestSearchContext} from "./historysearch";
@@ -233,6 +235,26 @@ export function registerBusHandlers(bus: EventBus, registry: ClientRegistry): vo
 		const client = registry.clientForNetwork(network);
 
 		bus.dispatch("oper:notices", {network, entries: client ? client.noticeLog.all() : []});
+	});
+
+	// A bouncer's networks (bouncer.ts): the bouncer panel adds, changes or
+	// deletes one, labeled, on the control connection.
+	bus.handle("bouncer:request", ({network, id, subcommand, netid, attrs}) => {
+		const client = registry.clientForNetwork(network);
+
+		if (!client) {
+			bus.dispatch("bouncer:replied", {
+				network,
+				id,
+				ok: false,
+				error: t("bouncer.cannotChange"),
+			});
+			return;
+		}
+
+		void bouncerRequest(client, subcommand, netid, attrs).then((reply) => {
+			bus.dispatch("bouncer:replied", {network, id, ...reply});
+		});
 	});
 
 	// Services support (services.ts): the edit form's liveness check on the

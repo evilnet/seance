@@ -20,8 +20,15 @@ import {t, tCount} from "../i18n/core";
 import {commaList} from "../helpers/operList";
 import type {IrcClient} from "./client";
 import type {BatchHandler} from "./handlers/batch";
-import {parseTags, type IrcMessage} from "./message";
-import {canRequest} from "./request";
+import {
+	formatLine,
+	formatTags,
+	MAX_LINE_BYTES,
+	parseTags,
+	utf8ByteLength,
+	type IrcMessage,
+} from "./message";
+import {canRequest, request} from "./request";
 
 export const BOUNCER_NETWORKS_CAP = "soju.im/bouncer-networks";
 export const BOUNCER_NOTIFY_CAP = "soju.im/bouncer-networks-notify";
@@ -295,4 +302,85 @@ export function bindFailed(client: IrcClient, msg: IrcMessage): boolean {
 
 	client.bouncerNetworkGone();
 	return true;
+}
+
+/** A change the bouncer panel asks of the bouncer. */
+export type BouncerSubcommand = "ADDNETWORK" | "CHANGENETWORK" | "DELNETWORK";
+
+/** The bouncer's answer to a {@link bouncerRequest}. */
+export interface BouncerReply {
+	ok: boolean;
+	/** The id the bouncer named (the new network's, for ADDNETWORK). */
+	netid?: string;
+	/** The bouncer's own words (`FAIL BOUNCER …`), or why nothing was asked. */
+	error?: string;
+}
+
+/** Room left for the label a request adds (`@label=r123 `). */
+const LABEL_ROOM = 24;
+
+/**
+ * Ask the bouncer to add, change or delete one of its networks
+ * (`BOUNCER ADDNETWORK|CHANGENETWORK|DELNETWORK`), labeled, from the
+ * control connection; resolves with its verdict. Only where the connection
+ * can send labeled requests ({@link announceNetworks} `editable`): without
+ * labeled-response nothing would tie the answer to the question.
+ *
+ * soju puts the change's own `BOUNCER NETWORK` inside the labeled batch,
+ * where nothing else sees it, so those lines go through {@link bouncerLine}
+ * here: the panel's list follows, and a network added is offered like one
+ * added from another client (the SASL gate, the cap and the seen-list).
+ */
+export async function bouncerRequest(
+	client: IrcClient,
+	subcommand: BouncerSubcommand,
+	netid: string | undefined,
+	attrs: BouncerAttrs = {}
+): Promise<BouncerReply> {
+	if (!isBouncerControl(client) || !canRequest(client)) {
+		return {ok: false, error: t("bouncer.cannotChange")};
+	}
+
+	const params: string[] = [subcommand];
+
+	if (subcommand !== "ADDNETWORK") {
+		if (!isNetworkId(netid)) {
+			return {ok: false, error: t("bouncer.cannotChange")};
+		}
+
+		params.push(netid);
+	}
+
+	if (subcommand !== "DELNETWORK") {
+		params.push(formatTags(attrs));
+	}
+
+	const line = formatLine({command: "BOUNCER", params});
+
+	if (utf8ByteLength(line) + LABEL_ROOM > MAX_LINE_BYTES) {
+		return {ok: false, error: t("bouncer.tooLong")};
+	}
+
+	const unit = await request(client, line);
+
+	for (const reply of unit.lines) {
+		if (reply.command === "BOUNCER" && reply.params[0]?.toUpperCase() === "NETWORK") {
+			bouncerLine(client, reply);
+		}
+	}
+
+	for (const reply of unit.lines) {
+		if (reply.command === "FAIL") {
+			return {ok: false, error: reply.params[reply.params.length - 1]};
+		}
+
+		if (reply.command === "BOUNCER" && reply.params[0]?.toUpperCase() === subcommand) {
+			return {ok: true, netid: reply.params[1]};
+		}
+	}
+
+	return {
+		ok: false,
+		error: unit.outcome === "timeout" ? t("bouncer.timeout") : t("bouncer.noAnswer"),
+	};
 }

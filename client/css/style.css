@@ -2058,6 +2058,11 @@ the same box, glyph size and weight as the gear and the plus beside it. */
 	color: #fff;
 }
 
+/* The same box for a soju's networks (Windows/BouncerPanel.vue), a server glyph. */
+.channel-list-item[data-type="lobby"] .bouncer-panel::before {
+	content: "\f233"; /* https://fontawesome.com/icons/server?style=solid */
+}
+
 .channel-list-item[data-type="lobby"] .oper-panel:hover {
 	opacity: 1;
 }

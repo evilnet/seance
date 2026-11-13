@@ -176,6 +176,8 @@ With `echo-message` the server's echo is the copy of a sent message that goes in
 ### 1.12 A bouncer's networks (soju.im/bouncer-networks, 2026-11-13)
 
 - `bouncer:networks {network, networks: SharedBouncerNetwork[], editable}` — the bouncer's networks, whole (`{netid, attrs}`, attributes as soju sends them: `name`, `state`, `error`, `host`, `port`, `tls`, `nickname`, …), dispatched on the control connection only, at every change (`irc/bouncer.ts` `takeNetworkLine`). `editable` is `canRequest` (labeled-response, welcomed): without it the bouncer panel lists but does not offer changes.
+- `bouncer:replied {network, id, ok, netid?, error?}` — the bouncer's verdict on a `bouncer:request` with the same `id` (`error` in the bouncer's words, or why nothing was sent).
+- `bouncer:request {network, id, subcommand: "ADDNETWORK" | "CHANGENETWORK" | "DELNETWORK", netid?, attrs?}` (client→server emit, from the bouncer panel) — sends the labeled `BOUNCER` command on the control connection (attributes in message-tag form, an empty value a bare key: cleared) and answers `bouncer:replied`.
 
 ## 2. Client→server emits the IrcClient must `handle()`
 

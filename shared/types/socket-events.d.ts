@@ -216,6 +216,14 @@ interface ServerToClientEvents {
 		networks: SharedBouncerNetwork[];
 		editable: boolean;
 	}>;
+	/** The bouncer's verdict on a `bouncer:request` with the same `id`. */
+	"bouncer:replied": EventHandler<{
+		network: string;
+		id: string;
+		ok: boolean;
+		netid?: string;
+		error?: string;
+	}>;
 	/**
 	 * The answer to an `oper:request`: every line of the labeled reply, raw,
 	 * in order. `outcome` says how it ended (`batch`, `lines`, `ack`,
@@ -424,6 +432,14 @@ interface ClientToServerEvents {
 	"oper:notices:get": EventHandler<{network: string}>;
 	/** WHOIS the services bots named in `services` (the edit form's liveness check); answered by `services:checked`. */
 	"services:check": EventHandler<{network: string; id: string; services: ServicesConfig}>;
+	/** Add, change or delete one of a bouncer's networks (irc/bouncer.ts); answered by `bouncer:replied`. */
+	"bouncer:request": EventHandler<{
+		network: string;
+		id: string;
+		subcommand: "ADDNETWORK" | "CHANGENETWORK" | "DELNETWORK";
+		netid?: string;
+		attrs?: Record<string, string>;
+	}>;
 	/** Ask the oper service for a G-line or shun (irc/services.ts); answered by `services:banned`. */
 	"services:ban": EventHandler<{
 		network: string;

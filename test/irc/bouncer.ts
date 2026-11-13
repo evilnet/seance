@@ -3,6 +3,7 @@ import sinon from "sinon";
 import {RESTORE_MAX_WAIT_MS} from "../../client/js/irc/persistence";
 import {
 	BOUNCER_NETWORKS_MAX,
+	bouncerRequest,
 	isBouncerControl,
 	isNetworkId,
 	networksToAdd,
@@ -507,6 +508,94 @@ describe("Bouncers: soju's networks (soju.im/bouncer-networks)", function () {
 
 		expect(isBouncerControl(h.client)).to.equal(false);
 		expect(offered).to.deep.equal([]);
+	});
+});
+
+describe("Bouncers: the panel's requests (bouncerRequest)", function () {
+	const LABELED =
+		"batch server-time message-tags labeled-response soju.im/bouncer-networks soju.im/bouncer-networks-notify";
+
+	function labelOf(line: string): string {
+		return /^@label=(\S+) /.exec(line)?.[1] ?? "";
+	}
+
+	function control(caps = LABELED, offered: BouncerNetwork[] = []): Harness {
+		const h = setup({
+			onBouncerNetworks(networks) {
+				offered.push(...networks);
+				return {added: [], over: []};
+			},
+		});
+		register(h, caps);
+		h.client.saslOk = true;
+		return h;
+	}
+
+	it("adds a network, labeled; the bouncer's own NETWORK line inside the reply is taken", async function () {
+		const offered: BouncerNetwork[] = [];
+		const h = control(LABELED, offered);
+		const reply = bouncerRequest(h.client, "ADDNETWORK", undefined, {
+			host: "irc.libera.chat",
+			name: "Libera Chat",
+		});
+		const sent = h.transport.sent.at(-1)!;
+
+		expect(sent.replace(/^@label=\S+ /, "")).to.equal(
+			"BOUNCER ADDNETWORK host=irc.libera.chat;name=Libera\\sChat"
+		);
+		h.transport.lines(
+			`@label=${labelOf(sent)} :irc.test BATCH +L labeled-response`,
+			"@batch=L :irc.test BOUNCER NETWORK 9 host=irc.libera.chat;name=Libera\\sChat;state=connecting",
+			"@batch=L :irc.test BOUNCER ADDNETWORK 9",
+			":irc.test BATCH -L"
+		);
+
+		expect(await reply).to.deep.equal({ok: true, netid: "9"});
+		expect(offered).to.deep.equal([{id: "9", name: "Libera Chat"}]);
+		const last = h
+			.payloads<{networks: {netid: string}[]; editable: boolean}>("bouncer:networks")
+			.at(-1)!;
+		expect(last.networks.map((net) => net.netid)).to.deep.equal(["9"]);
+		expect(last.editable).to.equal(true);
+	});
+
+	it("passes on the bouncer's refusal in its own words", async function () {
+		const h = control();
+		const reply = bouncerRequest(h.client, "DELNETWORK", "4");
+		const sent = h.transport.sent.at(-1)!;
+
+		expect(sent.replace(/^@label=\S+ /, "")).to.equal("BOUNCER DELNETWORK 4");
+		h.transport.line(
+			`@label=${labelOf(
+				sent
+			)} :irc.test FAIL BOUNCER INVALID_NETID DELNETWORK 4 :Unknown network ID`
+		);
+
+		expect(await reply).to.deep.equal({ok: false, error: "Unknown network ID"});
+	});
+
+	it("sends nothing without labeled-response: the answer could not be told apart", async function () {
+		const h = control(
+			"batch server-time message-tags soju.im/bouncer-networks soju.im/bouncer-networks-notify"
+		);
+		const before = h.transport.sent.length;
+		const reply = await bouncerRequest(h.client, "CHANGENETWORK", "1", {name: "x"});
+
+		expect(reply.ok).to.equal(false);
+		expect(reply.error).to.be.a("string").and.not.equal("");
+		expect(h.transport.sent.length).to.equal(before);
+	});
+
+	it("refuses a change too long for one line, and an id it could not send back", async function () {
+		const h = control();
+		const before = h.transport.sent.length;
+
+		expect(
+			(await bouncerRequest(h.client, "ADDNETWORK", undefined, {realname: "x".repeat(480)}))
+				.ok
+		).to.equal(false);
+		expect((await bouncerRequest(h.client, "DELNETWORK", "1 2")).ok).to.equal(false);
+		expect(h.transport.sent.length).to.equal(before);
 	});
 });
 

@@ -1,7 +1,7 @@
 import {defineComponent} from "vue";
 
 import {SharedChan} from "../../shared/types/chan";
-import {SharedNetwork} from "../../shared/types/network";
+import {SharedBouncerNetwork, SharedNetwork} from "../../shared/types/network";
 import {SharedUser} from "../../shared/types/user";
 import {SharedConfiguration, LockedSharedConfiguration} from "../../shared/types/config";
 import {LinkPreview, SharedMsg} from "../../shared/types/msg";
@@ -91,6 +91,10 @@ type ClientNetwork = Omit<SharedNetwork, "channels"> & {
 	channels: ClientChan[];
 	/** Being an oper here (`oper:state`, irc/oper.ts); absent until the first one. */
 	oper?: SharedOperState;
+	/** soju's networks, on a bouncer connection (`bouncer:networks`, irc/bouncer.ts). */
+	bouncer?: SharedBouncerNetwork[];
+	/** The control connection can send labeled requests: the panel may change them. */
+	bouncerEditable?: boolean;
 };
 
 type NetChan = {
