@@ -531,7 +531,7 @@ describe("translate/service", () => {
 	it("the first route knows what is downloaded without Settings having asked", async () => {
 		const r = rig("gpu", true, {en: {de: [["llm", "opus:de-en"]]}});
 		clock = r.clock;
-		r.cached.add(catalog.opus["de-en"].id);
+		r.cached.add(catalog.opus["de-en"].copies.cpu?.source ?? "");
 
 		expect((await r.service.route("de", "en"))?.candidate).to.equal("opus:de-en");
 		r.service.dispose();
@@ -2161,7 +2161,7 @@ describe("translate/service", () => {
 			clock = r.clock;
 			// Spanish to English: the LLM is a better class than the OPUS pair,
 			// which is the one on the device.
-			r.cached.add(catalog.opus["es-en"].id);
+			r.cached.add(catalog.opus["es-en"].copies.cpu?.source ?? "");
 
 			const routed = r.service.route("es", "en");
 

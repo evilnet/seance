@@ -111,16 +111,12 @@ export const AFTERNET_MT_HOST = "https://bot.hextalk.org/models";
  * round it comes from) rather than new files under the old one: its
  * vocabulary is its own, so a device holding some of the old files and
  * some of the new would decode nonsense, and a new id is how a device that
- * has the old model learns there is a newer one. Arabic's first upload,
- * round 19, is still its best and keeps its unversioned repo.
+ * has the old model learns there is a newer one.
  */
 export const AFTERNET_MT_REPOS: Record<string, string> = {
-	ar: "seance-mt/marian-ar",
 	ko: "seance-mt/marian-ko-r24",
 	pl: "seance-mt/marian-pl-r24",
 	pt: "seance-mt/marian-pt-r24",
-	sv: "seance-mt/marian-sv-r29",
-	zh: "seance-mt/marian-zh-r29",
 };
 
 /** One direction of an AfterNET MT model: a bidirectional Marian student, ~30 MB in q8. */
@@ -136,40 +132,70 @@ function afternetMt(code: string, token: string, sizeBytes: number): OpusPairOpt
 
 /**
  * The AfterNET MT pairs every build ships: English to and from each
- * language here, where Helsinki's OPUS-MT has no pair the app ships, so a
- * line in them otherwise needs the 1-2 GB language model or NLLB's
- * 600 MB. One repo serves both directions (`sharedPairId`), downloaded
- * once. French, German, Spanish and Russian keep OPUS-MT until the two are
- * compared on the same test set.
+ * language here, where Helsinki's OPUS-MT has no model for at least one
+ * direction (en->ko, en->pl, Portuguese both ways), so a line in them
+ * otherwise needs the 1-2 GB language model or NLLB's 600 MB. One repo
+ * serves both directions (`sharedPairId`), downloaded once.
  */
 export const DEFAULT_AFTERNET_PAIRS: Record<string, OpusPairOption> = {
-	"en-ar": afternetMt("ar", ">>ara<<", 30_475_874),
-	"ar-en": afternetMt("ar", ">>eng<<", 30_475_874),
 	"en-ko": afternetMt("ko", ">>kor<<", 30_032_533),
 	"ko-en": afternetMt("ko", ">>eng<<", 30_032_533),
 	"en-pl": afternetMt("pl", ">>pol<<", 29_982_060),
 	"pl-en": afternetMt("pl", ">>eng<<", 29_982_060),
 	"en-pt": afternetMt("pt", ">>por<<", 29_940_661),
 	"pt-en": afternetMt("pt", ">>eng<<", 29_940_661),
-	"en-sv": afternetMt("sv", ">>swe<<", 29_882_461),
-	"sv-en": afternetMt("sv", ">>eng<<", 29_882_461),
-	"en-zh": afternetMt("zh", ">>zho<<", 29_744_941),
-	"zh-en": afternetMt("zh", ">>eng<<", 29_744_941),
+};
+
+/**
+ * One direction of a Helsinki OPUS-MT model (CC-BY-4.0) fine-tuned by
+ * AfterNET on chat: Command A+ translations of chat lines, nicks as `[n]`
+ * (the form seq2seq.ts writes a placeholder in first), with web text
+ * replayed so it keeps general text, then blended 0.7 toward the
+ * fine-tune from the stock weights. One repo a direction, as OPUS-MT's.
+ * A multi-target model reads its target from `token`.
+ */
+function opusChat(pairKey: string, sizeBytes: number, token?: string): OpusPairOption {
+	return {
+		model: `seance-mt/opus-mt-${pairKey}-chat1`,
+		...(token && {token}),
+		name: "OPUS-MT (AfterNET)",
+		sizeBytes,
+		host: AFTERNET_MT_HOST,
+	};
+}
+
+/**
+ * The fine-tuned OPUS-MT pairs every build ships, in place of the stock
+ * Xenova conversions (and, for ar, sv and zh, of the AfterNET MT students
+ * before them). Scored on FLORES+, Tatoeba and real chat lines, each is
+ * ahead of the stock model and of our own student in its direction:
+ * Arabic into English by 9 COMET on FLORES+, the others by 1-5, most of
+ * it on chat. The cost is the size, ~110 MB a direction against ~30 MB
+ * for both directions of a student.
+ */
+export const DEFAULT_OPUS_CHAT_PAIRS: Record<string, OpusPairOption> = {
+	"en-ar": opusChat("en-ar", 115_542_788, ">>ara<<"),
+	"ar-en": opusChat("ar-en", 115_570_868),
+	"en-de": opusChat("en-de", 109_486_646),
+	"de-en": opusChat("de-en", 109_486_611),
+	"en-es": opusChat("en-es", 117_154_726),
+	"es-en": opusChat("es-en", 117_154_691),
+	"en-fr": opusChat("en-fr", 111_031_839),
+	"fr-en": opusChat("fr-en", 111_031_839),
+	"en-ru": opusChat("en-ru", 115_883_437),
+	"ru-en": opusChat("ru-en", 115_883_437),
+	"en-sv": opusChat("en-sv", 107_830_095),
+	"sv-en": opusChat("sv-en", 107_830_095),
+	"en-zh": opusChat("en-zh", 117_234_330, ">>cmn_Hans<<"),
+	"zh-en": opusChat("zh-en", 117_233_669),
 };
 
 export const DEFAULT_OPUS_PAIRS: Record<string, string | OpusPairOption> = {
-	"de-en": "Xenova/opus-mt-de-en",
-	"en-de": "Xenova/opus-mt-en-de",
-	"fr-en": "Xenova/opus-mt-fr-en",
-	"en-fr": "Xenova/opus-mt-en-fr",
-	"es-en": "Xenova/opus-mt-es-en",
-	"en-es": "Xenova/opus-mt-en-es",
 	"it-en": "Xenova/opus-mt-it-en",
 	"en-it": "Xenova/opus-mt-en-it",
 	"nl-en": "Xenova/opus-mt-nl-en",
 	"en-nl": "Xenova/opus-mt-en-nl",
-	"ru-en": "Xenova/opus-mt-ru-en",
-	"en-ru": "Xenova/opus-mt-en-ru",
+	...DEFAULT_OPUS_CHAT_PAIRS,
 	...DEFAULT_AFTERNET_PAIRS,
 };
 

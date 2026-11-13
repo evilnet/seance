@@ -70,7 +70,7 @@ describe("translateWhyText", () => {
 
 	it("says which device a declined download was for, with that copy's size", () => {
 		const llm = buildCatalog().llm;
-		const opus = buildCatalog().opus["de-en"];
+		const opus = buildCatalog().opus["it-en"];
 		const gpu = translateWhyText({kind: "download", ref: llm, device: "gpu"});
 		const cpu = translateWhyText({kind: "download", ref: llm, device: "cpu"});
 
@@ -82,7 +82,7 @@ describe("translateWhyText", () => {
 		);
 		expect(gpu).to.not.equal(cpu);
 		expect(translateWhyText({kind: "download", ref: opus, device: "gpu"})).to.include(
-			"OPUS-MT German → English for the GPU"
+			"OPUS-MT Italian → English for the GPU"
 		);
 	});
 
@@ -212,10 +212,10 @@ describe("translateErrorText", () => {
 	});
 
 	it("names an OPUS-MT pair by its languages", () => {
-		const ref = buildCatalog().opus["de-en"];
+		const ref = buildCatalog().opus["it-en"];
 
 		expect(translateErrorText(needsDownloadError(ref))).to.include(
-			en["translate.model.opus"].replace("{from}", "German").replace("{to}", "English")
+			en["translate.model.opus"].replace("{from}", "Italian").replace("{to}", "English")
 		);
 	});
 
