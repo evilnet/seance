@@ -105,10 +105,28 @@ export const APPLE_REF: ModelRef = {
  */
 export const AFTERNET_MT_HOST = "https://bot.hextalk.org/models";
 
+/**
+ * The repo of each language's AfterNET MT model on AFTERNET_MT_HOST. A
+ * retrained model gets a repo of its own (`marian-ko-r24`, the training
+ * round it comes from) rather than new files under the old one: its
+ * vocabulary is its own, so a device holding some of the old files and
+ * some of the new would decode nonsense, and a new id is how a device that
+ * has the old model learns there is a newer one. Arabic's first upload,
+ * round 19, is still its best and keeps its unversioned repo.
+ */
+export const AFTERNET_MT_REPOS: Record<string, string> = {
+	ar: "seance-mt/marian-ar",
+	ko: "seance-mt/marian-ko-r24",
+	pl: "seance-mt/marian-pl-r24",
+	pt: "seance-mt/marian-pt-r24",
+	sv: "seance-mt/marian-sv-r29",
+	zh: "seance-mt/marian-zh-r29",
+};
+
 /** One direction of an AfterNET MT model: a bidirectional Marian student, ~30 MB in q8. */
 function afternetMt(code: string, token: string, sizeBytes: number): OpusPairOption {
 	return {
-		model: `seance-mt/marian-${code}`,
+		model: AFTERNET_MT_REPOS[code],
 		token,
 		name: "AfterNET MT",
 		sizeBytes,
@@ -127,16 +145,16 @@ function afternetMt(code: string, token: string, sizeBytes: number): OpusPairOpt
 export const DEFAULT_AFTERNET_PAIRS: Record<string, OpusPairOption> = {
 	"en-ar": afternetMt("ar", ">>ara<<", 30_475_874),
 	"ar-en": afternetMt("ar", ">>eng<<", 30_475_874),
-	"en-ko": afternetMt("ko", ">>kor<<", 30_033_335),
-	"ko-en": afternetMt("ko", ">>eng<<", 30_033_335),
-	"en-pl": afternetMt("pl", ">>pol<<", 29_981_445),
-	"pl-en": afternetMt("pl", ">>eng<<", 29_981_445),
-	"en-pt": afternetMt("pt", ">>por<<", 29_942_656),
-	"pt-en": afternetMt("pt", ">>eng<<", 29_942_656),
-	"en-sv": afternetMt("sv", ">>swe<<", 29_882_505),
-	"sv-en": afternetMt("sv", ">>eng<<", 29_882_505),
-	"en-zh": afternetMt("zh", ">>zho<<", 29_741_545),
-	"zh-en": afternetMt("zh", ">>eng<<", 29_741_545),
+	"en-ko": afternetMt("ko", ">>kor<<", 30_032_533),
+	"ko-en": afternetMt("ko", ">>eng<<", 30_032_533),
+	"en-pl": afternetMt("pl", ">>pol<<", 29_982_060),
+	"pl-en": afternetMt("pl", ">>eng<<", 29_982_060),
+	"en-pt": afternetMt("pt", ">>por<<", 29_940_661),
+	"pt-en": afternetMt("pt", ">>eng<<", 29_940_661),
+	"en-sv": afternetMt("sv", ">>swe<<", 29_882_461),
+	"sv-en": afternetMt("sv", ">>eng<<", 29_882_461),
+	"en-zh": afternetMt("zh", ">>zho<<", 29_744_941),
+	"zh-en": afternetMt("zh", ">>eng<<", 29_744_941),
 };
 
 export const DEFAULT_OPUS_PAIRS: Record<string, string | OpusPairOption> = {
