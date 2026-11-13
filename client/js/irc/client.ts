@@ -861,6 +861,11 @@ export class IrcClient {
 		this.services = services;
 	}
 
+	/** The settings the next connect will use: an edit made while connected waits in `pendingOptions`. */
+	get nextOptions(): Readonly<IrcClientOptions> {
+		return this.pendingOptions ?? this.options;
+	}
+
 	/** Fields `network:info` / the edit form expect, minus `channels`. */
 	get editableInfo(): Record<string, unknown> {
 		const o = this.options;
