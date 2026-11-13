@@ -16,6 +16,9 @@ import {ChanType} from "../../shared/types/chan";
 
 export default enableAutocomplete;
 
+/** The dropdown's class: the themes style it, and a press on it keeps the composer's focus. */
+const MENU_CLASS = "textcomplete-menu";
+
 /** The colour names a translator sees, resolved through the one
  * override-aware chain. Every key is a literal (the pot ↔ call-site scanner
  * only sees direct calls); the pair list in constants.ts stays the wire
@@ -227,7 +230,7 @@ function enableAutocomplete(input: HTMLTextAreaElement) {
 	const editor = new TextareaEditor(input);
 	const textcomplete = new Textcomplete(editor, strategies, {
 		dropdown: {
-			className: "textcomplete-menu",
+			className: MENU_CLASS,
 			placement: "top",
 		},
 	});
@@ -240,11 +243,25 @@ function enableAutocomplete(input: HTMLTextAreaElement) {
 		store.commit("isAutoCompleting", false);
 	});
 
+	// A press on the menu leaves the focus in the composer, as the send
+	// button's does. Taken, it dropped a phone's keyboard, and the composer's
+	// blur closes the menu (ChatInput.vue), which emptied it before the tap
+	// or click landed: an entry could only be picked with Tab or Enter. The
+	// menu is the library's, appended to <body>, so it is found by its class.
+	const keepFocus = (event: MouseEvent) => {
+		if (event.target instanceof Element && event.target.closest(`.${MENU_CLASS}`)) {
+			event.preventDefault();
+		}
+	};
+
+	document.addEventListener("mousedown", keepFocus);
+
 	return {
 		hide() {
 			textcomplete.hide();
 		},
 		destroy() {
+			document.removeEventListener("mousedown", keepFocus);
 			textcomplete.destroy();
 			store.commit("isAutoCompleting", false);
 		},
