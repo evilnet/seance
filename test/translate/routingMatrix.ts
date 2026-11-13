@@ -213,8 +213,8 @@ interface Deploy {
 	tiedWithLlm: boolean;
 }
 
-// Every build's small models: OPUS-MT's six languages and the AfterNET MT
-// six (models.ts DEFAULT_OPUS_PAIRS), English both ways.
+// Every build's small models: OPUS-MT's five languages and the AfterNET MT
+// seven (models.ts DEFAULT_OPUS_PAIRS), English both ways.
 const OPUS = ["de", "fr", "es", "it", "nl", "ru", "ar", "ko", "pl", "pt", "sv", "zh"].flatMap(
 	(code) => [`en-${code}`, `${code}-en`]
 );

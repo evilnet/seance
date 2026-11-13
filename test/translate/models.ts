@@ -62,7 +62,7 @@ describe("translate/models", () => {
 	it("every build ships the AfterNET MT pairs, one repo both ways, from AfterNET's host", () => {
 		const catalog = buildCatalog();
 
-		for (const code of ["ar", "ko", "pl", "pt", "sv", "zh"]) {
+		for (const code of ["ar", "ko", "pl", "pt", "ru", "sv", "zh"]) {
 			const into = catalog.opus[`en-${code}`];
 			const from = catalog.opus[`${code}-en`];
 

@@ -119,6 +119,7 @@ export const AFTERNET_MT_REPOS: Record<string, string> = {
 	ko: "seance-mt/marian-ko-r24",
 	pl: "seance-mt/marian-pl-r24",
 	pt: "seance-mt/marian-pt-r24",
+	ru: "seance-mt/marian-ru-r49",
 	sv: "seance-mt/marian-sv-r29",
 	zh: "seance-mt/marian-zh-r29",
 };
@@ -136,11 +137,18 @@ function afternetMt(code: string, token: string, sizeBytes: number): OpusPairOpt
 
 /**
  * The AfterNET MT pairs every build ships: English to and from each
- * language here, where Helsinki's OPUS-MT has no pair the app ships, so a
- * line in them otherwise needs the 1-2 GB language model or NLLB's
- * 600 MB. One repo serves both directions (`sharedPairId`), downloaded
- * once. French, German, Spanish and Russian keep OPUS-MT until the two are
- * compared on the same test set.
+ * language here. For most of them Helsinki's OPUS-MT has no pair the app
+ * ships, so a line in them otherwise needs the 1-2 GB language model or
+ * NLLB's 600 MB. One repo serves both directions (`sharedPairId`),
+ * downloaded once.
+ *
+ * Russian replaced its OPUS-MT pair: on chat lines it is ahead into
+ * Russian (CometKiwi 72.1 against 68.1, wrong language 0.8 % against
+ * 1.9 %), and it is one ~31 MB download for both directions where the
+ * two OPUS-MT models were ~113 MB each. OPUS-MT stays ahead on FLORES+
+ * and Tatoeba (3.3 COMET into Russian, 0.9-2.6 out of it). French, German
+ * and Spanish keep OPUS-MT: on the same chat lines they are within about
+ * 2 points either way, and OPUS-MT leads on the other sets.
  */
 export const DEFAULT_AFTERNET_PAIRS: Record<string, OpusPairOption> = {
 	"en-ar": afternetMt("ar", ">>ara<<", 30_475_874),
@@ -151,6 +159,8 @@ export const DEFAULT_AFTERNET_PAIRS: Record<string, OpusPairOption> = {
 	"pl-en": afternetMt("pl", ">>eng<<", 29_982_060),
 	"en-pt": afternetMt("pt", ">>por<<", 29_940_661),
 	"pt-en": afternetMt("pt", ">>eng<<", 29_940_661),
+	"en-ru": afternetMt("ru", ">>rus<<", 30_888_775),
+	"ru-en": afternetMt("ru", ">>eng<<", 30_888_775),
 	"en-sv": afternetMt("sv", ">>swe<<", 29_882_461),
 	"sv-en": afternetMt("sv", ">>eng<<", 29_882_461),
 	"en-zh": afternetMt("zh", ">>zho<<", 29_744_941),
@@ -168,8 +178,6 @@ export const DEFAULT_OPUS_PAIRS: Record<string, string | OpusPairOption> = {
 	"en-it": "Xenova/opus-mt-en-it",
 	"nl-en": "Xenova/opus-mt-nl-en",
 	"en-nl": "Xenova/opus-mt-en-nl",
-	"ru-en": "Xenova/opus-mt-ru-en",
-	"en-ru": "Xenova/opus-mt-en-ru",
 	...DEFAULT_AFTERNET_PAIRS,
 };
 
