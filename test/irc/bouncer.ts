@@ -357,6 +357,60 @@ describe("Bouncers: soju's networks (soju.im/bouncer-networks)", function () {
 		expect(removed).to.deep.equal(["1"]);
 	});
 
+	type NetworksPayload = {
+		network: string;
+		networks: {netid: string; attrs: Record<string, string>}[];
+		editable: boolean;
+	};
+
+	it("keeps each network's attributes for the panel, merging what -notify changes", function () {
+		const offered: BouncerNetwork[] = [];
+		const h = setup({
+			onBouncerNetworks(networks) {
+				offered.push(...networks);
+				return {added: [], over: []};
+			},
+		});
+		control(h);
+		h.transport.lines(
+			":irc.test BATCH +n soju.im/bouncer-networks",
+			"@batch=n :irc.test BOUNCER NETWORK 1 name=Libera;host=irc.libera.chat;state=connecting;error=timeout",
+			":irc.test BATCH -n",
+			// A change carries only what changed; a key without a value is removed.
+			":irc.test BOUNCER NETWORK 1 state=connected;error="
+		);
+
+		const last = h.payloads<NetworksPayload>("bouncer:networks").at(-1)!;
+		expect(last.network).to.equal(h.client.uuid);
+		expect(last.networks).to.deep.equal([
+			{netid: "1", attrs: {name: "Libera", host: "irc.libera.chat", state: "connected"}},
+		]);
+		// No labeled-response: the panel lists, but cannot ask for changes.
+		expect(last.editable).to.equal(false);
+		// The change is offered under the network's name, not its bare id.
+		expect(offered.map((net) => net.name)).to.deep.equal(["Libera", "Libera"]);
+	});
+
+	it("forgets a network a whole list leaves out, and one deleted (-notify *)", function () {
+		const h = setup({onBouncerNetworks: () => ({added: [], over: []})});
+		control(h);
+		h.transport.lines(
+			":irc.test BATCH +a soju.im/bouncer-networks",
+			"@batch=a :irc.test BOUNCER NETWORK 1 name=Libera",
+			"@batch=a :irc.test BOUNCER NETWORK 2 name=OFTC",
+			"@batch=a :irc.test BOUNCER NETWORK 3 name=EFnet",
+			":irc.test BATCH -a",
+			":irc.test BATCH +b soju.im/bouncer-networks",
+			"@batch=b :irc.test BOUNCER NETWORK 1 name=Libera",
+			"@batch=b :irc.test BOUNCER NETWORK 3 name=EFnet",
+			":irc.test BATCH -b",
+			":irc.test BOUNCER NETWORK 3 *"
+		);
+
+		const last = h.payloads<NetworksPayload>("bouncer:networks").at(-1)!;
+		expect(last.networks.map((net) => net.netid)).to.deep.equal(["1"]);
+	});
+
 	it("stops a bound network the bouncer deleted (FAIL BOUNCER INVALID_NETID)", function () {
 		let gone = 0;
 		const h = setup({bouncerNetId: "42", onBouncerNetworkGone: () => gone++});

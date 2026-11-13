@@ -21,6 +21,7 @@ import {commaList} from "../helpers/operList";
 import type {IrcClient} from "./client";
 import type {BatchHandler} from "./handlers/batch";
 import {parseTags, type IrcMessage} from "./message";
+import {canRequest} from "./request";
 
 export const BOUNCER_NETWORKS_CAP = "soju.im/bouncer-networks";
 export const BOUNCER_NOTIFY_CAP = "soju.im/bouncer-networks-notify";
@@ -86,19 +87,54 @@ export function listNetworks(client: IrcClient): void {
 	});
 }
 
-/**
- * `BOUNCER NETWORK <id> <attributes>`; undefined for any other `BOUNCER`
- * line, a removal (`*`), or an id that could not be sent back safely.
- */
-export function parseNetwork(msg: IrcMessage): BouncerNetwork | undefined {
-	const [sub, id, attrs] = msg.params;
+/** A network's attributes as the bouncer gave them (`name`, `state`, `host`, `port`, `tls`, …). */
+export type BouncerAttrs = Record<string, string>;
 
-	if (sub?.toUpperCase() !== "NETWORK" || !isNetworkId(id) || !attrs || attrs === "*") {
+/** What one `BOUNCER NETWORK` line changed ({@link takeNetworkLine}). */
+export type NetworkChange = {removed: string} | {network: BouncerNetwork} | undefined;
+
+/**
+ * Every `BOUNCER NETWORK` line on the control connection goes through here,
+ * whichever way it came (the list's batch, a `-notify` line, or a labeled
+ * reply to the panel's own request): it keeps the network's attributes in
+ * {@link IrcClient.bouncerNetworks} for the bouncer panel, merging a change
+ * into what was known (an attribute without a value is one removed), and
+ * says what changed. A line naming an id that could not be sent back
+ * safely changes nothing.
+ */
+export function takeNetworkLine(client: IrcClient, msg: IrcMessage): NetworkChange {
+	const [sub, id, raw] = msg.params;
+
+	if (sub?.toUpperCase() !== "NETWORK" || !isNetworkId(id) || !raw) {
 		return undefined;
 	}
 
-	const tags = parseTags(attrs);
-	return {id, name: tags.get("name") || tags.get("host") || id};
+	if (raw === "*") {
+		client.bouncerNetworks.delete(id);
+		return {removed: id};
+	}
+
+	const attrs: BouncerAttrs = {...client.bouncerNetworks.get(id)};
+
+	for (const [key, value] of parseTags(raw)) {
+		if (value === "") {
+			delete attrs[key];
+		} else {
+			attrs[key] = value;
+		}
+	}
+
+	client.bouncerNetworks.set(id, attrs);
+	return {network: {id, name: attrs.name || attrs.host || id}};
+}
+
+/** Tell the bouncer panel the control connection's networks as they are now. */
+export function announceNetworks(client: IrcClient): void {
+	client.dispatch("bouncer:networks", {
+		network: client.uuid,
+		networks: Array.from(client.bouncerNetworks, ([netid, attrs]) => ({netid, attrs})),
+		editable: canRequest(client),
+	});
 }
 
 /** What to do with a bouncer's list ({@link networksToAdd}). */
@@ -186,26 +222,32 @@ export const bouncerNetworksBatch: BatchHandler = (client, batch) => {
 	}
 
 	const networks: BouncerNetwork[] = [];
+	const listed = new Set<string>();
 
 	for (const line of batch.messages) {
-		const net = line.command === "BOUNCER" ? parseNetwork(line) : undefined;
-
-		if (net) {
-			networks.push(net);
-		} else if (line.command !== "BOUNCER") {
+		if (line.command !== "BOUNCER") {
 			client.handleMessage(line);
+			continue;
+		}
+
+		const change = takeNetworkLine(client, line);
+
+		if (change && "network" in change) {
+			networks.push(change.network);
+			listed.add(change.network.id);
 		}
 	}
 
+	// The whole list: what it leaves out is not on the bouncer any more.
+	for (const id of Array.from(client.bouncerNetworks.keys())) {
+		if (!listed.has(id)) {
+			client.bouncerNetworks.delete(id);
+		}
+	}
+
+	announceNetworks(client);
 	offer(client, networks);
 };
-
-/** `BOUNCER NETWORK <id> *`: the bouncer deleted that network; its id, else undefined. */
-export function parseRemoval(msg: IrcMessage): string | undefined {
-	const [sub, id, attrs] = msg.params;
-
-	return sub?.toUpperCase() === "NETWORK" && isNetworkId(id) && attrs === "*" ? id : undefined;
-}
 
 /**
  * A single `BOUNCER NETWORK` (`-notify`): a network added or changed
@@ -218,17 +260,18 @@ export function bouncerLine(client: IrcClient, msg: IrcMessage): void {
 		return;
 	}
 
-	const removed = parseRemoval(msg);
+	const change = takeNetworkLine(client, msg);
 
-	if (removed) {
-		client.options.onBouncerNetworkRemoved?.(removed);
+	if (!change) {
 		return;
 	}
 
-	const net = parseNetwork(msg);
+	announceNetworks(client);
 
-	if (net) {
-		offer(client, [net]);
+	if ("removed" in change) {
+		client.options.onBouncerNetworkRemoved?.(change.removed);
+	} else {
+		offer(client, [change.network]);
 	}
 }
 

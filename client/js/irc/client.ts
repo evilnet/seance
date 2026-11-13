@@ -34,6 +34,7 @@ import {
 	bindLine,
 	isBouncerControl,
 	listNetworks,
+	type BouncerAttrs,
 	type BouncerNetwork,
 } from "./bouncer";
 import {
@@ -610,6 +611,11 @@ export class IrcClient {
 	 * saved entry's `bouncerSettled` keeps it across page loads.
 	 */
 	private bouncerSettled = false;
+	/**
+	 * A bouncer's networks by id with their attributes, on its control
+	 * connection (bouncer.ts `takeNetworkLine`): what the bouncer panel lists.
+	 */
+	readonly bouncerNetworks = new Map<string, BouncerAttrs>();
 
 	private saslTimer: ReturnType<typeof setTimeout> | null = null;
 	private readonly bus: Pick<EventBus, "dispatch">;
@@ -2222,6 +2228,7 @@ export class IrcClient {
 		// WEBPUSH REGISTER itself is emitted later through the bus — a
 		// REGISTER sent before CAP END is silently dropped by nefarious2.
 		// A bouncer's control connection: what networks it has (bouncer.ts).
+		this.bouncerNetworks.clear();
 		listNetworks(this);
 
 		this.dispatch("webpush:available", {

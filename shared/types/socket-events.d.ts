@@ -9,6 +9,7 @@ import {InboxEntry} from "./mention";
 import {ChanState, SharedChan} from "./chan";
 import {
 	ServicesConfig,
+	SharedBouncerNetwork,
 	SharedNetwork,
 	SharedNetworkPresence,
 	SharedNetworkChan,
@@ -205,6 +206,16 @@ interface ServerToClientEvents {
 	}>;
 	/** Being an oper on `network` changed: level, privileges, snomask, features (irc/oper.ts). */
 	"oper:state": EventHandler<{network: string; state: SharedOperState}>;
+	/**
+	 * A bouncer's networks, whole, each time its control connection's list
+	 * changes (irc/bouncer.ts). `editable`: the connection can send labeled
+	 * requests, so the bouncer panel may add, change and delete them.
+	 */
+	"bouncer:networks": EventHandler<{
+		network: string;
+		networks: SharedBouncerNetwork[];
+		editable: boolean;
+	}>;
 	/**
 	 * The answer to an `oper:request`: every line of the labeled reply, raw,
 	 * in order. `outcome` says how it ended (`batch`, `lines`, `ack`,

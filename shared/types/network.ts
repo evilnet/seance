@@ -87,6 +87,13 @@ export type SharedNetworkPresence = {
 	away: boolean;
 };
 
+/** One of a bouncer's networks, as `soju.im/bouncer-networks` lists it (irc/bouncer.ts). */
+export type SharedBouncerNetwork = {
+	netid: string;
+	/** `name`, `state`, `error`, `host`, `port`, `tls`, `nickname`, `username`, `realname`, … */
+	attrs: Record<string, string>;
+};
+
 export type SharedNetwork = {
 	uuid: string;
 	name: string;
