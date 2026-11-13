@@ -148,6 +148,10 @@ export default async function run(page) {
 		sent.some((l) => /^BOUNCER BIND \S+$/.test(l))
 	);
 	page.check(
+		"soju's admin +o asks soju for no oper PRIVS",
+		!sent.some((l) => /^(@\S+ )?PRIVS\b/.test(l))
+	);
+	page.check(
 		"only the control connection has the server button",
 		(await page.evaluate(`!!${LOBBY(CONTROL)}.querySelector(".bouncer-panel")`)) &&
 			(await page.evaluate(`!${LOBBY(devUuid)}.querySelector(".bouncer-panel")`))
@@ -187,6 +191,10 @@ export default async function run(page) {
 	await page.fill("#bouncer\\:name", "Renamed");
 	await submit(page);
 	await page.waitFor(`${PANEL_NAMES}.includes("Renamed")`, {label: "the rename in the panel"});
+	// Not renamed here, so the network saved here follows the bouncer's name.
+	await page.waitFor(`${SAVED}.find((n) => n.uuid === "${secondUuid}")?.name === "Renamed"`, {
+		label: "the saved network follows the rename",
+	});
 
 	// 5. A refusal is shown in soju's words.
 	await page.click("#bouncer .bouncer-row .btn", 2);
