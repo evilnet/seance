@@ -110,9 +110,9 @@ describe("Web Push subscription (draft/webpush)", function () {
 	});
 
 	describe("payload tier metadata (webpush:metadata)", function () {
-		it("writes the push payload tier private, so WHOIS does not list it", function () {
+		function payloadWrite(caps: string): string[] {
 			const h = setup();
-			register(h, `${ALL_CAPS} draft/webpush=vapid=${VAPID}`);
+			register(h, caps);
 			registerBusHandlers(socket, {
 				clientForChannel: () => h.client,
 				clientForNetwork: () => h.client,
@@ -128,7 +128,21 @@ describe("Web Push subscription (draft/webpush)", function () {
 				value: "full",
 			});
 
-			expect(h.sent()).to.deep.equal(["METADATA * SET draft/webpush/payload private :full"]);
+			return h.sent().filter((l) => l.startsWith("METADATA * SET"));
+		}
+
+		it("writes the push payload tier private, so WHOIS does not list it", function () {
+			expect(
+				payloadWrite(`${ALL_CAPS} draft/metadata-2 draft/webpush=vapid=${VAPID}`)
+			).to.deep.equal(["METADATA * SET draft/webpush/payload private :full"]);
+		});
+
+		it("writes no payload tier without metadata in use (it needs batch)", function () {
+			const noBatch = ALL_CAPS.replace(" batch ", " ");
+			expect(
+				payloadWrite(`${noBatch} draft/metadata-2 draft/webpush=vapid=${VAPID}`)
+			).to.deep.equal([]);
+			expect(payloadWrite(`${ALL_CAPS} draft/webpush=vapid=${VAPID}`)).to.deep.equal([]);
 		});
 	});
 
