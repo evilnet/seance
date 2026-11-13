@@ -469,7 +469,8 @@ export function reconnectAll(opts: {networkBack?: boolean} = {}): void {
 	for (const client of clients.values()) {
 		const transport = client.transport;
 
-		// A long wait is left to run (transport.ts holding).
+		// A long wait is left to run while its time has not passed by the
+		// clock (transport.ts holding): after a night asleep it has.
 		if (transport.state === "reconnect-wait" && !transport.holding?.()) {
 			client.connect();
 		} else if (transport.state === "connecting") {
