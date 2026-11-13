@@ -314,8 +314,10 @@ describe("push mute on the wire (irc/pushMute.ts)", function () {
 		// changed the list, so the value read before it no longer counts.
 		const h = connect();
 		h.transport.line(":irc.test 766 alice alice draft/webpush/mute :key not set");
+		h.client.presence.burstRead = true;
 		h.transport.line(":irc.test CAP alice DEL :batch");
 		expect(h.client.muteKnown).to.equal(false);
+		expect(h.client.presence.burstRead).to.equal(false);
 		h.transport.line(":irc.test CAP alice NEW :batch");
 		h.transport.line(":irc.test CAP alice ACK :batch");
 		h.sent();

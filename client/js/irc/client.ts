@@ -3285,6 +3285,9 @@ export class IrcClient {
 		this.closedKnown = false;
 		this.metadataSubscribed = false;
 		this.mutePending.length = 0;
+		// Nor is this connection in sync until that read: the registration
+		// burst no longer counts (noteSyncLine).
+		this.presence.burstRead = false;
 		// A remote DND this connection was away for is unknown now: AWAY follows.
 		syncPresence(this);
 		this.scheduleMuteRead();
