@@ -435,11 +435,11 @@ describe("subscribing to the shared keys (client.ts)", function () {
 	const GET = `METADATA * GET draft/webpush/mute ${PRESENCE_KEY} ${MODE_KEY} draft/webpush/payload seance/closed`;
 
 	/** A SASL login on a server offering `metadata`; returns the CAP END flush. */
-	function saslLogin(h: Harness, metadata: string): string[] {
+	function saslLogin(h: Harness, metadata: string, batch = "batch"): string[] {
 		h.client.connect();
 		h.transport.open();
 		h.transport.line(
-			`:irc.test CAP * LS :server-time message-tags batch sasl=PLAIN ${metadata}`
+			`:irc.test CAP * LS :server-time message-tags ${batch} sasl=PLAIN ${metadata}`
 		);
 		const req = h.transport.sent.filter((l) => l.startsWith("CAP REQ :")).pop() as string;
 		h.transport.line(`:irc.test CAP alice ACK :${req.slice("CAP REQ :".length)}`);
@@ -474,6 +474,17 @@ describe("subscribing to the shared keys (client.ts)", function () {
 		welcome(h);
 		clock.tick(MUTE_READ_DELAY_MS);
 		expect(h.sent().filter((l) => l.startsWith("METADATA"))).to.deep.equal([SUB, GET]);
+	});
+
+	it("without batch, neither subscribes before CAP END nor reads the keys", function () {
+		// draft/metadata-2 MUST have batch: its burst and lists are batches.
+		const h = setup({join: "", sasl: "plain", saslAccount: "alice", saslPassword: "s3cret"});
+		const flush = saslLogin(h, "draft/metadata-2=before-connect,max-subs=50", "");
+		expect(flush.filter((l) => l.startsWith("METADATA"))).to.deep.equal([]);
+		expect(h.client.metadataBeforeConnect).to.equal(false);
+		welcome(h);
+		clock.tick(MUTE_READ_DELAY_MS);
+		expect(h.sent().filter((l) => l.startsWith("METADATA"))).to.deep.equal([]);
 	});
 
 	it("a reconnect subscribes again", function () {
