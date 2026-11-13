@@ -3307,8 +3307,8 @@ export class IrcClient {
 	private flushPayloadTier(): void {
 		const pending = this.payloadPending;
 
-		if (pending && this.caps.hasCapability("draft/metadata-2")) {
-			this.writePayloadTier(pending.key, pending.value);
+		if (pending) {
+			this.writePayloadTier(pending.key, pending.value); // waits again while unusable
 		}
 	}
 

@@ -110,6 +110,8 @@ describe("Web Push subscription (draft/webpush)", function () {
 	});
 
 	describe("payload tier metadata (webpush:metadata)", function () {
+		const noBatch = ALL_CAPS.replace(" batch ", " ");
+
 		function payloadWrite(caps: string): string[] {
 			const h = setup();
 			register(h, caps);
@@ -138,7 +140,6 @@ describe("Web Push subscription (draft/webpush)", function () {
 		});
 
 		it("writes a payload tier asked for without batch once batch comes", function () {
-			const noBatch = ALL_CAPS.replace(" batch ", " ");
 			const h = setup();
 			register(h, `${noBatch} cap-notify draft/metadata-2 draft/webpush=vapid=${VAPID}`);
 			h.sent();
@@ -171,7 +172,6 @@ describe("Web Push subscription (draft/webpush)", function () {
 		});
 
 		it("forgets a waiting payload tier when the subscription is dropped", function () {
-			const noBatch = ALL_CAPS.replace(" batch ", " ");
 			const h = setup();
 			register(h, `${noBatch} cap-notify draft/metadata-2 draft/webpush=vapid=${VAPID}`);
 			h.client.writePayloadTier("draft/webpush/payload", "full");
@@ -183,7 +183,6 @@ describe("Web Push subscription (draft/webpush)", function () {
 		});
 
 		it("forgets a waiting payload tier when the connection closes", function () {
-			const noBatch = ALL_CAPS.replace(" batch ", " ");
 			const h = setup();
 			register(h, `${noBatch} cap-notify draft/metadata-2 draft/webpush=vapid=${VAPID}`);
 			h.client.writePayloadTier("draft/webpush/payload", "full");
@@ -195,7 +194,6 @@ describe("Web Push subscription (draft/webpush)", function () {
 		});
 
 		it("writes no payload tier without metadata in use (it needs batch)", function () {
-			const noBatch = ALL_CAPS.replace(" batch ", " ");
 			expect(
 				payloadWrite(`${noBatch} draft/metadata-2 draft/webpush=vapid=${VAPID}`)
 			).to.deep.equal([]);
