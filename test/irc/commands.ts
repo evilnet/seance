@@ -514,9 +514,9 @@ describe("irc commands", function () {
 		it("shows an asked-for topic again, following the user", function () {
 			const h = setup();
 			const id = joined(h);
+			// The join burst's topic is state: the header only.
 			h.transport.line(":irc.test 332 alice #seance :Welcome");
-			expect(lastMessage(id).type).to.equal(MessageType.TOPIC);
-			expect(lastMessage(id).showInActive).to.equal(undefined);
+			expect(messages(id).filter((m) => m.type === MessageType.TOPIC)).to.deep.equal([]);
 
 			h.client.input(id, "/topic");
 			expect(h.sentAfter()).to.deep.equal(["TOPIC #seance"]);

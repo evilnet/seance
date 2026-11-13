@@ -129,7 +129,7 @@ Data flow: `transport.ts` (`WsTransport`: one line per frame, PING/PONG, reconne
 - Event names, payload shapes and store expectations are fixed by `docs/resources/bus-contract.md`; when adding a new event, extend `shared/types/socket-events.ts` and a `socket-events/*` consumer together.
 - **Replies, reactions, deletion and edits** — moved to `docs/resources/irc-layer.md` § Replies, reactions, deletion and edits.
 - **Unread counts live in the IRC layer** — moved to `docs/resources/irc-layer.md` § Unread counts live in the IRC layer.
-- **Reconnects are quiet, by content not by context** — moved to `docs/resources/irc-layer.md` § Reconnects are quiet, by content not by context.
+- **Reconnects are quiet: a join burst is state, only what was asked for is a line** — moved to `docs/resources/irc-layer.md` § Reconnects are quiet: a join burst is state, only what was asked for is a line.
 - **A SASL login that was asked for must succeed** — moved to `docs/resources/irc-layer.md` § A SASL login that was asked for must succeed.
 - **The retry schedule spaces automatic retries only; anyone who asks restarts it** — moved to `docs/resources/irc-layer.md` § The retry schedule spaces automatic retries only; anyone who asks restarts it.
 - **The catch-up cursor is offered exactly once per connection, and only then** — moved to `docs/resources/irc-layer.md` § The catch-up cursor is offered exactly once per connection, and only then.

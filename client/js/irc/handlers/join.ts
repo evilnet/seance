@@ -84,6 +84,10 @@ const join: Handler = (client, msg) => {
 	const quiet = self && (wasJoined || chan.rejoining || client.restoring);
 
 	if (self) {
+		// Joined by hand, not handed back: the burst's topic is shown once
+		// (handlers/topic.ts). A request left over from a `/join` the server
+		// ignored (already a member) does not count for a restore or re-join.
+		chan.topicWanted = requested && !quiet;
 		chan.autoJoin = true;
 
 		if (!wasJoined) {

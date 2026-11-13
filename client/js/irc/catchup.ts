@@ -430,7 +430,8 @@ function takePending(client: IrcClient, chan: Channel): PendingCatchup | undefin
 }
 
 /**
- * The modes line is cosmetic (it feeds the "Channel modes: +nt" line): the
+ * The modes query is state only (the channel key, for a re-JOIN; its answer
+ * is never a line unless the user typed `/mode`, handlers/mode.ts): the
  * channel being looked at gets it behind the rest of the catch-up, so it
  * never delays another channel's unread count; others on first open
  * (IrcClient.open).
