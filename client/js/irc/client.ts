@@ -3288,6 +3288,9 @@ export class IrcClient {
 		// Nor is this connection in sync until that read: the registration
 		// burst no longer counts (noteSyncLine).
 		this.presence.burstRead = false;
+		// The registration hold (presence.ts shareUnread) is over: there is
+		// no registration burst to wait for any more, only the read below.
+		this.metadataBeforeConnect = false;
 		// A remote DND this connection was away for is unknown now: AWAY follows.
 		syncPresence(this);
 		this.scheduleMuteRead();

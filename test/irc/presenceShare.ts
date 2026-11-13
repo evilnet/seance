@@ -540,6 +540,15 @@ describe("subscribing to the shared keys (client.ts)", function () {
 		clock.tick(MUTE_READ_DELAY_MS);
 		expect(h.sent().filter((l) => l.startsWith("METADATA"))).to.deep.equal([SUB, GET]);
 
+		// The registration hold ends with metadata's use: nothing would end it.
+		h.client.metadataBeforeConnect = true;
+		h.transport.line(":irc.test CAP alice DEL :batch");
+		expect(h.client.metadataBeforeConnect).to.equal(false);
+		h.transport.line(":irc.test CAP alice NEW :batch");
+		h.transport.line(":irc.test CAP alice ACK :batch");
+		clock.tick(MUTE_READ_DELAY_MS);
+		h.sent();
+
 		// batch deleted while a fresh read waits: the read does not go out.
 		h.transport.line(":irc.test CAP alice DEL :batch");
 		h.transport.line(":irc.test CAP alice NEW :batch");
