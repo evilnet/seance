@@ -2,8 +2,7 @@ import type {SharedMsg} from "./msg";
 
 /**
  * What a `SEARCH` may ask (soju.im/search). `in` absent means every channel
- * the user is in. The order here is not the order on the wire: that is the
- * server profile's (`ServerProfile.searchParams`).
+ * the user is in. On the wire: one `;`-joined parameter (`specSearchParams`).
  */
 export interface SearchAttrs {
 	in?: string;
