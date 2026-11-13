@@ -112,10 +112,16 @@ const REQ_PREFIX = "CAP REQ :";
 /**
  * Caps that only work with another one: `labeled-response` "depends on the
  * `batch` capability which MUST be negotiated" (a server strips labels until
- * `batch` is on). One reads as off while its dependency is off: a NAKed REQ is
- * retried cap by cap, so `batch` can fail alone, and a `CAP DEL` can drop it.
+ * `batch` is on), `draft/multiline` requires it too, and `draft/event-playback`
+ * only adds lines to `chathistory` batches. One reads as off while its
+ * dependency is off: a NAKed REQ is retried cap by cap, so `batch` can fail
+ * alone, and a `CAP DEL` can drop it.
  */
-const DEPENDS_ON: ReadonlyMap<string, string> = new Map([["labeled-response", "batch"]]);
+const DEPENDS_ON: ReadonlyMap<string, string> = new Map([
+	["labeled-response", "batch"],
+	["draft/multiline", "batch"],
+	["draft/event-playback", "batch"],
+]);
 
 /** The cap name for the Web Push draft (draft/webpush). */
 export const WEBPUSH_CAP = "draft/webpush";
