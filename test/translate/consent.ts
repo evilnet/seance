@@ -3,6 +3,7 @@ import {
 	CONSENT_KEY,
 	DownloadConsent,
 	NEEDS_DOWNLOAD,
+	carryRemovals,
 	memoryConsent,
 	consentId,
 	needsDownloadError,
@@ -161,5 +162,39 @@ describe("translate/consent", () => {
 
 		expect(await consent.ask(catalog.llm, "gpu", () => true)).to.equal(false);
 		expect(consent.declined(catalog.llm.id)).to.equal(true);
+	});
+});
+
+describe("translate/consent carryRemovals", () => {
+	it("keeps a pair removed under the model that replaced it", () => {
+		const removed = memoryConsent();
+		removed.grant("seance-mt/marian-ko#ko-en");
+		removed.grant("seance-mt/marian-ko#en-ko@gpu");
+		carryRemovals(removed, catalog);
+
+		expect(removed.has(catalog.opus["ko-en"].id)).to.equal(true);
+		expect(removed.has(`${catalog.opus["en-ko"].id}@gpu`)).to.equal(true);
+		expect(removed.has(catalog.opus["en-ko"].id)).to.equal(false);
+		expect(removed.has("seance-mt/marian-ko#ko-en")).to.equal(false);
+	});
+
+	it("keeps a stock OPUS-MT pair removed under its chat fine-tune", () => {
+		const removed = memoryConsent();
+		removed.grant("Xenova/opus-mt-de-en");
+		carryRemovals(removed, catalog);
+
+		expect(removed.has("seance-mt/opus-mt-de-en-chat1#de-en")).to.equal(true);
+		expect(removed.has("Xenova/opus-mt-de-en")).to.equal(false);
+	});
+
+	it("leaves an id the deploy still ships alone", () => {
+		const removed = memoryConsent();
+		removed.grant("seance-mt/marian-ko#ko-en");
+		carryRemovals(
+			removed,
+			buildCatalog({cpu: {opus: {"ko-en": {model: "seance-mt/marian-ko"}}}})
+		);
+
+		expect(removed.has("seance-mt/marian-ko#ko-en")).to.equal(true);
 	});
 });

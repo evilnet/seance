@@ -6,8 +6,8 @@
 //
 // Steps: the GPU tier is switched off in settings before the page boots, so
 // every route falls to a CPU model; Settings → Translation downloads
-// Xenova/opus-mt-en-de and its CPU copy must read "Downloaded · <size>"; then the page
-// connects to the dev ircd and translates an English sentence into German
+// Xenova/opus-mt-en-it and its CPU copy must read "Downloaded · <size>"; then the page
+// connects to the dev ircd and translates an English sentence into Italian
 // through the dev console hook (`window.seanceTranslate`), which must come
 // back non-empty and different from the input. With SEANCE_REAL_MODELS=all
 // it also translates into Polish, which routes to NLLB — a ~600 MB download
@@ -36,13 +36,13 @@
 //
 // Needs the dev ircd's plain-WS port on 127.0.0.1:8067. browser-drive uses a
 // throwaway profile, so the weights are fetched fresh on every run (OPUS
-// en-de is ~5 s on a good link; NLLB is the reason "all" is separate).
+// en-it is ~5 s on a good link; NLLB is the reason "all" is separate).
 
 import {TRANSLATION_ON} from "./lib/translation.mjs";
 
 const RUN = Date.now().toString(36);
 const BASE = process.env.SEANCE_BASE || "http://localhost:8021/";
-const OPUS = "Xenova/opus-mt-en-de";
+const OPUS = "Xenova/opus-mt-en-it";
 const NLLB = "Xenova/nllb-200-distilled-600M";
 const ENGLISH = "please keep the timestamps in the log too, I need the ordering";
 
@@ -132,7 +132,7 @@ export default async function run(page) {
 	if (level !== "1" && level !== "all") {
 		console.log(
 			"SKIPPED: translate-cpu-real needs the real engines (network + weight downloads).\n" +
-				"         Run it with SEANCE_REAL_MODELS=1 (OPUS en→de) or =all (also NLLB en→pl)."
+				"         Run it with SEANCE_REAL_MODELS=1 (OPUS en→it) or =all (also NLLB en→pl)."
 		);
 
 		return;
@@ -219,13 +219,13 @@ export default async function run(page) {
 	// goes red then is the engine's doing, not the moment's.
 	await networkReady(page);
 
-	const de = await translate(page, ENGLISH, "de", "en", {
+	const de = await translate(page, ENGLISH, "it", "en", {
 		timeout: TRANSLATE_TIMEOUT,
-		label: "the English → German translation",
+		label: "the English → Italian translation",
 	});
 
 	console.log(
-		`en→de (${de.seconds} s, ${de.chunks} chunks):`,
+		`en→it (${de.seconds} s, ${de.chunks} chunks):`,
 		JSON.stringify(de.result ?? de.error)
 	);
 
@@ -234,10 +234,10 @@ export default async function run(page) {
 	}
 
 	page.check(
-		"en→de came back from a CPU model",
+		"en→it came back from a CPU model",
 		typeof de.result === "string" && de.result.trim().length > 0 && de.result !== ENGLISH
 	);
-	page.check("en→de threw nothing", de.error === undefined);
+	page.check("en→it threw nothing", de.error === undefined);
 	page.check(
 		"the route stayed on the CPU tier",
 		(await page.evaluate(`${STORE}.translation.capability?.tier`)) === "cpu"

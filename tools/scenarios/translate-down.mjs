@@ -30,8 +30,8 @@ const EN = JSON.parse(readFileSync("client/locales/en.json", "utf8"));
 
 export const url = `${BASE}?fakeTranslate`;
 
-const OPUS = "Xenova/opus-mt-en-es";
-const UNTRIED = "Xenova/opus-mt-de-en";
+const OPUS = "seance-mt/opus-mt-en-es-chat1#en-es";
+const UNTRIED = "seance-mt/opus-mt-de-en-chat1#de-en";
 const NLLB = "Xenova/nllb-200-distilled-600M";
 const FAILURE = "Can't create a session: fake model broke";
 

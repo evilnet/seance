@@ -12,7 +12,7 @@
 // new question. Vue-free: the service (service.ts) owns one, index.ts hands
 // it the dialog and the storage.
 
-import {buildIdFor, listedSize} from "./models";
+import {buildIdFor, listedSize, ModelCatalog, RETIRED_SEQ2SEQ} from "./models";
 import type {Device, ModelRef} from "./engine";
 
 /** Where the models the user agreed to download are remembered: their ids. */
@@ -51,6 +51,30 @@ export function consentId(
 	}
 
 	return device === "gpu" ? buildIdFor(ref, maxBufferBytes) : ref.id;
+}
+
+/**
+ * A copy removed under a model this build has replaced stays removed under
+ * the model that serves its pair now (models.ts `RETIRED_SEQ2SEQ`): a new
+ * id is not a new question, and the replacement is under the quiet size,
+ * so without this a pair the user deleted would download again unasked.
+ * Run once the catalog is known; the old ids are dropped as they move.
+ */
+export function carryRemovals(removed: ConsentStore, catalog: ModelCatalog): void {
+	for (const [old, pairKey] of Object.entries(RETIRED_SEQ2SEQ)) {
+		const now = catalog.opus[pairKey]?.id;
+
+		if (!now || now === old) {
+			continue;
+		}
+
+		for (const suffix of ["", "@gpu"]) {
+			if (removed.has(old + suffix)) {
+				removed.grant(now + suffix);
+				removed.revoke(old + suffix);
+			}
+		}
+	}
 }
 
 /**

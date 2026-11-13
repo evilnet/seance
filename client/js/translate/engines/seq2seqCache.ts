@@ -92,3 +92,20 @@ export function seq2seqCacheApi(store: UrlStore): CacheApi {
 		},
 	};
 }
+
+/**
+ * Delete every cached file of `repos`: the models a build replaced
+ * (models.ts `retiredRepos`), which Settings no longer lists and so could
+ * never delete.
+ */
+export async function dropRepos(store: UrlStore, repos: string[]): Promise<void> {
+	if (repos.length === 0) {
+		return;
+	}
+
+	for (const url of await store.keys()) {
+		if (repos.some((repo) => url.includes(`/${repo}/`))) {
+			await store.delete(url);
+		}
+	}
+}

@@ -190,6 +190,47 @@ export const DEFAULT_OPUS_CHAT_PAIRS: Record<string, OpusPairOption> = {
 	"zh-en": opusChat("zh-en", 117_233_669),
 };
 
+/**
+ * Seq2seq models earlier builds shipped by default and this one has
+ * replaced, by the catalog id they had: the pair each served. A device
+ * that removed one keeps the pair removed under its new model
+ * (consent.ts `carryRemovals`), and the old files are deleted from the
+ * cache, where Settings no longer lists them (`retiredRepos`).
+ */
+export const RETIRED_SEQ2SEQ: Record<string, string> = Object.fromEntries([
+	// AfterNET MT's first uploads, and the students the chat fine-tunes replaced.
+	...["marian-ar", "marian-ko", "marian-pl", "marian-pt", "marian-sv", "marian-zh"]
+		.concat(["marian-sv-r29", "marian-zh-r29"])
+		.flatMap((name) => {
+			const code = name.split("-")[1];
+
+			return [
+				[sharedPairId(`seance-mt/${name}`, `en-${code}`), `en-${code}`],
+				[sharedPairId(`seance-mt/${name}`, `${code}-en`), `${code}-en`],
+			];
+		}),
+	// The stock OPUS-MT conversions the chat fine-tunes replaced.
+	...["de", "es", "fr", "ru"].flatMap((code) => [
+		[`Xenova/opus-mt-en-${code}`, `en-${code}`],
+		[`Xenova/opus-mt-${code}-en`, `${code}-en`],
+	]),
+]);
+
+/**
+ * The repos of `RETIRED_SEQ2SEQ` that no model of `catalog` reads: a deploy
+ * that still names one keeps its files.
+ */
+export function retiredRepos(catalog: ModelCatalog): string[] {
+	const inUse = new Set(
+		Object.values(catalog.opus).flatMap((ref) =>
+			copyDevices(ref).map((device) => ref.copies[device]?.source ?? ref.id)
+		)
+	);
+	const repos = new Set(Object.keys(RETIRED_SEQ2SEQ).map((id) => id.split("#")[0]));
+
+	return [...repos].filter((repo) => !inUse.has(repo));
+}
+
 export const DEFAULT_OPUS_PAIRS: Record<string, string | OpusPairOption> = {
 	"it-en": "Xenova/opus-mt-it-en",
 	"en-it": "Xenova/opus-mt-en-it",
