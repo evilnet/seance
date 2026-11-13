@@ -86,6 +86,7 @@ import {
 	presenceRegistered,
 	registrationAwayLine,
 	presenceSnapshot,
+	reportPresence,
 	setAttended,
 	syncPresence,
 } from "./presence";
@@ -3272,7 +3273,18 @@ export class IrcClient {
 	 * the shared keys would stay unknown for the rest of the connection.
 	 */
 	metadataUsableChanged(): void {
+		// Unknown until read again, as after a reconnect: a write built on a
+		// value read before the gap could undo another device's change made
+		// in it. Local choices stay; writes wait for the read (closedPending).
+		this.muteKnown = false;
+		this.presenceKnown = false;
+		this.presenceServer = null;
+		this.globalKnown = false;
+		this.globalServer = null;
+		this.closedKnown = false;
 		this.metadataSubscribed = false;
+		this.mutePending.length = 0;
+		reportPresence(this);
 		this.scheduleMuteRead();
 	}
 
@@ -3727,7 +3739,11 @@ export class IrcClient {
 
 		this.closedPending = false;
 
-		if (!this.isWelcomed || this.transport.state !== "open") {
+		if (
+			!this.isWelcomed ||
+			this.transport.state !== "open" ||
+			!this.caps.hasCapability("draft/metadata-2")
+		) {
 			return;
 		}
 
