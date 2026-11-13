@@ -33,7 +33,11 @@ Spec: `docs/resources/bus-contract.md` § 1.4; server facts:
   either line has one, else both ours, else the same nick. `self` is judged
   by the current nick for a replayed line, so without accounts two replayed
   lines sent under the nick we hold now can read as ours; with accounts it
-  is never consulted.
+  is never consulted. The echo of a line this connection sent carries our
+  account even when the server left `account` off it, as nefarious2 does on
+  a private message with client tags: `handlers/privmsg.ts` asks
+  `pending.ts` `echoedCopy` whether the line answers one of our pending
+  copies, so our own edit in a query is still ours.
   Pencil action in `MessageActions.vue`; `input` carries an optional `edit`
   msgid. ArrowUp in an empty composer edits the newest own message and
   ArrowUp/Down step through them, but only from the composer's top/bottom
