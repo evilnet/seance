@@ -246,7 +246,8 @@
 							name="saslPassword"
 							maxlength="300"
 							autocomplete="current-password"
-							:placeholder="passwordPlaceholder"
+							:placeholder="accountChanged ? undefined : passwordPlaceholder"
+							:required="accountChanged"
 						/>
 					</RevealPassword>
 				</div>
@@ -699,6 +700,12 @@ export default defineComponent({
 		const serverPasswordHelp = computed(() => t("form.serverPasswordHelp"));
 		// The form opened on a configured one: blank keeps it (saved-networks fromForm).
 		const serverPasswordWasSet = !!props.defaults.hasServerPassword;
+		// A blank password keeps the current one only for the same account
+		// (saved-networks fromForm): another account needs its own.
+		const accountWas = (props.defaults.saslAccount ?? "").trim();
+		const accountChanged = computed(
+			() => (props.defaults.saslAccount ?? "").trim() !== accountWas
+		);
 		const browserNotificationsHelp = computed(() => t("form.browserNotificationsHelp"));
 		const store = useStore();
 		const commandsInput = ref<HTMLTextAreaElement | null>(null);
@@ -1051,6 +1058,7 @@ export default defineComponent({
 			pushHelp,
 			serverPasswordHelp,
 			serverPasswordWasSet,
+			accountChanged,
 			browserNotificationsHelp,
 			presenceMode,
 			presenceHint,
