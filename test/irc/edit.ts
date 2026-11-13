@@ -6,7 +6,8 @@ import {EDIT_TIMEOUT_MS} from "../../client/js/irc/client";
 import {MAX_LINE_BYTES, utf8ByteLength} from "../../client/js/irc/message";
 import {ChanType} from "../../shared/types/chan";
 import {MessageType} from "../../shared/types/msg";
-import {ALL_CAPS, batch, joined, labelOf, setup, stubStorage} from "./support";
+import {PENDING_TIMEOUT_MS} from "../../client/js/irc/pending";
+import {ALL_CAPS, batch, Harness, joined, labelOf, setup, stubStorage} from "./support";
 
 interface EditPayload {
 	chan: number;
@@ -16,6 +17,8 @@ interface EditPayload {
 
 const NO_REDACT = ALL_CAPS.replace(" draft/message-redaction", "");
 const NO_ECHO = ALL_CAPS.replace("echo-message ", "");
+const NO_LABELS = ALL_CAPS.replace("labeled-response ", "");
+const MULTILINE = `${ALL_CAPS} draft/multiline=max-bytes=4096,max-lines=10`;
 
 describe("Message edits (REDACT + +seance/edit)", function () {
 	let clock: sinon.SinonFakeTimers;
@@ -409,48 +412,172 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 
 	// nefarious2 builds the sender's echo of a PM that carries client tags by
 	// hand, without `account` (ircd_relay.c relay_private_message), while the
-	// original's echo has it. Our edit's echo is still ours: the edit rule
-	// must not turn it into a second line (nor the query log keep two).
-	describe("our edit's echo in a query, without account-tag", function () {
-		function queryWithOwnLine(label: boolean) {
+	// original's echo has it. A live line from our own nick is ours and
+	// carries our account (handlers/privmsg.ts): the edit rule must not turn
+	// our own edit into a second line, nor the query log keep two.
+	describe("our own live lines in a query, without account-tag", function () {
+		const ORIGINAL = "GkAAAaHT[Kn7Bx";
+		const EDIT = "GkAAAaHT]Wt2CL";
+		const ME = "alice!alice@host.example";
+		const editTags = `+evilnet.github.io/edit=${ORIGINAL};+seance/edit=${ORIGINAL}`;
+
+		/** Logged in (unless `login` is false) with our line in a query with bob, echoed. */
+		function queryWithOwnLine({
+			caps = ALL_CAPS,
+			label = true,
+			login = true,
+			body = "teh",
+		}: {caps?: string; label?: boolean; login?: boolean; body?: string} = {}) {
+			const h = setup();
+			joined(h, caps);
+
+			if (login) {
+				h.transport.line(
+					":irc.test 900 alice alice!a@h testaccount :You are now logged in"
+				);
+			}
+
+			const query = h.client.announceChannel("bob", ChanType.QUERY);
+			h.client.input(query.id, body);
+			const tags = [
+				label && caps.includes("labeled-response") ? "label=s1" : "",
+				`msgid=${ORIGINAL}`,
+				"time=2026-08-25T12:00:01.000Z",
+				login ? "account=testaccount" : "",
+			].filter(Boolean);
+			const sent = body.startsWith("/me ") ? `\x01ACTION ${body.slice(4)}\x01` : body;
+			h.transport.line(`@${tags.join(";")} :${ME} PRIVMSG bob :${sent}`);
+			return {h, query};
+		}
+
+		/** Our edit of the original, and its echo without an account. */
+		function editAndEcho(h: Harness, queryId: number, label: string, text = "the") {
+			h.client.input(queryId, text, {edit: ORIGINAL});
+			const body = text.startsWith("/me ") ? `\x01ACTION ${text.slice(4)}\x01` : text;
+			h.transport.line(
+				`@${editTags};${label}msgid=${EDIT};time=2026-08-25T12:00:02.000Z :${ME} PRIVMSG bob :${body}`
+			);
+		}
+
+		it("takes our edit whose labelled echo has no account", function () {
+			const {h, query} = queryWithOwnLine();
+			editAndEcho(h, query.id, "label=s2;");
+
+			// The echo replaces the original (the pending copy's msg:edit came first).
+			expect(h.lastMessage(query.id).editOf).to.equal(ORIGINAL);
+			expect(h.lastMessage(query.id).fromAccount).to.equal("testaccount");
+			expect(h.client.queryLog.messages("bob").map((m) => m.text)).to.deep.equal(["the"]);
+		});
+
+		it("takes our edit whose unlabelled echo has no account", function () {
+			const {h, query} = queryWithOwnLine({label: false});
+			editAndEcho(h, query.id, "");
+
+			expect(h.lastMessage(query.id).editOf).to.equal(ORIGINAL);
+			expect(h.client.queryLog.messages("bob").map((m) => m.text)).to.deep.equal(["the"]);
+		});
+
+		it("takes our edit without labeled-response", function () {
+			const {h, query} = queryWithOwnLine({caps: NO_LABELS});
+			editAndEcho(h, query.id, "");
+
+			expect(h.lastMessage(query.id).editOf).to.equal(ORIGINAL);
+			expect(h.client.queryLog.messages("bob").map((m) => m.text)).to.deep.equal(["the"]);
+		});
+
+		it("takes our edit whose echo comes after the pending copy timed out", function () {
+			const {h, query} = queryWithOwnLine();
+			h.client.input(query.id, "the", {edit: ORIGINAL});
+			clock.tick(PENDING_TIMEOUT_MS);
+			h.transport.line(
+				`@${editTags};label=s2;msgid=${EDIT};time=2026-08-25T12:00:02.000Z :${ME} PRIVMSG bob :the`
+			);
+
+			expect(h.lastMessage(query.id).editOf).to.equal(ORIGINAL);
+		});
+
+		it("takes an edit from another device of our session, of which we hold no copy", function () {
+			const {h, query} = queryWithOwnLine();
+			h.transport.line(
+				`@${editTags};msgid=${EDIT};time=2026-08-25T12:00:02.000Z :alice!alice@other.example PRIVMSG bob :the`
+			);
+
+			expect(h.lastMessage(query.id).editOf).to.equal(ORIGINAL);
+			expect(h.client.queryLog.messages("bob").map((m) => m.text)).to.deep.equal(["the"]);
+		});
+
+		it("takes our action edit whose echo has no account", function () {
+			const {h, query} = queryWithOwnLine({body: "/me waves"});
+			editAndEcho(h, query.id, "label=s2;", "/me nods");
+
+			const last = h.lastMessage(query.id);
+			expect(last.editOf).to.equal(ORIGINAL);
+			expect(last.type).to.equal(MessageType.ACTION);
+		});
+
+		it("takes our notice's edit whose echo has no account", function () {
 			const h = setup();
 			joined(h);
 			h.transport.line(":irc.test 900 alice alice!a@h testaccount :You are now logged in");
 			const query = h.client.announceChannel("bob", ChanType.QUERY);
-			h.client.input(query.id, "teh");
-			h.transport.line(
-				`@${
-					label ? "label=s1;" : ""
-				}msgid=GkAAAaHT[Kn7Bx;time=2026-08-25T12:00:01.000Z;account=testaccount :alice!alice@host.example PRIVMSG bob :teh`
+			h.transport.line(`@msgid=${ORIGINAL};account=testaccount :${ME} NOTICE bob :teh`);
+			h.transport.line(`@${editTags};msgid=${EDIT} :${ME} NOTICE bob :the`);
+
+			expect(h.lastMessage(query.id).editOf).to.equal(ORIGINAL);
+			expect(h.lastMessage(query.id).type).to.equal(MessageType.NOTICE);
+		});
+
+		it("takes our multiline edit whose echo has no account", function () {
+			const {h, query} = queryWithOwnLine({caps: MULTILINE});
+			h.transport.lines(
+				`@${editTags};msgid=${EDIT};time=2026-08-25T12:00:02.000Z :irc.test BATCH +ml draft/multiline bob`,
+				`@batch=ml :${ME} PRIVMSG bob :the`,
+				`@batch=ml :${ME} PRIVMSG bob :second line`,
+				":irc.test BATCH -ml"
 			);
-			return {h, query};
-		}
 
-		for (const label of [true, false]) {
-			it(`takes our edit whose echo has no account (${
-				label ? "labelled" : "a session alias, unlabelled"
-			})`, function () {
-				const {h, query} = queryWithOwnLine(label);
-				h.client.input(query.id, "the", {edit: "GkAAAaHT[Kn7Bx"});
-				h.transport.line(
-					`@+evilnet.github.io/edit=GkAAAaHT[Kn7Bx;+seance/edit=GkAAAaHT[Kn7Bx;${
-						label ? "label=s2;" : ""
-					}msgid=GkAAAaHT]Wt2CL;time=2026-08-25T12:00:02.000Z :alice!alice@host.example PRIVMSG bob :the`
-				);
+			expect(h.lastMessage(query.id).text).to.equal("the\nsecond line");
+			expect(h.lastMessage(query.id).editOf).to.equal(ORIGINAL);
+		});
 
-				// The echo replaces the original (the pending copy's msg:edit came first).
-				expect(h.lastMessage(query.id).editOf).to.equal("GkAAAaHT[Kn7Bx");
-				expect(h.client.queryLog.messages("bob").map((m) => m.text)).to.deep.equal(["the"]);
+		it("gives our reply's echo our account", function () {
+			const {h, query} = queryWithOwnLine();
+			h.client.input(query.id, "re", {reply: ORIGINAL});
+			h.transport.line(
+				`@+reply=${ORIGINAL};+draft/reply=${ORIGINAL};label=s2;msgid=${EDIT} :${ME} PRIVMSG bob :re`
+			);
+
+			expect(h.lastMessage(query.id).replyTo).to.equal(ORIGINAL);
+			expect(h.lastMessage(query.id).fromAccount).to.equal("testaccount");
+		});
+
+		it("lends no account when we are not logged in (ours still replace ours)", function () {
+			const {h, query} = queryWithOwnLine({login: false});
+			editAndEcho(h, query.id, "label=s2;");
+
+			expect(h.lastMessage(query.id).fromAccount).to.equal(undefined);
+			expect(h.lastMessage(query.id).editOf).to.equal(ORIGINAL);
+		});
+
+		it("keeps the account the server put on the line", function () {
+			const {h, query} = queryWithOwnLine();
+			h.transport.line(`@msgid=${EDIT};account=other :${ME} PRIVMSG bob :hi`);
+
+			expect(h.lastMessage(query.id).fromAccount).to.equal("other");
+		});
+
+		it("lends no account to a replayed line under our nick", function () {
+			const h = setup();
+			joined(h);
+			h.transport.line(":irc.test 900 alice alice!a@h testaccount :You are now logged in");
+			const query = h.client.announceChannel("bob", ChanType.QUERY);
+			batch(h, [`@time=2026-08-25T11:00:00.000Z;msgid=${ORIGINAL} :${ME} PRIVMSG bob :old`], {
+				target: "bob",
+				ref: "r1",
 			});
-		}
 
-		it("still refuses an account-less line under our nick that is not our echo", function () {
-			const {h} = queryWithOwnLine(true);
-			h.transport.line(
-				"@+seance/edit=GkAAAaHT[Kn7Bx;msgid=GkAAAaHT]Wt2CL :alice!x@elsewhere PRIVMSG bob :not me"
-			);
-
-			expect(h.payloads<EditPayload>("msg:edit")).to.have.length(0);
+			const old = h.messages(query.id).find((m) => m.text === "old");
+			expect(old?.fromAccount).to.equal(undefined);
 		});
 	});
 

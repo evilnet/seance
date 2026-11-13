@@ -204,30 +204,6 @@ export function settleEcho(
 	type: MessageType,
 	text: string
 ): PendingMessage | undefined {
-	const entry = echoedCopy(client, chan, msg, type, text);
-
-	if (entry) {
-		if (msg.tags.has("label")) {
-			registryOf(client).labelledEchoes = true; // a label of ours came back on it
-		}
-
-		settlePending(client, entry);
-	}
-
-	return entry;
-}
-
-/**
- * The copy a live message of ours answers, left in place ({@link settleEcho}
- * takes it down): whether the line is the echo of one this connection sent.
- */
-export function echoedCopy(
-	client: IrcClient,
-	chan: Channel,
-	msg: IrcMessage,
-	type: MessageType,
-	text: string
-): PendingMessage | undefined {
 	const registry = registryOf(client);
 	const label = msg.tags.get("label");
 
@@ -243,7 +219,9 @@ export function echoedCopy(
 		return undefined;
 	}
 
-	if (!entry) {
+	if (entry) {
+		registry.labelledEchoes = true;
+	} else {
 		// No usable label. Our echoes carry the text we sent, so match a copy
 		// of the same kind in this channel by exact text: a self message we
 		// never sent (the same account on another device) matches none. Once
@@ -265,6 +243,10 @@ export function echoedCopy(
 		if (!entry && !client.caps.hasCapability("labeled-response")) {
 			entry = kind[0];
 		}
+	}
+
+	if (entry) {
+		settlePending(client, entry);
 	}
 
 	return entry;

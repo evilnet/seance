@@ -8,7 +8,7 @@ import {MessageType, SharedMsg} from "../../../../shared/types/msg";
 import type {IrcClient} from "../client";
 import {authorOf, type Author, type Channel} from "../channel";
 import type {IrcMessage} from "../message";
-import {echoedCopy, settleEcho} from "../pending";
+import {settleEcho} from "../pending";
 import {inRestorationWindow, isRoutineReplayNotice} from "../persistence";
 import {privilegesModified} from "../oper";
 import {noteServicesLine, snoopNicks} from "../servicesfeed";
@@ -245,16 +245,15 @@ function handleMessage(
 	}
 
 	// `account-tag`: the sender's services account, when logged in. Trusting
-	// media "from alice" keys on this, never on the nick. nefarious2 leaves it
-	// off the sender's own echo of a private message that carries client tags
-	// (an edit, a reply): the echo of a line this connection sent is ours and
-	// carries our account, as a local echo does (IrcClient.sendMessage), or
-	// the edit rule (isEditAuthor) would refuse our own edit.
+	// media "from alice" keys on this, never on the nick. A live line from our
+	// own nick is ours: no one else holds the nick, and a bouncer session's
+	// other connections share our account. So it carries our account even
+	// where the server left it off, as nefarious2 does on the sender's echo of
+	// a private message with client tags (an edit, a reply), or the edit rule
+	// (isEditAuthor) would refuse our own edit. A local echo does the same
+	// (IrcClient.sendMessage); a replayed line keeps only what it carries.
 	const account =
-		msg.tags.get("account") ||
-		(self && !client.replaying && client.account && echoedCopy(client, chan, msg, type, text)
-			? client.account
-			: undefined);
+		msg.tags.get("account") || (self && !client.replaying && client.account) || undefined;
 
 	if (account) {
 		message.fromAccount = account;
