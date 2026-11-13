@@ -82,6 +82,14 @@ export interface BrandingFeatures {
 	 * leaves only the account form, for a network that requires an account.
 	 */
 	guestAccess?: boolean;
+	/**
+	 * Let the user edit and remove the saved network. Default true. `false`,
+	 * on a sign-in deploy, keeps the network as the deploy set it: Settings
+	 * → Networks becomes an Account page (connect or disconnect, sign in or
+	 * sign out), and the network's edit form and Remove are gone. Without
+	 * `signIn` it has no effect; `brandingFeatures()` resolves that.
+	 */
+	editNetworks?: boolean;
 }
 
 /**
@@ -290,6 +298,7 @@ export const DEFAULT_BRANDING: BrandingConfig = {
 		saslDisconnectOnFail: true,
 		signIn: false,
 		guestAccess: true,
+		editNetworks: true,
 	},
 	strings: {},
 };
@@ -371,7 +380,8 @@ export function nickFromAccount(account: string, fallback: string): string {
  * Resolved defaults from `features`, with unset flags filled in as `true` —
  * except `signIn`, which is opt-in and needs a `defaultNetwork` to sign in
  * to. A sign-in deploy shows no server fields at all, so it also pins the
- * host the way `allowCustomServer: false` does.
+ * host the way `allowCustomServer: false` does; and `editNetworks: false`
+ * holds only on a sign-in deploy.
  */
 export function brandingFeatures(config: BrandingConfig = current): Required<BrandingFeatures> {
 	const signIn = config.features?.signIn === true && config.defaultNetwork !== undefined;
@@ -383,6 +393,8 @@ export function brandingFeatures(config: BrandingConfig = current): Required<Bra
 		saslDisconnectOnFail: config.features?.saslDisconnectOnFail !== false,
 		signIn,
 		guestAccess: config.features?.guestAccess !== false,
+		// Locking the network only makes sense where the deploy owns it.
+		editNetworks: !signIn || config.features?.editNetworks !== false,
 	};
 }
 
@@ -940,6 +952,7 @@ export function normalizeBranding(
 		"allowCustomServer",
 		"saslDisconnectOnFail",
 		"guestAccess",
+		"editNetworks",
 	] as const) {
 		features[key] = optionalBoolean(rawFeatures[key]) ?? defaults.features?.[key] ?? true;
 	}

@@ -70,6 +70,7 @@ describe("branding", function () {
 				allowCustomServer: true,
 				saslDisconnectOnFail: true,
 				guestAccess: true,
+				editNetworks: true,
 				signIn: false,
 			});
 		});
@@ -97,6 +98,7 @@ describe("branding", function () {
 				allowCustomServer: true,
 				saslDisconnectOnFail: true,
 				guestAccess: true,
+				editNetworks: true,
 				signIn: false,
 			});
 			expect(config.strings).to.deep.equal({"connect.submit": "Go"});
@@ -210,6 +212,7 @@ describe("branding", function () {
 				saslDisconnectOnFail: true,
 				signIn: false,
 				guestAccess: true,
+				editNetworks: true,
 			});
 			expect(brandingFeatures({appName: "x"}).allowCustomServer).to.equal(true);
 			expect(
@@ -325,6 +328,25 @@ describe("branding", function () {
 
 			expect(brandingFeatures(guests).guestAccess).to.equal(true);
 			expect(brandingFeatures(members).guestAccess).to.equal(false);
+		});
+
+		it("locks the network only on a sign-in deploy", function () {
+			const editable = normalizeBranding({defaultNetwork: network, features: {signIn: true}});
+			const locked = normalizeBranding({
+				defaultNetwork: network,
+				features: {signIn: true, editNetworks: false},
+			});
+			// A general IRC client's networks are the user's own: the flag
+			// alone does not take them away.
+			const general = normalizeBranding({
+				defaultNetwork: network,
+				features: {editNetworks: false},
+			});
+
+			expect(brandingFeatures(editable).editNetworks).to.equal(true);
+			expect(brandingFeatures(locked).editNetworks).to.equal(false);
+			expect(general.features?.editNetworks).to.equal(false);
+			expect(brandingFeatures(general).editNetworks).to.equal(true);
 		});
 
 		it("carries its own strings", function () {

@@ -225,13 +225,23 @@ export function createNetwork(options: CreateNetworkOptions): IrcClient {
 		// form's settings win, same rules as `network:edit` in bus.ts.
 		client.applySettings(saved.toConnectOptions(entry));
 
+		if (entry.name && entry.name !== client.name) {
+			client.setNetworkName(entry.name);
+		}
+
+		client.connect();
+
+		// After connect(), not before: a client just told to disconnect (the
+		// sign-in panel ending a guest session) still counts as connected
+		// until connect() settles that close, so `/nick` before it went out
+		// as a NICK on the dead socket and the new registration kept the
+		// old nick. Now a client dialling afresh takes the nick for that
+		// registration, and one that stays on its live connection sends NICK.
 		if (entry.nick && entry.nick !== client.nick) {
 			client.input(client.lobby.id, `/nick ${entry.nick}`);
 		}
 
-		if (entry.name && entry.name !== client.name) {
-			client.setNetworkName(entry.name);
-		}
+		return client;
 	}
 
 	client.connect();

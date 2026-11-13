@@ -102,6 +102,7 @@ import {createNetwork} from "../js/irc/manager";
 import * as saved from "../js/irc/saved-networks";
 import type {SavedNetwork} from "../js/irc/saved-networks";
 import {useI18n} from "../js/i18n";
+import {brandingFeatures} from "../js/branding";
 
 export default defineComponent({
 	name: "DormantNetwork",
@@ -123,7 +124,9 @@ export default defineComponent({
 		const stateLabel = computed(() =>
 			needsPassword.value ? t("sidebar.savedNetworkPassword") : t("sidebar.savedNetworkOff")
 		);
-		const editLabel = computed(() => t("lobby.edit"));
+		const editLabel = computed(() =>
+			brandingFeatures().editNetworks ? t("lobby.edit") : t("lobby.account")
+		);
 
 		const connect = () => {
 			// The entry as stored now: the row's copy is only as new as what
@@ -145,7 +148,13 @@ export default defineComponent({
 		};
 
 		const editNetwork = () => {
-			void router.push(`/settings/networks/${props.network.uuid}`);
+			// A deploy that keeps its network as it set it has no edit form;
+			// the gear opens its Account page instead.
+			void router.push(
+				brandingFeatures().editNetworks
+					? `/settings/networks/${props.network.uuid}`
+					: "/settings/networks"
+			);
 		};
 
 		return {name, connectLabel, stateLabel, editLabel, connect, editNetwork};

@@ -111,6 +111,7 @@ import useMenuTrigger from "../js/hooks/use-menu-trigger";
 import {isOperOn} from "../js/helpers/operMenu";
 import webpush from "../js/webpush";
 import {useI18n} from "../js/i18n";
+import {brandingFeatures} from "../js/branding";
 import ChannelWrapper from "./ChannelWrapper.vue";
 
 import type {ClientChan, ClientNetwork} from "../js/types";
@@ -142,7 +143,13 @@ export default defineComponent({
 		});
 
 		const editNetwork = () => {
-			void router.push(`/settings/networks/${props.network.uuid}`);
+			// A deploy that keeps its network as it set it has no edit form;
+			// the gear opens its Account page instead.
+			void router.push(
+				brandingFeatures().editNetworks
+					? `/settings/networks/${props.network.uuid}`
+					: "/settings/networks"
+			);
 		};
 
 		// The oper panel (Windows/OperPanel.vue): only while opered here.
@@ -303,7 +310,9 @@ export default defineComponent({
 			return network.isCollapsed ? t("lobby.expand") : t("lobby.collapse");
 		};
 
-		const editLabel = computed(() => t("lobby.edit"));
+		const editLabel = computed(() =>
+			brandingFeatures().editNetworks ? t("lobby.edit") : t("lobby.account")
+		);
 
 		return {
 			t,

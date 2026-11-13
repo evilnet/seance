@@ -27,6 +27,7 @@ import ScriptSettings from "../components/Settings/Scripts.vue";
 import ScriptEdit from "../components/Settings/ScriptEdit.vue";
 import NetworkSettings from "../components/Settings/Networks.vue";
 import {ClientChan} from "./types";
+import {brandingFeatures} from "./branding";
 import {shouldShowGeneralSettings} from "./helpers/settingsTabs";
 import {forgetTranslations} from "./translate/reader";
 import * as saved from "./irc/saved-networks";
@@ -59,6 +60,13 @@ const router = createRouter({
 					name: "NetworkEdit",
 					path: "networks/:uuid",
 					component: NetworkEdit,
+					beforeEnter() {
+						// A deploy that keeps its network as it set it has
+						// no edit form; its Account page stands there.
+						if (!brandingFeatures(store.state.branding).editNetworks) {
+							return {name: "Networks"};
+						}
+					},
 				},
 				{
 					name: "General",

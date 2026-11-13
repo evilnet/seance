@@ -16,6 +16,7 @@ import {ChanType} from "../../../shared/types/chan";
 import {banItem, holdsChannelPower} from "./banMenu";
 import {isOperOn, operChannelItems, operUserItems} from "./operMenu";
 import {ignoreListFor} from "../ignore";
+import {brandingFeatures} from "../branding";
 
 type BaseContextMenuItem = {
 	label: string;
@@ -96,16 +97,24 @@ export function generateChannelContextMenu(
 		},
 	];
 
+	// A sign-in deploy that keeps its network as it set it: no edit form,
+	// and no Remove (Settings/Account.vue signs out instead).
+	const editable = brandingFeatures().editNetworks;
+
 	// Add menu items for lobbies
 	if (channel.type === ChanType.LOBBY) {
 		items = [
 			...items,
-			{
-				label: t("menu.editNetwork"),
-				type: "item",
-				class: "edit",
-				link: `/settings/networks/${network.uuid}`,
-			},
+			...(editable
+				? [
+						{
+							label: t("menu.editNetwork"),
+							type: "item" as const,
+							class: "edit",
+							link: `/settings/networks/${network.uuid}`,
+						},
+				  ]
+				: []),
 			{
 				label: t("menu.joinChannel"),
 				type: "item",
@@ -275,14 +284,16 @@ export function generateChannelContextMenu(
 	}
 
 	// Add close menu item
-	items.push({
-		label: closeMap[channel.type],
-		type: "item",
-		class: "close",
-		action() {
-			closeChannel();
-		},
-	});
+	if (channel.type !== ChanType.LOBBY || editable) {
+		items.push({
+			label: closeMap[channel.type],
+			type: "item",
+			class: "close",
+			action() {
+				closeChannel();
+			},
+		});
+	}
 
 	return items;
 }

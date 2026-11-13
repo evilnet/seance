@@ -479,7 +479,7 @@ import {computed, defineComponent, onMounted, reactive, ref, watch} from "vue";
 
 import {useStore} from "../../js/store";
 import {brandingFeatures, expandNick, nickFromAccount} from "../../js/branding";
-import {autoconnectSavedNetworks, createNetwork} from "../../js/irc/manager";
+import {autoconnectSavedNetworks, clientForNetwork, createNetwork} from "../../js/irc/manager";
 import * as saved from "../../js/irc/saved-networks";
 import {defaultPort, SavedNetwork} from "../../js/irc/saved-networks";
 import {isShell, macDragRegion} from "../../js/helpers/shell";
@@ -773,9 +773,20 @@ export default defineComponent({
 		const start = (options: {rememberPassword: boolean; autoconnect: boolean}) => {
 			submitted.value = {...form};
 			notice.value = "";
+			const uuid = (signInMode ? signInUuid() : selectedUuid.value) ?? undefined;
+			const live = signInMode && uuid ? clientForNetwork(uuid) : undefined;
+
+			// Signing in over a live session (a guest choosing Sign in on the
+			// Account page): the new identity is the point, so end that
+			// connection now. Left up, the credentials would only wait for
+			// its next reconnect (`applySettings`).
+			if (live && live.state !== "disconnected") {
+				live.disconnect();
+			}
+
 			const client = createNetwork({
 				...submitted.value,
-				uuid: (signInMode ? signInUuid() : selectedUuid.value) ?? undefined,
+				uuid,
 				hasServerPassword: !!submitted.value.serverPassword,
 				pushEnabled: pushEnabled.value,
 				notifyEnabled: notifyEnabled.value,
