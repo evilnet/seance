@@ -516,6 +516,16 @@ describe("Bouncers: soju's networks (soju.im/bouncer-networks)", function () {
 		expect(notes).to.have.length(1);
 	});
 
+	it("takes soju's admin +o on the control connection as no oper: no PRIVS to soju", async function () {
+		const h = setup({onBouncerNetworks: () => ({added: [], over: []})});
+		control(h, SOJU_CAPS.replace("batch", "batch labeled-response"));
+		h.transport.line(`:${h.client.nick}!${h.client.nick}@host MODE ${h.client.nick} +o`);
+		await Promise.resolve();
+
+		expect(h.client.oper.level).to.equal("none");
+		expect(h.transport.sent.some((line) => /PRIVS/.test(line))).to.equal(false);
+	});
+
 	it("binds a network added from the bouncer before CAP END", function () {
 		const h = setup({bouncerNetId: "42"});
 		h.client.connect();
