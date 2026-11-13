@@ -543,12 +543,12 @@ describe("multiple networks", function () {
 				expect(saved.needsPassword(saved.get("net-a")!)).to.equal(true);
 			});
 
-			it("keeps it across an account change, as a remembered one is kept", function () {
+			it("drops it on an account change: a password belongs to its account", function () {
 				const a = live();
 
 				socket.emit("network:edit", form({saslAccount: "bob"}));
 
-				expect(a.options).to.include({saslAccount: "bob", saslPassword: "pw"});
+				expect(a.options).to.include({saslAccount: "bob", saslPassword: ""});
 			});
 
 			it("keeps it for a missing or whitespace-only field", function () {
