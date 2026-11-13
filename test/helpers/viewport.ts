@@ -1,6 +1,14 @@
 import {expect} from "chai";
 import sinon from "sinon";
-import {effectiveHeight, keyboardUp, settle} from "../../client/js/helpers/viewport";
+import {
+	effectiveHeight,
+	KEYBOARD_RESET_DELAY_MS,
+	keyboardUp,
+	resetKeyboardSoon,
+	settle,
+} from "../../client/js/helpers/viewport";
+
+const g = globalThis as {window?: unknown};
 
 describe("visual viewport sizing (helpers/viewport.ts)", function () {
 	it("trusts the visual viewport while a text field has focus", function () {
@@ -66,6 +74,72 @@ describe("visual viewport sizing (helpers/viewport.ts)", function () {
 			settle(apply, [50, 150])();
 			clock.tick(1000);
 			expect(apply.callCount).to.equal(1);
+		});
+	});
+
+	describe("resetKeyboardSoon", function () {
+		let clock: sinon.SinonFakeTimers;
+
+		beforeEach(function () {
+			clock = sinon.useFakeTimers();
+		});
+
+		afterEach(function () {
+			clock.restore();
+		});
+
+		// Set and removed inside each test: mocha's leak check runs between hooks.
+		function inWindow(win: object, fn: () => void): void {
+			g.window = win;
+
+			try {
+				fn();
+			} finally {
+				delete g.window;
+			}
+		}
+
+		function shell(platform: string, calls: string[]) {
+			return {
+				seanceShell: {
+					platform,
+					call(plugin: string, method: string) {
+						calls.push(`${plugin}.${method}`);
+						return Promise.resolve({});
+					},
+					listen() {},
+				},
+			};
+		}
+
+		it("asks the iOS shell once, after the last of a burst of edits", function () {
+			const calls: string[] = [];
+
+			inWindow(shell("ios", calls), () => {
+				// The send's clear, then the late Return taken back out.
+				resetKeyboardSoon();
+				clock.tick(70);
+				resetKeyboardSoon();
+				clock.tick(KEYBOARD_RESET_DELAY_MS - 1);
+				expect(calls).to.deep.equal([]);
+				clock.tick(1);
+				expect(calls).to.deep.equal(["Keyboard.reset"]);
+				clock.tick(1000);
+				expect(calls).to.deep.equal(["Keyboard.reset"]);
+			});
+		});
+
+		it("does nothing outside the iOS shell", function () {
+			const calls: string[] = [];
+
+			for (const win of [shell("android", calls), {}]) {
+				inWindow(win, () => {
+					resetKeyboardSoon();
+					clock.tick(1000);
+				});
+			}
+
+			expect(calls).to.deep.equal([]);
 		});
 	});
 });
