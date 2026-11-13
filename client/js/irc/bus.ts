@@ -359,13 +359,19 @@ export function registerBusHandlers(bus: EventBus, registry: ClientRegistry): vo
 
 		// Unsaved live network (e.g. `/connect host`): seed from its options,
 		// and the mode the lobby dot set (the form posts none it was not given).
-		const base =
-			existing ??
-			saved.normalize({
-				...(client?.editableInfo ?? {}),
-				uuid,
-				presenceMode: client?.presenceMode,
-			});
+		// A password that is not remembered is stored blank, but the client
+		// still holds it, and a blank field keeps it (fromForm). save() keeps
+		// it off disk unless Remember is on.
+		const base = existing
+			? {
+					...existing,
+					saslPassword: existing.saslPassword || client?.nextOptions.saslPassword || "",
+			  }
+			: saved.normalize({
+					...(client?.editableInfo ?? {}),
+					uuid,
+					presenceMode: client?.presenceMode,
+			  });
 		const next = saved.fromForm(data, base);
 		// A different mode from the form is a choice made now (shared,
 		// irc/presenceShare.ts); the same mode posted again is not.
