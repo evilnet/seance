@@ -146,13 +146,8 @@ export function registerBusHandlers(bus: EventBus, registry: ClientRegistry): vo
 	bus.handle("webpush:metadata", ({network, key, value}) => {
 		const client = registry.clientForNetwork(network);
 
-		// Only where metadata is in use (with batch, which it needs).
-		if (client && client.caps.hasCapability("draft/metadata-2")) {
-			const line = client.metadataSetLine(key, value);
-
-			if (line) {
-				client.send(line);
-			}
+		if (client) {
+			client.writePayloadTier(key, value);
 		}
 	});
 

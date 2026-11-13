@@ -435,6 +435,8 @@ export class IrcClient {
 	}
 	/** The user changed DND by hand: the next sync takes the live `*` entry as ours (pushMute.ts `claimMute`). */
 	muteClaim = false;
+	/** A payload-tier write asked for while metadata was out of use: sent once it is in use. */
+	private payloadPending: {key: string; value: string} | null = null;
 	/** The pill's Off came before the mute list was read: it is done once the read answers (pushMute.ts `clearRemoteDnd`). */
 	muteClearPending = false;
 	/** Another device cleared our entry: write nothing until local DND ends and starts again. */
@@ -2049,6 +2051,7 @@ export class IrcClient {
 
 		presenceRegistered(this);
 		this.scheduleMuteRead();
+		this.flushPayloadTier();
 		flushDeferredMarkRead(this);
 		operRegistered(this);
 
@@ -3294,6 +3297,34 @@ export class IrcClient {
 		// A remote DND this connection was away for is unknown now: AWAY follows.
 		syncPresence(this);
 		this.scheduleMuteRead();
+		this.flushPayloadTier();
+	}
+
+	private flushPayloadTier(): void {
+		const pending = this.payloadPending;
+
+		if (pending && this.caps.hasCapability("draft/metadata-2")) {
+			this.writePayloadTier(pending.key, pending.value);
+		}
+	}
+
+	/**
+	 * Write the web push payload tier (bus.ts `webpush:metadata`). Only
+	 * with metadata in use, which needs batch; otherwise the write waits
+	 * for metadata to come (back) into use (registration, or a CAP ACK).
+	 */
+	writePayloadTier(key: string, value: string): void {
+		if (!this.isWelcomed || !this.caps.hasCapability("draft/metadata-2")) {
+			this.payloadPending = {key, value};
+			return;
+		}
+
+		this.payloadPending = null;
+		const line = this.metadataSetLine(key, value);
+
+		if (line) {
+			this.send(line);
+		}
 	}
 
 	private clearMuteRead(): void {
