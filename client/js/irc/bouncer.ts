@@ -121,9 +121,18 @@ export function takeNetworkLine(client: IrcClient, msg: IrcMessage): NetworkChan
 		return {removed: id};
 	}
 
-	const attrs: BouncerAttrs = {...client.bouncerNetworks.get(id)};
+	const given = parseTags(raw);
+	const known = client.bouncerNetworks.get(id);
 
-	for (const [key, value] of parseTags(raw)) {
+	// A change for a network we never heard of that does not say what it is
+	// (`state=connected` alone) is not a network to add, named by its id.
+	if (!known && !given.get("name") && !given.get("host")) {
+		return undefined;
+	}
+
+	const attrs: BouncerAttrs = {...known};
+
+	for (const [key, value] of given) {
 		if (value === "") {
 			delete attrs[key];
 		} else {

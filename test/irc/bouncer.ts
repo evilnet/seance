@@ -463,6 +463,20 @@ describe("Bouncers: soju's networks (soju.im/bouncer-networks)", function () {
 		expect(offered).to.deep.equal([]);
 	});
 
+	it("takes a state-only update for a network it never added as nothing new", function () {
+		const offered: BouncerNetwork[] = [];
+		const h = setup({
+			onBouncerNetworks(networks) {
+				offered.push(...networks);
+				return {added: [], over: []};
+			},
+		});
+		control(h);
+		h.transport.line(":irc.test BOUNCER NETWORK 3 state=connected;error");
+
+		expect(offered).to.deep.equal([]);
+	});
+
 	it("binds a network added from the bouncer before CAP END", function () {
 		const h = setup({bouncerNetId: "42"});
 		h.client.connect();
