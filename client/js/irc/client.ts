@@ -1894,6 +1894,8 @@ export class IrcClient {
 		this.metadataSubscribed = false;
 		this.metadataBeforeConnect = false;
 		this.mutePending.length = 0;
+		// A tier asked for on this connection is not re-sent on the next.
+		this.payloadPending = null;
 		presenceClosed(this);
 		// The wait before the transport's retry, for the UI to count down;
 		// an immediate retry has nothing worth counting. Whether it is the

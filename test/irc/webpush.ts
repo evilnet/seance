@@ -182,6 +182,18 @@ describe("Web Push subscription (draft/webpush)", function () {
 			expect(h.sent().filter((l) => l.includes("SET"))).to.deep.equal([]);
 		});
 
+		it("forgets a waiting payload tier when the connection closes", function () {
+			const noBatch = ALL_CAPS.replace(" batch ", " ");
+			const h = setup();
+			register(h, `${noBatch} cap-notify draft/metadata-2 draft/webpush=vapid=${VAPID}`);
+			h.client.writePayloadTier("draft/webpush/payload", "full");
+			h.transport.closed();
+			h.transport.sent.length = 0; // register() ACKs the first CAP REQ it finds
+			register(h, `${ALL_CAPS} draft/metadata-2 draft/webpush=vapid=${VAPID}`);
+			expect(h.transport.sent.some((l) => l.includes(" batch "))).to.equal(true);
+			expect(h.transport.sent.filter((l) => l.includes("SET"))).to.deep.equal([]);
+		});
+
 		it("writes no payload tier without metadata in use (it needs batch)", function () {
 			const noBatch = ALL_CAPS.replace(" batch ", " ");
 			expect(
