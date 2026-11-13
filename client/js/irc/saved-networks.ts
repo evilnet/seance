@@ -27,6 +27,7 @@ import {forgetPresenceSync} from "./presenceSync";
 import {forgetUserAway} from "./userAwayStore";
 import {forgetLogin} from "./saslTrust";
 import type {ConnectOptions} from "./types";
+import {accountRequired} from "../branding";
 import {PRESENCE_MODES, type NetworkMode, type PresenceMode} from "../helpers/dnd";
 import type {ServicesConfig} from "../../../shared/types/network";
 
@@ -501,13 +502,20 @@ export function withTrustedCertificate(net: SavedNetwork, sha256: string): Saved
 }
 
 /**
- * The entry cannot connect as saved: a password it needs was not kept on
- * disk (`rememberPassword` off), so it waits for the connect form.
+ * The entry cannot connect as saved, so it waits for the connect form: a
+ * password it needs was not kept on disk (`rememberPassword` off), or it
+ * logs in with nothing on a deploy that lets only accounts in
+ * (`accountRequired`) — a guest's entry from before guests were turned
+ * off, which the sign-in panel replaces with a login.
  */
-export function needsPassword(net: SavedNetwork): boolean {
+export function needsPassword(
+	net: SavedNetwork,
+	loginRequired: boolean = accountRequired()
+): boolean {
 	return (
 		(net.sasl === "plain" && !net.saslPassword) ||
-		(!!net.hasServerPassword && !net.serverPassword)
+		(!!net.hasServerPassword && !net.serverPassword) ||
+		(loginRequired && !net.sasl)
 	);
 }
 

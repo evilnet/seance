@@ -1,6 +1,7 @@
 import {expect} from "chai";
 import * as saved from "../../client/js/irc/saved-networks";
 import type {SavedNetwork, StorageBackend} from "../../client/js/irc/saved-networks";
+import {normalizeBranding, resetBranding, setBranding} from "../../client/js/branding";
 import {
 	loginTrusted,
 	trustLogin,
@@ -656,6 +657,45 @@ describe("saved-networks", function () {
 
 		expect(calls).to.equal(0);
 		expect(saved.get(net.uuid)?.cursor).to.deep.equal({msgid: "a", time: 1});
+	});
+
+	describe("needsPassword on a deploy that lets only accounts in", function () {
+		afterEach(resetBranding);
+
+		const login = {sasl: "plain" as const, saslAccount: "alice", saslPassword: "pw"};
+
+		it("holds back an entry that logs in with nothing", function () {
+			// A guest's entry from before guests were turned off: autoconnect
+			// skips it, a link to it and its sidebar row open the sign-in
+			// panel instead of registering a stranger.
+			expect(saved.needsPassword(entry(), true)).to.equal(true);
+			expect(saved.needsPassword(entry(login), true)).to.equal(false);
+			expect(saved.needsPassword(entry({...login, saslPassword: ""}), true)).to.equal(true);
+		});
+
+		it("leaves a guest's entry alone anywhere else", function () {
+			expect(saved.needsPassword(entry(), false)).to.equal(false);
+			expect(saved.needsPassword(entry())).to.equal(false); // the default deploy
+		});
+
+		it("reads the deploy from the loaded config by default", function () {
+			setBranding(
+				normalizeBranding({
+					defaultNetwork: {host: "irc.example.org"},
+					features: {signIn: true, guestAccess: false},
+				})
+			);
+			expect(saved.needsPassword(entry())).to.equal(true);
+			expect(saved.needsPassword(entry(login))).to.equal(false);
+
+			setBranding(
+				normalizeBranding({
+					defaultNetwork: {host: "irc.example.org"},
+					features: {signIn: true},
+				})
+			);
+			expect(saved.needsPassword(entry())).to.equal(false);
+		});
 	});
 
 	describe("server password", function () {

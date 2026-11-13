@@ -2,6 +2,7 @@ import {expect} from "chai";
 import sinon from "sinon";
 import {
 	DEFAULT_BRANDING,
+	accountRequired,
 	brandingFeatures,
 	brandingString,
 	brandingT,
@@ -347,6 +348,35 @@ describe("branding", function () {
 			expect(brandingFeatures(locked).editNetworks).to.equal(false);
 			expect(general.features?.editNetworks).to.equal(false);
 			expect(brandingFeatures(general).editNetworks).to.equal(true);
+		});
+
+		it("requires an account only on a sign-in panel without its guest half", function () {
+			const config = (features: Record<string, boolean>, withNetwork = true) =>
+				normalizeBranding({...(withNetwork ? {defaultNetwork: network} : {}), features});
+
+			expect(accountRequired(config({signIn: true, guestAccess: false}))).to.equal(true);
+			expect(accountRequired(config({signIn: true}))).to.equal(false);
+			expect(accountRequired(config({signIn: true, guestAccess: true}))).to.equal(false);
+			// guestAccess speaks for the panel: without one (no signIn, or a
+			// signIn with no network to sign in to) there is nothing to close.
+			expect(accountRequired(config({guestAccess: false}))).to.equal(false);
+			expect(accountRequired(config({signIn: true, guestAccess: false}, false))).to.equal(
+				false
+			);
+			expect(accountRequired(normalizeBranding({}))).to.equal(false);
+		});
+
+		it("reads the loaded config by default", function () {
+			expect(accountRequired()).to.equal(false);
+			setBranding(
+				normalizeBranding({
+					defaultNetwork: network,
+					features: {signIn: true, guestAccess: false},
+				})
+			);
+			expect(accountRequired()).to.equal(true);
+			resetBranding();
+			expect(accountRequired()).to.equal(false);
 		});
 
 		it("carries its own strings", function () {
