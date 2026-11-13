@@ -38,9 +38,11 @@
  * cap is on, else by target. `FAIL CHATHISTORY`, a labeled `ACK` or a
  * {@link HISTORY_TIMEOUT_MS} timeout answer the pending `more` with no
  * messages so the UI never sticks in `historyLoading` (bus-contract §more).
+ * A refusal (`INVALID_TARGET`) is not shown, and the target is not asked
+ * again until our account changes ({@link chatHistoryFailed}).
  */
 
-import {ChanType} from "../../../shared/types/chan";
+import {ChanState, ChanType} from "../../../shared/types/chan";
 import type {SharedMsg} from "../../../shared/types/msg";
 import type {Channel, MsgRef} from "./channel";
 import type {IdBlock} from "./ids";
@@ -170,7 +172,8 @@ function canRequest(client: IrcClient, chan: Channel): boolean {
 	return (
 		historyEnabled(client) &&
 		client.isWelcomed && // before 001 it is `451 Register first.`
-		(chan.type === ChanType.CHANNEL || chan.type === ChanType.QUERY)
+		(chan.type === ChanType.CHANNEL || chan.type === ChanType.QUERY) &&
+		chan.historyDenied !== client.account // refused as we are (chatHistoryFailed)
 	);
 }
 
@@ -949,13 +952,45 @@ function deliverCatchup(client: IrcClient, target: string, lines: IrcMessage[]):
 	runAfter(after);
 }
 
-/** `FAIL CHATHISTORY <code> [subcommand|target…] :text` (called by standard-replies.ts). */
-export function chatHistoryFailed(client: IrcClient, msg: IrcMessage): void {
-	const request = findRequest(client, msg.tags.get("label"), msg.params.slice(2, -1));
+/**
+ * `FAIL CHATHISTORY <code> [subcommand|target…] :text` (called by
+ * standard-replies.ts): answers the request it belongs to. True when the
+ * user is not to see it: `INVALID_TARGET` for a target we asked about,
+ * which the spec also sends for a target the client may not read. A
+ * network can keep history for logged-in accounts only (nefarious2's
+ * CHATHISTORY_REQUIRE_AUTH, on at AfterNET; a `+H` channel is open to
+ * everyone), so to someone not logged in every channel answers this, on
+ * every connect. The target is then not asked again as this account
+ * (Channel.historyDenied) — a channel only when the refusal came while we
+ * were in it: one whose JOIN failed is refused the same way (nefarious2
+ * serves members only), and the JOIN's own numeric has said why.
+ */
+export function chatHistoryFailed(client: IrcClient, msg: IrcMessage): boolean {
+	const label = msg.tags.get("label");
+	const context = msg.params.slice(2, -1);
+	const request = findRequest(client, label, context);
 
-	if (request) {
-		resolve(client, request, null, "fail");
+	if (!request) {
+		return false;
 	}
+
+	resolve(client, request, null, "fail");
+
+	const ours =
+		(label !== undefined && request.label === label) ||
+		context.some((param) => client.namesEqual(param, request.target));
+
+	if ((msg.params[1] ?? "").toUpperCase() !== "INVALID_TARGET" || !ours) {
+		return false;
+	}
+
+	const {chan} = request;
+
+	if (chan.type === ChanType.QUERY || chan.state === ChanState.JOINED) {
+		chan.historyDenied = client.account;
+	}
+
+	return true;
 }
 
 /**

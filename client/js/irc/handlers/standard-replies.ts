@@ -8,7 +8,9 @@
  * `MULTILINE_COOLDOWN`, which is the server pacing us: the batch goes out
  * again when the cooldown is over, and nothing is said. `WARN BATCH
  * MULTILINE_FALLBACK` — one per multi-line message — is silent, and so is
- * `FAIL PERSISTENCE` about the catch-up cursor (../persistence.ts).
+ * `FAIL PERSISTENCE` about the catch-up cursor (../persistence.ts), and
+ * `FAIL CHATHISTORY INVALID_TARGET` answering a history request of ours (the
+ * server may not let us read that target: ../history.ts).
  * `FAIL WEBPUSH <code> <command> [<endpoint>] :text` becomes `webpush:state`
  * (../webpush.ts); everything else is shown raw.
  */
@@ -172,7 +174,11 @@ function reply(kind: "FAIL" | "WARN" | "NOTE"): Handler {
 				return; // our TARGETS: the catch-up goes in JOIN order (catchup.ts)
 			}
 
-			chatHistoryFailed(client, msg); // answers the pending `more`; still shown below
+			// Answers the pending request; a refusal of one is routine and
+			// unshown (history.ts), any other failure is still shown below.
+			if (chatHistoryFailed(client, msg)) {
+				return;
+			}
 		}
 
 		if (kind === "FAIL" && command.toUpperCase() === "REDACT") {

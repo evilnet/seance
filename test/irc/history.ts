@@ -1952,4 +1952,151 @@ describe("Chat history (history.ts)", function () {
 			expect(sent.find((l) => l.includes("CHATHISTORY"))).to.match(/LATEST #seance \* 50$/);
 		});
 	});
+
+	describe("refused history (FAIL CHATHISTORY INVALID_TARGET)", function () {
+		// nefarious2 with CHATHISTORY_REQUIRE_AUTH (AfterNET) answers this for
+		// every channel to a client that is not logged in, on every connect.
+		const NO_ACCESS = "No access to target";
+
+		/** The server refuses the CHATHISTORY among `sent`. */
+		function refuse(h: Harness, sent: string[], target = "#seance"): void {
+			const line = sent.find((l) => l.includes("CHATHISTORY"));
+			expect(line, "a CHATHISTORY was sent").to.be.a("string");
+			const label = labelOf(line);
+			const subcommand = (line as string).match(/CHATHISTORY (\w+)/)![1];
+			h.transport.line(
+				`${
+					label ? `@label=${label} ` : ""
+				}:irc.test FAIL CHATHISTORY INVALID_TARGET ${subcommand} ${target} :${NO_ACCESS}`
+			);
+		}
+
+		/** Lines anywhere that show the refusal. */
+		function shown(): string[] {
+			return msgs()
+				.map((p) => p.msg.text ?? "")
+				.filter((text) => text.includes(NO_ACCESS));
+		}
+
+		function historyLines(sent: string[]): string[] {
+			return sent.filter((l) => l.includes("CHATHISTORY"));
+		}
+
+		/** Drop the connection and come back, not logged in, into #seance. */
+		function reconnect(h: Harness): string[] {
+			h.transport.closed();
+			dispatch.resetHistory();
+			h.client.connect();
+			h.transport.open();
+			h.transport.line(
+				"@time=x :irc.test CAP * LS :draft/chathistory=100 labeled-response batch message-tags server-time"
+			);
+			const req = h.transport.sent.find(
+				(l, i) => i >= h.transport.sent.length - 4 && l.startsWith("CAP REQ :")
+			);
+			h.transport.line(
+				`:irc.test CAP alice ACK :${(req as string).slice("CAP REQ :".length)}`
+			);
+			h.transport.lines(
+				":irc.test 001 alice :Welcome back",
+				":irc.test 005 alice CHANTYPES=#& PREFIX=(ov)@+ CHANMODES=b,k,l,imnpst CASEMAPPING=rfc1459 CHATHISTORY=100 MSGREFTYPES=timestamp,msgid :are supported by this server",
+				":irc.test 422 alice :MOTD File is missing"
+			);
+			h.sent();
+			h.transport.lines(
+				"@time=2026-08-25T12:30:00.000Z;msgid=join-2 :alice!alice@host JOIN #seance",
+				":irc.test 353 alice = #seance :@alice bob",
+				":irc.test 366 alice #seance :End of /NAMES list."
+			);
+			return h.sent();
+		}
+
+		it("answers the JOIN fill with nothing, shows nothing, and closes the button", function () {
+			const h = setup();
+			refuse(h, join(h));
+			const chan = h.client.findChannel("#seance")!;
+
+			expect(mores(chan.id)).to.deep.equal([
+				{
+					chan: chan.id,
+					messages: [],
+					totalMessages: chan.shared.totalMessages,
+					moreAvailable: false,
+				},
+			]);
+			expect(pendingHistory(h.client)).to.have.length(0);
+			expect(shown()).to.deep.equal([]);
+			expect(chan.historyDenied).to.equal("");
+		});
+
+		it("is not asked again: scrolling up is answered at once", function () {
+			const h = setup();
+			refuse(h, join(h));
+			const id = h.chan();
+			dispatch.resetHistory();
+
+			socket.emit("more", {target: id, lastId: -1, condensed: false});
+
+			expect(historyLines(h.sent())).to.deep.equal([]);
+			expect(mores(id)).to.have.length(1);
+			expect(mores(id)[0].messages).to.deep.equal([]);
+		});
+
+		it("is not asked again after a reconnect as the same account", function () {
+			const h = setup();
+			refuse(h, join(h));
+
+			expect(historyLines(reconnect(h))).to.deep.equal([]);
+			expect(shown()).to.deep.equal([]);
+		});
+
+		it("is asked again once we log in", function () {
+			const h = setup();
+			refuse(h, join(h));
+			const id = h.chan();
+			reconnect(h);
+
+			h.transport.line(
+				":irc.test 900 alice alice!alice@host alice :You are now logged in as alice"
+			);
+			socket.emit("more", {target: id, lastId: -1, condensed: false});
+
+			expect(historyLines(h.sent())).to.have.length(1);
+			expect(historyLines(h.transport.sent.slice(-1))[0]).to.match(
+				/CHATHISTORY LATEST #seance \* 100$/
+			);
+		});
+
+		it("matches by target without labels", function () {
+			const h = setup({labels: false});
+			refuse(h, join(h));
+
+			expect(shown()).to.deep.equal([]);
+			expect(h.client.findChannel("#seance")!.historyDenied).to.equal("");
+		});
+
+		it("is silent but not remembered when we were no longer in the channel", function () {
+			// A JOIN the server turned down draws the same answer (nefarious2
+			// serves members only): that says nothing about a later JOIN.
+			const h = setup();
+			const sent = join(h);
+			h.transport.line(":bob!bob@host KICK #seance alice :out");
+			refuse(h, sent);
+
+			expect(shown()).to.deep.equal([]);
+			expect(h.client.findChannel("#seance")!.historyDenied).to.equal(undefined);
+		});
+
+		it("still shows the refusal of a request that is not ours", function () {
+			// A `/quote CHATHISTORY …` the user typed: no request of ours waits.
+			const h = setup();
+			joined(h);
+
+			h.transport.line(
+				`:irc.test FAIL CHATHISTORY INVALID_TARGET LATEST #elsewhere :${NO_ACCESS}`
+			);
+
+			expect(shown()).to.have.length(1);
+		});
+	});
 });

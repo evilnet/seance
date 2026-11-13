@@ -197,6 +197,16 @@ export class Channel {
 	 */
 	historyFilled = false;
 	/**
+	 * The server refused this target's history (`FAIL CHATHISTORY
+	 * INVALID_TARGET`) while we were in it, and this is the account we were
+	 * logged in as then ("" for none). Not asked again while that account
+	 * stays the same, reconnects included: a login (or logout) lifts it, and
+	 * so does a reload. A network may keep history for logged-in accounts
+	 * only (nefarious2's CHATHISTORY_REQUIRE_AUTH, on at AfterNET), so this is
+	 * a routine answer, not an error (history.ts `chatHistoryFailed`).
+	 */
+	historyDenied: string | undefined = undefined;
+	/**
 	 * Open, but its reader was taken to an older message: nothing is read until
 	 * they reach the bottom ({@link IrcClient.isReading}). What we say still reads it,
 	 * and so do reads from other sessions.
