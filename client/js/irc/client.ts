@@ -621,6 +621,8 @@ export class IrcClient {
 	 * connection (bouncer.ts `takeNetworkLine`): what the bouncer panel lists.
 	 */
 	readonly bouncerNetworks = new Map<string, BouncerAttrs>();
+	/** This connection said already why a login without SASL gets no networks (bouncer.ts). */
+	bouncerSaslNoted = false;
 
 	private saslTimer: ReturnType<typeof setTimeout> | null = null;
 	private readonly bus: Pick<EventBus, "dispatch">;
@@ -2234,6 +2236,7 @@ export class IrcClient {
 		// REGISTER sent before CAP END is silently dropped by nefarious2.
 		// A bouncer's control connection: what networks it has (bouncer.ts).
 		this.bouncerNetworks.clear();
+		this.bouncerSaslNoted = false;
 		listNetworks(this);
 
 		this.dispatch("webpush:available", {

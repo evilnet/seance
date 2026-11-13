@@ -500,6 +500,22 @@ describe("Bouncers: soju's networks (soju.im/bouncer-networks)", function () {
 		]);
 	});
 
+	it("says in the lobby why a login without SASL gets no networks", function () {
+		const h = setup({onBouncerNetworks: () => ({added: [], over: []})});
+		register(h, SOJU_CAPS);
+		h.transport.lines(
+			":irc.test BATCH +n soju.im/bouncer-networks",
+			"@batch=n :irc.test BOUNCER NETWORK 7 name=EFnet",
+			":irc.test BATCH -n",
+			":irc.test BOUNCER NETWORK 8 name=IRCnet"
+		);
+
+		const notes = h
+			.messages(h.client.lobby.id)
+			.filter((m) => (m.text ?? "").startsWith("This bouncer has networks"));
+		expect(notes).to.have.length(1);
+	});
+
 	it("binds a network added from the bouncer before CAP END", function () {
 		const h = setup({bouncerNetId: "42"});
 		h.client.connect();

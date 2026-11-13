@@ -558,6 +558,12 @@ msgctxt "bouncer.noAnswer"
 msgid "No answer."
 msgstr "Geen antwoord."
 
+#. Lobby note on a bouncer's control connection (soju) that logged in without SASL: the bouncer lists networks, but they can only be added as networks of their own after a SASL login. Shown once per connection.
+#: client/js/irc/bouncer.ts
+msgctxt "bouncer.saslNeeded"
+msgid "This bouncer has networks, but they are added here only after a SASL login. Turn on SASL in this network's settings to get them."
+msgstr ""
+
 #. Error in the bouncer panel when the bouncer sent no reply to a request in time.
 #: client/js/irc/bouncer.ts
 msgctxt "bouncer.timeout"

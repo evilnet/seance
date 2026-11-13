@@ -242,7 +242,18 @@ function offer(client: IrcClient, networks: BouncerNetwork[]): void {
 	// A bound network logs in the way the control connection did. soju
 	// binds only an account it authenticated with SASL (a PASS login is
 	// answered ACCOUNT_REQUIRED), so without SASL nothing is added.
-	if (networks.length === 0 || !client.saslOk) {
+	if (networks.length === 0) {
+		return;
+	}
+
+	if (!client.saslOk) {
+		// Said once per connection, so a login that works otherwise is not
+		// left wondering where the networks went.
+		if (!client.bouncerSaslNoted) {
+			client.bouncerSaslNoted = true;
+			client.pushMessage(client.lobby, {text: t("bouncer.saslNeeded")}, true);
+		}
+
 		return;
 	}
 

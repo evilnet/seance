@@ -115,6 +115,7 @@
     "other": "Not added: {names}. This bouncer already has {count} networks saved here, the most Seance adds; remove one to make room."
   },
   "bouncer.noAnswer": "No answer.",
+  "bouncer.saslNeeded": "This bouncer has networks, but they are added here only after a SASL login. Turn on SASL in this network's settings to get them.",
   "bouncer.timeout": "The bouncer did not answer.",
   "bouncer.tooLong": "Too long to send in one line: shorten some fields.",
   "browse.all": "All channels",

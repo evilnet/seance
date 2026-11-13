@@ -94,6 +94,7 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"bouncer.networksAdded",
 	"bouncer.networksOver",
 	"bouncer.noAnswer",
+	"bouncer.saslNeeded",
 	"bouncer.timeout",
 	"bouncer.tooLong",
 	"browse.all",
