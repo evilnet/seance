@@ -78,6 +78,35 @@ export function visibleHeight(): number {
 }
 
 /**
+ * How long after the page empties a text field the iOS keyboard is reset, in
+ * ms. Past the Return that sent, which iOS applies ~70 ms after the keypress
+ * (ChatInput.vue onEnterKey), so the reset sees the field as it ends up.
+ */
+export const KEYBOARD_RESET_DELAY_MS = 150;
+
+let keyboardResetTimer: ReturnType<typeof setTimeout> | undefined;
+
+/**
+ * Has the iOS shell's keyboard read the focused field again, once the page's
+ * own edits to it have settled. A script's `value = ""` is not told to the
+ * keyboard: it keeps its shift and its QuickType suggestions for the text
+ * that was there, and the suggestion row can stay up empty, a blank band
+ * over the keys. A no-op outside the iOS shell, and in a shell built before
+ * the call (nativeCall answers null).
+ */
+export function resetKeyboardSoon(): void {
+	if (!isIOSShell()) {
+		return;
+	}
+
+	clearTimeout(keyboardResetTimer);
+	keyboardResetTimer = setTimeout(() => {
+		keyboardResetTimer = undefined;
+		void nativeCall("Keyboard", "reset");
+	}, KEYBOARD_RESET_DELAY_MS);
+}
+
+/**
  * The keyboard's height as the native shell reports it (the Keyboard
  * plugin's keyboardWillShow/WillHide, subscribed below), or null where no shell says.
  * When set it outranks the visual-viewport guess: the number is the
