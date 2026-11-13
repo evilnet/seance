@@ -1690,7 +1690,11 @@ export class IrcClient {
 				this.saslOk &&
 				metadata !== undefined &&
 				metadata.split(",").includes("before-connect") &&
-				(caps.hasCapability("draft/metadata-2") || caps.isRequesting("draft/metadata-2"))
+				// It needs batch: nefarious2 takes a SUB before batch is
+				// ACKed, but drops it if batch is off when registration ends.
+				(caps.hasCapability("draft/metadata-2") ||
+					(caps.isRequesting("draft/metadata-2") &&
+						(caps.enabled.has("batch") || caps.isRequesting("batch"))))
 			) {
 				this.metadataSubscribed = true;
 				this.metadataBeforeConnect = true;
@@ -2034,6 +2038,13 @@ export class IrcClient {
 			secure: this.options.tls,
 		});
 		this.bus.dispatch("commands", commandNames());
+		if (this.metadataBeforeConnect && !this.caps.hasCapability("draft/metadata-2")) {
+			// The SUB went out before CAP END while batch was still asked
+			// for, and batch was refused: nefarious2 drops it then.
+			this.metadataSubscribed = false;
+			this.metadataBeforeConnect = false;
+		}
+
 		presenceRegistered(this);
 		this.scheduleMuteRead();
 		flushDeferredMarkRead(this);
@@ -3208,7 +3219,11 @@ export class IrcClient {
 		this.muteReadTimer = setTimeout(() => {
 			this.muteReadTimer = null;
 
-			if (this.isWelcomed && this.transport.state === "open") {
+			if (
+				this.isWelcomed &&
+				this.transport.state === "open" &&
+				this.caps.hasCapability("draft/metadata-2")
+			) {
 				if (!this.metadataSubscribed) {
 					this.metadataSubscribed = true;
 					this.send(
@@ -3247,6 +3262,18 @@ export class IrcClient {
 			this.syncStampedAt = now;
 			setInSync(this.uuid, now);
 		}
+	}
+
+	/**
+	 * After 001, `draft/metadata-2` came into use or went out of it through
+	 * `CAP NEW` / `DEL`, of the cap itself or of `batch`, which it needs
+	 * (caps.ts DEPENDS_ON). Out: the subscription is gone with it and a
+	 * pending read is dropped. In: subscribe and read again, or the mute and
+	 * the shared keys would stay unknown for the rest of the connection.
+	 */
+	metadataUsableChanged(): void {
+		this.metadataSubscribed = false;
+		this.scheduleMuteRead();
 	}
 
 	private clearMuteRead(): void {

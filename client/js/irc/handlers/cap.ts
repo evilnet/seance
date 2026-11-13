@@ -8,7 +8,12 @@ import {MessageType} from "../../../../shared/types/msg";
 import type {Handler} from "../types";
 
 const cap: Handler = (client, msg) => {
+	const hadMetadata = client.caps.hasCapability("draft/metadata-2");
 	const result = client.caps.handle(msg);
+
+	if (client.isWelcomed && client.caps.hasCapability("draft/metadata-2") !== hadMetadata) {
+		client.metadataUsableChanged();
+	}
 
 	for (const line of result.send) {
 		if (client.isQuitting || !client.socketOpen) {
