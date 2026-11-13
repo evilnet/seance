@@ -1008,3 +1008,137 @@ describe("IrcClient SASL: the server could not check the login", function () {
 		expect(rejected).to.equal(1);
 	});
 });
+
+describe("IrcClient SASL: a deploy that lets only accounts in", function () {
+	/** A sign-in panel, with or without its guest half (branding.ts `accountRequired`). */
+	const signInDeploy = (guestAccess: boolean) =>
+		setBranding({
+			...DEFAULT_BRANDING,
+			defaultNetwork: {host: "irc.test", port: 8443, tls: true},
+			features: {...DEFAULT_BRANDING.features, signIn: true, guestAccess},
+		});
+
+	const NO_LOGIN: Partial<IrcClientOptions> = {sasl: "", saslAccount: "", saslPassword: ""};
+
+	beforeEach(installSpy);
+	afterEach(function () {
+		removeSpy();
+		resetBranding();
+	});
+
+	/** A client that has not dialled yet; it logs in with nothing unless told to. */
+	function idle(overrides: Partial<IrcClientOptions> = {}) {
+		const transport = new FakeTransport();
+		let rejected = 0;
+		const client = new IrcClient({
+			host: "irc.test",
+			port: 8443,
+			tls: true,
+			nick: "guest1234",
+			join: "#lobby",
+			ids: new IdAllocator(),
+			transportFactory: () => transport,
+			highlights: () => ({keywords: [], exceptions: []}),
+			onSaslRejected: () => rejected++,
+			...NO_LOGIN,
+			...overrides,
+		});
+		return {client, transport, rejected: () => rejected};
+	}
+
+	it("does not dial a network with no login, and says why", function () {
+		// A guest's saved entry from before guests were turned off,
+		// `/connect <host>`, "No authentication" in the network's settings:
+		// each would register as the stranger the deploy turned away.
+		signInDeploy(false);
+		const {client, transport, rejected} = idle();
+		client.connect();
+
+		expect(transport.state).to.equal("closed");
+		expect(transport.sent).to.deep.equal([]);
+		expect(client.isConnected).to.equal(false);
+		expect(errors(client.lobby.id)).to.deep.equal([
+			"Not connecting to irc.test without signing in: only accounts can connect here.",
+		]);
+		// Final: the entry stops connecting by itself, and the view goes to
+		// the lobby that says why.
+		expect(rejected()).to.equal(1);
+		const aborted = dispatch.getCalls().filter((c) => c.args[0] === "network:aborted");
+		expect(aborted).to.have.length(1);
+		expect(aborted[0].args[1]).to.include({network: client.uuid});
+	});
+
+	it("stops at the socket's open too, before NICK and USER", function () {
+		// Options can change while a reconnect waits (network:edit applies
+		// them at once then), and the transport redials by itself.
+		const {client, transport, rejected} = idle();
+		client.connect();
+		expect(transport.state).to.equal("connecting");
+
+		signInDeploy(false);
+		transport.open();
+
+		expect(transport.sent).to.deep.equal(["QUIT :Sign-in required"]);
+		expect(transport.closeCalls).to.equal(1);
+		expect(client.isConnected).to.equal(false);
+		expect(client.isQuitting).to.equal(true);
+		expect(rejected()).to.equal(1);
+	});
+
+	it("dials a network that logs in, as ever", function () {
+		signInDeploy(false);
+		const {client, transport, rejected} = idle({
+			sasl: "plain",
+			saslAccount: "alice",
+			saslPassword: "s3cret",
+		});
+		client.connect();
+		transport.open();
+		offer(transport, `${OFFERED_CAPS} sasl=PLAIN`);
+
+		expect(transport.sent[transport.sent.length - 1]).to.equal("AUTHENTICATE PLAIN");
+		expect(errors(client.lobby.id)).to.deep.equal([]);
+		expect(rejected()).to.equal(0);
+	});
+
+	it("lets a guest in where the panel offers guests", function () {
+		signInDeploy(true);
+		const {client, transport, rejected} = idle();
+		client.connect();
+		transport.open();
+		offer(transport, `${OFFERED_CAPS} sasl=PLAIN`);
+
+		expect(transport.sent).to.include("NICK guest1234");
+		expect(transport.sent[transport.sent.length - 1]).to.equal("CAP END");
+		finishRegistration(transport);
+		expect(client.isConnected).to.equal(true);
+		expect(rejected()).to.equal(0);
+	});
+
+	it("never carries on past a failed login, whatever saslDisconnectOnFail says", function () {
+		signInDeploy(false);
+		const {client, transport} = setup(CARRY_ON);
+		offer(transport, `${OFFERED_CAPS} sasl=PLAIN`);
+		transport.line("AUTHENTICATE +");
+		transport.line(":irc.test 904 alice :SASL authentication failed");
+
+		expect(transport.sent).to.not.include("CAP END");
+		expect(transport.sent[transport.sent.length - 1]).to.equal(
+			"QUIT :SASL authentication failed"
+		);
+		expect(client.isQuitting).to.equal(true);
+	});
+
+	it("points at the settings for the password, never at No authentication", function () {
+		signInDeploy(false);
+		const {client, transport} = setup();
+		offer(transport, `${OFFERED_CAPS} sasl=PLAIN`);
+		transport.line("AUTHENTICATE +");
+		transport.line(":irc.test 904 alice :SASL authentication failed");
+
+		const hint = "Check the account name and password, then sign in again.";
+		expect(saslRequiredHint()).to.equal(hint);
+		expect(texts(client.lobby.id)).to.include(hint);
+		expect(texts(client.lobby.id).join("\n")).to.not.include("No authentication");
+	});
+});

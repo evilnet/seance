@@ -1548,6 +1548,12 @@ msgctxt "connect.account"
 msgid "Account"
 msgstr "Compte"
 
+#. Lobby error on a deploy that lets only accounts in (features.guestAccess false on the sign-in panel), when a network set to connect without logging in is refused before it registers. {host} is the chat network's configured host name.
+#: client/js/irc/client.ts
+msgctxt "connect.accountRequired"
+msgid "Not connecting to {host} without signing in: only accounts can connect here."
+msgstr ""
+
 #. aria-label of the whole connect screen (the window/dialog element); announced by screen readers on arriving at the form.
 #: client/components/Windows/Connect.vue:7
 msgctxt "connect.ariaLabel"
@@ -1774,6 +1780,12 @@ msgstr "Rester connecté sur cet appareil"
 msgctxt "connect.rememberPassword"
 msgid "Remember password on this device"
 msgstr "Mémoriser le mot de passe sur cet appareil"
+
+#. Follow-up to a failed SASL login on a deploy that lets only accounts in (the sign-in panel without its guest half). Unlike connect.saslRequiredHint it offers no way to connect without logging in: there is none on such a deploy.
+#: client/js/irc/client.ts
+msgctxt "connect.saslAccountRequiredHint"
+msgid "Check the account name and password, then sign in again."
+msgstr ""
 
 #. Lobby error when the login the deploy asked for did not go through; {reason} is one of the connect.saslReason* copies (or, for a few server-side rejections, a technical phrase left verbatim).
 #: client/js/irc/client.ts

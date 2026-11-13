@@ -45,6 +45,7 @@
 
 <script lang="ts">
 import {computed, defineComponent} from "vue";
+import {accountRequired} from "../../js/branding";
 import eventbus from "../../js/eventbus";
 import useSavedNetworks from "../../js/hooks/use-saved-networks";
 import {useI18n} from "../../js/i18n";
@@ -101,7 +102,9 @@ export default defineComponent({
 				return t("settings.account.signedIn", {account: account.value});
 			}
 
-			const nick = live.value?.nick || entry.value?.nick;
+			// A deploy that lets only accounts in has no guests: an entry left
+			// from when it did is nobody signed in.
+			const nick = accountRequired() ? "" : live.value?.nick || entry.value?.nick;
 			return nick ? t("settings.account.guest", {nick}) : t("settings.account.signedOut");
 		});
 
