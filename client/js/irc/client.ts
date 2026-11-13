@@ -737,6 +737,7 @@ export class IrcClient {
 
 		this.fakeLag.start();
 		this.background.pump(); // anything queued before 001 can go now
+		this.flushPayloadTier(); // a tier asked for before 001
 	}
 
 	get name(): string {
@@ -2051,7 +2052,6 @@ export class IrcClient {
 
 		presenceRegistered(this);
 		this.scheduleMuteRead();
-		this.flushPayloadTier();
 		flushDeferredMarkRead(this);
 		operRegistered(this);
 
@@ -2234,6 +2234,8 @@ export class IrcClient {
 	webpushUnregister(endpoint: string): boolean {
 		// A renewal still waiting for the clock must not re-register it after.
 		this.background.take(`webpush:${endpoint}`);
+		// ...nor a payload tier still waiting for metadata be written after.
+		this.payloadPending = null;
 		return this.send(`WEBPUSH UNREGISTER ${endpoint}`);
 	}
 
