@@ -503,6 +503,117 @@ describe("multiple networks", function () {
 			expect(infos[infos.length - 1]).to.include({uuid: "net-a", name: "Home"});
 		});
 
+		describe("a blank password when the password is not remembered (#189)", function () {
+			function live(): IrcClient {
+				stored({rememberPassword: false});
+				expect(saved.get("net-a")?.saslPassword).to.equal("");
+				const a = manager.createNetwork({
+					uuid: "net-a",
+					nick: "alice",
+					join: "#one",
+					sasl: "plain",
+					saslAccount: "alice",
+					saslPassword: "pw",
+				});
+				// Waiting to reconnect, so the edit applies at once (applySettings).
+				manager.transportOf(a).closed(1006, "", true);
+				return a;
+			}
+
+			const form = (overrides: Record<string, unknown> = {}) => ({
+				uuid: "net-a",
+				host: "net-a.test",
+				port: "8443",
+				tls: "on",
+				nick: "alice",
+				join: "#one, #two",
+				sasl: "plain",
+				saslAccount: "alice",
+				saslPassword: "",
+				...overrides,
+			});
+
+			it("keeps the running connection's password, without writing it to disk", function () {
+				const a = live();
+
+				socket.emit("network:edit", form());
+
+				expect(a.options.saslPassword).to.equal("pw");
+				expect(saved.get("net-a")).to.include({join: "#one, #two", saslPassword: ""});
+				expect(saved.needsPassword(saved.get("net-a")!)).to.equal(true);
+			});
+
+			it("keeps it across an account change, as a remembered one is kept", function () {
+				const a = live();
+
+				socket.emit("network:edit", form({saslAccount: "bob"}));
+
+				expect(a.options).to.include({saslAccount: "bob", saslPassword: "pw"});
+			});
+
+			it("keeps it for a missing or whitespace-only field", function () {
+				const a = live();
+
+				socket.emit("network:edit", form({saslPassword: "   "}));
+				expect(a.options.saslPassword).to.equal("pw");
+
+				const {saslPassword: _omitted, ...rest} = form();
+				socket.emit("network:edit", rest);
+				expect(a.options.saslPassword).to.equal("pw");
+			});
+
+			it("writes it to disk when Remember is switched on in the same edit", function () {
+				const a = live();
+
+				socket.emit("network:edit", form({rememberPassword: "on"}));
+
+				expect(a.options.saslPassword).to.equal("pw");
+				expect(saved.get("net-a")?.saslPassword).to.equal("pw");
+			});
+
+			it("keeps a password typed in an earlier edit that is still waiting for the next connect", function () {
+				stored({rememberPassword: false});
+				const a = manager.createNetwork({
+					uuid: "net-a",
+					nick: "alice",
+					join: "#one",
+					sasl: "plain",
+					saslAccount: "alice",
+					saslPassword: "old",
+				});
+
+				socket.emit("network:edit", form({saslPassword: "new"}));
+				socket.emit("network:edit", form());
+
+				expect(a.options.saslPassword).to.equal("old"); // still connecting
+				expect(a.nextOptions.saslPassword).to.equal("new");
+			});
+
+			it("does not forget the login of an unchanged network with no live client", function () {
+				useTrustBackend(backend);
+
+				try {
+					stored({rememberPassword: false});
+					trustLogin("net-a", "alice");
+
+					socket.emit("network:edit", form());
+
+					expect(loginTrusted("net-a", "alice")).to.equal(true);
+				} finally {
+					useTrustBackend(null);
+				}
+			});
+
+			it("takes a password typed into the form", function () {
+				const a = live();
+
+				socket.emit("network:edit", form({saslPassword: "new"}));
+
+				expect(a.options.saslPassword).to.equal("new");
+				expect(saved.get("net-a")?.saslPassword).to.equal("");
+			});
+		});
+
 		it("network:edit switches host/port/TLS at once and retries while waiting to reconnect", function () {
 			stored();
 			const a = manager.createNetwork({uuid: "net-a", nick: "alice", join: "#one"});
