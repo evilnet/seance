@@ -8,7 +8,13 @@
 		<div v-if="!embedded" class="header" :data-tauri-drag-region="dragRegion">
 			<SidebarToggle />
 		</div>
-		<form :class="{container: !embedded}" method="post" action="" @submit.prevent="onSubmit">
+		<form
+			ref="formEl"
+			:class="{container: !embedded}"
+			method="post"
+			action=""
+			@submit.prevent="onSubmit"
+		>
 			<h1 class="title">
 				<input v-model="defaults.uuid" type="hidden" name="uuid" />
 				{{ t("form.editTitle", {name: displayName(defaults)}) }}
@@ -702,10 +708,9 @@ export default defineComponent({
 		const serverPasswordWasSet = !!props.defaults.hasServerPassword;
 		// A blank password keeps the current one only for the same account
 		// (saved-networks fromForm): another account needs its own.
-		const accountWas = (props.defaults.saslAccount ?? "").trim();
-		const accountChanged = computed(
-			() => (props.defaults.saslAccount ?? "").trim() !== accountWas
-		);
+		const accountOf = () => (props.defaults.saslAccount ?? "").trim();
+		const accountWas = ref(accountOf());
+		const accountChanged = computed(() => accountOf() !== accountWas.value);
 		const browserNotificationsHelp = computed(() => t("form.browserNotificationsHelp"));
 		const store = useStore();
 		const commandsInput = ref<HTMLTextAreaElement | null>(null);
@@ -1038,9 +1043,23 @@ export default defineComponent({
 				: t("form.actionConnect")
 		);
 
+		const formEl = ref<HTMLFormElement | null>(null);
+
 		const onAction = () => {
 			const busy = !!(props.status?.connected || props.status?.connecting);
+
+			// Connect saves the form first (NetworkEdit), so it needs what Save
+			// needs: a password for an account that changed.
+			if (!busy && formEl.value && !formEl.value.reportValidity()) {
+				return;
+			}
+
 			props.handleAction?.(busy ? "disconnect" : "connect", formData());
+
+			if (!busy) {
+				// Saved in place: blank now keeps this account's password.
+				accountWas.value = accountOf();
+			}
 		};
 
 		return {
@@ -1087,6 +1106,7 @@ export default defineComponent({
 			statusClass,
 			actionLabel,
 			onAction,
+			formEl,
 		};
 	},
 });

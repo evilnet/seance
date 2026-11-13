@@ -402,15 +402,11 @@ export function fromForm(data: Record<string, unknown>, existing?: SavedNetwork)
 		}
 	}
 
-	// A blank password field in the edit form means "keep what I had", for
-	// the same account only: a password belongs to its account (#189).
-	if (
-		existing &&
-		asString(data.saslPassword) === "" &&
-		existing.saslPassword &&
-		asString(base.saslAccount) === asString(existing.saslAccount)
-	) {
-		base.saslPassword = existing.saslPassword;
+	// A blank or missing password field in the edit form means "keep what I
+	// had", for the same account only: a password belongs to its account.
+	if (existing && asString(data.saslPassword) === "") {
+		const sameAccount = asString(base.saslAccount) === asString(existing.saslAccount);
+		base.saslPassword = sameAccount ? existing.saslPassword : "";
 	}
 
 	// The server password's switch off clears it; on with the field blank
