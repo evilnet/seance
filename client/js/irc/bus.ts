@@ -147,11 +147,7 @@ export function registerBusHandlers(bus: EventBus, registry: ClientRegistry): vo
 		const client = registry.clientForNetwork(network);
 
 		if (client) {
-			const line = client.metadataSetLine(key, value);
-
-			if (line) {
-				client.send(line);
-			}
+			client.writePayloadTier(key, value);
 		}
 	});
 

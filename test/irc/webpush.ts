@@ -110,9 +110,11 @@ describe("Web Push subscription (draft/webpush)", function () {
 	});
 
 	describe("payload tier metadata (webpush:metadata)", function () {
-		it("writes the push payload tier private, so WHOIS does not list it", function () {
+		const noBatch = ALL_CAPS.replace(" batch ", " ");
+
+		function payloadWrite(caps: string): string[] {
 			const h = setup();
-			register(h, `${ALL_CAPS} draft/webpush=vapid=${VAPID}`);
+			register(h, caps);
 			registerBusHandlers(socket, {
 				clientForChannel: () => h.client,
 				clientForNetwork: () => h.client,
@@ -128,7 +130,74 @@ describe("Web Push subscription (draft/webpush)", function () {
 				value: "full",
 			});
 
-			expect(h.sent()).to.deep.equal(["METADATA * SET draft/webpush/payload private :full"]);
+			return h.sent().filter((l) => l.startsWith("METADATA * SET"));
+		}
+
+		it("writes the push payload tier private, so WHOIS does not list it", function () {
+			expect(
+				payloadWrite(`${ALL_CAPS} draft/metadata-2 draft/webpush=vapid=${VAPID}`)
+			).to.deep.equal(["METADATA * SET draft/webpush/payload private :full"]);
+		});
+
+		it("writes a payload tier asked for without batch once batch comes", function () {
+			const h = setup();
+			register(h, `${noBatch} cap-notify draft/metadata-2 draft/webpush=vapid=${VAPID}`);
+			h.sent();
+			h.client.writePayloadTier("draft/webpush/payload", "full");
+			expect(h.sent().filter((l) => l.includes("SET"))).to.deep.equal([]);
+			h.transport.line(":irc.test CAP alice NEW :batch");
+			h.transport.line(":irc.test CAP alice ACK :batch");
+			expect(h.sent().filter((l) => l.includes("SET"))).to.deep.equal([
+				"METADATA * SET draft/webpush/payload private :full",
+			]);
+		});
+
+		it("writes a payload tier asked for before 001 at 001, not at the MOTD", function () {
+			const h = setup();
+			h.client.connect();
+			h.transport.open();
+			h.transport.line(
+				`:irc.test CAP * LS :${ALL_CAPS} draft/metadata-2 draft/webpush=vapid=${VAPID}`
+			);
+			const req = h.transport.sent.find((l) => l.startsWith("CAP REQ :")) as string;
+			h.transport.line(`:irc.test CAP alice ACK :${req.slice("CAP REQ :".length)}`);
+			h.client.writePayloadTier("draft/webpush/payload", "full");
+			expect(h.sent().filter((l) => l.includes("SET"))).to.deep.equal([]);
+			h.transport.line(":irc.test 001 alice :Welcome");
+			expect(h.sent().filter((l) => l.includes("SET"))).to.deep.equal([
+				"METADATA * SET draft/webpush/payload private :full",
+			]);
+			h.transport.line(":irc.test 422 alice :MOTD File is missing");
+			expect(h.sent().filter((l) => l.includes("SET"))).to.deep.equal([]);
+		});
+
+		it("forgets a waiting payload tier when the subscription is dropped", function () {
+			const h = setup();
+			register(h, `${noBatch} cap-notify draft/metadata-2 draft/webpush=vapid=${VAPID}`);
+			h.client.writePayloadTier("draft/webpush/payload", "full");
+			h.client.webpushUnregister(ENDPOINT);
+			h.sent();
+			h.transport.line(":irc.test CAP alice NEW :batch");
+			h.transport.line(":irc.test CAP alice ACK :batch");
+			expect(h.sent().filter((l) => l.includes("SET"))).to.deep.equal([]);
+		});
+
+		it("forgets a waiting payload tier when the connection closes", function () {
+			const h = setup();
+			register(h, `${noBatch} cap-notify draft/metadata-2 draft/webpush=vapid=${VAPID}`);
+			h.client.writePayloadTier("draft/webpush/payload", "full");
+			h.transport.closed();
+			h.transport.sent.length = 0; // register() ACKs the first CAP REQ it finds
+			register(h, `${ALL_CAPS} draft/metadata-2 draft/webpush=vapid=${VAPID}`);
+			expect(h.transport.sent.some((l) => l.includes(" batch "))).to.equal(true);
+			expect(h.transport.sent.filter((l) => l.includes("SET"))).to.deep.equal([]);
+		});
+
+		it("writes no payload tier without metadata in use (it needs batch)", function () {
+			expect(
+				payloadWrite(`${noBatch} draft/metadata-2 draft/webpush=vapid=${VAPID}`)
+			).to.deep.equal([]);
+			expect(payloadWrite(`${ALL_CAPS} draft/webpush=vapid=${VAPID}`)).to.deep.equal([]);
 		});
 	});
 

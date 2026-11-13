@@ -77,6 +77,7 @@ const keyValue: Handler = (client, msg) => {
 	// a public key is in everyone's WHOIS of us. Same value, private.
 	if (
 		client.profile.privateMetadata &&
+		client.caps.hasCapability("draft/metadata-2") &&
 		msg.params[2] === PAYLOAD_KEY &&
 		client.isSelf(msg.params[1] ?? "") &&
 		msg.params[3] !== "private" &&

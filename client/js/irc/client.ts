@@ -435,6 +435,10 @@ export class IrcClient {
 	}
 	/** The user changed DND by hand: the next sync takes the live `*` entry as ours (pushMute.ts `claimMute`). */
 	muteClaim = false;
+	/** A payload-tier write asked for while metadata was out of use: sent once it is in use. */
+	private payloadPending: {key: string; value: string} | null = null;
+	/** The pill's Off came before the mute list was read: it is done once the read answers (pushMute.ts `clearRemoteDnd`). */
+	muteClearPending = false;
 	/** Another device cleared our entry: write nothing until local DND ends and starts again. */
 	muteSuppressed = false;
 	/** Our writes awaiting their echoes (pushMute.ts `ownEcho`). */
@@ -733,6 +737,7 @@ export class IrcClient {
 
 		this.fakeLag.start();
 		this.background.pump(); // anything queued before 001 can go now
+		this.flushPayloadTier(); // a tier asked for before 001
 	}
 
 	get name(): string {
@@ -1690,7 +1695,11 @@ export class IrcClient {
 				this.saslOk &&
 				metadata !== undefined &&
 				metadata.split(",").includes("before-connect") &&
-				(caps.hasCapability("draft/metadata-2") || caps.isRequesting("draft/metadata-2"))
+				// It needs batch: nefarious2 takes a SUB before batch is
+				// ACKed, but drops it if batch is off when registration ends.
+				(caps.hasCapability("draft/metadata-2") ||
+					(caps.isRequesting("draft/metadata-2") &&
+						(caps.enabled.has("batch") || caps.isRequesting("batch"))))
 			) {
 				this.metadataSubscribed = true;
 				this.metadataBeforeConnect = true;
@@ -1885,6 +1894,8 @@ export class IrcClient {
 		this.metadataSubscribed = false;
 		this.metadataBeforeConnect = false;
 		this.mutePending.length = 0;
+		// A tier asked for on this connection is not re-sent on the next.
+		this.payloadPending = null;
 		presenceClosed(this);
 		// The wait before the transport's retry, for the UI to count down;
 		// an immediate retry has nothing worth counting. Whether it is the
@@ -2034,6 +2045,13 @@ export class IrcClient {
 			secure: this.options.tls,
 		});
 		this.bus.dispatch("commands", commandNames());
+		if (this.metadataBeforeConnect && !this.caps.hasCapability("draft/metadata-2")) {
+			// The SUB went out before CAP END while batch was still asked
+			// for, and batch was refused: nefarious2 drops it then.
+			this.metadataSubscribed = false;
+			this.metadataBeforeConnect = false;
+		}
+
 		presenceRegistered(this);
 		this.scheduleMuteRead();
 		flushDeferredMarkRead(this);
@@ -2218,6 +2236,8 @@ export class IrcClient {
 	webpushUnregister(endpoint: string): boolean {
 		// A renewal still waiting for the clock must not re-register it after.
 		this.background.take(`webpush:${endpoint}`);
+		// ...nor a payload tier still waiting for metadata be written after.
+		this.payloadPending = null;
 		return this.send(`WEBPUSH UNREGISTER ${endpoint}`);
 	}
 
@@ -3208,7 +3228,11 @@ export class IrcClient {
 		this.muteReadTimer = setTimeout(() => {
 			this.muteReadTimer = null;
 
-			if (this.isWelcomed && this.transport.state === "open") {
+			if (
+				this.isWelcomed &&
+				this.transport.state === "open" &&
+				this.caps.hasCapability("draft/metadata-2")
+			) {
 				if (!this.metadataSubscribed) {
 					this.metadataSubscribed = true;
 					this.send(
@@ -3246,6 +3270,64 @@ export class IrcClient {
 		if (now - this.syncStampedAt >= STAMP_EVERY_MS) {
 			this.syncStampedAt = now;
 			setInSync(this.uuid, now);
+		}
+	}
+
+	/**
+	 * After 001, `draft/metadata-2` came into use or went out of it through
+	 * `CAP NEW` / `DEL`, of the cap itself or of `batch`, which it needs
+	 * (caps.ts DEPENDS_ON). Out: the subscription is gone with it and a
+	 * pending read is dropped. In: subscribe and read again, or the mute and
+	 * the shared keys would stay unknown for the rest of the connection.
+	 */
+	metadataUsableChanged(): void {
+		// Unknown until read again, as after a reconnect: a write built on a
+		// value read before the gap could undo another device's change made
+		// in it. Local choices stay; writes wait for the read (closedPending).
+		this.muteKnown = false;
+		this.presenceKnown = false;
+		this.presenceServer = null;
+		this.globalKnown = false;
+		this.globalServer = null;
+		this.closedKnown = false;
+		this.metadataSubscribed = false;
+		this.mutePending.length = 0;
+		// Nor is this connection in sync until that read: the registration
+		// burst no longer counts (noteSyncLine).
+		this.presence.burstRead = false;
+		// The registration hold (presence.ts shareUnread) is over: there is
+		// no registration burst to wait for any more, only the read below.
+		this.metadataBeforeConnect = false;
+		// A remote DND this connection was away for is unknown now: AWAY follows.
+		syncPresence(this);
+		this.scheduleMuteRead();
+		this.flushPayloadTier();
+	}
+
+	private flushPayloadTier(): void {
+		const pending = this.payloadPending;
+
+		if (pending) {
+			this.writePayloadTier(pending.key, pending.value); // waits again while unusable
+		}
+	}
+
+	/**
+	 * Write the web push payload tier (bus.ts `webpush:metadata`). Only
+	 * with metadata in use, which needs batch; otherwise the write waits
+	 * for metadata to come (back) into use (registration, or a CAP ACK).
+	 */
+	writePayloadTier(key: string, value: string): void {
+		if (!this.isWelcomed || !this.caps.hasCapability("draft/metadata-2")) {
+			this.payloadPending = {key, value};
+			return;
+		}
+
+		this.payloadPending = null;
+		const line = this.metadataSetLine(key, value);
+
+		if (line) {
+			this.send(line);
 		}
 	}
 
@@ -3700,7 +3782,11 @@ export class IrcClient {
 
 		this.closedPending = false;
 
-		if (!this.isWelcomed || this.transport.state !== "open") {
+		if (
+			!this.isWelcomed ||
+			this.transport.state !== "open" ||
+			!this.caps.hasCapability("draft/metadata-2")
+		) {
 			return;
 		}
 

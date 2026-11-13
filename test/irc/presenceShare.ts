@@ -435,11 +435,11 @@ describe("subscribing to the shared keys (client.ts)", function () {
 	const GET = `METADATA * GET draft/webpush/mute ${PRESENCE_KEY} ${MODE_KEY} draft/webpush/payload seance/closed`;
 
 	/** A SASL login on a server offering `metadata`; returns the CAP END flush. */
-	function saslLogin(h: Harness, metadata: string): string[] {
+	function saslLogin(h: Harness, metadata: string, batch = "batch"): string[] {
 		h.client.connect();
 		h.transport.open();
 		h.transport.line(
-			`:irc.test CAP * LS :server-time message-tags batch sasl=PLAIN ${metadata}`
+			`:irc.test CAP * LS :server-time message-tags ${batch} sasl=PLAIN ${metadata}`
 		);
 		const req = h.transport.sent.filter((l) => l.startsWith("CAP REQ :")).pop() as string;
 		h.transport.line(`:irc.test CAP alice ACK :${req.slice("CAP REQ :".length)}`);
@@ -474,6 +474,90 @@ describe("subscribing to the shared keys (client.ts)", function () {
 		welcome(h);
 		clock.tick(MUTE_READ_DELAY_MS);
 		expect(h.sent().filter((l) => l.startsWith("METADATA"))).to.deep.equal([SUB, GET]);
+	});
+
+	it("without batch, neither subscribes before CAP END nor reads the keys", function () {
+		// draft/metadata-2 MUST have batch: its burst and lists are batches.
+		const h = setup({join: "", sasl: "plain", saslAccount: "alice", saslPassword: "s3cret"});
+		const flush = saslLogin(h, "draft/metadata-2=before-connect,max-subs=50", "");
+		expect(flush.filter((l) => l.startsWith("METADATA"))).to.deep.equal([]);
+		expect(h.client.metadataBeforeConnect).to.equal(false);
+		welcome(h);
+		clock.tick(MUTE_READ_DELAY_MS);
+		expect(h.sent().filter((l) => l.startsWith("METADATA"))).to.deep.equal([]);
+	});
+
+	/** LS without batch or metadata-2; both arrive by CAP NEW during SASL, unanswered at 903. */
+	function newDuringSasl(h: Harness, offer: string): string[] {
+		h.client.connect();
+		h.transport.open();
+		h.transport.line(":irc.test CAP * LS :server-time cap-notify sasl=PLAIN");
+		const req = h.transport.sent.filter((l) => l.startsWith("CAP REQ :")).pop() as string;
+		h.transport.line(`:irc.test CAP alice ACK :${req.slice("CAP REQ :".length)}`);
+		h.transport.line(`:irc.test CAP alice NEW :${offer}`);
+		h.sent();
+		h.transport.lines(
+			"AUTHENTICATE +",
+			":irc.test 900 alice alice!a@h alice :You are now logged in as alice",
+			":irc.test 903 alice :SASL authentication successful"
+		);
+		return h.sent();
+	}
+
+	it("sends no SUB before CAP END while metadata-2 is pending and batch is off", function () {
+		const h = setup({join: "", sasl: "plain", saslAccount: "alice", saslPassword: "s3cret"});
+		const flush = newDuringSasl(h, "draft/metadata-2=before-connect");
+		expect(h.client.caps.isRequesting("draft/metadata-2")).to.equal(true);
+		expect(flush.filter((l) => l.startsWith("METADATA"))).to.deep.equal([]);
+		expect(h.client.metadataBeforeConnect).to.equal(false);
+	});
+
+	it("forgets a SUB sent while batch was pending once batch is refused by 001", function () {
+		const h = setup({join: "", sasl: "plain", saslAccount: "alice", saslPassword: "s3cret"});
+		const flush = newDuringSasl(h, "batch draft/metadata-2=before-connect");
+		// batch is still asked for, so the SUB may go out: nefarious2 keeps it if batch comes.
+		expect(flush.filter((l) => l.startsWith("METADATA"))).to.deep.equal([SUB]);
+		h.transport.line(":irc.test CAP alice NAK :batch draft/metadata-2");
+		h.transport.lines(
+			":irc.test CAP alice NAK :batch",
+			":irc.test CAP alice ACK :draft/metadata-2"
+		);
+		welcome(h);
+		expect(h.client.metadataBeforeConnect).to.equal(false);
+		expect(h.client.metadataSubscribed).to.equal(false);
+	});
+
+	it("starts the reads when batch arrives after 001, and stops them when it goes", function () {
+		const h = setup({join: "", sasl: "plain", saslAccount: "alice", saslPassword: "s3cret"});
+		saslLogin(h, "cap-notify draft/metadata-2=max-subs=50", "");
+		welcome(h);
+		clock.tick(MUTE_READ_DELAY_MS);
+		expect(h.sent().filter((l) => l.startsWith("METADATA"))).to.deep.equal([]);
+
+		h.transport.line(":irc.test CAP alice NEW :batch");
+		expect(h.sent()).to.deep.equal(["CAP REQ :batch"]);
+		h.transport.line(":irc.test CAP alice ACK :batch");
+		clock.tick(MUTE_READ_DELAY_MS);
+		expect(h.sent().filter((l) => l.startsWith("METADATA"))).to.deep.equal([SUB, GET]);
+
+		// The registration hold ends with metadata's use: nothing would end it.
+		h.client.metadataBeforeConnect = true;
+		h.transport.line(":irc.test CAP alice DEL :batch");
+		expect(h.client.metadataBeforeConnect).to.equal(false);
+		h.transport.line(":irc.test CAP alice NEW :batch");
+		h.transport.line(":irc.test CAP alice ACK :batch");
+		clock.tick(MUTE_READ_DELAY_MS);
+		h.sent();
+
+		// batch deleted while a fresh read waits: the read does not go out.
+		h.transport.line(":irc.test CAP alice DEL :batch");
+		h.transport.line(":irc.test CAP alice NEW :batch");
+		h.transport.line(":irc.test CAP alice ACK :batch");
+		h.transport.line(":irc.test CAP alice DEL :batch");
+		h.sent();
+		clock.tick(MUTE_READ_DELAY_MS);
+		expect(h.sent().filter((l) => l.startsWith("METADATA"))).to.deep.equal([]);
+		expect(h.client.metadataSubscribed).to.equal(false);
 	});
 
 	it("a reconnect subscribes again", function () {

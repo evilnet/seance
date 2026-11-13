@@ -492,7 +492,11 @@ function armResumeCheck(client: IrcClient): void {
 			// The read was refused (a rate limit) or its reply lost: ask once
 			// more, or this connection would never mute push for this
 			// device's DND, nor show another device's.
-			if (!client.muteKnown && canSend(client)) {
+			if (
+				!client.muteKnown &&
+				canSend(client) &&
+				client.caps.hasCapability("draft/metadata-2")
+			) {
 				client.send(`METADATA * GET ${MUTE_KEY}`);
 			}
 

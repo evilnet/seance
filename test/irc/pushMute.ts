@@ -12,6 +12,7 @@ import {
 	formatMute,
 	globalUntil,
 	parseMute,
+	releaseMute,
 	withGlobal,
 	withoutGlobal,
 } from "../../client/js/irc/pushMute";
@@ -151,7 +152,8 @@ class FakeTransport implements Transport {
 	}
 }
 
-const CAPS = "server-time message-tags batch labeled-response draft/metadata-2 draft/pre-away";
+const CAPS =
+	"server-time message-tags batch labeled-response draft/metadata-2 draft/pre-away cap-notify";
 
 function connect(opts: {account?: boolean; metadata?: boolean} = {}) {
 	const transport = new FakeTransport();
@@ -305,6 +307,66 @@ describe("push mute on the wire (irc/pushMute.ts)", function () {
 		expect(h.sent()).to.deep.equal([
 			`METADATA * SET draft/webpush/mute private :#seance:9999999999;*:${NOW_S + 3600}`,
 		]);
+	});
+
+	it("after batch goes and comes back, a DND write waits for the new read", function () {
+		// draft/metadata-2 needs batch: in the gap another device may have
+		// changed the list, so the value read before it no longer counts.
+		const h = connect();
+		h.transport.line(":irc.test 766 alice alice draft/webpush/mute :key not set");
+		h.client.presence.burstRead = true;
+		h.transport.line(":irc.test CAP alice DEL :batch");
+		expect(h.client.muteKnown).to.equal(false);
+		expect(h.client.presence.burstRead).to.equal(false);
+		h.transport.line(":irc.test CAP alice NEW :batch");
+		h.transport.line(":irc.test CAP alice ACK :batch");
+		h.sent();
+		h.client.setGlobalDnd(true, NOW_MS + 3600_000);
+		expect(h.sent().filter((l) => l.includes("SET"))).to.deep.equal([]);
+		clock.tick(MUTE_READ_DELAY_MS);
+		h.transport.line(":irc.test 761 alice alice draft/webpush/mute * :#other:9999999999");
+		expect(h.sent()).to.deep.equal([
+			`METADATA * SET draft/webpush/mute private :#other:9999999999;*:${NOW_S + 3600}`,
+		]);
+	});
+
+	it("the pill's Off after batch comes back waits for the new read", function () {
+		const h = connect();
+		h.transport.line(":irc.test 761 alice alice draft/webpush/mute * :*:9999999999");
+		h.transport.line(":irc.test CAP alice DEL :batch");
+		h.transport.line(":irc.test CAP alice NEW :batch");
+		h.transport.line(":irc.test CAP alice ACK :batch");
+		h.sent();
+		clearRemoteDnd(h.client);
+		releaseMute(h.client);
+		expect(h.sent().filter((l) => l.includes("SET"))).to.deep.equal([]);
+		clock.tick(MUTE_READ_DELAY_MS);
+		// Another device muted a channel in the gap: the removal keeps it.
+		h.transport.line(
+			":irc.test 761 alice alice draft/webpush/mute * :*:9999999999;#other:9999999999"
+		);
+		expect(h.sent().filter((l) => l.includes("SET"))).to.deep.equal([
+			"METADATA * SET draft/webpush/mute private :#other:9999999999",
+		]);
+	});
+
+	it("does not rewrite the payload tier while batch is off", function () {
+		const h = connect();
+		clock.tick(MUTE_READ_DELAY_MS);
+		h.transport.line(":irc.test CAP alice DEL :batch");
+		h.sent();
+		h.transport.line(":irc.test 761 alice alice draft/webpush/payload * :route");
+		expect(h.sent()).to.deep.equal([]);
+	});
+
+	it("does not write the closed conversations while batch is off", function () {
+		const h = connect();
+		clock.tick(MUTE_READ_DELAY_MS);
+		h.transport.line(":irc.test 766 alice alice seance/closed :key not set");
+		h.transport.line(":irc.test CAP alice DEL :batch");
+		h.sent();
+		h.client.writeClosed();
+		expect(h.sent()).to.deep.equal([]);
 	});
 
 	it("indefinite DND writes 30 days and renews under 7", function () {
