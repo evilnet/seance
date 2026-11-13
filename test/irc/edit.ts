@@ -407,6 +407,53 @@ describe("Message edits (REDACT + +seance/edit)", function () {
 		});
 	});
 
+	// nefarious2 builds the sender's echo of a PM that carries client tags by
+	// hand, without `account` (ircd_relay.c relay_private_message), while the
+	// original's echo has it. Our edit's echo is still ours: the edit rule
+	// must not turn it into a second line (nor the query log keep two).
+	describe("our edit's echo in a query, without account-tag", function () {
+		function queryWithOwnLine(label: boolean) {
+			const h = setup();
+			joined(h);
+			h.transport.line(":irc.test 900 alice alice!a@h testaccount :You are now logged in");
+			const query = h.client.announceChannel("bob", ChanType.QUERY);
+			h.client.input(query.id, "teh");
+			h.transport.line(
+				`@${
+					label ? "label=s1;" : ""
+				}msgid=GkAAAaHT[Kn7Bx;time=2026-08-25T12:00:01.000Z;account=testaccount :alice!alice@host.example PRIVMSG bob :teh`
+			);
+			return {h, query};
+		}
+
+		for (const label of [true, false]) {
+			it(`takes our edit whose echo has no account (${
+				label ? "labelled" : "a session alias, unlabelled"
+			})`, function () {
+				const {h, query} = queryWithOwnLine(label);
+				h.client.input(query.id, "the", {edit: "GkAAAaHT[Kn7Bx"});
+				h.transport.line(
+					`@+evilnet.github.io/edit=GkAAAaHT[Kn7Bx;+seance/edit=GkAAAaHT[Kn7Bx;${
+						label ? "label=s2;" : ""
+					}msgid=GkAAAaHT]Wt2CL;time=2026-08-25T12:00:02.000Z :alice!alice@host.example PRIVMSG bob :the`
+				);
+
+				// The echo replaces the original (the pending copy's msg:edit came first).
+				expect(h.lastMessage(query.id).editOf).to.equal("GkAAAaHT[Kn7Bx");
+				expect(h.client.queryLog.messages("bob").map((m) => m.text)).to.deep.equal(["the"]);
+			});
+		}
+
+		it("still refuses an account-less line under our nick that is not our echo", function () {
+			const {h} = queryWithOwnLine(true);
+			h.transport.line(
+				"@+seance/edit=GkAAAaHT[Kn7Bx;msgid=GkAAAaHT]Wt2CL :alice!x@elsewhere PRIVMSG bob :not me"
+			);
+
+			expect(h.payloads<EditPayload>("msg:edit")).to.have.length(0);
+		});
+	});
+
 	describe("inbound +seance/edit", function () {
 		it("dispatches msg:edit for another client's edit when the old message is loaded", function () {
 			const h = setup();

@@ -8,7 +8,7 @@ import {MessageType, SharedMsg} from "../../../../shared/types/msg";
 import type {IrcClient} from "../client";
 import {authorOf, type Author, type Channel} from "../channel";
 import type {IrcMessage} from "../message";
-import {settleEcho} from "../pending";
+import {echoedCopy, settleEcho} from "../pending";
 import {inRestorationWindow, isRoutineReplayNotice} from "../persistence";
 import {privilegesModified} from "../oper";
 import {noteServicesLine, snoopNicks} from "../servicesfeed";
@@ -245,8 +245,16 @@ function handleMessage(
 	}
 
 	// `account-tag`: the sender's services account, when logged in. Trusting
-	// media "from alice" keys on this, never on the nick.
-	const account = msg.tags.get("account");
+	// media "from alice" keys on this, never on the nick. nefarious2 leaves it
+	// off the sender's own echo of a private message that carries client tags
+	// (an edit, a reply): the echo of a line this connection sent is ours and
+	// carries our account, as a local echo does (IrcClient.sendMessage), or
+	// the edit rule (isEditAuthor) would refuse our own edit.
+	const account =
+		msg.tags.get("account") ||
+		(self && !client.replaying && client.account && echoedCopy(client, chan, msg, type, text)
+			? client.account
+			: undefined);
 
 	if (account) {
 		message.fromAccount = account;
