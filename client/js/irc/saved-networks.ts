@@ -48,6 +48,9 @@ export interface NetworkCursor {
 	time: number;
 }
 
+/** A soju network's saved entry → its bouncer connection and soju's id (irc/bouncer.ts). */
+export type BouncerLink = {parent: string; netid: string};
+
 export type SavedNetwork = ConnectOptions & {
 	uuid: string;
 	/** Display name; empty means "use the host name / ISUPPORT NETWORK". */
@@ -86,6 +89,13 @@ export type SavedNetwork = ConnectOptions & {
 	 * recent choice winning (docs/projects/shared-presence-modes.md).
 	 */
 	presenceAt?: number;
+	/**
+	 * One of a soju's networks (irc/bouncer.ts): `parent` is the saved
+	 * bouncer connection it was listed on, `netid` soju's id for it. The
+	 * entry is made, renamed and removed from that list; its connection
+	 * details are the parent's at connect time.
+	 */
+	bouncer?: BouncerLink;
 };
 
 /** The subset of the localStorage wrapper this module needs. */
@@ -304,6 +314,12 @@ export function normalize(raw: Record<string, unknown>): SavedNetwork | undefine
 
 	if (cursor) {
 		net.cursor = cursor;
+	}
+
+	const link = raw.bouncer as Partial<BouncerLink> | undefined;
+
+	if (link && typeof link === "object" && asString(link.parent) && asString(link.netid)) {
+		net.bouncer = {parent: asString(link.parent), netid: asString(link.netid)};
 	}
 
 	const services = asServices(raw.services);
@@ -593,9 +609,19 @@ function byRecency(a: SavedNetwork, b: SavedNetwork): number {
 	return diff !== 0 ? diff : collator().compare(displayName(a), displayName(b));
 }
 
-/** Every saved network, most recently used first. */
+/**
+ * Every saved network, most recently used first — minus a soju's networks,
+ * which belong to its bouncer panel, not the connect form or Settings.
+ */
 export function list(): SavedNetwork[] {
-	return read().sort(byRecency);
+	return read()
+		.filter((net) => !net.bouncer)
+		.sort(byRecency);
+}
+
+/** The saved networks a bouncer connection has listed (irc/bouncer.ts). */
+export function bouncerChildren(parent: string): SavedNetwork[] {
+	return read().filter((net) => net.bouncer?.parent === parent);
 }
 
 export function get(uuid: string): SavedNetwork | undefined {
@@ -645,6 +671,10 @@ export function remove(uuid: string): void {
 	forgetPresenceSync(uuid); // and when it was last in sync with the shared presence
 	forgetUserAway(uuid); // and the /away it would declare at the next registration
 	forgetLogin(uuid); // and the SASL login that worked on it
+
+	for (const child of bouncerChildren(uuid)) {
+		remove(child.uuid); // and a bouncer's networks
+	}
 }
 
 /** Mark an entry as the most recently used one. */
@@ -719,6 +749,7 @@ export function findMatching(
 
 	return read().find(
 		(net) =>
+			!net.bouncer &&
 			hostnameOf(net.host).toLowerCase() === h &&
 			net.port === port &&
 			net.nick.toLowerCase() === n &&

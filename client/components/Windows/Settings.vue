@@ -47,7 +47,8 @@
 #settings.window,
 #oper.window,
 #help.window,
-#changelog.window {
+#changelog.window,
+#bouncer.window {
 	position: absolute;
 	top: 0;
 	right: 0;
@@ -156,7 +157,8 @@
 	#settings.window,
 	#oper.window,
 	#help.window,
-	#changelog.window {
+	#changelog.window,
+	#bouncer.window {
 		padding: 0;
 	}
 

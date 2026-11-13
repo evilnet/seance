@@ -518,6 +518,24 @@ msgctxt "bans.undo"
 msgid "Undo"
 msgstr ""
 
+#. Shown in a network's lobby when the bouncer refused to attach this connection to that network. {code} is the bouncer's error code and {message} its own words, both VERBATIM — never translate their content.
+#: client/js/irc/bouncer.ts
+msgctxt "bouncer.bindRefused"
+msgid "The bouncer refused this network ({code}): {message}"
+msgstr "바운서가 이 네트워크를 거부했습니다({code}): {message}"
+
+#. Error in the bouncer panel when the connection closed before the bouncer replied to a request.
+#: client/js/irc/bouncer.ts
+msgctxt "bouncer.noAnswer"
+msgid "No answer."
+msgstr "응답이 없습니다."
+
+#. Error in the bouncer panel when the bouncer sent no reply to a request in time.
+#: client/js/irc/bouncer.ts
+msgctxt "bouncer.timeout"
+msgid "The bouncer did not answer."
+msgstr "바운서가 응답하지 않았습니다."
+
 #. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): heading of the full list.
 #: client/components/Windows/ChannelBrowser.vue
 msgctxt "browse.all"
@@ -4158,6 +4176,12 @@ msgstr "앱 로딩 중…"
 msgctxt "lobby.account"
 msgid "Account"
 msgstr ""
+
+#. aria-label and tooltip of the server button in a bouncer connection's network header: opens the bouncer panel listing the networks the bouncer keeps.
+#: client/components/NetworkLobby.vue
+msgctxt "lobby.bouncerPanel"
+msgid "Bouncer networks…"
+msgstr "바운서 네트워크…"
 
 #. aria-label of the plus button on a sidebar network row while the join-channel form is open: clicking closes it again.
 #: client/components/NetworkLobby.vue:156
@@ -17175,6 +17199,192 @@ msgstr "WebSocket 출처:"
 msgctxt "whois.yes"
 msgid "Yes"
 msgstr "네"
+
+#. Button under the list in the bouncer panel: opens the form to add a new network to the bouncer.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.addOpen"
+msgid "Add a network…"
+msgstr "네트워크 추가…"
+
+#. Submit button of the bouncer panel's form when adding: asks the bouncer to add the network.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.addSubmit"
+msgid "Add network"
+msgstr "네트워크 추가"
+
+#. Heading of the bouncer panel's form when adding a new network to the bouncer.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.addTitle"
+msgid "Add a network"
+msgstr "네트워크 추가"
+
+#. Button of the bouncer panel's form: closes the form without sending anything.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.cancel"
+msgid "Cancel"
+msgstr "취소"
+
+#. aria-label of the ✕ button at the top right of the bouncer panel; clicking closes it and returns to the chat.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.close"
+msgid "Close the bouncer panel"
+msgstr "바운서 패널 닫기"
+
+#. Confirmation button in the bouncer panel: removes the network from the bouncer for good.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.delete"
+msgid "Delete"
+msgstr "삭제"
+
+#. Button on a network's row in the bouncer panel: asks for confirmation (Delete / Keep appear in its place) before removing the network from the bouncer.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.deleteAsk"
+msgid "Delete…"
+msgstr "삭제…"
+
+#. aria-label of the bouncer panel (a modal listing the networks an IRC bouncer such as soju keeps for the user). {network} is the bouncer connection's name, VERBATIM.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.dialog"
+msgid "Bouncer networks on {network}"
+msgstr "{network}의 바운서 네트워크"
+
+#. Button at the bottom of the bouncer panel: closes it.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.done"
+msgid "Done"
+msgstr "완료"
+
+#. Button on a network's row in the bouncer panel: opens the form to change that network's settings on the bouncer.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.edit"
+msgid "Edit"
+msgstr "편집"
+
+#. Heading of the bouncer panel's form when changing a network. {network} is the network's name, VERBATIM.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.editTitle"
+msgid "Edit {network}"
+msgstr "{network} 편집"
+
+#. Shown in the bouncer panel when the bouncer keeps no networks.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.empty"
+msgid "No networks yet."
+msgstr "아직 네트워크가 없습니다."
+
+#. Field label in the bouncer panel's form: the network's display name.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.fieldName"
+msgid "Name"
+msgstr "이름"
+
+#. Field label in the bouncer panel's form: the nickname to use on that network.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.fieldNick"
+msgid "Nick"
+msgstr "닉네임"
+
+#. Field label in the bouncer panel's form: the IRC server's connection password, if it needs one.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.fieldPassword"
+msgid "Server password"
+msgstr "서버 비밀번호"
+
+#. Field label in the bouncer panel's form: the IRC server's port number.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.fieldPort"
+msgid "Port"
+msgstr "포트"
+
+#. Field label in the bouncer panel's form: the IRC "real name" (free text shown in WHOIS) to use on that network.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.fieldRealname"
+msgid "Real name"
+msgstr "실명"
+
+#. Field label in the bouncer panel's form: the IRC server's host name the bouncer connects to.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.fieldServer"
+msgid "Server"
+msgstr "서버"
+
+#. Field label in the bouncer panel's form: the IRC username (ident) to use on that network.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.fieldUsername"
+msgid "Username"
+msgstr "사용자 이름"
+
+#. Button beside the delete confirmation in the bouncer panel: cancels the deletion and keeps the network.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.keep"
+msgid "Keep"
+msgstr "유지"
+
+#. Placeholder of the nick field in the bouncer panel's form: left empty, the bouncer uses its own default nickname.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.nickPlaceholder"
+msgid "the bouncer's default"
+msgstr "바운서 기본값"
+
+#. Shown in the bouncer panel when the connection has not announced bouncer support (yet). {network} is the connection's name, VERBATIM.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.notBouncer"
+msgid "{network} is not a bouncer, or has not said so yet."
+msgstr "{network}은(는) 바운서가 아니거나 아직 알리지 않았습니다."
+
+#. Footer note of the bouncer panel: the networks listed are kept on the bouncer, and each one shows in the sidebar as a separate network.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.note"
+msgid "The bouncer keeps these; each appears here as a network of its own."
+msgstr "바운서가 이 네트워크들을 유지하며, 각각 여기에서 별도의 네트워크로 표시됩니다."
+
+#. Placeholder of the port field in the bouncer panel's form: the usual port numbers with and without TLS. Keep the numbers.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.portPlaceholder"
+msgid "6697 with TLS, 6667 without"
+msgstr "TLS 사용 시 6697, 미사용 시 6667"
+
+#. Error in the bouncer panel when the bouncer turned a request down without saying why.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.refused"
+msgid "The bouncer refused."
+msgstr "바운서가 거부했습니다."
+
+#. Submit button of the bouncer panel's form when editing: sends the changes to the bouncer.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.save"
+msgid "Save"
+msgstr "저장"
+
+#. Tooltip of the status dot beside a network in the bouncer panel: the bouncer is connected to that network.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.stateConnected"
+msgid "Connected"
+msgstr "연결됨"
+
+#. Tooltip of the status dot beside a network in the bouncer panel: the bouncer is connecting to that network.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.stateConnecting"
+msgid "Connecting"
+msgstr "연결 중"
+
+#. Tooltip of the status dot beside a network in the bouncer panel: the bouncer is not connected to that network.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.stateDisconnected"
+msgid "Disconnected"
+msgstr "연결 끊김"
+
+#. Heading of the bouncer panel, a modal listing the networks an IRC bouncer (a server that stays connected on the user's behalf) keeps for the user. The connection's name follows it after a dot, outside this label.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.title"
+msgid "Bouncer"
+msgstr "바운서"
+
+#. Switch in the bouncer panel's form: whether the bouncer uses an encrypted (TLS) connection to this IRC network.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.tls"
+msgid "The bouncer connects with TLS"
+msgstr "바운서가 TLS로 연결합니다"
 
 #. Text of the link in the changelog window that opens the list of every release.
 #: client/components/Windows/Changelog.vue

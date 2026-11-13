@@ -9,6 +9,7 @@ import {InboxEntry} from "./mention";
 import {ChanState, SharedChan} from "./chan";
 import {
 	ServicesConfig,
+	SharedBouncerNetwork,
 	SharedNetwork,
 	SharedNetworkPresence,
 	SharedNetworkChan,
@@ -205,6 +206,16 @@ interface ServerToClientEvents {
 	}>;
 	/** Being an oper on `network` changed: level, privileges, snomask, features (irc/oper.ts). */
 	"oper:state": EventHandler<{network: string; state: SharedOperState}>;
+	/** soju's networks, whole, each time the bouncer connection's list changes (irc/bouncer.ts). */
+	"bouncer:networks": EventHandler<{network: string; networks: SharedBouncerNetwork[]}>;
+	/** soju's verdict on a `bouncer:request` with the same `id`. */
+	"bouncer:replied": EventHandler<{
+		network: string;
+		id: string;
+		ok: boolean;
+		netid?: string;
+		error?: string;
+	}>;
 	/**
 	 * The answer to an `oper:request`: every line of the labeled reply, raw,
 	 * in order. `outcome` says how it ended (`batch`, `lines`, `ack`,
@@ -413,6 +424,14 @@ interface ClientToServerEvents {
 	"oper:notices:get": EventHandler<{network: string}>;
 	/** WHOIS the services bots named in `services` (the edit form's liveness check); answered by `services:checked`. */
 	"services:check": EventHandler<{network: string; id: string; services: ServicesConfig}>;
+	/** Add, change or delete one of soju's networks (irc/bouncer.ts); answered by `bouncer:replied`. */
+	"bouncer:request": EventHandler<{
+		network: string;
+		id: string;
+		subcommand: "ADDNETWORK" | "CHANGENETWORK" | "DELNETWORK";
+		netid?: string;
+		attrs?: Record<string, string>;
+	}>;
 	/** Ask the oper service for a G-line or shun (irc/services.ts); answered by `services:banned`. */
 	"services:ban": EventHandler<{
 		network: string;

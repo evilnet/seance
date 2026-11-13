@@ -5,6 +5,7 @@
  * the real registry.
  */
 
+import {bouncerRequest} from "./bouncer";
 import type {EventBus} from "../socket";
 import type {IrcClient} from "./client";
 import {requestMore} from "./history";
@@ -263,6 +264,19 @@ export function registerBusHandlers(bus: EventBus, registry: ClientRegistry): vo
 		});
 	});
 
+	bus.handle("bouncer:request", ({network, id, subcommand, netid, attrs}) => {
+		const client = registry.clientForNetwork(network);
+
+		if (!client) {
+			bus.dispatch("bouncer:replied", {network, id, ok: false, error: "Not connected."});
+			return;
+		}
+
+		void bouncerRequest(client, subcommand, netid, attrs).then((reply) => {
+			bus.dispatch("bouncer:replied", {network, id, ...reply});
+		});
+	});
+
 	bus.handle("open", (id) => {
 		for (const client of registry.allClients()) {
 			client.open(client.channelById(id) ? id : 0);
@@ -394,7 +408,24 @@ export function registerBusHandlers(bus: EventBus, registry: ClientRegistry): vo
 		if (client) {
 			// Host, port, TLS, channels and SASL: applied on the next connect,
 			// or right away when the client is idle / waiting to reconnect.
-			client.applySettings(saved.toConnectOptions(next));
+			// A soju network's connection is its bouncer's (bouncer.ts), so
+			// it takes none from its own form, and the bouncer's goes to its
+			// networks too.
+			if (!next.bouncer) {
+				client.applySettings(saved.toConnectOptions(next));
+			}
+
+			for (const child of saved.bouncerChildren(uuid)) {
+				const live = registry.clientForNetwork(child.uuid);
+
+				if (live) {
+					live.applySettings({
+						...saved.toConnectOptions(next),
+						saslPassword: next.saslPassword || client.options.saslPassword,
+						join: live.options.join,
+					});
+				}
+			}
 
 			// Live-applicable fields: the nick (NICK when connected, local
 			// otherwise — `/nick` does both) and the display name.

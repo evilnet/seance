@@ -73,7 +73,9 @@ const isupport: Handler = (client, msg) => {
 
 	const name = client.isupport.network;
 
-	if (name) {
+	// A soju network is called what soju calls it (../bouncer.ts), not what
+	// its upstream announces.
+	if (name && !client.options.bouncerNetid) {
 		client.setNetworkName(name);
 	}
 

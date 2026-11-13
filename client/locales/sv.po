@@ -526,6 +526,24 @@ msgctxt "bans.undo"
 msgid "Undo"
 msgstr ""
 
+#. Shown in a network's lobby when the bouncer refused to attach this connection to that network. {code} is the bouncer's error code and {message} its own words, both VERBATIM — never translate their content.
+#: client/js/irc/bouncer.ts
+msgctxt "bouncer.bindRefused"
+msgid "The bouncer refused this network ({code}): {message}"
+msgstr "Bouncern vägrade detta nätverk ({code}): {message}"
+
+#. Error in the bouncer panel when the connection closed before the bouncer replied to a request.
+#: client/js/irc/bouncer.ts
+msgctxt "bouncer.noAnswer"
+msgid "No answer."
+msgstr "Inget svar."
+
+#. Error in the bouncer panel when the bouncer sent no reply to a request in time.
+#: client/js/irc/bouncer.ts
+msgctxt "bouncer.timeout"
+msgid "The bouncer did not answer."
+msgstr "Bouncern svarade inte."
+
 #. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): heading of the full list.
 #: client/components/Windows/ChannelBrowser.vue
 msgctxt "browse.all"
@@ -4182,6 +4200,12 @@ msgstr "Läser in appen…"
 msgctxt "lobby.account"
 msgid "Account"
 msgstr ""
+
+#. aria-label and tooltip of the server button in a bouncer connection's network header: opens the bouncer panel listing the networks the bouncer keeps.
+#: client/components/NetworkLobby.vue
+msgctxt "lobby.bouncerPanel"
+msgid "Bouncer networks…"
+msgstr "Bouncer-nätverk…"
 
 #. aria-label of the plus button on a sidebar network row while the join-channel form is open: clicking closes it again.
 #: client/components/NetworkLobby.vue:156
@@ -17271,6 +17295,192 @@ msgstr "WebSocket från:"
 msgctxt "whois.yes"
 msgid "Yes"
 msgstr "Ja"
+
+#. Button under the list in the bouncer panel: opens the form to add a new network to the bouncer.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.addOpen"
+msgid "Add a network…"
+msgstr "Lägg till ett nätverk…"
+
+#. Submit button of the bouncer panel's form when adding: asks the bouncer to add the network.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.addSubmit"
+msgid "Add network"
+msgstr "Lägg till nätverk"
+
+#. Heading of the bouncer panel's form when adding a new network to the bouncer.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.addTitle"
+msgid "Add a network"
+msgstr "Lägg till ett nätverk"
+
+#. Button of the bouncer panel's form: closes the form without sending anything.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.cancel"
+msgid "Cancel"
+msgstr "Avbryt"
+
+#. aria-label of the ✕ button at the top right of the bouncer panel; clicking closes it and returns to the chat.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.close"
+msgid "Close the bouncer panel"
+msgstr "Stäng bouncer-panelen"
+
+#. Confirmation button in the bouncer panel: removes the network from the bouncer for good.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.delete"
+msgid "Delete"
+msgstr "Ta bort"
+
+#. Button on a network's row in the bouncer panel: asks for confirmation (Delete / Keep appear in its place) before removing the network from the bouncer.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.deleteAsk"
+msgid "Delete…"
+msgstr "Ta bort…"
+
+#. aria-label of the bouncer panel (a modal listing the networks an IRC bouncer such as soju keeps for the user). {network} is the bouncer connection's name, VERBATIM.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.dialog"
+msgid "Bouncer networks on {network}"
+msgstr "Bouncer-nätverk på {network}"
+
+#. Button at the bottom of the bouncer panel: closes it.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.done"
+msgid "Done"
+msgstr "Klar"
+
+#. Button on a network's row in the bouncer panel: opens the form to change that network's settings on the bouncer.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.edit"
+msgid "Edit"
+msgstr "Redigera"
+
+#. Heading of the bouncer panel's form when changing a network. {network} is the network's name, VERBATIM.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.editTitle"
+msgid "Edit {network}"
+msgstr "Redigera {network}"
+
+#. Shown in the bouncer panel when the bouncer keeps no networks.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.empty"
+msgid "No networks yet."
+msgstr "Inga nätverk ännu."
+
+#. Field label in the bouncer panel's form: the network's display name.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.fieldName"
+msgid "Name"
+msgstr "Namn"
+
+#. Field label in the bouncer panel's form: the nickname to use on that network.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.fieldNick"
+msgid "Nick"
+msgstr "Nicknamn"
+
+#. Field label in the bouncer panel's form: the IRC server's connection password, if it needs one.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.fieldPassword"
+msgid "Server password"
+msgstr "Serverlösenord"
+
+#. Field label in the bouncer panel's form: the IRC server's port number.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.fieldPort"
+msgid "Port"
+msgstr ""
+
+#. Field label in the bouncer panel's form: the IRC "real name" (free text shown in WHOIS) to use on that network.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.fieldRealname"
+msgid "Real name"
+msgstr "Riktigt namn"
+
+#. Field label in the bouncer panel's form: the IRC server's host name the bouncer connects to.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.fieldServer"
+msgid "Server"
+msgstr ""
+
+#. Field label in the bouncer panel's form: the IRC username (ident) to use on that network.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.fieldUsername"
+msgid "Username"
+msgstr "Användarnamn"
+
+#. Button beside the delete confirmation in the bouncer panel: cancels the deletion and keeps the network.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.keep"
+msgid "Keep"
+msgstr "Behåll"
+
+#. Placeholder of the nick field in the bouncer panel's form: left empty, the bouncer uses its own default nickname.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.nickPlaceholder"
+msgid "the bouncer's default"
+msgstr "bouncerns standard"
+
+#. Shown in the bouncer panel when the connection has not announced bouncer support (yet). {network} is the connection's name, VERBATIM.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.notBouncer"
+msgid "{network} is not a bouncer, or has not said so yet."
+msgstr "{network} är ingen bouncer, eller har inte sagt det ännu."
+
+#. Footer note of the bouncer panel: the networks listed are kept on the bouncer, and each one shows in the sidebar as a separate network.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.note"
+msgid "The bouncer keeps these; each appears here as a network of its own."
+msgstr "Bouncern håller dessa; vart och ett visas här som ett eget nätverk."
+
+#. Placeholder of the port field in the bouncer panel's form: the usual port numbers with and without TLS. Keep the numbers.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.portPlaceholder"
+msgid "6697 with TLS, 6667 without"
+msgstr "6697 med TLS, 6667 utan"
+
+#. Error in the bouncer panel when the bouncer turned a request down without saying why.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.refused"
+msgid "The bouncer refused."
+msgstr "Bouncern vägrade."
+
+#. Submit button of the bouncer panel's form when editing: sends the changes to the bouncer.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.save"
+msgid "Save"
+msgstr "Spara"
+
+#. Tooltip of the status dot beside a network in the bouncer panel: the bouncer is connected to that network.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.stateConnected"
+msgid "Connected"
+msgstr "Ansluten"
+
+#. Tooltip of the status dot beside a network in the bouncer panel: the bouncer is connecting to that network.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.stateConnecting"
+msgid "Connecting"
+msgstr "Ansluter"
+
+#. Tooltip of the status dot beside a network in the bouncer panel: the bouncer is not connected to that network.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.stateDisconnected"
+msgid "Disconnected"
+msgstr "Frånkopplad"
+
+#. Heading of the bouncer panel, a modal listing the networks an IRC bouncer (a server that stays connected on the user's behalf) keeps for the user. The connection's name follows it after a dot, outside this label.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.title"
+msgid "Bouncer"
+msgstr ""
+
+#. Switch in the bouncer panel's form: whether the bouncer uses an encrypted (TLS) connection to this IRC network.
+#: client/components/Windows/BouncerPanel.vue
+msgctxt "windows.bouncer.tls"
+msgid "The bouncer connects with TLS"
+msgstr "Bouncern ansluter med TLS"
 
 #. Text of the link in the changelog window that opens the list of every release.
 #: client/components/Windows/Changelog.vue

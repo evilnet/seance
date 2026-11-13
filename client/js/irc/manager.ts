@@ -21,6 +21,7 @@ import {parseKeywordList} from "../highlight";
 import {setMuteStatus} from "../mute";
 import {ignoreListFor} from "../ignore";
 import {registerBusHandlers} from "./bus";
+import type {BouncerAttrs} from "./bouncer";
 import {IrcClient} from "./client";
 import {flushQueryLogs} from "./querylog";
 import {forgetLogin, typedCredentialsDiffer} from "./saslTrust";
@@ -41,6 +42,8 @@ const globalDnd: {active: boolean; until: number | null} = {active: false, until
 const globalMode: GlobalModeState = {value: "auto", at: null};
 
 const clients = new Map<string, IrcClient>();
+/** A soju network's uuid → the bouncer connection's (bouncer.ts). */
+const bouncerParents = new Map<string, string>();
 
 /**
  * What the connect form (or `network:new`) hands us: connection details plus
@@ -199,6 +202,17 @@ export function createNetwork(options: CreateNetworkOptions): IrcClient {
 			onServerPasswordRejected: () => stopAutoconnect(entry.uuid),
 			onUntrustedCertificate: (certificate) =>
 				void untrustedCertificate(entry.uuid, certificate),
+			onBouncerNetwork(netid, attrs) {
+				bouncerNetwork(entry.uuid, netid, attrs);
+			},
+			// The whole list: a network deleted while we were away goes too.
+			onBouncerList(netids) {
+				for (const child of saved.bouncerChildren(entry.uuid)) {
+					if (!netids.includes(child.bouncer!.netid)) {
+						bouncerNetwork(entry.uuid, child.bouncer!.netid, null);
+					}
+				}
+			},
 		});
 		clients.set(entry.uuid, client);
 		// Load the network's ignore list now, which mirrors it for the push
@@ -246,6 +260,79 @@ export function createNetwork(options: CreateNetworkOptions): IrcClient {
 
 	client.connect();
 	return client;
+}
+
+/**
+ * A bouncer connection listed one of soju's networks (`attrs`) or dropped
+ * it (`null`), see bouncer.ts: keep a network of our own for each, on a
+ * saved entry linked to the parent so its uuid — and the query log,
+ * channel order and push keyed by it — survives reloads. It connects to the
+ * same soju with the parent's live login (the password may not be on disk)
+ * and binds to `netid`; its name follows soju's `name`.
+ */
+function bouncerNetwork(parentUuid: string, netid: string, attrs: BouncerAttrs | null): void {
+	let entry = saved.bouncerChildren(parentUuid).find((net) => net.bouncer?.netid === netid);
+
+	if (!attrs) {
+		if (entry) {
+			saved.remove(entry.uuid);
+			clients.get(entry.uuid)?.quit("Network removed from the bouncer");
+		}
+
+		return;
+	}
+
+	const parent = clients.get(parentUuid);
+
+	if (!parent) {
+		return;
+	}
+
+	const name = attrs.name || attrs.host || netid;
+	const nick = attrs.nickname || entry?.nick || parent.nick;
+
+	if (!entry || entry.name !== name) {
+		entry = saved.save({
+			...(entry ?? saved.normalize({uuid: saved.newUuid()})!),
+			host: parent.options.host,
+			port: parent.options.port,
+			tls: parent.options.tls,
+			sasl: parent.options.sasl,
+			saslAccount: parent.options.saslAccount,
+			nick,
+			name,
+			rememberPassword: false, // the parent's password, never on this entry
+			bouncer: {parent: parentUuid, netid},
+		});
+	}
+
+	const existing = clients.get(entry.uuid);
+
+	if (existing) {
+		existing.setNetworkName(name);
+		return;
+	}
+
+	const client = new IrcClient({
+		...saved.toConnectOptions(entry),
+		// The parent's connection as it is now, password included.
+		host: parent.options.host,
+		port: parent.options.port,
+		tls: parent.options.tls,
+		sasl: parent.options.sasl,
+		saslAccount: parent.options.saslAccount,
+		saslPassword: parent.options.saslPassword,
+		uuid: entry.uuid,
+		bouncerNetid: netid,
+		highlights: highlightKeywords,
+		networksForInit: allNetworks,
+		setMuteStatus,
+	});
+
+	clients.set(entry.uuid, client);
+	bouncerParents.set(entry.uuid, parentUuid);
+	client.setNetworkName(name);
+	client.connect();
 }
 
 /**
@@ -503,6 +590,14 @@ registerBusHandlers(socket, {
 		clients.get(uuid)?.queryLog.dispose();
 		clients.delete(uuid);
 		forgetLogin(uuid);
+		bouncerParents.delete(uuid);
+
+		// A bouncer connection removed takes its networks with it.
+		for (const [child, parent] of bouncerParents) {
+			if (parent === uuid) {
+				clients.get(child)?.quit();
+			}
+		}
 	},
 });
 

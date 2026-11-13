@@ -280,7 +280,8 @@ document.addEventListener("keydown", (e) => {
 		(router.currentRoute.value.name === "Help" ||
 			router.currentRoute.value.name === "Changelog" ||
 			router.currentRoute.value.path.startsWith("/settings") ||
-			router.currentRoute.value.name === "OperPanel") &&
+			router.currentRoute.value.name === "OperPanel" ||
+			router.currentRoute.value.name === "BouncerPanel") &&
 		!(
 			e.target instanceof HTMLInputElement ||
 			e.target instanceof HTMLTextAreaElement ||

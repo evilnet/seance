@@ -12,12 +12,14 @@
  * `FAIL CHATHISTORY INVALID_TARGET` answering a history request of ours (the
  * server may not let us read that target: ../history.ts).
  * `FAIL WEBPUSH <code> <command> [<endpoint>] :text` becomes `webpush:state`
- * (../webpush.ts); everything else is shown raw.
+ * (../webpush.ts), and `FAIL BOUNCER <code> BIND` drops a connection soju
+ * would not bind (../bouncer.ts); everything else is shown raw.
  */
 
 import {t} from "../../i18n/core";
 import {MessageType} from "../../../../shared/types/msg";
 import {targetsFailed} from "../catchup";
+import {bouncerFailed} from "../bouncer";
 import {chatHistoryFailed} from "../history";
 import {searchContextFailed, searchFailed} from "../historysearch";
 import {multilineCooldown, multilineRejected} from "../multiline";
@@ -183,6 +185,10 @@ function reply(kind: "FAIL" | "WARN" | "NOTE"): Handler {
 
 		if (kind === "FAIL" && command.toUpperCase() === "REDACT") {
 			redactFailed(client, msg);
+			return;
+		}
+
+		if (kind === "FAIL" && command.toUpperCase() === "BOUNCER" && bouncerFailed(client, msg)) {
 			return;
 		}
 
