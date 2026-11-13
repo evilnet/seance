@@ -701,6 +701,28 @@ describe("Pending outgoing messages (irc/pending.ts)", function () {
 			expect(copies.map((m) => m.text)).to.deep.equal(["one\ntwo"]);
 		});
 
+		it("settles the copy when the echo is a multiline batch inside a labelled batch", function () {
+			const h = setup();
+			const id = joined(h, MULTILINE);
+			h.client.input(id, "one\ntwo");
+			const copy = h.lastMessage(id);
+
+			h.transport.line("@label=s1 :irc.test BATCH +lr labeled-response");
+			h.transport.line("@batch=lr :irc.test NOTE PRIVMSG SLOW :heads up");
+			h.transport.line(
+				"@batch=lr;msgid=mm1;time=2026-08-25T12:00:01.000Z :alice!alice@host.example BATCH +Gk1 draft/multiline #seance"
+			);
+			h.transport.line("@batch=Gk1 :alice!alice@host.example PRIVMSG #seance :one");
+			h.transport.line("@batch=Gk1 :alice!alice@host.example PRIVMSG #seance :two");
+			h.transport.line("@batch=lr :alice!alice@host.example BATCH -Gk1");
+			h.transport.line(":irc.test BATCH -lr");
+
+			expect(settled(h)).to.deep.equal([{chan: id, id: copy.id}]);
+			expect(h.lastMessage(id).text).to.equal("one\ntwo");
+			clock.tick(PENDING_TIMEOUT_MS + 1);
+			expect(errorsIn(h, id)).to.deep.equal([]);
+		});
+
 		it("settles the copy when the echoed batch carries the label", function () {
 			const h = setup();
 			const id = joined(h, MULTILINE);
