@@ -250,11 +250,20 @@ export function syncPushMute(client: IrcClient): void {
  */
 export function claimMute(client: IrcClient): void {
 	client.muteClaim = true;
+	client.muteClearPending = false;
 }
 
 /** The pill's Off with DND set elsewhere: remove the `*` entry here. */
 export function clearRemoteDnd(client: IrcClient): void {
 	const now = nowSec();
+
+	if (!client.muteKnown) {
+		// A list read before a gap (a reconnect, metadata out of use) may
+		// be stale: writing it back could erase another device's newer
+		// mutes. The removal waits for the read (onMuteValue).
+		client.muteClearPending = true;
+		return;
+	}
 
 	if (!canWriteMute(client) || globalUntil(client.muteValue, now) === null) {
 		return;
@@ -272,7 +281,9 @@ export function clearRemoteDnd(client: IrcClient): void {
  * network (its muteMemory forgotten) would adopt it as another device's.
  */
 export function releaseMute(client: IrcClient): void {
-	if (!client.muteOwned || !canWriteMute(client)) {
+	// Not before the read: the list from before a gap may be stale, and
+	// writing it back would erase another device's newer mutes.
+	if (!client.muteOwned || !client.muteKnown || !canWriteMute(client)) {
 		return;
 	}
 
@@ -323,6 +334,12 @@ export function onMuteValue(client: IrcClient, value: string): void {
 
 	if (!client.muteKnown) {
 		onFirstRead(client, value);
+
+		if (client.muteClearPending) {
+			client.muteClearPending = false;
+			clearRemoteDnd(client);
+		}
+
 		syncPresence(client);
 		return;
 	}

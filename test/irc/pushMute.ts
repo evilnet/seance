@@ -12,6 +12,7 @@ import {
 	formatMute,
 	globalUntil,
 	parseMute,
+	releaseMute,
 	withGlobal,
 	withoutGlobal,
 } from "../../client/js/irc/pushMute";
@@ -324,6 +325,26 @@ describe("push mute on the wire (irc/pushMute.ts)", function () {
 		h.transport.line(":irc.test 761 alice alice draft/webpush/mute * :#other:9999999999");
 		expect(h.sent()).to.deep.equal([
 			`METADATA * SET draft/webpush/mute private :#other:9999999999;*:${NOW_S + 3600}`,
+		]);
+	});
+
+	it("the pill's Off after batch comes back waits for the new read", function () {
+		const h = connect();
+		h.transport.line(":irc.test 761 alice alice draft/webpush/mute * :*:9999999999");
+		h.transport.line(":irc.test CAP alice DEL :batch");
+		h.transport.line(":irc.test CAP alice NEW :batch");
+		h.transport.line(":irc.test CAP alice ACK :batch");
+		h.sent();
+		clearRemoteDnd(h.client);
+		releaseMute(h.client);
+		expect(h.sent().filter((l) => l.includes("SET"))).to.deep.equal([]);
+		clock.tick(MUTE_READ_DELAY_MS);
+		// Another device muted a channel in the gap: the removal keeps it.
+		h.transport.line(
+			":irc.test 761 alice alice draft/webpush/mute * :*:9999999999;#other:9999999999"
+		);
+		expect(h.sent().filter((l) => l.includes("SET"))).to.deep.equal([
+			"METADATA * SET draft/webpush/mute private :#other:9999999999",
 		]);
 	});
 

@@ -86,7 +86,6 @@ import {
 	presenceRegistered,
 	registrationAwayLine,
 	presenceSnapshot,
-	reportPresence,
 	setAttended,
 	syncPresence,
 } from "./presence";
@@ -436,6 +435,8 @@ export class IrcClient {
 	}
 	/** The user changed DND by hand: the next sync takes the live `*` entry as ours (pushMute.ts `claimMute`). */
 	muteClaim = false;
+	/** The pill's Off came before the mute list was read: it is done once the read answers (pushMute.ts `clearRemoteDnd`). */
+	muteClearPending = false;
 	/** Another device cleared our entry: write nothing until local DND ends and starts again. */
 	muteSuppressed = false;
 	/** Our writes awaiting their echoes (pushMute.ts `ownEcho`). */
@@ -3284,7 +3285,8 @@ export class IrcClient {
 		this.closedKnown = false;
 		this.metadataSubscribed = false;
 		this.mutePending.length = 0;
-		reportPresence(this);
+		// A remote DND this connection was away for is unknown now: AWAY follows.
+		syncPresence(this);
 		this.scheduleMuteRead();
 	}
 
