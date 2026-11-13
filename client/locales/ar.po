@@ -3293,18 +3293,6 @@ msgctxt "help.gestures.swipeRight"
 msgid "Single-Finger Swipe Right"
 msgstr "السحب بإصبع واحدة إلى اليمين"
 
-#. Name of the touch gesture in the help window's gestures section: swiping left with two fingers anywhere in the chat. Its description follows.
-#: client/components/Windows/Help.vue
-msgctxt "help.gestures.twoSwipeLeft"
-msgid "Two-Finger Swipe Left"
-msgstr "السحب بإصبعين إلى اليسار"
-
-#. Name of the touch gesture in the help window's gestures section: swiping right with two fingers anywhere in the chat. Its description follows.
-#: client/components/Windows/Help.vue
-msgctxt "help.gestures.twoSwipeRight"
-msgid "Two-Finger Swipe Right"
-msgstr "السحب بإصبعين إلى اليمين"
-
 #. Label of the privacy policy link in the Help window.
 #: client/js/branding.ts
 #: client/components/Windows/Help.vue

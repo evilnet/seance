@@ -6,8 +6,7 @@
 // way the fingers go (a wide code block, a table), keeps its own
 // (helpers/sidewaysSwipe.ts, as the touch drag asks). One swipe, one change:
 // the gesture has to go quiet before the next one counts. Touch screens have
-// their own swipes (helpers/listenForTwoFingerSwipes.ts, the sidebar's drag)
-// and are left alone.
+// their own swipe (the sidebar's drag) and are left alone.
 //
 // The direction of the fingers is the wheel's, natural scrolling undone:
 // WebKit says when the system's setting is off; Chrome and Firefox do not,

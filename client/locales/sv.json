@@ -384,8 +384,6 @@
   "help.gestures.showSidebar": "Visa sidopanelen.",
   "help.gestures.swipeLeft": "Svep åt vänster med ett finger",
   "help.gestures.swipeRight": "Svep åt höger med ett finger",
-  "help.gestures.twoSwipeLeft": "Svep åt vänster med två fingrar",
-  "help.gestures.twoSwipeRight": "Svep åt höger med två fingrar",
   "help.privacy": "Integritetspolicy",
   "help.range": "mellan {from} och {to}",
   "help.releaseNotesLink": "versionsinformation",

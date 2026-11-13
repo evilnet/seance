@@ -526,8 +526,6 @@ export const STATIC_CALL_SITES = new Set<string>([
 	"help.gestures.showSidebar",
 	"help.gestures.swipeLeft",
 	"help.gestures.swipeRight",
-	"help.gestures.twoSwipeLeft",
-	"help.gestures.twoSwipeRight",
 	"help.privacy",
 	"help.range",
 	"help.releaseNotesLink",

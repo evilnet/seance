@@ -383,8 +383,6 @@
   "help.gestures.showSidebar": "Seitenleiste einblenden.",
   "help.gestures.swipeLeft": "Mit einem Finger nach links wischen",
   "help.gestures.swipeRight": "Mit einem Finger nach rechts wischen",
-  "help.gestures.twoSwipeLeft": "Mit zwei Fingern nach links wischen",
-  "help.gestures.twoSwipeRight": "Mit zwei Fingern nach rechts wischen",
   "help.privacy": "Datenschutz",
   "help.range": "zwischen {from} und {to}",
   "help.releaseNotesLink": "Versionshinweise",

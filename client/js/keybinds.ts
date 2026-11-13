@@ -7,7 +7,6 @@ import {switchToChannel, router, navigate, leavePage} from "./router";
 import {topEscapeLayer} from "./helpers/escapeLayer";
 import isChannelCollapsed from "./helpers/isChannelCollapsed";
 import isIgnoredKeybind from "./helpers/isIgnoredKeybind";
-import listenForTwoFingerSwipes from "./helpers/listenForTwoFingerSwipes";
 import {numberShortcutModifier} from "./helpers/numberShortcut";
 import {nativeListen, nativePlatform} from "./helpers/shell";
 import {ClientChan} from "./types";
@@ -22,12 +21,6 @@ Mousetrap.bind(["alt+up", "alt+down"], function (e, keys) {
 	navigateWindow(keys.split("+").pop() === "up" ? -1 : 1);
 
 	return false;
-});
-
-listenForTwoFingerSwipes(function (cardinalDirection: string) {
-	if (cardinalDirection === "e" || cardinalDirection === "w") {
-		navigateWindow(cardinalDirection === "e" ? -1 : 1);
-	}
 });
 
 /** The conversations in sidebar order, the collapsed networks' left out (lobbies stay). */

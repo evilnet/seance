@@ -204,8 +204,8 @@ export default async function run(page) {
 		page.check("a pinch leaves the viewer open", await page.evaluate(OPEN));
 		await page.screenshot("2-pinched");
 
-		// A quick two-finger pan sideways: the channel swipe on <body> must
-		// not see it and switch the conversation under the image.
+		// A quick two-finger pan sideways: the viewer keeps it, so nothing
+		// on <body> switches the conversation under the image.
 		const swipeY = viewer.y + viewer.height / 2;
 		await touch(page, "touchStart", [
 			finger(midX - 60, swipeY, 0),
