@@ -1,6 +1,10 @@
 import {expect} from "chai";
-import {onnxDtype, seq2seqCacheApi} from "../../client/js/translate/engines/seq2seqCache";
-import {buildCatalog} from "../../client/js/translate/models";
+import {
+	dropRepos,
+	onnxDtype,
+	seq2seqCacheApi,
+} from "../../client/js/translate/engines/seq2seqCache";
+import {buildCatalog, retiredRepos} from "../../client/js/translate/models";
 
 // OPUS-MT and NLLB-200 with their GPU copies (off in the shipped catalog,
 // models.ts CatalogOptions `seq2seqGpu`), so the per-device logic is covered.
@@ -90,5 +94,24 @@ describe("translate/engines/seq2seqCache", () => {
 		);
 
 		expect(await api.has(ref, "gpu")).to.equal(false);
+	});
+});
+
+describe("translate/engines/seq2seqCache dropRepos", () => {
+	it("deletes the files of the models a build replaced, and no other", async () => {
+		const host = "https://bot.hextalk.org/models/seance-mt";
+		const old = `${host}/marian-ko/resolve/main/onnx/encoder_model_quantized.onnx`;
+		const kept = `${host}/marian-ko-r24/resolve/main/onnx/encoder_model_quantized.onnx`;
+		const held = store([old, kept, `${other}/config.json`]);
+		await dropRepos(held, retiredRepos(buildCatalog()));
+
+		expect([...held.held]).to.deep.equal([kept, `${other}/config.json`]);
+	});
+
+	it("keeps a retired repo a deploy still names", () => {
+		const deploy = buildCatalog({cpu: {opus: {"ko-en": {model: "seance-mt/marian-ko"}}}});
+
+		expect(retiredRepos(deploy)).not.to.include("seance-mt/marian-ko");
+		expect(retiredRepos(buildCatalog())).to.include("seance-mt/marian-ko");
 	});
 });

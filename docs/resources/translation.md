@@ -362,7 +362,11 @@ no engine). Every other translation scenario switches translation on first
   route first like any pair. They are fetched from AfterNET's mirror
   (`AFTERNET_MT_HOST`, `https://bot.hextalk.org/models`) until they have a
   Hugging Face organisation; a deploy's own `modelBase` fetches them from
-  there instead, under `seance-mt/marian-<code>/`. transformers.js reads
+  there instead, under each repo `AFTERNET_MT_REPOS` names (`seance-mt/marian-ko-r24/`). A
+  retrained model gets a repo of its own; the ones it replaced are listed in
+  `RETIRED_SEQ2SEQ`, so a pair the user removed stays removed under the new
+  model (consent.ts `carryRemovals`) and the old files are deleted from the
+  cache when the worker is configured (`retiredRepos`, `dropRepos`). transformers.js reads
   one host for the whole library, so the worker loads its seq2seq models
   one at a time, each with its own (`seq2seq.real.ts`, `remoteFor`). Two stay loaded, least recently used evicted.
   Several times faster with WASM threads, which need the cross-origin

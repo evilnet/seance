@@ -17,9 +17,15 @@ import {cpuLlmCache, wllamaBackend} from "./engines/cpuLlm.real";
 import {OnDevice} from "./engines/onDevice";
 import type {EngineName} from "./engine";
 import {Seq2seqEngine} from "./engines/seq2seq";
-import {configureTransformers, realSeq2seqDeps, seq2seqCache} from "./engines/seq2seq.real";
+import {
+	configureTransformers,
+	realSeq2seqDeps,
+	seq2seqCache,
+	seq2seqStore,
+} from "./engines/seq2seq.real";
+import {dropRepos} from "./engines/seq2seqCache";
 import {languageName} from "./languages";
-import {CPU_CONTEXT_WINDOW, CacheApi, GpuBudget, ModelCatalog} from "./models";
+import {CPU_CONTEXT_WINDOW, CacheApi, GpuBudget, ModelCatalog, retiredRepos} from "./models";
 import {setBufferCap, takeDeviceLoss} from "./engines/gpuLimits";
 import {WorkerPort} from "./protocol";
 import {serveEngines} from "./worker";
@@ -52,7 +58,8 @@ const llmGpuCache = webllmCache(
 	() => gpu
 );
 const llmCpuCache = cpuLlmCache(modelBase);
-const seqCache = seq2seqCache();
+const seqStore = seq2seqStore();
+const seqCache = seq2seqCache(seqStore);
 
 // `apple` never reaches the worker (engine.ts `EngineName`).
 const cacheFor = (engine: EngineName, device: "gpu" | "cpu"): CacheApi =>
@@ -84,6 +91,8 @@ serveEngines(
 			webllmGpu.configure(next, budget);
 			webllmCpu.configure(next);
 			configureTransformers({modelBase: next.modelBase, ortBase});
+			// The files of models this build replaced: nothing lists them to delete.
+			void dropRepos(seqStore, retiredRepos(next)).catch(() => undefined);
 		},
 	}
 );

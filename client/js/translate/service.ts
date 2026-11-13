@@ -19,6 +19,7 @@ import {
 	ConsentStore,
 	type DownloadAbout,
 	DownloadConsent,
+	carryRemovals,
 	consentId,
 	memoryConsent,
 	needsDownloadError,
@@ -448,6 +449,10 @@ export class TranslateService {
 					deps.removed ?? memoryConsent()
 			  )
 			: null;
+
+		if (deps.removed) {
+			carryRemovals(deps.removed, options.catalog);
+		}
 	}
 
 	get enabled(): boolean {

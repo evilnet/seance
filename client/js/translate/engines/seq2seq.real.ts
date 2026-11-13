@@ -8,7 +8,7 @@ import {env, pipeline} from "@huggingface/transformers";
 import {CacheApi} from "../models";
 import type {Device, DeviceCopy} from "../engine";
 import {PipelineLike, PipelineProgress, Seq2seqDeps, remoteFor} from "./seq2seq";
-import {seq2seqCacheApi} from "./seq2seqCache";
+import {seq2seqCacheApi, UrlStore} from "./seq2seqCache";
 
 const CACHE_NAME = "transformers-cache";
 
@@ -88,12 +88,9 @@ async function load(
 	return pipe as unknown as PipelineLike;
 }
 
-/**
- * The library caches every file under a URL containing the repo id; a copy
- * is its dtype's weights among them (seq2seqCache.ts).
- */
-export function seq2seqCache(): CacheApi {
-	return seq2seqCacheApi({
+/** transformers.js's Cache Storage, as the URLs it holds. */
+export function seq2seqStore(): UrlStore {
+	return {
 		async keys() {
 			const cache = await caches.open(CACHE_NAME);
 
@@ -104,5 +101,13 @@ export function seq2seqCache(): CacheApi {
 
 			await cache.delete(url);
 		},
-	});
+	};
+}
+
+/**
+ * The library caches every file under a URL containing the repo id; a copy
+ * is its dtype's weights among them (seq2seqCache.ts).
+ */
+export function seq2seqCache(store: UrlStore = seq2seqStore()): CacheApi {
+	return seq2seqCacheApi(store);
 }
