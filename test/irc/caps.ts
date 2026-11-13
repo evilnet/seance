@@ -178,6 +178,35 @@ describe("irc/caps", function () {
 		});
 	});
 
+	describe("labeled-response needs batch", function () {
+		const WANT = {required: [], wanted: ["labeled-response", "batch", "server-time"]};
+
+		it("reports labeled-response off while batch is off", function () {
+			const neg = new CapNegotiator(WANT);
+			feed(neg, ":s CAP * LS :labeled-response batch server-time");
+			// A NAKed REQ is retried cap by cap, so batch can fail alone.
+			feed(neg, ":s CAP * NAK :labeled-response batch server-time");
+			feed(neg, ":s CAP * ACK :labeled-response");
+			feed(neg, ":s CAP * NAK :batch");
+			expect(neg.hasCapability("labeled-response")).to.equal(false);
+		});
+
+		it("turns labeled-response off when batch is deleted, and on again when it is back", function () {
+			const neg = new CapNegotiator(WANT);
+			feed(neg, ":s CAP * LS :labeled-response batch server-time");
+			feed(neg, ":s CAP * ACK :labeled-response batch server-time");
+			expect(neg.hasCapability("labeled-response")).to.equal(true);
+
+			feed(neg, ":s CAP * DEL :batch");
+			expect(neg.hasCapability("labeled-response")).to.equal(false);
+
+			const back = feed(neg, ":s CAP * NEW :batch");
+			expect(reqCaps(back.send[0])).to.deep.equal(["batch"]);
+			feed(neg, ":s CAP * ACK :batch");
+			expect(neg.hasCapability("labeled-response")).to.equal(true);
+		});
+	});
+
 	describe("NAK", function () {
 		it("treats a single-cap NAK as final and does not enable the cap", function () {
 			const neg = new CapNegotiator({required: [], wanted: ["a", "b"]});

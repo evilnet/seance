@@ -109,6 +109,14 @@ const NEVER_REQUEST: ReadonlySet<string> = new Set(["tls", "sts"]);
 
 const REQ_PREFIX = "CAP REQ :";
 
+/**
+ * Caps that only work with another one: `labeled-response` "depends on the
+ * `batch` capability which MUST be negotiated" (a server strips labels until
+ * `batch` is on). One reads as off while its dependency is off: a NAKed REQ is
+ * retried cap by cap, so `batch` can fail alone, and a `CAP DEL` can drop it.
+ */
+const DEPENDS_ON: ReadonlyMap<string, string> = new Map([["labeled-response", "batch"]]);
+
 /** The cap name for the Web Push draft (draft/webpush). */
 export const WEBPUSH_CAP = "draft/webpush";
 
@@ -245,7 +253,8 @@ export class CapNegotiator {
 	}
 
 	hasCapability(cap: string): boolean {
-		return this.enabled.has(cap);
+		const needs = DEPENDS_ON.get(cap);
+		return this.enabled.has(cap) && (needs === undefined || this.enabled.has(needs));
 	}
 
 	/** True while `cap` is in a `CAP REQ` the server has not answered yet. */
