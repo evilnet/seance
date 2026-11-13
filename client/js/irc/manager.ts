@@ -29,7 +29,7 @@ import {leavesAwayToWorker, syncPresence} from "./presence";
 import {claimMute, clearRemoteDnd} from "./pushMute";
 import * as saved from "./saved-networks";
 import type {SavedNetwork} from "./saved-networks";
-import {BOUNCER_SEEN_MAX, networksToAdd, type BouncerNetwork} from "./bouncer";
+import {BOUNCER_SEEN_MAX, followRename, networksToAdd, type BouncerNetwork} from "./bouncer";
 import type {ConnectOptions} from "./types";
 import type {GlobalModeState} from "../helpers/dnd";
 import {shellBridge} from "../helpers/shell";
@@ -204,6 +204,7 @@ export function createNetwork(options: CreateNetworkOptions): IrcClient {
 			savedName: () => saved.get(entry.uuid)?.name || undefined,
 			onBouncerNetworks: (networks) => addBouncerNetworks(entry.uuid, networks),
 			onBouncerNetworkRemoved: (id) => bouncerNetworkRemoved(entry.uuid, id),
+			onBouncerNetworkRenamed: (id, name) => bouncerNetworkRenamed(entry.uuid, id, name),
 			onBouncerNetworkGone: () => stopAutoconnect(entry.uuid),
 		});
 		clients.set(entry.uuid, client);
@@ -308,7 +309,7 @@ function addBouncerNetworks(
 	const fresh = plan.add;
 
 	for (const net of fresh) {
-		createNetwork({
+		const created = createNetwork({
 			...saved.toConnectOptions(control),
 			// Kept in memory only, unless the bouncer's entry remembers them.
 			saslPassword: live.options.saslPassword,
@@ -322,6 +323,11 @@ function addBouncerNetworks(
 			pushEnabled: control.pushEnabled,
 			notifyEnabled: control.notifyEnabled,
 		});
+		const entry = saved.get(created.uuid);
+
+		if (entry) {
+			saved.save({...entry, bouncerName: net.name});
+		}
 	}
 
 	return {added: fresh.map((net) => net.name), over};
@@ -349,6 +355,41 @@ function bouncerNetworkRemoved(controlUuid: string, id: string): void {
 			other.saslAccount === control.saslAccount
 		) {
 			stopAutoconnect(other.uuid);
+		}
+	}
+}
+
+/**
+ * The bouncer behind a control connection calls one of its networks `name`:
+ * the entry bound to it takes the name while it still has the bouncer's
+ * (followRename), so a rename on the bouncer, or in the bouncer panel, is
+ * followed, and one the user made here is kept.
+ */
+function bouncerNetworkRenamed(controlUuid: string, id: string, name: string): void {
+	const control = saved.get(controlUuid);
+
+	if (!control) {
+		return;
+	}
+
+	for (const other of saved.list()) {
+		if (
+			other.bouncerNetId !== id ||
+			other.host !== control.host ||
+			other.port !== control.port ||
+			other.tls !== control.tls ||
+			other.saslAccount !== control.saslAccount
+		) {
+			continue;
+		}
+
+		const next = followRename(other, name);
+
+		if (next !== undefined) {
+			saved.save({...other, name: next, bouncerName: name});
+			clients.get(other.uuid)?.setNetworkName(next);
+		} else if (other.name === name && other.bouncerName !== name) {
+			saved.save({...other, bouncerName: name});
 		}
 	}
 }

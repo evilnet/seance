@@ -77,6 +77,12 @@ export type SavedNetwork = ConnectOptions & {
 	 */
 	bouncerSeen?: string[];
 	/**
+	 * A network added from a bouncer's list: the name the bouncer gave it, so
+	 * a rename there is followed while the user has not renamed it here
+	 * (irc/bouncer.ts `followRename`).
+	 */
+	bouncerName?: string;
+	/**
 	 * This entry has registered behind a bouncer that keeps its own channel
 	 * list (IrcClient.behindBouncer) before: from then on the bouncer, not
 	 * the saved channels, says what is joined.
@@ -315,6 +321,10 @@ export function normalize(raw: Record<string, unknown>): SavedNetwork | undefine
 
 	if (isNetworkId(raw.bouncerNetId)) {
 		net.bouncerNetId = raw.bouncerNetId;
+	}
+
+	if (typeof raw.bouncerName === "string" && raw.bouncerName) {
+		net.bouncerName = raw.bouncerName;
 	}
 
 	if (Array.isArray(raw.bouncerSeen)) {

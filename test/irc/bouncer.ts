@@ -4,6 +4,7 @@ import {RESTORE_MAX_WAIT_MS} from "../../client/js/irc/persistence";
 import {
 	BOUNCER_NETWORKS_MAX,
 	bouncerRequest,
+	followRename,
 	isBouncerControl,
 	isNetworkId,
 	networksToAdd,
@@ -477,6 +478,28 @@ describe("Bouncers: soju's networks (soju.im/bouncer-networks)", function () {
 		expect(offered).to.deep.equal([]);
 	});
 
+	it("passes a rename on the bouncer on (-notify, and in a full list)", function () {
+		const renames: [string, string][] = [];
+		const h = setup({
+			onBouncerNetworks: () => ({added: [], over: []}),
+			onBouncerNetworkRenamed: (id, name) => renames.push([id, name]),
+		});
+		control(h);
+		h.transport.lines(
+			":irc.test BOUNCER NETWORK 2 name=Up2Renamed",
+			":irc.test BATCH +n soju.im/bouncer-networks",
+			"@batch=n :irc.test BOUNCER NETWORK 3 name=Up3;host=irc.example;state=connected",
+			":irc.test BATCH -n",
+			// A state change alone renames nothing.
+			":irc.test BOUNCER NETWORK 3 state=connecting"
+		);
+
+		expect(renames).to.deep.equal([
+			["2", "Up2Renamed"],
+			["3", "Up3"],
+		]);
+	});
+
 	it("binds a network added from the bouncer before CAP END", function () {
 		const h = setup({bouncerNetId: "42"});
 		h.client.connect();
@@ -610,6 +633,26 @@ describe("Bouncers: the panel's requests (bouncerRequest)", function () {
 		).to.equal(false);
 		expect((await bouncerRequest(h.client, "DELNETWORK", "1 2")).ok).to.equal(false);
 		expect(h.transport.sent.length).to.equal(before);
+	});
+});
+
+describe("Bouncers: following a rename on the bouncer (followRename)", function () {
+	it("follows while the name is still the bouncer's", function () {
+		expect(followRename({name: "Up2", bouncerName: "Up2"}, "Up2Renamed")).to.equal(
+			"Up2Renamed"
+		);
+	});
+
+	it("keeps a name the user chose", function () {
+		expect(followRename({name: "Work", bouncerName: "Up2"}, "Up2Renamed")).to.equal(undefined);
+	});
+
+	it("follows an entry saved before the bouncer's name was kept", function () {
+		expect(followRename({name: "Up2"}, "Up2Renamed")).to.equal("Up2Renamed");
+	});
+
+	it("changes nothing for the same name", function () {
+		expect(followRename({name: "Up2", bouncerName: "Up2"}, "Up2")).to.equal(undefined);
 	});
 });
 

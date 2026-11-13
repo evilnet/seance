@@ -98,7 +98,14 @@ export function listNetworks(client: IrcClient): void {
 export type BouncerAttrs = Record<string, string>;
 
 /** What one `BOUNCER NETWORK` line changed ({@link takeNetworkLine}). */
-export type NetworkChange = {removed: string} | {network: BouncerNetwork} | undefined;
+export type NetworkChange =
+	| {removed: string}
+	| {
+			network: BouncerNetwork;
+			/** The `name` this line gave, for a rename to be followed ({@link followRename}). */
+			named?: string;
+	  }
+	| undefined;
 
 /**
  * Every `BOUNCER NETWORK` line on the control connection goes through here,
@@ -141,7 +148,38 @@ export function takeNetworkLine(client: IrcClient, msg: IrcMessage): NetworkChan
 	}
 
 	client.bouncerNetworks.set(id, attrs);
-	return {network: {id, name: attrs.name || attrs.host || id}};
+	return {
+		network: {id, name: attrs.name || attrs.host || id},
+		named: given.get("name") || undefined,
+	};
+}
+
+/**
+ * The name a bound entry should take now that the bouncer calls its network
+ * `bouncerName`: the new name while the entry still has the bouncer's
+ * (`entry.bouncerName`, or no record of it, as on an entry saved before it
+ * was kept), undefined when the user renamed it here or nothing changed.
+ */
+export function followRename(
+	entry: {name: string; bouncerName?: string},
+	bouncerName: string
+): string | undefined {
+	if (entry.name === bouncerName) {
+		return undefined;
+	}
+
+	return entry.bouncerName === undefined || entry.name === entry.bouncerName
+		? bouncerName
+		: undefined;
+}
+
+/** Pass on the names the bouncer gave, so a rename there is followed here. */
+function passRenames(client: IrcClient, changes: NetworkChange[]): void {
+	for (const change of changes) {
+		if (change && "named" in change && change.named) {
+			client.options.onBouncerNetworkRenamed?.(change.network.id, change.named);
+		}
+	}
 }
 
 /** Tell the bouncer panel the control connection's networks as they are now. */
@@ -239,6 +277,7 @@ export const bouncerNetworksBatch: BatchHandler = (client, batch) => {
 
 	const networks: BouncerNetwork[] = [];
 	const listed = new Set<string>();
+	const changes: NetworkChange[] = [];
 
 	for (const line of batch.messages) {
 		if (line.command !== "BOUNCER") {
@@ -247,6 +286,7 @@ export const bouncerNetworksBatch: BatchHandler = (client, batch) => {
 		}
 
 		const change = takeNetworkLine(client, line);
+		changes.push(change);
 
 		if (change && "network" in change) {
 			networks.push(change.network);
@@ -263,6 +303,7 @@ export const bouncerNetworksBatch: BatchHandler = (client, batch) => {
 
 	announceNetworks(client);
 	offer(client, networks);
+	passRenames(client, changes);
 };
 
 /**
@@ -288,6 +329,7 @@ export function bouncerLine(client: IrcClient, msg: IrcMessage): void {
 		client.options.onBouncerNetworkRemoved?.(change.removed);
 	} else {
 		offer(client, [change.network]);
+		passRenames(client, [change]);
 	}
 }
 

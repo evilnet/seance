@@ -367,6 +367,11 @@ export interface IrcClientOptions extends ConnectOptions {
 	 */
 	onBouncerNetworkRemoved?: (id: string) => void;
 	/**
+	 * The bouncer calls network `id` `name` (a list, or a `-notify` change):
+	 * the entry bound to it follows unless the user renamed it here.
+	 */
+	onBouncerNetworkRenamed?: (id: string, name: string) => void;
+	/**
 	 * This connection's `BOUNCER BIND` was refused (`FAIL BOUNCER
 	 * INVALID_NETID`): the network is gone from the bouncer. Same effect.
 	 */
