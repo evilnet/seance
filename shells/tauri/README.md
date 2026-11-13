@@ -157,7 +157,7 @@ the Tauri CLI's projects, committed with the shell's own files in them.
 | `SystemAccessibility` | contrast, animation scale, font scale, battery saver | —                                                                  |
 | `LocalNotifications`  | — (alerts go through `NativePush` `show`)            | `swift/` SeanceNotifications, the macOS shell's code               |
 | `Power`               | —                                                    | Low Power Mode                                                     |
-| `Keyboard`            | —                                                    | `keyboardWillShow`/`Hide`, accessory bar hidden                    |
+| `Keyboard`            | —                                                    | `keyboardWillShow`/`Hide`, accessory bar hidden, `reset`           |
 | `StatusBar`           | both bars' style                                     | style (wry's view controller's `preferredStatusBarStyle`, swapped) |
 | `Badge`               | answered, nothing to set                             | the app icon's count                                               |
 | `Haptics`             | `tauri-plugin-haptics`                               | `tauri-plugin-haptics`                                             |

@@ -101,6 +101,9 @@ final class SeancePlugin: Plugin {
         case ("Keyboard", "setAccessoryBarVisible"):
             AccessoryBar.hide(in: webview, (options["isVisible"] as? Bool) == false)
             return [:]
+        case ("Keyboard", "reset"):
+            KeyboardState.reset(in: webview)
+            return [:]
         case ("StatusBar", "setStyle"):
             StatusBar.style = options["style"] as? String == "LIGHT" ? .darkContent : .lightContent
             return [:]
@@ -247,6 +250,24 @@ enum AccessoryBar {
         if let cls = noBarClass {
             object_setClass(content, cls)
         }
+    }
+}
+
+/// The keyboard's own state (shift, the QuickType suggestion row) after the
+/// page empties the composer with `value = ""`: WebKit does not tell the
+/// keyboard about a script's edit, so it keeps what it had for the text that
+/// was there, and its suggestion row can stay up empty, a blank band over the
+/// keys (client/components/ChatInput.vue clearInput). Reloading the first
+/// responder's input views has the keyboard read the field again, without
+/// taking the keyboard down.
+enum KeyboardState {
+    @MainActor static func reset(in webview: WKWebView?) {
+        guard let content = webview?.scrollView.subviews.first(where: {
+            NSStringFromClass(type(of: $0)).hasPrefix("WKContent")
+        }), content.isFirstResponder
+        else { return }
+
+        content.reloadInputViews()
     }
 }
 

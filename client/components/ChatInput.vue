@@ -272,6 +272,7 @@ import {
 	startEdit,
 } from "../js/helpers/compose";
 import {hasVirtualKeyboard} from "../js/helpers/device";
+import {resetKeyboardSoon} from "../js/helpers/viewport";
 import {useI18n} from "../js/i18n";
 import {SUPPORTED_LANGUAGES, languageName} from "../js/translate/languages";
 import {draftGate, onceTargetDefault, sendableTranslation} from "../js/translate/outgoing";
@@ -382,12 +383,19 @@ export default defineComponent({
 
 		/**
 		 * Plain assignment on purpose. iOS's stuck shift key (see onEnterKey)
-		 * is not fixable from here: focus(), blur()+focus(), a deferred clear,
-		 * execCommand("delete") and setRangeText were all tried.
+		 * is not fixable from the page: focus(), blur()+focus(), a deferred
+		 * clear, execCommand("delete") and setRangeText were all tried. The
+		 * keyboard is not told about the assignment, so in the iOS app the
+		 * shell has it read the field again (resetKeyboardSoon), which also
+		 * takes down a QuickType row left up empty over the keys.
 		 */
 		const clearInput = () => {
 			if (input.value) {
 				input.value.value = "";
+
+				if (document.activeElement === input.value) {
+					resetKeyboardSoon();
+				}
 			}
 		};
 
@@ -569,6 +577,7 @@ export default defineComponent({
 				enterNewlineDeadline = 0;
 				el.value = props.channel.pendingMessage;
 				setInputSize();
+				resetKeyboardSoon();
 				return;
 			}
 

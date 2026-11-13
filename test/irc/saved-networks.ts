@@ -306,6 +306,42 @@ describe("saved-networks", function () {
 		expect(() => saved.fromForm({name: "no uuid"})).to.throw(/uuid/);
 	});
 
+	it("fromForm: a blank password keeps the stored one for the same account only", function () {
+		const existing = saved.save(
+			entry({sasl: "plain", saslAccount: "alice", saslPassword: "pw", rememberPassword: true})
+		);
+		const edit = (saslAccount: string) =>
+			saved.fromForm(
+				{
+					uuid: existing.uuid,
+					sasl: "plain",
+					saslAccount,
+					saslPassword: "",
+					rememberPassword: "on",
+				},
+				existing
+			).saslPassword;
+
+		expect(edit(" alice ")).to.equal("pw");
+		expect(edit("bob")).to.equal("");
+	});
+
+	it("fromForm: another account with no password field does not inherit the stored one", function () {
+		const existing = saved.save(
+			entry({sasl: "plain", saslAccount: "alice", saslPassword: "pw", rememberPassword: true})
+		);
+		const edit = (data: Record<string, unknown>) =>
+			saved.fromForm(
+				{uuid: existing.uuid, sasl: "plain", rememberPassword: "on", ...data},
+				existing
+			).saslPassword;
+
+		expect(edit({saslAccount: "bob"})).to.equal("");
+		expect(edit({saslAccount: "bob", saslPassword: undefined})).to.equal("");
+		expect(edit({saslAccount: "bob", saslPassword: "bobpw"})).to.equal("bobpw");
+		expect(edit({})).to.equal("pw");
+	});
+
 	it('fromForm: a posted "global" clears a stored presence mode, a missing or undefined one keeps it', () => {
 		const stored = saved.normalize({uuid: "u1", host: "h", presenceMode: "dnd"})!;
 
