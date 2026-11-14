@@ -7745,6 +7745,7 @@ msgctxt "oper.investigate.card.chipOper"
 msgid "oper"
 msgstr "oper"
 
+# no-reuse: the other key's text is too long for this tiny chip
 #. Oper tools, investigation card (an overlay about one channel or user, for IRC operators). Tiny chip on a user in the list: voiced in the channel (+v). Very short, IRC jargon. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/InvestigateCard.vue
 msgctxt "oper.investigate.card.chipVoice"

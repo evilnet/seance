@@ -330,6 +330,7 @@ msgctxt "bans.filters"
 msgid "Filter bans"
 msgstr ""
 
+# no-reuse: the other keys' text is the account-name field label, not this tag
 #. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): tag on a ban that matches a logged-in account.
 #: client/js/irc/profiles/nefarious/extbans.ts
 msgctxt "bans.kind.account"
@@ -4248,6 +4249,7 @@ msgctxt "loading.starting"
 msgid "Loading the app…"
 msgstr "Nilo-load ang app…"
 
+# no-reuse: the other keys' text is the account-name field label, not this button
 #. Tooltip and screen-reader label of the gear button on a chat network's home row, on a deploy that keeps its network as it set it; opens the Account settings page (connect, disconnect, sign in, sign out) instead of the network's edit form.
 #: client/components/NetworkLobby.vue
 #: client/components/DormantNetwork.vue
@@ -13283,6 +13285,7 @@ msgctxt "settings.account.guest"
 msgid "Guest: {nick}"
 msgstr "Bisita: {nick}"
 
+# no-reuse: the other keys' text is the account-name field label, not this heading
 #. Heading of the Account page in the settings: the one chat network this app is for, who this device signs in to it as, and its connect and sign-in buttons.
 #: client/components/Settings/Account.vue
 msgctxt "settings.account.heading"
@@ -14942,6 +14945,7 @@ msgctxt "settings.scripts.stateRunning"
 msgid "Running"
 msgstr "Tumatakbo"
 
+# no-reuse: the other keys' text is the account-name field label, not this tab
 #. Settings tab label on a deploy that is one network's own client and keeps that network as it set it; the tab shows who this device signs in as, with buttons to connect, disconnect, sign in and sign out. Replaces the Networks tab there.
 #: client/components/Settings/Navigation.vue
 msgctxt "settings.tabs.account"
