@@ -3,6 +3,7 @@ import sinon from "sinon";
 import {RESTORE_MAX_WAIT_MS} from "../../client/js/irc/persistence";
 import {
 	BOUNCER_NETWORKS_MAX,
+	boundAwaitingLogin,
 	bouncerRequest,
 	followRename,
 	isBouncerControl,
@@ -745,6 +746,38 @@ describe("Bouncers: the panel's field values (panelValue)", function () {
 	it("sends a password as typed: its spaces are part of it", function () {
 		expect(panelValue("pass", " secret ")).to.equal(" secret ");
 		expect(panelValue("pass", "   ")).to.equal("   ");
+	});
+});
+
+describe("Bouncers: bound entries waiting for the account's password (boundAwaitingLogin)", function () {
+	// With "remember password" off, a reload leaves every bound entry
+	// without its password; the control connection's login is the same
+	// account's, so it is handed on in memory.
+	const entry = (uuid: string, more: Partial<saved.SavedNetwork> = {}): saved.SavedNetwork =>
+		saved.normalize({
+			uuid,
+			host: "soju.a",
+			port: 6697,
+			tls: true,
+			sasl: "plain",
+			saslAccount: "alice",
+			bouncerNetId: uuid,
+			autoconnect: true,
+			...more,
+		})!;
+
+	it("takes the autoconnecting ones that wait only for the password", function () {
+		const bound = [
+			entry("1"),
+			entry("2", {saslPassword: "kept"}),
+			entry("3", {autoconnect: false}),
+			entry("4"),
+		];
+		const live = new Set(["4"]);
+
+		expect(
+			boundAwaitingLogin(bound, (uuid) => live.has(uuid)).map((n) => n.uuid)
+		).to.deep.equal(["1"]);
 	});
 });
 

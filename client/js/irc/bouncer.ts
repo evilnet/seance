@@ -19,6 +19,7 @@
 import {t, tCount} from "../i18n/core";
 import {commaList} from "../helpers/operList";
 import type {IrcClient} from "./client";
+import type {SavedNetwork} from "./saved-networks";
 import type {BatchHandler} from "./handlers/batch";
 import {
 	formatLine,
@@ -207,6 +208,25 @@ export interface NetworksPlan {
  */
 export function panelValue(key: string, typed: string): string {
 	return key === "pass" ? typed : typed.trim();
+}
+
+/**
+ * The bound entries that would connect by themselves but wait for a
+ * password that was not kept (`rememberPassword` off, after a reload): the
+ * control connection's login is the same account's, so the manager hands it
+ * on, in memory, once that login has worked (manager.ts addBouncerNetworks).
+ */
+export function boundAwaitingLogin(
+	bound: SavedNetwork[],
+	isLive: (uuid: string) => boolean
+): SavedNetwork[] {
+	return bound.filter(
+		(net) =>
+			net.autoconnect &&
+			!isLive(net.uuid) &&
+			((net.sasl === "plain" && !net.saslPassword) ||
+				(!!net.hasServerPassword && !net.serverPassword))
+	);
 }
 
 /** Where an entry connects and as whom: what makes it one bouncer account. */

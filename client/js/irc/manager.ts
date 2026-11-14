@@ -31,6 +31,7 @@ import * as saved from "./saved-networks";
 import type {SavedNetwork} from "./saved-networks";
 import {
 	BOUNCER_SEEN_MAX,
+	boundAwaitingLogin,
 	followRename,
 	networksToAdd,
 	sameBouncerAccount,
@@ -286,6 +287,18 @@ function addBouncerNetworks(
 	}
 
 	const bound = boundEntries(live.options);
+
+	// Bound entries boot skipped for a password that was not kept: this
+	// connection's login is the same account's and has worked (the SASL
+	// gate in bouncer.ts offer), so they connect with it, in memory only.
+	for (const net of boundAwaitingLogin(bound, (uuid) => clients.has(uuid))) {
+		createNetwork({
+			...saved.toConnectOptions(net),
+			saslPassword: live.options.saslPassword,
+			serverPassword: net.serverPassword || live.options.serverPassword,
+		});
+	}
+
 	// Bound here before, or added by hand the soju way (`alice/libera`).
 	const have = (net: BouncerNetwork): boolean =>
 		bound.some((other) => other.bouncerNetId === net.id) ||
