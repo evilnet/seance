@@ -1,0 +1,1348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Inside the Yurt</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,700&family=Source+Sans+3:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one stage (the app as a private message shows it) with its controls under it, then short notes. */
+:root {
+	--bg: #eef1f5;
+	--surface: #ffffff;
+	--ink: #1b2638;
+	--soft: #55607a;
+	--line: #d3d9e3;
+	--accent: #2f6fbf;
+	--accent-ink: #ffffff;
+	--f-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+	--f-name: "Newsreader", Georgia, "Times New Roman", serif;
+}
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		--bg: #0c1120;
+		--surface: #151c2e;
+		--ink: #e6ebf5;
+		--soft: #a3aec4;
+		--line: #2a3450;
+		--accent: #8cc2f4;
+		--accent-ink: #0c1120;
+		color-scheme: dark;
+	}
+}
+:root[data-theme="dark"] {
+	--bg: #0c1120;
+	--surface: #151c2e;
+	--ink: #e6ebf5;
+	--soft: #a3aec4;
+	--line: #2a3450;
+	--accent: #8cc2f4;
+	--accent-ink: #0c1120;
+	color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+	background: var(--bg);
+	color: var(--ink);
+	font-family: var(--f-body);
+	font-size: 1rem;
+	line-height: 1.5;
+	padding-left: max(16px, env(safe-area-inset-left, 0px));
+	padding-right: max(16px, env(safe-area-inset-right, 0px));
+	padding-block: 1.5rem 3rem;
+}
+.page { max-width: 1280px; margin-inline: auto; display: grid; gap: 1.25rem; }
+.page-head { display: grid; gap: 0.25rem; }
+.page-head h1 {
+	font-family: var(--f-name);
+	font-weight: 700;
+	font-size: clamp(1.6rem, 3vw, 2.2rem);
+	line-height: 1.15;
+	margin: 0;
+	text-wrap: balance;
+}
+.page-head p { margin: 0; color: var(--soft); max-width: 65ch; }
+
+.stage-wrap { position: relative; width: 100%; }
+.stage {
+	position: absolute;
+	top: 0;
+	left: 0;
+	transform-origin: 0 0;
+	overflow: hidden;
+	border-radius: 12px;
+	box-shadow: 0 0 0 1px var(--line), 0 12px 32px rgb(10 20 40 / 18%);
+	background: #10131c;
+}
+.stage.phone { border-radius: 34px; box-shadow: 0 0 0 8px #11141b, 0 0 0 9px var(--line), 0 16px 40px rgb(10 20 40 / 25%); }
+.stage > svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+.controls {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+	gap: 0.9rem 1.5rem;
+	padding-block: 0.25rem;
+}
+.ctl { display: grid; gap: 0.35rem; min-width: 0; }
+.ctl-label {
+	font-size: 0.75rem;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--soft);
+}
+.seg { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.seg button {
+	font: inherit;
+	font-size: 0.95rem;
+	font-weight: 600;
+	color: var(--ink);
+	background: var(--surface);
+	border: 1px solid var(--line);
+	border-radius: 999px;
+	padding: 0.3rem 0.85rem;
+	cursor: pointer;
+}
+.seg button:hover { border-color: var(--accent); }
+.seg button[aria-checked="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 1rem 2rem; border-top: 1px solid var(--line); padding-top: 1.25rem; }
+.notes section { min-width: 0; }
+.notes h2 { font-family: var(--f-name); font-weight: 700; font-size: 1.1rem; margin: 0 0 0.25rem; }
+.notes p { margin: 0; color: var(--soft); max-width: 60ch; }
+.foot { color: var(--soft); font-size: 0.875rem; margin: 0; }
+
+/* The app over the scene: px on purpose, the stage is a fixed 1280 × 800 (or 390 × 844) frame scaled as one. */
+.app { position: absolute; inset: 0; font-family: "Source Sans 3", "Segoe UI", system-ui, sans-serif; font-weight: 500; }
+.app.hidden-chat { display: none; }
+/* No glass: a preview of the room only (the app always has glass in a private message); the words keep a soft halo. */
+.app.noglass .gl { background: transparent !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; border-color: transparent !important; }
+.app.noglass.day .gl { text-shadow: 0 0 3px rgb(255 251 244 / 95%), 0 0 8px rgb(255 251 244 / 75%); }
+.app.noglass.night .gl { text-shadow: 0 0 3px rgb(8 12 24 / 95%), 0 0 8px rgb(8 12 24 / 75%); }
+.gl { position: absolute; }
+.app.day { --ink: #1b2638; --soft: #4b5a74; --rule: rgb(27 38 56 / 14%); }
+.app.night { --ink: #e8ecf5; --soft: #a9b4ca; --rule: rgb(232 236 245 / 14%); }
+.app.day .gl { background: rgb(255 251 244 / var(--t)); }
+.app.night .gl { background: rgb(12 17 32 / var(--t)); }
+.app.blur.day .gl { -webkit-backdrop-filter: blur(var(--b)) brightness(var(--lift)) saturate(1.12); backdrop-filter: blur(var(--b)) brightness(var(--lift)) saturate(1.12); }
+.app.blur.night .gl { -webkit-backdrop-filter: blur(var(--b)) saturate(1.12); backdrop-filter: blur(var(--b)) saturate(1.12); }
+.app.phone .gl.side { display: none; }
+.app .side { left: 0; top: 0; bottom: 0; width: 248px; border-right: 1px solid var(--rule); color: var(--ink); padding: 14px 10px; display: flex; flex-direction: column; gap: 10px; }
+.app .head { top: 0; height: 60px; display: flex; align-items: center; gap: 16px; padding: 0 22px; border-bottom: 1px solid var(--rule); color: var(--ink); }
+.app .col { top: 60px; bottom: 60px; display: flex; flex-direction: column; justify-content: flex-end; padding: 0 0 10px; color: var(--ink); overflow: hidden; }
+.app .composer { bottom: 0; height: 60px; display: flex; align-items: center; padding: 0 14px; gap: 14px; border-top: 1px solid var(--rule); color: var(--soft); font-size: 18px; }
+.app.desktop .head, .app.desktop .col, .app.desktop .composer { left: 248px; right: 0; }
+.app.phone .head, .app.phone .col, .app.phone .composer { left: 0; right: 0; }
+.app.phone .head { height: 56px; padding: 0 16px; }
+.app.phone .col { top: 56px; bottom: 56px; }
+.app.phone .composer { height: 56px; }
+.app .title { font-family: "Newsreader", Georgia, serif; font-weight: 700; font-size: 21px; flex: 1; }
+.app svg.ic { width: 22px; height: 22px; fill: currentColor; opacity: 0.8; flex: none; }
+.app .composer .grow { flex: 1; }
+.app .net { font-family: "Newsreader", Georgia, serif; font-weight: 700; font-size: 20px; padding: 4px 8px; display: flex; justify-content: space-between; align-items: center; }
+.app .badge { font-family: "Source Sans 3", sans-serif; font-size: 13px; background: #c05a2e; color: #fff; border-radius: 4px; padding: 0 6px; }
+.app .jump { background: rgb(255 255 255 / 50%); border-radius: 4px; padding: 9px 12px; color: var(--soft); font-size: 18px; }
+.app.night .jump { background: rgb(255 255 255 / 8%); }
+.app .chan { font-family: "Newsreader", Georgia, serif; font-weight: 700; font-size: 18px; padding: 9px 12px; border-radius: 4px; display: flex; gap: 10px; align-items: center; opacity: 0.85; }
+.app .chan.on { background: rgb(255 255 255 / 42%); box-shadow: inset 3px 0 #c05a2e; opacity: 1; }
+.app.night .chan.on { background: rgb(255 255 255 / 9%); }
+.app .side .spacer { flex: 1; }
+.app .who { display: flex; align-items: center; gap: 10px; padding: 2px 6px 6px; }
+.app .avatar { width: 46px; height: 46px; border-radius: 10px; background: linear-gradient(135deg, #2b3a63, #503f73); box-shadow: inset 0 0 0 2px rgb(255 255 255 / 25%); }
+.app .pill { font-size: 15px; border: 1px solid var(--rule); border-radius: 999px; padding: 2px 10px; display: flex; align-items: center; gap: 6px; }
+.app .dot { width: 9px; height: 9px; border-radius: 50%; background: #5bb46a; }
+.app .msg { display: grid; grid-template-columns: var(--tw, 76px) 1fr; column-gap: 4px; padding: 3px 18px 3px 12px; font-size: 17px; line-height: 1.35; }
+.app.phone .msg { --tw: 62px; font-size: 16px; padding-right: 12px; }
+.app .msg .time { grid-row: 1; grid-column: 1; font-size: 13px; color: var(--soft); padding-top: 3px; font-variant-numeric: tabular-nums; }
+.app .msg .nick { grid-column: 2; font-weight: 700; }
+.app .msg .text { grid-column: 2; }
+.app .msg.cont .time { visibility: hidden; }
+.app .msg + .msg:not(.cont) { margin-top: 6px; }
+.app .divider { align-self: center; font-size: 13px; font-weight: 700; color: var(--soft); padding: 2px 10px; margin-bottom: 6px; border-radius: 4px; background: rgb(255 255 255 / 35%); }
+.app.night .divider { background: rgb(255 255 255 / 7%); }
+.app.day .n-wren { color: #6b1d33; }
+.app.day .n-kestrel { color: #08432b; }
+.app.night .n-wren { color: #f4a9bf; }
+.app.night .n-kestrel { color: #95dcb0; }
+
+.flick { transform-box: fill-box; transform-origin: 50% 70%; }
+.stage.flicker .flick { animation: flick 2.4s ease-in-out infinite; }
+.stage.flicker .flick-b { animation: flick-b 1.7s ease-in-out infinite; }
+@keyframes flick { 0%, 100% { opacity: 1; } 22% { opacity: 0.86; } 47% { opacity: 0.97; } 63% { opacity: 0.8; } 81% { opacity: 0.94; } }
+@keyframes flick-b { 0%, 100% { opacity: 0.9; } 30% { opacity: 1; } 55% { opacity: 0.75; } 80% { opacity: 0.95; } }
+@media (prefers-reduced-motion: reduce) { .stage.flicker .flick, .stage.flicker .flick-b { animation: none; } }
+</style>
+</head>
+<body>
+<div class="page">
+	<header class="page-head">
+		<h1>Inside the Yurt</h1>
+		<p>Mockups for the ps theme's private messages: the inside of the yurt instead of the plains outside. Nothing in the app has changed. Switch the controls under the frame to compare.</p>
+	</header>
+
+	<div class="stage-wrap" id="stageWrap">
+		<div class="stage" id="stage" role="img" aria-label="Mockup of a private message over the inside of the yurt">
+			<svg id="scene" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+			<div class="app" id="app"></div>
+		</div>
+	</div>
+
+	<div class="controls" id="controls">
+		<div class="ctl"><span class="ctl-label" id="l-view">View</span>
+			<div class="seg" role="radiogroup" aria-labelledby="l-view" data-key="view">
+				<button type="button" role="radio" id="v-today" data-val="today">Today: frosted plains</button>
+				<button type="button" role="radio" id="v-middle" data-val="middle">Stove in the middle</button>
+				<button type="button" role="radio" id="v-far" data-val="far">Stove at the far end</button>
+			</div>
+		</div>
+		<div class="ctl"><span class="ctl-label" id="l-hour">Hour</span>
+			<div class="seg" role="radiogroup" aria-labelledby="l-hour" data-key="hour">
+				<button type="button" role="radio" id="h-noon" data-val="noon">Noon</button>
+				<button type="button" role="radio" id="h-golden" data-val="golden">Golden hour</button>
+				<button type="button" role="radio" id="h-night" data-val="night">Night</button>
+			</div>
+		</div>
+		<div class="ctl"><span class="ctl-label" id="l-wx">Weather</span>
+			<div class="seg" role="radiogroup" aria-labelledby="l-wx" data-key="wx">
+				<button type="button" role="radio" id="w-clear" data-val="clear">Clear</button>
+				<button type="button" role="radio" id="w-rain" data-val="rain">Rain</button>
+				<button type="button" role="radio" id="w-snow" data-val="snow">Snow</button>
+				<button type="button" role="radio" id="w-storm" data-val="storm">Storm</button>
+			</div>
+		</div>
+		<div class="ctl"><span class="ctl-label" id="l-glass">Chat glass</span>
+			<div class="seg" role="radiogroup" aria-labelledby="l-glass" data-key="glass">
+				<button type="button" role="radio" id="g-off" data-val="off">No glass</button>
+				<button type="button" role="radio" id="g-built" data-val="built">As built</button>
+				<button type="button" role="radio" id="g-light" data-val="light">Lighter</button>
+				<button type="button" role="radio" id="g-none" data-val="none">Hide chat</button>
+			</div>
+		</div>
+		<div class="ctl"><span class="ctl-label" id="l-device">Device</span>
+			<div class="seg" role="radiogroup" aria-labelledby="l-device" data-key="device">
+				<button type="button" role="radio" id="d-desktop" data-val="desktop">Desktop</button>
+				<button type="button" role="radio" id="d-phone" data-val="phone">Phone</button>
+			</div>
+		</div>
+		<div class="ctl"><span class="ctl-label" id="l-fire">Fire</span>
+			<div class="seg" role="radiogroup" aria-labelledby="l-fire" data-key="fire">
+				<button type="button" role="radio" id="f-still" data-val="still">Still</button>
+				<button type="button" role="radio" id="f-flicker" data-val="flicker">Flicker</button>
+			</div>
+		</div>
+	</div>
+
+	<div class="notes">
+		<section>
+			<h2>Today: frosted plains</h2>
+			<p>What ships now: the same plains at the same hour, blurred and still behind the chat.</p>
+		</section>
+		<section>
+			<h2>Stove in the middle</h2>
+			<p>The yurt as it is built. The stove stands under the crown with a painted post on each side, and its pipe rises in front of the back window's middle bar. On a wide screen the newest lines sit right over the fire.</p>
+		</section>
+		<section>
+			<h2>Stove at the far end</h2>
+			<p>The same room with the eye turned left, so the stove stands where the yurt stands outside, 22% in from the far edge. Chat lines start at the left, so the fire is mostly clear of them.</p>
+		</section>
+		<section>
+			<h2>Through the glass</h2>
+			<p>A private message is always on glass now, so the room is only ever seen through it. "No glass" is for previewing the room: the chat sits straight on it, which the app never does. "As built" uses roughly today's tint and blur. "Lighter" thins the glass, and its legibility has not been measured. "Hide chat" shows the bare drawing.</p>
+		</section>
+		<section>
+			<h2>Still by default</h2>
+			<p>Like the frosted view, nothing moves. "Flicker" makes the fire breathe; it would be the only motion in a private message.</p>
+		</section>
+	</div>
+	<p class="foot">Drawn by hand in SVG from the theme's palette at noon, 18:00 and 21:00. The whole room is drawn in 3D from one eye just inside the door, so the round wall wraps around and the furniture turns with it. The phone crops the same room around the stove.</p>
+</div>
+
+<script>
+(() => {
+	"use strict";
+
+	const state = {view: "middle", hour: "night", wx: "clear", glass: "off", device: "desktop", fire: "still"};
+
+	/* ---------- colour ---------- */
+	const PAL = {
+		noon: {top: "#3f8fe6", mid: "#8cc2f4", hor: "#d2e9fb", mount: "#a4b9d6", far: "#c6dc9c", hill2: "#99cc72", hill1: "#80bf5c", grass: "#69b04a", felt: "#f9f5ee", band: "#b5634b", door: "#cc5a2e", cloud: "#ffffff"},
+		golden: {top: "#5a86cc", mid: "#e9c49a", hor: "#ffc478", mount: "#a795a8", far: "#e0c486", hill2: "#c2b862", hill1: "#b0a954", grass: "#9c9a48", felt: "#fbe5c8", band: "#b8583e", door: "#d0522a", cloud: "#fff1dc"},
+		night: {top: "#0a1128", mid: "#16214a", hor: "#2c3566", mount: "#1f2848", far: "#222d45", hill2: "#1d273d", hill1: "#182236", grass: "#121c2d", felt: "#707286", band: "#503f4c", door: "#4c3432", cloud: "#2a3456"},
+	};
+	const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+	const mix = (a, b, t) => "#" + hex(a).map((v, i) => Math.round(v + (hex(b)[i] - v) * t).toString(16).padStart(2, "0")).join("");
+
+	function skyFor(hour, wx) {
+		const p = PAL[hour];
+		const s = {...p};
+		const night = hour === "night";
+		if (wx === "rain" || wx === "storm") {
+			const storm = wx === "storm";
+			const grey = night ? (storm ? "#0b0f1a" : "#161c2c") : hour === "golden" ? (storm ? "#5c5360" : "#94888c") : storm ? "#5a6475" : "#97a2b2";
+			const k = storm ? 0.85 : 0.68;
+			s.top = mix(p.top, grey, k);
+			s.mid = mix(p.mid, grey, k);
+			s.hor = mix(p.hor, grey, k - 0.08);
+			s.mount = mix(p.mount, s.hor, 0.45);
+			s.far = mix(p.far, grey, 0.3);
+			s.hill2 = mix(p.hill2, grey, 0.28);
+			s.hill1 = mix(p.hill1, grey, 0.28);
+			s.grass = mix(p.grass, grey, 0.28);
+			s.cloud = mix(p.cloud, grey, 0.5);
+		}
+		if (wx === "snow") {
+			const land = {mount: "#e6ecf6", far: "#eef2f7", hill2: "#e5ebf3", hill1: "#dde5ef", grass: "#d6dfeb"};
+			const k = night ? 0.74 : hour === "golden" ? 0.18 : 0;
+			for (const g of Object.keys(land)) s[g] = mix(land[g], night ? "#26304a" : "#e9b88c", k);
+			const pale = night ? "#1d2539" : hour === "golden" ? "#dcc4bb" : "#c9d3df";
+			s.top = mix(p.top, pale, night ? 0.45 : 0.72);
+			s.mid = mix(p.mid, pale, night ? 0.45 : 0.72);
+			s.hor = mix(p.hor, night ? "#2a3248" : "#eef2f6", 0.6);
+		}
+		return s;
+	}
+
+	/* ---------- the room: a round yurt in 3D, seen from just inside the door ----------
+	 * Metres: x to the right, y up from the floor, z away from the door, the yurt's middle
+	 * (the stove) at the origin. One eye draws everything: it stands 1 m inside the door at
+	 * 1.55 m, looking at the back wall a little upward. "Stove at the far end" is the same
+	 * eye turned to the left until the stove stands 22% in from the right edge. */
+	const rad = (a) => (a * Math.PI) / 180;
+	const n = (v) => String(Math.round(v * 10) / 10);
+	const pts = (arr) => arr.map((p) => n(p[0]) + "," + n(p[1])).join(" ");
+	function rng(seed) {
+		let a = seed >>> 0;
+		return () => {
+			a = (a + 0x6d2b79f5) >>> 0;
+			let t = a;
+			t = Math.imul(t ^ (t >>> 15), t | 1);
+			t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+			return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+		};
+	}
+
+	const R = 4, WALL_H = 2.0, CROWN_H = 3.2, CROWN_R = 0.75;
+	const EYE_H = 1.55, CAM_Z = -3.0, FOCAL = 507, CY = 400, PITCH = rad(0.7), NEAR = 0.12;
+
+	function camera(view) {
+		const yaw = view === "far" ? -Math.atan(358 / FOCAL) : 0;
+		return {pos: [0, EYE_H, CAM_Z], cyw: Math.cos(yaw), syw: Math.sin(yaw), cp: Math.cos(PITCH), sp: Math.sin(PITCH), right: [Math.cos(yaw), 0, -Math.sin(yaw)]};
+	}
+	function toCam(cam, q) {
+		const dx = q[0] - cam.pos[0], dy = q[1] - cam.pos[1], dz = q[2] - cam.pos[2];
+		const x1 = dx * cam.cyw - dz * cam.syw, z1 = dx * cam.syw + dz * cam.cyw;
+		return [x1, dy * cam.cp - z1 * cam.sp, dy * cam.sp + z1 * cam.cp];
+	}
+	const depth = (cam, q) => toCam(cam, q)[2];
+	function proj(cam, q) {
+		const [x, y, z] = toCam(cam, q);
+		return [640 + (FOCAL * x) / z, CY - (FOCAL * y) / z, z];
+	}
+	const lerp3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+	function clipSeg(cam, a, b) {
+		const za = depth(cam, a), zb = depth(cam, b);
+		if (za < NEAR && zb < NEAR) return null;
+		if (za < NEAR) a = lerp3(a, b, (NEAR - za) / (zb - za));
+		else if (zb < NEAR) b = lerp3(b, a, (NEAR - zb) / (za - zb));
+		return [a, b];
+	}
+	const widthAt = (m, z, max = 18) => n(Math.min(Math.max((FOCAL * m) / z, 0.8), max));
+	function line3(cam, a, b, at, m, max) {
+		const c = clipSeg(cam, a, b);
+		if (!c) return "";
+		const [p, q] = c.map((v) => proj(cam, v));
+		return `<line x1="${n(p[0])}" y1="${n(p[1])}" x2="${n(q[0])}" y2="${n(q[1])}" stroke-width="${widthAt(m, (p[2] + q[2]) / 2, max)}" ${at}/>`;
+	}
+	/** A 3D polyline, split where it passes behind the eye, each run as wide as m metres at its middle. */
+	function polyRuns(cam, l3, at, m) {
+		let out = "", cur = [];
+		const flush = () => {
+			if (cur.length > 1) out += `<polyline points="${pts(cur)}" fill="none" stroke-width="${widthAt(m, cur[cur.length >> 1][2])}" ${at}/>`;
+			cur = [];
+		};
+		for (const q of l3) {
+			if (depth(cam, q) >= NEAR) cur.push(proj(cam, q));
+			else flush();
+		}
+		flush();
+		return out;
+	}
+	const wallPt = (th, h, r = R) => [r * Math.sin(rad(th)), h, r * Math.cos(rad(th))];
+	function arc(cam, h, r = R, step = 1) {
+		const out = [];
+		for (let th = -179; th <= 179; th += step) {
+			const q = wallPt(th, h, r);
+			if (depth(cam, q) > NEAR) out.push(proj(cam, q));
+		}
+		return out;
+	}
+	function circle3(x, y, z, r, k = 48) {
+		const l = [];
+		for (let i = 0; i < k; i++) l.push([x + r * Math.cos((i / k) * 2 * Math.PI), y, z + r * Math.sin((i / k) * 2 * Math.PI)]);
+		return l;
+	}
+	/** Cuts a 3D polygon where it passes behind the eye (depth is linear in the room, so the cut is a plane). */
+	function clipPoly3(cam, l3) {
+		const out = [];
+		for (let i = 0; i < l3.length; i++) {
+			const a = l3[i], b = l3[(i + 1) % l3.length], za = depth(cam, a), zb = depth(cam, b);
+			if (za >= NEAR) out.push(a);
+			if (za >= NEAR !== zb >= NEAR) out.push(lerp3(a, b, (NEAR - za) / (zb - za)));
+		}
+		return out;
+	}
+	const poly3 = (cam, l3, at) => {
+		const c = clipPoly3(cam, l3);
+		return c.length < 3 ? "" : `<polygon points="${pts(c.map((q) => proj(cam, q)))}" ${at}/>`;
+	};
+	/** A 3D polyline as the runs in front of the eye, drawn with the caller's attributes. */
+	function lineRuns(cam, l3, at) {
+		let out = "", cur = [];
+		const flush = () => {
+			if (cur.length > 1) out += `<polyline points="${pts(cur)}" fill="none" ${at}/>`;
+			cur = [];
+		};
+		for (const q of l3) {
+			if (depth(cam, q) >= NEAR) cur.push(proj(cam, q));
+			else flush();
+		}
+		flush();
+		return out;
+	}
+	function hull(p) {
+		p = p.map((q) => [q[0], q[1]]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+		const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+		const lo = [], up = [];
+		for (const q of p) {
+			while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop();
+			lo.push(q);
+		}
+		for (const q of p.slice().reverse()) {
+			while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop();
+			up.push(q);
+		}
+		return lo.slice(0, -1).concat(up.slice(0, -1));
+	}
+	/** The side of an upright cylinder that faces the eye, from y0 to y1. */
+	function cylSide(cam, cx, cz, r, y0, y1, at) {
+		const c = cam.pos, d = Math.hypot(c[0] - cx, c[2] - cz);
+		const phc = Math.atan2(c[2] - cz, c[0] - cx), del = Math.acos(Math.min(1, r / d));
+		const bot = [], top = [];
+		for (let i = 0; i <= 28; i++) {
+			const ph = phc - del + (2 * del * i) / 28;
+			bot.push([cx + r * Math.cos(ph), y0, cz + r * Math.sin(ph)]);
+			top.push([cx + r * Math.cos(ph), y1, cz + r * Math.sin(ph)]);
+		}
+		return poly3(cam, [...bot, ...top.reverse()], at);
+	}
+
+	const C = {
+		roofA: "#ecdcbc", roofB: "#d9bf95", wallA: "#f4e9d6", wallB: "#e4d0ae",
+		lattice: "#b3653a", pole: "#c8602f", poleEdge: "#9e4a24", crown: "#a24f28",
+		floorA: "#9c7049", floorB: "#c29466", board: "#86603d",
+		furn: "#c8602f", furnD: "#9a4724", furnL: "#d9773f", blue: "#2c5d86", green: "#3f7f5a", cream: "#f2dcb0", gold: "#d9a640",
+		wood: "#7a4a2a", woodD: "#5a341c", woodL: "#9a6a42",
+		iron: "#2c2d33", ironL: "#45474f", ironD: "#1c1d22", copper: "#b8693a",
+		rug: "#9e2f2a", rugB: "#e6c78f", rugP: "#24466e",
+	};
+
+	/* ---------- surfaces, frames, boxes and small round things ---------- */
+	/** A painter on one surface: map(s, t) gives the room point; everything drawn on it is projected point by point. */
+	function surf(cam, map) {
+		const P = (s, t) => proj(cam, map(s, t));
+		const ring = (s0, t0, s1, t1, k) => {
+			const L = [];
+			for (let i = 0; i < k; i++) L.push([s0 + ((s1 - s0) * i) / k, t0]);
+			for (let i = 0; i < k; i++) L.push([s1, t0 + ((t1 - t0) * i) / k]);
+			for (let i = 0; i < k; i++) L.push([s1 - ((s1 - s0) * i) / k, t1]);
+			for (let i = 0; i < k; i++) L.push([s0, t1 - ((t1 - t0) * i) / k]);
+			return L;
+		};
+		const api = {
+			px: (s, t) => FOCAL / depth(cam, map(s, t)),
+			poly: (l, at) => poly3(cam, l.map(([s, t]) => map(s, t)), at),
+			rect: (s0, t0, s1, t1, at, k = 1) => api.poly(ring(s0, t0, s1, t1, k), at),
+			ellipse: (s, t, rs, rt, at, k = 28) => {
+				const l = [];
+				for (let i = 0; i < k; i++) l.push([s + rs * Math.cos((i / k) * 2 * Math.PI), t + rt * Math.sin((i / k) * 2 * Math.PI)]);
+				return api.poly(l, at);
+			},
+			circle: (s, t, r, at) => api.ellipse(s, t, r, r, at, 22),
+			line: (l, at) => lineRuns(cam, l.map(([s, t]) => map(s, t)), at),
+			diamond: (s, t, w, h, at) => api.poly([[s, t + h], [s + w, t], [s, t - h], [s - w, t]], at),
+			/** A panel with an arched top: from t0 up to t1 at its sides and t1 + rise in its middle. */
+			arched: (s0, s1, t0, t1, rise, at) => {
+				const l = [[s0, t0], [s1, t0], [s1, t1]];
+				for (let i = 1; i < 12; i++) {
+					const u = i / 12;
+					l.push([s1 + (s0 - s1) * u, t1 + rise * Math.sin(Math.PI * u)]);
+				}
+				l.push([s0, t1]);
+				return api.poly(l, at);
+			},
+		};
+		return api;
+	}
+	const sw = (S, s, t, m) => n(Math.max(0.6, m * S.px(s, t)));
+	/** A quadratic curve from p0 through control c to p1, as k points after p0. */
+	const qb = (p0, c, p1, k = 8) => Array.from({length: k}, (_, i) => {
+		const t = (i + 1) / k;
+		return [(1 - t) * (1 - t) * p0[0] + 2 * (1 - t) * t * c[0] + t * t * p1[0], (1 - t) * (1 - t) * p0[1] + 2 * (1 - t) * t * c[1] + t * t * p1[1]];
+	});
+
+	/* A frame places a piece: a along it (+ to the right, seen from where it faces), b toward where it faces, c up. */
+	function wallFrame(th) {
+		const r = [Math.sin(rad(th)), 0, Math.cos(rad(th))];
+		return {th, u: [Math.cos(rad(th)), 0, -Math.sin(rad(th))], n: [-r[0], 0, -r[2]], pt: (a, b, c) => [r[0] * (R - b) + Math.cos(rad(th)) * a, c, r[2] * (R - b) - Math.sin(rad(th)) * a]};
+	}
+	function freeFrame(x, z, nx, nz) {
+		const l = Math.hypot(nx, nz);
+		nx /= l;
+		nz /= l;
+		return {u: [-nz, 0, nx], n: [nx, 0, nz], pt: (a, b, c) => [x - nz * a + nx * b, c, z + nx * a + nz * b]};
+	}
+	const atW = (fr, a, b, c) => fr.pt(a, b, c);
+	const onWall = (fr, s, c) => {
+		const t = rad(fr.th) + s / (R - 0.02);
+		return [Math.sin(t) * (R - 0.02), c, Math.cos(t) * (R - 0.02)];
+	};
+	const shade = (col) => ({side: mix(col, "#000000", 0.16), top: mix(col, "#ffffff", 0.14), bottom: mix(col, "#000000", 0.28)});
+
+	/** Draws the faces of a box that are turned toward the eye, each with its decoration. */
+	function faces(cam, F, deco) {
+		let out = "";
+		for (const [name, f] of Object.entries(F)) {
+			const m = f.map((f.s0 + f.s1) / 2, (f.t0 + f.t1) / 2);
+			const c = cam.pos;
+			if (f.nrm[0] * (c[0] - m[0]) + f.nrm[1] * (c[1] - m[1]) + f.nrm[2] * (c[2] - m[2]) <= 0) continue;
+			const S = surf(cam, f.map);
+			out += S.rect(f.s0, f.t0, f.s1, f.t1, `fill="${f.fill}"`);
+			if (deco[name]) out += deco[name](S);
+		}
+		return out;
+	}
+	/** A box standing square to the room. */
+	function abox(cam, x0, x1, y0, y1, z0, z1, col, deco = {}) {
+		const k = shade(col);
+		return faces(cam, {
+			left: {nrm: [-1, 0, 0], map: (s, t) => [x0, t, s], s0: z0, s1: z1, t0: y0, t1: y1, fill: k.side},
+			right: {nrm: [1, 0, 0], map: (s, t) => [x1, t, s], s0: z0, s1: z1, t0: y0, t1: y1, fill: k.side},
+			top: {nrm: [0, 1, 0], map: (s, t) => [s, y1, t], s0: x0, s1: x1, t0: z0, t1: z1, fill: k.top},
+			bottom: {nrm: [0, -1, 0], map: (s, t) => [s, y0, t], s0: x0, s1: x1, t0: z0, t1: z1, fill: k.bottom},
+			front: {nrm: [0, 0, -1], map: (s, t) => [s, t, z0], s0: x0, s1: x1, t0: y0, t1: y1, fill: col},
+		}, deco);
+	}
+	/** A box in a frame (against the wall, or turned toward a table). */
+	function box(cam, fr, a0, a1, b0, b1, c0, c1, col, deco = {}) {
+		const k = shade(col);
+		return faces(cam, {
+			left: {nrm: fr.u.map((v) => -v), map: (s, t) => fr.pt(a0, s, t), s0: b0, s1: b1, t0: c0, t1: c1, fill: k.side},
+			right: {nrm: fr.u, map: (s, t) => fr.pt(a1, s, t), s0: b0, s1: b1, t0: c0, t1: c1, fill: k.side},
+			top: {nrm: [0, 1, 0], map: (s, t) => fr.pt(s, t, c1), s0: a0, s1: a1, t0: b0, t1: b1, fill: k.top},
+			bottom: {nrm: [0, -1, 0], map: (s, t) => fr.pt(s, t, c0), s0: a0, s1: a1, t0: b0, t1: b1, fill: k.bottom},
+			front: {nrm: fr.n, map: (s, t) => fr.pt(s, b1, t), s0: a0, s1: a1, t0: c0, t1: c1, fill: col},
+		}, deco);
+	}
+
+	/** A small round thing drawn flat at its place (its base at q), unit metres per drawing unit. */
+	const sprite = (cam, q, body, unit = 0.0115) => {
+		if (depth(cam, q) < NEAR) return "";
+		const [x, y, z] = proj(cam, q);
+		return `<g transform="translate(${n(x)},${n(y)}) scale(${n((FOCAL * unit) / z)})">${body}</g>`;
+	};
+	const PLANT = {pot: "M-9,0 L-7,-12 L7,-12 L9,0 Z", leaves: "M0,-12 C-12,-20 -14,-30 -6,-34 C-2,-26 0,-20 0,-12 C2,-24 8,-32 14,-30 C12,-22 6,-16 0,-12"};
+	const SPR = {
+		lamp: `<rect x="-9" y="-6" width="18" height="6" rx="2" fill="${C.gold}"/><path d="M-6,-6 C-10,-16 -8,-26 0,-32 C8,-26 10,-16 6,-6 Z" fill="#fff2d6" opacity=".55"/>`,
+		flame: `<path d="M0,-26 C-5,-18 -5,-12 0,-9 C5,-12 5,-18 0,-26 Z" fill="#ffe7a0"/>`,
+		bowl: `<path d="M-8,-5 a8,5 0 0 0 16,0 Z" fill="#f2ead9"/>`,
+		mug: `<rect x="-7" y="-14" width="14" height="14" rx="2" fill="${C.cream}"/><path d="M7,-11 a4,4 0 0 1 0,8" fill="none" stroke="${C.cream}" stroke-width="2.4"/>`,
+		plant: `<path d="${PLANT.pot}" fill="#b5562e"/><path d="${PLANT.leaves}" fill="#4f8a4a"/>`,
+		plate: `<ellipse cx="0" cy="-11" rx="5" ry="11" fill="#f1ead8" stroke="${C.blue}" stroke-width="1.5"/>`,
+		jarA: `<rect x="-7" y="-22" width="14" height="22" rx="3" fill="#cfa86a"/><rect x="-8" y="-25" width="16" height="4" rx="1" fill="${C.woodD}"/>`,
+		jarB: `<rect x="-6" y="-16" width="12" height="16" rx="3" fill="#7fa86a"/><rect x="-7" y="-19" width="14" height="4" rx="1" fill="${C.woodD}"/>`,
+		bowls: `<path d="M-12,-10 h24 l-3,10 h-18 Z" fill="#f2ead9"/><path d="M-9,-18 h18 l-2,8 h-14 Z" fill="#e4d8bf"/>`,
+		cups: `<rect x="-8" y="-14" width="16" height="14" rx="3" fill="${C.blue}"/><rect x="10" y="-14" width="16" height="14" rx="3" fill="${C.cream}"/><rect x="28" y="-14" width="14" height="14" rx="3" fill="${C.green}"/>`,
+		thermos: `<rect x="-8" y="-38" width="16" height="38" rx="5" fill="#b83a34"/><path d="M-8,-24 h16 M-8,-14 h16" stroke="${C.gold}" stroke-width="2"/><rect x="-5" y="-44" width="10" height="7" rx="2" fill="#2c2d33"/>`,
+		basin: `<path d="M-22,-12 h44 l-6,12 h-32 Z" fill="#c9cdd4"/><ellipse cx="0" cy="-12" rx="22" ry="4" fill="#e1e4e9"/>`,
+		jug: `<path d="M-7,0 L-9,-20 Q0,-26 9,-20 L7,0 Z" fill="${C.cream}"/><path d="M9,-18 q7,4 0,12" stroke="${C.cream}" stroke-width="2.5" fill="none"/>`,
+		finial: `<circle cx="0" cy="-6" r="6" fill="${C.gold}"/><circle cx="-2" cy="-8" r="2" fill="#fff" opacity=".4"/>`,
+		kettle: `<g transform="translate(0,-15)"><path d="M18,-2 C30,-6 34,-14 38,-16 L36,-12 C32,-6 26,2 18,4 Z" fill="${C.copper}"/><ellipse cx="0" cy="0" rx="23" ry="15" fill="${C.copper}"/><ellipse cx="-6" cy="-5" rx="10" ry="4" fill="#ffffff" opacity=".2"/><ellipse cx="0" cy="-13" rx="11" ry="3.5" fill="#9a5530"/><circle cx="0" cy="-17" r="3" fill="#2c2d33"/><path d="M-16,-8 Q0,-34 16,-8" fill="none" stroke="#2c2d33" stroke-width="2.5"/></g>`,
+		pot: `<g transform="translate(0,-28)"><rect x="-24" y="0" width="48" height="28" rx="4" fill="#4b4e57"/><rect x="-24" y="3" width="48" height="3" fill="#ffffff" opacity=".12"/><ellipse cx="0" cy="0" rx="25" ry="5" fill="#5a5d66"/><rect x="-31" y="6" width="7" height="4" rx="2" fill="#4b4e57"/><rect x="24" y="6" width="7" height="4" rx="2" fill="#4b4e57"/></g>`,
+		steam: `<g fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round"><path d="M-6,-34 q-6,-12 2,-22 q8,-10 0,-22"/><path d="M6,-36 q6,-12 -2,-22 q-6,-9 2,-18"/></g>`,
+		teapot: `<g transform="translate(0,-11)"><path d="M12,-4 C20,-6 24,-14 27,-15" stroke="${C.blue}" stroke-width="3.5" fill="none" stroke-linecap="round"/><path d="M-12,-6 a7,8 0 0 0 0,12" stroke="${C.blue}" stroke-width="3" fill="none"/><ellipse cx="0" cy="0" rx="14" ry="11" fill="${C.blue}"/><ellipse cx="-4" cy="-4" rx="6" ry="3" fill="#ffffff" opacity=".25"/><ellipse cx="0" cy="-10" rx="7" ry="2.5" fill="#24506f"/><circle cx="0" cy="-13" r="2.4" fill="${C.cream}"/></g>`,
+		dumplings: `<g transform="translate(0,-3)"><ellipse cx="0" cy="0" rx="24" ry="6" fill="#efe6d4"/><ellipse cx="-9" cy="-3" rx="6" ry="3.5" fill="#fbf4e6" stroke="#d8c6a6"/><ellipse cx="2" cy="-4" rx="6" ry="3.5" fill="#fbf4e6" stroke="#d8c6a6"/><ellipse cx="12" cy="-3" rx="6" ry="3.5" fill="#fbf4e6" stroke="#d8c6a6"/><ellipse cx="-3" cy="-7" rx="6" ry="3.5" fill="#fbf4e6" stroke="#d8c6a6"/><ellipse cx="8" cy="-7" rx="6" ry="3.5" fill="#fbf4e6" stroke="#d8c6a6"/><path d="M-4,-14 q-4,-8 2,-14 M6,-14 q4,-8 -2,-14" stroke="#ffffff" stroke-width="1.8" fill="none" opacity=".5"/></g>`,
+		tbowl: `<g transform="translate(0,-3)"><path d="M-10,-4 a10,7 0 0 0 20,0 Z" fill="#f2ead9"/><path d="M-10,-4 h20" stroke="${C.blue}" stroke-width="2"/></g>`,
+		basket:
+			`<g transform="rotate(-18)"><rect x="-8" y="-74" width="13" height="66" rx="5" fill="#8a5a32"/></g>` +
+			`<circle cx="-18" cy="-42" r="10" fill="#8a5a32"/><circle cx="-18" cy="-42" r="6" fill="#c89a6a"/>` +
+			`<circle cx="2" cy="-48" r="11" fill="#8a5a32"/><circle cx="2" cy="-48" r="7" fill="#c89a6a"/>` +
+			`<circle cx="20" cy="-42" r="9" fill="#8a5a32"/><circle cx="20" cy="-42" r="5.5" fill="#c89a6a"/>` +
+			`<path d="M-36,-40 L36,-40 L30,0 L-30,0 Z" fill="#a8763f"/>` +
+			`<path d="M-35,-31 Q0,-27 35,-31 M-33,-20 Q0,-16 33,-20 M-31,-9 Q0,-5 31,-9" stroke="#7a5028" stroke-width="2" fill="none"/>` +
+			`<path d="M-20,-40 L-18,0 M0,-40 L0,0 M20,-40 L18,0" stroke="#7a5028" stroke-width="1.6"/>`,
+	};
+
+	/** A chair in a frame turned toward what it serves (b toward it): legs, seat, and a back away from it. */
+	function chair(cam, fr) {
+		let s = "";
+		for (const [a, b] of [[-0.19, -0.19], [0.14, -0.19], [-0.19, 0.14], [0.14, 0.14]]) s += box(cam, fr, a, a + 0.05, b, b + 0.05, 0, 0.45, C.wood);
+		s += box(cam, fr, -0.21, 0.21, -0.21, 0.21, 0.45, 0.5, C.woodL);
+		s += box(cam, fr, -0.2, -0.15, -0.21, -0.16, 0.5, 0.98, C.wood) + box(cam, fr, 0.15, 0.2, -0.21, -0.16, 0.5, 0.98, C.wood);
+		s += box(cam, fr, -0.2, 0.2, -0.21, -0.16, 0.74, 0.95, C.woodL, {front: (S) => S.circle(0, 0.845, 0.05, `fill="${C.furn}"`)});
+		return s;
+	}
+
+	/* ---------- the furniture along the round wall: each returns {d: how far it stands out, svg} ---------- */
+	const PIECES = {
+		closet(cam, fr) {
+			const front = (S) => {
+				const k = S.px(0, 1);
+				const orn = (s) => S.circle(s, 1.08, 0.11, `fill="${C.blue}" stroke="${C.cream}" stroke-width="${n(0.014 * k)}"`) + S.diamond(s, 1.08, 0.03, 0.08, `fill="${C.cream}"`);
+				return (
+					S.rect(-0.4, 0.42, -0.02, 1.74, `fill="${C.furnL}"`) + S.rect(0.02, 0.42, 0.4, 1.74, `fill="${C.furnL}"`) +
+					orn(-0.21) + orn(0.21) +
+					[[-0.36, -0.06], [0.06, 0.36]].map(([a, b]) => S.rect(a, 1.65, b, 1.675, `fill="${C.green}"`) + S.rect(a, 0.5, b, 0.525, `fill="${C.green}"`)).join("") +
+					S.circle(-0.05, 1.0, 0.018, `fill="${C.gold}"`) + S.circle(0.05, 1.0, 0.018, `fill="${C.gold}"`) +
+					S.rect(-0.38, 0.14, 0.38, 0.34, `fill="${C.furnL}"`) + S.rect(-0.07, 0.23, 0.07, 0.255, `fill="${C.gold}"`)
+				);
+			};
+			return {d: 0.62, svg: box(cam, fr, -0.42, 0.42, 0.04, 0.52, 0, 0.08, C.furnD) + box(cam, fr, -0.45, 0.45, 0, 0.58, 0.08, 1.82, C.furn, {front}) + box(cam, fr, -0.48, 0.48, 0, 0.62, 1.82, 1.9, C.furnD)};
+		},
+
+		/* A painted double bed along the wall: shaped head- and footboards with thickness, posts with
+		 * brass finials, an orange frame with cream line-work; soft bedding in its own colours — a blue
+		 * quilt turned down at the head and draped over the side, puffy pillows, a red cushion, and a
+		 * mustard throw folded across the foot. */
+		bed(cam, fr) {
+			const Wl = surf(cam, (s, t) => onWall(fr, s, t));
+			const kw = Wl.px(0, 1.4);
+			let s =
+				Wl.rect(-0.7, 0.98, 0.7, 1.8, `fill="${C.rug}"`, 8) +
+				Wl.rect(-0.63, 1.05, 0.63, 1.73, `fill="none" stroke="${C.rugB}" stroke-width="${n(0.028 * kw)}"`, 8) +
+				Wl.diamond(0, 1.39, 0.18, 0.26, `fill="${C.rugP}"`) + Wl.diamond(0, 1.39, 0.1, 0.15, `fill="${C.rugB}"`) +
+				[[-0.48, 1.18], [0.48, 1.18], [-0.48, 1.6], [0.48, 1.6]].map(([a, c]) => Wl.diamond(a, c, 0.06, 0.09, `fill="${C.rugB}"`)).join("");
+			for (let a = -0.65; a <= 0.66; a += 0.1) s += Wl.line([[a, 0.98], [a, 0.92]], `stroke="${C.rugB}" stroke-width="${n(0.012 * kw)}"`);
+
+			const L = 1.08, D = 1.42, HEAD = -L, FOOT = L, T = 0.07;
+			const across = (A) => surf(cam, (b, c) => fr.pt(A, b, c));
+			const seesPlus = (A) => {
+				const p = fr.pt(A, D / 2, 0.6);
+				return fr.u[0] * (cam.pos[0] - p[0]) + fr.u[2] * (cam.pos[2] - p[2]) > 0;
+			};
+			const roundRect = (s0, t0, s1, t1, rs, rt, k = 5) => {
+				const l = [];
+				const corner = (cs, ct, a0) => {
+					for (let i = 0; i <= k; i++) l.push([cs + rs * Math.cos(a0 + (Math.PI / 2) * (i / k)), ct + rt * Math.sin(a0 + (Math.PI / 2) * (i / k))]);
+				};
+				corner(s1 - rs, t0 + rt, -Math.PI / 2);
+				corner(s1 - rs, t1 - rt, 0);
+				corner(s0 + rs, t1 - rt, Math.PI / 2);
+				corner(s0 + rs, t0 + rt, Math.PI);
+				return l;
+			};
+			const archOutline = (s0, s1, t0, tSide, tPeak, k = 18) => {
+				const l = [[s0, t0], [s1, t0], [s1, tSide]];
+				for (let i = 1; i < k; i++) l.push([s1 + ((s0 - s1) * i) / k, tSide + (tPeak - tSide) * Math.sin((Math.PI * i) / k)]);
+				l.push([s0, tSide]);
+				return l;
+			};
+			const medallion = (S, b, c, r) =>
+				S.circle(b, c, r, `fill="${C.green}" stroke="${C.cream}" stroke-width="${sw(S, b, c, 0.014)}"`) + S.circle(b, c, r * 0.42, `fill="${C.gold}"`) +
+				[-1, 1].map((m) => S.circle(b + m * r * 2.2, c, r * 0.48, `fill="${C.blue}" stroke="${C.cream}" stroke-width="${sw(S, b, c, 0.01)}"`)).join("");
+			/** A shaped board across the bed (head or foot): its far face as a rim, then the near face painted. */
+			const board = (A0, A1, outline, inset, orn) => {
+				const plusSeen = seesPlus(A1);
+				const [far, near] = plusSeen ? [A0, A1] : [A1, A0];
+				const N = across(near);
+				return across(far).poly(outline, `fill="${shade(C.furn).side}"`) + N.poly(outline, `fill="${C.furn}"`) +
+					N.poly(inset, `fill="${C.furnL}" stroke="${C.cream}" stroke-width="${sw(N, D / 2, 0.6, 0.014)}"`) + orn(N);
+			};
+			/** A corner post to the floor, a brass finial on top: four of them, at the wall and at the front. */
+			const post = (a0, a1, b0, h) => box(cam, fr, a0, a1, b0, b0 + 0.1, 0, h, C.furnD) + sprite(cam, fr.pt((a0 + a1) / 2, b0 + 0.05, h), SPR.finial, 0.008);
+			const headboard =
+				board(HEAD - T, HEAD, archOutline(0, D, 0, 1.12, 1.42), archOutline(0.12, D - 0.12, 0.64, 1.04, 1.28), (S) => medallion(S, D / 2, 0.9, 0.085)) +
+				post(HEAD - 0.09, HEAD + 0.02, 0, 1.34) + post(HEAD - 0.09, HEAD + 0.02, D - 0.1, 1.34);
+			const footboard =
+				board(FOOT, FOOT + T, archOutline(0, D, 0, 0.66, 0.8), archOutline(0.12, D - 0.12, 0.2, 0.58, 0.7), (S) => medallion(S, D / 2, 0.42, 0.065)) +
+				post(FOOT - 0.02, FOOT + 0.09, 0, 0.9) + post(FOOT - 0.02, FOOT + 0.09, D - 0.1, 0.9);
+			// Seen from the side the bed faces, a board is behind the bedding; seen from beyond it, in front.
+			const headBehind = seesPlus(HEAD), footBehind = !seesPlus(FOOT + T);
+			if (headBehind) s += headboard;
+			if (footBehind) s += footboard;
+
+			// Legs and the frame, painted with cream line-work and green scrolls.
+			s += box(cam, fr, HEAD + 0.01, HEAD + 0.09, D - 0.1, D - 0.02, 0, 0.14, C.furnD) + box(cam, fr, FOOT - 0.09, FOOT - 0.01, D - 0.1, D - 0.02, 0, 0.14, C.furnD);
+			s += box(cam, fr, HEAD, FOOT, 0.02, D, 0.14, 0.4, C.furn, {
+				front: (S) => {
+					return S.rect(HEAD + 0.07, 0.17, FOOT - 0.07, 0.27, `fill="none" stroke="${C.cream}" stroke-width="${sw(S, 0, 0.27, 0.012)}"`) +
+						[-0.6, 0.1, 0.8].map((a) => S.circle(a, 0.22, 0.022, `fill="${C.cream}"`)).join("");
+				},
+			});
+			// The mattress, mostly under the bedding.
+			s += box(cam, fr, HEAD + 0.02, FOOT - 0.02, 0.04, D - 0.02, 0.4, 0.58, "#efe6d6");
+			// Two pillows and a cushion, leaning on the headboard.
+			const lean = (aBot, aTop, cBot, cTop) => surf(cam, (b, t) => fr.pt(aBot + (aTop - aBot) * t, b, cBot + (cTop - cBot) * t));
+			for (const [b0, b1] of [[0.08, 0.68], [0.74, 1.34]]) {
+				const P = lean(HEAD + 0.27, HEAD + 0.06, 0.58, 0.96);
+				s += P.poly(roundRect(b0, 0, b1, 1, 0.09, 0.24), `fill="#f7f0e2"`) + P.poly(roundRect(b0 + 0.03, 0, b1 - 0.03, 0.36, 0.07, 0.14), `fill="#e8dcc7"`) +
+					P.line([[b0 + 0.1, 0.62], [(b0 + b1) / 2, 0.56], [b1 - 0.1, 0.62]], `stroke="#d9ccb4" stroke-width="${sw(P, (b0 + b1) / 2, 0.5, 0.01)}"`);
+			}
+			const Cu = lean(HEAD + 0.42, HEAD + 0.29, 0.58, 0.84);
+			s += Cu.poly(roundRect(0.46, 0, 0.96, 1, 0.07, 0.26), `fill="${C.rug}"`) + Cu.poly(roundRect(0.5, 0.12, 0.92, 0.88, 0.05, 0.2), `fill="none" stroke="${C.gold}" stroke-width="${sw(Cu, 0.7, 0.5, 0.012)}"`) + Cu.diamond(0.71, 0.5, 0.06, 0.2, `fill="${C.gold}"`);
+			// The quilt: its top, the sheet turned down over it at the head, the drape with a soft hem.
+			const QA = HEAD + 0.5, QT = 0.66, QB = D + 0.03, QF = FOOT - 0.01;
+			const Qtop = surf(cam, (a, b) => fr.pt(a, b, QT));
+			s += Qtop.poly(roundRect(QA, 0.02, QF, QB, 0.07, 0.07), `fill="${mix(C.blue, "#ffffff", 0.12)}"`);
+			s += Qtop.poly(roundRect(QA + 0.24, 0.16, QF - 0.14, QB - 0.14, 0.05, 0.05), `fill="none" stroke="${C.cream}" stroke-width="${sw(Qtop, 0, 0.7, 0.018)}"`);
+			for (const [a, b] of [[QA + 0.55, 0.45], [QA + 0.55, 0.98], [QA + 1.05, 0.45], [QA + 1.05, 0.98], [QA + 0.8, 0.71]]) s += Qtop.circle(a, b, 0.04, `fill="${C.gold}"`);
+			s += Qtop.poly(roundRect(QA, 0.02, QA + 0.16, QB, 0.04, 0.05), `fill="#f3ece0"`);
+			const Qf = surf(cam, (a, c) => fr.pt(a, QB, c));
+			const hem = [];
+			for (let i = 0; i <= 48; i++) {
+				const a = QF - ((QF - QA) * i) / 48;
+				hem.push([a, 0.3 + 0.016 * Math.sin(a * 6.5)]);
+			}
+			s += Qf.poly([[QA, QT], [QF, QT], ...hem], `fill="${C.blue}"`);
+			s += Qf.line(hem.filter(([a]) => a > QA + 0.18).map(([a, c]) => [a, c + 0.07]), `stroke="${C.cream}" stroke-width="${sw(Qf, 0, 0.4, 0.016)}"`);
+			s += Qf.poly([[QA, QT], [QA + 0.16, QT], [QA + 0.16, 0.57], [QA + 0.08, 0.555], [QA, 0.565]], `fill="#e9e0d0"`);
+			// The throw, folded across the foot and hanging down the side, fringed.
+			const TA = FOOT - 0.44, TB = FOOT - 0.12, TT = QT + 0.025;
+			const Ttop = surf(cam, (a, b) => fr.pt(a, b, TT));
+			s += Ttop.rect(TA, 0, TB, QB + 0.02, `fill="${C.gold}"`) + Ttop.rect(TA + 0.05, 0, TA + 0.09, QB + 0.02, `fill="${C.rug}"`) + Ttop.rect(TB - 0.09, 0, TB - 0.05, QB + 0.02, `fill="${C.rug}"`);
+			const Tf = surf(cam, (a, c) => fr.pt(a, QB + 0.02, c));
+			s += Tf.rect(TA, 0.36, TB, TT, `fill="${mix(C.gold, "#000000", 0.1)}"`) + Tf.rect(TA + 0.05, 0.36, TA + 0.09, TT, `fill="${C.rug}"`) + Tf.rect(TB - 0.09, 0.36, TB - 0.05, TT, `fill="${C.rug}"`);
+			for (let a = TA + 0.02; a < TB; a += 0.035) s += Tf.line([[a, 0.36], [a, 0.32]], `stroke="${C.gold}" stroke-width="${sw(Tf, a, 0.34, 0.008)}"`);
+			if (!headBehind) s += headboard;
+			if (!footBehind) s += footboard;
+			return {d: D + 0.06, svg: s};
+		},
+
+		chests(cam, fr, lights) {
+			const deco = (w, c0, h) => (S) => {
+				const k = S.px(0, c0 + h / 2), m = c0 + h / 2;
+				const scroll = (a) => S.line([[a, m], [a + 0.04, m + 0.05], [a + 0.08, m + 0.065], [a + 0.12, m + 0.05], [a + 0.16, m]], `stroke="${C.green}" stroke-width="${n(0.022 * k)}"`);
+				return (
+					S.rect(-w + 0.05, c0 + 0.05, w - 0.05, c0 + h - 0.05, `fill="none" stroke="${C.cream}" stroke-width="${n(0.012 * k)}"`) +
+					S.circle(0, m, h * 0.26, `fill="${C.blue}" stroke="${C.cream}" stroke-width="${n(0.012 * k)}"`) +
+					scroll(-w + 0.1) + scroll(w - 0.26)
+				);
+			};
+			let s = box(cam, fr, -0.48, 0.48, 0.02, 0.5, 0, 0.06, C.furnD);
+			s += box(cam, fr, -0.5, 0.5, 0, 0.52, 0.06, 0.6, C.furn, {front: deco(0.5, 0.06, 0.54)});
+			s += box(cam, fr, -0.45, 0.45, 0, 0.46, 0.6, 1.05, C.furn, {front: deco(0.45, 0.6, 0.45)});
+			s += box(cam, fr, 0.08, 0.32, 0.05, 0.08, 1.05, 1.34, C.woodD, {
+				front: (S) => S.rect(0.1, 1.08, 0.3, 1.31, `fill="#bcd3e6"`) + S.poly([[0.1, 1.11], [0.16, 1.21], [0.2, 1.16], [0.24, 1.2], [0.3, 1.11]], `fill="#7c8fae"`) + S.rect(0.1, 1.08, 0.3, 1.11, `fill="#9cba7c"`),
+			});
+			const lampAt = fr.pt(-0.25, 0.24, 1.05);
+			s += sprite(cam, lampAt, SPR.lamp) + sprite(cam, fr.pt(0.36, 0.3, 1.05), SPR.bowl);
+			lights.lamp = proj(cam, fr.pt(-0.25, 0.24, 1.25));
+			lights.flame = sprite(cam, lampAt, SPR.flame);
+			return {d: 0.52, svg: s};
+		},
+
+		desk(cam, fr, lights, screenCol) {
+			const screen = (S, fill, extra = "") => S.rect(-0.29, 0.95, 0.29, 1.27, `fill="${fill}" ${extra}`);
+			let s = box(cam, fr, 0.56, 0.62, 0.04, 0.1, 0, 0.71, C.wood);
+			s += box(cam, fr, -0.62, -0.22, 0.02, 0.6, 0.02, 0.71, C.woodL, {
+				front: (S) => S.rect(-0.58, 0.4, -0.26, 0.66, `fill="${C.wood}"`) + S.rect(-0.58, 0.08, -0.26, 0.34, `fill="${C.wood}"`) + S.circle(-0.42, 0.53, 0.016, `fill="${C.gold}"`) + S.circle(-0.42, 0.21, 0.016, `fill="${C.gold}"`),
+			});
+			s += box(cam, fr, 0.56, 0.62, 0.52, 0.6, 0, 0.71, C.wood);
+			s += box(cam, fr, -0.65, 0.65, 0, 0.62, 0.71, 0.75, C.wood);
+			s += box(cam, fr, -0.12, 0.12, 0.12, 0.3, 0.75, 0.77, "#2a2d36") + box(cam, fr, -0.03, 0.03, 0.18, 0.22, 0.77, 0.95, "#2a2d36");
+			s += box(cam, fr, -0.32, 0.32, 0.16, 0.2, 0.92, 1.3, "#1d212b", {
+				front: (S) =>
+					screen(S, screenCol) +
+					S.rect(-0.26, 0.98, -0.15, 1.24, `fill="#000" opacity=".12"`) +
+					[1.2, 1.15, 1.1].map((c, i) => S.rect(-0.12, c, [0.12, 0.06, 0.18][i], c + 0.025, `fill="#000" opacity=".2"`)).join("") +
+					S.rect(-0.12, 0.99, 0.24, 1.03, `fill="#000" opacity=".14"`),
+			});
+			s += box(cam, fr, -0.22, 0.12, 0.36, 0.5, 0.75, 0.765, "#d9d6cf");
+			s += sprite(cam, fr.pt(0.36, 0.42, 0.75), SPR.mug) + sprite(cam, fr.pt(0.53, 0.14, 0.75), SPR.plant);
+			// The chair, pushed in: its back is to the room.
+			s += chair(cam, freeFrame(...(() => { const p = fr.pt(0.02, 0.95, 0); return [p[0], p[2]]; })(), -fr.n[0], -fr.n[2]));
+			lights.screen = proj(cam, fr.pt(0, 0.2, 1.11));
+			lights.screenSvg = screen(surf(cam, (a, c) => fr.pt(a, 0.201, c)), screenCol, `opacity=".85"`);
+			return {d: 1.14, svg: s};
+		},
+
+		kitchen(cam, fr) {
+			let s = box(cam, fr, -0.575, -0.545, 0, 0.32, 0.9, 1.9, C.wood) + box(cam, fr, 0.545, 0.575, 0, 0.32, 0.9, 1.9, C.wood);
+			for (const c of [1.24, 1.56]) s += box(cam, fr, -0.545, 0.545, 0, 0.3, c, c + 0.03, C.wood);
+			s += box(cam, fr, -0.575, 0.575, 0, 0.34, 1.87, 1.9, C.woodD);
+			for (let i = 0; i < 4; i++) s += sprite(cam, fr.pt(-0.4 + i * 0.12, 0.12, 1.59), SPR.plate);
+			s += sprite(cam, fr.pt(0.22, 0.14, 1.59), SPR.jarA) + sprite(cam, fr.pt(0.4, 0.14, 1.59), SPR.jarB);
+			s += sprite(cam, fr.pt(-0.32, 0.15, 1.27), SPR.bowls) + sprite(cam, fr.pt(0.05, 0.15, 1.27), SPR.cups);
+			s += box(cam, fr, -0.55, 0.55, 0.02, 0.56, 0, 0.06, C.furnD);
+			s += box(cam, fr, -0.575, 0.575, 0, 0.58, 0.06, 0.86, C.furn, {
+				front: (S) => {
+					const k = S.px(0, 0.45);
+					return S.rect(-0.53, 0.12, -0.03, 0.8, `fill="${C.furnL}"`) + S.rect(0.03, 0.12, 0.53, 0.8, `fill="${C.furnL}"`) +
+						S.circle(-0.28, 0.46, 0.1, `fill="${C.blue}" stroke="${C.cream}" stroke-width="${n(0.014 * k)}"`) + S.circle(0.28, 0.46, 0.1, `fill="${C.blue}" stroke="${C.cream}" stroke-width="${n(0.014 * k)}"`);
+				},
+			});
+			s += box(cam, fr, -0.6, 0.6, 0, 0.62, 0.86, 0.9, C.woodL);
+			s += sprite(cam, fr.pt(-0.3, 0.3, 0.9), SPR.thermos) + sprite(cam, fr.pt(0.2, 0.32, 0.9), SPR.basin);
+			return {d: 0.62, svg: s};
+		},
+
+		washstand(cam, fr) {
+			const Wl = surf(cam, (s, t) => onWall(fr, s, t));
+			let s = Wl.circle(0, 1.38, 0.24, `fill="${C.wood}"`) + Wl.circle(0, 1.38, 0.2, `fill="#c9d6e2"`) + Wl.poly([[-0.1, 1.3], [-0.02, 1.52], [0.04, 1.5], [-0.04, 1.28]], `fill="#ffffff" opacity=".35"`);
+			s += box(cam, fr, -0.3, 0.3, 0.02, 0.43, 0, 0.06, C.furnD);
+			s += box(cam, fr, -0.32, 0.32, 0, 0.45, 0.06, 0.78, C.furn, {
+				front: (S) => S.rect(-0.26, 0.14, 0.26, 0.72, `fill="${C.furnL}"`) + S.circle(0, 0.43, 0.1, `fill="${C.blue}" stroke="${C.cream}" stroke-width="${sw(S, 0, 0.43, 0.014)}"`),
+			});
+			s += box(cam, fr, -0.35, 0.35, 0, 0.48, 0.78, 0.82, C.woodL);
+			s += sprite(cam, fr.pt(-0.06, 0.24, 0.82), SPR.basin, 0.009) + sprite(cam, fr.pt(0.24, 0.2, 0.82), SPR.jug, 0.009);
+			return {d: 0.48, svg: s};
+		},
+
+		hooks(cam, fr) {
+			const Wl = surf(cam, (s, t) => onWall(fr, s, t));
+			const robe = [[-0.38, 1.62], [-0.22, 1.62], [0.0, 1.5], [-0.04, 1.36], [-0.12, 1.42], [-0.08, 0.5], [-0.52, 0.5], [-0.48, 1.42], [-0.56, 1.36], [-0.6, 1.5]];
+			let s = Wl.rect(-0.6, 1.62, 0.5, 1.68, `fill="${C.wood}"`, 6);
+			s += Wl.poly(robe, `fill="${C.blue}"`) + Wl.rect(-0.5, 1.02, -0.1, 1.09, `fill="${C.gold}"`, 3) + Wl.line([[-0.36, 1.6], [-0.18, 1.3]], `stroke="${C.cream}" stroke-width="${sw(Wl, -0.3, 1.4, 0.014)}"`);
+			s += Wl.ellipse(0.2, 1.52, 0.15, 0.09, `fill="${C.rug}"`) + Wl.rect(0.03, 1.47, 0.37, 1.5, `fill="${C.gold}"`, 3);
+			s += box(cam, fr, 0.0, 0.13, 0.05, 0.36, 0, 0.32, "#5a3a24") + box(cam, fr, 0.17, 0.3, 0.05, 0.36, 0, 0.32, "#5a3a24");
+			return {d: 0.36, svg: s};
+		},
+	};
+
+	/* One room for both views; the angle is along the wall from the back (0), + to the right. */
+	const ROOM = [["hooks", -120], ["washstand", -102], ["closet", -82], ["desk", -60], ["chests", -38], ["bed", 45], ["kitchen", 86]];
+	const SIDE_WINDOWS = [-60, 69];
+	const RUG_R = 2.5, TABLE = [-1.35, -0.55], BASKET = [-0.75, 0.35];
+	const WX = 1.55, WY0 = 0.45, WY1 = 1.9, FR = 0.08, ZW = Math.sqrt(R * R - WX * WX) - 0.02;
+	const STOVE_R = 0.38;
+
+	function windowView(ib, sky, st, clip, side, seed) {
+		const ix = ib.x, iy = ib.y, iw = ib.w, ih = ib.h;
+		const night = st.hour === "night", golden = st.hour === "golden";
+		const r = rng(seed);
+		let s = `<g clip-path="url(#${clip})"><rect x="${n(ix)}" y="${n(iy)}" width="${n(iw)}" height="${n(ih)}" fill="url(#gSky)"/>`;
+		if (st.wx === "clear") {
+			if (night) {
+				for (let i = 0; i < 14; i++) s += `<circle cx="${n(ix + r() * iw)}" cy="${n(iy + r() * ih * 0.5)}" r="${n(0.5 + r() * 0.9)}" fill="#fff" opacity="${n(0.5 + r() * 0.5)}"/>`;
+				if (!side) s += `<circle cx="${n(ix + iw * 0.24)}" cy="${n(iy + ih * 0.2)}" r="8" fill="#f4f0dc"/><circle cx="${n(ix + iw * 0.24 + 3.5)}" cy="${n(iy + ih * 0.2 - 2)}" r="7.4" fill="${mix(sky.top, sky.mid, 0.3)}"/>`;
+			} else if (golden) {
+				if (!side) s += `<circle cx="${n(ix + iw * 0.78)}" cy="${n(iy + ih * 0.5)}" r="36" fill="url(#gSunGlow)"/><circle cx="${n(ix + iw * 0.78)}" cy="${n(iy + ih * 0.5)}" r="9" fill="#fff3cf"/>`;
+				s += cloud(ix + iw * 0.3, iy + ih * 0.2, 0.7, sky.cloud);
+			} else {
+				s += cloud(ix + iw * 0.28, iy + ih * 0.18, 0.8, sky.cloud) + (side ? "" : cloud(ix + iw * 0.8, iy + ih * 0.3, 0.55, sky.cloud));
+			}
+		} else if (st.wx === "rain" || st.wx === "storm") {
+			s += cloud(ix + iw * 0.2, iy + ih * 0.08, 1.3, sky.cloud) + cloud(ix + iw * 0.7, iy + ih * 0.12, 1.5, mix(sky.cloud, "#000000", 0.08));
+		} else if (st.wx === "snow") {
+			s += cloud(ix + iw * 0.5, iy + ih * 0.06, 1.6, mix(sky.hor, "#ffffff", night ? 0.05 : 0.4));
+		}
+		if (side) {
+			// To the side the plains run flat to low hills.
+			s += `<path fill="${mix(sky.mount, sky.hor, 0.5)}" d="M${n(ix)},${n(iy + ih * 0.6)} Q${n(ix + iw * 0.3)},${n(iy + ih * 0.5)} ${n(ix + iw * 0.6)},${n(iy + ih * 0.58)} T${n(ix + iw)},${n(iy + ih * 0.55)} V${n(iy + ih)} H${n(ix)} Z"/>`;
+			s += `<rect x="${n(ix)}" y="${n(iy + ih * 0.66)}" width="${n(iw)}" height="${n(ih * 0.34)}" fill="${sky.far}"/>`;
+			s += `<path fill="${sky.hill2}" d="M${n(ix)},${n(iy + ih * 0.84)} Q${n(ix + iw * 0.5)},${n(iy + ih * 0.74)} ${n(ix + iw)},${n(iy + ih * 0.82)} V${n(iy + ih)} H${n(ix)} Z"/>`;
+		} else {
+			const sx = iw / 400, sy = ih / 161;
+			s += `<g transform="translate(${n(ix - 470 * sx)},${n(iy)}) scale(${Math.round(sx * 1000) / 1000},${Math.round(sy * 1000) / 1000})">` +
+				`<path fill="${mix(sky.mount, sky.hor, 0.45)}" d="M0,86 C60,70 110,54 170,62 C230,70 260,40 330,44 C400,48 430,76 500,70 C580,62 620,30 700,36 C780,42 820,70 900,64 C980,58 1030,34 1100,42 C1150,48 1180,60 1200,62 L1200,400 L0,400 Z"/>` +
+				(st.wx === "snow" ? "" : `<path fill="${mix(sky.mount, "#ffffff", night ? 0.12 : 0.55)}" opacity=".7" d="M580,62 C600,46 620,30 700,36 C730,38 752,46 770,54 C740,52 720,50 700,52 C670,48 640,58 600,64 Z"/>`) +
+				`<path fill="${sky.mount}" d="M0,112 C80,96 140,84 220,92 C300,100 340,76 420,80 C500,84 560,104 640,98 C720,92 780,72 860,78 C940,84 1000,102 1080,96 C1140,92 1180,98 1200,100 L1200,400 L0,400 Z"/>` +
+				`<path fill="${sky.far}" d="M0,128 C200,120 400,132 600,126 C800,120 1000,132 1200,126 L1200,400 L0,400 Z"/>` +
+				`<path fill="${sky.hill2}" transform="translate(0,-58)" d="M0,190 C120,170 260,160 400,172 C520,182 600,200 740,188 C880,176 1000,160 1200,176 L1200,400 L0,400 Z"/>` +
+				`</g>`;
+		}
+		if (st.wx === "rain" || st.wx === "storm") {
+			const k = (st.wx === "storm" ? 0.4 : 0.22) * iw;
+			let lines = "";
+			for (let i = 0; i < k; i++) {
+				const x = ix + r() * (iw + 10), y = iy + r() * ih;
+				lines += `<line x1="${n(x)}" y1="${n(y)}" x2="${n(x - 3)}" y2="${n(y + 9)}"/>`;
+			}
+			s += `<g stroke="${night ? "#8a96b4" : "#eef3f9"}" stroke-width="1" opacity=".6">${lines}</g>`;
+			if (st.wx === "storm" && !side) s += `<polyline points="${n(ix + iw * 0.66)},${n(iy + 4)} ${n(ix + iw * 0.6)},${n(iy + 24)} ${n(ix + iw * 0.67)},${n(iy + 26)} ${n(ix + iw * 0.58)},${n(iy + 50)}" fill="none" stroke="#fffbe0" stroke-width="1.5" opacity=".75"/>`;
+			for (let i = 0; i < iw / 10; i++) {
+				const x = ix + 4 + r() * (iw - 8), y = iy + 4 + r() * (ih - 8), rr = 1 + r() * 1.2;
+				s += `<circle cx="${n(x)}" cy="${n(y)}" r="${n(rr)}" fill="#ffffff" opacity=".32"/>`;
+			}
+		}
+		if (st.wx === "snow") {
+			let flakes = "";
+			for (let i = 0; i < iw / 3.5; i++) flakes += `<circle cx="${n(ix + r() * iw)}" cy="${n(iy + r() * ih)}" r="${n(0.7 + r() * 1.2)}"/>`;
+			s += `<g fill="#ffffff" opacity="${night ? 0.7 : 0.95}">${flakes}</g>`;
+			s += `<path fill="${night ? "#c9d2e6" : "#ffffff"}" d="M${n(ix)},${n(iy + ih)} L${n(ix)},${n(iy + ih - 5)} Q${n(ix + iw * 0.2)},${n(iy + ih - 9)} ${n(ix + iw * 0.42)},${n(iy + ih - 6)} Q${n(ix + iw * 0.7)},${n(iy + ih - 3)} ${n(ix + iw)},${n(iy + ih - 8)} L${n(ix + iw)},${n(iy + ih)} Z"/>`;
+		}
+		s += `<polygon points="${n(ix + iw * 0.1)},${n(iy)} ${n(ix + iw * 0.32)},${n(iy)} ${n(ix + iw * 0.02)},${n(iy + ih)} ${n(ix - iw * 0.2)},${n(iy + ih)}" fill="#ffffff" opacity=".07"/>`;
+		return s + `</g>`;
+	}
+
+	function cloud(x, y, k, fill) {
+		return `<g fill="${fill}" transform="translate(${n(x)},${n(y)}) scale(${k})"><ellipse cx="0" cy="4" rx="22" ry="6"/><ellipse cx="-8" cy="0" rx="9" ry="7"/><ellipse cx="5" cy="-2" rx="11" ry="9"/><ellipse cx="15" cy="2" rx="8" ry="6"/></g>`;
+	}
+
+	/** The curtain left of the back window, in the window's plane (metres); the right one is its mirror. */
+	function curtainOutline(m) {
+		const o = WX - 1.1;
+		const P0 = [-1.42 - o, 2.0], P1 = [-0.92 - o, 2.0], tieIn = [-1.14 - o, 1.15], botIn = [-1.06 - o, 0.36], botOut = [-1.5 - o, 0.36], tieOut = [-1.3 - o, 1.15];
+		const l = [P0, P1, ...qb(P1, [-0.98 - o, 1.6], tieIn), ...qb(tieIn, [-1.2 - o, 0.8], botIn), botOut, ...qb(botOut, [-1.44 - o, 0.8], tieOut), ...qb(tieOut, [-1.5 - o, 1.6], P0)];
+		return l.map(([s, t]) => [s * m, t]);
+	}
+
+	function lightFor(st) {
+		const night = st.hour === "night", golden = st.hour === "golden";
+		let dark = night ? 0.74 : 0;
+		if (!night) {
+			if (st.wx === "rain") dark = 0.14;
+			if (st.wx === "storm") dark = 0.27;
+			if (st.wx === "snow") dark = 0.05;
+			if (golden) dark += 0.06;
+		}
+		return {
+			dark,
+			darkCol: night ? "#0b0f24" : "#28304a",
+			warm: golden ? 0.2 : night ? 0.3 : 0,
+			beam: st.hour === "noon" && st.wx === "clear",
+			lamp: night || st.wx === "storm" || (golden && st.wx !== "clear"),
+			stoveA: night ? 0.8 : st.wx === "storm" ? 0.5 : 0.32,
+			night,
+			golden,
+		};
+	}
+
+	function interior(st, cam) {
+		const sky = skyFor(st.hour, st.wx);
+		const L = lightFor(st);
+		const screenCol = L.night ? "#a9c6ff" : "#9fb4cc";
+		const quadD = (q) => "M" + q.map((p) => n(p[0]) + "," + n(p[1])).join(" L") + " Z";
+		const bbox = (q) => {
+			const xs = q.map((p) => p[0]), ys = q.map((p) => p[1]);
+			return {x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys)};
+		};
+
+		// The walls and the roof.
+		const top = arc(cam, WALL_H), base = arc(cam, 0);
+		const wallPoly = pts([...top, ...base.slice().reverse()]);
+		const roofPoly = pts([...top, [top[top.length - 1][0], -9000], [top[0][0], -9000]]);
+		const ribbon = (h0, h1, r, at) => {
+			const a = arc(cam, h0, r), b = arc(cam, h1, r);
+			return `<polygon points="${pts([...a, ...b.slice().reverse()])}" ${at}/>`;
+		};
+		let lattice = "";
+		for (let th0 = -180; th0 < 180; th0 += 5) {
+			for (const dir of [1, -1]) {
+				const l = [];
+				for (let k = 0; k <= 10; k++) l.push(wallPt(th0 + (dir * 28.6 * k) / 10, (WALL_H * k) / 10, R - 0.03));
+				lattice += polyRuns(cam, l, `stroke="${C.lattice}"`, 0.028);
+			}
+		}
+		let poles = "";
+		for (let th = 0; th < 360; th += 5) poles += line3(cam, wallPt(th, WALL_H - 0.02, R - 0.06), wallPt(th, CROWN_H - 0.04, CROWN_R + 0.06), `stroke="${C.pole}" stroke-linecap="round"`, 0.04, 7);
+		let boards = "";
+		for (let x = -R; x <= R; x += 0.22) {
+			const zz = Math.sqrt(Math.max(0, R * R - x * x));
+			boards += line3(cam, [x, 0, -zz], [x, 0, zz], `stroke="${C.board}"`, 0.012);
+		}
+
+		// The crown: its ring, the sky through it, its bent ribs.
+		const opening = circle3(0, CROWN_H, 0, CROWN_R - 0.06);
+		const openingPts = pts(opening.map((q) => proj(cam, q)));
+		const arch = (f, alongX) => {
+			const l = [], rr = CROWN_R - 0.06;
+			for (let k = 0; k <= 12; k++) {
+				const u = -rr + (2 * rr * k) / 12, h = CROWN_H + 0.22 * (1 - (u / rr) ** 2);
+				l.push(alongX ? [u, h, f] : [f, h, u]);
+			}
+			return l;
+		};
+		const ribs = (at) => [arch(-0.28, true), arch(0.28, true), arch(-0.28, false), arch(0.28, false)].map((l) => polyRuns(cam, l, at, 0.045)).join("");
+		let stars = "";
+		if (L.night) {
+			const r = rng(31);
+			for (let i = 0; i < 7; i++) {
+				const a = r() * 2 * Math.PI, d = Math.sqrt(r()) * 0.55, p = proj(cam, [Math.cos(a) * d, CROWN_H + 0.5, Math.sin(a) * d]);
+				stars += `<circle cx="${n(p[0])}" cy="${n(p[1])}" r="${n(0.8 + r())}" fill="#fff" opacity=".85"/>`;
+			}
+		}
+
+		// The windows: the wide back one with curtains, and one on each side.
+		const W = surf(cam, (s, t) => [s, t, ZW]);
+		const Cp = surf(cam, (s, t) => [s, t, ZW - 0.05]);
+		const backInner = [[-WX + FR, WY0 + FR], [WX - FR, WY0 + FR], [WX - FR, WY1 - FR], [-WX + FR, WY1 - FR]].map(([s, t]) => proj(cam, [s, t, ZW]));
+		const backOuter = [[-WX, WY0], [WX, WY0], [WX, WY1], [-WX, WY1]].map(([s, t]) => proj(cam, [s, t, ZW]));
+		const views = [{inner: backInner, clip: "cWin", side: false, seed: 77}];
+		let fore = "";
+		fore += `<path fill="${C.wood}" fill-rule="evenodd" d="${quadD(backOuter)} ${quadD(backInner)}"/>`;
+		for (const x of [-WX / 2, 0, WX / 2]) fore += W.rect(x - 0.025, WY0 + FR, x + 0.025, WY1 - FR, `fill="${C.wood}"`);
+		fore += W.rect(-WX + FR, 1.36, WX - FR, 1.41, `fill="${C.wood}"`);
+		fore += `<polygon points="${pts(backInner)}" fill="none" stroke="${C.woodD}" stroke-width="1.5"/>`;
+		fore += abox(cam, -WX - 0.12, WX + 0.12, WY0 - 0.06, WY0, ZW - 0.16, ZW + 0.02, C.woodL);
+		fore += sprite(cam, [-WX + 0.32, WY0, ZW - 0.08], SPR.plant, 0.0085) + sprite(cam, [WX - 0.4, WY0, ZW - 0.08], SPR.jug, 0.0075);
+		fore += line3(cam, [-WX - 0.55, 2.04, ZW - 0.06], [WX + 0.55, 2.04, ZW - 0.06], `stroke="${C.woodD}" stroke-linecap="round"`, 0.04);
+		for (const m of [1, -1]) {
+			const o = WX - 1.1;
+			fore += Cp.poly(curtainOutline(m), `fill="#a8473a"`);
+			fore += [[[-1.25 - o, 1.98], [-1.24 - o, 1.6], [-1.22 - o, 1.17]], [[-1.05 - o, 1.98], [-1.08 - o, 1.6], [-1.18 - o, 1.17]], [[-1.2 - o, 1.13], [-1.26 - o, 0.8], [-1.3 - o, 0.44]]]
+				.map(([a, c, b]) => Cp.line([a, ...qb(a, c, b)].map(([x, y]) => [x * m, y]), `stroke="${C.cream}" stroke-width="${sw(Cp, (-1.2 - o) * m, 1.2, 0.012)}" opacity=".55"`)).join("");
+			fore += Cp.ellipse((-1.22 - o) * m, 1.15, 0.1, 0.04, `fill="${C.gold}"`);
+		}
+		SIDE_WINDOWS.forEach((th, i) => {
+			const fr = wallFrame(th), S = surf(cam, (a, c) => fr.pt(a, 0.03, c));
+			const corners = [[-0.6, 1.0], [0.6, 1.0], [0.6, 1.85], [-0.6, 1.85]];
+			if (corners.some(([a, c]) => depth(cam, fr.pt(a, 0.03, c)) < NEAR)) return;
+			const inner = corners.map(([a, c]) => [a * 0.88, c + (c < 1.4 ? 0.07 : -0.07)]).map(([a, c]) => proj(cam, fr.pt(a, 0.03, c)));
+			const outer = corners.map(([a, c]) => proj(cam, fr.pt(a, 0.03, c)));
+			views.push({inner, clip: "cWin" + i, side: true, seed: 101 + i});
+			fore += `<path fill="${C.wood}" fill-rule="evenodd" d="${quadD(outer)} ${quadD(inner)}"/>`;
+			fore += S.rect(-0.022, 1.07, 0.022, 1.78, `fill="${C.wood}"`) + S.rect(-0.53, 1.42, 0.53, 1.46, `fill="${C.wood}"`);
+			fore += `<polygon points="${pts(inner)}" fill="none" stroke="${C.woodD}" stroke-width="1.2"/>`;
+			fore += box(cam, fr, -0.68, 0.68, 0, 0.12, 0.94, 1.0, C.woodL);
+			fore += S.rect(-0.72, 1.86, 0.72, 1.93, `fill="#a8473a"`) + S.rect(-0.72, 1.86, 0.72, 1.875, `fill="${C.rugB}"`);
+		});
+
+		// The round stove, its pipe through the crown.
+		const doorMap = (s, t) => {
+			const ph = -Math.PI / 2 + s / STOVE_R;
+			return [(STOVE_R + 0.003) * Math.cos(ph), t, (STOVE_R + 0.003) * Math.sin(ph)];
+		};
+		const Dr = surf(cam, doorMap);
+		const pipe = (at) => {
+			const a = [0, 0.84, 0.1], b = [0, CROWN_H + 0.3, 0.1], rr = 0.075, rt = cam.right;
+			return poly3(cam, [[a[0] - rt[0] * rr, a[1], a[2] - rt[2] * rr], [a[0] + rt[0] * rr, a[1], a[2] + rt[2] * rr], [b[0] + rt[0] * rr, b[1], b[2] + rt[2] * rr], [b[0] - rt[0] * rr, b[1], b[2] - rt[2] * rr]], at);
+		};
+		const pipeBands = () => [1.1, 1.6, 2.1, 2.6].map((h) => {
+			const rt = cam.right, rr = 0.088;
+			return poly3(cam, [[-rt[0] * rr, h, 0.1 - rt[2] * rr], [rt[0] * rr, h, 0.1 + rt[2] * rr], [rt[0] * rr, h + 0.04, 0.1 + rt[2] * rr], [-rt[0] * rr, h + 0.04, 0.1 - rt[2] * rr]], `fill="#4d5059"`);
+		}).join("");
+		function stove() {
+			let s = "";
+			for (const a of [-2.4, -0.75, 0.9, 2.55]) s += abox(cam, Math.cos(a) * 0.3 - 0.03, Math.cos(a) * 0.3 + 0.03, 0, 0.16, Math.sin(a) * 0.3 - 0.03, Math.sin(a) * 0.3 + 0.03, C.ironD);
+			s += cylSide(cam, 0, 0, STOVE_R + 0.02, 0.14, 0.18, `fill="#3a3c43"`);
+			s += cylSide(cam, 0, 0, STOVE_R, 0.18, 0.72, `fill="url(#gIron)"`);
+			s += cylSide(cam, 0, 0, STOVE_R + 0.008, 0.22, 0.25, `fill="url(#gBrass)"`) + cylSide(cam, 0, 0, STOVE_R + 0.008, 0.64, 0.67, `fill="url(#gBrass)"`);
+			s += Dr.arched(-0.17, 0.17, 0.29, 0.5, 0.08, `fill="${C.ironD}" stroke="#5a5c64" stroke-width="${sw(Dr, 0, 0.4, 0.012)}"`);
+			s += Dr.rect(-0.11, 0.26, 0.11, 0.28, `fill="${C.ironD}"`) + Dr.circle(0.13, 0.42, 0.017, `fill="${C.gold}"`);
+			s += cylSide(cam, 0, 0, STOVE_R + 0.04, 0.72, 0.76, `fill="#3a3c43"`) + poly3(cam, circle3(0, 0.76, 0, STOVE_R + 0.04), `fill="#4a4c54"`);
+			s += poly3(cam, circle3(0, 0.762, 0, STOVE_R - 0.06), `fill="none" stroke="#5c5f68" stroke-width="1.2"`);
+			s += cylSide(cam, 0, 0.1, 0.11, 0.76, 0.84, `fill="#33353c"`) + poly3(cam, circle3(0, 0.84, 0.1, 0.11, 24), `fill="#3e4048"`);
+			s += pipe(`fill="#383a41"`) + pipeBands();
+			s += sprite(cam, [-0.17, 0.76, -0.1], SPR.pot + `<g opacity="${L.night ? 0.25 : 0.45}">${SPR.steam}</g>`, 0.0055);
+			s += sprite(cam, [0.18, 0.76, -0.12], SPR.kettle, 0.0055);
+			return s;
+		}
+		const fire = () =>
+			Dr.arched(-0.125, 0.125, 0.33, 0.48, 0.06, `class="flick" fill="url(#gFire)"`) +
+			Dr.poly([[-0.09, 0.34], [-0.11, 0.4], [-0.06, 0.46], [-0.05, 0.51], [-0.01, 0.45], [0.0, 0.39], [-0.02, 0.34]], `class="flick-b" fill="#fff6c4" opacity=".9"`) +
+			Dr.poly([[0.02, 0.34], [0.0, 0.41], [0.05, 0.47], [0.07, 0.52], [0.1, 0.45], [0.11, 0.39], [0.09, 0.34]], `class="flick-b" fill="#fff6c4" opacity=".9"`) +
+			Dr.rect(-0.125, 0.33, 0.125, 0.36, `fill="#ffcf6a" opacity=".55"`);
+		const door = proj(cam, doorMap(0, 0.42));
+
+		// The posts that hold the crown.
+		function post(x) {
+			const bands = (S, s0, s1) => [0.55, 1.45, 2.35].map((h) => S.rect(s0, h, s1, h + 0.13, `fill="${C.blue}"`) + S.line([[s0, h + 0.13], [s1, h + 0.13]], `stroke="${C.cream}" stroke-width="${sw(S, (s0 + s1) / 2, h, 0.012)}"`)).join("");
+			const deco = {front: (S) => bands(S, x - 0.06, x + 0.06), left: (S) => bands(S, -0.06, 0.06), right: (S) => bands(S, -0.06, 0.06)};
+			return abox(cam, x - 0.09, x + 0.09, 0, 0.15, -0.09, 0.09, C.furnD) + abox(cam, x - 0.06, x + 0.06, 0.15, CROWN_H - 0.2, -0.06, 0.06, C.pole, deco) + abox(cam, x - 0.09, x + 0.09, CROWN_H - 0.2, CROWN_H - 0.08, -0.09, 0.09, C.furnD);
+		}
+
+		// The dining table on its pedestal, and its chairs: all of it on the big rug.
+		function table() {
+			const [tx, tz] = TABLE;
+			let s = cylSide(cam, tx, tz, 0.28, 0, 0.05, `fill="${C.furnD}"`) + poly3(cam, circle3(tx, 0.05, tz, 0.28, 32), `fill="${mix(C.furnD, "#ffffff", 0.1)}"`);
+			s += cylSide(cam, tx, tz, 0.07, 0.05, 0.71, `fill="url(#gWood)"`);
+			s += cylSide(cam, tx, tz, 0.11, 0.3, 0.36, `fill="${C.blue}"`);
+			s += cylSide(cam, tx, tz, 0.52, 0.71, 0.75, `fill="${C.furnD}"`) + poly3(cam, circle3(tx, 0.75, tz, 0.52), `fill="${C.furn}"`);
+			const T = surf(cam, (a, b) => [tx + a, 0.751, tz + b]);
+			s += T.ellipse(0, 0, 0.38, 0.38, `fill="none" stroke="${C.cream}" stroke-width="${sw(T, 0, 0, 0.012)}"`) + T.ellipse(0, 0, 0.46, 0.46, `fill="none" stroke="${C.blue}" stroke-width="${sw(T, 0, 0, 0.012)}" stroke-dasharray="${sw(T, 0, 0, 0.05)} ${sw(T, 0, 0, 0.05)}"`);
+			s += sprite(cam, [tx + 0.08, 0.75, tz + 0.2], SPR.teapot, 0.006) + sprite(cam, [tx - 0.1, 0.75, tz - 0.05], SPR.dumplings, 0.006) + sprite(cam, [tx + 0.24, 0.75, tz - 0.14], SPR.tbowl, 0.006);
+			return s;
+		}
+
+		// The pieces along the wall; the lamp's and the screen's places feed the light.
+		const lights = {};
+		const things = ROOM.map(([kind, th]) => {
+			const fr = wallFrame(th);
+			const p = PIECES[kind](cam, fr, lights, screenCol);
+			return {kind, z: depth(cam, fr.pt(0, p.d, 0.6)), svg: p.svg};
+		});
+		things.push({z: depth(cam, [-0.63, 1, 0]), svg: post(-0.63)}, {z: depth(cam, [0.63, 1, 0]), svg: post(0.63)});
+		const stoveSvg = stove();
+		things.push({z: depth(cam, [0, 0.4, -STOVE_R]), svg: stoveSvg});
+		things.push({z: depth(cam, [TABLE[0], 0.4, TABLE[1]]), svg: table()});
+		for (const [dx, dz] of [[-0.66, 0.0], [0.06, 0.66]]) {
+			const cx = TABLE[0] + dx, cz = TABLE[1] + dz;
+			things.push({z: depth(cam, [cx, 0.5, cz]), svg: chair(cam, freeFrame(cx, cz, -dx, -dz))});
+		}
+		things.push({z: depth(cam, [BASKET[0], 0.3, BASKET[1]]), svg: sprite(cam, [BASKET[0], 0, BASKET[1]], SPR.basket, 0.0062)});
+		const standing = things.filter((t) => t.z > NEAR).sort((a, b) => b.z - a.z).map((t) => t.svg).join("");
+		const lamp = lights.lamp && lights.lamp[2] > NEAR ? lights.lamp : null;
+		const screen = lights.screen && lights.screen[2] > NEAR ? lights.screen : null;
+
+		// The masks: the windows' views and the crown's sky stay out of the dark; whatever stands
+		// in front of them (frames, curtains, the stove's pipe, the desk) is drawn again in white.
+		const cut = views.map((v) => `<polygon points="${pts(v.inner)}" fill="#000"/>`).join("") + `<polygon points="${openingPts}" fill="#000"/>`;
+		const occl = `<g class="mw">${fore}${standing}${ribs(`stroke="#fff"`)}</g>`;
+		const holes = L.night
+			? `<circle cx="${n(door[0])}" cy="${n(door[1])}" r="${n((FOCAL * 2.3) / door[2])}" fill="url(#gHole)"/>` +
+				(L.lamp && lamp ? `<circle cx="${n(lamp[0])}" cy="${n(lamp[1])}" r="${n((FOCAL * 0.9) / lamp[2])}" fill="url(#gHole)"/>` : "") +
+				(screen ? `<circle cx="${n(screen[0])}" cy="${n(screen[1])}" r="${n((FOCAL * 0.5) / screen[2])}" fill="url(#gHoleSoft)"/>` : "")
+			: L.lamp && lamp ? `<circle cx="${n(lamp[0])}" cy="${n(lamp[1])}" r="${n((FOCAL * 0.8) / lamp[2])}" fill="url(#gHoleSoft)"/>` : "";
+		const BIG = `x="-3000" y="-3000" width="8000" height="8000"`;
+
+		let s =
+			`<defs>` +
+			`<style>.mw *{fill:#fff!important;stroke:#fff!important}.mw [fill="none"]{fill:none!important}</style>` +
+			`<linearGradient id="gRoof" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="380"><stop offset="0" stop-color="${C.roofA}"/><stop offset="1" stop-color="${C.roofB}"/></linearGradient>` +
+			`<linearGradient id="gWall" gradientUnits="userSpaceOnUse" x1="0" y1="300" x2="0" y2="700"><stop offset="0" stop-color="${C.wallA}"/><stop offset="1" stop-color="${C.wallB}"/></linearGradient>` +
+			`<linearGradient id="gFloor" gradientUnits="userSpaceOnUse" x1="0" y1="470" x2="0" y2="820"><stop offset="0" stop-color="${C.floorA}"/><stop offset="1" stop-color="${C.floorB}"/></linearGradient>` +
+			`<linearGradient id="gIron" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#1c1d22"/><stop offset=".38" stop-color="#4a4c55"/><stop offset=".62" stop-color="#34363d"/><stop offset="1" stop-color="#18191d"/></linearGradient>` +
+			`<linearGradient id="gBrass" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7a5a20"/><stop offset=".38" stop-color="#e3b85a"/><stop offset=".62" stop-color="#b98b34"/><stop offset="1" stop-color="#6a4c1a"/></linearGradient>` +
+			`<linearGradient id="gWood" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7a3a1c"/><stop offset=".4" stop-color="${C.furnL}"/><stop offset="1" stop-color="#7a3a1c"/></linearGradient>` +
+			`<linearGradient id="gSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${sky.top}"/><stop offset=".55" stop-color="${sky.mid}"/><stop offset="1" stop-color="${sky.hor}"/></linearGradient>` +
+			`<radialGradient id="gSunGlow"><stop offset="0" stop-color="#ffe2a0" stop-opacity=".9"/><stop offset="1" stop-color="#ffb060" stop-opacity="0"/></radialGradient>` +
+			`<radialGradient id="gFire" cx=".5" cy=".85" r=".8"><stop offset="0" stop-color="#fff6c0"/><stop offset=".4" stop-color="#ffb347"/><stop offset=".8" stop-color="#e2582a"/><stop offset="1" stop-color="#9c2f1a"/></radialGradient>` +
+			`<radialGradient id="gHole"><stop offset="0" stop-color="#000" stop-opacity=".92"/><stop offset=".5" stop-color="#000" stop-opacity=".55"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>` +
+			`<radialGradient id="gHoleSoft"><stop offset="0" stop-color="#000" stop-opacity=".45"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>` +
+			`<radialGradient id="gGlowStove"><stop offset="0" stop-color="#ffa040" stop-opacity=".85"/><stop offset=".45" stop-color="#ff7a2a" stop-opacity=".32"/><stop offset="1" stop-color="#ff6a20" stop-opacity="0"/></radialGradient>` +
+			`<radialGradient id="gGlowLamp"><stop offset="0" stop-color="#ffd08a" stop-opacity=".8"/><stop offset="1" stop-color="#ffb060" stop-opacity="0"/></radialGradient>` +
+			`<radialGradient id="gGlowScreen"><stop offset="0" stop-color="#9fbaff" stop-opacity=".55"/><stop offset="1" stop-color="#7f9fff" stop-opacity="0"/></radialGradient>` +
+			`<radialGradient id="gGlowWin"><stop offset="0" stop-color="${L.golden ? "#ffb070" : "#ffffff"}" stop-opacity=".55"/><stop offset="1" stop-color="${L.golden ? "#ffb070" : "#ffffff"}" stop-opacity="0"/></radialGradient>` +
+			`<linearGradient id="gBeam" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffbe8" stop-opacity=".34"/><stop offset="1" stop-color="#fff3cc" stop-opacity=".07"/></linearGradient>` +
+			`<clipPath id="cRoof"><polygon points="${roofPoly}"/></clipPath>` +
+			`<clipPath id="cWall"><polygon points="${wallPoly}"/></clipPath>` +
+			views.map((v) => `<clipPath id="${v.clip}"><polygon points="${pts(v.inner)}"/></clipPath>`).join("") +
+			`<clipPath id="cCrown"><polygon points="${openingPts}"/></clipPath>` +
+			`<mask id="mDark" maskUnits="userSpaceOnUse" ${BIG}><rect ${BIG} fill="#fff"/>${cut}${occl}${holes}</mask>` +
+			`<mask id="mView" maskUnits="userSpaceOnUse" ${BIG}><rect ${BIG} fill="#fff"/>${cut}${occl}</mask>` +
+			`</defs>`;
+
+		// The floor first: everything else stands on it or rises from its edge.
+		s += `<rect ${BIG} fill="url(#gFloor)"/>`;
+		s += `<g opacity=".5">${boards}</g>`;
+		// The roof and its poles, the crown.
+		s += `<polygon points="${roofPoly}" fill="url(#gRoof)"/>`;
+		s += `<g clip-path="url(#cRoof)">${poles}</g>`;
+		s += poly3(cam, circle3(0, CROWN_H, 0, CROWN_R + 0.1), `fill="${C.crown}"`);
+		s += `<polygon points="${openingPts}" fill="${mix(sky.top, sky.mid, 0.35)}"/>`;
+		s += `<g clip-path="url(#cCrown)">${stars}${ribs(`stroke="${C.crown}"`)}</g>`;
+		s += poly3(cam, circle3(0, CROWN_H, 0, CROWN_R - 0.03), `fill="none" stroke="${C.poleEdge}" stroke-width="2"`);
+		// The wall: lining, lattice, the band under the roof and the skirt.
+		s += `<polygon points="${wallPoly}" fill="url(#gWall)"/>`;
+		s += `<g clip-path="url(#cWall)" opacity=".9">${lattice}</g>`;
+		s += ribbon(WALL_H - 0.09, WALL_H, R - 0.04, `fill="#a8473a"`);
+		s += ribbon(0, 0.1, R - 0.04, `fill="#8e3a30"`);
+		// The views out, then the windows' frames, curtains and sills.
+		for (const v of views) s += windowView(bbox(v.inner), sky, st, v.clip, v.side, v.seed);
+		s += fore;
+		// On the floor: the big rug, the hearth, the light that falls there.
+		const Fl = surf(cam, (a, b) => [a, 0.005, b]);
+		s += Fl.ellipse(0, 0.1, RUG_R, RUG_R, `fill="${C.rug}"`, 72);
+		s += Fl.ellipse(0, 0.1, RUG_R - 0.14, RUG_R - 0.14, `fill="none" stroke="${C.rugB}" stroke-width="${sw(Fl, 0, 0.1, 0.05)}"`, 72);
+		s += Fl.ellipse(0, 0.1, RUG_R - 0.38, RUG_R - 0.38, `fill="none" stroke="${C.rugP}" stroke-width="${sw(Fl, 0, 0.1, 0.045)}" stroke-dasharray="${sw(Fl, 0, 0.1, 0.12)} ${sw(Fl, 0, 0.1, 0.08)}"`, 72);
+		s += Fl.ellipse(0, 0.1, RUG_R - 0.64, RUG_R - 0.64, `fill="none" stroke="${C.rugB}" stroke-width="${sw(Fl, 0, 0.1, 0.015)}"`, 72);
+		s += Fl.ellipse(0, 0, 0.66, 0.66, `fill="#6d6a66"`) + Fl.ellipse(0, 0, 0.58, 0.58, `fill="#807c77"`);
+		const patch = [-0.95, 0.85];
+		if (L.beam) s += Fl.ellipse(patch[0], patch[1], 0.8, 0.8, `fill="#fff6dc" opacity=".45"`);
+		if (L.golden && st.wx === "clear") s += Fl.ellipse(0.15, 2.4, 0.9, 0.5, `fill="#ffc070" opacity=".35"`);
+		// Everything standing, far to near.
+		s += standing;
+		if (L.beam) {
+			const h = hull([...circle3(0, CROWN_H, 0, CROWN_R - 0.06, 24), ...circle3(patch[0], 0.005, patch[1], 0.8, 24)].map((q) => proj(cam, q)));
+			s += `<polygon points="${pts(h)}" fill="url(#gBeam)"/>`;
+		}
+
+		// Light: the hour's shade (never on the views out or the crown's sky), then what glows.
+		if (L.warm) s += `<rect ${BIG} fill="#ff9a50" opacity="${L.warm}" mask="url(#mView)" style="mix-blend-mode:multiply"/>`;
+		if (L.dark) s += `<rect ${BIG} fill="${L.darkCol}" opacity="${L.dark}" mask="url(#mDark)"/>`;
+		s += `<g style="mix-blend-mode:screen">`;
+		s += `<circle class="flick" cx="${n(door[0])}" cy="${n(door[1])}" r="${n((FOCAL * (L.night ? 2.4 : 1.4)) / door[2])}" fill="url(#gGlowStove)" opacity="${L.stoveA}"/>`;
+		s += `<g class="flick">${Fl.ellipse(0, -0.5, 1.3, 1.0, `fill="url(#gGlowStove)" opacity="${L.stoveA}"`)}</g>`;
+		if (L.lamp && lamp) s += `<circle cx="${n(lamp[0])}" cy="${n(lamp[1])}" r="${n((FOCAL * 0.75) / lamp[2])}" fill="url(#gGlowLamp)" opacity="${L.night ? 0.9 : 0.6}"/>`;
+		if (L.night && screen) s += `<circle cx="${n(screen[0])}" cy="${n(screen[1])}" r="${n((FOCAL * 0.45) / screen[2])}" fill="url(#gGlowScreen)" opacity=".6"/>`;
+		if (!L.night && st.wx !== "storm") {
+			for (const v of views) {
+				const b = bbox(v.inner);
+				s += `<ellipse cx="${n(b.x + b.w / 2)}" cy="${n(b.y + b.h / 2)}" rx="${n(b.w * 1.1)}" ry="${n(b.h * 1.3)}" fill="url(#gGlowWin)" opacity="${(L.golden ? 0.6 : 0.3) * (v.side ? 0.6 : 1)}"/>`;
+			}
+		}
+		s += `</g>`;
+		// At night the iron stays dark against its own glow; then what stays bright: the fire, the lamp's flame, the screen.
+		if (L.night && door[2] > NEAR) s += `<g style="filter:brightness(.72)">${stoveSvg}</g>`;
+		if (door[2] > NEAR) s += fire();
+		if (L.lamp && lamp && lights.flame) s += lights.flame;
+		if (L.night && screen && lights.screenSvg) s += lights.screenSvg;
+		return s;
+	}
+
+	/* ---------- today: the plains, frosted and still ---------- */
+	function today(st, W) {
+		const sky = skyFor(st.hour, st.wx);
+		const P = PAL[st.hour];
+		const night = st.hour === "night";
+		const r = rng(12);
+		const yx = W * 0.78, ys = W < 600 ? 0.7 : 0.95;
+		let stars = "";
+		if (night && st.wx === "clear") for (let i = 0; i < 70; i++) stars += `<circle cx="${n(r() * W)}" cy="${n(r() * 360)}" r="${n(0.6 + r() * 1.2)}" fill="#fff" opacity="${n(0.4 + r() * 0.6)}"/>`;
+		const roofT = mix(P.felt, "#ffffff", 0.15), roofB = mix(P.felt, "#8a7a6a", 0.28), rope = mix(P.felt, "#4a3a2a", 0.55);
+		const yurt =
+			`<g transform="translate(${n(yx - 120 * ys)},${n(684 - 152 * ys)}) scale(${ys})">` +
+			`<ellipse cx="120" cy="152" rx="96" ry="7" fill="#000" opacity=".16"/>` +
+			`<path d="M38,150 L38,98 Q120,90 202,98 L202,150 Q120,158 38,150 Z" fill="${P.felt}"/>` +
+			`<path d="M38,98 Q120,90 202,98 L202,107 Q120,99 38,107 Z" fill="${P.band}"/>` +
+			`<path d="M24,101 Q120,86 216,101 L133,49 Q120,45 107,49 Z" fill="${mix(roofT, roofB, 0.5)}"/>` +
+			`<g stroke="${rope}" stroke-width="1.3" opacity=".6" fill="none"><path d="M38,114 Q120,121 202,114"/><path d="M38,130 Q120,137 202,130"/></g>` +
+			`<rect x="116.5" y="24" width="7" height="24" rx="1.2" fill="#3a3c43"/>` +
+			`<path d="M104,151 L104,120 Q120,114.5 136,120 L136,151 Z" fill="${night ? "#ffcf7a" : P.door}"/>` +
+			`</g>`;
+		const landY = 800 * 0.44, landH = 800 * 0.56;
+		const mount2 = mix(sky.mount, sky.far, 0.72);
+		let s =
+			`<defs><linearGradient id="gSkyT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${sky.top}"/><stop offset=".5" stop-color="${sky.mid}"/><stop offset=".8" stop-color="${sky.hor}"/></linearGradient>` +
+			`<filter id="frost" x="-25%" y="-25%" width="150%" height="150%"><feGaussianBlur stdDeviation="18"/><feColorMatrix type="saturate" values=".85"/></filter></defs>` +
+			`<rect width="${W}" height="800" fill="url(#gSkyT)"/>` +
+			`<g filter="url(#frost)" transform="translate(${W / 2},400) scale(1.2) translate(${-W / 2},-400)">` +
+			stars +
+			(st.wx === "clear" && !night ? cloud(W * 0.25, 120, 4, sky.cloud) + cloud(W * 0.68, 210, 3, sky.cloud) : "") +
+			(st.wx === "rain" || st.wx === "storm" ? `<rect x="0" y="0" width="${W}" height="300" fill="${sky.cloud}" opacity=".7"/>` : "") +
+			(st.wx === "clear" && night ? `<circle cx="${W * 0.2}" cy="120" r="22" fill="#f4f0dc"/>` : "") +
+			`<svg x="0" y="${landY}" width="${W}" height="${landH}" viewBox="0 0 1200 400" preserveAspectRatio="none">` +
+			`<path fill="${mount2}" d="M0,86 C60,70 110,54 170,62 C230,70 260,40 330,44 C400,48 430,76 500,70 C580,62 620,30 700,36 C780,42 820,70 900,64 C980,58 1030,34 1100,42 C1150,48 1180,60 1200,62 L1200,400 L0,400 Z"/>` +
+			`<path fill="${sky.mount}" d="M0,112 C80,96 140,84 220,92 C300,100 340,76 420,80 C500,84 560,104 640,98 C720,92 780,72 860,78 C940,84 1000,102 1080,96 C1140,92 1180,98 1200,100 L1200,400 L0,400 Z"/>` +
+			`<path fill="${sky.far}" d="M0,128 C200,120 400,132 600,126 C800,120 1000,132 1200,126 L1200,400 L0,400 Z"/>` +
+			`<path fill="${mix(sky.far, sky.hor, 0.4)}" d="M318,127 C350,132 370,138 350,146 C320,156 290,164 340,176 C400,190 500,196 530,214 C552,228 500,238 450,250 L530,250 C580,238 630,226 604,210 C578,194 470,186 414,172 C370,161 390,152 422,144 C446,137 406,131 350,127 Z"/>` +
+			`<path fill="${sky.hill2}" d="M0,190 C120,170 260,160 400,172 C520,182 600,200 740,188 C880,176 1000,160 1200,176 L1200,400 L0,400 Z"/>` +
+			`<path fill="${sky.hill1}" d="M0,250 C150,226 300,214 470,226 C620,236 740,258 900,246 C1030,236 1120,226 1200,232 L1200,400 L0,400 Z"/>` +
+			`<path fill="${sky.grass}" d="M0,300 C200,290 400,296 600,292 C800,288 1000,296 1200,290 L1200,400 L0,400 Z"/>` +
+			`</svg>` +
+			yurt +
+			`</g>`;
+		return s;
+	}
+
+	/* ---------- the app over it ---------- */
+	const ICON = {
+		menu: '<svg class="ic" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="2.4" rx="1"/><rect x="3" y="11" width="18" height="2.4" rx="1"/><rect x="3" y="17" width="18" height="2.4" rx="1"/></svg>',
+		search: '<svg class="ic" viewBox="0 0 24 24"><path d="M10 3a7 7 0 0 1 5.6 11.2l5 5-1.8 1.8-5-5A7 7 0 1 1 10 3zm0 2.6a4.4 4.4 0 1 0 0 8.8 4.4 4.4 0 0 0 0-8.8z"/></svg>',
+		at: '<svg class="ic" viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 1 10 10v1.2c0 2.3-1.6 3.8-3.6 3.8-1.3 0-2.3-.6-2.9-1.6A5 5 0 1 1 17 12v1.2c0 .9.5 1.4 1.3 1.4s1.3-.6 1.3-1.4V12a7.6 7.6 0 1 0-3 6l1.4 1.8A10 10 0 1 1 12 2zm0 7.6a2.4 2.4 0 1 0 0 4.8 2.4 2.4 0 0 0 0-4.8z"/></svg>',
+		dots: '<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.2"/><circle cx="12" cy="12" r="2.2"/><circle cx="12" cy="19" r="2.2"/></svg>',
+		clip: '<svg class="ic" viewBox="0 0 24 24"><path d="M16.5 6v11.5a4.5 4.5 0 0 1-9 0V5a3 3 0 0 1 6 0v11.5a1.5 1.5 0 0 1-3 0V6H9v10.5a3 3 0 0 0 6 0V5a4.5 4.5 0 0 0-9 0v12.5a6 6 0 0 0 12 0V6z"/></svg>',
+		send: '<svg class="ic" viewBox="0 0 24 24" style="fill:#c05a2e;opacity:1"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>',
+		gear: '<svg class="ic" viewBox="0 0 24 24"><path d="M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.6 7.6 0 0 0-1.7-1L15 3h-4l-.4 2.7a7.6 7.6 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.6 7.6 0 0 0 1.7 1L11 21h4l.4-2.7a7.6 7.6 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z"/></svg>',
+		chat: '<svg class="ic" viewBox="0 0 24 24"><path d="M4 4h16v11H8l-4 4z"/></svg>',
+		chats: '<svg class="ic" viewBox="0 0 24 24"><path d="M2 3h13v9H6l-4 3zM17 8h5v12l-3-3h-9v-3h7z"/></svg>',
+	};
+
+	const ROWS = [
+		{m: 0, nick: "wren", text: "made it back before the weather turned"},
+		{m: 0, nick: "wren", text: "stove's lit. kettle's on", cont: true},
+		{m: 4, nick: "kestrel", text: "on my way. saving me some dumplings?"},
+		{m: 6, nick: "wren", text: "a whole plate. come round the back, the front door sticks"},
+		{m: 11, nick: "kestrel", text: "the ridge looks unreal from here"},
+		{m: 11, nick: "kestrel", text: "snow up top by morning, I bet", cont: true},
+		{m: 13, nick: "wren", text: "come sit by the fire and watch it"},
+	];
+	const START = {noon: 12 * 60 + 30, golden: 18 * 60 + 2, night: 21 * 60 + 34};
+	const clock = (min) => {
+		const h = Math.floor(min / 60) % 24, m = min % 60;
+		return ((h + 11) % 12) + 1 + ":" + String(m).padStart(2, "0") + (h < 12 ? "am" : "pm");
+	};
+	const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+
+	function appHtml(st) {
+		const rows = ROWS.map(
+			(r) =>
+				`<div class="msg${r.cont ? " cont" : ""}"><span class="time">${clock(START[st.hour] + r.m)}</span>` +
+				(r.cont ? "" : `<span class="nick n-${r.nick}">${r.nick}</span>`) +
+				`<span class="text">${esc(r.text)}</span></div>`
+		).join("");
+		return (
+			`<div class="gl side" style="--t:${glassT(st, "side")}">` +
+			`<div class="who"><div class="avatar"></div><span class="pill"><span class="dot"></span>Auto</span></div>` +
+			`<div class="jump">Jump to…</div>` +
+			`<div class="net"><span>SeanceDev</span><span class="badge">3</span></div>` +
+			`<div class="chan">${ICON.chats}#plains</div>` +
+			`<div class="chan on">${ICON.chat}wren</div>` +
+			`<div class="spacer"></div><div style="display:flex;gap:24px;padding:0 18px">${ICON.gear}</div>` +
+			`</div>` +
+			`<div class="gl head" style="--t:${glassT(st, "head")}">${ICON.menu}<span class="title">wren</span>${ICON.search}${ICON.at}${ICON.dots}</div>` +
+			`<div class="gl col" style="--t:${glassT(st, "col")}"><div class="divider">13 November 2026</div>${rows}</div>` +
+			`<div class="gl composer" style="--t:${glassT(st, "head")}">${ICON.clip}<span class="grow">Write to wren</span>${ICON.send}</div>`
+		);
+	}
+
+	function glassT(st, part) {
+		const night = st.hour === "night", phone = st.device === "phone";
+		if (st.glass === "light") return part === "col" ? (night ? 0.45 : 0.22) : night ? 0.6 : 0.45;
+		if (phone) return part === "col" ? (night ? 0.74 : 0.66) : night ? 0.74 : 0.78;
+		return part === "col" ? (night ? 0.74 : 0.5) : night ? 0.74 : 0.55;
+	}
+
+	/* ---------- render ---------- */
+	const stage = document.getElementById("stage");
+	const wrap = document.getElementById("stageWrap");
+	const svg = document.getElementById("scene");
+	const app = document.getElementById("app");
+
+	function render() {
+		const phone = state.device === "phone";
+		const W = phone ? 370 : 1280;
+		let vx = 0;
+		if (state.view === "today") {
+			svg.setAttribute("viewBox", `0 0 ${W} 800`);
+			svg.innerHTML = today(state, W);
+		} else {
+			const cam = camera(state.view);
+			const stoveX = proj(cam, [0, 0.4, -0.3])[0];
+			if (phone) vx = Math.round(stoveX - (state.view === "far" ? 0.78 : 0.5) * W);
+			svg.setAttribute("viewBox", `${vx} 0 ${W} 800`);
+			svg.innerHTML = interior(state, cam);
+		}
+		svg.setAttribute("preserveAspectRatio", "xMidYMid slice");
+		const night = state.hour === "night";
+		app.className = `app ${night ? "night" : "day"} ${phone ? "phone" : "desktop"}${phone ? "" : " blur"}${state.glass === "none" ? " hidden-chat" : ""}${state.glass === "off" ? " noglass" : ""}`;
+		app.style.setProperty("--b", state.glass === "light" ? "4px" : "10px");
+		app.style.setProperty("--lift", state.glass === "light" ? "1.1" : "1.3");
+		app.innerHTML = appHtml(state);
+		stage.classList.toggle("phone", phone);
+		stage.classList.toggle("flicker", state.fire === "flicker");
+		for (const seg of document.querySelectorAll(".seg")) {
+			for (const b of seg.querySelectorAll("button")) b.setAttribute("aria-checked", String(state[seg.dataset.key] === b.dataset.val));
+		}
+		fit();
+	}
+
+	function fit() {
+		const Wp = wrap.clientWidth;
+		if (state.device === "phone") {
+			const s = Math.min(1, Wp / 406, 720 / 844);
+			stage.style.width = "390px";
+			stage.style.height = "844px";
+			stage.style.transform = `scale(${s})`;
+			stage.style.left = `${(Wp - 390 * s) / 2}px`;
+			stage.style.top = `${8 * s}px`;
+			wrap.style.height = `${(844 + 16) * s}px`;
+		} else {
+			const s = Wp / 1280;
+			stage.style.width = "1280px";
+			stage.style.height = "800px";
+			stage.style.transform = `scale(${s})`;
+			stage.style.left = "0px";
+			stage.style.top = "0px";
+			wrap.style.height = `${800 * s}px`;
+		}
+	}
+
+	document.getElementById("controls").addEventListener("click", (e) => {
+		const b = e.target.closest("button[data-val]");
+		if (!b) return;
+		state[b.closest(".seg").dataset.key] = b.dataset.val;
+		render();
+	});
+	window.addEventListener("resize", fit);
+	render();
+})();
+</script>
+
+</body>
+</html>
