@@ -364,6 +364,27 @@ describe("Bouncers: soju's networks (soju.im/bouncer-networks)", function () {
 		expect(lobby.some((text) => text.startsWith("Not added: EFnet, IRCnet."))).to.equal(true);
 	});
 
+	it("names a network left out once per connection, not at each of its state changes", function () {
+		const over = ["EFnet"];
+		const h = setup({onBouncerNetworks: () => ({added: [], over: [...over]})});
+		control(h);
+		h.transport.lines(
+			":irc.test BOUNCER NETWORK 7 name=EFnet;state=connecting",
+			":irc.test BOUNCER NETWORK 7 state=connected",
+			":irc.test BOUNCER NETWORK 7 state=disconnected"
+		);
+		over.push("IRCnet");
+		h.transport.line(":irc.test BOUNCER NETWORK 8 name=IRCnet");
+
+		const notes = h
+			.messages(h.client.lobby.id)
+			.map((m) => m.text ?? "")
+			.filter((text) => text.startsWith("Not added:"));
+		expect(notes).to.have.length(2);
+		expect(notes[0]).to.match(/^Not added: EFnet\./);
+		expect(notes[1]).to.match(/^Not added: IRCnet\./);
+	});
+
 	it("does not ask again when -notify sends the list by itself", function () {
 		const h = setup({onBouncerNetworks: () => ({added: [], over: []})});
 		control(h);

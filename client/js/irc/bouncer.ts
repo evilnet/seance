@@ -298,12 +298,18 @@ function offer(client: IrcClient, networks: BouncerNetwork[]): void {
 		);
 	}
 
-	if (over.length > 0) {
+	// A network left out is offered again at each of its state changes
+	// (it is not marked seen, so a later list can add it): name it once per
+	// connection.
+	const unnamed = over.filter((name) => !client.bouncerOverNoted.has(name));
+
+	if (unnamed.length > 0) {
+		unnamed.forEach((name) => client.bouncerOverNoted.add(name));
 		client.pushMessage(
 			client.lobby,
 			{
 				text: tCount("bouncer.networksOver", BOUNCER_NETWORKS_MAX, {
-					names: commaList(over),
+					names: commaList(unnamed),
 				}),
 			},
 			true

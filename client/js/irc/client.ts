@@ -634,6 +634,8 @@ export class IrcClient {
 	readonly bouncerNetworks = new Map<string, BouncerAttrs>();
 	/** This connection said already why a login without SASL gets no networks (bouncer.ts). */
 	bouncerSaslNoted = false;
+	/** The networks this connection named already as left out for want of room (bouncer.ts). */
+	readonly bouncerOverNoted = new Set<string>();
 
 	private saslTimer: ReturnType<typeof setTimeout> | null = null;
 	private readonly bus: Pick<EventBus, "dispatch">;
@@ -2269,6 +2271,7 @@ export class IrcClient {
 		// A bouncer's control connection: what networks it has (bouncer.ts).
 		this.bouncerNetworks.clear();
 		this.bouncerSaslNoted = false;
+		this.bouncerOverNoted.clear();
 		listNetworks(this);
 
 		this.dispatch("webpush:available", {
