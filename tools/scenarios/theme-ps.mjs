@@ -88,14 +88,16 @@
 //   and opened again moves it not at all (0.5 px) — never seen between its
 //   places and never below full opacity (Review Focus 2);
 // - follows the open conversation: channel, query, none (Settings); and a
-//   query is frosted and still (spec §5.7): at a clear noon the root takes
-//   ps-private, the scene's one wrapper (.ps-frost) is blurred, desaturated
-//   and scaled while the root and #status-bar-tint are not, the scene frozen
-//   and nothing in document.getAnimations() running on it, the published
-//   values are #seance's at the
-//   same minute and the sun keeps its centre in the window; an hour on,
-//   inside the query and shown again, the canvas has moved and the scene is
-//   still; so at golden hour; and back in #seance it runs, unfrosted;
+//   query is inside the yurt and still (docs/projects/ps-yurt.md): at a clear
+//   noon the root takes ps-private, the plains' wrapper (.ps-frost) is out of
+//   the render tree and the room (.ps-indoor) shown, nothing filtered (the
+//   wrapper, the root, #status-bar-tint), the scene frozen and nothing in
+//   document.getAnimations() running on it, the canvas the roof's painted
+//   colour (not #seance's sky at the same minute), the words light and the
+//   five glass tints set; an hour on, inside the query and shown again, the
+//   canvas is still the roof's and the scene still; at golden hour so, the
+//   roof's colour moved on from noon's; and back in #seance it runs, on the
+//   plains, the room hidden;
 // - switches to coffee (the scene and its plains go and leave nothing on
 //   <html>) and back to ps (one scene again, not two);
 // - on a phone: a scene mounted there builds half the fireflies (17) and,
@@ -179,6 +181,13 @@
 // 20 failed, every one of them the query not frosted or not still, or the
 // layers read through the wrapper that build lacks. With the frost: 214 of
 // 214.
+// The private view rewritten for the yurt (ps-yurt.md plan 1 task 9,
+// 2026-11-14: the room in place of the frost, the canvas the roof's): the
+// frost's checks against the room's build failed 11 — the seven frost
+// checks, the scene's one wrapper beside the room an earlier query built,
+// and three glyph samples in #seance, two of them the rim's at noon and
+// golden hour, which 91b8a2f6b's build (develop, no room) fails with the
+// same figures (1.81, 2.47). With the room's checks: 372 of 374, those two.
 // The embers' 9 checks (plan 4, 2026-09-26: a send, the pending copy, two
 // reactions, a query, reduced motion, the frames at noon and dusk) were first
 // run against the same build serving 462ac945's ps.css, which has none: 215
@@ -806,6 +815,7 @@ const SCENE_STATE = `(async () => {
 		display: getComputedStyle(s).display,
 		background: getComputedStyle(s).backgroundImage,
 		children: s.children.length,
+		room: !!s.querySelector(":scope > .ps-indoor"),
 		layers: frost ? [...frost.children].map(named) : [],
 		off: [...s.querySelectorAll(".ps-off")].map(named),
 		starFields: n(".ps-stars"),
@@ -1008,61 +1018,70 @@ function checkRunning(page, s, where) {
 }
 
 /**
- * The private view's frost (spec §5.7): whether the root carries ps-private,
- * the wrapper's computed filter and transform and the frost it should be at
- * this font step, the root's own filter and #status-bar-tint's (neither is
- * frosted), the halo on <html>, every animation `document.getAnimations()`
+ * The private view (docs/projects/ps-yurt.md): whether the root carries
+ * ps-private, whether the plains' wrapper (.ps-frost) and the room
+ * (.ps-indoor) are in the render tree, the wrapper's computed filter and
+ * transform, the root's own filter and #status-bar-tint's (none of them is
+ * filtered), the halo on <html>, every animation `document.getAnimations()`
  * holds on the scene (CSS animations and transitions, pseudo-elements
- * included) by play state, and the sun's centre on the screen while it is
- * shown.
+ * included) by play state, how far the canvas is from the roof's painted
+ * colour (its top gradient stop, the largest channel difference out of 255;
+ * null without the room) and how many of the five glass tints are set.
  */
-const FROST_STATE = `(() => {
-	const s = document.getElementById("theme-scene");
+const VIEW_STATE = `(() => {
+	const s = document.getElementById("theme-scene"), h = document.documentElement;
 	const f = s.querySelector(":scope > .ps-frost");
+	const room = s.querySelector(":scope > .ps-indoor");
 	const cs = f ? getComputedStyle(f) : null;
-	const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
 	const mine = document.getAnimations().filter((a) => a.effect && a.effect.target && s.contains(a.effect.target));
-	const sun = s.querySelector(".ps-sun");
-	const b = sun.getBoundingClientRect();
+	const rgb = (c) => {
+		const k = document.createElement("canvas").getContext("2d");
+		k.fillStyle = "#000";
+		k.fillStyle = c;
+		k.fillRect(0, 0, 1, 1);
+		return [...k.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+	};
+	const roof = room && room.querySelector(".ps-yt-stop.ps-yt-c-roofA");
+	const canvas = h.style.getPropertyValue("--canvas-bg-color").trim();
+	const a = roof && canvas ? rgb(getComputedStyle(roof).stopColor) : null;
 	return {
 		private: s.classList.contains("ps-private"),
+		plainsShown: !!f && getComputedStyle(f).display !== "none",
+		roomShown: !!room && getComputedStyle(room).display !== "none",
 		filter: cs ? cs.filter : null,
 		transform: cs ? cs.transform : null,
-		frost: "blur(" + 1.125 * rem + "px) saturate(0.85)",
 		rootFilter: getComputedStyle(s).filter,
 		tint: getComputedStyle(document.getElementById("status-bar-tint")).filter,
-		halo: document.documentElement.style.getPropertyValue("--ps-halo"),
+		halo: h.style.getPropertyValue("--ps-halo"),
 		paused: mine.filter((a) => a.playState === "paused").length,
 		running: mine.filter((a) => a.playState === "running").map((a) => a.animationName || a.transitionProperty || "?"),
-		sun: {
-			shown: !sun.closest(".ps-off") && Number(getComputedStyle(sun).opacity) > 0,
-			cx: Math.round(b.left + b.width / 2),
-			cy: Math.round(b.top + b.height / 2),
-		},
-		width: innerWidth,
-		height: innerHeight,
+		roofOff: a ? Math.max(...rgb(canvas).map((v, i) => Math.abs(v - a[i]))) : null,
+		tints: ["header", "composer", "side", "float", "card"].filter((t) => h.style.getPropertyValue("--ps-g-tint-" + t)).length,
 	};
 })()`;
 
-/** The frost's ease (--ps-flip, 0.8 s), over. */
-const FROST_SETTLE_MS = 1500;
+/** A change of view settled: the room built on the first query and the minute applied, the glass's --ps-flip (0.8 s) over. */
+const VIEW_SETTLE_MS = 1500;
 
 /** A layer's fade at the tick that comes with a new hour (layers.ts: 1.8 s at most), over. */
 const FADE_SETTLE_MS = 1000;
 
 /**
- * A query's scene: frosted — the wrapper blurred 1.125rem and desaturated
- * to 0.85, scaled 1.2, the root and #status-bar-tint unfiltered — and
- * completely still: frozen as a hidden page's is (checkStopped), nothing
- * document.getAnimations() has on it running, and the sun, when up, still
- * centred in the window.
+ * A query's scene: inside the yurt — ps-private on the root, the plains out
+ * of the render tree and the room shown, nothing filtered or scaled (the
+ * plains' wrapper, the root, #status-bar-tint) — completely still: frozen as
+ * a hidden page's is (checkStopped) and nothing document.getAnimations() has
+ * on it running — and the canvas the roof's painted colour at this minute
+ * (within 2 of 255 a channel).
  */
-function checkFrosted(page, s, f, where) {
+function checkRoom(page, s, f, where) {
 	page.check(
-		`${where}: frosted (ps-private ${f.private}; the wrapper's filter ${f.filter}, transform ${f.transform}; the root's own filter ${f.rootFilter}, #status-bar-tint's ${f.tint})`,
+		`${where}: inside the yurt (ps-private ${f.private}; the room shown ${f.roomShown}, the plains shown ${f.plainsShown}; the wrapper's filter ${f.filter}, transform ${f.transform}; the root's own filter ${f.rootFilter}, #status-bar-tint's ${f.tint})`,
 		f.private &&
-			f.filter === f.frost &&
-			f.transform === "matrix(1.2, 0, 0, 1.2, 0, 0)" &&
+			f.roomShown &&
+			!f.plainsShown &&
+			f.filter === "none" &&
+			f.transform === "none" &&
 			f.rootFilter === "none" &&
 			f.tint === "none"
 	);
@@ -1075,40 +1094,40 @@ function checkFrosted(page, s, f, where) {
 		})`,
 		s.frozen && f.running.length === 0
 	);
-
-	if (f.sun.shown) {
-		page.check(
-			`${where}: the sun keeps its centre in the window under the frost's scale (${f.sun.cx}, ${f.sun.cy} in ${f.width} × ${f.height})`,
-			f.sun.cx > 0 && f.sun.cx < f.width && f.sun.cy > 0 && f.sun.cy < f.height
-		);
-	}
+	page.check(
+		`${where}: the canvas is the roof's painted colour (${s.canvas}, off by ${f.roofOff})`,
+		f.roofOff !== null && f.roofOff <= 2
+	);
 }
 
-/** A channel's scene: no frost on the wrapper, and the scene runs. */
-function checkUnfrosted(page, s, f, where) {
+/** A channel's scene: on the plains — shown, unfiltered and unscaled, the room not shown — and the scene runs. */
+function checkPlains(page, s, f, where) {
 	page.check(
-		`${where}: not frosted (ps-private ${f.private}; the wrapper's filter ${f.filter}, transform ${f.transform})`,
-		!f.private && f.filter === "none" && f.transform === "none"
+		`${where}: on the plains (ps-private ${f.private}; the plains shown ${f.plainsShown}, the room shown ${f.roomShown}; the wrapper's filter ${f.filter}, transform ${f.transform})`,
+		!f.private && f.plainsShown && !f.roomShown && f.filter === "none" && f.transform === "none"
 	);
 	checkRunning(page, s, where);
 }
 
 /**
  * One scene, whole: shown, its twelve layers in order in its one wrapper
- * (.ps-frost), one field of 190 stars, a sun, a moon and the day's clouds
+ * (.ps-frost) — beside it only the room (.ps-indoor), once a query has built
+ * it (ps-yurt.md) — one field of 190 stars, a sun, a moon and the day's clouds
  * (five, nine on a wet day: cloudsFor); and
  * the plains drawn, the land, the near grass and the yurt rendered, the
  * fireflies in the ground group.
  */
 function checkMounted(page, s, where, fireflies = FIREFLIES) {
 	page.check(
-		`${where}: the scene is mounted and shown (display ${s.display}; ${s.children} wrapper of ${
-			s.layers.length
-		} layers: ${s.layers.join(" ")}; ${s.starFields} star field of ${s.stars}, sun ${
-			s.sun
-		}, moon ${s.moon}, ${s.clouds} clouds)`,
+		`${where}: the scene is mounted and shown (display ${s.display}; ${
+			s.children - (s.room ? 1 : 0)
+		} wrapper${s.room ? " and the room" : ""} of ${s.layers.length} layers: ${s.layers.join(
+			" "
+		)}; ${s.starFields} star field of ${s.stars}, sun ${s.sun}, moon ${s.moon}, ${
+			s.clouds
+		} clouds)`,
 		s.display === "block" &&
-			s.children === 1 &&
+			s.children === 1 + (s.room ? 1 : 0) &&
 			s.layers.join() === LAYERS.join() &&
 			s.starFields === 1 &&
 			s.stars === 190 &&
@@ -1689,7 +1708,7 @@ async function coldReload(page, path, expression, label) {
  * shows it open (`listed`, `inset`: --userlist-width resolved on a probe),
  * less 22 % of the scene's width, clamped to half the yurt's width (21 % of
  * the scene's height, 240/170 as wide) from either edge. `private`: a
- * query's frost scales the scene 1.2, so a place is only measured without it.
+ * query hides the plains (the room shows), so a place is only measured without it.
  */
 const YURT = `(() => {
 	const s = document.getElementById("theme-scene");
@@ -1720,7 +1739,7 @@ function checkYurtPlace(page, y, label) {
 			1
 		)}, due ${y.due.toFixed(1)} of ${y.sceneWidth}; user list ${
 			y.listed ? `open, ${y.inset.toFixed(1)} px` : "not in a channel's view"
-		}; opacity ${y.op}${y.private ? "; frosted" : ""})`,
+		}; opacity ${y.op}${y.private ? "; in a query" : ""})`,
 		!y.private && y.op > 0.99 && Math.abs(y.cx - y.due) <= 1
 	);
 }
@@ -3717,7 +3736,7 @@ export default async function run(page) {
 	await page.screenshot("ps-midnight-sep27-0000");
 	await realClock(page);
 
-	// ---- the view follows the conversation; a query is frosted and still (spec §5.7)
+	// ---- the view follows the conversation; a query is inside the yurt and still (ps-yurt.md)
 
 	// Its own query: EXT_NAME's is in the sidebar too. A clear noon, pinned,
 	// in #seance first: what a channel shows and publishes at that minute.
@@ -3728,23 +3747,22 @@ export default async function run(page) {
 	});
 	await openSeance(page, "#seance, before the query");
 	const noonChannel = await at(page, noonOn(9, 25));
-	const noonChannelFrost = await page.evaluate(FROST_STATE);
-	checkUnfrosted(page, noonChannel, noonChannelFrost, "#seance at a clear noon");
+	checkPlains(page, noonChannel, await page.evaluate(VIEW_STATE), "#seance at a clear noon");
 	await page.screenshot("ps-channel-noon");
 
 	await page.click(QUERY_ROW);
-	await page.sleep(FROST_SETTLE_MS);
+	await page.sleep(VIEW_SETTLE_MS);
 	const inQuery = await page.evaluate(SCENE_STATE);
+	const inQueryView = await page.evaluate(VIEW_STATE);
 	page.check(`a query: the scene's view is query (${inQuery.view})`, inQuery.view === "query");
-	checkFrosted(page, inQuery, await page.evaluate(FROST_STATE), "a query at a clear noon");
+	checkRoom(page, inQuery, inQueryView, "a query at a clear noon");
 	page.check(
-		`a query at a clear noon publishes what #seance did (canvas ${inQuery.canvas}, light ${inQuery.light}, text ${inQuery.text}, theme-color ${inQuery.meta}, halo ${noonChannelFrost.halo})`,
+		`a query at a clear noon publishes the room: canvas ${inQuery.canvas}, not #seance's ${noonChannel.canvas} at the same minute; light ${inQuery.light}, text ${inQuery.text}, ${inQueryView.tints} of 5 glass tints`,
 		inQuery.minute === noonChannel.minute &&
-			inQuery.canvas === noonChannel.canvas &&
-			inQuery.light === noonChannel.light &&
-			inQuery.text === noonChannel.text &&
-			inQuery.meta === noonChannel.meta &&
-			(await page.evaluate(FROST_STATE)).halo === noonChannelFrost.halo
+			inQuery.canvas !== noonChannel.canvas &&
+			inQuery.light === "day" &&
+			inQuery.text === "light" &&
+			inQueryView.tints === 5
 	);
 	await page.screenshot("ps-private-noon");
 
@@ -3754,29 +3772,29 @@ export default async function run(page) {
 	await page.sleep(FADE_SETTLE_MS);
 	const hourOn = await page.evaluate(SCENE_STATE);
 	page.check(
-		`a query an hour on: the canvas followed the hour (${inQuery.canvas} → ${
-			hourOn.canvas
-		}, ${hhmm(hourOn.minute)})`,
-		hourOn.view === "query" &&
-			hourOn.minute === inQuery.minute + 60 &&
-			hourOn.canvas !== inQuery.canvas
+		`a query an hour on: still the query, the minute moved on (${hhmm(hourOn.minute)})`,
+		hourOn.view === "query" && hourOn.minute === inQuery.minute + 60
 	);
-	checkFrosted(page, hourOn, await page.evaluate(FROST_STATE), "a query an hour on, shown again");
+	checkRoom(page, hourOn, await page.evaluate(VIEW_STATE), "a query an hour on, shown again");
 
 	await at(page, sep25At(sep25.set - 60));
 	await page.sleep(FADE_SETTLE_MS);
 	const goldenQuery = await page.evaluate(SCENE_STATE);
-	checkFrosted(page, goldenQuery, await page.evaluate(FROST_STATE), "a query at golden hour");
+	checkRoom(page, goldenQuery, await page.evaluate(VIEW_STATE), "a query at golden hour");
+	page.check(
+		`a query at golden hour: the roof's colour followed the hour (${inQuery.canvas} → ${goldenQuery.canvas})`,
+		goldenQuery.canvas !== inQuery.canvas
+	);
 	await page.screenshot("ps-private-golden-hour");
 
 	await openSeance(page, "back in #seance from the query");
-	await page.sleep(FROST_SETTLE_MS);
+	await page.sleep(VIEW_SETTLE_MS);
 	const inChannel = await page.evaluate(SCENE_STATE);
 	page.check(
 		`a channel: the scene's view is channel (${inChannel.view})`,
 		inChannel.view === "channel"
 	);
-	checkUnfrosted(page, inChannel, await page.evaluate(FROST_STATE), "#seance at golden hour");
+	checkPlains(page, inChannel, await page.evaluate(VIEW_STATE), "#seance at golden hour");
 	await page.screenshot("ps-channel-golden-hour");
 	await realClock(page);
 

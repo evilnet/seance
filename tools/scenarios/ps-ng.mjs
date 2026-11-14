@@ -29,11 +29,13 @@
 //   `data-reduce-motion` and clearing it must take it away, each a check of
 //   its own, within 3 s — moving before and after, and after it goes off the
 //   clouds' phase as below (the move out of still at the moment the media
-//   was cleared); then the rests that freeze: a hidden page and a query
-//   (`/query`, `data-view="query"`), each cloud held where it stood and,
-//   shown again or back in #seance, going on from there, then moving
-//   ("moving" is animations on the scene, frames from NG's chunk and at least
-//   one in-flight layer displayed); at noon, before the hidden page, while it
+//   was cleared); then the rests that freeze: a hidden page, each cloud held
+//   where it stood and, shown again, going on from there, and a query
+//   (`/query`, `data-view="query"`), frozen inside the yurt — the plains out
+//   of the render tree and the room shown (docs/projects/ps-yurt.md) — each
+//   then moving, shown again or back in #seance ("moving" is animations on
+//   the scene, frames from NG's chunk and at least one in-flight layer
+//   displayed); at noon, before the hidden page, while it
 //   is frozen and once shown again, each lark shows the state its clock puts
 //   it in (plan 4: from its `--ld`, `--ldl` and `--psng-t`, sampled 1 % or
 //   more from a stop, its state box at opacity > 0 and the other two at 0;
@@ -611,12 +613,21 @@ async function stillCensus(page, label) {
 /** Each cloud's translateX on screen, in px (the DOMMatrix's e). */
 const CLOUD_X = `[...document.querySelectorAll("#theme-scene .ps-cloud")].map((el) => new DOMMatrix(getComputedStyle(el).transform).e)`;
 
+/** Whether the plains (.ps-frost) and the room (.ps-indoor) are in the render tree. */
+const ROOM_VIEW = `(() => {
+	const s = document.getElementById("theme-scene");
+	const shown = (q) => { const e = s.querySelector(":scope > " + q); return !!e && getComputedStyle(e).display !== "none"; };
+	return {plains: shown(".ps-frost"), room: shown(".ps-indoor")};
+})()`;
+
 /**
  * A rest that ends on its own (a hidden page, a query) freezes NG where it stands (scene.ts freeze):
- * no animation, no frame from NG, its group classes kept with psng-frozen, an in-flight layer still
- * in the page, and every cloud where it was the moment before (`before`, CLOUD_X), within 2 px.
+ * no animation, no frame from NG, its group classes kept with psng-frozen. A hidden page keeps an
+ * in-flight layer in the page and every cloud where it was the moment before (`before`, CLOUD_X),
+ * within 2 px. A query (`query`) shows the room instead (docs/projects/ps-yurt.md): the plains out
+ * of the render tree, so nothing of them is checked but that, and the room shown.
  */
-async function frozenCensus(page, label, before) {
+async function frozenCensus(page, label, before, query = false) {
 	const c = await page.evaluate(CENSUS);
 	const f = await page.evaluate(FLIGHT);
 	// CSS animations only (no transition runs in NG's scene).
@@ -627,6 +638,21 @@ async function frozenCensus(page, label, before) {
 	const frozen = await page.evaluate(
 		`document.getElementById("theme-scene").classList.contains("psng-frozen")`
 	);
+
+	if (query) {
+		const view = await page.evaluate(ROOM_VIEW);
+		page.check(
+			`${label}: frozen inside the yurt — psng-frozen ${frozen}, no animation (${anims}), group classes kept (${c.classes.length}), no frame from NG in 1 s (${frames}), the plains shown ${view.plains}, the room shown ${view.room}`,
+			frozen &&
+				anims === 0 &&
+				c.classes.length > 0 &&
+				frames === 0 &&
+				!view.plains &&
+				view.room
+		);
+		return before;
+	}
+
 	const x = await page.evaluate(CLOUD_X);
 	const worst = Math.max(...x.map((v, i) => Math.abs(v - before[i])));
 	page.check(
@@ -932,7 +958,7 @@ export default async function run(page) {
 	await page.waitFor(VIEW("query"), {label: "the query open"});
 	held = await page.evaluate(CLOUD_X);
 	await page.sleep(600);
-	await frozenCensus(page, "a query", held);
+	await frozenCensus(page, "a query", held, true);
 	await page.evaluate(
 		`document.querySelector('.channel-list-item[data-name="#seance"]').click()`
 	);
