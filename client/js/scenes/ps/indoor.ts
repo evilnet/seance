@@ -18,6 +18,14 @@ import {WEATHER, type Palette} from "./palette";
  * table and the literals its pieces and small things paint
  * (docs/resources/themes/ps-yurt/mockup.html). Lit by day; the page shades
  * them by the minute.
+ *
+ * Six of the mockup's darkest colours are lighter, each only as far as the
+ * floors need at today's glass caps (the user's choice, 2026-11-14:
+ * "Lighten the darkest room colours"; docs/projects/ps-yurt.md §9 has the
+ * table): the OKLCH lightness alone raised, chroma and hue kept —
+ * ironShadow #18191d → #3d3e42 (+0.15), ironD #1c1d22 → #3c3d43 (+0.13),
+ * monitor #1d212b → #383c47 (+0.11), ironMid #34363d → #3c3e45 (+0.03),
+ * pipe #383a41 → #3b3d44 (+0.01), woodD #5a341c → #5d371f (+0.01).
  */
 export const ROOM_COLOURS = {
 	roofA: "#ecdcbc",
@@ -42,7 +50,7 @@ export const ROOM_COLOURS = {
 	cream: "#f2dcb0",
 	gold: "#d9a640",
 	wood: "#7a4a2a",
-	woodD: "#5a341c",
+	woodD: "#5d371f",
 	woodL: "#9a6a42",
 	woodRed: "#7a3a1c",
 	rug: "#9e2f2a",
@@ -52,17 +60,17 @@ export const ROOM_COLOURS = {
 	hearth: "#6d6a66",
 	hearthL: "#807c77",
 	iron: "#2c2d33",
-	ironD: "#1c1d22",
+	ironD: "#3c3d43",
 	ironLit: "#4a4c55",
-	ironMid: "#34363d",
-	ironShadow: "#18191d",
+	ironMid: "#3c3e45",
+	ironShadow: "#3d3e42",
 	ironL: "#45474f",
 	ironTop: "#3a3c43",
 	ironTopL: "#4a4c54",
 	ironRing: "#5c5f68",
 	collar: "#33353c",
 	collarTop: "#3e4048",
-	pipe: "#383a41",
+	pipe: "#3b3d44",
 	pipeBand: "#4d5059",
 	doorEdge: "#5a5c64",
 	handle: "#8a8d96",
@@ -81,7 +89,7 @@ export const ROOM_COLOURS = {
 	sheet: "#f3ece0",
 	sheetSide: "#e9e0d0",
 	quiltTop: "#457095",
-	monitor: "#1d212b",
+	monitor: "#383c47",
 	stand: "#2a2d36",
 	keys: "#d9d6cf",
 	screenDay: "#9fb4cc",

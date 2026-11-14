@@ -187,6 +187,21 @@ On the phone the message column reads the card tint the scene publishes (`--ps-g
 
 **The resolution (the user's choice):** the room's darkest colours lighten until every floor holds at today's caps. The stove's iron goes greyer; the dark wood (`#5a341c`) and the rug's blue (`#24466e`) go lighter; so does anything else the sweep finds. They move only as far as the floors need, so the room stays the approved room. In a query the scene publishes tints solved over the room's grounds, within the caps `glass.ts` already applies (`TINT_FLOOR` 0.40 to `TINT_CAP` 0.78), and a channel keeps its own, so channels are unchanged. (Corrected while planning, 2026-11-14: one set solved over both lists would raise every channel's glass, which "no change to channels" rules out.) If a ground still fails, its colour lightens further; the tints and caps do not move.
 
+**What moved (plan 1 task 8, 2026-11-14).** Over the sparse sweep, all six weathers, at the caps: six colours, OKLCH lightness alone, each to the smallest value at which every held floor passes (`indoor.ts` `ROOM_COLOURS`). The worst moment was a storm just before the glass turns to night, when the room is shaded 0.36 toward night.
+
+| Colour                                  | Was       | Now       | ΔL    | What it failed                                 |
+| --------------------------------------- | --------- | --------- | ----- | ---------------------------------------------- |
+| `ironShadow` (the stove's darkest stop) | `#18191d` | `#3d3e42` | +0.15 | the luminous glass's soft ink, 4.58 at the cap |
+| `ironD` (the stove's door, legs, slot)  | `#1c1d22` | `#3c3d43` | +0.13 | the same                                       |
+| `monitor`                               | `#1d212b` | `#383c47` | +0.11 | the phone's flat glass, soft ink 4.48          |
+| `ironMid`                               | `#34363d` | `#3c3e45` | +0.03 | the same                                       |
+| `pipe`                                  | `#383a41` | `#3b3d44` | +0.01 | the same                                       |
+| `woodD`                                 | `#5a341c` | `#5d371f` | +0.01 | the same, 4.50                                 |
+
+The rug's blue held without moving. Every held floor then holds over the room: the luminous glass at the query's tints, the phone's flat glass, the declared day and night glass, the day surface palette on the card and the glass column (and under a mention's wash), the night surface palette and its wash, and every light-treatment colour through the outline (`test/scenes/ps/legibility.ts`, "inside the yurt").
+
+**What stays pinned, and one figure for the user.** The rim's and the glow's worst figures over the room equal the plains' pinned ones exactly (white 2.35 and 1.37; both set by the white cloud in a window, the same ground as outside). The scrim's far edge over the room is 2.04 at night (the plains' pin is 1.42), but **2.01 by day, 0.11 under the plains' 2.12** (the monitor under a mention, in a storm). It is pinned at 2.01 in the test, not held, as the plains' figure is; whether to lighten the monitor further for it is the user's call before this ships.
+
 **The shadow family** (outline, rim, glow: white words with no surface) meets the room's brightest grounds instead: the cream wall, the roof and the window panes by day. These are the same kind as the plains' white clouds. The sweep pins their indoor worst figures beside the plains' accepted ones (`test/scenes/ps/legibility.ts`: under the rim and the glow, white over a white cloud reads 2.35 and 1.37). A worse indoor figure is the user's call before it ships.
 
 ## 10. What the scene publishes

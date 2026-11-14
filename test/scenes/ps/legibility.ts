@@ -3,7 +3,12 @@ import fs from "fs";
 import path from "path";
 import {contrast, luminance, mix} from "../../../client/js/scenes/ps/colour";
 import {type Moment} from "../../../client/js/scenes/ps/engine";
-import {DAY_CARD_FAINT, DAY_CARD_TEXT, DAY_GLASS_MARK} from "../../../client/js/scenes/ps/glass";
+import {
+	CHROME_SURFACES,
+	DAY_CARD_FAINT,
+	DAY_CARD_TEXT,
+	DAY_GLASS_MARK,
+} from "../../../client/js/scenes/ps/glass";
 import {AREAS, INK_FAINT_HELD, publishedFor} from "../../../client/js/scenes/ps/grounds";
 import {paletteAt, type Palette} from "../../../client/js/scenes/ps/palette";
 import {
@@ -1182,5 +1187,189 @@ describe("ps: the words over the plains and on the glass keep their floors: ever
 		// eslint-disable-next-line no-console -- the figure the pin is read from
 		console.log(`      glow ink ${w.ratio.toFixed(2)} at ${w.where}`);
 		expect(Number(w.ratio.toFixed(2))).to.be.at.least(PINNED_GLOW_INK);
+	});
+});
+
+describe("ps: the words and the chrome keep their floors inside the yurt (docs/projects/ps-yurt.md §9): the sparse sweep, all six weathers", function () {
+	this.timeout(180000);
+
+	let room: Checked | undefined;
+	/** The room's grounds over the sparse sweep: the column's through the light words' treatment, the glass's raw. */
+	const roomGrounds = (): Checked => (room ??= checkedGrounds("sparse", "query"));
+
+	it("finds the room's grounds for every surface and state, and never dark ink: a private conversation's words are always light", function () {
+		const g = roomGrounds();
+		expect(g.column.ink).to.have.length(0);
+		expect(g.column.light.length).to.be.greaterThan(100);
+		expect(g.glass.day.length).to.be.greaterThan(100);
+		expect(g.glass.night.length).to.be.greaterThan(100);
+		expect(g.glass.day.some((x) => x.name.startsWith("room iron"))).to.equal(true);
+	});
+
+	it("holds the luminous day glass over the room at the query's tints: ink, the accent and every nick at 4.5, the soft ink at 4.6", function () {
+		const g = glassDeclared().day;
+		const list = dayGlassGrounds("sparse", "", CHROME_SURFACES, "query");
+		expect(list.length).to.be.greaterThan(500);
+
+		for (const [what, colour] of [
+			["ink", GLASS.day.ink],
+			["--ps-g-soft", g.tokens["--ps-g-soft"]],
+			["--ps-g-accent-text", g.tokens["--ps-g-accent-text"]],
+			...g.nicks.map((n) => [n.selector, n.decls[0][1]]),
+		]) {
+			const w = worst(colour, list);
+			expect(w.ratio, `room, day glass ${what} ${colour} at ${w.where}`).to.be.at.least(4.5);
+		}
+
+		const soft = worst(g.tokens["--ps-g-soft"], list);
+		expect(Number(soft.ratio.toFixed(4)), `room: ${soft.where}`).to.be.at.least(4.6);
+	});
+
+	it("holds the join green's marks at 3 and the soft ink at 4.5 on the phone's flat day glass (its declared opacity, unfiltered) over the room", function () {
+		const list = underGlass("day", roomGrounds().glass.day);
+		const mark = worst(DAY_GLASS_MARK, list);
+		expect(mark.ratio, `room: ${DAY_GLASS_MARK} at ${mark.where}`).to.be.at.least(3);
+		const soft = glassDeclared().day.tokens["--ps-g-soft"];
+		const w = worst(soft, list);
+		expect(w.ratio, `room: ${soft} at ${w.where}`).to.be.at.least(4.5);
+	});
+
+	for (const light of ["day", "night"] as const) {
+		it(`holds the ${light} glass at its declared opacity over the room: ink, soft ink, the text accent and every nick at 4.5`, function () {
+			const g = glassDeclared()[light];
+			const list = underGlass(light, roomGrounds().glass[light]);
+
+			for (const [what, colour] of [
+				["ink", GLASS[light].ink],
+				["--ps-g-soft", g.tokens["--ps-g-soft"]],
+				["--ps-g-accent-text", g.tokens["--ps-g-accent-text"]],
+				...g.nicks.map((n) => [n.selector, n.decls[0][1]]),
+			]) {
+				const w = worst(colour, list);
+				expect(
+					w.ratio,
+					`room, ${light} glass ${what} ${colour} at ${w.where}`
+				).to.be.at.least(4.5);
+			}
+		});
+	}
+
+	it("holds the day surface palette over the room at the query's card tint (flat, and under a mention's wash) and on the glass column at the float tint through the lift", function () {
+		const list = dayGlassGrounds("sparse", "", ["card", "float"], "query");
+		expect(list.filter((x) => x.surface === "card").length).to.be.greaterThan(500);
+
+		for (const h of surfaceHeld("day")) {
+			const w = worstSurface(h, list);
+			expect(w.ratio, `room: ${h.what} ${h.value} at ${w.where}`).to.be.at.least(h.floor);
+		}
+	});
+
+	it("holds the night surface palette at its declared tint over the room, and its ink and muted ink on a mentioned row", function () {
+		const s = surfaceDeclared().night;
+		const list = underSurface(
+			"night",
+			Number(s.tokens["--ps-s-tint"]),
+			roomGrounds().glass.night
+		);
+
+		for (const h of surfaceHeld("night")) {
+			const w = worstSurface(h, list);
+			expect(w.ratio, `room: ${h.what} ${h.value} at ${w.where}`).to.be.at.least(h.floor);
+		}
+
+		// By day the room always has the scene, so a mention's wash takes the card tint it computes
+		// (held over the room above, with the card); the declared strength is the scene-less fallback.
+		for (const wash of surfaceWashes().filter((w) => w.light === "night")) {
+			const tokens = surfaceDeclared()[wash.light].tokens;
+			const washed = roomGrounds().glass[wash.light].map((g) => {
+				const hex = mix(g.hex, wash.hex, wash.strength);
+				return {...g, hex, lum: luminance(hex)};
+			});
+
+			for (const name of ["--chat-fg", "--chat-fg-muted"]) {
+				const w = worst(tokens[name], washed);
+				expect(
+					w.ratio,
+					`room: ${wash.light} ${name} on a mention at ${w.where}`
+				).to.be.at.least(4.5);
+			}
+		}
+	});
+
+	it("holds every light-treatment colour to its floor through the outline over the room, as over the plains", function () {
+		for (const h of heldColours().held.filter((x) => x.text === "light")) {
+			const list = groundsFor(h, roomGrounds().column.light);
+			const w = h.box
+				? onBox(h)
+				: h.faintWhite
+				? worstFaintWhite(list)
+				: worst(h.value, list);
+			expect(w.ratio, `room: ${h.what} ${h.value} at ${w.where}`).to.be.at.least(h.floor);
+		}
+	});
+
+	for (const words of ["rim", "glow"] as const) {
+		it(`${words}: the light words' worst figures over the room are none worse than the plains' pinned ones`, function () {
+			const list = shadowGrounds(words, "light", "sparse", "query");
+			expect(list.length).to.be.greaterThan(100);
+			const held = heldColours().held;
+			const muted = held.find((x) => x.what === `${LIGHT_ROOT} --chat-fg-muted`)!;
+			const nicks = held.filter((x) => x.what.startsWith(`${LIGHT_ROOT} .user.color-`));
+			const figures = {
+				white: worst("#ffffff", list),
+				muted: worst(muted.value, list),
+				faint: worstFaintWhite(list),
+				nick: nicks
+					.map((n) => worst(n.value, groundsFor(n, list)))
+					.reduce((a, b) => (b.ratio < a.ratio ? b : a)),
+			};
+			// eslint-disable-next-line no-console -- the figures the room is held to
+			console.log(
+				`      room, ${words}: ${Object.entries(figures)
+					.map(([k, w]) => `${k} ${w.ratio.toFixed(2)} at ${w.where}`)
+					.join("; ")}`
+			);
+
+			for (const [kind, w] of Object.entries(figures)) {
+				expect(
+					Number(w.ratio.toFixed(2)),
+					`room, ${words} ${kind}: ${w.where}`
+				).to.be.at.least(PINNED[words][kind as keyof typeof figures]);
+			}
+		});
+	}
+
+	/**
+	 * The scrim's far edge over the room, pinned (floored to two decimals) from the first run,
+	 * never held: by day 0.11 under the plains' 2.12 (the monitor, under a mention, in a storm),
+	 * which the design leaves to the user (docs/projects/ps-yurt.md §9); at night the plains' pin.
+	 */
+	const ROOM_SCRIM_FAR = {day: 2.01, night: SCRIM_FAR_FLOOR.night};
+
+	it("the scrim's far edge over the room is pinned, not held: by day at the room's own figure, at night no lower than over the plains", function () {
+		const s = surfaceDeclared();
+		const dayFar = dayGlassGrounds("sparse", "", ["card"], "query").map((x) => {
+			const hex = surfaceGround(x.raw, "day", SCRIM_FAR * x.tint);
+			return {...x, hex, lum: luminance(hex)};
+		});
+		const nightFar = underSurface(
+			"night",
+			SCRIM_FAR * Number(s.night.tokens["--ps-s-tint"]),
+			roomGrounds().glass.night
+		);
+		const day = worst(s.day.tokens["--chat-fg"], dayFar);
+		const night = worst(s.night.tokens["--chat-fg"], nightFar);
+		// eslint-disable-next-line no-console -- the figures the room is held to
+		console.log(
+			`      room, scrim far edge: day ink ${day.ratio.toFixed(2)} at ${
+				day.where
+			}; night ink ${night.ratio.toFixed(2)} at ${night.where}`
+		);
+		expect(Number(day.ratio.toFixed(2)), `room, day: ${day.where}`).to.be.at.least(
+			ROOM_SCRIM_FAR.day
+		);
+		expect(Number(night.ratio.toFixed(2)), `room, night: ${night.where}`).to.be.at.least(
+			ROOM_SCRIM_FAR.night
+		);
 	});
 });
