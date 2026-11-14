@@ -51,6 +51,7 @@ export const ROOM_COLOURS = {
 	curtain: "#a8473a",
 	hearth: "#6d6a66",
 	hearthL: "#807c77",
+	iron: "#2c2d33",
 	ironD: "#1c1d22",
 	ironLit: "#4a4c55",
 	ironMid: "#34363d",
@@ -157,7 +158,7 @@ export function indoorLevels(m: Moment, p: Palette): IndoorLevels {
 	const clear = wx.hide === 0;
 	return {
 		shade: 0.74 * p.dark + 0.55 * wx.dim * (1 - p.dark),
-		warm: 0.2 * p.glowOpacity * (1 - p.dark),
+		warm: 0.2 * p.glowOpacity * (1 - p.dark) + 0.3 * p.dark,
 		fire: Math.min(1, 0.32 + 0.48 * p.dark + 0.18 * wx.storm),
 		lamp: Math.max(
 			clamp01((p.dark - 0.3) / 0.3),
@@ -187,13 +188,17 @@ export function indoorVars(m: Moment, p: Palette): Record<string, string> {
 const mixed = (hex: string) =>
 	`color-mix(in oklab, color-mix(in oklab, ${hex}, ${ROOM_WARM} calc(var(--ps-in-warm) * 100%)), ${ROOM_NIGHT} calc(var(--ps-in-shade) * 100%))`;
 
-/** The room's stylesheet: a fill, a stroke and a gradient stop for every colour, the faces' shades, and the light by its levels. */
+/**
+ * The room's stylesheet: a fill, a stroke and a gradient stop for every colour, the faces' shades,
+ * and the light by its levels. A stroke keeps its own property (--s), so one shape can carry a
+ * fill colour and a stroke colour at once.
+ */
 export function roomCss(): string {
 	const colours = (Object.entries(ROOM_COLOURS) as Array<[RoomColour, string]>)
 		.map(
 			([k, hex]) =>
 				`.ps-yt-c-${k} { --c: ${mixed(hex)}; fill: var(--c); }\n` +
-				`.ps-yt-s-${k} { --c: ${mixed(hex)}; stroke: var(--c); }`
+				`.ps-yt-s-${k} { --s: ${mixed(hex)}; stroke: var(--s); }`
 		)
 		.join("\n");
 	return (

@@ -357,7 +357,7 @@ export const strokeAt = (S: Painter, s: number, t: number, m: number) =>
 	n(Math.max(0.6, m * S.px(s, t)));
 
 /** The class that colours a face: the colour's own, and the face's shade unless it faces the eye squarely. */
-export function fill(colour: string, face?: Face): string {
+export function fill(colour: string, face?: Face | "side"): string {
 	return `class="ps-yt-c-${colour}${face && face !== "front" ? ` ps-yt-f-${face}` : ""}"`;
 }
 
