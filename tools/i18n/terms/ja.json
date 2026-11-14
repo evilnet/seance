@@ -56,6 +56,11 @@
   "notification": {
     "term": "通知"
   },
+  "notice": {
+    "term": "NOTICE",
+    "note": "Kept as the IRC loanword, so it never reads as a push notification.",
+    "match": ["notice"]
+  },
   "ignore": {
     "term": "無視"
   }

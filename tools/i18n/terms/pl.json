@@ -64,6 +64,10 @@
     "term": "powiadomienie",
     "match": ["powiadomie"]
   },
+  "notice": {
+    "term": "notice",
+    "note": "Kept as the IRC loanword, so it never reads as a push notification."
+  },
   "ignore": {
     "term": "ignorować",
     "match": ["ignor"]

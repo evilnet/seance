@@ -60,6 +60,10 @@
   "notification": {
     "term": "إشعار"
   },
+  "notice": {
+    "term": "notice",
+    "note": "Kept as the IRC loanword, so it never reads as a push notification."
+  },
   "ignore": {
     "term": "تجاهل",
     "match": ["تجاهل", "متجاهل"]

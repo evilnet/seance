@@ -2173,7 +2173,7 @@ msgstr "Tarayıcı nedeni açıklamaz. Olası nedenler: sunucu kapalı, port yan
 #: client/js/irc/disconnect.ts
 msgctxt "disconnect.hint.registration"
 msgid "The WebSocket opened but the server dropped it before registration finished - check that this port really speaks IRC over WebSocket, and look for a server notice above for the reason."
-msgstr "WebSocket açıldı ancak sunucu kayıt tamamlanmadan bağlantıyı kesti - bu portun gerçekten WebSocket üzerinden IRC konuştuğunu kontrol et ve nedeni için yukarıdaki sunucu bildirimine bak."
+msgstr "WebSocket açıldı ancak sunucu kayıt tamamlanmadan bağlantıyı kesti - bu portun gerçekten WebSocket üzerinden IRC konuştuğunu kontrol et ve nedeni için yukarıdaki sunucu notice'ına bak."
 
 #. Follow-up hint when the server's close reason names a live session: retrying alone cannot fix it, the other client has to go.
 #: client/js/irc/disconnect.ts
@@ -4852,7 +4852,7 @@ msgstr "(makine çevirisi)"
 #: client/components/Message.vue
 msgctxt "message.noticeFrom"
 msgid "Notice:"
-msgstr "Bildirim:"
+msgstr "Notice:"
 
 #. Tooltip and aria-label of a one-tap reaction button on a chat message's toolbar. {reaction} is the emoji (or word) it sends.
 #: client/components/MessageActions.vue
@@ -4974,7 +4974,7 @@ msgstr "{nick} bir mesajı sildi ({reason})"
 #: client/js/irc/handlers/numerics.ts
 msgctxt "msg.snomask"
 msgid "Server notice mask: {value} (0x{hex})"
-msgstr "Sunucu bildirim maskesi (snomask): {value} (0x{hex})"
+msgstr "Sunucu notice maskesi (snomask): {value} (0x{hex})"
 
 #. System message when a user changes a channel's topic. Renders after the user's name (direction-isolated in <bdi>); the new topic is channel content and stays verbatim.
 #: client/components/MessageTypes/topic.vue
@@ -5454,8 +5454,8 @@ msgstr "Bu dönem için saklanan bir şey yok."
 msgctxt "oper.activity.foot"
 msgid "From the {count} notice kept since {since}."
 msgid_plural "From the {count} notices kept since {since}."
-msgstr[0] "{since} zamanından beri saklanan {count} bildirime göre."
-msgstr[1] "{since} zamanından beri saklanan {count} bildirime göre."
+msgstr[0] "{since} zamanından beri saklanan {count} notice'a göre."
+msgstr[1] "{since} zamanından beri saklanan {count} notice'a göre."
 
 #. Oper panel, Opers tab (what the network's IRC operators have been doing, rolled up from the kept server notices): small button that joins the services report channel. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/OperActivity.vue
@@ -6585,7 +6585,7 @@ msgstr "Hazır ayarlar"
 #: client/components/Oper/OperAlerts.vue
 msgctxt "oper.alerts.raw.sOff"
 msgid "Server notices are off (+s not set)."
-msgstr "Sunucu bildirimleri kapalı (+s ayarlı değil)."
+msgstr "Sunucu notice'ları kapalı (+s ayarlı değil)."
 
 #. Muted tag beside a server notice mask switch: this server has the feature that sends these notices switched off, so nothing arrives. Lower case, ≤ 15 characters.
 #: client/components/Oper/OperAlerts.vue
@@ -6714,7 +6714,7 @@ msgstr "takma ad"
 #: client/js/helpers/operFormat.ts
 msgctxt "oper.badge.notice"
 msgid "notice"
-msgstr "bildirim"
+msgstr "notice"
 
 #. Tiny lower-case badge before a server notice in chat (oper tools), naming its category; ≤ 10 characters, abbreviations welcome. A refused connection.
 #: client/js/helpers/operFormat.ts
@@ -9492,7 +9492,7 @@ msgstr "{nick}{server}, {channel} kanalında {modes} ayarladı"
 #: client/js/irc/profiles/noticeText.ts
 msgctxt "oper.kind.iauth.label"
 msgid "IAuth notices"
-msgstr "IAuth bildirimleri"
+msgstr "IAuth notice'ları"
 
 #. Name of a kind of IRC server notice in the oper tools: a row of the Alerts tab (under 'Everything else') and the header of the menu a notice's badge opens. Short, ≤ 40 characters, a name or short phrase (most are plural noun phrases).
 #: client/js/irc/profiles/noticeText.ts
@@ -10036,7 +10036,7 @@ msgstr "{host} için TLS sertifikası yüklendi"
 #: client/js/irc/profiles/noticeText.ts
 msgctxt "oper.kind.unknown.label"
 msgid "Unrecognised server notices"
-msgstr "Tanınmayan sunucu bildirimleri"
+msgstr "Tanınmayan sunucu notice'ları"
 
 #. Name of a kind of IRC server notice in the oper tools: a row of the Alerts tab (under 'Everything else') and the header of the menu a notice's badge opens. Short, ≤ 40 characters, a name or short phrase (most are plural noun phrases).
 #. Keep as is (IRC jargon): WALLOPS, opers.
@@ -10273,7 +10273,7 @@ msgstr "Özel mesajlar yalnızca bir hesaba oturum açmış kullanıcılardan."
 #: client/components/Oper/OperMe.vue
 msgctxt "oper.me.mode.WUpper"
 msgid "WHOIS notices"
-msgstr "WHOIS bildirimleri"
+msgstr "WHOIS notice'ları"
 
 #. Oper panel, Me tab: the explanation of a user mode, shown on hover and read by screen readers. One sentence. Mode +W (capital W). WHOIS and /whois are IRC command names. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/OperMe.vue
@@ -10357,19 +10357,19 @@ msgstr "Özel mesajlar ve davetler yalnızca ortak kanalda olduğun kullanıcıl
 #: client/components/Oper/OperMe.vue
 msgctxt "oper.me.mode.s"
 msgid "Server notices"
-msgstr "Sunucu bildirimleri"
+msgstr "Sunucu notice'ları"
 
 #. Oper panel, Me tab: the explanation of a user mode, shown on hover and read by screen readers. One sentence. Mode +s. 'Mask' is the snomask (jargon: which kinds of server notices you get). Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/OperMe.vue
 msgctxt "oper.me.mode.sHelp"
 msgid "Receive the server notices your mask selects."
-msgstr "Maskenin seçtiği sunucu bildirimlerini al."
+msgstr "Maskenin seçtiği sunucu notice'larını al."
 
 #. Oper panel, Me tab: the explanation of a user mode, shown on hover and read by screen readers. One sentence. Mode +s on servers other than nefarious2. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/OperMe.vue
 msgctxt "oper.me.mode.sHelpGeneric"
 msgid "Receive server notices."
-msgstr "Sunucu bildirimlerini al."
+msgstr "Sunucu notice'larını al."
 
 #. Oper panel, Me tab: a user-mode switch: the label next to the mode letter (+s, +w…; the letter is shown separately, never translated). Short. Mode +w. WALLOPS and WALLUSERS are IRC message types, keep them. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/components/Oper/OperMe.vue
@@ -11027,7 +11027,7 @@ msgstr "IAuth"
 #: client/js/irc/profiles/nefarious/snomask.ts
 msgctxt "oper.snomask.AUTH.stop"
 msgid "Stop receiving IAuth notices"
-msgstr "IAuth bildirimlerini almayı durdur"
+msgstr "IAuth notice'larını almayı durdur"
 
 #. Name of a server notice mask (snomask) bit, a family of IRC server notices the oper can switch on or off: a switch label in the oper panel's Alerts tab ('Raw mask and presets') and, in 'Stop receiving {name} notices', the family's name. Short, ≤ 30 characters.
 #. What it carries: Bans whose reason starts with AUTO (set by services and scripts).
@@ -11043,7 +11043,7 @@ msgstr "Otomatik banlar"
 #: client/js/irc/profiles/nefarious/snomask.ts
 msgctxt "oper.snomask.AUTO.stop"
 msgid "Stop receiving automatic ban notices"
-msgstr "Otomatik ban bildirimlerini almayı durdur"
+msgstr "Otomatik ban notice'larını almayı durdur"
 
 #. Name of a server notice mask (snomask) bit, a family of IRC server notices the oper can switch on or off: a switch label in the oper panel's Alerts tab ('Raw mask and presets') and, in 'Stop receiving {name} notices', the family's name. Short, ≤ 30 characters.
 #. What it carries: Every client connecting and leaving, network-wide.
@@ -11059,7 +11059,7 @@ msgstr "Bağlanmalar ve çıkışlar"
 #: client/js/irc/profiles/nefarious/snomask.ts
 msgctxt "oper.snomask.CONNEXIT.stop"
 msgid "Stop receiving connect and exit notices"
-msgstr "Bağlanma ve çıkış bildirimlerini almayı durdur"
+msgstr "Bağlanma ve çıkış notice'larını almayı durdur"
 
 #. Name of a server notice mask (snomask) bit, a family of IRC server notices the oper can switch on or off: a switch label in the oper panel's Alerts tab ('Raw mask and presets') and, in 'Stop receiving {name} notices', the family's name. Short, ≤ 30 characters.
 #. What it carries: Debug log lines. Only debug builds have it.
@@ -11075,7 +11075,7 @@ msgstr "Hata ayıklama"
 #: client/js/irc/profiles/nefarious/snomask.ts
 msgctxt "oper.snomask.DEBUG.stop"
 msgid "Stop receiving debug notices"
-msgstr "Hata ayıklama bildirimlerini almayı durdur"
+msgstr "Hata ayıklama notice'larını almayı durdur"
 
 #. Name of a server notice mask (snomask) bit, a family of IRC server notices the oper can switch on or off: a switch label in the oper panel's Alerts tab ('Raw mask and presets') and, in 'Stop receiving {name} notices', the family's name. Short, ≤ 30 characters.
 #. What it carries: G-lines, shuns, Z-lines and channel bans being added, changed and removed, every user they hit, temporary shuns and DNSBL blocks.
@@ -11091,7 +11091,7 @@ msgstr "Banlar"
 #: client/js/irc/profiles/nefarious/snomask.ts
 msgctxt "oper.snomask.GLINE.stop"
 msgid "Stop receiving ban notices"
-msgstr "Ban bildirimlerini almayı durdur"
+msgstr "Ban notice'larını almayı durdur"
 
 #. Name of a server notice mask (snomask) bit, a family of IRC server notices the oper can switch on or off: a switch label in the oper panel's Alerts tab ('Raw mask and presets') and, in 'Stop receiving {name} notices', the family's name. Short, ≤ 30 characters.
 #. What it carries: Bounced modes and kicks from users the server thinks are not ops.
@@ -11107,7 +11107,7 @@ msgstr "Desync'ler"
 #: client/js/irc/profiles/nefarious/snomask.ts
 msgctxt "oper.snomask.HACK2.stop"
 msgid "Stop receiving desyncs notices"
-msgstr "Desync bildirimlerini almayı durdur"
+msgstr "Desync notice'larını almayı durdur"
 
 #. Name of a server notice mask (snomask) bit, a family of IRC server notices the oper can switch on or off: a switch label in the oper panel's Alerts tab ('Raw mask and presets') and, in 'Stop receiving {name} notices', the family's name. Short, ≤ 30 characters.
 #. What it carries: Channel modes set by servers (BOUNCE or HACK(3)).
@@ -11123,7 +11123,7 @@ msgstr "Sunucu modları"
 #: client/js/irc/profiles/nefarious/snomask.ts
 msgctxt "oper.snomask.HACK3.stop"
 msgid "Stop receiving server modes notices"
-msgstr "Sunucu modu bildirimlerini almayı durdur"
+msgstr "Sunucu modu notice'larını almayı durdur"
 
 #. Name of a server notice mask (snomask) bit, a family of IRC server notices the oper can switch on or off: a switch label in the oper panel's Alerts tab ('Raw mask and presets') and, in 'Stop receiving {name} notices', the family's name. Short, ≤ 30 characters.
 #. What it carries: Modes and kicks by services and U-lined servers, OPMODE, CLEARMODE and oper join overrides. Busy wherever services set modes.
@@ -11139,7 +11139,7 @@ msgstr "Servisler ve OPMODE"
 #: client/js/irc/profiles/nefarious/snomask.ts
 msgctxt "oper.snomask.HACK4.stop"
 msgid "Stop receiving services and opmode notices"
-msgstr "Servis ve OPMODE bildirimlerini almayı durdur"
+msgstr "Servis ve OPMODE notice'larını almayı durdur"
 
 #. Name of a server notice mask (snomask) bit, a family of IRC server notices the oper can switch on or off: a switch label in the oper panel's Alerts tab ('Raw mask and presets') and, in 'Stop receiving {name} notices', the family's name. Short, ≤ 30 characters.
 #. What it carries: A client's reverse DNS that does not resolve back to its IP.
@@ -11155,7 +11155,7 @@ msgstr "IP uyuşmazlıkları"
 #: client/js/irc/profiles/nefarious/snomask.ts
 msgctxt "oper.snomask.IPMISMATCH.stop"
 msgid "Stop receiving IP mismatch notices"
-msgstr "IP uyuşmazlığı bildirimlerini almayı durdur"
+msgstr "IP uyuşmazlığı notice'larını almayı durdur"
 
 #. Name of a server notice mask (snomask) bit, a family of IRC server notices the oper can switch on or off: a switch label in the oper panel's Alerts tab ('Raw mask and presets') and, in 'Stop receiving {name} notices', the family's name. Short, ≤ 30 characters.
 #. What it carries: Net junctions and breaks, bursts, jupes, clock drift and IAuth log lines.
@@ -11171,7 +11171,7 @@ msgstr "Ağ"
 #: client/js/irc/profiles/nefarious/snomask.ts
 msgctxt "oper.snomask.NETWORK.stop"
 msgid "Stop receiving network notices"
-msgstr "Ağ bildirimlerini almayı durdur"
+msgstr "Ağ notice'larını almayı durdur"
 
 #. Name of a server notice mask (snomask) bit, a family of IRC server notices the oper can switch on or off: a switch label in the oper panel's Alerts tab ('Raw mask and presets') and, in 'Stop receiving {name} notices', the family's name. Short, ≤ 30 characters.
 #. What it carries: Every nick change, network-wide.
@@ -11187,7 +11187,7 @@ msgstr "Takma ad değişiklikleri"
 #: client/js/irc/profiles/nefarious/snomask.ts
 msgctxt "oper.snomask.NICKCHG.stop"
 msgid "Stop receiving nick change notices"
-msgstr "Takma ad değişikliği bildirimlerini almayı durdur"
+msgstr "Takma ad değişikliği notice'larını almayı durdur"
 
 #. Name of a server notice mask (snomask) bit, a family of IRC server notices the oper can switch on or off: a switch label in the oper panel's Alerts tab ('Raw mask and presets') and, in 'Stop receiving {name} notices', the family's name. Short, ≤ 30 characters.
 #. What it carries: Failed OPER attempts.
@@ -11203,7 +11203,7 @@ msgstr "Başarısız OPER"
 #: client/js/irc/profiles/nefarious/snomask.ts
 msgctxt "oper.snomask.OLDREALOP.stop"
 msgid "Stop receiving failed oper notices"
-msgstr "Başarısız OPER bildirimlerini almayı durdur"
+msgstr "Başarısız OPER notice'larını almayı durdur"
 
 #. Name of a server notice mask (snomask) bit, a family of IRC server notices the oper can switch on or off: a switch label in the oper panel's Alerts tab ('Raw mask and presets') and, in 'Stop receiving {name} notices', the family's name. Short, ≤ 30 characters.
 #. What it carries: Opers coming up, server links and SQUITs, rehashes and restarts, clock changes, nick collisions, bouncer and web push housekeeping, critical log lines.
@@ -11219,7 +11219,7 @@ msgstr "Sunucu olayları"
 #: client/js/irc/profiles/nefarious/snomask.ts
 msgctxt "oper.snomask.OLDSNO.stop"
 msgid "Stop receiving server event notices"
-msgstr "Sunucu olayı bildirimlerini almayı durdur"
+msgstr "Sunucu olayı notice'larını almayı durdur"
 
 #. Name of a server notice mask (snomask) bit, a family of IRC server notices the oper can switch on or off: a switch label in the oper panel's Alerts tab ('Raw mask and presets') and, in 'Stop receiving {name} notices', the family's name. Short, ≤ 30 characters.
 #. What it carries: KILLs issued by opers, and K-line hits.
@@ -11235,7 +11235,7 @@ msgstr "Oper kill'leri"
 #: client/js/irc/profiles/nefarious/snomask.ts
 msgctxt "oper.snomask.OPERKILL.stop"
 msgid "Stop receiving oper kill notices"
-msgstr "Oper kill bildirimlerini almayı durdur"
+msgstr "Oper kill notice'larını almayı durdur"
 
 #. Name of a server notice mask (snomask) bit, a family of IRC server notices the oper can switch on or off: a switch label in the oper panel's Alerts tab ('Raw mask and presets') and, in 'Stop receiving {name} notices', the family's name. Short, ≤ 30 characters.
 #. What it carries: KILLs issued by servers, mostly nick collisions.
@@ -11251,7 +11251,7 @@ msgstr "Sunucu kill'leri"
 #: client/js/irc/profiles/nefarious/snomask.ts
 msgctxt "oper.snomask.SERVKILL.stop"
 msgid "Stop receiving server kill notices"
-msgstr "Sunucu kill bildirimlerini almayı durdur"
+msgstr "Sunucu kill notice'larını almayı durdur"
 
 #. Name of a server notice mask (snomask) bit, a family of IRC server notices the oper can switch on or off: a switch label in the oper panel's Alerts tab ('Raw mask and presets') and, in 'Stop receiving {name} notices', the family's name. Short, ≤ 30 characters.
 #. What it carries: accept() failures and TLS handshake errors — scanners make a lot of these.
@@ -11267,7 +11267,7 @@ msgstr "Soket ve TLS hataları"
 #: client/js/irc/profiles/nefarious/snomask.ts
 msgctxt "oper.snomask.TCPCOMMON.stop"
 msgid "Stop receiving socket and TLS error notices"
-msgstr "Soket ve TLS hatası bildirimlerini almayı durdur"
+msgstr "Soket ve TLS hatası notice'larını almayı durdur"
 
 #. Name of a server notice mask (snomask) bit, a family of IRC server notices the oper can switch on or off: a switch label in the oper panel's Alerts tab ('Raw mask and presets') and, in 'Stop receiving {name} notices', the family's name. Short, ≤ 30 characters.
 #. What it carries: Host throttling. Nothing on this server sends on it.
@@ -11283,7 +11283,7 @@ msgstr "Kısıtlama"
 #: client/js/irc/profiles/nefarious/snomask.ts
 msgctxt "oper.snomask.THROTTLE.stop"
 msgid "Stop receiving throttling notices"
-msgstr "Kısıtlama bildirimlerini almayı durdur"
+msgstr "Kısıtlama notice'larını almayı durdur"
 
 #. Name of a server notice mask (snomask) bit, a family of IRC server notices the oper can switch on or off: a switch label in the oper panel's Alerts tab ('Raw mask and presets') and, in 'Stop receiving {name} notices', the family's name. Short, ≤ 30 characters.
 #. What it carries: A class or an IP over its connection limit (rate-limited by the server).
@@ -11299,7 +11299,7 @@ msgstr "Çok fazla bağlantı"
 #: client/js/irc/profiles/nefarious/snomask.ts
 msgctxt "oper.snomask.TOOMANY.stop"
 msgid "Stop receiving too-many-connections notices"
-msgstr "Çok fazla bağlantı bildirimlerini almayı durdur"
+msgstr "Çok fazla bağlantı notice'larını almayı durdur"
 
 #. Name of a server notice mask (snomask) bit, a family of IRC server notices the oper can switch on or off: a switch label in the oper panel's Alerts tab ('Raw mask and presets') and, in 'Stop receiving {name} notices', the family's name. Short, ≤ 30 characters.
 #. What it carries: Unauthorized connections and SASL-required rejections.
@@ -11315,7 +11315,7 @@ msgstr "Reddedilen bağlantılar"
 #: client/js/irc/profiles/nefarious/snomask.ts
 msgctxt "oper.snomask.UNAUTH.stop"
 msgid "Stop receiving refused connection notices"
-msgstr "Reddedilen bağlantı bildirimlerini almayı durdur"
+msgstr "Reddedilen bağlantı notice'larını almayı durdur"
 
 #. Name of a server notice mask (snomask) bit, a family of IRC server notices the oper can switch on or off: a switch label in the oper panel's Alerts tab ('Raw mask and presets') and, in 'Stop receiving {name} notices', the family's name. Short, ≤ 30 characters.
 #. What it carries: WebIRC gateways changing hosts and bad WEBIRC attempts. Also gets config parse errors, which the server sends on every bit but delivers only on the highest.
@@ -11331,14 +11331,14 @@ msgstr "WebIRC"
 #: client/js/irc/profiles/nefarious/snomask.ts
 msgctxt "oper.snomask.WEBIRC.stop"
 msgid "Stop receiving WebIRC notices"
-msgstr "WebIRC bildirimlerini almayı durdur"
+msgstr "WebIRC notice'larını almayı durdur"
 
 #. Menu item on a server notice's badge (oper tools) for a family of server notices without a name of its own: asks the server to stop sending it (clears its snomask bit). {name} is the family's name as the server profile gives it, verbatim. ≤ 50 characters.
 #. Keep as is: {name}.
 #: client/js/irc/profiles/nefarious/snomask.ts
 msgctxt "oper.snomask.stopOther"
 msgid "Stop receiving {name} notices"
-msgstr "{name} bildirimlerini almayı durdur"
+msgstr "{name} notice'larını almayı durdur"
 
 #. Tooltip on the server name at the end of a server notice that another server relayed to ours (oper tools). {server} is a server name, verbatim. Keep {server}.
 #: client/components/MessageTypes/snotice.vue

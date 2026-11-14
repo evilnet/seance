@@ -57,6 +57,10 @@
   "notification": {
     "term": "bildirim"
   },
+  "notice": {
+    "term": "notice",
+    "note": "Kept as the IRC loanword, so it never reads as a push notification."
+  },
   "ignore": {
     "term": "yok say"
   }
