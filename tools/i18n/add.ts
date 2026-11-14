@@ -1,23 +1,27 @@
 /* eslint-disable no-console */
 // npx tsx tools/i18n/add.ts <key> "<msgid>" [--plural "<msgid_plural>"]
 //   --context "<text>" (repeatable) --loc "<file:line>" (repeatable)
+//   [--distinct]
 //
 // Migration helper for the pot: upserts the entry (idempotent by key),
 // replacing the `#.` context lines with the given ones, merging the `#:`
 // loc lines, and writing the file back sorted by msgctxt. Never invents
 // translations — msgstr stays empty. An existing msgid that differs is
 // overwritten with a reminder to run merge.ts, so dependent .po files get
-// their `#, fuzzy` marks.
+// their `#, fuzzy` marks. --distinct marks the entry `#, distinct`: its
+// English is another key's too, on purpose, so reuse.ts neither copies that
+// key's translation into it nor flags it as a duplicate.
 
 import {existsSync, mkdirSync, readFileSync, writeFileSync} from "node:fs";
 import {dirname} from "node:path";
 import {parsePo, PoEntry, serializePo} from "./po";
 import {POT_PATH} from "./paths";
+import {DISTINCT_FLAG} from "./reuse";
 import {formatPluralForms, PLURAL_RULES, parsePluralForms} from "./plural";
 
 const USAGE =
 	'usage: npx tsx tools/i18n/add.ts <key> "<msgid>" [--plural "<msgid_plural>"] ' +
-	'--context "<text>" --loc "<file:line>"';
+	'--context "<text>" --loc "<file:line>" [--distinct]';
 
 export interface AddArgs {
 	/** Semantic key, in msgctxt position. */
@@ -28,6 +32,9 @@ export interface AddArgs {
 	context: string[];
 	/** `#:` loc lines; merged into the entry's. */
 	loc: string[];
+	/** Mark the entry `#, distinct` (reuse.ts DISTINCT_FLAG). Never cleared
+	 * here: drop the flag by hand when the keys should share a translation. */
+	distinct?: boolean;
 }
 
 export interface AddOutcome {
@@ -92,6 +99,10 @@ export function addToPot(potPath: string, args: AddArgs): AddOutcome {
 		entry.context = [...args.context];
 	}
 
+	if (args.distinct && !entry.flags.includes(DISTINCT_FLAG)) {
+		entry.flags.push(DISTINCT_FLAG);
+	}
+
 	for (const loc of args.loc) {
 		if (!entry.loc.includes(loc)) {
 			entry.loc.push(loc);
@@ -111,6 +122,7 @@ function parseArgs(argv: string[]): AddArgs {
 	const context: string[] = [];
 	const loc: string[] = [];
 	let plural: string | undefined;
+	let distinct = false;
 
 	for (let i = 0; i < argv.length; i++) {
 		const arg = argv[i];
@@ -137,6 +149,8 @@ function parseArgs(argv: string[]): AddArgs {
 
 			loc.push(value);
 			i++;
+		} else if (arg === "--distinct") {
+			distinct = true;
 		} else if (arg.startsWith("--")) {
 			throw new Error(`add: unknown option ${arg}`);
 		} else {
@@ -150,7 +164,7 @@ function parseArgs(argv: string[]): AddArgs {
 		throw new Error(USAGE);
 	}
 
-	return {key, msgid, plural, context, loc};
+	return {key, msgid, plural, context, loc, distinct};
 }
 
 function main(): void {

@@ -53,6 +53,21 @@ jobs:
       - name: Type check
         run: make web-typecheck
 
+      # Advisory: a pot key this pull request adds or rewords whose English
+      # another key already has (or nearly has) gets a warning on its line,
+      # naming the keys to reuse. A pull request checks out its merge commit,
+      # so comparing it with the base branch's tip shows only its own keys.
+      # Never fails the job: `#, distinct` on the entry says the second key
+      # is meant (tools/i18n/reuse.ts, docs/resources/i18n.md).
+      - name: Repeated English in new translation keys
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          pnpm exec tsx tools/i18n/reuse.ts --new-keys FETCH_HEAD
+
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 20
