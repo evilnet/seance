@@ -8,6 +8,7 @@ import {
 	isBouncerControl,
 	isNetworkId,
 	networksToAdd,
+	sameBouncerAccount,
 	type BouncerNetwork,
 } from "../../client/js/irc/bouncer";
 import {setup, register, Harness} from "./support";
@@ -692,6 +693,27 @@ describe("Bouncers: following a rename on the bouncer (followRename)", function 
 
 	it("changes nothing for the same name", function () {
 		expect(followRename({name: "Up2", bouncerName: "Up2"}, "Up2")).to.equal(undefined);
+	});
+});
+
+describe("Bouncers: one bouncer account (sameBouncerAccount)", function () {
+	const control = {host: "soju.a", port: 6697, tls: true, saslAccount: "alice"};
+
+	it("is the same account where it connects and logs in alike", function () {
+		expect(sameBouncerAccount(control, {...control})).to.equal(true);
+		expect(
+			sameBouncerAccount({...control, saslAccount: ""}, {...control, saslAccount: undefined})
+		).to.equal(true);
+	});
+
+	it("is another account on another host, port, TLS or login", function () {
+		// An edit saved while the old connection is still up (it applies on
+		// reconnect): a list heard there must not pair the edited entry with
+		// the old connection's passwords (manager.ts addBouncerNetworks).
+		expect(sameBouncerAccount(control, {...control, host: "soju.b"})).to.equal(false);
+		expect(sameBouncerAccount(control, {...control, port: 6667})).to.equal(false);
+		expect(sameBouncerAccount(control, {...control, tls: false})).to.equal(false);
+		expect(sameBouncerAccount(control, {...control, saslAccount: "bob"})).to.equal(false);
 	});
 });
 

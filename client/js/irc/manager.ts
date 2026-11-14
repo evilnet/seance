@@ -29,7 +29,14 @@ import {leavesAwayToWorker, syncPresence} from "./presence";
 import {claimMute, clearRemoteDnd} from "./pushMute";
 import * as saved from "./saved-networks";
 import type {SavedNetwork} from "./saved-networks";
-import {BOUNCER_SEEN_MAX, followRename, networksToAdd, type BouncerNetwork} from "./bouncer";
+import {
+	BOUNCER_SEEN_MAX,
+	followRename,
+	networksToAdd,
+	sameBouncerAccount,
+	type BouncerLogin,
+	type BouncerNetwork,
+} from "./bouncer";
 import type {ConnectOptions} from "./types";
 import type {GlobalModeState} from "../helpers/dnd";
 import {shellBridge} from "../helpers/shell";
@@ -270,29 +277,24 @@ function addBouncerNetworks(
 	const control = saved.get(controlUuid);
 	const live = clients.get(controlUuid);
 
-	if (!control || !live) {
+	// An edit saved while this connection is still up (it applies at the
+	// reconnect) points the entry at another server or login: the list is
+	// this connection's, and its passwords must not go with the edited entry.
+	// Nothing is offered or marked seen; the reconnect lists again.
+	if (!control || !live || !sameBouncerAccount(control, live.options)) {
 		return {added: [], over: []};
 	}
 
-	const sameBouncer = (other: SavedNetwork): boolean =>
-		other.host === control.host && other.port === control.port && other.tls === control.tls;
-	const bound = saved
-		.list()
-		.filter(
-			(other) =>
-				sameBouncer(other) &&
-				other.bouncerNetId !== undefined &&
-				other.saslAccount === control.saslAccount
-		);
+	const bound = boundEntries(live.options);
 	// Bound here before, or added by hand the soju way (`alice/libera`).
 	const have = (net: BouncerNetwork): boolean =>
 		bound.some((other) => other.bouncerNetId === net.id) ||
-		saved
-			.list()
-			.some(
-				(other) =>
-					sameBouncer(other) && other.saslAccount === `${control.saslAccount}/${net.name}`
-			);
+		saved.list().some((other) =>
+			sameBouncerAccount(other, {
+				...control,
+				saslAccount: `${control.saslAccount}/${net.name}`,
+			})
+		);
 	const seen = control.bouncerSeen ?? [];
 	const plan = networksToAdd(networks, new Set(seen), have, bound.length);
 	const over = plan.over.map((net) => net.name);
@@ -340,23 +342,24 @@ function addBouncerNetworks(
  * lobby). The entry stays for the user to remove.
  */
 function bouncerNetworkRemoved(controlUuid: string, id: string): void {
-	const control = saved.get(controlUuid);
+	const live = clients.get(controlUuid);
 
-	if (!control) {
-		return;
-	}
-
-	for (const other of saved.list()) {
-		if (
-			other.bouncerNetId === id &&
-			other.host === control.host &&
-			other.port === control.port &&
-			other.tls === control.tls &&
-			other.saslAccount === control.saslAccount
-		) {
+	for (const other of live ? boundEntries(live.options) : []) {
+		if (other.bouncerNetId === id) {
 			stopAutoconnect(other.uuid);
 		}
 	}
+}
+
+/**
+ * The entries bound to the networks of the bouncer account a control
+ * connection logged in to (its live options, not its saved entry, which an
+ * edit may have pointed elsewhere until the reconnect).
+ */
+function boundEntries(account: BouncerLogin): SavedNetwork[] {
+	return saved
+		.list()
+		.filter((other) => other.bouncerNetId !== undefined && sameBouncerAccount(other, account));
 }
 
 /**
@@ -366,20 +369,10 @@ function bouncerNetworkRemoved(controlUuid: string, id: string): void {
  * followed, and one the user made here is kept.
  */
 function bouncerNetworkRenamed(controlUuid: string, id: string, name: string): void {
-	const control = saved.get(controlUuid);
+	const live = clients.get(controlUuid);
 
-	if (!control) {
-		return;
-	}
-
-	for (const other of saved.list()) {
-		if (
-			other.bouncerNetId !== id ||
-			other.host !== control.host ||
-			other.port !== control.port ||
-			other.tls !== control.tls ||
-			other.saslAccount !== control.saslAccount
-		) {
+	for (const other of live ? boundEntries(live.options) : []) {
+		if (other.bouncerNetId !== id) {
 			continue;
 		}
 

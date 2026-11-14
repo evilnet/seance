@@ -201,6 +201,29 @@ export interface NetworksPlan {
 	over: BouncerNetwork[];
 }
 
+/** Where an entry connects and as whom: what makes it one bouncer account. */
+export interface BouncerLogin {
+	host: string;
+	port: number;
+	tls: boolean;
+	saslAccount?: string;
+}
+
+/**
+ * Two entries (or an entry and a live connection's options) are the same
+ * bouncer account. The manager's bound entries are the ones of the control
+ * connection's account; an edit saved while the old connection is still up
+ * makes the saved entry another account until the reconnect applies it.
+ */
+export function sameBouncerAccount(a: BouncerLogin, b: BouncerLogin): boolean {
+	return (
+		a.host === b.host &&
+		a.port === b.port &&
+		a.tls === b.tls &&
+		(a.saslAccount ?? "") === (b.saslAccount ?? "")
+	);
+}
+
 /**
  * Which of the listed networks to add: each one not offered before
  * (`seen`) and not already a saved network (`have`), while fewer than
