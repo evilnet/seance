@@ -1,6 +1,7 @@
 import {expect} from "chai";
 import {
 	AFTERNET_MT_HOST,
+	AFTERNET_MT_REPOS,
 	DEFAULT_LLM_ID,
 	DEFAULT_NLLB_ID,
 	LLM_CHOICES,
@@ -65,8 +66,11 @@ describe("translate/models", () => {
 			const into = catalog.opus[`en-${code}`];
 			const from = catalog.opus[`${code}-en`];
 
-			expect(into.copies.cpu?.source, code).to.equal(`seance-mt/marian-${code}`);
-			expect(from.copies.cpu?.source, code).to.equal(`seance-mt/marian-${code}`);
+			expect(into.copies.cpu?.source, code).to.equal(AFTERNET_MT_REPOS[code]);
+			expect(from.copies.cpu?.source, code).to.equal(AFTERNET_MT_REPOS[code]);
+			expect(AFTERNET_MT_REPOS[code], code).to.match(
+				new RegExp(`^seance-mt/marian-${code}(-r\\d+)?$`)
+			);
 			expect(into.copies.cpu?.host, code).to.equal(AFTERNET_MT_HOST);
 			expect(into.label).to.deep.equal({
 				kind: "opus",
