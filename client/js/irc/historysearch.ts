@@ -373,7 +373,7 @@ function askNext(client: IrcClient, group: SearchGroup): void {
 		{kind: "results", requestId: group.requestId, attrs: part, group},
 		true,
 		"SEARCH",
-		client.profile.searchParams?.(part) ?? specSearchParams(part),
+		specSearchParams(part),
 		// A bouncer answers SEARCH from its own store: no ircd charges for it.
 		!client.behindBouncer
 	);
