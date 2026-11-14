@@ -12,6 +12,7 @@
  * (`ps-yt-lit`). The windows' weather is a slot (`.ps-yt-weather`) the scene
  * fills for the day (task 5). Pure and Vue-free: mocha loads it directly.
  */
+import {WEATHERS, type Weather} from "./engine";
 import type {RoomColour} from "./indoor";
 import {
 	abox,
@@ -957,6 +958,145 @@ function curtainOutline(m: number): Array<[number, number]> {
 	return l.map(([s, t]) => [s * m, t]);
 }
 
+/** The back window's pane, projected. */
+function backPane(): Quad {
+	return (
+		[
+			[-WX + FR, WY0 + FR],
+			[WX - FR, WY0 + FR],
+			[WX - FR, WY1 - FR],
+			[-WX + FR, WY1 - FR],
+		] as const
+	).map(([s, t]) => project([s, t, ZW]));
+}
+
+/** A side window's pane, projected: 1.06 m wide, from 1.07 m to 1.78 m. */
+function sidePane(fr: Frame): Quad {
+	return (
+		[
+			[-0.528, 1.07],
+			[0.528, 1.07],
+			[0.528, 1.78],
+			[-0.528, 1.78],
+		] as const
+	).map(([a, c]) => project(fr.pt(a, 0.03, c)));
+}
+
+/** The panes the weather shows in: the back window's, and each side window's while it is in front of the eye. */
+function windowPanes(): Array<{clip: string; inner: Quad}> {
+	const out = [{clip: WINDOW_CLIPS[0] as string, inner: backPane()}];
+
+	SIDE_WINDOWS.forEach((th, i) => {
+		const fr = wallFrame(th);
+
+		if ([-0.6, 0.6].some((a) => [1.0, 1.85].some((c) => depthOf(fr.pt(a, 0.03, c)) < NEAR))) {
+			return;
+		}
+
+		out.push({clip: WINDOW_CLIPS[i + 1], inner: sidePane(fr)});
+	});
+
+	return out;
+}
+
+/** A cloud in the plains' own cloud colour. */
+function cloud(x: number, y: number, k: number, style = "fill: var(--ps-cloud)"): string {
+	return `<g class="ps-yt-cloud" style="${style}" transform="translate(${n(x)},${n(y)}) scale(${
+		Math.round(k * 100) / 100
+	})"><ellipse cx="0" cy="4" rx="22" ry="6"/><ellipse cx="-8" cy="0" rx="9" ry="7"/><ellipse cx="5" cy="-2" rx="11" ry="9"/><ellipse cx="15" cy="2" rx="8" ry="6"/></g>`;
+}
+
+/** How many clouds the back window shows in each fair weather. */
+const FAIR_CLOUDS: Partial<Record<Weather, number>> = {clear: 2, wind: 4, heat: 1};
+
+/**
+ * The day's weather in the windows (docs/projects/ps-yurt.md §7), still: the
+ * contents of `.ps-yt-weather`, rebuilt when the day's weather changes. Each
+ * window is veiled as the plains are on a wet day (their own --ps-veil);
+ * counts are the back window's, scaled by each window's width and halved on a
+ * phone, from fixed seeds so every device draws the same.
+ */
+export function windowWeather(weather: Weather, phone: boolean): string {
+	const panes = windowPanes();
+	const backWidth = bbox(panes[0].inner).w;
+	let out = `<g data-weather="${weather}">`;
+
+	panes.forEach((pane, i) => {
+		const {x: ix, y: iy, w: iw, h: ih} = bbox(pane.inner);
+		const r = rng(211 + i * 17 + WEATHERS.indexOf(weather) * 101);
+		const count = (k: number) =>
+			Math.max(1, Math.round(k * (iw / backWidth) * (phone ? 0.5 : 1)));
+		let s = `<g clip-path="url(#${pane.clip})">`;
+		s += `<rect x="${n(ix)}" y="${n(iy)}" width="${n(iw)}" height="${n(
+			ih
+		)}" style="fill: var(--ps-veil-c); opacity: var(--ps-veil)"/>`;
+		const fair = FAIR_CLOUDS[weather];
+
+		if (fair !== undefined) {
+			for (let k = 0; k < count(fair); k++) {
+				s += cloud(
+					ix + iw * (0.15 + 0.7 * r()),
+					iy + ih * (0.1 + 0.25 * r()),
+					(0.55 + 0.35 * r()) * (iw / backWidth) ** 0.3
+				);
+			}
+		} else {
+			const deck =
+				weather === "storm"
+					? "color-mix(in oklab, var(--ps-cloud), #000 30%)"
+					: weather === "rain"
+					? "color-mix(in oklab, var(--ps-cloud), #000 10%)"
+					: "color-mix(in oklab, var(--ps-cloud), #fff 30%)";
+			s += `<rect class="ps-yt-deck" x="${n(ix)}" y="${n(iy)}" width="${n(iw)}" height="${n(
+				ih * 0.4
+			)}" style="fill: ${deck}" opacity=".85"/>`;
+			s +=
+				cloud(ix + iw * 0.25, iy + ih * 0.32, 1.3, `fill: ${deck}`) +
+				cloud(ix + iw * 0.7, iy + ih * 0.36, 1.5, `fill: ${deck}`);
+		}
+
+		if (weather === "rain" || weather === "storm") {
+			for (let k = 0; k < count(weather === "storm" ? 60 : 34); k++) {
+				const x = ix + r() * (iw + 10);
+				const y = iy + r() * ih;
+				s += `<line class="ps-yt-rain" x1="${n(x)}" y1="${n(y)}" x2="${n(x - 3)}" y2="${n(
+					y + 9
+				)}" style="stroke: color-mix(in oklab, var(--ps-sky-hor), #fff 45%)" stroke-width="1" opacity=".6"/>`;
+			}
+
+			for (let k = 0; k < count(14); k++) {
+				s += `<circle class="ps-yt-drop ps-yt-lit" cx="${n(
+					ix + 4 + r() * (iw - 8)
+				)}" cy="${n(iy + 4 + r() * (ih - 8))}" r="${n(
+					1 + r() * 1.2
+				)}" fill="#ffffff" opacity=".32"/>`;
+			}
+		}
+
+		if (weather === "snow") {
+			for (let k = 0; k < count(44); k++) {
+				s += `<circle class="ps-yt-flake" cx="${n(ix + r() * iw)}" cy="${n(
+					iy + r() * ih
+				)}" r="${n(
+					0.7 + r() * 1.2
+				)}" style="fill: color-mix(in oklab, var(--ps-cloud), #fff 60%)"/>`;
+			}
+
+			s += `<path class="ps-yt-drift" style="fill: color-mix(in oklab, var(--ps-cloud), #fff 70%)" d="M${n(
+				ix
+			)},${n(iy + ih)} L${n(ix)},${n(iy + ih - 5)} Q${n(ix + iw * 0.2)},${n(iy + ih - 9)} ${n(
+				ix + iw * 0.42
+			)},${n(iy + ih - 6)} Q${n(ix + iw * 0.7)},${n(iy + ih - 3)} ${n(ix + iw)},${n(
+				iy + ih - 8
+			)} L${n(ix + iw)},${n(iy + ih)} Z"/>`;
+		}
+
+		out += s + `</g>`;
+	});
+
+	return out + `</g>`;
+}
+
 /** The room, as the page shows it. */
 export function roomMarkup(): string {
 	// The walls and the roof.
@@ -1031,14 +1171,7 @@ export function roomMarkup(): string {
 	// The windows: the wide back one with curtains, and one on each side.
 	const W = surface((s, t) => [s, t, ZW]);
 	const Cp = surface((s, t) => [s, t, ZW - 0.05]);
-	const backInner: Quad = (
-		[
-			[-WX + FR, WY0 + FR],
-			[WX - FR, WY0 + FR],
-			[WX - FR, WY1 - FR],
-			[-WX + FR, WY1 - FR],
-		] as const
-	).map(([s, t]) => project([s, t, ZW]));
+	const backInner = backPane();
 	const backOuter: Quad = (
 		[
 			[-WX, WY0],
@@ -1128,9 +1261,7 @@ export function roomMarkup(): string {
 			return;
 		}
 
-		const innerQ: Quad = corners.map(([a, c]) =>
-			project(fr.pt(a * 0.88, 0.03, c + (c < 1.4 ? 0.07 : -0.07)))
-		);
+		const innerQ = sidePane(fr);
 		const outer: Quad = corners.map(([a, c]) => project(fr.pt(a, 0.03, c)));
 		views.push({inner: innerQ, clip: WINDOW_CLIPS[i + 1], side: true, seed: 101 + i});
 		sideWindows += piece(
@@ -1456,6 +1587,7 @@ export function roomMarkup(): string {
 			"crown",
 			poly3(circle3(0, CROWN_H, 0, CROWN_R + 0.1), cls("crown")) +
 				`<polygon points="${openingPts}" style="fill: color-mix(in oklab, var(--ps-sky-top), var(--ps-sky-mid) 35%)"/>` +
+				`<polygon points="${openingPts}" style="fill: var(--ps-veil-c); opacity: var(--ps-veil)"/>` +
 				`<g clip-path="url(#ps-yt-crown)"><g class="ps-yt-star">${crownStars}</g>${ribs}</g>` +
 				poly3(
 					circle3(0, CROWN_H, 0, CROWN_R - 0.03),

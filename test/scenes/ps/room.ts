@@ -1,5 +1,11 @@
 import {expect} from "chai";
-import {ROOM_PIECES, roomMarkup, WINDOW_CLIPS} from "../../../client/js/scenes/ps/room";
+import {WEATHERS} from "../../../client/js/scenes/ps/engine";
+import {
+	ROOM_PIECES,
+	roomMarkup,
+	WINDOW_CLIPS,
+	windowWeather,
+} from "../../../client/js/scenes/ps/room";
 
 describe("ps yurt: the room's markup (room.ts, docs/projects/ps-yurt.md §5)", function () {
 	const markup = roomMarkup();
@@ -39,5 +45,36 @@ describe("ps yurt: the room's markup (room.ts, docs/projects/ps-yurt.md §5)", f
 
 	it("stays a reasonable size", function () {
 		expect(markup.length).to.be.below(350_000);
+	});
+
+	describe("the windows' weather (docs/projects/ps-yurt.md §7)", function () {
+		for (const w of WEATHERS) {
+			it(`shows ${w} in the windows, the same on every call`, function () {
+				const s = windowWeather(w, false);
+				expect(s).to.contain(`data-weather="${w}"`);
+				expect(windowWeather(w, false)).to.equal(s);
+				expect(s).to.not.match(/<(animate|set)\b/);
+			});
+		}
+
+		it("draws each weather's own marks", function () {
+			const count = (s: string, c: string) =>
+				(s.match(new RegExp(`class="[^"]*\\b${c}\\b`, "g")) ?? []).length;
+			expect(count(windowWeather("clear", false), "ps-yt-cloud")).to.be.at.least(2);
+			expect(count(windowWeather("rain", false), "ps-yt-rain")).to.be.greaterThan(
+				count(windowWeather("rain", true), "ps-yt-rain")
+			);
+			expect(count(windowWeather("snow", false), "ps-yt-drift")).to.equal(3);
+			expect(count(windowWeather("storm", false), "ps-yt-rain")).to.be.greaterThan(
+				count(windowWeather("rain", false), "ps-yt-rain")
+			);
+			expect(windowWeather("heat", false)).to.not.contain("ps-yt-deck");
+		});
+
+		it("clips only to windows the room defines", function () {
+			for (const ref of windowWeather("storm", false).matchAll(/url\(#([^)]+)\)/g)) {
+				expect(WINDOW_CLIPS as readonly string[]).to.include(ref[1]);
+			}
+		});
 	});
 });
