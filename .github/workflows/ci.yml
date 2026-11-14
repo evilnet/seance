@@ -53,20 +53,39 @@ jobs:
       - name: Type check
         run: make web-typecheck
 
-      # Advisory: a pot key this pull request adds or rewords whose English
-      # another key already has (or nearly has) gets a warning on its line,
-      # naming the keys to reuse. A pull request checks out its merge commit,
-      # so comparing it with the base branch's tip shows only its own keys.
-      # Never fails the job: `#, distinct` on the entry says the second key
-      # is meant (tools/i18n/reuse.ts, docs/resources/i18n.md).
+  # Advisory: a pot key this pull request adds or rewords whose English
+  # another key already has (or nearly has) gets a warning on its line,
+  # naming the keys to reuse; the job summary lists them all. Its own job,
+  # so a lint or type failure does not hide it, and compared with the
+  # pull request's base commit (not the base branch, which may have moved
+  # since the merge commit was made). Never fails: `#, distinct` on the
+  # entry says the second key is meant (tools/i18n/reuse.ts,
+  # docs/resources/i18n.md).
+  translation-keys:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: ".node-version"
+
+      - name: Install pnpm
+        run: npm install --global "$(node -p 'require("./package.json").packageManager')"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Repeated English in new translation keys
-        if: github.event_name == 'pull_request'
-        continue-on-error: true
         env:
-          BASE_REF: ${{ github.base_ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          git fetch --no-tags --depth=1 origin "$BASE_REF"
-          pnpm exec tsx tools/i18n/reuse.ts --new-keys FETCH_HEAD
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          pnpm exec tsx tools/i18n/reuse.ts --new-keys "$BASE_SHA"
 
   check:
     runs-on: ubuntu-latest

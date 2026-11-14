@@ -26,9 +26,10 @@ import {execFileSync} from "node:child_process";
 import {appendFileSync, existsSync, readFileSync, writeFileSync} from "node:fs";
 import {relative, resolve} from "node:path";
 import {pathToFileURL} from "node:url";
-import {parsePo, PoEntry, serializePo} from "./po";
+import {parsePo, PoEntry, serializePo, unquote} from "./po";
 import {LOCALES_DIR, POT_PATH} from "./paths";
-import {slotVerdict} from "./quality";
+import {PLURAL_RULES, parsePluralForms, PluralRule} from "./plural";
+import {slotsToEmpty} from "./sweep";
 import {NAME_TO_TAG, TARGETS_SOURCE} from "./targets";
 
 /** The pot flag that marks a key as deliberately separate from the other
@@ -51,10 +52,12 @@ export function sourceOf(entry: PoEntry): string {
 }
 
 /**
- * The English folded for a near match: case, surrounding space, and one
- * trailing period, colon or ellipsis ("Edit…", "Saved.", "Nick:") do not
- * make a new phrase. A question mark or an exclamation does, and so does
- * anything inside the string.
+ * The English folded for a near match: letter case outside `{placeholders}`,
+ * runs of white space, and one trailing period, colon or ellipsis ("Edit…",
+ * "Saved.", "Nick:") do not make a new phrase. A placeholder keeps its
+ * exact name ({channel} is not {Channel}); a question mark, an exclamation
+ * and any other character stay as they are. Only suggestions use this:
+ * --fill matches the English exactly.
  */
 export function foldEnglish(text: string): string {
 	return text
@@ -63,7 +66,9 @@ export function foldEnglish(text: string): string {
 		.trim()
 		.replace(/(?:\.\.\.|…|[.:])$/u, "")
 		.trim()
-		.toLocaleLowerCase("en");
+		.split(/(\{[^{}]*\})/)
+		.map((part, index) => (index % 2 === 1 ? part : part.toLocaleLowerCase("en")))
+		.join("");
 }
 
 function foldedSourceOf(entry: PoEntry): string {
@@ -113,10 +118,24 @@ export interface ReusePlan {
  * an entry with every slot empty and no fuzzy mark (a fuzzy entry is stale
  * and wants a person); a source is a different key with the same English,
  * translated in full and not fuzzy, that is not itself marked distinct.
- * A singular copy must also pass the sweep's verdict for its own English,
- * so the fill never writes what sweep.ts would empty.
+ * Donor and copy alike must pass sweep.ts's own judgement (slotsToEmpty,
+ * every slot against the English that slot translates), so the fill never
+ * writes what the sweep would empty, and a donor the sweep would empty
+ * neither donates nor makes a group look ambiguous. A plural copy must
+ * have the catalog's number of forms.
  */
-export function planReuse(pot: PoEntry[], po: PoEntry[], tag: string): ReusePlan {
+export function planReuse(
+	pot: PoEntry[],
+	po: PoEntry[],
+	tag: string,
+	rule: PluralRule | undefined = PLURAL_RULES[tag]
+): ReusePlan {
+	if (!rule) {
+		throw new Error(`reuse: no plural rule for ${tag}`);
+	}
+
+	const sound = (entry: PoEntry, msgstr: string[]) =>
+		slotsToEmpty({...entry, msgstr}, rule, tag).length === 0;
 	const distinct = new Set(
 		pot.filter((entry) => entry.flags.includes(DISTINCT_FLAG)).map((entry) => entry.msgctxt)
 	);
@@ -134,7 +153,9 @@ export function planReuse(pot: PoEntry[], po: PoEntry[], tag: string): ReusePlan
 			!potEntry ||
 			sourceOf(potEntry) !== sourceOf(entry) ||
 			distinct.has(entry.msgctxt) ||
-			!translated(entry)
+			!translated(entry) ||
+			(!entry.msgid && entry.msgidPlural === undefined) ||
+			!sound(potEntry, entry.msgstr)
 		) {
 			continue;
 		}
@@ -180,11 +201,16 @@ export function planReuse(pot: PoEntry[], po: PoEntry[], tag: string): ReusePlan
 
 		const msgstr = texts[0].split("\u0000");
 
-		if (msgstr.length !== entry.msgstr.length) {
-			continue; // a plural shaped for another rule; merge.ts reshapes it
+		// A copy has the target's shape: one slot, or the catalog's number of
+		// plural forms (a donor or target shaped for another rule is left
+		// for a person; merge.ts keeps whatever slots an entry already has).
+		const forms = potEntry.msgidPlural === undefined ? 1 : rule.nplurals;
+
+		if (msgstr.length !== forms || entry.msgstr.length !== forms) {
+			continue;
 		}
 
-		if (potEntry.msgidPlural === undefined && slotVerdict(tag, potEntry.msgid, msgstr[0])) {
+		if (!sound(potEntry, msgstr)) {
 			continue;
 		}
 
@@ -264,8 +290,11 @@ export interface NewKeyFinding {
 	/** "duplicate": another key has this exact English; "near": the same
 	 * English but for case or a trailing period, colon or ellipsis. */
 	kind: "duplicate" | "near";
-	/** The other keys, `common.*` first. */
+	/** The other keys to reuse, `common.*` first. */
 	others: string[];
+	/** Keys with the same English that are marked distinct: they keep a
+	 * translation of their own, so they are context, not a key to reuse. */
+	distinct: string[];
 }
 
 /** Keys in `head` that are new since `base`, or whose English changed. */
@@ -287,6 +316,13 @@ const commonFirst = (a: string, b: string) => {
  * two new keys with one English are reported both ways.
  */
 export function newKeyFindings(base: PoEntry[], head: PoEntry[]): NewKeyFinding[] {
+	const marked = new Set(
+		head.filter((entry) => entry.flags.includes(DISTINCT_FLAG)).map((entry) => entry.msgctxt)
+	);
+	const split = (keys: string[]) => ({
+		others: keys.filter((key) => !marked.has(key)).sort(commonFirst),
+		distinct: keys.filter((key) => marked.has(key)).sort(commonFirst),
+	});
 	const exact = new Map<string, string[]>();
 	const near = new Map<string, string[]>();
 
@@ -317,12 +353,7 @@ export function newKeyFindings(base: PoEntry[], head: PoEntry[]): NewKeyFinding[
 		const same = (exact.get(sourceOf(entry)) ?? []).filter((key) => key !== entry.msgctxt);
 
 		if (same.length > 0) {
-			findings.push({
-				key: entry.msgctxt,
-				english,
-				kind: "duplicate",
-				others: same.sort(commonFirst),
-			});
+			findings.push({key: entry.msgctxt, english, kind: "duplicate", ...split(same)});
 			continue;
 		}
 
@@ -331,23 +362,46 @@ export function newKeyFindings(base: PoEntry[], head: PoEntry[]): NewKeyFinding[
 		);
 
 		if (close.length > 0) {
-			findings.push({
-				key: entry.msgctxt,
-				english,
-				kind: "near",
-				others: close.sort(commonFirst),
-			});
+			findings.push({key: entry.msgctxt, english, kind: "near", ...split(close)});
 		}
 	}
 
 	return findings;
 }
 
-/** The 1-based line of `msgctxt "<key>"` in a po/pot text, for annotations. */
+/**
+ * The 1-based line where `key`'s msgctxt starts in a po/pot text, for an
+ * annotation; 0 when it is not found (the caller then names no line). A
+ * msgctxt continued over several string lines and CRLF line ends count.
+ */
 export function lineOfKey(text: string, key: string): number {
-	const needle = `msgctxt ${JSON.stringify(key)}`;
-	const index = text.split("\n").findIndex((line) => line === needle);
-	return index + 1;
+	const lines = text.split(/\r?\n/);
+
+	for (let i = 0; i < lines.length; i++) {
+		const match = /^msgctxt\s+"(.*)"\s*$/.exec(lines[i]);
+
+		if (!match) {
+			continue;
+		}
+
+		let value = unquote(match[1]);
+
+		for (let j = i + 1; j < lines.length; j++) {
+			const more = /^\s*"(.*)"\s*$/.exec(lines[j]);
+
+			if (!more) {
+				break;
+			}
+
+			value += unquote(more[1]);
+		}
+
+		if (value === key) {
+			return i + 1;
+		}
+	}
+
+	return 0;
 }
 
 /** GitHub's workflow-command escaping for a message and a property value. */
@@ -359,25 +413,42 @@ function escapeProperty(text: string): string {
 	return escapeData(text).replace(/:/g, "%3A").replace(/,/g, "%2C");
 }
 
-export function describeFinding(finding: NewKeyFinding, others: PoEntry[]): string {
-	const shown = finding.others.slice(0, 5);
-	const more = finding.others.length - shown.length;
-	const list = shown.join(", ") + (more > 0 ? ` and ${more} more` : "");
+export function describeFinding(finding: NewKeyFinding, entries: PoEntry[]): string {
 	const english = JSON.stringify(finding.english);
-	const theirs =
-		finding.kind === "near"
-			? ` (${[
-					...new Set(
-						shown.map((key) =>
-							JSON.stringify(others.find((e) => e.msgctxt === key)?.msgid ?? "")
-						)
-					),
-			  ].join(", ")})`
-			: "";
+	const named = (keys: string[]) => {
+		const shown = keys.slice(0, 5);
+		const more = keys.length - shown.length;
+		const texts =
+			finding.kind === "near"
+				? ` (${[
+						...new Set(
+							shown.map((key) =>
+								JSON.stringify(entries.find((e) => e.msgctxt === key)?.msgid ?? "")
+							)
+						),
+				  ].join(", ")})`
+				: "";
+		return shown.join(", ") + (more > 0 ? ` and ${more} more` : "") + texts;
+	};
 	const verb = finding.kind === "duplicate" ? "is already" : "nearly matches";
+	const mark = `mark this entry "#, ${DISTINCT_FLAG}" (add.ts --distinct)`;
+
+	if (finding.others.length === 0) {
+		return (
+			`${finding.key}: ${english} ${verb} ${named(finding.distinct)}, marked distinct ` +
+			`(translated on its own). If this key needs its own translation too, ${mark}.`
+		);
+	}
+
+	const aside =
+		finding.distinct.length > 0
+			? ` (${finding.distinct.join(", ")} also match${
+					finding.distinct.length === 1 ? "es" : ""
+			  } but ${finding.distinct.length === 1 ? "is" : "are"} marked distinct)`
+			: "";
 	return (
-		`${finding.key}: ${english} ${verb} ${list}${theirs}. Reuse one of those keys, ` +
-		`or mark this entry "#, ${DISTINCT_FLAG}" (add.ts --distinct) if it needs its own translation.`
+		`${finding.key}: ${english} ${verb} ${named(finding.others)}${aside}. ` +
+		`Reuse one of those keys, or ${mark} if it needs its own translation.`
 	);
 }
 
@@ -392,17 +463,31 @@ function readTags(only: string[] | null): string[] {
 		.filter((tag) => existsSync(resolve(LOCALES_DIR, `${tag}.po`)));
 }
 
-function gitShow(ref: string, path: string): string | null {
-	try {
-		return execFileSync("git", ["show", `${ref}:${relative(process.cwd(), path)}`], {
+/** The pot at `ref`: its text, "" when the revision exists but has no
+ * pot yet (every key is new then), null when the revision cannot be read. */
+function potAt(ref: string, path: string): string | null {
+	const git = (args: string[]) =>
+		execFileSync("git", args, {
 			encoding: "utf8",
 			maxBuffer: 64 * 1024 * 1024,
 			stdio: ["ignore", "pipe", "ignore"],
 		});
+
+	try {
+		git(["rev-parse", "--verify", "--quiet", `${ref}^{commit}`]);
 	} catch {
 		return null;
 	}
+
+	try {
+		return git(["show", `${ref}:${relative(process.cwd(), path)}`]);
+	} catch {
+		return "";
+	}
 }
+
+/** Annotations a step may show; the job summary lists the rest. */
+const ANNOTATION_LIMIT = 10;
 
 function main(): void {
 	const args = process.argv.slice(2);
@@ -423,54 +508,71 @@ function main(): void {
 			process.exit(2);
 		}
 
-		const baseText = gitShow(ref, POT_PATH);
+		const baseText = potAt(ref, POT_PATH);
 
 		if (baseText === null) {
-			console.error(`reuse: cannot read ${relative(process.cwd(), POT_PATH)} at ${ref}`);
+			console.error(`reuse: cannot read revision ${ref}; the check did not run`);
 			process.exit(2);
 		}
 
-		const findings = newKeyFindings(parsePo(baseText).entries, pot);
+		const base = parsePo(baseText).entries;
+		const findings = newKeyFindings(base, pot);
 		const file = relative(process.cwd(), POT_PATH);
 		const actions = process.env.GITHUB_ACTIONS === "true";
 
-		for (const finding of findings) {
+		findings.forEach((finding, index) => {
 			const message = describeFinding(finding, pot);
 			const line = lineOfKey(potText, finding.key);
 
-			if (actions) {
-				const title =
-					finding.kind === "duplicate" ? "Duplicate English" : "Near-duplicate English";
-				console.log(
-					`::warning file=${escapeProperty(file)},line=${line},title=${escapeProperty(
-						title
-					)}::${escapeData(message)}`
-				);
-			} else {
-				console.log(`${file}:${line}: ${message}`);
+			if (!actions) {
+				console.log(`${file}${line ? `:${line}` : ""}: ${message}`);
+				return;
 			}
+
+			// GitHub shows ten warnings a step; past that they would vanish
+			// silently, so the rest go to the log and the job summary.
+			if (index >= ANNOTATION_LIMIT) {
+				console.log(`${file}${line ? `:${line}` : ""}: ${message}`);
+				return;
+			}
+
+			const title =
+				finding.kind === "duplicate" ? "Duplicate English" : "Near-duplicate English";
+			const where = `file=${escapeProperty(file)}${line ? `,line=${line}` : ""}`;
+			console.log(
+				`::warning ${where},title=${escapeProperty(title)}::${escapeData(message)}`
+			);
+		});
+
+		if (actions && findings.length > ANNOTATION_LIMIT) {
+			console.log(
+				`::notice title=More repeated English::${
+					findings.length - ANNOTATION_LIMIT
+				} more ` + "findings are in the job summary and this step's log."
+			);
 		}
 
-		// Actions shows only the first ten warnings of a step on the run and
-		// the diff; the job summary carries every one.
 		const summary = process.env.GITHUB_STEP_SUMMARY;
 
 		if (summary && findings.length > 0) {
 			const cell = (text: string) => text.replace(/\|/g, "\\|").replace(/\n/g, " ");
+			const code = (keys: string[]) => keys.map((key) => "`" + key + "`").join(", ");
 			const rows = findings.map((f) => {
-				const others = f.others.map((key) => "`" + key + "`").join(", ");
 				const match = f.kind === "duplicate" ? "same" : "near";
-				return `| \`${f.key}\` | ${cell(f.english)} | ${match} | ${others} |`;
+				const distinct = f.distinct.length > 0 ? ` (distinct: ${code(f.distinct)})` : "";
+				return `| \`${f.key}\` | ${cell(f.english)} | ${match} | ${code(
+					f.others
+				)}${distinct} |`;
 			});
 			appendFileSync(
 				summary,
 				[
-					"### New translation keys that repeat existing English",
+					`### ${findings.length} new translation keys repeat existing English`,
 					"",
 					`Reuse one of the existing keys, or mark the new entry \`#, ${DISTINCT_FLAG}\` ` +
 						"(`add.ts --distinct`) when it needs its own translation.",
 					"",
-					"| New key | English | Match | Existing keys |",
+					"| New key | English | Match | Keys to reuse |",
 					"| --- | --- | --- | --- |",
 					...rows,
 					"",
@@ -479,9 +581,7 @@ function main(): void {
 		}
 
 		console.log(
-			`reuse: ${
-				changedKeys(parsePo(baseText).entries, pot).length
-			} new or reworded keys since ${ref}, ` +
+			`reuse: ${changedKeys(base, pot).length} new or reworded keys since ${ref}, ` +
 				`${findings.length} repeat English the pot already has`
 		);
 		return;
@@ -516,7 +616,14 @@ function main(): void {
 			continue;
 		}
 
-		const plan = planReuse(pot, po.entries, tag);
+		const rule = PLURAL_RULES[tag] ?? parsePluralForms(po.headers["plural-forms"] ?? "");
+
+		if (!rule) {
+			console.warn(`reuse: no plural rule for ${tag}, skipped`);
+			continue;
+		}
+
+		const plan = planReuse(pot, po.entries, tag, rule);
 
 		for (const {key, from, msgstr} of plan.fills) {
 			console.log(

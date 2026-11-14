@@ -8,6 +8,7 @@ import {parsePo, type PoEntry} from "../../tools/i18n/po";
 import {
 	applyReuse,
 	changedKeys,
+	describeFinding,
 	driftReport,
 	foldEnglish,
 	lineOfKey,
@@ -162,6 +163,30 @@ describe("i18n reuse", function () {
 			expect(planReuse(pot, po, "de").fills).to.deep.equal([]);
 		});
 
+		it("never copies a plural form the sweep would empty", function () {
+			// "Benutzer" lost {count}: sweep.ts empties both forms, so the fill
+			// must neither copy them nor count them as a donor.
+			const po = entries(
+				DE.replace(
+					'msgstr[0] "{count} Benutzer"\nmsgstr[1] "{count} Benutzer"',
+					'msgstr[0] "Benutzer"\nmsgstr[1] "Benutzer"'
+				)
+			);
+			const again = planReuse(entries(POT), po, "de");
+			expect(again.fills.map((f) => f.key)).to.not.include("b.users");
+		});
+
+		it("never copies a plural with the wrong number of forms", function () {
+			const po = entries(
+				DE.replace(
+					'msgstr[0] "{count} Benutzer"\nmsgstr[1] "{count} Benutzer"',
+					'msgstr[0] "{count} Benutzer"\nmsgstr[1] "{count} Benutzer"\nmsgstr[2] "{count} Benutzer"'
+				)
+			);
+			const again = planReuse(entries(POT), po, "de");
+			expect(again.fills.map((f) => f.key)).to.not.include("b.users");
+		});
+
 		it("never copies from a fuzzy (stale) entry", function () {
 			expect(filled["b.join"]).to.equal(undefined);
 		});
@@ -268,6 +293,7 @@ msgstr ""
 				english: "Cancel",
 				kind: "duplicate",
 				others: ["common.cancel"],
+				distinct: [],
 			});
 		});
 
@@ -278,6 +304,18 @@ msgstr ""
 
 		it("flags a near match: case and a trailing ellipsis", function () {
 			expect(byKey["y.edit"]).to.deep.include({kind: "near", others: ["x.edit"]});
+		});
+
+		it("names a distinct key as context, never as the key to reuse", function () {
+			const old = entries('#, distinct\nmsgctxt "menu.edit"\nmsgid "Edit"\nmsgstr ""\n');
+			const now = entries(
+				'#, distinct\nmsgctxt "menu.edit"\nmsgid "Edit"\nmsgstr ""\n\nmsgctxt "row.edit"\nmsgid "Edit"\nmsgstr ""\n'
+			);
+			const [finding] = newKeyFindings(old, now);
+			expect(finding).to.deep.include({key: "row.edit", others: [], distinct: ["menu.edit"]});
+			expect(describeFinding(finding, now))
+				.to.match(/marked distinct/)
+				.and.not.match(/Reuse one/);
 		});
 
 		it("does not flag a key marked distinct, nor fresh English", function () {
@@ -308,6 +346,11 @@ msgstr ""
 			expect(foldEnglish("Edit?")).to.equal("edit?");
 			expect(foldEnglish("Edit… now")).to.equal("edit… now");
 		});
+
+		it("keeps placeholder names exact", function () {
+			expect(foldEnglish("Join {channel}")).to.equal("join {channel}");
+			expect(foldEnglish("Join {Channel}")).to.not.equal(foldEnglish("Join {channel}"));
+		});
 	});
 
 	describe("lineOfKey", function () {
@@ -315,6 +358,17 @@ msgstr ""
 			expect(lineOfKey('msgid ""\nmsgstr ""\n\nmsgctxt "a.b"\nmsgid "x"\n', "a.b")).to.equal(
 				4
 			);
+		});
+
+		it("reads CRLF and a msgctxt continued over several lines", function () {
+			expect(lineOfKey('msgid ""\r\nmsgstr ""\r\n\r\nmsgctxt "a.b"\r\n', "a.b")).to.equal(4);
+			expect(
+				lineOfKey('msgctxt ""\n"common."\n"cancel"\nmsgid "Cancel"\n', "common.cancel")
+			).to.equal(1);
+		});
+
+		it("gives 0 for a key it cannot find", function () {
+			expect(lineOfKey('msgctxt "a.b"\n', "c.d")).to.equal(0);
 		});
 	});
 
