@@ -60,8 +60,17 @@ paste somewhere else. Browser checks:
 One component, opened from either anchor, `<Teleport>`ed to `<body>` because
 the scrollback would otherwise clip it, and positioned from JS against the
 button it belongs to: below it, flipped above when there is no room, clamped
-into the viewport, re-pinned on scroll and resize, and closed once the message
-it belongs to has scrolled away. Under 480px wide, or on a touch device under
+into the visible band, re-pinned on scroll and resize, and closed once the
+message it belongs to has scrolled away. Only a scroll of the scrollback (the
+box holding the anchor) closes it, never a resize or the page's own scroll:
+Android lays the page out again in what its keyboard leaves
+(`interactive-widget=resizes-content`), and for a frame, until the scrollback
+sticks to its bottom again, a message near the bottom sits past the new window
+edge, so the tap on the search field that raised the keyboard closed the
+popover and dropped the keyboard with it. The popover stays in the band while
+its anchor is outside it (under the keyboard). Browser check:
+`tools/scenarios/reaction-picker-keyboard.mjs --mobile --width=820 --height=1180`.
+Under 480px wide, or on a touch device under
 500px tall (a phone on its side), it is a sheet along the bottom edge instead,
 and the search field does not take focus on a coarse pointer — the on-screen
 keyboard would cover what the user came to tap. The sheet's bottom edge is the
