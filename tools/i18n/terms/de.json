@@ -1,0 +1,70 @@
+{
+  "channel": {
+    "term": "Kanal",
+    "match": ["kanal", "kanäle"]
+  },
+  "nick": {
+    "term": "Nick"
+  },
+  "server": {
+    "term": "Server"
+  },
+  "network": {
+    "term": "Netzwerk"
+  },
+  "message": {
+    "term": "Nachricht"
+  },
+  "mention": {
+    "term": "Erwähnung",
+    "match": ["erwähn"]
+  },
+  "highlight": {
+    "term": "Hervorhebung",
+    "match": ["hervorheb", "hervorgehob"]
+  },
+  "ban": {
+    "term": "Sperre",
+    "match": ["sperr"]
+  },
+  "away": {
+    "term": "abwesend",
+    "match": ["abwesen"]
+  },
+  "topic": {
+    "term": "Thema"
+  },
+  "account": {
+    "term": "Konto"
+  },
+  "user": {
+    "term": "Benutzer"
+  },
+  "mode": {
+    "term": "Modus",
+    "match": ["modus", "modi"]
+  },
+  "bouncer": {
+    "term": "Bouncer"
+  },
+  "reaction": {
+    "term": "Reaktion"
+  },
+  "operator": {
+    "term": "Oper"
+  },
+  "services": {
+    "term": "Services",
+    "match": ["services", "dienste"]
+  },
+  "notification": {
+    "term": "Benachrichtigung"
+  },
+  "notice": {
+    "term": "Notice"
+  },
+  "ignore": {
+    "term": "ignorieren",
+    "match": ["ignorier"]
+  }
+}

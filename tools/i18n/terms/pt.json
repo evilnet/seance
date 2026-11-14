@@ -1,0 +1,71 @@
+{
+  "channel": {
+    "term": "canal",
+    "match": ["canal", "canais"]
+  },
+  "nick": {
+    "term": "nick",
+    "match": ["nick", "apelido"]
+  },
+  "server": {
+    "term": "servidor"
+  },
+  "network": {
+    "term": "rede"
+  },
+  "message": {
+    "term": "mensagem",
+    "match": ["mensage"]
+  },
+  "mention": {
+    "term": "menção",
+    "match": ["menç", "mencion"]
+  },
+  "highlight": {
+    "term": "destaque",
+    "match": ["destaq"]
+  },
+  "ban": {
+    "term": "ban"
+  },
+  "away": {
+    "term": "ausente",
+    "match": ["ausen", "ausên"]
+  },
+  "topic": {
+    "term": "tópico"
+  },
+  "account": {
+    "term": "conta"
+  },
+  "user": {
+    "term": "usuário"
+  },
+  "mode": {
+    "term": "modo"
+  },
+  "bouncer": {
+    "term": "bouncer"
+  },
+  "reaction": {
+    "term": "reação",
+    "match": ["reaç"]
+  },
+  "operator": {
+    "term": "oper"
+  },
+  "services": {
+    "term": "serviços"
+  },
+  "notification": {
+    "term": "notificação",
+    "match": ["notificaç"]
+  },
+  "notice": {
+    "term": "aviso"
+  },
+  "ignore": {
+    "term": "ignorar",
+    "match": ["ignora"]
+  }
+}

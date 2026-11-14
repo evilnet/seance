@@ -1,0 +1,65 @@
+{
+  "channel": {
+    "term": "channel"
+  },
+  "nick": {
+    "term": "nick"
+  },
+  "server": {
+    "term": "server"
+  },
+  "network": {
+    "term": "network"
+  },
+  "message": {
+    "term": "mensahe"
+  },
+  "mention": {
+    "term": "pagbanggit",
+    "match": ["banggit"]
+  },
+  "highlight": {
+    "term": "highlight"
+  },
+  "ban": {
+    "term": "ban"
+  },
+  "away": {
+    "term": "wala"
+  },
+  "topic": {
+    "term": "paksa"
+  },
+  "account": {
+    "term": "account"
+  },
+  "user": {
+    "term": "user"
+  },
+  "mode": {
+    "term": "mode"
+  },
+  "bouncer": {
+    "term": "bouncer"
+  },
+  "reaction": {
+    "term": "reaksyon",
+    "match": ["reaksyon", "react"]
+  },
+  "operator": {
+    "term": "oper"
+  },
+  "services": {
+    "term": "services"
+  },
+  "notification": {
+    "term": "notification"
+  },
+  "notice": {
+    "term": "notice"
+  },
+  "ignore": {
+    "term": "i-ignore",
+    "match": ["ignore"]
+  }
+}

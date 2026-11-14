@@ -21,6 +21,7 @@
     "i18n:check": "tsx tools/i18n/check.ts",
     "i18n:merge": "tsx tools/i18n/merge.ts",
     "i18n:sync": "tsx tools/i18n/sync.ts",
+    "i18n:terms": "tsx tools/i18n/terms.ts",
     "lint:stylelint": "stylelint --color \"client/**/*.css\"",
     "lint": "run-p --aggregate-output --continue-on-error lint:*",
     "test": "run-p --aggregate-output --continue-on-error lint:* typecheck test:mocha",

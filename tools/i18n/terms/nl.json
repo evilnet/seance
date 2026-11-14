@@ -1,0 +1,63 @@
+{
+  "channel": {
+    "term": "kanaal",
+    "match": ["kana"]
+  },
+  "nick": {
+    "term": "nick"
+  },
+  "server": {
+    "term": "server"
+  },
+  "network": {
+    "term": "netwerk"
+  },
+  "message": {
+    "term": "bericht"
+  },
+  "mention": {
+    "term": "vermelding",
+    "match": ["vermeld"]
+  },
+  "ban": {
+    "term": "ban"
+  },
+  "away": {
+    "term": "afwezig"
+  },
+  "topic": {
+    "term": "onderwerp"
+  },
+  "account": {
+    "term": "account"
+  },
+  "user": {
+    "term": "gebruiker"
+  },
+  "mode": {
+    "term": "modus",
+    "match": ["modus", "modi"]
+  },
+  "bouncer": {
+    "term": "bouncer"
+  },
+  "reaction": {
+    "term": "reactie"
+  },
+  "operator": {
+    "term": "oper"
+  },
+  "services": {
+    "term": "services"
+  },
+  "notification": {
+    "term": "melding"
+  },
+  "notice": {
+    "term": "notice"
+  },
+  "ignore": {
+    "term": "negeren",
+    "match": ["negeer", "negere", "genegeerd"]
+  }
+}

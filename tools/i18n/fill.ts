@@ -44,6 +44,7 @@ import {parsePo, PoEntry, serializePo} from "./po";
 import {PLURAL_RULES, parsePluralForms, planPluralSlots} from "./plural";
 import {repad, slotVerdict} from "./quality";
 import {NAME_TO_TAG, TARGETS_SOURCE} from "./targets";
+import {loadLocaleTerms, loadTermIndex, promptTerms} from "./terms";
 
 type EngineName = "llm" | "nllb" | "opus";
 
@@ -547,6 +548,12 @@ async function main(): Promise<void> {
 			}
 		}
 
+		// The catalog's word for each recurring term (tools/i18n/terms/), so
+		// the model writes "Kanal" where the catalog already does. Only the
+		// LLM's prompt has room for it; the seq2seq engines take text alone.
+		const termIndex = loadTermIndex();
+		const localeTerms = loadLocaleTerms(tag);
+
 		const limited = options.limit ? todo.slice(0, options.limit) : todo;
 		const started = Date.now();
 		let filled = 0;
@@ -623,7 +630,14 @@ async function main(): Promise<void> {
 						from: "en",
 						to: tag,
 						purpose: "read",
-						context: emptyContext(),
+						context: {
+							...emptyContext(),
+							terms: promptTerms(
+								batch.map((unit) => unit.text),
+								termIndex,
+								localeTerms
+							),
+						},
 						markers: "placeholder",
 					};
 

@@ -1,0 +1,63 @@
+{
+  "channel": {
+    "term": "kanal"
+  },
+  "nick": {
+    "term": "takma ad"
+  },
+  "server": {
+    "term": "sunucu"
+  },
+  "network": {
+    "term": "ağ"
+  },
+  "message": {
+    "term": "mesaj"
+  },
+  "mention": {
+    "term": "bahsetme",
+    "match": ["bahs"]
+  },
+  "highlight": {
+    "term": "vurgulama",
+    "match": ["vurgu"]
+  },
+  "ban": {
+    "term": "ban"
+  },
+  "away": {
+    "term": "uzakta"
+  },
+  "topic": {
+    "term": "konu"
+  },
+  "account": {
+    "term": "hesap",
+    "match": ["hesa"]
+  },
+  "user": {
+    "term": "kullanıcı"
+  },
+  "mode": {
+    "term": "mod"
+  },
+  "bouncer": {
+    "term": "bouncer"
+  },
+  "reaction": {
+    "term": "tepki"
+  },
+  "operator": {
+    "term": "oper"
+  },
+  "services": {
+    "term": "servisler",
+    "match": ["servis"]
+  },
+  "notification": {
+    "term": "bildirim"
+  },
+  "ignore": {
+    "term": "yok say"
+  }
+}

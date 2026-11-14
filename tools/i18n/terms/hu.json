@@ -1,0 +1,67 @@
+{
+  "channel": {
+    "term": "csatorna",
+    "match": ["csatorn"]
+  },
+  "nick": {
+    "term": "becenév",
+    "match": ["becen"]
+  },
+  "server": {
+    "term": "szerver"
+  },
+  "network": {
+    "term": "hálózat"
+  },
+  "message": {
+    "term": "üzenet"
+  },
+  "mention": {
+    "term": "említés",
+    "match": ["említ"]
+  },
+  "highlight": {
+    "term": "kiemelés",
+    "match": ["kiemel"]
+  },
+  "ban": {
+    "term": "ban"
+  },
+  "away": {
+    "term": "távol"
+  },
+  "topic": {
+    "term": "téma",
+    "match": ["tém"]
+  },
+  "account": {
+    "term": "fiók"
+  },
+  "user": {
+    "term": "felhasználó"
+  },
+  "mode": {
+    "term": "mód"
+  },
+  "bouncer": {
+    "term": "bouncer"
+  },
+  "reaction": {
+    "term": "reakció",
+    "match": ["reakci"]
+  },
+  "operator": {
+    "term": "oper"
+  },
+  "services": {
+    "term": "szolgáltatások",
+    "match": ["szolgáltatás"]
+  },
+  "notification": {
+    "term": "értesítés"
+  },
+  "ignore": {
+    "term": "mellőzés",
+    "match": ["mellőz"]
+  }
+}
