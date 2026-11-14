@@ -199,6 +199,8 @@ export function createNetwork(options: CreateNetworkOptions): IrcClient {
 			onServerPasswordRejected: () => stopAutoconnect(entry.uuid),
 			onUntrustedCertificate: (certificate) =>
 				void untrustedCertificate(entry.uuid, certificate),
+			// A custom name from the edit form beats ISUPPORT NETWORK.
+			savedName: () => saved.get(entry.uuid)?.name || undefined,
 		});
 		clients.set(entry.uuid, client);
 		// Load the network's ignore list now, which mirrors it for the push
@@ -508,18 +510,6 @@ registerBusHandlers(socket, {
 });
 
 // Saved-network policies layered on top of the client's own events.
-
-// A custom name from the edit form beats ISUPPORT NETWORK: when a client
-// renames itself to something else, put the user's choice back (setNetworkName
-// is a no-op when the name already matches, so this cannot loop).
-socket.on("network:name", ({uuid, name}) => {
-	const custom = saved.get(uuid)?.name;
-	const client = clients.get(uuid);
-
-	if (client && custom && custom !== name) {
-		client.setNetworkName(custom);
-	}
-});
 
 // Commands-on-connect: run the saved slash commands in the lobby after every
 // registration, like the old server's `connection.ts` did.

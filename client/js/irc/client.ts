@@ -332,6 +332,11 @@ export interface IrcClientOptions extends ConnectOptions {
 	 * whether to trust it (manager.ts, certificatePrompt.ts).
 	 */
 	onUntrustedCertificate?: (certificate: UntrustedCertificate) => void;
+	/**
+	 * The name the user gave this network, if any (manager.ts, from the saved
+	 * entry): it beats ISUPPORT NETWORK ({@link IrcClient.serverNamed}).
+	 */
+	savedName?: () => string | undefined;
 }
 
 /**
@@ -3578,7 +3583,19 @@ export class IrcClient {
 		this.bus.dispatch("nick", {network: this.uuid, nick});
 	}
 
-	/** Record the network name from ISUPPORT and rename the lobby. */
+	/**
+	 * ISUPPORT named the network: take the name unless the user gave it one
+	 * ({@link IrcClientOptions.savedName}). Read here, before anything is
+	 * announced: putting the user's name back from a `network:name` listener
+	 * re-entered the dispatch, and the store kept whichever came last, the
+	 * server's, whenever a server resent 005 (soju does on an upstream
+	 * reconnect).
+	 */
+	serverNamed(name: string): void {
+		this.setNetworkName(this.options.savedName?.() || name);
+	}
+
+	/** Record the network name and rename the lobby. */
 	setNetworkName(name: string): void {
 		if (name === this.networkName) {
 			return;

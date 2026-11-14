@@ -321,6 +321,21 @@ describe("IrcClient", function () {
 			expect(h.client.lobby.name).to.equal("SeanceDev");
 		});
 
+		it("keeps the name the user saved over 005 NETWORK, never announcing the server's", function () {
+			const h = setup({savedName: () => "Mine"});
+			h.client.setNetworkName("Mine");
+			register(h);
+			// soju resends ISUPPORT on a bound connection when it reconnects
+			// the upstream: the saved name must survive that too.
+			h.transport.line(ISUPPORT_2);
+
+			expect(h.client.network.name).to.equal("Mine");
+			expect(h.client.lobby.name).to.equal("Mine");
+			expect(payloads<{name: string}>("network:name").map((p) => p.name)).to.not.include(
+				"SeanceDev"
+			);
+		});
+
 		it("dispatches init after 422, lobby first, active = first channel, then auto-JOINs", function () {
 			const h = setup();
 			register(h);
