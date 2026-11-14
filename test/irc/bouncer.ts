@@ -256,6 +256,19 @@ describe("Bouncers: the bouncer's channel list", function () {
 		expect(joins(h)).to.deep.equal([]);
 	});
 
+	it("does not take Ergo for ZNC: it offers znc.in/self-message and znc.in/playback itself", function () {
+		const h = setup({join: "#seance"});
+		settled(h);
+		register(
+			h,
+			"account-notify away-notify batch cap-notify chghost draft/chathistory echo-message extended-join invite-notify labeled-response message-tags multi-prefix server-time setname userhost-in-names znc.in/playback znc.in/self-message"
+		);
+
+		expect(h.client.behindZnc).to.equal(false);
+		expect(h.client.behindBouncer).to.equal(false);
+		expect(joins(h)).to.have.length(1);
+	});
+
 	it("leaves a plain server alone: the saved channels go out at once", function () {
 		const h = setup({join: "#seance"});
 		register(h, "batch server-time message-tags echo-message");

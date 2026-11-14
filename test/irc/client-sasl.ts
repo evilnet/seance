@@ -388,6 +388,13 @@ describe("IrcClient SASL", function () {
 		expect(texts(client.lobby.id)).to.not.include(ZNC_HINT);
 	});
 
+	it("gives no ZNC hint to Ergo, which offers znc.in/self-message and znc.in/playback", function () {
+		const {client, transport} = setup();
+		transport.line(`:irc.test CAP * LS :${OFFERED_CAPS} znc.in/playback znc.in/self-message`);
+
+		expect(texts(client.lobby.id)).to.not.include(ZNC_HINT);
+	});
+
 	it("reports the missing cap and connects anyway when the deploy allows it", function () {
 		const {client, transport} = setup(CARRY_ON);
 		const requested = offer(transport, OFFERED_CAPS);

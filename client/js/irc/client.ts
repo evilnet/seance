@@ -392,6 +392,15 @@ export function saslTrustedGaveUpHint(): string {
 	return t("connect.saslTrustedGaveUpHint");
 }
 
+/**
+ * The server is ZNC: it offers `znc.in/batch` or `znc.in/server-time-iso`,
+ * which only ZNC sends. Not any `znc.in/*` cap: Ergo, a plain ircd, offers
+ * `znc.in/self-message` and `znc.in/playback` itself.
+ */
+export function offersZncCaps(available: ReadonlyMap<string, unknown>): boolean {
+	return available.has("znc.in/batch") || available.has("znc.in/server-time-iso");
+}
+
 /** Prefix characters a channel name may start with when the user omits one. */
 const CHANNEL_PREFIXES = "#&!+";
 
@@ -609,7 +618,7 @@ export class IrcClient {
 	serverReplay = false;
 	/** Ids for the cursor's replay, every target's, set aside when the server took the cursor. */
 	replayIds: IdBlock | undefined = undefined;
-	/** This connection goes through ZNC (its `znc.in/*` caps): see history.ts `noteZncLine`. */
+	/** This connection goes through ZNC ({@link offersZncCaps}): see history.ts `noteZncLine`. */
 	behindZnc = false;
 	/**
 	 * Registered behind a bouncer on this page already ({@link autojoin}); the
@@ -1689,13 +1698,13 @@ export class IrcClient {
 			true
 		);
 
-		// ZNC before 1.10 has no client SASL (its `znc.in/*` caps say it is
-		// ZNC; `behindZnc` is set only at registration): its login is the
-		// server password, `username/network:password`.
+		// ZNC before 1.10 has no client SASL (`behindZnc` is set only at
+		// registration): its login is the server password,
+		// `username/network:password`.
 		if (
 			cause === "unavailable" &&
 			!this.options.serverPassword &&
-			[...this.caps.available.keys()].some((name) => name.startsWith("znc.in/"))
+			offersZncCaps(this.caps.available)
 		) {
 			this.pushMessage(this.lobby, {text: t("connect.serverPasswordHint")}, true);
 		}
@@ -2193,7 +2202,7 @@ export class IrcClient {
 		}
 
 		this.connected = true;
-		this.behindZnc = [...this.caps.available.keys()].some((name) => name.startsWith("znc.in/"));
+		this.behindZnc = offersZncCaps(this.caps.available);
 		this._state = "registered";
 
 		const first = this.channels.find((chan) => chan.type === ChanType.CHANNEL);
@@ -2277,8 +2286,8 @@ export class IrcClient {
 
 	/**
 	 * This connection goes through a bouncer that keeps its own channel list:
-	 * soju (`BOUNCER_NETID`, `soju.im/bouncer-networks`) or ZNC (its `znc.in/*`
-	 * caps). What it holds is what the user is in, on every device.
+	 * soju (`BOUNCER_NETID`, `soju.im/bouncer-networks`) or ZNC
+	 * ({@link offersZncCaps}). What it holds is what the user is in, on every device.
 	 */
 	get behindBouncer(): boolean {
 		return (
