@@ -198,20 +198,6 @@
 						</div>
 					</div>
 
-					<div v-if="isTouch" class="help-item">
-						<div class="subject gesture">{{ t("help.gestures.twoSwipeLeft") }}</div>
-						<div class="description">
-							<p>{{ t("help.shortcuts.nextWindow") }}</p>
-						</div>
-					</div>
-
-					<div v-if="isTouch" class="help-item">
-						<div class="subject gesture">{{ t("help.gestures.twoSwipeRight") }}</div>
-						<div class="description">
-							<p>{{ t("help.shortcuts.prevWindow") }}</p>
-						</div>
-					</div>
-
 					<h2>{{ t("help.shortcuts.heading") }}</h2>
 
 					<div class="help-item">

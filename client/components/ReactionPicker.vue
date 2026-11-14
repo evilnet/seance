@@ -935,8 +935,11 @@ export default defineComponent({
 		 * on resize, and once the catalog has changed the height. Flipping
 		 * anchors the bottom edge instead of the top, so a taller popover
 		 * still lines up without measuring it.
+		 *
+		 * `scrolled`: called for a scroll of the box that holds the anchor
+		 * (the scrollback), the one thing that takes the message away.
 		 */
-		const reposition = () => {
+		const reposition = (scrolled = false) => {
 			const el = root.value;
 			const anchor = props.anchor;
 
@@ -959,16 +962,28 @@ export default defineComponent({
 			const vw = window.innerWidth;
 
 			// Scrolled past the message the picker belongs to: close rather
-			// than float over an unrelated part of the conversation. Against
-			// the layout viewport on purpose — an anchor under the keyboard
-			// is covered, not scrolled away.
-			if (rect.bottom < 0 || rect.top > window.innerHeight) {
+			// than float over an unrelated part of the conversation. Only a
+			// scroll of the scrollback says so, never a resize: Android lays
+			// the page out again in what its keyboard leaves
+			// (`interactive-widget=resizes-content`), and until the scrollback
+			// sticks to its bottom again, a frame later (MessageList.vue's
+			// resize observer), a message near the bottom sits past the new
+			// window edge. Closing then dropped the keyboard the tap on the
+			// search field had just raised. Against the layout viewport on
+			// purpose — an anchor under iOS's keyboard is covered, not
+			// scrolled away.
+			if (scrolled && (rect.bottom < 0 || rect.top > window.innerHeight)) {
 				emit("close");
 				return;
 			}
 
-			const below = vh - rect.bottom - GAP - EDGE;
-			const above = rect.top - GAP - EDGE;
+			// The edge next to the anchor, kept inside the visible band: the
+			// anchor can be outside it, under iOS's keyboard or for that frame
+			// on Android, and the popover stays where it can be used.
+			const topEdge = Math.max(EDGE, rect.bottom + GAP);
+			const bottomEdge = Math.min(vh - EDGE, rect.top - GAP);
+			const below = vh - EDGE - topEdge;
+			const above = bottomEdge - EDGE;
 			const flip = below < MAX_HEIGHT && above > below;
 			const room = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, flip ? above : below));
 			const width = el.offsetWidth;
@@ -982,8 +997,8 @@ export default defineComponent({
 				left: `${Math.round(left)}px`,
 				"max-height": `${Math.round(room)}px`,
 				...(flip
-					? {bottom: `${Math.round(window.innerHeight - rect.top + GAP)}px`}
-					: {top: `${Math.round(rect.bottom + GAP)}px`}),
+					? {bottom: `${Math.round(window.innerHeight - bottomEdge)}px`}
+					: {top: `${Math.round(topEdge)}px`}),
 			};
 		};
 
@@ -1006,6 +1021,17 @@ export default defineComponent({
 		};
 
 		const close = () => emit("close");
+
+		// Any scroll moves the anchor, so the popover follows it. Only the
+		// scrollback's scroll can take the message away: not the picker's own
+		// list, and not the page's, which is iOS bringing a focused field into
+		// view (helpers/viewport.ts scrolls it straight back).
+		const onPageScroll = (e: Event) => {
+			const scroller = e.target;
+			const anchor = props.anchor;
+
+			reposition(scroller instanceof Element && !!anchor && scroller.contains(anchor));
+		};
 
 		const onEscape = (layer: string | null) => {
 			if (layer === "reaction-picker") {
@@ -1081,7 +1107,7 @@ export default defineComponent({
 			// helpers/shell.ts macDragRegion) stops a press on the header from
 			// bubbling, and that press must still close the picker.
 			document.addEventListener("mousedown", onDocumentMouseDown, true);
-			window.addEventListener("scroll", reposition, true);
+			window.addEventListener("scroll", onPageScroll, true);
 			window.addEventListener("resize", repositionSettled);
 			window.visualViewport?.addEventListener("resize", repositionSettled);
 			sheetQuery.addEventListener("change", onSheetChange);
@@ -1102,7 +1128,7 @@ export default defineComponent({
 			backWatcher = null;
 			eventbus.off(PICKER_OPENED, onOtherOpened);
 			document.removeEventListener("mousedown", onDocumentMouseDown, true);
-			window.removeEventListener("scroll", reposition, true);
+			window.removeEventListener("scroll", onPageScroll, true);
 			window.removeEventListener("resize", repositionSettled);
 			window.visualViewport?.removeEventListener("resize", repositionSettled);
 			cancelSettle();

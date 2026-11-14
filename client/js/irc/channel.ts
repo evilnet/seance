@@ -125,19 +125,23 @@ export class Channel {
 	catchupPrefetched = false;
 	/**
 	 * We were in this channel when the connection dropped: the re-JOIN's
-	 * echo, unchanged topic and NAMES are state, not activity, and are not
-	 * shown (cleared by the end of that NAMES burst).
+	 * echo and NAMES are state, not activity, and are not shown (cleared by
+	 * the end of that NAMES burst). Its topic never is (handlers/topic.ts).
 	 */
 	rejoining = false;
-	/** The 332 just seen was hidden (a topic we already show); hide its 333 too. */
+	/** The 332 just seen went to the header only (state, not news); its 333 goes nowhere either. */
 	topicQuiet = false;
-	/** The user asked for the topic (`/topic`): show the next 331/332 even if it is unchanged. */
+	/** The user asked for the topic (`/topic`): show the next 331/332 as a line. */
 	topicAsked = false;
 	/** The 332 just shown was asked for: it and its 333 follow the user to the active tab. */
 	topicAskedActive = false;
-	/** The modes 324 last showed; a reconnect asks again and gets the same answer back. */
-	modeText: string | undefined = undefined;
-	/** The user asked for the modes (`/mode #chan`): show the next 324 even if it is unchanged. */
+	/**
+	 * The user joined this channel by hand (`/join`) and its JOIN just came
+	 * back: the topic in that join burst is shown as a line, once — the
+	 * header truncates a long one. Cleared by the end of the burst's NAMES.
+	 */
+	topicWanted = false;
+	/** The user asked for the modes (`/mode #chan`): show the next 324 as a line. */
 	modesAsked = false;
 	/**
 	 * For a `ChanType.SPECIAL` window, what it shows besides its kind: the
@@ -196,6 +200,16 @@ export class Channel {
 	 * never taken for one that finished (catchup.ts).
 	 */
 	historyFilled = false;
+	/**
+	 * The server refused this target's history (`FAIL CHATHISTORY
+	 * INVALID_TARGET`) while we were in it, and this is the account we were
+	 * logged in as then ("" for none). Not asked again while that account
+	 * stays the same, reconnects included: a login (or logout) lifts it, and
+	 * so does a reload. A network may keep history for logged-in accounts
+	 * only (nefarious2's CHATHISTORY_REQUIRE_AUTH, on at AfterNET), so this is
+	 * a routine answer, not an error (history.ts `chatHistoryFailed`).
+	 */
+	historyDenied: string | undefined = undefined;
 	/**
 	 * Open, but its reader was taken to an older message: nothing is read until
 	 * they reach the bottom ({@link IrcClient.isReading}). What we say still reads it,

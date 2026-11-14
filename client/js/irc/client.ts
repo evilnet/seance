@@ -17,7 +17,7 @@
 import socket, {EventBus} from "../socket";
 import {t} from "../i18n/core";
 import {collator} from "../i18n/collation";
-import {brandingFeatures} from "../branding";
+import {accountRequired, brandingFeatures} from "../branding";
 import {createHighlightTester} from "../highlight";
 import {ChanState, ChanType} from "../../../shared/types/chan";
 import {MessageType, SharedMsg, TypingState} from "../../../shared/types/msg";
@@ -319,7 +319,9 @@ export interface IrcClientOptions extends ConnectOptions {
 	 * dropped. The manager stands the saved network's `autoconnect` down:
 	 * credentials the server has already refused would fail again at every
 	 * page load, and an autoconnecting entry that never registers leaves no
-	 * way back to the connect screen to fix them.
+	 * way back to the connect screen to fix them. A deploy that lets only
+	 * accounts in calls it for a network with no login at all, too: such an
+	 * entry can never connect as it is.
 	 */
 	onSaslRejected?: () => void;
 	/** The server password was missing or refused (464 before 001): same effect. */
@@ -330,11 +332,20 @@ export interface IrcClientOptions extends ConnectOptions {
 	 * whether to trust it (manager.ts, certificatePrompt.ts).
 	 */
 	onUntrustedCertificate?: (certificate: UntrustedCertificate) => void;
+	/**
+	 * The name the user gave this network, if any (manager.ts, from the saved
+	 * entry): it beats ISUPPORT NETWORK ({@link IrcClient.serverNamed}).
+	 */
+	savedName?: () => string | undefined;
 }
 
-/** What to try after a SASL login the deploy insists on did not happen. */
+/**
+ * What to try after a SASL login the deploy insists on did not happen. A
+ * deploy that lets only accounts in (`accountRequired`) does not offer "No
+ * authentication" as a way out: it would be refused too.
+ */
 export function saslRequiredHint(): string {
-	return t("connect.saslRequiredHint");
+	return accountRequired() ? t("connect.saslAccountRequiredHint") : t("connect.saslRequiredHint");
 }
 
 /** The trusted retries ran out: the login is kept, the next connect tries again. */
@@ -924,6 +935,13 @@ export class IrcClient {
 			return;
 		}
 
+		// A deploy that lets only accounts in: a network with no login is not
+		// dialled at all (onOpen checks again, for options changed while a
+		// reconnect was waiting).
+		if (this.refusedWithoutLogin()) {
+			return;
+		}
+
 		this.applyStsPolicy();
 		this.quitting = false;
 		this.closeHintShown = false;
@@ -1426,6 +1444,10 @@ export class IrcClient {
 		this.replayIds = undefined;
 		this.endSasl();
 
+		if (this.refusedWithoutLogin()) {
+			return;
+		}
+
 		// SASL was picked for this network but there is nothing to log in
 		// with: say so before registering as a stranger.
 		if (
@@ -1472,7 +1494,44 @@ export class IrcClient {
 	 * override it per network through {@link ConnectOptions}.
 	 */
 	private get saslRequired(): boolean {
-		return this.options.saslDisconnectOnFail ?? brandingFeatures().saslDisconnectOnFail;
+		// A deploy that lets only accounts in has no "carry on as a stranger".
+		return (
+			accountRequired() ||
+			(this.options.saslDisconnectOnFail ?? brandingFeatures().saslDisconnectOnFail)
+		);
+	}
+
+	/**
+	 * A deploy that lets only accounts in (branding.ts `accountRequired`),
+	 * and a network set to log in with nothing: however it came to be — a
+	 * saved entry from when guests were welcome, `/connect <host>`, "No
+	 * authentication" in its settings — it could only register as the
+	 * stranger the deploy turned away. Say so, stand its autoconnect down
+	 * (`onSaslRejected`: it can never connect as it is) and, when the
+	 * socket is already open, close it before NICK/USER. Final.
+	 *
+	 * A login that is set but empty is not this: it is a SASL failure
+	 * (`connect.saslReason.noCredentials`), reported as one.
+	 *
+	 * Returns true when it refused, so callers stop there.
+	 */
+	private refusedWithoutLogin(): boolean {
+		if (this.options.sasl || !accountRequired()) {
+			return false;
+		}
+
+		const reason = t("connect.accountRequired", {host: this.options.host});
+		this.pushMessage(this.lobby, {type: MessageType.ERROR, text: reason}, true);
+		// The view goes to the lobby that says why, as for a refused login.
+		this.bus.dispatch("network:aborted", {network: this.uuid, reason});
+		this.options.onSaslRejected?.();
+
+		// An open socket (onOpen) or a pending redial: closed or called off.
+		if (this.transport.state !== "closed") {
+			this.disconnect("Sign-in required");
+		}
+
+		return true;
 	}
 
 	/**
@@ -3524,7 +3583,19 @@ export class IrcClient {
 		this.bus.dispatch("nick", {network: this.uuid, nick});
 	}
 
-	/** Record the network name from ISUPPORT and rename the lobby. */
+	/**
+	 * ISUPPORT named the network: take the name unless the user gave it one
+	 * ({@link IrcClientOptions.savedName}). Read here, before anything is
+	 * announced: putting the user's name back from a `network:name` listener
+	 * re-entered the dispatch, and the store kept whichever came last, the
+	 * server's, whenever a server resent 005 (soju does on an upstream
+	 * reconnect).
+	 */
+	serverNamed(name: string): void {
+		this.setNetworkName(this.options.savedName?.() || name);
+	}
+
+	/** Record the network name and rename the lobby. */
 	setNetworkName(name: string): void {
 		if (name === this.networkName) {
 			return;

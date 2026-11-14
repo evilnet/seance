@@ -215,11 +215,10 @@ describe("Session persistence and quiet re-joins (irc/persistence.ts)", function
 			expect(seance.state).to.equal(ChanState.JOINED);
 			expect(Array.from(seance.users.keys())).to.deep.equal(["alice", "bob"]);
 			expect(seance.shared.topic).to.equal("Welcome");
-			// A fresh client had no topic: that is news. Our JOIN is not.
-			expect(types(h, seance.id)).to.deep.equal([
-				MessageType.TOPIC,
-				MessageType.TOPIC_SET_BY,
-			]);
+			expect(h.payloads("topic")).to.deep.equal([{chan: seance.id, topic: "Welcome"}]);
+			// A reloaded page knew no topic, and it is still not news: the
+			// header shows it. Our JOIN is not news either.
+			expect(types(h, seance.id)).to.deep.equal([]);
 			expect(awaitingRestoration(h.client)).to.equal(false);
 
 			const sent = h.sent();
@@ -269,11 +268,10 @@ describe("Session persistence and quiet re-joins (irc/persistence.ts)", function
 			register(h, CAPS, HOLD);
 			restore(h, "Not Just Linux");
 
-			// Fresh page load: the topic is news the first time.
-			expect(types(h, seance.id)).to.deep.equal([
-				MessageType.TOPIC,
-				MessageType.TOPIC_SET_BY,
-			]);
+			// Fresh page load (F5, or a phone that killed the app): the
+			// topic is the header's, the first burst as much as the second.
+			expect(types(h, seance.id)).to.deep.equal([]);
+			expect(seance.shared.topic).to.equal("Not Just Linux");
 			h.dispatch.resetHistory();
 			const afterFirst = h.transport.sent.length;
 
@@ -289,6 +287,23 @@ describe("Session persistence and quiet re-joins (irc/persistence.ts)", function
 			expect(h.transport.sent.slice(afterFirst)).to.deep.equal([]);
 			expect(seance.state).to.equal(ChanState.JOINED);
 			expect(seance.users.size).to.equal(2);
+		});
+
+		it("a /join the server ignored (already a member) leaves the next restore's topic in the header", function () {
+			const h = setup();
+			const seance = h.client.findChannel("#seance")!;
+			register(h, CAPS, HOLD);
+			restore(h, "Welcome");
+			// nefarious2 answers a JOIN for a channel the session holds with
+			// nothing (m_join.c): the request is still pending at the drop.
+			h.client.input(seance.id, "/join #seance");
+			h.transport.closed();
+			register(h, CAPS, HOLD);
+			h.dispatch.resetHistory();
+			restore(h, "Welcome");
+
+			expect(types(h, seance.id)).to.deep.equal([]);
+			expect(seance.topicWanted).to.equal(false);
 		});
 
 		it("an alias attach (STATUS ON OFF, then the note after the MOTD) JOINs nothing the server hands back", function () {
@@ -590,11 +605,9 @@ describe("Session persistence and quiet re-joins (irc/persistence.ts)", function
 			register(h);
 			h.transport.lines(...joinBurst("Welcome"));
 			const seance = h.client.findChannel("#seance")!;
-			expect(types(h, seance.id)).to.deep.equal([
-				MessageType.JOIN,
-				MessageType.TOPIC,
-				MessageType.TOPIC_SET_BY,
-			]);
+			// The autojoin's JOIN happened; its topic is the header's.
+			expect(types(h, seance.id)).to.deep.equal([MessageType.JOIN]);
+			expect(seance.shared.topic).to.equal("Welcome");
 			h.dispatch.resetHistory();
 			h.sent();
 			return h;
@@ -623,7 +636,7 @@ describe("Session persistence and quiet re-joins (irc/persistence.ts)", function
 			expect(h.messages(seance.id)).to.deep.equal([]);
 		});
 
-		it("shows a topic that changed while we were away", function () {
+		it("puts a topic that changed while we were away in the header; the change is history's", function () {
 			const h = connectedWithTopic();
 			const seance = h.client.findChannel("#seance")!;
 			h.transport.closed();
@@ -632,11 +645,10 @@ describe("Session persistence and quiet re-joins (irc/persistence.ts)", function
 			h.transport.lines(...joinBurst("New topic"));
 
 			expect(seance.shared.topic).to.equal("New topic");
-			expect(types(h, seance.id)).to.deep.equal([
-				MessageType.TOPIC,
-				MessageType.TOPIC_SET_BY,
-			]);
 			expect(h.payloads("topic")).to.deep.equal([{chan: seance.id, topic: "New topic"}]);
+			// Who changed it and when is the TOPIC line the catch-up brings
+			// (draft/event-playback), in its place in the timeline.
+			expect(types(h, seance.id)).to.deep.equal([]);
 		});
 
 		it("PERSISTENCE LIST sessions reach the UI as persistence:sessions, not the lobby", function () {

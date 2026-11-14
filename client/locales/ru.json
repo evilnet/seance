@@ -413,8 +413,6 @@
   "help.gestures.showSidebar": "Показать боковую панель.",
   "help.gestures.swipeLeft": "Смахивание одним пальцем влево",
   "help.gestures.swipeRight": "Смахивание одним пальцем вправо",
-  "help.gestures.twoSwipeLeft": "Смахивание двумя пальцами влево",
-  "help.gestures.twoSwipeRight": "Смахивание двумя пальцами вправо",
   "help.privacy": "Политика конфиденциальности",
   "help.range": "между {from} и {to}",
   "help.releaseNotesLink": "примечания к выпуску",

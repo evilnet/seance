@@ -387,8 +387,6 @@
   "help.gestures.showSidebar": "Mostrar el panel lateral.",
   "help.gestures.swipeLeft": "Deslizar un dedo hacia la izquierda",
   "help.gestures.swipeRight": "Deslizar un dedo hacia la derecha",
-  "help.gestures.twoSwipeLeft": "Deslizar con dos dedos hacia la izquierda",
-  "help.gestures.twoSwipeRight": "Deslizar con dos dedos hacia la derecha",
   "help.privacy": "Política de privacidad",
   "help.range": "entre {from} y {to}",
   "help.releaseNotesLink": "notas de la versión",

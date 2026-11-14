@@ -199,6 +199,8 @@ export function createNetwork(options: CreateNetworkOptions): IrcClient {
 			onServerPasswordRejected: () => stopAutoconnect(entry.uuid),
 			onUntrustedCertificate: (certificate) =>
 				void untrustedCertificate(entry.uuid, certificate),
+			// A custom name from the edit form beats ISUPPORT NETWORK.
+			savedName: () => saved.get(entry.uuid)?.name || undefined,
 		});
 		clients.set(entry.uuid, client);
 		// Load the network's ignore list now, which mirrors it for the push
@@ -225,13 +227,23 @@ export function createNetwork(options: CreateNetworkOptions): IrcClient {
 		// form's settings win, same rules as `network:edit` in bus.ts.
 		client.applySettings(saved.toConnectOptions(entry));
 
+		if (entry.name && entry.name !== client.name) {
+			client.setNetworkName(entry.name);
+		}
+
+		client.connect();
+
+		// After connect(), not before: a client just told to disconnect (the
+		// sign-in panel ending a guest session) still counts as connected
+		// until connect() settles that close, so `/nick` before it went out
+		// as a NICK on the dead socket and the new registration kept the
+		// old nick. Now a client dialling afresh takes the nick for that
+		// registration, and one that stays on its live connection sends NICK.
 		if (entry.nick && entry.nick !== client.nick) {
 			client.input(client.lobby.id, `/nick ${entry.nick}`);
 		}
 
-		if (entry.name && entry.name !== client.name) {
-			client.setNetworkName(entry.name);
-		}
+		return client;
 	}
 
 	client.connect();
@@ -459,7 +471,8 @@ export function reconnectAll(opts: {networkBack?: boolean} = {}): void {
 	for (const client of clients.values()) {
 		const transport = client.transport;
 
-		// A long wait is left to run (transport.ts holding).
+		// A long wait is left to run while its time has not passed by the
+		// clock (transport.ts holding): after a night asleep it has.
 		if (transport.state === "reconnect-wait" && !transport.holding?.()) {
 			client.connect();
 		} else if (transport.state === "connecting") {
@@ -497,18 +510,6 @@ registerBusHandlers(socket, {
 });
 
 // Saved-network policies layered on top of the client's own events.
-
-// A custom name from the edit form beats ISUPPORT NETWORK: when a client
-// renames itself to something else, put the user's choice back (setNetworkName
-// is a no-op when the name already matches, so this cannot loop).
-socket.on("network:name", ({uuid, name}) => {
-	const custom = saved.get(uuid)?.name;
-	const client = clients.get(uuid);
-
-	if (client && custom && custom !== name) {
-		client.setNetworkName(custom);
-	}
-});
 
 // Commands-on-connect: run the saved slash commands in the lobby after every
 // registration, like the old server's `connection.ts` did.

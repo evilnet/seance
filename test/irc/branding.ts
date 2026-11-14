@@ -2,6 +2,7 @@ import {expect} from "chai";
 import sinon from "sinon";
 import {
 	DEFAULT_BRANDING,
+	accountRequired,
 	brandingFeatures,
 	brandingString,
 	brandingT,
@@ -70,6 +71,7 @@ describe("branding", function () {
 				allowCustomServer: true,
 				saslDisconnectOnFail: true,
 				guestAccess: true,
+				editNetworks: true,
 				signIn: false,
 			});
 		});
@@ -97,6 +99,7 @@ describe("branding", function () {
 				allowCustomServer: true,
 				saslDisconnectOnFail: true,
 				guestAccess: true,
+				editNetworks: true,
 				signIn: false,
 			});
 			expect(config.strings).to.deep.equal({"connect.submit": "Go"});
@@ -210,6 +213,7 @@ describe("branding", function () {
 				saslDisconnectOnFail: true,
 				signIn: false,
 				guestAccess: true,
+				editNetworks: true,
 			});
 			expect(brandingFeatures({appName: "x"}).allowCustomServer).to.equal(true);
 			expect(
@@ -325,6 +329,54 @@ describe("branding", function () {
 
 			expect(brandingFeatures(guests).guestAccess).to.equal(true);
 			expect(brandingFeatures(members).guestAccess).to.equal(false);
+		});
+
+		it("locks the network only on a sign-in deploy", function () {
+			const editable = normalizeBranding({defaultNetwork: network, features: {signIn: true}});
+			const locked = normalizeBranding({
+				defaultNetwork: network,
+				features: {signIn: true, editNetworks: false},
+			});
+			// A general IRC client's networks are the user's own: the flag
+			// alone does not take them away.
+			const general = normalizeBranding({
+				defaultNetwork: network,
+				features: {editNetworks: false},
+			});
+
+			expect(brandingFeatures(editable).editNetworks).to.equal(true);
+			expect(brandingFeatures(locked).editNetworks).to.equal(false);
+			expect(general.features?.editNetworks).to.equal(false);
+			expect(brandingFeatures(general).editNetworks).to.equal(true);
+		});
+
+		it("requires an account only on a sign-in panel without its guest half", function () {
+			const config = (features: Record<string, boolean>, withNetwork = true) =>
+				normalizeBranding({...(withNetwork ? {defaultNetwork: network} : {}), features});
+
+			expect(accountRequired(config({signIn: true, guestAccess: false}))).to.equal(true);
+			expect(accountRequired(config({signIn: true}))).to.equal(false);
+			expect(accountRequired(config({signIn: true, guestAccess: true}))).to.equal(false);
+			// guestAccess speaks for the panel: without one (no signIn, or a
+			// signIn with no network to sign in to) there is nothing to close.
+			expect(accountRequired(config({guestAccess: false}))).to.equal(false);
+			expect(accountRequired(config({signIn: true, guestAccess: false}, false))).to.equal(
+				false
+			);
+			expect(accountRequired(normalizeBranding({}))).to.equal(false);
+		});
+
+		it("reads the loaded config by default", function () {
+			expect(accountRequired()).to.equal(false);
+			setBranding(
+				normalizeBranding({
+					defaultNetwork: network,
+					features: {signIn: true, guestAccess: false},
+				})
+			);
+			expect(accountRequired()).to.equal(true);
+			resetBranding();
+			expect(accountRequired()).to.equal(false);
 		});
 
 		it("carries its own strings", function () {

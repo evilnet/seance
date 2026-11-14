@@ -1073,6 +1073,116 @@ describe("WsTransport: the server's throttle", function () {
 		expect(isLongWait(lastReconnecting(events))).to.equal(true);
 	});
 
+	/** Dials that never open until the quick retries are spent and the long wait is set. */
+	function spendQuickRetries(t: WsTransport): void {
+		t.connect();
+
+		for (const quick of QUICK_RETRY_MS) {
+			last().closed(1006, "", false);
+			clock.tick(quick);
+		}
+
+		last().closed(1006, "", false);
+		expect(t.holding()).to.equal(true);
+	}
+
+	/** A phone asleep: the clock moves on, the timers do not (fake-timers shifts them along). */
+	const sleep = (ms: number) => clock.setSystemTime(Date.now() + ms);
+
+	it("a phone that slept through the long wait: the wait is over and the poke's dial gets the quick retries", function () {
+		// The quick retries spent in the background, where the OS had taken
+		// the network away; the app comes back an hour later and its first
+		// dial fails because the radio is still waking.
+		const {t, events} = make({reconnect: fastReconnect});
+		spendQuickRetries(t);
+		sleep(3_600_000);
+		expect(t.holding(), "the foreground poke may dial").to.equal(false);
+
+		t.connect(); // manager.ts reconnectAll
+		last().closed(1006, "", false);
+		expect(lastReconnecting(events)).to.include({delayMs: QUICK_RETRY_MS[0]});
+		expect(t.holding()).to.equal(false);
+	});
+
+	it("a long wait that comes due an hour late gives the quick retries back", function () {
+		// The page was frozen and its timer fires before the foreground poke.
+		const {t, events} = make({reconnect: fastReconnect});
+		spendQuickRetries(t);
+		const wait = (lastReconnecting(events) as {delayMs: number}).delayMs;
+		const dialled = FakeWebSocket.instances.length;
+		sleep(3_600_000);
+		clock.tick(wait + DIAL_CLAIM_SETTLE_MS);
+		expect(FakeWebSocket.instances).to.have.length(dialled + 1);
+
+		last().closed(1006, "", false);
+		expect(lastReconnecting(events)).to.include({delayMs: QUICK_RETRY_MS[0]});
+	});
+
+	it("a quick retry that comes due an hour late gives the rest back", function () {
+		const {t, events} = make({reconnect: fastReconnect});
+		t.connect();
+		last().closed(1006, "", false);
+		clock.tick(QUICK_RETRY_MS[0]);
+		last().closed(1006, "", false);
+		sleep(3_600_000);
+		clock.tick(QUICK_RETRY_MS[1]);
+		last().closed(1006, "", false);
+		expect(lastReconnecting(events)).to.include({delayMs: QUICK_RETRY_MS[0]});
+	});
+
+	it("a long wait that came due on time keeps the long wait after it", function () {
+		const {t, events} = make({reconnect: fastReconnect});
+		spendQuickRetries(t);
+		clock.tick((lastReconnecting(events) as {delayMs: number}).delayMs + DIAL_CLAIM_SETTLE_MS);
+		last().closed(1006, "", false);
+		expect(isLongWait(lastReconnecting(events))).to.equal(true);
+		expect(t.holding()).to.equal(true);
+	});
+
+	it("a short sleep leaves the long wait holding", function () {
+		const {t} = make({reconnect: fastReconnect});
+		spendQuickRetries(t);
+		sleep(UNREACHED_RETRY_MS - 1_000);
+		expect(t.holding()).to.equal(true);
+		sleep(1_000);
+		expect(t.holding()).to.equal(false);
+	});
+
+	it("another tab's recent dial to the host keeps the wait holding and the quick retries spent", function () {
+		const {t, events} = make({reconnect: fastReconnect});
+		spendQuickRetries(t);
+		sleep(3_600_000);
+		const other = JSON.stringify({"example.test": {at: Date.now() - 5_000, by: "another tab"}});
+		const get = sinon
+			.stub(storage, "get")
+			.callsFake((k: string) => (k === LAST_DIAL_KEY ? other : null));
+		const set = sinon.stub(storage, "set");
+
+		try {
+			expect(t.holding()).to.equal(true);
+
+			t.connect(); // Connect now
+			last().closed(1006, "", false);
+			expect(isLongWait(lastReconnecting(events))).to.equal(true);
+		} finally {
+			get.restore();
+			set.restore();
+		}
+	});
+
+	it("the server's wait is over once its time has passed by the clock", function () {
+		const {t} = make({reconnect: fastReconnect});
+		t.connect();
+		last().open();
+		t.throttled(37_000);
+		last().closed(1006, "", false);
+		expect(t.holding()).to.equal(true);
+		sleep(36_000);
+		expect(t.holding()).to.equal(true);
+		sleep(1_000);
+		expect(t.holding()).to.equal(false);
+	});
+
 	it("the server's wait spends the quick retries", function () {
 		const {t, events} = make({reconnect: fastReconnect});
 		t.connect();

@@ -291,8 +291,7 @@ export default defineComponent({
 		// does nothing). The touchend is cancelled, so the compatibility
 		// mouse events (whose mouseup closes on a click) and the click never
 		// follow; a touch on a button starts no gesture and keeps its click.
-		// No touch leaves the viewer: the sidebar's swipe and the two-finger
-		// channel swipe listen on <body>.
+		// No touch leaves the viewer: the sidebar's swipe listens on <body>.
 		type Gesture = {
 			ref: {x: number; y: number; scale: number};
 			base: {x: number; y: number; scale: number};

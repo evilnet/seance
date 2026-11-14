@@ -386,8 +386,6 @@
   "help.gestures.showSidebar": "Afficher le menu latéral.",
   "help.gestures.swipeLeft": "Balayage à un doigt vers la gauche",
   "help.gestures.swipeRight": "Balayage à un doigt vers la droite",
-  "help.gestures.twoSwipeLeft": "Balayage à deux doigts vers la gauche",
-  "help.gestures.twoSwipeRight": "Balayage à deux doigts vers la droite",
   "help.privacy": "Politique de confidentialité",
   "help.range": "entre {from} et {to}",
   "help.releaseNotesLink": "notes de version",

@@ -169,7 +169,12 @@ export default defineComponent({
 		// The visible labels of the tab strip; `name` keeps the route
 		// identity (SettingTabItem's active-tab detection), never these.
 		const tabsAria = computed(() => t("settings.tabs.aria"));
-		const tabNetworks = computed(() => t("settings.tabs.networks"));
+		// A sign-in deploy that locks its network shows an Account page
+		// there instead (Settings/Account.vue); the route stays Networks.
+		const features = brandingFeatures(store.state.branding);
+		const tabNetworks = computed(() =>
+			features.editNetworks ? t("settings.tabs.networks") : t("settings.tabs.account")
+		);
 		const tabGeneral = computed(() => t("settings.tabs.general"));
 		const tabAppearance = computed(() => t("settings.tabs.appearance"));
 		const tabNotifications = computed(() => t("settings.tabs.notifications"));
@@ -207,7 +212,7 @@ export default defineComponent({
 			tabAliases,
 			tabScripts,
 			showGeneral: shouldShowGeneralSettings(),
-			showNetworks: brandingFeatures(store.state.branding).saveNetworks,
+			showNetworks: features.saveNetworks || !features.editNetworks,
 		};
 	},
 });

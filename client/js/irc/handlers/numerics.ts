@@ -74,7 +74,7 @@ const isupport: Handler = (client, msg) => {
 	const name = client.isupport.network;
 
 	if (name) {
-		client.setNetworkName(name);
+		client.serverNamed(name);
 	}
 
 	// The featured channels the token names, for the channel browser. 005

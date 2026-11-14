@@ -102,6 +102,7 @@ import {createNetwork} from "../js/irc/manager";
 import * as saved from "../js/irc/saved-networks";
 import type {SavedNetwork} from "../js/irc/saved-networks";
 import {useI18n} from "../js/i18n";
+import {accountRequired, brandingFeatures} from "../js/branding";
 
 export default defineComponent({
 	name: "DormantNetwork",
@@ -115,15 +116,18 @@ export default defineComponent({
 		const router = useRouter();
 		const {t} = useI18n();
 		const name = computed(() => saved.displayName(props.network));
-		/** A login whose password was not kept cannot dial by itself. */
-		const needsPassword = computed(
-			() => props.network.sasl === "plain" && !props.network.saslPassword
-		);
+		/** A login whose password was not kept cannot dial by itself, nor can
+		 * an entry with no login on a deploy that lets only accounts in. */
+		const needsLogin = (net: SavedNetwork) =>
+			(net.sasl === "plain" && !net.saslPassword) || (accountRequired() && !net.sasl);
+		const needsPassword = computed(() => needsLogin(props.network));
 		const connectLabel = computed(() => t("sidebar.savedNetworkConnect", {name: name.value}));
 		const stateLabel = computed(() =>
 			needsPassword.value ? t("sidebar.savedNetworkPassword") : t("sidebar.savedNetworkOff")
 		);
-		const editLabel = computed(() => t("lobby.edit"));
+		const editLabel = computed(() =>
+			brandingFeatures().editNetworks ? t("lobby.edit") : t("lobby.account")
+		);
 
 		const connect = () => {
 			// The entry as stored now: the row's copy is only as new as what
@@ -134,8 +138,9 @@ export default defineComponent({
 				return;
 			}
 
-			if (entry.sasl === "plain" && !entry.saslPassword) {
-				// The connect form, filled from the entry, asks for it.
+			if (needsLogin(entry)) {
+				// The connect form, filled from the entry, asks for it (on a
+				// sign-in deploy, the panel).
 				void router.push({name: "Connect", query: {savedLink: entry.uuid}});
 				return;
 			}
@@ -145,7 +150,13 @@ export default defineComponent({
 		};
 
 		const editNetwork = () => {
-			void router.push(`/settings/networks/${props.network.uuid}`);
+			// A deploy that keeps its network as it set it has no edit form;
+			// the gear opens its Account page instead.
+			void router.push(
+				brandingFeatures().editNetworks
+					? `/settings/networks/${props.network.uuid}`
+					: "/settings/networks"
+			);
 		};
 
 		return {name, connectLabel, stateLabel, editLabel, connect, editNetwork};

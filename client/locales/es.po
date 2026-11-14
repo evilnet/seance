@@ -1548,6 +1548,12 @@ msgctxt "connect.account"
 msgid "Account"
 msgstr "Cuenta"
 
+#. Lobby error on a deploy that lets only accounts in (features.guestAccess false on the sign-in panel), when a network set to connect without logging in is refused before it registers. {host} is the chat network's configured host name.
+#: client/js/irc/client.ts
+msgctxt "connect.accountRequired"
+msgid "Not connecting to {host} without signing in: only accounts can connect here."
+msgstr ""
+
 #. aria-label of the whole connect screen (the window/dialog element); announced by screen readers on arriving at the form.
 #: client/components/Windows/Connect.vue:7
 msgctxt "connect.ariaLabel"
@@ -1774,6 +1780,12 @@ msgstr "Permanecer conectado en este dispositivo"
 msgctxt "connect.rememberPassword"
 msgid "Remember password on this device"
 msgstr "Recordar contraseña en este dispositivo"
+
+#. Follow-up to a failed SASL login on a deploy that lets only accounts in (the sign-in panel without its guest half). Unlike connect.saslRequiredHint it offers no way to connect without logging in: there is none on such a deploy.
+#: client/js/irc/client.ts
+msgctxt "connect.saslAccountRequiredHint"
+msgid "Check the account name and password, then sign in again."
+msgstr ""
 
 #. Lobby error when the login the deploy asked for did not go through; {reason} is one of the connect.saslReason* copies (or, for a few server-side rejections, a technical phrase left verbatim).
 #: client/js/irc/client.ts
@@ -3197,18 +3209,6 @@ msgctxt "help.gestures.swipeRight"
 msgid "Single-Finger Swipe Right"
 msgstr "Deslizar un dedo hacia la derecha"
 
-#. Name of the touch gesture in the help window's gestures section: swiping left with two fingers anywhere in the chat. Its description follows.
-#: client/components/Windows/Help.vue
-msgctxt "help.gestures.twoSwipeLeft"
-msgid "Two-Finger Swipe Left"
-msgstr "Deslizar con dos dedos hacia la izquierda"
-
-#. Name of the touch gesture in the help window's gestures section: swiping right with two fingers anywhere in the chat. Its description follows.
-#: client/components/Windows/Help.vue
-msgctxt "help.gestures.twoSwipeRight"
-msgid "Two-Finger Swipe Right"
-msgstr "Deslizar con dos dedos hacia la derecha"
-
 #. Label of the privacy policy link in the Help window.
 #: client/js/branding.ts
 #: client/components/Windows/Help.vue
@@ -4175,6 +4175,13 @@ msgstr "Esto está tardando más de lo debido; puede haber problemas de conexió
 msgctxt "loading.starting"
 msgid "Loading the app…"
 msgstr "Cargando la aplicación…"
+
+#. Tooltip and screen-reader label of the gear button on a chat network's home row, on a deploy that keeps its network as it set it; opens the Account settings page (connect, disconnect, sign in, sign out) instead of the network's edit form.
+#: client/components/NetworkLobby.vue
+#: client/components/DormantNetwork.vue
+msgctxt "lobby.account"
+msgid "Account"
+msgstr ""
 
 #. aria-label of the plus button on a sidebar network row while the join-channel form is open: clicking closes it again.
 #: client/components/NetworkLobby.vue:156
@@ -13179,6 +13186,66 @@ msgctxt "send.tagsTooLong"
 msgid "Not sent: the tags do not fit on one line"
 msgstr "No enviado: las etiquetas no caben en una línea"
 
+#. Button on the Account settings page while the chat network is connected or connecting; clicking hangs up the connection, which stays in the sidebar to connect again.
+#: client/components/Settings/Account.vue
+msgctxt "settings.account.disconnect"
+msgid "Disconnect"
+msgstr ""
+
+#. Line on the Account settings page under the network's name, when the user came in as a guest without an account. {nick} is the chat nickname the guest uses.
+#: client/components/Settings/Account.vue
+msgctxt "settings.account.guest"
+msgid "Guest: {nick}"
+msgstr ""
+
+#. Heading of the Account page in the settings: the one chat network this app is for, who this device signs in to it as, and its connect and sign-in buttons.
+#: client/components/Settings/Account.vue
+msgctxt "settings.account.heading"
+msgid "Account"
+msgstr ""
+
+#. Button on the Account settings page for a guest or a signed-out user; opens the sign-in screen, where an account name and password are entered.
+#: client/components/Settings/Account.vue
+msgctxt "settings.account.signIn"
+msgid "Sign in"
+msgstr ""
+
+#. Button on the Account settings page while the device signs in with an account; opens a confirmation before signing out.
+#: client/components/Settings/Account.vue
+msgctxt "settings.account.signOut"
+msgid "Sign out"
+msgstr ""
+
+#. Confirmation button of the dialog that signs the user out of the chat network.
+#: client/components/Settings/Account.vue
+msgctxt "settings.account.signOutButton"
+msgid "Sign out"
+msgstr ""
+
+#. Body of the confirmation dialog before signing out of the chat network; says what signing out does on this device.
+#: client/components/Settings/Account.vue
+msgctxt "settings.account.signOutText"
+msgid "This disconnects you, and this device forgets your sign-in and its private messages."
+msgstr ""
+
+#. Title of the confirmation dialog before signing out of the chat network. {name} is the network's display name.
+#: client/components/Settings/Account.vue
+msgctxt "settings.account.signOutTitle"
+msgid "Sign out of {name}?"
+msgstr ""
+
+#. Line on the Account settings page under the network's name. {account} is the user's account name on the chat network, which this device signs in with.
+#: client/components/Settings/Account.vue
+msgctxt "settings.account.signedIn"
+msgid "Signed in as {account}"
+msgstr ""
+
+#. Line on the Account settings page under the network's name, when this device has no account and no guest session on the chat network.
+#: client/components/Settings/Account.vue
+msgctxt "settings.account.signedOut"
+msgid "Not signed in"
+msgstr ""
+
 #. Button under the alias table: appends a new, empty alias row to edit.
 #: client/components/Settings/Aliases.vue
 msgctxt "settings.aliases.add"
@@ -14785,6 +14852,12 @@ msgstr "Desactivado"
 msgctxt "settings.scripts.stateRunning"
 msgid "Running"
 msgstr "En ejecución"
+
+#. Settings tab label on a deploy that is one network's own client and keeps that network as it set it; the tab shows who this device signs in as, with buttons to connect, disconnect, sign in and sign out. Replaces the Networks tab there.
+#: client/components/Settings/Navigation.vue
+msgctxt "settings.tabs.account"
+msgid "Account"
+msgstr ""
 
 #. Label of the Settings modal's Aliases tab (tab strip); switching tabs navigates to the Aliases settings pane.
 #: client/components/Settings/Navigation.vue

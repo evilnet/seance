@@ -378,8 +378,6 @@
   "help.gestures.showSidebar": "แสดงแถบด้านข้าง",
   "help.gestures.swipeLeft": "ปัดซ้ายด้วยนิ้วเดียว",
   "help.gestures.swipeRight": "ปัดขวาด้วยนิ้วเดียว",
-  "help.gestures.twoSwipeLeft": "ปัดซ้ายด้วยสองนิ้ว",
-  "help.gestures.twoSwipeRight": "ปัดขวาด้วยสองนิ้ว",
   "help.privacy": "นโยบายความเป็นส่วนตัว",
   "help.range": "ระหว่าง {from} กับ {to}",
   "help.releaseNotesLink": "บันทึกการอัปเดต",

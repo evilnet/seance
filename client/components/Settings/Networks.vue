@@ -1,5 +1,6 @@
 <template>
-	<div class="network-settings">
+	<AccountSettings v-if="!editable" />
+	<div v-else class="network-settings">
 		<div class="network-settings-heading">
 			<div>
 				<h2>{{ t("settings.networks.heading") }}</h2>
@@ -146,6 +147,7 @@
 <script lang="ts">
 import {computed, defineComponent, ref} from "vue";
 import {brandingFeatures} from "../../js/branding";
+import AccountSettings from "./Account.vue";
 import eventbus from "../../js/eventbus";
 import {createNetwork} from "../../js/irc/manager";
 import * as saved from "../../js/irc/saved-networks";
@@ -158,9 +160,15 @@ import webpush from "../../js/webpush";
 
 export default defineComponent({
 	name: "NetworkSettings",
+	components: {
+		AccountSettings,
+	},
 	setup() {
 		const store = useStore();
 		const {t} = useI18n();
+		// A sign-in deploy that keeps its network as it set it shows the
+		// Account page instead of the list (`features.editNetworks`).
+		const editable = brandingFeatures(store.state.branding).editNetworks;
 		const networks = ref(saved.list());
 		const live = (uuid: string) => store.getters.findNetwork(uuid);
 		const canAddNetwork = computed(
@@ -240,6 +248,7 @@ export default defineComponent({
 		};
 
 		return {
+			editable,
 			networks,
 			canAddNetwork,
 			isConnecting,
