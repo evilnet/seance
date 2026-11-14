@@ -201,6 +201,14 @@ export interface NetworksPlan {
 	over: BouncerNetwork[];
 }
 
+/**
+ * A bouncer panel field's value to send: trimmed, except the upstream
+ * server password (`pass`), whose spaces are part of it.
+ */
+export function panelValue(key: string, typed: string): string {
+	return key === "pass" ? typed : typed.trim();
+}
+
 /** Where an entry connects and as whom: what makes it one bouncer account. */
 export interface BouncerLogin {
 	host: string;

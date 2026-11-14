@@ -230,6 +230,7 @@ import {useStore} from "../../js/store";
 import {leavePage} from "../../js/router";
 import socket from "../../js/socket";
 import {useI18n} from "../../js/i18n";
+import {panelValue} from "../../js/irc/bouncer";
 import type {SharedBouncerNetwork} from "../../../shared/types/network";
 
 /** The spec's standard attributes the form edits; `state` and `error` are read-only. */
@@ -397,7 +398,7 @@ export default defineComponent({
 			const attrs: Record<string, string> = {};
 
 			for (const key of TEXT_KEYS) {
-				const value = (f.values[key] ?? "").trim();
+				const value = panelValue(key, f.values[key] ?? "");
 
 				// New: only what was typed (soju fills the rest in). Edit: only
 				// what changed, an emptied field as a bare key (cleared).

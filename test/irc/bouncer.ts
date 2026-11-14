@@ -8,6 +8,7 @@ import {
 	isBouncerControl,
 	isNetworkId,
 	networksToAdd,
+	panelValue,
 	sameBouncerAccount,
 	type BouncerNetwork,
 } from "../../client/js/irc/bouncer";
@@ -711,6 +712,18 @@ describe("Bouncers: following a rename on the bouncer (followRename)", function 
 
 	it("changes nothing for the same name", function () {
 		expect(followRename({name: "Up2", bouncerName: "Up2"}, "Up2")).to.equal(undefined);
+	});
+});
+
+describe("Bouncers: the panel's field values (panelValue)", function () {
+	it("trims what is typed into a field", function () {
+		expect(panelValue("host", " irc.example ")).to.equal("irc.example");
+		expect(panelValue("nickname", "\talice\n")).to.equal("alice");
+	});
+
+	it("sends a password as typed: its spaces are part of it", function () {
+		expect(panelValue("pass", " secret ")).to.equal(" secret ");
+		expect(panelValue("pass", "   ")).to.equal("   ");
 	});
 });
 
