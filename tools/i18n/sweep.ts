@@ -52,68 +52,78 @@ export function sweepEntries(
 	let emptied = 0;
 	const reports: SweepReport[] = [];
 
-	const empty = (entry: PoEntry, index: number, reason: SweepReason) => {
-		entry.msgstr[index] = "";
-		emptied += 1;
-		reports.push({key: entry.msgctxt ?? entry.msgid, reason});
-	};
-
 	for (const entry of entries) {
-		if (!entry.msgstr.some((text) => text)) {
-			continue;
-		}
-
-		// An empty msgid is a deliberately blank slot (the deploy fills it);
-		// a model asked to translate "" only invents text.
-		if (!entry.msgid && !entry.msgidPlural) {
-			empty(entry, 0, "empty-source");
-			continue;
-		}
-
-		const slots =
-			entry.msgidPlural === undefined
-				? [{index: 0, english: entry.msgid}]
-				: planPluralSlots(entry, rule.nplurals, rule.expr, tag).map(({index, source}) => ({
-						index,
-						english: source === "msgid" ? entry.msgid : (entry.msgidPlural as string),
-				  }));
-
-		// A plural form can be the English word again ("{count} Byte" in
-		// German, "{count} G-line" anywhere) while its sibling is plainly
-		// translated; the entry as a whole is no echo then, and emptying
-		// that one slot would send the whole key back to English.
-		const translatedSibling = (index: number) =>
-			slots.some(
-				(other) =>
-					other.index !== index &&
-					entry.msgstr[other.index] &&
-					!slotVerdict(tag, other.english, entry.msgstr[other.index])
-			);
-
-		for (const {index, english} of slots) {
-			const text = entry.msgstr[index];
-
-			if (!text) {
-				continue;
-			}
-
-			const reason = slotVerdict(tag, english, text);
-
-			if (
-				reason === "unchanged" &&
-				entry.msgidPlural !== undefined &&
-				translatedSibling(index)
-			) {
-				continue;
-			}
-
-			if (reason) {
-				empty(entry, index, reason);
-			}
+		for (const {index, reason} of slotsToEmpty(entry, rule, tag)) {
+			entry.msgstr[index] = "";
+			emptied += 1;
+			reports.push({key: entry.msgctxt ?? entry.msgid, reason});
 		}
 	}
 
 	return {emptied, reports};
+}
+
+/**
+ * The slots of one entry the sweep would empty, and why, without touching
+ * the entry: the one judgement sweepEntries applies, for a tool that wants
+ * to know before it writes (reuse.ts copies nothing this would empty).
+ */
+export function slotsToEmpty(
+	entry: PoEntry,
+	rule: PluralRule,
+	tag: string
+): Array<{index: number; reason: SweepReason}> {
+	if (!entry.msgstr.some((text) => text)) {
+		return [];
+	}
+
+	// An empty msgid is a deliberately blank slot (the deploy fills it);
+	// a model asked to translate "" only invents text.
+	if (!entry.msgid && !entry.msgidPlural) {
+		return [{index: 0, reason: "empty-source"}];
+	}
+
+	const slots =
+		entry.msgidPlural === undefined
+			? [{index: 0, english: entry.msgid}]
+			: planPluralSlots(entry, rule.nplurals, rule.expr, tag).map(({index, source}) => ({
+					index,
+					english: source === "msgid" ? entry.msgid : (entry.msgidPlural as string),
+			  }));
+
+	// A plural form can be the English word again ("{count} Byte" in
+	// German, "{count} G-line" anywhere) while its sibling is plainly
+	// translated; the entry as a whole is no echo then, and emptying
+	// that one slot would send the whole key back to English.
+	const translatedSibling = (index: number) =>
+		slots.some(
+			(other) =>
+				other.index !== index &&
+				entry.msgstr[other.index] &&
+				!slotVerdict(tag, other.english, entry.msgstr[other.index])
+		);
+
+	const out: Array<{index: number; reason: SweepReason}> = [];
+
+	for (const {index, english} of slots) {
+		const text = entry.msgstr[index];
+
+		if (!text) {
+			continue;
+		}
+
+		const reason = slotVerdict(tag, english, text);
+
+		if (reason === "unchanged" && entry.msgidPlural !== undefined && translatedSibling(index)) {
+			continue;
+		}
+
+		if (reason) {
+			out.push({index, reason});
+		}
+	}
+
+	return out;
 }
 
 /**
