@@ -16,6 +16,7 @@
  * backend with {@link useStorageBackend}.
  */
 
+import {isNetworkId} from "./bouncer";
 import storage from "../localStorage";
 import {collator} from "../i18n/collation";
 import {forgetNetworkLog} from "./querylog";
@@ -69,6 +70,24 @@ export type SavedNetwork = ConnectOptions & {
 	notifyEnabled?: boolean;
 	/** Slash commands run in the lobby after every registration, one per entry. */
 	commands?: string[];
+	/**
+	 * A bouncer's control connection (irc/bouncer.ts): the ids of its networks
+	 * already offered here. Each is added as a network of its own once; one the
+	 * user removes is not added again.
+	 */
+	bouncerSeen?: string[];
+	/**
+	 * A network added from a bouncer's list: the name the bouncer gave it, so
+	 * a rename there is followed while the user has not renamed it here
+	 * (irc/bouncer.ts `followRename`).
+	 */
+	bouncerName?: string;
+	/**
+	 * This entry has registered behind a bouncer that keeps its own channel
+	 * list (IrcClient.behindBouncer) before: from then on the bouncer, not
+	 * the saved channels, says what is joined.
+	 */
+	bouncerSettled?: boolean;
 	/** Epoch ms of the last connect; the picker lists most recent first. */
 	lastUsed?: number;
 	/** Newest message seen on this network (see {@link NetworkCursor}). */
@@ -300,6 +319,22 @@ export function normalize(raw: Record<string, unknown>): SavedNetwork | undefine
 		net.lastUsed = raw.lastUsed;
 	}
 
+	if (isNetworkId(raw.bouncerNetId)) {
+		net.bouncerNetId = raw.bouncerNetId;
+	}
+
+	if (typeof raw.bouncerName === "string" && raw.bouncerName) {
+		net.bouncerName = raw.bouncerName;
+	}
+
+	if (Array.isArray(raw.bouncerSeen)) {
+		net.bouncerSeen = raw.bouncerSeen.filter(isNetworkId);
+	}
+
+	if (raw.bouncerSettled === true) {
+		net.bouncerSettled = true;
+	}
+
 	const cursor = asCursor(raw.cursor);
 
 	if (cursor) {
@@ -422,6 +457,11 @@ export function fromForm(data: Record<string, unknown>, existing?: SavedNetwork)
 		delete base.trustedCertificates;
 	}
 
+	if (existing && otherBouncerLogin(existing, base)) {
+		delete base.bouncerSeen;
+		delete base.bouncerSettled;
+	}
+
 	// The services block travels whole: the key present with nothing in it
 	// is "None" (the loop above keeps the stored one for a missing key).
 	if ("services" in data) {
@@ -453,6 +493,7 @@ export function toConnectOptions(net: SavedNetwork): ConnectOptions {
 		// one it was given (IrcClient.applySettings).
 		serverPassword: net.serverPassword ?? (net.hasServerPassword ? undefined : ""),
 		trustedCertificates: net.trustedCertificates ?? [],
+		...(net.bouncerNetId ? {bouncerNetId: net.bouncerNetId} : {}),
 	};
 }
 
@@ -470,6 +511,30 @@ function moved(existing: SavedNetwork, host: unknown, port: unknown): boolean {
 	return (
 		(host !== undefined && !sameHost(asString(host), existing.host)) ||
 		(port !== undefined && Number(port) !== existing.port)
+	);
+}
+
+/** ZNC's login in a server password `user/network:password`: what comes before the `:`. */
+export function zncLogin(serverPassword: unknown): string {
+	const text = asString(serverPassword);
+	const colon = text.indexOf(":");
+	return colon < 0 ? "" : text.slice(0, colon);
+}
+
+/**
+ * Whether `next` (any field absent: unchanged) takes `existing` to another
+ * server, SASL account or ZNC network. What the entry learned behind its
+ * bouncer account then goes (fromForm, mergeOptions): soju's offered network
+ * ids are small integers every soju reuses, and a fresh ZNC network should
+ * get the typed channels on its first connect.
+ */
+function otherBouncerLogin(existing: SavedNetwork, next: Record<string, unknown>): boolean {
+	return (
+		moved(existing, next.host, next.port) ||
+		(next.saslAccount !== undefined &&
+			asString(next.saslAccount) !== (existing.saslAccount ?? "")) ||
+		(next.serverPassword !== undefined &&
+			zncLogin(next.serverPassword) !== zncLogin(existing.serverPassword))
 	);
 }
 
@@ -673,6 +738,17 @@ export function setCursor(uuid: string, cursor: NetworkCursor): void {
 	}
 }
 
+/** The network has registered behind a bouncer: see {@link SavedNetwork.bouncerSettled}. */
+export function setBouncerSettled(uuid: string): void {
+	const all = read();
+	const net = all.find((n) => n.uuid === uuid);
+
+	if (net && !net.bouncerSettled) {
+		net.bouncerSettled = true;
+		write(all, false);
+	}
+}
+
 /** The entry to pre-fill the connect form with, if any. */
 /**
  * The order the user gave a network's channels (drag-and-drop in the
@@ -717,8 +793,11 @@ export function findMatching(
 	const h = hostnameOf(host).toLowerCase();
 	const n = nick.trim().toLowerCase();
 
+	// A network added from a bouncer's list shares its host, port and nick
+	// with the bouncer's own entry, which is the one the connect form means.
 	return read().find(
 		(net) =>
+			!net.bouncerNetId &&
 			hostnameOf(net.host).toLowerCase() === h &&
 			net.port === port &&
 			net.nick.toLowerCase() === n &&
@@ -743,6 +822,11 @@ export function mergeOptions(
 	// The connect screen can point a saved network at another server too.
 	if (existing && moved(existing, options.host, options.port)) {
 		delete merged.trustedCertificates;
+	}
+
+	if (existing && otherBouncerLogin(existing, options)) {
+		delete merged.bouncerSeen;
+		delete merged.bouncerSettled;
 	}
 
 	return merged;

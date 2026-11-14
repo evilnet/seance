@@ -8,6 +8,7 @@ import {
 	pendingSearches,
 	requestSearch,
 	requestSearchContext,
+	resetSearches,
 	SEARCH_TIMEOUT_MS,
 	SEARCH_TOMBSTONE_MS,
 	specSearchParams,
@@ -522,6 +523,40 @@ describe("historysearch", function () {
 			expect(payloads("msg")).to.have.length(0);
 		});
 
+		it("asks by when it was said a server that takes only timestamps (soju)", function () {
+			const {client, transport} = setup();
+			transport.line(
+				":irc.test 005 alice MSGREFTYPES=timestamp :are supported by this server"
+			);
+			requestSearch(client, 1, {in: "#seance", text: "fake"});
+			batch(transport, "soju.im/search", labelOf(transport.sent[0]), [ROW1, ROW2]);
+			transport.sent.length = 0;
+
+			requestSearchContext(client, 4, "#seance", "AROUND", "m2", 21);
+
+			expect(transport.sent[0]).to.match(
+				/ CHATHISTORY AROUND #seance timestamp=2026-10-20T11:00:00\.000Z 21$/
+			);
+		});
+
+		it("still knows when a hit was said after the connection closed and came back", function () {
+			const {client, transport} = setup();
+			transport.line(
+				":irc.test 005 alice MSGREFTYPES=timestamp :are supported by this server"
+			);
+			requestSearch(client, 1, {in: "#seance", text: "fake"});
+			batch(transport, "soju.im/search", labelOf(transport.sent[0]), [ROW1, ROW2]);
+			// What a disconnect does; the search window keeps its hits.
+			resetSearches(client);
+			transport.sent.length = 0;
+
+			requestSearchContext(client, 4, "#seance", "AROUND", "m2", 21);
+
+			expect(transport.sent[0]).to.match(
+				/ CHATHISTORY AROUND #seance timestamp=2026-10-20T11:00:00\.000Z 21$/
+			);
+		});
+
 		it("does not ask by msgid a server whose MSGREFTYPES leaves it out", function () {
 			const {client, transport} = setup();
 			transport.line(
@@ -798,6 +833,123 @@ describe("historysearch", function () {
 		expect(payloads<ResultsPayload>("search:results")[0]).to.include({
 			requestId: 10,
 			status: "offline",
+		});
+	});
+	describe("a server that wants in= (soju)", function () {
+		const ROW3 =
+			"@time=2026-10-20T10:30:00.000Z;msgid=m3 :bob!bob@host PRIVMSG #linux :fake lag again";
+
+		function refuse(transport: FakeTransport, line: string): void {
+			transport.line(
+				`@label=${labelOf(
+					line
+				)} :irc.test FAIL SEARCH INVALID_PARAMS in :Missing "in" attribute`
+			);
+		}
+
+		it("asks each joined channel in turn, and answers once with the newest, oldest first", function () {
+			const {client, transport} = setup();
+			transport.line("@time=2026-08-25T12:00:00.000Z :alice!alice@host JOIN #linux");
+			transport.sent.length = 0;
+
+			requestSearch(client, 7, {text: "fake", limit: 2});
+			expect(transport.sent).to.have.length(1);
+			expect(transport.sent[0]).to.not.contain("in=");
+			refuse(transport, transport.sent[0]);
+
+			// One channel at a time: soju 0.7 has no labeled-response to
+			// tell concurrent answers apart.
+			expect(transport.sent).to.have.length(2);
+			expect(transport.sent[1]).to.contain("in=#linux;");
+			batch(transport, "soju.im/search", labelOf(transport.sent[1]), [ROW3]);
+			expect(payloads("search:results")).to.have.length(0);
+
+			expect(transport.sent).to.have.length(3);
+			expect(transport.sent[2]).to.contain("in=#seance;");
+			batch(transport, "soju.im/search", labelOf(transport.sent[2]), [ROW1, ROW2]);
+
+			const answers = payloads<ResultsPayload>("search:results");
+			expect(answers).to.have.length(1);
+			expect(answers[0]).to.include({requestId: 7, status: "ok"});
+			expect(answers[0].hits.map((hit) => hit.msg.msgid)).to.deep.equal(["m3", "m2"]);
+			expect(answers[0].hits.map((hit) => hit.target)).to.deep.equal(["#linux", "#seance"]);
+		});
+
+		it("fails the whole search when one channel's part fails", function () {
+			const {client, transport} = setup();
+			transport.line("@time=2026-08-25T12:00:00.000Z :alice!alice@host JOIN #linux");
+			transport.sent.length = 0;
+
+			requestSearch(client, 8, {text: "fake"});
+			refuse(transport, transport.sent[0]);
+			batch(transport, "soju.im/search", labelOf(transport.sent[1]), [ROW3]);
+			transport.line(
+				`@label=${labelOf(
+					transport.sent[2]
+				)} :irc.test FAIL SEARCH INTERNAL_ERROR :Database is down`
+			);
+
+			const answers = payloads<ResultsPayload>("search:results");
+			expect(answers).to.have.length(1);
+			expect(answers[0]).to.include({
+				requestId: 8,
+				status: "fail",
+				error: "Database is down",
+			});
+		});
+
+		it("remembers it: the next search over every channel goes per channel at once", function () {
+			const {client, transport} = setup();
+			requestSearch(client, 1, {text: "fake"});
+			refuse(transport, transport.sent[0]);
+			batch(transport, "soju.im/search", labelOf(transport.sent[1]), []);
+			transport.sent.length = 0;
+
+			requestSearch(client, 2, {text: "lag"});
+
+			expect(transport.sent).to.have.length(1);
+			expect(transport.sent[0]).to.contain("in=#seance");
+		});
+
+		it("stops asking the channels of a search a newer one replaced", function () {
+			const {client, transport} = setup();
+			transport.line("@time=2026-08-25T12:00:00.000Z :alice!alice@host JOIN #linux");
+			transport.line("@time=2026-08-25T12:00:00.000Z :alice!alice@host JOIN #debian");
+			requestSearch(client, 1, {text: "fake"});
+			refuse(transport, transport.sent[transport.sent.length - 1]);
+			const firstPart = transport.sent[transport.sent.length - 1];
+			expect(firstPart).to.contain("text=fake");
+			transport.sent.length = 0;
+
+			// The user types a new search while #linux's part is out.
+			requestSearch(client, 2, {text: "lag"});
+			expect(transport.sent).to.have.length(1);
+			expect(transport.sent[0]).to.contain("text=lag");
+			const [superseded] = payloads<ResultsPayload>("search:results");
+			expect(superseded).to.include({requestId: 1, status: "fail"});
+
+			// The old part's answer comes in: dropped, and nothing more of it is asked.
+			batch(transport, "soju.im/search", labelOf(firstPart), [ROW3]);
+			expect(transport.sent.filter((line) => line.includes("text=fake"))).to.deep.equal([]);
+			expect(payloads<ResultsPayload>("search:results")).to.have.length(1);
+
+			// The new search carries on through its channels.
+			batch(transport, "soju.im/search", labelOf(transport.sent[0]), []);
+			expect(transport.sent[1]).to.contain("text=lag");
+		});
+
+		it("reports a failure only when no channel found anything", function () {
+			const {client, transport} = setup();
+			requestSearch(client, 3, {text: "fake"});
+			refuse(transport, transport.sent[0]);
+			transport.line(
+				`@label=${labelOf(
+					transport.sent[1]
+				)} :irc.test FAIL SEARCH INTERNAL_ERROR :Database is down`
+			);
+
+			const [answer] = payloads<ResultsPayload>("search:results");
+			expect(answer).to.include({requestId: 3, status: "fail", error: "Database is down"});
 		});
 	});
 });

@@ -805,6 +805,8 @@ function randomNick() {
  * through done(ok): false on any SASL/registration failure, a close, or the
  * timeout.
  */
+const SW_BOUNCER_CAP = "soju.im/bouncer-networks";
+
 function swIrcOpen(net, pre, onReady, optional = []) {
 	return new Promise((resolve) => {
 		const scheme = net.tls ? "wss://" : "ws://";
@@ -905,7 +907,10 @@ function swIrcOpen(net, pre, onReady, optional = []) {
 				}
 
 				stage = 1;
-				asked = optional.filter((cap) => offered.includes(cap));
+				// One of a soju account's networks (irc/bouncer.ts): bound with
+				// BOUNCER BIND before CAP END, or this is the control connection.
+				const wanted = net.bouncerNetId ? optional.concat([SW_BOUNCER_CAP]) : optional;
+				asked = wanted.filter((cap) => offered.includes(cap));
 				ws.send("CAP REQ :" + ["sasl"].concat(asked).join(" "));
 				return;
 			}
@@ -945,6 +950,15 @@ function swIrcOpen(net, pre, onReady, optional = []) {
 			if (stage === 3 && / 903 /.test(l)) {
 				stage = 4;
 
+				if (net.bouncerNetId) {
+					if (!ctx.caps.has(SW_BOUNCER_CAP)) {
+						done(false);
+						return;
+					}
+
+					ws.send("BOUNCER BIND " + net.bouncerNetId);
+				}
+
 				for (const line of typeof pre === "function" ? pre(ctx) : pre) {
 					ws.send(line);
 				}
@@ -953,7 +967,14 @@ function swIrcOpen(net, pre, onReady, optional = []) {
 				return;
 			}
 
-			if (stage === 4 && /^ERROR /.test(l)) {
+			// A refused BIND (`FAIL BOUNCER INVALID_NETID`, the network was
+			// deleted): soju goes on registering this as the control
+			// connection, where nothing for the bound network belongs.
+			if (
+				stage === 4 &&
+				(/^ERROR /.test(l) ||
+					(net.bouncerNetId && /^(?:@\S+ )?(?::\S+ )?FAIL BOUNCER /.test(l)))
+			) {
 				done(false);
 				return;
 			}

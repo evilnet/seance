@@ -829,3 +829,54 @@ describe("saved networks: trusted certificates", function () {
 		);
 	});
 });
+
+describe("saved networks: a bouncer's bookkeeping belongs to its server and login", function () {
+	// What an entry learned behind one bouncer account: soju's network ids
+	// are small integers every soju reuses, and a ZNC network settled once
+	// is not another one's.
+	const bookkept = {
+		uuid: "b1",
+		host: "soju.a",
+		port: 6697,
+		tls: true,
+		sasl: "plain",
+		saslAccount: "alice",
+		hasServerPassword: true,
+		serverPassword: "alice/libera:pw",
+		bouncerSeen: ["1", "2"],
+		bouncerSettled: true,
+	};
+
+	it("keeps it while the server and login stay", function () {
+		const existing = saved.normalize(bookkept)!;
+		const form = saved.fromForm({...bookkept, nick: "bob"}, existing);
+		expect(form.bouncerSeen).to.deep.equal(["1", "2"]);
+		expect(form.bouncerSettled).to.equal(true);
+		// A new password for the same ZNC network is the same login.
+		expect(
+			saved.fromForm({...bookkept, serverPassword: "alice/libera:new"}, existing)
+				.bouncerSettled
+		).to.equal(true);
+		expect(saved.mergeOptions(existing, "b1", {nick: "bob"}).bouncerSeen).to.deep.equal([
+			"1",
+			"2",
+		]);
+	});
+
+	for (const [what, change] of [
+		["another host", {host: "soju.b"}],
+		["another port", {port: 7000}],
+		["another SASL account", {saslAccount: "bob"}],
+		["another ZNC network", {serverPassword: "alice/oftc:pw"}],
+	] as const) {
+		it(`drops it for ${what} (the edit form and the connect screen)`, function () {
+			const existing = saved.normalize(bookkept)!;
+			const form = saved.fromForm({...bookkept, ...change}, existing);
+			expect(form).to.not.have.property("bouncerSeen");
+			expect(form).to.not.have.property("bouncerSettled");
+			const merged = saved.mergeOptions(existing, "b1", change);
+			expect(merged).to.not.have.property("bouncerSeen");
+			expect(merged).to.not.have.property("bouncerSettled");
+		});
+	}
+});

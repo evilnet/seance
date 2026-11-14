@@ -183,6 +183,12 @@ export function takesMsgidRefs(client: IrcClient): boolean {
 	return types === undefined || types.split(",").includes("msgid");
 }
 
+/** Whether the server takes `timestamp=` references (MSGREFTYPES; unlisted means any). */
+export function takesTimestampRefs(client: IrcClient): boolean {
+	const types = client.isupport.tokens.get("MSGREFTYPES");
+	return types === undefined || types.split(",").includes("timestamp");
+}
+
 /** `msgid=…` when we have one and the server takes it, else `timestamp=<ISO 8601>`. */
 export function formatRef(client: IrcClient, ref: MsgRef): string {
 	if (ref.msgid && takesMsgidRefs(client)) {
@@ -915,6 +921,174 @@ export const chathistoryBatch: BatchHandler = (client, batch) => {
 		const {messages, after} = replay(client, chan, batch.messages);
 		deliverPrepend(client, chan, messages, false);
 		runAfter(after);
+	}
+};
+
+/** ZNC's buffer replay on attach: `BATCH +x znc.in/playback <target>`. */
+export const ZNC_PLAYBACK_BATCH = "znc.in/playback";
+
+/**
+ * What each conversation has shown on this page, by identity: the time, the
+ * sender, the kind (message, action, notice) and the text, with how many
+ * times each came. ZNC has no msgids, and a buffer it does not clear
+ * (`AutoClearChanBuffer` off, or the `*playback` module) comes back on every
+ * attach, along with lines we already saw live. A query's lines restored from
+ * this device (querylog.ts) count too, seeded at its first replay
+ * ({@link seedFromQueryLog}). Bounded per conversation.
+ */
+const zncSeen = new WeakMap<IrcClient, Map<string, Map<string, number>>>();
+/** Conversations whose logged lines were counted in already, per client. */
+const zncSeeded = new WeakMap<IrcClient, Set<string>>();
+const ZNC_SEEN_MAX = 2000;
+
+/** A line's identity: epoch ms, sender, kind, text. */
+function identity(ms: number, nick: string, kind: string, text: string): string {
+	return [ms, nick, kind, text].join("\0");
+}
+
+/** A PRIVMSG or NOTICE's identity, from the bouncer's own time tag; none without one. */
+function zncKey(client: IrcClient, line: IrcMessage): string | undefined {
+	const ms = Date.parse(line.tags.get("time") ?? "");
+
+	if (Number.isNaN(ms)) {
+		return undefined;
+	}
+
+	let text = line.params[1] ?? "";
+	let kind = line.command === "NOTICE" ? "notice" : "message";
+
+	if (kind === "message" && text.startsWith("\x01ACTION ")) {
+		kind = "action";
+		text = text.slice("\x01ACTION ".length).replace(/\x01$/, "");
+	}
+
+	return identity(ms, client.casefold(line.source?.name ?? ""), kind, text);
+}
+
+function zncSeenFor(client: IrcClient, target: string): Map<string, number> {
+	let byTarget = zncSeen.get(client);
+
+	if (!byTarget) {
+		byTarget = new Map();
+		zncSeen.set(client, byTarget);
+	}
+
+	const key = client.casefold(target);
+	let seen = byTarget.get(key);
+
+	if (!seen) {
+		seen = new Map();
+		byTarget.set(key, seen);
+	}
+
+	return seen;
+}
+
+function trimSeen(seen: Map<string, number>): void {
+	for (const key of seen.keys()) {
+		if (seen.size <= ZNC_SEEN_MAX) {
+			break;
+		}
+
+		seen.delete(key);
+	}
+}
+
+/**
+ * Count a query's lines kept on this device (querylog.ts) as shown, once per
+ * page: after a reload they were restored into the window, and ZNC's QueryLog
+ * buffer replays the same lines. Counted with the larger of the two counts,
+ * since the lines seen live since are in the log as well.
+ */
+function seedFromQueryLog(client: IrcClient, target: string, seen: Map<string, number>): void {
+	if (client.isChannelName(target)) {
+		return;
+	}
+
+	let seeded = zncSeeded.get(client);
+
+	if (!seeded) {
+		seeded = new Set();
+		zncSeeded.set(client, seeded);
+	}
+
+	const folded = client.casefold(target);
+
+	if (seeded.has(folded)) {
+		return;
+	}
+
+	seeded.add(folded);
+	const logged = new Map<string, number>();
+
+	for (const msg of client.queryLog.messages(target)) {
+		const ms = new Date(msg.time).getTime();
+
+		if (Number.isNaN(ms) || msg.text === undefined || msg.type === undefined) {
+			continue;
+		}
+
+		const key = identity(ms, client.casefold(msg.from?.nick ?? ""), msg.type, msg.text);
+		logged.set(key, (logged.get(key) ?? 0) + 1);
+	}
+
+	for (const [key, count] of logged) {
+		seen.set(key, Math.max(count, seen.get(key) ?? 0));
+	}
+}
+
+/** A live PRIVMSG or NOTICE behind ZNC: remembered, so its replay is known. */
+export function noteZncLine(client: IrcClient, line: IrcMessage): void {
+	const key = zncKey(client, line);
+	const target = line.params[0];
+
+	if (!key || !target) {
+		return;
+	}
+
+	const conversation = client.isSelf(target) ? line.source?.name ?? target : target;
+	const seen = zncSeenFor(client, conversation);
+	seen.set(key, (seen.get(key) ?? 0) + 1);
+	trimSeen(seen);
+}
+
+/**
+ * ZNC's buffer replay (`BATCH +x znc.in/playback <target>`, sent on every
+ * attach). The lines are stored ones, so they go the catch-up's way:
+ * appended, counted as unread but silent, a closed query reopened only by
+ * what was said since. A line this page has already shown, as often as it
+ * showed it, is dropped ({@link zncSeen}); a line without a time tag is kept.
+ */
+export const zncPlaybackBatch: BatchHandler = (client, batch) => {
+	const target = batch.params[0] ?? "";
+
+	if (!target) {
+		return;
+	}
+
+	const seen = zncSeenFor(client, target);
+	seedFromQueryLog(client, target, seen);
+	const inBatch = new Map<string, number>();
+	const lines = batch.messages.filter((line) => {
+		const key = zncKey(client, line);
+
+		if (!key) {
+			return true;
+		}
+
+		const count = (inBatch.get(key) ?? 0) + 1;
+		inBatch.set(key, count);
+		return count > (seen.get(key) ?? 0);
+	});
+
+	for (const [key, count] of inBatch) {
+		seen.set(key, Math.max(count, seen.get(key) ?? 0));
+	}
+
+	trimSeen(seen);
+
+	if (lines.length > 0) {
+		deliverCatchup(client, target, lines);
 	}
 };
 

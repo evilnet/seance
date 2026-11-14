@@ -98,6 +98,18 @@ describe("Web Push subscription (draft/webpush)", function () {
 			expect(payloads[0].vapid).to.be.undefined;
 		});
 
+		it("announces soju's VAPID key under its own cap name (soju.im/webpush)", function () {
+			const h = setup();
+			register(h, `${ALL_CAPS} soju.im/webpush`, [
+				`:irc.test 005 alice VAPID=${VAPID} :are supported by this server`,
+			]);
+
+			const sent = h.transport.sent.find((l) => l.startsWith("CAP REQ :"));
+			expect(sent).to.include("soju.im/webpush");
+			const payloads = h.payloads<{vapid: string | undefined}>("webpush:available");
+			expect(payloads.map((p) => p.vapid)).to.deep.equal([VAPID]);
+		});
+
 		it("announces the VAPID ISUPPORT key of a server that lists the cap bare (the spec)", function () {
 			const h = setup();
 			register(h, `${ALL_CAPS} draft/webpush`, [

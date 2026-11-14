@@ -17,6 +17,7 @@
 
 import {t} from "../../i18n/core";
 import {MessageType} from "../../../../shared/types/msg";
+import {bindFailed} from "../bouncer";
 import {targetsFailed} from "../catchup";
 import {chatHistoryFailed} from "../history";
 import {searchContextFailed, searchFailed} from "../historysearch";
@@ -179,6 +180,10 @@ function reply(kind: "FAIL" | "WARN" | "NOTE"): Handler {
 			if (chatHistoryFailed(client, msg)) {
 				return;
 			}
+		}
+
+		if (kind === "FAIL" && bindFailed(client, msg)) {
+			return; // our network was deleted on the bouncer (../bouncer.ts)
 		}
 
 		if (kind === "FAIL" && command.toUpperCase() === "REDACT") {

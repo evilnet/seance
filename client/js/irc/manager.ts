@@ -29,6 +29,15 @@ import {leavesAwayToWorker, syncPresence} from "./presence";
 import {claimMute, clearRemoteDnd} from "./pushMute";
 import * as saved from "./saved-networks";
 import type {SavedNetwork} from "./saved-networks";
+import {
+	BOUNCER_SEEN_MAX,
+	boundAwaitingLogin,
+	followRename,
+	networksToAdd,
+	sameBouncerAccount,
+	type BouncerLogin,
+	type BouncerNetwork,
+} from "./bouncer";
 import type {ConnectOptions} from "./types";
 import type {GlobalModeState} from "../helpers/dnd";
 import {shellBridge} from "../helpers/shell";
@@ -201,6 +210,10 @@ export function createNetwork(options: CreateNetworkOptions): IrcClient {
 				void untrustedCertificate(entry.uuid, certificate),
 			// A custom name from the edit form beats ISUPPORT NETWORK.
 			savedName: () => saved.get(entry.uuid)?.name || undefined,
+			onBouncerNetworks: (networks) => addBouncerNetworks(entry.uuid, networks),
+			onBouncerNetworkRemoved: (id) => bouncerNetworkRemoved(entry.uuid, id),
+			onBouncerNetworkRenamed: (id, name) => bouncerNetworkRenamed(entry.uuid, id, name),
+			onBouncerNetworkGone: () => stopAutoconnect(entry.uuid),
 		});
 		clients.set(entry.uuid, client);
 		// Load the network's ignore list now, which mirrors it for the push
@@ -248,6 +261,143 @@ export function createNetwork(options: CreateNetworkOptions): IrcClient {
 
 	client.connect();
 	return client;
+}
+
+/**
+ * A bouncer's control connection listed its networks (irc/bouncer.ts): add
+ * each one this entry has not offered before as a network of its own, with
+ * the same server and login, bound to it, while fewer than
+ * BOUNCER_NETWORKS_MAX of the account's networks are saved. Offered once: a
+ * network the user removes here is not added back at the next connect.
+ * Returns the names added, and those left out for want of room.
+ */
+function addBouncerNetworks(
+	controlUuid: string,
+	networks: BouncerNetwork[]
+): {added: string[]; over: string[]} {
+	const control = saved.get(controlUuid);
+	const live = clients.get(controlUuid);
+
+	// An edit saved while this connection is still up (it applies at the
+	// reconnect) points the entry at another server or login: the list is
+	// this connection's, and its passwords must not go with the edited entry.
+	// Nothing is offered or marked seen; the reconnect lists again.
+	if (!control || !live || !sameBouncerAccount(control, live.options)) {
+		return {added: [], over: []};
+	}
+
+	const bound = boundEntries(live.options);
+
+	// Bound entries boot skipped for a password that was not kept: this
+	// connection's login is the same account's and has worked (the SASL
+	// gate in bouncer.ts offer), so they connect with it, in memory only.
+	for (const net of boundAwaitingLogin(bound, (uuid) => clients.has(uuid))) {
+		createNetwork({
+			...saved.toConnectOptions(net),
+			saslPassword: live.options.saslPassword,
+			serverPassword: net.serverPassword || live.options.serverPassword,
+		});
+	}
+
+	// Bound here before, or added by hand the soju way (`alice/libera`).
+	const have = (net: BouncerNetwork): boolean =>
+		bound.some((other) => other.bouncerNetId === net.id) ||
+		saved.list().some((other) =>
+			sameBouncerAccount(other, {
+				...control,
+				saslAccount: `${control.saslAccount}/${net.name}`,
+			})
+		);
+	const seen = control.bouncerSeen ?? [];
+	const plan = networksToAdd(networks, new Set(seen), have, bound.length);
+	const over = plan.over.map((net) => net.name);
+
+	if (plan.seen.length === 0) {
+		return {added: [], over};
+	}
+
+	// Offered once: a network the user removes here is not added back.
+	saved.save({
+		...control,
+		bouncerSeen: [...seen, ...plan.seen].slice(-BOUNCER_SEEN_MAX),
+	});
+	const fresh = plan.add;
+
+	for (const net of fresh) {
+		const created = createNetwork({
+			...saved.toConnectOptions(control),
+			// Kept in memory only, unless the bouncer's entry remembers them.
+			saslPassword: live.options.saslPassword,
+			serverPassword: live.options.serverPassword,
+			uuid: saved.newUuid(),
+			name: net.name,
+			join: "",
+			bouncerNetId: net.id,
+			autoconnect: control.autoconnect,
+			rememberPassword: control.rememberPassword,
+			pushEnabled: control.pushEnabled,
+			notifyEnabled: control.notifyEnabled,
+		});
+		const entry = saved.get(created.uuid);
+
+		if (entry) {
+			saved.save({...entry, bouncerName: net.name});
+		}
+	}
+
+	return {added: fresh.map((net) => net.name), over};
+}
+
+/**
+ * The bouncer behind a control connection deleted one of its networks: the
+ * entry bound to it stops connecting by itself (its live connection is
+ * closed by the bouncer, and the refused BIND on reconnect says so in its
+ * lobby). The entry stays for the user to remove.
+ */
+function bouncerNetworkRemoved(controlUuid: string, id: string): void {
+	const live = clients.get(controlUuid);
+
+	for (const other of live ? boundEntries(live.options) : []) {
+		if (other.bouncerNetId === id) {
+			stopAutoconnect(other.uuid);
+		}
+	}
+}
+
+/**
+ * The entries bound to the networks of the bouncer account a control
+ * connection logged in to (its live options, not its saved entry, which an
+ * edit may have pointed elsewhere until the reconnect).
+ */
+function boundEntries(account: BouncerLogin): SavedNetwork[] {
+	return saved
+		.list()
+		.filter((other) => other.bouncerNetId !== undefined && sameBouncerAccount(other, account));
+}
+
+/**
+ * The bouncer behind a control connection calls one of its networks `name`:
+ * the entry bound to it takes the name while it still has the bouncer's
+ * (followRename), so a rename on the bouncer, or in the bouncer panel, is
+ * followed, and one the user made here is kept.
+ */
+function bouncerNetworkRenamed(controlUuid: string, id: string, name: string): void {
+	const live = clients.get(controlUuid);
+
+	for (const other of live ? boundEntries(live.options) : []) {
+		if (other.bouncerNetId !== id) {
+			continue;
+		}
+
+		const next = followRename(other, name);
+
+		if (next !== undefined) {
+			saved.save({...other, name: next, bouncerName: name});
+			clients.get(other.uuid)?.setNetworkName(next);
+		} else if (other.name === name && other.bouncerName !== name) {
+			saved.save({...other, bouncerName: name});
+		}
+	}
 }
 
 /**

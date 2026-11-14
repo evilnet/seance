@@ -12,7 +12,7 @@
  */
 
 import {MessageType} from "../../../../shared/types/msg";
-import history, {chathistoryBatch} from "../history";
+import history, {chathistoryBatch, ZNC_PLAYBACK_BATCH, zncPlaybackBatch} from "../history";
 import {searchBatch} from "../historysearch";
 import {AUTHTOKEN_BATCH} from "../authtoken";
 import {MULTILINE_CAP, multilineBatch} from "../multiline";
@@ -21,6 +21,8 @@ import {labeledBatch} from "../request";
 import type {Handler} from "../types";
 import account from "./account";
 import away from "./away";
+import bouncer from "./bouncer";
+import {BOUNCER_NETWORKS_BATCH, bouncerNetworksBatch} from "../bouncer";
 import batch, {registerBatchHandler} from "./batch";
 import {targetsBatch} from "../catchup";
 import cap from "./cap";
@@ -55,6 +57,7 @@ import whois from "./whois";
 const modules: Record<string, Handler>[] = [
 	account,
 	away,
+	bouncer,
 	batch,
 	cap,
 	chghost,
@@ -91,6 +94,8 @@ export const handlers = new Map<string, Handler>();
 
 // Batch types delivered as a unit (everything else is unwrapped in order).
 registerBatchHandler("chathistory", chathistoryBatch);
+registerBatchHandler(ZNC_PLAYBACK_BATCH, zncPlaybackBatch);
+registerBatchHandler(BOUNCER_NETWORKS_BATCH, bouncerNetworksBatch);
 // The spec names the batch both ways; nefarious2 sends `search`.
 registerBatchHandler("search", searchBatch);
 registerBatchHandler("soju.im/search", searchBatch);

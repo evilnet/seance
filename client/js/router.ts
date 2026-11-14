@@ -14,6 +14,7 @@ import ChannelBrowser from "../components/Windows/ChannelBrowser.vue";
 import Changelog from "../components/Windows/Changelog.vue";
 import NetworkEdit from "../components/Windows/NetworkEdit.vue";
 import OperPanel from "../components/Windows/OperPanel.vue";
+import BouncerPanel from "../components/Windows/BouncerPanel.vue";
 import RoutedChat from "../components/RoutedChat.vue";
 import {store} from "./store";
 import socket from "./socket";
@@ -145,6 +146,12 @@ const router = createRouter({
 			component: OperPanel,
 		},
 		{
+			// soju's networks (irc/bouncer.ts), opened from the network header.
+			name: "BouncerPanel",
+			path: "/bouncer/:uuid",
+			component: BouncerPanel,
+		},
+		{
 			name: "Changelog",
 			path: "/changelog",
 			component: Changelog,
@@ -266,7 +273,10 @@ router.beforeEach((to, from) => {
 	}
 
 	// The oper panel belongs to a network that is here.
-	if (to.name === "OperPanel" && !store.getters.findNetwork(String(to.params.uuid))) {
+	if (
+		(to.name === "OperPanel" || to.name === "BouncerPanel") &&
+		!store.getters.findNetwork(String(to.params.uuid))
+	) {
 		return false;
 	}
 

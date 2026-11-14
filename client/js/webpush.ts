@@ -1572,6 +1572,8 @@ async function writeStash(): Promise<void> {
 			tls: net.tls,
 			saslAccount: net.saslAccount,
 			saslPassword: net.rememberPassword === true ? net.saslPassword : undefined,
+			// One of a soju account's networks: the worker binds to it (irc/bouncer.ts).
+			bouncerNetId: net.bouncerNetId,
 			vapid: subs[net.uuid]?.vapid ?? announcedKey(net.uuid) ?? null,
 		}));
 

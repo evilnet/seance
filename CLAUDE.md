@@ -36,6 +36,8 @@ CI (`.github/workflows/ci.yml`) runs on every pull request and push to `develop`
 
 Live tests (`test/irc/*.live.ts`) are skipped unless `SEANCE_IRC_URL` is set; run them one file at a time. The dev ircd is `tools/nefarious-dev/run.sh` (Docker; `ws://` 8067, `wss://` 8443, channel `#seance`). Both: `docs/resources/nefarious2-dev.md`.
 
+The dev soju (for `soju.im/bouncer-networks`) is `tools/soju-dev/` (`docker build -t soju:dev tools/soju-dev`, then `tools/soju-dev/run.sh -d`; `ws://127.0.0.1:8090`, user `seance`/`seance`); notes in `docs/resources/irc-layer.md` § Bouncers, browser check `tools/scenarios/bouncer-networks.mjs`.
+
 ## Architecture
 
 - **`client/`** — Vue 3 + Vuex + Vue Router SPA, built by Vite into `public/`. Components in `client/components/`, logic in `client/js/`, themes in `client/themes/` (`coffee` default; `docs/resources/themes.md`). Feature notes, one section each (do not disturb, the inbox, alert sounds, Lua scripting, …): `docs/resources/client-features.md`; the `ps` theme: `docs/resources/ps-theme-map.md`; web push: `docs/resources/web-push-map.md`; oper tools: `docs/resources/oper-tools-map.md`.
