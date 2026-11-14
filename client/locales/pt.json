@@ -2507,7 +2507,7 @@
   "translate.consent.titlePlain": "Baixar dados do idioma?",
   "translate.device.cpu": "CPU",
   "translate.device.gpu": "GPU",
-  "translate.discover.decline": "Não agora",
+  "translate.discover.decline": "Agora não",
   "translate.error.aborted": "cancelado",
   "translate.error.gpuLost": "a GPU parou de funcionar ({reason}): {detail}",
   "translate.error.timedOut": "tempo esgotado",

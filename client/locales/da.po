@@ -4455,7 +4455,7 @@ msgstr "Åbn {target}"
 msgctxt "mentions.showMore"
 msgid "Show {count} more"
 msgid_plural "Show {count} more"
-msgstr[0] "Vis {count} flere"
+msgstr[0] "Vis {count} mere"
 msgstr[1] "Vis {count} flere"
 
 #. The same button in the mentions popup when some of the held-back mentions are not read yet. {count} is how many are held back, {unread} how many of those are unread. The singular form shows for a {count} of one, the plural for any other number.
@@ -16149,7 +16149,7 @@ msgstr ""
 #: client/components/Settings/TranslationOptions.vue
 msgctxt "translate.prefer.small"
 msgid "Smaller models first"
-msgstr "Små modeller først"
+msgstr "Mindre modeller først"
 
 #. Hint under 'Smaller models first' in the model-preference choice (Settings → Translation → Advanced).
 #: client/components/Settings/TranslationOptions.vue

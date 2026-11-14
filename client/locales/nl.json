@@ -1,5 +1,5 @@
 {
-  "ban.covered": "Al gedekt door {mask}.",
+  "ban.covered": "Valt al onder {mask}.",
   "ban.notConnected": "Niet verzonden: de verbinding is verbroken.",
   "ban.reasonPlaceholder": "Optioneel",
   "ban.removed": "Verwijderd.",
@@ -2565,7 +2565,7 @@
   "translate.why.switchedOff": "Vertaling is uitgeschakeld op dit apparaat.",
   "translate.why.unserved": "Geen model op dit apparaat dekt dit taalpaar.",
   "translate.writePanel.failed": "Kon niet vertalen naar {language}",
-  "translate.writePanel.readsAs": "Leest als: “{text}”",
+  "translate.writePanel.readsAs": "Terugvertaald: “{text}”",
   "typing.many": {
     "one": "{nick1}, {nick2} en {count} andere typen…",
     "other": "{nick1}, {nick2} en {count} anderen typen…"

@@ -16052,7 +16052,7 @@ msgstr "تعذّرت الترجمة"
 #: client/components/TranslationFlip.vue
 msgctxt "translate.flip.sentIn"
 msgid "Sent in {language}. Show what was sent"
-msgstr "تم الإرسال بـ {language}. عرض ما تم إرساله"
+msgstr "تم الإرسال باللغة {language}. عرض ما تم إرساله"
 
 #. Tooltip and aria-label of the small button before a chat line while its original is showing; pressing it shows the translation in its place again.
 #: client/components/TranslationFlip.vue

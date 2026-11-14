@@ -22,7 +22,7 @@
   "bouncer.tooLong": "Tek satırda gönderilemeyecek kadar uzun: bazı alanları kısalt.",
   "browse.all": "Tüm kanallar",
   "browse.aria": "{network} için kanal tarayıcısı",
-  "browse.create": "{name} kanalını başlat",
+  "browse.create": "{name} kanalını oluştur",
   "browse.featured": "Öne Çıkanlar",
   "browse.filters": "Filtreler",
   "browse.join": "Katıl",

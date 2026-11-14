@@ -2630,7 +2630,7 @@ msgstr ""
 #: client/components/Windows/Connect.vue
 msgctxt "form.serverPasswordToggle"
 msgid "This server needs a password"
-msgstr "이 서버는 비밀번호가 필요합니다."
+msgstr "이 서버는 비밀번호가 필요합니다"
 
 #. aria-label of the numeric port input next to the server host field on the network edit form.
 #: client/components/NetworkForm.vue:76
@@ -16351,7 +16351,7 @@ msgstr ""
 #: client/components/TranslationSheet.vue
 msgctxt "translate.sheet.corrects"
 msgid "Corrects spelling"
-msgstr "맞춤법 검사"
+msgstr "맞춤법 교정"
 
 #. Value of the language sheet's 'I write' side, and the first row of its list, when the language of each message is detected rather than named.
 #: client/components/TranslationSheet.vue

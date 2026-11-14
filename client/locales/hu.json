@@ -2109,7 +2109,7 @@
   "search.window.placeholder": "Keresés itt: {scope}",
   "search.window.removeFilter": "{filter} szűrő eltávolítása",
   "search.window.retry": "Újra",
-  "search.window.scopeEmpty": "A szerver nem talált semmit a(z) {scope} területen.",
+  "search.window.scopeEmpty": "A szerver nem talált semmit itt: {scope}.",
   "search.window.searching": "Keresés…",
   "search.window.stale": "Ezek az előző keresés eredményei. Nyomd meg a Keresés gombot a frissítéshez.",
   "search.window.start": "Írj be valamit a kereséshez, vagy használd ezeket a fenti mezőben:",

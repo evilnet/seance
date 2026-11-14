@@ -40,7 +40,7 @@ msgstr ""
 #: client/components/BanDialog.vue
 msgctxt "ban.covered"
 msgid "Already covered by {mask}."
-msgstr "Al gedekt door {mask}."
+msgstr "Valt al onder {mask}."
 
 #. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): link that switches the dialog to the ban just named.
 #: client/components/BanDialog.vue
@@ -16854,7 +16854,7 @@ msgstr ""
 #: client/components/TranslatePanel.vue
 msgctxt "translate.writePanel.readsAs"
 msgid "Reads as: “{text}”"
-msgstr "Leest als: “{text}”"
+msgstr "Terugvertaald: “{text}”"
 
 #. Button in the translate panel after a failed translation: translate the same text again.
 #: client/components/TranslatePanel.vue

@@ -627,7 +627,7 @@
   "mentions.notConnectedIn": "Ikke forbundet: dette åbner, når du er tilbage i {target}.",
   "mentions.open": "Åbn {target}",
   "mentions.showMore": {
-    "one": "Vis {count} flere",
+    "one": "Vis {count} mere",
     "other": "Vis {count} flere"
   },
   "mentions.showMoreUnread": {
@@ -2544,7 +2544,7 @@
   "translate.prefer.auto": "Automatisk (anbefalet)",
   "translate.prefer.autoHint": "Hvert sprog får den mindste download, der oversætter det godt.",
   "translate.prefer.llm": "Sprogmodel først",
-  "translate.prefer.small": "Små modeller først",
+  "translate.prefer.small": "Mindre modeller først",
   "translate.reason.answered": "svarede på spørgsmålet i stedet for at oversætte det",
   "translate.reason.degenerate": "svaret var meningsløse symboler",
   "translate.reason.narration": "talte om anmodningen i stedet for at oversætte",

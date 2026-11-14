@@ -13148,7 +13148,7 @@ msgstr "Újra"
 #: client/components/Windows/SearchResults.vue
 msgctxt "search.window.scopeEmpty"
 msgid "The server found nothing in {scope}."
-msgstr "A szerver nem talált semmit a(z) {scope} területen."
+msgstr "A szerver nem talált semmit itt: {scope}."
 
 #. Search window (searching the chat history of the server, or of what is loaded on this device): the 'Search older' button's label while older matches are being asked for.
 #: client/components/Windows/SearchResults.vue

@@ -679,7 +679,7 @@
   "message.editedAt": "Modifié {time}",
   "message.editedBadge": "(modifié)",
   "message.machineTranslatedBadge": "(traduction automatique)",
-  "message.noticeFrom": "Avis :",
+  "message.noticeFrom": "Notice :",
   "message.quickReact": "Réagir avec {reaction}",
   "message.quickRemove": "Retirer {reaction}",
   "message.react": "Réagir",

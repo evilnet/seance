@@ -23,7 +23,7 @@
   "bouncer.saslNeeded": "Den här bouncern har nätverk, men de läggs till här först efter en SASL-inloggning. Slå på SASL i det här nätverkets inställningar för att få dem.",
   "bouncer.timeout": "Bouncern svarade inte.",
   "bouncer.tooLong": "För långt för att skickas på en rad: korta ner några fält.",
-  "browse.create": "Starta {name}",
+  "browse.create": "Skapa {name}",
   "browse.delayedNote": {
     "one": "Nya anslutningar kan lista kanaler om {count} sekund.",
     "other": "Nya anslutningar kan lista kanaler om {count} sekunder."

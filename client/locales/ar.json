@@ -2828,7 +2828,7 @@
   "translate.error.unavailableDetail": "لا يوجد محرك ترجمة يمكنه تنفيذ هذا الطلب: {detail}",
   "translate.error.workerDisposed": "أُوقفت عملية الترجمة في الخلفية",
   "translate.failed": "تعذّرت الترجمة",
-  "translate.flip.sentIn": "تم الإرسال بـ {language}. عرض ما تم إرساله",
+  "translate.flip.sentIn": "تم الإرسال باللغة {language}. عرض ما تم إرساله",
   "translate.flip.translatedFrom": "مترجم من {language}. عرض النص الأصلي",
   "translate.formality.auto": "كما في الأصل",
   "translate.formality.autoShort": "كما كُتب",

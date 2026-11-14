@@ -618,7 +618,7 @@ msgstr[1] ""
 #: client/components/Windows/ChannelBrowser.vue
 msgctxt "browse.create"
 msgid "Start {name}"
-msgstr "Simulan ang {name}"
+msgstr "Gumawa ng {name}"
 
 #. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): heading when the server refuses the list because the connection is too new.
 #: client/components/Windows/ChannelBrowser.vue
