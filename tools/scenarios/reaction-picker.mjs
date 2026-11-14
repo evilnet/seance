@@ -159,6 +159,22 @@ async function scrollToMessage(page, selector) {
 	);
 }
 
+/**
+ * Clicks the "+" at the end of the message's reactions once the row has
+ * stopped popping in. The first reaction on a message brings the whole row in
+ * with a 160 ms scale (MessageReactions.vue's Transition), the "+" with it: a
+ * click measured mid-pop landed on the row beside the button and the picker
+ * never opened, in about half the runs, by where the badge wait's poll fell.
+ */
+async function clickAdd(page, selector) {
+	const popping = `${selector} .reactions-enter-active, ${selector} .reaction-enter-active`;
+
+	await page.waitFor(`!document.querySelector(${JSON.stringify(popping)})`, {
+		label: "the reactions row to finish popping in",
+	});
+	await page.click(`${selector} .msg-reaction-add`);
+}
+
 /** A real key press on whatever has focus (the picker's search field). */
 async function press(page, key, code = key) {
 	const enter = key === "Enter";
@@ -338,7 +354,7 @@ export default async function run(page) {
 
 	// 4. A word is a reaction too, and a word that merely prefixes an emoji
 	//    name must not turn into that emoji.
-	await page.click(`${MSG} .msg-reaction-add`);
+	await clickAdd(page, MSG);
 	await page.waitFor(`document.querySelector(${JSON.stringify(INPUT)})`, {
 		label: "the picker reopened from the + button",
 	});
@@ -361,7 +377,7 @@ export default async function run(page) {
 	// 4b. Shift-click builds a reaction out of several emoji instead of
 	//     sending each one, and the grid must stay put while it does — the
 	//     next emoji to add is in it.
-	await page.click(`${MSG} .msg-reaction-add`);
+	await clickAdd(page, MSG);
 	await page.waitFor(`document.querySelector(${JSON.stringify(PICKER)})`, {
 		label: "the picker for the combination",
 	});
@@ -422,7 +438,7 @@ export default async function run(page) {
 	);
 
 	// 6. Reopened, the recents lead and what we already sent is ticked.
-	await page.click(`${MSG} .msg-reaction-add`);
+	await clickAdd(page, MSG);
 	await page.waitFor(`document.querySelector(${JSON.stringify(PICKER)})`, {
 		label: "the picker to reopen",
 	});
