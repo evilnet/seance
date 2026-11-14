@@ -1,6 +1,15 @@
 {
+  "bouncer.cannotChange": "Bouncern kan inte ta emot ändringar härifrån just nu.",
+  "bouncer.networkGone": "Det här nätverket togs bort på bouncern, så det ansluter inte längre. Du kan ta bort det här.",
+  "bouncer.networksAdded": "Lade till den här bouncerns nätverk: {names}",
+  "bouncer.networksOver": {
+    "one": "Inte tillagda: {names}. Den här bouncern har redan {count} nätverk sparat här, det högsta antal Seance lägger till; ta bort ett för att få plats.",
+    "other": "Inte tillagda: {names}. Den här bouncern har redan {count} nätverk sparade här, det högsta antal Seance lägger till; ta bort ett för att få plats."
+  },
   "bouncer.noAnswer": "Inget svar.",
+  "bouncer.saslNeeded": "Den här bouncern har nätverk, men de läggs till här först efter en SASL-inloggning. Slå på SASL i det här nätverkets inställningar för att få dem.",
   "bouncer.timeout": "Bouncern svarade inte.",
+  "bouncer.tooLong": "För långt för att skickas på en rad: korta ner några fält.",
   "channel.close": "Stäng",
   "channel.leave": "Lämna",
   "channel.partedAria": "Inte med i kanalen just nu",
@@ -2654,6 +2663,7 @@
   "windows.bouncer.notBouncer": "{network} är ingen bouncer, eller har inte sagt det ännu.",
   "windows.bouncer.note": "Bouncern håller dessa; vart och ett visas här som ett eget nätverk.",
   "windows.bouncer.portPlaceholder": "6697 med TLS, 6667 utan",
+  "windows.bouncer.readOnly": "Den här servern kan inte besvara förfrågningar, så dess nätverk ändras från en annan klient eller via BouncerServ.",
   "windows.bouncer.refused": "Bouncern vägrade.",
   "windows.bouncer.save": "Spara",
   "windows.bouncer.stateConnected": "Ansluten",

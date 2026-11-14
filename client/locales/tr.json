@@ -1,6 +1,15 @@
 {
+  "bouncer.cannotChange": "Bouncer şu anda buradan değişiklik kabul edemiyor.",
+  "bouncer.networkGone": "Bu ağ bouncer'da silindi, bu yüzden artık bağlanmıyor. Buradan kaldırabilirsin.",
+  "bouncer.networksAdded": "Bu bouncer'ın ağları eklendi: {names}",
+  "bouncer.networksOver": {
+    "one": "Eklenmedi: {names}. Bu bouncer'ın burada zaten {count} kayıtlı ağı var, Seance'ın eklediği en fazla sayı bu; yer açmak için birini kaldır.",
+    "other": "Eklenmedi: {names}. Bu bouncer'ın burada zaten {count} kayıtlı ağı var, Seance'ın eklediği en fazla sayı bu; yer açmak için birini kaldır."
+  },
   "bouncer.noAnswer": "Yanıt yok.",
+  "bouncer.saslNeeded": "Bu bouncer'ın ağları var, ancak bunlar buraya yalnızca SASL ile giriş yaptıktan sonra eklenir. Onları almak için bu ağın ayarlarında SASL'i aç.",
   "bouncer.timeout": "Bouncer yanıt vermedi.",
+  "bouncer.tooLong": "Tek satırda gönderilemeyecek kadar uzun: bazı alanları kısalt.",
   "channel.close": "Kapat",
   "channel.leave": "Çık",
   "channel.partedAria": "Şu anda kanalda değilsin",
@@ -2713,6 +2722,7 @@
   "windows.bouncer.notBouncer": "{network} bir bouncer değil ya da henüz bunu bildirmedi.",
   "windows.bouncer.note": "Bunları bouncer tutar; her biri burada ayrı bir ağ olarak görünür.",
   "windows.bouncer.portPlaceholder": "TLS ile 6697, TLS olmadan 6667",
+  "windows.bouncer.readOnly": "Bu sunucu isteklere yanıt veremiyor, bu yüzden ağları başka bir istemciden veya BouncerServ üzerinden değiştirilir.",
   "windows.bouncer.refused": "Bouncer reddetti.",
   "windows.bouncer.save": "Kaydet",
   "windows.bouncer.stateConnected": "Bağlandı",

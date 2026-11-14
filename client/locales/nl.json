@@ -1,6 +1,15 @@
 {
+  "bouncer.cannotChange": "De bouncer kan op dit moment geen wijzigingen van hieruit aannemen.",
+  "bouncer.networkGone": "Dit netwerk is op de bouncer verwijderd en maakt daarom geen verbinding meer. U kunt het hier verwijderen.",
+  "bouncer.networksAdded": "Netwerken van deze bouncer toegevoegd: {names}",
+  "bouncer.networksOver": {
+    "one": "Niet toegevoegd: {names}. Voor deze bouncer is hier al {count} netwerk opgeslagen, het maximum dat Seance toevoegt; verwijder er een om ruimte te maken.",
+    "other": "Niet toegevoegd: {names}. Voor deze bouncer zijn hier al {count} netwerken opgeslagen, het maximum dat Seance toevoegt; verwijder er een om ruimte te maken."
+  },
   "bouncer.noAnswer": "Geen antwoord.",
+  "bouncer.saslNeeded": "Deze bouncer heeft netwerken, maar die worden hier pas toegevoegd na een SASL-aanmelding. Zet SASL aan in de instellingen van dit netwerk om ze te krijgen.",
   "bouncer.timeout": "De bouncer antwoordde niet.",
+  "bouncer.tooLong": "Te lang om in één regel te verzenden: kort enkele velden in.",
   "channel.close": "Sluiten",
   "channel.leave": "Verlaten",
   "channel.partedAria": "Momenteel niet in het kanaal",
@@ -2606,6 +2615,7 @@
   "windows.bouncer.notBouncer": "{network} is geen bouncer, of heeft dat nog niet gemeld.",
   "windows.bouncer.note": "De bouncer beheert deze; elk verschijnt hier als een eigen netwerk.",
   "windows.bouncer.portPlaceholder": "6697 met TLS, 6667 zonder",
+  "windows.bouncer.readOnly": "Deze server kan geen verzoeken beantwoorden, dus de netwerken worden gewijzigd vanuit een andere client of via BouncerServ.",
   "windows.bouncer.refused": "De bouncer weigerde.",
   "windows.bouncer.save": "Opslaan",
   "windows.bouncer.stateConnected": "Verbonden",

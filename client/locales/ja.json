@@ -1,6 +1,14 @@
 {
+  "bouncer.cannotChange": "バウンサーは現在、ここからの変更を受け付けられません。",
+  "bouncer.networkGone": "このネットワークはバウンサー側で削除されたため、接続しなくなりました。ここから削除できます。",
+  "bouncer.networksAdded": "このバウンサーのネットワークを追加しました: {names}",
+  "bouncer.networksOver": {
+    "other": "追加されませんでした: {names}。このバウンサーのネットワークはすでに {count} 件保存されていて、Seance が追加する上限です。空きを作るには 1 つ削除してください。"
+  },
   "bouncer.noAnswer": "応答がありません。",
+  "bouncer.saslNeeded": "このバウンサーにはネットワークがありますが、追加されるのは SASL でログインした後だけです。取得するには、このネットワークの設定で SASL をオンにしてください。",
   "bouncer.timeout": "バウンサーが応答しませんでした。",
+  "bouncer.tooLong": "1 行で送るには長すぎます。いくつかの項目を短くしてください。",
   "channel.close": "閉じる",
   "channel.leave": "退出",
   "channel.partedAria": "現在参加していない",
@@ -2647,6 +2655,7 @@
   "windows.bouncer.notBouncer": "{network} はバウンサーではないか、まだそれを通知していません。",
   "windows.bouncer.note": "これらはバウンサーが保持し、それぞれがここで独立したネットワークとして表示されます。",
   "windows.bouncer.portPlaceholder": "TLS ありは 6697、なしは 6667",
+  "windows.bouncer.readOnly": "このサーバーはリクエストに応答できないため、ネットワークの変更は別のクライアントか BouncerServ で行います。",
   "windows.bouncer.refused": "バウンサーが拒否しました。",
   "windows.bouncer.save": "保存",
   "windows.bouncer.stateConnected": "接続済み",

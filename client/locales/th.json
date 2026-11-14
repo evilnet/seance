@@ -1,6 +1,14 @@
 {
+  "bouncer.cannotChange": "บาวน์เซอร์ไม่สามารถรับการเปลี่ยนแปลงจากที่นี่ได้ในขณะนี้",
+  "bouncer.networkGone": "เครือข่ายนี้ถูกลบบนบาวน์เซอร์แล้ว จึงไม่เชื่อมต่ออีกต่อไป คุณนำออกได้ที่นี่",
+  "bouncer.networksAdded": "เพิ่มเครือข่ายของบาวน์เซอร์นี้แล้ว: {names}",
+  "bouncer.networksOver": {
+    "other": "ไม่ได้เพิ่ม: {names} บาวน์เซอร์นี้มีเครือข่ายที่บันทึกไว้ที่นี่แล้ว {count} รายการ ซึ่งเป็นจำนวนสูงสุดที่ Seance เพิ่มให้ โปรดนำออกหนึ่งรายการเพื่อเพิ่มที่ว่าง"
+  },
   "bouncer.noAnswer": "ไม่มีการตอบกลับ",
+  "bouncer.saslNeeded": "บาวน์เซอร์นี้มีเครือข่าย แต่จะเพิ่มที่นี่หลังเข้าสู่ระบบด้วย SASL เท่านั้น เปิด SASL ในการตั้งค่าของเครือข่ายนี้เพื่อรับเครือข่ายเหล่านั้น",
   "bouncer.timeout": "bouncer ไม่ตอบกลับ",
+  "bouncer.tooLong": "ยาวเกินกว่าจะส่งในบรรทัดเดียว: โปรดย่อบางช่อง",
   "channel.close": "ปิด",
   "channel.leave": "ออก",
   "channel.partedAria": "ไม่ได้เข้าร่วมในขณะนี้",
@@ -2644,11 +2652,13 @@
   "windows.bouncer.notBouncer": "{network} ไม่ใช่ bouncer หรือยังไม่ได้แจ้ง",
   "windows.bouncer.note": "bouncer เก็บเครือข่ายเหล่านี้ไว้ แต่ละเครือข่ายแสดงที่นี่เป็นเครือข่ายแยก",
   "windows.bouncer.portPlaceholder": "6697 เมื่อใช้ TLS, 6667 เมื่อไม่ใช้",
+  "windows.bouncer.readOnly": "เซิร์ฟเวอร์นี้ตอบคำขอไม่ได้ จึงต้องเปลี่ยนเครือข่ายจากไคลเอนต์อื่นหรือผ่าน BouncerServ",
   "windows.bouncer.refused": "bouncer ปฏิเสธ",
   "windows.bouncer.save": "บันทึก",
   "windows.bouncer.stateConnected": "เชื่อมต่อแล้ว",
   "windows.bouncer.stateConnecting": "กำลังเชื่อมต่อ",
   "windows.bouncer.stateDisconnected": "ไม่ได้เชื่อมต่อ",
+  "windows.bouncer.title": "บาวน์เซอร์",
   "windows.bouncer.tls": "bouncer เชื่อมต่อด้วย TLS",
   "windows.changelog.allReleasesLink": "ดูทุกรุ่น",
   "windows.changelog.aria": "บันทึกประจำรุ่น",

@@ -530,27 +530,27 @@ msgstr ""
 #: client/js/irc/bouncer.ts
 msgctxt "bouncer.cannotChange"
 msgid "The bouncer cannot take changes from here right now."
-msgstr ""
+msgstr "El bouncer no puede aceptar cambios desde aquí ahora mismo."
 
 #. Lobby error on a network bound to one of a bouncer's networks (soju) when the bouncer says that network no longer exists (it was deleted there). The connection stopped and the network no longer connects at startup.
 #: client/js/irc/client.ts
 msgctxt "bouncer.networkGone"
 msgid "This network was deleted on the bouncer, so it no longer connects. You can remove it here."
-msgstr ""
+msgstr "Esta red se eliminó en el bouncer, así que ya no se conecta. Puedes quitarla aquí."
 
 #. Lobby line on a bouncer's control connection (soju) after Seance added the networks the bouncer listed, each as a network of its own. {names} is a comma-separated list of network names.
 #: client/js/irc/bouncer.ts:164
 msgctxt "bouncer.networksAdded"
 msgid "Added this bouncer's networks: {names}"
-msgstr ""
+msgstr "Se añadieron las redes de este bouncer: {names}"
 
 #. Lobby line on a bouncer's control connection (soju) when it lists more networks than Seance adds for one bouncer account. {names} is a comma-separated list of the network names left out; {count} is the limit (50 today).
 #: client/js/irc/bouncer.ts:173
 msgctxt "bouncer.networksOver"
 msgid "Not added: {names}. This bouncer already has {count} network saved here, the most Seance adds; remove one to make room."
 msgid_plural "Not added: {names}. This bouncer already has {count} networks saved here, the most Seance adds; remove one to make room."
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "No añadidas: {names}. Este bouncer ya tiene {count} red guardada aquí, el máximo que añade Seance; quita una para hacer sitio."
+msgstr[1] "No añadidas: {names}. Este bouncer ya tiene {count} redes guardadas aquí, el máximo que añade Seance; quita una para hacer sitio."
 
 #. Error in the bouncer panel when the connection closed before the bouncer replied to a request.
 #: client/js/irc/bouncer.ts
@@ -562,7 +562,7 @@ msgstr "Sin respuesta."
 #: client/js/irc/bouncer.ts
 msgctxt "bouncer.saslNeeded"
 msgid "This bouncer has networks, but they are added here only after a SASL login. Turn on SASL in this network's settings to get them."
-msgstr ""
+msgstr "Este bouncer tiene redes, pero solo se añaden aquí tras iniciar sesión con SASL. Activa SASL en los ajustes de esta red para obtenerlas."
 
 #. Error in the bouncer panel when the bouncer sent no reply to a request in time.
 #: client/js/irc/bouncer.ts
@@ -574,7 +574,7 @@ msgstr "El bouncer no respondió."
 #: client/js/irc/bouncer.ts
 msgctxt "bouncer.tooLong"
 msgid "Too long to send in one line: shorten some fields."
-msgstr ""
+msgstr "Demasiado largo para enviarlo en una línea: acorta algunos campos."
 
 #. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): heading of the full list.
 #: client/components/Windows/ChannelBrowser.vue
@@ -17476,7 +17476,7 @@ msgstr "6697 con TLS, 6667 sin él"
 #: client/components/Windows/BouncerPanel.vue
 msgctxt "windows.bouncer.readOnly"
 msgid "This server cannot answer requests, so its networks are changed from another client or through BouncerServ."
-msgstr ""
+msgstr "Este servidor no puede responder solicitudes, así que sus redes se cambian desde otro cliente o mediante BouncerServ."
 
 #. Error in the bouncer panel when the bouncer turned a request down without saying why.
 #: client/components/Windows/BouncerPanel.vue

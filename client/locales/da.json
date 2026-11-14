@@ -1,6 +1,15 @@
 {
+  "bouncer.cannotChange": "Bounceren kan ikke modtage ændringer herfra lige nu.",
+  "bouncer.networkGone": "Dette netværk blev slettet på bounceren, så det forbinder ikke længere. Du kan fjerne det her.",
+  "bouncer.networksAdded": "Tilføjede denne bouncers netværk: {names}",
+  "bouncer.networksOver": {
+    "one": "Ikke tilføjet: {names}. Denne bouncer har allerede {count} netværk gemt her, det højeste antal Seance tilføjer; fjern et for at gøre plads.",
+    "other": "Ikke tilføjet: {names}. Denne bouncer har allerede {count} netværk gemt her, det højeste antal Seance tilføjer; fjern et for at gøre plads."
+  },
   "bouncer.noAnswer": "Intet svar.",
+  "bouncer.saslNeeded": "Denne bouncer har netværk, men de tilføjes her kun efter et SASL-login. Slå SASL til i dette netværks indstillinger for at få dem.",
   "bouncer.timeout": "Bounceren svarede ikke.",
+  "bouncer.tooLong": "For langt til at sende på én linje: forkort nogle felter.",
   "channel.close": "Luk",
   "channel.leave": "Forlad",
   "channel.partedAria": "Ikke i kanalen i øjeblikket",
@@ -2649,6 +2658,7 @@
   "windows.bouncer.notBouncer": "{network} er ikke en bouncer, eller har ikke sagt det endnu.",
   "windows.bouncer.note": "Bounceren holder dem; hvert vises her som et selvstændigt netværk.",
   "windows.bouncer.portPlaceholder": "6697 med TLS, 6667 uden",
+  "windows.bouncer.readOnly": "Denne server kan ikke besvare forespørgsler, så dens netværk ændres fra en anden klient eller via BouncerServ.",
   "windows.bouncer.refused": "Bounceren afviste.",
   "windows.bouncer.save": "Gem",
   "windows.bouncer.stateConnected": "Forbundet",

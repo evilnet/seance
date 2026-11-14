@@ -1,6 +1,15 @@
 {
+  "bouncer.cannotChange": "Hindi makatanggap ng mga pagbabago mula rito ang bouncer sa ngayon.",
+  "bouncer.networkGone": "Na-delete ang network na ito sa bouncer, kaya hindi na ito kumokonekta. Maaari mo itong alisin dito.",
+  "bouncer.networksAdded": "Naidagdag ang mga network ng bouncer na ito: {names}",
+  "bouncer.networksOver": {
+    "one": "Hindi naidagdag: {names}. Mayroon nang {count} network na naka-save dito ang bouncer na ito, ang pinakamaraming idinadagdag ng Seance; mag-alis ng isa para magkaroon ng puwang.",
+    "other": "Hindi naidagdag: {names}. Mayroon nang {count} network na naka-save dito ang bouncer na ito, ang pinakamaraming idinadagdag ng Seance; mag-alis ng isa para magkaroon ng puwang."
+  },
   "bouncer.noAnswer": "Walang sagot.",
+  "bouncer.saslNeeded": "May mga network ang bouncer na ito, pero idinadagdag lang ang mga ito rito pagkatapos mag-login gamit ang SASL. I-on ang SASL sa mga setting ng network na ito para makuha ang mga ito.",
   "bouncer.timeout": "Hindi sumagot ang bouncer.",
+  "bouncer.tooLong": "Masyadong mahaba para ipadala sa iisang linya: paikliin ang ilang field.",
   "channel.close": "Isara",
   "channel.leave": "Umalis",
   "channel.partedAria": "Hindi kasali sa ngayon",
@@ -2619,6 +2628,7 @@
   "windows.bouncer.notBouncer": "Ang {network} ay hindi bouncer, o hindi pa ito nagsasabi.",
   "windows.bouncer.note": "Hawak ito ng bouncer; bawat isa ay lumalabas dito bilang sariling network.",
   "windows.bouncer.portPlaceholder": "6697 kung may TLS, 6667 kung wala",
+  "windows.bouncer.readOnly": "Hindi makasagot sa mga kahilingan ang server na ito, kaya binabago ang mga network nito mula sa ibang client o sa pamamagitan ng BouncerServ.",
   "windows.bouncer.refused": "Tumanggi ang bouncer.",
   "windows.bouncer.save": "I-save",
   "windows.bouncer.stateConnected": "Nakakonekta",

@@ -1,6 +1,16 @@
 {
+  "bouncer.cannotChange": "Bouncer teraz nemôže prijímať zmeny odtiaľto.",
+  "bouncer.networkGone": "Táto sieť bola na bounceri odstránená, takže sa už nepripája. Môžete ju odstrániť tu.",
+  "bouncer.networksAdded": "Pridané siete tohto bouncera: {names}",
+  "bouncer.networksOver": {
+    "one": "Nepridané: {names}. Tento bouncer tu už má uloženú {count} sieť, čo je najviac, koľko Seance pridá; odstráňte jednu, aby ste uvoľnili miesto.",
+    "few": "Nepridané: {names}. Tento bouncer tu už má uložené {count} siete, čo je najviac, koľko Seance pridá; odstráňte jednu, aby ste uvoľnili miesto.",
+    "other": "Nepridané: {names}. Tento bouncer tu už má uložených {count} sietí, čo je najviac, koľko Seance pridá; odstráňte jednu, aby ste uvoľnili miesto."
+  },
   "bouncer.noAnswer": "Žiadna odpoveď.",
+  "bouncer.saslNeeded": "Tento bouncer má siete, ale pridávajú sa sem až po prihlásení cez SASL. Zapnite SASL v nastaveniach tejto siete, aby ste ich získali.",
   "bouncer.timeout": "Bouncer neodpovedal.",
+  "bouncer.tooLong": "Príliš dlhé na odoslanie v jednom riadku: skráťte niektoré polia.",
   "channel.close": "Zavrieť",
   "channel.leave": "Opustiť",
   "channel.partedAria": "Momentálne nie ste v kanáli",
@@ -2783,6 +2793,7 @@
   "windows.bouncer.notBouncer": "{network} nie je bouncer, alebo to ešte neoznámil.",
   "windows.bouncer.note": "Bouncer ich uchováva; každá sa tu zobrazuje ako samostatná sieť.",
   "windows.bouncer.portPlaceholder": "6697 s TLS, 6667 bez",
+  "windows.bouncer.readOnly": "Tento server nevie odpovedať na požiadavky, takže jeho siete sa menia z iného klienta alebo cez BouncerServ.",
   "windows.bouncer.refused": "Bouncer odmietol.",
   "windows.bouncer.save": "Uložiť",
   "windows.bouncer.stateConnected": "Pripojené",

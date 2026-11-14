@@ -1,6 +1,15 @@
 {
+  "bouncer.cannotChange": "O bouncer não pode aceitar alterações daqui agora.",
+  "bouncer.networkGone": "Esta rede foi excluída no bouncer, então não se conecta mais. Você pode removê-la aqui.",
+  "bouncer.networksAdded": "Redes deste bouncer adicionadas: {names}",
+  "bouncer.networksOver": {
+    "one": "Não adicionadas: {names}. Este bouncer já tem {count} rede salva aqui, o máximo que o Seance adiciona; remova uma para abrir espaço.",
+    "other": "Não adicionadas: {names}. Este bouncer já tem {count} redes salvas aqui, o máximo que o Seance adiciona; remova uma para abrir espaço."
+  },
   "bouncer.noAnswer": "Sem resposta.",
+  "bouncer.saslNeeded": "Este bouncer tem redes, mas elas só são adicionadas aqui após um login SASL. Ative o SASL nas configurações desta rede para obtê-las.",
   "bouncer.timeout": "O bouncer não respondeu.",
+  "bouncer.tooLong": "Longo demais para enviar em uma linha: encurte alguns campos.",
   "channel.close": "Fechar",
   "channel.leave": "Sair",
   "channel.partedAria": "Não está atualmente no canal",
@@ -2673,6 +2682,7 @@
   "windows.bouncer.notBouncer": "{network} não é um bouncer, ou ainda não o indicou.",
   "windows.bouncer.note": "O bouncer as mantém; cada uma aparece aqui como uma rede própria.",
   "windows.bouncer.portPlaceholder": "6697 com TLS, 6667 sem",
+  "windows.bouncer.readOnly": "Este servidor não consegue responder a solicitações, então suas redes são alteradas por outro cliente ou pelo BouncerServ.",
   "windows.bouncer.refused": "O bouncer recusou.",
   "windows.bouncer.save": "Salvar",
   "windows.bouncer.stateConnected": "Conectado",

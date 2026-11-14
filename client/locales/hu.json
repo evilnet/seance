@@ -1,6 +1,15 @@
 {
+  "bouncer.cannotChange": "A bouncer most nem tud innen módosításokat fogadni.",
+  "bouncer.networkGone": "Ezt a hálózatot törölték a bounceren, ezért már nem csatlakozik. Itt eltávolíthatod.",
+  "bouncer.networksAdded": "A bouncer hálózatai hozzáadva: {names}",
+  "bouncer.networksOver": {
+    "one": "Nincs hozzáadva: {names}. Ennek a bouncernek már {count} hálózata van itt elmentve, ennyit ad hozzá legfeljebb a Seance; távolíts el egyet, hogy legyen hely.",
+    "other": "Nincs hozzáadva: {names}. Ennek a bouncernek már {count} hálózata van itt elmentve, ennyit ad hozzá legfeljebb a Seance; távolíts el egyet, hogy legyen hely."
+  },
   "bouncer.noAnswer": "Nincs válasz.",
+  "bouncer.saslNeeded": "Ennek a bouncernek vannak hálózatai, de ezek csak SASL-bejelentkezés után kerülnek ide. Kapcsold be a SASL-t ennek a hálózatnak a beállításaiban, hogy megkapd őket.",
   "bouncer.timeout": "A bouncer nem válaszolt.",
+  "bouncer.tooLong": "Túl hosszú ahhoz, hogy egy sorban elküldhető legyen: rövidíts néhány mezőt.",
   "channel.close": "Zárás",
   "channel.leave": "Kilépés",
   "channel.partedAria": "Jelenleg nem vagy a csatornán",
@@ -2711,6 +2720,7 @@
   "windows.bouncer.notBouncer": "{network} nem bouncer, vagy még nem jelezte.",
   "windows.bouncer.note": "Ezeket a bouncer tartja fenn; mindegyik külön hálózatként jelenik meg itt.",
   "windows.bouncer.portPlaceholder": "6697 TLS-sel, 6667 anélkül",
+  "windows.bouncer.readOnly": "Ez a szerver nem tud kérésekre válaszolni, ezért a hálózatait egy másik kliensből vagy a BouncerServ segítségével lehet módosítani.",
   "windows.bouncer.refused": "A bouncer elutasította.",
   "windows.bouncer.save": "Mentés",
   "windows.bouncer.stateConnected": "Kapcsolódva",

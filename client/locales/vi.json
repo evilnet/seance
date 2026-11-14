@@ -1,6 +1,14 @@
 {
+  "bouncer.cannotChange": "Bouncer hiện không thể nhận thay đổi từ đây.",
+  "bouncer.networkGone": "Mạng này đã bị xóa trên bouncer nên không còn kết nối nữa. Bạn có thể xóa nó ở đây.",
+  "bouncer.networksAdded": "Đã thêm các mạng của bouncer này: {names}",
+  "bouncer.networksOver": {
+    "other": "Chưa thêm: {names}. Bouncer này đã có {count} mạng được lưu ở đây, mức tối đa mà Seance thêm; hãy xóa một mạng để có chỗ."
+  },
   "bouncer.noAnswer": "Không có phản hồi.",
+  "bouncer.saslNeeded": "Bouncer này có các mạng, nhưng chúng chỉ được thêm ở đây sau khi đăng nhập bằng SASL. Hãy bật SASL trong cài đặt của mạng này để nhận chúng.",
   "bouncer.timeout": "Bouncer không trả lời.",
+  "bouncer.tooLong": "Quá dài để gửi trong một dòng: hãy rút ngắn một số trường.",
   "channel.close": "Đóng",
   "channel.leave": "Rời kênh",
   "channel.partedAria": "Hiện không tham gia",
@@ -2642,6 +2650,7 @@
   "windows.bouncer.notBouncer": "{network} không phải là bouncer, hoặc chưa thông báo điều đó.",
   "windows.bouncer.note": "Bouncer giữ các mạng này; mỗi mạng hiện ở đây như một mạng riêng.",
   "windows.bouncer.portPlaceholder": "6697 nếu có TLS, 6667 nếu không",
+  "windows.bouncer.readOnly": "Máy chủ này không thể trả lời yêu cầu, nên các mạng của nó được thay đổi từ một client khác hoặc qua BouncerServ.",
   "windows.bouncer.refused": "Bouncer đã từ chối.",
   "windows.bouncer.save": "Lưu",
   "windows.bouncer.stateConnected": "Đã kết nối",
