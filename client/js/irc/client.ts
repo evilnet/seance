@@ -34,6 +34,7 @@ import {
 	bindLine,
 	isBouncerControl,
 	listNetworks,
+	sameBouncerAccount,
 	type BouncerAttrs,
 	type BouncerNetwork,
 } from "./bouncer";
@@ -180,6 +181,7 @@ import {
 	MAX_TRUSTED_CERTIFICATES,
 	NetworkCursor,
 	setBouncerSettled,
+	zncLogin,
 	setCursor,
 } from "./saved-networks";
 import {noteServiceReply, resetServiceReplies} from "./services";
@@ -1169,6 +1171,16 @@ export class IrcClient {
 			serverPassword: next.serverPassword ?? this.options.serverPassword,
 		};
 		const state = this.transport.state;
+
+		// Another server, account or ZNC network: its first registration
+		// behind the bouncer is still to come (autojoin), like the saved
+		// entry's (saved-networks.ts otherBouncerLogin).
+		if (
+			!sameBouncerAccount(merged, this.options) ||
+			zncLogin(merged.serverPassword) !== zncLogin(this.options.serverPassword)
+		) {
+			this.bouncerSettled = false;
+		}
 
 		// New credentials have not proved themselves here yet.
 		if (

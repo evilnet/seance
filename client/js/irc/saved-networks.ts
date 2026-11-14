@@ -457,6 +457,11 @@ export function fromForm(data: Record<string, unknown>, existing?: SavedNetwork)
 		delete base.trustedCertificates;
 	}
 
+	if (existing && otherBouncerLogin(existing, base)) {
+		delete base.bouncerSeen;
+		delete base.bouncerSettled;
+	}
+
 	// The services block travels whole: the key present with nothing in it
 	// is "None" (the loop above keeps the stored one for a missing key).
 	if ("services" in data) {
@@ -506,6 +511,30 @@ function moved(existing: SavedNetwork, host: unknown, port: unknown): boolean {
 	return (
 		(host !== undefined && !sameHost(asString(host), existing.host)) ||
 		(port !== undefined && Number(port) !== existing.port)
+	);
+}
+
+/** ZNC's login in a server password `user/network:password`: what comes before the `:`. */
+export function zncLogin(serverPassword: unknown): string {
+	const text = asString(serverPassword);
+	const colon = text.indexOf(":");
+	return colon < 0 ? "" : text.slice(0, colon);
+}
+
+/**
+ * Whether `next` (any field absent: unchanged) takes `existing` to another
+ * server, SASL account or ZNC network. What the entry learned behind its
+ * bouncer account then goes (fromForm, mergeOptions): soju's offered network
+ * ids are small integers every soju reuses, and a fresh ZNC network should
+ * get the typed channels on its first connect.
+ */
+function otherBouncerLogin(existing: SavedNetwork, next: Record<string, unknown>): boolean {
+	return (
+		moved(existing, next.host, next.port) ||
+		(next.saslAccount !== undefined &&
+			asString(next.saslAccount) !== (existing.saslAccount ?? "")) ||
+		(next.serverPassword !== undefined &&
+			zncLogin(next.serverPassword) !== zncLogin(existing.serverPassword))
 	);
 }
 
@@ -793,6 +822,11 @@ export function mergeOptions(
 	// The connect screen can point a saved network at another server too.
 	if (existing && moved(existing, options.host, options.port)) {
 		delete merged.trustedCertificates;
+	}
+
+	if (existing && otherBouncerLogin(existing, options)) {
+		delete merged.bouncerSeen;
+		delete merged.bouncerSettled;
 	}
 
 	return merged;

@@ -233,6 +233,24 @@ describe("Bouncers: the bouncer's channel list", function () {
 		expect(joins(h)).to.deep.equal([]);
 	});
 
+	it("JOINs the typed channels again once the entry is pointed at another ZNC network", function () {
+		const h = setup({join: "#seance", serverPassword: "alice/libera:pw"});
+		register(h, ZNC_CAPS);
+		clock.tick(RESTORE_MAX_WAIT_MS);
+		expect(joins(h)).to.have.length(1);
+
+		// The same network with a new password is the same login.
+		h.client.applySettings({...h.client.options, serverPassword: "alice/libera:new"});
+		h.transport.sent = [];
+		h.client.autojoin();
+		expect(joins(h)).to.deep.equal([]);
+
+		h.client.applySettings({...h.client.options, serverPassword: "alice/oftc:pw"});
+		h.transport.sent = [];
+		h.client.autojoin();
+		expect(joins(h)).to.have.length(1);
+	});
+
 	it("remembers the first connect in the saved entry", function () {
 		const h = setup({join: "#seance"});
 		settled(h);
