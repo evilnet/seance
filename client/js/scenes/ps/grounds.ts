@@ -69,6 +69,8 @@ export interface SceneGround {
 	body: "sky" | "land" | "moon" | "sun";
 	/** A body counted while under the horizon line: the moon only. */
 	below: boolean;
+	/** Where a ground of the yurt's room stands (indoor.ts): under the roof, which the header covers, or anywhere else. Unset for the plains. */
+	zone?: "top" | "middle";
 }
 
 /** The plains' areas (the rulings table), by the names sceneGrounds gives them; the smoke's are added while it shows. */
