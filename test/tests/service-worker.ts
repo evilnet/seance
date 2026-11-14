@@ -69,6 +69,7 @@ interface Stash {
 		tls: boolean;
 		saslAccount: string;
 		saslPassword?: string;
+		bouncerNetId?: string;
 	}>;
 }
 
@@ -114,6 +115,9 @@ interface ServerScript {
 	preAway?: boolean;
 	/** Hold the first login's 900/903 until `release` resolves (a slow SASL). */
 	holdLogin?: {release: Promise<void>; used?: boolean};
+	/** soju: offer `soju.im/bouncer-networks`, and refuse `BOUNCER BIND` when `refuseBind`
+	 * (the network was deleted); registration then goes on unbound, as soju does. */
+	bouncer?: {refuseBind?: boolean};
 }
 
 /** A clock of events across every socket: when each opened and sent QUIT. */
@@ -129,6 +133,7 @@ function capsOffered(script: ServerScript): string[] {
 		...(script.noMessageTags ? [] : ["message-tags"]),
 		...(script.noReadMarker ? [] : ["draft/read-marker"]),
 		...(script.preAway ? ["draft/pre-away"] : []),
+		...(script.bouncer ? ["soju.im/bouncer-networks"] : []),
 	];
 }
 
@@ -197,6 +202,8 @@ function serve(ws: any, line: string): void {
 		} else {
 			answer();
 		}
+	} else if (line.startsWith("BOUNCER BIND ") && script.bouncer?.refuseBind) {
+		reply(`FAIL BOUNCER INVALID_NETID BIND ${line.split(" ")[2]} :Unknown network ID`);
 	} else if (line === "CAP END") {
 		ws.capEnded = true;
 		tryRegister();
@@ -2032,6 +2039,22 @@ describe("service worker reply pipeline", function () {
 			1200
 		);
 		expect(rec.closed).to.equal(true);
+	});
+
+	it("does not send a reply when the bouncer refuses to bind its network", async function () {
+		const sw = makeSW({
+			script: {bouncer: {refuseBind: true}},
+			stash: {...STASH, networks: [{...STASH.networks[0], bouncerNetId: "42"}]},
+		});
+
+		await firePush(sw, hlPayload("alice", "#seance", "hey pushtest1"));
+		const rec = sw.records.filter((n) => !n.closed)[0];
+		await fireClick(sw, rec, "reply", {reply: "on my way"});
+
+		const sent = sw.lastSent();
+		expect(sent).to.include("BOUNCER BIND 42");
+		expect(sent.join("\n"), "not on the control connection").to.not.contain("PRIVMSG");
+		expect(sw.opened, "kept in the outbox, the app opens to send it").to.have.lengthOf(1);
 	});
 
 	it("falls back to a settle wait when no JOIN replay comes", async function () {

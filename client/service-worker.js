@@ -967,7 +967,14 @@ function swIrcOpen(net, pre, onReady, optional = []) {
 				return;
 			}
 
-			if (stage === 4 && /^ERROR /.test(l)) {
+			// A refused BIND (`FAIL BOUNCER INVALID_NETID`, the network was
+			// deleted): soju goes on registering this as the control
+			// connection, where nothing for the bound network belongs.
+			if (
+				stage === 4 &&
+				(/^ERROR /.test(l) ||
+					(net.bouncerNetId && /^(?:@\S+ )?(?::\S+ )?FAIL BOUNCER /.test(l)))
+			) {
 				done(false);
 				return;
 			}
