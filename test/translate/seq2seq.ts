@@ -315,7 +315,7 @@ describe("translate/engines/seq2seq", () => {
 	it("OPUS-MT gets a multi-sentence text whole", async () => {
 		const d = deps();
 		const engine = new Seq2seqEngine(d.deps);
-		const opus = catalog.opus["de-en"];
+		const opus = catalog.opus["it-en"];
 		await engine.load(opus, "cpu", () => {});
 		const chunks: {text: string; done: boolean}[] = [];
 
@@ -343,7 +343,7 @@ describe("translate/engines/seq2seq", () => {
 				pipeline: () => Promise.resolve(pipe),
 				threads: () => false,
 			});
-			const opus = catalog.opus["es-en"];
+			const opus = catalog.opus["en-it"];
 			await engine.load(opus, "cpu", () => {});
 
 			return {engine, sent, model: opus.id};
@@ -431,7 +431,7 @@ describe("translate/engines/seq2seq", () => {
 	it("a request's target token goes in front of the text", async () => {
 		const d = deps();
 		const engine = new Seq2seqEngine(d.deps);
-		const opus = catalog.opus["de-en"];
+		const opus = catalog.opus["it-en"];
 		await engine.load(opus, "cpu", () => {});
 		const chunks: string[] = [];
 
@@ -468,9 +468,9 @@ describe("translate/engines/seq2seq", () => {
 	it("keeps two models and evicts the least recently used", async () => {
 		const d = deps();
 		const engine = new Seq2seqEngine(d.deps);
-		const a = catalog.opus["de-en"];
-		const b = catalog.opus["fr-en"];
-		const c = catalog.opus["es-en"];
+		const a = catalog.opus["it-en"];
+		const b = catalog.opus["nl-en"];
+		const c = catalog.opus["en-it"];
 
 		expect(SEQ2SEQ_MAX_LOADED).to.equal(2);
 		await engine.load(a, "cpu", () => {});
@@ -518,7 +518,7 @@ describe("translate/engines/seq2seq", () => {
 		let message = "";
 
 		try {
-			await engine.load(catalog.opus["de-en"], "cpu", () => {});
+			await engine.load(catalog.opus["it-en"], "cpu", () => {});
 		} catch (e) {
 			message = (e as Error).message;
 		}
@@ -552,10 +552,10 @@ describe("translate/engines/seq2seq", () => {
 	it("never evicts a pipeline mid-translate, and re-admits it to eviction once free", async () => {
 		const d = deps();
 		const engine = new Seq2seqEngine(d.deps);
-		const a = catalog.opus["de-en"];
-		const b = catalog.opus["fr-en"];
-		const c = catalog.opus["es-en"];
-		const e = catalog.opus["it-en"];
+		const a = catalog.opus["it-en"];
+		const b = catalog.opus["nl-en"];
+		const c = catalog.opus["en-it"];
+		const e = catalog.opus["en-nl"];
 
 		await engine.load(a, "cpu", () => {});
 		await engine.load(b, "cpu", () => {});
@@ -600,8 +600,8 @@ describe("translate/engines/seq2seq", () => {
 	it("unload resolves even if a dispose throws, and attempts every pipeline", async () => {
 		const d = deps();
 		const engine = new Seq2seqEngine(d.deps);
-		const a = catalog.opus["de-en"];
-		const b = catalog.opus["fr-en"];
+		const a = catalog.opus["it-en"];
+		const b = catalog.opus["nl-en"];
 
 		await engine.load(a, "cpu", () => {});
 		await engine.load(b, "cpu", () => {});
@@ -617,9 +617,9 @@ describe("translate/engines/seq2seq", () => {
 	it("an eviction whose dispose throws still lets the new model load", async () => {
 		const d = deps();
 		const engine = new Seq2seqEngine(d.deps);
-		const a = catalog.opus["de-en"];
-		const b = catalog.opus["fr-en"];
-		const c = catalog.opus["es-en"];
+		const a = catalog.opus["it-en"];
+		const b = catalog.opus["nl-en"];
+		const c = catalog.opus["en-it"];
 
 		await engine.load(a, "cpu", () => {});
 		await engine.load(b, "cpu", () => {});

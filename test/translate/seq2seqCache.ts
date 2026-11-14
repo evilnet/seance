@@ -9,8 +9,8 @@ import {buildCatalog, retiredRepos} from "../../client/js/translate/models";
 // OPUS-MT and NLLB-200 with their GPU copies (off in the shipped catalog,
 // models.ts CatalogOptions `seq2seqGpu`), so the per-device logic is covered.
 const catalog = buildCatalog({seq2seqGpu: true});
-const repo = "https://huggingface.co/Xenova/opus-mt-en-de/resolve/main";
-const other = "https://huggingface.co/Xenova/opus-mt-de-en/resolve/main";
+const repo = "https://huggingface.co/Xenova/opus-mt-en-nl/resolve/main";
+const other = "https://huggingface.co/Xenova/opus-mt-nl-en/resolve/main";
 
 function store(urls: string[]) {
 	const held = new Set(urls);
@@ -54,7 +54,7 @@ describe("translate/engines/seq2seqCache", () => {
 	});
 
 	it("answers per copy, and deleting one copy leaves the other's files", async () => {
-		const ref = catalog.opus["en-de"];
+		const ref = catalog.opus["en-nl"];
 		const s = store([
 			`${repo}/config.json`,
 			`${repo}/tokenizer.json`,

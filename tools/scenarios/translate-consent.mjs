@@ -256,7 +256,7 @@ export default async function run(page) {
 	);
 	page.check(
 		`the German line ran on the German pair it downloaded (${yes.model})`,
-		yes.model === "Xenova/opus-mt-de-en"
+		yes.model === "seance-mt/opus-mt-de-en-chat1#de-en"
 	);
 
 	other.quit();

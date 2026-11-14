@@ -2,6 +2,7 @@ import {expect} from "chai";
 import {
 	AFTERNET_MT_HOST,
 	AFTERNET_MT_REPOS,
+	DEFAULT_OPUS_CHAT_PAIRS,
 	DEFAULT_LLM_ID,
 	DEFAULT_NLLB_ID,
 	LLM_CHOICES,
@@ -29,14 +30,14 @@ describe("translate/models", () => {
 		expect(catalog.llm).to.include({engine: "llm", family: "llm", id: DEFAULT_LLM_ID});
 		expect(catalog.llm.copies.gpu?.sizeBytes).to.be.greaterThan(0);
 		expect(catalog.nllb).to.include({engine: "seq2seq", family: "nllb", id: DEFAULT_NLLB_ID});
-		expect(catalog.opus["de-en"]).to.deep.include({
+		expect(catalog.opus["it-en"]).to.deep.include({
 			engine: "seq2seq",
 			family: "opus",
-			id: "Xenova/opus-mt-de-en",
-			pair: ["de", "en"],
+			id: "Xenova/opus-mt-it-en",
+			pair: ["it", "en"],
 		});
 		// The label is data, not copy: helpers/modelLabel.ts renders it.
-		expect(catalog.opus["de-en"].label).to.deep.equal({kind: "opus", from: "de", to: "en"});
+		expect(catalog.opus["it-en"].label).to.deep.equal({kind: "opus", from: "it", to: "en"});
 		expect(catalog.modelBase).to.equal(undefined);
 	});
 
@@ -56,13 +57,13 @@ describe("translate/models", () => {
 		expect(catalog.nllb.id).to.equal("mirror/nllb-small");
 		expect(catalog.opus["fi-en"].id).to.equal("mirror/opus-fi-en");
 		expect(catalog.opus["fi-en"].pair).to.deep.equal(["fi", "en"]);
-		expect(catalog.opus["de-en"].id).to.equal("Xenova/opus-mt-de-en");
+		expect(catalog.opus["it-en"].id).to.equal("Xenova/opus-mt-it-en");
 	});
 
 	it("every build ships the AfterNET MT pairs, one repo both ways, from AfterNET's host", () => {
 		const catalog = buildCatalog();
 
-		for (const code of ["ar", "ko", "pl", "pt", "sv", "zh"]) {
+		for (const code of ["ko", "pl", "pt"]) {
 			const into = catalog.opus[`en-${code}`];
 			const from = catalog.opus[`${code}-en`];
 
@@ -82,10 +83,10 @@ describe("translate/models", () => {
 			expect(into.id).to.not.equal(from.id);
 		}
 
-		expect(catalog.opus["en-sv"].token).to.equal(">>swe<<");
-		// OPUS-MT keeps its pairs and Hugging Face.
-		expect(catalog.opus["en-fr"].copies.cpu?.source).to.equal("Xenova/opus-mt-en-fr");
-		expect(catalog.opus["en-fr"].copies.cpu).to.not.have.property("host");
+		expect(catalog.opus["en-pl"].token).to.equal(">>pol<<");
+		// Stock OPUS-MT keeps its pairs and Hugging Face.
+		expect(catalog.opus["en-it"].copies.cpu?.source).to.equal("Xenova/opus-mt-en-it");
+		expect(catalog.opus["en-it"].copies.cpu).to.not.have.property("host");
 		// A deploy's own pair for the key wins.
 		expect(
 			buildCatalog({cpu: {opus: {"en-sv": "mirror/sv"}}}).opus["en-sv"].copies.cpu
@@ -114,11 +115,28 @@ describe("translate/models", () => {
 		});
 		expect(catalog.opus["pt-en"].token).to.equal(">>eng<<");
 		expect(catalog.opus["pt-en"].copies.cpu?.sizeBytes).to.equal(113_000_000);
-		expect(catalog.opus["de-en"]).to.not.have.property("token");
+		expect(catalog.opus["it-en"]).to.not.have.property("token");
 		// A pair given as an object is the repo and the pair, whether or not
 		// another pair names its repo; a bare repo is its own id.
 		expect(catalog.opus["en-pt"].id).to.equal(sharedPairId("mirror/mt-en-pt", "en-pt"));
-		expect(catalog.opus["de-en"].id).to.equal("Xenova/opus-mt-de-en");
+		expect(catalog.opus["it-en"].id).to.equal("Xenova/opus-mt-it-en");
+	});
+
+	it("every build ships the chat fine-tuned OPUS-MT pairs, one repo a direction, from AfterNET's host", () => {
+		const catalog = buildCatalog();
+
+		for (const pair of Object.keys(DEFAULT_OPUS_CHAT_PAIRS)) {
+			const ref = catalog.opus[pair];
+
+			expect(ref.copies.cpu?.source, pair).to.equal(`seance-mt/opus-mt-${pair}-chat1`);
+			expect(ref.copies.cpu?.host, pair).to.equal(AFTERNET_MT_HOST);
+			expect(ref.label, pair).to.deep.include({kind: "opus", name: "OPUS-MT (AfterNET)"});
+		}
+
+		expect(catalog.opus["en-ar"].token).to.equal(">>ara<<");
+		expect(catalog.opus["en-zh"].token).to.equal(">>cmn_Hans<<");
+		expect(catalog.opus["en-de"]).to.not.have.property("token");
+		expect(catalog.opus["ar-en"]).to.not.have.property("token");
 	});
 
 	it("pairs on one repo get an id each, the repo their copies' source, and a name", () => {
@@ -142,7 +160,7 @@ describe("translate/models", () => {
 			to: "pt",
 			name: "AfterNET MT",
 		});
-		expect(catalog.opus["de-en"].label).to.not.have.property("name");
+		expect(catalog.opus["it-en"].label).to.not.have.property("name");
 	});
 
 	it("lists each model's copies by device", () => {
@@ -161,8 +179,8 @@ describe("translate/models", () => {
 			largestBufferBytes: 524_709_888,
 		});
 		expect(catalog.nllb.copies.cpu).to.include({dtype: "q8", sizeBytes: 912_000_000});
-		expect(catalog.opus["de-en"].copies.cpu).to.include({dtype: "q8", sizeBytes: 113_000_000});
-		expect(catalog.opus["de-en"].copies.gpu).to.include({
+		expect(catalog.opus["it-en"].copies.cpu).to.include({dtype: "q8", sizeBytes: 113_000_000});
+		expect(catalog.opus["it-en"].copies.gpu).to.include({
 			dtype: "fp16",
 			largestBufferBytes: 59_495_424,
 		});

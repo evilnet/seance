@@ -354,15 +354,21 @@ no engine). Every other translation scenario switches translation on first
   the weights it loads.
 - **OPUS-MT and NLLB-200 on the CPU: transformers.js on ONNX Runtime WASM.** Purpose-built translation
   models: NLLB-200 distilled 600M (any pair, FLORES codes) and OPUS-MT pair
-  models (30-80 MB each). Every build also ships AfterNET MT, bidirectional
+  models (30-120 MB each). For Arabic, German, Spanish, French, Russian,
+  Swedish and Chinese both ways, the OPUS-MT pairs every build ships are
+  AfterNET's chat fine-tunes of Helsinki's models (`models.ts`
+  `DEFAULT_OPUS_CHAT_PAIRS`, ~110 MB a direction, `seance-mt/opus-mt-<pair>-chat1`
+  on AfterNET's mirror); Italian and Dutch keep the stock Xenova
+  conversions. Every build also ships AfterNET MT, bidirectional
   Marian students of ~30 MB each (`models.ts` `DEFAULT_AFTERNET_PAIRS`),
-  for English to and from Arabic, Korean, Polish, Portuguese, Swedish and
-  Chinese, where OPUS-MT has no shipped pair; they run as pairs with a
+  for English to and from Korean, Polish and Portuguese, where OPUS-MT
+  has no model for a direction; they run as pairs with a
   target token (branding.md, "A multilingual Marian model as a pair") and
   route first like any pair. They are fetched from AfterNET's mirror
   (`AFTERNET_MT_HOST`, `https://bot.hextalk.org/models`) until they have a
   Hugging Face organisation; a deploy's own `modelBase` fetches them from
-  there instead, under each repo `AFTERNET_MT_REPOS` names (`seance-mt/marian-ko-r24/`). A
+  there instead, under `seance-mt/marian-<code>-r<round>/` and
+  `seance-mt/opus-mt-<pair>-chat1/` (`AFTERNET_MT_REPOS`, `DEFAULT_OPUS_CHAT_PAIRS`). A
   retrained model gets a repo of its own; the ones it replaced are listed in
   `RETIRED_SEQ2SEQ`, so a pair the user removed stays removed under the new
   model (consent.ts `carryRemovals`) and the old files are deleted from the
@@ -490,7 +496,7 @@ on or a switch turned off removes steps; nothing adds one.
    table (`service.ts` `resolve`).
 2. **What is on the device, or downloads without a question**: a small CPU
    model for the pair (OPUS-MT; a deploy's own, AfterNET MT's ~30 MB
-   Marian models), a downloaded language model or NLLB-200. The table's
+   Marian models and its ~110 MB chat fine-tunes, all under the quiet size), a downloaded language model or NLLB-200. The table's
    order and classes decide among them (below).
 3. **Apple's pack, downloadable**: ahead of any download that needs a yes
    (the language model's ~1 GB). Reading never opens the system's sheet:

@@ -10,7 +10,7 @@
 // 1. The app, as shipped: translation switched on (lib/translation.mjs),
 //    the page reloaded once so the service worker controls it and it is
 //    cross-origin isolated, then Settings → Translation downloads the
-//    OPUS-MT en-de pair's CPU copy through the app's own service and
+//    OPUS-MT en-it pair's CPU copy through the app's own service and
 //    worker (a load creates the ORT session). Translation is then
 //    switched off, which takes the app's worker down with its model.
 // 2. Two workers of our own, `new Worker("js/translate-worker.js")`,
@@ -42,7 +42,7 @@ import {TRANSLATION_ON} from "./lib/translation.mjs";
 
 const BASE = process.env.SEANCE_HTTP || "http://localhost:8021/app/";
 const MIRROR = process.env.SEANCE_MODEL_MIRROR || null;
-const OPUS = "Xenova/opus-mt-en-de";
+const OPUS = "Xenova/opus-mt-en-it";
 const ENGLISH = "please keep the timestamps in the log too, I need the ordering";
 const OPUS_TIMEOUT = 15 * 60 * 1000;
 const LLM_TIMEOUT = 30 * 60 * 1000;
@@ -227,19 +227,19 @@ export default async function run(page) {
 	const plain = catalog(null);
 	const opus = await runWorker(
 		page,
-		"OPUS-MT en-de (ORT, wasm)",
+		"OPUS-MT en-it (ORT, wasm)",
 		{
 			catalogJson: JSON.stringify(plain),
-			ref: plain.opus["en-de"],
+			ref: plain.opus["en-it"],
 			text: ENGLISH,
 			from: "en",
-			to: "de",
+			to: "it",
 		},
 		OPUS_TIMEOUT
 	);
 
 	page.check(
-		"OPUS-MT en-de translated the line",
+		"OPUS-MT en-it translated the line",
 		opus.phase === "done" &&
 			typeof opus.text === "string" &&
 			opus.text.trim() !== "" &&

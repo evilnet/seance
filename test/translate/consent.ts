@@ -178,6 +178,15 @@ describe("translate/consent carryRemovals", () => {
 		expect(removed.has("seance-mt/marian-ko#ko-en")).to.equal(false);
 	});
 
+	it("keeps a stock OPUS-MT pair removed under its chat fine-tune", () => {
+		const removed = memoryConsent();
+		removed.grant("Xenova/opus-mt-de-en");
+		carryRemovals(removed, catalog);
+
+		expect(removed.has("seance-mt/opus-mt-de-en-chat1#de-en")).to.equal(true);
+		expect(removed.has("Xenova/opus-mt-de-en")).to.equal(false);
+	});
+
 	it("leaves an id the deploy still ships alone", () => {
 		const removed = memoryConsent();
 		removed.grant("seance-mt/marian-ko#ko-en");
