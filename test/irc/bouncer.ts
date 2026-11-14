@@ -593,6 +593,22 @@ describe("Bouncers: soju's networks (soju.im/bouncer-networks)", function () {
 		expect(tail.indexOf("BOUNCER BIND 42")).to.be.lessThan(tail.indexOf("CAP END"));
 	});
 
+	it("asks for the network list's -notify on the control connection only", function () {
+		const req = (h: Harness): string[] => {
+			h.client.connect();
+			h.transport.open();
+			h.transport.line(`:irc.test CAP * LS :${SOJU_CAPS}`);
+			const line = h.transport.sent.find((l) => l.startsWith("CAP REQ :")) ?? "";
+			return line.slice("CAP REQ :".length).split(" ");
+		};
+
+		expect(req(setup({}))).to.include("soju.im/bouncer-networks-notify");
+		// A bound network ignores the list: soju would send it on every one.
+		const bound = req(setup({bouncerNetId: "42"}));
+		expect(bound).to.include("soju.im/bouncer-networks");
+		expect(bound).to.not.include("soju.im/bouncer-networks-notify");
+	});
+
 	it("binds nothing on a server without the extension", function () {
 		const h = setup({bouncerNetId: "42"});
 		h.client.connect();

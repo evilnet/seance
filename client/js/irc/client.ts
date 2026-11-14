@@ -31,6 +31,7 @@ import type {
 import type {PushSession, ServerToClientEvents} from "../../../shared/types/socket-events";
 import {
 	BOUNCER_NETWORKS_CAP,
+	BOUNCER_NOTIFY_CAP,
 	bindLine,
 	isBouncerControl,
 	listNetworks,
@@ -1841,6 +1842,12 @@ export class IrcClient {
 
 			if (name === "sasl") {
 				return mechanism !== null && mechanismOffered(mechanism, value);
+			}
+
+			// The network list's updates are the control connection's: a
+			// bound network ignores them, and soju would send them to each.
+			if (name === BOUNCER_NOTIFY_CAP) {
+				return !this.options.bouncerNetId;
 			}
 
 			return true;
