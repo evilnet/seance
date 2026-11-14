@@ -13,11 +13,13 @@ import {onSystemAccessibility, systemAccessibility} from "../../helpers/systemAc
 import storage from "../../localStorage";
 import type {SceneHandle, SceneHostState} from "../../themeScene";
 import {momentAt, type Weather} from "../ps/engine";
+import {indoorVars, roomCss} from "../ps/indoor";
 import {GATES, liveLayers, type Gate} from "../ps/layers";
 import {sceneClasses, sceneMarkup, sceneVars, weatherChanged} from "../ps/markup";
 import {paletteAt} from "../ps/palette";
 import {HEAT_HAZE, weatherLayers} from "../ps/plains";
 import {publishMoment, unpublish} from "../ps/publish";
+import {roomMarkup, windowWeather} from "../ps/room";
 import {overcastBuilder, watchComposer, watchLand} from "../ps/watchers";
 import {fireDriver, ngSun} from "./flame";
 import {GROUPS, groupOverride, groupsFor} from "./groups";
@@ -84,6 +86,22 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	let viewport: HTMLElement | null = null;
 	let drawer: MutationObserver | undefined;
 	let release: number | undefined;
+	// The yurt's room (docs/projects/ps-yurt.md): built on the first private conversation, kept
+	// until the theme goes; its stylesheet; and the weather its windows were last built for.
+	let room: HTMLElement | null = null;
+	let roomSheet: CSSStyleSheet | null = null;
+	let roomBuilt: Weather | null = null;
+	let lastView: SceneHostState["view"] | null = null;
+
+	// The room as one static picture after the plains, with the stylesheet that colours it by the
+	// minute; ps.css shows it in place of the plains while ps-private is on the root.
+	const buildRoom = () => {
+		root.insertAdjacentHTML("beforeend", roomMarkup());
+		room = root.querySelector(".ps-indoor") as HTMLElement;
+		roomSheet = new CSSStyleSheet();
+		roomSheet.replaceSync(roomCss());
+		document.adoptedStyleSheets = [...document.adoptedStyleSheets, roomSheet];
+	};
 
 	// The fire's frame loop runs only in the full tier, with the sun's group on and its gate live;
 	// anywhere else no frame is requested (calm keeps the one frame it has painted).
@@ -285,8 +303,16 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 			}
 		}
 
-		for (const [name, value] of Object.entries(vars)) {
+		for (const [name, value] of Object.entries({...vars, ...indoorVars(m, p)})) {
 			root.style.setProperty(name, value);
+		}
+
+		// The windows show the weather the plains are having: rebuilt on the same trigger.
+		if (room && weatherChanged(roomBuilt, m.weather)) {
+			const slot = room.querySelector(".ps-yt-weather") as HTMLElement;
+			slot.innerHTML = windowWeather(m.weather, isPhoneLayout());
+			slot.dataset.weather = m.weather;
+			roomBuilt = m.weather;
 		}
 
 		sunLive = live.sun;
@@ -328,9 +354,19 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		root.classList.toggle("ps-private", state.view === "query");
 		composer?.refind();
 
+		if (state.view === "query" && !room) {
+			buildRoom();
+		}
+
+		const viewChanged = lastView !== null && state.view !== lastView;
+		lastView = state.view;
+
 		if (state.visible && !visible) {
 			visible = true;
 			tick(); // synchronously, so a cold start paints the right sky
+		} else if (state.visible && viewChanged) {
+			// A view change shows at once what that view publishes and paints, not at the next minute.
+			apply(new Date());
 		} else if (!state.visible && visible) {
 			visible = false;
 			window.clearTimeout(timer);
@@ -350,7 +386,12 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 			composer?.destroy();
 			land?.destroy();
 			unpublish(html, meta, themeColor, wrote);
-			document.adoptedStyleSheets = document.adoptedStyleSheets.filter((s) => s !== sheet);
+			document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
+				(s) => s !== sheet && s !== roomSheet
+			);
+			room = null;
+			roomSheet = null;
+			roomBuilt = null;
 			root.replaceChildren();
 			root.removeAttribute("style");
 			root.classList.remove(

@@ -329,6 +329,14 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 					"--ps-buzzard-op": "1",
 					"--ps-lark-op": "1",
 					"--ps-db-ink": "#3a3436",
+					// The yurt's light levels (indoor.ts), written whatever the view.
+					"--ps-in-shade": "0.000",
+					"--ps-in-warm": "0.000",
+					"--ps-in-fire": "0.320",
+					"--ps-in-lamp": "0.000",
+					"--ps-in-beam": "1.000",
+					"--ps-in-sun": "0.000",
+					"--ps-in-screen": "0.000",
 				},
 				moon: {
 					rx: lit.rx.toFixed(2),
@@ -371,6 +379,68 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 			scene.update(state({view: "channel"}));
 			expect(page.root.classList.contains("ps-private")).to.equal(false);
 			scene.destroy();
+		});
+	});
+
+	describe("the yurt in a private conversation (docs/projects/ps-yurt.md, plan 1 task 6)", function () {
+		const room = (page: Page) => page.root.querySelector(".ps-indoor");
+
+		it("a query builds the room once and shows it instead of the plains; back and forth leaves one room and one sheet", function () {
+			withPage(new Date(2026, 5, 21, 12, 0), (page) => {
+				const scene = mountOn(page);
+				expect(page.root.markup).to.not.contain("ps-indoor");
+				const sheets = page.doc.adoptedStyleSheets.length;
+
+				for (let i = 0; i < 5; i++) {
+					scene.update(state({view: "query"}));
+					scene.update(state());
+				}
+
+				scene.update(state({view: "query"}));
+				expect((page.root.markup.match(/class="ps-indoor"/g) ?? []).length).to.equal(1);
+				expect(page.doc.adoptedStyleSheets.length).to.equal(sheets + 1);
+				expect(page.root.classList.contains("ps-private")).to.equal(true);
+				scene.destroy();
+			});
+		});
+
+		it("mounting straight into a query builds and colours the room in the first tick", function () {
+			withPage(new Date(2026, 5, 21, 23, 0), (page) => {
+				const scene = mountOn(page, {view: "query"});
+				expect(page.root.markup).to.contain('class="ps-indoor"');
+				expect(Number(page.root.style.props.get("--ps-in-shade"))).to.be.closeTo(
+					0.74,
+					0.001
+				);
+				expect(room(page).querySelector(".ps-yt-weather").dataset.weather).to.equal(
+					"clear"
+				);
+				scene.destroy();
+			});
+		});
+
+		it("a new day's weather rebuilds the windows' weather with the plains'", function () {
+			// 21 June 2026 is clear, 22 June heat.
+			withPage(new Date(2026, 5, 21, 23, 59, 30), (page, clock) => {
+				const scene = mountOn(page, {view: "query"});
+				const slot = room(page).querySelector(".ps-yt-weather");
+				expect(slot.dataset.weather).to.equal("clear");
+				expect(slot.markup).to.contain('data-weather="clear"');
+				clock.tick(60_000);
+				expect(page.root.dataset.weather).to.equal("heat");
+				expect(slot.dataset.weather).to.equal("heat");
+				expect(slot.markup).to.contain('data-weather="heat"');
+				scene.destroy();
+			});
+		});
+
+		it("a window shows no moon while the moon's opacity is 0", function () {
+			withPage(new Date(2026, 5, 21, 12, 0), (page) => {
+				const scene = mountOn(page, {view: "query"});
+				// .ps-yt-moon reads it (indoor.ts roomCss).
+				expect(Number(page.root.style.props.get("--ps-moon-op"))).to.equal(0);
+				scene.destroy();
+			});
 		});
 	});
 

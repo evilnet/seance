@@ -21,12 +21,17 @@ export function publishMoment(
 	m: Moment,
 	p: Palette
 ): string | null {
-	const ellipse = root.querySelector(".ps-m-ell") as SVGEllipseElement;
-	const shape = root.querySelector(".ps-m-shape") as SVGGElement;
 	const lit = moonShape(m.phase);
-	ellipse.setAttribute("rx", lit.rx.toFixed(2));
-	ellipse.setAttribute("fill", lit.fill);
-	shape.setAttribute("transform", lit.mirror ? "scale(-1,1)" : "");
+
+	// The plains' moon, and the yurt's back window's once the room is built.
+	for (const ellipse of root.querySelectorAll(".ps-m-ell")) {
+		ellipse.setAttribute("rx", lit.rx.toFixed(2));
+		ellipse.setAttribute("fill", lit.fill);
+	}
+
+	for (const shape of root.querySelectorAll(".ps-m-shape")) {
+		shape.setAttribute("transform", lit.mirror ? "scale(-1,1)" : "");
+	}
 	root.dataset.weather = m.weather;
 	root.dataset.season = m.season.main;
 	const out = publishedFor(p, m);

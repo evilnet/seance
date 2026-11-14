@@ -355,7 +355,7 @@ describe("ps scene: the layers it builds (sceneMarkup)", function () {
 		throw new Error(`${name} is not closed`);
 	}
 
-	it("wraps every layer in one .ps-frost, the one group the private view blurs (spec §5.7)", function () {
+	it("wraps every layer in one .ps-frost, the plains' one wrapper, which the yurt's room replaces in a private conversation (docs/projects/ps-yurt.md)", function () {
 		for (const phone of [false, true]) {
 			const markup = sceneMarkup(phone);
 			expect(topLevel(markup)).to.deep.equal(["ps-frost"]);

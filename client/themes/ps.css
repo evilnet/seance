@@ -1039,11 +1039,12 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	background-image: linear-gradient(180deg, var(--ps-sky-top, #3f8fe6) 0%, var(--ps-sky-mid, #8cc2f4) 50%, var(--ps-sky-hor, #d2e9fb) 62%, var(--ps-sky-hor, #d2e9fb) 100%);
 }
 
-/* Every layer sits in one wrapper (markup.ts sceneMarkup), the one group the
- * private view frosts: one filtered group is one raster. Not a container,
- * so what travels across the scene still moves in cqw/cqh of #theme-scene;
- * and outside a query no filter, transform or will-change, so it is no
- * layer of its own and the scene paints as it always did. */
+/* Every layer of the plains sits in one wrapper (markup.ts sceneMarkup). Not a
+ * container, so what travels across the scene still moves in cqw/cqh of
+ * #theme-scene; no filter, transform or will-change, so it is no layer of its
+ * own. In a private conversation it leaves the render tree and the yurt's room
+ * shows in its place (docs/projects/ps-yurt.md; psng/scene.ts builds the room
+ * on the first query, ps/room.ts draws it, ps/indoor.ts colours it). */
 #theme-scene .ps-frost {
 	position: absolute;
 	inset: 0;
@@ -1053,28 +1054,24 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	position: absolute;
 }
 
-/* The private view (spec §5.7): in a query the same scene at the same hour
- * stands behind frosted glass, completely still (psng/scene.ts sets ps-private
- * and stills it as a hidden page's is). Blurred 18 px as rem and slightly
- * desaturated; the sky stays the root's own, unfiltered, and so do
- * --canvas-bg-color, <html>'s values and #status-bar-tint. It eases in and
- * out over the flip (0 s under reduced motion: `transition: none` below).
- *
- * The scale is just enough to hide the blur's edge. The filter blurs in the
- * wrapper's own space and the scale then enlarges the result, blur and all,
- * so a window of short side D shows the wrapper from D(s − 1)/(2s) inside
- * its edge, where the blur has faded it by as much as that margin is short
- * of the blur's own σ (1.125rem). The approved mockup's scale(1.08) left
- * 1.44 σ at its 700 px window (700 · 0.08 / 2.16 / 18 px) and faded into
- * paper there, starker than this sky. Held at the smallest window the spec
- * measures, the 390 px phone at the default step (19.5rem):
- * s = D / (D − 2 · 1.44 σ) = 19.5 / (19.5 − 3.24) = 1.1993, so 1.2. Larger
- * windows keep more margin (a 1280 × 900 desktop 3.3 σ); a 320 px window,
- * or the next font step up, keeps less (1.2 σ and 1.1 σ). Kept under 1.25,
- * so the noon sun (10 % from the top) keeps its centre in the window. */
-#theme-scene.ps-private .ps-frost {
-	filter: blur(1.125rem) saturate(0.85);
-	transform: scale(1.2);
+/* Inside the yurt (docs/projects/ps-yurt.md §5, §8): in a query the room
+ * replaces the plains, a cut; its svg covers the scene around the stove
+ * (viewBox and xMidYMid slice, ps/room.ts), so nothing here places it. The
+ * root's own sky is under it, covered. */
+#theme-scene.ps-private > .ps-frost,
+#theme-scene:not(.ps-private) > .ps-indoor {
+	display: none;
+}
+
+#theme-scene .ps-indoor {
+	position: absolute;
+	inset: 0;
+}
+
+#theme-scene .ps-indoor > svg {
+	display: block;
+	inline-size: 100%;
+	block-size: 100%;
 }
 
 /* The box html gives everything, stated rather than inherited. style.css's

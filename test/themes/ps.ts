@@ -2819,11 +2819,13 @@ describe("the ps theme's scene", function () {
 	});
 });
 
-describe("the ps theme's private view (spec §5.7): the plains frosted and still in a query", function () {
+describe("the ps theme's private view (docs/projects/ps-yurt.md): the yurt's room replaces the plains in a query", function () {
 	const FROST = "#theme-scene .ps-frost";
-	const PRIVATE = "#theme-scene.ps-private .ps-frost";
+	const PLAINS_OUT = "#theme-scene.ps-private > .ps-frost";
+	const ROOM_OUT = "#theme-scene:not(.ps-private) > .ps-indoor";
+	const ROOM = "#theme-scene .ps-indoor";
 
-	it("lays the one wrapper over the whole scene and positions every layer inside it, as when they were the root's own", function () {
+	it("lays the plains' one wrapper over the whole scene and positions every layer inside it, as when they were the root's own", function () {
 		expect(valueOf(FROST, "position")).to.equal("absolute");
 		expect(valueOf(FROST, "inset")).to.equal("0");
 		expect(valueOf(`${FROST} > *`, "position")).to.equal("absolute");
@@ -2832,62 +2834,48 @@ describe("the ps theme's private view (spec §5.7): the plains frosted and still
 		expect(sceneMarkup(false)).to.match(/^<div class="ps-frost">/);
 	});
 
-	it("frosts the wrapper in a query: blurred 18 px as rem and desaturated to 0.85", function () {
-		expect(valueOf(PRIVATE, "filter")).to.equal("blur(1.125rem) saturate(0.85)");
+	it("shows the room in place of the plains in a query, and only there: a cut", function () {
+		expect(valueOf(PLAINS_OUT, "display")).to.equal("none");
+		expect(valueOf(ROOM_OUT, "display")).to.equal("none");
+		expect(valueOf(ROOM, "transition")).to.equal(undefined);
 	});
 
-	it("scales it just past the blur's edge: the mockup's margin of 1.44 blurs at the 390 px phone, filter first", function () {
-		// The filter blurs in the wrapper's own space and the scale enlarges
-		// the result, blur and all: the window's edge falls D(s − 1)/(2s) inside
-		// the wrapper's, which is to be 1.44 σ, the margin the approved mockup's
-		// scale(1.08) left at its 700 px window (700 · 0.08 / 2.16 / 18).
-		const sigma = Number(/blur\(([\d.]+)rem\)/.exec(valueOf(PRIVATE, "filter") ?? "")?.[1]);
-		const scale = Number(/^scale\(([\d.]+)\)$/.exec(valueOf(PRIVATE, "transform") ?? "")?.[1]);
-		const phone = 390 / 20; // the phone the spec measures, at the default font-size step, in rem
-		const mockup = (700 * 0.08) / (2 * 1.08) / 18;
-		expect(mockup).to.be.closeTo(1.44, 0.005);
-		const need = phone / (phone - 2 * 1.44 * sigma);
-		expect(scale, "no less than the margin needs").to.be.at.least(need);
-		expect(scale - need, "and no more than a hundredth over it").to.be.below(0.01);
-		// The noon sun (10 % from the top) keeps its centre in the window: 50 − 40 s > 0.
-		expect(50 - 40 * scale).to.be.above(0);
+	it("lays the room over the whole scene; its svg covers it (the viewBox and xMidYMid slice place it, ps/room.ts)", function () {
+		expect(valueOf(ROOM, "position")).to.equal("absolute");
+		expect(valueOf(ROOM, "inset")).to.equal("0");
+		expect(valueOf(`${ROOM} > svg`, "display")).to.equal("block");
+		expect(valueOf(`${ROOM} > svg`, "inline-size")).to.equal("100%");
+		expect(valueOf(`${ROOM} > svg`, "block-size")).to.equal("100%");
 	});
 
-	it("snaps the frost (no transition: NG's scene has none), and gives the wrapper no filter, transform or layer outside a query", function () {
-		expect(valueOf(FROST, "transition")).to.equal(undefined);
-
+	it("never frosts the plains any more: the wrapper has no filter, transform or layer, in a query or out of one", function () {
 		for (const property of [
 			"filter",
 			"transform",
 			"will-change",
 			"backdrop-filter",
 			"opacity",
+			"transition",
 		]) {
 			expect(valueOf(FROST, property), property).to.equal(undefined);
 		}
 
-		// Only these rules name the wrapper, and only the private one frosts it.
 		const naming = rules.filter((r) => r.selectors.some((s) => s.includes(".ps-frost")));
 		expect(naming.map((r) => [r.at, r.selectors.join(", ")])).to.deep.equal([
 			["", FROST],
 			["", `${FROST} > *`],
-			["", PRIVATE],
+			["", `${PLAINS_OUT}, ${ROOM_OUT}`],
 		]);
 	});
 
-	it("comes at once under reduced motion: the flip is 0 s and the scene's `transition: none` covers the wrapper", function () {
-		const stills = rules.filter(
-			(r) => r.at === REDUCED_MOTION && r.selectors.includes("#theme-scene *")
-		);
-		expect(stills.flatMap((r) => r.decls)).to.deep.include(["transition", "none !important"]);
-		expect(declsOf(":root", REDUCED_MOTION)).to.deep.include(["--ps-flip", "0s"]);
-	});
-
-	it("frosts the scene's layers alone: nothing under ps-private reaches the root's sky and canvas, <html> or the chrome", function () {
+	it("touches the scene's layers alone: nothing under ps-private reaches the root's sky and canvas, <html> or the chrome", function () {
 		const underPrivate = rules.flatMap((r) =>
 			r.selectors.filter((s) => s.includes("ps-private")).map((s) => [r.at, s])
 		);
-		expect(underPrivate).to.deep.equal([["", PRIVATE]]);
+		expect(underPrivate).to.deep.equal([
+			["", PLAINS_OUT],
+			["", ROOM_OUT],
+		]);
 		// The still is the hidden page's own (psng/scene.ts): no rule of its own.
 		expect(css).to.not.match(/ps-private[^{]*\{[^}]*animation/);
 	});
