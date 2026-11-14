@@ -153,6 +153,14 @@ describe("i18n reuse", function () {
 			]);
 		});
 
+		it("leaves an entry a reviewer marked no-reuse", function () {
+			const po = entries(
+				DE.replace('msgctxt "b.cancel"', '# no-reuse: reads wrong here\nmsgctxt "b.cancel"')
+			);
+			const again = planReuse(entries(POT), po, "de");
+			expect(again.fills.map((f) => f.key)).to.not.include("b.cancel");
+		});
+
 		it("never fills a key whose English is empty on purpose", function () {
 			const pot = entries(
 				'msgctxt "a.blank"\nmsgid ""\nmsgstr ""\n\nmsgctxt "b.blank"\nmsgid ""\nmsgstr ""\n'

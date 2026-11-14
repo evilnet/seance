@@ -40,6 +40,11 @@ export const DISTINCT_FLAG = "distinct";
 /** The translator note --fill leaves on what it copied. */
 export const REUSED_FROM = "reused-from:";
 
+/** The translator note that keeps --fill out of one catalog's entry: a
+ * reviewer emptied a copy that read wrong in that language, and the next
+ * run must not put it back. */
+export const NO_REUSE = "no-reuse:";
+
 /** Prefix of the shared keys new code should prefer over a fresh duplicate. */
 export const COMMON_PREFIX = "common.";
 
@@ -173,6 +178,10 @@ export function planReuse(
 		const entry = poByKey.get(key);
 
 		if (!key || !entry || distinct.has(key) || !untranslated(entry)) {
+			continue;
+		}
+
+		if (entry.translatorComments.some((line) => line.startsWith(NO_REUSE))) {
 			continue;
 		}
 
