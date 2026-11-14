@@ -8,6 +8,7 @@ import {
 	pendingSearches,
 	requestSearch,
 	requestSearchContext,
+	resetSearches,
 	SEARCH_TIMEOUT_MS,
 	SEARCH_TOMBSTONE_MS,
 	specSearchParams,
@@ -529,6 +530,24 @@ describe("historysearch", function () {
 			);
 			requestSearch(client, 1, {in: "#seance", text: "fake"});
 			batch(transport, "soju.im/search", labelOf(transport.sent[0]), [ROW1, ROW2]);
+			transport.sent.length = 0;
+
+			requestSearchContext(client, 4, "#seance", "AROUND", "m2", 21);
+
+			expect(transport.sent[0]).to.match(
+				/ CHATHISTORY AROUND #seance timestamp=2026-10-20T11:00:00\.000Z 21$/
+			);
+		});
+
+		it("still knows when a hit was said after the connection closed and came back", function () {
+			const {client, transport} = setup();
+			transport.line(
+				":irc.test 005 alice MSGREFTYPES=timestamp :are supported by this server"
+			);
+			requestSearch(client, 1, {in: "#seance", text: "fake"});
+			batch(transport, "soju.im/search", labelOf(transport.sent[0]), [ROW1, ROW2]);
+			// What a disconnect does; the search window keeps its hits.
+			resetSearches(client);
 			transport.sent.length = 0;
 
 			requestSearchContext(client, 4, "#seance", "AROUND", "m2", 21);

@@ -128,9 +128,10 @@ function supersedeGroup(client: IrcClient): void {
 const needsIn = new WeakSet<IrcClient>();
 
 /**
- * When each msgid seen in a search or context page on this connection was
- * said, for a server that takes `timestamp=` references and not `msgid=` ones
- * (soju: `MSGREFTYPES=timestamp`). Bounded: the oldest are let go.
+ * When each msgid seen in a search or context page on this network was said
+ * (kept across reconnects), for a server that takes `timestamp=` references
+ * and not `msgid=` ones (soju: `MSGREFTYPES=timestamp`). Bounded: the oldest
+ * are let go.
  */
 const timesByClient = new WeakMap<IrcClient, Map<string, Date>>();
 const TIMES_MAX = 5000;
@@ -766,5 +767,7 @@ export function resetSearches(client: IrcClient): void {
 	parentsAsked.delete(client);
 	activeGroups.delete(client);
 	needsIn.delete(client);
-	timesByClient.delete(client);
+	// timesByClient stays: when a message was said does not change with the
+	// connection, and the search window and past views keep their rows
+	// across it (a hit opened after a reconnect is asked for by that time).
 }
