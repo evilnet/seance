@@ -3636,12 +3636,14 @@ msgstr ""
 
 #. Install guide: a dialog that walks through installing the web app on this device. A label drawn inside a small schematic of the browser's or OS's own screen: use the label that screen shows in this language, the same as in the step text. Very short: it must fit a small box in the drawing. macOS menu bar menu name (Safari). One short word.
 #: client/components/InstallGuideArt.vue
+#, distinct
 msgctxt "install.art.menuEdit"
 msgid "Edit"
 msgstr ""
 
 #. Install guide: a dialog that walks through installing the web app on this device. A label drawn inside a small schematic of the browser's or OS's own screen: use the label that screen shows in this language, the same as in the step text. Very short: it must fit a small box in the drawing. macOS menu bar menu name (Safari). One short word.
 #: client/components/InstallGuideArt.vue
+#, distinct
 msgctxt "install.art.menuFile"
 msgid "File"
 msgstr ""
@@ -3654,6 +3656,7 @@ msgstr ""
 
 #. Install guide: a dialog that walks through installing the web app on this device. A label drawn inside a small schematic of the browser's or OS's own screen: use the label that screen shows in this language, the same as in the step text. Very short: it must fit a small box in the drawing. macOS menu bar menu name (Safari). One short word.
 #: client/components/InstallGuideArt.vue
+#, distinct
 msgctxt "install.art.menuView"
 msgid "View"
 msgstr ""
@@ -5544,6 +5547,7 @@ msgstr ""
 
 #. Oper panel, Opers tab (what the network's IRC operators have been doing, rolled up from the kept server notices): stands in for a server's name when a notice did not say which server it came from. Lower case, one word. Keep IRC/oper jargon as is (G-line, shun, Z-line, K-line, oper, X3, O3, AuthServ, ChanServ) and every {placeholder} verbatim.
 #: client/js/helpers/operActivity.ts
+#, distinct
 msgctxt "oper.activity.unknownServer"
 msgid "server"
 msgstr ""
@@ -6963,6 +6967,7 @@ msgstr ""
 
 #. Column heading in a table in the report card of an oper's /check reply: the ident (user name) part. Short, at most ~20 characters. Keep IRC jargon as is (CHECK, oper, opered, TLS, IP, TS, nick, SendQ, RecvQ, EOB, bouncer if no common word exists).
 #: client/js/irc/profiles/nefarious/check.ts
+#, distinct
 msgctxt "oper.check.col.user"
 msgid "User"
 msgstr ""
@@ -7555,6 +7560,7 @@ msgstr ""
 
 #. Row label in the Totals section of a CHECK channel card: how many members are bouncer alias connections. One word.
 #: client/js/irc/profiles/nefarious/check.ts
+#, distinct
 msgctxt "oper.check.total.aliases"
 msgid "Aliases"
 msgstr ""
@@ -9406,6 +9412,7 @@ msgstr ""
 #. GitSync = the server pulling its config from git; this one is a failure.
 #. Keep as is (IRC jargon): GitSync.
 #: client/js/irc/profiles/noticeText.ts
+#, distinct
 msgctxt "oper.kind.gitsync.fail.template"
 msgid "GitSync: {message}"
 msgstr ""
@@ -9422,6 +9429,7 @@ msgstr ""
 #. GitSync = the server pulling its config from git.
 #. Keep as is (IRC jargon): GitSync.
 #: client/js/irc/profiles/noticeText.ts
+#, distinct
 msgctxt "oper.kind.gitsync.template.plain"
 msgid "GitSync: {message}"
 msgstr ""
@@ -11056,6 +11064,7 @@ msgstr ""
 #. What it carries: G-lines, shuns, Z-lines and channel bans being added, changed and removed, every user they hit, temporary shuns and DNSBL blocks.
 #. Keep as is (IRC jargon): OPER, OPMODE, IAuth, WebIRC, IP, snomask.
 #: client/js/irc/profiles/nefarious/snomask.ts
+#, distinct
 msgctxt "oper.snomask.GLINE.label"
 msgid "Bans"
 msgstr ""
