@@ -61,8 +61,10 @@ const endOfNames: Handler = (client, msg) => {
 
 	chan.users = chan.namesBuffer ?? new Map();
 	chan.namesBuffer = null;
-	// The end of the JOIN burst: from here on the channel's lines are live.
+	// The end of the JOIN burst: from here on the channel's lines are live,
+	// and a topic that never came (none is set) is no longer waited for.
 	chan.rejoining = false;
+	chan.topicWanted = false;
 	client.usersChanged(chan);
 };
 

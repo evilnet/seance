@@ -12,7 +12,8 @@
  * Seance uses this to make a reconnect look like nothing happened:
  *
  * - the replayed JOIN / topic / NAMES update the model without producing
- *   lines (`IrcClient.restoring`, honoured by join.ts and topic.ts) and each
+ *   lines (`IrcClient.restoring`, honoured by join.ts; a join burst's topic
+ *   is never a line unless the user asked, topic.ts) and each
  *   restored JOIN starts the usual paced catch-up (`CHATHISTORY LATEST`, then
  *   `BEFORE` back to the newest line we held; history.ts)
  *   (catchup.ts), which is what actually fills the gap — unless the server
@@ -32,7 +33,7 @@
  * {@link bouncerReplayBatch}).
  *
  * Without the cap (another ircd, hold off, not logged in) nothing here runs
- * and a re-JOIN is quiet by `Channel.rejoining` alone.
+ * and a re-JOIN's own JOIN line is quiet by `Channel.rejoining` alone.
  */
 
 import type {CapNegotiator} from "./caps";

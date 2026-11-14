@@ -625,3 +625,80 @@ changed on his findings:
 Still to do on a device and a live rig, which the review asked for
 before the PR leaves draft: Keycloak stopped, services stopped, and the
 original report on a phone.
+
+## Round ten: the page that comes back remembers nothing (2026-11-13)
+
+Reported again: topic and mode lines on reconnect "in some places", F5 in
+a browser being the easy way to see it. Reproduced on the e-testnet
+(SASL, the bouncer hold, `draft/event-playback`), with a second user in
+the channels to record what other users see. After F5, and after a
+phone-style kill (the socket dies, then the page reloads), every channel
+with a topic got `The topic is: …` and `Topic set by …` stamped at the
+time of the reload, the open channel got `Channel mode is +tn` a few
+seconds later, and every other channel got one the first time it was
+opened. A dropped socket with the page alive added nothing, and other
+users saw nothing in any of the three: the server's side is seamless.
+
+**Why the earlier rounds did not catch it.** Round two's rule — show a
+332 or 324 only when it differs from what the channel shows — compares
+with memory the page holds, and F5 or a phone killing a backgrounded PWA
+throws that memory away. The page that comes back starts with no topic
+and no modes, so the first 332 of every channel and the first 324 of
+every channel opened were news by that rule. Round one even said so: "a
+topic we did not know yet — fresh page load — is still shown". The 324
+was never the server's: nefarious2 sends none on a resume
+(`bounce_send_channel_state` sends JOIN, 332/333, MARKREAD and NAMES
+only); it answers the `MODE #chan` the client asks itself for the
+channel on screen (`catchup.ts` `queueModes`) and for each one opened.
+
+**The rule now: a join burst is state, only what was asked for is a
+line.** No memory, so nothing for a reload to lose:
+
+- `topic.ts`: a 332 goes to the header (the `topic` event, when it
+  differs) and is a line, with its 333, only for a channel the user
+  joined by hand on this page (`Channel.topicWanted`: the `/join`
+  request consumed by a JOIN that is neither a restore nor a re-join,
+  `handlers/join.ts`; cleared by that burst's 366, so a channel joined
+  without a topic does not wait for one) — the header truncates a long
+  topic, so the first look at a new channel shows it in full — or for
+  `/topic` (`Channel.topicAsked`, as before).
+- `mode.ts`: a 324 is a line only for a bare `/mode`
+  (`Channel.modesAsked`). The client's own query still runs (it learns
+  the channel key for a re-JOIN). `Channel.modeText` is gone.
+- A topic or mode changed while we were away is not lost: nefarious2
+  stores TOPIC and MODE events and returns them with
+  `draft/event-playback` (`m_chathistory.c` `should_send_message_type`;
+  the ATTACH replay uses the same filter), so the catch-up shows the
+  change itself — who, when, in its place in the timeline — where the
+  old rule printed a line stamped at reconnect time. On a server without
+  event-playback such a change reaches the header only.
+
+Tests: `test/irc/client.ts` § TOPIC and § MODE, `test/irc/persistence.ts`
+(the restore and re-join tests now expect no topic line; a `/join` the
+server ignored does not make the next restore's topic a line),
+`test/irc/commands.ts` § reply routing. Browser check:
+`tools/scenarios/reconnect-quiet.mjs` (13 checks: the hand-joined
+channel's topic line and header, then a socket cut, F5, opening another
+channel after F5, and a cut followed by a reload each adding no line and
+nothing other users can see, and `/topic` and `/mode` still answering).
+Against develop before this round it fails the three checks after the
+reload; run it as its header says.
+
+Still open, seen on the way (each its own piece of work):
+
+- **Lobby boilerplate on every reconnect**, the page alive or not: about
+  twenty lines — the close report and retry, the welcome numerics, the
+  user counts, `MOTD File is missing`, the capability list, and the
+  server's `Previous disconnect: …` notice, which the settling window
+  does not hide (only `Session resumed…` is).
+- **A reloaded page refills from the server**: it holds nothing, so the
+  channels not on screen fill (and their unread counts arrive) one paced
+  `CHATHISTORY` at a time, about 2 s each past the server's grace — a
+  killed PWA comes back blank and fills in. A local cache of what each
+  channel showed (the query log and the notice log already do this for
+  their windows) would paint at once.
+- **A session the server no longer holds** (the hold expired, or an ircd
+  without the bouncer): other users see `QUIT :Session expired` and a
+  JOIN, and channels joined by hand do not come back — the saved
+  autojoin list changes only on a drag in the sidebar
+  (`client-features.md` § Channel order), never on `/join` or `/part`.
