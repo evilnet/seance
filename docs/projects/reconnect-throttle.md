@@ -65,8 +65,15 @@ and the server says when it throttles:
   next automatic dial waits 42 s and up to 5 s of jitter
   (`UNREACHED_RETRY_MS`, `UNREACHED_JITTER_MS`), past IPcheck's 40 s
   window, and every one after it too, until a socket opens, which earns the
-  quick retries again. Connect now does not: a user pressing it during a
-  refusal would otherwise get a fresh burst each time. A server's throttle
+  quick retries again. So does a quiet spell: no dial to the host for
+  `UNREACHED_RETRY_MS` (`WsTransport.hostQuiet`), then a `connect()` (the
+  foreground poke, Connect now) or a retry that comes due a minute or more
+  after its time (`WAKE_LATE_MS`: a frozen page, a phone asleep). The dials
+  that spent them failed in the background, where the OS takes the network
+  away, and the app coming back is the radio waking, which is what they
+  are for; with the window closed a burst cannot renew it. Connect now
+  within the window does not: a user pressing it during a refusal would
+  otherwise get a fresh burst each time. A server's throttle
   spends them as well. The strip counts the long wait down ("Reconnecting
   to <network> in Ns…") without claiming the server said anything. When it
   really was a refusal, the quick retries cost about 7 s more than waiting
@@ -86,7 +93,12 @@ and the server says when it throttles:
   (`manager.ts` `reconnectAll`, the app coming back, focus, `online`)
   leaves them be, since dialling would renew a refusal's window. Connect
   now, the sidebar's status icon and a typed `/connect` dial at once
-  whatever the wait. Every other wait the poke still cuts.
+  whatever the wait. Every other wait the poke still cuts. A hold is
+  judged by the clock, not by its timer, which stands still while a phone
+  sleeps: the server's ends when the time it named has passed, ours when
+  the host has been quiet for the window. Before that, a phone back from
+  an hour asleep sat out the rest of a wait set before it slept, and a
+  first dial that met the radio still waking went straight to 42 s.
 - **Unchanged:** a connection that opened and dropped retries on the usual
   schedule (at once after a stable one or after a probe, else the backoff).
 

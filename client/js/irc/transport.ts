@@ -28,7 +28,18 @@
  * {@link UNREACHED_RETRY_MS} and a little jitter pass before the next
  * automatic one: past the 40 s window, so a refused dial cannot keep the
  * server's window open. Those long waits are {@link WsTransport.holding}:
- * the foreground poke leaves them be, and only Connect now cuts them.
+ * the foreground poke leaves them be, and only Connect now cuts them —
+ * until their time has passed by the clock, which a sleeping phone's
+ * timers do not see.
+ *
+ * The quick retries are spent until a socket opens, but they come back
+ * after a quiet spell ({@link WsTransport.hostQuiet}: no dial to the host
+ * for {@link UNREACHED_RETRY_MS}, so no window of ours is open) for a dial
+ * the app asks for (`connect()`) or a retry that comes due long after its
+ * time ({@link WAKE_LATE_MS}: the page was frozen or the phone asleep). The
+ * dials that spent them failed in the background, where the OS takes the
+ * network away; the app coming back is the radio waking, which is what the
+ * quick retries are for.
  *
  * IPcheck counts per address, not per dialer: two networks or tabs on one
  * host whose long waits interleave would keep the window open for each
@@ -153,6 +164,12 @@ export const UNREACHED_JITTER_MS = 5_000;
 export const OFFLINE_RETRY_MS = 30_000;
 /** The quick retries after dials that failed before opening, before the long wait. */
 export const QUICK_RETRY_MS = [1_000, 2_000, 4_000] as const;
+/**
+ * A retry that comes due this much later than it was set for (by the
+ * clock) was held by a frozen page or a phone asleep, not by a hidden
+ * page's timer throttling, which aligns timers to the minute at most.
+ */
+export const WAKE_LATE_MS = 60_000;
 /** localStorage key: host name → its last dial (epoch ms, and which transport), from any network or tab. */
 export const LAST_DIAL_KEY = "thelounge.lastDial";
 /**
@@ -189,6 +206,10 @@ export class WsTransport {
 	 * spaced from the host's other dials ({@link spacingWait}).
 	 */
 	private hold: "throttled" | "unreached" | null = null;
+	/** When the server's throttle wait ends (epoch ms): {@link holding} reads the clock, not the timer. */
+	private holdUntil = 0;
+	/** This transport's last dial (epoch ms), for {@link hostQuiet} when the shared record cannot be read. */
+	private lastDialAt: number | null = null;
 	private connectingSince = 0;
 	private connectTimer: ReturnType<typeof setTimeout> | null = null;
 	private probeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -211,7 +232,10 @@ export class WsTransport {
 	 * Open the socket. No-op while connecting/open; in reconnect-wait it
 	 * retries now. A request from outside restarts the retry schedule: if
 	 * this dial fails, the next wait is the first delay, not the one the
-	 * automatic retries had worked up to.
+	 * automatic retries had worked up to. After a quiet spell it brings the
+	 * quick retries back too (see the header); pressed again within one, it
+	 * does not, so a user pressing Connect now during a refusal does not get
+	 * a fresh burst each time.
 	 */
 	connect(): void {
 		if (this._state === "connecting" || this._state === "open") {
@@ -219,6 +243,11 @@ export class WsTransport {
 		}
 
 		this.attempt = 0;
+
+		if (this.hostQuiet()) {
+			this.quickFailures = 0;
+		}
+
 		this.dial();
 	}
 
@@ -230,9 +259,34 @@ export class WsTransport {
 		this.throttleMs = delayMs ?? UNREACHED_RETRY_MS;
 	}
 
-	/** A long wait is pending: the foreground poke leaves it be, Connect now does not. */
+	/**
+	 * A long wait is pending: the foreground poke leaves it be, Connect now
+	 * does not. Judged by the clock, not by the timer: a phone asleep stops
+	 * timers but not the clock, so a wait whose time passed while it slept
+	 * is over the moment it wakes — the server's once the time it named has
+	 * passed, ours once the host has been quiet for IPcheck's window.
+	 */
 	holding(): boolean {
-		return this._state === "reconnect-wait" && this.hold !== null;
+		if (this._state !== "reconnect-wait" || this.hold === null) {
+			return false;
+		}
+
+		return this.hold === "throttled" ? Date.now() < this.holdUntil : !this.hostQuiet();
+	}
+
+	/**
+	 * No dial to this host for {@link UNREACHED_RETRY_MS}, by this transport
+	 * or by any other network or tab ({@link LAST_DIAL_KEY}): no IPcheck
+	 * window of ours is open, so a dial now cannot renew one. (A dial in the
+	 * future is a clock that went back, as in {@link spacingWait}.)
+	 */
+	private hostQuiet(): boolean {
+		const now = Date.now();
+		const shared = lastDials()[addressOf(this.opts.url)]?.at ?? null;
+
+		return [this.lastDialAt, shared].every(
+			(at) => at === null || at > now || now - at >= UNREACHED_RETRY_MS
+		);
 	}
 
 	/** Open the socket now, on whatever attempt count the schedule is at. */
@@ -250,6 +304,7 @@ export class WsTransport {
 		}
 
 		this._state = "connecting";
+		this.lastDialAt = Date.now();
 		noteDial(this.opts.url, this.id);
 		let ws: LineSocket;
 
@@ -549,6 +604,12 @@ export class WsTransport {
 	/** Wait `delayMs`, then dial. */
 	private scheduleRetry(delayMs: number, reason?: RetryReason, spaced = false): void {
 		this._state = "reconnect-wait";
+		const dueAt = Date.now() + delayMs;
+
+		if (this.hold === "throttled") {
+			this.holdUntil = dueAt;
+		}
+
 		this.emit({
 			type: "reconnecting",
 			attempt: this.attempt,
@@ -558,6 +619,15 @@ export class WsTransport {
 		});
 		this.timer = setTimeout(() => {
 			this.timer = null;
+
+			// Long past its time: the page was frozen or the phone asleep,
+			// and the failures that spent the quick retries are from before.
+			// This may fire before the foreground poke does, so it cannot
+			// leave the quick retries to the poke's connect().
+			if (Date.now() - dueAt >= WAKE_LATE_MS && this.hostQuiet()) {
+				this.quickFailures = 0;
+			}
+
 			const spacing = this.spacingWait();
 
 			if (spacing > 0) {
