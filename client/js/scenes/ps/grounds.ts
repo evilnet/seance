@@ -27,6 +27,7 @@
  * solar noon, until the first sample after noon where it fails, so the words
  * change at most once before noon and once after.
  */
+import type {SceneView} from "../../themeScene";
 import {hexToOklch, luminance, mix, oklchToHex} from "./colour";
 import {momentFor, SOLAR_NOON, type Moment, type Weather} from "./engine";
 import {
@@ -38,6 +39,7 @@ import {
 	WEATHER,
 	type Palette,
 } from "./palette";
+import {roofColourAt} from "./indoor";
 
 /** The day's ink. */
 export const INK = "#1b2638";
@@ -362,12 +364,16 @@ export interface Published {
 	rim: string;
 }
 
-export function publishedFor(p: Palette, m: Moment): Published {
+export function publishedFor(p: Palette, m: Moment, view: SceneView = "channel"): Published {
+	// In a private conversation the words stand over the yurt's room, whose stove's dark iron dark
+	// ink cannot hold over: always light; and the top of the screen is the roof, not the sky
+	// (docs/projects/ps-yurt.md §10).
+	const query = view === "query";
 	return {
 		light: p.dark > GLASS_NIGHT_AT ? "night" : "day",
-		text: treatmentFor(m, p),
+		text: query ? "light" : treatmentFor(m, p),
 		halo: haloFor(p),
-		canvas: p.skyTop,
+		canvas: query ? roofColourAt(m, p) : p.skyTop,
 		rim: rimFor(p),
 	};
 }

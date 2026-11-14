@@ -2,6 +2,8 @@ import {expect} from "chai";
 import sinon from "sinon";
 import {momentAt} from "../../../client/js/scenes/ps/engine";
 import {moonShape, sceneClasses} from "../../../client/js/scenes/ps/markup";
+import {indoorTints} from "../../../client/js/scenes/ps/glass";
+import {roofColourAt} from "../../../client/js/scenes/ps/indoor";
 import {paletteAt} from "../../../client/js/scenes/ps/palette";
 import {mount, RELEASE_MS} from "../../../client/js/scenes/psng/scene";
 import {NG_STILL_CSS} from "../../../client/js/scenes/psng/styles";
@@ -430,6 +432,26 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 				expect(page.root.dataset.weather).to.equal("heat");
 				expect(slot.dataset.weather).to.equal("heat");
 				expect(slot.markup).to.contain('data-weather="heat"');
+				scene.destroy();
+			});
+		});
+
+		it("a query publishes the roof as the canvas, light words and the room's tints; a channel publishes as before, at once both ways", function () {
+			withPage(new Date(2026, 5, 21, 12, 30), (page) => {
+				const meta = page.plantMeta(THEME_COLOR);
+				const scene = mountOn(page);
+				const channel = published(page, meta);
+				scene.update(state({view: "query"}));
+				const m = momentAt(new Date(2026, 5, 21, 12, 30));
+				const p = paletteAt(m);
+				expect(page.html.style.props.get("--canvas-bg-color")).to.equal(roofColourAt(m, p));
+				expect(meta.content).to.equal(roofColourAt(m, p));
+				expect(page.html.dataset.psText).to.equal("light");
+				expect(page.html.style.props.get("--ps-g-tint-float")).to.equal(
+					indoorTints(m).float.toFixed(2)
+				);
+				scene.update(state());
+				expect(published(page, meta)).to.deep.equal(channel);
 				scene.destroy();
 			});
 		});

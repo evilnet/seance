@@ -33,7 +33,9 @@
  */
 import {hexRgb, luminance, rgbHex} from "./colour";
 import {momentFor, type Moment} from "./engine";
+import type {SceneView} from "../../themeScene";
 import {sceneGrounds, type SceneGround} from "./grounds";
+import {indoorGrounds} from "./indoor";
 import {paletteAt} from "./palette";
 import {GRASS_EDGE_LOWEST} from "./plains";
 
@@ -118,6 +120,23 @@ const NEED_CARD = Math.max(
 
 /** The yurt's areas (grounds.ts): its felt, door, roof, crown, band and their glows, the pool before the door, the smoke. */
 const YURT = /^(felt|door|roof|crown|band|pool|smoke)/;
+
+/**
+ * Whether a ground of the yurt's room can stand behind a surface
+ * (docs/projects/ps-yurt.md §9): the header over the roof, the crown and the
+ * sky through it; the composer over everything below the roof; the sidebar,
+ * the floating surfaces and the card over the whole room.
+ */
+export function isBehindIndoor(surface: GlassSurface, g: SceneGround): boolean {
+	switch (surface) {
+		case "header":
+			return g.zone === "top";
+		case "composer":
+			return g.zone !== "top";
+		default:
+			return true;
+	}
+}
 
 /** Whether a ground can stand behind a surface (the page's model's grouping). */
 export function isBehind(surface: GlassSurface, g: SceneGround): boolean {
@@ -280,7 +299,10 @@ export function lowestTint(grounds: readonly string[]): number {
  * or several moments' together): the chrome's through the day backdrop filter
  * for its own colours, the card flat for the surface palette's.
  */
-export function tintsOver(grounds: readonly SceneGround[]): Record<GlassSurface, number> {
+export function tintsOver(
+	grounds: readonly SceneGround[],
+	behind: (s: GlassSurface, g: SceneGround) => boolean = isBehind
+): Record<GlassSurface, number> {
 	const filtered = new Map<string, readonly number[]>();
 
 	for (const g of grounds) {
@@ -292,11 +314,11 @@ export function tintsOver(grounds: readonly SceneGround[]): Record<GlassSurface,
 	const out = {} as Record<GlassSurface, number>;
 
 	for (const s of GLASS_SURFACES) {
-		const behind = new Set(grounds.filter((g) => isBehind(s, g)).map((g) => g.hex));
+		const held = new Set(grounds.filter((g) => behind(s, g)).map((g) => g.hex));
 		out[s] =
 			s === "card"
-				? solve([...behind].map(rawRgb), NEED_CARD, PAPER_AND_WASH)
-				: solve([...behind].map((hex) => filtered.get(hex)!));
+				? solve([...held].map(rawRgb), NEED_CARD, PAPER_AND_WASH)
+				: solve([...held].map((hex) => filtered.get(hex)!));
 	}
 
 	return out;
@@ -312,37 +334,65 @@ export const TINT_STEP = 5;
 
 /** A few steps, for a page that goes back and forth across a boundary; a new day's replace them. */
 const cache = new Map<string, Record<GlassSurface, number>>();
+const indoorCache = new Map<string, Record<GlassSurface, number>>();
 const CACHE_SIZE = 4;
 
 /**
- * The day tints for a moment's step: over each minute of it and the next
- * step's first, so a tint also holds through the ease into the next one.
- * The grounds depend on the day of the year, the minute and the weather only.
+ * Tints for a moment's step, solved by `solveStep` over each minute of it and the
+ * next step's first, so a tint also holds through the ease into the next one,
+ * and kept in `store`. The grounds depend on the day of the year, the minute
+ * and the weather only.
  */
-export function dayTints(
-	m: Pick<Moment, "doy" | "minute" | "weather">
+function steppedTints(
+	m: Pick<Moment, "doy" | "minute" | "weather">,
+	store: Map<string, Record<GlassSurface, number>>,
+	solveStep: (moments: readonly Moment[]) => Record<GlassSurface, number>
 ): Record<GlassSurface, number> {
 	const start = Math.floor(m.minute / TINT_STEP) * TINT_STEP;
 	const key = `${m.doy} ${m.weather} ${start}`;
-	const hit = cache.get(key);
+	const hit = store.get(key);
 
 	if (hit) {
 		return hit;
 	}
 
 	const minutes = Array.from({length: TINT_STEP + 1}, (_, i) => start + i);
-	const out = surfaceTints(
+	const out = solveStep(
 		minutes.map((minute) =>
 			momentFor({minute, doy: m.doy, dayNumber: m.doy, epochDays: 0, weather: m.weather})
 		)
 	);
 
-	if (cache.size >= CACHE_SIZE) {
-		cache.delete(cache.keys().next().value as string);
+	if (store.size >= CACHE_SIZE) {
+		store.delete(store.keys().next().value as string);
 	}
 
-	cache.set(key, out);
+	store.set(key, out);
 	return out;
+}
+
+/** The day tints for a moment's step, over the plains' grounds. */
+export function dayTints(
+	m: Pick<Moment, "doy" | "minute" | "weather">
+): Record<GlassSurface, number> {
+	return steppedTints(m, cache, surfaceTints);
+}
+
+/**
+ * The day tints of a private conversation for a moment's step, over the
+ * yurt's room (indoor.ts `indoorGrounds`, docs/projects/ps-yurt.md §9): each
+ * surface's lowest tint within the same caps that holds over what can stand
+ * behind it in the room.
+ */
+export function indoorTints(
+	m: Pick<Moment, "doy" | "minute" | "weather">
+): Record<GlassSurface, number> {
+	return steppedTints(m, indoorCache, (moments) =>
+		tintsOver(
+			moments.flatMap((x) => indoorGrounds(x, paletteAt(x))),
+			isBehindIndoor
+		)
+	);
 }
 
 /**
@@ -375,9 +425,10 @@ export const GLASS_TINT_VARS: readonly string[] = GLASS_SURFACES.map((s) => `--p
  */
 export function glassVars(
 	m: Pick<Moment, "doy" | "minute" | "weather">,
-	light: "day" | "night"
+	light: "day" | "night",
+	view: SceneView = "channel"
 ): Record<string, string | null> {
-	const tints = light === "day" ? dayTints(m) : null;
+	const tints = light === "day" ? (view === "query" ? indoorTints(m) : dayTints(m)) : null;
 	return Object.fromEntries(
 		GLASS_SURFACES.map((s, i) => [GLASS_TINT_VARS[i], tints ? tints[s].toFixed(2) : null])
 	);

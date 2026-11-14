@@ -329,7 +329,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 			root.classList.toggle(name, on && name !== "ps-hot");
 		}
 
-		wrote = publishMoment(root, html, meta, m, p);
+		wrote = publishMoment(root, html, meta, m, p, latest.view);
 	};
 
 	// Once now, then on each minute boundary; the next minute is scheduled whatever this one does.

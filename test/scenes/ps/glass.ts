@@ -16,6 +16,7 @@ import {
 	dayTints,
 	glassVars,
 	GLASS_SURFACES,
+	indoorTints,
 	isBehind,
 	lowestTint,
 	MARK_SOLVE,
@@ -326,6 +327,30 @@ describe("ps glass: the luminous day glass (plan 3 task 7b, the user's pick)", f
 			"--ps-g-tint-side": null,
 			"--ps-g-tint-float": null,
 			"--ps-g-tint-card": null,
+		});
+	});
+
+	describe("a private conversation's tints (docs/projects/ps-yurt.md §9, plan 1 task 7)", function () {
+		it("solves a query's tints over the room, within the caps, cached per step", function () {
+			for (const minute of [600, 750, 1080]) {
+				for (const weather of ["clear", "rain", "snow"] as const) {
+					const t = indoorTints({doy: 172, minute, weather});
+
+					for (const s of GLASS_SURFACES) {
+						expect(t[s]).to.be.within(TINT_FLOOR, TINT_CAP);
+					}
+
+					expect(indoorTints({doy: 172, minute: minute + 1, weather})).to.equal(t);
+				}
+			}
+		});
+
+		it("keeps a channel's tints as they were", function () {
+			const noon = {doy: 172, minute: 750, weather: "clear" as const};
+			const m = momentFor({...noon, dayNumber: 172, epochDays: 0});
+			const grounds = sceneGrounds(m, paletteAt(m));
+			expect(tintsOver(grounds)).to.deep.equal(tintsOver(grounds, isBehind));
+			expect(glassVars(noon, "day")).to.deep.equal(glassVars(noon, "day", "channel"));
 		});
 	});
 });
