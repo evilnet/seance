@@ -1688,6 +1688,17 @@ export class IrcClient {
 			{text: keepsLogin ? saslTrustedGaveUpHint() : saslRequiredHint()},
 			true
 		);
+
+		// ZNC before 1.10 has no client SASL (its `znc.in/*` caps say it is
+		// ZNC; `behindZnc` is set only at registration): its login is the
+		// server password, `username/network:password`.
+		if (
+			cause === "unavailable" &&
+			!this.options.serverPassword &&
+			[...this.caps.available.keys()].some((name) => name.startsWith("znc.in/"))
+		) {
+			this.pushMessage(this.lobby, {text: t("connect.serverPasswordHint")}, true);
+		}
 		// The connect flow has already opened an autojoin channel; the reason
 		// this network is empty is in the lobby, so the view goes there.
 		this.bus.dispatch("network:aborted", {network: this.uuid, reason});

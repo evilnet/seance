@@ -361,6 +361,33 @@ describe("IrcClient SASL", function () {
 		expectAborted(transport, client);
 	});
 
+	// ZNC before 1.10 has no client SASL: its login is the server password.
+	const ZNC_HINT =
+		"Set the server password in this network's settings. For ZNC it is username/network:password.";
+
+	it("points a ZNC without SASL (before 1.10) at the server password", function () {
+		const {client, transport} = setup();
+		transport.line(`:irc.test CAP * LS :${OFFERED_CAPS} znc.in/self-message znc.in/batch`);
+
+		expectAborted(transport, client);
+		expect(texts(client.lobby.id)).to.include(ZNC_HINT);
+	});
+
+	it("does not repeat the server password hint to a ZNC that already has one", function () {
+		const {client, transport} = setup({serverPassword: "alice/net:pw"});
+		transport.line(`:irc.test CAP * LS :${OFFERED_CAPS} znc.in/self-message`);
+
+		expectAborted(transport, client);
+		expect(texts(client.lobby.id)).to.not.include(ZNC_HINT);
+	});
+
+	it("gives no ZNC hint to a server that is not ZNC", function () {
+		const {client, transport} = setup();
+		transport.line(`:irc.test CAP * LS :${OFFERED_CAPS}`);
+
+		expect(texts(client.lobby.id)).to.not.include(ZNC_HINT);
+	});
+
 	it("reports the missing cap and connects anyway when the deploy allows it", function () {
 		const {client, transport} = setup(CARRY_ON);
 		const requested = offer(transport, OFFERED_CAPS);
