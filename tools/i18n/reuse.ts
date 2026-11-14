@@ -23,7 +23,7 @@
 // silences it.
 
 import {execFileSync} from "node:child_process";
-import {existsSync, readFileSync, writeFileSync} from "node:fs";
+import {appendFileSync, existsSync, readFileSync, writeFileSync} from "node:fs";
 import {relative, resolve} from "node:path";
 import {pathToFileURL} from "node:url";
 import {parsePo, PoEntry, serializePo} from "./po";
@@ -152,6 +152,12 @@ export function planReuse(pot: PoEntry[], po: PoEntry[], tag: string): ReusePlan
 		const entry = poByKey.get(key);
 
 		if (!key || !entry || distinct.has(key) || !untranslated(entry)) {
+			continue;
+		}
+
+		// An empty msgid is a slot left blank on purpose (a deploy fills
+		// it); sweep.ts empties any text in one.
+		if (!potEntry.msgid && potEntry.msgidPlural === undefined) {
 			continue;
 		}
 
@@ -443,6 +449,33 @@ function main(): void {
 			} else {
 				console.log(`${file}:${line}: ${message}`);
 			}
+		}
+
+		// Actions shows only the first ten warnings of a step on the run and
+		// the diff; the job summary carries every one.
+		const summary = process.env.GITHUB_STEP_SUMMARY;
+
+		if (summary && findings.length > 0) {
+			const cell = (text: string) => text.replace(/\|/g, "\\|").replace(/\n/g, " ");
+			const rows = findings.map((f) => {
+				const others = f.others.map((key) => "`" + key + "`").join(", ");
+				const match = f.kind === "duplicate" ? "same" : "near";
+				return `| \`${f.key}\` | ${cell(f.english)} | ${match} | ${others} |`;
+			});
+			appendFileSync(
+				summary,
+				[
+					"### New translation keys that repeat existing English",
+					"",
+					`Reuse one of the existing keys, or mark the new entry \`#, ${DISTINCT_FLAG}\` ` +
+						"(`add.ts --distinct`) when it needs its own translation.",
+					"",
+					"| New key | English | Match | Existing keys |",
+					"| --- | --- | --- | --- |",
+					...rows,
+					"",
+				].join("\n")
+			);
 		}
 
 		console.log(

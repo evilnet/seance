@@ -152,6 +152,16 @@ describe("i18n reuse", function () {
 			]);
 		});
 
+		it("never fills a key whose English is empty on purpose", function () {
+			const pot = entries(
+				'msgctxt "a.blank"\nmsgid ""\nmsgstr ""\n\nmsgctxt "b.blank"\nmsgid ""\nmsgstr ""\n'
+			);
+			const po = entries(
+				'msgctxt "a.blank"\nmsgid ""\nmsgstr "x"\n\nmsgctxt "b.blank"\nmsgid ""\nmsgstr ""\n'
+			);
+			expect(planReuse(pot, po, "de").fills).to.deep.equal([]);
+		});
+
 		it("never copies from a fuzzy (stale) entry", function () {
 			expect(filled["b.join"]).to.equal(undefined);
 		});
