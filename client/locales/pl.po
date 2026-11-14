@@ -34,7 +34,7 @@ msgstr ""
 #: client/js/helpers/channelBans.ts
 msgctxt "ban.check.invalid"
 msgid "A mask can't contain spaces or start with a colon."
-msgstr ""
+msgstr "Maska nie może zawierać spacji ani zaczynać się od dwukropka."
 
 #. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): a ban on the list already catches this. {mask} is that ban's mask, verbatim.
 #: client/components/BanDialog.vue
@@ -139,7 +139,7 @@ msgstr ""
 #: client/components/BanDialog.vue
 msgctxt "ban.removed"
 msgid "Removed."
-msgstr ""
+msgstr "Usunięto."
 
 #. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): warning that the server will delete bans this wider one covers.
 #: client/components/BanDialog.vue
@@ -160,19 +160,19 @@ msgstr ""
 #: client/components/BanDialog.vue
 msgctxt "ban.saved"
 msgid "Saved."
-msgstr ""
+msgstr "Zapisano."
 
 #. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): the button's text while the server answers.
 #: client/components/BanDialog.vue
 msgctxt "ban.sending"
 msgid "Sending…"
-msgstr ""
+msgstr "Wysyłanie…"
 
 #. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): no answer in time.
 #: client/components/BanDialog.vue
 msgctxt "ban.silent"
 msgid "The server did not answer."
-msgstr ""
+msgstr "Serwer nie odpowiedział."
 
 #. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): button that sets the ban.
 #: client/components/BanDialog.vue
@@ -283,7 +283,7 @@ msgstr[2] ""
 #: client/components/Windows/BanList.vue
 msgctxt "bans.edit"
 msgid "Edit…"
-msgstr ""
+msgstr "Edytuj…"
 
 #. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): the channel has no bans. {channel} is the channel's name, verbatim.
 #: client/components/Windows/BanList.vue
@@ -391,7 +391,7 @@ msgstr ""
 #: client/js/irc/banList.ts
 msgctxt "bans.noAnswer"
 msgid "The server did not answer."
-msgstr ""
+msgstr "Serwer nie odpowiedział."
 
 #. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): empty result of a search. {query} is what was typed, verbatim.
 #: client/components/Windows/BanList.vue
@@ -871,7 +871,7 @@ msgstr ""
 #: client/js/certificatePrompt.ts
 msgctxt "certificate.prompt.fingerprint"
 msgid "SHA-256 fingerprint:"
-msgstr ""
+msgstr "Odcisk SHA-256:"
 
 #. {host} is the IRC server's host name.
 #: client/js/certificatePrompt.ts
@@ -1975,7 +1975,7 @@ msgstr ""
 #: client/js/irc/client.ts
 msgctxt "connect.serverPasswordNeeded"
 msgid "{host} needs a server password before you can connect."
-msgstr ""
+msgstr "{host} wymaga hasła serwera, aby można było się połączyć."
 
 #. Lobby error: the server answered 464 (password mismatch) to the server password that was sent; the connection stopped. {host} is the configured host name.
 #: client/js/irc/client.ts
@@ -13369,7 +13369,7 @@ msgstr ""
 #: client/components/Settings/Account.vue
 msgctxt "settings.account.signOutTitle"
 msgid "Sign out of {name}?"
-msgstr ""
+msgstr "Wylogować się z {name}?"
 
 #. Line on the Account settings page under the network's name. {account} is the user's account name on the chat network, which this device signs in with.
 #: client/components/Settings/Account.vue
@@ -15615,7 +15615,7 @@ msgstr "Ograniczono do {size} na potrzeby testów ({key} w pamięci tej przeglą
 #: client/components/TranslationLine.vue
 msgctxt "translate.chip.from"
 msgid "from {language}"
-msgstr ""
+msgstr "z języka: {language}"
 
 #. Tooltip and aria-label of a translation line's chip: the languages it names, then the standard suffix.
 #: client/components/TranslationLine.vue
@@ -15631,10 +15631,9 @@ msgstr ""
 
 #. Tooltip and aria-label of the composer's translate button while the channel corrects every message (spelling and grammar) in {language}, the user's own language, before sending; a click opens the language sheet, where it can be changed or turned off. The middle dot is part of the copy.
 #: client/components/ChatInput.vue
-#, fuzzy
 msgctxt "translate.composer.sendCorrectedOn"
 msgid "Sending corrected in {language} · change or turn off"
-msgstr "Wysyłanie z poprawkami, język: {language} · kliknij, aby wyłączyć"
+msgstr "Wysyłanie z poprawkami, język: {language} · zmień lub wyłącz"
 
 #. Tooltip and aria-label of the composer's translate button (the language mark beside the attachment and send buttons) while no send target is set; a click opens the language sheet to pick the language every message is sent in, or a correction pass. Ends with an ellipsis.
 #: client/components/ChatInput.vue
@@ -16097,10 +16096,9 @@ msgstr ""
 
 #. One-time note above the composer after an upgrade, for someone who already had translation on: reading now covers every conversation, and what it does on the device.
 #: client/components/ChatInput.vue
-#, fuzzy
 msgctxt "translate.note.everywhere"
 msgid "Messages in other languages are now translated in every conversation, on this device. Language data is downloaded as you need it."
-msgstr ""
+msgstr "Wiadomości w innych językach są teraz tłumaczone we wszystkich konwersacjach na tym urządzeniu. Dane językowe są pobierane w miarę potrzeb."
 
 #. One-time note above the message box right after translation is switched on, shown when nothing on screen needed translating. {language} is the language messages are translated into.
 #: client/components/ChatInput.vue
@@ -16127,7 +16125,7 @@ msgstr ""
 #: client/components/TranslationDiscovery.vue
 msgctxt "translate.panel.enableHint"
 msgid "Translation runs on this device and downloads language data as you need it."
-msgstr ""
+msgstr "Tłumaczenie działa na tym urządzeniu i pobiera dane językowe w miarę potrzeb."
 
 #. Heading of the translation panel, a dialog of translation settings for one conversation; the conversation's name is shown next to it.
 #: client/components/TranslationSheet.vue
@@ -16145,7 +16143,7 @@ msgstr "Wyłączone"
 #: client/components/TranslationSheet.vue
 msgctxt "translate.panel.paused"
 msgid "Translation is paused for now: {reason}"
-msgstr ""
+msgstr "Tłumaczenie jest obecnie wstrzymane: {reason}"
 
 #. Label of the switch in a conversation's translation panel and the composer's language sheet that keeps translation on (default) or off for this one conversation. {language} is the language name messages are translated into.
 #: client/components/TranslationSheet.vue
@@ -16208,7 +16206,7 @@ msgstr "Poprawianie wiadomości wymaga modelu językowego."
 #: client/components/Settings/TranslationOptions.vue
 msgctxt "translate.prefer.auto"
 msgid "Automatic (recommended)"
-msgstr ""
+msgstr "Automatycznie (zalecane)"
 
 #. Hint under Automatic in the model-preference choice (Settings → Translation → Advanced).
 #: client/components/Settings/TranslationOptions.vue
@@ -16286,13 +16284,13 @@ msgstr ""
 #: client/components/Settings/Translation.vue
 msgctxt "translate.settings.alsoReadAdd"
 msgid "Add a language…"
-msgstr ""
+msgstr "Dodaj język…"
 
 #. Hint under the I also read list in Settings → Language.
 #: client/components/Settings/Translation.vue
 msgctxt "translate.settings.alsoReadHint"
 msgid "Messages in these languages are left as written."
-msgstr ""
+msgstr "Wiadomości w tych językach pozostają bez zmian."
 
 #. Accessible name and tooltip of the ✕ button on a language in the I also read list. {language} is the language's name.
 #: client/components/Settings/Translation.vue
@@ -16480,7 +16478,7 @@ msgstr "Uruchamiaj na"
 #: client/components/Settings/TranslationOptions.vue
 msgctxt "translate.settings.storage"
 msgid "Language data on this device: {size} in total."
-msgstr ""
+msgstr "Dane językowe na tym urządzeniu: łącznie {size}."
 
 #. Top of Settings' Advanced section when nothing for translation is downloaded.
 #: client/components/Settings/TranslationOptions.vue
@@ -16522,7 +16520,7 @@ msgstr "Nie udało się połączyć z procesem roboczym tłumaczenia: {error}"
 #: client/components/TranslationSheet.vue
 msgctxt "translate.sheet.choose"
 msgid "Choose…"
-msgstr ""
+msgstr "Wybierz…"
 
 #. Tooltip and aria-label of the ✕ button that closes the composer's language sheet without changing anything.
 #: client/components/TranslationSheet.vue
@@ -16534,7 +16532,7 @@ msgstr ""
 #: client/components/TranslationSheet.vue
 msgctxt "translate.sheet.corrects"
 msgid "Corrects spelling"
-msgstr ""
+msgstr "Poprawia pisownię"
 
 #. Value of the language sheet's 'I write' side, and the first row of its list, when the language of each message is detected rather than named.
 #: client/components/TranslationSheet.vue
@@ -16558,7 +16556,7 @@ msgstr ""
 #: client/components/TranslationSheet.vue:268
 msgctxt "translate.sheet.more"
 msgid "More"
-msgstr ""
+msgstr "Więcej"
 
 #. Shown in the language sheet's list when the search finds nothing. {query} is what the user typed.
 #: client/components/TranslationSheet.vue

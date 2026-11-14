@@ -22,7 +22,7 @@ msgstr ""
 #: client/components/BanDialog.vue
 msgctxt "ban.cancel"
 msgid "Cancel"
-msgstr ""
+msgstr "Abbrechen"
 
 #. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): the mask field is empty.
 #: client/js/helpers/channelBans.ts
@@ -34,13 +34,13 @@ msgstr ""
 #: client/js/helpers/channelBans.ts
 msgctxt "ban.check.invalid"
 msgid "A mask can't contain spaces or start with a colon."
-msgstr ""
+msgstr "Eine Maske darf keine Leerzeichen enthalten und nicht mit einem Doppelpunkt beginnen."
 
 #. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): a ban on the list already catches this. {mask} is that ban's mask, verbatim.
 #: client/components/BanDialog.vue
 msgctxt "ban.covered"
 msgid "Already covered by {mask}."
-msgstr ""
+msgstr "Bereits durch {mask} abgedeckt."
 
 #. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): link that switches the dialog to the ban just named.
 #: client/components/BanDialog.vue
@@ -90,7 +90,7 @@ msgstr ""
 #: client/components/BanDialog.vue
 msgctxt "ban.notConnected"
 msgid "Not sent: the connection is down."
-msgstr ""
+msgstr "Nicht gesendet: Die Verbindung ist unterbrochen."
 
 #. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): who in the channel matches the mask, when there are too many to name. {nicks} is a list of nicks; {more} is a number.
 #: client/components/BanDialog.vue
@@ -156,7 +156,7 @@ msgstr ""
 #: client/components/BanDialog.vue
 msgctxt "ban.saved"
 msgid "Saved."
-msgstr ""
+msgstr "Gespeichert."
 
 #. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): the button's text while the server answers.
 #: client/components/BanDialog.vue
@@ -198,7 +198,7 @@ msgstr ""
 #: client/js/helpers/channelBans.ts
 msgctxt "ban.suggest.identHost"
 msgid "This username at this address"
-msgstr ""
+msgstr "Dieser Benutzername an dieser Adresse"
 
 #. Ban dialog (a form that adds, changes or removes one channel ban; a mask is the pattern such as *!*@host that says who is banned): tooltip of a suggested mask an IRC operator can see.
 #: client/js/helpers/channelBans.ts
@@ -246,7 +246,7 @@ msgstr ""
 #: client/components/BanDialog.vue
 msgctxt "ban.you"
 msgid "This would ban you too."
-msgstr ""
+msgstr "Dies würde auch Sie sperren."
 
 #. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): button that opens the empty ban dialog.
 #: client/components/Windows/BanList.vue
@@ -278,7 +278,7 @@ msgstr[1] ""
 #: client/components/Windows/BanList.vue
 msgctxt "bans.edit"
 msgid "Edit…"
-msgstr ""
+msgstr "Bearbeiten…"
 
 #. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): the channel has no bans. {channel} is the channel's name, verbatim.
 #: client/components/Windows/BanList.vue
@@ -308,7 +308,7 @@ msgstr ""
 #: client/components/Windows/BanList.vue
 msgctxt "bans.filter.mine"
 msgid "Set by you"
-msgstr ""
+msgstr "Von Ihnen gesetzt"
 
 #. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): filter chip showing every other kind of ban (real name, channel, muted…).
 #: client/components/Windows/BanList.vue
@@ -386,7 +386,7 @@ msgstr ""
 #: client/js/irc/banList.ts
 msgctxt "bans.noAnswer"
 msgid "The server did not answer."
-msgstr ""
+msgstr "Der Server hat nicht geantwortet."
 
 #. Bans window (a window listing one channel's bans, searched on the device; a ban keeps matching people out of the channel): empty result of a search. {query} is what was typed, verbatim.
 #: client/components/Windows/BanList.vue
@@ -604,15 +604,15 @@ msgstr ""
 #: client/components/Windows/ChannelBrowser.vue
 msgctxt "browse.close"
 msgid "Close"
-msgstr ""
+msgstr "Schließen"
 
 #. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): how many channels the list shows after filtering.
 #: client/components/Windows/ChannelBrowser.vue
 msgctxt "browse.count"
 msgid "{count} channel"
 msgid_plural "{count} channels"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "{count} Kanal"
+msgstr[1] "{count} Kanäle"
 
 #. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): button offering to join a channel that does not exist yet, which creates it; {name} is the channel name, verbatim.
 #: client/components/Windows/ChannelBrowser.vue
@@ -631,14 +631,14 @@ msgstr ""
 msgctxt "browse.delayedNote"
 msgid "New connections can list channels in {count} second."
 msgid_plural "New connections can list channels in {count} seconds."
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "Neue Verbindungen können Kanäle in {count} Sekunde auflisten."
+msgstr[1] "Neue Verbindungen können Kanäle in {count} Sekunden auflisten."
 
 #. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): shown when the server's list came back empty.
 #: client/components/Windows/ChannelBrowser.vue
 msgctxt "browse.empty"
 msgid "The server listed no channels"
-msgstr ""
+msgstr "Der Server hat keine Kanäle aufgelistet"
 
 #. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): heading of the section of channels the network itself puts forward (marked in its MOTD).
 #: client/components/Windows/ChannelBrowser.vue
@@ -662,7 +662,7 @@ msgstr ""
 #: client/components/Windows/ChannelBrowser.vue
 msgctxt "browse.filter.busy"
 msgid "{count}+ people"
-msgstr ""
+msgstr "{count}+ Personen"
 
 #. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): filter chip showing only the channels the network puts forward.
 #: client/components/Windows/ChannelBrowser.vue
@@ -742,7 +742,7 @@ msgstr ""
 #: client/components/Windows/ChannelBrowser.vue
 msgctxt "browse.open"
 msgid "Open"
-msgstr ""
+msgstr "Öffnen"
 
 #. Channel browser (a window listing the channels a network has, from the server's LIST, searched on the device): number of users in a channel, shown on every row and card.
 #: client/components/Windows/ChannelBrowser.vue
@@ -834,7 +834,7 @@ msgstr ""
 #: client/components/Windows/ChannelBrowser.vue
 msgctxt "browse.updated"
 msgid "Updated {when}"
-msgstr ""
+msgstr "Aktualisiert {when}"
 
 #. Button: saves this exact certificate as trusted for this network. A different certificate is asked about again.
 #: client/js/certificatePrompt.ts
@@ -858,7 +858,7 @@ msgstr ""
 #: client/js/certificatePrompt.ts
 msgctxt "certificate.prompt.fingerprint"
 msgid "SHA-256 fingerprint:"
-msgstr ""
+msgstr "SHA-256-Fingerabdruck:"
 
 #. {host} is the IRC server's host name.
 #: client/js/certificatePrompt.ts
@@ -1022,7 +1022,7 @@ msgstr[1] "Ihre Erwähnungen öffnen, {count} ungelesen"
 #: client/js/socket-events/past.ts
 msgctxt "chat.past.gone"
 msgid "That message is no longer available."
-msgstr ""
+msgstr "Diese Nachricht ist nicht mehr verfügbar."
 
 #. Button on the bar shown while reading older messages in the main window: leaves them for the newest messages.
 #: client/components/Chat.vue
@@ -1046,13 +1046,13 @@ msgstr ""
 #: client/js/socket-events/past.ts
 msgctxt "chat.past.notLoaded"
 msgid "That message could not be loaded."
-msgstr ""
+msgstr "Diese Nachricht konnte nicht geladen werden."
 
 #. Error toast: the reader asked to go to an older message, but the IRC server offers no message history.
 #: client/js/socket-events/past.ts
 msgctxt "chat.past.unsupported"
 msgid "This server cannot fetch older messages."
-msgstr ""
+msgstr "Dieser Server kann keine älteren Nachrichten abrufen."
 
 #. Status on the bar over the message list: the main window is showing older messages, not the newest ones.
 #: client/components/Chat.vue
@@ -1956,7 +1956,7 @@ msgstr ""
 #: client/js/irc/client.ts
 msgctxt "connect.serverPasswordRefused"
 msgid "{host} refused the server password."
-msgstr ""
+msgstr "{host} hat das Serverpasswort abgelehnt."
 
 #. aria-label of the numeric port input next to the server host field on the connect form.
 #: client/components/Windows/Connect.vue:156
@@ -2178,7 +2178,7 @@ msgstr ""
 #: client/js/irc/disconnect.ts
 msgctxt "disconnect.hint.tcpTlsCauses"
 msgid "Likely causes: the server is down, the port is wrong, or its certificate is not trusted. A server with a self-signed certificate can only be reached without TLS for now."
-msgstr ""
+msgstr "Mögliche Ursachen: Der Server ist nicht erreichbar, der Port ist falsch oder seinem Zertifikat wird nicht vertraut. Ein Server mit einem selbstsignierten Zertifikat ist derzeit nur ohne TLS erreichbar."
 
 #. Follow-up hint under a failed secure (wss://) dial. {url} is the network's address with https: in place of wss:, for accepting a self-signed certificate once.
 #: client/js/irc/disconnect.ts
@@ -4455,8 +4455,8 @@ msgstr "{target} öffnen"
 msgctxt "mentions.showMore"
 msgid "Show {count} more"
 msgid_plural "Show {count} more"
-msgstr[0] ""
-msgstr[1] ""
+msgstr[0] "{count} weitere anzeigen"
+msgstr[1] "{count} weitere anzeigen"
 
 #. The same button in the mentions popup when some of the held-back mentions are not read yet. {count} is how many are held back, {unread} how many of those are unread. The singular form shows for a {count} of one, the plural for any other number.
 #: client/components/Mentions.vue
@@ -13112,7 +13112,7 @@ msgstr "Ältere suchen"
 #: client/components/Windows/SearchResults.vue
 msgctxt "search.window.openToRead"
 msgid "Open a conversation with {target} to read this message."
-msgstr ""
+msgstr "Öffnen Sie ein Gespräch mit {target}, um diese Nachricht zu lesen."
 
 #. Search window (searching the chat history of the server, or of what is loaded on this device): placeholder of the search field. {scope} is a channel name (verbatim) or 'all my channels' (search.window.allChannels).
 #: client/components/Windows/SearchResults.vue
@@ -13252,7 +13252,7 @@ msgstr ""
 #: client/components/Settings/Account.vue
 msgctxt "settings.account.guest"
 msgid "Guest: {nick}"
-msgstr ""
+msgstr "Gast: {nick}"
 
 #. Heading of the Account page in the settings: the one chat network this app is for, who this device signs in to it as, and its connect and sign-in buttons.
 #: client/components/Settings/Account.vue
@@ -15538,7 +15538,7 @@ msgstr "{languages}. Übersetzungsoptionen"
 #: client/components/TranslationLine.vue
 msgctxt "translate.chip.sentIn"
 msgid "sent in {language}"
-msgstr ""
+msgstr "gesendet in {language}"
 
 #. Tooltip and aria-label of the composer's translate button while the channel corrects every message (spelling and grammar) in {language}, the user's own language, before sending; a click opens the language sheet, where it can be changed or turned off. The middle dot is part of the copy.
 #: client/components/ChatInput.vue
@@ -15840,7 +15840,7 @@ msgstr ""
 #: client/js/helpers/modelLabel.ts
 msgctxt "translate.menu.byModel"
 msgid "Translated on this device by {model}"
-msgstr ""
+msgstr "Auf diesem Gerät übersetzt von {model}"
 
 #. A translation chip's menu item.
 #: client/components/TranslationLine.vue
@@ -16119,7 +16119,7 @@ msgstr "Zum Korrigieren einer Nachricht wird das Sprachmodell benötigt."
 #: client/components/Settings/TranslationOptions.vue
 msgctxt "translate.prefer.auto"
 msgid "Automatic (recommended)"
-msgstr ""
+msgstr "Automatisch (empfohlen)"
 
 #. Hint under Automatic in the model-preference choice (Settings → Translation → Advanced).
 #: client/components/Settings/TranslationOptions.vue
@@ -16251,7 +16251,7 @@ msgstr "Auto wählt hier die GPU, mit dem Build für kleine GPU-Puffer."
 #: client/components/Settings/Translation.vue
 msgctxt "translate.settings.deviceAuto"
 msgid "Auto"
-msgstr ""
+msgstr "Automatisch"
 
 #. Shown in place of the Translation settings when the site's operator has disabled the feature.
 #: client/components/Settings/Translation.vue
@@ -16431,7 +16431,7 @@ msgstr "Der Übersetzungs-Worker ist nicht erreichbar: {error}"
 #: client/components/TranslationSheet.vue
 msgctxt "translate.sheet.choose"
 msgid "Choose…"
-msgstr ""
+msgstr "Auswählen…"
 
 #. Tooltip and aria-label of the ✕ button that closes the composer's language sheet without changing anything.
 #: client/components/TranslationSheet.vue
@@ -16593,7 +16593,7 @@ msgstr ""
 #: client/components/Settings/TranslationOptions.vue
 msgctxt "translate.system.notDownloadedMac"
 msgid "{from} → {to}: not downloaded. You can also download languages in System Settings → General → Language & Region → Translation Languages."
-msgstr ""
+msgstr "{from} → {to}: nicht heruntergeladen. Sie können Sprachen auch in den Systemeinstellungen → Allgemein → Sprache & Region → Übersetzungssprachen herunterladen."
 
 #. Label (for screen readers) of the language picker in the settings → Translation, the section for the device's own translator (Apple's Translation framework, iPhone and iPad app only). "Apple Translation" is the feature's name; keep it recognisable. The user picks a language to translate from, to check or download its pack.
 #: client/components/Settings/TranslationOptions.vue
@@ -16617,7 +16617,7 @@ msgstr ""
 #: client/components/Settings/TranslationOptions.vue
 msgctxt "translate.system.unsupported"
 msgid "{from} → {to}: Apple Translation does not offer this pair on this device."
-msgstr ""
+msgstr "{from} → {to}: Apple Translation unterstützt dieses Sprachpaar auf diesem Gerät nicht."
 
 #. Line under the CPU models in Settings → Translation: the language model would run on {count} processor threads (CPU) after the app is reloaded; this page cannot use more than one yet. {count} is that number, 2 or more in practice. A thread is a parallel strand of computation.
 #: client/js/helpers/translateWhy.ts

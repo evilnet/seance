@@ -1,4 +1,12 @@
 {
+  "ban.cancel": "キャンセル",
+  "ban.check.empty": "マスクを入力してください。",
+  "ban.notConnected": "送信できませんでした：接続が切断されています。",
+  "ban.saved": "保存しました。",
+  "ban.sending": "送信中…",
+  "bans.edit": "編集…",
+  "bans.kind.noNick": "ニックネーム変更禁止",
+  "bans.setBy": "{who} によって設定されました",
   "bouncer.cannotChange": "バウンサーは現在、ここからの変更を受け付けられません。",
   "bouncer.networkGone": "このネットワークはバウンサー側で削除されたため、接続しなくなりました。ここから削除できます。",
   "bouncer.networksAdded": "このバウンサーのネットワークを追加しました: {names}",
@@ -9,6 +17,11 @@
   "bouncer.saslNeeded": "このバウンサーにはネットワークがありますが、追加されるのは SASL でログインした後だけです。取得するには、このネットワークの設定で SASL をオンにしてください。",
   "bouncer.timeout": "バウンサーが応答しませんでした。",
   "bouncer.tooLong": "1 行で送るには長すぎます。いくつかの項目を短くしてください。",
+  "browse.close": "閉じる",
+  "browse.filter.busy": "{count}人以上",
+  "browse.filter.topic": "トピックあり",
+  "browse.updated": "{when}に更新されました",
+  "certificate.prompt.title": "このサーバーの証明書を信頼しますか？",
   "channel.close": "閉じる",
   "channel.leave": "退出",
   "channel.partedAria": "現在参加していない",
@@ -147,6 +160,7 @@
   "connect.disconnected": "切断されました。",
   "connect.enabledCaps": "有効な機能: {caps}",
   "connect.enterPassword": "接続するには {account} のパスワードを入力してください。",
+  "connect.enterServerPassword": "{host} のサーバーパスワードを入力してください。",
   "connect.guestNickRequired": "ゲストとして接続するためのニックネームを選択してください。",
   "connect.guestSubmit": "ゲストとして接続",
   "connect.guestTitle": "アカウントをお持ちでないですか？",
@@ -2020,6 +2034,7 @@
     "other": "{count} 件をフィルターで非表示"
   },
   "search.window.inScope": "対象: {scope}",
+  "search.window.joinToRead": "このメッセージを読むには {target} に参加してください。",
   "search.window.loadedInstead": {
     "other": "代わりに、この端末に読み込まれた {count} 件のメッセージを検索しています。フィルターは引き続き使えます。"
   },
@@ -2416,6 +2431,7 @@
   "translate.capability.reason.smallBuffer": "GPUが1つのバッファーに割り当てられるのは最大 {limit} です。GPU向けの言語モデルの最小ビルドには {needed} が必要です",
   "translate.capability.testLimit": "テストのため{size}に制限されています（このブラウザのストレージにある{key}）。その項目を削除して再読み込みすると、GPU本来の上限が使われます。",
   "translate.chip.options": "{languages}。翻訳オプション",
+  "translate.chip.sentIn": "{language}で送信されました",
   "translate.composer.sendOff": "送信する内容を翻訳します…",
   "translate.consent.metered": "接続が従量制、またはデータセーバーに設定されています。",
   "translate.consent.notNow": "後で",
@@ -2476,6 +2492,8 @@
   "translate.picker.dialog": "他の言語から再翻訳",
   "translate.picker.label": "この行の翻訳元",
   "translate.picker.sameLanguageNeedsGpu": "メッセージの校正には言語モデルが必要です。",
+  "translate.prefer.auto": "自動（推奨）",
+  "translate.prefer.llm": "言語モデル優先",
   "translate.reason.answered": "翻訳せずに質問に答えてしまいました",
   "translate.reason.degenerate": "応答が意味のない記号の羅列でした",
   "translate.reason.narration": "翻訳せずに依頼について説明してしまいました",
@@ -2515,6 +2533,7 @@
   "translate.strip.routeCpu": "{from} → {to} · {model} (CPU)",
   "translate.strip.routeGpu": "{from} → {to} · {model} (GPU)",
   "translate.strip.sourceAuto": "自動",
+  "translate.strip.translating": "翻訳中…",
   "translate.threads.reload": {
     "other": "{count} 個のCPUスレッドを使うには、アプリを再読み込みしてください。"
   },
