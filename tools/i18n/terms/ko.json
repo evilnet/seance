@@ -1,0 +1,64 @@
+{
+  "channel": {
+    "term": "채널"
+  },
+  "nick": {
+    "term": "닉네임"
+  },
+  "server": {
+    "term": "서버"
+  },
+  "network": {
+    "term": "네트워크"
+  },
+  "message": {
+    "term": "메시지"
+  },
+  "mention": {
+    "term": "언급"
+  },
+  "highlight": {
+    "term": "강조"
+  },
+  "ban": {
+    "term": "차단"
+  },
+  "away": {
+    "term": "자리 비움",
+    "match": ["자리"]
+  },
+  "topic": {
+    "term": "주제"
+  },
+  "account": {
+    "term": "계정"
+  },
+  "user": {
+    "term": "사용자",
+    "match": ["사용자", "명"]
+  },
+  "mode": {
+    "term": "모드"
+  },
+  "bouncer": {
+    "term": "바운서"
+  },
+  "reaction": {
+    "term": "반응"
+  },
+  "operator": {
+    "term": "오퍼"
+  },
+  "services": {
+    "term": "서비스"
+  },
+  "notification": {
+    "term": "알림"
+  },
+  "notice": {
+    "term": "공지"
+  },
+  "ignore": {
+    "term": "무시"
+  }
+}

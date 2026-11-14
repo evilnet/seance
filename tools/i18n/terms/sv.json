@@ -1,0 +1,68 @@
+{
+  "channel": {
+    "term": "kanal"
+  },
+  "nick": {
+    "term": "nick"
+  },
+  "server": {
+    "term": "server"
+  },
+  "network": {
+    "term": "nätverk"
+  },
+  "message": {
+    "term": "meddelande"
+  },
+  "mention": {
+    "term": "omnämnande",
+    "match": ["nämn"]
+  },
+  "highlight": {
+    "term": "markering",
+    "match": ["marker"]
+  },
+  "ban": {
+    "term": "bann"
+  },
+  "away": {
+    "term": "borta"
+  },
+  "topic": {
+    "term": "ämne"
+  },
+  "account": {
+    "term": "konto"
+  },
+  "user": {
+    "term": "användare",
+    "match": ["användar"]
+  },
+  "mode": {
+    "term": "läge",
+    "match": ["läge", "lägen"]
+  },
+  "bouncer": {
+    "term": "bouncer"
+  },
+  "reaction": {
+    "term": "reaktion"
+  },
+  "operator": {
+    "term": "oper"
+  },
+  "services": {
+    "term": "services",
+    "match": ["services", "tjänst"]
+  },
+  "notification": {
+    "term": "avisering"
+  },
+  "notice": {
+    "term": "notis"
+  },
+  "ignore": {
+    "term": "ignorera",
+    "match": ["ignorer"]
+  }
+}

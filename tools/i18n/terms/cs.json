@@ -1,0 +1,74 @@
+{
+  "channel": {
+    "term": "kanál"
+  },
+  "nick": {
+    "term": "přezdívka",
+    "match": ["přezdív"]
+  },
+  "server": {
+    "term": "server"
+  },
+  "network": {
+    "term": "síť",
+    "match": ["síť", "sít"]
+  },
+  "message": {
+    "term": "zpráva",
+    "match": ["zpráv"]
+  },
+  "mention": {
+    "term": "zmínka",
+    "match": ["zmín"]
+  },
+  "highlight": {
+    "term": "zvýraznění",
+    "match": ["zvýrazn"]
+  },
+  "ban": {
+    "term": "ban"
+  },
+  "away": {
+    "term": "nepřítomen",
+    "match": ["nepřítom"]
+  },
+  "topic": {
+    "term": "téma"
+  },
+  "account": {
+    "term": "účet",
+    "match": ["účet", "účt"]
+  },
+  "user": {
+    "term": "uživatel"
+  },
+  "mode": {
+    "term": "režim"
+  },
+  "bouncer": {
+    "term": "bouncer"
+  },
+  "reaction": {
+    "term": "reakce",
+    "match": ["reakc"]
+  },
+  "operator": {
+    "term": "operátor",
+    "match": ["operátor", "oper"]
+  },
+  "services": {
+    "term": "služby",
+    "match": ["služ"]
+  },
+  "notification": {
+    "term": "oznámení"
+  },
+  "notice": {
+    "term": "notice",
+    "note": "Kept as the IRC loanword, so it never reads as a push notification."
+  },
+  "ignore": {
+    "term": "ignorovat",
+    "match": ["ignor"]
+  }
+}

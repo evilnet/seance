@@ -1,0 +1,66 @@
+{
+  "channel": {
+    "term": "kanal"
+  },
+  "nick": {
+    "term": "nick"
+  },
+  "server": {
+    "term": "server"
+  },
+  "network": {
+    "term": "netværk"
+  },
+  "message": {
+    "term": "besked"
+  },
+  "mention": {
+    "term": "omtale",
+    "match": ["omtal", "nævn"]
+  },
+  "highlight": {
+    "term": "fremhævning",
+    "match": ["fremhæv"]
+  },
+  "ban": {
+    "term": "ban"
+  },
+  "away": {
+    "term": "fraværende",
+    "match": ["fravær"]
+  },
+  "topic": {
+    "term": "emne"
+  },
+  "account": {
+    "term": "konto"
+  },
+  "user": {
+    "term": "bruger"
+  },
+  "mode": {
+    "term": "tilstand"
+  },
+  "bouncer": {
+    "term": "bouncer"
+  },
+  "reaction": {
+    "term": "reaktion"
+  },
+  "operator": {
+    "term": "oper"
+  },
+  "services": {
+    "term": "services"
+  },
+  "notification": {
+    "term": "notifikation"
+  },
+  "notice": {
+    "term": "notits"
+  },
+  "ignore": {
+    "term": "ignorere",
+    "match": ["ignorer"]
+  }
+}

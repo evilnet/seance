@@ -1,0 +1,71 @@
+{
+  "channel": {
+    "term": "канал"
+  },
+  "nick": {
+    "term": "нік"
+  },
+  "server": {
+    "term": "сервер"
+  },
+  "network": {
+    "term": "мережа",
+    "match": ["мереж"]
+  },
+  "message": {
+    "term": "повідомлення",
+    "match": ["повідомлен"]
+  },
+  "mention": {
+    "term": "згадка",
+    "match": ["згад"]
+  },
+  "ban": {
+    "term": "бан"
+  },
+  "away": {
+    "term": "відсутній",
+    "match": ["відсутн", "відійш"]
+  },
+  "topic": {
+    "term": "тема",
+    "match": ["тем"]
+  },
+  "account": {
+    "term": "обліковий запис",
+    "match": ["обліков"]
+  },
+  "user": {
+    "term": "користувач"
+  },
+  "mode": {
+    "term": "режим"
+  },
+  "bouncer": {
+    "term": "баунсер"
+  },
+  "reaction": {
+    "term": "реакція",
+    "match": ["реакці"]
+  },
+  "operator": {
+    "term": "оператор",
+    "match": ["оператор", "опер"]
+  },
+  "services": {
+    "term": "сервіси",
+    "match": ["сервіс"]
+  },
+  "notification": {
+    "term": "сповіщення",
+    "match": ["сповіщен"]
+  },
+  "notice": {
+    "term": "notice",
+    "note": "Kept as the IRC loanword, so it never reads as a push notification."
+  },
+  "ignore": {
+    "term": "ігнорувати",
+    "match": ["ігнор"]
+  }
+}

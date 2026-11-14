@@ -1,0 +1,77 @@
+{
+  "channel": {
+    "term": "kanál"
+  },
+  "nick": {
+    "term": "prezývka",
+    "match": ["prezýv"]
+  },
+  "server": {
+    "term": "server"
+  },
+  "network": {
+    "term": "sieť",
+    "match": ["sieť", "siet"]
+  },
+  "message": {
+    "term": "správa",
+    "match": ["správ"]
+  },
+  "mention": {
+    "term": "zmienka",
+    "match": ["zmien", "zmieň", "spomín"]
+  },
+  "highlight": {
+    "term": "zvýraznenie",
+    "match": ["zvýrazn"]
+  },
+  "ban": {
+    "term": "ban"
+  },
+  "away": {
+    "term": "neprítomný",
+    "match": ["neprítom"]
+  },
+  "topic": {
+    "term": "téma",
+    "match": ["tém"]
+  },
+  "account": {
+    "term": "účet",
+    "match": ["účet", "účt"]
+  },
+  "user": {
+    "term": "používateľ",
+    "match": ["používate"]
+  },
+  "mode": {
+    "term": "režim"
+  },
+  "bouncer": {
+    "term": "bouncer"
+  },
+  "reaction": {
+    "term": "reakcia",
+    "match": ["reakci"]
+  },
+  "operator": {
+    "term": "operátor",
+    "match": ["operátor", "oper"]
+  },
+  "services": {
+    "term": "služby",
+    "match": ["služ"]
+  },
+  "notification": {
+    "term": "upozornenie",
+    "match": ["upozornen"]
+  },
+  "notice": {
+    "term": "oznámenie",
+    "match": ["oznámen"]
+  },
+  "ignore": {
+    "term": "ignorovať",
+    "match": ["ignor"]
+  }
+}

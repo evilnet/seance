@@ -1,0 +1,70 @@
+{
+  "channel": {
+    "term": "kênh"
+  },
+  "nick": {
+    "term": "nick",
+    "match": ["nick", "biệt danh"]
+  },
+  "server": {
+    "term": "máy chủ"
+  },
+  "network": {
+    "term": "mạng"
+  },
+  "message": {
+    "term": "tin nhắn"
+  },
+  "mention": {
+    "term": "lượt nhắc",
+    "match": ["nhắc"]
+  },
+  "highlight": {
+    "term": "đánh dấu",
+    "match": ["đánh dấu", "nổi bật"]
+  },
+  "ban": {
+    "term": "cấm"
+  },
+  "away": {
+    "term": "vắng mặt",
+    "match": ["vắng"]
+  },
+  "topic": {
+    "term": "chủ đề"
+  },
+  "account": {
+    "term": "tài khoản"
+  },
+  "user": {
+    "term": "người dùng"
+  },
+  "mode": {
+    "term": "chế độ"
+  },
+  "bouncer": {
+    "term": "bouncer"
+  },
+  "reaction": {
+    "term": "cảm xúc",
+    "match": ["cảm xúc", "biểu cảm"]
+  },
+  "operator": {
+    "term": "oper",
+    "match": ["oper", "điều hành"]
+  },
+  "services": {
+    "term": "services",
+    "match": ["services", "dịch vụ"]
+  },
+  "notification": {
+    "term": "thông báo"
+  },
+  "notice": {
+    "term": "notice",
+    "note": "Kept as the IRC loanword, so it never reads as a push notification."
+  },
+  "ignore": {
+    "term": "bỏ qua"
+  }
+}

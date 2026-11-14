@@ -1,0 +1,67 @@
+{
+  "channel": {
+    "term": "频道"
+  },
+  "nick": {
+    "term": "昵称"
+  },
+  "server": {
+    "term": "服务器"
+  },
+  "network": {
+    "term": "网络"
+  },
+  "message": {
+    "term": "消息"
+  },
+  "mention": {
+    "term": "提及"
+  },
+  "highlight": {
+    "term": "高亮"
+  },
+  "ban": {
+    "term": "封禁"
+  },
+  "away": {
+    "term": "离开"
+  },
+  "topic": {
+    "term": "话题"
+  },
+  "account": {
+    "term": "账户"
+  },
+  "user": {
+    "term": "用户",
+    "match": ["用户", "人"]
+  },
+  "mode": {
+    "term": "模式"
+  },
+  "bouncer": {
+    "term": "bouncer",
+    "match": ["bouncer", "保镖"]
+  },
+  "reaction": {
+    "term": "回应",
+    "match": ["回应", "表情"]
+  },
+  "operator": {
+    "term": "操作员"
+  },
+  "services": {
+    "term": "服务"
+  },
+  "notification": {
+    "term": "通知"
+  },
+  "notice": {
+    "term": "NOTICE",
+    "note": "Kept as the IRC loanword, so it never reads as a push notification.",
+    "match": ["notice"]
+  },
+  "ignore": {
+    "term": "忽略"
+  }
+}

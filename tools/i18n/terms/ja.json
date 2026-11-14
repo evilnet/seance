@@ -1,0 +1,67 @@
+{
+  "channel": {
+    "term": "チャンネル"
+  },
+  "nick": {
+    "term": "ニックネーム",
+    "match": ["ニック"]
+  },
+  "server": {
+    "term": "サーバー"
+  },
+  "network": {
+    "term": "ネットワーク"
+  },
+  "message": {
+    "term": "メッセージ"
+  },
+  "mention": {
+    "term": "メンション"
+  },
+  "highlight": {
+    "term": "ハイライト"
+  },
+  "ban": {
+    "term": "BAN"
+  },
+  "away": {
+    "term": "離席"
+  },
+  "topic": {
+    "term": "トピック"
+  },
+  "account": {
+    "term": "アカウント"
+  },
+  "user": {
+    "term": "ユーザー",
+    "match": ["ユーザー", "人"]
+  },
+  "mode": {
+    "term": "モード"
+  },
+  "bouncer": {
+    "term": "バウンサー"
+  },
+  "reaction": {
+    "term": "リアクション"
+  },
+  "operator": {
+    "term": "オペレーター",
+    "match": ["オペレーター", "オペ"]
+  },
+  "services": {
+    "term": "サービス"
+  },
+  "notification": {
+    "term": "通知"
+  },
+  "notice": {
+    "term": "NOTICE",
+    "note": "Kept as the IRC loanword, so it never reads as a push notification.",
+    "match": ["notice"]
+  },
+  "ignore": {
+    "term": "無視"
+  }
+}

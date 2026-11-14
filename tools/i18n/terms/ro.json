@@ -1,0 +1,70 @@
+{
+  "channel": {
+    "term": "canal"
+  },
+  "nick": {
+    "term": "nick"
+  },
+  "server": {
+    "term": "server"
+  },
+  "network": {
+    "term": "rețea",
+    "match": ["rețe"]
+  },
+  "message": {
+    "term": "mesaj"
+  },
+  "mention": {
+    "term": "mențiune",
+    "match": ["menți", "menționeaz"]
+  },
+  "highlight": {
+    "term": "evidențiere",
+    "match": ["evidenți"]
+  },
+  "ban": {
+    "term": "ban"
+  },
+  "away": {
+    "term": "absent",
+    "match": ["absen"]
+  },
+  "topic": {
+    "term": "subiect"
+  },
+  "account": {
+    "term": "cont"
+  },
+  "user": {
+    "term": "utilizator"
+  },
+  "mode": {
+    "term": "mod"
+  },
+  "bouncer": {
+    "term": "bouncer"
+  },
+  "reaction": {
+    "term": "reacție",
+    "match": ["reacți"]
+  },
+  "operator": {
+    "term": "oper"
+  },
+  "services": {
+    "term": "servicii",
+    "match": ["servici"]
+  },
+  "notification": {
+    "term": "notificare",
+    "match": ["notificăr", "notificar"]
+  },
+  "notice": {
+    "term": "notice",
+    "note": "Kept as the IRC loanword, so it never reads as a push notification."
+  },
+  "ignore": {
+    "term": "ignora"
+  }
+}

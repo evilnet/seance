@@ -1,0 +1,84 @@
+{
+  "channel": {
+    "en": ["channel", "channels"],
+    "note": "An IRC channel (#name): a chat room, not a TV or audio channel."
+  },
+  "nick": {
+    "en": ["nick", "nicks", "nickname", "nicknames"],
+    "note": "The name a user goes by on IRC; it can change at any time."
+  },
+  "server": {
+    "en": ["server", "servers"],
+    "note": "An IRC server, one of the machines a network is made of."
+  },
+  "network": {
+    "en": ["network", "networks"],
+    "note": "An IRC network: the servers you connect to as one, with its own channels and users."
+  },
+  "message": {
+    "en": ["message", "messages"],
+    "note": "A chat message.",
+    "except": ["private message", "private messages", "status message", "status messages"]
+  },
+  "mention": {
+    "en": ["mention", "mentions", "mentioned"],
+    "note": "A message that names you (your nick)."
+  },
+  "highlight": {
+    "en": ["highlight", "highlights", "highlighted"],
+    "note": "A message marked because it mentions you or matches one of your words."
+  },
+  "ban": {
+    "en": ["ban", "bans", "banned"],
+    "note": "A channel or network ban that keeps a user out."
+  },
+  "away": {
+    "en": ["away"],
+    "note": "The status of a user who is not at the keyboard, set with /away.",
+    "except": ["going away", "right away", "were away", "are away", "away from"]
+  },
+  "topic": {
+    "en": ["topic"],
+    "note": "A channel topic: the line shown at the top of a channel."
+  },
+  "account": {
+    "en": ["account", "accounts"],
+    "note": "A registered account on the network's services, which you log in to with SASL."
+  },
+  "user": {
+    "en": ["user", "users"],
+    "note": "A person on the network."
+  },
+  "mode": {
+    "en": ["mode", "modes"],
+    "note": "An IRC mode (+o, +b, +i …) on a channel or a user."
+  },
+  "bouncer": {
+    "en": ["bouncer", "bouncers"],
+    "note": "An IRC bouncer: a service that stays connected for you and keeps what you missed."
+  },
+  "reaction": {
+    "en": ["reaction", "reactions"],
+    "note": "An emoji reaction to a message."
+  },
+  "operator": {
+    "en": ["operator", "operators", "oper", "opers"],
+    "note": "An IRC operator (oper): a network administrator, or a channel operator when the text says so."
+  },
+  "services": {
+    "en": ["services"],
+    "note": "The network services (NickServ, ChanServ, X3 …) that keep accounts and channels."
+  },
+  "notification": {
+    "en": ["notification", "notifications"],
+    "note": "A system or push notification on the device."
+  },
+  "notice": {
+    "en": ["notice", "notices"],
+    "note": "An IRC NOTICE message (a server notice, a notice to a user). Not a push notification: give it its own word."
+  },
+  "ignore": {
+    "en": ["ignore", "ignored"],
+    "note": "Hiding a user's messages with /ignore."
+  }
+}

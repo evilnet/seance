@@ -1,0 +1,75 @@
+{
+  "channel": {
+    "term": "kanał",
+    "match": ["kanał", "kanal"]
+  },
+  "nick": {
+    "term": "nick"
+  },
+  "server": {
+    "term": "serwer"
+  },
+  "network": {
+    "term": "sieć",
+    "match": ["sieć", "sieci", "siec"]
+  },
+  "message": {
+    "term": "wiadomość",
+    "match": ["wiadomoś"]
+  },
+  "mention": {
+    "term": "wzmianka",
+    "match": ["wzmian", "wspomin"]
+  },
+  "highlight": {
+    "term": "wyróżnienie",
+    "match": ["wyróżni"]
+  },
+  "ban": {
+    "term": "ban"
+  },
+  "away": {
+    "term": "nieobecny",
+    "match": ["nieobecn"]
+  },
+  "topic": {
+    "term": "temat"
+  },
+  "account": {
+    "term": "konto",
+    "match": ["kont"]
+  },
+  "user": {
+    "term": "użytkownik",
+    "match": ["użytkowni"]
+  },
+  "mode": {
+    "term": "tryb"
+  },
+  "bouncer": {
+    "term": "bouncer"
+  },
+  "reaction": {
+    "term": "reakcja",
+    "match": ["reakc"]
+  },
+  "operator": {
+    "term": "oper"
+  },
+  "services": {
+    "term": "usługi",
+    "match": ["usług"]
+  },
+  "notification": {
+    "term": "powiadomienie",
+    "match": ["powiadomie"]
+  },
+  "notice": {
+    "term": "notice",
+    "note": "Kept as the IRC loanword, so it never reads as a push notification."
+  },
+  "ignore": {
+    "term": "ignorować",
+    "match": ["ignor"]
+  }
+}

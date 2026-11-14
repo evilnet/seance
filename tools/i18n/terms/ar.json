@@ -1,0 +1,71 @@
+{
+  "channel": {
+    "term": "قناة",
+    "match": ["قناة", "القناة", "قنوات", "القنوات"]
+  },
+  "nick": {
+    "term": "اسم مستعار",
+    "match": ["المستعار", "مستعار"]
+  },
+  "server": {
+    "term": "خادم",
+    "match": ["خادم", "الخادم", "خوادم"]
+  },
+  "network": {
+    "term": "شبكة",
+    "match": ["شبك"]
+  },
+  "message": {
+    "term": "رسالة",
+    "match": ["رسال", "رسائل"]
+  },
+  "mention": {
+    "term": "إشارة",
+    "match": ["إشار", "الإشار"]
+  },
+  "ban": {
+    "term": "حظر"
+  },
+  "away": {
+    "term": "غائب",
+    "match": ["غائب", "غياب"]
+  },
+  "topic": {
+    "term": "موضوع"
+  },
+  "account": {
+    "term": "حساب"
+  },
+  "user": {
+    "term": "مستخدم"
+  },
+  "mode": {
+    "term": "وضع",
+    "match": ["وضع", "أوضاع"]
+  },
+  "bouncer": {
+    "term": "بوانسر",
+    "match": ["بوانسر", "bouncer"]
+  },
+  "reaction": {
+    "term": "تفاعل"
+  },
+  "operator": {
+    "term": "مشرف"
+  },
+  "services": {
+    "term": "الخدمات",
+    "match": ["خدمات", "الخدمات"]
+  },
+  "notification": {
+    "term": "إشعار"
+  },
+  "notice": {
+    "term": "notice",
+    "note": "Kept as the IRC loanword, so it never reads as a push notification."
+  },
+  "ignore": {
+    "term": "تجاهل",
+    "match": ["تجاهل", "متجاهل"]
+  }
+}
