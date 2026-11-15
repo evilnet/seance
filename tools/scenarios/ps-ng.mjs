@@ -29,13 +29,15 @@
 //   `data-reduce-motion` and clearing it must take it away, each a check of
 //   its own, within 3 s — moving before and after, and after it goes off the
 //   clouds' phase as below (the move out of still at the moment the media
-//   was cleared); then the rests that freeze: a hidden page, each cloud held
-//   where it stood and, shown again, going on from there, and a query
-//   (`/query`, `data-view="query"`), frozen inside the yurt — the plains out
-//   of the render tree and the room shown (docs/projects/ps-yurt.md) — each
-//   then moving, shown again or back in #seance ("moving" is animations on
-//   the scene, frames from NG's chunk and at least one in-flight layer
-//   displayed); at noon, before the hidden page, while it
+//   was cleared); then the rest that freezes: a hidden page, each cloud held
+//   where it stood and, shown again, going on from there, then moving
+//   ("moving" is animations on the scene, frames from NG's chunk and at least
+//   one in-flight layer displayed); then a query (`/query`, `data-view="query"`),
+//   which moves as a channel does, inside the yurt (docs/projects/ps-yurt.md
+//   §8): the room shown and the plains out of the render tree, every running
+//   animation the room's and a known group's, no frame from the sun's canvas;
+//   a hidden page inside it freezes it, shown again it moves, and back in
+//   #seance the plains move; at noon, before the hidden page, while it
 //   is frozen and once shown again, each lark shows the state its clock puts
 //   it in (plan 4: from its `--ld`, `--ldl` and `--psng-t`, sampled 1 % or
 //   more from a stop, its state box at opacity > 0 and the other two at 0;
@@ -74,9 +76,10 @@
 //   and is not the daylight fallback, and from the load to 10 s after the
 //   mount NG's chunk (`js/scene-ps.js`) is fetched and no `scene-ps-ng.js`.
 //
-// The FULL census: the root carries all nine `psng-m-*` classes and no
-// `psng-calm`; every animation under #theme-scene is a known group's (by its
-// animationName; `psng-pose2` under .ps-daybirds is the larks' flutter) and a group
+// The FULL census: the root carries all eleven `psng-m-*` classes (the yurt's
+// hearth and steam among them) and no `psng-calm`; every animation under
+// #theme-scene is a known group's (by its animationName; `psng-pose2` under
+// .ps-daybirds is the larks' flutter, `ps-smoke-rise` in .ps-indoor the steam) and a group
 // whose class is on; every one's keyframes (`effect.getKeyframes()`) touch
 // only `transform` and `opacity`; every animated element's untransformed box
 // is at most the viewport (± 1 px): an HTML element's offsetWidth/Height (the
@@ -87,9 +90,10 @@
 // WebKit runs those on the main thread); the groups the moment is about are running; and, where
 // the sun is up, NG's chunk requests animation frames (the fire, at 24 a
 // second) — the positive control for the zero counts below.
-// Calm (plan 5): the root carries `psng-calm` and the clouds' class alone, the
-// set of group:animationName pairs running is exactly the full set at the same
-// moment and mount narrowed to the clouds, nothing falls (rain, snow, seeds and
+// Calm (plan 5): the root carries `psng-calm`, the clouds' class and the yurt's
+// hearth's (ps-yurt plan 2), the set of group:animationName pairs running is
+// exactly the full set at the same moment and mount narrowed to those (on the
+// plains, the clouds), nothing falls (rain, snow, seeds and
 // flash out of the page), and NG's chunk requests no frame over 1 s.
 // The STILL census: `getAnimations({subtree: true})` is empty, no group
 // class, no SMIL, NG's chunk requests no animation frame over 1 s, and every
@@ -295,9 +299,12 @@ const GROUP_OF = {
 	"psng-lark-ch-h": "daybirds",
 	"psng-lark-cl-h": "daybirds",
 	"ps-spin": "sun",
+	// The yurt's room (docs/projects/ps-yurt.md §8); its steam is ps-smoke-rise inside .ps-indoor (CENSUS).
+	"psng-yt-flick": "hearth",
+	"psng-yt-flick-b": "hearth",
 };
-const ALL_GROUPS = [...new Set(Object.values(GROUP_OF))];
-const CALM_GROUPS = ["clouds"];
+const ALL_GROUPS = [...new Set([...Object.values(GROUP_OF), "steam"])];
+const CALM_GROUPS = ["clouds", "hearth"];
 
 /** Every animation under the scene: its group:name, the keyframes' properties, the boxes over the viewport. */
 const CENSUS = `(() => {
@@ -309,7 +316,12 @@ const CENSUS = `(() => {
 	for (const a of anims) {
 		const n = a.animationName ?? "(script)";
 		const el = a.effect.target;
-		const g = n === "psng-pose2" && el.closest(".ps-daybirds") ? "daybirds" : G[n];
+		const g =
+			n === "psng-pose2" && el.closest(".ps-daybirds")
+				? "daybirds"
+				: n === "ps-smoke-rise" && el.closest(".ps-indoor")
+				? "steam"
+				: G[n];
 		if (!g) unknown.add(n);
 		if (el.parentElement && el.parentElement.closest("svg")) insvg.add(n + " on " + (el.getAttribute("class") || el.tagName));
 		keys[(g ?? "?") + ":" + n] = (keys[(g ?? "?") + ":" + n] || 0) + 1;
@@ -488,7 +500,9 @@ async function fullCensus(page, label, groups, sun) {
 	const running = [...new Set(Object.keys(c.keys).map((k) => k.split(":")[0]))];
 	console.log(`  ${label}: ${JSON.stringify(c.keys)}`);
 	page.check(
-		`${label}: full — all nine group classes, no psng-calm (${c.classes.join(" ")})`,
+		`${label}: full — all ${ALL_GROUPS.length} group classes, no psng-calm (${c.classes.join(
+			" "
+		)})`,
 		sameSet(
 			c.classes,
 			ALL_GROUPS.map((g) => `psng-m-${g}`)
@@ -540,7 +554,7 @@ async function calmCensus(page, label, full) {
 	].sort();
 	const got = Object.keys(c.keys).sort();
 	page.check(
-		`${label}: calm — psng-calm and the clouds' class (${c.classes.join(" ")})`,
+		`${label}: calm — psng-calm, the clouds' class and the hearth's (${c.classes.join(" ")})`,
 		sameSet(c.classes, ["psng-calm", ...CALM_GROUPS.map((g) => `psng-m-${g}`)])
 	);
 	page.check(
@@ -740,6 +754,41 @@ async function thawCheck(page, label, held) {
 			x.length
 		} clouds go on from where they were held (worst ${worst.toFixed(1)} px off)`,
 		x.length > 0 && worst <= 4
+	);
+}
+
+/** Every running animation under the scene, and how many of them are outside the yurt's room. */
+const ROOM_RUNNING = `(() => {
+	const s = document.getElementById("theme-scene");
+	const a = s.getAnimations({subtree: true}).filter((x) => x.playState === "running");
+	return {anims: a.length, outside: a.filter((x) => !x.effect.target.closest(".ps-indoor")).length, frozen: s.classList.contains("psng-frozen")};
+})()`;
+
+/**
+ * A query moves as a channel does, inside the yurt (docs/projects/ps-yurt.md §8): the room shown and
+ * the plains out of the render tree, every running animation the room's and a known group's, and no
+ * frame from the sun's canvas (the plains are out).
+ */
+async function queryMoving(page, label) {
+	const c = await page.evaluate(CENSUS);
+	const view = await page.evaluate(ROOM_VIEW);
+	const r = await page.evaluate(ROOM_RUNNING);
+	const frames = await page.evaluate(NG_FRAMES);
+	page.check(
+		`${label}: runs as a channel does, inside the yurt — ${r.anims} animations, ${
+			r.outside
+		} outside the room, unknown: ${c.unknown.join(", ") || "none"}; the plains shown ${
+			view.plains
+		}, the room shown ${view.room}, psng-frozen ${
+			r.frozen
+		}, ${frames} frames from the sun's canvas in 1 s`,
+		r.anims > 0 &&
+			r.outside === 0 &&
+			c.unknown.length === 0 &&
+			!view.plains &&
+			view.room &&
+			!r.frozen &&
+			frames === 0
 	);
 }
 
@@ -956,9 +1005,14 @@ export default async function run(page) {
 	await sendLine(page, `/query ${NICK}q`);
 	const VIEW = (v) => `document.getElementById("theme-scene").dataset.view === "${v}"`;
 	await page.waitFor(VIEW("query"), {label: "the query open"});
-	held = await page.evaluate(CLOUD_X);
 	await page.sleep(600);
-	await frozenCensus(page, "a query", held, true);
+	await queryMoving(page, "a query");
+	await page.evaluate(VISIBILITY("hidden"));
+	await page.sleep(300);
+	await frozenCensus(page, "a query, hidden", before, true);
+	await page.evaluate(VISIBILITY("visible"));
+	await page.sleep(600);
+	await queryMoving(page, "a query, shown again");
 	await page.evaluate(
 		`document.querySelector('.channel-list-item[data-name="#seance"]').click()`
 	);

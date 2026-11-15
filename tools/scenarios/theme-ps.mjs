@@ -88,16 +88,16 @@
 //   and opened again moves it not at all (0.5 px) — never seen between its
 //   places and never below full opacity (Review Focus 2);
 // - follows the open conversation: channel, query, none (Settings); and a
-//   query is inside the yurt and still (docs/projects/ps-yurt.md): at a clear
-//   noon the root takes ps-private, the plains' wrapper (.ps-frost) is out of
-//   the render tree and the room (.ps-indoor) shown, nothing filtered (the
-//   wrapper, the root, #status-bar-tint), the scene frozen and nothing in
-//   document.getAnimations() running on it, the canvas the roof's painted
-//   colour (not #seance's sky at the same minute), the words light and the
-//   five glass tints set; an hour on, inside the query and shown again, the
-//   canvas is still the roof's and the scene still; at golden hour so, the
-//   roof's colour moved on from noon's; and back in #seance it runs, on the
-//   plains, the room hidden;
+//   query is inside the yurt (docs/projects/ps-yurt.md): at a clear noon the
+//   root takes ps-private, the plains' wrapper (.ps-frost) is out of the render
+//   tree and the room (.ps-indoor) shown, nothing filtered (the wrapper, the
+//   root, #status-bar-tint), the scene running as a channel's does with
+//   everything document.getAnimations() has running the room's (plan 2), the
+//   canvas the roof's painted colour (not #seance's sky at the same minute),
+//   the words light and the five glass tints set; an hour on, inside the query
+//   and shown again, the canvas is still the roof's and the room moves; at
+//   golden hour so, the roof's colour moved on from noon's; and back in
+//   #seance it runs, on the plains, the room hidden;
 // - switches to coffee (the scene and its plains go and leave nothing on
 //   <html>) and back to ps (one scene again, not two);
 // - on a phone: a scene mounted there builds half the fireflies (17) and,
@@ -840,10 +840,11 @@ const SCENE_STATE = `(async () => {
 		yurt: shown(".ps-ground > .ps-yurt"),
 		blades: shown(":scope > .ps-frost > .psng-sway > .ps-blades"),
 		fireflies: n(".ps-ground > .ps-fireflies i"),
-		drops: n(".ps-rain i") / 2, // NG draws each drop twice: a tile and its twin one tile up (psng/rain.ts)
-		flakes: n(".ps-snow i"),
+		// The plains' own (the wrapper's): the yurt's panes reuse the rain, snow and flash (ps-yurt plan 2).
+		drops: n(":scope > .ps-frost .ps-rain i") / 2, // NG draws each drop twice: a tile and its twin one tile up (psng/rain.ts)
+		flakes: n(":scope > .ps-frost .ps-snow i"),
 		seeds: n(".ps-seeds i"),
-		flash: n(".ps-flash"),
+		flash: n(":scope > .ps-frost .ps-flash"),
 		heatband: shown(".ps-heatband"),
 		weatherLayer: weather ? weather.children.length : null,
 		groundFilter: style(".ps-ground", "filter"),
@@ -1055,6 +1056,7 @@ const VIEW_STATE = `(() => {
 		halo: h.style.getPropertyValue("--ps-halo"),
 		paused: mine.filter((a) => a.playState === "paused").length,
 		running: mine.filter((a) => a.playState === "running").map((a) => a.animationName || a.transitionProperty || "?"),
+		outside: mine.filter((a) => a.playState === "running" && !a.effect.target.closest(".ps-indoor")).map((a) => a.animationName || a.transitionProperty || "?"),
 		roofOff: a ? Math.max(...rgb(canvas).map((v, i) => Math.abs(v - a[i]))) : null,
 		tints: ["header", "composer", "side", "float", "card"].filter((t) => h.style.getPropertyValue("--ps-g-tint-" + t)).length,
 	};
@@ -1069,10 +1071,10 @@ const FADE_SETTLE_MS = 1000;
 /**
  * A query's scene: inside the yurt — ps-private on the root, the plains out
  * of the render tree and the room shown, nothing filtered or scaled (the
- * plains' wrapper, the root, #status-bar-tint) — completely still: frozen as
- * a hidden page's is (checkStopped) and nothing document.getAnimations() has
- * on it running — and the canvas the roof's painted colour at this minute
- * (within 2 of 255 a channel).
+ * plains' wrapper, the root, #status-bar-tint) — running as a channel's does
+ * (checkRunning), everything document.getAnimations() has running on it the
+ * room's (ps-yurt plan 2) — and the canvas the roof's painted colour at this
+ * minute (within 2 of 255 a channel).
  */
 function checkRoom(page, s, f, where) {
 	page.check(
@@ -1085,14 +1087,15 @@ function checkRoom(page, s, f, where) {
 			f.rootFilter === "none" &&
 			f.tint === "none"
 	);
-	checkStopped(page, s, where);
+	// A query moves as a channel does, inside the yurt (ps-yurt.md §8, plan 2): the room's own motion.
+	checkRunning(page, s, where);
 	page.check(
-		`${where}: frozen, and nothing on the scene running (document.getAnimations(): ${
-			f.paused
-		} paused, ${f.running.length} running${
-			f.running.length ? ` — ${f.running.slice(0, 4).join(", ")}` : ""
+		`${where}: everything running is the room's (document.getAnimations(): ${
+			f.running.length
+		} running, ${f.outside.length} outside .ps-indoor${
+			f.outside.length ? ` — ${f.outside.slice(0, 4).join(", ")}` : ""
 		})`,
-		s.frozen && f.running.length === 0
+		f.running.length > 0 && f.outside.length === 0
 	);
 	page.check(
 		`${where}: the canvas is the roof's painted colour (${s.canvas}, off by ${f.roofOff})`,
@@ -3736,7 +3739,7 @@ export default async function run(page) {
 	await page.screenshot("ps-midnight-sep27-0000");
 	await realClock(page);
 
-	// ---- the view follows the conversation; a query is inside the yurt and still (ps-yurt.md)
+	// ---- the view follows the conversation; a query is inside the yurt, moving (ps-yurt.md)
 
 	// Its own query: EXT_NAME's is in the sidebar too. A clear noon, pinned,
 	// in #seance first: what a channel shows and publishes at that minute.
