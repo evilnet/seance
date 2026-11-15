@@ -177,7 +177,7 @@ One length, `--ps-ym-s`, places the HTML in the design frame as the svg's `slice
 - `weather`: the plains' own rain tiles, snow and flash, run by NG's rules;
 - `stars`, which sleep by day with the plains' stars gate.
 
-Each moving part swaps with plan 1's still drawing (`ps-yt-still-<group>`), and NG's catch-all still exempts the room's animated classes. Calm keeps the hearth; the window clouds rest under `psng-calm`, as measured (§11.2). The sun's canvas never draws in a query, and a change of view rewrites `--psng-t`, so the picture shown starts its loops where the clock puts them. The browser census is `tools/scenarios/ps-yurt.mjs`.
+Each moving part swaps with plan 1's still drawing (`ps-yt-still-<group>`), and NG's catch-all still exempts the room's animated classes. Calm keeps the hearth; the window clouds rest under `psng-calm`, as measured (§11.2). The sun's canvas never draws in a query, and a move between the plains and the room rewrites `--psng-t`, so the picture shown starts its loops where the clock puts them (a change of view that keeps the picture, a channel and Settings, leaves it alone). The browser census is `tools/scenarios/ps-yurt.mjs`.
 
 ## 9. Legibility
 

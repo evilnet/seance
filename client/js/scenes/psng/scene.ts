@@ -115,7 +115,7 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		}
 	};
 
-	// A rest that ends on its own (the window left for another, a hidden page, a query) freezes the
+	// A rest that ends on its own (the window left for another, a hidden page) freezes the
 	// scene where it stands instead of snapping it to its still places: each running animation's
 	// transform and opacity pinned inline, then every animation removed (psng-frozen), the group
 	// classes kept so nothing leaves the page. Its clock stops too: the time spent frozen is taken
@@ -359,13 +359,17 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 
 	const update = (state: SceneHostState) => {
 		const viewChanged = lastView !== null && state.view !== lastView;
+		// The plains show in a channel and in any other view; the room in a query alone.
+		const pictureChanged =
+			lastView !== null && (state.view === "query") !== (lastView === "query");
 		latest = state;
 		setGroups();
 
 		// A picture leaving the render tree drops its animations and the one coming back starts them
-		// anew: at a change of view while moving, the phase is written again as on a resume, so the
-		// loops of the picture now shown start where the clock puts them.
-		if (viewChanged && tier !== "still") {
+		// anew: at a move between the plains and the room while moving, the phase is written again as on
+		// a resume, so the loops of the picture now shown start where the clock puts them. A change of
+		// view that keeps the picture (a channel and Settings) leaves it alone, so nothing running jumps.
+		if (pictureChanged && tier !== "still") {
 			root.style.setProperty("--psng-t", `${phaseSeconds(new Date(), mounted) - restedS}s`);
 		}
 

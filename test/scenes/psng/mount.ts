@@ -686,6 +686,20 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 			});
 		});
 
+		it("--psng-t: kept across a channel and another view (Settings, Help): the same picture, nothing jumps", function () {
+			withPage(new Date(2026, 5, 21, 12, 0), (page, clock) => {
+				follow(page);
+				const scene = mountOn(page);
+				const {phase} = watch(page);
+				clock.tick(300_000);
+				scene.update(state({view: "other"}));
+				clock.tick(60_000);
+				scene.update(state());
+				expect(phase.callCount, "the plains both ways").to.equal(0);
+				scene.destroy();
+			});
+		});
+
 		it("a freeze pins what moves and a thaw puts back the element's own inline values", function () {
 			withPage(new Date(2026, 5, 21, 23, 0), (page) => {
 				follow(page);
