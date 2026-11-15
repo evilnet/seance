@@ -4470,35 +4470,6 @@ html[data-reduce-motion] #chat .media-veil-main:hover .media-veil-icon {
 	width: 100%;
 }
 
-#settings .settings-sync-panel {
-	padding: 10px;
-	margin-bottom: 16px;
-	border-radius: 2px;
-	background-color: #d9edf7;
-	color: #31708f;
-}
-
-#settings .settings-sync-panel p:last-child {
-	margin-bottom: 0;
-}
-
-#settings .settings-sync-panel .btn {
-	color: #007bff;
-	border-color: #007bff;
-	margin-bottom: 0;
-}
-
-#settings .settings-sync-panel .btn:hover,
-#settings .settings-sync-panel .btn:focus {
-	background-color: #007bff;
-	color: #fff;
-}
-
-#settings .settings-sync-panel .btn:active,
-#settings .settings-sync-panel .btn:focus {
-	box-shadow: 0 0 0 3px rgb(0 123 255 / 50%);
-}
-
 #settings .opt {
 	display: block;
 	padding-block: 5px;
@@ -10332,71 +10303,7 @@ html[data-reduce-motion] #form .upload-bar-track.indeterminate .upload-bar-fill 
 	color: var(--body-color);
 }
 
-/* Settings → Push Notifications: the on/off indicator dot + per-network rows */
-.push-state {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	margin-bottom: 8px;
-}
-
-.push-state-dot {
-	width: 10px;
-	height: 10px;
-	border-radius: 50%;
-	background: var(--body-color-muted);
-	flex: 0 0 auto;
-}
-
-.push-state-subscribed {
-	background: #2ea043;
-}
-
-.push-state-unsubscribed,
-.push-state-server-unsupported,
-.push-state-not-installed {
-	background: #9e6a03;
-}
-
-.push-state-denied,
-.push-state-blocked,
-.push-state-unsupported {
-	background: #c93c37;
-}
-
-.push-networks {
-	margin: 8px 0 12px;
-}
-
-.push-network {
-	padding: 5px 0;
-	border-bottom: 1px solid var(--body-color-muted);
-	display: flex;
-	align-items: baseline;
-	gap: 8px;
-}
-
-.push-network-state {
-	margin-inline-start: auto;
-	font-size: 0.8125rem;
-	font-weight: bold;
-	color: var(--body-color-muted);
-	white-space: nowrap;
-}
-
-.push-net-on {
-	color: #2ea043;
-}
-
-.push-net-off,
-.push-net-unsupported {
-	color: var(--body-color-muted);
-}
-
-.push-net-ready {
-	color: #9e6a03;
-}
-
+/* Settings → Notifications: the hints under its switches. */
 .push-networks-hint,
 .keepalive-hint,
 .dnd-schedule-hint {
@@ -10430,38 +10337,6 @@ html[data-reduce-motion] #form .upload-bar-track.indeterminate .upload-bar-fill 
 	padding: 0.5rem;
 	border: 1px solid var(--body-color-muted);
 	border-radius: 0.25rem;
-}
-
-.session-row {
-	padding: 6px 0;
-	border-bottom: 1px solid var(--body-color-muted);
-}
-
-.session-state {
-	display: inline-block;
-	min-width: 4rem;
-	padding: 0 6px;
-	border-radius: 3px;
-	font-size: 0.8125rem;
-	font-weight: bold;
-	text-align: center;
-	margin-inline-end: 8px;
-	color: #fff;
-	background: var(--body-color-muted);
-}
-
-.session-held {
-	background: #2ea043;
-}
-
-.session-active {
-	background: #388bfd;
-}
-
-.session-info {
-	color: var(--body-color-muted);
-	font-size: 0.8125rem;
-	margin-top: 2px;
 }
 
 /* The Mac app's sizes (data-platform="macos", set before the first paint by

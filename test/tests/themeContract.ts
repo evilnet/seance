@@ -1,0 +1,381 @@
+import {expect} from "chai";
+import fs from "fs";
+import path from "path";
+import {transform} from "lightningcss";
+
+// The theme contract (docs/resources/themes.md § The theme contract), checked
+// without a browser so it runs in CI: what a theme declares is read by
+// something, and the colour pairs the app paints with each theme's tokens
+// hold their contrast floor. tools/scenarios/themes.mjs measures rendered
+// pages too, but needs a running ircd; this reads the files.
+
+const ROOT = process.cwd();
+const THEMES = path.join(ROOT, "client", "themes");
+const themeNames = fs
+	.readdirSync(THEMES)
+	.filter((f) => f.endsWith(".css"))
+	.map((f) => f.slice(0, -4));
+
+const stripComments = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, "");
+
+type Block = {prelude: string; body: string; at: string};
+
+/** Every block with its prelude, its own body and the at-rules around it. */
+function blocks(css: string): Block[] {
+	const text = stripComments(css);
+	const out: Block[] = [];
+	const stack: {prelude: string; pos: number}[] = [];
+	let start = 0;
+
+	for (let i = 0; i < text.length; i++) {
+		if (text[i] === "{") {
+			stack.push({prelude: text.slice(start, i).replace(/\s+/g, " ").trim(), pos: i + 1});
+			start = i + 1;
+		} else if (text[i] === "}") {
+			const top = stack.pop();
+
+			if (top) {
+				out.push({
+					prelude: top.prelude,
+					body: text.slice(top.pos, i),
+					at: stack.map((s) => s.prelude).join(" "),
+				});
+			}
+
+			start = i + 1;
+		} else if (text[i] === ";" && stack.length === 0) {
+			start = i + 1;
+		}
+	}
+
+	return out;
+}
+
+/** The custom properties a block body declares (its nested blocks left out). */
+function customProperties(body: string): Record<string, string> {
+	const out: Record<string, string> = {};
+
+	for (const decl of body.replace(/\{[^}]*\}/g, "").split(";")) {
+		const colon = decl.indexOf(":");
+		const name = decl.slice(0, colon).trim();
+
+		if (colon > 0 && name.startsWith("--")) {
+			out[name] = decl.slice(colon + 1).trim();
+		}
+	}
+
+	return out;
+}
+
+/** A theme and what it @imports, in cascade order, for one colour scheme. */
+function chain(file: string, scheme: "light" | "dark", seen = new Set<string>()): string[] {
+	if (seen.has(file)) {
+		return [];
+	}
+
+	seen.add(file);
+	const css = fs.readFileSync(path.join(THEMES, file), "utf8");
+	const out: string[] = [];
+
+	for (const m of stripComments(css).matchAll(/@import\s+"([^"]+)"\s*([^;]*);/g)) {
+		if (!m[2].trim() || m[2].includes(`prefers-color-scheme: ${scheme}`)) {
+			out.push(...chain(m[1], scheme, seen));
+		}
+	}
+
+	out.push(css);
+	return out;
+}
+
+const inScheme = (at: string, scheme: "light" | "dark") =>
+	!at.includes("prefers-color-scheme") || at.includes(`prefers-color-scheme: ${scheme}`);
+
+type Surface = {where: string; tokens: Record<string, string>; own?: Set<string>};
+
+/** The tokens on :root once style.css and the theme's chain have cascaded, then each other
+ * block of the theme's chain that re-maps one of `names` (zelenzy's dialogs, ps by night, a
+ * contrast variant), as :root's tokens with that block's on top; `own` is what it re-maps. */
+function surfaces(theme: string, scheme: "light" | "dark", names: Set<string>): Surface[] {
+	const base = fs.readFileSync(path.join(ROOT, "client", "css", "style.css"), "utf8");
+	const themeCss = chain(`${theme}.css`, scheme);
+	const root: Record<string, string> = {};
+	const variants: Surface[] = [];
+
+	for (const css of [base, ...themeCss]) {
+		for (const b of blocks(css)) {
+			if (
+				b.prelude === ":root" &&
+				(!b.at || b.at.includes(`prefers-color-scheme: ${scheme}`))
+			) {
+				Object.assign(root, customProperties(b.body));
+			}
+		}
+	}
+
+	// Every block with the same selector and conditions is one variant (ps
+	// declares its night palette across several).
+	const byWhere = new Map<string, Record<string, string>>();
+
+	for (const css of themeCss) {
+		for (const b of blocks(css)) {
+			if (b.prelude !== ":root" && !b.prelude.startsWith("@") && inScheme(b.at, scheme)) {
+				const where = b.at ? `${b.at} ${b.prelude}` : b.prelude;
+				byWhere.set(where, {...byWhere.get(where), ...customProperties(b.body)});
+			}
+		}
+	}
+
+	for (const [where, props] of byWhere) {
+		if (Object.keys(props).some((n) => names.has(n))) {
+			// A block scoped inside another variant's selector (ps's night
+			// chat under its night :root) inherits that variant's tokens too.
+			const outer = [...byWhere.keys()]
+				.filter(
+					(w) =>
+						w !== where && where.startsWith(w) && /^[\s:[]/.test(where.slice(w.length))
+				)
+				.sort((a, b) => a.length - b.length)
+				.map((w) => byWhere.get(w));
+			variants.push({
+				where,
+				tokens: Object.assign({}, root, ...outer, props),
+				own: new Set(Object.keys(props)),
+			});
+		}
+	}
+
+	return [{where: ":root", tokens: root}, ...variants];
+}
+
+/** A value with every var() replaced, fallbacks included; undefined if one is missing. */
+function resolve(tokens: Record<string, string>, value: string, depth = 0): string | undefined {
+	if (depth > 20) {
+		return undefined;
+	}
+
+	let missing = false;
+	const out = value.replace(
+		/var\((--[\w-]+)(?:,\s*([^()]*(?:\([^()]*\))?[^()]*))?\)/g,
+		(_, name: string, fallback?: string) => {
+			const next = tokens[name] ?? fallback;
+			const resolved = next === undefined ? undefined : resolve(tokens, next, depth + 1);
+
+			if (resolved === undefined) {
+				missing = true;
+				return "";
+			}
+
+			return resolved;
+		}
+	);
+
+	return missing ? undefined : out;
+}
+
+type RGBA = [number, number, number, number];
+
+/** Any CSS colour as sRGB: Lightning CSS lowers oklch(), color-mix() and the rest for an old
+ * target, then reads the lowered colour back (a name such as navy included) through a visitor. */
+function toRGBA(value: string): RGBA | undefined {
+	if (/currentcolor/i.test(value)) {
+		return undefined;
+	}
+
+	const lowered = transform({
+		filename: "colour.css",
+		code: Buffer.from(`a{color:${value}}`),
+		minify: true,
+		targets: {safari: 9 << 16},
+	}).code.toString();
+	const colour = /color:([^;}]+)/.exec(lowered)?.[1].trim() ?? "";
+
+	// light-dark() and the like lower to var() pairs, which are not one colour.
+	if (!colour || colour.includes("var(")) {
+		return undefined;
+	}
+
+	let rgba: RGBA | undefined;
+	transform({
+		filename: "colour.css",
+		code: Buffer.from(`a{color:${colour}}`),
+		visitor: {
+			Color(c) {
+				if (c.type === "rgb") {
+					rgba = [c.r, c.g, c.b, c.alpha];
+				}
+
+				return c;
+			},
+		},
+	});
+	return rgba;
+}
+
+const over = (fg: RGBA, bg: RGBA): RGBA => [
+	fg[0] * fg[3] + bg[0] * (1 - fg[3]),
+	fg[1] * fg[3] + bg[1] * (1 - fg[3]),
+	fg[2] * fg[3] + bg[2] * (1 - fg[3]),
+	1,
+];
+
+const luminance = (c: RGBA) =>
+	[c[0], c[1], c[2]]
+		.map((x) => x / 255)
+		.map((x) => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4))
+		.reduce((sum, x, i) => sum + x * [0.2126, 0.7152, 0.0722][i], 0);
+
+function contrast(a: RGBA, b: RGBA): number {
+	const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+	return (hi + 0.05) / (lo + 0.05);
+}
+
+describe("the theme contract (themes.md § The theme contract)", function () {
+	describe("every custom property a theme declares is read by something", function () {
+		const walk = (dir: string): string[] =>
+			fs.readdirSync(dir, {withFileTypes: true}).flatMap((e) => {
+				const p = path.join(dir, e.name);
+				return e.isDirectory() ? walk(p) : /\.(css|ts|vue|js)$/.test(e.name) ? [p] : [];
+			});
+		const sources = walk(path.join(ROOT, "client"))
+			.map((f) => stripComments(fs.readFileSync(f, "utf8")))
+			.join("\n");
+		const read = new Set([
+			...[...sources.matchAll(/var\(\s*(--[\w-]+)/g)].map((m) => m[1]),
+			// Read or written by name from script (getPropertyValue, setProperty).
+			...[...sources.matchAll(/["'`](--[\w-]+)["'`]/g)].map((m) => m[1]),
+		]);
+		// ps's animals are switched off, not removed (themes.md § The animals):
+		// their slots stay declared for the block that brings them back.
+		const KEPT = /^--ps-(horse|deer|puppy|bunny|kitten|frog|ladybug|bird)(-far|-h)?$/;
+
+		for (const theme of themeNames) {
+			it(theme, function () {
+				const css = stripComments(
+					fs.readFileSync(path.join(THEMES, `${theme}.css`), "utf8")
+				);
+				const declared = new Set(
+					[...css.matchAll(/(?:^|[;{\s])(--[\w-]+)\s*:/g)].map((m) => m[1])
+				);
+				const unread = [...declared].filter((name) => !read.has(name) && !KEPT.test(name));
+				expect(unread, `${theme}.css declares what nothing reads`).to.deep.equal([]);
+			});
+		}
+	});
+
+	describe("each theme's tokens hold their contrast floor", function () {
+		// [surface, ink, floor]: what the app paints the token on, at WCAG's
+		// 4.5:1 for text and 3:1 for the join line's marks.
+		const PAIRS: [string, string, number][] = [
+			["--window-bg-color", "--body-color", 4.5],
+			["--window-bg-color", "--body-color-muted", 4.5],
+			["--window-bg-color", "--link-color", 4.5],
+			["--highlight-bg-color", "--body-color", 4.5],
+			["--chat-bg", "--chat-fg", 4.5],
+			["--chat-bg", "--chat-fg-muted", 4.5],
+			["--chat-bg", "--event-join", 3],
+			["--rail-bg-top", "--rail-fg", 4.5],
+		];
+		// Known and recorded, not to be copied: day is TheLounge's original
+		// light theme, kept as it was (docs/projects/accessibility.md).
+		const KNOWN: Record<string, string> = {
+			"day --link-color on --window-bg-color": "TheLounge's own link green, 3.0:1",
+		};
+
+		// What each surface is painted over, out to the page's own canvas: a
+		// translucent surface is measured on what shows through it.
+		const GROUND: Record<string, string> = {
+			"--highlight-bg-color": "--window-bg-color",
+			"--window-bg-color": "--body-bg-color",
+			"--chat-bg": "--body-bg-color",
+			"--rail-bg-top": "--body-bg-color",
+		};
+		// Surfaces with nothing opaque under them in CSS (a shell's material or a
+		// scene would show through) have no ratio to compute from the files. None
+		// do today; one added here is a decision, not an accident.
+		const SEE_THROUGH = new Set<string>();
+		const LOUNGE_ONLY = new Set(["day", "morning"]);
+		const names = new Set(PAIRS.flatMap(([surface, ink]) => [surface, ink]));
+
+		for (const theme of themeNames) {
+			it(theme, function () {
+				const failures: string[] = [];
+				const seeThrough = new Set<string>();
+				let checked = 0;
+
+				for (const scheme of ["light", "dark"] as const) {
+					for (const {where, tokens, own} of surfaces(theme, scheme, names)) {
+						const colour = (token: string) => {
+							const value = resolve(tokens, tokens[token]);
+							const rgba = value && toRGBA(value);
+							expect(
+								rgba,
+								`${theme} ${token} in ${where} resolves (${value})`
+							).to.not.equal(undefined);
+							return rgba as RGBA;
+						};
+						// The surface laid over its grounds; undefined if it stays see-through.
+						const ground = (token: string): RGBA | undefined => {
+							const fill = colour(token);
+							const under = GROUND[token];
+
+							if (fill[3] >= 1) {
+								return fill;
+							}
+
+							const below =
+								under && tokens[under] !== undefined ? ground(under) : undefined;
+							return below && over(fill, below);
+						};
+
+						for (const [surface, ink, floor] of PAIRS) {
+							const missing = [surface, ink].filter((t) => tokens[t] === undefined);
+
+							if (missing.length) {
+								// day and morning set TheLounge's variables alone, so the
+								// handoff's pairs are not theirs; every other theme has them.
+								if (where === ":root" && !LOUNGE_ONLY.has(theme)) {
+									failures.push(
+										`${theme} defines no ${missing.join(" or ")} (${scheme})`
+									);
+								}
+
+								continue;
+							}
+
+							// A block that re-maps only one side of a pair is painted over
+							// something this file cannot see (ps's light words go on the
+							// scene), so it is measured only where it sets both.
+							if (own && !(own.has(surface) && own.has(ink))) {
+								continue;
+							}
+
+							const label = `${theme} ${ink} on ${surface}`;
+							const bg = ground(surface);
+
+							if (!bg) {
+								seeThrough.add(`${theme} ${surface}`);
+								continue;
+							}
+
+							const ratio = contrast(over(colour(ink), bg), bg);
+							checked++;
+
+							if (ratio < floor && !KNOWN[label]) {
+								failures.push(
+									`${label} (${scheme}, ${where}): ${ratio.toFixed(2)} < ${floor}`
+								);
+							}
+						}
+					}
+				}
+
+				expect(checked, "pairs checked").to.be.greaterThan(0);
+				expect(
+					[...seeThrough].filter((s) => !SEE_THROUGH.has(s)),
+					"surfaces with nothing opaque under them"
+				).to.deep.equal([]);
+				expect(failures).to.deep.equal([]);
+			});
+		}
+	});
+});
