@@ -240,6 +240,45 @@ Headless Chromium 156 on this machine (56 cores; the 1-minute load 5–13 throug
 
 The iPhone sitting (§11's gate) is the user's.
 
+### 11.2 The moving room, measured (plan 2 task 6, 2026-11-15)
+
+Headless Chromium 156 on this machine, the production build of plan 2 task 5. Each run is a first visit under ps on a pinned clock (GMT), `/join` a channel and 10 s of its main-thread task time (`scene-rest.mjs`'s `taskLoad`), then `/query`: the long animation frames of the room's first open and 10 s of the query's task time, the scene's animations counted in both. The motion setting (`psAnimation`) is full or calm; still is reduced motion emulated. Profiles: 1280 × 800, and the phone profile (390 × 844 `--mobile`, CPU throttled 4×). Three rounds of seven slots, rotated by two each round. The 1-minute load ran 8–40 through the sitting (other sessions on the machine), recorded per run. These are Chrome figures, which rank only. Script: `tmp/yurt-check/perf2.mjs` (scratch).
+
+Each figure is the median of three, with its range:
+
+| Slot                               | Desktop: channel → query           | Phone 4×: channel → query               |
+| ---------------------------------- | ---------------------------------- | --------------------------------------- |
+| Full, clear noon                   | 9.1 % (8.2–14.9) → 2.4 % (2.3–2.5) | 34.1 % (32.7–35.4) → 23.5 % (21.2–26.4) |
+| Full, rainy noon                   | 11.6 (10.6–18.9) → 3.0 (2.7–3.2)   | 44.7 (43.1–46.8) → 33.1 (32.3–33.3)     |
+| Full, clear 21:00                  | 6.4 (6.4–7.0) → 3.5 (3.4–3.6)      | 30.1 (29.9–61.7) → 36.1 (33.1–70.9)     |
+| Calm, clear noon, clouds moving    | 1.9 (1.6–2.3) → 2.0 (1.9–2.2)      | 4.5 (4.3–6.3) → 20.4 (18.2–42.0)        |
+| Calm, clear 21:00, clouds moving   | 2.0 (2.0–5.4) → 2.0 (2.0–2.1)      | 14.6 (3.9–14.8) → 20.5 (20.3–44.0)      |
+| Calm, rainy noon                   | 1.9 (1.5–2.6) → 0.16 (0.15–0.24)   | 17.3 (4.2–18.0) → 2.0 (1.1–2.3)         |
+| Calm, clear noon, clouds resting   | 2.2 (2.2–2.9) → 0.18 (0.17–0.33)   | 6.4 (4.2–18.5) → 1.1 (1.0–1.4)          |
+| Calm, clear 21:00, clouds resting  | 2.9 (2.0–5.1) → 0.23 (0.16–0.30)   | 4.9 (4.7–17.6) → 1.1 (1.1–2.2)          |
+| Still (reduced motion), clear noon | — → 0.08 % (0.08–0.13)             | — → 0.45 % (0.32–0.52)                  |
+
+**Still stays far under 3 %. At full the query costs less than the channel in every slot but one.** On the phone profile at a clear 21:00 it read 36.1 % against 30.1 %; leaving out the one run of each at a load of 34, 33.1–36.1 against 29.9–30.1. Single runs with one group off, at a load of 33–40 (rank only), point at what the room adds at night:
+
+- the windows' twinkling stars: the query fell from 70.6 to 53.0 without them;
+- then the window clouds, 61.3, and the steam, 61.4;
+- then the hearth, 65.2;
+- the glow's flicker alone, 67.5, so it is not what crosses.
+
+Plan 2 does not tune this (the user's call). The candidates are fewer twinkling stars in the windows, or window clouds drawn as the plains' HTML clouds rather than an svg each.
+
+**Calm read over the plains' calm with the window clouds moving, so they leave calm (spec §11).** On the phone profile a calm query read 20 % against the channel's 4.5 % at noon, while the hearth's flickers alone (a rainy noon) cost it 2 %. `room-motion.ts` now rests the window clouds under `psng-calm` and shows their still drawing, and calm in a query then costs about a tenth of calm in a channel.
+
+NG's cloud drift recalculates style each frame in both views: about 47 a second in a calm channel on the phone profile, and 55–60 in a query with its window clouds moving. Neither taking the panes' clip, container or overflow away nor `will-change: transform` changed that. The room's clouds, an svg each, cost more per frame than the plains' blob clouds.
+
+**The first open is what it was in §11.1.** Its long frame was about 110–120 ms on the desktop (§11.1: 104) and about 477 ms on the phone profile (§11.1: 492–593). A 50 µs CPU profile puts `buildRoom` at 35–38 ms on the desktop and 148–210 ms on the phone profile:
+
+- `roomMarkup()`: 27–29 ms and 112–167 ms;
+- the HTML parse: 5.5 ms and 23–28 ms;
+- the stylesheet, now with the motion's: 1 ms and 4–5 ms.
+
+The iPhone sitting is the user's.
+
 ## 12. Tests and checks
 
 **Mocha:**

@@ -174,4 +174,14 @@ export const ROOM_MOTION_CSS = `/* One design unit on screen: the svg's xMidYMid
 #theme-scene.psng:not(.psng-m-steam) .ps-ym-steam {
 	display: none;
 }
+
+/* Calm keeps the hearth and lets the window clouds rest (spec §11: measured over the plains' calm, the
+ * window clouds leave calm before the stove's fire does; ps-yurt.md §11.2): the still clouds show. */
+#theme-scene.psng.psng-calm .ps-ym-cloud {
+	display: none;
+}
+
+#theme-scene.psng.psng-calm .ps-yt-still-clouds {
+	display: inline;
+}
 `;

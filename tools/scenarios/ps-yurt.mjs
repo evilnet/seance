@@ -27,7 +27,8 @@
 //       steam all run;
 //    b. rain runs psng-rain-fall, snow ps-flake, a storm ps-flash, a clear 21:00
 //       ps-twinkle;
-//    c. calm (psAnimation): only the drift and the two flickers;
+//    c. calm (psAnimation): only the two flickers, the window clouds resting
+//       (ps-yurt.md §11.2);
 //    d. still (reduced motion emulated): nothing runs, and plan 1's still fire and
 //       clouds show while the moving ones are out;
 //    e. a hidden page freezes the room (psng-frozen, nothing runs, every moving cloud
@@ -222,11 +223,11 @@ async function checks(page) {
 		await page.sleep(800);
 		const auto = await page.evaluate(CENSUS);
 		page.check(
-			`4c: a phone's auto is calm — only the drift and the two flickers (${[
+			`4c: a phone's auto is calm — only the two flickers, the window clouds resting (${[
 				...new Set(auto.map((a) => a.name)),
 			].join(" ")})`,
 			auto.length > 0 &&
-				auto.every((a) => ["ps-drift", "psng-yt-flick", "psng-yt-flick-b"].includes(a.name))
+				auto.every((a) => ["psng-yt-flick", "psng-yt-flick-b"].includes(a.name))
 		);
 	}
 
@@ -398,9 +399,8 @@ async function checks(page) {
 	await page.sleep(800);
 	const calm = await page.evaluate(CENSUS);
 	page.check(
-		`4c: calm — only the drift and the two flickers (${names(calm).join(" ")})`,
-		calm.length > 0 &&
-			calm.every((a) => ["ps-drift", "psng-yt-flick", "psng-yt-flick-b"].includes(a.name))
+		`4c: calm — only the two flickers, the window clouds resting (${names(calm).join(" ")})`,
+		calm.length > 0 && calm.every((a) => ["psng-yt-flick", "psng-yt-flick-b"].includes(a.name))
 	);
 	page.check(
 		"4g: the stove's door changes between two frames 300 ms apart (calm)",

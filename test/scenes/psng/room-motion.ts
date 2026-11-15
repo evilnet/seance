@@ -44,6 +44,19 @@ describe("the yurt's motion stylesheet (psng/room-motion.ts)", function () {
 		expect(rule(".psng-m-clouds ", "ps-yt-still-clouds", NONE), "swapped").to.equal(true);
 	});
 
+	it("calm: the window clouds leave calm before the fire does, their still drawing shown (spec §11; plan 2, task 6)", function () {
+		expect(rule(".psng-calm ", "ps-ym-cloud", NONE), "the moving clouds out").to.equal(true);
+		expect(
+			rule(".psng-calm ", "ps-yt-still-clouds", /display:\s*inline/),
+			"the still ones back"
+		).to.equal(true);
+		const at = (cls: string, body: RegExp) =>
+			rules.findIndex(([sel, b]) => sel.includes(cls) && body.test(b));
+		expect(at(".psng-calm .ps-yt-still-clouds", /inline/), "after the swap").to.be.above(
+			at(".psng-m-clouds .ps-yt-still-clouds", NONE)
+		);
+	});
+
 	it("stars: out of the page without psng-m-stars, each twinkle in phase with it", function () {
 		expect(rule(":not(.psng-m-stars)", "ps-ym-stars", NONE), "hidden").to.equal(true);
 		expect(rule(".psng-m-stars ", "ps-ym-tw", PHASED), "in phase").to.equal(true);
