@@ -1,6 +1,6 @@
 # Inside the yurt: the `ps` theme's private conversations
 
-**Status: design, awaiting the user's approval (2026-11-14).** Not built. Uncommitted on `ps-theme-clean` (worktree `.claude/worktrees/ps-clean`). The approved mockup is `docs/resources/themes/ps-yurt/mockup.html` (its README says what in it is the design); where the two disagree, this document wins. It supersedes `docs/projects/ps-theme.md` §5.7 (the frosted plains) once built.
+**Status: plan 1 (the still room) built, 2026-11-15** (`docs/projects/ps-yurt-plan-1.md`, on `ps-theme-clean`); plan 2 (the room's motion, §13) not started. The approved mockup is `docs/resources/themes/ps-yurt/mockup.html` (its README says what in it is the design); where the two disagree, this document wins. It supersedes `docs/projects/ps-theme.md` §5.7 (the frosted plains).
 
 ## 1. Intent
 

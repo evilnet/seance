@@ -893,9 +893,9 @@ strong,
  *
  * No z-index: a spark paints with its row, over the rows above it, and under
  * whatever floats over the column (the message toolbar, the jump-to-recent
- * disc, the overlaid user list). Channels only: a query stands still behind
- * frosted glass (spec §5.7), and .chat-view's data-type is the view the scene
- * is told (App.vue), set in the same render as the rows. Nothing of this
+ * disc, the overlaid user list). Channels only: a query shows the yurt's
+ * room, still (docs/projects/ps-yurt.md), and .chat-view's data-type is the
+ * view the scene is told (App.vue), set in the same render as the rows. Nothing of this
  * exists under reduced motion. */
 @keyframes ps-ember {
 	0% {
