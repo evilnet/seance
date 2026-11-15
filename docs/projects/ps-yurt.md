@@ -220,6 +220,26 @@ The rug's blue held without moving. Every held floor then holds over the room: t
 
 The static SVG paints once per rebuild; the minute tick writes custom properties only. The room's markup is heavy (the lattice, 72 poles, the furniture faces), so it is kept out of the render tree whenever the plains show.
 
+### 11.1 The still room, measured (plan 1 task 10, 2026-11-15)
+
+Headless Chromium 156 on this machine (56 cores; the 1-minute load 5–13 through the sitting, recorded per run), production builds served side by side: the room (this branch at plan 1 task 9) against the frosted plains (`6fa941e`, the commit before task 6). Each run is a first visit under ps on a pinned clock (2 January 2026, GMT, clear), `/join` a channel, then `/query`; it reads the long animation frames from the query's open, then 10 s of main-thread task time (`scene-rest.mjs`'s `taskLoad`: CDP `TaskDuration` per second of wall clock) and the scene's animations. Three rounds, the four slots rotated by one each round, at 1280 × 800 and on the phone profile (390 × 844 `--mobile`, CPU throttled 4×); one frost/21:00/phone run timed out, so that slot has two readings. Script: `tmp/yurt-check/perf.mjs` (scratch).
+
+| Query, still, 10 s                            | Room        | Frosted plains |
+| --------------------------------------------- | ----------- | -------------- |
+| Desktop, 12:00                                | 0.07–0.08 % | 0.08–0.10 %    |
+| Desktop, 21:00                                | 0.07–0.08 % | 0.07 %         |
+| Phone 4×, 12:00                               | 0.29–0.35 % | 0.34–0.53 %    |
+| Phone 4×, 21:00                               | 0.29–0.48 % | 0.37–0.39 %    |
+| Style recalculations a second, CSS animations | 0, 0        | 0, 0           |
+
+**The still room costs what the frosted plains cost, within noise,** far under the 3 % still gate, and no CSS animation runs in either.
+
+**The first open costs more, once a page load.** The room is built on the first query and kept (task 6), so that query's open is one long frame: on the desktop about 104 ms (100–145) against the frost's 66 ms (57–108), and on the phone profile 492–593 ms against 180–364 ms. A CPU profile at 50 µs (three runs each, the frames mapped through the build's source map) puts `buildRoom` (`psng/scene.ts`) at 37–39 ms on the desktop and 188–203 ms on the phone profile, of which `roomMarkup()` generating the picture is 28–31 ms and 146–159 ms, the HTML parse (`insertAdjacentHTML`; the scene then holds 2 981 elements against 1 974 without the room) 6–7 ms and 29–30 ms, and the stylesheet 1 ms and 3 ms. The rest of the phone's difference is the first style, layout and paint of the room. The cause is generating the markup at run time; generating it once at build time, or before the first query while the page is idle, would take most of it away. Plan 1 does not tune it (the user's call).
+
+**The shading method (§6) costs nothing at rest and one restyle when the light moves.** The room is coloured by classes whose `color-mix` reads the minute's levels (`indoor.ts` `roomCss`); at noon and at night the levels hold still, and none of the 24 windows above restyled anything. A change of `--ps-in-shade` and `--ps-in-warm` (five changes, two runs each) costs 30–36 ms of task time on the desktop (26–32 ms of it style recalculation, no layout) and 130–188 ms on the phone profile (117–157 ms style): once a minute while the light moves, at dawn and dusk. No other method was built to compare (the plan fixed this one); an overlay that shades the whole picture in one layer would trade that restyle for a blend over the screen, and would be measured against this if the restyle shows on the iPhone.
+
+The iPhone sitting (§11's gate) is the user's.
+
 ## 12. Tests and checks
 
 **Mocha:**
