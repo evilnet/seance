@@ -1,9 +1,11 @@
 // Chat cues (client/js/chatCues.ts, docs/resources/themes.md § Chat cues) in
 // a real browser, under the ps theme: someone joining the open channel puts
-// `data-chat-cue="join"` on <html> and the moon and sun run `ps-cue-glow`,
-// gone CUE_MS later; a mention replaces it; a message inside QUIET_MS, a line
-// in another channel and our own line cue nothing; a part cues but ps draws
-// nothing for it; and with reduced motion on nothing is cued.
+// `data-chat-cue="join"` on <html> and the moon and sun run `ps-cue-join`;
+// each message after it replaces it and runs `ps-cue-message` again; a mention
+// replaces it and a message does not cut the mention short; the cue is gone
+// CUE_MS later; a line in another channel, our own line and a part cue
+// nothing; switching channels ends a cue; and with reduced motion on nothing
+// is cued.
 //
 //   pnpm build && python3 -m http.server -d "$PWD/public" 8000 &
 //   node tools/browser-drive.mjs tools/scenarios/chat-cues.mjs
@@ -61,28 +63,41 @@ export default async function run(page) {
 		send(`${from("alice")} JOIN ${CHANNEL}`);
 		await page.waitFor(`${CUE} === "join"`, {label: "the join cue"});
 		const glow = await page.evaluate(GLOW);
-		page.check(`a join: the moon and sun glow (${glow})`, glow === "ps-cue-glow ps-cue-glow");
-		await page.sleep(600); // near the glow's peak (30 % of 2.6 s)
+		page.check(`a join: the moon and sun flare (${glow})`, glow === "ps-cue-join ps-cue-join");
+		await page.sleep(600); // near the flare's peak
 		await page.screenshot("join-glow");
 
+		// Each message restarts the beat: a "message" attribute is taken off and put back.
+		await page.evaluate(`(() => {
+			window.__restarts = 0;
+			new MutationObserver((l) => (window.__restarts += l.filter((m) => m.oldValue === "message").length))
+				.observe(document.documentElement, {attributeOldValue: true, attributeFilter: ["data-chat-cue"]});
+		})()`);
 		send(`${from("alice")} PRIVMSG ${CHANNEL} :hello`);
+		await page.waitFor(`${CUE} === "message"`, {label: "a message replacing the join"});
+		page.check(
+			"a message: ps-cue-message",
+			(await page.evaluate(GLOW)) === "ps-cue-message ps-cue-message"
+		);
 		await page.sleep(300);
-		await cueIs("join", "a message while a cue shows");
+		await page.screenshot("message-beat");
+		send(`${from("alice")} PRIVMSG ${CHANNEL} :again`);
+		await page.waitFor(`window.__restarts >= 1 && ${CUE} === "message"`, {
+			label: "the second message's restart",
+		});
 
 		send(`${from("bob")} PRIVMSG ${CHANNEL} :${NICK}: ping`);
-		await page.waitFor(`${CUE} === "mention"`, {label: "a mention replacing the join"});
+		await page.waitFor(`${CUE} === "mention"`, {label: "a mention"});
 		page.check(
 			"a mention: ps-cue-mention",
 			(await page.evaluate(GLOW)) === "ps-cue-mention ps-cue-mention"
 		);
+		send(`${from("alice")} PRIVMSG ${CHANNEL} :under the mention`);
+		await page.sleep(300);
+		await cueIs("mention", "a message during a mention");
 
 		await page.waitFor(`${CUE} === null`, {label: "the cue's end", timeout: 4000});
 		page.check("the end: no glow", !(await page.evaluate(GLOW)).includes("ps-cue"));
-
-		send(`${from("alice")} PRIVMSG ${CHANNEL} :inside the quiet`);
-		await page.sleep(300);
-		await cueIs(null, "a message inside the quiet");
-		await page.sleep(2000);
 
 		send(`${from("alice")} PRIVMSG ${OTHER} :somewhere else`);
 		await page.sleep(300);
@@ -98,10 +113,16 @@ export default async function run(page) {
 		await cueIs(null, "our own line");
 
 		send(`${from("carol")} PART ${CHANNEL} :bye`);
-		await page.waitFor(`${CUE} === "part"`, {label: "the part cue"});
-		page.check("a part: ps draws nothing", !(await page.evaluate(GLOW)).includes("ps-cue"));
-		await page.waitFor(`${CUE} === null`, {label: "the part's end", timeout: 4000});
-		await page.sleep(2100);
+		await page.sleep(300);
+		await cueIs(null, "a part");
+
+		// A cue ends with its conversation.
+		send(`${from("erin")} JOIN ${CHANNEL}`);
+		await page.waitFor(`${CUE} === "join"`, {label: "a join before switching"});
+		await page.evaluate(
+			`document.querySelector('.channel-list-item[data-name="${OTHER}"]').click()`
+		);
+		await page.waitFor(`${CUE} === null`, {label: "the cue ends on a switch", timeout: 1000});
 
 		await page.send("Emulation.setEmulatedMedia", {
 			features: [{name: "prefers-reduced-motion", value: "reduce"}],

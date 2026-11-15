@@ -68,6 +68,7 @@ import {
 } from "vue";
 import {useStore} from "../js/store";
 import {themeScene} from "../js/themeScene";
+import {chatCues} from "../js/chatCues";
 import {ChanType} from "../../shared/types/chan";
 
 export const imageViewerKey = Symbol() as InjectionKey<Ref<typeof ImageViewer | null>>;
@@ -204,6 +205,12 @@ export default defineComponent({
 		};
 
 		prepareOpenStates();
+
+		// A chat cue belongs to the conversation it came from (client/js/chatCues.ts).
+		watch(
+			() => store.state.activeChannel?.channel,
+			() => chatCues.clear()
+		);
 
 		// What kind of conversation a theme's scene sits behind (client/js/themeScene.ts).
 		watch(

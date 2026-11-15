@@ -87,17 +87,19 @@ Five themes come as a light/dark pair: Coffee/Creama, Cobalt/Frost, Princess\_/P
 
 ## Chat cues
 
-A theme can react to what happens in the open conversation without shipping code (`client/js/chatCues.ts`). Someone else's live join, part (a quit or kick counts), message or mention there sets `<html data-chat-cue="join">` (or `part`, `message`, `mention`) for `CUE_MS` (3 s), so a theme's CSS, or the user's own stylesheet, can select on it:
+A theme can react to what happens in the open conversation without shipping code (`client/js/chatCues.ts`). Someone else's live message, join or mention there sets `<html data-chat-cue="message">` (or `join`, `mention`) for `CUE_MS` (3 s), so a theme's CSS, or the user's own stylesheet, can select on it:
 
 ```css
-html[data-chat-cue="join"] .header .title {
-  animation: my-glow 2.5s ease-in-out;
+html[data-chat-cue="message"]:not([data-reduce-motion]) .header .title {
+  animation: my-beat 1s ease-out;
 }
 ```
 
-The rules keep it calm and say nothing: a cue names only the kind of thing that happened, never who, where or what. One shows at a time; while it does, another is dropped (a mention replaces anything but a mention), and after it ends the next waits `QUIET_MS` (2 s), so a busy channel glows now and then rather than all the time. Nothing is cued for history, catch-up, a placed line, a notice rerouted to the open window, an edit, a pending copy or our own lines (`socket-events/msg.ts`, `cueForMessage`), nor while the page is hidden or `html[data-reduce-motion]` is set. A theme's cue animation should be short and is still the theme's to keep within its own motion rules.
+Every cue shows: a new one replaces the one showing, and the attribute is taken off and put back, so the same cue twice restarts a theme's animation; only a mention is not cut short by anything but another mention. Nothing is cued for history, catch-up, a placed line, a notice rerouted to the open window, an edit, a pending copy or our own lines (`socket-events/msg.ts`, `cueForMessage`), nor while the page is hidden or `html[data-reduce-motion]` is set, and a cue showing ends at once when the page is hidden, motion is reduced, the open conversation changes (`App.vue`) or the theme does (`settings.ts`). A live line still cues while the user reads older rows or a past view of the open conversation: it arrived there. A theme's cue animation should be short and is the theme's to keep within its own motion rules; select on `:not([data-reduce-motion])` too rather than relying on the cue's own gate.
 
-`ps` is the example: `ps.css` makes the moon (by day the sun) glow on a join and glow warmer and longer on a mention, only while its scene moves (`#theme-scene.psng-m-clouds:not(.psng-frozen)`: full or calm, never still or resting). It is a `filter` animation, the one exception to NG's transform-and-opacity rule, which `tools/scenarios/ps-ng.mjs`'s census never sees since nothing cues it there. Tests `test/tests/chatCues.ts`; browser check `tools/scenarios/chat-cues.mjs` (no ircd: `lib/tiny-ircd.mjs`).
+The attribute carries a fixed word, never a nick, channel or text, but it is still a signal: a stylesheet can tell that a message, join or mention arrived in the open conversation, and when, and a third-party theme could ask for a URL on each (`html[data-chat-cue="mention"] { background-image: url(…) }`). The message rows already in the DOM tell a stylesheet far more, so this is no new trust boundary, but a theme from someone else is trusted with it.
+
+`ps` is the example: `ps.css` makes the moon (by day the sun) beat on every message (a 1.2 s swell and glow), flare on a join and flare twice, warm, on a mention, only while its scene moves (`#theme-scene.psng-m-clouds:not(.psng-frozen)`: full or calm, never still or resting). It animates `transform` and `filter`, the filter the one exception to NG's transform-and-opacity rule, which `tools/scenarios/ps-ng.mjs`'s census never sees since nothing cues it there. Tests `test/tests/chatCues.ts`; browser check `tools/scenarios/chat-cues.mjs` (no ircd: `lib/tiny-ircd.mjs`).
 
 ## Checking a theme
 

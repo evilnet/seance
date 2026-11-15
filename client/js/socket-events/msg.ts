@@ -17,7 +17,7 @@ import {forgetTranslations} from "../translate/reader";
 import {nativeAlertsAvailable, requestAttention, showNativeAlert} from "../helpers/nativeAlerts";
 import {alertSound, playNotificationSound} from "../helpers/notificationSound";
 import {hasVirtualKeyboard} from "../helpers/device";
-import {cueForMessage, fireChatCue} from "../chatCues";
+import {chatCues, cueForMessage} from "../chatCues";
 
 socket.on("msg", function (data) {
 	const receivingChannel = store.getters.findChannel(data.chan);
@@ -88,7 +88,7 @@ socket.on("msg", function (data) {
 		const cue = cueForMessage(data.msg);
 
 		if (cue) {
-			fireChatCue(cue);
+			chatCues.fire(cue);
 		}
 	}
 

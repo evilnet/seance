@@ -1167,41 +1167,64 @@ html:not([data-reduce-motion]) #chat .chat-view[data-type="channel"] .content:ha
 	overflow: visible;
 }
 
-/* Chat cues (themes.md § Chat cues): someone joins the open channel and the
- * moon (by day the sun) glows for a moment; a mention glows warmer and
- * longer. Only while the scene moves: psng-m-clouds is on in full and calm
- * and never still, and psng-frozen marks a rest. These rules outrank
- * styles.ts's "every animation off" (1,3,1) on purpose: a cue is the one
- * animation it lets through. Only one of the two bodies is up at a time; the
- * other's opacity is 0, so its glow is never seen. */
-@keyframes ps-cue-glow {
+/* Chat cues (themes.md § Chat cues): the moon (by day the sun) answers the
+ * open channel. Every message gives it a beat, a join a long flare, a mention
+ * two warm ones. Only while the scene moves (psng-m-clouds is on in full and
+ * calm, never still; psng-frozen marks a rest) and never under reduced
+ * motion. These rules outrank styles.ts's "every animation off" (1,3,1) on
+ * purpose: a cue is the one animation it lets through. Only one of the two
+ * bodies is up at a time; the other's opacity is 0. */
+@keyframes ps-cue-message {
 	0%,
 	100% {
+		transform: none;
 		filter: none;
 	}
 
-	30% {
-		filter: brightness(1.35) drop-shadow(0 0 1.25rem rgb(255 246 220 / 85%));
+	25% {
+		transform: scale(1.22);
+		filter: brightness(1.6) drop-shadow(0 0 2rem rgb(255 246 220 / 95%));
+	}
+}
+
+@keyframes ps-cue-join {
+	0%,
+	100% {
+		transform: none;
+		filter: none;
+	}
+
+	20%,
+	45% {
+		transform: scale(1.35);
+		filter: brightness(1.8) drop-shadow(0 0 3rem rgb(220 240 255 / 100%));
 	}
 }
 
 @keyframes ps-cue-mention {
 	0%,
+	50%,
 	100% {
+		transform: none;
 		filter: none;
 	}
 
-	25%,
-	55% {
-		filter: brightness(1.5) drop-shadow(0 0 1.75rem rgb(255 196 150 / 90%));
+	20%,
+	70% {
+		transform: scale(1.5);
+		filter: brightness(2) drop-shadow(0 0 3.5rem rgb(255 170 110 / 100%));
 	}
 }
 
-:root[data-chat-cue="join"] #theme-scene.psng-m-clouds:not(.psng-frozen) :is(.ps-moon, .ps-sun) svg {
-	animation: ps-cue-glow 2.6s ease-in-out !important;
+:root[data-chat-cue="message"]:not([data-reduce-motion]) #theme-scene.psng-m-clouds:not(.psng-frozen) :is(.ps-moon, .ps-sun) svg {
+	animation: ps-cue-message 1.2s ease-out !important;
 }
 
-:root[data-chat-cue="mention"] #theme-scene.psng-m-clouds:not(.psng-frozen) :is(.ps-moon, .ps-sun) svg {
+:root[data-chat-cue="join"]:not([data-reduce-motion]) #theme-scene.psng-m-clouds:not(.psng-frozen) :is(.ps-moon, .ps-sun) svg {
+	animation: ps-cue-join 2.6s ease-in-out !important;
+}
+
+:root[data-chat-cue="mention"]:not([data-reduce-motion]) #theme-scene.psng-m-clouds:not(.psng-frozen) :is(.ps-moon, .ps-sun) svg {
 	animation: ps-cue-mention 2.9s ease-in-out !important;
 }
 

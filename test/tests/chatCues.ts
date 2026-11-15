@@ -1,22 +1,15 @@
 import {expect} from "chai";
 import {MessageType} from "../../shared/types/msg";
-import {
-	createChatCues,
-	cueForMessage,
-	CUE_MS,
-	QUIET_MS,
-	type ChatCue,
-} from "../../client/js/chatCues";
+import {createChatCues, cueForMessage, CUE_MS, type ChatCue} from "../../client/js/chatCues";
 
 /** The cue rules on a hand-wound clock, recording what they showed. */
 function rig(allowed = () => true) {
 	let t = 0;
 	let timers: {at: number; fn: () => void}[] = [];
 	const shown: (ChatCue | null)[] = [];
-	const fire = createChatCues({
+	const cues = createChatCues({
 		show: (cue) => shown.push(cue),
 		allowed,
-		now: () => t,
 		after(ms, fn) {
 			const timer = {at: t + ms, fn};
 			timers.push(timer);
@@ -29,16 +22,13 @@ function rig(allowed = () => true) {
 		timers = timers.filter((x) => x.at > t);
 		due.forEach((x) => x.fn());
 	};
-	return {fire, shown, advance};
+	return {fire: (c: ChatCue) => cues.fire(c), clear: () => cues.clear(), shown, advance};
 }
 
 describe("chat cues (chatCues.ts)", function () {
 	describe("cueForMessage", function () {
-		it("cues others' joins, parts, messages and mentions", function () {
+		it("cues others' joins, messages and mentions", function () {
 			expect(cueForMessage({type: MessageType.JOIN})).to.equal("join");
-			expect(cueForMessage({type: MessageType.PART})).to.equal("part");
-			expect(cueForMessage({type: MessageType.QUIT})).to.equal("part");
-			expect(cueForMessage({type: MessageType.KICK})).to.equal("part");
 			expect(cueForMessage({type: MessageType.MESSAGE})).to.equal("message");
 			expect(cueForMessage({type: MessageType.ACTION})).to.equal("message");
 			expect(cueForMessage({type: MessageType.MESSAGE, highlight: true})).to.equal("mention");
@@ -51,6 +41,8 @@ describe("chat cues (chatCues.ts)", function () {
 			expect(cueForMessage({type: MessageType.NOTICE})).to.equal(null);
 			expect(cueForMessage({type: MessageType.TOPIC})).to.equal(null);
 			expect(cueForMessage({type: MessageType.MODE})).to.equal(null);
+			expect(cueForMessage({type: MessageType.PART})).to.equal(null);
+			expect(cueForMessage({type: MessageType.QUIT})).to.equal(null);
 		});
 	});
 
@@ -64,29 +56,27 @@ describe("chat cues (chatCues.ts)", function () {
 			expect(shown).to.deep.equal(["join", null]);
 		});
 
-		it("drops a second cue while one shows, and waits QUIET_MS after one ends", function () {
+		it("every cue shows, each replacing the last with its own full time", function () {
 			const {fire, shown, advance} = rig();
 			fire("join");
+			advance(CUE_MS - 1);
 			fire("message");
-			fire("join");
-			advance(CUE_MS);
 			fire("message");
-			advance(QUIET_MS);
-			fire("message");
-			expect(shown).to.deep.equal(["join", null, "message"]);
+			advance(CUE_MS - 1);
+			expect(shown).to.deep.equal(["join", "message", "message"]);
+			advance(1);
+			expect(shown).to.deep.equal(["join", "message", "message", null]);
 		});
 
-		it("a mention replaces any other cue and skips the quiet, but not another mention", function () {
+		it("only a mention cuts a mention short", function () {
 			const {fire, shown, advance} = rig();
+			fire("mention");
 			fire("message");
+			fire("join");
 			fire("mention");
-			fire("mention");
-			// The mention's own full time, not what was left of the message's.
-			advance(CUE_MS - 1);
-			expect(shown).to.deep.equal(["message", "mention"]);
-			advance(1);
-			fire("mention");
-			expect(shown).to.deep.equal(["message", "mention", null, "mention"]);
+			advance(CUE_MS);
+			fire("message");
+			expect(shown).to.deep.equal(["mention", "mention", null, "message"]);
 		});
 
 		it("shows nothing while not allowed (hidden page, reduced motion)", function () {
@@ -97,6 +87,16 @@ describe("chat cues (chatCues.ts)", function () {
 			ok = true;
 			fire("join");
 			expect(shown).to.deep.equal(["join"]);
+		});
+
+		it("clear ends the cue showing and its timer, and is a no-op with none", function () {
+			const {fire, clear, shown, advance} = rig();
+			fire("mention");
+			clear();
+			advance(CUE_MS);
+			clear();
+			fire("message");
+			expect(shown).to.deep.equal(["mention", null, "message"]);
 		});
 	});
 });

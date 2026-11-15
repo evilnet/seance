@@ -8,6 +8,7 @@ import {normalizePsWords} from "./helpers/psWords";
 import {prefersTwelveHourClock} from "./helpers/hourCycle";
 import storage from "./localStorage";
 import {normalizeSceneMotion, themeScene} from "./themeScene";
+import {chatCues} from "./chatCues";
 import {setQueryLogEnabled} from "./irc/querylog";
 import {setClosedQueriesKept} from "./irc/closedQueries";
 import {forgetPrivateTerms, loadAll} from "./translate/channelStore";
@@ -45,6 +46,11 @@ function loadTheme(store: TypedStore): void {
 		store.state.settings.matchSystemAppearance,
 		darkScheme.matches
 	);
+
+	// A cue shown under another theme is not this one's to play (chatCues.ts).
+	if (value !== appliedTheme) {
+		chatCues.clear();
+	}
 
 	// A theme's own scene, if it has one (client/js/themeScene.ts).
 	void themeScene.setTheme(value);
