@@ -4,13 +4,8 @@ import type {SceneHostState} from "../../themeScene";
 export type Tier = "full" | "calm" | "still";
 
 export function tierFor(state: SceneHostState, reduceMotion: boolean): Tier {
-	if (
-		!state.visible ||
-		!state.attended ||
-		state.view === "query" ||
-		reduceMotion ||
-		state.motion === "still"
-	) {
+	// A query is just another view (docs/projects/ps-yurt.md §8): the yurt's room moves as the plains do.
+	if (!state.visible || !state.attended || reduceMotion || state.motion === "still") {
 		return "still";
 	}
 

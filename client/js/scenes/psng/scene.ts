@@ -103,10 +103,11 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 		document.adoptedStyleSheets = [...document.adoptedStyleSheets, roomSheet];
 	};
 
-	// The fire's frame loop runs only in the full tier, with the sun's group on and its gate live;
+	// The fire's frame loop runs only in the full tier, with the sun's group on and its gate live, and
+	// never in a query, where the plains are out of the render tree (docs/projects/ps-yurt.md §8);
 	// anywhere else no frame is requested (calm keeps the one frame it has painted).
 	const syncFire = () => {
-		if (tier === "full" && sunOn && sunLive) {
+		if (tier === "full" && sunOn && sunLive && latest.view !== "query") {
 			fire?.start();
 		} else {
 			fire?.stop();
@@ -347,8 +348,17 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 	};
 
 	const update = (state: SceneHostState) => {
+		const viewChanged = lastView !== null && state.view !== lastView;
 		latest = state;
 		setGroups();
+
+		// A picture leaving the render tree drops its animations and the one coming back starts them
+		// anew: at a change of view while moving, the phase is written again as on a resume, so the
+		// loops of the picture now shown start where the clock puts them.
+		if (viewChanged && tier !== "still") {
+			root.style.setProperty("--psng-t", `${phaseSeconds(new Date(), mounted) - restedS}s`);
+		}
+
 		findViewport();
 		root.dataset.view = state.view;
 		root.classList.toggle("ps-private", state.view === "query");
@@ -358,7 +368,6 @@ export function mount(root: HTMLElement, initial: SceneHostState): SceneHandle {
 			buildRoom();
 		}
 
-		const viewChanged = lastView !== null && state.view !== lastView;
 		lastView = state.view;
 
 		if (state.visible && !visible) {
