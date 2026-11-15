@@ -42,11 +42,65 @@ describe("ps yurt: the room's colour and light by the minute (indoor.ts, docs/pr
 		expect(l.shade).to.be.closeTo(0.55 * 0.46, 1e-9);
 	});
 
-	it("writes exactly the seven levels", function () {
+	it("lights the golden hour's glow at the golden hour alone: never at night, never under cloud", function () {
+		const golden = at(new Date(2026, 5, 21, 19, 30), "clear");
+		const night = at(new Date(2026, 5, 21, 23, 0), "clear");
+		const storm = at(new Date(2026, 5, 21, 19, 30), "storm");
+		const rain = at(new Date(2026, 5, 21, 19, 30), "rain");
+		expect(indoorLevels(golden.m, golden.p).golden).to.be.above(0.1);
+		expect(indoorLevels(night.m, night.p).golden).to.equal(0);
+		expect(indoorLevels(storm.m, storm.p).golden).to.equal(0);
+		expect(indoorLevels(rain.m, rain.p).golden).to.equal(0);
+		expect(roomCss()).to.contain(".ps-yt-golden { opacity: var(--ps-in-golden); }");
+	});
+
+	it("shows the sun in the back window only while it is above the horizon", function () {
+		for (let min = 0; min < 24 * 60; min += 10) {
+			const {m, p} = at(new Date(2026, 5, 21, 0, min), "clear");
+			const sun = indoorLevels(m, p).sun;
+			expect(sun, `minute ${min}`).to.be.within(0, 1);
+
+			if (m.sun.alt < 0) {
+				expect(sun, `minute ${min}, the sun at ${m.sun.alt}`).to.equal(0);
+			}
+		}
+
+		const after = at(new Date(2026, 5, 21, 21, 0), "clear");
+		expect(indoorLevels(after.m, after.p).sun).to.equal(0);
+	});
+
+	it("takes what the fire's and the lamp's glows reach as grounds under them, but not the stove drawn over its own glow", function () {
+		const {m, p} = at(new Date(2026, 5, 21, 23, 0), "clear");
+		const areas = indoorGrounds(m, p).map((g) => g.area);
+
+		for (const key of [
+			"furn",
+			"furnL",
+			"wood",
+			"woodL",
+			"blue",
+			"cream",
+			"curtain",
+			"mattress",
+			"quiltTop",
+			"monitor",
+		]) {
+			expect(areas).to.include(`room ${key} under the fire`);
+			expect(areas).to.include(`room ${key} under the lamp`);
+		}
+
+		for (const key of ["ironD", "ironShadow", "ironTop", "pipe", "roofA", "crown"]) {
+			expect(areas).to.not.include(`room ${key} under the fire`);
+			expect(areas).to.not.include(`room ${key} under the lamp`);
+		}
+	});
+
+	it("writes exactly the eight levels", function () {
 		const {m, p} = at(new Date(2026, 5, 21, 18, 30), "clear");
 		expect(Object.keys(indoorVars(m, p)).sort()).to.deep.equal([
 			"--ps-in-beam",
 			"--ps-in-fire",
+			"--ps-in-golden",
 			"--ps-in-lamp",
 			"--ps-in-screen",
 			"--ps-in-shade",

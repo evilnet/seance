@@ -38,6 +38,15 @@ describe("ps yurt: the room's markup (room.ts, docs/projects/ps-yurt.md §5)", f
 		literal.forEach((tag) => expect(tag, tag).to.contain("ps-yt-lit"));
 	});
 
+	it("lets the fire and the lamp light what stands in the room, the stove dark against its own glow (§6)", function () {
+		const glows = markup.indexOf('class="ps-yt-glow-fire"');
+		expect(glows).to.be.above(0);
+		ROOM_PIECES.forEach((p) => expect(markup.indexOf(p), p).to.be.below(glows));
+		const over = markup.indexOf('class="ps-yt-stove-over"');
+		expect(over).to.be.above(glows);
+		expect(markup.indexOf("url(#ps-yt-fire)")).to.be.above(over);
+	});
+
 	it("keeps the plains' classes out of the room", function () {
 		expect(markup).to.not.match(/class="[^"]*\bps-(moon|sun|stars|weather|frost)\b/);
 		expect(markup).to.contain("ps-m-ell").and.contain("ps-m-shape");

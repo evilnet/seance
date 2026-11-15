@@ -334,6 +334,7 @@ describe("ps NG scene: mount (psng/scene.ts, on a stand-in page)", function () {
 					// The yurt's light levels (indoor.ts), written whatever the view.
 					"--ps-in-shade": "0.000",
 					"--ps-in-warm": "0.000",
+					"--ps-in-golden": "0.000",
 					"--ps-in-fire": "0.320",
 					"--ps-in-lamp": "0.000",
 					"--ps-in-beam": "1.000",

@@ -1297,8 +1297,8 @@ export function roomMarkup(): string {
 			],
 			attrs
 		);
-	const stove = piece(
-		"stove",
+	// The stove, drawn twice: once in its place among what stands, once over the glows (body, below).
+	const stoveBody =
 		[-2.4, -0.75, 0.9, 2.55]
 			.map((a) =>
 				abox(
@@ -1309,35 +1309,33 @@ export function roomMarkup(): string {
 				)
 			)
 			.join("") +
-			cylinderSide(0, 0, STOVE_R + 0.02, 0.14, 0.18, cls("ironTop")) +
-			cylinderSide(0, 0, STOVE_R, 0.18, 0.72, 'fill="url(#ps-yt-iron)"') +
-			cylinderSide(0, 0, STOVE_R + 0.008, 0.22, 0.25, 'fill="url(#ps-yt-brass)"') +
-			cylinderSide(0, 0, STOVE_R + 0.008, 0.64, 0.67, 'fill="url(#ps-yt-brass)"') +
-			Dr.arched(
-				-0.17,
-				0.17,
-				0.29,
-				0.5,
-				0.08,
-				`${cls("ironD", "doorEdge")} stroke-width="${strokeAt(Dr, 0, 0.4, 0.012)}"`
-			) +
-			Dr.rect(-0.11, 0.26, 0.11, 0.28, cls("ironD")) +
-			Dr.circle(0.13, 0.42, 0.017, cls("gold")) +
-			cylinderSide(0, 0, STOVE_R + 0.04, 0.72, 0.76, cls("ironTop")) +
-			poly3(circle3(0, 0.76, 0, STOVE_R + 0.04), cls("ironTopL")) +
-			poly3(
-				circle3(0, 0.762, 0, STOVE_R - 0.06),
-				`fill="none" ${cls(undefined, "ironRing")} stroke-width="1.2"`
-			) +
-			cylinderSide(0, 0.1, 0.11, 0.76, 0.84, cls("collar")) +
-			poly3(circle3(0, 0.84, 0.1, 0.11, 24), cls("collarTop")) +
-			across(0.84, CROWN_H + 0.3, 0.075, 0.1, cls("pipe")) +
-			[1.1, 1.6, 2.1, 2.6]
-				.map((h) => across(h, h + 0.04, 0.088, 0.1, cls("pipeBand")))
-				.join("") +
-			sprite([-0.17, 0.76, -0.1], SPR.pot + SPR.steam, 0.0055) +
-			sprite([0.18, 0.76, -0.12], SPR.kettle, 0.0055)
-	);
+		cylinderSide(0, 0, STOVE_R + 0.02, 0.14, 0.18, cls("ironTop")) +
+		cylinderSide(0, 0, STOVE_R, 0.18, 0.72, 'fill="url(#ps-yt-iron)"') +
+		cylinderSide(0, 0, STOVE_R + 0.008, 0.22, 0.25, 'fill="url(#ps-yt-brass)"') +
+		cylinderSide(0, 0, STOVE_R + 0.008, 0.64, 0.67, 'fill="url(#ps-yt-brass)"') +
+		Dr.arched(
+			-0.17,
+			0.17,
+			0.29,
+			0.5,
+			0.08,
+			`${cls("ironD", "doorEdge")} stroke-width="${strokeAt(Dr, 0, 0.4, 0.012)}"`
+		) +
+		Dr.rect(-0.11, 0.26, 0.11, 0.28, cls("ironD")) +
+		Dr.circle(0.13, 0.42, 0.017, cls("gold")) +
+		cylinderSide(0, 0, STOVE_R + 0.04, 0.72, 0.76, cls("ironTop")) +
+		poly3(circle3(0, 0.76, 0, STOVE_R + 0.04), cls("ironTopL")) +
+		poly3(
+			circle3(0, 0.762, 0, STOVE_R - 0.06),
+			`fill="none" ${cls(undefined, "ironRing")} stroke-width="1.2"`
+		) +
+		cylinderSide(0, 0.1, 0.11, 0.76, 0.84, cls("collar")) +
+		poly3(circle3(0, 0.84, 0.1, 0.11, 24), cls("collarTop")) +
+		across(0.84, CROWN_H + 0.3, 0.075, 0.1, cls("pipe")) +
+		[1.1, 1.6, 2.1, 2.6].map((h) => across(h, h + 0.04, 0.088, 0.1, cls("pipeBand"))).join("") +
+		sprite([-0.17, 0.76, -0.1], SPR.pot + SPR.steam, 0.0055) +
+		sprite([0.18, 0.76, -0.12], SPR.kettle, 0.0055);
+	const stove = piece("stove", stoveBody);
 	const fire =
 		Dr.arched(-0.125, 0.125, 0.33, 0.48, 0.06, `fill="url(#ps-yt-fire)" ${LIT}`) +
 		Dr.poly(
@@ -1627,7 +1625,11 @@ export function roomMarkup(): string {
 		)}" rx="${n(backBox.w * 0.8)}" ry="${n(
 			backBox.h * 1.2
 		)}" fill="url(#ps-yt-g-golden)"/></g>` +
-		// The glows fall on the walls and the floor behind what stands in the room, so the stove's iron stays dark against its own glow.
+		// Everything standing, far to near; the sun's beam through the crown.
+		standing +
+		`<polygon class="ps-yt-beam" points="${pts(beam)}" fill="url(#ps-yt-beam-fill)"/>` +
+		// The glows light the walls, the floor and everything standing (a screen blend over them, the
+		// mockup's order); the stove is drawn again over them, so its iron stays dark against its own glow.
 		`<g style="mix-blend-mode: screen">` +
 		`<circle class="ps-yt-glow-fire" cx="${n(door[0])}" cy="${n(door[1])}" r="${n(
 			(FOCAL * 2.4) / door[2]
@@ -1650,9 +1652,7 @@ export function roomMarkup(): string {
 			  )}" r="${n((FOCAL * 0.45) / screenAt[2])}" fill="url(#ps-yt-g-screen)"/>`
 			: "") +
 		`</g>` +
-		// Everything standing, far to near; the sun's beam through the crown.
-		standing +
-		`<polygon class="ps-yt-beam" points="${pts(beam)}" fill="url(#ps-yt-beam-fill)"/>` +
+		`<g class="ps-yt-stove-over">${stoveBody}</g>` +
 		// What stays bright in the dark: the fire, the lamp's flame, the screen at night.
 		fire +
 		(lights.flame ? `<g class="ps-yt-glow-lamp">${lights.flame}</g>` : "") +

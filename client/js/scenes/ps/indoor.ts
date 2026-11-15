@@ -145,8 +145,10 @@ const LAMP_GLOW = "#ffd08a";
 export interface IndoorLevels {
 	/** How far toward night the room is shaded. */
 	shade: number;
-	/** How far it is warmed by the golden hour. */
+	/** How far its colours are warmed: by the golden hour, and by the stove at night. */
 	warm: number;
+	/** The golden hour's light through the windows and on the floor: clear weather only, never at night. */
+	golden: number;
 	/** The stove's glow. */
 	fire: number;
 	/** The lamp on the chests: on at night, in a storm and in an overcast golden hour. */
@@ -167,6 +169,7 @@ export function indoorLevels(m: Moment, p: Palette): IndoorLevels {
 	return {
 		shade: 0.74 * p.dark + 0.55 * wx.dim * (1 - p.dark),
 		warm: 0.2 * p.glowOpacity * (1 - p.dark) + 0.3 * p.dark,
+		golden: clear ? 0.2 * p.glowOpacity * (1 - p.dark) : 0,
 		fire: Math.min(1, 0.32 + 0.48 * p.dark + 0.18 * wx.storm),
 		lamp: Math.max(
 			clamp01((p.dark - 0.3) / 0.3),
@@ -174,7 +177,7 @@ export function indoorLevels(m: Moment, p: Palette): IndoorLevels {
 			wx.hide > 0 && p.glowOpacity > 0.5 ? 1 : 0
 		),
 		beam: clear && m.sun.up ? clamp01(m.sun.alt * 1.6) : 0,
-		sun: clear && m.sun.up && m.sun.alt < 0.2 ? 1 - m.sun.alt / 0.2 : 0,
+		sun: clear && m.sun.up && m.sun.alt >= 0 && m.sun.alt < 0.2 ? 1 - m.sun.alt / 0.2 : 0,
 		screen: p.dark,
 	};
 }
@@ -216,7 +219,7 @@ export function roomCss(): string {
 		"\n.ps-yt-f-top { fill: color-mix(in oklab, var(--c), #fff 14%); }" +
 		"\n.ps-yt-f-bottom { fill: color-mix(in oklab, var(--c), #000 28%); }" +
 		"\n.ps-yt-beam, .ps-yt-pool-sun { opacity: var(--ps-in-beam); }" +
-		"\n.ps-yt-golden { opacity: var(--ps-in-warm); }" +
+		"\n.ps-yt-golden { opacity: var(--ps-in-golden); }" +
 		"\n.ps-yt-glow-fire { opacity: var(--ps-in-fire); }" +
 		"\n.ps-yt-glow-lamp { opacity: var(--ps-in-lamp); }" +
 		"\n.ps-yt-glow-screen { opacity: var(--ps-in-screen); }" +
@@ -278,9 +281,24 @@ export const ROOM_GROUNDS: readonly RoomColour[] = [
 /** The grounds the header covers: the roof, the crown and the sky through it. */
 const TOP: readonly RoomColour[] = ["roofA", "roofB", "crown"];
 
-/** The grounds the fire's glow reaches, and the lamp's. */
-const UNDER_FIRE: readonly RoomColour[] = ["wallA", "wallB", "floorA", "floorB", "rug", "pole"];
-const UNDER_LAMP: readonly RoomColour[] = ["wallA", "wallB"];
+/** The stove's own colours: room.ts draws the stove again over its glow, so the glows never light them. */
+const STOVE: readonly RoomColour[] = [
+	"ironD",
+	"ironLit",
+	"ironMid",
+	"ironShadow",
+	"ironTop",
+	"pipe",
+];
+
+/**
+ * The grounds the fire's glow and the lamp's reach (a screen blend over the walls, the floor and
+ * everything standing): every ground below the roof but the stove's. The lamp's reach is smaller;
+ * taking the same list checks more than it lights.
+ */
+const UNDER_GLOW: readonly RoomColour[] = ROOM_GROUNDS.filter(
+	(k) => !TOP.includes(k) && !STOVE.includes(k)
+);
 
 /** A screen blend of `light` at `alpha` over `base`, per sRGB channel. */
 function screen(base: string, light: string, alpha: number): string {
@@ -317,7 +335,7 @@ export function indoorGrounds(m: Moment, p: Palette): SceneGround[] {
 	add("room crown sky", mixOklab(p.skyTop, p.skyMid, 0.65), "top");
 
 	if (l.fire > 0) {
-		for (const key of UNDER_FIRE) {
+		for (const key of UNDER_GLOW) {
 			add(
 				`room ${key} under the fire`,
 				screen(shadeRoom(ROOM_COLOURS[key], l), FIRE_GLOW, 0.85 * l.fire),
@@ -327,7 +345,7 @@ export function indoorGrounds(m: Moment, p: Palette): SceneGround[] {
 	}
 
 	if (l.lamp > 0) {
-		for (const key of UNDER_LAMP) {
+		for (const key of UNDER_GLOW) {
 			add(
 				`room ${key} under the lamp`,
 				screen(shadeRoom(ROOM_COLOURS[key], l), LAMP_GLOW, 0.8 * l.lamp),
