@@ -1,5 +1,5 @@
 // The ps theme's private conversations: inside the yurt (docs/projects/ps-yurt.md,
-// plan 1 task 9; plan 2 task 5, the room's motion). No ircd needed: lib/tiny-ircd.mjs registers the client and
+// plan 1 task 9; plan 2 task 5, the room's motion; plan 3 task 3, the stove's fire). No ircd needed: lib/tiny-ircd.mjs registers the client and
 // echoes `/join #plains`, and `/query wren` opens a private conversation
 // (commands/msg.ts), which is all the scene needs to show the room. `SEANCE_PORT`
 // serves the app from another port.
@@ -23,20 +23,27 @@
 // 4. The animation census in a query (the page holds the focus, as scene-rest.mjs's):
 //    a. full, at a clear noon: every running CSS animation is inside .ps-indoor, none
 //       in .ps-frost and none under an <svg>, its keyframes touch only transform and
-//       opacity, its name is one the room uses, and the drift, both flickers and the
-//       steam all run;
+//       opacity, its name is one the room uses; the drift runs, and by day (the stove
+//       out, §16) none of the fire's licks, core or sparks, the glow's flicker or the
+//       steam, the fire, its glow and the steam are out of the render tree, and the
+//       stove's lower third is the same in two frames 300 ms apart;
 //    b. rain runs psng-rain-fall, snow ps-flake, a storm ps-flash, a clear 21:00
 //       ps-twinkle;
-//    c. calm (psAnimation): only the two flickers, the window clouds resting
-//       (ps-yurt.md §11.2);
+//    c. calm (psAnimation; a phone's auto) at a clear 21:00: the licks, the core and the
+//       two flickers run, and no spark rises and no window cloud drifts (ps-yurt.md
+//       §11.2, §16);
 //    d. still (reduced motion emulated): nothing runs, and plan 1's still fire and
-//       clouds show while the moving ones are out;
+//       clouds show while the moving ones are out; the still fire burns at 21:00
+//       (opacity at least 0.95) and is out at noon (0), the embers showing;
 //    e. a hidden page freezes the room (psng-frozen, nothing runs, every moving cloud
 //       held 1 s), and shown again it moves;
 //    f. every moving pane lies inside its window's frame (the crown's inside the
-//       crown), and the moving fire inside the stove, within 2 % of its middle;
-//    g. the stove's door changes between two frames 300 ms apart at full and at calm,
-//       and the back pane between two frames 500 ms apart at a clear noon;
+//       crown), and at 21:00 the moving fire inside the stove, within 2 % of its middle,
+//       every spark inside the fire's box;
+//    g. at a clear 21:00 the three licks, the core, the sparks' rise, the glow's flicker
+//       and the steam run, and the stove's door changes between two frames 300 ms apart
+//       at full and at calm; the back pane changes between two frames 500 ms apart at a
+//       clear noon;
 //    h. the drops in each pane on a rainy noon are logged (a phone run's are half).
 // 5. In the query the canvas (`--canvas-bg-color`) is the roof's painted colour
 //    (its top stop, within 2/255 a channel) and differs from the channel's, the
@@ -147,7 +154,10 @@ const CENSUS = `(() => {
 	});
 })()`;
 
-/** The room's names (plan 2): the drift, the twinkle, the plains' rain, snow and flash, both flickers, the steam. */
+/** The fire's dance (plan 3): the three licks, the core and the sparks' rise. */
+const FIRE = ["psng-yt-lick-a", "psng-yt-lick-b", "psng-yt-lick-c", "psng-yt-core", "psng-yt-rise"];
+
+/** The room's names (plan 2, plan 3): the drift, the twinkle, the plains' rain, snow and flash, both flickers, the steam, the fire. */
 const ROOM_ANIMATIONS = [
 	"ps-drift",
 	"ps-twinkle",
@@ -157,7 +167,14 @@ const ROOM_ANIMATIONS = [
 	"psng-yt-flick",
 	"psng-yt-flick-b",
 	"ps-smoke-rise",
+	...FIRE,
 ];
+
+/** Calm's hearth at night (§16): the licks, the core and both flickers, no sparks. */
+const CALM_NIGHT = FIRE.filter((n) => n !== "psng-yt-rise").concat([
+	"psng-yt-flick",
+	"psng-yt-flick-b",
+]);
 
 /** The moving boxes against what they sit on, and the scene's width. */
 const BOXES = `(() => {
@@ -170,7 +187,8 @@ const BOXES = `(() => {
 		const rain = p.querySelector(".ps-rain");
 		return {name, box: r(p), frame: r(frame), drops: rain ? rain.querySelectorAll("i").length / 2 : 0};
 	});
-	return {panes, fire: r(s.querySelector(".ps-ym-fire")), stove: r(s.querySelector(".ps-yt-stove-over")), width: s.getBoundingClientRect().width};
+	const sparks = [...s.querySelectorAll(".ps-ym-spark")].map(r);
+	return {panes, fire: r(s.querySelector(".ps-ym-fire")), sparks, stove: r(s.querySelector(".ps-yt-stove-over")), width: s.getBoundingClientRect().width};
 })()`;
 
 /** Whether `inner` lies inside `outer`, within `slack` px. */
@@ -219,15 +237,15 @@ async function checks(page) {
 	const FULL = phone ? "&yurtMotion=full" : "";
 
 	if (phone) {
-		await visit(page, at(WEATHER_DAYS.clear));
+		await visit(page, at(WEATHER_DAYS.clear, 21));
 		await page.sleep(800);
 		const auto = await page.evaluate(CENSUS);
+		const ran = [...new Set(auto.map((a) => a.name))].sort();
 		page.check(
-			`4c: a phone's auto is calm — only the two flickers, the window clouds resting (${[
-				...new Set(auto.map((a) => a.name)),
-			].join(" ")})`,
-			auto.length > 0 &&
-				auto.every((a) => ["psng-yt-flick", "psng-yt-flick-b"].includes(a.name))
+			`4c: a phone's auto is calm at 21:00 — the fire's dance and the flickers, no sparks, the window clouds resting (${ran.join(
+				" "
+			)})`,
+			CALM_NIGHT.every((n) => ran.includes(n)) && ran.every((n) => CALM_NIGHT.includes(n))
 		);
 	}
 
@@ -281,11 +299,21 @@ async function checks(page) {
 			) &&
 			full.every((a) => ROOM_ANIMATIONS.includes(a.name))
 	);
+	const dayOff = [...FIRE, "psng-yt-flick", "ps-smoke-rise"];
 	page.check(
-		`4a: full — the drift, both flickers and the steam run (${names(full).join(" ")})`,
-		["ps-drift", "psng-yt-flick", "psng-yt-flick-b", "ps-smoke-rise"].every((n) =>
-			names(full).includes(n)
-		)
+		`4a: full by day — the drift runs, the stove is out: no fire, glow or steam runs (${names(
+			full
+		).join(" ")})`,
+		names(full).includes("ps-drift") && !dayOff.some((n) => names(full).includes(n))
+	);
+	const outByDay = await page.evaluate(
+		`[".ps-ym-fire", ".ps-ym-fireglow", ".ps-ym-steam"].map((q) => getComputedStyle(document.querySelector("#theme-scene " + q)).display)`
+	);
+	page.check(
+		`4a: by day the fire, its glow and the steam are out of the render tree (${outByDay.join(
+			" "
+		)})`,
+		outByDay.every((d) => d === "none")
 	);
 
 	// 4f: each moving box on what it sits on.
@@ -296,20 +324,12 @@ async function checks(page) {
 			.join(" ")})`,
 		boxes.panes.length >= 2 && boxes.panes.every((p) => inside(p.box, p.frame))
 	);
-	const fireMid = boxes.fire ? (boxes.fire.l + boxes.fire.r) / 2 : -1;
-	const stoveMid = boxes.stove ? (boxes.stove.l + boxes.stove.r) / 2 : -1;
+	// 4a, 4g: by day nothing moves on the stove; the back pane moves.
+	const stove = boxes.stove;
+	const lower = {l: stove.l, r: stove.r, t: stove.b - (stove.b - stove.t) / 3, b: stove.b};
 	page.check(
-		`4f: the moving fire inside the stove, ${(
-			(Math.abs(fireMid - stoveMid) / boxes.width) *
-			100
-		).toFixed(1)} % of the width from its middle`,
-		inside(boxes.fire, boxes.stove) && Math.abs(fireMid - stoveMid) <= 0.02 * boxes.width
-	);
-
-	// 4g: what moves shows.
-	page.check(
-		"4g: the stove's door changes between two frames 300 ms apart (full)",
-		await changes(page, boxes.fire, 300)
+		"4a: by day the stove's lower third is the same in two frames 300 ms apart",
+		!(await changes(page, lower, 300))
 	);
 	const back = boxes.panes.find((p) => p.name === "back");
 	page.check(
@@ -384,9 +404,31 @@ async function checks(page) {
 		!!noon.query.wall && noon.query.wall !== night.query.wall
 	);
 	await page.sleep(600);
+	const nightRuns = names(await page.evaluate(CENSUS));
+	page.check(`4b: a clear 21:00 runs ps-twinkle`, nightRuns.includes("ps-twinkle"));
 	page.check(
-		`4b: a clear 21:00 runs ps-twinkle`,
-		names(await page.evaluate(CENSUS)).includes("ps-twinkle")
+		`4g: a clear 21:00 at full — the licks, the core, the sparks, the glow's flicker and the steam run (${nightRuns.join(
+			" "
+		)})`,
+		[...FIRE, "psng-yt-flick", "ps-smoke-rise"].every((n) => nightRuns.includes(n))
+	);
+	const lit = await page.evaluate(BOXES);
+	const fireMid = lit.fire ? (lit.fire.l + lit.fire.r) / 2 : -1;
+	const stoveMid = lit.stove ? (lit.stove.l + lit.stove.r) / 2 : -1;
+	page.check(
+		`4f: at 21:00 the moving fire inside the stove, ${(
+			(Math.abs(fireMid - stoveMid) / lit.width) *
+			100
+		).toFixed(1)} % of the width from its middle`,
+		inside(lit.fire, lit.stove) && Math.abs(fireMid - stoveMid) <= 0.02 * lit.width
+	);
+	page.check(
+		`4f: every spark inside the fire's box (${lit.sparks.length})`,
+		lit.sparks.length === 4 && lit.sparks.every((b) => inside(b, lit.fire))
+	);
+	page.check(
+		"4g: the stove's door changes between two frames 300 ms apart (full, 21:00)",
+		await changes(page, lit.fire, 300)
 	);
 	await page.screenshot("yurt-21-clear");
 	await visit(page, at(WEATHER_DAYS.clear, 18));
@@ -394,16 +436,18 @@ async function checks(page) {
 	await visit(page, at(WEATHER_DAYS.snow, 21));
 	await page.screenshot("yurt-21-snow");
 
-	// 4c, 4g: calm.
-	await visit(page, at(WEATHER_DAYS.clear), "&yurtMotion=calm");
+	// 4c, 4g: calm, at night.
+	await visit(page, at(WEATHER_DAYS.clear, 21), "&yurtMotion=calm");
 	await page.sleep(800);
-	const calm = await page.evaluate(CENSUS);
+	const calm = names(await page.evaluate(CENSUS));
 	page.check(
-		`4c: calm — only the two flickers, the window clouds resting (${names(calm).join(" ")})`,
-		calm.length > 0 && calm.every((a) => ["psng-yt-flick", "psng-yt-flick-b"].includes(a.name))
+		`4c: calm at 21:00 — the licks, the core and the flickers run, no spark rises, no window cloud drifts (${calm.join(
+			" "
+		)})`,
+		CALM_NIGHT.every((n) => calm.includes(n)) && calm.every((n) => CALM_NIGHT.includes(n))
 	);
 	page.check(
-		"4g: the stove's door changes between two frames 300 ms apart (calm)",
+		"4g: the stove's door changes between two frames 300 ms apart (calm, 21:00)",
 		await changes(page, (await page.evaluate(BOXES)).fire, 300)
 	);
 
@@ -411,9 +455,24 @@ async function checks(page) {
 	await page.send("Emulation.setEmulatedMedia", {
 		features: [{name: "prefers-reduced-motion", value: "reduce"}],
 	});
+	const STILL_FIRE = `(() => { const s = document.getElementById("theme-scene"); const e = s.querySelector(".ps-yt-still-hearth.ps-yt-burn"); const b = s.querySelector(".ps-yt-embers");
+		return {opacity: e ? Number(getComputedStyle(e).opacity) : -1, embers: !!b && getComputedStyle(b).display !== "none"}; })()`;
+	await visit(page, at(WEATHER_DAYS.clear, 21));
+	await page.sleep(800);
+	const stillNight = await page.evaluate(CENSUS);
+	const burning = await page.evaluate(STILL_FIRE);
+	page.check(
+		`4d: still at 21:00 — nothing runs (${stillNight.length}), the still fire burns (${burning.opacity})`,
+		stillNight.length === 0 && burning.opacity >= 0.95
+	);
 	await visit(page, at(WEATHER_DAYS.clear));
 	await page.sleep(800);
 	const still = await page.evaluate(CENSUS);
+	const out = await page.evaluate(STILL_FIRE);
+	page.check(
+		`4d: still at noon — the still fire is out (${out.opacity}), the embers show (${out.embers})`,
+		out.opacity === 0 && out.embers
+	);
 	const shown =
 		await page.evaluate(`(() => { const s = document.getElementById("theme-scene"); const on = (q) => { const e = s.querySelector(q); return !!e && getComputedStyle(e).display !== "none"; };
 		return {hearth: on(".ps-yt-still-hearth"), clouds: on(".ps-yt-still-clouds"), fire: on(".ps-ym-fire"), cloud: on(".ps-ym-cloud"), steam: on(".ps-ym-steam")}; })()`);

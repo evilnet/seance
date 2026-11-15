@@ -298,6 +298,44 @@ NG's cloud drift recalculates style each frame in both views: about 47 a second 
 
 The iPhone sitting is the user's.
 
+### 11.3 The stove's fire, measured (plan 3 task 3, 2026-11-15)
+
+§11.2's method and script, on the production builds, with one change: plan 2's own build (`90d818bd2`, local develop before plan 3) served beside plan 3's and measured in the same sitting, in place of §11.2's figures. The 1-minute load was 2–4 throughout (§11.2's sitting ran 8–40), so this sitting reads lower than §11.2 everywhere; its two builds compare with each other, not with §11.2. A clear 21:00 (2 January), full and calm, three rounds of four slots rotated by one each round; the noon rows are single runs. These are Chrome figures, which rank only.
+
+Each 21:00 figure is the median of three, with its range:
+
+| Slot                                | Desktop: channel → query          | Phone 4×: channel → query               |
+| ----------------------------------- | --------------------------------- | --------------------------------------- |
+| Full, clear 21:00, plan 2           | 7.0 % (6.9–7.1) → 2.7 % (2.5–4.0) | 27.4 % (25.6–28.8) → 30.3 % (29.6–34.3) |
+| Full, clear 21:00, plan 3           | 6.8 (6.5–7.4) → 4.1 (3.9–4.1)     | 27.1 (26.0–27.6) → 34.6 (33.7–34.8)     |
+| Calm, clear 21:00, plan 2           | 2.1 (1.8–2.3) → 0.16 (0.16)       | 4.2 (3.5–4.3) → 0.95 (0.92–1.04)        |
+| Calm, clear 21:00, plan 3           | 2.0 (1.9–2.2) → 1.7 (1.6–2.0)     | 4.5 (3.5–4.8) → 18.9 (18.7–20.8)        |
+| Full, clear noon, plan 2 (one run)  | 10.0 → 2.4                        | 30.4 → 21.4                             |
+| Full, clear noon, plan 3 (one run)  | 7.8 → 2.3                         | 32.0 → 17.2                             |
+| Still, clear noon, plan 3 (one run) | — → 0.09                          | — → 0.27                                |
+
+**Calm at night reads over the plains' calm.** On the phone profile a calm query at 21:00 read 18.9 % against the channel's 4.5 % (plan 2: 0.95 %), and the page recalculated style 60 times a second against plan 2's 2. That is the case §11 names, where the fire would be the next to leave calm; §16 keeps the dance in calm. Plan 3 leaves it as built and reports it: the two sections disagree, and §11's gate is the iPhone sitting.
+
+**The cause is the page, not the room.** Single runs on the phone profile, calm at 21:00, rank only:
+
+- One CSS change at a time, none moved it from 17–21 %: no clip, no size container, no overflow, the licks without skew, the burn's opacity pinned, the licks alone off, the core alone off.
+- With the licks and the core both off the query read 0.85 %, and with the fire hidden 0.87 %.
+- The same six animations, with the tongues and the core on the lamp's opacity flicker in place of their licks, read 1.08 % with 2 recalculations a second.
+- A probe with a plain transform animation (its `animation` set inline and `important`, so NG's catch-all leaves it alone) recalculated style 60 times a second wherever it stood: on `body`, `#theme-scene`, `.ps-indoor`, `.ps-ym-top`, `.ps-ym-fire` and `.ps-ym-flames`. With no probe it was 2 a second.
+- Chrome's trace reports no compositing failure for any of the room's six animations. A bare page built the same way composites the same keyframes at under one recalculation a second: the clip, the size container, the isolation, the screen-blended glow, the burn-scaled parent, the svg gradient and the delay from a custom property.
+
+So in this headless Chromium every transform animation in the app's page is ticked on the main thread, opacity animations are not, and nothing in the room's CSS changes that. It is §11.2's finding for NG's own cloud drift. Whether a phone's compositor does the same is for the iPhone sitting (§11), with the room calm at night first.
+
+**At full the night costs a little more, and the day less.** At full a 21:00 query read 34.6 % against plan 2's 30.3 % on the phone profile, and 4.1 against 2.7 on the desktop: the four dancing boxes on top of the drift's recalculation every frame. At a clear noon the fire, its glow and the steam are out, and a query read 17.2 % against plan 2's 21.4 % on the phone profile (single runs).
+
+The candidates are the user's call:
+
+- keep the dance in calm, as built (§16);
+- in calm, let the tongues and the core flicker by opacity instead of licking: 1.1 % in Chrome, but a flicker rather than a dance;
+- decide after the iPhone sitting.
+
+Scripts: `tmp/yurt-check/perf3-run.sh`, `perf3-iso.sh`, `probe-anc.mjs` and `trace-fire.mjs` (scratch).
+
 ## 12. Tests and checks
 
 **Mocha:**
