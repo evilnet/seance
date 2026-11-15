@@ -347,6 +347,8 @@ The iPhone sitting is the user's.
 
 2. **Motion.** The indoor groups (`hearth`, `steam`, and the window `clouds`, `weather` and `stars`), the tier change (a query no longer forces still), freeze and thaw in a query, and the budget measured.
 
+3. **The fire** (§16). The stove burns while the chimney smokes and goes out by day, and its flames dance.
+
 ## 14. Left to the builder
 
 - Small moves of a piece so the projection sits well on real screens.
@@ -360,3 +362,76 @@ The iPhone sitting is the user's.
 ## 15. Before any code
 
 The uncommitted change on this branch that made a private conversation always Glass (2026-10-28: `helpers/psWords.ts` `wordsFor`, `settings.ts` `applyPsWords`, the watch in `App.vue`, its test, its scenario checks and its notes in `docs/projects/ps-words.md` and `docs/resources/ps-theme-map.md`) is withdrawn by the user's answer in §4. It is not committed. Plan 1 begins by backing it out, with the patch kept so it can be recovered.
+
+## 16. The stove's fire (2026-11-15)
+
+**Status: approved by the user (2026-11-15); plan 3 (`docs/projects/ps-yurt-plan-3.md`).**
+
+### Intent
+
+The user, after plan 2: "the fire isn't animated. I'd like good fire animation for the inner yurt in the stove (at night time or in the cold seasons - or whichever times the yurt normally emits smoke from the external view)".
+
+As built, the stove burns at every hour. Its only motion is the mockup's opacity flicker (§8, plan 2), which never changes the flames' shape, so the fire reads as still.
+
+### Decided
+
+**The stove burns while the chimney smokes, and goes out by day.** This is the user's choice A, over:
+
+- a fire that always burns and only dances at night;
+- winter days that burn and smoke all day, which would change the plains too.
+
+The plains' yurt smokes from dusk to dawn in every season. Its smoke opacity is `palette.ts` `smokeOpacity` = min(1, (dark − 0.38) / 0.62 × 1.2), with no seasonal term.
+
+- **One rule for both:** the room's fire follows that same value. It catches as the smoke starts (small at dusk) and burns full by night.
+- **By day the stove is out:**
+  - a dark door with a few dull embers glowing in its coal bed;
+  - no fire glow in the room;
+  - no steam from the pot.
+- **The lamp is unchanged:** it is lit at night, in a storm, and in an overcast golden hour.
+- **A stormy day is out too:** the chimney does not smoke then.
+
+**The flames dance.** This is the user's choice A, approach A below. In the stove's door:
+
+- three flame tongues and a bright core, each licking up from the coals on its own beat, stretching and leaning about its base;
+- a few sparks rising inside the door;
+- the stove's glow pulsing on the mockup's `flick`, as now.
+
+The flames' size and strength follow the fire's level: small at dusk, full by night.
+
+**Tiers:**
+
+- Full: the flames, the core, the sparks and the glow.
+- Calm: the flames, the core and the glow, without the sparks. Phones on Auto are calm, so they see the fire dance.
+- Still, reduced motion, a frozen rest or the drawer open: plan 1's still fire while it burns, the embers while it is out.
+
+### Approaches
+
+Shown side by side in an Artifact; the user picked A:
+
+- **A. Dancing flames** (chosen): each tongue and the core is an HTML box over the door with its own svg, moved by `transform` and `opacity` alone; the sparks rise the same way. It is cheap, follows ps-ng.md's rules, reads at the stove's real size (about 60 × 57 px at 1280 wide), and runs in calm.
+- **B. Flipbook:** four drawn fires swapped by opacity (0.999/0.001), as the birds' wings are. It is as cheap, but hand-drawn and storybook-like.
+- **C. Canvas fire:** a small fire simulation drawn every frame, like the sun's (`flame.ts`). It looks the most natural, but costs per-frame work, so it would run at full only, and phones on Auto would see a still fire.
+
+### Consequences
+
+- **The levels:**
+  - `indoor.ts` gains a level for the fire's burn, the chimney's smoke value.
+  - `--ps-in-fire`, the glow, becomes min(1, burn × (0.8 + 0.18 × storm)). That is 0 by day and the same 0.8 as now at full night.
+- **The swaps and gates:**
+  - The still fire shows only while the fire burns; the embers show only while it is out.
+  - The moving fire, the sparks and the steam take `ps-off` while the stove is out. That is the stars' gate (plan 2): nothing animates unseen.
+- **Legibility:** the sweep loses the day's grounds under the fire's glow, which only removes light. The night is unchanged.
+
+### Non-goals
+
+- No change to the plains or their smoke.
+- No seasonal fire.
+- No canvas fire.
+- No change to the lamp.
+
+### Left to the builder
+
+- The tongues' exact shapes, sizes and beats (the Artifact's are a start: 0.95, 1.2 and 0.8 s; the core 0.45 s).
+- How many sparks.
+- How the embers are drawn.
+- Whether the embers pulse by day. The design's call: they are still, so nothing moves by day.
